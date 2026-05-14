@@ -1,9 +1,9 @@
 <script lang="ts">
 	import popover from '$lib/actions/popover.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import Select from '../Select.svelte';
 	import { ArrowDown, ArrowUp, CircleHelp, Funnel } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
-	import Select from '../Select.svelte';
 
 	interface Props {
 		onSort?: (property: string) => void;
@@ -66,7 +66,11 @@
 		{#if filterable}
 			<button
 				class="flex grow items-center gap-1 capitalize"
-				use:tooltip={`Filter by ${headerTitle ?? property}`}
+				use:tooltip={{
+					text: `Filter by ${headerTitle ?? property}`,
+					classes: ['z-60'],
+					placement: 'top-start'
+				}}
 				use:ref
 				onclick={() => toggle()}
 			>
@@ -148,7 +152,7 @@
 				{query}
 				multiple
 				selected={selectedFilterValues.join(',')}
-				searchable
+				searchInDropdown
 				placeholder={`Filter by ${headerTitle ?? property}...`}
 			/>
 		</div>

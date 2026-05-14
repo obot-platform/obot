@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
+	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
 	import {
 		ChatService,
 		type MCPCatalogEntry,
@@ -7,15 +9,15 @@
 		type Project,
 		type ProjectMCP
 	} from '$lib/services';
-	import { AlertCircle, ChevronDown, ChevronUp, Info, LoaderCircle, Wrench } from 'lucide-svelte';
-	import Toggle from '../Toggle.svelte';
-	import { slide } from 'svelte/transition';
+	import { conflictIssue, duplicateToolNames, toolNameIssue } from '$lib/services/chat/mcp';
 	import { responsive } from '$lib/stores';
-	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
 	import Search from '../Search.svelte';
-	import { browser } from '$app/environment';
+	import Toggle from '../Toggle.svelte';
 	import McpOauth from './McpOauth.svelte';
+	import ToolNameIssueIcon from './ToolNameIssueIcon.svelte';
+	import { AlertCircle, ChevronDown, ChevronUp, Info, LoaderCircle, Wrench } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
+	import { slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -27,10 +29,21 @@
 		classes?: {
 			root?: string;
 		};
+		// When true, surface inline warning/error indicators next to each tool
+		// name for names that may be problematic for MCP clients / inference
+		// APIs (length, disallowed chars, or duplicates in this list).
+		showToolNameIssues?: boolean;
 	}
 
-	let { entry, onAuthenticate, onProjectToolsUpdate, project, noToolsContent, classes }: Props =
-		$props();
+	let {
+		entry,
+		onAuthenticate,
+		onProjectToolsUpdate,
+		project,
+		noToolsContent,
+		classes,
+		showToolNameIssues = false
+	}: Props = $props();
 	let search = $state('');
 	let tools = $state<MCPServerTool[]>([]);
 	let previewTools = $derived(getToolPreview(entry));
@@ -63,6 +76,13 @@
 				tool.name.toLowerCase().includes(search.toLowerCase()) ||
 				tool.description?.toLowerCase().includes(search.toLowerCase())
 		)
+	);
+
+	// Detect duplicate effective names across the aggregated tool list (composite
+	// previews/live lists only). Disabled via showToolNameIssues=false for other
+	// contexts so the icons stay opt-in.
+	let toolNameDuplicates = $derived(
+		showToolNameIssues ? duplicateToolNames(displayTools.map((t) => t.name)) : new Set<string>()
 	);
 
 	// Extract tool previews from the appropriate manifest
@@ -223,17 +243,21 @@
 					<LoaderCircle class="size-6 animate-spin" />
 				</div>
 			{:else if displayTools.length > 0}
-				{#each displayTools as tool (tool.name)}
+				{#each displayTools as tool, index (`${tool.name}-${index}`)}
 					{@const hasContentDisplayed = allDescriptionsEnabled || expanded[tool.id]}
 					<div
 						class="border-surface2 dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-2 rounded-md border p-3 shadow-sm"
 						class:pb-2={hasContentDisplayed}
 					>
 						<div class="flex items-center justify-between gap-2">
-							<p class="text-md font-semibold">
-								{tool.name}
+							<p class="text-md flex min-w-0 flex-1 items-center gap-1.5 font-semibold">
+								<span class="min-w-0 flex-1 truncate" title={tool.name}>{tool.name}</span>
+								{#if showToolNameIssues}
+									{@const conflict = conflictIssue(tool.name, toolNameDuplicates)}
+									<ToolNameIssueIcon issue={conflict ?? toolNameIssue(tool.name)} />
+								{/if}
 								{#if tool.unsupported}
-									<span class="text-on-surface1 ml-3 text-sm">
+									<span class="text-on-surface1 ml-3 flex-shrink-0 text-sm">
 										⚠️ Not yet fully supported in Obot
 									</span>
 								{/if}

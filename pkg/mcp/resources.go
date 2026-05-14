@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/nanobot-ai/nanobot/pkg/mcp"
+	"github.com/obot-platform/nanobot/pkg/mcp"
 )
 
 func (sm *SessionManager) ListResources(ctx context.Context, serverConfig ServerConfig) ([]mcp.Resource, error) {
-	client, err := sm.clientForMCPServer(ctx, serverConfig)
+	client, err := sm.clientForServer(ctx, serverConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -22,7 +22,7 @@ func (sm *SessionManager) ListResources(ctx context.Context, serverConfig Server
 }
 
 func (sm *SessionManager) ReadResource(ctx context.Context, serverConfig ServerConfig, uri string) ([]mcp.ResourceContent, error) {
-	client, err := sm.clientForMCPServer(ctx, serverConfig)
+	client, err := sm.clientForServer(ctx, serverConfig)
 	if err != nil {
 		return nil, err
 	}

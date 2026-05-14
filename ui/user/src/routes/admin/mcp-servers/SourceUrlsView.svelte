@@ -4,16 +4,17 @@
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { AdminService, type MCPCatalog } from '$lib/services';
-	import { AlertTriangle, Link2, Trash2, TriangleAlert } from 'lucide-svelte';
+	import { AlertTriangle, Link2, Pencil, Trash2, TriangleAlert } from 'lucide-svelte';
 
 	interface Props {
 		catalog?: MCPCatalog;
 		readonly?: boolean;
 		onSync?: () => void;
+		onEdit?: (url: string, index: number) => void;
 		query?: string;
 		syncing?: boolean;
 	}
-	let { catalog = $bindable(), readonly, onSync, query }: Props = $props();
+	let { catalog = $bindable(), readonly, onSync, onEdit, query }: Props = $props();
 
 	let deletingSource = $state<{
 		type: 'single' | 'multi';
@@ -55,6 +56,17 @@
 		>
 			{#snippet actions(d)}
 				{#if !readonly}
+					{#if onEdit}
+						<button
+							class="icon-button"
+							onclick={() => {
+								const index = catalog?.sourceURLs?.indexOf(d.url) ?? -1;
+								onEdit(d.url, index);
+							}}
+						>
+							<Pencil class="size-4" />
+						</button>
+					{/if}
 					<button
 						class="icon-button hover:text-red-500"
 						onclick={() => {

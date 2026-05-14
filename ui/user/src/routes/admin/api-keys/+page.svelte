@@ -1,24 +1,24 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
+	import ServersLabel from '$lib/components/api-keys/ServersLabel.svelte';
 	import Table from '$lib/components/table/Table.svelte';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { ApiKeysService } from '$lib/services';
-	import type { APIKey } from '$lib/services/api-keys/types';
 	import type { OrgUser } from '$lib/services/admin/types';
-	import { formatTimeAgo, formatTimeUntil } from '$lib/time';
+	import type { APIKey } from '$lib/services/api-keys/types';
 	import { profile } from '$lib/stores';
+	import { formatTimeAgo, formatTimeUntil } from '$lib/time';
+	import { goto, getTableUrlParamsSort, setSortUrlParams } from '$lib/url';
 	import { getUserDisplayName } from '$lib/utils';
-	import { KeyRound, Plus, Trash2 } from 'lucide-svelte';
-	import { untrack } from 'svelte';
+	import { openUrl } from '$lib/utils';
 	import ApiKeyRevealDialog from '../../keys/ApiKeyRevealDialog.svelte';
 	import CreateApiKeyForm from '../../keys/CreateApiKeyForm.svelte';
+	import { KeyRound, Plus, Trash2 } from 'lucide-svelte';
+	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { page } from '$app/state';
-	import { goto, getTableUrlParamsSort, setSortUrlParams } from '$lib/url';
-	import ServersLabel from '$lib/components/api-keys/ServersLabel.svelte';
-	import { openUrl } from '$lib/utils';
 
 	let { data } = $props();
 	let allApiKeys = $state<APIKey[]>(untrack(() => data.allApiKeys));
@@ -37,6 +37,7 @@
 			...key,
 			prefix: `ok1-${key.userId}-${key.id}-*****`,
 			userDisplay: getUserDisplayName(usersMap, String(key.userId)),
+			skillsAccessDisplay: key.canAccessSkills ? 'Enabled' : 'Disabled',
 			createdAtDisplay: formatTimeAgo(key.createdAt).relativeTime,
 			lastUsedAtDisplay: key.lastUsedAt ? formatTimeAgo(key.lastUsedAt).relativeTime : 'Never',
 			expiresAtDisplay: key.expiresAt ? formatTimeUntil(key.expiresAt).relativeTime : 'Never',
@@ -86,7 +87,7 @@
 			in:fly={{ x: 100, delay: duration, duration }}
 			out:fly={{ x: -100, duration }}
 		>
-			<CreateApiKeyForm onCreate={handleCreate} onCancel={() => (showCreateNew = false)} />
+			<CreateApiKeyForm onCreate={handleCreate} onCancel={() => goto('/admin/api-keys')} />
 		</div>
 	{:else}
 		<div class="flex flex-col gap-4">
@@ -108,6 +109,7 @@
 						'name',
 						'prefix',
 						'description',
+						'canAccessSkills',
 						'mcpServerIds',
 						'createdAt',
 						'lastUsedAt',
@@ -118,6 +120,7 @@
 						{ title: 'Name', property: 'name' },
 						{ title: 'Key', property: 'prefix' },
 						{ title: 'Description', property: 'description' },
+						{ title: 'Skills', property: 'canAccessSkills' },
 						{ title: 'Servers', property: 'mcpServerIds' },
 						{ title: 'Created', property: 'createdAt' },
 						{ title: 'Last Used', property: 'lastUsedAt' },
@@ -135,6 +138,8 @@
 					{#snippet onRenderColumn(property, d)}
 						{#if property === 'description'}
 							<span class="text-muted">{d.description || '-'}</span>
+						{:else if property === 'canAccessSkills'}
+							{d.skillsAccessDisplay}
 						{:else if property === 'mcpServerIds'}
 							<ServersLabel mcpServerIds={d.mcpServerIds} />
 						{:else if property === 'createdAt'}
@@ -166,7 +171,7 @@
 
 	{#snippet rightNavActions()}
 		{#if !showCreateNew && !profile.current.isAdminReadonly?.()}
-			<button class="button-primary flex items-center gap-2" onclick={showCreateForm}>
+			<button class="button-primary flex items-center gap-2 text-sm" onclick={showCreateForm}>
 				<Plus class="size-4" />
 				Create API Key
 			</button>

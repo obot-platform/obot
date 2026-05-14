@@ -1,12 +1,12 @@
 <script lang="ts">
+	import Confirm from '$lib/components/Confirm.svelte';
+	import ConfirmDeleteAccount from '$lib/components/ConfirmDeleteAccount.svelte';
+	import Toggle from '$lib/components/Toggle.svelte';
 	import { ChatService } from '$lib/services';
-	import { profile, errors, version } from '$lib/stores';
+	import { profile, errors, version, timePreference } from '$lib/stores';
+	import { success } from '$lib/stores/success';
 	import { goto } from '$lib/url';
 	import { getUserRoleLabel } from '$lib/utils';
-	import ConfirmDeleteAccount from '$lib/components/ConfirmDeleteAccount.svelte';
-	import { success } from '$lib/stores/success';
-	import Confirm from '$lib/components/Confirm.svelte';
-	import Toggle from '$lib/components/Toggle.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { User } from 'lucide-svelte';
 
@@ -68,6 +68,10 @@
 			savingPreferences = false;
 		}
 	}
+
+	function handleDisplay24HourFormatToggle(checked: boolean) {
+		timePreference.setTimeFormat(checked ? '24h' : '12h');
+	}
 </script>
 
 <button class="dropdown-link" onclick={() => dialog?.open()}>
@@ -87,21 +91,37 @@
 	/>
 	<div class="flex flex-row py-3">
 		<div class="w-1/2 max-w-[150px]">Display Name:</div>
-		<div class="w-1/2 break-words">{profile.current.displayName}</div>
+		<div class="w-1/2 wrap-break-word">{profile.current.displayName}</div>
 	</div>
 	<hr />
 	<div class="flex flex-row py-3">
 		<div class="w-1/2 max-w-[150px]">Email:</div>
-		<div class="w-1/2 break-words">{profile.current.email}</div>
+		<div class="w-1/2 wrap-break-word">{profile.current.email}</div>
 	</div>
 	<hr />
 	<div class="flex flex-row py-3">
 		<div class="w-1/2 max-w-[150px]">Role:</div>
-		<div class="w-1/2 break-words">
+		<div class="w-1/2 wrap-break-word">
 			{getUserRoleLabel(profile.current.effectiveRole)}
 		</div>
 	</div>
 	<hr />
+
+	<div class="flex flex-row items-center justify-between py-3">
+		<div class="flex flex-col gap-1">
+			<p>Display 24 Hour Format</p>
+			<span class="text-sm font-light opacity-70">
+				When enabled, time pickers and viewable times will be displayed in 24 hour format.
+			</span>
+		</div>
+		<Toggle
+			label=""
+			checked={timePreference.timeFormat === '24h'}
+			onChange={handleDisplay24HourFormatToggle}
+		/>
+	</div>
+	<hr />
+
 	{#if !version.current.autonomousToolUseEnabled}
 		<div class="flex flex-row items-center justify-between py-3">
 			<div class="flex flex-col gap-1">

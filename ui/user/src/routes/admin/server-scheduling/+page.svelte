@@ -1,12 +1,12 @@
 <script lang="ts">
 	import Layout from '$lib/components/Layout.svelte';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
-	import { Info, LoaderCircle, Lock } from 'lucide-svelte';
-	import { fade } from 'svelte/transition';
-	import { profile } from '$lib/stores/index.js';
-	import { AdminService, type K8sSettings } from '$lib/services';
 	import YamlEditor from '$lib/components/admin/YamlEditor.svelte';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import { AdminService, type K8sSettings } from '$lib/services';
+	import { profile } from '$lib/stores/index.js';
+	import { Info, LoaderCircle, Lock } from 'lucide-svelte';
 	import { untrack } from 'svelte';
+	import { fade } from 'svelte/transition';
 
 	const duration = PAGE_TRANSITION_DURATION;
 	let { data } = $props();

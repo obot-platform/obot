@@ -16,555 +16,606 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"github.com/obot-platform/obot/apiclient/types.APIActivity":                                    schema_obot_platform_obot_apiclient_types_APIActivity(ref),
-		"github.com/obot-platform/obot/apiclient/types.APIActivityList":                                schema_obot_platform_obot_apiclient_types_APIActivityList(ref),
-		"github.com/obot-platform/obot/apiclient/types.AccessControlRule":                              schema_obot_platform_obot_apiclient_types_AccessControlRule(ref),
-		"github.com/obot-platform/obot/apiclient/types.AccessControlRuleList":                          schema_obot_platform_obot_apiclient_types_AccessControlRuleList(ref),
-		"github.com/obot-platform/obot/apiclient/types.AccessControlRuleManifest":                      schema_obot_platform_obot_apiclient_types_AccessControlRuleManifest(ref),
-		"github.com/obot-platform/obot/apiclient/types.Agent":                                          schema_obot_platform_obot_apiclient_types_Agent(ref),
-		"github.com/obot-platform/obot/apiclient/types.AgentIcons":                                     schema_obot_platform_obot_apiclient_types_AgentIcons(ref),
-		"github.com/obot-platform/obot/apiclient/types.AgentList":                                      schema_obot_platform_obot_apiclient_types_AgentList(ref),
-		"github.com/obot-platform/obot/apiclient/types.AgentManifest":                                  schema_obot_platform_obot_apiclient_types_AgentManifest(ref),
-		"github.com/obot-platform/obot/apiclient/types.AppPreferences":                                 schema_obot_platform_obot_apiclient_types_AppPreferences(ref),
-		"github.com/obot-platform/obot/apiclient/types.Assistant":                                      schema_obot_platform_obot_apiclient_types_Assistant(ref),
-		"github.com/obot-platform/obot/apiclient/types.AssistantList":                                  schema_obot_platform_obot_apiclient_types_AssistantList(ref),
-		"github.com/obot-platform/obot/apiclient/types.AssistantTool":                                  schema_obot_platform_obot_apiclient_types_AssistantTool(ref),
-		"github.com/obot-platform/obot/apiclient/types.AssistantToolList":                              schema_obot_platform_obot_apiclient_types_AssistantToolList(ref),
-		"github.com/obot-platform/obot/apiclient/types.AuditLogExportCreateRequest":                    schema_obot_platform_obot_apiclient_types_AuditLogExportCreateRequest(ref),
-		"github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters":                          schema_obot_platform_obot_apiclient_types_AuditLogExportFilters(ref),
-		"github.com/obot-platform/obot/apiclient/types.AuditLogExportListResponse":                     schema_obot_platform_obot_apiclient_types_AuditLogExportListResponse(ref),
-		"github.com/obot-platform/obot/apiclient/types.AuditLogExportResponse":                         schema_obot_platform_obot_apiclient_types_AuditLogExportResponse(ref),
-		"github.com/obot-platform/obot/apiclient/types.AuthProvider":                                   schema_obot_platform_obot_apiclient_types_AuthProvider(ref),
-		"github.com/obot-platform/obot/apiclient/types.AuthProviderList":                               schema_obot_platform_obot_apiclient_types_AuthProviderList(ref),
-		"github.com/obot-platform/obot/apiclient/types.AuthProviderManifest":                           schema_obot_platform_obot_apiclient_types_AuthProviderManifest(ref),
-		"github.com/obot-platform/obot/apiclient/types.AuthProviderStatus":                             schema_obot_platform_obot_apiclient_types_AuthProviderStatus(ref),
-		"github.com/obot-platform/obot/apiclient/types.AzureConfig":                                    schema_obot_platform_obot_apiclient_types_AzureConfig(ref),
-		"github.com/obot-platform/obot/apiclient/types.CatalogComponentServer":                         schema_obot_platform_obot_apiclient_types_CatalogComponentServer(ref),
-		"github.com/obot-platform/obot/apiclient/types.ClientInfo":                                     schema_obot_platform_obot_apiclient_types_ClientInfo(ref),
-		"github.com/obot-platform/obot/apiclient/types.CommonProviderMetadata":                         schema_obot_platform_obot_apiclient_types_CommonProviderMetadata(ref),
-		"github.com/obot-platform/obot/apiclient/types.CommonProviderStatus":                           schema_obot_platform_obot_apiclient_types_CommonProviderStatus(ref),
-		"github.com/obot-platform/obot/apiclient/types.ComponentServer":                                schema_obot_platform_obot_apiclient_types_ComponentServer(ref),
-		"github.com/obot-platform/obot/apiclient/types.CompositeCatalogConfig":                         schema_obot_platform_obot_apiclient_types_CompositeCatalogConfig(ref),
-		"github.com/obot-platform/obot/apiclient/types.CompositeRuntimeConfig":                         schema_obot_platform_obot_apiclient_types_CompositeRuntimeConfig(ref),
-		"github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig":                     schema_obot_platform_obot_apiclient_types_ContainerizedRuntimeConfig(ref),
-		"github.com/obot-platform/obot/apiclient/types.Credential":                                     schema_obot_platform_obot_apiclient_types_Credential(ref),
-		"github.com/obot-platform/obot/apiclient/types.CredentialList":                                 schema_obot_platform_obot_apiclient_types_CredentialList(ref),
-		"github.com/obot-platform/obot/apiclient/types.CronJob":                                        schema_obot_platform_obot_apiclient_types_CronJob(ref),
-		"github.com/obot-platform/obot/apiclient/types.CronJobList":                                    schema_obot_platform_obot_apiclient_types_CronJobList(ref),
-		"github.com/obot-platform/obot/apiclient/types.CronJobManifest":                                schema_obot_platform_obot_apiclient_types_CronJobManifest(ref),
-		"github.com/obot-platform/obot/apiclient/types.CustomS3Config":                                 schema_obot_platform_obot_apiclient_types_CustomS3Config(ref),
-		"github.com/obot-platform/obot/apiclient/types.DefaultModelAlias":                              schema_obot_platform_obot_apiclient_types_DefaultModelAlias(ref),
-		"github.com/obot-platform/obot/apiclient/types.DefaultModelAliasList":                          schema_obot_platform_obot_apiclient_types_DefaultModelAliasList(ref),
-		"github.com/obot-platform/obot/apiclient/types.DefaultModelAliasManifest":                      schema_obot_platform_obot_apiclient_types_DefaultModelAliasManifest(ref),
-		"github.com/obot-platform/obot/apiclient/types.DeploymentCondition":                            schema_obot_platform_obot_apiclient_types_DeploymentCondition(ref),
-		"github.com/obot-platform/obot/apiclient/types.EmailReceiver":                                  schema_obot_platform_obot_apiclient_types_EmailReceiver(ref),
-		"github.com/obot-platform/obot/apiclient/types.EmailReceiverList":                              schema_obot_platform_obot_apiclient_types_EmailReceiverList(ref),
-		"github.com/obot-platform/obot/apiclient/types.EmailReceiverManifest":                          schema_obot_platform_obot_apiclient_types_EmailReceiverManifest(ref),
-		"github.com/obot-platform/obot/apiclient/types.EnvVar":                                         schema_obot_platform_obot_apiclient_types_EnvVar(ref),
-		"github.com/obot-platform/obot/apiclient/types.ErrHTTP":                                        schema_obot_platform_obot_apiclient_types_ErrHTTP(ref),
-		"github.com/obot-platform/obot/apiclient/types.EulaStatus":                                     schema_obot_platform_obot_apiclient_types_EulaStatus(ref),
-		"github.com/obot-platform/obot/apiclient/types.Field":                                          schema_obot_platform_obot_apiclient_types_Field(ref),
-		"github.com/obot-platform/obot/apiclient/types.File":                                           schema_obot_platform_obot_apiclient_types_File(ref),
-		"github.com/obot-platform/obot/apiclient/types.FileList":                                       schema_obot_platform_obot_apiclient_types_FileList(ref),
-		"github.com/obot-platform/obot/apiclient/types.FileScannerProvider":                            schema_obot_platform_obot_apiclient_types_FileScannerProvider(ref),
-		"github.com/obot-platform/obot/apiclient/types.FileScannerProviderList":                        schema_obot_platform_obot_apiclient_types_FileScannerProviderList(ref),
-		"github.com/obot-platform/obot/apiclient/types.FileScannerProviderManifest":                    schema_obot_platform_obot_apiclient_types_FileScannerProviderManifest(ref),
-		"github.com/obot-platform/obot/apiclient/types.FileScannerProviderStatus":                      schema_obot_platform_obot_apiclient_types_FileScannerProviderStatus(ref),
-		"github.com/obot-platform/obot/apiclient/types.GCSConfig":                                      schema_obot_platform_obot_apiclient_types_GCSConfig(ref),
-		"github.com/obot-platform/obot/apiclient/types.GroupRoleAssignment":                            schema_obot_platform_obot_apiclient_types_GroupRoleAssignment(ref),
-		"github.com/obot-platform/obot/apiclient/types.GroupRoleAssignmentList":                        schema_obot_platform_obot_apiclient_types_GroupRoleAssignmentList(ref),
-		"github.com/obot-platform/obot/apiclient/types.Item":                                           schema_obot_platform_obot_apiclient_types_Item(ref),
-		"github.com/obot-platform/obot/apiclient/types.K8sSettings":                                    schema_obot_platform_obot_apiclient_types_K8sSettings(ref),
-		"github.com/obot-platform/obot/apiclient/types.K8sSettingsStatus":                              schema_obot_platform_obot_apiclient_types_K8sSettingsStatus(ref),
-		"github.com/obot-platform/obot/apiclient/types.KnowledgeFile":                                  schema_obot_platform_obot_apiclient_types_KnowledgeFile(ref),
-		"github.com/obot-platform/obot/apiclient/types.KnowledgeFileList":                              schema_obot_platform_obot_apiclient_types_KnowledgeFileList(ref),
-		"github.com/obot-platform/obot/apiclient/types.KnowledgeSource":                                schema_obot_platform_obot_apiclient_types_KnowledgeSource(ref),
-		"github.com/obot-platform/obot/apiclient/types.KnowledgeSourceInput":                           schema_obot_platform_obot_apiclient_types_KnowledgeSourceInput(ref),
-		"github.com/obot-platform/obot/apiclient/types.KnowledgeSourceList":                            schema_obot_platform_obot_apiclient_types_KnowledgeSourceList(ref),
-		"github.com/obot-platform/obot/apiclient/types.KnowledgeSourceManifest":                        schema_obot_platform_obot_apiclient_types_KnowledgeSourceManifest(ref),
-		"github.com/obot-platform/obot/apiclient/types.LogoPreferences":                                schema_obot_platform_obot_apiclient_types_LogoPreferences(ref),
-		"github.com/obot-platform/obot/apiclient/types.MCPAuditLog":                                    schema_obot_platform_obot_apiclient_types_MCPAuditLog(ref),
-		"github.com/obot-platform/obot/apiclient/types.MCPAuditLogList":                                schema_obot_platform_obot_apiclient_types_MCPAuditLogList(ref),
-		"github.com/obot-platform/obot/apiclient/types.MCPAuditLogResponse":                            schema_obot_platform_obot_apiclient_types_MCPAuditLogResponse(ref),
-		"github.com/obot-platform/obot/apiclient/types.MCPCapacityInfo":                                schema_obot_platform_obot_apiclient_types_MCPCapacityInfo(ref),
-		"github.com/obot-platform/obot/apiclient/types.MCPCatalog":                                     schema_obot_platform_obot_apiclient_types_MCPCatalog(ref),
-		"github.com/obot-platform/obot/apiclient/types.MCPCatalogList":                                 schema_obot_platform_obot_apiclient_types_MCPCatalogList(ref),
-		"github.com/obot-platform/obot/apiclient/types.MCPCatalogManifest":                             schema_obot_platform_obot_apiclient_types_MCPCatalogManifest(ref),
-		"github.com/obot-platform/obot/apiclient/types.MCPEnv":                                         schema_obot_platform_obot_apiclient_types_MCPEnv(ref),
-		"github.com/obot-platform/obot/apiclient/types.MCPHeader":                                      schema_obot_platform_obot_apiclient_types_MCPHeader(ref),
-		"github.com/obot-platform/obot/apiclient/types.MCPPromptReadStats":                             schema_obot_platform_obot_apiclient_types_MCPPromptReadStats(ref),
-		"github.com/obot-platform/obot/apiclient/types.MCPResourceReadStats":                           schema_obot_platform_obot_apiclient_types_MCPResourceReadStats(ref),
-		"github.com/obot-platform/obot/apiclient/types.MCPResourceRequests":                            schema_obot_platform_obot_apiclient_types_MCPResourceRequests(ref),
-		"github.com/obot-platform/obot/apiclient/types.MCPSelector":                                    schema_obot_platform_obot_apiclient_types_MCPSelector(ref),
-		"github.com/obot-platform/obot/apiclient/types.MCPServer":                                      schema_obot_platform_obot_apiclient_types_MCPServer(ref),
-		"github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntry":                          schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntry(ref),
-		"github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntryList":                      schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryList(ref),
-		"github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntryManifest":                  schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryManifest(ref),
-		"github.com/obot-platform/obot/apiclient/types.MCPServerDetails":                               schema_obot_platform_obot_apiclient_types_MCPServerDetails(ref),
-		"github.com/obot-platform/obot/apiclient/types.MCPServerEvent":                                 schema_obot_platform_obot_apiclient_types_MCPServerEvent(ref),
-		"github.com/obot-platform/obot/apiclient/types.MCPServerInstance":                              schema_obot_platform_obot_apiclient_types_MCPServerInstance(ref),
-		"github.com/obot-platform/obot/apiclient/types.MCPServerInstanceList":                          schema_obot_platform_obot_apiclient_types_MCPServerInstanceList(ref),
-		"github.com/obot-platform/obot/apiclient/types.MCPServerList":                                  schema_obot_platform_obot_apiclient_types_MCPServerList(ref),
-		"github.com/obot-platform/obot/apiclient/types.MCPServerManifest":                              schema_obot_platform_obot_apiclient_types_MCPServerManifest(ref),
-		"github.com/obot-platform/obot/apiclient/types.MCPServerNeedingK8sUpdate":                      schema_obot_platform_obot_apiclient_types_MCPServerNeedingK8sUpdate(ref),
-		"github.com/obot-platform/obot/apiclient/types.MCPServerOAuthCredentialRequest":                schema_obot_platform_obot_apiclient_types_MCPServerOAuthCredentialRequest(ref),
-		"github.com/obot-platform/obot/apiclient/types.MCPServerOAuthCredentialStatus":                 schema_obot_platform_obot_apiclient_types_MCPServerOAuthCredentialStatus(ref),
-		"github.com/obot-platform/obot/apiclient/types.MCPServerTool":                                  schema_obot_platform_obot_apiclient_types_MCPServerTool(ref),
-		"github.com/obot-platform/obot/apiclient/types.MCPServersNeedingK8sUpdateList":                 schema_obot_platform_obot_apiclient_types_MCPServersNeedingK8sUpdateList(ref),
-		"github.com/obot-platform/obot/apiclient/types.MCPToolCallStats":                               schema_obot_platform_obot_apiclient_types_MCPToolCallStats(ref),
-		"github.com/obot-platform/obot/apiclient/types.MCPToolCallStatsItem":                           schema_obot_platform_obot_apiclient_types_MCPToolCallStatsItem(ref),
-		"github.com/obot-platform/obot/apiclient/types.MCPUsageStatItem":                               schema_obot_platform_obot_apiclient_types_MCPUsageStatItem(ref),
-		"github.com/obot-platform/obot/apiclient/types.MCPUsageStats":                                  schema_obot_platform_obot_apiclient_types_MCPUsageStats(ref),
-		"github.com/obot-platform/obot/apiclient/types.MCPUsageStatsList":                              schema_obot_platform_obot_apiclient_types_MCPUsageStatsList(ref),
-		"github.com/obot-platform/obot/apiclient/types.MCPWebhookValidation":                           schema_obot_platform_obot_apiclient_types_MCPWebhookValidation(ref),
-		"github.com/obot-platform/obot/apiclient/types.MCPWebhookValidationList":                       schema_obot_platform_obot_apiclient_types_MCPWebhookValidationList(ref),
-		"github.com/obot-platform/obot/apiclient/types.MCPWebhookValidationManifest":                   schema_obot_platform_obot_apiclient_types_MCPWebhookValidationManifest(ref),
-		"github.com/obot-platform/obot/apiclient/types.Memory":                                         schema_obot_platform_obot_apiclient_types_Memory(ref),
-		"github.com/obot-platform/obot/apiclient/types.MemoryList":                                     schema_obot_platform_obot_apiclient_types_MemoryList(ref),
-		"github.com/obot-platform/obot/apiclient/types.MessagePolicy":                                  schema_obot_platform_obot_apiclient_types_MessagePolicy(ref),
-		"github.com/obot-platform/obot/apiclient/types.MessagePolicyList":                              schema_obot_platform_obot_apiclient_types_MessagePolicyList(ref),
-		"github.com/obot-platform/obot/apiclient/types.MessagePolicyManifest":                          schema_obot_platform_obot_apiclient_types_MessagePolicyManifest(ref),
-		"github.com/obot-platform/obot/apiclient/types.MessagePolicyViolation":                         schema_obot_platform_obot_apiclient_types_MessagePolicyViolation(ref),
-		"github.com/obot-platform/obot/apiclient/types.MessagePolicyViolationDirectionCounts":          schema_obot_platform_obot_apiclient_types_MessagePolicyViolationDirectionCounts(ref),
-		"github.com/obot-platform/obot/apiclient/types.MessagePolicyViolationList":                     schema_obot_platform_obot_apiclient_types_MessagePolicyViolationList(ref),
-		"github.com/obot-platform/obot/apiclient/types.MessagePolicyViolationPolicyCount":              schema_obot_platform_obot_apiclient_types_MessagePolicyViolationPolicyCount(ref),
-		"github.com/obot-platform/obot/apiclient/types.MessagePolicyViolationResponse":                 schema_obot_platform_obot_apiclient_types_MessagePolicyViolationResponse(ref),
-		"github.com/obot-platform/obot/apiclient/types.MessagePolicyViolationStats":                    schema_obot_platform_obot_apiclient_types_MessagePolicyViolationStats(ref),
-		"github.com/obot-platform/obot/apiclient/types.MessagePolicyViolationTimeBucket":               schema_obot_platform_obot_apiclient_types_MessagePolicyViolationTimeBucket(ref),
-		"github.com/obot-platform/obot/apiclient/types.MessagePolicyViolationUserCount":                schema_obot_platform_obot_apiclient_types_MessagePolicyViolationUserCount(ref),
-		"github.com/obot-platform/obot/apiclient/types.Metadata":                                       schema_obot_platform_obot_apiclient_types_Metadata(ref),
-		"github.com/obot-platform/obot/apiclient/types.Model":                                          schema_obot_platform_obot_apiclient_types_Model(ref),
-		"github.com/obot-platform/obot/apiclient/types.ModelAccessPolicy":                              schema_obot_platform_obot_apiclient_types_ModelAccessPolicy(ref),
-		"github.com/obot-platform/obot/apiclient/types.ModelAccessPolicyList":                          schema_obot_platform_obot_apiclient_types_ModelAccessPolicyList(ref),
-		"github.com/obot-platform/obot/apiclient/types.ModelAccessPolicyManifest":                      schema_obot_platform_obot_apiclient_types_ModelAccessPolicyManifest(ref),
-		"github.com/obot-platform/obot/apiclient/types.ModelList":                                      schema_obot_platform_obot_apiclient_types_ModelList(ref),
-		"github.com/obot-platform/obot/apiclient/types.ModelManifest":                                  schema_obot_platform_obot_apiclient_types_ModelManifest(ref),
-		"github.com/obot-platform/obot/apiclient/types.ModelProvider":                                  schema_obot_platform_obot_apiclient_types_ModelProvider(ref),
-		"github.com/obot-platform/obot/apiclient/types.ModelProviderList":                              schema_obot_platform_obot_apiclient_types_ModelProviderList(ref),
-		"github.com/obot-platform/obot/apiclient/types.ModelProviderManifest":                          schema_obot_platform_obot_apiclient_types_ModelProviderManifest(ref),
-		"github.com/obot-platform/obot/apiclient/types.ModelProviderStatus":                            schema_obot_platform_obot_apiclient_types_ModelProviderStatus(ref),
-		"github.com/obot-platform/obot/apiclient/types.ModelResource":                                  schema_obot_platform_obot_apiclient_types_ModelResource(ref),
-		"github.com/obot-platform/obot/apiclient/types.ModelStatus":                                    schema_obot_platform_obot_apiclient_types_ModelStatus(ref),
-		"github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig":                               schema_obot_platform_obot_apiclient_types_NPXRuntimeConfig(ref),
-		"github.com/obot-platform/obot/apiclient/types.NanobotAgent":                                   schema_obot_platform_obot_apiclient_types_NanobotAgent(ref),
-		"github.com/obot-platform/obot/apiclient/types.NanobotAgentList":                               schema_obot_platform_obot_apiclient_types_NanobotAgentList(ref),
-		"github.com/obot-platform/obot/apiclient/types.NanobotAgentManifest":                           schema_obot_platform_obot_apiclient_types_NanobotAgentManifest(ref),
-		"github.com/obot-platform/obot/apiclient/types.NotionConfig":                                   schema_obot_platform_obot_apiclient_types_NotionConfig(ref),
-		"github.com/obot-platform/obot/apiclient/types.OAuthApp":                                       schema_obot_platform_obot_apiclient_types_OAuthApp(ref),
-		"github.com/obot-platform/obot/apiclient/types.OAuthAppList":                                   schema_obot_platform_obot_apiclient_types_OAuthAppList(ref),
-		"github.com/obot-platform/obot/apiclient/types.OAuthAppLoginAuthStatus":                        schema_obot_platform_obot_apiclient_types_OAuthAppLoginAuthStatus(ref),
-		"github.com/obot-platform/obot/apiclient/types.OAuthAppManifest":                               schema_obot_platform_obot_apiclient_types_OAuthAppManifest(ref),
-		"github.com/obot-platform/obot/apiclient/types.OAuthClient":                                    schema_obot_platform_obot_apiclient_types_OAuthClient(ref),
-		"github.com/obot-platform/obot/apiclient/types.OAuthClientList":                                schema_obot_platform_obot_apiclient_types_OAuthClientList(ref),
-		"github.com/obot-platform/obot/apiclient/types.OAuthClientManifest":                            schema_obot_platform_obot_apiclient_types_OAuthClientManifest(ref),
-		"github.com/obot-platform/obot/apiclient/types.OAuthToken":                                     schema_obot_platform_obot_apiclient_types_OAuthToken(ref),
-		"github.com/obot-platform/obot/apiclient/types.OnEmail":                                        schema_obot_platform_obot_apiclient_types_OnEmail(ref),
-		"github.com/obot-platform/obot/apiclient/types.OnWebhook":                                      schema_obot_platform_obot_apiclient_types_OnWebhook(ref),
-		"github.com/obot-platform/obot/apiclient/types.OneDriveConfig":                                 schema_obot_platform_obot_apiclient_types_OneDriveConfig(ref),
-		"github.com/obot-platform/obot/apiclient/types.PodSecurityAdmissionSettings":                   schema_obot_platform_obot_apiclient_types_PodSecurityAdmissionSettings(ref),
-		"github.com/obot-platform/obot/apiclient/types.PowerUserWorkspace":                             schema_obot_platform_obot_apiclient_types_PowerUserWorkspace(ref),
-		"github.com/obot-platform/obot/apiclient/types.PowerUserWorkspaceList":                         schema_obot_platform_obot_apiclient_types_PowerUserWorkspaceList(ref),
-		"github.com/obot-platform/obot/apiclient/types.Progress":                                       schema_obot_platform_obot_apiclient_types_Progress(ref),
-		"github.com/obot-platform/obot/apiclient/types.Project":                                        schema_obot_platform_obot_apiclient_types_Project(ref),
-		"github.com/obot-platform/obot/apiclient/types.ProjectCapabilities":                            schema_obot_platform_obot_apiclient_types_ProjectCapabilities(ref),
-		"github.com/obot-platform/obot/apiclient/types.ProjectCredential":                              schema_obot_platform_obot_apiclient_types_ProjectCredential(ref),
-		"github.com/obot-platform/obot/apiclient/types.ProjectCredentialList":                          schema_obot_platform_obot_apiclient_types_ProjectCredentialList(ref),
-		"github.com/obot-platform/obot/apiclient/types.ProjectInvitationManifest":                      schema_obot_platform_obot_apiclient_types_ProjectInvitationManifest(ref),
-		"github.com/obot-platform/obot/apiclient/types.ProjectList":                                    schema_obot_platform_obot_apiclient_types_ProjectList(ref),
-		"github.com/obot-platform/obot/apiclient/types.ProjectMCPServer":                               schema_obot_platform_obot_apiclient_types_ProjectMCPServer(ref),
-		"github.com/obot-platform/obot/apiclient/types.ProjectMCPServerList":                           schema_obot_platform_obot_apiclient_types_ProjectMCPServerList(ref),
-		"github.com/obot-platform/obot/apiclient/types.ProjectMCPServerManifest":                       schema_obot_platform_obot_apiclient_types_ProjectMCPServerManifest(ref),
-		"github.com/obot-platform/obot/apiclient/types.ProjectManifest":                                schema_obot_platform_obot_apiclient_types_ProjectManifest(ref),
-		"github.com/obot-platform/obot/apiclient/types.ProjectMember":                                  schema_obot_platform_obot_apiclient_types_ProjectMember(ref),
-		"github.com/obot-platform/obot/apiclient/types.ProjectShare":                                   schema_obot_platform_obot_apiclient_types_ProjectShare(ref),
-		"github.com/obot-platform/obot/apiclient/types.ProjectShareList":                               schema_obot_platform_obot_apiclient_types_ProjectShareList(ref),
-		"github.com/obot-platform/obot/apiclient/types.ProjectShareManifest":                           schema_obot_platform_obot_apiclient_types_ProjectShareManifest(ref),
-		"github.com/obot-platform/obot/apiclient/types.ProjectTemplate":                                schema_obot_platform_obot_apiclient_types_ProjectTemplate(ref),
-		"github.com/obot-platform/obot/apiclient/types.ProjectTemplateList":                            schema_obot_platform_obot_apiclient_types_ProjectTemplateList(ref),
-		"github.com/obot-platform/obot/apiclient/types.ProjectV2":                                      schema_obot_platform_obot_apiclient_types_ProjectV2(ref),
-		"github.com/obot-platform/obot/apiclient/types.ProjectV2List":                                  schema_obot_platform_obot_apiclient_types_ProjectV2List(ref),
-		"github.com/obot-platform/obot/apiclient/types.ProjectV2Manifest":                              schema_obot_platform_obot_apiclient_types_ProjectV2Manifest(ref),
-		"github.com/obot-platform/obot/apiclient/types.Prompt":                                         schema_obot_platform_obot_apiclient_types_Prompt(ref),
-		"github.com/obot-platform/obot/apiclient/types.PromptResponse":                                 schema_obot_platform_obot_apiclient_types_PromptResponse(ref),
-		"github.com/obot-platform/obot/apiclient/types.ProviderConfigurationParameter":                 schema_obot_platform_obot_apiclient_types_ProviderConfigurationParameter(ref),
-		"github.com/obot-platform/obot/apiclient/types.PublishedArtifact":                              schema_obot_platform_obot_apiclient_types_PublishedArtifact(ref),
-		"github.com/obot-platform/obot/apiclient/types.PublishedArtifactList":                          schema_obot_platform_obot_apiclient_types_PublishedArtifactList(ref),
-		"github.com/obot-platform/obot/apiclient/types.PublishedArtifactManifest":                      schema_obot_platform_obot_apiclient_types_PublishedArtifactManifest(ref),
-		"github.com/obot-platform/obot/apiclient/types.PublishedArtifactVersionEntry":                  schema_obot_platform_obot_apiclient_types_PublishedArtifactVersionEntry(ref),
-		"github.com/obot-platform/obot/apiclient/types.PublishedArtifactVersionSummary":                schema_obot_platform_obot_apiclient_types_PublishedArtifactVersionSummary(ref),
-		"github.com/obot-platform/obot/apiclient/types.RegistryGitHubMeta":                             schema_obot_platform_obot_apiclient_types_RegistryGitHubMeta(ref),
-		"github.com/obot-platform/obot/apiclient/types.RegistryMeta":                                   schema_obot_platform_obot_apiclient_types_RegistryMeta(ref),
-		"github.com/obot-platform/obot/apiclient/types.RegistryObotMeta":                               schema_obot_platform_obot_apiclient_types_RegistryObotMeta(ref),
-		"github.com/obot-platform/obot/apiclient/types.RegistryOfficialMeta":                           schema_obot_platform_obot_apiclient_types_RegistryOfficialMeta(ref),
-		"github.com/obot-platform/obot/apiclient/types.RegistryPublisherProvidedMeta":                  schema_obot_platform_obot_apiclient_types_RegistryPublisherProvidedMeta(ref),
-		"github.com/obot-platform/obot/apiclient/types.RegistryServerDetail":                           schema_obot_platform_obot_apiclient_types_RegistryServerDetail(ref),
-		"github.com/obot-platform/obot/apiclient/types.RegistryServerIcon":                             schema_obot_platform_obot_apiclient_types_RegistryServerIcon(ref),
-		"github.com/obot-platform/obot/apiclient/types.RegistryServerList":                             schema_obot_platform_obot_apiclient_types_RegistryServerList(ref),
-		"github.com/obot-platform/obot/apiclient/types.RegistryServerListMetadata":                     schema_obot_platform_obot_apiclient_types_RegistryServerListMetadata(ref),
-		"github.com/obot-platform/obot/apiclient/types.RegistryServerMeta":                             schema_obot_platform_obot_apiclient_types_RegistryServerMeta(ref),
-		"github.com/obot-platform/obot/apiclient/types.RegistryServerRemote":                           schema_obot_platform_obot_apiclient_types_RegistryServerRemote(ref),
-		"github.com/obot-platform/obot/apiclient/types.RegistryServerRepository":                       schema_obot_platform_obot_apiclient_types_RegistryServerRepository(ref),
-		"github.com/obot-platform/obot/apiclient/types.RegistryServerResponse":                         schema_obot_platform_obot_apiclient_types_RegistryServerResponse(ref),
-		"github.com/obot-platform/obot/apiclient/types.RemainingTokenUsage":                            schema_obot_platform_obot_apiclient_types_RemainingTokenUsage(ref),
-		"github.com/obot-platform/obot/apiclient/types.RemainingTokenUsageList":                        schema_obot_platform_obot_apiclient_types_RemainingTokenUsageList(ref),
-		"github.com/obot-platform/obot/apiclient/types.RemoteCatalogConfig":                            schema_obot_platform_obot_apiclient_types_RemoteCatalogConfig(ref),
-		"github.com/obot-platform/obot/apiclient/types.RemoteRuntimeConfig":                            schema_obot_platform_obot_apiclient_types_RemoteRuntimeConfig(ref),
-		"github.com/obot-platform/obot/apiclient/types.Resource":                                       schema_obot_platform_obot_apiclient_types_Resource(ref),
-		"github.com/obot-platform/obot/apiclient/types.Run":                                            schema_obot_platform_obot_apiclient_types_Run(ref),
-		"github.com/obot-platform/obot/apiclient/types.RunList":                                        schema_obot_platform_obot_apiclient_types_RunList(ref),
-		"github.com/obot-platform/obot/apiclient/types.RuntimeValidationError":                         schema_obot_platform_obot_apiclient_types_RuntimeValidationError(ref),
-		"github.com/obot-platform/obot/apiclient/types.S3Config":                                       schema_obot_platform_obot_apiclient_types_S3Config(ref),
-		"github.com/obot-platform/obot/apiclient/types.Schedule":                                       schema_obot_platform_obot_apiclient_types_Schedule(ref),
-		"github.com/obot-platform/obot/apiclient/types.ScheduledAuditLogExportCreateRequest":           schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportCreateRequest(ref),
-		"github.com/obot-platform/obot/apiclient/types.ScheduledAuditLogExportListResponse":            schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportListResponse(ref),
-		"github.com/obot-platform/obot/apiclient/types.ScheduledAuditLogExportResponse":                schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportResponse(ref),
-		"github.com/obot-platform/obot/apiclient/types.ScheduledAuditLogExportUpdateRequest":           schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportUpdateRequest(ref),
-		"github.com/obot-platform/obot/apiclient/types.Skill":                                          schema_obot_platform_obot_apiclient_types_Skill(ref),
-		"github.com/obot-platform/obot/apiclient/types.SkillAccessRule":                                schema_obot_platform_obot_apiclient_types_SkillAccessRule(ref),
-		"github.com/obot-platform/obot/apiclient/types.SkillAccessRuleList":                            schema_obot_platform_obot_apiclient_types_SkillAccessRuleList(ref),
-		"github.com/obot-platform/obot/apiclient/types.SkillAccessRuleManifest":                        schema_obot_platform_obot_apiclient_types_SkillAccessRuleManifest(ref),
-		"github.com/obot-platform/obot/apiclient/types.SkillList":                                      schema_obot_platform_obot_apiclient_types_SkillList(ref),
-		"github.com/obot-platform/obot/apiclient/types.SkillManifest":                                  schema_obot_platform_obot_apiclient_types_SkillManifest(ref),
-		"github.com/obot-platform/obot/apiclient/types.SkillRepository":                                schema_obot_platform_obot_apiclient_types_SkillRepository(ref),
-		"github.com/obot-platform/obot/apiclient/types.SkillRepositoryList":                            schema_obot_platform_obot_apiclient_types_SkillRepositoryList(ref),
-		"github.com/obot-platform/obot/apiclient/types.SkillRepositoryManifest":                        schema_obot_platform_obot_apiclient_types_SkillRepositoryManifest(ref),
-		"github.com/obot-platform/obot/apiclient/types.SkillResource":                                  schema_obot_platform_obot_apiclient_types_SkillResource(ref),
-		"github.com/obot-platform/obot/apiclient/types.Step":                                           schema_obot_platform_obot_apiclient_types_Step(ref),
-		"github.com/obot-platform/obot/apiclient/types.StepTemplateInvoke":                             schema_obot_platform_obot_apiclient_types_StepTemplateInvoke(ref),
-		"github.com/obot-platform/obot/apiclient/types.StorageConfig":                                  schema_obot_platform_obot_apiclient_types_StorageConfig(ref),
-		"github.com/obot-platform/obot/apiclient/types.StorageCredentialsResponse":                     schema_obot_platform_obot_apiclient_types_StorageCredentialsResponse(ref),
-		"github.com/obot-platform/obot/apiclient/types.StorageCredentialsTestRequest":                  schema_obot_platform_obot_apiclient_types_StorageCredentialsTestRequest(ref),
-		"github.com/obot-platform/obot/apiclient/types.StorageCredentialsTestResponse":                 schema_obot_platform_obot_apiclient_types_StorageCredentialsTestResponse(ref),
-		"github.com/obot-platform/obot/apiclient/types.StorageProviderConfigInput":                     schema_obot_platform_obot_apiclient_types_StorageProviderConfigInput(ref),
-		"github.com/obot-platform/obot/apiclient/types.Subject":                                        schema_obot_platform_obot_apiclient_types_Subject(ref),
-		"github.com/obot-platform/obot/apiclient/types.SystemMCPServer":                                schema_obot_platform_obot_apiclient_types_SystemMCPServer(ref),
-		"github.com/obot-platform/obot/apiclient/types.SystemMCPServerList":                            schema_obot_platform_obot_apiclient_types_SystemMCPServerList(ref),
-		"github.com/obot-platform/obot/apiclient/types.SystemMCPServerManifest":                        schema_obot_platform_obot_apiclient_types_SystemMCPServerManifest(ref),
-		"github.com/obot-platform/obot/apiclient/types.Task":                                           schema_obot_platform_obot_apiclient_types_Task(ref),
-		"github.com/obot-platform/obot/apiclient/types.TaskList":                                       schema_obot_platform_obot_apiclient_types_TaskList(ref),
-		"github.com/obot-platform/obot/apiclient/types.TaskManifest":                                   schema_obot_platform_obot_apiclient_types_TaskManifest(ref),
-		"github.com/obot-platform/obot/apiclient/types.TaskOnDemand":                                   schema_obot_platform_obot_apiclient_types_TaskOnDemand(ref),
-		"github.com/obot-platform/obot/apiclient/types.TaskRun":                                        schema_obot_platform_obot_apiclient_types_TaskRun(ref),
-		"github.com/obot-platform/obot/apiclient/types.TaskRunList":                                    schema_obot_platform_obot_apiclient_types_TaskRunList(ref),
-		"github.com/obot-platform/obot/apiclient/types.TaskStep":                                       schema_obot_platform_obot_apiclient_types_TaskStep(ref),
-		"github.com/obot-platform/obot/apiclient/types.TemplateAuthorization":                          schema_obot_platform_obot_apiclient_types_TemplateAuthorization(ref),
-		"github.com/obot-platform/obot/apiclient/types.TemplateAuthorizationList":                      schema_obot_platform_obot_apiclient_types_TemplateAuthorizationList(ref),
-		"github.com/obot-platform/obot/apiclient/types.TemplateAuthorizationManifest":                  schema_obot_platform_obot_apiclient_types_TemplateAuthorizationManifest(ref),
-		"github.com/obot-platform/obot/apiclient/types.ThemePreferences":                               schema_obot_platform_obot_apiclient_types_ThemePreferences(ref),
-		"github.com/obot-platform/obot/apiclient/types.Thread":                                         schema_obot_platform_obot_apiclient_types_Thread(ref),
-		"github.com/obot-platform/obot/apiclient/types.ThreadAuthorization":                            schema_obot_platform_obot_apiclient_types_ThreadAuthorization(ref),
-		"github.com/obot-platform/obot/apiclient/types.ThreadAuthorizationList":                        schema_obot_platform_obot_apiclient_types_ThreadAuthorizationList(ref),
-		"github.com/obot-platform/obot/apiclient/types.ThreadAuthorizationManifest":                    schema_obot_platform_obot_apiclient_types_ThreadAuthorizationManifest(ref),
-		"github.com/obot-platform/obot/apiclient/types.ThreadList":                                     schema_obot_platform_obot_apiclient_types_ThreadList(ref),
-		"github.com/obot-platform/obot/apiclient/types.ThreadManifest":                                 schema_obot_platform_obot_apiclient_types_ThreadManifest(ref),
-		"github.com/obot-platform/obot/apiclient/types.ThreadManifestManagedFields":                    schema_obot_platform_obot_apiclient_types_ThreadManifestManagedFields(ref),
-		"github.com/obot-platform/obot/apiclient/types.Time":                                           schema_obot_platform_obot_apiclient_types_Time(ref),
-		"github.com/obot-platform/obot/apiclient/types.TokenUsage":                                     schema_obot_platform_obot_apiclient_types_TokenUsage(ref),
-		"github.com/obot-platform/obot/apiclient/types.TokenUsageByDate":                               schema_obot_platform_obot_apiclient_types_TokenUsageByDate(ref),
-		"github.com/obot-platform/obot/apiclient/types.TokenUsageList":                                 schema_obot_platform_obot_apiclient_types_TokenUsageList(ref),
-		"github.com/obot-platform/obot/apiclient/types.ToolCall":                                       schema_obot_platform_obot_apiclient_types_ToolCall(ref),
-		"github.com/obot-platform/obot/apiclient/types.ToolConfirm":                                    schema_obot_platform_obot_apiclient_types_ToolConfirm(ref),
-		"github.com/obot-platform/obot/apiclient/types.ToolConfirmResponse":                            schema_obot_platform_obot_apiclient_types_ToolConfirmResponse(ref),
-		"github.com/obot-platform/obot/apiclient/types.ToolInfo":                                       schema_obot_platform_obot_apiclient_types_ToolInfo(ref),
-		"github.com/obot-platform/obot/apiclient/types.ToolInput":                                      schema_obot_platform_obot_apiclient_types_ToolInput(ref),
-		"github.com/obot-platform/obot/apiclient/types.ToolManifest":                                   schema_obot_platform_obot_apiclient_types_ToolManifest(ref),
-		"github.com/obot-platform/obot/apiclient/types.ToolOverride":                                   schema_obot_platform_obot_apiclient_types_ToolOverride(ref),
-		"github.com/obot-platform/obot/apiclient/types.ToolReference":                                  schema_obot_platform_obot_apiclient_types_ToolReference(ref),
-		"github.com/obot-platform/obot/apiclient/types.ToolReferenceList":                              schema_obot_platform_obot_apiclient_types_ToolReferenceList(ref),
-		"github.com/obot-platform/obot/apiclient/types.ToolReferenceManifest":                          schema_obot_platform_obot_apiclient_types_ToolReferenceManifest(ref),
-		"github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig":                               schema_obot_platform_obot_apiclient_types_UVXRuntimeConfig(ref),
-		"github.com/obot-platform/obot/apiclient/types.User":                                           schema_obot_platform_obot_apiclient_types_User(ref),
-		"github.com/obot-platform/obot/apiclient/types.UserDefaultRoleSetting":                         schema_obot_platform_obot_apiclient_types_UserDefaultRoleSetting(ref),
-		"github.com/obot-platform/obot/apiclient/types.UserList":                                       schema_obot_platform_obot_apiclient_types_UserList(ref),
-		"github.com/obot-platform/obot/apiclient/types.Webhook":                                        schema_obot_platform_obot_apiclient_types_Webhook(ref),
-		"github.com/obot-platform/obot/apiclient/types.WebhookList":                                    schema_obot_platform_obot_apiclient_types_WebhookList(ref),
-		"github.com/obot-platform/obot/apiclient/types.WebhookManifest":                                schema_obot_platform_obot_apiclient_types_WebhookManifest(ref),
-		"github.com/obot-platform/obot/apiclient/types.WebhookStatus":                                  schema_obot_platform_obot_apiclient_types_WebhookStatus(ref),
-		"github.com/obot-platform/obot/apiclient/types.WebsiteCrawlingConfig":                          schema_obot_platform_obot_apiclient_types_WebsiteCrawlingConfig(ref),
-		"github.com/obot-platform/obot/apiclient/types.WebsiteDefinition":                              schema_obot_platform_obot_apiclient_types_WebsiteDefinition(ref),
-		"github.com/obot-platform/obot/apiclient/types.WebsiteKnowledge":                               schema_obot_platform_obot_apiclient_types_WebsiteKnowledge(ref),
-		"github.com/obot-platform/obot/apiclient/types.Workflow":                                       schema_obot_platform_obot_apiclient_types_Workflow(ref),
-		"github.com/obot-platform/obot/apiclient/types.WorkflowExecution":                              schema_obot_platform_obot_apiclient_types_WorkflowExecution(ref),
-		"github.com/obot-platform/obot/apiclient/types.WorkflowExecutionList":                          schema_obot_platform_obot_apiclient_types_WorkflowExecutionList(ref),
-		"github.com/obot-platform/obot/apiclient/types.WorkflowList":                                   schema_obot_platform_obot_apiclient_types_WorkflowList(ref),
-		"github.com/obot-platform/obot/apiclient/types.WorkflowManifest":                               schema_obot_platform_obot_apiclient_types_WorkflowManifest(ref),
-		"github.com/obot-platform/obot/apiclient/types.WorkflowNamesFromIntegration":                   schema_obot_platform_obot_apiclient_types_WorkflowNamesFromIntegration(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AccessControlRule":             schema_storage_apis_obotobotai_v1_AccessControlRule(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AccessControlRuleList":         schema_storage_apis_obotobotai_v1_AccessControlRuleList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AccessControlRuleSpec":         schema_storage_apis_obotobotai_v1_AccessControlRuleSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.Agent":                         schema_storage_apis_obotobotai_v1_Agent(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AgentList":                     schema_storage_apis_obotobotai_v1_AgentList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AgentSpec":                     schema_storage_apis_obotobotai_v1_AgentSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AgentStatus":                   schema_storage_apis_obotobotai_v1_AgentStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.Alias":                         schema_storage_apis_obotobotai_v1_Alias(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AliasList":                     schema_storage_apis_obotobotai_v1_AliasList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AliasSpec":                     schema_storage_apis_obotobotai_v1_AliasSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppPreferences":                schema_storage_apis_obotobotai_v1_AppPreferences(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppPreferencesList":            schema_storage_apis_obotobotai_v1_AppPreferencesList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppPreferencesSpec":            schema_storage_apis_obotobotai_v1_AppPreferencesSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppPreferencesStatus":          schema_storage_apis_obotobotai_v1_AppPreferencesStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AuditLogExport":                schema_storage_apis_obotobotai_v1_AuditLogExport(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AuditLogExportList":            schema_storage_apis_obotobotai_v1_AuditLogExportList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AuditLogExportSpec":            schema_storage_apis_obotobotai_v1_AuditLogExportSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AuditLogExportStatus":          schema_storage_apis_obotobotai_v1_AuditLogExportStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.CronJob":                       schema_storage_apis_obotobotai_v1_CronJob(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.CronJobList":                   schema_storage_apis_obotobotai_v1_CronJobList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.CronJobSpec":                   schema_storage_apis_obotobotai_v1_CronJobSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.CronJobStatus":                 schema_storage_apis_obotobotai_v1_CronJobStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.DefaultModelAlias":             schema_storage_apis_obotobotai_v1_DefaultModelAlias(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.DefaultModelAliasList":         schema_storage_apis_obotobotai_v1_DefaultModelAliasList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.DefaultModelAliasSpec":         schema_storage_apis_obotobotai_v1_DefaultModelAliasSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.DefaultModelAliasStatus":       schema_storage_apis_obotobotai_v1_DefaultModelAliasStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.DeploymentCondition":           schema_storage_apis_obotobotai_v1_DeploymentCondition(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.EmptyStatus":                   schema_storage_apis_obotobotai_v1_EmptyStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ExternalCall":                  schema_storage_apis_obotobotai_v1_ExternalCall(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ExternalCallResult":            schema_storage_apis_obotobotai_v1_ExternalCallResult(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ExternalCallResume":            schema_storage_apis_obotobotai_v1_ExternalCallResume(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.GroupRoleChange":               schema_storage_apis_obotobotai_v1_GroupRoleChange(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.GroupRoleChangeList":           schema_storage_apis_obotobotai_v1_GroupRoleChangeList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.GroupRoleChangeSpec":           schema_storage_apis_obotobotai_v1_GroupRoleChangeSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.K8sSettings":                   schema_storage_apis_obotobotai_v1_K8sSettings(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.K8sSettingsList":               schema_storage_apis_obotobotai_v1_K8sSettingsList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.K8sSettingsSpec":               schema_storage_apis_obotobotai_v1_K8sSettingsSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.K8sSettingsStatus":             schema_storage_apis_obotobotai_v1_K8sSettingsStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.KnowledgeFile":                 schema_storage_apis_obotobotai_v1_KnowledgeFile(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.KnowledgeFileList":             schema_storage_apis_obotobotai_v1_KnowledgeFileList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.KnowledgeFileSpec":             schema_storage_apis_obotobotai_v1_KnowledgeFileSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.KnowledgeFileStatus":           schema_storage_apis_obotobotai_v1_KnowledgeFileStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.KnowledgeSet":                  schema_storage_apis_obotobotai_v1_KnowledgeSet(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.KnowledgeSetList":              schema_storage_apis_obotobotai_v1_KnowledgeSetList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.KnowledgeSetManifest":          schema_storage_apis_obotobotai_v1_KnowledgeSetManifest(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.KnowledgeSetSpec":              schema_storage_apis_obotobotai_v1_KnowledgeSetSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.KnowledgeSetStatus":            schema_storage_apis_obotobotai_v1_KnowledgeSetStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.KnowledgeSource":               schema_storage_apis_obotobotai_v1_KnowledgeSource(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.KnowledgeSourceList":           schema_storage_apis_obotobotai_v1_KnowledgeSourceList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.KnowledgeSourceSpec":           schema_storage_apis_obotobotai_v1_KnowledgeSourceSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.KnowledgeSourceStatus":         schema_storage_apis_obotobotai_v1_KnowledgeSourceStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.KnowledgeSummary":              schema_storage_apis_obotobotai_v1_KnowledgeSummary(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.KnowledgeSummaryList":          schema_storage_apis_obotobotai_v1_KnowledgeSummaryList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.KnowledgeSummarySpec":          schema_storage_apis_obotobotai_v1_KnowledgeSummarySpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.KnowledgeSummaryStatus":        schema_storage_apis_obotobotai_v1_KnowledgeSummaryStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPCatalog":                    schema_storage_apis_obotobotai_v1_MCPCatalog(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPCatalogList":                schema_storage_apis_obotobotai_v1_MCPCatalogList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPCatalogSpec":                schema_storage_apis_obotobotai_v1_MCPCatalogSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPCatalogStatus":              schema_storage_apis_obotobotai_v1_MCPCatalogStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServer":                     schema_storage_apis_obotobotai_v1_MCPServer(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerCatalogEntry":         schema_storage_apis_obotobotai_v1_MCPServerCatalogEntry(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerCatalogEntryList":     schema_storage_apis_obotobotai_v1_MCPServerCatalogEntryList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerCatalogEntrySpec":     schema_storage_apis_obotobotai_v1_MCPServerCatalogEntrySpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerCatalogEntryStatus":   schema_storage_apis_obotobotai_v1_MCPServerCatalogEntryStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerInstance":             schema_storage_apis_obotobotai_v1_MCPServerInstance(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerInstanceList":         schema_storage_apis_obotobotai_v1_MCPServerInstanceList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerInstanceSpec":         schema_storage_apis_obotobotai_v1_MCPServerInstanceSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerList":                 schema_storage_apis_obotobotai_v1_MCPServerList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerSpec":                 schema_storage_apis_obotobotai_v1_MCPServerSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerStatus":               schema_storage_apis_obotobotai_v1_MCPServerStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPSession":                    schema_storage_apis_obotobotai_v1_MCPSession(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPSessionList":                schema_storage_apis_obotobotai_v1_MCPSessionList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPSessionSpec":                schema_storage_apis_obotobotai_v1_MCPSessionSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPSessionStatus":              schema_storage_apis_obotobotai_v1_MCPSessionStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPWebhookValidation":          schema_storage_apis_obotobotai_v1_MCPWebhookValidation(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPWebhookValidationList":      schema_storage_apis_obotobotai_v1_MCPWebhookValidationList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPWebhookValidationSpec":      schema_storage_apis_obotobotai_v1_MCPWebhookValidationSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MemorySet":                     schema_storage_apis_obotobotai_v1_MemorySet(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MemorySetList":                 schema_storage_apis_obotobotai_v1_MemorySetList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MemorySetSpec":                 schema_storage_apis_obotobotai_v1_MemorySetSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MemorySetStatus":               schema_storage_apis_obotobotai_v1_MemorySetStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MessagePolicy":                 schema_storage_apis_obotobotai_v1_MessagePolicy(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MessagePolicyList":             schema_storage_apis_obotobotai_v1_MessagePolicyList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MessagePolicySpec":             schema_storage_apis_obotobotai_v1_MessagePolicySpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.Model":                         schema_storage_apis_obotobotai_v1_Model(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ModelAccessPolicy":             schema_storage_apis_obotobotai_v1_ModelAccessPolicy(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ModelAccessPolicyList":         schema_storage_apis_obotobotai_v1_ModelAccessPolicyList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ModelAccessPolicySpec":         schema_storage_apis_obotobotai_v1_ModelAccessPolicySpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ModelList":                     schema_storage_apis_obotobotai_v1_ModelList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ModelSpec":                     schema_storage_apis_obotobotai_v1_ModelSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ModelStatus":                   schema_storage_apis_obotobotai_v1_ModelStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.NanobotAgent":                  schema_storage_apis_obotobotai_v1_NanobotAgent(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.NanobotAgentList":              schema_storage_apis_obotobotai_v1_NanobotAgentList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.NanobotAgentSpec":              schema_storage_apis_obotobotai_v1_NanobotAgentSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.NanobotAgentStatus":            schema_storage_apis_obotobotai_v1_NanobotAgentStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.NotificationConfig":            schema_storage_apis_obotobotai_v1_NotificationConfig(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthApp":                      schema_storage_apis_obotobotai_v1_OAuthApp(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthAppList":                  schema_storage_apis_obotobotai_v1_OAuthAppList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthAppLogin":                 schema_storage_apis_obotobotai_v1_OAuthAppLogin(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthAppLoginList":             schema_storage_apis_obotobotai_v1_OAuthAppLoginList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthAppLoginSpec":             schema_storage_apis_obotobotai_v1_OAuthAppLoginSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthAppLoginStatus":           schema_storage_apis_obotobotai_v1_OAuthAppLoginStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthAppSpec":                  schema_storage_apis_obotobotai_v1_OAuthAppSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthAuthRequest":              schema_storage_apis_obotobotai_v1_OAuthAuthRequest(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthAuthRequestList":          schema_storage_apis_obotobotai_v1_OAuthAuthRequestList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthAuthRequestSpec":          schema_storage_apis_obotobotai_v1_OAuthAuthRequestSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthAuthRequestStatus":        schema_storage_apis_obotobotai_v1_OAuthAuthRequestStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthClient":                   schema_storage_apis_obotobotai_v1_OAuthClient(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthClientList":               schema_storage_apis_obotobotai_v1_OAuthClientList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthClientSpec":               schema_storage_apis_obotobotai_v1_OAuthClientSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthClientStatus":             schema_storage_apis_obotobotai_v1_OAuthClientStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthToken":                    schema_storage_apis_obotobotai_v1_OAuthToken(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthTokenList":                schema_storage_apis_obotobotai_v1_OAuthTokenList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthTokenSpec":                schema_storage_apis_obotobotai_v1_OAuthTokenSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthTokenStatus":              schema_storage_apis_obotobotai_v1_OAuthTokenStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OktaGroupMigration":            schema_storage_apis_obotobotai_v1_OktaGroupMigration(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OktaGroupMigrationList":        schema_storage_apis_obotobotai_v1_OktaGroupMigrationList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OktaGroupMigrationSpec":        schema_storage_apis_obotobotai_v1_OktaGroupMigrationSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PodSecurityAdmissionSettings":  schema_storage_apis_obotobotai_v1_PodSecurityAdmissionSettings(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PowerUserWorkspace":            schema_storage_apis_obotobotai_v1_PowerUserWorkspace(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PowerUserWorkspaceList":        schema_storage_apis_obotobotai_v1_PowerUserWorkspaceList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PowerUserWorkspaceSpec":        schema_storage_apis_obotobotai_v1_PowerUserWorkspaceSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PowerUserWorkspaceStatus":      schema_storage_apis_obotobotai_v1_PowerUserWorkspaceStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectInvitation":             schema_storage_apis_obotobotai_v1_ProjectInvitation(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectInvitationList":         schema_storage_apis_obotobotai_v1_ProjectInvitationList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectInvitationSpec":         schema_storage_apis_obotobotai_v1_ProjectInvitationSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectInvitationStatus":       schema_storage_apis_obotobotai_v1_ProjectInvitationStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectMCPServer":              schema_storage_apis_obotobotai_v1_ProjectMCPServer(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectMCPServerList":          schema_storage_apis_obotobotai_v1_ProjectMCPServerList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectMCPServerSpec":          schema_storage_apis_obotobotai_v1_ProjectMCPServerSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectMCPServerStatus":        schema_storage_apis_obotobotai_v1_ProjectMCPServerStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectV2":                     schema_storage_apis_obotobotai_v1_ProjectV2(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectV2List":                 schema_storage_apis_obotobotai_v1_ProjectV2List(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectV2Spec":                 schema_storage_apis_obotobotai_v1_ProjectV2Spec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectV2Status":               schema_storage_apis_obotobotai_v1_ProjectV2Status(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PublishedArtifact":             schema_storage_apis_obotobotai_v1_PublishedArtifact(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PublishedArtifactList":         schema_storage_apis_obotobotai_v1_PublishedArtifactList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PublishedArtifactSpec":         schema_storage_apis_obotobotai_v1_PublishedArtifactSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PublishedArtifactStatus":       schema_storage_apis_obotobotai_v1_PublishedArtifactStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.Ref":                           schema_storage_apis_obotobotai_v1_Ref(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.Run":                           schema_storage_apis_obotobotai_v1_Run(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.RunList":                       schema_storage_apis_obotobotai_v1_RunList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.RunSpec":                       schema_storage_apis_obotobotai_v1_RunSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.RunState":                      schema_storage_apis_obotobotai_v1_RunState(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.RunStateList":                  schema_storage_apis_obotobotai_v1_RunStateList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.RunStateSpec":                  schema_storage_apis_obotobotai_v1_RunStateSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.RunStatus":                     schema_storage_apis_obotobotai_v1_RunStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.Schedule":                      schema_storage_apis_obotobotai_v1_Schedule(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ScheduledAuditLogExport":       schema_storage_apis_obotobotai_v1_ScheduledAuditLogExport(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ScheduledAuditLogExportList":   schema_storage_apis_obotobotai_v1_ScheduledAuditLogExportList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ScheduledAuditLogExportSpec":   schema_storage_apis_obotobotai_v1_ScheduledAuditLogExportSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ScheduledAuditLogExportStatus": schema_storage_apis_obotobotai_v1_ScheduledAuditLogExportStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.Skill":                         schema_storage_apis_obotobotai_v1_Skill(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SkillAccessRule":               schema_storage_apis_obotobotai_v1_SkillAccessRule(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SkillAccessRuleList":           schema_storage_apis_obotobotai_v1_SkillAccessRuleList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SkillAccessRuleSpec":           schema_storage_apis_obotobotai_v1_SkillAccessRuleSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SkillList":                     schema_storage_apis_obotobotai_v1_SkillList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SkillRepository":               schema_storage_apis_obotobotai_v1_SkillRepository(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SkillRepositoryList":           schema_storage_apis_obotobotai_v1_SkillRepositoryList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SkillRepositorySpec":           schema_storage_apis_obotobotai_v1_SkillRepositorySpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SkillRepositoryStatus":         schema_storage_apis_obotobotai_v1_SkillRepositoryStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SkillSpec":                     schema_storage_apis_obotobotai_v1_SkillSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SkillStatus":                   schema_storage_apis_obotobotai_v1_SkillStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SystemMCPServer":               schema_storage_apis_obotobotai_v1_SystemMCPServer(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SystemMCPServerList":           schema_storage_apis_obotobotai_v1_SystemMCPServerList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SystemMCPServerSpec":           schema_storage_apis_obotobotai_v1_SystemMCPServerSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SystemMCPServerStatus":         schema_storage_apis_obotobotai_v1_SystemMCPServerStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.Thread":                        schema_storage_apis_obotobotai_v1_Thread(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThreadAuthorization":           schema_storage_apis_obotobotai_v1_ThreadAuthorization(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThreadAuthorizationList":       schema_storage_apis_obotobotai_v1_ThreadAuthorizationList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThreadAuthorizationSpec":       schema_storage_apis_obotobotai_v1_ThreadAuthorizationSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThreadAuthorizationStatus":     schema_storage_apis_obotobotai_v1_ThreadAuthorizationStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThreadCapabilities":            schema_storage_apis_obotobotai_v1_ThreadCapabilities(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThreadList":                    schema_storage_apis_obotobotai_v1_ThreadList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThreadShare":                   schema_storage_apis_obotobotai_v1_ThreadShare(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThreadShareList":               schema_storage_apis_obotobotai_v1_ThreadShareList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThreadShareSpec":               schema_storage_apis_obotobotai_v1_ThreadShareSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThreadShareStatus":             schema_storage_apis_obotobotai_v1_ThreadShareStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThreadSpec":                    schema_storage_apis_obotobotai_v1_ThreadSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThreadStatus":                  schema_storage_apis_obotobotai_v1_ThreadStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.Tool":                          schema_storage_apis_obotobotai_v1_Tool(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ToolList":                      schema_storage_apis_obotobotai_v1_ToolList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ToolReference":                 schema_storage_apis_obotobotai_v1_ToolReference(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ToolReferenceList":             schema_storage_apis_obotobotai_v1_ToolReferenceList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ToolReferenceSpec":             schema_storage_apis_obotobotai_v1_ToolReferenceSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ToolReferenceStatus":           schema_storage_apis_obotobotai_v1_ToolReferenceStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ToolShortDescription":          schema_storage_apis_obotobotai_v1_ToolShortDescription(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ToolSpec":                      schema_storage_apis_obotobotai_v1_ToolSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ToolStatus":                    schema_storage_apis_obotobotai_v1_ToolStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserDefaultRoleSetting":        schema_storage_apis_obotobotai_v1_UserDefaultRoleSetting(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserDefaultRoleSettingList":    schema_storage_apis_obotobotai_v1_UserDefaultRoleSettingList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserDefaultRoleSettingSpec":    schema_storage_apis_obotobotai_v1_UserDefaultRoleSettingSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserDelete":                    schema_storage_apis_obotobotai_v1_UserDelete(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserDeleteList":                schema_storage_apis_obotobotai_v1_UserDeleteList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserDeleteSpec":                schema_storage_apis_obotobotai_v1_UserDeleteSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserGroupChange":               schema_storage_apis_obotobotai_v1_UserGroupChange(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserGroupChangeList":           schema_storage_apis_obotobotai_v1_UserGroupChangeList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserGroupChangeSpec":           schema_storage_apis_obotobotai_v1_UserGroupChangeSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserRoleChange":                schema_storage_apis_obotobotai_v1_UserRoleChange(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserRoleChangeList":            schema_storage_apis_obotobotai_v1_UserRoleChangeList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserRoleChangeSpec":            schema_storage_apis_obotobotai_v1_UserRoleChangeSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.Workflow":                      schema_storage_apis_obotobotai_v1_Workflow(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.WorkflowExecution":             schema_storage_apis_obotobotai_v1_WorkflowExecution(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.WorkflowExecutionList":         schema_storage_apis_obotobotai_v1_WorkflowExecutionList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.WorkflowExecutionSpec":         schema_storage_apis_obotobotai_v1_WorkflowExecutionSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.WorkflowExecutionStatus":       schema_storage_apis_obotobotai_v1_WorkflowExecutionStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.WorkflowList":                  schema_storage_apis_obotobotai_v1_WorkflowList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.WorkflowSpec":                  schema_storage_apis_obotobotai_v1_WorkflowSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.WorkflowStatus":                schema_storage_apis_obotobotai_v1_WorkflowStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.WorkflowStep":                  schema_storage_apis_obotobotai_v1_WorkflowStep(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.WorkflowStepList":              schema_storage_apis_obotobotai_v1_WorkflowStepList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.WorkflowStepSpec":              schema_storage_apis_obotobotai_v1_WorkflowStepSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.WorkflowStepStatus":            schema_storage_apis_obotobotai_v1_WorkflowStepStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.Workspace":                     schema_storage_apis_obotobotai_v1_Workspace(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.WorkspaceList":                 schema_storage_apis_obotobotai_v1_WorkspaceList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.WorkspaceSpec":                 schema_storage_apis_obotobotai_v1_WorkspaceSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.WorkspaceStatus":               schema_storage_apis_obotobotai_v1_WorkspaceStatus(ref),
-		"k8s.io/api/coordination/v1.Lease":                                                             schema_k8sio_api_coordination_v1_Lease(ref),
-		"k8s.io/api/coordination/v1.LeaseList":                                                         schema_k8sio_api_coordination_v1_LeaseList(ref),
-		"k8s.io/api/coordination/v1.LeaseSpec":                                                         schema_k8sio_api_coordination_v1_LeaseSpec(ref),
-		"k8s.io/apimachinery/pkg/api/resource.Quantity":                                                schema_apimachinery_pkg_api_resource_Quantity(ref),
-		"k8s.io/apimachinery/pkg/api/resource.int64Amount":                                             schema_apimachinery_pkg_api_resource_int64Amount(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroup":                                                schema_pkg_apis_meta_v1_APIGroup(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroupList":                                            schema_pkg_apis_meta_v1_APIGroupList(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.APIResource":                                             schema_pkg_apis_meta_v1_APIResource(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.APIResourceList":                                         schema_pkg_apis_meta_v1_APIResourceList(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.APIVersions":                                             schema_pkg_apis_meta_v1_APIVersions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.ApplyOptions":                                            schema_pkg_apis_meta_v1_ApplyOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Condition":                                               schema_pkg_apis_meta_v1_Condition(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.CreateOptions":                                           schema_pkg_apis_meta_v1_CreateOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.DeleteOptions":                                           schema_pkg_apis_meta_v1_DeleteOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Duration":                                                schema_pkg_apis_meta_v1_Duration(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.FieldSelectorRequirement":                                schema_pkg_apis_meta_v1_FieldSelectorRequirement(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.FieldsV1":                                                schema_pkg_apis_meta_v1_FieldsV1(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GetOptions":                                              schema_pkg_apis_meta_v1_GetOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupKind":                                               schema_pkg_apis_meta_v1_GroupKind(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupResource":                                           schema_pkg_apis_meta_v1_GroupResource(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersion":                                            schema_pkg_apis_meta_v1_GroupVersion(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersionForDiscovery":                                schema_pkg_apis_meta_v1_GroupVersionForDiscovery(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersionKind":                                        schema_pkg_apis_meta_v1_GroupVersionKind(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersionResource":                                    schema_pkg_apis_meta_v1_GroupVersionResource(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.InternalEvent":                                           schema_pkg_apis_meta_v1_InternalEvent(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector":                                           schema_pkg_apis_meta_v1_LabelSelector(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelectorRequirement":                                schema_pkg_apis_meta_v1_LabelSelectorRequirement(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.List":                                                    schema_pkg_apis_meta_v1_List(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta":                                                schema_pkg_apis_meta_v1_ListMeta(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.ListOptions":                                             schema_pkg_apis_meta_v1_ListOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.ManagedFieldsEntry":                                      schema_pkg_apis_meta_v1_ManagedFieldsEntry(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.MicroTime":                                               schema_pkg_apis_meta_v1_MicroTime(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta":                                              schema_pkg_apis_meta_v1_ObjectMeta(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.OwnerReference":                                          schema_pkg_apis_meta_v1_OwnerReference(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.PartialObjectMetadata":                                   schema_pkg_apis_meta_v1_PartialObjectMetadata(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.PartialObjectMetadataList":                               schema_pkg_apis_meta_v1_PartialObjectMetadataList(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Patch":                                                   schema_pkg_apis_meta_v1_Patch(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.PatchOptions":                                            schema_pkg_apis_meta_v1_PatchOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Preconditions":                                           schema_pkg_apis_meta_v1_Preconditions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.RootPaths":                                               schema_pkg_apis_meta_v1_RootPaths(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.ServerAddressByClientCIDR":                               schema_pkg_apis_meta_v1_ServerAddressByClientCIDR(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Status":                                                  schema_pkg_apis_meta_v1_Status(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.StatusCause":                                             schema_pkg_apis_meta_v1_StatusCause(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.StatusDetails":                                           schema_pkg_apis_meta_v1_StatusDetails(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Table":                                                   schema_pkg_apis_meta_v1_Table(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.TableColumnDefinition":                                   schema_pkg_apis_meta_v1_TableColumnDefinition(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.TableOptions":                                            schema_pkg_apis_meta_v1_TableOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.TableRow":                                                schema_pkg_apis_meta_v1_TableRow(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.TableRowCondition":                                       schema_pkg_apis_meta_v1_TableRowCondition(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Time":                                                    schema_pkg_apis_meta_v1_Time(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Timestamp":                                               schema_pkg_apis_meta_v1_Timestamp(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.TypeMeta":                                                schema_pkg_apis_meta_v1_TypeMeta(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.UpdateOptions":                                           schema_pkg_apis_meta_v1_UpdateOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.WatchEvent":                                              schema_pkg_apis_meta_v1_WatchEvent(ref),
-		"k8s.io/apimachinery/pkg/runtime.RawExtension":                                                 schema_k8sio_apimachinery_pkg_runtime_RawExtension(ref),
-		"k8s.io/apimachinery/pkg/runtime.TypeMeta":                                                     schema_k8sio_apimachinery_pkg_runtime_TypeMeta(ref),
-		"k8s.io/apimachinery/pkg/runtime.Unknown":                                                      schema_k8sio_apimachinery_pkg_runtime_Unknown(ref),
-		"k8s.io/apimachinery/pkg/util/intstr.IntOrString":                                              schema_apimachinery_pkg_util_intstr_IntOrString(ref),
-		"k8s.io/apimachinery/pkg/version.Info":                                                         schema_k8sio_apimachinery_pkg_version_Info(ref),
+		"github.com/obot-platform/obot/apiclient/types.APIActivity":                                        schema_obot_platform_obot_apiclient_types_APIActivity(ref),
+		"github.com/obot-platform/obot/apiclient/types.APIActivityList":                                    schema_obot_platform_obot_apiclient_types_APIActivityList(ref),
+		"github.com/obot-platform/obot/apiclient/types.AccessControlRule":                                  schema_obot_platform_obot_apiclient_types_AccessControlRule(ref),
+		"github.com/obot-platform/obot/apiclient/types.AccessControlRuleList":                              schema_obot_platform_obot_apiclient_types_AccessControlRuleList(ref),
+		"github.com/obot-platform/obot/apiclient/types.AccessControlRuleManifest":                          schema_obot_platform_obot_apiclient_types_AccessControlRuleManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.Agent":                                              schema_obot_platform_obot_apiclient_types_Agent(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentIcons":                                         schema_obot_platform_obot_apiclient_types_AgentIcons(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentList":                                          schema_obot_platform_obot_apiclient_types_AgentList(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentManifest":                                      schema_obot_platform_obot_apiclient_types_AgentManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.AppPreferences":                                     schema_obot_platform_obot_apiclient_types_AppPreferences(ref),
+		"github.com/obot-platform/obot/apiclient/types.Assistant":                                          schema_obot_platform_obot_apiclient_types_Assistant(ref),
+		"github.com/obot-platform/obot/apiclient/types.AssistantList":                                      schema_obot_platform_obot_apiclient_types_AssistantList(ref),
+		"github.com/obot-platform/obot/apiclient/types.AssistantTool":                                      schema_obot_platform_obot_apiclient_types_AssistantTool(ref),
+		"github.com/obot-platform/obot/apiclient/types.AssistantToolList":                                  schema_obot_platform_obot_apiclient_types_AssistantToolList(ref),
+		"github.com/obot-platform/obot/apiclient/types.AuditLogExportCreateRequest":                        schema_obot_platform_obot_apiclient_types_AuditLogExportCreateRequest(ref),
+		"github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters":                              schema_obot_platform_obot_apiclient_types_AuditLogExportFilters(ref),
+		"github.com/obot-platform/obot/apiclient/types.AuditLogExportListResponse":                         schema_obot_platform_obot_apiclient_types_AuditLogExportListResponse(ref),
+		"github.com/obot-platform/obot/apiclient/types.AuditLogExportResponse":                             schema_obot_platform_obot_apiclient_types_AuditLogExportResponse(ref),
+		"github.com/obot-platform/obot/apiclient/types.AuthProvider":                                       schema_obot_platform_obot_apiclient_types_AuthProvider(ref),
+		"github.com/obot-platform/obot/apiclient/types.AuthProviderList":                                   schema_obot_platform_obot_apiclient_types_AuthProviderList(ref),
+		"github.com/obot-platform/obot/apiclient/types.AuthProviderManifest":                               schema_obot_platform_obot_apiclient_types_AuthProviderManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.AuthProviderStatus":                                 schema_obot_platform_obot_apiclient_types_AuthProviderStatus(ref),
+		"github.com/obot-platform/obot/apiclient/types.AzureConfig":                                        schema_obot_platform_obot_apiclient_types_AzureConfig(ref),
+		"github.com/obot-platform/obot/apiclient/types.CatalogComponentServer":                             schema_obot_platform_obot_apiclient_types_CatalogComponentServer(ref),
+		"github.com/obot-platform/obot/apiclient/types.ClientInfo":                                         schema_obot_platform_obot_apiclient_types_ClientInfo(ref),
+		"github.com/obot-platform/obot/apiclient/types.CommonProviderMetadata":                             schema_obot_platform_obot_apiclient_types_CommonProviderMetadata(ref),
+		"github.com/obot-platform/obot/apiclient/types.CommonProviderStatus":                               schema_obot_platform_obot_apiclient_types_CommonProviderStatus(ref),
+		"github.com/obot-platform/obot/apiclient/types.ComponentServer":                                    schema_obot_platform_obot_apiclient_types_ComponentServer(ref),
+		"github.com/obot-platform/obot/apiclient/types.CompositeCatalogConfig":                             schema_obot_platform_obot_apiclient_types_CompositeCatalogConfig(ref),
+		"github.com/obot-platform/obot/apiclient/types.CompositeRuntimeConfig":                             schema_obot_platform_obot_apiclient_types_CompositeRuntimeConfig(ref),
+		"github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig":                         schema_obot_platform_obot_apiclient_types_ContainerizedRuntimeConfig(ref),
+		"github.com/obot-platform/obot/apiclient/types.Credential":                                         schema_obot_platform_obot_apiclient_types_Credential(ref),
+		"github.com/obot-platform/obot/apiclient/types.CredentialList":                                     schema_obot_platform_obot_apiclient_types_CredentialList(ref),
+		"github.com/obot-platform/obot/apiclient/types.CronJob":                                            schema_obot_platform_obot_apiclient_types_CronJob(ref),
+		"github.com/obot-platform/obot/apiclient/types.CronJobList":                                        schema_obot_platform_obot_apiclient_types_CronJobList(ref),
+		"github.com/obot-platform/obot/apiclient/types.CronJobManifest":                                    schema_obot_platform_obot_apiclient_types_CronJobManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.CustomS3Config":                                     schema_obot_platform_obot_apiclient_types_CustomS3Config(ref),
+		"github.com/obot-platform/obot/apiclient/types.DefaultModelAlias":                                  schema_obot_platform_obot_apiclient_types_DefaultModelAlias(ref),
+		"github.com/obot-platform/obot/apiclient/types.DefaultModelAliasList":                              schema_obot_platform_obot_apiclient_types_DefaultModelAliasList(ref),
+		"github.com/obot-platform/obot/apiclient/types.DefaultModelAliasManifest":                          schema_obot_platform_obot_apiclient_types_DefaultModelAliasManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeploymentCondition":                                schema_obot_platform_obot_apiclient_types_DeploymentCondition(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceClientFleetSkill":                             schema_obot_platform_obot_apiclient_types_DeviceClientFleetSkill(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceClientFleetSummary":                           schema_obot_platform_obot_apiclient_types_DeviceClientFleetSummary(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceClientFleetSummaryList":                       schema_obot_platform_obot_apiclient_types_DeviceClientFleetSummaryList(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceClientFleetSummaryResponse":                   schema_obot_platform_obot_apiclient_types_DeviceClientFleetSummaryResponse(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceClientStat":                                   schema_obot_platform_obot_apiclient_types_DeviceClientStat(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceMCPServerDetail":                              schema_obot_platform_obot_apiclient_types_DeviceMCPServerDetail(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceMCPServerOccurrence":                          schema_obot_platform_obot_apiclient_types_DeviceMCPServerOccurrence(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceMCPServerOccurrenceList":                      schema_obot_platform_obot_apiclient_types_DeviceMCPServerOccurrenceList(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceMCPServerOccurrenceResponse":                  schema_obot_platform_obot_apiclient_types_DeviceMCPServerOccurrenceResponse(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceMCPServerStat":                                schema_obot_platform_obot_apiclient_types_DeviceMCPServerStat(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceScan":                                         schema_obot_platform_obot_apiclient_types_DeviceScan(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceScanClient":                                   schema_obot_platform_obot_apiclient_types_DeviceScanClient(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceScanFile":                                     schema_obot_platform_obot_apiclient_types_DeviceScanFile(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceScanList":                                     schema_obot_platform_obot_apiclient_types_DeviceScanList(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceScanMCPServer":                                schema_obot_platform_obot_apiclient_types_DeviceScanMCPServer(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceScanManifest":                                 schema_obot_platform_obot_apiclient_types_DeviceScanManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceScanPlugin":                                   schema_obot_platform_obot_apiclient_types_DeviceScanPlugin(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceScanResponse":                                 schema_obot_platform_obot_apiclient_types_DeviceScanResponse(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceScanSkill":                                    schema_obot_platform_obot_apiclient_types_DeviceScanSkill(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceScanStats":                                    schema_obot_platform_obot_apiclient_types_DeviceScanStats(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceSkillDetail":                                  schema_obot_platform_obot_apiclient_types_DeviceSkillDetail(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceSkillOccurrence":                              schema_obot_platform_obot_apiclient_types_DeviceSkillOccurrence(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceSkillOccurrenceList":                          schema_obot_platform_obot_apiclient_types_DeviceSkillOccurrenceList(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceSkillOccurrenceResponse":                      schema_obot_platform_obot_apiclient_types_DeviceSkillOccurrenceResponse(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceSkillStat":                                    schema_obot_platform_obot_apiclient_types_DeviceSkillStat(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceSkillStatList":                                schema_obot_platform_obot_apiclient_types_DeviceSkillStatList(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceSkillStatResponse":                            schema_obot_platform_obot_apiclient_types_DeviceSkillStatResponse(ref),
+		"github.com/obot-platform/obot/apiclient/types.EmailReceiver":                                      schema_obot_platform_obot_apiclient_types_EmailReceiver(ref),
+		"github.com/obot-platform/obot/apiclient/types.EmailReceiverList":                                  schema_obot_platform_obot_apiclient_types_EmailReceiverList(ref),
+		"github.com/obot-platform/obot/apiclient/types.EmailReceiverManifest":                              schema_obot_platform_obot_apiclient_types_EmailReceiverManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.EnvVar":                                             schema_obot_platform_obot_apiclient_types_EnvVar(ref),
+		"github.com/obot-platform/obot/apiclient/types.ErrHTTP":                                            schema_obot_platform_obot_apiclient_types_ErrHTTP(ref),
+		"github.com/obot-platform/obot/apiclient/types.EulaStatus":                                         schema_obot_platform_obot_apiclient_types_EulaStatus(ref),
+		"github.com/obot-platform/obot/apiclient/types.Field":                                              schema_obot_platform_obot_apiclient_types_Field(ref),
+		"github.com/obot-platform/obot/apiclient/types.File":                                               schema_obot_platform_obot_apiclient_types_File(ref),
+		"github.com/obot-platform/obot/apiclient/types.FileList":                                           schema_obot_platform_obot_apiclient_types_FileList(ref),
+		"github.com/obot-platform/obot/apiclient/types.FileScannerProvider":                                schema_obot_platform_obot_apiclient_types_FileScannerProvider(ref),
+		"github.com/obot-platform/obot/apiclient/types.FileScannerProviderList":                            schema_obot_platform_obot_apiclient_types_FileScannerProviderList(ref),
+		"github.com/obot-platform/obot/apiclient/types.FileScannerProviderManifest":                        schema_obot_platform_obot_apiclient_types_FileScannerProviderManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.FileScannerProviderStatus":                          schema_obot_platform_obot_apiclient_types_FileScannerProviderStatus(ref),
+		"github.com/obot-platform/obot/apiclient/types.FilterConfig":                                       schema_obot_platform_obot_apiclient_types_FilterConfig(ref),
+		"github.com/obot-platform/obot/apiclient/types.GCSConfig":                                          schema_obot_platform_obot_apiclient_types_GCSConfig(ref),
+		"github.com/obot-platform/obot/apiclient/types.GroupRoleAssignment":                                schema_obot_platform_obot_apiclient_types_GroupRoleAssignment(ref),
+		"github.com/obot-platform/obot/apiclient/types.GroupRoleAssignmentList":                            schema_obot_platform_obot_apiclient_types_GroupRoleAssignmentList(ref),
+		"github.com/obot-platform/obot/apiclient/types.Item":                                               schema_obot_platform_obot_apiclient_types_Item(ref),
+		"github.com/obot-platform/obot/apiclient/types.K8sSettings":                                        schema_obot_platform_obot_apiclient_types_K8sSettings(ref),
+		"github.com/obot-platform/obot/apiclient/types.K8sSettingsStatus":                                  schema_obot_platform_obot_apiclient_types_K8sSettingsStatus(ref),
+		"github.com/obot-platform/obot/apiclient/types.KnowledgeFile":                                      schema_obot_platform_obot_apiclient_types_KnowledgeFile(ref),
+		"github.com/obot-platform/obot/apiclient/types.KnowledgeFileList":                                  schema_obot_platform_obot_apiclient_types_KnowledgeFileList(ref),
+		"github.com/obot-platform/obot/apiclient/types.KnowledgeSource":                                    schema_obot_platform_obot_apiclient_types_KnowledgeSource(ref),
+		"github.com/obot-platform/obot/apiclient/types.KnowledgeSourceInput":                               schema_obot_platform_obot_apiclient_types_KnowledgeSourceInput(ref),
+		"github.com/obot-platform/obot/apiclient/types.KnowledgeSourceList":                                schema_obot_platform_obot_apiclient_types_KnowledgeSourceList(ref),
+		"github.com/obot-platform/obot/apiclient/types.KnowledgeSourceManifest":                            schema_obot_platform_obot_apiclient_types_KnowledgeSourceManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.LogoPreferences":                                    schema_obot_platform_obot_apiclient_types_LogoPreferences(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPAuditLog":                                        schema_obot_platform_obot_apiclient_types_MCPAuditLog(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPAuditLogList":                                    schema_obot_platform_obot_apiclient_types_MCPAuditLogList(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPAuditLogResponse":                                schema_obot_platform_obot_apiclient_types_MCPAuditLogResponse(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPCapacityInfo":                                    schema_obot_platform_obot_apiclient_types_MCPCapacityInfo(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPCatalog":                                         schema_obot_platform_obot_apiclient_types_MCPCatalog(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPCatalogList":                                     schema_obot_platform_obot_apiclient_types_MCPCatalogList(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPCatalogManifest":                                 schema_obot_platform_obot_apiclient_types_MCPCatalogManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPEnv":                                             schema_obot_platform_obot_apiclient_types_MCPEnv(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPHeader":                                          schema_obot_platform_obot_apiclient_types_MCPHeader(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPPromptReadStats":                                 schema_obot_platform_obot_apiclient_types_MCPPromptReadStats(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPResourceReadStats":                               schema_obot_platform_obot_apiclient_types_MCPResourceReadStats(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPResourceRequests":                                schema_obot_platform_obot_apiclient_types_MCPResourceRequests(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPSecretBinding":                                   schema_obot_platform_obot_apiclient_types_MCPSecretBinding(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPSelector":                                        schema_obot_platform_obot_apiclient_types_MCPSelector(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPServer":                                          schema_obot_platform_obot_apiclient_types_MCPServer(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntry":                              schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntry(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntryList":                          schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryList(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntryManifest":                      schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPServerDetails":                                   schema_obot_platform_obot_apiclient_types_MCPServerDetails(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPServerEvent":                                     schema_obot_platform_obot_apiclient_types_MCPServerEvent(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPServerInstance":                                  schema_obot_platform_obot_apiclient_types_MCPServerInstance(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPServerInstanceList":                              schema_obot_platform_obot_apiclient_types_MCPServerInstanceList(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPServerList":                                      schema_obot_platform_obot_apiclient_types_MCPServerList(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPServerManifest":                                  schema_obot_platform_obot_apiclient_types_MCPServerManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPServerNeedingK8sUpdate":                          schema_obot_platform_obot_apiclient_types_MCPServerNeedingK8sUpdate(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPServerOAuthCredentialRequest":                    schema_obot_platform_obot_apiclient_types_MCPServerOAuthCredentialRequest(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPServerOAuthCredentialStatus":                     schema_obot_platform_obot_apiclient_types_MCPServerOAuthCredentialStatus(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPServerTool":                                      schema_obot_platform_obot_apiclient_types_MCPServerTool(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPServersNeedingK8sUpdateList":                     schema_obot_platform_obot_apiclient_types_MCPServersNeedingK8sUpdateList(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPToolCallStats":                                   schema_obot_platform_obot_apiclient_types_MCPToolCallStats(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPToolCallStatsItem":                               schema_obot_platform_obot_apiclient_types_MCPToolCallStatsItem(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPUsageStatItem":                                   schema_obot_platform_obot_apiclient_types_MCPUsageStatItem(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPUsageStats":                                      schema_obot_platform_obot_apiclient_types_MCPUsageStats(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPUsageStatsList":                                  schema_obot_platform_obot_apiclient_types_MCPUsageStatsList(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPWebhookValidation":                               schema_obot_platform_obot_apiclient_types_MCPWebhookValidation(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPWebhookValidationList":                           schema_obot_platform_obot_apiclient_types_MCPWebhookValidationList(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPWebhookValidationManifest":                       schema_obot_platform_obot_apiclient_types_MCPWebhookValidationManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.Memory":                                             schema_obot_platform_obot_apiclient_types_Memory(ref),
+		"github.com/obot-platform/obot/apiclient/types.MemoryList":                                         schema_obot_platform_obot_apiclient_types_MemoryList(ref),
+		"github.com/obot-platform/obot/apiclient/types.MessagePolicy":                                      schema_obot_platform_obot_apiclient_types_MessagePolicy(ref),
+		"github.com/obot-platform/obot/apiclient/types.MessagePolicyList":                                  schema_obot_platform_obot_apiclient_types_MessagePolicyList(ref),
+		"github.com/obot-platform/obot/apiclient/types.MessagePolicyManifest":                              schema_obot_platform_obot_apiclient_types_MessagePolicyManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.MessagePolicyViolation":                             schema_obot_platform_obot_apiclient_types_MessagePolicyViolation(ref),
+		"github.com/obot-platform/obot/apiclient/types.MessagePolicyViolationDirectionCounts":              schema_obot_platform_obot_apiclient_types_MessagePolicyViolationDirectionCounts(ref),
+		"github.com/obot-platform/obot/apiclient/types.MessagePolicyViolationList":                         schema_obot_platform_obot_apiclient_types_MessagePolicyViolationList(ref),
+		"github.com/obot-platform/obot/apiclient/types.MessagePolicyViolationPolicyCount":                  schema_obot_platform_obot_apiclient_types_MessagePolicyViolationPolicyCount(ref),
+		"github.com/obot-platform/obot/apiclient/types.MessagePolicyViolationResponse":                     schema_obot_platform_obot_apiclient_types_MessagePolicyViolationResponse(ref),
+		"github.com/obot-platform/obot/apiclient/types.MessagePolicyViolationStats":                        schema_obot_platform_obot_apiclient_types_MessagePolicyViolationStats(ref),
+		"github.com/obot-platform/obot/apiclient/types.MessagePolicyViolationTimeBucket":                   schema_obot_platform_obot_apiclient_types_MessagePolicyViolationTimeBucket(ref),
+		"github.com/obot-platform/obot/apiclient/types.MessagePolicyViolationUserCount":                    schema_obot_platform_obot_apiclient_types_MessagePolicyViolationUserCount(ref),
+		"github.com/obot-platform/obot/apiclient/types.Metadata":                                           schema_obot_platform_obot_apiclient_types_Metadata(ref),
+		"github.com/obot-platform/obot/apiclient/types.Model":                                              schema_obot_platform_obot_apiclient_types_Model(ref),
+		"github.com/obot-platform/obot/apiclient/types.ModelAccessPolicy":                                  schema_obot_platform_obot_apiclient_types_ModelAccessPolicy(ref),
+		"github.com/obot-platform/obot/apiclient/types.ModelAccessPolicyList":                              schema_obot_platform_obot_apiclient_types_ModelAccessPolicyList(ref),
+		"github.com/obot-platform/obot/apiclient/types.ModelAccessPolicyManifest":                          schema_obot_platform_obot_apiclient_types_ModelAccessPolicyManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.ModelList":                                          schema_obot_platform_obot_apiclient_types_ModelList(ref),
+		"github.com/obot-platform/obot/apiclient/types.ModelManifest":                                      schema_obot_platform_obot_apiclient_types_ModelManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.ModelProvider":                                      schema_obot_platform_obot_apiclient_types_ModelProvider(ref),
+		"github.com/obot-platform/obot/apiclient/types.ModelProviderList":                                  schema_obot_platform_obot_apiclient_types_ModelProviderList(ref),
+		"github.com/obot-platform/obot/apiclient/types.ModelProviderManifest":                              schema_obot_platform_obot_apiclient_types_ModelProviderManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.ModelProviderStatus":                                schema_obot_platform_obot_apiclient_types_ModelProviderStatus(ref),
+		"github.com/obot-platform/obot/apiclient/types.ModelResource":                                      schema_obot_platform_obot_apiclient_types_ModelResource(ref),
+		"github.com/obot-platform/obot/apiclient/types.ModelStatus":                                        schema_obot_platform_obot_apiclient_types_ModelStatus(ref),
+		"github.com/obot-platform/obot/apiclient/types.MultiUserConfig":                                    schema_obot_platform_obot_apiclient_types_MultiUserConfig(ref),
+		"github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig":                                   schema_obot_platform_obot_apiclient_types_NPXRuntimeConfig(ref),
+		"github.com/obot-platform/obot/apiclient/types.NanobotAgent":                                       schema_obot_platform_obot_apiclient_types_NanobotAgent(ref),
+		"github.com/obot-platform/obot/apiclient/types.NanobotAgentList":                                   schema_obot_platform_obot_apiclient_types_NanobotAgentList(ref),
+		"github.com/obot-platform/obot/apiclient/types.NanobotAgentManifest":                               schema_obot_platform_obot_apiclient_types_NanobotAgentManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.NotionConfig":                                       schema_obot_platform_obot_apiclient_types_NotionConfig(ref),
+		"github.com/obot-platform/obot/apiclient/types.OAuthApp":                                           schema_obot_platform_obot_apiclient_types_OAuthApp(ref),
+		"github.com/obot-platform/obot/apiclient/types.OAuthAppList":                                       schema_obot_platform_obot_apiclient_types_OAuthAppList(ref),
+		"github.com/obot-platform/obot/apiclient/types.OAuthAppLoginAuthStatus":                            schema_obot_platform_obot_apiclient_types_OAuthAppLoginAuthStatus(ref),
+		"github.com/obot-platform/obot/apiclient/types.OAuthAppManifest":                                   schema_obot_platform_obot_apiclient_types_OAuthAppManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.OAuthClient":                                        schema_obot_platform_obot_apiclient_types_OAuthClient(ref),
+		"github.com/obot-platform/obot/apiclient/types.OAuthClientList":                                    schema_obot_platform_obot_apiclient_types_OAuthClientList(ref),
+		"github.com/obot-platform/obot/apiclient/types.OAuthClientManifest":                                schema_obot_platform_obot_apiclient_types_OAuthClientManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.OAuthMetadata":                                      schema_obot_platform_obot_apiclient_types_OAuthMetadata(ref),
+		"github.com/obot-platform/obot/apiclient/types.OAuthToken":                                         schema_obot_platform_obot_apiclient_types_OAuthToken(ref),
+		"github.com/obot-platform/obot/apiclient/types.OnEmail":                                            schema_obot_platform_obot_apiclient_types_OnEmail(ref),
+		"github.com/obot-platform/obot/apiclient/types.OnWebhook":                                          schema_obot_platform_obot_apiclient_types_OnWebhook(ref),
+		"github.com/obot-platform/obot/apiclient/types.OneDriveConfig":                                     schema_obot_platform_obot_apiclient_types_OneDriveConfig(ref),
+		"github.com/obot-platform/obot/apiclient/types.PodSecurityAdmissionSettings":                       schema_obot_platform_obot_apiclient_types_PodSecurityAdmissionSettings(ref),
+		"github.com/obot-platform/obot/apiclient/types.PowerUserWorkspace":                                 schema_obot_platform_obot_apiclient_types_PowerUserWorkspace(ref),
+		"github.com/obot-platform/obot/apiclient/types.PowerUserWorkspaceList":                             schema_obot_platform_obot_apiclient_types_PowerUserWorkspaceList(ref),
+		"github.com/obot-platform/obot/apiclient/types.Progress":                                           schema_obot_platform_obot_apiclient_types_Progress(ref),
+		"github.com/obot-platform/obot/apiclient/types.Project":                                            schema_obot_platform_obot_apiclient_types_Project(ref),
+		"github.com/obot-platform/obot/apiclient/types.ProjectCapabilities":                                schema_obot_platform_obot_apiclient_types_ProjectCapabilities(ref),
+		"github.com/obot-platform/obot/apiclient/types.ProjectCredential":                                  schema_obot_platform_obot_apiclient_types_ProjectCredential(ref),
+		"github.com/obot-platform/obot/apiclient/types.ProjectCredentialList":                              schema_obot_platform_obot_apiclient_types_ProjectCredentialList(ref),
+		"github.com/obot-platform/obot/apiclient/types.ProjectInvitationManifest":                          schema_obot_platform_obot_apiclient_types_ProjectInvitationManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.ProjectList":                                        schema_obot_platform_obot_apiclient_types_ProjectList(ref),
+		"github.com/obot-platform/obot/apiclient/types.ProjectMCPServer":                                   schema_obot_platform_obot_apiclient_types_ProjectMCPServer(ref),
+		"github.com/obot-platform/obot/apiclient/types.ProjectMCPServerList":                               schema_obot_platform_obot_apiclient_types_ProjectMCPServerList(ref),
+		"github.com/obot-platform/obot/apiclient/types.ProjectMCPServerManifest":                           schema_obot_platform_obot_apiclient_types_ProjectMCPServerManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.ProjectManifest":                                    schema_obot_platform_obot_apiclient_types_ProjectManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.ProjectMember":                                      schema_obot_platform_obot_apiclient_types_ProjectMember(ref),
+		"github.com/obot-platform/obot/apiclient/types.ProjectShare":                                       schema_obot_platform_obot_apiclient_types_ProjectShare(ref),
+		"github.com/obot-platform/obot/apiclient/types.ProjectShareList":                                   schema_obot_platform_obot_apiclient_types_ProjectShareList(ref),
+		"github.com/obot-platform/obot/apiclient/types.ProjectShareManifest":                               schema_obot_platform_obot_apiclient_types_ProjectShareManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.ProjectTemplate":                                    schema_obot_platform_obot_apiclient_types_ProjectTemplate(ref),
+		"github.com/obot-platform/obot/apiclient/types.ProjectTemplateList":                                schema_obot_platform_obot_apiclient_types_ProjectTemplateList(ref),
+		"github.com/obot-platform/obot/apiclient/types.ProjectV2":                                          schema_obot_platform_obot_apiclient_types_ProjectV2(ref),
+		"github.com/obot-platform/obot/apiclient/types.ProjectV2List":                                      schema_obot_platform_obot_apiclient_types_ProjectV2List(ref),
+		"github.com/obot-platform/obot/apiclient/types.ProjectV2Manifest":                                  schema_obot_platform_obot_apiclient_types_ProjectV2Manifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.Prompt":                                             schema_obot_platform_obot_apiclient_types_Prompt(ref),
+		"github.com/obot-platform/obot/apiclient/types.PromptResponse":                                     schema_obot_platform_obot_apiclient_types_PromptResponse(ref),
+		"github.com/obot-platform/obot/apiclient/types.ProviderConfigurationParameter":                     schema_obot_platform_obot_apiclient_types_ProviderConfigurationParameter(ref),
+		"github.com/obot-platform/obot/apiclient/types.PublishedArtifact":                                  schema_obot_platform_obot_apiclient_types_PublishedArtifact(ref),
+		"github.com/obot-platform/obot/apiclient/types.PublishedArtifactList":                              schema_obot_platform_obot_apiclient_types_PublishedArtifactList(ref),
+		"github.com/obot-platform/obot/apiclient/types.PublishedArtifactManifest":                          schema_obot_platform_obot_apiclient_types_PublishedArtifactManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.PublishedArtifactVersionEntry":                      schema_obot_platform_obot_apiclient_types_PublishedArtifactVersionEntry(ref),
+		"github.com/obot-platform/obot/apiclient/types.PublishedArtifactVersionSummary":                    schema_obot_platform_obot_apiclient_types_PublishedArtifactVersionSummary(ref),
+		"github.com/obot-platform/obot/apiclient/types.RegistryGitHubMeta":                                 schema_obot_platform_obot_apiclient_types_RegistryGitHubMeta(ref),
+		"github.com/obot-platform/obot/apiclient/types.RegistryMeta":                                       schema_obot_platform_obot_apiclient_types_RegistryMeta(ref),
+		"github.com/obot-platform/obot/apiclient/types.RegistryObotMeta":                                   schema_obot_platform_obot_apiclient_types_RegistryObotMeta(ref),
+		"github.com/obot-platform/obot/apiclient/types.RegistryOfficialMeta":                               schema_obot_platform_obot_apiclient_types_RegistryOfficialMeta(ref),
+		"github.com/obot-platform/obot/apiclient/types.RegistryPublisherProvidedMeta":                      schema_obot_platform_obot_apiclient_types_RegistryPublisherProvidedMeta(ref),
+		"github.com/obot-platform/obot/apiclient/types.RegistryServerDetail":                               schema_obot_platform_obot_apiclient_types_RegistryServerDetail(ref),
+		"github.com/obot-platform/obot/apiclient/types.RegistryServerIcon":                                 schema_obot_platform_obot_apiclient_types_RegistryServerIcon(ref),
+		"github.com/obot-platform/obot/apiclient/types.RegistryServerList":                                 schema_obot_platform_obot_apiclient_types_RegistryServerList(ref),
+		"github.com/obot-platform/obot/apiclient/types.RegistryServerListMetadata":                         schema_obot_platform_obot_apiclient_types_RegistryServerListMetadata(ref),
+		"github.com/obot-platform/obot/apiclient/types.RegistryServerMeta":                                 schema_obot_platform_obot_apiclient_types_RegistryServerMeta(ref),
+		"github.com/obot-platform/obot/apiclient/types.RegistryServerRemote":                               schema_obot_platform_obot_apiclient_types_RegistryServerRemote(ref),
+		"github.com/obot-platform/obot/apiclient/types.RegistryServerRepository":                           schema_obot_platform_obot_apiclient_types_RegistryServerRepository(ref),
+		"github.com/obot-platform/obot/apiclient/types.RegistryServerResponse":                             schema_obot_platform_obot_apiclient_types_RegistryServerResponse(ref),
+		"github.com/obot-platform/obot/apiclient/types.RemainingTokenUsage":                                schema_obot_platform_obot_apiclient_types_RemainingTokenUsage(ref),
+		"github.com/obot-platform/obot/apiclient/types.RemainingTokenUsageList":                            schema_obot_platform_obot_apiclient_types_RemainingTokenUsageList(ref),
+		"github.com/obot-platform/obot/apiclient/types.RemoteCatalogConfig":                                schema_obot_platform_obot_apiclient_types_RemoteCatalogConfig(ref),
+		"github.com/obot-platform/obot/apiclient/types.RemoteRuntimeConfig":                                schema_obot_platform_obot_apiclient_types_RemoteRuntimeConfig(ref),
+		"github.com/obot-platform/obot/apiclient/types.Resource":                                           schema_obot_platform_obot_apiclient_types_Resource(ref),
+		"github.com/obot-platform/obot/apiclient/types.Run":                                                schema_obot_platform_obot_apiclient_types_Run(ref),
+		"github.com/obot-platform/obot/apiclient/types.RunList":                                            schema_obot_platform_obot_apiclient_types_RunList(ref),
+		"github.com/obot-platform/obot/apiclient/types.RuntimeValidationError":                             schema_obot_platform_obot_apiclient_types_RuntimeValidationError(ref),
+		"github.com/obot-platform/obot/apiclient/types.S3Config":                                           schema_obot_platform_obot_apiclient_types_S3Config(ref),
+		"github.com/obot-platform/obot/apiclient/types.Schedule":                                           schema_obot_platform_obot_apiclient_types_Schedule(ref),
+		"github.com/obot-platform/obot/apiclient/types.ScheduledAuditLogExportCreateRequest":               schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportCreateRequest(ref),
+		"github.com/obot-platform/obot/apiclient/types.ScheduledAuditLogExportListResponse":                schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportListResponse(ref),
+		"github.com/obot-platform/obot/apiclient/types.ScheduledAuditLogExportResponse":                    schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportResponse(ref),
+		"github.com/obot-platform/obot/apiclient/types.ScheduledAuditLogExportUpdateRequest":               schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportUpdateRequest(ref),
+		"github.com/obot-platform/obot/apiclient/types.Skill":                                              schema_obot_platform_obot_apiclient_types_Skill(ref),
+		"github.com/obot-platform/obot/apiclient/types.SkillAccessRule":                                    schema_obot_platform_obot_apiclient_types_SkillAccessRule(ref),
+		"github.com/obot-platform/obot/apiclient/types.SkillAccessRuleList":                                schema_obot_platform_obot_apiclient_types_SkillAccessRuleList(ref),
+		"github.com/obot-platform/obot/apiclient/types.SkillAccessRuleManifest":                            schema_obot_platform_obot_apiclient_types_SkillAccessRuleManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.SkillList":                                          schema_obot_platform_obot_apiclient_types_SkillList(ref),
+		"github.com/obot-platform/obot/apiclient/types.SkillManifest":                                      schema_obot_platform_obot_apiclient_types_SkillManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.SkillRepository":                                    schema_obot_platform_obot_apiclient_types_SkillRepository(ref),
+		"github.com/obot-platform/obot/apiclient/types.SkillRepositoryList":                                schema_obot_platform_obot_apiclient_types_SkillRepositoryList(ref),
+		"github.com/obot-platform/obot/apiclient/types.SkillRepositoryManifest":                            schema_obot_platform_obot_apiclient_types_SkillRepositoryManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.SkillResource":                                      schema_obot_platform_obot_apiclient_types_SkillResource(ref),
+		"github.com/obot-platform/obot/apiclient/types.Step":                                               schema_obot_platform_obot_apiclient_types_Step(ref),
+		"github.com/obot-platform/obot/apiclient/types.StepTemplateInvoke":                                 schema_obot_platform_obot_apiclient_types_StepTemplateInvoke(ref),
+		"github.com/obot-platform/obot/apiclient/types.StorageConfig":                                      schema_obot_platform_obot_apiclient_types_StorageConfig(ref),
+		"github.com/obot-platform/obot/apiclient/types.StorageCredentialsResponse":                         schema_obot_platform_obot_apiclient_types_StorageCredentialsResponse(ref),
+		"github.com/obot-platform/obot/apiclient/types.StorageCredentialsTestRequest":                      schema_obot_platform_obot_apiclient_types_StorageCredentialsTestRequest(ref),
+		"github.com/obot-platform/obot/apiclient/types.StorageCredentialsTestResponse":                     schema_obot_platform_obot_apiclient_types_StorageCredentialsTestResponse(ref),
+		"github.com/obot-platform/obot/apiclient/types.StorageProviderConfigInput":                         schema_obot_platform_obot_apiclient_types_StorageProviderConfigInput(ref),
+		"github.com/obot-platform/obot/apiclient/types.Subject":                                            schema_obot_platform_obot_apiclient_types_Subject(ref),
+		"github.com/obot-platform/obot/apiclient/types.SystemMCPCatalog":                                   schema_obot_platform_obot_apiclient_types_SystemMCPCatalog(ref),
+		"github.com/obot-platform/obot/apiclient/types.SystemMCPCatalogList":                               schema_obot_platform_obot_apiclient_types_SystemMCPCatalogList(ref),
+		"github.com/obot-platform/obot/apiclient/types.SystemMCPCatalogManifest":                           schema_obot_platform_obot_apiclient_types_SystemMCPCatalogManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.SystemMCPServer":                                    schema_obot_platform_obot_apiclient_types_SystemMCPServer(ref),
+		"github.com/obot-platform/obot/apiclient/types.SystemMCPServerCatalogEntry":                        schema_obot_platform_obot_apiclient_types_SystemMCPServerCatalogEntry(ref),
+		"github.com/obot-platform/obot/apiclient/types.SystemMCPServerCatalogEntryList":                    schema_obot_platform_obot_apiclient_types_SystemMCPServerCatalogEntryList(ref),
+		"github.com/obot-platform/obot/apiclient/types.SystemMCPServerCatalogEntryManifest":                schema_obot_platform_obot_apiclient_types_SystemMCPServerCatalogEntryManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.SystemMCPServerList":                                schema_obot_platform_obot_apiclient_types_SystemMCPServerList(ref),
+		"github.com/obot-platform/obot/apiclient/types.SystemMCPServerManifest":                            schema_obot_platform_obot_apiclient_types_SystemMCPServerManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.Task":                                               schema_obot_platform_obot_apiclient_types_Task(ref),
+		"github.com/obot-platform/obot/apiclient/types.TaskList":                                           schema_obot_platform_obot_apiclient_types_TaskList(ref),
+		"github.com/obot-platform/obot/apiclient/types.TaskManifest":                                       schema_obot_platform_obot_apiclient_types_TaskManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.TaskOnDemand":                                       schema_obot_platform_obot_apiclient_types_TaskOnDemand(ref),
+		"github.com/obot-platform/obot/apiclient/types.TaskRun":                                            schema_obot_platform_obot_apiclient_types_TaskRun(ref),
+		"github.com/obot-platform/obot/apiclient/types.TaskRunList":                                        schema_obot_platform_obot_apiclient_types_TaskRunList(ref),
+		"github.com/obot-platform/obot/apiclient/types.TaskStep":                                           schema_obot_platform_obot_apiclient_types_TaskStep(ref),
+		"github.com/obot-platform/obot/apiclient/types.TemplateAuthorization":                              schema_obot_platform_obot_apiclient_types_TemplateAuthorization(ref),
+		"github.com/obot-platform/obot/apiclient/types.TemplateAuthorizationList":                          schema_obot_platform_obot_apiclient_types_TemplateAuthorizationList(ref),
+		"github.com/obot-platform/obot/apiclient/types.TemplateAuthorizationManifest":                      schema_obot_platform_obot_apiclient_types_TemplateAuthorizationManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.ThemePreferences":                                   schema_obot_platform_obot_apiclient_types_ThemePreferences(ref),
+		"github.com/obot-platform/obot/apiclient/types.Thread":                                             schema_obot_platform_obot_apiclient_types_Thread(ref),
+		"github.com/obot-platform/obot/apiclient/types.ThreadAuthorization":                                schema_obot_platform_obot_apiclient_types_ThreadAuthorization(ref),
+		"github.com/obot-platform/obot/apiclient/types.ThreadAuthorizationList":                            schema_obot_platform_obot_apiclient_types_ThreadAuthorizationList(ref),
+		"github.com/obot-platform/obot/apiclient/types.ThreadAuthorizationManifest":                        schema_obot_platform_obot_apiclient_types_ThreadAuthorizationManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.ThreadList":                                         schema_obot_platform_obot_apiclient_types_ThreadList(ref),
+		"github.com/obot-platform/obot/apiclient/types.ThreadManifest":                                     schema_obot_platform_obot_apiclient_types_ThreadManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.ThreadManifestManagedFields":                        schema_obot_platform_obot_apiclient_types_ThreadManifestManagedFields(ref),
+		"github.com/obot-platform/obot/apiclient/types.Time":                                               schema_obot_platform_obot_apiclient_types_Time(ref),
+		"github.com/obot-platform/obot/apiclient/types.TokenUsage":                                         schema_obot_platform_obot_apiclient_types_TokenUsage(ref),
+		"github.com/obot-platform/obot/apiclient/types.TokenUsageByDate":                                   schema_obot_platform_obot_apiclient_types_TokenUsageByDate(ref),
+		"github.com/obot-platform/obot/apiclient/types.TokenUsageList":                                     schema_obot_platform_obot_apiclient_types_TokenUsageList(ref),
+		"github.com/obot-platform/obot/apiclient/types.ToolCall":                                           schema_obot_platform_obot_apiclient_types_ToolCall(ref),
+		"github.com/obot-platform/obot/apiclient/types.ToolConfirm":                                        schema_obot_platform_obot_apiclient_types_ToolConfirm(ref),
+		"github.com/obot-platform/obot/apiclient/types.ToolConfirmResponse":                                schema_obot_platform_obot_apiclient_types_ToolConfirmResponse(ref),
+		"github.com/obot-platform/obot/apiclient/types.ToolInfo":                                           schema_obot_platform_obot_apiclient_types_ToolInfo(ref),
+		"github.com/obot-platform/obot/apiclient/types.ToolInput":                                          schema_obot_platform_obot_apiclient_types_ToolInput(ref),
+		"github.com/obot-platform/obot/apiclient/types.ToolManifest":                                       schema_obot_platform_obot_apiclient_types_ToolManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.ToolOverride":                                       schema_obot_platform_obot_apiclient_types_ToolOverride(ref),
+		"github.com/obot-platform/obot/apiclient/types.ToolReference":                                      schema_obot_platform_obot_apiclient_types_ToolReference(ref),
+		"github.com/obot-platform/obot/apiclient/types.ToolReferenceList":                                  schema_obot_platform_obot_apiclient_types_ToolReferenceList(ref),
+		"github.com/obot-platform/obot/apiclient/types.ToolReferenceManifest":                              schema_obot_platform_obot_apiclient_types_ToolReferenceManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig":                                   schema_obot_platform_obot_apiclient_types_UVXRuntimeConfig(ref),
+		"github.com/obot-platform/obot/apiclient/types.User":                                               schema_obot_platform_obot_apiclient_types_User(ref),
+		"github.com/obot-platform/obot/apiclient/types.UserDefaultRoleSetting":                             schema_obot_platform_obot_apiclient_types_UserDefaultRoleSetting(ref),
+		"github.com/obot-platform/obot/apiclient/types.UserList":                                           schema_obot_platform_obot_apiclient_types_UserList(ref),
+		"github.com/obot-platform/obot/apiclient/types.Webhook":                                            schema_obot_platform_obot_apiclient_types_Webhook(ref),
+		"github.com/obot-platform/obot/apiclient/types.WebhookList":                                        schema_obot_platform_obot_apiclient_types_WebhookList(ref),
+		"github.com/obot-platform/obot/apiclient/types.WebhookManifest":                                    schema_obot_platform_obot_apiclient_types_WebhookManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.WebhookStatus":                                      schema_obot_platform_obot_apiclient_types_WebhookStatus(ref),
+		"github.com/obot-platform/obot/apiclient/types.WebsiteCrawlingConfig":                              schema_obot_platform_obot_apiclient_types_WebsiteCrawlingConfig(ref),
+		"github.com/obot-platform/obot/apiclient/types.WebsiteDefinition":                                  schema_obot_platform_obot_apiclient_types_WebsiteDefinition(ref),
+		"github.com/obot-platform/obot/apiclient/types.WebsiteKnowledge":                                   schema_obot_platform_obot_apiclient_types_WebsiteKnowledge(ref),
+		"github.com/obot-platform/obot/apiclient/types.Workflow":                                           schema_obot_platform_obot_apiclient_types_Workflow(ref),
+		"github.com/obot-platform/obot/apiclient/types.WorkflowExecution":                                  schema_obot_platform_obot_apiclient_types_WorkflowExecution(ref),
+		"github.com/obot-platform/obot/apiclient/types.WorkflowExecutionList":                              schema_obot_platform_obot_apiclient_types_WorkflowExecutionList(ref),
+		"github.com/obot-platform/obot/apiclient/types.WorkflowList":                                       schema_obot_platform_obot_apiclient_types_WorkflowList(ref),
+		"github.com/obot-platform/obot/apiclient/types.WorkflowManifest":                                   schema_obot_platform_obot_apiclient_types_WorkflowManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.WorkflowNamesFromIntegration":                       schema_obot_platform_obot_apiclient_types_WorkflowNamesFromIntegration(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AccessControlRule":                 schema_storage_apis_obotobotai_v1_AccessControlRule(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AccessControlRuleList":             schema_storage_apis_obotobotai_v1_AccessControlRuleList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AccessControlRuleSpec":             schema_storage_apis_obotobotai_v1_AccessControlRuleSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.Agent":                             schema_storage_apis_obotobotai_v1_Agent(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AgentList":                         schema_storage_apis_obotobotai_v1_AgentList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AgentSpec":                         schema_storage_apis_obotobotai_v1_AgentSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AgentStatus":                       schema_storage_apis_obotobotai_v1_AgentStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.Alias":                             schema_storage_apis_obotobotai_v1_Alias(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AliasList":                         schema_storage_apis_obotobotai_v1_AliasList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AliasSpec":                         schema_storage_apis_obotobotai_v1_AliasSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppPreferences":                    schema_storage_apis_obotobotai_v1_AppPreferences(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppPreferencesList":                schema_storage_apis_obotobotai_v1_AppPreferencesList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppPreferencesSpec":                schema_storage_apis_obotobotai_v1_AppPreferencesSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppPreferencesStatus":              schema_storage_apis_obotobotai_v1_AppPreferencesStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AuditLogExport":                    schema_storage_apis_obotobotai_v1_AuditLogExport(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AuditLogExportList":                schema_storage_apis_obotobotai_v1_AuditLogExportList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AuditLogExportSpec":                schema_storage_apis_obotobotai_v1_AuditLogExportSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AuditLogExportStatus":              schema_storage_apis_obotobotai_v1_AuditLogExportStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.CronJob":                           schema_storage_apis_obotobotai_v1_CronJob(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.CronJobList":                       schema_storage_apis_obotobotai_v1_CronJobList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.CronJobSpec":                       schema_storage_apis_obotobotai_v1_CronJobSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.CronJobStatus":                     schema_storage_apis_obotobotai_v1_CronJobStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.DefaultModelAlias":                 schema_storage_apis_obotobotai_v1_DefaultModelAlias(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.DefaultModelAliasList":             schema_storage_apis_obotobotai_v1_DefaultModelAliasList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.DefaultModelAliasSpec":             schema_storage_apis_obotobotai_v1_DefaultModelAliasSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.DefaultModelAliasStatus":           schema_storage_apis_obotobotai_v1_DefaultModelAliasStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.DeploymentCondition":               schema_storage_apis_obotobotai_v1_DeploymentCondition(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.EmptyStatus":                       schema_storage_apis_obotobotai_v1_EmptyStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ExternalCall":                      schema_storage_apis_obotobotai_v1_ExternalCall(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ExternalCallResult":                schema_storage_apis_obotobotai_v1_ExternalCallResult(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ExternalCallResume":                schema_storage_apis_obotobotai_v1_ExternalCallResume(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.GroupRoleChange":                   schema_storage_apis_obotobotai_v1_GroupRoleChange(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.GroupRoleChangeList":               schema_storage_apis_obotobotai_v1_GroupRoleChangeList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.GroupRoleChangeSpec":               schema_storage_apis_obotobotai_v1_GroupRoleChangeSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.K8sSettings":                       schema_storage_apis_obotobotai_v1_K8sSettings(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.K8sSettingsList":                   schema_storage_apis_obotobotai_v1_K8sSettingsList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.K8sSettingsSpec":                   schema_storage_apis_obotobotai_v1_K8sSettingsSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.K8sSettingsStatus":                 schema_storage_apis_obotobotai_v1_K8sSettingsStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.KnowledgeFile":                     schema_storage_apis_obotobotai_v1_KnowledgeFile(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.KnowledgeFileList":                 schema_storage_apis_obotobotai_v1_KnowledgeFileList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.KnowledgeFileSpec":                 schema_storage_apis_obotobotai_v1_KnowledgeFileSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.KnowledgeFileStatus":               schema_storage_apis_obotobotai_v1_KnowledgeFileStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.KnowledgeSet":                      schema_storage_apis_obotobotai_v1_KnowledgeSet(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.KnowledgeSetList":                  schema_storage_apis_obotobotai_v1_KnowledgeSetList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.KnowledgeSetManifest":              schema_storage_apis_obotobotai_v1_KnowledgeSetManifest(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.KnowledgeSetSpec":                  schema_storage_apis_obotobotai_v1_KnowledgeSetSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.KnowledgeSetStatus":                schema_storage_apis_obotobotai_v1_KnowledgeSetStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.KnowledgeSource":                   schema_storage_apis_obotobotai_v1_KnowledgeSource(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.KnowledgeSourceList":               schema_storage_apis_obotobotai_v1_KnowledgeSourceList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.KnowledgeSourceSpec":               schema_storage_apis_obotobotai_v1_KnowledgeSourceSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.KnowledgeSourceStatus":             schema_storage_apis_obotobotai_v1_KnowledgeSourceStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.KnowledgeSummary":                  schema_storage_apis_obotobotai_v1_KnowledgeSummary(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.KnowledgeSummaryList":              schema_storage_apis_obotobotai_v1_KnowledgeSummaryList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.KnowledgeSummarySpec":              schema_storage_apis_obotobotai_v1_KnowledgeSummarySpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.KnowledgeSummaryStatus":            schema_storage_apis_obotobotai_v1_KnowledgeSummaryStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPCatalog":                        schema_storage_apis_obotobotai_v1_MCPCatalog(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPCatalogList":                    schema_storage_apis_obotobotai_v1_MCPCatalogList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPCatalogSpec":                    schema_storage_apis_obotobotai_v1_MCPCatalogSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPCatalogStatus":                  schema_storage_apis_obotobotai_v1_MCPCatalogStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPNetworkPolicy":                  schema_storage_apis_obotobotai_v1_MCPNetworkPolicy(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPNetworkPolicyList":              schema_storage_apis_obotobotai_v1_MCPNetworkPolicyList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPNetworkPolicySpec":              schema_storage_apis_obotobotai_v1_MCPNetworkPolicySpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPNetworkPolicyStatus":            schema_storage_apis_obotobotai_v1_MCPNetworkPolicyStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServer":                         schema_storage_apis_obotobotai_v1_MCPServer(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerCatalogEntry":             schema_storage_apis_obotobotai_v1_MCPServerCatalogEntry(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerCatalogEntryList":         schema_storage_apis_obotobotai_v1_MCPServerCatalogEntryList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerCatalogEntrySpec":         schema_storage_apis_obotobotai_v1_MCPServerCatalogEntrySpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerCatalogEntryStatus":       schema_storage_apis_obotobotai_v1_MCPServerCatalogEntryStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerInstance":                 schema_storage_apis_obotobotai_v1_MCPServerInstance(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerInstanceList":             schema_storage_apis_obotobotai_v1_MCPServerInstanceList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerInstanceSpec":             schema_storage_apis_obotobotai_v1_MCPServerInstanceSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerList":                     schema_storage_apis_obotobotai_v1_MCPServerList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerSpec":                     schema_storage_apis_obotobotai_v1_MCPServerSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerStatus":                   schema_storage_apis_obotobotai_v1_MCPServerStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPSession":                        schema_storage_apis_obotobotai_v1_MCPSession(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPSessionList":                    schema_storage_apis_obotobotai_v1_MCPSessionList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPSessionSpec":                    schema_storage_apis_obotobotai_v1_MCPSessionSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPSessionStatus":                  schema_storage_apis_obotobotai_v1_MCPSessionStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPWebhookValidation":              schema_storage_apis_obotobotai_v1_MCPWebhookValidation(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPWebhookValidationList":          schema_storage_apis_obotobotai_v1_MCPWebhookValidationList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPWebhookValidationSpec":          schema_storage_apis_obotobotai_v1_MCPWebhookValidationSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPWebhookValidationStatus":        schema_storage_apis_obotobotai_v1_MCPWebhookValidationStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MemorySet":                         schema_storage_apis_obotobotai_v1_MemorySet(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MemorySetList":                     schema_storage_apis_obotobotai_v1_MemorySetList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MemorySetSpec":                     schema_storage_apis_obotobotai_v1_MemorySetSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MemorySetStatus":                   schema_storage_apis_obotobotai_v1_MemorySetStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MessagePolicy":                     schema_storage_apis_obotobotai_v1_MessagePolicy(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MessagePolicyList":                 schema_storage_apis_obotobotai_v1_MessagePolicyList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MessagePolicySpec":                 schema_storage_apis_obotobotai_v1_MessagePolicySpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.Model":                             schema_storage_apis_obotobotai_v1_Model(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ModelAccessPolicy":                 schema_storage_apis_obotobotai_v1_ModelAccessPolicy(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ModelAccessPolicyList":             schema_storage_apis_obotobotai_v1_ModelAccessPolicyList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ModelAccessPolicySpec":             schema_storage_apis_obotobotai_v1_ModelAccessPolicySpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ModelList":                         schema_storage_apis_obotobotai_v1_ModelList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ModelSpec":                         schema_storage_apis_obotobotai_v1_ModelSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ModelStatus":                       schema_storage_apis_obotobotai_v1_ModelStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.NanobotAgent":                      schema_storage_apis_obotobotai_v1_NanobotAgent(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.NanobotAgentList":                  schema_storage_apis_obotobotai_v1_NanobotAgentList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.NanobotAgentSpec":                  schema_storage_apis_obotobotai_v1_NanobotAgentSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.NanobotAgentStatus":                schema_storage_apis_obotobotai_v1_NanobotAgentStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.NotificationConfig":                schema_storage_apis_obotobotai_v1_NotificationConfig(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthApp":                          schema_storage_apis_obotobotai_v1_OAuthApp(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthAppList":                      schema_storage_apis_obotobotai_v1_OAuthAppList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthAppLogin":                     schema_storage_apis_obotobotai_v1_OAuthAppLogin(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthAppLoginList":                 schema_storage_apis_obotobotai_v1_OAuthAppLoginList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthAppLoginSpec":                 schema_storage_apis_obotobotai_v1_OAuthAppLoginSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthAppLoginStatus":               schema_storage_apis_obotobotai_v1_OAuthAppLoginStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthAppSpec":                      schema_storage_apis_obotobotai_v1_OAuthAppSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthAuthRequest":                  schema_storage_apis_obotobotai_v1_OAuthAuthRequest(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthAuthRequestList":              schema_storage_apis_obotobotai_v1_OAuthAuthRequestList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthAuthRequestSpec":              schema_storage_apis_obotobotai_v1_OAuthAuthRequestSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthAuthRequestStatus":            schema_storage_apis_obotobotai_v1_OAuthAuthRequestStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthClient":                       schema_storage_apis_obotobotai_v1_OAuthClient(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthClientList":                   schema_storage_apis_obotobotai_v1_OAuthClientList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthClientSpec":                   schema_storage_apis_obotobotai_v1_OAuthClientSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthClientStatus":                 schema_storage_apis_obotobotai_v1_OAuthClientStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthMetadata":                     schema_storage_apis_obotobotai_v1_OAuthMetadata(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthToken":                        schema_storage_apis_obotobotai_v1_OAuthToken(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthTokenList":                    schema_storage_apis_obotobotai_v1_OAuthTokenList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthTokenSpec":                    schema_storage_apis_obotobotai_v1_OAuthTokenSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthTokenStatus":                  schema_storage_apis_obotobotai_v1_OAuthTokenStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OktaGroupMigration":                schema_storage_apis_obotobotai_v1_OktaGroupMigration(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OktaGroupMigrationList":            schema_storage_apis_obotobotai_v1_OktaGroupMigrationList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OktaGroupMigrationSpec":            schema_storage_apis_obotobotai_v1_OktaGroupMigrationSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PodSecurityAdmissionSettings":      schema_storage_apis_obotobotai_v1_PodSecurityAdmissionSettings(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PowerUserWorkspace":                schema_storage_apis_obotobotai_v1_PowerUserWorkspace(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PowerUserWorkspaceList":            schema_storage_apis_obotobotai_v1_PowerUserWorkspaceList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PowerUserWorkspaceSpec":            schema_storage_apis_obotobotai_v1_PowerUserWorkspaceSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PowerUserWorkspaceStatus":          schema_storage_apis_obotobotai_v1_PowerUserWorkspaceStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectInvitation":                 schema_storage_apis_obotobotai_v1_ProjectInvitation(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectInvitationList":             schema_storage_apis_obotobotai_v1_ProjectInvitationList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectInvitationSpec":             schema_storage_apis_obotobotai_v1_ProjectInvitationSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectInvitationStatus":           schema_storage_apis_obotobotai_v1_ProjectInvitationStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectMCPServer":                  schema_storage_apis_obotobotai_v1_ProjectMCPServer(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectMCPServerList":              schema_storage_apis_obotobotai_v1_ProjectMCPServerList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectMCPServerSpec":              schema_storage_apis_obotobotai_v1_ProjectMCPServerSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectMCPServerStatus":            schema_storage_apis_obotobotai_v1_ProjectMCPServerStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectV2":                         schema_storage_apis_obotobotai_v1_ProjectV2(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectV2List":                     schema_storage_apis_obotobotai_v1_ProjectV2List(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectV2Spec":                     schema_storage_apis_obotobotai_v1_ProjectV2Spec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectV2Status":                   schema_storage_apis_obotobotai_v1_ProjectV2Status(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PublishedArtifact":                 schema_storage_apis_obotobotai_v1_PublishedArtifact(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PublishedArtifactList":             schema_storage_apis_obotobotai_v1_PublishedArtifactList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PublishedArtifactSpec":             schema_storage_apis_obotobotai_v1_PublishedArtifactSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PublishedArtifactStatus":           schema_storage_apis_obotobotai_v1_PublishedArtifactStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.Ref":                               schema_storage_apis_obotobotai_v1_Ref(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.Run":                               schema_storage_apis_obotobotai_v1_Run(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.RunList":                           schema_storage_apis_obotobotai_v1_RunList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.RunSpec":                           schema_storage_apis_obotobotai_v1_RunSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.RunState":                          schema_storage_apis_obotobotai_v1_RunState(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.RunStateList":                      schema_storage_apis_obotobotai_v1_RunStateList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.RunStateSpec":                      schema_storage_apis_obotobotai_v1_RunStateSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.RunStatus":                         schema_storage_apis_obotobotai_v1_RunStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.Schedule":                          schema_storage_apis_obotobotai_v1_Schedule(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ScheduledAuditLogExport":           schema_storage_apis_obotobotai_v1_ScheduledAuditLogExport(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ScheduledAuditLogExportList":       schema_storage_apis_obotobotai_v1_ScheduledAuditLogExportList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ScheduledAuditLogExportSpec":       schema_storage_apis_obotobotai_v1_ScheduledAuditLogExportSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ScheduledAuditLogExportStatus":     schema_storage_apis_obotobotai_v1_ScheduledAuditLogExportStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.Skill":                             schema_storage_apis_obotobotai_v1_Skill(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SkillAccessRule":                   schema_storage_apis_obotobotai_v1_SkillAccessRule(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SkillAccessRuleList":               schema_storage_apis_obotobotai_v1_SkillAccessRuleList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SkillAccessRuleSpec":               schema_storage_apis_obotobotai_v1_SkillAccessRuleSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SkillList":                         schema_storage_apis_obotobotai_v1_SkillList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SkillRepository":                   schema_storage_apis_obotobotai_v1_SkillRepository(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SkillRepositoryList":               schema_storage_apis_obotobotai_v1_SkillRepositoryList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SkillRepositorySpec":               schema_storage_apis_obotobotai_v1_SkillRepositorySpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SkillRepositoryStatus":             schema_storage_apis_obotobotai_v1_SkillRepositoryStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SkillSpec":                         schema_storage_apis_obotobotai_v1_SkillSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SkillStatus":                       schema_storage_apis_obotobotai_v1_SkillStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SystemMCPCatalog":                  schema_storage_apis_obotobotai_v1_SystemMCPCatalog(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SystemMCPCatalogList":              schema_storage_apis_obotobotai_v1_SystemMCPCatalogList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SystemMCPCatalogSpec":              schema_storage_apis_obotobotai_v1_SystemMCPCatalogSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SystemMCPCatalogStatus":            schema_storage_apis_obotobotai_v1_SystemMCPCatalogStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SystemMCPServer":                   schema_storage_apis_obotobotai_v1_SystemMCPServer(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SystemMCPServerCatalogEntry":       schema_storage_apis_obotobotai_v1_SystemMCPServerCatalogEntry(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SystemMCPServerCatalogEntryList":   schema_storage_apis_obotobotai_v1_SystemMCPServerCatalogEntryList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SystemMCPServerCatalogEntrySpec":   schema_storage_apis_obotobotai_v1_SystemMCPServerCatalogEntrySpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SystemMCPServerCatalogEntryStatus": schema_storage_apis_obotobotai_v1_SystemMCPServerCatalogEntryStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SystemMCPServerList":               schema_storage_apis_obotobotai_v1_SystemMCPServerList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SystemMCPServerSpec":               schema_storage_apis_obotobotai_v1_SystemMCPServerSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SystemMCPServerStatus":             schema_storage_apis_obotobotai_v1_SystemMCPServerStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.Thread":                            schema_storage_apis_obotobotai_v1_Thread(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThreadAuthorization":               schema_storage_apis_obotobotai_v1_ThreadAuthorization(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThreadAuthorizationList":           schema_storage_apis_obotobotai_v1_ThreadAuthorizationList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThreadAuthorizationSpec":           schema_storage_apis_obotobotai_v1_ThreadAuthorizationSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThreadAuthorizationStatus":         schema_storage_apis_obotobotai_v1_ThreadAuthorizationStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThreadCapabilities":                schema_storage_apis_obotobotai_v1_ThreadCapabilities(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThreadList":                        schema_storage_apis_obotobotai_v1_ThreadList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThreadShare":                       schema_storage_apis_obotobotai_v1_ThreadShare(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThreadShareList":                   schema_storage_apis_obotobotai_v1_ThreadShareList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThreadShareSpec":                   schema_storage_apis_obotobotai_v1_ThreadShareSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThreadShareStatus":                 schema_storage_apis_obotobotai_v1_ThreadShareStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThreadSpec":                        schema_storage_apis_obotobotai_v1_ThreadSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThreadStatus":                      schema_storage_apis_obotobotai_v1_ThreadStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.Tool":                              schema_storage_apis_obotobotai_v1_Tool(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ToolList":                          schema_storage_apis_obotobotai_v1_ToolList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ToolReference":                     schema_storage_apis_obotobotai_v1_ToolReference(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ToolReferenceList":                 schema_storage_apis_obotobotai_v1_ToolReferenceList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ToolReferenceSpec":                 schema_storage_apis_obotobotai_v1_ToolReferenceSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ToolReferenceStatus":               schema_storage_apis_obotobotai_v1_ToolReferenceStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ToolShortDescription":              schema_storage_apis_obotobotai_v1_ToolShortDescription(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ToolSpec":                          schema_storage_apis_obotobotai_v1_ToolSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ToolStatus":                        schema_storage_apis_obotobotai_v1_ToolStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserDefaultRoleSetting":            schema_storage_apis_obotobotai_v1_UserDefaultRoleSetting(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserDefaultRoleSettingList":        schema_storage_apis_obotobotai_v1_UserDefaultRoleSettingList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserDefaultRoleSettingSpec":        schema_storage_apis_obotobotai_v1_UserDefaultRoleSettingSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserDelete":                        schema_storage_apis_obotobotai_v1_UserDelete(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserDeleteList":                    schema_storage_apis_obotobotai_v1_UserDeleteList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserDeleteSpec":                    schema_storage_apis_obotobotai_v1_UserDeleteSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserGroupChange":                   schema_storage_apis_obotobotai_v1_UserGroupChange(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserGroupChangeList":               schema_storage_apis_obotobotai_v1_UserGroupChangeList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserGroupChangeSpec":               schema_storage_apis_obotobotai_v1_UserGroupChangeSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserRoleChange":                    schema_storage_apis_obotobotai_v1_UserRoleChange(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserRoleChangeList":                schema_storage_apis_obotobotai_v1_UserRoleChangeList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserRoleChangeSpec":                schema_storage_apis_obotobotai_v1_UserRoleChangeSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.Workflow":                          schema_storage_apis_obotobotai_v1_Workflow(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.WorkflowExecution":                 schema_storage_apis_obotobotai_v1_WorkflowExecution(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.WorkflowExecutionList":             schema_storage_apis_obotobotai_v1_WorkflowExecutionList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.WorkflowExecutionSpec":             schema_storage_apis_obotobotai_v1_WorkflowExecutionSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.WorkflowExecutionStatus":           schema_storage_apis_obotobotai_v1_WorkflowExecutionStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.WorkflowList":                      schema_storage_apis_obotobotai_v1_WorkflowList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.WorkflowSpec":                      schema_storage_apis_obotobotai_v1_WorkflowSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.WorkflowStatus":                    schema_storage_apis_obotobotai_v1_WorkflowStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.WorkflowStep":                      schema_storage_apis_obotobotai_v1_WorkflowStep(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.WorkflowStepList":                  schema_storage_apis_obotobotai_v1_WorkflowStepList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.WorkflowStepSpec":                  schema_storage_apis_obotobotai_v1_WorkflowStepSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.WorkflowStepStatus":                schema_storage_apis_obotobotai_v1_WorkflowStepStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.Workspace":                         schema_storage_apis_obotobotai_v1_Workspace(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.WorkspaceList":                     schema_storage_apis_obotobotai_v1_WorkspaceList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.WorkspaceSpec":                     schema_storage_apis_obotobotai_v1_WorkspaceSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.WorkspaceStatus":                   schema_storage_apis_obotobotai_v1_WorkspaceStatus(ref),
+		"k8s.io/api/coordination/v1.Lease":                                                                 schema_k8sio_api_coordination_v1_Lease(ref),
+		"k8s.io/api/coordination/v1.LeaseList":                                                             schema_k8sio_api_coordination_v1_LeaseList(ref),
+		"k8s.io/api/coordination/v1.LeaseSpec":                                                             schema_k8sio_api_coordination_v1_LeaseSpec(ref),
+		"k8s.io/apimachinery/pkg/api/resource.Quantity":                                                    schema_apimachinery_pkg_api_resource_Quantity(ref),
+		"k8s.io/apimachinery/pkg/api/resource.int64Amount":                                                 schema_apimachinery_pkg_api_resource_int64Amount(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroup":                                                    schema_pkg_apis_meta_v1_APIGroup(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroupList":                                                schema_pkg_apis_meta_v1_APIGroupList(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.APIResource":                                                 schema_pkg_apis_meta_v1_APIResource(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.APIResourceList":                                             schema_pkg_apis_meta_v1_APIResourceList(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.APIVersions":                                                 schema_pkg_apis_meta_v1_APIVersions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.ApplyOptions":                                                schema_pkg_apis_meta_v1_ApplyOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Condition":                                                   schema_pkg_apis_meta_v1_Condition(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.CreateOptions":                                               schema_pkg_apis_meta_v1_CreateOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.DeleteOptions":                                               schema_pkg_apis_meta_v1_DeleteOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Duration":                                                    schema_pkg_apis_meta_v1_Duration(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.FieldSelectorRequirement":                                    schema_pkg_apis_meta_v1_FieldSelectorRequirement(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.FieldsV1":                                                    schema_pkg_apis_meta_v1_FieldsV1(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GetOptions":                                                  schema_pkg_apis_meta_v1_GetOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupKind":                                                   schema_pkg_apis_meta_v1_GroupKind(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupResource":                                               schema_pkg_apis_meta_v1_GroupResource(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersion":                                                schema_pkg_apis_meta_v1_GroupVersion(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersionForDiscovery":                                    schema_pkg_apis_meta_v1_GroupVersionForDiscovery(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersionKind":                                            schema_pkg_apis_meta_v1_GroupVersionKind(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersionResource":                                        schema_pkg_apis_meta_v1_GroupVersionResource(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.InternalEvent":                                               schema_pkg_apis_meta_v1_InternalEvent(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector":                                               schema_pkg_apis_meta_v1_LabelSelector(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelectorRequirement":                                    schema_pkg_apis_meta_v1_LabelSelectorRequirement(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.List":                                                        schema_pkg_apis_meta_v1_List(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta":                                                    schema_pkg_apis_meta_v1_ListMeta(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.ListOptions":                                                 schema_pkg_apis_meta_v1_ListOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.ManagedFieldsEntry":                                          schema_pkg_apis_meta_v1_ManagedFieldsEntry(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.MicroTime":                                                   schema_pkg_apis_meta_v1_MicroTime(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta":                                                  schema_pkg_apis_meta_v1_ObjectMeta(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.OwnerReference":                                              schema_pkg_apis_meta_v1_OwnerReference(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.PartialObjectMetadata":                                       schema_pkg_apis_meta_v1_PartialObjectMetadata(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.PartialObjectMetadataList":                                   schema_pkg_apis_meta_v1_PartialObjectMetadataList(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Patch":                                                       schema_pkg_apis_meta_v1_Patch(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.PatchOptions":                                                schema_pkg_apis_meta_v1_PatchOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Preconditions":                                               schema_pkg_apis_meta_v1_Preconditions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.RootPaths":                                                   schema_pkg_apis_meta_v1_RootPaths(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.ServerAddressByClientCIDR":                                   schema_pkg_apis_meta_v1_ServerAddressByClientCIDR(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Status":                                                      schema_pkg_apis_meta_v1_Status(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.StatusCause":                                                 schema_pkg_apis_meta_v1_StatusCause(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.StatusDetails":                                               schema_pkg_apis_meta_v1_StatusDetails(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Table":                                                       schema_pkg_apis_meta_v1_Table(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.TableColumnDefinition":                                       schema_pkg_apis_meta_v1_TableColumnDefinition(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.TableOptions":                                                schema_pkg_apis_meta_v1_TableOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.TableRow":                                                    schema_pkg_apis_meta_v1_TableRow(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.TableRowCondition":                                           schema_pkg_apis_meta_v1_TableRowCondition(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Time":                                                        schema_pkg_apis_meta_v1_Time(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Timestamp":                                                   schema_pkg_apis_meta_v1_Timestamp(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.TypeMeta":                                                    schema_pkg_apis_meta_v1_TypeMeta(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.UpdateOptions":                                               schema_pkg_apis_meta_v1_UpdateOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.WatchEvent":                                                  schema_pkg_apis_meta_v1_WatchEvent(ref),
+		"k8s.io/apimachinery/pkg/runtime.RawExtension":                                                     schema_k8sio_apimachinery_pkg_runtime_RawExtension(ref),
+		"k8s.io/apimachinery/pkg/runtime.TypeMeta":                                                         schema_k8sio_apimachinery_pkg_runtime_TypeMeta(ref),
+		"k8s.io/apimachinery/pkg/runtime.Unknown":                                                          schema_k8sio_apimachinery_pkg_runtime_Unknown(ref),
+		"k8s.io/apimachinery/pkg/util/intstr.IntOrString":                                                  schema_apimachinery_pkg_util_intstr_IntOrString(ref),
+		"k8s.io/apimachinery/pkg/version.Info":                                                             schema_k8sio_apimachinery_pkg_version_Info(ref),
 	}
 }
 
@@ -2033,7 +2084,15 @@ func schema_obot_platform_obot_apiclient_types_CatalogComponentServer(ref common
 							},
 						},
 					},
+					"toolPrefix": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ToolPrefix is an optional prefix applied to the final name of each tool exposed by the component server",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
+				Required: []string{"manifest"},
 			},
 		},
 		Dependencies: []string{
@@ -2096,6 +2155,13 @@ func schema_obot_platform_obot_apiclient_types_CommonProviderMetadata(ref common
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
+						},
+					},
+					"dialect": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Dialect specifies the LLM API format used by this provider (e.g. \"AnthropicMessages\", \"OpenAIChatCompletions\", \"OpenAIResponses\").",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
@@ -2219,6 +2285,13 @@ func schema_obot_platform_obot_apiclient_types_ComponentServer(ref common.Refere
 							},
 						},
 					},
+					"toolPrefix": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ToolPrefix is an optional prefix applied to the final name of each tool exposed by the component server",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"disabled": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Disabled indicates whether the component server should be included in the composite server at runtime",
@@ -2227,6 +2300,7 @@ func schema_obot_platform_obot_apiclient_types_ComponentServer(ref common.Refere
 						},
 					},
 				},
+				Required: []string{"manifest"},
 			},
 		},
 		Dependencies: []string{
@@ -2340,6 +2414,28 @@ func schema_obot_platform_obot_apiclient_types_ContainerizedRuntimeConfig(ref co
 							Description: "Required: Container port",
 							Default:     "",
 							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"egressDomains": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Required: HTTP path for MCP endpoint",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"denyAllEgress": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Optional: Empty means allow all, otherwise allow only the listed domains when network policy enforcement is enabled",
+							Type:        []string{"boolean"},
 							Format:      "",
 						},
 					},
@@ -2705,6 +2801,1817 @@ func schema_obot_platform_obot_apiclient_types_DeploymentCondition(ref common.Re
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceClientFleetSkill(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceClientFleetSkill is one skill row on a device client fleet summary (client match, not \"multi\"; canonical row is earliest observation id per client + skill name).",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the skill name (typically from SKILL.md frontmatter).",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Description is the short summary from frontmatter when present.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"hasScripts": {
+						SchemaProps: spec.SchemaProps{
+							Description: "HasScripts is true when the skill directory includes executable scripts.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"files": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Files is the number of file paths recorded for that skill observation.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+				},
+				Required: []string{"name", "hasScripts", "files"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceClientFleetSummary(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceClientFleetSummary rolls up latest-scan-per-device data for one canonical client name (from device_scan_clients).",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the canonical client identifier (e.g. \"cursor\", \"claude-code\").",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"users": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Users are distinct scan submitters whose latest scan lists this client.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"skills": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Skills lists one entry per distinct skill name with metadata on each device's latest scan (client match; excludes \"multi\").",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceClientFleetSkill"),
+									},
+								},
+							},
+						},
+					},
+					"mcpServers": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MCPServers are distinct MCP servers (by ConfigHash) observed with Client == Name in those latest scans; rows with client \"multi\" are excluded.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceMCPServerStat"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"name", "users", "skills", "mcpServers"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.DeviceClientFleetSkill", "github.com/obot-platform/obot/apiclient/types.DeviceMCPServerStat"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceClientFleetSummaryList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceClientFleetSummary"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.DeviceClientFleetSummary"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceClientFleetSummaryResponse(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceClientFleetSummaryResponse is returned by GET /api/devices/clients.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceClientFleetSummary"),
+									},
+								},
+							},
+						},
+					},
+					"total": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+					"limit": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"offset": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+				},
+				Required: []string{"items", "total", "limit", "offset"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.DeviceClientFleetSummary"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceClientStat(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceClientStat is one row of the per-client rollup.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the canonical client name.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"deviceCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DeviceCount is the number of distinct devices with this client.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"userCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UserCount is the number of distinct submitters with this client.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"observationCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ObservationCount is the total number of client rows for this name.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+				},
+				Required: []string{"name", "deviceCount", "userCount", "observationCount"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceMCPServerDetail(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceMCPServerDetail is the GET /api/devices/mcp-servers/{config_hash} response. EnvKeys and HeaderKeys are not in the hash and may vary per observation; they are unioned across all observations.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"DeviceMCPServerStat": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceMCPServerStat"),
+						},
+					},
+					"envKeys": {
+						SchemaProps: spec.SchemaProps{
+							Description: "EnvKeys is the set union of env var names referenced across observations of this hash.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"headerKeys": {
+						SchemaProps: spec.SchemaProps{
+							Description: "HeaderKeys is the set union of HTTP header names referenced across observations of this hash.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"DeviceMCPServerStat", "envKeys", "headerKeys"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.DeviceMCPServerStat"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceMCPServerOccurrence(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceMCPServerOccurrence is one device's latest-scan row for a specific ConfigHash.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"deviceScanID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DeviceScanID is the parent scan's primary key.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"deviceID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DeviceID is the device that submitted the parent scan.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"client": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Client is the canonical client name on this row.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"scope": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Scope is \"global\" or \"project\".",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"scannedAt": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ScannedAt is when the parent scan was collected on the device.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ID is the observation's stable identifier.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+				},
+				Required: []string{"deviceScanID", "deviceID", "client", "scope", "scannedAt", "id"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceMCPServerOccurrenceList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceMCPServerOccurrence"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.DeviceMCPServerOccurrence"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceMCPServerOccurrenceResponse(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceMCPServerOccurrenceResponse is returned by GET /api/devices/mcp-servers/{config_hash}/occurrences.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceMCPServerOccurrence"),
+									},
+								},
+							},
+						},
+					},
+					"total": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+					"limit": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"offset": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+				},
+				Required: []string{"items", "total", "limit", "offset"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.DeviceMCPServerOccurrence"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceMCPServerStat(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceMCPServerStat is one row of the fleet-wide MCP aggregation, keyed by ConfigHash. Identity fields (Name, Transport, Command, Args, URL) are stable within a hash group by construction — they are inputs to the hash itself.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"configHash": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ConfigHash is the aggregation key.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"transport": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"command": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"args": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"deviceCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DeviceCount is the number of distinct devices observing this hash.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"userCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UserCount is the number of distinct submitters observing this hash.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"clientCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ClientCount is the number of distinct client names observing this hash.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"observationCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ObservationCount is the total number of rows with this hash.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+				},
+				Required: []string{"configHash", "name", "transport", "deviceCount", "userCount", "clientCount", "observationCount"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceScan(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceScan is a persisted scan: the submitted manifest plus server-assigned fields.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"scannerVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ScannerVersion is the obot version that produced the scan.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"scannedAt": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ScannedAt is when the scanner finished collecting on the device.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"deviceID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DeviceID is the persisted per-device identifier so re-scans collate.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"hostname": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Hostname is the device hostname at scan time.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"os": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OS is the operating system (darwin, linux, windows).",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"arch": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Arch is the CPU architecture (amd64, arm64).",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"username": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Username is the OS user that ran the scan.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"files": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Files are the config / manifest files captured during the scan, deduped by absolute path.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceScanFile"),
+									},
+								},
+							},
+						},
+					},
+					"mcpServers": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MCPServers are the MCP server observations.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceScanMCPServer"),
+									},
+								},
+							},
+						},
+					},
+					"skills": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Skills are the skill observations (SKILL.md hits).",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceScanSkill"),
+									},
+								},
+							},
+						},
+					},
+					"plugins": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Plugins are the plugin observations.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceScanPlugin"),
+									},
+								},
+							},
+						},
+					},
+					"clients": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Clients are the per-client presence + roll-up rows.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceScanClient"),
+									},
+								},
+							},
+						},
+					},
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ID is the server-assigned primary key.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"receivedAt": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ReceivedAt is the server's receipt timestamp.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"submittedBy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SubmittedBy is the user ID of the caller that posted the scan.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"scannerVersion", "scannedAt", "deviceID", "hostname", "os", "arch", "files", "mcpServers", "skills", "plugins", "clients", "id", "receivedAt", "submittedBy"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.DeviceScanClient", "github.com/obot-platform/obot/apiclient/types.DeviceScanFile", "github.com/obot-platform/obot/apiclient/types.DeviceScanMCPServer", "github.com/obot-platform/obot/apiclient/types.DeviceScanPlugin", "github.com/obot-platform/obot/apiclient/types.DeviceScanSkill", "github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceScanClient(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceScanClient is a per-device record for an AI client. Carries presence facts plus roll-ups summarising what the device has configured for this client.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the canonical client name (e.g. \"claudecode\", \"cursor\").",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"version": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Version is the client version, when one was discoverable.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"binaryPath": {
+						SchemaProps: spec.SchemaProps{
+							Description: "BinaryPath is the resolved $PATH location of the client binary.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"installPath": {
+						SchemaProps: spec.SchemaProps{
+							Description: "InstallPath is the install location (e.g. an /Applications bundle).",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"configPath": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ConfigPath is the client's primary config directory under $HOME.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"hasMCPServers": {
+						SchemaProps: spec.SchemaProps{
+							Description: "HasMCPServers is true when at least one MCPServers row references this client.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"hasSkills": {
+						SchemaProps: spec.SchemaProps{
+							Description: "HasSkills is true when at least one Skills row references this client.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"hasPlugins": {
+						SchemaProps: spec.SchemaProps{
+							Description: "HasPlugins is true when at least one Plugins row references this client.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"name", "hasMCPServers", "hasSkills", "hasPlugins"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceScanFile(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceScanFile is one captured config or manifest file.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"path": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Path is the absolute path on the device.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"sizeBytes": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SizeBytes is the file size in bytes.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"oversized": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Oversized is true when the file exceeded the per-file content cap.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"content": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Content is the raw file bytes; omitted when Oversized.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"path", "sizeBytes", "oversized"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceScanList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceScan"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.DeviceScan"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceScanMCPServer(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceScanMCPServer is one MCP server observation. ID is server-assigned on insert and stable across responses.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ID is the row's primary key. Server-set; ignored on submission.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"client": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Client is the canonical client name (e.g. \"cursor\"); empty for orphans.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"projectPath": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ProjectPath is the project root for project-scope observations; empty for global.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"file": {
+						SchemaProps: spec.SchemaProps{
+							Description: "File is the absolute path of the defining config file.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"configHash": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ConfigHash is the content-addressed identity for fleet-wide aggregation. Computed over Name, Transport, Command, Args, URL only — env / header keys are excluded so a server with a rotated secret stays one entity.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"envKeys": {
+						SchemaProps: spec.SchemaProps{
+							Description: "EnvKeys are the env var names referenced by the server config (values redacted).",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"headerKeys": {
+						SchemaProps: spec.SchemaProps{
+							Description: "HeaderKeys are the HTTP header names referenced by the server config (values redacted).",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the server's configured name.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"transport": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Transport is \"stdio\", \"http\", \"sse\", etc.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"command": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Command is the stdio command, if any.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"args": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Args are the stdio command arguments.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Description: "URL is the remote endpoint for HTTP / SSE transports.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"client", "envKeys", "headerKeys", "name", "transport"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceScanManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceScanManifest is what `obot scan` submits. Server-assigned fields (id, receivedAt, submittedBy) live on DeviceScan instead. Child observations share the same wire type for submission and response — the ID field is server-set and decoded into a zero value on submission, which DeviceScanFromManifest deliberately does not copy. Submitters cannot trample existing row PKs.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"scannerVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ScannerVersion is the obot version that produced the scan.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"scannedAt": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ScannedAt is when the scanner finished collecting on the device.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"deviceID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DeviceID is the persisted per-device identifier so re-scans collate.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"hostname": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Hostname is the device hostname at scan time.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"os": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OS is the operating system (darwin, linux, windows).",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"arch": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Arch is the CPU architecture (amd64, arm64).",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"username": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Username is the OS user that ran the scan.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"files": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Files are the config / manifest files captured during the scan, deduped by absolute path.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceScanFile"),
+									},
+								},
+							},
+						},
+					},
+					"mcpServers": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MCPServers are the MCP server observations.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceScanMCPServer"),
+									},
+								},
+							},
+						},
+					},
+					"skills": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Skills are the skill observations (SKILL.md hits).",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceScanSkill"),
+									},
+								},
+							},
+						},
+					},
+					"plugins": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Plugins are the plugin observations.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceScanPlugin"),
+									},
+								},
+							},
+						},
+					},
+					"clients": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Clients are the per-client presence + roll-up rows.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceScanClient"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"scannerVersion", "scannedAt", "deviceID", "hostname", "os", "arch", "files", "mcpServers", "skills", "plugins", "clients"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.DeviceScanClient", "github.com/obot-platform/obot/apiclient/types.DeviceScanFile", "github.com/obot-platform/obot/apiclient/types.DeviceScanMCPServer", "github.com/obot-platform/obot/apiclient/types.DeviceScanPlugin", "github.com/obot-platform/obot/apiclient/types.DeviceScanSkill", "github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceScanPlugin(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceScanPlugin is one plugin observation. ID is server-assigned on insert and stable across responses.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ID is the row's primary key. Server-set; ignored on submission.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"client": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Client is the canonical client name that owns the plugin host.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"projectPath": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ProjectPath is the project root for project-scope plugins.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"configPath": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ConfigPath is the absolute path of the plugin's defining manifest.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the plugin name.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"pluginType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PluginType identifies the plugin kind (extension, marketplace package, etc.).",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"version": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Version is the plugin version.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Description is the plugin description from its manifest.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"author": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Author is the plugin author from its manifest.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"marketplace": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Marketplace is the source marketplace, if applicable.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"files": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Files lists every file collected from the plugin directory.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"enabled": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Enabled is true when the plugin is enabled per the host's config.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"hasMCPServers": {
+						SchemaProps: spec.SchemaProps{
+							Description: "HasMCPServers is true when the plugin defines MCP servers.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"hasSkills": {
+						SchemaProps: spec.SchemaProps{
+							Description: "HasSkills is true when the plugin defines skills.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"hasRules": {
+						SchemaProps: spec.SchemaProps{
+							Description: "HasRules is true when the plugin defines rules.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"hasCommands": {
+						SchemaProps: spec.SchemaProps{
+							Description: "HasCommands is true when the plugin defines commands.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"hasHooks": {
+						SchemaProps: spec.SchemaProps{
+							Description: "HasHooks is true when the plugin defines hooks.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"client", "name", "pluginType", "files", "enabled", "hasMCPServers", "hasSkills", "hasRules", "hasCommands", "hasHooks"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceScanResponse(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceScanResponse is returned by GET /api/devices/scans.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceScan"),
+									},
+								},
+							},
+						},
+					},
+					"total": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+					"limit": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"offset": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+				},
+				Required: []string{"items", "total", "limit", "offset"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.DeviceScan"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceScanSkill(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceScanSkill is one skill (SKILL.md) observation. ID is server-assigned on insert and stable across responses.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ID is the row's primary key. Server-set; ignored on submission.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"client": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Client is the canonical client name; \"multi\" for free-floating SKILL.md files with no canonical owning client (e.g. .agents/skills, .agent/skills, project skills outside a known client tree).",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"projectPath": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ProjectPath is the project root for project-scope skills.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"file": {
+						SchemaProps: spec.SchemaProps{
+							Description: "File is the absolute path of the SKILL.md file.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the skill name (typically the SKILL.md frontmatter name).",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Description is the skill description from frontmatter.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"files": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Files lists SKILL.md plus any supporting artifacts in the skill directory.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"hasScripts": {
+						SchemaProps: spec.SchemaProps{
+							Description: "HasScripts indicates the skill ships at least one executable script.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"gitRemoteURL": {
+						SchemaProps: spec.SchemaProps{
+							Description: "GitRemoteURL is the git remote of the skill's enclosing repo, if any.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"client", "name", "files", "hasScripts"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceScanStats(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceScanStats is returned by GET /api/devices/scan-stats.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"timeStart": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TimeStart is the inclusive lower bound of the rollup window.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"timeEnd": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TimeEnd is the exclusive upper bound of the rollup window.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"deviceCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DeviceCount is the number of distinct devices in the window.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"userCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UserCount is the number of distinct submitters in the window.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"clients": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Clients is the full ranked per-client breakdown.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceClientStat"),
+									},
+								},
+							},
+						},
+					},
+					"mcpServers": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MCPServers is the full ranked per-ConfigHash breakdown.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceMCPServerStat"),
+									},
+								},
+							},
+						},
+					},
+					"skills": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Skills is the full ranked per-skill breakdown.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceSkillStat"),
+									},
+								},
+							},
+						},
+					},
+					"scanTimestamps": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ScanTimestamps is every scan submission's scanned_at inside the window, sorted ascending. The dashboard chart buckets these client-side in the user's local timezone. Counts every submission, not just the latest-per-device subset that drives the other rollups.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"timeStart", "timeEnd", "deviceCount", "userCount", "clients", "mcpServers", "skills", "scanTimestamps"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.DeviceClientStat", "github.com/obot-platform/obot/apiclient/types.DeviceMCPServerStat", "github.com/obot-platform/obot/apiclient/types.DeviceSkillStat", "github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceSkillDetail(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceSkillDetail is the GET /api/devices/skills/{name} response. The metadata fields come from one canonical observation and are not guaranteed to be stable across observations sharing the same name.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"DeviceSkillStat": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceSkillStat"),
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Description is the skill's short summary.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"hasScripts": {
+						SchemaProps: spec.SchemaProps{
+							Description: "HasScripts is true when the skill ships executable scripts.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"gitRemoteURL": {
+						SchemaProps: spec.SchemaProps{
+							Description: "GitRemoteURL is the upstream repo, if any.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"files": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Files lists every file collected from the skill directory.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"DeviceSkillStat", "hasScripts"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.DeviceSkillStat"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceSkillOccurrence(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceSkillOccurrence is one device's latest-scan row for a specific skill name.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"deviceScanID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DeviceScanID is the parent scan's primary key.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"deviceID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DeviceID is the device that submitted the parent scan.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"client": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Client is the canonical client name on this row.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"scope": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Scope is \"global\" or \"project\".",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"projectPath": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ProjectPath is the project root for project-scope rows.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"scannedAt": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ScannedAt is when the parent scan was collected on the device.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ID is the observation's stable identifier.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+				},
+				Required: []string{"deviceScanID", "deviceID", "client", "scope", "scannedAt", "id"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceSkillOccurrenceList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceSkillOccurrence"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.DeviceSkillOccurrence"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceSkillOccurrenceResponse(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceSkillOccurrenceResponse is returned by GET /api/devices/skills/{name}/occurrences.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceSkillOccurrence"),
+									},
+								},
+							},
+						},
+					},
+					"total": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+					"limit": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"offset": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+				},
+				Required: []string{"items", "total", "limit", "offset"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.DeviceSkillOccurrence"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceSkillStat(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceSkillStat is one row of the per-skill rollup.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the skill name (the aggregation key).",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"deviceCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DeviceCount is the number of distinct devices with this skill.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"userCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UserCount is the number of distinct submitters with this skill.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"observationCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ObservationCount is the total number of skill rows for this name.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+				},
+				Required: []string{"name", "deviceCount", "userCount", "observationCount"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceSkillStatList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceSkillStat"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.DeviceSkillStat"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceSkillStatResponse(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceSkillStatResponse is returned by GET /api/devices/skills.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceSkillStat"),
+									},
+								},
+							},
+						},
+					},
+					"total": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+					"limit": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"offset": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+				},
+				Required: []string{"items", "total", "limit", "offset"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.DeviceSkillStat"},
 	}
 }
 
@@ -3123,6 +5030,26 @@ func schema_obot_platform_obot_apiclient_types_FileScannerProviderStatus(ref com
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.CommonProviderStatus"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_FilterConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"toolName": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"toolName"},
+			},
+		},
 	}
 }
 
@@ -3879,13 +5806,39 @@ func schema_obot_platform_obot_apiclient_types_MCPAuditLog(ref common.ReferenceC
 							Format: "",
 						},
 					},
+					"requestMutated": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
 					"requestBody": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "byte",
 						},
 					},
+					"mutatedRequestBody": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+					"responseMutated": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
 					"responseBody": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+					"originalResponseBody": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "byte",
@@ -3955,7 +5908,7 @@ func schema_obot_platform_obot_apiclient_types_MCPAuditLog(ref common.ReferenceC
 						},
 					},
 				},
-				Required: []string{"id", "createdAt", "userID", "mcpID", "mcpServerDisplayName", "mcpServerCatalogEntryName", "client", "clientIP", "callType", "responseStatus", "processingTimeMs"},
+				Required: []string{"id", "createdAt", "userID", "mcpID", "mcpServerDisplayName", "mcpServerCatalogEntryName", "client", "clientIP", "callType", "requestMutated", "responseMutated", "responseStatus", "processingTimeMs"},
 			},
 		},
 		Dependencies: []string{
@@ -4214,6 +6167,21 @@ func schema_obot_platform_obot_apiclient_types_MCPCatalogManifest(ref common.Ref
 							},
 						},
 					},
+					"sourceURLCredentials": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"displayName", "sourceURLs"},
 			},
@@ -4277,6 +6245,12 @@ func schema_obot_platform_obot_apiclient_types_MCPEnv(ref common.ReferenceCallba
 							Format: "",
 						},
 					},
+					"secretBinding": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SecretBinding binds this value to a key in a pre-existing Kubernetes Secret",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.MCPSecretBinding"),
+						},
+					},
 					"file": {
 						SchemaProps: spec.SchemaProps{
 							Default: false,
@@ -4295,6 +6269,8 @@ func schema_obot_platform_obot_apiclient_types_MCPEnv(ref common.ReferenceCallba
 				Required: []string{"name", "description", "key", "value", "sensitive", "required", "file"},
 			},
 		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MCPSecretBinding"},
 	}
 }
 
@@ -4354,10 +6330,18 @@ func schema_obot_platform_obot_apiclient_types_MCPHeader(ref common.ReferenceCal
 							Format: "",
 						},
 					},
+					"secretBinding": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SecretBinding binds this value to a key in a pre-existing Kubernetes Secret",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.MCPSecretBinding"),
+						},
+					},
 				},
 				Required: []string{"name", "description", "key", "value", "sensitive", "required"},
 			},
 		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MCPSecretBinding"},
 	}
 }
 
@@ -4437,6 +6421,34 @@ func schema_obot_platform_obot_apiclient_types_MCPResourceRequests(ref common.Re
 						},
 					},
 				},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MCPSecretBinding(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MCPSecretBinding references a single key in a pre-existing Kubernetes Secret in the Obot namespace (the namespace where the Obot server runs)",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"key": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"name", "key"},
 			},
 		},
 	}
@@ -4573,6 +6585,12 @@ func schema_obot_platform_obot_apiclient_types_MCPServer(ref common.ReferenceCal
 							Format: "",
 						},
 					},
+					"nanobotAgentID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"needsUpdate": {
 						SchemaProps: spec.SchemaProps{
 							Description: "NeedsUpdate indicates whether the configuration in this server's catalog entry has drift from this server's configuration.",
@@ -4650,6 +6668,12 @@ func schema_obot_platform_obot_apiclient_types_MCPServer(ref common.ReferenceCal
 							},
 						},
 					},
+					"oauthMetadata": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OAuthMetadata contains discovered OAuth metadata for remote MCP servers.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.OAuthMetadata"),
+						},
+					},
 					"k8sSettingsHash": {
 						SchemaProps: spec.SchemaProps{
 							Description: "K8sSettingsHash contains the hash of K8s settings this server was deployed with",
@@ -4676,7 +6700,7 @@ func schema_obot_platform_obot_apiclient_types_MCPServer(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.DeploymentCondition", "github.com/obot-platform/obot/apiclient/types.MCPServerManifest", "github.com/obot-platform/obot/apiclient/types.Metadata"},
+			"github.com/obot-platform/obot/apiclient/types.DeploymentCondition", "github.com/obot-platform/obot/apiclient/types.MCPServerManifest", "github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.OAuthMetadata"},
 	}
 }
 
@@ -4895,6 +6919,12 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryManifest(ref
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.CompositeCatalogConfig"),
 						},
 					},
+					"multiUserConfig": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MultiUserConfig is the multi-user specific configuration for this component server, if applicable.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.MultiUserConfig"),
+						},
+					},
 					"env": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
@@ -4908,12 +6938,19 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryManifest(ref
 							},
 						},
 					},
+					"startupTimeoutSeconds": {
+						SchemaProps: spec.SchemaProps{
+							Description: "StartupTimeout configures the timeout to start and connect to an MCP Server. When unset, it defaults to 60s. The maximum allowed value is 600s (10 minutes). Attempting to set a higher value will cause an error.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
 				},
 				Required: []string{"name", "shortDescription", "description", "icon", "runtime"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.CompositeCatalogConfig", "github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteCatalogConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
+			"github.com/obot-platform/obot/apiclient/types.CompositeCatalogConfig", "github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.MultiUserConfig", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteCatalogConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
 	}
 }
 
@@ -5066,6 +7103,29 @@ func schema_obot_platform_obot_apiclient_types_MCPServerInstance(ref common.Refe
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
 						},
 					},
+					"configured": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Configured indicates whether all required user-supplied configuration has been provided.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"missingRequiredHeaders": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MissingRequiredHeaders contains required headers from the MCP server's multi-user config that have not been provided.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 					"userID": {
 						SchemaProps: spec.SchemaProps{
 							Description: "UserID is the user that owns this MCP server instance.",
@@ -5108,12 +7168,18 @@ func schema_obot_platform_obot_apiclient_types_MCPServerInstance(ref common.Refe
 							Format:      "",
 						},
 					},
+					"multiUserConfig": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MultiUserConfig is the multi-user configuration for this instance, which is copied from the MCP server's manifest. This will be nil if the MCP server does not have multi-user config.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.MultiUserConfig"),
+						},
+					},
 				},
-				Required: []string{"Metadata"},
+				Required: []string{"Metadata", "configured"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Metadata"},
+			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.MultiUserConfig"},
 	}
 }
 
@@ -5269,6 +7335,12 @@ func schema_obot_platform_obot_apiclient_types_MCPServerManifest(ref common.Refe
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.CompositeRuntimeConfig"),
 						},
 					},
+					"multiUserConfig": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Multi-user specific configuration",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.MultiUserConfig"),
+						},
+					},
 					"env": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
@@ -5322,12 +7394,24 @@ func schema_obot_platform_obot_apiclient_types_MCPServerManifest(ref common.Refe
 							},
 						},
 					},
+					"idleShutdownIntervalHours": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+					"startupTimeoutSeconds": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
 				},
 				Required: []string{"name", "shortDescription", "description", "icon", "runtime"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.CompositeRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv", "github.com/obot-platform/obot/apiclient/types.MCPHeader", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
+			"github.com/obot-platform/obot/apiclient/types.CompositeRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv", "github.com/obot-platform/obot/apiclient/types.MCPHeader", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.MultiUserConfig", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
 	}
 }
 
@@ -5481,9 +7565,8 @@ func schema_obot_platform_obot_apiclient_types_MCPServerTool(ref common.Referenc
 					},
 					"enabled": {
 						SchemaProps: spec.SchemaProps{
-							Default: false,
-							Type:    []string{"boolean"},
-							Format:  "",
+							Type:   []string{"boolean"},
+							Format: "",
 						},
 					},
 					"unsupported": {
@@ -5493,7 +7576,7 @@ func schema_obot_platform_obot_apiclient_types_MCPServerTool(ref common.Referenc
 						},
 					},
 				},
-				Required: []string{"id", "name", "enabled"},
+				Required: []string{"id", "name"},
 			},
 		},
 	}
@@ -5866,6 +7949,23 @@ func schema_obot_platform_obot_apiclient_types_MCPWebhookValidation(ref common.R
 							Format: "",
 						},
 					},
+					"mcpServerManifest": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.SystemMCPServerManifest"),
+						},
+					},
+					"systemMCPServerCatalogEntryID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"toolName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"selectors": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
@@ -5877,6 +7977,12 @@ func schema_obot_platform_obot_apiclient_types_MCPWebhookValidation(ref common.R
 									},
 								},
 							},
+						},
+					},
+					"allowedToMutate": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
 						},
 					},
 					"disabled": {
@@ -5891,12 +7997,33 @@ func schema_obot_platform_obot_apiclient_types_MCPWebhookValidation(ref common.R
 							Format: "",
 						},
 					},
+					"configured": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"missingRequiredEnvVars": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 				},
-				Required: []string{"created"},
+				Required: []string{"created", "configured"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.MCPSelector", "github.com/obot-platform/obot/apiclient/types.Resource", "github.com/obot-platform/obot/apiclient/types.Time"},
+			"github.com/obot-platform/obot/apiclient/types.MCPSelector", "github.com/obot-platform/obot/apiclient/types.Resource", "github.com/obot-platform/obot/apiclient/types.SystemMCPServerManifest", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
@@ -5965,6 +8092,23 @@ func schema_obot_platform_obot_apiclient_types_MCPWebhookValidationManifest(ref 
 							Format: "",
 						},
 					},
+					"mcpServerManifest": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.SystemMCPServerManifest"),
+						},
+					},
+					"systemMCPServerCatalogEntryID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"toolName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"selectors": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
@@ -5978,6 +8122,12 @@ func schema_obot_platform_obot_apiclient_types_MCPWebhookValidationManifest(ref 
 							},
 						},
 					},
+					"allowedToMutate": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 					"disabled": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
@@ -5988,7 +8138,7 @@ func schema_obot_platform_obot_apiclient_types_MCPWebhookValidationManifest(ref 
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.MCPSelector", "github.com/obot-platform/obot/apiclient/types.Resource"},
+			"github.com/obot-platform/obot/apiclient/types.MCPSelector", "github.com/obot-platform/obot/apiclient/types.Resource", "github.com/obot-platform/obot/apiclient/types.SystemMCPServerManifest"},
 	}
 }
 
@@ -6936,6 +9086,12 @@ func schema_obot_platform_obot_apiclient_types_ModelManifest(ref common.Referenc
 							Format:  "",
 						},
 					},
+					"dialect": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"active", "usage"},
 			},
@@ -7117,6 +9273,35 @@ func schema_obot_platform_obot_apiclient_types_ModelStatus(ref common.ReferenceC
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_MultiUserConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MultiUserConfig represents configuration for multi-user MCP servers in catalog entries",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"userDefinedHeaders": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Headers that users should provide when configuring their server instance.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPHeader"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MCPHeader"},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_NPXRuntimeConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -7144,6 +9329,28 @@ func schema_obot_platform_obot_apiclient_types_NPXRuntimeConfig(ref common.Refer
 									},
 								},
 							},
+						},
+					},
+					"egressDomains": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Optional: Additional arguments",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"denyAllEgress": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Optional: Empty means allow all, otherwise allow only the listed domains when network policy enforcement is enabled",
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 				},
@@ -7763,6 +9970,48 @@ func schema_obot_platform_obot_apiclient_types_OAuthClientManifest(ref common.Re
 							Description: "SoftwareVersion is a version identifier string for the client software identified by \"software_id\". Optional.",
 							Type:        []string{"string"},
 							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_OAuthMetadata(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"protectedResourceUrl": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"authorizationServerUrl": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"protectedResourceMetadata": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+					"authorizationServerMetadata": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+					"dynamicClientRegistration": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
 						},
 					},
 				},
@@ -9271,13 +11520,6 @@ func schema_obot_platform_obot_apiclient_types_PublishedArtifact(ref common.Refe
 							Format:  "int32",
 						},
 					},
-					"visibility": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
 					"versions": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
@@ -9292,7 +11534,7 @@ func schema_obot_platform_obot_apiclient_types_PublishedArtifact(ref common.Refe
 						},
 					},
 				},
-				Required: []string{"Metadata", "PublishedArtifactManifest", "authorID", "latestVersion", "visibility"},
+				Required: []string{"Metadata", "PublishedArtifactManifest", "authorID", "latestVersion"},
 			},
 		},
 		Dependencies: []string{
@@ -9401,12 +11643,25 @@ func schema_obot_platform_obot_apiclient_types_PublishedArtifactVersionEntry(ref
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
 						},
 					},
+					"subjects": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.Subject"),
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"version", "blobKey", "createdAt"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Time"},
+			"github.com/obot-platform/obot/apiclient/types.Subject", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
@@ -9435,12 +11690,25 @@ func schema_obot_platform_obot_apiclient_types_PublishedArtifactVersionSummary(r
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
 						},
 					},
+					"subjects": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.Subject"),
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"version", "createdAt"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Time"},
+			"github.com/obot-platform/obot/apiclient/types.Subject", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
@@ -11268,6 +13536,136 @@ func schema_obot_platform_obot_apiclient_types_Subject(ref common.ReferenceCallb
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_SystemMCPCatalog(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"Metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
+						},
+					},
+					"SystemMCPCatalogManifest": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.SystemMCPCatalogManifest"),
+						},
+					},
+					"lastSynced": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"syncErrors": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"isSyncing": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"Metadata", "SystemMCPCatalogManifest", "lastSynced"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.SystemMCPCatalogManifest", "github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_SystemMCPCatalogList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.SystemMCPCatalog"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.SystemMCPCatalog"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_SystemMCPCatalogManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"displayName": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"sourceURLs": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"sourceURLCredentials": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"displayName", "sourceURLs"},
+			},
+		},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_SystemMCPServer(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -11374,6 +13772,229 @@ func schema_obot_platform_obot_apiclient_types_SystemMCPServer(ref common.Refere
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_SystemMCPServerCatalogEntry(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"Metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
+						},
+					},
+					"manifest": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.SystemMCPServerCatalogEntryManifest"),
+						},
+					},
+					"editable": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"catalogName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"sourceURL": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"lastUpdated": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"toolPreviewsLastGenerated": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"needsUpdate": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"oauthCredentialConfigured": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"Metadata", "manifest"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.SystemMCPServerCatalogEntryManifest", "github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_SystemMCPServerCatalogEntryList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.SystemMCPServerCatalogEntry"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.SystemMCPServerCatalogEntry"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_SystemMCPServerCatalogEntryManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"shortDescription": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"icon": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"repoURL": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"toolPreview": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPServerTool"),
+									},
+								},
+							},
+						},
+					},
+					"systemMCPServerType": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"filterConfig": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.FilterConfig"),
+						},
+					},
+					"runtime": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"uvxConfig": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"),
+						},
+					},
+					"npxConfig": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig"),
+						},
+					},
+					"containerizedConfig": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig"),
+						},
+					},
+					"remoteConfig": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.RemoteCatalogConfig"),
+						},
+					},
+					"env": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPEnv"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"name", "shortDescription", "description", "icon", "runtime"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.FilterConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteCatalogConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_SystemMCPServerList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -11454,23 +14075,37 @@ func schema_obot_platform_obot_apiclient_types_SystemMCPServerManifest(ref commo
 					"enabled": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Enabled controls whether this server should be deployed",
-							Default:     false,
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
 					},
 					"runtime": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Runtime configuration (only containerized allowed)",
+							Description: "Runtime configuration",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
+					"uvxConfig": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Runtime-specific configurations (only one should be populated based on runtime)",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"),
+						},
+					},
+					"npxConfig": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig"),
+						},
+					},
 					"containerizedConfig": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Runtime-specific configuration",
-							Ref:         ref("github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig"),
+						},
+					},
+					"remoteConfig": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.RemoteRuntimeConfig"),
 						},
 					},
 					"env": {
@@ -11486,12 +14121,18 @@ func schema_obot_platform_obot_apiclient_types_SystemMCPServerManifest(ref commo
 							},
 						},
 					},
+					"startupTimeoutSeconds": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
 				},
-				Required: []string{"name", "shortDescription", "description", "icon", "enabled", "runtime"},
+				Required: []string{"name", "shortDescription", "description", "icon", "runtime"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv"},
+			"github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
 	}
 }
 
@@ -13047,6 +15688,28 @@ func schema_obot_platform_obot_apiclient_types_UVXRuntimeConfig(ref common.Refer
 							},
 						},
 					},
+					"egressDomains": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Optional: Additional arguments",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"denyAllEgress": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Optional: Empty means allow all, otherwise allow only the listed domains when network policy enforcement is enabled",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"package", "command"},
 			},
@@ -13403,6 +16066,12 @@ func schema_obot_platform_obot_apiclient_types_WebhookStatus(ref common.Referenc
 						},
 					},
 					"name": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"tool": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -16266,6 +18935,163 @@ func schema_storage_apis_obotobotai_v1_MCPCatalogStatus(ref common.ReferenceCall
 	}
 }
 
+func schema_storage_apis_obotobotai_v1_MCPNetworkPolicy(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPNetworkPolicySpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPNetworkPolicyStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPNetworkPolicySpec", "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPNetworkPolicyStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_MCPNetworkPolicyList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPNetworkPolicy"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPNetworkPolicy", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_MCPNetworkPolicySpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"mcpServerName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"podSelector": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"egressDomains": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"denyAllEgress": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_MCPNetworkPolicyStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+			},
+		},
+	}
+}
+
 func schema_storage_apis_obotobotai_v1_MCPServer(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -16662,9 +19488,17 @@ func schema_storage_apis_obotobotai_v1_MCPServerInstanceSpec(ref common.Referenc
 							Format:      "",
 						},
 					},
+					"multiUserConfig": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MultiUserConfig indicates the configuration required from the MCP server that this instance points to.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.MultiUserConfig"),
+						},
+					},
 				},
 			},
 		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MultiUserConfig"},
 	}
 }
 
@@ -16766,7 +19600,7 @@ func schema_storage_apis_obotobotai_v1_MCPServerSpec(ref common.ReferenceCallbac
 					},
 					"sharedWithinMCPCatalogName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "SharedWithinMCPCatalogName is a deprecated field. It is renamed to MCPCatalogID.",
+							Description: "SharedWithinMCPCatalogName is a deprecated field. It is renamed to MCPCatalogID. Deprecated: Use MCPCatalogID instead. This field is still populated for backward compatibility, but should not be set on new MCP servers.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -16865,7 +19699,7 @@ func schema_storage_apis_obotobotai_v1_MCPServerStatus(ref common.ReferenceCallb
 					},
 					"deploymentStatus": {
 						SchemaProps: spec.SchemaProps{
-							Description: "DeploymentStatus indicates the overall status of the MCP server deployment (Available, Progressing, Unavailable, Needs Attention, Unknown).",
+							Description: "DeploymentStatus indicates the overall status of the MCP server deployment (Available, Progressing, Unavailable, Needs Attention, Shutdown, Unknown).",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -16940,11 +19774,37 @@ func schema_storage_apis_obotobotai_v1_MCPServerStatus(ref common.ReferenceCallb
 							Format:      "",
 						},
 					},
+					"oauthMetadata": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OAuthMetadata contains discovered OAuth metadata for remote MCP servers.",
+							Ref:         ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthMetadata"),
+						},
+					},
+					"lastOAuthMetadataSync": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LastOAuthMetadataSync is the time of the last OAuth metadata sync attempt.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"lastRequestTime": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LastRequestTime is the time of the last request to the server, in 15 minute granularity.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"idle": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Idle indicates whether the server is currently idle.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
+				Required: []string{"lastOAuthMetadataSync", "lastRequestTime"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.DeploymentCondition"},
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.DeploymentCondition", "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthMetadata", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }
 
@@ -17127,11 +19987,17 @@ func schema_storage_apis_obotobotai_v1_MCPWebhookValidation(ref common.Reference
 							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPWebhookValidationSpec"),
 						},
 					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPWebhookValidationStatus"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPWebhookValidationSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPWebhookValidationSpec", "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPWebhookValidationStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -17201,6 +20067,26 @@ func schema_storage_apis_obotobotai_v1_MCPWebhookValidationSpec(ref common.Refer
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.MCPWebhookValidationManifest"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_MCPWebhookValidationStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"configured": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"configured"},
+			},
+		},
 	}
 }
 
@@ -18594,6 +21480,48 @@ func schema_storage_apis_obotobotai_v1_OAuthClientStatus(ref common.ReferenceCal
 	}
 }
 
+func schema_storage_apis_obotobotai_v1_OAuthMetadata(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"protectedResourceUrl": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"authorizationServerUrl": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"protectedResourceMetadata": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+					"authorizationServerMetadata": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+					"dynamicClientRegistration": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_storage_apis_obotobotai_v1_OAuthToken(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -19641,7 +22569,7 @@ func schema_storage_apis_obotobotai_v1_PublishedArtifactSpec(ref common.Referenc
 					},
 					"visibility": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Visibility controls who can see this artifact.",
+							Description: "LegacyVisibility is retained only so old stored artifacts can be migrated.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -20959,6 +23887,173 @@ func schema_storage_apis_obotobotai_v1_SkillStatus(ref common.ReferenceCallback)
 	}
 }
 
+func schema_storage_apis_obotobotai_v1_SystemMCPCatalog(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SystemMCPCatalogSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SystemMCPCatalogStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SystemMCPCatalogSpec", "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SystemMCPCatalogStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_SystemMCPCatalogList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SystemMCPCatalog"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SystemMCPCatalog", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_SystemMCPCatalogSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"displayName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"sourceURLs": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_SystemMCPCatalogStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"lastSyncTime": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"syncErrors": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"isSyncing": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"lastSyncTime"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+	}
+}
+
 func schema_storage_apis_obotobotai_v1_SystemMCPServer(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -21002,6 +24097,180 @@ func schema_storage_apis_obotobotai_v1_SystemMCPServer(ref common.ReferenceCallb
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SystemMCPServerSpec", "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SystemMCPServerStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_SystemMCPServerCatalogEntry(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SystemMCPServerCatalogEntrySpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SystemMCPServerCatalogEntryStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SystemMCPServerCatalogEntrySpec", "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SystemMCPServerCatalogEntryStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_SystemMCPServerCatalogEntryList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SystemMCPServerCatalogEntry"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SystemMCPServerCatalogEntry", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_SystemMCPServerCatalogEntrySpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"manifest": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.SystemMCPServerCatalogEntryManifest"),
+						},
+					},
+					"sourceURL": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"editable": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"systemMCPCatalogName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.SystemMCPServerCatalogEntryManifest"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_SystemMCPServerCatalogEntryStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"lastUpdated": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"toolPreviewsLastGenerated": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"manifestHash": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"needsUpdate": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"oauthCredentialConfigured": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }
 
@@ -21066,6 +24335,13 @@ func schema_storage_apis_obotobotai_v1_SystemMCPServerSpec(ref common.ReferenceC
 							Ref:         ref("github.com/obot-platform/obot/apiclient/types.SystemMCPServerManifest"),
 						},
 					},
+					"webhookValidationName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "WebhookValidationName is the name of the associated MCPWebhookValidation resource",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"manifest"},
 			},
@@ -21083,7 +24359,7 @@ func schema_storage_apis_obotobotai_v1_SystemMCPServerStatus(ref common.Referenc
 				Properties: map[string]spec.Schema{
 					"deploymentStatus": {
 						SchemaProps: spec.SchemaProps{
-							Description: "DeploymentStatus indicates overall status (Available, Progressing, Unavailable, Needs Attention, Unknown)",
+							Description: "DeploymentStatus indicates overall status (Available, Progressing, Unavailable, Needs Attention, Shutdown, Unknown)",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -24440,6 +27716,13 @@ func schema_pkg_apis_meta_v1_DeleteOptions(ref common.ReferenceCallback) common.
 							},
 						},
 					},
+					"ignoreStoreReadErrorWithClusterBreakingPotential": {
+						SchemaProps: spec.SchemaProps{
+							Description: "if set to true, it will trigger an unsafe deletion of the resource in case the normal deletion flow fails with a corrupt object error. A resource is considered corrupt if it can not be retrieved from the underlying storage successfully because of a) its data can not be transformed e.g. decryption failure, or b) it fails to decode into an object. NOTE: unsafe deletion ignores finalizer constraints, skips precondition checks, and removes the object from the storage. WARNING: This may potentially break the cluster if the workload associated with the resource being unsafe-deleted relies on normal deletion flow. Use only if you REALLY know what you are doing. The default value is false, and the user must opt in to enable it",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -26347,16 +29630,46 @@ func schema_k8sio_apimachinery_pkg_version_Info(ref common.ReferenceCallback) co
 				Properties: map[string]spec.Schema{
 					"major": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Description: "Major is the major version of the binary version",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"minor": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Description: "Minor is the minor version of the binary version",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"emulationMajor": {
+						SchemaProps: spec.SchemaProps{
+							Description: "EmulationMajor is the major version of the emulation version",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"emulationMinor": {
+						SchemaProps: spec.SchemaProps{
+							Description: "EmulationMinor is the minor version of the emulation version",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"minCompatibilityMajor": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MinCompatibilityMajor is the major version of the minimum compatibility version",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"minCompatibilityMinor": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MinCompatibilityMinor is the minor version of the minimum compatibility version",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"gitVersion": {

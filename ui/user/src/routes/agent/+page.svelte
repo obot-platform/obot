@@ -1,19 +1,19 @@
 <script lang="ts">
 	import Layout from '$lib/components/Layout.svelte';
-	import * as nanobotLayout from '$lib/context/nanobotLayout.svelte';
-	import ProjectSidebar from './ProjectSidebar.svelte';
 	import ProjectStartThread from '$lib/components/nanobot/ProjectStartThread.svelte';
 	import QuickAccess from '$lib/components/nanobot/QuickAccess.svelte';
+	import Profile from '$lib/components/navbar/Profile.svelte';
+	import * as nanobotLayout from '$lib/context/nanobotLayout.svelte';
 	import type { ChatSession } from '$lib/services/nanobot/chat/index.svelte';
-	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
-	import { get } from 'svelte/store';
-	import { goto } from '$lib/url';
-	import { clampThreadContentReportedWidth, randomUUID } from '$lib/utils';
 	import type { Attachment, UploadedFile } from '$lib/services/nanobot/types';
 	import { responsive, profile } from '$lib/stores';
-	import MobileDock from './MobileDock.svelte';
-	import Profile from '$lib/components/navbar/Profile.svelte';
+	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
+	import { goto } from '$lib/url';
+	import { clampThreadContentReportedWidth, randomUUID } from '$lib/utils';
 	import ImpersonateBanner from './ImpersonateBanner.svelte';
+	import MobileDock from './MobileDock.svelte';
+	import ProjectSidebar from './ProjectSidebar.svelte';
+	import { get } from 'svelte/store';
 
 	let { data } = $props();
 	let projects = $derived(data.projects);
@@ -87,10 +87,11 @@
 	layoutContext={nanobotLayout}
 	classes={{
 		container: 'px-0 py-0 md:px-0',
-		childrenContainer: 'max-w-full h-[calc(100dvh-4rem)]',
+		childrenContainer: `max-w-full ${impersonating ? 'h-[calc(100dvh-8rem)]' : 'h-[calc(100dvh-4rem)]'}`,
 		collapsedSidebarHeaderContent: 'pb-0',
 		sidebar: 'pt-0 px-0',
-		sidebarRoot: 'bg-base-200'
+		sidebarRoot: 'bg-base-200',
+		navbar: impersonating ? 'top-15' : 'top-0'
 	}}
 	whiteBackground
 	disableResize
@@ -186,6 +187,7 @@
 				subscribed: false
 			} as unknown as ChatSession}
 			onThreadContentWidth={handleThreadContentWidth}
+			classes={{ root: impersonating ? 'h-[calc(100dvh-8rem)]' : 'h-[calc(100dvh-4rem)]' }}
 		/>
 	</div>
 

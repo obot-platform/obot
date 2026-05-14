@@ -1,5 +1,11 @@
 <script lang="ts">
+	import { columnResize } from '$lib/actions/resize';
 	import Layout from '$lib/components/Layout.svelte';
+	import Select from '$lib/components/Select.svelte';
+	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
+	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService } from '$lib/services';
 	import type {
 		OrgUser,
@@ -9,20 +15,16 @@
 	} from '$lib/services/admin/types';
 	import { PolicyDirectionLabels } from '$lib/services/admin/types';
 	import type { PolicyDirection } from '$lib/services/admin/types';
+	import { responsive, timePreference } from '$lib/stores';
+	import { formatLogTimestamp } from '$lib/time';
+	import { getUserDisplayName } from '$lib/utils';
+	import { subDays, set } from 'date-fns';
+	import { ShieldAlert } from 'lucide-svelte';
+	import { X } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
-	import { subDays, set } from 'date-fns';
-	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
-	import Select from '$lib/components/Select.svelte';
-	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
 	import { fade } from 'svelte/transition';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import Loading from '$lib/icons/Loading.svelte';
-	import { ShieldAlert } from 'lucide-svelte';
-	import { columnResize } from '$lib/actions/resize';
-	import { responsive } from '$lib/stores';
-	import { X } from 'lucide-svelte';
-	import { getUserDisplayName } from '$lib/utils';
+	import { slide } from 'svelte/transition';
 
 	const duration = PAGE_TRANSITION_DURATION;
 
@@ -204,14 +206,33 @@
 		const allKey =
 			kind === 'direction' ? 'all_directions' : kind === 'user' ? 'all_users' : 'all_policies';
 
-		// After the Select removes the tag, check if nothing is left — reset to "all"
+		const removeId = String(option.id);
 		if (kind === 'direction') {
-			if (!filterDirection || filterDirection === allKey) filterDirection = allKey;
+			const parts = filterDirection
+				.split(',')
+				.map((v) => v.trim())
+				.filter((v) => v && v !== allKey && v !== removeId);
+			filterDirection = parts.length === 0 ? allKey : parts.join(',');
 		} else if (kind === 'user') {
-			if (!filterUserID || filterUserID === allKey) filterUserID = allKey;
+			const parts = filterUserID
+				.split(',')
+				.map((v) => v.trim())
+				.filter((v) => v && v !== allKey && v !== removeId);
+			filterUserID = parts.length === 0 ? allKey : parts.join(',');
 		} else {
-			if (!filterPolicyID || filterPolicyID === allKey) filterPolicyID = allKey;
+			const parts = filterPolicyID
+				.split(',')
+				.map((v) => v.trim())
+				.filter((v) => v && v !== allKey && v !== removeId);
+			filterPolicyID = parts.length === 0 ? allKey : parts.join(',');
 		}
+		applyFilter();
+	}
+
+	function handleFilterClearAll(kind: 'direction' | 'user' | 'policy') {
+		if (kind === 'direction') filterDirection = 'all_directions';
+		else if (kind === 'user') filterUserID = 'all_users';
+		else filterPolicyID = 'all_policies';
 		applyFilter();
 	}
 
@@ -319,9 +340,17 @@
 						options={directionSelectOptions}
 						bind:selected={filterDirection}
 						multiple
+						searchInDropdown
 						id="filter-direction"
 						onSelect={(option) => handleFilterSelect('direction', option)}
 						onClear={(option) => handleFilterClear('direction', option)}
+						onClearAll={filterDirection !== 'all_directions'
+							? () => handleFilterClearAll('direction')
+							: undefined}
+						placeholder="Filter by direction..."
+						buttonReadOnly
+						buttonTitle="Directions"
+						displayCount={!!filterDirection && filterDirection !== 'all_directions'}
 					/>
 					<Select
 						class="dark:border-surface3 border border-transparent"
@@ -329,9 +358,17 @@
 						options={userSelectOptions}
 						bind:selected={filterUserID}
 						multiple
+						searchInDropdown
 						id="filter-user"
 						onSelect={(option) => handleFilterSelect('user', option)}
 						onClear={(option) => handleFilterClear('user', option)}
+						onClearAll={filterUserID !== 'all_users'
+							? () => handleFilterClearAll('user')
+							: undefined}
+						placeholder="Filter by user..."
+						buttonReadOnly
+						buttonTitle="Users"
+						displayCount={!!filterUserID && filterUserID !== 'all_users'}
 					/>
 					<Select
 						class="dark:border-surface3 border border-transparent"
@@ -339,13 +376,58 @@
 						options={policySelectOptions}
 						bind:selected={filterPolicyID}
 						multiple
+						searchInDropdown
 						id="filter-policy"
 						onSelect={(option) => handleFilterSelect('policy', option)}
 						onClear={(option) => handleFilterClear('policy', option)}
+						onClearAll={filterPolicyID !== 'all_policies'
+							? () => handleFilterClearAll('policy')
+							: undefined}
+						placeholder="Filter by policy..."
+						buttonReadOnly
+						buttonTitle="Policies"
+						displayCount={!!filterPolicyID && filterPolicyID !== 'all_policies'}
 					/>
 					<div class="bg-surface3 hidden h-8 w-0.5 md:block"></div>
 					<AuditLogCalendar start={startTime} end={endTime} onChange={handleTimeRangeChange} />
 				</div>
+
+				{#if filterDirection !== 'all_directions' || filterUserID !== 'all_users' || filterPolicyID !== 'all_policies'}
+					<div class="flex flex-wrap items-center gap-2" in:slide={{ axis: 'y', duration: 100 }}>
+						{#if filterDirection !== 'all_directions'}
+							{#each filterDirection.split(',') as direction (direction)}
+								<div class="filter-primary">
+									<span class="font-semibold">Direction:</span>{directionLabel(direction)}
+									<button onclick={() => handleFilterClear('direction', { id: direction })}>
+										<X class="size-3" />
+									</button>
+								</div>
+							{/each}
+						{/if}
+						{#if filterUserID !== 'all_users'}
+							{#each filterUserID.split(',') as userID (userID)}
+								<div class="filter-primary">
+									<span class="font-semibold">User:</span>{displayName(userID)}
+									<button onclick={() => handleFilterClear('user', { id: userID })}>
+										<X class="size-3" />
+									</button>
+								</div>
+							{/each}
+						{/if}
+						{#if filterPolicyID !== 'all_policies'}
+							{#each filterPolicyID.split(',') as policyID (policyID)}
+								<div class="filter-primary">
+									<span class="font-semibold">Policy:</span>{policyFilterOptions.find(
+										(p) => p.id === policyID
+									)?.name}
+									<button onclick={() => handleFilterClear('policy', { id: policyID })}>
+										<X class="size-3" />
+									</button>
+								</div>
+							{/each}
+						{/if}
+					</div>
+				{/if}
 
 				<!-- Chart -->
 				<div class="paper w-full gap-0 pt-4">
@@ -452,18 +534,7 @@
 										<td class="px-6 py-3">{pageOffset + i + 1}</td>
 										<td class="whitespace-nowrap">
 											<div class="truncate px-6 py-4">
-												{new Date(v.createdAt)
-													.toLocaleString(undefined, {
-														year: 'numeric',
-														month: 'short',
-														day: 'numeric',
-														hour: '2-digit',
-														minute: '2-digit',
-														second: '2-digit',
-														hour12: true,
-														timeZoneName: 'short'
-													})
-													.replace(/,/g, '')}
+												{formatLogTimestamp(v.createdAt, timePreference.timeFormat)}
 											</div>
 										</td>
 										<td class="whitespace-nowrap">
@@ -525,7 +596,12 @@
 	</div>
 
 	<!-- Detail drawer -->
-	<div bind:this={rightSidebar} popover class="drawer max-w-[85vw] min-w-lg" style="width: 32rem">
+	<div
+		bind:this={rightSidebar}
+		popover
+		class="drawer-legacy max-w-[85vw] min-w-lg"
+		style="width: 32rem"
+	>
 		{#if !responsive.isMobile && rightSidebar}
 			<div
 				role="none"
@@ -587,7 +663,7 @@
 							<div class="flex flex-col gap-1 text-sm font-light">
 								<p>
 									<span class="font-medium">Timestamp</span>:
-									{new Date(detailedViolation.createdAt).toLocaleString()}
+									{formatLogTimestamp(detailedViolation.createdAt, timePreference.timeFormat)}
 								</p>
 								<p>
 									<span class="font-medium">User</span>:
@@ -635,11 +711,11 @@
 </Layout>
 
 <style lang="postcss">
-	.divider-horizontal {
-		width: 1px;
-		height: auto;
+	.divider {
+		height: 1px;
+		width: 100%;
 		background-color: var(--color-surface3);
-		margin-left: 1rem;
-		margin-right: 1rem;
+		margin-top: 0.5rem;
+		margin-bottom: 0.5rem;
 	}
 </style>

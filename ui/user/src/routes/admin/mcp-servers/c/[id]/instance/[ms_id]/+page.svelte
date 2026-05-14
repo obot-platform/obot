@@ -1,22 +1,20 @@
 <script lang="ts">
-	import { type Component } from 'svelte';
-	import { fly } from 'svelte/transition';
-	import { goto } from '$app/navigation';
+	import Confirm from '$lib/components/Confirm.svelte';
+	import Layout from '$lib/components/Layout.svelte';
+	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
+	import DiffDialog from '$lib/components/admin/DiffDialog.svelte';
+	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
+	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import Layout from '$lib/components/Layout.svelte';
-	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
-	import { mcpServersAndEntries, profile } from '$lib/stores/index.js';
-	import { CircleFadingArrowUp, Info, GitCompare } from 'lucide-svelte';
-	import Confirm from '$lib/components/Confirm.svelte';
-	import DiffDialog from '$lib/components/admin/DiffDialog.svelte';
-	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
+	import { parseErrorContent } from '$lib/errors';
 	import type { MCPCatalogEntryServerManifest } from '$lib/services/admin/types';
 	import type { MCPServer, MCPCatalogServer } from '$lib/services/chat/types';
 	import { AdminService } from '$lib/services/index.js';
-	import { parseErrorContent } from '$lib/errors';
-	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
-	import { resolve } from '$app/paths';
+	import { mcpServersAndEntries, profile } from '$lib/stores/index.js';
+	import { CircleFadingArrowUp, Info, GitCompare } from 'lucide-svelte';
+	import { type Component, untrack } from 'svelte';
+	import { fly } from 'svelte/transition';
 
 	const duration = PAGE_TRANSITION_DURATION;
 
@@ -157,13 +155,9 @@
 		}
 	}
 
-	function navigateToMcpServers() {
-		goto(resolve(`/admin/mcp-servers`));
-	}
-
 	$effect(() => {
 		if (catalogEntry?.manifest.runtime === 'composite') {
-			mcpServersAndEntries.refreshAll();
+			untrack(() => mcpServersAndEntries.refreshAll());
 		}
 	});
 
@@ -214,8 +208,6 @@
 					: 'single'}
 			readonly={isAdminReadonly || isSourcedEntry}
 			id={DEFAULT_MCP_CATALOG_ID}
-			onCancel={navigateToMcpServers}
-			onSubmit={navigateToMcpServers}
 		/>
 	</div>
 </Layout>

@@ -55,7 +55,7 @@ export function newSaveMonitor<T>(
 	commitFn?: (o: T) => void
 ): SaveMonitor {
 	let saved: string = '';
-	let timer: number;
+	let timer: ReturnType<typeof setInterval> | undefined;
 	let saving = false;
 
 	async function save() {
@@ -94,7 +94,9 @@ export function newSaveMonitor<T>(
 		if (!skipSave) {
 			save();
 		}
-		clearInterval(timer);
+		if (timer !== undefined) {
+			clearInterval(timer);
+		}
 	}
 
 	return {

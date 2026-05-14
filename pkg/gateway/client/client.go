@@ -24,7 +24,7 @@ const (
 type Client struct {
 	db                      *db.DB
 	encryptionConfig        *encryptionconfig.EncryptionConfiguration
-	emailsWithExplictRoles  map[string]types2.Role
+	emailsWithExplicitRoles map[string]types2.Role
 	auditLock               sync.Mutex
 	auditBuffer             []types.MCPAuditLog
 	kickAuditPersist        chan struct{}
@@ -32,6 +32,9 @@ type Client struct {
 	apiKeyCacheLock         sync.RWMutex
 	apiKeyCache             map[[32]byte]apiKeyValidationCacheEntry
 	apiKeyCacheTTL          time.Duration
+	serviceAccountCacheLock sync.RWMutex
+	serviceAccountCache     map[[32]byte]serviceAccountValidationCacheEntry
+	serviceAccountCacheTTL  time.Duration
 	auditLogCleanupInterval time.Duration
 	auditLogDeleteBatchSize int
 	oktaGroupMigrationMu    sync.Mutex
@@ -50,12 +53,14 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 	c := &Client{
 		db:                      db,
 		encryptionConfig:        encryptionConfig,
-		emailsWithExplictRoles:  explicitRoleEmailsSet,
+		emailsWithExplicitRoles: explicitRoleEmailsSet,
 		auditBuffer:             make([]types.MCPAuditLog, 0, 2*auditLogBatchSize),
 		kickAuditPersist:        make(chan struct{}),
 		storageClient:           storageClient,
 		apiKeyCache:             make(map[[32]byte]apiKeyValidationCacheEntry),
 		apiKeyCacheTTL:          apiKeyValidationCacheTTL,
+		serviceAccountCache:     make(map[[32]byte]serviceAccountValidationCacheEntry),
+		serviceAccountCacheTTL:  serviceAccountValidationCacheTTL,
 		auditLogCleanupInterval: defaultAuditLogCleanupInterval,
 		auditLogDeleteBatchSize: defaultAuditLogDeleteBatchSize,
 	}
@@ -77,12 +82,12 @@ func (c *Client) Close() error {
 }
 
 func (c *Client) HasExplicitRole(email string) types2.Role {
-	return c.emailsWithExplictRoles[strings.ToLower(email)]
+	return c.emailsWithExplicitRoles[strings.ToLower(email)]
 }
 
 // GetExplicitRoleEmails returns a copy of all emails with explicit roles.
 // Used by setup endpoints to list Owner and Admin emails.
 func (c *Client) GetExplicitRoleEmails() map[string]types2.Role {
 	// No lock needed - map is immutable after construction
-	return maps.Clone(c.emailsWithExplictRoles)
+	return maps.Clone(c.emailsWithExplicitRoles)
 }

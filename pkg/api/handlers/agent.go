@@ -750,7 +750,7 @@ func (a *AgentHandler) EnsureCredentialForKnowledgeSource(req api.Context) error
 			agent.Status.AuthStatus = make(map[string]types.OAuthAppLoginAuthStatus)
 		}
 
-		authStatus.Required = &[]bool{false}[0]
+		authStatus.Required = new(false)
 		agent.Status.AuthStatus[ref] = authStatus
 		resp, err := convertAgent(agent, knowledgeSet.Status.TextEmbeddingModel, req.APIBaseURL)
 		if err != nil {

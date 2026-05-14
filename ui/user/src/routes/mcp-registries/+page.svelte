@@ -1,24 +1,23 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import Layout from '$lib/components/Layout.svelte';
-	import Table from '$lib/components/table/Table.svelte';
-	import { BookOpenText, Plus, Trash2 } from 'lucide-svelte';
-	import { fly } from 'svelte/transition';
-	import { goto, replaceState } from '$lib/url';
-	import { afterNavigate } from '$app/navigation';
-	import { type AccessControlRule } from '$lib/services/admin/types';
 	import Confirm from '$lib/components/Confirm.svelte';
-	import { MCP_PUBLISHER_ALL_OPTION, PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import Layout from '$lib/components/Layout.svelte';
 	import AccessControlRuleForm from '$lib/components/admin/AccessControlRuleForm.svelte';
-	import { onMount } from 'svelte';
-	import { ChatService } from '$lib/services/index.js';
-	import { openUrl } from '$lib/utils.js';
+	import Table from '$lib/components/table/Table.svelte';
+	import { MCP_PUBLISHER_ALL_OPTION, PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import {
 		fetchMcpServerAndEntries,
 		getPoweruserWorkspace,
 		initMcpServerAndEntries
 	} from '$lib/context/poweruserWorkspace.svelte.js';
-	import { page } from '$app/state';
+	import { type AccessControlRule } from '$lib/services/admin/types';
+	import { ChatService } from '$lib/services/index.js';
+	import { clearUrlParams, goto } from '$lib/url';
+	import { openUrl } from '$lib/utils.js';
+	import { BookOpenText, Plus, Trash2 } from 'lucide-svelte';
+	import { onMount } from 'svelte';
+	import { fly } from 'svelte/transition';
 
 	let { data } = $props();
 	let { accessControlRules, workspaceId } = $derived(data);
@@ -26,20 +25,12 @@
 	initMcpServerAndEntries();
 
 	const mcpServersAndEntries = getPoweruserWorkspace();
-	let showCreateRule = $state(false);
+	let showCreateRule = $derived(page.url.searchParams.has('new'));
 	let ruleToDelete = $state<AccessControlRule>();
 
-	onMount(() => {
-		const url = new URL(window.location.href);
-		const queryParams = new URLSearchParams(url.search);
-		if (queryParams.get('new')) {
-			showCreateRule = true;
-		}
-	});
-
 	async function navigateToCreated(rule: AccessControlRule) {
-		showCreateRule = false;
-		goto(`/mcp-registries/${rule.id}`, { replaceState: false });
+		clearUrlParams(['new']);
+		goto(`/mcp-registries/${rule.id}`);
 	}
 
 	const duration = PAGE_TRANSITION_DURATION;
@@ -50,25 +41,6 @@
 	onMount(async () => {
 		if (workspaceId) {
 			fetchMcpServerAndEntries(workspaceId);
-		}
-	});
-
-	afterNavigate(({ from }) => {
-		const comingFromRegistryPage = from?.url?.pathname.startsWith('/mcp-registries/');
-		if (comingFromRegistryPage) {
-			showCreateRule = false;
-			if (page.url.searchParams.has('new')) {
-				const cleanUrl = new URL(page.url);
-				cleanUrl.searchParams.delete('new');
-				replaceState(cleanUrl, {});
-			}
-			return;
-		} else {
-			if (page.url.searchParams.has('new')) {
-				showCreateRule = true;
-			} else {
-				showCreateRule = false;
-			}
 		}
 	});
 

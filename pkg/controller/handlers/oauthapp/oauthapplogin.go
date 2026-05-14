@@ -103,7 +103,7 @@ outer:
 				login.Status = v1.OAuthAppLoginStatus{
 					External: types.OAuthAppLoginAuthStatus{
 						URL:      frame.Prompt.Metadata["authURL"],
-						Required: &[]bool{true}[0],
+						Required: new(true),
 					},
 				}
 				if err = req.Client.Status().Update(req.Ctx, login); err != nil {
@@ -134,7 +134,7 @@ outer:
 			Error:         errMessage,
 			Authenticated: errMessage == "",
 			URL:           "",
-			Required:      &[]bool{true}[0],
+			Required:      new(true),
 		},
 	}
 

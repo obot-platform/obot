@@ -6,12 +6,20 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
+	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+)
+
+const (
+	// MaxMCPServerStartupTimeout is the maximum value allowed to be used in ServerConfig.StartupTimeout
+	MaxMCPServerStartupTimeout = 10 * time.Minute
+	// defaultStartupTimeout is the default value used when ServerConfig.StartupTimeout is not set
+	defaultStartupTimeout = 60 * time.Second
 )
 
 type GlobalTokenStore interface {
@@ -36,8 +44,10 @@ type ServerConfig struct {
 	Files   []File   `json:"files"`
 
 	// Remote configuration.
-	URL     string   `json:"url"`
-	Headers []string `json:"headers"`
+	URL                     string   `json:"url"`
+	Headers                 []string `json:"headers"`
+	PassthroughHeaderNames  []string `json:"passthroughHeaderNames"`
+	PassthroughHeaderValues []string `json:"passthroughHeaderValues"`
 
 	// Containerized configuration.
 	ContainerImage string `json:"containerImage"`
@@ -58,6 +68,7 @@ type ServerConfig struct {
 	NanobotAgentName     string `json:"nanobotAgentName"`
 	ProjectMCPServer     bool   `json:"projectMCPServer"`
 	ComponentMCPServer   bool   `json:"componentMCPServer"`
+	SystemMCPServer      bool   `json:"systemMCPServer"`
 
 	Issuer    string   `json:"issuer"`
 	Audiences []string `json:"audiences"`
@@ -71,6 +82,8 @@ type ServerConfig struct {
 	AuditLogToken    string `json:"auditLogToken"`
 	AuditLogEndpoint string `json:"auditLogEndpoint"`
 	AuditLogMetadata string `json:"auditLogMetadata"`
+
+	StartupTimeout time.Duration `json:"startupTimeout,omitempty"`
 }
 
 type File struct {
@@ -80,9 +93,10 @@ type File struct {
 }
 
 type ComponentServer struct {
-	Name  string               `json:"name"`
-	URL   string               `json:"url"`
-	Tools []types.ToolOverride `json:"tools"`
+	Name       string               `json:"name"`
+	URL        string               `json:"url"`
+	Tools      []types.ToolOverride `json:"tools"`
+	ToolPrefix string               `json:"toolPrefix"`
 }
 
 var envVarRegex = regexp.MustCompile(`\${([^}]+)}`)
@@ -112,6 +126,94 @@ func applyPrefix(value, prefix string) string {
 		return value
 	}
 	return prefix + value
+}
+
+func configureUVXRuntime(serverConfig *ServerConfig, uvxConfig *types.UVXRuntimeConfig, credEnv map[string]string, fileEnvVars map[string]struct{}) error {
+	if uvxConfig == nil {
+		return fmt.Errorf("uvx runtime requires uvx config")
+	}
+
+	serverConfig.Command = "uvx"
+	if uvxConfig.Command != "" {
+		serverConfig.Args = []string{"--from", uvxConfig.Package, expandEnvVars(uvxConfig.Command, credEnv, fileEnvVars)}
+	} else {
+		serverConfig.Args = []string{uvxConfig.Package}
+	}
+
+	for _, arg := range uvxConfig.Args {
+		serverConfig.Args = append(serverConfig.Args, expandEnvVars(arg, credEnv, fileEnvVars))
+	}
+
+	return nil
+}
+
+func configureNPXRuntime(serverConfig *ServerConfig, npxConfig *types.NPXRuntimeConfig, credEnv map[string]string, fileEnvVars map[string]struct{}) error {
+	if npxConfig == nil {
+		return fmt.Errorf("npx runtime requires npx config")
+	}
+
+	serverConfig.Command = "npx"
+	serverConfig.Args = []string{npxConfig.Package}
+	for _, arg := range npxConfig.Args {
+		serverConfig.Args = append(serverConfig.Args, expandEnvVars(arg, credEnv, fileEnvVars))
+	}
+
+	return nil
+}
+
+func configureContainerizedRuntime(serverConfig *ServerConfig, containerizedConfig *types.ContainerizedRuntimeConfig, credEnv map[string]string, fileEnvVars map[string]struct{}, expandImage bool) error {
+	if containerizedConfig == nil {
+		return fmt.Errorf("containerized runtime requires containerized config")
+	}
+
+	serverConfig.ContainerImage = containerizedConfig.Image
+	if expandImage {
+		serverConfig.ContainerImage = expandEnvVars(containerizedConfig.Image, credEnv, fileEnvVars)
+	}
+	serverConfig.ContainerPort = containerizedConfig.Port
+	serverConfig.ContainerPath = containerizedConfig.Path
+	serverConfig.Command = expandEnvVars(containerizedConfig.Command, credEnv, fileEnvVars)
+	for _, arg := range containerizedConfig.Args {
+		serverConfig.Args = append(serverConfig.Args, expandEnvVars(arg, credEnv, fileEnvVars))
+	}
+
+	return nil
+}
+
+func configureRemoteRuntime(serverConfig *ServerConfig, remoteConfig *types.RemoteRuntimeConfig, credEnv map[string]string) ([]string, error) {
+	if remoteConfig == nil {
+		return nil, fmt.Errorf("remote runtime requires remote config")
+	}
+
+	var missingRequiredNames []string
+	serverConfig.URL = remoteConfig.URL
+	serverConfig.Headers = make([]string, 0, len(remoteConfig.Headers))
+	for _, header := range remoteConfig.Headers {
+		val := header.Value
+		if val == "" {
+			val = credEnv[header.Key]
+		}
+
+		if val == "" {
+			if header.Required {
+				missingRequiredNames = append(missingRequiredNames, header.Key)
+			}
+			continue
+		}
+
+		// Only apply the prefix if the value is not static.
+		if header.Value == "" {
+			val = applyPrefix(val, header.Prefix)
+		}
+
+		serverConfig.Headers = append(serverConfig.Headers, fmt.Sprintf("%s=%s", header.Key, val))
+	}
+
+	return missingRequiredNames, nil
+}
+
+func configureCompositeRuntime(serverConfig ServerConfig) (ServerConfig, []string, error) {
+	return serverConfig, nil, nil
 }
 
 func CompositeServerToServerConfig(mcpServer v1.MCPServer, components []v1.MCPServer, instances []v1.MCPServerInstance, audiences []string, issuer, userID, scope, mcpCatalogName string, credEnv, tokenExchangeCredEnv map[string]string) (ServerConfig, []string, error) {
@@ -154,9 +256,10 @@ func CompositeServerToServerConfig(mcpServer v1.MCPServer, components []v1.MCPSe
 		}
 
 		config.Components = append(config.Components, ComponentServer{
-			Name:  name,
-			URL:   system.MCPConnectURL(issuer, component.Name),
-			Tools: tools,
+			Name:       name,
+			URL:        system.MCPConnectURL(issuer, component.Name),
+			Tools:      tools,
+			ToolPrefix: override.ToolPrefix,
 		})
 	}
 
@@ -179,9 +282,10 @@ func CompositeServerToServerConfig(mcpServer v1.MCPServer, components []v1.MCPSe
 		}
 
 		config.Components = append(config.Components, ComponentServer{
-			Name:  instance.Name,
-			URL:   system.MCPConnectURL(issuer, instance.Name),
-			Tools: tools,
+			Name:       instance.Name,
+			URL:        system.MCPConnectURL(issuer, instance.Name),
+			Tools:      tools,
+			ToolPrefix: override.ToolPrefix,
 		})
 	}
 
@@ -216,6 +320,21 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, us
 		powerUserWorkspaceID = mcpCatalogName
 	}
 
+	startupTimeout := time.Duration(mcpServer.Spec.Manifest.StartupTimeoutSeconds) * time.Second
+	if startupTimeout == 0 {
+		startupTimeout = defaultStartupTimeout
+	} else if startupTimeout > MaxMCPServerStartupTimeout {
+		return ServerConfig{}, nil, fmt.Errorf("input %d exceeds the max of %s", mcpServer.Spec.Manifest.StartupTimeoutSeconds, MaxMCPServerStartupTimeout)
+	}
+
+	var passthroughHeaderNames []string
+	if mcpServer.Spec.Manifest.MultiUserConfig != nil && len(mcpServer.Spec.Manifest.MultiUserConfig.UserDefinedHeaders) > 0 {
+		passthroughHeaderNames = make([]string, len(mcpServer.Spec.Manifest.MultiUserConfig.UserDefinedHeaders))
+		for i, header := range mcpServer.Spec.Manifest.MultiUserConfig.UserDefinedHeaders {
+			passthroughHeaderNames[i] = header.Key
+		}
+	}
+
 	serverConfig := ServerConfig{
 		Env:                       make([]string, 0, len(mcpServer.Spec.Manifest.Env)),
 		UserID:                    userID,
@@ -234,8 +353,10 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, us
 		TokenExchangeEndpoint:     fmt.Sprintf("%s/oauth/token", issuer),
 		JWKSEndpoint:              fmt.Sprintf("%s/oauth/jwks.json", issuer),
 		AuthorizeEndpoint:         fmt.Sprintf("%s/oauth/authorize", issuer),
+		PassthroughHeaderNames:    passthroughHeaderNames,
 		ComponentMCPServer:        mcpServer.Spec.CompositeName != "",
 		NanobotAgentName:          mcpServer.Spec.NanobotAgentID,
+		StartupTimeout:            startupTimeout,
 	}
 
 	if mcpServer.Spec.CompositeName == "" {
@@ -250,86 +371,26 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, us
 	// Handle runtime-specific configuration
 	switch mcpServer.Spec.Manifest.Runtime {
 	case types.RuntimeUVX:
-		if mcpServer.Spec.Manifest.UVXConfig != nil {
-			serverConfig.Command = "uvx"
-			if mcpServer.Spec.Manifest.UVXConfig.Command != "" {
-				serverConfig.Args = []string{"--from", mcpServer.Spec.Manifest.UVXConfig.Package, expandEnvVars(mcpServer.Spec.Manifest.UVXConfig.Command, credEnv, fileEnvVars)}
-			} else {
-				serverConfig.Args = []string{mcpServer.Spec.Manifest.UVXConfig.Package}
-			}
-			for _, arg := range mcpServer.Spec.Manifest.UVXConfig.Args {
-				serverConfig.Args = append(serverConfig.Args, expandEnvVars(arg, credEnv, fileEnvVars))
-			}
-		} else {
-			return serverConfig, missingRequiredNames, fmt.Errorf("runtime %s requires uvx config", mcpServer.Spec.Manifest.Runtime)
+		if err := configureUVXRuntime(&serverConfig, mcpServer.Spec.Manifest.UVXConfig, credEnv, fileEnvVars); err != nil {
+			return serverConfig, missingRequiredNames, err
 		}
 	case types.RuntimeNPX:
-		if mcpServer.Spec.Manifest.NPXConfig != nil {
-			serverConfig.Command = "npx"
-			serverConfig.Args = []string{mcpServer.Spec.Manifest.NPXConfig.Package}
-			for _, arg := range mcpServer.Spec.Manifest.NPXConfig.Args {
-				serverConfig.Args = append(serverConfig.Args, expandEnvVars(arg, credEnv, fileEnvVars))
-			}
-		} else {
-			return serverConfig, missingRequiredNames, fmt.Errorf("runtime %s requires npx config", mcpServer.Spec.Manifest.Runtime)
+		if err := configureNPXRuntime(&serverConfig, mcpServer.Spec.Manifest.NPXConfig, credEnv, fileEnvVars); err != nil {
+			return serverConfig, missingRequiredNames, err
 		}
 	case types.RuntimeContainerized:
-		if mcpServer.Spec.Manifest.ContainerizedConfig != nil {
-			serverConfig.ContainerImage = expandEnvVars(mcpServer.Spec.Manifest.ContainerizedConfig.Image, credEnv, fileEnvVars)
-			serverConfig.ContainerPort = mcpServer.Spec.Manifest.ContainerizedConfig.Port
-			serverConfig.ContainerPath = mcpServer.Spec.Manifest.ContainerizedConfig.Path
-			serverConfig.Command = expandEnvVars(mcpServer.Spec.Manifest.ContainerizedConfig.Command, credEnv, fileEnvVars)
-			serverConfig.Args = make([]string, 0, len(mcpServer.Spec.Manifest.ContainerizedConfig.Args))
-			for _, arg := range mcpServer.Spec.Manifest.ContainerizedConfig.Args {
-				serverConfig.Args = append(serverConfig.Args, expandEnvVars(arg, credEnv, fileEnvVars))
-			}
-		} else {
-			return serverConfig, missingRequiredNames, fmt.Errorf("runtime %s requires containerized config", mcpServer.Spec.Manifest.Runtime)
+		serverConfig.Args = make([]string, 0, len(mcpServer.Spec.Manifest.ContainerizedConfig.Args))
+		if err := configureContainerizedRuntime(&serverConfig, mcpServer.Spec.Manifest.ContainerizedConfig, credEnv, fileEnvVars, true); err != nil {
+			return serverConfig, missingRequiredNames, err
 		}
 	case types.RuntimeRemote:
-		if mcpServer.Spec.Manifest.RemoteConfig != nil {
-			serverConfig.URL = mcpServer.Spec.Manifest.RemoteConfig.URL
-			// Add headers from remote config
-			serverConfig.Headers = make([]string, 0, len(mcpServer.Spec.Manifest.RemoteConfig.Headers))
-			for _, header := range mcpServer.Spec.Manifest.RemoteConfig.Headers {
-				var (
-					val      string
-					hasValue bool
-				)
-
-				// Check for static value first
-				if header.Value != "" {
-					val = header.Value
-					hasValue = true
-				} else {
-					// Fall back to user-configured value from credentials
-					credVal, ok := credEnv[header.Key]
-					if ok && credVal != "" {
-						val = credVal
-						hasValue = true
-					}
-				}
-
-				if !hasValue {
-					if header.Required {
-						missingRequiredNames = append(missingRequiredNames, header.Key)
-					}
-					continue
-				}
-
-				// Apply prefix if specified (e.g., "Bearer ", "Token ")
-				// Only apply to user-supplied values, not static values
-				if header.Value == "" {
-					val = applyPrefix(val, header.Prefix)
-				}
-
-				serverConfig.Headers = append(serverConfig.Headers, fmt.Sprintf("%s=%s", header.Key, val))
-			}
-		} else {
-			return serverConfig, missingRequiredNames, fmt.Errorf("runtime %s requires remote config", mcpServer.Spec.Manifest.Runtime)
+		var err error
+		missingRequiredNames, err = configureRemoteRuntime(&serverConfig, mcpServer.Spec.Manifest.RemoteConfig, credEnv)
+		if err != nil {
+			return serverConfig, missingRequiredNames, err
 		}
 	case types.RuntimeComposite:
-		return serverConfig, nil, nil
+		return configureCompositeRuntime(serverConfig)
 	default:
 		return serverConfig, missingRequiredNames, fmt.Errorf("unknown runtime %s", mcpServer.Spec.Manifest.Runtime)
 	}
@@ -389,6 +450,13 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []str
 		displayName = systemServer.Name
 	}
 
+	startupTimeout := time.Duration(systemServer.Spec.Manifest.StartupTimeoutSeconds) * time.Second
+	if startupTimeout == 0 {
+		startupTimeout = defaultStartupTimeout
+	} else if startupTimeout > MaxMCPServerStartupTimeout {
+		return ServerConfig{}, nil, fmt.Errorf("input %d exceeds the max of %s", systemServer.Spec.Manifest.StartupTimeoutSeconds, MaxMCPServerStartupTimeout)
+	}
+
 	serverConfig := ServerConfig{
 		Env:                       make([]string, 0, len(systemServer.Spec.Manifest.Env)),
 		MCPServerNamespace:        systemServer.Namespace,
@@ -406,25 +474,31 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []str
 		AuditLogEndpoint:          fmt.Sprintf("%s/api/mcp-audit-logs", issuer),
 		AuditLogToken:             secretsCred["AUDIT_LOG_TOKEN"],
 		AuditLogMetadata:          fmt.Sprintf("mcpID=%s,mcpServerDisplayName=%s", systemServer.Name, displayName),
+		SystemMCPServer:           true,
+		StartupTimeout:            startupTimeout,
 	}
 
 	var missingRequiredNames []string
 
 	// Handle runtime-specific configuration
 	switch systemServer.Spec.Manifest.Runtime {
+	case types.RuntimeUVX:
+		if err := configureUVXRuntime(&serverConfig, systemServer.Spec.Manifest.UVXConfig, credEnv, fileEnvVars); err != nil {
+			return serverConfig, missingRequiredNames, err
+		}
+	case types.RuntimeNPX:
+		if err := configureNPXRuntime(&serverConfig, systemServer.Spec.Manifest.NPXConfig, credEnv, fileEnvVars); err != nil {
+			return serverConfig, missingRequiredNames, err
+		}
 	case types.RuntimeContainerized:
-		if systemServer.Spec.Manifest.ContainerizedConfig != nil {
-			serverConfig.ContainerImage = systemServer.Spec.Manifest.ContainerizedConfig.Image
-			serverConfig.ContainerPort = systemServer.Spec.Manifest.ContainerizedConfig.Port
-			serverConfig.ContainerPath = systemServer.Spec.Manifest.ContainerizedConfig.Path
-
-			if systemServer.Spec.Manifest.ContainerizedConfig.Command != "" {
-				serverConfig.Command = expandEnvVars(systemServer.Spec.Manifest.ContainerizedConfig.Command, credEnv, fileEnvVars)
-			}
-
-			for _, arg := range systemServer.Spec.Manifest.ContainerizedConfig.Args {
-				serverConfig.Args = append(serverConfig.Args, expandEnvVars(arg, credEnv, fileEnvVars))
-			}
+		if err := configureContainerizedRuntime(&serverConfig, systemServer.Spec.Manifest.ContainerizedConfig, credEnv, fileEnvVars, false); err != nil {
+			return serverConfig, missingRequiredNames, err
+		}
+	case types.RuntimeRemote:
+		var err error
+		missingRequiredNames, err = configureRemoteRuntime(&serverConfig, systemServer.Spec.Manifest.RemoteConfig, credEnv)
+		if err != nil {
+			return serverConfig, missingRequiredNames, err
 		}
 	default:
 		return ServerConfig{}, nil, fmt.Errorf("unsupported runtime type: %s", systemServer.Spec.Manifest.Runtime)
@@ -476,4 +550,22 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []str
 	}
 
 	return serverConfig, missingRequiredNames, nil
+}
+
+func copyHeaders[T header](headers T, keys, values []string) {
+	for i, key := range keys {
+		if i < len(values) {
+			headers.Set(key, values[i])
+		}
+	}
+}
+
+type header interface {
+	Set(key, value string)
+}
+
+type headerMap map[string]string
+
+func (h headerMap) Set(key, value string) {
+	h[key] = value
 }

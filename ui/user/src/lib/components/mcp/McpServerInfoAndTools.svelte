@@ -6,22 +6,25 @@
 		type Project,
 		type ProjectMCP
 	} from '$lib/services';
-	import { twMerge } from 'tailwind-merge';
-	import McpServerInfo from './McpServerInfo.svelte';
-	import McpServerTools from './McpServerTools.svelte';
-	import McpOauth from './McpOauth.svelte';
-	import { AlertTriangle } from 'lucide-svelte';
-	import CatalogConfigureForm, {
-		type CompositeLaunchFormData,
-		type LaunchFormData
-	} from './CatalogConfigureForm.svelte';
 	import {
 		convertCompositeInfoToLaunchFormData,
 		convertCompositeLaunchFormDataToPayload,
 		convertEnvHeadersToRecord,
+		getSecretBindingEngineError,
+		isKubernetesRuntimeBackend,
 		requiresUserConfiguration,
 		requiresAdminOAuthConfig
 	} from '$lib/services/chat/mcp';
+	import { version } from '$lib/stores';
+	import CatalogConfigureForm, {
+		type CompositeLaunchFormData,
+		type LaunchFormData
+	} from './CatalogConfigureForm.svelte';
+	import McpOauth from './McpOauth.svelte';
+	import McpServerInfo from './McpServerInfo.svelte';
+	import McpServerTools from './McpServerTools.svelte';
+	import { AlertTriangle } from 'lucide-svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		entry?: MCPCatalogEntry | MCPCatalogServer | ProjectMCP;
@@ -55,9 +58,17 @@
 	let error = $state<string>();
 	let saving = $state(false);
 	let configuringServer = $state<MCPCatalogServer>();
+	let secretBindingEngineError = $derived(
+		isKubernetesRuntimeBackend(version.current.engine)
+			? undefined
+			: getSecretBindingEngineError(configuringServer?.manifest)
+	);
 
 	async function handleInitCompositeForm(server: MCPCatalogServer) {
 		configuringServer = server;
+		error = isKubernetesRuntimeBackend(version.current.engine)
+			? undefined
+			: getSecretBindingEngineError(server.manifest);
 		configureForm = await convertCompositeInfoToLaunchFormData(server);
 	}
 
@@ -74,6 +85,9 @@
 			values = {};
 		}
 		configuringServer = server;
+		error = isKubernetesRuntimeBackend(version.current.engine)
+			? undefined
+			: getSecretBindingEngineError(server.manifest);
 		configureForm = {
 			envs: server.manifest.env?.map((env) => ({
 				...env,
@@ -232,4 +246,5 @@
 	onSave={handleConfigureFormUpdate}
 	submitText="Update"
 	loading={saving}
+	disableSave={!!secretBindingEngineError}
 />

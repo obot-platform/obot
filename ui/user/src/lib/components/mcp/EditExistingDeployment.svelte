@@ -4,8 +4,11 @@
 	import {
 		convertCompositeInfoToLaunchFormData,
 		convertCompositeLaunchFormDataToPayload,
-		convertEnvHeadersToRecord
+		convertEnvHeadersToRecord,
+		getSecretBindingEngineError,
+		isKubernetesRuntimeBackend
 	} from '$lib/services/chat/mcp';
+	import { version } from '$lib/stores';
 	import PageLoading from '../PageLoading.svelte';
 	import CatalogConfigureForm, {
 		type CompositeLaunchFormData,
@@ -14,7 +17,7 @@
 	import CatalogEditAliasForm from './CatalogEditAliasForm.svelte';
 
 	interface Props {
-		onUpdateConfigure?: () => void;
+		onUpdateConfigure?: () => void | Promise<void>;
 	}
 	let { onUpdateConfigure }: Props = $props();
 
@@ -27,6 +30,11 @@
 
 	let editingError = $state<string>();
 	let editingManifest = $derived(server?.manifest);
+	let secretBindingEngineError = $derived(
+		isKubernetesRuntimeBackend(version.current.engine)
+			? undefined
+			: getSecretBindingEngineError(editingManifest)
+	);
 	let editing = $state(false);
 	let launchError = $state<string>();
 	let launchProgress = $state<number>(0);
@@ -42,6 +50,9 @@
 	}) {
 		server = initServer;
 		entry = initEntry;
+		editingError = isKubernetesRuntimeBackend(version.current.engine)
+			? undefined
+			: getSecretBindingEngineError(initServer.manifest);
 
 		if (entry?.manifest.runtime === 'composite') {
 			configureForm = await convertCompositeInfoToLaunchFormData(server);
@@ -161,7 +172,7 @@
 			clearTimeout(timeout1);
 			clearTimeout(timeout2);
 			clearTimeout(timeout3);
-			onUpdateConfigure?.();
+			await onUpdateConfigure?.();
 
 			setTimeout(() => {
 				editing = false;
@@ -182,6 +193,7 @@
 	onSave={handleConfigureForm}
 	submitText="Update"
 	loading={editing}
+	disableSave={!!secretBindingEngineError}
 	isNew={false}
 />
 

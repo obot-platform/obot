@@ -51,34 +51,53 @@ func TestSkillRouteAuthorization(t *testing.T) {
 			allowed: true,
 		},
 		{
-			name:   "api key user can access skills list",
+			name:   "api key user with skills access can access skills list",
+			method: http.MethodGet,
+			path:   "/api/skills",
+			user: &user.DefaultInfo{
+				Name:   "key-user",
+				Groups: []string{types.GroupAPIKey},
+				Extra: map[string][]string{
+					types.APIKeySkillsAccessExtraKey: {"true"},
+				},
+			},
+			allowed: true,
+		},
+		{
+			name:   "api key user with skills access can access skill detail",
+			method: http.MethodGet,
+			path:   "/api/skills/some-skill-id",
+			user: &user.DefaultInfo{
+				Name:   "key-user",
+				Groups: []string{types.GroupAPIKey},
+				Extra: map[string][]string{
+					types.APIKeySkillsAccessExtraKey: {"true"},
+				},
+			},
+			allowed: true,
+		},
+		{
+			name:   "api key user with skills access can download skill",
+			method: http.MethodGet,
+			path:   "/api/skills/some-skill-id/download",
+			user: &user.DefaultInfo{
+				Name:   "key-user",
+				Groups: []string{types.GroupAPIKey},
+				Extra: map[string][]string{
+					types.APIKeySkillsAccessExtraKey: {"true"},
+				},
+			},
+			allowed: true,
+		},
+		{
+			name:   "api key user without skills access cannot access skills list",
 			method: http.MethodGet,
 			path:   "/api/skills",
 			user: &user.DefaultInfo{
 				Name:   "key-user",
 				Groups: []string{types.GroupAPIKey},
 			},
-			allowed: true,
-		},
-		{
-			name:   "api key user can access skill detail",
-			method: http.MethodGet,
-			path:   "/api/skills/some-skill-id",
-			user: &user.DefaultInfo{
-				Name:   "key-user",
-				Groups: []string{types.GroupAPIKey},
-			},
-			allowed: true,
-		},
-		{
-			name:   "api key user can download skill",
-			method: http.MethodGet,
-			path:   "/api/skills/some-skill-id/download",
-			user: &user.DefaultInfo{
-				Name:   "key-user",
-				Groups: []string{types.GroupAPIKey},
-			},
-			allowed: true,
+			allowed: false,
 		},
 		{
 			name:   "api key user cannot POST skills",

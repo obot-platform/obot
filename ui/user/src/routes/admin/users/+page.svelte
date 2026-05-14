@@ -1,8 +1,11 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import { tooltip } from '$lib/actions/tooltip.svelte.js';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
+	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
+	import Search from '$lib/components/Search.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { userRoleOptions } from '$lib/services/admin/constants.js';
@@ -10,12 +13,6 @@
 	import { AdminService, ChatService } from '$lib/services/index.js';
 	import { profile } from '$lib/stores/index.js';
 	import { formatTimeAgo } from '$lib/time.js';
-	import { Handshake, Info, LoaderCircle, ShieldAlert } from 'lucide-svelte';
-	import { fade } from 'svelte/transition';
-	import { getUserRoleLabel } from '$lib/utils';
-	import Search from '$lib/components/Search.svelte';
-	import { debounce } from 'es-toolkit';
-	import { page } from '$app/state';
 	import { replaceState } from '$lib/url';
 	import {
 		clearUrlParams,
@@ -24,12 +21,15 @@
 		setSortUrlParams,
 		setFilterUrlParams
 	} from '$lib/url.js';
+	import { getUserRoleLabel } from '$lib/utils';
+	import { debounce } from 'es-toolkit';
+	import { Handshake, Info, LoaderCircle, ShieldAlert } from 'lucide-svelte';
 	import { untrack } from 'svelte';
-	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
+	import { fade } from 'svelte/transition';
 
 	let { data } = $props();
 	let users = $state<OrgUser[]>(untrack(() => data.users));
-	let query = $state('');
+	let query = $derived(page.url.searchParams.get('query') ?? '');
 	let urlFilters = $derived(getTableUrlParamsFilters());
 	let initSort = $derived(getTableUrlParamsSort({ property: 'created', order: 'desc' }));
 
@@ -155,15 +155,15 @@
 	const isAddingAuditorWithUserImpersonation = $derived(
 		Boolean(
 			confirmUserImpersonationAdditionToUser &&
-				confirmUserImpersonationAdditionToUser.auditor &&
-				(confirmUserImpersonationAdditionToUser.assignedRole & Role.AUDITOR) === 0
+			confirmUserImpersonationAdditionToUser.auditor &&
+			(confirmUserImpersonationAdditionToUser.assignedRole & Role.AUDITOR) === 0
 		)
 	);
 	const isRemovingAuditorWithUserImpersonation = $derived(
 		Boolean(
 			confirmUserImpersonationAdditionToUser &&
-				!confirmUserImpersonationAdditionToUser.auditor &&
-				(confirmUserImpersonationAdditionToUser.assignedRole & Role.AUDITOR) !== 0
+			!confirmUserImpersonationAdditionToUser.auditor &&
+			(confirmUserImpersonationAdditionToUser.assignedRole & Role.AUDITOR) !== 0
 		)
 	);
 

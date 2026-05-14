@@ -103,7 +103,7 @@ func createWorkspace(ctx context.Context, c kclient.Client, ks *v1.KnowledgeSet)
 					},
 					Spec: v1.KnowledgeFileSpec{
 						KnowledgeSetName: ks.Name,
-						Approved:         &[]bool{true}[0],
+						Approved:         new(true),
 						FileName:         sourceFile.Spec.FileName,
 						SizeInBytes:      sourceFile.Spec.SizeInBytes,
 					},

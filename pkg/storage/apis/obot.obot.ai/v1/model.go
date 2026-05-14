@@ -10,6 +10,7 @@ var (
 	_ fields.Fields = (*Model)(nil)
 	_ Aliasable     = (*Model)(nil)
 	_ Generationed  = (*Model)(nil)
+	_ DeleteRefs    = (*Model)(nil)
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -19,6 +20,12 @@ type Model struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	Spec              ModelSpec   `json:"spec,omitempty"`
 	Status            ModelStatus `json:"status,omitempty"`
+}
+
+func (m *Model) DeleteRefs() []Ref {
+	return []Ref{
+		{ObjType: &ToolReference{}, Name: m.Spec.Manifest.ModelProvider},
+	}
 }
 
 func (m *Model) Has(field string) (exists bool) {
@@ -34,6 +41,8 @@ func (m *Model) Get(field string) (value string) {
 			return m.Spec.Manifest.TargetModel
 		case "spec.manifest.usage":
 			return string(m.Spec.Manifest.Usage)
+		case "spec.manifest.name":
+			return m.Spec.Manifest.Name
 		}
 	}
 
@@ -41,7 +50,7 @@ func (m *Model) Get(field string) (value string) {
 }
 
 func (m *Model) FieldNames() []string {
-	return []string{"spec.manifest.modelProvider", "spec.manifest.targetModel", "spec.manifest.usage"}
+	return []string{"spec.manifest.modelProvider", "spec.manifest.targetModel", "spec.manifest.usage", "spec.manifest.name"}
 }
 
 func (m *Model) IsAssigned() bool {

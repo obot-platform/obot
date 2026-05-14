@@ -1,16 +1,27 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import {
 		ChatService,
 		AdminService,
 		type MCPCatalogEntry,
-		type MCPCatalogServer
+		type MCPCatalogServer,
+		type MCPServerInstance
 	} from '$lib/services';
 	import { hasEditableConfiguration, requiresUserUpdate } from '$lib/services/chat/mcp';
-	import { twMerge } from 'tailwind-merge';
+	import { mcpServersAndEntries, profile, version } from '$lib/stores';
+	import { formatTimeAgo } from '$lib/time';
+	import { goto } from '$lib/url';
 	import DotDotDot from '../DotDotDot.svelte';
+	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import Table from '../table/Table.svelte';
+	import ConnectToServer from './ConnectToServer.svelte';
+	import EditExistingDeployment from './EditExistingDeployment.svelte';
+	import StaticOAuthConfigureModal from './StaticOAuthConfigureModal.svelte';
 	import {
 		LoaderCircle,
+		KeyRound,
 		MessageCircle,
 		PencilLine,
 		ReceiptText,
@@ -21,16 +32,7 @@
 		Trash2,
 		Unplug
 	} from 'lucide-svelte';
-	import { mcpServersAndEntries, profile, version } from '$lib/stores';
-	import ConnectToServer from './ConnectToServer.svelte';
-	import EditExistingDeployment from './EditExistingDeployment.svelte';
-	import ResponsiveDialog from '../ResponsiveDialog.svelte';
-	import StaticOAuthConfigureModal from './StaticOAuthConfigureModal.svelte';
-	import Table from '../table/Table.svelte';
-	import { formatTimeAgo } from '$lib/time';
-	import { goto } from '$lib/url';
-	import { resolve } from '$app/paths';
-	import { page } from '$app/state';
+	import { twMerge } from 'tailwind-merge';
 
 	type ServerSelectMode =
 		| 'connect'
@@ -45,6 +47,7 @@
 		server?: MCPCatalogServer;
 		entry?: MCPCatalogEntry;
 		loading?: boolean;
+		instance?: MCPServerInstance;
 		skipConnectDialog?: boolean;
 		onConnect?: ({ server, entry }: { server?: MCPCatalogServer; entry?: MCPCatalogEntry }) => void;
 		onOAuthConfigured?: () => void;
@@ -52,11 +55,14 @@
 		promptOAuthConfig?: boolean;
 		connectOnly?: boolean;
 		isProjectMcp?: boolean;
+		readonly?: boolean;
+		allowMultiUserServerConfigurationEdit?: boolean;
 	}
 
 	let {
 		server,
 		entry,
+		instance: instanceProp,
 		loading,
 		skipConnectDialog,
 		onConnect,
@@ -64,7 +70,9 @@
 		promptInitialLaunch,
 		isProjectMcp,
 		promptOAuthConfig,
-		connectOnly
+		connectOnly,
+		readonly,
+		allowMultiUserServerConfigurationEdit
 	}: Props = $props();
 	let connectToServerDialog = $state<ReturnType<typeof ConnectToServer>>();
 	let editExistingDialog = $state<ReturnType<typeof EditExistingDeployment>>();
@@ -82,11 +90,12 @@
 	let restarting = $state(false);
 
 	let instance = $derived(
-		server && !server.catalogEntryID
-			? mcpServersAndEntries.current.userInstances.find(
-					(instance) => instance.mcpServerID === server.id
-				)
-			: undefined
+		instanceProp ??
+			(server && !server.catalogEntryID
+				? mcpServersAndEntries.current.userInstances.find(
+						(instance) => instance.mcpServerID === server.id
+					)
+				: undefined)
 	);
 	let configuredServers = $derived(
 		entry
@@ -96,16 +105,34 @@
 			: []
 	);
 	let requiresUpdate = $derived(server && requiresUserUpdate(server));
+	let canReauthenticate = $derived(
+		server?.manifest.runtime === 'remote' && Object.keys(server.oauthMetadata ?? {}).length > 0
+	);
 	let canConfigure = $derived(
 		entry && (entry.manifest.runtime === 'composite' || hasEditableConfiguration(entry))
 	);
 	let belongsToComposite = $derived(Boolean(server && server.compositeName));
+	let canEditMultiUserServerConfiguration = $derived(
+		Boolean(
+			server &&
+			!server.catalogEntryID &&
+			!readonly &&
+			allowMultiUserServerConfigurationEdit &&
+			instance &&
+			(server.manifest.multiUserConfig?.userDefinedHeaders?.length ?? 0) > 0
+		)
+	);
 	let showServerDetails = $derived(entry && !server && configuredServers.length > 0);
 	let hasActions = $derived.by(() => {
 		if (isProjectMcp) {
 			return server && entry && hasEditableConfiguration(entry);
 		}
-		return Boolean((entry && server) || showServerDetails || (server && instance));
+		return Boolean(
+			(entry && server) ||
+			showServerDetails ||
+			(server && instance) ||
+			canEditMultiUserServerConfiguration
+		);
 	});
 	let showDisconnectUser = $derived(
 		entry && server && profile.current.isAdmin?.() && server.userID !== profile.current.id
@@ -178,6 +205,12 @@
 	function handleShowSelectServerDialog(mode: ServerSelectMode = 'connect') {
 		selectServerDialog?.open();
 		selectServerMode = mode;
+	}
+
+	async function reauthenticateServer(item: MCPCatalogServer) {
+		await ChatService.clearMcpServerOAuth(item.id);
+		await connectToServerDialog?.authenticate(item, entry);
+		refresh();
 	}
 </script>
 
@@ -384,8 +417,26 @@
 </ResponsiveDialog>
 
 {#snippet serverActions(toggle: (value: boolean) => void)}
-	{#if server && server.userID === profile.current.id}
-		<div class="flex flex-col gap-1 p-2 {!isProjectMcp && 'bg-surface1 rounded-t-xl'}">
+	{#if server && (server.userID === profile.current.id || canEditMultiUserServerConfiguration)}
+		<div
+			class="flex flex-col gap-1 p-2 {!isProjectMcp && 'bg-surface1'} {!isProjectMcp &&
+				'rounded-t-xl'}"
+		>
+			{#if canEditMultiUserServerConfiguration}
+				<button
+					class="menu-button"
+					onclick={() => {
+						connectToServerDialog?.open({
+							server,
+							instance,
+							configureInstance: true
+						});
+						toggle(false);
+					}}
+				>
+					<ServerCog class="size-4" /> Edit Configuration
+				</button>
+			{/if}
 			{#if !isProjectMcp && !connectOnly && version.current.disableLegacyChat !== true}
 				<button
 					class="menu-button"
@@ -408,6 +459,18 @@
 						}}
 					>
 						<PencilLine class="size-4" /> Rename
+					</button>
+				{/if}
+				{#if server && canReauthenticate}
+					<button
+						class="menu-button"
+						onclick={async (e) => {
+							e.stopPropagation();
+							toggle(false);
+							await reauthenticateServer(server);
+						}}
+					>
+						<KeyRound class="size-4" /> Reauthenticate
 					</button>
 				{/if}
 				{#if canConfigure}

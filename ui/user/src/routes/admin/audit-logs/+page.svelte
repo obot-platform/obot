@@ -1,10 +1,10 @@
 <script lang="ts">
-	import type { Component } from 'svelte';
-	import { fade } from 'svelte/transition';
 	import Layout from '$lib/components/Layout.svelte';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import AuditLogsPageContent from '$lib/components/admin/audit-logs/AuditLogsPageContent.svelte';
 	import VirtualPageRoot from '$lib/components/ui/virtual-page/virtual-page-viewport.svelte';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import type { Component } from 'svelte';
+	import { fade } from 'svelte/transition';
 
 	const duration = PAGE_TRANSITION_DURATION;
 </script>

@@ -74,16 +74,26 @@ func (h *Handler) DeleteEntriesWithoutRuntime(req router.Request, _ router.Respo
 // UpdateManifestHashAndLastUpdated updates the manifest hash and last updated timestamp when configuration changes
 func (*Handler) UpdateManifestHashAndLastUpdated(req router.Request, _ router.Response) error {
 	entry := req.Object.(*v1.MCPServerCatalogEntry)
-
-	// Compute current config hash
 	currentHash := hash.Digest(entry.Spec.Manifest)
-
-	// Only update if hash has changed
 	if entry.Status.ManifestHash != currentHash {
 		now := metav1.Now()
 		entry.Status.ManifestHash = currentHash
 		entry.Status.LastUpdated = &now
 		log.Infof("Updated MCP catalog entry manifest hash: entry=%s hash=%s", entry.Name, currentHash)
+		return req.Client.Status().Update(req.Ctx, entry)
+	}
+
+	return nil
+}
+
+func (*Handler) UpdateSystemManifestHashAndLastUpdated(req router.Request, _ router.Response) error {
+	entry := req.Object.(*v1.SystemMCPServerCatalogEntry)
+	currentHash := hash.Digest(entry.Spec.Manifest)
+	if entry.Status.ManifestHash != currentHash {
+		now := metav1.Now()
+		entry.Status.ManifestHash = currentHash
+		entry.Status.LastUpdated = &now
+		log.Infof("Updated system MCP catalog entry manifest hash: entry=%s hash=%s", entry.Name, currentHash)
 		return req.Client.Status().Update(req.Ctx, entry)
 	}
 

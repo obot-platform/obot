@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { type PageProps } from './$types';
-	import { goto } from '$lib/url';
-	import { profile } from '$lib/stores';
-	import Profile from '$lib/components/navbar/Profile.svelte';
-	import AgentCopy from '$lib/components/agents/AgentCopy.svelte';
-	import { onMount } from 'svelte';
 	import Logo from '$lib/components/Logo.svelte';
+	import AgentCopy from '$lib/components/agents/AgentCopy.svelte';
+	import Profile from '$lib/components/navbar/Profile.svelte';
+	import { profile } from '$lib/stores';
+	import { goto } from '$lib/url';
+	import { type PageProps } from './$types';
+	import { onMount } from 'svelte';
 
 	let { data }: PageProps = $props();
 

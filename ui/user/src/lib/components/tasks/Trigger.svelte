@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { type Task } from '$lib/services';
-	import Schedule from '$lib/components/tasks/Schedule.svelte';
-	import OnDemand from '$lib/components/tasks/OnDemand.svelte';
 	import CopyButton from '$lib/components/CopyButton.svelte';
-	import { slide } from 'svelte/transition';
+	import OnDemand from '$lib/components/tasks/OnDemand.svelte';
+	import Schedule from '$lib/components/tasks/Schedule.svelte';
+	import { type Task } from '$lib/services';
 	import { version } from '$lib/stores';
+	import { slide } from 'svelte/transition';
 
 	interface Props {
 		task: Task;

@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { profile } from '$lib/stores';
-	import { AdminService } from '$lib/services';
 	import { resolve } from '$app/paths';
+	import { AdminService } from '$lib/services';
+	import { profile } from '$lib/stores';
 	import { HatGlasses } from 'lucide-svelte';
 
 	let { agent } = $props();
@@ -27,7 +27,7 @@
 
 {#if impersonating}
 	<div
-		class="bg-primary flex flex-col items-center justify-center gap-2 px-4 py-3 text-sm font-light text-white md:flex-row"
+		class="sticky top-0 left-0 z-50 bg-primary flex flex-col items-center justify-center gap-2 px-4 py-3 text-sm font-light text-white md:flex-row"
 	>
 		<p class="text-center md:text-left">
 			<HatGlasses class="inline-block size-5" /> <span class="font-semibold">CAUTION!</span> You are

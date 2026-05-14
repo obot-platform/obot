@@ -227,7 +227,7 @@ func listKnowledgeFiles(req api.Context, agentName, threadName, knowledgeSetName
 			continue
 		}
 		if file.Spec.Approved == nil && autoApprove {
-			file.Spec.Approved = &[]bool{true}[0]
+			file.Spec.Approved = new(true)
 		}
 		resp = append(resp, convertKnowledgeFile(agentName, threadName, file))
 	}
@@ -256,7 +256,7 @@ func uploadKnowledgeToWorkspace(req api.Context, dispatcher *dispatcher.Dispatch
 		Spec: v1.KnowledgeFileSpec{
 			FileName:         filename,
 			KnowledgeSetName: knowledgeSetName,
-			Approved:         &[]bool{true}[0],
+			Approved:         new(true),
 			SizeInBytes:      int64(size),
 		},
 	}

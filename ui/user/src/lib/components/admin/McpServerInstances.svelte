@@ -1,4 +1,8 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
 	import {
 		AdminService,
 		ChatService,
@@ -9,7 +13,14 @@
 		type MCPServerInstance,
 		type OrgUser
 	} from '$lib/services';
-
+	import { profile } from '$lib/stores';
+	import { formatTimeAgo } from '$lib/time';
+	import { openUrl, isOwnSingleUserServer, getUserDisplayName } from '$lib/utils';
+	import Confirm from '../Confirm.svelte';
+	import DotDotDot from '../DotDotDot.svelte';
+	import Table from '../table/Table.svelte';
+	import DiffDialog from './DiffDialog.svelte';
+	import McpServerK8sInfo from './McpServerK8sInfo.svelte';
 	import {
 		CircleFadingArrowUp,
 		Ellipsis,
@@ -19,18 +30,6 @@
 		Square,
 		SquareCheck
 	} from 'lucide-svelte';
-	import { formatTimeAgo } from '$lib/time';
-	import { profile } from '$lib/stores';
-	import DotDotDot from '../DotDotDot.svelte';
-	import Table from '../table/Table.svelte';
-	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import Confirm from '../Confirm.svelte';
-	import McpServerK8sInfo from './McpServerK8sInfo.svelte';
-	import { openUrl, isOwnSingleUserServer, getUserDisplayName } from '$lib/utils';
-	import DiffDialog from './DiffDialog.svelte';
-	import { page } from '$app/state';
-	import { resolve } from '$app/paths';
 
 	interface Props {
 		id?: string;
@@ -74,7 +73,15 @@
 		if (!loading) return;
 		if (entry && !('isCatalogEntry' in entry) && id) {
 			if (entry.catalogEntryID) {
-				instances = [{ id: entry.id, userID: entry.userID, created: entry.created }];
+				instances = [
+					{
+						id: entry.id,
+						configured: entry.configured,
+						missingRequiredHeaders: entry.missingRequiredHeaders,
+						userID: entry.userID,
+						created: entry.created
+					}
+				];
 				loading = false;
 			} else {
 				if (entity === 'workspace') {
@@ -220,7 +227,8 @@
 					const user = usersMap.get(instance.userID)!;
 					return {
 						...user,
-						mcpInstanceId: instance.id
+						mcpInstanceId: instance.id,
+						mcpInstanceConfigured: instance.configured
 					};
 				})}
 				title="Details"

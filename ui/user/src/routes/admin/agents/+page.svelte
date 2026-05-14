@@ -1,19 +1,19 @@
 <script lang="ts">
+	import { page } from '$app/state';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import Confirm from '$lib/components/Confirm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
-	import Table from '$lib/components/table/Table.svelte';
 	import Search from '$lib/components/Search.svelte';
+	import Table from '$lib/components/table/Table.svelte';
 	import { NanobotService } from '$lib/services';
 	import type { OrgUser } from '$lib/services/admin/types';
+	import { getMcpServerDeploymentStatus } from '$lib/services/chat/mcp';
 	import { profile, version } from '$lib/stores';
+	import { formatTimeAgo } from '$lib/time';
+	import { goto } from '$lib/url';
+	import { getUserDisplayName, openUrl } from '$lib/utils';
 	import { HatGlasses } from 'lucide-svelte';
 	import { untrack } from 'svelte';
-	import { page } from '$app/state';
-	import { goto } from '$lib/url';
-	import { getMcpServerDeploymentStatus } from '$lib/services/chat/mcp';
-	import { formatTimeAgo } from '$lib/time';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { getUserDisplayName, openUrl } from '$lib/utils';
-	import Confirm from '$lib/components/Confirm.svelte';
 
 	let { data } = $props();
 	let query = $derived(page.url.searchParams.get('query') || '');
@@ -112,6 +112,8 @@
 					>
 						{d.updateStatus || '--'}
 					</div>
+				{:else if property === 'deploymentStatus'}
+					{d.deploymentStatus || '--'}
 				{:else}
 					{d[property as keyof typeof d]}
 				{/if}

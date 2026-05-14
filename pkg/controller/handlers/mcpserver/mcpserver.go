@@ -1,15 +1,21 @@
 package mcpserver
 
 import (
+	"cmp"
 	"crypto/rand"
+	"errors"
 	"fmt"
+	"maps"
+	"reflect"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/gptscript-ai/gptscript/pkg/hash"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/nah/pkg/untriggered"
+	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/mcp"
@@ -26,17 +32,36 @@ import (
 
 var log = logger.Package()
 
+const oauthMetadataSyncInterval = time.Hour
+
 type Handler struct {
-	gptClient         *gptscript.GPTScript
-	mcpSessionManager *mcp.SessionManager
-	baseURL           string
+	gptClient                    *gptscript.GPTScript
+	mcpSessionManager            *mcp.SessionManager
+	networkPolicyProviderEnabled bool
+	defaultDenyAllEgress         bool
+	singleUserIdleShutdownDelay  time.Duration
+	multiUserIdleShutdownDelay   time.Duration
+	agentIdleShutdownDelay       time.Duration
+	baseURL                      string
 }
 
-func New(gptClient *gptscript.GPTScript, mcpSessionManager *mcp.SessionManager, baseURL string) *Handler {
+func effectiveDenyAllEgress(v *bool, domains []string, defaultWhenEmpty bool) bool {
+	if v != nil {
+		return *v
+	}
+	return defaultWhenEmpty && len(domains) == 0
+}
+
+func New(gptClient *gptscript.GPTScript, mcpSessionManager *mcp.SessionManager, networkPolicyProviderEnabled, defaultDenyAllEgress bool, singleUserIdleShutdownDelay, multiUserIdleShutdownDelay, agentIdleShutdownDelay time.Duration, baseURL string) *Handler {
 	return &Handler{
-		gptClient:         gptClient,
-		mcpSessionManager: mcpSessionManager,
-		baseURL:           baseURL,
+		gptClient:                    gptClient,
+		mcpSessionManager:            mcpSessionManager,
+		networkPolicyProviderEnabled: networkPolicyProviderEnabled,
+		defaultDenyAllEgress:         defaultDenyAllEgress,
+		singleUserIdleShutdownDelay:  singleUserIdleShutdownDelay,
+		multiUserIdleShutdownDelay:   multiUserIdleShutdownDelay,
+		agentIdleShutdownDelay:       agentIdleShutdownDelay,
+		baseURL:                      baseURL,
 	}
 }
 
@@ -54,7 +79,7 @@ func (h *Handler) DetectDrift(req router.Request, _ router.Response) error {
 		return err
 	}
 
-	drifted, err := configurationHasDrifted(server.Spec.Manifest, entry.Spec.Manifest)
+	drifted, err := configurationHasDrifted(server.Spec.Manifest, entry.Spec.Manifest, h.defaultDenyAllEgress)
 	if err != nil {
 		return err
 	}
@@ -64,6 +89,122 @@ func (h *Handler) DetectDrift(req router.Request, _ router.Response) error {
 		server.Status.NeedsUpdate = drifted
 		return req.Client.Status().Update(req.Ctx, server)
 	}
+	return nil
+}
+
+func (h *Handler) EnsureMCPNetworkPolicy(req router.Request, _ router.Response) error {
+	server := req.Object.(*v1.MCPServer)
+
+	if !h.networkPolicyProviderEnabled {
+		return h.deleteMCPNetworkPolicy(req, server.Namespace, server.Name)
+	}
+
+	// Don't create an MCPNetworkPolicy if this is an agent pod
+	if server.Spec.NanobotAgentID != "" {
+		return nil
+	}
+
+	var egressDomains []string
+	var denyAllEgress bool
+	switch server.Spec.Manifest.Runtime {
+	case types.RuntimeNPX:
+		if server.Spec.Manifest.NPXConfig != nil {
+			egressDomains = server.Spec.Manifest.NPXConfig.EgressDomains
+			denyAllEgress = effectiveDenyAllEgress(server.Spec.Manifest.NPXConfig.DenyAllEgress, egressDomains, h.defaultDenyAllEgress)
+		}
+	case types.RuntimeUVX:
+		if server.Spec.Manifest.UVXConfig != nil {
+			egressDomains = server.Spec.Manifest.UVXConfig.EgressDomains
+			denyAllEgress = effectiveDenyAllEgress(server.Spec.Manifest.UVXConfig.DenyAllEgress, egressDomains, h.defaultDenyAllEgress)
+		}
+	case types.RuntimeContainerized:
+		if server.Spec.Manifest.ContainerizedConfig != nil {
+			egressDomains = server.Spec.Manifest.ContainerizedConfig.EgressDomains
+			denyAllEgress = effectiveDenyAllEgress(server.Spec.Manifest.ContainerizedConfig.DenyAllEgress, egressDomains, h.defaultDenyAllEgress)
+		}
+	default:
+		return h.deleteMCPNetworkPolicy(req, server.Namespace, server.Name)
+	}
+
+	egressDomains = slices.Clone(egressDomains)
+	slices.Sort(egressDomains)
+
+	var policies v1.MCPNetworkPolicyList
+	if err := req.List(&policies, &kclient.ListOptions{
+		Namespace:     server.Namespace,
+		FieldSelector: fields.OneTermEqualSelector("spec.mcpServerName", server.Name),
+	}); err != nil {
+		return err
+	}
+
+	if len(policies.Items) == 0 {
+		return req.Client.Create(req.Ctx, &v1.MCPNetworkPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: system.MCPNetworkPolicyPrefix,
+				Namespace:    server.Namespace,
+			},
+			Spec: v1.MCPNetworkPolicySpec{
+				MCPServerName: server.Name,
+				PodSelector: map[string]string{
+					"app": server.Name,
+				},
+				EgressDomains: egressDomains,
+				DenyAllEgress: denyAllEgress,
+			},
+		})
+	}
+
+	slices.SortFunc(policies.Items, func(left, right v1.MCPNetworkPolicy) int {
+		if c := left.CreationTimestamp.Compare(right.CreationTimestamp.Time); c != 0 {
+			return c
+		}
+		return cmp.Compare(left.Name, right.Name)
+	})
+
+	policy := &policies.Items[0]
+	for i := 1; i < len(policies.Items); i++ {
+		if err := req.Client.Delete(req.Ctx, &policies.Items[i]); err != nil && !apierrors.IsNotFound(err) {
+			return err
+		}
+	}
+
+	if policy.Spec.MCPServerName == server.Name &&
+		maps.Equal(policy.Spec.PodSelector, map[string]string{"app": server.Name}) &&
+		slices.Equal(sortedClone(policy.Spec.EgressDomains), egressDomains) &&
+		policy.Spec.DenyAllEgress == denyAllEgress {
+		return nil
+	}
+
+	policy.Spec.MCPServerName = server.Name
+	policy.Spec.PodSelector = map[string]string{
+		"app": server.Name,
+	}
+	policy.Spec.EgressDomains = egressDomains
+	policy.Spec.DenyAllEgress = denyAllEgress
+	return req.Client.Update(req.Ctx, policy)
+}
+
+func sortedClone(values []string) []string {
+	cloned := slices.Clone(values)
+	slices.Sort(cloned)
+	return cloned
+}
+
+func (h *Handler) deleteMCPNetworkPolicy(req router.Request, namespace, name string) error {
+	var policies v1.MCPNetworkPolicyList
+	if err := req.List(&policies, &kclient.ListOptions{
+		Namespace:     namespace,
+		FieldSelector: fields.OneTermEqualSelector("spec.mcpServerName", name),
+	}); err != nil {
+		return err
+	}
+
+	for i := range policies.Items {
+		if err := req.Client.Delete(req.Ctx, &policies.Items[i]); err != nil && !apierrors.IsNotFound(err) {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -100,7 +241,7 @@ func (h *Handler) DetectK8sSettingsDrift(req router.Request, _ router.Response) 
 	return nil
 }
 
-func configurationHasDrifted(serverManifest types.MCPServerManifest, entryManifest types.MCPServerCatalogEntryManifest) (bool, error) {
+func configurationHasDrifted(serverManifest types.MCPServerManifest, entryManifest types.MCPServerCatalogEntryManifest, defaultDenyAllEgress bool) (bool, error) {
 	// Check if runtime types differ
 	if serverManifest.Runtime != entryManifest.Runtime {
 		return true, nil
@@ -110,16 +251,16 @@ func configurationHasDrifted(serverManifest types.MCPServerManifest, entryManife
 	var drifted bool
 	switch serverManifest.Runtime {
 	case types.RuntimeUVX:
-		drifted = uvxConfigHasDrifted(serverManifest.UVXConfig, entryManifest.UVXConfig)
+		drifted = uvxConfigHasDrifted(serverManifest.UVXConfig, entryManifest.UVXConfig, defaultDenyAllEgress)
 	case types.RuntimeNPX:
-		drifted = npxConfigHasDrifted(serverManifest.NPXConfig, entryManifest.NPXConfig)
+		drifted = npxConfigHasDrifted(serverManifest.NPXConfig, entryManifest.NPXConfig, defaultDenyAllEgress)
 	case types.RuntimeContainerized:
-		drifted = containerizedConfigHasDrifted(serverManifest.ContainerizedConfig, entryManifest.ContainerizedConfig)
+		drifted = containerizedConfigHasDrifted(serverManifest.ContainerizedConfig, entryManifest.ContainerizedConfig, defaultDenyAllEgress)
 	case types.RuntimeRemote:
 		drifted = remoteConfigHasDrifted(serverManifest.RemoteConfig, entryManifest.RemoteConfig)
 	case types.RuntimeComposite:
 		var err error
-		drifted, err = compositeConfigHasDrifted(serverManifest.CompositeConfig, entryManifest.CompositeConfig)
+		drifted, err = compositeConfigHasDrifted(serverManifest.CompositeConfig, entryManifest.CompositeConfig, defaultDenyAllEgress)
 		if err != nil {
 			return false, err
 		}
@@ -136,7 +277,7 @@ func configurationHasDrifted(serverManifest types.MCPServerManifest, entryManife
 }
 
 // uvxConfigHasDrifted checks if UVX configuration has drifted
-func uvxConfigHasDrifted(serverConfig, entryConfig *types.UVXRuntimeConfig) bool {
+func uvxConfigHasDrifted(serverConfig, entryConfig *types.UVXRuntimeConfig, defaultDenyAllEgress bool) bool {
 	if serverConfig == nil && entryConfig == nil {
 		return false
 	}
@@ -146,11 +287,14 @@ func uvxConfigHasDrifted(serverConfig, entryConfig *types.UVXRuntimeConfig) bool
 
 	return serverConfig.Package != entryConfig.Package ||
 		serverConfig.Command != entryConfig.Command ||
-		!slices.Equal(serverConfig.Args, entryConfig.Args)
+		!slices.Equal(serverConfig.Args, entryConfig.Args) ||
+		!slices.Equal(serverConfig.EgressDomains, entryConfig.EgressDomains) ||
+		effectiveDenyAllEgress(serverConfig.DenyAllEgress, serverConfig.EgressDomains, defaultDenyAllEgress) !=
+			effectiveDenyAllEgress(entryConfig.DenyAllEgress, entryConfig.EgressDomains, defaultDenyAllEgress)
 }
 
 // npxConfigHasDrifted checks if NPX configuration has drifted
-func npxConfigHasDrifted(serverConfig, entryConfig *types.NPXRuntimeConfig) bool {
+func npxConfigHasDrifted(serverConfig, entryConfig *types.NPXRuntimeConfig, defaultDenyAllEgress bool) bool {
 	if serverConfig == nil && entryConfig == nil {
 		return false
 	}
@@ -159,11 +303,14 @@ func npxConfigHasDrifted(serverConfig, entryConfig *types.NPXRuntimeConfig) bool
 	}
 
 	return serverConfig.Package != entryConfig.Package ||
-		!slices.Equal(serverConfig.Args, entryConfig.Args)
+		!slices.Equal(serverConfig.Args, entryConfig.Args) ||
+		!slices.Equal(serverConfig.EgressDomains, entryConfig.EgressDomains) ||
+		effectiveDenyAllEgress(serverConfig.DenyAllEgress, serverConfig.EgressDomains, defaultDenyAllEgress) !=
+			effectiveDenyAllEgress(entryConfig.DenyAllEgress, entryConfig.EgressDomains, defaultDenyAllEgress)
 }
 
 // containerizedConfigHasDrifted checks if containerized configuration has drifted
-func containerizedConfigHasDrifted(serverConfig, entryConfig *types.ContainerizedRuntimeConfig) bool {
+func containerizedConfigHasDrifted(serverConfig, entryConfig *types.ContainerizedRuntimeConfig, defaultDenyAllEgress bool) bool {
 	if serverConfig == nil && entryConfig == nil {
 		return false
 	}
@@ -175,7 +322,10 @@ func containerizedConfigHasDrifted(serverConfig, entryConfig *types.Containerize
 		serverConfig.Command != entryConfig.Command ||
 		serverConfig.Port != entryConfig.Port ||
 		serverConfig.Path != entryConfig.Path ||
-		!slices.Equal(serverConfig.Args, entryConfig.Args)
+		!slices.Equal(serverConfig.Args, entryConfig.Args) ||
+		!slices.Equal(serverConfig.EgressDomains, entryConfig.EgressDomains) ||
+		effectiveDenyAllEgress(serverConfig.DenyAllEgress, serverConfig.EgressDomains, defaultDenyAllEgress) !=
+			effectiveDenyAllEgress(entryConfig.DenyAllEgress, entryConfig.EgressDomains, defaultDenyAllEgress)
 }
 
 // remoteConfigHasDrifted checks if remote configuration has drifted
@@ -205,7 +355,7 @@ func remoteConfigHasDrifted(serverConfig *types.RemoteRuntimeConfig, entryConfig
 }
 
 // compositeConfigHasDrifted checks if the composite configuration has drifted
-func compositeConfigHasDrifted(serverConfig *types.CompositeRuntimeConfig, entryConfig *types.CompositeCatalogConfig) (bool, error) {
+func compositeConfigHasDrifted(serverConfig *types.CompositeRuntimeConfig, entryConfig *types.CompositeCatalogConfig, defaultDenyAllEgress bool) (bool, error) {
 	if serverConfig == nil && entryConfig == nil {
 		return false, nil
 	}
@@ -231,13 +381,18 @@ func compositeConfigHasDrifted(serverConfig *types.CompositeRuntimeConfig, entry
 			return true, nil
 		}
 
+		// Compare tool prefix
+		if serverComponent.ToolPrefix != entryComponent.ToolPrefix {
+			return true, nil
+		}
+
 		// Compare tool overrides
 		if hash.Digest(serverComponent.ToolOverrides) != hash.Digest(entryComponent.ToolOverrides) {
 			return true, nil
 		}
 
 		// Compare manifests
-		drifted, err := configurationHasDrifted(serverComponent.Manifest, entryComponent.Manifest)
+		drifted, err := configurationHasDrifted(serverComponent.Manifest, entryComponent.Manifest, defaultDenyAllEgress)
 		if err != nil || drifted {
 			return drifted, err
 		}
@@ -544,6 +699,7 @@ func (h *Handler) EnsureCompositeComponents(req router.Request, _ router.Respons
 						MCPServerName:        component.MCPServerID,
 						MCPCatalogName:       multiUserServer.Spec.MCPCatalogID,
 						PowerUserWorkspaceID: multiUserServer.Spec.PowerUserWorkspaceID,
+						MultiUserConfig:      multiUserServer.Spec.Manifest.MultiUserConfig,
 						UserID:               compositeServer.Spec.UserID,
 						CompositeName:        compositeServer.Name,
 					},
@@ -551,6 +707,19 @@ func (h *Handler) EnsureCompositeComponents(req router.Request, _ router.Respons
 					return fmt.Errorf("failed to create instance for multi-user component: %w", err)
 				}
 				log.Infof("Created component MCPServerInstance for composite server: composite=%s componentServer=%s userID=%s", compositeServer.Name, component.MCPServerID, compositeServer.Spec.UserID)
+			} else {
+				existingInstance := existingInstances[component.MCPServerID]
+				var multiUserServer v1.MCPServer
+				if err := req.Get(&multiUserServer, compositeServer.Namespace, component.MCPServerID); err != nil {
+					return fmt.Errorf("failed to get multi-user server %s: %w", component.MCPServerID, err)
+				}
+
+				if hash.Digest(existingInstance.Spec.MultiUserConfig) != hash.Digest(multiUserServer.Spec.Manifest.MultiUserConfig) {
+					existingInstance.Spec.MultiUserConfig = multiUserServer.Spec.Manifest.MultiUserConfig
+					if err := req.Client.Update(req.Ctx, &existingInstance); err != nil {
+						return fmt.Errorf("failed to update instance for multi-user component: %w", err)
+					}
+				}
 			}
 
 			// Remove the instance to build the list of existing instances to delete
@@ -668,6 +837,165 @@ func (h *Handler) SyncOAuthCredentialStatus(req router.Request, _ router.Respons
 		server.Status.OAuthCredentialConfigured = catalogEntry.Status.OAuthCredentialConfigured
 		log.Infof("Updated MCP server OAuth credential status from catalog entry: server=%s catalogEntry=%s configured=%v", server.Name, catalogEntry.Name, server.Status.OAuthCredentialConfigured)
 		return req.Client.Status().Update(req.Ctx, server)
+	}
+
+	return nil
+}
+
+func (h *Handler) SyncOAuthMetadata(req router.Request, _ router.Response) error {
+	server := req.Object.(*v1.MCPServer)
+	if server.Status.Idle {
+		// Server is idle, don't do anything.
+		return nil
+	}
+
+	if server.Spec.Manifest.Runtime != types.RuntimeRemote || server.Spec.Manifest.RemoteConfig == nil {
+		return setOAuthMetadata(req, server, new(v1.OAuthMetadata), nil)
+	}
+
+	if !shouldSyncOAuthMetadata(server, time.Now()) {
+		return nil
+	}
+
+	var credCtxs []string
+	if server.Spec.MCPCatalogID != "" {
+		credCtxs = []string{fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name)}
+	} else if server.Spec.PowerUserWorkspaceID != "" {
+		credCtxs = []string{fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name)}
+	} else {
+		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name))
+	}
+
+	cred, err := h.gptClient.RevealCredential(req.Ctx, credCtxs, server.Name)
+	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+		return fmt.Errorf("failed to reveal credential: %w", err)
+	}
+
+	serverConfig, missingConfig, err := mcp.ServerToServerConfig(*server, server.ValidConnectURLs(h.baseURL), h.baseURL, server.Spec.UserID, server.Name, server.Status.MCPCatalogID, cred.Env, nil)
+	if err != nil {
+		return fmt.Errorf("failed to convert MCP server to server config: %w", err)
+	} else if len(missingConfig) > 0 {
+		return nil
+	}
+
+	metadata, err := nmcp.GetOAuthMetadata(req.Ctx, nmcp.Server{
+		BaseURL: serverConfig.URL,
+		Headers: serverConfigHeaders(serverConfig),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get OAuth metadata: %w", err)
+	}
+
+	statusMetadata := &v1.OAuthMetadata{
+		ProtectedResourceURL:        metadata.ProtectedResourceMetadataURL,
+		AuthorizationServerURL:      metadata.AuthorizationServerMetadataURL,
+		ProtectedResourceMetadata:   metadata.ProtectedResourceMetadata,
+		AuthorizationServerMetadata: metadata.AuthorizationServerMetadata,
+		DynamicClientRegistration:   metadata.DynamicClientRegistration,
+	}
+
+	syncTime := metav1.Now()
+	return setOAuthMetadata(req, server, statusMetadata, &syncTime)
+}
+
+func shouldSyncOAuthMetadata(server *v1.MCPServer, now time.Time) bool {
+	lastSync := server.Status.LastOAuthMetadataSync
+	if server.Status.LastRequestTime.IsZero() || !server.Status.LastRequestTime.After(lastSync.Time) {
+		return false
+	}
+
+	return lastSync.IsZero() || now.Sub(lastSync.Time) >= oauthMetadataSyncInterval
+}
+
+func setOAuthMetadata(req router.Request, server *v1.MCPServer, statusMetadata *v1.OAuthMetadata, syncTime *metav1.Time) error {
+	metadataChanged := !reflect.DeepEqual(server.Status.OAuthMetadata, statusMetadata)
+	syncTimeChanged := syncTime != nil && !server.Status.LastOAuthMetadataSync.Equal(syncTime)
+	if metadataChanged || syncTimeChanged {
+		server.Status.OAuthMetadata = statusMetadata
+		if syncTime != nil {
+			server.Status.LastOAuthMetadataSync = *syncTime
+		}
+		log.Infof("Updated MCP server OAuth metadata: server=%s", server.Name)
+		return req.Client.Status().Update(req.Ctx, server)
+	}
+
+	return nil
+}
+
+func serverConfigHeaders(serverConfig mcp.ServerConfig) map[string]string {
+	result := make(map[string]string, len(serverConfig.PassthroughHeaderNames)+len(serverConfig.Headers))
+	for i, key := range serverConfig.PassthroughHeaderNames {
+		if i < len(serverConfig.PassthroughHeaderValues) {
+			result[key] = serverConfig.PassthroughHeaderValues[i]
+		}
+	}
+	for _, header := range serverConfig.Headers {
+		key, value, ok := strings.Cut(header, "=")
+		if ok {
+			result[key] = value
+		}
+	}
+	return result
+}
+
+func (h *Handler) ShutdownIdleServers(req router.Request, resp router.Response) error {
+	mcpServer := req.Object.(*v1.MCPServer)
+	if mcpServer.Status.LastRequestTime.IsZero() {
+		if time.Since(mcpServer.CreationTimestamp.Time) > time.Minute {
+			// Set the time if it is zero so we don't shutdown servers that were just created.
+			mcpServer.Status.LastRequestTime = metav1.Now()
+			return req.Client.Status().Update(req.Ctx, mcpServer)
+		}
+
+		// Give things some time to settle.
+		resp.RetryAfter(time.Minute)
+		return nil
+	}
+
+	idleInterval := time.Duration(mcpServer.Spec.Manifest.IdleShutdownIntervalHours) * time.Hour
+	if idleInterval == 0 {
+		idleInterval = h.singleUserIdleShutdownDelay
+		if mcpServer.Spec.NanobotAgentID != "" {
+			idleInterval = h.agentIdleShutdownDelay
+		} else if mcpServer.Spec.MCPCatalogID != "" || mcpServer.Spec.PowerUserWorkspaceID != "" {
+			idleInterval = h.multiUserIdleShutdownDelay
+		}
+	}
+
+	if idleInterval < 0 {
+		// If the idleInterval is negative, then shutdown is disabled for this server.
+		if mcpServer.Status.Idle {
+			mcpServer.Status.Idle = false
+			if err := req.Client.Status().Update(req.Ctx, mcpServer); err != nil {
+				return fmt.Errorf("failed to update idle status for server %s: %w", mcpServer.Name, err)
+			}
+		}
+		return nil
+	}
+
+	if since := time.Since(mcpServer.Status.LastRequestTime.Time); since > idleInterval {
+		if err := h.mcpSessionManager.ShutdownIdleServer(req.Ctx, mcpServer.Name); err != nil {
+			return fmt.Errorf("failed to shutdown idle server %s: %w", mcpServer.Name, err)
+		}
+
+		if !mcpServer.Status.Idle {
+			mcpServer.Status.Idle = true
+			if err := req.Client.Status().Update(req.Ctx, mcpServer); err != nil {
+				return fmt.Errorf("failed to update idle status for server %s: %w", mcpServer.Name, err)
+			}
+		}
+	} else {
+		if mcpServer.Status.Idle {
+			mcpServer.Status.Idle = false
+			if err := req.Client.Status().Update(req.Ctx, mcpServer); err != nil {
+				return fmt.Errorf("failed to update idle status for server %s: %w", mcpServer.Name, err)
+			}
+		}
+
+		if retry := idleInterval - since; retry < 10*time.Hour {
+			// All objects are retried every 10 hours. If we should retry sooner, then trigger a retry.
+			resp.RetryAfter(retry)
+		}
 	}
 
 	return nil

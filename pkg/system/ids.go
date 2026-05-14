@@ -37,9 +37,11 @@ const (
 	UserGroupChangePrefix         = "ugc1"
 	GroupRoleChangePrefix         = "grc1"
 	MCPServerPrefix               = "ms1"
+	MCPNetworkPolicyPrefix        = "mnp1"
 	MCPServerInstancePrefix       = "msi1"
 	ProjectMCPServerPrefix        = "pms1"
 	CatalogPrefix                 = "mcat1"
+	SystemCatalogPrefix           = "smcat1"
 	SkillRepositoryPrefix         = "skr1"
 	SkillPrefix                   = "sk1"
 	SkillAccessRulePrefix         = "sar1"
@@ -111,6 +113,10 @@ func IsPowerUserWorkspaceID(id string) bool {
 
 func IsSystemMCPServerID(id string) bool {
 	return strings.HasPrefix(id, SystemMCPServerPrefix)
+}
+
+func IsWebhookSystemMCPServerID(id string) bool {
+	return strings.HasPrefix(id, SystemMCPServerPrefix+MCPWebhookValidationPrefix)
 }
 
 func IsModelID(id string) bool {

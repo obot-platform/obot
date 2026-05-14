@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { twMerge } from 'tailwind-merge';
+	import type { SkillRepository, SkillAccessPolicyResource } from '$lib/services/admin/types';
+	import type { Skill } from '$lib/services/nanobot/types';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import Search from '../Search.svelte';
 	import { Check, PencilRuler } from 'lucide-svelte';
-	import type { Skill } from '$lib/services/nanobot/types';
-	import type { SkillRepository, SkillAccessPolicyResource } from '$lib/services/admin/types';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		skills: Skill[];

@@ -1445,6 +1445,13 @@ export async function deleteSingleOrRemoteMcpServer(id: string): Promise<void> {
 	await doDelete(`/mcp-servers/${id}`);
 }
 
+export async function clearMcpServerOAuth(
+	id: string,
+	opts?: { signal?: AbortSignal }
+): Promise<void> {
+	await doDelete(`/mcp-servers/${id}/oauth`, opts);
+}
+
 export async function configureSingleOrRemoteMcpServer(
 	id: string,
 	envs: Record<string, string>
@@ -1575,6 +1582,28 @@ export async function createMcpServerInstance(mcpServerID: string): Promise<MCPS
 		mcpServerID
 	})) as MCPServerInstance;
 	return response;
+}
+
+export async function configureMcpServerInstance(
+	id: string,
+	envs: Record<string, string>
+): Promise<MCPServerInstance> {
+	const response = (await doPost(
+		`/mcp-server-instances/${id}/configure`,
+		envs
+	)) as MCPServerInstance;
+	return response;
+}
+
+export async function revealMcpServerInstance(
+	id: string,
+	opts?: { dontLogErrors?: boolean }
+): Promise<Record<string, string>> {
+	const response = (await doPost(`/mcp-server-instances/${id}/reveal`, {}, opts)) as Record<
+		string,
+		string
+	> | null;
+	return response ?? {};
 }
 
 export async function deleteMcpServerInstance(id: string): Promise<void> {

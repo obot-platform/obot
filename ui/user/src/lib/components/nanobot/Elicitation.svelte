@@ -1,18 +1,18 @@
 <script lang="ts">
-	interface Props {
-		elicitation: Elicitation;
-		open?: boolean;
-		onresult?: (result: ElicitationResult) => void;
-	}
-
 	import type {
 		Elicitation,
 		ElicitationResult,
 		PrimitiveSchemaDefinition
 	} from '$lib/services/nanobot/types';
-	import { ChevronLeft, ChevronRight, Pencil, Info, X } from 'lucide-svelte';
+	import { ChevronLeft, ChevronRight, Pencil, Info, X, ServerIcon } from 'lucide-svelte';
 	import { SvelteSet, SvelteMap } from 'svelte/reactivity';
 	import { twMerge } from 'tailwind-merge';
+
+	interface Props {
+		elicitation: Elicitation;
+		open?: boolean;
+		onresult?: (result: ElicitationResult) => void;
+	}
 
 	let { elicitation, open = false, onresult }: Props = $props();
 
@@ -554,9 +554,7 @@
 
 			{#if isOAuthElicitation()}
 				<!-- OAuth Authentication Dialog -->
-				<h3 class="mb-4 text-lg font-bold">
-					{elicitation._meta?.['ai.nanobot.meta/server-name'] || 'Authentication Required'}
-				</h3>
+				{@render elicitationServerHeader('Authentication Required', elicitation._meta)}
 
 				<div class="mb-4">
 					<p class="text-base-content/80 mb-4 text-sm whitespace-pre-wrap">{elicitation.message}</p>
@@ -572,9 +570,7 @@
 				</div>
 			{:else}
 				<!-- Generic Elicitation Form -->
-				<h3 class="mb-4 text-lg font-bold">
-					{elicitation._meta?.['ai.nanobot.meta/server-name'] || 'Information Request'}
-				</h3>
+				{@render elicitationServerHeader('Information Request', elicitation._meta)}
 
 				<div class="mb-4">
 					<p class="text-base-content/80 text-sm whitespace-pre-wrap">{elicitation.message}</p>
@@ -748,3 +744,21 @@
 		</div>
 	</dialog>
 {/if}
+
+{#snippet elicitationServerHeader(
+	fallbackHeader: string,
+	elicitationMeta?: Record<string, unknown>
+)}
+	{@const serverIcon = elicitationMeta?.['ai.nanobot.meta/server-icon'] as string}
+	{@const serverName = elicitationMeta?.['ai.nanobot.meta/server-name'] as string}
+	<div class="flex gap-2 items-center mb-4">
+		{#if serverIcon}
+			<img src={serverIcon as string} alt={serverName || fallbackHeader} class="size-6" />
+		{:else}
+			<ServerIcon class="size-6" />
+		{/if}
+		<h3 class="text-lg font-bold">
+			{serverName || fallbackHeader}
+		</h3>
+	</div>
+{/snippet}

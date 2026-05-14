@@ -1,9 +1,19 @@
 <script lang="ts">
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Search from '$lib/components/Search.svelte';
-	import { AlertTriangle } from 'lucide-svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
 	import type { CompositeServerToolRow, MCPCatalogEntry, MCPCatalogServer } from '$lib/services';
+	import {
+		conflictIssue,
+		duplicateToolNames,
+		effectiveToolName,
+		MAX_TOOL_PREFIX_LENGTH,
+		TOOL_NAME_CHARSET_REGEX,
+		TOOL_NAME_SPECIAL_CHAR_WARNING,
+		toolNameIssue
+	} from '$lib/services/chat/mcp';
+	import ToolNameIssueIcon from '../ToolNameIssueIcon.svelte';
+	import { AlertTriangle } from 'lucide-svelte';
 
 	interface Props {
 		configuringEntry?: MCPCatalogEntry | MCPCatalogServer;
@@ -11,16 +21,80 @@
 		onCancel?: () => void;
 		onSuccess?: () => void;
 		tools?: CompositeServerToolRow[];
+		toolPrefix?: string;
+		// Effective names of enabled tools from OTHER components of the composite,
+		// so the modal can flag cross-component final-name conflicts live as the
+		// admin edits overrides or the prefix.
+		otherEffectiveNames?: string[];
+		otherToolPrefixes?: string[];
 	}
 
-	let { configuringEntry, tools = [], onClose, onCancel, onSuccess }: Props = $props();
+	let {
+		configuringEntry,
+		tools = [],
+		toolPrefix = $bindable(),
+		otherEffectiveNames,
+		otherToolPrefixes,
+		onClose,
+		onCancel,
+		onSuccess
+	}: Props = $props();
+
+	let ownEnabledEffectiveNames = $derived(
+		tools.filter((t) => t.enabled).map((t) => effectiveToolName(t.name, t.overrideName, toolPrefix))
+	);
+	let conflictSet = $derived(
+		duplicateToolNames([...(otherEffectiveNames ?? []), ...ownEnabledEffectiveNames])
+	);
+
+	let prefixInvalid = $derived(!TOOL_NAME_CHARSET_REGEX.test(toolPrefix ?? ''));
+	let prefixTooLong = $derived((toolPrefix ?? '').length > MAX_TOOL_PREFIX_LENGTH);
+	let prefixSpecialChar = $derived(/[./]/.test(toolPrefix ?? ''));
+	let duplicatePrefix = $derived.by(() => {
+		const prefix = (toolPrefix ?? '').trim();
+		if (!prefix) return false;
+		return (otherToolPrefixes ?? []).some((p) => p === prefix);
+	});
+	let prefixIssue = $derived(
+		prefixInvalid
+			? ({
+					severity: 'error',
+					message: "Prefix may only contain letters, digits, '.', '/', '_', and '-'."
+				} as const)
+			: prefixTooLong
+				? ({
+						severity: 'error',
+						message: `Prefix must be at most ${MAX_TOOL_PREFIX_LENGTH} characters.`
+					} as const)
+				: duplicatePrefix
+					? ({
+							severity: 'error',
+							message: `Another component already uses the prefix "${(toolPrefix ?? '').trim()}". Non-empty prefixes must be unique across components.`
+						} as const)
+					: prefixSpecialChar
+						? ({
+								severity: 'warning',
+								message: TOOL_NAME_SPECIAL_CHAR_WARNING
+							} as const)
+						: undefined
+	);
+
+	// Only enabled tools contribute to blocking errors; disabled tools aren't exposed.
+	let hasBlockingToolNameErrors = $derived(
+		tools.some((t) => {
+			if (!t.enabled) return false;
+			const name = effectiveToolName(t.name, t.overrideName, toolPrefix);
+			if (toolNameIssue(name)?.severity === 'error') return true;
+			return conflictSet.has(name);
+		})
+	);
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let confirmDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let search = $state('');
 	let expandedTools = $state<Record<string, boolean>>({});
 
 	// Track initial state to detect changes
-	let initialToolsState = $state<string>('');
+	let initialConfigState = $state<string>('');
 
 	let allToolsEnabled = $derived(tools.every((tool) => tool.enabled));
 
@@ -36,13 +110,13 @@
 
 	// Check if there are any changes compared to initial state
 	let hasChanges = $derived.by(() => {
-		const currentState = JSON.stringify(tools);
-		return initialToolsState !== currentState;
+		const currentState = JSON.stringify({ tools, toolPrefix: toolPrefix ?? '' });
+		return initialConfigState !== currentState;
 	});
 
 	export function open() {
 		// Capture initial state when dialog opens
-		initialToolsState = JSON.stringify(tools);
+		initialConfigState = JSON.stringify({ tools, toolPrefix: toolPrefix ?? '' });
 		dialog?.open();
 	}
 
@@ -90,6 +164,41 @@
 		these values.
 	</p>
 	<div class="relative flex flex-col gap-2 overflow-x-hidden p-4">
+		<div class="flex flex-col gap-1">
+			<p class="flex items-center gap-1.5 text-xs text-gray-500">
+				<span>Tool name prefix</span>
+				{#if prefixIssue}
+					<ToolNameIssueIcon issue={prefixIssue} disablePortal />
+				{/if}
+			</p>
+			<div class="flex items-center gap-2">
+				<input
+					class="text-input-filled flex-1 text-sm"
+					placeholder="No prefix"
+					bind:value={toolPrefix}
+				/>
+				<button
+					type="button"
+					class="button px-3 py-1 text-xs"
+					onclick={() => {
+						toolPrefix = '';
+					}}
+				>
+					Clear
+				</button>
+			</div>
+			{#if prefixIssue}
+				<p
+					class={`text-xs ${prefixIssue.severity === 'error' ? 'text-red-500' : 'text-yellow-500'}`}
+				>
+					{prefixIssue.message}
+				</p>
+			{:else}
+				<p class="text-on-surface2 text-[11px]">
+					Prepended to every tool name exposed by this component. Clear to remove.
+				</p>
+			{/if}
+		</div>
 		<div class="flex w-full justify-end">
 			<Toggle
 				checked={allToolsEnabled}
@@ -120,14 +229,25 @@
 				(overrideName !== '' && overrideName !== tool.name) ||
 				(overrideDescription !== '' && overrideDescription !== tool.description)}
 
+			{@const effectiveName = effectiveToolName(tool.name, tool.overrideName, toolPrefix)}
+			{@const conflict = tool.enabled ? conflictIssue(effectiveName, conflictSet) : undefined}
 			<div
 				class="dark:bg-surface2 dark:border-surface3 bg-background flex items-start gap-2 rounded border border-transparent p-2 shadow-sm"
 			>
 				<div class="flex min-w-0 grow flex-col gap-2">
 					<div class="flex items-start justify-between gap-2">
-						<div class="min-w-0">
-							<div class="truncate text-sm font-medium" title={currentName}>
-								{currentName}
+						<div class="min-w-0 flex-1">
+							<div class="flex min-w-0 items-center gap-1.5">
+								<div class="min-w-0 flex-1 truncate text-sm font-medium" title={effectiveName}>
+									{#if toolPrefix}<span class="text-on-surface2">{toolPrefix}</span
+										>{/if}{currentName}
+								</div>
+								{#if tool.enabled}
+									<ToolNameIssueIcon
+										issue={conflict ?? toolNameIssue(effectiveName)}
+										disablePortal
+									/>
+								{/if}
 							</div>
 							{#if currentDescription}
 								<p class="line-clamp-2 text-xs" title={currentDescription}>
@@ -210,6 +330,7 @@
 		<button class="button" onclick={handleCancel}>Cancel</button>
 		<button
 			class="button-primary"
+			disabled={hasBlockingToolNameErrors || prefixIssue?.severity === 'error'}
 			onclick={() => {
 				onSuccess?.();
 				dialog?.close();

@@ -1,4 +1,8 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
 	import {
 		AdminService,
 		type MCPFilter,
@@ -10,10 +14,29 @@
 		type MCPServerOAuthCredentialStatus
 	} from '$lib/services';
 	import type { AccessControlRule, MCPCatalogEntry, OrgUser } from '$lib/services/admin/types';
-	import { twMerge } from 'tailwind-merge';
+	import { getServerTypeLabel, getUserRegistry } from '$lib/services/chat/mcp';
+	import { profile } from '$lib/stores';
+	import { success } from '$lib/stores/success';
+	import { goto } from '$lib/url';
+	import { openUrl, isOwnSingleUserServer } from '$lib/utils';
+	import Confirm from '../Confirm.svelte';
+	import OverflowContainer from '../OverflowContainer.svelte';
+	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import CatalogConfigureForm, {
+		type LaunchFormData,
+		type CompositeLaunchFormData,
+		type ComponentLaunchFormData
+	} from '../mcp/CatalogConfigureForm.svelte';
+	import McpMultiDeleteBlockedDialog from '../mcp/McpMultiDeleteBlockedDialog.svelte';
 	import McpServerInfo from '../mcp/McpServerInfo.svelte';
-	import CatalogServerForm from './CatalogServerForm.svelte';
+	import McpServerTools from '../mcp/McpServerTools.svelte';
+	import StaticOAuthConfigureModal from '../mcp/StaticOAuthConfigureModal.svelte';
 	import Table from '../table/Table.svelte';
+	import { setVirtualPageDisabled } from '../ui/virtual-page/context';
+	import CatalogServerForm from './CatalogServerForm.svelte';
+	import McpServerInstances from './McpServerInstances.svelte';
+	import AuditLogsPageContent from './audit-logs/AuditLogsPageContent.svelte';
+	import UsageGraphs from './usage/UsageGraphs.svelte';
 	import {
 		AlertCircle,
 		ChevronLeft,
@@ -28,30 +51,8 @@
 		Users,
 		Wrench
 	} from 'lucide-svelte';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { goto } from '$lib/url';
-	import Confirm from '../Confirm.svelte';
-	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
-	import { onMount } from 'svelte';
-	import UsageGraphs from './usage/UsageGraphs.svelte';
-	import McpServerInstances from './McpServerInstances.svelte';
-	import McpServerTools from '../mcp/McpServerTools.svelte';
-	import AuditLogsPageContent from './audit-logs/AuditLogsPageContent.svelte';
-	import { page } from '$app/state';
-	import { openUrl, isOwnSingleUserServer } from '$lib/utils';
-	import CatalogConfigureForm, {
-		type LaunchFormData,
-		type CompositeLaunchFormData,
-		type ComponentLaunchFormData
-	} from '../mcp/CatalogConfigureForm.svelte';
-	import McpMultiDeleteBlockedDialog from '../mcp/McpMultiDeleteBlockedDialog.svelte';
-	import ResponsiveDialog from '../ResponsiveDialog.svelte';
-	import { setVirtualPageDisabled } from '../ui/virtual-page/context';
-	import { profile } from '$lib/stores';
-	import OverflowContainer from '../OverflowContainer.svelte';
-	import { getServerTypeLabel, getUserRegistry } from '$lib/services/chat/mcp';
-	import { resolve } from '$app/paths';
-	import StaticOAuthConfigureModal from '../mcp/StaticOAuthConfigureModal.svelte';
+	import { onMount, untrack } from 'svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		id?: string;
@@ -69,7 +70,7 @@
 	}
 
 	let {
-		entry,
+		entry: initialEntry,
 		server,
 		id,
 		entity = 'catalog',
@@ -82,6 +83,18 @@
 		limitViews,
 		configuredServers
 	}: Props = $props();
+
+	let entry = $state(untrack(() => initialEntry));
+	let lastSyncedInitialEntry: MCPCatalogEntry | MCPCatalogServer | undefined = undefined;
+
+	$effect(() => {
+		const next = initialEntry;
+		if (next !== lastSyncedInitialEntry) {
+			lastSyncedInitialEntry = next;
+			entry = next;
+		}
+	});
+
 	let isAtLeastPowerUserPlus = $derived(profile.current?.groups.includes(Group.POWERUSER_PLUS));
 
 	// True owner: admin, workspace owner, or power user who created the server
@@ -230,14 +243,18 @@
 	function filterRulesByEntry(rules?: AccessControlRule[]) {
 		if (!entry || !rules) return [];
 		return rules.filter((r) =>
-			r.resources?.find((resource) => resource.id === entry.id || resource.id === '*')
+			r.resources?.find(
+				(resource) => (entry?.id && resource.id === entry.id) || resource.id === '*'
+			)
 		);
 	}
 
 	function filterFiltersByEntry(filters?: MCPFilter[]) {
 		if (!entry || !filters) return [];
 		return filters.filter((f) =>
-			f.resources?.find((resource) => resource.id === entry.id || resource.id === '*')
+			f.resources?.find(
+				(resource) => (entry?.id && resource.id === entry.id) || resource.id === '*'
+			)
 		);
 	}
 
@@ -509,6 +526,30 @@
 		}
 		staticOauthConfigModal?.open();
 	}
+
+	function handleCancel() {
+		if (onCancel) {
+			onCancel();
+		} else {
+			const url = profile.current.hasAdminAccess?.() ? '/admin/mcp-servers' : '/mcp-servers';
+			goto(url);
+		}
+	}
+
+	function handleSubmit(
+		updatedEntry: MCPCatalogEntry | MCPCatalogServer,
+		type: LaunchServerType,
+		message?: string
+	) {
+		if (onSubmit) {
+			onSubmit(updatedEntry.id, type, message);
+		} else {
+			entry = updatedEntry;
+			if (message) {
+				success.add(message);
+			}
+		}
+	}
 </script>
 
 <div
@@ -523,11 +564,7 @@
 			<div class="flex items-center gap-2">
 				<div class="icon">
 					{#if entry.manifest.icon}
-						<img
-							src={entry.manifest.icon}
-							alt={entry.manifest.name}
-							class="size-10 flex-shrink-0"
-						/>
+						<img src={entry.manifest.icon} alt={entry.manifest.name} class="size-10 shrink-0" />
 					{:else}
 						<Server class="size-10" />
 					{/if}
@@ -659,7 +696,10 @@
 						Regenerate Tools & Capabilities
 					</button>
 				{/if}
-				<McpServerTools entry={'isCatalogEntry' in entry && server ? server : entry}>
+				<McpServerTools
+					entry={'isCatalogEntry' in entry && server ? server : entry}
+					showToolNameIssues={entry.manifest?.runtime === 'composite'}
+				>
 					{#snippet noToolsContent()}
 						<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 							<Wrench class="text-on-surface1 size-24 opacity-50" />
@@ -732,8 +772,8 @@
 			{readonly}
 			{id}
 			{entity}
-			{onCancel}
-			{onSubmit}
+			onCancel={handleCancel}
+			onSubmit={handleSubmit}
 			hideTitle={Boolean(entry)}
 			onConfigureOAuth={handleConfigureOAuth}
 		>

@@ -1,9 +1,9 @@
 <script lang="ts">
-	import type { CallFrame, ToolReference } from '$lib/services';
-	import { ChevronDown, ChevronUp, Code, Download, Maximize2, Minimize2 } from 'lucide-svelte';
-	import ResponsiveDialog from '../ResponsiveDialog.svelte';
-	import JsonTreeView from '../JsonTreeView.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import type { CallFrame, ToolReference } from '$lib/services';
+	import JsonTreeView from '../JsonTreeView.svelte';
+	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import { ChevronDown, ChevronUp, Code, Download, Maximize2, Minimize2 } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {

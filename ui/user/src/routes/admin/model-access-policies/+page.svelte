@@ -1,24 +1,23 @@
 <script lang="ts">
-	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import Layout from '$lib/components/Layout.svelte';
-	import Table from '$lib/components/table/Table.svelte';
-	import { LockKeyhole, Plus, Trash2 } from 'lucide-svelte';
-	import { fly } from 'svelte/transition';
-	import { goto, replaceState } from '$lib/url';
-	import { afterNavigate } from '$app/navigation';
-	import { type ModelAccessPolicy } from '$lib/services/admin/types';
-	import Confirm from '$lib/components/Confirm.svelte';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
-	import ModelAccessPolicyForm from '$lib/components/admin/ModelAccessPolicyForm.svelte';
-	import { onMount, untrack } from 'svelte';
-	import { AdminService } from '$lib/services/index.js';
-	import { openUrl } from '$lib/utils.js';
-	import { profile } from '$lib/stores/index.js';
 	import { page } from '$app/state';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import Confirm from '$lib/components/Confirm.svelte';
+	import Layout from '$lib/components/Layout.svelte';
+	import ModelAccessPolicyForm from '$lib/components/admin/ModelAccessPolicyForm.svelte';
+	import Table from '$lib/components/table/Table.svelte';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import { type ModelAccessPolicy } from '$lib/services/admin/types';
+	import { AdminService } from '$lib/services/index.js';
+	import { profile } from '$lib/stores/index.js';
+	import { goto, clearUrlParams } from '$lib/url';
+	import { openUrl } from '$lib/utils.js';
+	import { LockKeyhole, Plus, Trash2 } from 'lucide-svelte';
+	import { untrack } from 'svelte';
+	import { fly } from 'svelte/transition';
 
 	let { data } = $props();
 	let modelAccessPolicies = $state(untrack(() => data.modelAccessPolicies));
-	let showCreatePolicy = $state(false);
+	let showCreatePolicy = $derived(page.url.searchParams.has('new'));
 	let policyToDelete = $state<ModelAccessPolicy>();
 
 	function convertToTableData(policy: ModelAccessPolicy) {
@@ -35,35 +34,8 @@
 
 	let isReadonly = $derived(profile.current.isAdminReadonly?.());
 
-	onMount(() => {
-		const url = new URL(window.location.href);
-		const queryParams = new URLSearchParams(url.search);
-		if (queryParams.get('new')) {
-			showCreatePolicy = true;
-		}
-	});
-
-	afterNavigate(({ from }) => {
-		const comingFromPolicyPage = from?.url?.pathname.startsWith('/admin/model-access-policies/');
-		if (comingFromPolicyPage) {
-			showCreatePolicy = false;
-			if (page.url.searchParams.has('new')) {
-				const cleanUrl = new URL(page.url);
-				cleanUrl.searchParams.delete('new');
-				replaceState(cleanUrl, {});
-			}
-			return;
-		} else {
-			if (page.url.searchParams.has('new')) {
-				showCreatePolicy = true;
-			} else {
-				showCreatePolicy = false;
-			}
-		}
-	});
-
 	async function navigateToCreated(policy: ModelAccessPolicy) {
-		showCreatePolicy = false;
+		clearUrlParams(['new']);
 		goto(`/admin/model-access-policies/${policy.id}`, { replaceState: false });
 	}
 

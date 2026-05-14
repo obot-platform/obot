@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { debounce } from 'es-toolkit';
-	import { fade } from 'svelte/transition';
 	import { page } from '$app/state';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
@@ -8,8 +6,8 @@
 	import Search from '$lib/components/Search.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
-	import { AdminService, ChatService } from '$lib/services/index.js';
 	import { Group, Role, type GroupRoleAssignment } from '$lib/services/admin/types';
+	import { AdminService, ChatService } from '$lib/services/index.js';
 	import { profile } from '$lib/stores/index.js';
 	import {
 		clearUrlParams,
@@ -20,13 +18,14 @@
 		replaceState
 	} from '$lib/url.js';
 	import { getUserRoleLabel } from '$lib/utils';
-
 	import AddGroupAssignmentDialog from './AddGroupAssignmentDialog.svelte';
 	import AssignGroupRoleDialog from './AssignGroupRoleDialog.svelte';
 	import ConfirmAuditorRoleDialog from './ConfirmAuditorRoleDialog.svelte';
 	import ConfirmOwnerRoleDialog from './ConfirmOwnerRoleDialog.svelte';
 	import ConfirmUserImpersonationRoleDialog from './ConfirmUserImpersonationRoleDialog.svelte';
 	import type { GroupAssignment } from './types';
+	import { debounce } from 'es-toolkit';
+	import { fade } from 'svelte/transition';
 
 	let { data } = $props();
 	let { groups, groupRoleAssignments } = $derived(data);
@@ -45,7 +44,7 @@
 			{} as Record<string, GroupRoleAssignment>
 		)
 	);
-	let query = $state(page.url.searchParams.get('query') || '');
+	let query = $derived(page.url.searchParams.get('query') || '');
 	let urlFilters = $derived(getTableUrlParamsFilters());
 	let initSort = $derived(getTableUrlParamsSort());
 
@@ -134,7 +133,7 @@
 </script>
 
 <Layout title="Group Role Assignments">
-	<div class="my-4" in:fade={{ duration }} out:fade={{ duration }}>
+	<div class="mb-4" in:fade={{ duration }} out:fade={{ duration }}>
 		<div class="flex flex-col gap-8">
 			<div class="flex flex-col gap-2">
 				<Search

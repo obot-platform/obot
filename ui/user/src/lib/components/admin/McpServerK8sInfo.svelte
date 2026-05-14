@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
+	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 	import {
 		AdminService,
 		ChatService,
@@ -6,11 +9,18 @@
 		type K8sServerDetail,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
+		type MCPSecretBinding,
 		type OrgUser,
 		type ServerK8sSettings
 	} from '$lib/services';
 	import { EventStreamService } from '$lib/services/admin/eventstream.svelte';
+	import { profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
+	import { isOwnSingleUserServer } from '$lib/utils';
+	import Confirm from '../Confirm.svelte';
+	import SensitiveInput from '../SensitiveInput.svelte';
+	import Table from '../table/Table.svelte';
+	import DeploymentLogs from './DeploymentLogs.svelte';
 	import {
 		AlertTriangle,
 		Info,
@@ -20,24 +30,15 @@
 		CircleFadingArrowUp
 	} from 'lucide-svelte';
 	import { onDestroy, onMount } from 'svelte';
-	import Table from '../table/Table.svelte';
-	import Confirm from '../Confirm.svelte';
 	import { twMerge } from 'tailwind-merge';
-	import { profile } from '$lib/stores';
-	import { page } from '$app/state';
-	import SensitiveInput from '../SensitiveInput.svelte';
-	import { resolve } from '$app/paths';
-	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
-	import DeploymentLogs from './DeploymentLogs.svelte';
-	import { isOwnSingleUserServer } from '$lib/utils';
 
 	interface Props {
 		id?: string;
-		entity?: 'workspace' | 'catalog' | 'agent';
+		entity?: 'workspace' | 'catalog' | 'agent' | 'webhook-validation';
 		mcpServerId: string;
 		name: string;
 		mcpServerInstanceId?: string;
-		connectedUsers: (OrgUser & { mcpInstanceId?: string })[];
+		connectedUsers: (OrgUser & { mcpInstanceId?: string; mcpInstanceConfigured?: boolean })[];
 		title?: string;
 		classes?: {
 			title?: string;
@@ -83,6 +84,10 @@
 				: `/api/workspaces/${entityId}/servers/${mcpServerId}/logs`;
 		}
 
+		if (entity === 'webhook-validation') {
+			return `/api/mcp-webhook-validations/${mcpServerId}/logs`;
+		}
+
 		return `/api/mcp-servers/${mcpServerId}/logs`;
 	});
 
@@ -107,11 +112,14 @@
 						{ dontLogErrors }
 					)
 				: ChatService.getWorkspaceK8sServerDetail(entityId, mcpServerId, { dontLogErrors })
-			: AdminService.getK8sServerDetail(mcpServerId, { dontLogErrors });
+			: entity === 'webhook-validation'
+				? AdminService.getMCPFilterDetails(mcpServerId, { dontLogErrors })
+				: AdminService.getK8sServerDetail(mcpServerId, { dontLogErrors });
 	}
 
 	function getK8sSettingsStatus() {
-		if (!hasAdminAccess) return Promise.resolve<ServerK8sSettings | undefined>(undefined);
+		if (!hasAdminAccess || entity === 'webhook-validation')
+			return Promise.resolve<ServerK8sSettings | undefined>(undefined);
 		return entity === 'workspace' && entityId
 			? catalogEntry?.id
 				? ChatService.getWorkspaceCatalogEntryServerK8sSettingsStatus(
@@ -126,18 +134,24 @@
 						dontLogErrors
 					})
 			: catalogEntry?.id
-				? AdminService.getMCPCatalogServerK8sSettingsStatus(catalogEntry.id, mcpServerId, {
+				? AdminService.getMCPCatalogEntryServerK8sSettingsStatus(catalogEntry.id, mcpServerId, {
 						dontLogErrors
 					})
-				: AdminService.getK8sSettingsStatus(mcpServerId, { dontLogErrors });
+				: AdminService.getMcpCatalogServerK8sSettingsStatus(mcpServerId, {
+						dontLogErrors
+					});
 	}
 
 	onMount(() => {
 		// Only load sensitive server values and k8s info if the user has admin access
 		revealServerValues = profile.current.isAdmin?.()
-			? ChatService.revealSingleOrRemoteMcpServer(mcpServerId, {
-					dontLogErrors: true
-				})
+			? entity === 'webhook-validation'
+				? AdminService.revealMCPFilter(mcpServerId, {
+						dontLogErrors: true
+					})
+				: ChatService.revealSingleOrRemoteMcpServer(mcpServerId, {
+						dontLogErrors: true
+					})
 			: Promise.resolve<Record<string, string>>({});
 		listK8sInfo = getK8sInfo();
 		listK8sSettingsStatus = getK8sSettingsStatus();
@@ -178,7 +192,9 @@
 							mcpServerId
 						)
 					: ChatService.restartWorkspaceK8sServerDeployment(entityId, mcpServerId)
-				: AdminService.restartK8sDeployment(mcpServerId));
+				: entity === 'webhook-validation'
+					? AdminService.restartMCPFilter(mcpServerId)
+					: AdminService.restartK8sDeployment(mcpServerId));
 			// Refresh the k8s info after restart
 			listK8sInfo = getK8sInfo();
 		} catch (err) {
@@ -280,14 +296,24 @@
 		}
 	}
 
+	type ConfigRow = {
+		id: string;
+		label: string;
+		value: string;
+		sensitive: boolean;
+		file?: boolean;
+		dynamicFile?: boolean;
+		secretBinding?: MCPSecretBinding;
+	};
+
 	function compileRevealedValues(
 		revealedValues?: Record<string, string>,
 		catalogEntry?: MCPCatalogEntry
 	) {
-		if (!catalogEntry || !revealedValues) {
+		if (!catalogEntry) {
 			return {
-				headers: [],
-				envs: []
+				headers: [] as ConfigRow[],
+				envs: [] as ConfigRow[]
 			};
 		}
 
@@ -296,32 +322,92 @@
 			catalogEntry.manifest.remoteConfig?.headers?.map((header) => [header.key, header])
 		);
 
-		const envs: { id: string; label: string; value: string; sensitive: boolean }[] = [];
-		const headers: { id: string; label: string; value: string; sensitive: boolean }[] = [];
+		const envs: ConfigRow[] = [];
+		const headers: ConfigRow[] = [];
 
-		for (const key in revealedValues) {
+		for (const key in revealedValues ?? {}) {
 			if (envMap.has(key)) {
 				const env = envMap.get(key);
 				envs.push({
 					id: key,
 					label: env?.name ?? 'Unknown',
-					value: env?.prefix ? env.prefix + revealedValues[key] : (revealedValues[key] ?? ''),
-					sensitive: env?.sensitive || false
+					value: env?.prefix ? env.prefix + revealedValues![key] : (revealedValues![key] ?? ''),
+					sensitive: env?.sensitive || false,
+					file: env?.file,
+					dynamicFile: env?.dynamicFile
 				});
 			} else if (headerMap.has(key)) {
 				const header = headerMap.get(key);
 				headers.push({
 					id: key,
 					label: header?.name ?? 'Unknown',
-					value: header?.prefix ? header.prefix + revealedValues[key] : (revealedValues[key] ?? ''),
+					value: header?.prefix
+						? header.prefix + revealedValues![key]
+						: (revealedValues![key] ?? ''),
 					sensitive: header?.sensitive || false
 				});
 			}
 		}
+
+		// Include secret-bound fields — their values are not stored by Obot so they
+		// won't appear in revealedValues, but we can still show the binding reference.
+		for (const env of catalogEntry.manifest.env ?? []) {
+			if (env.secretBinding && !revealedValues?.[env.key]) {
+				envs.push({
+					id: env.key,
+					label: env.name ?? env.key,
+					value: '',
+					sensitive: false,
+					file: env.file,
+					dynamicFile: env.dynamicFile,
+					secretBinding: env.secretBinding
+				});
+			}
+		}
+		for (const header of catalogEntry.manifest.remoteConfig?.headers ?? []) {
+			if (header.secretBinding && !revealedValues?.[header.key]) {
+				headers.push({
+					id: header.key,
+					label: header.name ?? header.key,
+					value: '',
+					sensitive: false,
+					secretBinding: header.secretBinding
+				});
+			}
+		}
+
 		return {
 			envs,
 			headers
 		};
+	}
+
+	const missingSecretBindings = $derived(getMissingSecretBindings());
+
+	function getMissingSecretBindings() {
+		const missingEnvKeys = new Set(mcpServer?.missingRequiredEnvVars ?? []);
+		const missingHeaderKeys = new Set(mcpServer?.missingRequiredHeaders ?? []);
+		const results: { label: string; secretName: string; secretKey: string }[] = [];
+
+		for (const env of catalogEntry?.manifest.env ?? []) {
+			if (env.secretBinding && missingEnvKeys.has(env.key)) {
+				results.push({
+					label: env.name ?? env.key,
+					secretName: env.secretBinding.name,
+					secretKey: env.secretBinding.key
+				});
+			}
+		}
+		for (const header of catalogEntry?.manifest.remoteConfig?.headers ?? []) {
+			if (header.secretBinding && missingHeaderKeys.has(header.key)) {
+				results.push({
+					label: header.name ?? header.key,
+					secretName: header.secretBinding.name,
+					secretKey: header.secretBinding.key
+				});
+			}
+		}
+		return results;
 	}
 
 	function getAuditLogUrl(d: (typeof connectedUsers)[number]) {
@@ -383,6 +469,30 @@
 	</div>
 {/if}
 
+{#if missingSecretBindings.length > 0 && hasAdminAccess}
+	<div class="notification-alert">
+		<div class="flex grow flex-col gap-2">
+			<div class="flex items-center gap-2">
+				<AlertTriangle class="size-6 flex-shrink-0 self-start text-yellow-500" />
+				<p class="my-0.5 flex flex-col text-sm font-semibold">
+					Missing Kubernetes Secret{missingSecretBindings.length > 1 ? 's' : ''}
+				</p>
+			</div>
+			<div class="text-sm font-light">
+				The following Kubernetes Secrets referenced by this server could not be found:
+				<ul class="mt-1 list-disc pl-5">
+					{#each missingSecretBindings as binding (binding.secretName + '/' + binding.secretKey)}
+						<li>
+							<code class="font-mono">{binding.secretName}/{binding.secretKey}</code> (for
+							<strong>{binding.label}</strong>)
+						</li>
+					{/each}
+				</ul>
+			</div>
+		</div>
+	</div>
+{/if}
+
 {#await listK8sInfo}
 	{#if hasAdminAccess}
 		<div class="flex w-full justify-center">
@@ -414,7 +524,7 @@
 						{#if headers.length > 0}
 							<div class="flex flex-col gap-2">
 								{#each headers as h (h.id)}
-									{@render configurationRow(h.label, h.value, h.sensitive)}
+									{@render configurationRow(h.label, h.value, h.sensitive, h.secretBinding)}
 								{/each}
 							</div>
 						{:else}
@@ -428,7 +538,14 @@
 					{#if envs.length > 0}
 						<div class="flex flex-col gap-2">
 							{#each envs as env (env.id)}
-								{@render configurationRow(env.label, env.value, env.sensitive)}
+								{@render configurationRow(
+									env.label,
+									env.value,
+									env.sensitive,
+									env.secretBinding,
+									env.file,
+									env.dynamicFile
+								)}
 							{/each}
 						</div>
 					{:else}
@@ -511,13 +628,19 @@
 	onClear={() => (messages = [])}
 />
 
-{#if hasAdminAccess}
+{#if hasAdminAccess && entity !== 'webhook-validation'}
 	<div>
 		<h2 class="mb-2 text-lg font-semibold">Connected Users</h2>
-		<Table data={connectedUsers ?? []} fields={['name']}>
+		<Table
+			data={connectedUsers ?? []}
+			fields={['name', 'updateStatus']}
+			headers={[{ title: 'Config Status', property: 'updateStatus' }]}
+		>
 			{#snippet onRenderColumn(property, d)}
 				{#if property === 'name'}
 					{d.email || d.username || 'Unknown'}
+				{:else if property === 'updateStatus'}
+					{d.mcpInstanceConfigured === false ? 'Not Configured' : 'Up to date'}
 				{:else}
 					{d[property as keyof typeof d]}
 				{/if}
@@ -556,7 +679,7 @@
 							<LoaderCircle class="size-6 animate-spin" />
 						</div>
 					{:then k8sSettingsStatus}
-						{#if k8sSettingsStatus?.needsK8sUpdate}
+						{#if k8sSettingsStatus?.needsK8sUpdate || mcpServer?.needsK8sUpdate}
 							<button
 								class="flex items-center gap-2 rounded-md bg-yellow-500/75 px-3 py-1.5 text-xs font-medium text-white hover:bg-yellow-500 disabled:opacity-50"
 								disabled={readonly}
@@ -573,14 +696,44 @@
 	</div>
 {/snippet}
 
-{#snippet configurationRow(label: string, value: string, sensitive?: boolean)}
+{#snippet configurationRow(
+	label: string,
+	value: string,
+	sensitive?: boolean,
+	secretBinding?: MCPSecretBinding,
+	file?: boolean,
+	dynamicFile?: boolean
+)}
 	<div
 		class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col rounded-lg border border-transparent px-4 py-1.5 shadow-sm"
 	>
 		<div class="grid grid-cols-12 items-center gap-4">
 			<p class="col-span-4 text-sm font-semibold">{label}</p>
 			<div class="col-span-8 flex items-center justify-between">
-				{#if sensitive}
+				{#if secretBinding}
+					<span class="text-on-surface1 flex flex-wrap items-center gap-2 text-sm">
+						<span>
+							Kubernetes Secret: <code class="font-mono">{secretBinding.name}</code> /
+							<code class="font-mono">{secretBinding.key}</code>
+						</span>
+						{#if file}
+							<span
+								class="rounded bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+								title="Secret value is mounted as a file; the env var contains the file path"
+							>
+								file
+							</span>
+						{/if}
+						{#if dynamicFile}
+							<span
+								class="rounded bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-900/40 dark:text-purple-300"
+								title="File updates in-place when the Secret changes — no pod restart needed"
+							>
+								dynamic
+							</span>
+						{/if}
+					</span>
+				{:else if sensitive}
 					<SensitiveInput {value} disabled name={label} />
 				{:else}
 					<input type="text" {value} class="text-input-filled" disabled />
@@ -596,6 +749,8 @@
 	onsuccess={handleRestart}
 	oncancel={() => (showRestartConfirm = false)}
 	loading={restarting}
+	title="Confirm Restart"
+	type="info"
 >
 	{#snippet note()}
 		Are you sure you want to restart this deployment? This will cause a brief service interruption.
@@ -607,6 +762,8 @@
 	onsuccess={handleRedeployWithK8sSettings}
 	oncancel={() => (showUpdateK8sSettingsConfirm = false)}
 	loading={updatingK8sSettings}
+	title="Confirm Redeploy"
+	type="info"
 >
 	{#snippet note()}
 		Are you sure you want to redeploy this server with the latest Kubernetes settings? This will

@@ -1,14 +1,15 @@
 <script lang="ts">
-	import { CircleSlash, CircleCheck, Construction } from 'lucide-svelte';
-	import DotDotDot from '../DotDotDot.svelte';
-	import { darkMode } from '$lib/stores';
-	import { twMerge } from 'tailwind-merge';
-	import type { BaseProvider } from '$lib/services/admin/types';
-	import type { Snippet } from 'svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import type { BaseProvider } from '$lib/services/admin/types';
+	import { darkMode } from '$lib/stores';
+	import DotDotDot from '../DotDotDot.svelte';
+	import { CircleSlash, CircleCheck, Construction, FlaskConicalIcon } from 'lucide-svelte';
+	import type { Snippet } from 'svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		recommended?: boolean;
+		experimental?: boolean;
 		provider: BaseProvider;
 		onConfigure: () => void;
 		onDeconfigure: () => void;
@@ -21,6 +22,7 @@
 
 	const {
 		recommended,
+		experimental,
 		provider,
 		onConfigure,
 		onDeconfigure,
@@ -44,6 +46,13 @@
 				<span class="bg-primary rounded-md px-2 py-1 text-[11px] font-semibold text-white"
 					>Recommended</span
 				>
+			{/if}
+			{#if experimental}
+				<span
+					class="bg-yellow-500/15 text-yellow-500 rounded-md px-2 py-1 text-[10px] font-medium flex items-center gap-1"
+				>
+					<FlaskConicalIcon class="size-3 text-yellow-500" /> Experimental
+				</span>
 			{/if}
 		</div>
 

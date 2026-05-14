@@ -1,17 +1,17 @@
 <script lang="ts">
 	import DatePicker from '$lib/components/DatePicker.svelte';
 	import Search from '$lib/components/Search.svelte';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { stripMarkdownToText } from '$lib/markdown';
 	import { ApiKeysService } from '$lib/services';
 	import type { APIKeyCreateResponse } from '$lib/services/api-keys/types';
-	import { stripMarkdownToText } from '$lib/markdown';
+	import { compileAvailableMcpServers } from '$lib/services/chat/mcp';
+	import type { MCPCatalogServer } from '$lib/services/chat/types';
+	import { mcpServersAndEntries } from '$lib/stores';
 	import { Check, LoaderCircle, Server } from 'lucide-svelte';
 	import { SvelteSet } from 'svelte/reactivity';
-	import { twMerge } from 'tailwind-merge';
 	import { fly } from 'svelte/transition';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { mcpServersAndEntries } from '$lib/stores';
-	import type { MCPCatalogServer } from '$lib/services/chat/types';
-	import { compileAvailableMcpServers } from '$lib/services/chat/mcp';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		onCreate: (key: APIKeyCreateResponse) => void;
@@ -24,6 +24,7 @@
 	let description = $state('');
 	let expiresAt = $state<Date | null>(null);
 	let selectedServerIds = new SvelteSet<string>();
+	let canAccessSkills = $state(false);
 	let search = $state('');
 	let loading = $state(false);
 	let showValidation = $state(false);
@@ -36,7 +37,7 @@
 	);
 
 	let nameError = $derived(showValidation && !name.trim());
-	let serverError = $derived(showValidation && selectedServerIds.size === 0);
+	let serverError = $derived(showValidation && selectedServerIds.size === 0 && !canAccessSkills);
 
 	const allServersOption = {
 		id: '*',
@@ -79,7 +80,7 @@
 
 	async function handleCreate() {
 		showValidation = true;
-		if (!name.trim() || selectedServerIds.size === 0) {
+		if (!name.trim() || (selectedServerIds.size === 0 && !canAccessSkills)) {
 			return;
 		}
 
@@ -89,7 +90,8 @@
 				name: name.trim(),
 				description: description.trim() || undefined,
 				expiresAt: expiresAt?.toISOString(),
-				mcpServerIds: Array.from(selectedServerIds)
+				mcpServerIds: Array.from(selectedServerIds),
+				canAccessSkills
 			});
 			onCreate(response);
 		} finally {
@@ -148,6 +150,19 @@
 				/>
 				<p class="input-description">Leave empty for no expiration</p>
 			</div>
+
+			<div class="flex flex-col gap-2">
+				<label class="input-label">Optional Capabilities</label>
+				<label class="bg-surface1 flex items-start gap-3 rounded-lg border p-3">
+					<input type="checkbox" bind:checked={canAccessSkills} class="mt-1" />
+					<div class="flex flex-col gap-1">
+						<span class="text-sm font-medium">Allow skill access</span>
+						<span class="input-description">
+							Grants this key read-only access for skill discovery and downloads.
+						</span>
+					</div>
+				</label>
+			</div>
 		</div>
 	</div>
 
@@ -155,11 +170,14 @@
 		<p>
 			<span class="text-lg font-semibold">MCP Servers</span>
 			{#if serverError}
-				<span class="text-xs text-red-600 dark:text-red-400">Select at least one server</span>
+				<span class="text-xs text-red-600 dark:text-red-400">
+					Select at least one server or enable skill access
+				</span>
 			{/if}
 		</p>
 		<p class="input-description">
-			Select which MCP servers this API key can access
+			Select which MCP servers this API key can access. To create a skills-only key, leave this
+			empty and enable skill access.
 			{#if selectedServerIds.size > 0}
 				<span class="italic">
 					({#if selectedServerIds.has('*')}All Selected{:else}{selectedServerIds.size} Selected{/if})
@@ -210,7 +228,7 @@
 								<p class="truncate text-sm">{getServerDisplayName(server)}</p>
 								{#if server.manifest.description}
 									<span class="text-on-surface1 line-clamp-1 text-xs">
-										{@html stripMarkdownToText(server.manifest.description)}
+										{stripMarkdownToText(server.manifest.description)}
 									</span>
 								{/if}
 							</div>

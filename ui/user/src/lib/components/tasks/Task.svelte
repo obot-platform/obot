@@ -1,4 +1,10 @@
 <script lang="ts">
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import Confirm from '$lib/components/Confirm.svelte';
+	import Steps from '$lib/components/tasks/Steps.svelte';
+	import { TASK_NEW_ID } from '$lib/constants';
+	import { getLayout } from '$lib/context/chatLayout.svelte';
+	import { newSaveMonitor } from '$lib/save.js';
 	import {
 		ChatService,
 		getTaskRun,
@@ -8,23 +14,17 @@
 		type TaskStep,
 		type TaskRun
 	} from '$lib/services';
-	import { MessageCircle, MessageCircleOff, Trash2, TriangleAlert } from 'lucide-svelte/icons';
-	import { onDestroy, onMount, untrack } from 'svelte';
-	import Steps from '$lib/components/tasks/Steps.svelte';
-	import Confirm from '$lib/components/Confirm.svelte';
-	import { newSaveMonitor } from '$lib/save.js';
-	import { LoaderCircle, OctagonX, Play } from 'lucide-svelte';
 	import { Thread } from '$lib/services/chat/thread.svelte';
 	import { errors, responsive } from '$lib/stores';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { fade, slide } from 'svelte/transition';
-	import TaskOptions from './TaskOptions.svelte';
-	import { twMerge } from 'tailwind-merge';
+	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import ChatInput from '../messages/Input.svelte';
 	import Input from './Input.svelte';
-	import { getLayout } from '$lib/context/chatLayout.svelte';
-	import { TASK_NEW_ID } from '$lib/constants';
-	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import TaskOptions from './TaskOptions.svelte';
+	import { LoaderCircle, OctagonX, Play } from 'lucide-svelte';
+	import { MessageCircle, MessageCircleOff, Trash2, TriangleAlert } from 'lucide-svelte/icons';
+	import { onDestroy, onMount, untrack } from 'svelte';
+	import { fade, slide } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		task: Task;
@@ -87,7 +87,7 @@
 	// HACK: fix glitch that happens when in messages.inProgress when loop steps executed
 	// Make sure that the .inProgress stays true until the end of the current run task
 
-	let timeoutId: number | undefined = undefined;
+	let timeoutId: ReturnType<typeof setTimeout> | undefined = undefined;
 	// save how many step.inProgress === false we got
 
 	let isRunning = $state(false);

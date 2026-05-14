@@ -1,8 +1,8 @@
 <script lang="ts">
 	import Layout from '$lib/components/Layout.svelte';
+	import SkillForm from '$lib/components/admin/SkillForm.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { fly } from 'svelte/transition';
-	import SkillForm from '$lib/components/admin/SkillForm.svelte';
 
 	let { data } = $props();
 	let skill = $derived(data.skill);

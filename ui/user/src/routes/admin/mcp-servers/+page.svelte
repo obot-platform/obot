@@ -1,36 +1,35 @@
 <script lang="ts">
-	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
+	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
+	import Search from '$lib/components/Search.svelte';
+	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
+	import McpServerGitSync from '$lib/components/admin/McpServerGitSync.svelte';
+	import ConnectorsView from '$lib/components/mcp/ConnectorsView.svelte';
+	import DeploymentsView from '$lib/components/mcp/DeploymentsView.svelte';
+	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
+	import type { InitSort } from '$lib/components/table/Table.svelte';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { AdminService, Group, type LaunchServerType } from '$lib/services';
 	import type { MCPCatalog, OrgUser } from '$lib/services/admin/types';
-	import { AlertTriangle, Info, LoaderCircle, Plus, RefreshCcw, Server, X } from 'lucide-svelte';
-	import { onDestroy, onMount } from 'svelte';
-	import { fade, fly, slide } from 'svelte/transition';
-	import { goto } from '$lib/url';
-	import { beforeNavigate, afterNavigate } from '$app/navigation';
-	import { browser } from '$app/environment';
-	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
+	import { getServerTypeLabelByType } from '$lib/services/chat/mcp';
 	import { mcpServersAndEntries, profile } from '$lib/stores';
-	import { page } from '$app/state';
-	import { resolve } from '$app/paths';
-	import DeploymentsView from '$lib/components/mcp/DeploymentsView.svelte';
-	import Search from '$lib/components/Search.svelte';
+	import { goto } from '$lib/url';
 	import {
 		clearUrlParams,
 		getTableUrlParamsFilters,
 		getTableUrlParamsSort,
 		setSortUrlParams,
 		setFilterUrlParams,
-		setUrlParam
+		setUrlParam,
+		replaceState
 	} from '$lib/url';
-	import { getServerTypeLabelByType } from '$lib/services/chat/mcp';
-	import { localState } from '$lib/runes/localState.svelte';
 	import SourceUrlsView from './SourceUrlsView.svelte';
+	import { Info, LoaderCircle, Plus, RefreshCcw, Server } from 'lucide-svelte';
+	import { onDestroy, onMount } from 'svelte';
+	import { fade, fly, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
-	import DotDotDot from '$lib/components/DotDotDot.svelte';
-	import ConnectorsView from '$lib/components/mcp/ConnectorsView.svelte';
-	import type { InitSort } from '$lib/components/table/Table.svelte';
 
 	type View = 'registry' | 'deployments' | 'urls';
 
@@ -40,12 +39,6 @@
 	const { data } = $props();
 	const { workspaceId } = $derived(data);
 	const query = $derived(page.url.searchParams.get('query') || '');
-
-	type LocalStorageViewQuery = Record<View, string>;
-	const localStorageViewQuery = localState<LocalStorageViewQuery>(
-		'@obot/admin/mcp-servers/search-query',
-		{ registry: '', deployments: '', urls: '' }
-	);
 
 	let users = $state<OrgUser[]>([]);
 	let urlFilters = $state(getTableUrlParamsFilters());
@@ -85,60 +78,16 @@
 		clearUrlParams();
 	}
 
-	afterNavigate(({ from }) => {
-		if (browser) {
-			// If coming back from a detail page, don't show form - user just created a server
-			const comingFromDetailPage =
-				from?.url?.pathname.startsWith('/admin/mcp-servers/c/') ||
-				from?.url?.pathname.startsWith('/admin/mcp-servers/s/');
-
-			if (comingFromDetailPage) {
-				showServerForm = false;
-
-				// Prevent infinite navigation
-				if (page.url.searchParams.has('new')) {
-					const cleanUrl = new URL(page.url);
-					cleanUrl.searchParams.delete('new');
-					goto(cleanUrl, { replaceState: true });
-				}
-
-				return;
-			}
-
-			const createNewType = page.url.searchParams.get('new') as LaunchServerType;
-			if (createNewType) {
-				selectServerType(createNewType, false);
-			} else {
-				showServerForm = false;
-
-				// Prevent infinite navigation
-				if (page.url.searchParams.has('new')) {
-					const cleanUrl = new URL(page.url);
-					cleanUrl.searchParams.delete('new');
-					goto(cleanUrl, { replaceState: true });
-				}
-			}
-		}
-	});
-
-	beforeNavigate(({ to }) => {
-		if (browser && !to?.url.pathname.startsWith('/admin/mcp-servers')) {
-			clearQueryFromLocalStorage();
-		}
-	});
-
 	let usersMap = $derived(new Map(users.map((user) => [user.id, user])));
 
 	let defaultCatalog = $state<MCPCatalog>();
-	let editingSource = $state<{ index: number; value: string }>();
-	let sourceDialog = $state<HTMLDialogElement>();
+	let sourceDialog = $state<ReturnType<typeof McpServerGitSync>>();
 	let selectServerTypeDialog = $state<ReturnType<typeof SelectServerType>>();
-	let selectedServerType = $state<LaunchServerType>();
 
-	let showServerForm = $state(false);
-	let saving = $state(false);
+	let selectedServerType = $derived(page.url.searchParams.get('new') as LaunchServerType);
+	let showServerForm = $derived(page.url.searchParams.has('new'));
+
 	let syncing = $state(false);
-	let sourceError = $state<string>();
 	let syncInterval = $state<ReturnType<typeof setInterval>>();
 
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
@@ -147,18 +96,10 @@
 	);
 
 	function selectServerType(type: LaunchServerType, updateUrl = true) {
-		selectedServerType = type;
 		selectServerTypeDialog?.close();
 		if (updateUrl) {
-			goto(resolve(`/admin/mcp-servers?new=${type}`), { replaceState: showServerForm });
+			goto(resolve(`/admin/mcp-servers?new=${type}`));
 		}
-		showServerForm = true;
-	}
-
-	function closeSourceDialog() {
-		editingSource = undefined;
-		sourceError = undefined;
-		sourceDialog?.close();
 	}
 
 	function pollTillSyncComplete() {
@@ -187,29 +128,6 @@
 		}
 	}
 
-	// Helper function to persist query to local storage
-	function persistQueryToLocalStorage(view: View, queryValue: string): void {
-		if (!localStorageViewQuery.current) {
-			// Do nothing if local value has not loaded yet
-			return;
-		}
-
-		localStorageViewQuery.current[view] = queryValue;
-	}
-
-	function clearQueryFromLocalStorage(view?: View): void {
-		if (!localStorageViewQuery.current) {
-			// Do nothing if local value has not loaded yet
-			return;
-		}
-
-		if (view) {
-			localStorageViewQuery.current[view] = '';
-		} else {
-			localStorageViewQuery.current = { registry: '', deployments: '', urls: '' };
-		}
-	}
-
 	// Helper function to navigate with consistent options
 	function navigateWithState(url: URL): void {
 		goto(url, { replaceState: true, noScroll: true, keepFocus: true });
@@ -219,11 +137,9 @@
 		clearUrlParams(Array.from(page.url.searchParams.keys()).filter((key) => key !== 'query'));
 		view = newView;
 
-		const savedQuery = localStorageViewQuery.current?.[newView] || '';
-
 		const newUrl = new URL(page.url);
 		setUrlParam(newUrl, 'view', newView);
-		setUrlParam(newUrl, 'query', savedQuery || null);
+		setUrlParam(newUrl, 'query', null);
 
 		urlFilters = getTableUrlParamsFilters();
 
@@ -242,7 +158,6 @@
 		urlFilters = getTableUrlParamsFilters();
 		const newUrl = new URL(page.url);
 		setUrlParam(newUrl, 'query', value || null);
-		persistQueryToLocalStorage(view, value);
 		navigateWithState(newUrl);
 	};
 </script>
@@ -355,6 +270,9 @@
 					{query}
 					{syncing}
 					onSync={sync}
+					onEdit={(url, index) => {
+						sourceDialog?.edit(url, index);
+					}}
 				/>
 			{:else if view === 'deployments'}
 				<DeploymentsView
@@ -397,9 +315,12 @@
 			type={selectedServerType}
 			id={profile.current.isAdmin?.() ? defaultCatalogId : (workspaceId ?? '')}
 			onCancel={() => {
-				showServerForm = false;
+				goto('/admin/mcp-servers');
 			}}
 			onSubmit={async (id, type, message) => {
+				setUrlParam(page.url, 'new', null);
+				replaceState(page.url, {});
+
 				let queryParam = '?launch=true';
 				if (message === 'requires-oauth-config') {
 					queryParam = '?configure-oauth=true';
@@ -424,7 +345,11 @@
 {/snippet}
 
 {#snippet addServerButton()}
-	<DotDotDot class="button-primary w-full text-sm md:w-fit" placement="bottom">
+	<DotDotDot
+		class="button-primary w-full text-sm md:w-fit"
+		placement="bottom"
+		classes={{ popover: 'z-50' }}
+	>
 		{#snippet icon()}
 			<span class="flex items-center justify-center gap-1">
 				<Plus class="size-4" /> Add MCP Server
@@ -441,11 +366,7 @@
 		<button
 			class="menu-button"
 			onclick={() => {
-				editingSource = {
-					index: -1,
-					value: ''
-				};
-				sourceDialog?.showModal();
+				sourceDialog?.open();
 			}}
 		>
 			Add server(s) from Git
@@ -453,89 +374,7 @@
 	</DotDotDot>
 {/snippet}
 
-<dialog bind:this={sourceDialog} class="dialog">
-	<div class="dialog-container w-full max-w-md p-4">
-		{#if editingSource}
-			<h3 class="dialog-title">
-				{editingSource.index === -1 ? 'Add Source URL' : 'Edit Source URL'}
-				<button onclick={() => closeSourceDialog()} class="icon-button dialog-close-btn">
-					<X class="size-5" />
-				</button>
-			</h3>
-
-			<div class="my-4 flex flex-col gap-1">
-				<label for="catalog-source-name" class="flex-1 text-sm font-light capitalize"
-					>Source URL
-				</label>
-				<input
-					id="catalog-source-name"
-					bind:value={editingSource.value}
-					class="text-input-filled"
-				/>
-			</div>
-
-			{#if sourceError}
-				<div class="mb-4 flex flex-col gap-2 text-red-500 dark:text-red-400">
-					<div class="flex items-center gap-2">
-						<AlertTriangle class="size-6 flex-shrink-0 self-start" />
-						<p class="my-0.5 flex flex-col text-sm font-semibold">Error adding source URL:</p>
-					</div>
-					<span class="font-sm font-light break-all">{sourceError}</span>
-				</div>
-			{/if}
-
-			<div class="flex w-full justify-end gap-2">
-				<button class="button" disabled={saving} onclick={() => closeSourceDialog()}>Cancel</button>
-				<button
-					class="button-primary"
-					disabled={saving}
-					onclick={async () => {
-						if (!editingSource || !defaultCatalog) {
-							return;
-						}
-
-						saving = true;
-						sourceError = undefined;
-
-						try {
-							const updatingCatalog = { ...defaultCatalog };
-
-							if (editingSource.index === -1) {
-								updatingCatalog.sourceURLs = [
-									...(updatingCatalog.sourceURLs ?? []),
-									editingSource.value
-								];
-							} else {
-								updatingCatalog.sourceURLs[editingSource.index] = editingSource.value;
-							}
-
-							const response = await AdminService.updateMCPCatalog(
-								defaultCatalogId,
-								updatingCatalog,
-								{
-									dontLogErrors: true
-								}
-							);
-							defaultCatalog = response;
-							await sync();
-							closeSourceDialog();
-						} catch (error) {
-							sourceError = error instanceof Error ? error.message : 'An unexpected error occurred';
-						} finally {
-							saving = false;
-						}
-					}}
-				>
-					Add
-				</button>
-			</div>
-		{/if}
-	</div>
-	<form class="dialog-backdrop">
-		<button type="button" onclick={() => sourceDialog?.close()}>close</button>
-	</form>
-</dialog>
-
+<McpServerGitSync bind:this={sourceDialog} {defaultCatalog} onSync={sync} />
 <SelectServerType bind:this={selectServerTypeDialog} onSelectServerType={selectServerType} />
 
 <svelte:head>

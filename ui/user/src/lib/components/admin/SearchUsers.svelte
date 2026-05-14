@@ -1,28 +1,44 @@
 <script lang="ts">
-	import { debounce } from 'es-toolkit';
 	import { AdminService } from '$lib/services';
 	import { type OrgGroup, type OrgUser } from '$lib/services/admin/types';
+	import { getUserRoleLabel } from '$lib/utils';
+	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import Search from '../Search.svelte';
+	import { debounce } from 'es-toolkit';
 	import { Check, LoaderCircle, User, Users } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
-	import Search from '../Search.svelte';
-	import ResponsiveDialog from '../ResponsiveDialog.svelte';
-	import { getUserRoleLabel } from '$lib/utils';
 
 	interface Props {
 		onAdd: (users: OrgUser[], groups: OrgGroup[]) => void;
 		filterIds?: string[];
+		initialUsers?: OrgUser[];
+		initialGroups?: OrgGroup[];
 	}
 
-	let { onAdd, filterIds }: Props = $props();
+	let { onAdd, filterIds, initialUsers = [], initialGroups = [] }: Props = $props();
 
 	let addUserGroupDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let users = $state<OrgUser[]>([]);
+	let groups = $state<OrgGroup[]>([]);
 	let loading = $state(false);
 	let searchNames = $state('');
 	let selectedUsers = $state<(OrgUser | OrgGroup)[]>([]);
 	let selectedUsersMap = $derived(new Set(selectedUsers.map((user) => user.id)));
 	let filteredUsers = $state<OrgUser[]>([]);
 	let filteredGroups = $state<OrgGroup[]>([]);
+
+	$effect(() => {
+		if (initialUsers.length > 0) {
+			users = initialUsers;
+		}
+		if (initialGroups.length > 0) {
+			groups = initialGroups;
+		}
+	});
+
+	function isGroup(item: OrgUser | OrgGroup): item is OrgGroup {
+		return 'name' in item;
+	}
 
 	let filteredData = $derived.by(() => {
 		const everyoneGroup: OrgGroup = { id: '*', name: 'All Obot Users' };
@@ -43,16 +59,25 @@
 			searchNames.length > 0
 				? users.filter(
 						(user) =>
-							user.email.toLowerCase().includes(searchNames.toLowerCase()) ||
-							user.username.toLowerCase().includes(searchNames.toLowerCase())
+							(user.displayName ?? '').toLowerCase().includes(searchNames.toLowerCase()) ||
+							(user.email ?? '').toLowerCase().includes(searchNames.toLowerCase()) ||
+							(user.username ?? '').toLowerCase().includes(searchNames.toLowerCase())
 					)
 				: users;
 
 		try {
 			// Fetch groups with server-side search
-			filteredGroups = (
-				await AdminService.listGroups(searchNames.length > 0 ? { query: searchNames } : undefined)
-			).sort((a, b) => a.name.localeCompare(b.name));
+			filteredGroups =
+				searchNames.length === 0 && groups.length > 0
+					? [...groups].sort((a, b) => a.name.localeCompare(b.name))
+					: (
+							await AdminService.listGroups(
+								searchNames.length > 0 ? { query: searchNames } : undefined
+							)
+						).sort((a, b) => a.name.localeCompare(b.name));
+			if (searchNames.length === 0) {
+				groups = filteredGroups;
+			}
 		} catch (error) {
 			console.error('Error loading groups:', error);
 		} finally {
@@ -74,7 +99,9 @@
 		loading = true;
 
 		try {
-			users = await AdminService.listUsers();
+			if (users.length === 0) {
+				users = await AdminService.listUsers();
+			}
 		} catch (error) {
 			console.error('Error loading initial users:', error);
 		} finally {
@@ -139,10 +166,10 @@
 						}}
 					>
 						<div class="flex grow flex-col">
-							{#if 'email' in item}
-								<p>{item.displayName ?? item.email}</p>
+							{#if !isGroup(item)}
+								<p>{item.displayName ?? item.email ?? item.username ?? item.id}</p>
 								<p class="text-on-surface1 font-light">
-									{getUserRoleLabel(item.effectiveRole)}
+									{item.effectiveRole ? getUserRoleLabel(item.effectiveRole) : 'User'}
 								</p>
 							{:else}
 								<p>{item.name}</p>
@@ -177,8 +204,8 @@
 			<button
 				class="button-primary w-full md:w-fit"
 				onclick={() => {
-					const users = selectedUsers.filter((user) => 'email' in user) as OrgUser[];
-					const groups = selectedUsers.filter((user) => !('email' in user)) as OrgGroup[];
+					const users = selectedUsers.filter((user) => !isGroup(user)) as OrgUser[];
+					const groups = selectedUsers.filter((user) => isGroup(user)) as OrgGroup[];
 					onAdd(users, groups);
 					addUserGroupDialog?.close();
 				}}

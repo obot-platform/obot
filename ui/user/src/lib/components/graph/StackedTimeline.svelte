@@ -1,4 +1,9 @@
 <script lang="ts" generics="T extends object">
+	import { tooltip as tooltipAction } from '$lib/actions/tooltip.svelte';
+	import { lightenHex } from '$lib/colors';
+	import { darkMode, timePreference } from '$lib/stores';
+	import { formatLogTimestamp } from '$lib/time';
+	import { autoUpdate, computePosition, flip, offset } from '@floating-ui/dom';
 	import {
 		scaleBand,
 		scaleLinear,
@@ -18,7 +23,6 @@
 		type NumberValue
 	} from 'd3';
 	import { timeFormat } from 'd3-time-format';
-
 	import {
 		startOfMonth,
 		endOfMonth,
@@ -41,15 +45,11 @@
 		type Duration,
 		getDay
 	} from 'date-fns';
-	import { lightenHex } from '$lib/colors';
-	import { autoUpdate, computePosition, flip, offset } from '@floating-ui/dom';
-	import { fade } from 'svelte/transition';
-	import { SvelteMap } from 'svelte/reactivity';
-	import type { Snippet } from 'svelte';
-	import { twMerge } from 'tailwind-merge';
 	import { Ellipsis } from 'lucide-svelte';
-	import { tooltip as tooltipAction } from '$lib/actions/tooltip.svelte';
-	import { darkMode } from '$lib/stores';
+	import type { Snippet } from 'svelte';
+	import { SvelteMap } from 'svelte/reactivity';
+	import { fade } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	/** Tooltip payload: segment key (category), stack value, bucket date, and aggregated counts/totals. */
 	export type TooltipItem = {
@@ -634,136 +634,139 @@
 
 			<svg width={clientWidth} height={clientHeight} viewBox={`0 0 ${clientWidth} ${clientHeight}`}>
 				<g transform="translate({paddingLeft}, {paddingTop})">
-					<g
-						class="x-axis text-on-surface3/20 dark:text-on-surface1/10"
-						transform="translate(0 {innerHeight})"
-						{@attach (node: SVGGElement) => {
-							const selection = select(node);
+					{#key timePreference.timeFormat}
+						<g
+							class="x-axis text-on-surface3/20 dark:text-on-surface1/10"
+							transform="translate(0 {innerHeight})"
+							{@attach (node: SVGGElement) => {
+								const selection = select(node);
 
-							const format = timeFormat;
+								const format = timeFormat;
+								const use24h = timePreference.timeFormat === '24h';
 
-							const formatMillisecond = format('.%L'),
-								formatSecond = format(':%S'),
-								formatMinute = format('%I:%M'),
-								formatHour = format('%I %p'),
-								formatDayOfWeek = format('%a %d'),
-								formatDayOfMonth = format('%d'),
-								formatMonth = format('%B'),
-								formatYear = format('%Y');
+								const formatMillisecond = format('.%L'),
+									formatSecond = format(':%S'),
+									formatMinute = format(use24h ? '%H:%M' : '%I:%M'),
+									formatHour = format(use24h ? '%H:00' : '%I %p'),
+									formatDayOfWeek = format('%a %d'),
+									formatDayOfMonth = format('%d'),
+									formatMonth = format('%B'),
+									formatYear = format('%Y');
 
-							function tickFormat(domainValue: Date | NumberValue) {
-								const date = domainValue as Date;
-								const fn = (() => {
-									if (startOfSecond(date) < date) return formatMillisecond;
+								function tickFormat(domainValue: Date | NumberValue) {
+									const date = domainValue as Date;
+									const fn = (() => {
+										if (startOfSecond(date) < date) return formatMillisecond;
 
-									if (startOfMinute(date) < date) return formatSecond;
+										if (startOfMinute(date) < date) return formatSecond;
 
-									if (startOfHour(date) < date) {
-										if (getHours(date) === 0) {
+										if (startOfHour(date) < date) {
+											if (getHours(date) === 0) {
+												return formatDayOfMonth;
+											}
+
+											return formatMinute;
+										}
+
+										if (startOfDay(date) < date) {
+											return formatHour;
+										}
+
+										if (startOfMonth(date) < date) {
+											if (getDate(date) === 15) {
+												return formatDayOfWeek;
+											}
+
+											if (timeFrame[0] === 'hour') {
+												return formatDayOfWeek;
+											}
+
+											if (timeFrame[0] === 'day' && timeFrame[2] <= 90 && getDay(date) === 1) {
+												return formatDayOfWeek;
+											}
+
 											return formatDayOfMonth;
 										}
 
-										return formatMinute;
-									}
+										if (startOfYear(date) < date) return formatMonth;
 
-									if (startOfDay(date) < date) {
-										return formatHour;
-									}
+										return formatYear;
+									})();
 
-									if (startOfMonth(date) < date) {
-										if (getDate(date) === 15) {
-											return formatDayOfWeek;
-										}
+									return fn(date);
+								}
 
-										if (timeFrame[0] === 'hour') {
-											return formatDayOfWeek;
-										}
+								const axis = axisBottom(timeScale)
+									.tickSizeOuter(0)
+									.tickValues(xAxisTicks)
+									.tickFormat(tickFormat);
 
-										if (timeFrame[0] === 'day' && timeFrame[2] <= 90 && getDay(date) === 1) {
-											return formatDayOfWeek;
-										}
+								selection
+									.transition()
+									.duration(100)
+									.call(axis)
+									.selectAll('.tick')
+									.attr(
+										'transform',
+										(d) => `translate(${timeScale(d as Date) + xScale.bandwidth() / 2}, 0)`
+									)
+									.selectAll('line, text')
+									.attr('class', function (d) {
+										const element = this as SVGElement;
 
-										return formatDayOfMonth;
-									}
-
-									if (startOfYear(date) < date) return formatMonth;
-
-									return formatYear;
-								})();
-
-								return fn(date);
-							}
-
-							const axis = axisBottom(timeScale)
-								.tickSizeOuter(0)
-								.tickValues(xAxisTicks)
-								.tickFormat(tickFormat);
-
-							selection
-								.transition()
-								.duration(100)
-								.call(axis)
-								.selectAll('.tick')
-								.attr(
-									'transform',
-									(d) => `translate(${timeScale(d as Date) + xScale.bandwidth() / 2}, 0)`
-								)
-								.selectAll('line, text')
-								.attr('class', function (d) {
-									const element = this as SVGElement;
-
-									const add = (...cn: string[]) => {
-										for (const name of cn) {
-											if (!classNames.includes(name)) {
-												classNames.push(name);
+										const add = (...cn: string[]) => {
+											for (const name of cn) {
+												if (!classNames.includes(name)) {
+													classNames.push(name);
+												}
 											}
-										}
-									};
+										};
 
-									const remove = (...cn: string[]) => {
-										for (const name of cn) {
-											classNames = classNames.filter((c) => c !== name);
-										}
-									};
+										const remove = (...cn: string[]) => {
+											for (const name of cn) {
+												classNames = classNames.filter((c) => c !== name);
+											}
+										};
 
-									const isActive = isWithinInterval(d as Date, {
-										start,
-										end
+										const isActive = isWithinInterval(d as Date, {
+											start,
+											end
+										});
+
+										let classNames = [...element.classList];
+										const baseClassName = ['duration-500', 'transition-all'];
+										add(...baseClassName);
+
+										const activeClassName = ['text-on-surface3', 'dark:text-on-surface1'];
+										const inactiveClassName = ['opacity-0', 'duration-500', 'transition-opacity'];
+
+										if (isActive) {
+											add(...activeClassName);
+											remove(...inactiveClassName);
+										} else {
+											add(...inactiveClassName);
+											remove(...activeClassName);
+										}
+
+										const mainTickClassName = ['opacity-100', 'font-medium'];
+										const secondaryTickClassName = ['opacity-50', 'font-normal'];
+
+										const isMain = isMainTick(d as Date);
+
+										if (isMain) {
+											add(...mainTickClassName);
+										} else {
+											remove(...mainTickClassName);
+											add(...secondaryTickClassName);
+										}
+
+										// Keep old class names
+										// Filter falsy values and join with a space
+										return classNames.join(' ');
 									});
-
-									let classNames = [...element.classList];
-									const baseClassName = ['duration-500', 'transition-all'];
-									add(...baseClassName);
-
-									const activeClassName = ['text-on-surface3', 'dark:text-on-surface1'];
-									const inactiveClassName = ['opacity-0', 'duration-500', 'transition-opacity'];
-
-									if (isActive) {
-										add(...activeClassName);
-										remove(...inactiveClassName);
-									} else {
-										add(...inactiveClassName);
-										remove(...activeClassName);
-									}
-
-									const mainTickClassName = ['opacity-100', 'font-medium'];
-									const secondaryTickClassName = ['opacity-50', 'font-normal'];
-
-									const isMain = isMainTick(d as Date);
-
-									if (isMain) {
-										add(...mainTickClassName);
-									} else {
-										remove(...mainTickClassName);
-										add(...secondaryTickClassName);
-									}
-
-									// Keep old class names
-									// Filter falsy values and join with a space
-									return classNames.join(' ');
-								});
-						}}
-					></g>
+							}}
+						></g>
+					{/key}
 
 					<g
 						class="y-axis text-on-surface3/20 dark:text-on-surface1/10"
@@ -905,7 +908,7 @@
 									currentItem = {
 										key: d.category,
 										value: `${(d.seg[1] as number) - (d.seg[0] as number)}`,
-										date: new Date(bucketKey).toLocaleString(),
+										date: formatLogTimestamp(bucketKey, timePreference.timeFormat),
 										count,
 										...(ps != null && {
 											primaryTotal: ps.primary,

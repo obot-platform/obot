@@ -1,7 +1,8 @@
 <script lang="ts">
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import { Group, type AuditLog } from '$lib/services/admin/types';
-	import { profile } from '$lib/stores';
+	import { profile, timePreference } from '$lib/stores';
+	import { formatLogTimestamp } from '$lib/time';
 	import { X } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -21,6 +22,14 @@
 		profile?.current?.hasAdminAccess?.() ||
 			(auditLog.userID === profile.current.id && !auditLog.powerUserWorkspaceID)
 	);
+
+	function hasBody(body: unknown) {
+		if (body == null) return false;
+		if (typeof body === 'object' && !Array.isArray(body)) {
+			return Object.keys(body).length > 0;
+		}
+		return true;
+	}
 </script>
 
 <div
@@ -34,18 +43,7 @@
 			)}
 		></div>
 		<h3 class="text-lg font-semibold">
-			{new Date(auditLog.createdAt)
-				.toLocaleString(undefined, {
-					year: 'numeric',
-					month: 'short',
-					day: 'numeric',
-					hour: '2-digit',
-					minute: '2-digit',
-					second: '2-digit',
-					hour12: true,
-					timeZoneName: 'short'
-				})
-				.replace(/,/g, '')}
+			{formatLogTimestamp(auditLog.createdAt, timePreference.timeFormat)}
 		</h3>
 		<p class="text-on-surface1 text-xs font-light">
 			{auditLog.requestID}
@@ -132,22 +130,14 @@
 			{/if}
 
 			{#if shouldShowPayload}
-				{#if Object.keys(auditLog.requestBody ?? {}).length > 0}
-					{@const body = JSON.stringify(auditLog.requestBody, null, 2)}
-
-					<p class="translate-y-2 pt-4 text-base font-semibold">Request Body</p>
-					<div class="relative text-white">
-						<pre class="default-scrollbar-thin max-h-96 overflow-y-auto p-4">
-						<code class="language-json">{body}</code>
-					</pre>
-
-						<CopyButton
-							classes={{ button: 'absolute right-4 top-4 flex flex-col items-end' }}
-							text={body}
-						/>
-					</div>
+				{#if hasBody(auditLog.requestBody)}
+					{@render jsonBody('Request Body', auditLog.requestBody)}
 				{:else if !hasAuditorAccess}
 					{@render noAuditorAccessInfo('Request Body')}
+				{/if}
+
+				{#if hasBody(auditLog.mutatedRequestBody)}
+					{@render jsonBody('Mutated Request Body', auditLog.mutatedRequestBody)}
 				{/if}
 			{/if}
 		</div>
@@ -195,20 +185,12 @@
 			{/if}
 
 			{#if shouldShowPayload}
-				{#if Object.keys(auditLog.responseBody ?? {}).length > 0}
-					{@const body = JSON.stringify(auditLog.responseBody, null, 2)}
+				{#if hasBody(auditLog.originalResponseBody)}
+					{@render jsonBody('Original Response Body', auditLog.originalResponseBody)}
+				{/if}
 
-					<p class="translate-y-2 pt-4 text-base font-semibold">Response Body</p>
-					<div class="relative text-white">
-						<pre class="default-scrollbar-thin max-h-96 overflow-y-auto p-4">
-						<code class="language-json">{body}</code>
-					</pre>
-
-						<CopyButton
-							classes={{ button: 'absolute right-4 top-4 flex flex-col items-end text-current' }}
-							text={body}
-						/>
-					</div>
+				{#if hasBody(auditLog.responseBody)}
+					{@render jsonBody('Response Body', auditLog.responseBody)}
 				{:else if !hasAuditorAccess}
 					{@render noAuditorAccessInfo('Response Body')}
 				{/if}
@@ -234,6 +216,22 @@
 		</div>
 	</div>
 </div>
+
+{#snippet jsonBody(name: string, value: unknown)}
+	{@const body = JSON.stringify(value, null, 2)}
+
+	<p class="translate-y-2 pt-4 text-base font-semibold">{name}</p>
+	<div class="relative text-white">
+		<pre class="default-scrollbar-thin max-h-96 overflow-y-auto p-4">
+			<code class="language-json">{body}</code>
+		</pre>
+
+		<CopyButton
+			classes={{ button: 'absolute right-4 top-4 flex flex-col items-end text-current' }}
+			text={body}
+		/>
+	</div>
+{/snippet}
 
 {#snippet noAuditorAccessInfo(name: string)}
 	<p class="mt-4 mb-2 text-base font-semibold">{name}</p>

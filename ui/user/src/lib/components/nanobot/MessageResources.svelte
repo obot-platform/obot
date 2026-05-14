@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { Library } from 'lucide-svelte';
 	import { getFileIcon } from '$lib/components/nanobot/MessageAttachments.svelte';
 	import type { Resource, ChatMessage } from '$lib/services/nanobot/types';
+	import { Library } from 'lucide-svelte';
 
 	interface Props {
 		disabled?: boolean;

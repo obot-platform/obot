@@ -8,6 +8,7 @@ on:
     branches:
       - main
     paths-ignore:
+      - chart/**
       - ui/user/**
 
 jobs:
@@ -21,7 +22,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: "1.26"
 
       - name: Build
         run: make build

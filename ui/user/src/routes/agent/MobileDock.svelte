@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { Clock3, Folders, MessageCircleMore, Workflow } from 'lucide-svelte';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import { Clock3, Folders, MessageCircleMore, Workflow } from 'lucide-svelte';
 
 	interface Props {
 		projectId: string;

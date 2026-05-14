@@ -40,7 +40,7 @@
 				The following {plural} will be permanently deleted:
 			</p>
 			<ul class="my-2 max-h-[50vh] w-full overflow-y-auto font-semibold">
-				{#each names as name (name)}
+				{#each names as name, i (i)}
 					<li>{name}</li>
 				{/each}
 			</ul>

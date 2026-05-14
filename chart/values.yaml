@@ -119,6 +119,12 @@ config:
   OBOT_SERVER_DAILY_USER_PROMPT_TOKEN_LIMIT: ""
   # config.OBOT_SERVER_DAILY_USER_COMPLETION_TOKEN_LIMIT -- The maximum number of completion/output tokens allowed per user per day. Set <= 0 to disable this limit. Defaults to 100000.
   OBOT_SERVER_DAILY_USER_COMPLETION_TOKEN_LIMIT: ""
+  # config.OBOT_SERVER_IDLE_AGENT_SHUTDOWN_HOURS -- The interval in hours to check for idle agents and shut them down. Set to -1 to disable. Defaults to 72.
+  OBOT_SERVER_IDLE_AGENT_SHUTDOWN_HOURS: ""
+  # config.OBOT_SERVER_SINGLE_USER_IDLE_SERVER_SHUTDOWN_HOURS -- The interval in hours to check for idle single-user MCP servers and shut them down. Set to -1 to disable. Defaults to 24.
+  OBOT_SERVER_SINGLE_USER_IDLE_SERVER_SHUTDOWN_HOURS: ""
+  # config.OBOT_SERVER_MULTI_USER_IDLE_SERVER_SHUTDOWN_HOURS -- The interval in hours to check for idle multi-user MCP servers and shut them down. Set to -1 to disable. Defaults to 168.
+  OBOT_SERVER_MULTI_USER_IDLE_SERVER_SHUTDOWN_HOURS: ""
   # config.OPENAI_API_KEY -- An OpenAI API Key used to configure access to OpenAI models, which are the default in Obot.
   OPENAI_API_KEY: ""
   # config.ANTHROPIC_API_KEY -- An Anthropic API Key used to configure access to Anthropic models, which can be used as the default in Obot.
@@ -143,19 +149,33 @@ config:
   OBOT_SERVER_AUDIT_LOGS_USE_PATH_STYLE: false
 
   # config.OBOT_SERVER_MCPBASE_IMAGE -- Deploy MCP servers in the cluster using this base image. OBOT_SERVER_MCPNAMESPACE is automatically added to the secret if config.OBOT_SERVER_MCPBASE_IMAGE is set. If no tag is specified, the chart's appVersion will be used unless it starts with '0.0.0', in which case the 'main' tag will be used.
-  OBOT_SERVER_MCPBASE_IMAGE: "ghcr.io/obot-platform/mcp-images/phat"
+  OBOT_SERVER_MCPBASE_IMAGE: ""
   # config.OBOT_SERVER_MCPREMOTE_SHIM_BASE_IMAGE -- Deploy MCP remote shim servers in the cluster using this base image.
-  OBOT_SERVER_MCPREMOTE_SHIM_BASE_IMAGE: "ghcr.io/nanobot-ai/nanobot:v0.0.61"
+  OBOT_SERVER_MCPREMOTE_SHIM_BASE_IMAGE: ""
   # config.OBOT_SERVER_NANOBOT_AGENT_IMAGE -- Container image for the Nanobot agent MCP server.
-  OBOT_SERVER_NANOBOT_AGENT_IMAGE: "ghcr.io/nanobot-ai/nanobot-agent:v0.0.61"
+  OBOT_SERVER_NANOBOT_AGENT_IMAGE: ""
   # config.OBOT_SERVER_MCPHTTPWEBHOOK_BASE_IMAGE -- Deploy MCP HTTP webhook servers in the cluster using this base image.
-  OBOT_SERVER_MCPHTTPWEBHOOK_BASE_IMAGE: "ghcr.io/obot-platform/mcp-images/http-webhook-mcp-converter:main"
+  OBOT_SERVER_MCPHTTPWEBHOOK_BASE_IMAGE: ""
   # config.OBOT_SERVER_MCPCLUSTER_DOMAIN -- The cluster domain to use for MCP services. Defaults to cluster.local. Only matters if the above image is set.
   OBOT_SERVER_MCPCLUSTER_DOMAIN: ""
   # config.OBOT_SERVER_DISALLOW_LOCALHOST_MCP -- disallow MCP servers that try to connect to localhost. Defaults to false.
   OBOT_SERVER_DISALLOW_LOCALHOST_MCP: ""
   # config.OBOT_SERVER_MCPRUNTIME_BACKEND -- The runtime backend to use for MCP servers. Can be 'docker' or 'kubernetes'. Defaults to 'docker'. Setting this to 'kubernetes' will also create the necessary service account, role and rolebinding.
   OBOT_SERVER_MCPRUNTIME_BACKEND: "kubernetes"
+
+  # Network policy provider Helm chart configuration.
+  # config.OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_REPO -- Helm repository URL for the network policy provider chart. Used when config.OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_NAME is set.
+  OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_REPO: ""
+  # config.OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_NAME -- Helm chart name for the network policy provider chart. Setting this enables network policy integration.
+  OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_NAME: ""
+  # config.OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_VERSION -- Helm chart version for the network policy provider chart.
+  OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_VERSION: ""
+  # config.OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_PATH -- Local filesystem path to the network policy provider chart. Setting this enables network policy integration.
+  OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_PATH: ""
+  # config.OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_VALUES -- YAML or JSON values blob merged into the network policy provider chart values.
+  OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_VALUES: ""
+  # config.OBOT_SERVER_MCPDEFAULT_DENY_ALL_EGRESS -- Default new MCP servers to allow all egress or deny all egress when a network policy provider is configured. Set to false to default to allow all egress, or true to default to deny all egress. Defaults to false.
+  OBOT_SERVER_MCPDEFAULT_DENY_ALL_EGRESS: ""
 
   # config.OBOT_SERVER_MCPAUDIT_LOG_PERSIST_INTERVAL_SECONDS -- The interval in seconds to persist MCP audit logs to the database. Defaults to 5 seconds.
   OBOT_SERVER_MCPAUDIT_LOG_PERSIST_INTERVAL_SECONDS: ""
@@ -192,8 +212,8 @@ config:
   # config.OBOT_ARTIFACT_AZURE_CLIENT_SECRET -- Azure client secret for published workflow storage when using explicit Azure credentials.
   OBOT_ARTIFACT_AZURE_CLIENT_SECRET: ""
 
-  # config.OBOT_SERVER_MCPSERVER_SEARCH_IMAGE -- The container image to use for the MCP server search functionality. Defaults to ghcr.io/obot-platform/obot-mcp-server:v0.1.1
-  OBOT_SERVER_MCPSERVER_SEARCH_IMAGE: ghcr.io/obot-platform/obot-mcp-server:v0.1.1
+  # config.OBOT_SERVER_MCPSERVER_SEARCH_IMAGE -- The container image to use for the MCP server search functionality.
+  OBOT_SERVER_MCPSERVER_SEARCH_IMAGE: ""
 
   # config.OBOT_DEFAULT_SKILL_REPO_URL -- The default skill repository URL. Must be a full HTTPS GitHub URL. Defaults to https://github.com/obot-platform/skills. Only used on first-time setup (before the first owner user is created). Set to an empty string to disable.
   # OBOT_DEFAULT_SKILL_REPO_URL: ""

@@ -2,46 +2,27 @@ package types
 
 import (
 	"fmt"
-	"slices"
 )
 
 type MCPWebhookValidation struct {
 	Metadata                     `json:",inline"`
 	MCPWebhookValidationManifest `json:",inline"`
-	HasSecret                    bool `json:"hasSecret,omitempty"`
+	HasSecret                    bool     `json:"hasSecret,omitempty"`
+	Configured                   bool     `json:"configured"`
+	MissingRequiredEnvVars       []string `json:"missingRequiredEnvVars,omitempty"`
 }
 
 type MCPWebhookValidationManifest struct {
-	Name      string       `json:"name,omitempty"`
-	Resources []Resource   `json:"resources,omitempty"`
-	URL       string       `json:"url,omitempty"`
-	Secret    string       `json:"secret,omitempty"`
-	Selectors MCPSelectors `json:"selectors,omitempty"`
-	Disabled  bool         `json:"disabled,omitempty"`
-}
-
-func (m *MCPWebhookValidationManifest) Validate() error {
-	if m.URL == "" {
-		return fmt.Errorf("webhook URL is required")
-	}
-
-	for _, resource := range m.Resources {
-		if err := resource.Validate(); err != nil {
-			return fmt.Errorf("invalid resource: %v", err)
-		}
-	}
-
-	for _, filter := range m.Selectors {
-		if filter.Method == "*" {
-			m.Selectors = []MCPSelector{{Method: filter.Method}}
-			break
-		}
-		if slices.Contains(filter.Identifiers, "*") {
-			filter.Identifiers = []string{"*"}
-		}
-	}
-
-	return nil
+	Name                          string                   `json:"name,omitempty"`
+	Resources                     []Resource               `json:"resources,omitempty"`
+	URL                           string                   `json:"url,omitempty"`
+	Secret                        string                   `json:"secret,omitempty"`
+	SystemMCPServerManifest       *SystemMCPServerManifest `json:"mcpServerManifest,omitempty"`
+	SystemMCPServerCatalogEntryID string                   `json:"systemMCPServerCatalogEntryID,omitempty"`
+	ToolName                      string                   `json:"toolName,omitempty"`
+	Selectors                     MCPSelectors             `json:"selectors,omitempty"`
+	AllowedToMutate               bool                     `json:"allowedToMutate,omitempty"`
+	Disabled                      bool                     `json:"disabled,omitempty"`
 }
 
 type MCPWebhookValidationList List[MCPWebhookValidation]

@@ -1,30 +1,24 @@
 <script lang="ts">
-	import { goto } from '$lib/url';
-	import FilterForm from '$lib/components/admin/FilterForm.svelte';
-	import Layout from '$lib/components/Layout.svelte';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
-	import { fly } from 'svelte/transition';
+	import { page } from '$app/state';
 	import type { MCPFilter } from '$lib/services/admin/types';
-	import { profile } from '$lib/stores';
+	import { goto } from '$lib/url';
+	import FilterView from '../FilterView.svelte';
 
 	let { data }: { data: { filter: MCPFilter } } = $props();
 	let { filter } = $derived(data);
-	const duration = PAGE_TRANSITION_DURATION;
-
 	let title = $derived(filter?.name ?? 'Filter');
+	let selected = $derived<string>((page.url.searchParams.get('view') as string) || 'configuration');
+
+	function handleSelectionChange(newSelection: string) {
+		if (newSelection !== selected) {
+			const url = new URL(window.location.href);
+			url.searchParams.set('view', newSelection);
+			goto(url, { replaceState: true });
+		}
+	}
 </script>
 
-<Layout {title} showBackButton>
-	<div class="h-full w-full" in:fly={{ x: 100, duration }} out:fly={{ x: -100, duration }}>
-		<FilterForm
-			{filter}
-			onUpdate={() => {
-				goto('/admin/filters');
-			}}
-			readonly={profile.current.isAdminReadonly?.()}
-		/>
-	</div>
-</Layout>
+<FilterView {title} {filter} {selected} onSelectionChange={handleSelectionChange} />
 
 <svelte:head>
 	<title>Obot | {title}</title>

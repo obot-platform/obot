@@ -1,36 +1,35 @@
 package mcp
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"slices"
 
-	"github.com/gptscript-ai/go-gptscript"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/client-go/tools/cache"
 )
 
 type WebhookHelper struct {
-	indexer          cache.Indexer
-	defaultBaseImage string
+	indexer cache.Indexer
+	baseURL string
 }
 
-func NewWebhookHelper(indexer cache.Indexer, defaultBaseImage string) *WebhookHelper {
+func NewWebhookHelper(indexer cache.Indexer, baseURL string) *WebhookHelper {
 	return &WebhookHelper{
-		indexer:          indexer,
-		defaultBaseImage: defaultBaseImage,
+		indexer: indexer,
+		baseURL: baseURL,
 	}
 }
 
 type Webhook struct {
-	Name, DisplayName  string
-	URL, Secret, Image string
-	Definitions        []string
+	Name, DisplayName string
+	URL               string
+	ToolName          string
+	Definitions       []string
+	MutateAllowed     bool
 }
 
-func (wh *WebhookHelper) GetWebhooksForMCPServer(ctx context.Context, gptClient *gptscript.GPTScript, serverConfig ServerConfig) ([]Webhook, error) {
+func (wh *WebhookHelper) GetWebhooksForMCPServer(serverConfig ServerConfig) ([]Webhook, error) {
 	var result []Webhook
 	webhookSeen := make(map[string]struct{})
 
@@ -39,71 +38,62 @@ func (wh *WebhookHelper) GetWebhooksForMCPServer(ctx context.Context, gptClient 
 		return nil, fmt.Errorf("failed to get webhooks from MCP server index: %w", err)
 	}
 
-	result = wh.appendWebhooks(ctx, gptClient, serverConfig.MCPServerNamespace, objs, webhookSeen, result)
+	result = wh.appendWebhooks(serverConfig.MCPServerNamespace, objs, webhookSeen, result)
 
 	objs, err = wh.indexer.ByIndex("catalog-entry-names", serverConfig.MCPCatalogEntryName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get webhooks from catalog entry index: %w", err)
 	}
 
-	result = wh.appendWebhooks(ctx, gptClient, serverConfig.MCPServerNamespace, objs, webhookSeen, result)
+	result = wh.appendWebhooks(serverConfig.MCPServerNamespace, objs, webhookSeen, result)
 
 	objs, err = wh.indexer.ByIndex("selectors", "*")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get webhooks from selector index: %w", err)
 	}
 
-	result = wh.appendWebhooks(ctx, gptClient, serverConfig.MCPServerNamespace, objs, webhookSeen, result)
+	result = wh.appendWebhooks(serverConfig.MCPServerNamespace, objs, webhookSeen, result)
 
 	objs, err = wh.indexer.ByIndex("catalog-names", serverConfig.MCPCatalogName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get webhooks from catalog index: %w", err)
 	}
 
-	result = wh.appendWebhooks(ctx, gptClient, serverConfig.MCPServerNamespace, objs, webhookSeen, result)
+	result = wh.appendWebhooks(serverConfig.MCPServerNamespace, objs, webhookSeen, result)
 
 	return result, nil
 }
 
-func (wh *WebhookHelper) appendWebhooks(ctx context.Context, gptClient *gptscript.GPTScript, namespace string, objs []any, seen map[string]struct{}, result []Webhook) []Webhook {
-	var credEnv map[string]string
+func (wh *WebhookHelper) appendWebhooks(namespace string, objs []any, seen map[string]struct{}, result []Webhook) []Webhook {
 	result = slices.Grow(result, len(objs))
 
 	for _, mwv := range objs {
 		res, ok := mwv.(*v1.MCPWebhookValidation)
-		if ok && res.Namespace == namespace && !res.Spec.Manifest.Disabled {
-			url := res.Spec.Manifest.URL
+		if ok && res.Namespace == namespace && !res.Spec.Manifest.Disabled && res.Status.Configured {
+			url := system.MCPConnectURL(wh.baseURL, system.SystemMCPServerPrefix+res.Name)
 			if _, seen := seen[url]; seen {
 				continue
 			}
 
 			seen[url] = struct{}{}
-			if credEnv == nil {
-				// Only reveal the credential once
-				cred, err := gptClient.RevealCredential(ctx, []string{system.MCPWebhookValidationCredentialContext}, res.Name)
-				if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
-					continue
-				}
-
-				credEnv = cred.Env
-				if credEnv == nil {
-					// Set this to something non-nil so we don't fetch the credential again.
-					credEnv = make(map[string]string)
-				}
-			}
 
 			displayName := res.Spec.Manifest.Name
 			if displayName == "" {
 				displayName = res.Name
 			}
 
+			toolName := res.Spec.Manifest.ToolName
+			if toolName == "" {
+				toolName = defaultWebhookToolName
+			}
+
 			result = append(result, Webhook{
-				Name:        res.Name,
-				DisplayName: displayName,
-				URL:         url,
-				Secret:      credEnv["secret"],
-				Image:       wh.defaultBaseImage,
-				Definitions: res.Spec.Manifest.Selectors.Strings(),
+				Name:          res.Name,
+				DisplayName:   displayName,
+				URL:           url,
+				ToolName:      toolName,
+				Definitions:   res.Spec.Manifest.Selectors.Strings(),
+				MutateAllowed: res.Spec.Manifest.AllowedToMutate,
 			})
 		}
 	}

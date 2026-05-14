@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { Snippet } from 'svelte';
 	import { setDraggableContext, type DraggableContext, type DraggableItem } from './contextRoot';
+	import type { Snippet } from 'svelte';
 	import { on } from 'svelte/events';
 	import { twMerge } from 'tailwind-merge';
 
@@ -27,7 +27,7 @@
 	const targetItemIndex = $derived(targetItem ? internalItems.indexOf(targetItem) : -1);
 
 	// timeout id before updating bindable data
-	let synchTimeoutId: number | undefined = undefined;
+	let synchTimeoutId: ReturnType<typeof setTimeout> | undefined = undefined;
 
 	// sync number to trigger effect
 	// I don't want to call change fn when items are mounting

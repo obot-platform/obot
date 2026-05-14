@@ -1,24 +1,18 @@
 <script lang="ts">
-	import type { Component } from 'svelte';
-	import { fly } from 'svelte/transition';
-	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import Layout from '$lib/components/Layout.svelte';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
-	import { goto } from '$app/navigation';
-	import { profile } from '$lib/stores/index.js';
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
-	import { resolve } from '$app/paths';
+	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { profile } from '$lib/stores/index.js';
+	import type { Component } from 'svelte';
+	import { fly } from 'svelte/transition';
 
 	const duration = PAGE_TRANSITION_DURATION;
 
 	let { data } = $props();
 	let { workspaceId, catalogEntry, mcpServer, belongsToUser } = $derived(data);
 	let title = $derived(catalogEntry?.manifest?.name ?? 'MCP Server');
-
-	function navigateToMcpServers() {
-		goto(resolve(`/admin/mcp-servers`));
-	}
 </script>
 
 <Layout
@@ -40,8 +34,6 @@
 				type={catalogEntry?.manifest.runtime === 'remote' ? 'remote' : 'single'}
 				id={workspaceId}
 				entity="workspace"
-				onCancel={navigateToMcpServers}
-				onSubmit={navigateToMcpServers}
 				readonly={belongsToUser ? false : profile.current.isAdminReadonly?.()}
 			/>
 		{/if}

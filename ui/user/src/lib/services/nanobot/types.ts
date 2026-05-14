@@ -502,6 +502,7 @@ export type PublishedArtifactVersion = {
 	version: number;
 	description: string;
 	createdAt: string;
+	subjects?: { type: 'user' | 'group' | 'selector'; id: string }[];
 };
 
 export type PublishedArtifact = {
@@ -515,13 +516,13 @@ export type PublishedArtifact = {
 	authorID: string;
 	authorEmail: string;
 	latestVersion: number;
-	visibility: 'public' | 'private';
 	versions?: PublishedArtifactVersion[];
 };
 
 export interface PublishedArtifactUpdateRequest {
 	description?: string;
-	visibility?: 'public' | 'private';
+	version?: number;
+	subjects?: { type: 'user' | 'group' | 'selector'; id: string }[];
 }
 
 export interface InstallArtifactResponse {

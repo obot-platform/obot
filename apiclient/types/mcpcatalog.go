@@ -9,8 +9,9 @@ type MCPCatalog struct {
 }
 
 type MCPCatalogManifest struct {
-	DisplayName string   `json:"displayName"`
-	SourceURLs  []string `json:"sourceURLs"`
+	DisplayName          string            `json:"displayName"`
+	SourceURLs           []string          `json:"sourceURLs"`
+	SourceURLCredentials map[string]string `json:"sourceURLCredentials,omitempty"`
 }
 
 type MCPCatalogList List[MCPCatalog]

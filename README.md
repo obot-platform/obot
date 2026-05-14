@@ -11,12 +11,18 @@ To run Obot locally, start it with Docker:
 docker run -d --name obot -p 8080:8080 \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -e OPENAI_API_KEY=<API KEY> \
+  -e OBOT_SERVER_ENABLE_AUTHENTICATION=true \
+  -e OBOT_BOOTSTRAP_TOKEN=<token> \
   ghcr.io/obot-platform/obot:latest
 ```
 
-Open [http://localhost:8080](http://localhost:8080) in your browser to access the Obot UI.
-
 **Note**: Replace `<API KEY>` with your OpenAI API key. You can also set `ANTHROPIC_API_KEY` or configure model providers through the admin UI.
+
+The `OBOT_BOOTSTRAP_TOKEN` value can be anything you want, at least eight characters long. This is the value you will provide for initial authentication to begin configuring Obot.
+
+Open [http://localhost:8080](http://localhost:8080) in your browser to access the Obot UI. Check the container logs (`docker logs obot`) to see your bootstrap token for the initial setup.
+
+You can also leave out the `OBOT_SERVER_ENABLE_AUTHENTICATION` environment variable to disable authentication, but this means that anyone with access to make requests to port 8080 on your system will be able to manage and launch MCP servers, so it is recommended to keep authentication enabled.
 
 For additional installation options, see the Installation Guide at [https://docs.obot.ai/installation/general](https://docs.obot.ai/installation/general).
 

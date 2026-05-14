@@ -2,6 +2,7 @@ package mcpgateway
 
 import (
 	"fmt"
+	"maps"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -48,7 +49,7 @@ func (h *Handler) Proxy(req api.Context) error {
 		return apierrors.NewUnauthorized("user is not authenticated")
 	}
 
-	mcpURL, allowDifferentPaths, err := h.ensureServerIsDeployed(req)
+	serverConfig, mcpURL, allowDifferentPaths, err := h.ensureServerIsDeployed(req)
 	if err != nil {
 		return fmt.Errorf("failed to ensure server is deployed: %v", err)
 	}
@@ -91,13 +92,19 @@ func (h *Handler) Proxy(req api.Context) error {
 				}
 			}
 			r.URL.RawQuery = upstreamQuery.Encode()
+
+			for i := range serverConfig.PassthroughHeaderNames {
+				if i < len(serverConfig.PassthroughHeaderValues) {
+					r.Header.Set(serverConfig.PassthroughHeaderNames[i], serverConfig.PassthroughHeaderValues[i])
+				}
+			}
 		},
 	}).ServeHTTP(req.ResponseWriter, req.Request)
 
 	return nil
 }
 
-func (h *Handler) ensureServerIsDeployed(req api.Context) (string, bool, error) {
+func (h *Handler) ensureServerIsDeployed(req api.Context) (mcp.ServerConfig, string, bool, error) {
 	mcpID := req.PathValue("mcp_id")
 
 	if system.IsSystemMCPServerID(mcpID) {
@@ -106,46 +113,46 @@ func (h *Handler) ensureServerIsDeployed(req api.Context) (string, bool, error) 
 
 	mcpID, mcpServer, mcpServerConfig, err := handlers.ServerForActionWithConnectID(req, mcpID)
 	if err != nil {
-		return "", false, fmt.Errorf("failed to get mcp server config: %w", err)
+		return mcp.ServerConfig{}, "", false, fmt.Errorf("failed to get mcp server config: %w", err)
 	}
 	if mcpServer.Spec.Template {
-		return "", false, apierrors.NewNotFound(schema.GroupResource{Group: "obot.obot.ai", Resource: "mcpserver"}, mcpID)
+		return mcp.ServerConfig{}, "", false, apierrors.NewNotFound(schema.GroupResource{Group: "obot.obot.ai", Resource: "mcpserver"}, mcpID)
 	}
 
 	// Add-hoc authorization for nanobot agents
 	if h.nanobotIntegrationEnabled && mcpServerConfig.NanobotAgentName != "" {
 		var agent v1.NanobotAgent
 		if err = req.Get(&agent, mcpServerConfig.NanobotAgentName); err != nil {
-			return "", false, fmt.Errorf("failed to get nanobot agent %q: %w", mcpServerConfig.NanobotAgentName, err)
+			return mcp.ServerConfig{}, "", false, fmt.Errorf("failed to get nanobot agent %q: %w", mcpServerConfig.NanobotAgentName, err)
 		}
 		if agent.Spec.UserID != req.User.GetUID() && (!req.UserCanImpersonate() || !req.UserIsAdmin()) {
-			return "", false, types.NewErrForbidden("user is not authorized to access nanobot agent %q", mcpServerConfig.NanobotAgentName)
+			return mcp.ServerConfig{}, "", false, types.NewErrForbidden("user is not authorized to access nanobot agent %q", mcpServerConfig.NanobotAgentName)
 		}
 	}
 
 	url, err := h.mcpSessionManager.LaunchServer(req.Context(), mcpServerConfig)
 	if err != nil {
-		return "", false, fmt.Errorf("failed to launch mcp server: %w", err)
+		return mcp.ServerConfig{}, "", false, fmt.Errorf("failed to launch mcp server: %w", err)
 	}
 
-	return url, h.nanobotIntegrationEnabled && mcpServerConfig.NanobotAgentName != "", nil
+	return mcpServerConfig, url, h.nanobotIntegrationEnabled && mcpServerConfig.NanobotAgentName != "", nil
 }
 
-func (h *Handler) ensureSystemServerIsDeployed(req api.Context, mcpID string) (string, bool, error) {
+func (h *Handler) ensureSystemServerIsDeployed(req api.Context, mcpID string) (mcp.ServerConfig, string, bool, error) {
 	var systemServer v1.SystemMCPServer
 	if err := req.Get(&systemServer, mcpID); err != nil {
-		return "", false, fmt.Errorf("failed to get system MCP server %q: %w", mcpID, err)
+		return mcp.ServerConfig{}, "", false, fmt.Errorf("failed to get system MCP server %q: %w", mcpID, err)
 	}
 
-	if !systemServer.Spec.Manifest.Enabled {
-		return "", false, apierrors.NewNotFound(schema.GroupResource{Group: "obot.obot.ai", Resource: "systemmcpserver"}, mcpID)
+	if systemServer.Spec.Manifest.Enabled != nil && !*systemServer.Spec.Manifest.Enabled {
+		return mcp.ServerConfig{}, "", false, apierrors.NewNotFound(schema.GroupResource{Group: "obot.obot.ai", Resource: "systemmcpserver"}, mcpID)
 	}
 
 	// Only look up credentials if the manifest has env vars without static values.
 	// This avoids expensive credential lookups on the hot path for servers like
 	// obot-mcp-server where all env vars have static values.
 	credEnv := make(map[string]string)
-	needsCredentials := false
+	var needsCredentials bool
 	for _, env := range systemServer.Spec.Manifest.Env {
 		if env.Value == "" {
 			needsCredentials = true
@@ -159,7 +166,7 @@ func (h *Handler) ensureSystemServerIsDeployed(req api.Context, mcpID string) (s
 			CredentialContexts: []string{credCtx},
 		})
 		if err != nil {
-			return "", false, fmt.Errorf("failed to list credentials for system server: %w", err)
+			return mcp.ServerConfig{}, "", false, fmt.Errorf("failed to list credentials for system server: %w", err)
 		}
 
 		secretToolName := systemmcpserver.SecretInfoToolName(systemServer.Name)
@@ -172,9 +179,7 @@ func (h *Handler) ensureSystemServerIsDeployed(req api.Context, mcpID string) (s
 			if err != nil {
 				continue
 			}
-			for k, v := range credDetail.Env {
-				credEnv[k] = v
-			}
+			maps.Copy(credEnv, credDetail.Env)
 		}
 	}
 
@@ -185,18 +190,23 @@ func (h *Handler) ensureSystemServerIsDeployed(req api.Context, mcpID string) (s
 		secretsCred = tokenExchangeCred.Env
 	}
 
+	credEnv, err = mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, systemServer.Spec.Manifest.Env, systemServer.Spec.Manifest.RemoteConfig, credEnv)
+	if err != nil {
+		return mcp.ServerConfig{}, "", false, fmt.Errorf("failed to resolve secret bindings: %w", err)
+	}
+
 	baseURL := strings.TrimSuffix(req.APIBaseURL, "/api")
 	audiences := systemServer.ValidConnectURLs(baseURL)
 
 	serverConfig, _, err := mcp.SystemServerToServerConfig(systemServer, audiences, baseURL, credEnv, secretsCred)
 	if err != nil {
-		return "", false, fmt.Errorf("failed to convert system server to config: %w", err)
+		return mcp.ServerConfig{}, "", false, fmt.Errorf("failed to convert system server to config: %w", err)
 	}
 
 	mcpURL, err := h.mcpSessionManager.LaunchServer(req.Context(), serverConfig)
 	if err != nil {
-		return "", false, fmt.Errorf("failed to launch system MCP server: %w", err)
+		return mcp.ServerConfig{}, "", false, fmt.Errorf("failed to launch system MCP server: %w", err)
 	}
 
-	return mcpURL, false, nil
+	return serverConfig, mcpURL, false, nil
 }

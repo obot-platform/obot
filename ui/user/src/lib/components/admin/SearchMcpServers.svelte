@@ -1,18 +1,18 @@
 <script lang="ts">
-	import { Check, LoaderCircle, Server } from 'lucide-svelte';
-	import Search from '../Search.svelte';
-	import ResponsiveDialog from '../ResponsiveDialog.svelte';
-	import { twMerge } from 'tailwind-merge';
-	import { stripMarkdownToText } from '$lib/markdown';
 	import { ADMIN_ALL_OPTION } from '$lib/constants';
+	import { stripMarkdownToText } from '$lib/markdown';
 	import {
 		AdminService,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
 		type OrgUser
 	} from '$lib/services';
-	import { onMount } from 'svelte';
 	import { getUserDisplayName } from '$lib/utils';
+	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import Search from '../Search.svelte';
+	import { Check, LoaderCircle, Server } from 'lucide-svelte';
+	import { onMount } from 'svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		onAdd: (mcpCatalogEntryIds: string[], mcpServerIds: string[], otherSelectors: string[]) => void;
@@ -230,7 +230,7 @@
 										{/if}
 									</div>
 									<span class="text-on-surface1 line-clamp-2 text-xs">
-										{@html stripMarkdownToText(item.description ?? '')}
+										{stripMarkdownToText(item.description ?? '')}
 									</span>
 								</div>
 							</div>

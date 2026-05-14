@@ -1,3 +1,5 @@
+import type { TimeDisplayFormat } from '$lib/time';
+
 export type TaskFrequency = 'daily' | 'weekly' | 'monthly' | 'no_repeat';
 
 export interface TaskScheduleForm {
@@ -42,13 +44,17 @@ export function formatScheduleDate(date: string): string {
 		return date;
 	}
 
-	const month = String(parsed.getMonth() + 1).padStart(2, '0');
-	const day = String(parsed.getDate()).padStart(2, '0');
-	const year = parsed.getFullYear();
-	return `${month}-${day}-${year}`;
+	return new Intl.DateTimeFormat(undefined, {
+		year: 'numeric',
+		month: 'numeric',
+		day: 'numeric'
+	}).format(parsed);
 }
 
-export function formatScheduleDateTime(value?: string | null): string {
+export function formatScheduleDateTime(
+	value: string | null | undefined,
+	format: TimeDisplayFormat
+): string {
 	if (!value) return 'Not available';
 
 	const parsed = new Date(value);
@@ -56,9 +62,14 @@ export function formatScheduleDateTime(value?: string | null): string {
 		return value;
 	}
 
-	const date = `${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}-${parsed.getFullYear()}`;
-	const time = `${String(parsed.getHours()).padStart(2, '0')}:${String(parsed.getMinutes()).padStart(2, '0')}`;
-	return `${date} at ${time}`;
+	return new Intl.DateTimeFormat(undefined, {
+		year: 'numeric',
+		month: 'numeric',
+		day: 'numeric',
+		hour: '2-digit',
+		minute: '2-digit',
+		hour12: format === '12h'
+	}).format(parsed);
 }
 
 export function formatWeekdaySummary(daysOfWeek: string[]): string {
@@ -162,12 +173,35 @@ export function buildCronSchedule(form: TaskScheduleForm): string {
 	}
 }
 
-function formatTime(time: string): string {
-	const [hour, minute] = time.split(':');
-	return `${Number(hour)}:${minute}`;
+function formatScheduleTime(time: string, format: TimeDisplayFormat): string {
+	const parts = time.split(':');
+	const hour = Number(parts[0]);
+	const minute = Number(parts[1] ?? 0);
+	if (
+		!Number.isInteger(hour) ||
+		!Number.isInteger(minute) ||
+		hour < 0 ||
+		hour > 23 ||
+		minute < 0 ||
+		minute > 59
+	) {
+		return time;
+	}
+
+	const d = new Date();
+	d.setHours(hour, minute, 0, 0);
+	return new Intl.DateTimeFormat(undefined, {
+		hour: '2-digit',
+		minute: '2-digit',
+		hour12: format === '12h'
+	}).format(d);
 }
 
-export function scheduleSummary(schedule: string, expiration?: string): string {
+export function scheduleSummary(
+	schedule: string,
+	expiration: string | undefined,
+	format: TimeDisplayFormat
+): string {
 	if (!schedule?.trim()) return 'No schedule';
 
 	const fallback = defaultTaskScheduleForm();
@@ -180,7 +214,7 @@ export function scheduleSummary(schedule: string, expiration?: string): string {
 		return 'Schedule unavailable';
 	}
 
-	const time = formatTime(parsed.time);
+	const time = formatScheduleTime(parsed.time, format);
 	switch (parsed.frequency) {
 		case 'daily':
 			return `Daily at ${time}`;
@@ -194,4 +228,12 @@ export function scheduleSummary(schedule: string, expiration?: string): string {
 		case 'no_repeat':
 			return parsed.date ? `${formatScheduleDate(parsed.date)} at ${time}` : time;
 	}
+}
+
+export function estimateNextRun(schedule: string, expiration?: string): Date {
+	const now = new Date();
+	const parsed = parseCronSchedule(schedule, expiration);
+	if (!parsed) return now;
+	now.setHours(Number(parsed.time.split(':')[0]), Number(parsed.time.split(':')[1]), 0, 0);
+	return now;
 }

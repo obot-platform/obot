@@ -3,6 +3,8 @@ package handlers
 import (
 	"archive/zip"
 	"bytes"
+	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,10 +14,17 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/hash"
+	"github.com/obot-platform/obot/pkg/publishedartifact"
 	"github.com/obot-platform/obot/pkg/skillformat"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	blobpkg "github.com/obot-platform/obot/pkg/storage/blob"
+	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
+	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func createArtifactTestZIP(t *testing.T, files map[string][]byte) []byte {
@@ -341,11 +350,30 @@ func TestConvertPublishedArtifact(t *testing.T) {
 			},
 			AuthorID:      "user-123",
 			LatestVersion: 3,
-			Visibility:    types.PublishedArtifactVisibilityPublic,
+		},
+		Status: v1.PublishedArtifactStatus{
+			Versions: []types.PublishedArtifactVersionEntry{
+				{
+					Version:     1,
+					Description: "v1",
+					CreatedAt:   *types.NewTime(metav1.Now().Time),
+					Subjects: []types.Subject{
+						{Type: types.SubjectTypeUser, ID: "user-a"},
+					},
+				},
+				{
+					Version:     3,
+					Description: "v3",
+					CreatedAt:   *types.NewTime(metav1.Now().Time),
+					Subjects: []types.Subject{
+						{Type: types.SubjectTypeSelector, ID: "*"},
+					},
+				},
+			},
 		},
 	}
 
-	result := convertPublishedArtifact(input)
+	result := convertPublishedArtifactForRequester(input, &kuser.DefaultInfo{UID: "user-123"}, false)
 
 	if result.ID != "pa1abc123" {
 		t.Errorf("ID = %q, want %q", result.ID, "pa1abc123")
@@ -368,8 +396,21 @@ func TestConvertPublishedArtifact(t *testing.T) {
 	if result.LatestVersion != 3 {
 		t.Errorf("LatestVersion = %d, want 3", result.LatestVersion)
 	}
-	if result.Visibility != types.PublishedArtifactVisibilityPublic {
-		t.Errorf("Visibility = %q, want %q", result.Visibility, types.PublishedArtifactVisibilityPublic)
+	if len(result.Versions) != 2 {
+		t.Fatalf("Versions = %+v, want 2 versions", result.Versions)
+	}
+	var version3 *types.PublishedArtifactVersionSummary
+	for i := range result.Versions {
+		if result.Versions[i].Version == 3 {
+			version3 = &result.Versions[i]
+			break
+		}
+	}
+	if version3 == nil {
+		t.Fatalf("Versions = %+v, want version 3 present", result.Versions)
+	}
+	if len(version3.Subjects) != 1 || version3.Subjects[0] != (types.Subject{Type: types.SubjectTypeSelector, ID: "*"}) {
+		t.Errorf("Version 3 Subjects = %+v, want wildcard selector", version3.Subjects)
 	}
 	if result.Type != "publishedartifact" {
 		t.Errorf("Type = %q, want %q", result.Type, "publishedartifact")
@@ -378,7 +419,7 @@ func TestConvertPublishedArtifact(t *testing.T) {
 
 func TestConvertPublishedArtifact_ZeroValue(t *testing.T) {
 	input := &v1.PublishedArtifact{}
-	result := convertPublishedArtifact(input)
+	result := convertPublishedArtifactForRequester(input, &kuser.DefaultInfo{UID: "user-123"}, false)
 
 	if result.Name != "" {
 		t.Errorf("Name = %q, want empty", result.Name)
@@ -386,8 +427,251 @@ func TestConvertPublishedArtifact_ZeroValue(t *testing.T) {
 	if result.LatestVersion != 0 {
 		t.Errorf("LatestVersion = %d, want 0", result.LatestVersion)
 	}
-	if result.Visibility != "" {
-		t.Errorf("Visibility = %q, want empty", result.Visibility)
+}
+
+func TestValidatePublishedArtifactSubjects(t *testing.T) {
+	tests := []struct {
+		name     string
+		subjects []types.Subject
+		wantErr  string
+	}{
+		{
+			name: "valid user and group",
+			subjects: []types.Subject{
+				{Type: types.SubjectTypeUser, ID: "user1"},
+				{Type: types.SubjectTypeGroup, ID: "group1"},
+			},
+		},
+		{
+			name: "valid wildcard",
+			subjects: []types.Subject{
+				{Type: types.SubjectTypeSelector, ID: "*"},
+			},
+		},
+		{
+			name: "wildcard mixed",
+			subjects: []types.Subject{
+				{Type: types.SubjectTypeSelector, ID: "*"},
+				{Type: types.SubjectTypeUser, ID: "user1"},
+			},
+			wantErr: "wildcard subject",
+		},
+		{
+			name: "wildcard non selector",
+			subjects: []types.Subject{
+				{Type: types.SubjectTypeUser, ID: "*"},
+			},
+			wantErr: "wildcard subject (*) must use selector type",
+		},
+		{
+			name: "duplicate subject",
+			subjects: []types.Subject{
+				{Type: types.SubjectTypeUser, ID: "user1"},
+				{Type: types.SubjectTypeUser, ID: "user1"},
+			},
+			wantErr: "duplicate subject",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validatePublishedArtifactSubjects(tt.subjects)
+			if tt.wantErr == "" && err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if tt.wantErr != "" {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				if !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("error = %q, want containing %q", err.Error(), tt.wantErr)
+				}
+			}
+		})
+	}
+}
+
+func TestCanAccessArtifact(t *testing.T) {
+	artifact := &v1.PublishedArtifact{
+		Spec: v1.PublishedArtifactSpec{
+			AuthorID: "owner",
+		},
+		Status: v1.PublishedArtifactStatus{
+			Versions: []types.PublishedArtifactVersionEntry{
+				{
+					Version: 1,
+					Subjects: []types.Subject{
+						{Type: types.SubjectTypeGroup, ID: "group1"},
+					},
+				},
+			},
+		},
+	}
+
+	if !publishedartifact.CanAccess(artifact, &kuser.DefaultInfo{UID: "owner"}, false) {
+		t.Fatal("owner should have access")
+	}
+	if !publishedartifact.CanAccess(artifact, &kuser.DefaultInfo{UID: "other"}, true) {
+		t.Fatal("admin should have access")
+	}
+	if !publishedartifact.CanAccess(artifact, &kuser.DefaultInfo{
+		UID: "other",
+		Extra: map[string][]string{
+			"auth_provider_groups": {"group1"},
+		},
+	}, false) {
+		t.Fatal("group member should have access")
+	}
+	if publishedartifact.CanAccess(artifact, &kuser.DefaultInfo{UID: "other"}, false) {
+		t.Fatal("unmatched user should not have access")
+	}
+}
+
+func TestConvertPublishedArtifactForRequester_FiltersVersions(t *testing.T) {
+	input := &v1.PublishedArtifact{
+		Spec: v1.PublishedArtifactSpec{
+			PublishedArtifactManifest: types.PublishedArtifactManifest{
+				Name: "my-workflow",
+			},
+			AuthorID:      "owner",
+			LatestVersion: 2,
+		},
+		Status: v1.PublishedArtifactStatus{
+			Versions: []types.PublishedArtifactVersionEntry{
+				{
+					Version:  1,
+					Subjects: []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}},
+				},
+				{
+					Version:  2,
+					Subjects: nil,
+				},
+			},
+		},
+	}
+
+	result := convertPublishedArtifactForRequester(input, &kuser.DefaultInfo{UID: "other"}, false)
+
+	if result.LatestVersion != 1 {
+		t.Fatalf("LatestVersion = %d, want 1", result.LatestVersion)
+	}
+	if len(result.Versions) != 1 || result.Versions[0].Version != 1 {
+		t.Fatalf("Versions = %+v, want only v1", result.Versions)
+	}
+}
+
+func newPublishedArtifactTestStorage(t *testing.T, objects ...kclient.Object) kclient.WithWatch {
+	t.Helper()
+	return fake.NewClientBuilder().
+		WithScheme(storagescheme.Scheme).
+		WithObjects(objects...).
+		Build()
+}
+
+func TestPublishedArtifactCreate_InheritsSubjectsFromPreviousVersion(t *testing.T) {
+	artifactName := system.PublishedArtifactPrefix + hash.String("owner" + string(types.PublishedArtifactTypeWorkflow) + "workflow-a")[:12]
+
+	storage := newPublishedArtifactTestStorage(t, &v1.PublishedArtifact{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      artifactName,
+			Namespace: system.DefaultNamespace,
+		},
+		Spec: v1.PublishedArtifactSpec{
+			PublishedArtifactManifest: types.PublishedArtifactManifest{
+				Name:         "workflow-a",
+				Description:  "v1",
+				ArtifactType: types.PublishedArtifactTypeWorkflow,
+				AuthorEmail:  "owner@example.com",
+			},
+			AuthorID:      "owner",
+			LatestVersion: 1,
+			BlobKey:       "published-artifacts/" + artifactName + "/v1.zip",
+		},
+		Status: v1.PublishedArtifactStatus{
+			Versions: []types.PublishedArtifactVersionEntry{
+				{
+					Version:     1,
+					BlobKey:     "published-artifacts/" + artifactName + "/v1.zip",
+					Description: "v1",
+					CreatedAt:   *types.NewTime(metav1.Now().Time),
+					Subjects: []types.Subject{
+						{Type: types.SubjectTypeUser, ID: "user-a"},
+						{Type: types.SubjectTypeGroup, ID: "group-b"},
+					},
+				},
+			},
+		},
+	})
+
+	blobStore, err := blobpkg.NewDirectoryStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("failed to create directory blob store: %v", err)
+	}
+	handler := NewPublishedArtifactHandler(blobStore, "test-bucket")
+	reqBody := createArtifactTestZIP(t, map[string][]byte{
+		skillformat.SkillMainFile: createSkillMDContent(t, "workflow-a", "v2", nil),
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/published-artifacts", bytes.NewReader(reqBody))
+	rec := httptest.NewRecorder()
+
+	err = handler.Create(api.Context{
+		ResponseWriter: rec,
+		Request:        req,
+		Storage:        storage,
+		User: &kuser.DefaultInfo{
+			Name:   "owner",
+			UID:    "owner",
+			Groups: []string{types.GroupAuthenticated},
+			Extra: map[string][]string{
+				"email": {"owner@example.com"},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status code = %d, want %d", rec.Code, http.StatusOK)
+	}
+
+	var artifact v1.PublishedArtifact
+	if err := storage.Get(context.Background(), kclient.ObjectKey{
+		Namespace: system.DefaultNamespace,
+		Name:      artifactName,
+	}, &artifact); err != nil {
+		t.Fatalf("failed to fetch updated artifact: %v", err)
+	}
+
+	if artifact.Spec.LatestVersion != 2 {
+		t.Fatalf("LatestVersion = %d, want 2", artifact.Spec.LatestVersion)
+	}
+	if len(artifact.Status.Versions) != 2 {
+		t.Fatalf("Versions len = %d, want 2", len(artifact.Status.Versions))
+	}
+
+	gotSubjects := artifact.Status.Versions[1].Subjects
+	wantSubjects := []types.Subject{
+		{Type: types.SubjectTypeUser, ID: "user-a"},
+		{Type: types.SubjectTypeGroup, ID: "group-b"},
+	}
+	if len(gotSubjects) != len(wantSubjects) {
+		t.Fatalf("v2 subjects len = %d, want %d", len(gotSubjects), len(wantSubjects))
+	}
+	for i := range wantSubjects {
+		if gotSubjects[i] != wantSubjects[i] {
+			t.Fatalf("v2 subjects[%d] = %+v, want %+v", i, gotSubjects[i], wantSubjects[i])
+		}
+	}
+
+	var response types.PublishedArtifact
+	if err := json.NewDecoder(rec.Body).Decode(&response); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if len(response.Versions) != 2 {
+		t.Fatalf("response versions len = %d, want 2", len(response.Versions))
+	}
+	if len(response.Versions[1].Subjects) != len(wantSubjects) {
+		t.Fatalf("response v2 subjects len = %d, want %d", len(response.Versions[1].Subjects), len(wantSubjects))
 	}
 }
 
@@ -449,38 +733,6 @@ func TestValidateZIP_Valid(t *testing.T) {
 	}
 	if err := validateZIP(r); err != nil {
 		t.Fatalf("validateZIP() unexpected error: %v", err)
-	}
-}
-
-func TestCheckOwnership_ReturnsNotFoundForNonOwner(t *testing.T) {
-	req := httptest.NewRequest(http.MethodPatch, "/api/published-artifacts/pa123", nil)
-	req.SetPathValue("id", "pa123")
-
-	err := (&PublishedArtifactHandler{}).checkOwnership(&v1.PublishedArtifact{
-		Spec: v1.PublishedArtifactSpec{
-			AuthorID: "owner",
-		},
-	}, api.Context{
-		Request:        req,
-		ResponseWriter: httptest.NewRecorder(),
-		User: &kuser.DefaultInfo{
-			UID:    "other-user",
-			Groups: []string{types.GroupAuthenticated},
-		},
-	})
-	if err == nil {
-		t.Fatal("expected error for non-owner")
-	}
-
-	errHTTP, ok := err.(*types.ErrHTTP)
-	if !ok {
-		t.Fatalf("expected *types.ErrHTTP, got %T", err)
-	}
-	if errHTTP.Code != http.StatusNotFound {
-		t.Fatalf("status code = %d, want %d", errHTTP.Code, http.StatusNotFound)
-	}
-	if !strings.Contains(errHTTP.Message, "pa123") {
-		t.Fatalf("message = %q, want artifact id", errHTTP.Message)
 	}
 }
 

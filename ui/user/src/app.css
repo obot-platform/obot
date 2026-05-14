@@ -1,5 +1,4 @@
 @import 'tailwindcss';
-@source '../node_modules/layerchart/dist';
 
 @plugin 'tailwind-scrollbar' {
 	nocompatible: true;
@@ -97,13 +96,13 @@
 	--color-primary: var(--primary);
 }
 
-@plugin "daisyui" {
+@plugin 'daisyui' {
 	themes:
 		nanobotlight --default,
 		nanobotdark --prefersdark;
 }
 
-@plugin "daisyui/theme" {
+@plugin 'daisyui/theme' {
 	name: 'nanobotlight';
 	default: true;
 	prefersdark: false;
@@ -138,7 +137,7 @@
 	--noise: 0;
 }
 
-@plugin "daisyui/theme" {
+@plugin 'daisyui/theme' {
 	name: 'nanobotdark';
 	default: false;
 	prefersdark: true;
@@ -1124,7 +1123,7 @@
 		background-color: var(--surface3);
 	}
 
-	.drawer[popover] {
+	.drawer-legacy[popover] {
 		position: fixed;
 		top: 0;
 		right: 0;
@@ -1152,18 +1151,18 @@
 		}
 	}
 
-	.drawer[popover]:popover-open {
+	.drawer-legacy[popover]:popover-open {
 		transform: translateX(0);
 		opacity: 1;
 	}
 
-	.drawer[popover]:not(:popover-open) {
+	.drawer-legacy[popover]:not(:popover-open) {
 		transform: translateX(100%);
 		opacity: 0;
 	}
 
 	@starting-style {
-		.drawer[popover]:popover-open {
+		.drawer-legacy[popover]:popover-open {
 			transform: translateX(100%);
 			opacity: 0;
 		}
@@ -1461,11 +1460,15 @@
 
 	.pill-primary {
 		border-radius: var(--radius-sm);
-		background-color: color-mix(in oklab, var(--color-primary) /* #4f7ef3 */ 50%, transparent);
+		background-color: color-mix(in oklab, var(--color-primary) /* #4f7ef3 */ 75%, transparent);
 		color: var(--color-white);
 		padding: 0.125rem 0.25rem;
 		font-size: 11px;
 		line-height: 1rem;
+
+		.dark & {
+			background-color: color-mix(in oklab, var(--color-primary) /* #4f7ef3 */ 50%, transparent);
+		}
 	}
 
 	.pill-warning {
@@ -1488,6 +1491,60 @@
 		.dark & {
 			background-color: var(--color-gray-600);
 		}
+	}
+
+	.filter-primary {
+		display: flex;
+		align-items: center;
+		gap: 0.25rem;
+		border-radius: 0.5rem;
+		border: 1px solid color-mix(in oklab, var(--color-primary) 50%, transparent);
+		background-color: color-mix(in oklab, var(--color-primary) 10%, transparent);
+		color: var(--color-primary);
+		padding: 0.5rem 1rem;
+		font-size: var(--text-xs);
+
+		& > button {
+			border-radius: 9999px;
+			padding: 0.25rem;
+			transition-property:
+				color, background-color, border-color, text-decoration-color, fill, stroke;
+			transition-duration: 200ms;
+
+			&:hover {
+				background-color: color-mix(in oklab, var(--color-primary) 25%, transparent);
+			}
+		}
+	}
+
+	.tooltip-divider {
+		height: 1px;
+		width: 100%;
+		background-color: var(--color-surface3);
+		margin-top: 0.5rem;
+		margin-bottom: 0.5rem;
+	}
+
+	.tab-button {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.5rem 0.75rem;
+		border-bottom: 2px solid transparent;
+		font-size: 0.875rem;
+		color: var(--on-surface1, #6b7280);
+		transition:
+			color 200ms,
+			border-color 200ms;
+
+		&:hover {
+			color: inherit;
+		}
+	}
+	.tab-active {
+		color: inherit;
+		border-bottom-color: var(--primary);
+		font-weight: 500;
 	}
 }
 

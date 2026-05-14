@@ -190,10 +190,15 @@ func stopProvider(namespace, name string, urlMap map[string]url.URL, lock *sync.
 
 func TransformRequest(u url.URL, credEnv map[string]string) func(req *http.Request) {
 	return func(req *http.Request) {
+		reqPath := req.PathValue("path")
 		if u.Path == "" {
-			u.Path = "/v1"
+			if strings.HasPrefix(reqPath, "v1/") || reqPath == "v1" {
+				u.Path = "/"
+			} else {
+				u.Path = "/v1"
+			}
 		}
-		u.Path = path.Join(u.Path, req.PathValue("path"))
+		u.Path = path.Join(u.Path, reqPath)
 		req.URL = &u
 		req.Host = u.Host
 

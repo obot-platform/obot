@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	gptscript "github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/apply"
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/router"
@@ -24,6 +25,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/validation"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
@@ -31,7 +33,26 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-var log = logger.Package()
+var (
+	log              = logger.Package()
+	invalidNameChars = regexp.MustCompile(`[^a-z0-9-]+`)
+	multipleDashes   = regexp.MustCompile(`-{2,}`)
+)
+
+// sanitizeName lowercases the input, replaces any characters that are invalid
+// for RFC 1123 subdomain names with dashes, collapses consecutive dashes, and
+// trims leading/trailing dashes.
+func sanitizeName(n string) string {
+	n = strings.ToLower(n)
+	n = invalidNameChars.ReplaceAllString(n, "-")
+	n = multipleDashes.ReplaceAllString(n, "-")
+	return strings.Trim(n, "-")
+}
+
+// CatalogCredentialToolName is the fixed tool name used for the single
+// credential that stores all source-URL tokens for a catalog. Each URL's
+// token is stored as a key in the credential's Env map.
+const CatalogCredentialToolName = "catalog-source-tokens"
 
 const (
 	// These are used to force catalog sync on startup, used for times when changes are made to
@@ -42,16 +63,39 @@ const (
 )
 
 type Handler struct {
-	defaultCatalogPath      string
-	gatewayClient           *gclient.Client
-	accessControlRuleHelper *accesscontrolrule.Helper
+	defaultCatalogPath       string
+	defaultSystemCatalogPath string
+	gptClient                *gptscript.GPTScript
+	gatewayClient            *gclient.Client
+	accessControlRuleHelper  *accesscontrolrule.Helper
+	mcpBackend               string
 }
 
-func New(defaultCatalogPath string, gatewayClient *gclient.Client, accessControlRuleHelper *accesscontrolrule.Helper) *Handler {
+// revealCatalogCredential retrieves a stored PAT for the given source URL.
+// Returns an empty string if no credential is configured (not-found). Any other
+// error is logged so credential-store failures are visible in the sync status.
+func (h *Handler) revealCatalogCredential(ctx context.Context, catalogName, sourceURL string) string {
+	cred, err := h.gptClient.RevealCredential(ctx,
+		[]string{catalogName},
+		CatalogCredentialToolName,
+	)
+	if err != nil {
+		if !errors.As(err, &gptscript.ErrNotFound{}) {
+			log.Errorf("failed to retrieve credential for catalog %s source %s: %v", catalogName, sourceURL, err)
+		}
+		return ""
+	}
+	return cred.Env[sourceURL]
+}
+
+func New(defaultCatalogPath, defaultSystemCatalogPath string, gptClient *gptscript.GPTScript, gatewayClient *gclient.Client, accessControlRuleHelper *accesscontrolrule.Helper, mcpBackend string) *Handler {
 	return &Handler{
-		defaultCatalogPath:      defaultCatalogPath,
-		gatewayClient:           gatewayClient,
-		accessControlRuleHelper: accessControlRuleHelper,
+		defaultCatalogPath:       defaultCatalogPath,
+		defaultSystemCatalogPath: defaultSystemCatalogPath,
+		gptClient:                gptClient,
+		gatewayClient:            gatewayClient,
+		accessControlRuleHelper:  accessControlRuleHelper,
+		mcpBackend:               mcpBackend,
 	}
 }
 
@@ -90,7 +134,8 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	mcpCatalog.Status.SyncErrors = make(map[string]string)
 
 	for _, sourceURL := range mcpCatalog.Spec.SourceURLs {
-		objs, err := h.readMCPCatalog(mcpCatalog.Name, sourceURL)
+		token := h.revealCatalogCredential(req.Ctx, mcpCatalog.Name, sourceURL)
+		objs, err := h.readMCPCatalog(req.Ctx, mcpCatalog.Name, sourceURL, token)
 		if err != nil {
 			log.Errorf("failed to read catalog %s: %v", sourceURL, err)
 			mcpCatalog.Status.SyncErrors[sourceURL] = err.Error()
@@ -137,19 +182,185 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	return app.Apply(req.Ctx, mcpCatalog, toAdd...)
 }
 
-func (h *Handler) readMCPCatalog(catalogName, sourceURL string) ([]client.Object, error) {
+func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {
+	systemCatalog := req.Object.(*v1.SystemMCPCatalog)
+
+	forceSync := systemCatalog.Annotations[v1.SystemMCPCatalogSyncAnnotation] == "true" || systemCatalog.Annotations[forceSyncStartupAnnotation] != startupSyncGeneration
+	if !forceSync && !systemCatalog.Status.LastSyncTime.IsZero() {
+		timeSinceLastSync := time.Since(systemCatalog.Status.LastSyncTime.Time)
+		if timeSinceLastSync < time.Hour {
+			resp.RetryAfter(time.Hour - timeSinceLastSync)
+			return nil
+		}
+	}
+
+	systemCatalog.Status.IsSyncing = true
+	if err := req.Client.Status().Update(req.Ctx, systemCatalog); err != nil {
+		return fmt.Errorf("failed to update system catalog status: %w", err)
+	}
+
+	defer func() {
+		var catalog v1.SystemMCPCatalog
+		if err := req.Client.Get(req.Ctx, router.Key(system.DefaultNamespace, systemCatalog.Name), &catalog); err != nil {
+			log.Errorf("failed to get system catalog: %v", err)
+			return
+		}
+
+		catalog.Status.IsSyncing = false
+		if err := req.Client.Status().Update(req.Ctx, &catalog); err != nil {
+			log.Errorf("failed to update system catalog status: %v", err)
+		}
+	}()
+
+	toAdd := make([]client.Object, 0)
+	systemCatalog.Status.SyncErrors = make(map[string]string)
+
+	for _, sourceURL := range systemCatalog.Spec.SourceURLs {
+		token := h.revealCatalogCredential(req.Ctx, systemCatalog.Name, sourceURL)
+		objs, err := h.readSystemMCPCatalog(req.Ctx, systemCatalog.Name, sourceURL, token)
+		if err != nil {
+			log.Errorf("failed to read system catalog %s: %v", sourceURL, err)
+			systemCatalog.Status.SyncErrors[sourceURL] = err.Error()
+		} else {
+			log.Infof("Read system MCP catalog source successfully: catalog=%s source=%s entries=%d", systemCatalog.Name, sourceURL, len(objs))
+			delete(systemCatalog.Status.SyncErrors, sourceURL)
+		}
+
+		toAdd = append(toAdd, objs...)
+	}
+
+	systemCatalog.Status.LastSyncTime = metav1.Now()
+	if err := req.Client.Status().Update(req.Ctx, systemCatalog); err != nil {
+		return fmt.Errorf("failed to update system catalog status: %w", err)
+	}
+	if forceSync {
+		delete(systemCatalog.Annotations, v1.SystemMCPCatalogSyncAnnotation)
+		if systemCatalog.Annotations == nil {
+			systemCatalog.Annotations = make(map[string]string, 1)
+		}
+		systemCatalog.Annotations[forceSyncStartupAnnotation] = startupSyncGeneration
+		if err := req.Client.Update(req.Ctx, systemCatalog); err != nil {
+			return fmt.Errorf("failed to update system catalog: %w", err)
+		}
+	}
+
+	resp.RetryAfter(time.Hour)
+
+	app := apply.New(req.Client).WithOwnerSubContext(fmt.Sprintf("system-catalog-%s", systemCatalog.Name))
+	if len(systemCatalog.Status.SyncErrors) > 0 {
+		log.Infof("Applying system MCP catalog entries without prune due to source errors: catalog=%s entries=%d sourceErrors=%d", systemCatalog.Name, len(toAdd), len(systemCatalog.Status.SyncErrors))
+		app = app.WithNoPrune()
+	} else {
+		log.Infof("Applying system MCP catalog entries with prune enabled: catalog=%s entries=%d", systemCatalog.Name, len(toAdd))
+		app = app.WithPruneTypes(&v1.SystemMCPServerCatalogEntry{})
+	}
+
+	return app.Apply(req.Ctx, systemCatalog, toAdd...)
+}
+
+func (h *Handler) readSystemMCPCatalog(ctx context.Context, catalogName, sourceURL, token string) ([]client.Object, error) {
+	entries, err := readCatalogManifests[types.SystemMCPServerCatalogEntryManifest](ctx, sourceURL, token)
+	if err != nil {
+		return nil, err
+	}
+
+	systemObjs := make([]client.Object, 0, len(entries))
+	var errs []error
+	for _, entry := range entries {
+		if entry.Metadata["categories"] == "Official" {
+			delete(entry.Metadata, "categories")
+		}
+
+		cleanName := sanitizeName(entry.Name)
+		if cleanName == "" {
+			err := fmt.Errorf("invalid system catalog entry name after sanitization: original=%q sanitized=%q", entry.Name, cleanName)
+			errs = append(errs, err)
+			continue
+		}
+
+		mcpManifest := systemCatalogEntryManifestToMCP(entry)
+		sanitizeCatalogEntryManifest(&mcpManifest)
+		entry = mcpCatalogEntryManifestToSystem(mcpManifest, entry.SystemMCPServerType, entry.FilterConfig)
+		if err := validation.ValidateSystemMCPServerCatalogEntryManifest(entry); err != nil {
+			errs = append(errs, fmt.Errorf("failed to validate system catalog entry %s: %w", entry.Name, err))
+			continue
+		}
+
+		systemObjs = append(systemObjs, &v1.SystemMCPServerCatalogEntry{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name.SafeHashConcatName(catalogName, cleanName),
+				Namespace: system.DefaultNamespace,
+			},
+			Spec: v1.SystemMCPServerCatalogEntrySpec{
+				SystemMCPCatalogName: catalogName,
+				SourceURL:            sourceURL,
+				Editable:             false,
+				Manifest:             entry,
+			},
+		})
+	}
+
+	return systemObjs, errors.Join(errs...)
+}
+
+func mcpCatalogEntryManifestToSystem(manifest types.MCPServerCatalogEntryManifest, systemMCPServerType types.SystemMCPServerType, filterConfig *types.FilterConfig) types.SystemMCPServerCatalogEntryManifest {
+	return types.SystemMCPServerCatalogEntryManifest{
+		Metadata:            manifest.Metadata,
+		Name:                manifest.Name,
+		ShortDescription:    manifest.ShortDescription,
+		Description:         manifest.Description,
+		Icon:                manifest.Icon,
+		RepoURL:             manifest.RepoURL,
+		ToolPreview:         manifest.ToolPreview,
+		SystemMCPServerType: systemMCPServerType,
+		FilterConfig:        filterConfig,
+		Runtime:             manifest.Runtime,
+		UVXConfig:           manifest.UVXConfig,
+		NPXConfig:           manifest.NPXConfig,
+		ContainerizedConfig: manifest.ContainerizedConfig,
+		RemoteConfig:        manifest.RemoteConfig,
+		Env:                 manifest.Env,
+	}
+}
+
+func systemCatalogEntryManifestToMCP(manifest types.SystemMCPServerCatalogEntryManifest) types.MCPServerCatalogEntryManifest {
+	return types.MCPServerCatalogEntryManifest{
+		Metadata:            manifest.Metadata,
+		Name:                manifest.Name,
+		ShortDescription:    manifest.ShortDescription,
+		Description:         manifest.Description,
+		Icon:                manifest.Icon,
+		RepoURL:             manifest.RepoURL,
+		ToolPreview:         manifest.ToolPreview,
+		Runtime:             manifest.Runtime,
+		UVXConfig:           manifest.UVXConfig,
+		NPXConfig:           manifest.NPXConfig,
+		ContainerizedConfig: manifest.ContainerizedConfig,
+		RemoteConfig:        manifest.RemoteConfig,
+		Env:                 manifest.Env,
+	}
+}
+
+func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, token string) ([]client.Object, error) {
 	var entries []types.MCPServerCatalogEntryManifest
 
 	if strings.HasPrefix(sourceURL, "http://") || strings.HasPrefix(sourceURL, "https://") {
-		if isGitHubURL(sourceURL) {
+		if isGitRepoURL(sourceURL) {
 			var err error
-			entries, err = readGitHubCatalog(sourceURL)
+			entries, err = readGitCatalogEntries[types.MCPServerCatalogEntryManifest](ctx, sourceURL, token)
 			if err != nil {
-				return nil, fmt.Errorf("failed to read GitHub catalog %s: %w", sourceURL, err)
+				return nil, fmt.Errorf("failed to read git catalog %s: %w", sourceURL, err)
 			}
 		} else {
-			// If it wasn't a GitHub repo, treat it as a raw file.
-			resp, err := http.Get(sourceURL)
+			// If it wasn't a git repo, treat it as a raw file.
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, sourceURL, http.NoBody)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create request for catalog %s: %w", sourceURL, err)
+			}
+			if token != "" {
+				req.Header.Set("Authorization", "Bearer "+token)
+			}
+			resp, err := http.DefaultClient.Do(req)
 			if err != nil {
 				return nil, fmt.Errorf("failed to read catalog %s: %w", sourceURL, err)
 			}
@@ -175,7 +386,7 @@ func (h *Handler) readMCPCatalog(catalogName, sourceURL string) ([]client.Object
 		}
 
 		if fileInfo.IsDir() {
-			entries, err = readMCPCatalogDirectory(sourceURL)
+			entries, err = readCatalogDirectory[types.MCPServerCatalogEntryManifest](sourceURL)
 			if err != nil {
 				return nil, fmt.Errorf("failed to read catalog %s: %w", sourceURL, err)
 			}
@@ -199,7 +410,12 @@ func (h *Handler) readMCPCatalog(catalogName, sourceURL string) ([]client.Object
 			// We don't want to mark random MCP servers from the catalog as official.
 		}
 
-		cleanName := strings.ToLower(strings.ReplaceAll(entry.Name, " ", "-"))
+		cleanName := sanitizeName(entry.Name)
+		if cleanName == "" {
+			err := fmt.Errorf("invalid catalog entry name after sanitization: original=%q sanitized=%q", entry.Name, cleanName)
+			errs = append(errs, err)
+			continue
+		}
 
 		catalogEntry := v1.MCPServerCatalogEntry{
 			ObjectMeta: metav1.ObjectMeta{
@@ -218,35 +434,18 @@ func (h *Handler) readMCPCatalog(catalogName, sourceURL string) ([]client.Object
 			catalogEntry.Spec.UnsupportedTools = strings.Split(entry.Metadata["unsupportedTools"], ",")
 		}
 
-		// Sanitize the environment variables
-		for i, env := range entry.Env {
-			if env.Key == "" {
-				env.Key = env.Name
-			}
-
-			if filepath.Ext(env.Key) != "" {
-				env.Key = strings.ReplaceAll(env.Key, ".", "_")
-				env.File = true
-			}
-
-			env.Key = strings.ReplaceAll(strings.ToUpper(env.Key), "-", "_")
-
-			entry.Env[i] = env
-		}
-
-		// Sanitize the headers
-		if entry.Runtime == types.RuntimeRemote && entry.RemoteConfig != nil {
-			for i, header := range entry.RemoteConfig.Headers {
-				if header.Key == "" {
-					header.Key = header.Name
-				}
-
-				header.Key = strings.ReplaceAll(strings.ToUpper(header.Key), "_", "-")
-				entry.RemoteConfig.Headers[i] = header
-			}
-		}
+		sanitizeCatalogEntryManifest(&entry)
 
 		if err := validation.ValidateCatalogEntryManifest(entry); err != nil {
+			errs = append(errs, fmt.Errorf("failed to validate catalog entry %s: %w", entry.Name, err))
+			continue
+		}
+		// secretBinding references are only allowed for git-managed entries.
+		if err := validation.ValidateSecretBindingsCatalogEntry(entry, catalogEntry.IsGitManaged(), h.mcpBackend); err != nil {
+			errs = append(errs, fmt.Errorf("failed to validate catalog entry %s: %w", entry.Name, err))
+			continue
+		}
+		if err := validation.ValidateTemplateReferencesCatalogEntry(entry); err != nil {
 			errs = append(errs, fmt.Errorf("failed to validate catalog entry %s: %w", entry.Name, err))
 			continue
 		}
@@ -258,7 +457,93 @@ func (h *Handler) readMCPCatalog(catalogName, sourceURL string) ([]client.Object
 	return objs, errors.Join(errs...)
 }
 
-func readMCPCatalogDirectory(catalog string) ([]types.MCPServerCatalogEntryManifest, error) {
+func readCatalogManifests[T any](ctx context.Context, sourceURL, token string) ([]T, error) {
+	if strings.HasPrefix(sourceURL, "http://") || strings.HasPrefix(sourceURL, "https://") {
+		if isGitRepoURL(sourceURL) {
+			entries, err := readGitCatalogEntries[T](ctx, sourceURL, token)
+			if err != nil {
+				return nil, fmt.Errorf("failed to read git catalog %s: %w", sourceURL, err)
+			}
+			return entries, nil
+		}
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, sourceURL, http.NoBody)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create request for catalog %s: %w", sourceURL, err)
+		}
+		if token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read catalog %s: %w", sourceURL, err)
+		}
+		defer resp.Body.Close()
+
+		contents, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read catalog %s: %w", sourceURL, err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("unexpected status when reading catalog %s: %s", sourceURL, string(contents))
+		}
+
+		var entries []T
+		if err = yaml.Unmarshal(contents, &entries); err != nil {
+			return nil, fmt.Errorf("failed to decode catalog %s: %w", sourceURL, err)
+		}
+		return entries, nil
+	}
+
+	fileInfo, err := os.Stat(sourceURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to stat catalog %s: %w", sourceURL, err)
+	}
+	if fileInfo.IsDir() {
+		entries, err := readCatalogDirectory[T](sourceURL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read catalog %s: %w", sourceURL, err)
+		}
+		return entries, nil
+	}
+
+	contents, err := os.ReadFile(sourceURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read catalog %s: %w", sourceURL, err)
+	}
+
+	var entries []T
+	if err = yaml.Unmarshal(contents, &entries); err != nil {
+		return nil, fmt.Errorf("failed to decode catalog %s: %w", sourceURL, err)
+	}
+	return entries, nil
+}
+
+func sanitizeCatalogEntryManifest(entry *types.MCPServerCatalogEntryManifest) {
+	for i, env := range entry.Env {
+		if env.Key == "" {
+			env.Key = env.Name
+		}
+		if filepath.Ext(env.Key) != "" {
+			env.Key = strings.ReplaceAll(env.Key, ".", "_")
+			env.File = true
+		}
+		env.Key = strings.ReplaceAll(strings.ToUpper(env.Key), "-", "_")
+		entry.Env[i] = env
+	}
+
+	if entry.Runtime == types.RuntimeRemote && entry.RemoteConfig != nil {
+		for i, header := range entry.RemoteConfig.Headers {
+			if header.Key == "" {
+				header.Key = header.Name
+			}
+			header.Key = strings.ReplaceAll(strings.ToUpper(header.Key), "_", "-")
+			entry.RemoteConfig.Headers[i] = header
+		}
+	}
+}
+
+func readCatalogDirectory[T any](catalog string) ([]T, error) {
 	var (
 		catalogPatterns       = []string{"*.json", "*.yaml", "*.yml"} // Default to all JSON and YAML files
 		ignorePatterns        []string
@@ -305,7 +590,7 @@ func readMCPCatalogDirectory(catalog string) ([]types.MCPServerCatalogEntryManif
 
 	// Walk through the cloned repository to find matching files
 	var (
-		entries   []types.MCPServerCatalogEntryManifest
+		entries   []T
 		fileCount int
 	)
 	const maxFiles = 1000 // Limit the number of files processed to prevent resource exhaustion
@@ -375,10 +660,10 @@ func readMCPCatalogDirectory(catalog string) ([]types.MCPServerCatalogEntryManif
 		}
 
 		// Try to unmarshal as array first
-		var fileEntries []types.MCPServerCatalogEntryManifest
+		var fileEntries []T
 		if err := yaml.Unmarshal(content, &fileEntries); err != nil {
 			// If that fails, try single object with YAML
-			var entry types.MCPServerCatalogEntryManifest
+			var entry T
 			if err := yaml.Unmarshal(content, &entry); err != nil {
 				if usingObotCatalogsFile {
 					log.Warnf("Failed to parse %s as catalog entry: %v", relPath, err)
@@ -387,7 +672,7 @@ func readMCPCatalogDirectory(catalog string) ([]types.MCPServerCatalogEntryManif
 				}
 				return nil
 			}
-			fileEntries = []types.MCPServerCatalogEntryManifest{entry}
+			fileEntries = []T{entry}
 		}
 
 		entries = append(entries, fileEntries...)
@@ -417,6 +702,8 @@ func (h *Handler) SetUpDefaultMCPCatalog(ctx context.Context, c client.Client) e
 		}
 
 		return nil
+	} else if !apierrors.IsNotFound(err) {
+		return err
 	}
 
 	var sourceURLs []string
@@ -437,6 +724,34 @@ func (h *Handler) SetUpDefaultMCPCatalog(ctx context.Context, c client.Client) e
 		return fmt.Errorf("failed to create default catalog: %w", err)
 	}
 	log.Infof("Created default MCP catalog: catalog=%s sources=%d", system.DefaultCatalog, len(sourceURLs))
+
+	return nil
+}
+
+func (h *Handler) SetUpDefaultSystemMCPCatalog(ctx context.Context, c client.Client) error {
+	var existing v1.SystemMCPCatalog
+	if err := c.Get(ctx, router.Key(system.DefaultNamespace, system.DefaultCatalog), &existing); !apierrors.IsNotFound(err) {
+		return err
+	}
+
+	var sourceURLs []string
+	if h.defaultSystemCatalogPath != "" {
+		sourceURLs = append(sourceURLs, h.defaultSystemCatalogPath)
+	}
+
+	if err := c.Create(ctx, &v1.SystemMCPCatalog{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      system.DefaultCatalog,
+			Namespace: system.DefaultNamespace,
+		},
+		Spec: v1.SystemMCPCatalogSpec{
+			DisplayName: "Default",
+			SourceURLs:  sourceURLs,
+		},
+	}); err != nil {
+		return fmt.Errorf("failed to create default system MCP catalog: %w", err)
+	}
+	log.Infof("Created default system MCP catalog: catalog=%s sources=%d", system.DefaultCatalog, len(sourceURLs))
 
 	return nil
 }

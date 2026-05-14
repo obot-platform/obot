@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Thread from '$lib/components/nanobot/Thread.svelte';
-	import { MessageCircle, Sparkles } from 'lucide-svelte';
 	import type { ChatSession } from '$lib/services/nanobot/chat/index.svelte';
+	import { MessageCircle, Sparkles } from 'lucide-svelte';
 
 	interface Props {
 		agentId: string;
@@ -13,6 +13,9 @@
 		onFileOpen?: (filename: string) => void;
 		suppressEmptyState?: boolean;
 		onThreadContentWidth?: (width: number) => void;
+		classes?: {
+			root?: string;
+		};
 	}
 
 	let {
@@ -22,7 +25,8 @@
 		browserViewerOpen = $bindable(false),
 		onFileOpen,
 		suppressEmptyState,
-		onThreadContentWidth
+		onThreadContentWidth,
+		classes
 	}: Props = $props();
 </script>
 
@@ -56,6 +60,7 @@
 				onReadResource={chat.readResource}
 				{suppressEmptyState}
 				onContentWidthChange={onThreadContentWidth}
+				{classes}
 			>
 				{#snippet emptyStateContent()}
 					<div class="flex flex-col items-center gap-4 px-5 pb-5 md:pb-0">

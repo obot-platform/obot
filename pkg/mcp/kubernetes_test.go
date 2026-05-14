@@ -2,15 +2,21 @@ package mcp
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/watch"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -151,6 +157,7 @@ func TestNewKubernetesBackend_ServiceFQDN(t *testing.T) {
 		})
 	}
 }
+
 func TestK8sObjects_NanobotAgentExcludesAuditLogConfig(t *testing.T) {
 	k := newTestKubernetesBackend(t)
 
@@ -160,7 +167,7 @@ func TestK8sObjects_NanobotAgentExcludesAuditLogConfig(t *testing.T) {
 		MCPServerDisplayName: "Nanobot Agent Server",
 		UserID:               "user-1",
 		OwnerUserID:          "user-2",
-		ContainerImage:       "ghcr.io/nanobot-ai/nanobot:latest",
+		ContainerImage:       "ghcr.io/obot-platform/nanobot:latest",
 		ContainerPort:        8080,
 		ContainerPath:        "/mcp",
 		Command:              "nanobot",
@@ -174,8 +181,8 @@ func TestK8sObjects_NanobotAgentExcludesAuditLogConfig(t *testing.T) {
 		t.Fatalf("k8sObjects() error = %v", err)
 	}
 
-	configSecret := findSecret(t, objs, name.SafeConcatName("nanobot-agent-server", "config"))
-	assertNoAuditLogEnv(t, configSecret.StringData)
+	configSecret := findSecret(t, objs, name.SafeConcatName("nanobot-agent-server", "mcp", "config"))
+	assertNoAuditLogEnv(t, configSecret.Data)
 }
 
 func TestK8sObjects_NonAgentShimKeepsAuditLogConfig(t *testing.T) {
@@ -187,7 +194,7 @@ func TestK8sObjects_NonAgentShimKeepsAuditLogConfig(t *testing.T) {
 		MCPServerDisplayName: "Standard Server",
 		UserID:               "user-1",
 		OwnerUserID:          "user-2",
-		ContainerImage:       "ghcr.io/obot-platform/mcp-images/phat:main",
+		ContainerImage:       "ghcr.io/obot-platform/mcp-images/stdio-wrapper:main",
 		ContainerPort:        8080,
 		ContainerPath:        "/mcp",
 		Command:              "server",
@@ -200,8 +207,272 @@ func TestK8sObjects_NonAgentShimKeepsAuditLogConfig(t *testing.T) {
 		t.Fatalf("k8sObjects() error = %v", err)
 	}
 
-	shimConfigSecret := findSecret(t, objs, name.SafeConcatName("standard-server", "config", "shim"))
-	assertHasAuditLogEnv(t, shimConfigSecret.StringData)
+	shimConfigSecret := findSecret(t, objs, name.SafeConcatName("standard-server", "mcp", "config", "shim"))
+	assertHasAuditLogEnv(t, shimConfigSecret.Data)
+}
+
+func TestK8sObjects_ServicePorts(t *testing.T) {
+	tests := []struct {
+		name                   string
+		nanobotAgentName       string
+		expectedHTTPPortTarget intstr.IntOrString
+		expectedStrategy       appsv1.DeploymentStrategyType
+	}{
+		{
+			name:                   "standard containerized server routes http service port to shim",
+			expectedHTTPPortTarget: intstr.FromString("http"),
+		},
+		{
+			name:                   "nanobot agent routes http service port to mcp container",
+			nanobotAgentName:       "agent-1",
+			expectedHTTPPortTarget: intstr.FromString("mcp"),
+			expectedStrategy:       appsv1.RecreateDeploymentStrategyType,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			k := newTestKubernetesBackend(t)
+			objs, err := k.k8sObjects(context.Background(), ServerConfig{
+				Runtime:              types.RuntimeContainerized,
+				MCPServerName:        "test-server",
+				MCPServerDisplayName: "Test Server",
+				UserID:               "user-1",
+				OwnerUserID:          "user-2",
+				ContainerImage:       "ghcr.io/obot-platform/mcp-images/stdio-wrapper:main",
+				ContainerPort:        8080,
+				ContainerPath:        "/mcp",
+				Command:              "server",
+				Args:                 []string{"run"},
+				NanobotAgentName:     tt.nanobotAgentName,
+			}, nil)
+			if err != nil {
+				t.Fatalf("k8sObjects() error = %v", err)
+			}
+
+			service := findService(t, objs, "test-server")
+			assertServicePort(t, service, "http", 80, tt.expectedHTTPPortTarget)
+			assertServicePort(t, service, "mcp", 8080, intstr.FromString("mcp"))
+
+			dep := findDeployment(t, objs, "test-server")
+			if dep.Spec.Strategy.Type != tt.expectedStrategy {
+				t.Fatalf("deployment strategy = %q, want %q", dep.Spec.Strategy.Type, tt.expectedStrategy)
+			}
+		})
+	}
+}
+
+func TestAnalyzePodStatus(t *testing.T) {
+	tests := []struct {
+		name            string
+		pod             corev1.Pod
+		wantRetryable   bool
+		wantErr         error
+		wantErrContains string
+	}{
+		{
+			name: "running mcp container remains retryable",
+			pod: corev1.Pod{
+				Status: corev1.PodStatus{
+					Phase:             corev1.PodRunning,
+					ContainerStatuses: []corev1.ContainerStatus{{Name: "mcp"}},
+				},
+			},
+			wantRetryable:   true,
+			wantErrContains: "pod in phase Running",
+		},
+		{
+			name: "image pull backoff is retryable image pull",
+			pod: corev1.Pod{
+				Status: corev1.PodStatus{
+					Phase: corev1.PodPending,
+					ContainerStatuses: []corev1.ContainerStatus{{
+						Name: "mcp",
+						State: corev1.ContainerState{
+							Waiting: &corev1.ContainerStateWaiting{Reason: "ImagePullBackOff"},
+						},
+					}},
+				},
+			},
+			wantRetryable:   true,
+			wantErr:         ErrImagePullFailed,
+			wantErrContains: "ImagePullBackOff",
+		},
+		{
+			name: "unschedulable pod remains retryable under pull/scheduling budget",
+			pod: corev1.Pod{
+				Status: corev1.PodStatus{
+					Phase: corev1.PodPending,
+					Conditions: []corev1.PodCondition{{
+						Type:   corev1.PodScheduled,
+						Status: corev1.ConditionFalse,
+						Reason: corev1.PodReasonUnschedulable,
+					}},
+				},
+			},
+			wantRetryable:   true,
+			wantErr:         ErrPodSchedulingFailed,
+			wantErrContains: "unschedulable",
+		},
+		{
+			name: "crash loop fails permanently",
+			pod: corev1.Pod{
+				Status: corev1.PodStatus{
+					Phase: corev1.PodRunning,
+					ContainerStatuses: []corev1.ContainerStatus{{
+						Name: "mcp",
+						State: corev1.ContainerState{
+							Waiting: &corev1.ContainerStateWaiting{Reason: "CrashLoopBackOff", Message: "back-off restarting failed container"},
+						},
+					}},
+				},
+			},
+			wantErr:         ErrPodCrashLoopBackOff,
+			wantErrContains: "back-off restarting failed container",
+		},
+		{
+			name: "failed phase fails health check timeout",
+			pod: corev1.Pod{
+				Status: corev1.PodStatus{
+					Phase:   corev1.PodFailed,
+					Message: "pod failed",
+				},
+			},
+			wantErr:         ErrHealthCheckTimeout,
+			wantErrContains: "pod failed",
+		},
+		{
+			name: "repeated terminated errors fail crash loop",
+			pod: corev1.Pod{
+				Status: corev1.PodStatus{
+					Phase: corev1.PodRunning,
+					ContainerStatuses: []corev1.ContainerStatus{{
+						Name:         "mcp",
+						RestartCount: 4,
+						State: corev1.ContainerState{
+							Terminated: &corev1.ContainerStateTerminated{ExitCode: 1, Reason: "Error"},
+						},
+					}},
+				},
+			},
+			wantErr:         ErrPodCrashLoopBackOff,
+			wantErrContains: "repeatedly crashing",
+		},
+		{
+			name: "evicted pod fails scheduling",
+			pod: corev1.Pod{
+				Status: corev1.PodStatus{
+					Phase:   corev1.PodPending,
+					Reason:  "Evicted",
+					Message: "node had disk pressure",
+				},
+			},
+			wantErr:         ErrPodSchedulingFailed,
+			wantErrContains: "node had disk pressure",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			retryable, err := analyzePodStatus(&tt.pod)
+			if tt.wantErr != nil {
+				if !errors.Is(err, tt.wantErr) {
+					t.Fatalf("analyzePodStatus() error = %v, want %v", err, tt.wantErr)
+				}
+			} else if tt.wantErrContains == "" && err != nil {
+				t.Fatalf("analyzePodStatus() error = %v, want nil", err)
+			}
+			if retryable != tt.wantRetryable {
+				t.Fatalf("analyzePodStatus() retryable = %v, want %v", retryable, tt.wantRetryable)
+			}
+			if tt.wantErrContains != "" && (err == nil || !strings.Contains(err.Error(), tt.wantErrContains)) {
+				t.Fatalf("analyzePodStatus() error = %q, want to contain %q", err, tt.wantErrContains)
+			}
+		})
+	}
+}
+
+type fakeWithWatch struct {
+	client.Client // controller-runtime fake for Get/List/Create etc.
+	watcher       *watch.FakeWatcher
+}
+
+func (f *fakeWithWatch) Watch(_ context.Context, _ client.ObjectList, _ ...client.ListOption) (watch.Interface, error) {
+	return f.watcher, nil
+}
+
+func TestUpdatedMCPPodName_ContainerStartupDeadlineExceeded(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := appsv1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme(appsv1) error = %v", err)
+	}
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme(corev1) error = %v", err)
+	}
+
+	now := time.Now()
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-server",
+			Namespace: "obot-mcp",
+		},
+		Status: appsv1.DeploymentStatus{
+			ObservedGeneration: 1,
+			UpdatedReplicas:    1,
+		},
+	}
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "test-server-pod",
+			Namespace:         "obot-mcp",
+			CreationTimestamp: metav1.NewTime(now.Add(-time.Minute)),
+			Labels: map[string]string{
+				"app": "test-server",
+			},
+		},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodRunning,
+			ContainerStatuses: []corev1.ContainerStatus{{
+				Name: "mcp",
+				State: corev1.ContainerState{
+					Running: &corev1.ContainerStateRunning{StartedAt: metav1.NewTime(now.Add(-2 * time.Second))},
+				},
+			}},
+		},
+	}
+
+	watcher := watch.NewFake()
+
+	go func() {
+		watcher.Add(&appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-server", Namespace: "obot-mcp"},
+		})
+		watcher.Stop()
+	}()
+
+	client := &fakeWithWatch{
+		Client:  fake.NewClientBuilder().WithScheme(scheme).WithObjects(deployment, pod).Build(),
+		watcher: watcher,
+	}
+
+	k := &kubernetesBackend{
+		client:       client,
+		mcpNamespace: "obot-mcp",
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	_, err := k.updatedMCPPodName(ctx, "http://mcp.example.com", "test-server", ServerConfig{
+		Runtime:        types.RuntimeRemote,
+		StartupTimeout: time.Second,
+	}, "")
+	if !errors.Is(err, ErrHealthCheckTimeout) {
+		t.Fatalf("updatedMCPPodName() error = %v, want %v", err, ErrHealthCheckTimeout)
+	}
+	if err.Error() != "timed out waiting for MCP server to be ready after 5 watch retries: timeout waiting for Deployment test-server to meet condition" {
+		t.Fatalf("updatedMCPPodName() error = %q, want deployment timeout message", err)
+	}
 }
 
 func newTestKubernetesBackend(t *testing.T) *kubernetesBackend {
@@ -213,15 +484,14 @@ func newTestKubernetesBackend(t *testing.T) *kubernetesBackend {
 	}
 
 	return &kubernetesBackend{
-		baseImage:            "ghcr.io/obot-platform/mcp-images/phat:main",
-		httpWebhookBaseImage: "ghcr.io/obot-platform/http-webhook:main",
-		remoteShimBaseImage:  "ghcr.io/obot-platform/remote-shim:main",
-		mcpNamespace:         "obot-mcp",
-		obotClient:           fake.NewClientBuilder().WithScheme(scheme).Build(),
+		baseImage:           "ghcr.io/obot-platform/mcp-images/stdio-wrapper:main",
+		remoteShimBaseImage: "ghcr.io/obot-platform/remote-shim:main",
+		mcpNamespace:        "obot-mcp",
+		obotClient:          fake.NewClientBuilder().WithScheme(scheme).Build(),
 	}
 }
 
-func findSecret(t *testing.T, objs []kclient.Object, secretName string) *corev1.Secret {
+func findSecret(t *testing.T, objs []client.Object, secretName string) *corev1.Secret {
 	t.Helper()
 
 	for _, obj := range objs {
@@ -235,7 +505,53 @@ func findSecret(t *testing.T, objs []kclient.Object, secretName string) *corev1.
 	return nil
 }
 
-func assertNoAuditLogEnv(t *testing.T, env map[string]string) {
+func findService(t *testing.T, objs []client.Object, serviceName string) *corev1.Service {
+	t.Helper()
+
+	for _, obj := range objs {
+		service, ok := obj.(*corev1.Service)
+		if ok && service.Name == serviceName {
+			return service
+		}
+	}
+
+	t.Fatalf("service %q not found", serviceName)
+	return nil
+}
+
+func findDeployment(t *testing.T, objs []client.Object, deploymentName string) *appsv1.Deployment {
+	t.Helper()
+
+	for _, obj := range objs {
+		dep, ok := obj.(*appsv1.Deployment)
+		if ok && dep.Name == deploymentName {
+			return dep
+		}
+	}
+
+	t.Fatalf("deployment %q not found", deploymentName)
+	return nil
+}
+
+func assertServicePort(t *testing.T, service *corev1.Service, portName string, port int32, targetPort intstr.IntOrString) {
+	t.Helper()
+
+	for _, servicePort := range service.Spec.Ports {
+		if servicePort.Name == portName {
+			if servicePort.Port != port {
+				t.Fatalf("service port %q port = %d, want %d", portName, servicePort.Port, port)
+			}
+			if servicePort.TargetPort != targetPort {
+				t.Fatalf("service port %q targetPort = %v, want %v", portName, servicePort.TargetPort, targetPort)
+			}
+			return
+		}
+	}
+
+	t.Fatalf("service port %q not found", portName)
+}
+
+func assertNoAuditLogEnv(t *testing.T, env map[string][]byte) {
 	t.Helper()
 
 	for key := range env {
@@ -245,7 +561,7 @@ func assertNoAuditLogEnv(t *testing.T, env map[string]string) {
 	}
 }
 
-func assertHasAuditLogEnv(t *testing.T, env map[string]string) {
+func assertHasAuditLogEnv(t *testing.T, env map[string][]byte) {
 	t.Helper()
 
 	expected := []string{

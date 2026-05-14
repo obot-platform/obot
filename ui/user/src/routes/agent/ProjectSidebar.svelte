@@ -1,7 +1,9 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import Logo from '$lib/components/Logo.svelte';
 	import Threads from '$lib/components/nanobot/Threads.svelte';
 	import { getLayout } from '$lib/context/nanobotLayout.svelte';
+	import { errors } from '$lib/stores';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { goto } from '$lib/url';
 	import {
@@ -14,11 +16,8 @@
 		Workflow,
 		WorkflowIcon
 	} from 'lucide-svelte';
-	import { get } from 'svelte/store';
-	import { twMerge } from 'tailwind-merge';
 	import { fly, slide } from 'svelte/transition';
-	import { errors } from '$lib/stores';
-	import { page } from '$app/state';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		selectedSessionId?: string;
@@ -36,16 +35,17 @@
 		}
 		try {
 			await $nanobotChat.api.renameSession(sessionId, newTitle);
-			const sharedChat = get(nanobotChat);
-			const sessionIndex = sharedChat?.sessions.findIndex((s) => s.id === sessionId) ?? -1;
-			if (sessionIndex !== -1 && sharedChat) {
-				nanobotChat.update((data) => {
-					if (data && sessionIndex !== -1) {
-						data.sessions[sessionIndex].title = newTitle;
-					}
-					return data;
-				});
-			}
+			nanobotChat.update((data) => {
+				if (!data) return data;
+				const sessionIndex = data.sessions.findIndex((s) => s.id === sessionId);
+				if (sessionIndex === -1) return data;
+				return {
+					...data,
+					sessions: data.sessions.map((s, i) =>
+						i === sessionIndex ? { ...s, title: newTitle } : s
+					)
+				};
+			});
 		} catch (error) {
 			console.error('Failed to rename thread:', error);
 		}

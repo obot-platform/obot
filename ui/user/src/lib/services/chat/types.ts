@@ -165,6 +165,8 @@ export interface Version {
 	enterprise?: boolean;
 	upgradeAvailable?: boolean;
 	engine?: 'docker' | 'kubernetes' | 'local';
+	mcpNetworkPolicyEnabled?: boolean;
+	mcpDefaultDenyAllEgress?: boolean;
 	autonomousToolUseEnabled?: boolean;
 	nanobotIntegration?: boolean;
 	messagePoliciesEnabled?: boolean;
@@ -301,11 +303,15 @@ export interface UVXRuntimeConfig {
 	package: string;
 	command?: string;
 	args?: string[];
+	egressDomains?: string[];
+	denyAllEgress?: boolean;
 }
 
 export interface NPXRuntimeConfig {
 	package: string;
 	args?: string[];
+	egressDomains?: string[];
+	denyAllEgress?: boolean;
 }
 
 export interface ContainerizedRuntimeConfig {
@@ -314,6 +320,8 @@ export interface ContainerizedRuntimeConfig {
 	path: string;
 	command?: string;
 	args?: string[];
+	egressDomains?: string[];
+	denyAllEgress?: boolean;
 }
 
 export interface RemoteRuntimeConfig {
@@ -329,6 +337,10 @@ export interface RemoteCatalogConfig {
 	headers?: MCPSubField[];
 }
 
+export interface MultiUserConfig {
+	userDefinedHeaders?: MCPSubField[];
+}
+
 export interface CompositeRuntimeConfig {
 	componentServers: ComponentServer[];
 }
@@ -338,6 +350,7 @@ export interface ComponentServer {
 	mcpServerID?: string;
 	manifest?: MCPServer;
 	toolOverrides?: ToolOverride[];
+	toolPrefix?: string;
 	disabled?: boolean;
 }
 
@@ -368,12 +381,19 @@ export interface ToolOverride {
 export interface MCPSubField {
 	description: string;
 	file?: boolean;
+	dynamicFile?: boolean;
 	key: string;
 	name: string;
 	required: boolean;
 	sensitive: boolean;
 	value?: string;
 	prefix?: string;
+	secretBinding?: MCPSecretBinding;
+}
+
+export interface MCPSecretBinding {
+	name: string;
+	key: string;
 }
 
 export interface MCP {
@@ -399,6 +419,9 @@ export interface MCPServer {
 	containerizedConfig?: ContainerizedRuntimeConfig;
 	remoteConfig?: RemoteRuntimeConfig;
 	compositeConfig?: CompositeRuntimeConfig;
+	multiUserConfig?: MultiUserConfig;
+
+	startupTimeoutSeconds?: number;
 }
 
 export interface MCPServerTool {
@@ -781,6 +804,7 @@ export interface MCPCatalogServer {
 	type: string;
 	mcpServerInstanceUserCount?: number;
 	manifest: MCPServer;
+	oauthMetadata?: OAuthMetadata;
 	needsUpdate?: boolean;
 	needsK8sUpdate?: boolean;
 	needsURL?: boolean;
@@ -792,12 +816,23 @@ export interface MCPCatalogServer {
 	canConnect?: boolean;
 }
 
+export interface OAuthMetadata {
+	protectedResourceUrl?: string;
+	authorizationServerUrl?: string;
+	protectedResourceMetadata?: Record<string, unknown>;
+	authorizationServerMetadata?: Record<string, unknown>;
+	dynamicClientRegistration?: boolean;
+}
+
 export interface MCPServerInstance {
 	id: string;
 	created: string;
 	deleted?: string;
 	links?: Record<string, string>;
 	metadata?: Record<string, string>;
+	multiUserConfig?: MultiUserConfig;
+	configured: boolean;
+	missingRequiredHeaders?: string[];
 	userID: string;
 	mcpServerID?: string;
 	mcpCatalogID?: string;

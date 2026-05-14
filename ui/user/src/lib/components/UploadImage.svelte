@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { Upload } from 'lucide-svelte/icons';
+	import Error from '$lib/components/Error.svelte';
+	import Loading from '$lib/icons/Loading.svelte';
 	import { EditorService } from '$lib/services';
 	import type { ImageResponse } from '$lib/services/editor/index.svelte';
-	import Loading from '$lib/icons/Loading.svelte';
-	import Error from '$lib/components/Error.svelte';
+	import { Upload } from 'lucide-svelte/icons';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {

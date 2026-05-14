@@ -1,7 +1,8 @@
 <script lang="ts">
-	import McpServerK8sInfo from '$lib/components/admin/McpServerK8sInfo.svelte';
 	import Layout from '$lib/components/Layout.svelte';
+	import McpServerK8sInfo from '$lib/components/admin/McpServerK8sInfo.svelte';
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
+	import OAuthMetadataDebug from '$lib/components/mcp/OAuthMetadataDebug.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { AdminService, ChatService, type MCPServerInstance, type OrgUser } from '$lib/services';
 	import { profile } from '$lib/stores/index.js';
@@ -15,6 +16,9 @@
 	let users = $state<OrgUser[]>([]);
 	let instances = $state<MCPServerInstance[]>([]);
 	let usersMap = $derived(new Map(users.map((u) => [u.id, u])));
+	let currentUserInstance = $derived(
+		instances.find((instance) => instance.userID === profile.current.id)
+	);
 
 	onMount(async () => {
 		if (!mcpServer || !workspaceId) return;
@@ -33,7 +37,12 @@
 
 <Layout {title} showBackButton>
 	{#snippet rightNavActions()}
-		<McpServerActions server={mcpServer} {loading} />
+		<McpServerActions
+			server={mcpServer}
+			instance={currentUserInstance}
+			{loading}
+			allowMultiUserServerConfigurationEdit={mcpServer?.powerUserWorkspaceID === workspaceId}
+		/>
 	{/snippet}
 	<div class="flex flex-col gap-6 pb-8" in:fly={{ x: 100, delay: PAGE_TRANSITION_DURATION }}>
 		{#if loading}
@@ -56,12 +65,16 @@
 							const user = usersMap.get(instance.userID)!;
 							return {
 								...user,
-								mcpInstanceId: instance.id
+								mcpInstanceId: instance.id,
+								mcpInstanceConfigured: instance.configured
 							};
 						})}
 						title={mcpServer.manifest.name}
 						readonly={profile.current.isAdminReadonly?.()}
 					/>
+					{#if mcpServer.manifest.runtime === 'remote'}
+						<OAuthMetadataDebug metadata={mcpServer.oauthMetadata} />
+					{/if}
 				{/if}
 			</div>
 		{/if}

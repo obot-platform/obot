@@ -1,4 +1,11 @@
 <script lang="ts">
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import FileItem from '$lib/components/nanobot/FileItem.svelte';
+	import type { ChatMessageItemToolCall, ProjectLayoutContext } from '$lib/services/nanobot/types';
+	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
+	import { responsive } from '$lib/stores';
+	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
+	import Profile from '../navbar/Profile.svelte';
 	import {
 		Circle,
 		CheckCircle2,
@@ -10,16 +17,9 @@
 		SidebarClose,
 		ListCheck
 	} from 'lucide-svelte';
-	import { twMerge } from 'tailwind-merge';
-	import Profile from '../navbar/Profile.svelte';
-	import { fly } from 'svelte/transition';
-	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { getContext } from 'svelte';
-	import type { ChatMessageItemToolCall, ProjectLayoutContext } from '$lib/services/nanobot/types';
-	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
-	import FileItem from '$lib/components/nanobot/FileItem.svelte';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { responsive } from '$lib/stores';
+	import { fly } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		onToggle?: () => void;
@@ -28,7 +28,7 @@
 		browserViewerOpen?: boolean;
 		browserAvailable?: boolean;
 		sessionId?: string;
-		workflowName?: string;
+		workflowId?: string;
 		selectedFile?: string;
 		agentId?: string;
 		projectId?: string;
@@ -42,7 +42,7 @@
 		browserViewerOpen = false,
 		browserAvailable = false,
 		sessionId,
-		workflowName,
+		workflowId,
 		selectedFile,
 		agentId,
 		projectId,
@@ -101,7 +101,7 @@
 
 	const files = $derived.by(() => {
 		const threadResources = chatForSession?.resources ?? [];
-		const workflowResources = workflowName ? ($nanobotChat?.resources ?? []) : [];
+		const workflowResources = workflowId ? ($nanobotChat?.resources ?? []) : [];
 		const deduped: Array<
 			((typeof threadResources)[number] | (typeof workflowResources)[number]) & {
 				openPath: string;
@@ -113,7 +113,7 @@
 			if (!resource.uri.startsWith('file:///')) {
 				continue;
 			}
-			if (!shouldShowFile(resource.uri, sessionId, workflowName)) {
+			if (!shouldShowFile(resource.uri, sessionId, workflowId)) {
 				continue;
 			}
 
@@ -141,7 +141,7 @@
 		});
 	});
 
-	const hasSidebarContent = $derived(!!sessionId || !!workflowName || files.length > 0);
+	const hasSidebarContent = $derived(!!sessionId || !!workflowId || files.length > 0);
 
 	const TODO_WRITE_NAMES = ['todo_write', 'todoWrite'];
 

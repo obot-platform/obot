@@ -1,22 +1,27 @@
 <script lang="ts">
-	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
-	import { goto } from '$lib/url';
 	import { afterNavigate } from '$app/navigation';
-	import { CircleAlert, FolderInput, Play, Search, Trash2, Workflow } from 'lucide-svelte';
-	import { getContext } from 'svelte';
+	import Confirm from '$lib/components/Confirm.svelte';
+	import ConfirmDiffWorkflow from '$lib/components/nanobot/ConfirmDiffWorkflow.svelte';
+	import PublishedWorkflowInstallModal from '$lib/components/nanobot/PublishedWorkflowInstallModal.svelte';
+	import {
+		latestVersionSubjects,
+		sharingLabel
+	} from '$lib/components/nanobot/publishedArtifactSubjects';
+	import { NanobotService } from '$lib/services/index.js';
 	import type { ProjectLayoutContext, PublishedArtifactVersion } from '$lib/services/nanobot/types';
 	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
-	import { errors, profile, responsive } from '$lib/stores';
 	import type { PublishedArtifact } from '$lib/services/nanobot/types';
+	import { hasNewerVersion } from '$lib/services/nanobot/versioning';
+	import { errors, profile, responsive } from '$lib/stores';
+	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { formatTimeAgo } from '$lib/time.js';
+	import { goto } from '$lib/url';
+	import { CircleAlert, FolderInput, Play, Search, Trash2, Workflow } from 'lucide-svelte';
+	import { getContext } from 'svelte';
+	import { untrack } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { fly } from 'svelte/transition';
-	import PublishedWorkflowInstallModal from '$lib/components/nanobot/PublishedWorkflowInstallModal.svelte';
-	import Confirm from '$lib/components/Confirm.svelte';
-	import { untrack } from 'svelte';
-	import ConfirmDiffWorkflow from '$lib/components/nanobot/ConfirmDiffWorkflow.svelte';
 	import { twMerge } from 'tailwind-merge';
-	import { NanobotService } from '$lib/services/index.js';
 
 	let { data } = $props();
 	let projectId = $derived(data.projects[0].id);
@@ -61,11 +66,11 @@
 	);
 
 	let workflowSet = $derived(new Map(workflows.map((w) => [w.name, w])));
+
 	let { sharedWorkflows, myPublishedWorkflows } = $derived({
 		sharedWorkflows: publishedWorkflows
-			.filter((w) => w.visibility === 'public' && w.authorID !== profile.current.id)
+			.filter((w) => w.authorID !== profile.current.id)
 			.map((w) => {
-				const latestVersionString = w.latestVersion != null ? String(w.latestVersion) : undefined;
 				const currentInstalledVersion = workflowSet.get(w.name)?._meta?.version as
 					| string
 					| undefined;
@@ -73,7 +78,8 @@
 					...w,
 					currentInstalledVersion,
 					isInstalled: workflowSet.has(w.name),
-					isUpdated: currentInstalledVersion === latestVersionString,
+					isUpdated:
+						workflowSet.has(w.name) && !hasNewerVersion(w.latestVersion, currentInstalledVersion),
 					workflowUri: workflowSet.get(w.name)?.uri ?? ''
 				};
 			})
@@ -101,7 +107,7 @@
 					publishedArtifactId: w.id,
 					name: w.displayName,
 					published: w.created,
-					visibility: w.visibility,
+					sharing: sharingLabel(latestVersionSubjects(w.versions, w.latestVersion)),
 					createdBy: w.authorEmail,
 					workflowUri: w.workflowUri ?? '',
 					isInstalled: w.isInstalled,
@@ -116,9 +122,6 @@
 					const sharedMatch = sharedWorkflows.find(
 						(sw) => sw.name === w.name && sw.authorEmail === w._meta?.['author-email']
 					);
-					const sharedLatestVersion = sharedMatch?.latestVersion;
-					const sharedLatestVersionString =
-						sharedLatestVersion != null ? String(sharedLatestVersion) : undefined;
 					const isInstalledFrom = sharedMatch && w._meta?.['author-email'];
 					const isInstalled = !!(
 						isInstalledFrom && w._meta?.['author-email'] !== profile.current.email
@@ -131,12 +134,16 @@
 							publishedMatch?.displayName ??
 							((w._meta?.displayName ?? w._meta?.name ?? w.name ?? '') as string),
 						published: publishedMatch?.created,
-						visibility: publishedMatch?.visibility || 'private',
+						sharing: sharingLabel(
+							latestVersionSubjects(publishedMatch?.versions, publishedMatch?.latestVersion)
+						),
 						createdBy: 'Me',
 						workflowUri: w.uri,
 						isInstalled,
 						isInstalledFrom,
-						isUpdated: sharedLatestVersionString === w._meta?.version,
+						isUpdated:
+							!!isInstalledFrom &&
+							!hasNewerVersion(sharedMatch?.latestVersion, w._meta?.version as string | undefined),
 						versions: publishedMatch?.versions ?? [],
 						latestVersion: publishedMatch?.latestVersion ?? 0,
 						currentInstalledVersion: w._meta?.version as string | undefined

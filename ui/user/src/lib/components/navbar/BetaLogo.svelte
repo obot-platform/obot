@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { darkMode } from '$lib/stores';
-	import { twMerge } from 'tailwind-merge';
 	import appPreferences from '$lib/stores/appPreferences.svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		chat?: boolean;

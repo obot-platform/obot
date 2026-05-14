@@ -196,6 +196,60 @@ func TestCheckUI_V2AdminAccess(t *testing.T) {
 			},
 			expected: true,
 		},
+		{
+			name: "/debug/triggers is rejected for any authenticated user",
+			path: "/debug/triggers",
+			user: &user.DefaultInfo{
+				Name:   "user",
+				Groups: []string{types.GroupOwner, types.GroupAdmin, types.GroupAuthenticated},
+			},
+			expected: false,
+		},
+		{
+			name: "/debug/triggers is rejected for unauthenticated users",
+			path: "/debug/triggers",
+			user: &user.DefaultInfo{
+				Name:   "user",
+				Groups: []string{UnauthenticatedGroup},
+			},
+			expected: false,
+		},
+		{
+			name: "/debug/pprof/profile is rejected for any authenticated user",
+			path: "/debug/pprof/profile",
+			user: &user.DefaultInfo{
+				Name:   "user",
+				Groups: []string{types.GroupOwner, types.GroupAdmin, types.GroupAuthenticated},
+			},
+			expected: false,
+		},
+		{
+			name: "/debug/pprof/profile is rejected for unauthenticated users",
+			path: "/debug/pprof/profile",
+			user: &user.DefaultInfo{
+				Name:   "user",
+				Groups: []string{UnauthenticatedGroup},
+			},
+			expected: false,
+		},
+		{
+			name: "/mcp-connect is rejected by UI fallback",
+			path: "/mcp-connect/ms1test",
+			user: &user.DefaultInfo{
+				Name:   "anonymous",
+				Groups: []string{UnauthenticatedGroup},
+			},
+			expected: false,
+		},
+		{
+			name: "/oauth is rejected by UI fallback",
+			path: "/oauth/authorize",
+			user: &user.DefaultInfo{
+				Name:   "anonymous",
+				Groups: []string{UnauthenticatedGroup},
+			},
+			expected: false,
+		},
 	}
 
 	for _, tt := range tests {

@@ -2,12 +2,33 @@ package validation
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/stretchr/testify/require"
 )
+
+func TestValidateServerManifestForCatalog_MultiUserConfig(t *testing.T) {
+	manifest := types.MCPServerManifest{
+		Runtime: types.RuntimeNPX,
+		NPXConfig: &types.NPXRuntimeConfig{
+			Package: "test-server",
+		},
+	}
+
+	require.NoError(t, ValidateServerManifest(manifest, true))
+
+	manifest.MultiUserConfig = &types.MultiUserConfig{}
+	require.Equal(t, types.RuntimeValidationError{
+		Runtime: types.RuntimeNPX,
+		Field:   "multiUserConfig",
+		Message: "multiUserConfig may only be set for multi-user servers",
+	}, ValidateServerManifest(manifest, false))
+	require.NoError(t, ValidateServerManifest(manifest, true))
+}
 
 func TestRemoteValidator_validateRemoteCatalogConfig(t *testing.T) {
 	validator := RemoteValidator{}
@@ -825,6 +846,126 @@ func TestRemoteValidator_ValidateCatalogConfig_HeaderValidation(t *testing.T) {
 	}
 }
 
+func TestValidateEgressDomains(t *testing.T) {
+	tests := []struct {
+		name          string
+		runtime       types.Runtime
+		domains       []string
+		denyAllEgress *bool
+		expectError   bool
+		errorMsg      string
+	}{
+		{
+			name:    "accept exact domain",
+			runtime: types.RuntimeNPX,
+			domains: []string{"api.example.com"},
+		},
+		{
+			name:    "accept wildcard domain",
+			runtime: types.RuntimeUVX,
+			domains: []string{"*.example.com"},
+		},
+		{
+			name:        "reject protocol",
+			runtime:     types.RuntimeNPX,
+			domains:     []string{"https://example.com"},
+			expectError: true,
+			errorMsg:    "must not include a protocol",
+		},
+		{
+			name:        "reject path",
+			runtime:     types.RuntimeUVX,
+			domains:     []string{"example.com/path"},
+			expectError: true,
+			errorMsg:    "must not include a path or port",
+		},
+		{
+			name:        "reject port",
+			runtime:     types.RuntimeContainerized,
+			domains:     []string{"example.com:443"},
+			expectError: true,
+			errorMsg:    "must not include a path or port",
+		},
+		{
+			name:        "reject mid label wildcard",
+			runtime:     types.RuntimeNPX,
+			domains:     []string{"foo.*.example.com"},
+			expectError: true,
+			errorMsg:    "must be a valid hostname",
+		},
+		{
+			name:        "reject empty domain",
+			runtime:     types.RuntimeUVX,
+			domains:     []string{" "},
+			expectError: true,
+			errorMsg:    "cannot be empty",
+		},
+		{
+			name:        "reject wildcard all",
+			runtime:     types.RuntimeContainerized,
+			domains:     []string{"*"},
+			expectError: true,
+			errorMsg:    "must be a valid hostname or leading wildcard hostname",
+		},
+		{
+			name:        "reject IP address",
+			runtime:     types.RuntimeNPX,
+			domains:     []string{"169.254.169.254"},
+			expectError: true,
+			errorMsg:    "must not be an IP address",
+		},
+		{
+			name:        "reject single-label host",
+			runtime:     types.RuntimeUVX,
+			domains:     []string{"metadata"},
+			expectError: true,
+			errorMsg:    "at least two DNS labels",
+		},
+		{
+			name:        "reject broad wildcard",
+			runtime:     types.RuntimeContainerized,
+			domains:     []string{"*.com"},
+			expectError: true,
+			errorMsg:    "at least two DNS labels",
+		},
+		{
+			name:        "reject cluster internal domain",
+			runtime:     types.RuntimeNPX,
+			domains:     []string{"*.svc.cluster.local"},
+			expectError: true,
+			errorMsg:    "is not allowed",
+		},
+		{
+			name:        "reject reverse DNS domain",
+			runtime:     types.RuntimeNPX,
+			domains:     []string{"*.254.169.in-addr.arpa"},
+			expectError: true,
+			errorMsg:    "is not allowed",
+		},
+		{
+			name:          "reject domains when deny all egress enabled",
+			runtime:       types.RuntimeNPX,
+			domains:       []string{"example.com"},
+			denyAllEgress: new(true),
+			expectError:   true,
+			errorMsg:      "denyAllEgress cannot be true",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateEgressDomains(tt.runtime, tt.domains, tt.denyAllEgress)
+			if tt.expectError {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.errorMsg)
+				return
+			}
+
+			require.NoError(t, err)
+		})
+	}
+}
+
 func TestCompositeValidator_ValidateCatalogConfig(t *testing.T) {
 	validator := CompositeValidator{}
 
@@ -963,41 +1104,6 @@ func TestCompositeValidator_ValidateCatalogConfig(t *testing.T) {
 			},
 		},
 		{
-			name: "tool overrides invalid bubbles up in catalog",
-			manifest: types.MCPServerCatalogEntryManifest{
-				Runtime: types.RuntimeComposite,
-				CompositeConfig: &types.CompositeCatalogConfig{
-					ComponentServers: []types.CatalogComponentServer{
-						{
-							CatalogEntryID: "entry-1",
-							Manifest: types.MCPServerCatalogEntryManifest{
-								Runtime: types.RuntimeRemote,
-							},
-							ToolOverrides: []types.ToolOverride{
-								{
-									Name:         "",
-									OverrideName: "tool-1-override",
-									Enabled:      true,
-								},
-							},
-						},
-					},
-				},
-			},
-			expectedError: errors.Join(
-				types.RuntimeValidationError{
-					Runtime: types.RuntimeComposite,
-					Field:   "compositeConfig.componentServers[0]",
-					Message: "tool overrides invalid",
-				},
-				types.RuntimeValidationError{
-					Runtime: types.RuntimeComposite,
-					Field:   "toolOverrides[0].name",
-					Message: "original tool name is required",
-				},
-			),
-		},
-		{
 			name: "valid catalog composite configuration passes",
 			manifest: types.MCPServerCatalogEntryManifest{
 				Runtime: types.RuntimeComposite,
@@ -1073,132 +1179,282 @@ func TestCompositeValidator_ValidateCatalogConfig(t *testing.T) {
 			},
 			expectedError: nil,
 		},
+		{
+			name: "tool prefix with invalid character",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeCatalogConfig{
+					ComponentServers: []types.CatalogComponentServer{
+						{
+							CatalogEntryID: "entry-1",
+							Manifest: types.MCPServerCatalogEntryManifest{
+								Runtime: types.RuntimeRemote,
+							},
+							ToolOverrides: []types.ToolOverride{
+								{Name: "list", Enabled: true},
+							},
+							ToolPrefix: "gh space",
+						},
+					},
+				},
+			},
+			expectedError: types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   "compositeConfig.componentServers[0].toolPrefix",
+				Message: "toolPrefix must match ^[A-Za-z0-9._/-]*$",
+			},
+		},
+		{
+			name: "tool prefix is allowed without tool overrides",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeCatalogConfig{
+					ComponentServers: []types.CatalogComponentServer{
+						{
+							CatalogEntryID: "entry-1",
+							Manifest: types.MCPServerCatalogEntryManifest{
+								Runtime: types.RuntimeRemote,
+							},
+							ToolPrefix: "gh_",
+						},
+					},
+				},
+			},
+			expectedError: nil,
+		},
+		{
+			name: "duplicate non-empty tool prefix",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeCatalogConfig{
+					ComponentServers: []types.CatalogComponentServer{
+						{
+							CatalogEntryID: "entry-1",
+							Manifest: types.MCPServerCatalogEntryManifest{
+								Runtime: types.RuntimeRemote,
+							},
+							ToolOverrides: []types.ToolOverride{
+								{Name: "list", Enabled: true},
+							},
+							ToolPrefix: "gh_",
+						},
+						{
+							CatalogEntryID: "entry-2",
+							Manifest: types.MCPServerCatalogEntryManifest{
+								Runtime: types.RuntimeRemote,
+							},
+							ToolOverrides: []types.ToolOverride{
+								{Name: "list", Enabled: true},
+							},
+							ToolPrefix: "gh_",
+						},
+					},
+				},
+			},
+			expectedError: types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   "compositeConfig.componentServers[1].toolPrefix",
+				Message: "duplicate toolPrefix: gh_",
+			},
+		},
+		{
+			name: "valid tool prefix with tool overrides",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeCatalogConfig{
+					ComponentServers: []types.CatalogComponentServer{
+						{
+							CatalogEntryID: "entry-1",
+							Manifest: types.MCPServerCatalogEntryManifest{
+								Runtime: types.RuntimeRemote,
+							},
+							ToolOverrides: []types.ToolOverride{
+								{Name: "list", Enabled: true},
+							},
+							ToolPrefix: "gh_",
+						},
+					},
+				},
+			},
+			expectedError: nil,
+		},
+		{
+			name: "tool prefix at max length is allowed",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeCatalogConfig{
+					ComponentServers: []types.CatalogComponentServer{
+						{
+							CatalogEntryID: "entry-1",
+							Manifest: types.MCPServerCatalogEntryManifest{
+								Runtime: types.RuntimeRemote,
+							},
+							ToolPrefix: strings.Repeat("a", maxToolPrefixLength),
+						},
+					},
+				},
+			},
+			expectedError: nil,
+		},
+		{
+			name: "tool prefix exceeds max length",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeCatalogConfig{
+					ComponentServers: []types.CatalogComponentServer{
+						{
+							CatalogEntryID: "entry-1",
+							Manifest: types.MCPServerCatalogEntryManifest{
+								Runtime: types.RuntimeRemote,
+							},
+							ToolPrefix: strings.Repeat("a", maxToolPrefixLength+1),
+						},
+					},
+				},
+			},
+			expectedError: types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   "compositeConfig.componentServers[0].toolPrefix",
+				Message: "toolPrefix must be at most 64 characters",
+			},
+		},
+		{
+			name: "empty tool prefixes may repeat across components",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeCatalogConfig{
+					ComponentServers: []types.CatalogComponentServer{
+						{
+							CatalogEntryID: "entry-1",
+							Manifest: types.MCPServerCatalogEntryManifest{
+								Runtime: types.RuntimeRemote,
+							},
+						},
+						{
+							CatalogEntryID: "entry-2",
+							Manifest: types.MCPServerCatalogEntryManifest{
+								Runtime: types.RuntimeRemote,
+							},
+						},
+					},
+				},
+			},
+			expectedError: nil,
+		},
+		{
+			name: "empty original tool name",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeCatalogConfig{
+					ComponentServers: []types.CatalogComponentServer{
+						{
+							CatalogEntryID: "entry-1",
+							Manifest: types.MCPServerCatalogEntryManifest{
+								Runtime: types.RuntimeRemote,
+							},
+							ToolOverrides: []types.ToolOverride{
+								{Name: "", Enabled: true},
+							},
+						},
+					},
+				},
+			},
+			expectedError: types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   "compositeConfig.componentServers[0].toolOverrides[0].name",
+				Message: "original tool name is required",
+			},
+		},
+		{
+			name: "effective tool name exceeds max length",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeCatalogConfig{
+					ComponentServers: []types.CatalogComponentServer{
+						{
+							CatalogEntryID: "entry-1",
+							Manifest: types.MCPServerCatalogEntryManifest{
+								Runtime: types.RuntimeRemote,
+							},
+							ToolPrefix: strings.Repeat("a", maxToolPrefixLength),
+							ToolOverrides: []types.ToolOverride{
+								{Name: strings.Repeat("b", maxToolNameLength-maxToolPrefixLength+1), Enabled: true},
+							},
+						},
+					},
+				},
+			},
+			expectedError: types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   "compositeConfig.componentServers[0].toolOverrides[0]",
+				Message: fmt.Sprintf(
+					"effective tool name must be at most 128 characters: %q",
+					strings.Repeat("a", maxToolPrefixLength)+strings.Repeat("b", maxToolNameLength-maxToolPrefixLength+1),
+				),
+			},
+		},
+		{
+			name: "effective tool name has invalid character",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeCatalogConfig{
+					ComponentServers: []types.CatalogComponentServer{
+						{
+							CatalogEntryID: "entry-1",
+							Manifest: types.MCPServerCatalogEntryManifest{
+								Runtime: types.RuntimeRemote,
+							},
+							ToolOverrides: []types.ToolOverride{
+								{Name: "list things", Enabled: true},
+							},
+						},
+					},
+				},
+			},
+			expectedError: types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   "compositeConfig.componentServers[0].toolOverrides[0]",
+				Message: "effective tool name must match ^[A-Za-z0-9._/-]*$",
+			},
+		},
+		{
+			name: "duplicate effective tool name across components",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeCatalogConfig{
+					ComponentServers: []types.CatalogComponentServer{
+						{
+							CatalogEntryID: "entry-1",
+							Manifest: types.MCPServerCatalogEntryManifest{
+								Runtime: types.RuntimeRemote,
+							},
+							ToolOverrides: []types.ToolOverride{
+								{Name: "list", Enabled: true},
+							},
+						},
+						{
+							CatalogEntryID: "entry-2",
+							Manifest: types.MCPServerCatalogEntryManifest{
+								Runtime: types.RuntimeRemote,
+							},
+							ToolOverrides: []types.ToolOverride{
+								{Name: "list", Enabled: true},
+							},
+						},
+					},
+				},
+			},
+			expectedError: types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   "compositeConfig.componentServers[1].toolOverrides[0]",
+				Message: "duplicate tool name: list",
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := validator.ValidateCatalogConfig(tt.manifest)
-			require.Equal(t, tt.expectedError, err)
-		})
-	}
-}
-
-func TestValidateToolOverrides(t *testing.T) {
-	tests := []struct {
-		name          string
-		overrides     []types.ToolOverride
-		expectedError error
-	}{
-		{
-			name: "valid overrides",
-			overrides: []types.ToolOverride{
-				{
-					Name:    "tool-1",
-					Enabled: true,
-				},
-				{
-					Name:         "tool-2",
-					OverrideName: "tool-2-alias",
-					Enabled:      true,
-				},
-			},
-			expectedError: nil,
-		},
-		{
-			name: "missing original tool name",
-			overrides: []types.ToolOverride{
-				{
-					Name:         "",
-					OverrideName: "tool-1",
-					Enabled:      true,
-				},
-			},
-			expectedError: types.RuntimeValidationError{
-				Runtime: types.RuntimeComposite,
-				Field:   "toolOverrides[0].name",
-				Message: "original tool name is required",
-			},
-		},
-		{
-			name: "duplicate effective name when override uses original name",
-			overrides: []types.ToolOverride{
-				{
-					Name:    "tool-1",
-					Enabled: true,
-				},
-				{
-					Name:         "tool-2",
-					OverrideName: "tool-1",
-					Enabled:      true,
-				},
-			},
-			expectedError: types.RuntimeValidationError{
-				Runtime: types.RuntimeComposite,
-				Field:   "toolOverrides[1].overrideName",
-				Message: "duplicate override name: tool-1",
-			},
-		},
-		{
-			name: "duplicate original tool name",
-			overrides: []types.ToolOverride{
-				{
-					Name:         "tool-1",
-					OverrideName: "tool-1",
-					Enabled:      true,
-				},
-				{
-					Name:         "tool-1",
-					OverrideName: "tool-1-alias",
-					Enabled:      true,
-				},
-			},
-			expectedError: types.RuntimeValidationError{
-				Runtime: types.RuntimeComposite,
-				Field:   "toolOverrides[1].name",
-				Message: "duplicate tool name: tool-1",
-			},
-		},
-		{
-			name: "duplicate override name when enabled",
-			overrides: []types.ToolOverride{
-				{
-					Name:         "tool-1",
-					OverrideName: "shared-alias",
-					Enabled:      true,
-				},
-				{
-					Name:         "tool-2",
-					OverrideName: "shared-alias",
-					Enabled:      true,
-				},
-			},
-			expectedError: types.RuntimeValidationError{
-				Runtime: types.RuntimeComposite,
-				Field:   "toolOverrides[1].overrideName",
-				Message: "duplicate override name: shared-alias",
-			},
-		},
-		{
-			name: "duplicate override name allowed when second is disabled",
-			overrides: []types.ToolOverride{
-				{
-					Name:         "tool-1",
-					OverrideName: "shared-alias",
-					Enabled:      true,
-				},
-				{
-					Name:         "tool-2",
-					OverrideName: "shared-alias",
-					Enabled:      false,
-				},
-			},
-			expectedError: nil,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := validateToolOverrides(tt.overrides)
 			require.Equal(t, tt.expectedError, err)
 		})
 	}
@@ -1319,6 +1575,518 @@ func TestCompositeValidator_ValidateConfig_StaticOAuth(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := validator.ValidateConfig(tt.manifest)
 			require.Equal(t, tt.expectedError, err)
+		})
+	}
+}
+
+func TestCompositeValidator_ValidateConfig_ToolPrefixLength(t *testing.T) {
+	validator := CompositeValidator{}
+
+	tests := []struct {
+		name          string
+		manifest      types.MCPServerManifest
+		expectedError error
+	}{
+		{
+			name: "tool prefix at max length is allowed",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeRuntimeConfig{
+					ComponentServers: []types.ComponentServer{
+						{
+							CatalogEntryID: "entry-1",
+							Manifest: types.MCPServerManifest{
+								Runtime: types.RuntimeRemote,
+							},
+							ToolPrefix: strings.Repeat("a", maxToolPrefixLength),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "tool prefix exceeds max length",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeRuntimeConfig{
+					ComponentServers: []types.ComponentServer{
+						{
+							CatalogEntryID: "entry-1",
+							Manifest: types.MCPServerManifest{
+								Runtime: types.RuntimeRemote,
+							},
+							ToolPrefix: strings.Repeat("a", maxToolPrefixLength+1),
+						},
+					},
+				},
+			},
+			expectedError: types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   "compositeConfig.componentServers[0].toolPrefix",
+				Message: "toolPrefix must be at most 64 characters",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validator.ValidateConfig(tt.manifest)
+			require.Equal(t, tt.expectedError, err)
+		})
+	}
+}
+
+func TestValidateManifestStartupTimeoutNonNegative(t *testing.T) {
+	t.Run("server manifest rejects negative startup timeout", func(t *testing.T) {
+		err := ValidateServerManifest(types.MCPServerManifest{
+			Runtime:               types.RuntimeRemote,
+			StartupTimeoutSeconds: -1,
+			RemoteConfig: &types.RemoteRuntimeConfig{
+				URL: "https://example.com/mcp",
+			},
+		}, false)
+
+		require.Equal(t, types.RuntimeValidationError{
+			Runtime: types.RuntimeRemote,
+			Field:   "startupTimeoutSeconds",
+			Message: "must be greater than or equal to 0",
+		}, err)
+	})
+
+	t.Run("catalog manifest rejects negative startup timeout", func(t *testing.T) {
+		err := ValidateCatalogEntryManifest(types.MCPServerCatalogEntryManifest{
+			Runtime:               types.RuntimeRemote,
+			StartupTimeoutSeconds: -1,
+			RemoteConfig: &types.RemoteCatalogConfig{
+				FixedURL: "https://example.com/mcp",
+			},
+		})
+
+		require.Equal(t, types.RuntimeValidationError{
+			Runtime: types.RuntimeRemote,
+			Field:   "startupTimeoutSeconds",
+			Message: "must be greater than or equal to 0",
+		}, err)
+	})
+
+	t.Run("server manifest rejects startup timeout above maximum", func(t *testing.T) {
+		maxStartupTimeoutSeconds := int(mcp.MaxMCPServerStartupTimeout.Seconds())
+		err := ValidateServerManifest(types.MCPServerManifest{
+			Runtime:               types.RuntimeRemote,
+			StartupTimeoutSeconds: maxStartupTimeoutSeconds + 1,
+			RemoteConfig: &types.RemoteRuntimeConfig{
+				URL: "https://example.com/mcp",
+			},
+		}, false)
+
+		require.Equal(t, types.RuntimeValidationError{
+			Runtime: types.RuntimeRemote,
+			Field:   "startupTimeoutSeconds",
+			Message: fmt.Sprintf("must be less than %d", maxStartupTimeoutSeconds),
+		}, err)
+	})
+
+	t.Run("catalog manifest rejects startup timeout above maximum", func(t *testing.T) {
+		maxStartupTimeoutSeconds := int(mcp.MaxMCPServerStartupTimeout.Seconds())
+		err := ValidateCatalogEntryManifest(types.MCPServerCatalogEntryManifest{
+			Runtime:               types.RuntimeRemote,
+			StartupTimeoutSeconds: maxStartupTimeoutSeconds + 1,
+			RemoteConfig: &types.RemoteCatalogConfig{
+				FixedURL: "https://example.com/mcp",
+			},
+		})
+
+		require.Equal(t, types.RuntimeValidationError{
+			Runtime: types.RuntimeRemote,
+			Field:   "startupTimeoutSeconds",
+			Message: fmt.Sprintf("must be less than %d", maxStartupTimeoutSeconds),
+		}, err)
+	})
+}
+
+func TestValidateSecretBindings(t *testing.T) {
+	binding := &types.MCPSecretBinding{Name: "datadog-prod", Key: "api-key"}
+
+	tests := []struct {
+		name       string
+		manifest   types.MCPServerManifest
+		gitManaged bool
+		backend    string
+		wantErr    string // substring; "" = expect no error
+	}{
+		{
+			name: "no bindings is allowed regardless",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					Headers: []types.MCPHeader{{Key: "X-Foo", Value: "bar"}},
+				},
+			},
+			gitManaged: false,
+			backend:    "docker",
+		},
+		{
+			name: "bound header requires git-managed",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					Headers: []types.MCPHeader{{Key: "DD-API-KEY", SecretBinding: binding}},
+				},
+			},
+			gitManaged: false,
+			backend:    "kubernetes",
+			wantErr:    "git-synced catalog entries",
+		},
+		{
+			name: "bound header accepted for git-managed remote",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					Headers: []types.MCPHeader{{Key: "DD-API-KEY", SecretBinding: binding}},
+				},
+			},
+			gitManaged: true,
+			backend:    "kubernetes",
+		},
+		{
+			name: "bound header rejected on non-kubernetes backend",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					Headers: []types.MCPHeader{{Key: "DD-API-KEY", SecretBinding: binding}},
+				},
+			},
+			gitManaged: true,
+			backend:    "docker",
+			wantErr:    "requires the kubernetes MCP runtime backend",
+		},
+		{
+			name: "binding and static value are mutually exclusive",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					Headers: []types.MCPHeader{{Key: "DD-API-KEY", Value: "literal", SecretBinding: binding}},
+				},
+			},
+			gitManaged: true,
+			backend:    "kubernetes",
+			wantErr:    "mutually exclusive",
+		},
+		{
+			name: "binding requires non-empty name/key",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					Headers: []types.MCPHeader{{Key: "DD-API-KEY", SecretBinding: &types.MCPSecretBinding{Name: "datadog-prod"}}},
+				},
+			},
+			gitManaged: true,
+			backend:    "kubernetes",
+			wantErr:    "requires both name and key",
+		},
+		{
+			name: "bound env under remote runtime is rejected",
+			manifest: types.MCPServerManifest{
+				Runtime:      types.RuntimeRemote,
+				Env:          []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "DD_API_KEY", SecretBinding: binding}}},
+				RemoteConfig: &types.RemoteRuntimeConfig{},
+			},
+			gitManaged: true,
+			backend:    "kubernetes",
+			wantErr:    "not supported for remote runtime",
+		},
+		{
+			name: "file-backed env with secret binding is accepted",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeContainerized,
+				Env:     []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "DD_API_KEY", SecretBinding: binding}, File: true}},
+			},
+			gitManaged: true,
+			backend:    "kubernetes",
+		},
+		{
+			name: "bound env accepted for git-managed containerized",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeContainerized,
+				Env:     []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "DD_API_KEY", SecretBinding: binding}}},
+			},
+			gitManaged: true,
+			backend:    "kubernetes",
+		},
+		{
+			name: "dynamicFile without file is accepted and ignored",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeNPX,
+				Env: []types.MCPEnv{{
+					MCPHeader:   types.MCPHeader{Key: "DD_API_KEY", SecretBinding: binding},
+					DynamicFile: true,
+				}},
+			},
+			gitManaged: true,
+			backend:    "kubernetes",
+		},
+		{
+			name: "file and dynamicFile together are accepted",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeNPX,
+				Env: []types.MCPEnv{{
+					MCPHeader:   types.MCPHeader{Key: "DD_API_KEY"},
+					File:        true,
+					DynamicFile: true,
+				}},
+			},
+			gitManaged: true,
+			backend:    "kubernetes",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateSecretBindings(tt.manifest, tt.gitManaged, tt.backend)
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tt.wantErr)
+		})
+	}
+}
+
+func TestValidateSecretBindingsCatalogEntry_URLTemplate(t *testing.T) {
+	binding := &types.MCPSecretBinding{Name: "my-secret", Key: "token"}
+
+	tests := []struct {
+		name     string
+		manifest types.MCPServerCatalogEntryManifest
+		wantErr  string
+	}{
+		{
+			name: "urlTemplate referencing non-bound env is allowed",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeRemote,
+				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+					Key: "HOST", Required: true,
+				}}},
+				RemoteConfig: &types.RemoteCatalogConfig{
+					URLTemplate: "https://${HOST}/mcp",
+				},
+			},
+		},
+		{
+			name: "urlTemplate referencing secret-bound env is rejected",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeRemote,
+				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+					Key: "TOKEN", Required: true, SecretBinding: binding,
+				}}},
+				RemoteConfig: &types.RemoteCatalogConfig{
+					URLTemplate: "https://example.com/${TOKEN}/mcp",
+				},
+			},
+			wantErr: "remoteConfig.urlTemplate references secret-bound env var",
+		},
+		{
+			name: "no urlTemplate with bound env passes to core check",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeNPX,
+				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+					Key: "TOKEN", Required: true, SecretBinding: binding,
+				}}},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateSecretBindingsCatalogEntry(tt.manifest, true, "kubernetes")
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tt.wantErr)
+		})
+	}
+}
+
+func TestValidateTemplateReferences_Server(t *testing.T) {
+	required := types.MCPEnv{MCPHeader: types.MCPHeader{Key: "TAG", Required: true}}
+	optional := types.MCPEnv{MCPHeader: types.MCPHeader{Key: "TAG", Required: false}}
+
+	tests := []struct {
+		name     string
+		manifest types.MCPServerManifest
+		wantErr  string // substring; "" = expect no error
+	}{
+		{
+			name: "no templates is fine",
+			manifest: types.MCPServerManifest{
+				Runtime:   types.RuntimeNPX,
+				NPXConfig: &types.NPXRuntimeConfig{Package: "pkg", Args: []string{"--flag", "value"}},
+			},
+		},
+		{
+			name: "npx templated arg with required env passes",
+			manifest: types.MCPServerManifest{
+				Runtime:   types.RuntimeNPX,
+				NPXConfig: &types.NPXRuntimeConfig{Package: "pkg", Args: []string{"--tag=${TAG}"}},
+				Env:       []types.MCPEnv{required},
+			},
+		},
+		{
+			name: "npx templated arg with optional env is rejected",
+			manifest: types.MCPServerManifest{
+				Runtime:   types.RuntimeNPX,
+				NPXConfig: &types.NPXRuntimeConfig{Package: "pkg", Args: []string{"--tag=${TAG}"}},
+				Env:       []types.MCPEnv{optional},
+			},
+			wantErr: "must be required=true",
+		},
+		{
+			name: "uvx templated command with required env passes",
+			manifest: types.MCPServerManifest{
+				Runtime:   types.RuntimeUVX,
+				UVXConfig: &types.UVXRuntimeConfig{Package: "pkg", Command: "${TAG}"},
+				Env:       []types.MCPEnv{required},
+			},
+		},
+		{
+			name: "containerized templated arg with optional env is rejected",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeContainerized,
+				ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+					Image: "img",
+					Args:  []string{"--tag=${TAG}"},
+				},
+				Env: []types.MCPEnv{optional},
+			},
+			wantErr: "must be required=true",
+		},
+		{
+			name: "remote URL template with optional env is rejected",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					URL: "https://${TAG}.example.com/mcp",
+				},
+				Env: []types.MCPEnv{optional},
+			},
+			wantErr: "must be required=true",
+		},
+		{
+			name: "remote header value templated by optional env is rejected",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					URL:     "https://example.com/mcp",
+					Headers: []types.MCPHeader{{Key: "Authorization", Value: "Bearer ${TAG}"}},
+				},
+				Env: []types.MCPEnv{optional},
+			},
+			wantErr: "must be required=true",
+		},
+		{
+			name: "undeclared template ref is tolerated for server manifests",
+			manifest: types.MCPServerManifest{
+				Runtime:   types.RuntimeNPX,
+				NPXConfig: &types.NPXRuntimeConfig{Package: "pkg", Args: []string{"--tag=${TAG}"}},
+				// no env declared — auto-extraction will add Required=true later
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateTemplateReferences(tt.manifest)
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tt.wantErr)
+		})
+	}
+}
+
+func TestValidateTemplateReferences_CatalogEntry(t *testing.T) {
+	required := types.MCPEnv{MCPHeader: types.MCPHeader{Key: "TAG", Required: true}}
+	optional := types.MCPEnv{MCPHeader: types.MCPHeader{Key: "TAG", Required: false}}
+
+	tests := []struct {
+		name     string
+		manifest types.MCPServerCatalogEntryManifest
+		wantErr  string
+	}{
+		{
+			name: "templated arg with required env passes",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime:   types.RuntimeNPX,
+				NPXConfig: &types.NPXRuntimeConfig{Package: "pkg", Args: []string{"--tag=${TAG}"}},
+				Env:       []types.MCPEnv{required},
+			},
+		},
+		{
+			name: "templated arg with undeclared env is rejected for catalog entries",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime:   types.RuntimeNPX,
+				NPXConfig: &types.NPXRuntimeConfig{Package: "pkg", Args: []string{"--tag=${TAG}"}},
+				// no env declared
+			},
+			wantErr: "undeclared",
+		},
+		{
+			name: "remote FixedURL template with required env passes",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteCatalogConfig{
+					FixedURL: "https://${TAG}.example.com/mcp",
+				},
+				Env: []types.MCPEnv{required},
+			},
+		},
+		{
+			name: "npx templated arg with optional env is rejected",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime:   types.RuntimeNPX,
+				NPXConfig: &types.NPXRuntimeConfig{Package: "pkg", Args: []string{"--tag=${TAG}"}},
+				Env:       []types.MCPEnv{optional},
+			},
+			wantErr: "must be required=true",
+		},
+		{
+			name: "remote URLTemplate with optional env is rejected",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteCatalogConfig{
+					URLTemplate: "https://${TAG}.example.com/mcp",
+				},
+				Env: []types.MCPEnv{optional},
+			},
+			wantErr: "must be required=true",
+		},
+		{
+			name: "remote header value templated by undeclared env is rejected",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteCatalogConfig{
+					FixedURL: "https://example.com/mcp",
+					Headers:  []types.MCPHeader{{Key: "Authorization", Value: "Bearer ${TAG}"}},
+				},
+			},
+			wantErr: "undeclared",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateTemplateReferencesCatalogEntry(tt.manifest)
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tt.wantErr)
 		})
 	}
 }

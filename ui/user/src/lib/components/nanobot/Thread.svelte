@@ -16,15 +16,15 @@
 		UploadedFile,
 		UploadingFile
 	} from '$lib/services/nanobot/types';
+	import { responsive } from '$lib/stores';
+	import { clampThreadContentReportedWidth } from '$lib/utils';
+	import AgentHeader from './AgentHeader.svelte';
 	import MessageInput from './MessageInput.svelte';
 	import Messages from './Messages.svelte';
-	import AgentHeader from './AgentHeader.svelte';
 	import { ChevronDown, Upload } from 'lucide-svelte';
 	import { untrack, type Snippet } from 'svelte';
 	import { slide, fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
-	import { clampThreadContentReportedWidth } from '$lib/utils';
-	import { responsive } from '$lib/stores';
 
 	interface Props {
 		messages: ChatMessage[];
@@ -52,6 +52,9 @@
 		emptyStateContent?: Snippet;
 		onRefreshResources?: () => void;
 		suppressEmptyState?: boolean;
+		classes?: {
+			root?: string;
+		};
 	}
 
 	let {
@@ -80,7 +83,8 @@
 		onAgentChange,
 		emptyStateContent,
 		onRefreshResources,
-		suppressEmptyState
+		suppressEmptyState,
+		classes
 	}: Props = $props();
 
 	let messagesContainer: HTMLElement;
@@ -409,7 +413,8 @@
 
 <div
 	class={twMerge(
-		'flex h-[calc(100dvh-4rem)] w-full flex-row transition-transform md:relative peer-[.workspace]:md:w-1/4',
+		'flex w-full h-[calc(100dvh-4rem)] flex-row transition-transform md:relative peer-[.workspace]:md:w-1/4',
+		classes?.root,
 		responsive.isMobile ? 'h-[calc(100dvh-8rem-env(safe-area-inset-bottom,0px))]' : ''
 	)}
 	onmousemove={resize}

@@ -1,19 +1,27 @@
 <script lang="ts">
-	import Navbar from '$lib/components/Navbar.svelte';
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import { columnResize } from '$lib/actions/resize';
-	import { defaultModelAliases, profile, responsive, version } from '$lib/stores';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import Navbar from '$lib/components/Navbar.svelte';
+	import { ADMIN_AGENT_DISABLED_MESSAGE, USER_AGENT_DISABLED_MESSAGE } from '$lib/constants';
 	import {
 		initLayout as defaultInitLayout,
 		getLayout as defaultGetLayout,
 		type Layout as LayoutState
 	} from '$lib/context/layout.svelte';
-	import { type Component, type Snippet, untrack } from 'svelte';
-
-	type LayoutContext = {
-		initLayout: () => void;
-		getLayout: () => LayoutState;
-	};
-	import { fade, slide } from 'svelte/transition';
+	import Bots from '$lib/icons/Bots.svelte';
+	import { Group } from '$lib/services';
+	import { defaultModelAliases, profile, responsive, version } from '$lib/stores';
+	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
+	import { isAgentEnabled } from '$lib/utils';
+	import InfoTooltip from './InfoTooltip.svelte';
+	import Tour from './Tour.svelte';
+	import ConfigureBanner from './admin/ConfigureBanner.svelte';
+	import SetupSplashDialog from './admin/SetupSplashDialog.svelte';
+	import BetaLogo from './navbar/BetaLogo.svelte';
+	import Profile from './navbar/Profile.svelte';
+	import { Render } from './ui/render';
 	import {
 		AlarmClock,
 		Boxes,
@@ -48,23 +56,21 @@
 		CircleQuestionMark,
 		ShieldAlert,
 		ShieldX,
-		Bot
+		Bot,
+		LayoutDashboard,
+		Notebook,
+		Laptop,
+		ScanLine,
+		MonitorCheck
 	} from 'lucide-svelte';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { type Component, type Snippet, untrack } from 'svelte';
+	import { fade, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
-	import BetaLogo from './navbar/BetaLogo.svelte';
-	import ConfigureBanner from './admin/ConfigureBanner.svelte';
-	import InfoTooltip from './InfoTooltip.svelte';
-	import { Render } from './ui/render';
-	import { Group } from '$lib/services';
-	import { page } from '$app/state';
-	import SetupSplashDialog from './admin/SetupSplashDialog.svelte';
-	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
-	import { resolve } from '$app/paths';
-	import { isAgentEnabled } from '$lib/utils';
-	import { ADMIN_AGENT_DISABLED_MESSAGE, USER_AGENT_DISABLED_MESSAGE } from '$lib/constants';
-	import Profile from './navbar/Profile.svelte';
-	import Bots from '$lib/icons/Bots.svelte';
+
+	type LayoutContext = {
+		initLayout: () => void;
+		getLayout: () => LayoutState;
+	};
 
 	type NavLink = {
 		id: string;
@@ -157,7 +163,7 @@
 		...(version.current.nanobotIntegration
 			? [
 					{
-						id: 'agent-chat',
+						id: 'launch-agent-chat',
 						href: '/agent',
 						icon: BotMessageSquare,
 						disabled: isBootStrapUser || !agentLinkEnabled,
@@ -172,6 +178,12 @@
 	let navLinks = $derived<NavLink[]>(
 		profile.current.hasAdminAccess?.()
 			? [
+					{
+						id: 'mcp-dashboard',
+						icon: LayoutDashboard,
+						label: 'Dashboard',
+						href: '/admin/dashboard'
+					},
 					{
 						id: 'mcp-server-management',
 						icon: RadioTower,
@@ -229,35 +241,11 @@
 						].filter(Boolean) as NavLink[]
 					},
 					{
-						id: 'agent-management',
-						icon: Bot,
-						label: 'Obot Agent Management',
-						disabled: isBootStrapUser,
+						id: 'skills-management',
+						icon: Notebook,
+						label: 'Skills Management',
 						collapsible: true,
 						items: [
-							{
-								id: 'tokens',
-								href: '/admin/token-usage',
-								icon: Coins,
-								label: 'Token Usage',
-								disabled: isBootStrapUser,
-								collapsible: false
-							},
-							{
-								id: 'model-providers',
-								href: '/admin/model-providers',
-								icon: Boxes,
-								label: 'Model Providers',
-								collapsible: false
-							},
-
-							{
-								id: 'model-access-policies',
-								href: '/admin/model-access-policies',
-								icon: LockKeyhole,
-								label: 'Model Access Policies',
-								collapsible: false
-							},
 							{
 								id: 'skills',
 								href: '/admin/skills',
@@ -271,47 +259,55 @@
 								icon: Vault,
 								label: 'Skill Access Policies',
 								collapsible: false
+							}
+						]
+					},
+					{
+						id: 'device-management',
+						icon: Laptop,
+						label: 'Device Management',
+						collapsible: true,
+						items: [
+							{
+								id: 'device-overview',
+								href: '/admin/device-overview',
+								icon: LayoutDashboard,
+								label: 'Dashboard',
+								disabled: isBootStrapUser,
+								collapsible: false
 							},
-							...(version.current.messagePoliciesEnabled
-								? [
-										{
-											id: 'message-policies',
-											href: '/admin/message-policies',
-											icon: ShieldAlert,
-											label: 'Message Policies',
-											collapsible: false
-										},
-										{
-											id: 'policy-violations',
-											href: '/admin/policy-violations',
-											icon: ShieldX,
-											label: 'Message Policy Violations',
-											collapsible: false
-										}
-									]
-								: []),
-							...(version.current.nanobotIntegration
-								? [
-										{
-											id: 'admin-agents',
-											href: '/admin/agents',
-											icon: Bots,
-											label: 'Agents',
-											collapsible: false,
-											disabled: isBootStrapUser || !agentLinkEnabled
-										},
-										{
-											id: 'launch-agent-chat',
-											href: '/agent',
-											icon: BotMessageSquare,
-											label: 'Launch Agent',
-											disabled: isBootStrapUser || !agentLinkEnabled,
-											collapsible: false,
-											noteIcon: !agentLinkEnabled ? LockOpen : undefined,
-											note: !agentLinkEnabled ? renderAgentDisabledNote : undefined
-										}
-									]
-								: [])
+							{
+								id: 'devices',
+								href: '/admin/devices',
+								icon: ScanLine,
+								label: 'Devices',
+								disabled: isBootStrapUser,
+								collapsible: false
+							},
+							{
+								id: 'device-skills',
+								href: '/admin/device-skills',
+								icon: PencilRuler,
+								label: 'Device Skills',
+								disabled: isBootStrapUser,
+								collapsible: false
+							},
+							{
+								id: 'device-mcps',
+								href: '/admin/device-mcp-servers',
+								icon: Server,
+								label: 'Device MCP Servers',
+								disabled: isBootStrapUser,
+								collapsible: false
+							},
+							{
+								id: 'device-clients',
+								href: '/admin/device-clients',
+								icon: MonitorCheck,
+								label: 'Device Clients',
+								disabled: isBootStrapUser,
+								collapsible: false
+							}
 						]
 					},
 					...(version.current.disableLegacyChat !== true
@@ -413,6 +409,78 @@
 								disabled: !version.current.authEnabled,
 								collapsible: false
 							}
+						]
+					},
+
+					{
+						id: 'agent-management',
+						icon: Bot,
+						label: 'Obot Agent Management',
+						collapsible: true,
+						items: [
+							{
+								id: 'tokens',
+								href: '/admin/token-usage',
+								icon: Coins,
+								label: 'Token Usage',
+								disabled: isBootStrapUser,
+								collapsible: false
+							},
+							{
+								id: 'model-providers',
+								href: '/admin/model-providers',
+								icon: Boxes,
+								label: 'Model Providers',
+								collapsible: false
+							},
+
+							{
+								id: 'model-access-policies',
+								href: '/admin/model-access-policies',
+								icon: LockKeyhole,
+								label: 'Model Access Policies',
+								collapsible: false
+							},
+							...(version.current.messagePoliciesEnabled
+								? [
+										{
+											id: 'message-policies',
+											href: '/admin/message-policies',
+											icon: ShieldAlert,
+											label: 'Message Policies',
+											collapsible: false
+										},
+										{
+											id: 'policy-violations',
+											href: '/admin/policy-violations',
+											icon: ShieldX,
+											label: 'Message Policy Violations',
+											collapsible: false
+										}
+									]
+								: []),
+							...(version.current.nanobotIntegration
+								? [
+										{
+											id: 'admin-agents',
+											href: '/admin/agents',
+											icon: Bots,
+											label: 'Agents',
+											collapsible: false,
+											disabled: isBootStrapUser || !agentLinkEnabled
+										},
+										{
+											id: 'launch-agent-chat',
+											href: '/agent',
+											icon: BotMessageSquare,
+											label: 'Launch Agent',
+											disabled: isBootStrapUser || !agentLinkEnabled,
+											collapsible: false,
+											noteIcon: !agentLinkEnabled ? LockOpen : undefined,
+											note: !agentLinkEnabled ? renderAgentDisabledNote : undefined
+										}
+									]
+								: [])
 						]
 					},
 					{
@@ -523,9 +591,12 @@
 	$effect(() => {
 		const isAdminOrBootstrapUser =
 			profile.current.loaded &&
-			(profile.current.groups.includes(Group.ADMIN) || profile.current.isBootstrapUser?.());
+			(profile.current.hasAdminAccess?.() || profile.current.isBootstrapUser?.());
 		if (isAdminOrBootstrapUser && isAdminRoute) {
 			adminConfigStore.initialize();
+			if (collapsed['agent-management'] === undefined) {
+				collapsed['agent-management'] = true;
+			}
 		}
 	});
 
@@ -540,26 +611,26 @@
 		{:else if layout.sidebarOpen && !hideSidebar}
 			<div
 				class={twMerge(
-					'bg-background flex max-h-dvh w-full min-w-dvw flex-shrink-0 flex-col md:w-1/6 md:max-w-xl md:min-w-[310px]',
+					'bg-background flex max-h-dvh w-full min-w-dvw shrink-0 flex-col md:w-1/6 md:max-w-xl md:min-w-[310px]',
 					classes?.sidebarRoot
 				)}
 				transition:slide={{ axis: 'x' }}
 				bind:this={nav}
 			>
-				<div class="flex h-16 flex-shrink-0 items-center px-2">
+				<div class="flex h-16 shrink-0 items-center px-2">
 					<BetaLogo enterprise={version.current.enterprise} />
 				</div>
 
 				<div
 					class={twMerge(
-						'text-md scrollbar-default-thin flex max-h-[calc(100vh-64px)] grow flex-col gap-8 overflow-y-auto px-3 pt-8 pl-2 font-medium',
+						'text-md scrollbar-default-thin flex max-h-[calc(100vh-64px)] grow flex-col gap-8 overflow-y-auto pr-3 pl-2 font-medium',
 						classes?.sidebar
 					)}
 				>
 					<div class="flex flex-col gap-1">
 						{#each navLinks as link (link.id)}
 							<div class="flex">
-								<div class="flex w-full items-center">
+								<div class="flex w-full items-center" id={link.id}>
 									{#if link.disabled}
 										<div class="sidebar-link disabled">
 											<link.icon class="size-5" />
@@ -590,11 +661,8 @@
 									{/if}
 								</div>
 								{#if link.collapsible}
-									<button
-										class="px-2"
-										onclick={() => (collapsed[link.label] = !collapsed[link.label])}
-									>
-										{#if collapsed[link.label]}
+									<button class="px-2" onclick={() => (collapsed[link.id] = !collapsed[link.id])}>
+										{#if collapsed[link.id]}
 											<ChevronUp class="size-5" />
 										{:else}
 											<ChevronDown class="size-5" />
@@ -602,7 +670,7 @@
 									</button>
 								{/if}
 							</div>
-							{#if !collapsed[link.label || '']}
+							{#if !collapsed[link.id]}
 								<div in:slide={{ axis: 'y' }}>
 									{#if onRenderSubContent}
 										{@render onRenderSubContent(link.label)}
@@ -610,7 +678,7 @@
 									{#if link.items}
 										<div class="flex flex-col px-7 text-sm font-light">
 											{#each link.items as item (item.href)}
-												<div class="relative flex items-center gap-2">
+												<div class="relative flex items-center gap-2" id={item.id}>
 													<div
 														class={twMerge(
 															'bg-surface3 absolute top-1/2 left-0 h-full w-0.5 -translate-x-3 -translate-y-1/2',
@@ -785,6 +853,10 @@
 
 {#if isAdminRoute}
 	<SetupSplashDialog />
+{/if}
+
+{#if !isBootStrapUser}
+	<Tour />
 {/if}
 
 {#snippet layoutHeaderContent()}

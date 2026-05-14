@@ -14,10 +14,13 @@ To quickly try a live demo of the Obot MCP Gateway and chat experience, visit [h
 You can use Docker to quickly spin up the Obot MCP Gateway server locally to try out the full capabilities. Using something like [Docker Desktop](https://docs.docker.com/get-started/introduction/get-docker-desktop/). Once that’s ready, run:
 
 ```bash
-docker run -d --name obot -p 8080:8080 -v /var/run/docker.sock:/var/run/docker.sock -e OPENAI_API_KEY=<API KEY> ghcr.io/obot-platform/obot:latest
+docker run -d --name obot -p 8080:8080 -v /var/run/docker.sock:/var/run/docker.sock -e OPENAI_API_KEY=<API KEY> -e OBOT_SERVER_ENABLE_AUTHENTICATION=true -e OBOT_BOOTSTRAP_TOKEN=<token> ghcr.io/obot-platform/obot:latest
 ```
 
+The `OBOT_BOOTSTRAP_TOKEN` value can be anything you want, at least six characters long. This is the value you will provide for initial authentication to begin configuring Obot.
+
 Then open your browser to [http://localhost:8080](http://localhost:8080) to access the Obot UI.
+You can also leave out the `OBOT_SERVER_ENABLE_AUTHENTICATION` environment variable to disable authentication, but this means that anyone with access to make requests to port 8080 on your system will be able to manage and launch MCP servers, so it is recommended to keep authentication enabled.
 
 > **Note:** The Docker command above is intended for local testing and evaluation only. For production deployments, we recommend running Obot on Kubernetes. See our [Installation Guide](/installation/overview) for detailed production setup instructions.
 

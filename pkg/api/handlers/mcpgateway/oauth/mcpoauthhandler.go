@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/gptscript-ai/go-gptscript"
-	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
+	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/handlers"
@@ -119,6 +119,8 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 		if err != nil {
 			errChan <- fmt.Errorf("failed to get client for server %s: %v", mcpServer.Name, err)
 		} else {
+			// Best effort
+			_ = f.mcpSessionManager.CloseClient(req.Context(), mcpServerConfig, "Obot OAuth Check")
 			errChan <- nil
 		}
 	}()

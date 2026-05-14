@@ -3,7 +3,6 @@
 	import { errors } from '$lib/stores';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { goto } from '$lib/url';
-	import { get } from 'svelte/store';
 
 	let selectedSessionId = $state<string | undefined>(undefined);
 
@@ -14,16 +13,17 @@
 		}
 		try {
 			await $nanobotChat.api.renameSession(sessionId, newTitle);
-			const sharedChat = get(nanobotChat);
-			const sessionIndex = sharedChat?.sessions.findIndex((s) => s.id === sessionId) ?? -1;
-			if (sessionIndex !== -1 && sharedChat) {
-				nanobotChat.update((data) => {
-					if (data && sessionIndex !== -1) {
-						data.sessions[sessionIndex].title = newTitle;
-					}
-					return data;
-				});
-			}
+			nanobotChat.update((data) => {
+				if (!data) return data;
+				const sessionIndex = data.sessions.findIndex((s) => s.id === sessionId);
+				if (sessionIndex === -1) return data;
+				return {
+					...data,
+					sessions: data.sessions.map((s, i) =>
+						i === sessionIndex ? { ...s, title: newTitle } : s
+					)
+				};
+			});
 		} catch (error) {
 			console.error('Failed to rename thread:', error);
 		}

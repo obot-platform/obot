@@ -13,7 +13,6 @@ import (
 	"net/url"
 	"os"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -31,7 +30,7 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/tidwall/gjson"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -41,6 +40,11 @@ const tokenUsageTimePeriod = 24 * time.Hour
 var (
 	openAIBaseURL    = "https://api.openai.com/v1"
 	anthropicBaseURL = "https://api.anthropic.com/v1"
+)
+
+const (
+	internalRequestTypeHeader = "X-Nanobot-Internal-Request-Type"
+	threadTitleRequestType    = "nanobot.summary.thread_title"
 )
 
 func init() {
@@ -108,19 +112,21 @@ func (s *Server) dispatchLLMProxy(req api.Context) error {
 		personalToken = true
 	}
 
-	// Check if the user has permission to use this model
-	if modelID != "" && token.UserID != "" {
-		userID, err := strconv.ParseUint(token.UserID, 10, 64)
+	// Fetch auth provider groups once for all checks that need them.
+	var authProviderGroups []string
+	if token.UserID != "" {
+		userIDInt, err := strconv.ParseUint(token.UserID, 10, 64)
 		if err != nil {
 			return fmt.Errorf("failed to parse user ID: %w", err)
 		}
-
-		// Get the user's auth provider groups
-		authProviderGroups, err := req.GatewayClient.ListGroupIDsForUser(req.Context(), uint(userID))
+		authProviderGroups, err = req.GatewayClient.ListGroupIDsForUser(req.Context(), uint(userIDInt))
 		if err != nil {
 			return fmt.Errorf("failed to get user groups: %w", err)
 		}
+	}
 
+	// Check if the user has permission to use this model
+	if modelID != "" && token.UserID != "" {
 		hasAccess, err := s.mapHelper.UserHasAccessToModel(&user.DefaultInfo{
 			UID:    token.UserID,
 			Groups: token.UserGroups,
@@ -137,6 +143,33 @@ func (s *Server) dispatchLLMProxy(req api.Context) error {
 	}
 
 	body["model"] = model
+
+	// Evaluate message policies.
+	var (
+		outputPolicies         []messagepolicy.ApplicablePolicy
+		conversationHistory    []messagepolicy.ConversationMessage
+		inputPolicyReplacement string
+	)
+	messagePolicyHelper := s.messagePolicyHelper
+	if shouldSkipMessagePolicyEnforcement(req.Request) {
+		messagePolicyHelper = nil
+	}
+	if messagePolicyHelper != nil && token.UserID != "" {
+		userInfo := &user.DefaultInfo{
+			UID:    token.UserID,
+			Groups: token.UserGroups,
+			Extra: map[string][]string{
+				"auth_provider_groups": authProviderGroups,
+			},
+		}
+		outputPolicies, conversationHistory, inputPolicyReplacement, err = applyMessagePolicies(
+			req.Context(), messagePolicyHelper, userInfo, req.GatewayClient, body, token.ProjectID, token.ThreadID,
+		)
+		if err != nil {
+			return err
+		}
+	}
+
 	b, err := json.Marshal(body)
 	if err != nil {
 		return err
@@ -166,11 +199,17 @@ func (s *Server) dispatchLLMProxy(req api.Context) error {
 	(&httputil.ReverseProxy{
 		Director: llmTransformRequest(u, credEnv),
 		ModifyResponse: (&responseModifier{
-			userID:        token.UserID,
-			runID:         token.RunID,
-			model:         model,
-			client:        req.GatewayClient,
-			personalToken: personalToken,
+			userID:                 token.UserID,
+			runID:                  token.RunID,
+			model:                  model,
+			client:                 req.GatewayClient,
+			personalToken:          personalToken,
+			projectID:              token.ProjectID,
+			threadID:               token.ThreadID,
+			inputPolicyReplacement: inputPolicyReplacement,
+			messagePolicyHelper:    messagePolicyHelper,
+			outputPolicies:         outputPolicies,
+			conversationHistory:    conversationHistory,
 		}).modifyResponse,
 	}).ServeHTTP(req.ResponseWriter, req.Request)
 
@@ -179,33 +218,11 @@ func (s *Server) dispatchLLMProxy(req api.Context) error {
 
 // getModelFromReference retrieves the model with a matching reference name.
 // The reference name must be any one of the following:
-// - The target name of a default model alias
-// - The target name of the model itself
-// - The actual name of the model
+// - The name of a default model alias
+// - The actual Kubernetes resource name of the model
 func getModelFromReference(ctx context.Context, client kclient.Client, namespace, modelReference string) (*v1.Model, error) {
 	m, err := alias.GetFromScope(ctx, client, "Model", namespace, modelReference)
-	if apierrors.IsNotFound(err) {
-		// Maybe the user is trying to get a model by the target name.
-		var models v1.ModelList
-		if err := client.List(ctx, &models, &kclient.ListOptions{
-			Namespace:     namespace,
-			FieldSelector: fields.OneTermEqualSelector("spec.manifest.targetModel", modelReference),
-		}); err != nil {
-			return nil, err
-		}
-
-		if len(models.Items) == 0 {
-			// Return the original error if no models are found.
-			return nil, err
-		}
-
-		// Return the oldest one.
-		sort.Slice(models.Items, func(i, j int) bool {
-			return models.Items[i].CreationTimestamp.Before(&models.Items[j].CreationTimestamp)
-		})
-
-		return &models.Items[0], nil
-	} else if err != nil {
+	if err != nil {
 		return nil, err
 	}
 
@@ -232,7 +249,7 @@ func getModelFromReference(ctx context.Context, client kclient.Client, namespace
 		return respModel, nil
 	}
 
-	return nil, fmt.Errorf("model %q not found", modelReference)
+	return nil, apierrors.NewNotFound(schema.GroupResource{Group: v1.SchemeGroupVersion.Group, Resource: "model"}, modelReference)
 }
 
 func envVarForModelProvider(modelProvider v1.ToolReference) (string, error) {
@@ -278,6 +295,17 @@ func extractModelFromBody(body []byte) string {
 		return model
 	}
 	return gjson.GetBytes(body, "response.model").String()
+}
+
+func rewriteModelInBody(body []byte, model string) ([]byte, error) {
+	var bodyMap map[string]any
+	if err := json.Unmarshal(body, &bodyMap); err != nil {
+		return nil, err
+	}
+	if _, ok := bodyMap["model"]; ok {
+		bodyMap["model"] = model
+	}
+	return json.Marshal(bodyMap)
 }
 
 // copyBody returns a copy of the bytes in a request body.
@@ -796,6 +824,7 @@ func llmTransformRequest(u url.URL, credEnv map[string]string) func(req *http.Re
 		// If we forward Accept-Encoding from the client, net/http transport will not
 		// auto-decompress and token usage parsing can see compressed bytes.
 		req.Header.Del("Accept-Encoding")
+		req.Header.Del(internalRequestTypeHeader)
 	}
 }
 
@@ -948,108 +977,53 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 
 	targetModel := extractModelFromBody(body)
 	if targetModel != "" {
-		// Get the models matching the target model and provider.
-		var models v1.ModelList
-		if err := req.List(&models, &kclient.ListOptions{
-			Namespace: l.modelProvider.Namespace,
-			FieldSelector: fields.SelectorFromSet(map[string]string{
-				"spec.manifest.targetModel":   targetModel,
-				"spec.manifest.modelProvider": l.modelProvider.Name,
-			}),
-		}); err != nil {
-			return fmt.Errorf("failed to list models: %w", err)
+		model, err := getModelFromReference(req.Context(), req.Storage, l.modelProvider.Namespace, targetModel)
+		if err != nil {
+			return fmt.Errorf("failed to get model: %w", err)
+		}
+		if model.Spec.Manifest.ModelProvider != l.modelProvider.Name {
+			return types2.NewErrBadRequest("requested model does not match configured provider %q", targetModel)
 		}
 
-		var hasAccess bool
-		for _, model := range models.Items {
-			var err error
-			hasAccess, err = l.mapHelper.UserHasAccessToModel(req.User, model.Name)
-			if err != nil {
-				return fmt.Errorf("failed to check user access to model %q: %w", model.Name, err)
-			}
-			if hasAccess {
-				break
-			}
+		hasAccess, err := l.mapHelper.UserHasAccessToModel(req.User, model.Name)
+		if err != nil {
+			return fmt.Errorf("failed to check user access to model %q: %w", model.Name, err)
 		}
-
 		if !hasAccess {
 			return types2.NewErrForbidden("user does not have permission to use model %q", targetModel)
 		}
+
+		targetModel = model.Spec.Manifest.TargetModel
+
+		// Replace the model resource name with the actual provider model name
+		body, err = rewriteModelInBody(body, targetModel)
+		if err != nil {
+			return fmt.Errorf("failed to rewrite model in request body: %w", err)
+		}
+		req.Request.Body = io.NopCloser(bytes.NewReader(body))
+		req.ContentLength = int64(len(body))
 	}
 
 	// Evaluate message policies if the helper is available and we have a user.
 	var (
+		messagePolicyHelper    = l.messagePolicyHelper
 		outputPolicies         []messagepolicy.ApplicablePolicy
 		conversationHistory    []messagepolicy.ConversationMessage
-		bodyModified           bool
 		inputPolicyReplacement string
 	)
-	if l.messagePolicyHelper != nil && req.User.GetUID() != "" {
+	if shouldSkipMessagePolicyEnforcement(req.Request) {
+		messagePolicyHelper = nil
+	}
+	if messagePolicyHelper != nil && req.User.GetUID() != "" {
 		var bodyMap map[string]any
 		if err := json.Unmarshal(body, &bodyMap); err == nil {
-			// Evaluate user message against applicable input policies.
-			inputPolicies, err := l.messagePolicyHelper.GetApplicablePolicies(req.User, types2.PolicyDirectionUserMessage)
+			outputPolicies, conversationHistory, inputPolicyReplacement, err = applyMessagePolicies(
+				req.Context(), messagePolicyHelper, req.User, req.GatewayClient, bodyMap, "", "",
+			)
 			if err != nil {
-				return fmt.Errorf("failed to get applicable input policies: %w", err)
+				return err
 			}
-
-			if len(inputPolicies) > 0 {
-				rawMessages := extractRawMessages(bodyMap)
-				if len(rawMessages) > 0 {
-					history, lastUserMsg, lastUserIdx := parseMessagesFromBody(rawMessages)
-					// Only evaluate input policies when the user text message is the
-					// last message in the conversation. If there are messages after it
-					// (assistant responses, tool results, etc.), this is a tool-calling
-					// continuation and the user text has already been evaluated.
-					if lastUserIdx == len(rawMessages)-1 {
-						violations := l.messagePolicyHelper.EvaluateMessage(req.Context(), inputPolicies, history, lastUserMsg, types2.PolicyDirectionUserMessage)
-						if len(violations) > 0 {
-							// Log each violation (non-fatal on error).
-							blockedContent, _ := json.Marshal(map[string]string{"message": lastUserMsg})
-							for _, v := range violations {
-								logViolation(req.Context(), req.GatewayClient, v, req.User.GetUID(), string(types2.PolicyDirectionUserMessage), blockedContent, "", "")
-							}
-
-							var explanations []string
-							for _, v := range violations {
-								explanations = append(explanations, v.Explanation)
-							}
-
-							// Message for the LLM: instruct it to respond with a
-							// short refusal so the user sees a clear denial.
-							llmReplacement := `Please respond to the user with exactly: "Sorry, I can't help with that."`
-
-							// Message for the user: shown directly in the UI's
-							// "Policy Violation" box with the explanation.
-							// The [policy-violation] prefix is used by the frontend
-							// to detect and style this as a policy violation.
-							userReplacement := fmt.Sprintf(
-								"[policy-violation] %s",
-								strings.Join(explanations, "\n"),
-							)
-
-							if msgMap, ok := rawMessages[lastUserIdx].(map[string]any); ok {
-								msgMap["content"] = llmReplacement
-								bodyModified = true
-								inputPolicyReplacement = userReplacement
-							}
-						}
-					}
-				}
-			}
-
-			// Check for output (tool-call) policies.
-			outputPolicies, err = l.messagePolicyHelper.GetApplicablePolicies(req.User, types2.PolicyDirectionToolCalls)
-			if err != nil {
-				return fmt.Errorf("failed to get applicable output policies: %w", err)
-			}
-			if len(outputPolicies) > 0 {
-				rawMessages := extractRawMessages(bodyMap)
-				conversationHistory, _, _ = parseMessagesFromBody(rawMessages)
-			}
-
-			// Re-serialize the body if input policies modified it.
-			if bodyModified {
+			if inputPolicyReplacement != "" {
 				b, err := json.Marshal(bodyMap)
 				if err != nil {
 					return fmt.Errorf("failed to marshal modified body: %w", err)
@@ -1090,11 +1064,77 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 			model:                  targetModel,
 			client:                 req.GatewayClient,
 			inputPolicyReplacement: inputPolicyReplacement,
-			messagePolicyHelper:    l.messagePolicyHelper,
+			messagePolicyHelper:    messagePolicyHelper,
 			outputPolicies:         outputPolicies,
 			conversationHistory:    conversationHistory,
 		}).modifyResponse,
 	}).ServeHTTP(req.ResponseWriter, req.Request)
 
 	return nil
+}
+
+// applyMessagePolicies evaluates input and output message policies against body, modifying
+// it in-place if an input policy is violated (replacing the last user message with an LLM
+// refusal). Returns the output policies to enforce on the response, the conversation history
+// for output policy evaluation, the user-facing replacement text to surface via response
+// header, and any error.
+func applyMessagePolicies(
+	ctx context.Context,
+	helper *messagepolicy.Helper,
+	userInfo user.Info,
+	gatewayClient *client.Client,
+	body map[string]any,
+	projectID, threadID string,
+) ([]messagepolicy.ApplicablePolicy, []messagepolicy.ConversationMessage, string, error) {
+	inputPolicies, err := helper.GetApplicablePolicies(userInfo, types2.PolicyDirectionUserMessage)
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("failed to get applicable input policies: %w", err)
+	}
+
+	var inputPolicyReplacement string
+	if len(inputPolicies) > 0 {
+		rawMessages := extractRawMessages(body)
+		if len(rawMessages) > 0 {
+			history, lastUserMsg, lastUserIdx := parseMessagesFromBody(rawMessages)
+			// Only evaluate when the user message is last in the conversation. If there are
+			// messages after it (assistant responses, tool results, etc.), this is a
+			// tool-calling continuation and the user text has already been evaluated.
+			if lastUserIdx == len(rawMessages)-1 {
+				violations := helper.EvaluateMessage(ctx, inputPolicies, history, lastUserMsg, types2.PolicyDirectionUserMessage)
+				if len(violations) > 0 {
+					blockedContent, _ := json.Marshal(map[string]string{"message": lastUserMsg})
+					var explanations []string
+					for _, v := range violations {
+						logViolation(ctx, gatewayClient, v, userInfo.GetUID(), string(types2.PolicyDirectionUserMessage), blockedContent, projectID, threadID)
+						explanations = append(explanations, v.Explanation)
+					}
+					if msgMap, ok := rawMessages[lastUserIdx].(map[string]any); ok {
+						msgMap["content"] = `Please respond to the user with exactly: "Sorry, I can't help with that."`
+						inputPolicyReplacement = fmt.Sprintf("[policy-violation] %s", strings.Join(explanations, "\n"))
+					}
+				}
+			}
+		}
+	}
+
+	outputPolicies, err := helper.GetApplicablePolicies(userInfo, types2.PolicyDirectionToolCalls)
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("failed to get applicable output policies: %w", err)
+	}
+
+	var conversationHistory []messagepolicy.ConversationMessage
+	if len(outputPolicies) > 0 {
+		rawMessages := extractRawMessages(body)
+		conversationHistory, _, _ = parseMessagesFromBody(rawMessages)
+	}
+
+	return outputPolicies, conversationHistory, inputPolicyReplacement, nil
+}
+
+func shouldSkipMessagePolicyEnforcement(req *http.Request) bool {
+	if req == nil {
+		return false
+	}
+
+	return req.Header.Get(internalRequestTypeHeader) == threadTitleRequestType
 }

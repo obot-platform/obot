@@ -48,6 +48,8 @@ type VersionHandler struct {
 	sessionStore             SessionStore
 	enterprise               bool
 	engine                   string
+	mcpNetworkPolicyEnabled  bool
+	mcpDefaultDenyAllEgress  bool
 	autonomousToolUseEnabled bool
 	nanobotIntegration       bool
 	messagePoliciesEnabled   bool
@@ -58,7 +60,7 @@ type VersionHandler struct {
 	upgradeLock      sync.RWMutex
 }
 
-func NewVersionHandler(ctx context.Context, gatewayClient *client.Client, emailDomain, postgresDSN, engine string, supportDocker, authEnabled, disableUpdateCheck, disableLegacyChat, autonomousToolUseEnabled, nanobotIntegration, messagePoliciesEnabled bool) (*VersionHandler, error) {
+func NewVersionHandler(ctx context.Context, gatewayClient *client.Client, emailDomain, postgresDSN, engine string, mcpNetworkPolicyEnabled, mcpDefaultDenyAllEgress, supportDocker, authEnabled, disableUpdateCheck, disableLegacyChat, autonomousToolUseEnabled, nanobotIntegration, messagePoliciesEnabled bool) (*VersionHandler, error) {
 	upgradeServerBaseURL := defaultUpgradeServerBaseURL
 	if os.Getenv("OBOT_UPGRADE_SERVER_URL") != "" {
 		upgradeServerBaseURL = os.Getenv("OBOT_UPGRADE_SERVER_URL")
@@ -74,6 +76,8 @@ func NewVersionHandler(ctx context.Context, gatewayClient *client.Client, emailD
 		enterprise:               os.Getenv("OBOT_ENTERPRISE") == "true",
 		upgradeServerURL:         fmt.Sprintf("%s/check-upgrade", upgradeServerBaseURL),
 		engine:                   engine,
+		mcpNetworkPolicyEnabled:  mcpNetworkPolicyEnabled,
+		mcpDefaultDenyAllEgress:  mcpDefaultDenyAllEgress,
 		autonomousToolUseEnabled: autonomousToolUseEnabled,
 		nanobotIntegration:       nanobotIntegration,
 		messagePoliciesEnabled:   messagePoliciesEnabled,
@@ -136,6 +140,8 @@ func (v *VersionHandler) getVersionResponse() map[string]any {
 	values["sessionStore"] = v.sessionStore
 	values["enterprise"] = v.enterprise
 	values["engine"] = v.engine
+	values["mcpNetworkPolicyEnabled"] = v.mcpNetworkPolicyEnabled
+	values["mcpDefaultDenyAllEgress"] = v.mcpDefaultDenyAllEgress
 	values["autonomousToolUseEnabled"] = v.autonomousToolUseEnabled
 	values["nanobotIntegration"] = v.nanobotIntegration
 	values["messagePoliciesEnabled"] = v.messagePoliciesEnabled

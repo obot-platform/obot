@@ -1,8 +1,7 @@
 <script lang="ts">
-	import { ExternalLink, Plus, Server, X } from 'lucide-svelte';
-	import ResponsiveDialog from '../ResponsiveDialog.svelte';
-	import CopyButton from '../CopyButton.svelte';
-	import HowToConnect from './HowToConnect.svelte';
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import { dialogAnimation } from '$lib/actions/dialogAnimation';
 	import {
 		ChatService,
 		EditorService,
@@ -10,23 +9,26 @@
 		type MCPCatalogServer,
 		type MCPServerInstance
 	} from '$lib/services';
+	import { EventStreamService } from '$lib/services/admin/eventstream.svelte';
 	import {
 		convertCompositeLaunchFormDataToPayload,
 		convertEnvHeadersToRecord,
 		createProjectMcp,
+		getSecretBindingEngineError,
+		isKubernetesRuntimeBackend,
 		hasEditableConfiguration
 	} from '$lib/services/chat/mcp';
-	import { goto } from '$app/navigation';
+	import { version } from '$lib/stores';
+	import CopyButton from '../CopyButton.svelte';
 	import PageLoading from '../PageLoading.svelte';
+	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import CatalogConfigureForm, {
 		type CompositeLaunchFormData,
 		type LaunchFormData
 	} from './CatalogConfigureForm.svelte';
-	import { EventStreamService } from '$lib/services/admin/eventstream.svelte';
-	import { resolve } from '$app/paths';
-	import { dialogAnimation } from '$lib/actions/dialogAnimation';
+	import HowToConnect from './HowToConnect.svelte';
+	import { ExternalLink, Plus, Server, X } from 'lucide-svelte';
 	import { onMount } from 'svelte';
-	import { version } from '$lib/stores';
 
 	interface Props {
 		userConfiguredServers: MCPCatalogServer[];
@@ -52,10 +54,16 @@
 	let instance = $state<MCPServerInstance>();
 	let manifest = $derived(server?.manifest || entry?.manifest);
 	let isConfigured = $derived(Boolean((entry && server) || (server && instance)));
+	let secretBindingEngineError = $derived(
+		isKubernetesRuntimeBackend(version.current.engine)
+			? undefined
+			: getSecretBindingEngineError(manifest)
+	);
 
 	let connectDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let configDialog = $state<ReturnType<typeof CatalogConfigureForm>>();
 	let configureForm = $state<LaunchFormData | CompositeLaunchFormData>();
+	let configureFormTitle = $state<string>();
 
 	let chatLoading = $state(false);
 	let chatLoadingProgress = $state(0);
@@ -97,6 +105,19 @@
 		}
 	}
 
+	export async function authenticate(item: MCPCatalogServer, parentEntry?: MCPCatalogEntry) {
+		server = item;
+		entry = parentEntry;
+		instance = undefined;
+		oauthVerifying = false;
+		oauthURL = await getOauthURL();
+		if (oauthURL) {
+			oauthDialog?.showModal();
+		} else {
+			handleConnect();
+		}
+	}
+
 	function getUniqueAlias(serverName: string): string | undefined {
 		const nameLower = serverName.toLowerCase();
 
@@ -117,6 +138,7 @@
 	}
 
 	function initConfigureForm(item: MCPCatalogEntry) {
+		configureFormTitle = undefined;
 		configureForm = {
 			name: '',
 			envs: item.manifest?.env?.map((env) => ({
@@ -134,7 +156,37 @@
 		};
 	}
 
+	async function initMultiUserInstanceForm(
+		item: MCPCatalogServer,
+		currentInstance?: MCPServerInstance
+	) {
+		configureFormTitle = 'User Specific Configuration';
+		let values: Record<string, string> = {};
+		if (currentInstance) {
+			try {
+				values = await ChatService.revealMcpServerInstance(currentInstance.id, {
+					dontLogErrors: true
+				});
+			} catch (_error) {
+				values = {};
+			}
+		}
+		configureForm = {
+			headers: item.manifest?.multiUserConfig?.userDefinedHeaders?.map((header) => ({
+				...header,
+				value: values[header.key] ?? '',
+				isStatic: false
+			}))
+		};
+		configDialog?.open();
+	}
+
+	function hasMultiUserInstanceConfiguration(item?: MCPCatalogServer) {
+		return (item?.manifest?.multiUserConfig?.userDefinedHeaders?.length ?? 0) > 0;
+	}
+
 	function initCompositeForm(item: MCPCatalogEntry) {
+		configureFormTitle = undefined;
 		// For composite: open form first to collect per-component URLs before creating
 		if (item.manifest.runtime === 'composite') {
 			const components = item.manifest?.compositeConfig?.componentServers || [];
@@ -171,7 +223,12 @@
 								value: ''
 							})),
 					headers: isMultiUser
-						? []
+						? (m.multiUserConfig?.userDefinedHeaders ?? []).map((h) => ({
+								...(h as unknown as Record<string, unknown>),
+								key: h.key,
+								value: '',
+								isStatic: false
+							}))
 						: (m.remoteConfig?.headers ?? []).map((h) => ({
 								...(h as unknown as Record<string, unknown>),
 								key: h.key,
@@ -232,16 +289,20 @@
 		if (document.visibilityState === 'visible') {
 			oauthURL = await getOauthURL();
 			if (!oauthURL) {
-				document.removeEventListener('visibilitychange', handleOauthVisibilityChange);
 				oauthDialog?.close();
 				handleConnect();
-			} else {
-				oauthVerifying = false;
 			}
+			oauthVerifying = false;
 		}
 	}
 
+	function ensureOauthVisibilityListener() {
+		document.removeEventListener('visibilitychange', handleOauthVisibilityChange);
+		document.addEventListener('visibilitychange', handleOauthVisibilityChange);
+	}
+
 	async function verifyOauthOrConnect() {
+		oauthVerifying = false; // reset
 		oauthURL = await getOauthURL();
 		launchProgress = 100;
 
@@ -420,16 +481,25 @@
 	async function handleMultiUserServer() {
 		if (!server || server.catalogEntryID) return;
 		try {
+			if (hasMultiUserInstanceConfiguration(server)) {
+				await initMultiUserInstanceForm(server);
+				return;
+			}
+
 			const response = await ChatService.createMcpServerInstance(server.id);
 			instance = response;
-			oauthURL = await getOauthURL();
-			if (oauthURL) {
-				oauthDialog?.showModal();
-			} else {
-				handleConnect();
-			}
+			await finishMultiUserServerConnect();
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'An unknown error occurred';
+		}
+	}
+
+	async function finishMultiUserServerConnect() {
+		oauthURL = await getOauthURL();
+		if (oauthURL) {
+			oauthDialog?.showModal();
+		} else {
+			handleConnect();
 		}
 	}
 
@@ -491,6 +561,27 @@
 
 	async function handleConfigureForm() {
 		if (!configureForm) return;
+		if (server && !entry && hasMultiUserInstanceConfiguration(server)) {
+			try {
+				saving = true;
+				const lf = configureForm as LaunchFormData;
+				if (!instance) {
+					instance = await ChatService.createMcpServerInstance(server.id);
+				}
+				const configuredInstance = await ChatService.configureMcpServerInstance(
+					instance.id,
+					convertEnvHeadersToRecord(undefined, lf.headers)
+				);
+				instance = configuredInstance;
+				configDialog?.close();
+				await finishMultiUserServerConnect();
+			} catch (err) {
+				error = err instanceof Error ? err.message : 'An unknown error occurred';
+			} finally {
+				saving = false;
+			}
+			return;
+		}
 
 		if (launchState === 'relaunching' && server && entry) {
 			configDialog?.close();
@@ -533,6 +624,16 @@
 
 	function initCatalogEntry() {
 		if (!entry) return;
+		error = secretBindingEngineError;
+		if (secretBindingEngineError && entry.manifest?.runtime === 'composite') {
+			initCompositeForm(entry);
+			return;
+		}
+		if (secretBindingEngineError) {
+			initConfigureForm(entry);
+			configDialog?.open();
+			return;
+		}
 		if (hasEditableConfiguration(entry) && entry.manifest?.runtime === 'composite') {
 			initCompositeForm(entry);
 		} else if (hasEditableConfiguration(entry)) {
@@ -546,17 +647,30 @@
 	export function open({
 		server: initServer,
 		entry: initEntry,
-		instance: initInstance
+		instance: initInstance,
+		configureInstance
 	}: {
 		server?: MCPCatalogServer;
 		entry?: MCPCatalogEntry;
 		instance?: MCPServerInstance;
+		configureInstance?: boolean;
 	}) {
 		server = initServer;
 		entry = initEntry;
 		instance = initInstance;
 
-		if ((entry && server) || (server && instance)) {
+		ensureOauthVisibilityListener();
+
+		if (server && instance && configureInstance && hasMultiUserInstanceConfiguration(server)) {
+			initMultiUserInstanceForm(server, instance);
+		} else if (
+			server &&
+			instance &&
+			!instance.configured &&
+			hasMultiUserInstanceConfiguration(server)
+		) {
+			initMultiUserInstanceForm(server, instance);
+		} else if ((entry && server) || (server && instance)) {
 			handleConnect();
 		} else {
 			if (initEntry && !initServer) {
@@ -633,7 +747,7 @@
 	}
 
 	onMount(() => {
-		document.addEventListener('visibilitychange', handleOauthVisibilityChange);
+		ensureOauthVisibilityListener();
 		return () => {
 			document.removeEventListener('visibilitychange', handleOauthVisibilityChange);
 		};
@@ -733,8 +847,10 @@
 	onSave={handleConfigureForm}
 	submitText={isConfigured ? 'Update' : 'Launch'}
 	loading={saving}
+	disableSave={!!secretBindingEngineError}
 	isNew={!isConfigured}
 	showAlias={isConfigured}
+	configurationTitle={configureFormTitle}
 />
 
 <PageLoading

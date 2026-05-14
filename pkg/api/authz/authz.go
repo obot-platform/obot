@@ -21,6 +21,11 @@ const (
 )
 
 var (
+	apiKeyOptionalSkillRoutes = newPathMatcher(
+		"GET /api/skills",
+		"GET /api/skills/{id}",
+		"GET /api/skills/{id}/download",
+	)
 	adminAndOwnerRules = []string{
 		"/api/agents",
 		"/api/agents/",
@@ -58,6 +63,8 @@ var (
 		"/api/mcp-webhook-validations/",
 		"/api/system-mcp-servers",
 		"/api/system-mcp-servers/",
+		"/api/system-mcp-catalogs",
+		"/api/system-mcp-catalogs/",
 		"GET /api/mcp-audit-logs",
 		"GET /api/mcp-audit-logs/filter-options/{filter}",
 		"GET /api/mcp-audit-logs/detail/{audit_log_id}",
@@ -83,6 +90,14 @@ var (
 		"/api/message-policy-violations",
 		"/api/message-policy-violations/",
 		"GET /api/message-policy-violation-stats",
+		"/api/devices/scans",
+		"/api/devices/scans/",
+		"/api/devices/scan-stats",
+		"/api/devices/mcp-servers/",
+		"/api/devices/skills",
+		"/api/devices/skills/",
+		"/api/devices/clients",
+		"/api/devices/clients/",
 		"/api/available-models",
 		"/api/available-models/",
 		"/api/default-model-aliases",
@@ -170,6 +185,8 @@ var (
 			"GET /api/group-role-assignments",
 			"GET /api/group-role-assignments/",
 			"GET /api/mcp-catalogs/",
+			"GET /api/system-mcp-catalogs",
+			"GET /api/system-mcp-catalogs/",
 			"GET /api/mcp-webhook-validations",
 			"GET /api/mcp-webhook-validations/",
 			"GET /api/mcp-servers/",
@@ -204,6 +221,16 @@ var (
 			"GET /api/message-policy-violations/filter-options/{filter}",
 			"GET /api/message-policy-violations/{id}",
 			"GET /api/message-policy-violation-stats",
+			"GET /api/devices/scans",
+			"GET /api/devices/scans/",
+			"GET /api/devices/scan-stats",
+			"GET /api/devices/mcp-servers/",
+			"GET /api/devices/skills",
+			"GET /api/devices/skills/",
+			"GET /api/devices/clients",
+			"GET /api/devices/clients/",
+			"GET /api/token-usage",
+			"GET /api/total-token-usage",
 			"GET /api/nanobot-agents",
 		},
 		anyGroup: {
@@ -253,8 +280,6 @@ var (
 			"POST /oauth/token",
 			"GET /oauth/jwks.json",
 
-			"/mcp-connect/",
-
 			// Allow any user to read stored images.
 			// This allows the UI to display custom images to unauthenticated users.
 			"GET /api/image/{image_id}",
@@ -274,6 +299,8 @@ var (
 			"GET /api/models",
 			"GET /api/model-providers",
 			"POST /api/image/generate",
+			"GET /api/users",
+			"GET /api/groups",
 
 			// Allow authenticated users to read and accept/reject project invitations.
 			// The security depends on the code being an unguessable UUID string,
@@ -297,15 +324,10 @@ var (
 			"GET /api/mcp-stats",
 			"GET /api/mcp-stats/{mcp_id}",
 
-			// Published artifacts — any authenticated user can publish, search, and download.
-			// Ownership checks for update/delete are enforced in the handler.
-			"POST /api/published-artifacts",
-			"GET /api/published-artifacts",
-			"GET /api/published-artifacts/{id}",
-			"GET /api/published-artifacts/{id}/download",
-			"GET /api/published-artifacts/{id}/{version}/skill",
-			"PUT /api/published-artifacts/{id}",
-			"DELETE /api/published-artifacts/{id}",
+			// Published artifacts — any authenticated user can publish and search.
+			// Artifact-specific access is enforced by resource authorization.
+			"POST   /api/published-artifacts",
+			"GET    /api/published-artifacts",
 
 			// Skill discovery and download are filtered in the handler.
 			"GET /api/skills",
@@ -315,6 +337,11 @@ var (
 			// Allow basic users to create and list ProjectV2 resources
 			"POST /api/projectsv2",
 			"GET /api/projectsv2",
+
+			// Device scans: any authenticated user can submit a scan via
+			// `obot scan`. Reads are admin/owner/auditor-only, gated by
+			// the rules above.
+			"POST /api/devices/scans",
 		},
 
 		types.GroupPowerUserPlus: {
@@ -357,15 +384,10 @@ var (
 		// They get access to anyGroup routes automatically (health checks, OAuth flows, etc.)
 		types.GroupAPIKey: {
 			"GET /api/me",
-			"/mcp-connect/",
+			"GET /api/users",
+			"GET /api/groups",
 			"POST /api/published-artifacts",
 			"GET /api/published-artifacts",
-			"GET /api/published-artifacts/{id}",
-			"GET /api/published-artifacts/{id}/download",
-			"GET /api/published-artifacts/{id}/{version}/skill",
-			"GET /api/skills",
-			"GET /api/skills/{id}",
-			"GET /api/skills/{id}/download",
 		},
 
 		MetricsGroup: {
@@ -413,6 +435,10 @@ func NewAuthorizer(cache, uncached kclient.Client, devMode bool, acrHelper *acce
 }
 
 func (a *Authorizer) Authorize(req *http.Request, user user.Info) bool {
+	if authorizeAPIKeySkillRoutes(req, user) {
+		return true
+	}
+
 	userGroups := user.GetGroups()
 	for _, r := range a.rules {
 		if r.group == anyGroup || slices.Contains(userGroups, r.group) {
@@ -423,6 +449,19 @@ func (a *Authorizer) Authorize(req *http.Request, user user.Info) bool {
 	}
 
 	return a.authorizeAPIResources(req, user) || a.checkOAuthClient(req) || a.checkUI(req, user)
+}
+
+func authorizeAPIKeySkillRoutes(req *http.Request, user user.Info) bool {
+	if !slices.Contains(user.GetGroups(), types.GroupAPIKey) {
+		return false
+	}
+
+	if !slices.Contains(user.GetExtra()[types.APIKeySkillsAccessExtraKey], "true") {
+		return false
+	}
+
+	_, ok := apiKeyOptionalSkillRoutes.Match(req)
+	return ok
 }
 
 func (a *Authorizer) get(ctx context.Context, key kclient.ObjectKey, obj kclient.Object, opts ...kclient.GetOption) error {

@@ -1,45 +1,70 @@
 <script lang="ts">
-	import { NanobotService } from '$lib/services';
-	import type { PublishedArtifactVersion } from '$lib/services/nanobot/types';
-	import { formatTimeAgo } from '$lib/time';
-	import { ChevronLeft, CircleAlert } from 'lucide-svelte';
-	import { twMerge } from 'tailwind-merge';
-	import MarkdownEditor from './MarkdownEditor.svelte';
-	import { fly } from 'svelte/transition';
+	import SearchUsers from '$lib/components/admin/SearchUsers.svelte';
+	import { AdminService, NanobotService } from '$lib/services';
+	import type { AccessControlRuleSubject, OrgGroup, OrgUser } from '$lib/services/admin/types';
+	import type {
+		PublishedArtifactVersion,
+		PublishedArtifactUpdateRequest
+	} from '$lib/services/nanobot/types';
 	import { responsive } from '$lib/stores';
-	import Confirm from '../Confirm.svelte';
+	import { formatTimeAgo } from '$lib/time';
+	import { getUserDisplayName } from '$lib/utils';
+	import MarkdownEditor from './MarkdownEditor.svelte';
+	import { hasAllUsersSubject } from './publishedArtifactSubjects';
+	import { ChevronLeft, CircleAlert, Plus, Trash2 } from 'lucide-svelte';
+	import { fly } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		versions: PublishedArtifactVersion[];
 		publishedArtifactId?: string;
 		workflowDisplayName?: string;
 		onClose: () => void;
-		onChangeStatus: (status: 'public' | 'private') => void;
+		onChangeSubjects: (version: number, subjects: AccessControlRuleSubject[]) => void;
 		onUnpublish: () => void;
-		status?: 'public' | 'private';
 	}
 
 	let {
 		versions,
 		workflowDisplayName,
 		onClose,
-		onChangeStatus,
+		onChangeSubjects,
 		onUnpublish,
-		publishedArtifactId,
-		status
+		publishedArtifactId
 	}: Props = $props();
-	let versionToShow = $state<PublishedArtifactVersion | undefined>(undefined);
 
+	let selectedVersionNumber = $state<number | undefined>(undefined);
 	let loadingVersion = $state(false);
-	let versionContents = $state<string>('');
+	let versionContents = $state('');
+	let savingSubjects = $state(false);
+	let addUserGroupDialog = $state<ReturnType<typeof SearchUsers>>();
+	let users = $state<OrgUser[]>([]);
+	let groups = $state<OrgGroup[]>([]);
 
-	let changingStatus = $state<'public' | 'private' | undefined>(undefined);
-
+	let userMap = $derived(new Map(users.map((user) => [user.id, user])));
+	let groupMap = $derived(new Map(groups.map((group) => [group.id, group])));
 	let sortedVersions = $derived([...versions].sort((a, b) => b.version - a.version));
+	let selectedVersion = $derived(
+		selectedVersionNumber == null
+			? undefined
+			: sortedVersions.find((version) => version.version === selectedVersionNumber)
+	);
+	let activeVersion = $derived(selectedVersion ?? sortedVersions[0]);
+	let activeSubjects = $derived(activeVersion?.subjects ?? []);
+
+	$effect(() => {
+		Promise.all([
+			AdminService.listUsers().catch(() => []),
+			AdminService.listGroups().catch(() => [])
+		]).then(([loadedUsers, loadedGroups]) => {
+			users = loadedUsers;
+			groups = loadedGroups;
+		});
+	});
 
 	async function fetchVersionContents(selectedVersion: PublishedArtifactVersion) {
 		if (!publishedArtifactId) return;
-		versionToShow = selectedVersion;
+		selectedVersionNumber = selectedVersion.version;
 		loadingVersion = true;
 		versionContents = '';
 		try {
@@ -54,42 +79,59 @@
 		}
 	}
 
-	async function handleStatusChange() {
-		if (!publishedArtifactId || !changingStatus) return;
+	async function persistSubjects(nextSubjects: AccessControlRuleSubject[]) {
+		if (!publishedArtifactId || !activeVersion) return;
 
+		savingSubjects = true;
 		try {
 			await NanobotService.updatePublishedArtifact(publishedArtifactId, {
-				visibility: changingStatus
-			});
-			onChangeStatus?.(changingStatus as 'public' | 'private');
+				version: activeVersion.version,
+				subjects: nextSubjects
+			} satisfies PublishedArtifactUpdateRequest);
+			onChangeSubjects(activeVersion.version, nextSubjects);
 		} catch (err) {
-			console.error('Failed to update published artifact status', err);
+			console.error('Failed to update published artifact subjects', err);
 		} finally {
-			changingStatus = undefined;
+			savingSubjects = false;
 		}
+	}
+
+	function getSubjectDisplayName(subject: AccessControlRuleSubject): string {
+		if (subject.type === 'selector' && subject.id === '*') {
+			return 'All Obot Users';
+		}
+		if (subject.type === 'group') {
+			return groupMap.get(subject.id)?.name ?? subject.id;
+		}
+		return getUserDisplayName(userMap, subject.id);
+	}
+
+	function getSubjectType(subject: AccessControlRuleSubject): string {
+		if (subject.type === 'selector') {
+			return 'Everyone';
+		}
+		return subject.type === 'group' ? 'Group' : 'User';
 	}
 </script>
 
-{#if !changingStatus}
-	<dialog class="modal-open modal flex items-center justify-center gap-4">
-		{#if responsive.isMobile}
-			{#if versionToShow}
-				{@render versionContentsDialog()}
-			{:else}
-				{@render versionHistoryDialog()}
-			{/if}
+<dialog class="modal-open modal flex items-center justify-center gap-4">
+	{#if responsive.isMobile}
+		{#if selectedVersion}
+			{@render versionContentsDialog()}
 		{:else}
 			{@render versionHistoryDialog()}
-			{#if versionToShow}
-				{@render versionContentsDialog()}
-			{/if}
 		{/if}
-	</dialog>
-{/if}
+	{:else}
+		{@render versionHistoryDialog()}
+		{#if selectedVersion}
+			{@render versionContentsDialog()}
+		{/if}
+	{/if}
+</dialog>
 
 {#snippet versionHistoryDialog()}
 	<div
-		class="modal-box dialog-container flex h-full w-full max-w-full flex-col md:max-h-fit md:max-w-lg"
+		class="modal-box dialog-container flex h-full w-full max-w-full flex-col md:max-h-fit md:max-w-xl"
 	>
 		<form method="dialog">
 			<button class="btn btn-circle btn-ghost btn-sm absolute top-2 right-2" onclick={onClose}
@@ -98,27 +140,25 @@
 		</form>
 		<div class="flex items-center gap-2">
 			<h3 class="text-lg font-semibold">{workflowDisplayName}</h3>
-			{#if status}
-				<span
-					class={twMerge(
-						'badge badge-sm font-semibold uppercase',
-						status === 'public' ? 'badge-success text-white' : 'badge-secondary'
-					)}
-				>
-					{status}
-				</span>
-			{/if}
 		</div>
 
 		<div class="bg-primary/10 mt-2 flex items-center gap-2 rounded-md px-4 py-2">
 			<CircleAlert class="text-primary size-5 flex-shrink-0" />
 			<p class="text-base-content mt-1 text-sm font-light">
-				{#if status === 'public'}
-					This workflow is currently public and all versions are visible to other users.
+				{#if !activeVersion}
+					Select a version to manage sharing.
+				{:else if activeSubjects.length === 0}
+					Version {activeVersion.version} is currently only visible to you.
+				{:else if hasAllUsersSubject(activeSubjects)}
+					This workflow is visible to all Obot users.
 				{:else}
-					This workflow is currently private and only visible to you.
+					This workflow is visible only to the listed users and groups.
 				{/if}
 			</p>
+		</div>
+
+		<div class="mt-4">
+			{@render accessSubjectsPanel()}
 		</div>
 
 		{#if versions.length === 0}
@@ -136,7 +176,7 @@
 							<div
 								class={twMerge(
 									'badge badge-sm badge-soft w-12',
-									index === 0 ? 'badge-primary' : 'badge-secondary'
+									activeVersion?.version === version.version ? 'badge-primary' : 'badge-secondary'
 								)}
 							>
 								{parseFloat(version.version.toString()).toFixed(1)}
@@ -167,23 +207,55 @@
 		<div class="flex grow"></div>
 
 		<div class="modal-action mt-4">
-			<button
-				class="btn btn-secondary"
-				onclick={() => {
-					onUnpublish();
-				}}
-			>
+			<button class="btn btn-secondary" onclick={() => onUnpublish()}>
 				{versions.length > 1 ? 'Unpublish All' : 'Unpublish'}
 			</button>
-			<button
-				class="btn btn-primary"
-				onclick={() => {
-					changingStatus = status === 'public' ? 'private' : 'public';
-				}}
-			>
-				{status == 'public' ? 'Make Private' : 'Make Public'}
-			</button>
 		</div>
+	</div>
+{/snippet}
+
+{#snippet accessSubjectsPanel()}
+	<div class="mb-2 flex items-center justify-between">
+		<h4 class="text-sm font-semibold">
+			Access Subjects {#if activeVersion}for v{activeVersion.version}{/if}
+		</h4>
+		<button
+			class="btn btn-ghost btn-sm"
+			disabled={!activeVersion}
+			onclick={() => addUserGroupDialog?.open()}
+		>
+			<Plus class="size-4" /> Add User/Group
+		</button>
+	</div>
+	<div class="border-base-300 rounded-md border">
+		{#if !activeVersion}
+			<p class="text-base-content/60 px-3 py-3 text-sm">Select a version</p>
+		{:else if activeSubjects.length === 0}
+			<p class="text-base-content/60 px-3 py-3 text-sm">Owner only</p>
+		{:else}
+			{#each activeSubjects as subject (subject.type + ':' + subject.id)}
+				<div
+					class="border-base-300 flex items-center justify-between border-b px-3 py-2 last:border-b-0"
+				>
+					<div class="min-w-0">
+						<p class="truncate text-sm font-medium">{getSubjectDisplayName(subject)}</p>
+						<p class="text-base-content/60 text-xs">{getSubjectType(subject)}</p>
+					</div>
+					<button
+						class="btn btn-ghost btn-xs btn-square"
+						disabled={savingSubjects}
+						onclick={() =>
+							persistSubjects(
+								activeSubjects.filter(
+									(current) => !(current.type === subject.type && current.id === subject.id)
+								)
+							)}
+					>
+						<Trash2 class="size-4" />
+					</button>
+				</div>
+			{/each}
+		{/if}
 	</div>
 {/snippet}
 
@@ -195,20 +267,28 @@
 		<form method="dialog">
 			<button
 				class="btn btn-circle btn-ghost btn-sm absolute top-2 right-2"
-				onclick={() => (versionToShow = undefined)}>✕</button
+				onclick={() => (selectedVersionNumber = undefined)}>✕</button
 			>
 		</form>
 		<div class="flex items-center gap-2">
 			{#if responsive.isMobile}
-				<button class="btn btn-circle btn-ghost" onclick={() => (versionToShow = undefined)}>
+				<button
+					class="btn btn-circle btn-ghost"
+					onclick={() => (selectedVersionNumber = undefined)}
+				>
 					<ChevronLeft class="size-5" />
 				</button>
 			{/if}
 			<h3 class="text-lg font-semibold">
-				{workflowDisplayName} | Version {versionToShow?.version}
+				{workflowDisplayName} | Version {selectedVersion?.version}
 			</h3>
 		</div>
 		<div class="mt-2 min-h-[200px]">
+			{#if responsive.isMobile}
+				<div class="mb-4">
+					{@render accessSubjectsPanel()}
+				</div>
+			{/if}
 			{#if loadingVersion}
 				<div class="flex items-center justify-center gap-2 py-8">
 					<span class="loading loading-sm loading-spinner"></span>
@@ -220,31 +300,36 @@
 				>
 					<MarkdownEditor value={versionContents} readonly />
 				</div>
+			{:else}
+				<div class="text-base-content/50 py-8 text-center text-sm">No version contents found.</div>
 			{/if}
 		</div>
 	</div>
 {/snippet}
 
-<Confirm
-	show={!!changingStatus}
-	onsuccess={handleStatusChange}
-	oncancel={() => (changingStatus = undefined)}
-	msg={changingStatus === 'public'
-		? `Make ${workflowDisplayName} Public?`
-		: `Make ${workflowDisplayName} Private?`}
-	type="info"
-	title="Confirm Workflow Status"
->
-	{#snippet note()}
-		{#if changingStatus}
-			<p>
-				Are you sure you want to make this workflow {changingStatus}?
-			</p>
-			<p>
-				{changingStatus === 'public'
-					? 'All versions will be made public and will be visible to other users.'
-					: 'All versions will be made private and will no longer be visible to other users.'}
-			</p>
-		{/if}
-	{/snippet}
-</Confirm>
+<SearchUsers
+	bind:this={addUserGroupDialog}
+	filterIds={activeSubjects.map((subject) => subject.id)}
+	initialUsers={users}
+	initialGroups={groups}
+	onAdd={(addedUsers: OrgUser[], addedGroups: OrgGroup[]) => {
+		const existingSubjectIds = new Set(activeSubjects.map((subject) => subject.id));
+		const nextSubjects = addedGroups.some((entry) => entry.id === '*')
+			? [{ type: 'selector' as const, id: '*' }]
+			: [
+					...activeSubjects.filter(
+						(subject) => !(subject.type === 'selector' && subject.id === '*')
+					),
+					...addedUsers
+						.filter((entry) => !existingSubjectIds.has(entry.id))
+						.map((entry) => ({ type: 'user' as const, id: entry.id })),
+					...addedGroups
+						.filter((entry) => !existingSubjectIds.has(entry.id))
+						.map((entry) => ({
+							type: 'group' as const,
+							id: entry.id
+						}))
+				];
+		persistSubjects(nextSubjects);
+	}}
+/>

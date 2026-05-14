@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { AdminService } from '$lib/services';
 	import {
@@ -13,17 +14,16 @@
 		ModelAliasLabels
 	} from '$lib/services/admin/types';
 	import type { Model, ModelAlias } from '$lib/services/chat/types';
+	import { defaultModelAliases as defaultModelAliasesStore } from '$lib/stores';
+	import { goto } from '$lib/url';
+	import { getUserDisplayName } from '$lib/utils';
+	import Confirm from '../Confirm.svelte';
+	import Table from '../table/Table.svelte';
+	import SearchModels from './SearchModels.svelte';
+	import SearchUsers from './SearchUsers.svelte';
 	import { LoaderCircle, Plus, Trash2 } from 'lucide-svelte';
 	import { onMount, untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import Table from '../table/Table.svelte';
-	import SearchUsers from './SearchUsers.svelte';
-	import Confirm from '../Confirm.svelte';
-	import { goto } from '$lib/url';
-	import SearchModels from './SearchModels.svelte';
-	import { getUserDisplayName } from '$lib/utils';
-	import { defaultModelAliases as defaultModelAliasesStore } from '$lib/stores';
 
 	interface Props {
 		modelAccessPolicy?: ModelAccessPolicy;
@@ -185,9 +185,8 @@
 			promises[0] = AdminService.listUsers();
 		}
 		if (!usersAndGroups?.groups) {
-			// Include restricted groups in the results so that groups added to polcies before the group
-			// restriction was configured are still visible in the UI.
-			promises[1] = AdminService.listGroups({ includeRestricted: true });
+			// Load groups when they have not already been fetched.
+			promises[1] = AdminService.listGroups();
 		}
 
 		Promise.all(promises)

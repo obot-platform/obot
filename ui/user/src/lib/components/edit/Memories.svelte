@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { type Project } from '$lib/services';
 	import MemoryContent from '$lib/components/MemoriesDialog.svelte';
+	import { type Project } from '$lib/services';
 
 	interface Props {
 		project: Project;

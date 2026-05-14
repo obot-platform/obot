@@ -5,15 +5,15 @@
 		ChatMessageItem,
 		ResourceContents
 	} from '$lib/services/nanobot/types';
-	import MessageItemText from './MessageItemText.svelte';
-	import MessageItemImage from './MessageItemImage.svelte';
-	import MessageItemAudio from './MessageItemAudio.svelte';
-	import MessageItemResourceLink from './MessageItemResourceLink.svelte';
-	import MessageItemResource from './MessageItemResource.svelte';
-	import MessageItemTool from './MessageItemTool.svelte';
-	import MessageItemFile from './MessageItemFile.svelte';
-	import MessageItemPolicyViolation from './MessageItemPolicyViolation.svelte';
 	import { parseToolFilePath, isPolicyViolation } from '$lib/services/nanobot/utils';
+	import MessageItemAudio from './MessageItemAudio.svelte';
+	import MessageItemFile from './MessageItemFile.svelte';
+	import MessageItemImage from './MessageItemImage.svelte';
+	import MessageItemPolicyViolation from './MessageItemPolicyViolation.svelte';
+	import MessageItemResource from './MessageItemResource.svelte';
+	import MessageItemResourceLink from './MessageItemResourceLink.svelte';
+	import MessageItemText from './MessageItemText.svelte';
+	import MessageItemTool from './MessageItemTool.svelte';
 
 	interface Props {
 		item: ChatMessageItem;

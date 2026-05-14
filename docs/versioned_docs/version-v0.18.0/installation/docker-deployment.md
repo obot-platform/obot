@@ -35,7 +35,11 @@ docker run -d \
   ghcr.io/obot-platform/obot:latest
 ```
 
-#### With Authentication
+:::important
+Running Obot without authentication is not recommended unless you are behind a secure firewall, as unauthenticated users could launch MCP servers by sending requests to port 8080 on your system.
+:::
+
+#### With Authentication (Recommended)
 
 ```bash
 docker run -d \
@@ -61,6 +65,8 @@ docker run -d \
   -p 9999:8080 \
   -e OPENAI_API_KEY=your-openai-key \
   -e OBOT_SERVER_HOSTNAME=localhost:9999 \
+  -e OBOT_SERVER_ENABLE_AUTHENTICATION=true \
+  -e OBOT_BOOTSTRAP_TOKEN=your-bootstrap-token \
   ghcr.io/obot-platform/obot:latest
 ```
 

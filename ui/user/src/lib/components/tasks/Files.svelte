@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { FileText, Trash2 } from 'lucide-svelte/icons';
-	import { ChatService, EditorService, type Files, type Project } from '$lib/services';
-	import { Download, RotateCw } from 'lucide-svelte';
-	import { onDestroy } from 'svelte';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { getLayout } from '$lib/context/chatLayout.svelte';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { ChatService, EditorService, type Files, type Project } from '$lib/services';
+	import { Download, RotateCw } from 'lucide-svelte';
+	import { FileText, Trash2 } from 'lucide-svelte/icons';
+	import { onDestroy } from 'svelte';
 
 	interface Props {
 		taskID: string;
@@ -17,7 +17,7 @@
 	let { taskID, runID, running, project }: Props = $props();
 	let loading = $state(false);
 	let fileToDelete: string | undefined = $state();
-	let interval: number;
+	let interval: ReturnType<typeof setInterval> | undefined;
 	const layout = getLayout();
 
 	async function loadFiles() {
@@ -50,7 +50,7 @@
 			interval = setInterval(loadFiles, 5000);
 		} else if (!running && interval) {
 			clearInterval(interval);
-			interval = 0;
+			interval = undefined;
 		}
 	});
 

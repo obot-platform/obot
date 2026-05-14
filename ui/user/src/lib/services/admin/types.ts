@@ -1,6 +1,9 @@
 import {
 	type MCPServerTool,
+	type MCPSecretBinding,
 	type Project,
+	type RemoteRuntimeConfig,
+	type MultiUserConfig,
 	type Runtime,
 	type UVXRuntimeConfig,
 	type NPXRuntimeConfig,
@@ -16,6 +19,7 @@ export interface MCPCatalogManifest {
 	displayName: string;
 	sourceURLs: string[];
 	allowedUserIDs: string[];
+	sourceURLCredentials?: Record<string, string>;
 }
 
 export interface MCPCatalog extends MCPCatalogManifest {
@@ -50,6 +54,7 @@ export interface CatalogComponentServer {
 	mcpServerID?: string;
 	manifest?: MCPCatalogEntryServerManifest;
 	toolOverrides?: ToolOverride[];
+	toolPrefix?: string;
 }
 
 export interface MCPCatalogEntryServerManifest {
@@ -70,6 +75,9 @@ export interface MCPCatalogEntryServerManifest {
 	containerizedConfig?: ContainerizedRuntimeConfig;
 	remoteConfig?: RemoteCatalogConfigAdmin;
 	compositeConfig?: CompositeCatalogConfig;
+	multiUserConfig?: MultiUserConfig;
+
+	startupTimeoutSeconds?: number;
 }
 
 export interface MCPCatalogEntry {
@@ -106,7 +114,9 @@ export interface MCPCatalogEntryFieldManifest {
 	sensitive: boolean;
 	value: string;
 	file?: boolean;
+	dynamicFile?: boolean;
 	prefix?: string;
+	secretBinding?: MCPSecretBinding;
 }
 
 export type MCPCatalogEntryFormData = Omit<MCPCatalogEntryServerManifest, 'metadata'> & {
@@ -134,13 +144,57 @@ export interface RuntimeFormData {
 	remoteServerConfig?: RemoteRuntimeConfigAdmin; // For servers
 	compositeConfig?: CompositeCatalogConfig; // For catalog entries
 	compositeServerConfig?: CompositeRuntimeConfig; // For servers
+	multiUserConfig?: MultiUserConfig; // For servers
+
+	startupTimeoutSeconds?: number;
 }
 
 export interface MCPCatalogServerManifest {
 	catalogEntryID?: string;
 	manifest: Omit<MCPCatalogEntryServerManifest, 'remoteConfig'> & {
 		remoteConfig?: RemoteRuntimeConfigAdmin;
+		multiUserConfig?: MultiUserConfig;
 	};
+}
+
+export interface MCPHeaderManifest {
+	name: string;
+	description: string;
+	key: string;
+	value: string;
+	sensitive: boolean;
+	required: boolean;
+	prefix?: string;
+	secretBinding?: MCPSecretBinding;
+}
+
+export interface MCPFilterRemoteRuntimeConfig {
+	url: string;
+	isTemplate?: boolean;
+	urlTemplate?: string;
+	hostname?: string;
+	headers?: MCPHeaderManifest[];
+	staticOAuthRequired?: boolean;
+}
+
+export interface MCPEnvManifest extends MCPHeaderManifest {
+	file?: boolean;
+	dynamicFile?: boolean;
+}
+
+export interface MCPFilterServerManifest {
+	metadata?: Record<string, string>;
+	name?: string;
+	shortDescription?: string;
+	description?: string;
+	icon?: string;
+	enabled?: boolean;
+	runtime: Runtime;
+	uvxConfig?: UVXRuntimeConfig;
+	npxConfig?: NPXRuntimeConfig;
+	containerizedConfig?: ContainerizedRuntimeConfig;
+	remoteConfig?: MCPFilterRemoteRuntimeConfig;
+	env?: MCPEnvManifest[];
 }
 
 export interface OrgUser {
@@ -399,21 +453,18 @@ export interface AuditLog {
 	responseStatus: number;
 	processingTimeMs: number;
 	requestHeaders?: Record<string, string | string[]>;
-	requestBody?: {
-		capabilities?: Record<string, unknown>;
-		clientInfo?: Record<string, string>;
-		protocolVersion?: string;
-	};
+	requestMutated: boolean;
+	requestBody?: unknown;
+	mutatedRequestBody?: unknown;
 	responseHeaders?: Record<string, string | string[]>;
-	responseBody?: {
-		tools?: Record<string, unknown>[];
-		prompts?: Record<string, unknown>[];
-		resources?: Record<string, unknown>[];
-	};
+	responseMutated: boolean;
+	responseBody?: unknown;
+	originalResponseBody?: unknown;
 	webhookStatuses?: {
 		type?: string;
 		method?: string;
 		name?: string;
+		tool?: string;
 		url?: string;
 		status?: string;
 		message?: string;
@@ -541,10 +592,14 @@ export interface BaseAgent extends Project {
 export interface MCPFilterManifest {
 	name?: string;
 	resources?: MCPFilterResource[];
-	url: string;
+	url?: string;
+	toolName?: string;
+	mcpServerManifest?: MCPFilterServerManifest;
+	systemMCPServerCatalogEntryID?: string;
 	secret?: string;
 	selectors?: MCPFilterWebhookSelector[];
 	disabled?: boolean;
+	allowedToMutate?: boolean;
 }
 
 export interface MCPFilterResource {
@@ -565,7 +620,11 @@ export interface MCPFilter extends MCPFilterManifest {
 	metadata?: Record<string, string>;
 	type: string;
 	hasSecret: boolean;
+	configured: boolean;
+	missingRequiredEnvVars?: string[];
 }
+
+export type MCPFilterInput = Omit<MCPFilter, 'id'> & { id?: string };
 
 export interface AuditLogExportInput {
 	name: string;
@@ -832,6 +891,8 @@ export interface TokenUsage {
 	date: string;
 }
 
+export type TokenUsageWithCategory = TokenUsage & { category: string };
+
 export interface TokenUsageTimeRange {
 	start: Date | string;
 	end: Date | string;
@@ -946,4 +1007,376 @@ export interface MessagePolicyViolationStats {
 	byPolicy: MessagePolicyViolationPolicyCount[];
 	byUser: MessagePolicyViolationUserCount[];
 	byDirection: MessagePolicyViolationDirectionCounts;
+}
+
+export interface SystemMCPServerManifest {
+	metadata?: Record<string, string>;
+	name: string;
+	shortDescription: string;
+	description: string;
+	icon: string;
+	enabled?: boolean;
+	runtime: Runtime;
+	uvxConfig?: UVXRuntimeConfig;
+	npxConfig?: NPXRuntimeConfig;
+	containerizedConfig?: ContainerizedRuntimeConfig;
+	remoteConfig?: RemoteRuntimeConfig & {
+		urlTemplate?: string;
+		hostname?: string;
+		staticOAuthRequired?: boolean;
+	};
+	env?: MCPEnvManifest[];
+}
+
+export interface SystemMCPServer {
+	id: string;
+	created: string;
+	deleted?: string;
+	links?: Record<string, string>;
+	metadata?: Record<string, string>;
+	type?: string;
+	manifest: SystemMCPServerManifest;
+	configured: boolean;
+	missingRequiredEnvVars?: string[];
+	missingRequiredHeaders?: string[];
+	deploymentStatus?: string;
+	deploymentAvailableReplicas?: number;
+	deploymentReadyReplicas?: number;
+	deploymentReplicas?: number;
+	k8sSettingsHash?: string;
+}
+
+export interface RestartNanobotAgentDeploymentsFailure {
+	serverID: string;
+	error: string;
+}
+
+export interface RestartNanobotAgentDeploymentsResult {
+	dryRun: boolean;
+	totalNanobotAgentServers: number;
+	targetedServerIDs: string[];
+	restartedCount: number;
+	restartedServerIDs: string[];
+	failedCount: number;
+	failed: RestartNanobotAgentDeploymentsFailure[];
+}
+
+// System MCP catalogs (admin API)
+
+export interface SystemMCPCatalogManifest {
+	displayName: string;
+	sourceURLs: string[];
+	sourceURLCredentials?: Record<string, string>;
+}
+
+export interface SystemMCPCatalog extends SystemMCPCatalogManifest {
+	id: string;
+	created: string;
+	deleted?: string;
+	links?: Record<string, string>;
+	metadata?: Record<string, string>;
+	type?: string;
+	lastSynced?: string;
+	syncErrors?: Record<string, string>;
+	isSyncing?: boolean;
+}
+
+export type SystemMCPServerCatalogEntryServerType = 'filter';
+
+export interface SystemMCPServerCatalogFilterConfig {
+	toolName: string;
+}
+
+export interface SystemMCPServerCatalogEntryManifest {
+	metadata?: Record<string, string>;
+	name: string;
+	shortDescription: string;
+	description: string;
+	icon: string;
+	repoURL?: string;
+	toolPreview?: MCPServerTool[];
+	systemMCPServerType?: SystemMCPServerCatalogEntryServerType;
+	filterConfig?: SystemMCPServerCatalogFilterConfig;
+	runtime: Runtime;
+	uvxConfig?: UVXRuntimeConfig;
+	npxConfig?: NPXRuntimeConfig;
+	containerizedConfig?: ContainerizedRuntimeConfig;
+	remoteConfig?: RemoteCatalogConfigAdmin;
+	env?: MCPEnvManifest[];
+}
+
+export interface SystemMCPServerCatalogEntry {
+	id: string;
+	created: string;
+	deleted?: string;
+	links?: Record<string, string>;
+	metadata?: Record<string, string>;
+	type?: string;
+	manifest: SystemMCPServerCatalogEntryManifest;
+	editable?: boolean;
+	catalogName?: string;
+	sourceURL?: string;
+	lastUpdated?: string;
+	toolPreviewsLastGenerated?: string;
+	needsUpdate?: boolean;
+	oauthCredentialConfigured?: boolean;
+}
+
+// Device scans — payload shape matches apiclient/types/devicescan.go.
+
+export interface DeviceScanFile {
+	path: string;
+	sizeBytes: number;
+	oversized: boolean;
+	content?: string;
+}
+
+export interface DeviceScanMCPServer {
+	id: number;
+	client: string;
+	projectPath?: string;
+	file?: string;
+	configHash?: string;
+	envKeys: string[];
+	headerKeys: string[];
+	name: string;
+	transport: string;
+	command?: string;
+	args?: string[];
+	url?: string;
+}
+
+export interface DeviceScanSkill {
+	id: number;
+	client: string;
+	projectPath?: string;
+	file?: string;
+	name: string;
+	description?: string;
+	files: string[];
+	hasScripts: boolean;
+	gitRemoteURL?: string;
+}
+
+export interface DeviceScanPlugin {
+	id: number;
+	client: string;
+	projectPath?: string;
+	configPath?: string;
+	name: string;
+	pluginType: string;
+	version?: string;
+	description?: string;
+	author?: string;
+	marketplace?: string;
+	files: string[];
+	enabled: boolean;
+	hasMCPServers: boolean;
+	hasSkills: boolean;
+	hasRules: boolean;
+	hasCommands: boolean;
+	hasHooks: boolean;
+}
+
+export interface DeviceScanClient {
+	name: string;
+	version?: string;
+	binaryPath?: string;
+	installPath?: string;
+	configPath?: string;
+	hasMCPServers: boolean;
+	hasSkills: boolean;
+	hasPlugins: boolean;
+}
+
+export interface DeviceScan {
+	id: number;
+	receivedAt: string;
+	submittedBy?: string;
+	scannerVersion: string;
+	scannedAt: string;
+	deviceID: string;
+	hostname: string;
+	os: string;
+	arch: string;
+	username?: string;
+	files: DeviceScanFile[];
+	mcpServers: DeviceScanMCPServer[];
+	skills: DeviceScanSkill[];
+	plugins: DeviceScanPlugin[];
+	clients: DeviceScanClient[];
+}
+
+export interface DeviceScanList {
+	items: DeviceScan[] | null;
+}
+
+export interface DeviceScanResponse extends DeviceScanList {
+	total: number;
+	limit: number;
+	offset: number;
+}
+
+export type DeviceScanListFilters = {
+	limit?: number;
+	offset?: number;
+	submittedBy?: string[];
+	deviceId?: string[];
+	groupByDevice?: boolean;
+};
+
+export interface DeviceMCPServerStat {
+	configHash: string;
+	name: string;
+	transport: string;
+	command?: string;
+	args?: string[];
+	url?: string;
+	deviceCount: number;
+	userCount: number;
+	clientCount: number;
+	observationCount: number;
+}
+
+// DeviceMCPServerDetail extends the rollup row with EnvKeys and
+// HeaderKeys, which are not in the hash and may vary per observation.
+
+export interface DeviceMCPServerDetail extends DeviceMCPServerStat {
+	envKeys: string[] | null;
+	headerKeys: string[] | null;
+}
+
+export interface DeviceMCPServerOccurrence {
+	deviceScanID: number;
+	deviceID: string;
+	client: string;
+	scope: string;
+	scannedAt: string;
+	id: number;
+}
+
+export interface DeviceMCPServerOccurrenceList {
+	items: DeviceMCPServerOccurrence[] | null;
+}
+
+export interface DeviceMCPServerOccurrenceResponse extends DeviceMCPServerOccurrenceList {
+	total: number;
+	limit: number;
+	offset: number;
+}
+
+export interface DeviceClientStat {
+	name: string;
+	deviceCount: number;
+	userCount: number;
+	observationCount: number;
+}
+
+/** One skill row on a device client fleet summary (client match; excludes "multi"). */
+export interface DeviceClientFleetSkill {
+	name: string;
+	description?: string;
+	hasScripts: boolean;
+	/** Number of file paths recorded for that skill observation. */
+	files: number;
+}
+
+/** Rolls up latest-scan-per-device data for one canonical client name. */
+export interface DeviceClientFleetSummary {
+	name: string;
+	users: string[] | null;
+	skills: DeviceClientFleetSkill[] | null;
+	mcpServers: DeviceMCPServerStat[] | null;
+}
+
+export interface DeviceClientFleetSummaryList {
+	items: DeviceClientFleetSummary[] | null;
+}
+
+/** Returned by GET /api/devices/clients */
+export interface DeviceClientFleetSummaryResponse extends DeviceClientFleetSummaryList {
+	total: number;
+	limit: number;
+	offset: number;
+}
+
+export type DeviceClientListFilters = {
+	/** Case-insensitive substring match on client name (server uses ILIKE on PostgreSQL). */
+	name?: string;
+	limit?: number;
+	offset?: number;
+};
+
+export interface DeviceSkillStat {
+	name: string;
+	deviceCount: number;
+	userCount: number;
+	observationCount: number;
+}
+
+export interface DeviceSkillStatList {
+	items: DeviceSkillStat[] | null;
+}
+
+export interface DeviceSkillStatResponse extends DeviceSkillStatList {
+	total: number;
+	limit: number;
+	offset: number;
+}
+
+export type DeviceSkillSortKey = 'name' | 'device_count' | 'user_count' | 'observation_count';
+
+export type DeviceSkillListFilters = {
+	limit?: number;
+	offset?: number;
+	start?: string;
+	end?: string;
+	name?: string;
+	sortBy?: DeviceSkillSortKey;
+	sortOrder?: 'asc' | 'desc';
+};
+
+// DeviceSkillDetail is the per-skill drill-down. Metadata fields come
+// from one canonical observation and are not guaranteed stable across
+// observations sharing the same name.
+
+export interface DeviceSkillDetail extends DeviceSkillStat {
+	description?: string;
+	hasScripts: boolean;
+	gitRemoteURL?: string;
+	files?: string[];
+}
+
+export interface DeviceSkillOccurrence {
+	deviceScanID: number;
+	deviceID: string;
+	client: string;
+	scope: string;
+	projectPath?: string;
+	scannedAt: string;
+	id: number;
+}
+
+export interface DeviceSkillOccurrenceList {
+	items: DeviceSkillOccurrence[] | null;
+}
+
+export interface DeviceSkillOccurrenceResponse extends DeviceSkillOccurrenceList {
+	total: number;
+	limit: number;
+	offset: number;
+}
+
+// Dashboard rollup — single payload, full ranked breakdowns over each
+// device's latest scan in the window. Returned by GET /api/devices/scan-stats.
+
+export interface DeviceScanStats {
+	timeStart: string;
+	timeEnd: string;
+	deviceCount: number;
+	userCount: number;
+	clients: DeviceClientStat[] | null;
+	mcpServers: DeviceMCPServerStat[] | null;
+	skills: DeviceSkillStat[] | null;
+	scanTimestamps: string[] | null;
 }

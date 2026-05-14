@@ -1,9 +1,12 @@
 <script lang="ts">
-	import { page } from '$app/state';
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
+	import ConnectToServer from '$lib/components/mcp/ConnectToServer.svelte';
 	import McpConfirmDelete from '$lib/components/mcp/McpConfirmDelete.svelte';
 	import McpMultiDeleteBlockedDialog from '$lib/components/mcp/McpMultiDeleteBlockedDialog.svelte';
+	import StaticOAuthConfigureModal from '$lib/components/mcp/StaticOAuthConfigureModal.svelte';
 	import Table, { type InitSort, type InitSortFn } from '$lib/components/table/Table.svelte';
 	import {
 		AdminService,
@@ -16,6 +19,7 @@
 		Group,
 		type MCPServerInstance
 	} from '$lib/services';
+	import type { MCPServerOAuthCredentialStatus } from '$lib/services/admin/types';
 	import {
 		convertEntriesAndServersToTableData,
 		getServerTypeLabelByType,
@@ -24,13 +28,15 @@
 	} from '$lib/services/chat/mcp';
 	import { mcpServersAndEntries, profile, version } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
-	import { setSearchParamsToLocalStorage } from '$lib/url';
 	import { openUrl, isOwnSingleUserServer } from '$lib/utils';
+	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import EditExistingDeployment from './EditExistingDeployment.svelte';
 	import {
 		AlertTriangle,
 		Captions,
 		CircleFadingArrowUp,
 		Ellipsis,
+		KeyRound,
 		LoaderCircle,
 		MessageCircle,
 		PencilLine,
@@ -47,14 +53,7 @@
 	} from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
 	import { slide } from 'svelte/transition';
-	import ConnectToServer from '$lib/components/mcp/ConnectToServer.svelte';
-	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { twMerge } from 'tailwind-merge';
-	import EditExistingDeployment from './EditExistingDeployment.svelte';
-	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
-	import StaticOAuthConfigureModal from '$lib/components/mcp/StaticOAuthConfigureModal.svelte';
-	import type { MCPServerOAuthCredentialStatus } from '$lib/services/admin/types';
 
 	type Item = ReturnType<typeof convertEntriesAndServersToTableData>[number];
 	type ServerSelectMode =
@@ -64,7 +63,8 @@
 		| 'disconnect'
 		| 'chat'
 		| 'server-details'
-		| 'restart';
+		| 'restart'
+		| 'reauthenticate';
 
 	interface Props {
 		entity?: 'workspace' | 'catalog';
@@ -197,6 +197,25 @@
 		);
 	}
 
+	function hasInstanceConfiguration(server: MCPCatalogServer) {
+		return (server.manifest.multiUserConfig?.userDefinedHeaders?.length ?? 0) > 0;
+	}
+
+	function hasOAuth(server: MCPCatalogServer) {
+		return (
+			server.manifest.runtime === 'remote' && Object.keys(server.oauthMetadata ?? {}).length > 0
+		);
+	}
+
+	async function reauthenticateServer(server: MCPCatalogServer) {
+		await ChatService.clearMcpServerOAuth(server.id);
+		await connectToServerDialog?.authenticate(
+			server,
+			server.catalogEntryID ? entriesMap.get(server.catalogEntryID) : undefined
+		);
+		mcpServersAndEntries.refreshUserConfiguredServers();
+	}
+
 	function handleShowSelectServerDialog(
 		entry: MCPCatalogEntry,
 		mode: ServerSelectMode = 'connect'
@@ -206,6 +225,13 @@
 		selectedEntry = entry;
 		selectServerDialog?.open();
 		selectServerMode = mode;
+	}
+
+	function handleConnectToServer({ instance }: { instance?: MCPServerInstance }) {
+		if (instance) {
+			mcpServersAndEntries.refreshUserInstances();
+		}
+		onConnect?.({ instance });
 	}
 
 	async function handleConfigureOAuth(entry: MCPCatalogEntry) {
@@ -324,7 +350,6 @@
 					}
 				}
 
-				setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
 				openUrl(url, isCtrlClick);
 			}}
 			{initSort}
@@ -388,7 +413,7 @@
 				{:else if property === 'status'}
 					{#if d.status}
 						<div
-							class={d.status === 'Requires OAuth Config'
+							class={d.status === 'Requires OAuth Config' || d.status === 'Configuration Required'
 								? 'pill-warning'
 								: 'pill-primary bg-primary'}
 						>
@@ -415,6 +440,7 @@
 				{@const matchingServers = catalogEntry
 					? getConfiguredServersForCatalogEntry(catalogEntry)
 					: []}
+				{@const oauthServers = matchingServers.filter(hasOAuth)}
 				{@const matchingInstance =
 					d.connected && d.type === 'multi' ? instancesMap.get(d.data.id) : undefined}
 				{@const hasConnectedOptions = isCatalogEntry
@@ -451,10 +477,13 @@
 													handleShowSelectServerDialog(catalogEntry, 'chat');
 												}
 											} else {
-												connectToServerDialog?.handleSetupChat(
-													d.data as MCPCatalogServer,
-													instancesMap.get(d.id)
-												);
+												const server = d.data as MCPCatalogServer;
+												const instance = instancesMap.get(d.id);
+												if (instance && !instance.configured) {
+													connectToServerDialog?.open({ server, instance });
+												} else {
+													connectToServerDialog?.handleSetupChat(server, instance);
+												}
 											}
 											toggle(false);
 										}}
@@ -466,6 +495,43 @@
 								{#if catalogEntry}
 									{@render editCatalogEntryAction(catalogEntry, matchingServers)}
 									{@render renameCatalogEntryAction(catalogEntry, matchingServers)}
+								{/if}
+
+								{#if oauthServers.length > 0 && catalogEntry}
+									<button
+										class="menu-button hover:bg-surface3"
+										onclick={async (e) => {
+											e.stopPropagation();
+											if (oauthServers.length === 1) {
+												await reauthenticateServer(oauthServers[0]);
+											} else {
+												selectedConfiguredServers = oauthServers;
+												selectedEntry = catalogEntry;
+												selectServerMode = 'reauthenticate';
+												selectServerDialog?.open();
+											}
+											toggle(false);
+										}}
+									>
+										<KeyRound class="size-4" /> Reauthenticate
+									</button>
+								{/if}
+
+								{#if matchingInstance && !isCatalogEntry && hasInstanceConfiguration(d.data as MCPCatalogServer)}
+									<button
+										class="menu-button hover:bg-surface3"
+										onclick={(e) => {
+											e.stopPropagation();
+											connectToServerDialog?.open({
+												server: d.data as MCPCatalogServer,
+												instance: matchingInstance,
+												configureInstance: true
+											});
+											toggle(false);
+										}}
+									>
+										<ServerCog class="size-4" /> Edit Configuration
+									</button>
 								{/if}
 
 								{#if matchingServers.length > 0 && catalogEntry}
@@ -563,7 +629,6 @@
 									onclick={(e) => {
 										e.stopPropagation();
 										const isCtrlClick = e.ctrlKey || e.metaKey;
-										setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
 										openUrl(auditLogUrl, isCtrlClick);
 									}}
 									class="menu-button"
@@ -806,7 +871,7 @@
 <ConnectToServer
 	bind:this={connectToServerDialog}
 	userConfiguredServers={mcpServersAndEntries.current.userConfiguredServers}
-	{onConnect}
+	onConnect={handleConnectToServer}
 />
 
 <ResponsiveDialog
@@ -850,6 +915,10 @@
 				case 'restart': {
 					await ChatService.restartMcpServer(d.id);
 					mcpServersAndEntries.refreshUserConfiguredServers();
+					break;
+				}
+				case 'reauthenticate': {
+					await reauthenticateServer(d);
 					break;
 				}
 				default:

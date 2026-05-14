@@ -41,6 +41,7 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/db"
 	gserver "github.com/obot-platform/obot/pkg/gateway/server"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
+	otime "github.com/obot-platform/obot/pkg/gateway/time"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/gemini"
 	"github.com/obot-platform/obot/pkg/hash"
@@ -51,13 +52,16 @@ import (
 	"github.com/obot-platform/obot/pkg/messagepolicy"
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
 	"github.com/obot-platform/obot/pkg/proxy"
+	"github.com/obot-platform/obot/pkg/serviceaccounts"
 	"github.com/obot-platform/obot/pkg/skillaccessrule"
 	"github.com/obot-platform/obot/pkg/storage"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	storageauthn "github.com/obot-platform/obot/pkg/storage/authn"
 	"github.com/obot-platform/obot/pkg/storage/blob"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/obot-platform/obot/pkg/system"
+	"gorm.io/gorm"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -65,10 +69,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authentication/request/union"
 	"k8s.io/apiserver/pkg/server/options/encryptionconfig"
+	k8sscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	gocache "k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	// Setup nah logging
 	_ "github.com/obot-platform/nah/pkg/logrus"
@@ -90,42 +96,50 @@ type MetricsAuthConfig struct {
 }
 
 type Config struct {
-	HTTPListenPort             int      `usage:"HTTP port to listen on" default:"8080" name:"http-listen-port"`
-	DevMode                    bool     `usage:"Enable development mode" default:"false" name:"dev-mode" env:"OBOT_DEV_MODE"`
-	DevUIPort                  int      `usage:"The port on localhost running the dev instance of the UI" default:"5174"`
-	UserUIPort                 int      `usage:"The port on localhost running the user production instance of the UI" env:"OBOT_SERVER_USER_UI_PORT"`
-	AllowedOrigin              string   `usage:"Allowed origin for CORS"`
-	ToolRegistries             []string `usage:"The remote tool references to the set of gptscript tool registries to use" default:"github.com/obot-platform/tools"`
-	WorkspaceProviderType      string   `usage:"The type of workspace provider to use for non-knowledge workspaces" default:"directory" env:"OBOT_WORKSPACE_PROVIDER_TYPE"`
-	HelperModel                string   `usage:"The model used to generate names and descriptions" default:"gpt-5-mini"`
-	EmailServerName            string   `usage:"The name of the email server to display for email receivers"`
-	Docker                     bool     `usage:"Enable Docker support" default:"false" env:"OBOT_DOCKER"`
-	EnvKeys                    []string `usage:"The environment keys to pass through to the GPTScript server" env:"OBOT_ENV_KEYS"`
-	KnowledgeSetIngestionLimit int      `usage:"The maximum number of files to ingest into a knowledge set" default:"3000" name:"knowledge-set-ingestion-limit"`
-	KnowledgeFileWorkers       int      `usage:"The number of workers to process knowledge files" default:"5"`
-	RunWorkers                 int      `usage:"The number of workers to process runs" default:"1000"`
-	ElectionFile               string   `usage:"Use this file for leader election instead of database leases"`
-	EnableAuthentication       bool     `usage:"Enable authentication" default:"false"`
-	ForceEnableBootstrap       bool     `usage:"Enables the bootstrap user even if other admin users have been created" default:"false"`
-	AuthAdminEmails            []string `usage:"Emails of admin users"`
-	AuthOwnerEmails            []string `usage:"Emails of owner users"`
-	AgentsDir                  string   `usage:"The directory to auto load agents on start (default $XDG_CONFIG_HOME/.obot/agents)"`
-	StaticDir                  string   `usage:"The directory to serve static files from"`
-	RetentionPolicyHours       int      `usage:"The retention policy for the system. Set to 0 to disable retention." default:"2160"` // default 90 days
-	DefaultMCPCatalogPath      string   `usage:"The path to the default MCP catalog (accessible to all users)" default:""`
-	DefaultSkillRepoURL        string   `usage:"The default skill repository URL (must be HTTPS GitHub URL)" default:"https://github.com/obot-platform/skills" env:"OBOT_DEFAULT_SKILL_REPO_URL"`
-	DefaultSkillRepoRef        string   `usage:"The ref (branch/tag) for the default skill repository" default:"" env:"OBOT_DEFAULT_SKILL_REPO_REF"`
-	DisableUpdateCheck         bool     `usage:"Disable Obot server update checks"`
-	EnableAutonomousToolUse    bool     `usage:"Allow all chat sessions to use tools without requesting user approval" default:"false" env:"OBOT_SERVER_ENABLE_AUTONOMOUS_TOOL_USE"`
+	HTTPListenPort              int      `usage:"HTTP port to listen on" default:"8080" name:"http-listen-port"`
+	DevMode                     bool     `usage:"Enable development mode" default:"false" name:"dev-mode" env:"OBOT_DEV_MODE"`
+	DevUIPort                   int      `usage:"The port on localhost running the dev instance of the UI" default:"5174"`
+	UserUIPort                  int      `usage:"The port on localhost running the user production instance of the UI" env:"OBOT_SERVER_USER_UI_PORT"`
+	AllowedOrigin               string   `usage:"Allowed origin for CORS"`
+	ToolRegistries              []string `usage:"The remote tool references to the set of gptscript tool registries to use" default:"github.com/obot-platform/tools"`
+	WorkspaceProviderType       string   `usage:"The type of workspace provider to use for non-knowledge workspaces" default:"directory" env:"OBOT_WORKSPACE_PROVIDER_TYPE"`
+	HelperModel                 string   `usage:"The model used to generate names and descriptions" default:"gpt-5-mini"`
+	EmailServerName             string   `usage:"The name of the email server to display for email receivers"`
+	Docker                      bool     `usage:"Enable Docker support" default:"false" env:"OBOT_DOCKER"`
+	EnvKeys                     []string `usage:"The environment keys to pass through to the GPTScript server" env:"OBOT_ENV_KEYS"`
+	KnowledgeSetIngestionLimit  int      `usage:"The maximum number of files to ingest into a knowledge set" default:"3000" name:"knowledge-set-ingestion-limit"`
+	KnowledgeFileWorkers        int      `usage:"The number of workers to process knowledge files" default:"5"`
+	RunWorkers                  int      `usage:"The number of workers to process runs" default:"1000"`
+	ElectionFile                string   `usage:"Use this file for leader election instead of database leases"`
+	EnableAuthentication        bool     `usage:"Enable authentication" default:"false"`
+	ForceEnableBootstrap        bool     `usage:"Enables the bootstrap user even if other admin users have been created" default:"false"`
+	AuthAdminEmails             []string `usage:"Emails of admin users"`
+	AuthOwnerEmails             []string `usage:"Emails of owner users"`
+	AgentsDir                   string   `usage:"The directory to auto load agents on start (default $XDG_CONFIG_HOME/.obot/agents)"`
+	StaticDir                   string   `usage:"The directory to serve static files from"`
+	RetentionPolicyHours        int      `usage:"The retention policy for the system. Set to 0 to disable retention." default:"2160"` // default 90 days
+	DefaultMCPCatalogPath       string   `usage:"The path to the default MCP catalog (accessible to all users)" default:""`
+	DefaultSystemMCPCatalogPath string   `usage:"The path to the default System MCP catalog" default:""`
+	DefaultSkillRepoURL         string   `usage:"The default skill repository URL (must be HTTPS GitHub URL)" default:"https://github.com/obot-platform/skills" env:"OBOT_DEFAULT_SKILL_REPO_URL"`
+	DefaultSkillRepoRef         string   `usage:"The ref (branch/tag) for the default skill repository" default:"" env:"OBOT_DEFAULT_SKILL_REPO_REF"`
+	DisableUpdateCheck          bool     `usage:"Disable Obot server update checks"`
+	EnableAutonomousToolUse     bool     `usage:"Allow all chat sessions to use tools without requesting user approval" default:"false" env:"OBOT_SERVER_ENABLE_AUTONOMOUS_TOOL_USE"`
 	// Sendgrid webhook
-	SendgridWebhookUsername string `usage:"The username for the sendgrid webhook to authenticate with"`
-	SendgridWebhookPassword string `usage:"The password for the sendgrid webhook to authenticate with"`
-	EnableRegistryAuth      bool   `usage:"Enable authentication for the MCP registry API" default:"false" env:"OBOT_SERVER_ENABLE_REGISTRY_AUTH"`
-	DisableLegacyChat       bool   `usage:"Disable legacy chat" default:"true"`
-	NanobotIntegration      bool   `usage:"Enable Nanobot integration" default:"true"`
-	EnableMessagePolicies   bool   `usage:"Enable message policies for LLM proxy content enforcement" default:"false"`
-	MCPServerSearchImage    string `usage:"Container image for the obot MCP server" default:"ghcr.io/obot-platform/obot-mcp-server:v0.1.1"`
-	NanobotAgentImage       string `usage:"Container image for the Nanobot agent MCP server" default:"ghcr.io/nanobot-ai/nanobot-agent:v0.0.61"`
+	SendgridWebhookUsername              string `usage:"The username for the sendgrid webhook to authenticate with"`
+	SendgridWebhookPassword              string `usage:"The password for the sendgrid webhook to authenticate with"`
+	EnableRegistryAuth                   bool   `usage:"Enable authentication for the MCP registry API" default:"false" env:"OBOT_SERVER_ENABLE_REGISTRY_AUTH"`
+	DisableLegacyChat                    bool   `usage:"Disable legacy chat" default:"true"`
+	NanobotIntegration                   bool   `usage:"Enable Nanobot integration" default:"true"`
+	EnableMessagePolicies                bool   `usage:"Enable message policies for LLM proxy content enforcement" default:"false"`
+	MCPOAuthClientExpiration             string `usage:"The expiration time in dynamically registered MCP OAuth clients, must be a valid duration string and may include days, hours, or minutes" default:"30d"`
+	MCPServerSearchImage                 string `usage:"Container image for the obot MCP server" default:"ghcr.io/obot-platform/obot-mcp-server:v0.2.0"`
+	NanobotAgentImage                    string `usage:"Container image for the Nanobot agent MCP server" default:"ghcr.io/obot-platform/nanobot-agent:v0.0.80"`
+	MCPNetworkPolicyProviderChartRepo    string `usage:"Helm repository URL for the network policy provider chart"`
+	MCPNetworkPolicyProviderChartName    string `usage:"Helm chart name for the network policy provider chart"`
+	MCPNetworkPolicyProviderChartVersion string `usage:"Helm chart version for the network policy provider chart"`
+	MCPNetworkPolicyProviderChartPath    string `usage:"Local filesystem path to the network policy provider chart"`
+	MCPNetworkPolicyProviderValues       string `usage:"YAML or JSON values blob merged into the network policy provider chart values"`
+	MCPDefaultDenyAllEgress              bool   `usage:"Default new MCP servers to deny all egress when network policy enforcement is enabled" default:"false"`
 
 	// Published artifact storage
 	ArtifactStorageProvider       string `usage:"Storage provider for published artifacts (s3, gcs, azure, custom)" name:"artifact-storage-provider" env:"OBOT_ARTIFACT_STORAGE_PROVIDER"`
@@ -151,39 +165,40 @@ type Config struct {
 }
 
 type Services struct {
-	EncryptionConfig           *encryptionconfig.EncryptionConfiguration
-	ToolRegistryURLs           []string
-	WorkspaceProviderType      string
-	ServerURL                  string
-	InternalServerURL          string
-	EmailServerName            string
-	DevUIPort                  int
-	UserUIPort                 int
-	Events                     *events.Emitter
-	StorageClient              storage.Client
-	Router                     *router.Router
-	GPTClient                  *gptscript.GPTScript
-	Invoker                    *invoke.Invoker
-	PersistentTokenServer      *persistent.TokenService
-	APIServer                  *server.Server
-	Started                    chan struct{}
-	GatewayServer              *gserver.Server
-	GatewayClient              *client.Client
-	ProxyManager               *proxy.Manager
-	ProviderDispatcher         *dispatcher.Dispatcher
-	Bootstrapper               *bootstrap.Bootstrap
-	KnowledgeSetIngestionLimit int
-	SupportDocker              bool
-	AuthEnabled                bool
-	DefaultMCPCatalogPath      string
-	DefaultSkillRepoURL        string
-	DefaultSkillRepoRef        string
-	AgentsDir                  string
-	GeminiClient               *gemini.Client
-	Otel                       *Otel
-	AuditLogger                audit.Logger
-	PostgresDSN                string
-	RetentionPolicy            time.Duration
+	EncryptionConfig            *encryptionconfig.EncryptionConfiguration
+	ToolRegistryURLs            []string
+	WorkspaceProviderType       string
+	ServerURL                   string
+	InternalServerURL           string
+	EmailServerName             string
+	DevUIPort                   int
+	UserUIPort                  int
+	Events                      *events.Emitter
+	StorageClient               storage.Client
+	Router                      *router.Router
+	GPTClient                   *gptscript.GPTScript
+	Invoker                     *invoke.Invoker
+	PersistentTokenServer       *persistent.TokenService
+	APIServer                   *server.Server
+	Started                     chan struct{}
+	GatewayServer               *gserver.Server
+	GatewayClient               *client.Client
+	ProxyManager                *proxy.Manager
+	ProviderDispatcher          *dispatcher.Dispatcher
+	Bootstrapper                *bootstrap.Bootstrap
+	KnowledgeSetIngestionLimit  int
+	SupportDocker               bool
+	AuthEnabled                 bool
+	DefaultMCPCatalogPath       string
+	DefaultSystemMCPCatalogPath string
+	DefaultSkillRepoURL         string
+	DefaultSkillRepoRef         string
+	AgentsDir                   string
+	GeminiClient                *gemini.Client
+	Otel                        *Otel
+	AuditLogger                 audit.Logger
+	PostgresDSN                 string
+	RetentionPolicy             time.Duration
 	// Use basic auth for sendgrid webhook, if being set
 	SendgridWebhookUsername string
 	SendgridWebhookPassword string
@@ -209,11 +224,26 @@ type Services struct {
 	MCPOAuthTokenStorage mcp.GlobalTokenStore
 
 	// OAuth configuration
-	OAuthServerConfig handlers.OAuthAuthorizationServerConfig
+	OAuthServerConfig              handlers.OAuthAuthorizationServerConfig
+	MCPOAuthClientSecretExpiration time.Duration
 
 	// Local Kubernetes configuration for deployment monitoring
 	LocalK8sConfig     *rest.Config
 	MCPServerNamespace string
+	MCPClusterDomain   string
+	ServiceName        string
+	ServiceNamespace   string
+	ServiceAccountName string
+	StorageListenPort  int
+
+	// LocalK8sClient is a kclient for the local Kubernetes cluster — the
+	// cluster the obot pod runs in, where source Secrets for
+	// secretBindings live. Nil on the docker backend.
+	LocalK8sClient kclient.Client
+
+	// ObotNamespace is the Kubernetes namespace in which the obot server
+	// runs; mcp.MergeBoundCreds reads source Secrets from here.
+	ObotNamespace string
 
 	// Parsed settings from Helm for k8s to pass to controller
 	// PodSchedulingSettingsFromHelm contains affinity, tolerations, resources, runtimeClassName
@@ -223,16 +253,27 @@ type Services struct {
 	// environment/Helm config and not modifiable via UI.
 	PSASettingsFromHelm *v1.PodSecurityAdmissionSettings
 
-	DisableUpdateCheck       bool
-	DisableLegacyChat        bool
-	MCPRuntimeBackend        string
-	MCPRemoteShimBaseImage   string
-	RegistryNoAuth           bool
-	AutonomousToolUseEnabled bool
-	NanobotIntegration       bool
-	MessagePoliciesEnabled   bool
-	MCPServerSearchImage     string
-	NanobotAgentImage        string
+	DisableUpdateCheck                   bool
+	DisableLegacyChat                    bool
+	MCPRuntimeBackend                    string
+	MCPRemoteShimBaseImage               string
+	MCPHTTPWebhookBaseImage              string
+	RegistryNoAuth                       bool
+	AutonomousToolUseEnabled             bool
+	NanobotIntegration                   bool
+	MessagePoliciesEnabled               bool
+	MCPNetworkPolicyEnabled              bool
+	MCPDefaultDenyAllEgress              bool
+	MCPServerSearchImage                 string
+	NanobotAgentImage                    string
+	MCPNetworkPolicyProviderChartRepo    string
+	MCPNetworkPolicyProviderChartName    string
+	MCPNetworkPolicyProviderChartVersion string
+	MCPNetworkPolicyProviderChartPath    string
+	MCPNetworkPolicyProviderValues       string
+	SingleUserIdleServerShutdownInterval time.Duration
+	MultiUserIdleServerShutdownInterval  time.Duration
+	AgentIdleServerShutdownInterval      time.Duration
 
 	// Published artifact blob storage
 	ArtifactBlobStore  blob.BlobStore
@@ -289,6 +330,10 @@ func buildLocalK8sConfig() (*rest.Config, error) {
 		kubeconfig = k
 	}
 	return clientcmd.BuildConfigFromFlags("", kubeconfig)
+}
+
+func BuildLocalK8sConfig() (*rest.Config, error) {
+	return buildLocalK8sConfig()
 }
 
 // unmarshalJSONStrict unmarshals JSON with strict validation that rejects unknown fields
@@ -471,11 +516,46 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	if len(config.ToolRegistries) < 1 {
 		config.ToolRegistries = []string{"github.com/obot-platform/tools"}
 	}
+	oauthClientExpiration, err := otime.ParseDuration(config.MCPOAuthClientExpiration)
+	if err != nil {
+		return nil, fmt.Errorf("invalid MCP OAuth client expiration: %w", err)
+	}
+	if oauthClientExpiration < time.Minute {
+		return nil, fmt.Errorf("invalid MCP OAuth client expiration: must be at least 1 minute")
+	}
+
+	runtimeIsK8s := config.MCPRuntimeBackend == "kubernetes" || config.MCPRuntimeBackend == "k8s"
+	if runtimeIsK8s && config.StorageListenPort == 0 {
+		config.StorageListenPort = 8443
+	}
+
+	// Validate network policy provider configuration
+	mcpNetworkPolicyEnabled := config.MCPNetworkPolicyProviderChartPath != "" || config.MCPNetworkPolicyProviderChartName != ""
+	if mcpNetworkPolicyEnabled && !runtimeIsK8s {
+		return nil, fmt.Errorf("network policy provider requires MCP runtime backend to be kubernetes")
+	}
+	if !mcpNetworkPolicyEnabled {
+		config.MCPNetworkPolicyProviderChartRepo = ""
+		config.MCPNetworkPolicyProviderChartName = ""
+		config.MCPNetworkPolicyProviderChartVersion = ""
+		config.MCPNetworkPolicyProviderChartPath = ""
+		config.MCPNetworkPolicyProviderValues = ""
+	} else {
+		if config.MCPNetworkPolicyProviderChartPath != "" &&
+			(config.MCPNetworkPolicyProviderChartRepo != "" ||
+				config.MCPNetworkPolicyProviderChartName != "" ||
+				config.MCPNetworkPolicyProviderChartVersion != "") {
+			return nil, fmt.Errorf("network policy provider chart path cannot be combined with chart repo, name, or version")
+		}
+		if config.MCPNetworkPolicyProviderChartPath == "" && config.MCPNetworkPolicyProviderChartRepo == "" {
+			return nil, fmt.Errorf("network policy provider requires chart repo when using a remote chart")
+		}
+	}
 
 	// Sanitize DSN for logging (remove credentials)
 	sanitizedDSN := logutil.SanitizeDSN(config.DSN)
 	pkgLog.Infof("Connecting to database: dsn=%s", sanitizedDSN)
-	storageClient, restConfig, dbAccess, err := storage.Start(ctx, config.Config)
+	storageClient, restConfig, dbAccess, storageServices, err := storage.Start(ctx, config.Config)
 	if err != nil {
 		pkgLog.Errorf("Failed to connect to database: dsn=%s error=%v", sanitizedDSN, err)
 		return nil, err
@@ -546,6 +626,20 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		config.MCPAuditLogsPersistBatchSize,
 		config.MCPAuditLogRetentionDays,
 	)
+	storageServices.Authn.SetServiceAccountValidator(func(ctx context.Context, token string) (string, error) {
+		apiKey, err := gatewayClient.ValidateStorageServiceAccountToken(ctx, token)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return "", storageauthn.ErrInvalidServiceAccountToken
+			}
+			return "", err
+		}
+		account, ok := serviceaccounts.Get(apiKey.ServiceAccountName)
+		if !ok || !serviceaccounts.Enabled(account, config.MCPRuntimeBackend, mcpNetworkPolicyEnabled) {
+			return "", fmt.Errorf("%w: service account %q disabled for backend %q or network policy provider enabled=%t", storageauthn.ErrInvalidServiceAccountToken, apiKey.ServiceAccountName, config.MCPRuntimeBackend, mcpNetworkPolicyEnabled)
+		}
+		return apiKey.ServiceAccountName, nil
+	})
 	mcpOAuthTokenStorage := mcpgateway.NewGlobalTokenStore(gatewayClient)
 
 	// Build local Kubernetes config for deployment monitoring (optional)
@@ -598,9 +692,92 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	)
 	providerDispatcher := dispatcher.New(invoker, storageClient, credOnlyGPTscriptClient, gatewayClient, postgresDSN)
 
-	mcpSessionManager, err := mcp.NewSessionManager(ctx, persistentTokenServer, config.Hostname, config.HTTPListenPort, mcp.Options(config.MCPConfig), localK8sConfig, storageClient)
+	r, err := nah.NewRouter("obot-controller", &nah.Options{
+		RESTConfig:     restConfig,
+		Scheme:         scheme.Scheme,
+		ElectionConfig: electionConfig,
+		HealthzPort:    -1,
+		GVKThreadiness: map[schema.GroupVersionKind]int{
+			v1.SchemeGroupVersion.WithKind("KnowledgeFile"): config.KnowledgeFileWorkers,
+			v1.SchemeGroupVersion.WithKind("Run"):           config.RunWorkers,
+		},
+		GVKQueueSplitters: map[schema.GroupVersionKind]runtime.WorkerQueueSplitter{
+			v1.SchemeGroupVersion.WithKind("Run"): (*runQueueSplitter)(nil),
+		},
+	})
 	if err != nil {
 		return nil, err
+	}
+
+	// Set up MCPWebhookValidation indexer
+	mcpWebhookValidationGVK, err := r.Backend().GroupVersionKindFor(&v1.MCPWebhookValidation{})
+	if err != nil {
+		return nil, err
+	}
+
+	mcpWebhookValidationInformer, err := r.Backend().GetInformerForKind(ctx, mcpWebhookValidationGVK)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = mcpWebhookValidationInformer.AddIndexers(map[string]gocache.IndexFunc{
+		"server-names": func(obj any) ([]string, error) {
+			mcpWebhookValidation := obj.(*v1.MCPWebhookValidation)
+			var results []string
+			for _, resource := range mcpWebhookValidation.Spec.Manifest.Resources {
+				if resource.Type == apiclienttypes.ResourceTypeMCPServer {
+					results = append(results, resource.ID)
+				}
+			}
+			return results, nil
+		},
+		"selectors": func(obj any) ([]string, error) {
+			mcpWebhookValidation := obj.(*v1.MCPWebhookValidation)
+			var results []string
+			for _, resource := range mcpWebhookValidation.Spec.Manifest.Resources {
+				if resource.Type == apiclienttypes.ResourceTypeSelector {
+					results = append(results, resource.ID)
+				}
+			}
+			return results, nil
+		},
+		"catalog-entry-names": func(obj any) ([]string, error) {
+			mcpWebhookValidation := obj.(*v1.MCPWebhookValidation)
+			var results []string
+			for _, resource := range mcpWebhookValidation.Spec.Manifest.Resources {
+				if resource.Type == apiclienttypes.ResourceTypeMCPServerCatalogEntry {
+					results = append(results, resource.ID)
+				}
+			}
+			return results, nil
+		},
+		"catalog-names": func(obj any) ([]string, error) {
+			mcpWebhookValidation := obj.(*v1.MCPWebhookValidation)
+			var results []string
+			for _, resource := range mcpWebhookValidation.Spec.Manifest.Resources {
+				if resource.Type == apiclienttypes.ResourceTypeMcpCatalog {
+					results = append(results, resource.ID)
+				}
+			}
+			return results, nil
+		},
+	}); err != nil {
+		return nil, err
+	}
+
+	webhookHelper := mcp.NewWebhookHelper(mcpWebhookValidationInformer.GetIndexer(), config.Hostname)
+
+	mcpSessionManager, err := mcp.NewSessionManager(ctx, persistentTokenServer, config.Hostname, config.HTTPListenPort, mcp.Options(config.MCPConfig), webhookHelper, localK8sConfig, storageClient)
+	if err != nil {
+		return nil, err
+	}
+
+	var apiLocalK8sClient kclient.Client
+	if localK8sConfig != nil {
+		apiLocalK8sClient, err = kclient.New(localK8sConfig, kclient.Options{Scheme: k8sscheme.Scheme})
+		if err != nil {
+			return nil, fmt.Errorf("failed to build local k8s client for API server: %w", err)
+		}
 	}
 
 	gptscriptClient, err := newGPTScript(ctx, config.EnvKeys, credStore, credStoreEnv, mcpSessionManager)
@@ -624,23 +801,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		if err := gptscriptClient.DeleteCredential(ctx, system.DefaultNamespace, system.KnowledgeCredID); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 			return nil, err
 		}
-	}
-
-	r, err := nah.NewRouter("obot-controller", &nah.Options{
-		RESTConfig:     restConfig,
-		Scheme:         scheme.Scheme,
-		ElectionConfig: electionConfig,
-		HealthzPort:    -1,
-		GVKThreadiness: map[schema.GroupVersionKind]int{
-			v1.SchemeGroupVersion.WithKind("KnowledgeFile"): config.KnowledgeFileWorkers,
-			v1.SchemeGroupVersion.WithKind("Run"):           config.RunWorkers,
-		},
-		GVKQueueSplitters: map[schema.GroupVersionKind]runtime.WorkerQueueSplitter{
-			v1.SchemeGroupVersion.WithKind("Run"): (*runQueueSplitter)(nil),
-		},
-	})
-	if err != nil {
-		return nil, err
 	}
 
 	acrGVK, err := r.Backend().GroupVersionKindFor(&v1.AccessControlRule{})
@@ -790,62 +950,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		}
 	}
 
-	// Set up MCPWebhookValidation indexer
-	mcpWebhookValidationGVK, err := r.Backend().GroupVersionKindFor(&v1.MCPWebhookValidation{})
-	if err != nil {
-		return nil, err
-	}
-
-	mcpWebhookValidationInformer, err := r.Backend().GetInformerForKind(ctx, mcpWebhookValidationGVK)
-	if err != nil {
-		return nil, err
-	}
-
-	if err = mcpWebhookValidationInformer.AddIndexers(map[string]gocache.IndexFunc{
-		"server-names": func(obj any) ([]string, error) {
-			mcpWebhookValidation := obj.(*v1.MCPWebhookValidation)
-			var results []string
-			for _, resource := range mcpWebhookValidation.Spec.Manifest.Resources {
-				if resource.Type == apiclienttypes.ResourceTypeMCPServer {
-					results = append(results, resource.ID)
-				}
-			}
-			return results, nil
-		},
-		"selectors": func(obj any) ([]string, error) {
-			mcpWebhookValidation := obj.(*v1.MCPWebhookValidation)
-			var results []string
-			for _, resource := range mcpWebhookValidation.Spec.Manifest.Resources {
-				if resource.Type == apiclienttypes.ResourceTypeSelector {
-					results = append(results, resource.ID)
-				}
-			}
-			return results, nil
-		},
-		"catalog-entry-names": func(obj any) ([]string, error) {
-			mcpWebhookValidation := obj.(*v1.MCPWebhookValidation)
-			var results []string
-			for _, resource := range mcpWebhookValidation.Spec.Manifest.Resources {
-				if resource.Type == apiclienttypes.ResourceTypeMCPServerCatalogEntry {
-					results = append(results, resource.ID)
-				}
-			}
-			return results, nil
-		},
-		"catalog-names": func(obj any) ([]string, error) {
-			mcpWebhookValidation := obj.(*v1.MCPWebhookValidation)
-			var results []string
-			for _, resource := range mcpWebhookValidation.Spec.Manifest.Resources {
-				if resource.Type == apiclienttypes.ResourceTypeMcpCatalog {
-					results = append(results, resource.ID)
-				}
-			}
-			return results, nil
-		},
-	}); err != nil {
-		return nil, err
-	}
-
 	apply.AddValidOwnerChange("otto-controller", "obot-controller")
 	apply.AddValidOwnerChange("mcpcatalogentries", "catalog-default")
 
@@ -955,10 +1059,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 	retentionPolicy := time.Duration(config.RetentionPolicyHours) * time.Hour
 
-	webhookHelper := mcp.NewWebhookHelper(mcpWebhookValidationInformer.GetIndexer(), config.MCPHTTPWebhookBaseImage)
-
-	mcpSessionManager.Init(gptscriptClient, webhookHelper)
-
 	// Derive registryNoAuth flag from config
 	// When EnableRegistryAuth is false (default), registry is in no-auth mode
 	registryNoAuth := !config.EnableRegistryAuth
@@ -976,10 +1076,14 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		StorageClient:         storageClient,
 		Router:                r,
 		GPTClient:             gptscriptClient,
+		LocalK8sClient:        apiLocalK8sClient,
+		ObotNamespace:         config.ServiceNamespace,
 		APIServer: server.NewServer(
 			storageClient,
 			gatewayClient,
 			gptscriptClient,
+			apiLocalK8sClient,
+			config.ServiceNamespace,
 			authn.NewAuthenticator(authenticators),
 			authz.NewAuthorizer(r.Backend(), storageClient, config.DevMode, acrHelper, registryNoAuth),
 			proxyManager,
@@ -988,30 +1092,32 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			config.Hostname,
 			registryNoAuth,
 		),
-		PersistentTokenServer:      persistentTokenServer,
-		Invoker:                    invoker,
-		GatewayServer:              gatewayServer,
-		GatewayClient:              gatewayClient,
-		KnowledgeSetIngestionLimit: config.KnowledgeSetIngestionLimit,
-		EmailServerName:            config.EmailServerName,
-		SupportDocker:              config.Docker,
-		AuthEnabled:                config.EnableAuthentication,
-		SendgridWebhookUsername:    config.SendgridWebhookUsername,
-		SendgridWebhookPassword:    config.SendgridWebhookPassword,
-		ProxyManager:               proxyManager,
-		ProviderDispatcher:         providerDispatcher,
-		Bootstrapper:               bootstrapper,
-		AgentsDir:                  config.AgentsDir,
-		GeminiClient:               geminiClient,
-		Otel:                       otel,
-		AuditLogger:                auditLogger,
-		PostgresDSN:                postgresDSN,
-		RetentionPolicy:            retentionPolicy,
-		DefaultMCPCatalogPath:      config.DefaultMCPCatalogPath,
-		DefaultSkillRepoURL:        config.DefaultSkillRepoURL,
-		DefaultSkillRepoRef:        config.DefaultSkillRepoRef,
-		MCPLoader:                  mcpSessionManager,
-		MCPOAuthTokenStorage:       mcpOAuthTokenStorage,
+		PersistentTokenServer:          persistentTokenServer,
+		Invoker:                        invoker,
+		GatewayServer:                  gatewayServer,
+		GatewayClient:                  gatewayClient,
+		KnowledgeSetIngestionLimit:     config.KnowledgeSetIngestionLimit,
+		EmailServerName:                config.EmailServerName,
+		SupportDocker:                  config.Docker,
+		AuthEnabled:                    config.EnableAuthentication,
+		SendgridWebhookUsername:        config.SendgridWebhookUsername,
+		SendgridWebhookPassword:        config.SendgridWebhookPassword,
+		ProxyManager:                   proxyManager,
+		ProviderDispatcher:             providerDispatcher,
+		Bootstrapper:                   bootstrapper,
+		AgentsDir:                      config.AgentsDir,
+		GeminiClient:                   geminiClient,
+		Otel:                           otel,
+		AuditLogger:                    auditLogger,
+		PostgresDSN:                    postgresDSN,
+		RetentionPolicy:                retentionPolicy,
+		DefaultMCPCatalogPath:          config.DefaultMCPCatalogPath,
+		DefaultSystemMCPCatalogPath:    config.DefaultSystemMCPCatalogPath,
+		DefaultSkillRepoURL:            config.DefaultSkillRepoURL,
+		DefaultSkillRepoRef:            config.DefaultSkillRepoRef,
+		MCPLoader:                      mcpSessionManager,
+		MCPOAuthTokenStorage:           mcpOAuthTokenStorage,
+		MCPOAuthClientSecretExpiration: oauthClientExpiration,
 		OAuthServerConfig: handlers.OAuthAuthorizationServerConfig{
 			Issuer:                            config.Hostname,
 			AuthorizationEndpoint:             fmt.Sprintf("%s/oauth/authorize", config.Hostname),
@@ -1025,26 +1131,42 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			TokenEndpointAuthMethodsSupported: []string{"client_secret_basic", "client_secret_post", "none"},
 			UserInfoEndpoint:                  fmt.Sprintf("%s/oauth/userinfo", config.Hostname),
 		},
-		AccessControlRuleHelper:       acrHelper,
-		ModelAccessPolicyHelper:       mapHelper,
-		MessagePolicyHelper:           msgPolicyHelper,
-		SkillAccessRuleHelper:         skillAccessRuleHelper,
-		WebhookHelper:                 webhookHelper,
-		LocalK8sConfig:                localK8sConfig,
-		MCPServerNamespace:            config.MCPNamespace,
-		PodSchedulingSettingsFromHelm: podSchedulingSettings,
-		PSASettingsFromHelm:           psaSettings,
-		DisableUpdateCheck:            config.DisableUpdateCheck,
-		DisableLegacyChat:             config.DisableLegacyChat,
-		AutonomousToolUseEnabled:      config.EnableAutonomousToolUse,
-		MCPRuntimeBackend:             config.MCPRuntimeBackend,
-		MCPRemoteShimBaseImage:        config.MCPRemoteShimBaseImage,
-		RegistryNoAuth:                registryNoAuth,
-		NanobotIntegration:            config.NanobotIntegration,
-		MessagePoliciesEnabled:        config.EnableMessagePolicies,
-		MCPServerSearchImage:          config.MCPServerSearchImage,
-		NanobotAgentImage:             config.NanobotAgentImage,
-		ArtifactBlobBucket:            config.ArtifactStorageBucket,
+		AccessControlRuleHelper:              acrHelper,
+		ModelAccessPolicyHelper:              mapHelper,
+		MessagePolicyHelper:                  msgPolicyHelper,
+		SkillAccessRuleHelper:                skillAccessRuleHelper,
+		WebhookHelper:                        webhookHelper,
+		LocalK8sConfig:                       localK8sConfig,
+		MCPServerNamespace:                   config.MCPNamespace,
+		MCPClusterDomain:                     config.MCPClusterDomain,
+		ServiceName:                          config.ServiceName,
+		ServiceNamespace:                     config.ServiceNamespace,
+		ServiceAccountName:                   config.ServiceAccountName,
+		StorageListenPort:                    config.StorageListenPort,
+		PodSchedulingSettingsFromHelm:        podSchedulingSettings,
+		PSASettingsFromHelm:                  psaSettings,
+		DisableUpdateCheck:                   config.DisableUpdateCheck,
+		DisableLegacyChat:                    config.DisableLegacyChat,
+		AutonomousToolUseEnabled:             config.EnableAutonomousToolUse,
+		MCPRuntimeBackend:                    config.MCPRuntimeBackend,
+		MCPRemoteShimBaseImage:               config.MCPRemoteShimBaseImage,
+		MCPHTTPWebhookBaseImage:              config.MCPHTTPWebhookBaseImage,
+		SingleUserIdleServerShutdownInterval: time.Duration(config.SingleUserIdleServerShutdownHours) * time.Hour,
+		MultiUserIdleServerShutdownInterval:  time.Duration(config.MultiUserIdleServerShutdownHours) * time.Hour,
+		AgentIdleServerShutdownInterval:      time.Duration(config.IdleAgentShutdownHours) * time.Hour,
+		RegistryNoAuth:                       registryNoAuth,
+		NanobotIntegration:                   config.NanobotIntegration,
+		MessagePoliciesEnabled:               config.EnableMessagePolicies,
+		MCPNetworkPolicyEnabled:              mcpNetworkPolicyEnabled,
+		MCPDefaultDenyAllEgress:              config.MCPDefaultDenyAllEgress,
+		MCPServerSearchImage:                 config.MCPServerSearchImage,
+		NanobotAgentImage:                    config.NanobotAgentImage,
+		MCPNetworkPolicyProviderChartRepo:    config.MCPNetworkPolicyProviderChartRepo,
+		MCPNetworkPolicyProviderChartName:    config.MCPNetworkPolicyProviderChartName,
+		MCPNetworkPolicyProviderChartVersion: config.MCPNetworkPolicyProviderChartVersion,
+		MCPNetworkPolicyProviderChartPath:    config.MCPNetworkPolicyProviderChartPath,
+		MCPNetworkPolicyProviderValues:       config.MCPNetworkPolicyProviderValues,
+		ArtifactBlobBucket:                   config.ArtifactStorageBucket,
 	}
 
 	if (config.ArtifactStorageProvider == "") != (config.ArtifactStorageBucket == "") {

@@ -1,10 +1,11 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import ProjectStartThread from '$lib/components/nanobot/ProjectStartThread.svelte';
-	import { getContext } from 'svelte';
 	import type { ProjectLayoutContext } from '$lib/services/nanobot/types';
 	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
-	import { page } from '$app/state';
+	import { profile } from '$lib/stores';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
+	import { getContext } from 'svelte';
 
 	let { data } = $props();
 	let agent = $derived(data.agent);
@@ -16,6 +17,7 @@
 	const projectLayout = getContext<ProjectLayoutContext>(PROJECT_LAYOUT_CONTEXT);
 
 	let displayChat = $derived($nanobotChat?.chat);
+	let impersonating = $derived(data.agent.userID !== profile.current.id);
 </script>
 
 {#if displayChat}
@@ -30,6 +32,7 @@
 			onFileOpen={projectLayout.handleFileOpen}
 			suppressEmptyState
 			onThreadContentWidth={projectLayout.setThreadContentWidth}
+			classes={{ root: impersonating ? 'h-[calc(100dvh-8rem)]' : 'h-[calc(100dvh-4rem)]' }}
 		/>
 	{/key}
 {/if}

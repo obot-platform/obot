@@ -1,18 +1,18 @@
 <script lang="ts">
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import popover from '$lib/actions/popover.svelte';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { responsive, timePreference } from '$lib/stores';
 	import CalendarGrid, {
 		months,
 		isToday,
 		isCurrentMonth,
 		isDateDisabled
 	} from './CalendarGrid.svelte';
+	import TimeInput from './TimeInput.svelte';
 	import { differenceInDays, endOfDay, isBefore, isSameDay, startOfDay } from 'date-fns';
 	import { CalendarCog } from 'lucide-svelte';
-	import { twMerge } from 'tailwind-merge';
-	import TimeInput from './TimeInput.svelte';
 	import { slide } from 'svelte/transition';
-	import { responsive } from '$lib/stores';
+	import { twMerge } from 'tailwind-merge';
 
 	export interface DateRange {
 		start: Date | null;
@@ -195,7 +195,8 @@
 	{@attach (node: HTMLElement) => {
 		const response = tooltip(node, {
 			text: 'Filter By Date',
-			placement: 'top-end'
+			placement: 'top-end',
+			classes: ['z-60']
 		});
 
 		return () => response.destroy();
@@ -260,6 +261,8 @@
 						<div class="flex flex-col gap-1">
 							<div class="text-on-surface1 text-xs">{start.toDateString()}</div>
 							<TimeInput
+								format={timePreference.timeFormat}
+								clockAnchorPlacement="left"
 								date={start}
 								onChange={(date) => {
 									start = date;
@@ -280,6 +283,8 @@
 							{/if}
 
 							<TimeInput
+								format={timePreference.timeFormat}
+								clockAnchorPlacement="left"
 								date={end ?? endOfDay(start)}
 								onChange={(date) => {
 									end = date;

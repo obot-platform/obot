@@ -9,7 +9,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ fields.Fields = (*SystemMCPServer)(nil)
+var (
+	_ fields.Fields = (*SystemMCPServer)(nil)
+	_ DeleteRefs    = (*SystemMCPServer)(nil)
+)
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
@@ -24,10 +27,12 @@ type SystemMCPServer struct {
 type SystemMCPServerSpec struct {
 	// Manifest contains the server configuration
 	Manifest types.SystemMCPServerManifest `json:"manifest"`
+	// WebhookValidationName is the name of the associated MCPWebhookValidation resource
+	WebhookValidationName string `json:"webhookValidationName,omitempty"`
 }
 
 type SystemMCPServerStatus struct {
-	// DeploymentStatus indicates overall status (Available, Progressing, Unavailable, Needs Attention, Unknown)
+	// DeploymentStatus indicates overall status (Available, Progressing, Unavailable, Needs Attention, Shutdown, Unknown)
 	DeploymentStatus string `json:"deploymentStatus,omitempty"`
 	// DeploymentAvailableReplicas is the number of available replicas
 	DeploymentAvailableReplicas *int32 `json:"deploymentAvailableReplicas,omitempty"`
@@ -63,6 +68,16 @@ func (in *SystemMCPServer) FieldNames() []string {
 
 func (in *SystemMCPServer) ValidConnectURLs(base string) []string {
 	return []string{system.MCPConnectURL(base, in.Name)}
+}
+
+func (in *SystemMCPServer) DeleteRefs() []Ref {
+	if in.Spec.WebhookValidationName != "" {
+		return []Ref{{
+			ObjType: new(MCPWebhookValidation),
+			Name:    in.Spec.WebhookValidationName,
+		}}
+	}
+	return nil
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

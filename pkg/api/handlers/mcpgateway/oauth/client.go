@@ -42,9 +42,9 @@ func (h *handler) register(req api.Context) error {
 		})
 	}
 
-	clientSecret, registrationToken, err := ensureTokenAndSecret(&oauthClient)
+	clientSecret, registrationToken, err := h.ensureTokenAndSecret(&oauthClient)
 	if err != nil {
-		return fmt.Errorf("failed to update client secret: %w", err)
+		return fmt.Errorf("failed to update client: %w", err)
 	}
 
 	if err = req.Create(&oauthClient); err != nil {
@@ -66,9 +66,9 @@ func (h *handler) readClient(req api.Context) error {
 		return err
 	}
 
-	clientSecret, registrationToken, err := updateClientIfNecessary(req.Context(), req.Storage, &oauthClient)
+	clientSecret, registrationToken, err := h.updateClientIfNecessary(req.Context(), req.Storage, &oauthClient)
 	if err != nil {
-		return fmt.Errorf("failed to update client secret: %w", err)
+		return fmt.Errorf("failed to update client: %w", err)
 	}
 	log.Infof("Read dynamic OAuth client registration: client=%s/%s", oauthClient.Namespace, oauthClient.Name)
 
@@ -100,9 +100,9 @@ func (h *handler) updateClient(req api.Context) error {
 		})
 	}
 
-	clientSecret, registrationToken, err := updateClientIfNecessary(req.Context(), req.Storage, &oauthClient)
+	clientSecret, registrationToken, err := h.updateClientIfNecessary(req.Context(), req.Storage, &oauthClient)
 	if err != nil {
-		return fmt.Errorf("failed to update client secret: %w", err)
+		return fmt.Errorf("failed to update client: %w", err)
 	}
 
 	if err = req.Update(&oauthClient); err != nil {
@@ -129,8 +129,8 @@ func (h *handler) deleteClient(req api.Context) error {
 	})
 }
 
-func updateClientIfNecessary(ctx context.Context, c kclient.Client, oauthClient *v1.OAuthClient) (string, string, error) {
-	clientSecret, registrationToken, err := ensureTokenAndSecret(oauthClient)
+func (h *handler) updateClientIfNecessary(ctx context.Context, c kclient.Client, oauthClient *v1.OAuthClient) (string, string, error) {
+	clientSecret, registrationToken, err := h.ensureTokenAndSecret(oauthClient)
 	if err != nil {
 		return "", "", err
 	}
@@ -144,7 +144,7 @@ func updateClientIfNecessary(ctx context.Context, c kclient.Client, oauthClient 
 	return clientSecret, registrationToken, nil
 }
 
-func ensureTokenAndSecret(oauthClient *v1.OAuthClient) (string, string, error) {
+func (h *handler) ensureTokenAndSecret(oauthClient *v1.OAuthClient) (string, string, error) {
 	var (
 		clientSecret, registrationToken string
 		err                             error
@@ -159,7 +159,7 @@ func ensureTokenAndSecret(oauthClient *v1.OAuthClient) (string, string, error) {
 		}
 
 		oauthClient.Spec.ClientSecretIssuedAt = metav1.NewTime(now)
-		oauthClient.Spec.ClientSecretExpiresAt = metav1.NewTime(now.Add(7 * 24 * time.Hour))
+		oauthClient.Spec.ClientSecretExpiresAt = metav1.NewTime(now.Add(h.clientExpiration))
 	}
 	if oauthClient.Spec.RegistrationTokenExpiresAt.IsZero() || oauthClient.Spec.RegistrationTokenExpiresAt.Sub(oauthClient.Spec.RegistrationTokenIssuedAt.Time)/2 > time.Until(oauthClient.Spec.RegistrationTokenExpiresAt.Time) {
 		// If the registration token is half-way through its lifetime, then update it.
@@ -170,7 +170,7 @@ func ensureTokenAndSecret(oauthClient *v1.OAuthClient) (string, string, error) {
 		}
 
 		oauthClient.Spec.RegistrationTokenIssuedAt = metav1.NewTime(now)
-		oauthClient.Spec.RegistrationTokenExpiresAt = metav1.NewTime(now.Add(7 * 24 * time.Hour))
+		oauthClient.Spec.RegistrationTokenExpiresAt = metav1.NewTime(now.Add(h.clientExpiration))
 	}
 
 	return clientSecret, registrationToken, nil

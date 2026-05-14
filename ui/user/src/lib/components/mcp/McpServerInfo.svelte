@@ -1,13 +1,13 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
 	import { type MCPCatalogServer, type ProjectMCP } from '$lib/services';
 	import type { MCPCatalogEntry } from '$lib/services/admin/types';
-	import { twMerge } from 'tailwind-merge';
-	import { formatTimeAgo } from '$lib/time';
 	import { responsive } from '$lib/stores';
-	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { browser } from '$app/environment';
+	import { formatTimeAgo } from '$lib/time';
 	import type { Snippet } from 'svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		entry: MCPCatalogEntry | MCPCatalogServer | ProjectMCP;

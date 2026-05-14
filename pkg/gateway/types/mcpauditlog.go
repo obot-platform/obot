@@ -24,8 +24,12 @@ type MCPAuditLog struct {
 	ClientIP                  string                                `json:"clientIP" gorm:"index"`
 	CallType                  string                                `json:"callType" gorm:"index"`
 	CallIdentifier            string                                `json:"callIdentifier,omitempty" gorm:"index"`
+	RequestMutated            bool                                  `json:"requestMutated"`
 	RequestBody               json.RawMessage                       `json:"requestBody,omitempty"`
+	MutatedRequestBody        json.RawMessage                       `json:"mutatedRequestBody,omitempty"`
+	ResponseMutated           bool                                  `json:"responseMutated"`
 	ResponseBody              json.RawMessage                       `json:"responseBody,omitempty"`
+	OriginalResponseBody      json.RawMessage                       `json:"originalResponseBody,omitempty"`
 	ResponseStatus            int                                   `json:"responseStatus" gorm:"index"`
 	Error                     string                                `json:"error,omitempty"`
 	ProcessingTimeMs          int64                                 `json:"processingTimeMs" gorm:"index"`
@@ -47,6 +51,7 @@ type MCPWebhookStatus struct {
 	URL     string `json:"url,omitempty"`
 	Method  string `json:"method,omitempty"`
 	Name    string `json:"name,omitempty"`
+	Tool    string `json:"tool,omitempty"`
 	Status  string `json:"status,omitempty"`
 	Message string `json:"message,omitempty"`
 }
@@ -106,6 +111,7 @@ func ConvertMCPAuditLog(a MCPAuditLog) types2.MCPAuditLog {
 			Method:  ws.Method,
 			URL:     ws.URL,
 			Name:    ws.Name,
+			Tool:    ws.Tool,
 			Status:  ws.Status,
 			Message: ws.Message,
 		}
@@ -123,20 +129,24 @@ func ConvertMCPAuditLog(a MCPAuditLog) types2.MCPAuditLog {
 			Name:    a.ClientName,
 			Version: a.ClientVersion,
 		},
-		ClientIP:         a.ClientIP,
-		CallType:         a.CallType,
-		CallIdentifier:   a.CallIdentifier,
-		RequestBody:      a.RequestBody,
-		ResponseBody:     a.ResponseBody,
-		ResponseStatus:   a.ResponseStatus,
-		Error:            a.Error,
-		WebhookStatuses:  webhookStatus,
-		ProcessingTimeMs: a.ProcessingTimeMs,
-		SessionID:        a.SessionID,
-		RequestID:        a.RequestID,
-		UserAgent:        a.UserAgent,
-		RequestHeaders:   a.RequestHeaders,
-		ResponseHeaders:  a.ResponseHeaders,
+		ClientIP:             a.ClientIP,
+		CallType:             a.CallType,
+		CallIdentifier:       a.CallIdentifier,
+		RequestMutated:       a.RequestMutated,
+		RequestBody:          a.RequestBody,
+		MutatedRequestBody:   a.MutatedRequestBody,
+		ResponseMutated:      a.ResponseMutated,
+		ResponseBody:         a.ResponseBody,
+		OriginalResponseBody: a.OriginalResponseBody,
+		ResponseStatus:       a.ResponseStatus,
+		Error:                a.Error,
+		WebhookStatuses:      webhookStatus,
+		ProcessingTimeMs:     a.ProcessingTimeMs,
+		SessionID:            a.SessionID,
+		RequestID:            a.RequestID,
+		UserAgent:            a.UserAgent,
+		RequestHeaders:       a.RequestHeaders,
+		ResponseHeaders:      a.ResponseHeaders,
 	}
 }
 

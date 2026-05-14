@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { AdminService } from '$lib/services';
 	import {
@@ -10,16 +11,15 @@
 		type PolicyDirection,
 		PolicyDirectionLabels
 	} from '$lib/services/admin/types';
+	import { goto } from '$lib/url';
+	import { getUserDisplayName } from '$lib/utils';
+	import Confirm from '../Confirm.svelte';
+	import Select from '../Select.svelte';
+	import Table from '../table/Table.svelte';
+	import SearchUsers from './SearchUsers.svelte';
 	import { CircleHelp, LoaderCircle, Plus, Trash2 } from 'lucide-svelte';
 	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import Table from '../table/Table.svelte';
-	import SearchUsers from './SearchUsers.svelte';
-	import Confirm from '../Confirm.svelte';
-	import Select from '../Select.svelte';
-	import { goto } from '$lib/url';
-	import { getUserDisplayName } from '$lib/utils';
 
 	interface Props {
 		messagePolicy?: MessagePolicy;
@@ -89,7 +89,7 @@
 			promises[0] = AdminService.listUsers();
 		}
 		if (!usersAndGroups?.groups) {
-			promises[1] = AdminService.listGroups({ includeRestricted: true });
+			promises[1] = AdminService.listGroups();
 		}
 
 		Promise.all(promises)
@@ -319,7 +319,7 @@
 	</div>
 	{#if !readonly}
 		<div
-			class="bg-surface1 text-on-surface1 dark:bg-background sticky bottom-0 left-0 flex w-full justify-end gap-2 py-4"
+			class="bg-surface1 text-on-surface1 dark:bg-background sticky bottom-0 left-0 z-50 flex w-full justify-end gap-2 py-4"
 			out:fly={{ x: -100, duration }}
 			in:fly={{ x: -100 }}
 		>

@@ -1,21 +1,21 @@
 <script lang="ts">
-	import { closeAll, getLayout } from '$lib/context/chatLayout.svelte';
-	import { ChatService, type Project } from '$lib/services';
-	import { LoaderCircle, X, AlertCircle, CircleFadingArrowUp } from 'lucide-svelte';
-	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
-	import Memories from '$lib/components/edit/Memories.svelte';
-	import { getProjectTools } from '$lib/context/projectTools.svelte';
-	import { goto } from '$lib/url';
-	import { hasTool } from '$lib/tools';
-	import { AlertTriangle } from 'lucide-svelte';
-	import ProjectConfigurationKnowledge from './ProjectConfigurationKnowledge.svelte';
-	import Confirm from '../Confirm.svelte';
 	import { autoHeight } from '$lib/actions/textarea';
-	import { poll } from '$lib/utils';
-	import { onMount } from 'svelte';
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import InfoTooltip from '$lib/components/InfoTooltip.svelte';
 	import PageLoading from '$lib/components/PageLoading.svelte';
+	import Memories from '$lib/components/edit/Memories.svelte';
+	import { closeAll, getLayout } from '$lib/context/chatLayout.svelte';
+	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
+	import { getProjectTools } from '$lib/context/projectTools.svelte';
+	import { ChatService, type Project } from '$lib/services';
+	import { hasTool } from '$lib/tools';
+	import { goto } from '$lib/url';
+	import { poll } from '$lib/utils';
+	import Confirm from '../Confirm.svelte';
+	import ProjectConfigurationKnowledge from './ProjectConfigurationKnowledge.svelte';
+	import { LoaderCircle, X, AlertCircle, CircleFadingArrowUp } from 'lucide-svelte';
+	import { AlertTriangle } from 'lucide-svelte';
+	import { onMount } from 'svelte';
 
 	interface Props {
 		project: Project;

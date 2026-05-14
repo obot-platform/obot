@@ -2,6 +2,7 @@ package authz
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/obot-platform/nah/pkg/router"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -10,7 +11,9 @@ import (
 )
 
 func (a *Authorizer) checkMCPID(req *http.Request, resources *Resources, user user.Info) (bool, error) {
-	if resources.MCPID == "" {
+	if resources.MCPID == "" || user.GetName() == "anonymous" && strings.HasPrefix(req.URL.Path, "/mcp-connect/") {
+		// If this is an MCP connect URL and the user is anonymous, then allow access.
+		// The handler will catch this and support the WWW-Authenticate header to trigger the login flow.
 		return true, nil
 	}
 
@@ -37,6 +40,14 @@ func (a *Authorizer) checkMCPID(req *http.Request, resources *Resources, user us
 
 		// For single-user MCP servers, ensure the user owns the server.
 		return mcpServer.Spec.UserID == user.GetUID(), nil
+
+	case system.IsSystemMCPServerID(resources.MCPID):
+		var systemMCPServer v1.SystemMCPServer
+		if err := a.get(req.Context(), router.Key(system.DefaultNamespace, resources.MCPID), &systemMCPServer); err != nil {
+			return false, err
+		}
+		// If this is a system MCP server, then allow access. The system MCP server will enforce its own authorization.
+		return systemMCPServer.Spec.Manifest.Enabled == nil || *systemMCPServer.Spec.Manifest.Enabled, nil
 	default:
 		var entry v1.MCPServerCatalogEntry
 		if err := a.get(req.Context(), router.Key(system.DefaultNamespace, resources.MCPID), &entry); err != nil {

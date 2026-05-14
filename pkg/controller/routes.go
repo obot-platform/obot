@@ -20,6 +20,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpservercatalogentry"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpserverinstance"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpsession"
+	"github.com/obot-platform/obot/pkg/controller/handlers/mcpwebhookvalidation"
 	"github.com/obot-platform/obot/pkg/controller/handlers/modelaccesspolicy"
 	"github.com/obot-platform/obot/pkg/controller/handlers/nanobotagent"
 	"github.com/obot-platform/obot/pkg/controller/handlers/oauthapp"
@@ -43,7 +44,6 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/workflowexecution"
 	"github.com/obot-platform/obot/pkg/controller/handlers/workflowstep"
 	"github.com/obot-platform/obot/pkg/controller/handlers/workspace"
-	"github.com/obot-platform/obot/pkg/controller/mcpwebhookvalidation"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
@@ -72,13 +72,13 @@ func (c *Controller) setupRoutes() {
 	projects := projects.NewHandler()
 	runstates := runstates.NewHandler(c.services.GatewayClient)
 	userCleanup := cleanup.NewUserCleanup(c.services.GatewayClient, c.services.AccessControlRuleHelper)
-	mcpCatalog := mcpcatalog.New(c.services.DefaultMCPCatalogPath, c.services.GatewayClient, c.services.AccessControlRuleHelper)
+	mcpCatalog := mcpcatalog.New(c.services.DefaultMCPCatalogPath, c.services.DefaultSystemMCPCatalogPath, c.services.GPTClient, c.services.GatewayClient, c.services.AccessControlRuleHelper, c.services.MCPRuntimeBackend)
 	skillRepository := skillrepository.New()
 	mcpSession := mcpsession.New(c.services.GPTClient)
-	mcpserver := mcpserver.New(c.services.GPTClient, c.services.MCPLoader, c.services.ServerURL)
+	mcpserver := mcpserver.New(c.services.GPTClient, c.services.MCPLoader, c.services.MCPNetworkPolicyEnabled, c.services.MCPDefaultDenyAllEgress, c.services.SingleUserIdleServerShutdownInterval, c.services.MultiUserIdleServerShutdownInterval, c.services.AgentIdleServerShutdownInterval, c.services.ServerURL)
 	mcpserverinstance := mcpserverinstance.New(c.services.GatewayClient)
 	accesscontrolrule := accesscontrolrule.New(c.services.AccessControlRuleHelper)
-	mcpWebhookValidations := mcpwebhookvalidation.New()
+	mcpWebhookValidations := mcpwebhookvalidation.New(c.services.GPTClient, c.services.MCPHTTPWebhookBaseImage)
 	powerUserWorkspaceHandler := poweruserworkspace.NewHandler(c.services.GatewayClient)
 	adminWorkspaceHandler := adminworkspace.New(c.services.GatewayClient)
 	mcpServerCatalogEntryHandler := mcpservercatalogentry.NewHandler(c.services.GPTClient)
@@ -162,6 +162,7 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.ToolReference{}).FinalizeFunc(v1.ToolReferenceFinalizer, toolRef.CleanupModelProvider)
 
 	// Models
+	root.Type(&v1.Model{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.Model{}).HandlerFunc(alias.AssignAlias)
 	root.Type(&v1.Model{}).HandlerFunc(generationed.UpdateObservedGeneration)
 
@@ -230,6 +231,9 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.MCPCatalog{}).HandlerFunc(mcpCatalog.DeleteUnauthorizedMCPServersForCatalog)
 	root.Type(&v1.MCPCatalog{}).HandlerFunc(mcpCatalog.DeleteUnauthorizedMCPServerInstancesForCatalog)
 
+	// SystemMCPCatalog
+	root.Type(&v1.SystemMCPCatalog{}).HandlerFunc(mcpCatalog.SyncSystem)
+
 	// SkillRepository
 	root.Type(&v1.SkillRepository{}).HandlerFunc(skillRepository.Sync)
 
@@ -247,6 +251,10 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(mcpServerCatalogEntryHandler.CleanupUnusedOAuthCredentials)
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(mcpServerCatalogEntryHandler.EnsureOAuthCredentialStatus)
 
+	// SystemMCPServerCatalogEntry
+	root.Type(&v1.SystemMCPServerCatalogEntry{}).HandlerFunc(cleanup.Cleanup)
+	root.Type(&v1.SystemMCPServerCatalogEntry{}).HandlerFunc(mcpServerCatalogEntryHandler.UpdateSystemManifestHashAndLastUpdated)
+
 	// MCPServer
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.EnsureMCPCatalogID)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.MigrateSharedWithinMCPCatalogName)
@@ -256,16 +264,23 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.CleanupNestedCompositeServers)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.DetectDrift)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.DetectK8sSettingsDrift)
+	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.EnsureMCPNetworkPolicy)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.EnsureMCPServerInstanceUserCount)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.SyncOAuthCredentialStatus)
+	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.SyncOAuthMetadata)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.EnsureMCPServerSecretInfo)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.EnsureCompositeComponents)
+	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.ShutdownIdleServers)
 	root.Type(&v1.MCPServer{}).FinalizeFunc(v1.MCPServerFinalizer, credentialCleanup.RemoveMCPCredentials)
+
+	// MCPNetworkPolicy
+	root.Type(&v1.MCPNetworkPolicy{}).HandlerFunc(cleanup.Cleanup)
 
 	// MCPServerInstance
 	root.Type(&v1.MCPServerInstance{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.MCPServerInstance{}).HandlerFunc(mcpserverinstance.MigrationDeleteSingleUserInstances)
-	root.Type(&v1.MCPServerInstance{}).FinalizeFunc(v1.MCPServerInstanceFinalizer, mcpserverinstance.RemoveOAuthToken)
+	root.Type(&v1.MCPServerInstance{}).HandlerFunc(mcpserverinstance.UpdateMultiUserConfig)
+	root.Type(&v1.MCPServerInstance{}).FinalizeFunc(v1.MCPServerInstanceFinalizer, credentialCleanup.RemoveMCPInstanceCredentials)
 
 	// AccessControlRule
 	root.Type(&v1.AccessControlRule{}).HandlerFunc(cleanup.Cleanup)
@@ -304,6 +319,7 @@ func (c *Controller) setupRoutes() {
 
 	// MCP Webhook Validations
 	root.Type(&v1.MCPWebhookValidation{}).HandlerFunc(mcpWebhookValidations.CleanupResources)
+	root.Type(&v1.MCPWebhookValidation{}).HandlerFunc(mcpWebhookValidations.EnsureSystemServer)
 
 	// UserRoleChange
 	root.Type(&v1.UserRoleChange{}).HandlerFunc(powerUserWorkspaceHandler.HandleRoleChange)
@@ -330,6 +346,7 @@ func (c *Controller) setupRoutes() {
 	// System MCP Servers
 	root.Type(&v1.SystemMCPServer{}).HandlerFunc(systemMCPServerHandler.EnsureSecretInfo)
 	root.Type(&v1.SystemMCPServer{}).HandlerFunc(systemMCPServerHandler.EnsureDeployment)
+	root.Type(&v1.SystemMCPServer{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.SystemMCPServer{}).FinalizeFunc(v1.SystemMCPServerFinalizer, systemMCPServerHandler.CleanupDeployment)
 
 	// AuditLogExport

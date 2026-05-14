@@ -1,24 +1,34 @@
 <script lang="ts">
-	import ProviderCard from '$lib/components/admin/ProviderCard.svelte';
-	import { AdminService, type ModelProvider as ModelProviderType } from '$lib/services';
-	import { delay } from '$lib/utils';
 	import Layout from '$lib/components/Layout.svelte';
+	import DefaultModels from '$lib/components/admin/DefaultModels.svelte';
+	import ListModels from '$lib/components/admin/ListModels.svelte';
+	import ProviderCard from '$lib/components/admin/ProviderCard.svelte';
+	import ProviderConfigure from '$lib/components/admin/ProviderConfigure.svelte';
 	import {
 		CommonModelProviderIds,
 		PAGE_TRANSITION_DURATION,
 		RecommendedModelProviders
 	} from '$lib/constants';
-	import { fade } from 'svelte/transition';
-	import ProviderConfigure from '$lib/components/admin/ProviderConfigure.svelte';
-	import ListModels from '$lib/components/admin/ListModels.svelte';
 	import { getAdminModels, initModels } from '$lib/context/admin/models.svelte.js';
-	import { onMount, untrack } from 'svelte';
-	import DefaultModels from '$lib/components/admin/DefaultModels.svelte';
+	import { AdminService, type ModelProvider as ModelProviderType } from '$lib/services';
 	import { sortModelProviders } from '$lib/sort.js';
-	import { AlertTriangle } from 'lucide-svelte';
+	import { version, defaultModelAliases as defaultModelAliasesStore } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte.js';
 	import { profile } from '$lib/stores/index.js';
-	import { version, defaultModelAliases as defaultModelAliasesStore } from '$lib/stores';
+	import { delay } from '$lib/utils';
+	import { AlertTriangle } from 'lucide-svelte';
+	import { onMount, untrack } from 'svelte';
+	import { fade } from 'svelte/transition';
+
+	const nanobotIntegratedModels = [
+		CommonModelProviderIds.OPENAI,
+		CommonModelProviderIds.ANTHROPIC,
+		CommonModelProviderIds.AMAZON_BEDROCK,
+		CommonModelProviderIds.AMAZON_BEDROCK_API_KEY,
+		CommonModelProviderIds.AZURE,
+		CommonModelProviderIds.AZURE_ENTRA,
+		CommonModelProviderIds.GENERIC_RESPONSES
+	];
 
 	let { data } = $props();
 	let modelProviders = $state(untrack(() => data.modelProviders));
@@ -33,16 +43,20 @@
 		!!modelProviders.find((provider) => provider.id === CommonModelProviderIds.ANTHROPIC_BEDROCK)
 			?.configured
 	);
-	let modelProvidersToShow = $derived(
+	let isLegacyDisabled = $derived(version.current.disableLegacyChat);
+	let availableModelProviders = $derived(
 		hasAnthropicAwsBedrockConfigured
 			? modelProviders
 			: modelProviders.filter(
 					(provider) => provider.id !== CommonModelProviderIds.ANTHROPIC_BEDROCK
 				)
 	);
+	let modelProvidersToShow = $derived(
+		isLegacyDisabled
+			? availableModelProviders.filter((provider) => nanobotIntegratedModels.includes(provider.id))
+			: availableModelProviders
+	);
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
-	let isLegacyDisabled = $derived(version.current.disableLegacyChat);
-	const nanobotIntegratedModels = [CommonModelProviderIds.OPENAI, CommonModelProviderIds.ANTHROPIC];
 	const defaultModelAliases = $derived(defaultModelAliasesStore.current);
 
 	initModels([]);
@@ -152,6 +166,7 @@
 		<div class="grid grid-cols-1 gap-4 px-8 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
 			{#each sortedModelProviders as modelProvider (modelProvider.id)}
 				<ProviderCard
+					experimental={modelProvider.id === CommonModelProviderIds.GENERIC_RESPONSES}
 					provider={modelProvider}
 					deprecated={modelProvider.id === CommonModelProviderIds.ANTHROPIC_BEDROCK}
 					recommended={!isLegacyDisabled && RecommendedModelProviders.includes(modelProvider.id)}
@@ -175,7 +190,6 @@
 						adminConfigStore.updateModelProviders(modelProviders);
 					}}
 					readonly={isAdminReadonly}
-					isComingSoon={isLegacyDisabled && !nanobotIntegratedModels.includes(modelProvider.id)}
 				>
 					{#snippet configuredActions(provider)}
 						<ListModels {provider} readonly={isAdminReadonly} />
@@ -206,7 +220,7 @@
 	{#snippet note()}
 		{#if configuringModelProvider && isAnthropic(configuringModelProvider)}
 			<p class="text-on-surface1 py-4 font-light">
-				Note: Anthropic does not have an embeddings model and recommends Voyage AI.
+				Note: Anthropic does not have an embeddings model.
 			</p>
 		{/if}
 	{/snippet}

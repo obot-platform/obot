@@ -1,15 +1,15 @@
 <script lang="ts">
-	import { EditorService, type Messages, type Project } from '$lib/services';
-	import Message from '$lib/components/messages/Message.svelte';
-	import { Trash2, Plus } from 'lucide-svelte/icons';
+	import { transitionParentHeight } from '$lib/actions/size.svelte';
 	import { autoHeight } from '$lib/actions/textarea.js';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import type { KeyboardEventHandler } from 'svelte/elements';
-	import { transitionParentHeight } from '$lib/actions/size.svelte';
-	import { slide } from 'svelte/transition';
-	import { linear } from 'svelte/easing';
-	import { twMerge } from 'tailwind-merge';
+	import Message from '$lib/components/messages/Message.svelte';
 	import { getLayout } from '$lib/context/chatLayout.svelte';
+	import { EditorService, type Messages, type Project } from '$lib/services';
+	import { Trash2, Plus } from 'lucide-svelte/icons';
+	import { linear } from 'svelte/easing';
+	import type { KeyboardEventHandler } from 'svelte/elements';
+	import { slide } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	type Props = {
 		class?: string;

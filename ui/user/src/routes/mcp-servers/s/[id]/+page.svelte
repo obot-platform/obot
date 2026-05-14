@@ -1,14 +1,13 @@
 <script lang="ts">
+	import { page } from '$app/state';
+	import Layout from '$lib/components/Layout.svelte';
+	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
+	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
+	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { ChatService } from '$lib/services/index.js';
 	import { type Component } from 'svelte';
 	import { fly } from 'svelte/transition';
-	import { goto } from '$lib/url';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
-	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
-	import Layout from '$lib/components/Layout.svelte';
-	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
-	import { page } from '$app/state';
-	import { ChatService } from '$lib/services/index.js';
 
 	const duration = PAGE_TRANSITION_DURATION;
 
@@ -40,18 +39,7 @@
 	{/snippet}
 	<div class="flex h-full flex-col gap-6 pb-8" in:fly={{ x: 100, delay: duration, duration }}>
 		{#if mcpServer}
-			<McpServerEntryForm
-				entry={mcpServer}
-				type="multi"
-				id={workspaceId}
-				entity="workspace"
-				onCancel={() => {
-					goto('/mcp-servers');
-				}}
-				onSubmit={async () => {
-					goto('/mcp-servers');
-				}}
-			/>
+			<McpServerEntryForm entry={mcpServer} type="multi" id={workspaceId} entity="workspace" />
 		{/if}
 	</div>
 </Layout>

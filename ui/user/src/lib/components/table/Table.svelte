@@ -1,4 +1,9 @@
 <script lang="ts" generics="T extends { id: string | number }">
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import DotDotDot from '../DotDotDot.svelte';
+	import TableColumnFilter from './TableColumnFilter.svelte';
+	import TableHeader from './TableHeader.svelte';
 	import {
 		ChevronDown,
 		ChevronsLeft,
@@ -10,11 +15,6 @@
 	import { onMount, type Snippet } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { twMerge } from 'tailwind-merge';
-	import TableHeader from './TableHeader.svelte';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import DotDotDot from '../DotDotDot.svelte';
-	import TableColumnFilter from './TableColumnFilter.svelte';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 
 	export type InitSort = { property: string; order: 'asc' | 'desc' };
 	export type InitSortFn = (property: string, order: 'asc' | 'desc') => void;
@@ -85,6 +85,16 @@
 
 	let page = $state(0);
 	let total = $derived(data.length);
+
+	// Keep page within bounds when total shrinks.
+	$effect(() => {
+		if (pageSize && total > 0) {
+			const maxPage = Math.max(0, Math.ceil(total / pageSize) - 1);
+			if (page > maxPage) page = maxPage;
+		} else if (page !== 0) {
+			page = 0;
+		}
+	});
 
 	let sortableFields = $derived(new Set(sortable));
 	let filterableFields = $derived(new Set(filterable));
@@ -592,7 +602,7 @@
 	>
 		{#if tableSelectActions && Object.keys(selected).length > 0}
 			<div class="flex w-full items-center">
-				<div class="flex-shrink-0 p-2">
+				<div class="shrink-0 p-2">
 					{@render selectAll()}
 				</div>
 				<div class="text-on-surface1 px-4 py-2 text-left text-sm font-semibold">

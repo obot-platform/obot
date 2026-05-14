@@ -1,5 +1,8 @@
 <script lang="ts">
+	import { page } from '$app/state';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Layout from '$lib/components/Layout.svelte';
+	import Search from '$lib/components/Search.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import {
 		AdminService,
@@ -9,26 +12,22 @@
 		type Task,
 		Group
 	} from '$lib/services';
-	import { Eye, LoaderCircle, MessageCircle } from 'lucide-svelte';
-	import { onMount } from 'svelte';
-	import { fly } from 'svelte/transition';
-	import { replaceState } from '$lib/url';
-	import { formatTimeAgo } from '$lib/time';
-	import Search from '$lib/components/Search.svelte';
-	import { page } from '$app/state';
-	import { debounce } from 'es-toolkit';
 	import { profile } from '$lib/stores';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { twMerge } from 'tailwind-merge';
-	import { openUrl } from '$lib/utils';
+	import { formatTimeAgo } from '$lib/time';
+	import { replaceState } from '$lib/url';
 	import {
 		clearUrlParams,
 		getTableUrlParamsFilters,
 		getTableUrlParamsSort,
-		setSearchParamsToLocalStorage,
 		setSortUrlParams,
 		setFilterUrlParams
 	} from '$lib/url';
+	import { openUrl } from '$lib/utils';
+	import { debounce } from 'es-toolkit';
+	import { Eye, LoaderCircle, MessageCircle } from 'lucide-svelte';
+	import { onMount } from 'svelte';
+	import { fly } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	let threads = $state<ProjectThread[]>([]);
 	let projects = $state<Project[]>([]);
@@ -39,7 +38,7 @@
 	let userMap = $derived(new Map(users.map((u) => [u.id, u])));
 	let taskMap = $derived(new Map(tasks.map((t) => [t.id, t])));
 
-	let query = $state(page.url.searchParams.get('query') || '');
+	let query = $derived(page.url.searchParams.get('query') || '');
 	let urlFilters = $derived(getTableUrlParamsFilters());
 	let initSort = $derived(getTableUrlParamsSort({ property: 'created', order: 'desc' }));
 
@@ -143,8 +142,6 @@
 	}
 
 	function handleViewThread(thread: ProjectThread, isCtrlClick: boolean) {
-		setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
-
 		const url = `/admin/task-runs/${thread.id}`;
 		openUrl(url, isCtrlClick);
 	}

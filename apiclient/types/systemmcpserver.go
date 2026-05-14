@@ -8,15 +8,20 @@ type SystemMCPServerManifest struct {
 	Icon             string            `json:"icon"`
 
 	// Enabled controls whether this server should be deployed
-	Enabled bool `json:"enabled"`
+	Enabled *bool `json:"enabled,omitempty"`
 
-	// Runtime configuration (only containerized allowed)
+	// Runtime configuration
 	Runtime Runtime `json:"runtime"`
 
-	// Runtime-specific configuration
+	// Runtime-specific configurations (only one should be populated based on runtime)
+	UVXConfig           *UVXRuntimeConfig           `json:"uvxConfig,omitempty"`
+	NPXConfig           *NPXRuntimeConfig           `json:"npxConfig,omitempty"`
 	ContainerizedConfig *ContainerizedRuntimeConfig `json:"containerizedConfig,omitempty"`
+	RemoteConfig        *RemoteRuntimeConfig        `json:"remoteConfig,omitempty"`
 
 	Env []MCPEnv `json:"env,omitempty"`
+
+	StartupTimeoutSeconds int `json:"startupTimeoutSeconds,omitempty"`
 }
 
 type SystemMCPServer struct {

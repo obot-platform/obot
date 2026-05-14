@@ -1,5 +1,4 @@
 <script lang="ts">
-	import MessageItem from './MessageItem.svelte';
 	import type {
 		Attachment,
 		ChatMessage,
@@ -7,12 +6,13 @@
 		ChatResult,
 		ResourceContents
 	} from '$lib/services/nanobot/types';
-	import MessageItemText from './MessageItemText.svelte';
 	import {
 		CANCELLATION_PHRASE_CLIENT,
 		isCancellationError,
 		parseToolFilePath
 	} from '$lib/services/nanobot/utils';
+	import MessageItem from './MessageItem.svelte';
+	import MessageItemText from './MessageItemText.svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 
 	interface Props {

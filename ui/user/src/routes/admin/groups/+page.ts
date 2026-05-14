@@ -4,7 +4,7 @@ import { profile } from '$lib/stores';
 import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ fetch }) => {
-	const allGroupsPromise = await AdminService.listGroups({ fetch, includeRestricted: true });
+	const allGroupsPromise = await AdminService.listGroups({ fetch });
 
 	try {
 		return {

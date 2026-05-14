@@ -1,5 +1,9 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Layout from '$lib/components/Layout.svelte';
+	import Search from '$lib/components/Search.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import {
 		AdminService,
@@ -8,26 +12,21 @@
 		type OrgUser,
 		type ProjectTask
 	} from '$lib/services';
-	import { Eye, LoaderCircle, MessageCircle } from 'lucide-svelte';
-	import { onMount } from 'svelte';
-	import { fly } from 'svelte/transition';
-	import { replaceState } from '$lib/url';
 	import { formatTimeAgo } from '$lib/time';
-	import Search from '$lib/components/Search.svelte';
-	import { page } from '$app/state';
-	import { debounce } from 'es-toolkit';
-	import { twMerge } from 'tailwind-merge';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { openUrl } from '$lib/utils';
+	import { replaceState } from '$lib/url';
 	import {
 		clearUrlParams,
 		getTableUrlParamsFilters,
 		getTableUrlParamsSort,
-		setSearchParamsToLocalStorage,
 		setSortUrlParams,
 		setFilterUrlParams
 	} from '$lib/url';
-	import { resolve } from '$app/paths';
+	import { openUrl } from '$lib/utils';
+	import { debounce } from 'es-toolkit';
+	import { Eye, LoaderCircle, MessageCircle } from 'lucide-svelte';
+	import { onMount } from 'svelte';
+	import { fly } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	let tasks = $state<ProjectTask[]>([]);
 	let threads = $state<ProjectThread[]>([]);
@@ -38,7 +37,7 @@
 
 	let urlFilters = $derived(getTableUrlParamsFilters());
 	let initSort = $derived(getTableUrlParamsSort({ property: 'created', order: 'desc' }));
-	let query = $state(page.url.searchParams.get('query') || '');
+	let query = $derived(page.url.searchParams.get('query') || '');
 
 	let loading = $state(true);
 
@@ -131,8 +130,6 @@
 	}
 
 	function handleViewTask(task: ProjectTask, isCtrlClick: boolean) {
-		setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
-
 		const url = `/admin/tasks/${task.id}`;
 		openUrl(url, isCtrlClick);
 	}

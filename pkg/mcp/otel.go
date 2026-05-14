@@ -10,8 +10,8 @@ import (
 // It copies all OTEL_* variables from the current process, optionally rewriting OTLP
 // endpoint URLs for the target runtime, and sets the service name so spans are
 // distinguishable.
-func nanobotOTELEnv(serviceName string, transformEndpoint func(string) string) map[string]string {
-	env := make(map[string]string)
+func nanobotOTELEnv(serviceName string, transformEndpoint func(string) string) map[string][]byte {
+	env := make(map[string][]byte)
 
 	for _, entry := range os.Environ() {
 		key, value, ok := strings.Cut(entry, "=")
@@ -23,10 +23,10 @@ func nanobotOTELEnv(serviceName string, transformEndpoint func(string) string) m
 			value = transformEndpoint(value)
 		}
 
-		env[key] = value
+		env[key] = []byte(value)
 	}
 
-	env["OTEL_SERVICE_NAME"] = serviceName
+	env["OTEL_SERVICE_NAME"] = []byte(serviceName)
 
 	return env
 }

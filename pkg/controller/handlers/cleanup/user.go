@@ -53,6 +53,37 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 	}
 	log.Infof("Removed user identities during cleanup: userID=%s identities=%d", userID, len(identities))
 
+	var agents v1.NanobotAgentList
+	if err := req.List(&agents, &kclient.ListOptions{
+		Namespace: req.Namespace,
+		FieldSelector: fields.SelectorFromSet(map[string]string{
+			"spec.userID": userID,
+		}),
+	}); err != nil {
+		return err
+	}
+
+	for _, agent := range agents.Items {
+		if err := req.Delete(&agent); err != nil {
+			return err
+		}
+	}
+	log.Infof("Deleted nanobot agents during user cleanup: userID=%s agents=%d", userID, len(agents.Items))
+
+	// Delete any API keys the user created. Nanobot-agent keys are handled by the
+	// NanobotAgent delete flow above; this sweeps user-created keys plus anything
+	// the nanobot path missed.
+	apiKeys, err := u.gatewayClient.ListAPIKeys(req.Ctx, userDelete.Spec.UserID)
+	if err != nil {
+		return fmt.Errorf("failed to list API keys for user %d: %w", userDelete.Spec.UserID, err)
+	}
+	for _, key := range apiKeys {
+		if err := u.gatewayClient.DeleteAPIKey(req.Ctx, userDelete.Spec.UserID, key.ID); err != nil {
+			return fmt.Errorf("failed to delete API key %d for user %d: %w", key.ID, userDelete.Spec.UserID, err)
+		}
+	}
+	log.Infof("Deleted API keys during user cleanup: userID=%s keys=%d", userID, len(apiKeys))
+
 	var threads v1.ThreadList
 	if err := req.List(&threads, &kclient.ListOptions{
 		Namespace: req.Namespace,
@@ -63,7 +94,7 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 		return err
 	}
 
-	deletedProjectThreads := 0
+	var deletedProjectThreads int
 	for _, thread := range threads.Items {
 		if thread.Spec.Project {
 			if err := req.Delete(&thread); err != nil {
@@ -84,10 +115,12 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 		return err
 	}
 
-	deletedServers := 0
+	var deletedServers int
 	for _, server := range servers.Items {
 		// Skip multi-user servers in the default MCPCatalog — they should persist after user deletion.
-		if server.Spec.MCPCatalogID == system.DefaultCatalog {
+		// Also skip servers that are associated with an agent because we need the credential to stick
+		// around so we can delete the API key.
+		if server.Spec.MCPCatalogID == system.DefaultCatalog || server.Spec.NanobotAgentID != "" {
 			continue
 		}
 		if err := kclient.IgnoreNotFound(req.Delete(&server)); err != nil {
@@ -121,7 +154,8 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 	if err != nil {
 		return err
 	}
-	updatedACRs := 0
+
+	var updatedACRs int
 	for _, acr := range acrs {
 		newSubjects := slices.Collect(func(yield func(types.Subject) bool) {
 			for _, subject := range acr.Spec.Manifest.Subjects {
@@ -177,7 +211,7 @@ func deleteThreadAuthorizationsForUser(ctx context.Context, storageClient kclien
 		return 0, err
 	}
 
-	deleted := 0
+	var deleted int
 	for _, membership := range memberships.Items {
 		if err := storageClient.Delete(ctx, &membership); err != nil {
 			return deleted, err

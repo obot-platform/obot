@@ -1,10 +1,11 @@
 <script lang="ts">
-	import { twMerge } from 'tailwind-merge';
 	import { VirtualPageTable } from '$lib/components/ui';
+	import { mcpServersAndEntries, timePreference } from '$lib/stores';
+	import { formatLogTimestamp } from '$lib/time';
+	import { throttle } from '$lib/utils';
 	import { GripVertical } from 'lucide-svelte';
 	import { tick } from 'svelte';
-	import { throttle } from '$lib/utils';
-	import { mcpServersAndEntries } from '$lib/stores';
+	import { twMerge } from 'tailwind-merge';
 
 	let { data = [], onSelectRow, emptyContent, getUserDisplayName } = $props();
 
@@ -134,6 +135,32 @@
 	</td>
 {/snippet}
 
+{#snippet mutationIndicators(requestMutated: boolean, responseMutated: boolean)}
+	<td class="text-sm whitespace-nowrap">
+		<div class="box-content flex h-full px-6">
+			<div class="flex flex-1 items-center gap-1 py-4">
+				{#if requestMutated}
+					<span
+						class="rounded-full bg-orange-500/15 px-2 py-0.5 text-[11px] font-medium text-orange-600 dark:text-orange-400"
+						title="Request was mutated"
+					>
+						Req
+					</span>
+				{/if}
+				{#if responseMutated}
+					<span
+						class="rounded-full bg-orange-500/15 px-2 py-0.5 text-[11px] font-medium text-orange-600 dark:text-orange-400"
+						title="Response was mutated"
+					>
+						Res
+					</span>
+				{/if}
+			</div>
+			{@render tdResizeHandler()}
+		</div>
+	</td>
+{/snippet}
+
 <!-- Data Table -->
 <div
 	bind:this={tableContainer}
@@ -164,6 +191,8 @@
 
 						{@render th('Response Time (ms)', { class: 'w-[26ch]', minWidth: '26ch' })}
 
+						{@render th('Mutated', { class: 'w-[16ch]', minWidth: '16ch' })}
+
 						{@render th('Client', { class: 'w-[19ch]', minWidth: '19ch' })}
 
 						{@render th('IP Address', { class: 'w-[24ch]', minWidth: '24ch' })}
@@ -185,20 +214,7 @@
 						<td class="px-6 py-3">
 							{item.index + 1}
 						</td>
-						{@render td(
-							new Date(d.createdAt)
-								.toLocaleString(undefined, {
-									year: 'numeric',
-									month: 'short',
-									day: 'numeric',
-									hour: '2-digit',
-									minute: '2-digit',
-									second: '2-digit',
-									hour12: true,
-									timeZoneName: 'short'
-								})
-								.replace(/,/g, '')
-						)}
+						{@render td(formatLogTimestamp(d.createdAt, timePreference.timeFormat))}
 						{@render td(getUserDisplayName(d.userID))}
 						{@render td(
 							d.mcpID
@@ -209,6 +225,7 @@
 						{@render td(d.callIdentifier)}
 						{@render td(d.responseStatus)}
 						{@render td(d.processingTimeMs)}
+						{@render mutationIndicators(d.requestMutated, d.responseMutated)}
 						{@render td(d.client?.name)}
 						{@render td(d.clientIP)}
 					</tr>

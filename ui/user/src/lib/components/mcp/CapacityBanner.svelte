@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { AdminService } from '$lib/services';
 	import type { MCPCapacityInfo } from '$lib/services/admin/types';
 	import { Info, LoaderCircle } from 'lucide-svelte';
+	import { onMount } from 'svelte';
 
 	let capacityInfo = $state<MCPCapacityInfo | null>(null);
 	let loading = $state(true);

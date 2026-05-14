@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { formatBase64ToBlobUrl } from '$lib/format';
 	import { twMerge } from 'tailwind-merge';
+
 	interface Props {
 		base64: string;
 		class?: string;
@@ -12,18 +14,9 @@
 
 	let pdfBlobUrl = $state<string | null>(null);
 
-	function base64ToBlobUrl(base64: string, mime: string): string {
-		const binary = atob(base64);
-		const bytes = new Uint8Array(binary.length);
-		for (let i = 0; i < binary.length; i++) {
-			bytes[i] = binary.charCodeAt(i);
-		}
-		return URL.createObjectURL(new Blob([bytes], { type: mime }));
-	}
-
 	$effect(() => {
 		if (!base64) return;
-		const url = base64ToBlobUrl(base64, 'application/pdf');
+		const url = formatBase64ToBlobUrl(base64, 'application/pdf');
 		pdfBlobUrl = url;
 		return () => {
 			URL.revokeObjectURL(url);

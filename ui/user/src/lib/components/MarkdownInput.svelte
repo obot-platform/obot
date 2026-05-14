@@ -1,10 +1,25 @@
 <script lang="ts">
-	import '@milkdown/crepe/theme/common/style.css';
-	import '@milkdown/crepe/theme/frame.css';
-	import { twMerge } from 'tailwind-merge';
-	import { onMount, untrack } from 'svelte';
 	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
-
+	import { darkMode } from '$lib/stores';
+	import {
+		closeBrackets,
+		autocompletion,
+		closeBracketsKeymap,
+		completionKeymap
+	} from '@codemirror/autocomplete';
+	import { history, defaultKeymap, historyKeymap } from '@codemirror/commands';
+	import { markdown } from '@codemirror/lang-markdown';
+	import {
+		foldGutter,
+		indentOnInput,
+		syntaxHighlighting,
+		defaultHighlightStyle,
+		bracketMatching,
+		foldKeymap
+	} from '@codemirror/language';
+	import { lintKeymap } from '@codemirror/lint';
+	import { searchKeymap } from '@codemirror/search';
+	import { EditorState as CMEditorState } from '@codemirror/state';
 	import {
 		lineNumbers,
 		highlightActiveLineGutter,
@@ -15,28 +30,12 @@
 		placeholder as cmPlaceholder,
 		EditorView
 	} from '@codemirror/view';
-	import {
-		foldGutter,
-		indentOnInput,
-		syntaxHighlighting,
-		defaultHighlightStyle,
-		bracketMatching,
-		foldKeymap
-	} from '@codemirror/language';
-	import { history, defaultKeymap, historyKeymap } from '@codemirror/commands';
-	import { searchKeymap } from '@codemirror/search';
-	import {
-		closeBrackets,
-		autocompletion,
-		closeBracketsKeymap,
-		completionKeymap
-	} from '@codemirror/autocomplete';
-	import { lintKeymap } from '@codemirror/lint';
-	import { markdown } from '@codemirror/lang-markdown';
-	import { EditorState as CMEditorState } from '@codemirror/state';
 	import { EditorView as CMEditorView } from '@codemirror/view';
+	import '@milkdown/crepe/theme/common/style.css';
+	import '@milkdown/crepe/theme/frame.css';
 	import { githubLight, githubDark } from '@uiw/codemirror-theme-github';
-	import { darkMode } from '$lib/stores';
+	import { onMount, untrack } from 'svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		value?: string;

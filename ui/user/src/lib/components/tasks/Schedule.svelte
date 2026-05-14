@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { Schedule } from '$lib/services';
 	import Dropdown from '$lib/components/tasks/Dropdown.svelte';
+	import type { Schedule } from '$lib/services';
 	import { GlobeIcon } from 'lucide-svelte';
 
 	interface Props {

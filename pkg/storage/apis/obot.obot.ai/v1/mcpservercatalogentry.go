@@ -3,11 +3,15 @@ package v1
 import (
 	"slices"
 
+	"github.com/obot-platform/nah/pkg/fields"
 	"github.com/obot-platform/obot/apiclient/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ DeleteRefs = (*MCPServerCatalogEntry)(nil)
+var (
+	_ DeleteRefs    = (*MCPServerCatalogEntry)(nil)
+	_ fields.Fields = (*MCPServerCatalogEntry)(nil)
+)
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
@@ -56,6 +60,12 @@ func (in *MCPServerCatalogEntry) DeleteRefs() []Ref {
 		{ObjType: &MCPCatalog{}, Name: in.Spec.MCPCatalogName},
 		{ObjType: &PowerUserWorkspace{}, Name: in.Spec.PowerUserWorkspaceID},
 	}
+}
+
+// IsGitManaged mirrors the existing GitOps heuristic: sourced, non-editable
+// catalog entries are treated as git-managed
+func (in *MCPServerCatalogEntry) IsGitManaged() bool {
+	return !in.Spec.Editable && in.Spec.SourceURL != ""
 }
 
 type MCPServerCatalogEntrySpec struct {

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { Lightbulb } from 'lucide-svelte';
 	import type { ChatMessageItemReasoning } from '$lib/services/nanobot/types';
+	import { Lightbulb } from 'lucide-svelte';
 
 	interface Props {
 		item: ChatMessageItemReasoning;

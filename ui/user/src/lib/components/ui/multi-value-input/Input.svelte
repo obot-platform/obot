@@ -6,7 +6,7 @@
 
 	export interface SelectProps {
 		id?: string;
-		value?: string;
+		value?: string | string[];
 		labels?: Record<string, string>;
 		disabled?: boolean;
 		readonly?: boolean;
@@ -30,7 +30,7 @@
 		id,
 		disabled,
 		readonly,
-		value = $bindable(''),
+		value = $bindable<string | string[]>(''),
 		labels,
 		class: klass,
 		classes,
@@ -40,6 +40,9 @@
 
 	let values = $derived.by(() => {
 		if (!value) return [];
+		if (Array.isArray(value)) {
+			return value.map((v) => v.trim()).filter(Boolean);
+		}
 		return value
 			.trim()
 			.split(',')
@@ -49,6 +52,10 @@
 
 	let input = $state<HTMLInputElement>();
 	let text = $state('');
+
+	function assignValues(nextValues: string[]) {
+		value = Array.isArray(value) ? nextValues : nextValues.join(',');
+	}
 </script>
 
 <div
@@ -87,7 +94,7 @@
 								ev.preventDefault();
 								ev.stopPropagation();
 
-								value = values.filter((d) => d !== v).join(',');
+								assignValues(values.filter((d) => d !== v));
 							}}
 						>
 							<X class="size-4 " />
@@ -118,7 +125,7 @@
 						if (values.length === 0) break;
 						if (text.length) break;
 
-						value = values.slice(0, -1).join(',');
+						assignValues(values.slice(0, -1));
 					}
 
 					break;
@@ -137,7 +144,7 @@
 						break;
 					}
 
-					value = [...values, trimmedText].join(',');
+					assignValues([...values, trimmedText]);
 
 					text = '';
 
@@ -165,7 +172,7 @@
 					return;
 				}
 
-				value = '';
+				assignValues([]);
 			}}
 		>
 			<X class="size-4" />

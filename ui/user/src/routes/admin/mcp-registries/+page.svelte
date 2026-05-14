@@ -1,24 +1,25 @@
 <script lang="ts">
-	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import Layout from '$lib/components/Layout.svelte';
-	import Table from '$lib/components/table/Table.svelte';
-	import { BookOpenText, Plus, Trash2 } from 'lucide-svelte';
-	import { fly } from 'svelte/transition';
-	import { goto, replaceState } from '$lib/url';
-	import { afterNavigate, invalidate } from '$app/navigation';
-	import { type AccessControlRule, type OrgUser } from '$lib/services/admin/types';
-	import Confirm from '$lib/components/Confirm.svelte';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
-	import AccessControlRuleForm from '$lib/components/admin/AccessControlRuleForm.svelte';
-	import { onMount } from 'svelte';
-	import { AdminService, ChatService } from '$lib/services/index.js';
-	import { getUserDisplayName, openUrl } from '$lib/utils.js';
-	import { mcpServersAndEntries, profile } from '$lib/stores/index.js';
+	import { invalidate } from '$app/navigation';
 	import { page } from '$app/state';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import Confirm from '$lib/components/Confirm.svelte';
+	import Layout from '$lib/components/Layout.svelte';
+	import AccessControlRuleForm from '$lib/components/admin/AccessControlRuleForm.svelte';
+	import Table from '$lib/components/table/Table.svelte';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import { type AccessControlRule, type OrgUser } from '$lib/services/admin/types';
+	import { AdminService, ChatService } from '$lib/services/index.js';
+	import { mcpServersAndEntries, profile } from '$lib/stores/index.js';
+	import { goto, clearUrlParams } from '$lib/url';
+	import { getUserDisplayName, openUrl } from '$lib/utils.js';
+	import { BookOpenText, Plus, Trash2 } from 'lucide-svelte';
+	import { onMount } from 'svelte';
+	import { fly } from 'svelte/transition';
 
 	let { data } = $props();
+
 	let accessControlRules = $derived(data.accessControlRules);
-	let showCreateRule = $state(false);
+	let showCreateRule = $derived(page.url.searchParams.has('new'));
 	let ruleToDelete = $state<AccessControlRule>();
 
 	let users = $state<OrgUser[]>([]);
@@ -74,36 +75,9 @@
 
 	let isReadonly = $derived(profile.current.isAdminReadonly?.());
 
-	onMount(() => {
-		const url = new URL(window.location.href);
-		const queryParams = new URLSearchParams(url.search);
-		if (queryParams.get('new')) {
-			showCreateRule = true;
-		}
-	});
-
-	afterNavigate(({ from }) => {
-		const comingFromRegistryPage = from?.url?.pathname.startsWith('/admin/mcp-registries/');
-		if (comingFromRegistryPage) {
-			showCreateRule = false;
-			if (page.url.searchParams.has('new')) {
-				const cleanUrl = new URL(page.url);
-				cleanUrl.searchParams.delete('new');
-				replaceState(cleanUrl, {});
-			}
-			return;
-		} else {
-			if (page.url.searchParams.has('new')) {
-				showCreateRule = true;
-			} else {
-				showCreateRule = false;
-			}
-		}
-	});
-
 	async function navigateToCreated(rule: AccessControlRule) {
-		showCreateRule = false;
-		goto(`/admin/mcp-registries/${rule.id}`, { replaceState: false });
+		clearUrlParams(['new']);
+		goto(`/admin/mcp-registries/${rule.id}`);
 	}
 
 	const duration = PAGE_TRANSITION_DURATION;

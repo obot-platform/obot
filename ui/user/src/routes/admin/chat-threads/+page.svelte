@@ -1,28 +1,27 @@
 <script lang="ts">
+	import { page } from '$app/state';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Layout from '$lib/components/Layout.svelte';
+	import Search from '$lib/components/Search.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { AdminService, type ProjectThread, type Project, type OrgUser } from '$lib/services';
-	import { Eye, LoaderCircle, MessageCircle } from 'lucide-svelte';
-	import { onMount } from 'svelte';
-	import { fly } from 'svelte/transition';
-	import { replaceState } from '$lib/url';
-	import { formatTimeAgo } from '$lib/time';
-	import Search from '$lib/components/Search.svelte';
-	import { page } from '$app/state';
-	import { debounce } from 'es-toolkit';
 	import { Group } from '$lib/services/admin/types';
-	import { openUrl } from '$lib/utils';
 	import { profile } from '$lib/stores';
-	import { twMerge } from 'tailwind-merge';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { formatTimeAgo } from '$lib/time';
+	import { replaceState } from '$lib/url';
 	import {
 		clearUrlParams,
 		getTableUrlParamsFilters,
 		getTableUrlParamsSort,
-		setSearchParamsToLocalStorage,
 		setSortUrlParams,
 		setFilterUrlParams
 	} from '$lib/url';
+	import { openUrl } from '$lib/utils';
+	import { debounce } from 'es-toolkit';
+	import { Eye, LoaderCircle, MessageCircle } from 'lucide-svelte';
+	import { onMount } from 'svelte';
+	import { fly } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	let threads = $state<ProjectThread[]>([]);
 	let projects = $state<Project[]>([]);
@@ -30,7 +29,7 @@
 	let projectMap = $derived(new Map(projects.map((p) => [p.id, p.name])));
 	let userMap = $derived(new Map(users.map((u) => [u.id, u])));
 
-	let query = $state(page.url.searchParams.get('query') || '');
+	let query = $derived(page.url.searchParams.get('query') || '');
 	let urlFilters = $derived(getTableUrlParamsFilters());
 	let initSort = $derived(getTableUrlParamsSort({ property: 'created', order: 'desc' }));
 
@@ -158,7 +157,6 @@
 						onClearAllFilters={clearUrlParams}
 						onClickRow={isAuditor
 							? (d, isCtrlClick) => {
-									setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
 									const url = `/admin/chat-threads/${d.id}`;
 									openUrl(url, isCtrlClick);
 								}

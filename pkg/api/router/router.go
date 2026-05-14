@@ -24,6 +24,8 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 		services.EmailServerName,
 		services.PostgresDSN,
 		services.MCPRuntimeBackend,
+		services.MCPNetworkPolicyEnabled,
+		services.MCPDefaultDenyAllEgress,
 		services.SupportDocker,
 		services.AuthEnabled,
 		services.DisableUpdateCheck,
@@ -47,18 +49,20 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	toolRefs := handlers.NewToolReferenceHandler()
 	cronJobs := handlers.NewCronJobHandler()
 	models := handlers.NewModelHandler(services.ModelAccessPolicyHelper)
-	mcpCatalogs := handlers.NewMCPCatalogHandler(services.DefaultMCPCatalogPath, services.ServerURL, services.MCPLoader, oauthChecker, services.GatewayClient, services.AccessControlRuleHelper)
+	mcpCatalogs := handlers.NewMCPCatalogHandler(services.DefaultMCPCatalogPath, services.ServerURL, services.MCPRuntimeBackend, services.MCPLoader, oauthChecker, services.GatewayClient, services.AccessControlRuleHelper)
+	systemMCPCatalogs := handlers.NewSystemMCPCatalogHandler(services.DefaultSystemMCPCatalogPath)
 	accessControlRules := handlers.NewAccessControlRuleHandler()
 	skillRepositories := handlers.NewSkillRepositoryHandler()
 	skillAccessRules := handlers.NewSkillAccessRuleHandler()
 	skills := handlers.NewSkillHandler(services.SkillAccessRuleHelper)
 	powerUserWorkspaces := handlers.NewPowerUserWorkspaceHandler(services.ServerURL, services.AccessControlRuleHelper)
-	mcpWebhookValidations := handlers.NewMCPWebhookValidationHandler()
+	mcpWebhookValidations := handlers.NewMCPWebhookValidationHandler(services.MCPLoader)
 	availableModels := handlers.NewAvailableModelsHandler(services.ProviderDispatcher)
 	modelProviders := handlers.NewModelProviderHandler(services.ProviderDispatcher, services.Invoker)
 	modelAccessPolicies := handlers.NewModelAccessPolicyHandler()
 	messagePolicies := handlers.NewMessagePolicyHandler()
 	policyViolations := handlers.NewMessagePolicyViolationHandler()
+	deviceScans := handlers.NewDeviceScansHandler()
 	authProviders := handlers.NewAuthProviderHandler(services.ProviderDispatcher, services.PostgresDSN)
 	fileScannerProviders := handlers.NewFileScannerProviderHandler(services.ProviderDispatcher, services.Invoker)
 	prompt := handlers.NewPromptHandler()
@@ -436,6 +440,9 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/mcp-server-instances", serverInstances.ListServerInstances)
 	mux.HandleFunc("GET /api/mcp-server-instances/{mcp_server_instance_id}", serverInstances.GetServerInstance)
 	mux.HandleFunc("POST /api/mcp-server-instances", serverInstances.CreateServerInstance)
+	mux.HandleFunc("POST /api/mcp-server-instances/{mcp_server_instance_id}/reveal", serverInstances.RevealConfig)
+	mux.HandleFunc("POST /api/mcp-server-instances/{mcp_server_instance_id}/configure", serverInstances.ConfigureServerInstance)
+	mux.HandleFunc("POST /api/mcp-server-instances/{mcp_server_instance_id}/deconfigure", serverInstances.DeconfigureServerInstance)
 	mux.HandleFunc("DELETE /api/mcp-server-instances/{mcp_server_instance_id}", serverInstances.DeleteServerInstance)
 	mux.HandleFunc("DELETE /api/mcp-server-instances/{mcp_server_instance_id}/oauth", serverInstances.ClearOAuthCredentials)
 
@@ -559,7 +566,13 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("POST /api/mcp-webhook-validations", mcpWebhookValidations.Create)
 	mux.HandleFunc("PUT /api/mcp-webhook-validations/{mcp_webhook_validation_id}", mcpWebhookValidations.Update)
 	mux.HandleFunc("DELETE /api/mcp-webhook-validations/{mcp_webhook_validation_id}", mcpWebhookValidations.Delete)
-	mux.HandleFunc("DELETE /api/mcp-webhook-validations/{mcp_webhook_validation_id}/secret", mcpWebhookValidations.RemoveSecret)
+	mux.HandleFunc("POST /api/mcp-webhook-validations/{mcp_webhook_validation_id}/configure", mcpWebhookValidations.Configure)
+	mux.HandleFunc("POST /api/mcp-webhook-validations/{mcp_webhook_validation_id}/deconfigure", mcpWebhookValidations.Deconfigure)
+	mux.HandleFunc("POST /api/mcp-webhook-validations/{mcp_webhook_validation_id}/launch", mcpWebhookValidations.Launch)
+	mux.HandleFunc("POST /api/mcp-webhook-validations/{mcp_webhook_validation_id}/reveal", mcpWebhookValidations.Reveal)
+	mux.HandleFunc("POST /api/mcp-webhook-validations/{mcp_webhook_validation_id}/restart", mcpWebhookValidations.Restart)
+	mux.HandleFunc("GET /api/mcp-webhook-validations/{mcp_webhook_validation_id}/details", mcpWebhookValidations.GetDetails)
+	mux.HandleFunc("GET /api/mcp-webhook-validations/{mcp_webhook_validation_id}/logs", mcpWebhookValidations.Logs)
 
 	// System MCP Servers (admin only)
 	mux.HandleFunc("GET /api/system-mcp-servers", systemMCPServers.List)
@@ -575,6 +588,19 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/system-mcp-servers/{id}/details", systemMCPServers.GetDetails)
 	mux.HandleFunc("GET /api/system-mcp-servers/{id}/logs", systemMCPServers.Logs)
 	mux.HandleFunc("GET /api/system-mcp-servers/{id}/tools", systemMCPServers.GetTools)
+
+	// System MCP Catalogs (admin only)
+	mux.HandleFunc("GET /api/system-mcp-catalogs", systemMCPCatalogs.List)
+	mux.HandleFunc("POST /api/system-mcp-catalogs", systemMCPCatalogs.Create)
+	mux.HandleFunc("GET /api/system-mcp-catalogs/{catalog_id}", systemMCPCatalogs.Get)
+	mux.HandleFunc("PUT /api/system-mcp-catalogs/{catalog_id}", systemMCPCatalogs.Update)
+	mux.HandleFunc("DELETE /api/system-mcp-catalogs/{catalog_id}", systemMCPCatalogs.Delete)
+	mux.HandleFunc("POST /api/system-mcp-catalogs/{catalog_id}/refresh", systemMCPCatalogs.Refresh)
+	mux.HandleFunc("GET /api/system-mcp-catalogs/{catalog_id}/entries", systemMCPCatalogs.ListEntries)
+	mux.HandleFunc("POST /api/system-mcp-catalogs/{catalog_id}/entries", systemMCPCatalogs.CreateEntry)
+	mux.HandleFunc("GET /api/system-mcp-catalogs/{catalog_id}/entries/{entry_id}", systemMCPCatalogs.GetEntry)
+	mux.HandleFunc("PUT /api/system-mcp-catalogs/{catalog_id}/entries/{entry_id}", systemMCPCatalogs.UpdateEntry)
+	mux.HandleFunc("DELETE /api/system-mcp-catalogs/{catalog_id}/entries/{entry_id}", systemMCPCatalogs.DeleteEntry)
 
 	// MCP Gateway Endpoints
 	// The first pattern handles the root path, the second handles all sub-paths
@@ -773,6 +799,20 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 		mux.HandleFunc("GET /api/message-policy-violation-stats", policyViolations.GetStats)
 	}
 
+	// Device Scans
+	mux.HandleFunc("POST /api/devices/scans", deviceScans.Submit)
+	mux.HandleFunc("GET /api/devices/scans", deviceScans.List)
+	mux.HandleFunc("GET /api/devices/scans/{scan_id}", deviceScans.Get)
+	mux.HandleFunc("DELETE /api/devices/scans/{scan_id}", deviceScans.Delete)
+	mux.HandleFunc("GET /api/devices/scan-stats", deviceScans.GetScanStats)
+	mux.HandleFunc("GET /api/devices/mcp-servers/{config_hash}", deviceScans.GetMCPServerDetail)
+	mux.HandleFunc("GET /api/devices/mcp-servers/{config_hash}/occurrences", deviceScans.ListMCPServerOccurrences)
+	mux.HandleFunc("GET /api/devices/skills", deviceScans.ListSkills)
+	mux.HandleFunc("GET /api/devices/skills/{name}", deviceScans.GetSkill)
+	mux.HandleFunc("GET /api/devices/skills/{name}/occurrences", deviceScans.ListSkillOccurrences)
+	mux.HandleFunc("GET /api/devices/clients", deviceScans.ListClients)
+	mux.HandleFunc("GET /api/devices/clients/{name}", deviceScans.GetClient)
+
 	// Available Models
 	mux.HandleFunc("GET /api/available-models", availableModels.List)
 	mux.HandleFunc("GET /api/available-models/{model_provider_id}", availableModels.ListForModelProvider)
@@ -832,7 +872,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	wellknown.SetupHandlers(services.ServerURL, services.OAuthServerConfig, services.RegistryNoAuth, mux)
 
 	// Obot OAuth
-	oauth.SetupHandlers(oauthChecker, services.MCPOAuthTokenStorage, services.PersistentTokenServer, services.OAuthServerConfig, services.ServerURL, mux)
+	oauth.SetupHandlers(oauthChecker, services.MCPOAuthTokenStorage, services.PersistentTokenServer, services.OAuthServerConfig, services.ServerURL, services.MCPOAuthClientSecretExpiration, mux)
 
 	// Gateway APIs
 	services.GatewayServer.AddRoutes(services.APIServer)

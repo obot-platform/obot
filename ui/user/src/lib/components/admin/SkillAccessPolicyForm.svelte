@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { AdminService } from '$lib/services';
 	import {
@@ -10,17 +11,16 @@
 		type SkillRepository
 	} from '$lib/services/admin/types';
 	import type { Skill } from '$lib/services/nanobot/types';
+	import { errors } from '$lib/stores';
+	import { goto } from '$lib/url';
+	import { getUserDisplayName } from '$lib/utils';
+	import Confirm from '../Confirm.svelte';
+	import Table from '../table/Table.svelte';
+	import SearchSkills from './SearchSkills.svelte';
+	import SearchUsers from './SearchUsers.svelte';
 	import { LoaderCircle, Plus, Trash2 } from 'lucide-svelte';
 	import { onMount, untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import Table from '../table/Table.svelte';
-	import SearchUsers from './SearchUsers.svelte';
-	import Confirm from '../Confirm.svelte';
-	import { goto } from '$lib/url';
-	import { getUserDisplayName } from '$lib/utils';
-	import SearchSkills from './SearchSkills.svelte';
-	import { errors } from '$lib/stores';
 
 	interface Props {
 		skillAccessPolicy?: SkillAccessPolicy;
@@ -110,7 +110,7 @@
 			promises[0] = AdminService.listUsers();
 		}
 		if (!usersAndGroups?.groups) {
-			promises[1] = AdminService.listGroups({ includeRestricted: true });
+			promises[1] = AdminService.listGroups();
 		}
 
 		Promise.all(promises)
@@ -387,7 +387,7 @@
 	</div>
 	{#if !readonly}
 		<div
-			class="bg-surface1 text-on-surface1 dark:bg-background sticky bottom-0 left-0 flex w-full justify-end gap-2 py-4"
+			class="bg-surface1 text-on-surface1 dark:bg-background sticky bottom-0 left-0 z-50 flex w-full justify-end gap-2 py-4"
 			out:fly={{ x: -100, duration }}
 			in:fly={{ x: -100 }}
 		>

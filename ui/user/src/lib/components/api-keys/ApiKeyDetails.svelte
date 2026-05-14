@@ -1,16 +1,16 @@
 <script lang="ts">
-	import type { APIKey } from '$lib/services/api-keys/types';
-	import { stripMarkdownToText } from '$lib/markdown';
-	import { formatTimeAgo, formatTimeUntil } from '$lib/time';
-	import { Server, Trash2 } from 'lucide-svelte';
-	import { twMerge } from 'tailwind-merge';
-	import { mcpServersAndEntries, profile } from '$lib/stores';
-	import { fly } from 'svelte/transition';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Table from '$lib/components/table/Table.svelte';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { stripMarkdownToText } from '$lib/markdown';
+	import type { APIKey } from '$lib/services/api-keys/types';
 	import { compileAvailableMcpServers } from '$lib/services/chat/mcp';
+	import { mcpServersAndEntries, profile } from '$lib/stores';
+	import { formatTimeAgo, formatTimeUntil } from '$lib/time';
 	import Confirm from '../Confirm.svelte';
+	import { Server, Trash2 } from 'lucide-svelte';
+	import { fly } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		apiKey?: APIKey & { prefix: string };
@@ -109,6 +109,18 @@
 					</div>
 
 					<div class="flex flex-col gap-2">
+						<label for="api-key-skills-access" class="flex-1 text-sm font-light capitalize">
+							Skills Access
+						</label>
+						<input
+							id="api-key-skills-access"
+							value={apiKey.canAccessSkills ? 'Enabled' : 'Disabled'}
+							class="text-input-filled mt-0.5"
+							disabled
+						/>
+					</div>
+
+					<div class="flex flex-col gap-2">
 						<label for="api-key-created" class="flex-1 text-sm font-light capitalize">Created</label
 						>
 						<input
@@ -191,7 +203,7 @@
 										</p>
 										{#if d.description}
 											<span class="text-on-surface1 line-clamp-1 text-xs">
-												{@html stripMarkdownToText(d.description)}
+												{stripMarkdownToText(d.description)}
 											</span>
 										{/if}
 									</div>

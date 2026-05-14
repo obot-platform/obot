@@ -43,7 +43,7 @@ func (h *SystemMCPServerHandler) List(req api.Context) error {
 
 	servers := make([]types.SystemMCPServer, 0, len(list.Items))
 	for _, server := range list.Items {
-		credEnv, err := getCredentialsForSystemServer(req.Context(), req.GPTClient, server)
+		credEnv, err := systemmcpserver.GetCredentialsForSystemServer(req.Context(), req.GPTClient, server)
 		if err != nil {
 			return err
 		}
@@ -60,7 +60,7 @@ func (h *SystemMCPServerHandler) Get(req api.Context) error {
 		return err
 	}
 
-	credEnv, err := getCredentialsForSystemServer(req.Context(), req.GPTClient, systemServer)
+	credEnv, err := systemmcpserver.GetCredentialsForSystemServer(req.Context(), req.GPTClient, systemServer)
 	if err != nil {
 		return err
 	}
@@ -74,7 +74,6 @@ func (h *SystemMCPServerHandler) Create(req api.Context) error {
 	if err := req.Read(&manifest); err != nil {
 		return types.NewErrBadRequest("invalid request body: %v", err)
 	}
-
 	// Validate manifest
 	if err := validation.ValidateSystemMCPServerManifest(manifest); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
@@ -104,7 +103,6 @@ func (h *SystemMCPServerHandler) Update(req api.Context) error {
 	if err := req.Read(&manifest); err != nil {
 		return types.NewErrBadRequest("invalid request body: %v", err)
 	}
-
 	// Validate manifest
 	if err := validation.ValidateSystemMCPServerManifest(manifest); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
@@ -121,7 +119,7 @@ func (h *SystemMCPServerHandler) Update(req api.Context) error {
 		return fmt.Errorf("failed to update system MCP server: %w", err)
 	}
 
-	credEnv, err := getCredentialsForSystemServer(req.Context(), req.GPTClient, systemServer)
+	credEnv, err := systemmcpserver.GetCredentialsForSystemServer(req.Context(), req.GPTClient, systemServer)
 	if err != nil {
 		return err
 	}
@@ -189,7 +187,7 @@ func (h *SystemMCPServerHandler) Configure(req api.Context) error {
 		return fmt.Errorf("failed to update system MCP server: %w", err)
 	}
 
-	credEnv, err := getCredentialsForSystemServer(req.Context(), req.GPTClient, systemServer)
+	credEnv, err := systemmcpserver.GetCredentialsForSystemServer(req.Context(), req.GPTClient, systemServer)
 	if err != nil {
 		return err
 	}
@@ -220,7 +218,7 @@ func (h *SystemMCPServerHandler) Deconfigure(req api.Context) error {
 		return fmt.Errorf("failed to update system MCP server: %w", err)
 	}
 
-	credEnv, err := getCredentialsForSystemServer(req.Context(), req.GPTClient, systemServer)
+	credEnv, err := systemmcpserver.GetCredentialsForSystemServer(req.Context(), req.GPTClient, systemServer)
 	if err != nil {
 		return err
 	}
@@ -236,7 +234,7 @@ func (h *SystemMCPServerHandler) Restart(req api.Context) error {
 	}
 
 	// Check if server is both enabled and configured
-	if err := h.checkEnabledAndConfigured(req.Context(), req.GPTClient, systemServer); err != nil {
+	if err := checkEnabledAndConfigured(req.Context(), req.GPTClient, systemServer); err != nil {
 		return err
 	}
 
@@ -344,7 +342,7 @@ func (h *SystemMCPServerHandler) Logs(req api.Context) error {
 	}
 
 	// Check if server is both enabled and configured
-	if err := h.checkEnabledAndConfigured(req.Context(), req.GPTClient, systemServer); err != nil {
+	if err := checkEnabledAndConfigured(req.Context(), req.GPTClient, systemServer); err != nil {
 		return err
 	}
 
@@ -378,7 +376,7 @@ func (h *SystemMCPServerHandler) GetTools(req api.Context) error {
 	}
 
 	// Check if server is both enabled and configured
-	if err := h.checkEnabledAndConfigured(req.Context(), req.GPTClient, systemServer); err != nil {
+	if err := checkEnabledAndConfigured(req.Context(), req.GPTClient, systemServer); err != nil {
 		return err
 	}
 
@@ -427,7 +425,7 @@ func (h *SystemMCPServerHandler) GetDetails(req api.Context) error {
 	}
 
 	// Check if server is both enabled and configured
-	if err := h.checkEnabledAndConfigured(req.Context(), req.GPTClient, systemServer); err != nil {
+	if err := checkEnabledAndConfigured(req.Context(), req.GPTClient, systemServer); err != nil {
 		return err
 	}
 
@@ -457,7 +455,7 @@ func (h *SystemMCPServerHandler) Reveal(req api.Context) error {
 	}
 
 	// Check if server is both enabled and configured
-	if err := h.checkEnabledAndConfigured(req.Context(), req.GPTClient, systemServer); err != nil {
+	if err := checkEnabledAndConfigured(req.Context(), req.GPTClient, systemServer); err != nil {
 		return err
 	}
 
@@ -477,12 +475,12 @@ func (h *SystemMCPServerHandler) Reveal(req api.Context) error {
 // Helper functions
 
 // checkEnabledAndConfigured verifies that a system MCP server is both enabled and configured
-func (h *SystemMCPServerHandler) checkEnabledAndConfigured(ctx context.Context, gptClient *gptscript.GPTScript, server v1.SystemMCPServer) error {
-	if !server.Spec.Manifest.Enabled {
+func checkEnabledAndConfigured(ctx context.Context, gptClient *gptscript.GPTScript, server v1.SystemMCPServer) error {
+	if server.Spec.Manifest.Enabled != nil && !*server.Spec.Manifest.Enabled {
 		return types.NewErrBadRequest("system MCP server is not enabled")
 	}
 
-	if !isSystemServerConfigured(ctx, gptClient, server) {
+	if !systemmcpserver.IsSystemServerConfigured(ctx, gptClient, server) {
 		return types.NewErrBadRequest("system MCP server is not configured")
 	}
 
@@ -523,25 +521,8 @@ func convertSystemMCPServer(server v1.SystemMCPServer, credEnv map[string]string
 	return result
 }
 
-func isSystemServerConfigured(ctx context.Context, gptClient *gptscript.GPTScript, server v1.SystemMCPServer) bool {
-	credEnv, err := getCredentialsForSystemServer(ctx, gptClient, server)
-	if err != nil {
-		return false
-	}
-
-	// Check if all required env vars are configured
-
-	for _, env := range server.Spec.Manifest.Env {
-		if env.Required && env.Value == "" && credEnv[env.Key] == "" {
-			return false
-		}
-	}
-
-	return true
-}
-
 func systemServerToServerConfig(req api.Context, server v1.SystemMCPServer) (mcp.ServerConfig, []string, error) {
-	credEnv, err := getCredentialsForSystemServer(req.Context(), req.GPTClient, server)
+	credEnv, err := systemmcpserver.GetCredentialsForSystemServer(req.Context(), req.GPTClient, server)
 	if err != nil {
 		return mcp.ServerConfig{}, nil, err
 	}
@@ -570,32 +551,4 @@ func systemServerToServerConfig(req api.Context, server v1.SystemMCPServer) (mcp
 	audiences := server.ValidConnectURLs(baseURL)
 
 	return mcp.SystemServerToServerConfig(server, audiences, baseURL, credEnv, secretsCred)
-}
-
-func getCredentialsForSystemServer(ctx context.Context, gptClient *gptscript.GPTScript, server v1.SystemMCPServer) (map[string]string, error) {
-	credCtx := server.Name
-	creds, err := gptClient.ListCredentials(ctx, gptscript.ListCredentialsOptions{
-		CredentialContexts: []string{credCtx},
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	secretToolName := systemmcpserver.SecretInfoToolName(server.Name)
-	credEnv := make(map[string]string)
-	for _, cred := range creds {
-		// Skip the secret info credential — those vars go to the shim only, not the MCP server.
-		if cred.ToolName == secretToolName {
-			continue
-		}
-		credDetail, err := gptClient.RevealCredential(ctx, []string{credCtx}, cred.ToolName)
-		if err != nil {
-			continue
-		}
-		for k, v := range credDetail.Env {
-			credEnv[k] = v
-		}
-	}
-
-	return credEnv, nil
 }

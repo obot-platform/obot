@@ -1,5 +1,9 @@
 <script lang="ts">
-	import { ChevronsLeft, ChevronsRight, Funnel, ChartBarDecreasing, X } from 'lucide-svelte';
+	import { afterNavigate } from '$app/navigation';
+	import { page } from '$app/state';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import type { DateRange } from '$lib/components/Calendar.svelte';
+	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
 		type AuditLogURLFilters,
@@ -7,23 +11,24 @@
 		type OrgUser,
 		type UsageStatsFilters
 	} from '$lib/services';
-	import StatBar from '../StatBar.svelte';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import HorizontalBarGraph from '../../graph/HorizontalBarGraph.svelte';
-	import { SvelteMap } from 'svelte/reactivity';
-	import { afterNavigate } from '$app/navigation';
-	import { goto } from '$lib/url';
-	import FiltersDrawer from '../filters-drawer/FiltersDrawer.svelte';
-	import { getUserDisplayName, isBasicUser } from '$lib/utils';
-	import type { SupportedStateFilter } from './types';
-	import { fade, slide } from 'svelte/transition';
-	import { flip } from 'svelte/animate';
-	import { endOfDay, isBefore, set, subDays } from 'date-fns';
-	import { page } from '$app/state';
-	import type { DateRange } from '$lib/components/Calendar.svelte';
-	import AuditLogCalendar from '../audit-logs/AuditLogCalendar.svelte';
-	import Loading from '$lib/icons/Loading.svelte';
 	import profile from '$lib/stores/profile.svelte';
+	import { goto } from '$lib/url';
+	import { getUserDisplayName, isBasicUser } from '$lib/utils';
+	import HorizontalBarGraph from '../../graph/HorizontalBarGraph.svelte';
+	import StatBar from '../StatBar.svelte';
+	import AuditLogCalendar from '../audit-logs/AuditLogCalendar.svelte';
+	import FiltersDrawer from '../filters-drawer/FiltersDrawer.svelte';
+	import type { SupportedStateFilter } from './types';
+	import {
+		transformAvgToolCallResponseTime,
+		transformTopServerUsage,
+		transformTopToolCalls
+	} from './utils';
+	import { endOfDay, isBefore, set, subDays } from 'date-fns';
+	import { ChevronsLeft, ChevronsRight, Funnel, ChartBarDecreasing, X } from 'lucide-svelte';
+	import { flip } from 'svelte/animate';
+	import { SvelteMap } from 'svelte/reactivity';
+	import { fade, slide } from 'svelte/transition';
 
 	type Props = {
 		mcpId?: string | null;
@@ -231,28 +236,7 @@
 			tooltip: 'calls',
 			formatXLabel: (d) => String(d).split('.').slice(1).join('.'),
 			formatTooltipText: (data) => `${data.count} calls • ${data.serverDisplayName}`,
-			transform: (stats) => {
-				// eslint-disable-next-line svelte/prefer-svelte-reactivity
-				const counts = new Map<string, { count: number; serverDisplayName: string }>();
-				for (const s of stats?.items ?? []) {
-					for (const call of s.toolCalls ?? []) {
-						const key = `${s.mcpServerDisplayName}.${call.toolName}`;
-						const existing = counts.get(key) ?? {
-							count: 0,
-							serverDisplayName: s.mcpServerDisplayName
-						};
-						existing.count += call.callCount;
-						counts.set(key, existing);
-					}
-				}
-				return Array.from(counts.entries())
-					.map(([toolName, { count, serverDisplayName }]) => ({
-						toolName,
-						count,
-						serverDisplayName
-					}))
-					.sort((a, b) => b.count - a.count);
-			}
+			transform: transformTopToolCalls
 		},
 		{
 			id: 'most-frequently-used-servers',
@@ -260,19 +244,7 @@
 			xKey: 'serverName',
 			yKey: 'count',
 			tooltip: 'calls',
-			transform: (stats) => {
-				// eslint-disable-next-line svelte/prefer-svelte-reactivity
-				const counts = new Map<string, number>();
-				for (const s of stats?.items ?? []) {
-					const total = (s.toolCalls ?? []).reduce((sum, t) => sum + t.callCount, 0);
-					if (total > 0) {
-						counts.set(s.mcpServerDisplayName, (counts.get(s.mcpServerDisplayName) ?? 0) + total);
-					}
-				}
-				return Array.from(counts.entries())
-					.map(([serverName, count]) => ({ serverName, count }))
-					.sort((a, b) => b.count - a.count);
-			}
+			transform: transformTopServerUsage
 		},
 		{
 			id: 'tool-call-average-response-time',
@@ -283,37 +255,7 @@
 			formatXLabel: (d) => String(d).split('.').slice(1).join('.'),
 			formatTooltipText: (data) =>
 				`${(data.averageResponseTimeMs as number).toFixed(2)}ms avg • ${data.serverDisplayName}`,
-			transform: (stats) => {
-				// eslint-disable-next-line svelte/prefer-svelte-reactivity
-				const responseTimes = new Map<
-					string,
-					{ total: number; count: number; serverDisplayName: string }
-				>();
-
-				for (const s of stats?.items ?? []) {
-					for (const call of s.toolCalls ?? []) {
-						const key = `${s.mcpServerDisplayName}.${call.toolName}`;
-						for (const item of call.items ?? []) {
-							const entry = responseTimes.get(key) ?? {
-								total: 0,
-								count: 0,
-								serverDisplayName: s.mcpServerDisplayName
-							};
-							entry.total += item.processingTimeMs;
-							entry.count += 1;
-							responseTimes.set(key, entry);
-						}
-					}
-				}
-
-				return Array.from(responseTimes.entries())
-					.map(([toolName, { total, count, serverDisplayName }]) => ({
-						toolName,
-						averageResponseTimeMs: count > 0 ? total / count : 0,
-						serverDisplayName
-					}))
-					.sort((a, b) => b.averageResponseTimeMs - a.averageResponseTimeMs);
-			}
+			transform: transformAvgToolCallResponseTime
 		},
 		{
 			id: 'tool-call-individual-response-time',
@@ -502,14 +444,6 @@
 		}
 		return display;
 	}
-
-	afterNavigate(() => {
-		AdminService.listUsersIncludeDeleted().then((userData) => {
-			for (const user of userData) {
-				usersMap.set(user.id, user);
-			}
-		});
-	});
 
 	async function updateGraphs() {
 		const stats = await listUsageStats;
@@ -736,7 +670,7 @@
 	{/if}
 </div>
 
-<div bind:this={rightSidebar} popover class="drawer md:w-lg lg:w-xl">
+<div bind:this={rightSidebar} popover class="drawer-legacy md:w-lg lg:w-xl">
 	{#if showFilters}
 		<FiltersDrawer
 			onClose={handleRightSidebarClose}
@@ -775,10 +709,7 @@
 				{@const isClearable =
 					!propsFiltersKeys.has(filterKey) && !enforcedFiltersKeys.has(filterKey)}
 
-				<div
-					class="border-primary/50 bg-primary/10 text-primary flex items-center gap-1 rounded-lg border px-4 py-2"
-					animate:flip={{ duration: 100 }}
-				>
+				<div class="filter-primary" animate:flip={{ duration: 100 }}>
 					<div class="text-xs font-semibold">
 						<span>{displayLabel}</span>
 						<span>:</span>
@@ -799,7 +730,6 @@
 
 					{#if isClearable}
 						<button
-							class="hover:bg-primary/25 rounded-full p-1 transition-colors duration-200"
 							onclick={() => {
 								const url = page.url;
 								url.searchParams.set(filterKey, '');

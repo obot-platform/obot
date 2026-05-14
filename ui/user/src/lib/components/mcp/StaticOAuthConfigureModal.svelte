@@ -1,9 +1,9 @@
 <script lang="ts">
 	import type { MCPServerOAuthCredentialStatus } from '$lib/services/admin/types';
-	import { LoaderCircle, AlertCircle, Trash2 } from 'lucide-svelte';
+	import Confirm from '../Confirm.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import SensitiveInput from '../SensitiveInput.svelte';
-	import Confirm from '../Confirm.svelte';
+	import { LoaderCircle, AlertCircle, Trash2 } from 'lucide-svelte';
 
 	interface Props {
 		oauthStatus?: MCPServerOAuthCredentialStatus;

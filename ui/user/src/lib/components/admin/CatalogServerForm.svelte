@@ -1,26 +1,33 @@
 <script lang="ts">
+	import { AdminService, ChatService, type MCPCatalogServer } from '$lib/services';
 	import {
 		type MCPCatalogEntry,
 		type RuntimeFormData,
 		type MCPCatalogEntryServerManifest,
-		type MCPCatalogServerManifest,
 		Group
 	} from '$lib/services/admin/types';
+	import {
+		convertCategoriesToMetadata,
+		convertServerRuntimeFormDataToManifest,
+		hasSecretBinding,
+		sanitizeEgressDomains,
+		validateRuntimeForm
+	} from '$lib/services/chat/mcp';
 	import type { LaunchServerType, Runtime } from '$lib/services/chat/types';
-	import { Info, LoaderCircle, Plus, Trash2 } from 'lucide-svelte';
-	import RuntimeSelector from '../mcp/RuntimeSelector.svelte';
-	import NpxRuntimeForm from '../mcp/NpxRuntimeForm.svelte';
-	import UvxRuntimeForm from '../mcp/UvxRuntimeForm.svelte';
+	import { profile, version } from '$lib/stores';
+	import MarkdownInput from '../MarkdownInput.svelte';
 	import CompositeRuntimeForm from '../mcp/CompositeRuntimeForm.svelte';
 	import ContainerizedRuntimeForm from '../mcp/ContainerizedRuntimeForm.svelte';
+	import CustomConfigurationForm from '../mcp/CustomConfigurationForm.svelte';
+	import MultiUserHeadersForm from '../mcp/MultiUserHeadersForm.svelte';
+	import NpxRuntimeForm from '../mcp/NpxRuntimeForm.svelte';
 	import RemoteRuntimeForm from '../mcp/RemoteRuntimeForm.svelte';
-	import { AdminService, ChatService, type MCPCatalogServer } from '$lib/services';
-	import { onMount, untrack, type Snippet } from 'svelte';
-	import MarkdownInput from '../MarkdownInput.svelte';
+	import RuntimeSelector from '../mcp/RuntimeSelector.svelte';
+	import UvxRuntimeForm from '../mcp/UvxRuntimeForm.svelte';
 	import SelectMcpAccessControlRules from './SelectMcpAccessControlRules.svelte';
+	import { Info, LoaderCircle } from 'lucide-svelte';
+	import { onMount, untrack, type Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
-	import Select from '../Select.svelte';
-	import { profile } from '$lib/stores';
 
 	interface Props {
 		id?: string;
@@ -29,7 +36,11 @@
 		type?: LaunchServerType;
 		readonly?: boolean;
 		onCancel?: () => void;
-		onSubmit?: (id: string, type: LaunchServerType, message?: string) => void;
+		onSubmit?: (
+			data: MCPCatalogEntry | MCPCatalogServer,
+			type: LaunchServerType,
+			message?: string
+		) => void;
 		hideTitle?: boolean;
 		readonlyMessage?: Snippet;
 		onConfigureOAuth?: () => void;
@@ -67,10 +78,48 @@
 	let selectRulesDialog = $state<ReturnType<typeof SelectMcpAccessControlRules>>();
 	let showRequired = $state<Record<string, boolean>>({});
 	let loading = $state(false);
+	let compositeHasToolNameErrors = $state(false);
 
 	let formData = $state<RuntimeFormData>(untrack(() => convertToFormData(entry)));
 
 	const isAtLeastPowerUserPlus = $derived(profile.current?.groups.includes(Group.POWERUSER_PLUS));
+	const showEgressDomains = $derived(!!version.current.mcpNetworkPolicyEnabled);
+	const secretBoundHeaders = $derived(
+		(formData.remoteConfig?.headers ?? []).filter((h) => hasSecretBinding(h))
+	);
+	const defaultDenyAllEgress = $derived(!!version.current.mcpDefaultDenyAllEgress);
+
+	function defaultNpxConfig() {
+		return { package: '', args: [], egressDomains: [], denyAllEgress: undefined };
+	}
+
+	function defaultUvxConfig() {
+		return { package: '', command: '', args: [], egressDomains: [], denyAllEgress: undefined };
+	}
+
+	function defaultContainerizedConfig() {
+		return {
+			image: '',
+			port: 0,
+			path: '',
+			command: '',
+			args: [],
+			egressDomains: [],
+			denyAllEgress: undefined
+		};
+	}
+
+	function normalizeNpxConfig(config?: RuntimeFormData['npxConfig']) {
+		return config ? { ...defaultNpxConfig(), ...config } : defaultNpxConfig();
+	}
+
+	function normalizeUvxConfig(config?: RuntimeFormData['uvxConfig']) {
+		return config ? { ...defaultUvxConfig(), ...config } : defaultUvxConfig();
+	}
+
+	function normalizeContainerizedConfig(config?: RuntimeFormData['containerizedConfig']) {
+		return config ? { ...defaultContainerizedConfig(), ...config } : defaultContainerizedConfig();
+	}
 
 	function convertToFormData(item?: MCPCatalogEntry | MCPCatalogServer): RuntimeFormData {
 		if (!item) {
@@ -82,13 +131,14 @@
 				env: [],
 				icon: '',
 				runtime: 'npx' as Runtime,
-				npxConfig: { package: '', args: [] },
+				npxConfig: defaultNpxConfig(),
 				uvxConfig: undefined,
 				containerizedConfig: undefined,
 				remoteConfig: undefined,
 				remoteServerConfig: undefined,
 				compositeConfig: undefined,
-				compositeServerConfig: undefined
+				compositeServerConfig: undefined,
+				multiUserConfig: type === 'multi' ? { userDefinedHeaders: [] } : undefined
 			};
 		}
 
@@ -110,25 +160,22 @@
 				remoteConfig: undefined,
 				remoteServerConfig: undefined,
 				compositeConfig: undefined,
-				compositeServerConfig: undefined
+				compositeServerConfig: undefined,
+				multiUserConfig: manifest.multiUserConfig ?? { userDefinedHeaders: [] }
 			};
+
+			formData.startupTimeoutSeconds = manifest.startupTimeoutSeconds;
 
 			// Initialize the appropriate runtime config based on the runtime type
 			switch (manifest.runtime) {
 				case 'npx':
-					formData.npxConfig = manifest.npxConfig || { package: '', args: [] };
+					formData.npxConfig = normalizeNpxConfig(manifest.npxConfig);
 					break;
 				case 'uvx':
-					formData.uvxConfig = manifest.uvxConfig || { package: '', command: '', args: [] };
+					formData.uvxConfig = normalizeUvxConfig(manifest.uvxConfig);
 					break;
 				case 'containerized':
-					formData.containerizedConfig = manifest.containerizedConfig || {
-						image: '',
-						port: 0,
-						path: '',
-						command: '',
-						args: []
-					};
+					formData.containerizedConfig = normalizeContainerizedConfig(manifest.containerizedConfig);
 					break;
 				case 'remote':
 					formData.remoteServerConfig = manifest.remoteConfig
@@ -160,22 +207,18 @@
 				remoteServerConfig: undefined
 			};
 
+			formData.startupTimeoutSeconds = manifest.startupTimeoutSeconds;
+
 			// Initialize the appropriate runtime config based on the runtime type
 			switch (manifest.runtime) {
 				case 'npx':
-					formData.npxConfig = manifest.npxConfig || { package: '', args: [] };
+					formData.npxConfig = normalizeNpxConfig(manifest.npxConfig);
 					break;
 				case 'uvx':
-					formData.uvxConfig = manifest.uvxConfig || { package: '', command: '', args: [] };
+					formData.uvxConfig = normalizeUvxConfig(manifest.uvxConfig);
 					break;
 				case 'containerized':
-					formData.containerizedConfig = manifest.containerizedConfig || {
-						image: '',
-						port: 0,
-						path: '',
-						command: '',
-						args: []
-					};
+					formData.containerizedConfig = normalizeContainerizedConfig(manifest.containerizedConfig);
 					break;
 				case 'remote':
 					formData.remoteConfig = manifest.remoteConfig || { fixedURL: '', headers: [] };
@@ -246,19 +289,13 @@
 		// Initialize the appropriate config based on the new runtime
 		switch (newRuntime) {
 			case 'npx':
-				formData.npxConfig = { package: '', args: [] };
+				formData.npxConfig = defaultNpxConfig();
 				break;
 			case 'uvx':
-				formData.uvxConfig = { package: '', command: '', args: [] };
+				formData.uvxConfig = defaultUvxConfig();
 				break;
 			case 'containerized':
-				formData.containerizedConfig = {
-					image: '',
-					port: 0,
-					path: '',
-					command: '',
-					args: []
-				};
+				formData.containerizedConfig = defaultContainerizedConfig();
 				break;
 			case 'remote':
 				// For remote servers (catalog entries), use remoteConfig
@@ -270,83 +307,15 @@
 		}
 	}
 
-	// Form validation
-	function validateForm(): Record<string, boolean> {
-		let missingFields: Record<string, boolean> = {};
-		// Basic validation - name is required
-		if (!formData.name.trim()) {
-			missingFields.name = true;
-		}
-
-		// Runtime-specific validation
-		switch (formData.runtime) {
-			case 'npx':
-				if (!formData.npxConfig?.package?.trim()) {
-					missingFields.package = true;
-				}
-				break;
-			case 'uvx':
-				if (!formData.uvxConfig?.package?.trim()) {
-					missingFields.package = true;
-				}
-				break;
-			case 'containerized':
-				if (!formData.containerizedConfig?.image?.trim()) {
-					missingFields.image = true;
-				}
-				if (!formData.containerizedConfig?.path?.trim()) {
-					missingFields.path = true;
-				}
-				if ((formData.containerizedConfig?.port ?? 0) <= 0) {
-					missingFields.port = true;
-				}
-				break;
-			case 'remote':
-				if (type === 'remote') {
-					// For remote catalog entries, one of fixedURL, hostname, or urlTemplate is required
-					if (
-						!formData.remoteConfig?.fixedURL?.trim() &&
-						!formData.remoteConfig?.hostname?.trim() &&
-						!formData.remoteConfig?.urlTemplate?.trim()
-					) {
-						missingFields.fixedURL = true;
-						missingFields.hostname = true;
-						missingFields.urlTemplate = true;
-					}
-					break;
-				} else {
-					// For multi-user servers with remote runtime, URL is required
-					if (!formData.remoteServerConfig?.url?.trim()) {
-						missingFields.url = true;
-					}
-					break;
-				}
-			default:
-				break;
-		}
-
-		return missingFields;
-	}
-
 	onMount(() => {
 		if ((type === 'multi' || type === 'remote') && entry && id) {
 			revealCatalogServer(id, entry.id, entity);
 		}
 	});
 
-	function convertCategoriesToMetadata(categories: string[]) {
-		const validCategories = categories.filter((c) => c);
-		return validCategories
-			? {
-					metadata: {
-						categories: validCategories.join(',')
-					}
-				}
-			: undefined;
-	}
-
 	function convertToEntryManifest(formData: RuntimeFormData): MCPCatalogEntryServerManifest {
 		const { categories, ...baseData } = formData;
+		const startupTimeoutSeconds = baseData.startupTimeoutSeconds;
 
 		// Build base manifest structure
 		const manifest: MCPCatalogEntryServerManifest = {
@@ -355,7 +324,12 @@
 			icon: baseData.icon,
 			env: baseData.env,
 			runtime: baseData.runtime,
-			...convertCategoriesToMetadata(categories)
+			...convertCategoriesToMetadata(categories),
+			...(typeof startupTimeoutSeconds === 'number' &&
+			Number.isInteger(startupTimeoutSeconds) &&
+			startupTimeoutSeconds > 0
+				? { startupTimeoutSeconds }
+				: {})
 		};
 
 		// Add runtime-specific config based on the runtime type
@@ -364,7 +338,9 @@
 				if (baseData.npxConfig) {
 					manifest.npxConfig = {
 						package: baseData.npxConfig.package,
-						args: baseData.npxConfig.args?.filter((arg) => arg.trim()) || []
+						args: baseData.npxConfig.args?.filter((arg) => arg.trim()) || [],
+						egressDomains: sanitizeEgressDomains(baseData.npxConfig.egressDomains),
+						denyAllEgress: baseData.npxConfig.denyAllEgress
 					};
 				}
 				break;
@@ -373,7 +349,9 @@
 					manifest.uvxConfig = {
 						package: baseData.uvxConfig.package,
 						command: baseData.uvxConfig.command || undefined,
-						args: baseData.uvxConfig.args?.filter((arg) => arg.trim()) || []
+						args: baseData.uvxConfig.args?.filter((arg) => arg.trim()) || [],
+						egressDomains: sanitizeEgressDomains(baseData.uvxConfig.egressDomains),
+						denyAllEgress: baseData.uvxConfig.denyAllEgress
 					};
 				}
 				break;
@@ -384,7 +362,9 @@
 						port: baseData.containerizedConfig.port,
 						path: baseData.containerizedConfig.path,
 						command: baseData.containerizedConfig.command || undefined,
-						args: baseData.containerizedConfig.args?.filter((arg) => arg.trim()) || []
+						args: baseData.containerizedConfig.args?.filter((arg) => arg.trim()) || [],
+						egressDomains: sanitizeEgressDomains(baseData.containerizedConfig.egressDomains),
+						denyAllEgress: baseData.containerizedConfig.denyAllEgress
 					};
 				}
 				break;
@@ -411,62 +391,24 @@
 		return manifest;
 	}
 
-	function convertToServerManifest(formData: RuntimeFormData): MCPCatalogServerManifest {
-		const { categories, ...baseData } = formData;
-
-		// Build base manifest structure for server
-		const serverManifest: MCPCatalogServerManifest = {
-			manifest: {
-				name: baseData.name,
-				description: baseData.description,
-				icon: baseData.icon,
-				env: baseData.env,
-				runtime: baseData.runtime,
-				...convertCategoriesToMetadata(categories)
-			}
-		};
-
-		// Add runtime-specific config based on the runtime type
-		switch (baseData.runtime) {
-			case 'npx':
-				if (baseData.npxConfig) {
-					serverManifest.manifest.npxConfig = {
-						package: baseData.npxConfig.package,
-						args: baseData.npxConfig.args?.filter((arg) => arg.trim()) || []
-					};
-				}
-				break;
-			case 'uvx':
-				if (baseData.uvxConfig) {
-					serverManifest.manifest.uvxConfig = {
-						package: baseData.uvxConfig.package,
-						command: baseData.uvxConfig.command || undefined,
-						args: baseData.uvxConfig.args?.filter((arg) => arg.trim()) || []
-					};
-				}
-				break;
-			case 'containerized':
-				if (baseData.containerizedConfig) {
-					serverManifest.manifest.containerizedConfig = {
-						image: baseData.containerizedConfig.image,
-						port: baseData.containerizedConfig.port,
-						path: baseData.containerizedConfig.path,
-						command: baseData.containerizedConfig.command || undefined,
-						args: baseData.containerizedConfig.args?.filter((arg) => arg.trim()) || []
-					};
-				}
-				break;
-			case 'remote':
-				if (baseData.remoteServerConfig) {
-					serverManifest.manifest.remoteConfig = {
-						url: baseData.remoteServerConfig.url,
-						headers: baseData.remoteServerConfig.headers || []
-					};
-				}
-				break;
+	function omitSecretValuesFromServerManifest(
+		serverManifest: ReturnType<typeof convertServerRuntimeFormDataToManifest>
+	): ReturnType<typeof convertServerRuntimeFormDataToManifest> {
+		const manifest = { ...serverManifest.manifest };
+		if (manifest.env) {
+			manifest.env = manifest.env.map(({ value: _value, ...rest }) => {
+				return { value: '', ...rest };
+			});
 		}
-
-		return serverManifest;
+		if (manifest.remoteConfig?.headers) {
+			manifest.remoteConfig = {
+				...manifest.remoteConfig,
+				headers: manifest.remoteConfig.headers.map(({ value: _value, ...rest }) => {
+					return { value: '', ...rest };
+				})
+			};
+		}
+		return { ...serverManifest, manifest };
 	}
 
 	async function handleEntrySubmit(id: string) {
@@ -492,7 +434,7 @@
 	}
 
 	async function handleServerSubmit(id: string) {
-		const serverManifest = convertToServerManifest(formData);
+		const serverManifest = convertServerRuntimeFormDataToManifest(formData);
 
 		let response: MCPCatalogServer;
 		if (entry) {
@@ -500,13 +442,17 @@
 				entity === 'workspace'
 					? ChatService.updateWorkspaceMCPCatalogServer
 					: AdminService.updateMCPCatalogServer;
-			response = await updateServerFn(id, entry.id, serverManifest.manifest);
+			response = await updateServerFn(
+				id,
+				entry.id,
+				omitSecretValuesFromServerManifest(serverManifest).manifest
+			);
 		} else {
 			const createServerFn =
 				entity === 'workspace'
 					? ChatService.createWorkspaceMCPCatalogServer
 					: AdminService.createMCPCatalogServer;
-			response = await createServerFn(id, serverManifest);
+			response = await createServerFn(id, omitSecretValuesFromServerManifest(serverManifest));
 		}
 
 		let configValues: Record<string, string> = {};
@@ -550,7 +496,7 @@
 		if (!id) return;
 
 		showRequired = {}; // reset
-		const missingRequiredFields = validateForm();
+		const missingRequiredFields = validateRuntimeForm(formData, type);
 		if (Object.keys(missingRequiredFields).length > 0) {
 			showRequired = missingRequiredFields;
 			return;
@@ -570,30 +516,26 @@
 			// Check if OAuth config is needed - redirect to detail page first, then show modal there
 			if (!entry && type === 'remote' && formData.remoteConfig?.staticOAuthRequired) {
 				loading = false;
-				onSubmit?.(entryResponse.id, type, 'requires-oauth-config');
+				onSubmit?.(entryResponse, type, 'requires-oauth-config');
 				return;
 			}
 
-			if (isAtLeastPowerUserPlus) {
-				const existingRules =
-					entity === 'workspace'
-						? await ChatService.listWorkspaceAccessControlRules(id)
-						: await AdminService.listAccessControlRules();
-				const hasEverythingEveryoneRule = existingRules.some(
-					(rule) =>
-						rule.subjects?.some((s) => s.id === '*') && rule.resources?.some((r) => r.id === '*')
-				);
-
-				if (!entry && !hasEverythingEveryoneRule) {
-					await selectRulesDialog?.open();
-					loading = false;
-				} else {
-					loading = false;
-					onSubmit?.(entryResponse.id, type, 'MCP server updated successfully!');
-				}
+			const existingRules = isAtLeastPowerUserPlus
+				? entity === 'workspace'
+					? await ChatService.listWorkspaceAccessControlRules(id)
+					: await AdminService.listAccessControlRules()
+				: [];
+			const hasEverythingEveryoneRule = existingRules.some(
+				(rule) =>
+					rule.subjects?.some((s) => s.id === '*') && rule.resources?.some((r) => r.id === '*')
+			);
+			if (isAtLeastPowerUserPlus && !entry && !hasEverythingEveryoneRule) {
+				await selectRulesDialog?.open();
+				loading = false;
 			} else {
 				loading = false;
-				onSubmit?.(entryResponse.id, type, 'MCP server updated successfully!');
+				formData = convertToFormData(entryResponse);
+				onSubmit?.(entryResponse, type, 'MCP server updated successfully!');
 			}
 		} catch (error) {
 			loading = false;
@@ -675,6 +617,9 @@
 {#if formData.runtime === 'npx' && formData.npxConfig}
 	<NpxRuntimeForm
 		bind:config={formData.npxConfig}
+		{showEgressDomains}
+		{defaultDenyAllEgress}
+		bind:startupTimeoutSeconds={formData.startupTimeoutSeconds}
 		{readonly}
 		{showRequired}
 		onFieldChange={updateRequired}
@@ -682,6 +627,9 @@
 {:else if formData.runtime === 'uvx' && formData.uvxConfig}
 	<UvxRuntimeForm
 		bind:config={formData.uvxConfig}
+		{showEgressDomains}
+		{defaultDenyAllEgress}
+		bind:startupTimeoutSeconds={formData.startupTimeoutSeconds}
 		{readonly}
 		{showRequired}
 		onFieldChange={updateRequired}
@@ -689,6 +637,9 @@
 {:else if formData.runtime === 'containerized' && formData.containerizedConfig}
 	<ContainerizedRuntimeForm
 		bind:config={formData.containerizedConfig}
+		{showEgressDomains}
+		{defaultDenyAllEgress}
+		bind:startupTimeoutSeconds={formData.startupTimeoutSeconds}
 		{readonly}
 		{showRequired}
 		onFieldChange={updateRequired}
@@ -701,203 +652,34 @@
 		onFieldChange={updateRequired}
 		isNewEntry={!entry}
 		{onConfigureOAuth}
-	/>
+	>
+		{#snippet afterHeaders()}
+			{#if secretBoundHeaders.length > 0}
+				<CustomConfigurationForm
+					bind:config={formData.env}
+					{readonly}
+					{type}
+					{secretBoundHeaders}
+				/>
+			{/if}
+		{/snippet}
+	</RemoteRuntimeForm>
 {:else if formData.runtime === 'composite' && formData.compositeConfig}
 	<CompositeRuntimeForm
 		bind:config={formData.compositeConfig}
+		bind:hasToolNameErrors={compositeHasToolNameErrors}
 		{readonly}
 		catalogId={id}
 		id={entry?.id}
 	/>
 {/if}
-
 <!-- Environment Variables Section -->
 {#if !['remote', 'composite'].includes(formData.runtime)}
-	{#if !readonly || (readonly && formData.env && formData.env.length > 0)}
-		<div
-			class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
-		>
-			<h4 class="text-sm font-semibold">
-				{type === 'single' ? 'User Supplied Configuration' : 'Configuration'}
-			</h4>
+	<CustomConfigurationForm bind:config={formData.env} {readonly} {type} {secretBoundHeaders} />
+{/if}
 
-			{#if formData.env}
-				{#each formData.env as _, i (i)}
-					<div
-						class="dark:border-surface3 bg-surface2 flex w-full items-center gap-4 rounded-lg border border-transparent p-4"
-					>
-						<div class="flex w-full flex-col gap-4">
-							<div class="flex w-full flex-col gap-1">
-								<label for={`env-type-${i}`} class="text-sm font-light">Type</label>
-								<Select
-									class="dark:border-surface3 bg-background border border-transparent"
-									classes={{
-										root: 'flex grow'
-									}}
-									options={[
-										{ label: 'Environment Variable', id: 'environment_variable_type' },
-										{ label: 'File', id: 'file_type' }
-									]}
-									disabled={readonly}
-									selected={formData.env[i].file ? 'file_type' : 'environment_variable_type'}
-									onSelect={(option) => {
-										if (option.id === 'file_type') {
-											formData.env[i].file = true;
-										} else {
-											formData.env[i].file = false;
-										}
-									}}
-									id={`env-type-${i}`}
-								/>
-							</div>
-
-							<p class="text-on-surface1 text-xs font-light">
-								{#if formData.env[i].file}
-									The value {type === 'single' ? 'the user supplies' : 'you provide'} will be written
-									to a file. An environment variable will be created using the name you specify in the
-									Key field and its value will be the path to that file. This environment variable will
-									be set inside your MCP server and you can reference it in the arguments section above
-									using the syntax ${'{KEY_NAME}'}.
-								{:else}
-									{type === 'single' ? 'The value the user supplies' : 'The value you provide'} will
-									be set as an environment variable using the name you specify in the Key field. This
-									environment variable will be set inside your MCP server and you can reference it in
-									the arguments section above using the syntax ${'{KEY_NAME}'}.
-								{/if}
-							</p>
-
-							{#if type === 'single'}
-								<p class="text-on-surface1 text-xs font-light">
-									The Name and Description fields will be displayed to the user when configuring
-									this server. The Key field will not.
-								</p>
-								<div class="flex w-full flex-col gap-1">
-									<label for={`env-name-${i}`} class="text-sm font-light">Name</label>
-									<input
-										id={`env-name-${i}`}
-										class="text-input-filled bg-background w-full shadow-none"
-										bind:value={formData.env[i].name}
-										disabled={readonly}
-									/>
-								</div>
-								<div class="flex w-full flex-col gap-1">
-									<label for={`env-description-${i}`} class="text-sm font-light">Description</label>
-									<input
-										id={`env-description-${i}`}
-										class="text-input-filled bg-background w-full shadow-none"
-										bind:value={formData.env[i].description}
-										disabled={readonly}
-									/>
-								</div>
-								<div class="flex w-full flex-col gap-1">
-									<label for={`env-key-${i}`} class="text-sm font-light">Key</label>
-									<input
-										id={`env-key-${i}`}
-										class="text-input-filled bg-background w-full shadow-none"
-										bind:value={formData.env[i].key}
-										placeholder="e.g. CUSTOM_API_KEY"
-										disabled={readonly}
-									/>
-								</div>
-								<div class="flex gap-8">
-									<label class="flex items-center gap-2">
-										<input
-											type="checkbox"
-											bind:checked={formData.env[i].sensitive}
-											disabled={readonly}
-										/>
-										<span class="text-sm">Sensitive</span>
-									</label>
-									<label class="flex items-center gap-2">
-										<input
-											type="checkbox"
-											bind:checked={formData.env[i].required}
-											disabled={readonly}
-										/>
-										<span class="text-sm">Required</span>
-									</label>
-								</div>
-							{:else}
-								<div class="flex w-full flex-col gap-1">
-									<label for={`env-key-${i}`} class="text-sm font-light">Key</label>
-									<input
-										id={`env-key-${i}`}
-										class="text-input-filled bg-background w-full shadow-none"
-										bind:value={formData.env[i].key}
-										placeholder="e.g. CUSTOM_API_KEY"
-										disabled={readonly}
-									/>
-								</div>
-								<div class="flex w-full flex-col gap-1">
-									<label for={`env-value-${i}`} class="text-sm font-light">Value</label>
-									{#if formData.env[i].file}
-										<textarea
-											id={`env-value-${i}`}
-											class="text-input-filled bg-background min-h-24 w-full resize-y shadow-none"
-											bind:value={formData.env[i].value}
-											disabled={readonly}
-											rows={formData.env[i].value.split('\n').length + 1}
-										></textarea>
-									{:else}
-										<input
-											id={`env-value-${i}`}
-											class="text-input-filled bg-background w-full shadow-none"
-											bind:value={formData.env[i].value}
-											placeholder="e.g. 123abcdef456"
-											disabled={readonly}
-											type={formData.env[i].sensitive ? 'password' : 'text'}
-										/>
-									{/if}
-								</div>
-								<div class="flex w-full gap-4">
-									<label class="flex items-center gap-2">
-										<input
-											type="checkbox"
-											bind:checked={formData.env[i].sensitive}
-											disabled={readonly}
-										/>
-										<span class="text-sm">Sensitive</span>
-									</label>
-								</div>
-							{/if}
-						</div>
-
-						{#if !readonly}
-							<button
-								class="icon-button"
-								onclick={() => {
-									formData.env.splice(i, 1);
-								}}
-							>
-								<Trash2 class="size-4" />
-							</button>
-						{/if}
-					</div>
-				{/each}
-			{/if}
-
-			{#if !readonly}
-				<div class="flex justify-end">
-					<button
-						class="button flex items-center gap-1 text-xs"
-						onclick={() =>
-							formData.env.push({
-								key: '',
-								description: '',
-								name: '',
-								value: '',
-								required: false,
-								sensitive: false,
-								file: false
-							})}
-					>
-						<Plus class="size-4" />
-						{type === 'single' ? 'User Configuration' : 'Configuration'}
-					</button>
-				</div>
-			{/if}
-		</div>
-	{/if}
+{#if type === 'multi' && formData.multiUserConfig}
+	<MultiUserHeadersForm bind:headers={formData.multiUserConfig.userDefinedHeaders} {readonly} />
 {/if}
 
 {#if !readonly}
@@ -914,7 +696,8 @@
 			disabled={loading ||
 				(formData.runtime === 'composite' &&
 					(!formData.compositeConfig?.componentServers ||
-						formData.compositeConfig.componentServers.length === 0))}
+						formData.compositeConfig.componentServers.length === 0 ||
+						compositeHasToolNameErrors))}
 		>
 			{#if loading}
 				<LoaderCircle class="size-4 animate-spin" />
@@ -930,7 +713,7 @@
 	entry={savedEntry}
 	onSubmit={() => {
 		if (savedEntry) {
-			onSubmit?.(savedEntry.id, type);
+			onSubmit?.(savedEntry, type);
 		}
 	}}
 	{entity}

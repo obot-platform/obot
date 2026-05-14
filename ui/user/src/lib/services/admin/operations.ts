@@ -5,6 +5,7 @@ import type {
 	Project,
 	MCPCatalogServer,
 	MCPServerInstance,
+	MCPServerTool,
 	Model,
 	DebugRun,
 	ModelAlias,
@@ -62,7 +63,27 @@ import type {
 	MessagePolicyManifest,
 	MessagePolicyViolation,
 	MessagePolicyViolationFilters,
-	MessagePolicyViolationStats
+	MessagePolicyViolationStats,
+	RestartNanobotAgentDeploymentsResult,
+	SystemMCPCatalog,
+	SystemMCPCatalogManifest,
+	SystemMCPServer,
+	SystemMCPServerCatalogEntry,
+	SystemMCPServerCatalogEntryManifest,
+	SystemMCPServerManifest,
+	DeviceMCPServerOccurrenceResponse,
+	DeviceMCPServerDetail,
+	DeviceScan,
+	DeviceScanListFilters,
+	DeviceScanResponse,
+	DeviceScanStats,
+	DeviceSkillListFilters,
+	DeviceSkillOccurrenceResponse,
+	DeviceSkillDetail,
+	DeviceSkillStatResponse,
+	DeviceClientFleetSummary,
+	DeviceClientFleetSummaryResponse,
+	DeviceClientListFilters
 } from './types';
 import { MCPCompositeDeletionDependencyError } from './types';
 
@@ -208,7 +229,7 @@ export async function listMcpCatalogServerInstances(
 	return response.items ?? [];
 }
 
-export async function getMCPCatalogServerK8sSettingsStatus(
+export async function getMCPCatalogEntryServerK8sSettingsStatus(
 	entryID: string,
 	serverID: string,
 	opts?: { dontLogErrors?: boolean }
@@ -499,17 +520,10 @@ export async function getUser(
 	return response;
 }
 
-export async function listGroups(opts?: {
-	fetch?: Fetcher;
-	query?: string;
-	includeRestricted?: boolean;
-}): Promise<OrgGroup[]> {
+export async function listGroups(opts?: { fetch?: Fetcher; query?: string }): Promise<OrgGroup[]> {
 	const params: string[] = [];
 	if (opts?.query !== undefined) {
 		params.push(`name=${encodeURIComponent(opts.query)}`);
-	}
-	if (opts?.includeRestricted === true) {
-		params.push(`includeRestricted=${encodeURIComponent(String(opts.includeRestricted))}`);
 	}
 	const queryString = params.length ? `?${params.join('&')}` : '';
 	const response = (await doGet(`/groups${queryString}`, opts)) as OrgGroup[];
@@ -926,12 +940,12 @@ export async function restartK8sDeployment(mcpServerId: string, opts?: { fetch?:
 	await doPost(`/mcp-servers/${mcpServerId}/restart`, {}, opts);
 }
 
-export async function getK8sSettingsStatus(
+export async function getMcpCatalogServerK8sSettingsStatus(
 	mcpServerId: string,
 	opts?: { dontLogErrors?: boolean }
 ) {
 	const response = (await doGet(
-		`/mcp-servers/${mcpServerId}/k8s-settings-status`,
+		`/mcp-catalogs/${DEFAULT_MCP_CATALOG_ID}/servers/${mcpServerId}/k8s-settings-status`,
 		opts
 	)) as ServerK8sSettings;
 	return response;
@@ -968,8 +982,11 @@ export async function getMCPFilter(id: string, opts?: { fetch?: Fetcher }) {
 	return (await doGet(`/mcp-webhook-validations/${id}`, opts)) as MCPFilter;
 }
 
-export async function deleteMCPFilter(id: string) {
-	await doDelete(`/mcp-webhook-validations/${id}`);
+export async function deleteMCPFilter(id: string, opts?: { keepalive?: boolean }) {
+	await doDelete(`/mcp-webhook-validations/${id}`, {
+		keepalive: opts?.keepalive,
+		dontLogErrors: opts?.keepalive
+	});
 }
 
 export async function createMCPFilter(filter: MCPFilterManifest, opts?: { fetch?: Fetcher }) {
@@ -984,8 +1001,74 @@ export async function updateMCPFilter(
 	return (await doPut(`/mcp-webhook-validations/${id}`, filter, opts)) as MCPFilter;
 }
 
-export async function removeSecret(id: string) {
-	await doDelete(`/mcp-webhook-validations/${id}/secret`);
+export async function configureMCPFilter(
+	id: string,
+	envs: Record<string, string>,
+	opts?: { fetch?: Fetcher }
+): Promise<MCPFilter> {
+	return (await doPost(`/mcp-webhook-validations/${id}/configure`, envs, opts)) as MCPFilter;
+}
+
+export async function deconfigureMCPFilter(id: string, opts?: { fetch?: Fetcher }): Promise<void> {
+	await doPost(`/mcp-webhook-validations/${id}/deconfigure`, {}, opts);
+}
+
+export async function launchMCPFilter(id: string): Promise<{
+	success: boolean;
+	message?: string;
+	code?: number;
+}> {
+	try {
+		await doPost(`/mcp-webhook-validations/${id}/launch`, {}, { dontLogErrors: true });
+		return {
+			success: true
+		};
+	} catch (err) {
+		if (err instanceof Error) {
+			if (err.message.includes('404')) {
+				return {
+					success: false,
+					message: err.message,
+					code: 404
+				};
+			} else if (err.message.includes('503')) {
+				return {
+					success: false,
+					message: err.message,
+					code: 503
+				};
+			} else {
+				return {
+					success: false,
+					message: err.message,
+					code: 500
+				};
+			}
+		}
+
+		throw err;
+	}
+}
+
+export async function revealMCPFilter(
+	id: string,
+	opts?: { dontLogErrors?: boolean }
+): Promise<Record<string, string>> {
+	return doPost(`/mcp-webhook-validations/${id}/reveal`, {}, opts) as Promise<
+		Record<string, string>
+	>;
+}
+
+export async function restartMCPFilter(id: string, opts?: { fetch?: Fetcher }): Promise<void> {
+	await doPost(`/mcp-webhook-validations/${id}/restart`, {}, opts);
+}
+
+export async function getMCPFilterDetails(
+	id: string,
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
+) {
+	const response = (await doGet(`/mcp-webhook-validations/${id}/details`, opts)) as K8sServerDetail;
+	return response;
 }
 
 export async function listCatalogCategories(catalogId: string, opts?: { fetch?: Fetcher }) {
@@ -1554,4 +1637,302 @@ export async function getMessagePolicyViolationStats(
 		`/message-policy-violation-stats${buildMessagePolicyViolationParams(filters)}`,
 		opts
 	)) as MessagePolicyViolationStats;
+}
+
+export async function listSystemMCPCatalogs(opts?: {
+	fetch?: Fetcher;
+}): Promise<SystemMCPCatalog[]> {
+	const response = (await doGet('/system-mcp-catalogs', opts)) as ItemsResponse<SystemMCPCatalog>;
+	return response.items ?? [];
+}
+
+export async function getSystemMCPCatalog(
+	catalogId: string,
+	opts?: { fetch?: Fetcher }
+): Promise<SystemMCPCatalog> {
+	return (await doGet(`/system-mcp-catalogs/${catalogId}`, opts)) as SystemMCPCatalog;
+}
+
+export async function createSystemMCPCatalog(
+	manifest: SystemMCPCatalogManifest,
+	opts?: { fetch?: Fetcher }
+): Promise<SystemMCPCatalog> {
+	return (await doPost('/system-mcp-catalogs', manifest, opts)) as SystemMCPCatalog;
+}
+
+export async function updateSystemMCPCatalog(
+	catalogId: string,
+	manifest: SystemMCPCatalogManifest,
+	opts?: { fetch?: Fetcher }
+): Promise<SystemMCPCatalog> {
+	return (await doPut(`/system-mcp-catalogs/${catalogId}`, manifest, opts)) as SystemMCPCatalog;
+}
+
+export async function deleteSystemMCPCatalog(
+	catalogId: string,
+	opts?: { signal?: AbortSignal }
+): Promise<void> {
+	await doDelete(`/system-mcp-catalogs/${catalogId}`, opts);
+}
+
+export async function refreshSystemMCPCatalog(
+	catalogId: string,
+	opts?: { fetch?: Fetcher }
+): Promise<void> {
+	await doPost(`/system-mcp-catalogs/${catalogId}/refresh`, {}, opts);
+}
+
+export async function listSystemMCPCatalogEntries(
+	catalogId: string,
+	opts?: { fetch?: Fetcher }
+): Promise<SystemMCPServerCatalogEntry[]> {
+	const response = (await doGet(
+		`/system-mcp-catalogs/${catalogId}/entries`,
+		opts
+	)) as ItemsResponse<SystemMCPServerCatalogEntry>;
+	return response.items ?? [];
+}
+
+export async function createSystemMCPCatalogEntry(
+	catalogId: string,
+	manifest: SystemMCPServerCatalogEntryManifest,
+	opts?: { fetch?: Fetcher }
+): Promise<SystemMCPServerCatalogEntry> {
+	return (await doPost(
+		`/system-mcp-catalogs/${catalogId}/entries`,
+		manifest,
+		opts
+	)) as SystemMCPServerCatalogEntry;
+}
+
+export async function getSystemMCPCatalogEntry(
+	catalogId: string,
+	entryId: string,
+	opts?: { fetch?: Fetcher }
+): Promise<SystemMCPServerCatalogEntry> {
+	return (await doGet(
+		`/system-mcp-catalogs/${catalogId}/entries/${entryId}`,
+		opts
+	)) as SystemMCPServerCatalogEntry;
+}
+
+export async function updateSystemMCPCatalogEntry(
+	catalogId: string,
+	entryId: string,
+	manifest: SystemMCPServerCatalogEntryManifest,
+	opts?: { fetch?: Fetcher }
+): Promise<SystemMCPServerCatalogEntry> {
+	return (await doPut(
+		`/system-mcp-catalogs/${catalogId}/entries/${entryId}`,
+		manifest,
+		opts
+	)) as SystemMCPServerCatalogEntry;
+}
+
+export async function deleteSystemMCPCatalogEntry(
+	catalogId: string,
+	entryId: string,
+	opts?: { signal?: AbortSignal }
+): Promise<void> {
+	await doDelete(`/system-mcp-catalogs/${catalogId}/entries/${entryId}`, opts);
+}
+
+export async function listSystemMCPServers(opts?: { fetch?: Fetcher }): Promise<SystemMCPServer[]> {
+	const response = (await doGet('/system-mcp-servers', opts)) as ItemsResponse<SystemMCPServer>;
+	return response.items ?? [];
+}
+
+export async function getSystemMCPServer(
+	id: string,
+	opts?: { fetch?: Fetcher }
+): Promise<SystemMCPServer> {
+	return (await doGet(`/system-mcp-servers/${id}`, opts)) as SystemMCPServer;
+}
+
+export async function createSystemMCPServer(
+	manifest: SystemMCPServerManifest,
+	opts?: { fetch?: Fetcher }
+): Promise<SystemMCPServer> {
+	return (await doPost('/system-mcp-servers', manifest, opts)) as SystemMCPServer;
+}
+
+export async function updateSystemMCPServer(
+	id: string,
+	manifest: SystemMCPServerManifest,
+	opts?: { fetch?: Fetcher }
+): Promise<SystemMCPServer> {
+	return (await doPut(`/system-mcp-servers/${id}`, manifest, opts)) as SystemMCPServer;
+}
+
+export async function deleteSystemMCPServer(
+	id: string,
+	opts?: { signal?: AbortSignal }
+): Promise<void> {
+	await doDelete(`/system-mcp-servers/${id}`, opts);
+}
+
+export async function configureSystemMCPServer(
+	id: string,
+	envVars: Record<string, string>,
+	opts?: { fetch?: Fetcher }
+): Promise<SystemMCPServer> {
+	return (await doPost(`/system-mcp-servers/${id}/configure`, envVars, opts)) as SystemMCPServer;
+}
+
+export async function deconfigureSystemMCPServer(
+	id: string,
+	opts?: { fetch?: Fetcher }
+): Promise<SystemMCPServer> {
+	return (await doPost(`/system-mcp-servers/${id}/deconfigure`, {}, opts)) as SystemMCPServer;
+}
+
+export async function restartSystemMCPServer(
+	id: string,
+	opts?: { fetch?: Fetcher }
+): Promise<void> {
+	await doPost(`/system-mcp-servers/${id}/restart`, {}, opts);
+}
+
+export async function revealSystemMCPServerCredentials(
+	id: string,
+	opts?: { fetch?: Fetcher }
+): Promise<Record<string, string>> {
+	return (await doPost(`/system-mcp-servers/${id}/reveal`, {}, opts)) as Record<string, string>;
+}
+
+export async function getSystemMCPServerDetails(
+	id: string,
+	opts?: { fetch?: Fetcher }
+): Promise<K8sServerDetail> {
+	return (await doGet(`/system-mcp-servers/${id}/details`, opts)) as K8sServerDetail;
+}
+
+export async function getSystemMCPServerTools(
+	id: string,
+	opts?: { fetch?: Fetcher }
+): Promise<MCPServerTool[]> {
+	return (await doGet(`/system-mcp-servers/${id}/tools`, opts)) as MCPServerTool[];
+}
+
+// Device scans
+
+export async function listDeviceScans(
+	filters?: DeviceScanListFilters,
+	opts?: { fetch?: Fetcher }
+): Promise<DeviceScanResponse> {
+	const queryString = buildQueryString(filters ?? {});
+	return (await doGet(
+		`/devices/scans${queryString ? `?${queryString}` : ''}`,
+		opts
+	)) as DeviceScanResponse;
+}
+
+export async function getDeviceScan(
+	id: number | string,
+	opts?: { fetch?: Fetcher }
+): Promise<DeviceScan> {
+	return (await doGet(`/devices/scans/${id}`, opts)) as DeviceScan;
+}
+
+export async function deleteDeviceScan(id: number | string): Promise<void> {
+	await doDelete(`/devices/scans/${id}`);
+}
+
+export async function getDeviceMCPServerDetail(
+	configHash: string,
+	opts?: { fetch?: Fetcher }
+): Promise<DeviceMCPServerDetail> {
+	return (await doGet(
+		`/devices/mcp-servers/${encodeURIComponent(configHash)}`,
+		opts
+	)) as DeviceMCPServerDetail;
+}
+
+export async function listDeviceMCPServerOccurrences(
+	configHash: string,
+	page: { limit?: number; offset?: number },
+	opts?: { fetch?: Fetcher }
+): Promise<DeviceMCPServerOccurrenceResponse> {
+	const queryString = buildQueryString(page ?? {});
+	return (await doGet(
+		`/devices/mcp-servers/${encodeURIComponent(configHash)}/occurrences${queryString ? `?${queryString}` : ''}`,
+		opts
+	)) as DeviceMCPServerOccurrenceResponse;
+}
+
+export async function getDeviceScanStats(
+	range?: { start?: string; end?: string },
+	opts?: { fetch?: Fetcher }
+): Promise<DeviceScanStats> {
+	const queryString = buildQueryString(range ?? {});
+	return (await doGet(
+		`/devices/scan-stats${queryString ? `?${queryString}` : ''}`,
+		opts
+	)) as DeviceScanStats;
+}
+
+export async function listDeviceSkills(
+	filters?: DeviceSkillListFilters,
+	opts?: { fetch?: Fetcher }
+): Promise<DeviceSkillStatResponse> {
+	const queryString = buildQueryString(filters ?? {});
+	return (await doGet(
+		`/devices/skills${queryString ? `?${queryString}` : ''}`,
+		opts
+	)) as DeviceSkillStatResponse;
+}
+
+export async function getDeviceSkillDetail(
+	name: string,
+	opts?: { fetch?: Fetcher }
+): Promise<DeviceSkillDetail> {
+	return (await doGet(`/devices/skills/${encodeURIComponent(name)}`, opts)) as DeviceSkillDetail;
+}
+
+export async function listDeviceClients(
+	filters?: DeviceClientListFilters,
+	opts?: { fetch?: Fetcher }
+): Promise<DeviceClientFleetSummaryResponse> {
+	const queryString = buildQueryString(filters ?? {});
+	return (await doGet(
+		`/devices/clients${queryString ? `?${queryString}` : ''}`,
+		opts
+	)) as DeviceClientFleetSummaryResponse;
+}
+
+export async function getDeviceClient(
+	name: string,
+	opts?: { fetch?: Fetcher }
+): Promise<DeviceClientFleetSummary> {
+	return (await doGet(
+		`/devices/clients/${encodeURIComponent(name)}`,
+		opts
+	)) as DeviceClientFleetSummary;
+}
+
+export async function listDeviceSkillOccurrences(
+	name: string,
+	page: { limit?: number; offset?: number },
+	opts?: { fetch?: Fetcher }
+): Promise<DeviceSkillOccurrenceResponse> {
+	const queryString = buildQueryString(page ?? {});
+	return (await doGet(
+		`/devices/skills/${encodeURIComponent(name)}/occurrences${queryString ? `?${queryString}` : ''}`,
+		opts
+	)) as DeviceSkillOccurrenceResponse;
+}
+
+export async function restartNanobotAgentDeployments(opts?: {
+	fetch?: Fetcher;
+	dryRun?: boolean;
+}): Promise<RestartNanobotAgentDeploymentsResult> {
+	const params = new URLSearchParams();
+	if (opts?.dryRun != null) {
+		params.set('dryRun', String(opts.dryRun));
+	}
+	const qs = params.toString();
+	const path = qs
+		? `/system-mcp-servers/restart-nanobot-agent-deployments?${qs}`
+		: '/system-mcp-servers/restart-nanobot-agent-deployments';
+	return (await doPost(path, {}, opts)) as RestartNanobotAgentDeploymentsResult;
 }

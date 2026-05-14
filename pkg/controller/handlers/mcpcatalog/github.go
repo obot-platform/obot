@@ -1,7 +1,9 @@
 package mcpcatalog
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,26 +13,59 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-git/go-billy/v5/helper/chroot"
+	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/cache"
 	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
-	"github.com/obot-platform/obot/apiclient/types"
+	gitfs "github.com/go-git/go-git/v5/storage/filesystem"
 )
-
-var githubToken = os.Getenv("GITHUB_AUTH_TOKEN")
 
 // GitHubRepoInfo represents the repository information from GitHub API
 type GitHubRepoInfo struct {
 	Size int `json:"size"` // Size in KB
 }
 
-func isGitHubURL(catalogURL string) bool {
-	u, err := url.Parse(catalogURL)
-	return err == nil && u.Host == "github.com"
+var errRepoTooLarge = errors.New("repository too large")
+
+type gitCloneAuthAttempt struct {
+	name  string
+	token string
 }
 
-// checkRepoSize checks the repository size using GitHub API before cloning
-func checkRepoSize(org, repo string, maxSizeMB int) error {
+func gitCloneAuthAttempts(catalogToken, fallbackToken string) []gitCloneAuthAttempt {
+	if catalogToken != "" {
+		return []gitCloneAuthAttempt{{name: "catalog token", token: catalogToken}}
+	}
+	if fallbackToken != "" {
+		return []gitCloneAuthAttempt{
+			{name: "anonymous"},
+			{name: "fallback token", token: fallbackToken},
+		}
+	}
+	return []gitCloneAuthAttempt{{name: "anonymous"}}
+}
+
+// isGitRepoURL returns true if the URL points to a git repository on a known
+// hosting platform (GitHub, GitLab) or ends with ".git".
+func isGitRepoURL(catalogURL string) bool {
+	u, err := url.Parse(catalogURL)
+	if err != nil {
+		return false
+	}
+	switch u.Host {
+	case "github.com", "gitlab.com":
+		return true
+	}
+	// Treat any HTTPS URL that contains ".git" as a path segment boundary as a git repo
+	// (e.g. /org/repo.git or /org/repo.git/branch).
+	p := strings.TrimSuffix(u.Path, "/")
+	return strings.HasSuffix(p, ".git") || strings.Contains(p, ".git/")
+}
+
+// checkGitHubRepoSize checks repo size via the GitHub API before cloning.
+func checkGitHubRepoSize(ctx context.Context, org, repo string, maxSizeMB int, token string) error {
 	if org == "obot-platform" {
 		return nil
 	}
@@ -42,18 +77,15 @@ func checkRepoSize(org, repo string, maxSizeMB int) error {
 		Timeout: 5 * time.Second,
 	}
 
-	// Create request
-	req, err := http.NewRequest("GET", apiURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create API request: %w", err)
 	}
 
-	// Add authentication if token is available
-	if githubToken != "" {
-		req.Header.Set("Authorization", "Bearer "+githubToken)
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
 	}
 
-	// Make the request
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to fetch repository info: %w", err)
@@ -66,7 +98,7 @@ func checkRepoSize(org, repo string, maxSizeMB int) error {
 		if len(body) > 0 {
 			return fmt.Errorf("GitHub API returned status %d for repository %s/%s - %s", resp.StatusCode, org, repo, string(body))
 		}
-		return fmt.Errorf("GitHub API returned status %d for repository %s/%s", resp.StatusCode, org, repo)
+		return fmt.Errorf("GitHub API returned status %d for %s/%s", resp.StatusCode, org, repo)
 	}
 
 	// Parse response
@@ -78,19 +110,99 @@ func checkRepoSize(org, repo string, maxSizeMB int) error {
 	// Check size (GitHub API returns size in KB)
 	sizeMB := repoInfo.Size / 1024
 	if sizeMB > maxSizeMB {
-		return fmt.Errorf("repository %s/%s is too large: %d MB (limit: %d MB)", org, repo, sizeMB, maxSizeMB)
+		return fmt.Errorf("%w: repository %s/%s is %d MB (limit: %d MB)", errRepoTooLarge, org, repo, sizeMB, maxSizeMB)
 	}
-
 	return nil
 }
 
-// validateBranchName validates that the branch name doesn't contain suspicious characters
+// checkGitLabRepoSize checks repo size via the GitLab API before cloning.
+// Only called when a per-URL token is available; skipped otherwise since the
+// statistics endpoint requires authentication.
+func checkGitLabRepoSize(ctx context.Context, host, projectPath string, maxSizeMB int, token string) error {
+	if token == "" {
+		return nil // statistics endpoint requires auth; skip and rely on the clone-time check
+	}
+
+	// GitLab expects the project path URL-encoded (e.g. "group%2Fsubgroup%2Frepo")
+	apiURL := fmt.Sprintf("https://%s/api/v4/projects/%s?statistics=true", host, url.PathEscape(projectPath))
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create API request: %w", err)
+	}
+	req.Header.Set("PRIVATE-TOKEN", token)
+
+	resp, err := (&http.Client{Timeout: 5 * time.Second}).Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to fetch repository info: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		if len(body) > 0 {
+			return fmt.Errorf("GitLab API returned status %d for %s: %s", resp.StatusCode, projectPath, body)
+		}
+		return fmt.Errorf("GitLab API returned status %d for %s", resp.StatusCode, projectPath)
+	}
+
+	var info struct {
+		Statistics struct {
+			RepositorySize int64 `json:"repository_size"` // bytes
+		} `json:"statistics"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
+		return fmt.Errorf("failed to parse repository info: %w", err)
+	}
+
+	if sizeMB := info.Statistics.RepositorySize / (1024 * 1024); sizeMB > int64(maxSizeMB) {
+		return fmt.Errorf("%w: repository %s is %d MB (limit: %d MB)", errRepoTooLarge, projectPath, sizeMB, maxSizeMB)
+	}
+	return nil
+}
+
+func isContextError(err error) bool {
+	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
+}
+
+func cloneGitCatalog(ctx context.Context, parentDir, cloneURL, branch string, maxRepoSizeMB int, attempt gitCloneAuthAttempt) (string, error) {
+	tempDir, err := os.MkdirTemp(parentDir, "clone-*")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temporary directory: %w", err)
+	}
+
+	cloneOptions := &git.CloneOptions{
+		URL:           cloneURL,
+		Depth:         1,
+		ReferenceName: plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", branch)),
+	}
+
+	if attempt.token != "" {
+		cloneOptions.Auth = &githttp.BasicAuth{
+			Username: "x-access-token", // Accepted as a dummy username by GitHub and GitLab.
+			Password: attempt.token,
+		}
+	}
+
+	limitedFS := &sizeLimitedFS{
+		Filesystem: osfs.New(tempDir),
+		maxBytes:   int64(maxRepoSizeMB) * 1024 * 1024,
+	}
+	storer := gitfs.NewStorage(chroot.New(limitedFS, ".git"), cache.NewObjectLRUDefault())
+
+	if _, err = git.CloneContext(ctx, storer, limitedFS, cloneOptions); err != nil {
+		return "", err
+	}
+
+	return tempDir, nil
+}
+
+// validateBranchName validates that the branch name doesn't contain suspicious characters.
 func validateBranchName(branch string) error {
 	if branch == "" {
 		return fmt.Errorf("branch name cannot be empty")
 	}
 
-	// Check for path traversal attempts and other suspicious characters
 	if strings.Contains(branch, "..") || strings.Contains(branch, "\\") ||
 		strings.Contains(branch, ":") || strings.HasPrefix(branch, "-") {
 		return fmt.Errorf("invalid branch name: %s", branch)
@@ -99,20 +211,17 @@ func validateBranchName(branch string) error {
 	return nil
 }
 
-// isPathSafe checks if a file path is safe to read (not a symlink and within bounds)
+// isPathSafe checks if a file path is safe to read (not a symlink and within bounds).
 func isPathSafe(path, baseDir string) error {
-	// Check if it's a symbolic link
 	info, err := os.Lstat(path)
 	if err != nil {
 		return fmt.Errorf("failed to get file info: %w", err)
 	}
 
-	// Skip symbolic links to prevent path traversal
 	if info.Mode()&os.ModeSymlink != 0 {
 		return fmt.Errorf("symbolic links are not allowed for security reasons")
 	}
 
-	// Resolve the absolute path and ensure it's within the base directory
 	absPath, err := filepath.Abs(path)
 	if err != nil {
 		return fmt.Errorf("failed to get absolute path: %w", err)
@@ -123,7 +232,6 @@ func isPathSafe(path, baseDir string) error {
 		return fmt.Errorf("failed to get absolute base directory: %w", err)
 	}
 
-	// Ensure the file is within the base directory
 	if !strings.HasPrefix(absPath, absBaseDir+string(filepath.Separator)) {
 		return fmt.Errorf("file path is outside the allowed directory")
 	}
@@ -131,78 +239,142 @@ func isPathSafe(path, baseDir string) error {
 	return nil
 }
 
-func readGitHubCatalog(catalogURL string) ([]types.MCPServerCatalogEntryManifest, error) {
-	// Make sure we don't use plain HTTP
-	if strings.HasPrefix(catalogURL, "http://") {
-		return nil, fmt.Errorf("only HTTPS is supported for GitHub catalogs")
-	}
-
-	// Normalize the URL to ensure HTTPS
-	if !strings.HasPrefix(catalogURL, "https://") {
-		catalogURL = "https://" + catalogURL
-	}
-
-	// Parse URL to ensure it's valid
+// readGitCatalog clones a git repository over HTTPS and reads its catalog entries.
+// It works with any git hosting platform (GitHub, GitLab, self-hosted, etc.).
+// parseGitURL parses a git repository URL and returns the clone URL and branch.
+// It supports subgroups (e.g. gitlab.com/group/subgroup/repo.git) by using the
+// .git suffix as the repo boundary. For GitHub, URLs without a .git suffix are
+// also accepted for backward compatibility.
+// Returns (cloneURL, branch, error).
+func parseGitURL(catalogURL string) (string, string, error) {
 	u, err := url.Parse(catalogURL)
 	if err != nil {
-		return nil, fmt.Errorf("invalid GitHub URL: %w", err)
-	}
-
-	// Should not be possible, but check anyway.
-	if u.Host != "github.com" {
-		return nil, fmt.Errorf("not a GitHub URL: %s", catalogURL)
+		return "", "", fmt.Errorf("invalid git URL: %w", err)
 	}
 
 	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
 	if len(parts) < 2 {
-		return nil, fmt.Errorf("invalid GitHub URL format, expected github.com/org/repo")
+		return "", "", fmt.Errorf("invalid git URL format, expected <host>/org/repo")
 	}
-	org, repo := parts[0], parts[1]
-	branch := "main"
-	if len(parts) > 2 {
-		branch = strings.Join(parts[2:], "/")
-		// Validate branch name for security
-		if err := validateBranchName(branch); err != nil {
-			return nil, fmt.Errorf("invalid branch name: %w", err)
+
+	var (
+		repoPath string
+		branch   string
+	)
+
+	// Find the .git boundary to determine where the repo path ends and the branch begins.
+	// This handles subgroups (e.g. gitlab.com/group/subgroup/repo.git).
+	for i, part := range parts {
+		if !strings.HasSuffix(part, ".git") {
+			continue
+		}
+
+		repoPath = strings.Join(parts[:i+1], "/")
+		if i+1 < len(parts) {
+			branch = strings.Join(parts[i+1:], "/")
+			if err := validateBranchName(branch); err != nil {
+				return "", "", fmt.Errorf("invalid branch name: %w", err)
+			}
+		}
+		break
+	}
+
+	// For known git hosting platforms, support URLs without .git suffix.
+	// The repo is assumed to be at parts[1] (e.g. github.com/org/repo or gitlab.com/org/repo).
+	// Subgroups without .git are not supported; use the .git suffix form instead.
+	if repoPath == "" {
+		switch u.Host {
+		case "github.com", "gitlab.com":
+			repoPath = strings.Join(parts[:2], "/") + ".git"
+			if len(parts) > 2 {
+				branch = strings.Join(parts[2:], "/")
+				if err := validateBranchName(branch); err != nil {
+					return "", "", fmt.Errorf("invalid branch name: %w", err)
+				}
+			}
+		default:
+			return "", "", fmt.Errorf("invalid git URL format, URL path must end in .git (e.g. https://%s/org/repo.git)", u.Host)
 		}
 	}
 
-	// Check repository size before cloning (limit to 100 MB)
-	const maxRepoSizeMB = 100
-	if err := checkRepoSize(org, repo, maxRepoSizeMB); err != nil {
-		return nil, fmt.Errorf("repository size check failed: %w", err)
+	if branch == "" {
+		branch = "main"
 	}
 
-	// Create temporary directory for cloning
+	return fmt.Sprintf("https://%s/%s", u.Host, repoPath), branch, nil
+}
+
+func readGitCatalogEntries[T any](ctx context.Context, catalogURL string, token string) ([]T, error) {
+	if strings.HasPrefix(catalogURL, "http://") {
+		return nil, fmt.Errorf("only HTTPS is supported for git catalogs")
+	}
+
+	if !strings.HasPrefix(catalogURL, "https://") {
+		catalogURL = "https://" + catalogURL
+	}
+
+	u, err := url.Parse(catalogURL)
+	if err != nil {
+		return nil, fmt.Errorf("invalid git URL: %w", err)
+	}
+
+	cloneURL, branch, err := parseGitURL(catalogURL)
+	if err != nil {
+		return nil, err
+	}
+
+	fallbackToken := os.Getenv("GITHUB_AUTH_TOKEN")
+
+	// Platform API pre-clone size checks: faster and more accurate than waiting
+	// for the clone to start. The generic clone-time check below acts as a fallback.
+	const maxRepoSizeMB = 100
+	repoPath := strings.TrimPrefix(strings.TrimPrefix(cloneURL, "https://"+u.Host+"/"), "/")
+	repoPath = strings.TrimSuffix(repoPath, ".git")
+	switch u.Host {
+	case "github.com":
+		parts := strings.SplitN(repoPath, "/", 2)
+		if len(parts) == 2 {
+			apiToken := token
+			if apiToken == "" {
+				apiToken = fallbackToken
+			}
+			if err := checkGitHubRepoSize(ctx, parts[0], parts[1], maxRepoSizeMB, apiToken); err != nil {
+				if errors.Is(err, errRepoTooLarge) || isContextError(err) {
+					return nil, fmt.Errorf("repository size check failed: %w", err)
+				}
+				log.Warnf("GitHub catalog repository size check failed; continuing with clone-time size limit: repo=%s error=%v", repoPath, err)
+			}
+		}
+	case "gitlab.com":
+		if err := checkGitLabRepoSize(ctx, u.Host, repoPath, maxRepoSizeMB, token); err != nil {
+			if errors.Is(err, errRepoTooLarge) || isContextError(err) {
+				return nil, fmt.Errorf("repository size check failed: %w", err)
+			}
+			log.Warnf("GitLab catalog repository size check failed; continuing with clone-time size limit: repo=%s error=%v", repoPath, err)
+		}
+	}
+
 	tempDir, err := os.MkdirTemp("", "catalog-clone-*")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temporary directory: %w", err)
 	}
 	defer os.RemoveAll(tempDir)
 
-	// Clone the repository
-	cloneURL := fmt.Sprintf("https://github.com/%s/%s.git", org, repo)
-
-	// Set up clone options
-	cloneOptions := &git.CloneOptions{
-		URL:           cloneURL,
-		Depth:         1,
-		ReferenceName: plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", branch)),
-	}
-
-	// Set up git credentials if token is available
-	if githubToken != "" {
-		cloneOptions.Auth = &githttp.BasicAuth{
-			Username: "obot", // Use a dummy username. The username is ignored, but required to be non-empty.
-			Password: githubToken,
+	attempts := gitCloneAuthAttempts(token, fallbackToken)
+	attemptErrs := make([]error, len(attempts))
+	for i, attempt := range attempts {
+		cloneDir, err := cloneGitCatalog(ctx, tempDir, cloneURL, branch, maxRepoSizeMB, attempt)
+		if err == nil {
+			return readCatalogDirectory[T](cloneDir)
+		}
+		attemptErrs[i] = fmt.Errorf("%s: %w", attempt.name, err)
+		if errors.Is(err, errRepoTooLarge) {
+			return nil, fmt.Errorf("repository is too large (limit: %d MB)", maxRepoSizeMB)
+		}
+		if isContextError(err) {
+			return nil, fmt.Errorf("failed to clone repository: %w", err)
 		}
 	}
 
-	// Use go-git to clone the repository
-	_, err = git.PlainClone(tempDir, false, cloneOptions)
-	if err != nil {
-		return nil, fmt.Errorf("failed to clone repository: %w", err)
-	}
-
-	return readMCPCatalogDirectory(tempDir)
+	return nil, fmt.Errorf("failed to clone repository after %d attempt(s): %w", len(attemptErrs), errors.Join(attemptErrs...))
 }

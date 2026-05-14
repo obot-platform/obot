@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { tweened } from 'svelte/motion';
 	import { cubicOut } from 'svelte/easing';
+	import { Tween } from 'svelte/motion';
 
 	interface Props {
 		targetWidth: number;
@@ -24,7 +24,7 @@
 		onpointerleave
 	}: Props = $props();
 
-	const width = tweened(0, { duration: 400, easing: cubicOut });
+	const width = new Tween(0, { duration: 400, easing: cubicOut });
 
 	$effect(() => {
 		width.set(targetWidth);
@@ -34,7 +34,7 @@
 <rect
 	x={0}
 	{y}
-	width={$width}
+	width={width.current}
 	{height}
 	{rx}
 	ry={rx}

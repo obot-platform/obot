@@ -22,7 +22,10 @@
 		onClearAll?: () => void;
 		buttonStartContent?: Snippet;
 		onKeyDown?: (event: KeyboardEvent, params?: { query?: string; results?: T[] }) => void;
-		searchable?: boolean;
+		searchInDropdown?: boolean;
+		buttonReadOnly?: boolean;
+		buttonTitle?: string;
+		displayCount?: boolean;
 	}
 </script>
 
@@ -51,7 +54,10 @@
 		onClearAll,
 		buttonStartContent,
 		onKeyDown,
-		searchable
+		searchInDropdown,
+		buttonReadOnly,
+		buttonTitle,
+		displayCount
 	}: SelectProps<T> = $props();
 
 	const selectedValues = $derived.by(() => {
@@ -88,6 +94,23 @@
 			.map((selectedValue) => options.find((option) => option.id === selectedValue))
 			.filter(Boolean) as T[]
 	);
+
+	let buttonReadOnlySummary = $derived.by(() => {
+		const labels = selectedOptions.map((o) => o.label);
+		const n = labels.length;
+		if (n === 0) {
+			return placeholder ?? '';
+		}
+		if (n === 1) {
+			return labels[0] ?? '';
+		}
+		if (n === 2) {
+			return `${labels[0]}, ${labels[1]}`;
+		}
+		return `${labels[0]}, ${labels[1]}, and ${n - 2} more`;
+	});
+
+	let buttonReadOnlySummaryTitle = $derived(selectedOptions.map((o) => o.label).join(', '));
 
 	let popover = $state<HTMLDivElement>();
 
@@ -148,80 +171,93 @@
 					toggle();
 				}
 			}}
+			aria-label={placeholder}
 		>
-			{#if multiple}
-				<div class="flex flex-wrap items-center justify-start gap-2 whitespace-break-spaces">
-					{#each selectedOptions as selectedOption (selectedOption.id)}
-						<div
-							class={twMerge(
-								'text-md bg-surface3/50 dark:bg-surface2 inline-flex items-center gap-1 rounded-sm px-1',
-								onClear && '',
-								classes?.buttonContent
-							)}
-							in:fade={{ duration: 100 }}
-							out:fade={{ duration: 0 }}
-							animate:flip={{ duration: 100 }}
-						>
-							{#if buttonStartContent}
-								{@render buttonStartContent()}
-							{/if}
-
-							<div class="flex flex-1 break-all">
-								{selectedOption?.label ?? ''}
-							</div>
-
-							<div class="flex h-[22.5px] items-center place-self-start">
-								<button
-									class={twMerge(
-										'button rounded-xs p-0 transition-colors duration-300',
-										classes?.clear
-									)}
-									{disabled}
-									onclick={(ev) => {
-										ev.preventDefault();
-										ev.stopImmediatePropagation();
-
-										const filteredValues = selectedValues.filter((d) => d !== selectedOption.id);
-
-										selected = filteredValues.join(',');
-
-										onClear?.(selectedOption, selected);
-									}}
-								>
-									<X class="size-4 " />
-								</button>
-							</div>
-						</div>
-					{/each}
-					{#if onClearAll}
-						<button
-							class={twMerge(
-								'bg-surface3/50 dark:bg-surface2 hover:bg-surface3 dark:hover:bg-surface3 inline-flex rounded-sm px-1 text-sm transition-colors duration-300',
-								classes?.buttonContent
-							)}
-							onclick={(ev) => {
-								ev.preventDefault();
-								ev.stopImmediatePropagation();
-								onClearAll?.();
-							}}
-						>
-							{clearAllLabel || 'Clear All'}
-						</button>
-					{/if}
-				</div>
-			{/if}
-
-			{#if multiple}
-				{#if !readonly}
-					{@render searchInput()}
-				{/if}
-			{:else}
+			{#if buttonReadOnly}
 				{#if buttonStartContent}
 					{@render buttonStartContent()}
 				{/if}
-				<div class="min-w-0 flex-1 items-center gap-2 truncate">
-					{selectedOptions[0]?.label ?? ''}
-				</div>
+				{#if buttonTitle}
+					<div class="flex-1">{buttonTitle}</div>
+				{:else}
+					<div
+						class="min-w-0 flex-1 truncate text-left"
+						title={buttonReadOnlySummaryTitle || undefined}
+					>
+						{buttonReadOnlySummary}
+					</div>
+				{/if}
+				{#if multiple && onClearAll}
+					{@render clearAllButton()}
+				{/if}
+				{#if displayCount}
+					<div class="badge badge-xs badge-primary">{selectedOptions.length}</div>
+				{/if}
+			{:else}
+				{#if multiple}
+					<div class="flex flex-wrap items-center justify-start gap-2 whitespace-break-spaces">
+						{#each selectedOptions as selectedOption (selectedOption.id)}
+							<div
+								class={twMerge(
+									'text-md bg-surface3/50 dark:bg-surface2 inline-flex items-center gap-1 rounded-sm px-1',
+									onClear && '',
+									classes?.buttonContent
+								)}
+								in:fade={{ duration: 100 }}
+								out:fade={{ duration: 0 }}
+								animate:flip={{ duration: 100 }}
+							>
+								{#if buttonStartContent}
+									{@render buttonStartContent()}
+								{/if}
+
+								<div class="flex flex-1 break-all">
+									{selectedOption?.label ?? ''}
+								</div>
+
+								<div class="flex h-[22.5px] items-center place-self-start">
+									<button
+										class={twMerge(
+											'button rounded-xs p-0 transition-colors duration-300',
+											classes?.clear
+										)}
+										{disabled}
+										onclick={(ev) => {
+											ev.preventDefault();
+											ev.stopImmediatePropagation();
+
+											const filteredValues = selectedValues.filter((d) => d !== selectedOption.id);
+
+											selected = filteredValues.join(',');
+
+											onClear?.(selectedOption, selected);
+										}}
+									>
+										<X class="size-4" />
+									</button>
+								</div>
+							</div>
+						{/each}
+						{#if onClearAll}
+							{@render clearAllButton()}
+						{/if}
+					</div>
+				{/if}
+
+				{#if multiple}
+					{#if !readonly && !searchInDropdown}
+						{@render searchInput()}
+					{:else}
+						<div class="flex grow"></div>
+					{/if}
+				{:else}
+					{#if buttonStartContent}
+						{@render buttonStartContent()}
+					{/if}
+					<div class="min-w-0 flex-1 items-center gap-2 truncate">
+						{selectedOptions[0]?.label || placeholder || ''}
+					</div>
+				{/if}
 			{/if}
 
 			<ChevronDown class="size-5 shrink-0 self-start" />
@@ -237,7 +273,7 @@
 					onClear(undefined, '');
 				}}
 			>
-				<X class="size-4" />
+				<X class="size-3" />
 			</button>
 		{/if}
 	</div>
@@ -252,13 +288,13 @@
 			position === 'top' ? 'rounded-t-sm rounded-b-none' : 'rounded-t-none rounded-b-sm'
 		)}
 	>
-		{#if !multiple && searchable}
+		{#if searchInDropdown}
 			<div
 				class="border-surface3 flex h-12 items-center border-b p-2"
 				role="presentation"
 				onclick={() => input?.focus()}
 			>
-				<SearchIcon class="size-4" />
+				<SearchIcon class="mr-2 size-4" />
 				{@render searchInput()}
 			</div>
 		{/if}
@@ -296,6 +332,22 @@
 	</div>
 </div>
 
+{#snippet clearAllButton()}
+	<button
+		class={twMerge(
+			'bg-surface3/50 dark:bg-surface2 hover:bg-surface3 dark:hover:bg-surface3 inline-flex rounded-sm px-1 text-xs transition-colors duration-300',
+			classes?.buttonContent
+		)}
+		onclick={(ev) => {
+			ev.preventDefault();
+			ev.stopImmediatePropagation();
+			onClearAll?.();
+		}}
+	>
+		{clearAllLabel || 'Clear All'}
+	</button>
+{/snippet}
+
 {#snippet searchInput()}
 	<input
 		class={twMerge(
@@ -328,6 +380,7 @@
 
 			if (
 				multiple &&
+				!searchInDropdown &&
 				e.key === 'Backspace' &&
 				selectedValues.length > 0 &&
 				(query ?? '')?.length === 0

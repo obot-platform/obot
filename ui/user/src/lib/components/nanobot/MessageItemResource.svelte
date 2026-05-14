@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { AlertCircle, AlertTriangle } from 'lucide-svelte';
 	import { getFileIcon } from '$lib/components/nanobot/MessageAttachments.svelte';
+	import { formatFileSize } from '$lib/format';
 	import type { ChatMessageItemResource } from '$lib/services/nanobot/types';
 	import { isCancellationError } from '$lib/services/nanobot/utils';
 	import PDF from './PDF.svelte';
-	import { formatFileSize } from '$lib/utils';
+	import { AlertCircle, AlertTriangle } from 'lucide-svelte';
 
 	interface Props {
 		item: ChatMessageItemResource;

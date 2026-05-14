@@ -1,20 +1,64 @@
 <script lang="ts">
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import Toggle from '$lib/components/Toggle.svelte';
+	import { MultiValueInput } from '$lib/components/ui/multi-value-input';
 	import type { UVXRuntimeConfig } from '$lib/services/chat/types';
 	import { Plus, Trash2 } from 'lucide-svelte';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import type { Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		config: UVXRuntimeConfig;
+		startupTimeoutSeconds?: number;
 		readonly?: boolean;
+		showEgressDomains?: boolean;
+		defaultDenyAllEgress?: boolean;
 		showRequired?: Record<string, boolean>;
 		onFieldChange?: (field: string) => void;
+		children?: Snippet;
 	}
-	let { config = $bindable(), readonly, showRequired, onFieldChange }: Props = $props();
+	let {
+		config = $bindable(),
+		startupTimeoutSeconds = $bindable(),
+		readonly,
+		showEgressDomains = false,
+		defaultDenyAllEgress = false,
+		showRequired,
+		onFieldChange,
+		children
+	}: Props = $props();
 
 	// Initialize args array if it doesn't exist
 	if (!config.args) {
 		config.args = [];
+	}
+	if (!config.egressDomains) {
+		config.egressDomains = [];
+	}
+
+	const hasEgressDomains = $derived(config.egressDomains.some((domain) => domain.trim()));
+	const explicitAllowAll = $derived(
+		defaultDenyAllEgress && config.denyAllEgress === false && !hasEgressDomains
+	);
+	const explicitDenyAll = $derived(!defaultDenyAllEgress && config.denyAllEgress === true);
+	const toggleChecked = $derived(defaultDenyAllEgress ? explicitAllowAll : explicitDenyAll);
+	const toggleLabel = $derived(defaultDenyAllEgress ? 'Allow all egress' : 'Deny all egress');
+	const inputReadonly = $derived(readonly || toggleChecked);
+	const egressHelpText = $derived(
+		defaultDenyAllEgress
+			? 'Leave empty to deny all egress by default. Add domains to allow only those domains. Enable allow all to allow unrestricted egress. Examples: example.com, *.example.com.'
+			: 'Leave empty to allow all egress. Add domains to allow only those domains. Enable deny all to block all egress. Examples: example.com, *.example.com.'
+	);
+
+	function handleEgressToggle(checked: boolean) {
+		if (defaultDenyAllEgress) {
+			config.denyAllEgress = checked ? false : undefined;
+		} else {
+			config.denyAllEgress = checked ? true : undefined;
+		}
+		if (checked) {
+			config.egressDomains = [];
+		}
 	}
 
 	function addArgument() {
@@ -74,13 +118,15 @@
 
 	<!-- Package field (required) -->
 	<div class="flex items-center gap-4">
-		<label for="uvx-package" class={twMerge('text-sm font-light', showRequired?.package && 'error')}
+		<label
+			for="uvx-package"
+			class={twMerge('text-sm font-light min-w-[76px]', showRequired?.package && 'error')}
 			>Package</label
 		>
 		<input
 			id="uvx-package"
 			class={twMerge(
-				'text-input-filled dark:bg-backgroundblack w-full',
+				'text-input-filled dark:bg-background w-full',
 				showRequired?.package && 'error'
 			)}
 			bind:value={config.package}
@@ -156,4 +202,49 @@
 			</div>
 		</div>
 	{/if}
+
+	{#if showEgressDomains}
+		<div class="flex gap-4">
+			<span class="pt-2.5 text-sm font-light">Egress Domains</span>
+			<div class="flex min-h-10 grow flex-col gap-2">
+				<Toggle
+					label={toggleLabel}
+					labelInline
+					checked={toggleChecked}
+					disabled={readonly}
+					onChange={handleEgressToggle}
+				/>
+				<MultiValueInput
+					bind:value={config.egressDomains}
+					class="text-input-filled dark:bg-background"
+					readonly={inputReadonly}
+					placeholder="hit &quot;Enter&quot; to insert"
+				/>
+				<p class="text-on-surface1 text-xs">{egressHelpText}</p>
+			</div>
+		</div>
+	{/if}
+
+	<!-- Startup Timeout -->
+	<div class="flex items-center gap-4">
+		<label
+			for="uvx-startup-timeout"
+			class={twMerge('text-sm font-light', showRequired?.startupTimeoutSeconds && 'error')}
+			>Startup Timeout (seconds)</label
+		>
+		<input
+			type="number"
+			id="uvx-startup-timeout"
+			min="1"
+			placeholder="60"
+			bind:value={startupTimeoutSeconds}
+			class={twMerge(
+				'text-input-filled dark:bg-background w-32',
+				showRequired?.startupTimeoutSeconds && 'error'
+			)}
+			disabled={readonly}
+		/>
+	</div>
+
+	{@render children?.()}
 </div>

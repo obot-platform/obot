@@ -55,7 +55,7 @@ lint: lint-go
 tidy:
 	go mod tidy
 
-GOLANGCI_LINT_VERSION ?= v2.9.0
+GOLANGCI_LINT_VERSION ?= v2.11.4
 setup-env:
 	if ! command -v golangci-lint &> /dev/null; then \
   		echo "Could not find golangci-lint, installing version $(GOLANGCI_LINT_VERSION)."; \
@@ -88,13 +88,7 @@ gen-docs-release:
   			echo "version not set (version=x.x)"; \
     		exit 1 \
     	;fi
-	if [ -z ${prev_version} ]; then \
-  			echo "prev_version not set (prev_version=x.x)"; \
-    		exit 1 \
-    	;fi
 	docker run --rm --workdir=/docs -v $${PWD}/docs:/docs node:24-bookworm yarn docusaurus docs:version ${version}
-	awk '/versions/&& ++c == 1 {print;print "\t\t\t\"${prev_version}\": {label: \"${prev_version}\", banner: \"none\", path: \"${prev_version}\"},";next}1' ./docs/docusaurus.config.ts > tmp.config.ts && mv tmp.config.ts ./docs/docusaurus.config.ts
-	sed -i.bak "s/lastVersion: '[^']*'/lastVersion: '${version}'/" ./docs/docusaurus.config.ts && rm -f ./docs/docusaurus.config.ts.bak
 
 # Completely remove doc version from docs site
 remove-docs-version:

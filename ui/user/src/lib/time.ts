@@ -1,8 +1,11 @@
-export function formatTime(time: Date | string) {
+export type TimeDisplayFormat = '12h' | '24h';
+
+export function formatTime(time: Date | string, format: TimeDisplayFormat) {
 	const now = new Date();
 	if (typeof time === 'string') {
 		time = new Date(time);
 	}
+	const hour12 = format === '12h';
 	if (
 		time.getDate() == now.getDate() &&
 		time.getMonth() == now.getMonth() &&
@@ -10,7 +13,8 @@ export function formatTime(time: Date | string) {
 	) {
 		return time.toLocaleTimeString(undefined, {
 			hour: 'numeric',
-			minute: 'numeric'
+			minute: 'numeric',
+			hour12
 		});
 	}
 	return time
@@ -20,7 +24,7 @@ export function formatTime(time: Date | string) {
 			day: '2-digit',
 			hour: 'numeric',
 			minute: '2-digit',
-			hour12: true
+			hour12
 		})
 		.replace(/\//g, '-')
 		.replace(/,/g, '');
@@ -279,6 +283,21 @@ export function getTimeRangeShorthand(startTime: Date | string, endTime: Date | 
 	} else {
 		return `${Math.round(hours)}h`;
 	}
+}
+
+export function formatLogTimestamp(time: Date | string, format: TimeDisplayFormat) {
+	return new Date(time)
+		.toLocaleString(undefined, {
+			year: 'numeric',
+			month: 'short',
+			day: 'numeric',
+			hour: '2-digit',
+			minute: '2-digit',
+			second: '2-digit',
+			hour12: format === '12h',
+			timeZoneName: 'short'
+		})
+		.replace(/,/g, '');
 }
 
 export function isRecent(created: string, withinMinutes = 1): boolean {

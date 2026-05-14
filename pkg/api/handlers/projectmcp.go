@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/gptscript-ai/go-gptscript"
-	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
+	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/api"
@@ -152,6 +152,10 @@ func (p *ProjectMCPHandler) ListServer(req api.Context) error {
 			continue
 		}
 		cred := credMap[mcpServer.Name]
+		cred, err = mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, mcpServer.Spec.Manifest.Env, mcpServer.Spec.Manifest.RemoteConfig, cred)
+		if err != nil {
+			return fmt.Errorf("failed to resolve secret bindings for mcp server %s: %w", mcpServer.Name, err)
+		}
 
 		// Gather components for single-user composite servers
 		var components []types.MCPServer
@@ -227,6 +231,10 @@ func (p *ProjectMCPHandler) CreateServer(req api.Context) error {
 		}
 
 		cred = gptscriptCred.Env
+		cred, err = mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, mcpServer.Spec.Manifest.Env, mcpServer.Spec.Manifest.RemoteConfig, cred)
+		if err != nil {
+			return fmt.Errorf("failed to resolve secret bindings for mcp server %s: %w", mcpServer.Name, err)
+		}
 	}
 
 	if err = req.Create(&projectServer); err != nil {
@@ -264,6 +272,10 @@ func (p *ProjectMCPHandler) GetServer(req api.Context) error {
 		}
 
 		cred = gptscriptCred.Env
+		cred, err = mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, mcpServer.Spec.Manifest.Env, mcpServer.Spec.Manifest.RemoteConfig, cred)
+		if err != nil {
+			return fmt.Errorf("failed to resolve secret bindings for mcp server %s: %w", mcpServer.Name, err)
+		}
 	}
 
 	// Gather components for single-user composite servers
@@ -297,6 +309,10 @@ func (p *ProjectMCPHandler) DeleteServer(req api.Context) error {
 		}
 
 		cred = gptscriptCred.Env
+		cred, err = mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, mcpServer.Spec.Manifest.Env, mcpServer.Spec.Manifest.RemoteConfig, cred)
+		if err != nil {
+			return fmt.Errorf("failed to resolve secret bindings for mcp server %s: %w", mcpServer.Name, err)
+		}
 	}
 
 	if err = req.Delete(&projectServer); err != nil {

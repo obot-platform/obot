@@ -1,6 +1,11 @@
 <script lang="ts">
-	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
+	import { page } from '$app/state';
 	import Layout from '$lib/components/Layout.svelte';
+	import Search from '$lib/components/Search.svelte';
+	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
+	import ConnectorsView from '$lib/components/mcp/ConnectorsView.svelte';
+	import McpConfirmDelete from '$lib/components/mcp/McpConfirmDelete.svelte';
+	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import {
 		AdminService,
@@ -10,15 +15,9 @@
 		type MCPCatalogServer
 	} from '$lib/services';
 	import type { MCPCatalogEntry, OrgUser } from '$lib/services/admin/types';
-	import { Plus, Server } from 'lucide-svelte';
-	import { fade, fly } from 'svelte/transition';
-	import { goto, replaceState } from '$lib/url';
-	import { beforeNavigate, afterNavigate } from '$app/navigation';
-	import { browser } from '$app/environment';
-	import Search from '$lib/components/Search.svelte';
-	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
 	import { getServerTypeLabelByType } from '$lib/services/chat/mcp.js';
-	import McpConfirmDelete from '$lib/components/mcp/McpConfirmDelete.svelte';
+	import { mcpServersAndEntries, profile } from '$lib/stores/index.js';
+	import { goto } from '$lib/url';
 	import {
 		clearUrlParams,
 		getTableUrlParamsFilters,
@@ -27,70 +26,28 @@
 		setSortUrlParams,
 		setUrlParam
 	} from '$lib/url';
-	import { mcpServersAndEntries, profile } from '$lib/stores/index.js';
-	import { page } from '$app/state';
-	import { localState } from '$lib/runes/localState.svelte.js';
 	import { debounce } from 'es-toolkit';
-	import ConnectorsView from '$lib/components/mcp/ConnectorsView.svelte';
+	import { Plus, Server } from 'lucide-svelte';
 	import { onMount } from 'svelte';
+	import { fade, fly } from 'svelte/transition';
 
 	let { data } = $props();
-
-	type LocalStorageViewQuery = Record<'registry', string>;
-	const localStorageViewQuery = localState<LocalStorageViewQuery>(
-		'@obot/mcp-servers/search-query',
-		{ registry: '' }
-	);
 
 	let workspaceId = $derived(data.workspace?.id);
 	let isAtLeastPowerUser = $derived(profile.current.groups.includes(Group.POWERUSER));
 
-	afterNavigate(({ from }) => {
-		if (browser) {
-			// If coming back from a detail page, don't show form - user just created a server
-			const comingFromDetailPage =
-				from?.url?.pathname.startsWith('/mcp-servers/c/') ||
-				from?.url?.pathname.startsWith('/mcp-servers/s/');
-
-			if (comingFromDetailPage) {
-				showServerForm = false;
-				if (page.url.searchParams.has('new')) {
-					const cleanUrl = new URL(page.url);
-					cleanUrl.searchParams.delete('new');
-					replaceState(cleanUrl, {});
-				}
-				return;
-			}
-
-			const createNewType = page.url.searchParams.get('new') as 'single' | 'multi' | 'remote';
-			if (createNewType) {
-				selectServerType(createNewType, false);
-			} else {
-				showServerForm = false;
-			}
-		}
-	});
-
-	beforeNavigate(({ to }) => {
-		if (browser && !to?.url.pathname.startsWith('/mcp-servers')) {
-			clearQueryFromLocalStorage();
-		}
-	});
-
 	let selectServerTypeDialog = $state<ReturnType<typeof SelectServerType>>();
-	let selectedServerType = $state<LaunchServerType>();
 
 	let users = $state<OrgUser[]>([]);
-	let showServerForm = $state(false);
+	let showServerForm = $derived(page.url.searchParams.has('new'));
+	let selectedServerType = $derived(page.url.searchParams.get('new') as LaunchServerType);
 	let deletingEntry = $state<MCPCatalogEntry>();
 	let deletingServer = $state<MCPCatalogServer>();
 
-	let urlFilters = $state(getTableUrlParamsFilters());
+	let urlFilters = $derived(getTableUrlParamsFilters());
 	let initSort = $derived(getTableUrlParamsSort());
 
-	let registrySearchQuery = $derived(
-		page.url.searchParams.get('query') || localStorageViewQuery.current?.registry || ''
-	);
+	let registrySearchQuery = $derived(page.url.searchParams.get('query') || '');
 
 	let usersMap = $derived(new Map(users.map((user) => [user.id, user])));
 
@@ -99,11 +56,9 @@
 	});
 
 	function selectServerType(type: LaunchServerType, updateUrl = true) {
-		selectedServerType = type;
 		selectServerTypeDialog?.close();
-		showServerForm = true;
 		if (updateUrl) {
-			goto(`/mcp-servers?new=${type}`, { replaceState: false });
+			goto(`/mcp-servers?new=${type}`);
 		}
 	}
 
@@ -121,28 +76,10 @@
 		clearUrlParams();
 	}
 
-	function persistQueryToLocalStorage(queryValue: string): void {
-		if (!localStorageViewQuery.current) {
-			return;
-		}
-
-		localStorageViewQuery.current.registry = queryValue;
-	}
-
-	function clearQueryFromLocalStorage(): void {
-		if (!localStorageViewQuery.current) {
-			return;
-		}
-
-		localStorageViewQuery.current.registry = '';
-	}
-
 	const updateSearchQuery = debounce((value: string) => {
 		const newUrl = new URL(page.url);
 
 		setUrlParam(newUrl, 'query', value || null);
-
-		persistQueryToLocalStorage(value);
 		navigateWithState(newUrl);
 	}, 100);
 
@@ -234,9 +171,10 @@
 			id={workspaceId}
 			entity="workspace"
 			onCancel={() => {
-				showServerForm = false;
+				goto('/mcp-servers');
 			}}
 			onSubmit={async (id, type, message) => {
+				clearUrlParams(['new']);
 				// Determine which query param to use based on the message
 				let queryParam = '?launch=true';
 				if (message === 'requires-oauth-config') {
@@ -258,6 +196,7 @@
 		onclick={() => {
 			selectServerTypeDialog?.open();
 		}}
+		id="add-mcp-server-button"
 	>
 		<Plus class="size-4" /> Add MCP Server
 	</button>

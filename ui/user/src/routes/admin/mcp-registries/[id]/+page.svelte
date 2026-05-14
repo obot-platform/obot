@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { goto } from '$lib/url';
-	import AccessControlRuleForm from '$lib/components/admin/AccessControlRuleForm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
+	import AccessControlRuleForm from '$lib/components/admin/AccessControlRuleForm.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
-	import { fly } from 'svelte/transition';
 	import { mcpServersAndEntries, profile } from '$lib/stores/index.js';
+	import { goto } from '$lib/url';
+	import { fly } from 'svelte/transition';
 
 	let { data } = $props();
 	const { accessControlRule } = $derived(data);

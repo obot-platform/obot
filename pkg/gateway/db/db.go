@@ -80,6 +80,10 @@ func (db *DB) AutoMigrate() (err error) {
 		return fmt.Errorf("failed to drop state columns from mcp_oauth_tokens: %w", err)
 	}
 
+	if err = migrateIfEntryNotFoundInMigrationsTable(tx, "apikey_skills_access_backfill", migrateAPIKeySkillsAccess); err != nil {
+		return fmt.Errorf("failed to migrate API key skills access: %w", err)
+	}
+
 	if err := tx.AutoMigrate(&GptscriptCredential{}); err != nil {
 		return fmt.Errorf("failed to auto migrate GptscriptCredential: %w", err)
 	}
@@ -106,7 +110,14 @@ func (db *DB) AutoMigrate() (err error) {
 		types.TempSetupUser{},
 		types.Property{},
 		types.APIKey{},
+		types.ServiceAccountAPIKey{},
 		types.MessagePolicyViolation{},
+		types.DeviceScan{},
+		types.DeviceScanMCPServer{},
+		types.DeviceScanSkill{},
+		types.DeviceScanPlugin{},
+		types.DeviceScanFile{},
+		types.DeviceScanClient{},
 	); err != nil {
 		return fmt.Errorf("failed to auto migrate gateway types: %w", err)
 	}

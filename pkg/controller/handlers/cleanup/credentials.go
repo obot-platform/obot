@@ -8,6 +8,7 @@ import (
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/api/handlers"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -167,6 +168,29 @@ func (c *Credentials) RemoveMCPCredentials(req router.Request, _ router.Response
 
 	if err = c.mcpSessionManager.ShutdownServer(req.Ctx, mcpServer.Name); err != nil {
 		return fmt.Errorf("failed to shutdown server: %w", err)
+	}
+
+	return nil
+}
+
+func (c *Credentials) RemoveMCPInstanceCredentials(req router.Request, _ router.Response) error {
+	mcpServerInstance := req.Object.(*v1.MCPServerInstance)
+
+	if err := c.gatewayClient.DeleteMCPOAuthTokenForAllUsers(req.Ctx, mcpServerInstance.Name); err != nil {
+		return err
+	}
+
+	creds, err := c.gClient.ListCredentials(req.Ctx, gptscript.ListCredentialsOptions{
+		CredentialContexts: []string{handlers.MCPServerInstanceCredentialContext(*mcpServerInstance)},
+	})
+	if err != nil {
+		return err
+	}
+
+	for _, cred := range creds {
+		if err = c.gClient.DeleteCredential(req.Ctx, cred.Context, cred.ToolName); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+			return err
+		}
 	}
 
 	return nil

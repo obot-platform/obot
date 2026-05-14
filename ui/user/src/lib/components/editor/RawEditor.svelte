@@ -1,9 +1,37 @@
 <script lang="ts">
-	import '@milkdown/crepe/theme/common/style.css';
-	import '@milkdown/crepe/theme/frame.css';
-	import { twMerge } from 'tailwind-merge';
 	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
-
+	import { darkMode } from '$lib/stores';
+	import {
+		closeBrackets,
+		autocompletion,
+		closeBracketsKeymap,
+		completionKeymap
+	} from '@codemirror/autocomplete';
+	import { history, defaultKeymap, historyKeymap } from '@codemirror/commands';
+	import { cpp } from '@codemirror/lang-cpp';
+	import { css } from '@codemirror/lang-css';
+	import { go } from '@codemirror/lang-go';
+	import { html } from '@codemirror/lang-html';
+	import { java } from '@codemirror/lang-java';
+	import { javascript } from '@codemirror/lang-javascript';
+	import { markdown } from '@codemirror/lang-markdown';
+	import { rust } from '@codemirror/lang-rust';
+	import { sass } from '@codemirror/lang-sass';
+	import { sql } from '@codemirror/lang-sql';
+	import { vue } from '@codemirror/lang-vue';
+	import { yaml } from '@codemirror/lang-yaml';
+	import {
+		foldGutter,
+		indentOnInput,
+		syntaxHighlighting,
+		defaultHighlightStyle,
+		bracketMatching,
+		foldKeymap
+	} from '@codemirror/language';
+	import type { LanguageSupport } from '@codemirror/language';
+	import { lintKeymap } from '@codemirror/lint';
+	import { searchKeymap } from '@codemirror/search';
+	import { EditorState as CMEditorState } from '@codemirror/state';
 	import {
 		lineNumbers,
 		highlightActiveLineGutter,
@@ -14,41 +42,12 @@
 		placeholder as cmPlaceholder,
 		EditorView
 	} from '@codemirror/view';
-	import {
-		foldGutter,
-		indentOnInput,
-		syntaxHighlighting,
-		defaultHighlightStyle,
-		bracketMatching,
-		foldKeymap
-	} from '@codemirror/language';
-	import { history, defaultKeymap, historyKeymap } from '@codemirror/commands';
-	import { searchKeymap } from '@codemirror/search';
-	import {
-		closeBrackets,
-		autocompletion,
-		closeBracketsKeymap,
-		completionKeymap
-	} from '@codemirror/autocomplete';
-	import { lintKeymap } from '@codemirror/lint';
-	import { markdown } from '@codemirror/lang-markdown';
-	import { javascript } from '@codemirror/lang-javascript';
-	import { go } from '@codemirror/lang-go';
-	import { cpp } from '@codemirror/lang-cpp';
-	import { css } from '@codemirror/lang-css';
-	import { html } from '@codemirror/lang-html';
-	import { sql } from '@codemirror/lang-sql';
-	import { vue } from '@codemirror/lang-vue';
-	import { sass } from '@codemirror/lang-sass';
-	import { rust } from '@codemirror/lang-rust';
-	import { java } from '@codemirror/lang-java';
-	import { yaml } from '@codemirror/lang-yaml';
-	import type { LanguageSupport } from '@codemirror/language';
-	import { EditorState as CMEditorState } from '@codemirror/state';
 	import { EditorView as CMEditorView } from '@codemirror/view';
+	import '@milkdown/crepe/theme/common/style.css';
+	import '@milkdown/crepe/theme/frame.css';
 	import { githubLight, githubDark } from '@uiw/codemirror-theme-github';
-	import { darkMode } from '$lib/stores';
 	import { onDestroy, untrack } from 'svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	const LANGUAGE_MAP: Record<string, () => LanguageSupport> = {
 		java,

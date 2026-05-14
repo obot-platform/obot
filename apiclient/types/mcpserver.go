@@ -1,6 +1,7 @@
 package types
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"strings"
@@ -20,24 +21,30 @@ const (
 
 // UVXRuntimeConfig represents configuration for UVX runtime (Python packages via uvx)
 type UVXRuntimeConfig struct {
-	Package string   `json:"package"`        // Required: Python package name
-	Command string   `json:"command"`        // Optional: Specific command to run inside of the package. If empty, the package name will be treated as the command.
-	Args    []string `json:"args,omitempty"` // Optional: Additional arguments
+	Package       string   `json:"package"`                 // Required: Python package name
+	Command       string   `json:"command"`                 // Optional: Specific command to run inside of the package. If empty, the package name will be treated as the command.
+	Args          []string `json:"args,omitempty"`          // Optional: Additional arguments
+	EgressDomains []string `json:"egressDomains,omitempty"` // Optional: Empty means allow all, otherwise allow only the listed domains when network policy enforcement is enabled
+	DenyAllEgress *bool    `json:"denyAllEgress,omitempty"` // Optional: Deny all egress when network policy enforcement is enabled
 }
 
 // NPXRuntimeConfig represents configuration for NPX runtime (Node.js packages via npx)
 type NPXRuntimeConfig struct {
-	Package string   `json:"package"`        // Required: NPM package name
-	Args    []string `json:"args,omitempty"` // Optional: Additional arguments
+	Package       string   `json:"package"`                 // Required: NPM package name
+	Args          []string `json:"args,omitempty"`          // Optional: Additional arguments
+	EgressDomains []string `json:"egressDomains,omitempty"` // Optional: Empty means allow all, otherwise allow only the listed domains when network policy enforcement is enabled
+	DenyAllEgress *bool    `json:"denyAllEgress,omitempty"` // Optional: Deny all egress when network policy enforcement is enabled
 }
 
 // ContainerizedRuntimeConfig represents configuration for containerized runtime (Docker containers)
 type ContainerizedRuntimeConfig struct {
-	Image   string   `json:"image"`             // Required: Docker image name
-	Command string   `json:"command,omitempty"` // Optional: Override container command
-	Args    []string `json:"args,omitempty"`    // Optional: Container arguments
-	Port    int      `json:"port"`              // Required: Container port
-	Path    string   `json:"path"`              // Required: HTTP path for MCP endpoint
+	Image         string   `json:"image"`                   // Required: Docker image name
+	Command       string   `json:"command,omitempty"`       // Optional: Override container command
+	Args          []string `json:"args,omitempty"`          // Optional: Container arguments
+	Port          int      `json:"port"`                    // Required: Container port
+	Path          string   `json:"path"`                    // Required: HTTP path for MCP endpoint
+	EgressDomains []string `json:"egressDomains,omitempty"` // Optional: Empty means allow all, otherwise allow only the listed domains when network policy enforcement is enabled
+	DenyAllEgress *bool    `json:"denyAllEgress,omitempty"` // Optional: Deny all egress when network policy enforcement is enabled
 }
 
 // RemoteRuntimeConfig represents configuration for remote runtime (External MCP servers)
@@ -59,6 +66,12 @@ type RemoteCatalogConfig struct {
 	StaticOAuthRequired bool        `json:"staticOAuthRequired,omitempty"` // Indicates static OAuth configuration is required
 }
 
+// MultiUserConfig represents configuration for multi-user MCP servers in catalog entries
+type MultiUserConfig struct {
+	// Headers that users should provide when configuring their server instance.
+	UserDefinedHeaders []MCPHeader `json:"userDefinedHeaders,omitempty"`
+}
+
 // CompositeCatalogConfig represents configuration for composite servers in catalog entries.
 type CompositeCatalogConfig struct {
 	ComponentServers []CatalogComponentServer `json:"componentServers"`
@@ -70,9 +83,11 @@ type CatalogComponentServer struct {
 	// MCPServerID if set, reference the multi-user MCP server the component server proxies to
 	MCPServerID string `json:"mcpServerID,omitempty"`
 	// Manifest is the catalog entry manifest of the component server
-	Manifest MCPServerCatalogEntryManifest `json:"manifest,omitempty"`
+	Manifest MCPServerCatalogEntryManifest `json:"manifest,omitzero"`
 	// ToolOverrides restrict the tools exposed by the component server
 	ToolOverrides []ToolOverride `json:"toolOverrides,omitempty"`
+	// ToolPrefix is an optional prefix applied to the final name of each tool exposed by the component server
+	ToolPrefix string `json:"toolPrefix,omitempty"`
 }
 
 // ComponentID returns the ID of the component server.
@@ -95,9 +110,11 @@ type ComponentServer struct {
 	// MCPServerID if set, reference the multi-user MCP server the component server proxies to
 	MCPServerID string `json:"mcpServerID,omitempty"`
 	// Manifest is the runtime manifest of the component server
-	Manifest MCPServerManifest `json:"manifest,omitempty"`
+	Manifest MCPServerManifest `json:"manifest,omitzero"`
 	// ToolOverrides restrict the tools exposed by the component server
 	ToolOverrides []ToolOverride `json:"toolOverrides,omitempty"`
+	// ToolPrefix is an optional prefix applied to the final name of each tool exposed by the component server
+	ToolPrefix string `json:"toolPrefix,omitempty"`
 	// Disabled indicates whether the component server should be included in the composite server at runtime
 	Disabled bool `json:"disabled,omitempty"`
 }
@@ -146,7 +163,14 @@ type MCPServerCatalogEntryManifest struct {
 	RemoteConfig        *RemoteCatalogConfig        `json:"remoteConfig,omitempty"`
 	CompositeConfig     *CompositeCatalogConfig     `json:"compositeConfig,omitempty"`
 
+	// MultiUserConfig is the multi-user specific configuration for this component server, if applicable.
+	MultiUserConfig *MultiUserConfig `json:"multiUserConfig,omitempty"`
+
 	Env []MCPEnv `json:"env,omitempty"`
+
+	// StartupTimeout configures the timeout to start and connect to an MCP Server. When unset, it defaults to 60s.
+	// The maximum allowed value is 600s (10 minutes). Attempting to set a higher value will cause an error.
+	StartupTimeoutSeconds int `json:"startupTimeoutSeconds,omitempty"`
 }
 
 // ToolOverride defines how a single component tool is exposed by the composite server
@@ -183,7 +207,18 @@ type MCPHeader struct {
 	Sensitive bool   `json:"sensitive"`
 	Required  bool   `json:"required"`
 	Prefix    string `json:"prefix,omitempty"` // Optional prefix to prepend to user-supplied values (e.g., "Bearer ")
+
+	// SecretBinding binds this value to a key in a pre-existing Kubernetes Secret
+	SecretBinding *MCPSecretBinding `json:"secretBinding,omitempty"`
 }
+
+// MCPSecretBinding references a single key in a pre-existing Kubernetes Secret
+// in the Obot namespace (the namespace where the Obot server runs)
+type MCPSecretBinding struct {
+	Name string `json:"name"`
+	Key  string `json:"key"`
+}
+
 
 type MCPEnv struct {
 	MCPHeader `json:",inline"`
@@ -214,6 +249,9 @@ type MCPServerManifest struct {
 	RemoteConfig        *RemoteRuntimeConfig        `json:"remoteConfig,omitempty"`
 	CompositeConfig     *CompositeRuntimeConfig     `json:"compositeConfig,omitempty"`
 
+	// Multi-user specific configuration
+	MultiUserConfig *MultiUserConfig `json:"multiUserConfig,omitempty"`
+
 	Env []MCPEnv `json:"env,omitempty"`
 
 	// Legacy fields that are deprecated, used only for cleaning up old servers
@@ -221,6 +259,9 @@ type MCPServerManifest struct {
 	Args    []string    `json:"args,omitempty"`
 	URL     string      `json:"url,omitempty"`
 	Headers []MCPHeader `json:"headers,omitempty"`
+
+	IdleShutdownIntervalHours int `json:"idleShutdownIntervalHours,omitempty"`
+	StartupTimeoutSeconds     int `json:"startupTimeoutSeconds,omitempty"`
 }
 
 type MCPServer struct {
@@ -239,6 +280,7 @@ type MCPServer struct {
 	PowerUserWorkspaceID    string   `json:"powerUserWorkspaceID"`
 	MCPCatalogID            string   `json:"mcpCatalogID,omitempty"`
 	ConnectURL              string   `json:"connectURL,omitempty"`
+	NanobotAgentID          string   `json:"nanobotAgentID,omitempty"`
 
 	// NeedsUpdate indicates whether the configuration in this server's catalog entry has drift from this server's configuration.
 	NeedsUpdate bool `json:"needsUpdate,omitempty"`
@@ -271,6 +313,9 @@ type MCPServer struct {
 	// DeploymentConditions contains key deployment conditions that indicate deployment health.
 	DeploymentConditions []DeploymentCondition `json:"deploymentConditions,omitempty"`
 
+	// OAuthMetadata contains discovered OAuth metadata for remote MCP servers.
+	OAuthMetadata *OAuthMetadata `json:"oauthMetadata,omitempty"`
+
 	// K8sSettingsHash contains the hash of K8s settings this server was deployed with
 	K8sSettingsHash string `json:"k8sSettingsHash,omitempty"`
 
@@ -280,6 +325,14 @@ type MCPServer struct {
 
 	// CompositeName is the name of the composite server that this MCP server is a component of, if there is one.
 	CompositeName string `json:"compositeName,omitempty"`
+}
+
+type OAuthMetadata struct {
+	ProtectedResourceURL        string          `json:"protectedResourceUrl,omitempty"`
+	AuthorizationServerURL      string          `json:"authorizationServerUrl,omitempty"`
+	ProtectedResourceMetadata   json.RawMessage `json:"protectedResourceMetadata,omitempty"`
+	AuthorizationServerMetadata json.RawMessage `json:"authorizationServerMetadata,omitempty"`
+	DynamicClientRegistration   bool            `json:"dynamicClientRegistration,omitempty"`
 }
 
 type DeploymentCondition struct {
@@ -305,7 +358,7 @@ type MCPServerTool struct {
 	Description string            `json:"description,omitempty"`
 	Params      map[string]string `json:"params,omitempty"`
 	Credentials []string          `json:"credentials,omitempty"`
-	Enabled     bool              `json:"enabled"`
+	Enabled     bool              `json:"enabled,omitempty"`
 	Unsupported bool              `json:"unsupported,omitempty"`
 }
 
@@ -383,14 +436,15 @@ func (e RuntimeValidationError) Error() string {
 func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL string, disableHostnameValidation bool) (MCPServerManifest, error) {
 	serverManifest := MCPServerManifest{
 		// Copy common fields
-		Metadata:         catalogEntry.Metadata,
-		Name:             catalogEntry.Name,
-		ShortDescription: catalogEntry.ShortDescription,
-		Description:      catalogEntry.Description,
-		Icon:             catalogEntry.Icon,
-		ToolPreview:      catalogEntry.ToolPreview,
-		Runtime:          catalogEntry.Runtime,
-		Env:              catalogEntry.Env,
+		Metadata:              catalogEntry.Metadata,
+		Name:                  catalogEntry.Name,
+		ShortDescription:      catalogEntry.ShortDescription,
+		Description:           catalogEntry.Description,
+		Icon:                  catalogEntry.Icon,
+		ToolPreview:           catalogEntry.ToolPreview,
+		Runtime:               catalogEntry.Runtime,
+		Env:                   catalogEntry.Env,
+		StartupTimeoutSeconds: catalogEntry.StartupTimeoutSeconds,
 	}
 
 	// Handle runtime-specific mapping
@@ -404,9 +458,11 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 			}
 		}
 		serverManifest.UVXConfig = &UVXRuntimeConfig{
-			Package: catalogEntry.UVXConfig.Package,
-			Command: catalogEntry.UVXConfig.Command,
-			Args:    catalogEntry.UVXConfig.Args,
+			Package:       catalogEntry.UVXConfig.Package,
+			Command:       catalogEntry.UVXConfig.Command,
+			Args:          catalogEntry.UVXConfig.Args,
+			EgressDomains: catalogEntry.UVXConfig.EgressDomains,
+			DenyAllEgress: catalogEntry.UVXConfig.DenyAllEgress,
 		}
 
 	case RuntimeNPX:
@@ -418,8 +474,10 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 			}
 		}
 		serverManifest.NPXConfig = &NPXRuntimeConfig{
-			Package: catalogEntry.NPXConfig.Package,
-			Args:    catalogEntry.NPXConfig.Args,
+			Package:       catalogEntry.NPXConfig.Package,
+			Args:          catalogEntry.NPXConfig.Args,
+			EgressDomains: catalogEntry.NPXConfig.EgressDomains,
+			DenyAllEgress: catalogEntry.NPXConfig.DenyAllEgress,
 		}
 
 	case RuntimeContainerized:
@@ -431,11 +489,13 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 			}
 		}
 		serverManifest.ContainerizedConfig = &ContainerizedRuntimeConfig{
-			Image:   catalogEntry.ContainerizedConfig.Image,
-			Command: catalogEntry.ContainerizedConfig.Command,
-			Args:    catalogEntry.ContainerizedConfig.Args,
-			Port:    catalogEntry.ContainerizedConfig.Port,
-			Path:    catalogEntry.ContainerizedConfig.Path,
+			Image:         catalogEntry.ContainerizedConfig.Image,
+			Command:       catalogEntry.ContainerizedConfig.Command,
+			Args:          catalogEntry.ContainerizedConfig.Args,
+			Port:          catalogEntry.ContainerizedConfig.Port,
+			Path:          catalogEntry.ContainerizedConfig.Path,
+			EgressDomains: catalogEntry.ContainerizedConfig.EgressDomains,
+			DenyAllEgress: catalogEntry.ContainerizedConfig.DenyAllEgress,
 		}
 
 	case RuntimeRemote:

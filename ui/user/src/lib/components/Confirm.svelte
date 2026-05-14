@@ -116,8 +116,11 @@
 						{/if}
 					</button>
 				{/if}
-				<button onclick={oncancel} type="button" class="button w-full justify-center"
-					>{cancelText}</button
+				<button
+					onclick={oncancel}
+					type="button"
+					class="button w-full justify-center"
+					disabled={loading}>{cancelText}</button
 				>
 			</div>
 		</div>

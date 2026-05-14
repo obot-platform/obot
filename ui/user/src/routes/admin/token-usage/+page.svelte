@@ -1,33 +1,38 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
+	import type { DateRange } from '$lib/components/Calendar.svelte';
 	import Layout from '$lib/components/Layout.svelte';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { subDays } from 'date-fns';
-	import { Coins } from 'lucide-svelte';
-	import { fade } from 'svelte/transition';
+	import Search from '$lib/components/Search.svelte';
 	import Select from '$lib/components/Select.svelte';
-	import { getUserDisplayName } from '$lib/utils';
+	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
+	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
 		type Model,
 		type OrgUser,
 		type TokenUsage,
-		type TotalTokenUsage
+		type TotalTokenUsage,
+		type TokenUsageWithCategory
 	} from '$lib/services';
+	import { errors } from '$lib/stores';
+	import { goto } from '$lib/url';
+	import { getUserDisplayName } from '$lib/utils';
+	import { aggregateTimelineDataByBucket, getUserLabels } from './utils';
+	import { subDays } from 'date-fns';
+	import { Coins, X } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
-	import type { DateRange } from '$lib/components/Calendar.svelte';
-	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
-	import { errors } from '$lib/stores';
-	import { aggregateTimelineDataByBucket, getUserLabels } from './utils';
+	import { fade } from 'svelte/transition';
+	import { slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
-	import { goto } from '$lib/url';
-	import Loading from '$lib/icons/Loading.svelte';
-	import Search from '$lib/components/Search.svelte';
 
 	let loadingTableData = $state(true);
 	let loadingTotalTokensData = $state(true);
+	let usersData = $state<OrgUser[]>([]);
+	let modelsData = $state<Model[]>([]);
+
 	let end = $derived(page.url.searchParams.get('end'));
 	let start = $derived(page.url.searchParams.get('start'));
 	let lastStart = $state<string | null>(null);
@@ -53,11 +58,10 @@
 	const selectedTargetModels = $derived.by(() => {
 		const ids = selectedModelIds.filter((id) => id !== 'all_models');
 		if (ids.length === 0) return null;
-		const modelsMap = new Map(modelsData.map((m) => [m.id, m]));
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const targetModels = new Set<string>();
 		for (const id of ids) {
-			const model = modelsMap.get(id);
+			const model = modelsToDisplayName.get(id);
 			if (model?.targetModel) targetModels.add(model.targetModel);
 		}
 		return targetModels.size > 0 ? targetModels : null;
@@ -75,8 +79,6 @@
 		}
 		return result;
 	});
-	let usersData = $state<OrgUser[]>([]);
-	let modelsData = $state<Model[]>([]);
 	let groupBy = $derived(
 		(page.url.searchParams.get('group_by') as 'group_by_users' | 'group_by_models' | null) ??
 			'group_by_default'
@@ -92,6 +94,7 @@
 	let subViewSearchQuery = $state('');
 
 	const usersMap = $derived(new Map(usersData.map((u) => [u.id, u])));
+	const modelsToDisplayName = $derived(new Map(modelsData.map((m) => [m.id, m])));
 
 	onMount(async () => {
 		usersData = await AdminService.listUsersIncludeDeleted();
@@ -163,8 +166,6 @@
 	const targetModelToDisplayName = $derived(
 		new Map(modelsData.map((m) => [m.targetModel, m.displayName || m.name]))
 	);
-
-	type TokenUsageWithCategory = TokenUsage & { category: string };
 
 	function toTimelineItem(r: TokenUsage, category: string): TokenUsageWithCategory {
 		return {
@@ -479,7 +480,13 @@
 		goto(currentUrl, { noScroll: true, keepFocus: true });
 	}
 
-	function handleAddUserFilter(userId: string) {
+	function handleRemoveAllUserFilters() {
+		const currentUrl = new URL(page.url);
+		currentUrl.searchParams.delete('user');
+		goto(currentUrl, { noScroll: true, keepFocus: true });
+	}
+
+	function handleToggleUserFilter(userId: string) {
 		if (userId === 'all_users') {
 			const currentUrl = new URL(page.url);
 			currentUrl.searchParams.delete('user');
@@ -488,13 +495,16 @@
 		}
 		const currentUrl = new URL(page.url);
 		const users = currentUrl.searchParams.getAll('user');
-		if (users.includes(userId)) return;
-		users.push(userId);
-		currentUrl.searchParams.delete('user');
-		for (const id of users) {
-			currentUrl.searchParams.append('user', id);
+		if (users.includes(userId)) {
+			handleRemoveUserFilter(userId);
+		} else {
+			users.push(userId);
+			currentUrl.searchParams.delete('user');
+			for (const id of users) {
+				currentUrl.searchParams.append('user', id);
+			}
+			goto(currentUrl, { noScroll: true, keepFocus: true });
 		}
-		goto(currentUrl, { noScroll: true, keepFocus: true });
 	}
 
 	function handleRemoveModelFilter(modelId: string) {
@@ -507,7 +517,13 @@
 		goto(currentUrl, { noScroll: true, keepFocus: true });
 	}
 
-	function handleAddModelFilter(modelId: string) {
+	function handleRemoveAllModelFilters() {
+		const currentUrl = new URL(page.url);
+		currentUrl.searchParams.delete('model');
+		goto(currentUrl, { noScroll: true, keepFocus: true });
+	}
+
+	function handleToggleModelFilter(modelId: string) {
 		if (modelId === 'all_models') {
 			const currentUrl = new URL(page.url);
 			currentUrl.searchParams.delete('model');
@@ -516,13 +532,16 @@
 		}
 		const currentUrl = new URL(page.url);
 		const models = currentUrl.searchParams.getAll('model');
-		if (models.includes(modelId)) return;
-		models.push(modelId);
-		currentUrl.searchParams.delete('model');
-		for (const id of models) {
-			currentUrl.searchParams.append('model', id);
+		if (models.includes(modelId)) {
+			handleRemoveModelFilter(modelId);
+		} else {
+			models.push(modelId);
+			currentUrl.searchParams.delete('model');
+			for (const id of models) {
+				currentUrl.searchParams.append('model', id);
+			}
+			goto(currentUrl, { noScroll: true, keepFocus: true });
 		}
-		goto(currentUrl, { noScroll: true, keepFocus: true });
 	}
 
 	function handleGroupByChange(groupBy: string) {
@@ -601,10 +620,18 @@
 					}}
 					options={usersOptions}
 					selected={selectedUserIdsForSelect}
-					onSelect={(option) => handleAddUserFilter(option.id)}
+					onSelect={(option) => handleToggleUserFilter(option.id)}
 					onClear={(option) => option && handleRemoveUserFilter(option.id)}
+					onClearAll={selectedUserIdsForSelect !== 'all_users'
+						? () => handleRemoveAllUserFilters()
+						: undefined}
 					id="user-select"
 					multiple
+					searchInDropdown
+					placeholder="Filter by user..."
+					buttonReadOnly
+					buttonTitle="Users"
+					displayCount={!!selectedUserIdsForSelect && selectedUserIdsForSelect !== 'all_users'}
 				/>
 				<Select
 					class="dark:border-surface3 border border-transparent"
@@ -613,14 +640,54 @@
 					}}
 					options={modelsOptions}
 					selected={filteredByModel}
-					onSelect={(option) => handleAddModelFilter(option.id)}
+					onSelect={(option) => handleToggleModelFilter(option.id)}
 					onClear={(option) => option && handleRemoveModelFilter(option.id)}
+					onClearAll={filteredByModel !== 'all_models'
+						? () => handleRemoveAllModelFilters()
+						: undefined}
 					id="model-select"
 					multiple
+					searchInDropdown
+					placeholder="Filter by model..."
+					buttonReadOnly
+					buttonTitle="Models"
+					displayCount={!!filteredByModel && filteredByModel !== 'all_models'}
 				/>
 				<div class="bg-surface3 hidden h-8 w-0.5 md:block"></div>
 				<AuditLogCalendar start={startDate} end={endDate} onChange={handleDateRangeChange} />
 			</div>
+			{#if filteredByModel !== 'all_models' || selectedUserIdsForSelect !== 'all_users'}
+				<div class="flex flex-wrap items-center gap-2" in:slide={{ axis: 'y', duration: 100 }}>
+					{#if selectedUserIdsForSelect !== 'all_users'}
+						{@const userPills = selectedUserIds.map((selectedUser) => ({
+							id: selectedUser,
+							label: getUserDisplayName(usersMap, selectedUser)
+						}))}
+						{#each userPills as userPill (userPill.id)}
+							<div class="filter-primary">
+								<span class="font-semibold">User:</span>{userPill.label}
+								<button class="ml-1" onclick={() => handleRemoveUserFilter(userPill.id)}>
+									<X class="size-3" />
+								</button>
+							</div>
+						{/each}
+					{/if}
+					{#if filteredByModel !== 'all_models'}
+						{@const modelPills = selectedModelIds.map((selectedModel) => ({
+							id: selectedModel,
+							label: modelsToDisplayName.get(selectedModel)?.name ?? selectedModel
+						}))}
+						{#each modelPills as modelPill (modelPill.id)}
+							<div class="filter-primary">
+								<span class="font-semibold">Model:</span>{modelPill.label}
+								<button class="ml-1" onclick={() => handleRemoveModelFilter(modelPill.id)}>
+									<X class="size-3" />
+								</button>
+							</div>
+						{/each}
+					{/if}
+				</div>
+			{/if}
 			<div class="paper w-full gap-0 pt-4">
 				<div class="mb-1 flex flex-wrap justify-between gap-2">
 					<div class="flex flex-wrap items-center gap-4">
@@ -634,7 +701,7 @@
 						<div class="flex shrink-0">
 							<button
 								class={twMerge(
-									'button-secondary rounded-r-none border-1 border-r-0 text-xs',
+									'button-secondary rounded-r-none border border-r-0 text-xs',
 									selectedTokenType === 'input' && 'bg-surface2 border-surface2'
 								)}
 								onclick={() => handleTokenTypeChange('input')}
@@ -643,7 +710,7 @@
 							</button>
 							<button
 								class={twMerge(
-									'button-secondary rounded-l-none border-1 text-xs',
+									'button-secondary rounded-l-none border text-xs',
 									selectedTokenType === 'output' && 'bg-surface2 border-surface2'
 								)}
 								onclick={() => handleTokenTypeChange('output')}
@@ -689,7 +756,7 @@
 								<div class="flex flex-col gap-0 text-xs">
 									<div class="text-sm font-light">{item.key}</div>
 									<div class="text-on-surface1">{item.date}</div>
-									<div class="divider"></div>
+									<div class="tooltip-divider"></div>
 								</div>
 								<div class="flex flex-col gap-1">
 									<div class="text-on-background flex flex-col">
@@ -805,7 +872,7 @@
 															{item.hoveredPart === 'primary' ? 'Input tokens' : 'Output tokens'}
 														</div>
 														<div class="text-on-surface1">{item.date}</div>
-														<div class="divider"></div>
+														<div class="tooltip-divider"></div>
 													</div>
 													<div class="flex flex-col gap-1">
 														<div class="text-on-background flex flex-col">
@@ -868,13 +935,5 @@
 		background-color: var(--color-surface3);
 		margin-left: 1rem;
 		margin-right: 1rem;
-	}
-
-	.divider {
-		height: 1px;
-		width: 100%;
-		background-color: var(--color-surface3);
-		margin-top: 0.5rem;
-		margin-bottom: 0.5rem;
 	}
 </style>

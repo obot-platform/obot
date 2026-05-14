@@ -1,3 +1,4 @@
+{{- include "obot.validateNetworkPolicyProviderChartConfig" . -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -100,8 +101,12 @@ spec:
               port: http
             failureThreshold: 5
             periodSeconds: 10
-          {{- if .Values.extraEnv }}
           env:
+            - name: OBOT_SERVER_SERVICE_ACCOUNT_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.serviceAccountName
+            {{- if .Values.extraEnv }}
             {{- range $key, $value := .Values.extraEnv }}
             - name: {{ $key }}
               value: {{ $value | quote }}

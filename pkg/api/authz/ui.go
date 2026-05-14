@@ -32,8 +32,8 @@ var uiResources = []string{
 }
 
 func (a *Authorizer) checkUI(req *http.Request, user user.Info) bool {
-	// Reject direct access to /api or /api paths for UI except for /api/image/{id}
-	if req.URL.Path == "/api" || (strings.HasPrefix(req.URL.Path, "/api/") && !strings.HasPrefix(req.URL.Path, "/api/image/")) {
+	// Reject direct access to /debug/, /api or /api paths for UI except for /api/image/{id}
+	if req.URL.Path == "/api" || hasAnyPrefix(req.URL.Path, "/mcp-connect/", "/oauth/", "/debug/") || (strings.HasPrefix(req.URL.Path, "/api/") && !strings.HasPrefix(req.URL.Path, "/api/image/")) {
 		return false
 	}
 
@@ -57,4 +57,13 @@ func (a *Authorizer) checkUI(req *http.Request, user user.Info) bool {
 	// did not hit any above conditions, so allow access
 	// incorrect routes will handled by SvelteKit error page
 	return true
+}
+
+func hasAnyPrefix(path string, prefixes ...string) bool {
+	for _, prefix := range prefixes {
+		if strings.HasPrefix(path, prefix) {
+			return true
+		}
+	}
+	return false
 }

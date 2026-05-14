@@ -9,11 +9,11 @@
 		NanobotModelAlias,
 		ChatService
 	} from '$lib/services';
-	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { AdminService } from '$lib/services';
+	import { version, defaultModelAliases as defaultModelAliasesStore } from '$lib/stores';
+	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import Select from '../Select.svelte';
 	import { LoaderCircle } from 'lucide-svelte';
-	import { version, defaultModelAliases as defaultModelAliasesStore } from '$lib/stores';
 
 	let { availableModels, readonly }: { availableModels: Model[]; readonly?: boolean } = $props();
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
@@ -206,8 +206,8 @@
 					options={activeModelOptions
 						.map((model) => ({
 							label: (SUGGESTED_MODEL_SELECTIONS[modelAlias.alias] ?? []).includes(model.name ?? '')
-								? `${model.name ?? ''} (Suggested)`
-								: (model.name ?? ''),
+								? `${model.displayName || model.name || ''} (Suggested)`
+								: model.displayName || model.name || '',
 							id: model.id
 						}))
 						.sort((a, b) => {
@@ -227,7 +227,7 @@
 						};
 					}}
 					disabled={readonly}
-					searchable
+					searchInDropdown
 					placeholder="Search models..."
 				/>
 			</div>
@@ -241,7 +241,7 @@
 				disabled={loading || !changed}
 			>
 				{#if loading}
-					<LoaderCircle class="size-4 animate-spin" />
+					<LoaderCircle class="size-4 animate-spin inline-block" />
 				{:else}
 					Save Changes
 				{/if}

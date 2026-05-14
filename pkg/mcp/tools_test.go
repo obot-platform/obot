@@ -13,6 +13,7 @@ func TestApplyToolOverrides(t *testing.T) {
 		name          string
 		tools         []types.MCPServerTool
 		toolOverrides []types.ToolOverride
+		toolPrefix    string
 		expected      []types.MCPServerTool
 	}{
 		{
@@ -151,11 +152,69 @@ func TestApplyToolOverrides(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "tool prefix with no overrides - prefix applied to all tools",
+			tools: []types.MCPServerTool{
+				{Name: "create-issue", Description: "Creates an issue"},
+				{Name: "list-repos", Description: "Lists repositories"},
+			},
+			toolOverrides: nil,
+			toolPrefix:    "gh_",
+			expected: []types.MCPServerTool{
+				{Name: "gh_create-issue", Description: "Creates an issue"},
+				{Name: "gh_list-repos", Description: "Lists repositories"},
+			},
+		},
+		{
+			name: "tool prefix combined with override name",
+			tools: []types.MCPServerTool{
+				{Name: "create-issue", Description: "Creates an issue"},
+			},
+			toolOverrides: []types.ToolOverride{
+				{Name: "create-issue", OverrideName: "new-issue", Enabled: true},
+			},
+			toolPrefix: "gh_",
+			expected: []types.MCPServerTool{
+				{Name: "gh_new-issue", Description: "Creates an issue"},
+			},
+		},
+		{
+			name: "tool prefix does not leak onto disabled tools",
+			tools: []types.MCPServerTool{
+				{Name: "create-issue", Description: "Creates an issue"},
+				{Name: "delete-repo", Description: "Deletes a repository"},
+			},
+			toolOverrides: []types.ToolOverride{
+				{Name: "create-issue", Enabled: true},
+				{Name: "delete-repo", Enabled: false},
+			},
+			toolPrefix: "gh_",
+			expected: []types.MCPServerTool{
+				{Name: "gh_create-issue", Description: "Creates an issue"},
+			},
+		},
+		{
+			name: "tool prefix on allowlist-only tools",
+			tools: []types.MCPServerTool{
+				{Name: "create-issue", Description: "Creates an issue"},
+				{Name: "list-repos", Description: "Lists repositories"},
+				{Name: "delete-repo", Description: "Deletes a repository"},
+			},
+			toolOverrides: []types.ToolOverride{
+				{Name: "create-issue", Enabled: true},
+				{Name: "list-repos", Enabled: true},
+			},
+			toolPrefix: "gh_",
+			expected: []types.MCPServerTool{
+				{Name: "gh_create-issue", Description: "Creates an issue"},
+				{Name: "gh_list-repos", Description: "Lists repositories"},
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := ApplyToolOverrides(tt.tools, tt.toolOverrides)
+			result := ApplyToolOverrides(tt.tools, tt.toolOverrides, tt.toolPrefix)
 			require.Equal(t, len(tt.expected), len(result), "Tool count mismatch")
 			for i := range tt.expected {
 				assert.Equal(t, tt.expected[i].Name, result[i].Name, "Tool name mismatch at index %d", i)

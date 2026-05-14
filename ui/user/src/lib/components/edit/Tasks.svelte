@@ -1,15 +1,15 @@
 <script lang="ts">
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
-	import { createNewTask, getLayout, openTask, openTaskRun } from '$lib/context/chatLayout.svelte';
-	import { ChatService, type Project, type Task } from '$lib/services';
-	import { Plus } from 'lucide-svelte/icons';
-	import { onMount } from 'svelte';
-	import { responsive } from '$lib/stores';
 	import TaskItem from '$lib/components/edit/TaskItem.svelte';
 	import Input from '$lib/components/tasks/Input.svelte';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { fade } from 'svelte/transition';
+	import { createNewTask, getLayout, openTask, openTaskRun } from '$lib/context/chatLayout.svelte';
+	import { ChatService, type Project, type Task } from '$lib/services';
+	import { responsive } from '$lib/stores';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import { Plus } from 'lucide-svelte/icons';
+	import { onMount } from 'svelte';
+	import { fade } from 'svelte/transition';
 
 	interface Props {
 		project: Project;

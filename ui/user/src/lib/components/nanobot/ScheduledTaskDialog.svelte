@@ -3,15 +3,13 @@
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import TimeInput from '$lib/components/TimeInput.svelte';
-	import { errors } from '$lib/stores';
 	import type { ChatAPI } from '$lib/services/nanobot/chat/index.svelte';
 	import type {
 		CreateScheduledTaskRequest,
 		ScheduledTask,
 		UpdateScheduledTaskRequest
 	} from '$lib/services/nanobot/types';
-	import { Check, ChevronDown, LoaderCircle } from 'lucide-svelte';
-	import { twMerge } from 'tailwind-merge';
+	import { errors, timePreference } from '$lib/stores';
 	import {
 		buildCronSchedule,
 		defaultTaskScheduleForm,
@@ -22,6 +20,8 @@
 		parseCronSchedule,
 		type TaskFrequency
 	} from './taskSchedule';
+	import { Check, ChevronDown, LoaderCircle } from 'lucide-svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		api: ChatAPI;
@@ -246,7 +246,7 @@
 <ResponsiveDialog
 	bind:this={dialog}
 	onClose={handleClose}
-	title={currentTask ? 'Edit schedule' : 'Add schedule'}
+	title={currentTask ? 'Edit Schedule' : 'Add Schedule'}
 	class="w-full max-w-3xl"
 	classes={{
 		title: 'text-2xl font-semibold',
@@ -396,6 +396,7 @@
 
 				<div class="flex flex-col gap-2">
 					<TimeInput
+						format={timePreference.timeFormat}
 						date={timeAsDate}
 						onChange={(d) => {
 							time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
@@ -408,7 +409,7 @@
 
 		<div class="flex flex-col gap-3">
 			<label for="schedule-expiration" class="input-label text-base font-medium">
-				Expiration date <span class="text-on-surface1 font-normal">(optional)</span>
+				Expiration Date <span class="text-on-surface1 font-normal">(optional)</span>
 			</label>
 			<DatePicker
 				id="schedule-expiration"
@@ -437,7 +438,7 @@
 			<summary
 				class="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 text-base font-medium"
 			>
-				<span>Advanced settings</span>
+				<span>Advanced Settings</span>
 				<ChevronDown class="size-5 shrink-0 transition-transform" />
 			</summary>
 			<div class="border-base-300 border-t px-5 py-4">
@@ -448,7 +449,11 @@
 							Runs until it is disabled or reaches its expiration.
 						</p>
 					</div>
-					<input type="checkbox" class="toggle" bind:checked={enabled} />
+					<input
+						type="checkbox"
+						class="toggle text-background dark:text-surface2 bg-surface3 checked:bg-primary border-transparent"
+						bind:checked={enabled}
+					/>
 				</div>
 				{#if currentTask}
 					<div class="text-on-surface1 mt-4 text-sm">

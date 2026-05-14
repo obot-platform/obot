@@ -1,17 +1,15 @@
 <script lang="ts">
-	import type { Snippet } from 'svelte';
-	import { fade, slide } from 'svelte/transition';
-	import { SvelteMap } from 'svelte/reactivity';
-	import { flip } from 'svelte/animate';
-	import { X, ChevronLeft, ChevronRight, Funnel, Captions, Plus, Settings } from 'lucide-svelte';
-	import { debounce } from 'es-toolkit';
-	import { set, endOfDay, isBefore, subDays } from 'date-fns';
-	import { page } from '$app/state';
 	import { afterNavigate } from '$app/navigation';
-	import { goto, replaceState } from '$lib/url';
-	import DotDotDot from '$lib/components/DotDotDot.svelte';
+	import { page } from '$app/state';
+	import { columnResize } from '$lib/actions/resize';
 	import { type DateRange } from '$lib/components/Calendar.svelte';
+	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Search from '$lib/components/Search.svelte';
+	import AuditLogDetails from '$lib/components/admin/audit-logs/AuditLogDetails.svelte';
+	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
+	import { setVirtualPageData } from '$lib/components/ui/virtual-page/context';
+	import Loading from '$lib/icons/Loading.svelte';
+	import { localState } from '$lib/runes/localState.svelte';
 	import {
 		type OrgUser,
 		type AuditLogURLFilters,
@@ -19,21 +17,23 @@
 		type AuditLog,
 		ChatService
 	} from '$lib/services';
-	import { type PaginatedResponse } from '$lib/services/admin/operations';
-	import { columnResize } from '$lib/actions/resize';
-	import AuditLogDetails from '$lib/components/admin/audit-logs/AuditLogDetails.svelte';
-	import AuditLogsTable from './AuditLogs.svelte';
-	import AuditLogCalendar from './AuditLogCalendar.svelte';
-	import { aggregateAuditLogsByBucket, type AuditLogTimelineBucketRow } from './timelineUtils';
-	import { localState } from '$lib/runes/localState.svelte';
-	import Loading from '$lib/icons/Loading.svelte';
-	import FiltersDrawer from '../filters-drawer/FiltersDrawer.svelte';
-	import { getUserDisplayName, isBasicUser } from '$lib/utils';
-	import { setVirtualPageData } from '$lib/components/ui/virtual-page/context';
-	import profile from '$lib/stores/profile.svelte';
-	import { responsive } from '$lib/stores';
 	import { Group } from '$lib/services';
-	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
+	import { type PaginatedResponse } from '$lib/services/admin/operations';
+	import { responsive } from '$lib/stores';
+	import profile from '$lib/stores/profile.svelte';
+	import { goto, replaceState } from '$lib/url';
+	import { getUserDisplayName, isBasicUser } from '$lib/utils';
+	import FiltersDrawer from '../filters-drawer/FiltersDrawer.svelte';
+	import AuditLogCalendar from './AuditLogCalendar.svelte';
+	import AuditLogsTable from './AuditLogs.svelte';
+	import { aggregateAuditLogsByBucket, type AuditLogTimelineBucketRow } from './timelineUtils';
+	import { set, endOfDay, isBefore, subDays } from 'date-fns';
+	import { debounce } from 'es-toolkit';
+	import { X, ChevronLeft, ChevronRight, Funnel, Captions, Plus, Settings } from 'lucide-svelte';
+	import type { Snippet } from 'svelte';
+	import { flip } from 'svelte/animate';
+	import { SvelteMap } from 'svelte/reactivity';
+	import { fade, slide } from 'svelte/transition';
 
 	interface Props {
 		mcpId?: string | null;
@@ -86,17 +86,21 @@
 
 		displayTableData = [];
 		displayTimelineData = [];
-		const schedule =
-			typeof requestIdleCallback !== 'undefined'
-				? (fn: () => void) => requestIdleCallback(fn, { timeout: 200 })
-				: (fn: () => void) => setTimeout(fn, 0);
-		const cancelSchedule =
-			typeof cancelIdleCallback !== 'undefined' ? cancelIdleCallback : clearTimeout;
-		const id = schedule(() => {
+		if (typeof requestIdleCallback !== 'undefined') {
+			const id = requestIdleCallback(
+				() => {
+					displayTableData = items;
+					displayTimelineData = aggregateAuditLogsByBucket(items, start, end);
+				},
+				{ timeout: 200 }
+			);
+			return () => cancelIdleCallback(id);
+		}
+		const id = setTimeout(() => {
 			displayTableData = items;
 			displayTimelineData = aggregateAuditLogsByBucket(items, start, end);
-		});
-		return () => cancelSchedule(id);
+		}, 0);
+		return () => clearTimeout(id);
 	});
 
 	$effect(() => setVirtualPageData(displayTableData));
@@ -292,7 +296,7 @@
 		};
 	});
 
-	let query = $state(page.url.searchParams.get('query') ?? '');
+	let query = $derived(page.url.searchParams.get('query') ?? '');
 
 	// Base filters with time filters and query and pagination
 	const allFilters = $derived({
@@ -447,7 +451,6 @@
 	async function handleExportRequest(formType: 'export' | 'scheduled') {
 		// Check if there are any active filters
 		const hasActiveFilters = Object.keys(pillsSearchParamFilters).length > 0 || query;
-
 		if (hasActiveFilters) {
 			// Show confirmation dialog
 			pendingExportType = formType;
@@ -698,7 +701,7 @@
 	<div class="mt-12 flex w-md max-w-full flex-col items-center gap-4 self-center text-center">
 		<Captions class="text-on-surface1 size-24 opacity-50" />
 		<h4 class="text-on-surface1 text-lg font-semibold">No audit logs</h4>
-		<p class="text-on-surface text-sm font-light">
+		<p class="text-on-surface1 text-sm font-light">
 			Currently, there are no audit logs for selected range or filters. Try modifying your search
 			criteria or try again later.
 		</p>
@@ -708,7 +711,7 @@
 <div
 	bind:this={rightSidebar}
 	popover
-	class="drawer {selectedAuditLog ? 'max-w-[85vw] min-w-lg' : 'md:w-lg lg:w-xl'}"
+	class="drawer-legacy {selectedAuditLog ? 'max-w-[85vw] min-w-lg' : 'md:w-lg lg:w-xl'}"
 	style={selectedAuditLog ? 'width: 32rem' : ''}
 >
 	{#if selectedAuditLog}
@@ -790,10 +793,7 @@
 				{@const isClearable =
 					!propsFiltersKeys.has(filterKey) && !enforcedFiltersKeys.has(filterKey)}
 
-				<div
-					class="border-primary/50 bg-primary/10 text-primary flex items-center gap-1 rounded-lg border px-4 py-2"
-					animate:flip={{ duration: 100 }}
-				>
+				<div class="filter-primary" animate:flip={{ duration: 100 }}>
 					<div class="text-xs font-semibold">
 						<span>{displayLabel}</span>
 						<span>:</span>
@@ -814,7 +814,6 @@
 
 					{#if isClearable}
 						<button
-							class="hover:bg-primary/25 rounded-full p-1 transition-colors duration-200"
 							onclick={() => {
 								const url = page.url;
 								url.searchParams.set(filterKey, '');

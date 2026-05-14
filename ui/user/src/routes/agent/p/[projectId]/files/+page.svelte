@@ -1,5 +1,13 @@
 <script lang="ts">
+	import { afterNavigate } from '$app/navigation';
+	import FileItem from '$lib/components/nanobot/FileItem.svelte';
+	import { formatFileSize, formatFileTime } from '$lib/format';
+	import type { FileTimeResult, ProjectLayoutContext } from '$lib/services/nanobot/types';
+	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
+	import { responsive, timePreference } from '$lib/stores';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
+	import type { TimeDisplayFormat } from '$lib/time';
+	import { tryDecodeURIComponent } from '$lib/url';
 	import {
 		ChevronDown,
 		ChevronRight,
@@ -10,15 +18,8 @@
 		FolderTree,
 		ChevronUp
 	} from 'lucide-svelte';
-	import { twMerge } from 'tailwind-merge';
 	import { getContext } from 'svelte';
-	import { tryDecodeURIComponent } from '$lib/url';
-	import type { FileTimeResult, ProjectLayoutContext } from '$lib/services/nanobot/types';
-	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
-	import FileItem from '$lib/components/nanobot/FileItem.svelte';
-	import { afterNavigate } from '$app/navigation';
-	import { formatFileSize, formatFileTime } from '$lib/utils';
-	import { responsive } from '$lib/stores';
+	import { twMerge } from 'tailwind-merge';
 
 	let resourceFiles = $derived(
 		$nanobotChat?.resources
@@ -53,7 +54,8 @@
 	}
 
 	function buildFileTreeSimple(
-		files: { uri: string; name?: string; size?: number; annotations?: { lastModified?: string } }[]
+		files: { uri: string; name?: string; size?: number; annotations?: { lastModified?: string } }[],
+		displayFormat: TimeDisplayFormat
 	): FileTreeNode[] {
 		const root: Extract<FileTreeNode, { type: 'folder' }> = {
 			type: 'folder',
@@ -86,7 +88,7 @@
 				name: fileName,
 				uri: f.uri,
 				size: f.size,
-				lastModified: formatFileTime(f.annotations?.lastModified)
+				lastModified: formatFileTime(f.annotations?.lastModified, displayFormat)
 			});
 		}
 		// Sort: folders first then files, both alphabetically
@@ -125,7 +127,7 @@
 				])
 	]);
 
-	let fileTree = $derived(buildFileTreeSimple(resourceFiles));
+	let fileTree = $derived(buildFileTreeSimple(resourceFiles, timePreference.timeFormat));
 
 	type FlatNode = { depth: number; path: string; node: FileTreeNode };
 	function flattenTree(
@@ -379,7 +381,7 @@
 								>
 								{#if !responsive.isMobile}
 									<td
-										><p class="truncate text-nowrap break-all">
+										><p class="text-nowrap">
 											{node.lastModified?.formatted || '-'}
 										</p></td
 									>

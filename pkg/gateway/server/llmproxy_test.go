@@ -13,6 +13,51 @@ import (
 	"github.com/obot-platform/obot/pkg/messagepolicy"
 )
 
+func TestShouldSkipMessagePolicyEnforcement(t *testing.T) {
+	tests := []struct {
+		name string
+		req  *http.Request
+		want bool
+	}{
+		{
+			name: "thread title request",
+			req: func() *http.Request {
+				req := httptest.NewRequest(http.MethodPost, "http://gateway.local/v1/responses", nil)
+				req.Header.Set(internalRequestTypeHeader, threadTitleRequestType)
+				return req
+			}(),
+			want: true,
+		},
+		{
+			name: "other internal request",
+			req: func() *http.Request {
+				req := httptest.NewRequest(http.MethodPost, "http://gateway.local/v1/responses", nil)
+				req.Header.Set(internalRequestTypeHeader, "something-else")
+				return req
+			}(),
+			want: false,
+		},
+		{
+			name: "missing header",
+			req:  httptest.NewRequest(http.MethodPost, "http://gateway.local/v1/responses", nil),
+			want: false,
+		},
+		{
+			name: "nil request",
+			req:  nil,
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := shouldSkipMessagePolicyEnforcement(tt.req); got != tt.want {
+				t.Fatalf("shouldSkipMessagePolicyEnforcement() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestModifyResponse_PathFiltering(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -291,6 +336,19 @@ func TestExtractModelFromBody(t *testing.T) {
 	}
 }
 
+func TestRewriteModelInBody(t *testing.T) {
+	body := `{"model":"anthropic-model-provider/anthropic-claude-sonnet-4-6","messages":[{"role":"user","content":"hello"}]}`
+
+	rewritten, err := rewriteModelInBody([]byte(body), "claude-sonnet-4-6")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if got := extractModelFromBody(rewritten); got != "claude-sonnet-4-6" {
+		t.Fatalf("model = %q, want claude-sonnet-4-6", got)
+	}
+}
+
 func TestLLMTransformRequest_RemovesAcceptEncoding(t *testing.T) {
 	u := mustParseURL("https://api.example.com/v1")
 	director := llmTransformRequest(*u, nil)
@@ -303,6 +361,21 @@ func TestLLMTransformRequest_RemovesAcceptEncoding(t *testing.T) {
 
 	if got := req.Header.Get("Accept-Encoding"); got != "" {
 		t.Fatalf("Accept-Encoding = %q, want empty", got)
+	}
+}
+
+func TestLLMTransformRequest_RemovesInternalRequestTypeHeader(t *testing.T) {
+	u := mustParseURL("https://api.example.com/v1")
+	director := llmTransformRequest(*u, nil)
+
+	req := httptest.NewRequest(http.MethodPost, "http://gateway.local/v1/responses", nil)
+	req.SetPathValue("path", "responses")
+	req.Header.Set(internalRequestTypeHeader, threadTitleRequestType)
+
+	director(req)
+
+	if got := req.Header.Get(internalRequestTypeHeader); got != "" {
+		t.Fatalf("%s = %q, want empty", internalRequestTypeHeader, got)
 	}
 }
 

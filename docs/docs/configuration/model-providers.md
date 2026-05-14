@@ -10,16 +10,15 @@ Obot supports a variety of model providers, including:
 - OpenAI
 - Anthropic
 - xAI
-- [Ollama](#ollama)
-- Voyage AI
+- [Generic Responses Compatible Provider](#generic-responses-compatible-provider)
 - Groq
 - vLLM
 - DeepSeek
 - Google
 
 **Enterprise**
-- [Azure OpenAI / Microsoft Foundry](#azure-openai-enterprise-only)
-- Amazon Bedrock
+- [Azure OpenAI / Microsoft Foundry](#azure-enterprise-only)
+- [Amazon Bedrock](#amazon-bedrock-enterprise-only)
 - Google Vertex (Gemini models)
 
 The UI will indicate whether each provider has been configured. If a provider is configured you will have the ability to modify or deconfigure it.
@@ -72,51 +71,126 @@ Setting a default model here does not automatically grant users access to it. Us
 
 ### Instructions for configuring specific providers
 
-#### Azure OpenAI (Enterprise only)
+#### Azure (Enterprise only)
 
-The Azure OpenAI model provider supports legacy Azure OpenAI resources. Microsoft Foundry works with API key authentication as well.
-
-This model provider supports two forms of authentication: API keys and Microsoft Entra.
+Obot supports two Azure providers, each with a different authentication method. These are compatible with both Azure OpenAI deployments and Foundry deployments.
 
 ##### API Key Authentication
 
-In the Azure OpenAI or Microsoft Foundry UI, you can find your API key after you have set up at least one deployment, as well as your endpoint URL.
-Both of these values are required when you configure this model provider in Obot.
+Use the **Azure** provider for API key-based authentication.
 
-Additionally, you must manually specify the names of all of your deployments, as the API key does not provide the ability to list them.
-The format is `name:type`, for example, `gpt-5.2:reasoning-llm`. The supported types are `llm`, `reasoning-llm`, `text-embedding`, and `image-generation`.
-If no type is specified, Obot will assume the type is `llm`.
+In the Azure portal, find your API key and endpoint URL after setting up at least one deployment — both are required.
 
-If the type specified is `llm` or none at all, and the deployment name starts with the name of a known reasoning model (such as `o3` or `gpt-5`), Obot
-will automatically treat it as a reasoning model.
+You must also specify deployment names. The format is a comma-separated list of deployment names, optionally as `model:deployment` pairs (e.g. `gpt-4o,gpt-4o-mini` or `gpt-4o:my-gpt4o,gpt-4o-mini:my-mini`).
 
-##### Microsoft Entra Authentication
+You can also optionally specify the API version (defaults to `2025-01-01-preview`).
 
-:::important
-At this time, Microsoft Entra authentication is only supported for Azure OpenAI deployments and not for the newer Microsoft Foundry deployments.
+##### Microsoft Entra ID Authentication
+
+Use the **Azure (Entra ID)** provider for service principal authentication via Microsoft Entra ID. Deployments are discovered automatically from the Azure Management API.
+
+###### 1. Create a service principal
+
+```bash
+az ad sp create-for-rbac --name "<sp-name>" \
+  --role "Cognitive Services OpenAI User" \
+  --scopes /subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.CognitiveServices/accounts/<resource-name>
+```
+
+This outputs the `appId` (Client ID), `password` (Client Secret), and `tenant` (Tenant ID) needed below.
+
+###### 2. Find your resource details
+
+```bash
+az cognitiveservices account show \
+  --name <resource-name> \
+  --resource-group <resource-group> \
+  --query "{endpoint:properties.endpoint, id:id}"
+```
+
+###### 3. Configure the provider
+
+Obot requires:
+- **Azure Endpoint** — your Azure OpenAI endpoint URL (`https://<resource_name>.openai.azure.com`)
+- **Client ID** — the Entra app's application (client) ID
+- **Client Secret** — the Entra app's client secret
+- **Tenant ID** — the Entra app's tenant ID
+- **Subscription ID** — the Azure subscription ID containing the Cognitive Services account
+- **Resource Group** — the resource group containing the Cognitive Services account
+- **Resource Name** — the Cognitive Services resource name
+
+You can also optionally specify the API version (defaults to `2025-01-01-preview`).
+
+The service principal requires at minimum the `Cognitive Services OpenAI User` or `Cognitive Services User` role on the account to read deployments. Deployments are discovered automatically — each deployment's base model name becomes the model ID exposed to Obot.
+
+See the [Microsoft docs](https://learn.microsoft.com/en-us/azure/foundry/foundry-models/how-to/configure-entra-id) for more details.
+
+#### Amazon Bedrock (Enterprise only)
+
+Obot supports two Amazon Bedrock providers, each with a different authentication method.
+
+:::note
+Both Bedrock providers use _AWS Bedrock Inference Profiles_ rather than direct on-demand model access. Inference profiles are resources that route model invocation requests and enable cost tracking — AWS provides system-defined cross-region inference profiles by default for supported models, so no manual setup is typically required. Only models with an available inference profile will appear in Obot. See the [AWS documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/inference-profiles-use.html) for more details.
 :::
 
-Instead of using an API key, you can set up a Microsoft Entra app registration as a service principal to use Azure OpenAI.
+##### Static Credentials
 
-Obot requires the Client ID, Client Secret, and Tenant ID of the Entra app, as well as the Endpoint URL, Subscription ID, and Resource Group from Azure OpenAI/Microsoft Foundry.
+Use the **Amazon Bedrock (Static Credentials)** provider to authenticate with long-lived AWS credentials.
 
-You do NOT need to manually specify your deployment names, as the Entra app's credentials will be sufficient to list them.
+Obot requires:
+- **AWS Access Key ID** — your IAM user's access key
+- **AWS Secret Access Key** — your IAM user's secret key
+- **AWS Region** — the region where your inference profiles are configured (e.g. `us-east-1`)
+- **AWS Session Token** (optional) — required when using temporary security credentials from AWS STS (e.g. when assuming an IAM role or using federated access). Not needed for long-lived IAM user credentials.
 
-After you have created your Entra app registration, you need to go to your Azure OpenAI resource in the Azure portal and add a new role assignment for the app registration, as a service principal.
-It needs to have the `Cognitive Services OpenAI User` role.
+##### API Key
 
-See the [Microsoft docs](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/how-to/role-based-access-control?view=foundry-classic#add-role-assignment-to-an-azure-openai-resource) for more details.
+Use the **Amazon Bedrock (API Key)** provider to authenticate with a Bedrock API key.
 
-#### Ollama
+Obot requires:
+- **API Key** — your Bedrock API key
+- **AWS Region** — the region where your inference profiles are configured (e.g. `us-east-1`)
 
-[Ollama](https://ollama.ai/) allows you to run LLMs locally. Two configuration steps are required to use it with Obot:
+#### Generic Responses Compatible Provider
 
-1. **Expose Ollama to the network** - By default, Ollama only binds to `127.0.0.1:11434`. Since Obot runs in a container, `localhost` addresses resolve to Obot's container, not your host. Set `OLLAMA_HOST=0.0.0.0` before starting Ollama, then use your host's IP address in the endpoint URL.
+Use **Generic Responses Compatible Provider** to connect Obot to any Responses-compatible API.
 
-2. **Use the OpenAI-compatible endpoint** - The endpoint must include the `/v1/` path:
-   ```
-   http://<your-host-ip>:11434/v1/
-   ```
-   Using `http://<host>:11434/` without `/v1/` will result in validation errors.
+This provider supports:
+- A provider-level **Base URL** and optional **API Key**
 
-See [Ollama's FAQ](https://docs.ollama.com/faq) for platform-specific instructions on setting `OLLAMA_HOST`.
+##### Common examples
+
+- **Ollama**: `http://127.0.0.1:11434/v1`
+- **LiteLLM**: `http://<litellm-host>:4000/v1`
+
+##### Using Ollama
+
+[Ollama](https://ollama.ai/) allows you to run models locally. When Obot runs in Docker, make Ollama reachable from the container:
+
+1. **Expose Ollama to the network**
+   Set `OLLAMA_HOST=0.0.0.0` before starting Ollama.
+
+2. **Set Base URL in Obot**
+   Use one of:
+   - `http://host.docker.internal:11434/v1` (recommended for Docker Desktop)
+   - `http://<your-host-ip>:11434/v1`
+
+For Linux Docker, add `--add-host=host.docker.internal:host-gateway` (or use another host-networking approach) so `host.docker.internal` resolves inside the Obot container.
+
+See [Ollama's FAQ](https://docs.ollama.com/faq) for platform-specific details.
+
+##### LiteLLM config example
+
+If you use LiteLLM, Obot works with LiteLLM's wildcard model list:
+
+```yaml
+model_list:
+  - model_name: openai/*
+    litellm_params:
+      model: openai/*
+      api_key: os.environ/OPENAI_API_KEY
+```
+
+In Obot, models discovered through this provider are currently treated as **Language Model (LLM chat)** models by default.
+
+If your upstream includes non-chat-capable models, use more specific model mappings instead of a broad wildcard, or avoid using these models with Obot.

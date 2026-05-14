@@ -78,13 +78,13 @@ func TestFileEnvKeysHashChangesWithKeySet(t *testing.T) {
 
 func TestApplyServerConfigToContainerConfigOverridesImageAndLabels(t *testing.T) {
 	config := &container.Config{
-		Image:  "ghcr.io/nanobot-ai/nanobot:v0.0.59",
+		Image:  "ghcr.io/obot-platform/nanobot:v0.0.59",
 		Labels: nil,
 	}
 
 	server := ServerConfig{
 		MCPServerName:  "mcp-server-abc",
-		ContainerImage: "ghcr.io/nanobot-ai/nanobot:v0.0.61",
+		ContainerImage: "ghcr.io/obot-platform/nanobot:v0.0.65",
 		Runtime:        "containerized",
 		Files: []File{{
 			EnvKey:  "NANOBOT_ENV_FILE",
@@ -99,8 +99,8 @@ func TestApplyServerConfigToContainerConfigOverridesImageAndLabels(t *testing.T)
 		t.Fatalf("expected image %q, got %q", server.ContainerImage, config.Image)
 	}
 
-	if got, ok := config.Labels["mcp.config.hash"]; !ok || got != clientID(server) {
-		t.Fatalf("expected mcp.config.hash %q, got %q", clientID(server), got)
+	if got, ok := config.Labels["mcp.config.hash"]; !ok || got != serverID(server) {
+		t.Fatalf("expected mcp.config.hash %q, got %q", serverID(server), got)
 	}
 
 	if got, ok := config.Labels["mcp.file.env.keys.hash"]; !ok || got != fileEnvKeysHash(server.Files) {
@@ -110,7 +110,7 @@ func TestApplyServerConfigToContainerConfigOverridesImageAndLabels(t *testing.T)
 
 func TestApplyServerConfigToContainerConfigNoImageNoChanges(t *testing.T) {
 	config := &container.Config{
-		Image: "ghcr.io/nanobot-ai/nanobot:v0.0.61",
+		Image: "ghcr.io/obot-platform/nanobot:v0.0.65",
 		Labels: map[string]string{
 			"existing": "label",
 		},

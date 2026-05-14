@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { generateJsonDiff, formatJsonWithDiffHighlighting } from '$lib/diff';
-	import { responsive } from '$lib/stores';
-	import { Server } from 'lucide-svelte';
-	import ResponsiveDialog from '../ResponsiveDialog.svelte';
-	import { twMerge } from 'tailwind-merge';
 	import type { MCPCatalogEntry, MCPCatalogServer } from '$lib/services';
+	import { responsive } from '$lib/stores';
+	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import { Server } from 'lucide-svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		fromServer?: MCPCatalogServer;

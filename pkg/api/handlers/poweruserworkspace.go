@@ -8,6 +8,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -140,7 +141,12 @@ func (p *PowerUserWorkspaceHandler) ListAllServers(req api.Context) error {
 			return fmt.Errorf("failed to determine slug: %w", err)
 		}
 
-		servers = append(servers, ConvertMCPServer(server, credMap[server.Name], p.serverURL, slug))
+		mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, credMap[server.Name])
+		if err != nil {
+			return fmt.Errorf("failed to resolve secret bindings for server %s: %w", server.Name, err)
+		}
+
+		servers = append(servers, ConvertMCPServer(server, mergedEnv, p.serverURL, slug))
 	}
 
 	return req.Write(types.MCPServerList{
@@ -329,7 +335,12 @@ func (p *PowerUserWorkspaceHandler) ListAllServerInstances(req api.Context) erro
 			return fmt.Errorf("failed to determine slug for instance %s: %w", instance.Name, err)
 		}
 
-		convertedInstances = append(convertedInstances, ConvertMCPServerInstance(instance, p.serverURL, slug))
+		credEnv, err := mcpServerInstanceCredEnv(req, instance)
+		if err != nil {
+			return err
+		}
+
+		convertedInstances = append(convertedInstances, ConvertMCPServerInstance(instance, credEnv, p.serverURL, slug))
 	}
 
 	return req.Write(types.MCPServerInstanceList{

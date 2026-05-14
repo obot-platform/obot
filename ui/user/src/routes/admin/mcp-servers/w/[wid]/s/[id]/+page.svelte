@@ -1,13 +1,12 @@
 <script lang="ts">
+	import Layout from '$lib/components/Layout.svelte';
+	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
+	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
+	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { profile } from '$lib/stores/index.js';
 	import { type Component } from 'svelte';
 	import { fly } from 'svelte/transition';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
-	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
-	import Layout from '$lib/components/Layout.svelte';
-	import { goto } from '$lib/url';
-	import { profile } from '$lib/stores/index.js';
-	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
 
 	const duration = PAGE_TRANSITION_DURATION;
 
@@ -34,12 +33,6 @@
 				type="multi"
 				id={workspaceId}
 				entity="workspace"
-				onCancel={() => {
-					goto('/admin/mcp-servers');
-				}}
-				onSubmit={async () => {
-					goto('/admin/mcp-servers');
-				}}
 				readonly={belongsToUser ? false : profile.current.isAdminReadonly?.()}
 			/>
 		{/if}

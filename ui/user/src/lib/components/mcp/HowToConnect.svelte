@@ -1,9 +1,9 @@
 <script lang="ts">
+	import CopyButton from '../CopyButton.svelte';
 	import { ChevronLeft, ChevronRight } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
-	import CopyButton from '../CopyButton.svelte';
 
 	interface Props {
 		servers: {

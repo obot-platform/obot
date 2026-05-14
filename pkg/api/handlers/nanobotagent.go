@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
+	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/mcp"
@@ -211,7 +211,8 @@ func (h *NanobotAgentHandler) Launch(req api.Context) error {
 			break
 		}
 		var errHTTP *types.ErrHTTP
-		if !errors.As(err, &errHTTP) || errHTTP.Code != http.StatusBadRequest || !strings.Contains(errHTTP.Message, "NANOBOT_ENV_FILE") {
+		if !errors.As(err, &errHTTP) || errHTTP.Code != http.StatusBadRequest ||
+			(!strings.Contains(errHTTP.Message, "NANOBOT_ENV_FILE") && !strings.Contains(errHTTP.Message, "NANOBOT_CONFIG_FILE")) {
 			return err
 		}
 		select {

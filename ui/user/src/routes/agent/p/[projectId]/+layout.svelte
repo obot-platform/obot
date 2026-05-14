@@ -1,37 +1,41 @@
 <script lang="ts">
-	import Layout from '$lib/components/Layout.svelte';
-	import ProjectSidebar from '../../ProjectSidebar.svelte';
-	import { ChatSession } from '$lib/services/nanobot/chat/index.svelte';
-	import * as nanobotLayout from '$lib/context/nanobotLayout.svelte';
+	import { afterNavigate } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { setContext, untrack } from 'svelte';
-	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
-	import { get } from 'svelte/store';
+	import Layout from '$lib/components/Layout.svelte';
 	import FileEditor from '$lib/components/nanobot/FileEditor.svelte';
 	import QuickAccess from '$lib/components/nanobot/QuickAccess.svelte';
-	import { afterNavigate } from '$app/navigation';
-	import { onDestroy } from 'svelte';
-	import { PROJECT_LAYOUT_CONTEXT, type ProjectLayoutContext } from '$lib/services/nanobot/types';
-	import { clampThreadContentReportedWidth } from '$lib/utils';
-	import { responsive, profile } from '$lib/stores';
-	import MobileDock from '../../MobileDock.svelte';
-	import { Menu, MessageCirclePlus, X } from 'lucide-svelte';
 	import Profile from '$lib/components/navbar/Profile.svelte';
-	import { resolve } from '$app/paths';
+	import * as nanobotLayout from '$lib/context/nanobotLayout.svelte';
+	import { ChatSession } from '$lib/services/nanobot/chat/index.svelte';
+	import { PROJECT_LAYOUT_CONTEXT, type ProjectLayoutContext } from '$lib/services/nanobot/types';
+	import { responsive, profile } from '$lib/stores';
+	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
+	import { clampThreadContentReportedWidth } from '$lib/utils';
 	import ImpersonateBanner from '../../ImpersonateBanner.svelte';
+	import MobileDock from '../../MobileDock.svelte';
+	import ProjectSidebar from '../../ProjectSidebar.svelte';
+	import { Menu, MessageCirclePlus, X } from 'lucide-svelte';
+	import { setContext, untrack } from 'svelte';
+	import { onDestroy } from 'svelte';
+	import { get } from 'svelte/store';
 	import { twMerge } from 'tailwind-merge';
 
 	let { data, children } = $props();
 	let projectId = $derived(data.projects[0].id);
 	let agentId = $derived(data.agent.id);
 	let parentWorkflowId = $derived(
-		(page.data as { workflowName?: string } | undefined)?.workflowName ??
+		(page.data as { workflowId?: string } | undefined)?.workflowId ??
 			page.url.searchParams.get('pwid') ??
 			undefined
 	);
-	let taskId = $derived((page.data as { taskId?: string } | undefined)?.taskId ?? undefined);
+	let schedulerId = $derived(
+		(page.data as { scheduleId?: string } | undefined)?.scheduleId ??
+			page.url.searchParams.get('sid') ??
+			undefined
+	);
 	let workflowId = $derived(page.url.searchParams.get('wid') ?? undefined);
-	let activeWorkflowName = $derived(parentWorkflowId ?? workflowId);
+	let activeWorkflowId = $derived(parentWorkflowId ?? workflowId);
 
 	let chat = $state<ChatSession | null>(null);
 	let sessionId = $derived(page.url.searchParams.get('tid') ?? undefined);
@@ -119,23 +123,7 @@
 	});
 
 	$effect(() => {
-		if (taskId) {
-			projectLayoutContext.setLayoutName('');
-			projectLayoutContext.setShowBackButton(true);
-		} else if (parentWorkflowId || workflowId) {
-			const workflow = $nanobotChat?.resources?.find((r) =>
-				parentWorkflowId
-					? r.uri === `workflow:///${parentWorkflowId}`
-					: r.uri === `workflow:///${workflowId}`
-			);
-			const name =
-				(workflow?._meta?.displayName as string) ??
-				(workflow?._meta?.name as string) ??
-				workflow?.name ??
-				'';
-			projectLayoutContext.setLayoutName(name);
-			projectLayoutContext.setShowBackButton(true);
-		} else {
+		if (!schedulerId && !parentWorkflowId && !workflowId) {
 			projectLayoutContext.setLayoutName('');
 			projectLayoutContext.setShowBackButton(false);
 		}
@@ -323,11 +311,12 @@
 	layoutContext={nanobotLayout}
 	classes={{
 		container: 'px-0 py-0 md:px-0',
-		childrenContainer: 'max-w-full h-[calc(100dvh-4rem)]',
+		childrenContainer: `max-w-full ${impersonating ? 'h-[calc(100dvh-8rem)]' : 'h-[calc(100dvh-4rem)]'}`,
 		collapsedSidebarHeaderContent: 'pb-0',
 		sidebar: 'pt-0 px-0',
 		sidebarRoot: 'bg-base-200',
-		noSidebarTitle: 'md:text-xl text-base'
+		noSidebarTitle: 'md:text-xl text-base',
+		navbar: impersonating ? 'top-15' : 'top-0'
 	}}
 	showBackButton={responsive.isMobile
 		? showBackButton && !layout.quickBarAccessOpen
@@ -347,7 +336,7 @@
 				>
 					<X class="text-base-content size-5" />
 				</button>
-			{:else if !activeWorkflowName}
+			{:else if !activeWorkflowId}
 				<a href={resolve('/agent')} class="btn btn-square">
 					<MessageCirclePlus class="text-base-content size-5" />
 				</a>
@@ -390,7 +379,7 @@
 			{browserAvailable}
 			{browserViewerOpen}
 			{sessionId}
-			workflowName={activeWorkflowName}
+			workflowId={activeWorkflowId}
 			{selectedFile}
 			{agentId}
 			{projectId}
@@ -399,7 +388,7 @@
 	{/snippet}
 
 	{#snippet rightMenu()}
-		{#if (sessionId || activeWorkflowName) && responsive.isMobile && !layout.quickBarAccessOpen}
+		{#if (sessionId || activeWorkflowId) && responsive.isMobile && !layout.quickBarAccessOpen}
 			<button
 				class="btn btn-square btn-ghost"
 				onclick={() => (layout.quickBarAccessOpen = !layout.quickBarAccessOpen)}

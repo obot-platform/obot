@@ -17,6 +17,9 @@ The Obot server is configured via environment variables. The following configura
 | `OBOT_SERVER_RETENTION_POLICY_HOURS` | The retention policy for the system. Set to 0 to disable retention. This field should just be a number in a string, no `h` suffix. | `2160` (90 days) |
 | `OBOT_SERVER_DAILY_USER_PROMPT_TOKEN_LIMIT` | The maximum number of prompt/input tokens allowed per user per day. Set to a value less than or equal to 0 to disable this limit. | `10000000` |
 | `OBOT_SERVER_DAILY_USER_COMPLETION_TOKEN_LIMIT` | The maximum number of completion/output tokens allowed per user per day. Set to a value less than or equal to 0 to disable this limit. | `100000` |
+| `OBOT_SERVER_IDLE_AGENT_SHUTDOWN_HOURS` | The interval in hours to check for idle agents and shut them down. Set to `-1` to disable idle shutdown. | `72` (3 days) |
+| `OBOT_SERVER_SINGLE_USER_IDLE_SERVER_SHUTDOWN_HOURS` | The interval in hours to check for idle single-user MCP servers and shut them down. Set to `-1` to disable idle shutdown. | `24` (1 day) |
+| `OBOT_SERVER_MULTI_USER_IDLE_SERVER_SHUTDOWN_HOURS` | The interval in hours to check for idle multi-user MCP servers and shut them down. Set to `-1` to disable idle shutdown. | `168` (7 days) |
 | `NAH_THREADINESS` | Sets the number of concurrent threads that can run in the Obot controller. | `10` |
 | `OBOT_SERVER_KNOWLEDGE_FILE_WORKERS` | Sets the number of workers used by knowledge for processing files. | `5` |
 | `KINM_DB_CONNECTIONS` | The number of connections in the database pool for kinm | `5` |
@@ -35,20 +38,28 @@ The Obot server is configured via environment variables. The following configura
 | `OBOT_SERVER_MCPAUDIT_LOG_RETENTION_DAYS` | The number of days to retain MCP audit logs before they are automatically deleted. Set to `0` to disable automatic cleanup. Use the [audit log export](./audit-log-export.md) functionality to preserve logs beyond this period. | `90` |
 | `OBOT_SERVER_MCPAUDIT_LOG_PERSIST_INTERVAL_SECONDS` | The interval in seconds at which buffered MCP audit logs are flushed to the database. | `5` |
 | `OBOT_SERVER_MCPAUDIT_LOGS_PERSIST_BATCH_SIZE` | The number of MCP audit log entries written to the database in a single batch. | `1000` |
+| `OBOT_SERVER_DEFAULT_MCPCATALOG_PATH` | The path to the default MCP catalog (accessible to all users). | - |
+| `OBOT_SERVER_DEFAULT_SYSTEM_MCPCATALOG_PATH` | The path to the default System MCP catalog. | - |
 | `OBOT_SERVER_AUDIT_LOGS_MODE` | Configures the storage backend for audit logs in Obot. Can be 'off', 'disk', or 's3' | `off` |
 | `OBOT_SERVER_AUDIT_LOGS_STORE_S3BUCKET` | The name of the S3 bucket to store audit logs in. | - |
 | `OBOT_SERVER_AUDIT_LOGS_STORE_S3ENDPOINT` | If config.OBOT_SERVER_AUDIT_LOGS_MODE is 's3' and you are not using AWS S3, this needs to be set to the S3 api endpoint of your provider. | - |
 | `OBOT_SERVER_AUDIT_LOGS_COMPRESS_FILE` | Controls whether or not to compress audit log files | `true` |
 | `OBOT_SERVER_AUDIT_LOGS_USE_PATH_STYLE` | Whether to use path style for S3 | - |
-| `OBOT_SERVER_MCPBASE_IMAGE` | Deploy MCP servers in the kubernetes cluster or using docker with this base image. | `ghcr.io/obot-platform/mcp-images/phat:main` |
-| `OBOT_SERVER_MCPREMOTE_SHIM_BASE_IMAGE` | Deploy MCP remote shim servers in the cluster using this base image. | `ghcr.io/nanobot-ai/nanobot:v0.0.61` |
-| `OBOT_SERVER_NANOBOT_AGENT_IMAGE` | Deploy the Nanobot agent in the cluster using this image. | `ghcr.io/nanobot-ai/nanobot-agent:v0.0.61` |
-| `OBOT_SERVER_MCPHTTPWEBHOOK_BASE_IMAGE` | Deploy MCP HTTP webhook servers in the cluster using this base image. | `ghcr.io/obot-platform/mcp-images/http-webhook-mcp-converter:main` |
+| `OBOT_SERVER_MCPBASE_IMAGE` | Deploy MCP servers in the kubernetes cluster or using docker with this base image. | `ghcr.io/obot-platform/mcp-images/stdio-wrapper:v0.20.5` |
+| `OBOT_SERVER_MCPREMOTE_SHIM_BASE_IMAGE` | Deploy MCP remote shim servers in the cluster using this base image. | `ghcr.io/obot-platform/nanobot:v0.0.80` |
+| `OBOT_SERVER_NANOBOT_AGENT_IMAGE` | Deploy the Nanobot agent in the cluster using this image. | `ghcr.io/obot-platform/nanobot-agent:v0.0.80` |
+| `OBOT_SERVER_MCPHTTPWEBHOOK_BASE_IMAGE` | Deploy MCP HTTP webhook servers in the cluster using this base image. | `ghcr.io/obot-platform/mcp-images/http-webhook-mcp-converter:v0.20.4` |
 | `OBOT_SERVER_MCPRUNTIME_BACKEND` | The runtime backend to use for running MCP servers: docker, kubernetes, or local. | `kubernetes` in the helm chart, `docker` otherwise |
 | `OBOT_SERVER_MCPCLUSTER_DOMAIN` | The cluster domain to use for MCP services. Only matters if `OBOT_SERVER_MCPBASE_IMAGE` is set. | `cluster.local` |
 | `OBOT_SERVER_SERVICE_NAME` | The Kubernetes service name for the obot server. Automatically set by the helm chart when using kubernetes backend. Used to construct the internal service FQDN for token exchange endpoints. | - |
 | `OBOT_SERVER_SERVICE_NAMESPACE` | The Kubernetes namespace where the obot server runs. Automatically set by the helm chart when using kubernetes backend. Used to construct the internal service FQDN for token exchange endpoints. | - |
 | `OBOT_SERVER_DISALLOW_LOCALHOST_MCP` | Disallow MCP servers that try to connect to localhost. | `false` |
+| `OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_REPO` | Helm repository URL for the MCP server egress control provider chart. Used with `OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_NAME`. | - |
+| `OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_NAME` | Helm chart name for the MCP server egress control provider. Setting this enables MCP server egress control. | - |
+| `OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_VERSION` | Helm chart version for the MCP server egress control provider. | - |
+| `OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_PATH` | Local filesystem path to an MCP server egress control provider chart. Setting this enables MCP server egress control and cannot be combined with chart repo, name, or version. | - |
+| `OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_VALUES` | YAML or JSON values blob merged into the MCP server egress control provider chart values. | - |
+| `OBOT_SERVER_MCPDEFAULT_DENY_ALL_EGRESS` | Default new MCP servers to deny all egress when MCP server egress control is enabled and no egress domains are configured. | `false` |
 | `OBOT_SERVER_MCPPOD_SECURITY_ENABLED` | Enable Pod Security Admission labels on the MCP namespace. Only applies when using kubernetes backend. | `true` |
 | `OBOT_SERVER_MCPPOD_SECURITY_ENFORCE` | Pod Security Standards level to enforce for MCP namespace (privileged, baseline, or restricted). Only applies when using kubernetes backend. | `restricted` |
 | `OBOT_SERVER_MCPPOD_SECURITY_ENFORCE_VERSION` | Kubernetes version for the PSA enforce policy. Only applies when using kubernetes backend. | `latest` |
@@ -60,6 +71,7 @@ The Obot server is configured via environment variables. The following configura
 | `OBOT_SERVER_DISABLE_UPDATE_CHECK` | Disable the Obot server update check. (v0.14.0+) | `false ` |
 | `OBOT_SERVER_NANOBOT_INTEGRATION` | Enable Nanobot integration. Set to `false` to disable Nanobot routes and integration behavior. | `true` |
 | `OBOT_SERVER_DISABLE_LEGACY_CHAT` | Disable legacy chat APIs/UI paths surfaced by the server. | `true` |
+| `OBOT_SERVER_ENABLE_MESSAGE_POLICIES` | Enable Message Policies for LLM proxy content enforcement. When enabled, Obot exposes the Message Policies and Message Policy Violations admin views and evaluates configured policies on user messages and tool calls. | `false` |
 | `OBOT_ARTIFACT_STORAGE_PROVIDER` | Storage provider for published workflows. Supported values: `s3`, `gcs`, `azure`, `custom`. If unset, Obot stores published workflows on local disk. | - |
 | `OBOT_ARTIFACT_STORAGE_BUCKET` | Bucket or container name used for published workflow storage when `OBOT_ARTIFACT_STORAGE_PROVIDER` is set. | - |
 | `OBOT_ARTIFACT_S3_REGION` | AWS region for published workflow storage when using `s3` or `custom`. | - |

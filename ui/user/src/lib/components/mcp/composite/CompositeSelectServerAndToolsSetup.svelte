@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
+	import SearchMcpServers from '$lib/components/admin/SearchMcpServers.svelte';
 	import {
 		AdminService,
 		ChatService,
@@ -8,12 +9,17 @@
 		type MCPCatalogEntry,
 		type MCPCatalogServer
 	} from '$lib/services';
-	import { convertEnvHeadersToRecord, hasEditableConfiguration } from '$lib/services/chat/mcp';
-	import { LoaderCircle } from 'lucide-svelte';
+	import {
+		convertEnvHeadersToRecord,
+		deriveToolPrefix,
+		getSecretBindingEngineError,
+		isKubernetesRuntimeBackend,
+		hasEditableConfiguration
+	} from '$lib/services/chat/mcp';
+	import { mcpServersAndEntries, version } from '$lib/stores';
 	import CatalogConfigureForm, { type LaunchFormData } from '../CatalogConfigureForm.svelte';
 	import CompositeEditTools from './CompositeEditTools.svelte';
-	import SearchMcpServers from '$lib/components/admin/SearchMcpServers.svelte';
-	import { mcpServersAndEntries } from '$lib/stores';
+	import { LoaderCircle } from 'lucide-svelte';
 
 	interface Props {
 		catalogId?: string;
@@ -31,6 +37,13 @@
 		// Indicates if this is a newly added component (not yet persisted to the composite entry)
 		isNewComponent?: boolean;
 		existingTools?: CompositeServerToolRow[];
+		// Current toolPrefix on the component being edited (refresh flow). Seeded into
+		// componentConfig so the edit modal displays and binds against it.
+		existingToolPrefix?: string;
+		// Effective names of enabled tools from OTHER components of the composite,
+		// so the modal can flag cross-component final-name conflicts live.
+		otherEffectiveNames?: string[];
+		otherToolPrefixes?: string[];
 	}
 
 	let {
@@ -42,7 +55,10 @@
 		compositeEntryId,
 		componentId,
 		isNewComponent = false,
-		existingTools
+		existingTools,
+		existingToolPrefix,
+		otherEffectiveNames,
+		otherToolPrefixes
 	}: Props = $props();
 	let searchDialog = $state<ReturnType<typeof SearchMcpServers>>();
 	let choiceDialog = $state<ReturnType<typeof ResponsiveDialog>>();
@@ -59,6 +75,11 @@
 	let oauthURL = $state<string>();
 	let listeningOauthVisibility = $state(false);
 	let error = $state<string>();
+	let secretBindingEngineError = $derived(
+		isKubernetesRuntimeBackend(version.current.engine)
+			? undefined
+			: getSecretBindingEngineError(configuringEntry?.manifest)
+	);
 
 	function handleVisibilityChange() {
 		if (!componentConfig) return;
@@ -97,12 +118,14 @@
 					? {
 							catalogEntryID: configuringEntry.id,
 							manifest: configuringEntry.manifest,
-							toolOverrides: []
+							toolOverrides: [],
+							toolPrefix: existingToolPrefix
 						}
 					: ({
 							mcpServerID: configuringEntry.id,
 							manifest: configuringEntry.manifest,
-							toolOverrides: []
+							toolOverrides: [],
+							toolPrefix: existingToolPrefix
 						} as CatalogComponentServer);
 			initConfigureToolsDialog?.open();
 		} else {
@@ -126,6 +149,7 @@
 
 	async function handleConfigureToolsInit() {
 		if (!configuringEntry) return;
+		if (secretBindingEngineError) return;
 
 		if ('isCatalogEntry' in configuringEntry && hasEditableConfiguration(configuringEntry)) {
 			choiceDialog?.close();
@@ -282,17 +306,20 @@
 			return;
 		}
 
+		const defaultPrefix = deriveToolPrefix(configuringEntry.manifest?.name ?? '');
 		componentConfig =
 			'isCatalogEntry' in configuringEntry
 				? {
 						catalogEntryID: configuringEntry.id,
 						manifest: configuringEntry.manifest,
-						toolOverrides: []
+						toolOverrides: [],
+						toolPrefix: defaultPrefix
 					}
 				: ({
 						mcpServerID: configuringEntry.id,
 						manifest: configuringEntry.manifest,
 						toolOverrides: [],
+						toolPrefix: defaultPrefix,
 						disabled: false
 					} as CatalogComponentServer);
 		choiceDialog?.open();
@@ -386,14 +413,16 @@
 							In order to request tools from the server, you'll need to pass some configuration
 							information first.
 						</p>
+					{:else if secretBindingEngineError}
+						<p>{secretBindingEngineError}</p>
 					{:else if oauthURL}
 						<p>
 							In order to request tools from the server, OAuth authentication is required first.
 						</p>
 						<p class="mt-2">
 							<b>Note:</b> This will only be used to fetch the tools for this server; end users would
-							still need to login when consuming this composite server and must have the appropriate
-							permissions to access these tools.
+							still need to login when consuming this composite server and must have the appropriate permissions
+							to access these tools.
 						</p>
 					{:else}
 						<p>
@@ -420,7 +449,7 @@
 				{:else}
 					<button
 						class="button-primary flex w-full justify-center"
-						disabled={loading}
+						disabled={loading || !!secretBindingEngineError}
 						onclick={handleConfigureToolsInit}
 					>
 						{#if loading}
@@ -439,6 +468,14 @@
 	bind:this={modifyToolsDialog}
 	{configuringEntry}
 	{tools}
+	{otherEffectiveNames}
+	{otherToolPrefixes}
+	bind:toolPrefix={
+		() => componentConfig?.toolPrefix,
+		(v) => {
+			if (componentConfig) componentConfig.toolPrefix = v;
+		}
+	}
 	onCancel={() => {
 		const hadConfiguringEntry = !!configuringEntry;
 		resetConfigureTool();

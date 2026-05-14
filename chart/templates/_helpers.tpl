@@ -115,6 +115,20 @@ Validate all PSA level values in mcpNamespace.podSecurity
 {{- end -}}
 
 {{/*
+Validate network policy provider Helm chart configuration.
+*/}}
+{{- define "obot.validateNetworkPolicyProviderChartConfig" -}}
+{{- $repo := .Values.config.OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_REPO | default "" | toString | trim -}}
+{{- $name := .Values.config.OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_NAME | default "" | toString | trim -}}
+{{- if and $repo (not $name) -}}
+{{- fail "config.OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_NAME is required when config.OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_REPO is set" -}}
+{{- end -}}
+{{- if and $name (not $repo) -}}
+{{- fail "config.OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_REPO is required when config.OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_NAME is set" -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
 Get the image tag, defaulting to appVersion. If appVersion looks like a development version (0.0.0-dev),
 defaults to "main" tag instead.
 */}}

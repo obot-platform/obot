@@ -21,6 +21,40 @@ Obot supports managing MCP servers through Git repositories, enabling GitOps wor
 4. **Establish Review Workflows**: Set up branch protection rules and PR-based review processes for configuration changes
 5. **Automate Validation**: Implement CI/CD pipelines to validate YAML syntax and test server configurations
 
+## Adding a Git Source URL
+
+Administrators can add Git repositories as catalog sources from the **Admin → MCP Servers → Git Source URLs** tab. Click **Add server(s) from Git** and enter the repository URL.
+
+:::note
+
+Connection URLs for MCP servers are derived from catalog entry names. Git-synced catalog entries have deterministic names based on the repository and file path, so the connection URL remains the same even if you remove and re-add the Git repository.
+
+:::
+
+### Supported URL formats
+
+| Platform | Example |
+|---|---|
+| GitHub | `https://github.com/org/repo` or `https://github.com/org/repo.git` |
+| GitHub with branch | `https://github.com/org/repo/my-branch` |
+| GitLab | `https://gitlab.com/org/repo` or `https://gitlab.com/org/repo.git` |
+| GitLab with branch | `https://gitlab.com/org/repo/my-branch` |
+| GitLab with subgroups | `https://gitlab.com/group/subgroup/repo.git` |
+| Self-hosted | `https://git.example.com/org/repo.git` |
+
+For GitHub and GitLab a `.git` suffix is optional. For self-hosted instances it is required. To specify a branch on GitHub or GitLab, append it after the repo name (e.g. `/my-branch`). GitLab subgroup repositories require the `.git` suffix to distinguish the subgroup path from a branch name.
+
+### Private repositories
+
+To pull from a private repository, enter a **Personal access token** in the optional field below the URL. The token is stored securely and never returned by the API after saving.
+
+**Required token scopes:**
+
+- **GitHub**: `repo` (read access is sufficient)
+- **GitLab**: `read_repository` (clone access) + `read_api` (pre-clone size check)
+
+If no per-URL token is configured, Obot falls back to the `GITHUB_AUTH_TOKEN` environment variable.
+
 ## Configuration Format
 
 MCP server configurations consist of individual YAML files, each defining a single MCP server. These files contain comprehensive metadata including:
@@ -76,6 +110,92 @@ env:
     required: true
     sensitive: true
     description: Description of this variable
+```
+
+### Kubernetes Secret Bindings
+
+Secret bindings let you wire an env var, header, or file to a key in an externally-managed Kubernetes Secret instead of asking the user to supply the value at install time.
+
+Secret bindings are only available on git-managed catalog entries, and only when Obot is using the Kubernetes MCP runtime backend.
+
+#### Basic env var binding
+
+The resolved value is injected into the MCP server pod as an environment variable — this works for `npx`, `uvx`, and `containerized` runtimes (not `remote`, which uses header bindings instead).
+
+```yaml
+env:
+  - key: API_KEY
+    name: API Key
+    required: true
+    sensitive: true
+    description: Bound to a pre-existing Kubernetes Secret — no user input needed.
+    secretBinding:
+      name: my-secret       # Kubernetes Secret name
+      key: api_key          # Key within that Secret
+```
+
+**Constraints:**
+- Not supported for `remote` runtime env vars (use a header binding instead).
+- `required: false` is allowed — when the Secret or key is absent the server deploys without that env var.
+- For `remoteConfig.urlTemplate`, `${VAR}` placeholders must not reference env vars that use `secretBinding`.
+
+#### File binding
+
+When `file: true` the secret value is written to a file under `/files/` and the env var is set to the file path. This is useful for secrets that applications expect to read from the filesystem.
+
+```yaml
+env:
+  - key: TLS_CERT
+    name: TLS Certificate
+    file: true
+    required: true
+    sensitive: true
+    description: PEM certificate; mounted as a file at the path stored in TLS_CERT.
+    secretBinding:
+      name: my-tls-secret
+      key: tls.crt
+```
+
+The application reads the certificate path from `os.Getenv("TLS_CERT")` and opens the file at that path.
+
+#### Dynamic file binding
+
+Adding `dynamicFile: true` (requires `file: true`) allows the mounted file to update **without restarting the pod** when the source Kubernetes Secret changes. The application is responsible for watching/re-reading the file for changes. This only has an effect when `file: true`.
+
+```yaml
+env:
+  - key: API_CREDENTIALS
+    name: API Credentials File
+    file: true
+    dynamicFile: true
+    required: true
+    sensitive: true
+    description: Credentials file updated in-place when the Secret rotates — no pod restart needed.
+    secretBinding:
+      name: rotating-api-creds
+      key: credentials.json
+```
+
+**Constraints:**
+- `dynamicFile` is ignored unless `file: true`.
+- `file` and `dynamicFile` are not supported on header bindings.
+
+#### Header binding (remote servers)
+
+For `remote` runtime servers, bind an outbound HTTP header to a Kubernetes Secret key:
+
+```yaml
+runtime: remote
+remoteConfig:
+  fixedURL: https://api.example.com/mcp
+  headers:
+    - key: Authorization
+      name: API Token
+      required: true
+      sensitive: true
+      secretBinding:
+        name: api-token-secret
+        key: token
 ```
 
 ### Runtime Configuration

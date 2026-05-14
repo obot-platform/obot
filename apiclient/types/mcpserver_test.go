@@ -1,8 +1,6 @@
 package types
 
-import (
-	"testing"
-)
+import "testing"
 
 func TestMapCatalogEntryToServer_UVX(t *testing.T) {
 	catalogEntry := MCPServerCatalogEntryManifest{
@@ -10,8 +8,10 @@ func TestMapCatalogEntryToServer_UVX(t *testing.T) {
 		Description: "Test UVX server description",
 		Runtime:     RuntimeUVX,
 		UVXConfig: &UVXRuntimeConfig{
-			Package: "test-package",
-			Args:    []string{"--verbose"},
+			Package:       "test-package",
+			Args:          []string{"--verbose"},
+			EgressDomains: []string{"api.example.com"},
+			DenyAllEgress: new(false),
 		},
 	}
 
@@ -35,6 +35,14 @@ func TestMapCatalogEntryToServer_UVX(t *testing.T) {
 	if len(result.UVXConfig.Args) != 1 || result.UVXConfig.Args[0] != "--verbose" {
 		t.Errorf("Expected args ['--verbose'], got %v", result.UVXConfig.Args)
 	}
+
+	if len(result.UVXConfig.EgressDomains) != 1 || result.UVXConfig.EgressDomains[0] != "api.example.com" {
+		t.Errorf("Expected egressDomains ['api.example.com'], got %v", result.UVXConfig.EgressDomains)
+	}
+
+	if result.UVXConfig.DenyAllEgress == nil || *result.UVXConfig.DenyAllEgress {
+		t.Errorf("Expected denyAllEgress false, got %v", result.UVXConfig.DenyAllEgress)
+	}
 }
 
 func TestMapCatalogEntryToServer_NPX(t *testing.T) {
@@ -43,8 +51,10 @@ func TestMapCatalogEntryToServer_NPX(t *testing.T) {
 		Description: "Test NPX server description",
 		Runtime:     RuntimeNPX,
 		NPXConfig: &NPXRuntimeConfig{
-			Package: "@test/package",
-			Args:    []string{"--port", "3000"},
+			Package:       "@test/package",
+			Args:          []string{"--port", "3000"},
+			EgressDomains: []string{"*.example.com"},
+			DenyAllEgress: new(false),
 		},
 	}
 
@@ -64,6 +74,14 @@ func TestMapCatalogEntryToServer_NPX(t *testing.T) {
 	if result.NPXConfig.Package != "@test/package" {
 		t.Errorf("Expected package '@test/package', got '%s'", result.NPXConfig.Package)
 	}
+
+	if len(result.NPXConfig.EgressDomains) != 1 || result.NPXConfig.EgressDomains[0] != "*.example.com" {
+		t.Errorf("Expected egressDomains ['*.example.com'], got %v", result.NPXConfig.EgressDomains)
+	}
+
+	if result.NPXConfig.DenyAllEgress == nil || *result.NPXConfig.DenyAllEgress {
+		t.Errorf("Expected denyAllEgress false, got %v", result.NPXConfig.DenyAllEgress)
+	}
 }
 
 func TestMapCatalogEntryToServer_Containerized(t *testing.T) {
@@ -72,9 +90,11 @@ func TestMapCatalogEntryToServer_Containerized(t *testing.T) {
 		Description: "Test containerized server description",
 		Runtime:     RuntimeContainerized,
 		ContainerizedConfig: &ContainerizedRuntimeConfig{
-			Image: "test/mcp-server:latest",
-			Port:  8080,
-			Path:  "/mcp",
+			Image:         "test/mcp-server:latest",
+			Port:          8080,
+			Path:          "/mcp",
+			EgressDomains: []string{},
+			DenyAllEgress: new(true),
 		},
 	}
 
@@ -101,6 +121,14 @@ func TestMapCatalogEntryToServer_Containerized(t *testing.T) {
 
 	if result.ContainerizedConfig.Path != "/mcp" {
 		t.Errorf("Expected path '/mcp', got '%s'", result.ContainerizedConfig.Path)
+	}
+
+	if len(result.ContainerizedConfig.EgressDomains) != 0 {
+		t.Errorf("Expected egressDomains [], got %v", result.ContainerizedConfig.EgressDomains)
+	}
+
+	if result.ContainerizedConfig.DenyAllEgress == nil || !*result.ContainerizedConfig.DenyAllEgress {
+		t.Errorf("Expected denyAllEgress true, got %v", result.ContainerizedConfig.DenyAllEgress)
 	}
 }
 

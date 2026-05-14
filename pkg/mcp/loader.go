@@ -9,7 +9,6 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/gptscript-ai/go-gptscript"
 	"github.com/gptscript-ai/gptscript/pkg/hash"
 	"github.com/gptscript-ai/gptscript/pkg/types"
 	otypes "github.com/obot-platform/obot/apiclient/types"
@@ -26,14 +25,17 @@ import (
 var log = logger.Package()
 
 type Options struct {
-	MCPBaseImage            string   `usage:"The base image to use for MCP containers" default:"ghcr.io/obot-platform/mcp-images/phat:main"`
-	MCPHTTPWebhookBaseImage string   `usage:"The base image to use for HTTP-based MCP webhook containers" default:"ghcr.io/obot-platform/mcp-images/http-webhook-mcp-converter:main"`
-	MCPRemoteShimBaseImage  string   `usage:"The base image to use for MCP remote shim containers" default:"ghcr.io/nanobot-ai/nanobot:v0.0.61"`
-	MCPNamespace            string   `usage:"The namespace to use for MCP containers" default:"obot-mcp"`
-	MCPClusterDomain        string   `usage:"The cluster domain to use for MCP containers" default:"cluster.local"`
-	DisallowLocalhostMCP    bool     `usage:"Allow MCP containers to run on localhost"`
-	MCPRuntimeBackend       string   `usage:"The runtime backend to use for running MCP servers: docker, kubernetes, or local. Defaults to docker." default:"docker"`
-	MCPImagePullSecrets     []string `usage:"The name of the image pull secret to use for pulling MCP images"`
+	MCPBaseImage                      string   `usage:"The base image to use for MCP containers" default:"ghcr.io/obot-platform/mcp-images/stdio-wrapper:v0.20.5"`
+	MCPHTTPWebhookBaseImage           string   `usage:"The base image to use for HTTP-based MCP webhook containers" default:"ghcr.io/obot-platform/mcp-images/http-webhook-mcp-converter:v0.20.4"`
+	MCPRemoteShimBaseImage            string   `usage:"The base image to use for MCP remote shim containers" default:"ghcr.io/obot-platform/nanobot:v0.0.80"`
+	MCPNamespace                      string   `usage:"The namespace to use for MCP containers" default:"obot-mcp"`
+	MCPClusterDomain                  string   `usage:"The cluster domain to use for MCP containers" default:"cluster.local"`
+	DisallowLocalhostMCP              bool     `usage:"Allow MCP containers to run on localhost"`
+	MCPRuntimeBackend                 string   `usage:"The runtime backend to use for running MCP servers: docker, kubernetes, or local. Defaults to docker." default:"docker"`
+	MCPImagePullSecrets               []string `usage:"The name of the image pull secret to use for pulling MCP images"`
+	SingleUserIdleServerShutdownHours int      `usage:"The interval in hours to check for idle MCP servers designated to a single user and shut them down, set to -1 to disable shutdown" default:"24"`
+	MultiUserIdleServerShutdownHours  int      `usage:"The interval in hours to check for idle multi-user MCP servers and shut them down, set to -1 to disable" default:"168"`
+	IdleAgentShutdownHours            int      `usage:"The interval in hours to check for idle agents and shut them down, set to -1 to disable" default:"72"`
 
 	// Kubernetes settings from Helm
 	MCPK8sSettingsAffinity             string `usage:"Affinity rules for MCP server pods (JSON)"`
@@ -46,6 +48,9 @@ type Options struct {
 	// Obot service configuration for constructing internal service FQDN
 	ServiceName      string `usage:"The Kubernetes service name for the obot server"`
 	ServiceNamespace string `usage:"The Kubernetes namespace where the obot server runs"`
+
+	// Auto-populated by the Helm chart - used for network policy provider deployment
+	ServiceAccountName string `usage:"The Kubernetes service account name for the obot server"`
 
 	// Audit log configuration
 	MCPAuditLogPersistIntervalSeconds int `usage:"The interval in seconds to persist MCP audit logs to the database" default:"5"`
@@ -73,7 +78,6 @@ type SessionManager struct {
 	allowLocalhostMCP bool
 
 	webhookHelper *WebhookHelper
-	gptClient     *gptscript.GPTScript
 }
 
 const streamableHTTPHealthcheckBody string = `{
@@ -90,7 +94,7 @@ const streamableHTTPHealthcheckBody string = `{
     }
 }`
 
-func NewSessionManager(ctx context.Context, tokenService TokenService, baseURL string, httpListenPort int, opts Options, localK8sConfig *rest.Config, obotStorageClient storage.Client) (*SessionManager, error) {
+func NewSessionManager(ctx context.Context, tokenService TokenService, baseURL string, httpListenPort int, opts Options, webhookHelper *WebhookHelper, localK8sConfig *rest.Config, obotStorageClient storage.Client) (*SessionManager, error) {
 	var backend backend
 
 	switch opts.MCPRuntimeBackend {
@@ -103,7 +107,7 @@ func NewSessionManager(ctx context.Context, tokenService TokenService, baseURL s
 		backend = dockerBackend
 	case "kubernetes", "k8s":
 		if localK8sConfig == nil {
-			return nil, fmt.Errorf("use ofKubernetes backend requested but no local K8s config available")
+			return nil, fmt.Errorf("use of Kubernetes backend requested but no local K8s config available")
 		}
 
 		client, err := kclient.NewWithWatch(localK8sConfig, kclient.Options{})
@@ -145,6 +149,7 @@ func NewSessionManager(ctx context.Context, tokenService TokenService, baseURL s
 	}
 
 	return &SessionManager{
+		webhookHelper:     webhookHelper,
 		tokenService:      tokenService,
 		backend:           backend,
 		baseURL:           baseURL,
@@ -154,12 +159,6 @@ func NewSessionManager(ctx context.Context, tokenService TokenService, baseURL s
 
 func (sm *SessionManager) TransformObotHostname(hostname string) string {
 	return sm.backend.transformObotHostname(hostname)
-}
-
-// Init must be called before the session manager is used.
-func (sm *SessionManager) Init(gptClient *gptscript.GPTScript, webhookHelper *WebhookHelper) {
-	sm.gptClient = gptClient
-	sm.webhookHelper = webhookHelper
 }
 
 // Load is used by GPTScript to load tools from dynamic MCP server tool definitions.
@@ -235,7 +234,7 @@ func (sm *SessionManager) closeClient(server ServerConfig, clientScope string) {
 		return
 	}
 
-	sess, ok := clientSessions.LoadAndDelete(clientID(server) + clientScope)
+	sess, ok := clientSessions.LoadAndDelete(clientID(server, clientScope))
 	if !ok || sess == nil {
 		return
 	}
@@ -256,11 +255,20 @@ func (sm *SessionManager) LaunchServer(ctx context.Context, serverConfig ServerC
 	return c.URL, err
 }
 
-// ShutdownServer will close the connections to the MCP server and remove the Kubernetes objects.
+// ShutdownServer will close the connections to the MCP server and remove all of the resources.
 func (sm *SessionManager) ShutdownServer(ctx context.Context, serverName string) error {
+	return sm.shutdownServer(ctx, serverName, true)
+}
+
+// ShutdownIdleServer will close the connections to the MCP server and remove all of the resources except for the volumes.
+func (sm *SessionManager) ShutdownIdleServer(ctx context.Context, serverName string) error {
+	return sm.shutdownServer(ctx, serverName, false)
+}
+
+func (sm *SessionManager) shutdownServer(ctx context.Context, serverName string, hardShutdown bool) error {
 	sm.closeClients(serverName)
 
-	return sm.backend.shutdownServer(ctx, serverName)
+	return sm.backend.shutdownServer(ctx, serverName, hardShutdown)
 }
 
 func (sm *SessionManager) closeClients(serverName string) {
@@ -298,11 +306,11 @@ func (sm *SessionManager) RestartServerDeployment(ctx context.Context, server Se
 
 func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerConfig, transformRemote bool) (ServerConfig, error) {
 	var webhooks []Webhook
-	if !server.ComponentMCPServer {
+	if (server.Runtime != otypes.RuntimeRemote || transformRemote) && !server.ComponentMCPServer && !server.SystemMCPServer {
 		// Don't get webhooks for servers that are components of composite servers.
 		// The webhooks would be called at the composite level.
 		var err error
-		webhooks, err = sm.webhookHelper.GetWebhooksForMCPServer(ctx, sm.gptClient, server)
+		webhooks, err = sm.webhookHelper.GetWebhooksForMCPServer(server)
 		if err != nil {
 			return ServerConfig{}, err
 		}
@@ -348,12 +356,17 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerCon
 		}
 	}
 
+	ctx, cancel := context.WithTimeout(ctx, server.StartupTimeout)
+	defer cancel()
+
 	return sm.backend.ensureServerDeployment(ctx, server, webhooks)
 }
 
-func clientID(server ServerConfig) string {
-	// The user ID is not part of the client ID.
+func serverID(server ServerConfig) string {
+	// The user ID is not part of the server ID.
 	server.UserID = ""
+	// Neither are the passthrough header values since they are per-user.
+	server.PassthroughHeaderValues = nil
 
 	// File values are dynamic and can be updated in place.
 	// Keep file env keys, but clear file contents before hashing.
@@ -370,6 +383,10 @@ func clientID(server ServerConfig) string {
 	server.Files = files
 
 	return "mcp" + hash.Digest(server)
+}
+
+func clientID(server ServerConfig, clientScope string) string {
+	return serverID(server) + hash.Digest(server.PassthroughHeaderValues) + clientScope
 }
 
 // GenerateToolPreviews creates a temporary MCP server from a catalog entry, lists its tools,

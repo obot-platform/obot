@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"encoding/json"
 	"slices"
 	"strconv"
 
@@ -105,6 +106,7 @@ type MCPServerSpec struct {
 	// UserID is the user that created this server.
 	UserID string `json:"userID,omitempty"`
 	// SharedWithinMCPCatalogName is a deprecated field. It is renamed to MCPCatalogID.
+	// Deprecated: Use MCPCatalogID instead. This field is still populated for backward compatibility, but should not be set on new MCP servers.
 	SharedWithinMCPCatalogName string `json:"sharedWithinMCPCatalogName,omitempty"`
 	// MCPCatalogID contains the name of the MCPCatalog inside of which this server was directly created by the admin, if there is one.
 	MCPCatalogID string `json:"mcpCatalogID,omitempty"`
@@ -132,7 +134,7 @@ type MCPServerStatus struct {
 	NeedsUpdate bool `json:"needsUpdate,omitempty"`
 	// MCPServerInstanceUserCount contains the number of unique users with server instances pointing to this MCP server.
 	MCPServerInstanceUserCount *int `json:"mcpInstanceUserCount,omitempty"`
-	// DeploymentStatus indicates the overall status of the MCP server deployment (Available, Progressing, Unavailable, Needs Attention, Unknown).
+	// DeploymentStatus indicates the overall status of the MCP server deployment (Available, Progressing, Unavailable, Needs Attention, Shutdown, Unknown).
 	DeploymentStatus string `json:"deploymentStatus,omitempty"`
 	// DeploymentAvailableReplicas is the number of available replicas in the deployment.
 	DeploymentAvailableReplicas *int32 `json:"deploymentAvailableReplicas,omitempty"`
@@ -156,6 +158,22 @@ type MCPServerStatus struct {
 	// OAuthCredentialConfigured indicates whether OAuth credentials have been configured
 	// for this server's catalog entry. Only relevant for remote servers that require static OAuth.
 	OAuthCredentialConfigured bool `json:"oauthCredentialConfigured,omitempty"`
+	// OAuthMetadata contains discovered OAuth metadata for remote MCP servers.
+	OAuthMetadata *OAuthMetadata `json:"oauthMetadata,omitempty"`
+	// LastOAuthMetadataSync is the time of the last OAuth metadata sync attempt.
+	LastOAuthMetadataSync metav1.Time `json:"lastOAuthMetadataSync,omitzero"`
+	// LastRequestTime is the time of the last request to the server, in 15 minute granularity.
+	LastRequestTime metav1.Time `json:"lastRequestTime,omitzero"`
+	// Idle indicates whether the server is currently idle.
+	Idle bool `json:"idle,omitempty"`
+}
+
+type OAuthMetadata struct {
+	ProtectedResourceURL        string          `json:"protectedResourceUrl,omitempty"`
+	AuthorizationServerURL      string          `json:"authorizationServerUrl,omitempty"`
+	ProtectedResourceMetadata   json.RawMessage `json:"protectedResourceMetadata,omitempty"`
+	AuthorizationServerMetadata json.RawMessage `json:"authorizationServerMetadata,omitempty"`
+	DynamicClientRegistration   bool            `json:"dynamicClientRegistration,omitempty"`
 }
 
 type DeploymentCondition struct {
