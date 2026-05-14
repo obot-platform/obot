@@ -211,7 +211,7 @@ func selectedDirectInstallers(ctx context.Context, agent string) ([]localagents.
 	case localagents.ClaudeCodeAgentID:
 		return []localagents.DirectInstaller{localagents.NewClaudeCode()}, nil
 	case "all":
-		return nil, fmt.Errorf("unsupported --agent value %q; supported values are detected and claude-code", agent)
+		fallthrough
 	default:
 		return nil, fmt.Errorf("unsupported --agent value %q; supported values are detected and claude-code", agent)
 	}

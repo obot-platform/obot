@@ -54,7 +54,7 @@ func ParseSkillArchive(data []byte, fallbackName string) (SkillArchive, error) {
 	var totalUncompressed uint64
 	var totalRead int
 	for _, file := range reader.File {
-		if file.Mode()&fs.ModeSymlink != 0 {
+		if file.Mode().Type() == fs.ModeSymlink {
 			return SkillArchive{}, fmt.Errorf("skill archive contains symlink %q", file.Name)
 		}
 		mode := file.Mode()
@@ -199,8 +199,8 @@ func cleanArchiveRelPath(rel string) (string, error) {
 	if strings.HasPrefix(rel, "/") || windowsDrivePath.MatchString(rel) {
 		return "", fmt.Errorf("skill archive contains absolute path %q", rel)
 	}
-	if hasColonPathSegment(rel) {
-		return "", fmt.Errorf("skill archive contains non-portable path %q", rel)
+	if strings.Contains(rel, ":") {
+		return "", fmt.Errorf("skill archive contains non-portable path (colons not allowed) %q", rel)
 	}
 	if hasDotDotPathSegment(rel) {
 		return "", fmt.Errorf("skill archive path escapes target directory: %q", rel)
@@ -215,15 +215,6 @@ func cleanArchiveRelPath(rel string) (string, error) {
 	}
 
 	return cleaned, nil
-}
-
-func hasColonPathSegment(rel string) bool {
-	for segment := range strings.SplitSeq(rel, "/") {
-		if strings.Contains(segment, ":") {
-			return true
-		}
-	}
-	return false
 }
 
 func hasDotDotPathSegment(rel string) bool {
