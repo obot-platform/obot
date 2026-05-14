@@ -132,24 +132,76 @@ func TestMapCatalogEntryToServer_Containerized(t *testing.T) {
 	}
 }
 
-func TestMapCatalogEntryToServer_StartupTimeout(t *testing.T) {
-	t.Run("copies nested startup timeout", func(t *testing.T) {
-		result, err := MapCatalogEntryToServer(MCPServerCatalogEntryManifest{
-			Runtime: RuntimeContainerized,
-			ContainerizedConfig: &ContainerizedRuntimeConfig{
-				Image:                 "test/mcp-server:latest",
-				Port:                  8080,
-				Path:                  "/mcp",
-				StartupTimeoutSeconds: 120,
-			},
-		}, "", false)
-		if err != nil {
-			t.Fatalf("Expected no error, got: %v", err)
-		}
-		if result.ContainerizedConfig.StartupTimeoutSeconds != 120 {
-			t.Errorf("Expected startup timeout 120, got %d", result.ContainerizedConfig.StartupTimeoutSeconds)
-		}
-	})
+func TestStartupTimeoutSeconds(t *testing.T) {
+	tests := []struct {
+		name     string
+		runtime  Runtime
+		uvx      *UVXRuntimeConfig
+		npx      *NPXRuntimeConfig
+		cont     *ContainerizedRuntimeConfig
+		expected int
+	}{
+		{
+			name:     "uvx nil config returns default",
+			runtime:  RuntimeUVX,
+			expected: defaultStartupTimeoutSeconds,
+		},
+		{
+			name:     "npx nil config returns default",
+			runtime:  RuntimeNPX,
+			expected: defaultStartupTimeoutSeconds,
+		},
+		{
+			name:     "containerized nil config returns default",
+			runtime:  RuntimeContainerized,
+			expected: defaultStartupTimeoutSeconds,
+		},
+		{
+			name:     "uvx zero StartupTimeoutSeconds returns default",
+			runtime:  RuntimeUVX,
+			uvx:      &UVXRuntimeConfig{Package: "pkg", StartupTimeoutSeconds: 0},
+			expected: defaultStartupTimeoutSeconds,
+		},
+		{
+			name:     "npx zero StartupTimeoutSeconds returns default",
+			runtime:  RuntimeNPX,
+			npx:      &NPXRuntimeConfig{Package: "pkg", StartupTimeoutSeconds: 0},
+			expected: defaultStartupTimeoutSeconds,
+		},
+		{
+			name:     "containerized zero StartupTimeoutSeconds returns default",
+			runtime:  RuntimeContainerized,
+			cont:     &ContainerizedRuntimeConfig{Image: "img", StartupTimeoutSeconds: 0},
+			expected: defaultStartupTimeoutSeconds,
+		},
+		{
+			name:     "uvx custom StartupTimeoutSeconds returned",
+			runtime:  RuntimeUVX,
+			uvx:      &UVXRuntimeConfig{Package: "pkg", StartupTimeoutSeconds: 120},
+			expected: 120,
+		},
+		{
+			name:     "npx custom StartupTimeoutSeconds returned",
+			runtime:  RuntimeNPX,
+			npx:      &NPXRuntimeConfig{Package: "pkg", StartupTimeoutSeconds: 30},
+			expected: 30,
+		},
+		{
+			name:     "containerized custom StartupTimeoutSeconds returned",
+			runtime:  RuntimeContainerized,
+			cont:     &ContainerizedRuntimeConfig{Image: "img", StartupTimeoutSeconds: 90},
+			expected: 90,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := startupTimeoutSeconds(tt.runtime, tt.uvx, tt.npx, tt.cont)
+			if got != tt.expected {
+				t.Errorf("expected %d, got %d", tt.expected, got)
+			}
+		})
+	}
 }
 
 func TestMapCatalogEntryToServer_RemoteFixedURL(t *testing.T) {
