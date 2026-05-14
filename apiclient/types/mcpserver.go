@@ -221,7 +221,6 @@ type MCPSecretBinding struct {
 	Key  string `json:"key"`
 }
 
-
 type MCPEnv struct {
 	MCPHeader `json:",inline"`
 	File      bool `json:"file"`
@@ -430,22 +429,27 @@ func (e RuntimeValidationError) Error() string {
 }
 
 func startupTimeoutSeconds(runtime Runtime, uvxConfig *UVXRuntimeConfig, npxConfig *NPXRuntimeConfig, containerizedConfig *ContainerizedRuntimeConfig) int {
+	var timeout int
+
 	switch runtime {
 	case RuntimeUVX:
 		if uvxConfig != nil {
-			return uvxConfig.StartupTimeoutSeconds
+			timeout = uvxConfig.StartupTimeoutSeconds
 		}
 	case RuntimeNPX:
 		if npxConfig != nil {
-			return npxConfig.StartupTimeoutSeconds
+			timeout = npxConfig.StartupTimeoutSeconds
 		}
 	case RuntimeContainerized:
 		if containerizedConfig != nil {
-			return containerizedConfig.StartupTimeoutSeconds
+			timeout = containerizedConfig.StartupTimeoutSeconds
 		}
 	}
 
-	return defaultStartupTimeoutSeconds
+	if timeout == 0 {
+		timeout = defaultStartupTimeoutSeconds
+	}
+	return timeout
 }
 
 func (m MCPServerCatalogEntryManifest) RuntimeStartupTimeoutSeconds() int {
