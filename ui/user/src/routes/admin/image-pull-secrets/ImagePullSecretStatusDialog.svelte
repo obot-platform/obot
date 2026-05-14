@@ -71,7 +71,11 @@
 			<section class="flex flex-col gap-3">
 				<div class="grid gap-3 md:grid-cols-3">
 					{@render statusValue('Status', statusLabel(details), Server)}
-					{@render statusValue('Last Success', formatDate(details.status?.lastSuccessTime), History)}
+					{@render statusValue(
+						'Last Success',
+						formatDate(details.status?.lastSuccessTime),
+						History
+					)}
 					{@render statusValue('Token Expires', formatDate(details.status?.tokenExpiresAt), Clock)}
 				</div>
 			</section>
