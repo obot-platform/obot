@@ -65,12 +65,7 @@ func (s *Scan) Run(cmd *cobra.Command, _ []string) error {
 		defer cancel()
 	}
 
-	homePath, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("failed to get user home dir: %w", err)
-	}
-
-	collected, err := devicescan.Scan(ctx, os.DirFS(homePath), homePath, s.MaxDepth)
+	collected, err := devicescan.Scan(ctx, s.MaxDepth)
 	if err != nil {
 		return fmt.Errorf("scan: %w", err)
 	}

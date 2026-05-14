@@ -27,7 +27,6 @@ require (
 	github.com/gen2brain/webp v0.5.4
 	github.com/go-git/go-billy/v5 v5.8.0
 	github.com/go-git/go-git/v5 v5.17.0
-	github.com/gobwas/glob v0.2.3
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/google/jsonschema-go v0.4.2
 	github.com/google/uuid v1.6.0
@@ -84,6 +83,8 @@ require (
 	sigs.k8s.io/controller-runtime v0.22.5
 	sigs.k8s.io/yaml v1.6.0
 )
+
+require github.com/gobwas/glob v0.2.3 // indirect
 
 require (
 	atomicgo.dev/cursor v0.2.0 // indirect
