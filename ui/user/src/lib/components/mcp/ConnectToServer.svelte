@@ -15,7 +15,6 @@
 		convertEnvHeadersToRecord,
 		createProjectMcp,
 		getSecretBindingEngineError,
-		hasMissingSecretBindingConfig,
 		isKubernetesRuntimeBackend,
 		hasEditableConfiguration
 	} from '$lib/services/chat/mcp';
@@ -76,6 +75,7 @@
 	let launchLogsEventStream = $state<EventStreamService<string>>();
 	let launchLogs = $state<string[]>([]);
 	let launchState = $state<'relaunching' | 'launching' | undefined>();
+	let launchMissingSecretBinding = $state(false);
 	let error = $state<string>();
 	let saving = $state(false);
 
@@ -262,6 +262,7 @@
 		}
 
 		launchError = undefined;
+		launchMissingSecretBinding = false;
 		launchProgress = 0;
 		launchState = existing ? 'relaunching' : 'launching';
 
@@ -281,20 +282,28 @@
 	}
 
 	function missingSecretBindingConfigMessage(mcpServer: MCPCatalogServer) {
-		if (
-			!hasMissingSecretBindingConfig(
-				mcpServer.manifest,
-				mcpServer.missingRequiredEnvVars,
-				mcpServer.missingRequiredHeaders
-			)
-		) {
-			return undefined;
+		if (mcpServer.manifest.runtime === 'composite') {
+			const missing = [
+				...(mcpServer.missingRequiredEnvVars ?? []),
+				...(mcpServer.missingRequiredHeaders ?? [])
+			];
+			return missing.length > 0
+				? `Missing Kubernetes Secret required by this MCP server: ${missing.join(', ')}`
+				: undefined;
 		}
 
+		const missingEnvKeys = new Set(mcpServer.missingRequiredEnvVars ?? []);
+		const missingHeaderKeys = new Set(mcpServer.missingRequiredHeaders ?? []);
 		const missing = [
-			...(mcpServer.missingRequiredEnvVars ?? []),
-			...(mcpServer.missingRequiredHeaders ?? [])
+			...(mcpServer.manifest.env ?? [])
+				.filter((env) => env.secretBinding && missingEnvKeys.has(env.key))
+				.map((env) => env.key),
+			...(mcpServer.manifest.remoteConfig?.headers ?? [])
+				.filter((header) => header.secretBinding && missingHeaderKeys.has(header.key))
+				.map((header) => header.key)
 		];
+		if (missing.length === 0) return undefined;
+
 		return `Missing Kubernetes Secret required by this MCP server: ${missing.join(', ')}`;
 	}
 
@@ -382,6 +391,7 @@
 				server = configuredResponse;
 				const missingConfigMessage = missingSecretBindingConfigMessage(configuredResponse);
 				if (missingConfigMessage) {
+					launchMissingSecretBinding = true;
 					launchError = missingConfigMessage;
 					launchProgress = 100;
 					return;
@@ -486,7 +496,15 @@
 			});
 			server = created;
 
-			await ChatService.configureCompositeMcpServer(created.id, payload);
+			const configured = await ChatService.configureCompositeMcpServer(created.id, payload);
+			server = configured;
+			const missingConfigMessage = missingSecretBindingConfigMessage(configured);
+			if (missingConfigMessage) {
+				launchMissingSecretBinding = true;
+				launchError = missingConfigMessage;
+				launchProgress = 100;
+				return;
+			}
 
 			const launchResponse = await ChatService.validateSingleOrRemoteMcpServerLaunched(created.id);
 			if (!launchResponse.success) {
@@ -508,17 +526,6 @@
 	async function handleMultiUserServer() {
 		if (!server || server.catalogEntryID) return;
 		try {
-			if (
-				hasMissingSecretBindingConfig(
-					server.manifest,
-					server.missingRequiredEnvVars,
-					server.missingRequiredHeaders
-				)
-			) {
-				error = 'Missing Kubernetes Secret required by this MCP server.';
-				return;
-			}
-
 			if (hasMultiUserInstanceConfiguration(server)) {
 				await initMultiUserInstanceForm(server);
 				return;
@@ -569,6 +576,7 @@
 
 		launchState = undefined;
 		launchError = undefined;
+		launchMissingSecretBinding = false;
 	}
 
 	async function updateExistingRemoteOrSingleUser(lf: LaunchFormData) {
@@ -924,7 +932,7 @@
 		{/if}
 
 		<div class="flex w-full flex-col items-center gap-2 md:flex-row">
-			{#if entry && hasEditableConfiguration(entry)}
+			{#if entry && hasEditableConfiguration(entry) && !launchMissingSecretBinding}
 				<button
 					class="btn btn-primary w-full md:w-1/2 md:flex-1"
 					onclick={() => {

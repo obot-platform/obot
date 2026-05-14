@@ -2229,7 +2229,12 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 		return fmt.Errorf("failed to generate slug: %w", err)
 	}
 
-	return req.Write(ConvertMCPServer(compositeServer, nil, m.serverURL, slug, components...))
+	mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, compositeServer.Spec.Manifest.Env, compositeServer.Spec.Manifest.RemoteConfig, nil)
+	if err != nil {
+		return fmt.Errorf("failed to resolve secret bindings: %w", err)
+	}
+
+	return req.Write(ConvertMCPServer(compositeServer, mergedEnv, m.serverURL, slug, components...))
 }
 
 func kickMCPServerControllers(req api.Context, server *v1.MCPServer) error {
@@ -2802,6 +2807,12 @@ func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL,
 			componentServers   = server.Spec.Manifest.CompositeConfig.ComponentServers
 			disabledComponents = make(map[string]bool, len(componentServers))
 		)
+		if credEnv != nil {
+			converted.MissingRequiredEnvVars, converted.MissingRequiredHeaders = secretBoundMissingConfig(converted)
+		} else {
+			converted.MissingRequiredEnvVars = nil
+			converted.MissingRequiredHeaders = nil
+		}
 		for _, comp := range componentServers {
 			if id := comp.ComponentID(); id != "" {
 				disabledComponents[id] = comp.Disabled
@@ -2809,16 +2820,50 @@ func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL,
 		}
 
 		for _, component := range components {
-			if component.CatalogEntryID != "" && disabledComponents[component.CatalogEntryID] || component.Configured {
+			if (component.CatalogEntryID != "" && disabledComponents[component.CatalogEntryID]) || component.Configured {
 				continue
 			}
 
+			missingEnvVars, missingHeaders := secretBoundMissingConfig(component)
+			converted.MissingRequiredEnvVars = append(converted.MissingRequiredEnvVars, missingEnvVars...)
+			converted.MissingRequiredHeaders = append(converted.MissingRequiredHeaders, missingHeaders...)
 			converted.Configured = false
-			break
 		}
 	}
 
 	return converted
+}
+
+func secretBoundMissingConfig(server types.MCPServer) (missingEnvVars, missingHeaders []string) {
+	missingEnvKeys := map[string]struct{}{}
+	for _, key := range server.MissingRequiredEnvVars {
+		missingEnvKeys[key] = struct{}{}
+	}
+	for _, env := range server.MCPServerManifest.Env {
+		if env.SecretBinding == nil {
+			continue
+		}
+		if _, ok := missingEnvKeys[env.Key]; ok {
+			missingEnvVars = append(missingEnvVars, env.Key)
+		}
+	}
+
+	missingHeaderKeys := map[string]struct{}{}
+	for _, key := range server.MissingRequiredHeaders {
+		missingHeaderKeys[key] = struct{}{}
+	}
+	if server.MCPServerManifest.RemoteConfig != nil {
+		for _, header := range server.MCPServerManifest.RemoteConfig.Headers {
+			if header.SecretBinding == nil {
+				continue
+			}
+			if _, ok := missingHeaderKeys[header.Key]; ok {
+				missingHeaders = append(missingHeaders, header.Key)
+			}
+		}
+	}
+
+	return missingEnvVars, missingHeaders
 }
 
 func convertOAuthMetadata(metadata *v1.OAuthMetadata) *types.OAuthMetadata {

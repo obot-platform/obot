@@ -147,7 +147,7 @@ export function hasMissingSecretBindingConfig(
 	manifest: SecretBindingManifest | undefined | null,
 	missingEnvVars?: string[],
 	missingHeaders?: string[]
-) {
+): boolean {
 	if (!manifest) return false;
 	const missingEnvKeys = new Set(missingEnvVars ?? []);
 	const missingHeaderKeys = new Set(missingHeaders ?? []);
@@ -162,6 +162,11 @@ export function hasMissingSecretBindingConfig(
 	) {
 		return true;
 	}
+	// Composite server responses aggregate only secret-bound missing config from
+	// their components. Avoid matching keys across component manifests here: the
+	// parent arrays already carry the filtered missing-secret state.
+	if (manifest.runtime === 'composite')
+		return missingEnvKeys.size > 0 || missingHeaderKeys.size > 0;
 
 	return false;
 }
@@ -262,8 +267,10 @@ function convertEntriesToTableData(
 		.map((entry) => {
 			const registry = getUserRegistry(entry, usersMap);
 			const configuredServers = userConfiguredServersByEntry.get(entry.id) ?? [];
-			const connected = configuredServers.length > 0;
 			const missingSecretBinding = hasMissingSecretBinding(entry, configuredServers);
+			const connected = configuredServers.some(
+				(server) => !serverHasMissingSecretBinding(entry, server)
+			);
 			return {
 				id: entry.id,
 				name: entry.manifest?.name ?? '',
@@ -295,18 +302,20 @@ function convertEntriesToTableData(
 
 function hasMissingSecretBinding(entry: MCPCatalogEntry, servers: MCPCatalogServer[]) {
 	for (const server of servers) {
-		if (
-			hasMissingSecretBindingConfig(
-				entry.manifest,
-				server.missingRequiredEnvVars,
-				server.missingRequiredHeaders
-			)
-		) {
+		if (serverHasMissingSecretBinding(entry, server)) {
 			return true;
 		}
 	}
 
 	return false;
+}
+
+function serverHasMissingSecretBinding(_entry: MCPCatalogEntry, server: MCPCatalogServer) {
+	return hasMissingSecretBindingConfig(
+		server.manifest,
+		server.missingRequiredEnvVars,
+		server.missingRequiredHeaders
+	);
 }
 
 function convertServersToTableData(

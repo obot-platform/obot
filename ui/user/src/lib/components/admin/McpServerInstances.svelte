@@ -28,8 +28,10 @@
 		GitCompare,
 		Router,
 		Square,
-		SquareCheck
+		SquareCheck,
+		TriangleAlert
 	} from 'lucide-svelte';
+	import { hasMissingSecretBindingConfig } from '$lib/services/chat/mcp';
 
 	interface Props {
 		id?: string;
@@ -222,6 +224,14 @@
 			? `/mcp-servers/c/${entry?.id}?view=audit-logs&mcp_id=${d.id}&user_id=${d.userID}`
 			: null;
 	}
+
+	function isMissingKubernetesSecret(server: MCPCatalogServer) {
+		return hasMissingSecretBindingConfig(
+			server.manifest,
+			server.missingRequiredEnvVars,
+			server.missingRequiredHeaders
+		);
+	}
 </script>
 
 {#if loading}
@@ -257,7 +267,9 @@
 		{@render emptyInstancesContent()}
 	{/if}
 {:else}
-	{@const numServerUpdatesNeeded = servers.filter((s) => s.needsUpdate).length}
+	{@const numServerUpdatesNeeded = servers.filter(
+		(s) => s.needsUpdate && !isMissingKubernetesSecret(s)
+	).length}
 	{#if servers.length > 0}
 		{#if numServerUpdatesNeeded}
 			<button
@@ -304,10 +316,21 @@
 				: undefined}
 		>
 			{#snippet onRenderColumn(property, d)}
+				{@const missingKubernetesSecret = isMissingKubernetesSecret(d)}
 				{#if property === 'url'}
 					<span class="flex items-center gap-1">
 						{d.manifest.remoteConfig?.url}
-						{#if d.needsUpdate}
+						{#if missingKubernetesSecret}
+							<div
+								class="text-yellow-500"
+								use:tooltip={{
+									text: 'Missing Kubernetes Secret.',
+									classes: ['break-words', 'w-58']
+								}}
+							>
+								<TriangleAlert class="size-4" />
+							</div>
+						{:else if d.needsUpdate}
 							<div
 								use:tooltip={{
 									text: 'This server needs an update. View Diff to see the changes.',
@@ -322,7 +345,17 @@
 					<span class="flex items-center gap-1">
 						{d.userDisplayName || 'Unknown User'}
 						{#if type === 'single' || type === 'composite'}
-							{#if d.needsUpdate}
+							{#if missingKubernetesSecret}
+								<div
+									class="text-yellow-500"
+									use:tooltip={{
+										text: 'Missing Kubernetes Secret.',
+										classes: ['break-words', 'w-58']
+									}}
+								>
+									<TriangleAlert class="size-4" />
+								</div>
+							{:else if d.needsUpdate}
 								<div
 									use:tooltip={{
 										text: 'This server needs an update. View Diff to see the changes.',
@@ -343,15 +376,16 @@
 
 			{#snippet actions(d)}
 				{@const auditLogsUrl = getAuditLogUrl(d)}
-				<div class="flex shrink-0 items-center gap-1">
+				{@const missingKubernetesSecret = isMissingKubernetesSecret(d)}
+				<div class="flex flex-shrink-0 items-center gap-1">
 					{#if auditLogsUrl}
 						<a class="btn btn-link" href={resolve(auditLogsUrl as `/${string}`)}>
 							View Audit Logs
 						</a>
 					{/if}
 
-					{#if d.needsUpdate}
-						<DotDotDot class="hover:dark:bg-base-100/50">
+					{#if d.needsUpdate && !missingKubernetesSecret}
+						<DotDotDot class="icon-button hover:dark:bg-background/50">
 							{#snippet icon()}
 								<Ellipsis class="size-4" />
 							{/snippet}

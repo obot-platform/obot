@@ -25,6 +25,7 @@
 		convertEntriesAndServersToTableData,
 		getServerTypeLabelByType,
 		hasEditableConfiguration,
+		hasMissingSecretBindingConfig,
 		requiresUserUpdate
 	} from '$lib/services/chat/mcp';
 	import { mcpServersAndEntries, profile, version } from '$lib/stores';
@@ -197,6 +198,17 @@
 		);
 	}
 
+	function getUsableConfiguredServersForCatalogEntry(entry: MCPCatalogEntry): MCPCatalogServer[] {
+		return getConfiguredServersForCatalogEntry(entry).filter(
+			(server) =>
+				!hasMissingSecretBindingConfig(
+					server.manifest,
+					server.missingRequiredEnvVars,
+					server.missingRequiredHeaders
+				)
+		);
+	}
+
 	function hasInstanceConfiguration(server: MCPCatalogServer) {
 		return (server.manifest.multiUserConfig?.userDefinedHeaders?.length ?? 0) > 0;
 	}
@@ -220,7 +232,9 @@
 		entry: MCPCatalogEntry,
 		mode: ServerSelectMode = 'connect'
 	) {
-		const allServers = getConfiguredServersForCatalogEntry(entry);
+		const allServers = mode === 'connect' || mode === 'chat'
+			? getUsableConfiguredServersForCatalogEntry(entry)
+			: getConfiguredServersForCatalogEntry(entry);
 		selectedConfiguredServers = allServers;
 		selectedEntry = entry;
 		selectServerDialog?.open();
@@ -365,7 +379,8 @@
 			setRowClasses={(d) => {
 				const matchingServers =
 					'isCatalogEntry' in d.data ? getConfiguredServersForCatalogEntry(d.data) : [];
-				return 'isCatalogEntry' in d.data && d.data.needsUpdate
+				const missingSecretBinding = 'missingKubernetesSecret' in d && d.missingKubernetesSecret;
+				return 'isCatalogEntry' in d.data && d.data.needsUpdate && !missingSecretBinding
 					? 'bg-primary/10'
 					: matchingServers.some(requiresUserUpdate)
 						? 'bg-warning/10'
@@ -377,6 +392,9 @@
 				{@const catalogEntry = isCatalogEntry ? (d.data as MCPCatalogEntry) : undefined}
 				{@const matchingServers = catalogEntry
 					? getConfiguredServersForCatalogEntry(catalogEntry)
+					: []}
+				{@const usableMatchingServers = catalogEntry
+					? getUsableConfiguredServersForCatalogEntry(catalogEntry)
 					: []}
 				{#if property === 'name'}
 					<div class="flex shrink-0 items-center gap-2">
@@ -443,11 +461,14 @@
 				{@const matchingServers = catalogEntry
 					? getConfiguredServersForCatalogEntry(catalogEntry)
 					: []}
+				{@const usableMatchingServers = catalogEntry
+					? getUsableConfiguredServersForCatalogEntry(catalogEntry)
+					: []}
 				{@const oauthServers = matchingServers.filter(hasOAuth)}
 				{@const matchingInstance =
 					d.connected && d.type === 'multi' ? instancesMap.get(d.data.id) : undefined}
 				{@const hasConnectedOptions = isCatalogEntry
-					? matchingServers.length > 0
+					? usableMatchingServers.length > 0
 					: !!matchingInstance}
 				{@const requiresOAuth =
 					catalogEntry?.manifest?.runtime === 'remote' &&
@@ -474,8 +495,8 @@
 										onclick={async (e) => {
 											e.stopPropagation();
 											if (catalogEntry) {
-												if (matchingServers.length === 1) {
-													connectToServerDialog?.handleSetupChat(matchingServers[0]);
+												if (usableMatchingServers.length === 1) {
+													connectToServerDialog?.handleSetupChat(usableMatchingServers[0]);
 												} else {
 													handleShowSelectServerDialog(catalogEntry, 'chat');
 												}
@@ -723,9 +744,7 @@
 			e.stopPropagation();
 
 			if ('isCatalogEntry' in d) {
-				const matchingServers = mcpServersAndEntries.current.userConfiguredServers.filter(
-					(s) => s.catalogEntryID === d.id
-				);
+				const matchingServers = getUsableConfiguredServersForCatalogEntry(d);
 				if (isCreateFirst || matchingServers.length === 1) {
 					connectToServerDialog?.open({
 						entry: d,
