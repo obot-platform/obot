@@ -15,6 +15,7 @@
 		convertEnvHeadersToRecord,
 		createProjectMcp,
 		getSecretBindingEngineError,
+		hasMissingSecretBindingConfig,
 		isKubernetesRuntimeBackend,
 		hasEditableConfiguration
 	} from '$lib/services/chat/mcp';
@@ -279,6 +280,24 @@
 		return { timeout1, timeout2, timeout3 };
 	}
 
+	function missingSecretBindingConfigMessage(mcpServer: MCPCatalogServer) {
+		if (
+			!hasMissingSecretBindingConfig(
+				mcpServer.manifest,
+				mcpServer.missingRequiredEnvVars,
+				mcpServer.missingRequiredHeaders
+			)
+		) {
+			return undefined;
+		}
+
+		const missing = [
+			...(mcpServer.missingRequiredEnvVars ?? []),
+			...(mcpServer.missingRequiredHeaders ?? [])
+		];
+		return `Missing Kubernetes Secret required by this MCP server: ${missing.join(', ')}`;
+	}
+
 	async function getOauthURL() {
 		if (!server) return '';
 		const oauthURL = await ChatService.getMcpServerOauthURL(server.id);
@@ -346,6 +365,7 @@
 				manifest: url ? { remoteConfig: { url } } : {},
 				alias: aliasToUse
 			});
+			server = response;
 		} catch (err) {
 			console.error('error: ', err);
 			launchError = err instanceof Error ? err.message : 'An unknown error occurred';
@@ -360,6 +380,12 @@
 					envs
 				);
 				server = configuredResponse;
+				const missingConfigMessage = missingSecretBindingConfigMessage(configuredResponse);
+				if (missingConfigMessage) {
+					launchError = missingConfigMessage;
+					launchProgress = 100;
+					return;
+				}
 
 				const launchResponse = await ChatService.validateSingleOrRemoteMcpServerLaunched(
 					configuredResponse.id
@@ -482,6 +508,17 @@
 	async function handleMultiUserServer() {
 		if (!server || server.catalogEntryID) return;
 		try {
+			if (
+				hasMissingSecretBindingConfig(
+					server.manifest,
+					server.missingRequiredEnvVars,
+					server.missingRequiredHeaders
+				)
+			) {
+				error = 'Missing Kubernetes Secret required by this MCP server.';
+				return;
+			}
+
 			if (hasMultiUserInstanceConfiguration(server)) {
 				await initMultiUserInstanceForm(server);
 				return;
@@ -887,7 +924,7 @@
 		{/if}
 
 		<div class="flex w-full flex-col items-center gap-2 md:flex-row">
-			{#if entry}
+			{#if entry && hasEditableConfiguration(entry)}
 				<button
 					class="btn btn-primary w-full md:w-1/2 md:flex-1"
 					onclick={() => {

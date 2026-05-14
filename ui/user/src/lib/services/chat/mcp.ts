@@ -143,6 +143,29 @@ export function manifestHasSecretBindings(manifest?: SecretBindingManifest | nul
 	return false;
 }
 
+export function hasMissingSecretBindingConfig(
+	manifest: SecretBindingManifest | undefined | null,
+	missingEnvVars?: string[],
+	missingHeaders?: string[]
+) {
+	if (!manifest) return false;
+	const missingEnvKeys = new Set(missingEnvVars ?? []);
+	const missingHeaderKeys = new Set(missingHeaders ?? []);
+
+	if ((manifest.env ?? []).some((env) => hasSecretBinding(env) && missingEnvKeys.has(env.key))) {
+		return true;
+	}
+	if (
+		(manifest.remoteConfig?.headers ?? []).some(
+			(header) => hasSecretBinding(header) && missingHeaderKeys.has(header.key)
+		)
+	) {
+		return true;
+	}
+
+	return false;
+}
+
 export function isKubernetesRuntimeBackend(engine?: string | null): boolean {
 	return engine === 'kubernetes' || engine === 'k8s';
 }
@@ -272,14 +295,14 @@ function convertEntriesToTableData(
 
 function hasMissingSecretBinding(entry: MCPCatalogEntry, servers: MCPCatalogServer[]) {
 	for (const server of servers) {
-		const missingEnvKeys = new Set(server.missingRequiredEnvVars ?? []);
-		const missingHeaderKeys = new Set(server.missingRequiredHeaders ?? []);
-
-		for (const env of entry.manifest.env ?? []) {
-			if (hasSecretBinding(env) && missingEnvKeys.has(env.key)) return true;
-		}
-		for (const header of entry.manifest.remoteConfig?.headers ?? []) {
-			if (hasSecretBinding(header) && missingHeaderKeys.has(header.key)) return true;
+		if (
+			hasMissingSecretBindingConfig(
+				entry.manifest,
+				server.missingRequiredEnvVars,
+				server.missingRequiredHeaders
+			)
+		) {
+			return true;
 		}
 	}
 
