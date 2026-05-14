@@ -21,7 +21,6 @@ import (
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	"github.com/obot-platform/obot/pkg/utils"
 	"golang.org/x/crypto/bcrypt"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -273,7 +272,7 @@ func configurationHasDrifted(serverManifest types.MCPServerManifest, entryManife
 	}
 
 	// Check environment
-	return !utils.SlicesEqualIgnoreOrder(serverManifest.Env, entryManifest.Env), nil
+	return !slicesEqualIgnoreOrderDeep(serverManifest.Env, entryManifest.Env), nil
 }
 
 // uvxConfigHasDrifted checks if UVX configuration has drifted
@@ -351,7 +350,31 @@ func remoteConfigHasDrifted(serverConfig *types.RemoteRuntimeConfig, entryConfig
 	}
 
 	// Check if headers have drifted
-	return !utils.SlicesEqualIgnoreOrder(serverConfig.Headers, entryConfig.Headers)
+	return !slicesEqualIgnoreOrderDeep(serverConfig.Headers, entryConfig.Headers)
+}
+
+func slicesEqualIgnoreOrderDeep[T any](a, b []T) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	used := make([]bool, len(b))
+	for _, left := range a {
+		found := false
+		for i, right := range b {
+			if used[i] || !reflect.DeepEqual(left, right) {
+				continue
+			}
+			used[i] = true
+			found = true
+			break
+		}
+		if !found {
+			return false
+		}
+	}
+
+	return true
 }
 
 // compositeConfigHasDrifted checks if the composite configuration has drifted
