@@ -389,7 +389,7 @@
 						</div>
 						<p class="flex items-center gap-2">
 							{d.name}
-							{#if catalogEntry?.needsUpdate}
+							{#if catalogEntry?.needsUpdate && !('missingKubernetesSecret' in d && d.missingKubernetesSecret)}
 								<span
 									use:tooltip={{
 										classes: ['border-primary', 'bg-primary/10', 'dark:bg-primary/50'],
@@ -398,11 +398,14 @@
 								>
 									<CircleFadingArrowUp class="text-primary size-4" />
 								</span>
-							{:else if matchingServers.some(requiresUserUpdate)}
+							{:else if ('missingKubernetesSecret' in d && d.missingKubernetesSecret) || matchingServers.some(requiresUserUpdate)}
 								<span
 									class="text-warning"
 									use:tooltip={{
-										text: 'Server requires an update.'
+										text:
+											'missingKubernetesSecret' in d && d.missingKubernetesSecret
+												? 'Missing Kubernetes Secret.'
+												: 'Server requires an update.'
 									}}
 								>
 									<TriangleAlert class="size-4" />

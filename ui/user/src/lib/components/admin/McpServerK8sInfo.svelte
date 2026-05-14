@@ -482,6 +482,7 @@
 						</li>
 					{/each}
 				</ul>
+				<p class="mt-2">Server details and logs are temporarily unavailable as a result.</p>
 			</div>
 		</div>
 	</div>
@@ -580,7 +581,7 @@
 	{@const isPending = error instanceof Error && error.message.includes('ContainerCreating')}
 	{@const needsUpdate = error instanceof Error && error.message.includes('missing required config')}
 
-	{#if needsUpdate && hasAdminAccess}
+	{#if needsUpdate && hasAdminAccess && missingSecretBindings.length === 0}
 		<div class="notification-alert">
 			<div class="flex grow flex-col gap-2">
 				<div class="flex items-center gap-2">

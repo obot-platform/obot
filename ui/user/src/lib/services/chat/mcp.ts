@@ -226,15 +226,21 @@ function convertEntriesToTableData(
 		return [];
 	}
 
-	const userConfiguredServersMap = userConfiguredServers
-		? new Map(userConfiguredServers.map((server) => [server.catalogEntryID, server]))
-		: undefined;
+	const userConfiguredServersByEntry = new Map<string, MCPCatalogServer[]>();
+	for (const server of userConfiguredServers ?? []) {
+		if (!server.catalogEntryID) continue;
+		const existing = userConfiguredServersByEntry.get(server.catalogEntryID) ?? [];
+		existing.push(server);
+		userConfiguredServersByEntry.set(server.catalogEntryID, existing);
+	}
 
 	return entries
 		.filter((entry) => !entry.deleted)
 		.map((entry) => {
 			const registry = getUserRegistry(entry, usersMap);
-			const connected = userConfiguredServersMap?.has(entry.id);
+			const configuredServers = userConfiguredServersByEntry.get(entry.id) ?? [];
+			const connected = configuredServers.length > 0;
+			const missingSecretBinding = hasMissingSecretBinding(entry, configuredServers);
 			return {
 				id: entry.id,
 				name: entry.manifest?.name ?? '',
@@ -252,13 +258,32 @@ function convertEntriesToTableData(
 				registry,
 				needsUpdate: entry.needsUpdate,
 				connected,
-				status: connected
-					? 'Connected'
-					: entry.manifest?.remoteConfig?.staticOAuthRequired && !entry.oauthCredentialConfigured
-						? 'Requires OAuth Config'
-						: ''
+				missingKubernetesSecret: missingSecretBinding,
+				status: missingSecretBinding
+					? ''
+					: connected
+						? 'Connected'
+						: entry.manifest?.remoteConfig?.staticOAuthRequired && !entry.oauthCredentialConfigured
+							? 'Requires OAuth Config'
+							: ''
 			};
 		});
+}
+
+function hasMissingSecretBinding(entry: MCPCatalogEntry, servers: MCPCatalogServer[]) {
+	for (const server of servers) {
+		const missingEnvKeys = new Set(server.missingRequiredEnvVars ?? []);
+		const missingHeaderKeys = new Set(server.missingRequiredHeaders ?? []);
+
+		for (const env of entry.manifest.env ?? []) {
+			if (hasSecretBinding(env) && missingEnvKeys.has(env.key)) return true;
+		}
+		for (const header of entry.manifest.remoteConfig?.headers ?? []) {
+			if (hasSecretBinding(header) && missingHeaderKeys.has(header.key)) return true;
+		}
+	}
+
+	return false;
 }
 
 function convertServersToTableData(

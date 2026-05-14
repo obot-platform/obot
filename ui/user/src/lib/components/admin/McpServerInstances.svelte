@@ -35,12 +35,21 @@
 		id?: string;
 		entity?: 'workspace' | 'catalog';
 		entry?: MCPCatalogEntry | MCPCatalogServer;
+		catalogEntry?: MCPCatalogEntry;
 		users?: OrgUser[];
 		type?: LaunchServerType;
 		configuredServers?: MCPCatalogServer[];
 	}
 
-	let { id, entity = 'catalog', entry, users = [], type, configuredServers }: Props = $props();
+	let {
+		id,
+		entity = 'catalog',
+		entry,
+		catalogEntry,
+		users = [],
+		type,
+		configuredServers
+	}: Props = $props();
 
 	let instances = $state<MCPServerInstance[]>([]);
 	let servers = $state<MCPCatalogServer[]>([]);
@@ -56,6 +65,10 @@
 	let hasSelected = $derived(Object.values(selected).some((v) => v));
 	let usersMap = $derived(new Map(users.map((u) => [u.id, u])));
 	let isAdminUrl = $derived(page.url.pathname.includes('/admin'));
+	let detailsCatalogEntry = $derived(
+		catalogEntry ?? (entry && 'isCatalogEntry' in entry ? entry : undefined)
+	);
+	let detailsMcpServer = $derived(entry && !('isCatalogEntry' in entry) ? entry : undefined);
 
 	let serverTableData = $derived(
 		servers
@@ -223,6 +236,8 @@
 				{entity}
 				mcpServerId={entry.id}
 				name={'manifest' in entry ? entry.manifest.name || '' : ''}
+				catalogEntry={detailsCatalogEntry}
+				mcpServer={detailsMcpServer}
 				connectedUsers={instances.map((instance) => {
 					const user = usersMap.get(instance.userID)!;
 					return {
