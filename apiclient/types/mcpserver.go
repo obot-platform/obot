@@ -17,6 +17,9 @@ const (
 	RuntimeContainerized Runtime = "containerized"
 	RuntimeRemote        Runtime = "remote"
 	RuntimeComposite     Runtime = "composite"
+
+	// defaultStartupTimeoutSeconds is the default value used when (UVX|NPX|Containerized)RuntimeConfig.StartupTimeout is not set
+	defaultStartupTimeoutSeconds = 60
 )
 
 // UVXRuntimeConfig represents configuration for UVX runtime (Python packages via uvx)
@@ -431,7 +434,7 @@ func startupTimeoutSeconds(runtime Runtime, uvxConfig *UVXRuntimeConfig, npxConf
 		}
 	}
 
-	return 0
+	return defaultStartupTimeoutSeconds
 }
 
 func (m MCPServerCatalogEntryManifest) RuntimeStartupTimeoutSeconds() int {
