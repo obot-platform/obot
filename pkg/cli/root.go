@@ -44,6 +44,8 @@ func New() *cobra.Command {
 		&Login{root: root},
 		&Logout{root: root},
 		&Scan{root: root},
+		&Setup{root: root},
+		&Skills{root: root},
 		&Version{},
 	)
 }
