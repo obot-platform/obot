@@ -47,13 +47,6 @@
 			...deployedWorkspaceCatalogEntryServers.filter((s) => s.compositeName === mcpServerId)
 		];
 	});
-
-	function getAuditLogUrl(d: OrgUser) {
-		if (!catalogEntry?.id) return null;
-		if (!isAdminUrl) return null;
-		if (!profile.current?.hasAdminAccess?.()) return null;
-		return `/admin/mcp-servers/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`;
-	}
 </script>
 
 <div class="flex items-center gap-3">
@@ -164,9 +157,15 @@
 		{/snippet}
 
 		{#snippet actions(d)}
-			{@const auditLogsUrl = getAuditLogUrl(d)}
-			{#if auditLogsUrl}
-				<a href={resolve(auditLogsUrl as `/${string}`)} class="btn btn-link"> View Audit Logs </a>
+			{#if catalogEntry?.id && isAdminUrl && profile.current?.hasAdminAccess?.()}
+				<a
+					href={resolve(
+						`/admin/mcp-servers/c/${catalogEntry.id}?view=audit-logs&user_id=${encodeURIComponent(d.id)}`
+					)}
+					class="btn btn-link"
+				>
+					View Audit Logs
+				</a>
 			{/if}
 		{/snippet}
 	</Table>

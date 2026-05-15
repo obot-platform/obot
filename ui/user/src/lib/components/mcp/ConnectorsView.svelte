@@ -27,7 +27,7 @@
 		hasEditableConfiguration,
 		requiresUserUpdate
 	} from '$lib/services/chat/mcp';
-	import { mcpServersAndEntries, profile, userDeviceSettings, version } from '$lib/stores';
+	import { mcpServersAndEntries, profile, userDeviceSettings } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { openUrl, isOwnSingleUserServer } from '$lib/utils';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
@@ -40,7 +40,6 @@
 		CircleFadingArrowUp,
 		Ellipsis,
 		KeyRound,
-		MessageCircle,
 		PencilLine,
 		ReceiptText,
 		RefreshCw,
@@ -63,7 +62,6 @@
 		| 'rename'
 		| 'edit'
 		| 'disconnect'
-		| 'chat'
 		| 'server-details'
 		| 'restart'
 		| 'reauthenticate';
@@ -467,32 +465,6 @@
 							<div class="bg-base-200 flex flex-col gap-1 p-2">
 								{#if !requiresOAuth || catalogEntry?.oauthCredentialConfigured}
 									{@render connectToServerAction(d.data, toggle)}
-								{/if}
-								{#if version.current.disableLegacyChat !== true}
-									<button
-										class="menu-button hover:bg-base-400"
-										onclick={async (e) => {
-											e.stopPropagation();
-											if (catalogEntry) {
-												if (matchingServers.length === 1) {
-													connectToServerDialog?.handleSetupChat(matchingServers[0]);
-												} else {
-													handleShowSelectServerDialog(catalogEntry, 'chat');
-												}
-											} else {
-												const server = d.data as MCPCatalogServer;
-												const instance = instancesMap.get(d.id);
-												if (instance && !instance.configured) {
-													connectToServerDialog?.open({ server, instance });
-												} else {
-													connectToServerDialog?.handleSetupChat(server, instance);
-												}
-											}
-											toggle(false);
-										}}
-									>
-										<MessageCircle class="size-4" /> Chat
-									</button>
 								{/if}
 
 								{#if catalogEntry}
@@ -900,10 +872,6 @@
 		onClickRow={async (d) => {
 			selectServerDialog?.close();
 			switch (selectServerMode) {
-				case 'chat': {
-					connectToServerDialog?.handleSetupChat(d);
-					break;
-				}
 				case 'server-details': {
 					goto(resolve(`/mcp-servers/c/${d.catalogEntryID}/instance/${d.id}`));
 					break;

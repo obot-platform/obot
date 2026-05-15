@@ -2,12 +2,10 @@ import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 import type { Skill } from '$lib/services/nanobot/types';
 import type {
 	ModelProvider,
-	Project,
 	MCPCatalogServer,
 	MCPServerInstance,
 	MCPServerTool,
 	Model,
-	DebugRun,
 	ModelAlias,
 	DefaultModelAlias
 } from '../chat/types';
@@ -21,7 +19,6 @@ import type {
 	MCPCatalogManifest,
 	OrgUser,
 	OrgGroup,
-	ProjectThread,
 	MCPCatalogServerManifest,
 	AccessControlRule,
 	AccessControlRuleManifest,
@@ -33,10 +30,8 @@ import type {
 	AuditLogUsageStats,
 	AuditLogURLFilters,
 	K8sServerDetail,
-	BaseAgent,
 	MCPFilter,
 	MCPFilterManifest,
-	ProjectTask,
 	TempUser,
 	ScheduledAuditLogExport,
 	StorageCredentials,
@@ -547,36 +542,6 @@ export async function deleteUser(userID: string): Promise<void> {
 	await doDelete(`/users/${userID}`);
 }
 
-export async function listProjects(opts?: { fetch?: Fetcher }): Promise<Project[]> {
-	const response = (await doGet('/projects?all=true', opts)) as ItemsResponse<Project>;
-	return response.items ?? [];
-}
-
-export async function listThreads(opts?: { fetch?: Fetcher }): Promise<ProjectThread[]> {
-	const response = (await doGet('/threads', opts)) as ItemsResponse<ProjectThread>;
-	return response.items ?? [];
-}
-
-export async function getThread(id: string, opts?: { fetch?: Fetcher }): Promise<ProjectThread> {
-	const response = (await doGet(`/threads/${id}`, opts)) as ProjectThread;
-	return response;
-}
-
-export async function getProject(projectID: string, opts?: { fetch?: Fetcher }): Promise<Project> {
-	const response = (await doGet(`/projects/${projectID}`, opts)) as Project;
-	return response;
-}
-
-export async function listTasks(opts?: { fetch?: Fetcher }): Promise<ProjectTask[]> {
-	const response = (await doGet('/tasks', opts)) as ItemsResponse<ProjectTask>;
-	return response.items ?? [];
-}
-
-export async function getTask(taskID: string, opts?: { fetch?: Fetcher }): Promise<ProjectTask> {
-	const response = (await doGet(`/tasks/${taskID}`, opts)) as ProjectTask;
-	return response;
-}
-
 export async function listModelProviders(opts?: { fetch?: Fetcher }): Promise<ModelProvider[]> {
 	const response = (await doGet('/model-providers', opts)) as ItemsResponse<ModelProvider>;
 	return response.items ?? [];
@@ -969,15 +934,6 @@ export async function redeployWithK8sSettings(
 	return response;
 }
 
-export async function getDefaultBaseAgent(opts?: { fetch?: Fetcher }) {
-	const response = (await doGet('/agents', opts)) as ItemsResponse<BaseAgent>;
-	return response.items?.find((agent) => agent.default);
-}
-
-export async function updateBaseAgent(agent: BaseAgent, opts?: { fetch?: Fetcher }) {
-	return (await doPut(`/agents/${agent.id}`, agent, opts)) as BaseAgent;
-}
-
 export async function listMCPFilters(opts?: { fetch?: Fetcher }) {
 	const response = (await doGet('/mcp-webhook-validations', opts)) as ItemsResponse<MCPFilter>;
 	return response.items ?? [];
@@ -1324,11 +1280,6 @@ export async function acceptEula() {
 	})) as {
 		accepted: boolean;
 	};
-}
-
-export async function listCallFramesForDebugRunById(id: string, opts?: { fetch?: Fetcher }) {
-	const response = (await doGet(`/runs/${id}/debug`, opts)) as DebugRun;
-	return response.frames;
 }
 
 export async function listAppPreferences(opts?: { fetch?: Fetcher }) {

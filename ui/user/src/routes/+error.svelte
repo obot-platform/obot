@@ -2,7 +2,6 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import Logo from '$lib/components/Logo.svelte';
-	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
 
 	const errorTitles = {
 		401: 'Unauthorized',
@@ -41,17 +40,12 @@
 	<p class="text-gray">{message}</p>
 
 	{#if page.error}
-		<div class="mb-2 w-full max-w-xl overflow-hidden rounded-md">
-			<CollapsePane
-				header="More Details"
-				classes={{
-					header: 'bg-base-300 justify-between',
-					content: 'bg-base-200'
-				}}
-			>
-				<div class="">{page.error.message}</div>
-			</CollapsePane>
-		</div>
+		<details class="collapse bg-base-300 collapse-arrow border max-w-xl mb-2 w-full">
+			<summary class="collapse-title font-semibold text-base">Error Details</summary>
+			<div class="collapse-content text-sm bg-base-200 pt-4">
+				{page.error.message}
+			</div>
+		</details>
 	{/if}
 
 	<a href={resolve('/')} class="btn btn-primary"> Go Home </a>

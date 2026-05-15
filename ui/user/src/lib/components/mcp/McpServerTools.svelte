@@ -6,12 +6,9 @@
 		ChatService,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
-		type MCPServerTool,
-		type Project,
-		type ProjectMCP
+		type MCPServerTool
 	} from '$lib/services';
 	import { conflictIssue, duplicateToolNames, toolNameIssue } from '$lib/services/chat/mcp';
-	import { responsive } from '$lib/stores';
 	import Search from '../Search.svelte';
 	import Toggle from '../Toggle.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
@@ -23,10 +20,8 @@
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
-		entry: MCPCatalogEntry | MCPCatalogServer | ProjectMCP;
+		entry: MCPCatalogEntry | MCPCatalogServer;
 		onAuthenticate?: () => void;
-		onProjectToolsUpdate?: (selected: string[]) => void;
-		project?: Project;
 		noToolsContent?: Snippet;
 		classes?: {
 			root?: string;
@@ -40,8 +35,6 @@
 	let {
 		entry,
 		onAuthenticate,
-		onProjectToolsUpdate,
-		project,
 		noToolsContent,
 		classes,
 		showToolNameIssues = false
@@ -53,8 +46,6 @@
 	let previousEntryId = $state<string | undefined>(undefined);
 	let error = $state('');
 
-	let selected = $state<string[]>([]);
-	let allToolsEnabled = $derived(selected[0] === '*' || selected.length === tools.length);
 	let expanded = $state<Record<string, boolean>>({});
 	let allDescriptionsEnabled = $state(false);
 	let abortController = $state<AbortController | null>(null);
@@ -88,7 +79,7 @@
 	);
 
 	// Extract tool previews from the appropriate manifest
-	function getToolPreview(entry: MCPCatalogEntry | MCPCatalogServer | ProjectMCP): MCPServerTool[] {
+	function getToolPreview(entry: MCPCatalogEntry | MCPCatalogServer): MCPServerTool[] {
 		if ('manifest' in entry) {
 			// Catalog entry or connected server - get from manifest.toolPreview
 			return entry.manifest?.toolPreview || [];
@@ -124,13 +115,10 @@
 		loading = true;
 		try {
 			// Make a best effort attempt to load tools, prompts, and resources concurrently
-			let toolCall = project
-				? ChatService.listProjectMCPServerTools(project.assistantID, project.id, entry.id, {
-						signal: abortController.signal
-					})
-				: ChatService.listMcpCatalogServerTools(entry.id, { signal: abortController.signal });
+			let toolCall = ChatService.listMcpCatalogServerTools(entry.id, {
+				signal: abortController.signal
+			});
 			tools = await toolCall;
-			selected = tools.filter((t) => t.enabled).map((t) => t.id);
 		} catch (err) {
 			console.error(err);
 		} finally {
@@ -144,23 +132,6 @@
 			loadTools();
 		}
 	});
-
-	async function handleProjectToolsUpdate() {
-		if (!project) return;
-
-		try {
-			await ChatService.configureProjectMcpServerTools(
-				project.assistantID,
-				project.id,
-				entry.id,
-				selected
-			);
-		} catch (err) {
-			console.error(err);
-		} finally {
-			onProjectToolsUpdate?.(selected);
-		}
-	}
 
 	async function handleAuthenticate() {
 		await loadTools();
@@ -182,7 +153,7 @@
 			</div>
 		{:else}
 			{#key entry.id}
-				<McpOauth {entry} onAuthenticate={handleAuthenticate} bind:error {project} />
+				<McpOauth {entry} onAuthenticate={handleAuthenticate} bind:error />
 			{/key}
 		{/if}
 		{#if error}
@@ -213,24 +184,6 @@
 						label: 'text-sm gap-2'
 					}}
 				/>
-
-				{#if project}
-					{#if !responsive.isMobile}
-						<div class="bg-base-400 mx-2 h-5 w-0.5"></div>
-					{/if}
-
-					<Toggle
-						checked={allToolsEnabled}
-						onChange={(checked) => {
-							selected = checked ? ['*'] : [];
-						}}
-						label="Enable All Tools"
-						labelInline
-						classes={{
-							label: 'text-sm gap-2'
-						}}
-					/>
-				{/if}
 			</div>
 
 			<Search
@@ -275,22 +228,6 @@
 										<ChevronDown class="size-4" />
 									{/if}
 								</IconButton>
-								{#if project}
-									<Toggle
-										checked={selected.includes(tool.id) || allToolsEnabled}
-										onChange={(checked) => {
-											if (allToolsEnabled) {
-												selected = tools.map((t) => t.id).filter((id) => id !== tool.id);
-											} else {
-												selected = checked
-													? [...selected, tool.id]
-													: selected.filter((id) => id !== tool.id);
-											}
-										}}
-										label="On/Off"
-										disablePortal
-									/>
-								{/if}
 							</div>
 						</div>
 						{#if hasContentDisplayed}
@@ -346,11 +283,3 @@
 </div>
 
 <div class="flex grow"></div>
-
-{#if project && !loading && !error}
-	<div class="sticky bottom-0 left-0 flex w-full justify-end bg-inherit py-4 md:px-4">
-		<button class="btn btn-primary flex items-center gap-1" onclick={handleProjectToolsUpdate}>
-			Save
-		</button>
-	</div>
-{/if}

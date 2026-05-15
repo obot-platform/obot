@@ -1,5 +1,5 @@
 import type { CompositeLaunchFormData } from '$lib/components/mcp/CatalogConfigureForm.svelte';
-import { mcpServersAndEntries, profile } from '$lib/stores';
+import { profile } from '$lib/stores';
 import { getUserDisplayName } from '$lib/utils';
 import {
 	ChatService,
@@ -12,8 +12,6 @@ import {
 	type MCPServerInstance,
 	type MCPSubField,
 	type OrgUser,
-	type Project,
-	type ProjectMCP,
 	type RuntimeFormData,
 	type SystemMCPServerCatalogEntry
 } from '..';
@@ -23,10 +21,6 @@ export interface MCPServerInfo extends MCPServer {
 	env?: (MCPSubField & { value: string; custom?: string })[];
 	headers?: (MCPSubField & { value: string; custom?: string })[];
 	manifest?: MCPServer;
-}
-
-export async function createProjectMcp(project: Project, mcpId: string, alias?: string) {
-	return await ChatService.createProjectMCP(project.assistantID, project.id, mcpId, alias);
 }
 
 export function isValidMcpConfig(mcpConfig: MCPServerInfo): boolean {
@@ -162,7 +156,7 @@ export function requiresUserUpdate(server?: MCPCatalogServer) {
 	return typeof server?.configured === 'boolean' ? server?.configured === false : false;
 }
 
-function isMCPCatalogServer(server: MCPCatalogServer | ProjectMCP): server is MCPCatalogServer {
+function isMCPCatalogServer(server: MCPCatalogServer): server is MCPCatalogServer {
 	return 'catalogEntryID' in server;
 }
 
@@ -170,7 +164,7 @@ function isMCPCatalogServer(server: MCPCatalogServer | ProjectMCP): server is MC
  * Returns true if the server needs user configuration (env vars, headers, URL)
  * but NOT if the only issue is missing admin OAuth credentials.
  */
-export function requiresUserConfiguration(server?: MCPCatalogServer | ProjectMCP): boolean {
+export function requiresUserConfiguration(server?: MCPCatalogServer): boolean {
 	if (!server) return false;
 
 	// If server has missingOAuthCredentials flag, check if there are OTHER issues
@@ -183,8 +177,6 @@ export function requiresUserConfiguration(server?: MCPCatalogServer | ProjectMCP
 				server.needsURL === true
 			);
 		}
-		// ProjectMCP - only needsURL is relevant for user config
-		return server.needsURL === true;
 	}
 
 	// No OAuth issue, use standard logic
@@ -195,7 +187,7 @@ export function requiresUserConfiguration(server?: MCPCatalogServer | ProjectMCP
 /**
  * Returns true if the server is missing admin-configured OAuth credentials.
  */
-export function requiresAdminOAuthConfig(server?: MCPCatalogServer | ProjectMCP): boolean {
+export function requiresAdminOAuthConfig(server?: MCPCatalogServer): boolean {
 	if (!server) return false;
 	return 'missingOAuthCredentials' in server && server.missingOAuthCredentials === true;
 }
@@ -476,29 +468,6 @@ export function getServerUrl(d: MCPCatalogServer) {
 	}
 	return url;
 }
-
-export const findServerAndEntryForProjectMcp = (mcpServer: ProjectMCP) => {
-	if (mcpServer.mcpID.startsWith('msi')) {
-		// multi-user server instance
-		const instance = mcpServersAndEntries.current.userInstances.find(
-			(i) => i.id === mcpServer.mcpID
-		);
-		const server = instance?.mcpServerID
-			? mcpServersAndEntries.current.servers.find((s) => s.id === instance.mcpServerID)
-			: undefined;
-		return { server, entry: undefined };
-	}
-
-	const userConfiguredServer = mcpServersAndEntries.current.userConfiguredServers.find(
-		(s) => s.id === mcpServer.mcpID
-	);
-	const entry = userConfiguredServer?.catalogEntryID
-		? mcpServersAndEntries.current.entries.find(
-				(e) => e.id === userConfiguredServer?.catalogEntryID
-			)
-		: undefined;
-	return { server: userConfiguredServer, entry };
-};
 
 const NANOBOT_AGENT_SERVER_PREFIX = 'nba1';
 export const compileAvailableMcpServers = (

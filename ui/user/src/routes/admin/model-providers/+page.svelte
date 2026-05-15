@@ -4,15 +4,11 @@
 	import ListModels from '$lib/components/admin/ListModels.svelte';
 	import ProviderCard from '$lib/components/admin/ProviderCard.svelte';
 	import ProviderConfigure from '$lib/components/admin/ProviderConfigure.svelte';
-	import {
-		CommonModelProviderIds,
-		PAGE_TRANSITION_DURATION,
-		RecommendedModelProviders
-	} from '$lib/constants';
+	import { CommonModelProviderIds, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { getAdminModels, initModels } from '$lib/context/admin/models.svelte.js';
 	import { AdminService, type ModelProvider as ModelProviderType } from '$lib/services';
 	import { sortModelProviders } from '$lib/sort.js';
-	import { version, defaultModelAliases as defaultModelAliasesStore } from '$lib/stores';
+	import { defaultModelAliases as defaultModelAliasesStore } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte.js';
 	import { profile } from '$lib/stores/index.js';
 	import { delay } from '$lib/utils';
@@ -43,7 +39,6 @@
 		!!modelProviders.find((provider) => provider.id === CommonModelProviderIds.ANTHROPIC_BEDROCK)
 			?.configured
 	);
-	let isLegacyDisabled = $derived(version.current.disableLegacyChat);
 	let availableModelProviders = $derived(
 		hasAnthropicAwsBedrockConfigured
 			? modelProviders
@@ -52,9 +47,7 @@
 				)
 	);
 	let modelProvidersToShow = $derived(
-		isLegacyDisabled
-			? availableModelProviders.filter((provider) => nanobotIntegratedModels.includes(provider.id))
-			: availableModelProviders
+		availableModelProviders.filter((provider) => nanobotIntegratedModels.includes(provider.id))
 	);
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 	const defaultModelAliases = $derived(defaultModelAliasesStore.current);
@@ -76,7 +69,7 @@
 		);
 	}
 
-	let sortedModelProviders = $derived(sortModelProviders(modelProvidersToShow, isLegacyDisabled));
+	let sortedModelProviders = $derived(sortModelProviders(modelProvidersToShow));
 
 	// waitForProviderReady blocks until the models of the model provider with the given providerID
 	// are back populated.
@@ -171,7 +164,6 @@
 					experimental={modelProvider.id === CommonModelProviderIds.GENERIC_RESPONSES}
 					provider={modelProvider}
 					deprecated={modelProvider.id === CommonModelProviderIds.ANTHROPIC_BEDROCK}
-					recommended={!isLegacyDisabled && RecommendedModelProviders.includes(modelProvider.id)}
 					onConfigure={async () => {
 						configuringModelProvider = modelProvider;
 						try {

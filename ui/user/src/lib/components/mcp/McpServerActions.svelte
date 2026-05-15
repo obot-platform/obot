@@ -11,7 +11,7 @@
 		type MCPServerInstance
 	} from '$lib/services';
 	import { hasEditableConfiguration, requiresUserUpdate } from '$lib/services/chat/mcp';
-	import { mcpServersAndEntries, profile, userDeviceSettings, version } from '$lib/stores';
+	import { mcpServersAndEntries, profile, userDeviceSettings } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { goto } from '$lib/url';
 	import DotDotDot from '../DotDotDot.svelte';
@@ -24,7 +24,6 @@
 	import DebugOauthDialog from './oauth/DebugOauthDialog.svelte';
 	import {
 		KeyRound,
-		MessageCircle,
 		PencilLine,
 		ReceiptText,
 		RefreshCw,
@@ -42,7 +41,6 @@
 		| 'rename'
 		| 'edit'
 		| 'disconnect'
-		| 'chat'
 		| 'server-details'
 		| 'restart';
 
@@ -57,7 +55,6 @@
 		promptInitialLaunch?: boolean;
 		promptOAuthConfig?: boolean;
 		connectOnly?: boolean;
-		isProjectMcp?: boolean;
 		readonly?: boolean;
 		allowMultiUserServerConfigurationEdit?: boolean;
 	}
@@ -71,7 +68,6 @@
 		onConnect,
 		onOAuthConfigured,
 		promptInitialLaunch,
-		isProjectMcp,
 		promptOAuthConfig,
 		connectOnly,
 		readonly,
@@ -128,17 +124,15 @@
 		)
 	);
 	let showServerDetails = $derived(entry && !server && configuredServers.length > 0);
-	let hasActions = $derived.by(() => {
-		if (isProjectMcp) {
-			return server && entry && hasEditableConfiguration(entry);
-		}
-		return Boolean(
+	let hasActions = $derived(
+		Boolean(
 			(entry && server) ||
 			showServerDetails ||
 			(server && instance) ||
 			canEditMultiUserServerConfiguration
-		);
-	});
+		)
+	);
+
 	let showDisconnectUser = $derived(
 		entry && server && profile.current.isAdmin?.() && server.userID !== profile.current.id
 	);
@@ -279,7 +273,6 @@
 		refresh();
 	}}
 	{skipConnectDialog}
-	hideActions={isProjectMcp}
 />
 
 <EditExistingDeployment bind:this={editExistingDialog} onUpdateConfigure={refresh} />
@@ -295,10 +288,6 @@
 		onClickRow={(d) => {
 			selectServerDialog?.close();
 			switch (selectServerMode) {
-				case 'chat': {
-					connectToServerDialog?.handleSetupChat(d);
-					break;
-				}
 				case 'server-details': {
 					if (profile.current?.hasAdminAccess?.()) {
 						goto(
@@ -423,10 +412,7 @@
 
 {#snippet serverActions(toggle: (value: boolean) => void)}
 	{#if server && (server.userID === profile.current.id || canEditMultiUserServerConfiguration)}
-		<div
-			class="flex flex-col gap-1 p-2 {!isProjectMcp && 'bg-base-200'} {!isProjectMcp &&
-				'rounded-t-xl'}"
-		>
+		<div class="flex flex-col gap-1 p-2 bg-base-200 rounded-t-xl">
 			{#if canEditMultiUserServerConfiguration}
 				<button
 					class="menu-button"
@@ -442,30 +428,18 @@
 					<ServerCog class="size-4" /> Edit Configuration
 				</button>
 			{/if}
-			{#if !isProjectMcp && !connectOnly && version.current.disableLegacyChat !== true}
+			{#if entry}
 				<button
 					class="menu-button"
-					onclick={async () => {
-						connectToServerDialog?.handleSetupChat(server, instance);
+					onclick={() => {
+						editExistingDialog?.rename({
+							server,
+							entry
+						});
 					}}
 				>
-					<MessageCircle class="size-4" /> Chat
+					<PencilLine class="size-4" /> Rename
 				</button>
-			{/if}
-			{#if entry}
-				{#if !isProjectMcp}
-					<button
-						class="menu-button"
-						onclick={() => {
-							editExistingDialog?.rename({
-								server,
-								entry
-							});
-						}}
-					>
-						<PencilLine class="size-4" /> Rename
-					</button>
-				{/if}
 				{#if server && canReauthenticate}
 					<button
 						class="menu-button"
@@ -562,7 +536,7 @@
 						<Unplug class="size-4" />
 					{/if} Disconnect
 				</button>
-			{:else if entry && server && !isProjectMcp}
+			{:else if entry && server}
 				<button
 					class="menu-button"
 					disabled={disconnecting}
@@ -603,20 +577,6 @@
 			My Connection(s)
 		</div>
 		<div class="bg-base-200 flex flex-col gap-1 p-2">
-			{#if !connectOnly && version.current.disableLegacyChat !== true}
-				<button
-					class="menu-button"
-					onclick={() => {
-						if (configuredServers.length === 1) {
-							connectToServerDialog?.handleSetupChat(configuredServers[0]);
-						} else {
-							handleShowSelectServerDialog('chat');
-						}
-					}}
-				>
-					<MessageCircle class="size-4" /> Chat
-				</button>
-			{/if}
 			{#if entry}
 				<button
 					class="menu-button"
