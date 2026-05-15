@@ -466,7 +466,7 @@
 				{@const matchingInstance =
 					d.connected && d.type === 'multi' ? instancesMap.get(d.data.id) : undefined}
 				{@const hasConnectedOptions = isCatalogEntry
-					? usableMatchingServers.length > 0
+					? matchingServers.length > 0
 					: !!matchingInstance}
 				{@const requiresOAuth =
 					catalogEntry?.manifest?.runtime === 'remote' &&
@@ -484,34 +484,36 @@
 								My Connection(s)
 							</div>
 							<div class="bg-base-200 flex flex-col gap-1 p-2">
-								{#if !requiresOAuth || catalogEntry?.oauthCredentialConfigured}
-									{@render connectToServerAction(d.data, toggle)}
-								{/if}
-								{#if version.current.disableLegacyChat !== true}
-									<button
-										class="menu-button hover:bg-base-400"
-										onclick={async (e) => {
-											e.stopPropagation();
-											if (catalogEntry) {
-												if (usableMatchingServers.length === 1) {
-													connectToServerDialog?.handleSetupChat(usableMatchingServers[0]);
+								{#if !isCatalogEntry || usableMatchingServers.length > 0}
+									{#if !requiresOAuth || catalogEntry?.oauthCredentialConfigured}
+										{@render connectToServerAction(d.data, toggle)}
+									{/if}
+									{#if version.current.disableLegacyChat !== true}
+										<button
+											class="menu-button hover:bg-base-400"
+											onclick={async (e) => {
+												e.stopPropagation();
+												if (catalogEntry) {
+													if (usableMatchingServers.length === 1) {
+														connectToServerDialog?.handleSetupChat(usableMatchingServers[0]);
+													} else {
+														handleShowSelectServerDialog(catalogEntry, 'chat');
+													}
 												} else {
-													handleShowSelectServerDialog(catalogEntry, 'chat');
+													const server = d.data as MCPCatalogServer;
+													const instance = instancesMap.get(d.id);
+													if (instance && !instance.configured) {
+														connectToServerDialog?.open({ server, instance });
+													} else {
+														connectToServerDialog?.handleSetupChat(server, instance);
+													}
 												}
-											} else {
-												const server = d.data as MCPCatalogServer;
-												const instance = instancesMap.get(d.id);
-												if (instance && !instance.configured) {
-													connectToServerDialog?.open({ server, instance });
-												} else {
-													connectToServerDialog?.handleSetupChat(server, instance);
-												}
-											}
-											toggle(false);
-										}}
-									>
-										<MessageCircle class="size-4" /> Chat
-									</button>
+												toggle(false);
+											}}
+										>
+											<MessageCircle class="size-4" /> Chat
+										</button>
+									{/if}
 								{/if}
 
 								{#if catalogEntry}
