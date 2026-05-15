@@ -11,6 +11,7 @@
 	import {
 		convertEntriesAndServersToTableData,
 		getServerTypeLabelByType,
+		hasMissingSecretBindingConfig,
 		requiresUserUpdate
 	} from '$lib/services/chat/mcp';
 	import { mcpServersAndEntries } from '$lib/stores';
@@ -79,6 +80,14 @@
 				)
 			: sorted;
 	});
+
+	function serverHasMissingSecretBinding(_entry: MCPCatalogEntry, server: MCPCatalogServer) {
+		return hasMissingSecretBindingConfig(
+			server.manifest,
+			server.missingRequiredEnvVars,
+			server.missingRequiredHeader
+		);
+	}
 </script>
 
 <div class="flex flex-col gap-2">
@@ -107,7 +116,12 @@
 			}}
 			sortable={['name', 'type', 'users', 'created', 'registry', 'status']}
 			noDataMessage="No catalog servers added."
-			setRowClasses={(d) => ('needsUpdate' in d && d.needsUpdate ? 'bg-primary/10' : '')}
+			setRowClasses={(d) =>
+				'needsUpdate' in d &&
+				d.needsUpdate &&
+				!('missingKubernetesSecret' in d && d.missingKubernetesSecret)
+					? 'bg-primary/10'
+					: ''}
 			disablePortal
 			initSort={{ property: 'connected', order: 'desc' }}
 		>
@@ -118,6 +132,8 @@
 								(server) => server.catalogEntryID === d.data.id && !server.alias
 							)
 						: d.data}
+				{@const missingKubernetesSecret =
+					'missingKubernetesSecret' in d && d.missingKubernetesSecret}
 				{#if property === 'name'}
 					<div class="flex shrink-0 items-center gap-2">
 						<div class="icon">
@@ -129,11 +145,13 @@
 						</div>
 						<p class="flex items-center gap-2">
 							{d.name}
-							{#if server && requiresUserUpdate(server)}
+							{#if missingKubernetesSecret || (server && requiresUserUpdate(server))}
 								<span
 									class="text-warning"
 									use:tooltip={{
-										text: 'Server requires an update.',
+										text: missingKubernetesSecret
+											? 'Missing Kubernetes Secret.'
+											: 'Server requires an update.',
 										disablePortal: true
 									}}
 								>
@@ -177,8 +195,11 @@
 						e.stopPropagation();
 
 						if ('isCatalogEntry' in d.data && d.connected) {
+							const entry = d.data;
 							selectedConfiguredServers = mcpServersAndEntries.current.userConfiguredServers.filter(
-								(server) => server.catalogEntryID === d.data.id
+								(server) =>
+									server.catalogEntryID === entry.id &&
+									!serverHasMissingSecretBinding(entry, server)
 							);
 							if (selectedConfiguredServers.length === 1) {
 								onConnect?.({
@@ -216,6 +237,8 @@
 		data={selectedConfiguredServers || []}
 		fields={['name', 'created']}
 		onClickRow={(d) => {
+			if (selectedEntry && serverHasMissingSecretBinding(selectedEntry, d)) return;
+
 			onConnect?.({
 				entry: selectedEntry,
 				server: d
@@ -225,6 +248,11 @@
 		disablePortal
 	>
 		{#snippet onRenderColumn(property, d)}
+			{@const missingKubernetesSecret = hasMissingSecretBindingConfig(
+				selectedEntry?.manifest,
+				d.missingRequiredEnvVars,
+				d.missingRequiredHeader
+			)}
 			{#if property === 'name'}
 				<div class="flex shrink-0 items-center gap-2">
 					<div class="icon">
@@ -236,7 +264,17 @@
 					</div>
 					<p class="flex items-center gap-2">
 						{d.alias || d.manifest.name}
-						{#if 'needsUpdate' in d && d.needsUpdate}
+						{#if missingKubernetesSecret}
+							<span
+								class="text-yellow-500"
+								use:tooltip={{
+									text: 'Missing Kubernetes Secret.',
+									disablePortal: true
+								}}
+							>
+								<TriangleAlert class="size-4" />
+							</span>
+						{:else if 'needsUpdate' in d && d.needsUpdate}
 							<span
 								use:tooltip={{
 									classes: ['border-primary', 'bg-primary/10', 'dark:bg-primary/50'],

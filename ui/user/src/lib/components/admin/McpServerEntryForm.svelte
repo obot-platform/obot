@@ -766,6 +766,7 @@
 				{id}
 				{entity}
 				entry={entry && 'isCatalogEntry' in entry && server ? server : entry}
+				catalogEntry={entry && 'isCatalogEntry' in entry ? entry : undefined}
 				{users}
 				{type}
 				{configuredServers}

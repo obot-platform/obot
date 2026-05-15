@@ -14,6 +14,7 @@
 		type MCPServerInstance,
 		type OrgUser
 	} from '$lib/services';
+	import { hasMissingSecretBindingConfig } from '$lib/services/chat/mcp';
 	import { profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { openUrl, isOwnSingleUserServer, getUserDisplayName } from '$lib/utils';
@@ -28,19 +29,29 @@
 		GitCompare,
 		Router,
 		Square,
-		SquareCheck
+		SquareCheck,
+		TriangleAlert
 	} from 'lucide-svelte';
 
 	interface Props {
 		id?: string;
 		entity?: 'workspace' | 'catalog';
 		entry?: MCPCatalogEntry | MCPCatalogServer;
+		catalogEntry?: MCPCatalogEntry;
 		users?: OrgUser[];
 		type?: LaunchServerType;
 		configuredServers?: MCPCatalogServer[];
 	}
 
-	let { id, entity = 'catalog', entry, users = [], type, configuredServers }: Props = $props();
+	let {
+		id,
+		entity = 'catalog',
+		entry,
+		catalogEntry,
+		users = [],
+		type,
+		configuredServers
+	}: Props = $props();
 
 	let instances = $state<MCPServerInstance[]>([]);
 	let servers = $state<MCPCatalogServer[]>([]);
@@ -56,6 +67,10 @@
 	let hasSelected = $derived(Object.values(selected).some((v) => v));
 	let usersMap = $derived(new Map(users.map((u) => [u.id, u])));
 	let isAdminUrl = $derived(page.url.pathname.includes('/admin'));
+	let detailsCatalogEntry = $derived(
+		catalogEntry ?? (entry && 'isCatalogEntry' in entry ? entry : undefined)
+	);
+	let detailsMcpServer = $derived(entry && !('isCatalogEntry' in entry) ? entry : undefined);
 
 	let serverTableData = $derived(
 		servers
@@ -77,7 +92,7 @@
 					{
 						id: entry.id,
 						configured: entry.configured,
-						missingRequiredHeaders: entry.missingRequiredHeaders,
+						missingRequiredHeaders: entry.missingRequiredHeader,
 						userID: entry.userID,
 						created: entry.created
 					}
@@ -209,6 +224,14 @@
 			? `/mcp-servers/c/${entry?.id}?view=audit-logs&mcp_id=${d.id}&user_id=${d.userID}`
 			: null;
 	}
+
+	function isMissingKubernetesSecret(server: MCPCatalogServer) {
+		return hasMissingSecretBindingConfig(
+			server.manifest,
+			server.missingRequiredEnvVars,
+			server.missingRequiredHeader
+		);
+	}
 </script>
 
 {#if loading}
@@ -223,6 +246,8 @@
 				{entity}
 				mcpServerId={entry.id}
 				name={'manifest' in entry ? entry.manifest.name || '' : ''}
+				catalogEntry={detailsCatalogEntry}
+				mcpServer={detailsMcpServer}
 				connectedUsers={instances.map((instance) => {
 					const user = usersMap.get(instance.userID)!;
 					return {
@@ -242,7 +267,9 @@
 		{@render emptyInstancesContent()}
 	{/if}
 {:else}
-	{@const numServerUpdatesNeeded = servers.filter((s) => s.needsUpdate).length}
+	{@const numServerUpdatesNeeded = servers.filter(
+		(s) => s.needsUpdate && !isMissingKubernetesSecret(s)
+	).length}
 	{#if servers.length > 0}
 		{#if numServerUpdatesNeeded}
 			<button
@@ -289,10 +316,21 @@
 				: undefined}
 		>
 			{#snippet onRenderColumn(property, d)}
+				{@const missingKubernetesSecret = isMissingKubernetesSecret(d)}
 				{#if property === 'url'}
 					<span class="flex items-center gap-1">
 						{d.manifest.remoteConfig?.url}
-						{#if d.needsUpdate}
+						{#if missingKubernetesSecret}
+							<div
+								class="text-yellow-500"
+								use:tooltip={{
+									text: 'Missing Kubernetes Secret.',
+									classes: ['break-words', 'w-58']
+								}}
+							>
+								<TriangleAlert class="size-4" />
+							</div>
+						{:else if d.needsUpdate}
 							<div
 								use:tooltip={{
 									text: 'This server needs an update. View Diff to see the changes.',
@@ -307,7 +345,17 @@
 					<span class="flex items-center gap-1">
 						{d.userDisplayName || 'Unknown User'}
 						{#if type === 'single' || type === 'composite'}
-							{#if d.needsUpdate}
+							{#if missingKubernetesSecret}
+								<div
+									class="text-yellow-500"
+									use:tooltip={{
+										text: 'Missing Kubernetes Secret.',
+										classes: ['break-words', 'w-58']
+									}}
+								>
+									<TriangleAlert class="size-4" />
+								</div>
+							{:else if d.needsUpdate}
 								<div
 									use:tooltip={{
 										text: 'This server needs an update. View Diff to see the changes.',
@@ -328,15 +376,16 @@
 
 			{#snippet actions(d)}
 				{@const auditLogsUrl = getAuditLogUrl(d)}
-				<div class="flex shrink-0 items-center gap-1">
+				{@const missingKubernetesSecret = isMissingKubernetesSecret(d)}
+				<div class="flex flex-shrink-0 items-center gap-1">
 					{#if auditLogsUrl}
 						<a class="btn btn-link" href={resolve(auditLogsUrl as `/${string}`)}>
 							View Audit Logs
 						</a>
 					{/if}
 
-					{#if d.needsUpdate}
-						<DotDotDot class="hover:dark:bg-base-100/50">
+					{#if d.needsUpdate && !missingKubernetesSecret}
+						<DotDotDot class="icon-button hover:dark:bg-background/50">
 							{#snippet icon()}
 								<Ellipsis class="size-4" />
 							{/snippet}

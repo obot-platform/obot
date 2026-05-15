@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -303,4 +304,84 @@ func TestSanitizeConfig(t *testing.T) {
 	sanitizeConfig(config, manifest)
 
 	assert.Equal(t, map[string]string{"KEEP": "value"}, config)
+}
+
+func TestConvertMCPServerCompositeAggregatesOnlySecretBoundMissingConfig(t *testing.T) {
+	server := v1.MCPServer{
+		Spec: v1.MCPServerSpec{
+			Manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeComposite,
+				Env: []types.MCPEnv{
+					{MCPHeader: types.MCPHeader{Key: "PARENT_BOUND", Required: true, SecretBinding: &types.MCPSecretBinding{Name: "secret", Key: "parent"}}},
+					{MCPHeader: types.MCPHeader{Key: "PARENT_USER", Required: true}},
+				},
+				CompositeConfig: &types.CompositeRuntimeConfig{
+					ComponentServers: []types.ComponentServer{{CatalogEntryID: "entry-bound"}, {CatalogEntryID: "entry-user"}},
+				},
+			},
+		},
+	}
+
+	converted := ConvertMCPServer(server, map[string]string{}, "", "", types.MCPServer{
+		CatalogEntryID:         "entry-bound",
+		Configured:             false,
+		MissingRequiredEnvVars: []string{"BOUND_ENV", "USER_ENV"},
+		MissingRequiredHeaders: []string{"BOUND_HEADER", "USER_HEADER"},
+		MCPServerManifest: types.MCPServerManifest{
+			Runtime: types.RuntimeRemote,
+			Env: []types.MCPEnv{
+				{MCPHeader: types.MCPHeader{Key: "BOUND_ENV", SecretBinding: &types.MCPSecretBinding{Name: "secret", Key: "env"}}},
+				{MCPHeader: types.MCPHeader{Key: "USER_ENV"}},
+			},
+			RemoteConfig: &types.RemoteRuntimeConfig{
+				Headers: []types.MCPHeader{
+					{Key: "BOUND_HEADER", SecretBinding: &types.MCPSecretBinding{Name: "secret", Key: "header"}},
+					{Key: "USER_HEADER"},
+				},
+			},
+		},
+	}, types.MCPServer{
+		CatalogEntryID:         "entry-user",
+		Configured:             false,
+		MissingRequiredEnvVars: []string{"SHARED_KEY"},
+		MCPServerManifest: types.MCPServerManifest{
+			Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "SHARED_KEY"}}},
+		},
+	})
+
+	assert.False(t, converted.Configured)
+	assert.Equal(t, []string{"PARENT_BOUND", "BOUND_ENV"}, converted.MissingRequiredEnvVars)
+	assert.Equal(t, []string{"BOUND_HEADER"}, converted.MissingRequiredHeaders)
+}
+
+func TestConvertMCPServerCompositeSkipsDisabledAndConfiguredComponents(t *testing.T) {
+	server := v1.MCPServer{
+		Spec: v1.MCPServerSpec{
+			Manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeRuntimeConfig{
+					ComponentServers: []types.ComponentServer{
+						{CatalogEntryID: "entry-disabled", Disabled: true},
+						{CatalogEntryID: "entry-configured"},
+					},
+				},
+			},
+		},
+	}
+
+	converted := ConvertMCPServer(server, nil, "", "", types.MCPServer{
+		CatalogEntryID:         "entry-disabled",
+		Configured:             false,
+		MissingRequiredEnvVars: []string{"BOUND_DISABLED"},
+		MCPServerManifest: types.MCPServerManifest{
+			Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "BOUND_DISABLED", SecretBinding: &types.MCPSecretBinding{Name: "secret", Key: "env"}}}},
+		},
+	}, types.MCPServer{
+		CatalogEntryID: "entry-configured",
+		Configured:     true,
+	})
+
+	assert.True(t, converted.Configured)
+	assert.Empty(t, converted.MissingRequiredEnvVars)
+	assert.Empty(t, converted.MissingRequiredHeaders)
 }

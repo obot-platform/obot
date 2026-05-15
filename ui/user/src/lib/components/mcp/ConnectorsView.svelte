@@ -25,6 +25,7 @@
 		convertEntriesAndServersToTableData,
 		getServerTypeLabelByType,
 		hasEditableConfiguration,
+		hasMissingSecretBindingConfig,
 		requiresUserUpdate
 	} from '$lib/services/chat/mcp';
 	import { mcpServersAndEntries, profile, userDeviceSettings, version } from '$lib/stores';
@@ -98,7 +99,7 @@
 		onFilter,
 		onClearAllFilters,
 		onSort,
-		initSort = { property: 'connected', order: 'desc' },
+		initSort = { property: 'hasServers', order: 'desc' },
 		classes,
 		onConnect,
 		usersMap
@@ -200,6 +201,17 @@
 		);
 	}
 
+	function getUsableConfiguredServersForCatalogEntry(entry: MCPCatalogEntry): MCPCatalogServer[] {
+		return getConfiguredServersForCatalogEntry(entry).filter(
+			(server) =>
+				!hasMissingSecretBindingConfig(
+					server.manifest,
+					server.missingRequiredEnvVars,
+					server.missingRequiredHeader
+				)
+		);
+	}
+
 	function hasInstanceConfiguration(server: MCPCatalogServer) {
 		return (server.manifest.multiUserConfig?.userDefinedHeaders?.length ?? 0) > 0;
 	}
@@ -223,7 +235,10 @@
 		entry: MCPCatalogEntry,
 		mode: ServerSelectMode = 'connect'
 	) {
-		const allServers = getConfiguredServersForCatalogEntry(entry);
+		const allServers =
+			mode === 'connect' || mode === 'chat'
+				? getUsableConfiguredServersForCatalogEntry(entry)
+				: getConfiguredServersForCatalogEntry(entry);
 		selectedConfiguredServers = allServers;
 		selectedEntry = entry;
 		selectServerDialog?.open();
@@ -368,7 +383,8 @@
 			setRowClasses={(d) => {
 				const matchingServers =
 					'isCatalogEntry' in d.data ? getConfiguredServersForCatalogEntry(d.data) : [];
-				return 'isCatalogEntry' in d.data && d.data.needsUpdate
+				const missingSecretBinding = 'missingKubernetesSecret' in d && d.missingKubernetesSecret;
+				return 'isCatalogEntry' in d.data && d.data.needsUpdate && !missingSecretBinding
 					? 'bg-primary/10'
 					: matchingServers.some(requiresUserUpdate)
 						? 'bg-warning/10'
@@ -392,7 +408,7 @@
 						</div>
 						<p class="flex items-center gap-2">
 							{d.name}
-							{#if catalogEntry?.needsUpdate}
+							{#if catalogEntry?.needsUpdate && !('missingKubernetesSecret' in d && d.missingKubernetesSecret)}
 								<span
 									use:tooltip={{
 										classes: ['border-primary', 'bg-primary/10', 'dark:bg-primary/50'],
@@ -401,11 +417,14 @@
 								>
 									<CircleFadingArrowUp class="text-primary size-4" />
 								</span>
-							{:else if matchingServers.some(requiresUserUpdate)}
+							{:else if ('missingKubernetesSecret' in d && d.missingKubernetesSecret) || matchingServers.some(requiresUserUpdate)}
 								<span
 									class="text-warning"
 									use:tooltip={{
-										text: 'Server requires an update.'
+										text:
+											'missingKubernetesSecret' in d && d.missingKubernetesSecret
+												? 'Missing Kubernetes Secret.'
+												: 'Server requires an update.'
 									}}
 								>
 									<TriangleAlert class="size-4" />
@@ -443,6 +462,9 @@
 				{@const matchingServers = catalogEntry
 					? getConfiguredServersForCatalogEntry(catalogEntry)
 					: []}
+				{@const usableMatchingServers = catalogEntry
+					? getUsableConfiguredServersForCatalogEntry(catalogEntry)
+					: []}
 				{@const oauthServers = matchingServers.filter(hasOAuth)}
 				{@const matchingInstance =
 					d.connected && d.type === 'multi' ? instancesMap.get(d.data.id) : undefined}
@@ -465,34 +487,36 @@
 								My Connection(s)
 							</div>
 							<div class="bg-base-200 flex flex-col gap-1 p-2">
-								{#if !requiresOAuth || catalogEntry?.oauthCredentialConfigured}
-									{@render connectToServerAction(d.data, toggle)}
-								{/if}
-								{#if version.current.disableLegacyChat !== true}
-									<button
-										class="menu-button hover:bg-base-400"
-										onclick={async (e) => {
-											e.stopPropagation();
-											if (catalogEntry) {
-												if (matchingServers.length === 1) {
-													connectToServerDialog?.handleSetupChat(matchingServers[0]);
+								{#if !isCatalogEntry || usableMatchingServers.length > 0}
+									{#if !requiresOAuth || catalogEntry?.oauthCredentialConfigured}
+										{@render connectToServerAction(d.data, toggle)}
+									{/if}
+									{#if version.current.disableLegacyChat !== true}
+										<button
+											class="menu-button hover:bg-base-400"
+											onclick={async (e) => {
+												e.stopPropagation();
+												if (catalogEntry) {
+													if (usableMatchingServers.length === 1) {
+														connectToServerDialog?.handleSetupChat(usableMatchingServers[0]);
+													} else {
+														handleShowSelectServerDialog(catalogEntry, 'chat');
+													}
 												} else {
-													handleShowSelectServerDialog(catalogEntry, 'chat');
+													const server = d.data as MCPCatalogServer;
+													const instance = instancesMap.get(d.id);
+													if (instance && !instance.configured) {
+														connectToServerDialog?.open({ server, instance });
+													} else {
+														connectToServerDialog?.handleSetupChat(server, instance);
+													}
 												}
-											} else {
-												const server = d.data as MCPCatalogServer;
-												const instance = instancesMap.get(d.id);
-												if (instance && !instance.configured) {
-													connectToServerDialog?.open({ server, instance });
-												} else {
-													connectToServerDialog?.handleSetupChat(server, instance);
-												}
-											}
-											toggle(false);
-										}}
-									>
-										<MessageCircle class="size-4" /> Chat
-									</button>
+												toggle(false);
+											}}
+										>
+											<MessageCircle class="size-4" /> Chat
+										</button>
+									{/if}
 								{/if}
 
 								{#if catalogEntry}
@@ -735,9 +759,7 @@
 			e.stopPropagation();
 
 			if ('isCatalogEntry' in d) {
-				const matchingServers = mcpServersAndEntries.current.userConfiguredServers.filter(
-					(s) => s.catalogEntryID === d.id
-				);
+				const matchingServers = getUsableConfiguredServersForCatalogEntry(d);
 				if (isCreateFirst || matchingServers.length === 1) {
 					connectToServerDialog?.open({
 						entry: d,

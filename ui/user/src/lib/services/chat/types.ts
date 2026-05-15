@@ -797,6 +797,7 @@ export interface MCPCatalogServer {
 	configured: boolean;
 	catalogEntryID: string;
 	missingRequiredEnvVars: string[];
+	missingRequiredHeader?: string[];
 	missingRequiredHeaders: string[];
 	mcpCatalogID: string;
 	created: string;
