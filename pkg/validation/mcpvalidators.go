@@ -11,6 +11,7 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/mcp"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 var (
@@ -972,7 +973,73 @@ func getRuntimeValidators() RuntimeValidators {
 	}
 }
 
+func validateMCPResourceRequirements(runtime types.Runtime, resources *types.MCPResourceRequirements) error {
+	if resources == nil {
+		return nil
+	}
+
+	parse := func(field, value string) (*resource.Quantity, error) {
+		if value == "" {
+			return nil, nil
+		}
+		quantity, err := resource.ParseQuantity(value)
+		if err != nil {
+			return nil, types.RuntimeValidationError{
+				Runtime: runtime,
+				Field:   field,
+				Message: fmt.Sprintf("invalid quantity %q: %v", value, err),
+			}
+		}
+		if quantity.Sign() < 0 {
+			return nil, types.RuntimeValidationError{
+				Runtime: runtime,
+				Field:   field,
+				Message: fmt.Sprintf("must be non-negative, got %q", value),
+			}
+		}
+		return &quantity, nil
+	}
+
+	requestCPU, err := parse("resources.requests.cpu", resources.Requests.CPU)
+	if err != nil {
+		return err
+	}
+	requestMemory, err := parse("resources.requests.memory", resources.Requests.Memory)
+	if err != nil {
+		return err
+	}
+	limitCPU, err := parse("resources.limits.cpu", resources.Limits.CPU)
+	if err != nil {
+		return err
+	}
+	limitMemory, err := parse("resources.limits.memory", resources.Limits.Memory)
+	if err != nil {
+		return err
+	}
+
+	if requestCPU != nil && limitCPU != nil && limitCPU.Cmp(*requestCPU) < 0 {
+		return types.RuntimeValidationError{
+			Runtime: runtime,
+			Field:   "resources.limits.cpu",
+			Message: "must be greater than or equal to resources.requests.cpu",
+		}
+	}
+	if requestMemory != nil && limitMemory != nil && limitMemory.Cmp(*requestMemory) < 0 {
+		return types.RuntimeValidationError{
+			Runtime: runtime,
+			Field:   "resources.limits.memory",
+			Message: "must be greater than or equal to resources.requests.memory",
+		}
+	}
+
+	return nil
+}
+
 func ValidateServerManifest(manifest types.MCPServerManifest, isMultiUser bool) error {
+	if err := validateMCPResourceRequirements(manifest.Runtime, manifest.Resources); err != nil {
+		return err
+	}
+
 	if manifest.MultiUserConfig != nil && !isMultiUser {
 		return types.RuntimeValidationError{
 			Runtime: manifest.Runtime,
@@ -1013,6 +1080,10 @@ func ValidateCatalogEntryForRoute(manifest types.MCPServerCatalogEntryManifest, 
 func ValidateCatalogEntryManifest(manifest types.MCPServerCatalogEntryManifest) error {
 	if !manifest.ServerUserType.IsSingleUser() {
 		return fmt.Errorf("unsupported serverUserType %q: only %q is currently supported for catalog entries", manifest.ServerUserType, types.ServerUserTypeSingleUser)
+	}
+
+	if err := validateMCPResourceRequirements(manifest.Runtime, manifest.Resources); err != nil {
+		return err
 	}
 
 	if err := validateRuntimeStartupTimeout(manifest.Runtime, manifest.RuntimeStartupTimeoutSeconds()); err != nil {
@@ -1062,10 +1133,15 @@ func ValidateSystemMCPServerCatalogEntryManifest(manifest types.SystemMCPServerC
 		ContainerizedConfig: manifest.ContainerizedConfig,
 		RemoteConfig:        manifest.RemoteConfig,
 		Env:                 manifest.Env,
+		Resources:           manifest.Resources,
 	})
 }
 
 func ValidateSystemMCPServerManifest(manifest types.SystemMCPServerManifest) error {
+	if err := validateMCPResourceRequirements(manifest.Runtime, manifest.Resources); err != nil {
+		return err
+	}
+
 	if err := validateRuntimeStartupTimeout(manifest.Runtime, manifest.RuntimeStartupTimeoutSeconds()); err != nil {
 		return err
 	}

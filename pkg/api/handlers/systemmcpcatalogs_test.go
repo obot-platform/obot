@@ -4,7 +4,29 @@ import (
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/stretchr/testify/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+func TestConvertSystemMCPServerCatalogEntryResources(t *testing.T) {
+	resources := &types.MCPResourceRequirements{
+		Requests: types.MCPResourceRequests{CPU: "250m", Memory: "512Mi"},
+		Limits:   types.MCPResourceRequests{CPU: "1", Memory: "1Gi"},
+	}
+
+	entry := ConvertSystemMCPServerCatalogEntry(v1.SystemMCPServerCatalogEntry{
+		ObjectMeta: metav1.ObjectMeta{Name: "entry"},
+		Spec: v1.SystemMCPServerCatalogEntrySpec{
+			Manifest: types.SystemMCPServerCatalogEntryManifest{
+				Name:      "entry",
+				Resources: resources,
+			},
+		},
+	})
+
+	assert.Equal(t, resources, entry.Manifest.Resources)
+}
 
 func TestValidateSystemCatalogManifest_AllowsConfiguredLocalPath(t *testing.T) {
 	manifest := &types.SystemMCPCatalogManifest{

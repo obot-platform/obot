@@ -1502,6 +1502,7 @@ func serverManifestFromCatalogEntryManifest(
 			Metadata:         entry.Metadata,
 			Runtime:          types.RuntimeComposite,
 			ToolPreview:      entry.ToolPreview,
+			Resources:        entry.Resources,
 			CompositeConfig: &types.CompositeRuntimeConfig{
 				ComponentServers: make([]types.ComponentServer, 0, len(entry.CompositeConfig.ComponentServers)),
 			},
@@ -1610,6 +1611,9 @@ func mergeMCPServerManifests(existing, override types.MCPServerManifest) types.M
 	}
 	if len(override.Env) > 0 {
 		existing.Env = override.Env
+	}
+	if override.Resources != nil {
+		existing.Resources = override.Resources
 	}
 	if override.Runtime != "" {
 		existing.Runtime = override.Runtime

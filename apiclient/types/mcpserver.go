@@ -167,6 +167,11 @@ type MCPServerCatalogEntry struct {
 	OAuthCredentialConfigured bool                          `json:"oauthCredentialConfigured,omitempty"`
 }
 
+type MCPResourceRequirements struct {
+	Requests MCPResourceRequests `json:"requests,omitempty"`
+	Limits   MCPResourceRequests `json:"limits,omitempty"`
+}
+
 type MCPServerCatalogEntryManifest struct {
 	Metadata         map[string]string `json:"metadata,omitempty"`
 	Name             string            `json:"name"`
@@ -194,6 +199,8 @@ type MCPServerCatalogEntryManifest struct {
 	ServerUserType ServerUserType `json:"serverUserType,omitempty"`
 
 	Env []MCPEnv `json:"env,omitempty"`
+
+	Resources *MCPResourceRequirements `json:"resources,omitempty"`
 }
 
 // ToolOverride defines how a single component tool is exposed by the composite server
@@ -274,7 +281,8 @@ type MCPServerManifest struct {
 	// Multi-user specific configuration
 	MultiUserConfig *MultiUserConfig `json:"multiUserConfig,omitempty"`
 
-	Env []MCPEnv `json:"env,omitempty"`
+	Env       []MCPEnv                 `json:"env,omitempty"`
+	Resources *MCPResourceRequirements `json:"resources,omitempty"`
 
 	// Legacy fields that are deprecated, used only for cleaning up old servers
 	Command string      `json:"command,omitempty"`
@@ -506,6 +514,7 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 		ToolPreview:      catalogEntry.ToolPreview,
 		Runtime:          catalogEntry.Runtime,
 		Env:              catalogEntry.Env,
+		Resources:        catalogEntry.Resources,
 	}
 
 	// Handle runtime-specific mapping

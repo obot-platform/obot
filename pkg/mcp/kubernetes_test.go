@@ -22,6 +22,48 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
+func TestMCPContainerResourcesAppliesServerOverridesWithRequestDefaults(t *testing.T) {
+	resources := mcpContainerResources(ServerConfig{
+		Runtime: types.RuntimeNPX,
+		Resources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceMemory: resource.MustParse("512Mi"),
+			},
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU: resource.MustParse("1"),
+			},
+		},
+	}, v1.K8sSettingsSpec{})
+
+	if got, want := resources.Requests[corev1.ResourceMemory], resource.MustParse("512Mi"); got.Cmp(want) != 0 {
+		t.Fatalf("memory request = %s, want %s", got.String(), want.String())
+	}
+	if got, want := resources.Requests[corev1.ResourceCPU], defaultCPURequest; got.Cmp(want) != 0 {
+		t.Fatalf("cpu request = %s, want %s", got.String(), want.String())
+	}
+	if got, want := resources.Limits[corev1.ResourceCPU], resource.MustParse("1"); got.Cmp(want) != 0 {
+		t.Fatalf("cpu limit = %s, want %s", got.String(), want.String())
+	}
+}
+
+func TestMCPContainerResourcesAppliesServerCPURequestWithMemoryDefault(t *testing.T) {
+	resources := mcpContainerResources(ServerConfig{
+		Runtime: types.RuntimeNPX,
+		Resources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU: resource.MustParse("250m"),
+			},
+		},
+	}, v1.K8sSettingsSpec{})
+
+	if got, want := resources.Requests[corev1.ResourceCPU], resource.MustParse("250m"); got.Cmp(want) != 0 {
+		t.Fatalf("cpu request = %s, want %s", got.String(), want.String())
+	}
+	if got, want := resources.Requests[corev1.ResourceMemory], defaultMCPMemoryRequest; got.Cmp(want) != 0 {
+		t.Fatalf("memory request = %s, want %s", got.String(), want.String())
+	}
+}
+
 func TestReplaceHostWithServiceFQDN(t *testing.T) {
 	tests := []struct {
 		name        string

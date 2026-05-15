@@ -1121,22 +1121,44 @@ func (k *kubernetesBackend) deleteDeploymentCache(mcpServerName string) {
 }
 
 func mcpContainerResources(server ServerConfig, k8sSettings v1.K8sSettingsSpec) corev1.ResourceRequirements {
+	var defaults corev1.ResourceRequirements
 	if server.Runtime == types.RuntimeRemote {
-		return memoryRequestResources(remoteMemoryRequest)
-	}
-
-	if server.NanobotAgentName != "" {
+		defaults = memoryRequestResources(remoteMemoryRequest)
+	} else if server.NanobotAgentName != "" {
 		if k8sSettings.NanobotAgentResources != nil {
-			return withDefaultCPURequest(*k8sSettings.NanobotAgentResources)
+			defaults = withDefaultCPURequest(*k8sSettings.NanobotAgentResources)
+		} else {
+			defaults = memoryRequestResources(defaultAgentMemoryRequest)
 		}
-		return memoryRequestResources(defaultAgentMemoryRequest)
+	} else if k8sSettings.Resources != nil {
+		defaults = withDefaultCPURequest(*k8sSettings.Resources)
+	} else {
+		defaults = memoryRequestResources(defaultMCPMemoryRequest)
 	}
 
-	if k8sSettings.Resources != nil {
-		return withDefaultCPURequest(*k8sSettings.Resources)
+	return withServerResourceOverrides(defaults, server.Resources)
+}
+
+func withServerResourceOverrides(defaults, overrides corev1.ResourceRequirements) corev1.ResourceRequirements {
+	if len(overrides.Requests) == 0 && len(overrides.Limits) == 0 {
+		return defaults
 	}
 
-	return memoryRequestResources(defaultMCPMemoryRequest)
+	result := *defaults.DeepCopy()
+	if len(overrides.Requests) > 0 {
+		if result.Requests == nil {
+			result.Requests = corev1.ResourceList{}
+		}
+		maps.Copy(result.Requests, overrides.Requests)
+	}
+	if len(overrides.Limits) > 0 {
+		if result.Limits == nil {
+			result.Limits = corev1.ResourceList{}
+		}
+		maps.Copy(result.Limits, overrides.Limits)
+	}
+
+	return result
 }
 
 func memoryRequestResources(memory resource.Quantity) corev1.ResourceRequirements {
