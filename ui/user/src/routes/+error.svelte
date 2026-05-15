@@ -40,9 +40,9 @@
 	<p class="text-gray">{message}</p>
 
 	{#if page.error}
-		<details class="collapse bg-base-300 border max-w-xl mb-2 w-full">
-			<summary class="collapse-title font-semibold">Error Details</summary>
-			<div class="collapse-content text-sm bg-base-200">
+		<details class="collapse bg-base-300 collapse-arrow border max-w-xl mb-2 w-full">
+			<summary class="collapse-title font-semibold text-base">Error Details</summary>
+			<div class="collapse-content text-sm bg-base-200 pt-4">
 				{page.error.message}
 			</div>
 		</details>
