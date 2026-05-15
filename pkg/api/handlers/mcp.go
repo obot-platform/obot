@@ -3326,7 +3326,7 @@ func (m *MCPHandler) CheckK8sSettingsStatus(req api.Context) error {
 	}
 
 	// Compute current K8s settings hash
-	currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec)
+	currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec, server.Spec.Manifest.Runtime, server.Spec.NanobotAgentID != "")
 
 	// Compare deployed hash with current hash
 	needsUpdate := deployedHash != currentHash
@@ -3398,7 +3398,7 @@ func (m *MCPHandler) RedeployWithK8sSettings(req api.Context) error {
 	}
 
 	// Compute current K8s settings hash and check if update is needed
-	currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec)
+	currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec, serverConfig.Runtime, serverConfig.NanobotAgentName != "")
 	hashDrift := deployedHash != currentHash
 
 	// Trigger restart if hash drift OR if the server needs K8s update (e.g., PSA compliance)
@@ -3487,9 +3487,6 @@ func (m *MCPHandler) ListServersNeedingK8sUpdateInCatalog(req api.Context) error
 		return fmt.Errorf("failed to get K8s settings: %w", err)
 	}
 
-	// Compute current K8s settings hash
-	currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec)
-
 	// List all servers in the catalog
 	var servers v1.MCPServerList
 	if err := req.List(&servers, &kclient.ListOptions{
@@ -3519,6 +3516,7 @@ func (m *MCPHandler) ListServersNeedingK8sUpdateInCatalog(req api.Context) error
 		}
 
 		// Check if hash differs from current settings
+		currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec, server.Spec.Manifest.Runtime, server.Spec.NanobotAgentID != "")
 		if server.Status.K8sSettingsHash != currentHash {
 			serversNeedingUpdate = append(serversNeedingUpdate, types.MCPServerNeedingK8sUpdate{
 				MCPServerID:             server.Name,
@@ -3541,9 +3539,6 @@ func (m *MCPHandler) ListServersNeedingK8sUpdateAcrossWorkspaces(req api.Context
 	}, &k8sSettings); err != nil {
 		return fmt.Errorf("failed to get K8s settings: %w", err)
 	}
-
-	// Compute current K8s settings hash
-	currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec)
 
 	// List all MCPServers (we'll filter for workspace servers below)
 	var servers v1.MCPServerList
@@ -3579,6 +3574,7 @@ func (m *MCPHandler) ListServersNeedingK8sUpdateAcrossWorkspaces(req api.Context
 		}
 
 		// Check if hash differs from current settings
+		currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec, server.Spec.Manifest.Runtime, server.Spec.NanobotAgentID != "")
 		if server.Status.K8sSettingsHash != currentHash {
 			serversNeedingUpdate = append(serversNeedingUpdate, types.MCPServerNeedingK8sUpdate{
 				MCPServerID:             server.Name,

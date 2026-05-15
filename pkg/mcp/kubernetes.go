@@ -512,7 +512,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 	k8sSettings := k.getK8sSettings(ctx)
 
 	// Add K8s settings hash to annotations
-	annotations["obot.ai/k8s-settings-hash"] = ComputeK8sSettingsHash(k8sSettings)
+	annotations["obot.ai/k8s-settings-hash"] = ComputeK8sSettingsHash(k8sSettings, server.Runtime, server.NanobotAgentName != "")
 
 	// Get PSA enforce level for security context decisions
 	psaLevel := GetPSAEnforceLevelFromSpec(k8sSettings)
@@ -1189,7 +1189,7 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, server ServerConf
 	k8sSettings := k.getK8sSettings(ctx)
 
 	// Compute K8s settings hash
-	k8sSettingsHash := ComputeK8sSettingsHash(k8sSettings)
+	k8sSettingsHash := ComputeK8sSettingsHash(k8sSettings, server.Runtime, server.NanobotAgentName != "")
 	desiredResources := mcpContainerResources(server, k8sSettings)
 
 	// Get PSA enforce level for security context decisions
@@ -1733,8 +1733,8 @@ func getPodSecurityContextPatch(psaLevel PSAEnforceLevel) map[string]any {
 	}
 }
 
-// ComputeK8sSettingsHash computes a hash of K8s settings for change detection
-func ComputeK8sSettingsHash(settings v1.K8sSettingsSpec) string {
+// ComputeK8sSettingsHash computes a hash of K8s settings for change detection.
+func ComputeK8sSettingsHash(settings v1.K8sSettingsSpec, serverRuntime types.Runtime, nanobotAgentServer bool) string {
 	var buf bytes.Buffer
 
 	// Hash affinity
@@ -1749,13 +1749,10 @@ func ComputeK8sSettingsHash(settings v1.K8sSettingsSpec) string {
 		buf.Write(tolerationsJSON)
 	}
 
-	// Hash resources
-	if settings.Resources != nil {
+	// Hash resources for regular MCP server pods. Remote servers use fixed shim resources,
+	// and nanobot-agent-backed servers use NanobotAgentResources instead.
+	if serverRuntime != types.RuntimeRemote && !nanobotAgentServer && settings.Resources != nil {
 		resourcesJSON, _ := json.Marshal(settings.Resources)
-		buf.Write(resourcesJSON)
-	}
-	if settings.NanobotAgentResources != nil {
-		resourcesJSON, _ := json.Marshal(settings.NanobotAgentResources)
 		buf.Write(resourcesJSON)
 	}
 
@@ -1769,9 +1766,15 @@ func ComputeK8sSettingsHash(settings v1.K8sSettingsSpec) string {
 		buf.WriteString(*settings.StorageClassName)
 	}
 
-	// Hash nanobotWorkspaceSize
-	if settings.NanobotWorkspaceSize != "" {
-		buf.WriteString(settings.NanobotWorkspaceSize)
+	// Hash nanobot-only settings
+	if nanobotAgentServer {
+		if settings.NanobotAgentResources != nil {
+			resourcesJSON, _ := json.Marshal(settings.NanobotAgentResources)
+			buf.Write(resourcesJSON)
+		}
+		if settings.NanobotWorkspaceSize != "" {
+			buf.WriteString(settings.NanobotWorkspaceSize)
+		}
 	}
 
 	// Hash Pod Security Admission settings

@@ -18,9 +18,46 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
+
+func TestComputeK8sSettingsHashUsesServerSpecificResources(t *testing.T) {
+	baseSettings := v1.K8sSettingsSpec{
+		RuntimeClassName: ptr.To("runtime-class"),
+	}
+	resourceSettings := *baseSettings.DeepCopy()
+	resourceSettings.Resources = &corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceMemory: resource.MustParse("128Mi"),
+		},
+	}
+	nanobotSettings := *resourceSettings.DeepCopy()
+	nanobotSettings.NanobotWorkspaceSize = "10Gi"
+	nanobotSettings.NanobotAgentResources = &corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceMemory: resource.MustParse("512Mi"),
+		},
+	}
+
+	baseHash := ComputeK8sSettingsHash(baseSettings, types.RuntimeNPX, false)
+	if got := ComputeK8sSettingsHash(resourceSettings, types.RuntimeNPX, false); got == baseHash {
+		t.Fatalf("regular server hash = %s, want it to differ when resources are set", got)
+	}
+	if got := ComputeK8sSettingsHash(resourceSettings, types.RuntimeRemote, false); got != baseHash {
+		t.Fatalf("remote server hash = %s, want %s", got, baseHash)
+	}
+	if got := ComputeK8sSettingsHash(resourceSettings, types.RuntimeNPX, true); got != baseHash {
+		t.Fatalf("nanobot agent server hash = %s, want %s before nanobot-only settings are set", got, baseHash)
+	}
+	if got := ComputeK8sSettingsHash(nanobotSettings, types.RuntimeNPX, false); got != ComputeK8sSettingsHash(resourceSettings, types.RuntimeNPX, false) {
+		t.Fatalf("non-nanobot hash = %s, want nanobot-only settings ignored", got)
+	}
+	if got := ComputeK8sSettingsHash(nanobotSettings, types.RuntimeNPX, true); got == baseHash {
+		t.Fatalf("nanobot hash = %s, want it to differ when nanobot-only settings are set", got)
+	}
+}
 
 func TestMCPContainerResourcesAppliesServerOverridesWithRequestDefaults(t *testing.T) {
 	resources := mcpContainerResources(ServerConfig{
