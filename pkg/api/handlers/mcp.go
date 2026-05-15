@@ -46,24 +46,22 @@ type MCPHandler struct {
 	mcpSessionManager   *mcp.SessionManager
 	mcpOAuthChecker     MCPOAuthChecker
 	acrHelper           *accesscontrolrule.Helper
-	mcpBackend          string
 	mcpImagePullSecrets []string
 	serverURL           string
 }
 
-func NewMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.Helper, mcpOAuthChecker MCPOAuthChecker, mcpBackend string, mcpImagePullSecrets []string, serverURL string) *MCPHandler {
+func NewMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.Helper, mcpOAuthChecker MCPOAuthChecker, mcpImagePullSecrets []string, serverURL string) *MCPHandler {
 	return &MCPHandler{
 		mcpSessionManager:   mcpLoader,
 		mcpOAuthChecker:     mcpOAuthChecker,
 		acrHelper:           acrHelper,
-		mcpBackend:          mcpBackend,
 		mcpImagePullSecrets: mcpImagePullSecrets,
 		serverURL:           serverURL,
 	}
 }
 
 func (m *MCPHandler) currentK8sSettingsHash(req api.Context, settings v1.K8sSettingsSpec) (string, error) {
-	imagePullSecretNames, err := mcp.CurrentImagePullSecretNames(req.Context(), req.Storage, m.mcpBackend, m.mcpImagePullSecrets)
+	imagePullSecretNames, err := mcp.CurrentImagePullSecretNames(req.Context(), req.Storage, m.mcpSessionManager.MCPRuntimeBackend(), m.mcpImagePullSecrets)
 	if err != nil {
 		return "", err
 	}
@@ -1743,7 +1741,7 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 	if err := validation.ValidateServerManifest(server.Spec.Manifest, server.Spec.MCPCatalogID != "" || server.Spec.PowerUserWorkspaceID != ""); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
-	if err := validation.ValidateSecretBindings(server.Spec.Manifest, gitManagedEntry, m.mcpBackend); err != nil {
+	if err := validation.ValidateSecretBindings(server.Spec.Manifest, gitManagedEntry, m.mcpSessionManager.MCPRuntimeBackend()); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 
@@ -1853,7 +1851,7 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 			gitManagedEntry = catalogEntry.IsGitManaged()
 		}
 	}
-	if err := validation.ValidateSecretBindings(updated, gitManagedEntry, m.mcpBackend); err != nil {
+	if err := validation.ValidateSecretBindings(updated, gitManagedEntry, m.mcpSessionManager.MCPRuntimeBackend()); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 	if err := validation.ValidateTemplateReferences(updated); err != nil {
@@ -3353,7 +3351,7 @@ func (m *MCPHandler) CheckK8sSettingsStatus(req api.Context) error {
 
 // RedeployWithK8sSettings redeploys a server with the current K8s settings
 func (m *MCPHandler) RedeployWithK8sSettings(req api.Context) error {
-	switch m.mcpBackend {
+	switch m.mcpSessionManager.MCPRuntimeBackend() {
 	case "kubernetes", "k8s":
 		// Supported
 	default:

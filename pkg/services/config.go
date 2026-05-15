@@ -70,7 +70,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authentication/request/union"
 	"k8s.io/apiserver/pkg/server/options/encryptionconfig"
-	"k8s.io/client-go/kubernetes"
 	k8sscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	gocache "k8s.io/client-go/tools/cache"
@@ -228,11 +227,8 @@ type Services struct {
 	OAuthServerConfig              handlers.OAuthAuthorizationServerConfig
 	MCPOAuthClientSecretExpiration time.Duration
 
-	// Local Kubernetes clients for the MCP runtime cluster. The controller-runtime
-	// client handles object CRUD/watch paths; the typed client-go client is kept
-	// for APIs controller-runtime does not expose, such as ServiceAccount tokens.
+	// LocalK8sConfig is the Kubernetes config for the MCP runtime cluster.
 	LocalK8sConfig            *rest.Config
-	LocalK8sInterfaceClient   kubernetes.Interface
 	MCPServerNamespace        string
 	ServiceAccountIssuerURL   string
 	ServiceAccountIssuerError string
@@ -650,21 +646,15 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	mcpOAuthTokenStorage := mcpgateway.NewGlobalTokenStore(gatewayClient)
 
 	// Build local Kubernetes config for deployment monitoring (optional)
-	var localK8sConfig *rest.Config
-	var localK8sInterfaceClient kubernetes.Interface
-	var serviceAccountIssuerURL string
-	var serviceAccountIssuerError string
-	if imagepullsecrets.IsKubernetesBackend(config.MCPRuntimeBackend) {
+	var (
+		localK8sConfig            *rest.Config
+		serviceAccountIssuerURL   string
+		serviceAccountIssuerError string
+	)
+	if mcp.IsKubernetesBackend(config.MCPRuntimeBackend) {
 		localK8sConfig, err = buildLocalK8sConfig()
 		if err != nil {
 			return nil, fmt.Errorf("failed to build local Kubernetes config: %w", err)
-		}
-		if err != nil {
-			return nil, fmt.Errorf("failed to create local Kubernetes runtime client: %w", err)
-		}
-		localK8sInterfaceClient, err = kubernetes.NewForConfig(localK8sConfig)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create local Kubernetes client: %w", err)
 		}
 		serviceAccountIssuerURL, err = imagepullsecrets.DiscoverServiceAccountIssuer(ctx, localK8sConfig)
 		if err != nil {
@@ -1159,7 +1149,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		SkillAccessRuleHelper:                skillAccessRuleHelper,
 		WebhookHelper:                        webhookHelper,
 		LocalK8sConfig:                       localK8sConfig,
-		LocalK8sInterfaceClient:              localK8sInterfaceClient,
 		MCPServerNamespace:                   config.MCPNamespace,
 		ServiceAccountIssuerURL:              serviceAccountIssuerURL,
 		ServiceAccountIssuerError:            serviceAccountIssuerError,

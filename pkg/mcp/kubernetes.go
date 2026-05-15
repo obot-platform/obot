@@ -1805,7 +1805,7 @@ func ComputeK8sSettingsHash(settings v1.K8sSettingsSpec, imagePullSecretNames []
 // MCP Deployments. Static startup configuration takes precedence over managed
 // ImagePullSecret resources.
 func CurrentImagePullSecretNames(ctx context.Context, client kclient.Client, mcpRuntimeBackend string, staticPullSecrets []string) ([]string, error) {
-	if !imagepullsecrets.IsKubernetesBackend(mcpRuntimeBackend) {
+	if !IsKubernetesBackend(mcpRuntimeBackend) {
 		return nil, nil
 	}
 	return currentImagePullSecretNames(ctx, client, staticPullSecrets)

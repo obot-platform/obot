@@ -21,8 +21,8 @@ type Capability struct {
 	Reason    string
 }
 
-func Availability(mcpRuntimeBackend string, staticPullSecrets []string) Capability {
-	if !IsKubernetesBackend(mcpRuntimeBackend) {
+func Availability(kubernetesBackend bool, staticPullSecrets []string) Capability {
+	if !kubernetesBackend {
 		return Capability{
 			Reason: "managed image pull secrets require the Kubernetes MCP runtime backend",
 		}
@@ -35,15 +35,6 @@ func Availability(mcpRuntimeBackend string, staticPullSecrets []string) Capabili
 	}
 
 	return Capability{Available: true}
-}
-
-func IsKubernetesBackend(backend string) bool {
-	switch strings.ToLower(strings.TrimSpace(backend)) {
-	case "kubernetes", "k8s":
-		return true
-	default:
-		return false
-	}
 }
 
 func ECRSubject(namespace, serviceAccountName string) string {

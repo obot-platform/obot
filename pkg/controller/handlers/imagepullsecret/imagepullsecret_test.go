@@ -4,16 +4,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/imagepullsecrets"
 	obotv1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestPopulateECRComputedStatusUsesObotServiceAccount(t *testing.T) {
-	handler := New(nil, nil, nil, "kubernetes", "obot-mcp", "obot", "obot", nil, "https://issuer.example.com")
+	handler := New(nil, nil, "kubernetes", "obot-mcp", "obot", "obot", nil, "https://issuer.example.com")
 	secret := &obotv1.ImagePullSecret{
 		Spec: obotv1.ImagePullSecretSpec{
-			ECR: &obotv1.ECRImagePullSecretSpec{},
+			ECR: &types.ECRImagePullSecretConfig{},
 		},
 	}
 	var status obotv1.ImagePullSecretStatus
@@ -36,7 +37,7 @@ func TestShouldRefreshECRHonorsManualRequest(t *testing.T) {
 			},
 		},
 		Spec: obotv1.ImagePullSecretSpec{
-			ECR: &obotv1.ECRImagePullSecretSpec{
+			ECR: &types.ECRImagePullSecretConfig{
 				RefreshSchedule: "0 0 * * *",
 			},
 		},

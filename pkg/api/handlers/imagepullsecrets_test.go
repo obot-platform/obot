@@ -16,7 +16,7 @@ func TestImagePullSecretSpecFromInputDefaultsECRIssuerURL(t *testing.T) {
 			RoleARN: "arn:aws:iam::123456789012:role/obot-ecr",
 			Region:  "us-east-1",
 		},
-	}, nil, "pull-secret")
+	}, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -34,7 +34,7 @@ func TestImagePullSecretSpecFromInputDefaultsECRIssuerURL(t *testing.T) {
 			Region:    "us-east-1",
 			IssuerURL: "https://custom-issuer.example.com/",
 		},
-	}, &v1.ImagePullSecret{Spec: v1.ImagePullSecretSpec{Type: v1.ImagePullSecretTypeECR}}, "pull-secret")
+	}, &v1.ImagePullSecret{Spec: v1.ImagePullSecretSpec{Type: types.ImagePullSecretTypeECR}})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -52,7 +52,7 @@ func TestImagePullSecretSpecFromInputRequiresECRIssuerURLWhenDefaultMissing(t *t
 			RoleARN: "arn:aws:iam::123456789012:role/obot-ecr",
 			Region:  "us-east-1",
 		},
-	}, nil, "pull-secret")
+	}, nil)
 	if err == nil {
 		t.Fatal("expected issuerURL error")
 	}
@@ -64,7 +64,7 @@ func TestImagePullSecretSpecFromInputRequiresECRIssuerURLWhenDefaultMissing(t *t
 			Region:    "us-east-1",
 			IssuerURL: "https://custom-issuer.example.com",
 		},
-	}, nil, "pull-secret")
+	}, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

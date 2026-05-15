@@ -793,7 +793,6 @@ export interface ImagePullSecretManifest {
 }
 
 export interface ImagePullSecretStatus {
-	secretName?: string;
 	passwordConfigured?: boolean;
 	subject?: string;
 	trustPolicyJSON?: string;

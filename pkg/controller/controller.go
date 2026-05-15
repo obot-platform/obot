@@ -567,8 +567,6 @@ func (c *Controller) createLocalK8sRouter() (*router.Router, error) {
 }
 
 func localK8sCacheByObject(mcpServerNamespace, runtimeNamespace string) map[kclient.Object]crcache.ByObject {
-	result := map[kclient.Object]crcache.ByObject{}
-
 	secretNamespaces := map[string]crcache.Config{}
 	if mcpServerNamespace != "" {
 		secretNamespaces[mcpServerNamespace] = crcache.Config{}
@@ -576,16 +574,15 @@ func localK8sCacheByObject(mcpServerNamespace, runtimeNamespace string) map[kcli
 	if runtimeNamespace != "" {
 		secretNamespaces[runtimeNamespace] = crcache.Config{}
 	}
-	if len(secretNamespaces) > 0 {
-		result[&corev1.Secret{}] = crcache.ByObject{
-			Namespaces: secretNamespaces,
-		}
-	}
-	if len(result) == 0 {
+	if len(secretNamespaces) == 0 {
 		return nil
 	}
 
-	return result
+	return map[kclient.Object]crcache.ByObject{
+		&corev1.Secret{}: {
+			Namespaces: secretNamespaces,
+		},
+	}
 }
 
 // setupLocalK8sRoutes sets up routes for the local Kubernetes router

@@ -20,7 +20,9 @@ import (
 	ststypes "github.com/aws/aws-sdk-go-v2/service/sts/types"
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/router"
+	apitypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/imagepullsecrets"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -28,7 +30,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -39,7 +40,6 @@ const (
 type Handler struct {
 	gptClient          *gptscript.GPTScript
 	runtimeClient      kclient.Client
-	kubeClient         kubernetes.Interface
 	mcpRuntimeBackend  string
 	mcpNamespace       string
 	serviceNamespace   string
@@ -49,11 +49,10 @@ type Handler struct {
 	now                func() time.Time
 }
 
-func New(gptClient *gptscript.GPTScript, runtimeClient kclient.Client, kubeClient kubernetes.Interface, mcpRuntimeBackend, mcpNamespace, serviceNamespace, serviceAccountName string, staticSecrets []string, issuerURL string) *Handler {
+func New(gptClient *gptscript.GPTScript, runtimeClient kclient.Client, mcpRuntimeBackend, mcpNamespace, serviceNamespace, serviceAccountName string, staticSecrets []string, issuerURL string) *Handler {
 	return &Handler{
 		gptClient:          gptClient,
 		runtimeClient:      runtimeClient,
-		kubeClient:         kubeClient,
 		mcpRuntimeBackend:  mcpRuntimeBackend,
 		mcpNamespace:       mcpNamespace,
 		serviceNamespace:   firstNonEmpty(serviceNamespace, mcpNamespace),
@@ -89,7 +88,7 @@ func (h *Handler) Cleanup(req router.Request, _ router.Response) error {
 }
 
 func (h *Handler) reconcile(req router.Request, resp router.Response, secret *v1.ImagePullSecret) error {
-	capability := imagepullsecrets.Availability(h.mcpRuntimeBackend, h.staticSecrets)
+	capability := imagepullsecrets.Availability(mcp.IsKubernetesBackend(h.mcpRuntimeBackend), h.staticSecrets)
 	if !capability.Available {
 		return h.updateStatus(req, secret, func(status *v1.ImagePullSecretStatus) {
 			status.LastError = capability.Reason
@@ -112,9 +111,9 @@ func (h *Handler) reconcile(req router.Request, resp router.Response, secret *v1
 	}
 
 	switch secret.Spec.Type {
-	case v1.ImagePullSecretTypeBasic:
+	case apitypes.ImagePullSecretTypeBasic:
 		return h.reconcileBasic(req, secret)
-	case v1.ImagePullSecretTypeECR:
+	case apitypes.ImagePullSecretTypeECR:
 		return h.reconcileECR(req, resp, secret)
 	default:
 		return fmt.Errorf("unsupported image pull secret type %q", secret.Spec.Type)
@@ -172,11 +171,11 @@ func (h *Handler) revealPassword(ctx context.Context, name string) (string, erro
 
 func (h *Handler) ecrConfigChanged(ctx context.Context, imagePullSecret *v1.ImagePullSecret) (bool, error) {
 	existing := &corev1.Secret{}
-	if err := h.runtimeClient.Get(ctx, types.NamespacedName{Namespace: h.mcpNamespace, Name: imagePullSecret.Spec.SecretName}, existing); err != nil {
+	if err := h.runtimeClient.Get(ctx, types.NamespacedName{Namespace: h.mcpNamespace, Name: imagePullSecret.Name}, existing); err != nil {
 		if apierrors.IsNotFound(err) {
 			return true, nil
 		}
-		return false, fmt.Errorf("failed to read Kubernetes image pull secret %s/%s: %w", h.mcpNamespace, imagePullSecret.Spec.SecretName, err)
+		return false, fmt.Errorf("failed to read Kubernetes image pull secret %s/%s: %w", h.mcpNamespace, imagePullSecret.Name, err)
 	}
 	return existing.Annotations[annotationECRConfigHash] != ecrConfigHash(imagePullSecret), nil
 }
@@ -205,7 +204,7 @@ func (h *Handler) scheduleNextRefresh(resp router.Response, secret *v1.ImagePull
 	if err != nil {
 		return
 	}
-	if until := next.Sub(h.now()); until > 0 {
+	if until := next.Sub(h.now()); until > 0 && until < 10*time.Hour { // controller handlers are automatically triggered every 10 hours
 		resp.RetryAfter(until)
 	}
 }
@@ -262,21 +261,28 @@ func (h *Handler) refreshECR(req router.Request, resp router.Response, secret *v
 	return nil
 }
 
-func (h *Handler) createECRServiceAccountToken(ctx context.Context, ecrSpec *v1.ECRImagePullSecretSpec) (string, error) {
+func (h *Handler) createECRServiceAccountToken(ctx context.Context, ecrSpec *apitypes.ECRImagePullSecretConfig) (string, error) {
 	expirationSeconds := int64(3600)
-	token, err := h.kubeClient.CoreV1().ServiceAccounts(h.serviceNamespace).CreateToken(ctx, h.serviceAccountName, &authenticationv1.TokenRequest{
+
+	serviceAccount := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      h.serviceAccountName,
+			Namespace: h.serviceNamespace,
+		},
+	}
+	tokenRequest := &authenticationv1.TokenRequest{
 		Spec: authenticationv1.TokenRequestSpec{
 			Audiences:         []string{ecrSpec.Audience},
 			ExpirationSeconds: &expirationSeconds,
 		},
-	}, metav1.CreateOptions{})
-	if err != nil {
+	}
+	if err := h.runtimeClient.SubResource("token").Create(ctx, serviceAccount, tokenRequest); err != nil {
 		return "", fmt.Errorf("failed to create ECR service account token: %w", err)
 	}
-	return token.Status.Token, nil
+	return tokenRequest.Status.Token, nil
 }
 
-func (h *Handler) ecrClient(ctx context.Context, ecrSpec *v1.ECRImagePullSecretSpec, token string) (imagepullsecrets.ECRAuthorizationClient, error) {
+func (h *Handler) ecrClient(ctx context.Context, ecrSpec *apitypes.ECRImagePullSecretConfig, token string) (imagepullsecrets.ECRAuthorizationClient, error) {
 	stsConfig, err := config.LoadDefaultConfig(ctx,
 		config.WithRegion(ecrSpec.Region),
 		config.WithCredentialsProvider(aws.AnonymousCredentials{}),
@@ -329,11 +335,11 @@ func (h *Handler) writeDockerConfigSecret(ctx context.Context, imagePullSecret *
 	}
 
 	existing := &corev1.Secret{}
-	err := h.runtimeClient.Get(ctx, types.NamespacedName{Namespace: h.mcpNamespace, Name: imagePullSecret.Spec.SecretName}, existing)
+	err := h.runtimeClient.Get(ctx, types.NamespacedName{Namespace: h.mcpNamespace, Name: imagePullSecret.Name}, existing)
 	if apierrors.IsNotFound(err) {
 		secret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      imagePullSecret.Spec.SecretName,
+				Name:      imagePullSecret.Name,
 				Namespace: h.mcpNamespace,
 			},
 		}
@@ -341,7 +347,7 @@ func (h *Handler) writeDockerConfigSecret(ctx context.Context, imagePullSecret *
 		return h.runtimeClient.Create(ctx, secret)
 	}
 	if err != nil {
-		return fmt.Errorf("failed to read Kubernetes image pull secret %s/%s: %w", h.mcpNamespace, imagePullSecret.Spec.SecretName, err)
+		return fmt.Errorf("failed to read Kubernetes image pull secret %s/%s: %w", h.mcpNamespace, imagePullSecret.Name, err)
 	}
 
 	updated := existing.DeepCopy()
@@ -365,25 +371,25 @@ func ecrRefreshRequestedAt(secret *v1.ImagePullSecret) (time.Time, bool) {
 }
 
 func (h *Handler) deleteK8sSecret(ctx context.Context, secret *v1.ImagePullSecret) error {
-	if !imagepullsecrets.IsKubernetesBackend(h.mcpRuntimeBackend) {
+	if !mcp.IsKubernetesBackend(h.mcpRuntimeBackend) {
 		return nil
 	}
-	if strings.TrimSpace(secret.Spec.SecretName) == "" {
+	if strings.TrimSpace(secret.Name) == "" {
 		return nil
 	}
 
 	k8sSecret := &corev1.Secret{}
-	if err := h.runtimeClient.Get(ctx, types.NamespacedName{Namespace: h.mcpNamespace, Name: secret.Spec.SecretName}, k8sSecret); err != nil {
+	if err := h.runtimeClient.Get(ctx, types.NamespacedName{Namespace: h.mcpNamespace, Name: secret.Name}, k8sSecret); err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil
 		}
-		return fmt.Errorf("failed to read Kubernetes image pull secret %s/%s for deletion: %w", h.mcpNamespace, secret.Spec.SecretName, err)
+		return fmt.Errorf("failed to read Kubernetes image pull secret %s/%s for deletion: %w", h.mcpNamespace, secret.Name, err)
 	}
 	if !isManagedByImagePullSecret(k8sSecret, secret.Name) {
 		return nil
 	}
 	if err := h.runtimeClient.Delete(ctx, k8sSecret); err != nil && !apierrors.IsNotFound(err) {
-		return fmt.Errorf("failed to delete Kubernetes image pull secret %s/%s: %w", h.mcpNamespace, secret.Spec.SecretName, err)
+		return fmt.Errorf("failed to delete Kubernetes image pull secret %s/%s: %w", h.mcpNamespace, secret.Name, err)
 	}
 	return nil
 }
@@ -421,11 +427,9 @@ func mergeLabels(existing, desired map[string]string) map[string]string {
 
 func ecrConfigHash(secret *v1.ImagePullSecret) string {
 	data, _ := json.Marshal(struct {
-		SecretName string                     `json:"secretName"`
-		ECR        *v1.ECRImagePullSecretSpec `json:"ecr,omitempty"`
+		ECR *apitypes.ECRImagePullSecretConfig `json:"ecr,omitempty"`
 	}{
-		SecretName: secret.Spec.SecretName,
-		ECR:        secret.Spec.ECR,
+		ECR: secret.Spec.ECR,
 	})
 	sum := sha256.Sum256(data)
 	return hex.EncodeToString(sum[:])

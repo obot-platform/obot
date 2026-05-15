@@ -57,7 +57,7 @@ func activeSecretName(secret v1.ImagePullSecret) (string, bool) {
 	if !secret.Spec.Enabled {
 		return "", false
 	}
-	name := strings.TrimSpace(secret.Spec.SecretName)
+	name := strings.TrimSpace(secret.Name)
 	if name == "" {
 		return "", false
 	}

@@ -482,20 +482,16 @@ func TestUpdatedMCPPodName_ContainerStartupDeadlineExceeded(t *testing.T) {
 func TestK8sObjects_ManagedImagePullSecrets(t *testing.T) {
 	managedSecrets := []v1.ImagePullSecret{
 		{
-			ObjectMeta: metav1.ObjectMeta{Name: "managed-b-resource", Namespace: system.DefaultNamespace},
-			Spec:       v1.ImagePullSecretSpec{Enabled: true, SecretName: "managed-b"},
+			ObjectMeta: metav1.ObjectMeta{Name: "managed-b", Namespace: system.DefaultNamespace},
+			Spec:       v1.ImagePullSecretSpec{Enabled: true},
 		},
 		{
-			ObjectMeta: metav1.ObjectMeta{Name: "disabled-resource", Namespace: system.DefaultNamespace},
-			Spec:       v1.ImagePullSecretSpec{Enabled: false, SecretName: "disabled"},
+			ObjectMeta: metav1.ObjectMeta{Name: "disabled", Namespace: system.DefaultNamespace},
+			Spec:       v1.ImagePullSecretSpec{Enabled: false},
 		},
 		{
-			ObjectMeta: metav1.ObjectMeta{Name: "managed-a-resource", Namespace: system.DefaultNamespace},
-			Spec:       v1.ImagePullSecretSpec{Enabled: true, SecretName: "managed-a"},
-		},
-		{
-			ObjectMeta: metav1.ObjectMeta{Name: "duplicate-resource", Namespace: system.DefaultNamespace},
-			Spec:       v1.ImagePullSecretSpec{Enabled: true, SecretName: "managed-a"},
+			ObjectMeta: metav1.ObjectMeta{Name: "managed-a", Namespace: system.DefaultNamespace},
+			Spec:       v1.ImagePullSecretSpec{Enabled: true},
 		},
 	}
 
@@ -533,8 +529,8 @@ func TestK8sObjects_ManagedImagePullSecrets(t *testing.T) {
 func TestK8sObjects_StaticImagePullSecretsOverrideManaged(t *testing.T) {
 	k := newTestKubernetesBackend(t,
 		&v1.ImagePullSecret{
-			ObjectMeta: metav1.ObjectMeta{Name: "managed-resource", Namespace: system.DefaultNamespace},
-			Spec:       v1.ImagePullSecretSpec{Enabled: true, SecretName: "managed"},
+			ObjectMeta: metav1.ObjectMeta{Name: "managed", Namespace: system.DefaultNamespace},
+			Spec:       v1.ImagePullSecretSpec{Enabled: true},
 		},
 	)
 	k.imagePullSecrets = []string{"static-b", "static-a", "static-a"}
@@ -595,8 +591,8 @@ func TestRestartServerAddsManagedImagePullSecretsToFreshDeployment(t *testing.T)
 	k.client = fake.NewClientBuilder().WithScheme(runtimeScheme).WithObjects(dep).Build()
 
 	if err := k.obotClient.Create(context.Background(), &v1.ImagePullSecret{
-		ObjectMeta: metav1.ObjectMeta{Name: "managed-resource", Namespace: system.DefaultNamespace},
-		Spec:       v1.ImagePullSecretSpec{Enabled: true, SecretName: "managed"},
+		ObjectMeta: metav1.ObjectMeta{Name: "managed", Namespace: system.DefaultNamespace},
+		Spec:       v1.ImagePullSecretSpec{Enabled: true},
 	}); err != nil {
 		t.Fatalf("Create() error = %v", err)
 	}

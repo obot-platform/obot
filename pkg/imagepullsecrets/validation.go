@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/adhocore/gronx"
+	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	kvalidation "k8s.io/apimachinery/pkg/util/validation"
 )
@@ -78,32 +79,16 @@ func NormalizeRegistryServer(server string) (string, error) {
 	return net.JoinHostPort(host, port), nil
 }
 
-func ValidateSecretName(secretName string) error {
-	secretName = strings.TrimSpace(secretName)
-	if secretName == "" {
-		return fmt.Errorf("secretName is required")
-	}
-	if errs := kvalidation.IsDNS1123Label(secretName); len(errs) > 0 {
-		return fmt.Errorf("secretName must be a valid Kubernetes DNS label: %s", strings.Join(errs, "; "))
-	}
-	return nil
-}
-
 func ValidateSpec(spec v1.ImagePullSecretSpec) (v1.ImagePullSecretSpec, error) {
-	spec.SecretName = strings.TrimSpace(spec.SecretName)
-	if err := ValidateSecretName(spec.SecretName); err != nil {
-		return spec, err
-	}
-
 	switch spec.Type {
-	case v1.ImagePullSecretTypeBasic:
+	case types.ImagePullSecretTypeBasic:
 		basic, err := ValidateBasicSpec(spec.Basic)
 		if err != nil {
 			return spec, err
 		}
 		spec.Basic = basic
 		spec.ECR = nil
-	case v1.ImagePullSecretTypeECR:
+	case types.ImagePullSecretTypeECR:
 		ecr, err := ValidateECRSpec(spec.ECR)
 		if err != nil {
 			return spec, err
@@ -111,13 +96,13 @@ func ValidateSpec(spec v1.ImagePullSecretSpec) (v1.ImagePullSecretSpec, error) {
 		spec.Basic = nil
 		spec.ECR = ecr
 	default:
-		return spec, fmt.Errorf("type must be one of %q or %q", v1.ImagePullSecretTypeBasic, v1.ImagePullSecretTypeECR)
+		return spec, fmt.Errorf("type must be one of %q or %q", types.ImagePullSecretTypeBasic, types.ImagePullSecretTypeECR)
 	}
 
 	return spec, nil
 }
 
-func ValidateBasicSpec(spec *v1.BasicImagePullSecretSpec) (*v1.BasicImagePullSecretSpec, error) {
+func ValidateBasicSpec(spec *types.BasicImagePullSecretConfig) (*types.BasicImagePullSecretConfig, error) {
 	if spec == nil {
 		return nil, fmt.Errorf("basic configuration is required")
 	}
@@ -136,7 +121,7 @@ func ValidateBasicSpec(spec *v1.BasicImagePullSecretSpec) (*v1.BasicImagePullSec
 	return &result, nil
 }
 
-func ValidateECRSpec(spec *v1.ECRImagePullSecretSpec) (*v1.ECRImagePullSecretSpec, error) {
+func ValidateECRSpec(spec *types.ECRImagePullSecretConfig) (*types.ECRImagePullSecretConfig, error) {
 	if spec == nil {
 		return nil, fmt.Errorf("ecr configuration is required")
 	}

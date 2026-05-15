@@ -75,7 +75,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	memories := handlers.NewMemoryHandler()
 	workflows := handlers.NewWorkflowHandler()
 	images := handlers.NewImageHandler(services.GeminiClient)
-	mcp := handlers.NewMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, oauthChecker, services.MCPRuntimeBackend, services.MCPImagePullSecrets, services.ServerURL)
+	mcp := handlers.NewMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, oauthChecker, services.MCPImagePullSecrets, services.ServerURL)
 	projectMCP := handlers.NewProjectMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, oauthChecker, services.ServerURL, services.InternalServerURL)
 	projectInvitations := handlers.NewProjectInvitationHandler()
 	mcpGateway := mcpgateway.NewHandler(services.MCPLoader, services.WebhookHelper, services.OAuthServerConfig.ScopesSupported, services.NanobotIntegration)
@@ -88,7 +88,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	registryHandler := registry.NewHandler(services.AccessControlRuleHelper, services.ServerURL, services.RegistryNoAuth)
 	oauthClients := handlers.NewOAuthClientsHandler(services.OAuthServerConfig, services.ServerURL)
 	publishedArtifacts := handlers.NewPublishedArtifactHandler(services.ArtifactBlobStore, services.ArtifactBlobBucket)
-	imagePullSecretsHandler := handlers.NewImagePullSecretHandler(services.MCPRuntimeBackend, services.MCPImagePullSecrets, services.MCPServerNamespace, services.ServiceNamespace, services.ServiceAccountName, services.LocalK8sClient, services.LocalK8sInterfaceClient, services.ServiceAccountIssuerURL, services.ServiceAccountIssuerError)
+	imagePullSecretsHandler := handlers.NewImagePullSecretHandler(services.MCPRuntimeBackend, services.MCPImagePullSecrets, services.MCPServerNamespace, services.ServiceNamespace, services.ServiceAccountName, services.LocalK8sClient, services.ServiceAccountIssuerURL, services.ServiceAccountIssuerError)
 
 	// Version
 	mux.HandleFunc("GET /api/version", version.GetVersion)

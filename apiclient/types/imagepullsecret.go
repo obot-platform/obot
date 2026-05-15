@@ -39,7 +39,6 @@ type ECRImagePullSecretConfig struct {
 }
 
 type ImagePullSecretStatus struct {
-	SecretName         string   `json:"secretName,omitempty"`
 	PasswordConfigured bool     `json:"passwordConfigured,omitempty"`
 	Subject            string   `json:"subject,omitempty"`
 	TrustPolicyJSON    string   `json:"trustPolicyJSON,omitempty"`

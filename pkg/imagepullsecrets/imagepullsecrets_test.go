@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -19,20 +20,19 @@ import (
 func TestAvailability(t *testing.T) {
 	tests := []struct {
 		name      string
-		backend   string
+		k8s       bool
 		static    []string
 		available bool
 	}{
-		{name: "kubernetes with no static secrets", backend: "kubernetes", available: true},
-		{name: "k8s alias", backend: "k8s", available: true},
-		{name: "empty static names do not disable", backend: "kubernetes", static: []string{"", " "}, available: true},
-		{name: "docker backend disabled", backend: "docker"},
-		{name: "static secrets disabled", backend: "kubernetes", static: []string{"pull-secret"}},
+		{name: "kubernetes with no static secrets", k8s: true, available: true},
+		{name: "empty static names do not disable", k8s: true, static: []string{"", " "}, available: true},
+		{name: "non-kubernetes backend disabled"},
+		{name: "static secrets disabled", k8s: true, static: []string{"pull-secret"}},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			capability := Availability(tt.backend, tt.static)
+			capability := Availability(tt.k8s, tt.static)
 			if capability.Available != tt.available {
 				t.Fatalf("expected available=%v, got %v (%q)", tt.available, capability.Available, capability.Reason)
 			}
@@ -409,9 +409,8 @@ func TestParseAuthParamsPreservesEmptyQuotedValue(t *testing.T) {
 
 func TestValidateSpec(t *testing.T) {
 	spec, err := ValidateSpec(v1.ImagePullSecretSpec{
-		SecretName: "pull-secret",
-		Type:       v1.ImagePullSecretTypeECR,
-		ECR: &v1.ECRImagePullSecretSpec{
+		Type: types.ImagePullSecretTypeECR,
+		ECR: &types.ECRImagePullSecretConfig{
 			RoleARN:   "arn:aws:iam::123456789012:role/obot-ecr",
 			Region:    "us-east-1",
 			IssuerURL: "https://issuer.example.com/",
@@ -434,13 +433,13 @@ func TestValidateSpec(t *testing.T) {
 func TestEffectiveSecretNames(t *testing.T) {
 	deletionTime := metav1.Now()
 	managed := []v1.ImagePullSecret{
-		{Spec: v1.ImagePullSecretSpec{Enabled: true, SecretName: "managed-b"}},
-		{Spec: v1.ImagePullSecretSpec{Enabled: false, SecretName: "disabled"}},
-		{Spec: v1.ImagePullSecretSpec{Enabled: true, SecretName: "managed-a"}},
-		{Spec: v1.ImagePullSecretSpec{Enabled: true, SecretName: "managed-a"}},
+		{ObjectMeta: metav1.ObjectMeta{Name: "managed-b"}, Spec: v1.ImagePullSecretSpec{Enabled: true}},
+		{ObjectMeta: metav1.ObjectMeta{Name: "disabled"}, Spec: v1.ImagePullSecretSpec{Enabled: false}},
+		{ObjectMeta: metav1.ObjectMeta{Name: "managed-a"}, Spec: v1.ImagePullSecretSpec{Enabled: true}},
+		{ObjectMeta: metav1.ObjectMeta{Name: "managed-a"}, Spec: v1.ImagePullSecretSpec{Enabled: true}},
 		{
-			ObjectMeta: metav1.ObjectMeta{DeletionTimestamp: &deletionTime},
-			Spec:       v1.ImagePullSecretSpec{Enabled: true, SecretName: "deleting"},
+			ObjectMeta: metav1.ObjectMeta{Name: "deleting", DeletionTimestamp: &deletionTime},
+			Spec:       v1.ImagePullSecretSpec{Enabled: true},
 		},
 	}
 

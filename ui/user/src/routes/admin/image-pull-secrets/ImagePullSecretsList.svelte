@@ -39,7 +39,6 @@
 				item.manifest.type === 'ecr'
 					? (item.manifest.ecr?.region ?? '-')
 					: (item.manifest.basic?.server ?? '-'),
-			secretName: item.status?.secretName ?? '',
 			statusLabel: statusLabel(item),
 			statusMessage: statusMessage(item),
 			lastSuccess: item.status?.lastSuccessTime ?? ''
@@ -74,13 +73,13 @@
 				<h2 class="text-on-surface1 text-lg font-semibold">Basic Secrets</h2>
 				<Table
 					data={basicSecrets}
-					fields={['displayName', 'detail', 'secretName']}
+					fields={['displayName', 'detail', 'id']}
 					headers={[
 						{ title: 'Name', property: 'displayName' },
 						{ title: 'Registry', property: 'detail' },
-						{ title: 'Secret', property: 'secretName' }
+						{ title: 'Secret', property: 'id' }
 					]}
-					sortable={['displayName', 'detail', 'secretName']}
+					sortable={['displayName', 'detail', 'id']}
 					filterable={['displayName', 'detail']}
 					onClickRow={(row, isCtrlClick) =>
 						openUrl(`/admin/image-pull-secrets?id=${row.id}`, isCtrlClick)}
@@ -134,16 +133,16 @@
 {#snippet ecrTable()}
 	<Table
 		data={ecrSecrets}
-		fields={['displayName', 'detail', 'secretName', 'statusLabel', 'lastSuccess', 'statusMessage']}
+		fields={['displayName', 'detail', 'id', 'statusLabel', 'lastSuccess', 'statusMessage']}
 		headers={[
 			{ title: 'Name', property: 'displayName' },
 			{ title: 'Region', property: 'detail' },
-			{ title: 'Secret', property: 'secretName' },
+			{ title: 'Secret', property: 'id' },
 			{ title: 'Status', property: 'statusLabel' },
 			{ title: 'Last Success', property: 'lastSuccess' },
 			{ title: 'Message', property: 'statusMessage' }
 		]}
-		sortable={['displayName', 'detail', 'secretName', 'statusLabel', 'lastSuccess']}
+		sortable={['displayName', 'detail', 'id', 'statusLabel', 'lastSuccess']}
 		filterable={['statusLabel']}
 		onClickRow={(row, isCtrlClick) =>
 			openUrl(`/admin/image-pull-secrets?id=${row.id}`, isCtrlClick)}

@@ -90,7 +90,7 @@ func (c *Controller) setupRoutes() {
 	systemMCPServerHandler := systemmcpserver.New(c.services.GPTClient, c.services.MCPLoader, c.services.ServerURL)
 	nanobotAgentHandler := nanobotagent.New(c.services.GPTClient, c.services.PersistentTokenServer, c.services.GatewayClient, c.localK8sRouter, c.services.NanobotAgentImage, c.services.ServerURL, c.services.MCPServerNamespace, c.services.MCPLoader)
 	oktaGroupMigrationHandler := oktagroupmigration.New()
-	imagePullSecretHandler := imagepullsecret.New(c.services.GPTClient, c.runtimeClient, c.services.LocalK8sInterfaceClient, c.services.MCPRuntimeBackend, c.services.MCPServerNamespace, c.services.ServiceNamespace, c.services.ServiceAccountName, c.services.MCPImagePullSecrets, c.services.ServiceAccountIssuerURL)
+	imagePullSecretHandler := imagepullsecret.New(c.services.GPTClient, c.runtimeClient, c.services.MCPRuntimeBackend, c.services.MCPServerNamespace, c.services.ServiceNamespace, c.services.ServiceAccountName, c.services.MCPImagePullSecrets, c.services.ServiceAccountIssuerURL)
 
 	// Runs
 	root.Type(&v1.Run{}).FinalizeFunc(v1.RunFinalizer, runs.DeleteRunState)

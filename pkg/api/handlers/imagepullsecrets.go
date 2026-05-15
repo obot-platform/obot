@@ -12,18 +12,14 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/imagepullsecrets"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kfields "k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/util/rand"
-	"k8s.io/client-go/kubernetes"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-const imagePullSecretNameAttempts = 10
 
 var defaultECRPolicyJSON = buildECRPolicyJSON()
 
@@ -34,13 +30,12 @@ type ImagePullSecretHandler struct {
 	serviceNamespace   string
 	serviceAccountName string
 	runtimeClient      kclient.Client
-	kubeClient         kubernetes.Interface
 	issuerURL          string
 	issuerError        string
 	ecrPolicyJSON      string
 }
 
-func NewImagePullSecretHandler(mcpRuntimeBackend string, staticSecrets []string, mcpNamespace, serviceNamespace, serviceAccountName string, runtimeClient kclient.Client, kubeClient kubernetes.Interface, issuerURL, issuerError string) *ImagePullSecretHandler {
+func NewImagePullSecretHandler(mcpRuntimeBackend string, staticSecrets []string, mcpNamespace, serviceNamespace, serviceAccountName string, runtimeClient kclient.Client, issuerURL, issuerError string) *ImagePullSecretHandler {
 	return &ImagePullSecretHandler{
 		mcpRuntimeBackend:  mcpRuntimeBackend,
 		staticSecrets:      staticSecrets,
@@ -48,7 +43,6 @@ func NewImagePullSecretHandler(mcpRuntimeBackend string, staticSecrets []string,
 		serviceNamespace:   firstNonEmpty(serviceNamespace, mcpNamespace),
 		serviceAccountName: strings.TrimSpace(serviceAccountName),
 		runtimeClient:      runtimeClient,
-		kubeClient:         kubeClient,
 		issuerURL:          issuerURL,
 		issuerError:        issuerError,
 		ecrPolicyJSON:      defaultECRPolicyJSON,
@@ -107,24 +101,19 @@ func (h *ImagePullSecretHandler) Create(req api.Context) error {
 		return types.NewErrBadRequest("failed to read image pull secret manifest: %v", err)
 	}
 
-	name, err := generateImagePullSecretName(req)
-	if err != nil {
-		return err
-	}
-
-	spec, err := h.specFromInput(input, nil, name)
+	spec, err := h.specFromInput(input, nil)
 	if err != nil {
 		return err
 	}
 	password := basicImagePullSecretPassword(input)
-	if spec.Type == v1.ImagePullSecretTypeBasic && password == "" {
+	if spec.Type == types.ImagePullSecretTypeBasic && password == "" {
 		return types.NewErrBadRequest("password is required")
 	}
 
 	secret := v1.ImagePullSecret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: req.Namespace(),
+			GenerateName: system.ImagePullSecretPrefix,
+			Namespace:    req.Namespace(),
 		},
 		Spec: spec,
 	}
@@ -133,7 +122,7 @@ func (h *ImagePullSecretHandler) Create(req api.Context) error {
 		return fmt.Errorf("failed to create image pull secret: %w", err)
 	}
 
-	if spec.Type == v1.ImagePullSecretTypeBasic {
+	if spec.Type == types.ImagePullSecretTypeBasic {
 		if err := storeImagePullSecretPassword(req, secret.Name, password); err != nil {
 			_ = req.Delete(&secret)
 			return fmt.Errorf("failed to store image pull secret password: %w", err)
@@ -141,7 +130,7 @@ func (h *ImagePullSecretHandler) Create(req api.Context) error {
 	}
 
 	converted := h.convert(secret)
-	if spec.Type == v1.ImagePullSecretTypeBasic {
+	if spec.Type == types.ImagePullSecretTypeBasic {
 		converted.Status.PasswordConfigured = true
 	}
 	return req.WriteCreated(converted)
@@ -162,16 +151,16 @@ func (h *ImagePullSecretHandler) Update(req api.Context) error {
 		return fmt.Errorf("failed to get image pull secret: %w", err)
 	}
 
-	if input.Type != "" && v1.ImagePullSecretType(input.Type) != existing.Spec.Type {
+	if input.Type != "" && input.Type != existing.Spec.Type {
 		return types.NewErrBadRequest("type is immutable")
 	}
 
-	spec, err := h.specFromInput(input, &existing, existing.Name)
+	spec, err := h.specFromInput(input, &existing)
 	if err != nil {
 		return err
 	}
 	password := basicImagePullSecretPassword(input)
-	if spec.Type == v1.ImagePullSecretTypeBasic && password == "" {
+	if spec.Type == types.ImagePullSecretTypeBasic && password == "" {
 		configured, err := passwordConfigured(req, existing.Name)
 		if err != nil {
 			return err
@@ -186,7 +175,7 @@ func (h *ImagePullSecretHandler) Update(req api.Context) error {
 		return fmt.Errorf("failed to update image pull secret: %w", err)
 	}
 
-	if spec.Type == v1.ImagePullSecretTypeBasic && password != "" {
+	if spec.Type == types.ImagePullSecretTypeBasic && password != "" {
 		if err := storeImagePullSecretPassword(req, existing.Name, password); err != nil {
 			return fmt.Errorf("failed to store image pull secret password: %w", err)
 		}
@@ -241,7 +230,7 @@ func (h *ImagePullSecretHandler) Test(req api.Context) error {
 	}
 
 	switch secret.Spec.Type {
-	case v1.ImagePullSecretTypeBasic:
+	case types.ImagePullSecretTypeBasic:
 		if secret.Spec.Basic == nil {
 			return types.NewErrBadRequest("basic image pull secret configuration is missing")
 		}
@@ -257,7 +246,7 @@ func (h *ImagePullSecretHandler) Test(req api.Context) error {
 			return types.NewErrBadRequest("image pull secret test failed: %v", err)
 		}
 		return req.Write(types.ImagePullSecretTestResponse{Success: result.Success, Message: result.Message})
-	case v1.ImagePullSecretTypeECR:
+	case types.ImagePullSecretTypeECR:
 		if strings.TrimSpace(input.Image) == "" {
 			return types.NewErrBadRequest("image is required")
 		}
@@ -280,7 +269,7 @@ func (h *ImagePullSecretHandler) Refresh(req api.Context) error {
 	if err := req.Get(&secret, req.PathValue("id")); err != nil {
 		return fmt.Errorf("failed to get image pull secret: %w", err)
 	}
-	if secret.Spec.Type != v1.ImagePullSecretTypeECR {
+	if secret.Spec.Type != types.ImagePullSecretTypeECR {
 		return types.NewErrBadRequest("refresh is only supported for ECR image pull secrets")
 	}
 
@@ -304,14 +293,11 @@ func (h *ImagePullSecretHandler) testECRImagePullSecret(req api.Context, secret 
 	if h.runtimeClient == nil {
 		return imagepullsecrets.RegistryTestResult{}, types.NewErrHTTP(http.StatusServiceUnavailable, "Kubernetes runtime client is not configured")
 	}
-	if strings.TrimSpace(h.mcpNamespace) == "" {
-		return imagepullsecrets.RegistryTestResult{}, types.NewErrHTTP(http.StatusServiceUnavailable, "MCP namespace is not configured")
-	}
 
 	var kubeSecret corev1.Secret
 	if err := h.runtimeClient.Get(req.Context(), kclient.ObjectKey{
 		Namespace: h.mcpNamespace,
-		Name:      secret.Spec.SecretName,
+		Name:      secret.Name,
 	}, &kubeSecret); err != nil {
 		if apierrors.IsNotFound(err) {
 			return imagepullsecrets.RegistryTestResult{}, types.NewErrHTTP(http.StatusServiceUnavailable, "generated Kubernetes image pull secret is not ready")
@@ -330,7 +316,7 @@ func (h *ImagePullSecretHandler) testECRImagePullSecret(req api.Context, secret 
 }
 
 func (h *ImagePullSecretHandler) ensureAvailable() error {
-	capability := imagepullsecrets.Availability(h.mcpRuntimeBackend, h.staticSecrets)
+	capability := imagepullsecrets.Availability(mcp.IsKubernetesBackend(h.mcpRuntimeBackend), h.staticSecrets)
 	if !capability.Available {
 		return types.NewErrBadRequest("managed image pull secrets are unavailable: %s", capability.Reason)
 	}
@@ -338,7 +324,7 @@ func (h *ImagePullSecretHandler) ensureAvailable() error {
 }
 
 func (h *ImagePullSecretHandler) convertCapability() types.ImagePullSecretCapability {
-	capability := imagepullsecrets.Availability(h.mcpRuntimeBackend, h.staticSecrets)
+	capability := imagepullsecrets.Availability(mcp.IsKubernetesBackend(h.mcpRuntimeBackend), h.staticSecrets)
 	reason := capability.Reason
 	if capability.Available && strings.TrimSpace(h.issuerURL) == "" {
 		reason = "Kubernetes service account issuer URL could not be discovered; enter an issuer URL override to generate the AWS trust policy."
@@ -355,8 +341,8 @@ func (h *ImagePullSecretHandler) convertCapability() types.ImagePullSecretCapabi
 	}
 }
 
-func (h *ImagePullSecretHandler) specFromInput(input types.ImagePullSecretManifest, existing *v1.ImagePullSecret, secretName string) (v1.ImagePullSecretSpec, error) {
-	secretType := v1.ImagePullSecretType(input.Type)
+func (h *ImagePullSecretHandler) specFromInput(input types.ImagePullSecretManifest, existing *v1.ImagePullSecret) (v1.ImagePullSecretSpec, error) {
+	secretType := input.Type
 	if secretType == "" && existing != nil {
 		secretType = existing.Spec.Type
 	}
@@ -365,21 +351,20 @@ func (h *ImagePullSecretHandler) specFromInput(input types.ImagePullSecretManife
 		Enabled:     input.Enabled,
 		Type:        secretType,
 		DisplayName: strings.TrimSpace(input.DisplayName),
-		SecretName:  secretName,
 	}
 
 	switch secretType {
-	case v1.ImagePullSecretTypeBasic:
+	case types.ImagePullSecretTypeBasic:
 		var server, username string
 		if input.Basic != nil {
 			server = input.Basic.Server
 			username = input.Basic.Username
 		}
-		spec.Basic = &v1.BasicImagePullSecretSpec{
+		spec.Basic = &types.BasicImagePullSecretConfig{
 			Server:   server,
 			Username: username,
 		}
-	case v1.ImagePullSecretTypeECR:
+	case types.ImagePullSecretTypeECR:
 		issuerURL := h.issuerURL
 		if existing != nil && existing.Spec.ECR != nil && existing.Spec.ECR.IssuerURL != "" {
 			issuerURL = existing.Spec.ECR.IssuerURL
@@ -396,7 +381,7 @@ func (h *ImagePullSecretHandler) specFromInput(input types.ImagePullSecretManife
 			return spec, types.NewErrBadRequest("issuerURL is required because Kubernetes service account issuer URL could not be discovered")
 		}
 
-		spec.ECR = &v1.ECRImagePullSecretSpec{
+		spec.ECR = &types.ECRImagePullSecretConfig{
 			RoleARN:         ecr.RoleARN,
 			Region:          ecr.Region,
 			IssuerURL:       issuerURL,
@@ -404,7 +389,7 @@ func (h *ImagePullSecretHandler) specFromInput(input types.ImagePullSecretManife
 			RefreshSchedule: ecr.RefreshSchedule,
 		}
 	default:
-		return spec, types.NewErrBadRequest("type must be one of %q or %q", v1.ImagePullSecretTypeBasic, v1.ImagePullSecretTypeECR)
+		return spec, types.NewErrBadRequest("type must be one of %q or %q", types.ImagePullSecretTypeBasic, types.ImagePullSecretTypeECR)
 	}
 
 	validated, err := imagepullsecrets.ValidateSpec(spec)
@@ -421,40 +406,15 @@ func basicImagePullSecretPassword(input types.ImagePullSecretManifest) string {
 	return input.Basic.Password
 }
 
-func generateImagePullSecretName(req api.Context) (string, error) {
-	for range imagePullSecretNameAttempts {
-		name := system.ImagePullSecretPrefix + rand.String(12)
-		var existing v1.ImagePullSecret
-		if err := req.Get(&existing, name); err == nil {
-			continue
-		} else if !apierrors.IsNotFound(err) {
-			return "", fmt.Errorf("failed to check image pull secret name: %w", err)
-		}
-
-		var list v1.ImagePullSecretList
-		if err := req.List(&list, &kclient.ListOptions{
-			FieldSelector: kfields.OneTermEqualSelector("spec.secretName", name),
-		}); err != nil {
-			return "", fmt.Errorf("failed to check Kubernetes image pull secret name: %w", err)
-		}
-		if len(list.Items) == 0 {
-			return name, nil
-		}
-	}
-
-	return "", types.NewErrAlreadyExists("failed to generate a unique image pull secret name")
-}
-
 func (h *ImagePullSecretHandler) convert(secret v1.ImagePullSecret) types.ImagePullSecret {
 	result := types.ImagePullSecret{
 		Metadata: MetadataFrom(&secret),
 		Manifest: types.ImagePullSecretManifest{
 			Enabled:     secret.Spec.Enabled,
-			Type:        types.ImagePullSecretType(secret.Spec.Type),
+			Type:        secret.Spec.Type,
 			DisplayName: secret.Spec.DisplayName,
 		},
 		Status: types.ImagePullSecretStatus{
-			SecretName:         secret.Spec.SecretName,
 			LastReconciledTime: metav1Time(secret.Status.LastReconciledTime),
 			LastSuccessTime:    metav1Time(secret.Status.LastSuccessTime),
 			LastError:          secret.Status.LastError,
