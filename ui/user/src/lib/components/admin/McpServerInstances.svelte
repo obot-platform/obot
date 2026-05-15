@@ -92,7 +92,7 @@
 					{
 						id: entry.id,
 						configured: entry.configured,
-						missingRequiredHeaders: entry.missingRequiredHeaders,
+						missingRequiredHeaders: entry.missingRequiredHeader,
 						userID: entry.userID,
 						created: entry.created
 					}
@@ -229,7 +229,7 @@
 		return hasMissingSecretBindingConfig(
 			server.manifest,
 			server.missingRequiredEnvVars,
-			server.missingRequiredHeaders
+			server.missingRequiredHeader
 		);
 	}
 </script>

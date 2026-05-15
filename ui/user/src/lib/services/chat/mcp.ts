@@ -207,7 +207,7 @@ export function requiresUserConfiguration(server?: MCPCatalogServer | ProjectMCP
 		if (isMCPCatalogServer(server)) {
 			return (
 				(server.missingRequiredEnvVars?.length ?? 0) > 0 ||
-				(server.missingRequiredHeaders?.length ?? 0) > 0 ||
+				(server.missingRequiredHeader?.length ?? 0) > 0 ||
 				server.needsURL === true
 			);
 		}
@@ -314,7 +314,7 @@ function serverHasMissingSecretBinding(_entry: MCPCatalogEntry, server: MCPCatal
 	return hasMissingSecretBindingConfig(
 		server.manifest,
 		server.missingRequiredEnvVars,
-		server.missingRequiredHeaders
+		server.missingRequiredHeader
 	);
 }
 

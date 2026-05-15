@@ -204,7 +204,7 @@
 				!hasMissingSecretBindingConfig(
 					server.manifest,
 					server.missingRequiredEnvVars,
-					server.missingRequiredHeaders
+					server.missingRequiredHeader
 				)
 		);
 	}

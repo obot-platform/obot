@@ -285,7 +285,7 @@
 		if (mcpServer.manifest.runtime === 'composite') {
 			const missing = [
 				...(mcpServer.missingRequiredEnvVars ?? []),
-				...(mcpServer.missingRequiredHeaders ?? [])
+				...(mcpServer.missingRequiredHeader ?? [])
 			];
 			return missing.length > 0
 				? `Missing Kubernetes Secret required by this MCP server: ${missing.join(', ')}`
@@ -293,7 +293,7 @@
 		}
 
 		const missingEnvKeys = new Set(mcpServer.missingRequiredEnvVars ?? []);
-		const missingHeaderKeys = new Set(mcpServer.missingRequiredHeaders ?? []);
+		const missingHeaderKeys = new Set(mcpServer.missingRequiredHeader ?? []);
 		const missing = [
 			...(mcpServer.manifest.env ?? [])
 				.filter((env) => env.secretBinding && missingEnvKeys.has(env.key))

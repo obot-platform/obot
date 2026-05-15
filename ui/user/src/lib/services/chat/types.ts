@@ -797,6 +797,7 @@ export interface MCPCatalogServer {
 	configured: boolean;
 	catalogEntryID: string;
 	missingRequiredEnvVars: string[];
+	missingRequiredHeader?: string[];
 	missingRequiredHeaders: string[];
 	mcpCatalogID: string;
 	created: string;
@@ -833,6 +834,7 @@ export interface MCPServerInstance {
 	metadata?: Record<string, string>;
 	multiUserConfig?: MultiUserConfig;
 	configured: boolean;
+	missingRequiredHeader?: string[];
 	missingRequiredHeaders?: string[];
 	userID: string;
 	mcpServerID?: string;

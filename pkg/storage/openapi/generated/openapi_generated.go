@@ -6546,7 +6546,7 @@ func schema_obot_platform_obot_apiclient_types_MCPServer(ref common.ReferenceCal
 							},
 						},
 					},
-					"missingRequiredHeaders": {
+					"missingRequiredHeader": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{

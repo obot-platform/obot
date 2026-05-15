@@ -381,7 +381,7 @@
 
 	function getMissingSecretBindings(): MissingSecretBinding[] {
 		const missingEnvKeys = new Set(mcpServer?.missingRequiredEnvVars ?? []);
-		const missingHeaderKeys = new Set(mcpServer?.missingRequiredHeaders ?? []);
+		const missingHeaderKeys = new Set(mcpServer?.missingRequiredHeader ?? []);
 		const manifest = mcpServer?.manifest ?? catalogEntry?.manifest;
 		const results: MissingSecretBinding[] = [];
 

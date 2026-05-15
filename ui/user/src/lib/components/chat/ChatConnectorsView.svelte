@@ -85,7 +85,7 @@
 		return hasMissingSecretBindingConfig(
 			server.manifest,
 			server.missingRequiredEnvVars,
-			server.missingRequiredHeaders
+			server.missingRequiredHeader
 		);
 	}
 </script>
@@ -250,7 +250,7 @@
 			{@const missingKubernetesSecret = hasMissingSecretBindingConfig(
 				selectedEntry?.manifest,
 				d.missingRequiredEnvVars,
-				d.missingRequiredHeaders
+				d.missingRequiredHeader
 			)}
 			{#if property === 'name'}
 				<div class="flex shrink-0 items-center gap-2">
