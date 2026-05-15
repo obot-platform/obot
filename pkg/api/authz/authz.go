@@ -298,7 +298,6 @@ var (
 			"POST /api/prompt",
 			"GET /api/models",
 			"GET /api/model-providers",
-			"POST /api/image/generate",
 			"GET /api/users",
 			"GET /api/groups",
 
