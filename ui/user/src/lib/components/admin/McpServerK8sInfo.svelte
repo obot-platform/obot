@@ -379,6 +379,14 @@
 
 	const missingSecretBindings = $derived(getMissingSecretBindings());
 
+	const hasNonSecretMissingConfig = $derived.by(() => {
+		const manifest = mcpServer?.manifest ?? catalogEntry?.manifest;
+		if (manifest?.runtime === 'composite') return false; // backend only propagates secret-bound missing for composites
+		const missingEnvKeys = new Set(mcpServer?.missingRequiredEnvVars ?? []);
+		const missingHeaderKeys = new Set(mcpServer?.missingRequiredHeader ?? []);
+		return missingEnvKeys.size + missingHeaderKeys.size > missingSecretBindings.length;
+	});
+
 	function getMissingSecretBindings(): MissingSecretBinding[] {
 		const missingEnvKeys = new Set(mcpServer?.missingRequiredEnvVars ?? []);
 		const missingHeaderKeys = new Set(mcpServer?.missingRequiredHeader ?? []);
@@ -598,7 +606,7 @@
 	{@const isPending = error instanceof Error && error.message.includes('ContainerCreating')}
 	{@const needsUpdate = error instanceof Error && error.message.includes('missing required config')}
 
-	{#if needsUpdate && hasAdminAccess && missingSecretBindings.length === 0}
+	{#if needsUpdate && hasAdminAccess && (missingSecretBindings.length === 0 || hasNonSecretMissingConfig)}
 		<div class="notification-alert">
 			<div class="flex grow flex-col gap-2">
 				<div class="flex items-center gap-2">
