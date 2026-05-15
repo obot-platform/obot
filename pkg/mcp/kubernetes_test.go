@@ -10,8 +10,10 @@ import (
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -257,6 +259,114 @@ func TestK8sObjects_ServicePorts(t *testing.T) {
 			dep := findDeployment(t, objs, "test-server")
 			if dep.Spec.Strategy.Type != tt.expectedStrategy {
 				t.Fatalf("deployment strategy = %q, want %q", dep.Spec.Strategy.Type, tt.expectedStrategy)
+			}
+		})
+	}
+}
+
+func TestK8sObjects_MCPContainerResources(t *testing.T) {
+	tests := []struct {
+		name              string
+		server            ServerConfig
+		settings          *v1.K8sSettings
+		wantMemoryRequest string
+		wantMemoryLimit   string
+	}{
+		{
+			name: "non-agent default requests 200Mi memory",
+			server: ServerConfig{
+				Runtime: types.RuntimeContainerized,
+			},
+			wantMemoryRequest: "200Mi",
+		},
+		{
+			name: "nanobot agent default requests 400Mi memory",
+			server: ServerConfig{
+				Runtime:          types.RuntimeContainerized,
+				NanobotAgentName: "agent-1",
+			},
+			wantMemoryRequest: "400Mi",
+		},
+		{
+			name: "nanobot agent uses dedicated resources",
+			server: ServerConfig{
+				Runtime:          types.RuntimeContainerized,
+				NanobotAgentName: "agent-1",
+			},
+			settings: &v1.K8sSettings{
+				ObjectMeta: metav1.ObjectMeta{Name: system.K8sSettingsName, Namespace: system.DefaultNamespace},
+				Spec: v1.K8sSettingsSpec{
+					Resources: &corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("250Mi")},
+					},
+					NanobotAgentResources: &corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("512Mi")},
+						Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("1Gi")},
+					},
+				},
+			},
+			wantMemoryRequest: "512Mi",
+			wantMemoryLimit:   "1Gi",
+		},
+		{
+			name: "remote runtime hard-codes 100Mi memory request",
+			server: ServerConfig{
+				Runtime: types.RuntimeRemote,
+			},
+			settings: &v1.K8sSettings{
+				ObjectMeta: metav1.ObjectMeta{Name: system.K8sSettingsName, Namespace: system.DefaultNamespace},
+				Spec: v1.K8sSettingsSpec{
+					Resources: &corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("250Mi")},
+					},
+				},
+			},
+			wantMemoryRequest: "100Mi",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			k := newTestKubernetesBackend(t)
+			if tt.settings != nil {
+				scheme := runtime.NewScheme()
+				if err := v1.AddToScheme(scheme); err != nil {
+					t.Fatalf("AddToScheme() error = %v", err)
+				}
+				k.obotClient = fake.NewClientBuilder().WithScheme(scheme).WithObjects(tt.settings).Build()
+			}
+
+			server := tt.server
+			server.MCPServerName = "test-server"
+			server.MCPServerDisplayName = "Test Server"
+			server.UserID = "user-1"
+			server.OwnerUserID = "user-2"
+			server.ContainerImage = "ghcr.io/obot-platform/mcp-images/stdio-wrapper:main"
+			server.ContainerPort = 8080
+			server.ContainerPath = "/mcp"
+			server.Command = "server"
+			server.Args = []string{"run"}
+
+			objs, err := k.k8sObjects(context.Background(), server, nil)
+			if err != nil {
+				t.Fatalf("k8sObjects() error = %v", err)
+			}
+
+			container := findContainer(t, findDeployment(t, objs, "test-server"), "mcp")
+			memoryRequest := container.Resources.Requests[corev1.ResourceMemory]
+			if memoryRequest.String() != tt.wantMemoryRequest {
+				t.Fatalf("memory request = %q, want %q", memoryRequest.String(), tt.wantMemoryRequest)
+			}
+			cpuRequest := container.Resources.Requests[corev1.ResourceCPU]
+			if cpuRequest.String() != "10m" {
+				t.Fatalf("CPU request = %q, want %q", cpuRequest.String(), "10m")
+			}
+			memoryLimit, hasMemoryLimit := container.Resources.Limits[corev1.ResourceMemory]
+			if tt.wantMemoryLimit == "" && hasMemoryLimit {
+				t.Fatalf("unexpected memory limit: %s", memoryLimit.String())
+			}
+			if tt.wantMemoryLimit != "" && (!hasMemoryLimit || memoryLimit.String() != tt.wantMemoryLimit) {
+				t.Fatalf("memory limit = %q, want %q", memoryLimit.String(), tt.wantMemoryLimit)
 			}
 		})
 	}
@@ -531,6 +641,19 @@ func findDeployment(t *testing.T, objs []client.Object, deploymentName string) *
 
 	t.Fatalf("deployment %q not found", deploymentName)
 	return nil
+}
+
+func findContainer(t *testing.T, deployment *appsv1.Deployment, containerName string) corev1.Container {
+	t.Helper()
+
+	for _, container := range deployment.Spec.Template.Spec.Containers {
+		if container.Name == containerName {
+			return container
+		}
+	}
+
+	t.Fatalf("container %q not found", containerName)
+	return corev1.Container{}
 }
 
 func assertServicePort(t *testing.T, service *corev1.Service, portName string, port int32, targetPort intstr.IntOrString) {

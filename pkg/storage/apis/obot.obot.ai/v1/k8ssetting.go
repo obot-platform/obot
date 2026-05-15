@@ -28,6 +28,10 @@ type K8sSettingsSpec struct {
 	// +k8s:openapi-gen=false
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 
+	// Resource requests and limits for NanobotAgent pods
+	// +k8s:openapi-gen=false
+	NanobotAgentResources *corev1.ResourceRequirements `json:"nanobotAgentResources,omitempty"`
+
 	// RuntimeClassName specifies the RuntimeClass for MCP server pods
 	// This allows running MCP servers with specific container runtimes (e.g., gVisor, Kata)
 	// +k8s:openapi-gen=false

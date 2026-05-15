@@ -385,6 +385,7 @@ func parsePodSchedulingSettingsFromHelm(opts mcp.Options) (*v1.K8sSettingsSpec, 
 	hasPodSettings := (opts.MCPK8sSettingsAffinity != "" && opts.MCPK8sSettingsAffinity != "{}") ||
 		(opts.MCPK8sSettingsTolerations != "" && opts.MCPK8sSettingsTolerations != "[]") ||
 		(opts.MCPK8sSettingsResources != "" && opts.MCPK8sSettingsResources != "{}") ||
+		(opts.MCPK8sSettingsNanobotAgentResources != "" && opts.MCPK8sSettingsNanobotAgentResources != "{}") ||
 		opts.MCPK8sSettingsRuntimeClassName != "" ||
 		opts.MCPK8sSettingsStorageClassName != "" ||
 		opts.MCPK8sSettingsNanobotWorkspaceSize != ""
@@ -417,6 +418,14 @@ func parsePodSchedulingSettingsFromHelm(opts mcp.Options) (*v1.K8sSettingsSpec, 
 			return nil, fmt.Errorf("failed to parse resources from Helm: %w", err)
 		}
 		spec.Resources = &resources
+	}
+
+	if opts.MCPK8sSettingsNanobotAgentResources != "" && opts.MCPK8sSettingsNanobotAgentResources != "{}" {
+		var resources corev1.ResourceRequirements
+		if err := unmarshalJSONStrict([]byte(opts.MCPK8sSettingsNanobotAgentResources), &resources); err != nil {
+			return nil, fmt.Errorf("failed to parse nanobot agent resources from Helm: %w", err)
+		}
+		spec.NanobotAgentResources = &resources
 	}
 
 	if opts.MCPK8sSettingsRuntimeClassName != "" {
