@@ -6932,6 +6932,13 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryManifest(ref
 							Ref:         ref("github.com/obot-platform/obot/apiclient/types.MultiUserConfig"),
 						},
 					},
+					"serverUserType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ServerUserType specifies whether this catalog entry produces single-user or multi-user servers. Only \"singleUser\" is currently supported. Empty value defaults to \"singleUser\".",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"env": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},

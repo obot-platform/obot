@@ -2092,3 +2092,120 @@ func TestValidateTemplateReferences_CatalogEntry(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateCatalogEntryForRoute(t *testing.T) {
+	singleUserManifest := types.MCPServerCatalogEntryManifest{ServerUserType: types.ServerUserTypeSingleUser}
+	multiUserManifest := types.MCPServerCatalogEntryManifest{ServerUserType: types.ServerUserTypeMultiUser}
+	defaultManifest := types.MCPServerCatalogEntryManifest{} // empty = singleUser
+
+	tests := []struct {
+		name        string
+		manifest    types.MCPServerCatalogEntryManifest
+		catalogID   string
+		workspaceID string
+		expectError bool
+	}{
+		{
+			name:        "single-user entry on single-user route: ok",
+			manifest:    singleUserManifest,
+			catalogID:   "",
+			workspaceID: "",
+			expectError: false,
+		},
+		{
+			name:        "empty serverUserType on single-user route: ok",
+			manifest:    defaultManifest,
+			catalogID:   "",
+			workspaceID: "",
+			expectError: false,
+		},
+		{
+			name:        "multiUser entry on single-user route: rejected",
+			manifest:    multiUserManifest,
+			catalogID:   "",
+			workspaceID: "",
+			expectError: true,
+		},
+		{
+			name:        "single-user entry on catalog route: rejected (deploying catalog entries as multi-user not yet supported)",
+			manifest:    singleUserManifest,
+			catalogID:   "default",
+			workspaceID: "",
+			expectError: true,
+		},
+		{
+			name:        "single-user entry on workspace route: rejected (deploying catalog entries as multi-user not yet supported)",
+			manifest:    singleUserManifest,
+			catalogID:   "",
+			workspaceID: "ws-1",
+			expectError: true,
+		},
+		{
+			name:        "multiUser entry on catalog route: rejected (deploying catalog entries as multi-user not yet supported)",
+			manifest:    multiUserManifest,
+			catalogID:   "default",
+			workspaceID: "",
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateCatalogEntryForRoute(tt.manifest, tt.catalogID, tt.workspaceID)
+			if tt.expectError && err == nil {
+				t.Error("expected error, got nil")
+			} else if !tt.expectError && err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestValidateCatalogEntryManifest_ServerUserType(t *testing.T) {
+	baseManifest := types.MCPServerCatalogEntryManifest{
+		Runtime: types.RuntimeNPX,
+		NPXConfig: &types.NPXRuntimeConfig{
+			Package: "test-server",
+		},
+	}
+
+	tests := []struct {
+		name           string
+		serverUserType types.ServerUserType
+		expectError    bool
+	}{
+		{
+			name:           "empty serverUserType is valid (defaults to singleUser)",
+			serverUserType: "",
+			expectError:    false,
+		},
+		{
+			name:           "explicit singleUser is valid",
+			serverUserType: types.ServerUserTypeSingleUser,
+			expectError:    false,
+		},
+		{
+			name:           "multiUser is rejected for catalog entries",
+			serverUserType: types.ServerUserTypeMultiUser,
+			expectError:    true,
+		},
+		{
+			name:           "unknown value is rejected",
+			serverUserType: types.ServerUserType("unknown"),
+			expectError:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manifest := baseManifest
+			manifest.ServerUserType = tt.serverUserType
+			err := ValidateCatalogEntryManifest(manifest)
+			if tt.expectError && err == nil {
+				t.Errorf("expected error for serverUserType=%q, got nil", tt.serverUserType)
+			} else if !tt.expectError && err != nil {
+				t.Errorf("unexpected error for serverUserType=%q: %v", tt.serverUserType, err)
+			}
+		})
+	}
+}

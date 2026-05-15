@@ -1,6 +1,8 @@
 package types
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestMapCatalogEntryToServer_UVX(t *testing.T) {
 	catalogEntry := MCPServerCatalogEntryManifest{
@@ -539,6 +541,75 @@ func TestValidateURLMatchesHostname(t *testing.T) {
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 				return
+			}
+		})
+	}
+}
+
+func TestServerUserType_IsSingleUser(t *testing.T) {
+	tests := []struct {
+		name       string
+		serverType ServerUserType
+		want       bool
+	}{
+		{
+			name:       "empty defaults to single-user",
+			serverType: "",
+			want:       true,
+		},
+		{
+			name:       "explicit singleUser",
+			serverType: ServerUserTypeSingleUser,
+			want:       true,
+		},
+		{
+			name:       "multiUser returns false",
+			serverType: ServerUserTypeMultiUser,
+			want:       false,
+		},
+		{
+			name:       "unknown value returns false",
+			serverType: ServerUserType("unknown"),
+			want:       false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.serverType.IsSingleUser(); got != tt.want {
+				t.Errorf("ServerUserType(%q).IsSingleUser() = %v, want %v", tt.serverType, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMCPServer_IsSingleUser(t *testing.T) {
+	tests := []struct {
+		name   string
+		server MCPServer
+		want   bool
+	}{
+		{
+			name:   "no catalog/workspace: single-user",
+			server: MCPServer{MCPCatalogID: "", PowerUserWorkspaceID: ""},
+			want:   true,
+		},
+		{
+			name:   "catalog set: multi-user",
+			server: MCPServer{MCPCatalogID: "default"},
+			want:   false,
+		},
+		{
+			name:   "workspace set: multi-user",
+			server: MCPServer{PowerUserWorkspaceID: "ws-1"},
+			want:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.server.IsSingleUser(); got != tt.want {
+				t.Errorf("MCPServer.IsSingleUser() = %v, want %v", got, tt.want)
 			}
 		})
 	}

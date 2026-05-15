@@ -63,14 +63,13 @@ func (h *Handler) deleteUnauthorizedServersForUser(ctx context.Context, client k
 		}
 
 		// Skip multi-user servers - we only care about a user's own single-user servers
-		// Multi-user servers have MCPCatalogID or PowerUserWorkspaceID set
-		if server.Spec.MCPCatalogID != "" || server.Spec.PowerUserWorkspaceID != "" {
+		if !server.Spec.IsSingleUser() {
 			continue
 		}
 
-		// At this point, we only have single-user servers created from catalog entries
+		// At this point, we only have single-user servers created from catalog entries.
 		// For every server, fetch its catalog entry and check that the user has an ACR
-		// that gives them access to that catalog entry
+		// that gives them access to that catalog entry.
 		var (
 			hasAccess bool
 			err       error

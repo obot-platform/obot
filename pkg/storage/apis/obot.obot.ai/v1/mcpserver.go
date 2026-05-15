@@ -127,6 +127,27 @@ type MCPServerSpec struct {
 	NanobotAgentID string `json:"nanobotAgentID,omitempty"`
 }
 
+// IsSingleUser returns true if this is a single-user MCP server.
+func (s MCPServerSpec) IsSingleUser() bool {
+	return s.MCPCatalogID == "" && s.PowerUserWorkspaceID == ""
+}
+
+// IsOwnedBy returns true if the given user created this server and it is not
+// an admin-deployed catalog server. Covers personal and workspace servers.
+func (s MCPServerSpec) IsOwnedBy(userID string) bool {
+	return s.UserID == userID && !s.IsCatalogServer()
+}
+
+// IsCatalogServer returns true if this server is owned by a catalog (admin-deployed multi-user server).
+func (s MCPServerSpec) IsCatalogServer() bool {
+	return s.MCPCatalogID != ""
+}
+
+// IsPowerUserWorkspaceServer returns true if this server is owned by a PowerUserWorkspace.
+func (s MCPServerSpec) IsPowerUserWorkspaceServer() bool {
+	return s.PowerUserWorkspaceID != ""
+}
+
 type MCPServerStatus struct {
 	// MCPCatalogID is the catalog ID of the catalog entry that this MCP server is based on.
 	MCPCatalogID string `json:"mcpCatalogID,omitempty"`
