@@ -1,8 +1,8 @@
 <script lang="ts">
 	import Error from '$lib/components/Error.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
-	import { EditorService } from '$lib/services';
-	import type { ImageResponse } from '$lib/services/editor/index.svelte';
+	import type { ImageResponse } from '$lib/services';
+	import { ChatService } from '$lib/services';
 	import { Upload } from 'lucide-svelte/icons';
 	import { twMerge } from 'tailwind-merge';
 
@@ -11,6 +11,7 @@
 		label?: string;
 		variant?: 'icon' | 'preview';
 	}
+
 	let { onUpload, label = 'Upload Icon', variant = 'icon' }: Props = $props();
 
 	let fileList = $state<FileList>();
@@ -25,8 +26,7 @@
 		if (!fileList?.length) return;
 
 		onUpload(fileList[0].name);
-		uploadInProgress = EditorService.uploadImage(fileList[0]);
-		uploadInProgress
+		ChatService.uploadImage(fileList[0])
 			.then((result) => {
 				onUpload(result.imageUrl);
 				if (variant === 'preview') {

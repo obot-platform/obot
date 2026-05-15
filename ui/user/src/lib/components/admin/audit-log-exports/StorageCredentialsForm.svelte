@@ -1,9 +1,9 @@
 <script lang="ts">
 	import Confirm from '$lib/components/Confirm.svelte';
+	import Select from '$lib/components/Select.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import Success from '$lib/components/Success.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
-	import Dropdown from '$lib/components/tasks/Dropdown.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService } from '$lib/services';
 	import type { StorageCredentials } from '$lib/services/admin/types';
@@ -344,22 +344,23 @@
 					<div class="flex flex-col gap-1">
 						<label class="text-sm font-medium" for="storage-provider">Provider</label>
 						<div class={[!!existingCredentials && 'pointer-events-none opacity-50']}>
-							<Dropdown
-								class="w-full md:w-1/3 text-input-filled"
-								values={{
-									s3: 'Amazon S3',
-									gcs: 'Google Cloud Storage',
-									azure: 'Azure Blob Storage',
-									custom: 'Custom S3 Compatible'
-								}}
+							<Select
+								class="text-input-filled bg-base-200 dark:bg-base-100"
+								classes={{ root: 'w-full' }}
+								options={[
+									{ id: 's3', label: 'Amazon S3' },
+									{ id: 'gcs', label: 'Google Cloud Storage' },
+									{ id: 'azure', label: 'Azure Blob Storage' },
+									{ id: 'custom', label: 'Custom S3 Compatible' }
+								]}
 								selected={form.provider}
 								disabled={!!existingCredentials}
-								onSelected={(value) => {
-									form.provider = value;
+								onSelect={(value) => {
+									form.provider = value.id;
 									testResult = null; // Clear test result when provider changes
 
 									// Clear other provider configs and initialize selected one
-									if (value === 's3') {
+									if (value.id === 's3') {
 										form.gcsConfig = undefined;
 										form.azureConfig = undefined;
 										form.customS3Config = undefined;
@@ -370,14 +371,14 @@
 											sessionToken: existingCredentials?.s3Config?.sessionToken || ''
 										};
 										useWorkloadIdentity = false;
-									} else if (value === 'gcs') {
+									} else if (value.id === 'gcs') {
 										form.s3Config = undefined;
 										form.azureConfig = undefined;
 										form.customS3Config = undefined;
 										form.gcsConfig = {
 											serviceAccountJSON: existingCredentials?.gcsConfig?.serviceAccountJSON || ''
 										};
-									} else if (value === 'azure') {
+									} else if (value.id === 'azure') {
 										form.s3Config = undefined;
 										form.gcsConfig = undefined;
 										form.customS3Config = undefined;
@@ -387,7 +388,7 @@
 											tenantID: existingCredentials?.azureConfig?.tenantID || '',
 											clientSecret: existingCredentials?.azureConfig?.clientSecret || ''
 										};
-									} else if (value === 'custom') {
+									} else if (value.id === 'custom') {
 										form.s3Config = undefined;
 										form.gcsConfig = undefined;
 										form.azureConfig = undefined;
@@ -406,20 +407,17 @@
 				</div>
 
 				{#if form.provider === 's3' && form.s3Config}
-					<div class="space-y-4">
-						<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
-							<div class="flex flex-col gap-1">
-								<label class="text-sm font-medium" for="region">Region</label>
-								<input
-									class="text-input-filled"
-									id="region"
-									bind:value={form.s3Config.region}
-									placeholder="e.g. us-east-1"
-								/>
-							</div>
-						</div>
+					<div class="flex flex-col gap-1">
+						<label class="text-sm font-medium" for="region">Region</label>
+						<input
+							class="text-input-filled"
+							id="region"
+							bind:value={form.s3Config.region}
+							placeholder="e.g. us-east-1"
+						/>
 					</div>
 				{/if}
+				<div class="divider my-0"></div>
 
 				{#if form.provider === 'azure' && form.azureConfig}
 					<div class="space-y-4">

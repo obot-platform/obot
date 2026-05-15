@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import Select from '$lib/components/Select.svelte';
-	import Dropdown from '$lib/components/tasks/Dropdown.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService, Group, type AuditLogURLFilters } from '$lib/services';
 	import type { OrgUser, ScheduledAuditLogExport } from '$lib/services/admin/types';
@@ -10,6 +9,7 @@
 	import { onMount } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { slide } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		onCancel: () => void;
@@ -347,6 +347,9 @@
 			creating = false;
 		}
 	}
+
+	const selectClasses = 'text-input-filled bg-base-200 dark:bg-base-100';
+	const selectRootClass = 'w-full md:max-w-xs';
 </script>
 
 <div class="paper">
@@ -426,56 +429,62 @@
 		<div class="flex flex-col gap-4">
 			<h3 class="text-lg font-semibold">Schedule Configuration</h3>
 
-			<div class="flex w-[50%] flex-wrap gap-4">
-				<Dropdown
-					class="text-input-filled"
-					values={{
-						hourly: 'hourly',
-						daily: 'daily',
-						weekly: 'weekly',
-						monthly: 'monthly'
-					}}
+			<div class="flex flex-wrap gap-4">
+				<Select
+					id="schedule-interval"
+					class={selectClasses}
+					classes={{ root: selectRootClass }}
+					options={[
+						{ id: 'hourly', label: 'Hourly' },
+						{ id: 'daily', label: 'Daily' },
+						{ id: 'weekly', label: 'Weekly' },
+						{ id: 'monthly', label: 'Monthly' }
+					]}
 					selected={form.schedule.interval}
-					onSelected={(value) => {
+					onSelect={(value) => {
 						if (mode !== 'view') {
-							form.schedule.interval = value;
+							form.schedule.interval = value.id;
 						}
 					}}
 					disabled={mode === 'view'}
 				/>
 
 				{#if form.schedule.interval === 'hourly'}
-					<Dropdown
-						class="text-input-filled"
-						values={{
-							'0': 'on the hour',
-							'15': '15 minutes past',
-							'30': '30 minutes past',
-							'45': '45 minutes past'
-						}}
+					<Select
+						id="schedule-minute"
+						class={selectClasses}
+						classes={{ root: selectRootClass }}
+						options={[
+							{ id: '0', label: 'on the hour' },
+							{ id: '15', label: '15 minutes past' },
+							{ id: '30', label: '30 minutes past' },
+							{ id: '45', label: '45 minutes past' }
+						]}
 						selected={form.schedule.minute.toString()}
-						onSelected={(value) => {
-							form.schedule.minute = parseInt(value);
+						onSelect={(value) => {
+							form.schedule.minute = parseInt(value.id);
 						}}
 					/>
 				{/if}
 
 				{#if form.schedule.interval === 'daily'}
-					<Dropdown
-						class="text-input-filled"
-						values={{
-							'0': 'midnight',
-							'3': '3 AM',
-							'6': '6 AM',
-							'9': '9 AM',
-							'12': 'noon',
-							'15': '3 PM',
-							'18': '6 PM',
-							'21': '9 PM'
-						}}
+					<Select
+						id="schedule-hour"
+						class={selectClasses}
+						classes={{ root: selectRootClass }}
+						options={[
+							{ id: '0', label: 'midnight' },
+							{ id: '3', label: '3 AM' },
+							{ id: '6', label: '6 AM' },
+							{ id: '9', label: '9 AM' },
+							{ id: '12', label: 'noon' },
+							{ id: '15', label: '3 PM' },
+							{ id: '18', label: '6 PM' },
+							{ id: '21', label: '9 PM' }
+						]}
 						selected={form.schedule.hour.toString()}
-						onSelected={(value) => {
-							form.schedule.hour = parseInt(value);
+						onSelect={(value) => {
+							form.schedule.hour = parseInt(value.id);
 						}}
 					/>
 					{#if form.schedule.timezone && form.schedule.timezone !== defaultTimezone}
@@ -487,37 +496,41 @@
 				{/if}
 
 				{#if form.schedule.interval === 'weekly'}
-					<Dropdown
-						class="text-input-filled"
-						values={{
-							'0': 'Sunday',
-							'1': 'Monday',
-							'2': 'Tuesday',
-							'3': 'Wednesday',
-							'4': 'Thursday',
-							'5': 'Friday',
-							'6': 'Saturday'
-						}}
+					<Select
+						id="schedule-weekday"
+						class={selectClasses}
+						classes={{ root: selectRootClass }}
+						options={[
+							{ id: '0', label: 'Sunday' },
+							{ id: '1', label: 'Monday' },
+							{ id: '2', label: 'Tuesday' },
+							{ id: '3', label: 'Wednesday' },
+							{ id: '4', label: 'Thursday' },
+							{ id: '5', label: 'Friday' },
+							{ id: '6', label: 'Saturday' }
+						]}
 						selected={form.schedule.weekday.toString()}
-						onSelected={(value) => {
-							form.schedule.weekday = parseInt(value);
+						onSelect={(value) => {
+							form.schedule.weekday = parseInt(value.id);
 						}}
 					/>
-					<Dropdown
-						class="text-input-filled"
-						values={{
-							'0': 'midnight',
-							'3': '3 AM',
-							'6': '6 AM',
-							'9': '9 AM',
-							'12': 'noon',
-							'15': '3 PM',
-							'18': '6 PM',
-							'21': '9 PM'
-						}}
+					<Select
+						id="schedule-hour"
+						class={selectClasses}
+						classes={{ root: selectRootClass }}
+						options={[
+							{ id: '0', label: 'midnight' },
+							{ id: '3', label: '3 AM' },
+							{ id: '6', label: '6 AM' },
+							{ id: '9', label: '9 AM' },
+							{ id: '12', label: 'noon' },
+							{ id: '15', label: '3 PM' },
+							{ id: '18', label: '6 PM' },
+							{ id: '21', label: '9 PM' }
+						]}
 						selected={form.schedule.hour.toString()}
-						onSelected={(value) => {
-							form.schedule.hour = parseInt(value);
+						onSelect={(value) => {
+							form.schedule.hour = parseInt(value.id);
 						}}
 					/>
 					{#if form.schedule.timezone && form.schedule.timezone !== defaultTimezone}
@@ -529,38 +542,42 @@
 				{/if}
 
 				{#if form.schedule.interval === 'monthly'}
-					<Dropdown
-						class="text-input-filled"
-						values={{
-							'0': '1st',
-							'1': '2nd',
-							'2': '3rd',
-							'4': '5th',
-							'14': '15th',
-							'19': '20th',
-							'24': '25th',
-							'-1': 'last day'
-						}}
+					<Select
+						id="schedule-day"
+						class={selectClasses}
+						classes={{ root: selectRootClass }}
+						options={[
+							{ id: '0', label: '1st' },
+							{ id: '1', label: '2nd' },
+							{ id: '2', label: '3rd' },
+							{ id: '4', label: '5th' },
+							{ id: '14', label: '15th' },
+							{ id: '19', label: '20th' },
+							{ id: '24', label: '25th' },
+							{ id: '-1', label: 'last day' }
+						]}
 						selected={form.schedule.day.toString()}
-						onSelected={(value) => {
-							form.schedule.day = parseInt(value);
+						onSelect={(value) => {
+							form.schedule.day = parseInt(value.id);
 						}}
 					/>
-					<Dropdown
-						class="text-input-filled"
-						values={{
-							'0': 'midnight',
-							'3': '3 AM',
-							'6': '6 AM',
-							'9': '9 AM',
-							'12': 'noon',
-							'15': '3 PM',
-							'18': '6 PM',
-							'21': '9 PM'
-						}}
+					<Select
+						id="schedule-hour"
+						class={selectClasses}
+						classes={{ root: selectRootClass }}
+						options={[
+							{ id: '0', label: 'midnight' },
+							{ id: '3', label: '3 AM' },
+							{ id: '6', label: '6 AM' },
+							{ id: '9', label: '9 AM' },
+							{ id: '12', label: 'noon' },
+							{ id: '15', label: '3 PM' },
+							{ id: '18', label: '6 PM' },
+							{ id: '21', label: '9 PM' }
+						]}
 						selected={form.schedule.hour.toString()}
-						onSelected={(value) => {
-							form.schedule.hour = parseInt(value);
+						onSelect={(value) => {
+							form.schedule.hour = parseInt(value.id);
 						}}
 					/>
 					{#if form.schedule.timezone && form.schedule.timezone !== defaultTimezone}
@@ -580,20 +597,21 @@
 				logs from the last X days relative to the export time.
 			</p>
 			<div class="flex flex-col gap-1">
-				<Dropdown
-					class="text-input-filled w-full max-w-xs"
-					values={{
-						'1': 'Last 1 day',
-						'3': 'Last 3 days',
-						'7': 'Last 7 days',
-						'30': 'Last 30 days',
-						'60': 'Last 60 days',
-						'90': 'Last 90 days',
-						'-1': 'All logs'
-					}}
+				<Select
+					id="schedule-retention-period"
+					class={twMerge(selectClasses, 'w-full max-w-xs')}
+					options={[
+						{ id: '1', label: 'Last 1 day' },
+						{ id: '3', label: 'Last 3 days' },
+						{ id: '7', label: 'Last 7 days' },
+						{ id: '30', label: 'Last 30 days' },
+						{ id: '60', label: 'Last 60 days' },
+						{ id: '90', label: 'Last 90 days' },
+						{ id: '-1', label: 'All logs' }
+					]}
 					selected={form.retentionPeriodInDays.toString()}
-					onSelected={(value) => {
-						form.retentionPeriodInDays = parseInt(value);
+					onSelect={(value) => {
+						form.retentionPeriodInDays = parseInt(value.id);
 					}}
 				/>
 			</div>
@@ -627,7 +645,7 @@
 							<label class="text-sm font-medium" for={row.fieldId}>{row.label}</label>
 							<Select
 								id={row.fieldId}
-								class="text-input-filled bg-base-200 dark:bg-base-100"
+								class={selectClasses}
 								classes={{
 									root: 'w-full',
 									clear: 'hover:bg-base-400 bg-transparent'
