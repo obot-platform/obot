@@ -662,8 +662,8 @@ github.com/obot-platform/mcp-oauth-proxy v0.0.3-0.20260106135339-3745d9b14a30 h1
 github.com/obot-platform/mcp-oauth-proxy v0.0.3-0.20260106135339-3745d9b14a30/go.mod h1:8I+MeGRPsv42hk7/MCSqWHvz4p7xvIR0CIh1GG3vtXM=
 github.com/obot-platform/nah v0.0.0-20260424131842-3fc648d20cac h1:bHzcvYVp5AW+NyS45YzUmp6bZS5iUO9BY0HZX+MMi98=
 github.com/obot-platform/nah v0.0.0-20260424131842-3fc648d20cac/go.mod h1:+dYHcGg+BgcdZ2+eo3XCxhJFNQjmaKNRgD2loOvcFN0=
-github.com/obot-platform/nanobot v0.0.81-0.20260507210250-f5624d9f12c7 h1:eRlJnb6IJvhdx3hBDd0phOApqNXkBQSqqi1o0GyTGrk=
-github.com/obot-platform/nanobot v0.0.81-0.20260507210250-f5624d9f12c7/go.mod h1:hYGNODwH7r4rFPS8vDLyJxBvZ6C8g8H8nfCc5mHDcHI=
+github.com/obot-platform/nanobot v0.0.81-0.20260514142346-27487c9b5c6a h1:4WyL/Gr9EyJy1HUIo8kYyIypLGTIRhMOznGUddLD6K8=
+github.com/obot-platform/nanobot v0.0.81-0.20260514142346-27487c9b5c6a/go.mod h1:hYGNODwH7r4rFPS8vDLyJxBvZ6C8g8H8nfCc5mHDcHI=
 github.com/olekukonko/tablewriter v0.0.6-0.20230925090304-df64c4bbad77 h1:3bMMZ1f+GPXFQ1uNaYbO/uECWvSfqEA+ZEXn1rFAT88=
 github.com/olekukonko/tablewriter v0.0.6-0.20230925090304-df64c4bbad77/go.mod h1:8Hf+pH6thup1sPZPD+NLg7d6vbpsdilu9CPIeikvgMQ=
 github.com/onsi/ginkgo v1.16.5 h1:8xi0RTUf59SOSfEtZMvwTvXYMzG4gV23XVHOZiXNtnE=

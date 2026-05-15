@@ -16,7 +16,7 @@
 	} from '$lib/services/nanobot/types';
 	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
 	import { hasNewerVersion } from '$lib/services/nanobot/versioning';
-	import { profile, responsive, timePreference } from '$lib/stores';
+	import { profile, responsive, userDeviceSettings } from '$lib/stores';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { formatTimeAgo } from '$lib/time';
 	import { goto } from '$lib/url';
@@ -317,7 +317,7 @@
 							</td>
 							<td
 								><p class="truncate text-nowrap break-all">
-									{formatFileTime(resource.annotations?.lastModified, timePreference.timeFormat)
+									{formatFileTime(resource.annotations?.lastModified, userDeviceSettings.timeFormat)
 										.formatted || '-'}
 								</p></td
 							>

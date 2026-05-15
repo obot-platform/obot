@@ -15,7 +15,7 @@
 	} from '$lib/services';
 	import type { AccessControlRule, MCPCatalogEntry, OrgUser } from '$lib/services/admin/types';
 	import { getServerTypeLabel, getUserRegistry } from '$lib/services/chat/mcp';
-	import { profile } from '$lib/stores';
+	import { profile, userDeviceSettings } from '$lib/stores';
 	import { success } from '$lib/stores/success';
 	import { goto } from '$lib/url';
 	import { openUrl, isOwnSingleUserServer } from '$lib/utils';
@@ -31,6 +31,7 @@
 	import McpServerInfo from '../mcp/McpServerInfo.svelte';
 	import McpServerTools from '../mcp/McpServerTools.svelte';
 	import StaticOAuthConfigureModal from '../mcp/StaticOAuthConfigureModal.svelte';
+	import DebugOauthFlow from '../mcp/oauth/DebugOauthFlow.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
 	import Table from '../table/Table.svelte';
 	import { setVirtualPageDisabled } from '../ui/virtual-page/context';
@@ -48,6 +49,7 @@
 		Server,
 		Settings,
 		Trash2,
+		TriangleAlert,
 		Users,
 		Wrench
 	} from 'lucide-svelte';
@@ -190,7 +192,10 @@
 						{ label: 'Overview', view: 'overview' },
 						...(belongsToUser ? [{ label: 'Server Details', view: 'server-instances' }] : []),
 						{ label: 'Tools', view: 'tools' },
-						...(belongsToUser ? [{ label: 'Audit Logs', view: 'audit-logs' }] : [])
+						...(belongsToUser ? [{ label: 'Audit Logs', view: 'audit-logs' }] : []),
+						...(userDeviceSettings.developerMode
+							? [{ label: 'Troubleshooting', view: 'troubleshooting' }]
+							: [])
 					];
 		return limitViews
 			? availableTabs.filter((tab) => limitViews.includes(tab.view))
@@ -648,10 +653,15 @@
 										'min-w-fit flex-1 rounded-md border border-transparent px-3 py-2 text-center whitespace-nowrap transition-colors duration-300',
 										selected === tab.view &&
 											'dark:bg-base-200 dark:border-base-400 bg-base-100 shadow-sm',
-										selected !== tab.view && 'hover:bg-base-400'
+										selected !== tab.view && 'hover:bg-base-400',
+										tab.view === 'troubleshooting' &&
+											'bg-warning/10 flex items-center justify-center gap-1'
 									)}
 								>
 									{tab.label}
+									{#if tab.view === 'troubleshooting'}
+										<TriangleAlert class="size-3 text-warning" />
+									{/if}
 								</button>
 							{/each}
 						</div>
@@ -762,6 +772,8 @@
 			/>
 		{:else if selected === 'filters'}
 			{@render filtersView()}
+		{:else if selected === 'troubleshooting'}
+			{@render troubleshootingView()}
 		{/if}
 	</div>
 </div>
@@ -990,6 +1002,16 @@
 		</div>
 	{/if}
 {/snippet}
+
+{#snippet troubleshootingView()}
+	{#if server}
+		<div class="flex flex-col bg-base-100 dark:bg-base-300 rounded-md pt-4">
+			<h1 class="text-lg font-semibold px-4 pb-2">Debug OAuth Flow</h1>
+			<DebugOauthFlow mcpServer={server} />
+		</div>
+	{/if}
+{/snippet}
+
 <Confirm
 	msg={`Delete ${entry?.manifest?.name || 'this server'}?`}
 	show={deleteServer}

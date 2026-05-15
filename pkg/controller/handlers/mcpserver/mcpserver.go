@@ -880,7 +880,7 @@ func (h *Handler) SyncOAuthMetadata(req router.Request, _ router.Response) error
 	metadata, err := nmcp.GetOAuthMetadata(req.Ctx, nmcp.Server{
 		BaseURL: serverConfig.URL,
 		Headers: serverConfigHeaders(serverConfig),
-	})
+	}, "Obot Test MCP OAuth Client", system.MCPOAuthCallbackURL(h.baseURL))
 	if err != nil {
 		return fmt.Errorf("failed to get OAuth metadata: %w", err)
 	}
@@ -890,6 +890,7 @@ func (h *Handler) SyncOAuthMetadata(req router.Request, _ router.Response) error
 		AuthorizationServerURL:      metadata.AuthorizationServerMetadataURL,
 		ProtectedResourceMetadata:   metadata.ProtectedResourceMetadata,
 		AuthorizationServerMetadata: metadata.AuthorizationServerMetadata,
+		ClientRegistration:          metadata.ClientRegistration,
 		DynamicClientRegistration:   metadata.DynamicClientRegistration,
 	}
 

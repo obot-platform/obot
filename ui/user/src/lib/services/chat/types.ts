@@ -822,6 +822,7 @@ export interface OAuthMetadata {
 	authorizationServerUrl?: string;
 	protectedResourceMetadata?: Record<string, unknown>;
 	authorizationServerMetadata?: Record<string, unknown>;
+	clientRegistration?: Record<string, unknown>;
 	dynamicClientRegistration?: boolean;
 }
 

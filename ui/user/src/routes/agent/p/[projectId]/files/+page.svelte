@@ -4,7 +4,7 @@
 	import { formatFileSize, formatFileTime } from '$lib/format';
 	import type { FileTimeResult, ProjectLayoutContext } from '$lib/services/nanobot/types';
 	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
-	import { responsive, timePreference } from '$lib/stores';
+	import { responsive, userDeviceSettings } from '$lib/stores';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import type { TimeDisplayFormat } from '$lib/time';
 	import { tryDecodeURIComponent } from '$lib/url';
@@ -127,7 +127,7 @@
 				])
 	]);
 
-	let fileTree = $derived(buildFileTreeSimple(resourceFiles, timePreference.timeFormat));
+	let fileTree = $derived(buildFileTreeSimple(resourceFiles, userDeviceSettings.timeFormat));
 
 	type FlatNode = { depth: number; path: string; node: FileTreeNode };
 	function flattenTree(

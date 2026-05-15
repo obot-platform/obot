@@ -17,6 +17,7 @@ import (
 	"github.com/obot-platform/obot/pkg/auth"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"gorm.io/gorm"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -336,6 +337,10 @@ func (h *handler) callback(req api.Context) error {
 
 // oauthCallback handles the second-level third-party OAuth for MCP servers.
 func (h *handler) oauthCallback(req api.Context) error {
+	if handled, err := h.maybeHandleDebuggerCallback(req); err != nil || handled {
+		return err
+	}
+
 	oauthAuthRequestID, mcpServerID, err := h.oauthChecker.stateMgr.createToken(req.Context(), req.URL.Query().Get("state"), req.URL.Query().Get("code"), req.URL.Query().Get("error"), req.URL.Query().Get("error_description"))
 	if err != nil {
 		return types.NewErrHTTP(http.StatusBadRequest, err.Error())
@@ -402,6 +407,39 @@ func (h *handler) oauthCallback(req api.Context) error {
 	redirectWithAuthorizeResponse(req, oauthAppAuthRequest, code, oauthAppAuthRequest.Spec.Scope)
 
 	return nil
+}
+
+func (h *handler) maybeHandleDebuggerCallback(req api.Context) (bool, error) {
+	state := req.URL.Query().Get("state")
+	if state == "" {
+		return false, nil
+	}
+
+	pendingState, err := h.oauthChecker.stateMgr.gatewayClient.GetMCPOAuthPendingState(req.Context(), state)
+	if errors.Is(err, gorm.ErrRecordNotFound) || pendingState != nil && pendingState.OAuthAuthRequestID != handlers.OAuthDebuggerPendingStateMarker {
+		return false, nil
+	} else if err != nil {
+		return false, fmt.Errorf("failed to get pending state: %w", err)
+	}
+
+	code := req.URL.Query().Get("code")
+	errorCode := req.URL.Query().Get("error")
+	errorDescription := req.URL.Query().Get("error_description")
+
+	q := url.Values{}
+	q.Set("state", state)
+	if errorCode != "" {
+		q.Set("error", errorCode)
+		if errorDescription != "" {
+			q.Set("error_description", errorDescription)
+		}
+	} else {
+		q.Set("code", code)
+	}
+
+	dest := url.URL{Path: "/oauth-debugger/callback", RawQuery: q.Encode()}
+	http.Redirect(req.ResponseWriter, req.Request, dest.String(), http.StatusFound)
+	return true, nil
 }
 
 func redirectWithAuthorizeError(req api.Context, redirectURI string, err Error) {

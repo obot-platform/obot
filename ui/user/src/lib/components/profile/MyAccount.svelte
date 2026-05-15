@@ -3,7 +3,7 @@
 	import ConfirmDeleteAccount from '$lib/components/ConfirmDeleteAccount.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
 	import { ChatService } from '$lib/services';
-	import { profile, errors, version, timePreference } from '$lib/stores';
+	import { profile, errors, version, userDeviceSettings } from '$lib/stores';
 	import { success } from '$lib/stores/success';
 	import { goto } from '$lib/url';
 	import { getUserRoleLabel } from '$lib/utils';
@@ -70,7 +70,11 @@
 	}
 
 	function handleDisplay24HourFormatToggle(checked: boolean) {
-		timePreference.setTimeFormat(checked ? '24h' : '12h');
+		userDeviceSettings.setTimeFormat(checked ? '24h' : '12h');
+	}
+
+	function handleDeveloperModeToggle(checked: boolean) {
+		userDeviceSettings.setDeveloperMode(checked);
 	}
 </script>
 
@@ -116,7 +120,7 @@
 		</div>
 		<Toggle
 			label=""
-			checked={timePreference.timeFormat === '24h'}
+			checked={userDeviceSettings.timeFormat === '24h'}
 			onChange={handleDisplay24HourFormatToggle}
 		/>
 	</div>
@@ -139,6 +143,25 @@
 		</div>
 		<hr />
 	{/if}
+
+	{#if profile.current.isAdmin?.()}
+		<div class="flex flex-row items-center justify-between py-3">
+			<div class="flex flex-col gap-1">
+				<p>Enable Developer Mode</p>
+				<span class="text-sm font-light opacity-70">
+					When enabled, additional debugging capabilities such as OAuth verification will be
+					available on this device.
+				</span>
+			</div>
+			<Toggle
+				label=""
+				checked={userDeviceSettings.developerMode}
+				onChange={handleDeveloperModeToggle}
+			/>
+		</div>
+		<hr />
+	{/if}
+
 	<div class="mt-2 flex flex-col gap-4 py-3">
 		{#if version.current.sessionStore === 'db'}
 			<button
