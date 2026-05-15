@@ -1066,7 +1066,6 @@ export interface SystemMCPServer {
 	manifest: SystemMCPServerManifest;
 	configured: boolean;
 	missingRequiredEnvVars?: string[];
-	missingRequiredHeader?: string[];
 	missingRequiredHeaders?: string[];
 	deploymentStatus?: string;
 	deploymentAvailableReplicas?: number;

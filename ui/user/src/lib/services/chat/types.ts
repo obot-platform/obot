@@ -834,7 +834,6 @@ export interface MCPServerInstance {
 	metadata?: Record<string, string>;
 	multiUserConfig?: MultiUserConfig;
 	configured: boolean;
-	missingRequiredHeader?: string[];
 	missingRequiredHeaders?: string[];
 	userID: string;
 	mcpServerID?: string;
