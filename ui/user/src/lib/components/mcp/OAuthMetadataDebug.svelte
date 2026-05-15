@@ -19,7 +19,7 @@
 
 <div
 	class={twMerge(
-		'dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm',
+		'dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm',
 		compact ? 'rounded-none border-transparent dark:border-transparent' : ''
 	)}
 >
@@ -27,7 +27,7 @@
 		<div class="flex items-center justify-between gap-3">
 			<h2 class="text-lg font-semibold">OAuth Metadata</h2>
 			{#if metadata}
-				<span class="text-on-surface1 text-xs">
+				<span class="text-muted-content text-xs">
 					{hasMetadata ? 'Discovered' : 'No metadata discovered'}
 				</span>
 			{/if}
@@ -87,7 +87,7 @@
 				<div class="grid gap-1">
 					<p class="font-medium">Client Registration</p>
 					<pre
-						class="bg-surface1 dark:bg-surface2 mt-1 overflow-auto rounded-md p-3 text-xs text-on-background">{formatJSON(
+						class="bg-base-200 dark:bg-base-300 mt-1 overflow-auto rounded-md p-3 text-xs text-base-content">{formatJSON(
 							metadata.clientRegistration
 						)}</pre>
 				</div>

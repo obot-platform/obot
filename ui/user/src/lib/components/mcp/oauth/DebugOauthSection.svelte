@@ -32,7 +32,7 @@
 
 <details
 	class={twMerge(
-		'collapse bg-surface1 dark:bg-background',
+		'collapse bg-base-200 dark:bg-base-100',
 		(hasResults || showContent) && 'collapse-arrow'
 	)}
 	name={title}
@@ -51,12 +51,12 @@
 	</summary>
 	<div
 		class={twMerge(
-			'collapse-content text-sm bg-background dark:bg-surface1 pt-4 border border-surface2 dark:border-surface1',
+			'collapse-content text-sm bg-base-100 dark:bg-base-200 pt-4 border border-base-300 dark:border-base-200',
 			classes?.content
 		)}
 	>
 		{#if errors}
-			<p class="text-red-500 bg-red-500/10 p-2 rounded-md text-sm whitespace-pre-wrap">
+			<p class="text-error bg-error/10 p-2 rounded-md text-sm whitespace-pre-wrap">
 				{errors}
 			</p>
 		{:else if hasResults || showContent}
@@ -67,12 +67,12 @@
 
 {#snippet statusIcon()}
 	{#if loading}
-		<Loading class="text-on-surface1" />
+		<Loading class="text-muted-content" />
 	{:else if errors}
 		<CircleX class="size-5 text-error" />
 	{:else if hasResults}
 		<CircleCheckBig class="size-5 text-primary" />
 	{:else}
-		<Circle class="size-5 text-on-surface1" />
+		<Circle class="size-5 text-muted-content" />
 	{/if}
 {/snippet}

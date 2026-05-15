@@ -199,7 +199,7 @@
 </script>
 
 <div class="flex flex-col gap-2 p-4 md:pt-0">
-	<p class="text-on-surface1 text-sm font-light pb-2">
+	<p class="text-muted-content text-sm font-light pb-2">
 		This is a guided step-by-step process of the OAuth flow. Follow the instructions to complete
 		authentication.
 	</p>
@@ -223,7 +223,7 @@
 		hasResults={Boolean(results.clientRegistration)}
 	>
 		<pre
-			class="bg-surface2 p-2 rounded-md overflow-x-auto text-xs my-0 text-on-background">{JSON.stringify(
+			class="bg-base-300 p-2 rounded-md overflow-x-auto text-xs my-0 text-base-content">{JSON.stringify(
 				results.clientRegistration,
 				null,
 				2
@@ -242,24 +242,24 @@
 				.oauthURL}
 			<div class="flex flex-col gap-2">
 				<pre
-					class="bg-surface2 p-2 rounded-md overflow-x-auto text-xs my-0 text-on-background">{JSON.stringify(
+					class="bg-base-300 p-2 rounded-md overflow-x-auto text-xs my-0 text-base-content">{JSON.stringify(
 						results.preparingAuthorization,
 						null,
 						2
 					)}</pre>
 
-				<p class="text-xs text-on-surface2">
+				<p class="text-xs text-muted-content">
 					Click the button below or copy the URL above to your browser to request authorization and
 					acquire an authorization code.
 				</p>
-				<p class="text-xs text-on-surface2">
+				<p class="text-xs text-muted-content">
 					Copy & paste the authorization code into the next step below to continue.
 				</p>
 				<a
 					href={authorizationURL}
 					target="_blank"
 					rel="external"
-					class="button-primary text-sm text-center"
+					class="btn btn-primary text-sm text-center"
 					onclick={() => {
 						expanded.authorizationCode = true;
 					}}
@@ -280,20 +280,20 @@
 	>
 		{#if results.authorizationCode}
 			<pre
-				class="bg-surface2 p-2 rounded-md overflow-x-auto text-xs my-0 text-on-background">{JSON.stringify(
+				class="bg-base-300 p-2 rounded-md overflow-x-auto text-xs my-0 text-base-content">{JSON.stringify(
 					results.authorizationCode,
 					null,
 					2
 				)}</pre>
 		{:else}
-			<label for="authorization-code" class="text-sm text-on-surface w-full">
+			<label for="authorization-code" class="text-sm text-muted-content w-full">
 				Enter the authorization code here:
 				<input
 					bind:value={authorizationCodeInput}
 					type="text"
 					id="authorization-code"
 					class={twMerge(
-						'text-input-filled bg-surface1 dark:bg-background mt-0.5',
+						'text-input-filled bg-base-200 dark:bg-base-100 mt-0.5',
 						showRequired && 'error'
 					)}
 					oninput={() => {
@@ -301,7 +301,7 @@
 					}}
 				/>
 				{#if showRequired}
-					<p class="text-xs text-red-500 my-1">Authorization code is required</p>
+					<p class="text-xs text-error my-1">Authorization code is required</p>
 				{/if}
 			</label>
 		{/if}
@@ -315,7 +315,7 @@
 		hasResults={Boolean(results.tokenRequest)}
 	>
 		<pre
-			class="bg-surface2 p-2 rounded-md overflow-x-auto text-xs my-0 text-on-background">{JSON.stringify(
+			class="bg-base-300 p-2 rounded-md overflow-x-auto text-xs my-0 text-base-content">{JSON.stringify(
 				results.tokenRequest,
 				null,
 				2
@@ -336,11 +336,11 @@
 	</DebugOauthSection>
 </div>
 <div
-	class="sticky bottom-0 left-0 w-full bg-background dark:bg-surface1 p-4 border-t border-surface2 dark:border-surface1"
+	class="sticky bottom-0 left-0 w-full bg-base-100 dark:bg-base-200 p-4 border-t border-base-300 dark:border-base-200"
 >
 	<div class="flex justify-between gap-4">
 		<button
-			class="button-primary text-sm"
+			class="btn btn-primary text-sm"
 			disabled={stepLoading ||
 				currentStep === DEBUG_FLOW_STEPS.authenticationComplete ||
 				Object.values(errors).some(Boolean)}
@@ -349,6 +349,6 @@
 			Continue Next Step
 		</button>
 
-		<button class="button text-sm" onclick={handleRestart}> Restart </button>
+		<button class="btn btn-secondary text-sm" onclick={handleRestart}> Restart </button>
 	</div>
 </div>

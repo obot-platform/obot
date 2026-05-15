@@ -520,7 +520,7 @@
 									</button>
 									{#if userDeviceSettings.developerMode}
 										<button
-											class="menu-button bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/30"
+											class="menu-button bg-warning/10 text-warning hover:bg-warning/30"
 											onclick={async (e) => {
 												e.stopPropagation();
 												debugOauthDialog?.open(oauthServers[0]);

@@ -24,7 +24,7 @@
 >
 	{#snippet titleContent()}
 		<div class="flex items-center gap-2">
-			<div class="p-0.5 rounded-sm dark:bg-surface3">
+			<div class="p-0.5 rounded-sm dark:bg-base-400">
 				<img
 					src={serverToDebug?.manifest.icon ?? ''}
 					alt={serverToDebug?.manifest.name ?? ''}

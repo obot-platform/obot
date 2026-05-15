@@ -14,7 +14,7 @@
 
 <main
 	id="main-content"
-	class="text-on-background dark:bg-background bg-surface1 flex min-h-dvh items-center justify-center px-4 py-16"
+	class="text-base-content dark:bg-base-100 bg-base-200 flex min-h-dvh items-center justify-center px-4 py-16"
 >
 	<div
 		class={twMerge(
@@ -27,15 +27,15 @@
 
 		<div class="flex flex-col items-center justify-center gap-4 p-4 pt-0">
 			{#if !hasPayload}
-				<p class="text-on-surface1 text-sm">
+				<p class="text-base-content text-sm">
 					This page is opened after the MCP OAuth debugger redirect. No code or error was provided.
 				</p>
 			{:else if isError}
-				<dl class="border-red-500/30 bg-red-500/10 space-y-4 rounded-md border p-4">
+				<dl class="border-error/30 bg-error/10 space-y-4 rounded-md border p-4">
 					<div class="flex items-start justify-between">
 						<div>
-							<dt class="text-red-500 text-sm font-medium">Error</dt>
-							<dd class="text-on-background mt-1 font-mono text-sm break-all">{error}</dd>
+							<dt class="text-error text-sm font-medium">Error</dt>
+							<dd class="text-base-content mt-1 font-mono text-sm break-all">{error}</dd>
 						</div>
 						<CopyButton
 							showTextLeft
@@ -48,18 +48,18 @@
 					</div>
 					{#if errorDescription}
 						<div>
-							<dt class="text-red-500 text-sm font-medium">Description</dt>
-							<dd class="text-on-background mt-1 text-sm wrap-break-word">{errorDescription}</dd>
+							<dt class="text-error text-sm font-medium">Description</dt>
+							<dd class="text-base-content mt-1 text-sm wrap-break-word">{errorDescription}</dd>
 						</div>
 					{/if}
 				</dl>
 			{:else}
-				<p class="text-on-surface1 text-sm font-light">
+				<p class="text-muted-content text-sm font-light">
 					Copy the authorization code below into the "<b>Request & Acquire Authorization Code</b>"
 					step.
 				</p>
 
-				<div class="relative bg-surface2 rounded-md px-4 py-2">
+				<div class="relative bg-base-300 rounded-md px-4 py-2">
 					<div class="flex items-center justify-between mb-2">
 						<p class="text-sm font-semibold">Authorization Code</p>
 						<CopyButton
@@ -69,13 +69,13 @@
 						/>
 					</div>
 					<pre
-						class="bg-transparent my-0 max-w-full min-w-0 flex-1 overflow-x-auto font-mono text-sm break-all text-on-background">{code}</pre>
+						class="bg-transparent my-0 max-w-full min-w-0 flex-1 overflow-x-auto font-mono text-sm break-all text-base-content">{code}</pre>
 				</div>
 			{/if}
 		</div>
 
-		<div class="border-t border-surface2 py-2 px-4 w-full">
-			<p class="text-[9px] text-on-surface1 truncate">
+		<div class="border-t border-base-300 py-2 px-4 w-full">
+			<p class="text-[9px] text-muted-content truncate">
 				<span class="font-medium">State:</span>
 				{state}
 			</p>
