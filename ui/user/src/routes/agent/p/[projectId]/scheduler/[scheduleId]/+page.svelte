@@ -13,7 +13,7 @@
 		ScheduledTask
 	} from '$lib/services/nanobot/types';
 	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
-	import { errors, timePreference } from '$lib/stores';
+	import { errors, userDeviceSettings } from '$lib/stores';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { goto } from '$lib/url';
 	import ConfirmScheduleToggle from '../ConfirmScheduleToggle.svelte';
@@ -333,13 +333,13 @@
 				<div class="border-base-300 border-b px-5 py-4 md:border-r">
 					<div class="text-muted-content text-xs font-medium uppercase">Schedule</div>
 					<div class="mt-2 text-sm">
-						{scheduleSummary(task.schedule, task.expiration, timePreference.timeFormat)}
+						{scheduleSummary(task.schedule, task.expiration, userDeviceSettings.timeFormat)}
 					</div>
 				</div>
 				<div class="border-base-300 border-b px-5 py-4">
 					<div class="text-muted-content text-xs font-medium uppercase">Next run</div>
 					<div class="mt-2 text-sm">
-						{formatScheduleDateTime(task.nextRunAt, timePreference.timeFormat)}
+						{formatScheduleDateTime(task.nextRunAt, userDeviceSettings.timeFormat)}
 					</div>
 				</div>
 				<div class="border-base-300 px-5 py-4 md:border-r">
@@ -351,7 +351,7 @@
 				<div class="px-5 py-4">
 					<div class="text-muted-content text-xs font-medium uppercase">Last run</div>
 					<div class="mt-2 text-sm">
-						{formatScheduleDateTime(sortedSessions[0]?.created, timePreference.timeFormat)}
+						{formatScheduleDateTime(sortedSessions[0]?.created, userDeviceSettings.timeFormat)}
 					</div>
 				</div>
 			</div>
@@ -413,7 +413,7 @@
 										<div class="truncate font-medium">{session.title || 'Untitled Session'}</div>
 									</td>
 									<td class="text-base-content/60 text-sm">
-										{formatScheduleDateTime(session.created, timePreference.timeFormat)}
+										{formatScheduleDateTime(session.created, userDeviceSettings.timeFormat)}
 									</td>
 								</tr>
 							{/each}

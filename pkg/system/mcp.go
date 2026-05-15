@@ -21,3 +21,7 @@ func MCPConnectURL(serverURL, id string) string {
 func NanobotAgentConnectURL(serverURL, id string) string {
 	return MCPConnectURL(serverURL, MCPServerPrefix+id)
 }
+
+func MCPOAuthCallbackURL(serverURL string) string {
+	return fmt.Sprintf("%s/oauth/mcp/callback", serverURL)
+}

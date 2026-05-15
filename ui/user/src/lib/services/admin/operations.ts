@@ -83,7 +83,12 @@ import type {
 	DeviceSkillStatResponse,
 	DeviceClientFleetSummary,
 	DeviceClientFleetSummaryResponse,
-	DeviceClientListFilters
+	DeviceClientListFilters,
+	OAuthDebuggerAuthorizationURL,
+	OAuthDebuggerAuthorizationURLRequest,
+	OAuthDebuggerRegisterClientResponse,
+	OAuthDebuggerTokenRequest,
+	OAuthToken
 } from './types';
 import { MCPCompositeDeletionDependencyError } from './types';
 
@@ -1935,4 +1940,35 @@ export async function restartNanobotAgentDeployments(opts?: {
 		? `/system-mcp-servers/restart-nanobot-agent-deployments?${qs}`
 		: '/system-mcp-servers/restart-nanobot-agent-deployments';
 	return (await doPost(path, {}, opts)) as RestartNanobotAgentDeploymentsResult;
+}
+
+export async function registerMcpServerOAuthDebuggerClient(
+	serverID: string,
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
+): Promise<OAuthDebuggerRegisterClientResponse> {
+	return (await doPost(
+		`/mcp-servers/${serverID}/oauth-debugger/client`,
+		{},
+		opts
+	)) as OAuthDebuggerRegisterClientResponse;
+}
+
+export async function getMCPServerOAuthDebuggerAuthorizationURL(
+	serverID: string,
+	body: OAuthDebuggerAuthorizationURLRequest,
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
+): Promise<OAuthDebuggerAuthorizationURL> {
+	return (await doPost(
+		`/mcp-servers/${serverID}/oauth-debugger/authorization-url`,
+		body,
+		opts
+	)) as OAuthDebuggerAuthorizationURL;
+}
+
+export async function exchangeMCPServerOAuthDebuggerToken(
+	serverID: string,
+	body: OAuthDebuggerTokenRequest,
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
+): Promise<OAuthToken> {
+	return (await doPost(`/mcp-servers/${serverID}/oauth-debugger/token`, body, opts)) as OAuthToken;
 }

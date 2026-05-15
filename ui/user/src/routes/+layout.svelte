@@ -11,7 +11,7 @@
 		version,
 		mcpServersAndEntries,
 		defaultModelAliases,
-		timePreference
+		userDeviceSettings
 	} from '$lib/stores';
 	import '../app.css';
 	import type { PageData } from './$types';
@@ -48,7 +48,7 @@
 		}
 
 		if (browser) {
-			timePreference.initialize();
+			userDeviceSettings.initialize();
 		}
 	});
 

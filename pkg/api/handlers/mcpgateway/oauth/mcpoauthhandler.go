@@ -109,7 +109,7 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 		_, err := f.mcpSessionManager.ClientForMCPServerForOAuthCheck(req.Context(), "Obot OAuth Check", mcpServerConfig, nmcp.ClientOption{
 			ClientName: "Obot MCP OAuth",
 			HTTPClientOptions: nmcp.HTTPClientOptions{
-				OAuthRedirectURL: fmt.Sprintf("%s/oauth/mcp/callback", f.baseURL),
+				OAuthRedirectURL: system.MCPOAuthCallbackURL(f.baseURL),
 				OAuthClientName:  "Obot MCP Gateway",
 				CallbackHandler:  oauthHandler,
 				ClientCredLookup: oauthHandler,

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import popover from '$lib/actions/popover.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { responsive, timePreference } from '$lib/stores';
+	import { responsive, userDeviceSettings } from '$lib/stores';
 	import CalendarGrid, {
 		months,
 		isToday,
@@ -257,7 +257,7 @@
 						<div class="flex flex-col gap-1">
 							<div class="text-muted-content text-xs">{start.toDateString()}</div>
 							<TimeInput
-								format={timePreference.timeFormat}
+								format={userDeviceSettings.timeFormat}
 								clockAnchorPlacement="left"
 								date={start}
 								onChange={(date) => {
@@ -279,7 +279,7 @@
 							{/if}
 
 							<TimeInput
-								format={timePreference.timeFormat}
+								format={userDeviceSettings.timeFormat}
 								clockAnchorPlacement="left"
 								date={end ?? endOfDay(start)}
 								onChange={(date) => {

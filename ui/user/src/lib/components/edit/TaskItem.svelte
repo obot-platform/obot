@@ -9,7 +9,7 @@
 	} from '$lib/context/chatLayout.svelte';
 	import { type Task, type Thread, type Project } from '$lib/services';
 	import { ChatService } from '$lib/services';
-	import { responsive, timePreference } from '$lib/stores';
+	import { responsive, userDeviceSettings } from '$lib/stores';
 	import { formatTime } from '$lib/time.js';
 	import { ChevronDown, Trash2 } from 'lucide-svelte/icons';
 	import { untrack, type Snippet } from 'svelte';
@@ -138,7 +138,7 @@
 									}
 								}}
 							>
-								{formatTime(taskRun.created, timePreference.timeFormat)}
+								{formatTime(taskRun.created, userDeviceSettings.timeFormat)}
 							</button>
 							<button
 								class={twMerge(

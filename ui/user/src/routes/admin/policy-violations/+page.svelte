@@ -16,7 +16,7 @@
 	} from '$lib/services/admin/types';
 	import { PolicyDirectionLabels } from '$lib/services/admin/types';
 	import type { PolicyDirection } from '$lib/services/admin/types';
-	import { responsive, timePreference } from '$lib/stores';
+	import { responsive, userDeviceSettings } from '$lib/stores';
 	import { formatLogTimestamp } from '$lib/time';
 	import { getUserDisplayName } from '$lib/utils';
 	import { subDays, set } from 'date-fns';
@@ -535,7 +535,7 @@
 										<td class="px-6 py-3">{pageOffset + i + 1}</td>
 										<td class="whitespace-nowrap">
 											<div class="truncate px-6 py-4">
-												{formatLogTimestamp(v.createdAt, timePreference.timeFormat)}
+												{formatLogTimestamp(v.createdAt, userDeviceSettings.timeFormat)}
 											</div>
 										</td>
 										<td class="whitespace-nowrap">
@@ -662,7 +662,7 @@
 							<div class="flex flex-col gap-1 text-sm font-light">
 								<p>
 									<span class="font-medium">Timestamp</span>:
-									{formatLogTimestamp(detailedViolation.createdAt, timePreference.timeFormat)}
+									{formatLogTimestamp(detailedViolation.createdAt, userDeviceSettings.timeFormat)}
 								</p>
 								<p>
 									<span class="font-medium">User</span>:

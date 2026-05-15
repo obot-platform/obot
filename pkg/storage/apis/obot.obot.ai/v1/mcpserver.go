@@ -194,6 +194,7 @@ type OAuthMetadata struct {
 	AuthorizationServerURL      string          `json:"authorizationServerUrl,omitempty"`
 	ProtectedResourceMetadata   json.RawMessage `json:"protectedResourceMetadata,omitempty"`
 	AuthorizationServerMetadata json.RawMessage `json:"authorizationServerMetadata,omitempty"`
+	ClientRegistration          json.RawMessage `json:"clientRegistration,omitempty"`
 	DynamicClientRegistration   bool            `json:"dynamicClientRegistration,omitempty"`
 }
 

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { estimateNextRun, formatScheduleDateTime } from '$lib/components/nanobot/taskSchedule';
-	import { timePreference } from '$lib/stores';
+	import { userDeviceSettings } from '$lib/stores';
 
 	interface Props {
 		task?: {
@@ -42,7 +42,7 @@
 					{:else if !task.enabled && nextRun}
 						<p>The next run will be executed at:</p>
 						<p class="mt-2 font-semibold">
-							{formatScheduleDateTime(nextRun.toISOString(), timePreference.timeFormat)}
+							{formatScheduleDateTime(nextRun.toISOString(), userDeviceSettings.timeFormat)}
 						</p>
 						<p class="mt-2">Are you sure you want to enable this schedule?</p>
 					{/if}

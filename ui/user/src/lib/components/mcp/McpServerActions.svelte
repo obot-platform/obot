@@ -11,7 +11,7 @@
 		type MCPServerInstance
 	} from '$lib/services';
 	import { hasEditableConfiguration, requiresUserUpdate } from '$lib/services/chat/mcp';
-	import { mcpServersAndEntries, profile, version } from '$lib/stores';
+	import { mcpServersAndEntries, profile, userDeviceSettings, version } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { goto } from '$lib/url';
 	import DotDotDot from '../DotDotDot.svelte';
@@ -21,6 +21,7 @@
 	import ConnectToServer from './ConnectToServer.svelte';
 	import EditExistingDeployment from './EditExistingDeployment.svelte';
 	import StaticOAuthConfigureModal from './StaticOAuthConfigureModal.svelte';
+	import DebugOauthDialog from './oauth/DebugOauthDialog.svelte';
 	import {
 		KeyRound,
 		MessageCircle,
@@ -31,7 +32,8 @@
 		ServerCog,
 		StepForward,
 		Trash2,
-		Unplug
+		Unplug,
+		Bug
 	} from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -86,6 +88,7 @@
 	let oauthConfigPromptHandled = $state(false);
 	let isInitialOAuthConfig = $state(false);
 	let oauthConfiguredOverride = $state<boolean | undefined>(undefined);
+	let debugOauthDialog = $state<ReturnType<typeof DebugOauthDialog>>();
 
 	let disconnecting = $state(false);
 	let restarting = $state(false);
@@ -109,6 +112,7 @@
 	let canReauthenticate = $derived(
 		server?.manifest.runtime === 'remote' && Object.keys(server.oauthMetadata ?? {}).length > 0
 	);
+	let canDebugOauth = $derived(canReauthenticate && userDeviceSettings.developerMode);
 	let canConfigure = $derived(
 		entry && (entry.manifest.runtime === 'composite' || hasEditableConfiguration(entry))
 	);
@@ -474,6 +478,18 @@
 						<KeyRound class="size-4" /> Reauthenticate
 					</button>
 				{/if}
+				{#if server && canDebugOauth}
+					<button
+						class="menu-button bg-warning/10 text-warning hover:bg-warning/30"
+						onclick={async (e) => {
+							e.stopPropagation();
+							debugOauthDialog?.open(server);
+							toggle(false);
+						}}
+					>
+						<Bug class="size-4" /> Debug OAuth
+					</button>
+				{/if}
 				{#if canConfigure}
 					<button
 						class={twMerge(
@@ -747,3 +763,5 @@
 		}
 	}}
 />
+
+<DebugOauthDialog bind:this={debugOauthDialog} />

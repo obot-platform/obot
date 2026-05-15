@@ -909,6 +909,44 @@ export interface MCPServerOAuthCredentialStatus {
 	clientID?: string;
 }
 
+/** Subset of RFC 7591 / Obot OAuth client registration response used by the MCP OAuth debugger. */
+export interface OAuthClient {
+	client_id?: string;
+	client_secret?: string;
+	scope?: string;
+	token_endpoint_auth_method?: string;
+	redirect_uris?: string[];
+	client_name?: string;
+	registration_client_uri?: string;
+	registration_access_token?: string;
+}
+
+export interface OAuthDebuggerRegisterClientResponse {
+	state: string;
+	client: OAuthClient;
+}
+
+export interface OAuthDebuggerAuthorizationURLRequest {
+	state: string;
+}
+
+export interface OAuthDebuggerAuthorizationURL {
+	oauthURL: string;
+	state?: string;
+}
+
+export interface OAuthDebuggerTokenRequest {
+	code: string;
+	state: string;
+}
+
+export interface OAuthToken {
+	access_token: string;
+	refresh_token: string;
+	expires_in: number;
+	token_type: string;
+}
+
 export interface TokenUsage {
 	userID?: string;
 	runName?: string;

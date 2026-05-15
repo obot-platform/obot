@@ -27,13 +27,15 @@
 		hasEditableConfiguration,
 		requiresUserUpdate
 	} from '$lib/services/chat/mcp';
-	import { mcpServersAndEntries, profile, version } from '$lib/stores';
+	import { mcpServersAndEntries, profile, userDeviceSettings, version } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { openUrl, isOwnSingleUserServer } from '$lib/utils';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
 	import EditExistingDeployment from './EditExistingDeployment.svelte';
+	import DebugOauthDialog from './oauth/DebugOauthDialog.svelte';
 	import {
+		Bug,
 		Captions,
 		CircleFadingArrowUp,
 		Ellipsis,
@@ -117,6 +119,7 @@
 	let selectServerDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let selectServerMode = $state<ServerSelectMode>('connect');
 
+	let debugOauthDialog = $state<ReturnType<typeof DebugOauthDialog>>();
 	let oauthConfigModal = $state<ReturnType<typeof StaticOAuthConfigureModal>>();
 	let oauthConfigEntry = $state<MCPCatalogEntry>();
 	let oauthStatus = $state<MCPServerOAuthCredentialStatus>();
@@ -515,6 +518,18 @@
 									>
 										<KeyRound class="size-4" /> Reauthenticate
 									</button>
+									{#if userDeviceSettings.developerMode}
+										<button
+											class="menu-button bg-warning/10 text-warning hover:bg-warning/30"
+											onclick={async (e) => {
+												e.stopPropagation();
+												debugOauthDialog?.open(oauthServers[0]);
+												toggle(false);
+											}}
+										>
+											<Bug class="size-4" /> Debug OAuth
+										</button>
+									{/if}
 								{/if}
 
 								{#if matchingInstance && !isCatalogEntry && hasInstanceConfiguration(d.data as MCPCatalogServer)}
@@ -980,3 +995,5 @@
 	onSave={handleSaveOAuth}
 	onDelete={handleDeleteOAuth}
 />
+
+<DebugOauthDialog bind:this={debugOauthDialog} />

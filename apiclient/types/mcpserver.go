@@ -359,6 +359,7 @@ type OAuthMetadata struct {
 	ProtectedResourceMetadata   json.RawMessage `json:"protectedResourceMetadata,omitempty"`
 	AuthorizationServerMetadata json.RawMessage `json:"authorizationServerMetadata,omitempty"`
 	DynamicClientRegistration   bool            `json:"dynamicClientRegistration,omitempty"`
+	ClientRegistration          json.RawMessage `json:"clientRegistration,omitempty"`
 }
 
 type DeploymentCondition struct {
