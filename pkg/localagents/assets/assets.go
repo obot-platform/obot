@@ -44,9 +44,16 @@ func ClaudeCodeTemplateData() TemplateData {
 	}
 }
 
-// RenderClaudeSkills renders all Claude-compatible Obot bootstrap skill
-// assets.
-func RenderClaudeSkills(data TemplateData) ([]SkillAsset, error) {
+// CursorTemplateData returns the template data for direct Cursor installs.
+func CursorTemplateData() TemplateData {
+	return TemplateData{
+		AgentID:         "cursor",
+		InstallAgentArg: "cursor",
+	}
+}
+
+// RenderAgentSkills renders all Obot bootstrap skill assets.
+func RenderAgentSkills(data TemplateData) ([]SkillAsset, error) {
 	if err := validateTemplateData(data); err != nil {
 		return nil, err
 	}

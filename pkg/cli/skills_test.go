@@ -122,6 +122,26 @@ func TestSkillsInstallExactIDInstallsClaudeCode(t *testing.T) {
 	}
 }
 
+func TestSkillsInstallExactIDInstallsCursor(t *testing.T) {
+	home := useSetupTestHome(t)
+	server := skillInstallTestServer(t, []skillInstallTestResponse{{
+		ID:       "sk1",
+		Name:     "github-review",
+		Download: skillTestZip(t, "github-review", "Review GitHub pull requests."),
+	}})
+	defer server.Close()
+
+	stdout, err := executeSkillsTestCommand(skillsTestRoot(server.URL), "install", "sk1", "--agent", "cursor")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assertFileContains(t, filepath.Join(home, ".cursor", "skills", "github-review", skillformat.SkillMainFile), "Review GitHub pull requests.")
+	if !strings.Contains(stdout, "Installed github-review for Cursor") {
+		t.Fatalf("expected install message, got:\n%s", stdout)
+	}
+}
+
 func TestSkillsInstallNoMatches(t *testing.T) {
 	server := skillInstallTestServer(t, nil)
 	defer server.Close()
