@@ -416,7 +416,7 @@ func (h *handler) maybeHandleDebuggerCallback(req api.Context) (bool, error) {
 	}
 
 	pendingState, err := h.oauthChecker.stateMgr.gatewayClient.GetMCPOAuthPendingState(req.Context(), state)
-	if errors.Is(err, gorm.ErrRecordNotFound) || pendingState.OAuthAuthRequestID != handlers.OAuthDebuggerPendingStateMarker {
+	if errors.Is(err, gorm.ErrRecordNotFound) || pendingState != nil && pendingState.OAuthAuthRequestID != handlers.OAuthDebuggerPendingStateMarker {
 		return false, nil
 	} else if err != nil {
 		return false, fmt.Errorf("failed to get pending state: %w", err)
