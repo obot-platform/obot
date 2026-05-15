@@ -1,5 +1,33 @@
 import type { AppPreferences } from '$lib/services';
 
+const LOGO_LABELS = {
+	default: 'Full Logo',
+	enterprise: 'Full Enterprise Logo',
+	chat: 'Full Chat Logo'
+};
+
+const INDICATOR_LABELS = {
+	secondary: 'Secondary',
+	success: 'Success',
+	warning: 'Warning',
+	error: 'Error'
+};
+
+const TEXT_LABELS = {
+	base: 'Base Font Color',
+	onAccent: 'On-Accent Button Text',
+	success: 'Success Button Text',
+	warning: 'Warning Button Text',
+	error: 'Error Button Text'
+};
+
+const SURFACE_LABELS = {
+	background: 'Background',
+	surface1: 'Surface 1',
+	surface2: 'Surface 2',
+	surface3: 'Surface 3'
+};
+
 export type BrandingMockConnectorRow = {
 	id: string;
 	name: string;
@@ -92,151 +120,151 @@ export const standardIconFields: { id: keyof AppPreferences['logos']; label: str
 export const themeLightLogoFields: { id: keyof AppPreferences['logos']; label: string }[] = [
 	{
 		id: 'logoDefault',
-		label: 'Full Logo'
+		label: LOGO_LABELS.default
 	},
 	{
 		id: 'logoEnterprise',
-		label: 'Full Enterprise Logo'
+		label: LOGO_LABELS.enterprise
 	},
 	{
 		id: 'logoChat',
-		label: 'Full Chat Logo'
+		label: LOGO_LABELS.chat
 	}
 ];
 
 export const themeDarkLogoFields: { id: keyof AppPreferences['logos']; label: string }[] = [
 	{
 		id: 'darkLogoDefault',
-		label: 'Full Logo'
+		label: LOGO_LABELS.default
 	},
 	{
 		id: 'darkLogoEnterprise',
-		label: 'Full Enterprise Logo'
+		label: LOGO_LABELS.enterprise
 	},
 	{
 		id: 'darkLogoChat',
-		label: 'Full Chat Logo'
+		label: LOGO_LABELS.chat
 	}
 ];
 
 export const themeLightSurfaceFields: { id: keyof AppPreferences['theme']; label: string }[] = [
 	{
 		id: 'backgroundColor',
-		label: 'Background'
+		label: SURFACE_LABELS.background
 	},
 	{
 		id: 'surface1Color',
-		label: 'Surface 1'
+		label: SURFACE_LABELS.surface1
 	},
 	{
 		id: 'surface2Color',
-		label: 'Surface 2'
+		label: SURFACE_LABELS.surface2
 	},
 	{
 		id: 'surface3Color',
-		label: 'Surface 3'
+		label: SURFACE_LABELS.surface3
 	}
 ];
 
 export const themeDarkSurfaceFields: { id: keyof AppPreferences['theme']; label: string }[] = [
 	{
 		id: 'darkBackgroundColor',
-		label: 'Background'
+		label: SURFACE_LABELS.background
 	},
 	{
 		id: 'darkSurface1Color',
-		label: 'Surface 1'
+		label: SURFACE_LABELS.surface1
 	},
 	{
 		id: 'darkSurface2Color',
-		label: 'Surface 2'
+		label: SURFACE_LABELS.surface2
 	},
 	{
 		id: 'darkSurface3Color',
-		label: 'Surface 3'
+		label: SURFACE_LABELS.surface3
 	}
 ];
 
 export const themeLightIndicatorFields: { id: keyof AppPreferences['theme']; label: string }[] = [
 	{
 		id: 'secondaryColor',
-		label: 'Secondary'
+		label: INDICATOR_LABELS.secondary
 	},
 	{
 		id: 'successColor',
-		label: 'Success'
+		label: INDICATOR_LABELS.success
 	},
 	{
 		id: 'warningColor',
-		label: 'Warning'
+		label: INDICATOR_LABELS.warning
 	},
 	{
 		id: 'errorColor',
-		label: 'Error'
+		label: INDICATOR_LABELS.error
 	}
 ];
 
 export const themeDarkIndicatorFields: { id: keyof AppPreferences['theme']; label: string }[] = [
 	{
 		id: 'darkSecondaryColor',
-		label: 'Secondary'
+		label: INDICATOR_LABELS.secondary
 	},
 	{
 		id: 'darkSuccessColor',
-		label: 'Success'
+		label: INDICATOR_LABELS.success
 	},
 	{
 		id: 'darkWarningColor',
-		label: 'Warning'
+		label: INDICATOR_LABELS.warning
 	},
 	{
 		id: 'darkErrorColor',
-		label: 'Error'
+		label: INDICATOR_LABELS.error
 	}
 ];
 
 export const textLightFields: { id: keyof AppPreferences['theme']; label: string }[] = [
 	{
 		id: 'onBackgroundColor',
-		label: 'Base Font Color'
+		label: TEXT_LABELS.base
 	},
 	{
 		id: 'onPrimaryColor',
-		label: 'Primary Button Text'
+		label: TEXT_LABELS.onAccent
 	},
 	{
 		id: 'onSuccessColor',
-		label: 'Success Button Text'
+		label: TEXT_LABELS.success
 	},
 	{
 		id: 'onWarningColor',
-		label: 'Warning Button Text'
+		label: TEXT_LABELS.warning
 	},
 	{
 		id: 'onErrorColor',
-		label: 'Error Button Text'
+		label: TEXT_LABELS.error
 	}
 ];
 
 export const textDarkFields: { id: keyof AppPreferences['theme']; label: string }[] = [
 	{
 		id: 'darkOnBackgroundColor',
-		label: 'Primary Text'
+		label: TEXT_LABELS.base
 	},
 	{
 		id: 'darkOnPrimaryColor',
-		label: 'Primary Text'
+		label: TEXT_LABELS.onAccent
 	},
 	{
 		id: 'darkOnSuccessColor',
-		label: 'Success Text'
+		label: TEXT_LABELS.success
 	},
 	{
 		id: 'darkOnWarningColor',
-		label: 'Warning Text'
+		label: TEXT_LABELS.warning
 	},
 	{
 		id: 'darkOnErrorColor',
-		label: 'Error Text'
+		label: TEXT_LABELS.error
 	}
 ];
