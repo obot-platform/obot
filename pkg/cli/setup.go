@@ -15,7 +15,7 @@ import (
 
 type Setup struct {
 	URL    string `usage:"Obot app URL to configure"`
-	Agents string `usage:"Comma-separated target agents: detected or claude-code" default:"detected"`
+	Agents string `usage:"Comma-separated target agents: detected, claude-code, or cursor" default:"detected"`
 	Yes    bool   `usage:"Accept confirmations and use non-interactive defaults"`
 
 	root *Obot
@@ -174,13 +174,15 @@ func parseSetupAgents(raw string) (setupAgentSelection, error) {
 			selection.detected = true
 		case localagents.ClaudeCodeAgentID:
 			selection.agentIDs[localagents.ClaudeCodeAgentID] = true
+		case localagents.CursorAgentID:
+			selection.agentIDs[localagents.CursorAgentID] = true
 		default:
-			return setupAgentSelection{}, fmt.Errorf("unsupported --agents value %q; supported values are detected and claude-code", value)
+			return setupAgentSelection{}, fmt.Errorf("unsupported --agents value %q; supported values are detected, claude-code, and cursor", value)
 		}
 	}
 
 	if !selection.detected && len(selection.agentIDs) == 0 {
-		return setupAgentSelection{}, fmt.Errorf("--agents must include detected or claude-code")
+		return setupAgentSelection{}, fmt.Errorf("--agents must include detected, claude-code, or cursor")
 	}
 
 	return selection, nil

@@ -107,7 +107,7 @@ func tableCell(value string) string {
 }
 
 type SkillsInstall struct {
-	Agent string `usage:"Target agent: detected or claude-code" default:"detected"`
+	Agent string `usage:"Target agent: detected, claude-code, or cursor" default:"detected"`
 	JSON  bool   `usage:"Print results as JSON"`
 
 	root *Obot
@@ -210,10 +210,12 @@ func selectedDirectInstallers(ctx context.Context, agent string) ([]localagents.
 		return installers, nil
 	case localagents.ClaudeCodeAgentID:
 		return []localagents.DirectInstaller{localagents.NewClaudeCode()}, nil
+	case localagents.CursorAgentID:
+		return []localagents.DirectInstaller{localagents.NewCursor()}, nil
 	case "all":
 		fallthrough
 	default:
-		return nil, fmt.Errorf("unsupported --agent value %q; supported values are detected and claude-code", agent)
+		return nil, fmt.Errorf("unsupported --agent value %q; supported values are detected, claude-code, and cursor", agent)
 	}
 }
 
