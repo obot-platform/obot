@@ -1,0 +1,17 @@
+{
+  "prompts": [
+    "Is AWS Knowledge tool connected?",
+    "Which AWS regions support Amazon Aurora Serverless v2?",
+    "List all AWS regions currently available.",
+    "Read the documentation for AWS Step Functions and summarize its main features.",
+    "Search the AWS documentation for information about setting up cross-region replication for S3.",
+    "Recommend the best AWS database service for a serverless web application."
+  ],
+  "tools" : [
+    "get_regional_availability",
+    "list_regions",
+    "read_documentation",
+    "search_documentation",
+    "recommend"
+  ]
+}

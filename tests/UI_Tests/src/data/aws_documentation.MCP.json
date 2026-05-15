@@ -1,0 +1,12 @@
+{
+  "prompts": [
+    "Is AWS Documentation tool connected?",
+    "Read the documentation for the AWS Lambda CreateFunction API and summarize the required parameters.",
+    "Recommend the best AWS service for hosting a static website, based on the official documentation."
+  ],
+  "tools" : [
+    "read_documentation",
+    "search_documentation",
+    "recommend"
+  ]
+}

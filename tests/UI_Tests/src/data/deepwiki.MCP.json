@@ -1,0 +1,13 @@
+{
+    "prompts": [
+        "Is DeepWiki MCP tool connected?",
+        "Show me the documentation structure for the GitHub repository facebook/react using read_wiki_structure.",
+        "Display the main documentation contents for the GitHub repository facebook/react using read_wiki_contents.",
+        "What is the purpose of the useState hook in the facebook/react repository using ask_question?"
+    ],
+    "tools": [
+        "read_wiki_structure",
+        "read_wiki_contents",
+        "ask_question"
+    ]
+}

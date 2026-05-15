@@ -1,0 +1,11 @@
+{
+    "prompts": [
+        "Is Exa Search tool connected?",
+        "Show me Python code examples for reading and writing JSON files using the built-in json module with get_code_context_exa.",
+        "What are the most important new features in React 19 as of November 2025 using web_search_exa?"
+    ],
+    "tools": [
+        "get_code_context_exa",
+        "web_search_exa"
+    ]
+}

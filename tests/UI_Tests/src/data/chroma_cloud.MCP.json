@@ -1,0 +1,32 @@
+{
+  "prompts": [
+    "Create a new collection called 'test_collection' using the default embedding function.",
+    "Add the following documents to a collection named 'test_collection': 'This is the first test document.' (ID: doc1), 'This is the second test document.' (ID: doc2).",
+    "Retrieve all documents from the collection 'test_collection'.",
+    "Get information about the collection 'test_collection'.",
+    "Get the number of documents in the collection 'test_collection'.",
+    "Peek at the first 3 documents in the collection 'test_collection'.",
+    "Query the collection 'test_collection' for documents similar to 'test document' and return the top 2 results.",
+    "Update the document with ID 'doc2' in 'test_collection' to have the content: 'This is the updated second test document.'",
+    "Delete the document with ID 'doc1' from the collection 'test_collection'.",
+    "Fork the collection 'test_collection' into a new collection called 'test_collection_fork'.",
+    "Rename the collection 'test_collection' to 'test_collection_renamed'.",
+    "List all collections in Chroma Cloud.",
+    "Delete the collection named 'test_collection_renamed'."
+  ],
+  "tools": [
+    "chroma_create_collection",
+    "chroma_add_documents",
+    "chroma_get_documents",
+    "chroma_get_collection_info",
+    "chroma_get_collection_count",
+    "chroma_peek_collection",
+    "chroma_query_documents",
+    "chroma_update_documents",
+    "chroma_delete_documents",
+    "chroma_fork_collection",
+    "chroma_modify_collection",
+    "chroma_list_collections",
+    "chroma_delete_collection"
+  ]
+}

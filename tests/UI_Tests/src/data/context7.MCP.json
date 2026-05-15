@@ -1,0 +1,13 @@
+{
+    "prompts": [
+        "Is Context7 connected?",
+        "Resolve the library ID for 'lodash' using resolve-library-id.",
+        "Fetch the official documentation for the library ID /lodash/lodash, focusing on the topic 'array methods' with get-library-docs.",
+        "Resolve the library ID for 'axios' using resolve-library-id.",
+        "Fetch the official documentation for the library ID /axios/axios, focusing on the topic 'interceptors' with get-library-docs."
+    ],
+    "tools": [
+        "resolve-library-id",
+        "get-library-docs"
+    ]
+}

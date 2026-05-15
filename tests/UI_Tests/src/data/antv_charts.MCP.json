@@ -1,0 +1,31 @@
+{
+  "prompts": [
+    "Sample Data Reference:{  \"data\": [    {\"category\": \"A\", \"value\": 120, \"date\": \"2025-01-01\"},    {\"category\": \"B\", \"value\": 200, \"date\": \"2025-01-02\"},    {\"category\": \"C\", \"value\": 150, \"date\": \"2025-01-03\"}  ],  \"options\": {    \"title\": \"Sample Title\",    \"xField\": \"date\",    \"yField\": \"value\",    \"seriesField\": \"category\"  }}Use this sample data format for the following prompts, or provide your own data.",
+    "Render an area chart showing daily totals for 7 days. Use xField=date and yField=value. The chart should include a tooltip for each point and a legend for any series. Please provide your data, or let me know if you'd like to see a sample chart.",
+    "Render a vertical bar chart comparing categories A–E by value. Use xField=category and yField=value. Show axis labels and display value labels on each bar. Provide your data or request a sample chart if needed.",
+    "Render a column chart for monthly revenue (Jan–Dec). Use xField=month and yField=revenue. The chart should display gridlines and format the y-axis as currency. Please provide revenue values for each month, or ask for a sample chart.",
+    "Render a line chart for a daily time series. Use xField=date and yField=value. The chart should show markers on each point, enable tooltips, and support zoom/brush interaction. Provide your data or request a sample chart.",
+    "Render a pie chart showing market share by category (A, B, C). Display percentage labels on each slice and include a legend. Provide your data or use sample values: A: 40%, B: 35%, C: 25%.",
+    "Render a scatter plot of points with x and y fields. Show a tooltip with both coordinates and the category for each point. Please provide your data (including x, y, and category), or request a sample chart.",
+    "Render a histogram for a numeric field 'score' using 10 bins. Show the count per bin on the y-axis and bin ranges on the x-axis. Provide your list of scores or use sample data.",
+    "Render a boxplot for 'score' grouped by 'category' (A, B, C). Show the median, interquartile range (IQR), whiskers, and any outliers for each category. Provide your data or use sample values.",
+    "Render violin plots showing the distribution of 'value' by category (A, B, C). Each violin should display the KDE (kernel density estimate) shape and a median line. Provide your data or use sample values.",
+    "Render a radar chart comparing two items across five metrics: speed, reliability, cost, ease, and popularity. Show labels on each axis and fill the polygons for each item. Provide your data or use sample values.",
+    "Render a funnel chart for conversion stages: Visit (1000), Signup (200), Trial (80), Purchase (20). Show stage labels and conversion percentages between stages. You can use these values or provide your own.",
+    "Render a Sankey diagram for flows: A→B:100, A→C:50, B→D:80, C→D:70. Label all nodes and make link widths proportional to flow values. Use these flows or provide your own data."
+  ],
+  "tools": [
+    "generate_area_chart",
+    "generate_bar_chart",
+    "generate_column_chart",
+    "generate_line_chart",
+    "generate_pie_chart",
+    "generate_scatter_chart",
+    "generate_histogram_chart",
+    "generate_boxplot_chart",
+    "generate_violin_chart",
+    "generate_radar_chart",
+    "generate_funnel_chart",
+    "generate_sankey_chart"
+  ]
+}

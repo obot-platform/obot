@@ -1,0 +1,13 @@
+{
+  "prompts": [
+    "Search for the latest documentation on the Python requests library.",
+    "Find and summarize the official React useEffect hook documentation.",
+    "Show me how to use pandas DataFrame.merge with examples from the docs.",
+    "Look up the Node.js fs module documentation and explain how to read a file.",
+    "Read and summarize the content of this URL: https://docs.obot.ai/"
+  ],
+  "tools": [
+    "ref_search_documentation",
+    "ref_read_url"
+  ]
+}

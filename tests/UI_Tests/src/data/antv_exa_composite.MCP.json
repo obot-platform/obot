@@ -1,0 +1,27 @@
+{
+  "prompts": [
+    "Sample Data Reference:{  \"data\": [    {\"category\": \"A\", \"value\": 120, \"date\": \"2025-01-01\"},    {\"category\": \"B\", \"value\": 200, \"date\": \"2025-01-02\"},    {\"category\": \"C\", \"value\": 150, \"date\": \"2025-01-03\"}  ],  \"options\": {    \"title\": \"Sample Title\",    \"xField\": \"date\",    \"yField\": \"value\",    \"seriesField\": \"category\"  }}Use this sample data format for the following prompts, or provide your own data.",
+    "Render an area chart showing daily totals for 7 days. Use xField=date and yField=value. The chart should include a tooltip for each point and a legend for any series. Please provide your data, or let me know if you'd like to see a sample chart.",
+    "Render a vertical bar chart comparing categories A–E by value. Use xField=category and yField=value. Show axis labels and display value labels on each bar. Provide your data or request a sample chart if needed.",
+    "Render a column chart for monthly revenue (Jan–Dec). Use xField=month and yField=revenue. The chart should display gridlines and format the y-axis as currency. Please provide revenue values for each month, or ask for a sample chart.",
+    "Is Exa Search tool connected?",
+    "Show me Python code examples for reading and writing JSON files using the built-in json module with get_code_context_exa.",
+    "What are the most important new features in React 19 as of November 2025 using web_search_exa?"
+  ],
+  "tools": [
+    "generate_area_chart",
+    "generate_bar_chart",
+    "generate_column_chart",
+    "generate_line_chart",
+    "generate_pie_chart",
+    "generate_scatter_chart",
+    "generate_histogram_chart",
+    "generate_boxplot_chart",
+    "generate_violin_chart",
+    "generate_radar_chart",
+    "generate_funnel_chart",
+    "generate_sankey_chart",
+    "get_code_context_exa",
+    "web_search_exa"
+  ]
+}
