@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/serviceaccounts"
 	"github.com/obot-platform/obot/pkg/services"
 	"helm.sh/helm/v3/pkg/action"
@@ -76,8 +77,7 @@ func helmActionError(err error, capture *helmLogCapture) error {
 
 func (c *Controller) reconcileNetworkPolicyProvider(ctx context.Context) error {
 	if !c.services.MCPNetworkPolicyEnabled &&
-		c.services.MCPRuntimeBackend != "kubernetes" &&
-		c.services.MCPRuntimeBackend != "k8s" {
+		!mcp.IsKubernetesRuntimeBackend(c.services.MCPRuntimeBackend) {
 		return nil
 	}
 

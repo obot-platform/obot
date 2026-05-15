@@ -1142,7 +1142,7 @@ func ValidateSecretBindings(manifest types.MCPServerManifest, gitManaged bool, m
 		if h.SecretBinding == nil {
 			return nil
 		}
-		if mcpBackend != "kubernetes" && mcpBackend != "k8s" {
+		if !mcp.IsKubernetesRuntimeBackend(mcpBackend) {
 			return fmt.Errorf("%s %q: secretBinding requires the kubernetes MCP runtime backend", kind, key)
 		}
 		if !gitManaged {

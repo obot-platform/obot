@@ -63,8 +63,12 @@ func Enabled(account Account, mcpRuntimeBackend string, networkPolicyEnabled boo
 }
 
 func mcpBackendMatches(required, actual string) bool {
-	if required == actual {
-		return true
+	return normalizeBackend(required) == normalizeBackend(actual)
+}
+
+func normalizeBackend(backend string) string {
+	if backend == "k8s" {
+		return "kubernetes"
 	}
-	return required == "kubernetes" && actual == "k8s"
+	return backend
 }

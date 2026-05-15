@@ -524,7 +524,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, fmt.Errorf("invalid MCP OAuth client expiration: must be at least 1 minute")
 	}
 
-	runtimeIsK8s := config.MCPRuntimeBackend == "kubernetes" || config.MCPRuntimeBackend == "k8s"
+	runtimeIsK8s := mcp.IsKubernetesRuntimeBackend(config.MCPRuntimeBackend)
 	if runtimeIsK8s && config.StorageListenPort == 0 {
 		config.StorageListenPort = 8443
 	}
@@ -644,7 +644,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 	// Build local Kubernetes config for deployment monitoring (optional)
 	var localK8sConfig *rest.Config
-	if config.MCPRuntimeBackend == "kubernetes" {
+	if mcp.IsKubernetesRuntimeBackend(config.MCPRuntimeBackend) {
 		localK8sConfig, err = buildLocalK8sConfig()
 		if err != nil {
 			return nil, fmt.Errorf("failed to build local Kubernetes config: %w", err)
