@@ -19,10 +19,6 @@ export interface EditorItem {
 	generic?: boolean;
 }
 
-export interface GenerateImageRequest {
-	prompt: string;
-}
-
 export interface ImageResponse {
 	imageUrl: string;
 }
@@ -189,10 +185,6 @@ function remove(items: EditorItem[], id: string): boolean {
 	return items.length === 0;
 }
 
-async function generateImage(prompt: string): Promise<ImageResponse> {
-	return (await doPost('/image/generate', { prompt }, { dontLogErrors: true })) as ImageResponse;
-}
-
 async function uploadImage(file: File): Promise<ImageResponse> {
 	const formData = new FormData();
 	formData.append('image', file);
@@ -224,7 +216,6 @@ export default {
 	load,
 	download,
 	select,
-	generateImage,
 	uploadImage,
 	createObot,
 	save

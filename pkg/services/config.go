@@ -43,7 +43,6 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	otime "github.com/obot-platform/obot/pkg/gateway/time"
 	"github.com/obot-platform/obot/pkg/gateway/types"
-	"github.com/obot-platform/obot/pkg/gemini"
 	"github.com/obot-platform/obot/pkg/hash"
 	"github.com/obot-platform/obot/pkg/invoke"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
@@ -84,7 +83,6 @@ var pkgLog = logger.Package()
 
 type (
 	GatewayConfig     gserver.Options
-	GeminiConfig      gemini.Config
 	AuditConfig       audit.Options
 	RateLimiterConfig ratelimiter.Options
 	EncryptionConfig  encryption.Options
@@ -154,7 +152,6 @@ type Config struct {
 	ArtifactAzureClientID         string `usage:"Azure client ID for artifact storage" name:"artifact-azure-client-id" env:"OBOT_ARTIFACT_AZURE_CLIENT_ID"`
 	ArtifactAzureClientSecret     string `usage:"Azure client secret for artifact storage" name:"artifact-azure-client-secret" env:"OBOT_ARTIFACT_AZURE_CLIENT_SECRET"`
 
-	GeminiConfig
 	GatewayConfig
 	EncryptionConfig
 	MetricsAuthConfig
@@ -194,7 +191,6 @@ type Services struct {
 	DefaultSkillRepoURL         string
 	DefaultSkillRepoRef         string
 	AgentsDir                   string
-	GeminiClient                *gemini.Client
 	Otel                        *Otel
 	AuditLogger                 audit.Logger
 	PostgresDSN                 string
@@ -1023,15 +1019,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		authenticators = union.New(authenticators, authn.NewNoAuth(gatewayClient))
 	}
 
-	var geminiClient *gemini.Client
-	if config.GeminiAPIKey != "" {
-		// Enable gemini-powered image generation
-		geminiClient, err = gemini.NewClient(ctx, gemini.Config(config.GeminiConfig))
-		if err != nil {
-			return nil, fmt.Errorf("failed to create gemini client: %w", err)
-		}
-	}
-
 	run, err := gptscriptClient.Run(ctx, fmt.Sprintf("Validate Environment Variables from %s", workspaceTool), gptscript.Options{
 		Input: fmt.Sprintf(`{"provider":"%s"}`, config.WorkspaceProviderType),
 		GlobalOptions: gptscript.GlobalOptions{
@@ -1106,7 +1093,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		ProviderDispatcher:             providerDispatcher,
 		Bootstrapper:                   bootstrapper,
 		AgentsDir:                      config.AgentsDir,
-		GeminiClient:                   geminiClient,
 		Otel:                           otel,
 		AuditLogger:                    auditLogger,
 		PostgresDSN:                    postgresDSN,

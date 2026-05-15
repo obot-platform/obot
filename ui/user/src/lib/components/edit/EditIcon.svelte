@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { popover } from '$lib/actions';
 	import UploadImage from '$lib/components/UploadImage.svelte';
-	import GenerateIcon from '$lib/components/edit/GenerateIcon.svelte';
 	import AssistantIcon from '$lib/icons/AssistantIcon.svelte';
 	import type { Project } from '$lib/services';
 	import { responsive } from '$lib/stores';
@@ -120,8 +119,6 @@
 			<div class="flex justify-center">
 				<AssistantIcon {project} class="size-56" />
 			</div>
-
-			<GenerateIcon {project} />
 
 			<div class="mt-4 flex w-full flex-col items-center justify-center gap-4 md:flex-row">
 				<UploadImage

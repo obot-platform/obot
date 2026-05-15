@@ -74,7 +74,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	files := handlers.NewFilesHandler(services.ProviderDispatcher)
 	memories := handlers.NewMemoryHandler()
 	workflows := handlers.NewWorkflowHandler()
-	images := handlers.NewImageHandler(services.GeminiClient)
+	images := handlers.NewImageHandler()
 	mcp := handlers.NewMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, oauthChecker, services.MCPRuntimeBackend, services.ServerURL)
 	projectMCP := handlers.NewProjectMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, oauthChecker, services.ServerURL, services.InternalServerURL)
 	projectInvitations := handlers.NewProjectInvitationHandler()
@@ -833,8 +833,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("DELETE /api/workflows/{id}", workflows.Delete)
 	//
 
-	// Generated and uploaded images
-	mux.HandleFunc("POST /api/image/generate", images.GenerateImage)
+	// Uploaded images
 	mux.HandleFunc("POST /api/image/upload", images.UploadImage)
 	mux.HandleFunc("GET /api/image/{id}", images.GetImage)
 
