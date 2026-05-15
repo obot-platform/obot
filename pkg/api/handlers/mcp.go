@@ -2820,7 +2820,7 @@ func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL,
 		}
 
 		for _, component := range components {
-			if (component.CatalogEntryID != "" && disabledComponents[component.CatalogEntryID]) || component.Configured {
+			if component.CatalogEntryID != "" && disabledComponents[component.CatalogEntryID] || component.Configured {
 				continue
 			}
 
@@ -2835,7 +2835,7 @@ func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL,
 }
 
 func secretBoundMissingConfig(server types.MCPServer) (missingEnvVars, missingHeaders []string) {
-	missingEnvKeys := map[string]struct{}{}
+	missingEnvKeys := make(map[string]struct{})
 	for _, key := range server.MissingRequiredEnvVars {
 		missingEnvKeys[key] = struct{}{}
 	}
@@ -2848,7 +2848,7 @@ func secretBoundMissingConfig(server types.MCPServer) (missingEnvVars, missingHe
 		}
 	}
 
-	missingHeaderKeys := map[string]struct{}{}
+	missingHeaderKeys := make(map[string]struct{})
 	for _, key := range server.MissingRequiredHeaders {
 		missingHeaderKeys[key] = struct{}{}
 	}
