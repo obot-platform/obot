@@ -6,8 +6,8 @@ import (
 	"testing"
 )
 
-func TestRenderClaudeSkillsForClaudeCode(t *testing.T) {
-	rendered := renderClaudeSkillsForTest(t, ClaudeCodeTemplateData())
+func TestRenderAgentSkillsForClaudeCode(t *testing.T) {
+	rendered := renderAgentSkillsForTest(t, ClaudeCodeTemplateData())
 
 	if len(rendered) != 4 {
 		t.Fatalf("expected 4 rendered assets, got %d", len(rendered))
@@ -27,8 +27,8 @@ func TestRenderClaudeSkillsForClaudeCode(t *testing.T) {
 	assertContains(t, string(bootstrap.Content), "rendered for `claude-code`")
 }
 
-func TestRenderClaudeSkillsForCursor(t *testing.T) {
-	rendered := renderClaudeSkillsForTest(t, CursorTemplateData())
+func TestRenderAgentSkillsForCursor(t *testing.T) {
+	rendered := renderAgentSkillsForTest(t, CursorTemplateData())
 
 	install := renderedByName(t, rendered, "obot-install-skill")
 	assertContains(t, string(install.Content), "obot skills install --agent cursor <skill>")
@@ -38,7 +38,7 @@ func TestRenderClaudeSkillsForCursor(t *testing.T) {
 }
 
 func TestRenderedAssetsHaveDeterministicRelativePaths(t *testing.T) {
-	rendered := renderClaudeSkillsForTest(t, ClaudeCodeTemplateData())
+	rendered := renderAgentSkillsForTest(t, ClaudeCodeTemplateData())
 
 	got := make([]string, 0, len(rendered))
 	for _, asset := range rendered {
@@ -59,7 +59,7 @@ func TestRenderedAssetsHaveDeterministicRelativePaths(t *testing.T) {
 	}
 }
 
-func TestRenderClaudeSkillsRejectsIncompleteTemplateData(t *testing.T) {
+func TestRenderAgentSkillsRejectsIncompleteTemplateData(t *testing.T) {
 	tests := []TemplateData{
 		{InstallAgentArg: "claude-code"},
 		{AgentID: "claude-code"},
@@ -73,7 +73,7 @@ func TestRenderClaudeSkillsRejectsIncompleteTemplateData(t *testing.T) {
 }
 
 func TestRenderedTemplatesDoNotContainUnexpandedActions(t *testing.T) {
-	rendered := renderClaudeSkillsForTest(t, ClaudeCodeTemplateData())
+	rendered := renderAgentSkillsForTest(t, ClaudeCodeTemplateData())
 	for _, asset := range rendered {
 		content := string(asset.Content)
 		assertNotContains(t, content, "{{")
@@ -81,7 +81,7 @@ func TestRenderedTemplatesDoNotContainUnexpandedActions(t *testing.T) {
 	}
 }
 
-func renderClaudeSkillsForTest(t *testing.T, data TemplateData) []SkillAsset {
+func renderAgentSkillsForTest(t *testing.T, data TemplateData) []SkillAsset {
 	t.Helper()
 
 	rendered, err := RenderAgentSkills(data)
