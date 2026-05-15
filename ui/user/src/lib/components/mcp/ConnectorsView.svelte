@@ -394,9 +394,6 @@
 				{@const matchingServers = catalogEntry
 					? getConfiguredServersForCatalogEntry(catalogEntry)
 					: []}
-				{@const usableMatchingServers = catalogEntry
-					? getUsableConfiguredServersForCatalogEntry(catalogEntry)
-					: []}
 				{#if property === 'name'}
 					<div class="flex shrink-0 items-center gap-2">
 						<div class="icon">

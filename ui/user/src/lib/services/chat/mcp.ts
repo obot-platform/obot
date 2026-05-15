@@ -268,7 +268,7 @@ function convertEntriesToTableData(
 			const registry = getUserRegistry(entry, usersMap);
 			const configuredServers = userConfiguredServersByEntry.get(entry.id) ?? [];
 			const missingSecretBinding = hasMissingSecretBinding(entry, configuredServers);
-			const connected = configuredServers.length > 0;
+			const connected = configuredServers.some((s) => !serverHasMissingSecretBinding(entry, s));
 			return {
 				id: entry.id,
 				name: entry.manifest?.name ?? '',
