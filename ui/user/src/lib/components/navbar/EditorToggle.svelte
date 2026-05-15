@@ -25,7 +25,7 @@
 			layout.projectEditorOpen = true;
 			layout.sidebarOpen = false;
 		}}
-		class="text-gray hover:bg-surface3 border-surface3 relative flex items-center rounded-full border bg-transparent p-2 text-xs opacity-50 transition-[background-color] duration-200 hover:opacity-100"
+		class="text-gray hover:bg-base-400 border-base-400 relative flex items-center rounded-full border bg-transparent p-2 text-xs opacity-50 transition-[background-color] duration-200 hover:opacity-100"
 	>
 		<Pencil class="size-5" />
 	</button>

@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { autoHeight } from '$lib/actions/textarea';
+	import Loading from '$lib/icons/Loading.svelte';
 	import { EditorService } from '$lib/services';
 	import type { Project } from '$lib/services';
 	import { errors } from '$lib/stores';
-	import { Wand, LoaderCircle, ChevronDown, ChevronUp } from 'lucide-svelte/icons';
+	import { Wand, ChevronDown, ChevronUp } from 'lucide-svelte/icons';
 	import { fade } from 'svelte/transition';
 
 	interface Props {
@@ -79,24 +80,24 @@
 </script>
 
 <div class="relative mt-2 flex flex-col gap-2">
-	<div class="border-surface3 flex rounded-lg border">
+	<div class="border-base-400 flex rounded-lg border">
 		<button
-			class="icon-button border-surface3 dark:border-surface3 hover:bg-surface2 bg-background flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-l-lg rounded-r-none border-r"
+			class="btn btn-secondary border-base-400 dark:border-base-400 hover:bg-base-300 bg-base-100 flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-l-lg rounded-r-none border-r"
 			onclick={() => (isCustomPrompt ? generateIcon(true) : generateIcon())}
 			disabled={isGenerating || (!project.description && !isCustomPrompt)}
 		>
 			{#if isGenerating}
-				<LoaderCircle class="h-5 w-5 animate-spin" />
-				<span class="text-on-surface">Generating icon...</span>
+				<Loading />
+				<span class="text-muted-content">Generating icon...</span>
 			{:else}
 				<Wand class="h-5 w-5" />
-				<span class="text-on-surface"
+				<span class="text-muted-content"
 					>{isCustomPrompt ? 'Generate from custom prompt' : 'Generate from description'}</span
 				>
 			{/if}
 		</button>
 		<button
-			class="icon-button hover:bg-surface2 dark:border-surface3 bg-background flex items-center rounded-l-none rounded-r-lg px-2 hover:shadow-inner"
+			class="btn btn-secondary hover:bg-base-300 dark:border-base-400 bg-base-100 flex items-center rounded-l-none rounded-r-lg px-2 hover:shadow-inner"
 			onclick={() => (isCustomPrompt = !isCustomPrompt)}
 			disabled={isGenerating}
 		>
@@ -108,13 +109,13 @@
 		</button>
 	</div>
 	{#if isCustomPrompt}
-		<div in:fade class="border-surface3 flex flex-col gap-2 border-b pt-2 pb-4">
+		<div in:fade class="border-base-400 flex flex-col gap-2 border-b pt-2 pb-4">
 			<textarea
 				bind:value={customPrompt}
 				use:autoHeight
 				use:focusTextarea
 				placeholder="Enter custom prompt for image generation..."
-				class="dark:border-surface3 bg-background w-full resize-none rounded-lg p-2 text-sm outline-hidden dark:border dark:text-gray-50"
+				class="dark:border-base-400 bg-base-100 text-base-content w-full resize-none rounded-lg p-2 text-sm outline-hidden dark:border"
 				rows="3"
 			></textarea>
 		</div>

@@ -6,6 +6,7 @@
 	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 	import { ChatService, type Project, type ProjectMember } from '$lib/services';
 	import { profile } from '$lib/stores';
+	import IconButton from '../primitives/IconButton.svelte';
 	import { Crown, Plus, Trash2 } from 'lucide-svelte';
 	import { fade } from 'svelte/transition';
 
@@ -57,8 +58,8 @@
 	<div class="flex flex-col">
 		<CollapsePane
 			classes={{
-				header: 'pl-3 pr-5.5 py-2 border-surface3 border-b',
-				content: 'p-3 border-b border-surface3 overflow-x-hidden',
+				header: 'pl-3 pr-5.5 py-2 border-base-400 border-b',
+				content: 'p-3 border-b border-base-400 overflow-x-hidden',
 				headerText: 'text-sm font-normal'
 			}}
 			iconSize={4}
@@ -66,13 +67,13 @@
 			helpText={HELPER_TEXTS.chatbot}
 		>
 			<div class="flex flex-col gap-3">
-				<p class="text-on-surface1 text-xs">
+				<p class="text-muted-content text-xs">
 					Configure ChatBot to produce a link that allows anyone to use this project in a read-only
 					mode.
 				</p>
 				<div class="mt-2 flex justify-end" in:fade>
 					<button
-						class="button flex cursor-pointer items-center justify-end gap-1 text-xs"
+						class="btn btn-secondary btn-sm flex cursor-pointer items-center justify-end gap-1"
 						onclick={openChatbotConfig}
 					>
 						<span>Configure ChatBot</span>
@@ -83,8 +84,8 @@
 
 		<CollapsePane
 			classes={{
-				header: 'pl-3 pr-5.5 py-2 border-surface3 border-b',
-				content: 'p-3 border-b border-surface3',
+				header: 'pl-3 pr-5.5 py-2 border-base-400 border-b',
+				content: 'p-3 border-b border-base-400',
 				headerText: 'text-sm font-normal'
 			}}
 			iconSize={4}
@@ -97,13 +98,9 @@
 						<span class="text-sm font-medium">Project Members</span>
 						{#if isOwnerOrAdmin}
 							<div class="flex gap-2">
-								<button
-									class="icon-button"
-									onclick={manageInvitations}
-									use:tooltip={'Manage invitations'}
-								>
+								<IconButton onclick={manageInvitations} tooltip={{ text: 'Manage invitations' }}>
 									<Plus class="size-4" />
-								</button>
+								</IconButton>
 							</div>
 						{/if}
 					</div>
@@ -112,7 +109,7 @@
 							class="group flex min-h-9 w-full items-center rounded-md transition-colors duration-300"
 						>
 							<div class="flex grow items-center gap-2">
-								<div class="size-6 overflow-hidden rounded-full bg-gray-50 dark:bg-gray-600">
+								<div class="size-6 overflow-hidden rounded-full bg-base-200 dark:bg-base-300">
 									<img
 										src={member.iconURL}
 										class="h-full w-full object-cover"
@@ -130,13 +127,12 @@
 								{/if}
 							</div>
 							{#if isOwnerOrAdmin && profile.current.email !== member.email && !member.isOwner}
-								<button
-									class="icon-button"
+								<IconButton
 									onclick={() => (toDelete = member.email)}
-									use:tooltip={'Remove member'}
+									tooltip={{ text: 'Remove member' }}
 								>
 									<Trash2 class="size-4" />
-								</button>
+								</IconButton>
 							{/if}
 						</div>
 					{/each}

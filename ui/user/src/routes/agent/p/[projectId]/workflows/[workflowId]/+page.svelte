@@ -324,7 +324,7 @@
 							<td>
 								<div class="w-full min-w-0">
 									<p
-										class="text-base-content/50 w-full min-w-0 truncate text-sm font-light break-all italic"
+										class="text-muted-content w-full min-w-0 truncate text-sm font-light break-all italic"
 									>
 										{resource.uri}
 									</p>
@@ -617,12 +617,8 @@
 		tr.list-row {
 			cursor: pointer;
 			&:hover {
-				background-color: color-mix(in oklch, var(--color-base-100) 95%, var(--color-black));
+				background-color: var(--color-base-200);
 				transition: background-color 0.2s ease;
-			}
-
-			.dark &:hover {
-				background-color: color-mix(in oklch, var(--color-base-100) 80%, var(--color-white));
 			}
 		}
 	}

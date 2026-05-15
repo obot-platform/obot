@@ -1,8 +1,8 @@
 <script lang="ts" generics="T extends object">
-	import { tooltip as tooltipAction } from '$lib/actions/tooltip.svelte';
 	import { lightenHex } from '$lib/colors';
 	import { darkMode, timePreference } from '$lib/stores';
 	import { formatLogTimestamp } from '$lib/time';
+	import IconButton from '../primitives/IconButton.svelte';
 	import { autoUpdate, computePosition, flip, offset } from '@floating-ui/dom';
 	import {
 		scaleBand,
@@ -588,7 +588,7 @@
 <div class={twMerge('group relative flex h-full w-full flex-col', klass)}>
 	<div class="flex min-h-0 flex-1 gap-0">
 		<div
-			class="y-axis-labels text-on-surface3/20 dark:text-on-surface1/10 relative shrink-0 self-stretch text-xs"
+			class="y-axis-labels text-base-content/15 dark:text-base-content/10 relative shrink-0 self-stretch text-xs"
 			style="width: {yAxisLabelWidth}px;"
 			aria-hidden="true"
 		>
@@ -611,7 +611,7 @@
 		<div bind:clientHeight bind:clientWidth class="min-h-0 min-w-0 flex-1">
 			{#if highlightedRectElement && currentItem}
 				<div
-					class="tooltip bg-background dark:bg-surface2 pointer-events-none fixed top-0 left-0 z-50 flex flex-col shadow-md"
+					class="tooltip bg-base-100 dark:bg-base-300 pointer-events-none fixed top-0 left-0 z-50 flex flex-col shadow-md"
 					{@attach (node) => tooltip(highlightedRectElement!, node)}
 					in:fade={{ duration: 100, delay: 10 }}
 					out:fade={{ duration: 100 }}
@@ -620,14 +620,14 @@
 						{@render tooltipContent(currentItem)}
 					{:else}
 						<div class="flex flex-col gap-0 text-xs">
-							<div class="text-on-background text-sm">
+							<div class="text-base-content text-sm">
 								{currentItem?.key}
 							</div>
-							<div class="border-on-surface1 mb-2 border-b pb-2">
+							<div class="border-base-200 mb-2 border-b pb-2">
 								{currentItem?.date}
 							</div>
 						</div>
-						<div class="text-on-background text-2xl font-bold">{currentItem?.value}</div>
+						<div class="text-base-content text-2xl font-bold">{currentItem?.value}</div>
 					{/if}
 				</div>
 			{/if}
@@ -636,7 +636,7 @@
 				<g transform="translate({paddingLeft}, {paddingTop})">
 					{#key timePreference.timeFormat}
 						<g
-							class="x-axis text-on-surface3/20 dark:text-on-surface1/10"
+							class="x-axis text-base-content/15 dark:text-base-content/10"
 							transform="translate(0 {innerHeight})"
 							{@attach (node: SVGGElement) => {
 								const selection = select(node);
@@ -737,7 +737,7 @@
 										const baseClassName = ['duration-500', 'transition-all'];
 										add(...baseClassName);
 
-										const activeClassName = ['text-on-surface3', 'dark:text-on-surface1'];
+										const activeClassName = ['text-base-content/15', 'dark:text-base-content/10'];
 										const inactiveClassName = ['opacity-0', 'duration-500', 'transition-opacity'];
 
 										if (isActive) {
@@ -769,7 +769,7 @@
 					{/key}
 
 					<g
-						class="y-axis text-on-surface3/20 dark:text-on-surface1/10"
+						class="y-axis text-base-content/15 dark:text-base-content/10"
 						{@attach (node: SVGGElement) => {
 							select(node)
 								.transition()
@@ -897,7 +897,7 @@
 									return base;
 								})
 								.attr('cursor', 'pointer')
-								.attr('class', 'text-on-surface1')
+								.attr('class', 'text-muted-content')
 								.on('pointerenter', function (ev, d) {
 									highlightedRectElement = this as SVGGraphicsElement;
 									const bucketKey =
@@ -957,18 +957,17 @@
 		{#if hasMoreLegendCategories}
 			{#if legendExpanded}
 				<button
-					class="text-on-surface1 hover:underline"
+					class="text-muted-content hover:underline"
 					onclick={() => (legendExpanded = !legendExpanded)}>Show less</button
 				>
 			{:else}
-				<button
-					type="button"
-					class="button-icon min-h-fit min-w-fit p-2"
+				<IconButton
+					class="btn-xs"
+					tooltip={{ text: 'Show all legend items' }}
 					onclick={() => (legendExpanded = !legendExpanded)}
-					use:tooltipAction={'Show all legend items'}
 				>
 					<Ellipsis class="size-3" />
-				</button>
+				</IconButton>
 			{/if}
 		{/if}
 	</div>
@@ -979,7 +978,7 @@
 		<span class="size-2 shrink-0 rounded-full" style="background-color: {color}"></span>
 		<span class="ml-0.5">
 			{#if label && category}
-				{category} <span class="text-on-surface1">{label}</span>
+				{category} <span class="text-muted-content">{label}</span>
 			{:else}
 				{label || category}
 			{/if}

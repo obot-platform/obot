@@ -3,7 +3,7 @@ import SnippetComponent from '$lib/components/primitives/Snippet.svelte';
 import type { Placement } from '@floating-ui/dom';
 import { mount, unmount, type Snippet } from 'svelte';
 
-const DEFAULT_LAYOUT_CLASSES = ['max-w-64', 'break-words', 'whitespace-pre-wrap'] as const;
+const DEFAULT_LAYOUT_CLASSES = ['max-w-64', 'wrap-break-word', 'whitespace-pre-wrap'] as const;
 
 export type TooltipVariant = 'default' | 'daisy';
 

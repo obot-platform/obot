@@ -29,9 +29,9 @@
 			<Logo variant="error" class="h-[200px] w-[200px]" />
 		</div>
 		<div
-			class="speech-bubble bg-surface2 after:border-r-surface2 relative m-4 flex flex-col items-center justify-center rounded-md
+			class="speech-bubble bg-base-300 after:border-r-base-300 relative m-4 flex flex-col items-center justify-center rounded-md
     p-4 after:absolute after:top-[50%] after:left-0 after:mt-[-20px] after:ml-[-40px]
-    after:h-0 after:w-0 after:border-[40px] after:border-b-0
+    after:h-0 after:w-0 after:border-40 after:border-b-0
     after:border-l-0 after:border-transparent after:content-['']"
 		>
 			<div class="text-8xl font-bold">{page.status}</div>
@@ -45,8 +45,8 @@
 			<CollapsePane
 				header="More Details"
 				classes={{
-					header: 'bg-surface2 justify-between',
-					content: 'bg-surface1'
+					header: 'bg-base-300 justify-between',
+					content: 'bg-base-200'
 				}}
 			>
 				<div class="">{page.error.message}</div>
@@ -54,5 +54,5 @@
 		</div>
 	{/if}
 
-	<a href={resolve('/')} class="button-primary"> Go Home </a>
+	<a href={resolve('/')} class="btn btn-primary"> Go Home </a>
 </div>

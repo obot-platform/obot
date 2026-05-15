@@ -312,7 +312,7 @@
 									? 'bg-primary text-primary-content'
 									: hasAnswer(i)
 										? 'bg-success/20 text-success ring-success/30 ring-1'
-										: 'bg-base-200 text-base-content/40 hover:bg-base-300'
+										: 'bg-base-200 text-muted-content hover:bg-base-300'
 							)}
 						>
 							{q.header || q.question}
@@ -329,13 +329,14 @@
 						<div class="bg-base-200/60 flex items-start justify-between rounded-lg px-3 py-2">
 							<div class="min-w-0 flex-1">
 								<div class="flex items-baseline gap-1.5">
-									<span class="text-base-content/40 text-xs font-bold">{i + 1}.</span>
+									<span class="text-muted-content text-xs font-bold">{i + 1}.</span>
 									<span class="text-sm font-medium">{q.header || q.question}</span>
 								</div>
 								<p
-									class="ml-4 text-sm {hasAnswer(i)
-										? 'text-base-content/70'
-										: 'text-base-content/30 italic'}"
+									class={twMerge(
+										'ml-4 text-sm',
+										hasAnswer(i) ? 'text-base-content/70' : 'text-base-content/30 italic'
+									)}
 								>
 									{getAnswerSummary(i)}
 								</p>
@@ -361,7 +362,7 @@
 					</button>
 					<button
 						type="button"
-						class="btn btn-ghost btn-sm text-base-content/40"
+						class="btn btn-ghost btn-sm text-muted-content"
 						onclick={handleDecline}>Cancel</button
 					>
 					<button type="button" class="btn btn-primary btn-sm" onclick={handleQuestionSubmit}
@@ -377,7 +378,7 @@
 				{/if}
 				<p class="mb-2 text-sm font-medium">{q.question}</p>
 				{#if q.multiple}
-					<p class="text-base-content/40 mb-2 text-xs">Select all that apply</p>
+					<p class="text-muted-content mb-2 text-xs">Select all that apply</p>
 				{/if}
 
 				<!-- Options -->
@@ -386,8 +387,12 @@
 						{@const isSelected = selectedOptions.get(currentStep)?.has(option.label) ?? false}
 						<button
 							type="button"
-							class="flex w-full cursor-pointer items-start gap-2.5 rounded-lg border p-2.5 text-left transition-colors
-								{isSelected ? 'border-primary bg-primary/10' : 'border-base-300 hover:border-base-content/20'}"
+							class={twMerge(
+								'flex w-full cursor-pointer items-start gap-2.5 rounded-lg border p-2.5 text-left transition-colors',
+								isSelected
+									? 'border-primary bg-primary/10'
+									: 'border-base-300 hover:border-base-content/20'
+							)}
 							onclick={() => toggleOption(currentStep, option.label)}
 						>
 							{#if q.multiple}
@@ -408,7 +413,7 @@
 							<div class="min-w-0 flex-1">
 								<span class="text-sm font-medium">{option.label}</span>
 								{#if option.description}
-									<p class="text-base-content/50 text-xs">{option.description}</p>
+									<p class="text-muted-content text-xs">{option.description}</p>
 								{/if}
 							</div>
 						</button>
@@ -420,10 +425,12 @@
 				<div
 					role="button"
 					tabindex="0"
-					class="mt-1.5 flex w-full cursor-pointer items-start gap-2.5 rounded-lg border p-2.5 text-left transition-colors
-						{isCustomSelected
-						? 'border-primary bg-primary/10'
-						: 'border-base-300 hover:border-base-content/20'}"
+					class={twMerge(
+						'mt-1.5 flex w-full cursor-pointer items-start gap-2.5 rounded-lg border p-2.5 text-left transition-colors',
+						isCustomSelected
+							? 'border-primary bg-primary/10'
+							: 'border-base-300 hover:border-base-content/20'
+					)}
 					onclick={() => toggleCustomInput(currentStep)}
 					onkeydown={(e) => {
 						if (e.key === 'Enter') toggleCustomInput(currentStep);
@@ -498,7 +505,7 @@
 						{:else}
 							<button
 								type="button"
-								class="btn btn-ghost btn-sm text-base-content/40"
+								class="btn btn-ghost btn-sm text-muted-content"
 								onclick={nextStep}
 								disabled={currentStep === questions.length - 1}
 							>
@@ -605,14 +612,14 @@
 									<div
 										class="tooltip tooltip-right border-transparent bg-transparent p-0 shadow-none"
 									>
-										<div class="tooltip-content text-left break-words">
+										<div class="tooltip-content text-left wrap-break-word">
 											<p class="text-xs font-light">{schema.description}</p>
 										</div>
 										{#if optional}
-											<span class="text-base-content/40">(optional)</span>
+											<span class="text-muted-content">(optional)</span>
 										{/if}
 										<div class="btn btn-circle size-4 bg-transparent">
-											<Info class="text-base-content/40 size-4" />
+											<Info class="text-muted-content size-4" />
 										</div>
 									</div>
 								{/if}

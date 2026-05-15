@@ -26,7 +26,7 @@
 >
 	{#snippet note()}
 		<div class="mt-4 mb-8 flex flex-col gap-4">
-			<p class="text-left text-yellow-500">
+			<p class="text-left text-warning">
 				Warning: Assigning the Owner role to a group grants extensive privileges.
 			</p>
 			<div class="text-left text-sm">

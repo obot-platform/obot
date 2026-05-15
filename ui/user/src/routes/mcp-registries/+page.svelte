@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import AccessControlRuleForm from '$lib/components/admin/AccessControlRuleForm.svelte';
+	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { MCP_PUBLISHER_ALL_OPTION, PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import {
@@ -66,9 +66,9 @@
 			>
 				{#if accessControlRules.length === 0}
 					<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-						<BookOpenText class="text-on-surface1 size-24 opacity-25" />
-						<h4 class="text-on-surface1 text-lg font-semibold">No created MCP registries.</h4>
-						<p class="text-on-surface1 text-sm font-light">
+						<BookOpenText class="text-base-content/80 size-24 opacity-25" />
+						<h4 class="text-muted-content text-lg font-semibold">No created MCP registries.</h4>
+						<p class="text-muted-content text-sm font-light">
 							Looks like you don't have any registries created yet. <br />
 							Click the button below to get started.
 						</p>
@@ -91,16 +91,16 @@
 						]}
 					>
 						{#snippet actions(d)}
-							<button
-								class="icon-button hover:text-red-500"
+							<IconButton
+								variant="danger"
 								onclick={(e) => {
 									e.stopPropagation();
 									ruleToDelete = d;
 								}}
-								use:tooltip={'Delete Rule'}
+								tooltip={{ text: 'Delete Rule' }}
 							>
 								<Trash2 class="size-4" />
-							</button>
+							</IconButton>
 						{/snippet}
 						{#snippet onRenderColumn(property, d)}
 							{#if property === 'servers'}
@@ -126,7 +126,7 @@
 
 {#snippet addRuleButton()}
 	<button
-		class="button-primary flex items-center gap-1 text-sm"
+		class="btn btn-primary flex items-center gap-1 text-sm"
 		onclick={() => {
 			goto(`/mcp-registries?new=true`);
 		}}

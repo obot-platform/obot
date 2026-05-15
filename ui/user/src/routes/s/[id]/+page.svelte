@@ -8,11 +8,11 @@
 	import { initProjectMCPs } from '$lib/context/projectMcps.svelte';
 	import { initProjectTools, getProjectTools } from '$lib/context/projectTools.svelte';
 	import { initToolReferences } from '$lib/context/toolReferences.svelte';
+	import Loading from '$lib/icons/Loading.svelte';
 	import { type Assistant, ChatService, type Project } from '$lib/services';
 	import { profile, responsive } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import { type PageProps } from './$types';
-	import { LoaderCircle } from 'lucide-svelte';
 	import { onMount, untrack } from 'svelte';
 
 	let { data }: PageProps = $props();
@@ -82,7 +82,7 @@
 <div class="flex h-dvh w-dvw flex-col">
 	{#if showWarning}
 		<div
-			class="bg-surface1 relative z-40 flex h-16 w-full items-center justify-between gap-4 p-3 shadow-md md:gap-8"
+			class="bg-base-200 relative z-40 flex h-16 w-full items-center justify-between gap-4 p-3 shadow-md md:gap-8"
 		>
 			<div class="flex shrink-0 items-center gap-2">
 				<Logo />
@@ -93,10 +93,10 @@
 		</div>
 		<div class="flex grow items-center justify-center">
 			<div
-				class="bg-surface1 dark:bg-surface2 flex h-full w-full flex-col items-center justify-center gap-4 p-5 md:h-fit md:max-w-md md:rounded-xl"
+				class="bg-base-200 dark:bg-base-300 flex h-full w-full flex-col items-center justify-center gap-4 p-5 md:h-fit md:max-w-md md:rounded-xl"
 			>
 				<div class="flex max-w-sm grow flex-col gap-4 text-center md:grow-0">
-					<h2 class="border-surface3 border-b pb-4 text-xl font-semibold">Shared Project</h2>
+					<h2 class="border-base-400 border-b pb-4 text-xl font-semibold">Shared Project</h2>
 					<p class="text-md">
 						This project was published by a third-party user and may include prompts or tools not
 						reviewed or verified by our team. It could interact with external systems, access
@@ -111,12 +111,12 @@
 					{/if}
 				</div>
 
-				<button class="button-primary mt-2 w-full" onclick={createProject}>I Understand</button>
-				<button class="button w-full" onclick={() => goto('/')}>Go Back</button>
+				<button class="btn btn-primary mt-2 w-full" onclick={createProject}>I Understand</button>
+				<button class="btn btn-secondary w-full" onclick={() => goto('/')}>Go Back</button>
 			</div>
 		</div>
 	{:else if project}
-		<div class="bg-surface1 flex size-full flex-col">
+		<div class="bg-base-200 flex size-full flex-col">
 			<div class="flex grow overflow-auto">
 				<div class="contents h-full grow border-r-0">
 					<div class="size-full overflow-clip rounded-none transition-all">
@@ -128,7 +128,7 @@
 	{:else}
 		<div class="flex grow items-center justify-center">
 			<div class="size-6">
-				<LoaderCircle class="text-primary size-6 animate-spin" />
+				<Loading class="size-6" />
 			</div>
 		</div>
 	{/if}

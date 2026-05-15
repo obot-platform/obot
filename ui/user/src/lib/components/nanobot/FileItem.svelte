@@ -115,7 +115,7 @@
 	{#if compact}
 		<button
 			class={twMerge(
-				'btn btn-ghost btn-circle text-base-content/50 size-10 self-center',
+				'btn btn-ghost btn-circle text-muted-content size-10 self-center',
 				isSelected ? 'bg-base-200 hover:bg-base-200 hover:border-base-200' : 'hover:bg-base-300'
 			)}
 			use:tooltip={{

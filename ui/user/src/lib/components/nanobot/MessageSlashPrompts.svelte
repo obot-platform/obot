@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Prompt } from '$lib/services/nanobot/types';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		prompts: Prompt[];
@@ -60,10 +61,10 @@
 		{#each filteredPrompts as prompt, index (prompt.name)}
 			<button
 				type="button"
-				class="hover:bg-base-200 w-full px-4 py-2 text-left transition-colors {index ===
-				selectedCommandIndex
-					? 'bg-primary/10'
-					: ''}"
+				class={twMerge(
+					'hover:bg-base-200 w-full px-4 py-2 text-left transition-colors',
+					index === selectedCommandIndex ? 'bg-primary/10' : ''
+				)}
 				onclick={() => executeSlashCommand(prompt)}
 			>
 				<div class="flex items-center space-x-2">
@@ -81,7 +82,7 @@
 		{/each}
 
 		{#if filteredPrompts.length === 0}
-			<div class="text-base-content/50 px-4 py-2 text-sm">
+			<div class="text-muted-content px-4 py-2 text-sm">
 				No commands found for "{slashQuery}"
 			</div>
 		{/if}

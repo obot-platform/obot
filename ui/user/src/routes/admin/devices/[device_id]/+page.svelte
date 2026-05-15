@@ -203,28 +203,30 @@
 		out:fly={{ x: -100, duration }}
 	>
 		{#if !latest}
-			<p class="text-on-surface1 text-sm font-light">No scans found for this device.</p>
+			<p class="text-muted-content text-sm font-light">No scans found for this device.</p>
 		{:else}
 			<!-- Header card -->
-			<div class="dark:bg-surface2 bg-background flex flex-col gap-4 rounded-md p-4 shadow-sm">
+			<div class="dark:bg-base-300 bg-base-100 flex flex-col gap-4 rounded-md p-4 shadow-sm">
 				<dl class="grid grid-cols-[max-content_1fr] items-center gap-x-4 gap-y-2 text-sm">
-					<dt class="text-on-surface1 text-xs font-medium tracking-wide uppercase">Device ID</dt>
+					<dt class="text-muted-content text-xs font-medium tracking-wide uppercase">Device ID</dt>
 					<dd class="flex items-center gap-2">
 						<span class="font-mono text-base font-semibold">{deviceId}</span>
 						<CopyButton text={deviceId} />
 					</dd>
 
-					<dt class="text-on-surface1 text-xs font-medium tracking-wide uppercase">OS / Arch</dt>
+					<dt class="text-muted-content text-xs font-medium tracking-wide uppercase">OS / Arch</dt>
 					<dd>
 						<span class="pill-primary bg-primary">{latest.os}/{latest.arch}</span>
 					</dd>
 
-					<dt class="text-on-surface1 text-xs font-medium tracking-wide uppercase">Submitted by</dt>
+					<dt class="text-muted-content text-xs font-medium tracking-wide uppercase">
+						Submitted by
+					</dt>
 					<dd>
 						{#if submittedByUser}
 							<div class="flex items-center gap-2">
 								<div
-									class="size-6 shrink-0 overflow-hidden rounded-full bg-gray-50 dark:bg-gray-600"
+									class="size-6 shrink-0 overflow-hidden rounded-full bg-base-100 dark:bg-base-300"
 								>
 									{#if submittedByUser.iconURL}
 										<img
@@ -240,39 +242,43 @@
 						{:else if latest.submittedBy}
 							<span class="font-mono text-xs">{latest.submittedBy}</span>
 						{:else}
-							<span class="text-on-surface1">—</span>
+							<span class="text-muted-content">—</span>
 						{/if}
 					</dd>
 
-					<dt class="text-on-surface1 text-xs font-medium tracking-wide uppercase">OS user</dt>
+					<dt class="text-muted-content text-xs font-medium tracking-wide uppercase">OS user</dt>
 					<dd class="font-mono">{latest.username || '—'}</dd>
 
-					<dt class="text-on-surface1 text-xs font-medium tracking-wide uppercase">Hostname</dt>
+					<dt class="text-muted-content text-xs font-medium tracking-wide uppercase">Hostname</dt>
 					<dd class="font-mono">{latest.hostname || '—'}</dd>
 
-					<dt class="text-on-surface1 text-xs font-medium tracking-wide uppercase">Scanner</dt>
+					<dt class="text-muted-content text-xs font-medium tracking-wide uppercase">Scanner</dt>
 					<dd class="font-mono">{latest.scannerVersion || '—'}</dd>
 
-					<dt class="text-on-surface1 text-xs font-medium tracking-wide uppercase">Last scanned</dt>
+					<dt class="text-muted-content text-xs font-medium tracking-wide uppercase">
+						Last scanned
+					</dt>
 					<dd use:tooltip={scannedTime.fullDate}>
 						{scannedTime.relativeTime || '—'}
 					</dd>
 
-					<dt class="text-on-surface1 text-xs font-medium tracking-wide uppercase">Total scans</dt>
+					<dt class="text-muted-content text-xs font-medium tracking-wide uppercase">
+						Total scans
+					</dt>
 					<dd>{scans.length}</dd>
 				</dl>
 			</div>
 
 			<!-- Latest scan tabs -->
 			<div class="flex flex-col gap-2">
-				<div class="border-surface2 dark:border-surface2 flex gap-2 border-b">
+				<div class="border-base-300 flex gap-2 border-b">
 					<button
 						class="tab-button"
 						class:tab-active={activeTab === 'mcp'}
 						onclick={() => (activeTab = 'mcp')}
 					>
 						<Server class="size-4" /> MCP Servers
-						<span class="text-on-surface1">({mcpServers.length})</span>
+						<span class="text-muted-content">({mcpServers.length})</span>
 					</button>
 					<button
 						class="tab-button"
@@ -280,7 +286,7 @@
 						onclick={() => (activeTab = 'skills')}
 					>
 						<PencilRuler class="size-4" /> Skills
-						<span class="text-on-surface1">({skills.length})</span>
+						<span class="text-muted-content">({skills.length})</span>
 					</button>
 					<button
 						class="tab-button"
@@ -288,7 +294,7 @@
 						onclick={() => (activeTab = 'plugins')}
 					>
 						<Boxes class="size-4" /> Plugins
-						<span class="text-on-surface1">({plugins.length})</span>
+						<span class="text-muted-content">({plugins.length})</span>
 					</button>
 					<button
 						class="tab-button"
@@ -296,7 +302,7 @@
 						onclick={() => (activeTab = 'clients')}
 					>
 						<MonitorCheck class="size-4" /> Clients
-						<span class="text-on-surface1">({clients.length})</span>
+						<span class="text-muted-content">({clients.length})</span>
 					</button>
 				</div>
 
@@ -337,7 +343,7 @@
 							{/snippet}
 
 							{#snippet actions(d)}
-								<DotDotDot class="icon-button hover:dark:bg-background/50">
+								<DotDotDot class="hover:dark:bg-base-100/50">
 									{#snippet icon()}
 										<Ellipsis class="size-4" />
 									{/snippet}
@@ -393,7 +399,7 @@
 						>
 							{#snippet onRenderColumn(property, d: SkillRow)}
 								{#if property === 'description'}
-									<span class="text-on-surface1 text-xs">{d.description ?? '—'}</span>
+									<span class="text-muted-content text-xs">{d.description ?? '—'}</span>
 								{:else if property === 'hasScripts'}
 									{d.hasScripts ? 'yes' : 'no'}
 								{:else if property === 'client'}
@@ -404,7 +410,7 @@
 							{/snippet}
 
 							{#snippet actions(d)}
-								<DotDotDot class="icon-button hover:dark:bg-background/50">
+								<DotDotDot class="hover:dark:bg-base-100/50">
 									{#snippet icon()}
 										<Ellipsis class="size-4" />
 									{/snippet}
@@ -509,7 +515,7 @@
 
 			<!-- Scan history (includes latest as first row) -->
 			<div class="flex flex-col gap-2">
-				<h3 class="text-on-surface1 text-sm font-semibold">
+				<h3 class="text-muted-content text-sm font-semibold">
 					Scan history · {scans.length}
 				</h3>
 				<Table
@@ -559,7 +565,7 @@
 </Layout>
 
 {#snippet emptyTab(msg: string)}
-	<div class="text-on-surface1 flex items-center gap-2 p-4 text-sm font-light">
+	<div class="text-muted-content flex items-center gap-2 p-4 text-sm font-light">
 		<Cpu class="size-4 opacity-50" />
 		{msg}
 	</div>
@@ -587,7 +593,7 @@
 		padding: 0.5rem 0.75rem;
 		border-bottom: 2px solid transparent;
 		font-size: 0.875rem;
-		color: var(--on-surface1, #6b7280);
+		color: var(--muted-content, #6b7280);
 		transition:
 			color 200ms,
 			border-color 200ms;

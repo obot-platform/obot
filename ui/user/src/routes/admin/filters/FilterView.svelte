@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import FilterForm from '$lib/components/admin/FilterForm.svelte';
 	import McpServerK8sInfo from '$lib/components/admin/McpServerK8sInfo.svelte';
 	import AuditLogsPageContent from '$lib/components/admin/audit-logs/AuditLogsPageContent.svelte';
 	import UsageGraphs from '$lib/components/admin/usage/UsageGraphs.svelte';
+	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { AdminService } from '$lib/services';
@@ -65,13 +65,13 @@
 					{title || filter.name || 'Filter'}
 				</h1>
 				{#if !profile.current.isAdminReadonly?.() && !entry?.id}
-					<button
-						class="button-destructive flex items-center gap-1 text-xs font-normal"
-						use:tooltip={{ text: 'Delete Filter', placement: 'left' }}
+					<IconButton
+						variant="danger2"
+						tooltip={{ text: 'Delete Filter', placement: 'left' }}
 						onclick={() => (deletingFilter = true)}
 					>
 						<Trash2 class="size-4" />
-					</button>
+					</IconButton>
 				{/if}
 			</div>
 			<div class="flex flex-1 gap-2 py-1 text-sm font-light max-h-11.5">
@@ -83,8 +83,8 @@
 						class={twMerge(
 							'min-w-fit flex-1 rounded-md border border-transparent px-3 py-2 text-center whitespace-nowrap transition-colors duration-300',
 							selected === tab.view &&
-								'dark:bg-surface1 dark:border-surface3 bg-background shadow-sm',
-							selected !== tab.view && 'hover:bg-surface3'
+								'dark:bg-base-200 dark:border-base-400 bg-base-100 shadow-sm',
+							selected !== tab.view && 'hover:bg-base-400'
 						)}
 					>
 						{tab.label}
@@ -121,9 +121,9 @@
 					<AuditLogsPageContent mcpId={mcpServerId} mcpServerDisplayName={filter.name}>
 						{#snippet emptyContent()}
 							<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-								<BookOpenText class="text-on-surface1 size-24 opacity-50" />
-								<h4 class="text-on-surface1 text-lg font-semibold">No recent audit logs</h4>
-								<p class="text-on-surface1 text-sm font-light">
+								<BookOpenText class="text-muted-content size-24 opacity-50" />
+								<h4 class="text-muted-content text-lg font-semibold">No recent audit logs</h4>
+								<p class="text-muted-content text-sm font-light">
 									This web validation server has not had any active usage in the last 7 days.
 								</p>
 							</div>

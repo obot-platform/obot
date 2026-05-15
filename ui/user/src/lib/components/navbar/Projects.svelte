@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { popover } from '$lib/actions';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { DEFAULT_PROJECT_NAME } from '$lib/constants';
 	import { closeAll, getLayout } from '$lib/context/chatLayout.svelte';
 	import { ChatService, type Project } from '$lib/services';
 	import { goto } from '$lib/url';
 	import Confirm from '../Confirm.svelte';
 	import PageLoading from '../PageLoading.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import { ChevronDown, Plus, Settings } from 'lucide-svelte/icons';
 	import { twMerge } from 'tailwind-merge';
 
@@ -58,10 +58,10 @@
 <div class="flex" bind:this={container} use:ref>
 	<button
 		class={twMerge(
-			'hover:bg-surface3 bg-primary/10  relative z-10 flex min-h-10 grow items-center justify-between gap-2 truncate py-2 pr-6 pl-2 transition-colors duration-200',
+			'hover:bg-base-400 bg-primary/10  relative z-10 flex min-h-10 grow items-center justify-between gap-2 truncate py-2 pr-6 pl-2 transition-colors duration-200',
 			classes?.button
 		)}
-		class:hover:bg-surface2={!disabled}
+		class:hover:bg-base-300={!disabled}
 		class:cursor-default={disabled}
 		onclick={async () => {
 			if (disabled) {
@@ -73,7 +73,7 @@
 		}}
 	>
 		<div
-			class="text-on-background text-md flex w-full max-w-[100%-24px] flex-col truncate text-left"
+			class="text-base-content text-md flex w-full max-w-[100%-24px] flex-col truncate text-left"
 		>
 			<span class="text-[11px] font-normal">Project</span>
 			<p class="text-primary text-base font-semibold">{project.name || DEFAULT_PROJECT_NAME}</p>
@@ -81,7 +81,7 @@
 		{#if !disabled}
 			<div
 				class={twMerge(
-					'text-gray translate-x-[1px] transition-transform duration-200',
+					'text-gray translate-x-px transition-transform duration-200',
 					open && 'rotate-180'
 				)}
 			>
@@ -95,7 +95,7 @@
 	<div
 		use:buttonPopover={{ disablePortal: true }}
 		class={twMerge(
-			'border-surface3 dark:bg-surface1 default-scrollbar-thin bg-background flex max-h-[calc(100vh-123px)] -translate-x-[3px] -translate-y-[3px] flex-col overflow-hidden overflow-y-auto rounded-b-xs border',
+			'border-base-400 dark:bg-base-200 default-scrollbar-thin bg-base-100 flex max-h-[calc(100vh-123px)] -translate-x-[3px] -translate-y-[3px] flex-col overflow-hidden overflow-y-auto rounded-b-xs border',
 			classes?.tooltip
 		)}
 		style="width: {container?.clientWidth}px"
@@ -123,8 +123,8 @@
 	{@const isActive = p.id === project.id}
 	<div
 		class={twMerge(
-			'group hover:bg-surface3 flex min-h-14 items-center transition-colors',
-			isActive && 'bg-surface1 dark:bg-surface2'
+			'group hover:bg-base-400 flex min-h-14 items-center transition-colors',
+			isActive && 'bg-base-200 dark:bg-base-300'
 		)}
 	>
 		<a
@@ -135,30 +135,29 @@
 			}}
 		>
 			<div class="flex grow flex-col">
-				<span class="text-on-background text-sm font-semibold"
-					>{p.name || DEFAULT_PROJECT_NAME}</span
+				<span class="text-base-content text-sm font-semibold">{p.name || DEFAULT_PROJECT_NAME}</span
 				>
 				{#if p.description}
-					<span class="text-on-background line-clamp-1 text-xs font-light">{p.description}</span>
+					<span class="text-base-content line-clamp-1 text-xs font-light">{p.description}</span>
 				{/if}
 			</div>
 		</a>
-		<button
-			class="icon-button hover:text-primary flex-shrink-0 opacity-0 group-hover:opacity-100"
+		<IconButton
+			class="opacity-0 group-hover:opacity-100 border-transparent bg-transparent hover:text-primary"
 			onclick={() => {
 				goto(`/o/${p.id}?edit=true`);
 			}}
-			use:tooltip={'Configure Project'}
+			tooltip={{ text: 'Configure Project' }}
 		>
 			<Settings class="size-5" />
-		</button>
+		</IconButton>
 	</div>
 {/snippet}
 
 {#snippet LoadMoreButton(totalLength: number, limit: number)}
 	{#if totalLength > limit}
 		<button
-			class="hover:bg-surface2 text-primary mt-1 w-full rounded-sm py-1 text-sm"
+			class="hover:bg-base-300 text-primary mt-1 w-full rounded-sm py-1 text-sm"
 			onclick={(e) => {
 				e.stopPropagation();
 				loadMore();

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
+	import Loading from '$lib/icons/Loading.svelte';
 	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
 	import {
 		ChatService,
@@ -13,9 +14,10 @@
 	import { responsive } from '$lib/stores';
 	import Search from '../Search.svelte';
 	import Toggle from '../Toggle.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import McpOauth from './McpOauth.svelte';
 	import ToolNameIssueIcon from './ToolNameIssueIcon.svelte';
-	import { AlertCircle, ChevronDown, ChevronUp, Info, LoaderCircle, Wrench } from 'lucide-svelte';
+	import { CircleAlert, ChevronDown, ChevronUp, Info, Wrench } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
 	import { slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -171,7 +173,7 @@
 		{#if showPreviewTools}
 			<div class="notification-info w-full p-3 text-sm font-light">
 				<div class="flex items-center gap-3">
-					<Info class="size-6 flex-shrink-0" />
+					<Info class="size-6 shrink-0" />
 					<div>
 						This is a preview of the tools that are available for this MCP server; the actual tools
 						may differ on user connection.
@@ -185,7 +187,7 @@
 		{/if}
 		{#if error}
 			<div class="notification-error flex w-full items-center gap-2 p-3">
-				<AlertCircle class="size-4" />
+				<CircleAlert class="size-4" />
 				<div class="flex flex-col">
 					<p class="text-sm font-semibold">Unable to retrieve the server's tools</p>
 					<p class="text-sm font-light">
@@ -198,7 +200,7 @@
 
 	<div class="flex w-full flex-col gap-2">
 		<div class="mb-2 flex w-full flex-col gap-4">
-			<div class="flex flex-wrap items-center justify-end gap-2 md:flex-shrink-0">
+			<div class="flex flex-wrap items-center justify-end gap-2 md:shrink-0">
 				<Toggle
 					checked={allDescriptionsEnabled}
 					onChange={(checked) => {
@@ -214,7 +216,7 @@
 
 				{#if project}
 					{#if !responsive.isMobile}
-						<div class="bg-surface3 mx-2 h-5 w-0.5"></div>
+						<div class="bg-base-400 mx-2 h-5 w-0.5"></div>
 					{/if}
 
 					<Toggle
@@ -232,7 +234,7 @@
 			</div>
 
 			<Search
-				class="dark:bg-surface1 dark:border-surface3 bg-background border border-transparent shadow-sm"
+				class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 				onChange={(val) => (search = val)}
 				placeholder="Search tools..."
 			/>
@@ -240,13 +242,13 @@
 		<div class="flex flex-col gap-4 overflow-hidden">
 			{#if loading}
 				<div class="flex items-center justify-center">
-					<LoaderCircle class="size-6 animate-spin" />
+					<Loading class="size-6" />
 				</div>
 			{:else if displayTools.length > 0}
 				{#each displayTools as tool, index (`${tool.name}-${index}`)}
 					{@const hasContentDisplayed = allDescriptionsEnabled || expanded[tool.id]}
 					<div
-						class="border-surface2 dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-2 rounded-md border p-3 shadow-sm"
+						class="border-base-200 dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-2 rounded-md border p-3 shadow-sm"
 						class:pb-2={hasContentDisplayed}
 					>
 						<div class="flex items-center justify-between gap-2">
@@ -257,14 +259,14 @@
 									<ToolNameIssueIcon issue={conflict ?? toolNameIssue(tool.name)} />
 								{/if}
 								{#if tool.unsupported}
-									<span class="text-on-surface1 ml-3 flex-shrink-0 text-sm">
+									<span class="text-muted-content ml-3 shrink-0 text-sm">
 										⚠️ Not yet fully supported in Obot
 									</span>
 								{/if}
 							</p>
-							<div class="flex flex-shrink-0 items-center gap-2">
-								<button
-									class="icon-button h-fit min-h-auto w-fit min-w-auto flex-shrink-0 p-1"
+							<div class="flex shrink-0 items-center gap-2">
+								<IconButton
+									class="btn-sm"
 									onclick={() => handleToggleDescription(tool.id, !hasContentDisplayed)}
 								>
 									{#if hasContentDisplayed}
@@ -272,7 +274,7 @@
 									{:else}
 										<ChevronDown class="size-4" />
 									{/if}
-								</button>
+								</IconButton>
 								{#if project}
 									<Toggle
 										checked={selected.includes(tool.id) || allToolsEnabled}
@@ -295,14 +297,14 @@
 							{#if browser}
 								<div
 									in:slide={{ axis: 'y' }}
-									class="milkdown-content text-on-surface1 max-w-none text-sm font-light"
+									class="milkdown-content text-muted-content max-w-none text-sm font-light"
 								>
 									{@html toHTMLFromMarkdownWithNewTabLinks(tool.description || '', true)}
 								</div>
 							{/if}
 							{#if Object.keys(tool.params ?? {}).length > 0}
 								<div
-									class="from-surface2 dark:from-surface3 text-on-surface1 flex w-full flex-shrink-0 bg-linear-to-r to-transparent px-4 py-2 text-xs font-semibold md:w-sm"
+									class="from-base-300 dark:from-base-400 text-muted-content flex w-full shrink-0 bg-linear-to-r to-transparent px-4 py-2 text-xs font-semibold md:w-sm"
 								>
 									Parameters
 								</div>
@@ -310,10 +312,10 @@
 									<div class="flex flex-col gap-2">
 										{#each Object.keys(tool.params ?? {}) as paramKey (paramKey)}
 											<div class="flex flex-col items-center gap-2 md:flex-row">
-												<p class="text-on-surface1 self-start font-semibold md:min-w-xs">
+												<p class="text-muted-content self-start font-semibold md:min-w-xs">
 													{paramKey}
 												</p>
-												<p class="text-on-surface1 self-start font-light">
+												<p class="text-muted-content self-start font-light">
 													{tool.params?.[paramKey]}
 												</p>
 											</div>
@@ -328,9 +330,9 @@
 				{@render noToolsContent()}
 			{:else}
 				<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-					<Wrench class="text-on-surface1 size-24 opacity-50" />
-					<h4 class="text-on-surface1 text-lg font-semibold">No tools</h4>
-					<p class="text-on-surface1 text-sm font-light">
+					<Wrench class="text-muted-content size-24 opacity-50" />
+					<h4 class="text-muted-content text-lg font-semibold">No tools</h4>
+					<p class="text-muted-content text-sm font-light">
 						{#if !entry || hasConnectedServer}
 							Looks like this MCP server doesn't have any tools available.
 						{:else}
@@ -347,7 +349,7 @@
 
 {#if project && !loading && !error}
 	<div class="sticky bottom-0 left-0 flex w-full justify-end bg-inherit py-4 md:px-4">
-		<button class="button-primary flex items-center gap-1" onclick={handleProjectToolsUpdate}>
+		<button class="btn btn-primary flex items-center gap-1" onclick={handleProjectToolsUpdate}>
 			Save
 		</button>
 	</div>

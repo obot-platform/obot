@@ -141,7 +141,7 @@
 ></div>
 
 <div
-	class="bg-surface1 absolute flex overflow-hidden rounded-3xl shadow-lg"
+	class="bg-base-200 absolute flex overflow-hidden rounded-3xl shadow-lg"
 	bind:this={ttDiv}
 	class:hidden={!ttVisible}
 >
@@ -274,7 +274,7 @@
 				}
 
 				& ::marker {
-					color: var(--color-gray-500);
+					color: color-mix(in oklab, var(--color-base-content) 50%, transparent);
 				}
 			}
 
@@ -294,7 +294,7 @@
 				}
 
 				& ::marker {
-					color: var(--color-gray-500);
+					color: color-mix(in oklab, var(--color-base-content) 50%, transparent);
 				}
 			}
 
@@ -303,39 +303,39 @@
 			}
 
 			& table {
-				border: 1px solid var(--surface3);
+				border: 1px solid var(--color-base-400);
 
 				& th {
 					padding: 0.5rem 1rem;
-					border-bottom: 1px solid var(--surface3);
+					border-bottom: 1px solid var(--color-base-400);
 					&:not(:last-child) {
-						border-right: 1px solid var(--surface3);
+						border-right: 1px solid var(--color-base-400);
 					}
 				}
 
 				& td {
 					padding: 0.5rem 1rem;
 					&:not(:last-child) {
-						border-right: 1px solid var(--surface3);
+						border-right: 1px solid var(--color-base-400);
 					}
 				}
 
 				& tr:not(:last-child) {
-					border-bottom: 1px solid var(--surface3);
+					border-bottom: 1px solid var(--color-base-400);
 				}
 			}
 
 			& code {
-				background-color: var(--surface1);
+				background-color: var(--color-base-200);
 				padding: 0.25rem 0.5rem;
 				border-radius: 0.25rem;
 				font-size: 0.875rem;
 				font-weight: 500;
-				color: var(--on-surface1);
+				color: color-mix(in oklch, var(--color-base-content) 40%, transparent);
 
 				.dark & {
-					background-color: var(--surface2);
-					color: var(--on-surface2);
+					background-color: var(--color-base-200);
+					color: color-mix(in oklch, var(--color-base-content) 40%, transparent);
 				}
 			}
 		}

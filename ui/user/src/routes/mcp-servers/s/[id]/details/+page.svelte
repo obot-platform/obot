@@ -4,9 +4,9 @@
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
 	import OAuthMetadataDebug from '$lib/components/mcp/OAuthMetadataDebug.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService, ChatService, type MCPServerInstance, type OrgUser } from '$lib/services';
 	import { profile } from '$lib/stores/index.js';
-	import { LoaderCircle } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 
@@ -47,7 +47,7 @@
 	<div class="flex flex-col gap-6 pb-8" in:fly={{ x: 100, delay: PAGE_TRANSITION_DURATION }}>
 		{#if loading}
 			<div class="flex w-full justify-center">
-				<LoaderCircle class="size-6 animate-spin" />
+				<Loading class="size-6" />
 			</div>
 		{:else}
 			<div class="flex flex-col gap-6">

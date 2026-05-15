@@ -8,6 +8,7 @@
 	import McpMultiDeleteBlockedDialog from '$lib/components/mcp/McpMultiDeleteBlockedDialog.svelte';
 	import StaticOAuthConfigureModal from '$lib/components/mcp/StaticOAuthConfigureModal.svelte';
 	import Table, { type InitSort, type InitSortFn } from '$lib/components/table/Table.svelte';
+	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
 		ChatService,
@@ -30,14 +31,13 @@
 	import { formatTimeAgo } from '$lib/time';
 	import { openUrl, isOwnSingleUserServer } from '$lib/utils';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import EditExistingDeployment from './EditExistingDeployment.svelte';
 	import {
-		AlertTriangle,
 		Captions,
 		CircleFadingArrowUp,
 		Ellipsis,
 		KeyRound,
-		LoaderCircle,
 		MessageCircle,
 		PencilLine,
 		ReceiptText,
@@ -290,8 +290,8 @@
 
 <div class="flex flex-col gap-2">
 	{#if mcpServersAndEntries.current.loading}
-		<div class="my-2 flex items-center justify-center">
-			<LoaderCircle class="size-6 animate-spin" />
+		<div class="my-2 flex items-center justify-center h-72">
+			<Loading class="size-6" />
 		</div>
 	{:else if mcpServersAndEntries.current.entries.length + mcpServersAndEntries.current.servers.length === 0}
 		{#if noDataContent}
@@ -302,7 +302,7 @@
 		{#if hasCatalogErrors && !catalog?.isSyncing}
 			<div class="w-full p-4" in:slide={{ axis: 'y' }} out:slide={{ axis: 'y', duration: 0 }}>
 				<div class="notification-alert flex w-full items-center gap-2 rounded-md p-3 text-sm">
-					<AlertTriangle class="size-" />
+					<TriangleAlert class="size-" />
 					<p class="">Some servers failed to sync. See "Registry Sources" tab for more details.</p>
 				</div>
 			</div>
@@ -368,7 +368,7 @@
 				return 'isCatalogEntry' in d.data && d.data.needsUpdate
 					? 'bg-primary/10'
 					: matchingServers.some(requiresUserUpdate)
-						? 'bg-yellow-500/10'
+						? 'bg-warning/10'
 						: '';
 			}}
 		>
@@ -379,7 +379,7 @@
 					? getConfiguredServersForCatalogEntry(catalogEntry)
 					: []}
 				{#if property === 'name'}
-					<div class="flex flex-shrink-0 items-center gap-2">
+					<div class="flex shrink-0 items-center gap-2">
 						<div class="icon">
 							{#if d.icon}
 								<img src={d.icon} alt={d.name} class="size-6" />
@@ -400,7 +400,7 @@
 								</span>
 							{:else if matchingServers.some(requiresUserUpdate)}
 								<span
-									class="text-yellow-500"
+									class="text-warning"
 									use:tooltip={{
 										text: 'Server requires an update.'
 									}}
@@ -449,7 +449,7 @@
 				{@const requiresOAuth =
 					catalogEntry?.manifest?.runtime === 'remote' &&
 					catalogEntry.manifest?.remoteConfig?.staticOAuthRequired}
-				<DotDotDot class="icon-button hover:dark:bg-background/50" classes={{ menu: 'p-0' }}>
+				<DotDotDot class="hover:dark:bg-base-100/50" classes={{ menu: 'p-0' }}>
 					{#snippet icon()}
 						<Ellipsis class="size-4" />
 					{/snippet}
@@ -457,17 +457,17 @@
 					{#snippet children({ toggle })}
 						{#if hasConnectedOptions}
 							<div
-								class="bg-background dark:bg-surface2 rounded-t-xl p-2 pl-4 text-[11px] font-semibold uppercase"
+								class="bg-base-100 dark:bg-base-300 rounded-t-xl p-2 pl-4 text-[11px] font-semibold uppercase"
 							>
 								My Connection(s)
 							</div>
-							<div class="bg-surface1 flex flex-col gap-1 p-2">
+							<div class="bg-base-200 flex flex-col gap-1 p-2">
 								{#if !requiresOAuth || catalogEntry?.oauthCredentialConfigured}
 									{@render connectToServerAction(d.data, toggle)}
 								{/if}
 								{#if version.current.disableLegacyChat !== true}
 									<button
-										class="menu-button hover:bg-surface3"
+										class="menu-button hover:bg-base-400"
 										onclick={async (e) => {
 											e.stopPropagation();
 											if (catalogEntry) {
@@ -499,7 +499,7 @@
 
 								{#if oauthServers.length > 0 && catalogEntry}
 									<button
-										class="menu-button hover:bg-surface3"
+										class="menu-button hover:bg-base-400"
 										onclick={async (e) => {
 											e.stopPropagation();
 											if (oauthServers.length === 1) {
@@ -519,7 +519,7 @@
 
 								{#if matchingInstance && !isCatalogEntry && hasInstanceConfiguration(d.data as MCPCatalogServer)}
 									<button
-										class="menu-button hover:bg-surface3"
+										class="menu-button hover:bg-base-400"
 										onclick={(e) => {
 											e.stopPropagation();
 											connectToServerDialog?.open({
@@ -536,7 +536,7 @@
 
 								{#if matchingServers.length > 0 && catalogEntry}
 									<button
-										class="menu-button hover:bg-surface3"
+										class="menu-button hover:bg-base-400"
 										onclick={async (e) => {
 											e.stopPropagation();
 											if (matchingServers.length === 1) {
@@ -557,7 +557,7 @@
 
 								{#if matchingServers.length > 0 && catalogEntry}
 									<button
-										class="menu-button hover:bg-surface3"
+										class="menu-button hover:bg-base-400"
 										onclick={async (e) => {
 											e.stopPropagation();
 											if (matchingServers.length === 1) {
@@ -575,7 +575,7 @@
 
 								{#if matchingServers.length > 0 && catalogEntry}
 									<button
-										class="menu-button hover:bg-surface3"
+										class="menu-button hover:bg-base-400"
 										onclick={async (e) => {
 											e.stopPropagation();
 
@@ -593,7 +593,7 @@
 									</button>
 								{:else if matchingInstance}
 									<button
-										class="menu-button hover:bg-surface3"
+										class="menu-button hover:bg-base-400"
 										onclick={async (e) => {
 											e.stopPropagation();
 											await ChatService.deleteMcpServerInstance(matchingInstance.id);
@@ -614,7 +614,7 @@
 							{/if}
 							{#if requiresOAuth && catalogEntry}
 								<button
-									class="menu-button hover:bg-surface3"
+									class="menu-button hover:bg-base-400"
 									onclick={async (e) => {
 										e.stopPropagation();
 										await handleConfigureOAuth(catalogEntry);
@@ -666,8 +666,8 @@
 	{#if canConfigure}
 		<button
 			class={twMerge(
-				'menu-button hover:bg-surface3',
-				requiresUpdate && 'bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/30'
+				'menu-button hover:bg-base-400',
+				requiresUpdate && 'bg-warning/10 text-warning hover:bg-warning/30'
 			)}
 			onclick={() => {
 				if (configuredServers.length === 1) {
@@ -687,7 +687,7 @@
 
 {#snippet renameCatalogEntryAction(d: MCPCatalogEntry, configuredServers: MCPCatalogServer[])}
 	<button
-		class="menu-button hover:bg-surface3"
+		class="menu-button hover:bg-base-400"
 		onclick={() => {
 			if (configuredServers.length === 1) {
 				editExistingDialog?.rename({
@@ -875,7 +875,7 @@
 />
 
 <ResponsiveDialog
-	class="bg-surface1 dark:bg-background"
+	class="bg-base-200 dark:bg-base-100"
 	bind:this={selectServerDialog}
 	title="Select Your Server"
 >
@@ -933,7 +933,7 @@
 	>
 		{#snippet onRenderColumn(property, d)}
 			{#if property === 'name'}
-				<div class="flex flex-shrink-0 items-center gap-2">
+				<div class="flex shrink-0 items-center gap-2">
 					<div class="icon">
 						{#if d.manifest.icon}
 							<img src={d.manifest.icon} alt={d.manifest.name} class="size-6" />
@@ -960,9 +960,9 @@
 			{/if}
 		{/snippet}
 		{#snippet actions()}
-			<button class="icon-button hover:dark:bg-background/50">
+			<IconButton class="hover:dark:bg-base-100/50">
 				<StepForward class="size-4" />
-			</button>
+			</IconButton>
 		{/snippet}
 	</Table>
 </ResponsiveDialog>

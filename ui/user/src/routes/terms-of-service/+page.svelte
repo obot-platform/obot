@@ -70,8 +70,15 @@
 </script>
 
 {#snippet navLinks()}
-	<a href="https://docs.obot.ai" class="icon-button" rel="external" target="_blank">Docs</a>
-	<a href="https://discord.gg/9sSf4UyAMC" class="icon-button" rel="external" target="_blank">
+	<a href="https://docs.obot.ai" class="btn btn-ghost btn-squaren" rel="external" target="_blank"
+		>Docs</a
+	>
+	<a
+		href="https://discord.gg/9sSf4UyAMC"
+		class="btn btn-ghost btn-square"
+		rel="external"
+		target="_blank"
+	>
 		{#if darkMode.isDark}
 			<img src="/user/images/discord-mark/discord-mark-white.svg" alt="Discord" class="h-6" />
 		{:else}
@@ -80,7 +87,7 @@
 	</a>
 	<a
 		href="https://github.com/obot-platform/obot"
-		class="icon-button"
+		class="btn btn-ghost btn-square"
 		rel="external"
 		target="_blank"
 	>
@@ -107,7 +114,7 @@
 			{#if !responsive.isMobile}
 				{@render navLinks()}
 			{/if}
-			<button class="icon-button" onclick={() => goto('/?rd=/')}>Login</button>
+			<button class="btn btn-secondary" onclick={() => goto('/?rd=/')}>Login</button>
 			{#if responsive.isMobile}
 				<Menu
 					slide="left"
@@ -142,7 +149,7 @@
 			</h1>
 		</div>
 		<div class="relative mt-12 flex w-full gap-8">
-			<div class="hidden flex-shrink-0 flex-col text-base font-light md:flex md:w-xs lg:w-sm">
+			<div class="hidden shrink-0 flex-col text-base font-light md:flex md:w-xs lg:w-sm">
 				<ul class="sticky top-0 left-0 flex flex-col pt-8 pr-8">
 					{#each sectionHeaders as header (header.id)}
 						<li

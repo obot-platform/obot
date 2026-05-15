@@ -1,8 +1,9 @@
 <script lang="ts">
+	import Loading from '$lib/icons/Loading.svelte';
 	import { ChatService, type MCPCatalogServer } from '$lib/services';
 	import { errors } from '$lib/stores';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
-	import { LoaderCircle, Server } from 'lucide-svelte';
+	import { Server } from 'lucide-svelte';
 
 	interface Props {
 		server?: MCPCatalogServer;
@@ -54,7 +55,7 @@
 >
 	{#snippet titleContent()}
 		<div class="flex items-center gap-2">
-			<div class="bg-surface1 rounded-sm p-1 dark:bg-gray-600">
+			<div class="bg-base-200 rounded-sm p-1 dark:bg-base-300">
 				{#if server?.manifest?.icon}
 					<img
 						src={server.manifest.icon}
@@ -91,12 +92,12 @@
 
 	<div class="flex justify-end gap-2">
 		<button
-			class="button-primary"
+			class="btn btn-primary"
 			onclick={handleSave}
 			disabled={saving || !newName.trim() || newName.trim() === originalName}
 		>
 			{#if saving}
-				<LoaderCircle class="size-4 animate-spin" />
+				<Loading class="size-4" />
 			{:else}
 				Update
 			{/if}

@@ -6,6 +6,7 @@
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import Select from '../Select.svelte';
 	import Toggle from '../Toggle.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import Table from '../table/Table.svelte';
 	import { PictureInPicture2 } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -32,18 +33,17 @@
 	}));
 </script>
 
-<button
-	class="icon-button"
+<IconButton
 	onclick={() => {
 		modelsDialog?.open();
 	}}
 >
 	<PictureInPicture2 class="size-5" />
-</button>
+</IconButton>
 
 <ResponsiveDialog
 	bind:this={modelsDialog}
-	class="bg-surface1 dark:bg-background max-w-4xl"
+	class="bg-base-200 dark:bg-base-100 max-w-4xl"
 	classes={{ header: 'p-4 pb-0', content: 'p-0 pb-4' }}
 >
 	{#snippet titleContent()}
@@ -52,10 +52,10 @@
 			<img
 				src={url}
 				alt={provider.name}
-				class={twMerge('size-9 rounded-md p-1', !provider.iconDark && 'bg-gray-600')}
+				class={twMerge('size-9 rounded-md p-1', !provider.iconDark && 'bg-base-300')}
 			/>
 		{:else}
-			<img src={provider.icon} alt={provider.name} class="bg-surface1 size-9 rounded-md p-1" />
+			<img src={provider.icon} alt={provider.name} class="bg-base-200 size-9 rounded-md p-1" />
 		{/if}
 		{provider.name} Models
 	{/snippet}
@@ -73,7 +73,7 @@
 				<Table
 					data={modelsByProvider}
 					fields={['name', 'usage', 'active']}
-					classes={{ root: 'dark:bg-surface1' }}
+					classes={{ root: 'dark:bg-base-200' }}
 				>
 					{#snippet onRenderColumn(field, columnData)}
 						{#if field === 'active'}
@@ -95,7 +95,7 @@
 						{:else if field === 'usage'}
 							<Select
 								classes={{ root: 'w-full' }}
-								class="bg-surface1 dark:bg-surface2 dark:border-surface3 border border-transparent shadow-inner"
+								class="bg-base-200 dark:bg-base-200 dark:border-base-400 border border-transparent shadow-inner"
 								options={usageOptions}
 								selected={columnData.usage}
 								onSelect={(option) => {

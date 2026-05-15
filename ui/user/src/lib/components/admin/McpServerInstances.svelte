@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
+	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
 		ChatService,
@@ -25,7 +26,6 @@
 		CircleFadingArrowUp,
 		Ellipsis,
 		GitCompare,
-		LoaderCircle,
 		Router,
 		Square,
 		SquareCheck
@@ -213,7 +213,7 @@
 
 {#if loading}
 	<div class="flex w-full justify-center">
-		<LoaderCircle class="size-6 animate-spin" />
+		<Loading class="size-6" />
 	</div>
 {:else if entry && !('isCatalogEntry' in entry) && id}
 	{#if entry && (type === 'multi' || instances.length > 0)}
@@ -246,7 +246,7 @@
 	{#if servers.length > 0}
 		{#if numServerUpdatesNeeded}
 			<button
-				class="group bg-background mb-2 w-fit rounded-md"
+				class="group bg-base-100 mb-2 w-fit rounded-md"
 				onclick={() => {
 					// TODO: show all servers with upgrade & update all option
 				}}
@@ -296,7 +296,7 @@
 							<div
 								use:tooltip={{
 									text: 'This server needs an update. View Diff to see the changes.',
-									classes: ['break-words', 'w-58']
+									classes: ['wrap-break-word', 'w-58']
 								}}
 							>
 								<CircleFadingArrowUp class="text-primary size-4" />
@@ -311,7 +311,7 @@
 								<div
 									use:tooltip={{
 										text: 'This server needs an update. View Diff to see the changes.',
-										classes: ['break-words', 'w-58']
+										classes: ['wrap-break-word', 'w-58']
 									}}
 								>
 									<CircleFadingArrowUp class="text-primary size-4" />
@@ -328,15 +328,15 @@
 
 			{#snippet actions(d)}
 				{@const auditLogsUrl = getAuditLogUrl(d)}
-				<div class="flex flex-shrink-0 items-center gap-1">
+				<div class="flex shrink-0 items-center gap-1">
 					{#if auditLogsUrl}
-						<a class="button-text" href={resolve(auditLogsUrl as `/${string}`)}>
+						<a class="btn btn-link" href={resolve(auditLogsUrl as `/${string}`)}>
 							View Audit Logs
 						</a>
 					{/if}
 
 					{#if d.needsUpdate}
-						<DotDotDot class="icon-button hover:dark:bg-background/50">
+						<DotDotDot class="hover:dark:bg-base-100/50">
 							{#snippet icon()}
 								<Ellipsis class="size-4" />
 							{/snippet}
@@ -369,7 +369,7 @@
 									: undefined}
 							>
 								{#if updating[d.id]?.inProgress}
-									<LoaderCircle class="size-4 animate-spin" />
+									<Loading class="size-4" />
 								{:else}
 									<CircleFadingArrowUp class="size-4" />
 								{/if}
@@ -377,7 +377,7 @@
 							</button>
 						</DotDotDot>
 						<button
-							class="icon-button hover:bg-black/50"
+							class="hover:bg-black/50"
 							onclick={(e) => {
 								e.stopPropagation();
 								if (selected[d.id]) {
@@ -405,7 +405,7 @@
 			{@const numSelected = Object.keys(selected).length}
 			{@const updatingInProgress = Object.values(updating).some((u) => u.inProgress)}
 			<div
-				class="bg-surface1 dark:bg-background sticky bottom-0 left-0 mt-auto flex w-[calc(100%+2em)] -translate-x-4 justify-end gap-4 p-4 md:w-[calc(100%+4em)] md:-translate-x-8 md:px-8"
+				class="bg-base-200 dark:bg-base-100 sticky bottom-0 left-0 mt-auto flex w-[calc(100%+2em)] -translate-x-4 justify-end gap-4 p-4 md:w-[calc(100%+4em)] md:-translate-x-8 md:px-8"
 			>
 				<div class="flex w-full items-center justify-between">
 					<p class="text-sm font-medium">
@@ -413,7 +413,7 @@
 					</p>
 					<div class="flex items-center gap-4">
 						<button
-							class="button flex items-center gap-1"
+							class="btn btn-secondary flex items-center gap-1"
 							onclick={() => {
 								selected = {};
 								updating = {};
@@ -422,7 +422,7 @@
 							Cancel
 						</button>
 						<button
-							class="button-primary flex items-center gap-1"
+							class="btn btn-primary flex items-center gap-1"
 							onclick={() => {
 								showConfirm = {
 									type: 'multi'
@@ -431,7 +431,7 @@
 							disabled={updatingInProgress}
 						>
 							{#if updatingInProgress}
-								<LoaderCircle class="size-5" />
+								<Loading class="size-5" />
 							{:else}
 								Update Servers
 							{/if}
@@ -449,9 +449,9 @@
 
 {#snippet emptyInstancesContent()}
 	<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-		<Router class="text-on-surface1 size-24 opacity-50" />
-		<h4 class="text-on-surface1 text-lg font-semibold">No server details</h4>
-		<p class="text-on-surface1 text-sm font-light">No details available yet for this server.</p>
+		<Router class="text-muted-content size-24 opacity-50" />
+		<h4 class="text-muted-content text-lg font-semibold">No server details</h4>
+		<p class="text-muted-content text-sm font-light">No details available yet for this server.</p>
 	</div>
 {/snippet}
 

@@ -107,7 +107,7 @@
 	<div bind:clientWidth bind:clientHeight class="min-h-0 min-w-0 flex-1">
 		{#if highlightedRectElement && currentItem}
 			<div
-				class="tooltip bg-background dark:bg-surface2 pointer-events-none fixed top-0 left-0 z-50 flex flex-col shadow-md"
+				class="tooltip bg-base-100 dark:bg-base-300 pointer-events-none fixed top-0 left-0 z-50 flex flex-col shadow-md"
 				{@attach (node) => tooltip(highlightedRectElement!, node)}
 				in:fade={{ duration: 100, delay: 10 }}
 				out:fade={{ duration: 100 }}
@@ -128,7 +128,7 @@
 		<svg width={clientWidth} height={clientHeight} viewBox="0 0 {clientWidth} {clientHeight}">
 			<g transform="translate({paddingLeft}, {paddingTop})">
 				<g
-					class="x-axis text-on-surface3/20 dark:text-on-surface1/10"
+					class="x-axis text-base-content/10"
 					transform="translate(0, {innerHeight})"
 					{@attach (node: SVGGElement) => {
 						select(node)
@@ -145,7 +145,7 @@
 				></g>
 
 				<g
-					class="y-axis text-on-surface3/20 dark:text-on-surface1/10"
+					class="y-axis text-base-content/10"
 					{@attach (node: SVGGElement) => {
 						select(node)
 							.transition()
@@ -199,7 +199,7 @@
 							fill={fitsInside ? 'white' : 'currentColor'}
 							font-size="12"
 							font-weight="500"
-							class="text-on-surface1 pointer-events-none"
+							class="text-muted-content pointer-events-none"
 						>
 							{label}
 						</text>

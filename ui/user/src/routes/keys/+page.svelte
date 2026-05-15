@@ -3,6 +3,7 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import ServersLabel from '$lib/components/api-keys/ServersLabel.svelte';
+	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { ApiKeysService } from '$lib/services';
@@ -84,9 +85,9 @@
 		<div class="flex flex-col gap-4">
 			{#if apiKeys.length === 0}
 				<div class="mt-26 flex w-lg flex-col items-center gap-4 self-center text-center">
-					<KeyRound class="text-on-surface1 size-24 opacity-50" />
-					<h4 class="text-on-surface1 text-lg font-semibold">No API keys</h4>
-					<p class="text-on-surface1 text-sm font-light">
+					<KeyRound class="text-base-content/80 size-24 opacity-50" />
+					<h4 class="text-muted-content text-lg font-semibold">No API keys</h4>
+					<p class="text-muted-content text-sm font-light">
 						Looks like you don't have any API keys yet! <br />
 						Click the "Create API Key" button above to get started.
 					</p>
@@ -94,7 +95,7 @@
 					<div class="notification-info mt-8">
 						<div class="flex flex-col gap-2">
 							<div class="flex items-center gap-2">
-								<Info class="size-4 flex-shrink-0" />
+								<Info class="size-4 shrink-0" />
 								<p class="text-sm font-semibold">What are these for?</p>
 							</div>
 							<p class="text-left text-sm font-light">
@@ -163,9 +164,9 @@
 						{/if}
 					{/snippet}
 					{#snippet actions(d)}
-						<button class="icon-button" onclick={() => (deletingKey = d)}>
+						<IconButton variant="danger" onclick={() => (deletingKey = d)}>
 							<Trash2 class="size-4" />
-						</button>
+						</IconButton>
 					{/snippet}
 				</Table>
 			{/if}
@@ -174,7 +175,7 @@
 
 	{#snippet rightNavActions()}
 		{#if !showCreateNew}
-			<button class="button-primary flex items-center gap-2 text-sm" onclick={showCreateForm}>
+			<button class="btn btn-primary flex items-center gap-2 text-sm" onclick={showCreateForm}>
 				<Plus class="size-4" />
 				Create API Key
 			</button>

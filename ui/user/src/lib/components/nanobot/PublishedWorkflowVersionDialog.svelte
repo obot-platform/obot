@@ -143,7 +143,7 @@
 		</div>
 
 		<div class="bg-primary/10 mt-2 flex items-center gap-2 rounded-md px-4 py-2">
-			<CircleAlert class="text-primary size-5 flex-shrink-0" />
+			<CircleAlert class="text-primary size-5 shrink-0" />
 			<p class="text-base-content mt-1 text-sm font-light">
 				{#if !activeVersion}
 					Select a version to manage sharing.
@@ -162,7 +162,7 @@
 		</div>
 
 		{#if versions.length === 0}
-			<div class="text-base-content/50 my-4 text-center text-sm">
+			<div class="text-muted-content my-4 text-center text-sm">
 				<p class="font-medium">No versions found.</p>
 			</div>
 		{:else}
@@ -301,7 +301,7 @@
 					<MarkdownEditor value={versionContents} readonly />
 				</div>
 			{:else}
-				<div class="text-base-content/50 py-8 text-center text-sm">No version contents found.</div>
+				<div class="text-muted-content py-8 text-center text-sm">No version contents found.</div>
 			{/if}
 		</div>
 	</div>

@@ -388,7 +388,7 @@
 									<td>
 										<div class="w-full min-w-0">
 											<p
-												class="text-base-content/50 w-full min-w-0 truncate text-sm font-light break-all italic"
+												class="text-muted-content w-full min-w-0 truncate text-sm font-light break-all italic"
 											>
 												{node.uri}
 											</p>
@@ -402,7 +402,7 @@
 					<tr>
 						<td
 							colspan={columnCount}
-							class="text-base-content/50 text-center text-sm font-light italic"
+							class="text-muted-content text-center text-sm font-light italic"
 						>
 							<span>No files found.</span>
 						</td>
@@ -455,7 +455,7 @@
 					</li>
 				{/each}
 			{:else}
-				<li class="text-base-content/50 flex items-start gap-2 px-4 font-light italic">
+				<li class="text-muted-content flex items-start gap-2 px-4 font-light italic">
 					<span>No files found.</span>
 				</li>
 			{/if}

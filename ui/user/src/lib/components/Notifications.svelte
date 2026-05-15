@@ -49,7 +49,7 @@
 				</div>
 			</button>
 			{#if copied[error.message]}
-				<div class="text-on-surface1 self-end text-xs" in:fade={{ duration: 200 }}>
+				<div class="text-muted-content self-end text-xs" in:fade={{ duration: 200 }}>
 					Error copied to clipboard.
 				</div>
 			{/if}

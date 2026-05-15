@@ -30,7 +30,7 @@
 	{#snippet titleContent()}
 		{#if fromServer?.manifest}
 			<div class="flex items-center gap-2 md:p-4 md:pb-0">
-				<div class="bg-surface1 rounded-sm p-1 dark:bg-gray-600">
+				<div class="bg-base-200 rounded-sm p-1 dark:bg-base-300">
 					{#if fromServer?.manifest?.icon}
 						<img src={fromServer.manifest.icon} alt={fromServer.manifest.name} class="size-5" />
 					{:else}
@@ -49,9 +49,9 @@
 			{#if !responsive.isMobile}
 				<div class="grid h-full grid-cols-2">
 					<div class="h-full">
-						<h3 class="text-on-surface1 mb-2 px-4 text-sm font-semibold">Current Version</h3>
+						<h3 class="text-muted-content mb-2 px-4 text-sm font-semibold">Current Version</h3>
 						<div
-							class="default-scrollbar-thin dark:border-surface3 dark:bg-surface1 h-full overflow-x-auto border-r border-gray-200 bg-gray-50 p-4"
+							class="default-scrollbar-thin dark:border-base-400 dark:bg-base-200 h-full overflow-x-auto border-r border-gray-200 bg-gray-50 p-4"
 						>
 							<div class="font-mono text-sm whitespace-pre">
 								{@html formatJsonWithDiffHighlighting(diffManifest, diff, true)}
@@ -59,9 +59,9 @@
 						</div>
 					</div>
 					<div class="h-full">
-						<h3 class="text-on-surface1 mb-2 px-4 text-sm font-semibold">New Version</h3>
+						<h3 class="text-muted-content mb-2 px-4 text-sm font-semibold">New Version</h3>
 						<div
-							class="default-scrollbar-thin dark:border-surface3 dark:bg-surface1 h-full overflow-x-auto bg-gray-50 p-4"
+							class="default-scrollbar-thin dark:border-base-400 dark:bg-base-200 h-full overflow-x-auto bg-gray-50 p-4"
 						>
 							<div class="font-mono text-sm whitespace-pre">
 								{@html formatJsonWithDiffHighlighting(newServerManifest, diff, false)}
@@ -71,9 +71,9 @@
 				</div>
 			{:else}
 				<div class="h-full w-full pl-2">
-					<h3 class="text-on-surface1 mb-2 text-sm font-semibold">Source Diff</h3>
+					<h3 class="text-on-surfa ce1 mb-2 text-sm font-semibold">Source Diff</h3>
 					<div
-						class="default-scrollbar-thin dark:bg-surface1 h-full overflow-auto rounded-sm bg-gray-50 pt-4"
+						class="default-scrollbar-thin dark:bg-base-200 h-full overflow-auto rounded-sm bg-gray-50 pt-4"
 					>
 						{#each diff.unifiedLines as line, i (i)}
 							{@const type = line.startsWith('+')
@@ -87,10 +87,10 @@
 								class={twMerge(
 									'font-mono text-sm whitespace-pre',
 									type === 'added'
-										? 'bg-green-500/10 text-green-500 dark:bg-green-900/30'
+										? 'bg-success/10 text-success'
 										: type === 'removed'
-											? 'bg-red-500/10 text-red-500'
-											: 'text-gray-700 dark:text-gray-300'
+											? 'bg-error/10 text-error'
+											: 'text-muted-content'
 								)}
 							>
 								{prefix}{content}
@@ -102,7 +102,7 @@
 		{/if}
 	{:else}
 		<div class="flex items-center justify-center py-8">
-			<p class="text-on-surface1">Unable to compare manifests. Missing manifest data.</p>
+			<p class="text-muted-content">Unable to compare manifests. Missing manifest data.</p>
 		</div>
 	{/if}
 </ResponsiveDialog>

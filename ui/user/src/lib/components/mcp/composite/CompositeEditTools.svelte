@@ -13,7 +13,7 @@
 		toolNameIssue
 	} from '$lib/services/chat/mcp';
 	import ToolNameIssueIcon from '../ToolNameIssueIcon.svelte';
-	import { AlertTriangle } from 'lucide-svelte';
+	import { TriangleAlert } from 'lucide-svelte';
 
 	interface Props {
 		configuringEntry?: MCPCatalogEntry | MCPCatalogServer;
@@ -153,11 +153,11 @@
 	bind:this={dialog}
 	animate="slide"
 	title={`Configure ${configuringEntry?.manifest?.name ?? 'MCP Server'} Tools`}
-	class="bg-surface1 md:w-2xl"
+	class="bg-base-200 md:w-2xl"
 	classes={{ content: 'p-0', header: 'p-4 pb-0' }}
 	onClickOutside={handleClose}
 >
-	<p class="text-on-surface1 px-4 text-xs font-light">
+	<p class="text-muted-content px-4 text-xs font-light">
 		Toggle what tools are available to users of this composite server. Or modify the name or
 		description of a tool; this will override the default name or description provided by the
 		server. It may affect the LLM's ability to understand the tool so be careful when adjusting
@@ -165,7 +165,7 @@
 	</p>
 	<div class="relative flex flex-col gap-2 overflow-x-hidden p-4">
 		<div class="flex flex-col gap-1">
-			<p class="flex items-center gap-1.5 text-xs text-gray-500">
+			<p class="flex items-center gap-1.5 text-xs text-muted-content">
 				<span>Tool name prefix</span>
 				{#if prefixIssue}
 					<ToolNameIssueIcon issue={prefixIssue} disablePortal />
@@ -179,7 +179,7 @@
 				/>
 				<button
 					type="button"
-					class="button px-3 py-1 text-xs"
+					class="btn btn-secondary btn-sm px-3 py-1"
 					onclick={() => {
 						toolPrefix = '';
 					}}
@@ -188,13 +188,11 @@
 				</button>
 			</div>
 			{#if prefixIssue}
-				<p
-					class={`text-xs ${prefixIssue.severity === 'error' ? 'text-red-500' : 'text-yellow-500'}`}
-				>
+				<p class={`text-xs ${prefixIssue.severity === 'error' ? 'text-error' : 'text-warning'}`}>
 					{prefixIssue.message}
 				</p>
 			{:else}
-				<p class="text-on-surface2 text-[11px]">
+				<p class="text-muted-content text-[11px]">
 					Prepended to every tool name exposed by this component. Clear to remove.
 				</p>
 			{/if}
@@ -216,7 +214,7 @@
 			/>
 		</div>
 		<Search
-			class="dark:bg-surface1 dark:border-surface3 bg-background border border-transparent shadow-sm"
+			class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 			onChange={(val) => (search = val)}
 			placeholder="Search tools..."
 		/>
@@ -232,14 +230,14 @@
 			{@const effectiveName = effectiveToolName(tool.name, tool.overrideName, toolPrefix)}
 			{@const conflict = tool.enabled ? conflictIssue(effectiveName, conflictSet) : undefined}
 			<div
-				class="dark:bg-surface2 dark:border-surface3 bg-background flex items-start gap-2 rounded border border-transparent p-2 shadow-sm"
+				class="dark:bg-base-300 dark:border-base-400 bg-base-100 flex items-start gap-2 rounded border border-transparent p-2 shadow-sm"
 			>
 				<div class="flex min-w-0 grow flex-col gap-2">
 					<div class="flex items-start justify-between gap-2">
 						<div class="min-w-0 flex-1">
 							<div class="flex min-w-0 items-center gap-1.5">
 								<div class="min-w-0 flex-1 truncate text-sm font-medium" title={effectiveName}>
-									{#if toolPrefix}<span class="text-on-surface2">{toolPrefix}</span
+									{#if toolPrefix}<span class="text-muted-content">{toolPrefix}</span
 										>{/if}{currentName}
 								</div>
 								{#if tool.enabled}
@@ -255,7 +253,7 @@
 								</p>
 							{/if}
 						</div>
-						<div class="flex flex-shrink-0 items-center gap-2">
+						<div class="flex shrink-0 items-center gap-2">
 							<!-- Enabled/disabled toggle for this tool -->
 							<Toggle
 								checked={tool.enabled}
@@ -267,7 +265,7 @@
 							/>
 							<button
 								type="button"
-								class="button px-3 py-1 text-xs"
+								class="btn btn-secondary btn-sm px-3 py-1"
 								onclick={() => {
 									// When expanding, initialize inputs with current effective values
 									if (!expandedTools[tool.id]) {
@@ -285,7 +283,7 @@
 
 					{#if isCustomized}
 						<div class="mt-1 flex items-center gap-1 text-[11px] text-amber-600">
-							<AlertTriangle class="size-3 flex-shrink-0" />
+							<TriangleAlert class="size-3 shrink-0" />
 							<p>
 								Modified: This tool has been customized. The description or name has been changed.
 							</p>
@@ -295,12 +293,12 @@
 					{#if expandedTools[tool.id]}
 						<div class="mt-2 flex flex-col gap-2">
 							<div class="flex flex-col gap-1">
-								<p class="text-xs text-gray-500">Tool name</p>
+								<p class="text-xs text-muted-content">Tool name</p>
 								<input class="text-input-filled flex-1 text-sm" bind:value={tool.overrideName} />
 							</div>
 
 							<div class="flex flex-col gap-1">
-								<p class="text-xs text-gray-500">Description</p>
+								<p class="text-xs text-muted-content">Description</p>
 								<textarea
 									class="text-input-filled h-24 resize-none text-xs"
 									bind:value={tool.overrideDescription}
@@ -311,7 +309,7 @@
 							<div class="mt-2 flex justify-end">
 								<button
 									type="button"
-									class="button px-3 py-1 text-xs"
+									class="btn btn-sm btn-secondary px-3 py-1"
 									onclick={() => {
 										tool.overrideName = tool.name;
 										tool.overrideDescription = tool.description;
@@ -326,10 +324,10 @@
 			</div>
 		{/each}
 	</div>
-	<div class="bg-surface1 sticky bottom-0 left-0 mt-4 flex w-full justify-end gap-2 p-4">
-		<button class="button" onclick={handleCancel}>Cancel</button>
+	<div class="bg-base-200 sticky bottom-0 left-0 mt-4 flex w-full justify-end gap-2 p-4">
+		<button class="btn btn-secondary" onclick={handleCancel}>Cancel</button>
 		<button
-			class="button-primary"
+			class="btn btn-primary"
 			disabled={hasBlockingToolNameErrors || prefixIssue?.severity === 'error'}
 			onclick={() => {
 				onSuccess?.();
@@ -341,15 +339,13 @@
 
 <!-- Confirmation Dialog for Unsaved Changes -->
 <ResponsiveDialog bind:this={confirmDialog} title="Discard Changes?" class="max-w-xl">
-	<p class="text-on-surface1 mb-4 text-sm">
+	<p class="text-muted-content mb-4 text-sm">
 		You have unsaved changes for {configuringEntry?.manifest?.name ?? 'MCP Server'} configuration. Are
 		you sure you want to discard these changes?
 	</p>
 
 	<div class="flex justify-end gap-3">
-		<button class="button" onclick={cancelDiscard}>Keep Editing</button>
-		<button class="button-primary bg-red-600 hover:bg-red-700" onclick={confirmDiscard}>
-			Discard Changes
-		</button>
+		<button class="btn btn-secondary" onclick={cancelDiscard}>Keep Editing</button>
+		<button class="btn btn-error" onclick={confirmDiscard}> Discard Changes </button>
 	</div>
 </ResponsiveDialog>

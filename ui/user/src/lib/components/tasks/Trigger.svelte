@@ -64,11 +64,13 @@
 	{#if selectedTrigger() === 'webhook'}
 		<div class="flex flex-col justify-between gap-2 pr-5">
 			<h4 class="text-base font-medium">Webhook URL</h4>
-			<div class="bg-surface2 flex gap-2 rounded-xl px-4 py-2">
+			<div class="bg-base-300 flex gap-2 rounded-xl px-4 py-2">
 				<CopyButton text={webhook} />
 				{webhook}
 			</div>
-			<p class="text-on-surface1 text-sm">You can send webhooks to this URL to trigger the task.</p>
+			<p class="text-muted-content text-sm">
+				You can send webhooks to this URL to trigger the task.
+			</p>
 		</div>
 	{/if}
 	{#if selectedTrigger() === 'email' && email}
@@ -78,7 +80,7 @@
 				<CopyButton text={email} />
 				{email}
 			</div>
-			<p class="text-on-surface1 text-sm">
+			<p class="text-muted-content text-sm">
 				You can send emails to this address to trigger the task.
 			</p>
 		</div>
@@ -90,7 +92,7 @@
 		<div class="flex grow flex-col gap-4">
 			<div class="flex items-center justify-between">
 				<div class="flex gap-2">
-					<p class="text-on-surface1 text-sm">
+					<p class="text-muted-content text-sm">
 						This task will be triggered when you mention the bot in any Slack channel
 					</p>
 				</div>
@@ -101,7 +103,7 @@
 		<div class="flex grow flex-col gap-4">
 			<div class="flex items-center justify-between">
 				<div class="flex gap-2">
-					<p class="text-on-surface1 text-sm">
+					<p class="text-muted-content text-sm">
 						This task will be triggered when you mention the bot in any Discord channel
 					</p>
 				</div>

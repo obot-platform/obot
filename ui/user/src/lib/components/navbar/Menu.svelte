@@ -77,7 +77,7 @@
 
 <button
 	use:ref
-	class={twMerge('icon-button z-20', classes?.button)}
+	class={twMerge('btn btn-ghost btn-square z-20', classes?.button)}
 	onclick={() => {
 		load();
 		toggle();
@@ -90,7 +90,7 @@
 <div
 	use:tooltip={{ slide, fixed }}
 	class={twMerge(
-		'dropdown-menu z-40 flex w-screen min-w-fit flex-col divide-y divide-gray-200 p-4 md:w-96 dark:divide-gray-700',
+		'dropdown-menu z-40 flex w-screen min-w-fit flex-col divide-y divide-base-400 p-4 md:w-96',
 		classes?.menu
 	)}
 >
@@ -109,7 +109,7 @@
 				</div>
 			{/if}
 			{#if description}
-				<p class="mt-1 text-xs font-normal text-gray-700 dark:text-gray-300">{description}</p>
+				<p class="mt-1 text-xs font-normal text-muted-content">{description}</p>
 			{/if}
 		</div>
 	{/if}

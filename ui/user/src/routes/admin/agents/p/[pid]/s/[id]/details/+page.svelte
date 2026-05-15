@@ -4,10 +4,11 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import McpServerK8sInfo from '$lib/components/admin/McpServerK8sInfo.svelte';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService, NanobotService, type OrgUser } from '$lib/services';
 	import { profile } from '$lib/stores';
 	import { getUserDisplayName } from '$lib/utils';
-	import { HatGlasses, LoaderCircle } from 'lucide-svelte';
+	import { HatGlasses } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 
@@ -48,7 +49,7 @@
 <Layout {title} showBackButton>
 	{#snippet rightNavActions()}
 		<button
-			class="button-primary flex items-center gap-1 text-sm"
+			class="btn btn-primary flex items-center gap-1 text-sm"
 			onclick={() => (confirmImpersonate = true)}
 			use:tooltip={profile.current.canImpersonate?.() && agent?.userID !== profile.current.id
 				? undefined
@@ -64,7 +65,7 @@
 	<div class="flex flex-col gap-6 pb-8" in:fly={{ x: 100, delay: PAGE_TRANSITION_DURATION }}>
 		{#if loading}
 			<div class="flex w-full justify-center">
-				<LoaderCircle class="size-6 animate-spin" />
+				<Loading class="size-6" />
 			</div>
 		{:else}
 			<div class="flex flex-col gap-6">
@@ -100,7 +101,7 @@
 			>. Any actions you take will be attributed to this user. Are you sure you wish to continue?
 		</p>
 
-		<p class="text-on-surface1 mt-4 text-sm">Note: This will open in a new window.</p>
+		<p class="text-muted-content mt-4 text-sm">Note: This will open in a new window.</p>
 	{/snippet}
 </Confirm>
 

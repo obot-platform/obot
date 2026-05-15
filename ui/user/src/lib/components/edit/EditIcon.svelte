@@ -5,6 +5,7 @@
 	import AssistantIcon from '$lib/icons/AssistantIcon.svelte';
 	import type { Project } from '$lib/services';
 	import { responsive } from '$lib/stores';
+	import IconButton from '../primitives/IconButton.svelte';
 	import { ChevronRight, CircleX, Pencil } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -45,7 +46,7 @@
 {:else}
 	<div class="flex w-full items-center justify-center">
 		<button
-			class="icon-button group relative flex items-center gap-2 p-0 shadow-md"
+			class="btn btn-square btn-ghost group relative flex items-center gap-2 p-0 shadow-md"
 			class:cursor-default={!canEdit}
 			use:ref
 			onclick={() => toggle()}
@@ -55,7 +56,7 @@
 
 			{#if canEdit}
 				<div
-					class="bg-surface1 group-hover:bg-surface3 absolute -right-1 bottom-0 rounded-full p-2 shadow-md transition-all duration-200"
+					class="bg-base-200 group-hover:bg-base-400 absolute -right-1 bottom-0 rounded-full p-2 shadow-md transition-all duration-200"
 				>
 					<Pencil class="size-4" />
 				</div>
@@ -68,7 +69,7 @@
 			fixed: responsive.isMobile ? true : false,
 			disablePortal: true
 		}}
-		class="popover bg-surface1 dark:bg-background top-16 left-0 z-40 flex h-[calc(100vh-64px)] w-screen flex-col px-4 md:top-auto md:left-auto md:h-auto md:w-[350px] md:py-6"
+		class="popover bg-base-200 dark:bg-base-100 top-16 left-0 z-40 flex h-[calc(100vh-64px)] w-screen flex-col px-4 md:top-auto md:left-auto md:h-auto md:w-[350px] md:py-6"
 	>
 		{@render content()}
 	</div>
@@ -76,14 +77,11 @@
 
 {#snippet content()}
 	{#if responsive.isMobile}
-		<div class="border-surface3 relative mb-6 flex items-center justify-center border-b py-4">
+		<div class="border-base-400 relative mb-6 flex items-center justify-center border-b py-4">
 			<h4 class="text-lg font-medium">Edit Icon</h4>
-			<button
-				class="icon-button absolute top-1/2 right-0 -translate-y-1/2"
-				onclick={() => toggle()}
-			>
+			<IconButton class="absolute top-1/2 right-0 -translate-y-1/2" onclick={() => toggle()}>
 				<ChevronRight class="size-6" />
-			</button>
+			</IconButton>
 		</div>
 	{/if}
 	{#if urlIcon}
@@ -93,7 +91,7 @@
 				<input
 					id="project-name"
 					type="text"
-					class="bg-surface grow rounded-lg p-2"
+					class="bg-base-200 grow rounded-lg p-2"
 					bind:value={urlIcon.icon}
 				/>
 			</div>
@@ -102,12 +100,12 @@
 				<input
 					id="project-name"
 					type="text"
-					class="bg-surface grow rounded-lg p-2"
+					class="bg-base-200 grow rounded-lg p-2"
 					bind:value={urlIcon.iconDark}
 				/>
 			</div>
 			<button
-				class="button self-end"
+				class="btn btn-secondary self-end"
 				onclick={() => {
 					project.icons = urlIcon;
 					urlIcon = undefined;
@@ -138,7 +136,7 @@
 				/>
 
 				<button
-					class="icon-button flex items-center justify-center gap-2 px-4 py-2"
+					class="btn btn-secondary flex items-center justify-center gap-2 px-4 py-2"
 					onclick={() => {
 						project.icons = undefined;
 						onSubmit?.();

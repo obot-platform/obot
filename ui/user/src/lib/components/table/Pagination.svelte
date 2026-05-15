@@ -28,7 +28,7 @@
 	>
 		<ChevronsLeft class="size-4" /> Previous
 	</button>
-	<p class="text-on-surface1 text-xs">
+	<p class="text-muted-content text-xs">
 		{pageIndex + 1} of {lastPageIndex + 1}{#if itemLabelSingular}
 			· {total}
 			{itemLabelSingular}{total === 1 ? '' : 's'}{/if}

@@ -177,7 +177,7 @@
 
 <div
 	class={twMerge(
-		'text-input-filled border-surface3 dark:bg-background overflow-hidden p-0 transition-colors',
+		'text-input-filled border-base-400 dark:bg-base-100 overflow-hidden p-0 transition-colors',
 		focused && !disabled && 'ring-primary ring-2 outline-none',
 		disabled && 'disabled opacity-60',
 		klass

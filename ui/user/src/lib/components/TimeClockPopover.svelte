@@ -276,7 +276,7 @@
 		<div class="relative flex flex-1 flex-col items-center justify-center px-3 pt-4 pb-6">
 			<div class="relative aspect-square w-full max-w-[280px] pb-4">
 				<!-- Dial background -->
-				<div class="bg-surface1 absolute inset-[0%] rounded-full"></div>
+				<div class="bg-base-200 absolute inset-[0%] rounded-full"></div>
 
 				{#if mode === 'hour' && is24h}
 					{@const selAngle = handAngleForHour24(h24)}
@@ -300,8 +300,8 @@
 							type="button"
 							style={polarStyle(h, 12, 40)}
 							class={twMerge(
-								'bg-surface1 absolute z-10 flex h-9 w-9 items-center justify-center rounded-full text-sm',
-								h24 === h ? 'bg-primary text-white scale-110' : 'hover:bg-surface3 '
+								'bg-base-200 absolute z-10 flex h-9 w-9 items-center justify-center rounded-full text-sm',
+								h24 === h ? 'bg-primary text-white scale-110' : 'hover:bg-base-400 '
 							)}
 							onclick={() => setHour24(h)}>{h}</button
 						>
@@ -311,8 +311,8 @@
 							type="button"
 							style={polarStyleIndex(i, 12, 24)}
 							class={twMerge(
-								'bg-surface1 absolute z-10 flex h-8 w-8 items-center justify-center rounded-full text-xs',
-								h24 === hv ? 'bg-primary text-white scale-110' : 'hover:bg-surface3 '
+								'bg-base-200 absolute z-10 flex h-8 w-8 items-center justify-center rounded-full text-xs',
+								h24 === hv ? 'bg-primary text-white scale-110' : 'hover:bg-base-400 '
 							)}
 							onclick={() => setHour24(hv)}>{String(hv).padStart(2, '0')}</button
 						>
@@ -339,8 +339,8 @@
 							type="button"
 							style={polarStyle(h, 12, 40)}
 							class={twMerge(
-								'bg-surface1 absolute z-10 flex h-10 w-10 items-center justify-center rounded-full text-base',
-								hour12 === h ? 'bg-primary text-white scale-110' : 'hover:bg-surface3 '
+								'bg-base-200 absolute z-10 flex h-10 w-10 items-center justify-center rounded-full text-base',
+								hour12 === h ? 'bg-primary text-white scale-110' : 'hover:bg-base-400 '
 							)}
 							onclick={() => setHour12(h)}>{h}</button
 						>
@@ -369,10 +369,10 @@
 							type="button"
 							style={polarStyle(slot === 0 ? 12 : slot, 12, 38)}
 							class={twMerge(
-								'bg-surface1 absolute z-10 flex h-9 w-9 items-center justify-center rounded-full text-xs',
+								'bg-base-200 absolute z-10 flex h-9 w-9 items-center justify-center rounded-full text-xs',
 								Math.floor(selMin / 5) === slot
 									? 'bg-primary text-primary-content scale-110'
-									: 'hover:bg-surface3 '
+									: 'hover:bg-base-400 '
 							)}
 							onclick={() => {
 								minuteExtra = 0;
@@ -390,7 +390,7 @@
 							type="button"
 							class={twMerge(
 								'rounded px-2 py-1 text-xs',
-								minuteExtra === e ? 'bg-primary text-white' : 'bg-surface3/50 text-on-background'
+								minuteExtra === e ? 'bg-primary text-white' : 'bg-base-400/50 text-muted-content'
 							)}
 							onclick={() => setMinuteExtra(e)}>+{e}</button
 						>
@@ -400,9 +400,9 @@
 		</div>
 
 		<!-- Footer -->
-		<div class="border-surface3 flex justify-end gap-2 border-t px-3 py-2">
-			<button type="button" class="button text-xs uppercase" onclick={cancel}>Cancel</button>
-			<button type="button" class="button-primary text-xs uppercase" onclick={ok}>OK</button>
+		<div class="border-base-400 flex justify-end gap-2 border-t px-3 py-2">
+			<button type="button" class="btn btn-secondary btn-sm" onclick={cancel}>Cancel</button>
+			<button type="button" class="btn btn-primary btn-sm" onclick={ok}>OK</button>
 		</div>
 	</div>
 {/if}

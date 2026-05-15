@@ -2,10 +2,11 @@
 	import { page } from '$app/state';
 	import Select from '$lib/components/Select.svelte';
 	import Dropdown from '$lib/components/tasks/Dropdown.svelte';
+	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService, Group, type AuditLogURLFilters } from '$lib/services';
 	import type { OrgUser, ScheduledAuditLogExport } from '$lib/services/admin/types';
 	import { profile } from '$lib/stores';
-	import { AlertTriangle, LoaderCircle, GlobeIcon, ChevronDown, ChevronUp } from 'lucide-svelte';
+	import { TriangleAlert, GlobeIcon, ChevronDown, ChevronUp } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { slide } from 'svelte/transition';
@@ -179,6 +180,96 @@
 		});
 	});
 
+	type AuditScheduleAdvancedFilterRow = {
+		fieldId: string;
+		filterKey:
+			| 'user_id'
+			| 'mcp_id'
+			| 'mcp_server_display_name'
+			| 'call_type'
+			| 'client_name'
+			| 'response_status'
+			| 'session_id'
+			| 'client_ip'
+			| 'mcp_server_catalog_entry_name';
+		label: string;
+		description: string;
+		options: { id: string; label: string }[];
+	};
+
+	let auditScheduleAdvancedFilterRows = $derived.by((): AuditScheduleAdvancedFilterRow[] => {
+		const sameLabel = (d: string) => ({ id: d, label: d });
+		return [
+			{
+				fieldId: 'user_id',
+				filterKey: 'user_id',
+				label: 'User IDs',
+				description: 'Comma-separated user IDs',
+				options:
+					filtersOptions['user_id']?.map?.((d) => ({
+						id: d,
+						label: usersMap.get(d)?.displayName ?? d
+					})) ?? []
+			},
+			{
+				fieldId: 'mcp_id',
+				filterKey: 'mcp_id',
+				label: 'Server IDs',
+				description: 'Comma-separated server IDs',
+				options: filtersOptions['mcp_id']?.map?.(sameLabel) ?? []
+			},
+			{
+				fieldId: 'mcp_server_display_name',
+				filterKey: 'mcp_server_display_name',
+				label: 'Server Names',
+				description: 'Comma-separated server display names',
+				options: filtersOptions['mcp_server_display_name']?.map?.(sameLabel) ?? []
+			},
+			{
+				fieldId: 'call_type',
+				filterKey: 'call_type',
+				label: 'Call Types',
+				description: 'Comma-separated call types',
+				options: filtersOptions['call_type']?.map?.(sameLabel) ?? []
+			},
+			{
+				fieldId: 'client_name',
+				filterKey: 'client_name',
+				label: 'Client Names',
+				description: 'Comma-separated client names',
+				options: filtersOptions['client_name']?.map?.(sameLabel) ?? []
+			},
+			{
+				fieldId: 'response_status',
+				filterKey: 'response_status',
+				label: 'Response Status',
+				description: 'Comma-separated HTTP status codes',
+				options: filtersOptions['response_status']?.map?.(sameLabel) ?? []
+			},
+			{
+				fieldId: 'session_id',
+				filterKey: 'session_id',
+				label: 'Session IDs',
+				description: 'Comma-separated session IDs',
+				options: filtersOptions['session_id']?.map?.(sameLabel) ?? []
+			},
+			{
+				fieldId: 'client_ip',
+				filterKey: 'client_ip',
+				label: 'Client IPs',
+				description: 'Comma-separated IP addresses',
+				options: filtersOptions['client_ip']?.map?.(sameLabel) ?? []
+			},
+			{
+				fieldId: 'mcp_server_catalog_entry_name',
+				filterKey: 'mcp_server_catalog_entry_name',
+				label: 'Catalog Entry Names',
+				description: 'Comma-separated catalog entry names',
+				options: filtersOptions['mcp_server_catalog_entry_name']?.map?.(sameLabel) ?? []
+			}
+		];
+	});
+
 	async function handleSubmit() {
 		try {
 			creating = true;
@@ -258,7 +349,7 @@
 	}
 </script>
 
-<div class="dark:bg-surface2 bg-background rounded-md p-6 shadow-sm">
+<div class="paper">
 	<form
 		class="space-y-8"
 		onsubmit={(e) => {
@@ -267,10 +358,8 @@
 		}}
 	>
 		{#if !hasAuditorPermissions}
-			<div
-				class="flex items-start gap-3 rounded-md border border-yellow-500 bg-yellow-500/10 p-4 dark:bg-yellow-500/10"
-			>
-				<AlertTriangle class="size-5 text-yellow-500 dark:text-yellow-500" />
+			<div class="flex items-start gap-3 rounded-md border border-warning bg-warning/10 p-4">
+				<TriangleAlert class="size-5 text-warning" />
 				<div class="text-sm">
 					Exported logs will not include request/response headers and body information. Auditor role
 					is required to access this data.
@@ -301,7 +390,7 @@
 						required={mode !== 'view'}
 						readonly={mode === 'view'}
 					/>
-					<p class="text-on-surface1 text-xs">Unique name for this export schedule</p>
+					<p class="text-muted-content text-xs">Unique name for this export schedule</p>
 				</div>
 				<div class="flex flex-col gap-1">
 					<label class="text-sm font-medium" for="bucket">Bucket Name</label>
@@ -313,7 +402,7 @@
 						required={mode !== 'view'}
 						readonly={mode === 'view'}
 					/>
-					<p class="text-on-surface1 text-xs">Storage bucket name where exports will be saved</p>
+					<p class="text-muted-content text-xs">Storage bucket name where exports will be saved</p>
 				</div>
 			</div>
 
@@ -326,7 +415,7 @@
 					placeholder="Leave empty for default: mcp-audit-logs/YYYY/MM/DD/"
 					readonly={mode === 'view'}
 				/>
-				<p class="text-on-surface1 text-xs">
+				<p class="text-muted-content text-xs">
 					Path prefix within the bucket. If empty, defaults to "mcp-audit-logs/YYYY/MM/DD/" format
 					based on current date.
 				</p>
@@ -339,7 +428,7 @@
 
 			<div class="flex w-[50%] flex-wrap gap-4">
 				<Dropdown
-					class="schedule-dropdown"
+					class="text-input-filled"
 					values={{
 						hourly: 'hourly',
 						daily: 'daily',
@@ -357,7 +446,7 @@
 
 				{#if form.schedule.interval === 'hourly'}
 					<Dropdown
-						class="schedule-dropdown"
+						class="text-input-filled"
 						values={{
 							'0': 'on the hour',
 							'15': '15 minutes past',
@@ -373,7 +462,7 @@
 
 				{#if form.schedule.interval === 'daily'}
 					<Dropdown
-						class="schedule-dropdown"
+						class="text-input-filled"
 						values={{
 							'0': 'midnight',
 							'3': '3 AM',
@@ -399,7 +488,7 @@
 
 				{#if form.schedule.interval === 'weekly'}
 					<Dropdown
-						class="schedule-dropdown"
+						class="text-input-filled"
 						values={{
 							'0': 'Sunday',
 							'1': 'Monday',
@@ -415,7 +504,7 @@
 						}}
 					/>
 					<Dropdown
-						class="schedule-dropdown"
+						class="text-input-filled"
 						values={{
 							'0': 'midnight',
 							'3': '3 AM',
@@ -441,7 +530,7 @@
 
 				{#if form.schedule.interval === 'monthly'}
 					<Dropdown
-						class="schedule-dropdown"
+						class="text-input-filled"
 						values={{
 							'0': '1st',
 							'1': '2nd',
@@ -458,7 +547,7 @@
 						}}
 					/>
 					<Dropdown
-						class="schedule-dropdown"
+						class="text-input-filled"
 						values={{
 							'0': 'midnight',
 							'3': '3 AM',
@@ -492,7 +581,7 @@
 			</p>
 			<div class="flex flex-col gap-1">
 				<Dropdown
-					class="schedule-dropdown w-full max-w-xs"
+					class="text-input-filled w-full max-w-xs"
 					values={{
 						'1': 'Last 1 day',
 						'3': 'Last 3 days',
@@ -533,197 +622,34 @@
 						Leave filters empty to export all logs in each scheduled period
 					</p>
 
+					{#snippet auditScheduleAdvancedFilterField(row: AuditScheduleAdvancedFilterRow)}
+						<div class="flex flex-col gap-1">
+							<label class="text-sm font-medium" for={row.fieldId}>{row.label}</label>
+							<Select
+								id={row.fieldId}
+								class="text-input-filled bg-base-200 dark:bg-base-100"
+								classes={{
+									root: 'w-full',
+									clear: 'hover:bg-base-400 bg-transparent'
+								}}
+								options={row.options}
+								bind:selected={
+									() => form.filters[row.filterKey] ?? '',
+									(v) => {
+										form.filters[row.filterKey] = v ?? '';
+									}
+								}
+								disabled={isViewMode}
+								multiple
+							/>
+							<p class="text-muted-content text-xs">{row.description}</p>
+						</div>
+					{/snippet}
+
 					<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-						<div class="flex flex-col gap-1">
-							<label class="text-sm font-medium" for="user_id">User IDs</label>
-							<Select
-								class="dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner"
-								classes={{
-									root: 'w-full',
-									clear: 'hover:bg-surface3 bg-transparent'
-								}}
-								options={filtersOptions['user_id']?.map?.((d) => ({
-									id: d,
-									label: usersMap.get(d)?.displayName ?? d
-								})) ?? []}
-								bind:selected={
-									() => form.filters.user_id ?? '', (v) => (form.filters.user_id = v ?? '')
-								}
-								disabled={isViewMode}
-								multiple
-							/>
-							<p class="text-on-surface1 text-xs">Comma-separated user IDs</p>
-						</div>
-
-						<div class="flex flex-col gap-1">
-							<label class="text-sm font-medium" for="mcp_id">Server IDs</label>
-							<Select
-								class="dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner"
-								classes={{
-									root: 'w-full',
-									clear: 'hover:bg-surface3 bg-transparent'
-								}}
-								options={filtersOptions['mcp_id']?.map?.((d) => ({ id: d, label: d })) ?? []}
-								bind:selected={
-									() => form.filters.mcp_id ?? '', (v) => (form.filters.mcp_id = v ?? '')
-								}
-								disabled={isViewMode}
-								multiple
-							/>
-							<p class="text-on-surface1 text-xs">Comma-separated server IDs</p>
-						</div>
-
-						<div class="flex flex-col gap-1">
-							<label class="text-sm font-medium" for="mcp_server_display_name">Server Names</label>
-							<Select
-								class="dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner"
-								classes={{
-									root: 'w-full',
-									clear: 'hover:bg-surface3 bg-transparent'
-								}}
-								options={filtersOptions['mcp_server_display_name']?.map?.((d) => ({
-									id: d,
-									label: d
-								})) ?? []}
-								bind:selected={
-									() => form.filters.mcp_server_display_name ?? '',
-									(v) => (form.filters.mcp_server_display_name = v ?? '')
-								}
-								disabled={isViewMode}
-								multiple
-							/>
-							<p class="text-on-surface1 text-xs">Comma-separated server display names</p>
-						</div>
-
-						<div class="flex flex-col gap-1">
-							<label class="text-sm font-medium" for="call_type">Call Types</label>
-							<Select
-								class="dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner"
-								classes={{
-									root: 'w-full',
-									clear: 'hover:bg-surface3 bg-transparent'
-								}}
-								options={filtersOptions['call_type']?.map?.((d) => ({
-									id: d,
-									label: d
-								})) ?? []}
-								bind:selected={
-									() => form.filters.call_type ?? '', (v) => (form.filters.call_type = v ?? '')
-								}
-								disabled={isViewMode}
-								multiple
-							/>
-							<p class="text-on-surface1 text-xs">Comma-separated call types</p>
-						</div>
-
-						<div class="flex flex-col gap-1">
-							<label class="text-sm font-medium" for="client_name">Client Names</label>
-							<Select
-								class="dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner"
-								classes={{
-									root: 'w-full',
-									clear: 'hover:bg-surface3 bg-transparent'
-								}}
-								options={filtersOptions['client_name']?.map?.((d) => ({
-									id: d,
-									label: d
-								})) ?? []}
-								bind:selected={
-									() => form.filters.client_name ?? '', (v) => (form.filters.client_name = v ?? '')
-								}
-								disabled={isViewMode}
-								multiple
-							/>
-							<p class="text-on-surface1 text-xs">Comma-separated client names</p>
-						</div>
-
-						<div class="flex flex-col gap-1">
-							<label class="text-sm font-medium" for="response_status">Response Status</label>
-							<Select
-								class="dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner"
-								classes={{
-									root: 'w-full',
-									clear: 'hover:bg-surface3 bg-transparent'
-								}}
-								options={filtersOptions['response_status']?.map?.((d) => ({
-									id: d,
-									label: d
-								})) ?? []}
-								bind:selected={
-									() => form.filters.response_status ?? '',
-									(v) => (form.filters.response_status = v ?? '')
-								}
-								disabled={isViewMode}
-								multiple
-							/>
-							<p class="text-on-surface1 text-xs">Comma-separated HTTP status codes</p>
-						</div>
-
-						<div class="flex flex-col gap-1">
-							<label class="text-sm font-medium" for="session_id">Session IDs</label>
-							<Select
-								class="dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner"
-								classes={{
-									root: 'w-full',
-									clear: 'hover:bg-surface3 bg-transparent'
-								}}
-								options={filtersOptions['session_id']?.map?.((d) => ({
-									id: d,
-									label: d
-								})) ?? []}
-								bind:selected={
-									() => form.filters.session_id ?? '', (v) => (form.filters.session_id = v ?? '')
-								}
-								disabled={isViewMode}
-								multiple
-							/>
-							<p class="text-on-surface1 text-xs">Comma-separated session IDs</p>
-						</div>
-
-						<div class="flex flex-col gap-1">
-							<label class="text-sm font-medium" for="client_ip">Client IPs</label>
-							<Select
-								class="dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner"
-								classes={{
-									root: 'w-full',
-									clear: 'hover:bg-surface3 bg-transparent'
-								}}
-								options={filtersOptions['client_ip']?.map?.((d) => ({
-									id: d,
-									label: d
-								})) ?? []}
-								bind:selected={
-									() => form.filters.client_ip ?? '', (v) => (form.filters.client_ip = v ?? '')
-								}
-								disabled={isViewMode}
-								multiple
-							/>
-							<p class="text-on-surface1 text-xs">Comma-separated IP addresses</p>
-						</div>
-						<div class="flex flex-col gap-1">
-							<label class="text-sm font-medium" for="power_user_workspace_id"
-								>Catalog Entry Names</label
-							>
-							<Select
-								class="dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner"
-								classes={{
-									root: 'w-full',
-									clear: 'hover:bg-surface3 bg-transparent'
-								}}
-								options={filtersOptions['mcp_server_catalog_entry_name']?.map?.((d) => ({
-									id: d,
-									label: d
-								})) ?? []}
-								bind:selected={
-									() => form.filters.mcp_server_catalog_entry_name ?? '',
-									(v) => (form.filters.mcp_server_catalog_entry_name = v ?? '')
-								}
-								disabled={isViewMode}
-								multiple
-							/>
-
-							<p class="text-on-surface1 text-xs">Comma-separated catalog entry names</p>
-						</div>
+						{#each auditScheduleAdvancedFilterRows as row (row.fieldId)}
+							{@render auditScheduleAdvancedFilterField(row)}
+						{/each}
 					</div>
 				</div>
 			{/if}
@@ -731,9 +657,9 @@
 
 		<!-- Error Display -->
 		{#if error}
-			<div class="flex items-start gap-3 rounded-md bg-red-50 p-4 dark:bg-red-950/50">
-				<AlertTriangle class="size-5 text-red-600 dark:text-red-400" />
-				<div class="text-sm text-red-700 dark:text-red-300">
+			<div class="flex items-start gap-3 rounded-md bg-error/10 p-4">
+				<TriangleAlert class="size-5 text-error" />
+				<div class="text-sm text-error">
 					{error}
 				</div>
 			</div>
@@ -743,16 +669,16 @@
 		<div class="flex justify-end gap-3 pt-6">
 			<button
 				type="button"
-				class="button"
+				class="btn btn-secondary"
 				onclick={onCancel}
 				disabled={creating && mode !== 'view'}
 			>
 				{mode === 'view' ? 'Back' : 'Cancel'}
 			</button>
 			{#if mode !== 'view'}
-				<button type="submit" class="button-primary" disabled={creating}>
+				<button type="submit" class="btn btn-primary" disabled={creating}>
 					{#if creating}
-						<LoaderCircle class="size-4 animate-spin" />
+						<Loading class="size-4" />
 						{mode === 'edit' ? 'Saving Changes...' : 'Creating Schedule...'}
 					{:else}
 						{mode === 'edit' ? 'Save Changes' : 'Create Schedule'}
@@ -762,12 +688,3 @@
 		</div>
 	</form>
 </div>
-
-<style lang="postcss">
-	:global(.schedule-dropdown) {
-		background-color: var(--surface2);
-		font-size: var(--text-md);
-		display: flex;
-		flex-grow: 1;
-	}
-</style>

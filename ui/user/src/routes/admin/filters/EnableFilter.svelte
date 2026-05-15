@@ -265,11 +265,11 @@
 	{#snippet errorPostContent()}
 		{#if launchLogs.length > 0}
 			<div
-				class="default-scrollbar-thin bg-surface1 max-h-[50vh] w-full overflow-y-auto rounded-lg p-4 shadow-inner"
+				class="default-scrollbar-thin bg-base-200 max-h-[50vh] w-full overflow-y-auto rounded-lg p-4 shadow-inner"
 			>
 				{#each launchLogs as log, i (i)}
 					<div class="font-mono text-sm">
-						<span class="text-on-surface1">{log}</span>
+						<span class="text-muted-content">{log}</span>
 					</div>
 				{/each}
 			</div>
@@ -280,7 +280,7 @@
 		<div class="flex w-full flex-col items-center gap-2 md:flex-row">
 			{#if entry}
 				<button
-					class="button-primary w-full md:w-1/2 md:flex-1"
+					class="btn btn-primary w-full md:w-1/2 md:flex-1"
 					onclick={() => {
 						launchState = 'relaunching';
 						launchError = undefined;
@@ -294,7 +294,9 @@
 					Update Configuration and Try Again
 				</button>
 			{/if}
-			<button class="button w-full md:w-1/2 md:flex-1" onclick={handleCancel}> Cancel </button>
+			<button class="btn btn-secondary w-full md:w-1/2 md:flex-1" onclick={handleCancel}>
+				Cancel
+			</button>
 		</div>
 	{/snippet}
 </PageLoading>
@@ -312,14 +314,14 @@
 		<div class="flex w-full justify-end gap-2">
 			{#if entry && hasEditableConfiguration(entry)}
 				<button
-					class="button text-sm"
+					class="btn btn-secondary text-sm"
 					onclick={() => {
 						selectorsAndMcpServersDialog?.close();
 						configDialog?.open();
 					}}>Go Back</button
 				>
 			{/if}
-			<button class="button-primary text-sm" onclick={handleFinish}>Save</button>
+			<button class="btn btn-primary text-sm" onclick={handleFinish}>Save</button>
 		</div>
 	</div>
 </ResponsiveDialog>

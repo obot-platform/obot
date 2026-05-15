@@ -142,7 +142,7 @@
 	<div class="mt-2 flex flex-col gap-4 py-3">
 		{#if version.current.sessionStore === 'db'}
 			<button
-				class="w-full rounded-3xl border-2 border-red-600 px-4 py-2 font-medium text-red-600 hover:border-red-700 hover:text-red-700"
+				class="w-full btn btn-error"
 				onclick={(e) => {
 					e.preventDefault();
 					toRevoke = !toRevoke;
@@ -151,7 +151,7 @@
 			>
 		{/if}
 		<button
-			class="w-full rounded-3xl bg-red-600 px-4 py-2 font-medium text-white hover:bg-red-700"
+			class="w-full btn btn-error"
 			onclick={(e) => {
 				e.preventDefault();
 				toDelete = !toDelete;

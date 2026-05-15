@@ -5,7 +5,7 @@
 		MCPCompositeDeletionDependency,
 		MCPCompositeDeletionDependencyError
 	} from '$lib/services';
-	import { AlertTriangle, Server } from 'lucide-svelte/icons';
+	import { TriangleAlert, Server } from 'lucide-svelte/icons';
 
 	interface Props {
 		show: boolean;
@@ -70,10 +70,10 @@
 	<div class="default-scrollbar-thin flex flex-col gap-4 overflow-y-auto p-4">
 		<div class="notification-alert mb-2 flex flex-col gap-2">
 			<div class="flex gap-2">
-				<AlertTriangle class="size-6 flex-shrink-0 self-start text-yellow-500" />
+				<TriangleAlert class="size-6 shrink-0 self-start text-warning" />
 				<p class="my-0.5 flex flex-col text-sm font-semibold">Action Required</p>
 			</div>
-			<span class="text-left text-sm font-light break-words">
+			<span class="text-left text-sm font-light wrap-break-word">
 				To delete this server, please remove it from the servers below and update all deployed
 				instances.
 			</span>
@@ -83,13 +83,13 @@
 			<ul class="space-y-2 text-sm">
 				{#each groupedLinks as dep (dep.catalogEntryID)}
 					<li
-						class="dark:bg-surface2 dark:border-surface3 bg-background flex items-center justify-between gap-3 rounded-md border border-gray-200 p-3 shadow-sm"
+						class="dark:bg-base-300 dark:border-base-400 bg-base-100 flex items-center justify-between gap-3 rounded-md border border-gray-200 p-3 shadow-sm"
 					>
 						<div class="flex min-w-0 items-center gap-3">
 							{#if dep.icon}
-								<img src={dep.icon} alt={dep.name} class="size-6 flex-shrink-0" />
+								<img src={dep.icon} alt={dep.name} class="size-6 shrink-0" />
 							{:else}
-								<Server class="size-6 flex-shrink-0" />
+								<Server class="size-6 shrink-0" />
 							{/if}
 							<span class="truncate font-medium text-gray-900 dark:text-gray-100">
 								{dep.name}

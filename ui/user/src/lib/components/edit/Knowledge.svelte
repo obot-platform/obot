@@ -10,6 +10,7 @@
 	import { type KnowledgeFile as KnowledgeFileType } from '$lib/services';
 	import { hasTool } from '$lib/tools';
 	import InfoTooltip from '../InfoTooltip.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import { Plus, Trash2, TriangleAlert } from 'lucide-svelte';
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -60,7 +61,7 @@
 		<span
 			class={twMerge(
 				'flex grow items-center gap-1 text-sm',
-				!hasKnowledgeCapability && 'text-on-surface1 justify-between'
+				!hasKnowledgeCapability && 'text-muted-content justify-between'
 			)}
 		>
 			Knowledge
@@ -77,7 +78,7 @@
 	{/snippet}
 	<div class="flex flex-col gap-2">
 		{#if !hasKnowledgeCapability}
-			<p class="text-on-surface1 flex items-center gap-1 text-xs font-light">
+			<p class="text-muted-content flex items-center gap-1 text-xs font-light">
 				<span> Enable Knowledge in "Built-In Capabilities" to add knowledge to your project. </span>
 			</p>
 		{/if}
@@ -122,7 +123,7 @@
 			<div class="flex flex-col gap-2">
 				{#each project.websiteKnowledge.sites as _, i (i)}
 					<div
-						class="group dark:border-surface3 bg-background flex gap-2 rounded-md p-2 text-xs shadow-sm dark:border"
+						class="group dark:border-base-400 bg-base-100 flex gap-2 rounded-md p-2 text-xs shadow-sm dark:border"
 					>
 						<div class="flex grow flex-col gap-2">
 							<div>
@@ -133,7 +134,7 @@
 									id={`website-address-${i}`}
 									bind:value={project.websiteKnowledge.sites[i].site}
 									placeholder="example.com"
-									class="ghost-input border-surface2 w-full"
+									class="ghost-input border-base-300 w-full"
 								/>
 							</div>
 							<div>
@@ -142,7 +143,7 @@
 								>
 								<textarea
 									id={`website-description-${i}`}
-									class="ghost-input border-surface2 w-full resize-none"
+									class="ghost-input border-base-300 w-full resize-none"
 									bind:value={project.websiteKnowledge.sites[i].description}
 									rows="1"
 									placeholder="Description"
@@ -151,14 +152,13 @@
 							</div>
 						</div>
 						<div class="flex items-center justify-end">
-							<button
-								class="icon-button size-fit"
+							<IconButton
 								onclick={() => {
 									project.websiteKnowledge?.sites?.splice(i, 1);
 								}}
 							>
 								<Trash2 class="size-4" />
-							</button>
+							</IconButton>
 						</div>
 					</div>
 				{/each}
@@ -166,7 +166,7 @@
 		{/if}
 		<div class="self-end">
 			<button
-				class="button-small text-xs"
+				class="btn btn-secondary btn-sm"
 				onclick={() => {
 					if (!project.websiteKnowledge) {
 						project.websiteKnowledge = {

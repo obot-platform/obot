@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import {
-		AlertTriangle,
 		ChevronDown,
 		ChevronUp,
 		Maximize,
 		Minimize,
 		RefreshCw,
 		Search,
+		TriangleAlert,
 		X
 	} from 'lucide-svelte';
 	import { fade } from 'svelte/transition';
@@ -180,9 +180,7 @@
 
 		return parts
 			.map((part, index) =>
-				index % 2 === 1
-					? `<mark class="bg-yellow-300 dark:bg-yellow-600">${escapeHtml(part)}</mark>`
-					: escapeHtml(part)
+				index % 2 === 1 ? `<mark class="bg-warning">${escapeHtml(part)}</mark>` : escapeHtml(part)
 			)
 			.join('');
 	}
@@ -233,7 +231,7 @@
 			<button
 				onclick={onRefresh}
 				use:tooltip={'Refresh logs'}
-				class="text-on-surface1/60 hover:bg-surface2 hover:text-on-surface1 rounded-md p-1 disabled:opacity-50"
+				class="text-muted-content hover:bg-base-300 hover:text-base-content rounded-md p-1 disabled:opacity-50"
 				disabled={refreshing}
 				aria-label="Refresh logs"
 			>
@@ -244,7 +242,7 @@
 			<div
 				use:tooltip={`An error occurred in connecting to the event stream. This is normal if the server is still starting up.`}
 			>
-				<AlertTriangle class="size-4 text-yellow-500" />
+				<TriangleAlert class="size-4 text-warning" />
 			</div>
 		{/if}
 
@@ -252,7 +250,7 @@
 			<button
 				onclick={clearLogs}
 				use:tooltip={'Clear logs'}
-				class="text-on-surface1/60 hover:bg-surface2 hover:text-on-surface1 rounded-md p-1 disabled:opacity-50"
+				class="text-muted-content hover:bg-base-300 hover:text-base-content rounded-md p-1 disabled:opacity-50"
 				disabled={!hasMessages || refreshing}
 				aria-label="Clear logs"
 			>
@@ -264,7 +262,7 @@
 					isMaximized = true;
 				}}
 				use:tooltip={'Maximize (Esc to close)'}
-				class="text-on-surface1/60 hover:bg-surface2 hover:text-on-surface1 rounded-md p-1 disabled:opacity-50"
+				class="text-muted-content hover:bg-base-300 hover:text-base-content rounded-md p-1 disabled:opacity-50"
 				disabled={!hasMessages}
 				aria-label="Maximize logs"
 			>
@@ -278,7 +276,7 @@
 		onclick={handleModalClick}
 		class={twMerge(
 			isMaximized
-				? 'bg-background/50 fixed inset-0 z-50 flex flex-col items-center justify-center p-4 md:p-8 lg:p-10'
+				? 'bg-base-100/50 fixed inset-0 z-50 flex flex-col items-center justify-center p-4 md:p-8 lg:p-10'
 				: 'contents'
 		)}
 		role={isMaximized ? 'dialog' : undefined}
@@ -289,15 +287,15 @@
 			onscroll={handleUserScroll}
 			bind:this={logsContainer}
 			class={twMerge(
-				'dark:bg-surface1 dark:border-surface3 default-scrollbar-thin bg-background flex min-h-64 flex-col overflow-y-auto rounded-lg border border-transparent shadow-sm',
+				'dark:bg-base-200 dark:border-base-400 default-scrollbar-thin bg-base-100 flex min-h-64 flex-col overflow-y-auto rounded-lg border border-transparent shadow-sm',
 				isMaximized ? 'h-full max-h-full w-full' : 'max-h-84 '
 			)}
 		>
 			{#if hasMessages}
-				<div class="dark:bg-surface1 bg-background border-surface3 sticky top-0 z-10 border-b p-4">
+				<div class="dark:bg-base-200 bg-base-100 border-base-400 sticky top-0 z-10 border-b p-4">
 					<div
 						class={twMerge(
-							'border-surface2 bg-surface1/50 focus-within:outline-primary flex h-10 w-full items-center gap-2 rounded-sm border pr-2 pl-2 text-xs focus-within:outline-2',
+							'border-base-300 bg-base-200/50 focus-within:outline-primary flex h-10 w-full items-center gap-2 rounded-sm border pr-2 pl-2 text-xs focus-within:outline-2',
 							isMaximized && 'text-md h-12'
 						)}
 					>
@@ -307,7 +305,7 @@
 
 						<input
 							bind:this={searchInput}
-							class="placeholder:text-on-surface1/40 flex-1 bg-transparent py-3 outline-none"
+							class="placeholder:text-muted-content flex-1 bg-transparent py-3 outline-none"
 							type="text"
 							placeholder="Search logs... (Ctrl/Cmd+F)"
 							bind:value={query}
@@ -317,7 +315,7 @@
 
 						<div class="flex h-full items-center gap-1 p-0.5">
 							{#if query}
-								<span class="text-on-surface1/60 text-xs">
+								<span class="text-muted-content text-xs">
 									{#if hasMatches}
 										{currentMatchIndex + 1} / {matchingIndices.length}
 									{:else}
@@ -325,7 +323,7 @@
 									{/if}
 								</span>
 								<button
-									class="hover:bg-surface2/80 active:bg-surface2/100 flex h-full max-h-8 items-center justify-center rounded-md p-1.5 opacity-30 hover:opacity-60 disabled:opacity-20"
+									class="hover:bg-base-300/80 active:bg-base-300 flex h-full max-h-8 items-center justify-center rounded-md p-1.5 opacity-30 hover:opacity-60 disabled:opacity-20"
 									onclick={navigateToPreviousMatch}
 									disabled={!hasMatches}
 									use:tooltip={'Previous match (↑ or Shift+Enter)'}
@@ -334,7 +332,7 @@
 									<ChevronUp class="size-full text-current" />
 								</button>
 								<button
-									class="hover:bg-surface2/80 active:bg-surface2/100 flex h-full max-h-8 items-center justify-center rounded-md p-1.5 opacity-30 hover:opacity-60 disabled:opacity-20"
+									class="hover:bg-base-300/80 active:bg-base-300 flex h-full max-h-8 items-center justify-center rounded-md p-1.5 opacity-30 hover:opacity-60 disabled:opacity-20"
 									onclick={navigateToNextMatch}
 									disabled={!hasMatches}
 									use:tooltip={'Next match (↓ or Enter)'}
@@ -343,7 +341,7 @@
 									<ChevronDown class="size-full text-current" />
 								</button>
 								<button
-									class="hover:bg-surface2/80 active:bg-surface2/100 flex h-full max-h-8 items-center justify-center rounded-md p-1.5 opacity-30 hover:opacity-60"
+									class="hover:bg-base-300/80 active:bg-base-300 flex h-full max-h-8 items-center justify-center rounded-md p-1.5 opacity-30 hover:opacity-60"
 									onclick={() => {
 										query = '';
 									}}
@@ -355,7 +353,7 @@
 
 							{#if isMaximized}
 								<button
-									class="hover:bg-surface2/80 active:bg-surface2/100 flex h-full max-h-8 items-center justify-center rounded-md p-1.5 opacity-30 hover:opacity-60"
+									class="hover:bg-base-300/80 active:bg-base-300 flex h-full max-h-8 items-center justify-center rounded-md p-1.5 opacity-30 hover:opacity-60"
 									onclick={() => {
 										isMaximized = false;
 									}}
@@ -381,16 +379,16 @@
 								'group grid gap-2 rounded px-2 py-1 font-mono text-sm transition-all',
 								isMaximized && 'text-base',
 								!isMatchingLine && 'opacity-50',
-								isMatchingLine && 'hover:bg-surface2',
+								isMatchingLine && 'hover:bg-base-300',
 								isCurrentMatchLine && 'outline-primary outline-2 outline-offset-2'
 							)}
 							style="grid-template-columns: auto 1fr;"
 							in:fade
 						>
-							<div class="border-surface3 border-r pr-1 text-right">
-								<span class="text-on-surface1/40 select-none">{i + 1}</span>
+							<div class="border-base-400 border-r pr-1 text-right">
+								<span class="text-muted-content select-none">{i + 1}</span>
 							</div>
-							<span class="text-on-surface1 flex-1">
+							<span class="text-muted-content flex-1">
 								{@html highlightText(message, query)}
 							</span>
 						</div>
@@ -399,8 +397,8 @@
 			{:else}
 				<div class="flex w-full flex-1 items-center justify-center p-6">
 					<div class="text-center">
-						<div class="text-on-surface1/80 font-medium">No deployment logs.</div>
-						<p class="text-on-surface1/60 mt-1 text-sm">Try refreshing the logs.</p>
+						<div class="text-muted-content font-medium">No deployment logs.</div>
+						<p class="text-muted-content mt-1 text-sm">Try refreshing the logs.</p>
 					</div>
 				</div>
 			{/if}

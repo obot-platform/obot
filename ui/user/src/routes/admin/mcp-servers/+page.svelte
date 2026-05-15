@@ -11,6 +11,7 @@
 	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
 	import type { InitSort } from '$lib/components/table/Table.svelte';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService, Group, type LaunchServerType } from '$lib/services';
 	import type { MCPCatalog, OrgUser } from '$lib/services/admin/types';
 	import { getServerTypeLabelByType } from '$lib/services/chat/mcp';
@@ -26,7 +27,7 @@
 		replaceState
 	} from '$lib/url';
 	import SourceUrlsView from './SourceUrlsView.svelte';
-	import { Info, LoaderCircle, Plus, RefreshCcw, Server } from 'lucide-svelte';
+	import { Info, Plus, RefreshCcw, Server } from 'lucide-svelte';
 	import { onDestroy, onMount } from 'svelte';
 	import { fade, fly, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -163,7 +164,7 @@
 </script>
 
 <Layout
-	classes={{ navbar: 'bg-surface1' }}
+	classes={{ navbar: 'bg-base-200' }}
 	title={showServerForm
 		? `Create ${getServerTypeLabelByType(selectedServerType)} Server`
 		: 'MCP Servers'}
@@ -178,9 +179,9 @@
 	</div>
 	{#snippet rightNavActions()}
 		{#if !isAdminReadonly && !showServerForm}
-			<button class="button flex items-center gap-1 text-sm" onclick={sync}>
+			<button class="btn btn-secondary flex items-center gap-1 text-sm" onclick={sync}>
 				{#if syncing}
-					<LoaderCircle class="size-4 animate-spin" /> Syncing...
+					<Loading class="size-4" /> Syncing...
 				{:else}
 					<RefreshCcw class="size-4" />
 					Sync
@@ -199,17 +200,17 @@
 		in:fly={{ x: 100, delay: duration, duration }}
 		out:fly={{ x: -100, duration }}
 	>
-		<div class="bg-surface1 dark:bg-background sticky top-16 left-0 z-20 w-full py-1">
+		<div class="bg-base-200 dark:bg-base-100 sticky top-16 left-0 z-20 w-full py-1">
 			<div class="mb-2">
 				<Search
-					class="dark:bg-surface1 dark:border-surface3 bg-background border border-transparent shadow-sm"
+					class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 					value={query}
 					onChange={updateSearchQuery}
 					placeholder={view !== 'urls' ? 'Search servers...' : 'Search sources...'}
 				/>
 			</div>
 		</div>
-		<div class="dark:bg-surface2 bg-background rounded-t-md shadow-sm">
+		<div class="dark:bg-base-300 bg-base-100 rounded-t-md shadow-sm">
 			<div class="flex">
 				<button
 					class={twMerge('page-tab', view === 'registry' && 'page-tab-active')}
@@ -295,9 +296,9 @@
 
 {#snippet displayNoData()}
 	<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
-		<Server class="text-on-surface1 size-24 opacity-25" />
-		<h4 class="text-on-surface1 text-lg font-semibold">No created MCP servers</h4>
-		<p class="text-on-surface1 text-sm font-light">
+		<Server class="text-muted-content size-24 opacity-25" />
+		<h4 class="text-muted-content text-lg font-semibold">No created MCP servers</h4>
+		<p class="text-muted-content text-sm font-light">
 			Looks like you don't have any servers created yet. <br />
 			Click the button below to get started.
 		</p>
@@ -346,7 +347,7 @@
 
 {#snippet addServerButton()}
 	<DotDotDot
-		class="button-primary w-full text-sm md:w-fit"
+		class="btn-primary btn-block w-full text-sm md:w-fit"
 		placement="bottom"
 		classes={{ popover: 'z-50' }}
 	>

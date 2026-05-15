@@ -86,12 +86,12 @@
 </script>
 
 <div
-	class="dark:bg-surface1 dark:border-surface3 bg-background flex grow flex-col overflow-visible rounded-2xl p-5 shadow-sm dark:border"
+	class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex grow flex-col overflow-visible rounded-2xl p-5 shadow-sm dark:border"
 >
-	<div class="border-surface3 mb-4 flex items-center justify-between gap-4 border-b pb-4">
+	<div class="border-base-400 mb-4 flex items-center justify-between gap-4 border-b pb-4">
 		<h3 class="text-lg font-semibold">Trigger Type</h3>
 		<Dropdown
-			class="bg-surface2 md:min-w-sm"
+			class="bg-base-300 md:min-w-sm"
 			selected={selectedTrigger()}
 			values={options}
 			onSelected={selected}

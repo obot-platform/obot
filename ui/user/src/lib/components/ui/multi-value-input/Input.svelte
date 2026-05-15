@@ -61,7 +61,7 @@
 <div
 	{id}
 	class={twMerge(
-		'dark:bg-surface1 text-md bg-surface-1 flex min-h-10 w-full grow resize-none flex-wrap items-center gap-2 rounded-lg px-2 py-2 text-left shadow-inner',
+		'dark:bg-base-200 text-md bg-base-100 flex min-h-10 w-full grow resize-none flex-wrap items-center gap-2 rounded-lg px-2 py-2 text-left shadow-inner',
 		disabled && 'pointer-events-none cursor-default opacity-50',
 		readonly && 'pointer-events-none',
 		klass
@@ -72,7 +72,7 @@
 			{#each values as v (v)}
 				<div
 					class={twMerge(
-						'text-md bg-surface3/50 dark:bg-surface2 inline-flex items-center gap-1 rounded-sm px-1',
+						'text-md bg-base-400/50 dark:bg-base-300 inline-flex items-center gap-1 rounded-sm px-1',
 						classes?.chip
 					)}
 					in:fade={{ duration: 100 }}
@@ -86,7 +86,7 @@
 					<div class="flex h-[22.5px] items-center place-self-start">
 						<button
 							class={twMerge(
-								'button rounded-xs p-0 transition-colors duration-300',
+								'btn btn-circle btn-secondary size-4 btn-xs border-transparent text-muted-content hover:text-base-content',
 								classes?.clearButton
 							)}
 							{disabled}
@@ -97,7 +97,7 @@
 								assignValues(values.filter((d) => d !== v));
 							}}
 						>
-							<X class="size-4 " />
+							<X class="size-3" />
 						</button>
 					</div>
 				</div>
@@ -158,7 +158,7 @@
 		<button
 			transition:fade={{ duration: 100 }}
 			class={twMerge(
-				'bg-surface3/50 hover:bg-surface3/70 active:bg-surface3/80 rounded-sm p-0.5 transition-colors duration-300',
+				'bg-base-400/50 hover:bg-base-400/70 active:bg-base-400/80 rounded-sm p-0.5 transition-colors duration-300',
 				classes?.clearButton
 			)}
 			type="button"

@@ -4,13 +4,20 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<script>
+			// Keep in sync with `getIsDark()` in `src/lib/stores/darkmode.svelte.ts`
 			(function () {
-				var dark = localStorage.getItem('theme');
-				if (
-					dark === 'true' ||
-					(dark === null && window.matchMedia('(prefers-color-scheme: dark)').matches)
-				) {
+				function getIsDark() {
+					var theme = localStorage.getItem('theme') ?? 'system';
+					if (theme === 'dark') return true;
+					if (theme === 'light') return false;
+					return window.matchMedia('(prefers-color-scheme: dark)').matches;
+				}
+				if (getIsDark()) {
 					document.documentElement.classList.add('dark');
+					document.documentElement.setAttribute('data-theme', 'nanobotdark');
+				} else {
+					document.documentElement.classList.remove('dark');
+					document.documentElement.setAttribute('data-theme', 'nanobotlight');
 				}
 			})();
 		</script>
@@ -21,25 +28,25 @@
 				display: flex;
 				align-items: center;
 				justify-content: center;
-				background: var(--background, #ffffff);
+				background: var(--color-base-100, #ffffff);
 				z-index: 9999;
 				transition: opacity 0.15s ease-out;
 			}
 			html.dark #initial-loader {
-				background: var(--background, #0a0a0a);
+				background: var(--color-base-100, #0a0a0a);
 			}
 			#initial-loader .spinner {
 				box-sizing: border-box;
 				width: 32px;
 				height: 32px;
-				border: 3px solid var(--surface1, #e5e7eb);
-				border-top-color: var(--primary, #4f7ef3);
+				border: 3px solid var(--color-base-200, #e5e7eb);
+				border-top-color: var(--color-primary, #4f7ef3);
 				border-radius: 50%;
 				animation: spin 0.8s linear infinite;
 			}
 			html.dark #initial-loader .spinner {
-				border-color: var(--surface1, #27272a);
-				border-top-color: var(--primary, #4f7ef3);
+				border-color: var(--color-base-200, #27272a);
+				border-top-color: var(--color-primary, #4f7ef3);
 			}
 			@keyframes spin {
 				to {

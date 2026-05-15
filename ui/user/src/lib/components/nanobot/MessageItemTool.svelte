@@ -210,7 +210,7 @@
 			{:else if item.output}
 				<!-- Already has output but collapsed: show nothing here (lazy) -->
 			{:else}
-				<div class="text-base-content/50 flex items-center gap-2 text-xs italic">
+				<div class="text-muted-content flex items-center gap-2 text-xs italic">
 					<span class="loading loading-xs loading-spinner"></span>
 					Running...
 				</div>

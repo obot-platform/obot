@@ -229,7 +229,7 @@
 				onpaste={handlePaste}
 				oninput={autoResize}
 				{placeholder}
-				class="placeholder:text-base-content/50 max-h-32 min-h-[2.5rem] w-full resize-none bg-transparent p-1 text-sm leading-6 outline-none"
+				class="placeholder:text-muted-content max-h-32 min-h-10 w-full resize-none bg-transparent p-1 text-sm leading-6 outline-none"
 				rows="1"
 				bind:this={textareaRef}
 			></textarea>
@@ -240,7 +240,7 @@
 					transition:slide={{ axis: 'y', duration: 150 }}
 				>
 					<div class="flex items-center gap-1">
-						<CircleAlert class="text-error size-3 flex-shrink-0" />
+						<CircleAlert class="text-error size-3 shrink-0" />
 						<div class="flex flex-col gap-1">
 							{#each uploadErrors as error, i (i)}
 								{error}
@@ -311,7 +311,7 @@
 					{#if onCancel && disabled}
 						<button
 							onclick={onCancel}
-							class="btn btn-sm btn-primary h-9 w-9 rounded-full p-0"
+							class="btn btn-sm btn-primary size-9 btn-circle p-0"
 							aria-label="Stop generating"
 						>
 							<Square class="size-4" />
@@ -319,7 +319,7 @@
 					{:else}
 						<button
 							type="submit"
-							class="btn btn-sm btn-primary h-9 w-9 rounded-full p-0"
+							class="btn btn-sm btn-primary size-9 btn-circle p-0"
 							disabled={disabled || isUploading || !message.trim()}
 							aria-label="Send message"
 						>

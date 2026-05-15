@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import SearchMcpServers from '$lib/components/admin/SearchMcpServers.svelte';
+	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
 		ChatService,
@@ -19,7 +20,6 @@
 	import { mcpServersAndEntries, version } from '$lib/stores';
 	import CatalogConfigureForm, { type LaunchFormData } from '../CatalogConfigureForm.svelte';
 	import CompositeEditTools from './CompositeEditTools.svelte';
-	import { LoaderCircle } from 'lucide-svelte';
 
 	interface Props {
 		catalogId?: string;
@@ -351,13 +351,13 @@
 	bind:this={choiceDialog}
 	animate="slide"
 	title={`Configure ${configuringEntry?.manifest?.name ?? 'MCP Server'} Tools`}
-	class="bg-surface1 md:w-md"
+	class="bg-base-200 md:w-md"
 >
-	<p class="text-on-surface1 text-sm font-light">
+	<p class="text-muted-content text-sm font-light">
 		All <i>{configuringEntry?.manifest?.name ?? 'MCP Server'}</i> tools are enabled by default. Would
 		you like to modify the available tools?
 	</p>
-	<p class="text-on-surface1 mt-2 mb-6 text-sm font-light">
+	<p class="text-muted-content mt-2 mb-6 text-sm font-light">
 		You can also choose to skip and make these changes at a later time.
 	</p>
 
@@ -373,7 +373,7 @@
 			Skip, I'll Do Later
 		</button>
 		<button
-			class="button-primary"
+			class="btn btn-primary"
 			onclick={() => {
 				if (!configuringEntry) return;
 				ready = false;
@@ -403,8 +403,8 @@
 		<div class="flex h-full min-h-32 flex-col items-center justify-center">
 			{#if loading && !ready}
 				<div class="mb-8 flex items-center justify-center gap-1">
-					<LoaderCircle class="text-on-surface1 size-4 animate-spin" />
-					<p class="text-on-surface1 text-sm font-light">Fetching tools...</p>
+					<Loading class="text-muted-content size-4" />
+					<p class="text-muted-content text-sm font-light">Fetching tools...</p>
 				</div>
 			{:else}
 				<div class="mb-6 h-full text-left">
@@ -437,10 +437,10 @@
 						href={oauthURL}
 						rel="external"
 						target="_blank"
-						class="button-primary flex w-full justify-center"
+						class="btn btn-primary flex w-full justify-center"
 					>
 						{#if loading}
-							<LoaderCircle class="size-4 animate-spin" />
+							<Loading class="size-4" />
 						{:else}
 							Authenticate
 						{/if}
@@ -448,12 +448,12 @@
 					<!-- eslint-enable svelte/no-navigation-without-resolve -->
 				{:else}
 					<button
-						class="button-primary flex w-full justify-center"
+						class="btn btn-primary flex w-full justify-center"
 						disabled={loading || !!secretBindingEngineError}
 						onclick={handleConfigureToolsInit}
 					>
 						{#if loading}
-							<LoaderCircle class="size-4 animate-spin" />
+							<Loading class="size-4" />
 						{:else}
 							Get Started
 						{/if}
@@ -547,8 +547,8 @@
 >
 	{#snippet loadingContent()}
 		<div class="mb-8 flex items-center justify-center gap-1">
-			<LoaderCircle class="text-on-surface1 size-4 animate-spin" />
-			<p class="text-on-surface1 text-sm font-light">Fetching tools...</p>
+			<Loading class="text-muted-content size-4" />
+			<p class="text-muted-content text-sm font-light">Fetching tools...</p>
 		</div>
 	{/snippet}
 </CatalogConfigureForm>

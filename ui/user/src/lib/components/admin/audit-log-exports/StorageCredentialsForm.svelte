@@ -4,9 +4,10 @@
 	import Success from '$lib/components/Success.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
 	import Dropdown from '$lib/components/tasks/Dropdown.svelte';
+	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService } from '$lib/services';
 	import type { StorageCredentials } from '$lib/services/admin/types';
-	import { AlertTriangle, LoaderCircle, Trash } from 'lucide-svelte';
+	import { TriangleAlert, Trash } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -307,14 +308,14 @@
 </script>
 
 {#if loading}
-	<div class="dark:bg-surface2 bg-background rounded-md p-6 shadow-sm">
+	<div class="dark:bg-base-300 bg-base-100 rounded-md p-6 shadow-sm">
 		<div class="flex items-center justify-center py-8">
-			<LoaderCircle class="text-primary size-6 animate-spin" />
+			<Loading class="size-6" />
 			<span class="ml-2 text-sm text-gray-600">Loading storage credentials...</span>
 		</div>
 	</div>
 {:else}
-	<div class="dark:bg-surface2 bg-background rounded-md p-6 shadow-sm">
+	<div class="paper">
 		<form
 			class="gap-8"
 			onsubmit={(e) => {
@@ -323,10 +324,8 @@
 			}}
 		>
 			{#if existingCredentials}
-				<div
-					class="mb-6 flex items-start gap-3 rounded-md border border-yellow-500 bg-yellow-500/10 p-4"
-				>
-					<AlertTriangle class="size-5 flex-shrink-0 text-yellow-500" />
+				<div class="mb-6 flex items-start gap-3 rounded-md border border-warning bg-warning/10 p-4">
+					<TriangleAlert class="size-5 shrink-0 text-warning" />
 					<div class="flex-1 text-sm">
 						<p class="font-medium">Storage provider already configured</p>
 						<p class="mt-1 opacity-80">
@@ -346,7 +345,7 @@
 						<label class="text-sm font-medium" for="storage-provider">Provider</label>
 						<div class={[!!existingCredentials && 'pointer-events-none opacity-50']}>
 							<Dropdown
-								class="w-full md:w-1/3"
+								class="w-full md:w-1/3 text-input-filled"
 								values={{
 									s3: 'Amazon S3',
 									gcs: 'Google Cloud Storage',
@@ -507,7 +506,7 @@
 									growable
 									hideReveal
 								/>
-								<p class="text-on-surface1 text-xs">
+								<p class="text-muted-content text-xs">
 									Complete JSON key file for the service account
 								</p>
 							</div>
@@ -590,13 +589,13 @@
 				<!-- Test Result -->
 				{#if testResult}
 					<div
-						class={`flex items-start gap-3 rounded-md p-4 ${testResult.success ? 'bg-green-50 dark:bg-green-950/50' : 'bg-red-50 dark:bg-red-950/50'}`}
+						class={`flex items-start gap-3 rounded-md p-4 ${testResult.success ? 'bg-success/10 text-success' : 'bg-error/10 text-error'}`}
 					>
 						{#if testResult.success}
 							<Success message={testResult.message} />
 						{:else}
-							<AlertTriangle class="size-5 text-red-600 dark:text-red-400" />
-							<div class="text-sm text-red-700 dark:text-red-300">
+							<TriangleAlert class="size-5 text-error" />
+							<div class="text-sm text-error">
 								{testResult.message}
 							</div>
 						{/if}
@@ -605,9 +604,9 @@
 
 				<!-- Error Display -->
 				{#if error}
-					<div class="flex items-start gap-3 rounded-md bg-red-50 p-4 dark:bg-red-950/50">
-						<AlertTriangle class="size-5 text-red-600 dark:text-red-400" />
-						<div class="text-sm text-red-700 dark:text-red-300">
+					<div class="flex items-start gap-3 rounded-md bg-error/10 p-4">
+						<TriangleAlert class="size-5 text-error" />
+						<div class="text-sm text-error">
 							{error}
 						</div>
 					</div>
@@ -619,12 +618,12 @@
 				{#if form.provider !== 'custom'}
 					<button
 						type="button"
-						class="button-secondary"
+						class="btn btn-secondary"
 						onclick={handleTest}
 						disabled={testing || saving}
 					>
 						{#if testing}
-							<LoaderCircle class="size-4 animate-spin" />
+							<Loading class="size-4" />
 							Testing...
 						{:else}
 							Test Connection
@@ -635,12 +634,12 @@
 				{#if !!existingCredentials}
 					<button
 						type="button"
-						class="button-destructive"
+						class="btn btn-error"
 						onclick={confirmDeleteCredentials}
 						disabled={testing || saving || deleting}
 					>
 						{#if deleting}
-							<LoaderCircle class="size-4 animate-spin" />
+							<Loading class="size-4" />
 							Deleting...
 						{:else}
 							<Trash class="size-4" />
@@ -650,12 +649,17 @@
 				{/if}
 
 				<div class="ml-auto flex gap-3">
-					<button type="button" class="button" onclick={onCancel} disabled={saving || testing}>
+					<button
+						type="button"
+						class="btn btn-secondary"
+						onclick={onCancel}
+						disabled={saving || testing}
+					>
 						Cancel
 					</button>
-					<button type="submit" class="button-primary" disabled={saving || testing}>
+					<button type="submit" class="btn btn-primary" disabled={saving || testing}>
 						{#if saving}
-							<LoaderCircle class="size-4 animate-spin" />
+							<Loading class="size-4" />
 							Saving...
 						{:else}
 							Save Credentials

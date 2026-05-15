@@ -8,6 +8,7 @@
 	import Search from '$lib/components/Search.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import Loading from '$lib/icons/Loading.svelte';
 	import { userRoleOptions } from '$lib/services/admin/constants.js';
 	import { Group, Role, type OrgUser } from '$lib/services/admin/types';
 	import { AdminService, ChatService } from '$lib/services/index.js';
@@ -23,7 +24,7 @@
 	} from '$lib/url.js';
 	import { getUserRoleLabel } from '$lib/utils';
 	import { debounce } from 'es-toolkit';
-	import { Handshake, Info, LoaderCircle, ShieldAlert } from 'lucide-svelte';
+	import { Handshake, Info, ShieldAlert } from 'lucide-svelte';
 	import { untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
 
@@ -181,7 +182,7 @@
 			<div class="flex flex-col gap-2">
 				<Search
 					value={query}
-					class="dark:bg-surface1 dark:border-surface3 bg-background border border-transparent shadow-sm"
+					class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 					onChange={updateQuery}
 					placeholder="Search by name or email..."
 				/>
@@ -243,7 +244,7 @@
 									Update Role
 								</button>
 								<button
-									class="menu-button text-red-500"
+									class="menu-button text-error"
 									disabled={d.explicitRole ||
 										(d.groups.includes(Group.OWNER) &&
 											!profile.current.groups.includes(Group.OWNER))}
@@ -308,8 +309,8 @@
 						disabled={updatingRole.explicitRole}
 					/>
 					<span class="flex flex-col" class:opacity-50={updatingRole.explicitRole}>
-						<p class="w-28 flex-shrink-0 font-semibold">{role.label}</p>
-						<p class="text-on-surface1">
+						<p class="w-28 shrink-0 font-semibold">{role.label}</p>
+						<p class="text-muted-content">
 							{#if role.id === Role.OWNER}
 								Owners can manage all aspects of the platform and can also assign the Owner role to
 								other users.
@@ -327,14 +328,14 @@
 				<label class="mt-4 flex gap-4">
 					<input type="checkbox" bind:checked={updatingRole.auditor} />
 					<span class="flex flex-col">
-						<p class="w-28 flex-shrink-0 font-semibold">Auditor</p>
+						<p class="w-28 shrink-0 font-semibold">Auditor</p>
 						{#if auditorReadonlyAdminRoles.includes(updatingRole.roleId)}
-							<p class="text-on-surface1">
+							<p class="text-muted-content">
 								Will have read-only access to the admin system and see additional details such as
 								response, request, and header information in the audit logs.
 							</p>
 						{:else}
-							<p class="text-on-surface1">
+							<p class="text-muted-content">
 								Will gain access to additional details such as response, request, and header
 								information in the audit logs.
 							</p>
@@ -352,8 +353,8 @@
 						class:opacity-50={updatingRole.roleId !== Role.ADMIN &&
 							updatingRole.roleId !== Role.OWNER}
 					>
-						<p class="flex-shrink-0 font-semibold">Impersonator</p>
-						<p class="text-on-surface1">
+						<p class="shrink-0 font-semibold">Impersonator</p>
+						<p class="text-muted-content">
 							Will be able to connect to other users' Obot Agents. Requires Admin or Owner base
 							role.
 						</p>
@@ -363,9 +364,9 @@
 		</div>
 		<div class="flex grow"></div>
 		<div class="mt-4 flex flex-col justify-end gap-2 p-4 md:flex-row md:p-0">
-			<button class="button" onclick={() => closeUpdateRoleDialog()}>Cancel</button>
+			<button class="btn btn-secondary" onclick={() => closeUpdateRoleDialog()}>Cancel</button>
 			<button
-				class="button-primary"
+				class="btn btn-primary"
 				onclick={async () => {
 					if (!updatingRole) return;
 					roleUpdateError = '';
@@ -400,7 +401,7 @@
 				disabled={loading}
 			>
 				{#if loading}
-					<LoaderCircle class="size-4 animate-spin" />
+					<Loading class="size-4" />
 				{:else}
 					Update
 				{/if}

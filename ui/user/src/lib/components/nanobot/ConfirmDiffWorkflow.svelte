@@ -140,7 +140,7 @@
 						{:else}
 							Version {selectedVersion.toFixed(1)}
 							{#if selectedVersion === latestVersion}
-								<span class="text-base-content/50 text-xs font-light">(latest)</span>
+								<span class="text-muted-content text-xs font-light">(latest)</span>
 							{/if}
 						{/if}
 					</h4>

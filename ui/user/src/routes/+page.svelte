@@ -39,25 +39,25 @@
 {/if}
 
 {#snippet unauthorizedContent()}
-	<div class="text-on-background relative flex h-dvh w-full flex-col">
+	<div class="text-base-content relative flex h-dvh w-full flex-col">
 		<main
-			class="dark:from-surface2 to-surface1 mx-auto flex h-full w-full flex-col items-center justify-center gap-18 bg-radial-[at_50%_50%] from-gray-50 pb-6 md:gap-24 md:pb-12 dark:to-black"
+			class="dark:from-base-300 to-base-200 mx-auto flex h-full w-full flex-col items-center justify-center gap-18 bg-radial-[at_50%_50%] from-gray-50 pb-6 md:gap-24 md:pb-12 dark:to-black"
 		>
 			<div
 				class="absolute top-1/2 left-1/2 flex w-md -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-4"
 			>
 				<Logo class="h-16" />
 				<h1 class="text-2xl font-semibold">Welcome to Obot</h1>
-				<p class="text-md text-on-surface1 mb-1 text-center font-light">
+				<p class="text-md text-muted-content mb-1 text-center font-light">
 					Log in or create your account to continue
 				</p>
 
 				<div
-					class="dark:border-surface3 dark:bg-gray-930 bg-background flex w-sm flex-col gap-4 rounded-xl border border-transparent p-4 shadow-sm"
+					class="dark:border-base-400 dark:bg-base-200 bg-base-100 flex w-sm flex-col gap-4 rounded-xl border border-transparent p-4 shadow-sm"
 				>
 					{#each authProviders as provider (provider.id)}
 						<button
-							class="group bg-surface2 hover:bg-surface3 flex w-full items-center justify-center gap-1.5 rounded-full p-2 px-8 text-lg font-semibold transition-colors duration-200"
+							class="btn btn-secondary w-full"
 							onclick={() => {
 								localStorage.setItem('preAuthRedirect', window.location.href);
 								window.location.href = `/oauth2/start?rd=${encodeURIComponent(
@@ -67,7 +67,7 @@
 						>
 							{#if provider.icon}
 								<img
-									class="h-6 w-6 rounded-full bg-transparent p-1 dark:bg-gray-600"
+									class="h-6 w-6 rounded-full bg-base-100 p-1 dark:bg-gray-600"
 									src={provider.icon}
 									alt={provider.name}
 								/>

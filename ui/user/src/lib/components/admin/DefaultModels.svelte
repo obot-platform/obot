@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		ModelAliasLabels,
 		ModelUsage,
@@ -13,7 +14,6 @@
 	import { version, defaultModelAliases as defaultModelAliasesStore } from '$lib/stores';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import Select from '../Select.svelte';
-	import { LoaderCircle } from 'lucide-svelte';
 
 	let { availableModels, readonly }: { availableModels: Model[]; readonly?: boolean } = $props();
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
@@ -168,7 +168,7 @@
 </script>
 
 <button
-	class="button-primary text-sm font-normal"
+	class="btn btn-primary"
 	disabled={availableModels.length === 0 || loading}
 	onclick={() => open()}
 >
@@ -187,7 +187,7 @@
 	}}
 	hideClose={required}
 >
-	<p class="text-on-surface1 pb-4 font-light">
+	<p class="text-muted-content pb-4 font-light">
 		When no model is specified, a default model is used for creating a new project, running user
 		tasks, or working with some tools, etc. Select your default models for the usage types below.
 	</p>
@@ -202,7 +202,7 @@
 				<Select
 					id={modelAlias.alias}
 					classes={{ root: 'w-1/2' }}
-					class="bg-surface1 dark:bg-surface2 dark:border-surface3 flex-1 border border-transparent shadow-inner"
+					class="bg-base-200 dark:bg-base-300 dark:border-base-400 flex-1 border border-transparent shadow-inner"
 					options={activeModelOptions
 						.map((model) => ({
 							label: (SUGGESTED_MODEL_SELECTIONS[modelAlias.alias] ?? []).includes(model.name ?? '')
@@ -234,22 +234,20 @@
 		{/each}
 	</div>
 	{#if !readonly}
-		<div class="flex flex-col gap-4 pt-4">
+		<div class="flex flex-col gap-2 pt-4">
 			<button
-				class="button-primary w-full text-sm font-normal"
+				class="btn btn-primary w-full"
 				onclick={handleSaveChanges}
 				disabled={loading || !changed}
 			>
 				{#if loading}
-					<LoaderCircle class="size-4 animate-spin inline-block" />
+					<Loading class="size-4 inline-block" />
 				{:else}
 					Save Changes
 				{/if}
 			</button>
 			{#if !required}
-				<button class="button w-full text-sm font-normal" onclick={() => dialog?.close()}>
-					Skip
-				</button>
+				<button class="btn btn-secondary w-full" onclick={() => dialog?.close()}> Skip </button>
 			{/if}
 		</div>
 	{/if}

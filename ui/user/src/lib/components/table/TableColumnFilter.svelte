@@ -56,14 +56,14 @@
 	use:tooltip={{ disablePortal, text: 'Filter columns', classes: ['z-60'] }}
 	onclick={() => toggle()}
 >
-	<Columns3Cog class="size-4 flex-shrink-0" />
+	<Columns3Cog class="size-4 shrink-0" />
 </button>
 <div use:tooltipRef={{ disablePortal }} class="popover w-xs rounded-xs">
 	<Select
 		class="rounded-xs border border-transparent font-normal shadow-inner"
 		classes={{
 			root: 'flex grow',
-			option: 'font-normal bg-background'
+			option: 'font-normal dark:bg-base-300 bg-base-100'
 		}}
 		options={fields.map((f) => ({
 			label: getFieldLabel(f),

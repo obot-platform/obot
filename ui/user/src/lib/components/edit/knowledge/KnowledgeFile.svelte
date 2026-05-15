@@ -29,7 +29,7 @@
 			<span class="truncate">{file.fileName}</span>
 		</div>
 		{#if file.state === 'error' || file.state === 'failed'}
-			<CircleX class={`ms-2 size-${iconSize} text-red-500`} />
+			<CircleX class={`ms-2 size-${iconSize} text-error`} />
 		{:else if file.state === 'pending' || file.state === 'ingesting'}
 			<Loading class="mx-1.5" />
 		{/if}

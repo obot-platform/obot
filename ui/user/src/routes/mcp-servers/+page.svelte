@@ -89,7 +89,7 @@
 	);
 </script>
 
-<Layout classes={{ navbar: 'bg-surface1' }} {title} showBackButton={showServerForm}>
+<Layout classes={{ navbar: 'bg-base-200' }} {title} showBackButton={showServerForm}>
 	<div class="flex min-h-full flex-col gap-8" in:fade>
 		{#if showServerForm}
 			{@render configureEntryScreen()}
@@ -111,17 +111,17 @@
 		in:fly={{ x: 100, delay: duration, duration }}
 		out:fly={{ x: -100, duration }}
 	>
-		<div class="bg-surface1 dark:bg-background sticky top-16 left-0 z-20 w-full py-1">
+		<div class="bg-base-200 dark:bg-base-100 sticky top-16 left-0 z-20 w-full py-1">
 			<div class="mb-2">
 				<Search
-					class="dark:bg-surface1 dark:border-surface3 bg-background border border-transparent shadow-sm"
+					class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 					value={registrySearchQuery}
 					onChange={updateSearchQuery}
 					placeholder="Search servers..."
 				/>
 			</div>
 		</div>
-		<div class="dark:bg-surface2 bg-background rounded-t-md shadow-sm">
+		<div class="dark:bg-base-300 bg-base-100 rounded-t-md shadow-sm">
 			<ConnectorsView
 				id={workspaceId}
 				entity="workspace"
@@ -142,9 +142,9 @@
 			>
 				{#snippet noDataContent()}
 					<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
-						<Server class="text-on-surface1 size-24 opacity-25" />
-						<h4 class="text-on-surface1 text-lg font-semibold">No created MCP servers</h4>
-						<p class="text-on-surface1 text-sm font-light">
+						<Server class="text-base-content/80 size-24 opacity-25" />
+						<h4 class="text-muted-content text-lg font-semibold">No created MCP servers</h4>
+						<p class="text-muted-content text-sm font-light">
 							{#if isAtLeastPowerUser}
 								Looks like you don't have any servers created yet. <br />
 								Click the button below to get started.
@@ -192,7 +192,7 @@
 
 {#snippet addServerButton()}
 	<button
-		class="button-primary flex w-full items-center gap-1 text-sm md:w-fit"
+		class="btn btn-primary flex w-full items-center gap-1 text-sm md:w-fit"
 		onclick={() => {
 			selectServerTypeDialog?.open();
 		}}

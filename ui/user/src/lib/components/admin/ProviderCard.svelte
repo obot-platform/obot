@@ -36,7 +36,7 @@
 
 <div
 	class={twMerge(
-		'dark:bg-surface1 dark:border-surface3 bg-background flex w-full flex-col items-center justify-center gap-4 rounded-lg border border-transparent p-4 pt-2 shadow-sm',
+		'dark:bg-base-200 dark:border-base-400 bg-base-100 flex w-full flex-col items-center justify-center gap-4 rounded-lg border border-transparent p-4 pt-2 shadow-sm',
 		isComingSoon && 'opacity-50'
 	)}
 >
@@ -49,9 +49,9 @@
 			{/if}
 			{#if experimental}
 				<span
-					class="bg-yellow-500/15 text-yellow-500 rounded-md px-2 py-1 text-[10px] font-medium flex items-center gap-1"
+					class="bg-warning/15 text-warning rounded-md px-2 py-1 text-[10px] font-medium flex items-center gap-1"
 				>
-					<FlaskConicalIcon class="size-3 text-yellow-500" /> Experimental
+					<FlaskConicalIcon class="size-3 text-warning" /> Experimental
 				</span>
 			{/if}
 		</div>
@@ -64,7 +64,7 @@
 				<DotDotDot>
 					<button
 						disabled={readonly}
-						class="menu-button text-red-500"
+						class="menu-button text-error"
 						onclick={() => onDeconfigure()}
 					>
 						Deconfigure Provider
@@ -78,17 +78,17 @@
 		<img
 			src={url}
 			alt={provider.name}
-			class={twMerge('size-16 rounded-md p-1', !provider.iconDark && 'bg-gray-600')}
+			class={twMerge('size-16 rounded-md p-1', !provider.iconDark && 'bg-base-400')}
 		/>
 	{:else}
 		<img src={provider.icon} alt={provider.name} class="size-16 rounded-md p-1" />
 	{/if}
 	<h4 class="text-center text-lg font-semibold">{provider.name}</h4>
-	<div class="border-surface2 rounded-md border px-2 py-1">
+	<div class="border-base-400 rounded-md border px-2 py-1">
 		<span class="flex items-center gap-2 text-xs font-light">
 			{#if deprecated}
 				<div
-					class="rounded-md bg-yellow-500 px-2 py-1 text-[10px] font-medium"
+					class="rounded-md bg-warning px-2 py-1 text-[10px] font-medium"
 					use:tooltip={{
 						classes: ['w-fit'],
 						text: 'Deprecated – use Amazon Bedrock instead.'
@@ -98,9 +98,9 @@
 				</div>
 			{/if}
 			{#if provider.configured}
-				<CircleCheck class="size-4 text-green-500" /> Configured
+				<CircleCheck class="size-4 text-success" /> Configured
 			{:else}
-				<CircleSlash class="size-4 text-red-500" /> Not Configured
+				<CircleSlash class="size-4 text-error" /> Not Configured
 			{/if}
 		</span>
 	</div>
@@ -108,7 +108,7 @@
 	<div class="mt-auto w-full">
 		{#if isComingSoon}
 			<div
-				class="bg-surface1 dark:bg-surface2/50 text-on-surface1 flex items-center justify-center gap-1 rounded-xs px-4 py-2 text-sm"
+				class="bg-base-200 dark:bg-base-400 text-muted-content flex items-center justify-center gap-1 rounded-xs px-4 py-2 text-sm"
 			>
 				<Construction class="size-4" /> Coming Soon
 			</div>
@@ -116,8 +116,8 @@
 			<button
 				onclick={onConfigure}
 				class={twMerge(
-					'w-full border-0 text-sm',
-					provider.configured ? 'button' : 'button-primary'
+					'w-full border-0 text-sm btn',
+					provider.configured ? 'btn-secondary' : 'btn-primary'
 				)}
 				disabled={disableConfigure}
 			>

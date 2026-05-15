@@ -302,13 +302,13 @@
 		.driver-popover {
 			box-shadow: var(--shadow-md);
 			border: 1px solid transparent;
-			background-color: var(--color-background);
+			background-color: var(--color-base-100);
 			color: var(--color-black);
 			border-radius: var(--radius-md);
 
 			.dark & {
-				border: 1px solid var(--surface3);
-				background-color: var(--surface2);
+				border: 1px solid var(--color-base-400);
+				background-color: var(--color-base-300);
 				color: var(--color-white);
 			}
 		}
@@ -329,7 +329,7 @@
 
 			border-radius: 1.5rem;
 			padding: 0.5rem 1.25rem;
-			background-color: var(--surface3);
+			background-color: var(--color-base-400);
 			border-width: 0;
 			transition-property: color, background-color;
 			transition-duration: 200ms;
@@ -339,12 +339,12 @@
 			}
 
 			&:hover {
-				background-color: color-mix(in oklab, var(--surface3) 90%, var(--color-black));
-				border-color: color-mix(in oklab, var(--surface3) 90%, var(--color-black));
+				background-color: color-mix(in oklab, var(--color-base-400) 90%, var(--color-black));
+				border-color: color-mix(in oklab, var(--color-base-400) 90%, var(--color-black));
 			}
 
 			.dark &:hover {
-				background-color: color-mix(in oklab, var(--surface3) 90%, var(--color-white));
+				background-color: color-mix(in oklab, var(--color-base-400) 90%, var(--color-white));
 			}
 		}
 
@@ -363,22 +363,22 @@
 		}
 
 		.driver-popover-arrow {
-			border: 5px solid var(--color-background);
+			border: 5px solid var(--color-base-100);
 			.dark & {
-				border: 5px solid var(--surface3);
+				border: 5px solid var(--color-base-400);
 			}
 		}
 
 		.driver-popover-close-btn {
-			color: color-mix(in oklab, var(--color-on-background) 75%, var(--color-white));
+			color: color-mix(in oklab, var(--color-base-content) 75%, var(--color-white));
 			&:hover {
-				color: var(--color-on-background);
+				color: var(--color-base-content);
 			}
 
 			.dark & {
-				color: color-mix(in oklab, var(--color-on-background) 75%, var(--color-black));
+				color: color-mix(in oklab, var(--color-base-content) 75%, var(--color-black));
 				&:hover {
-					color: var(--color-on-background);
+					color: var(--color-base-content);
 				}
 			}
 		}

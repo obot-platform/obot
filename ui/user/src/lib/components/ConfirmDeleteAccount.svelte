@@ -36,11 +36,11 @@
 	disabled={username2 === '' || username2 !== username}
 >
 	{#snippet note()}
-		<p class="text-on-background mb-4 text-sm font-normal">
+		<p class="text-base-content mb-4 text-sm font-normal">
 			This will sign you out of all other devices and browsers, except for this one.
 		</p>
 
-		<p class="text-on-background mb-4 text-sm font-normal">
+		<p class="text-base-content mb-4 text-sm font-normal">
 			To confirm, type <strong>{username}</strong> in the box below
 		</p>
 

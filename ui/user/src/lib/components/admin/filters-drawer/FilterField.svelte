@@ -114,10 +114,10 @@
 
 	<Select
 		id={`filter-${filter.property}`}
-		class="dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner"
+		class="dark:border-base-400 bg-base-200 dark:bg-base-100 border border-transparent shadow-inner"
 		classes={{
 			root: 'w-full',
-			clear: 'hover:bg-surface3 bg-transparent'
+			clear: 'hover:bg-base-400 bg-transparent'
 		}}
 		{options}
 		bind:selected={

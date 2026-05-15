@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import {
 		PAGE_TRANSITION_DURATION,
 		ADMIN_SESSION_STORAGE,
 		DEFAULT_MCP_CATALOG_ID,
 		ADMIN_ALL_OPTION
 	} from '$lib/constants';
+	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService, ChatService, type MCPCatalogServer } from '$lib/services';
 	import {
 		type AccessControlRule,
@@ -21,10 +21,11 @@
 	import { goto } from '$lib/url';
 	import { getUserDisplayName } from '$lib/utils';
 	import Confirm from '../Confirm.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import Table from '../table/Table.svelte';
 	import SearchMcpServers from './SearchMcpServers.svelte';
 	import SearchUsers from './SearchUsers.svelte';
-	import { LoaderCircle, Plus, Trash2 } from 'lucide-svelte';
+	import { Plus, Trash2 } from 'lucide-svelte';
 	import { untrack, type Snippet } from 'svelte';
 	import { fly } from 'svelte/transition';
 
@@ -290,7 +291,7 @@
 						{#if initialAccessControlRule}
 							{@const registry = getUserRegistry(initialAccessControlRule, usersMap)}
 							{#if registry}
-								<div class="dark:bg-surface2 bg-surface3 rounded-full px-3 py-1 text-xs">
+								<div class="dark:bg-base-300 bg-base-400 rounded-full px-3 py-1 text-xs">
 									{registry}
 								</div>
 							{/if}
@@ -298,22 +299,22 @@
 					{/if}
 				</div>
 				{#if !readonly}
-					<button
-						class="button-destructive flex items-center gap-1 text-xs font-normal"
-						use:tooltip={'Delete Catalog'}
+					<IconButton
+						variant="danger2"
+						tooltip={{ text: 'Delete Catalog' }}
 						onclick={() => {
 							deletingRule = true;
 						}}
 					>
 						<Trash2 class="size-4" />
-					</button>
+					</IconButton>
 				{/if}
 			</div>
 		{/if}
 
 		{#if !accessControlRule.id}
 			<div
-				class="dark:bg-surface2 dark:border-surface3 bg-background rounded-lg border border-transparent p-4"
+				class="dark:bg-base-300 dark:border-base-400 bg-base-100 rounded-lg border border-transparent p-4"
 			>
 				<div class="flex flex-col gap-6">
 					<div class="flex flex-col gap-2">
@@ -337,12 +338,12 @@
 				{#if !readonly}
 					<div class="relative flex items-center gap-4">
 						{#if loadingUsersAndGroups}
-							<button class="button-primary flex items-center gap-1 text-sm" disabled>
+							<button class="btn btn-primary flex items-center gap-1 text-sm" disabled>
 								<Plus class="size-4" /> Add User/Group
 							</button>
 						{:else}
 							<button
-								class="button-primary flex items-center gap-1 text-sm"
+								class="btn btn-primary flex items-center gap-1 text-sm"
 								onclick={() => {
 									addUserGroupDialog?.open();
 								}}
@@ -355,7 +356,7 @@
 			</div>
 			{#if loadingUsersAndGroups}
 				<div class="my-2 flex items-center justify-center">
-					<LoaderCircle class="size-6 animate-spin" />
+					<Loading class="size-6" />
 				</div>
 			{:else}
 				{@const tableData = convertSubjectsToTableData(
@@ -371,17 +372,17 @@
 				>
 					{#snippet actions(d)}
 						{#if !readonly}
-							<button
-								class="icon-button hover:text-red-500"
+							<IconButton
+								variant="danger"
 								onclick={() => {
 									accessControlRule.subjects = accessControlRule.subjects?.filter(
 										(subject) => subject.id !== d.id
 									);
 								}}
-								use:tooltip={'Delete User/Group'}
+								tooltip={{ text: 'Delete User/Group' }}
 							>
 								<Trash2 class="size-4" />
-							</button>
+							</IconButton>
 						{/if}
 					{/snippet}
 				</Table>
@@ -394,7 +395,7 @@
 				{#if !readonly}
 					<div class="relative flex items-center gap-4">
 						<button
-							class="button-primary flex items-center gap-1 text-sm"
+							class="btn btn-primary flex items-center gap-1 text-sm"
 							onclick={() => {
 								addMcpServerDialog?.open();
 							}}
@@ -407,16 +408,16 @@
 			<Table data={mcpServersTableData} fields={['name']} noDataMessage="No MCP servers added.">
 				{#snippet actions(d)}
 					{#if !readonly}
-						<button
-							class="icon-button hover:text-red-500"
+						<IconButton
+							variant="danger"
 							onclick={() => {
 								accessControlRule.resources =
 									accessControlRule.resources?.filter((resource) => resource.id !== d.id) ?? [];
 							}}
-							use:tooltip={'Remove MCP Server'}
+							tooltip={{ text: 'Remove MCP Server' }}
 						>
 							<Trash2 class="size-4" />
-						</button>
+						</IconButton>
 					{/if}
 				{/snippet}
 			</Table>
@@ -424,14 +425,14 @@
 	</div>
 	{#if !readonly}
 		<div
-			class="bg-surface1 text-on-surface1 dark:bg-background sticky bottom-0 left-0 flex w-full justify-end gap-2 py-4"
+			class="bg-base-200 text-muted-content dark:bg-base-100 sticky bottom-0 left-0 flex w-full justify-end gap-2 py-4"
 			out:fly={{ x: -100, duration }}
 			in:fly={{ x: -100 }}
 		>
 			<div class="flex w-full justify-end gap-2">
 				{#if !accessControlRule.id}
 					<button
-						class="button text-sm"
+						class="btn btn-secondary btn-sm"
 						onclick={() => {
 							if (redirect) {
 								goto(redirect);
@@ -445,7 +446,7 @@
 						Cancel
 					</button>
 					<button
-						class="button-primary text-sm"
+						class="btn btn-primary btn-sm"
 						disabled={!validate(accessControlRule) || saving}
 						onclick={async () => {
 							if (!id) return;
@@ -464,14 +465,14 @@
 						}}
 					>
 						{#if saving}
-							<LoaderCircle class="size-4 animate-spin" />
+							<Loading class="size-4" />
 						{:else}
 							Save
 						{/if}
 					</button>
 				{:else}
 					<button
-						class="button text-sm"
+						class="btn btn-secondary"
 						disabled={saving}
 						onclick={async () => {
 							if (!accessControlRule.id || !id) return;
@@ -486,7 +487,7 @@
 						Reset
 					</button>
 					<button
-						class="button-primary text-sm"
+						class="btn btn-primary"
 						disabled={!validate(accessControlRule) || saving}
 						onclick={async () => {
 							if (!accessControlRule.id || !id) return;
@@ -508,7 +509,7 @@
 						}}
 					>
 						{#if saving}
-							<LoaderCircle class="size-4 animate-spin" />
+							<Loading class="size-4" />
 						{:else}
 							Update
 						{/if}

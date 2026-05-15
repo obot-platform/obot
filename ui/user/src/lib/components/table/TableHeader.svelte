@@ -55,7 +55,7 @@
 
 <th
 	class={twMerge(
-		'text-md group text-on-surface1 px-4 py-2 text-left font-medium capitalize',
+		'text-md group text-muted-content px-4 py-2 text-left font-medium capitalize',
 		pointerOnTHeader && 'cursor-pointer',
 		headerClass
 	)}
@@ -77,16 +77,16 @@
 				{headerTitle ?? property}
 				{#if headerTooltip}
 					<div use:tooltip={{ text: headerTooltip, classes: ['w-64', 'break-normal', 'z-[60]'] }}>
-						<CircleHelp class="text-on-surface1 size-3.5" />
+						<CircleHelp class="text-muted-content size-3.5" />
 					</div>
 				{/if}
 				<div
 					class={twMerge(
 						'flex items-center gap-1 px-2 py-0.5',
-						selectedFilterValues.length > 0 && 'bg-surface3 rounded-full'
+						selectedFilterValues.length > 0 && 'bg-base-400 rounded-full'
 					)}
 				>
-					<Funnel class="size-3 flex-shrink-0" />
+					<Funnel class="size-3 shrink-0" />
 					{#if selectedFilterValues.length > 0}
 						<span class="text-xs font-semibold">{selectedFilterValues.length}</span>
 					{/if}
@@ -97,7 +97,7 @@
 				{headerTitle ?? property}
 				{#if headerTooltip}
 					<div use:tooltip={{ text: headerTooltip, classes: ['w-64', 'break-normal', 'z-[60]'] }}>
-						<CircleHelp class="text-on-surface1 size-3.5" />
+						<CircleHelp class="text-muted-content size-3.5" />
 					</div>
 				{/if}
 			</span>

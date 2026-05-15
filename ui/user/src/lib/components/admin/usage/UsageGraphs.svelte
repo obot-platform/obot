@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { afterNavigate } from '$app/navigation';
 	import { page } from '$app/state';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import type { DateRange } from '$lib/components/Calendar.svelte';
+	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
@@ -545,7 +545,7 @@
 		out:fade|global={{ duration: 300, delay: 500 }}
 	>
 		<div
-			class="bg-surface3/50 border-surface3 text-primary flex flex-col items-center gap-4 rounded-2xl border px-16 py-8 shadow-md backdrop-blur-[1px]"
+			class="bg-base-400/50 border-base-400 text-primary flex flex-col items-center gap-4 rounded-2xl border px-16 py-8 shadow-md backdrop-blur-[1px]"
 		>
 			<Loading class="size-32 stroke-1" />
 			<div class="text-2xl font-semibold">Loading stats...</div>
@@ -554,7 +554,14 @@
 {/if}
 
 <div class="flex flex-col gap-8">
-	<div class="flex flex-col">
+	<div class="flex gap-4 justify-between">
+		<!-- Summary with filter button -->
+		<div class="flex shrink-0 items-center justify-between gap-4">
+			<div class="flex-1">
+				<StatBar startTime={filters?.start_time ?? ''} endTime={filters?.end_time ?? ''} />
+			</div>
+		</div>
+
 		<div class="flex w-full justify-end gap-4">
 			<AuditLogCalendar
 				start={timeRangeFilters.startTime}
@@ -564,7 +571,7 @@
 
 			{#if !mcpId}
 				<button
-					class="hover:bg-surface1 dark:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 button bg-background flex h-12 w-fit items-center justify-center gap-1 rounded-lg border border-transparent shadow-sm"
+					class="btn btn-neutral h-12.5"
 					onclick={() => {
 						showFilters = true;
 						rightSidebar?.showPopover();
@@ -579,18 +586,11 @@
 
 	{@render filtersPill()}
 
-	<!-- Summary with filter button -->
-	<div class="flex items-center justify-between gap-4">
-		<div class="flex-1">
-			<StatBar startTime={filters?.start_time ?? ''} endTime={filters?.end_time ?? ''} />
-		</div>
-	</div>
-
 	{#if !showLoadingSpinner && !hasData(filteredGraphConfigs)}
 		<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-			<ChartBarDecreasing class="text-on-surface1 size-24 opacity-50" />
-			<h4 class="text-on-surface1 text-lg font-semibold">No usage stats</h4>
-			<p class="text-on-surface1 w-sm text-sm font-light">
+			<ChartBarDecreasing class="text-muted-content size-24 opacity-50" />
+			<h4 class="text-muted-content text-lg font-semibold">No usage stats</h4>
+			<p class="text-muted-content w-sm text-sm font-light">
 				Currently, there are no usage stats for the range or selected filters. Try modifying your
 				search criteria or try again later.
 			</p>
@@ -604,66 +604,68 @@
 				{@const maxPage = Math.max(0, Math.ceil(total / graphPageSize) - 1)}
 				{@const paginated = full.slice(page * graphPageSize, (page + 1) * graphPageSize)}
 
-				<div
-					class="dark:bg-surface1 dark:border-surface3 bg-background rounded-md border border-transparent p-6 shadow-sm"
-				>
-					<h3 class="text-lg font-semibold">{cfg.label}</h3>
+				<div class="paper p-0">
+					<h3
+						class="text-xs uppercase font-medium tracking-wider border-b dark:border-base-400 border-base-300 px-4 py-2 rounded-t-md"
+					>
+						{cfg.label}
+					</h3>
 
-					<div class="text-on-surface1 h-[300px] min-h-[300px]">
-						{#if paginated.length > 0}
-							<HorizontalBarGraph
-								data={paginated}
-								labelKey={cfg.xKey}
-								valueKey={cfg.yKey}
-								formatLabel={cfg.formatXLabel}
-								formatValue={(value) => Math.round(value).toString()}
-							>
-								{#snippet tooltipContent(item)}
-									<div class="flex flex-col gap-0 text-xs">
-										<div class="text-on-surface1 text-xs">{item.label}</div>
-									</div>
-									<div class="text-on-background font-semibold">
-										{cfg.formatTooltipText
-											? cfg.formatTooltipText(item.row as Record<string, string | number>)
-											: `${item.value} ${cfg.tooltip}`}
-									</div>
-								{/snippet}
-							</HorizontalBarGraph>
-						{:else if !showLoadingSpinner}
+					<div class="p-4">
+						<div class="text-muted-content h-[300px] min-h-[300px]">
+							{#if paginated.length > 0}
+								<HorizontalBarGraph
+									data={paginated}
+									labelKey={cfg.xKey}
+									valueKey={cfg.yKey}
+									formatLabel={cfg.formatXLabel}
+									formatValue={(value) => Math.round(value).toString()}
+								>
+									{#snippet tooltipContent(item)}
+										<div class="flex flex-col gap-0 text-xs">
+											<div class="text-muted-content text-xs">{item.label}</div>
+										</div>
+										<div class="text-base-content font-semibold">
+											{cfg.formatTooltipText
+												? cfg.formatTooltipText(item.row as Record<string, string | number>)
+												: `${item.value} ${cfg.tooltip}`}
+										</div>
+									{/snippet}
+								</HorizontalBarGraph>
+							{:else if !showLoadingSpinner}
+								<div
+									class="text-muted-content flex h-[300px] items-center justify-center text-sm font-light"
+								>
+									No data available
+								</div>
+							{/if}
+						</div>
+
+						{#if maxPage > 0}
 							<div
-								class="text-on-surface1 flex h-[300px] items-center justify-center text-sm font-light"
+								class="mt-4 flex items-center justify-center gap-4 border-t border-base-400 p-4 pb-0"
 							>
-								No data available
+								<IconButton
+									onclick={() => setGraphPage(cfg.id, Math.max(0, page - 1))}
+									disabled={page === 0}
+									tooltip={{ text: 'Previous Page' }}
+								>
+									<ChevronsLeft class="size-5" />
+								</IconButton>
+								<span class="text-sm">
+									Page {page + 1} of {maxPage + 1}
+									(showing {Math.min(graphPageSize, total - page * graphPageSize)} of {total} items)
+								</span>
+								<IconButton
+									onclick={() => setGraphPage(cfg.id, Math.min(maxPage, page + 1))}
+									disabled={page >= maxPage}
+									tooltip={{ text: 'Next Page' }}
+								>
+									<ChevronsRight class="size-5" />
+								</IconButton>
 							</div>
 						{/if}
 					</div>
-
-					{#if maxPage > 0}
-						<div
-							class="mt-4 flex items-center justify-center gap-4 border-t border-gray-200 p-4 pb-0 dark:border-gray-700"
-						>
-							<button
-								class="icon-button"
-								onclick={() => setGraphPage(cfg.id, Math.max(0, page - 1))}
-								disabled={page === 0}
-								use:tooltip={'Previous Page'}
-							>
-								<ChevronsLeft class="size-5" />
-							</button>
-							<span class="text-sm">
-								Page {page + 1} of {maxPage + 1}
-								(showing {Math.min(graphPageSize, total - page * graphPageSize)} of {total} items)
-							</span>
-							<button
-								class="icon-button"
-								onclick={() => setGraphPage(cfg.id, Math.min(maxPage, page + 1))}
-								disabled={page >= maxPage}
-								use:tooltip={'Next Page'}
-							>
-								<ChevronsRight class="size-5" />
-							</button>
-						</div>
-					{/if}
 				</div>
 			{/each}
 		</div>

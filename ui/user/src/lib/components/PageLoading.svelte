@@ -1,5 +1,7 @@
 <script lang="ts">
-	import { AlertCircle, LoaderCircle, X } from 'lucide-svelte';
+	import Loading from '$lib/icons/Loading.svelte';
+	import IconButton from './primitives/IconButton.svelte';
+	import { CircleAlert, X } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
 	import { onDestroy } from 'svelte';
 	import { fade } from 'svelte/transition';
@@ -84,13 +86,13 @@
 		{#if error}
 			<div
 				class={twMerge(
-					'dark:bg-surface2 dark:border-surface3 bg-background relative flex w-full flex-col items-center gap-4 rounded-lg p-4 dark:border',
+					'dark:bg-base-300 dark:border-base-400 bg-base-100 relative flex w-full flex-col items-center gap-4 rounded-lg p-4 dark:border',
 					errorClasses?.root
 				)}
 			>
-				<button class="icon-button absolute top-2 right-2 self-end" onclick={() => onClose?.()}
-					><X class="size-5" /></button
-				>
+				<IconButton class="absolute top-2 right-2 self-end" onclick={() => onClose?.()}>
+					<X class="size-5" />
+				</IconButton>
 
 				{#if errorPreContent}
 					{@render errorPreContent()}
@@ -99,7 +101,7 @@
 				{/if}
 
 				<div class="notification-error flex w-full items-center gap-2">
-					<AlertCircle class="size-6 text-red-500" />
+					<CircleAlert class="size-6 text-error" />
 					<p class="flex flex-col text-sm font-light">
 						<span class="font-semibold">Error Details:</span>
 						<span class="break-all">
@@ -120,7 +122,7 @@
 					{Math.round(displayedProgress ?? 0)}%
 				</div>
 
-				<div class="bg-surface3 h-3 w-full overflow-hidden rounded-full">
+				<div class="bg-base-400 h-3 w-full overflow-hidden rounded-full">
 					<div
 						class={twMerge('bg-primary h-full rounded-full transition-all duration-500 ease-out')}
 						style="width: {progress ?? 0}%"
@@ -139,14 +141,14 @@
 			</div>
 		{:else}
 			<div
-				class="dark:bg-surface2 dark:border-surface3 bg-background flex flex-col items-center rounded-xl px-4 py-2 shadow-sm dark:border"
+				class="dark:bg-base-300 dark:border-base-400 bg-base-100 flex flex-col items-center rounded-xl px-4 py-2 shadow-sm dark:border"
 			>
 				<div class="flex items-center gap-2">
-					<LoaderCircle class="size-8 animate-spin " />
+					<Loading class="size-8" />
 					<p class="text-xl font-semibold">{text ?? 'Loading...'}</p>
 				</div>
 				{#if isLongLoad && longLoadMessage}
-					<p in:fade class="text-md text-on-surface1 mt-4 font-light">
+					<p in:fade class="text-md text-muted-content mt-4 font-light">
 						{longLoadMessage}
 					</p>
 				{/if}

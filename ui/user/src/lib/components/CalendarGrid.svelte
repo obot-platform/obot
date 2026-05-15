@@ -104,7 +104,7 @@
 <div class={twMerge('flex flex-col', klass)}>
 	<!-- Calendar Header -->
 	<div class="mb-4 flex items-center justify-between">
-		<button type="button" class="hover:bg-surface3 rounded p-1" onclick={previousMonth}>
+		<button type="button" class="hover:bg-base-400 rounded p-1" onclick={previousMonth}>
 			<ChevronLeft class="size-4" />
 		</button>
 
@@ -113,7 +113,7 @@
 			{currentDate.getFullYear()}
 		</h3>
 
-		<button type="button" class="hover:bg-surface3 rounded p-1" onclick={nextMonth}>
+		<button type="button" class="hover:bg-base-400 rounded p-1" onclick={nextMonth}>
 			<ChevronRight class="size-4" />
 		</button>
 	</div>
@@ -121,7 +121,7 @@
 	<!-- Weekday Headers -->
 	<div class="mb-2 grid grid-cols-7 gap-1">
 		{#each weekdays as day, i (i)}
-			<div class="text-on-surface1 flex h-8 w-8 items-center justify-center text-xs font-medium">
+			<div class="text-muted-content flex h-8 w-8 items-center justify-center text-xs font-medium">
 				{day}
 			</div>
 		{/each}

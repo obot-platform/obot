@@ -1,7 +1,7 @@
 <script lang="ts">
 	import ProfileIcon from '$lib/components/profile/ProfileIcon.svelte';
 	import type { Message } from '$lib/services';
-	import { AlertCircle } from 'lucide-svelte';
+	import { CircleAlert } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -21,10 +21,10 @@
 		{#if msg.icon === 'Profile'}
 			<ProfileIcon />
 		{:else if msg.icon === 'Error'}
-			<AlertCircle class="size-4 text-red-500 md:size-6" />
+			<CircleAlert class="size-4 text-error md:size-6" />
 		{:else}
 			<img
-				class="text-primary size-4 rounded-md bg-gray-100 p-1 md:size-6"
+				class="text-primary size-4 rounded-md bg-base-300 p-1 md:size-6"
 				src={msg.icon}
 				alt="message icon"
 			/>

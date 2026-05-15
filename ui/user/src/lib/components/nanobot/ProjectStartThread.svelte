@@ -68,7 +68,7 @@
 							<h1 class="w-full text-center text-xl font-semibold md:text-3xl">
 								What would you like to work on?
 							</h1>
-							<p class="text-base-content/50 md:text-md text-center text-sm font-light">
+							<p class="text-muted-content md:text-md text-center text-sm font-light">
 								Choose an entry point or begin a conversation to get started.
 							</p>
 						</div>
@@ -81,7 +81,7 @@
 							>
 								<Sparkles class="mb-4 size-5" />
 								<h3 class="text-base font-semibold">Create a workflow</h3>
-								<p class="text-base-content/50 text-sm font-light">
+								<p class="text-muted-content text-sm font-light">
 									Design and execute an agentic workflow through conversation
 								</p>
 							</button>
@@ -95,7 +95,7 @@
 							>
 								<MessageCircle class="mb-4 size-5" />
 								<h3 class="text-base font-semibold">Just explore</h3>
-								<p class="text-base-content/50 min-h-[2lh] text-sm font-light">
+								<p class="text-muted-content min-h-[2lh] text-sm font-light">
 									Learn what the agent can do and take it from there
 								</p>
 							</button>

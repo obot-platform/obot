@@ -193,7 +193,7 @@
 	<div class="flex h-full flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
 		{#if showUpgradeNotification}
 			<div class="border-primary bg-primary/10 flex items-center gap-3 rounded-lg border p-4">
-				<Info class="text-primary size-5 flex-shrink-0" />
+				<Info class="text-primary size-5 shrink-0" />
 				<div class="flex-1">
 					<p class="text-sm font-medium">Component updates available</p>
 					<p class="text-muted-foreground mt-1 text-xs">
@@ -201,7 +201,7 @@
 					</p>
 				</div>
 				<button
-					class="button-primary flex items-center gap-1.5 text-sm font-normal"
+					class="btn btn-primary flex items-center gap-1.5 text-sm font-normal"
 					onclick={handleUpgradeClick}
 					disabled={upgrading}
 				>
@@ -253,7 +253,7 @@
 									{diff.name}
 									{#if !diff.newManifest}
 										<span
-											class="ml-2 rounded bg-red-500/10 px-2 py-0.5 text-xs font-normal text-red-500"
+											class="ml-2 rounded bg-error/10 px-2 py-0.5 text-xs font-normal text-error"
 										>
 											Removed
 										</span>

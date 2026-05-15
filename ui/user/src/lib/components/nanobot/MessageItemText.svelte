@@ -2,7 +2,7 @@
 	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
 	import type { ChatMessageItemText } from '$lib/services/nanobot/types';
 	import { CANCELLATION_PHRASE_CLIENT } from '$lib/services/nanobot/utils';
-	import { AlertCircle } from 'lucide-svelte';
+	import { CircleAlert } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -34,8 +34,8 @@
 		{@html renderedContent}
 	{/if}
 	{#if hasClientCancellation}
-		<div class="text-base-content/50 my-4 flex items-center gap-1 text-xs italic">
-			<AlertCircle class="size-3" />
+		<div class="text-muted-content my-4 flex items-center gap-1 text-xs italic">
+			<CircleAlert class="size-3" />
 			Aborted. This message has been discarded.
 		</div>
 	{/if}

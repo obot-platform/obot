@@ -71,7 +71,7 @@
 
 {#snippet roleUi(role: RoleOption)}
 	<label
-		class="border-surface3 hover:bg-background/2 active:bg-background/5 flex cursor-pointer gap-4 rounded-lg border p-3"
+		class="border-base-400 hover:bg-base-100/2 active:bg-base-100/5 flex cursor-pointer gap-4 rounded-lg border p-3"
 	>
 		<input
 			type="radio"
@@ -84,8 +84,8 @@
 			class="flex flex-col"
 			class:opacity-50={!profile.current.groups.includes(Group.OWNER) && role.id === Role.OWNER}
 		>
-			<div class="w-28 flex-shrink-0 font-semibold whitespace-nowrap">{role.label}</div>
-			<p class="text-on-surface1 text-xs">
+			<div class="w-28 shrink-0 font-semibold whitespace-nowrap">{role.label}</div>
+			<p class="text-muted-content text-xs">
 				{#if role.id === Role.OWNER}
 					All group members will have Owner privileges and can manage all aspects of the platform.
 				{:else if role.id === Role.ADMIN}
@@ -107,7 +107,7 @@
 		{@const isDisabled = roleId === 0}
 		<label
 			class={twMerge(
-				'border-surface3 hover:bg-background/2 active:bg-background/5 my-4 flex cursor-pointer gap-4 rounded-lg border p-3',
+				'border-base-400 hover:bg-base-100/2 active:bg-base-100/5 my-4 flex cursor-pointer gap-4 rounded-lg border p-3',
 				isDisabled ? 'pointer-events-none opacity-50' : ''
 			)}
 			aria-disabled={isDisabled}
@@ -119,8 +119,8 @@
 				disabled={isDisabled}
 			/>
 			<div class="flex flex-col">
-				<div class="w-28 flex-shrink-0 font-semibold">Auditor</div>
-				<p class="text-on-surface1 text-xs">
+				<div class="w-28 shrink-0 font-semibold">Auditor</div>
+				<p class="text-muted-content text-xs">
 					{#if auditorReadonlyAdminRoles.includes(roleId)}
 						All group members will have read-only access to the admin system and see additional
 						details such as response, request, and header information in the audit logs.
@@ -135,7 +135,7 @@
 			isDisabled || (roleId !== Role.ADMIN && roleId !== Role.OWNER)}
 		<label
 			class={twMerge(
-				'border-surface3 hover:bg-background/2 active:bg-background/5 my-4 flex cursor-pointer gap-4 rounded-lg border p-3',
+				'border-base-400 hover:bg-base-100/2 active:bg-base-100/5 my-4 flex cursor-pointer gap-4 rounded-lg border p-3',
 				isUserImpersonationDisabled ? 'pointer-events-none opacity-50' : ''
 			)}
 			aria-disabled={isUserImpersonationDisabled}
@@ -147,8 +147,8 @@
 				disabled={isUserImpersonationDisabled}
 			/>
 			<div class="flex flex-col">
-				<div class="w-28 flex-shrink-0 font-semibold">Impersonator</div>
-				<p class="text-on-surface1 text-xs">
+				<div class="w-28 shrink-0 font-semibold">Impersonator</div>
+				<p class="text-muted-content text-xs">
 					All group members will be able to connect to other users' Obot Agents. Must be combined
 					with Admin or Owner.
 				</p>

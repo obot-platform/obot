@@ -13,6 +13,7 @@
 	import Confirm from '../Confirm.svelte';
 	import InfoTooltip from '../InfoTooltip.svelte';
 	import PageLoading from '../PageLoading.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import MyAccount from '../profile/MyAccount.svelte';
 	import {
 		Book,
@@ -140,6 +141,7 @@
 	slide={responsive.isMobile ? 'left' : undefined}
 	fixed={responsive.isMobile}
 	classes={{
+		button: 'btn-circle btn-lg',
 		menu: twMerge(
 			'p-0 md:w-fit overflow-hidden z-50',
 			responsive.isMobile &&
@@ -148,11 +150,11 @@
 	}}
 >
 	{#snippet icon()}
-		<div class="relative flex-shrink-0">
+		<div class="relative shrink-0">
 			<ProfileIcon {impersonating} />
 			{#if showUpgradeAvailable}
 				<CircleFadingArrowUp
-					class="text-primary bg-background absolute -right-0.5 -bottom-0.5 z-10 size-3 rounded-full"
+					class="text-primary bg-base-100 absolute -right-0.5 -bottom-0.5 z-10 size-3 rounded-full"
 				/>
 			{/if}
 		</div>
@@ -165,7 +167,7 @@
 					<span>
 						{profile.current.displayName || 'Anonymous'}
 					</span>
-					<span class="text-on-surface1 text-sm">
+					<span class="text-muted-content text-sm">
 						{getUserRoleLabel(profile.current.effectiveRole)}
 					</span>
 				</div>
@@ -176,7 +178,7 @@
 					darkMode.setDark(!darkMode.isDark);
 				}}
 				role="menuitem"
-				class="after:content=[''] border-surface3 bg-surface2 dark:bg-surface3 relative cursor-pointer flex-col rounded-full border p-2 shadow-inner after:absolute after:top-1 after:left-1 after:z-0 after:size-7 after:rounded-full after:bg-transparent after:transition-all after:duration-200 dark:border-white/15"
+				class="after:content=[''] border-base-400 bg-base-300 dark:bg-base-400 relative cursor-pointer flex-col rounded-full border p-2 shadow-inner after:absolute after:top-1 after:left-1 after:z-0 after:size-7 after:rounded-full after:bg-transparent after:transition-all after:duration-200 dark:border-white/15"
 				class:dark-selected={darkMode.isDark}
 				class:light-selected={!darkMode.isDark}
 			>
@@ -244,7 +246,7 @@
 					}}
 					aria-disabled={!agentLinkEnabled}
 				>
-					<span class={twMerge('flex items-center gap-1', !agentLinkEnabled && 'opacity-50')}>
+					<span class={twMerge('flex items-center gap-2', !agentLinkEnabled && 'opacity-50')}>
 						<BotMessageSquare class="size-4" /> Launch Agent
 					</span>
 					{#if !agentLinkEnabled}
@@ -299,8 +301,8 @@
 			{/if}
 			{#if version.current.obot}
 				{#if showUpgradeAvailable}
-					<div class="text-on-background flex items-center gap-1 p-1 text-[11px]">
-						<CircleFadingArrowUp class="text-primary size-4 flex-shrink-0" />
+					<div class="text-base-content flex items-center gap-1 p-1 text-[11px]">
+						<CircleFadingArrowUp class="text-primary size-4 shrink-0" />
 						<p>
 							Upgrade Available. <br /> Check out the
 							<a
@@ -313,7 +315,7 @@
 						</p>
 					</div>
 				{/if}
-				<div class="text-on-surface1 flex justify-end p-2 text-xs">
+				<div class="text-muted-content flex justify-end p-2 text-xs">
 					<div class="flex gap-2">
 						{#if version.current.obot}
 							{@const link = getLink('obot', version.current.obot)}
@@ -342,14 +344,13 @@
 <dialog bind:this={versionDialog} class="dialog">
 	<div class="dialog-container relative z-50 max-w-lg min-w-sm p-4">
 		<div class="absolute top-2 right-2">
-			<button
+			<IconButton
 				onclick={() => {
 					versionDialog?.close();
 				}}
-				class="icon-button"
 			>
 				<X class="size-4" />
-			</button>
+			</IconButton>
 		</div>
 		<h4 class="mb-4 text-base font-semibold">Version Information</h4>
 		<div class="flex flex-col gap-1 text-xs">
@@ -403,7 +404,7 @@
 <style lang="postcss">
 	.dark-selected::after {
 		transform: translateY(2rem);
-		background-color: var(--surface1);
+		background-color: var(--color-base-200);
 	}
 
 	.light-selected::after {

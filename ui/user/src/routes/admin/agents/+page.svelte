@@ -4,6 +4,7 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import Search from '$lib/components/Search.svelte';
+	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { NanobotService } from '$lib/services';
 	import type { OrgUser } from '$lib/services/admin/types';
@@ -62,7 +63,7 @@
 <Layout title="Agents">
 	<div class="flex flex-col gap-4">
 		<div class="flex items-center justify-between">
-			<p class="text-sm text-gray-500">
+			<p class="text-sm text-muted-content">
 				Browse and connect to agents across all users. Clicking "Connect" will open the agent's chat
 				interface in a new tab.
 			</p>
@@ -70,7 +71,7 @@
 
 		<Search
 			value={query}
-			class="dark:bg-surface1 dark:border-surface3 bg-background border border-transparent shadow-sm"
+			class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 			onChange={(v) => {
 				const currentUrl = new URL(page.url);
 				if (v) {
@@ -119,8 +120,8 @@
 				{/if}
 			{/snippet}
 			{#snippet actions(agent)}
-				<button
-					class="icon-button hover:text-primary"
+				<IconButton
+					variant="primary"
 					onclick={(e) => {
 						e.stopPropagation();
 						confirmImpersonate = { userDisplayName: agent.ownerDisplay, agent };
@@ -128,14 +129,17 @@
 					disabled={launchingAgentId === agent.id ||
 						!profile.current.canImpersonate?.() ||
 						agent.userID === profile.current.id}
-					use:tooltip={profile.current.canImpersonate?.() && agent.userID !== profile.current.id
-						? `Impersonate ${agent.ownerDisplay}`
-						: agent.userID === profile.current.id
-							? 'You cannot impersonate yourself.'
-							: 'You do not have permission to impersonate other users.'}
+					tooltip={{
+						text:
+							profile.current.canImpersonate?.() && agent.userID !== profile.current.id
+								? `Impersonate ${agent.ownerDisplay}`
+								: agent.userID === profile.current.id
+									? 'You cannot impersonate yourself.'
+									: 'You do not have permission to impersonate other users.'
+					}}
 				>
 					<HatGlasses class="size-4" />
-				</button>
+				</IconButton>
 			{/snippet}
 		</Table>
 	</div>
@@ -156,7 +160,7 @@
 				>{confirmImpersonate?.userDisplayName || 'user'}</b
 			>. Any actions you take will be attributed to this user. Are you sure you wish to continue?
 		</p>
-		<p class="text-on-surface1 mt-4 text-sm">Note: This will open in a new window.</p>
+		<p class="text-muted-content mt-4 text-sm">Note: This will open in a new window.</p>
 	{/snippet}
 </Confirm>
 

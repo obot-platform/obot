@@ -331,25 +331,25 @@
 		<div class="bg-base-100 rounded-box border-base-300 border">
 			<div class="grid gap-0 md:grid-cols-2">
 				<div class="border-base-300 border-b px-5 py-4 md:border-r">
-					<div class="text-base-content/50 text-xs font-medium uppercase">Schedule</div>
+					<div class="text-muted-content text-xs font-medium uppercase">Schedule</div>
 					<div class="mt-2 text-sm">
 						{scheduleSummary(task.schedule, task.expiration, timePreference.timeFormat)}
 					</div>
 				</div>
 				<div class="border-base-300 border-b px-5 py-4">
-					<div class="text-base-content/50 text-xs font-medium uppercase">Next run</div>
+					<div class="text-muted-content text-xs font-medium uppercase">Next run</div>
 					<div class="mt-2 text-sm">
 						{formatScheduleDateTime(task.nextRunAt, timePreference.timeFormat)}
 					</div>
 				</div>
 				<div class="border-base-300 px-5 py-4 md:border-r">
-					<div class="text-base-content/50 text-xs font-medium uppercase">Expiration</div>
+					<div class="text-muted-content text-xs font-medium uppercase">Expiration</div>
 					<div class="mt-2 text-sm">
 						{task.expiration ? formatScheduleDate(task.expiration) : 'No expiration'}
 					</div>
 				</div>
 				<div class="px-5 py-4">
-					<div class="text-base-content/50 text-xs font-medium uppercase">Last run</div>
+					<div class="text-muted-content text-xs font-medium uppercase">Last run</div>
 					<div class="mt-2 text-sm">
 						{formatScheduleDateTime(sortedSessions[0]?.created, timePreference.timeFormat)}
 					</div>

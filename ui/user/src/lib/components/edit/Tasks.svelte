@@ -83,7 +83,7 @@
 	<div class="flex items-center justify-between">
 		<p class="text-md grow font-medium">Tasks</p>
 		<button
-			class="hover:text-on-background text-on-surface1 p-2 transition-colors duration-200"
+			class="hover:text-base-content text-muted-content p-2 transition-colors duration-200"
 			onclick={() => newTask()}
 			use:tooltip={'Start New Task'}
 		>
@@ -115,7 +115,7 @@
 	<div class="flex grow"></div>
 	<div class="mt-4 flex w-full flex-col justify-between gap-4 md:flex-row md:justify-end">
 		<button
-			class="button-primary w-full md:w-fit"
+			class="btn btn-primary w-full md:w-fit"
 			onclick={() => {
 				runTask(waitingTask);
 				inputDialog?.close();

@@ -52,7 +52,7 @@
 		type="text"
 		{placeholder}
 		class={twMerge(
-			'bg-surface1 peer hover:ring-primary focus:ring-primary w-full rounded-lg px-2.5 py-3 pl-12 ring-2 ring-transparent transition-all duration-200 hover:ring-2 focus:w-full focus:ring-2 focus:outline-hidden',
+			'bg-base-200 peer hover:ring-primary focus:ring-primary w-full rounded-sm px-2.5 py-3 pl-12 ring-2 ring-transparent transition-all duration-200 hover:ring-2 focus:w-full focus:ring-2 focus:outline-hidden',
 			compact && 'py-2 pl-8',
 			klass
 		)}

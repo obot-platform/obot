@@ -8,6 +8,7 @@
 	import McpMultiDeleteBlockedDialog from '$lib/components/mcp/McpMultiDeleteBlockedDialog.svelte';
 	import Table, { type InitSort, type InitSortFn } from '$lib/components/table/Table.svelte';
 	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
+	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
 		ChatService,
@@ -37,7 +38,6 @@
 		Ellipsis,
 		ExternalLink,
 		GitCompare,
-		LoaderCircle,
 		MessageCircle,
 		PencilLine,
 		Power,
@@ -507,8 +507,8 @@
 
 <div class="flex flex-col gap-0.5">
 	{#if loading}
-		<div class="my-2 flex items-center justify-center">
-			<LoaderCircle class="size-6 animate-spin" />
+		<div class="my-2 flex items-center justify-center h-72">
+			<Loading class="size-6" />
 		</div>
 	{:else}
 		{#if entity === 'catalog' && profile.current.hasAdminAccess?.()}
@@ -579,7 +579,7 @@
 					}
 
 					if (d.needsK8sUpdate) {
-						return 'bg-yellow-500/5 hover:bg-yellow-500/10 border-yellow-500/20';
+						return 'bg-warning/5 hover:bg-warning/10 border-warning/20';
 					}
 
 					return '';
@@ -587,7 +587,7 @@
 			>
 				{#snippet onRenderColumn(property, d)}
 					{#if property === 'displayName'}
-						<div class="flex flex-shrink-0 items-center gap-2">
+						<div class="flex shrink-0 items-center gap-2">
 							<div class="icon">
 								{#if d.manifest.icon}
 									<img src={d.manifest.icon} alt={d.manifest.name} class="size-6" />
@@ -598,7 +598,7 @@
 							<p class="flex flex-col">
 								{d.displayName}
 								{#if d.compositeParentName}
-									<span class="text-on-surface1 text-xs">
+									<span class="text-muted-content text-xs">
 										({d.compositeParentName})
 									</span>
 								{/if}
@@ -625,7 +625,7 @@
 					{@const instance = instancesMap.get(d.id)}
 					{@const hasMyConnection = d.isMyServer || !!instance}
 
-					<DotDotDot class="icon-button hover:dark:bg-background/50" classes={{ menu: 'p-0' }}>
+					<DotDotDot class="hover:dark:bg-base-100/50" classes={{ menu: 'p-0' }}>
 						{#snippet icon()}
 							<Ellipsis class="size-4" />
 						{/snippet}
@@ -633,12 +633,12 @@
 						{#snippet children({ toggle })}
 							{#if !isComposite && hasMyConnection}
 								<div
-									class="bg-background dark:bg-surface2 rounded-t-xl p-2 pl-4 text-[11px] font-semibold uppercase"
+									class="bg-base-100 dark:bg-base-300 rounded-t-xl p-2 pl-4 text-[11px] font-semibold uppercase"
 								>
 									My Connection
 								</div>
 								<div
-									class={twMerge('flex flex-col gap-1 p-2', d.isMyServer ? 'bg-surface1' : 'pb-0')}
+									class={twMerge('flex flex-col gap-1 p-2', d.isMyServer ? 'bg-base-200' : 'pb-0')}
 								>
 									<button
 										class="menu-button"
@@ -741,7 +741,7 @@
 											: undefined}
 									>
 										{#if updating[d.id]?.inProgress}
-											<LoaderCircle class="size-4 animate-spin" />
+											<Loading class="size-4" />
 										{:else}
 											<CircleFadingArrowUp class="size-4" />
 										{/if}
@@ -769,7 +769,7 @@
 
 								{#if (d.isMyServer || (hasAdminAccess && !readonly)) && d.needsK8sUpdate}
 									<button
-										class="menu-button-primary bg-yellow-500/10 text-yellow-500 text-yellow-700 hover:bg-yellow-500/20"
+										class="menu-button-primary bg-warning/10 text-warning hover:bg-warning/20"
 										disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
 										onclick={(e) => {
 											e.stopPropagation();
@@ -782,7 +782,7 @@
 										}}
 									>
 										{#if updating[d.id]?.inProgress}
-											<LoaderCircle class="size-4 animate-spin" />
+											<Loading class="size-4" />
 										{:else}
 											<CircleFadingArrowUp class="size-4" />
 										{/if}
@@ -812,7 +812,7 @@
 										}}
 									>
 										{#if restarting}
-											<LoaderCircle class="size-4 animate-spin" /> Restarting...
+											<Loading class="size-4" /> Restarting...
 										{:else}
 											<Power class="size-4" />
 											Restart Server
@@ -881,7 +881,7 @@
 
 					<div class="flex grow items-center justify-end gap-2 px-4 py-2">
 						<button
-							class="button flex items-center gap-1 text-sm font-normal"
+							class="btn btn-secondary flex items-center gap-1 text-sm font-normal"
 							onclick={() => {
 								selected = currentSelected;
 								handleBulkRestart();
@@ -889,7 +889,7 @@
 							disabled={restarting || readonly || restartableCount === 0}
 						>
 							{#if restarting}
-								<LoaderCircle class="size-4 animate-spin self-center" /> Restarting...
+								<Loading class="size-4 self-center" /> Restarting...
 							{:else}
 								<Power class="size-4" /> Restart
 							{/if}
@@ -900,7 +900,7 @@
 							{/if}
 						</button>
 						<button
-							class="button flex items-center gap-1 text-sm font-normal"
+							class="btn btn-secondary flex items-center gap-1 text-sm font-normal"
 							onclick={() => {
 								selected = currentSelected;
 								showUpgradeConfirm = {
@@ -920,7 +920,7 @@
 							{/if}
 						</button>
 						<button
-							class="button flex items-center gap-1 text-sm font-normal"
+							class="btn btn-secondary flex items-center gap-1 text-sm font-normal"
 							onclick={() => {
 								selected = currentSelected;
 								const type = Object.keys(selected).length > 1 ? 'multi' : 'single';
@@ -947,7 +947,7 @@
 							{/if}
 						</button>
 						<button
-							class="button flex items-center gap-1 text-sm font-normal"
+							class="btn btn-secondary flex items-center gap-1 text-sm font-normal"
 							onclick={() => {
 								selected = currentSelected;
 								showDeleteConfirm = {
@@ -981,7 +981,7 @@
 		<button
 			class={twMerge(
 				'menu-button',
-				requiresUpdate && 'bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/30'
+				requiresUpdate && 'bg-warning/10 text-warning hover:bg-warning/30'
 			)}
 			onclick={() => {
 				editExistingDialog?.edit({

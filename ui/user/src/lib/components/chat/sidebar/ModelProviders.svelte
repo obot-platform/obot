@@ -68,7 +68,7 @@
 >
 	<div class="flex flex-col gap-8 p-2">
 		<div class="flex flex-col gap-4">
-			<p class="text-on-surface1 text-xs font-light">
+			<p class="text-muted-content text-xs font-light">
 				Projects use our included LLM by default. Connect other model providers to unlock more LLMs
 				you can chat with.
 			</p>
@@ -84,7 +84,7 @@
 
 							<li class="model-provider w-full">
 								<button
-									class="hover:bg-surface3 flex w-full items-center gap-1 rounded-md p-2 transition-colors duration-200"
+									class="hover:bg-base-400 flex w-full items-center gap-1 rounded-md p-2 transition-colors duration-200"
 									onclick={async () => {
 										openModelProvidersConfig();
 
@@ -139,7 +139,7 @@
 		</div>
 
 		<div class="flex justify-end">
-			<button class="button flex items-center gap-1" onclick={openModelProvidersConfig}>
+			<button class="btn btn-secondary flex items-center gap-1" onclick={openModelProvidersConfig}>
 				<span class="text-xs">Manage Model Providers</span>
 			</button>
 		</div>

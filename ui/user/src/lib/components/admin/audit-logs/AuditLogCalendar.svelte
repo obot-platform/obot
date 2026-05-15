@@ -111,7 +111,7 @@
 <div class="flex w-full md:max-w-fit">
 	<button
 		type="button"
-		class="dark:border-surface3 dark:hover:bg-surface2/70 dark:active:bg-surface2 dark:bg-surface1 hover:bg-surface1/70 active:bg-surface1 bg-background relative z-40 flex min-h-12.5 flex-1 flex-shrink-0 items-center gap-2 truncate rounded-l-lg border border-r-0 border-transparent px-2 text-sm shadow-sm transition-colors duration-200 disabled:opacity-50"
+		class="dark:border-base-400 dark:hover:bg-base-300/70 dark:active:bg-base-300 dark:bg-base-100 hover:bg-base-100/70 active:bg-base-100 bg-base-100 relative z-40 flex min-h-12.5 flex-1 shrink-0 items-center gap-2 truncate rounded-l-sm border border-r-0 border-transparent px-4 text-sm shadow-sm transition-colors duration-200 disabled:opacity-50"
 		{disabled}
 		use:refAction
 		onclick={() => {
@@ -129,7 +129,7 @@
 			return () => response.destroy();
 		}}
 	>
-		<span class="bg-surface3 rounded-md px-3 py-1 text-xs">
+		<span class="bg-base-400 rounded-sm px-3 py-1 text-xs">
 			{getTimeRangeShorthand(start, end)}
 		</span>
 		<span>
@@ -168,7 +168,7 @@
 					{#each actions as action (action.label)}
 						<button
 							type="button"
-							class="hover:bg-surface3/25 h-12 w-full min-w-max px-4 py-2 text-center last:border-b-transparent md:h-10 md:text-start"
+							class="hover:bg-base-400/25 h-12 w-full min-w-max px-4 py-2 text-center last:border-b-transparent md:h-10 md:text-start"
 							onclick={action.onpointerdown}
 						>
 							{action.label}
@@ -181,7 +181,7 @@
 
 	<Calendar
 		compact
-		class="dark:border-surface3 hover:bg-surface1 dark:hover:bg-surface3 dark:bg-surface1 bg-background relative z-40 flex min-h-12.5 flex-shrink-0 items-center gap-2 truncate rounded-none rounded-r-lg border border-transparent px-4 text-sm shadow-sm"
+		class="dark:border-base-400 hover:bg-base-100 dark:hover:bg-base-400 dark:bg-base-100 bg-base-100 relative z-40 flex min-h-12.5 shrink-0 items-center gap-2 truncate rounded-none rounded-r-sm border border-transparent px-4 text-sm shadow-sm"
 		initialValue={{
 			start: new Date(start),
 			end: end ? new Date(end) : null

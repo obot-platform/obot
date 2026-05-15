@@ -273,7 +273,7 @@
 			aria-label="Create schedule"
 			onclick={() => createDialog?.open()}
 		>
-			<Plus class="size-5" />
+			<Plus class="size-5 text-primary-content" />
 		</button>
 	</div>
 
@@ -318,7 +318,7 @@
 						</td>
 						<td class="text-right" onclick={(event) => event.stopPropagation()}>
 							<DotDotDot
-								class="icon-button hover:bg-base-200 dark:hover:bg-surface3"
+								class="hover:bg-base-200 dark:hover:bg-base-400"
 								placement="bottom-end"
 								disablePortal
 								classes={{
@@ -331,7 +331,7 @@
 								{#snippet children({ toggle })}
 									<button
 										type="button"
-										class="hover:bg-base-200 dark:hover:bg-surface3 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors"
+										class="hover:bg-base-200 dark:hover:bg-base-400 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors"
 										disabled={mutatingTaskURI === task.uri}
 										onclick={async (event) => {
 											event.preventDefault();
@@ -345,7 +345,7 @@
 									</button>
 									<button
 										type="button"
-										class="hover:bg-base-200 dark:hover:bg-surface3 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors"
+										class="hover:bg-base-200 dark:hover:bg-base-400 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors"
 										disabled={mutatingTaskURI === task.uri}
 										onclick={async (event) => {
 											event.preventDefault();
@@ -390,7 +390,7 @@
 				{/each}
 			{:else}
 				<tr>
-					<td colspan="4" class="text-base-content/50 text-center text-sm font-light italic">
+					<td colspan="4" class="text-muted-content text-center text-sm font-light italic">
 						{taskQuery.trim() ? 'No schedules found.' : 'No schedules yet.'}
 					</td>
 				</tr>

@@ -10,8 +10,9 @@
 	} from '$lib/services';
 	import { profile } from '$lib/stores';
 	import { openUrl } from '$lib/utils';
+	import IconButton from '../primitives/IconButton.svelte';
 	import Table from '../table/Table.svelte';
-	import { AlertCircle, ChevronRight, Server } from 'lucide-svelte';
+	import { CircleAlert, ChevronRight, Server } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -94,7 +95,7 @@
 
 							openUrl(url, isCtrlClick);
 						}}
-						class="dark:bg-surface1 dark:border-surface3 dark:hover:bg-surface2 bg-background flex items-center justify-between gap-2 rounded-lg border border-transparent p-2 pl-4 shadow-sm hover:bg-gray-50"
+						class="dark:bg-base-200 dark:border-base-400 dark:hover:bg-base-200 bg-base-100 flex items-center justify-between gap-2 rounded-lg border border-transparent p-2 pl-4 shadow-sm hover:bg-gray-50"
 					>
 						<div class="flex items-center gap-2">
 							<div class="icon">
@@ -110,16 +111,16 @@
 							</div>
 							<p class="text-sm">{componentServer.manifest?.name}</p>
 							{#if catalogEntryServerId}
-								<span class="text-on-surface1 text-sm">({catalogEntryServerId})</span>
+								<span class="text-muted-content text-sm">({catalogEntryServerId})</span>
 							{/if}
 						</div>
-						<div class="icon-button">
+						<IconButton>
 							<ChevronRight class="size-6" />
-						</div>
+						</IconButton>
 					</button>
 				{:else}
 					<div
-						class="dark:bg-surface1 dark:border-surface3 bg-background flex items-center justify-between gap-2 rounded-lg border border-transparent p-2 pl-4 opacity-60 shadow-sm"
+						class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex items-center justify-between gap-2 rounded-lg border border-transparent p-2 pl-4 opacity-60 shadow-sm"
 					>
 						<div class="flex items-center gap-2">
 							<div class="icon">
@@ -135,10 +136,10 @@
 							</div>
 							<p class="text-sm">{componentServer.manifest?.name}</p>
 							<span
-								class="text-on-surface1 flex items-center gap-1 text-xs"
+								class="text-muted-content flex items-center gap-1 text-xs"
 								title="This component server no longer exists"
 							>
-								<AlertCircle class="size-4" />
+								<CircleAlert class="size-4" />
 								<span>Deleted</span>
 							</span>
 						</div>
@@ -165,7 +166,7 @@
 		{#snippet actions(d)}
 			{@const auditLogsUrl = getAuditLogUrl(d)}
 			{#if auditLogsUrl}
-				<a href={resolve(auditLogsUrl as `/${string}`)} class="button-text"> View Audit Logs </a>
+				<a href={resolve(auditLogsUrl as `/${string}`)} class="btn btn-link"> View Audit Logs </a>
 			{/if}
 		{/snippet}
 	</Table>

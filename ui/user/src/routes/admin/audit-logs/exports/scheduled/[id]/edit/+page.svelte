@@ -3,10 +3,11 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import CreateScheduleForm from '$lib/components/admin/audit-log-exports/CreateScheduleForm.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService } from '$lib/services';
 	import type { ScheduledAuditLogExport } from '$lib/services/admin/types';
 	import { goto } from '$lib/url';
-	import { LoaderCircle } from 'lucide-svelte';
+	import { TriangleAlert } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
 
@@ -39,29 +40,21 @@
 	let title = $derived(scheduleData?.name ?? 'Edit Scheduled Export');
 </script>
 
-<Layout classes={{ navbar: 'bg-surface1' }} {title} showBackButton>
+<Layout classes={{ navbar: 'bg-base-200' }} {title} showBackButton>
 	<div class="flex min-h-full flex-col gap-8" in:fade>
 		{#if loading}
 			<div class="flex items-center justify-center py-8">
-				<LoaderCircle class="text-primary size-8 animate-spin" />
+				<Loading class="size-8" />
 				<span class="ml-2 text-lg">Loading scheduled export details...</span>
 			</div>
 		{:else if error}
 			<div class="flex flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
-				<div class="rounded-md bg-red-50 p-4 dark:bg-red-950/50">
+				<div class="rounded-md bg-error/10">
 					<div class="flex items-center gap-2">
-						<svg class="size-5 text-red-600" fill="currentColor" viewBox="0 0 20 20">
-							<path
-								fill-rule="evenodd"
-								d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-								clip-rule="evenodd"
-							></path>
-						</svg>
-						<span class="text-sm font-medium text-red-800 dark:text-red-200"
-							>Error loading scheduled export</span
-						>
+						<TriangleAlert class="size-5 text-error" />
+						<span class="text-sm font-medium text-error">Error loading scheduled export</span>
 					</div>
-					<p class="mt-2 text-sm text-red-700 dark:text-red-300">{error}</p>
+					<p class="mt-2 text-sm text-error">{error}</p>
 				</div>
 			</div>
 		{:else if scheduleData}

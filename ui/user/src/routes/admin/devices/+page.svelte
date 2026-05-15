@@ -122,16 +122,16 @@
 	>
 		{#if total === 0 && !loading}
 			<div class="mx-auto mt-12 flex w-md flex-col items-center gap-4 text-center">
-				<Laptop class="text-on-surface1 size-24 opacity-50" />
-				<h4 class="text-on-surface1 text-lg font-semibold">No devices scanned yet</h4>
-				<p class="text-on-surface1 text-sm font-light">
+				<Laptop class="text-muted-content size-24 opacity-50" />
+				<h4 class="text-muted-content text-lg font-semibold">No devices scanned yet</h4>
+				<p class="text-muted-content text-sm font-light">
 					Run <code class="font-mono">obot scan</code> from a managed device to populate this view.
 				</p>
 			</div>
 		{:else}
 			<Search
 				value={query}
-				class="dark:bg-surface1 dark:border-surface3 bg-background border border-transparent shadow-sm"
+				class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 				onChange={updateQuery}
 				placeholder="Search by device ID or user..."
 			/>
@@ -172,7 +172,7 @@
 						{#if u}
 							<div class="flex items-center gap-2">
 								<div
-									class="size-5 shrink-0 overflow-hidden rounded-full bg-gray-50 dark:bg-gray-600"
+									class="size-5 shrink-0 overflow-hidden rounded-full bg-base-100 dark:bg-base-300"
 								>
 									{#if u.iconURL}
 										<img

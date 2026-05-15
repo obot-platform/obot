@@ -4,7 +4,7 @@
 	import type { ChatMessageItemResource } from '$lib/services/nanobot/types';
 	import { isCancellationError } from '$lib/services/nanobot/utils';
 	import PDF from './PDF.svelte';
-	import { AlertCircle, AlertTriangle } from 'lucide-svelte';
+	import { CircleAlert, TriangleAlert } from 'lucide-svelte';
 
 	interface Props {
 		item: ChatMessageItemResource;
@@ -78,13 +78,13 @@
 
 {#if isError && isCancelledError(item.resource.text)}
 	<div class="my-4 flex items-center gap-1 text-xs italic">
-		<AlertCircle class="size-3" />
+		<CircleAlert class="size-3" />
 		Aborted. This message has been discarded.
 	</div>
 {:else if isError}
 	<div class="border-error/20 bg-error/10 mt-3 mb-3 rounded-lg border p-3">
 		<div class="mb-2 flex items-center gap-2 text-sm">
-			<AlertTriangle class="text-error h-4 w-4" />
+			<TriangleAlert class="text-error h-4 w-4" />
 			<span class="text-error font-medium">Error</span>
 		</div>
 		{#if item.resource.text}
@@ -99,7 +99,7 @@
 		<div class="card-body">
 			<div class="flex items-start gap-3">
 				<!-- Large icon -->
-				<div class="flex-shrink-0">
+				<div class="shrink-0">
 					<div class="bg-primary/10 flex h-12 w-12 items-center justify-center rounded-xl text-2xl">
 						{getFileIcon(item.resource.mimeType)}
 					</div>
@@ -125,7 +125,7 @@
 					<div class="mt-2 flex items-center gap-2">
 						<span class="badge badge-ghost badge-xs">{item.resource.mimeType}</span>
 						{#if item.resource.size}
-							<span class="text-base-content/50 text-xs">
+							<span class="text-muted-content text-xs">
 								{formatFileSize(item.resource.size)}
 							</span>
 						{/if}
@@ -167,7 +167,7 @@
 					<span class="badge badge-ghost badge-sm">{formatFileSize(item.resource.size)}</span>
 				{/if}
 				{#if item.resource.annotations?.lastModified}
-					<span class="text-base-content/50 text-xs">
+					<span class="text-muted-content text-xs">
 						Modified: {new Date(item.resource.annotations.lastModified).toLocaleDateString()}
 					</span>
 				{/if}
@@ -188,11 +188,11 @@
 						<div class="mb-4 text-6xl">{getFileIcon(item.resource.mimeType)}</div>
 						<p class="text-base-content/60">Preview not available for this resource type</p>
 						{#if item.resource.blob}
-							<p class="text-base-content/40 mt-2 text-sm">
+							<p class="text-muted-content mt-2 text-sm">
 								Resource data is available but cannot be previewed
 							</p>
 						{:else}
-							<p class="text-base-content/40 mt-2 text-sm">No resource data available</p>
+							<p class="text-muted-content mt-2 text-sm">No resource data available</p>
 						{/if}
 					</div>
 				{/if}
