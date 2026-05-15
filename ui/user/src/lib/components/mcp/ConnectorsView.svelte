@@ -232,9 +232,10 @@
 		entry: MCPCatalogEntry,
 		mode: ServerSelectMode = 'connect'
 	) {
-		const allServers = mode === 'connect' || mode === 'chat'
-			? getUsableConfiguredServersForCatalogEntry(entry)
-			: getConfiguredServersForCatalogEntry(entry);
+		const allServers =
+			mode === 'connect' || mode === 'chat'
+				? getUsableConfiguredServersForCatalogEntry(entry)
+				: getConfiguredServersForCatalogEntry(entry);
 		selectedConfiguredServers = allServers;
 		selectedEntry = entry;
 		selectServerDialog?.open();

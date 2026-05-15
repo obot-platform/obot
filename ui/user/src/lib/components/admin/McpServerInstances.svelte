@@ -14,6 +14,7 @@
 		type MCPServerInstance,
 		type OrgUser
 	} from '$lib/services';
+	import { hasMissingSecretBindingConfig } from '$lib/services/chat/mcp';
 	import { profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { openUrl, isOwnSingleUserServer, getUserDisplayName } from '$lib/utils';
@@ -31,7 +32,6 @@
 		SquareCheck,
 		TriangleAlert
 	} from 'lucide-svelte';
-	import { hasMissingSecretBindingConfig } from '$lib/services/chat/mcp';
 
 	interface Props {
 		id?: string;

@@ -198,7 +198,8 @@
 							const entry = d.data;
 							selectedConfiguredServers = mcpServersAndEntries.current.userConfiguredServers.filter(
 								(server) =>
-									server.catalogEntryID === entry.id && !serverHasMissingSecretBinding(entry, server)
+									server.catalogEntryID === entry.id &&
+									!serverHasMissingSecretBinding(entry, server)
 							);
 							if (selectedConfiguredServers.length === 1) {
 								onConnect?.({
