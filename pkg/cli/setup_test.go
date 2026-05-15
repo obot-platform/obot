@@ -67,6 +67,68 @@ func TestSetupNonInteractiveDetectedInstallsClaudeCode(t *testing.T) {
 	}
 }
 
+func TestSetupNonInteractiveDetectedInstallsCursor(t *testing.T) {
+	restore := useRootTestEnv(t)
+	defer restore()
+	home := useSetupTestHome(t)
+	if err := os.MkdirAll(filepath.Join(home, ".cursor"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	root := setupTestRoot(func(_ context.Context, _ string, _, _ bool) (string, error) {
+		return "token", nil
+	})
+	setup := &Setup{
+		URL:    "https://obot.example.com/",
+		Agents: "detected",
+		Yes:    true,
+		root:   root,
+	}
+
+	var stdout bytes.Buffer
+	cmd := setupTestCommand(nil, &stdout, nil)
+	if err := setup.Run(cmd, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	skillPath := filepath.Join(home, ".cursor", "skills", "obot", skillformat.SkillMainFile)
+	content, err := os.ReadFile(skillPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(content), "rendered for `cursor`") {
+		t.Fatalf("unexpected bootstrap content:\n%s", content)
+	}
+	if !strings.Contains(stdout.String(), "Installed Obot bootstrap skills for Cursor") {
+		t.Fatalf("expected install message, got stdout:\n%s", stdout.String())
+	}
+}
+
+func TestSetupExplicitCursor(t *testing.T) {
+	restore := useRootTestEnv(t)
+	defer restore()
+	home := useSetupTestHome(t)
+	if err := os.MkdirAll(filepath.Join(home, ".cursor"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	root := setupTestRoot(func(_ context.Context, _ string, _, _ bool) (string, error) {
+		return "token", nil
+	})
+	setup := &Setup{
+		URL:    "https://obot.example.com/",
+		Agents: "cursor",
+		Yes:    true,
+		root:   root,
+	}
+
+	if err := setup.Run(setupTestCommand(nil, nil, nil), nil); err != nil {
+		t.Fatal(err)
+	}
+
+	assertFileContains(t, filepath.Join(home, ".cursor", "skills", "obot", skillformat.SkillMainFile), "rendered for `cursor`")
+}
+
 func TestSetupRefusesToReplaceConfiguredURLWithoutYes(t *testing.T) {
 	restore := useRootTestEnv(t)
 	defer restore()

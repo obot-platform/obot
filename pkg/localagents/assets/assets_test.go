@@ -27,6 +27,16 @@ func TestRenderClaudeSkillsForClaudeCode(t *testing.T) {
 	assertContains(t, string(bootstrap.Content), "rendered for `claude-code`")
 }
 
+func TestRenderClaudeSkillsForCursor(t *testing.T) {
+	rendered := renderClaudeSkillsForTest(t, CursorTemplateData())
+
+	install := renderedByName(t, rendered, "obot-install-skill")
+	assertContains(t, string(install.Content), "obot skills install --agent cursor <skill>")
+
+	bootstrap := renderedByName(t, rendered, "obot")
+	assertContains(t, string(bootstrap.Content), "rendered for `cursor`")
+}
+
 func TestRenderedAssetsHaveDeterministicRelativePaths(t *testing.T) {
 	rendered := renderClaudeSkillsForTest(t, ClaudeCodeTemplateData())
 
@@ -56,7 +66,7 @@ func TestRenderClaudeSkillsRejectsIncompleteTemplateData(t *testing.T) {
 	}
 
 	for _, data := range tests {
-		if _, err := RenderClaudeSkills(data); err == nil {
+		if _, err := RenderAgentSkills(data); err == nil {
 			t.Fatalf("expected error for data %#v", data)
 		}
 	}
@@ -74,7 +84,7 @@ func TestRenderedTemplatesDoNotContainUnexpandedActions(t *testing.T) {
 func renderClaudeSkillsForTest(t *testing.T, data TemplateData) []SkillAsset {
 	t.Helper()
 
-	rendered, err := RenderClaudeSkills(data)
+	rendered, err := RenderAgentSkills(data)
 	if err != nil {
 		t.Fatal(err)
 	}

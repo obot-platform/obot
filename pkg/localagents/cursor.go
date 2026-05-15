@@ -10,27 +10,27 @@ import (
 )
 
 const (
-	ClaudeCodeAgentID     = "claude-code"
-	claudeCodeDisplayName = "Claude Code"
+	CursorAgentID     = "cursor"
+	cursorDisplayName = "Cursor"
 )
 
-type ClaudeCode struct {
+type Cursor struct {
 	home string
 }
 
-func NewClaudeCode() ClaudeCode {
-	return ClaudeCode{}
+func NewCursor() Cursor {
+	return Cursor{}
 }
 
-func (c ClaudeCode) ID() string {
-	return ClaudeCodeAgentID
+func (c Cursor) ID() string {
+	return CursorAgentID
 }
 
-func (c ClaudeCode) DisplayName() string {
-	return claudeCodeDisplayName
+func (c Cursor) DisplayName() string {
+	return cursorDisplayName
 }
 
-func (c ClaudeCode) Detect(ctx context.Context) DetectionResult {
+func (c Cursor) Detect(ctx context.Context) DetectionResult {
 	result := DetectionResult{
 		AgentID:     c.ID(),
 		DisplayName: c.DisplayName(),
@@ -47,25 +47,25 @@ func (c ClaudeCode) Detect(ctx context.Context) DetectionResult {
 		return result
 	}
 
-	presence := devicescan.DetectClaudeCodePresence(home)
+	presence := devicescan.DetectCursorPresence(home)
 	switch {
 	case presence.BinaryPath != "":
 		result.State = DetectionPresent
-		result.Reason = "found claude binary at " + presence.BinaryPath
+		result.Reason = "found cursor binary at " + presence.BinaryPath
 	case presence.ConfigPath != "":
 		result.State = DetectionPresent
-		result.Reason = "found Claude Code config at " + presence.ConfigPath
+		result.Reason = "found Cursor config at " + presence.ConfigPath
 	case presence.InstallPath != "":
 		result.State = DetectionPresent
-		result.Reason = "found Claude Code install at " + presence.InstallPath
+		result.Reason = "found Cursor install at " + presence.InstallPath
 	default:
-		result.Reason = "Claude Code was not detected"
+		result.Reason = "Cursor was not detected"
 	}
 
 	return result
 }
 
-func (c ClaudeCode) InstallBootstrap(ctx context.Context, home string) (InstallResult, error) {
+func (c Cursor) InstallBootstrap(ctx context.Context, home string) (InstallResult, error) {
 	if err := ctx.Err(); err != nil {
 		return InstallResult{}, err
 	}
@@ -74,12 +74,12 @@ func (c ClaudeCode) InstallBootstrap(ctx context.Context, home string) (InstallR
 		return InstallResult{}, err
 	}
 
-	rendered, err := assets.RenderAgentSkills(assets.ClaudeCodeTemplateData())
+	rendered, err := assets.RenderAgentSkills(assets.CursorTemplateData())
 	if err != nil {
 		return InstallResult{}, err
 	}
 
-	installed, err := installBootstrapAssets(claudeCodeSkillsRoot(home), rendered)
+	installed, err := installBootstrapAssets(cursorSkillsRoot(home), rendered)
 	if err != nil {
 		return InstallResult{}, err
 	}
@@ -88,11 +88,11 @@ func (c ClaudeCode) InstallBootstrap(ctx context.Context, home string) (InstallR
 		AgentID:     c.ID(),
 		DisplayName: c.DisplayName(),
 		Installed:   installed,
-		Message:     "Installed Obot bootstrap skills for Claude Code",
+		Message:     "Installed Obot bootstrap skills for Cursor",
 	}, nil
 }
 
-func (c ClaudeCode) InstallSkill(ctx context.Context, home string, skill SkillArchive) (InstallResult, error) {
+func (c Cursor) InstallSkill(ctx context.Context, home string, skill SkillArchive) (InstallResult, error) {
 	if err := ctx.Err(); err != nil {
 		return InstallResult{}, err
 	}
@@ -100,7 +100,7 @@ func (c ClaudeCode) InstallSkill(ctx context.Context, home string, skill SkillAr
 	if err != nil {
 		return InstallResult{}, err
 	}
-	name, installed, err := installSkillArchiveToRoot(claudeCodeSkillsRoot(home), skill)
+	name, installed, err := installSkillArchiveToRoot(cursorSkillsRoot(home), skill)
 	if err != nil {
 		return InstallResult{}, err
 	}
@@ -109,10 +109,10 @@ func (c ClaudeCode) InstallSkill(ctx context.Context, home string, skill SkillAr
 		AgentID:     c.ID(),
 		DisplayName: c.DisplayName(),
 		Installed:   installed,
-		Message:     fmt.Sprintf("Installed %s for Claude Code", name),
+		Message:     fmt.Sprintf("Installed %s for Cursor", name),
 	}, nil
 }
 
-func claudeCodeSkillsRoot(home string) string {
-	return filepath.Join(home, ".claude", "skills")
+func cursorSkillsRoot(home string) string {
+	return filepath.Join(home, ".cursor", "skills")
 }
