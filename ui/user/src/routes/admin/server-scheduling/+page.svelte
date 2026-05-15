@@ -2,9 +2,10 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import YamlEditor from '$lib/components/admin/YamlEditor.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService, type K8sSettings } from '$lib/services';
 	import { profile } from '$lib/stores/index.js';
-	import { Info, LoaderCircle, Lock } from 'lucide-svelte';
+	import { Info, Lock } from 'lucide-svelte';
 	import { untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
 
@@ -275,7 +276,7 @@
 								type="text"
 								id="cpu-request"
 								bind:value={resourceInfo.requests.cpu}
-								class="text-input-filled dark:bg-background"
+								class="text-input-filled dark:bg-base-100"
 								disabled={readonly}
 								placeholder="example: 500m"
 							/>
@@ -286,7 +287,7 @@
 								type="text"
 								id="cpu-limit"
 								bind:value={resourceInfo.limits.cpu}
-								class="text-input-filled dark:bg-background"
+								class="text-input-filled dark:bg-base-100"
 								disabled={readonly}
 								placeholder="example: 1"
 							/>
@@ -300,7 +301,7 @@
 								type="text"
 								id="memory-request"
 								bind:value={resourceInfo.requests.memory}
-								class="text-input-filled dark:bg-background"
+								class="text-input-filled dark:bg-base-100"
 								disabled={readonly}
 								placeholder="example: 512Mi"
 							/>
@@ -311,7 +312,7 @@
 								type="text"
 								id="memory-limit"
 								bind:value={resourceInfo.limits.memory}
-								class="text-input-filled dark:bg-background"
+								class="text-input-filled dark:bg-base-100"
 								disabled={readonly}
 								placeholder="example: 1Gi"
 							/>
@@ -346,11 +347,11 @@
 							type="text"
 							id="runtime-class-name"
 							bind:value={k8sSettings.runtimeClassName}
-							class="text-input-filled dark:bg-background"
+							class="text-input-filled dark:bg-base-100"
 							disabled={readonly}
 							placeholder="example: gvisor"
 						/>
-						<p class="text-xs font-light text-gray-500">
+						<p class="text-xs font-light text-muted-content">
 							Leave empty to use the cluster's default container runtime.
 						</p>
 					</div>
@@ -376,11 +377,11 @@
 								type="text"
 								id="storage-class-name"
 								bind:value={k8sSettings.storageClassName}
-								class="text-input-filled dark:bg-background"
+								class="text-input-filled dark:bg-base-100"
 								disabled={readonly}
 								placeholder="example: fast-ssd"
 							/>
-							<p class="text-xs font-light text-gray-500">
+							<p class="text-xs font-light text-muted-content">
 								Leave empty to use the cluster default StorageClass.
 							</p>
 						</div>
@@ -390,11 +391,11 @@
 								type="text"
 								id="nanobot-workspace-size"
 								bind:value={k8sSettings.nanobotWorkspaceSize}
-								class="text-input-filled dark:bg-background"
+								class="text-input-filled dark:bg-base-100"
 								disabled={readonly}
 								placeholder="example: 10Gi"
 							/>
-							<p class="text-xs font-light text-gray-500">
+							<p class="text-xs font-light text-muted-content">
 								Use units like Gi or Mi (example: 10Gi, 512Mi).
 							</p>
 						</div>
@@ -403,19 +404,19 @@
 
 				{#if !readonly}
 					<div
-						class="bg-surface1 dark:bg-background sticky bottom-0 left-0 flex w-[calc(100%+2em)] -translate-x-4 justify-end gap-4 p-4 md:w-[calc(100%+4em)] md:-translate-x-8 md:px-8"
+						class="bg-base-200 dark:bg-base-100 sticky bottom-0 left-0 flex w-[calc(100%+2em)] -translate-x-4 justify-end gap-4 p-4 md:w-[calc(100%+4em)] md:-translate-x-8 md:px-8"
 					>
 						{#if showSaved}
 							<span
 								in:fade={{ duration: 200 }}
-								class="text-on-surface1 flex min-h-10 items-center px-4 text-sm font-extralight"
+								class="text-muted-content flex min-h-10 items-center px-4 text-sm font-extralight"
 							>
 								Your changes have been saved.
 							</span>
 						{/if}
 
 						<button
-							class="button hover:bg-surface3 flex items-center gap-1 bg-transparent"
+							class="btn btn-secondary hover:bg-base-400 flex items-center gap-1 bg-transparent"
 							onclick={() => {
 								k8sSettings = prevK8sSettings;
 								resourceInfo = convertResourcesForInput(prevK8sSettings?.resources);
@@ -424,12 +425,12 @@
 							Reset
 						</button>
 						<button
-							class="button-primary flex items-center gap-1"
+							class="btn btn-primary flex items-center gap-1"
 							disabled={saving}
 							onclick={handleSave}
 						>
 							{#if saving}
-								<LoaderCircle class="size-4 animate-spin" />
+								<Loading class="size-4" />
 							{:else}
 								Save
 							{/if}

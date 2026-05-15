@@ -14,7 +14,7 @@
 </script>
 
 <Layout {title} showBackButton>
-	<div class="mb-4 h-full w-full" in:fly={{ x: 100, duration }} out:fly={{ x: -100, duration }}>
+	<div class="h-full w-full" in:fly={{ x: 100, duration }} out:fly={{ x: -100, duration }}>
 		<MessagePolicyForm
 			{messagePolicy}
 			onUpdate={() => {

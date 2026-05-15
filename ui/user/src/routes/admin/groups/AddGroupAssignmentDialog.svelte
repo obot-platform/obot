@@ -1,13 +1,15 @@
 <script lang="ts">
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Search from '$lib/components/Search.svelte';
+	import IconButton from '$lib/components/primitives/IconButton.svelte';
+	import Loading from '$lib/icons/Loading.svelte';
 	import { Role, type OrgGroup, type GroupRoleAssignment } from '$lib/services/admin/types';
 	import { responsive } from '$lib/stores/index.js';
 	import { getUserRoleLabel } from '$lib/utils';
 	import GroupRoleForm from './GroupRoleForm.svelte';
 	import type { GroupAssignment } from './types';
 	import { debounce } from 'es-toolkit';
-	import { LoaderCircle, ChevronLeft } from 'lucide-svelte';
+	import { ChevronLeft } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -158,13 +160,13 @@
 
 {#snippet groupList()}
 	<div class="flex h-full flex-col gap-4 overflow-y-auto px-1 pr-2">
-		<div class="bg-background dark:bg-surface2 sticky top-0 w-full pt-1">
+		<div class="bg-base-100 dark:bg-base-300 sticky top-0 w-full pt-1">
 			<Search value={searchQuery} onChange={updateSearch} />
 		</div>
 
 		<div class="flex flex-col gap-2">
 			{#if availableGroups.length === 0}
-				<p class="text-on-surface1 py-8 text-center text-sm">
+				<p class="text-muted-content py-8 text-center text-sm">
 					{searchQuery ? 'No groups found matching your search.' : 'No groups available.'}
 				</p>
 			{:else}
@@ -174,7 +176,7 @@
 					<button
 						onclick={() => handleGroupSelect(group)}
 						class={twMerge(
-							'border-surface3 hover:bg-background/5 flex items-center gap-3 rounded-lg border p-3 text-left transition-colors',
+							'border-base-400 hover:bg-base-100/5 flex items-center gap-3 rounded-lg border p-3 text-left transition-colors',
 							selectedGroup?.id === group.id && 'bg-primary/10 border-primary'
 						)}
 					>
@@ -182,7 +184,7 @@
 							<div class="flex flex-1 flex-col">
 								<span class="font-medium">{group.name}</span>
 								{#if hasAssignment && assignedRole}
-									<span class="text-on-surface1 text-xs">{getUserRoleLabel(assignedRole)}</span>
+									<span class="text-muted-content text-xs">{getUserRoleLabel(assignedRole)}</span>
 								{/if}
 							</div>
 						</div>
@@ -196,11 +198,11 @@
 {#snippet roleForm()}
 	<div class="flex h-full flex-col gap-4 overflow-y-auto pr-2">
 		{#if selectedGroup}
-			<div class="dark:bg-surface1 flex flex-col gap-1 rounded-lg bg-gray-50 p-3">
+			<div class="dark:bg-base-200 flex flex-col gap-1 rounded-lg bg-gray-50 p-3">
 				<div class="text-md flex items-center gap-2">
 					<span class="font-semibold">{selectedGroup.name}</span>
 				</div>
-				<div class="text-on-surface1 text-xs">
+				<div class="text-muted-content text-xs">
 					{#if groupRoleMap[selectedGroup.id]}
 						Update the role for this group
 					{:else}
@@ -215,7 +217,7 @@
 				bind:hasUserImpersonationPrivilege={draftHaveUserImpersonationPrivilege}
 			/>
 		{:else}
-			<div class="text-on-surface1 flex h-full items-center justify-center py-12 text-sm">
+			<div class="text-muted-content flex h-full items-center justify-center py-12 text-sm">
 				Select a group to assign a role
 			</div>
 		{/if}
@@ -234,13 +236,9 @@
 	>
 		{#snippet titleContent()}
 			{#if isSmallScreen && selectedGroup}
-				<button
-					onclick={handleBack}
-					class="icon-button mr-2 -ml-2 flex-shrink-0"
-					aria-label="Go back"
-				>
+				<IconButton onclick={handleBack} class="mr-2 -ml-2" aria-label="Go back">
 					<ChevronLeft class="size-6" />
-				</button>
+				</IconButton>
 			{:else if isSmallScreen}
 				<div class="size-11"></div>
 			{/if}
@@ -258,11 +256,11 @@
 			<!-- Large screen: two-column layout -->
 			<div class="grid flex-1 grid-cols-2 gap-8 overflow-hidden">
 				<div class="flex flex-col overflow-hidden">
-					<h4 class="mb-4 flex-shrink-0 text-sm font-semibold">Select Group</h4>
+					<h4 class="mb-4 shrink-0 text-sm font-semibold">Select Group</h4>
 					{@render groupList()}
 				</div>
 				<div class="flex flex-col overflow-hidden">
-					<h4 class="mb-4 flex-shrink-0 text-sm font-semibold">Assign Role</h4>
+					<h4 class="mb-4 shrink-0 text-sm font-semibold">Assign Role</h4>
 					{@render roleForm()}
 				</div>
 			</div>
@@ -270,7 +268,7 @@
 			<!-- Small screen: single column with conditional rendering -->
 			{#if !selectedGroup}
 				<div class="flex flex-1 flex-col overflow-hidden">
-					<h4 class="mb-4 flex-shrink-0 text-sm font-semibold">Select Group</h4>
+					<h4 class="mb-4 shrink-0 text-sm font-semibold">Select Group</h4>
 					{@render groupList()}
 				</div>
 			{:else}
@@ -280,15 +278,15 @@
 			{/if}
 		{/if}
 
-		<div class="mt-6 flex flex-shrink-0 flex-col justify-end gap-2 md:flex-row">
-			<button class="button" onclick={handleClose}>Cancel</button>
+		<div class="mt-6 flex shrink-0 flex-col justify-end gap-2 md:flex-row">
+			<button class="btn btn-secondary" onclick={handleClose}>Cancel</button>
 			<button
-				class="button-primary"
+				class="btn btn-primary"
 				onclick={handleConfirm}
 				disabled={loading || !selectedGroup || draftRoleId === 0}
 			>
 				{#if loading}
-					<LoaderCircle class="size-4 animate-spin" />
+					<Loading class="size-4" />
 				{:else if selectedGroup && groupRoleMap[selectedGroup.id]}
 					Update Role
 				{:else}

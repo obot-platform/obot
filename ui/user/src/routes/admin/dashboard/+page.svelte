@@ -402,7 +402,7 @@
 				)}
 			>
 				{#if hasDeviceScans}
-					<div class="shrink-0 border-b border-surface2 px-4 py-2">
+					<div class="shrink-0 border-b border-base-300 px-4 py-2">
 						<h4 class="flex items-center font-light text-xs uppercase">On Platform</h4>
 					</div>
 				{/if}
@@ -419,7 +419,7 @@
 					class="gap-0 paper min-w-0 p-0 col-span-12 @3xl:col-span-7"
 					in:fly={{ x: 100, duration: 150 }}
 				>
-					<div class="col-span-12 border-b border-surface2 px-4 py-2">
+					<div class="col-span-12 border-b border-base-300 px-4 py-2">
 						<h4 class="flex items-center font-light text-xs uppercase">Device Scans</h4>
 					</div>
 					<div class="@container min-w-0 w-full max-w-full">
@@ -445,17 +445,12 @@
 			{/if}
 
 			{#if loadingToolUsage}
-				<div
-					class={twMerge(
-						'bg-surface3 animate-pulse rounded-md',
-						hasDeviceScans ? 'h-81' : 'h-[400px]'
-					)}
-				></div>
+				<div class={twMerge('skeleton rounded-md', hasDeviceScans ? 'h-81' : 'h-[400px]')}></div>
 			{:else}
 				<div in:fade={{ duration: 150 }} class="paper gap-1 w-full min-h-72">
 					<div class="flex flex-wrap items-center justify-between gap-4">
 						<h4 class="flex items-center gap-1 font-semibold">
-							Top Servers Used <span class="text-on-surface1 text-xs font-light"
+							Top Servers Used <span class="text-muted-content text-xs font-light"
 								>(Last 30 Days)</span
 							>
 						</h4>
@@ -469,9 +464,9 @@
 					>
 						{#snippet tooltipContent(item)}
 							<div class="flex flex-col gap-0 text-xs">
-								<div class="text-on-surface1 text-xs">{item.label}</div>
+								<div class="text-muted-content text-xs">{item.label}</div>
 							</div>
-							<div class="text-on-background font-semibold">
+							<div class="text-base-content font-semibold">
 								{item.value} calls
 							</div>
 						{/snippet}
@@ -494,7 +489,7 @@
 				{#if loadingDeviceScanStats}
 					<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
 						{#each Array.from({ length: 4 }) as _, i (i)}
-							<div class="paper min-h-72 animate-pulse bg-surface3/40"></div>
+							<div class="min-h-72 skeleton rounded-md"></div>
 						{/each}
 					</div>
 				{:else}
@@ -552,16 +547,16 @@
 
 {#snippet serverActivityGraph()}
 	{#if serverAndEntries.loading || loading}
-		<div class={twMerge('bg-surface3 animate-pulse rounded-md', 'h-[530px]')}></div>
+		<div class={twMerge('skeleton rounded-md', 'h-[530px]')}></div>
 		<div class="paper gap-1 flex grow">
 			<h4 class="flex items-center gap-2 font-semibold">Most Popular Servers</h4>
 			<div class="pt-2 flex flex-col gap-4">
 				{#each Array.from({ length: 5 }) as _, i (i)}
-					<div class="flex gap-2 items-center animate-pulse w-full">
-						<div class="size-8 rounded-md bg-surface3 shrink-0"></div>
+					<div class="flex gap-2 items-center w-full">
+						<div class="size-8 rounded-md skeleton shrink-0"></div>
 						<div class="flex flex-col gap-2 flex-1">
-							<div class="h-4 w-full rounded bg-surface3"></div>
-							<div class="h-3 w-full rounded bg-surface3"></div>
+							<div class="h-4 w-full rounded-md skeleton"></div>
+							<div class="h-3 w-full rounded-md skeleton"></div>
 						</div>
 					</div>
 				{/each}
@@ -581,7 +576,7 @@
 								'flex flex-col items-center justify-center px-1 text-center',
 								deploymentStatusGridColClass(i, deploymentStatusBreakdown.length),
 								deploymentStatusGridShowBorderRight(i, deploymentStatusBreakdown.length) &&
-									'border-r border-surface2'
+									'border-r border-base-300'
 							)}
 						>
 							<div class="flex items-center gap-1">
@@ -591,9 +586,9 @@
 								{#if row.status === 'Available'}
 									<Server class="size-6 text-primary" />
 								{:else if row.status === 'Needs Attention'}
-									<Siren class="size-6 text-yellow-500" />
+									<Siren class="size-6 text-warning" />
 								{:else}
-									<Server class="size-6 text-on-surface1/75" />
+									<Server class="size-6 text-muted-content/75" />
 								{/if}
 							</div>
 							<div class="text-xs">{row.status}</div>
@@ -626,7 +621,7 @@
 						legend={doesSupportK8sUpdates ? entryTypeDonutLegend : undefined}
 					/>
 				{:else}
-					<p class="font-light text-xs text-on-surface1 pt-2 text-center">
+					<p class="font-light text-xs text-muted-content pt-2 text-center">
 						No servers have been deployed yet.
 					</p>
 				{/if}
@@ -636,7 +631,7 @@
 				<div class="flex justify-end">
 					<a
 						href={resolve('/admin/mcp-servers?view=deployments')}
-						class="text-[11px] transition-colors self-end translate-x-2 duration-200 bg-surface3/50 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
+						class="text-[11px] transition-colors self-end translate-x-2 duration-200 bg-base-400/50 hover:bg-base-400 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
 					>
 						See More <ChevronRight class="size-3" />
 					</a>
@@ -652,11 +647,11 @@
 		{#if mcpServersAndEntries.current.loading || loading}
 			<div class="pt-2 flex flex-col gap-4">
 				{#each Array.from({ length: 5 }) as _, i (i)}
-					<div class="flex gap-2 items-center animate-pulse w-full">
-						<div class="size-8 rounded-md bg-surface3 shrink-0"></div>
+					<div class="flex gap-2 items-center w-full">
+						<div class="size-8 rounded-md skeleton shrink-0"></div>
 						<div class="flex flex-col gap-2 flex-1">
-							<div class="h-4 w-full rounded bg-surface3"></div>
-							<div class="h-3 w-full rounded bg-surface3"></div>
+							<div class="h-4 w-full rounded-md skeleton"></div>
+							<div class="h-3 w-full rounded-md skeleton"></div>
 						</div>
 					</div>
 				{/each}
@@ -677,17 +672,17 @@
 							? getEntryUrl(info.entry)
 							: undefined}
 					<a
-						class="flex gap-2 items-center dark:hover:bg-surface2 hover:bg-surface1 transition-colors duration-150 -mx-2 px-2 py-1 rounded-md"
+						class="flex gap-2 items-center dark:hover:bg-base-300 hover:bg-base-200 transition-colors duration-150 -mx-2 px-2 py-1 rounded-md"
 						href={url ? resolve(url as `/${string}`) : undefined}
 					>
 						{#if icon}
 							<img
 								src={icon}
 								alt={info.id}
-								class="size-9 bg-surface1 dark:bg-surface2 rounded-md p-1"
+								class="size-9 bg-base-200 dark:bg-base-300 rounded-md p-1"
 							/>
 						{:else}
-							<Server class="size-9 opacity-65 bg-surface1 rounded-md p-1" />
+							<Server class="size-9 opacity-65 bg-base-200 rounded-md p-1" />
 						{/if}
 						<div class="flex flex-col gap-0.5 max-w-[calc(100%-4.5rem)]">
 							<p class="text-sm font-medium">{displayName}</p>
@@ -696,7 +691,7 @@
 									{stripMarkdownToText(description ?? '')}
 								</p>
 							{/if}
-							<p class="text-xs text-on-surface1 italic">Deployed {info.count} times</p>
+							<p class="text-xs text-muted-content italic">Deployed {info.count} times</p>
 						</div>
 						<ChevronRight class="size-5 shrink-0" />
 					</a>
@@ -704,7 +699,7 @@
 			</div>
 		{:else}
 			<p
-				class="text-xs text-on-surface1 pt-2 font-light text-center h-full flex items-center justify-center"
+				class="text-xs text-muted-content pt-2 font-light text-center h-full flex items-center justify-center"
 			>
 				No servers have been deployed yet.
 			</p>
@@ -713,7 +708,7 @@
 		{#if popularServers.length > 0 && !isBootStrapUser}
 			<a
 				href={resolve('/admin/mcp-servers')}
-				class="justify-end self-end text-[11px] translate-x-2 transition-colors duration-200 bg-surface3/50 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
+				class="justify-end self-end text-[11px] translate-x-2 transition-colors duration-200 bg-base-400/50 hover:bg-base-400 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
 			>
 				See More <ChevronRight class="size-3" />
 			</a>
@@ -724,13 +719,13 @@
 {#snippet platformStatCell(platformStat: (typeof platformStatTiles)[number])}
 	{@const defaultClasses = 'col-span-4 p-2 flex gap-4 items-center justify-between w-full'}
 	<div
-		class="col-span-1 min-w-0 border-r-0 px-2 my-2 flex [&:last-child:nth-child(odd)]:col-span-2 @md:col-span-4 @md:[&:last-child:nth-child(odd)]:col-span-4 @md:not-last:border-r @md:not-last:border-surface2"
+		class="col-span-1 min-w-0 border-r-0 px-2 my-2 flex [&:last-child:nth-child(odd)]:col-span-2 @md:col-span-4 @md:[&:last-child:nth-child(odd)]:col-span-4 @md:not-last:border-r @md:not-last:border-base-300"
 	>
 		{#if platformStat.seeMore && !isBootStrapUser}
 			<a
 				class={twMerge(
 					defaultClasses,
-					'group w-full hover:bg-surface2/50 transition-colors duration-200 rounded-md'
+					'group w-full hover:bg-base-300/50 transition-colors duration-200 rounded-md'
 				)}
 				href={resolve(platformStat.seeMore as `/${string}`)}
 			>
@@ -747,14 +742,14 @@
 {#snippet deviceScanStatCell(deviceScanStat: (typeof deviceScanTiles)[number])}
 	{@const defaultClasses = 'p-2 flex gap-4 items-center justify-between w-full'}
 	<div
-		class="col-span-1 min-w-0 flex border-r-0 px-2 my-2 [&:last-child:nth-child(odd)]:col-span-2 @md:flex-1 @md:col-span-auto @md:[&:last-child:nth-child(odd)]:col-span-auto @md:not-last:border-r @md:not-last:border-surface2"
+		class="col-span-1 min-w-0 flex border-r-0 px-2 my-2 [&:last-child:nth-child(odd)]:col-span-2 @md:flex-1 @md:col-span-auto @md:[&:last-child:nth-child(odd)]:col-span-auto @md:not-last:border-r @md:not-last:border-base-300"
 	>
 		{#if deviceScanStat.seeMore}
 			<a
 				href={resolve(deviceScanStat.seeMore as `/${string}`)}
 				class={twMerge(
 					defaultClasses,
-					'group w-full hover:bg-surface2/50 transition-colors duration-200 rounded-md'
+					'group w-full hover:bg-base-300/50 transition-colors duration-200 rounded-md'
 				)}
 			>
 				{@render statContent(deviceScanStat)}
@@ -769,7 +764,7 @@
 
 {#snippet statContent(platformStat: (typeof platformStatTiles | typeof deviceScanTiles)[number])}
 	<div class="w-full">
-		<div class="text-xs text-on-surface1 flex items-center gap-1 shrink-0 mb-0.5">
+		<div class="text-xs text-muted-content flex items-center gap-1 shrink-0 mb-0.5">
 			{platformStat.label}
 		</div>
 
@@ -786,7 +781,7 @@
 					class="size-4 text-primary transition-opacity duration-200 group-hover:opacity-0"
 				/>
 				<ChevronRight
-					class="pointer-events-none text-on-surface1 absolute inset-0 size-4 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+					class="pointer-events-none text-muted-content absolute inset-0 size-4 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
 				/>
 			</div>
 		</div>
@@ -802,23 +797,23 @@
 	>
 		<h4 class="flex items-center gap-2 font-semibold mb-1">
 			Recently Popular Tools
-			<span class="text-on-surface1 text-xs font-light">(Last 30 Days)</span>
+			<span class="text-muted-content text-xs font-light">(Last 30 Days)</span>
 		</h4>
 		{#if loadingToolUsage}
 			<div class="pt-2 flex flex-col gap-4 w-full">
 				{#each Array.from({ length: maxToolsToShow }) as _, i (i)}
-					<div class="flex gap-2 items-center animate-pulse w-full">
-						<div class="size-8 rounded-md bg-surface3 shrink-0"></div>
+					<div class="flex gap-2 items-center w-full">
+						<div class="size-8 rounded-md skeleton shrink-0"></div>
 						<div class="flex flex-col gap-2 flex-1">
-							<div class="h-4 w-full rounded bg-surface3"></div>
-							<div class="h-3 w-full rounded bg-surface3"></div>
+							<div class="h-4 w-full rounded-md skeleton"></div>
+							<div class="h-3 w-full rounded-md skeleton"></div>
 						</div>
 					</div>
 				{/each}
 			</div>
 		{:else if topToolCalls.length === 0}
 			<p
-				class="text-xs text-on-surface1 pt-2 font-light grow flex items-center justify-center h-full text-center"
+				class="text-xs text-muted-content pt-2 font-light grow flex items-center justify-center h-full text-center"
 			>
 				No recent tool calls.
 			</p>
@@ -827,7 +822,7 @@
 				{#each topToolCalls.slice(0, maxToolsToShow) as row (row.compositeKey)}
 					<li class="flex gap-2 items-center">
 						<div
-							class="size-8 items-center justify-center shrink-0 bg-surface1 dark:bg-surface2 rounded-md p-1"
+							class="size-8 items-center justify-center shrink-0 bg-base-200 dark:bg-base-300 rounded-md p-1"
 						>
 							<Wrench class="size-6 opacity-65 shrink-0" />
 						</div>
@@ -835,7 +830,7 @@
 							<p class="text-sm font-medium truncate">
 								{row.toolLabel.split('.').slice(1).join('.') || row.compositeKey}
 							</p>
-							<p class="text-xs text-on-surface1">
+							<p class="text-xs text-muted-content">
 								{formatNumber(row.count)} calls · {row.serverDisplayName}
 							</p>
 						</div>
@@ -849,7 +844,7 @@
 		{#if topToolCalls.length > 0 && !isBootStrapUser}
 			<a
 				href={resolve('/admin/usage')}
-				class="text-[11px] translate-x-2 self-end bg-surface3/50 transition-colors duration-200 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1 mt-2"
+				class="text-[11px] translate-x-2 self-end bg-base-400/50 transition-colors duration-200 hover:bg-base-400 rounded-md py-0.5 w-fit px-2 flex items-center gap-1 mt-2"
 			>
 				See More <ChevronRight class="size-3" />
 			</a>
@@ -866,22 +861,22 @@
 	>
 		<h4 class="flex items-center gap-2 font-semibold mb-1">
 			Tool Call Average Response Time
-			<span class="text-on-surface1 text-xs font-light">(Last 30 Days)</span>
+			<span class="text-muted-content text-xs font-light">(Last 30 Days)</span>
 		</h4>
 		{#if loadingToolUsage}
 			<div class="pt-2 flex flex-col gap-4 w-full">
 				{#each Array.from({ length: maxToolsToShow }) as _, i (i)}
-					<div class="flex gap-2 items-center animate-pulse w-full">
+					<div class="flex gap-2 items-center w-full">
 						<div class="flex flex-col gap-2 flex-1">
-							<div class="h-4 w-full rounded bg-surface3"></div>
-							<div class="h-3 w-full rounded bg-surface3"></div>
+							<div class="h-4 w-full rounded-md skeleton"></div>
+							<div class="h-3 w-full rounded-md skeleton"></div>
 						</div>
 					</div>
 				{/each}
 			</div>
 		{:else if avgToolCallResponseTime.length === 0}
 			<p
-				class="text-xs text-on-surface1 pt-2 font-light grow flex items-center justify-center h-full text-center"
+				class="text-xs text-muted-content pt-2 font-light grow flex items-center justify-center h-full text-center"
 			>
 				No recent tool calls.
 			</p>
@@ -894,7 +889,7 @@
 								<p class="text-sm font-medium truncate">
 									{row.toolName.split('.').slice(1).join('.')}
 								</p>
-								<p class="text-xs text-on-surface1">
+								<p class="text-xs text-muted-content">
 									{row.serverDisplayName}
 								</p>
 							</div>
@@ -912,7 +907,7 @@
 		{#if avgToolCallResponseTime.length > 0 && !isBootStrapUser}
 			<a
 				href={resolve('/admin/usage')}
-				class="text-[11px] translate-x-2 self-end bg-surface3/50 transition-colors duration-200 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1 mt-2"
+				class="text-[11px] translate-x-2 self-end bg-base-400/50 transition-colors duration-200 hover:bg-base-400 rounded-md py-0.5 w-fit px-2 flex items-center gap-1 mt-2"
 			>
 				See More <ChevronRight class="size-3" />
 			</a>
@@ -923,3 +918,16 @@
 <svelte:head>
 	<title>Obot | Dashboard</title>
 </svelte:head>
+
+<style lang="postcss">
+	.skeleton-list-item .skeleton {
+		:global(.dark) & {
+			background-image: linear-gradient(
+				105deg,
+				var(--color-base-300) 0% 40%,
+				var(--color-base-400) 50%,
+				var(--color-base-300) 60% 100%
+			);
+		}
+	}
+</style>

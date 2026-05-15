@@ -60,8 +60,10 @@
 		const html = document.querySelector('html');
 		if (darkMode.isDark) {
 			html?.classList.add('dark');
+			html?.setAttribute('data-theme', 'nanobotdark');
 		} else {
 			html?.classList.remove('dark');
+			html?.setAttribute('data-theme', 'nanobotlight');
 		}
 
 		// Hide the initial loader

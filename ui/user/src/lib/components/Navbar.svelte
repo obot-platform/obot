@@ -28,7 +28,7 @@
 	}: Props = $props();
 </script>
 
-<nav class={twMerge('bg-background flex h-16 w-full items-center px-3', klass)} in:fade|global>
+<nav class={twMerge('bg-base-100 flex h-16 w-full items-center px-3', klass)} in:fade|global>
 	<div class="flex w-full items-center justify-between">
 		{#if leftContent}
 			{@render leftContent()}
@@ -45,11 +45,11 @@
 				{@render rightContent()}
 			{/if}
 			{#if rightMenu}
-				<div class="flex h-16 flex-shrink-0 items-center">
+				<div class="flex h-16 shrink-0 items-center">
 					{@render rightMenu()}
 				</div>
 			{:else if !unauthorized && !hideProfileButton}
-				<div class="flex h-16 flex-shrink-0 items-center">
+				<div class="flex h-16 shrink-0 items-center">
 					<Profile />
 				</div>
 			{/if}

@@ -149,6 +149,7 @@
 
 <svelte:element
 	this={as ?? 'div'}
+	role="presentation"
 	bind:this={rootElement}
 	class={twMerge(
 		'draggable-element relative min-w-full touch-none',
@@ -183,9 +184,9 @@
 	<div
 		bind:this={containerElement}
 		class={twMerge(
-			'draggable-inner-element relative isolate z-[1] flex justify-start gap-2 rounded-sm border border-transparent transition-colors duration-200',
+			'draggable-inner-element relative isolate z-1 flex justify-start gap-2 rounded-sm border border-transparent transition-colors duration-200',
 			isPointerEntered && 'border-primary bg-primary/5',
-			!isActive && isDragOver && 'bg-surface2 pointer-events-none',
+			!isActive && isDragOver && 'bg-base-300 pointer-events-none',
 			klass
 		)}
 	>

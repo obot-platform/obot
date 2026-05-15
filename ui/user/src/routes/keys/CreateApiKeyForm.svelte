@@ -2,13 +2,14 @@
 	import DatePicker from '$lib/components/DatePicker.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import Loading from '$lib/icons/Loading.svelte';
 	import { stripMarkdownToText } from '$lib/markdown';
 	import { ApiKeysService } from '$lib/services';
 	import type { APIKeyCreateResponse } from '$lib/services/api-keys/types';
 	import { compileAvailableMcpServers } from '$lib/services/chat/mcp';
 	import type { MCPCatalogServer } from '$lib/services/chat/types';
 	import { mcpServersAndEntries } from '$lib/stores';
-	import { Check, LoaderCircle, Server } from 'lucide-svelte';
+	import { Check, Server } from 'lucide-svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { fly } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -113,7 +114,7 @@
 				<label for="api-key-name" class="input-label">
 					Name
 					{#if nameError}
-						<span class="text-xs text-red-600 dark:text-red-400">Name is required</span>
+						<span class="text-xs text-error">Name is required</span>
 					{/if}
 				</label>
 				<input
@@ -123,7 +124,7 @@
 					placeholder="My API Key"
 					class={twMerge(
 						'text-input-filled',
-						nameError && 'border-red-500 focus:border-red-500 focus:ring-red-500'
+						nameError && 'border-error focus:border-error focus:ring-error'
 					)}
 				/>
 			</div>
@@ -151,9 +152,9 @@
 				<p class="input-description">Leave empty for no expiration</p>
 			</div>
 
-			<div class="flex flex-col gap-2">
-				<label class="input-label">Optional Capabilities</label>
-				<label class="bg-surface1 flex items-start gap-3 rounded-lg border p-3">
+			<div class="flex flex-col gap-2" role="group" aria-labelledby="api-key-optional-capabilities">
+				<div id="api-key-optional-capabilities" class="input-label">Optional Capabilities</div>
+				<label class="bg-base-200 flex items-start gap-3 rounded-lg border border-base-400 p-3">
 					<input type="checkbox" bind:checked={canAccessSkills} class="mt-1" />
 					<div class="flex flex-col gap-1">
 						<span class="text-sm font-medium">Allow skill access</span>
@@ -170,9 +171,7 @@
 		<p>
 			<span class="text-lg font-semibold">MCP Servers</span>
 			{#if serverError}
-				<span class="text-xs text-red-600 dark:text-red-400">
-					Select at least one server or enable skill access
-				</span>
+				<span class="text-xs text-error"> Select at least one server or enable skill access </span>
 			{/if}
 		</p>
 		<p class="input-description">
@@ -194,12 +193,12 @@
 
 		<div
 			class={twMerge(
-				'bg-surface1 default-scrollbar-thin flex max-h-64 flex-col overflow-y-auto rounded-lg',
-				serverError && 'ring-1 ring-red-500'
+				'bg-base-200 default-scrollbar-thin flex max-h-64 flex-col overflow-y-auto rounded-lg',
+				serverError && 'ring-1 ring-error'
 			)}
 		>
 			{#if filteredServers.length === 0}
-				<div class="text-on-surface1 flex items-center justify-center py-8 text-sm">
+				<div class="text-muted-content flex items-center justify-center py-8 text-sm">
 					{search ? 'No servers match your search' : 'No MCP servers available'}
 				</div>
 			{:else}
@@ -207,13 +206,13 @@
 					<button
 						type="button"
 						class={twMerge(
-							'hover:bg-surface2 flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors',
-							selectedServerIds.has(server.id) && 'bg-surface2'
+							'hover:bg-base-300 flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors',
+							selectedServerIds.has(server.id) && 'bg-base-300'
 						)}
 						onclick={() => toggleServer(server.id)}
 					>
 						<div class="flex w-full items-center gap-3 overflow-hidden">
-							<div class="flex-shrink-0">
+							<div class="shrink-0">
 								{#if server.manifest.icon}
 									<img
 										src={server.manifest.icon}
@@ -221,19 +220,19 @@
 										class="size-6"
 									/>
 								{:else}
-									<Server class="text-on-surface1 size-6" />
+									<Server class="text-muted-content size-6" />
 								{/if}
 							</div>
 							<div class="flex min-w-0 grow flex-col">
 								<p class="truncate text-sm">{getServerDisplayName(server)}</p>
 								{#if server.manifest.description}
-									<span class="text-on-surface1 line-clamp-1 text-xs">
+									<span class="text-muted-content line-clamp-1 text-xs">
 										{stripMarkdownToText(server.manifest.description)}
 									</span>
 								{/if}
 							</div>
 						</div>
-						<div class="flex size-5 flex-shrink-0 items-center justify-center">
+						<div class="flex size-5 shrink-0 items-center justify-center">
 							{#if selectedServerIds.has(server.id)}
 								<Check class="text-primary size-5" />
 							{/if}
@@ -247,15 +246,15 @@
 	<div class="flex grow"></div>
 
 	<div
-		class="bg-surface1 dark:bg-background dark:text-on-surface1 sticky bottom-0 left-0 flex w-full justify-end gap-2 py-4 text-gray-400"
+		class="bg-base-200 dark:bg-base-100 dark:text-muted-content sticky bottom-0 left-0 flex w-full justify-end gap-2 py-4 text-gray-400"
 		out:fly={{ x: -100, duration }}
 		in:fly={{ x: -100 }}
 	>
 		<div class="flex w-full justify-end gap-2">
-			<button class="button text-sm" onclick={onCancel}>Cancel</button>
-			<button class="button-primary text-sm" disabled={loading} onclick={handleCreate}>
+			<button class="btn btn-secondary text-sm" onclick={onCancel}>Cancel</button>
+			<button class="btn btn-primary text-sm" disabled={loading} onclick={handleCreate}>
 				{#if loading}
-					<LoaderCircle class="size-4 animate-spin" />
+					<Loading class="size-4" />
 				{:else}
 					Create API Key
 				{/if}

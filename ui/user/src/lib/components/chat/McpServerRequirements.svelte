@@ -18,7 +18,8 @@
 		requiresUserConfiguration,
 		requiresAdminOAuthConfig
 	} from '$lib/services/chat/mcp';
-	import { Server, X, AlertTriangle } from 'lucide-svelte';
+	import IconButton from '../primitives/IconButton.svelte';
+	import { Server, X, TriangleAlert } from 'lucide-svelte';
 	import { onMount, tick } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 
@@ -339,12 +340,12 @@
 		<dialog bind:this={oauthDialog} class="dialog" use:dialogAnimation={{ type: 'fade' }}>
 			<div class="dialog-container relative flex w-full flex-col gap-4 p-4 md:w-sm">
 				<div class="absolute top-2 right-2">
-					<button class="icon-button" onclick={dismissCurrent}>
+					<IconButton onclick={dismissCurrent}>
 						<X class="size-4" />
-					</button>
+					</IconButton>
 				</div>
 				<div class="flex items-center gap-2">
-					<div class="h-fit flex-shrink-0 self-start rounded-md bg-gray-50 p-1 dark:bg-gray-600">
+					<div class="h-fit shrink-0 self-start rounded-md bg-gray-50 p-1 dark:bg-base-300">
 						{#if oauth.icon}
 							<img src={oauth.icon} alt={oauth.name} class="size-6" />
 						{:else}
@@ -367,7 +368,7 @@
 					href={oauth.oauthURL}
 					rel="external"
 					target="_blank"
-					class="button-primary text-center text-sm outline-none"
+					class="btn btn-primary text-center text-sm outline-none"
 					onclick={() => {
 						if (currentOauthId) return;
 						currentOauthId = oauth.id;
@@ -389,12 +390,12 @@
 		<dialog bind:this={oauthDialog} class="dialog" use:dialogAnimation={{ type: 'fade' }}>
 			<div class="dialog-container relative flex w-full flex-col gap-4 p-4 md:w-sm">
 				<div class="absolute top-2 right-2">
-					<button class="icon-button" onclick={dismissCurrent}>
+					<IconButton onclick={dismissCurrent}>
 						<X class="size-4" />
-					</button>
+					</IconButton>
 				</div>
 				<div class="flex items-center gap-2">
-					<div class="h-fit flex-shrink-0 self-start rounded-md bg-gray-50 p-1 dark:bg-gray-600">
+					<div class="h-fit shrink-0 self-start rounded-md bg-base-200 p-1 dark:bg-base-300">
 						{#if adminOauth.icon}
 							<img src={adminOauth.icon} alt={adminOauth.name} class="size-6" />
 						{:else}
@@ -407,7 +408,7 @@
 				</div>
 
 				<div class="notification-warning flex items-start gap-2 p-3">
-					<AlertTriangle class="size-5 flex-shrink-0 text-yellow-500" />
+					<TriangleAlert class="size-5 shrink-0 text-warning" />
 					<p class="text-sm">
 						This MCP server requires OAuth credentials to be configured by an administrator.
 					</p>
@@ -417,7 +418,7 @@
 					Please contact your administrator to configure the OAuth credentials for this server.
 				</p>
 
-				<button class="button" onclick={dismissCurrent}> Dismiss </button>
+				<button class="btn btn-secondary" onclick={dismissCurrent}> Dismiss </button>
 			</div>
 			<form class="dialog-backdrop">
 				<button type="button" aria-label="Close dialog" onclick={dismissCurrent}>close</button>

@@ -5,7 +5,7 @@
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { isRecent } from '$lib/time';
 	import { goto } from '$lib/url';
-	import { Check, Edit, EllipsisVertical, Trash2, X, Plus } from 'lucide-svelte';
+	import { Check, EllipsisVertical, Trash2, X, Plus, SquarePen } from 'lucide-svelte';
 	import { tick } from 'svelte';
 	import { get } from 'svelte/store';
 	import { fly } from 'svelte/transition';
@@ -165,14 +165,14 @@
 <div class="flex w-full grow flex-col">
 	{#if !responsive.isMobile}
 		<!-- Header -->
-		<div class="mb-2 flex flex-shrink-0 items-center justify-between gap-2 pr-3 pl-4">
-			<h2 class="text-base-content/50 text-md font-semibold">Sessions</h2>
+		<div class="mb-2 flex shrink-0 items-center justify-between gap-2 pr-3 pl-4">
+			<h2 class="text-muted-content text-md font-semibold">Sessions</h2>
 			<button
 				class="btn btn-square btn-ghost btn-sm tooltip tooltip-left"
 				data-tip="Start New Conversation"
 				onclick={onCreateSession}
 			>
-				<Plus class="text-base-content/50 size-6" />
+				<Plus class="text-muted-content size-6" />
 			</button>
 		</div>
 	{/if}
@@ -230,7 +230,7 @@
 								{/if}
 							</div>
 							{#if editingSessionId !== session.id}
-								<span class="text-base-content/50 flex-shrink-0 text-xs">
+								<span class="text-muted-content shrink-0 text-xs">
 									{formatTime(session.created)}
 								</span>
 							{/if}
@@ -245,14 +245,14 @@
 								onclick={cancelRename}
 								aria-label="Cancel editing"
 							>
-								<X class="h-3 w-3" />
+								<X class="size-3" />
 							</button>
 							<button
 								class="btn text-success btn-ghost btn-xs hover:bg-success/20"
 								onclick={saveRename}
 								aria-label="Save changes"
 							>
-								<Check class="h-3 w-3" />
+								<Check class="size-3" />
 							</button>
 						</div>
 					{/if}
@@ -266,10 +266,10 @@
 							<div tabindex="0" role="button" class="btn btn-square btn-ghost btn-sm">
 								<EllipsisVertical class="h-4 w-4" />
 							</div>
-							<ul class="dropdown-content menu dropdown-menu z-[1] w-32">
+							<ul class="dropdown-content menu dropdown-menu z-1 w-32">
 								<li>
 									<button onclick={() => startRename(session.id, session.title)} class="text-sm">
-										<Edit class="h-4 w-4" />
+										<SquarePen class="h-4 w-4" />
 										Rename
 									</button>
 								</li>

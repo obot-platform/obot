@@ -156,7 +156,7 @@
 		<div class="flex flex-col gap-2">
 			<div class="px-4">
 				<Search
-					class="dark:bg-surface1 dark:border-surface3 shadow-inner dark:border"
+					class="dark:bg-base-200 dark:border-base-400 shadow-inner dark:border"
 					onChange={(val) => (search = val)}
 					value={search}
 					placeholder="Search models..."
@@ -167,16 +167,16 @@
 				{#if wildcardAvailable}
 					<button
 						class={twMerge(
-							'hover:bg-surface3 dark:hover:bg-surface1 flex items-center justify-between gap-4 px-4 py-3 text-left',
-							selectedSet.has('*') && 'dark:bg-gray-920 bg-gray-50'
+							'hover:bg-base-300 dark:hover:bg-base-200 flex items-center justify-between gap-4 px-4 py-3 text-left',
+							selectedSet.has('*') && 'bg-base-200/50'
 						)}
 						onclick={() => toggleSelection('*')}
 					>
 						<div class="flex items-center gap-2">
-							<Cpu class="size-8 flex-shrink-0" />
+							<Cpu class="size-8 shrink-0" />
 							<div class="flex flex-col">
 								<p class="font-medium">All Models</p>
-								<span class="text-on-surface1 text-xs">
+								<span class="text-muted-content text-xs">
 									Grants access to all current and future models
 								</span>
 							</div>
@@ -200,8 +200,8 @@
 						{#each filteredAliases as alias (alias.id)}
 							<button
 								class={twMerge(
-									'hover:bg-surface3 flex items-center justify-between gap-4 rounded-md bg-transparent p-2 font-light',
-									selectedSet.has(alias.id) && 'bg-surface2'
+									'hover:bg-base-300 flex items-center justify-between gap-4 rounded-md bg-transparent p-2 font-light',
+									selectedSet.has(alias.id) && 'bg-base-400'
 								)}
 								onclick={() => toggleSelection(alias.id)}
 							>
@@ -209,13 +209,13 @@
 									<div class="flex items-center gap-2">
 										<span>{alias.aliasName}</span>
 										<span
-											class="text-on-surface1 text-xs"
-											class:text-yellow-500={!alias.isConfigured}
+											class="text-muted-content text-xs"
+											class:text-warning={!alias.isConfigured}
 										>
 											{alias.effectiveModelName}
 										</span>
 									</div>
-									<span class="text-on-surface1 text-xs">{alias.label}</span>
+									<span class="text-muted-content text-xs">{alias.label}</span>
 								</div>
 								{#if selectedSet.has(alias.id)}
 									<Check class="text-primary size-4" />
@@ -237,15 +237,15 @@
 							{#each models as model (model.id)}
 								<button
 									class={twMerge(
-										'hover:bg-surface3 flex items-center justify-between gap-4 rounded-md bg-transparent p-2 font-light',
-										selectedSet.has(model.id) && 'bg-surface2'
+										'hover:bg-base-300 flex items-center justify-between gap-4 rounded-md bg-transparent p-2 font-light',
+										selectedSet.has(model.id) && 'bg-base-400'
 									)}
 									onclick={() => toggleSelection(model.id)}
 								>
 									<div class="flex flex-col text-left">
 										<span>{model.displayName || model.name}</span>
 										{#if model.usage}
-											<span class="text-on-surface1 text-xs">
+											<span class="text-muted-content text-xs">
 												{ModelUsageLabels[model.usage as ModelUsage] || model.usage}
 											</span>
 										{/if}
@@ -269,10 +269,10 @@
 			{/if}
 		</div>
 		<div class="flex items-center gap-2">
-			<button class="button w-full md:w-fit" onclick={() => addModelDialog?.close()}>
+			<button class="btn btn-secondary w-full md:w-fit" onclick={() => addModelDialog?.close()}>
 				Cancel
 			</button>
-			<button class="button-primary w-full md:w-fit" onclick={handleAdd}> Confirm </button>
+			<button class="btn btn-primary w-full md:w-fit" onclick={handleAdd}> Confirm </button>
 		</div>
 	</div>
 </ResponsiveDialog>

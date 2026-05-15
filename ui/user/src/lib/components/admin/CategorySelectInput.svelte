@@ -33,10 +33,10 @@
 
 <div class="category-select-input flex w-full items-center gap-2">
 	<Select
-		class="dark:border-surface3 bg-surface1 text-input-filled dark:bg-background border border-transparent shadow-inner"
+		class="dark:border-base-400 bg-base-200 text-input-filled dark:bg-base-100 border border-transparent shadow-inner"
 		classes={{
 			root: 'w-full',
-			clear: 'hover:bg-surface3 bg-transparent'
+			clear: 'hover:bg-base-400 bg-transparent'
 		}}
 		options={localOptions}
 		disabled={readonly}

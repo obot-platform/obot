@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { parseErrorContent } from '$lib/errors';
+	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
 		ChatService,
@@ -8,7 +9,7 @@
 		type Project,
 		type ProjectMCP
 	} from '$lib/services';
-	import { Info, LoaderCircle } from 'lucide-svelte';
+	import { Info } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 
 	interface Props {
@@ -108,7 +109,7 @@
 {#if oauthURL}
 	<div class="notification-info flex w-full flex-row justify-between p-3 text-sm font-light">
 		<div class="flex items-center gap-3">
-			<Info class="size-6 flex-shrink-0" />
+			<Info class="size-6 shrink-0" />
 			{#if text}
 				<p>{text}</p>
 			{:else}
@@ -117,7 +118,7 @@
 		</div>
 		{#if showRefresh && loading}
 			<div class="flex items-center gap-2 text-sm font-light">
-				<LoaderCircle class="size-4 animate-spin" />
+				<Loading class="size-4" />
 				Authenticating...
 			</div>
 		{:else}
@@ -126,7 +127,7 @@
 				target="_blank"
 				href={oauthURL}
 				rel="external"
-				class="button-primary text-center text-sm"
+				class="btn btn-primary text-center text-sm"
 				onclick={() => {
 					setTimeout(() => {
 						showRefresh = true;

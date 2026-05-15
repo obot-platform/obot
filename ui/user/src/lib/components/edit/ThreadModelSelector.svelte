@@ -364,7 +364,7 @@
 <div class="relative mr-2 md:mr-6 lg:mr-8">
 	<button
 		class={twMerge(
-			'hover:bg-surface2/50 active:bg-surface2/80 flex h-10 items-center gap-3 rounded-full px-2  py-1 text-xs text-gray-600 md:px-4 lg:px-6',
+			'hover:bg-base-300/50 active:bg-base-300/80 flex h-10 items-center gap-3 rounded-sm px-2  py-1 text-xs text-muted-content md:px-4 lg:px-6',
 			(isDefaultModelSelected || (!threadType?.model && defaultModel)) &&
 				'text-primary hover:bg-primary/10 active:bg-primary/15 bg-transparent',
 			isUsingFallback && 'text-orange-600'
@@ -423,11 +423,11 @@
 				<span class="sr-only">Loading models...</span>
 			</div>
 		{:else if modelsError}
-			<div class="text-on-surface1 p-4 text-sm">
+			<div class="text-muted-content p-4 text-sm">
 				{modelsError}
 			</div>
 		{:else if availableModels.length === 0}
-			<div class="text-on-surface1 p-4 text-sm">No Model Available</div>
+			<div class="text-muted-content p-4 text-sm">No Model Available</div>
 		{:else}
 			<div class="flex flex-col">
 				{#each (() => {
@@ -446,7 +446,7 @@
 				})() as [providerId, models] (providerId)}
 					{#if models.length > 0}
 						{@const provider = modelProvidersMap.get(providerId)}
-						<div class="border-surface1 flex flex-col border-b py-2 last:border-transparent">
+						<div class="border-base-200 flex flex-col border-b py-2 last:border-transparent">
 							<div class="mb-2 flex gap-1 text-xs">
 								{#if provider?.icon || provider?.iconDark}
 									<img
@@ -474,7 +474,7 @@
 										role="option"
 										aria-selected={isModelSelected}
 										class={twMerge(
-											'hover:bg-surface1/70 active:bg-surface1/80 focus:bg-surface1/70 flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors duration-200 focus:outline-none',
+											'hover:bg-base-200/70 active:bg-base-200/80 focus:bg-base-200/70 flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors duration-200 focus:outline-none',
 											isModelSelected &&
 												'text-primary bg-primary/10 hover:bg-primary/15 active:bg-primary/20'
 										)}

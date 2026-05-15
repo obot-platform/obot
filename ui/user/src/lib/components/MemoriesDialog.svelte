@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { autoHeight } from '$lib/actions/textarea';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import {
 		type Project,
 		type Memory,
@@ -13,6 +12,7 @@
 	import Confirm from './Confirm.svelte';
 	import DotDotDot from './DotDotDot.svelte';
 	import ResponsiveDialog from './ResponsiveDialog.svelte';
+	import IconButton from './primitives/IconButton.svelte';
 	import Table from './table/Table.svelte';
 	import { Trash2, RefreshCcw, Edit, Check, X as XIcon, Pencil } from 'lucide-svelte/icons';
 	import { onMount, tick } from 'svelte';
@@ -180,15 +180,15 @@
 
 {#snippet content(preview = false)}
 	{#if error}
-		<div class="rounded bg-red-100 p-3 text-red-800">{error}</div>
+		<div class="rounded bg-error/10 p-3 text-error">{error}</div>
 	{/if}
 	{#if !preview}
 		<div class="flex items-center justify-between">
 			<span class="text-text2 text-sm">{memories.length} memories</span>
 			<div class="flex gap-2">
-				<button class="icon-button" onclick={() => loadMemories()} use:tooltip={'Refresh Memories'}>
+				<IconButton tooltip={{ text: 'Refresh Memories' }} onclick={() => loadMemories()}>
 					<RefreshCcw class="size-4" />
-				</button>
+				</IconButton>
 
 				{@render deleteAllButton(preview)}
 			</div>
@@ -203,7 +203,7 @@
 				></div>
 			</div>
 		{:else if memories.length === 0 && !preview}
-			<p in:fade class="text-on-surface1 pt-6 pb-3 text-center text-sm" class:text-xs={preview}>
+			<p in:fade class="text-muted-content pt-6 pb-3 text-center text-sm" class:text-xs={preview}>
 				No memories stored
 			</p>
 		{:else if !preview}
@@ -218,7 +218,7 @@
 					]}
 					data={memories}
 					classes={{
-						root: 'bg-surface1 dark:bg-background'
+						root: 'bg-base-200 dark:bg-base-100'
 					}}
 				>
 					{#snippet onRenderColumn(field, memory)}
@@ -237,7 +237,7 @@
 			<div class="flex w-full flex-col gap-4">
 				{#each memories as memory (memory.id)}
 					<div
-						class="text-md dark:bg-surface1 dark:border-surface3 bg-background flex items-center justify-between gap-4 rounded-md border border-transparent p-4 shadow-sm"
+						class="text-md dark:bg-base-200 dark:border-base-400 bg-base-100 flex items-center justify-between gap-4 rounded-md border border-transparent p-4 shadow-sm"
 					>
 						{#if editingMemoryId === memory.id}
 							<div class="flex w-full flex-col gap-4">
@@ -252,11 +252,11 @@
 										}
 									}}
 									bind:this={input}
-									class="default-scrollbar-thin text-on-background min-h-10 w-full border-none bg-transparent pr-0 ring-0 outline-hidden"
+									class="default-scrollbar-thin text-base-content min-h-10 w-full border-none bg-transparent pr-0 ring-0 outline-hidden"
 								></textarea>
 								<div class="flex justify-end gap-4">
-									<button class="button text-xs" onclick={cancelEdit}> Cancel </button>
-									<button class="button-primary text-xs" onclick={saveEdit}> Save </button>
+									<button class="btn btn-sm" onclick={cancelEdit}> Cancel </button>
+									<button class="btn btn-sm btn-primary" onclick={saveEdit}> Save </button>
 								</div>
 							</div>
 						{:else}
@@ -265,14 +265,11 @@
 							</p>
 						{/if}
 						{#if editingMemoryId !== memory.id}
-							<DotDotDot class="hover:text-on-background text-on-surface1  p-0">
+							<DotDotDot class="hover:text-muted-content text-muted-content  p-0">
 								<button class="menu-button" onclick={() => startEdit(memory, true)}>
 									<Pencil class="size-4" /> Edit
 								</button>
-								<button
-									class="menu-button text-red-500"
-									onclick={() => (deleteMemoryId = memory.id)}
-								>
+								<button class="menu-button text-error" onclick={() => (deleteMemoryId = memory.id)}>
 									<Trash2 class="size-4" /> Delete
 								</button>
 							</DotDotDot>
@@ -288,7 +285,7 @@
 	{#if editingMemoryId === memory.id && preview === editingPreview}
 		<textarea
 			bind:value={editContent}
-			class="text-input-filled border-surface1 bg-background min-h-[80px] w-full resize-none border"
+			class="text-input-filled border-base-400 bg-base-100 min-h-[80px] w-full resize-none border"
 			rows="3"
 		></textarea>
 	{:else}
@@ -300,43 +297,43 @@
 
 {#snippet options(memory: Memory, inline: boolean)}
 	{#if editingMemoryId === memory.id && inline === editingPreview}
-		<button
-			class={twMerge('icon-button text-green-500', inline && 'min-h-auto min-w-auto p-1.5')}
+		<IconButton
+			class={twMerge('text-success', inline && 'min-h-auto min-w-auto p-1.5')}
 			onclick={saveEdit}
-			use:tooltip={'Save changes'}
+			tooltip={{ text: 'Save changes' }}
 		>
 			<Check class="size-4" />
-		</button>
-		<button
-			class={twMerge('icon-button text-red-500', inline && 'min-h-auto min-w-auto p-1.5')}
+		</IconButton>
+		<IconButton
+			class={twMerge('text-error', inline && 'min-h-auto min-w-auto p-1.5')}
 			onclick={cancelEdit}
-			use:tooltip={'Cancel'}
+			tooltip={{ text: 'Cancel' }}
 		>
 			<XIcon class="size-4" />
-		</button>
+		</IconButton>
 	{:else}
-		<button
-			class={twMerge('icon-button', inline && 'min-h-auto min-w-auto p-1.5')}
+		<IconButton
+			class={twMerge(inline && 'min-h-auto min-w-auto p-1.5')}
 			onclick={() => startEdit(memory, inline)}
 			disabled={loading}
-			use:tooltip={'Edit memory'}
+			tooltip={{ text: 'Edit memory' }}
 		>
 			<Edit class="size-4" />
-		</button>
-		<button
-			class={twMerge('icon-button', inline && 'min-h-auto min-w-auto p-1.5')}
+		</IconButton>
+		<IconButton
+			class={twMerge(inline && 'min-h-auto min-w-auto p-1.5')}
 			onclick={() => (deleteMemoryId = memory.id)}
 			disabled={loading}
-			use:tooltip={'Delete memory'}
+			tooltip={{ text: 'Delete memory' }}
 		>
 			<Trash2 class="size-4" />
-		</button>
+		</IconButton>
 	{/if}
 {/snippet}
 
 {#snippet deleteAllButton(inline?: boolean)}
 	<button
-		class={twMerge('button-destructive', inline && 'py-2 text-xs')}
+		class={twMerge('btn btn-error btn-sm', inline && 'py-2')}
 		onclick={() => (toDeleteAll = true)}
 		disabled={loading || memories.length === 0}
 	>
@@ -378,12 +375,12 @@
 
 	:global(.dark) .memory {
 		color: white;
-		background-color: var(--color-surface2);
+		background-color: var(--color-base-300);
 	}
 
 	:global(.dark) .memory::before,
 	:global(.dark) .memory::after {
-		background-color: var(--color-surface2);
+		background-color: var(--color-base-300);
 	}
 
 	.memory::before {

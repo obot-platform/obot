@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { type ToolNameIssue } from '$lib/services/chat/mcp';
-	import { AlertTriangle } from 'lucide-svelte';
+	import { TriangleAlert } from 'lucide-svelte';
 
 	interface Props {
 		issue: ToolNameIssue | undefined;
@@ -16,10 +16,10 @@
 
 {#if issue}
 	<span
-		class={`inline-flex flex-shrink-0 items-center ${issue.severity === 'error' ? 'text-red-500' : 'text-yellow-500'}`}
+		class={`inline-flex shrink-0 items-center ${issue.severity === 'error' ? 'text-error' : 'text-warning'}`}
 		use:tooltip={{ text: issue.message, placement: 'top', disablePortal }}
 		aria-label={issue.message}
 	>
-		<AlertTriangle class="size-4 flex-shrink-0" />
+		<TriangleAlert class="size-4 shrink-0" />
 	</span>
 {/if}

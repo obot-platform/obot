@@ -327,9 +327,10 @@
 >
 	<!-- Resize handle -->
 	<div
-		class="hover:bg-base-300/75 absolute top-0 left-0 z-10 h-full w-1 cursor-ew-resize transition-colors {isResizing
-			? 'bg-base-300/75'
-			: 'bg-transparent'}"
+		class={twMerge(
+			'hover:bg-base-300/75 absolute top-0 left-0 z-10 h-full w-1 cursor-ew-resize transition-colors',
+			isResizing ? 'bg-base-300/75' : 'bg-transparent'
+		)}
 		onmousedown={handleResizeStart}
 		onkeydown={handleResizeKeydown}
 		role="slider"
@@ -399,7 +400,7 @@
 				{:else if isPdf}
 					<PDF class="h-full" base64={resource.blob} classes={{ iframe: 'h-full' }} />
 				{:else}
-					<div class="text-base-content/40 italic">This file could not be displayed.</div>
+					<div class="text-muted-content italic">This file could not be displayed.</div>
 				{/if}
 			{:else if isSvg && content}
 				<!-- SVG as text (no blob) - display as image -->
@@ -431,11 +432,9 @@
 </div>
 
 {#snippet closeButton()}
-	<button
-		class="btn md:btn-sm btn-square md:tooltip md:tooltip-left"
-		data-tip="Close"
-		onclick={onClose}
-	>
-		<X class="size-5 md:size-4" />
-	</button>
+	<div class="md:tooltip md:tooltip-left" data-tip="Close">
+		<button class="btn md:btn-sm btn-square" onclick={onClose}>
+			<X class="size-5 md:size-4" />
+		</button>
+	</div>
 {/snippet}

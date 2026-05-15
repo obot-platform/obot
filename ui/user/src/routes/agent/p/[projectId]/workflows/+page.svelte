@@ -294,7 +294,7 @@
 			{/if}
 		</div>
 
-		<p class="text-base-content/50 text-sm font-light">
+		<p class="text-muted-content text-sm font-light">
 			Workflows are AI-powered tools that can be used to automate tasks and processes.
 		</p>
 	</div>
@@ -518,7 +518,7 @@
 									</button>
 								{/if}
 								<button
-									class="btn btn-ghost hover:btn-error btn-square tooltip tooltip-top flex-shrink-0"
+									class="btn btn-ghost hover:btn-error btn-square tooltip tooltip-top shrink-0"
 									data-tip="Delete workflow"
 									onclick={(e) => {
 										e.preventDefault();
@@ -537,7 +537,7 @@
 									<Trash2 class="size-4" />
 								</button>
 								<button
-									class="btn btn-ghost hover:btn-primary btn-square tooltip tooltip-top flex-shrink-0"
+									class="btn btn-ghost hover:btn-primary btn-square tooltip tooltip-top shrink-0"
 									data-tip="Run this workflow"
 									onclick={(e) => {
 										e.preventDefault();
@@ -594,7 +594,7 @@
 				<tr>
 					<td
 						colspan={activeTab === 'my' || showingSearchResults ? 5 : 3}
-						class="text-base-content/50 text-center text-sm font-light italic"
+						class="text-muted-content text-center text-sm font-light italic"
 					>
 						<span>No workflows found.</span>
 					</td>

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
 		type CompositeCatalogConfig,
@@ -19,6 +19,7 @@
 		type ToolNameIssue
 	} from '$lib/services/chat/mcp';
 	import Toggle from '../Toggle.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import ToolNameIssueIcon from './ToolNameIssueIcon.svelte';
 	import CompositeToolsSetup from './composite/CompositeSelectServerAndToolsSetup.svelte';
 	import {
@@ -27,8 +28,7 @@
 		Trash2,
 		ChevronDown,
 		ChevronUp,
-		LoaderCircle,
-		AlertTriangle,
+		TriangleAlert,
 		RefreshCcw
 	} from 'lucide-svelte';
 	import { onMount } from 'svelte';
@@ -351,25 +351,25 @@
 </script>
 
 <div
-	class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
+	class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
 >
 	<h4 class="text-md font-semibold">Component Servers</h4>
 
 	<div class="flex flex-col gap-2">
 		{#if loading}
-			<div class="text-on-surface1 text-sm">Loading component servers...</div>
+			<div class="text-muted-content text-sm">Loading component servers...</div>
 		{:else if config.componentServers.length > 0}
 			{#each config.componentServers as entry (getComponentId(entry))}
 				{@const componentId = getComponentId(entry)}
 				{@const headerSeverity = componentSeverity(entry)}
 				<div
-					class="dark:bg-surface2 dark:border-surface3 rounded-lg border border-gray-200 bg-gray-50"
+					class="dark:bg-base-300 dark:border-base-400 rounded-lg border border-gray-200 bg-gray-50"
 				>
 					<div class="flex items-center gap-3 p-3">
 						{#if entry.manifest?.icon}
 							<img src={entry.manifest.icon} alt={entry.manifest.name} class="size-8" />
 						{:else}
-							<Server class="text-on-surface1 size-8" />
+							<Server class="text-muted-content size-8" />
 						{/if}
 						<div class="flex min-w-0 flex-1 items-center gap-1.5">
 							<div class="truncate font-medium" title={entry.manifest?.name || 'Unnamed Server'}>
@@ -385,39 +385,35 @@
 							{/if}
 						</div>
 						{#if entry.toolOverrides?.length && !readonly}
-							<button
-								type="button"
-								class="icon-button"
-								use:tooltip={'Refresh tool overrides'}
+							<IconButton
+								tooltip={{ text: 'Refresh tool overrides' }}
 								disabled={loadingByEntry[componentId]}
 								onclick={() => openToolsConfigurator(componentId)}
 							>
 								<RefreshCcw class={`size-4 ${loadingByEntry[componentId] ? 'animate-spin' : ''}`} />
-							</button>
+							</IconButton>
 						{/if}
-						<button
-							type="button"
-							class="icon-button"
+						<IconButton
+							tooltip={{ text: expanded[componentId] ? 'Collapse' : 'Expand' }}
 							onclick={() => (expanded[componentId] = !expanded[componentId])}
-							aria-label={expanded[componentId] ? 'Collapse' : 'Expand'}
 						>
 							{#if expanded[componentId]}
 								<ChevronUp class="size-4" />
 							{:else}
 								<ChevronDown class="size-4" />
 							{/if}
-						</button>
+						</IconButton>
 						{#if !readonly}
-							<button class="icon-button text-red-500" onclick={() => removeServer(componentId)}>
+							<IconButton variant="danger" onclick={() => removeServer(componentId)}>
 								<Trash2 class="size-4" />
-							</button>
+							</IconButton>
 						{/if}
 					</div>
 					{#if expanded[componentId]}
 						{@const issue = prefixIssue(entry)}
 						<div class="border-t border-gray-200 p-3" in:slide={{ axis: 'y' }}>
 							<div class="mb-3 flex flex-col gap-1">
-								<p class="flex items-center gap-1.5 text-xs text-gray-500">
+								<p class="flex items-center gap-1.5 text-xs text-muted-content">
 									<span>Tool name prefix</span>
 									{#if issue}
 										<ToolNameIssueIcon {issue} />
@@ -433,7 +429,7 @@
 									{#if !readonly}
 										<button
 											type="button"
-											class="button px-3 py-1 text-xs"
+											class="btn btn-secondary btn-sm text-xs"
 											onclick={() => {
 												entry.toolPrefix = '';
 											}}
@@ -444,27 +440,27 @@
 								</div>
 								{#if issue}
 									<p
-										class={`text-xs ${issue.severity === 'error' ? 'text-red-500' : 'text-yellow-500'}`}
+										class={`text-xs ${issue.severity === 'error' ? 'text-error' : 'text-warning'}`}
 									>
 										{issue.message}
 									</p>
 								{:else}
-									<p class="text-on-surface2 text-[11px]">
+									<p class="text-muted-content text-[11px]">
 										Prepended to every tool name exposed by this component. Clear to remove.
 									</p>
 								{/if}
 							</div>
 							{#if !populatedByEntry[componentId]}
 								<div class="flex flex-col items-center justify-center pb-2">
-									<p class="text-on-surface1 text-sm font-light">
+									<p class="text-muted-content text-sm font-light">
 										All tools are enabled by default.
 									</p>
-									<p class="text-on-surface1 mb-4 text-sm font-light">
+									<p class="text-muted-content mb-4 text-sm font-light">
 										Click below to further modify tool availability or details.
 									</p>
 									<button
 										type="button"
-										class="button-primary text-sm"
+										class="btn btn-primary text-sm"
 										disabled={loadingByEntry[componentId]}
 										onclick={async () => {
 											if (readonly) return;
@@ -477,7 +473,7 @@
 										}}
 									>
 										{#if loadingByEntry[componentId]}
-											<LoaderCircle class="size-4 animate-spin" />
+											<Loading class="size-4" />
 										{:else}
 											Configure Tools
 										{/if}
@@ -503,7 +499,7 @@
 												: undefined}
 
 										<div
-											class="dark:bg-surface2 dark:border-surface3 flex items-start gap-2 rounded border border-transparent bg-white p-2 shadow-sm"
+											class="dark:bg-base-300 dark:border-base-400 flex items-start gap-2 rounded border border-transparent bg-white p-2 shadow-sm"
 										>
 											<div class="flex min-w-0 grow flex-col gap-2">
 												<div class="flex items-start justify-between gap-2">
@@ -513,7 +509,7 @@
 																class="min-w-0 flex-1 truncate text-sm font-medium"
 																title={effectiveName}
 															>
-																{#if entry.toolPrefix}<span class="text-on-surface2"
+																{#if entry.toolPrefix}<span class="text-base-content/75"
 																		>{entry.toolPrefix}</span
 																	>{/if}{currentName}
 															</div>
@@ -529,7 +525,7 @@
 															</p>
 														{/if}
 													</div>
-													<div class="flex flex-shrink-0 items-center gap-2">
+													<div class="flex shrink-0 items-center gap-2">
 														<Toggle
 															checked={tool.enabled === true}
 															onChange={(checked) => {
@@ -540,7 +536,7 @@
 														/>
 														<button
 															type="button"
-															class="button px-3 py-1 text-xs"
+															class="btn btn-secondary btn-sm text-xs"
 															onclick={() => {
 																const toolKey = `${componentId}-${tool.name}`;
 																// When expanding, initialize inputs with current effective values
@@ -563,7 +559,7 @@
 
 												{#if isCustomized}
 													<div class="mt-1 flex items-center gap-1 text-[11px] text-amber-600">
-														<AlertTriangle class="size-3 flex-shrink-0" />
+														<TriangleAlert class="size-3 shrink-0" />
 														<p>
 															Modified: This tool has been customized. The description or name has
 															been changed.
@@ -574,7 +570,7 @@
 												{#if expandedTools[`${componentId}-${tool.name}`]}
 													<div class="mt-2 flex flex-col gap-2">
 														<div class="flex flex-col gap-1">
-															<p class="text-xs text-gray-500">Tool name</p>
+															<p class="text-xs text-muted-content">Tool name</p>
 															<input
 																class="text-input-filled flex-1 text-sm"
 																bind:value={tool.overrideName}
@@ -582,7 +578,7 @@
 														</div>
 
 														<div class="flex flex-col gap-1">
-															<p class="text-xs text-gray-500">Description</p>
+															<p class="text-xs text-muted-content">Description</p>
 															<textarea
 																class="text-input-filled h-24 resize-none text-xs"
 																bind:value={tool.overrideDescription}
@@ -593,7 +589,7 @@
 														<div class="mt-2 flex justify-end">
 															<button
 																type="button"
-																class="button px-3 py-1 text-xs"
+																class="btn btn-sm btn-secondary text-xs"
 																onclick={() => {
 																	tool.overrideName = tool.name;
 																	tool.overrideDescription = tool.description;
@@ -614,7 +610,7 @@
 				</div>
 			{/each}
 		{:else}
-			<div class="text-on-surface1 text-sm">
+			<div class="text-muted-content text-sm">
 				Select one or more MCP servers to include in the composite server. Users will see this as a
 				single server with aggregated tools and resources.
 			</div>
@@ -631,7 +627,7 @@
 				toolsToEdit = [];
 				compositeToolsSetupDialog?.open();
 			}}
-			class="dark:bg-surface2 dark:border-surface3 dark:hover:bg-surface3 bg-background flex items-center justify-center gap-2 rounded-lg border border-gray-200 p-2 text-sm font-medium hover:bg-gray-50"
+			class="dark:bg-base-300 dark:border-base-400 dark:hover:bg-base-400 bg-base-100 flex items-center justify-center gap-2 rounded-lg border border-gray-200 p-2 text-sm font-medium hover:bg-gray-50"
 		>
 			<Plus class="size-4" />
 			Add MCP Server

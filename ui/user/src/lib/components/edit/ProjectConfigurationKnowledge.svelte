@@ -9,6 +9,7 @@
 	import { type KnowledgeFile as KnowledgeFileType } from '$lib/services';
 	import { hasTool } from '$lib/tools';
 	import InfoTooltip from '../InfoTooltip.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import { Plus, Trash2, TriangleAlert } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -47,7 +48,7 @@
 </script>
 
 <div class="flex flex-col gap-2">
-	<div class={twMerge('flex items-center gap-2', !hasKnowledgeCapability && 'text-on-surface1')}>
+	<div class={twMerge('flex items-center gap-2', !hasKnowledgeCapability && 'text-muted-content')}>
 		<h2 class="text-xl font-semibold">Knowledge Files</h2>
 		{#if !hasKnowledgeCapability}
 			<div use:tooltip={'Capability Required'}>
@@ -60,7 +61,7 @@
 
 	<div class="flex flex-col gap-4">
 		{#if !hasKnowledgeCapability}
-			<p class="text-on-surface1 flex items-center gap-1 text-sm font-light">
+			<p class="text-muted-content flex items-center gap-1 text-sm font-light">
 				<span> Enable Knowledge in "Built-In Capabilities" to add knowledge to your project. </span>
 			</p>
 		{/if}
@@ -68,12 +69,12 @@
 			<div class="flex flex-col gap-2">
 				{#if knowledgeFiles.length > 0}
 					<div
-						class="text-md dark:bg-surface1 dark:border-surface3 bg-background gap-4 rounded-md border border-transparent shadow-sm"
+						class="text-md dark:bg-base-200 dark:border-base-400 bg-base-100 gap-4 rounded-md border border-transparent shadow-sm"
 					>
 						{#each knowledgeFiles as file (file.fileName)}
 							{#key file.fileName}
 								<KnowledgeFile
-									classes={{ button: 'p-4', delete: 'flex-shrink-0 icon-button mr-2' }}
+									classes={{ button: 'p-4', delete: 'shrink-0 btn btn-square btn-ghost mr-2' }}
 									{file}
 									onDelete={() => remove(file)}
 									iconSize={5}
@@ -110,7 +111,7 @@
 			<div class="flex flex-col gap-2">
 				{#each project.websiteKnowledge.sites as _, i (i)}
 					<div
-						class="group dark:border-surface3 bg-background flex gap-2 rounded-md p-2 text-xs shadow-sm dark:border"
+						class="group dark:border-base-400 bg-base-100 flex gap-2 rounded-md p-2 text-xs shadow-sm dark:border"
 					>
 						<div class="flex grow flex-col gap-2">
 							<div>
@@ -121,7 +122,7 @@
 									id={`website-address-${i}`}
 									bind:value={project.websiteKnowledge.sites[i].site}
 									placeholder="example.com"
-									class="ghost-input border-surface2 w-full"
+									class="ghost-input border-base-300 w-full"
 								/>
 							</div>
 							<div>
@@ -130,7 +131,7 @@
 								>
 								<textarea
 									id={`website-description-${i}`}
-									class="ghost-input border-surface2 w-full resize-none"
+									class="ghost-input border-base-300 w-full resize-none"
 									bind:value={project.websiteKnowledge.sites[i].description}
 									rows="1"
 									placeholder="Description"
@@ -139,14 +140,13 @@
 							</div>
 						</div>
 						<div class="flex items-center justify-end">
-							<button
-								class="icon-button size-fit"
+							<IconButton
 								onclick={() => {
 									project.websiteKnowledge?.sites?.splice(i, 1);
 								}}
 							>
 								<Trash2 class="size-4" />
-							</button>
+							</IconButton>
 						</div>
 					</div>
 				{/each}
@@ -154,7 +154,7 @@
 		{/if}
 		<div class="self-end">
 			<button
-				class="button-small text-xs"
+				class="btn btn-secondary btn-sm"
 				onclick={() => {
 					if (!project.websiteKnowledge) {
 						project.websiteKnowledge = {

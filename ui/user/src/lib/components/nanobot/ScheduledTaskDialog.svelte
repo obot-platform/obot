@@ -3,6 +3,7 @@
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import TimeInput from '$lib/components/TimeInput.svelte';
+	import Loading from '$lib/icons/Loading.svelte';
 	import type { ChatAPI } from '$lib/services/nanobot/chat/index.svelte';
 	import type {
 		CreateScheduledTaskRequest,
@@ -20,7 +21,7 @@
 		parseCronSchedule,
 		type TaskFrequency
 	} from './taskSchedule';
-	import { Check, ChevronDown, LoaderCircle } from 'lucide-svelte';
+	import { Check, ChevronDown } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -304,7 +305,10 @@
 							onclick={() => toggleSchedulePicker('weekly')}
 						>
 							<span
-								class={twMerge('truncate text-left', daysOfWeek.length === 0 && 'text-on-surface1')}
+								class={twMerge(
+									'truncate text-left',
+									daysOfWeek.length === 0 && 'text-muted-content'
+								)}
 							>
 								{schedulePickerButtonLabel('weekly')}
 							</span>
@@ -345,7 +349,7 @@
 							<span
 								class={twMerge(
 									'truncate text-left',
-									daysOfMonth.length === 0 && 'text-on-surface1'
+									daysOfMonth.length === 0 && 'text-muted-content'
 								)}
 							>
 								{schedulePickerButtonLabel('monthly')}
@@ -409,7 +413,7 @@
 
 		<div class="flex flex-col gap-3">
 			<label for="schedule-expiration" class="input-label text-base font-medium">
-				Expiration Date <span class="text-on-surface1 font-normal">(optional)</span>
+				Expiration Date <span class="text-muted-content font-normal">(optional)</span>
 			</label>
 			<DatePicker
 				id="schedule-expiration"
@@ -445,18 +449,14 @@
 				<div class="flex flex-wrap items-center justify-between gap-4">
 					<div class="space-y-1">
 						<div class="text-sm font-medium">Enabled</div>
-						<p class="text-on-surface1 text-sm">
+						<p class="text-muted-content text-sm">
 							Runs until it is disabled or reaches its expiration.
 						</p>
 					</div>
-					<input
-						type="checkbox"
-						class="toggle text-background dark:text-surface2 bg-surface3 checked:bg-primary border-transparent"
-						bind:checked={enabled}
-					/>
+					<input type="checkbox" class="toggle" bind:checked={enabled} />
 				</div>
 				{#if currentTask}
-					<div class="text-on-surface1 mt-4 text-sm">
+					<div class="text-muted-content mt-4 text-sm">
 						Timezone: <span class="text-base-content">{timezone}</span>
 					</div>
 				{/if}
@@ -480,7 +480,7 @@
 				disabled={saving}
 			>
 				{#if saving}
-					<LoaderCircle class="size-4 animate-spin" />
+					<Loading class="size-4" />
 				{/if}
 				Save
 			</button>

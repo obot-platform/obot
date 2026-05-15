@@ -4,6 +4,7 @@
 	import Select from '$lib/components/Select.svelte';
 	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
 	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
+	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService } from '$lib/services';
@@ -278,7 +279,7 @@
 				out:fade|global={{ duration: 300, delay: 500 }}
 			>
 				<div
-					class="bg-surface3/50 border-surface3 text-primary dark:text-primary flex flex-col items-center gap-4 rounded-2xl border px-16 py-8 shadow-md backdrop-blur-[1px]"
+					class="bg-base-400/50 border-base-400 text-primary dark:text-primary flex flex-col items-center gap-4 rounded-2xl border px-16 py-8 shadow-md backdrop-blur-[1px]"
 				>
 					<Loading class="size-32 stroke-1" />
 					<div class="text-2xl font-semibold">Loading violations...</div>
@@ -288,12 +289,12 @@
 
 		<div class="mb-4 flex flex-col gap-4">
 			<!-- Overall Stats -->
-			<div class="bg-surface2 dark:bg-surface1 w-full">
+			<div class="bg-base-300 dark:bg-base-200 w-full">
 				<div class="m-auto w-full px-4 py-4 md:max-w-(--breakpoint-xl) md:px-8">
 					<h4 class="font-semibold">Overall Stats</h4>
 					<div class="flex flex-col flex-wrap items-stretch gap-4 md:flex-row">
 						<div class="flex min-w-0 flex-1 flex-col gap-1 py-2">
-							<div class="text-on-background text-xs font-light">Total Violations</div>
+							<div class="text-base-content text-xs font-light">Total Violations</div>
 							<div class="text-primary flex items-center gap-1 text-xl font-semibold">
 								{#if loading}
 									<Loading class="size-4 animate-spin" />
@@ -304,7 +305,7 @@
 						</div>
 						<div class="divider-horizontal hidden md:block"></div>
 						<div class="flex min-w-0 flex-1 flex-col gap-1 py-2">
-							<div class="text-on-background text-xs font-light">User Message Violations</div>
+							<div class="text-base-content text-xs font-light">User Message Violations</div>
 							<div class="text-primary flex items-center gap-1 text-xl font-semibold">
 								{#if loading}
 									<Loading class="size-4 animate-spin" />
@@ -315,7 +316,7 @@
 						</div>
 						<div class="divider-horizontal hidden md:block"></div>
 						<div class="flex min-w-0 flex-1 flex-col gap-1 py-2">
-							<div class="text-on-background text-xs font-light">Tool Call Violations</div>
+							<div class="text-base-content text-xs font-light">Tool Call Violations</div>
 							<div class="text-primary flex items-center gap-1 text-xl font-semibold">
 								{#if loading}
 									<Loading class="size-4 animate-spin" />
@@ -333,10 +334,10 @@
 				class="m-auto flex w-full max-w-full flex-col gap-4 px-4 md:max-w-(--breakpoint-xl) md:px-8"
 			>
 				<div class="flex w-full flex-wrap items-center justify-end gap-4">
-					<p class="text-on-surface1 w-full text-sm md:w-fit">Filter by:</p>
+					<p class="text-muted-content w-full text-sm md:w-fit">Filter by:</p>
 					<Select
-						class="dark:border-surface3 border border-transparent"
-						classes={{ root: 'w-full md:flex-1 dark:border-surface3' }}
+						class="dark:border-base-400 border border-transparent"
+						classes={{ root: 'w-full md:flex-1 dark:border-base-400' }}
 						options={directionSelectOptions}
 						bind:selected={filterDirection}
 						multiple
@@ -353,8 +354,8 @@
 						displayCount={!!filterDirection && filterDirection !== 'all_directions'}
 					/>
 					<Select
-						class="dark:border-surface3 border border-transparent"
-						classes={{ root: 'w-full md:flex-1 dark:border-surface3' }}
+						class="dark:border-base-400 border border-transparent"
+						classes={{ root: 'w-full md:flex-1 dark:border-base-400' }}
 						options={userSelectOptions}
 						bind:selected={filterUserID}
 						multiple
@@ -371,8 +372,8 @@
 						displayCount={!!filterUserID && filterUserID !== 'all_users'}
 					/>
 					<Select
-						class="dark:border-surface3 border border-transparent"
-						classes={{ root: 'w-full md:flex-1 dark:border-surface3' }}
+						class="dark:border-base-400 border border-transparent"
+						classes={{ root: 'w-full md:flex-1 dark:border-base-400' }}
 						options={policySelectOptions}
 						bind:selected={filterPolicyID}
 						multiple
@@ -388,7 +389,7 @@
 						buttonTitle="Policies"
 						displayCount={!!filterPolicyID && filterPolicyID !== 'all_policies'}
 					/>
-					<div class="bg-surface3 hidden h-8 w-0.5 md:block"></div>
+					<div class="bg-base-400 hidden h-8 w-0.5 md:block"></div>
 					<AuditLogCalendar start={startTime} end={endTime} onChange={handleTimeRangeChange} />
 				</div>
 
@@ -439,7 +440,7 @@
 							{/if}
 						</h4>
 						<Select
-							class="bg-surface2 dark:bg-background dark:border-surface3 w-[50dvw] border border-transparent shadow-inner md:w-64"
+							class="bg-base-300 dark:bg-base-100 dark:border-base-400 w-[50dvw] border border-transparent shadow-inner md:w-64"
 							options={groupByOptions}
 							selected={groupBy}
 							onSelect={handleGroupByChange}
@@ -465,11 +466,11 @@
 								{#snippet tooltipContent(item)}
 									<div class="flex flex-col gap-0 text-xs">
 										<div class="text-sm font-light">{item.key}</div>
-										<div class="text-on-surface1">{item.date}</div>
+										<div class="text-muted-content">{item.date}</div>
 										<div class="divider"></div>
 									</div>
 									<div class="flex flex-col gap-1">
-										<div class="text-on-background text-xl font-bold">
+										<div class="text-base-content text-xl font-bold">
 											{(item.primaryTotal ?? 0).toLocaleString()}
 										</div>
 									</div>
@@ -484,42 +485,42 @@
 					<div
 						class="mt-12 flex w-md max-w-full flex-col items-center gap-4 self-center text-center"
 					>
-						<ShieldAlert class="text-on-surface1 size-24 opacity-50" />
-						<h4 class="text-on-surface1 text-lg font-semibold">No policy violations</h4>
-						<p class="text-on-surface text-sm font-light">
+						<ShieldAlert class="text-muted-content size-24 opacity-50" />
+						<h4 class="text-muted-content text-lg font-semibold">No policy violations</h4>
+						<p class="text-muted-content text-sm font-light">
 							Currently, there are no policy violations for the selected range or filters. Try
 							modifying your search criteria or try again later.
 						</p>
 					</div>
 				{:else if violations.length > 0}
 					<div
-						class="dark:bg-surface2 bg-background flex w-full min-w-full flex-1 divide-y divide-gray-200 overflow-x-auto overflow-y-visible rounded-lg border border-transparent shadow-sm"
+						class="dark:bg-base-300 bg-base-100 flex w-full min-w-full flex-1 divide-y divide-gray-200 overflow-x-auto overflow-y-visible rounded-lg border border-transparent shadow-sm"
 					>
 						<table class="w-full flex-1 table-fixed border-collapse border-spacing-0">
 							<thead>
 								<tr>
 									<th
-										class="dark:bg-surface1 bg-surface2 text-on-surface1 sticky top-0 box-content w-[4ch] px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
+										class="dark:bg-base-200 bg-base-300 text-muted-content sticky top-0 box-content w-[4ch] px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
 									>
 										#
 									</th>
 									<th
-										class="dark:bg-surface1 bg-surface2 text-on-surface1 sticky top-0 box-content w-[34ch] px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
+										class="dark:bg-base-200 bg-base-300 text-muted-content sticky top-0 box-content w-[34ch] px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
 									>
 										Timestamp
 									</th>
 									<th
-										class="dark:bg-surface1 bg-surface2 text-on-surface1 sticky top-0 box-content w-[24ch] px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
+										class="dark:bg-base-200 bg-base-300 text-muted-content sticky top-0 box-content w-[24ch] px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
 									>
 										User
 									</th>
 									<th
-										class="dark:bg-surface1 bg-surface2 text-on-surface1 sticky top-0 box-content w-[24ch] px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
+										class="dark:bg-base-200 bg-base-300 text-muted-content sticky top-0 box-content w-[24ch] px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
 									>
 										Policy
 									</th>
 									<th
-										class="dark:bg-surface1 bg-surface2 text-on-surface1 sticky top-0 box-content w-[24ch] px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
+										class="dark:bg-base-200 bg-base-300 text-muted-content sticky top-0 box-content w-[24ch] px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
 									>
 										Applies To
 									</th>
@@ -528,7 +529,7 @@
 							<tbody>
 								{#each violations as v, i (v.id)}
 									<tr
-										class="hover:bg-surface1 dark:hover:bg-surface3 group h-14 cursor-pointer text-sm transition-colors duration-300"
+										class="hover:bg-base-400 dark:hover:bg-base-400 group h-14 cursor-pointer text-sm transition-colors duration-300"
 										onclick={() => viewDetail(v)}
 									>
 										<td class="px-6 py-3">{pageOffset + i + 1}</td>
@@ -555,7 +556,7 @@
 					<!-- Pagination -->
 					{#if totalPages > 1}
 						<div
-							class="dark:bg-surface2 bg-background flex items-center justify-between gap-2 rounded-lg border border-transparent px-4 py-3 text-xs text-gray-600 shadow-sm"
+							class="dark:bg-base-300 bg-base-100 flex items-center justify-between gap-2 rounded-lg border border-transparent px-4 py-3 text-xs text-gray-600 shadow-sm"
 						>
 							<div class="flex gap-4">
 								<div>
@@ -568,7 +569,7 @@
 							</div>
 							<div class="flex gap-4">
 								<button
-									class="hover:text-on-surface1/80 active:text-on-surface1/100 flex items-center text-xs transition-colors duration-100 disabled:pointer-events-none disabled:opacity-50"
+									class="hover:text-base-content/80 active:text-base-content flex items-center text-xs transition-colors duration-100 disabled:pointer-events-none disabled:opacity-50"
 									disabled={pageOffset === 0}
 									onclick={() => {
 										pageOffset = Math.max(0, pageOffset - pageLimit);
@@ -578,7 +579,7 @@
 									Previous
 								</button>
 								<button
-									class="hover:text-on-surface1/80 active:text-on-surface1/100 flex items-center text-xs transition-colors duration-100 disabled:pointer-events-none disabled:opacity-50"
+									class="hover:text-base-content/80 active:text-base-content flex items-center text-xs transition-colors duration-100 disabled:pointer-events-none disabled:opacity-50"
 									disabled={currentPage >= totalPages}
 									onclick={() => {
 										pageOffset += pageLimit;
@@ -611,39 +612,37 @@
 		{/if}
 
 		{#if selectedViolation}
-			<div
-				class="dark:bg-gray-990 text-on-background flex h-full w-[inherit] min-w-[inherit] flex-col bg-gray-50"
-			>
+			<div class="bg-base-200 text-base-content flex h-full w-[inherit] min-w-[inherit] flex-col">
 				<div
-					class="dark:bg-surface1 bg-background relative flex w-full items-center justify-between p-4 pl-5 shadow-xs"
+					class="dark:bg-base-200 bg-base-100 relative flex w-full items-center justify-between p-4 pl-5 shadow-xs"
 				>
 					<div class="bg-primary absolute top-0 left-0 h-full w-1"></div>
 					<h3 class="text-lg font-semibold">Violation Detail</h3>
-					<button onclick={closeSidebar} class="icon-button">
+					<IconButton onclick={closeSidebar}>
 						<X class="size-5" />
-					</button>
+					</IconButton>
 				</div>
 
 				<div class="default-scrollbar-thin relative flex-1 overflow-y-auto pb-4">
-					<div class="bg-surface2 absolute top-0 left-0 h-full w-1"></div>
+					<div class="bg-base-300 absolute top-0 left-0 h-full w-1"></div>
 
 					{#if detailedViolation}
 						<div class="flex flex-wrap gap-2 p-4 pl-5">
 							<div
-								class="dark:bg-surface3 bg-surface2 rounded-full px-3 py-1 text-[11px] font-light"
+								class="dark:bg-base-400 bg-base-300 rounded-full px-3 py-1 text-[11px] font-light"
 							>
 								<span class="font-medium">Policy:</span>
 								{detailedViolation.policyName}
 							</div>
 							<div
-								class="dark:bg-surface3 bg-surface2 rounded-full px-3 py-1 text-[11px] font-light"
+								class="dark:bg-base-400 bg-base-300 rounded-full px-3 py-1 text-[11px] font-light"
 							>
 								<span class="font-medium">Applies To:</span>
 								{directionLabel(detailedViolation.direction)}
 							</div>
 							{#if detailedViolation.projectID}
 								<div
-									class="dark:bg-surface3 bg-surface2 rounded-full px-3 py-1 text-[11px] font-light"
+									class="dark:bg-base-400 bg-base-300 rounded-full px-3 py-1 text-[11px] font-light"
 								>
 									<span class="font-medium">Project:</span>
 									{detailedViolation.projectID}
@@ -651,7 +650,7 @@
 							{/if}
 							{#if detailedViolation.threadID}
 								<div
-									class="dark:bg-surface3 bg-surface2 rounded-full px-3 py-1 text-[11px] font-light"
+									class="dark:bg-base-400 bg-base-300 rounded-full px-3 py-1 text-[11px] font-light"
 								>
 									<span class="font-medium">Thread:</span>
 									{detailedViolation.threadID}
@@ -680,25 +679,25 @@
 							<p class="mt-6 mb-2 text-base font-semibold">Blocked Content</p>
 							{#if detailedViolation.blockedContent}
 								<div
-									class="dark:bg-surface2 bg-background relative overflow-hidden rounded-md p-4 pl-5"
+									class="dark:bg-base-300 bg-base-100 relative overflow-hidden rounded-md p-4 pl-5"
 								>
 									<div class="bg-primary/50 absolute top-0 left-0 h-full w-1"></div>
 									<pre
-										class="default-scrollbar-thin max-h-96 overflow-y-auto text-sm break-words whitespace-pre-wrap">{JSON.stringify(
+										class="default-scrollbar-thin max-h-96 overflow-y-auto text-sm wrap-break-word whitespace-pre-wrap">{JSON.stringify(
 											detailedViolation.blockedContent,
 											null,
 											2
 										)}</pre>
 								</div>
 							{:else}
-								<p class="text-sm font-light text-gray-500">
+								<p class="text-sm font-light text-muted-content">
 									Blocked content is only visible to auditors.
 								</p>
 							{/if}
 						</div>
 					{:else}
 						<div
-							class="text-on-surface1 flex items-center justify-center gap-2 py-12 text-sm font-light"
+							class="text-muted-content flex items-center justify-center gap-2 py-12 text-sm font-light"
 						>
 							<Loading class="size-5 animate-spin" />
 							<span>Loading details...</span>
@@ -714,7 +713,7 @@
 	.divider {
 		height: 1px;
 		width: 100%;
-		background-color: var(--color-surface3);
+		background-color: var(--color-base-400);
 		margin-top: 0.5rem;
 		margin-bottom: 0.5rem;
 	}

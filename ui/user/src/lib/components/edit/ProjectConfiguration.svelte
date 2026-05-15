@@ -7,14 +7,16 @@
 	import { closeAll, getLayout } from '$lib/context/chatLayout.svelte';
 	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
+	import Loading from '$lib/icons/Loading.svelte';
 	import { ChatService, type Project } from '$lib/services';
 	import { hasTool } from '$lib/tools';
 	import { goto } from '$lib/url';
 	import { poll } from '$lib/utils';
 	import Confirm from '../Confirm.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import ProjectConfigurationKnowledge from './ProjectConfigurationKnowledge.svelte';
-	import { LoaderCircle, X, AlertCircle, CircleFadingArrowUp } from 'lucide-svelte';
-	import { AlertTriangle } from 'lucide-svelte';
+	import { X, CircleAlert, CircleFadingArrowUp } from 'lucide-svelte';
+	import { TriangleAlert } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 
 	interface Props {
@@ -97,14 +99,14 @@
 	});
 </script>
 
-<div class="dark:bg-background bg-surface1 min-h-full w-full flex-col">
+<div class="dark:bg-base-100 bg-base-200 min-h-full w-full flex-col">
 	<div class="mx-auto min-h-full w-full px-4 py-4 md:max-w-[1200px] md:px-8">
 		<div class="mb-4 flex items-center gap-2">
 			<h1 class="text-2xl font-semibold capitalize">Project Configuration</h1>
 			<div class="flex grow justify-end">
-				<button class="icon-button" onclick={() => closeAll(layout)}>
+				<IconButton onclick={() => closeAll(layout)}>
 					<X class="size-6" />
-				</button>
+				</IconButton>
 			</div>
 		</div>
 		<div class="flex flex-col gap-6">
@@ -124,7 +126,7 @@
 								<div class="flex items-center gap-2">
 									<p class="font-semibold">Public Share URL</p>
 									{#if !shareUrl}
-										<AlertTriangle class="size-4 text-yellow-500" />
+										<TriangleAlert class="size-4 text-warning" />
 									{/if}
 								</div>
 								{#if shareUrl}
@@ -135,7 +137,7 @@
 											buttonText={shareUrl}
 											classes={{
 												button:
-													'button-small flex items-center gap-1 rounded-full border border-gray-500 bg-transparent px-4 py-2 text-gray-600 hover:bg-gray-500 hover:text-white disabled:bg-transparent'
+													'btn btn-sm flex items-center gap-1 rounded-full border border-base-300 bg-transparent px-4 py-2 text-muted-content hover:bg-base-200 hover:text-white disabled:bg-transparent'
 											}}
 										/>
 									</div>
@@ -153,15 +155,15 @@
 										>
 										{#if showUpgradeButton}
 											<button
-												class="button flex gap-1"
+												class="btn btn-primary btn-soft flex gap-1"
 												onclick={upgradeFromTemplate}
 												disabled={upgradeLoading}
 											>
 												{#if upgradeLoading}
-													<LoaderCircle class="size-4 animate-spin" />
+													<Loading class="size-4" />
 												{:else}
 													Upgrade
-													<CircleFadingArrowUp class="relative top-[1px] size-4 shrink-0" />
+													<CircleFadingArrowUp class="relative top-px size-4 shrink-0" />
 												{/if}
 											</button>
 										{/if}
@@ -172,7 +174,7 @@
 							<p
 								class="mt-1 flex w-full items-center justify-center gap-1 text-center text-xs font-light text-gray-600"
 							>
-								<AlertCircle class="max-h-3.5 min-h-3.5" />
+								<CircleAlert class="max-h-3.5 min-h-3.5" />
 								<span>
 									Changing fields such as instructions, MCP servers, tasks, or knowledge will make
 									this project ineligible to receive updates from the shared project snapshot
@@ -193,7 +195,7 @@
 								type="text"
 								id="name"
 								bind:value={modifiedProject.name}
-								class="text-input-filled dark:bg-background"
+								class="text-input-filled dark:bg-base-100"
 							/>
 						</div>
 						<div class="flex flex-col gap-1">
@@ -202,7 +204,7 @@
 								type="text"
 								id="description"
 								bind:value={modifiedProject.description}
-								class="text-input-filled dark:bg-background"
+								class="text-input-filled dark:bg-base-100"
 							/>
 						</div>
 					</div>
@@ -214,7 +216,7 @@
 						rows={6}
 						id="prompt"
 						bind:value={modifiedProject.prompt}
-						class="text-input-filled dark:bg-background"
+						class="text-input-filled dark:bg-base-100"
 						placeholder={HELPER_TEXTS.prompt}
 						use:autoHeight
 					></textarea>
@@ -229,13 +231,13 @@
 
 			<div class="mb-8 flex flex-col gap-2">
 				<h2 class="text-xl font-semibold">Danger Zone</h2>
-				<div class="rounded-md border border-red-500 p-4">
+				<div class="rounded-md border border-error p-4">
 					<div class="flex items-center justify-between gap-4">
 						<div class="flex flex-col">
 							<p class="font-semibold">Delete Project</p>
 							<span class="text-sm font-light">Delete this project and all associated data.</span>
 						</div>
-						<button class="button-destructive text-md" onclick={() => (confirmDelete = true)}>
+						<button class="btn btn-error text-md" onclick={() => (confirmDelete = true)}>
 							Delete this project
 						</button>
 					</div>
@@ -244,12 +246,14 @@
 		</div>
 	</div>
 	<div
-		class="dark:bg-background bg-surface1 sticky bottom-0 left-0 flex w-full justify-end gap-4 p-4 md:px-8"
+		class="dark:bg-base-100 bg-base-200 sticky bottom-0 left-0 flex w-full justify-end gap-4 p-4 md:px-8"
 	>
-		<button disabled={saving} class="button" onclick={() => closeAll(layout)}> Cancel </button>
-		<button disabled={saving} class="button-primary" onclick={handleUpdate}>
+		<button disabled={saving} class="btn btn-secondary" onclick={() => closeAll(layout)}>
+			Cancel
+		</button>
+		<button disabled={saving} class="btn btn-primary" onclick={handleUpdate}>
 			{#if saving}
-				<LoaderCircle class="size-4 animate-spin" />
+				<Loading class="size-4" />
 			{:else}
 				Update
 			{/if}

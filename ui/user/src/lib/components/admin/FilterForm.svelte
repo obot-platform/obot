@@ -2,6 +2,7 @@
 	import { beforeNavigate } from '$app/navigation';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { PAGE_TRANSITION_DURATION, PII_REDACT_TYPES, PII_BLOCK_TYPES } from '$lib/constants';
+	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
 		type MCPFilter,
@@ -27,7 +28,7 @@
 	import UvxRuntimeForm from '../mcp/UvxRuntimeForm.svelte';
 	import FilterFormTypeSelection from './FilterFormTypeSelection.svelte';
 	import SelectorsAndResourcesFormSegment from './SelectorsAndResourcesFormSegment.svelte';
-	import { Eye, EyeOff, LoaderCircle } from 'lucide-svelte';
+	import { Eye, EyeOff } from 'lucide-svelte';
 	import { onMount, untrack, type Snippet } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -535,7 +536,7 @@
 		{/if}
 
 		<div
-			class="dark:bg-surface1 dark:border-surface3 bg-background rounded-lg border border-transparent p-4"
+			class="dark:bg-base-200 dark:border-base-400 bg-base-100 rounded-lg border border-transparent p-4"
 		>
 			<div class="flex flex-col gap-6">
 				<div class="flex flex-col gap-2">
@@ -544,13 +545,13 @@
 						<input
 							id="filter-name"
 							bind:value={filter.name}
-							class="text-input-filled dark:bg-background mt-0.5 {nameError
-								? 'border-red-500 focus:border-red-500 focus:ring-red-500'
+							class="text-input-filled dark:bg-base-100 mt-0.5 {nameError
+								? 'border-error focus:border-error focus:ring-error'
 								: ''}"
 							disabled={readonly}
 						/>
 						{#if nameError}
-							<p class="text-xs text-red-600 dark:text-red-400">Name is required</p>
+							<p class="text-xs text-error">Name is required</p>
 						{/if}
 					</div>
 				</div>
@@ -561,7 +562,7 @@
 						<div class="w-full">
 							<Select
 								id="runtime-selector"
-								class="bg-surface1 dark:bg-surface1 dark:border-surface3 flex-1 border border-transparent shadow-inner"
+								class="bg-base-200 dark:bg-base-200 dark:border-base-400 flex-1 border border-transparent shadow-inner"
 								options={runtimeOptions}
 								bind:selected={runtimeTypeSelect}
 								onSelect={handleRuntimeChange}
@@ -575,7 +576,7 @@
 
 		{#if !runtimeFormData}
 			<div
-				class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-8 rounded-lg border border-transparent p-4 shadow-sm"
+				class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-8 rounded-lg border border-transparent p-4 shadow-sm"
 			>
 				<div class="flex flex-col gap-2">
 					<label for="webhook-url" class="flex-1 text-sm font-light capitalize">
@@ -584,14 +585,14 @@
 					<input
 						id="webhook-url"
 						bind:value={filter.url}
-						class="text-input-filled dark:bg-background mt-0.5 {urlError
-							? 'border-red-500 focus:border-red-500 focus:ring-red-500'
+						class="text-input-filled dark:bg-base-100 mt-0.5 {urlError
+							? 'border-error focus:border-error focus:ring-error'
 							: ''}"
 						required
 						disabled={readonly || isPrebuiltEntry}
 					/>
 					{#if urlError}
-						<p class="text-xs text-red-600 dark:text-red-400">Webhook URL is required</p>
+						<p class="text-xs text-error">Webhook URL is required</p>
 					{/if}
 				</div>
 
@@ -603,7 +604,7 @@
 						<input
 							id="webhook-secret"
 							bind:value={filter.secret}
-							class="text-input-filled pr-10 dark:bg-background"
+							class="text-input-filled pr-10 dark:bg-base-100"
 							type={showSecret ? 'text' : 'password'}
 							placeholder={initialFilter?.hasSecret && !filter.secret ? '*****' : ''}
 							disabled={readonly || isPrebuiltEntry}
@@ -611,7 +612,7 @@
 						{#if filter.secret || (initialFilter?.hasSecret && !filter.secret)}
 							<button
 								type="button"
-								class="absolute top-1/2 right-2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+								class="absolute top-1/2 right-2 -translate-y-1/2 p-1 text-muted-content hover:text-base-content dark:text-muted-content dark:hover:text-base-content"
 								onclick={() => (showSecret = !showSecret)}
 								use:tooltip={{
 									text: showSecret ? 'Hide secret' : 'Show secret',
@@ -639,12 +640,12 @@
 							{#if !readonly}
 								<button
 									type="button"
-									class="button-destructive shrink-0 text-xs"
+									class="btn btn-error btn-sm shrink-0"
 									disabled={removingSecret || saving || isPrebuiltEntry}
 									onclick={handleRemoveSecret}
 								>
 									{#if removingSecret}
-										<LoaderCircle class="size-3 animate-spin" />
+										<Loading class="size-3 inline-block" />
 										Removing...
 									{:else}
 										Remove Secret
@@ -653,7 +654,7 @@
 							{/if}
 						</div>
 					{:else}
-						<p class="text-on-surface1 text-xs">
+						<p class="text-muted-content text-xs">
 							A shared secret used to sign the payload for webhook verification.
 						</p>
 					{/if}
@@ -721,13 +722,13 @@
 			{/if}
 		{/if}
 
-		<div class="h-px bg-surface3 w-full my-4"></div>
+		<div class="h-px bg-base-400 w-full my-4"></div>
 
 		<SelectorsAndResourcesFormSegment bind:form={filter} {readonly} />
 	</div>
 	{#if !readonly}
 		<div
-			class="bg-surface1 dark:bg-background dark:text-on-surface1 sticky bottom-0 left-0 flex w-full justify-end gap-2 py-4 text-gray-400 z-50"
+			class="bg-base-200 dark:bg-base-100 dark:text-muted-content sticky bottom-0 left-0 flex w-full justify-end gap-2 py-4 text-gray-400 z-50"
 			out:fly={{ x: -100, duration }}
 			in:fly={{ x: -100 }}
 		>
@@ -735,10 +736,7 @@
 				<div>
 					{#if initialFilter?.id}
 						<button
-							class={twMerge(
-								'text-sm',
-								filter.disabled ? 'button-primary' : 'button-destructive py-2'
-							)}
+							class={twMerge('text-sm btn btn-soft', filter.disabled ? 'btn-primary' : 'btn-error')}
 							disabled={saving}
 							onclick={() => {
 								filter.disabled = !filter.disabled;
@@ -746,7 +744,7 @@
 							}}
 						>
 							{#if saving}
-								<LoaderCircle class="size-4 animate-spin" />
+								<Loading class="size-4" />
 							{:else}
 								{filter.disabled ? 'Enable' : 'Disable'} Filter
 							{/if}
@@ -755,7 +753,7 @@
 				</div>
 				<div class="flex gap-2">
 					<button
-						class="button text-sm"
+						class="btn btn-secondary"
 						onclick={() => {
 							if (initialFilterId) {
 								onUpdate?.(undefined);
@@ -766,9 +764,9 @@
 					>
 						Cancel
 					</button>
-					<button class="button-primary text-sm" disabled={saving} onclick={handleSave}>
+					<button class="btn btn-primary text-sm" disabled={saving} onclick={handleSave}>
 						{#if saving}
-							<LoaderCircle class="size-4 animate-spin" />
+							<Loading class="size-4" />
 						{:else}
 							Save
 						{/if}
@@ -797,11 +795,11 @@
 	{#snippet errorPostContent()}
 		{#if launchLogs.length > 0}
 			<div
-				class="default-scrollbar-thin bg-surface1 max-h-[50vh] w-full overflow-y-auto rounded-lg p-4 shadow-inner"
+				class="default-scrollbar-thin bg-base-200 max-h-[50vh] w-full overflow-y-auto rounded-lg p-4 shadow-inner"
 			>
 				{#each launchLogs as log, i (i)}
 					<div class="font-mono text-sm">
-						<span class="text-on-surface1">{log}</span>
+						<span class="text-muted-content">{log}</span>
 					</div>
 				{/each}
 			</div>
@@ -810,7 +808,9 @@
 		{/if}
 
 		<div class="flex w-full flex-col items-center gap-2 md:flex-row">
-			<button class="button w-full md:w-1/2 md:flex-1" onclick={handleCloseLaunch}>Close</button>
+			<button class="btn btn-secondary w-full md:w-1/2 md:flex-1" onclick={handleCloseLaunch}
+				>Close</button
+			>
 		</div>
 	{/snippet}
 </PageLoading>
@@ -835,16 +835,14 @@
 			<input
 				id="tool-name"
 				bind:value={filter.toolName}
-				class="text-input-filled dark:bg-background mt-0.5 {toolNameError
-					? 'border-red-500 focus:border-red-500 focus:ring-red-500'
+				class="text-input-filled dark:bg-base-100 mt-0.5 {toolNameError
+					? 'border-error focus:border-error focus:ring-error'
 					: ''}"
 				required
 				disabled={readonly || isPrebuiltEntry}
 			/>
 			{#if toolNameError}
-				<p class="text-xs text-red-600 dark:text-red-400">
-					The name of tool to be called for the filter is required.
-				</p>
+				<p class="text-xs text-error">The name of tool to be called for the filter is required.</p>
 			{/if}
 		</div>
 	</div>
@@ -852,7 +850,7 @@
 		<div class="flex items-center gap-4">
 			<Toggle
 				classes={{
-					label: 'text-sm gap-2 font-light text-on-background'
+					label: 'text-sm gap-2 font-light text-base-content'
 				}}
 				checked={filter.allowedToMutate ?? false}
 				onChange={(checked) => {
@@ -864,7 +862,7 @@
 			/>
 		</div>
 
-		<p class="text-on-surface1 text-xs font-light">
+		<p class="text-muted-content text-xs font-light">
 			Enable this if the filter tool call is allowed to mutate the response. By default, the filter
 			will only accept or reject the call based on validation.
 		</p>

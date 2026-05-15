@@ -1,14 +1,15 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import FilterForm from '$lib/components/admin/FilterForm.svelte';
+	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService, type MCPFilter, type SystemMCPServerCatalogEntry } from '$lib/services';
 	import { profile } from '$lib/stores';
 	import { replaceState } from '$lib/url';
@@ -23,7 +24,7 @@
 	import { openUrl } from '$lib/utils';
 	import BuiltInFilters from './BuiltInFilters.svelte';
 	import { debounce } from 'es-toolkit';
-	import { Filter, LoaderCircle, Plus, Trash2 } from 'lucide-svelte';
+	import { Funnel, Plus, Trash2 } from 'lucide-svelte';
 	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
 
@@ -100,9 +101,9 @@
 			>
 				{#if filters.length === 0}
 					<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-						<Filter class="text-on-surface1 size-24 opacity-50" />
-						<h4 class="text-on-surface1 text-lg font-semibold">No created filters</h4>
-						<p class="text-on-surface1 text-sm font-light">
+						<Funnel class="text-muted-content size-24 opacity-50" />
+						<h4 class="text-muted-content text-lg font-semibold">No created filters</h4>
+						<p class="text-muted-content text-sm font-light">
 							Looks like you don't have any filters created yet. <br />
 							Click the "Add New Filter" button above to get started.
 						</p>
@@ -111,7 +112,7 @@
 					<div class="flex flex-col gap-2">
 						<Search
 							value={query}
-							class="dark:bg-surface1 dark:border-surface3 bg-background border border-transparent shadow-sm"
+							class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 							onChange={updateQuery}
 							placeholder="Search filters..."
 						/>
@@ -143,16 +144,16 @@
 						>
 							{#snippet actions(d: MCPFilter)}
 								{#if !profile.current.isAdminReadonly?.()}
-									<button
-										class="icon-button hover:text-red-500"
+									<IconButton
+										variant="danger"
 										onclick={(e) => {
 											e.stopPropagation();
 											filterToDelete = d;
 										}}
-										use:tooltip={'Delete Filter'}
+										tooltip={{ text: 'Delete Filter' }}
 									>
 										<Trash2 class="size-4" />
-									</button>
+									</IconButton>
 								{/if}
 							{/snippet}
 							{#snippet onRenderColumn(property, d: (typeof tableData)[number])}
@@ -166,7 +167,7 @@
 								{:else if property === 'status'}
 									<span
 										class={d.status === 'Disabled'
-											? 'text-on-surface1 font-light italic text-xs'
+											? 'text-muted-content font-light italic text-xs'
 											: 'pill-primary bg-primary'}>{d.status}</span
 									>
 								{:else}
@@ -182,7 +183,7 @@
 
 	{#snippet rightNavActions()}
 		{#if loading}
-			<LoaderCircle class="size-4 animate-spin" />
+			<Loading class="size-4" />
 		{/if}
 		{#if !profile.current.isAdminReadonly?.()}
 			{@render addFilterButton()}
@@ -192,7 +193,7 @@
 
 {#snippet addFilterButton()}
 	<DotDotDot
-		class="button-primary w-full text-sm md:w-fit"
+		class="btn btn-block btn-primary w-full text-sm md:w-fit"
 		placement="bottom"
 		classes={{ popover: 'z-50' }}
 	>
@@ -244,7 +245,7 @@
 />
 
 <ResponsiveDialog
-	class="bg-surface1 dark:bg-background md:max-w-dvw md:w-6xl"
+	class="bg-base-200 dark:bg-base-100 md:max-w-dvw md:w-6xl"
 	title="Select Built-in Filter"
 	bind:this={builtInFiltersDialog}
 >

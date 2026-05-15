@@ -3,11 +3,12 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { formatFileSize } from '$lib/format';
+	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService } from '$lib/services';
 	import type { AuditLogExport } from '$lib/services/admin/types';
 	import { formatTimeAgo } from '$lib/time';
 	import { goto } from '$lib/url';
-	import { FileArchive, LoaderCircle, CircleAlert, AlertCircle } from 'lucide-svelte';
+	import { FileArchive, CircleAlert } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 
 	interface Props {
@@ -125,13 +126,13 @@
 <div class="flex flex-col gap-2">
 	{#if loading}
 		<div class="my-2 flex items-center justify-center">
-			<LoaderCircle class="size-6 animate-spin" />
+			<Loading class="size-6" />
 		</div>
 	{:else if exports.length === 0}
 		<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
-			<FileArchive class="text-surface3 size-24 opacity-25" />
-			<h4 class="text-on-surface1 text-lg font-semibold">No exports found.</h4>
-			<p class="text-on-surface1 text-sm font-light">
+			<FileArchive class="text-base-content/80 size-24 opacity-25" />
+			<h4 class="text-muted-content text-lg font-semibold">No exports found.</h4>
+			<p class="text-muted-content text-sm font-light">
 				Create your first audit log export to get started.
 			</p>
 		</div>
@@ -158,9 +159,9 @@
 		>
 			{#snippet onRenderColumn(property, d)}
 				{#if property === 'displayName'}
-					<div class="flex flex-shrink-0 items-center gap-2">
+					<div class="flex shrink-0 items-center gap-2">
 						<div
-							class="bg-surface1 flex items-center justify-center rounded-sm p-0.5 dark:bg-gray-600"
+							class="bg-base-200 flex items-center justify-center rounded-sm p-0.5 dark:bg-base-300"
 						>
 							<FileArchive class="size-6" />
 						</div>
@@ -176,26 +177,26 @@
 						{#if d.state === 'failed' && d.error}
 							<button
 								type="button"
-								class="text-red-500 transition-colors hover:text-red-600"
+								class="text-error transition-colors hover:text-error"
 								use:tooltip={{
 									text: d.error,
 									placement: 'top',
 									classes: [
 										'max-w-80',
-										'break-words',
+										'wrap-break-word',
 										'whitespace-pre-wrap',
-										'bg-background',
-										'text-gray-900',
+										'bg-base-100',
+										'text-base-content',
 										'border',
 										'shadow-lg'
 									]
 								}}
 							>
-								<AlertCircle class="size-4" />
+								<CircleAlert class="size-4" />
 							</button>
 						{:else if d.state === 'running'}
 							<div class="size-4">
-								<LoaderCircle class="size-full animate-spin duration-100" />
+								<Loading class="size-full animate-spin duration-100" />
 							</div>
 						{/if}
 					</div>

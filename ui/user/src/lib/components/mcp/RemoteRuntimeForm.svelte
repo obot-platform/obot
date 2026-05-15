@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import type {
 		RemoteCatalogConfigAdmin,
 		RemoteRuntimeConfigAdmin
@@ -8,6 +7,7 @@
 	import InfoTooltip from '../InfoTooltip.svelte';
 	import Select from '../Select.svelte';
 	import Toggle from '../Toggle.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import { Plus, Trash2, Info, Settings } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
@@ -65,10 +65,10 @@
 {#snippet remoteHeaders(showUrlTemplateHelp: boolean)}
 	<div class="flex w-full flex-col gap-8" in:slide>
 		<div
-			class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
+			class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
 		>
 			<h4 class="text-sm font-semibold">Headers</h4>
-			<p class="text-on-surface1 text-xs font-light">
+			<p class="text-muted-content text-xs font-light">
 				{#if showUrlTemplateHelp}
 					Header values will be supplied with the URL to configure the MCP server. Their values can
 					be supplied by the user during initial setup or as static provided values. Only values
@@ -82,14 +82,14 @@
 				{#each config.headers as header, i (i)}
 					{#if !hasSecretBinding(header)}
 						<div
-							class="dark:border-surface3 bg-surface2 flex w-full items-center gap-4 rounded-lg border border-transparent p-4"
+							class="dark:border-base-400 bg-base-300 flex w-full items-center gap-4 rounded-lg border border-transparent p-4"
 						>
 							<div class="flex w-full flex-col gap-4">
 								<div class="flex w-full flex-col gap-1">
 									<label for={`header-key-${i}`} class="text-sm font-light">Key</label>
 									<input
 										id={`header-key-${i}`}
-										class="text-input-filled bg-background w-full shadow-none"
+										class="text-input-filled bg-base-100 w-full shadow-none"
 										bind:value={config.headers[i].key}
 										placeholder="e.g. CUSTOM_HEADER_KEY"
 										disabled={readonly}
@@ -99,7 +99,7 @@
 									{#if variant === 'catalog'}
 										<label for={`env-type-${i}`} class="text-sm font-light">Value</label>
 										<Select
-											class="bg-background dark:border-surface3 border border-transparent shadow-none"
+											class="bg-base-100 dark:border-base-400 border border-transparent shadow-none"
 											classes={{
 												root: 'flex grow'
 											}}
@@ -129,7 +129,7 @@
 										<label for={`header-name-${i}`} class="text-sm font-light">Name</label>
 										<input
 											id={`header-name-${i}`}
-											class="text-input-filled bg-background w-full shadow-none"
+											class="text-input-filled bg-base-100 w-full shadow-none"
 											bind:value={config.headers[i].name}
 											disabled={readonly}
 										/>
@@ -140,7 +140,7 @@
 										>
 										<input
 											id={`header-description-${i}`}
-											class="text-input-filled bg-background w-full shadow-none"
+											class="text-input-filled bg-base-100 w-full shadow-none"
 											bind:value={config.headers[i].description}
 											disabled={readonly}
 										/>
@@ -158,7 +158,7 @@
 										</label>
 										<input
 											id={`header-prefix-${i}`}
-											class="text-input-filled bg-background w-full shadow-none"
+											class="text-input-filled bg-base-100 w-full shadow-none"
 											bind:value={config.headers[i].prefix}
 											disabled={readonly}
 										/>
@@ -183,7 +183,7 @@
 										{/if}
 										<input
 											id={`header-description-${i}`}
-											class="text-input-filled bg-background w-full shadow-none"
+											class="text-input-filled bg-base-100 w-full shadow-none"
 											bind:value={config.headers[i].value}
 											disabled={readonly}
 										/>
@@ -192,15 +192,15 @@
 							</div>
 
 							{#if !readonly}
-								<button
-									class="icon-button"
+								<IconButton
+									variant="danger2"
 									onclick={() => {
 										config.headers?.splice(i, 1);
 									}}
-									use:tooltip={'Delete Header'}
+									tooltip={{ text: 'Delete Header' }}
 								>
 									<Trash2 class="size-4" />
-								</button>
+								</IconButton>
 							{/if}
 						</div>
 					{/if}
@@ -209,7 +209,7 @@
 			{#if !readonly}
 				<div class="flex justify-end">
 					<button
-						class="button flex items-center gap-1 text-xs"
+						class="btn btn-secondary btn-sm flex items-center gap-1"
 						onclick={() => {
 							if (!config.headers) {
 								config.headers = [];
@@ -237,7 +237,7 @@
 {#if variant === 'server'}
 	{@const serverConfig = config as RemoteRuntimeConfigAdmin}
 	<div
-		class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-6 rounded-lg border border-transparent p-4 shadow-sm"
+		class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-6 rounded-lg border border-transparent p-4 shadow-sm"
 		in:fade={{ duration: 200 }}
 	>
 		<h4 class="text-sm font-semibold">Remote Runtime Configuration</h4>
@@ -249,7 +249,7 @@
 			<input
 				id="multi-user-remote-url"
 				class={twMerge(
-					'text-input-filled dark:bg-background flex grow',
+					'text-input-filled dark:bg-base-100 flex grow',
 					showRequired?.url && 'error'
 				)}
 				bind:value={serverConfig.url}
@@ -269,7 +269,7 @@
 	{@const remoteConfig = config as RemoteCatalogConfigAdmin}
 	<!-- For catalog entries, show simple fixed URL when not in advanced mode -->
 	<div
-		class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-6 rounded-lg border border-transparent p-4 shadow-sm"
+		class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-6 rounded-lg border border-transparent p-4 shadow-sm"
 		in:fade={{ duration: 200 }}
 	>
 		<div class="flex flex-col gap-2">
@@ -280,7 +280,7 @@
 			<input
 				id="basic-url"
 				class={twMerge(
-					'text-input-filled dark:bg-background flex grow',
+					'text-input-filled dark:bg-base-100 flex grow',
 					showRequired?.fixedURL && 'error'
 				)}
 				bind:value={remoteConfig.fixedURL}
@@ -293,14 +293,13 @@
 {:else if showAdvanced}
 	<div class="flex w-full flex-col gap-8" in:slide>
 		<div
-			class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
+			class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
 		>
 			<div class="flex items-center gap-4 {readonly ? 'hidden' : ''}">
-				<label for="remote-type" class="flex-shrink-0 text-sm font-light"
-					>Restrict connections to:</label
+				<label for="remote-type" class="shrink-0 text-sm font-light">Restrict connections to:</label
 				>
 				<Select
-					class="bg-surface1 dark:border-surface3 dark:bg-background border border-transparent shadow-inner"
+					class="bg-base-100 dark:border-base-400 dark:bg-base-100 border border-transparent shadow-inner"
 					classes={{
 						root: 'flex grow'
 					}}
@@ -341,7 +340,7 @@
 					>
 					<input
 						class={twMerge(
-							'text-input-filled dark:bg-background flex grow',
+							'text-input-filled dark:bg-base-100 flex grow',
 							showRequired?.fixedURL && 'error'
 						)}
 						bind:value={remoteConfig.fixedURL}
@@ -362,7 +361,7 @@
 					>
 					<input
 						class={twMerge(
-							'text-input-filled dark:bg-background flex grow',
+							'text-input-filled dark:bg-base-100 flex grow',
 							showRequired?.hostname && 'error'
 						)}
 						bind:value={remoteConfig.hostname}
@@ -386,7 +385,7 @@
 						>
 						<input
 							class={twMerge(
-								'text-input-filled dark:bg-background flex grow',
+								'text-input-filled dark:bg-base-100 flex grow',
 								showRequired?.urlTemplate && 'error'
 							)}
 							bind:value={remoteConfig.urlTemplate}
@@ -401,17 +400,16 @@
 					<!-- Info message about header interpolation -->
 					<div class="notification-info p-3 text-sm font-light">
 						<div class="flex items-start gap-3">
-							<Info class="mt-0.5 size-5 flex-shrink-0" />
+							<Info class="mt-0.5 size-5 shrink-0" />
 							<div class="flex flex-col gap-1">
 								<p class="font-semibold">Variable Interpolation</p>
 								<p>
-									Use <code class="rounded bg-gray-100 px-1 py-0.5 dark:bg-gray-800"
-										>${'{VARIABLE_NAME}'}</code
-									> syntax in your URL template. Variables can be populated from header values that users
-									provide during setup.
+									Use <code class="rounded bg-base-300 px-1 py-0.5">${'{VARIABLE_NAME}'}</code> syntax
+									in your URL template. Variables can be populated from header values that users provide
+									during setup.
 								</p>
 								<p class="text-xs">
-									Example: <code class="rounded bg-gray-100 px-1 py-0.5 text-xs dark:bg-gray-800"
+									Example: <code class="rounded bg-base-300 px-1 py-0.5 text-xs"
 										>https://${'{WORKSPACE_URL}'}/api/2.0/mcp/genie/${'{SPACE_ID}'}</code
 									>
 								</p>
@@ -439,7 +437,7 @@
 	{#if config && !disableStaticOAuth}
 		{@const remoteConfig = config as RemoteCatalogConfigAdmin}
 		<div
-			class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
+			class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
 		>
 			<div class="flex justify-between">
 				<button
@@ -461,7 +459,7 @@
 							Static OAuth
 						</h4>
 					</div>
-					<p class="text-on-surface1 text-xs font-light">
+					<p class="text-muted-content text-xs font-light">
 						Enable this if the remote MCP server requires OAuth authentication with a static client
 						ID and secret.
 					</p>
@@ -486,13 +484,13 @@
 					{#if isNewEntry}
 						<div class="notification-info p-3 text-sm font-light">
 							<div class="flex items-start gap-3">
-								<Info class="mt-0.5 size-5 flex-shrink-0" />
+								<Info class="mt-0.5 size-5 shrink-0" />
 								<p>You can provide OAuth credentials after saving.</p>
 							</div>
 						</div>
 					{:else if onConfigureOAuth}
 						<button
-							class="button flex w-fit items-center gap-2 text-sm"
+							class="btn btn-secondary flex w-fit items-center gap-2 text-sm"
 							onclick={onConfigureOAuth}
 							disabled={readonly}
 							type="button"
@@ -509,7 +507,7 @@
 
 {#if variant === 'catalog'}
 	<button
-		class="button-text pl-0"
+		class="btn btn-text pl-0"
 		onclick={() => {
 			showAdvanced = !showAdvanced;
 

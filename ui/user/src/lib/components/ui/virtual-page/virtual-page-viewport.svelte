@@ -291,7 +291,7 @@
 </script>
 
 <Render
-	class="bg-surface1 dark:bg-background flex h-[100svh] max-h-[100svh] w-full overflow-hidden"
+	class="bg-base-200 dark:bg-base-100 flex h-svh max-h-svh w-full overflow-hidden"
 	as={as ?? 'div'}
 	{...restProps}
 	{@attach (node: HTMLElement) => {

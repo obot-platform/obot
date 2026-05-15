@@ -2,6 +2,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		ChatService,
 		AdminService,
@@ -15,12 +16,12 @@
 	import { goto } from '$lib/url';
 	import DotDotDot from '../DotDotDot.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import Table from '../table/Table.svelte';
 	import ConnectToServer from './ConnectToServer.svelte';
 	import EditExistingDeployment from './EditExistingDeployment.svelte';
 	import StaticOAuthConfigureModal from './StaticOAuthConfigureModal.svelte';
 	import {
-		LoaderCircle,
 		KeyRound,
 		MessageCircle,
 		PencilLine,
@@ -217,7 +218,7 @@
 <!-- Use class:hidden to avoid Svelte 5 production build with conditional DOM cleanup -->
 <div class="contents" class:hidden={belongsToComposite}>
 	<button
-		class="button-primary flex w-full items-center gap-1 text-sm disabled:cursor-not-allowed disabled:opacity-50 md:w-fit"
+		class="btn btn-primary flex w-full items-center gap-1 text-sm disabled:cursor-not-allowed disabled:opacity-50 md:w-fit"
 		class:hidden={!(
 			(entry && !server) ||
 			(server &&
@@ -247,7 +248,7 @@
 		disabled={loading || !canConnect || (requiresStaticOAuth && oauthConfigured === false)}
 	>
 		{#if loading}
-			<LoaderCircle class="size-4 animate-spin" />
+			<Loading class="size-4" />
 		{:else}
 			Connect To Server
 		{/if}
@@ -255,7 +256,7 @@
 
 	<div class:hidden={loading || !hasActions}>
 		<DotDotDot
-			class="icon-button hover:bg-surface1 dark:hover:bg-surface2 hover:text-primary flex-shrink-0"
+			class={!connectOnly ? 'hover:bg-base-200 dark:hover:bg-base-300' : ''}
 			disablePortal={connectOnly}
 			classes={{ menu: 'min-w-48 p-0', popover: 'z-60' }}
 		>
@@ -280,7 +281,7 @@
 <EditExistingDeployment bind:this={editExistingDialog} onUpdateConfigure={refresh} />
 
 <ResponsiveDialog
-	class="bg-surface1 dark:bg-background"
+	class="bg-base-200 dark:bg-base-100"
 	bind:this={selectServerDialog}
 	title="Select Your Server"
 >
@@ -345,7 +346,7 @@
 	>
 		{#snippet onRenderColumn(property, d)}
 			{#if property === 'name'}
-				<div class="flex flex-shrink-0 items-center gap-2">
+				<div class="flex shrink-0 items-center gap-2">
 					<div class="icon">
 						{#if d.manifest.icon}
 							<img src={d.manifest.icon} alt={d.manifest.name} class="size-6" />
@@ -362,9 +363,9 @@
 			{/if}
 		{/snippet}
 		{#snippet actions()}
-			<button class="icon-button hover:dark:bg-background/50">
+			<IconButton class="hover:dark:bg-base-100/50">
 				<StepForward class="size-4" />
-			</button>
+			</IconButton>
 		{/snippet}
 	</Table>
 </ResponsiveDialog>
@@ -401,9 +402,9 @@
 		<p class="mb-2 text-center">Would you like to connect now?</p>
 		<div class="flex grow"></div>
 		<div class="flex flex-col gap-2">
-			<button class="button" onclick={() => launchDialog?.close()}>Skip</button>
+			<button class="btn btn-secondary" onclick={() => launchDialog?.close()}>Skip</button>
 			<button
-				class="button-primary"
+				class="btn btn-primary"
 				onclick={() => {
 					launchDialog?.close();
 					connectToServerDialog?.open({
@@ -419,7 +420,7 @@
 {#snippet serverActions(toggle: (value: boolean) => void)}
 	{#if server && (server.userID === profile.current.id || canEditMultiUserServerConfiguration)}
 		<div
-			class="flex flex-col gap-1 p-2 {!isProjectMcp && 'bg-surface1'} {!isProjectMcp &&
+			class="flex flex-col gap-1 p-2 {!isProjectMcp && 'bg-base-200'} {!isProjectMcp &&
 				'rounded-t-xl'}"
 		>
 			{#if canEditMultiUserServerConfiguration}
@@ -477,7 +478,7 @@
 					<button
 						class={twMerge(
 							'menu-button',
-							requiresUpdate && 'bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/30'
+							requiresUpdate && 'bg-warning/10 text-warning hover:bg-warning/30'
 						)}
 						onclick={() => {
 							editExistingDialog?.edit({
@@ -507,7 +508,7 @@
 					}}
 				>
 					{#if restarting}
-						<LoaderCircle class="size-4 animate-spin" />
+						<Loading class="size-4" />
 					{:else}
 						<RefreshCw class="size-4" />
 					{/if} Restart
@@ -540,7 +541,7 @@
 					}}
 				>
 					{#if disconnecting}
-						<LoaderCircle class="size-4 animate-spin" />
+						<Loading class="size-4" />
 					{:else}
 						<Unplug class="size-4" />
 					{/if} Disconnect
@@ -572,7 +573,7 @@
 					}}
 				>
 					{#if disconnecting}
-						<LoaderCircle class="size-4 animate-spin" />
+						<Loading class="size-4" />
 					{:else}
 						<Trash2 class="size-4" />
 					{/if} Disconnect
@@ -581,11 +582,11 @@
 		</div>
 	{:else if entry && configuredServers.length > 0}
 		<div
-			class="bg-background dark:bg-surface2 rounded-t-xl p-2 pl-4 text-[11px] font-semibold uppercase"
+			class="bg-base-100 dark:bg-base-300 rounded-t-xl p-2 pl-4 text-[11px] font-semibold uppercase"
 		>
 			My Connection(s)
 		</div>
-		<div class="bg-surface1 flex flex-col gap-1 p-2">
+		<div class="bg-base-200 flex flex-col gap-1 p-2">
 			{#if !connectOnly && version.current.disableLegacyChat !== true}
 				<button
 					class="menu-button"
@@ -620,7 +621,7 @@
 					<button
 						class={twMerge(
 							'menu-button',
-							requiresUpdate && 'bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/30'
+							requiresUpdate && 'bg-warning/10 text-warning hover:bg-warning/30'
 						)}
 						onclick={() => {
 							if (configuredServers.length === 1) {
@@ -658,7 +659,7 @@
 					}}
 				>
 					{#if restarting}
-						<LoaderCircle class="size-4 animate-spin" />
+						<Loading class="size-4" />
 					{:else}
 						<RefreshCw class="size-4" />
 					{/if} Restart
@@ -709,7 +710,7 @@
 	{#if showDisconnectUser && server}
 		<div class="flex flex-col gap-2 p-2">
 			<button
-				class="menu-button text-red-500"
+				class="menu-button text-error"
 				onclick={async (e) => {
 					e.stopPropagation();
 					await ChatService.deleteSingleOrRemoteMcpServer(server.id);

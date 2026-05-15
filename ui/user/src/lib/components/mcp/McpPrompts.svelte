@@ -1,9 +1,10 @@
 <script lang="ts">
 	import Menu from '$lib/components/navbar/Menu.svelte';
 	import { getProjectMCPs, validateOauthProjectMcps } from '$lib/context/projectMcps.svelte';
+	import Loading from '$lib/icons/Loading.svelte';
 	import { ChatService, type MCPServerPrompt, type Project, type ProjectMCP } from '$lib/services';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
-	import { LoaderCircle, MessageSquarePlus } from 'lucide-svelte';
+	import { MessageSquarePlus } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -126,11 +127,11 @@
 {#snippet content()}
 	{#if loading}
 		<div class="flex h-full flex-col items-center justify-center">
-			<LoaderCircle class="size-4 animate-spin" />
+			<Loading class="size-4" />
 		</div>
 	{:else if !hasPrompts && variant !== 'messages'}
 		<div class="flex h-full flex-col items-center justify-center">
-			<p class="text-on-surface1 text-sm">No prompts available</p>
+			<p class="text-muted-content text-sm">No prompts available</p>
 		</div>
 	{:else}
 		{#each setsToUse as mcpPromptSet (mcpPromptSet.mcp.id)}
@@ -142,12 +143,12 @@
 						variant !== 'messages' && 'border-0 px-2 py-2 first:pt-0'
 					)}
 				>
-					<div class="flex-shrink-0 rounded-sm">
+					<div class="shrink-0 rounded-sm">
 						{#if variant === 'messages'}
 							{#if mcpPromptSet.mcp.icon}
 								<img src={mcpPromptSet.mcp.icon} alt={mcpPromptSet.mcp.name} class="size-4" />
 							{:else}
-								<MessageSquarePlus class="text-on-surface1 size-4" />
+								<MessageSquarePlus class="text-muted-content size-4" />
 							{/if}
 						{/if}
 					</div>
@@ -155,7 +156,7 @@
 				</div>
 
 				<div
-					class="dark:border-surface3 flex flex-col border-0 bg-gray-50 p-2 shadow-inner dark:bg-gray-950"
+					class="dark:border-base-400 flex flex-col border-0 bg-gray-50 p-2 shadow-inner dark:bg-gray-950"
 				>
 					{#each mcpPromptSet.prompts as prompt (prompt.name)}
 						<button
@@ -164,15 +165,15 @@
 								indexMatchedPrompt?.prompt.name === prompt.name &&
 									indexMatchedPrompt?.mcp.id === mcpPromptSet.mcp.id &&
 									!isHovering &&
-									'bg-surface2 dark:bg-surface3 hover:bg-surface2 dark:hover:bg-surface3'
+									'bg-base-300 dark:bg-base-400 hover:bg-base-300 dark:hover:bg-base-400'
 							)}
 							onclick={() => handleClick(prompt, mcpPromptSet.mcp)}
 						>
-							<div class="flex-shrink-0 rounded-sm">
+							<div class="shrink-0 rounded-sm">
 								{#if mcpPromptSet.mcp.icon}
 									<img src={mcpPromptSet.mcp.icon} alt={mcpPromptSet.mcp.name} class="size-6" />
 								{:else}
-									<MessageSquarePlus class="text-on-surface1 size-5" />
+									<MessageSquarePlus class="text-muted-content size-5" />
 								{/if}
 							</div>
 							<div class="flex flex-col">
@@ -180,13 +181,13 @@
 									{prompt.name}
 									{#if variant === 'popover' && prompt.arguments}
 										{#each prompt.arguments as argument (argument.name)}
-											<span class="text-on-surface1 text-xs">
+											<span class="text-muted-content text-xs">
 												[{argument.name}]
 											</span>
 										{/each}
 									{/if}
 								</p>
-								<p class="text-on-surface1 text-xs font-light">
+								<p class="text-muted-content text-xs font-light">
 									{prompt.description}
 								</p>
 							</div>
@@ -233,7 +234,7 @@
 	<div class="flex grow"></div>
 	<div class="flex justify-end">
 		<button
-			class="button-primary"
+			class="btn btn-primary"
 			onclick={() => {
 				if (selectedPrompt) {
 					onSelect?.(selectedPrompt.prompt, selectedPrompt.mcp, params);

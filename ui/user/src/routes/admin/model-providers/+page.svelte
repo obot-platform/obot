@@ -16,7 +16,7 @@
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte.js';
 	import { profile } from '$lib/stores/index.js';
 	import { delay } from '$lib/utils';
-	import { AlertTriangle } from 'lucide-svelte';
+	import { TriangleAlert } from 'lucide-svelte';
 	import { onMount, untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
 
@@ -148,12 +148,12 @@
 </script>
 
 <Layout title="Model Providers">
-	<div class="mb-4" in:fade={{ duration }} out:fade={{ duration }}>
+	<div class="mb-4 @container" in:fade={{ duration }} out:fade={{ duration }}>
 		<div class="flex flex-col gap-8">
 			{#if !atLeastOneConfigured}
 				<div class="notification-alert mb-4 flex flex-col gap-2">
 					<div class="flex items-center gap-2">
-						<AlertTriangle class="size-6 flex-shrink-0 self-start text-yellow-500" />
+						<TriangleAlert class="size-6 shrink-0 self-start text-warning" />
 						<p class="my-0.5 flex flex-col text-sm font-semibold">No Model Providers Configured!</p>
 					</div>
 					<span class="text-sm font-light break-all">
@@ -163,7 +163,9 @@
 				</div>
 			{/if}
 		</div>
-		<div class="grid grid-cols-1 gap-4 px-8 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+		<div
+			class="grid grid-cols-1 gap-4 @min-[768px]:grid-cols-2 @min-[1024px]:grid-cols-3 @min-[1280px]:grid-cols-4"
+		>
 			{#each sortedModelProviders as modelProvider (modelProvider.id)}
 				<ProviderCard
 					experimental={modelProvider.id === CommonModelProviderIds.GENERIC_RESPONSES}
@@ -219,7 +221,7 @@
 >
 	{#snippet note()}
 		{#if configuringModelProvider && isAnthropic(configuringModelProvider)}
-			<p class="text-on-surface1 py-4 font-light">
+			<p class="text-muted-content py-4 font-light">
 				Note: Anthropic does not have an embeddings model.
 			</p>
 		{/if}

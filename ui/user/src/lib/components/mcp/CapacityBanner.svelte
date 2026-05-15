@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService } from '$lib/services';
 	import type { MCPCapacityInfo } from '$lib/services/admin/types';
-	import { Info, LoaderCircle } from 'lucide-svelte';
+	import { Info } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 
 	let capacityInfo = $state<MCPCapacityInfo | null>(null);
@@ -43,16 +44,16 @@
 </script>
 
 {#if loading}
-	<div class="bg-surface2 dark:bg-surface1 mb-4 flex items-center justify-center rounded-md p-4">
-		<LoaderCircle class="size-5 animate-spin" />
+	<div class="bg-base-300 dark:bg-base-200 mb-4 flex items-center justify-center rounded-md p-4">
+		<Loading />
 	</div>
 {:else if capacityInfo && !capacityInfo.error}
-	<div class="bg-surface2 dark:bg-surface1 p-4 shadow-sm">
+	<div class="bg-base-300 dark:bg-base-200 p-4 shadow-sm">
 		<div class="mb-3 flex items-center gap-1">
 			<h3 class="text-sm font-semibold">MCP Requested Resources</h3>
 			{#if capacityInfo.source === 'resourceQuota'}
 				<span
-					class="text-on-surface1"
+					class="text-muted-content"
 					use:tooltip={{
 						text: 'Maximums based on resource quotas',
 						disablePortal: true
@@ -66,13 +67,13 @@
 		<div class="grid grid-cols-3 gap-4">
 			<!-- Active Deployments -->
 			<div class="flex flex-col">
-				<span class="text-on-surface1 text-xs">Active Deployments</span>
+				<span class="text-muted-content text-xs">Active Deployments</span>
 				<span class="text-lg font-semibold">{capacityInfo.activeDeployments}</span>
 			</div>
 
 			<!-- CPU -->
 			<div class="flex flex-col">
-				<span class="text-on-surface1 text-xs">CPU Requested</span>
+				<span class="text-muted-content text-xs">CPU Requested</span>
 				<span class="text-lg font-semibold">
 					{#if capacityInfo.cpuLimit}
 						{formatValue(capacityInfo.cpuRequested)} / {formatValue(capacityInfo.cpuLimit)}
@@ -84,7 +85,7 @@
 
 			<!-- Memory -->
 			<div class="flex flex-col">
-				<span class="text-on-surface1 text-xs">Memory Requested</span>
+				<span class="text-muted-content text-xs">Memory Requested</span>
 				<span class="text-lg font-semibold">
 					{#if capacityInfo.memoryLimit}
 						{formatValue(capacityInfo.memoryRequested)} / {formatValue(capacityInfo.memoryLimit)}

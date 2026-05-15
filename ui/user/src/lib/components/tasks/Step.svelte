@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { transitionParentHeight } from '$lib/actions/size.svelte';
 	import { autoHeight } from '$lib/actions/textarea.js';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Message from '$lib/components/messages/Message.svelte';
 	import { getLayout } from '$lib/context/chatLayout.svelte';
@@ -14,9 +13,10 @@
 		type Task,
 		type TaskStep
 	} from '$lib/services';
+	import IconButton from '../primitives/IconButton.svelte';
 	import { DraggableHandle, DraggableItem } from '../primitives/draggable';
 	import LoopStep from './LoopStep.svelte';
-	import { LoaderCircle, OctagonX, Play, RefreshCcw } from 'lucide-svelte';
+	import { OctagonX, Play, RefreshCcw } from 'lucide-svelte';
 	import { Plus, Trash2, Repeat } from 'lucide-svelte/icons';
 	import { untrack } from 'svelte';
 	import { linear } from 'svelte/easing';
@@ -262,7 +262,7 @@
 	as="li"
 	class={twMerge(
 		'w-full gap-2 rounded-md',
-		toDelete && 'bg-surface1 dark:bg-surface2',
+		toDelete && 'bg-base-200 dark:bg-base-300',
 		isTaskRunning &&
 			((index > 0 && !isRunning) || (index === 0 && messages.length && !isRunning)) &&
 			'opacity-50'
@@ -281,7 +281,7 @@
 					use:autoHeight
 					id={'step' + step.id}
 					value={step.step}
-					class="ghost-input border-surface2 ml-1 grow resize-none"
+					class="ghost-input border-base-300 ml-1 grow resize-none"
 					readonly={readOnly}
 					oninput={(ev) => {
 						const value = (ev.target as HTMLInputElement).value;
@@ -297,42 +297,44 @@
 
 				{#if !readOnly}
 					<div class="flex items-start">
-						<button
-							class="icon-button"
-							class:text-primary={isLoopStep}
+						<IconButton
+							class={isLoopStep ? 'text-primary' : ''}
 							data-testid="step-loop-btn"
 							onclick={toggleLoop}
-							use:tooltip={isLoopStep
-								? 'Convert to regular step'
-								: 'Iterate through the results of this step'}
+							tooltip={{
+								text: isLoopStep
+									? 'Convert to regular step'
+									: 'Iterate through the results of this step'
+							}}
 						>
 							<Repeat class="size-4" />
-						</button>
+						</IconButton>
 
-						<button
-							class="icon-button"
+						<IconButton
 							data-testid="step-run-btn"
 							onclick={doRun}
-							use:tooltip={isRunning
-								? 'Abort'
-								: pending
-									? 'Running...'
-									: simpleStepMessages.length > 0
-										? 'Re-run Step'
-										: 'Run Step'}
+							tooltip={{
+								text: isRunning
+									? 'Abort'
+									: pending
+										? 'Running...'
+										: simpleStepMessages.length > 0
+											? 'Re-run Step'
+											: 'Run Step'
+							}}
 						>
 							{#if isRunning}
 								<OctagonX class="size-4" />
 							{:else if pending}
-								<LoaderCircle class="size-4 animate-spin" />
+								<Loading class="size-4" />
 							{:else if simpleStepMessages.length > 0}
 								<RefreshCcw class="size-4" />
 							{:else}
 								<Play class="size-4" />
 							{/if}
-						</button>
-						<button
-							class="icon-button"
+						</IconButton>
+						<IconButton
+							variant="danger"
 							data-testid="step-delete-btn"
 							onclick={() => {
 								if (step.step?.trim()) {
@@ -342,22 +344,22 @@
 									onDelete?.();
 								}
 							}}
-							use:tooltip={'Delete Step'}
+							tooltip={{ text: 'Delete Step' }}
 						>
 							<Trash2 class="size-4" />
-						</button>
+						</IconButton>
 						<div class="flex grow">
 							<div class="size-10">
 								{#if (step.step?.trim() || '').length > 0}
-									<button
-										class="icon-button"
-										data-testid="step-add-btn"
-										onclick={onAdd}
-										use:tooltip={'Add Step'}
-										transition:fade={{ duration: 200 }}
-									>
-										<Plus class="size-4" />
-									</button>
+									<div transition:fade={{ duration: 200 }}>
+										<IconButton
+											data-testid="step-add-btn"
+											onclick={onAdd}
+											tooltip={{ text: 'Add Step' }}
+										>
+											<Plus class="size-4" />
+										</IconButton>
+									</div>
 								{/if}
 							</div>
 						</div>
@@ -393,7 +395,7 @@
 							}
 							class={twMerge(
 								'rounded-md',
-								loopStepToDeleteIndex === i && 'bg-surface1 dark:bg-surface2'
+								loopStepToDeleteIndex === i && 'bg-base-200 dark:bg-base-300'
 							)}
 							{project}
 							messages={stepMessages}
@@ -427,7 +429,7 @@
 				{@const shouldShowOutline = isRunning || (isTaskRunning && !messages.length && index === 0)}
 
 				<div
-					class="transition-height bg-background relative my-3 -ml-4 box-content flex min-h-6 flex-col gap-4 overflow-hidden rounded-lg p-5"
+					class="transition-height bg-base-100 relative my-3 -ml-4 box-content flex min-h-6 flex-col gap-4 overflow-hidden rounded-lg p-5"
 					class:outline-2={shouldShowOutline}
 					class:outline-primary={shouldShowOutline}
 					transition:slide={{
@@ -483,7 +485,7 @@
 							{@const messages = iteration ?? []}
 
 							<div
-								class="iteration border-surface2 -ml-4 flex flex-col rounded-lg border pt-4"
+								class="iteration border-base-300 -ml-4 flex flex-col rounded-lg border pt-4"
 								in:fade|global={{ duration: 200 }}
 								out:fade={{ duration: 0 }}
 							>
@@ -500,7 +502,7 @@
 										{@const stepMessages = messages[j] ?? []}
 
 										<LoopStep
-											class="border-surface2 border-b pr-4 last:border-none"
+											class="border-base-300 border-b pr-4 last:border-none"
 											value={step.loop![j]}
 											{project}
 											messages={stepMessages}

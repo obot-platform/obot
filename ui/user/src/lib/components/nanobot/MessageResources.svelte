@@ -2,6 +2,7 @@
 	import { getFileIcon } from '$lib/components/nanobot/MessageAttachments.svelte';
 	import type { Resource, ChatMessage } from '$lib/services/nanobot/types';
 	import { Library } from 'lucide-svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		disabled?: boolean;
@@ -91,11 +92,10 @@
 				<li>
 					<button
 						type="button"
-						class="flex items-center space-x-2 {selectedResources.some(
-							(r) => r.uri === resource.uri
-						)
-							? 'active'
-							: ''}"
+						class={twMerge(
+							'flex items-center space-x-2',
+							selectedResources.some((r) => r.uri === resource.uri) ? 'active' : ''
+						)}
 						onclick={() => toggleResource(resource)}
 					>
 						<span class="text-base">{getFileIcon(resource.mimeType)}</span>

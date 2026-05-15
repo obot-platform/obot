@@ -19,7 +19,7 @@
 >
 	<textarea
 		id="project-instructions"
-		class="dark:border-surface3 bg-background grow resize-none rounded-lg p-2 text-sm shadow-sm dark:border"
+		class="dark:border-base-400 bg-base-100 grow resize-none rounded-lg p-2 text-sm shadow-sm dark:border"
 		rows="12"
 		use:autoHeight
 		bind:value={project.prompt}

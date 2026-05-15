@@ -89,18 +89,14 @@
 		onclick={() => copy()}
 		{disabled}
 		onmouseenter={() => (buttonTextToShow = buttonText)}
-		class={twMerge(
-			buttonText &&
-				'button-small border-primary text-primary hover:bg-primary disabled:text-primary flex items-center gap-1 rounded-full border bg-transparent px-4 py-2 hover:text-white disabled:bg-transparent disabled:opacity-50',
-			classes?.button
-		)}
+		class={twMerge(buttonText && 'btn btn-soft btn-primary', classes?.button)}
 		type="button"
 	>
 		{#if showTextLeft}
 			{buttonTextToShow}
-			<Copy class={twMerge('h-4 w-4', clazz)} />
+			<Copy class={twMerge('size-4', clazz)} />
 		{:else}
-			<Copy class={twMerge('h-4 w-4', clazz)} />
+			<Copy class={twMerge('size-4', clazz)} />
 			{buttonTextToShow}
 		{/if}
 	</button>

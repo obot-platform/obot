@@ -70,8 +70,8 @@
 <li class="flex min-h-9 flex-col">
 	<div
 		class={twMerge(
-			'hover:bg-surface3/90 active:bg-surface3/100 group mb-[2px] flex items-center rounded-md font-light transition-colors duration-200',
-			layout.editTaskID === task.id && 'bg-surface3/60',
+			'hover:bg-base-400/90 active:bg-base-400 group mb-[2px] flex items-center rounded-md font-light transition-colors duration-200',
+			layout.editTaskID === task.id && 'bg-base-400/60',
 			layout.displayTaskRun && layout.displayTaskRun.taskID === task.id && 'font-medium'
 		)}
 	>
@@ -111,11 +111,11 @@
 					<li class="track-mark relative w-full pb-[2px] pl-3">
 						<div
 							class={twMerge(
-								'hover:bg-surface3/90 active:bg-surface3/100 group flex items-center rounded-md transition-colors duration-200',
-								currentThreadID === taskRun.id && !isSomethingSelected(layout) && 'bg-surface2',
+								'hover:bg-base-400/90 active:bg-base-400 group flex items-center rounded-md transition-colors duration-200',
+								currentThreadID === taskRun.id && !isSomethingSelected(layout) && 'bg-base-300',
 								layout.displayTaskRun &&
 									layout.displayTaskRun.id === taskRun.taskRunID &&
-									'bg-surface3/60'
+									'bg-base-300/60'
 							)}
 						>
 							<button
@@ -154,7 +154,7 @@
 					</li>
 				{/each}
 				{#if taskRuns?.length && taskRuns?.length > displayCount}
-					<li class="hover:bg-surface3 flex w-full justify-center rounded-md p-2">
+					<li class="hover:bg-base-400 flex w-full justify-center rounded-md p-2">
 						<button class="w-full text-xs" onclick={loadMore}> Show More </button>
 					</li>
 				{/if}
@@ -178,7 +178,7 @@
 		left: 0;
 		width: 12px;
 		height: 1px;
-		background-color: var(--surface3);
+		background-color: var(--color-base-400);
 	}
 	.track-mark::before {
 		content: '';
@@ -187,7 +187,7 @@
 		left: 0;
 		height: 100%;
 		width: 1px;
-		background-color: var(--surface3);
+		background-color: var(--color-base-400);
 	}
 	.track-mark:last-child::before {
 		content: '';
@@ -196,6 +196,6 @@
 		left: 0;
 		height: 50%;
 		width: 1px;
-		background-color: var(--surface3);
+		background-color: var(--color-base-400);
 	}
 </style>

@@ -22,14 +22,14 @@ export function formatJsonWithHighlighting(json: unknown): string {
 		);
 
 		// Replace null
-		highlighted = highlighted.replace(/: (null)/g, ': <span class="text-on-surface1">$1</span>');
+		highlighted = highlighted.replace(/: (null)/g, ': <span class="text-muted-content">$1</span>');
 
 		// Replace brackets and braces
 		highlighted = highlighted.replace(/(".*?")|([{}[\]])/g, (match, stringContent, bracket) => {
 			if (stringContent) {
 				return stringContent;
 			}
-			return `<span class="text-on-background">${bracket}</span>`;
+			return `<span class="text-base-content">${bracket}</span>`;
 		});
 
 		return highlighted;
@@ -196,13 +196,13 @@ export function formatTextWithDiffHighlighting(
 		const escaped = escapeHtml(op.line);
 		let lineClass = 'text-base-content';
 		if (op.type === 'removed') {
-			lineClass = 'bg-red-500/20 text-red-700 dark:text-red-400';
+			lineClass = 'bg-error/20 text-error';
 		} else if (op.type === 'added') {
-			lineClass = 'bg-green-500/20 text-green-700 dark:text-green-400';
+			lineClass = 'bg-success/20 text-success';
 		} else if (op.type === 'modified') {
-			lineClass = 'bg-yellow-500/20 text-yellow-800 dark:text-yellow-300';
+			lineClass = 'bg-warning/20 text-warning';
 		}
-		html += `<div class="font-mono text-sm whitespace-pre-wrap break-words ${lineClass} px-2 py-0.5 border-l-2 border-transparent">${escaped}</div>`;
+		html += `<div class="font-mono text-sm whitespace-pre-wrap wrap-break-word ${lineClass} px-2 py-0.5 border-l-2 border-transparent">${escaped}</div>`;
 	}
 	return html;
 }
@@ -256,10 +256,10 @@ export function formatDiffLine(line: string, type: 'added' | 'removed' | 'unchan
 	const baseClass = 'font-mono text-sm';
 	const typeClass =
 		type === 'added'
-			? 'bg-green-500/10 dark:bg-green-900/30 text-green-500'
+			? 'bg-success/10 text-success'
 			: type === 'removed'
-				? 'bg-red-500/10 text-red-500'
-				: 'text-gray-700 dark:text-gray-300';
+				? 'bg-error/10 text-error'
+				: 'text-muted-content';
 
 	return `<div class="${baseClass} ${typeClass} px-2 py-0.5">${prefix}${line}</div>`;
 }
@@ -297,12 +297,12 @@ export function formatJsonWithDiffHighlighting(
 			const line = op.line;
 
 			// Determine line styling based on operation type
-			let lineClass = 'text-gray-700 dark:text-gray-300';
+			let lineClass = 'text-muted-content';
 
 			if (op.type === 'removed') {
-				lineClass = 'bg-red-500/10 text-red-500';
+				lineClass = 'bg-error/10 text-error';
 			} else if (op.type === 'added') {
-				lineClass = 'bg-green-500/10 text-green-500';
+				lineClass = 'bg-success/10 text-success';
 			}
 
 			// Apply JSON syntax highlighting
@@ -329,13 +329,13 @@ export function formatJsonWithDiffHighlighting(
 			// Replace string values
 			highlightedLine = highlightedLine.replace(
 				/: "([^"]+)"/g,
-				': <span class="text-gray-600 dark:text-gray-300 whitespace-normal break-words">"$1"</span>'
+				': <span class="text-gray-600 dark:text-gray-300 whitespace-normal wrap-break-word">"$1"</span>'
 			);
 
 			// Replace null
 			highlightedLine = highlightedLine.replace(
 				/: (null)/g,
-				': <span class="text-on-surface1">$1</span>'
+				': <span class="text-muted-content">$1</span>'
 			);
 
 			// Replace brackets and braces
@@ -345,7 +345,7 @@ export function formatJsonWithDiffHighlighting(
 					if (stringContent) {
 						return stringContent;
 					}
-					return `<span class="text-on-background">${bracket}</span>`;
+					return `<span class="text-base-content">${bracket}</span>`;
 				}
 			);
 

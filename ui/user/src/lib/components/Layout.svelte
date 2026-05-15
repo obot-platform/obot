@@ -2,7 +2,6 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { columnResize } from '$lib/actions/resize';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Navbar from '$lib/components/Navbar.svelte';
 	import { ADMIN_AGENT_DISABLED_MESSAGE, USER_AGENT_DISABLED_MESSAGE } from '$lib/constants';
 	import {
@@ -21,6 +20,7 @@
 	import SetupSplashDialog from './admin/SetupSplashDialog.svelte';
 	import BetaLogo from './navbar/BetaLogo.svelte';
 	import Profile from './navbar/Profile.svelte';
+	import IconButton from './primitives/IconButton.svelte';
 	import { Render } from './ui/render';
 	import {
 		AlarmClock,
@@ -42,8 +42,6 @@
 		RadioTower,
 		Server,
 		Settings,
-		SidebarClose,
-		SidebarOpen,
 		SquareLibrary,
 		UserCog,
 		Users,
@@ -61,7 +59,9 @@
 		Notebook,
 		Laptop,
 		ScanLine,
-		MonitorCheck
+		MonitorCheck,
+		PanelRightClose,
+		PanelLeftOpen
 	} from 'lucide-svelte';
 	import { type Component, type Snippet, untrack } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
@@ -611,7 +611,7 @@
 		{:else if layout.sidebarOpen && !hideSidebar}
 			<div
 				class={twMerge(
-					'bg-background flex max-h-dvh w-full min-w-dvw shrink-0 flex-col md:w-1/6 md:max-w-xl md:min-w-[310px]',
+					'bg-base-100 dark:bg-base-200 flex max-h-dvh w-full min-w-dvw shrink-0 flex-col md:w-1/6 md:max-w-xl md:min-w-[310px]',
 					classes?.sidebarRoot
 				)}
 				transition:slide={{ axis: 'x' }}
@@ -641,7 +641,7 @@
 											href={resolve(link.href as `/${string}`)}
 											class={twMerge(
 												'sidebar-link',
-												link.href && link.href === pathname && 'bg-surface2'
+												link.href && link.href === pathname && 'bg-base-300'
 											)}
 										>
 											<link.icon class="size-5" />
@@ -663,9 +663,9 @@
 								{#if link.collapsible}
 									<button class="px-2" onclick={() => (collapsed[link.id] = !collapsed[link.id])}>
 										{#if collapsed[link.id]}
-											<ChevronUp class="size-5" />
-										{:else}
 											<ChevronDown class="size-5" />
+										{:else}
+											<ChevronUp class="size-5" />
 										{/if}
 									</button>
 								{/if}
@@ -681,7 +681,7 @@
 												<div class="relative flex items-center gap-2" id={item.id}>
 													<div
 														class={twMerge(
-															'bg-surface3 absolute top-1/2 left-0 h-full w-0.5 -translate-x-3 -translate-y-1/2',
+															'bg-base-400 absolute top-1/2 left-0 h-full w-0.5 -translate-x-3 -translate-y-1/2',
 															item.href === pathname && 'bg-primary'
 														)}
 													></div>
@@ -697,7 +697,7 @@
 															href={resolve(item.href as `/${string}`)}
 															class={twMerge(
 																'sidebar-link',
-																item.href === pathname && 'bg-surface2'
+																item.href === pathname && 'bg-base-300'
 															)}
 														>
 															<item.icon class="size-4" />
@@ -725,19 +725,18 @@
 				</div>
 
 				<div class="flex justify-end px-3 py-2">
-					<button
-						use:tooltip={'Close Sidebar'}
-						class="icon-button"
+					<IconButton
+						tooltip={{ text: 'Close Sidebar' }}
 						onclick={() => (layout.sidebarOpen = false)}
 					>
-						<SidebarClose class="size-6" />
-					</button>
+						<PanelRightClose class="size-6" />
+					</IconButton>
 				</div>
 			</div>
 			{#if !responsive.isMobile && !disableResize}
 				<div
 					role="none"
-					class="h-inherit border-r-surface2 dark:border-r-surface2 relative -ml-3 w-3 cursor-col-resize border-r"
+					class="h-inherit border-r-base-300 dark:border-r-base-300 relative -ml-3 w-3 cursor-col-resize border-r"
 					use:columnResize={{ column: nav }}
 				></div>
 			{/if}
@@ -746,7 +745,7 @@
 		<Render
 			class={twMerge(
 				'default-scrollbar-thin relative flex h-svh w-full min-w-0 grow flex-col overflow-y-auto',
-				whiteBackground ? 'bg-background' : 'bg-surface1 dark:bg-background'
+				whiteBackground ? 'bg-base-100' : 'bg-base-200 dark:bg-base-100'
 			)}
 			component={main?.component}
 			as="main"
@@ -756,7 +755,7 @@
 				{@render banner()}
 			{/if}
 			<Navbar
-				class={twMerge('dark:bg-background sticky top-0 left-0 z-50 w-full', classes?.navbar)}
+				class={twMerge('dark:bg-base-100 sticky top-0 left-0 z-50 w-full', classes?.navbar)}
 				{hideProfileButton}
 			>
 				{#snippet leftContent()}
@@ -787,7 +786,7 @@
 					{#if overrideRightMenu}
 						{@render overrideRightMenu()}
 					{:else if !hideProfileButton}
-						<div class="flex h-16 flex-shrink-0 items-center">
+						<div class="flex h-16 shrink-0 items-center">
 							<Profile />
 						</div>
 					{/if}
@@ -817,7 +816,7 @@
 							)}
 						>
 							{@render layoutHeaderContent()}
-							<div class="flex flex-shrink-0 items-center gap-2">
+							<div class="flex shrink-0 items-center gap-2">
 								{#if rightNavActions}
 									{@render rightNavActions()}
 								{/if}
@@ -840,13 +839,9 @@
 
 	{#if !layout.sidebarOpen && !hideSidebar && !leftSidebar}
 		<div class="absolute bottom-2 left-2 z-30" in:fade={{ delay: 300 }}>
-			<button
-				class="icon-button"
-				onclick={() => (layout.sidebarOpen = true)}
-				use:tooltip={'Open Sidebar'}
-			>
-				<SidebarOpen class="size-6" />
-			</button>
+			<IconButton onclick={() => (layout.sidebarOpen = true)} tooltip={{ text: 'Open Sidebar' }}>
+				<PanelLeftOpen class="size-6" />
+			</IconButton>
 		</div>
 	{/if}
 </div>
@@ -861,8 +856,8 @@
 
 {#snippet layoutHeaderContent()}
 	{#if showBackButton}
-		<button
-			class="icon-button flex-shrink-0"
+		<IconButton
+			class="btn btn-square btn-ghost shrink-0"
 			onclick={() => {
 				if (onBackButtonClick) {
 					onBackButtonClick();
@@ -872,7 +867,7 @@
 			}}
 		>
 			<ChevronLeft class="size-6" />
-		</button>
+		</IconButton>
 	{/if}
 	{#if title}
 		<h1
@@ -917,7 +912,7 @@
 		padding: 0.5rem;
 		transition: background-color 200ms;
 		&:hover {
-			background-color: var(--surface3);
+			background-color: var(--color-base-400);
 		}
 
 		&.disabled {

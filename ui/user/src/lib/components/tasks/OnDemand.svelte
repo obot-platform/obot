@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { autoHeight } from '$lib/actions/textarea';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import type { OnDemand } from '$lib/services';
+	import IconButton from '../primitives/IconButton.svelte';
 	import { Plus, Trash2 } from 'lucide-svelte';
 
 	interface Props {
@@ -32,7 +32,7 @@
 	</p>
 	<p class="text-gray text-sm">
 		You can reference these arguments in your steps using
-		<span class="text-on-background font-mono">$name</span> syntax, like “Crawl $website and find pages
+		<span class="text-base-content font-mono">$name</span> syntax, like “Crawl $website and find pages
 		it links to.”
 	</p>
 
@@ -51,7 +51,7 @@
 							<input
 								value={key}
 								placeholder="Enter Name"
-								class="text-input w-full"
+								class="input-text w-full"
 								oninput={(e) => {
 									if (e.target instanceof HTMLInputElement && onDemand?.params) {
 										const oldKey = order[i];
@@ -68,7 +68,7 @@
 							<textarea
 								use:autoHeight
 								bind:value={onDemand!.params![order[i]]}
-								class="text-input w-full resize-none py-2.5 align-bottom"
+								class="input-text w-full resize-none py-2.5 align-bottom"
 								disabled={readOnly}
 								placeholder="Add a good description"
 								rows="1"
@@ -76,8 +76,8 @@
 						</td>
 						{#if !readOnly}
 							<td class="flex justify-end">
-								<button
-									class="icon-button"
+								<IconButton
+									variant="danger"
 									onclick={() => {
 										const key = order[i];
 
@@ -87,10 +87,10 @@
 
 										order = order.filter((k) => k !== key);
 									}}
-									use:tooltip={'Remove Argument'}
+									tooltip={{ text: 'Remove Argument' }}
 								>
 									<Trash2 class="size-5" />
-								</button>
+								</IconButton>
 							</td>
 						{/if}
 					</tr>
@@ -102,7 +102,7 @@
 	{#if !readOnly}
 		<div class="self-end">
 			<button
-				class="button-small"
+				class="btn btn-sm btn-secondary"
 				onclick={() => {
 					if (!onDemand?.params) {
 						onDemand = {

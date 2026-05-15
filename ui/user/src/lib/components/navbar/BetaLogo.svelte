@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { darkMode } from '$lib/stores';
 	import appPreferences from '$lib/stores/appPreferences.svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -23,20 +22,20 @@
 		}
 	});
 
-	const logoSrc = $derived.by(() => {
-		const theme = darkMode.isDark ? 'dark' : 'light';
-		if (chat) {
-			return logos[theme].chat;
-		} else if (enterprise) {
-			return logos[theme].enterprise;
-		}
-		return logos[theme].default;
-	});
+	const logoPair = $derived(
+		chat
+			? { light: logos.light.chat, dark: logos.dark.chat }
+			: enterprise
+				? { light: logos.light.enterprise, dark: logos.dark.enterprise }
+				: { light: logos.light.default, dark: logos.dark.default }
+	);
 
 	const heightClass = $derived(chat ? 'h-[43px]' : 'h-12');
 	const paddingClass = $derived(chat ? 'pl-[1px]' : '');
+	const imgClass = $derived(twMerge(heightClass, paddingClass));
 </script>
 
-<div class={twMerge('flex flex-shrink-0', klass)}>
-	<img src={logoSrc} class={twMerge(heightClass, paddingClass)} alt="Obot logo" />
+<div class={twMerge('flex shrink-0', klass)}>
+	<img src={logoPair.light} class={twMerge(imgClass, 'dark:hidden')} alt="Obot logo" />
+	<img src={logoPair.dark} class={twMerge(imgClass, 'hidden dark:block')} alt="Obot logo" />
 </div>

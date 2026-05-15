@@ -2,6 +2,7 @@
 	import type { LaunchServerType, MCPCatalogEntryFieldManifest } from '$lib/services';
 	import { hasSecretBinding } from '$lib/services/chat/mcp';
 	import Select from '../Select.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import { Plus, Trash2 } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
 
@@ -39,7 +40,7 @@
 <!-- Environment Variables / Files Section -->
 {#if !readonly || (readonly && userConfig.length > 0)}
 	<div
-		class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
+		class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
 	>
 		<h4 class="text-sm font-semibold">
 			{type === 'single' ? 'User Supplied Configuration' : 'Configuration'}
@@ -50,13 +51,13 @@
 				{@render overrideEnvTemplate({ config: config![i], index: i })}
 			{:else}
 				<div
-					class="dark:border-surface3 bg-surface2 flex w-full items-center gap-4 rounded-lg border border-transparent p-4"
+					class="dark:border-base-400 bg-base-300 flex w-full items-center gap-4 rounded-lg border border-transparent p-4"
 				>
 					<div class="flex w-full flex-col gap-4">
 						<div class="flex w-full flex-col gap-1">
 							<label for={`env-type-${i}`} class="text-sm font-light">Type</label>
 							<Select
-								class="dark:border-surface3 bg-background border border-transparent"
+								class="dark:border-base-400 bg-base-100 border border-transparent"
 								classes={{
 									root: 'flex grow'
 								}}
@@ -77,7 +78,7 @@
 							/>
 						</div>
 
-						<p class="text-on-surface1 text-xs font-light">
+						<p class="text-muted-content text-xs font-light">
 							{#if config![i].file}
 								The value {type === 'single' ? 'the user supplies' : 'you provide'} will be written to
 								a file. An environment variable will be created using the name you specify in the Key
@@ -93,7 +94,7 @@
 						</p>
 
 						{#if type === 'single'}
-							<p class="text-on-surface1 text-xs font-light">
+							<p class="text-muted-content text-xs font-light">
 								The Name and Description fields will be displayed to the user when configuring this
 								server. The Key field will not.
 							</p>
@@ -101,7 +102,7 @@
 								<label for={`env-name-${i}`} class="text-sm font-light">Name</label>
 								<input
 									id={`env-name-${i}`}
-									class="text-input-filled bg-background w-full shadow-none"
+									class="text-input-filled bg-base-100 w-full shadow-none"
 									bind:value={config![i].name}
 									disabled={readonly || isPrebuiltEntry}
 								/>
@@ -110,7 +111,7 @@
 								<label for={`env-description-${i}`} class="text-sm font-light">Description</label>
 								<input
 									id={`env-description-${i}`}
-									class="text-input-filled bg-background w-full shadow-none"
+									class="text-input-filled bg-base-100 w-full shadow-none"
 									bind:value={config![i].description}
 									disabled={readonly || isPrebuiltEntry}
 								/>
@@ -119,7 +120,7 @@
 								<label for={`env-key-${i}`} class="text-sm font-light">Key</label>
 								<input
 									id={`env-key-${i}`}
-									class="text-input-filled bg-background w-full shadow-none"
+									class="text-input-filled bg-base-100 w-full shadow-none"
 									bind:value={config![i].key}
 									placeholder="e.g. CUSTOM_API_KEY"
 									disabled={readonly || isPrebuiltEntry}
@@ -148,13 +149,13 @@
 								<label for={`env-key-${i}`} class="text-sm font-light">Key</label>
 								<input
 									id={`env-key-${i}`}
-									class="text-input-filled bg-background w-full shadow-none"
+									class="text-input-filled bg-base-100 w-full shadow-none"
 									bind:value={config![i].key}
 									placeholder="e.g. CUSTOM_API_KEY"
 									disabled={readonly || isPrebuiltEntry}
 								/>
 								{#if isPrebuiltEntry && config![i].description}
-									<p class="text-on-surface1 text-xs font-light break-all">
+									<p class="text-muted-content text-xs font-light break-all">
 										{config![i].description}
 									</p>
 								{/if}
@@ -164,7 +165,7 @@
 								{#if config![i].file}
 									<textarea
 										id={`env-value-${i}`}
-										class="text-input-filled bg-background min-h-24 w-full resize-y shadow-none"
+										class="text-input-filled bg-base-100 min-h-24 w-full resize-y shadow-none"
 										bind:value={config![i].value}
 										disabled={readonly}
 										rows={(config![i].value ?? '').split('\n').length + 1}
@@ -172,7 +173,7 @@
 								{:else}
 									<input
 										id={`env-value-${i}`}
-										class="text-input-filled bg-background w-full shadow-none"
+										class="text-input-filled bg-base-100 w-full shadow-none"
 										bind:value={config![i].value}
 										placeholder="e.g. 123abcdef456"
 										disabled={readonly}
@@ -193,15 +194,16 @@
 						{/if}
 					</div>
 					{#if !readonly && !isPrebuiltEntry}
-						<button
-							class="icon-button hover:text-red-500"
+						<IconButton
+							variant="danger2"
+							class="hover:text-error"
 							onclick={() => {
 								config!.splice(i, 1);
 							}}
 							disabled={isPrebuiltEntry}
 						>
 							<Trash2 class="size-4" />
-						</button>
+						</IconButton>
 					{/if}
 				</div>
 			{/if}
@@ -210,7 +212,7 @@
 		{#if !readonly && !isPrebuiltEntry}
 			<div class="flex justify-end">
 				<button
-					class="button flex items-center gap-1 text-xs"
+					class="btn btn-secondary btn-sm flex items-center gap-1 text-xs"
 					onclick={() => {
 						if (config) {
 							config.push({
@@ -236,42 +238,45 @@
 <!-- Secret-bound Configuration Section -->
 {#if allSecretBound.length > 0}
 	<div
-		class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
+		class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
 	>
 		<h4 class="text-sm font-semibold">Secret-bound Configuration</h4>
 
-		{#each allSecretBound as { item, source } (`${source}:${item.key}`)}
+		{#each allSecretBound as { item, source }, sbIdx (`${source}:${item.key}`)}
 			<div
-				class="dark:border-surface3 bg-surface2 flex w-full items-center gap-4 rounded-lg border border-transparent p-4"
+				class="dark:border-base-400 bg-base-300 flex w-full items-center gap-4 rounded-lg border border-transparent p-4"
 			>
 				<div class="flex w-full flex-col gap-4">
 					<div class="flex w-full flex-col gap-1">
-						<label class="text-sm font-light">Type</label>
-						<span class="text-sm"
+						<div id={`sb-${sbIdx}-type`} class="text-sm font-light">Type</div>
+						<span class="text-sm" aria-labelledby={`sb-${sbIdx}-type`}
 							>{source === 'header' ? 'Header' : item.file ? 'File' : 'Environment Variable'}</span
 						>
 					</div>
 
 					<div class="flex w-full flex-col gap-1">
-						<label class="text-sm font-light">Name</label>
-						<span class="text-sm">{item.name || item.key}</span>
+						<div id={`sb-${sbIdx}-name`} class="text-sm font-light">Name</div>
+						<span class="text-sm" aria-labelledby={`sb-${sbIdx}-name`}>{item.name || item.key}</span
+						>
 					</div>
 
 					{#if item.description}
 						<div class="flex w-full flex-col gap-1">
-							<label class="text-sm font-light">Description</label>
-							<span class="text-sm">{item.description}</span>
+							<div id={`sb-${sbIdx}-description`} class="text-sm font-light">Description</div>
+							<span class="text-sm" aria-labelledby={`sb-${sbIdx}-description`}
+								>{item.description}</span
+							>
 						</div>
 					{/if}
 
 					<div class="flex w-full flex-col gap-1">
-						<label class="text-sm font-light">Key</label>
-						<span class="text-sm font-mono">{item.key}</span>
+						<div id={`sb-${sbIdx}-key`} class="text-sm font-light">Key</div>
+						<span class="text-sm font-mono" aria-labelledby={`sb-${sbIdx}-key`}>{item.key}</span>
 					</div>
 
 					<div class="flex w-full flex-col gap-1">
-						<label class="text-sm font-light">Secret</label>
-						<span class="text-sm">
+						<div id={`sb-${sbIdx}-secret`} class="text-sm font-light">Secret</div>
+						<span class="text-sm" aria-labelledby={`sb-${sbIdx}-secret`}>
 							<code class="font-mono">{item.secretBinding?.name}</code> /
 							<code class="font-mono">{item.secretBinding?.key}</code>
 						</span>

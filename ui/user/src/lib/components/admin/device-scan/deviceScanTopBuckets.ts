@@ -15,7 +15,7 @@ export const DEVICE_SCAN_PALETTE = [
 	'#7f3b08'
 ];
 
-export const DEVICE_SCAN_OTHER_COLOR = 'var(--surface3, #6b7280)';
+export const DEVICE_SCAN_OTHER_COLOR = 'var(--color-base-400, #6b7280)';
 
 export type DeviceScanDrilldown = 'mcp' | 'skill' | undefined;
 

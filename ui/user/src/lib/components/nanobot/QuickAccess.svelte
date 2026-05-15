@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import FileItem from '$lib/components/nanobot/FileItem.svelte';
+	import Loading from '$lib/icons/Loading.svelte';
 	import type { ChatMessageItemToolCall, ProjectLayoutContext } from '$lib/services/nanobot/types';
 	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
 	import { responsive } from '$lib/stores';
@@ -8,14 +9,13 @@
 	import Profile from '../navbar/Profile.svelte';
 	import {
 		Circle,
-		CheckCircle2,
-		Loader2,
 		ChevronUp,
 		ChevronDown,
 		Monitor,
-		SidebarOpen,
-		SidebarClose,
-		ListCheck
+		ListCheck,
+		CircleCheck,
+		PanelLeftClose,
+		PanelLeftOpen
 	} from 'lucide-svelte';
 	import { getContext } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -222,7 +222,7 @@
 
 <div
 	class={twMerge(
-		'bg-base-100 border-base-300 h-[100dvh] w-18 min-w-18 overflow-y-auto border-l',
+		'bg-base-100 border-base-300 h-dvh w-18 min-w-18 overflow-y-auto border-l',
 		responsive.isMobile
 			? open
 				? 'fixed top-0 left-0 h-[calc(100dvh-3.5rem)] w-full max-w-full'
@@ -238,7 +238,7 @@
 			open ? 'p-4 pt-1' : 'pt-1 pb-4'
 		)}
 	>
-		<div class={twMerge(open ? 'self-end' : 'w-14 self-center')}>
+		<div class={twMerge(open ? 'self-end' : 'w-14 self-center flex items-center justify-center')}>
 			<Profile {agentId} {projectId} {impersonating} />
 		</div>
 
@@ -304,11 +304,11 @@
 										{#each todoItems as item, i (i)}
 											<li class="flex items-start gap-2 text-sm font-light">
 												{#if item.status === 'completed' || item.status === 'cancelled'}
-													<CheckCircle2 class="text-success mt-0.5 size-4 shrink-0" />
+													<CircleCheck class="text-success mt-0.5 size-4 shrink-0" />
 												{:else if item.status === 'in_progress'}
-													<Loader2 class="text-primary mt-0.5 size-4 shrink-0 animate-spin" />
+													<Loading class="mt-0.5 size-4 shrink-0" />
 												{:else}
-													<Circle class="text-base-content/40 mt-0.5 size-4 shrink-0" />
+													<Circle class="text-muted-content mt-0.5 size-4 shrink-0" />
 												{/if}
 												<span
 													class:line-through={item.status === 'completed' ||
@@ -321,7 +321,7 @@
 										{/each}
 									{:else}
 										<li
-											class="text-base-content/50 flex min-w-0 items-start gap-2 text-xs font-light italic"
+											class="text-muted-content flex min-w-0 items-start gap-2 text-xs font-light italic"
 										>
 											<span class="min-w-0 truncate"
 												>Running to-dos for longer tasks will display here. You do not currently
@@ -344,7 +344,7 @@
 					onclick={() => onToggle()}
 					aria-label="Expand to show to-do list"
 				>
-					<ListCheck class="text-base-content/50 size-5" />
+					<ListCheck class="text-muted-content size-5" />
 				</button>
 
 				{@render listThreadFiles(true)}
@@ -353,7 +353,7 @@
 			{#if onToggle && !responsive.isMobile}
 				<div
 					class={twMerge(
-						'sticky right-0 bottom-2 flex flex-shrink-0',
+						'sticky right-0 bottom-2 flex shrink-0',
 						open ? 'justify-start' : 'justify-center'
 					)}
 				>
@@ -367,9 +367,9 @@
 						onclick={() => onToggle()}
 					>
 						{#if open}
-							<SidebarOpen class="text-base-content/50 size-6" />
+							<PanelLeftOpen class="text-muted-content size-6" />
 						{:else}
-							<SidebarClose class="text-base-content/50 size-6" />
+							<PanelLeftClose class="text-muted-content size-6" />
 						{/if}
 					</button>
 				</div>
