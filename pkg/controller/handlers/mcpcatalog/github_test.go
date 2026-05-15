@@ -30,11 +30,12 @@ func TestIsGitRepoURL(t *testing.T) {
 
 func TestParseGitURL(t *testing.T) {
 	tests := []struct {
-		name       string
-		url        string
-		wantClone  string
-		wantBranch string
-		wantErr    bool
+		name         string
+		url          string
+		wantClone    string
+		wantBranch   string
+		wantExplicit bool
+		wantErr      bool
 	}{
 		{
 			name:       "github without .git",
@@ -53,6 +54,34 @@ func TestParseGitURL(t *testing.T) {
 			url:        "https://github.com/org/repo/my-branch",
 			wantClone:  "https://github.com/org/repo.git",
 			wantBranch: "my-branch",
+		},
+		{
+			name:         "github with explicit ref",
+			url:          "https://github.com/org/repo@other",
+			wantClone:    "https://github.com/org/repo.git",
+			wantBranch:   "other",
+			wantExplicit: true,
+		},
+		{
+			name:         "github without scheme with explicit ref",
+			url:          "github.com/org/repo@other",
+			wantClone:    "https://github.com/org/repo.git",
+			wantBranch:   "other",
+			wantExplicit: true,
+		},
+		{
+			name:         "github .git with explicit ref",
+			url:          "https://github.com/org/repo.git@tag",
+			wantClone:    "https://github.com/org/repo.git",
+			wantBranch:   "tag",
+			wantExplicit: true,
+		},
+		{
+			name:         "explicit ref overrides path branch",
+			url:          "https://github.com/org/repo/my-branch@other",
+			wantClone:    "https://github.com/org/repo.git",
+			wantBranch:   "other",
+			wantExplicit: true,
 		},
 		{
 			name:       "gitlab with .git",
@@ -98,7 +127,7 @@ func TestParseGitURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cloneURL, branch, err := parseGitURL(tt.url)
+			cloneURL, branch, explicitRef, err := parseGitURL(tt.url)
 			if tt.wantErr {
 				assert.Error(t, err)
 				return
@@ -106,6 +135,7 @@ func TestParseGitURL(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, tt.wantClone, cloneURL)
 			assert.Equal(t, tt.wantBranch, branch)
+			assert.Equal(t, tt.wantExplicit, explicitRef)
 		})
 	}
 }

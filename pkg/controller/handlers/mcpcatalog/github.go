@@ -165,36 +165,49 @@ func isContextError(err error) bool {
 	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 }
 
-func cloneGitCatalog(ctx context.Context, parentDir, cloneURL, branch string, maxRepoSizeMB int, attempt gitCloneAuthAttempt) (string, error) {
-	tempDir, err := os.MkdirTemp(parentDir, "clone-*")
-	if err != nil {
-		return "", fmt.Errorf("failed to create temporary directory: %w", err)
+func cloneGitCatalog(ctx context.Context, parentDir, cloneURL, ref string, explicitRef bool, maxRepoSizeMB int, attempt gitCloneAuthAttempt) (string, error) {
+	refNames := []plumbing.ReferenceName{
+		plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", ref)),
+	}
+	if explicitRef {
+		refNames = append(refNames, plumbing.ReferenceName(fmt.Sprintf("refs/tags/%s", ref)))
 	}
 
-	cloneOptions := &git.CloneOptions{
-		URL:           cloneURL,
-		Depth:         1,
-		ReferenceName: plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", branch)),
-	}
-
-	if attempt.token != "" {
-		cloneOptions.Auth = &githttp.BasicAuth{
-			Username: "x-access-token", // Accepted as a dummy username by GitHub and GitLab.
-			Password: attempt.token,
+	var errs []error
+	for _, refName := range refNames {
+		tempDir, err := os.MkdirTemp(parentDir, "clone-*")
+		if err != nil {
+			return "", fmt.Errorf("failed to create temporary directory: %w", err)
 		}
+
+		cloneOptions := &git.CloneOptions{
+			URL:           cloneURL,
+			Depth:         1,
+			ReferenceName: refName,
+		}
+
+		if attempt.token != "" {
+			cloneOptions.Auth = &githttp.BasicAuth{
+				Username: "x-access-token", // Accepted as a dummy username by GitHub and GitLab.
+				Password: attempt.token,
+			}
+		}
+
+		limitedFS := &sizeLimitedFS{
+			Filesystem: osfs.New(tempDir),
+			maxBytes:   int64(maxRepoSizeMB) * 1024 * 1024,
+		}
+		storer := gitfs.NewStorage(chroot.New(limitedFS, ".git"), cache.NewObjectLRUDefault())
+
+		if _, err = git.CloneContext(ctx, storer, limitedFS, cloneOptions); err != nil {
+			errs = append(errs, fmt.Errorf("%s: %w", refName, err))
+			continue
+		}
+
+		return tempDir, nil
 	}
 
-	limitedFS := &sizeLimitedFS{
-		Filesystem: osfs.New(tempDir),
-		maxBytes:   int64(maxRepoSizeMB) * 1024 * 1024,
-	}
-	storer := gitfs.NewStorage(chroot.New(limitedFS, ".git"), cache.NewObjectLRUDefault())
-
-	if _, err = git.CloneContext(ctx, storer, limitedFS, cloneOptions); err != nil {
-		return "", err
-	}
-
-	return tempDir, nil
+	return "", errors.Join(errs...)
 }
 
 // validateBranchName validates that the branch name doesn't contain suspicious characters.
@@ -245,21 +258,35 @@ func isPathSafe(path, baseDir string) error {
 // It supports subgroups (e.g. gitlab.com/group/subgroup/repo.git) by using the
 // .git suffix as the repo boundary. For GitHub, URLs without a .git suffix are
 // also accepted for backward compatibility.
-// Returns (cloneURL, branch, error).
-func parseGitURL(catalogURL string) (string, string, error) {
-	u, err := url.Parse(catalogURL)
-	if err != nil {
-		return "", "", fmt.Errorf("invalid git URL: %w", err)
+// Returns (cloneURL, ref, explicitRef, error).
+func parseGitURL(catalogURL string) (string, string, bool, error) {
+	if !strings.Contains(catalogURL, "://") {
+		catalogURL = "https://" + catalogURL
 	}
 
-	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
+	u, err := url.Parse(catalogURL)
+	if err != nil {
+		return "", "", false, fmt.Errorf("invalid git URL: %w", err)
+	}
+
+	path := strings.Trim(u.Path, "/")
+	explicitRef := ""
+	if i := strings.LastIndex(path, "@"); i >= 0 {
+		explicitRef = path[i+1:]
+		if err := validateBranchName(explicitRef); err != nil {
+			return "", "", false, fmt.Errorf("invalid ref name: %w", err)
+		}
+		path = strings.TrimSuffix(path[:i], "/")
+	}
+
+	parts := strings.Split(path, "/")
 	if len(parts) < 2 {
-		return "", "", fmt.Errorf("invalid git URL format, expected <host>/org/repo")
+		return "", "", false, fmt.Errorf("invalid git URL format, expected <host>/org/repo")
 	}
 
 	var (
 		repoPath string
-		branch   string
+		ref      string
 	)
 
 	// Find the .git boundary to determine where the repo path ends and the branch begins.
@@ -271,9 +298,9 @@ func parseGitURL(catalogURL string) (string, string, error) {
 
 		repoPath = strings.Join(parts[:i+1], "/")
 		if i+1 < len(parts) {
-			branch = strings.Join(parts[i+1:], "/")
-			if err := validateBranchName(branch); err != nil {
-				return "", "", fmt.Errorf("invalid branch name: %w", err)
+			ref = strings.Join(parts[i+1:], "/")
+			if err := validateBranchName(ref); err != nil {
+				return "", "", false, fmt.Errorf("invalid branch name: %w", err)
 			}
 		}
 		break
@@ -287,21 +314,25 @@ func parseGitURL(catalogURL string) (string, string, error) {
 		case "github.com", "gitlab.com":
 			repoPath = strings.Join(parts[:2], "/") + ".git"
 			if len(parts) > 2 {
-				branch = strings.Join(parts[2:], "/")
-				if err := validateBranchName(branch); err != nil {
-					return "", "", fmt.Errorf("invalid branch name: %w", err)
+				ref = strings.Join(parts[2:], "/")
+				if err := validateBranchName(ref); err != nil {
+					return "", "", false, fmt.Errorf("invalid branch name: %w", err)
 				}
 			}
 		default:
-			return "", "", fmt.Errorf("invalid git URL format, URL path must end in .git (e.g. https://%s/org/repo.git)", u.Host)
+			return "", "", false, fmt.Errorf("invalid git URL format, URL path must end in .git (e.g. https://%s/org/repo.git)", u.Host)
 		}
 	}
 
-	if branch == "" {
-		branch = "main"
+	if explicitRef != "" {
+		ref = explicitRef
 	}
 
-	return fmt.Sprintf("https://%s/%s", u.Host, repoPath), branch, nil
+	if ref == "" {
+		ref = "main"
+	}
+
+	return fmt.Sprintf("https://%s/%s", u.Host, repoPath), ref, explicitRef != "", nil
 }
 
 func readGitCatalogEntries[T any](ctx context.Context, catalogURL string, token string) ([]T, error) {
@@ -318,7 +349,7 @@ func readGitCatalogEntries[T any](ctx context.Context, catalogURL string, token 
 		return nil, fmt.Errorf("invalid git URL: %w", err)
 	}
 
-	cloneURL, branch, err := parseGitURL(catalogURL)
+	cloneURL, ref, explicitRef, err := parseGitURL(catalogURL)
 	if err != nil {
 		return nil, err
 	}
@@ -363,7 +394,7 @@ func readGitCatalogEntries[T any](ctx context.Context, catalogURL string, token 
 	attempts := gitCloneAuthAttempts(token, fallbackToken)
 	attemptErrs := make([]error, len(attempts))
 	for i, attempt := range attempts {
-		cloneDir, err := cloneGitCatalog(ctx, tempDir, cloneURL, branch, maxRepoSizeMB, attempt)
+		cloneDir, err := cloneGitCatalog(ctx, tempDir, cloneURL, ref, explicitRef, maxRepoSizeMB, attempt)
 		if err == nil {
 			return readCatalogDirectory[T](cloneDir)
 		}
