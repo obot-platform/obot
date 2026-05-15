@@ -21,13 +21,17 @@ type Handler struct {
 	mcpDeploymentNamespace string
 	mcpNamespace           string
 	storageClient          kclient.Client
+	mcpRuntimeBackend      string
+	mcpImagePullSecrets    []string
 }
 
-func New(mcpNamespace string, storageClient kclient.Client) *Handler {
+func New(mcpNamespace string, storageClient kclient.Client, mcpRuntimeBackend string, mcpImagePullSecrets []string) *Handler {
 	return &Handler{
 		mcpDeploymentNamespace: mcpNamespace,
 		mcpNamespace:           system.DefaultNamespace,
 		storageClient:          storageClient,
+		mcpRuntimeBackend:      mcpRuntimeBackend,
+		mcpImagePullSecrets:    mcpImagePullSecrets,
 	}
 }
 
@@ -121,7 +125,15 @@ func (h *Handler) UpdateMCPServerStatus(req router.Request, _ router.Response) e
 			Namespace: h.mcpNamespace,
 			Name:      system.K8sSettingsName,
 		}, &k8sSettings); err == nil {
-			currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec)
+			imagePullSecretNames, err := mcp.CurrentImagePullSecretNames(req.Ctx, h.storageClient, h.mcpRuntimeBackend, h.mcpImagePullSecrets)
+			if err != nil {
+				return err
+			}
+			currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec, imagePullSecretNames)
+
+			shouldSetNeedsK8sUpdate := !mcpServer.Status.NeedsK8sUpdate &&
+				k8sSettingsHash != currentHash &&
+				mcpServer.Status.K8sSettingsHash != currentHash
 
 			// Update K8sSettingsHash from deployment only if:
 			// 1. The MCPServer has no hash yet (empty), OR
@@ -144,7 +156,7 @@ func (h *Handler) UpdateMCPServerStatus(req router.Request, _ router.Response) e
 			// 4. The MCPServer's expected hash also doesn't match current K8sSettings
 			//    (if MCPServer already expects the current hash, a redeploy is pending)
 			if !mcpServer.Status.NeedsK8sUpdate {
-				if k8sSettingsHash != currentHash && mcpServer.Status.K8sSettingsHash != currentHash {
+				if shouldSetNeedsK8sUpdate {
 					mcpServer.Status.NeedsK8sUpdate = true
 					needsUpdate = true
 				}

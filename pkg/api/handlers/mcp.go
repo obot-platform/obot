@@ -43,21 +43,29 @@ type MCPOAuthChecker interface {
 }
 
 type MCPHandler struct {
-	mcpSessionManager *mcp.SessionManager
-	mcpOAuthChecker   MCPOAuthChecker
-	acrHelper         *accesscontrolrule.Helper
-	mcpBackend        string
-	serverURL         string
+	mcpSessionManager   *mcp.SessionManager
+	mcpOAuthChecker     MCPOAuthChecker
+	acrHelper           *accesscontrolrule.Helper
+	mcpImagePullSecrets []string
+	serverURL           string
 }
 
-func NewMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.Helper, mcpOAuthChecker MCPOAuthChecker, mcpBackend, serverURL string) *MCPHandler {
+func NewMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.Helper, mcpOAuthChecker MCPOAuthChecker, mcpImagePullSecrets []string, serverURL string) *MCPHandler {
 	return &MCPHandler{
-		mcpSessionManager: mcpLoader,
-		mcpOAuthChecker:   mcpOAuthChecker,
-		acrHelper:         acrHelper,
-		mcpBackend:        mcpBackend,
-		serverURL:         serverURL,
+		mcpSessionManager:   mcpLoader,
+		mcpOAuthChecker:     mcpOAuthChecker,
+		acrHelper:           acrHelper,
+		mcpImagePullSecrets: mcpImagePullSecrets,
+		serverURL:           serverURL,
 	}
+}
+
+func (m *MCPHandler) currentK8sSettingsHash(req api.Context, settings v1.K8sSettingsSpec) (string, error) {
+	imagePullSecretNames, err := mcp.CurrentImagePullSecretNames(req.Context(), req.Storage, m.mcpSessionManager.MCPRuntimeBackend(), m.mcpImagePullSecrets)
+	if err != nil {
+		return "", err
+	}
+	return mcp.ComputeK8sSettingsHash(settings, imagePullSecretNames), nil
 }
 
 func (m *MCPHandler) GetEntryFromAllSources(req api.Context) error {
@@ -1738,7 +1746,7 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 	if err := validation.ValidateServerManifest(server.Spec.Manifest, !server.Spec.IsSingleUser()); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
-	if err := validation.ValidateSecretBindings(server.Spec.Manifest, gitManagedEntry, m.mcpBackend); err != nil {
+	if err := validation.ValidateSecretBindings(server.Spec.Manifest, gitManagedEntry, m.mcpSessionManager.MCPRuntimeBackend()); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 
@@ -1848,7 +1856,7 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 			gitManagedEntry = catalogEntry.IsGitManaged()
 		}
 	}
-	if err := validation.ValidateSecretBindings(updated, gitManagedEntry, m.mcpBackend); err != nil {
+	if err := validation.ValidateSecretBindings(updated, gitManagedEntry, m.mcpSessionManager.MCPRuntimeBackend()); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 	if err := validation.ValidateTemplateReferences(updated); err != nil {
@@ -3321,8 +3329,10 @@ func (m *MCPHandler) CheckK8sSettingsStatus(req api.Context) error {
 		return err
 	}
 
-	// Compute current K8s settings hash
-	currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec)
+	currentHash, err := m.currentK8sSettingsHash(req, k8sSettings.Spec)
+	if err != nil {
+		return err
+	}
 
 	// Compare deployed hash with current hash
 	needsUpdate := deployedHash != currentHash
@@ -3343,7 +3353,7 @@ func (m *MCPHandler) CheckK8sSettingsStatus(req api.Context) error {
 
 // RedeployWithK8sSettings redeploys a server with the current K8s settings
 func (m *MCPHandler) RedeployWithK8sSettings(req api.Context) error {
-	switch m.mcpBackend {
+	switch m.mcpSessionManager.MCPRuntimeBackend() {
 	case "kubernetes", "k8s":
 		// Supported
 	default:
@@ -3393,8 +3403,10 @@ func (m *MCPHandler) RedeployWithK8sSettings(req api.Context) error {
 		return err
 	}
 
-	// Compute current K8s settings hash and check if update is needed
-	currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec)
+	currentHash, err := m.currentK8sSettingsHash(req, k8sSettings.Spec)
+	if err != nil {
+		return err
+	}
 	hashDrift := deployedHash != currentHash
 
 	// Trigger restart if hash drift OR if the server needs K8s update (e.g., PSA compliance)
@@ -3483,8 +3495,10 @@ func (m *MCPHandler) ListServersNeedingK8sUpdateInCatalog(req api.Context) error
 		return fmt.Errorf("failed to get K8s settings: %w", err)
 	}
 
-	// Compute current K8s settings hash
-	currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec)
+	currentHash, err := m.currentK8sSettingsHash(req, k8sSettings.Spec)
+	if err != nil {
+		return err
+	}
 
 	// List all servers in the catalog
 	var servers v1.MCPServerList
@@ -3538,8 +3552,10 @@ func (m *MCPHandler) ListServersNeedingK8sUpdateAcrossWorkspaces(req api.Context
 		return fmt.Errorf("failed to get K8s settings: %w", err)
 	}
 
-	// Compute current K8s settings hash
-	currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec)
+	currentHash, err := m.currentK8sSettingsHash(req, k8sSettings.Spec)
+	if err != nil {
+		return err
+	}
 
 	// List all MCPServers (we'll filter for workspace servers below)
 	var servers v1.MCPServerList

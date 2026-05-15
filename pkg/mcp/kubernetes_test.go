@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -10,11 +11,14 @@ import (
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/apimachinery/pkg/watch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -475,7 +479,246 @@ func TestUpdatedMCPPodName_ContainerStartupDeadlineExceeded(t *testing.T) {
 	}
 }
 
-func newTestKubernetesBackend(t *testing.T) *kubernetesBackend {
+func TestK8sObjects_ManagedImagePullSecrets(t *testing.T) {
+	managedSecrets := []v1.ImagePullSecret{
+		{
+			ObjectMeta: metav1.ObjectMeta{Name: "managed-b", Namespace: system.DefaultNamespace},
+			Spec:       v1.ImagePullSecretSpec{Enabled: true},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{Name: "disabled", Namespace: system.DefaultNamespace},
+			Spec:       v1.ImagePullSecretSpec{Enabled: false},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{Name: "managed-a", Namespace: system.DefaultNamespace},
+			Spec:       v1.ImagePullSecretSpec{Enabled: true},
+		},
+	}
+
+	objs := make([]client.Object, 0, len(managedSecrets))
+	for i := range managedSecrets {
+		objs = append(objs, &managedSecrets[i])
+	}
+	k := newTestKubernetesBackend(t, objs...)
+
+	objs, err := k.k8sObjects(context.Background(), ServerConfig{
+		Runtime:              types.RuntimeContainerized,
+		MCPServerName:        "test-server",
+		MCPServerDisplayName: "Test Server",
+		UserID:               "user-1",
+		OwnerUserID:          "user-2",
+		ContainerImage:       "ghcr.io/obot-platform/mcp-images/stdio-wrapper:main",
+		ContainerPort:        8080,
+		ContainerPath:        "/mcp",
+		Command:              "server",
+		Args:                 []string{"run"},
+	}, nil)
+	if err != nil {
+		t.Fatalf("k8sObjects() error = %v", err)
+	}
+
+	dep := findDeployment(t, objs, "test-server")
+	assertImagePullSecrets(t, dep, []string{"managed-a", "managed-b"})
+
+	expectedHash := ComputeK8sSettingsHash(v1.K8sSettingsSpec{}, []string{"managed-b", "managed-a"})
+	if dep.Annotations["obot.ai/k8s-settings-hash"] != expectedHash {
+		t.Fatalf("k8s settings hash = %q, want %q", dep.Annotations["obot.ai/k8s-settings-hash"], expectedHash)
+	}
+}
+
+func TestK8sObjects_StaticImagePullSecretsOverrideManaged(t *testing.T) {
+	k := newTestKubernetesBackend(t,
+		&v1.ImagePullSecret{
+			ObjectMeta: metav1.ObjectMeta{Name: "managed", Namespace: system.DefaultNamespace},
+			Spec:       v1.ImagePullSecretSpec{Enabled: true},
+		},
+	)
+	k.imagePullSecrets = []string{"static-b", "static-a", "static-a"}
+
+	objs, err := k.k8sObjects(context.Background(), ServerConfig{
+		Runtime:              types.RuntimeContainerized,
+		MCPServerName:        "test-server",
+		MCPServerDisplayName: "Test Server",
+		UserID:               "user-1",
+		OwnerUserID:          "user-2",
+		ContainerImage:       "ghcr.io/obot-platform/mcp-images/stdio-wrapper:main",
+		ContainerPort:        8080,
+		ContainerPath:        "/mcp",
+		Command:              "server",
+		Args:                 []string{"run"},
+	}, nil)
+	if err != nil {
+		t.Fatalf("k8sObjects() error = %v", err)
+	}
+
+	dep := findDeployment(t, objs, "test-server")
+	assertImagePullSecrets(t, dep, []string{"static-a", "static-b"})
+}
+
+func TestRestartServerAddsManagedImagePullSecretsToFreshDeployment(t *testing.T) {
+	k := newTestKubernetesBackend(t,
+		&v1.K8sSettings{
+			ObjectMeta: metav1.ObjectMeta{Name: system.K8sSettingsName, Namespace: system.DefaultNamespace},
+			Spec:       v1.K8sSettingsSpec{},
+		},
+	)
+	server := ServerConfig{
+		Runtime:              types.RuntimeContainerized,
+		MCPServerName:        "test-server",
+		MCPServerDisplayName: "Test Server",
+		UserID:               "user-1",
+		OwnerUserID:          "user-2",
+		ContainerImage:       "ghcr.io/obot-platform/mcp-images/stdio-wrapper:main",
+		ContainerPort:        8080,
+		ContainerPath:        "/mcp",
+		Command:              "server",
+		Args:                 []string{"run"},
+	}
+
+	objs, err := k.k8sObjects(context.Background(), server, nil)
+	if err != nil {
+		t.Fatalf("k8sObjects() error = %v", err)
+	}
+	dep := findDeployment(t, objs, "test-server")
+
+	runtimeScheme := runtime.NewScheme()
+	if err := appsv1.AddToScheme(runtimeScheme); err != nil {
+		t.Fatalf("AddToScheme() error = %v", err)
+	}
+	if err := corev1.AddToScheme(runtimeScheme); err != nil {
+		t.Fatalf("AddToScheme() error = %v", err)
+	}
+	k.client = fake.NewClientBuilder().WithScheme(runtimeScheme).WithObjects(dep).Build()
+
+	if err := k.obotClient.Create(context.Background(), &v1.ImagePullSecret{
+		ObjectMeta: metav1.ObjectMeta{Name: "managed", Namespace: system.DefaultNamespace},
+		Spec:       v1.ImagePullSecretSpec{Enabled: true},
+	}); err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	if err := k.restartServer(context.Background(), server); err != nil {
+		t.Fatalf("restartServer() error = %v", err)
+	}
+
+	var updated appsv1.Deployment
+	if err := k.client.Get(context.Background(), client.ObjectKey{Name: "test-server", Namespace: "obot-mcp"}, &updated); err != nil {
+		t.Fatalf("Get() error = %v", err)
+	}
+	assertImagePullSecrets(t, &updated, []string{"managed"})
+}
+
+func TestStrategicMergePatchReplacesImagePullSecrets(t *testing.T) {
+	dep := &appsv1.Deployment{
+		Spec: appsv1.DeploymentSpec{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					ImagePullSecrets: []corev1.LocalObjectReference{{Name: "old-secret"}},
+				},
+			},
+		},
+	}
+	original, err := json.Marshal(dep)
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+
+	patch, err := json.Marshal(map[string]any{
+		"spec": map[string]any{
+			"template": map[string]any{
+				"spec": map[string]any{
+					"imagePullSecrets": []map[string]any{
+						{"$patch": "replace"},
+						{"name": "new-secret"},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+
+	patched, err := strategicpatch.StrategicMergePatch(original, patch, appsv1.Deployment{})
+	if err != nil {
+		t.Fatalf("StrategicMergePatch() error = %v", err)
+	}
+
+	var updated appsv1.Deployment
+	if err := json.Unmarshal(patched, &updated); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+
+	assertImagePullSecrets(t, &updated, []string{"new-secret"})
+}
+
+func TestResourcesMatchIgnoresExtraActualKeys(t *testing.T) {
+	actual := corev1.ResourceRequirements{
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:              resource.MustParse("1"),
+			corev1.ResourceMemory:           resource.MustParse("1Gi"),
+			corev1.ResourceEphemeralStorage: resource.MustParse("1Gi"),
+		},
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:              resource.MustParse("500m"),
+			corev1.ResourceMemory:           resource.MustParse("512Mi"),
+			corev1.ResourceEphemeralStorage: resource.MustParse("1Gi"),
+		},
+	}
+	desired := &corev1.ResourceRequirements{
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("1"),
+			corev1.ResourceMemory: resource.MustParse("1Gi"),
+		},
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("500m"),
+			corev1.ResourceMemory: resource.MustParse("512Mi"),
+		},
+	}
+
+	if !resourcesMatch(actual, desired) {
+		t.Fatal("expected resources with extra actual ephemeral-storage keys to match")
+	}
+
+	desired.Requests[corev1.ResourceMemory] = resource.MustParse("1Gi")
+	if resourcesMatch(actual, desired) {
+		t.Fatal("expected differing desired memory request to fail")
+	}
+}
+
+func TestTolerationsMatchIgnoresExtraActualTolerations(t *testing.T) {
+	actual := []corev1.Toleration{
+		{
+			Key:      "kubernetes.io/arch",
+			Operator: corev1.TolerationOpEqual,
+			Value:    "amd64",
+			Effect:   corev1.TaintEffectNoSchedule,
+		},
+	}
+
+	if !tolerationsMatch(actual, nil) {
+		t.Fatal("expected extra actual tolerations to match empty desired tolerations")
+	}
+
+	desired := []corev1.Toleration{
+		{
+			Key:      "workload",
+			Operator: corev1.TolerationOpEqual,
+			Value:    "mcp",
+			Effect:   corev1.TaintEffectNoSchedule,
+		},
+	}
+	if tolerationsMatch(actual, desired) {
+		t.Fatal("expected missing desired toleration to fail")
+	}
+
+	actual = append(actual, desired[0])
+	if !tolerationsMatch(actual, desired) {
+		t.Fatal("expected desired toleration plus extra actual toleration to match")
+	}
+}
+
+func newTestKubernetesBackend(t *testing.T, objs ...client.Object) *kubernetesBackend {
 	t.Helper()
 
 	scheme := runtime.NewScheme()
@@ -483,11 +726,16 @@ func newTestKubernetesBackend(t *testing.T) *kubernetesBackend {
 		t.Fatalf("AddToScheme() error = %v", err)
 	}
 
+	clientBuilder := fake.NewClientBuilder().WithScheme(scheme)
+	if len(objs) > 0 {
+		clientBuilder = clientBuilder.WithObjects(objs...)
+	}
+
 	return &kubernetesBackend{
 		baseImage:           "ghcr.io/obot-platform/mcp-images/stdio-wrapper:main",
 		remoteShimBaseImage: "ghcr.io/obot-platform/remote-shim:main",
 		mcpNamespace:        "obot-mcp",
-		obotClient:          fake.NewClientBuilder().WithScheme(scheme).Build(),
+		obotClient:          clientBuilder.Build(),
 	}
 }
 
@@ -549,6 +797,19 @@ func assertServicePort(t *testing.T, service *corev1.Service, portName string, p
 	}
 
 	t.Fatalf("service port %q not found", portName)
+}
+
+func assertImagePullSecrets(t *testing.T, dep *appsv1.Deployment, expected []string) {
+	t.Helper()
+
+	actual := make([]string, 0, len(dep.Spec.Template.Spec.ImagePullSecrets))
+	for _, ref := range dep.Spec.Template.Spec.ImagePullSecrets {
+		actual = append(actual, ref.Name)
+	}
+
+	if strings.Join(actual, ",") != strings.Join(expected, ",") {
+		t.Fatalf("image pull secrets = %v, want %v", actual, expected)
+	}
 }
 
 func assertNoAuditLogEnv(t *testing.T, env map[string][]byte) {

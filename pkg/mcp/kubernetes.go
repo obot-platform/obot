@@ -9,6 +9,7 @@ import (
 	"io"
 	"maps"
 	"reflect"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -20,6 +21,7 @@ import (
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
+	"github.com/obot-platform/obot/pkg/imagepullsecrets"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/wait"
@@ -507,8 +509,12 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 		k8sSettings = v1.K8sSettingsSpec{}
 	}
 
-	// Add K8s settings hash to annotations
-	annotations["obot.ai/k8s-settings-hash"] = ComputeK8sSettingsHash(k8sSettings)
+	effectiveImagePullSecrets, err := k.effectiveImagePullSecretNames(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get effective image pull secrets: %w", err)
+	}
+
+	annotations["obot.ai/k8s-settings-hash"] = ComputeK8sSettingsHash(k8sSettings, effectiveImagePullSecrets)
 
 	// Get PSA enforce level for security context decisions
 	psaLevel := GetPSAEnforceLevelFromSpec(k8sSettings)
@@ -705,16 +711,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 			ContainerPort: int32(port),
 		}},
 		// Apply resources from K8s settings with fallback to default
-		Resources: func() corev1.ResourceRequirements {
-			if k8sSettings.Resources != nil {
-				return *k8sSettings.Resources
-			}
-			return corev1.ResourceRequirements{
-				Requests: corev1.ResourceList{
-					corev1.ResourceMemory: resource.MustParse("400Mi"),
-				},
-			}
-		}(),
+		Resources:       desiredMCPResourceRequirements(k8sSettings),
 		SecurityContext: getContainerSecurityContext(psaLevel),
 		Command:         command,
 		Args:            args,
@@ -854,10 +851,8 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 		}
 	}
 
-	if len(k.imagePullSecrets) > 0 {
-		for _, secret := range k.imagePullSecrets {
-			dep.Spec.Template.Spec.ImagePullSecrets = append(dep.Spec.Template.Spec.ImagePullSecrets, corev1.LocalObjectReference{Name: secret})
-		}
+	for _, secret := range effectiveImagePullSecrets {
+		dep.Spec.Template.Spec.ImagePullSecrets = append(dep.Spec.Template.Spec.ImagePullSecrets, corev1.LocalObjectReference{Name: secret})
 	}
 
 	port80 := "http"
@@ -1139,8 +1134,13 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, server ServerConf
 		k8sSettings = v1.K8sSettingsSpec{}
 	}
 
-	// Compute K8s settings hash
-	k8sSettingsHash := ComputeK8sSettingsHash(k8sSettings)
+	effectiveImagePullSecrets, err := k.effectiveImagePullSecretNames(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get effective image pull secrets: %w", err)
+	}
+
+	// Compute k8s settings hash
+	k8sSettingsHash := ComputeK8sSettingsHash(k8sSettings, effectiveImagePullSecrets)
 
 	// Get PSA enforce level for security context decisions
 	psaLevel := GetPSAEnforceLevelFromSpec(k8sSettings)
@@ -1149,6 +1149,7 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, server ServerConf
 	// 1. Strategic merge patch doesn't fully apply all changes (especially when combining resources and PSA settings)
 	// 2. Conflict errors (409) occur due to concurrent updates by controllers
 	const maxPatchRetries = 3
+	var lastMismatchReason string
 	for attempt := range maxPatchRetries {
 		// Always re-fetch the deployment to get the latest state
 		var deployment appsv1.Deployment
@@ -1160,7 +1161,11 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, server ServerConf
 		}
 
 		// Check if deployment already matches the desired state
-		if k.deploymentSettingsMatch(&deployment, k8sSettings, psaLevel) {
+		var (
+			matches bool
+			reason  string
+		)
+		if matches, reason = k.deploymentSettingsMatch(&deployment, k8sSettings, psaLevel, effectiveImagePullSecrets); matches {
 			olog.Debugf("deployment %s matches desired K8s settings after %d patch attempt(s)", id, attempt)
 			// Settings match, now apply the hash to mark reconciliation complete
 			if err := k.patchDeploymentHash(ctx, &deployment, k8sSettingsHash); err != nil {
@@ -1173,8 +1178,11 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, server ServerConf
 			return nil
 		}
 
+		lastMismatchReason = reason
+		olog.Debugf("deployment %s does not match desired K8s settings before patch attempt %d: %s", id, attempt+1, reason)
+
 		// Build and apply the patch (without hash - hash is applied only after verification)
-		if err := k.patchDeploymentWithK8sSettings(ctx, &deployment, k8sSettings, psaLevel); err != nil {
+		if err := k.patchDeploymentWithK8sSettings(ctx, &deployment, k8sSettings, psaLevel, effectiveImagePullSecrets); err != nil {
 			if apierrors.IsConflict(err) {
 				olog.Debugf("conflict patching deployment %s on attempt %d, retrying", id, attempt+1)
 				continue
@@ -1188,7 +1196,7 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, server ServerConf
 		}
 
 		// Verify the patch was applied correctly (check settings, not hash)
-		if k.deploymentSettingsMatch(&deployment, k8sSettings, psaLevel) {
+		if matches, reason = k.deploymentSettingsMatch(&deployment, k8sSettings, psaLevel, effectiveImagePullSecrets); matches {
 			olog.Debugf("deployment %s patched successfully with K8s settings on attempt %d", id, attempt+1)
 			// Settings match, now apply the hash to mark reconciliation complete
 			if err := k.patchDeploymentHash(ctx, &deployment, k8sSettingsHash); err != nil {
@@ -1201,19 +1209,25 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, server ServerConf
 			return nil
 		}
 
-		olog.Debugf("deployment %s K8s settings patch incomplete on attempt %d, retrying", id, attempt+1)
+		lastMismatchReason = reason
+		olog.Debugf("deployment %s K8s settings patch incomplete on attempt %d: %s", id, attempt+1, reason)
+
+		olog.Debugf("deployment %s retrying K8s settings patch after incomplete attempt %d", id, attempt+1)
 	}
 
 	// After max retries, settings still don't match. Don't update the hash so that
 	// NeedsK8sUpdate flag remains set and another reconciliation will be triggered.
 	olog.Warnf("deployment %s failed to fully reconcile K8s settings after %d attempts, hash not updated", id, maxPatchRetries)
+	if lastMismatchReason != "" {
+		return fmt.Errorf("failed to fully apply K8s settings to deployment %s after %d attempts: %s", id, maxPatchRetries, lastMismatchReason)
+	}
 	return fmt.Errorf("failed to fully apply K8s settings to deployment %s after %d attempts", id, maxPatchRetries)
 }
 
 // patchDeploymentWithK8sSettings applies the K8s settings patch to the deployment
 // Note: This does NOT update the hash annotation - that's done separately via patchDeploymentHash
 // after verification passes, ensuring the hash only reflects successfully applied settings.
-func (k *kubernetesBackend) patchDeploymentWithK8sSettings(ctx context.Context, deployment *appsv1.Deployment, k8sSettings v1.K8sSettingsSpec, psaLevel PSAEnforceLevel) error {
+func (k *kubernetesBackend) patchDeploymentWithK8sSettings(ctx context.Context, deployment *appsv1.Deployment, k8sSettings v1.K8sSettingsSpec, psaLevel PSAEnforceLevel, imagePullSecretNames []string) error {
 	// Build the patch with restart annotation (but not the hash - that comes after verification)
 	podAnnotations := map[string]string{
 		"kubectl.kubernetes.io/restartedAt": time.Now().Format(time.RFC3339),
@@ -1270,6 +1284,14 @@ func (k *kubernetesBackend) patchDeploymentWithK8sSettings(ctx context.Context, 
 		}
 	}
 
+	imagePullSecretNames = imagepullsecrets.CleanSecretNames(imagePullSecretNames)
+	imagePullSecretRefs := make([]map[string]any, 0, len(imagePullSecretNames)+1)
+	imagePullSecretRefs = append(imagePullSecretRefs, map[string]any{"$patch": "replace"})
+	for _, secretName := range imagePullSecretNames {
+		imagePullSecretRefs = append(imagePullSecretRefs, map[string]any{"name": secretName})
+	}
+	templateSpec["imagePullSecrets"] = imagePullSecretRefs
+
 	// Add runtimeClassName if present
 	if k8sSettings.RuntimeClassName != nil && *k8sSettings.RuntimeClassName != "" {
 		templateSpec["runtimeClassName"] = *k8sSettings.RuntimeClassName
@@ -1312,27 +1334,18 @@ func (k *kubernetesBackend) patchDeploymentWithK8sSettings(ctx context.Context, 
 		}
 	}
 
-	// Add resources to the mcp container
-	if k8sSettings.Resources != nil {
-		// Use $patch: replace to completely replace the resources field
-		resourcesMap := map[string]any{
-			"$patch": "replace",
-		}
-
-		// Set the actual resource fields that are present
-		if len(k8sSettings.Resources.Limits) > 0 {
-			resourcesMap["limits"] = k8sSettings.Resources.Limits
-		}
-		if len(k8sSettings.Resources.Requests) > 0 {
-			resourcesMap["requests"] = k8sSettings.Resources.Requests
-		}
-		mcpContainerPatch["resources"] = resourcesMap
-	} else {
-		// Use $patch: delete to remove any existing resources
-		mcpContainerPatch["resources"] = map[string]any{
-			"$patch": "delete",
-		}
+	// Use $patch: replace to completely replace the resources field.
+	resources := desiredMCPResourceRequirements(k8sSettings)
+	resourcesMap := map[string]any{
+		"$patch": "replace",
 	}
+	if len(resources.Limits) > 0 {
+		resourcesMap["limits"] = resources.Limits
+	}
+	if len(resources.Requests) > 0 {
+		resourcesMap["requests"] = resources.Requests
+	}
+	mcpContainerPatch["resources"] = resourcesMap
 	containerPatches = append(containerPatches, mcpContainerPatch)
 
 	// Patch shim and webhook containers (any container that's not "mcp")
@@ -1372,10 +1385,10 @@ func (k *kubernetesBackend) patchDeploymentWithK8sSettings(ctx context.Context, 
 // deploymentSettingsMatch verifies that a deployment has the expected K8s settings applied
 // This checks the actual settings (PSA, resources, runtimeClassName, affinity, tolerations) but NOT the hash annotation.
 // The hash is applied separately after settings are verified to ensure it reflects actual state.
-func (k *kubernetesBackend) deploymentSettingsMatch(deployment *appsv1.Deployment, k8sSettings v1.K8sSettingsSpec, psaLevel PSAEnforceLevel) bool {
+func (k *kubernetesBackend) deploymentSettingsMatch(deployment *appsv1.Deployment, k8sSettings v1.K8sSettingsSpec, psaLevel PSAEnforceLevel, imagePullSecretNames []string) (bool, string) {
 	// Check PSA compliance (uses existing comprehensive check)
-	if DeploymentNeedsPSAUpdate(deployment, psaLevel) {
-		return false
+	if reason := deploymentPSAMismatchReason(deployment, psaLevel); reason != "" {
+		return false, reason
 	}
 
 	// Check resources on the mcp container
@@ -1384,32 +1397,36 @@ func (k *kubernetesBackend) deploymentSettingsMatch(deployment *appsv1.Deploymen
 		if container.Name == "mcp" {
 			mcpFound = true
 			if !resourcesMatch(container.Resources, k8sSettings.Resources) {
-				return false
+				return false, fmt.Sprintf("mcp container resources differ: actual=%s desired=%s", mustJSON(container.Resources), mustJSON(desiredMCPResourceRequirements(k8sSettings)))
 			}
 			break
 		}
 	}
 	// If resources are configured but no mcp container exists, settings can't match
 	if !mcpFound && k8sSettings.Resources != nil {
-		return false
+		return false, "mcp container not found while resources are configured"
 	}
 
 	// Check runtimeClassName
 	if !runtimeClassNameMatches(deployment.Spec.Template.Spec.RuntimeClassName, k8sSettings.RuntimeClassName) {
-		return false
+		return false, fmt.Sprintf("runtimeClassName differs: actual=%q desired=%q", stringValue(deployment.Spec.Template.Spec.RuntimeClassName), stringValue(k8sSettings.RuntimeClassName))
 	}
 
 	// Check affinity
 	if !affinityMatches(deployment.Spec.Template.Spec.Affinity, k8sSettings.Affinity) {
-		return false
+		return false, fmt.Sprintf("affinity differs: actual=%s desired=%s", mustJSON(deployment.Spec.Template.Spec.Affinity), mustJSON(k8sSettings.Affinity))
 	}
 
 	// Check tolerations
 	if !tolerationsMatch(deployment.Spec.Template.Spec.Tolerations, k8sSettings.Tolerations) {
-		return false
+		return false, fmt.Sprintf("tolerations differ: actual=%s desired=%s", mustJSON(deployment.Spec.Template.Spec.Tolerations), mustJSON(k8sSettings.Tolerations))
 	}
 
-	return true
+	if !imagePullSecretsMatch(deployment.Spec.Template.Spec.ImagePullSecrets, imagePullSecretNames) {
+		return false, fmt.Sprintf("imagePullSecrets differ: actual=%s desired=%s", mustJSON(deployment.Spec.Template.Spec.ImagePullSecrets), mustJSON(imagepullsecrets.CleanSecretNames(imagePullSecretNames)))
+	}
+
+	return true, ""
 }
 
 // patchDeploymentHash applies only the K8s settings hash annotation to the deployment.
@@ -1448,31 +1465,20 @@ func (k *kubernetesBackend) patchDeploymentHash(ctx context.Context, deployment 
 }
 
 // resourcesMatch checks if the container's resources match the desired settings.
-// It performs a full bidirectional comparison: desired keys must exist in actual with
-// equal values, and actual must not contain extra keys beyond what desired specifies.
+// Desired keys must exist in actual with equal values. Extra actual keys are
+// allowed because some Kubernetes environments mutate resource requirements
+// after admission, for example GKE Autopilot adding ephemeral-storage.
 func resourcesMatch(actual corev1.ResourceRequirements, desired *corev1.ResourceRequirements) bool {
-	if desired == nil {
-		// If no desired resources, actual must also be empty.
-		// If actual still has resources, the delete patch didn't fully apply.
-		return len(actual.Limits) == 0 && len(actual.Requests) == 0
-	}
+	desiredResources := desiredMCPResourceRequirements(v1.K8sSettingsSpec{Resources: desired})
 
-	// Check limits: lengths must match and all desired values must be present and equal
-	if len(actual.Limits) != len(desired.Limits) {
-		return false
-	}
-	for resourceName, desiredQty := range desired.Limits {
+	for resourceName, desiredQty := range desiredResources.Limits {
 		actualQty, exists := actual.Limits[resourceName]
 		if !exists || !actualQty.Equal(desiredQty) {
 			return false
 		}
 	}
 
-	// Check requests: lengths must match and all desired values must be present and equal
-	if len(actual.Requests) != len(desired.Requests) {
-		return false
-	}
-	for resourceName, desiredQty := range desired.Requests {
+	for resourceName, desiredQty := range desiredResources.Requests {
 		actualQty, exists := actual.Requests[resourceName]
 		if !exists || !actualQty.Equal(desiredQty) {
 			return false
@@ -1480,6 +1486,36 @@ func resourcesMatch(actual corev1.ResourceRequirements, desired *corev1.Resource
 	}
 
 	return true
+}
+
+func mustJSON(value any) string {
+	data, err := json.Marshal(value)
+	if err != nil {
+		return fmt.Sprintf("<json error: %v>", err)
+	}
+	return string(data)
+}
+
+func stringValue(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
+}
+
+func desiredMCPResourceRequirements(settings v1.K8sSettingsSpec) corev1.ResourceRequirements {
+	if settings.Resources != nil {
+		return *settings.Resources
+	}
+	return defaultMCPResourceRequirements()
+}
+
+func defaultMCPResourceRequirements() corev1.ResourceRequirements {
+	return corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceMemory: resource.MustParse("400Mi"),
+		},
+	}
 }
 
 // runtimeClassNameMatches checks if the runtime class names match
@@ -1513,18 +1549,42 @@ func affinityMatches(actual *corev1.Affinity, desired *corev1.Affinity) bool {
 	return reflect.DeepEqual(actual, desired)
 }
 
-// tolerationsMatch checks if the deployment's tolerations match the desired settings
+// tolerationsMatch checks if the deployment's tolerations include the desired
+// settings. Extra actual tolerations are allowed because some Kubernetes
+// environments mutate scheduling constraints after admission.
 func tolerationsMatch(actual []corev1.Toleration, desired []corev1.Toleration) bool {
-	if len(desired) == 0 && len(actual) == 0 {
+	if len(desired) == 0 {
 		return true
 	}
-	if len(desired) == 0 {
-		return len(actual) == 0
+
+	used := make([]bool, len(actual))
+	for _, desiredToleration := range desired {
+		found := false
+		for i, actualToleration := range actual {
+			if used[i] {
+				continue
+			}
+			if reflect.DeepEqual(actualToleration, desiredToleration) {
+				used[i] = true
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
 	}
-	if len(actual) != len(desired) {
-		return false
+
+	return true
+}
+
+func imagePullSecretsMatch(actual []corev1.LocalObjectReference, desired []string) bool {
+	actualNames := make([]string, 0, len(actual))
+	for _, ref := range actual {
+		actualNames = append(actualNames, ref.Name)
 	}
-	return reflect.DeepEqual(actual, desired)
+
+	return slices.Equal(imagepullsecrets.CleanSecretNames(actualNames), imagepullsecrets.CleanSecretNames(desired))
 }
 
 // PSAEnforceLevel represents the Pod Security Admission enforce level
@@ -1681,8 +1741,11 @@ func getPodSecurityContextPatch(psaLevel PSAEnforceLevel) map[string]any {
 	}
 }
 
-// ComputeK8sSettingsHash computes a hash of K8s settings for change detection
-func ComputeK8sSettingsHash(settings v1.K8sSettingsSpec) string {
+// ComputeK8sSettingsHash computes the hash used to decide whether an
+// MCP Deployment needs to be updated. The API/status field is still named
+// K8sSettingsHash, but managed image pull secret names are part of the same
+// v1 drift path.
+func ComputeK8sSettingsHash(settings v1.K8sSettingsSpec, imagePullSecretNames []string) string {
 	var buf bytes.Buffer
 
 	// Hash affinity
@@ -1724,11 +1787,50 @@ func ComputeK8sSettingsHash(settings v1.K8sSettingsSpec) string {
 		buf.Write(psaJSON)
 	}
 
+	imagePullSecretNames = imagepullsecrets.CleanSecretNames(imagePullSecretNames)
+	if len(imagePullSecretNames) > 0 {
+		imagePullSecretsJSON, _ := json.Marshal(imagePullSecretNames)
+		buf.WriteString("imagePullSecrets:")
+		buf.Write(imagePullSecretsJSON)
+	}
+
 	if buf.Len() == 0 {
 		return "none"
 	}
 
 	return hash.Digest(buf.String())
+}
+
+// CurrentImagePullSecretNames returns the effective image pull secret names for
+// MCP Deployments. Static startup configuration takes precedence over managed
+// ImagePullSecret resources.
+func CurrentImagePullSecretNames(ctx context.Context, client kclient.Client, mcpRuntimeBackend string, staticPullSecrets []string) ([]string, error) {
+	if !IsKubernetesBackend(mcpRuntimeBackend) {
+		return nil, nil
+	}
+	return currentImagePullSecretNames(ctx, client, staticPullSecrets)
+}
+
+func currentImagePullSecretNames(ctx context.Context, client kclient.Client, staticPullSecrets []string) ([]string, error) {
+	staticNames := imagepullsecrets.EffectiveSecretNames(staticPullSecrets, nil)
+	if len(staticNames) > 0 {
+		return staticNames, nil
+	}
+
+	if client == nil {
+		return nil, nil
+	}
+
+	var managed v1.ImagePullSecretList
+	if err := client.List(ctx, &managed, &kclient.ListOptions{Namespace: system.DefaultNamespace}); err != nil {
+		return nil, fmt.Errorf("failed to list image pull secrets: %w", err)
+	}
+
+	return imagepullsecrets.EffectiveSecretNames(nil, managed.Items), nil
+}
+
+func (k *kubernetesBackend) effectiveImagePullSecretNames(ctx context.Context) ([]string, error) {
+	return currentImagePullSecretNames(ctx, k.obotClient, k.imagePullSecrets)
 }
 
 func (k *kubernetesBackend) getK8sSettings(ctx context.Context) (v1.K8sSettingsSpec, error) {
@@ -1746,13 +1848,17 @@ func (k *kubernetesBackend) getK8sSettings(ctx context.Context) (v1.K8sSettingsS
 // For "baseline" level, checks for basic privilege escalation restrictions.
 // For "restricted" level, checks for full security context requirements.
 func DeploymentNeedsPSAUpdate(deployment *appsv1.Deployment, level PSAEnforceLevel) bool {
+	return deploymentPSAMismatchReason(deployment, level) != ""
+}
+
+func deploymentPSAMismatchReason(deployment *appsv1.Deployment, level PSAEnforceLevel) string {
 	if deployment == nil {
-		return false
+		return ""
 	}
 
 	// Privileged PSA level has no requirements
 	if level == PSAPrivileged {
-		return false
+		return ""
 	}
 
 	// Check pod-level security context
@@ -1761,34 +1867,34 @@ func DeploymentNeedsPSAUpdate(deployment *appsv1.Deployment, level PSAEnforceLev
 	// For restricted level, need full pod security context
 	if level == PSARestricted {
 		if podSC == nil {
-			return true
+			return "pod securityContext is missing for restricted Pod Security Admission"
 		}
 
 		// Check runAsNonRoot (must be true for restricted PSA)
 		if podSC.RunAsNonRoot == nil || !*podSC.RunAsNonRoot {
-			return true
+			return fmt.Sprintf("pod securityContext.runAsNonRoot is not true for restricted Pod Security Admission: actual=%s", boolPtrValue(podSC.RunAsNonRoot))
 		}
 
 		// Check runAsUser (must be > 0 for restricted PSA, i.e., non-root)
 		if podSC.RunAsUser == nil || *podSC.RunAsUser == 0 {
-			return true
+			return fmt.Sprintf("pod securityContext.runAsUser is missing or root for restricted Pod Security Admission: actual=%s", int64PtrValue(podSC.RunAsUser))
 		}
 
 		// Check runAsGroup (must be set for restricted PSA)
 		if podSC.RunAsGroup == nil {
-			return true
+			return "pod securityContext.runAsGroup is missing for restricted Pod Security Admission"
 		}
 
 		// Check seccompProfile (must be RuntimeDefault or Localhost for restricted PSA)
 		if podSC.SeccompProfile == nil || podSC.SeccompProfile.Type != corev1.SeccompProfileTypeRuntimeDefault {
-			return true
+			return fmt.Sprintf("pod securityContext.seccompProfile is not RuntimeDefault for restricted Pod Security Admission: actual=%s", mustJSON(podSC.SeccompProfile))
 		}
 	}
 
 	// For baseline level, require a pod-level seccompProfile with an allowed type
 	if level == PSABaseline {
 		if podSC == nil || podSC.SeccompProfile == nil {
-			return true
+			return "pod securityContext.seccompProfile is missing for baseline Pod Security Admission"
 		}
 
 		switch podSC.SeccompProfile.Type {
@@ -1796,45 +1902,41 @@ func DeploymentNeedsPSAUpdate(deployment *appsv1.Deployment, level PSAEnforceLev
 			corev1.SeccompProfileTypeLocalhost:
 			// allowed
 		default:
-			return true
+			return fmt.Sprintf("pod securityContext.seccompProfile has unsupported type for baseline Pod Security Admission: actual=%s", mustJSON(podSC.SeccompProfile))
 		}
 	}
 	// Check each container's security context
 	for _, container := range deployment.Spec.Template.Spec.Containers {
-		if containerNeedsPSAUpdate(&container, level) {
-			return true
+		if reason := containerPSAMismatchReason(&container, level); reason != "" {
+			return reason
 		}
 	}
 
-	return false
+	return ""
 }
 
-// containerNeedsPSAUpdate checks if a container needs PSA compliance updates based on the given level.
-// For "privileged" level, no update is needed.
-// For "baseline" level, checks allowPrivilegeEscalation.
-// For "restricted" level, checks all security context requirements including capabilities.drop ALL.
-func containerNeedsPSAUpdate(container *corev1.Container, level PSAEnforceLevel) bool {
+func containerPSAMismatchReason(container *corev1.Container, level PSAEnforceLevel) string {
 	// Privileged PSA level has no requirements
 	if level == PSAPrivileged {
-		return false
+		return ""
 	}
 
 	sc := container.SecurityContext
 	if sc == nil {
-		return true
+		return fmt.Sprintf("container %q securityContext is missing for %s Pod Security Admission", container.Name, level)
 	}
 
 	// Both baseline and restricted require this check
 	// Check allowPrivilegeEscalation (must be false)
 	if sc.AllowPrivilegeEscalation == nil || *sc.AllowPrivilegeEscalation {
-		return true
+		return fmt.Sprintf("container %q securityContext.allowPrivilegeEscalation is not false for %s Pod Security Admission: actual=%s", container.Name, level, boolPtrValue(sc.AllowPrivilegeEscalation))
 	}
 
 	// Restricted level has additional requirements
 	if level == PSARestricted {
 		// Check capabilities.drop contains ALL (required for restricted PSA)
 		if sc.Capabilities == nil {
-			return true
+			return fmt.Sprintf("container %q securityContext.capabilities is missing for restricted Pod Security Admission", container.Name)
 		}
 		hasDropAll := false
 		for _, cap := range sc.Capabilities.Drop {
@@ -1844,34 +1946,48 @@ func containerNeedsPSAUpdate(container *corev1.Container, level PSAEnforceLevel)
 			}
 		}
 		if !hasDropAll {
-			return true
+			return fmt.Sprintf("container %q securityContext.capabilities.drop does not contain ALL for restricted Pod Security Admission: actual=%s", container.Name, mustJSON(sc.Capabilities.Drop))
 		}
 		// Check runAsNonRoot (must be true for restricted PSA)
 		if sc.RunAsNonRoot == nil || !*sc.RunAsNonRoot {
-			return true
+			return fmt.Sprintf("container %q securityContext.runAsNonRoot is not true for restricted Pod Security Admission: actual=%s", container.Name, boolPtrValue(sc.RunAsNonRoot))
 		}
 
 		// Check runAsUser (must be > 0 for restricted PSA, i.e., non-root)
 		if sc.RunAsUser == nil || *sc.RunAsUser == 0 {
-			return true
+			return fmt.Sprintf("container %q securityContext.runAsUser is missing or root for restricted Pod Security Admission: actual=%s", container.Name, int64PtrValue(sc.RunAsUser))
 		}
 
 		// Check runAsGroup (must be set for restricted PSA)
 		if sc.RunAsGroup == nil {
-			return true
+			return fmt.Sprintf("container %q securityContext.runAsGroup is missing for restricted Pod Security Admission", container.Name)
 		}
 
 		// Check seccompProfile (must be RuntimeDefault or Localhost for restricted PSA)
 		if sc.SeccompProfile == nil {
-			return true
+			return fmt.Sprintf("container %q securityContext.seccompProfile is missing for restricted Pod Security Admission", container.Name)
 		}
 		if sc.SeccompProfile.Type != corev1.SeccompProfileTypeRuntimeDefault &&
 			sc.SeccompProfile.Type != corev1.SeccompProfileTypeLocalhost {
-			return true
+			return fmt.Sprintf("container %q securityContext.seccompProfile has unsupported type for restricted Pod Security Admission: actual=%s", container.Name, mustJSON(sc.SeccompProfile))
 		}
 	}
 
-	return false
+	return ""
+}
+
+func boolPtrValue(value *bool) string {
+	if value == nil {
+		return "<nil>"
+	}
+	return strconv.FormatBool(*value)
+}
+
+func int64PtrValue(value *int64) string {
+	if value == nil {
+		return "<nil>"
+	}
+	return strconv.FormatInt(*value, 10)
 }
 
 // CheckCapacity checks if there's enough capacity to deploy a new MCP server.

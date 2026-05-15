@@ -45,6 +45,7 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/gemini"
 	"github.com/obot-platform/obot/pkg/hash"
+	"github.com/obot-platform/obot/pkg/imagepullsecrets"
 	"github.com/obot-platform/obot/pkg/invoke"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	"github.com/obot-platform/obot/pkg/logutil"
@@ -140,7 +141,6 @@ type Config struct {
 	MCPNetworkPolicyProviderChartPath    string `usage:"Local filesystem path to the network policy provider chart"`
 	MCPNetworkPolicyProviderValues       string `usage:"YAML or JSON values blob merged into the network policy provider chart values"`
 	MCPDefaultDenyAllEgress              bool   `usage:"Default new MCP servers to deny all egress when network policy enforcement is enabled" default:"false"`
-
 	// Published artifact storage
 	ArtifactStorageProvider       string `usage:"Storage provider for published artifacts (s3, gcs, azure, custom)" name:"artifact-storage-provider" env:"OBOT_ARTIFACT_STORAGE_PROVIDER"`
 	ArtifactStorageBucket         string `usage:"Bucket for published artifacts" name:"artifact-storage-bucket" env:"OBOT_ARTIFACT_STORAGE_BUCKET"`
@@ -227,14 +227,16 @@ type Services struct {
 	OAuthServerConfig              handlers.OAuthAuthorizationServerConfig
 	MCPOAuthClientSecretExpiration time.Duration
 
-	// Local Kubernetes configuration for deployment monitoring
-	LocalK8sConfig     *rest.Config
-	MCPServerNamespace string
-	MCPClusterDomain   string
-	ServiceName        string
-	ServiceNamespace   string
-	ServiceAccountName string
-	StorageListenPort  int
+	// LocalK8sConfig is the Kubernetes config for the MCP runtime cluster.
+	LocalK8sConfig            *rest.Config
+	MCPServerNamespace        string
+	ServiceAccountIssuerURL   string
+	ServiceAccountIssuerError string
+	MCPClusterDomain          string
+	ServiceName               string
+	ServiceNamespace          string
+	ServiceAccountName        string
+	StorageListenPort         int
 
 	// LocalK8sClient is a kclient for the local Kubernetes cluster — the
 	// cluster the obot pod runs in, where source Secrets for
@@ -256,6 +258,7 @@ type Services struct {
 	DisableUpdateCheck                   bool
 	DisableLegacyChat                    bool
 	MCPRuntimeBackend                    string
+	MCPImagePullSecrets                  []string
 	MCPRemoteShimBaseImage               string
 	MCPHTTPWebhookBaseImage              string
 	RegistryNoAuth                       bool
@@ -643,11 +646,20 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	mcpOAuthTokenStorage := mcpgateway.NewGlobalTokenStore(gatewayClient)
 
 	// Build local Kubernetes config for deployment monitoring (optional)
-	var localK8sConfig *rest.Config
-	if config.MCPRuntimeBackend == "kubernetes" {
+	var (
+		localK8sConfig            *rest.Config
+		serviceAccountIssuerURL   string
+		serviceAccountIssuerError string
+	)
+	if mcp.IsKubernetesBackend(config.MCPRuntimeBackend) {
 		localK8sConfig, err = buildLocalK8sConfig()
 		if err != nil {
 			return nil, fmt.Errorf("failed to build local Kubernetes config: %w", err)
+		}
+		serviceAccountIssuerURL, err = imagepullsecrets.DiscoverServiceAccountIssuer(ctx, localK8sConfig)
+		if err != nil {
+			serviceAccountIssuerError = err.Error()
+			pkgLog.Warnf("Failed to discover Kubernetes service account issuer URL: %v", err)
 		}
 	}
 
@@ -1138,6 +1150,8 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		WebhookHelper:                        webhookHelper,
 		LocalK8sConfig:                       localK8sConfig,
 		MCPServerNamespace:                   config.MCPNamespace,
+		ServiceAccountIssuerURL:              serviceAccountIssuerURL,
+		ServiceAccountIssuerError:            serviceAccountIssuerError,
 		MCPClusterDomain:                     config.MCPClusterDomain,
 		ServiceName:                          config.ServiceName,
 		ServiceNamespace:                     config.ServiceNamespace,
@@ -1149,6 +1163,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		DisableLegacyChat:                    config.DisableLegacyChat,
 		AutonomousToolUseEnabled:             config.EnableAutonomousToolUse,
 		MCPRuntimeBackend:                    config.MCPRuntimeBackend,
+		MCPImagePullSecrets:                  config.MCPImagePullSecrets,
 		MCPRemoteShimBaseImage:               config.MCPRemoteShimBaseImage,
 		MCPHTTPWebhookBaseImage:              config.MCPHTTPWebhookBaseImage,
 		SingleUserIdleServerShutdownInterval: time.Duration(config.SingleUserIdleServerShutdownHours) * time.Hour,

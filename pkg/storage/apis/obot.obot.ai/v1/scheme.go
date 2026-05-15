@@ -117,6 +117,8 @@ func AddToSchemeWithGV(scheme *runtime.Scheme, schemeGroupVersion schema.GroupVe
 		&UserDefaultRoleSettingList{},
 		&K8sSettings{},
 		&K8sSettingsList{},
+		&ImagePullSecret{},
+		&ImagePullSecretList{},
 		&AppPreferences{},
 		&AppPreferencesList{},
 		&AuditLogExport{},

@@ -69,6 +69,7 @@ type Options struct {
 
 type SessionManager struct {
 	backend           backend
+	runtimeBackend    string
 	contextLock       sync.Mutex
 	sessionCtx        context.Context
 	cancel            func()
@@ -152,9 +153,14 @@ func NewSessionManager(ctx context.Context, tokenService TokenService, baseURL s
 		webhookHelper:     webhookHelper,
 		tokenService:      tokenService,
 		backend:           backend,
+		runtimeBackend:    opts.MCPRuntimeBackend,
 		baseURL:           baseURL,
 		allowLocalhostMCP: !opts.DisallowLocalhostMCP,
 	}, nil
+}
+
+func (sm *SessionManager) MCPRuntimeBackend() string {
+	return sm.runtimeBackend
 }
 
 func (sm *SessionManager) TransformObotHostname(hostname string) string {

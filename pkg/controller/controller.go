@@ -554,7 +554,7 @@ func (c *Controller) createLocalK8sRouter() (*router.Router, error) {
 		Scheme:     localScheme,
 		Namespace:  c.services.MCPServerNamespace,
 		// The router is scoped to the MCP namespace, but the managed provider token
-		// secret lives in Obot's runtime namespace. Expand only Secret watches.
+		// secret lives in Obot's runtime namespace.
 		ByObject:       localK8sCacheByObject(c.services.MCPServerNamespace, c.services.ServiceNamespace),
 		ElectionConfig: nil, // No leader election for local router
 		HealthzPort:    -1,  // Disable healthz port
@@ -591,7 +591,7 @@ func (c *Controller) setupLocalK8sRoutes() {
 		return
 	}
 
-	deploymentHandler := deployment.New(c.services.MCPServerNamespace, c.services.Router.Backend())
+	deploymentHandler := deployment.New(c.services.MCPServerNamespace, c.services.Router.Backend(), c.services.MCPRuntimeBackend, c.services.MCPImagePullSecrets)
 	c.localK8sRouter.Type(&appsv1.Deployment{}).IncludeRemoved().HandlerFunc(deploymentHandler.UpdateMCPServerStatus)
 	c.localK8sRouter.Type(&appsv1.Deployment{}).HandlerFunc(deploymentHandler.CleanupOldIDs)
 

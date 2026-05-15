@@ -11,6 +11,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/auditlogexport"
 	"github.com/obot-platform/obot/pkg/controller/handlers/cleanup"
 	"github.com/obot-platform/obot/pkg/controller/handlers/cronjob"
+	"github.com/obot-platform/obot/pkg/controller/handlers/imagepullsecret"
 	"github.com/obot-platform/obot/pkg/controller/handlers/knowledgefile"
 	"github.com/obot-platform/obot/pkg/controller/handlers/knowledgeset"
 	"github.com/obot-platform/obot/pkg/controller/handlers/knowledgesource"
@@ -75,7 +76,7 @@ func (c *Controller) setupRoutes() {
 	mcpCatalog := mcpcatalog.New(c.services.DefaultMCPCatalogPath, c.services.DefaultSystemMCPCatalogPath, c.services.GPTClient, c.services.GatewayClient, c.services.AccessControlRuleHelper, c.services.MCPRuntimeBackend)
 	skillRepository := skillrepository.New()
 	mcpSession := mcpsession.New(c.services.GPTClient)
-	mcpserver := mcpserver.New(c.services.GPTClient, c.services.MCPLoader, c.services.MCPNetworkPolicyEnabled, c.services.MCPDefaultDenyAllEgress, c.services.SingleUserIdleServerShutdownInterval, c.services.MultiUserIdleServerShutdownInterval, c.services.AgentIdleServerShutdownInterval, c.services.ServerURL)
+	mcpserver := mcpserver.New(c.services.GPTClient, c.services.MCPLoader, c.services.MCPNetworkPolicyEnabled, c.services.MCPDefaultDenyAllEgress, c.services.SingleUserIdleServerShutdownInterval, c.services.MultiUserIdleServerShutdownInterval, c.services.AgentIdleServerShutdownInterval, c.services.ServerURL, c.services.MCPRuntimeBackend, c.services.MCPImagePullSecrets)
 	mcpserverinstance := mcpserverinstance.New(c.services.GatewayClient)
 	accesscontrolrule := accesscontrolrule.New(c.services.AccessControlRuleHelper)
 	mcpWebhookValidations := mcpwebhookvalidation.New(c.services.GPTClient, c.services.MCPHTTPWebhookBaseImage)
@@ -89,6 +90,7 @@ func (c *Controller) setupRoutes() {
 	systemMCPServerHandler := systemmcpserver.New(c.services.GPTClient, c.services.MCPLoader, c.services.ServerURL)
 	nanobotAgentHandler := nanobotagent.New(c.services.GPTClient, c.services.PersistentTokenServer, c.services.GatewayClient, c.localK8sRouter, c.services.NanobotAgentImage, c.services.ServerURL, c.services.MCPServerNamespace, c.services.MCPLoader)
 	oktaGroupMigrationHandler := oktagroupmigration.New()
+	imagePullSecretHandler := imagepullsecret.New(c.services.GPTClient, c.runtimeClient, c.services.MCPRuntimeBackend, c.services.MCPServerNamespace, c.services.ServiceNamespace, c.services.ServiceAccountName, c.services.MCPImagePullSecrets, c.services.ServiceAccountIssuerURL)
 
 	// Runs
 	root.Type(&v1.Run{}).FinalizeFunc(v1.RunFinalizer, runs.DeleteRunState)
@@ -239,6 +241,10 @@ func (c *Controller) setupRoutes() {
 
 	// Skill
 	root.Type(&v1.Skill{}).HandlerFunc(cleanup.Cleanup)
+
+	// ImagePullSecret
+	root.Type(&v1.ImagePullSecret{}).FinalizeFunc(v1.ImagePullSecretFinalizer, imagePullSecretHandler.Cleanup)
+	root.Type(&v1.ImagePullSecret{}).HandlerFunc(imagePullSecretHandler.Reconcile)
 
 	// MCPServerCatalogEntry
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(cleanup.Cleanup)
