@@ -467,12 +467,13 @@ func (h *MCPCatalogHandler) AdminListServersForEntryInCatalog(req api.Context) e
 		}
 
 		var credCtx string
-		if server.Spec.MCPCatalogID != "" {
+		if server.Spec.IsCatalogServer() {
 			credCtx = fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name)
+		} else if server.Spec.IsPowerUserWorkspaceServer() {
+			credCtx = fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name)
 		} else {
 			credCtx = fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name)
 		}
-
 		cred, err := req.GPTClient.RevealCredential(req.Context(), []string{credCtx}, server.Name)
 		if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 			return fmt.Errorf("failed to find credential: %w", err)
@@ -551,12 +552,13 @@ func (h *MCPCatalogHandler) AdminListServersForAllEntriesInCatalog(req api.Conte
 	var items []types.MCPServer
 	for _, server := range filteredServers {
 		var credCtx string
-		if server.Spec.MCPCatalogID != "" {
+		if server.Spec.IsCatalogServer() {
 			credCtx = fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name)
+		} else if server.Spec.IsPowerUserWorkspaceServer() {
+			credCtx = fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name)
 		} else {
 			credCtx = fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name)
 		}
-
 		cred, err := req.GPTClient.RevealCredential(req.Context(), []string{credCtx}, server.Name)
 		if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 			return fmt.Errorf("failed to find credential: %w", err)
@@ -631,9 +633,9 @@ func (h *MCPCatalogHandler) ListServersForEntry(req api.Context) error {
 		}
 
 		var credCtx string
-		if server.Spec.MCPCatalogID != "" {
+		if server.Spec.IsCatalogServer() {
 			credCtx = fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name)
-		} else if server.Spec.PowerUserWorkspaceID != "" {
+		} else if server.Spec.IsPowerUserWorkspaceServer() {
 			credCtx = fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name)
 		} else {
 			credCtx = fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name)
@@ -703,14 +705,13 @@ func (h *MCPCatalogHandler) GetServerFromEntry(req api.Context) error {
 	}
 
 	var credCtx string
-	if server.Spec.MCPCatalogID != "" {
+	if server.Spec.IsCatalogServer() {
 		credCtx = fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name)
-	} else if server.Spec.PowerUserWorkspaceID != "" {
+	} else if server.Spec.IsPowerUserWorkspaceServer() {
 		credCtx = fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name)
 	} else {
 		credCtx = fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name)
 	}
-
 	cred, err := req.GPTClient.RevealCredential(req.Context(), []string{credCtx}, server.Name)
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return fmt.Errorf("failed to find credential: %w", err)
@@ -1569,7 +1570,7 @@ func (h *MCPCatalogHandler) populateComponentManifests(req api.Context, manifest
 			}
 
 			// Verify this is actually a multi-user server
-			if server.Spec.MCPCatalogID == "" && server.Spec.PowerUserWorkspaceID == "" {
+			if server.Spec.IsSingleUser() {
 				return types.NewErrBadRequest("server %s is not a multi-user server", component.MCPServerID)
 			}
 

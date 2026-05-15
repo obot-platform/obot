@@ -82,8 +82,8 @@ func ConvertMCPServerToRegistry(
 	}
 
 	// Determine if server should show connection URL
-	isPersonalServer := convertedServer.UserID == userID && convertedServer.MCPCatalogID == "" && convertedServer.PowerUserWorkspaceID == ""
-	isMultiUserServer := convertedServer.MCPCatalogID != "" || convertedServer.PowerUserWorkspaceID != ""
+	isPersonalServer := convertedServer.UserID == userID && convertedServer.IsSingleUser()
+	isMultiUserServer := !convertedServer.IsSingleUser()
 
 	// For configured servers, add remote with mcp-connect URL
 	// All Obot servers are exposed as streamable-http remotes regardless of underlying runtime

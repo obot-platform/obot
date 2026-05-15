@@ -115,9 +115,9 @@ func (h *ServerInstancesHandler) CreateServerInstance(req api.Context) error {
 			err       error
 		)
 
-		if server.Spec.MCPCatalogID != "" {
+		if server.Spec.IsCatalogServer() {
 			hasAccess, err = h.acrHelper.UserHasAccessToMCPServerInCatalog(req.User, server.Name, server.Spec.MCPCatalogID)
-		} else if server.Spec.PowerUserWorkspaceID != "" {
+		} else if server.Spec.IsPowerUserWorkspaceServer() {
 			hasAccess, err = h.acrHelper.UserHasAccessToMCPServerInWorkspace(req.User, server.Name, server.Spec.PowerUserWorkspaceID, server.Spec.UserID)
 		}
 

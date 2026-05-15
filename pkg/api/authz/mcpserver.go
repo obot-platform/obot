@@ -19,8 +19,8 @@ func (a *Authorizer) checkMCPServer(req *http.Request, resources *Resources, u u
 		return false, err
 	}
 
-	// If the user owns the MCP server, then authorization is granted.
-	if mcpServer.Spec.UserID == u.GetUID() && mcpServer.Spec.MCPCatalogID == "" {
+	// If the user owns this server (personal or workspace), grant direct access.
+	if mcpServer.Spec.IsOwnedBy(u.GetUID()) {
 		resources.Authorizated.MCPServer = &mcpServer
 		return true, nil
 	}
@@ -36,7 +36,7 @@ func (a *Authorizer) checkMCPServer(req *http.Request, resources *Resources, u u
 
 		resources.Authorizated.MCPServer = &mcpServer
 		return true, nil
-	} else if mcpServer.Spec.PowerUserWorkspaceID != "" {
+	} else if mcpServer.Spec.IsPowerUserWorkspaceServer() {
 		hasAccess, err := a.acrHelper.UserHasAccessToMCPServerInWorkspace(u, mcpServer.Name, mcpServer.Spec.PowerUserWorkspaceID, mcpServer.Spec.UserID)
 		if err != nil || !hasAccess {
 			return false, err

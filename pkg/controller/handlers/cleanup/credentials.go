@@ -145,9 +145,9 @@ func (c *Credentials) RemoveMCPCredentials(req router.Request, _ router.Response
 	}
 
 	var credCtx string
-	if mcpServer.Spec.MCPCatalogID != "" {
+	if mcpServer.Spec.IsCatalogServer() {
 		credCtx = fmt.Sprintf("%s-%s", mcpServer.Spec.MCPCatalogID, mcpServer.Name)
-	} else if mcpServer.Spec.PowerUserWorkspaceID != "" {
+	} else if mcpServer.Spec.IsPowerUserWorkspaceServer() {
 		credCtx = fmt.Sprintf("%s-%s", mcpServer.Spec.PowerUserWorkspaceID, mcpServer.Name)
 	} else {
 		credCtx = fmt.Sprintf("%s-%s", mcpServer.Spec.UserID, mcpServer.Name)

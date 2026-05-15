@@ -404,7 +404,7 @@ func compositeConfigHasDrifted(serverConfig *types.CompositeRuntimeConfig, entry
 // EnsureMCPServerInstanceUserCount ensures that mcp server instance user count for multi-user MCP servers is up to date.
 func (*Handler) EnsureMCPServerInstanceUserCount(req router.Request, _ router.Response) error {
 	server := req.Object.(*v1.MCPServer)
-	if server.Spec.MCPCatalogID == "" && server.Spec.PowerUserWorkspaceID == "" {
+	if server.Spec.IsSingleUser() {
 		// Server is not multi-user, ensure we're not tracking the instance user count
 		if server.Status.MCPServerInstanceUserCount == nil {
 			return nil
@@ -858,14 +858,13 @@ func (h *Handler) SyncOAuthMetadata(req router.Request, _ router.Response) error
 	}
 
 	var credCtxs []string
-	if server.Spec.MCPCatalogID != "" {
+	if server.Spec.IsCatalogServer() {
 		credCtxs = []string{fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name)}
-	} else if server.Spec.PowerUserWorkspaceID != "" {
+	} else if server.Spec.IsPowerUserWorkspaceServer() {
 		credCtxs = []string{fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name)}
 	} else {
-		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name))
+		credCtxs = []string{fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name)}
 	}
-
 	cred, err := h.gptClient.RevealCredential(req.Ctx, credCtxs, server.Name)
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return fmt.Errorf("failed to reveal credential: %w", err)
@@ -957,7 +956,7 @@ func (h *Handler) ShutdownIdleServers(req router.Request, resp router.Response) 
 		idleInterval = h.singleUserIdleShutdownDelay
 		if mcpServer.Spec.NanobotAgentID != "" {
 			idleInterval = h.agentIdleShutdownDelay
-		} else if mcpServer.Spec.MCPCatalogID != "" || mcpServer.Spec.PowerUserWorkspaceID != "" {
+		} else if !mcpServer.Spec.IsSingleUser() {
 			idleInterval = h.multiUserIdleShutdownDelay
 		}
 	}

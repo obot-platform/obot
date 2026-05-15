@@ -29,8 +29,8 @@ func (h *Handler) MigrationDeleteSingleUserInstances(req router.Request, _ route
 		return err
 	}
 
-	if server.Spec.MCPCatalogID == "" && server.Spec.PowerUserWorkspaceID == "" {
-		// This server is unshared (neither catalog-shared nor workspace-scoped), so it should not have any server instances.
+	if server.Spec.IsSingleUser() {
+		// This server is single-user, so it should not have any server instances.
 		// Delete this instance.
 		log.Infof("Deleting invalid single-user MCPServerInstance for unshared server: instance=%s server=%s", instance.Name, server.Name)
 		return req.Delete(instance)
@@ -50,7 +50,7 @@ func (h *Handler) UpdateMultiUserConfig(req router.Request, _ router.Response) e
 		return err
 	}
 
-	if server.Spec.MCPCatalogID != "" || server.Spec.PowerUserWorkspaceID != "" {
+	if !server.Spec.IsSingleUser() {
 		if !equality.Semantic.DeepEqual(instance.Spec.MultiUserConfig, server.Spec.Manifest.MultiUserConfig) {
 			instance.Spec.MultiUserConfig = server.Spec.Manifest.MultiUserConfig
 			return req.Client.Update(req.Ctx, instance)

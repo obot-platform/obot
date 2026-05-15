@@ -96,12 +96,12 @@ func (s *Server) userHasAccessToMCPServer(apiContext api.Context, server *v1.MCP
 	}
 
 	// Check ACR for catalog-scoped servers
-	if server.Spec.MCPCatalogID != "" {
+	if server.Spec.IsCatalogServer() {
 		return s.acrHelper.UserHasAccessToMCPServerInCatalog(apiContext.User, server.Name, server.Spec.MCPCatalogID)
 	}
 
 	// Check ACR for workspace-scoped servers
-	if server.Spec.PowerUserWorkspaceID != "" {
+	if server.Spec.IsPowerUserWorkspaceServer() {
 		return s.acrHelper.UserHasAccessToMCPServerInWorkspace(apiContext.User, server.Name, server.Spec.PowerUserWorkspaceID, server.Spec.UserID)
 	}
 

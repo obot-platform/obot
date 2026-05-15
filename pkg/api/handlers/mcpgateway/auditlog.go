@@ -28,10 +28,9 @@ func NewAuditLogHandler() *AuditLogHandler {
 }
 
 // getOwnServerMCPIDs returns the MCP server IDs for servers that the user owns directly
-// (not through a workspace or catalog). These are servers where:
+// (not through a workspace or catalog). These are single-user servers where:
 // - Spec.UserID == user's ID
-// - Spec.MCPCatalogID == ""
-// - Spec.PowerUserWorkspaceID == ""
+// - Spec.IsSingleUser() == true
 func getOwnServerMCPIDs(req api.Context) ([]string, error) {
 	var mcpServers v1.MCPServerList
 	if err := req.List(&mcpServers, &kclient.ListOptions{
@@ -42,7 +41,7 @@ func getOwnServerMCPIDs(req api.Context) ([]string, error) {
 
 	var mcpIDs []string
 	for _, server := range mcpServers.Items {
-		if server.Spec.MCPCatalogID == "" && server.Spec.PowerUserWorkspaceID == "" {
+		if server.Spec.IsSingleUser() {
 			mcpIDs = append(mcpIDs, server.Name)
 		}
 	}

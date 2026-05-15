@@ -995,7 +995,26 @@ func ValidateServerManifest(manifest types.MCPServerManifest, isMultiUser bool) 
 	}
 }
 
+// ValidateCatalogEntryForRoute checks that a catalog entry is compatible with the
+// route used to create a server. catalogID and workspaceID come from the URL path.
+func ValidateCatalogEntryForRoute(manifest types.MCPServerCatalogEntryManifest, catalogID, workspaceID string) error {
+	isMultiUser := catalogID != "" || workspaceID != ""
+	if isMultiUser {
+		// Deploying catalog entries as multi-user servers is not yet supported.
+		// This will be enabled when multi-user template deployment is implemented.
+		return fmt.Errorf("deploying catalog entries as multi-user servers is not yet supported")
+	}
+	if !manifest.ServerUserType.IsSingleUser() {
+		return fmt.Errorf("only single-user catalog entries are supported")
+	}
+	return nil
+}
+
 func ValidateCatalogEntryManifest(manifest types.MCPServerCatalogEntryManifest) error {
+	if !manifest.ServerUserType.IsSingleUser() {
+		return fmt.Errorf("unsupported serverUserType %q: only %q is currently supported for catalog entries", manifest.ServerUserType, types.ServerUserTypeSingleUser)
+	}
+
 	if err := validateRuntimeStartupTimeout(manifest.Runtime, manifest.RuntimeStartupTimeoutSeconds()); err != nil {
 		return err
 	}
