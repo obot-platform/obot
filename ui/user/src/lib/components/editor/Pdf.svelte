@@ -1,5 +1,20 @@
 <script lang="ts">
-	import type { EditorItem } from '$lib/services/editor/index.svelte';
+	interface EditorItem {
+		id: string;
+		name: string;
+		file?: {
+			contents: string;
+			modified?: boolean;
+			buffer: string;
+			threadID?: string;
+			blob?: Blob;
+			taskID?: string;
+			runID?: string;
+		};
+
+		selected?: boolean;
+		generic?: boolean;
+	}
 
 	type Props = {
 		file: EditorItem;

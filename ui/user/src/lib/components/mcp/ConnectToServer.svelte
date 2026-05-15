@@ -1,10 +1,7 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
 	import { dialogAnimation } from '$lib/actions/dialogAnimation';
 	import {
 		ChatService,
-		EditorService,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
 		type MCPServerInstance
@@ -13,7 +10,6 @@
 	import {
 		convertCompositeLaunchFormDataToPayload,
 		convertEnvHeadersToRecord,
-		createProjectMcp,
 		getSecretBindingEngineError,
 		isKubernetesRuntimeBackend,
 		hasEditableConfiguration
@@ -28,7 +24,7 @@
 		type LaunchFormData
 	} from './CatalogConfigureForm.svelte';
 	import HowToConnect from './HowToConnect.svelte';
-	import { ExternalLink, Plus, Server, X } from 'lucide-svelte';
+	import { Plus, Server, X } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 
 	interface Props {
@@ -682,65 +678,6 @@
 		}
 	}
 
-	export async function handleSetupChat(
-		connectedServer: MCPCatalogServer,
-		instance?: MCPServerInstance
-	) {
-		connectDialog?.close();
-		chatLaunchError = undefined;
-		chatLoading = true;
-		chatLoadingProgress = 0;
-
-		let timeout1 = setTimeout(() => {
-			chatLoadingProgress = 10;
-		}, 1000);
-		let timeout2 = setTimeout(() => {
-			chatLoadingProgress = 50;
-		}, 5000);
-		let timeout3 = setTimeout(() => {
-			chatLoadingProgress = 80;
-		}, 10000);
-
-		const projects = await ChatService.listProjects();
-		const name = [
-			connectedServer.alias || connectedServer.manifest.name || '',
-			connectedServer.id
-		].join(' - ');
-		const match = projects.items.find((project) => project.name === name);
-
-		let project = match;
-		if (!match) {
-			// if no project match, create a new one w/ mcp server connected to it
-			project = await EditorService.createObot({
-				name: name
-			});
-		}
-
-		try {
-			const mcpId = instance ? instance.id : connectedServer.id;
-			if (
-				project &&
-				!(await ChatService.listProjectMCPs(project.assistantID, project.id)).find(
-					(mcp) => mcp.mcpID === mcpId
-				)
-			) {
-				await createProjectMcp(project, mcpId);
-			}
-		} catch (err) {
-			chatLaunchError = err instanceof Error ? err.message : 'An unknown error occurred';
-		} finally {
-			clearTimeout(timeout1);
-			clearTimeout(timeout2);
-			clearTimeout(timeout3);
-		}
-
-		chatLoadingProgress = 100;
-		setTimeout(() => {
-			chatLoading = false;
-			goto(resolve(`/o/${project?.id}`));
-		}, 1000);
-	}
-
 	function handleOauthClose() {
 		oauthDialog?.close();
 		oauthURL = '';
@@ -791,17 +728,6 @@
 						}}
 					/>
 				</div>
-
-				{#if !hideActions && version.current.disableLegacyChat !== true}
-					<div class="w-32">
-						<button
-							class="btn btn-primary flex h-9 w-full grow items-center justify-center gap-2 text-sm"
-							onclick={() => handleSetupChat(server!, instance)}
-						>
-							Chat <ExternalLink class="size-4" />
-						</button>
-					</div>
-				{/if}
 			</div>
 		</div>
 

@@ -30,18 +30,13 @@
 		ChevronDown,
 		ChevronLeft,
 		ChevronUp,
-		CircuitBoard,
-		Cpu,
 		Funnel,
 		GlobeLock,
 		KeyRound,
 		LockKeyhole,
-		MessageCircle,
-		MessageCircleMore,
 		Palette,
 		RadioTower,
 		Server,
-		Settings,
 		SquareLibrary,
 		UserCog,
 		Users,
@@ -147,20 +142,8 @@
 	let isBootStrapUser = $derived(profile.current.isBootstrapUser?.() ?? false);
 	let isAtLeastPowerUserPlus = $derived(profile.current.groups.includes(Group.POWERUSER_PLUS));
 	let isAtLeastPowerUser = $derived(profile.current.groups.includes(Group.POWERUSER));
-	let chatLinks = $derived<NavLink[]>([
-		...(version.current.disableLegacyChat !== true
-			? [
-					{
-						id: 'legacy-chat',
-						href: '/chat',
-						icon: MessageCircle,
-						label: 'Launch Chat',
-						disabled: isBootStrapUser,
-						collapsible: false
-					}
-				]
-			: []),
-		...(version.current.nanobotIntegration
+	let chatLinks = $derived<NavLink[]>(
+		version.current.nanobotIntegration
 			? [
 					{
 						id: 'launch-agent-chat',
@@ -173,8 +156,8 @@
 						note: !agentLinkEnabled ? renderAgentDisabledNote : undefined
 					}
 				]
-			: [])
-	]);
+			: []
+	);
 	let navLinks = $derived<NavLink[]>(
 		profile.current.hasAdminAccess?.()
 			? [
@@ -310,56 +293,6 @@
 							}
 						]
 					},
-					...(version.current.disableLegacyChat !== true
-						? [
-								{
-									id: 'obot-chat',
-									icon: MessageCircle,
-									label: 'Legacy Chat Management',
-									disabled: isBootStrapUser,
-									collapsible: true,
-									items: [
-										{
-											id: 'chat-threads',
-											href: '/admin/chat-threads',
-											icon: MessageCircleMore,
-											label: 'Chat Threads',
-											collapsible: false
-										},
-										{
-											id: 'tasks',
-											href: '/admin/tasks',
-											icon: Cpu,
-											label: 'Tasks',
-											disabled: isBootStrapUser
-										},
-										{
-											id: 'task-runs',
-											href: '/admin/task-runs',
-											icon: CircuitBoard,
-											label: 'Task Runs',
-											disabled: isBootStrapUser
-										},
-										{
-											id: 'chat-configuration',
-											href: '/admin/chat-configuration',
-											icon: Settings,
-											label: 'Chat Configuration',
-											disabled: isBootStrapUser,
-											collapsible: false
-										},
-										{
-											id: 'launch-legacy-chat',
-											href: '/chat',
-											icon: MessageCircle,
-											label: 'Launch Legacy Chat',
-											disabled: isBootStrapUser,
-											collapsible: false
-										}
-									]
-								}
-							]
-						: []),
 					{
 						id: 'user-management',
 						icon: Users,

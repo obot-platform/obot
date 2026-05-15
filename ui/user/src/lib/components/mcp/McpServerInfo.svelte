@@ -2,7 +2,7 @@
 	import { browser } from '$app/environment';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
-	import { type MCPCatalogServer, type ProjectMCP } from '$lib/services';
+	import { type MCPCatalogServer } from '$lib/services';
 	import type { MCPCatalogEntry } from '$lib/services/admin/types';
 	import { responsive } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
@@ -10,7 +10,7 @@
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
-		entry: MCPCatalogEntry | MCPCatalogServer | ProjectMCP;
+		entry: MCPCatalogEntry | MCPCatalogServer;
 		parent?: Props['entry'];
 		descriptionPlaceholder?: string;
 		preContent?: Snippet;
@@ -26,7 +26,7 @@
 		catalogId?: string;
 	};
 
-	function convertEntryDetails(entry: MCPCatalogEntry | MCPCatalogServer | ProjectMCP) {
+	function convertEntryDetails(entry: MCPCatalogEntry | MCPCatalogServer) {
 		let items: Record<string, EntryDetail> = {};
 		if (!('isCatalogEntry' in entry) && ('manifest' in entry || 'mcpID' in entry)) {
 			items = {
@@ -121,7 +121,6 @@
 	let details = $derived(convertEntryDetails(entry));
 	let description = $derived.by(() => {
 		const descriptions = [
-			() => ('description' in entry ? entry.description : undefined),
 			() => ('manifest' in entry ? entry.manifest.description : undefined),
 			() => (parent && 'manifest' in parent ? parent?.manifest?.description : undefined)
 		];

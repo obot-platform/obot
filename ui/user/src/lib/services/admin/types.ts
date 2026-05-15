@@ -1,7 +1,6 @@
 import {
 	type MCPServerTool,
 	type MCPSecretBinding,
-	type Project,
 	type RemoteRuntimeConfig,
 	type MultiUserConfig,
 	type Runtime,
@@ -9,7 +8,6 @@ import {
 	type NPXRuntimeConfig,
 	type ContainerizedRuntimeConfig,
 	type CompositeRuntimeConfig,
-	type Task,
 	type ToolOverride,
 	type Schedule,
 	ModelAlias
@@ -289,30 +287,6 @@ export interface FileScannerConfig {
 	updatedAt: string;
 }
 
-interface BaseThread {
-	created: string;
-	id: string;
-	name: string;
-	currentRunId?: string;
-	projectID?: string;
-	lastRunID?: string;
-	userID?: string;
-	project?: boolean;
-	deleted?: string;
-	systemTask?: boolean;
-	ready?: boolean;
-}
-
-export type ProjectThread = BaseThread &
-	(
-		| { assistantID: string; taskID?: never; taskRunID?: never }
-		| { assistantID?: never; taskID: string; taskRunID?: string }
-	);
-
-export type ProjectTask = Task & {
-	created: string;
-};
-
 export const ModelUsage = {
 	LLM: 'llm',
 	TextEmbedding: 'text-embedding',
@@ -578,13 +552,6 @@ export interface K8sServerDetail {
 
 export interface K8sServerLog {
 	message: string;
-}
-
-export interface BaseAgent extends Project {
-	allowedModels?: string[];
-	allowedModelProviders?: string[];
-	default?: boolean;
-	model?: string; // default model
 }
 
 export interface MCPFilterManifest {

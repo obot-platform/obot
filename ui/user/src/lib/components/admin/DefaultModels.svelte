@@ -11,7 +11,7 @@
 		ChatService
 	} from '$lib/services';
 	import { AdminService } from '$lib/services';
-	import { version, defaultModelAliases as defaultModelAliasesStore } from '$lib/stores';
+	import { defaultModelAliases as defaultModelAliasesStore } from '$lib/stores';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import Select from '../Select.svelte';
 
@@ -19,10 +19,7 @@
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let defaultModelAliases = $derived(defaultModelAliasesStore.current);
 	let sortedModelAliases = $derived(
-		(version.current.disableLegacyChat === true
-			? Object.values(NanobotModelAlias)
-			: Object.values(ModelAlias)
-		)
+		Object.values(NanobotModelAlias)
 			.map((alias) => defaultModelAliases.find((defaultAlias) => defaultAlias.alias === alias))
 			.filter((x) => !!x)
 	);
