@@ -285,6 +285,7 @@ function convertEntriesToTableData(
 				created: entry.created,
 				registry,
 				needsUpdate: entry.needsUpdate,
+				hasServers: configuredServers.length > 0,
 				connected,
 				missingKubernetesSecret: missingSecretBinding,
 				status: missingSecretBinding
@@ -346,6 +347,7 @@ function convertServersToTableData(
 				editable: true,
 				created: server.created,
 				registry,
+				hasServers: connected,
 				connected,
 				status: connected
 					? instance.configured === false

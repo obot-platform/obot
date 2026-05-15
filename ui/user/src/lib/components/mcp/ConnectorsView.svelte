@@ -97,7 +97,7 @@
 		onFilter,
 		onClearAllFilters,
 		onSort,
-		initSort = { property: 'connected', order: 'desc' },
+		initSort = { property: 'hasServers', order: 'desc' },
 		classes,
 		onConnect,
 		usersMap
