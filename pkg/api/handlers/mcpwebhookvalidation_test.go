@@ -85,11 +85,15 @@ func TestMCPWebhookValidationManifest_Validate(t *testing.T) {
 }
 
 func TestSystemMCPServerManifestFromCatalogEntry(t *testing.T) {
+	resources := &types.MCPResourceRequirements{
+		Requests: types.MCPResourceRequests{CPU: "250m", Memory: "512Mi"},
+	}
 	manifest := systemMCPServerManifestFromCatalogEntry(types.SystemMCPServerCatalogEntryManifest{
 		Name:             "validator",
 		ShortDescription: "short",
 		Description:      "long",
 		Runtime:          types.RuntimeRemote,
+		Resources:        resources,
 		RemoteConfig: &types.RemoteCatalogConfig{
 			FixedURL: "https://example.com/mcp",
 			Headers:  []types.MCPHeader{{Key: "Authorization", Value: "Bearer token"}},
@@ -104,6 +108,9 @@ func TestSystemMCPServerManifestFromCatalogEntry(t *testing.T) {
 	}
 	if manifest.RemoteConfig == nil || manifest.RemoteConfig.URL != "https://example.com/mcp" {
 		t.Fatalf("expected fixed remote URL to be mapped, got %#v", manifest.RemoteConfig)
+	}
+	if manifest.Resources != resources {
+		t.Fatalf("expected resources to be copied")
 	}
 }
 

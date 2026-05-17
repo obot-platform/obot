@@ -13,6 +13,8 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 // MaxMCPServerStartupTimeout is the maximum value allowed to be used in ServerConfig.StartupTimeout
@@ -79,7 +81,52 @@ type ServerConfig struct {
 	AuditLogEndpoint string `json:"auditLogEndpoint"`
 	AuditLogMetadata string `json:"auditLogMetadata"`
 
-	StartupTimeout time.Duration `json:"startupTimeout,omitempty"`
+	StartupTimeout time.Duration               `json:"startupTimeout,omitempty"`
+	Resources      corev1.ResourceRequirements `json:"resources,omitempty"`
+}
+
+func coreResourceRequirements(resources *types.MCPResourceRequirements) (corev1.ResourceRequirements, error) {
+	if resources == nil {
+		return corev1.ResourceRequirements{}, nil
+	}
+
+	result := corev1.ResourceRequirements{}
+	if resources.Requests.CPU != "" || resources.Requests.Memory != "" {
+		result.Requests = corev1.ResourceList{}
+		if resources.Requests.CPU != "" {
+			cpu, err := resource.ParseQuantity(resources.Requests.CPU)
+			if err != nil {
+				return result, fmt.Errorf("invalid CPU request %q: %w", resources.Requests.CPU, err)
+			}
+			result.Requests[corev1.ResourceCPU] = cpu
+		}
+		if resources.Requests.Memory != "" {
+			memory, err := resource.ParseQuantity(resources.Requests.Memory)
+			if err != nil {
+				return result, fmt.Errorf("invalid memory request %q: %w", resources.Requests.Memory, err)
+			}
+			result.Requests[corev1.ResourceMemory] = memory
+		}
+	}
+	if resources.Limits.CPU != "" || resources.Limits.Memory != "" {
+		result.Limits = corev1.ResourceList{}
+		if resources.Limits.CPU != "" {
+			cpu, err := resource.ParseQuantity(resources.Limits.CPU)
+			if err != nil {
+				return result, fmt.Errorf("invalid CPU limit %q: %w", resources.Limits.CPU, err)
+			}
+			result.Limits[corev1.ResourceCPU] = cpu
+		}
+		if resources.Limits.Memory != "" {
+			memory, err := resource.ParseQuantity(resources.Limits.Memory)
+			if err != nil {
+				return result, fmt.Errorf("invalid memory limit %q: %w", resources.Limits.Memory, err)
+			}
+			result.Limits[corev1.ResourceMemory] = memory
+		}
+	}
+
+	return result, nil
 }
 
 type File struct {
@@ -330,6 +377,11 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, us
 		}
 	}
 
+	resources, err := coreResourceRequirements(mcpServer.Spec.Manifest.Resources)
+	if err != nil {
+		return ServerConfig{}, nil, err
+	}
+
 	serverConfig := ServerConfig{
 		Env:                       make([]string, 0, len(mcpServer.Spec.Manifest.Env)),
 		UserID:                    userID,
@@ -352,6 +404,7 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, us
 		ComponentMCPServer:        mcpServer.Spec.CompositeName != "",
 		NanobotAgentName:          mcpServer.Spec.NanobotAgentID,
 		StartupTimeout:            startupTimeout,
+		Resources:                 resources,
 	}
 
 	if mcpServer.Spec.CompositeName == "" {
@@ -451,6 +504,11 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []str
 		return ServerConfig{}, nil, fmt.Errorf("input %d exceeds the max of %s", startupTimeoutSeconds, MaxMCPServerStartupTimeout)
 	}
 
+	resources, err := coreResourceRequirements(systemServer.Spec.Manifest.Resources)
+	if err != nil {
+		return ServerConfig{}, nil, err
+	}
+
 	serverConfig := ServerConfig{
 		Env:                       make([]string, 0, len(systemServer.Spec.Manifest.Env)),
 		MCPServerNamespace:        systemServer.Namespace,
@@ -470,6 +528,7 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []str
 		AuditLogMetadata:          fmt.Sprintf("mcpID=%s,mcpServerDisplayName=%s", systemServer.Name, displayName),
 		SystemMCPServer:           true,
 		StartupTimeout:            startupTimeout,
+		Resources:                 resources,
 	}
 
 	var missingRequiredNames []string

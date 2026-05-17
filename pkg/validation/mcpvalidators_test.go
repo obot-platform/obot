@@ -1706,6 +1706,141 @@ func TestValidateManifestStartupTimeoutNonNegative(t *testing.T) {
 	})
 }
 
+func TestValidateMCPResourceRequirements(t *testing.T) {
+	validResources := &types.MCPResourceRequirements{
+		Requests: types.MCPResourceRequests{
+			CPU:    "250m",
+			Memory: "512Mi",
+		},
+		Limits: types.MCPResourceRequests{
+			CPU:    "1",
+			Memory: "1Gi",
+		},
+	}
+
+	t.Run("server manifest accepts valid resources", func(t *testing.T) {
+		err := ValidateServerManifest(types.MCPServerManifest{
+			Runtime:   types.RuntimeNPX,
+			NPXConfig: &types.NPXRuntimeConfig{Package: "test-package"},
+			Resources: validResources,
+		}, false)
+		require.NoError(t, err)
+	})
+
+	t.Run("catalog manifest accepts valid resources", func(t *testing.T) {
+		err := ValidateCatalogEntryManifest(types.MCPServerCatalogEntryManifest{
+			Runtime:   types.RuntimeUVX,
+			UVXConfig: &types.UVXRuntimeConfig{Package: "test-package"},
+			Resources: validResources,
+		})
+		require.NoError(t, err)
+	})
+
+	tests := []struct {
+		name        string
+		resources   *types.MCPResourceRequirements
+		field       string
+		messagePart string
+	}{
+		{
+			name: "invalid cpu request",
+			resources: &types.MCPResourceRequirements{
+				Requests: types.MCPResourceRequests{CPU: "not-cpu"},
+			},
+			field:       "resources.requests.cpu",
+			messagePart: "invalid quantity",
+		},
+		{
+			name: "invalid memory request",
+			resources: &types.MCPResourceRequirements{
+				Requests: types.MCPResourceRequests{Memory: "not-memory"},
+			},
+			field:       "resources.requests.memory",
+			messagePart: "invalid quantity",
+		},
+		{
+			name: "invalid cpu limit",
+			resources: &types.MCPResourceRequirements{
+				Limits: types.MCPResourceRequests{CPU: "not-cpu"},
+			},
+			field:       "resources.limits.cpu",
+			messagePart: "invalid quantity",
+		},
+		{
+			name: "invalid memory limit",
+			resources: &types.MCPResourceRequirements{
+				Limits: types.MCPResourceRequests{Memory: "not-memory"},
+			},
+			field:       "resources.limits.memory",
+			messagePart: "invalid quantity",
+		},
+		{
+			name: "negative cpu request",
+			resources: &types.MCPResourceRequirements{
+				Requests: types.MCPResourceRequests{CPU: "-250m"},
+			},
+			field:       "resources.requests.cpu",
+			messagePart: "must be non-negative",
+		},
+		{
+			name: "negative memory limit",
+			resources: &types.MCPResourceRequirements{
+				Limits: types.MCPResourceRequests{Memory: "-1Gi"},
+			},
+			field:       "resources.limits.memory",
+			messagePart: "must be non-negative",
+		},
+		{
+			name: "cpu limit below request",
+			resources: &types.MCPResourceRequirements{
+				Requests: types.MCPResourceRequests{CPU: "1"},
+				Limits:   types.MCPResourceRequests{CPU: "500m"},
+			},
+			field:       "resources.limits.cpu",
+			messagePart: "must be greater than or equal to resources.requests.cpu",
+		},
+		{
+			name: "memory limit below request",
+			resources: &types.MCPResourceRequirements{
+				Requests: types.MCPResourceRequests{Memory: "1Gi"},
+				Limits:   types.MCPResourceRequests{Memory: "512Mi"},
+			},
+			field:       "resources.limits.memory",
+			messagePart: "must be greater than or equal to resources.requests.memory",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run("server manifest rejects "+tt.name, func(t *testing.T) {
+			err := ValidateServerManifest(types.MCPServerManifest{
+				Runtime:   types.RuntimeNPX,
+				NPXConfig: &types.NPXRuntimeConfig{Package: "test-package"},
+				Resources: tt.resources,
+			}, false)
+
+			var validationErr types.RuntimeValidationError
+			require.ErrorAs(t, err, &validationErr)
+			require.Equal(t, types.RuntimeNPX, validationErr.Runtime)
+			require.Equal(t, tt.field, validationErr.Field)
+			require.Contains(t, validationErr.Message, tt.messagePart)
+		})
+
+		t.Run("catalog manifest rejects "+tt.name, func(t *testing.T) {
+			err := ValidateCatalogEntryManifest(types.MCPServerCatalogEntryManifest{
+				Runtime:   types.RuntimeUVX,
+				UVXConfig: &types.UVXRuntimeConfig{Package: "test-package"},
+				Resources: tt.resources,
+			})
+
+			var validationErr types.RuntimeValidationError
+			require.ErrorAs(t, err, &validationErr)
+			require.Equal(t, types.RuntimeUVX, validationErr.Runtime)
+			require.Equal(t, tt.field, validationErr.Field)
+			require.Contains(t, validationErr.Message, tt.messagePart)
+		})
+	}
+}
+
 func TestValidateSecretBindings(t *testing.T) {
 	binding := &types.MCPSecretBinding{Name: "datadog-prod", Key: "api-key"}
 

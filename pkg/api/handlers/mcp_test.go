@@ -6,8 +6,39 @@ import (
 	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/stretchr/testify/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+func TestConvertMCPResources(t *testing.T) {
+	resources := &types.MCPResourceRequirements{
+		Requests: types.MCPResourceRequests{CPU: "250m", Memory: "512Mi"},
+		Limits:   types.MCPResourceRequests{CPU: "1", Memory: "1Gi"},
+	}
+
+	entry := ConvertMCPServerCatalogEntry(v1.MCPServerCatalogEntry{
+		ObjectMeta: metav1.ObjectMeta{Name: "entry"},
+		Spec: v1.MCPServerCatalogEntrySpec{
+			Manifest: types.MCPServerCatalogEntryManifest{
+				Name:      "entry",
+				Resources: resources,
+			},
+		},
+	})
+	assert.Equal(t, resources, entry.Manifest.Resources)
+
+	server := ConvertMCPServer(v1.MCPServer{
+		ObjectMeta: metav1.ObjectMeta{Name: "server"},
+		Spec: v1.MCPServerSpec{
+			Manifest: types.MCPServerManifest{
+				Name:      "server",
+				Resources: resources,
+			},
+		},
+	}, nil, "", "")
+	assert.Equal(t, resources, server.MCPServerManifest.Resources)
+}
 
 // Test functions for applyURLTemplate
 func TestApplyURLTemplate(t *testing.T) {

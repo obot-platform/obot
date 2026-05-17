@@ -1634,6 +1634,7 @@ func convertServerManifestToCatalogManifest(serverManifest types.MCPServerManife
 		Env:              serverManifest.Env,
 		ToolPreview:      serverManifest.ToolPreview,
 		MultiUserConfig:  serverManifest.MultiUserConfig,
+		Resources:        serverManifest.Resources,
 	}
 
 	// Convert runtime-specific configs

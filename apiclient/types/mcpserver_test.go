@@ -4,6 +4,27 @@ import (
 	"testing"
 )
 
+func TestMapCatalogEntryToServerCopiesResources(t *testing.T) {
+	resources := &MCPResourceRequirements{
+		Requests: MCPResourceRequests{Memory: "512Mi"},
+		Limits:   MCPResourceRequests{CPU: "1"},
+	}
+	catalogEntry := MCPServerCatalogEntryManifest{
+		Name:      "Test UVX Server",
+		Runtime:   RuntimeUVX,
+		Resources: resources,
+		UVXConfig: &UVXRuntimeConfig{Package: "test-package"},
+	}
+
+	result, err := MapCatalogEntryToServer(catalogEntry, "", false)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if result.Resources != resources {
+		t.Fatalf("Resources were not copied from catalog entry")
+	}
+}
+
 func TestMapCatalogEntryToServer_UVX(t *testing.T) {
 	catalogEntry := MCPServerCatalogEntryManifest{
 		Name:        "Test UVX Server",

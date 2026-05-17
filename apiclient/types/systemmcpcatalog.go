@@ -55,6 +55,8 @@ type SystemMCPServerCatalogEntryManifest struct {
 	RemoteConfig        *RemoteCatalogConfig        `json:"remoteConfig,omitempty"`
 
 	Env []MCPEnv `json:"env,omitempty"`
+
+	Resources *MCPResourceRequirements `json:"resources,omitempty"`
 }
 
 type FilterConfig struct {

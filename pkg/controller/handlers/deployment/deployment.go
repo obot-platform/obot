@@ -121,7 +121,7 @@ func (h *Handler) UpdateMCPServerStatus(req router.Request, _ router.Response) e
 			Namespace: h.mcpNamespace,
 			Name:      system.K8sSettingsName,
 		}, &k8sSettings); err == nil {
-			currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec)
+			currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec, mcpServer.Spec.Manifest.Runtime, mcpServer.Spec.NanobotAgentID != "")
 
 			// Update K8sSettingsHash from deployment only if:
 			// 1. The MCPServer has no hash yet (empty), OR
