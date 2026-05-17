@@ -38,12 +38,13 @@ type Options struct {
 	IdleAgentShutdownHours            int      `usage:"The interval in hours to check for idle agents and shut them down, set to -1 to disable" default:"72"`
 
 	// Kubernetes settings from Helm
-	MCPK8sSettingsAffinity             string `usage:"Affinity rules for MCP server pods (JSON)"`
-	MCPK8sSettingsTolerations          string `usage:"Tolerations for MCP server pods (JSON)"`
-	MCPK8sSettingsResources            string `usage:"Resource requests/limits for MCP server pods (JSON)"`
-	MCPK8sSettingsRuntimeClassName     string `usage:"RuntimeClass name for MCP server pods (e.g., gvisor, kata)"`
-	MCPK8sSettingsStorageClassName     string `usage:"StorageClass name for nanobot workspace volumes"`
-	MCPK8sSettingsNanobotWorkspaceSize string `usage:"Nanobot workspace size for MCP server pods (e.g., 1Gi)"`
+	MCPK8sSettingsAffinity              string `usage:"Affinity rules for MCP server pods (JSON)"`
+	MCPK8sSettingsTolerations           string `usage:"Tolerations for MCP server pods (JSON)"`
+	MCPK8sSettingsResources             string `usage:"Resource requests/limits for MCP server pods (JSON)"`
+	MCPK8sSettingsNanobotAgentResources string `usage:"Resource requests/limits for NanobotAgent pods (JSON)"`
+	MCPK8sSettingsRuntimeClassName      string `usage:"RuntimeClass name for MCP server pods (e.g., gvisor, kata)"`
+	MCPK8sSettingsStorageClassName      string `usage:"StorageClass name for nanobot workspace volumes"`
+	MCPK8sSettingsNanobotWorkspaceSize  string `usage:"Nanobot workspace size for MCP server pods (e.g., 1Gi)"`
 
 	// Obot service configuration for constructing internal service FQDN
 	ServiceName      string `usage:"The Kubernetes service name for the obot server"`

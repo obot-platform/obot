@@ -890,6 +890,11 @@ func (in *K8sSettingsSpec) DeepCopyInto(out *K8sSettingsSpec) {
 		*out = new(corev1.ResourceRequirements)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.NanobotAgentResources != nil {
+		in, out := &in.NanobotAgentResources, &out.NanobotAgentResources
+		*out = new(corev1.ResourceRequirements)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.RuntimeClassName != nil {
 		in, out := &in.RuntimeClassName, &out.RuntimeClassName
 		*out = new(string)

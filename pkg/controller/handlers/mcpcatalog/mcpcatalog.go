@@ -320,6 +320,7 @@ func mcpCatalogEntryManifestToSystem(manifest types.MCPServerCatalogEntryManifes
 		ContainerizedConfig: manifest.ContainerizedConfig,
 		RemoteConfig:        manifest.RemoteConfig,
 		Env:                 manifest.Env,
+		Resources:           manifest.Resources,
 	}
 }
 
@@ -338,6 +339,7 @@ func systemCatalogEntryManifestToMCP(manifest types.SystemMCPServerCatalogEntryM
 		ContainerizedConfig: manifest.ContainerizedConfig,
 		RemoteConfig:        manifest.RemoteConfig,
 		Env:                 manifest.Env,
+		Resources:           manifest.Resources,
 	}
 }
 
@@ -621,12 +623,6 @@ func readCatalogDirectory[T any](catalog string) ([]T, error) {
 			return nil
 		}
 
-		// Check file count limit
-		fileCount++
-		if fileCount > maxFiles {
-			return fmt.Errorf("too many files to process (limit: %d)", maxFiles)
-		}
-
 		// Check if file matches any pattern
 		var matches bool
 		for _, pattern := range catalogPatterns {
@@ -650,6 +646,12 @@ func readCatalogDirectory[T any](catalog string) ([]T, error) {
 		if err := isPathSafe(path, catalog); err != nil {
 			log.Warnf("Skipping unsafe file %s: %v", relPath, err)
 			return nil
+		}
+
+		// Check file count limit
+		fileCount++
+		if fileCount > maxFiles {
+			return fmt.Errorf("too many files to process (limit: %d)", maxFiles)
 		}
 
 		// Read file contents

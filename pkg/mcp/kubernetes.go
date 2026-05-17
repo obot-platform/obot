@@ -9,6 +9,7 @@ import (
 	"io"
 	"maps"
 	"reflect"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -36,7 +37,14 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var olog = logger.Package()
+var (
+	olog = logger.Package()
+
+	remoteMemoryRequest       = resource.MustParse("100Mi")
+	defaultMCPMemoryRequest   = resource.MustParse("200Mi")
+	defaultAgentMemoryRequest = resource.MustParse("400Mi")
+	defaultCPURequest         = resource.MustParse("10m")
+)
 
 const maxDeploymentWatchRetries = 5
 
@@ -95,7 +103,7 @@ func (k *kubernetesBackend) deployServer(ctx context.Context, server ServerConfi
 
 func (k *kubernetesBackend) deployServerObjects(ctx context.Context, server ServerConfig, objs []kclient.Object) error {
 	// Check capacity before deploying (fail-open if capacity can't be determined)
-	if err := k.CheckCapacity(ctx); err != nil {
+	if err := k.CheckCapacity(ctx, server); err != nil {
 		return err
 	}
 
@@ -391,6 +399,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 		nonDynamicFileData = make(map[string][]byte, len(server.Files))
 		headerData         = make(map[string][]byte, len(server.Headers))
 		metaEnv            = make([]string, 0, len(server.Env)+len(server.Files))
+		err                error
 	)
 
 	// Use remote shim image for remote runtimes
@@ -500,15 +509,10 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 	annotations["obot-revision"] = hash.Digest(hash.Digest(secretEnvData) + hash.Digest(nonDynamicFileData) + hash.Digest(webhooks) + hash.Digest(headerData))
 
 	// Fetch K8s settings
-	k8sSettings, err := k.getK8sSettings(ctx)
-	if err != nil {
-		// Log error but continue with defaults
-		log.Warnf("Failed to get K8s settings, using defaults: %v", err)
-		k8sSettings = v1.K8sSettingsSpec{}
-	}
+	k8sSettings := k.getK8sSettings(ctx)
 
 	// Add K8s settings hash to annotations
-	annotations["obot.ai/k8s-settings-hash"] = ComputeK8sSettingsHash(k8sSettings)
+	annotations["obot.ai/k8s-settings-hash"] = ComputeK8sSettingsHash(k8sSettings, server.Runtime, server.NanobotAgentName != "")
 
 	// Get PSA enforce level for security context decisions
 	psaLevel := GetPSAEnforceLevelFromSpec(k8sSettings)
@@ -704,17 +708,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 			Name:          portName,
 			ContainerPort: int32(port),
 		}},
-		// Apply resources from K8s settings with fallback to default
-		Resources: func() corev1.ResourceRequirements {
-			if k8sSettings.Resources != nil {
-				return *k8sSettings.Resources
-			}
-			return corev1.ResourceRequirements{
-				Requests: corev1.ResourceList{
-					corev1.ResourceMemory: resource.MustParse("400Mi"),
-				},
-			}
-		}(),
+		Resources:       mcpContainerResources(server, k8sSettings),
 		SecurityContext: getContainerSecurityContext(psaLevel),
 		Command:         command,
 		Args:            args,
@@ -1126,21 +1120,77 @@ func (k *kubernetesBackend) deleteDeploymentCache(mcpServerName string) {
 	delete(k.deploymentCache, mcpServerName)
 }
 
+func mcpContainerResources(server ServerConfig, k8sSettings v1.K8sSettingsSpec) corev1.ResourceRequirements {
+	var defaults corev1.ResourceRequirements
+	if server.Runtime == types.RuntimeRemote {
+		defaults = memoryRequestResources(remoteMemoryRequest)
+	} else if server.NanobotAgentName != "" {
+		if k8sSettings.NanobotAgentResources != nil {
+			defaults = withDefaultCPURequest(*k8sSettings.NanobotAgentResources)
+		} else {
+			defaults = memoryRequestResources(defaultAgentMemoryRequest)
+		}
+	} else if k8sSettings.Resources != nil {
+		defaults = withDefaultCPURequest(*k8sSettings.Resources)
+	} else {
+		defaults = memoryRequestResources(defaultMCPMemoryRequest)
+	}
+
+	return withServerResourceOverrides(defaults, server.Resources)
+}
+
+func withServerResourceOverrides(defaults, overrides corev1.ResourceRequirements) corev1.ResourceRequirements {
+	if len(overrides.Requests) == 0 && len(overrides.Limits) == 0 {
+		return defaults
+	}
+
+	result := *defaults.DeepCopy()
+	if len(overrides.Requests) > 0 {
+		if result.Requests == nil {
+			result.Requests = corev1.ResourceList{}
+		}
+		maps.Copy(result.Requests, overrides.Requests)
+	}
+	if len(overrides.Limits) > 0 {
+		if result.Limits == nil {
+			result.Limits = corev1.ResourceList{}
+		}
+		maps.Copy(result.Limits, overrides.Limits)
+	}
+
+	return result
+}
+
+func memoryRequestResources(memory resource.Quantity) corev1.ResourceRequirements {
+	return withDefaultCPURequest(corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceMemory: memory,
+		},
+	})
+}
+
+func withDefaultCPURequest(resources corev1.ResourceRequirements) corev1.ResourceRequirements {
+	result := *resources.DeepCopy()
+	if _, ok := result.Requests[corev1.ResourceCPU]; !ok {
+		if result.Requests == nil {
+			result.Requests = corev1.ResourceList{}
+		}
+		result.Requests[corev1.ResourceCPU] = defaultCPURequest
+	}
+	return result
+}
+
 func (k *kubernetesBackend) restartServer(ctx context.Context, server ServerConfig) error {
 	id := server.MCPServerName
 	if id == "" {
 		return fmt.Errorf("MCPServerName is required to restart server")
 	}
 	// Fetch K8s settings once at the start
-	k8sSettings, err := k.getK8sSettings(ctx)
-	if err != nil {
-		// Log error but continue with defaults
-		log.Warnf("Failed to get K8s settings, using defaults: %v", err)
-		k8sSettings = v1.K8sSettingsSpec{}
-	}
+	k8sSettings := k.getK8sSettings(ctx)
 
 	// Compute K8s settings hash
-	k8sSettingsHash := ComputeK8sSettingsHash(k8sSettings)
+	k8sSettingsHash := ComputeK8sSettingsHash(k8sSettings, server.Runtime, server.NanobotAgentName != "")
+	desiredResources := mcpContainerResources(server, k8sSettings)
 
 	// Get PSA enforce level for security context decisions
 	psaLevel := GetPSAEnforceLevelFromSpec(k8sSettings)
@@ -1160,7 +1210,7 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, server ServerConf
 		}
 
 		// Check if deployment already matches the desired state
-		if k.deploymentSettingsMatch(&deployment, k8sSettings, psaLevel) {
+		if k.deploymentSettingsMatch(&deployment, k8sSettings, psaLevel, desiredResources) {
 			olog.Debugf("deployment %s matches desired K8s settings after %d patch attempt(s)", id, attempt)
 			// Settings match, now apply the hash to mark reconciliation complete
 			if err := k.patchDeploymentHash(ctx, &deployment, k8sSettingsHash); err != nil {
@@ -1174,7 +1224,7 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, server ServerConf
 		}
 
 		// Build and apply the patch (without hash - hash is applied only after verification)
-		if err := k.patchDeploymentWithK8sSettings(ctx, &deployment, k8sSettings, psaLevel); err != nil {
+		if err := k.patchDeploymentWithK8sSettings(ctx, &deployment, k8sSettings, psaLevel, desiredResources); err != nil {
 			if apierrors.IsConflict(err) {
 				olog.Debugf("conflict patching deployment %s on attempt %d, retrying", id, attempt+1)
 				continue
@@ -1188,7 +1238,7 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, server ServerConf
 		}
 
 		// Verify the patch was applied correctly (check settings, not hash)
-		if k.deploymentSettingsMatch(&deployment, k8sSettings, psaLevel) {
+		if k.deploymentSettingsMatch(&deployment, k8sSettings, psaLevel, desiredResources) {
 			olog.Debugf("deployment %s patched successfully with K8s settings on attempt %d", id, attempt+1)
 			// Settings match, now apply the hash to mark reconciliation complete
 			if err := k.patchDeploymentHash(ctx, &deployment, k8sSettingsHash); err != nil {
@@ -1213,7 +1263,7 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, server ServerConf
 // patchDeploymentWithK8sSettings applies the K8s settings patch to the deployment
 // Note: This does NOT update the hash annotation - that's done separately via patchDeploymentHash
 // after verification passes, ensuring the hash only reflects successfully applied settings.
-func (k *kubernetesBackend) patchDeploymentWithK8sSettings(ctx context.Context, deployment *appsv1.Deployment, k8sSettings v1.K8sSettingsSpec, psaLevel PSAEnforceLevel) error {
+func (k *kubernetesBackend) patchDeploymentWithK8sSettings(ctx context.Context, deployment *appsv1.Deployment, k8sSettings v1.K8sSettingsSpec, psaLevel PSAEnforceLevel, desiredResources corev1.ResourceRequirements) error {
 	// Build the patch with restart annotation (but not the hash - that comes after verification)
 	podAnnotations := map[string]string{
 		"kubectl.kubernetes.io/restartedAt": time.Now().Format(time.RFC3339),
@@ -1312,27 +1362,8 @@ func (k *kubernetesBackend) patchDeploymentWithK8sSettings(ctx context.Context, 
 		}
 	}
 
-	// Add resources to the mcp container
-	if k8sSettings.Resources != nil {
-		// Use $patch: replace to completely replace the resources field
-		resourcesMap := map[string]any{
-			"$patch": "replace",
-		}
-
-		// Set the actual resource fields that are present
-		if len(k8sSettings.Resources.Limits) > 0 {
-			resourcesMap["limits"] = k8sSettings.Resources.Limits
-		}
-		if len(k8sSettings.Resources.Requests) > 0 {
-			resourcesMap["requests"] = k8sSettings.Resources.Requests
-		}
-		mcpContainerPatch["resources"] = resourcesMap
-	} else {
-		// Use $patch: delete to remove any existing resources
-		mcpContainerPatch["resources"] = map[string]any{
-			"$patch": "delete",
-		}
-	}
+	// Use $patch: replace to completely replace the resources field.
+	mcpContainerPatch["resources"] = resourcesPatch(desiredResources)
 	containerPatches = append(containerPatches, mcpContainerPatch)
 
 	// Patch shim and webhook containers (any container that's not "mcp")
@@ -1369,21 +1400,42 @@ func (k *kubernetesBackend) patchDeploymentWithK8sSettings(ctx context.Context, 
 	return nil
 }
 
+func resourcesPatch(resources corev1.ResourceRequirements) map[string]any {
+	if len(resources.Limits) == 0 && len(resources.Requests) == 0 {
+		// If no resources, return a delete patch to remove any existing resources
+		return map[string]any{
+			"$patch": "delete",
+		}
+	}
+
+	// For non-empty resources, use replace to set the exact desired state
+	resourcesMap := map[string]any{
+		"$patch": "replace",
+	}
+	if len(resources.Limits) > 0 {
+		resourcesMap["limits"] = resources.Limits
+	}
+	if len(resources.Requests) > 0 {
+		resourcesMap["requests"] = resources.Requests
+	}
+	return resourcesMap
+}
+
 // deploymentSettingsMatch verifies that a deployment has the expected K8s settings applied
 // This checks the actual settings (PSA, resources, runtimeClassName, affinity, tolerations) but NOT the hash annotation.
 // The hash is applied separately after settings are verified to ensure it reflects actual state.
-func (k *kubernetesBackend) deploymentSettingsMatch(deployment *appsv1.Deployment, k8sSettings v1.K8sSettingsSpec, psaLevel PSAEnforceLevel) bool {
+func (k *kubernetesBackend) deploymentSettingsMatch(deployment *appsv1.Deployment, k8sSettings v1.K8sSettingsSpec, psaLevel PSAEnforceLevel, desiredResources corev1.ResourceRequirements) bool {
 	// Check PSA compliance (uses existing comprehensive check)
 	if DeploymentNeedsPSAUpdate(deployment, psaLevel) {
 		return false
 	}
 
 	// Check resources on the mcp container
-	mcpFound := false
+	var mcpFound bool
 	for _, container := range deployment.Spec.Template.Spec.Containers {
 		if container.Name == "mcp" {
 			mcpFound = true
-			if !resourcesMatch(container.Resources, k8sSettings.Resources) {
+			if !resourcesMatch(container.Resources, &desiredResources) {
 				return false
 			}
 			break
@@ -1681,8 +1733,8 @@ func getPodSecurityContextPatch(psaLevel PSAEnforceLevel) map[string]any {
 	}
 }
 
-// ComputeK8sSettingsHash computes a hash of K8s settings for change detection
-func ComputeK8sSettingsHash(settings v1.K8sSettingsSpec) string {
+// ComputeK8sSettingsHash computes a hash of K8s settings for change detection.
+func ComputeK8sSettingsHash(settings v1.K8sSettingsSpec, serverRuntime types.Runtime, nanobotAgentServer bool) string {
 	var buf bytes.Buffer
 
 	// Hash affinity
@@ -1697,8 +1749,9 @@ func ComputeK8sSettingsHash(settings v1.K8sSettingsSpec) string {
 		buf.Write(tolerationsJSON)
 	}
 
-	// Hash resources
-	if settings.Resources != nil {
+	// Hash resources for regular MCP server pods. Remote servers use fixed shim resources,
+	// and nanobot-agent-backed servers use NanobotAgentResources instead.
+	if serverRuntime != types.RuntimeRemote && !nanobotAgentServer && settings.Resources != nil {
 		resourcesJSON, _ := json.Marshal(settings.Resources)
 		buf.Write(resourcesJSON)
 	}
@@ -1713,9 +1766,15 @@ func ComputeK8sSettingsHash(settings v1.K8sSettingsSpec) string {
 		buf.WriteString(*settings.StorageClassName)
 	}
 
-	// Hash nanobotWorkspaceSize
-	if settings.NanobotWorkspaceSize != "" {
-		buf.WriteString(settings.NanobotWorkspaceSize)
+	// Hash nanobot-only settings
+	if nanobotAgentServer {
+		if settings.NanobotAgentResources != nil {
+			resourcesJSON, _ := json.Marshal(settings.NanobotAgentResources)
+			buf.Write(resourcesJSON)
+		}
+		if settings.NanobotWorkspaceSize != "" {
+			buf.WriteString(settings.NanobotWorkspaceSize)
+		}
 	}
 
 	// Hash Pod Security Admission settings
@@ -1731,14 +1790,17 @@ func ComputeK8sSettingsHash(settings v1.K8sSettingsSpec) string {
 	return hash.Digest(buf.String())
 }
 
-func (k *kubernetesBackend) getK8sSettings(ctx context.Context) (v1.K8sSettingsSpec, error) {
+func (k *kubernetesBackend) getK8sSettings(ctx context.Context) v1.K8sSettingsSpec {
 	var settings v1.K8sSettings
-	err := k.obotClient.Get(ctx, kclient.ObjectKey{
+	if err := k.obotClient.Get(ctx, kclient.ObjectKey{
 		Namespace: system.DefaultNamespace,
 		Name:      system.K8sSettingsName,
-	}, &settings)
+	}, &settings); err != nil {
+		log.Warnf("Failed to get K8s settings, using defaults: %v", err)
+		return v1.K8sSettingsSpec{}
+	}
 
-	return settings.Spec, err
+	return settings.Spec
 }
 
 // DeploymentNeedsPSAUpdate checks if a deployment needs to be updated to be PSA compliant
@@ -1836,14 +1898,7 @@ func containerNeedsPSAUpdate(container *corev1.Container, level PSAEnforceLevel)
 		if sc.Capabilities == nil {
 			return true
 		}
-		hasDropAll := false
-		for _, cap := range sc.Capabilities.Drop {
-			if cap == "ALL" {
-				hasDropAll = true
-				break
-			}
-		}
-		if !hasDropAll {
+		if !slices.Contains(sc.Capabilities.Drop, "ALL") {
 			return true
 		}
 		// Check runAsNonRoot (must be true for restricted PSA)
@@ -1879,18 +1934,17 @@ func containerNeedsPSAUpdate(container *corev1.Container, level PSAEnforceLevel)
 // Uses fail-open strategy: if no ResourceQuota exists, allows deployment and lets Kubernetes decide.
 // Only ResourceQuota is used for precheck since node capacity checks are naive and don't account
 // for taints, affinity, other namespace workloads, or resource fragmentation.
-func (k *kubernetesBackend) CheckCapacity(ctx context.Context) error {
-	// Get the resource requests from K8s settings (defaults: 400Mi memory, 10m CPU)
-	memoryRequest := resource.MustParse("400Mi")
-	cpuRequest := resource.MustParse("10m")
-	k8sSettings, err := k.getK8sSettings(ctx)
-	if err == nil && k8sSettings.Resources != nil && k8sSettings.Resources.Requests != nil {
-		if mem, ok := k8sSettings.Resources.Requests[corev1.ResourceMemory]; ok {
-			memoryRequest = mem
-		}
-		if cpu, ok := k8sSettings.Resources.Requests[corev1.ResourceCPU]; ok {
-			cpuRequest = cpu
-		}
+func (k *kubernetesBackend) CheckCapacity(ctx context.Context, server ServerConfig) error {
+	k8sSettings := k.getK8sSettings(ctx)
+
+	memoryRequest := resource.MustParse("0")
+	cpuRequest := resource.MustParse("0")
+	resources := mcpContainerResources(server, k8sSettings)
+	if mem, ok := resources.Requests[corev1.ResourceMemory]; ok {
+		memoryRequest = mem
+	}
+	if cpu, ok := resources.Requests[corev1.ResourceCPU]; ok {
+		cpuRequest = cpu
 	}
 
 	// Only use ResourceQuota for precheck - it's enforced at admission time and accurate
@@ -1923,7 +1977,7 @@ func (k *kubernetesBackend) checkResourceQuotaCapacity(ctx context.Context, memo
 		memHard, hasMemHard := quota.Status.Hard[corev1.ResourceRequestsMemory]
 		memUsed, hasMemUsed := quota.Status.Used[corev1.ResourceRequestsMemory]
 
-		if hasMemHard && hasMemUsed {
+		if hasMemHard && hasMemUsed && memoryRequest.Cmp(resource.Quantity{}) > 0 {
 			available := memHard.DeepCopy()
 			available.Sub(memUsed)
 			if available.Cmp(memoryRequest) < 0 {
@@ -1935,7 +1989,7 @@ func (k *kubernetesBackend) checkResourceQuotaCapacity(ctx context.Context, memo
 		cpuHard, hasCPUHard := quota.Status.Hard[corev1.ResourceRequestsCPU]
 		cpuUsed, hasCPUUsed := quota.Status.Used[corev1.ResourceRequestsCPU]
 
-		if hasCPUHard && hasCPUUsed {
+		if hasCPUHard && hasCPUUsed && cpuRequest.Cmp(resource.Quantity{}) > 0 {
 			available := cpuHard.DeepCopy()
 			available.Sub(cpuUsed)
 			if available.Cmp(cpuRequest) < 0 {

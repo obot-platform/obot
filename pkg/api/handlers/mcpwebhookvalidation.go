@@ -489,6 +489,7 @@ func systemMCPServerManifestFromCatalogEntry(entry types.SystemMCPServerCatalogE
 		NPXConfig:           entry.NPXConfig,
 		ContainerizedConfig: entry.ContainerizedConfig,
 		Env:                 entry.Env,
+		Resources:           entry.Resources,
 	}
 
 	if entry.RemoteConfig != nil {

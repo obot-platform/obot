@@ -19,7 +19,8 @@ type SystemMCPServerManifest struct {
 	ContainerizedConfig *ContainerizedRuntimeConfig `json:"containerizedConfig,omitempty"`
 	RemoteConfig        *RemoteRuntimeConfig        `json:"remoteConfig,omitempty"`
 
-	Env []MCPEnv `json:"env,omitempty"`
+	Env       []MCPEnv                 `json:"env,omitempty"`
+	Resources *MCPResourceRequirements `json:"resources,omitempty"`
 }
 
 type SystemMCPServer struct {

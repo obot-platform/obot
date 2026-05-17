@@ -123,6 +123,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.MCPPromptReadStats":                                 schema_obot_platform_obot_apiclient_types_MCPPromptReadStats(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPResourceReadStats":                               schema_obot_platform_obot_apiclient_types_MCPResourceReadStats(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPResourceRequests":                                schema_obot_platform_obot_apiclient_types_MCPResourceRequests(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPResourceRequirements":                            schema_obot_platform_obot_apiclient_types_MCPResourceRequirements(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPSecretBinding":                                   schema_obot_platform_obot_apiclient_types_MCPSecretBinding(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPSelector":                                        schema_obot_platform_obot_apiclient_types_MCPSelector(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServer":                                          schema_obot_platform_obot_apiclient_types_MCPServer(ref),
@@ -6436,6 +6437,32 @@ func schema_obot_platform_obot_apiclient_types_MCPResourceRequests(ref common.Re
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_MCPResourceRequirements(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"requests": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPResourceRequests"),
+						},
+					},
+					"limits": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPResourceRequests"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MCPResourceRequests"},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_MCPSecretBinding(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -6955,12 +6982,17 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryManifest(ref
 							},
 						},
 					},
+					"resources": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.MCPResourceRequirements"),
+						},
+					},
 				},
 				Required: []string{"name", "shortDescription", "description", "icon", "runtime"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.CompositeCatalogConfig", "github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.MultiUserConfig", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteCatalogConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
+			"github.com/obot-platform/obot/apiclient/types.CompositeCatalogConfig", "github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv", "github.com/obot-platform/obot/apiclient/types.MCPResourceRequirements", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.MultiUserConfig", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteCatalogConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
 	}
 }
 
@@ -7364,6 +7396,11 @@ func schema_obot_platform_obot_apiclient_types_MCPServerManifest(ref common.Refe
 							},
 						},
 					},
+					"resources": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.MCPResourceRequirements"),
+						},
+					},
 					"command": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Legacy fields that are deprecated, used only for cleaning up old servers",
@@ -7415,7 +7452,7 @@ func schema_obot_platform_obot_apiclient_types_MCPServerManifest(ref common.Refe
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.CompositeRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv", "github.com/obot-platform/obot/apiclient/types.MCPHeader", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.MultiUserConfig", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
+			"github.com/obot-platform/obot/apiclient/types.CompositeRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv", "github.com/obot-platform/obot/apiclient/types.MCPHeader", "github.com/obot-platform/obot/apiclient/types.MCPResourceRequirements", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.MultiUserConfig", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
 	}
 }
 
@@ -14076,12 +14113,17 @@ func schema_obot_platform_obot_apiclient_types_SystemMCPServerCatalogEntryManife
 							},
 						},
 					},
+					"resources": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.MCPResourceRequirements"),
+						},
+					},
 				},
 				Required: []string{"name", "shortDescription", "description", "icon", "runtime"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.FilterConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteCatalogConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
+			"github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.FilterConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv", "github.com/obot-platform/obot/apiclient/types.MCPResourceRequirements", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteCatalogConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
 	}
 }
 
@@ -14211,12 +14253,17 @@ func schema_obot_platform_obot_apiclient_types_SystemMCPServerManifest(ref commo
 							},
 						},
 					},
+					"resources": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.MCPResourceRequirements"),
+						},
+					},
 				},
 				Required: []string{"name", "shortDescription", "description", "icon", "runtime"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
+			"github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv", "github.com/obot-platform/obot/apiclient/types.MCPResourceRequirements", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
 	}
 }
 

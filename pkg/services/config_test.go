@@ -82,14 +82,33 @@ func TestParsePodSchedulingSettingsFromHelm(t *testing.T) {
 			},
 		},
 		{
+			name: "valid nanobot agent resources only",
+			opts: mcp.Options{
+				MCPK8sSettingsNanobotAgentResources: `{"limits":{"memory":"1Gi"},"requests":{"memory":"512Mi"}}`,
+			},
+			expectError: false,
+			validateResult: func(t *testing.T, spec *v1.K8sSettingsSpec) {
+				t.Helper()
+				if spec.NanobotAgentResources == nil {
+					t.Error("expected nanobot agent resources to be set")
+					return
+				}
+				memoryRequest := spec.NanobotAgentResources.Requests[corev1.ResourceMemory]
+				if memoryRequest.String() != "512Mi" {
+					t.Errorf("expected memory request '512Mi', got '%s'", memoryRequest.String())
+				}
+			},
+		},
+		{
 			name: "all valid fields combined",
 			opts: mcp.Options{
-				MCPK8sSettingsAffinity:             `{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"disktype","operator":"In","values":["ssd"]}]}]}}}`,
-				MCPK8sSettingsTolerations:          `[{"key":"key1","operator":"Equal","value":"value1","effect":"NoSchedule"}]`,
-				MCPK8sSettingsResources:            `{"limits":{"cpu":"2","memory":"4Gi"}}`,
-				MCPK8sSettingsRuntimeClassName:     "gvisor",
-				MCPK8sSettingsStorageClassName:     "fast-ssd",
-				MCPK8sSettingsNanobotWorkspaceSize: "5Gi",
+				MCPK8sSettingsAffinity:              `{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"disktype","operator":"In","values":["ssd"]}]}]}}}`,
+				MCPK8sSettingsTolerations:           `[{"key":"key1","operator":"Equal","value":"value1","effect":"NoSchedule"}]`,
+				MCPK8sSettingsResources:             `{"limits":{"cpu":"2","memory":"4Gi"}}`,
+				MCPK8sSettingsNanobotAgentResources: `{"requests":{"memory":"512Mi"}}`,
+				MCPK8sSettingsRuntimeClassName:      "gvisor",
+				MCPK8sSettingsStorageClassName:      "fast-ssd",
+				MCPK8sSettingsNanobotWorkspaceSize:  "5Gi",
 			},
 			expectError: false,
 			validateResult: func(t *testing.T, spec *v1.K8sSettingsSpec) {
@@ -102,6 +121,9 @@ func TestParsePodSchedulingSettingsFromHelm(t *testing.T) {
 				}
 				if spec.Resources == nil {
 					t.Error("expected resources to be set")
+				}
+				if spec.NanobotAgentResources == nil {
+					t.Error("expected nanobot agent resources to be set")
 				}
 				if spec.RuntimeClassName == nil || *spec.RuntimeClassName != "gvisor" {
 					t.Error("expected runtimeClassName to be 'gvisor'")

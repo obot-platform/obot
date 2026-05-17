@@ -230,7 +230,7 @@ func (h *Handler) DetectK8sSettingsDrift(req router.Request, _ router.Response) 
 	}
 
 	// Compute current K8s settings hash
-	currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec)
+	currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec, server.Spec.Manifest.Runtime, server.Spec.NanobotAgentID != "")
 
 	if server.Status.K8sSettingsHash != currentHash && !server.Status.NeedsK8sUpdate {
 		log.Infof("MCP server requires K8s redeploy due to settings drift: server=%s previousHash=%s newHash=%s", server.Name, server.Status.K8sSettingsHash, currentHash)
