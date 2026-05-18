@@ -282,6 +282,50 @@ func TestTokenNonInteractiveSkipsBrowserEnterGate(t *testing.T) {
 	}
 }
 
+func TestStoredTokenValid(t *testing.T) {
+	store := newFakeCredentialStore()
+	restore := useCredentialStore(t, store)
+	defer restore()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/me" {
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+		if r.Header.Get("Authorization") == "Bearer valid-token" {
+			_ = json.NewEncoder(w).Encode(types.User{Username: "alice"})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(types.User{Username: "anonymous"})
+	}))
+	defer srv.Close()
+
+	valid, err := StoredTokenValid(t.Context(), srv.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if valid {
+		t.Fatalf("token should not be valid when no stored token exists")
+	}
+
+	store.tokens[srv.URL] = "invalid-token"
+	valid, err = StoredTokenValid(t.Context(), srv.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if valid {
+		t.Fatalf("invalid stored token should not be valid")
+	}
+
+	store.tokens[srv.URL] = "valid-token"
+	valid, err = StoredTokenValid(t.Context(), srv.URL+"/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !valid {
+		t.Fatalf("valid stored token should be valid")
+	}
+}
+
 func TestLogoutDeletesSelectedAppURLToken(t *testing.T) {
 	store := newFakeCredentialStore()
 	store.tokens["https://obot.example.com"] = "token-a"

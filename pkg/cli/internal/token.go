@@ -64,6 +64,25 @@ func Logout(appURL string) (bool, error) {
 	return true, credentialStore.Delete(appURL)
 }
 
+// StoredTokenValid reports whether a stored token for appURL authenticates
+// successfully. It never initiates login or prompts for user input.
+func StoredTokenValid(ctx context.Context, appURL string) (bool, error) {
+	appURL, err := localconfig.NormalizeAppURL(appURL)
+	if err != nil {
+		return false, err
+	}
+
+	token, err := credentialStore.Get(appURL)
+	if err != nil {
+		if credentials.IsNotFound(err) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	return testToken(ctx, localconfig.APIBaseURL(appURL), token), nil
+}
+
 func enter(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()

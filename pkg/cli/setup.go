@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	gptcmd "github.com/gptscript-ai/cmd"
 	cliinternal "github.com/obot-platform/obot/pkg/cli/internal"
 	"github.com/obot-platform/obot/pkg/cli/internal/localconfig"
 	"github.com/obot-platform/obot/pkg/localagents"
@@ -27,6 +28,8 @@ func (s *Setup) Customize(cmd *cobra.Command) {
 	cmd.Use = "setup"
 	cmd.Short = "Configure Obot locally and install supported agent bootstrap assets"
 	cmd.Args = cobra.NoArgs
+	cmd.AddCommand(gptcmd.Command(&SetupStatus{}))
+	cmd.AddCommand(gptcmd.Command(&SetupDetectAgents{}))
 }
 
 func (s *Setup) Run(cmd *cobra.Command, _ []string) error {

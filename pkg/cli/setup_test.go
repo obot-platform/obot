@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/obot-platform/obot/apiclient"
 	"github.com/obot-platform/obot/pkg/cli/internal/localconfig"
+	"github.com/obot-platform/obot/pkg/localagents"
 	"github.com/obot-platform/obot/pkg/skillformat"
 	"github.com/spf13/cobra"
 )
@@ -269,13 +271,138 @@ func TestParseSetupAgentsNoneIsExclusive(t *testing.T) {
 	}
 }
 
-func TestNewIncludesSetupCommand(t *testing.T) {
+func TestSetupStatusJSONNoConfig(t *testing.T) {
 	restore := useRootTestEnv(t)
 	defer restore()
 
-	root := New()
-	if _, _, err := root.Find([]string{"setup"}); err != nil {
-		t.Fatalf("setup command was not registered: %v", err)
+	status := &SetupStatus{
+		JSON: true,
+		tokenValid: func(context.Context, string) (bool, error) {
+			t.Fatal("token validator should not run without a configured URL")
+			return false, nil
+		},
+	}
+
+	var stdout bytes.Buffer
+	if err := status.Run(setupTestCommand(nil, &stdout, nil), nil); err != nil {
+		t.Fatal(err)
+	}
+
+	var got setupStatusOutput
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("status output should be JSON: %v\n%s", err, stdout.String())
+	}
+	if got.Version == "" {
+		t.Fatalf("expected version in status: %#v", got)
+	}
+	if got.DefaultURL != "" {
+		t.Fatalf("defaultURL = %q, want empty", got.DefaultURL)
+	}
+	if got.TokenValid {
+		t.Fatalf("tokenValid = true, want false")
+	}
+	if got.SetupComplete {
+		t.Fatalf("setupComplete = true, want false")
+	}
+	if !strings.Contains(stdout.String(), `"defaultURL": ""`) {
+		t.Fatalf("status JSON should include empty defaultURL, got:\n%s", stdout.String())
+	}
+}
+
+func TestSetupStatusSetupCompleteRequiresConfiguredURLAndValidToken(t *testing.T) {
+	restore := useRootTestEnv(t)
+	defer restore()
+	if err := localconfig.Save(localconfig.Config{DefaultURL: "https://obot.example.com/"}); err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name          string
+		tokenValid    bool
+		setupComplete bool
+	}{
+		{name: "valid token", tokenValid: true, setupComplete: true},
+		{name: "invalid token", tokenValid: false, setupComplete: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			status := &SetupStatus{
+				JSON: true,
+				tokenValid: func(_ context.Context, appURL string) (bool, error) {
+					if appURL != "https://obot.example.com" {
+						t.Fatalf("appURL = %q, want normalized URL", appURL)
+					}
+					return tt.tokenValid, nil
+				},
+			}
+
+			var stdout bytes.Buffer
+			if err := status.Run(setupTestCommand(nil, &stdout, nil), nil); err != nil {
+				t.Fatal(err)
+			}
+
+			var got setupStatusOutput
+			if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+				t.Fatalf("status output should be JSON: %v\n%s", err, stdout.String())
+			}
+			if got.DefaultURL != "https://obot.example.com" {
+				t.Fatalf("defaultURL = %q, want normalized configured URL", got.DefaultURL)
+			}
+			if got.TokenValid != tt.tokenValid {
+				t.Fatalf("tokenValid = %t, want %t", got.TokenValid, tt.tokenValid)
+			}
+			if got.SetupComplete != tt.setupComplete {
+				t.Fatalf("setupComplete = %t, want %t", got.SetupComplete, tt.setupComplete)
+			}
+		})
+	}
+}
+
+func TestSetupDetectAgentsJSON(t *testing.T) {
+	restore := useRootTestEnv(t)
+	defer restore()
+	home := useSetupTestHome(t)
+	if err := os.MkdirAll(filepath.Join(home, ".claude"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout bytes.Buffer
+	detect := &SetupDetectAgents{JSON: true}
+	if err := detect.Run(setupTestCommand(nil, &stdout, nil), nil); err != nil {
+		t.Fatal(err)
+	}
+
+	var got setupDetectAgentsOutput
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("detect-agents output should be JSON: %v\n%s", err, stdout.String())
+	}
+	if len(got.Agents) != 2 {
+		t.Fatalf("expected two agents, got %#v", got.Agents)
+	}
+	if got.Agents[0].ID != localagents.ClaudeCodeAgentID {
+		t.Fatalf("first agent id = %q, want %q", got.Agents[0].ID, localagents.ClaudeCodeAgentID)
+	}
+	if got.Agents[0].DisplayName != "Claude Code" {
+		t.Fatalf("first agent displayName = %q, want Claude Code", got.Agents[0].DisplayName)
+	}
+	if got.Agents[0].State != string(localagents.DetectionPresent) {
+		t.Fatalf("first agent state = %q, want present; reason: %s", got.Agents[0].State, got.Agents[0].Reason)
+	}
+	if got.Agents[0].Reason == "" {
+		t.Fatalf("expected reason for first agent")
+	}
+	if got.Agents[1].ID != localagents.CursorAgentID {
+		t.Fatalf("second agent id = %q, want %q", got.Agents[1].ID, localagents.CursorAgentID)
+	}
+	if got.Agents[1].DisplayName != "Cursor" {
+		t.Fatalf("second agent displayName = %q, want Cursor", got.Agents[1].DisplayName)
+	}
+	if got.Agents[1].State != string(localagents.DetectionMissing) {
+		t.Fatalf("second agent state = %q, want missing; reason: %s", got.Agents[1].State, got.Agents[1].Reason)
+	}
+	if got.Agents[1].Reason == "" {
+		t.Fatalf("expected reason for second agent")
 	}
 }
 
