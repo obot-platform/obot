@@ -107,7 +107,6 @@
 
 				{#if !readonly}
 					<IconButton
-						class="hover:text-error"
 						onclick={() => {
 							headers?.splice(i, 1);
 						}}

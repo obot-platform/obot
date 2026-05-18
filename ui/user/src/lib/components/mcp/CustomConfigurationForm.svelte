@@ -195,8 +195,7 @@
 					</div>
 					{#if !readonly && !isPrebuiltEntry}
 						<IconButton
-							variant="danger2"
-							class="hover:text-error"
+							variant="danger"
 							onclick={() => {
 								config!.splice(i, 1);
 							}}
