@@ -8,15 +8,17 @@ import (
 	"os"
 	"strings"
 
+	cliinternal "github.com/obot-platform/obot/pkg/cli/internal"
 	"github.com/obot-platform/obot/pkg/cli/internal/localconfig"
 	"github.com/obot-platform/obot/pkg/localagents"
 	"github.com/spf13/cobra"
 )
 
 type Setup struct {
-	URL    string `usage:"Obot app URL to configure"`
-	Agents string `usage:"Comma-separated target agents: detected, claude-code, or cursor" default:"detected"`
-	Yes    bool   `usage:"Accept confirmations and use non-interactive defaults"`
+	URL            string `usage:"Obot app URL to configure"`
+	Agents         string `usage:"Comma-separated target agents: detected, none, claude-code, or cursor" default:"detected"`
+	Yes            bool   `usage:"Accept confirmations and use defaults"`
+	NonInteractive bool   `usage:"Never read from stdin; fail if required input is missing"`
 
 	root *Obot
 }
@@ -31,6 +33,10 @@ func (s *Setup) Run(cmd *cobra.Command, _ []string) error {
 	ctx := cmd.Context()
 	if ctx == nil {
 		ctx = context.Background()
+	}
+	if s.NonInteractive {
+		ctx = cliinternal.WithNonInteractive(ctx)
+		cmd.SetContext(ctx)
 	}
 
 	appURL, err := s.resolveAppURL(cmd)
@@ -50,6 +56,10 @@ func (s *Setup) Run(cmd *cobra.Command, _ []string) error {
 	selection, err := parseSetupAgents(s.Agents)
 	if err != nil {
 		return err
+	}
+	if selection.none {
+		fmt.Fprintln(cmd.OutOrStdout(), "Skipping local agent bootstrap installation")
+		return nil
 	}
 
 	home, err := os.UserHomeDir()
@@ -130,6 +140,9 @@ func (s *Setup) resolveAppURL(cmd *cobra.Command) (string, error) {
 		if s.Yes {
 			return cfg.DefaultURL, nil
 		}
+		if s.NonInteractive {
+			return "", fmt.Errorf("configured Obot URL is %s; pass --yes to use it or pass --url to configure a different URL", cfg.DefaultURL)
+		}
 
 		ok, err := promptYesNo(cmd, fmt.Sprintf("Current Obot URL: %s\nUse this URL? [Y/n] ", cfg.DefaultURL), true)
 		if err != nil {
@@ -143,6 +156,9 @@ func (s *Setup) resolveAppURL(cmd *cobra.Command) (string, error) {
 	if s.Yes {
 		return "", fmt.Errorf("--url is required when no configured Obot URL is accepted")
 	}
+	if s.NonInteractive {
+		return "", fmt.Errorf("--url is required in non-interactive mode when no configured Obot URL is accepted")
+	}
 
 	raw, err := promptLine(cmd, "Obot URL: ")
 	if err != nil {
@@ -153,6 +169,7 @@ func (s *Setup) resolveAppURL(cmd *cobra.Command) (string, error) {
 
 type setupAgentSelection struct {
 	detected bool
+	none     bool
 	agentIDs map[string]bool
 }
 
@@ -172,17 +189,22 @@ func parseSetupAgents(raw string) (setupAgentSelection, error) {
 			continue
 		case "detected":
 			selection.detected = true
+		case "none":
+			selection.none = true
 		case localagents.ClaudeCodeAgentID:
 			selection.agentIDs[localagents.ClaudeCodeAgentID] = true
 		case localagents.CursorAgentID:
 			selection.agentIDs[localagents.CursorAgentID] = true
 		default:
-			return setupAgentSelection{}, fmt.Errorf("unsupported --agents value %q; supported values are detected, claude-code, and cursor", value)
+			return setupAgentSelection{}, fmt.Errorf("unsupported --agents value %q; supported values are detected, none, claude-code, and cursor", value)
 		}
 	}
 
-	if !selection.detected && len(selection.agentIDs) == 0 {
-		return setupAgentSelection{}, fmt.Errorf("--agents must include detected, claude-code, or cursor")
+	if selection.none && (selection.detected || len(selection.agentIDs) > 0) {
+		return setupAgentSelection{}, fmt.Errorf("--agents none cannot be combined with other values")
+	}
+	if !selection.none && !selection.detected && len(selection.agentIDs) == 0 {
+		return setupAgentSelection{}, fmt.Errorf("--agents must include detected, none, claude-code, or cursor")
 	}
 
 	return selection, nil

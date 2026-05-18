@@ -25,6 +25,19 @@ import (
 var credentialStore credentials.Store = credentials.NewKeyringStore()
 var openBrowser = browser.OpenURL
 
+type nonInteractiveContextKey struct{}
+
+// WithNonInteractive marks ctx as safe for GUI orchestration: token acquisition
+// must not prompt or read from stdin.
+func WithNonInteractive(ctx context.Context) context.Context {
+	return context.WithValue(ctx, nonInteractiveContextKey{}, true)
+}
+
+func isNonInteractive(ctx context.Context) bool {
+	v, _ := ctx.Value(nonInteractiveContextKey{}).(bool)
+	return v
+}
+
 // AppURLForAPIBaseURL returns the app URL that owns credentials for an
 // API base URL.
 func AppURLForAPIBaseURL(baseURL string) (string, error) {
@@ -99,7 +112,7 @@ func Token(ctx context.Context, baseURL string, noExpiration, forceRefresh bool)
 	ctx, sigCancel := signal.NotifyContext(ctx, os.Interrupt)
 	defer sigCancel()
 
-	provider, err := userSelectAuthProvider(authProviders)
+	provider, err := userSelectAuthProvider(ctx, authProviders)
 	if err != nil {
 		return "", err
 	}
@@ -110,7 +123,7 @@ func Token(ctx context.Context, baseURL string, noExpiration, forceRefresh bool)
 		return "", fmt.Errorf("failed to create login request: %w", err)
 	}
 
-	if !hasStoredToken {
+	if !hasStoredToken && !isNonInteractive(ctx) {
 		fmt.Println()
 		fmt.Println(color.GreenString("Authentication is needed"))
 		fmt.Println(color.GreenString("========================"))
@@ -265,7 +278,7 @@ func getAuthProviderServiceInfo(ctx context.Context, baseURL string) ([]types2.A
 	return authProviders.Items, nil
 }
 
-func userSelectAuthProvider(authProviders []types2.AuthProvider) (types2.AuthProvider, error) {
+func userSelectAuthProvider(ctx context.Context, authProviders []types2.AuthProvider) (types2.AuthProvider, error) {
 	var configuredAuthProviders []types2.AuthProvider
 	for _, provider := range authProviders {
 		if provider.Configured {
@@ -277,6 +290,9 @@ func userSelectAuthProvider(authProviders []types2.AuthProvider) (types2.AuthPro
 		return types2.AuthProvider{}, fmt.Errorf("no configured auth providers found")
 	} else if len(configuredAuthProviders) == 1 {
 		return configuredAuthProviders[0], nil
+	}
+	if isNonInteractive(ctx) {
+		return types2.AuthProvider{}, fmt.Errorf("multiple configured auth providers found; interactive provider selection is not available in non-interactive mode")
 	}
 
 	sort.Slice(configuredAuthProviders, func(i, j int) bool {

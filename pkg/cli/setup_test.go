@@ -129,6 +129,70 @@ func TestSetupExplicitCursor(t *testing.T) {
 	assertFileContains(t, filepath.Join(home, ".cursor", "skills", "obot", skillformat.SkillMainFile), "rendered for `cursor`")
 }
 
+func TestSetupNonInteractiveMissingURLFailsWithoutPrompt(t *testing.T) {
+	restore := useRootTestEnv(t)
+	defer restore()
+
+	root := setupTestRoot(func(context.Context, string, bool, bool) (string, error) {
+		t.Fatal("token fetcher should not be called without a URL")
+		return "", nil
+	})
+	setup := &Setup{
+		Agents:         "detected",
+		NonInteractive: true,
+		root:           root,
+	}
+
+	var stdout bytes.Buffer
+	cmd := setupTestCommand(strings.NewReader("https://obot.example.com\n"), &stdout, nil)
+	err := setup.Run(cmd, nil)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "--url is required in non-interactive mode") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if strings.Contains(stdout.String(), "Obot URL:") {
+		t.Fatalf("non-interactive setup should not prompt, got stdout:\n%s", stdout.String())
+	}
+}
+
+func TestSetupAgentsNoneSkipsLocalAgentInstall(t *testing.T) {
+	restore := useRootTestEnv(t)
+	defer restore()
+	home := useSetupTestHome(t)
+	if err := os.MkdirAll(filepath.Join(home, ".claude"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	root := setupTestRoot(func(_ context.Context, _ string, _, _ bool) (string, error) {
+		return "token", nil
+	})
+	setup := &Setup{
+		URL:            "https://obot.example.com/",
+		Agents:         "none",
+		Yes:            true,
+		NonInteractive: true,
+		root:           root,
+	}
+
+	var stdout bytes.Buffer
+	cmd := setupTestCommand(nil, &stdout, nil)
+	if err := setup.Run(cmd, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	if strings.Contains(stdout.String(), "Detected:") {
+		t.Fatalf("expected agent detection to be skipped, got stdout:\n%s", stdout.String())
+	}
+	if !strings.Contains(stdout.String(), "Skipping local agent bootstrap installation") {
+		t.Fatalf("expected skip message, got stdout:\n%s", stdout.String())
+	}
+	if _, err := os.Stat(filepath.Join(home, ".claude", "skills", "obot", skillformat.SkillMainFile)); !os.IsNotExist(err) {
+		t.Fatalf("expected no Claude Code skill to be installed, stat err: %v", err)
+	}
+}
+
 func TestSetupRefusesToReplaceConfiguredURLWithoutYes(t *testing.T) {
 	restore := useRootTestEnv(t)
 	defer restore()
@@ -191,6 +255,16 @@ func TestParseSetupAgentsRejectsAll(t *testing.T) {
 		t.Fatal("expected error")
 	}
 	if !strings.Contains(err.Error(), "unsupported --agents value") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestParseSetupAgentsNoneIsExclusive(t *testing.T) {
+	_, err := parseSetupAgents("none,cursor")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "cannot be combined") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

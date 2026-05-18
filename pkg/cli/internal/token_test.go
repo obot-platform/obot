@@ -228,6 +228,60 @@ func TestTokenStoresNewTokenByAppURL(t *testing.T) {
 	}
 }
 
+func TestTokenNonInteractiveSkipsBrowserEnterGate(t *testing.T) {
+	store := newFakeCredentialStore()
+	restoreStore := useCredentialStore(t, store)
+	defer restoreStore()
+
+	var openedURL string
+	restoreBrowser := useOpenBrowser(t, func(url string) error {
+		openedURL = url
+		return nil
+	})
+	defer restoreBrowser()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/me":
+			_ = json.NewEncoder(w).Encode(types.User{Username: "anonymous"})
+		case "/api/auth-providers":
+			_ = json.NewEncoder(w).Encode(types.AuthProviderList{Items: []types.AuthProvider{{
+				Metadata: types.Metadata{ID: "github"},
+				AuthProviderManifest: types.AuthProviderManifest{
+					Name:      "GitHub",
+					Namespace: "default",
+				},
+				AuthProviderStatus: types.AuthProviderStatus{
+					CommonProviderStatus: types.CommonProviderStatus{Configured: true},
+				},
+			}}})
+		case "/api/token-request":
+			_ = json.NewEncoder(w).Encode(map[string]string{"token-path": "https://example.com/login"})
+		default:
+			if strings.HasPrefix(r.URL.Path, "/api/token-request/") {
+				_ = json.NewEncoder(w).Encode(map[string]string{"Token": "new-token"})
+				return
+			}
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+	}))
+	defer srv.Close()
+
+	token, err := Token(WithNonInteractive(t.Context()), srv.URL+"/api", false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if token != "new-token" {
+		t.Fatalf("expected new token, got %q", token)
+	}
+	if openedURL != "https://example.com/login" {
+		t.Fatalf("expected browser to open login URL, got %q", openedURL)
+	}
+	if got := store.tokens[srv.URL]; got != "new-token" {
+		t.Fatalf("expected token stored by app URL, got %q", got)
+	}
+}
+
 func TestLogoutDeletesSelectedAppURLToken(t *testing.T) {
 	store := newFakeCredentialStore()
 	store.tokens["https://obot.example.com"] = "token-a"
