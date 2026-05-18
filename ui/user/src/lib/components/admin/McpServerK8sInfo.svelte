@@ -299,6 +299,7 @@
 		dynamicFile?: boolean;
 		secretBinding?: MCPSecretBinding;
 	};
+	type MissingSecretBinding = { label: string; secretName?: string; secretKey?: string };
 
 	function compileRevealedValues(
 		revealedValues?: Record<string, string>,
@@ -378,12 +379,28 @@
 
 	const missingSecretBindings = $derived(getMissingSecretBindings());
 
-	function getMissingSecretBindings() {
+	const hasNonSecretMissingConfig = $derived.by(() => {
+		const manifest = mcpServer?.manifest ?? catalogEntry?.manifest;
+		if (manifest?.runtime === 'composite') return false; // backend only propagates secret-bound missing for composites
 		const missingEnvKeys = new Set(mcpServer?.missingRequiredEnvVars ?? []);
-		const missingHeaderKeys = new Set(mcpServer?.missingRequiredHeaders ?? []);
-		const results: { label: string; secretName: string; secretKey: string }[] = [];
+		const missingHeaderKeys = new Set(mcpServer?.missingRequiredHeader ?? []);
+		return missingEnvKeys.size + missingHeaderKeys.size > missingSecretBindings.length;
+	});
 
-		for (const env of catalogEntry?.manifest.env ?? []) {
+	function getMissingSecretBindings(): MissingSecretBinding[] {
+		const missingEnvKeys = new Set(mcpServer?.missingRequiredEnvVars ?? []);
+		const missingHeaderKeys = new Set(mcpServer?.missingRequiredHeader ?? []);
+		const manifest = mcpServer?.manifest ?? catalogEntry?.manifest;
+		const results: MissingSecretBinding[] = [];
+
+		if (manifest?.runtime === 'composite') {
+			return [
+				...Array.from(missingEnvKeys).map((key) => ({ label: key })),
+				...Array.from(missingHeaderKeys).map((key) => ({ label: key }))
+			];
+		}
+
+		for (const env of manifest?.env ?? []) {
 			if (env.secretBinding && missingEnvKeys.has(env.key)) {
 				results.push({
 					label: env.name ?? env.key,
@@ -392,7 +409,7 @@
 				});
 			}
 		}
-		for (const header of catalogEntry?.manifest.remoteConfig?.headers ?? []) {
+		for (const header of manifest?.remoteConfig?.headers ?? []) {
 			if (header.secretBinding && missingHeaderKeys.has(header.key)) {
 				results.push({
 					label: header.name ?? header.key,
@@ -463,25 +480,34 @@
 	</div>
 {/if}
 
-{#if missingSecretBindings.length > 0 && hasAdminAccess}
+{#if missingSecretBindings.length > 0}
 	<div class="notification-alert">
 		<div class="flex grow flex-col gap-2">
 			<div class="flex items-center gap-2">
 				<TriangleAlert class="size-6 shrink-0 self-start text-warning" />
 				<p class="my-0.5 flex flex-col text-sm font-semibold">
-					Missing Kubernetes Secret{missingSecretBindings.length > 1 ? 's' : ''}
+					Missing Kubernetes Secret{hasAdminAccess && missingSecretBindings.length > 1 ? 's' : ''}
 				</p>
 			</div>
 			<div class="text-sm font-light">
-				The following Kubernetes Secrets referenced by this server could not be found:
-				<ul class="mt-1 list-disc pl-5">
-					{#each missingSecretBindings as binding (binding.secretName + '/' + binding.secretKey)}
-						<li>
-							<code class="font-mono">{binding.secretName}/{binding.secretKey}</code> (for
-							<strong>{binding.label}</strong>)
-						</li>
-					{/each}
-				</ul>
+				{#if hasAdminAccess}
+					The following Kubernetes Secrets referenced by this server could not be resolved:
+					<ul class="mt-1 list-disc pl-5">
+						{#each missingSecretBindings as binding, i (`${binding.label}/${binding.secretName}/${binding.secretKey}/${i}`)}
+							<li>
+								{#if binding.secretName && binding.secretKey}
+									<code class="font-mono">{binding.secretName}/{binding.secretKey}</code> (for
+									<strong>{binding.label}</strong>)
+								{:else}
+									Secret-bound config <strong>{binding.label}</strong>
+								{/if}
+							</li>
+						{/each}
+					</ul>
+				{:else}
+					A Kubernetes Secret required by this server could not be resolved.
+				{/if}
+				<p class="mt-2">Server details and logs are temporarily unavailable as a result.</p>
 			</div>
 		</div>
 	</div>
@@ -580,7 +606,7 @@
 	{@const isPending = error instanceof Error && error.message.includes('ContainerCreating')}
 	{@const needsUpdate = error instanceof Error && error.message.includes('missing required config')}
 
-	{#if needsUpdate && hasAdminAccess}
+	{#if needsUpdate && hasAdminAccess && (missingSecretBindings.length === 0 || hasNonSecretMissingConfig)}
 		<div class="notification-alert">
 			<div class="flex grow flex-col gap-2">
 				<div class="flex items-center gap-2">
@@ -605,7 +631,13 @@
 				<div class="grid grid-cols-2 gap-4">
 					<p class="text-sm font-semibold">Status</p>
 					<p class="text-sm font-light">
-						{isPending ? 'Pending' : needsUpdate ? 'Update Required' : 'Error'}
+						{isPending
+							? 'Pending'
+							: missingSecretBindings.length > 0
+								? 'Missing Kubernetes Secret'
+								: needsUpdate
+									? 'Update Required'
+									: 'Error'}
 					</p>
 				</div>
 			</div>

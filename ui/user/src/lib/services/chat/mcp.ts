@@ -143,6 +143,34 @@ export function manifestHasSecretBindings(manifest?: SecretBindingManifest | nul
 	return false;
 }
 
+export function hasMissingSecretBindingConfig(
+	manifest: SecretBindingManifest | undefined | null,
+	missingEnvVars?: string[],
+	missingHeaders?: string[]
+): boolean {
+	if (!manifest) return false;
+	const missingEnvKeys = new Set(missingEnvVars ?? []);
+	const missingHeaderKeys = new Set(missingHeaders ?? []);
+
+	if ((manifest.env ?? []).some((env) => hasSecretBinding(env) && missingEnvKeys.has(env.key))) {
+		return true;
+	}
+	if (
+		(manifest.remoteConfig?.headers ?? []).some(
+			(header) => hasSecretBinding(header) && missingHeaderKeys.has(header.key)
+		)
+	) {
+		return true;
+	}
+	// Composite server responses aggregate only secret-bound missing config from
+	// their components. Avoid matching keys across component manifests here: the
+	// parent arrays already carry the filtered missing-secret state.
+	if (manifest.runtime === 'composite')
+		return missingEnvKeys.size > 0 || missingHeaderKeys.size > 0;
+
+	return false;
+}
+
 export function isKubernetesRuntimeBackend(engine?: string | null): boolean {
 	return engine === 'kubernetes' || engine === 'k8s';
 }
@@ -179,7 +207,7 @@ export function requiresUserConfiguration(server?: MCPCatalogServer | ProjectMCP
 		if (isMCPCatalogServer(server)) {
 			return (
 				(server.missingRequiredEnvVars?.length ?? 0) > 0 ||
-				(server.missingRequiredHeaders?.length ?? 0) > 0 ||
+				(server.missingRequiredHeader?.length ?? 0) > 0 ||
 				server.needsURL === true
 			);
 		}
@@ -226,15 +254,21 @@ function convertEntriesToTableData(
 		return [];
 	}
 
-	const userConfiguredServersMap = userConfiguredServers
-		? new Map(userConfiguredServers.map((server) => [server.catalogEntryID, server]))
-		: undefined;
+	const userConfiguredServersByEntry = new Map<string, MCPCatalogServer[]>();
+	for (const server of userConfiguredServers ?? []) {
+		if (!server.catalogEntryID) continue;
+		const existing = userConfiguredServersByEntry.get(server.catalogEntryID) ?? [];
+		existing.push(server);
+		userConfiguredServersByEntry.set(server.catalogEntryID, existing);
+	}
 
 	return entries
 		.filter((entry) => !entry.deleted)
 		.map((entry) => {
 			const registry = getUserRegistry(entry, usersMap);
-			const connected = userConfiguredServersMap?.has(entry.id);
+			const configuredServers = userConfiguredServersByEntry.get(entry.id) ?? [];
+			const missingSecretBinding = hasMissingSecretBinding(entry, configuredServers);
+			const connected = configuredServers.some((s) => !serverHasMissingSecretBinding(entry, s));
 			return {
 				id: entry.id,
 				name: entry.manifest?.name ?? '',
@@ -251,14 +285,36 @@ function convertEntriesToTableData(
 				created: entry.created,
 				registry,
 				needsUpdate: entry.needsUpdate,
+				hasServers: configuredServers.length > 0,
 				connected,
-				status: connected
-					? 'Connected'
-					: entry.manifest?.remoteConfig?.staticOAuthRequired && !entry.oauthCredentialConfigured
-						? 'Requires OAuth Config'
-						: ''
+				missingKubernetesSecret: missingSecretBinding,
+				status: missingSecretBinding
+					? ''
+					: connected
+						? 'Connected'
+						: entry.manifest?.remoteConfig?.staticOAuthRequired && !entry.oauthCredentialConfigured
+							? 'Requires OAuth Config'
+							: ''
 			};
 		});
+}
+
+function hasMissingSecretBinding(entry: MCPCatalogEntry, servers: MCPCatalogServer[]) {
+	for (const server of servers) {
+		if (serverHasMissingSecretBinding(entry, server)) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+function serverHasMissingSecretBinding(_entry: MCPCatalogEntry, server: MCPCatalogServer) {
+	return hasMissingSecretBindingConfig(
+		server.manifest,
+		server.missingRequiredEnvVars,
+		server.missingRequiredHeader
+	);
 }
 
 function convertServersToTableData(
@@ -291,6 +347,7 @@ function convertServersToTableData(
 				editable: true,
 				created: server.created,
 				registry,
+				hasServers: connected,
 				connected,
 				status: connected
 					? instance.configured === false

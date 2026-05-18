@@ -361,6 +361,56 @@ func TestConfigurationHasDrifted(t *testing.T) {
 			expectedError: false,
 		},
 		{
+			name: "no drift - env secret bindings compare by value",
+			serverManifest: types.MCPServerManifest{
+				Name:      "test-server",
+				Runtime:   types.RuntimeUVX,
+				UVXConfig: &types.UVXRuntimeConfig{Package: "test-package"},
+				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+					Key:           "API_KEY",
+					SecretBinding: &types.MCPSecretBinding{Name: "bound-secret", Key: "api-key"},
+				}}},
+			},
+			entryManifest: types.MCPServerCatalogEntryManifest{
+				Name:      "test-server",
+				Runtime:   types.RuntimeUVX,
+				UVXConfig: &types.UVXRuntimeConfig{Package: "test-package"},
+				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+					Key:           "API_KEY",
+					SecretBinding: &types.MCPSecretBinding{Name: "bound-secret", Key: "api-key"},
+				}}},
+			},
+			expectedDrift: false,
+			expectedError: false,
+		},
+		{
+			name: "no drift - remote header secret bindings compare by value",
+			serverManifest: types.MCPServerManifest{
+				Name:    "test-server",
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					URL: "https://api.example.com/mcp",
+					Headers: []types.MCPHeader{{
+						Key:           "Authorization",
+						SecretBinding: &types.MCPSecretBinding{Name: "bound-secret", Key: "token"},
+					}},
+				},
+			},
+			entryManifest: types.MCPServerCatalogEntryManifest{
+				Name:    "test-server",
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteCatalogConfig{
+					FixedURL: "https://api.example.com/mcp",
+					Headers: []types.MCPHeader{{
+						Key:           "Authorization",
+						SecretBinding: &types.MCPSecretBinding{Name: "bound-secret", Key: "token"},
+					}},
+				},
+			},
+			expectedDrift: false,
+			expectedError: false,
+		},
+		{
 			name: "drift - different env values",
 			serverManifest: types.MCPServerManifest{
 				Name:        "test-server",

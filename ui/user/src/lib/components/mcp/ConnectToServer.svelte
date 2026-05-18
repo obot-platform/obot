@@ -75,6 +75,7 @@
 	let launchLogsEventStream = $state<EventStreamService<string>>();
 	let launchLogs = $state<string[]>([]);
 	let launchState = $state<'relaunching' | 'launching' | undefined>();
+	let launchMissingSecretBinding = $state(false);
 	let error = $state<string>();
 	let saving = $state(false);
 
@@ -261,6 +262,7 @@
 		}
 
 		launchError = undefined;
+		launchMissingSecretBinding = false;
 		launchProgress = 0;
 		launchState = existing ? 'relaunching' : 'launching';
 
@@ -277,6 +279,32 @@
 		}, 10000);
 
 		return { timeout1, timeout2, timeout3 };
+	}
+
+	function missingSecretBindingConfigMessage(mcpServer: MCPCatalogServer) {
+		if (mcpServer.manifest.runtime === 'composite') {
+			const missing = [
+				...(mcpServer.missingRequiredEnvVars ?? []),
+				...(mcpServer.missingRequiredHeader ?? [])
+			];
+			return missing.length > 0
+				? `Missing Kubernetes Secret required by this MCP server: ${missing.join(', ')}`
+				: undefined;
+		}
+
+		const missingEnvKeys = new Set(mcpServer.missingRequiredEnvVars ?? []);
+		const missingHeaderKeys = new Set(mcpServer.missingRequiredHeader ?? []);
+		const missing = [
+			...(mcpServer.manifest.env ?? [])
+				.filter((env) => env.secretBinding && missingEnvKeys.has(env.key))
+				.map((env) => env.key),
+			...(mcpServer.manifest.remoteConfig?.headers ?? [])
+				.filter((header) => header.secretBinding && missingHeaderKeys.has(header.key))
+				.map((header) => header.key)
+		];
+		if (missing.length === 0) return undefined;
+
+		return `Missing Kubernetes Secret required by this MCP server: ${missing.join(', ')}`;
 	}
 
 	async function getOauthURL() {
@@ -346,6 +374,7 @@
 				manifest: url ? { remoteConfig: { url } } : {},
 				alias: aliasToUse
 			});
+			server = response;
 		} catch (err) {
 			console.error('error: ', err);
 			launchError = err instanceof Error ? err.message : 'An unknown error occurred';
@@ -360,6 +389,13 @@
 					envs
 				);
 				server = configuredResponse;
+				const missingConfigMessage = missingSecretBindingConfigMessage(configuredResponse);
+				if (missingConfigMessage) {
+					launchMissingSecretBinding = true;
+					launchError = missingConfigMessage;
+					launchProgress = 100;
+					return;
+				}
 
 				const launchResponse = await ChatService.validateSingleOrRemoteMcpServerLaunched(
 					configuredResponse.id
@@ -460,7 +496,15 @@
 			});
 			server = created;
 
-			await ChatService.configureCompositeMcpServer(created.id, payload);
+			const configured = await ChatService.configureCompositeMcpServer(created.id, payload);
+			server = configured;
+			const missingConfigMessage = missingSecretBindingConfigMessage(configured);
+			if (missingConfigMessage) {
+				launchMissingSecretBinding = true;
+				launchError = missingConfigMessage;
+				launchProgress = 100;
+				return;
+			}
 
 			const launchResponse = await ChatService.validateSingleOrRemoteMcpServerLaunched(created.id);
 			if (!launchResponse.success) {
@@ -532,6 +576,7 @@
 
 		launchState = undefined;
 		launchError = undefined;
+		launchMissingSecretBinding = false;
 	}
 
 	async function updateExistingRemoteOrSingleUser(lf: LaunchFormData) {
@@ -887,7 +932,7 @@
 		{/if}
 
 		<div class="flex w-full flex-col items-center gap-2 md:flex-row">
-			{#if entry}
+			{#if entry && hasEditableConfiguration(entry) && !launchMissingSecretBinding}
 				<button
 					class="btn btn-primary w-full md:w-1/2 md:flex-1"
 					onclick={() => {
