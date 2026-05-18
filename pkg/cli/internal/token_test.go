@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -225,6 +226,108 @@ func TestTokenStoresNewTokenByAppURL(t *testing.T) {
 	}
 	if _, ok := store.tokens[srv.URL+"/api"]; ok {
 		t.Fatalf("token should not be stored by API URL")
+	}
+}
+
+func TestTokenNonInteractiveSkipsBrowserEnterGate(t *testing.T) {
+	store := newFakeCredentialStore()
+	restoreStore := useCredentialStore(t, store)
+	defer restoreStore()
+
+	var openedURL string
+	restoreBrowser := useOpenBrowser(t, func(url string) error {
+		openedURL = url
+		return nil
+	})
+	defer restoreBrowser()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/me":
+			_ = json.NewEncoder(w).Encode(types.User{Username: "anonymous"})
+		case "/api/auth-providers":
+			_ = json.NewEncoder(w).Encode(types.AuthProviderList{Items: []types.AuthProvider{{
+				Metadata: types.Metadata{ID: "github"},
+				AuthProviderManifest: types.AuthProviderManifest{
+					Name:      "GitHub",
+					Namespace: "default",
+				},
+				AuthProviderStatus: types.AuthProviderStatus{
+					CommonProviderStatus: types.CommonProviderStatus{Configured: true},
+				},
+			}}})
+		case "/api/token-request":
+			_ = json.NewEncoder(w).Encode(map[string]string{"token-path": "https://example.com/login"})
+		default:
+			if strings.HasPrefix(r.URL.Path, "/api/token-request/") {
+				_ = json.NewEncoder(w).Encode(map[string]string{"Token": "new-token"})
+				return
+			}
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+	}))
+	defer srv.Close()
+
+	var output bytes.Buffer
+	token, err := Token(WithOutputWriter(WithNonInteractive(t.Context()), &output), srv.URL+"/api", false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if token != "new-token" {
+		t.Fatalf("expected new token, got %q", token)
+	}
+	if openedURL != "https://example.com/login" {
+		t.Fatalf("expected browser to open login URL, got %q", openedURL)
+	}
+	if !strings.Contains(output.String(), "Opening browser to https://example.com/login") {
+		t.Fatalf("expected browser login message in configured output writer, got %q", output.String())
+	}
+	if got := store.tokens[srv.URL]; got != "new-token" {
+		t.Fatalf("expected token stored by app URL, got %q", got)
+	}
+}
+
+func TestStoredTokenValid(t *testing.T) {
+	store := newFakeCredentialStore()
+	restore := useCredentialStore(t, store)
+	defer restore()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/me" {
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+		if r.Header.Get("Authorization") == "Bearer valid-token" {
+			_ = json.NewEncoder(w).Encode(types.User{Username: "alice"})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(types.User{Username: "anonymous"})
+	}))
+	defer srv.Close()
+
+	valid, err := StoredTokenValid(t.Context(), srv.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if valid {
+		t.Fatalf("token should not be valid when no stored token exists")
+	}
+
+	store.tokens[srv.URL] = "invalid-token"
+	valid, err = StoredTokenValid(t.Context(), srv.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if valid {
+		t.Fatalf("invalid stored token should not be valid")
+	}
+
+	store.tokens[srv.URL] = "valid-token"
+	valid, err = StoredTokenValid(t.Context(), srv.URL+"/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !valid {
+		t.Fatalf("valid stored token should be valid")
 	}
 }
 
