@@ -197,7 +197,7 @@ func (s *Setup) resolveAppURL(cmd *cobra.Command) (string, error) {
 			return "", setupErrorf(setupErrorInvalidURL, "%w", err)
 		}
 		if cfg.DefaultURL != "" && cfg.DefaultURL != appURL && !s.Yes {
-			return "", fmt.Errorf("configured Obot URL is %s; pass --yes to replace it with %s", cfg.DefaultURL, appURL)
+			return "", setupErrorf(setupErrorInvalidURL, "configured Obot URL is %s; pass --yes to replace it with %s", cfg.DefaultURL, appURL)
 		}
 		return appURL, nil
 	}

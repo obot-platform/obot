@@ -310,6 +310,44 @@ func TestSetupRefusesToReplaceConfiguredURLWithoutYes(t *testing.T) {
 	}
 }
 
+func TestSetupJSONConfiguredURLMismatchErrorCode(t *testing.T) {
+	restore := useRootTestEnv(t)
+	defer restore()
+	if err := localconfig.Save(localconfig.Config{DefaultURL: "https://old.example.com"}); err != nil {
+		t.Fatal(err)
+	}
+
+	setup := &Setup{
+		URL:    "https://new.example.com",
+		Agents: "none",
+		Output: "json",
+		root:   setupTestRoot(nil),
+	}
+
+	var stdout bytes.Buffer
+	err := setup.Run(setupTestCommand(nil, &stdout, nil), nil)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !ErrorAlreadyReported(err) {
+		t.Fatalf("JSON setup errors should be marked already reported, got %T: %v", err, err)
+	}
+
+	events := setupProgressEvents(t, stdout.Bytes())
+	if len(events) != 1 {
+		t.Fatalf("expected one error event, got %#v\nstdout:\n%s", events, stdout.String())
+	}
+	if events[0].Type != "error" {
+		t.Fatalf("event type = %q, want error", events[0].Type)
+	}
+	if events[0].Code != "invalid_url" {
+		t.Fatalf("event code = %q, want invalid_url", events[0].Code)
+	}
+	if !strings.Contains(events[0].Message, "pass --yes to replace") {
+		t.Fatalf("unexpected error message: %q", events[0].Message)
+	}
+}
+
 func TestSetupInteractiveUsesConfiguredURL(t *testing.T) {
 	restore := useRootTestEnv(t)
 	defer restore()
