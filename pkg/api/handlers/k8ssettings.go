@@ -45,10 +45,11 @@ func (h *K8sSettingsHandler) Update(req api.Context) error {
 	}
 
 	var (
-		affinity    corev1.Affinity
-		tolerations []corev1.Toleration
-		resources   corev1.ResourceRequirements
-		errs        []error
+		affinity              corev1.Affinity
+		tolerations           []corev1.Toleration
+		resources             corev1.ResourceRequirements
+		nanobotAgentResources corev1.ResourceRequirements
+		errs                  []error
 	)
 
 	if input.Affinity != "" {
@@ -66,6 +67,12 @@ func (h *K8sSettingsHandler) Update(req api.Context) error {
 	if input.Resources != "" {
 		if err := yaml.UnmarshalStrict([]byte(input.Resources), &resources); err != nil {
 			errs = append(errs, fmt.Errorf("invalid resources YAML: %v", err))
+		}
+	}
+
+	if input.NanobotAgentResources != "" {
+		if err := yaml.UnmarshalStrict([]byte(input.NanobotAgentResources), &nanobotAgentResources); err != nil {
+			errs = append(errs, fmt.Errorf("invalid nanobotAgentResources YAML: %v", err))
 		}
 	}
 
@@ -144,6 +151,12 @@ func (h *K8sSettingsHandler) Update(req api.Context) error {
 			settings.Spec.NanobotWorkspaceSize = ""
 		}
 
+		if input.NanobotAgentResources != "" {
+			settings.Spec.NanobotAgentResources = &nanobotAgentResources
+		} else {
+			settings.Spec.NanobotAgentResources = nil
+		}
+
 		return req.Storage.Update(req.Context(), &settings)
 	}); err != nil {
 		return err
@@ -197,6 +210,14 @@ func convertK8sSettings(settings v1.K8sSettings) (types.K8sSettings, error) {
 
 	if settings.Spec.NanobotWorkspaceSize != "" {
 		result.NanobotWorkspaceSize = settings.Spec.NanobotWorkspaceSize
+	}
+
+	if settings.Spec.NanobotAgentResources != nil {
+		nanobotAgentResourcesYAML, err := yaml.Marshal(settings.Spec.NanobotAgentResources)
+		if err != nil {
+			return types.K8sSettings{}, err
+		}
+		result.NanobotAgentResources = string(nanobotAgentResourcesYAML)
 	}
 
 	// Convert PSA settings

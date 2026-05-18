@@ -5578,6 +5578,13 @@ func schema_obot_platform_obot_apiclient_types_K8sSettings(ref common.ReferenceC
 							Format:      "",
 						},
 					},
+					"nanobotAgentResources": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NanobotAgentResources specifies resource requests/limits for nanobot containers (JSON/YAML blob)",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"podSecurityAdmission": {
 						SchemaProps: spec.SchemaProps{
 							Description: "PodSecurityAdmission contains Pod Security Admission settings for the MCP namespace",
