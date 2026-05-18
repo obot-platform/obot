@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strings"
 	_ "time/tzdata"
 
 	gptcmd "github.com/gptscript-ai/cmd"
@@ -32,7 +31,7 @@ func main() {
 	gptcmd.ShutdownSignals = []os.Signal{os.Interrupt}
 	root := cli.New()
 	if err := root.ExecuteContext(gptcmd.SetupSignalContext()); err != nil {
-		if strings.EqualFold("interrupt", err.Error()) || errors.Is(err, context.Canceled) {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			os.Exit(1)
 		}
 		if cli.ErrorAlreadyReported(err) {
