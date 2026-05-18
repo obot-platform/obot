@@ -4,8 +4,14 @@
 	import Select from '$lib/components/Select.svelte';
 	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
-	import { AdminService, Group, type AuditLogURLFilters } from '$lib/services';
-	import type { AuditLogExport, OrgUser } from '$lib/services/admin/types';
+	import {
+		AdminService,
+		Group,
+		UserService,
+		type AuditLogExport,
+		type OrgUser,
+		type AuditLogURLFilters
+	} from '$lib/services';
 	import { profile } from '$lib/stores';
 	import { subDays, set } from 'date-fns';
 	import { TriangleAlert, ChevronDown, ChevronUp } from 'lucide-svelte';
@@ -232,7 +238,7 @@
 	});
 
 	$effect(() => {
-		AdminService.listUsers().then((res) => {
+		UserService.listUsers().then((res) => {
 			res.forEach((user) => {
 				usersMap.set(user.id, user);
 			});
@@ -241,7 +247,7 @@
 
 	$effect(() => {
 		filtersIds.forEach((id) => {
-			AdminService.listAuditLogFilterOptions(id).then((res) => {
+			UserService.listAuditLogFilterOptions(id).then((res) => {
 				filtersOptions[id] = res.options ?? [];
 			});
 		});

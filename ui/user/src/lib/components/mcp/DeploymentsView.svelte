@@ -317,7 +317,7 @@
 						id
 					);
 				} else {
-					await AdminService.restartK8sDeployment(id);
+					await UserService.restartK8sDeployment(id);
 				}
 			}
 		} catch (err) {
@@ -788,7 +788,7 @@
 													d.id
 												);
 											} else {
-												await AdminService.restartK8sDeployment(d.id);
+												await UserService.restartK8sDeployment(d.id);
 											}
 
 											await delay(1000);

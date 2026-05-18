@@ -1,6 +1,5 @@
 import { dev } from '$app/environment';
 import {
-	AdminService,
 	UserService,
 	type AppPreferences,
 	type DefaultModelAlias,
@@ -26,7 +25,7 @@ export const load: LayoutLoad = async ({ fetch }) => {
 	}
 
 	try {
-		const response = await AdminService.listAppPreferences({ fetch });
+		const response = await UserService.listAppPreferences({ fetch });
 		const response2 = await UserService.getProfile({ fetch });
 		appPreferences = compileAppPreferences(response);
 		profile = response2;

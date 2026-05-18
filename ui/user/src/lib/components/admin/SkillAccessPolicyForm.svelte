@@ -1,15 +1,16 @@
 <script lang="ts">
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
-	import { AdminService } from '$lib/services';
 	import {
+		AdminService,
+		UserService,
 		type AccessControlRuleSubject,
 		type OrgUser,
 		type OrgGroup,
 		type SkillAccessPolicy,
 		type SkillAccessPolicyResource,
 		type SkillRepository
-	} from '$lib/services/admin/types';
+	} from '$lib/services';
 	import type { Skill } from '$lib/services/nanobot/types';
 	import { errors } from '$lib/stores';
 	import { goto } from '$lib/url';
@@ -108,10 +109,10 @@
 		];
 
 		if (!usersAndGroups?.users) {
-			promises[0] = AdminService.listUsers();
+			promises[0] = UserService.listUsers();
 		}
 		if (!usersAndGroups?.groups) {
-			promises[1] = AdminService.listGroups();
+			promises[1] = UserService.listGroups();
 		}
 
 		Promise.all(promises)

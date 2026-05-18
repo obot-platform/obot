@@ -8,14 +8,17 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
-	import { AdminService } from '$lib/services';
-	import { AUDIT_LOG_FILTER_OPTIONS_LIMIT } from '$lib/services/admin/operations';
-	import type { AuditLogURLFilters } from '$lib/services/admin/types';
+	import {
+		UserService,
+		AUDIT_LOG_FILTER_OPTIONS_LIMIT,
+		type AuditLogURLFilters
+	} from '$lib/services';
 	import { goto } from '$lib/url';
 	import AuditFilter, { type FilterInput, type FilterOption } from './FilterField.svelte';
-	import type { FilterOptionsEndpoint } from './types';
 	import { X } from 'lucide-svelte';
 	import { untrack } from 'svelte';
+
+	type FilterOptionsEndpoint = typeof UserService.listAuditLogFilterOptions;
 
 	interface Props {
 		filters?: Record<string, string | number | undefined | null>;
@@ -39,7 +42,7 @@
 		getFilterDisplayLabel,
 		getDefaultValue,
 		filterOptions,
-		endpoint = AdminService.listAuditLogFilterOptions
+		endpoint = UserService.listAuditLogFilterOptions
 	}: Props = $props();
 
 	const url = new URL(page.url);

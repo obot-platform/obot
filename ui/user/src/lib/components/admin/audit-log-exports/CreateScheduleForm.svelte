@@ -2,8 +2,14 @@
 	import { page } from '$app/state';
 	import Select from '$lib/components/Select.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
-	import { AdminService, Group, type AuditLogURLFilters } from '$lib/services';
-	import type { OrgUser, ScheduledAuditLogExport } from '$lib/services/admin/types';
+	import {
+		type OrgUser,
+		type ScheduledAuditLogExport,
+		AdminService,
+		Group,
+		UserService,
+		type AuditLogURLFilters
+	} from '$lib/services';
 	import { profile } from '$lib/stores';
 	import { TriangleAlert, GlobeIcon, ChevronDown, ChevronUp } from 'lucide-svelte';
 	import { onMount } from 'svelte';
@@ -165,7 +171,7 @@
 	let filtersOptions: Record<string, string[]> = $state({});
 
 	$effect(() => {
-		AdminService.listUsers().then((res) => {
+		UserService.listUsers().then((res) => {
 			res.forEach((user) => {
 				usersMap.set(user.id, user);
 			});
@@ -174,7 +180,7 @@
 
 	$effect(() => {
 		filtersIds.forEach((id) => {
-			AdminService.listAuditLogFilterOptions(id).then((res) => {
+			UserService.listAuditLogFilterOptions(id).then((res) => {
 				filtersOptions[id] = res.options ?? [];
 			});
 		});

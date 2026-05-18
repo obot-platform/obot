@@ -43,8 +43,8 @@
 			entity === 'workspace' && id
 				? await UserService.listWorkspaceAccessControlRules(id)
 				: await AdminService.listAccessControlRules();
-		users = await AdminService.listUsers();
-		groups = await AdminService.listGroups();
+		users = await UserService.listUsers();
+		groups = await UserService.listGroups();
 		dialog?.open();
 	}
 

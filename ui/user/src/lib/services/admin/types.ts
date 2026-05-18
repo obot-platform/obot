@@ -10,7 +10,8 @@ import {
 	type CompositeRuntimeConfig,
 	type ToolOverride,
 	type Schedule,
-	ModelAlias
+	ModelAlias,
+	type AccessControlRuleSubject
 } from '../user/types';
 
 export interface MCPCatalogManifest {
@@ -193,23 +194,6 @@ export interface MCPFilterServerManifest {
 	env?: MCPEnvManifest[];
 }
 
-export interface OrgUser {
-	created: string;
-	username: string;
-	email: string;
-	explicitRole: boolean;
-	role: number;
-	effectiveRole: number;
-	groups: string[];
-	iconURL: string;
-	id: string;
-	lastActiveDay?: string;
-	displayName?: string;
-	deletedAt?: string;
-	originalEmail?: string;
-	originalUsername?: string;
-}
-
 export interface TempUser {
 	userId: number;
 	username: string;
@@ -220,12 +204,6 @@ export interface TempUser {
 	authProviderName: string;
 	authProviderNamespace: string;
 	cachedAt: string;
-}
-
-export interface OrgGroup {
-	id: string;
-	name: string;
-	iconURL?: string;
 }
 
 export const Role = {
@@ -327,33 +305,6 @@ export const ModelAliasToUsageMap = {
 	[ModelAlias.Vision]: ModelUsage.Vision
 } as const;
 
-export interface AccessControlRuleResource {
-	type: 'mcpServerCatalogEntry' | 'mcpServer' | 'selector';
-	id: string;
-}
-
-export interface AccessControlRuleSubject {
-	type: 'user' | 'group' | 'selector';
-	id: string;
-}
-
-export interface AccessControlRuleManifest {
-	id?: string;
-	displayName: string;
-	subjects?: AccessControlRuleSubject[];
-	resources?: AccessControlRuleResource[];
-}
-
-export interface AccessControlRule extends Omit<AccessControlRuleManifest, 'id'> {
-	id: string;
-	created: string;
-	deleted?: string;
-	links?: Record<string, string>;
-	metadata?: Record<string, string>;
-	powerUserID?: string;
-	powerUserWorkspaceID?: string;
-}
-
 export interface ModelResource {
 	id: string;
 }
@@ -395,163 +346,6 @@ export interface MessagePolicy extends Omit<MessagePolicyManifest, 'id'> {
 	deleted?: string;
 	links?: Record<string, string>;
 	metadata?: Record<string, string>;
-}
-
-export interface BootstrapStatus {
-	enabled: boolean;
-}
-
-export type AuditLogClient = {
-	name: string;
-	version: string;
-};
-
-export interface AuditLog {
-	id: string;
-	createdAt: string;
-	apiKey?: string;
-	userID: string;
-	userAgent?: string;
-	mcpServerInstanceName: string;
-	mcpServerName: string;
-	mcpServerDisplayName: string;
-	mcpServerCatalogEntryName?: string;
-	mcpID?: string;
-	powerUserWorkspaceID?: string;
-	client: AuditLogClient;
-	clientIP: string;
-	callType: string;
-	callIdentifier?: string;
-	responseStatus: number;
-	processingTimeMs: number;
-	requestHeaders?: Record<string, string | string[]>;
-	requestMutated: boolean;
-	requestBody?: unknown;
-	mutatedRequestBody?: unknown;
-	responseHeaders?: Record<string, string | string[]>;
-	responseMutated: boolean;
-	responseBody?: unknown;
-	originalResponseBody?: unknown;
-	webhookStatuses?: {
-		type?: string;
-		method?: string;
-		name?: string;
-		tool?: string;
-		url?: string;
-		status?: string;
-		message?: string;
-	}[];
-	error?: string;
-	sessionID?: string;
-	requestID?: string;
-}
-
-export interface AuditLogToolCallStatItem {
-	createdAt: string;
-	userID: string;
-	processingTimeMs: number;
-	responseStatus: number;
-	error: string;
-}
-
-export interface AuditLogToolCallStat {
-	toolName: string;
-	callCount: number;
-	items?: AuditLogToolCallStatItem[];
-}
-
-export interface AuditLogResourceReadStat {
-	resourceUri: string;
-	readCount: number;
-}
-
-export interface AuditLogPromptReadStat {
-	promptName: string;
-	readCount: number;
-}
-
-export interface AuthLogUsageStatItem {
-	mcpID: string;
-	mcpServerInstanceName: string;
-	mcpServerName: string;
-	mcpServerDisplayName: string;
-	toolCalls?: AuditLogToolCallStat[];
-	resourceReads?: AuditLogResourceReadStat[];
-	promptReads?: AuditLogPromptReadStat[];
-}
-
-export interface AuditLogUsageStats {
-	items: AuthLogUsageStatItem[];
-	timeStart: string;
-	timeEnd: string;
-	totalCalls: number;
-	uniqueUsers: number;
-}
-
-export type AuditLogFilters = {
-	userId?: string | null;
-	mcpServerCatalogEntryName?: string | null;
-	mcpServerDisplayName?: string | null;
-	client?: string | null;
-	callType?: string | null; // tools/call, resources/read, prompts/get
-	sessionId?: string | null;
-	startTime?: string | null; // RFC3339 format (e.g., "2024-01-01T00:00:00Z"
-	endTime?: string | null;
-	limit?: number | null;
-	offset?: number | null;
-	sortBy?: string | null; // Field to sort by (e.g., "created_at", "user_id", "call_type")
-	sortOrder?: string | null; // Sort order: "asc" or "desc"
-};
-
-export type AuditLogURLFilters = {
-	user_id?: string | null;
-	mcp_server_catalog_entry_name?: string | null;
-	mcp_server_display_name?: string | null;
-	mcp_id?: string | null;
-	call_identifier?: string | null;
-	client_name?: string | null;
-	client_version?: string | null;
-	client_ip?: string | null;
-	call_type?: string | null; // tools/call, resources/read, prompts/get
-	session_id?: string | null;
-	start_time?: string | null; // RFC3339 format (e.g., "2024-01-01T00:00:00Z"
-	end_time?: string | null;
-	limit?: number | null;
-	offset?: number | null;
-	query?: string | null;
-	response_status?: string | null;
-};
-
-export type UsageStatsFilters = {
-	mcp_id?: string;
-	user_ids?: string;
-	mcp_server_display_names?: string;
-	mcp_server_catalog_entry_names?: string;
-	start_time?: string | null;
-	end_time?: string | null;
-};
-
-export interface K8sServerEvent {
-	action: string;
-	count: number;
-	eventType: string;
-	message: string;
-	reason: string;
-	time: string;
-}
-
-export interface K8sServerDetail {
-	deploymentName: string;
-	events: K8sServerEvent[];
-	isAvailable: boolean;
-	lastRestart: string;
-	namespace: string;
-	readyReplicas: number;
-	replicas: number;
-}
-
-export interface K8sServerLog {
-	message: string;
 }
 
 export interface MCPFilterManifest {
@@ -857,51 +651,6 @@ export interface AppPreferencesManifest {
 		darkOnWarningColor?: string;
 		darkOnErrorColor?: string;
 		fontFamily?: string;
-	};
-}
-
-export interface AppPreferences {
-	logos: {
-		logoIcon: string;
-		logoIconError: string;
-		logoIconWarning: string;
-		logoDefault: string;
-		logoEnterprise: string;
-		logoChat: string;
-		darkLogoDefault: string;
-		darkLogoChat: string;
-		darkLogoEnterprise: string;
-	};
-	theme: {
-		backgroundColor: string;
-		onBackgroundColor: string;
-		onPrimaryColor: string;
-		onSuccessColor: string;
-		onWarningColor: string;
-		onErrorColor: string;
-		surface1Color: string;
-		surface2Color: string;
-		surface3Color: string;
-		secondaryColor: string;
-		primaryColor: string;
-		successColor: string;
-		warningColor: string;
-		errorColor: string;
-		darkBackgroundColor: string;
-		darkOnBackgroundColor: string;
-		darkOnPrimaryColor: string;
-		darkOnSuccessColor: string;
-		darkOnWarningColor: string;
-		darkOnErrorColor: string;
-		darkSurface1Color: string;
-		darkSurface2Color: string;
-		darkSurface3Color: string;
-		darkSecondaryColor: string;
-		darkPrimaryColor: string;
-		darkSuccessColor: string;
-		darkWarningColor: string;
-		darkErrorColor: string;
-		fontFamily: string;
 	};
 }
 

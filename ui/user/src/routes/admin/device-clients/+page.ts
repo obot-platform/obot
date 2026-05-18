@@ -1,6 +1,10 @@
 import { handleRouteError } from '$lib/errors';
-import { AdminService } from '$lib/services';
-import type { DeviceClientFleetSummaryResponse, OrgUser } from '$lib/services/admin/types';
+import {
+	AdminService,
+	type DeviceClientFleetSummaryResponse,
+	type OrgUser,
+	UserService
+} from '$lib/services';
 import { profile } from '$lib/stores';
 import type { PageLoad } from './$types';
 
@@ -18,7 +22,7 @@ export const load: PageLoad = async ({ fetch, url }) => {
 	try {
 		[clients, users] = await Promise.all([
 			AdminService.listDeviceClients({ limit, offset, name }, { fetch }),
-			AdminService.listUsers({ fetch })
+			UserService.listUsers({ fetch })
 		]);
 		return { clients, users };
 	} catch (err) {

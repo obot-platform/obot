@@ -13,6 +13,7 @@
 	import { stripMarkdownToText } from '$lib/markdown';
 	import {
 		AdminService,
+		UserService,
 		type DeviceClientStat,
 		type DeviceMCPServerStat,
 		type DeviceScanStats,
@@ -216,7 +217,7 @@
 	let isBootStrapUser = $derived(profile.current.isBootstrapUser?.() ?? false);
 
 	onMount(async () => {
-		AdminService.listAuditLogUsageStats({
+		UserService.listAuditLogUsageStats({
 			start_time: start.toISOString(),
 			end_time: end.toISOString()
 		})
@@ -256,7 +257,7 @@
 			});
 
 		const [users, tokens, catalogServers, workspaceServers] = await Promise.all([
-			AdminService.listUsersIncludeDeleted(),
+			UserService.listUsersIncludeDeleted(),
 			AdminService.listTotalTokenUsage(),
 			AdminService.listAllCatalogDeployedSingleRemoteServers(DEFAULT_MCP_CATALOG_ID),
 			AdminService.listAllWorkspaceDeployedSingleRemoteServers()

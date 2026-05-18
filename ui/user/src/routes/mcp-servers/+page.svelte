@@ -8,7 +8,6 @@
 	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import {
-		AdminService,
 		UserService,
 		Group,
 		type LaunchServerType,
@@ -53,7 +52,7 @@
 	let usersMap = $derived(new Map(users.map((user) => [user.id, user])));
 
 	onMount(async () => {
-		users = await AdminService.listUsers();
+		users = await UserService.listUsers();
 	});
 
 	function selectServerType(type: LaunchServerType, updateUrl = true) {

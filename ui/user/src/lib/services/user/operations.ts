@@ -1,10 +1,8 @@
 import { BOOTSTRAP_USER_ID } from '$lib/constants';
 import { Group } from '$lib/services/admin/types';
+import { buildQueryString } from '$lib/url';
 import type {
-	AccessControlRule,
-	AccessControlRuleManifest,
 	AuthProvider,
-	K8sServerDetail,
 	MCPCatalogEntry,
 	MCPCatalogEntryServerManifest,
 	MCPCatalogServerManifest,
@@ -12,8 +10,22 @@ import type {
 	MCPServerOAuthCredentialRequest,
 	MCPServerOAuthCredentialStatus
 } from '../admin/types';
-import { doDelete, doGet, doPatch, doPost, doPut, type Fetcher } from '../http';
 import {
+	doDelete,
+	doGet,
+	doPatch,
+	doPost,
+	doPut,
+	type Fetcher,
+	type PaginatedResponse
+} from '../http';
+import {
+	type AppPreferences,
+	type AuditLog,
+	type AuditLogURLFilters,
+	type AuditLogUsageFilters,
+	type AuditLogUsageStats,
+	type BootstrapStatus,
 	type DefaultModelAlias,
 	type ImageResponse,
 	type MCPCatalogServer,
@@ -23,9 +35,15 @@ import {
 	type MCPServerTool,
 	type Model,
 	type ModelProviderList,
+	type OrgGroup,
+	type OrgUser,
 	type Profile,
+	type ServerOrInstanceAuditLogStatsFilters,
 	type Version,
-	type Workspace
+	type Workspace,
+	type AccessControlRule,
+	type AccessControlRuleManifest,
+	type K8sServerDetail
 } from './types';
 
 type ItemsResponse<T> = { items: T[] | null };
@@ -1029,4 +1047,117 @@ export async function uploadImage(file: File): Promise<ImageResponse> {
 	formData.append('image', file);
 
 	return (await doPost('/image/upload', formData)) as ImageResponse;
+}
+
+export async function listAppPreferences(opts?: { fetch?: Fetcher }) {
+	const response = (await doGet('/app-preferences', opts)) as AppPreferences;
+	return response;
+}
+
+export async function getBootstrapStatus(): Promise<BootstrapStatus> {
+	return (await doGet('/bootstrap')) as BootstrapStatus;
+}
+
+export async function getUser(
+	userID: string,
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
+): Promise<OrgUser> {
+	const response = (await doGet(`/users/${userID}`, opts)) as OrgUser;
+	return response;
+}
+
+export async function listGroups(opts?: { fetch?: Fetcher; query?: string }): Promise<OrgGroup[]> {
+	const params: string[] = [];
+	if (opts?.query !== undefined) {
+		params.push(`name=${encodeURIComponent(opts.query)}`);
+	}
+	const queryString = params.length ? `?${params.join('&')}` : '';
+	const response = (await doGet(`/groups${queryString}`, opts)) as OrgGroup[];
+	return response ?? [];
+}
+
+export async function listUsers(opts?: { fetch?: Fetcher }): Promise<OrgUser[]> {
+	const response = (await doGet('/users', opts)) as ItemsResponse<OrgUser>;
+	return response.items ?? [];
+}
+
+export async function listUsersIncludeDeleted(opts?: {
+	fetch?: Fetcher;
+	signal?: AbortSignal;
+}): Promise<OrgUser[]> {
+	const response = (await doGet('/users?includeDeleted=true', opts)) as ItemsResponse<OrgUser>;
+	return response.items ?? [];
+}
+
+export async function listAuditLogs(filters?: AuditLogURLFilters, opts?: { fetch?: Fetcher }) {
+	const queryString = buildQueryString(filters ?? {});
+	const response = (await doGet(
+		`/mcp-audit-logs${queryString ? `?${queryString}` : ''}`,
+		opts
+	)) as PaginatedResponse<AuditLog>;
+	return response;
+}
+
+export async function listServerOrInstanceAuditLogs(
+	mcpId: string, // can either by server instance or mcp server id ex. ms- or msi-
+	filters?: AuditLogURLFilters,
+	opts?: { fetch?: Fetcher }
+) {
+	const queryString = buildQueryString(filters ?? {});
+	const response = (await doGet(
+		`/mcp-audit-logs/${mcpId}${queryString ? `?${queryString}` : ''}`,
+		opts
+	)) as PaginatedResponse<AuditLog>;
+	return response;
+}
+
+export async function getAuditLog(id: string | number, opts?: { fetch?: Fetcher }) {
+	const response = (await doGet(`/mcp-audit-logs/detail/${id}`, opts)) as AuditLog;
+	return response;
+}
+
+export async function listAuditLogUsageStats(
+	filters?: Partial<AuditLogUsageFilters>,
+	opts?: { fetch?: Fetcher }
+) {
+	const queryString = buildQueryString(filters ?? {});
+	const response = (await doGet(
+		`/mcp-stats${queryString ? `?${queryString}` : ''}`,
+		opts
+	)) as AuditLogUsageStats;
+	return response;
+}
+
+export const AUDIT_LOG_FILTER_OPTIONS_LIMIT = 1000;
+
+export async function listAuditLogFilterOptions(
+	filterId: string,
+	opts?: { fetch?: Fetcher } & Partial<AuditLogURLFilters>
+) {
+	const { fetch: fetchFn, ...filters } = opts ?? {};
+	const queryString = buildQueryString({ ...filters, limit: AUDIT_LOG_FILTER_OPTIONS_LIMIT });
+	const response = (await doGet(
+		`/mcp-audit-logs/filter-options/${filterId}${queryString ? `?${queryString}` : ''}`,
+		{ fetch: fetchFn }
+	)) as {
+		options: string[];
+	};
+	return response;
+}
+
+export async function listServerOrInstanceAuditLogStats(
+	mcpId: string, // can either by server instance or mcp server id ex. ms- or msi-
+	filters?: ServerOrInstanceAuditLogStatsFilters,
+	opts?: { fetch?: Fetcher }
+) {
+	const queryString = buildQueryString(filters ?? {});
+	const response = (await doGet(
+		`/mcp-stats/${mcpId}${queryString ? `?${queryString}` : ''}`,
+		opts
+	)) as AuditLogUsageStats;
+	return response;
+}
+
+export async function restartK8sDeployment(mcpServerId: string, opts?: { fetch?: Fetcher }) {
+	await doPost(`/mcp-servers/${mcpServerId}/restart`, {}, opts);
 }

@@ -11,7 +11,7 @@
 		RecommendedModelProviders
 	} from '$lib/constants';
 	import type { AuthProvider } from '$lib/services/admin/types.js';
-	import { AdminService, Role } from '$lib/services/index.js';
+	import { AdminService, Role, UserService } from '$lib/services/index.js';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte.js';
 	import { darkMode, errors, profile } from '$lib/stores/index.js';
 	import { TriangleAlert, Info } from 'lucide-svelte';
@@ -69,7 +69,7 @@
 		const configuredAuthProvider = authProviders.find((provider) => provider.configured);
 		if (!configuredAuthProvider) return;
 
-		const users = await AdminService.listUsers();
+		const users = await UserService.listUsers();
 		const isOwnerExist = users.some((user) => user.role === Role.OWNER);
 
 		if (isOwnerExist) return;
@@ -111,7 +111,7 @@
 		if (!configuringAuthProvider || setupLoading) return;
 
 		try {
-			const users = await AdminService.listUsers();
+			const users = await UserService.listUsers();
 			const isOwnerExist = users.some((user) => user.role === Role.OWNER);
 
 			if (isOwnerExist) return;

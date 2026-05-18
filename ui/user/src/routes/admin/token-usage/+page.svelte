@@ -14,7 +14,8 @@
 		type OrgUser,
 		type TokenUsage,
 		type TotalTokenUsage,
-		type TokenUsageWithCategory
+		type TokenUsageWithCategory,
+		UserService
 	} from '$lib/services';
 	import { errors } from '$lib/stores';
 	import { goto } from '$lib/url';
@@ -97,7 +98,7 @@
 	const modelsToDisplayName = $derived(new Map(modelsData.map((m) => [m.id, m])));
 
 	onMount(async () => {
-		usersData = await AdminService.listUsersIncludeDeleted();
+		usersData = await UserService.listUsersIncludeDeleted();
 		modelsData = await AdminService.listModels({ all: true });
 
 		AdminService.listTotalTokenUsage()

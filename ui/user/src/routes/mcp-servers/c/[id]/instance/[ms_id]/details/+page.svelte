@@ -5,7 +5,7 @@
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
 	import OAuthMetadataDebug from '$lib/components/mcp/OAuthMetadataDebug.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { AdminService, UserService, type MCPCatalogServer, type OrgUser } from '$lib/services';
+	import { UserService, type MCPCatalogServer, type OrgUser } from '$lib/services';
 	import { profile } from '$lib/stores';
 	import { Info } from 'lucide-svelte';
 	import { onMount } from 'svelte';
@@ -30,7 +30,7 @@
 					)
 				: await UserService.getSingleOrRemoteMcpServer(mcpServerId);
 		if (mcpServer?.userID) {
-			const user = await AdminService.getUser(mcpServer.userID);
+			const user = await UserService.getUser(mcpServer.userID);
 			connectedUsers = [user];
 		}
 	}

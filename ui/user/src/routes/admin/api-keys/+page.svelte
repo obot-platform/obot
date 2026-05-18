@@ -6,9 +6,7 @@
 	import ServersLabel from '$lib/components/api-keys/ServersLabel.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { ApiKeysService } from '$lib/services';
-	import type { OrgUser } from '$lib/services/admin/types';
-	import type { APIKey } from '$lib/services/api-keys/types';
+	import { ApiKeysService, type OrgUser, type APIKey } from '$lib/services';
 	import { profile } from '$lib/stores';
 	import { formatTimeAgo, formatTimeUntil } from '$lib/time';
 	import { goto, getTableUrlParamsSort, setSortUrlParams } from '$lib/url';

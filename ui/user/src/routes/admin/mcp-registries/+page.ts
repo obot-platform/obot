@@ -1,6 +1,5 @@
 import { handleRouteError } from '$lib/errors';
-import { AdminService } from '$lib/services';
-import type { AccessControlRule } from '$lib/services/admin/types';
+import { AdminService, type AccessControlRule } from '$lib/services';
 import { profile } from '$lib/stores';
 import type { PageLoad } from './$types';
 

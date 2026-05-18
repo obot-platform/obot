@@ -15,6 +15,7 @@
 	import {
 		AdminService,
 		Group,
+		UserService,
 		type LaunchServerType,
 		type MCPCatalog,
 		type OrgUser
@@ -61,7 +62,7 @@
 	});
 
 	onMount(async () => {
-		users = await AdminService.listUsersIncludeDeleted();
+		users = await UserService.listUsersIncludeDeleted();
 		defaultCatalog = await AdminService.getMCPCatalog(defaultCatalogId);
 
 		if (defaultCatalog?.isSyncing) {

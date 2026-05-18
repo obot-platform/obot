@@ -8,8 +8,7 @@
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { formatDeviceCommand } from '$lib/format.js';
-	import { AdminService } from '$lib/services';
-	import { deleteDeviceScan } from '$lib/services/admin/operations';
+	import { AdminService, UserService } from '$lib/services';
 	import {
 		Group,
 		type DeviceScan,
@@ -18,7 +17,8 @@
 		type DeviceScanPlugin,
 		type DeviceScanSkill,
 		type OrgUser
-	} from '$lib/services/admin/types';
+	} from '$lib/services';
+	import { deleteDeviceScan } from '$lib/services/admin/operations';
 	import { profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { goto } from '$lib/url';
@@ -46,7 +46,7 @@
 			submittedByUser = undefined;
 			return;
 		}
-		AdminService.getUser(id, { dontLogErrors: true })
+		UserService.getUser(id, { dontLogErrors: true })
 			.then((u) => {
 				if (submittedById === id) submittedByUser = u;
 			})

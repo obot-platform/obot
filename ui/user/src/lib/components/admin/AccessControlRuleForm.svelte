@@ -6,8 +6,10 @@
 		ADMIN_ALL_OPTION
 	} from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
-	import { AdminService, UserService, type MCPCatalogServer } from '$lib/services';
 	import {
+		AdminService,
+		UserService,
+		type MCPCatalogServer,
 		type AccessControlRule,
 		type AccessControlRuleManifest,
 		type AccessControlRuleResource,
@@ -15,7 +17,7 @@
 		type OrgUser,
 		type OrgGroup,
 		type MCPCatalogEntry
-	} from '$lib/services/admin/types';
+	} from '$lib/services';
 	import { getUserRegistry } from '$lib/services/user/mcp';
 	import { profile } from '$lib/stores';
 	import { goto } from '$lib/url';
@@ -114,10 +116,10 @@
 		];
 
 		if (!usersAndGroups?.users) {
-			promises[0] = AdminService.listUsers();
+			promises[0] = UserService.listUsers();
 		}
 		if (!usersAndGroups?.groups) {
-			promises[1] = AdminService.listGroups();
+			promises[1] = UserService.listGroups();
 		}
 
 		Promise.all(promises)

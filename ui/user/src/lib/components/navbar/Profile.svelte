@@ -5,7 +5,7 @@
 	import Menu from '$lib/components/navbar/Menu.svelte';
 	import ProfileIcon from '$lib/components/profile/ProfileIcon.svelte';
 	import { ADMIN_AGENT_DISABLED_MESSAGE, USER_AGENT_DISABLED_MESSAGE } from '$lib/constants';
-	import { AdminService, NanobotService } from '$lib/services';
+	import { AdminService, NanobotService, UserService } from '$lib/services';
 	import { profile, responsive, darkMode, errors, defaultModelAliases } from '$lib/stores';
 	import { version } from '$lib/stores';
 	import { goto } from '$lib/url';
@@ -106,7 +106,7 @@
 		if (!agentId || !projectId) return;
 		restartingAgent = true;
 		try {
-			await AdminService.restartK8sDeployment(`ms1${agentId}`);
+			await UserService.restartK8sDeployment(`ms1${agentId}`);
 			await NanobotService.launchProjectV2Agent(projectId, agentId);
 			window.location.reload();
 		} catch (error) {

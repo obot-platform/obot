@@ -1,6 +1,16 @@
 import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 import type { Skill } from '$lib/services/nanobot/types';
-import { doDelete, doGet, doPatch, doPost, doPut, handleResponse, type Fetcher } from '../http';
+import { buildQueryString } from '$lib/url';
+import {
+	doDelete,
+	doGet,
+	doPatch,
+	doPost,
+	doPut,
+	handleResponse,
+	type Fetcher,
+	type PaginatedResponse
+} from '../http';
 import type {
 	ModelProvider,
 	MCPCatalogServer,
@@ -8,7 +18,12 @@ import type {
 	MCPServerTool,
 	Model,
 	ModelAlias,
-	DefaultModelAlias
+	DefaultModelAlias,
+	BootstrapStatus,
+	AppPreferences,
+	AccessControlRule,
+	AccessControlRuleManifest,
+	K8sServerDetail
 } from '../user/types';
 import type {
 	FileScannerConfig,
@@ -17,19 +32,10 @@ import type {
 	MCPCatalogEntry,
 	MCPCatalogEntryServerManifest,
 	MCPCatalogManifest,
-	OrgUser,
-	OrgGroup,
 	MCPCatalogServerManifest,
-	AccessControlRule,
-	AccessControlRuleManifest,
 	ModelAccessPolicy,
 	ModelAccessPolicyManifest,
 	AuthProvider,
-	BootstrapStatus,
-	AuditLog,
-	AuditLogUsageStats,
-	AuditLogURLFilters,
-	K8sServerDetail,
 	MCPFilter,
 	MCPFilterManifest,
 	TempUser,
@@ -47,7 +53,6 @@ import type {
 	ImagePullSecretTestRequest,
 	ImagePullSecretTestResponse,
 	MCPCompositeDeletionDependency,
-	AppPreferences,
 	GroupRoleAssignment,
 	GroupRoleAssignmentList,
 	MCPCapacityInfo,
@@ -89,17 +94,12 @@ import type {
 	OAuthDebuggerAuthorizationURLRequest,
 	OAuthDebuggerRegisterClientResponse,
 	OAuthDebuggerTokenRequest,
-	OAuthToken
+	OAuthToken,
+	AppPreferencesManifest
 } from './types';
 import { MCPCompositeDeletionDependencyError } from './types';
 
 type ItemsResponse<T> = { items: T[] | null };
-export type PaginatedResponse<T> = {
-	items: T[] | null;
-	total: number;
-	offset: number;
-	limit: number;
-};
 type RequestOptions = { fetch?: Fetcher; dontLogErrors?: boolean; signal?: AbortSignal };
 
 export async function listMCPCatalogs(opts?: { fetch?: Fetcher }): Promise<MCPCatalog[]> {
@@ -506,37 +506,6 @@ export async function getMcpCompositeComponentToolPreviewsOauth(
 	}
 }
 
-export async function listUsers(opts?: { fetch?: Fetcher }): Promise<OrgUser[]> {
-	const response = (await doGet('/users', opts)) as ItemsResponse<OrgUser>;
-	return response.items ?? [];
-}
-
-export async function listUsersIncludeDeleted(opts?: {
-	fetch?: Fetcher;
-	signal?: AbortSignal;
-}): Promise<OrgUser[]> {
-	const response = (await doGet('/users?includeDeleted=true', opts)) as ItemsResponse<OrgUser>;
-	return response.items ?? [];
-}
-
-export async function getUser(
-	userID: string,
-	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
-): Promise<OrgUser> {
-	const response = (await doGet(`/users/${userID}`, opts)) as OrgUser;
-	return response;
-}
-
-export async function listGroups(opts?: { fetch?: Fetcher; query?: string }): Promise<OrgGroup[]> {
-	const params: string[] = [];
-	if (opts?.query !== undefined) {
-		params.push(`name=${encodeURIComponent(opts.query)}`);
-	}
-	const queryString = params.length ? `?${params.join('&')}` : '';
-	const response = (await doGet(`/groups${queryString}`, opts)) as OrgGroup[];
-	return response ?? [];
-}
-
 export async function updateUserRole(
 	userID: string,
 	role: number,
@@ -783,10 +752,6 @@ export async function deconfigureAuthProvider(
 	await doPost(`/auth-providers/${authProviderID}/deconfigure`, {}, opts);
 }
 
-export async function getBootstrapStatus(): Promise<BootstrapStatus> {
-	return (await doGet('/bootstrap')) as BootstrapStatus;
-}
-
 export async function bootstrapLogin(token: string) {
 	const response = (await doPost(
 		'/bootstrap/login',
@@ -804,117 +769,12 @@ export async function bootstrapLogout() {
 	return doPost('/bootstrap/logout', {});
 }
 
-function camelToSnakeCase(str: string): string {
-	return str.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
-}
-
-function buildQueryString(
-	filters: Record<string, string | number | boolean | string[] | undefined | null>
-) {
-	return Object.entries(filters)
-		.filter(([_, value]) => value !== undefined && value !== null)
-		.map(([key, value]) => {
-			if (Array.isArray(value)) {
-				// Join arrays with commas for multi-value parameters
-				return `${camelToSnakeCase(key)}=${encodeURIComponent(value.join(','))}`;
-			}
-			return `${camelToSnakeCase(key)}=${typeof value === 'string' ? encodeURIComponent(value) : value}`;
-		})
-		.join('&');
-}
-
-export async function listAuditLogs(filters?: AuditLogURLFilters, opts?: { fetch?: Fetcher }) {
-	const queryString = buildQueryString(filters ?? {});
-	const response = (await doGet(
-		`/mcp-audit-logs${queryString ? `?${queryString}` : ''}`,
-		opts
-	)) as PaginatedResponse<AuditLog>;
-	return response;
-}
-
-export async function listServerOrInstanceAuditLogs(
-	mcpId: string, // can either by server instance or mcp server id ex. ms- or msi-
-	filters?: AuditLogURLFilters,
-	opts?: { fetch?: Fetcher }
-) {
-	const queryString = buildQueryString(filters ?? {});
-	const response = (await doGet(
-		`/mcp-audit-logs/${mcpId}${queryString ? `?${queryString}` : ''}`,
-		opts
-	)) as PaginatedResponse<AuditLog>;
-	return response;
-}
-
-export async function getAuditLog(id: string | number, opts?: { fetch?: Fetcher }) {
-	const response = (await doGet(`/mcp-audit-logs/detail/${id}`, opts)) as AuditLog;
-	return response;
-}
-
-type AuditLogUsageFilters = {
-	mcp_id?: string;
-	mcp_server_catalog_entry_names?: string;
-	mcp_server_display_names?: string;
-	user_ids?: string;
-	start_time?: string | null;
-	end_time?: string | null;
-};
-
-export async function listAuditLogUsageStats(
-	filters?: Partial<AuditLogUsageFilters>,
-	opts?: { fetch?: Fetcher }
-) {
-	const queryString = buildQueryString(filters ?? {});
-	const response = (await doGet(
-		`/mcp-stats${queryString ? `?${queryString}` : ''}`,
-		opts
-	)) as AuditLogUsageStats;
-	return response;
-}
-
-export const AUDIT_LOG_FILTER_OPTIONS_LIMIT = 1000;
-
-export async function listAuditLogFilterOptions(
-	filterId: string,
-	opts?: { fetch?: Fetcher } & Partial<AuditLogURLFilters>
-) {
-	const { fetch: fetchFn, ...filters } = opts ?? {};
-	const queryString = buildQueryString({ ...filters, limit: AUDIT_LOG_FILTER_OPTIONS_LIMIT });
-	const response = (await doGet(
-		`/mcp-audit-logs/filter-options/${filterId}${queryString ? `?${queryString}` : ''}`,
-		{ fetch: fetchFn }
-	)) as {
-		options: string[];
-	};
-	return response;
-}
-
-type ServerOrInstanceAuditLogStatsFilters = {
-	start_time?: string;
-	end_time?: string;
-};
-export async function listServerOrInstanceAuditLogStats(
-	mcpId: string, // can either by server instance or mcp server id ex. ms- or msi-
-	filters?: ServerOrInstanceAuditLogStatsFilters,
-	opts?: { fetch?: Fetcher }
-) {
-	const queryString = buildQueryString(filters ?? {});
-	const response = (await doGet(
-		`/mcp-stats/${mcpId}${queryString ? `?${queryString}` : ''}`,
-		opts
-	)) as AuditLogUsageStats;
-	return response;
-}
-
 export async function getK8sServerDetail(
 	mcpServerId: string,
 	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
 ) {
 	const response = (await doGet(`/mcp-servers/${mcpServerId}/details`, opts)) as K8sServerDetail;
 	return response;
-}
-
-export async function restartK8sDeployment(mcpServerId: string, opts?: { fetch?: Fetcher }) {
-	await doPost(`/mcp-servers/${mcpServerId}/restart`, {}, opts);
 }
 
 export async function getMcpCatalogServerK8sSettingsStatus(
@@ -1349,13 +1209,8 @@ export async function acceptEula() {
 	};
 }
 
-export async function listAppPreferences(opts?: { fetch?: Fetcher }) {
-	const response = (await doGet('/app-preferences', opts)) as AppPreferences;
-	return response;
-}
-
 export async function updateAppPreferences(
-	preferences: AppPreferences,
+	preferences: AppPreferencesManifest,
 	opts?: { fetch?: Fetcher }
 ) {
 	return (await doPut('/app-preferences', preferences, opts)) as AppPreferences;

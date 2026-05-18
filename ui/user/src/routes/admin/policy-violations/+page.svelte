@@ -7,15 +7,16 @@
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
-	import { AdminService } from '$lib/services';
-	import type {
-		OrgUser,
-		MessagePolicyViolation,
-		MessagePolicyViolationFilters,
-		MessagePolicyViolationStats
-	} from '$lib/services/admin/types';
-	import { PolicyDirectionLabels } from '$lib/services/admin/types';
-	import type { PolicyDirection } from '$lib/services/admin/types';
+	import {
+		AdminService,
+		UserService,
+		type OrgUser,
+		type MessagePolicyViolation,
+		type MessagePolicyViolationFilters,
+		type MessagePolicyViolationStats,
+		type PolicyDirection,
+		PolicyDirectionLabels
+	} from '$lib/services';
 	import { responsive, userDeviceSettings } from '$lib/stores';
 	import { formatLogTimestamp } from '$lib/time';
 	import { getUserDisplayName } from '$lib/utils';
@@ -129,7 +130,7 @@
 
 	onMount(() => {
 		fetchData().then(() => fetchFilterOptions());
-		AdminService.listUsersIncludeDeleted().then((userData) => {
+		UserService.listUsersIncludeDeleted().then((userData) => {
 			for (const user of userData) {
 				users.set(user.id, user);
 			}

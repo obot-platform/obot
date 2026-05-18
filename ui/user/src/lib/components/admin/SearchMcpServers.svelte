@@ -3,7 +3,7 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import { stripMarkdownToText } from '$lib/markdown';
 	import {
-		AdminService,
+		UserService,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
 		type OrgUser
@@ -162,7 +162,7 @@
 	}
 
 	onMount(async () => {
-		users = await AdminService.listUsersIncludeDeleted();
+		users = await UserService.listUsersIncludeDeleted();
 	});
 </script>
 

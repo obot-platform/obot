@@ -94,7 +94,7 @@
 		try {
 			await AdminService.updateUserRole(userID, role);
 			if (refreshUsers) {
-				users = await AdminService.listUsers();
+				users = await UserService.listUsers();
 			}
 			if (profile.current.id === userID) {
 				// update with the role change
@@ -267,7 +267,7 @@
 		if (!deletingUser) return;
 		loading = true;
 		await AdminService.deleteUser(deletingUser.id);
-		users = await AdminService.listUsers();
+		users = await UserService.listUsers();
 		loading = false;
 		deletingUser = undefined;
 	}}

@@ -5,7 +5,7 @@
 	import McpServerK8sInfo from '$lib/components/admin/McpServerK8sInfo.svelte';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
-	import { AdminService, NanobotService, type OrgUser } from '$lib/services';
+	import { NanobotService, UserService, type OrgUser } from '$lib/services';
 	import { profile } from '$lib/stores';
 	import { getUserDisplayName } from '$lib/utils';
 	import { HatGlasses } from 'lucide-svelte';
@@ -24,7 +24,7 @@
 	onMount(async () => {
 		if (!mcpServer) return;
 		loading = true;
-		users = await AdminService.listUsersIncludeDeleted();
+		users = await UserService.listUsersIncludeDeleted();
 		loading = false;
 	});
 	let user = $derived(mcpServer?.userID ? usersMap.get(mcpServer.userID) : undefined);

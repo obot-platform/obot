@@ -13,7 +13,8 @@
 		ModelUsageLabels,
 		ModelAliasLabels,
 		type Model,
-		type ModelAlias
+		type ModelAlias,
+		UserService
 	} from '$lib/services';
 	import { defaultModelAliases as defaultModelAliasesStore } from '$lib/stores';
 	import { goto } from '$lib/url';
@@ -184,11 +185,11 @@
 		];
 
 		if (!usersAndGroups?.users) {
-			promises[0] = AdminService.listUsers();
+			promises[0] = UserService.listUsers();
 		}
 		if (!usersAndGroups?.groups) {
 			// Load groups when they have not already been fetched.
-			promises[1] = AdminService.listGroups();
+			promises[1] = UserService.listGroups();
 		}
 
 		Promise.all(promises)

@@ -232,7 +232,7 @@
 	});
 
 	onMount(() => {
-		AdminService.listUsersIncludeDeleted().then((data) => {
+		UserService.listUsersIncludeDeleted().then((data) => {
 			users = data;
 		});
 

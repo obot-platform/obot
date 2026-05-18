@@ -1,6 +1,5 @@
 import { handleRouteError } from '$lib/errors';
-import { AdminService, ApiKeysService } from '$lib/services';
-import type { OrgUser } from '$lib/services/admin/types';
+import { UserService, type OrgUser, ApiKeysService } from '$lib/services';
 import type { APIKey } from '$lib/services/api-keys/types';
 import type { PageLoad } from './$types';
 
@@ -14,7 +13,7 @@ export const load: PageLoad = async ({ fetch, parent }) => {
 		const [keys, allKeys, userList] = await Promise.all([
 			ApiKeysService.listApiKeys({ fetch }),
 			ApiKeysService.listAllApiKeys({ fetch }),
-			AdminService.listUsers({ fetch })
+			UserService.listUsers({ fetch })
 		]);
 
 		myApiKeys = keys;

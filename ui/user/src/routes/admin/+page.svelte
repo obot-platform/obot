@@ -4,7 +4,7 @@
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
-	import { AdminService, type BootstrapStatus, type TempUser } from '$lib/services';
+	import { AdminService, UserService, type BootstrapStatus, type TempUser } from '$lib/services';
 	import { goto } from '$lib/url';
 	import { CircleAlert, Handshake, ShieldAlert } from 'lucide-svelte';
 	import { onMount } from 'svelte';
@@ -23,7 +23,7 @@
 	let showSuccessOwnerConfirmation = $state(false);
 
 	onMount(() => {
-		fetchBootstrapStatus = AdminService.getBootstrapStatus();
+		fetchBootstrapStatus = UserService.getBootstrapStatus();
 		if (showSetupHandoff) {
 			tempDataPromises = Promise.all([
 				AdminService.getTempUser(),

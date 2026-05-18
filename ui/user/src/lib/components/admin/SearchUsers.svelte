@@ -1,7 +1,6 @@
 <script lang="ts">
 	import Loading from '$lib/icons/Loading.svelte';
-	import { AdminService } from '$lib/services';
-	import { type OrgGroup, type OrgUser } from '$lib/services/admin/types';
+	import { UserService, type OrgGroup, type OrgUser } from '$lib/services';
 	import { getUserRoleLabel } from '$lib/utils';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import Search from '../Search.svelte';
@@ -72,7 +71,7 @@
 				searchNames.length === 0 && groups.length > 0
 					? [...groups].sort((a, b) => a.name.localeCompare(b.name))
 					: (
-							await AdminService.listGroups(
+							await UserService.listGroups(
 								searchNames.length > 0 ? { query: searchNames } : undefined
 							)
 						).sort((a, b) => a.name.localeCompare(b.name));
@@ -101,7 +100,7 @@
 
 		try {
 			if (users.length === 0) {
-				users = await AdminService.listUsers();
+				users = await UserService.listUsers();
 			}
 		} catch (error) {
 			console.error('Error loading initial users:', error);

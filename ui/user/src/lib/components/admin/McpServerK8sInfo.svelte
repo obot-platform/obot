@@ -188,7 +188,7 @@
 					: UserService.restartWorkspaceK8sServerDeployment(entityId, mcpServerId)
 				: entity === 'webhook-validation'
 					? AdminService.restartMCPFilter(mcpServerId)
-					: AdminService.restartK8sDeployment(mcpServerId));
+					: UserService.restartK8sDeployment(mcpServerId));
 			// Refresh the k8s info after restart
 			listK8sInfo = getK8sInfo();
 		} catch (err) {

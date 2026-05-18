@@ -1,7 +1,7 @@
 <script lang="ts">
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
-	import { Group, type AuditLog } from '$lib/services/admin/types';
+	import { Group, type AuditLog } from '$lib/services';
 	import { profile, userDeviceSettings } from '$lib/stores';
 	import { formatLogTimestamp } from '$lib/time';
 	import { X } from 'lucide-svelte';
