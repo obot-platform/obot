@@ -32,21 +32,24 @@ spec:
       imagePullSecrets:
         {{- toYaml .Values.imagePullSecrets | nindent 8 }}
       {{- end }}
-      {{- if eq .Values.config.OBOT_SERVER_ENCRYPTION_PROVIDER "custom" }}
       initContainers:
         - name: encryptionsetup
           image: "{{ .Values.image.repository }}:{{ include "obot.imageTag" . }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          env:
-            - name: OBOT_SERVER_ENCRYPTION_KEY
-              valueFrom:
-                secretKeyRef:
-                  key: OBOT_SERVER_ENCRYPTION_KEY
-                  name: {{ include "obot.config.secretName" . }}
+          envFrom:
+            - secretRef:
+                name: {{ if .Values.config.existingSecret }}{{ .Values.config.existingSecret }}{{ else }}{{ include "obot.config.secretName" . }}{{- end }}
           command:
           - /bin/sh
           - -c
           - |
+            if [ "${OBOT_SERVER_ENCRYPTION_PROVIDER}" != "custom" ]; then
+              exit 0
+            fi
+            if [ -z "${OBOT_SERVER_ENCRYPTION_KEY}" ]; then
+              echo "OBOT_SERVER_ENCRYPTION_KEY must be set when OBOT_SERVER_ENCRYPTION_PROVIDER=custom" >&2
+              exit 1
+            fi
             cat > /config/encryption.yaml <<EOF
             kind: EncryptionConfiguration
             apiVersion: apiserver.config.k8s.io/v1
@@ -64,22 +67,19 @@ spec:
                   - aesgcm:
                       keys:
                         - name: key0
-                          secret: "$(OBOT_SERVER_ENCRYPTION_KEY)"
+                          secret: "${OBOT_SERVER_ENCRYPTION_KEY}"
                   - identity: {}
             EOF
           volumeMounts:
             - name: config
               mountPath: /config
-      {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ include "obot.imageTag" . }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           volumeMounts:
-            {{- if eq .Values.config.OBOT_SERVER_ENCRYPTION_PROVIDER "custom" }}
             - name: config
               mountPath: /config
-            {{- end }}
             {{- if .Values.persistence.enabled }}
             - name: data
               mountPath: {{ .Values.persistence.path }}
@@ -126,11 +126,9 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       volumes:
-      {{- if eq .Values.config.OBOT_SERVER_ENCRYPTION_PROVIDER "custom" }}
         - name: config
           emptyDir:
             medium: Memory
-      {{- end }}
       {{- if .Values.persistence.enabled }}
         - name: data
           persistentVolumeClaim:
