@@ -2835,7 +2835,7 @@ func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL,
 }
 
 func secretBoundMissingConfig(server types.MCPServer) (missingEnvVars, missingHeaders []string) {
-	missingEnvKeys := make(map[string]struct{})
+	missingEnvKeys := make(map[string]struct{}, len(server.MissingRequiredEnvVars))
 	for _, key := range server.MissingRequiredEnvVars {
 		missingEnvKeys[key] = struct{}{}
 	}
@@ -2848,7 +2848,7 @@ func secretBoundMissingConfig(server types.MCPServer) (missingEnvVars, missingHe
 		}
 	}
 
-	missingHeaderKeys := make(map[string]struct{})
+	missingHeaderKeys := make(map[string]struct{}, len(server.MissingRequiredHeaders))
 	for _, key := range server.MissingRequiredHeaders {
 		missingHeaderKeys[key] = struct{}{}
 	}
