@@ -385,7 +385,7 @@
 					{/if}
 
 					{#if d.needsUpdate && !missingKubernetesSecret}
-						<DotDotDot class="icon-button hover:dark:bg-background/50">
+						<DotDotDot class="icon-button hover:dark:bg-base-100/50">
 							{#snippet icon()}
 								<Ellipsis class="size-4" />
 							{/snippet}
