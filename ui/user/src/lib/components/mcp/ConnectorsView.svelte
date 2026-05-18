@@ -234,7 +234,7 @@
 		mode: ServerSelectMode = 'connect'
 	) {
 		const allServers =
-			mode === 'connect' || mode === 'chat'
+			mode === 'connect'
 				? getUsableConfiguredServersForCatalogEntry(entry)
 				: getConfiguredServersForCatalogEntry(entry);
 		selectedConfiguredServers = allServers;
