@@ -1,11 +1,14 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"log"
 	"os"
 	_ "time/tzdata"
 
-	"github.com/gptscript-ai/cmd"
+	gptcmd "github.com/gptscript-ai/cmd"
 	"github.com/gptscript-ai/gptscript/pkg/embedded"
 	"github.com/obot-platform/nanobot/pkg/supervise"
 	"github.com/obot-platform/obot/pkg/cli"
@@ -25,6 +28,15 @@ func main() {
 		os.Exit(0)
 	}
 	// Don't shutdown on SIGTERM, only on SIGINT. SIGTERM is handled by the controller leader election
-	cmd.ShutdownSignals = []os.Signal{os.Interrupt}
-	cmd.Main(cli.New())
+	gptcmd.ShutdownSignals = []os.Signal{os.Interrupt}
+	root := cli.New()
+	if err := root.ExecuteContext(gptcmd.SetupSignalContext()); err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			os.Exit(1)
+		}
+		if cli.ErrorAlreadyReported(err) {
+			os.Exit(1)
+		}
+		log.Fatal(err)
+	}
 }
