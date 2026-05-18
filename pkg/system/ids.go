@@ -39,6 +39,7 @@ const (
 	MCPServerPrefix               = "ms1"
 	MCPNetworkPolicyPrefix        = "mnp1"
 	MCPServerInstancePrefix       = "msi1"
+	ImagePullSecretPrefix         = "ips1"
 	ProjectMCPServerPrefix        = "pms1"
 	CatalogPrefix                 = "mcat1"
 	SystemCatalogPrefix           = "smcat1"
