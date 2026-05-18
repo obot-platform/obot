@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -192,6 +193,92 @@ func TestSetupAgentsNoneSkipsLocalAgentInstall(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(home, ".claude", "skills", "obot", skillformat.SkillMainFile)); !os.IsNotExist(err) {
 		t.Fatalf("expected no Claude Code skill to be installed, stat err: %v", err)
+	}
+}
+
+func TestSetupJSONProgressSuccessfulSequence(t *testing.T) {
+	restore := useRootTestEnv(t)
+	defer restore()
+	home := useSetupTestHome(t)
+	if err := os.MkdirAll(filepath.Join(home, ".claude"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	root := setupTestRoot(func(_ context.Context, _ string, _, _ bool) (string, error) {
+		return "token", nil
+	})
+	setup := &Setup{
+		URL:            "https://obot.example.com/",
+		Agents:         "detected",
+		Yes:            true,
+		NonInteractive: true,
+		Output:         "json",
+		root:           root,
+	}
+
+	var stdout bytes.Buffer
+	cmd := setupTestCommand(nil, &stdout, nil)
+	if err := setup.Run(cmd, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	events := setupProgressEvents(t, stdout.Bytes())
+	gotTypes := make([]string, 0, len(events))
+	for _, event := range events {
+		gotTypes = append(gotTypes, event.Type)
+	}
+	wantTypes := []string{"auth_started", "auth_completed", "config_saved", "agent_installed", "complete"}
+	if strings.Join(gotTypes, ",") != strings.Join(wantTypes, ",") {
+		t.Fatalf("event types = %v, want %v\nstdout:\n%s", gotTypes, wantTypes, stdout.String())
+	}
+	if events[3].AgentID != localagents.ClaudeCodeAgentID {
+		t.Fatalf("agent_installed agentID = %q, want %q", events[3].AgentID, localagents.ClaudeCodeAgentID)
+	}
+	if events[3].DisplayName != "Claude Code" {
+		t.Fatalf("agent_installed displayName = %q, want Claude Code", events[3].DisplayName)
+	}
+	if len(events[3].Installed) == 0 {
+		t.Fatalf("agent_installed should include installed paths")
+	}
+	if strings.Contains(stdout.String(), "Detected:") {
+		t.Fatalf("JSON stdout should not include human setup output:\n%s", stdout.String())
+	}
+}
+
+func TestSetupJSONProgressStructuredError(t *testing.T) {
+	restore := useRootTestEnv(t)
+	defer restore()
+
+	root := setupTestRoot(func(context.Context, string, bool, bool) (string, error) {
+		t.Fatal("token fetcher should not be called without a URL")
+		return "", nil
+	})
+	setup := &Setup{
+		Agents:         "none",
+		NonInteractive: true,
+		Output:         "json",
+		root:           root,
+	}
+
+	var stdout bytes.Buffer
+	cmd := setupTestCommand(strings.NewReader("https://obot.example.com\n"), &stdout, nil)
+	err := setup.Run(cmd, nil)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+
+	events := setupProgressEvents(t, stdout.Bytes())
+	if len(events) != 1 {
+		t.Fatalf("expected one error event, got %#v\nstdout:\n%s", events, stdout.String())
+	}
+	if events[0].Type != "error" {
+		t.Fatalf("event type = %q, want error", events[0].Type)
+	}
+	if events[0].Code != "invalid_url" {
+		t.Fatalf("event code = %q, want invalid_url", events[0].Code)
+	}
+	if !strings.Contains(events[0].Message, "--url is required in non-interactive mode") {
+		t.Fatalf("unexpected error message: %q", events[0].Message)
 	}
 }
 
@@ -452,4 +539,22 @@ func useSetupTestHome(t *testing.T) string {
 		}
 	})
 	return home
+}
+
+func setupProgressEvents(t *testing.T, data []byte) []setupProgressEvent {
+	t.Helper()
+	dec := json.NewDecoder(bytes.NewReader(data))
+	var events []setupProgressEvent
+	for {
+		var event setupProgressEvent
+		err := dec.Decode(&event)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatalf("setup progress output should be newline-delimited JSON: %v\n%s", err, string(data))
+		}
+		events = append(events, event)
+	}
+	return events
 }

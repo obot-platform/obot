@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -267,7 +268,8 @@ func TestTokenNonInteractiveSkipsBrowserEnterGate(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	token, err := Token(WithNonInteractive(t.Context()), srv.URL+"/api", false, false)
+	var output bytes.Buffer
+	token, err := Token(WithOutputWriter(WithNonInteractive(t.Context()), &output), srv.URL+"/api", false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -276,6 +278,9 @@ func TestTokenNonInteractiveSkipsBrowserEnterGate(t *testing.T) {
 	}
 	if openedURL != "https://example.com/login" {
 		t.Fatalf("expected browser to open login URL, got %q", openedURL)
+	}
+	if !strings.Contains(output.String(), "Opening browser to https://example.com/login") {
+		t.Fatalf("expected browser login message in configured output writer, got %q", output.String())
 	}
 	if got := store.tokens[srv.URL]; got != "new-token" {
 		t.Fatalf("expected token stored by app URL, got %q", got)

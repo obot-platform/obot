@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/signal"
@@ -26,6 +27,7 @@ var credentialStore credentials.Store = credentials.NewKeyringStore()
 var openBrowser = browser.OpenURL
 
 type nonInteractiveContextKey struct{}
+type outputWriterContextKey struct{}
 
 // WithNonInteractive marks ctx as safe for GUI orchestration: token acquisition
 // must not prompt or read from stdin.
@@ -33,9 +35,25 @@ func WithNonInteractive(ctx context.Context) context.Context {
 	return context.WithValue(ctx, nonInteractiveContextKey{}, true)
 }
 
+// WithOutputWriter routes token-acquisition user messages to w instead of
+// stdout. This lets commands that stream machine-readable stdout keep it clean.
+func WithOutputWriter(ctx context.Context, w io.Writer) context.Context {
+	if w == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, outputWriterContextKey{}, w)
+}
+
 func isNonInteractive(ctx context.Context) bool {
 	v, _ := ctx.Value(nonInteractiveContextKey{}).(bool)
 	return v
+}
+
+func outputWriter(ctx context.Context) io.Writer {
+	if w, _ := ctx.Value(outputWriterContextKey{}).(io.Writer); w != nil {
+		return w
+	}
+	return os.Stdout
 }
 
 // AppURLForAPIBaseURL returns the app URL that owns credentials for an
@@ -143,21 +161,22 @@ func Token(ctx context.Context, baseURL string, noExpiration, forceRefresh bool)
 	}
 
 	if !hasStoredToken && !isNonInteractive(ctx) {
-		fmt.Println()
-		fmt.Println(color.GreenString("Authentication is needed"))
-		fmt.Println(color.GreenString("========================"))
-		fmt.Println()
-		fmt.Println(color.CyanString(provider.Name) + " is used for authentication using the browser. This can be bypassed by setting")
-		fmt.Println("the env var " + color.CyanString("OBOT_API_KEY") + " to your API key.")
-		fmt.Println()
-		fmt.Println(color.GreenString("Press ENTER to continue (CTRL+C to exit)"))
+		w := outputWriter(ctx)
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, color.GreenString("Authentication is needed"))
+		fmt.Fprintln(w, color.GreenString("========================"))
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, color.CyanString(provider.Name)+" is used for authentication using the browser. This can be bypassed by setting")
+		fmt.Fprintln(w, "the env var "+color.CyanString("OBOT_API_KEY")+" to your API key.")
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, color.GreenString("Press ENTER to continue (CTRL+C to exit)"))
 		if err := enter(ctx); err != nil {
 			return "", err
 		}
-		fmt.Println()
+		fmt.Fprintln(w)
 	}
 
-	fmt.Printf("Opening browser to %s. if there is an issue paste this link into a browser manually\n", loginURL)
+	fmt.Fprintf(outputWriter(ctx), "Opening browser to %s. if there is an issue paste this link into a browser manually\n", loginURL)
 	_ = openBrowser(loginURL)
 
 	ctx, timeoutCancel := context.WithTimeout(ctx, 5*time.Minute)
@@ -317,13 +336,14 @@ func userSelectAuthProvider(ctx context.Context, authProviders []types2.AuthProv
 	sort.Slice(configuredAuthProviders, func(i, j int) bool {
 		return configuredAuthProviders[i].Name < configuredAuthProviders[j].Name
 	})
-	fmt.Println()
-	fmt.Println(color.CyanString("Select an authentication provider:"))
+	w := outputWriter(ctx)
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, color.CyanString("Select an authentication provider:"))
 	for i, provider := range configuredAuthProviders {
-		fmt.Printf("  %d. %s\n", i+1, provider.Name)
+		fmt.Fprintf(w, "  %d. %s\n", i+1, provider.Name)
 	}
-	fmt.Println()
-	fmt.Println(color.GreenString("Enter the number of the provider you want to use:"))
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, color.GreenString("Enter the number of the provider you want to use:"))
 
 	var choice int
 	if _, err := fmt.Scanln(&choice); err != nil {
