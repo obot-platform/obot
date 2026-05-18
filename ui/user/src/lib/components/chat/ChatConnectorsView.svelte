@@ -272,7 +272,7 @@
 						{d.alias || d.manifest.name}
 						{#if missingKubernetesSecret}
 							<span
-								class="text-yellow-500"
+								class="text-warning"
 								use:tooltip={{
 									text: 'Missing Kubernetes Secret.',
 									disablePortal: true

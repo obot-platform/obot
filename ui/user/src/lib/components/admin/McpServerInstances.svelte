@@ -322,7 +322,7 @@
 						{d.manifest.remoteConfig?.url}
 						{#if missingKubernetesSecret}
 							<div
-								class="text-yellow-500"
+								class="text-warning"
 								use:tooltip={{
 									text: 'Missing Kubernetes Secret.',
 									classes: ['break-words', 'w-58']
@@ -347,7 +347,7 @@
 						{#if type === 'single' || type === 'composite'}
 							{#if missingKubernetesSecret}
 								<div
-									class="text-yellow-500"
+									class="text-warning"
 									use:tooltip={{
 										text: 'Missing Kubernetes Secret.',
 										classes: ['break-words', 'w-58']
