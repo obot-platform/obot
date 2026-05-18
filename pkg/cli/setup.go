@@ -69,7 +69,11 @@ func (s *Setup) run(cmd *cobra.Command, progress setupProgressWriter) error {
 		cmd.SetContext(ctx)
 	}
 	if progress.json {
-		ctx = cliinternal.WithOutputWriter(ctx, io.Discard)
+		authOutput := cmd.ErrOrStderr()
+		if s.NonInteractive {
+			authOutput = io.Discard
+		}
+		ctx = cliinternal.WithOutputWriter(ctx, authOutput)
 		cmd.SetContext(ctx)
 		cmd.SetOut(cmd.ErrOrStderr())
 	}
