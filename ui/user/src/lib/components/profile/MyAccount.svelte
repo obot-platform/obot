@@ -2,7 +2,7 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import ConfirmDeleteAccount from '$lib/components/ConfirmDeleteAccount.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
-	import { ChatService } from '$lib/services';
+	import { UserService } from '$lib/services';
 	import { profile, errors, version, userDeviceSettings } from '$lib/stores';
 	import { success } from '$lib/stores/success';
 	import { goto } from '$lib/url';
@@ -43,7 +43,7 @@
 
 	async function deleteAccount() {
 		try {
-			await ChatService.deleteProfile();
+			await UserService.deleteProfile();
 			goto('/oauth2/sign_out?rd=/');
 		} catch (error) {
 			console.error('Failed to delete account:', error);
@@ -56,7 +56,7 @@
 	async function handleAutonomousToolUseToggle(checked: boolean) {
 		savingPreferences = true;
 		try {
-			const updatedProfile = await ChatService.patchProfile({
+			const updatedProfile = await UserService.patchProfile({
 				autonomousToolUseEnabled: checked
 			});
 			autonomousToolUseEnabled = updatedProfile.autonomousToolUseEnabled;

@@ -3,12 +3,12 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
 	import {
-		ChatService,
+		UserService,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
 		type MCPServerTool
 	} from '$lib/services';
-	import { conflictIssue, duplicateToolNames, toolNameIssue } from '$lib/services/chat/mcp';
+	import { conflictIssue, duplicateToolNames, toolNameIssue } from '$lib/services/user/mcp';
 	import Search from '../Search.svelte';
 	import Toggle from '../Toggle.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
@@ -115,7 +115,7 @@
 		loading = true;
 		try {
 			// Make a best effort attempt to load tools, prompts, and resources concurrently
-			let toolCall = ChatService.listMcpCatalogServerTools(entry.id, {
+			let toolCall = UserService.listMcpCatalogServerTools(entry.id, {
 				signal: abortController.signal
 			});
 			tools = await toolCall;

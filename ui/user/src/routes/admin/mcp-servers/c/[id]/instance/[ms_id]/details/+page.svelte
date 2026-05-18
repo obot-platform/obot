@@ -7,7 +7,7 @@
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import {
 		AdminService,
-		ChatService,
+		UserService,
 		type MCPCatalogServer,
 		type OrgUser
 	} from '$lib/services/index.js';
@@ -27,7 +27,7 @@
 	let catalogEntryName = $derived(catalogEntry?.manifest?.name ?? 'Unknown');
 
 	async function fetchUserInfo() {
-		mcpServer = await ChatService.getSingleOrRemoteMcpServer(mcpServerId);
+		mcpServer = await UserService.getSingleOrRemoteMcpServer(mcpServerId);
 		const isSameUser =
 			connectedUsers.length === 1 ? connectedUsers[0].id === mcpServer.userID : false;
 		compositeParentName = mcpServer.compositeName;

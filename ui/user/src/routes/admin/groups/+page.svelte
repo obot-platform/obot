@@ -7,7 +7,7 @@
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { Group, Role, type GroupRoleAssignment } from '$lib/services/admin/types';
-	import { AdminService, ChatService } from '$lib/services/index.js';
+	import { AdminService, UserService } from '$lib/services/index.js';
 	import { profile } from '$lib/stores/index.js';
 	import {
 		clearUrlParams,
@@ -108,7 +108,7 @@
 
 			// Refresh user's profile if they're in the affected group
 			if (profile.current.groups.includes(groupName)) {
-				profile.current = await ChatService.getProfile();
+				profile.current = await UserService.getProfile();
 			}
 		} catch (error) {
 			console.error('Failed to update group role:', error);
@@ -224,7 +224,7 @@
 		groupRoleAssignments = await AdminService.listGroupRoleAssignments();
 		// Refresh user's profile if they're in the affected group
 		if (profile.current.groups.includes(deletingGroup.id)) {
-			profile.current = await ChatService.getProfile();
+			profile.current = await UserService.getProfile();
 		}
 		loading = false;
 		deletingGroup = undefined;

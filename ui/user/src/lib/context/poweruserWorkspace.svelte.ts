@@ -1,4 +1,4 @@
-import { ChatService, Group, type MCPCatalogServer } from '$lib/services';
+import { UserService, Group, type MCPCatalogServer } from '$lib/services';
 import type { MCPCatalogEntry } from '$lib/services/admin/types';
 import { profile } from '$lib/stores';
 import { getContext, hasContext, setContext } from 'svelte';
@@ -37,10 +37,10 @@ export async function fetchMcpServerAndEntries(
 	const context = mcpServerAndEntries || getPoweruserWorkspace();
 	context.loading = true;
 	const hasMultiUserAccess = profile.current.groups.includes(Group.POWERUSER_PLUS);
-	const entries = await ChatService.listWorkspaceMCPCatalogEntries(workspaceID);
+	const entries = await UserService.listWorkspaceMCPCatalogEntries(workspaceID);
 	// if not power user plus/admin, skip multi-users servers call
 	const servers = hasMultiUserAccess
-		? await ChatService.listWorkspaceMCPCatalogServers(workspaceID)
+		? await UserService.listWorkspaceMCPCatalogServers(workspaceID)
 		: [];
 	context.entries = entries;
 	context.servers = servers;

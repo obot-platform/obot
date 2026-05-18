@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Loading from '$lib/icons/Loading.svelte';
-	import { hasSecretBinding, type MCPServerInfo } from '$lib/services/chat/mcp';
+	import { hasSecretBinding, type MCPServerInfo } from '$lib/services/user/mcp';
 	import Confirm from '../Confirm.svelte';
 	import InfoTooltip from '../InfoTooltip.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';

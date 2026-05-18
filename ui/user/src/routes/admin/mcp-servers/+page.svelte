@@ -12,12 +12,17 @@
 	import type { InitSort } from '$lib/components/table/Table.svelte';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
-	import { AdminService, Group, type LaunchServerType } from '$lib/services';
-	import type { MCPCatalog, OrgUser } from '$lib/services/admin/types';
-	import { getServerTypeLabelByType } from '$lib/services/chat/mcp';
-	import { mcpServersAndEntries, profile } from '$lib/stores';
-	import { goto } from '$lib/url';
 	import {
+		AdminService,
+		Group,
+		type LaunchServerType,
+		type MCPCatalog,
+		type OrgUser
+	} from '$lib/services';
+	import { getServerTypeLabelByType } from '$lib/services/user/mcp';
+	import { mcpServersAndEntries, profile } from '$lib/stores';
+	import {
+		goto,
 		clearUrlParams,
 		getTableUrlParamsFilters,
 		getTableUrlParamsSort,

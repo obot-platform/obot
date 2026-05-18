@@ -3,7 +3,7 @@
 		RemoteCatalogConfigAdmin,
 		RemoteRuntimeConfigAdmin
 	} from '$lib/services/admin/types';
-	import { hasSecretBinding } from '$lib/services/chat/mcp';
+	import { hasSecretBinding } from '$lib/services/user/mcp';
 	import InfoTooltip from '../InfoTooltip.svelte';
 	import Select from '../Select.svelte';
 	import Toggle from '../Toggle.svelte';

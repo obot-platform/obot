@@ -11,23 +11,23 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
-		ChatService,
+		UserService,
 		type MCPCatalog,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
 		type OrgUser,
 		MCPCompositeDeletionDependencyError,
 		Group,
-		type MCPServerInstance
+		type MCPServerInstance,
+		type MCPServerOAuthCredentialStatus
 	} from '$lib/services';
-	import type { MCPServerOAuthCredentialStatus } from '$lib/services/admin/types';
 	import {
 		convertEntriesAndServersToTableData,
 		getServerTypeLabelByType,
 		hasEditableConfiguration,
 		hasMissingSecretBindingConfig,
 		requiresUserUpdate
-	} from '$lib/services/chat/mcp';
+	} from '$lib/services/user/mcp';
 	import { mcpServersAndEntries, profile, userDeviceSettings } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { openUrl, isOwnSingleUserServer } from '$lib/utils';
@@ -221,7 +221,7 @@
 	}
 
 	async function reauthenticateServer(server: MCPCatalogServer) {
-		await ChatService.clearMcpServerOAuth(server.id);
+		await UserService.clearMcpServerOAuth(server.id);
 		await connectToServerDialog?.authenticate(
 			server,
 			server.catalogEntryID ? entriesMap.get(server.catalogEntryID) : undefined
@@ -255,7 +255,7 @@
 		try {
 			const catalogId = entry.powerUserWorkspaceID ? undefined : 'default';
 			oauthStatus = entry.powerUserWorkspaceID
-				? await ChatService.getWorkspaceMCPCatalogEntryOAuthCredentials(
+				? await UserService.getWorkspaceMCPCatalogEntryOAuthCredentials(
 						entry.powerUserWorkspaceID,
 						entry.id
 					)
@@ -273,7 +273,7 @@
 	}) {
 		if (!oauthConfigEntry) return;
 		if (oauthConfigEntry.powerUserWorkspaceID) {
-			await ChatService.setWorkspaceMCPCatalogEntryOAuthCredentials(
+			await UserService.setWorkspaceMCPCatalogEntryOAuthCredentials(
 				oauthConfigEntry.powerUserWorkspaceID,
 				oauthConfigEntry.id,
 				credentials
@@ -292,7 +292,7 @@
 	async function handleDeleteOAuth() {
 		if (!oauthConfigEntry) return;
 		if (oauthConfigEntry.powerUserWorkspaceID) {
-			await ChatService.deleteWorkspaceMCPCatalogEntryOAuthCredentials(
+			await UserService.deleteWorkspaceMCPCatalogEntryOAuthCredentials(
 				oauthConfigEntry.powerUserWorkspaceID,
 				oauthConfigEntry.id
 			);
@@ -572,7 +572,7 @@
 										onclick={async (e) => {
 											e.stopPropagation();
 											if (matchingServers.length === 1) {
-												await ChatService.restartMcpServer(matchingServers[0].id);
+												await UserService.restartMcpServer(matchingServers[0].id);
 												mcpServersAndEntries.refreshUserConfiguredServers();
 											} else {
 												handleShowSelectServerDialog(catalogEntry, 'restart');
@@ -591,7 +591,7 @@
 											e.stopPropagation();
 
 											if (matchingServers.length === 1) {
-												await ChatService.deleteSingleOrRemoteMcpServer(matchingServers[0].id);
+												await UserService.deleteSingleOrRemoteMcpServer(matchingServers[0].id);
 												mcpServersAndEntries.refreshUserConfiguredServers();
 											} else {
 												handleShowSelectServerDialog(catalogEntry, 'disconnect');
@@ -607,7 +607,7 @@
 										class="menu-button hover:bg-base-400"
 										onclick={async (e) => {
 											e.stopPropagation();
-											await ChatService.deleteMcpServerInstance(matchingInstance.id);
+											await UserService.deleteMcpServerInstance(matchingInstance.id);
 											mcpServersAndEntries.refreshUserInstances();
 											toggle(false);
 										}}
@@ -765,7 +765,7 @@
 		}
 
 		if (deletingEntry.powerUserWorkspaceID) {
-			await ChatService.deleteWorkspaceMCPCatalogEntry(
+			await UserService.deleteWorkspaceMCPCatalogEntry(
 				deletingEntry.powerUserWorkspaceID,
 				deletingEntry.id
 			);
@@ -791,9 +791,9 @@
 
 		try {
 			if (deletingServer.catalogEntryID) {
-				await ChatService.deleteSingleOrRemoteMcpServer(deletingServer.id);
+				await UserService.deleteSingleOrRemoteMcpServer(deletingServer.id);
 			} else if (deletingServer.powerUserWorkspaceID) {
-				await ChatService.deleteWorkspaceMCPCatalogServer(
+				await UserService.deleteWorkspaceMCPCatalogServer(
 					deletingServer.powerUserWorkspaceID,
 					deletingServer.id
 				);
@@ -826,7 +826,7 @@
 			for (const item of Object.values(selected)) {
 				if ('isCatalogEntry' in item.data) {
 					if (item.data.powerUserWorkspaceID) {
-						await ChatService.deleteWorkspaceMCPCatalogEntry(
+						await UserService.deleteWorkspaceMCPCatalogEntry(
 							item.data.powerUserWorkspaceID,
 							item.data.id
 						);
@@ -836,7 +836,7 @@
 				} else if (!item.data.catalogEntryID) {
 					try {
 						if (item.data.powerUserWorkspaceID) {
-							await ChatService.deleteWorkspaceMCPCatalogServer(
+							await UserService.deleteWorkspaceMCPCatalogServer(
 								item.data.powerUserWorkspaceID,
 								item.data.id
 							);
@@ -853,7 +853,7 @@
 						throw error;
 					}
 				} else {
-					await ChatService.deleteSingleOrRemoteMcpServer(item.data.id);
+					await UserService.deleteSingleOrRemoteMcpServer(item.data.id);
 				}
 			}
 
@@ -913,12 +913,12 @@
 					break;
 				}
 				case 'disconnect': {
-					await ChatService.deleteSingleOrRemoteMcpServer(d.id);
+					await UserService.deleteSingleOrRemoteMcpServer(d.id);
 					mcpServersAndEntries.refreshUserConfiguredServers();
 					break;
 				}
 				case 'restart': {
-					await ChatService.restartMcpServer(d.id);
+					await UserService.restartMcpServer(d.id);
 					mcpServersAndEntries.refreshUserConfiguredServers();
 					break;
 				}

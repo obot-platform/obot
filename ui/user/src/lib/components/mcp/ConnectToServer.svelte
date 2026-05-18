@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { dialogAnimation } from '$lib/actions/dialogAnimation';
 	import {
-		ChatService,
+		UserService,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
 		type MCPServerInstance
@@ -13,7 +13,7 @@
 		getSecretBindingEngineError,
 		isKubernetesRuntimeBackend,
 		hasEditableConfiguration
-	} from '$lib/services/chat/mcp';
+	} from '$lib/services/user/mcp';
 	import { version } from '$lib/stores';
 	import CopyButton from '../CopyButton.svelte';
 	import PageLoading from '../PageLoading.svelte';
@@ -162,7 +162,7 @@
 		let values: Record<string, string> = {};
 		if (currentInstance) {
 			try {
-				values = await ChatService.revealMcpServerInstance(currentInstance.id, {
+				values = await UserService.revealMcpServerInstance(currentInstance.id, {
 					dontLogErrors: true
 				});
 			} catch (_error) {
@@ -305,7 +305,7 @@
 
 	async function getOauthURL() {
 		if (!server) return '';
-		const oauthURL = await ChatService.getMcpServerOauthURL(server.id);
+		const oauthURL = await UserService.getMcpServerOauthURL(server.id);
 		return oauthURL || '';
 	}
 
@@ -365,7 +365,7 @@
 
 		let response: MCPCatalogServer | undefined = undefined;
 		try {
-			response = await ChatService.createSingleOrRemoteMcpServer({
+			response = await UserService.createSingleOrRemoteMcpServer({
 				catalogEntryID: entry.id,
 				manifest: url ? { remoteConfig: { url } } : {},
 				alias: aliasToUse
@@ -380,7 +380,7 @@
 			try {
 				const lf = configureForm as LaunchFormData | undefined;
 				const envs = convertEnvHeadersToRecord(lf?.envs, lf?.headers);
-				const configuredResponse = await ChatService.configureSingleOrRemoteMcpServer(
+				const configuredResponse = await UserService.configureSingleOrRemoteMcpServer(
 					response.id,
 					envs
 				);
@@ -393,7 +393,7 @@
 					return;
 				}
 
-				const launchResponse = await ChatService.validateSingleOrRemoteMcpServerLaunched(
+				const launchResponse = await UserService.validateSingleOrRemoteMcpServerLaunched(
 					configuredResponse.id
 				);
 				if (!launchResponse.success) {
@@ -483,7 +483,7 @@
 				payload[id] = { config, url, disabled: comp.disabled ?? false };
 			}
 
-			const created = await ChatService.createCompositeMcpServer({
+			const created = await UserService.createCompositeMcpServer({
 				catalogEntryID: entry.id,
 				alias: aliasToUse,
 				manifest: {
@@ -492,7 +492,7 @@
 			});
 			server = created;
 
-			const configured = await ChatService.configureCompositeMcpServer(created.id, payload);
+			const configured = await UserService.configureCompositeMcpServer(created.id, payload);
 			server = configured;
 			const missingConfigMessage = missingSecretBindingConfigMessage(configured);
 			if (missingConfigMessage) {
@@ -502,7 +502,7 @@
 				return;
 			}
 
-			const launchResponse = await ChatService.validateSingleOrRemoteMcpServerLaunched(created.id);
+			const launchResponse = await UserService.validateSingleOrRemoteMcpServerLaunched(created.id);
 			if (!launchResponse.success) {
 				launchError = launchResponse.message;
 			}
@@ -527,7 +527,7 @@
 				return;
 			}
 
-			const response = await ChatService.createMcpServerInstance(server.id);
+			const response = await UserService.createMcpServerInstance(server.id);
 			instance = response;
 			await finishMultiUserServerConnect();
 		} catch (err) {
@@ -567,7 +567,7 @@
 			launchLogsEventStream.disconnect();
 		}
 		if (server && entry) {
-			await ChatService.deleteSingleOrRemoteMcpServer(server.id);
+			await UserService.deleteSingleOrRemoteMcpServer(server.id);
 		}
 
 		launchState = undefined;
@@ -583,13 +583,13 @@
 			entry.manifest.remoteConfig?.hostname &&
 			lf?.url
 		) {
-			await ChatService.updateRemoteMcpServerUrl(server.id, lf.url.trim());
+			await UserService.updateRemoteMcpServerUrl(server.id, lf.url.trim());
 		}
 
 		const envs = convertEnvHeadersToRecord(lf.envs, lf.headers);
-		await ChatService.configureSingleOrRemoteMcpServer(server.id, envs);
+		await UserService.configureSingleOrRemoteMcpServer(server.id, envs);
 
-		server = await ChatService.getSingleOrRemoteMcpServer(server.id);
+		server = await UserService.getSingleOrRemoteMcpServer(server.id);
 	}
 
 	async function updateExistingComposite(lf: CompositeLaunchFormData) {
@@ -597,7 +597,7 @@
 		// Composite flow using CatalogConfigureForm data
 		if ('componentConfigs' in lf) {
 			const payload = convertCompositeLaunchFormDataToPayload(lf);
-			await ChatService.configureCompositeMcpServer(server.id, payload);
+			await UserService.configureCompositeMcpServer(server.id, payload);
 		}
 	}
 
@@ -608,9 +608,9 @@
 				saving = true;
 				const lf = configureForm as LaunchFormData;
 				if (!instance) {
-					instance = await ChatService.createMcpServerInstance(server.id);
+					instance = await UserService.createMcpServerInstance(server.id);
 				}
-				const configuredInstance = await ChatService.configureMcpServerInstance(
+				const configuredInstance = await UserService.configureMcpServerInstance(
 					instance.id,
 					convertEnvHeadersToRecord(undefined, lf.headers)
 				);

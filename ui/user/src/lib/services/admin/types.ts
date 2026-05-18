@@ -11,7 +11,7 @@ import {
 	type ToolOverride,
 	type Schedule,
 	ModelAlias
-} from '../chat/types';
+} from '../user/types';
 
 export interface MCPCatalogManifest {
 	displayName: string;

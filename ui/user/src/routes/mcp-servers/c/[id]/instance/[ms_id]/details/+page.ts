@@ -1,5 +1,5 @@
 import { handleRouteError } from '$lib/errors';
-import { ChatService } from '$lib/services';
+import { UserService } from '$lib/services';
 import { profile } from '$lib/stores';
 import type { PageLoad } from './$types';
 
@@ -9,14 +9,14 @@ export const load: PageLoad = async ({ params, fetch }) => {
 	let workspaceId;
 	let catalogEntry;
 	try {
-		workspaceId = await ChatService.fetchWorkspaceIDForProfile(profile.current?.id, { fetch });
+		workspaceId = await UserService.fetchWorkspaceIDForProfile(profile.current?.id, { fetch });
 	} catch (_err) {
 		// can happen if basic user atm
 		workspaceId = undefined;
 	}
 
 	try {
-		catalogEntry = await ChatService.getMCP(catalogEntryId, {
+		catalogEntry = await UserService.getMCP(catalogEntryId, {
 			fetch
 		});
 	} catch (err) {

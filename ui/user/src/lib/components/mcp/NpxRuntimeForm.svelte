@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Toggle from '$lib/components/Toggle.svelte';
 	import { MultiValueInput } from '$lib/components/ui/multi-value-input';
-	import type { NPXRuntimeConfig } from '$lib/services/chat/types';
+	import type { NPXRuntimeConfig } from '$lib/services/user/types';
 	import IconButton from '../primitives/IconButton.svelte';
 	import { Plus, Trash2 } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';

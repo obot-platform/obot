@@ -4,7 +4,7 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
-		ChatService,
+		UserService,
 		type CatalogComponentServer,
 		type CompositeServerToolRow,
 		type MCPCatalogEntry,
@@ -16,7 +16,7 @@
 		getSecretBindingEngineError,
 		isKubernetesRuntimeBackend,
 		hasEditableConfiguration
-	} from '$lib/services/chat/mcp';
+	} from '$lib/services/user/mcp';
 	import { mcpServersAndEntries, version } from '$lib/stores';
 	import CatalogConfigureForm, { type LaunchFormData } from '../CatalogConfigureForm.svelte';
 	import CompositeEditTools from './CompositeEditTools.svelte';
@@ -198,7 +198,7 @@
 	}
 
 	async function fetchMultiServerTools(entryId: string) {
-		const tools = await ChatService.listMcpCatalogServerTools(entryId);
+		const tools = await UserService.listMcpCatalogServerTools(entryId);
 		return tools.map((t) => {
 			return {
 				id: `${entryId}-${t.id || t.name}`,

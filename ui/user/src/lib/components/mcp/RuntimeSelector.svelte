@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { LaunchServerType, Runtime } from '$lib/services/chat/types';
+	import type { LaunchServerType, Runtime } from '$lib/services/user/types';
 	import Select from '../Select.svelte';
 
 	interface Props {

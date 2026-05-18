@@ -4,10 +4,8 @@
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { stripMarkdownToText } from '$lib/markdown';
-	import { ApiKeysService } from '$lib/services';
-	import type { APIKeyCreateResponse } from '$lib/services/api-keys/types';
-	import { compileAvailableMcpServers } from '$lib/services/chat/mcp';
-	import type { MCPCatalogServer } from '$lib/services/chat/types';
+	import { ApiKeysService, type MCPCatalogServer, type APIKeyCreateResponse } from '$lib/services';
+	import { compileAvailableMcpServers } from '$lib/services/user/mcp';
 	import { mcpServersAndEntries } from '$lib/stores';
 	import { Check, Server } from 'lucide-svelte';
 	import { SvelteSet } from 'svelte/reactivity';

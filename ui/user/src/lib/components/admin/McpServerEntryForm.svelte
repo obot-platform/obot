@@ -7,14 +7,16 @@
 		AdminService,
 		type MCPFilter,
 		type MCPCatalogServer,
-		ChatService,
+		UserService,
 		Group,
 		MCPCompositeDeletionDependencyError,
 		type LaunchServerType,
-		type MCPServerOAuthCredentialStatus
+		type MCPServerOAuthCredentialStatus,
+		type AccessControlRule,
+		type MCPCatalogEntry,
+		type OrgUser
 	} from '$lib/services';
-	import type { AccessControlRule, MCPCatalogEntry, OrgUser } from '$lib/services/admin/types';
-	import { getServerTypeLabel, getUserRegistry } from '$lib/services/chat/mcp';
+	import { getServerTypeLabel, getUserRegistry } from '$lib/services/user/mcp';
 	import { profile, userDeviceSettings } from '$lib/stores';
 	import { success } from '$lib/stores/success';
 	import { goto } from '$lib/url';
@@ -206,7 +208,7 @@
 		if (selected === 'access-control') {
 			listAccessControlRules =
 				entity === 'workspace' && id
-					? ChatService.listWorkspaceAccessControlRules(id)
+					? UserService.listWorkspaceAccessControlRules(id)
 					: AdminService.listAccessControlRules();
 		} else if (selected === 'filters' && entity !== 'workspace') {
 			// add filters back in for workspace once supported for workspace
@@ -403,7 +405,7 @@
 		const body = compileTemporaryInstanceBody();
 		try {
 			if (entity === 'workspace') {
-				await ChatService.generateWorkspaceMCPCatalogEntryToolPreviews(
+				await UserService.generateWorkspaceMCPCatalogEntryToolPreviews(
 					id,
 					entry.id,
 					body as unknown as { config?: Record<string, string>; url?: string }
@@ -421,7 +423,7 @@
 			if (errMessage.includes('MCP server requires OAuth authentication')) {
 				const oauthResponse =
 					entity === 'workspace'
-						? await ChatService.getWorkspaceMCPCatalogEntryToolPreviewsOauth(
+						? await UserService.getWorkspaceMCPCatalogEntryToolPreviewsOauth(
 								id,
 								entry.id,
 								body as unknown as { config?: Record<string, string>; url?: string }
@@ -524,7 +526,7 @@
 		try {
 			staticOauthStatus =
 				entity === 'workspace'
-					? await ChatService.getWorkspaceMCPCatalogEntryOAuthCredentials(id, entry.id)
+					? await UserService.getWorkspaceMCPCatalogEntryOAuthCredentials(id, entry.id)
 					: await AdminService.getMCPCatalogEntryOAuthCredentials(id, entry.id);
 		} catch {
 			staticOauthStatus = { configured: false };
@@ -1022,7 +1024,7 @@
 		if (!('isCatalogEntry' in entry)) {
 			const deleteServerFn =
 				entity === 'workspace'
-					? ChatService.deleteWorkspaceMCPCatalogServer
+					? UserService.deleteWorkspaceMCPCatalogServer
 					: AdminService.deleteMCPCatalogServer;
 			try {
 				await deleteServerFn(id, entry.id);
@@ -1036,7 +1038,7 @@
 		} else {
 			const deleteCatalogEntryFn =
 				entity === 'workspace'
-					? ChatService.deleteWorkspaceMCPCatalogEntry
+					? UserService.deleteWorkspaceMCPCatalogEntry
 					: AdminService.deleteMCPCatalogEntry;
 			await deleteCatalogEntryFn(id, entry.id);
 		}
@@ -1065,7 +1067,7 @@
 
 		const updateAccessControlRuleFn =
 			entity === 'workspace' && id
-				? ChatService.updateWorkspaceAccessControlRule(
+				? UserService.updateWorkspaceAccessControlRule(
 						id,
 						deleteResourceFromRule.rule.id,
 						deleteResourceFromRule.rule
@@ -1078,7 +1080,7 @@
 
 		listAccessControlRules =
 			entity === 'workspace' && id
-				? ChatService.listWorkspaceAccessControlRules(id)
+				? UserService.listWorkspaceAccessControlRules(id)
 				: AdminService.listAccessControlRules();
 		deleteResourceFromRule = undefined;
 	}}
@@ -1162,7 +1164,7 @@
 	onSave={async (credentials) => {
 		if (!entry || !id) return;
 		if (entity === 'workspace') {
-			await ChatService.setWorkspaceMCPCatalogEntryOAuthCredentials(id, entry.id, credentials);
+			await UserService.setWorkspaceMCPCatalogEntryOAuthCredentials(id, entry.id, credentials);
 		} else {
 			await AdminService.setMCPCatalogEntryOAuthCredentials(id, entry.id, credentials);
 		}
@@ -1174,7 +1176,7 @@
 	onDelete={async () => {
 		if (!entry || !id) return;
 		if (entity === 'workspace') {
-			await ChatService.deleteWorkspaceMCPCatalogEntryOAuthCredentials(id, entry.id);
+			await UserService.deleteWorkspaceMCPCatalogEntryOAuthCredentials(id, entry.id);
 		} else {
 			await AdminService.deleteMCPCatalogEntryOAuthCredentials(id, entry.id);
 		}

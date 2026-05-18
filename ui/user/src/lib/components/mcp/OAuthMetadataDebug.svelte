@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { OAuthMetadata } from '$lib/services/chat/types';
+	import type { OAuthMetadata } from '$lib/services/user/types';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {

@@ -1,5 +1,6 @@
 import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 import type { Skill } from '$lib/services/nanobot/types';
+import { doDelete, doGet, doPatch, doPost, doPut, handleResponse, type Fetcher } from '../http';
 import type {
 	ModelProvider,
 	MCPCatalogServer,
@@ -8,8 +9,7 @@ import type {
 	Model,
 	ModelAlias,
 	DefaultModelAlias
-} from '../chat/types';
-import { doDelete, doGet, doPatch, doPost, doPut, handleResponse, type Fetcher } from '../http';
+} from '../user/types';
 import type {
 	FileScannerConfig,
 	FileScannerProvider,

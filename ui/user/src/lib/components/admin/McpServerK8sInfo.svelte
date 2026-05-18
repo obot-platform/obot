@@ -5,7 +5,7 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
-		ChatService,
+		UserService,
 		Group,
 		type K8sServerDetail,
 		type MCPCatalogEntry,
@@ -99,13 +99,13 @@
 		if (!hasAdminAccess) return Promise.resolve<K8sServerDetail | undefined>(undefined);
 		return entity === 'workspace' && entityId
 			? catalogEntry?.id
-				? ChatService.getWorkspaceCatalogEntryServerK8sDetails(
+				? UserService.getWorkspaceCatalogEntryServerK8sDetails(
 						entityId,
 						catalogEntry.id,
 						mcpServerId,
 						{ dontLogErrors }
 					)
-				: ChatService.getWorkspaceK8sServerDetail(entityId, mcpServerId, { dontLogErrors })
+				: UserService.getWorkspaceK8sServerDetail(entityId, mcpServerId, { dontLogErrors })
 			: entity === 'webhook-validation'
 				? AdminService.getMCPFilterDetails(mcpServerId, { dontLogErrors })
 				: AdminService.getK8sServerDetail(mcpServerId, { dontLogErrors });
@@ -116,7 +116,7 @@
 			return Promise.resolve<ServerK8sSettings | undefined>(undefined);
 		return entity === 'workspace' && entityId
 			? catalogEntry?.id
-				? ChatService.getWorkspaceCatalogEntryServerK8sSettingsStatus(
+				? UserService.getWorkspaceCatalogEntryServerK8sSettingsStatus(
 						entityId,
 						catalogEntry.id,
 						mcpServerId,
@@ -124,7 +124,7 @@
 							dontLogErrors
 						}
 					)
-				: ChatService.getWorkspaceK8sServerStatus(entityId, mcpServerId, {
+				: UserService.getWorkspaceK8sServerStatus(entityId, mcpServerId, {
 						dontLogErrors
 					})
 			: catalogEntry?.id
@@ -143,7 +143,7 @@
 				? AdminService.revealMCPFilter(mcpServerId, {
 						dontLogErrors: true
 					})
-				: ChatService.revealSingleOrRemoteMcpServer(mcpServerId, {
+				: UserService.revealSingleOrRemoteMcpServer(mcpServerId, {
 						dontLogErrors: true
 					})
 			: Promise.resolve<Record<string, string>>({});
@@ -180,12 +180,12 @@
 		try {
 			await (entity === 'workspace' && entityId
 				? catalogEntry?.id
-					? ChatService.restartWorkspaceCatalogEntryServerDeployment(
+					? UserService.restartWorkspaceCatalogEntryServerDeployment(
 							entityId,
 							catalogEntry.id,
 							mcpServerId
 						)
-					: ChatService.restartWorkspaceK8sServerDeployment(entityId, mcpServerId)
+					: UserService.restartWorkspaceK8sServerDeployment(entityId, mcpServerId)
 				: entity === 'webhook-validation'
 					? AdminService.restartMCPFilter(mcpServerId)
 					: AdminService.restartK8sDeployment(mcpServerId));
@@ -269,12 +269,12 @@
 		try {
 			await (entity === 'workspace' && entityId
 				? catalogEntry?.id
-					? ChatService.redeployWorkspaceCatalogEntryServerWithK8sSettings(
+					? UserService.redeployWorkspaceCatalogEntryServerWithK8sSettings(
 							entityId,
 							catalogEntry.id,
 							mcpServerId
 						)
-					: ChatService.redeployWorkspaceK8sServerWithK8sSettings(entityId, mcpServerId)
+					: UserService.redeployWorkspaceK8sServerWithK8sSettings(entityId, mcpServerId)
 				: catalogEntry?.id
 					? AdminService.redeployMCPCatalogServerWithK8sSettings(catalogEntry.id, mcpServerId)
 					: AdminService.redeployWithK8sSettings(

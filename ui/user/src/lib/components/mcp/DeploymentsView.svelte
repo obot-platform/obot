@@ -11,7 +11,7 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
-		ChatService,
+		UserService,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
 		type OrgUser,
@@ -23,7 +23,7 @@
 		getServerUrl,
 		hasEditableConfiguration,
 		requiresUserUpdate
-	} from '$lib/services/chat/mcp';
+	} from '$lib/services/user/mcp';
 	import { profile, mcpServersAndEntries, version } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { getUserDisplayName, openUrl } from '$lib/utils';
@@ -279,7 +279,7 @@
 			}
 			updating[id] = { inProgress: true, error: '' };
 			try {
-				await ChatService.triggerMcpServerUpdate(id);
+				await UserService.triggerMcpServerUpdate(id);
 				updating[id] = { inProgress: false, error: '' };
 			} catch (error) {
 				updating[id] = {
@@ -312,7 +312,7 @@
 					continue;
 				}
 				if (selected[id].powerUserWorkspaceID) {
-					await ChatService.restartWorkspaceK8sServerDeployment(
+					await UserService.restartWorkspaceK8sServerDeployment(
 						selected[id].powerUserWorkspaceID,
 						id
 					);
@@ -333,7 +333,7 @@
 		if (!server) return;
 		updating[server.id] = { inProgress: true, error: '' };
 		try {
-			await ChatService.triggerMcpServerUpdate(server.id);
+			await UserService.triggerMcpServerUpdate(server.id);
 			await reload();
 		} catch (err) {
 			updating[server.id] = {
@@ -358,12 +358,12 @@
 		try {
 			result = await (workspaceId
 				? catalogEntryId
-					? ChatService.redeployWorkspaceCatalogEntryServerWithK8sSettings(
+					? UserService.redeployWorkspaceCatalogEntryServerWithK8sSettings(
 							workspaceId,
 							catalogEntryId,
 							mcpServerId
 						)
-					: ChatService.redeployWorkspaceK8sServerWithK8sSettings(workspaceId, mcpServerId)
+					: UserService.redeployWorkspaceK8sServerWithK8sSettings(workspaceId, mcpServerId)
 				: catalogEntryId
 					? AdminService.redeployMCPCatalogServerWithK8sSettings(catalogEntryId, mcpServerId)
 					: AdminService.redeployWithK8sSettings(mcpServerId, server.mcpCatalogID));
@@ -385,7 +385,7 @@
 			return;
 		}
 		if (server.catalogEntryID) {
-			await ChatService.deleteSingleOrRemoteMcpServer(server.id);
+			await UserService.deleteSingleOrRemoteMcpServer(server.id);
 			// Decrement the count of servers in the catalog
 			const entry = mcpServersAndEntries.current.entries.find(
 				(entry) => entry.id === server.catalogEntryID
@@ -395,7 +395,7 @@
 			// multi-user
 			try {
 				if (server.powerUserWorkspaceID) {
-					await ChatService.deleteWorkspaceMCPCatalogServer(server.powerUserWorkspaceID, server.id);
+					await UserService.deleteWorkspaceMCPCatalogServer(server.powerUserWorkspaceID, server.id);
 				} else if (profile.current.hasAdminAccess?.() && id) {
 					await AdminService.deleteMCPCatalogServer(id, server.id);
 				}
@@ -783,7 +783,7 @@
 											e.stopPropagation();
 											restarting = true;
 											if (d.powerUserWorkspaceID) {
-												await ChatService.restartWorkspaceK8sServerDeployment(
+												await UserService.restartWorkspaceK8sServerDeployment(
 													d.powerUserWorkspaceID,
 													d.id
 												);

@@ -5,16 +5,15 @@
 	import AccessControlRuleForm from '$lib/components/admin/AccessControlRuleForm.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
-	import { MCP_PUBLISHER_ALL_OPTION, PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import { MCP_PUBLISHER_ALL_OPTION, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import {
 		fetchMcpServerAndEntries,
 		getPoweruserWorkspace,
 		initMcpServerAndEntries
-	} from '$lib/context/poweruserWorkspace.svelte.js';
-	import { type AccessControlRule } from '$lib/services/admin/types';
-	import { ChatService } from '$lib/services/index.js';
+	} from '$lib/context/poweruserWorkspace.svelte';
+	import { UserService, type AccessControlRule } from '$lib/services';
 	import { clearUrlParams, goto } from '$lib/url';
-	import { openUrl } from '$lib/utils.js';
+	import { openUrl } from '$lib/utils';
 	import { BookOpenText, Plus, Trash2 } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -156,8 +155,8 @@
 	show={Boolean(ruleToDelete)}
 	onsuccess={async () => {
 		if (!ruleToDelete || !workspaceId) return;
-		await ChatService.deleteWorkspaceAccessControlRule(workspaceId, ruleToDelete.id);
-		accessControlRules = await ChatService.listWorkspaceAccessControlRules(workspaceId);
+		await UserService.deleteWorkspaceAccessControlRule(workspaceId, ruleToDelete.id);
+		accessControlRules = await UserService.listWorkspaceAccessControlRules(workspaceId);
 		ruleToDelete = undefined;
 	}}
 	oncancel={() => (ruleToDelete = undefined)}

@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
-	import { AdminService } from '$lib/services';
 	import {
+		AdminService,
 		type ModelAccessPolicy,
 		type ModelAccessPolicyManifest,
 		type ModelResource,
@@ -11,9 +11,10 @@
 		type OrgGroup,
 		ModelUsage,
 		ModelUsageLabels,
-		ModelAliasLabels
-	} from '$lib/services/admin/types';
-	import type { Model, ModelAlias } from '$lib/services/chat/types';
+		ModelAliasLabels,
+		type Model,
+		type ModelAlias
+	} from '$lib/services';
 	import { defaultModelAliases as defaultModelAliasesStore } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import { getUserDisplayName } from '$lib/utils';

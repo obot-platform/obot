@@ -1,5 +1,5 @@
 import { handleRouteError } from '$lib/errors';
-import { ChatService } from '$lib/services';
+import { UserService } from '$lib/services';
 import { profile } from '$lib/stores';
 import type { PageLoad } from './$types';
 
@@ -10,7 +10,7 @@ export const load: PageLoad = async ({ params, fetch }) => {
 
 	let catalogEntry;
 	try {
-		catalogEntry = await ChatService.getWorkspaceMCPCatalogEntry(workspaceId, catalogEntryId, {
+		catalogEntry = await UserService.getWorkspaceMCPCatalogEntry(workspaceId, catalogEntryId, {
 			fetch
 		});
 	} catch (err) {

@@ -1,5 +1,5 @@
 import { handleRouteError } from '$lib/errors';
-import { ChatService } from '$lib/services';
+import { UserService } from '$lib/services';
 import { profile } from '$lib/stores';
 import type { PageLoad } from './$types';
 
@@ -9,8 +9,8 @@ export const load: PageLoad = async ({ params, fetch }) => {
 	let accessControlRule;
 	let workspaceId;
 	try {
-		workspaceId = await ChatService.fetchWorkspaceIDForProfile(profile.current?.id, { fetch });
-		accessControlRule = await ChatService.getWorkspaceAccessControlRule(workspaceId, id, { fetch });
+		workspaceId = await UserService.fetchWorkspaceIDForProfile(profile.current?.id, { fetch });
+		accessControlRule = await UserService.getWorkspaceAccessControlRule(workspaceId, id, { fetch });
 	} catch (err) {
 		handleRouteError(err, `/mcp-registries/${id}`, profile.current);
 	}

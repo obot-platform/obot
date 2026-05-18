@@ -1,5 +1,5 @@
 import { handleRouteError } from '$lib/errors';
-import { ChatService } from '$lib/services';
+import { UserService } from '$lib/services';
 import type { PageLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 
@@ -12,7 +12,7 @@ export const load: PageLoad = async ({ fetch, parent }) => {
 	}
 
 	try {
-		const workspaces = await ChatService.listWorkspaces({ fetch });
+		const workspaces = await UserService.listWorkspaces({ fetch });
 		workspace = workspaces.find((w) => w.userID === profile?.id) ?? null;
 	} catch (err) {
 		handleRouteError(err, `/mcp-servers`, profile);

@@ -1,4 +1,4 @@
-import { type Version } from '$lib/services/chat/types';
+import { type Version } from '$lib/services/user/types';
 
 const store = $state<{ current: Version; initialize: (version?: Version) => void }>({
 	current: {},

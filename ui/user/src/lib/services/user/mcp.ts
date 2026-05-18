@@ -2,7 +2,7 @@ import type { CompositeLaunchFormData } from '$lib/components/mcp/CatalogConfigu
 import { profile } from '$lib/stores';
 import { getUserDisplayName } from '$lib/utils';
 import {
-	ChatService,
+	UserService,
 	type AccessControlRule,
 	type LaunchServerType,
 	type MCPCatalogEntry,
@@ -425,7 +425,7 @@ export async function convertCompositeInfoToLaunchFormData(
 		{ config: Record<string, string>; url?: string; disabled?: boolean }
 	> = {};
 	try {
-		const revealed = await ChatService.revealCompositeMcpServer(server.id, {
+		const revealed = await UserService.revealCompositeMcpServer(server.id, {
 			dontLogErrors: true
 		});
 		const rc = revealed as unknown as {

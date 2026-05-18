@@ -5,7 +5,7 @@
 	import OAuthMetadataDebug from '$lib/components/mcp/OAuthMetadataDebug.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
-	import { AdminService, ChatService, type MCPServerInstance, type OrgUser } from '$lib/services';
+	import { AdminService, UserService, type MCPServerInstance, type OrgUser } from '$lib/services';
 	import { profile } from '$lib/stores/index.js';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -23,7 +23,7 @@
 	onMount(async () => {
 		if (!mcpServer) return;
 		loading = true;
-		instances = await ChatService.listWorkspaceMcpCatalogServerInstances(workspaceId, mcpServer.id);
+		instances = await UserService.listWorkspaceMcpCatalogServerInstances(workspaceId, mcpServer.id);
 		users = await AdminService.listUsersIncludeDeleted();
 		loading = false;
 	});

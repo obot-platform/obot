@@ -15,9 +15,9 @@
 		type AuditLogURLFilters,
 		AdminService,
 		type AuditLog,
-		ChatService
+		Group,
+		UserService
 	} from '$lib/services';
-	import { Group } from '$lib/services';
 	import { type PaginatedResponse } from '$lib/services/admin/operations';
 	import { responsive } from '$lib/stores';
 	import profile from '$lib/stores/profile.svelte';
@@ -785,7 +785,7 @@
 				const items =
 					entity === 'catalog'
 						? await AdminService.listMCPServersForEntry(id, mcpServerCatalogEntryName)
-						: await ChatService.listWorkspaceMCPServersForEntry(id, mcpServerCatalogEntryName);
+						: await UserService.listWorkspaceMCPServersForEntry(id, mcpServerCatalogEntryName);
 
 				const options = items?.map?.((item) => item.id) ?? [];
 

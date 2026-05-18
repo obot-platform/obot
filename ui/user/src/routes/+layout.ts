@@ -1,7 +1,7 @@
 import { dev } from '$app/environment';
 import {
 	AdminService,
-	ChatService,
+	UserService,
 	type AppPreferences,
 	type DefaultModelAlias,
 	type Profile,
@@ -20,14 +20,14 @@ export const load: LayoutLoad = async ({ fetch }) => {
 	let defaultModelAliases: DefaultModelAlias[] | undefined;
 
 	try {
-		version = await ChatService.getVersion({ fetch });
+		version = await UserService.getVersion({ fetch });
 	} catch {
 		version = undefined;
 	}
 
 	try {
 		const response = await AdminService.listAppPreferences({ fetch });
-		const response2 = await ChatService.getProfile({ fetch });
+		const response2 = await UserService.getProfile({ fetch });
 		appPreferences = compileAppPreferences(response);
 		profile = response2;
 	} catch {
@@ -36,7 +36,7 @@ export const load: LayoutLoad = async ({ fetch }) => {
 	}
 
 	try {
-		profile = await ChatService.getProfile({ fetch });
+		profile = await UserService.getProfile({ fetch });
 	} catch {
 		profile = {
 			id: '',
@@ -53,7 +53,7 @@ export const load: LayoutLoad = async ({ fetch }) => {
 
 	if (!profile.unauthorized) {
 		try {
-			defaultModelAliases = await ChatService.listDefaultModelAliases({ fetch });
+			defaultModelAliases = await UserService.listDefaultModelAliases({ fetch });
 		} catch {
 			defaultModelAliases = undefined;
 		}

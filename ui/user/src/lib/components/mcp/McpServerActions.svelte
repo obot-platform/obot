@@ -4,13 +4,13 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
-		ChatService,
+		UserService,
 		AdminService,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
 		type MCPServerInstance
 	} from '$lib/services';
-	import { hasEditableConfiguration, requiresUserUpdate } from '$lib/services/chat/mcp';
+	import { hasEditableConfiguration, requiresUserUpdate } from '$lib/services/user/mcp';
 	import { mcpServersAndEntries, profile, userDeviceSettings } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { goto } from '$lib/url';
@@ -207,7 +207,7 @@
 	}
 
 	async function reauthenticateServer(item: MCPCatalogServer) {
-		await ChatService.clearMcpServerOAuth(item.id);
+		await UserService.clearMcpServerOAuth(item.id);
 		await connectToServerDialog?.authenticate(item, entry);
 		refresh();
 	}
@@ -318,12 +318,12 @@
 					break;
 				}
 				case 'restart': {
-					ChatService.restartMcpServer(d.id);
+					UserService.restartMcpServer(d.id);
 					mcpServersAndEntries.refreshUserConfiguredServers();
 					break;
 				}
 				case 'disconnect': {
-					ChatService.deleteSingleOrRemoteMcpServer(d.id);
+					UserService.deleteSingleOrRemoteMcpServer(d.id);
 					mcpServersAndEntries.refreshUserConfiguredServers();
 					break;
 				}
@@ -489,7 +489,7 @@
 						e.stopPropagation();
 						restarting = true;
 						try {
-							await ChatService.restartMcpServer(server.id);
+							await UserService.restartMcpServer(server.id);
 							refresh();
 						} finally {
 							restarting = false;
@@ -511,7 +511,7 @@
 					onclick={async (e) => {
 						e.stopPropagation();
 						disconnecting = true;
-						await ChatService.deleteMcpServerInstance(instance.id);
+						await UserService.deleteMcpServerInstance(instance.id);
 						mcpServersAndEntries.refreshUserInstances();
 						toggle(false);
 
@@ -543,7 +543,7 @@
 					onclick={async (e) => {
 						e.stopPropagation();
 						disconnecting = true;
-						await ChatService.deleteSingleOrRemoteMcpServer(server.id);
+						await UserService.deleteSingleOrRemoteMcpServer(server.id);
 						mcpServersAndEntries.refreshUserConfiguredServers();
 						toggle(false);
 
@@ -623,7 +623,7 @@
 						if (configuredServers.length === 1) {
 							restarting = true;
 							try {
-								await ChatService.restartMcpServer(configuredServers[0].id);
+								await UserService.restartMcpServer(configuredServers[0].id);
 								refresh();
 							} finally {
 								restarting = false;
@@ -671,7 +671,7 @@
 				onclick={async (e) => {
 					e.stopPropagation();
 					if (configuredServers.length === 1) {
-						await ChatService.deleteSingleOrRemoteMcpServer(configuredServers[0].id);
+						await UserService.deleteSingleOrRemoteMcpServer(configuredServers[0].id);
 						mcpServersAndEntries.refreshUserConfiguredServers();
 					} else {
 						handleShowSelectServerDialog('disconnect');
@@ -689,7 +689,7 @@
 				class="menu-button text-error"
 				onclick={async (e) => {
 					e.stopPropagation();
-					await ChatService.deleteSingleOrRemoteMcpServer(server.id);
+					await UserService.deleteSingleOrRemoteMcpServer(server.id);
 					mcpServersAndEntries.refreshUserConfiguredServers();
 					toggle(false);
 				}}
@@ -705,7 +705,7 @@
 	onSave={async (credentials) => {
 		if (!entry) return;
 		if (entry.powerUserWorkspaceID) {
-			await ChatService.setWorkspaceMCPCatalogEntryOAuthCredentials(
+			await UserService.setWorkspaceMCPCatalogEntryOAuthCredentials(
 				entry.powerUserWorkspaceID,
 				entry.id,
 				credentials

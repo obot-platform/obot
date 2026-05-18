@@ -8,7 +8,7 @@
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { type AccessControlRule, type OrgUser } from '$lib/services/admin/types';
-	import { AdminService, ChatService } from '$lib/services/index.js';
+	import { AdminService, UserService } from '$lib/services/index.js';
 	import { mcpServersAndEntries, profile } from '$lib/stores/index.js';
 	import { goto, clearUrlParams } from '$lib/url';
 	import { getUserDisplayName, openUrl } from '$lib/utils.js';
@@ -232,7 +232,7 @@
 	onsuccess={async () => {
 		if (!ruleToDelete) return;
 		if (ruleToDelete.powerUserWorkspaceID) {
-			await ChatService.deleteWorkspaceAccessControlRule(
+			await UserService.deleteWorkspaceAccessControlRule(
 				ruleToDelete.powerUserWorkspaceID,
 				ruleToDelete.id
 			);

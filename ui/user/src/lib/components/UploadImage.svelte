@@ -2,7 +2,7 @@
 	import Error from '$lib/components/Error.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
 	import type { ImageResponse } from '$lib/services';
-	import { ChatService } from '$lib/services';
+	import { UserService } from '$lib/services';
 	import { Upload } from 'lucide-svelte/icons';
 	import { twMerge } from 'tailwind-merge';
 
@@ -26,7 +26,7 @@
 		if (!fileList?.length) return;
 
 		onUpload(fileList[0].name);
-		ChatService.uploadImage(fileList[0])
+		UserService.uploadImage(fileList[0])
 			.then((result) => {
 				onUpload(result.imageUrl);
 				if (variant === 'preview') {

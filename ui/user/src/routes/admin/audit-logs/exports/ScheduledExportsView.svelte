@@ -3,10 +3,12 @@
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
-	import { AdminService } from '$lib/services';
-	import type { ScheduledAuditLogExport } from '$lib/services/admin/types';
-	import type { ScheduledAuditLogExportInput } from '$lib/services/admin/types';
-	import type { Schedule } from '$lib/services/chat/types';
+	import {
+		AdminService,
+		type ScheduledAuditLogExportInput,
+		type ScheduledAuditLogExport
+	} from '$lib/services';
+	import type { Schedule } from '$lib/services/user/types';
 	import { formatTimeAgo } from '$lib/time';
 	import { goto } from '$lib/url';
 	import { Calendar, Ellipsis, Trash2, CircleAlert, CirclePlay, CirclePause } from 'lucide-svelte';

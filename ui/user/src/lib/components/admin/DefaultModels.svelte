@@ -8,9 +8,9 @@
 		type DefaultModelAlias,
 		ModelAliasToUsageMap,
 		NanobotModelAlias,
-		ChatService
+		UserService,
+		AdminService
 	} from '$lib/services';
-	import { AdminService } from '$lib/services';
 	import { defaultModelAliases as defaultModelAliasesStore } from '$lib/stores';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import Select from '../Select.svelte';
@@ -153,7 +153,7 @@
 				})
 			)
 		);
-		defaultModelAliasesStore.current = await ChatService.listDefaultModelAliases();
+		defaultModelAliasesStore.current = await UserService.listDefaultModelAliases();
 		changes = {};
 		loading = false;
 		dialog?.close();

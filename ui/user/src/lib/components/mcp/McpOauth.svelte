@@ -3,7 +3,7 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
-		ChatService,
+		UserService,
 		type MCPCatalogEntry,
 		type MCPCatalogServer
 	} from '$lib/services';
@@ -54,11 +54,11 @@
 					signal: abortController.signal
 				});
 			} else if (entity === 'workspace' && id) {
-				oauthURL = await ChatService.getWorkspaceMcpServerOauthURL(id, entry.id, {
+				oauthURL = await UserService.getWorkspaceMcpServerOauthURL(id, entry.id, {
 					signal: abortController.signal
 				});
 			} else {
-				oauthURL = await ChatService.getMcpServerOauthURL(entry.id, {
+				oauthURL = await UserService.getMcpServerOauthURL(entry.id, {
 					signal: abortController.signal
 				});
 			}

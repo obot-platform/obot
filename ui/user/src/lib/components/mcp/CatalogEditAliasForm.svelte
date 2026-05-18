@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Loading from '$lib/icons/Loading.svelte';
-	import { ChatService, type MCPCatalogServer } from '$lib/services';
+	import { UserService, type MCPCatalogServer } from '$lib/services';
 	import { errors } from '$lib/stores';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { Server } from 'lucide-svelte';
@@ -34,7 +34,7 @@
 
 		try {
 			saving = true;
-			await ChatService.updateSingleOrRemoteMcpServerAlias(server.id, trimmedName);
+			await UserService.updateSingleOrRemoteMcpServerAlias(server.id, trimmedName);
 			dialog?.close();
 			onUpdateConfigure?.();
 		} catch (err) {
