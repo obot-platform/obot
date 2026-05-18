@@ -2,7 +2,7 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import type { ImagePullSecret } from '$lib/services';
-	import { timePreference } from '$lib/stores/index.js';
+	import { userDeviceSettings } from '$lib/stores';
 	import { formatTime } from '$lib/time.js';
 	import { openUrl } from '$lib/utils.js';
 	import { displayName, statusClass, statusLabel, statusMessage } from './types';
@@ -48,7 +48,7 @@
 	let ecrSecrets = $derived(tableData.filter((item) => item.manifest.type === 'ecr'));
 
 	function formatDate(value?: string) {
-		return value ? formatTime(value, timePreference.timeFormat) : '-';
+		return value ? formatTime(value, userDeviceSettings.timeFormat) : '-';
 	}
 </script>
 

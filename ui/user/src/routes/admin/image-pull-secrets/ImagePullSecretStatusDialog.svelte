@@ -2,7 +2,7 @@
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import type { ImagePullSecret } from '$lib/services';
-	import { timePreference } from '$lib/stores/index.js';
+	import { userDeviceSettings } from '$lib/stores';
 	import { formatTime } from '$lib/time.js';
 	import { displayName, statusLabel, statusMessage } from './types';
 	import { CircleAlert, Clock, History, LoaderCircle, Server } from 'lucide-svelte';
@@ -29,7 +29,7 @@
 	}
 
 	function formatDate(value?: string) {
-		return value ? formatTime(value, timePreference.timeFormat) : '-';
+		return value ? formatTime(value, userDeviceSettings.timeFormat) : '-';
 	}
 
 	function statusTone(value?: string) {
