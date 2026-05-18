@@ -1,6 +1,7 @@
 import eslint from '@eslint/js';
 import prettier from 'eslint-config-prettier';
 import svelte from 'eslint-plugin-svelte';
+import type { Linter } from 'eslint';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
@@ -52,4 +53,4 @@ export default tseslint.config(
 			]
 		}
 	}
-);
+) as Linter.Config[];
