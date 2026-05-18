@@ -184,11 +184,17 @@
 					d.data.manifest?.runtime === 'remote' &&
 					d.data.manifest?.remoteConfig?.staticOAuthRequired &&
 					!d.data.oauthCredentialConfigured}
+				{@const missingSecretOnly =
+					'missingKubernetesSecret' in d && d.missingKubernetesSecret && !d.connected}
 				<IconButton
 					class="hover:dark:bg-base-100/50"
-					disabled={requiresOAuthConfig}
+					disabled={requiresOAuthConfig || missingSecretOnly}
 					tooltip={{
-						text: requiresOAuthConfig ? 'OAuth configuration required' : '',
+						text: requiresOAuthConfig
+							? 'OAuth configuration required'
+							: missingSecretOnly
+								? 'Missing Kubernetes Secret'
+								: '',
 						disablePortal: true
 					}}
 					onclick={(e) => {
