@@ -89,7 +89,8 @@ func TestSetupNonInteractiveDetectedInstallsCursor(t *testing.T) {
 	}
 
 	var stdout bytes.Buffer
-	cmd := setupTestCommand(nil, &stdout, nil)
+	var stderr bytes.Buffer
+	cmd := setupTestCommand(nil, &stdout, &stderr)
 	if err := setup.Run(cmd, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -179,8 +180,8 @@ func TestSetupAgentsNoneSkipsLocalAgentInstall(t *testing.T) {
 		root:           root,
 	}
 
-	var stdout bytes.Buffer
-	cmd := setupTestCommand(nil, &stdout, nil)
+	var stdout, stderr bytes.Buffer
+	cmd := setupTestCommand(nil, &stdout, &stderr)
 	if err := setup.Run(cmd, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -216,8 +217,8 @@ func TestSetupJSONProgressSuccessfulSequence(t *testing.T) {
 		root:           root,
 	}
 
-	var stdout bytes.Buffer
-	cmd := setupTestCommand(nil, &stdout, nil)
+	var stdout, stderr bytes.Buffer
+	cmd := setupTestCommand(nil, &stdout, &stderr)
 	if err := setup.Run(cmd, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -243,6 +244,9 @@ func TestSetupJSONProgressSuccessfulSequence(t *testing.T) {
 	if strings.Contains(stdout.String(), "Detected:") {
 		t.Fatalf("JSON stdout should not include human setup output:\n%s", stdout.String())
 	}
+	if strings.Contains(stderr.String(), "Logged in to") {
+		t.Fatalf("JSON stderr should not include routine login status, got:\n%s", stderr.String())
+	}
 }
 
 func TestSetupJSONProgressStructuredError(t *testing.T) {
@@ -265,6 +269,9 @@ func TestSetupJSONProgressStructuredError(t *testing.T) {
 	err := setup.Run(cmd, nil)
 	if err == nil {
 		t.Fatal("expected error")
+	}
+	if !ErrorAlreadyReported(err) {
+		t.Fatalf("JSON setup errors should be marked already reported, got %T: %v", err, err)
 	}
 
 	events := setupProgressEvents(t, stdout.Bytes())

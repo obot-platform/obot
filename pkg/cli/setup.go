@@ -52,6 +52,7 @@ func (s *Setup) Run(cmd *cobra.Command, _ []string) error {
 				Code:    string(setupErrorCodeFor(err)),
 				Message: err.Error(),
 			})
+			return errorAlreadyReported{err: err}
 		}
 		return err
 	}
@@ -68,7 +69,7 @@ func (s *Setup) run(cmd *cobra.Command, progress setupProgressWriter) error {
 		cmd.SetContext(ctx)
 	}
 	if progress.json {
-		ctx = cliinternal.WithOutputWriter(ctx, cmd.ErrOrStderr())
+		ctx = cliinternal.WithOutputWriter(ctx, io.Discard)
 		cmd.SetContext(ctx)
 		cmd.SetOut(cmd.ErrOrStderr())
 	}
@@ -94,7 +95,9 @@ func (s *Setup) run(cmd *cobra.Command, progress setupProgressWriter) error {
 	if err := progress.emit(setupProgressEvent{Type: setupProgressConfigSaved, URL: appURL}); err != nil {
 		return err
 	}
-	fmt.Fprintf(cmd.ErrOrStderr(), "Logged in to %s\n", appURL)
+	if !progress.json {
+		fmt.Fprintf(cmd.ErrOrStderr(), "Logged in to %s\n", appURL)
+	}
 
 	selection, err := parseSetupAgents(s.Agents)
 	if err != nil {
@@ -292,6 +295,23 @@ const (
 type setupCodedError struct {
 	code setupErrorCode
 	err  error
+}
+
+type errorAlreadyReported struct {
+	err error
+}
+
+func ErrorAlreadyReported(err error) bool {
+	var reported errorAlreadyReported
+	return errors.As(err, &reported)
+}
+
+func (e errorAlreadyReported) Error() string {
+	return e.err.Error()
+}
+
+func (e errorAlreadyReported) Unwrap() error {
+	return e.err
 }
 
 func setupErrorf(code setupErrorCode, format string, args ...any) error {
