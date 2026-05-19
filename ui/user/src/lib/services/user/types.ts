@@ -1,3 +1,21 @@
+/**
+ * Shared API/domain types for the user-facing client.
+ *
+ * **When editing this file** (including LLM-assisted changes), keep these conventions:
+ *
+ * 1. **Group by related types** — Organize exports into domain sections with a `// Section name`
+ *    header (e.g. `// MCP servers`, `// Audit logs`). Keep related interfaces, types, and enums
+ *    together; do not scatter a domain across the file.
+ *
+ * 2. **Sort alphabetically** —
+ *    - Section headers: A–Z by section name.
+ *    - Exports within a section: A–Z by symbol name (`export interface`, `export type`, `export enum`).
+ *    - Properties on each interface/type: A–Z by field name (unless order is semantically required).
+ *
+ * 3. **New sections** — Add a section header, place it in alphabetical order among other sections,
+ *    and keep all types for that domain inside it.
+ */
+
 // Access control rules
 
 export interface AccessControlRuleResource {

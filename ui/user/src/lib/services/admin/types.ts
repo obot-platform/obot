@@ -14,6 +14,27 @@ import {
 	type AccessControlRuleSubject
 } from '../user/types';
 
+/**
+ * Admin API/domain types for the admin client.
+ *
+ * **When editing this file** (including LLM-assisted changes), keep these conventions:
+ *
+ * 1. **Group by related types** — Organize exports into domain sections with a `// Section name`
+ *    header (e.g. `// MCP catalog`, `// Audit log exports`). Keep related interfaces, types, and
+ *    enums together; do not scatter a domain across the file.
+ *
+ * 2. **Sort alphabetically** —
+ *    - Section headers: A–Z by section name.
+ *    - Exports within a section: A–Z by symbol name (`export interface`, `export type`, `export enum`).
+ *    - Properties on each interface/type: A–Z by field name (unless order is semantically required).
+ *    - Named imports at the top: A–Z by symbol name.
+ *
+ * 3. **New sections** — Add a section header, place it in alphabetical order among other sections,
+ *    and keep all types for that domain inside it.
+ *
+ * Prefer reusing or extending types from `../user/types` when the same shape exists there.
+ */
+
 // App preferences
 
 export interface AppPreferencesManifest {
