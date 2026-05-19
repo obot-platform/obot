@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { generateJsonDiff, formatJsonWithDiffHighlighting } from '$lib/diff';
 	import type { MCPCatalogEntry, MCPCatalogServer } from '$lib/services';
+	import { stripManifestMetadata } from '$lib/services/user/mcp';
 	import { responsive } from '$lib/stores';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { Server } from 'lucide-svelte';
@@ -42,8 +43,8 @@
 		{/if}
 	{/snippet}
 	{#if toServer && fromServer}
-		{@const newServerManifest = toServer.manifest}
-		{@const diffManifest = fromServer?.manifest}
+		{@const newServerManifest = stripManifestMetadata(toServer.manifest)}
+		{@const diffManifest = stripManifestMetadata(fromServer?.manifest)}
 		{#if newServerManifest && diffManifest}
 			{@const diff = generateJsonDiff(diffManifest, newServerManifest)}
 			{#if !responsive.isMobile}

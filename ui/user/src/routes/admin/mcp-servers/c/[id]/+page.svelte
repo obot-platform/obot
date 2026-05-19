@@ -15,6 +15,7 @@
 		type MCPCatalogServer,
 		AdminService
 	} from '$lib/services';
+	import { stripManifestMetadata } from '$lib/services/user/mcp';
 	import { mcpServersAndEntries, profile } from '$lib/stores';
 	import { CircleFadingArrowUp, Info, GitCompare } from 'lucide-svelte';
 	import { untrack, type Component } from 'svelte';
@@ -98,8 +99,16 @@
 						componentType = 'Catalog Entry';
 					}
 
-					const currentManifestStr = JSON.stringify(currentManifest, null, 2);
-					const snapshotManifestStr = JSON.stringify(component.manifest, null, 2);
+					const currentManifestStr = JSON.stringify(
+						stripManifestMetadata(currentManifest),
+						null,
+						2
+					);
+					const snapshotManifestStr = JSON.stringify(
+						stripManifestMetadata(component.manifest),
+						null,
+						2
+					);
 
 					if (currentManifestStr !== snapshotManifestStr) {
 						diffs.push({

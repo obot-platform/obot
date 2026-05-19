@@ -853,3 +853,26 @@ export function conflictIssue(
 	if (!duplicates.has(effectiveName)) return undefined;
 	return { severity: 'error', message: 'Tool name is not unique.' };
 }
+
+/**
+ * Strips metadata fields from a manifest that should not be considered when
+ * computing configuration drift. These fields are informational and do not
+ * affect a server's runtime behaviour.
+ *
+ * - `repoURL`: tracks the source repository, not server configuration
+ * - `remoteConfig.fixedURL`: catalog-level field translated to `url` at deploy time
+ */
+export function stripManifestMetadata<T>(manifest: T): T {
+	if (!manifest || typeof manifest !== 'object') return manifest;
+
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const clone: any = structuredClone(manifest);
+
+	delete clone.repoURL;
+
+	if (clone.remoteConfig) {
+		delete clone.remoteConfig.fixedURL;
+	}
+
+	return clone as T;
+}
