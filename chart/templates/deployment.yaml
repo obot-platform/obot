@@ -38,12 +38,13 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           envFrom:
             - secretRef:
-                name: {{ if .Values.config.existingSecret }}{{ .Values.config.existingSecret }}{{ else }}{{ include "obot.config.secretName" . }}{{- end }}
+                name: {{ include "obot.config.secretName" . }}
           command:
           - /bin/sh
           - -c
           - |
-            if [ "${OBOT_SERVER_ENCRYPTION_PROVIDER}" != "custom" ]; then
+            provider="$(printf '%s' "${OBOT_SERVER_ENCRYPTION_PROVIDER}" | tr '[:upper:]' '[:lower:]')"
+            if [ "${provider}" != "custom" ]; then
               exit 0
             fi
             if [ -z "${OBOT_SERVER_ENCRYPTION_KEY}" ]; then
@@ -110,7 +111,7 @@ spec:
                   fieldPath: spec.serviceAccountName
           envFrom:
             - secretRef:
-                name: {{ if .Values.config.existingSecret }}{{ .Values.config.existingSecret }}{{ else }}{{ include "obot.config.secretName" . }}{{- end }}
+                name: {{ include "obot.config.secretName" . }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       {{- with .Values.nodeSelector }}
