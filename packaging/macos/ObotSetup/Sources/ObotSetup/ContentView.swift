@@ -117,6 +117,8 @@ struct ContentView: View {
                 .textFieldStyle(.roundedBorder)
                 .frame(maxWidth: 460)
                 .focused($focusedField, equals: .url)
+                .submitLabel(.continue)
+                .onSubmit(viewModel.confirmURL)
                 .onAppear(perform: focusURLField)
 
             if let message = viewModel.urlValidationMessage {
@@ -128,6 +130,7 @@ struct ContentView: View {
             HStack(spacing: 12) {
                 Button("Back", action: viewModel.backToStatus)
                 primaryButton("Continue", systemImage: "arrow.right", action: viewModel.confirmURL)
+                    .keyboardShortcut(.defaultAction)
             }
         }
     }
