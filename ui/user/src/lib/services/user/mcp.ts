@@ -855,12 +855,14 @@ export function conflictIssue(
 }
 
 /**
- * Strips metadata fields from a manifest that should not be considered when
- * computing configuration drift. These fields are informational and do not
- * affect a server's runtime behaviour.
+ * Strips fields from a manifest that should not be considered when computing
+ * configuration drift. These are either informational metadata or fields that
+ * differ structurally between catalog entry and runtime manifest types.
  *
  * - `repoURL`: tracks the source repository, not server configuration
- * - `remoteConfig.fixedURL`: catalog-level field translated to `url` at deploy time
+ * - `remoteConfig.fixedURL`: catalog-only field translated to `url` at deploy time
+ * - `remoteConfig.url`: runtime-only field derived from catalog's `fixedURL`
+ * - `remoteConfig.isTemplate`: runtime-only field not present on catalog manifests
  */
 export function stripManifestMetadata<T>(manifest: T): T {
 	if (!manifest || typeof manifest !== 'object') return manifest;
