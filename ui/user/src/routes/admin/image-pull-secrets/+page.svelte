@@ -291,7 +291,7 @@
 
 	{#snippet rightNavActions()}
 		{#if !showForm && !mutationsDisabled}
-			<button class="button-primary flex items-center gap-1 text-sm" onclick={createNewSecret}>
+			<button class="btn btn-primary flex items-center gap-1 text-sm" onclick={createNewSecret}>
 				<Plus class="size-4" />
 				Create New Secret
 			</button>

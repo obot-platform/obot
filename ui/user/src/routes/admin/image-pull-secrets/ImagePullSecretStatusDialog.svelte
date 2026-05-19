@@ -99,11 +99,11 @@
 				<section class="flex flex-col gap-3">
 					{@render sectionHeader('Registry Endpoints')}
 					<div
-						class="dark:bg-background dark:border-surface3 bg-surface1 flex flex-col gap-2 rounded-lg border border-transparent p-3 shadow-sm"
+						class="bg-base-200 dark:bg-base-100 dark:border-base-400 flex flex-col gap-2 rounded-lg border border-transparent p-3 shadow-sm"
 					>
 						{#each details.status.registryEndpoints as endpoint (endpoint)}
 							<div
-								class="dark:bg-surface2 bg-background text-on-surface1 rounded-md px-3 py-2 font-mono text-xs break-all"
+								class="bg-base-100 dark:bg-base-300 rounded-md px-3 py-2 font-mono text-xs break-all"
 							>
 								{endpoint}
 							</div>
@@ -116,22 +116,22 @@
 </ResponsiveDialog>
 
 {#snippet sectionHeader(title: string)}
-	<h4 class="text-on-surface1 text-sm font-semibold">{title}</h4>
+	<h4 class="text-sm font-semibold">{title}</h4>
 {/snippet}
 
 {#snippet statusValue(label: string, value?: string, Icon?: IconComponent)}
 	<div
-		class="dark:bg-background dark:border-surface3 bg-surface1 flex min-w-0 items-start gap-3 rounded-lg border border-transparent p-3 shadow-sm"
+		class="bg-base-200 dark:bg-base-100 dark:border-base-400 flex min-w-0 items-start gap-3 rounded-lg border border-transparent p-3 shadow-sm"
 	>
 		{#if Icon}
 			<div
-				class="dark:bg-surface2 bg-background text-on-surface1 flex size-8 shrink-0 items-center justify-center rounded-md"
+				class="bg-base-100 text-muted-content dark:bg-base-300 flex size-8 shrink-0 items-center justify-center rounded-md"
 			>
 				<Icon class="size-4" />
 			</div>
 		{/if}
 		<div class="min-w-0">
-			<div class="text-on-surface1 text-xs font-medium">{label}</div>
+			<div class="text-muted-content text-xs font-medium">{label}</div>
 			{#if shouldBadge(label)}
 				<div
 					class={twMerge(
@@ -142,7 +142,7 @@
 					<span class="truncate">{value || '-'}</span>
 				</div>
 			{:else}
-				<div class="text-on-background mt-1 break-words text-sm">{value || '-'}</div>
+				<div class="mt-1 break-words text-sm">{value || '-'}</div>
 			{/if}
 		</div>
 	</div>
