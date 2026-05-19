@@ -15,7 +15,7 @@ on:
       - chart/**
 
 jobs:
-  build:
+  lint:
     runs-on: depot-ubuntu-22.04
 
     steps:
@@ -30,6 +30,16 @@ jobs:
 
       - name: Render Helm chart
         run: helm template obot chart --namespace obot --set dev.useEmbeddedDb=true
+
+  build:
+    runs-on: depot-ubuntu-22.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
 
       - name: Test Helm install
         run: helm install obot chart --namespace obot --create-namespace --dry-run=client --set dev.useEmbeddedDb=true
