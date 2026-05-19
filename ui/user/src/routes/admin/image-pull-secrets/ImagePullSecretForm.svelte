@@ -102,7 +102,7 @@
 					/>
 					<Select
 						id="image-pull-secret-type"
-						class="bg-surface1 dark:bg-background dark:border-surface3 border border-transparent shadow-inner"
+						class="bg-base-200 dark:bg-base-100 dark:border-base-400 border border-transparent shadow-inner"
 						classes={{ root: 'w-full' }}
 						options={typeOptions}
 						selected={form.type}
@@ -152,7 +152,7 @@
 				{#if currentSecret && form.type === 'ecr'}
 					<button
 						type="button"
-						class="button flex items-center gap-1 text-sm"
+						class="btn btn-secondary flex items-center gap-1 text-sm"
 						disabled={mutationsDisabled || refreshing}
 						onclick={() => onRefresh(currentSecret)}
 					>
@@ -162,7 +162,7 @@
 				{/if}
 				<button
 					type="submit"
-					class="button-primary flex items-center gap-1 text-sm"
+					class="btn btn-primary flex items-center gap-1 text-sm"
 					disabled={mutationsDisabled || saving}
 				>
 					{#if saving}
@@ -194,7 +194,7 @@
 </div>
 
 {#snippet enabledToggle()}
-	<div class="border-surface2 flex items-center gap-1 border-t pt-4 text-sm">
+	<div class="border-base-300 dark:border-base-400 flex items-center gap-1 border-t pt-4 text-sm">
 		<Toggle
 			label="Enabled"
 			labelInline
@@ -306,10 +306,10 @@
 			{/if}
 		</label>
 
-		<div class="border-surface2 flex flex-col gap-4 border-t pt-4">
+		<div class="border-base-300 dark:border-base-400 flex flex-col gap-4 border-t pt-4">
 			<button
 				type="button"
-				class="text-on-surface1 flex w-fit items-center gap-1 text-sm font-medium"
+				class="text-muted-content hover:text-base-content flex w-fit items-center gap-1 text-sm font-medium"
 				aria-expanded={showECRAdvanced}
 				onclick={() => {
 					showECRAdvanced = !showECRAdvanced;

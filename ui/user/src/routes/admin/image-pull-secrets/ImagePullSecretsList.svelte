@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import type { ImagePullSecret } from '$lib/services';
 	import { userDeviceSettings } from '$lib/stores';
@@ -54,13 +54,13 @@
 
 {#if imagePullSecrets.length === 0}
 	<div class="mt-12 flex w-md max-w-full flex-col items-center gap-4 self-center text-center">
-		<KeyRound class="text-on-surface1 size-24 opacity-25" />
-		<h4 class="text-on-surface1 text-lg font-semibold">No image pull secrets</h4>
-		<p class="text-on-surface1 text-sm font-light">
+		<KeyRound class="text-muted-content size-24 opacity-25" />
+		<h4 class="text-muted-content text-lg font-semibold">No image pull secrets</h4>
+		<p class="text-muted-content text-sm font-light">
 			Create a managed image pull secret to let Obot pull private MCP server images.
 		</p>
 		{#if !mutationsDisabled}
-			<button class="button-primary flex items-center gap-1 text-sm" onclick={onCreate}>
+			<button class="btn btn-primary flex items-center gap-1 text-sm" onclick={onCreate}>
 				<Plus class="size-4" />
 				Create New Secret
 			</button>
@@ -70,7 +70,7 @@
 	<div class="flex flex-col gap-8">
 		{#if basicSecrets.length > 0}
 			<section class="flex flex-col gap-3">
-				<h2 class="text-on-surface1 text-lg font-semibold">Basic Secrets</h2>
+				<h2 class="text-lg font-semibold">Basic Secrets</h2>
 				<Table
 					data={basicSecrets}
 					fields={['displayName', 'detail', 'id']}
@@ -86,28 +86,27 @@
 				>
 					{#snippet actions(secret)}
 						<div class="flex items-center gap-1">
-							<button
-								class="icon-button"
+							<IconButton
 								disabled={mutationsDisabled}
-								use:tooltip={'Test'}
+								tooltip={{ text: 'Test' }}
 								onclick={(e) => {
 									e.stopPropagation();
 									onTest(secret);
 								}}
 							>
 								<ShieldCheck class="size-4" />
-							</button>
-							<button
-								class="icon-button hover:text-red-500"
+							</IconButton>
+							<IconButton
+								variant="danger"
 								disabled={mutationsDisabled}
-								use:tooltip={'Delete'}
+								tooltip={{ text: 'Delete' }}
 								onclick={(e) => {
 									e.stopPropagation();
 									onDelete(secret);
 								}}
 							>
 								<Trash2 class="size-4" />
-							</button>
+							</IconButton>
 						</div>
 					{/snippet}
 					{#snippet onRenderColumn(property, secret)}
@@ -123,7 +122,7 @@
 
 		{#if ecrSecrets.length > 0}
 			<section class="flex flex-col gap-3">
-				<h2 class="text-on-surface1 text-lg font-semibold">ECR Secrets</h2>
+				<h2 class="text-lg font-semibold">ECR Secrets</h2>
 				{@render ecrTable()}
 			</section>
 		{/if}
@@ -149,49 +148,46 @@
 	>
 		{#snippet actions(secret)}
 			<div class="flex items-center gap-1">
-				<button
-					class="icon-button"
-					use:tooltip={'Status'}
+				<IconButton
+					tooltip={{ text: 'Status' }}
 					onclick={(e) => {
 						e.stopPropagation();
 						onStatus(secret);
 					}}
 				>
 					<Info class="size-4" />
-				</button>
-				<button
-					class="icon-button"
+				</IconButton>
+				<IconButton
 					disabled={mutationsDisabled}
-					use:tooltip={'Test'}
+					tooltip={{ text: 'Test' }}
 					onclick={(e) => {
 						e.stopPropagation();
 						onTest(secret);
 					}}
 				>
 					<ShieldCheck class="size-4" />
-				</button>
-				<button
-					class="icon-button"
-					disabled={mutationsDisabled}
-					use:tooltip={'Refresh now'}
+				</IconButton>
+				<IconButton
+					disabled={mutationsDisabled || refreshing}
+					tooltip={{ text: 'Refresh now' }}
 					onclick={(e) => {
 						e.stopPropagation();
 						onRefresh(secret);
 					}}
 				>
 					<RefreshCw class={twMerge('size-4', refreshing && 'animate-spin')} />
-				</button>
-				<button
-					class="icon-button hover:text-red-500"
+				</IconButton>
+				<IconButton
+					variant="danger"
 					disabled={mutationsDisabled}
-					use:tooltip={'Delete'}
+					tooltip={{ text: 'Delete' }}
 					onclick={(e) => {
 						e.stopPropagation();
 						onDelete(secret);
 					}}
 				>
 					<Trash2 class="size-4" />
-				</button>
+				</IconButton>
 			</div>
 		{/snippet}
 		{#snippet onRenderColumn(property, secret)}

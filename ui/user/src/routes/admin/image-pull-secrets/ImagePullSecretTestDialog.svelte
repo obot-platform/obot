@@ -85,10 +85,12 @@
 		{/if}
 
 		<div class="flex justify-end gap-2">
-			<button type="button" class="button" disabled={testing} onclick={close}>Cancel</button>
+			<button type="button" class="btn btn-secondary" disabled={testing} onclick={close}>
+				Cancel
+			</button>
 			<button
 				type="submit"
-				class="button-primary flex items-center gap-1 text-sm"
+				class="btn btn-primary flex items-center gap-1 text-sm"
 				disabled={testing || !testImage.trim()}
 			>
 				{#if testing}
