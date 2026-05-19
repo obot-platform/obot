@@ -100,6 +100,10 @@
 					</div>
 				</div>
 			{/if}
+		{:else}
+			<div class="flex items-center justify-center py-8">
+				<p class="text-muted-content">Unable to compare manifests. Missing manifest data.</p>
+			</div>
 		{/if}
 	{:else}
 		<div class="flex items-center justify-center py-8">
