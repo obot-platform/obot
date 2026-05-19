@@ -866,12 +866,15 @@ export function stripManifestMetadata<T>(manifest: T): T {
 	if (!manifest || typeof manifest !== 'object') return manifest;
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	const clone: any = structuredClone(manifest);
+	const clone: any = JSON.parse(JSON.stringify(manifest));
 
 	delete clone.repoURL;
 
 	if (clone.remoteConfig) {
+		// fixedURL is catalog-only; url and isTemplate are runtime-only
 		delete clone.remoteConfig.fixedURL;
+		delete clone.remoteConfig.url;
+		delete clone.remoteConfig.isTemplate;
 	}
 
 	return clone as T;
