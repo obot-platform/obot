@@ -122,8 +122,13 @@ struct SetupRunResult: Sendable {
 
 final class ProcessSetupRunner: SetupCommandRunning, @unchecked Sendable {
     private let lock = NSLock()
+    private let logger: any SetupLogging
     private var process: Process?
     private var cancellationRequested = false
+
+    init(logger: any SetupLogging = NoopSetupLogger()) {
+        self.logger = logger
+    }
 
     func runSetup(
         executableURL: URL,
@@ -167,6 +172,12 @@ final class ProcessSetupRunner: SetupCommandRunning, @unchecked Sendable {
         var parseErrors: [String] = []
         var stderrData = Data()
 
+        logger.info(
+            "setup_process_start executable=\(SetupLogSanitizer.field(executableURL.path)) " +
+            "url=\(SetupLogSanitizer.field(SetupLogSanitizer.urlOrigin(request.url) ?? "<invalid-url>")) " +
+            "agents=\(SetupLogSanitizer.field(request.agentArgument))"
+        )
+
         process.executableURL = executableURL
         process.arguments = request.arguments
         process.standardOutput = stdout
@@ -192,11 +203,13 @@ final class ProcessSetupRunner: SetupCommandRunning, @unchecked Sendable {
                     outputLock.lock()
                     events.append(event)
                     outputLock.unlock()
+                    self.logger.info(setupEventLogLine(event))
                     onEvent(event)
                 } catch {
                     outputLock.lock()
                     parseErrors.append("Could not parse setup progress: \(error.localizedDescription)")
                     outputLock.unlock()
+                    self.logger.error("setup_parse_error message=\(SetupLogSanitizer.field(error.localizedDescription))")
                 }
             }
 
@@ -209,6 +222,7 @@ final class ProcessSetupRunner: SetupCommandRunning, @unchecked Sendable {
                     outputLock.lock()
                     parseErrors.append("Setup output was not valid UTF-8.")
                     outputLock.unlock()
+                    self.logger.error("setup_output_invalid_utf8")
                     continue
                 }
                 buffer += chunk
@@ -239,6 +253,7 @@ final class ProcessSetupRunner: SetupCommandRunning, @unchecked Sendable {
             stderr.fileHandleForReading.closeFile()
             group.wait()
             clearProcess(process)
+            logger.error("setup_launch_failed message=\(SetupLogSanitizer.field(error.localizedDescription))")
             return SetupRunResult(
                 exitCode: nil,
                 events: events,
@@ -263,6 +278,10 @@ final class ProcessSetupRunner: SetupCommandRunning, @unchecked Sendable {
 
         let canceled = wasCanceled()
         clearProcess(process)
+        logger.info(
+            "setup_process_exit exitCode=\(process.terminationStatus) canceled=\(canceled) " +
+            "events=\(parsedEvents.count) parseErrors=\(parsedErrors.count) stderrPresent=\(!stderrText.isEmpty)"
+        )
 
         return SetupRunResult(
             exitCode: process.terminationStatus,
@@ -288,4 +307,27 @@ final class ProcessSetupRunner: SetupCommandRunning, @unchecked Sendable {
         lock.unlock()
         return canceled
     }
+}
+
+private func setupEventLogLine(_ event: SetupProgressEvent) -> String {
+    var fields = ["setup_event type=\(SetupLogSanitizer.field(event.type))"]
+    if let code = event.code {
+        fields.append("code=\(SetupLogSanitizer.field(code))")
+    }
+    if let url = event.url {
+        fields.append("url=\(SetupLogSanitizer.field(SetupLogSanitizer.urlOrigin(url) ?? "<invalid-url>"))")
+    }
+    if let agentID = event.agentID {
+        fields.append("agentID=\(SetupLogSanitizer.field(agentID))")
+    }
+    if let displayName = event.displayName {
+        fields.append("displayName=\(SetupLogSanitizer.field(displayName))")
+    }
+    if let installed = event.installed {
+        fields.append("installedCount=\(installed.count)")
+    }
+    if let message = event.message {
+        fields.append("message=\(SetupLogSanitizer.field(message))")
+    }
+    return fields.joined(separator: " ")
 }

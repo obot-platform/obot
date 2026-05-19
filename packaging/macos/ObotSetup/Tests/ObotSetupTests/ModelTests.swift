@@ -238,6 +238,41 @@ final class ModelTests: XCTestCase {
         XCTAssertTrue(warnings.isEmpty)
     }
 
+    func testLocalSetupLoggerOverwritesLogOnReset() throws {
+        let logURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+            .appendingPathComponent("setup.log", isDirectory: false)
+        let logger = LocalSetupLogger(fileURL: logURL)
+
+        logger.resetRun(appVersion: "v1")
+        logger.info("first_run_marker")
+        logger.resetRun(appVersion: "v2")
+        logger.info("second_run_marker")
+
+        let log = try String(contentsOf: logURL, encoding: .utf8)
+        XCTAssertFalse(log.contains("first_run_marker"))
+        XCTAssertTrue(log.contains("app_started appVersion=v2"))
+        XCTAssertTrue(log.contains("second_run_marker"))
+    }
+
+    func testSetupLogSanitizerRedactsSecretsAndSensitivePaths() {
+        let sanitized = SetupLogSanitizer.message(
+            "failed https://user:pass@obot.example.com/setup?token=abc " +
+            "Bearer abc.def token=secret " +
+            "/Users/alice/.config/obot/config.json " +
+            "/private/var/folders/aa/bb/T/output"
+        )
+
+        XCTAssertTrue(sanitized.contains("https://obot.example.com"))
+        XCTAssertFalse(sanitized.contains("user:pass"))
+        XCTAssertFalse(sanitized.contains("?token=abc"))
+        XCTAssertFalse(sanitized.contains("abc.def"))
+        XCTAssertFalse(sanitized.contains("token=secret"))
+        XCTAssertFalse(sanitized.contains("alice"))
+        XCTAssertFalse(sanitized.contains(".config/obot/config.json"))
+        XCTAssertFalse(sanitized.contains("/private/var/folders/aa"))
+    }
+
     private func supportedStatus(
         version: String = "v0.21.0",
         defaultURL: String,
