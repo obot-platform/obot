@@ -3407,10 +3407,7 @@ func (m *MCPHandler) CheckK8sSettingsStatus(req api.Context) error {
 
 // RedeployWithK8sSettings redeploys a server with the current K8s settings
 func (m *MCPHandler) RedeployWithK8sSettings(req api.Context) error {
-	switch m.mcpSessionManager.MCPRuntimeBackend() {
-	case "kubernetes", "k8s":
-		// Supported
-	default:
+	if !mcp.IsKubernetesBackend(m.mcpSessionManager.MCPRuntimeBackend()) {
 		return types.NewErrBadRequest("Redeployment with K8s settings is only supported for Kubernetes backend")
 	}
 
