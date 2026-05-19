@@ -29,6 +29,124 @@ struct DetectedAgent: Decodable, Equatable, Identifiable {
     }
 }
 
+struct SetupRunRequest: Equatable, Sendable {
+    var url: String
+    var selectedAgentIDs: [String]
+
+    var agentArgument: String {
+        if selectedAgentIDs.isEmpty {
+            return "none"
+        }
+        return selectedAgentIDs.joined(separator: ",")
+    }
+
+    var arguments: [String] {
+        [
+            "setup",
+            "--url", url,
+            "--agents", agentArgument,
+            "--yes",
+            "--non-interactive",
+            "--output", "json",
+        ]
+    }
+}
+
+struct SetupProgressEvent: Decodable, Equatable, Identifiable, Sendable {
+    var type: String
+    var code: String?
+    var message: String?
+    var url: String?
+    var agentID: String?
+    var displayName: String?
+    var installed: [String]?
+
+    var id: String {
+        [
+            type,
+            code ?? "",
+            message ?? "",
+            url ?? "",
+            agentID ?? "",
+            displayName ?? "",
+        ].joined(separator: ":")
+    }
+}
+
+struct SetupErrorDisplay: Equatable, Sendable {
+    var code: String
+    var title: String
+    var message: String
+
+    static func from(event: SetupProgressEvent) -> SetupErrorDisplay {
+        let code = event.code ?? "unknown"
+        return SetupErrorDisplay(
+            code: code,
+            title: title(for: code),
+            message: event.message ?? "Setup failed."
+        )
+    }
+
+    static func unknown(_ message: String) -> SetupErrorDisplay {
+        SetupErrorDisplay(code: "unknown", title: title(for: "unknown"), message: message)
+    }
+
+    static func canceled() -> SetupErrorDisplay {
+        SetupErrorDisplay(code: "auth_canceled", title: title(for: "auth_canceled"), message: "Setup was canceled.")
+    }
+
+    private static func title(for code: String) -> String {
+        switch code {
+        case "invalid_url":
+            return "Check the Obot URL"
+        case "server_unreachable":
+            return "Obot server is unreachable"
+        case "auth_unavailable":
+            return "Authentication is unavailable"
+        case "auth_timeout":
+            return "Authentication timed out"
+        case "auth_canceled":
+            return "Setup was canceled"
+        case "config_save_failed":
+            return "Could not save configuration"
+        case "agent_detection_failed":
+            return "Could not detect local agents"
+        case "agent_install_failed":
+            return "Could not install local agent support"
+        case "unsupported_cli":
+            return "Installed CLI is not supported"
+        default:
+            return "Setup failed"
+        }
+    }
+}
+
+struct SetupProgressState: Equatable, Sendable {
+    var events: [SetupProgressEvent] = []
+    var error: SetupErrorDisplay?
+    var isComplete = false
+
+    mutating func apply(_ event: SetupProgressEvent) {
+        events.append(event)
+        switch event.type {
+        case "complete":
+            isComplete = true
+        case "error":
+            error = SetupErrorDisplay.from(event: event)
+        default:
+            break
+        }
+    }
+}
+
+enum SetupFlowScreen: Equatable {
+    case status
+    case url
+    case agents
+    case running
+    case done
+}
+
 enum SetupDisplayState: Equatable {
     case loading
     case missingCLI

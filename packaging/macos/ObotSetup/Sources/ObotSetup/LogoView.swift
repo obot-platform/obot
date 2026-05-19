@@ -16,7 +16,7 @@ struct LogoView: View {
 
     private func loadLogoImage() -> NSImage? {
         guard let url = Bundle.module.url(
-            forResource: "obot-logo-blue-black-text",
+            forResource: "obot-icon-blue",
             withExtension: "svg"
         ) else {
             return nil

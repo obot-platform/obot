@@ -55,6 +55,77 @@ final class ModelTests: XCTestCase {
         XCTAssertFalse(output.agents[1].isPresent)
     }
 
+    func testSetupRunRequestBuildsNonInteractiveJSONCommand() {
+        let request = SetupRunRequest(
+            url: "https://obot.example.com",
+            selectedAgentIDs: ["claude-code", "cursor"]
+        )
+
+        XCTAssertEqual(
+            request.arguments,
+            [
+                "setup",
+                "--url", "https://obot.example.com",
+                "--agents", "claude-code,cursor",
+                "--yes",
+                "--non-interactive",
+                "--output", "json",
+            ]
+        )
+    }
+
+    func testSetupRunRequestUsesAgentsNoneWhenSelectionIsEmpty() {
+        let request = SetupRunRequest(url: "https://obot.example.com", selectedAgentIDs: [])
+
+        XCTAssertEqual(request.agentArgument, "none")
+        XCTAssertEqual(request.arguments[4], "none")
+    }
+
+    func testProgressStateHandlesSuccessfulEvents() {
+        var progress = SetupProgressState()
+
+        progress.apply(SetupProgressEvent(
+            type: "auth_started",
+            code: nil,
+            message: nil,
+            url: "https://obot.example.com",
+            agentID: nil,
+            displayName: nil,
+            installed: nil
+        ))
+        progress.apply(SetupProgressEvent(
+            type: "complete",
+            code: nil,
+            message: nil,
+            url: "https://obot.example.com",
+            agentID: nil,
+            displayName: nil,
+            installed: nil
+        ))
+
+        XCTAssertEqual(progress.events.map(\.type), ["auth_started", "complete"])
+        XCTAssertTrue(progress.isComplete)
+        XCTAssertNil(progress.error)
+    }
+
+    func testProgressStateMapsStructuredErrorDisplay() {
+        var progress = SetupProgressState()
+
+        progress.apply(SetupProgressEvent(
+            type: "error",
+            code: "server_unreachable",
+            message: "dial tcp: no such host",
+            url: nil,
+            agentID: nil,
+            displayName: nil,
+            installed: nil
+        ))
+
+        XCTAssertEqual(progress.error?.code, "server_unreachable")
+        XCTAssertEqual(progress.error?.title, "Obot server is unreachable")
+        XCTAssertEqual(progress.error?.message, "dial tcp: no such host")
+    }
+
     func testStateResolverReportsMissingCLI() {
         let state = SetupStateResolver.resolve(cliExists: false, status: nil)
 
