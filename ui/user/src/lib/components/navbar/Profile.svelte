@@ -233,7 +233,7 @@
 			{/if}
 		</div>
 		<div class="mt-2 p-2">
-			{#if showChatLink && version.current.nanobotIntegration && !impersonating}
+			{#if showChatLink && !impersonating}
 				<button
 					class={twMerge(
 						'dropdown-link',

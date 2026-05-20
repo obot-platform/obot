@@ -1,15 +1,10 @@
-import { UserService, NanobotService } from '$lib/services';
+import { NanobotService } from '$lib/services';
 import type { PageLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 
 export const ssr = false;
 
 export const load: PageLoad = async ({ fetch }) => {
-	const version = await UserService.getVersion({ fetch });
-	if (!version.nanobotIntegration) {
-		throw redirect(302, '/');
-	}
-
 	const projects = await NanobotService.listProjectsV2({ fetch });
 	if (projects.length === 0) {
 		const project = await NanobotService.createProjectV2({ displayName: 'New Project' }, { fetch });

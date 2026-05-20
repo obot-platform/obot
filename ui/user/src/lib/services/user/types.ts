@@ -639,7 +639,6 @@ export interface Version {
 	mcpNetworkPolicyEnabled?: boolean;
 	mcpDefaultDenyAllEgress?: boolean;
 	autonomousToolUseEnabled?: boolean;
-	nanobotIntegration?: boolean;
 	messagePoliciesEnabled?: boolean;
 	disableLegacyChat?: boolean;
 }

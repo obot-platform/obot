@@ -142,22 +142,18 @@
 	let isBootStrapUser = $derived(profile.current.isBootstrapUser?.() ?? false);
 	let isAtLeastPowerUserPlus = $derived(profile.current.groups.includes(Group.POWERUSER_PLUS));
 	let isAtLeastPowerUser = $derived(profile.current.groups.includes(Group.POWERUSER));
-	let chatLinks = $derived<NavLink[]>(
-		version.current.nanobotIntegration
-			? [
-					{
-						id: 'launch-agent-chat',
-						href: '/agent',
-						icon: BotMessageSquare,
-						disabled: isBootStrapUser || !agentLinkEnabled,
-						label: 'Launch Agent',
-						collapsible: false,
-						noteIcon: !agentLinkEnabled ? LockOpen : undefined,
-						note: !agentLinkEnabled ? renderAgentDisabledNote : undefined
-					}
-				]
-			: []
-	);
+	let chatLinks = $derived<NavLink[]>([
+		{
+			id: 'launch-agent-chat',
+			href: '/agent',
+			icon: BotMessageSquare,
+			disabled: isBootStrapUser || !agentLinkEnabled,
+			label: 'Launch Agent',
+			collapsible: false,
+			noteIcon: !agentLinkEnabled ? LockOpen : undefined,
+			note: !agentLinkEnabled ? renderAgentDisabledNote : undefined
+		}
+	]);
 	let navLinks = $derived<NavLink[]>(
 		profile.current.hasAdminAccess?.()
 			? [
@@ -402,28 +398,26 @@
 										}
 									]
 								: []),
-							...(version.current.nanobotIntegration
-								? [
-										{
-											id: 'admin-agents',
-											href: '/admin/agents',
-											icon: Bots,
-											label: 'Agents',
-											collapsible: false,
-											disabled: isBootStrapUser || !agentLinkEnabled
-										},
-										{
-											id: 'launch-agent-chat',
-											href: '/agent',
-											icon: BotMessageSquare,
-											label: 'Launch Agent',
-											disabled: isBootStrapUser || !agentLinkEnabled,
-											collapsible: false,
-											noteIcon: !agentLinkEnabled ? LockOpen : undefined,
-											note: !agentLinkEnabled ? renderAgentDisabledNote : undefined
-										}
-									]
-								: [])
+							...[
+								{
+									id: 'admin-agents',
+									href: '/admin/agents',
+									icon: Bots,
+									label: 'Agents',
+									collapsible: false,
+									disabled: isBootStrapUser || !agentLinkEnabled
+								},
+								{
+									id: 'launch-agent-chat',
+									href: '/agent',
+									icon: BotMessageSquare,
+									label: 'Launch Agent',
+									disabled: isBootStrapUser || !agentLinkEnabled,
+									collapsible: false,
+									noteIcon: !agentLinkEnabled ? LockOpen : undefined,
+									note: !agentLinkEnabled ? renderAgentDisabledNote : undefined
+								}
+							]
 						]
 					},
 					{

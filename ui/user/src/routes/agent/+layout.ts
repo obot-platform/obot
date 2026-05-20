@@ -1,16 +1,12 @@
-import { UserService, NanobotService } from '$lib/services';
+import { NanobotService } from '$lib/services';
 import type { ProjectV2Agent } from '$lib/services/nanobot/types';
 import type { LayoutLoad } from './$types';
-import { error, redirect } from '@sveltejs/kit';
+import { error } from '@sveltejs/kit';
 
 export const ssr = false;
 
 export const load: LayoutLoad = async ({ fetch, url, parent }) => {
 	const { profile } = await parent();
-	const version = await UserService.getVersion({ fetch });
-	if (!version.nanobotIntegration) {
-		throw redirect(302, '/');
-	}
 
 	// Check for an explicit project ID from query params or URL path.
 	// This allows impersonation: navigating directly to another user's project.
