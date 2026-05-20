@@ -70,7 +70,7 @@ Skills that fail validation (for example, due to a malformed `SKILL.md`) still a
 
 When agents are running in Obot, they have built-in tools for working with skills:
 
-- **Search skills** — Agents can search the skill catalog to find skills matching a query. Only skills the current user has access to (based on [Skill Access Policies](../skill-access-policies/)) are returned.
+- **Search skills** — Agents can search the skill catalog to find skills matching a query. Only skills the current user has access to (based on [Skill Access Policies](./skill-access-policies/)) are returned.
 - **Install a skill** — Agents can download and install a skill from the catalog. If a skill with the same name is already installed, the agent asks for confirmation before overwriting it.
 - **List installed skills** — Agents can see all skills currently available to them, including both built-in skills and user-installed ones.
 - **Use a skill** — Once installed, an agent can read and follow the skill's instructions during a conversation.
@@ -92,6 +92,6 @@ Skills are installed at the agent level, so they are available in all conversati
 
 ## Access Control
 
-By default, skills are not visible to regular users. Administrators must create [Skill Access Policies](../skill-access-policies/) to grant users and groups access to specific skills or entire skill sources.
+By default, skills are not visible to regular users. Administrators must create [Skill Access Policies](./skill-access-policies/) to grant users and groups access to specific skills or entire skill sources.
 
 Administrators always have full access to all skills regardless of policies.

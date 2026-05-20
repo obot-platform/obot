@@ -150,7 +150,7 @@ latency will not scale as much as token usage will when more than one policy is 
 
 ## Related Topics
 
-- [Obot Agent Management](../obot-agent-management/) - Overview of the admin area where Message Policies appear
+- [Obot Agent Management](./obot-agent-management/) - Overview of the admin area where Message Policies appear
 - [Model Providers](/configuration/model-providers) - Configure the default `llm` and `llm-mini` aliases used for policy evaluation
 - [Obot Configuration Reference](/configuration/server-configuration) - Enable the feature with server configuration
 - [User Roles](/configuration/user-roles) - Understand Admin, Owner, and Auditor permissions

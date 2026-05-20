@@ -2,7 +2,7 @@
  * Escape characters that have special meaning in regular expressions.
  */
 export function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+	return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 /**
@@ -16,40 +16,42 @@ export function escapeRegExp(value: string): string {
  * the swizzled DocItem/Metadata component (for client-side hydration).
  */
 export const PATH_REDIRECTS: Record<string, string> = {
-  // Pages moved between versions
-  architecture: "concepts/architecture",
+	// Pages moved between versions
+	architecture: "concepts/architecture",
 
-  // concepts/admin/* — section removed; map to closest equivalents
-  "concepts/admin/overview": "functionality/overview",
-  "concepts/admin/mcp-servers": "functionality/mcp-servers",
-  "concepts/admin/mcp-server-catalogs": "configuration/mcp-server-gitops",
-  "concepts/admin/filters": "functionality/filters",
-  "concepts/admin/access-control": "configuration/user-roles",
+	// concepts/admin/* — section removed; map to closest equivalents
+	"concepts/admin/overview": "functionality/overview",
+	"concepts/admin/mcp-servers": "functionality/mcp-servers",
+	"concepts/admin/mcp-server-catalogs": "configuration/mcp-server-gitops",
+	"concepts/admin/filters": "functionality/filters",
+	"concepts/admin/access-control": "configuration/user-roles",
 
-  // concepts/chat/* — section removed; map to agent overview
-  "concepts/chat/overview": "functionality/agent/overview",
-  "concepts/chat/projects": "functionality/agent/overview",
-  "concepts/chat/tasks": "functionality/agent/overview",
-  "concepts/chat/threads": "functionality/agent/overview",
+	// concepts/chat/* — section removed; map to current agent concept page
+	"concepts/chat/overview": "concepts/obot-agent",
+	"concepts/chat/projects": "concepts/obot-agent",
+	"concepts/chat/tasks": "concepts/obot-agent",
+	"concepts/chat/threads": "concepts/obot-agent",
 
-  // other chat-related pages removed/renamed; map to agent overview
-  "concepts/obot-chat": "functionality/agent/overview",
-  "functionality/chat/overview": "functionality/agent/overview",
-  "functionality/chat-management": "functionality/agent/overview",
-  // concepts/mcp-gateway sub-pages — restructured into single page
-  "concepts/mcp-gateway/overview": "concepts/mcp-gateway",
-  "concepts/mcp-gateway/obot-registry": "concepts/mcp-registry",
-  "concepts/mcp-gateway/registry-api": "concepts/mcp-registry",
-  "concepts/mcp-gateway/servers-and-tools": "concepts/mcp-gateway",
+	// other chat-related pages removed/renamed; map to current agent concept page
+	"concepts/obot-chat": "concepts/obot-agent",
+	"functionality/chat/overview": "concepts/obot-agent",
+	"functionality/chat-management": "concepts/obot-agent",
+	"functionality/agent/overview": "concepts/obot-agent",
 
-  // configuration renames
-  "configuration/chat-configuration": "configuration/server-configuration",
-  "configuration/oauth-configuration":
-    "configuration/mcp-server-oauth-configuration",
+	// concepts/mcp-gateway sub-pages — restructured into single page
+	"concepts/mcp-gateway/overview": "concepts/mcp-gateway",
+	"concepts/mcp-gateway/obot-registry": "concepts/mcp-registry",
+	"concepts/mcp-gateway/registry-api": "concepts/mcp-registry",
+	"concepts/mcp-gateway/servers-and-tools": "concepts/mcp-gateway",
 
-  // Removed sections
-  "integrations/ide-client-integration": "",
-  "tutorials/github-assistant": "",
-  "tutorials/slack-alerts-assistant": "",
-  "tutorials/knowledge-assistant": "",
+	// configuration renames
+	"configuration/chat-configuration": "configuration/server-configuration",
+	"configuration/oauth-configuration":
+		"configuration/mcp-server-oauth-configuration",
+
+	// Removed sections
+	"integrations/ide-client-integration": "",
+	"tutorials/github-assistant": "",
+	"tutorials/slack-alerts-assistant": "",
+	"tutorials/knowledge-assistant": "",
 };

@@ -46,7 +46,7 @@ ingress:
   hosts:
     - <your obot hostname>
 
-# This can be turned off because we are persisting data externally in postgres and S3
+# This can be turned off because we are persisting data externally in PostgreSQL and S3
 persistence:
   enabled: false
 
@@ -63,10 +63,6 @@ config:
   # Enable encryption
   OBOT_SERVER_ENCRYPTION_PROVIDER: aws
   OBOT_AWS_KMS_KEY_ARN: <your kms arn>
-
-  # Enable S3 workspace provider
-  OBOT_WORKSPACE_PROVIDER_TYPE: s3
-  WORKSPACE_PROVIDER_S3_BUCKET: <s3 bucket name>
 
   # Store published workflows in external object storage
   # Options are s3, azure, gcs, and custom
@@ -89,7 +85,7 @@ config:
 
 ### High Availability
 
-To enable a high availability setup, uncomment the `replicaCount` line and set it to `2` or higher. An external PostgreSQL database and a workspace provider are required for HA.
+To enable a high availability setup, uncomment the `replicaCount` line and set it to `2` or higher. An external PostgreSQL database and published workflow storage are required for HA.
 
 For published workflow storage in HA, use one of these:
 
@@ -98,8 +94,7 @@ For published workflow storage in HA, use one of these:
 
 For detailed configuration options, see:
 
-- **[Server Configuration](/configuration/server-configuration/)** - All available environment variables
-- **[Workspace Provider](/configuration/workspace-provider/)** - S3 storage configuration
+- **[Server Configuration](/configuration/server-configuration/)** - All available environment variables, including published workflow storage configuration
 - **[Workflow Sharing](../functionality/workflow-sharing.md)** - How shared workflows work and how to configure their storage
 - **[Encryption Providers](/configuration/encryption-providers/aws-kms/)** - KMS encryption setup
 

@@ -93,4 +93,4 @@ A chat client built to work directly with MCP:
 - [Installation Guide](installation/overview)
 - [Architecture](concepts/architecture)
 - [Functionality](functionality/overview)
-- [Obot Agent](functionality/agent/overview)
+- [Obot Agent](concepts/obot-agent)
