@@ -47,16 +47,16 @@ The values that are configurable, and how to change them, follow.
 #### Configurable Values
 
 - Affinity and Tolerations: can be set using the `.mcpServerDefaults.affinity` and `.mcpServerDefaults.tolerations` in Helm, or via the admin UI if not set in Helm values
-- Resources: the default value is a memory request of `400Mi` with no memory limit or CPU requests/limits. This can be set in Helm using the `.mcpServerDefaults.resources` value, or via the Admin UI if not set in Helm values.
+- Resources: the default value is a memory request of `400Mi` with no memory limit or CPU requests/limits. This can be set globally in Helm using the `.mcpServerDefaults.resources` value, or via the Admin UI if not set in Helm values. Individual catalog entries can also override CPU and memory requests and limits with a `resources` field; see [MCP Server GitOps](./mcp-server-gitops.md#resource-requirements).
 - Image: the default value is `ghcr.io/obot-platform/mcp-images/stdio-wrapper:v0.20.5` and it can be changed by setting the Helm value `.config.OBOT_SERVER_MCPBASE_IMAGE`.
 - RuntimeClassName: can be set using `.mcpServerDefaults.runtimeClassName` in Helm, or via the admin UI if not set in Helm values. See [RuntimeClass](#runtimeclass) for details.
 - ImagePullSecrets: private registry credentials can be configured with static Helm `mcpImagePullSecrets` or managed image pull secrets in the admin UI. See [Image Pull Secrets](./image-pull-secrets.md).
 
 #### A note on Affinity, Tolerations, and Resources
 
-The configuration for affinity, tolerations, and resources applies to all MCP server Deployments across Obot.
-It cannot be customized for individual MCP server Deployments.
-When this configuration value changes, it will only affect new Deployments (or restarted existing Deployments)
+The configuration for affinity and tolerations applies to all MCP server Deployments across Obot and cannot be customized for individual MCP server Deployments.
+Resource requests and limits can be configured globally, and catalog entries can override individual CPU and memory requests or limits for servers created from that entry.
+When configuration changes, it will only affect new Deployments (or restarted existing Deployments)
 from that point forward. The admin can use the UI to manually apply this configuration change to existing MCP server
 Deployments as desired.
 
