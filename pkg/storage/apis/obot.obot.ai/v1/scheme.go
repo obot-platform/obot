@@ -71,8 +71,6 @@ func AddToSchemeWithGV(scheme *runtime.Scheme, schemeGroupVersion schema.GroupVe
 		&OAuthTokenList{},
 		&AccessControlRule{},
 		&AccessControlRuleList{},
-		&MCPSession{},
-		&MCPSessionList{},
 		&MCPWebhookValidation{},
 		&MCPWebhookValidationList{},
 		&PowerUserWorkspace{},
