@@ -77,7 +77,7 @@ func New(services *services.Services) (*Controller, error) {
 }
 
 func (c *Controller) PreStart(ctx context.Context) error {
-	if err := data.Data(ctx, c.services.StorageClient, c.services.AgentsDir, c.services.DefaultSkillRepoURL, c.services.DefaultSkillRepoRef); err != nil {
+	if err := data.Data(ctx, c.services.StorageClient, c.services.DefaultSkillRepoURL, c.services.DefaultSkillRepoRef); err != nil {
 		return fmt.Errorf("failed to apply data: %w", err)
 	}
 
@@ -110,10 +110,8 @@ func (c *Controller) PreStart(ctx context.Context) error {
 		return fmt.Errorf("failed to ensure admin workspaces: %w", err)
 	}
 
-	if c.services.NanobotIntegration {
-		if err := c.ensureObotMCPServer(ctx); err != nil {
-			return fmt.Errorf("failed to ensure obot MCP server: %w", err)
-		}
+	if err := c.ensureObotMCPServer(ctx); err != nil {
+		return fmt.Errorf("failed to ensure obot MCP server: %w", err)
 	}
 
 	if err := c.reconcileServiceAccountKeys(ctx); err != nil {

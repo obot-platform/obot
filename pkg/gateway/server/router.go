@@ -61,26 +61,6 @@ func (s *Server) AddRoutes(mux *server.Server) {
 	mux.HandleFunc("GET /api/oauth/start/{id}/{namespace}/{name}", wrap(s.oauth))
 	mux.HandleFunc("/api/oauth/redirect/{namespace}/{name}", wrap(s.redirect))
 
-	// CRUD routes for OAuth Apps (integrations with other services such as Microsoft 365)
-	mux.HandleFunc("GET /api/oauth-apps", wrap(s.listOAuthApps))
-	mux.HandleFunc("GET /api/oauth-apps/{id}", wrap(s.oauthAppByID))
-	mux.HandleFunc("POST /api/oauth-apps", wrap(s.createOAuthApp))
-	mux.HandleFunc("PATCH /api/oauth-apps/{id}", wrap(s.updateOAuthApp))
-	mux.HandleFunc("DELETE /api/oauth-apps/{id}", wrap(s.deleteOAuthApp))
-
-	// Routes for OAuth authorization code flow
-	mux.HandleFunc("GET /api/app-oauth/authorize/{id}", wrap(s.authorizeOAuthApp))
-	mux.HandleFunc("GET /api/app-oauth/refresh/{id}", wrap(s.refreshOAuthApp))
-	mux.HandleFunc("GET /api/app-oauth/callback/{id}", wrap(s.callbackOAuthApp))
-
-	// Route for credential tools to get their OAuth tokens
-	mux.HandleFunc("GET /api/app-oauth/get-token", wrap(s.getTokenOAuthApp))
-	mux.HandleFunc("GET /api/app-oauth/get-token/{id}", wrap(s.getTokenOAuthApp))
-
-	// Handle updates to the file scanner configuration
-	mux.HandleFunc("GET /api/file-scanner-config", wrap(s.getFileScannerConfig))
-	mux.HandleFunc("PUT /api/file-scanner-config", wrap(s.updateFileScannerConfig))
-
 	// LLM proxy
 	mux.HandleFunc("/api/llm-proxy/openai/{path...}", s.newLLMProviderProxy(mustParseURL(openAIBaseURL), system.OpenAIModelProviderTool).proxy)
 	mux.HandleFunc("/api/llm-proxy/anthropic/{path...}", s.newLLMProviderProxy(mustParseURL(anthropicBaseURL), system.AnthropicModelProviderTool).proxy)

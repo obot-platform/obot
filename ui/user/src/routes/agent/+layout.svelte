@@ -83,7 +83,7 @@
 			loading = true;
 			if (isNewAgent) {
 				try {
-					await NanobotService.launchProjectV2Agent(projects[0].id, agent.id);
+					await NanobotService.launchProjectAgent(projects[0].id, agent.id);
 				} catch (error) {
 					console.error(error);
 					errors.append(error);

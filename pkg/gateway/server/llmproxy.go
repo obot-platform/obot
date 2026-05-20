@@ -19,6 +19,7 @@ import (
 	"time"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/alias"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/client"
@@ -27,7 +28,6 @@ import (
 	"github.com/obot-platform/obot/pkg/messagepolicy"
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	"github.com/obot-platform/obot/pkg/system"
 	"github.com/tidwall/gjson"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -38,6 +38,7 @@ import (
 const tokenUsageTimePeriod = 24 * time.Hour
 
 var (
+	log              = logger.Package()
 	openAIBaseURL    = "https://api.openai.com/v1"
 	anthropicBaseURL = "https://api.anthropic.com/v1"
 )
@@ -101,15 +102,6 @@ func (s *Server) dispatchLLMProxy(req api.Context) error {
 		modelID = m.Name
 		modelProvider = m.Spec.Manifest.ModelProvider
 		model = m.Spec.Manifest.TargetModel
-	} else {
-		// If this request is using a user-specific credential, then get it.
-		cred, err := req.GPTClient.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", strings.Replace(token.TopLevelProjectID, system.ThreadPrefix, system.ProjectPrefix, 1), token.ModelProvider)}, token.ModelProvider)
-		if err != nil {
-			return fmt.Errorf("model provider not configured, failed to get credential: %w", err)
-		}
-
-		credEnv = cred.Env
-		personalToken = true
 	}
 
 	// Fetch auth provider groups once for all checks that need them.
@@ -163,7 +155,7 @@ func (s *Server) dispatchLLMProxy(req api.Context) error {
 			},
 		}
 		outputPolicies, conversationHistory, inputPolicyReplacement, err = applyMessagePolicies(
-			req.Context(), messagePolicyHelper, userInfo, req.GatewayClient, body, token.ProjectID, token.ThreadID,
+			req.Context(), messagePolicyHelper, userInfo, req.GatewayClient, body, "", "",
 		)
 		if err != nil {
 			return err
@@ -184,14 +176,8 @@ func (s *Server) dispatchLLMProxy(req api.Context) error {
 	}
 
 	if err = s.db.WithContext(req.Context()).Create(&types.LLMProxyActivity{
-		UserID:         token.UserID,
-		WorkflowID:     token.WorkflowID,
-		WorkflowStepID: token.WorkflowStepID,
-		AgentID:        token.AgentID,
-		ProjectID:      token.ProjectID,
-		ThreadID:       token.ThreadID,
-		RunID:          token.RunID,
-		Path:           req.URL.Path,
+		UserID: token.UserID,
+		Path:   req.URL.Path,
 	}).Error; err != nil {
 		return fmt.Errorf("failed to create monitor: %w", err)
 	}
@@ -200,12 +186,9 @@ func (s *Server) dispatchLLMProxy(req api.Context) error {
 		Director: llmTransformRequest(u, credEnv),
 		ModifyResponse: (&responseModifier{
 			userID:                 token.UserID,
-			runID:                  token.RunID,
 			model:                  model,
 			client:                 req.GatewayClient,
 			personalToken:          personalToken,
-			projectID:              token.ProjectID,
-			threadID:               token.ThreadID,
 			inputPolicyReplacement: inputPolicyReplacement,
 			messagePolicyHelper:    messagePolicyHelper,
 			outputPolicies:         outputPolicies,
@@ -552,7 +535,7 @@ func (r *responseModifier) streamAndEvaluateToolCallsSSE(ctx context.Context, pw
 
 	// Evaluate policies against tool calls.
 	targetMessage := buildToolCallTargetMessage(toolCalls)
-	logger.Infof("evaluating %d tool calls against %d policies", len(toolCalls), len(r.outputPolicies))
+	log.Infof("evaluating %d tool calls against %d policies", len(toolCalls), len(r.outputPolicies))
 	violations := r.messagePolicyHelper.EvaluateMessage(ctx, r.outputPolicies, r.conversationHistory, targetMessage, types2.PolicyDirectionToolCalls)
 
 	if len(violations) == 0 {
@@ -769,7 +752,7 @@ func logViolation(ctx context.Context, c *client.Client, v messagepolicy.Message
 		ProjectID:            projectID,
 		ThreadID:             threadID,
 	}); err != nil {
-		logger.Warnf("failed to log policy violation for policy %s: %v", v.PolicyID, err)
+		log.Warnf("failed to log policy violation for policy %s: %v", v.PolicyID, err)
 	}
 }
 
@@ -786,12 +769,13 @@ func buildToolCallTargetMessage(toolCalls []messagepolicy.ToolCallInfo) string {
 
 func (r *responseModifier) Close() error {
 	r.lock.Lock()
+	runID := r.runID
 	totalTokens := r.totalTokens
 	if totalTokens == 0 {
 		totalTokens = r.promptTokens + r.completionTokens
 	}
 	activity := &types.RunTokenActivity{
-		Name:             r.runID,
+		Name:             runID,
 		UserID:           r.userID,
 		Model:            r.model,
 		PromptTokens:     r.promptTokens,
@@ -800,8 +784,10 @@ func (r *responseModifier) Close() error {
 		PersonalToken:    r.personalToken,
 	}
 	r.lock.Unlock()
-	if err := r.client.InsertTokenUsage(context.Background(), activity); err != nil {
-		logger.Warnf("failed to save token usage for run %s: %v", r.runID, err)
+	if runID != "" {
+		if err := r.client.InsertTokenUsage(context.Background(), activity); err != nil {
+			log.Warnf("failed to save token usage for run %s: %v", runID, err)
+		}
 	}
 	return r.c.Close()
 }

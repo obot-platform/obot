@@ -25,7 +25,7 @@ var everythingAccessControlRuleData []byte
 //go:embed everything-skill-access-rule.yaml
 var everythingSkillAccessRuleData []byte
 
-func Data(ctx context.Context, c kclient.Client, agentDir, defaultSkillRepoURL, defaultSkillRepoRef string) error {
+func Data(ctx context.Context, c kclient.Client, defaultSkillRepoURL, defaultSkillRepoRef string) error {
 	var defaultModelAliases v1.DefaultModelAliasList
 	if err := yaml.Unmarshal(defaultModelAliasesData, &defaultModelAliases); err != nil {
 		return fmt.Errorf("failed to unmarshal default model aliases: %w", err)
@@ -103,7 +103,7 @@ func Data(ctx context.Context, c kclient.Client, agentDir, defaultSkillRepoURL, 
 		}
 	}
 
-	return addAgents(ctx, c, agentDir)
+	return nil
 }
 
 func createDefaultSkillRepository(ctx context.Context, c kclient.Client, repoURL, ref string) error {

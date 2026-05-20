@@ -20,8 +20,6 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"golang.org/x/oauth2"
-	"k8s.io/apimachinery/pkg/fields"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const OAuthDebuggerPendingStateMarker = "oauth-debugger"
@@ -36,12 +34,12 @@ func (m *MCPHandler) RegisterOAuthDebuggerClient(req api.Context) error {
 		return err
 	}
 
-	metadata, authServer, registration, err := m.oauthDebuggerMetadata(server)
+	authServer, registration, err := m.oauthDebuggerMetadata(server)
 	if err != nil {
 		return err
 	}
 
-	clientID, clientSecret, err := m.lookupStaticOAuthClient(req, server, metadata.AuthorizationServerURL)
+	clientID, clientSecret, err := m.lookupStaticOAuthClient(req, server)
 	if err != nil && authServer.RegistrationEndpoint == "" {
 		return err
 	}
@@ -207,29 +205,29 @@ func (m *MCPHandler) validateOAuthDebuggerServer(req api.Context, server v1.MCPS
 	return nil
 }
 
-func (m *MCPHandler) oauthDebuggerMetadata(server v1.MCPServer) (*v1.OAuthMetadata, nmcp.AuthorizationServerMetadata, nmcp.ClientRegistrationMetadata, error) {
+func (m *MCPHandler) oauthDebuggerMetadata(server v1.MCPServer) (nmcp.AuthorizationServerMetadata, nmcp.ClientRegistrationMetadata, error) {
 	metadata := server.Status.OAuthMetadata
 	var authServer nmcp.AuthorizationServerMetadata
 	if len(metadata.AuthorizationServerMetadata) > 0 {
 		if err := json.Unmarshal(metadata.AuthorizationServerMetadata, &authServer); err != nil {
-			return nil, authServer, nmcp.ClientRegistrationMetadata{}, fmt.Errorf("failed to parse OAuth authorization server metadata: %w", err)
+			return authServer, nmcp.ClientRegistrationMetadata{}, fmt.Errorf("failed to parse OAuth authorization server metadata: %w", err)
 		}
 	}
 	if authServer.AuthorizationEndpoint == "" {
-		return nil, authServer, nmcp.ClientRegistrationMetadata{}, types.NewErrBadRequest("OAuth metadata does not include authorization_endpoint")
+		return authServer, nmcp.ClientRegistrationMetadata{}, types.NewErrBadRequest("OAuth metadata does not include authorization_endpoint")
 	}
 	if authServer.TokenEndpoint == "" {
-		return nil, authServer, nmcp.ClientRegistrationMetadata{}, types.NewErrBadRequest("OAuth metadata does not include token_endpoint")
+		return authServer, nmcp.ClientRegistrationMetadata{}, types.NewErrBadRequest("OAuth metadata does not include token_endpoint")
 	}
 
 	var registration nmcp.ClientRegistrationMetadata
 	if len(metadata.ClientRegistration) > 0 {
 		if err := json.Unmarshal(metadata.ClientRegistration, &registration); err != nil {
-			return nil, authServer, registration, fmt.Errorf("failed to parse OAuth client registration metadata: %w", err)
+			return authServer, registration, fmt.Errorf("failed to parse OAuth client registration metadata: %w", err)
 		}
 	}
 
-	return metadata, authServer, nmcp.AuthServerMetadataToClientRegistration(authServer, "Obot MCP OAuth Debugger", system.MCPOAuthCallbackURL(m.serverURL), registration.Scope), nil
+	return authServer, nmcp.AuthServerMetadataToClientRegistration(authServer, "Obot MCP OAuth Debugger", system.MCPOAuthCallbackURL(m.serverURL), registration.Scope), nil
 }
 
 func registerOAuthDebuggerClient(ctx context.Context, registrationEndpoint string, registration nmcp.ClientRegistrationMetadata) (types.OAuthClient, error) {
@@ -264,7 +262,7 @@ func registerOAuthDebuggerClient(ctx context.Context, registrationEndpoint strin
 	return registered, nil
 }
 
-func (m *MCPHandler) lookupStaticOAuthClient(req api.Context, server v1.MCPServer, authServerURL string) (string, string, error) {
+func (m *MCPHandler) lookupStaticOAuthClient(req api.Context, server v1.MCPServer) (string, string, error) {
 	if server.Spec.MCPServerCatalogEntryName != "" {
 		credName := system.MCPOAuthCredentialName(server.Spec.MCPServerCatalogEntryName)
 		cred, err := req.GPTClient.RevealCredential(req.Context(), []string{credName}, "oauth")
@@ -273,21 +271,6 @@ func (m *MCPHandler) lookupStaticOAuthClient(req api.Context, server v1.MCPServe
 		}
 		if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 			return "", "", err
-		}
-	}
-
-	var oauthApps v1.OAuthAppList
-	if err := req.Storage.List(req.Context(), &oauthApps, &client.ListOptions{
-		FieldSelector: fields.SelectorFromSet(map[string]string{
-			"spec.manifest.authorizationServerURL": authServerURL,
-		}),
-		Namespace: system.DefaultNamespace,
-	}); err != nil {
-		return "", "", err
-	}
-	for _, oauthApp := range oauthApps.Items {
-		if oauthApp.Spec.Manifest.ClientID != "" && oauthApp.Spec.Manifest.ClientSecret != "" {
-			return oauthApp.Spec.Manifest.ClientID, oauthApp.Spec.Manifest.ClientSecret, nil
 		}
 	}
 

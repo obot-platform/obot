@@ -46,7 +46,6 @@ func New(ctx context.Context, db *db.DB, tokenService *persistent.TokenService, 
 	}
 
 	go s.autoCleanupTokens(ctx)
-	go s.oAuthCleanup(ctx)
 
 	return s, nil
 }

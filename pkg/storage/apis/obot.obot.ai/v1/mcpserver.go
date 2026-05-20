@@ -34,8 +34,6 @@ func (in *MCPServer) Has(field string) (exists bool) {
 
 func (in *MCPServer) Get(field string) (value string) {
 	switch field {
-	case "spec.threadName":
-		return in.Spec.ThreadName
 	case "spec.userID":
 		return in.Spec.UserID
 	case "spec.mcpServerCatalogEntryName":
@@ -58,7 +56,6 @@ func (in *MCPServer) Get(field string) (value string) {
 
 func (in *MCPServer) FieldNames() []string {
 	return []string{
-		"spec.threadName",
 		"spec.userID",
 		"spec.mcpServerCatalogEntryName",
 		"spec.mcpCatalogID",
@@ -72,7 +69,6 @@ func (in *MCPServer) FieldNames() []string {
 
 func (in *MCPServer) DeleteRefs() []Ref {
 	refs := []Ref{
-		{ObjType: &Thread{}, Name: in.Spec.ThreadName},
 		{ObjType: &MCPCatalog{}, Name: in.Spec.MCPCatalogID},
 		{ObjType: &PowerUserWorkspace{}, Name: in.Spec.PowerUserWorkspaceID},
 		{ObjType: &MCPServer{}, Name: in.Spec.CompositeName},
@@ -98,8 +94,6 @@ type MCPServerSpec struct {
 	Manifest types.MCPServerManifest `json:"manifest"`
 	// List of tool names that are known to not work well in Obot.
 	UnsupportedTools []string `json:"unsupportedTools,omitempty"`
-	// ThreadName is the project or thread that owns this server, if there is one.
-	ThreadName string `json:"threadName,omitempty"`
 	// Alias is a user-defined alias for the MCP server.
 	// This may only be set for single user and remote MCP servers (i.e. where `MCPCatalogID` is "").
 	Alias string `json:"alias,omitempty"`

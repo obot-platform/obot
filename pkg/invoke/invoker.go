@@ -6,42 +6,28 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"maps"
-	"slices"
 	"strings"
 	"sync"
-	"sync/atomic"
+
 	"time"
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/router"
-	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
-	"github.com/obot-platform/obot/pkg/controller/handlers/retention"
-	"github.com/obot-platform/obot/pkg/events"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	gtypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/gz"
-	"github.com/obot-platform/obot/pkg/hash"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
-	"github.com/obot-platform/obot/pkg/mcp"
-	"github.com/obot-platform/obot/pkg/projects"
 	"github.com/obot-platform/obot/pkg/render"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	threadmodel "github.com/obot-platform/obot/pkg/thread"
 	"github.com/obot-platform/obot/pkg/wait"
 	apierror "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	ktypes "k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/util/retry"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var (
-	log              = logger.Package()
-	ephemeralCounter atomic.Int32
-)
+var log = logger.Package()
 
 const (
 	ephemeralRunPrefix = "ephemeral-run"
@@ -49,33 +35,27 @@ const (
 )
 
 type Invoker struct {
-	uncached                 kclient.WithWatch
-	gatewayClient            *client.Client
-	tokenService             *persistent.TokenService
-	events                   *events.Emitter
-	serverURL                string
-	internalServerURL        string
-	autonomousToolUseEnabled bool
+	uncached          kclient.WithWatch
+	gatewayClient     *client.Client
+	tokenService      *persistent.TokenService
+	serverURL         string
+	internalServerURL string
 }
 
-func NewInvoker(c kclient.WithWatch, gatewayClient *client.Client, serverURL string, serverPort int, tokenService *persistent.TokenService, events *events.Emitter, autonomousToolUseEnabled bool) *Invoker {
+func NewInvoker(c kclient.WithWatch, gatewayClient *client.Client, serverURL string, serverPort int, tokenService *persistent.TokenService) *Invoker {
 	return &Invoker{
-		uncached:                 c,
-		gatewayClient:            gatewayClient,
-		tokenService:             tokenService,
-		events:                   events,
-		serverURL:                serverURL,
-		internalServerURL:        fmt.Sprintf("http://localhost:%d", serverPort),
-		autonomousToolUseEnabled: autonomousToolUseEnabled,
+		uncached:          c,
+		gatewayClient:     gatewayClient,
+		tokenService:      tokenService,
+		serverURL:         serverURL,
+		internalServerURL: fmt.Sprintf("http://localhost:%d", serverPort),
 	}
 }
 
 type Response struct {
-	Run               *v1.Run
-	Thread            *v1.Thread
-	WorkflowExecution *v1.WorkflowExecution
-	Events            <-chan types.Progress
-	Message           string
+	Run     *v1.Run
+	Thread  *v1.Thread
+	Message string
 
 	uncached      kclient.WithWatch
 	gatewayClient *client.Client
@@ -89,9 +69,6 @@ type TaskResult struct {
 
 func (r *Response) Close() {
 	r.cancel()
-	//nolint:revive
-	for range r.Events {
-	}
 }
 
 type ErrToolResult struct {
@@ -106,9 +83,6 @@ func (r *Response) Result(ctx context.Context) (TaskResult, error) {
 	if r.uncached == nil || r.gatewayClient == nil {
 		panic("can not get resource of asynchronous task")
 	}
-	//nolint:revive
-	for range r.Events {
-	}
 
 	runState, err := pollRunState(ctx, r.gatewayClient, r.Run, func(run *gtypes.RunState) (bool, error) {
 		return run.Done, nil
@@ -122,7 +96,7 @@ func (r *Response) Result(ctx context.Context) (TaskResult, error) {
 	}
 
 	if runState.Name != r.Run.Name {
-		panic("runState doesnt match")
+		panic("runState doesn't match")
 	}
 
 	if runState.Error != "" {
@@ -159,13 +133,23 @@ func (r *Response) Result(ctx context.Context) (TaskResult, error) {
 func pollRunState(ctx context.Context, c *client.Client, run *v1.Run, done func(*gtypes.RunState) (bool, error)) (*gtypes.RunState, error) {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
-	for {
+
+	var (
+		notFoundCount int
+		notFoundErr   error
+		notFoundLimit = 3
+	)
+	for notFoundCount < notFoundLimit {
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		case <-ticker.C:
 			r, err := c.RunState(ctx, run.Namespace, run.Name)
-			if err != nil {
+			if apierror.IsNotFound(err) {
+				notFoundErr = err
+				notFoundCount++
+				continue
+			} else if err != nil {
 				return nil, err
 			}
 			if stop, err := done(r); err != nil {
@@ -175,51 +159,25 @@ func pollRunState(ctx context.Context, c *client.Client, run *v1.Run, done func(
 			}
 		}
 	}
+
+	return nil, fmt.Errorf("run state not found after %d attempts: %w", notFoundLimit, notFoundErr)
 }
 
 type Options struct {
-	Synchronous           bool
-	EphemeralThread       bool
-	Thread                *v1.Thread
-	ThreadName            string
-	ParentThreadName      string
-	WorkflowName          string
-	WorkflowStepName      string
-	WorkflowStepID        string
-	WorkflowExecutionName string
-	PreviousRunName       string
-	ForceNoResume         bool
-	CreateThread          bool
-	CredentialContextIDs  []string
-	UserUID               string
-	IgnoreMCPErrors       bool
-	GenerateName          string
-	ExtraEnv              []string
+	Synchronous          bool
+	EphemeralThread      bool
+	Thread               *v1.Thread
+	ThreadName           string
+	PreviousRunName      string
+	ForceNoResume        bool
+	CreateThread         bool
+	CredentialContextIDs []string
+	UserUID              string
+	GenerateName         string
+	ExtraEnv             []string
 }
 
 func (i *Invoker) getChatState(ctx context.Context, c kclient.Client, run *v1.Run) (result string, _ error) {
-	if run.Status.State == v1.Waiting {
-		if run.Status.ExternalCall == nil {
-			return "", fmt.Errorf("invalid state, external call is unset")
-		}
-		id := v1.RunStateNameWithExternalID(run.Name, run.Status.ExternalCall.ID)
-		lastRun, err := i.gatewayClient.RunState(ctx, run.Namespace, id)
-		if apierror.IsNotFound(err) {
-			// Copy existing state for future idempotent calls
-			lastRun, err = i.gatewayClient.RunState(ctx, run.Namespace, run.Name)
-			if err != nil {
-				return "", err
-			}
-			lastRun.Name = id
-			if err := i.gatewayClient.CreateRunState(ctx, lastRun); err != nil {
-				return "", err
-			}
-		} else if err != nil {
-			return "", err
-		}
-		return result, gz.Decompress(&result, lastRun.ChatState)
-	}
-
 	if run.Spec.PreviousRunName == "" {
 		return "", nil
 	}
@@ -259,168 +217,6 @@ func (i *Invoker) getChatState(ctx context.Context, c kclient.Client, run *v1.Ru
 	return result, gz.Decompress(&result, lastRun.ChatState)
 }
 
-func getThreadForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Agent, opt Options) (*v1.Thread, error) {
-	if opt.ThreadName != "" {
-		var thread v1.Thread
-		return &thread, c.Get(ctx, router.Key(agent.Namespace, opt.ThreadName), &thread)
-	}
-
-	var parentThreadName string
-	if opt.ParentThreadName != "" {
-		parentThreadName = opt.ParentThreadName
-	} else if opt.PreviousRunName != "" {
-		var run v1.Run
-		if err := c.Get(ctx, router.Key(agent.Namespace, opt.PreviousRunName), &run); err != nil {
-			return nil, err
-		}
-		parentThreadName = run.Spec.ThreadName
-	}
-
-	return createThreadForAgent(ctx, c, agent, opt.ThreadName, parentThreadName, opt.UserUID, opt.EphemeralThread)
-}
-
-func CreateProjectFromProject(ctx context.Context, c kclient.WithWatch, projectThread *v1.Thread, threadName, userUID string) (*v1.Thread, error) {
-	thread := v1.Thread{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:       threadName,
-			Namespace:  projectThread.Namespace,
-			Finalizers: []string{v1.ThreadFinalizer},
-		},
-		Spec: v1.ThreadSpec{
-			Manifest: types.ThreadManifest{
-				ThreadManifestManagedFields: types.ThreadManifestManagedFields{
-					Name:        projectThread.Spec.Manifest.Name,
-					Description: projectThread.Spec.Manifest.Description,
-					Icons:       projectThread.Spec.Manifest.Icons,
-				},
-				Prompt: projectThread.Spec.Manifest.Prompt,
-			},
-			AgentName:        projectThread.Spec.AgentName,
-			ParentThreadName: projectThread.Name,
-			UserID:           userUID,
-			Project:          true,
-		},
-	}
-
-	return &thread, c.Create(ctx, &thread)
-}
-
-func createThreadForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Agent, threadName, parentThreadName, userID string, ephemeral bool) (*v1.Thread, error) {
-	thread := &v1.Thread{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: system.ThreadPrefix,
-			Name:         threadName,
-			Namespace:    agent.Namespace,
-			Finalizers:   []string{v1.ThreadFinalizer},
-		},
-		Spec: v1.ThreadSpec{
-			Manifest: types.ThreadManifest{
-				Tools: agent.Spec.Manifest.DefaultThreadTools,
-			},
-			Ephemeral:        ephemeral,
-			AgentName:        agent.Name,
-			ParentThreadName: parentThreadName,
-			UserID:           userID,
-		},
-	}
-
-	return thread, c.Create(ctx, thread)
-}
-
-func (i *Invoker) Thread(ctx context.Context, mcpSessionManager *mcp.SessionManager, gptClient *gptscript.GPTScript, c kclient.WithWatch, thread *v1.Thread, input string, opt Options) (*Response, error) {
-	var agent v1.Agent
-	if err := c.Get(ctx, router.Key(thread.Namespace, thread.Spec.AgentName), &agent); err != nil {
-		return nil, err
-	}
-	opt.Thread = thread
-	return i.Agent(ctx, mcpSessionManager, gptClient, c, &agent, input, opt)
-}
-
-func (i *Invoker) Agent(ctx context.Context, mcpSessionManager *mcp.SessionManager, gptClient *gptscript.GPTScript, c kclient.WithWatch, agent *v1.Agent, input string, opt Options) (*Response, error) {
-	thread := opt.Thread
-	if thread == nil {
-		var err error
-		thread, err = getThreadForAgent(ctx, c, agent, opt)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if thread.Spec.AgentName != agent.Name {
-		return nil, fmt.Errorf("thread %q is not associated with agent %q", thread.Name, agent.Name)
-	}
-
-	if err := unAbortThread(ctx, c, thread); err != nil {
-		return nil, err
-	}
-
-	var (
-		credContextIDs []string
-		err            error
-	)
-	if opt.CredentialContextIDs != nil {
-		credContextIDs = opt.CredentialContextIDs
-	} else {
-		credContextIDs = []string{thread.Name}
-		if thread.Spec.ParentThreadName != "" {
-			credContextIDs, err = projects.ThreadIDs(ctx, c, thread)
-			if err != nil {
-				return nil, err
-			}
-			credContextIDs[0] = credContextIDs[1] + "-local"
-		}
-		if agent.Name != "" {
-			credContextIDs = append(credContextIDs, agent.Name)
-		}
-		if agent.Namespace != "" {
-			credContextIDs = append(credContextIDs, agent.Namespace)
-		}
-	}
-
-	renderedAgent, err := render.Agent(ctx, mcpSessionManager, c, agent, i.serverURL, i.internalServerURL, render.AgentOptions{
-		Thread:          thread,
-		WorkflowStepID:  opt.WorkflowStepID,
-		UserID:          opt.UserUID,
-		IgnoreMCPErrors: opt.IgnoreMCPErrors,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	if len(agent.Spec.Manifest.Params) == 0 {
-		data := map[string]any{}
-		if err := json.Unmarshal([]byte(input), &data); err == nil {
-			if msg, ok := data[render.DefaultAgentParams[0]].(string); ok && len(data) == 1 && msg != "" {
-				input = msg
-			}
-		}
-	}
-
-	resp, err := i.createRun(ctx, gptClient, c, thread, renderedAgent.Tools, input, runOptions{
-		Synchronous:           opt.Synchronous,
-		WorkflowName:          opt.WorkflowName,
-		AgentName:             agent.Name,
-		Env:                   append(renderedAgent.Env, opt.ExtraEnv...),
-		CredentialContextIDs:  credContextIDs,
-		WorkflowStepName:      opt.WorkflowStepName,
-		WorkflowStepID:        opt.WorkflowStepID,
-		WorkflowExecutionName: opt.WorkflowExecutionName,
-		PreviousRunName:       opt.PreviousRunName,
-		ForceNoResume:         opt.ForceNoResume,
-		GenerateName:          opt.GenerateName,
-		UserID:                opt.UserUID,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	if len(renderedAgent.MCPErrors) > 0 {
-		resp.Message = fmt.Sprintf("There were errors listing tools for some of the MCP servers:\n\n%s", strings.Join(renderedAgent.MCPErrors, "\n"))
-	}
-
-	return resp, nil
-}
-
 func unAbortThread(ctx context.Context, c kclient.Client, thread *v1.Thread) error {
 	if thread.Spec.Abort {
 		thread.Spec.Abort = false
@@ -430,20 +226,9 @@ func unAbortThread(ctx context.Context, c kclient.Client, thread *v1.Thread) err
 }
 
 type runOptions struct {
-	GenerateName          string
-	AgentName             string
-	Synchronous           bool
-	WorkflowName          string
-	WorkflowExecutionName string
-	WorkflowStepName      string
-	WorkflowStepID        string
-	PreviousRunName       string
-	ForceNoResume         bool
-	Env                   []string
-	CredentialContextIDs  []string
-	Timeout               time.Duration
-	Ephemeral             bool
-	UserID                string
+	Env                  []string
+	CredentialContextIDs []string
+	Timeout              time.Duration
 }
 
 func isEphemeral(run *v1.Run) bool {
@@ -451,113 +236,39 @@ func isEphemeral(run *v1.Run) bool {
 }
 
 func (i *Invoker) createRun(ctx context.Context, gptClient *gptscript.GPTScript, c kclient.WithWatch, thread *v1.Thread, tool any, input string, opts runOptions) (*Response, error) {
-	if thread.Spec.Project && !opts.Ephemeral {
-		return nil, fmt.Errorf("project threads cannot be invoked")
-	}
-
-	previousRunName := thread.Status.LastRunName
-	if opts.PreviousRunName != "" {
-		previousRunName = opts.PreviousRunName
-	}
-
-	if opts.ForceNoResume || opts.Ephemeral {
-		previousRunName = ""
-	}
-
 	toolData, err := json.Marshal(tool)
 	if err != nil {
 		return nil, err
 	}
 
-	generateName := opts.GenerateName
-	if generateName == "" {
-		generateName = system.RunPrefix
-	}
-
 	run := v1.Run{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: generateName,
+			GenerateName: system.RunPrefix,
 			Namespace:    thread.Namespace,
 			Finalizers:   []string{v1.RunFinalizer},
 		},
 		Spec: v1.RunSpec{
-			Synchronous:           opts.Synchronous,
-			ThreadName:            thread.Name,
-			AgentName:             opts.AgentName,
-			WorkflowName:          opts.WorkflowName,
-			WorkflowExecutionName: opts.WorkflowExecutionName,
-			WorkflowStepName:      opts.WorkflowStepName,
-			WorkflowStepID:        opts.WorkflowStepID,
-			PreviousRunName:       previousRunName,
-			Input:                 input,
-			Tool:                  string(toolData),
-			Env:                   opts.Env,
-			CredentialContextIDs:  opts.CredentialContextIDs,
-			Timeout:               metav1.Duration{Duration: opts.Timeout},
+			ThreadName:           thread.Name,
+			PreviousRunName:      thread.Status.LastRunName,
+			Input:                input,
+			Tool:                 string(toolData),
+			Env:                  opts.Env,
+			CredentialContextIDs: opts.CredentialContextIDs,
+			Timeout:              metav1.Duration{Duration: opts.Timeout},
 		},
 	}
 
-	if opts.UserID != "" {
-		u, err := i.gatewayClient.UserByID(ctx, opts.UserID)
-		if err != nil {
-			return nil, err
-		}
-		run.Spec.Username = u.DisplayName
+	if err := c.Create(ctx, &run); err != nil {
+		return nil, err
 	}
-
-	if opts.Ephemeral {
-		run.Name = fmt.Sprintf("%s-%d", ephemeralRunPrefix, ephemeralCounter.Add(1))
-		log.Infof("Starting ephemeral run: run=%s thread=%s agent=%s workflow=%s synchronous=%v", run.Name, thread.Name, opts.AgentName, opts.WorkflowName, opts.Synchronous)
-	} else {
-		if err := c.Create(ctx, &run); err != nil {
-			return nil, err
-		}
-		log.Infof("Created run resource: run=%s thread=%s agent=%s workflow=%s synchronous=%v previousRun=%s", run.Name, thread.Name, opts.AgentName, opts.WorkflowName, opts.Synchronous, previousRunName)
-	}
-
-	if !thread.Spec.SystemTask && !opts.Ephemeral {
-		err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			if err := i.uncached.Get(ctx, kclient.ObjectKeyFromObject(thread), thread); err != nil {
-				return err
-			}
-			thread.Status.CurrentRunName = run.Name
-			if err := retention.SetLastUsedTime(ctx, c, thread); err != nil {
-				return err
-			}
-			return c.Status().Update(ctx, thread)
-		})
-		if err != nil {
-			// Don't return error it's not critical, and will mostly likely make caller loose track of this
-			log.Errorf("failed to update thread %q for run %q: %v", thread.Name, run.Name, err)
-		}
-	}
+	log.Infof("Created run resource: run=%s thread=%s previousRun=%s", run.Name, thread.Name, thread.Status.LastRunName)
 
 	resp := &Response{
 		Run:    &run,
 		Thread: thread,
 	}
 
-	if !opts.Synchronous {
-		noEvents := make(chan types.Progress)
-		close(noEvents)
-		resp.Events = noEvents
-		resp.cancel = func() {}
-		return resp, nil
-	}
-
 	ctx, cancel := context.WithCancel(ctx)
-
-	_, events, err := i.events.Watch(ctx, thread.Namespace, events.WatchOptions{
-		Run: &run,
-	})
-	if err != nil {
-		cancel()
-		// Cleanup orphaned run
-		_ = i.uncached.Delete(ctx, &run)
-		return nil, err
-	}
-
-	resp.Events = events
 	resp.uncached = i.uncached
 	resp.gatewayClient = i.gatewayClient
 	resp.cancel = cancel
@@ -571,180 +282,43 @@ func (i *Invoker) createRun(ctx context.Context, gptClient *gptscript.GPTScript,
 }
 
 func (i *Invoker) Resume(ctx context.Context, gptClient *gptscript.GPTScript, c kclient.WithWatch, thread *v1.Thread, run *v1.Run) (err error) {
-	defer func() {
-		if err != nil {
-			errStr, _, _ := strings.Cut(err.Error(), ": exit status")
-			i.events.SubmitProgress(run, types.Progress{
-				RunID: run.Name,
-				Time:  types.NewTime(time.Now()),
-				Error: errStr,
-			})
-		}
-		i.events.Done(run)
-		time.AfterFunc(20*time.Second, func() {
-			i.events.ClearProgress(run)
-		})
-	}()
-
-	if !isEphemeral(run) {
-		thread, err = wait.For(ctx, c, thread, func(thread *v1.Thread) (bool, error) {
-			if thread.Spec.Abort {
-				return false, fmt.Errorf("thread was aborted while waiting for workspace")
-			}
-			return thread.Status.Created, nil
-		})
-		if err != nil {
-			return fmt.Errorf("failed to wait for thread to be ready: %w", err)
-		}
-	}
-
 	input := run.Spec.Input
-	if run.Status.State == v1.Waiting {
-		if run.Status.ExternalCall == nil {
-			return fmt.Errorf("invalid state, external call should be set for waiting run")
-		}
-
-		found := false
-		for _, newInput := range run.Spec.ExternalCallResults {
-			if newInput.ID == run.Status.ExternalCall.ID {
-				inputData, err := json.Marshal(v1.ExternalCallResume{
-					Type:   "obotExternalCallResume",
-					Call:   *run.Status.ExternalCall,
-					Result: newInput,
-				})
-				if err != nil {
-					return fmt.Errorf("failed to marshal external call resume: %w", err)
-				}
-				input = string(inputData)
-				found = true
-				break
-			}
-		}
-
-		if !found {
-			// Still waiting for input
-			return nil
-		}
-	}
 
 	chatState, err := i.getChatState(ctx, c, run)
 	if err != nil {
 		return fmt.Errorf("failed to get chat state: %w", err)
 	}
 
-	var (
-		userAutonomousToolUseEnabled              *bool
-		userID, userName, userEmail, userTimezone string
-		// For runs that are not from a user, ensure the token has the basic and authenticated groups.
-		userGroups = []string{types.GroupBasic, types.GroupAuthenticated}
-	)
-	if thread.Spec.UserID != "" && thread.Spec.UserID != "anonymous" && thread.Spec.UserID != "nobody" {
-		u, err := i.gatewayClient.UserByID(ctx, thread.Spec.UserID)
-		if err != nil {
-			return fmt.Errorf("failed to get user: %w", err)
-		}
-
-		// Capture account-level override for enabling autonomous tool use
-		userAutonomousToolUseEnabled = u.AutonomousToolUseEnabled
-
-		userID, userName, userEmail, userTimezone = thread.Spec.UserID, u.Username, u.Email, u.Timezone
-
-		// Add groups based on user's role
-		userGroups = u.Role.Groups()
-	}
-
-	model, modelProvider, err := threadmodel.GetModelAndModelProviderForThread(ctx, c, thread)
-	if err != nil {
-		return fmt.Errorf("failed to get model and model provider: %w", err)
-	}
-
-	project, err := projects.GetRoot(ctx, c, thread)
-	if err != nil {
-		return fmt.Errorf("failed to get root project: %w", err)
-	}
-
 	now := time.Now()
 	token, err := i.tokenService.NewToken(ctx, persistent.TokenContext{
-		Audience:          i.serverURL,
-		IssuedAt:          now,
-		ExpiresAt:         now.Add(time.Hour * 24),
-		Namespace:         run.Namespace,
-		RunID:             run.Name,
-		ThreadID:          thread.Name,
-		ProjectID:         thread.Spec.ParentThreadName,
-		TopLevelProjectID: project.Name,
-		ModelProvider:     modelProvider,
-		Model:             model,
-		AgentID:           run.Spec.AgentName,
-		WorkflowID:        run.Spec.WorkflowName,
-		WorkflowStepID:    run.Spec.WorkflowStepID,
-		Scope:             thread.Namespace,
-		UserID:            userID,
-		UserName:          userName,
-		UserEmail:         userEmail,
-		UserGroups:        userGroups,
-		TokenType:         persistent.TokenTypeRun,
+		Audience:  i.serverURL,
+		IssuedAt:  now,
+		ExpiresAt: now.Add(time.Hour * 24),
+		Namespace: run.Namespace,
+		Scope:     thread.Namespace,
+		TokenType: persistent.TokenTypeRun,
 	})
 	if err != nil {
 		return err
 	}
 
-	modelProvider, err = render.ResolveToolReference(ctx, c, types.ToolReferenceTypeSystem, thread.Namespace, system.ModelProviderTool)
-	if err != nil {
-		return fmt.Errorf("failed to resolve model provider: %w", err)
-	}
-
-	// Disable tool call confirmation when any of the following hold:
-	// 1. We're invoking a system task or a workflow
-	// 2. This is a workflow execution
-	// 3. Autonomous tool use has been enabled globally (OBOT_SERVER_ENABLE_AUTONOMOUS_TOOL_USE = true)
-	// 4. Autonomous tool use has been enabled at the user's account-level
-	// 5. The user has pre-approved all tool calls (ApprovedTools contains the wildcard operator "*")
-	autonomousToolUseEnabled := thread.Spec.SystemTask ||
-		thread.Spec.WorkflowName != "" ||
-		i.autonomousToolUseEnabled ||
-		(userAutonomousToolUseEnabled != nil && *userAutonomousToolUseEnabled) ||
-		slices.Contains(thread.Spec.ApprovedTools, "*")
-
 	options := gptscript.Options{
 		GlobalOptions: gptscript.GlobalOptions{
 			Env: append(run.Spec.Env,
-				fmt.Sprintf("GPTSCRIPT_MODEL_PROVIDER_PROXY_URL=%s/api/llm-proxy", i.internalServerURL),
-				"GPTSCRIPT_MODEL_PROVIDER_PROXY_TOKEN="+token,
-				"GPTSCRIPT_MODEL_PROVIDER_TOKEN="+token,
 				"OBOT_SERVER_PUBLIC_URL="+i.serverURL,
 				"OBOT_SERVER_URL="+i.internalServerURL,
 				"OBOT_TOKEN="+token,
 				"OBOT_RUN_ID="+run.Name,
 				"OBOT_THREAD_ID="+thread.Name,
-				"OBOT_PROJECT_ID="+thread.Spec.ParentThreadName,
-				"OBOT_WORKFLOW_ID="+run.Spec.WorkflowName,
-				"OBOT_WORKFLOW_STEP_ID="+run.Spec.WorkflowStepID,
-				"OBOT_AGENT_ID="+run.Spec.AgentName,
-				"OBOT_DEFAULT_LLM_MODEL="+model,
-				"OBOT_DEFAULT_LLM_MINI_MODEL="+string(types.DefaultModelAliasTypeLLMMini),
-				"OBOT_DEFAULT_TEXT_EMBEDDING_MODEL="+string(types.DefaultModelAliasTypeTextEmbedding),
-				"OBOT_DEFAULT_IMAGE_GENERATION_MODEL="+string(types.DefaultModelAliasTypeImageGeneration),
-				"OBOT_DEFAULT_VISION_MODEL="+string(types.DefaultModelAliasTypeVision),
-				"OBOT_USER_ID="+userID,
-				"OBOT_USER_NAME="+userName,
-				"OBOT_USER_EMAIL="+userEmail,
-				"OBOT_USER_TIMEZONE="+userTimezone,
 				"GPTSCRIPT_HTTP_ENV=OBOT_TOKEN,OBOT_RUN_ID,OBOT_THREAD_ID,OBOT_PROJECT_ID,OBOT_WORKFLOW_ID,OBOT_WORKFLOW_STEP_ID,OBOT_AGENT_ID",
 			),
-			DefaultModel:         model,
-			DefaultModelProvider: modelProvider,
 		},
 		Input:              input,
-		Workspace:          thread.Status.WorkspaceID,
 		CredentialContexts: run.Spec.CredentialContextIDs,
 		ChatState:          chatState,
-		IncludeEvents:      true,
 		ForceSequential:    true,
-		Prompt:             true,
-		Confirm:            !autonomousToolUseEnabled,
 	}
-	log.Infof("Executing run with resolved invocation settings: run=%s thread=%s userID=%s autonomousToolUse=%v confirmToolCalls=%v", run.Name, thread.Name, thread.Spec.UserID, autonomousToolUseEnabled, !autonomousToolUseEnabled)
+	log.Infof("Executing run with resolved invocation settings: run=%s thread=%s", run.Name, thread.Name)
 
 	if len(run.Spec.Tool) == 0 {
 		return fmt.Errorf("no tool specified")
@@ -789,7 +363,7 @@ func (i *Invoker) Resume(ctx context.Context, gptClient *gptscript.GPTScript, c 
 		return fmt.Errorf("invalid tool definition: %s", run.Spec.Tool)
 	}
 
-	if err := i.stream(ctx, gptClient, c, thread, run, runResp); err != nil {
+	if err := i.stream(ctx, c, thread, run, runResp); err != nil {
 		return fmt.Errorf("failed to stream: %w", err)
 	}
 
@@ -805,7 +379,7 @@ func (i *Invoker) saveState(ctx context.Context, c kclient.Client, thread *v1.Th
 	}
 
 	var err error
-	for j := 0; j < 3; j++ {
+	for range 3 {
 		err = i.doSaveState(ctx, c, thread, run, runResp, retErr)
 		if err == nil {
 			return errors.Join(errs...)
@@ -828,10 +402,9 @@ func (i *Invoker) saveState(ctx context.Context, c kclient.Client, thread *v1.Th
 	return retErr
 }
 
-func (i *Invoker) doSaveState(ctx context.Context, c kclient.Client, thread *v1.Thread, run *v1.Run, runResp *gptscript.Run, retErr error) error {
+func (i *Invoker) doSaveState(ctx context.Context, c kclient.Client, _ *v1.Thread, run *v1.Run, runResp *gptscript.Run, retErr error) error {
 	var (
 		runStateSpec gtypes.RunState
-		extCall      *v1.ExternalCall
 		runChanged   bool
 		err          error
 		prevState    = run.Status.State
@@ -839,7 +412,6 @@ func (i *Invoker) doSaveState(ctx context.Context, c kclient.Client, thread *v1.
 
 	runStateSpec.Name = run.Name
 	runStateSpec.Namespace = run.Namespace
-	runStateSpec.UserID = thread.Spec.UserID
 	runStateSpec.ThreadName = run.Spec.ThreadName
 	runStateSpec.Done = runResp.State().IsTerminal() || runResp.State() == gptscript.Continue
 	if retErr != nil {
@@ -851,12 +423,6 @@ func (i *Invoker) doSaveState(ctx context.Context, c kclient.Client, thread *v1.
 			runStateSpec.Output, err = gz.Compress(text)
 			if err != nil {
 				return err
-			}
-
-			extCall = toExternalCall(text)
-			if extCall != nil {
-				// waiting state
-				runStateSpec.Done = false
 			}
 		}
 	}
@@ -883,7 +449,6 @@ func (i *Invoker) doSaveState(ctx context.Context, c kclient.Client, thread *v1.
 	runState, err := i.gatewayClient.RunState(ctx, run.Namespace, run.Name)
 	if apierror.IsNotFound(err) {
 		runState = &gtypes.RunState{
-			UserID:     thread.Spec.UserID,
 			Name:       run.Name,
 			Namespace:  run.Namespace,
 			ThreadName: runStateSpec.ThreadName,
@@ -912,10 +477,6 @@ func (i *Invoker) doSaveState(ctx context.Context, c kclient.Client, thread *v1.
 	}
 
 	state := v1.RunStateState(runResp.State())
-	if state == v1.Continue && extCall != nil {
-		state = v1.Waiting
-	}
-
 	if run.Status.State != state {
 		run.Status.State = state
 		runChanged = true
@@ -933,7 +494,7 @@ func (i *Invoker) doSaveState(ctx context.Context, c kclient.Client, thread *v1.
 			run.Status.Error = errString
 			runChanged = true
 		}
-	case v1.Continue, v1.Finished, v1.Waiting:
+	case v1.Continue, v1.Finished:
 		final = true
 		text, err := runResp.Text()
 		if err != nil {
@@ -945,13 +506,8 @@ func (i *Invoker) doSaveState(ctx context.Context, c kclient.Client, thread *v1.
 			shortText = shortText[:runOutputMaxLength]
 		}
 		if run.Status.Output != shortText {
-			if run.Status.ExternalCall == nil {
-				runChanged = true
-			}
-			run.Status.ExternalCall = extCall
-			if run.Status.ExternalCall == nil {
-				run.Status.Output = shortText
-			}
+			runChanged = true
+			run.Status.Output = shortText
 		}
 	}
 
@@ -964,9 +520,6 @@ func (i *Invoker) doSaveState(ctx context.Context, c kclient.Client, thread *v1.
 	}
 
 	if runChanged {
-		if run.Status.ExternalCall != nil && run.Status.State != v1.Waiting {
-			run.Status.ExternalCall = nil // clear external call if we are done
-		}
 		if run.Status.EndTime.IsZero() && final {
 			run.Status.EndTime = metav1.Now()
 		}
@@ -974,70 +527,20 @@ func (i *Invoker) doSaveState(ctx context.Context, c kclient.Client, thread *v1.
 			return err
 		}
 		log.Infof(
-			"Persisted run status update: run=%s thread=%s previousState=%v newState=%v final=%v waitingForExternalCall=%v hasError=%v",
+			"Persisted run status update: run=%s thread=%s previousState=%v newState=%v final=%v hasError=%v",
 			run.Name,
 			run.Spec.ThreadName,
 			prevState,
 			run.Status.State,
 			final,
-			run.Status.State == v1.Waiting && run.Status.ExternalCall != nil,
 			run.Status.Error != "",
 		)
-	}
-
-	if !thread.Spec.SystemTask {
-		var workflowState types.WorkflowState
-		if thread.Spec.WorkflowExecutionName != "" {
-			var wfe v1.WorkflowExecution
-			if err := c.Get(ctx, router.Key(thread.Namespace, thread.Spec.WorkflowExecutionName), &wfe); err == nil {
-				workflowState = wfe.Status.State
-			}
-		}
-
-		if final && thread.Status.LastRunName != run.Name {
-			thread.Status.CurrentRunName = ""
-			if err := retention.SetLastUsedTime(ctx, c, thread); err != nil {
-				return err
-			}
-
-			thread.Status.LastRunName = run.Name
-			thread.Status.LastRunState = run.Status.State
-			if workflowState != "" {
-				thread.Status.WorkflowState = workflowState
-			}
-			if err := c.Status().Update(ctx, thread); err != nil {
-				return err
-			}
-		} else if workflowState != "" && thread.Status.WorkflowState != workflowState {
-			if err := c.Status().Update(ctx, thread); err != nil {
-				return err
-			}
-		}
 	}
 
 	return nil
 }
 
-func toExternalCall(output string) *v1.ExternalCall {
-	var call v1.ExternalCall
-	if err := json.Unmarshal([]byte(strings.TrimSpace(output)), &call); err != nil || call.Type != "obotExternalCall" || call.ID == "" {
-		return nil
-	}
-	return &call
-}
-
-func getCredentialCallingTool(runResp *gptscript.Run) (result gptscript.Tool) {
-	calls := runResp.Calls()
-	// Look for an in progress cred tool and just assume that's it
-	for _, call := range calls {
-		if call.ToolCategory == gptscript.CredentialToolCategory && call.End.IsZero() && call.ParentID != "" {
-			return calls[call.ParentID].Tool
-		}
-	}
-	return
-}
-
-func (i *Invoker) stream(ctx context.Context, gptClient *gptscript.GPTScript, c kclient.WithWatch, thread *v1.Thread, run *v1.Run, runResp *gptscript.Run) (retErr error) {
+func (i *Invoker) stream(ctx context.Context, c kclient.WithWatch, thread *v1.Thread, run *v1.Run, runResp *gptscript.Run) (retErr error) {
 	var (
 		runEvent = runResp.Events()
 		wg       sync.WaitGroup
@@ -1062,9 +565,7 @@ func (i *Invoker) stream(ctx context.Context, gptClient *gptscript.GPTScript, c 
 	saveCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for {
 			select {
 			case <-saveCtx.Done():
@@ -1073,7 +574,7 @@ func (i *Invoker) stream(ctx context.Context, gptClient *gptscript.GPTScript, c 
 				_ = i.saveState(ctx, c, thread, run, runResp, nil)
 			}
 		}
-	}()
+	})
 
 	defer func() {
 		_ = runResp.Close()
@@ -1097,131 +598,16 @@ func (i *Invoker) stream(ctx context.Context, gptClient *gptscript.GPTScript, c 
 		go i.watchThreadAbort(runCtx, c, thread, cancelRun)
 	}
 
-	var (
-		abortTimeout = func() {}
-		prg          *gptscript.Program
-	)
-
 	for {
 		select {
 		case <-runCtx.Done():
 			return context.Cause(runCtx)
-		case frame, ok := <-runEvent:
+		case _, ok := <-runEvent:
 			if !ok {
 				if errOut := runResp.ErrorOutput(); errOut != "" {
 					return errors.New(errOut)
 				}
 				return runResp.Err()
-			}
-
-			if frame.Run != nil {
-				if frame.Run.Type == gptscript.EventTypeRunStart {
-					prg = &frame.Run.Program
-				}
-			}
-
-			if frame.Prompt != nil {
-				msg := "\n" + frame.Prompt.Message
-				if !strings.HasSuffix(msg, "\n") {
-					msg += "\n"
-				}
-				callingTool := getCredentialCallingTool(runResp)
-				metadata := map[string]string{}
-				maps.Copy(metadata, frame.Prompt.Metadata)
-				maps.Copy(metadata, callingTool.MetaData)
-				prompt := &types.Prompt{
-					ID:          frame.Prompt.ID,
-					Name:        callingTool.Name,
-					Description: callingTool.Description,
-					Time:        types.NewTime(frame.Prompt.Time),
-					Message:     frame.Prompt.Message,
-					Fields:      types.ToFields(frame.Prompt.Fields),
-					Sensitive:   frame.Prompt.Sensitive,
-					Metadata:    metadata,
-				}
-				contentID := hash.String(prompt)[:8]
-				i.events.SubmitProgress(run, types.Progress{
-					RunID:     run.Name,
-					Content:   msg,
-					ContentID: contentID,
-					Time:      types.NewTime(time.Now()),
-					Prompt:    prompt,
-				})
-
-				var (
-					timeoutMsg = "timeout waiting for prompt response from user"
-					timeout    = 5 * time.Minute
-				)
-				if len(frame.Prompt.Fields) == 0 {
-					// In this case, we're waiting for an OAuth prompt
-					timeoutMsg = "timeout waiting for oauth"
-					timeout = 90 * time.Second
-					err := gptClient.PromptResponse(runCtx, gptscript.PromptResponse{
-						ID: frame.Prompt.ID,
-						Responses: map[string]string{
-							"handled": "true",
-						},
-					})
-					if err != nil {
-						return err
-					}
-				}
-				timeoutCtx, timeoutCancel := context.WithCancel(ctx)
-				abortTimeout = timeoutCancel
-				go func() {
-					defer timeoutCancel()
-					select {
-					case <-timeoutCtx.Done():
-					case <-time.After(timeout):
-						cancelRun(errors.New(timeoutMsg))
-					}
-				}()
-			}
-
-			if frame.Call != nil {
-				switch frame.Call.Type {
-				case gptscript.EventTypeCallConfirm:
-					var (
-						callID       = frame.Call.ID
-						toolName     = frame.Call.Tool.Name
-						latestThread v1.Thread
-					)
-
-					// Fetch the latest approved tools in case they've changed since the run was started.
-					// This can happen when there are multiple tools awaiting approval, and the user approves
-					// with an "allow all X" option.
-					if c.Get(ctx, router.Key(thread.Namespace, thread.Name), &latestThread) != nil {
-						log.Warnf("Using stale approved tools for thread %s", thread.Name)
-						latestThread = *thread.DeepCopy()
-					}
-
-					// Auto-confirm pre-approved tools.
-					if frame.Call.ToolCategory != gptscript.NoCategory || isApprovedTool(toolName, latestThread.Spec.ApprovedTools) {
-						log.Infof("Auto-approving tool call: run=%s thread=%s callID=%s tool=%s category=%v", run.Name, thread.Name, callID, toolName, frame.Call.ToolCategory)
-						if err := gptClient.Confirm(runCtx, gptscript.AuthResponse{
-							ID:     callID,
-							Accept: true,
-						}); err != nil {
-							return err
-						}
-						break
-					}
-
-					// Add the requested call decision to the run.
-					// This will cause the event emitter to generate a tool confirm progress event.
-					if err := addRequestedCallDecision(runCtx, c.Status(), run, callID); err != nil {
-						return fmt.Errorf("failed to add pending call decision to run: %w", err)
-					}
-					log.Infof("Waiting for user decision on tool call: run=%s thread=%s callID=%s tool=%s", run.Name, thread.Name, callID, toolName)
-
-					// Watch for the call decision to be set on the run and submit to GPTScript
-					go watchRunCallDecision(runCtx, gptClient, c, run, callID)
-				case gptscript.EventTypeCallFinish:
-					abortTimeout()
-					fallthrough
-				case gptscript.EventTypeCallProgress, gptscript.EventTypeCallStart:
-					i.events.Submit(run, prg, runResp.Calls())
-				}
 			}
 		}
 	}
@@ -1242,97 +628,10 @@ func (i *Invoker) watchThreadAbort(ctx context.Context, c kclient.WithWatch, thr
 	})
 }
 
-// watchRunCallDecision watches for a user's approval/rejection decision on a tool call and sends it to GPTScript.
-// Blocks until the decision is made in run.Spec.CallDecisions or the context is canceled.
-func watchRunCallDecision(
-	ctx context.Context,
-	gptClient *gptscript.GPTScript,
-	c kclient.WithWatch,
-	run *v1.Run,
-	callID string,
-) {
-	if _, err := wait.For(ctx, c, run, func(run *v1.Run) (bool, error) {
-		accept, ok := run.Spec.CallDecisions[callID]
-		if !ok {
-			// Decision hasn't been made yet
-			return false, nil
-		}
-		log.Infof("Received user decision for tool call: run=%s callID=%s accept=%v", run.Name, callID, accept)
-
-		return true, gptClient.Confirm(ctx, gptscript.AuthResponse{
-			ID:     callID,
-			Accept: accept,
-		})
-	}, wait.Option{
-		Timeout: 11 * time.Minute,
-	}); err != nil && ctx.Err() == nil {
-		// Context isn't done (not abort/deadline), log the error
-		log.Warnf("failed to watch run decision for call %s in run %s: %v", callID, run.Name, err)
-	}
-}
-
-// addRequestedCallDecision adds a call ID to the set of requested call decisions on a run.
-// This function patches the run's status to avoid resource contention.
-func addRequestedCallDecision(
-	ctx context.Context,
-	c kclient.SubResourceWriter,
-	run *v1.Run,
-	callID string,
-) error {
-	// Add to the set of calls that require approval on the run
-	var (
-		patchPath  = "/status/requestedCallDecisions"
-		patchValue any
-	)
-	if len(run.Status.RequestedCallDecisions) > 0 {
-		// If we already have requested call decisions, append instead of replace
-		patchValue = callID
-		patchPath += "/-"
-	} else {
-		patchValue = []string{callID}
-	}
-	patch := []map[string]any{{
-		"op":    "add",
-		"path":  patchPath,
-		"value": patchValue,
-	}}
-	patchBytes, err := json.Marshal(patch)
-	if err != nil {
-		return err
-	}
-
-	return c.Patch(ctx, run, kclient.RawPatch(ktypes.JSONPatchType, patchBytes))
-}
-
 func timeoutAfter(ctx context.Context, cancel func(err error), d time.Duration) {
 	select {
 	case <-ctx.Done():
 	case <-time.After(d):
 		cancel(fmt.Errorf("run exceeded maximum time of %v", d))
 	}
-}
-
-// isApprovedTool returns true IFF a tool has been approved for use in the set of approved tools.
-// It returns true when toolName matches a pattern in the approvedTools list.
-func isApprovedTool(toolName string, approvedTools []string) bool {
-	if toolName == "" {
-		return false
-	}
-
-	for _, approved := range approvedTools {
-		if prefix, hasWildcard := strings.CutSuffix(approved, "*"); hasWildcard {
-			if strings.HasPrefix(toolName, prefix) {
-				// Trailing wildcard - match tools with the prefix
-				// If prefix is empty (approved == "*"), this matches all tools
-				return true
-			}
-			continue
-		}
-
-		// No wildcard, exact match required
-		if toolName == approved {
-			return true
-		}
-	}
-	return false
 }

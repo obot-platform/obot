@@ -895,7 +895,7 @@ func (h *MCPCatalogHandler) generateCompositeToolPreviews(req api.Context, entry
 				return fmt.Errorf("failed to build server configuration for MCP server %q: %w", mcpServer.Name, err)
 			}
 
-			tools, err := toolsForServer(req.Context(), h.sessionManager, mcpServer, serverConfig, nil)
+			tools, err := toolsForServer(req.Context(), h.sessionManager, mcpServer, serverConfig)
 			if err != nil {
 				return fmt.Errorf("failed to list tools for MCP server %q: %w", mcpServer.Name, err)
 			}

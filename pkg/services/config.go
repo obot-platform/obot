@@ -22,7 +22,6 @@ import (
 	"github.com/obot-platform/nah/pkg/apply"
 	"github.com/obot-platform/nah/pkg/leader"
 	"github.com/obot-platform/nah/pkg/router"
-	"github.com/obot-platform/nah/pkg/runtime"
 	apiclienttypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
@@ -36,7 +35,6 @@ import (
 	"github.com/obot-platform/obot/pkg/bootstrap"
 	"github.com/obot-platform/obot/pkg/credstores"
 	"github.com/obot-platform/obot/pkg/encryption"
-	"github.com/obot-platform/obot/pkg/events"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/db"
 	gserver "github.com/obot-platform/obot/pkg/gateway/server"
@@ -66,7 +64,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authentication/request/union"
 	"k8s.io/apiserver/pkg/server/options/encryptionconfig"
 	k8sscheme "k8s.io/client-go/kubernetes/scheme"
@@ -95,40 +92,26 @@ type MetricsAuthConfig struct {
 }
 
 type Config struct {
-	HTTPListenPort              int      `usage:"HTTP port to listen on" default:"8080" name:"http-listen-port"`
-	DevMode                     bool     `usage:"Enable development mode" default:"false" name:"dev-mode" env:"OBOT_DEV_MODE"`
-	DevUIPort                   int      `usage:"The port on localhost running the dev instance of the UI" default:"5174"`
-	UserUIPort                  int      `usage:"The port on localhost running the user production instance of the UI" env:"OBOT_SERVER_USER_UI_PORT"`
-	AllowedOrigin               string   `usage:"Allowed origin for CORS"`
-	ToolRegistries              []string `usage:"The remote tool references to the set of gptscript tool registries to use" default:"github.com/obot-platform/tools"`
-	WorkspaceProviderType       string   `usage:"The type of workspace provider to use for non-knowledge workspaces" default:"directory" env:"OBOT_WORKSPACE_PROVIDER_TYPE"`
-	HelperModel                 string   `usage:"The model used to generate names and descriptions" default:"gpt-5-mini"`
-	EmailServerName             string   `usage:"The name of the email server to display for email receivers"`
-	Docker                      bool     `usage:"Enable Docker support" default:"false" env:"OBOT_DOCKER"`
-	EnvKeys                     []string `usage:"The environment keys to pass through to the GPTScript server" env:"OBOT_ENV_KEYS"`
-	KnowledgeSetIngestionLimit  int      `usage:"The maximum number of files to ingest into a knowledge set" default:"3000" name:"knowledge-set-ingestion-limit"`
-	KnowledgeFileWorkers        int      `usage:"The number of workers to process knowledge files" default:"5"`
-	RunWorkers                  int      `usage:"The number of workers to process runs" default:"1000"`
-	ElectionFile                string   `usage:"Use this file for leader election instead of database leases"`
-	EnableAuthentication        bool     `usage:"Enable authentication" default:"false"`
-	ForceEnableBootstrap        bool     `usage:"Enables the bootstrap user even if other admin users have been created" default:"false"`
-	AuthAdminEmails             []string `usage:"Emails of admin users"`
-	AuthOwnerEmails             []string `usage:"Emails of owner users"`
-	AgentsDir                   string   `usage:"The directory to auto load agents on start (default $XDG_CONFIG_HOME/.obot/agents)"`
-	StaticDir                   string   `usage:"The directory to serve static files from"`
-	RetentionPolicyHours        int      `usage:"The retention policy for the system. Set to 0 to disable retention." default:"2160"` // default 90 days
-	DefaultMCPCatalogPath       string   `usage:"The path to the default MCP catalog (accessible to all users)" default:""`
-	DefaultSystemMCPCatalogPath string   `usage:"The path to the default System MCP catalog" default:""`
-	DefaultSkillRepoURL         string   `usage:"The default skill repository URL (must be HTTPS GitHub URL)" default:"https://github.com/obot-platform/skills" env:"OBOT_DEFAULT_SKILL_REPO_URL"`
-	DefaultSkillRepoRef         string   `usage:"The ref (branch/tag) for the default skill repository" default:"" env:"OBOT_DEFAULT_SKILL_REPO_REF"`
-	DisableUpdateCheck          bool     `usage:"Disable Obot server update checks"`
-	EnableAutonomousToolUse     bool     `usage:"Allow all chat sessions to use tools without requesting user approval" default:"false" env:"OBOT_SERVER_ENABLE_AUTONOMOUS_TOOL_USE"`
-	// Sendgrid webhook
-	SendgridWebhookUsername              string `usage:"The username for the sendgrid webhook to authenticate with"`
-	SendgridWebhookPassword              string `usage:"The password for the sendgrid webhook to authenticate with"`
+	HTTPListenPort       int      `usage:"HTTP port to listen on" default:"8080" name:"http-listen-port"`
+	DevMode              bool     `usage:"Enable development mode" default:"false" name:"dev-mode" env:"OBOT_DEV_MODE"`
+	DevUIPort            int      `usage:"The port on localhost running the dev instance of the UI" default:"5174"`
+	UserUIPort           int      `usage:"The port on localhost running the user production instance of the UI" env:"OBOT_SERVER_USER_UI_PORT"`
+	AllowedOrigin        string   `usage:"Allowed origin for CORS"`
+	ToolRegistries       []string `usage:"The remote tool references to the set of gptscript tool registries to use" default:"github.com/obot-platform/tools"`
+	EnvKeys              []string `usage:"The environment keys to pass through to the GPTScript server" env:"OBOT_ENV_KEYS"`
+	ElectionFile         string   `usage:"Use this file for leader election instead of database leases"`
+	EnableAuthentication bool     `usage:"Enable authentication" default:"false"`
+	ForceEnableBootstrap bool     `usage:"Enables the bootstrap user even if other admin users have been created" default:"false"`
+	AuthAdminEmails      []string `usage:"Emails of admin users"`
+	AuthOwnerEmails      []string `usage:"Emails of owner users"`
+	StaticDir            string   `usage:"The directory to serve static files from"`
+
+	DefaultMCPCatalogPath                string `usage:"The path to the default MCP catalog (accessible to all users)" default:""`
+	DefaultSystemMCPCatalogPath          string `usage:"The path to the default System MCP catalog" default:""`
+	DefaultSkillRepoURL                  string `usage:"The default skill repository URL (must be HTTPS GitHub URL)" default:"https://github.com/obot-platform/skills" env:"OBOT_DEFAULT_SKILL_REPO_URL"`
+	DefaultSkillRepoRef                  string `usage:"The ref (branch/tag) for the default skill repository" default:"" env:"OBOT_DEFAULT_SKILL_REPO_REF"`
+	DisableUpdateCheck                   bool   `usage:"Disable Obot server update checks"`
 	EnableRegistryAuth                   bool   `usage:"Enable authentication for the MCP registry API" default:"false" env:"OBOT_SERVER_ENABLE_REGISTRY_AUTH"`
-	DisableLegacyChat                    bool   `usage:"Disable legacy chat" default:"true"`
-	NanobotIntegration                   bool   `usage:"Enable Nanobot integration" default:"true"`
 	EnableMessagePolicies                bool   `usage:"Enable message policies for LLM proxy content enforcement" default:"false"`
 	MCPOAuthClientExpiration             string `usage:"The expiration time in dynamically registered MCP OAuth clients, must be a valid duration string and may include days, hours, or minutes" default:"30d"`
 	MCPServerSearchImage                 string `usage:"Container image for the obot MCP server" default:"ghcr.io/obot-platform/obot-mcp-server:v0.2.0"`
@@ -139,6 +122,7 @@ type Config struct {
 	MCPNetworkPolicyProviderChartPath    string `usage:"Local filesystem path to the network policy provider chart"`
 	MCPNetworkPolicyProviderValues       string `usage:"YAML or JSON values blob merged into the network policy provider chart values"`
 	MCPDefaultDenyAllEgress              bool   `usage:"Default new MCP servers to deny all egress when network policy enforcement is enabled" default:"false"`
+
 	// Published artifact storage
 	ArtifactStorageProvider       string `usage:"Storage provider for published artifacts (s3, gcs, azure, custom)" name:"artifact-storage-provider" env:"OBOT_ARTIFACT_STORAGE_PROVIDER"`
 	ArtifactStorageBucket         string `usage:"Bucket for published artifacts" name:"artifact-storage-bucket" env:"OBOT_ARTIFACT_STORAGE_BUCKET"`
@@ -162,51 +146,40 @@ type Config struct {
 }
 
 type Services struct {
-	EncryptionConfig            *encryptionconfig.EncryptionConfiguration
-	ToolRegistryURLs            []string
-	WorkspaceProviderType       string
-	ServerURL                   string
-	InternalServerURL           string
-	EmailServerName             string
-	DevUIPort                   int
-	UserUIPort                  int
-	Events                      *events.Emitter
-	StorageClient               storage.Client
-	Router                      *router.Router
-	GPTClient                   *gptscript.GPTScript
-	Invoker                     *invoke.Invoker
-	PersistentTokenServer       *persistent.TokenService
-	APIServer                   *server.Server
-	Started                     chan struct{}
+	EncryptionConfig *encryptionconfig.EncryptionConfiguration
+	ToolRegistryURLs []string
+
+	ServerURL             string
+	InternalServerURL     string
+	DevUIPort             int
+	UserUIPort            int
+	StorageClient         storage.Client
+	Router                *router.Router
+	GPTClient             *gptscript.GPTScript
+	Invoker               *invoke.Invoker
+	PersistentTokenServer *persistent.TokenService
+	APIServer             *server.Server
+
 	GatewayServer               *gserver.Server
 	GatewayClient               *client.Client
 	ProxyManager                *proxy.Manager
 	ProviderDispatcher          *dispatcher.Dispatcher
 	Bootstrapper                *bootstrap.Bootstrap
-	KnowledgeSetIngestionLimit  int
-	SupportDocker               bool
 	AuthEnabled                 bool
 	DefaultMCPCatalogPath       string
 	DefaultSystemMCPCatalogPath string
 	DefaultSkillRepoURL         string
 	DefaultSkillRepoRef         string
-	AgentsDir                   string
-	Otel                        *Otel
-	AuditLogger                 audit.Logger
-	PostgresDSN                 string
-	RetentionPolicy             time.Duration
-	// Use basic auth for sendgrid webhook, if being set
-	SendgridWebhookUsername string
-	SendgridWebhookPassword string
+
+	Otel        *Otel
+	AuditLogger audit.Logger
+	PostgresDSN string
 
 	// Used for indexed lookups of access control rules.
 	AccessControlRuleHelper *accesscontrolrule.Helper
 
 	// Used for indexed lookups of model access policies.
 	ModelAccessPolicyHelper *modelaccesspolicy.Helper
-
-	// Used for indexed lookups of message policies.
-	MessagePolicyHelper *messagepolicy.Helper
 
 	// Used for indexed lookups of skill access rules.
 	SkillAccessRuleHelper *skillaccessrule.Helper
@@ -252,14 +225,11 @@ type Services struct {
 	PSASettingsFromHelm *v1.PodSecurityAdmissionSettings
 
 	DisableUpdateCheck                   bool
-	DisableLegacyChat                    bool
 	MCPRuntimeBackend                    string
 	MCPImagePullSecrets                  []string
 	MCPRemoteShimBaseImage               string
 	MCPHTTPWebhookBaseImage              string
 	RegistryNoAuth                       bool
-	AutonomousToolUseEnabled             bool
-	NanobotIntegration                   bool
 	MessagePoliciesEnabled               bool
 	MCPNetworkPolicyEnabled              bool
 	MCPDefaultDenyAllEgress              bool
@@ -681,8 +651,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
-	events := events.NewEmitter(storageClient, gatewayClient)
-
 	var postgresDSN string
 	if strings.HasPrefix(config.DSN, "postgres://") {
 		postgresDSN = config.DSN
@@ -704,8 +672,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		config.Hostname,
 		config.HTTPListenPort,
 		persistentTokenServer,
-		events,
-		config.EnableAutonomousToolUse,
 	)
 	providerDispatcher := dispatcher.New(invoker, storageClient, credOnlyGPTscriptClient, gatewayClient, postgresDSN)
 
@@ -714,13 +680,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		Scheme:         scheme.Scheme,
 		ElectionConfig: electionConfig,
 		HealthzPort:    -1,
-		GVKThreadiness: map[schema.GroupVersionKind]int{
-			v1.SchemeGroupVersion.WithKind("KnowledgeFile"): config.KnowledgeFileWorkers,
-			v1.SchemeGroupVersion.WithKind("Run"):           config.RunWorkers,
-		},
-		GVKQueueSplitters: map[schema.GroupVersionKind]runtime.WorkerQueueSplitter{
-			v1.SchemeGroupVersion.WithKind("Run"): (*runQueueSplitter)(nil),
-		},
 	})
 	if err != nil {
 		return nil, err
@@ -1040,21 +999,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		authenticators = union.New(authenticators, authn.NewNoAuth(gatewayClient))
 	}
 
-	run, err := gptscriptClient.Run(ctx, fmt.Sprintf("Validate Environment Variables from %s", workspaceTool), gptscript.Options{
-		Input: fmt.Sprintf(`{"provider":"%s"}`, config.WorkspaceProviderType),
-		GlobalOptions: gptscript.GlobalOptions{
-			Env: os.Environ(),
-		},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to validate environment variables: %w", err)
-	}
-
-	_, err = run.Text()
-	if err != nil {
-		return nil, fmt.Errorf("failed to validate environment variables: %w", err)
-	}
-
 	auditLogger, err := audit.New(ctx, audit.Options(config.AuditConfig))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create audit logger: %w", err)
@@ -1065,27 +1009,23 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, fmt.Errorf("failed to create rate limiter: %w", err)
 	}
 
-	retentionPolicy := time.Duration(config.RetentionPolicyHours) * time.Hour
-
 	// Derive registryNoAuth flag from config
 	// When EnableRegistryAuth is false (default), registry is in no-auth mode
 	registryNoAuth := !config.EnableRegistryAuth
 
 	// For now, always auto-migrate the gateway database
 	svcs := &Services{
-		EncryptionConfig:      encryptionConfig,
-		WorkspaceProviderType: config.WorkspaceProviderType,
-		ServerURL:             config.Hostname,
-		InternalServerURL:     fmt.Sprintf("http://localhost:%d", config.HTTPListenPort),
-		DevUIPort:             devPort,
-		UserUIPort:            config.UserUIPort,
-		ToolRegistryURLs:      config.ToolRegistries,
-		Events:                events,
-		StorageClient:         storageClient,
-		Router:                r,
-		GPTClient:             gptscriptClient,
-		LocalK8sClient:        apiLocalK8sClient,
-		ObotNamespace:         config.ServiceNamespace,
+		EncryptionConfig:  encryptionConfig,
+		ServerURL:         config.Hostname,
+		InternalServerURL: fmt.Sprintf("http://localhost:%d", config.HTTPListenPort),
+		DevUIPort:         devPort,
+		UserUIPort:        config.UserUIPort,
+		ToolRegistryURLs:  config.ToolRegistries,
+		StorageClient:     storageClient,
+		Router:            r,
+		GPTClient:         gptscriptClient,
+		LocalK8sClient:    apiLocalK8sClient,
+		ObotNamespace:     config.ServiceNamespace,
 		APIServer: server.NewServer(
 			storageClient,
 			gatewayClient,
@@ -1100,24 +1040,19 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			config.Hostname,
 			registryNoAuth,
 		),
-		PersistentTokenServer:          persistentTokenServer,
-		Invoker:                        invoker,
-		GatewayServer:                  gatewayServer,
-		GatewayClient:                  gatewayClient,
-		KnowledgeSetIngestionLimit:     config.KnowledgeSetIngestionLimit,
-		EmailServerName:                config.EmailServerName,
-		SupportDocker:                  config.Docker,
-		AuthEnabled:                    config.EnableAuthentication,
-		SendgridWebhookUsername:        config.SendgridWebhookUsername,
-		SendgridWebhookPassword:        config.SendgridWebhookPassword,
-		ProxyManager:                   proxyManager,
-		ProviderDispatcher:             providerDispatcher,
-		Bootstrapper:                   bootstrapper,
-		AgentsDir:                      config.AgentsDir,
-		Otel:                           otel,
-		AuditLogger:                    auditLogger,
-		PostgresDSN:                    postgresDSN,
-		RetentionPolicy:                retentionPolicy,
+		PersistentTokenServer: persistentTokenServer,
+		Invoker:               invoker,
+		GatewayServer:         gatewayServer,
+		GatewayClient:         gatewayClient,
+		AuthEnabled:           config.EnableAuthentication,
+		ProxyManager:          proxyManager,
+		ProviderDispatcher:    providerDispatcher,
+		Bootstrapper:          bootstrapper,
+
+		Otel:        otel,
+		AuditLogger: auditLogger,
+		PostgresDSN: postgresDSN,
+
 		DefaultMCPCatalogPath:          config.DefaultMCPCatalogPath,
 		DefaultSystemMCPCatalogPath:    config.DefaultSystemMCPCatalogPath,
 		DefaultSkillRepoURL:            config.DefaultSkillRepoURL,
@@ -1138,9 +1073,9 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			TokenEndpointAuthMethodsSupported: []string{"client_secret_basic", "client_secret_post", "none"},
 			UserInfoEndpoint:                  fmt.Sprintf("%s/oauth/userinfo", config.Hostname),
 		},
-		AccessControlRuleHelper:              acrHelper,
-		ModelAccessPolicyHelper:              mapHelper,
-		MessagePolicyHelper:                  msgPolicyHelper,
+		AccessControlRuleHelper: acrHelper,
+		ModelAccessPolicyHelper: mapHelper,
+
 		SkillAccessRuleHelper:                skillAccessRuleHelper,
 		WebhookHelper:                        webhookHelper,
 		LocalK8sConfig:                       localK8sConfig,
@@ -1155,8 +1090,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		PodSchedulingSettingsFromHelm:        podSchedulingSettings,
 		PSASettingsFromHelm:                  psaSettings,
 		DisableUpdateCheck:                   config.DisableUpdateCheck,
-		DisableLegacyChat:                    config.DisableLegacyChat,
-		AutonomousToolUseEnabled:             config.EnableAutonomousToolUse,
 		MCPRuntimeBackend:                    config.MCPRuntimeBackend,
 		MCPImagePullSecrets:                  config.MCPImagePullSecrets,
 		MCPRemoteShimBaseImage:               config.MCPRemoteShimBaseImage,
@@ -1165,7 +1098,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		MultiUserIdleServerShutdownInterval:  time.Duration(config.MultiUserIdleServerShutdownHours) * time.Hour,
 		AgentIdleServerShutdownInterval:      time.Duration(config.IdleAgentShutdownHours) * time.Hour,
 		RegistryNoAuth:                       registryNoAuth,
-		NanobotIntegration:                   config.NanobotIntegration,
 		MessagePoliciesEnabled:               config.EnableMessagePolicies,
 		MCPNetworkPolicyEnabled:              mcpNetworkPolicyEnabled,
 		MCPDefaultDenyAllEgress:              config.MCPDefaultDenyAllEgress,

@@ -420,7 +420,7 @@ func (sm *SessionManager) GenerateToolPreviews(ctx context.Context, tempMCPServe
 		return nil, fmt.Errorf("failed to list tools: %w", err)
 	}
 
-	return ConvertTools(tools.Tools, []string{"*"}, nil)
+	return ConvertTools(tools.Tools, nil)
 }
 
 // GetCapacityInfo returns capacity information for the MCP namespace.

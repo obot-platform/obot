@@ -7,31 +7,14 @@ import (
 )
 
 const (
+	SystemThreadPrefix            = "st1"
 	ThreadPrefix                  = "t1"
-	ThreadSharePrefix             = "ts1"
 	ThreadAuthorizationPrefix     = "ta1"
-	AgentPrefix                   = "a1"
 	RunPrefix                     = "r1"
-	ChatRunPrefix                 = "r1chat"
-	WorkflowPrefix                = "w1"
-	WorkflowExecutionPrefix       = "we1"
-	WorkflowStepPrefix            = "ws1"
-	WorkspacePrefix               = "wksp1"
-	WebhookPrefix                 = "wh1"
-	CronJobPrefix                 = "cj1"
-	KnowledgeSourcePrefix         = "ks1"
-	OAuthAppPrefix                = "oa1"
-	KnowledgeSetPrefix            = "kst1"
-	OAuthAppLoginPrefix           = "oal1"
-	EmailReceiverPrefix           = "er1"
 	ModelPrefix                   = "m1"
 	AliasPrefix                   = "al1"
 	DefaultModelAliasPrefix       = "dma1"
-	ToolPrefix                    = "tl1"
 	ProjectPrefix                 = "p1"
-	ThreadTemplatePrefix          = "tt1"
-	SlackReceiverPrefix           = "sr1"
-	SlackTriggerPrefix            = "st1"
 	UserDeletePrefix              = "ud1"
 	UserRoleChangePrefix          = "urc1"
 	UserGroupChangePrefix         = "ugc1"
@@ -40,7 +23,6 @@ const (
 	MCPNetworkPolicyPrefix        = "mnp1"
 	MCPServerInstancePrefix       = "msi1"
 	ImagePullSecretPrefix         = "ips1"
-	ProjectMCPServerPrefix        = "pms1"
 	CatalogPrefix                 = "mcat1"
 	SystemCatalogPrefix           = "smcat1"
 	SkillRepositoryPrefix         = "skr1"
@@ -57,47 +39,14 @@ const (
 	ModelAccessPolicyPrefix       = "map1"
 	MessagePolicyPrefix           = "mp1"
 	NanobotAgentPrefix            = "nba1"
-	ProjectV2Prefix               = "pv21"
 	PublishedArtifactPrefix       = "pa1"
 	OktaGroupMigrationPrefix      = "ogm1"
 
 	ObotMCPServerName = SystemMCPServerPrefix + "obot-mcp-server"
 )
 
-func IsThreadID(id string) bool {
-	return strings.HasPrefix(id, ThreadPrefix)
-}
-
-func IsThreadTemplateID(id string) bool {
-	return strings.HasPrefix(id, ThreadTemplatePrefix)
-}
-
-func IsToolID(id string) bool {
-	return strings.HasPrefix(id, ToolPrefix)
-}
-
-func IsAgentID(id string) bool {
-	return strings.HasPrefix(id, AgentPrefix)
-}
-
 func IsRunID(id string) bool {
 	return strings.HasPrefix(id, RunPrefix)
-}
-
-func IsWebhookID(id string) bool {
-	return strings.HasPrefix(id, WebhookPrefix)
-}
-
-func IsWorkflowID(id string) bool {
-	return strings.HasPrefix(id, WorkflowPrefix)
-}
-
-func IsEmailReceiverID(id string) bool {
-	return strings.HasPrefix(id, EmailReceiverPrefix)
-}
-
-func IsChatRunID(id string) bool {
-	return strings.HasPrefix(id, ChatRunPrefix)
 }
 
 func IsMCPServerID(id string) bool {
@@ -122,12 +71,6 @@ func IsWebhookSystemMCPServerID(id string) bool {
 
 func IsModelID(id string) bool {
 	return strings.HasPrefix(id, ModelPrefix)
-}
-
-// GetProjectShareName returns the project share name for a given user ID and project ID.
-func GetProjectShareName(userID string, projectID string) string {
-	return name.SafeHashConcatName(ThreadSharePrefix, userID,
-		strings.Replace(projectID, ThreadPrefix, ProjectPrefix, 1))
 }
 
 func GetPowerUserWorkspaceID(userID string) string {

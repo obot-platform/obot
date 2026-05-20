@@ -76,4 +76,4 @@ Access is additive across policies. If a user matches multiple policies, they ge
 
 ## Related Topics
 
-- [Skills](../skills) — Manage skill sources and browse available skills
+- [Skills](/functionality/skills/) — Manage skill sources and browse available skills

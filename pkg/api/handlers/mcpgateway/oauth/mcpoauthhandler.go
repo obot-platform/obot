@@ -3,7 +3,6 @@ package oauth
 import (
 	"context"
 	"crypto/rand"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -17,7 +16,6 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"golang.org/x/oauth2"
-	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -186,8 +184,7 @@ func (m *mcpOAuthHandler) NewState(ctx context.Context, conf *oauth2.Config, ver
 	return state, ch, m.stateMgr.store(ctx, m.userID, m.mcpID, m.mcpURL, m.oauthAuthRequestID, state, verifier, conf)
 }
 
-func (m *mcpOAuthHandler) Lookup(ctx context.Context, authServerURL string) (string, string, error) {
-	// First, try to look up credentials associated with the MCP server's catalog entry
+func (m *mcpOAuthHandler) Lookup(ctx context.Context, _ string) (string, string, error) {
 	if m.mcpID != "" {
 		var server v1.MCPServer
 		if err := m.client.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: m.mcpID}, &server); err == nil {
@@ -204,40 +201,7 @@ func (m *mcpOAuthHandler) Lookup(ctx context.Context, authServerURL string) (str
 				}
 			}
 		}
-		// If not found, continue to OAuthApp fallback
 	}
 
-	// Fallback: Look up OAuthApp by authorization server URL (backwards compatibility)
-	var oauthApps v1.OAuthAppList
-	if err := m.client.List(ctx, &oauthApps, &kclient.ListOptions{
-		FieldSelector: fields.SelectorFromSet(map[string]string{
-			"spec.manifest.authorizationServerURL": authServerURL,
-		}),
-		Namespace: system.DefaultNamespace,
-	}); err != nil {
-		return "", "", err
-	}
-
-	if len(oauthApps.Items) != 1 {
-		return "", "", fmt.Errorf("expected exactly one oauth app for authorization server %s, found %d", authServerURL, len(oauthApps.Items))
-	}
-
-	app := oauthApps.Items[0]
-
-	var clientSecret string
-	cred, err := m.gptscript.RevealCredential(ctx, []string{app.Name}, app.Spec.Manifest.Alias)
-	if err != nil {
-		var errNotFound gptscript.ErrNotFound
-		if errors.As(err, &errNotFound) {
-			if app.Spec.Manifest.ClientSecret != "" {
-				clientSecret = app.Spec.Manifest.ClientSecret
-			}
-		} else {
-			return "", "", err
-		}
-	} else {
-		clientSecret = cred.Env["CLIENT_SECRET"]
-	}
-
-	return app.Spec.Manifest.ClientID, clientSecret, nil
+	return "", "", fmt.Errorf("no credentials found for MCP server %s", m.mcpID)
 }

@@ -88,36 +88,27 @@ func indexEntryCount(idx index) int {
 }
 
 type Handler struct {
-	gptClient          *gptscript.GPTScript
-	dispatcher         *dispatcher.Dispatcher
-	supportDockerTools bool
-	registryURLs       []string
-	lastChecksLock     *sync.RWMutex
-	lastChecks         map[string]time.Time
+	gptClient      *gptscript.GPTScript
+	dispatcher     *dispatcher.Dispatcher
+	registryURLs   []string
+	lastChecksLock *sync.RWMutex
+	lastChecks     map[string]time.Time
 }
 
-func New(gptClient *gptscript.GPTScript,
-	dispatcher *dispatcher.Dispatcher,
-	registryURLs []string,
-	supportDocker bool,
-) *Handler {
+func New(gptClient *gptscript.GPTScript, dispatcher *dispatcher.Dispatcher, registryURLs []string) *Handler {
 	return &Handler{
-		gptClient:          gptClient,
-		dispatcher:         dispatcher,
-		registryURLs:       registryURLs,
-		supportDockerTools: supportDocker,
-		lastChecks:         make(map[string]time.Time),
-		lastChecksLock:     new(sync.RWMutex),
+		gptClient:      gptClient,
+		dispatcher:     dispatcher,
+		registryURLs:   registryURLs,
+		lastChecks:     make(map[string]time.Time),
+		lastChecksLock: new(sync.RWMutex),
 	}
 }
 
-func (h *Handler) toolsToToolReferences(ctx context.Context, toolType types.ToolReferenceType, registryURL string, entries map[string]indexEntry) (result []client.Object) {
+func (h *Handler) toolsToToolReferences(ctx context.Context, toolType v1.ToolReferenceType, registryURL string, entries map[string]indexEntry) (result []client.Object) {
 	for name, entry := range entries {
 		if ref, ok := strings.CutPrefix(entry.Reference, "./"); ok {
 			entry.Reference = registryURL + "/" + ref
-		}
-		if !h.supportDockerTools && name == system.ShellTool {
-			continue
 		}
 
 		toolRefs, err := tools.ResolveToolReferences(ctx, h.gptClient, name, entry.Reference, true, toolType)
@@ -167,13 +158,8 @@ func (h *Handler) readFromRegistry(ctx context.Context, c client.Client) error {
 		}
 		log.Infof("Loaded tool registry index: registry=%s entries=%d", registryURL, indexEntryCount(index))
 
-		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeSystem, registryURL, index.System)...)
-		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeModelProvider, registryURL, index.ModelProviders)...)
-		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeAuthProvider, registryURL, index.AuthProviders)...)
-		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeFileScannerProvider, registryURL, index.FileScanners)...)
-		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeTool, registryURL, index.Tools)...)
-		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeKnowledgeDataSource, registryURL, index.KnowledgeDataSources)...)
-		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeKnowledgeDocumentLoader, registryURL, index.KnowledgeDocumentLoaders)...)
+		toAdd = append(toAdd, h.toolsToToolReferences(ctx, v1.ToolReferenceTypeModelProvider, registryURL, index.ModelProviders)...)
+		toAdd = append(toAdd, h.toolsToToolReferences(ctx, v1.ToolReferenceTypeAuthProvider, registryURL, index.AuthProviders)...)
 	}
 
 	if len(errs) > 0 {
@@ -389,7 +375,7 @@ func (h *Handler) ensureModelProviderCredAndDefaults(ctx context.Context, c clie
 
 func (h *Handler) BackPopulateModels(req router.Request, _ router.Response) error {
 	toolRef := req.Object.(*v1.ToolReference)
-	if toolRef.Spec.Type != types.ToolReferenceTypeModelProvider || toolRef.Status.Tool == nil {
+	if toolRef.Spec.Type != v1.ToolReferenceTypeModelProvider || toolRef.Status.Tool == nil {
 		return nil
 	}
 
@@ -523,7 +509,7 @@ func removeModelsForProvider(ctx context.Context, c client.Client, namespace, na
 
 func (h *Handler) CleanupModelProvider(req router.Request, _ router.Response) error {
 	toolRef := req.Object.(*v1.ToolReference)
-	if toolRef.Spec.Type != types.ToolReferenceTypeModelProvider || toolRef.Status.Tool == nil {
+	if toolRef.Spec.Type != v1.ToolReferenceTypeModelProvider || toolRef.Status.Tool == nil {
 		return nil
 	}
 

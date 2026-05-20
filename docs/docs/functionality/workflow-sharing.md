@@ -102,18 +102,7 @@ Older versions remain downloadable by version number as long as the published wo
 
 ## Operational Requirements
 
-Workflow sharing depends on two pieces of platform configuration:
-
-- Nanobot integration must be enabled so the workflow tools are available in Obot Agent
-- Obot must have storage available for published workflow ZIP files
-
-### Nanobot Integration
-
-Workflow sharing relies on Obot's Nanobot-backed workflow tools.
-
-| Environment Variable | Description | Default |
-|---------------------|-------------|---------|
-| `OBOT_SERVER_NANOBOT_INTEGRATION` | Enables the Nanobot integration used by workflow publishing, search, and install flows. | `true` |
+Workflow sharing depends on storage being available for published workflow ZIP files.
 
 ### Published Workflow Storage
 

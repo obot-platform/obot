@@ -27,7 +27,7 @@ func TestOAuthDebuggerMetadata(t *testing.T) {
 	registrationJSON := mustJSON(t, registration)
 
 	m := &MCPHandler{serverURL: "https://obot.example.com"}
-	metadata, parsedAuthServer, parsedRegistration, err := m.oauthDebuggerMetadata(v1.MCPServer{
+	parsedAuthServer, parsedRegistration, err := m.oauthDebuggerMetadata(v1.MCPServer{
 		Status: v1.MCPServerStatus{
 			OAuthMetadata: &v1.OAuthMetadata{
 				AuthorizationServerURL:      authServer.Issuer,
@@ -38,9 +38,6 @@ func TestOAuthDebuggerMetadata(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
-	}
-	if metadata.AuthorizationServerURL != authServer.Issuer {
-		t.Fatalf("expected metadata to be returned")
 	}
 	if !reflect.DeepEqual(parsedAuthServer, authServer) {
 		t.Fatalf("parsed auth server mismatch:\nexpected: %#v\nactual:   %#v", authServer, parsedAuthServer)
@@ -105,7 +102,7 @@ func TestOAuthDebuggerMetadataErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, _, _, err := (&MCPHandler{}).oauthDebuggerMetadata(v1.MCPServer{
+			_, _, err := (&MCPHandler{}).oauthDebuggerMetadata(v1.MCPServer{
 				Status: v1.MCPServerStatus{OAuthMetadata: tt.oauthMetadata},
 			})
 			if err == nil {

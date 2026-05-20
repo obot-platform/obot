@@ -29,7 +29,7 @@ For detailed role descriptions and permissions, see [User Roles](/configuration/
 
 ## API Keys
 
-View and manage API keys for all users. Administrators can see which users have created API keys and delete any key if necessary. For details on how API keys work, see [API Keys](../api-keys/).
+View and manage API keys for all users. Administrators can see which users have created API keys and delete any key if necessary. For details on how API keys work, see [API Keys](/functionality/api-keys/).
 
 ## Auth Providers
 

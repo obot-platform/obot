@@ -307,7 +307,7 @@ func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 
 	// Update key's last used time
 	if keyErr := s.updateKeyLastUsedTime(apiContext, apiKey); keyErr != nil {
-		logger.Errorf("failed to update API key last used time: %v", keyErr)
+		log.Errorf("failed to update API key last used time: %v", keyErr)
 	}
 
 	return err

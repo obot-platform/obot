@@ -5,6 +5,7 @@ type NanobotAgent struct {
 	Metadata
 	NanobotAgentManifest
 	UserID           string `json:"userID,omitempty"`
+	ProjectID        string `json:"projectID,omitempty"`
 	ProjectV2ID      string `json:"projectV2ID,omitempty"`
 	ConnectURL       string `json:"connectURL,omitempty"`
 	NeedsUpdate      bool   `json:"needsUpdate,omitempty"`

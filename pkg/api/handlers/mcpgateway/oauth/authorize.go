@@ -200,7 +200,7 @@ func (h *handler) authorize(req api.Context) error {
 	}
 	oauthAppAuthRequest := v1.OAuthAuthRequest{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: system.OAuthAppPrefix,
+			GenerateName: system.OAuthAuthRequestPrefix,
 			Namespace:    oauthClient.Namespace,
 		},
 		Spec: v1.OAuthAuthRequestSpec{

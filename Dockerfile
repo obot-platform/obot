@@ -79,7 +79,6 @@ ENV PATH=$PATH:/usr/lib/libreoffice/program
 ENV PATH=$PATH:/usr/bin
 ENV HOME=/data
 ENV XDG_CACHE_HOME=/data/cache
-ENV OBOT_SERVER_AGENTS_DIR=/agents
 ENV TERM=vt100
 ENV OBOT_CONTAINER_ENV=true
 WORKDIR /data

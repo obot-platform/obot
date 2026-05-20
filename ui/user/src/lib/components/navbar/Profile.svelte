@@ -107,7 +107,7 @@
 		restartingAgent = true;
 		try {
 			await UserService.restartK8sDeployment(`ms1${agentId}`);
-			await NanobotService.launchProjectV2Agent(projectId, agentId);
+			await NanobotService.launchProjectAgent(projectId, agentId);
 			window.location.reload();
 		} catch (error) {
 			console.error('Failed to restart agent:', error);

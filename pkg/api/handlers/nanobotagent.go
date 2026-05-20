@@ -56,7 +56,7 @@ func (h *NanobotAgentHandler) ListAll(req api.Context) error {
 func (h *NanobotAgentHandler) List(req api.Context) error {
 	var agents v1.NanobotAgentList
 	if err := req.List(&agents, kclient.MatchingFields{
-		"spec.projectV2ID": req.PathValue("project_id"),
+		"spec.projectID": req.PathValue("project_id"),
 	}); err != nil {
 		return err
 	}
@@ -86,7 +86,7 @@ func (h *NanobotAgentHandler) Create(req api.Context) error {
 		Spec: v1.NanobotAgentSpec{
 			NanobotAgentManifest: manifest,
 			UserID:               req.User.GetUID(),
-			ProjectV2ID:          req.PathValue("project_id"),
+			ProjectID:            req.PathValue("project_id"),
 		},
 	}
 
@@ -108,7 +108,7 @@ func (h *NanobotAgentHandler) ByID(req api.Context) error {
 	}
 
 	// Ensure that the agent belongs to the specified project
-	if agent.Spec.ProjectV2ID != req.PathValue("project_id") {
+	if agent.Spec.ProjectID != req.PathValue("project_id") {
 		return types.NewErrNotFound("nanobot agent not found")
 	}
 
@@ -130,7 +130,7 @@ func (h *NanobotAgentHandler) Update(req api.Context) error {
 	}
 
 	// Ensure that the agent belongs to the specified project
-	if agent.Spec.ProjectV2ID != req.PathValue("project_id") {
+	if agent.Spec.ProjectID != req.PathValue("project_id") {
 		return types.NewErrNotFound("nanobot agent not found")
 	}
 
@@ -159,7 +159,7 @@ func (h *NanobotAgentHandler) Delete(req api.Context) error {
 	}
 
 	// Ensure that the agent belongs to the specified project
-	if agent.Spec.ProjectV2ID != req.PathValue("project_id") {
+	if agent.Spec.ProjectID != req.PathValue("project_id") {
 		return types.NewErrNotFound("nanobot agent not found")
 	}
 
@@ -177,7 +177,7 @@ func (h *NanobotAgentHandler) Launch(req api.Context) error {
 		return err
 	}
 
-	if agent.Spec.ProjectV2ID != req.PathValue("project_id") {
+	if agent.Spec.ProjectID != req.PathValue("project_id") {
 		return types.NewErrNotFound("nanobot agent not found")
 	}
 
@@ -259,7 +259,7 @@ func (h *NanobotAgentHandler) convertNanobotAgent(agent v1.NanobotAgent, mcpServ
 		Metadata:             MetadataFrom(&agent),
 		NanobotAgentManifest: agent.Spec.NanobotAgentManifest,
 		UserID:               agent.Spec.UserID,
-		ProjectV2ID:          agent.Spec.ProjectV2ID,
+		ProjectID:            agent.Spec.ProjectID,
 		ConnectURL:           system.NanobotAgentConnectURL(h.serverURL, agent.Name),
 	}
 	if mcpServer != nil {

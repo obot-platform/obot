@@ -409,7 +409,7 @@ func (h *SystemMCPServerHandler) GetTools(req api.Context) error {
 	}
 
 	// Convert tools to API types
-	convertedTools, err := mcp.ConvertTools(tools, nil, nil)
+	convertedTools, err := mcp.ConvertTools(tools, nil)
 	if err != nil {
 		return fmt.Errorf("failed to convert tools: %w", err)
 	}

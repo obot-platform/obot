@@ -40,7 +40,7 @@ func (ap *AuthProviderHandler) ByID(req api.Context) error {
 		return err
 	}
 
-	if ref.Spec.Type != types.ToolReferenceTypeAuthProvider {
+	if ref.Spec.Type != v1.ToolReferenceTypeAuthProvider {
 		return types.NewErrNotFound(
 			"auth provider %q not found",
 			ref.Name,
@@ -85,7 +85,7 @@ func (ap *AuthProviderHandler) listAuthProviders(req api.Context) ([]types.AuthP
 	if err := req.List(&refList, &kclient.ListOptions{
 		Namespace: req.Namespace(),
 		FieldSelector: fields.SelectorFromSet(map[string]string{
-			"spec.type": string(types.ToolReferenceTypeAuthProvider),
+			"spec.type": string(v1.ToolReferenceTypeAuthProvider),
 		}),
 	}); err != nil {
 		return nil, err
@@ -131,7 +131,7 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 		return err
 	}
 
-	if ref.Spec.Type != types.ToolReferenceTypeAuthProvider {
+	if ref.Spec.Type != v1.ToolReferenceTypeAuthProvider {
 		return types.NewErrBadRequest("%q is not an auth provider", ref.Name)
 	}
 
@@ -215,7 +215,7 @@ func (ap *AuthProviderHandler) Deconfigure(req api.Context) error {
 		return err
 	}
 
-	if ref.Spec.Type != types.ToolReferenceTypeAuthProvider {
+	if ref.Spec.Type != v1.ToolReferenceTypeAuthProvider {
 		return types.NewErrBadRequest("%q is not an auth provider", ref.Name)
 	}
 
@@ -276,7 +276,7 @@ func (ap *AuthProviderHandler) Reveal(req api.Context) error {
 		return err
 	}
 
-	if ref.Spec.Type != types.ToolReferenceTypeAuthProvider {
+	if ref.Spec.Type != v1.ToolReferenceTypeAuthProvider {
 		return types.NewErrBadRequest("%q is not an auth provider", ref.Name)
 	}
 

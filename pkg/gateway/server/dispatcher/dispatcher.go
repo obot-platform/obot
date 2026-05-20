@@ -11,7 +11,6 @@ import (
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/gptscript-ai/gptscript/pkg/engine"
-	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api/handlers/providers"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/invoke"
@@ -59,7 +58,7 @@ func New(invoker *invoke.Invoker, c kclient.Client, gptscriptClient *gptscript.G
 }
 
 func (d *Dispatcher) URLForAuthProvider(ctx context.Context, gptClient *gptscript.GPTScript, namespace, authProviderName string) (url.URL, error) {
-	u, err := d.urlForProvider(ctx, gptClient, types.ToolReferenceTypeAuthProvider, namespace, authProviderName, d.authURLs, d.authLock, d.authProviderExtraEnv...)
+	u, err := d.urlForProvider(ctx, gptClient, v1.ToolReferenceTypeAuthProvider, namespace, authProviderName, d.authURLs, d.authLock, d.authProviderExtraEnv...)
 	if err != nil {
 		return url.URL{}, fmt.Errorf("failed to get auth provider url: %w", err)
 	}
@@ -67,28 +66,19 @@ func (d *Dispatcher) URLForAuthProvider(ctx context.Context, gptClient *gptscrip
 }
 
 func (d *Dispatcher) URLForModelProvider(ctx context.Context, gptClient *gptscript.GPTScript, namespace, modelProviderName string) (url.URL, error) {
-	u, err := d.urlForProvider(ctx, gptClient, types.ToolReferenceTypeModelProvider, namespace, modelProviderName, d.modelURLs, d.modelLock)
+	u, err := d.urlForProvider(ctx, gptClient, v1.ToolReferenceTypeModelProvider, namespace, modelProviderName, d.modelURLs, d.modelLock)
 	if err != nil {
 		return url.URL{}, fmt.Errorf("failed to get model provider url: %w", err)
 	}
 	return u, nil
 }
 
-func (d *Dispatcher) urlForFileScannerProvider(ctx context.Context, gptClient *gptscript.GPTScript, namespace, fileScannerProviderName string) (url.URL, error) {
-	u, err := d.urlForProvider(ctx, gptClient, types.ToolReferenceTypeFileScannerProvider, namespace, fileScannerProviderName, d.fileScannerURLs, d.fileScannerLock)
-	if err != nil {
-		return url.URL{}, fmt.Errorf("failed to get file scanner provider url: %w", err)
-	}
-	return u, nil
+var providerTypeToGenericCredContext = map[v1.ToolReferenceType]string{
+	v1.ToolReferenceTypeModelProvider: system.GenericModelProviderCredentialContext,
+	v1.ToolReferenceTypeAuthProvider:  system.GenericAuthProviderCredentialContext,
 }
 
-var providerTypeToGenericCredContext = map[types.ToolReferenceType]string{
-	types.ToolReferenceTypeModelProvider:       system.GenericModelProviderCredentialContext,
-	types.ToolReferenceTypeAuthProvider:        system.GenericAuthProviderCredentialContext,
-	types.ToolReferenceTypeFileScannerProvider: system.GenericFileScannerProviderCredentialContext,
-}
-
-func (d *Dispatcher) urlForProvider(ctx context.Context, gptClient *gptscript.GPTScript, providerType types.ToolReferenceType, namespace, name string, urlMap map[string]url.URL, lock *sync.RWMutex, extraEnv ...string) (url.URL, error) {
+func (d *Dispatcher) urlForProvider(ctx context.Context, gptClient *gptscript.GPTScript, providerType v1.ToolReferenceType, namespace, name string, urlMap map[string]url.URL, lock *sync.RWMutex, extraEnv ...string) (url.URL, error) {
 	key := namespace + "/" + name
 	// Check the map with the read lock.
 	lock.RLock()
@@ -118,14 +108,11 @@ func (d *Dispatcher) urlForProvider(ctx context.Context, gptClient *gptscript.GP
 	return u, nil
 }
 
-func (d *Dispatcher) startProvider(ctx context.Context, gptClient *gptscript.GPTScript, providerType types.ToolReferenceType, namespace, providerName string, extraEnv ...string) (url.URL, error) {
+func (d *Dispatcher) startProvider(ctx context.Context, gptClient *gptscript.GPTScript, providerType v1.ToolReferenceType, namespace, providerName string, extraEnv ...string) (url.URL, error) {
 	thread := &v1.Thread{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      system.ThreadPrefix + providerName,
+			Name:      system.SystemThreadPrefix + providerName,
 			Namespace: namespace,
-		},
-		Spec: v1.ThreadSpec{
-			SystemTask: true,
 		},
 	}
 
@@ -211,7 +198,7 @@ func (d *Dispatcher) GetConfiguredAuthProvider(ctx context.Context) (string, err
 	if err := d.client.List(ctx, &authProviders, &kclient.ListOptions{
 		Namespace: system.DefaultNamespace,
 		FieldSelector: fields.SelectorFromSet(map[string]string{
-			"spec.type": string(types.ToolReferenceTypeAuthProvider),
+			"spec.type": string(v1.ToolReferenceTypeAuthProvider),
 		}),
 	}); err != nil {
 		return "", fmt.Errorf("failed to list auth providers: %w", err)

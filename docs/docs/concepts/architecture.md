@@ -38,7 +38,7 @@ Key security properties:
 ## Data Persistence
 
 - **Database**: Postgres for storing configuration and metadata. In production, this should be hosted independently of the Obot deployment.
-- **Object Storage**: S3-compatible storage for workspace data (PDFs, text files, etc.) - only required if you enable the legacy Obot Chat.
+- **Published Workflow Storage**: Optional S3, GCS, Azure Blob Storage, or S3-compatible storage for published workflows. If unset, Obot stores published workflows on local disk.
 - **Agent State**: Used to store files and other data for Obot Agent. Can be configured to use external volumes for persistence.
 
 ## Encryption

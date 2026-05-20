@@ -4,14 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"strings"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	"github.com/obot-platform/obot/pkg/storage/selectors"
 	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -50,7 +48,7 @@ func (a *ModelHandler) List(req api.Context) error {
 	var toolRefList v1.ToolReferenceList
 	if err := req.Storage.List(req.Context(), &toolRefList, &kclient.ListOptions{
 		FieldSelector: fields.SelectorFromSet(map[string]string{
-			"spec.type": string(types.ToolReferenceTypeModelProvider),
+			"spec.type": string(v1.ToolReferenceTypeModelProvider),
 		}),
 		Namespace: req.Namespace(),
 	}); err != nil {
@@ -153,8 +151,8 @@ func (a *ModelHandler) Create(req api.Context) error {
 		return err
 	}
 
-	if toolRef.Spec.Type != types.ToolReferenceTypeModelProvider {
-		return types.NewErrBadRequest("model provider %s must be of type %s not %s", modelManifest.ModelProvider, types.ToolReferenceTypeModelProvider, toolRef.Spec.Type)
+	if toolRef.Spec.Type != v1.ToolReferenceTypeModelProvider {
+		return types.NewErrBadRequest("model provider %s must be of type %s not %s", modelManifest.ModelProvider, v1.ToolReferenceTypeModelProvider, toolRef.Spec.Type)
 	}
 
 	model := &v1.Model{
@@ -184,20 +182,6 @@ func (a *ModelHandler) Create(req api.Context) error {
 }
 
 func (a *ModelHandler) Delete(req api.Context) error {
-	model := req.PathValue("id")
-	var agents v1.AgentList
-	if err := req.List(&agents, &kclient.ListOptions{
-		FieldSelector: fields.SelectorFromSet(selectors.RemoveEmpty(map[string]string{
-			"spec.manifest.model": model,
-		})),
-	}); err != nil {
-		return fmt.Errorf("failed to list agents: %w", err)
-	}
-
-	if len(agents.Items) > 0 {
-		return types.NewErrHTTP(http.StatusPreconditionFailed, fmt.Sprintf("model %q is used by %d agents", model, len(agents.Items)))
-	}
-
 	return req.Delete(&v1.Model{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      req.PathValue("id"),

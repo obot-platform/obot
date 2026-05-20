@@ -48,8 +48,8 @@
 		if (!agent) return;
 		launchingAgentId = agent.id;
 		try {
-			await NanobotService.launchProjectV2Agent(agent.projectV2ID, agent.id);
-			window.open(`/agent?projectId=${agent.projectV2ID}&agentId=${agent.id}`, '_blank');
+			await NanobotService.launchProjectAgent(agent.projectID, agent.id);
+			window.open(`/agent?projectId=${agent.projectID}&agentId=${agent.id}`, '_blank');
 		} catch (error) {
 			console.error('Failed to launch agent:', error);
 		} finally {
@@ -100,7 +100,7 @@
 			sortable={['ownerDisplay', 'deploymentStatus', 'updatesAvailable', 'created']}
 			noDataMessage="No agents found."
 			onClickRow={(agent, isCtrlClick) => {
-				openUrl(`/admin/agents/p/${agent.projectV2ID}/s/${agent.id}/details`, isCtrlClick);
+				openUrl(`/admin/agents/p/${agent.projectID}/s/${agent.id}/details`, isCtrlClick);
 			}}
 		>
 			{#snippet onRenderColumn(property, d)}

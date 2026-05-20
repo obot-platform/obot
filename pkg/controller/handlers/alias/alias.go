@@ -11,6 +11,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -91,7 +92,10 @@ func UnassignAlias(req router.Request, _ router.Response) error {
 	}
 
 	target, err := req.Client.Scheme().New(gvk)
-	if err != nil {
+	if runtime.IsNotRegisteredError(err) {
+		log.Infof("Deleting alias %s is targeting an %s because kind is no longer registered", src.Name, src.Spec.TargetKind)
+		return req.Delete(src)
+	} else if err != nil {
 		return err
 	}
 

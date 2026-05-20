@@ -78,8 +78,6 @@ If you enabled authentication, use your bootstrap token to log in as the owner a
 
 ## Workflow Sharing Storage
 
-Workflow sharing is available through Obot's Nanobot integration and stores published workflows separately from workspace files.
-
 For local Docker deployments:
 
 - The default local published-workflow store is usually sufficient

@@ -226,15 +226,3 @@ func toObject[T any](resp *http.Response, obj T) (def T, _ error) {
 	}
 	return obj, nil
 }
-
-func (c *Client) runURLFromOpts(opts ListRunsOptions) string {
-	url := "/runs"
-	if opts.AgentID != "" && opts.ThreadID != "" {
-		url = fmt.Sprintf("/agents/%s/threads/%s/runs", opts.AgentID, opts.ThreadID)
-	} else if opts.AgentID != "" {
-		url = fmt.Sprintf("/agents/%s/runs", opts.AgentID)
-	} else if opts.ThreadID != "" {
-		url = fmt.Sprintf("/threads/%s/runs", opts.ThreadID)
-	}
-	return url
-}
