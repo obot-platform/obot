@@ -55,17 +55,17 @@ The only functional difference between Owners and Admins is that Owners can assi
 
 ## Learn More
 
-- [MCP Servers](./mcp-servers/) - Deploy, configure, and manage MCP servers
-- [MCP Registries](./mcp-registries/) - Control which servers are available to which users and groups
-- [Audit Logs and Usage](./audit-logs-and-usage/) - Monitor activity and track consumption
-- [Filters](./filters/) - Inspect and control MCP traffic
-- [Server Scheduling](./server-scheduling/) - Define server availability windows
-- [Skills](./skills/) - Manage skill sources and browse discoverable skills for agents
-- [Skill Access Policies](./skill-access-policies/) - Control which users and groups can access which skills
-- [Obot Agent Management](./obot-agent-management/) - Configure default agent, conversation, and workflow settings, and monitor activity
-- [Message Policies](./message-policies/) - Enforce content rules on user prompts and tool calls, and review violations
-- [User Management](./user-management/) - Manage users, roles, and authentication
-- [API Keys](./api-keys/) - Create and manage API keys for programmatic MCP server access
-- [Branding](./branding/) - Customize theme colors and branding
-- [Workflow Sharing](./workflow-sharing/) - Publish, discover, install, and operate shared workflows
+- [MCP Servers](/functionality/mcp-servers/) - Deploy, configure, and manage MCP servers
+- [MCP Registries](/functionality/mcp-registries/) - Control which servers are available to which users and groups
+- [Audit Logs and Usage](/functionality/audit-logs-and-usage/) - Monitor activity and track consumption
+- [Filters](/functionality/filters/) - Inspect and control MCP traffic
+- [Server Scheduling](/functionality/server-scheduling/) - Define server availability windows
+- [Skills](/functionality/skills/) - Manage skill sources and browse discoverable skills for agents
+- [Skill Access Policies](/functionality/skill-access-policies/) - Control which users and groups can access which skills
+- [Obot Agent Management](/functionality/obot-agent-management/) - Configure default agent, conversation, and workflow settings, and monitor activity
+- [Message Policies](/functionality/message-policies/) - Enforce content rules on user prompts and tool calls, and review violations
+- [User Management](/functionality/user-management/) - Manage users, roles, and authentication
+- [API Keys](/functionality/api-keys/) - Create and manage API keys for programmatic MCP server access
+- [Branding](/functionality/branding/) - Customize theme colors and branding
+- [Workflow Sharing](/functionality/workflow-sharing/) - Publish, discover, install, and operate shared workflows
 - [User Roles](/configuration/user-roles/) - Detailed permissions and role definitions

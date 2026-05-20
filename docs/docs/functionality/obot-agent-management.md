@@ -16,11 +16,11 @@ Configure LLM providers and their available models. See [Model Providers](/confi
 
 ## Model Access Policies
 
-Control which users and groups can access which models in Obot Agent. See [Model Access Policies](./model-access-policies/) for details.
+Control which users and groups can access which models in Obot Agent. See [Model Access Policies](/functionality/model-access-policies/) for details.
 
 ## Message Policies
 
-Use natural language to enforce content rules on user prompts and tool calls. See [Message Policies](./message-policies/) for details.
+Use natural language to enforce content rules on user prompts and tool calls. See [Message Policies](/functionality/message-policies/) for details.
 
 ## Message Policy Violations
 
