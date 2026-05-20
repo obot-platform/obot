@@ -11,7 +11,7 @@ export const load: PageLoad = async ({ params, parent, fetch }) => {
 	let agent: ProjectV2Agent | undefined;
 
 	try {
-		agent = await NanobotService.getProjectV2Agent(pid, id, {
+		agent = await NanobotService.getProjectAgent(pid, id, {
 			fetch
 		});
 	} catch (err) {

@@ -31,6 +31,8 @@ func (in *NanobotAgent) Get(field string) (value string) {
 	switch field {
 	case "spec.userID":
 		return in.Spec.UserID
+	case "spec.projectID":
+		return in.Spec.ProjectID
 	case "spec.projectV2ID":
 		return in.Spec.ProjectV2ID
 	}
@@ -44,8 +46,8 @@ func (in *NanobotAgent) FieldNames() []string {
 func (in *NanobotAgent) DeleteRefs() []Ref {
 	return []Ref{
 		{
-			ObjType: &ProjectV2{},
-			Name:    in.Spec.ProjectV2ID,
+			ObjType: &Project{},
+			Name:    in.Spec.ProjectID,
 		},
 	}
 }
@@ -56,12 +58,15 @@ type NanobotAgentSpec struct {
 	// UserID is the user that created this nanobot workflow
 	UserID string `json:"userID,omitempty"`
 
+	// ProjectID is the project this workflow belongs to
+	ProjectID string `json:"projectID,omitempty"`
+
 	// ProjectV2ID is the project this workflow belongs to
+	// Deprecated: use ProjectID instead.
 	ProjectV2ID string `json:"projectV2ID,omitempty"`
 }
 
-type NanobotAgentStatus struct {
-}
+type NanobotAgentStatus struct{}
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 

@@ -19,8 +19,8 @@ export const load: LayoutLoad = async ({ fetch, url, parent }) => {
 	}
 
 	if (targetProjectId) {
-		const project = await NanobotService.getProjectV2(targetProjectId, { fetch });
-		const agents = await NanobotService.listProjectV2Agents(targetProjectId, { fetch });
+		const project = await NanobotService.getProject(targetProjectId, { fetch });
+		const agents = await NanobotService.listProjectAgents(targetProjectId, { fetch });
 		let agent: ProjectV2Agent;
 		if (targetAgentId) {
 			agent = agents.find((a) => a.id === targetAgentId) || agents[0];
@@ -36,17 +36,17 @@ export const load: LayoutLoad = async ({ fetch, url, parent }) => {
 	}
 
 	// Default: load or create the current user's project and agent.
-	let projects = await NanobotService.listProjectsV2({ fetch });
+	let projects = await NanobotService.listProjects({ fetch });
 	if (projects.length === 0) {
-		const project = await NanobotService.createProjectV2({ displayName: 'New Project' }, { fetch });
+		const project = await NanobotService.createProject({ displayName: 'New Project' }, { fetch });
 		projects = [project];
 	}
 
 	let agent: ProjectV2Agent;
 	let isNewAgent = false;
-	const agents = await NanobotService.listProjectV2Agents(projects[0].id, { fetch });
+	const agents = await NanobotService.listProjectAgents(projects[0].id, { fetch });
 	if (agents.length === 0) {
-		agent = await NanobotService.createProjectV2Agent(
+		agent = await NanobotService.createProjectAgent(
 			projects[0].id,
 			{ displayName: 'New Agent' },
 			{ fetch }

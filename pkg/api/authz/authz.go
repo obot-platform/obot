@@ -282,7 +282,7 @@ var (
 			"GET /api/skills/{id}",
 			"GET /api/skills/{id}/download",
 
-			// Allow basic users to create and list ProjectV2 resources
+			// Allow basic users to create and list projects
 			"POST /api/projects",
 			"GET /api/projects",
 

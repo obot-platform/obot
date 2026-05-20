@@ -22,7 +22,6 @@ import (
 	"github.com/obot-platform/nah/pkg/apply"
 	"github.com/obot-platform/nah/pkg/leader"
 	"github.com/obot-platform/nah/pkg/router"
-	"github.com/obot-platform/nah/pkg/runtime"
 	apiclienttypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
@@ -65,7 +64,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authentication/request/union"
 	"k8s.io/apiserver/pkg/server/options/encryptionconfig"
 	k8sscheme "k8s.io/client-go/kubernetes/scheme"
@@ -682,9 +680,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		Scheme:         scheme.Scheme,
 		ElectionConfig: electionConfig,
 		HealthzPort:    -1,
-		GVKQueueSplitters: map[schema.GroupVersionKind]runtime.WorkerQueueSplitter{
-			v1.SchemeGroupVersion.WithKind("Run"): (*runQueueSplitter)(nil),
-		},
 	})
 	if err != nil {
 		return nil, err

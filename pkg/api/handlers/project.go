@@ -9,15 +9,15 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type ProjectV2Handler struct{}
+type ProjectHandler struct{}
 
-func NewProjectV2Handler() *ProjectV2Handler {
-	return &ProjectV2Handler{}
+func NewProjectHandler() *ProjectHandler {
+	return &ProjectHandler{}
 }
 
-func (h *ProjectV2Handler) List(req api.Context) error {
+func (h *ProjectHandler) List(req api.Context) error {
 	var (
-		projectList v1.ProjectV2List
+		projectList v1.ProjectList
 		fields      = kclient.MatchingFields{}
 	)
 
@@ -31,27 +31,27 @@ func (h *ProjectV2Handler) List(req api.Context) error {
 		return err
 	}
 
-	items := make([]types.ProjectV2, 0, len(projectList.Items))
+	items := make([]types.Project, 0, len(projectList.Items))
 	for _, project := range projectList.Items {
-		items = append(items, convertProjectV2(project))
+		items = append(items, convertProject(project))
 	}
-	return req.Write(types.ProjectV2List{Items: items})
+	return req.Write(types.ProjectList{Items: items})
 }
 
-func (h *ProjectV2Handler) Create(req api.Context) error {
-	var manifest types.ProjectV2Manifest
+func (h *ProjectHandler) Create(req api.Context) error {
+	var manifest types.ProjectManifest
 	if err := req.Read(&manifest); err != nil {
 		return err
 	}
 
-	project := v1.ProjectV2{
+	project := v1.Project{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: system.ProjectV2Prefix,
+			GenerateName: system.ProjectPrefix,
 			Namespace:    req.Namespace(),
 		},
-		Spec: v1.ProjectV2Spec{
-			ProjectV2Manifest: manifest,
-			UserID:            req.User.GetUID(),
+		Spec: v1.ProjectSpec{
+			ProjectManifest: types.ProjectManifest(manifest),
+			UserID:          req.User.GetUID(),
 		},
 	}
 
@@ -59,42 +59,42 @@ func (h *ProjectV2Handler) Create(req api.Context) error {
 		return err
 	}
 
-	return req.WriteCreated(convertProjectV2(project))
+	return req.WriteCreated(convertProject(project))
 }
 
-func (h *ProjectV2Handler) ByID(req api.Context) error {
-	var project v1.ProjectV2
+func (h *ProjectHandler) ByID(req api.Context) error {
+	var project v1.Project
 	if err := req.Get(&project, req.PathValue("project_id")); err != nil {
 		return err
 	}
 
-	return req.Write(convertProjectV2(project))
+	return req.Write(convertProject(project))
 }
 
-func (h *ProjectV2Handler) Update(req api.Context) error {
+func (h *ProjectHandler) Update(req api.Context) error {
 	var (
 		id      = req.PathValue("project_id")
-		project v1.ProjectV2
+		project v1.Project
 	)
 
 	if err := req.Get(&project, id); err != nil {
 		return err
 	}
 
-	var manifest types.ProjectV2Manifest
+	var manifest types.ProjectManifest
 	if err := req.Read(&manifest); err != nil {
 		return err
 	}
 
-	project.Spec.ProjectV2Manifest = manifest
+	project.Spec.ProjectManifest = types.ProjectManifest(manifest)
 	if err := req.Update(&project); err != nil {
 		return err
 	}
 
-	return req.Write(convertProjectV2(project))
+	return req.Write(convertProject(project))
 }
 
-func (h *ProjectV2Handler) Delete(req api.Context) error {
+func (h *ProjectHandler) Delete(req api.Context) error {
 	var id = req.PathValue("project_id")
 
 	return req.Delete(&v1.ProjectV2{
@@ -105,10 +105,10 @@ func (h *ProjectV2Handler) Delete(req api.Context) error {
 	})
 }
 
-func convertProjectV2(project v1.ProjectV2) types.ProjectV2 {
-	return types.ProjectV2{
-		Metadata:          MetadataFrom(&project),
-		ProjectV2Manifest: project.Spec.ProjectV2Manifest,
-		UserID:            project.Spec.UserID,
+func convertProject(project v1.Project) types.Project {
+	return types.Project{
+		Metadata:        MetadataFrom(&project),
+		ProjectManifest: types.ProjectManifest(project.Spec.ProjectManifest),
+		UserID:          project.Spec.UserID,
 	}
 }

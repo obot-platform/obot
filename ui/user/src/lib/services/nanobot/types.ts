@@ -444,19 +444,23 @@ export interface InitializationResult {
 export const UIPath = '/mcp/ui';
 export const ChatPath = '/mcp/chat';
 
-export interface ProjectV2 {
+export interface Project {
 	displayName: string;
 	id: string;
 	created: string;
 }
 
-export interface ProjectV2CreateRequest {
+export interface ProjectCreateRequest {
 	displayName: string;
 }
 
-export interface ProjectV2UpdateRequest {
+export interface ProjectUpdateRequest {
 	displayName: string;
 }
+
+export type ProjectV2 = Project;
+export type ProjectV2CreateRequest = ProjectCreateRequest;
+export type ProjectV2UpdateRequest = ProjectUpdateRequest;
 
 export interface ProjectV2Agent {
 	id: string;

@@ -492,13 +492,13 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("POST /api/image/upload", images.UploadImage)
 	mux.HandleFunc("GET /api/image/{id}", images.GetImage)
 
-	// ProjectV2
-	projectV2 := handlers.NewProjectV2Handler()
-	mux.HandleFunc("POST /api/projects", projectV2.Create)
-	mux.HandleFunc("GET /api/projects", projectV2.List)
-	mux.HandleFunc("GET /api/projects/{project_id}", projectV2.ByID)
-	mux.HandleFunc("PUT /api/projects/{project_id}", projectV2.Update)
-	mux.HandleFunc("DELETE /api/projects/{project_id}", projectV2.Delete)
+	// Projects
+	projects := handlers.NewProjectHandler()
+	mux.HandleFunc("POST /api/projects", projects.Create)
+	mux.HandleFunc("GET /api/projects", projects.List)
+	mux.HandleFunc("GET /api/projects/{project_id}", projects.ByID)
+	mux.HandleFunc("PUT /api/projects/{project_id}", projects.Update)
+	mux.HandleFunc("DELETE /api/projects/{project_id}", projects.Delete)
 
 	// NanobotAgents
 	nanobotAgents := handlers.NewNanobotAgentHandler(services.MCPLoader, services.ServerURL)

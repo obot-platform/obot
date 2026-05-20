@@ -4,5 +4,5 @@ export default {
 	...Operations
 };
 
-export type { ProjectV2, ProjectV2CreateRequest } from './types';
+export type { Project, ProjectCreateRequest } from './types';
 export * from './operations';
