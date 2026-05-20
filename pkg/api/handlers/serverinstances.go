@@ -8,10 +8,11 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/api"
+	gateway "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -210,11 +211,10 @@ func (h *ServerInstancesHandler) ConfigureServerInstance(req api.Context) error 
 		}
 	}
 
-	if err := req.GPTClient.CreateCredential(req.Context(), gptscript.Credential{
-		Context:  MCPServerInstanceCredentialContext(mcpServerInstance),
-		ToolName: mcpServerInstance.Name,
-		Type:     gptscript.CredentialTypeTool,
-		Env:      envVars,
+	if err := req.GatewayClient.UpsertCredential(req.Context(), gatewaytypes.Credential{
+		Context: MCPServerInstanceCredentialContext(mcpServerInstance),
+		Name:    mcpServerInstance.Name,
+		Secrets: envVars,
 	}); err != nil {
 		return fmt.Errorf("failed to create configuration: %w", err)
 	}
@@ -233,10 +233,10 @@ func (h *ServerInstancesHandler) DeconfigureServerInstance(req api.Context) erro
 		return err
 	}
 
-	if err := req.GPTClient.DeleteCredential(
+	if _, err := req.GatewayClient.DeleteCredential(
 		req.Context(),
 		MCPServerInstanceCredentialContext(mcpServerInstance), mcpServerInstance.Name,
-	); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+	); err != nil {
 		return fmt.Errorf("failed to delete configuration: %w", err)
 	}
 
@@ -279,15 +279,15 @@ func ConvertMCPServerInstance(instance v1.MCPServerInstance, credEnv map[string]
 }
 
 func mcpServerInstanceCredEnv(req api.Context, instance v1.MCPServerInstance) (map[string]string, error) {
-	cred, err := req.GPTClient.RevealCredential(req.Context(), []string{MCPServerInstanceCredentialContext(instance)}, instance.Name)
+	cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{MCPServerInstanceCredentialContext(instance)}, instance.Name)
 	if err != nil {
-		if errors.As(err, &gptscript.ErrNotFound{}) {
+		if errors.As(err, &gateway.CredentialNotFoundError{}) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to find credential: %w", err)
 	}
 
-	return cred.Env, nil
+	return cred.Secrets, nil
 }
 
 func MCPServerInstanceCredentialContext(instance v1.MCPServerInstance) string {

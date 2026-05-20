@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/accesstoken"
 	"github.com/obot-platform/obot/pkg/api"
@@ -36,13 +35,11 @@ var ErrInvalidSession = errors.New("invalid session")
 
 type Manager struct {
 	dispatcher *dispatcher.Dispatcher
-	gptClient  *gptscript.GPTScript
 }
 
-func NewProxyManager(dispatcher *dispatcher.Dispatcher, gptClient *gptscript.GPTScript) *Manager {
+func NewProxyManager(dispatcher *dispatcher.Dispatcher) *Manager {
 	m := &Manager{
 		dispatcher: dispatcher,
-		gptClient:  gptClient,
 	}
 
 	return m
@@ -64,7 +61,7 @@ func (pm *Manager) AuthenticateRequest(req *http.Request) (*authenticator.Respon
 		return nil, false, ErrInvalidSession
 	}
 
-	proxy, err := pm.createProxy(req.Context(), pm.gptClient, system.DefaultNamespace+"/"+configuredProvider)
+	proxy, err := pm.createProxy(req.Context(), system.DefaultNamespace+"/"+configuredProvider)
 	if err != nil {
 		return nil, false, err
 	}
@@ -161,7 +158,7 @@ func (pm *Manager) ServeHTTP(user user.Info, w http.ResponseWriter, r *http.Requ
 		}
 	}
 
-	proxy, err := pm.createProxy(r.Context(), pm.gptClient, provider)
+	proxy, err := pm.createProxy(r.Context(), provider)
 	if err != nil {
 		if r.URL.Path != "/oauth2/sign_out" {
 			http.Error(w, fmt.Sprintf("failed to create proxy: %v", err), http.StatusInternalServerError)
@@ -189,13 +186,13 @@ func (pm *Manager) ServeHTTP(user user.Info, w http.ResponseWriter, r *http.Requ
 	proxy.serveHTTP(w, r)
 }
 
-func (pm *Manager) createProxy(ctx context.Context, gptClient *gptscript.GPTScript, provider string) (*Proxy, error) {
+func (pm *Manager) createProxy(ctx context.Context, provider string) (*Proxy, error) {
 	parts := strings.Split(provider, "/")
 	if len(parts) != 2 {
 		return nil, fmt.Errorf("invalid provider: %s", provider)
 	}
 
-	providerURL, err := pm.dispatcher.URLForAuthProvider(ctx, gptClient, parts[0], parts[1])
+	providerURL, err := pm.dispatcher.URLForAuthProvider(ctx, parts[0], parts[1])
 	if err != nil {
 		return nil, err
 	}

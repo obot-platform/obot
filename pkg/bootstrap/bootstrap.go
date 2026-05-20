@@ -9,7 +9,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/gptscript-ai/go-gptscript"
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/client"
@@ -29,7 +28,7 @@ type Bootstrap struct {
 	gatewayClient                     *client.Client
 }
 
-func New(ctx context.Context, serverURL string, c *client.Client, g *gptscript.GPTScript, authEnabled, forceEnableBootstrap bool) (*Bootstrap, error) {
+func New(ctx context.Context, serverURL string, c *client.Client, authEnabled, forceEnableBootstrap bool) (*Bootstrap, error) {
 	if !authEnabled {
 		// Auth is not enabled, so skip token generation.
 		return &Bootstrap{
@@ -41,14 +40,14 @@ func New(ctx context.Context, serverURL string, c *client.Client, g *gptscript.G
 	}
 
 	token := os.Getenv("OBOT_BOOTSTRAP_TOKEN")
-	tokenFromCredential, exists, err := getTokenFromCredential(ctx, g)
+	tokenFromCredential, exists, err := getTokenFromCredential(ctx, c)
 	if err != nil {
 		return nil, err
 	}
 
 	if token != "" && !exists {
 		// Save the token from the env var to the credential.
-		if err := saveTokenToCredential(ctx, token, g); err != nil {
+		if err := saveTokenToCredential(ctx, token, c); err != nil {
 			return nil, err
 		}
 	} else if token == "" {
@@ -65,7 +64,7 @@ func New(ctx context.Context, serverURL string, c *client.Client, g *gptscript.G
 
 			token = fmt.Sprintf("%x", bytes)
 
-			if err := saveTokenToCredential(ctx, token, g); err != nil {
+			if err := saveTokenToCredential(ctx, token, c); err != nil {
 				return nil, err
 			}
 		}
@@ -94,33 +93,32 @@ func New(ctx context.Context, serverURL string, c *client.Client, g *gptscript.G
 	return b, nil
 }
 
-func getTokenFromCredential(ctx context.Context, g *gptscript.GPTScript) (string, bool, error) {
-	tokenCredential, err := g.RevealCredential(ctx, []string{ObotBootstrapCookie}, ObotBootstrapCookie)
+func getTokenFromCredential(ctx context.Context, c *client.Client) (string, bool, error) {
+	tokenCredential, err := c.RevealCredential(ctx, []string{ObotBootstrapCookie}, ObotBootstrapCookie)
 	if err != nil {
-		if errors.As(err, &gptscript.ErrNotFound{}) {
+		if errors.As(err, &client.CredentialNotFoundError{}) {
 			return "", false, nil
 		}
 		return "", false, fmt.Errorf("failed to get bootstrap token credential: %w", err)
 	}
 
-	value, ok := tokenCredential.Env["token"]
+	value, ok := tokenCredential.Secrets["token"]
 	if !ok {
 		return "", false, nil
 	}
 	return value, true, nil
 }
 
-func saveTokenToCredential(ctx context.Context, token string, g *gptscript.GPTScript) error {
-	credential := gptscript.Credential{
-		ToolName: ObotBootstrapCookie,
-		Context:  ObotBootstrapCookie,
-		Type:     gptscript.CredentialTypeTool,
-		Env: map[string]string{
+func saveTokenToCredential(ctx context.Context, token string, c *client.Client) error {
+	credential := types.Credential{
+		Name:    ObotBootstrapCookie,
+		Context: ObotBootstrapCookie,
+		Secrets: map[string]string{
 			"token": token,
 		},
 	}
 
-	if err := g.CreateCredential(ctx, credential); err != nil {
+	if err := c.UpsertCredential(ctx, credential); err != nil {
 		return fmt.Errorf("failed to store bootstrap token credential: %w", err)
 	}
 	return nil

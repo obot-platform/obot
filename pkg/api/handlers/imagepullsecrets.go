@@ -8,9 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	gateway "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/imagepullsecrets"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -470,15 +471,15 @@ func listPasswordConfigured(req api.Context, secrets []v1.ImagePullSecret) (map[
 		return result, nil
 	}
 
-	credentials, err := req.GPTClient.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
+	credentials, err := req.GatewayClient.ListCredentials(req.Context(), gateway.ListCredentialsOptions{
 		CredentialContexts: []string{imagepullsecrets.CredentialContext},
 	})
 	if err != nil {
 		return nil, err
 	}
 	for _, credential := range credentials {
-		if _, ok := result[credential.ToolName]; ok {
-			_, result[credential.ToolName] = credential.Env[imagepullsecrets.PasswordEnvVar]
+		if _, ok := result[credential.Name]; ok {
+			_, result[credential.Name] = credential.Secrets[imagepullsecrets.PasswordEnvVar]
 		}
 	}
 	return result, nil
@@ -494,25 +495,24 @@ func setPasswordConfigured(req api.Context, name string, status *types.ImagePull
 }
 
 func storeImagePullSecretPassword(req api.Context, name, password string) error {
-	return req.GPTClient.CreateCredential(req.Context(), gptscript.Credential{
-		Type:     gptscript.CredentialTypeTool,
-		Context:  imagepullsecrets.CredentialContext,
-		ToolName: name,
-		Env: map[string]string{
+	return req.GatewayClient.UpsertCredential(req.Context(), gatewaytypes.Credential{
+		Context: imagepullsecrets.CredentialContext,
+		Name:    name,
+		Secrets: map[string]string{
 			imagepullsecrets.PasswordEnvVar: password,
 		},
 	})
 }
 
 func revealImagePullSecretPassword(req api.Context, name string) (string, error) {
-	credential, err := req.GPTClient.RevealCredential(req.Context(), []string{imagepullsecrets.CredentialContext}, name)
-	if errors.As(err, &gptscript.ErrNotFound{}) {
+	credential, err := req.GatewayClient.RevealCredential(req.Context(), []string{imagepullsecrets.CredentialContext}, name)
+	if errors.As(err, &gateway.CredentialNotFoundError{}) {
 		return "", types.NewErrBadRequest("password is not configured")
 	}
 	if err != nil {
 		return "", err
 	}
-	password := credential.Env[imagepullsecrets.PasswordEnvVar]
+	password := credential.Secrets[imagepullsecrets.PasswordEnvVar]
 	if password == "" {
 		return "", types.NewErrBadRequest("password is not configured")
 	}
@@ -520,21 +520,18 @@ func revealImagePullSecretPassword(req api.Context, name string) (string, error)
 }
 
 func passwordConfigured(req api.Context, name string) (bool, error) {
-	credential, err := req.GPTClient.RevealCredential(req.Context(), []string{imagepullsecrets.CredentialContext}, name)
-	if errors.As(err, &gptscript.ErrNotFound{}) {
+	credential, err := req.GatewayClient.RevealCredential(req.Context(), []string{imagepullsecrets.CredentialContext}, name)
+	if errors.As(err, &gateway.CredentialNotFoundError{}) {
 		return false, nil
 	}
 	if err != nil {
 		return false, err
 	}
-	return credential.Env[imagepullsecrets.PasswordEnvVar] != "", nil
+	return credential.Secrets[imagepullsecrets.PasswordEnvVar] != "", nil
 }
 
 func deleteImagePullSecretPassword(req api.Context, name string) error {
-	err := req.GPTClient.DeleteCredential(req.Context(), imagepullsecrets.CredentialContext, name)
-	if errors.As(err, &gptscript.ErrNotFound{}) {
-		return nil
-	}
+	_, err := req.GatewayClient.DeleteCredential(req.Context(), imagepullsecrets.CredentialContext, name)
 	return err
 }
 

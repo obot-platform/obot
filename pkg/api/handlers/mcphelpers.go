@@ -9,7 +9,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gptscript-ai/go-gptscript"
+	gateway "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 )
 
 // StreamLogsOptions configures SSE log streaming behavior.
@@ -135,19 +136,16 @@ func stripDockerLogHeader(line string) string {
 
 // DeleteCredentialIfExists removes a credential if it exists.
 // Does not return an error if the credential is not found.
-func DeleteCredentialIfExists(ctx context.Context, gptClient *gptscript.GPTScript, credCtxs []string, toolName string) error {
-	cred, err := gptClient.RevealCredential(ctx, credCtxs, toolName)
+func DeleteCredentialIfExists(ctx context.Context, gatewayClient *gateway.Client, credCtxs []string, toolName string) error {
+	cred, err := gatewayClient.RevealCredential(ctx, credCtxs, toolName)
 	if err != nil {
-		if errors.As(err, &gptscript.ErrNotFound{}) {
+		if errors.As(err, &gateway.CredentialNotFoundError{}) {
 			return nil // Credential doesn't exist, nothing to delete
 		}
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
 
-	if err = gptClient.DeleteCredential(ctx, cred.Context, toolName); err != nil {
-		if errors.As(err, &gptscript.ErrNotFound{}) {
-			return nil // Already deleted
-		}
+	if _, err = gatewayClient.DeleteCredential(ctx, cred.Context, toolName); err != nil {
 		return fmt.Errorf("failed to remove existing credential: %w", err)
 	}
 	return nil
@@ -155,16 +153,16 @@ func DeleteCredentialIfExists(ctx context.Context, gptClient *gptscript.GPTScrip
 
 // EnsureCredential will ensure a given credential exists and it's env field is up to date.
 // Returns true if a credential was created or modified to match.
-func ensureCredential(ctx context.Context, gptClient *gptscript.GPTScript, cred gptscript.Credential) (bool, error) {
+func ensureCredential(ctx context.Context, gatewayClient *gateway.Client, cred gatewaytypes.Credential) (bool, error) {
 	credCtx := []string{cred.Context}
-	existing, err := gptClient.RevealCredential(ctx, credCtx, cred.ToolName)
+	existing, err := gatewayClient.RevealCredential(ctx, credCtx, cred.Name)
 	if err != nil {
-		if !errors.As(err, &gptscript.ErrNotFound{}) {
+		if !errors.As(err, &gateway.CredentialNotFoundError{}) {
 			return false, fmt.Errorf("failed to find credential: %w", err)
 		}
 
 		// Create new credential
-		if err := gptClient.CreateCredential(ctx, cred); err != nil {
+		if err := gatewayClient.UpsertCredential(ctx, cred); err != nil {
 			return false, fmt.Errorf("failed to create credential: %w", err)
 		}
 		return true, nil
@@ -172,19 +170,19 @@ func ensureCredential(ctx context.Context, gptClient *gptscript.GPTScript, cred 
 
 	// Existing credential, check if it needs an update
 	var modified bool
-	for key, env := range cred.Env {
-		existingEnv, ok := existing.Env[key]
+	for key, env := range cred.Secrets {
+		existingEnv, ok := existing.Secrets[key]
 		if !ok || existingEnv != env {
 			modified = true
 			break
 		}
 	}
-	if !modified && len(cred.Env) == len(existing.Env) {
+	if !modified && len(cred.Secrets) == len(existing.Secrets) {
 		// No update needed
 		return false, nil
 	}
 
-	if err := gptClient.CreateCredential(ctx, cred); err != nil {
+	if err := gatewayClient.UpsertCredential(ctx, cred); err != nil {
 		return false, fmt.Errorf("failed to create credential: %w", err)
 	}
 

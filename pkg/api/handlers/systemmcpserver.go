@@ -10,10 +10,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/controller/handlers/systemmcpserver"
+	gateway "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -43,7 +44,7 @@ func (h *SystemMCPServerHandler) List(req api.Context) error {
 
 	servers := make([]types.SystemMCPServer, 0, len(list.Items))
 	for _, server := range list.Items {
-		credEnv, err := systemmcpserver.GetCredentialsForSystemServer(req.Context(), req.GPTClient, server)
+		credEnv, err := systemmcpserver.GetCredentialsForSystemServer(req.Context(), req.GatewayClient, server)
 		if err != nil {
 			return err
 		}
@@ -60,7 +61,7 @@ func (h *SystemMCPServerHandler) Get(req api.Context) error {
 		return err
 	}
 
-	credEnv, err := systemmcpserver.GetCredentialsForSystemServer(req.Context(), req.GPTClient, systemServer)
+	credEnv, err := systemmcpserver.GetCredentialsForSystemServer(req.Context(), req.GatewayClient, systemServer)
 	if err != nil {
 		return err
 	}
@@ -119,7 +120,7 @@ func (h *SystemMCPServerHandler) Update(req api.Context) error {
 		return fmt.Errorf("failed to update system MCP server: %w", err)
 	}
 
-	credEnv, err := systemmcpserver.GetCredentialsForSystemServer(req.Context(), req.GPTClient, systemServer)
+	credEnv, err := systemmcpserver.GetCredentialsForSystemServer(req.Context(), req.GatewayClient, systemServer)
 	if err != nil {
 		return err
 	}
@@ -156,7 +157,7 @@ func (h *SystemMCPServerHandler) Configure(req api.Context) error {
 	credCtx := systemServer.Name
 
 	// Allow for updating credentials. The only way to update a credential is to delete the existing one and recreate it.
-	if err := DeleteCredentialIfExists(req.Context(), req.GPTClient, []string{credCtx}, systemServer.Name); err != nil {
+	if err := DeleteCredentialIfExists(req.Context(), req.GatewayClient, []string{credCtx}, systemServer.Name); err != nil {
 		return err
 	}
 
@@ -168,11 +169,10 @@ func (h *SystemMCPServerHandler) Configure(req api.Context) error {
 	}
 
 	// Store credentials using GPTScript
-	if err := req.GPTClient.CreateCredential(req.Context(), gptscript.Credential{
-		Context:  credCtx,
-		ToolName: systemServer.Name,
-		Type:     gptscript.CredentialTypeTool,
-		Env:      envVars,
+	if err := req.GatewayClient.UpsertCredential(req.Context(), gatewaytypes.Credential{
+		Context: credCtx,
+		Name:    systemServer.Name,
+		Secrets: envVars,
 	}); err != nil {
 		return fmt.Errorf("failed to create credential: %w", err)
 	}
@@ -187,7 +187,7 @@ func (h *SystemMCPServerHandler) Configure(req api.Context) error {
 		return fmt.Errorf("failed to update system MCP server: %w", err)
 	}
 
-	credEnv, err := systemmcpserver.GetCredentialsForSystemServer(req.Context(), req.GPTClient, systemServer)
+	credEnv, err := systemmcpserver.GetCredentialsForSystemServer(req.Context(), req.GatewayClient, systemServer)
 	if err != nil {
 		return err
 	}
@@ -205,7 +205,7 @@ func (h *SystemMCPServerHandler) Deconfigure(req api.Context) error {
 	credCtx := systemServer.Name
 
 	// Delete credentials using GPTScript
-	if err := DeleteCredentialIfExists(req.Context(), req.GPTClient, []string{credCtx}, systemServer.Name); err != nil {
+	if err := DeleteCredentialIfExists(req.Context(), req.GatewayClient, []string{credCtx}, systemServer.Name); err != nil {
 		return err
 	}
 
@@ -218,7 +218,7 @@ func (h *SystemMCPServerHandler) Deconfigure(req api.Context) error {
 		return fmt.Errorf("failed to update system MCP server: %w", err)
 	}
 
-	credEnv, err := systemmcpserver.GetCredentialsForSystemServer(req.Context(), req.GPTClient, systemServer)
+	credEnv, err := systemmcpserver.GetCredentialsForSystemServer(req.Context(), req.GatewayClient, systemServer)
 	if err != nil {
 		return err
 	}
@@ -234,7 +234,7 @@ func (h *SystemMCPServerHandler) Restart(req api.Context) error {
 	}
 
 	// Check if server is both enabled and configured
-	if err := checkEnabledAndConfigured(req.Context(), req.GPTClient, systemServer); err != nil {
+	if err := checkEnabledAndConfigured(req.Context(), req.GatewayClient, systemServer); err != nil {
 		return err
 	}
 
@@ -342,7 +342,7 @@ func (h *SystemMCPServerHandler) Logs(req api.Context) error {
 	}
 
 	// Check if server is both enabled and configured
-	if err := checkEnabledAndConfigured(req.Context(), req.GPTClient, systemServer); err != nil {
+	if err := checkEnabledAndConfigured(req.Context(), req.GatewayClient, systemServer); err != nil {
 		return err
 	}
 
@@ -376,7 +376,7 @@ func (h *SystemMCPServerHandler) GetTools(req api.Context) error {
 	}
 
 	// Check if server is both enabled and configured
-	if err := checkEnabledAndConfigured(req.Context(), req.GPTClient, systemServer); err != nil {
+	if err := checkEnabledAndConfigured(req.Context(), req.GatewayClient, systemServer); err != nil {
 		return err
 	}
 
@@ -425,7 +425,7 @@ func (h *SystemMCPServerHandler) GetDetails(req api.Context) error {
 	}
 
 	// Check if server is both enabled and configured
-	if err := checkEnabledAndConfigured(req.Context(), req.GPTClient, systemServer); err != nil {
+	if err := checkEnabledAndConfigured(req.Context(), req.GatewayClient, systemServer); err != nil {
 		return err
 	}
 
@@ -455,18 +455,18 @@ func (h *SystemMCPServerHandler) Reveal(req api.Context) error {
 	}
 
 	// Check if server is both enabled and configured
-	if err := checkEnabledAndConfigured(req.Context(), req.GPTClient, systemServer); err != nil {
+	if err := checkEnabledAndConfigured(req.Context(), req.GatewayClient, systemServer); err != nil {
 		return err
 	}
 
 	credCtx := systemServer.Name
 
 	// Reveal the credential
-	cred, err := req.GPTClient.RevealCredential(req.Context(), []string{credCtx}, systemServer.Name)
-	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+	cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{credCtx}, systemServer.Name)
+	if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 		return fmt.Errorf("failed to find credential: %w", err)
 	} else if err == nil {
-		return req.Write(cred.Env)
+		return req.Write(cred.Secrets)
 	}
 
 	return types.NewErrNotFound("no credential found for %q", systemServer.Name)
@@ -475,12 +475,12 @@ func (h *SystemMCPServerHandler) Reveal(req api.Context) error {
 // Helper functions
 
 // checkEnabledAndConfigured verifies that a system MCP server is both enabled and configured
-func checkEnabledAndConfigured(ctx context.Context, gptClient *gptscript.GPTScript, server v1.SystemMCPServer) error {
+func checkEnabledAndConfigured(ctx context.Context, gatewayClient *gateway.Client, server v1.SystemMCPServer) error {
 	if server.Spec.Manifest.Enabled != nil && !*server.Spec.Manifest.Enabled {
 		return types.NewErrBadRequest("system MCP server is not enabled")
 	}
 
-	if !systemmcpserver.IsSystemServerConfigured(ctx, gptClient, server) {
+	if !systemmcpserver.IsSystemServerConfigured(ctx, gatewayClient, server) {
 		return types.NewErrBadRequest("system MCP server is not configured")
 	}
 
@@ -522,13 +522,13 @@ func convertSystemMCPServer(server v1.SystemMCPServer, credEnv map[string]string
 }
 
 func systemServerToServerConfig(req api.Context, server v1.SystemMCPServer) (mcp.ServerConfig, []string, error) {
-	credEnv, err := systemmcpserver.GetCredentialsForSystemServer(req.Context(), req.GPTClient, server)
+	credEnv, err := systemmcpserver.GetCredentialsForSystemServer(req.Context(), req.GatewayClient, server)
 	if err != nil {
 		return mcp.ServerConfig{}, nil, err
 	}
 
 	var (
-		tokenExchangeCred gptscript.Credential
+		tokenExchangeCred gatewaytypes.Credential
 		tokenCredErr      error
 	)
 	if err = retry.OnError(kwait.Backoff{
@@ -537,15 +537,15 @@ func systemServerToServerConfig(req api.Context, server v1.SystemMCPServer) (mcp
 		Factor:   2.0,
 		Jitter:   0.1,
 	}, func(err error) bool {
-		return errors.As(err, &gptscript.ErrNotFound{})
+		return errors.As(err, &gateway.CredentialNotFoundError{})
 	}, func() error {
-		tokenExchangeCred, tokenCredErr = req.GPTClient.RevealCredential(req.Context(), []string{server.Name}, systemmcpserver.SecretInfoToolName(server.Name))
+		tokenExchangeCred, tokenCredErr = req.GatewayClient.RevealCredential(req.Context(), []string{server.Name}, systemmcpserver.SecretInfoToolName(server.Name))
 		return tokenCredErr
 	}); err != nil {
 		return mcp.ServerConfig{}, nil, fmt.Errorf("failed to find token exchange credential: %w", tokenCredErr)
 	}
 
-	secretsCred := tokenExchangeCred.Env
+	secretsCred := tokenExchangeCred.Secrets
 
 	baseURL := strings.TrimSuffix(req.APIBaseURL, "/api")
 	audiences := server.ValidConnectURLs(baseURL)

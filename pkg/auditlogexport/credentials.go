@@ -5,8 +5,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
+	gateway "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 )
 
 var (
@@ -14,50 +15,50 @@ var (
 	storageCredentialsName    = "audit-log-export-storage-credentials"
 )
 
-type GPTScriptCredentialProvider struct {
-	gptClient *gptscript.GPTScript
+type CredentialProvider struct {
+	gatewayClient *gateway.Client
 }
 
-func NewGPTScriptCredentialProvider(gptClient *gptscript.GPTScript) *GPTScriptCredentialProvider {
-	return &GPTScriptCredentialProvider{
-		gptClient: gptClient,
+func NewCredentialProvider(gatewayClient *gateway.Client) *CredentialProvider {
+	return &CredentialProvider{
+		gatewayClient: gatewayClient,
 	}
 }
 
-func (g *GPTScriptCredentialProvider) GetStorageConfig(ctx context.Context) (*types.StorageConfig, error) {
-	credential, err := g.gptClient.RevealCredential(ctx, []string{storageCredentialsContext}, storageCredentialsName)
+func (g *CredentialProvider) GetStorageConfig(ctx context.Context) (*types.StorageConfig, error) {
+	credential, err := g.gatewayClient.RevealCredential(ctx, []string{storageCredentialsContext}, storageCredentialsName)
 	if err != nil {
 		return nil, err
 	}
 
-	provider := credential.Env["provider"]
+	provider := credential.Secrets["provider"]
 
 	storageConfig := &types.StorageConfig{}
 	switch provider {
 	case string(types.StorageProviderS3):
 		storageConfig.S3Config = &types.S3Config{
-			Region:          credential.Env["region"],
-			AccessKeyID:     credential.Env["access_key_id"],
-			SecretAccessKey: credential.Env["secret_access_key"],
+			Region:          credential.Secrets["region"],
+			AccessKeyID:     credential.Secrets["access_key_id"],
+			SecretAccessKey: credential.Secrets["secret_access_key"],
 		}
 	case string(types.StorageProviderGCS):
 		storageConfig.GCSConfig = &types.GCSConfig{
-			ServiceAccountJSON: credential.Env["service_account_json"],
+			ServiceAccountJSON: credential.Secrets["service_account_json"],
 		}
 	case string(types.StorageProviderAzureBlob):
 		storageConfig.AzureConfig = &types.AzureConfig{
-			StorageAccount: credential.Env["storage_account"],
-			ClientID:       credential.Env["client_id"],
-			TenantID:       credential.Env["tenant_id"],
-			ClientSecret:   credential.Env["client_secret"],
+			StorageAccount: credential.Secrets["storage_account"],
+			ClientID:       credential.Secrets["client_id"],
+			TenantID:       credential.Secrets["tenant_id"],
+			ClientSecret:   credential.Secrets["client_secret"],
 		}
 
 	case string(types.StorageProviderCustomS3):
 		storageConfig.CustomS3Config = &types.CustomS3Config{
-			Endpoint:        credential.Env["endpoint"],
-			Region:          credential.Env["region"],
-			AccessKeyID:     credential.Env["access_key_id"],
-			SecretAccessKey: credential.Env["secret_access_key"],
+			Endpoint:        credential.Secrets["endpoint"],
+			Region:          credential.Secrets["region"],
+			AccessKeyID:     credential.Secrets["access_key_id"],
+			SecretAccessKey: credential.Secrets["secret_access_key"],
 		}
 	default:
 		return nil, fmt.Errorf("unsupported provider type: %s", provider)
@@ -66,16 +67,16 @@ func (g *GPTScriptCredentialProvider) GetStorageConfig(ctx context.Context) (*ty
 	return storageConfig, nil
 }
 
-func (g *GPTScriptCredentialProvider) StoreCredentials(ctx context.Context, config types.StorageProviderConfigInput) error {
+func (g *CredentialProvider) StoreCredentials(ctx context.Context, config types.StorageProviderConfigInput) error {
 	credentialData := make(map[string]string)
 	provider := config.Provider
 
 	var existingCredentialData map[string]string
-	credential, err := g.gptClient.RevealCredential(ctx, []string{storageCredentialsContext}, storageCredentialsName)
-	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+	credential, err := g.gatewayClient.RevealCredential(ctx, []string{storageCredentialsContext}, storageCredentialsName)
+	if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 		return err
 	} else if err == nil {
-		existingCredentialData = credential.Env
+		existingCredentialData = credential.Secrets
 	}
 
 	switch provider {
@@ -164,22 +165,22 @@ func (g *GPTScriptCredentialProvider) StoreCredentials(ctx context.Context, conf
 		credentialData["provider"] = string(types.StorageProviderCustomS3)
 	}
 
-	return g.gptClient.CreateCredential(ctx, gptscript.Credential{
-		Type:     gptscript.CredentialTypeTool,
-		Context:  storageCredentialsContext,
-		ToolName: storageCredentialsName,
-		Env:      credentialData,
+	return g.gatewayClient.UpsertCredential(ctx, gatewaytypes.Credential{
+		Context: storageCredentialsContext,
+		Name:    storageCredentialsName,
+		Secrets: credentialData,
 	})
 }
 
-func (g *GPTScriptCredentialProvider) DeleteCredentials(ctx context.Context) error {
-	return g.gptClient.DeleteCredential(ctx, storageCredentialsContext, storageCredentialsName)
+func (g *CredentialProvider) DeleteCredentials(ctx context.Context) error {
+	_, err := g.gatewayClient.DeleteCredential(ctx, storageCredentialsContext, storageCredentialsName)
+	return err
 }
 
-func (g *GPTScriptCredentialProvider) TestCredentials(ctx context.Context, config types.StorageCredentialsTestRequest) error {
+func (g *CredentialProvider) TestCredentials(ctx context.Context, config types.StorageCredentialsTestRequest) error {
 	provider := config.Provider
 
-	p, err := NewStorageProvider(provider, g)
+	p, err := NewStorageProvider(provider)
 	if err != nil {
 		return err
 	}

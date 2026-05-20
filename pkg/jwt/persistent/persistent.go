@@ -16,10 +16,10 @@ import (
 
 	"github.com/MicahParks/jwkset"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -28,19 +28,17 @@ import (
 var log = logger.Package()
 
 type TokenService struct {
-	lock              sync.RWMutex
-	privateKey        ed25519.PrivateKey
-	jwks              json.RawMessage
-	gatewayClient     *client.Client
-	credOnlyGPTClient *gptscript.GPTScript
-	serverURL         string
+	lock          sync.RWMutex
+	privateKey    ed25519.PrivateKey
+	jwks          json.RawMessage
+	gatewayClient *client.Client
+	serverURL     string
 }
 
-func NewTokenService(serverURL string, gatewayClient *client.Client, credOnlyGPTClient *gptscript.GPTScript) (*TokenService, error) {
+func NewTokenService(serverURL string, gatewayClient *client.Client) (*TokenService, error) {
 	t := &TokenService{
-		gatewayClient:     gatewayClient,
-		credOnlyGPTClient: credOnlyGPTClient,
-		serverURL:         serverURL,
+		gatewayClient: gatewayClient,
+		serverURL:     serverURL,
 	}
 	return t, nil
 }
@@ -55,13 +53,13 @@ const (
 // EnsureJWK ensures that the JWK is created and stored in the GPTScript client. It should only be called in a controller post-start hook which only allows one to be run at a time.
 func (t *TokenService) EnsureJWK(ctx context.Context) error {
 	// Read the credential, if it exists, then use it.
-	cred, err := t.credOnlyGPTClient.RevealCredential(ctx, []string{system.JWKCredentialContext}, system.JWKCredentialContext)
-	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+	cred, err := t.gatewayClient.RevealCredential(ctx, []string{system.JWKCredentialContext}, system.JWKCredentialContext)
+	if err != nil && !errors.As(err, &client.CredentialNotFoundError{}) {
 		return err
 	}
 
 	var configuredKey ed25519.PrivateKey
-	if keyData := cred.Env[keyEnvVar]; keyData != "" {
+	if keyData := cred.Secrets[keyEnvVar]; keyData != "" {
 		configuredKey, err = base64.StdEncoding.DecodeString(keyData)
 		if err != nil {
 			return err
@@ -75,11 +73,10 @@ func (t *TokenService) EnsureJWK(ctx context.Context) error {
 	}
 
 	// Write the key to the JWK Set storage.
-	if err := t.credOnlyGPTClient.CreateCredential(ctx, gptscript.Credential{
-		Context:  system.JWKCredentialContext,
-		ToolName: system.JWKCredentialContext,
-		Type:     gptscript.CredentialTypeTool,
-		Env: map[string]string{
+	if err := t.gatewayClient.UpsertCredential(ctx, gatewaytypes.Credential{
+		Context: system.JWKCredentialContext,
+		Name:    system.JWKCredentialContext,
+		Secrets: map[string]string{
 			keyEnvVar: base64.StdEncoding.EncodeToString(configuredKey),
 		},
 	}); err != nil {
@@ -91,12 +88,12 @@ func (t *TokenService) EnsureJWK(ctx context.Context) error {
 
 // SetJWK sets the JWK in the GPTScript client. It should be called after the JWK is created and stored in the GPTScript client.
 func (t *TokenService) setJWK(ctx context.Context) error {
-	cred, err := t.credOnlyGPTClient.RevealCredential(ctx, []string{system.JWKCredentialContext}, system.JWKCredentialContext)
-	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+	cred, err := t.gatewayClient.RevealCredential(ctx, []string{system.JWKCredentialContext}, system.JWKCredentialContext)
+	if err != nil && !errors.As(err, &client.CredentialNotFoundError{}) {
 		return err
 	}
 
-	value, ok := cred.Env[keyEnvVar]
+	value, ok := cred.Secrets[keyEnvVar]
 	if !ok || value == "" {
 		return fmt.Errorf("JWK not found in credential")
 	}
@@ -120,11 +117,10 @@ func (t *TokenService) ReplaceJWK(req api.Context) error {
 		return fmt.Errorf("failed to generate key: %w", err)
 	}
 
-	if err := req.GPTClient.CreateCredential(req.Context(), gptscript.Credential{
-		Context:  system.JWKCredentialContext,
-		ToolName: system.JWKCredentialContext,
-		Type:     gptscript.CredentialTypeTool,
-		Env: map[string]string{
+	if err := req.GatewayClient.UpsertCredential(req.Context(), gatewaytypes.Credential{
+		Context: system.JWKCredentialContext,
+		Name:    system.JWKCredentialContext,
+		Secrets: map[string]string{
 			keyEnvVar: base64.StdEncoding.EncodeToString(newKey),
 		},
 	}); err != nil {

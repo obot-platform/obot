@@ -8,15 +8,10 @@ import (
 	"net/http"
 
 	openai "github.com/gptscript-ai/chat-completion-client"
-	"github.com/gptscript-ai/go-gptscript"
 )
 
-func (d *Dispatcher) ModelsForProvider(ctx context.Context, gptClient *gptscript.GPTScript, modelProviderNamespace, modelProviderName string) (*openai.ModelsList, error) {
-	return d.ModelsForProviderWithEnv(ctx, gptClient, modelProviderNamespace, modelProviderName, nil)
-}
-
-func (d *Dispatcher) ModelsForProviderWithEnv(ctx context.Context, gptClient *gptscript.GPTScript, modelProviderNamespace, modelProviderName string, env map[string]string) (*openai.ModelsList, error) {
-	u, err := d.URLForModelProvider(ctx, gptClient, modelProviderNamespace, modelProviderName)
+func (d *Dispatcher) ModelsForProvider(ctx context.Context, modelProviderNamespace, modelProviderName string) (*openai.ModelsList, error) {
+	u, err := d.URLForModelProvider(ctx, modelProviderNamespace, modelProviderName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get URL for model provider %q: %w", modelProviderName, err)
 	}
@@ -28,8 +23,6 @@ func (d *Dispatcher) ModelsForProviderWithEnv(ctx context.Context, gptClient *gp
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request to model provider %q: %w", modelProviderName, err)
 	}
-
-	addCredHeaders(r, env)
 
 	resp, err := http.DefaultClient.Do(r)
 	if err != nil {

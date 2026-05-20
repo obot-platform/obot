@@ -5,20 +5,20 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/router"
+	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	corev1 "k8s.io/api/core/v1"
 )
 
 type Handler struct {
 	mcpDeploymentNamespace string
-	gptClient              *gptscript.GPTScript
+	gatewayClient          *gateway.Client
 }
 
-func New(mcpNamespace string, gptClient *gptscript.GPTScript) *Handler {
+func New(mcpNamespace string, gatewayClient *gateway.Client) *Handler {
 	return &Handler{
 		mcpDeploymentNamespace: mcpNamespace,
-		gptClient:              gptClient,
+		gatewayClient:          gatewayClient,
 	}
 }
 
@@ -34,20 +34,20 @@ func (h *Handler) UpdateNanobotAgentCreds(req router.Request, _ router.Response)
 		return nil
 	}
 
-	cred, err := h.gptClient.RevealCredential(req.Ctx, []string{fmt.Sprintf("%s-%s", userID, mcpServerID)}, mcpServerID)
+	cred, err := h.gatewayClient.RevealCredential(req.Ctx, []string{fmt.Sprintf("%s-%s", userID, mcpServerID)}, mcpServerID)
 	if err != nil {
-		if errors.As(err, &gptscript.ErrNotFound{}) {
+		if errors.As(err, &gateway.CredentialNotFoundError{}) {
 			return nil
 		}
 		return fmt.Errorf("failed to reveal credential: %w", err)
 	}
 
-	update := len(secret.Data) != len(cred.Env)
-	for key, val := range cred.Env {
+	update := len(secret.Data) != len(cred.Secrets)
+	for key, val := range cred.Secrets {
 		if string(secret.Data[fmt.Sprintf("%s-%s", mcpServerID, key)]) != val {
 			update = true
 			if secret.Data == nil {
-				secret.Data = make(map[string][]byte, len(cred.Env))
+				secret.Data = make(map[string][]byte, len(cred.Secrets))
 			}
 			secret.Data[fmt.Sprintf("%s-%s", mcpServerID, key)] = []byte(val)
 		}

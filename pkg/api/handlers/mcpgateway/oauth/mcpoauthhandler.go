@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/gptscript-ai/go-gptscript"
 	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
@@ -23,17 +22,15 @@ type MCPOAuthHandlerFactory struct {
 	baseURL           string
 	mcpSessionManager *mcp.SessionManager
 	client            kclient.Client
-	gptscript         *gptscript.GPTScript
 	stateMgr          *stateManager
 	tokenStore        mcp.GlobalTokenStore
 }
 
-func NewMCPOAuthHandlerFactory(baseURL string, sessionManager *mcp.SessionManager, client kclient.Client, gptClient *gptscript.GPTScript, gatewayClient *client.Client, globalTokenStore mcp.GlobalTokenStore) *MCPOAuthHandlerFactory {
+func NewMCPOAuthHandlerFactory(baseURL string, sessionManager *mcp.SessionManager, client kclient.Client, gatewayClient *client.Client, globalTokenStore mcp.GlobalTokenStore) *MCPOAuthHandlerFactory {
 	return &MCPOAuthHandlerFactory{
 		baseURL:           baseURL,
 		mcpSessionManager: sessionManager,
 		client:            client,
-		gptscript:         gptClient,
 		stateMgr:          newStateManager(gatewayClient),
 		tokenStore:        globalTokenStore,
 	}
@@ -99,7 +96,7 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 	}
 
 	// Remote server, check for OAuth directly
-	oauthHandler := f.newMCPOAuthHandler(userID, mcpID, mcpServerConfig.URL, oauthAppAuthRequestID)
+	oauthHandler := f.newMCPOAuthHandler(req.GatewayClient, userID, mcpID, mcpServerConfig.URL, oauthAppAuthRequestID)
 	errChan := make(chan error, 1)
 
 	go func() {
@@ -136,7 +133,7 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 
 type mcpOAuthHandler struct {
 	client             kclient.Client
-	gptscript          *gptscript.GPTScript
+	gatewayClient      *client.Client
 	stateMgr           *stateManager
 	mcpID              string
 	mcpURL             string
@@ -145,10 +142,10 @@ type mcpOAuthHandler struct {
 	urlChan            chan string
 }
 
-func (f *MCPOAuthHandlerFactory) newMCPOAuthHandler(userID, mcpID, mcpURL, oauthAuthRequestID string) *mcpOAuthHandler {
+func (f *MCPOAuthHandlerFactory) newMCPOAuthHandler(gatewayClient *client.Client, userID, mcpID, mcpURL, oauthAuthRequestID string) *mcpOAuthHandler {
 	return &mcpOAuthHandler{
 		client:             f.client,
-		gptscript:          f.gptscript,
+		gatewayClient:      gatewayClient,
 		stateMgr:           f.stateMgr,
 		userID:             userID,
 		mcpID:              mcpID,
@@ -191,10 +188,10 @@ func (m *mcpOAuthHandler) Lookup(ctx context.Context, _ string) (string, string,
 			// If the server was created from a catalog entry, look up OAuth credentials by catalog entry name
 			if server.Spec.MCPServerCatalogEntryName != "" {
 				credName := system.MCPOAuthCredentialName(server.Spec.MCPServerCatalogEntryName)
-				cred, err := m.gptscript.RevealCredential(ctx, []string{credName}, "oauth")
+				cred, err := m.gatewayClient.RevealCredential(ctx, []string{credName}, "oauth")
 				if err == nil {
-					clientID := cred.Env["CLIENT_ID"]
-					clientSecret := cred.Env["CLIENT_SECRET"]
+					clientID := cred.Secrets["CLIENT_ID"]
+					clientSecret := cred.Secrets["CLIENT_SECRET"]
 					if clientID != "" && clientSecret != "" {
 						return clientID, clientSecret, nil
 					}

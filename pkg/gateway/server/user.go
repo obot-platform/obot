@@ -34,7 +34,7 @@ func (s *Server) getCurrentUser(apiContext api.Context) error {
 	name, namespace := apiContext.AuthProviderNameAndNamespace()
 
 	if name != "" && namespace != "" {
-		providerURL, err := s.dispatcher.URLForAuthProvider(apiContext.Context(), apiContext.GPTClient, namespace, name)
+		providerURL, err := s.dispatcher.URLForAuthProvider(apiContext.Context(), namespace, name)
 		if err != nil {
 			return fmt.Errorf("failed to get auth provider URL: %v", err)
 		}
@@ -350,7 +350,7 @@ func (s *Server) listAuthGroups(apiContext api.Context) error {
 		return apiContext.Write([]types.Group{})
 	}
 
-	providerURL, err := s.dispatcher.URLForAuthProvider(apiContext.Context(), apiContext.GPTClient, namespace, name)
+	providerURL, err := s.dispatcher.URLForAuthProvider(apiContext.Context(), namespace, name)
 	if err != nil {
 		return fmt.Errorf("failed to get auth provider URL: %v", err)
 	}

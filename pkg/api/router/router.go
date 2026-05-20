@@ -32,7 +32,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 		return nil, err
 	}
 
-	oauthChecker := oauth.NewMCPOAuthHandlerFactory(services.ServerURL, services.MCPLoader, services.StorageClient, services.GPTClient, services.GatewayClient, services.MCPOAuthTokenStorage)
+	oauthChecker := oauth.NewMCPOAuthHandlerFactory(services.ServerURL, services.MCPLoader, services.StorageClient, services.GatewayClient, services.MCPOAuthTokenStorage)
 
 	models := handlers.NewModelHandler(services.ModelAccessPolicyHelper)
 	mcpCatalogs := handlers.NewMCPCatalogHandler(services.DefaultMCPCatalogPath, services.ServerURL, services.MCPRuntimeBackend, services.MCPLoader, oauthChecker, services.GatewayClient, services.AccessControlRuleHelper)
@@ -55,7 +55,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mcp := handlers.NewMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, oauthChecker, services.MCPImagePullSecrets, services.ServerURL)
 	mcpGateway := mcpgateway.NewHandler(services.MCPLoader)
 	mcpAuditLogs := mcpgateway.NewAuditLogHandler()
-	auditLogExports := handlers.NewAuditLogExportHandler(services.GPTClient)
+	auditLogExports := handlers.NewAuditLogExportHandler(services.GatewayClient)
 	serverInstances := handlers.NewServerInstancesHandler(services.AccessControlRuleHelper, services.ServerURL)
 	systemMCPServers := handlers.NewSystemMCPServerHandler(services.MCPLoader)
 	userDefaultRoleSettings := handlers.NewUserDefaultRoleSettingHandler()

@@ -2,7 +2,7 @@ apiVersion: apiserver.config.k8s.io/v1
 kind: EncryptionConfiguration
 resources:
   - resources:
-      - credentials
+      - credentials.obot.obot.ai
       - runstates.obot.obot.ai
       - users.obot.obot.ai
       - identities.obot.obot.ai

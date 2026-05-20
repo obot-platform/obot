@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/backend"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
+	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
@@ -24,13 +24,13 @@ const (
 )
 
 type Helper struct {
-	indexer    gocache.Indexer
-	client     kclient.Client
-	dispatcher *dispatcher.Dispatcher
-	gptClient  *gptscript.GPTScript
+	indexer       gocache.Indexer
+	client        kclient.Client
+	dispatcher    *dispatcher.Dispatcher
+	gatewayClient *gateway.Client
 }
 
-func NewHelper(ctx context.Context, backend backend.Backend, client kclient.Client, dispatcher *dispatcher.Dispatcher, gptClient *gptscript.GPTScript) (*Helper, error) {
+func NewHelper(ctx context.Context, backend backend.Backend, client kclient.Client, dispatcher *dispatcher.Dispatcher, gatewayClient *gateway.Client) (*Helper, error) {
 	gvk, err := backend.GroupVersionKindFor(&v1.MessagePolicy{})
 	if err != nil {
 		return nil, err
@@ -50,10 +50,10 @@ func NewHelper(ctx context.Context, backend backend.Backend, client kclient.Clie
 	}
 
 	return &Helper{
-		indexer:    informer.GetIndexer(),
-		client:     client,
-		dispatcher: dispatcher,
-		gptClient:  gptClient,
+		indexer:       informer.GetIndexer(),
+		client:        client,
+		dispatcher:    dispatcher,
+		gatewayClient: gatewayClient,
 	}, nil
 }
 

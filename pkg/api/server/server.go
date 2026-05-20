@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/api"
@@ -35,7 +34,6 @@ var log = logger.Package()
 type Server struct {
 	storageClient  storage.Client
 	gatewayClient  *gclient.Client
-	gptClient      *gptscript.GPTScript
 	localK8sClient kclient.Client
 	obotNamespace  string
 	authenticator  *authn.Authenticator
@@ -51,7 +49,7 @@ type Server struct {
 	otelHandler http.Handler
 }
 
-func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, gptClient *gptscript.GPTScript, localK8sClient kclient.Client, obotNamespace string, authn *authn.Authenticator, authz *authz.Authorizer, proxyManager *proxy.Manager, auditLogger audit.Logger, rateLimiter *ratelimiter.RateLimiter, baseURL string, oauthScopesSupported []string, registryNoAuth bool) *Server {
+func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, localK8sClient kclient.Client, obotNamespace string, authn *authn.Authenticator, authz *authz.Authorizer, proxyManager *proxy.Manager, auditLogger audit.Logger, rateLimiter *ratelimiter.RateLimiter, baseURL string, oauthScopesSupported []string, registryNoAuth bool) *Server {
 	var scope string
 	if len(oauthScopesSupported) > 0 {
 		scope = fmt.Sprintf(", scope=\"%s\"", strings.Join(oauthScopesSupported, " "))
@@ -59,7 +57,6 @@ func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, gptC
 	s := &Server{
 		storageClient:  storageClient,
 		gatewayClient:  gatewayClient,
-		gptClient:      gptClient,
 		localK8sClient: localK8sClient,
 		obotNamespace:  obotNamespace,
 		authenticator:  authn,
@@ -221,7 +218,6 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 		err = f(api.Context{
 			ResponseWriter: rw,
 			Request:        req,
-			GPTClient:      s.gptClient,
 			Storage:        s.storageClient,
 			GatewayClient:  s.gatewayClient,
 			User:           user,

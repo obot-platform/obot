@@ -8,11 +8,11 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	"github.com/obot-platform/obot/pkg/controller/handlers/systemmcpserver"
+	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -147,7 +147,7 @@ func (h *Handler) ensureSystemServerIsDeployed(req api.Context, mcpID string) (m
 
 	if needsCredentials {
 		credCtx := systemServer.Name
-		creds, err := req.GPTClient.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
+		creds, err := req.GatewayClient.ListCredentials(req.Context(), gateway.ListCredentialsOptions{
 			CredentialContexts: []string{credCtx},
 		})
 		if err != nil {
@@ -157,22 +157,22 @@ func (h *Handler) ensureSystemServerIsDeployed(req api.Context, mcpID string) (m
 		secretToolName := systemmcpserver.SecretInfoToolName(systemServer.Name)
 		for _, cred := range creds {
 			// Skip the secret info credential — those vars go to the shim only, not the MCP server.
-			if cred.ToolName == secretToolName {
+			if cred.Name == secretToolName {
 				continue
 			}
-			credDetail, err := req.GPTClient.RevealCredential(req.Context(), []string{credCtx}, cred.ToolName)
+			credDetail, err := req.GatewayClient.RevealCredential(req.Context(), []string{credCtx}, cred.Name)
 			if err != nil {
 				continue
 			}
-			maps.Copy(credEnv, credDetail.Env)
+			maps.Copy(credEnv, credDetail.Secrets)
 		}
 	}
 
 	// Retrieve the token exchange credential
 	var secretsCred map[string]string
-	tokenExchangeCred, err := req.GPTClient.RevealCredential(req.Context(), []string{systemServer.Name}, systemmcpserver.SecretInfoToolName(systemServer.Name))
+	tokenExchangeCred, err := req.GatewayClient.RevealCredential(req.Context(), []string{systemServer.Name}, systemmcpserver.SecretInfoToolName(systemServer.Name))
 	if err == nil {
-		secretsCred = tokenExchangeCred.Env
+		secretsCred = tokenExchangeCred.Secrets
 	}
 
 	credEnv, err = mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, systemServer.Spec.Manifest.Env, systemServer.Spec.Manifest.RemoteConfig, credEnv)

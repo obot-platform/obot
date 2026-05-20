@@ -18,9 +18,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ecr"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	ststypes "github.com/aws/aws-sdk-go-v2/service/sts/types"
-	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/router"
 	apitypes "github.com/obot-platform/obot/apiclient/types"
+	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/imagepullsecrets"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -38,7 +38,7 @@ const (
 )
 
 type Handler struct {
-	gptClient          *gptscript.GPTScript
+	gatewayClient      *gateway.Client
 	runtimeClient      kclient.Client
 	mcpRuntimeBackend  string
 	mcpNamespace       string
@@ -49,9 +49,9 @@ type Handler struct {
 	now                func() time.Time
 }
 
-func New(gptClient *gptscript.GPTScript, runtimeClient kclient.Client, mcpRuntimeBackend, mcpNamespace, serviceNamespace, serviceAccountName string, staticSecrets []string, issuerURL string) *Handler {
+func New(gatewayClient *gateway.Client, runtimeClient kclient.Client, mcpRuntimeBackend, mcpNamespace, serviceNamespace, serviceAccountName string, staticSecrets []string, issuerURL string) *Handler {
 	return &Handler{
-		gptClient:          gptClient,
+		gatewayClient:      gatewayClient,
 		runtimeClient:      runtimeClient,
 		mcpRuntimeBackend:  mcpRuntimeBackend,
 		mcpNamespace:       mcpNamespace,
@@ -80,7 +80,7 @@ func (h *Handler) Cleanup(req router.Request, _ router.Response) error {
 	if err := h.deleteK8sSecret(req.Ctx, secret); err != nil {
 		return err
 	}
-	if err := h.gptClient.DeleteCredential(req.Ctx, imagepullsecrets.CredentialContext, secret.Name); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+	if _, err := h.gatewayClient.DeleteCredential(req.Ctx, imagepullsecrets.CredentialContext, secret.Name); err != nil {
 		return err
 	}
 
@@ -155,14 +155,14 @@ func (h *Handler) reconcileECR(req router.Request, resp router.Response, secret 
 }
 
 func (h *Handler) revealPassword(ctx context.Context, name string) (string, error) {
-	credential, err := h.gptClient.RevealCredential(ctx, []string{imagepullsecrets.CredentialContext}, name)
-	if errors.As(err, &gptscript.ErrNotFound{}) {
+	credential, err := h.gatewayClient.RevealCredential(ctx, []string{imagepullsecrets.CredentialContext}, name)
+	if errors.As(err, &gateway.CredentialNotFoundError{}) {
 		return "", errors.New("password is not configured")
 	}
 	if err != nil {
 		return "", fmt.Errorf("failed to reveal password credential: %w", err)
 	}
-	password := credential.Env[imagepullsecrets.PasswordEnvVar]
+	password := credential.Secrets[imagepullsecrets.PasswordEnvVar]
 	if password == "" {
 		return "", errors.New("password is not configured")
 	}

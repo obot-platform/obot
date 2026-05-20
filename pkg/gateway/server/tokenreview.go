@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/pkg/auth"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
@@ -16,14 +15,12 @@ import (
 
 type gatewayTokenReview struct {
 	gatewayClient *client.Client
-	gptClient     *gptscript.GPTScript
 	dispatcher    *dispatcher.Dispatcher
 }
 
-func NewGatewayTokenReviewer(gatewayClient *client.Client, gptClient *gptscript.GPTScript, dispatcher *dispatcher.Dispatcher) authenticator.Request {
+func NewGatewayTokenReviewer(gatewayClient *client.Client, dispatcher *dispatcher.Dispatcher) authenticator.Request {
 	return &gatewayTokenReview{
 		gatewayClient: gatewayClient,
-		gptClient:     gptClient,
 		dispatcher:    dispatcher,
 	}
 }
@@ -44,7 +41,7 @@ func (g *gatewayTokenReview) AuthenticateRequest(req *http.Request) (*authentica
 		return nil, false, err
 	}
 
-	if err := populateContext(req, g.gptClient, g.dispatcher, namespace, name); err != nil {
+	if err := populateContext(req, g.dispatcher, namespace, name); err != nil {
 		return nil, false, err
 	}
 
@@ -62,8 +59,8 @@ func (g *gatewayTokenReview) AuthenticateRequest(req *http.Request) (*authentica
 	}, true, nil
 }
 
-func populateContext(req *http.Request, gptClient *gptscript.GPTScript, dispatcher *dispatcher.Dispatcher, namespace, name string) error {
-	providerURL, err := dispatcher.URLForAuthProvider(req.Context(), gptClient, namespace, name)
+func populateContext(req *http.Request, dispatcher *dispatcher.Dispatcher, namespace, name string) error {
+	providerURL, err := dispatcher.URLForAuthProvider(req.Context(), namespace, name)
 	if err != nil {
 		return err
 	}

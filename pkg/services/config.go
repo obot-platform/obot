@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/adrg/xdg"
+	"github.com/glebarez/sqlite"
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/gptscript-ai/gptscript/pkg/cache"
 	gptscriptai "github.com/gptscript-ai/gptscript/pkg/gptscript"
@@ -60,6 +61,7 @@ import (
 	"github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
+	gormlogger "gorm.io/gorm/logger"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -288,8 +290,8 @@ func copyKeys(envs []string) []string {
 	return newEnvs
 }
 
-// buildLocalK8sConfig creates a Kubernetes config for local cluster access
-func buildLocalK8sConfig() (*rest.Config, error) {
+// BuildLocalK8sConfig creates a Kubernetes config for local cluster access
+func BuildLocalK8sConfig() (*rest.Config, error) {
 	cfg, err := rest.InClusterConfig()
 	if err == nil {
 		return cfg, nil
@@ -299,10 +301,6 @@ func buildLocalK8sConfig() (*rest.Config, error) {
 		kubeconfig = k
 	}
 	return clientcmd.BuildConfigFromFlags("", kubeconfig)
-}
-
-func BuildLocalK8sConfig() (*rest.Config, error) {
-	return buildLocalK8sConfig()
 }
 
 // unmarshalJSONStrict unmarshals JSON with strict validation that rejects unknown fields
@@ -604,6 +602,9 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		config.MCPAuditLogsPersistBatchSize,
 		config.MCPAuditLogRetentionDays,
 	)
+	if err := migrateGPTScriptCredentials(ctx, gatewayClient, gatewayDB, config.DSN); err != nil {
+		return nil, fmt.Errorf("failed to migrate GPTScript credentials: %w", err)
+	}
 	storageServices.Authn.SetServiceAccountValidator(func(ctx context.Context, token string) (string, error) {
 		apiKey, err := gatewayClient.ValidateStorageServiceAccountToken(ctx, token)
 		if err != nil {
@@ -627,7 +628,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		serviceAccountIssuerError string
 	)
 	if mcp.IsKubernetesBackend(config.MCPRuntimeBackend) {
-		localK8sConfig, err = buildLocalK8sConfig()
+		localK8sConfig, err = BuildLocalK8sConfig()
 		if err != nil {
 			return nil, fmt.Errorf("failed to build local Kubernetes config: %w", err)
 		}
@@ -656,24 +657,10 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		postgresDSN = config.DSN
 	}
 
-	credOnlyGPTscriptClient, err := newGPTScript(ctx, config.EnvKeys, credStore, credStoreEnv, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	persistentTokenServer, err := persistent.NewTokenService(config.Hostname, gatewayClient, credOnlyGPTscriptClient)
+	persistentTokenServer, err := persistent.NewTokenService(config.Hostname, gatewayClient)
 	if err != nil {
 		return nil, fmt.Errorf("failed to setup persistent token service: %w", err)
 	}
-
-	invoker := invoke.NewInvoker(
-		storageClient,
-		gatewayClient,
-		config.Hostname,
-		config.HTTPListenPort,
-		persistentTokenServer,
-	)
-	providerDispatcher := dispatcher.New(invoker, storageClient, credOnlyGPTscriptClient, gatewayClient, postgresDSN)
 
 	r, err := nah.NewRouter("obot-controller", &nah.Options{
 		RESTConfig:     restConfig,
@@ -900,9 +887,20 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
+	invoker := invoke.NewInvoker(
+		storageClient,
+		gatewayClient,
+		config.Hostname,
+		config.HTTPListenPort,
+		persistentTokenServer,
+		gptscriptClient,
+	)
+
+	providerDispatcher := dispatcher.New(invoker, storageClient, gatewayClient, postgresDSN)
+
 	var msgPolicyHelper *messagepolicy.Helper
 	if config.EnableMessagePolicies {
-		msgPolicyHelper, err = messagepolicy.NewHelper(ctx, r.Backend(), storageClient, providerDispatcher, credOnlyGPTscriptClient)
+		msgPolicyHelper, err = messagepolicy.NewHelper(ctx, r.Backend(), storageClient, providerDispatcher, gatewayClient)
 		if err != nil {
 			return nil, err
 		}
@@ -912,7 +910,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	apply.AddValidOwnerChange("mcpcatalogentries", "catalog-default")
 
 	var proxyManager *proxy.Manager
-	bootstrapper, err := bootstrap.New(ctx, config.Hostname, gatewayClient, gptscriptClient, config.EnableAuthentication, config.ForceEnableBootstrap)
+	bootstrapper, err := bootstrap.New(ctx, config.Hostname, gatewayClient, config.EnableAuthentication, config.ForceEnableBootstrap)
 	if err != nil {
 		return nil, err
 	}
@@ -923,9 +921,9 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
-	authenticators := gserver.NewGatewayTokenReviewer(gatewayClient, gptscriptClient, providerDispatcher)
+	authenticators := gserver.NewGatewayTokenReviewer(gatewayClient, providerDispatcher)
 	if config.EnableAuthentication {
-		proxyManager = proxy.NewProxyManager(providerDispatcher, gptscriptClient)
+		proxyManager = proxy.NewProxyManager(providerDispatcher)
 
 		// Token Auth + OAuth auth
 		authenticators = union.NewFailOnError(authenticators, proxyManager)
@@ -1025,7 +1023,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		APIServer: server.NewServer(
 			storageClient,
 			gatewayClient,
-			gptscriptClient,
 			apiLocalK8sClient,
 			config.ServiceNamespace,
 			authn.NewAuthenticator(authenticators),
@@ -1122,6 +1119,40 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 
 	return svcs, nil
+}
+
+func migrateGPTScriptCredentials(ctx context.Context, gatewayClient *client.Client, gatewayDB *db.DB, dsn string) error {
+	if strings.HasPrefix(dsn, "postgres://") {
+		return gatewayClient.MigrateGPTScriptCredentials(ctx, gatewayDB.WithContext(ctx))
+	}
+
+	if !strings.HasPrefix(dsn, "sqlite://") {
+		return nil
+	}
+
+	credentialDBFile, err := credstores.GPTScriptSQLiteFile(dsn)
+	if err != nil {
+		return err
+	}
+	if _, err := os.Stat(credentialDBFile); errors.Is(err, os.ErrNotExist) {
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("failed to stat GPTScript credential database %q: %w", credentialDBFile, err)
+	}
+
+	oldDB, err := gorm.Open(sqlite.Open(credentialDBFile), &gorm.Config{
+		Logger: gormlogger.Default.LogMode(gormlogger.Silent),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to open GPTScript credential database %q: %w", credentialDBFile, err)
+	}
+	sqlDB, err := oldDB.DB()
+	if err != nil {
+		return fmt.Errorf("failed to get GPTScript credential database handle: %w", err)
+	}
+	defer sqlDB.Close()
+
+	return gatewayClient.MigrateGPTScriptCredentials(ctx, oldDB)
 }
 
 func buildArtifactStorageConfig(config Config) apiclienttypes.StorageConfig {

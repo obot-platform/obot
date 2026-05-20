@@ -33,17 +33,10 @@ func setUpPostgres(toolRegistries []string, dsn, encryptionConfigFile string) (s
 }
 
 func setUpSQLite(toolRegistries []string, dsn, encryptionConfigFile string) (string, []string, error) {
-	dbFile, ok := strings.CutPrefix(dsn, "sqlite://file:")
-	if !ok {
-		return "", nil, fmt.Errorf("invalid sqlite dsn, must start with sqlite://file: %s", dsn)
+	dbFile, err := GPTScriptSQLiteFile(dsn)
+	if err != nil {
+		return "", nil, err
 	}
-	dbFile, _, _ = strings.Cut(dbFile, "?")
-
-	if !strings.HasSuffix(dbFile, ".db") {
-		return "", nil, fmt.Errorf("invalid sqlite dsn, file must end in .db: %s", dsn)
-	}
-
-	dbFile = strings.TrimSuffix(dbFile, ".db") + "-credentials.db"
 
 	toolRef, err := resolveToolRef(toolRegistries, "credential-stores/sqlite")
 	if err != nil {
@@ -54,6 +47,20 @@ func setUpSQLite(toolRegistries []string, dsn, encryptionConfigFile string) (str
 		"GPTSCRIPT_SQLITE_FILE=" + dbFile,
 		"GPTSCRIPT_ENCRYPTION_CONFIG_FILE=" + encryptionConfigFile,
 	}, nil
+}
+
+func GPTScriptSQLiteFile(dsn string) (string, error) {
+	dbFile, ok := strings.CutPrefix(dsn, "sqlite://file:")
+	if !ok {
+		return "", fmt.Errorf("invalid sqlite dsn, must start with sqlite://file: %s", dsn)
+	}
+	dbFile, _, _ = strings.Cut(dbFile, "?")
+
+	if !strings.HasSuffix(dbFile, ".db") {
+		return "", fmt.Errorf("invalid sqlite dsn, file must end in .db: %s", dsn)
+	}
+
+	return strings.TrimSuffix(dbFile, ".db") + "-credentials.db", nil
 }
 
 func resolveToolRef(toolRegistries []string, relToolPath string) (string, error) {

@@ -9,7 +9,6 @@ import (
 	"slices"
 	"strconv"
 
-	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/auth"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
@@ -27,7 +26,6 @@ import (
 type Context struct {
 	http.ResponseWriter
 	*http.Request
-	GPTClient     *gptscript.GPTScript
 	Storage       storage.Client
 	GatewayClient *gclient.Client
 	User          user.Info

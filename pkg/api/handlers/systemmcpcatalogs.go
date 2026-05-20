@@ -6,11 +6,12 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	mcpcataloghandler "github.com/obot-platform/obot/pkg/controller/handlers/mcpcatalog"
+	gateway "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/validation"
@@ -100,18 +101,18 @@ func (h *SystemMCPCatalogHandler) Update(req api.Context) error {
 		return fmt.Errorf("failed to get system catalog: %w", err)
 	}
 
-	existingCred, err := req.GPTClient.RevealCredential(req.Context(), []string{catalog.Name}, mcpcataloghandler.CatalogCredentialToolName)
-	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+	existingCred, err := req.GatewayClient.RevealCredential(req.Context(), []string{catalog.Name}, mcpcataloghandler.CatalogCredentialToolName)
+	if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 		return fmt.Errorf("failed to reveal system catalog credentials: %w", err)
 	}
 
-	newTokens := mergeCatalogTokens(manifest.SourceURLs, manifest.SourceURLCredentials, existingCred.Env)
+	newTokens := mergeCatalogTokens(manifest.SourceURLs, manifest.SourceURLCredentials, existingCred.Secrets)
 	catalog.Spec.DisplayName = manifest.DisplayName
 	catalog.Spec.SourceURLs = manifest.SourceURLs
 	if err := req.Update(&catalog); err != nil {
 		return fmt.Errorf("failed to update system catalog: %w", err)
 	}
-	if err := storeCatalogTokens(req, catalog.Name, newTokens, existingCred.Env); err != nil {
+	if err := storeCatalogTokens(req, catalog.Name, newTokens, existingCred.Secrets); err != nil {
 		return err
 	}
 
@@ -321,16 +322,15 @@ func mergeCatalogTokens(sourceURLs []string, incoming, existing map[string]strin
 
 func storeCatalogTokens(req api.Context, catalogName string, tokens, existing map[string]string) error {
 	if len(tokens) > 0 {
-		if err := req.GPTClient.CreateCredential(req.Context(), gptscript.Credential{
-			Context:  catalogName,
-			ToolName: mcpcataloghandler.CatalogCredentialToolName,
-			Type:     gptscript.CredentialTypeTool,
-			Env:      tokens,
+		if err := req.GatewayClient.UpsertCredential(req.Context(), gatewaytypes.Credential{
+			Context: catalogName,
+			Name:    mcpcataloghandler.CatalogCredentialToolName,
+			Secrets: tokens,
 		}); err != nil {
 			return fmt.Errorf("failed to store catalog credentials: %w", err)
 		}
 	} else if len(existing) > 0 {
-		if err := req.GPTClient.DeleteCredential(req.Context(), catalogName, mcpcataloghandler.CatalogCredentialToolName); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+		if _, err := req.GatewayClient.DeleteCredential(req.Context(), catalogName, mcpcataloghandler.CatalogCredentialToolName); err != nil {
 			return fmt.Errorf("failed to delete catalog credentials: %w", err)
 		}
 	}

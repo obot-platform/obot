@@ -168,7 +168,7 @@ func (h *Helper) resolveModelByAlias(ctx context.Context, aliasType types.Defaul
 		return nil, fmt.Errorf("model %q is not active", model.Spec.Manifest.Name)
 	}
 
-	providerURL, err := h.dispatcher.URLForModelProvider(ctx, h.gptClient, system.DefaultNamespace, model.Spec.Manifest.ModelProvider)
+	providerURL, err := h.dispatcher.URLForModelProvider(ctx, system.DefaultNamespace, model.Spec.Manifest.ModelProvider)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get model provider URL: %w", err)
 	}
@@ -178,7 +178,7 @@ func (h *Helper) resolveModelByAlias(ctx context.Context, aliasType types.Defaul
 		return nil, fmt.Errorf("failed to get model provider tool reference: %w", err)
 	}
 
-	credEnv, err := dispatcher.CredentialEnvForModelProvider(ctx, h.gptClient, toolRef)
+	credEnv, err := dispatcher.CredentialEnvForModelProvider(ctx, h.gatewayClient, toolRef)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get model provider credentials: %w", err)
 	}

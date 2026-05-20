@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/gptscript-ai/go-gptscript"
 	"github.com/gptscript-ai/gptscript/pkg/hash"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpserver"
+	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -23,13 +23,13 @@ var log = logger.Package()
 
 // Handler handles operations for MCP server catalog entries
 type Handler struct {
-	gClient *gptscript.GPTScript
+	gatewayClient *gclient.Client
 }
 
-// NewHandler creates a new Handler with the given GPTScript client
-func NewHandler(gClient *gptscript.GPTScript) *Handler {
+// NewHandler creates a new Handler with the given gateway client.
+func NewHandler(gatewayClient *gclient.Client) *Handler {
 	return &Handler{
-		gClient: gClient,
+		gatewayClient: gatewayClient,
 	}
 }
 
@@ -233,13 +233,13 @@ func (h *Handler) CleanupUnusedOAuthCredentials(req router.Request, _ router.Res
 		return nil
 	}
 
-	if err := h.gClient.DeleteCredential(req.Ctx, system.MCPOAuthCredentialName(entry.Name), "oauth"); err != nil {
-		if errors.As(err, &gptscript.ErrNotFound{}) {
-			return nil
-		}
+	deleted, err := h.gatewayClient.DeleteCredential(req.Ctx, system.MCPOAuthCredentialName(entry.Name), "oauth")
+	if err != nil {
 		return fmt.Errorf("failed to delete OAuth credential: %w", err)
 	}
-	log.Infof("Deleted unused static OAuth credential for MCP catalog entry: entry=%s", entry.Name)
+	if deleted {
+		log.Infof("Deleted unused static OAuth credential for MCP catalog entry: entry=%s", entry.Name)
+	}
 
 	return nil
 }
@@ -274,12 +274,12 @@ func (h *Handler) EnsureOAuthCredentialStatus(req router.Request, _ router.Respo
 
 	// Check if credentials exist
 	credName := system.MCPOAuthCredentialName(entry.Name)
-	_, err := h.gClient.RevealCredential(req.Ctx, []string{credName}, "oauth")
+	_, err := h.gatewayClient.RevealCredential(req.Ctx, []string{credName}, "oauth")
 
 	var configured bool
 	if err == nil {
 		configured = true
-	} else if !errors.As(err, &gptscript.ErrNotFound{}) {
+	} else if !errors.As(err, &gclient.CredentialNotFoundError{}) {
 		return fmt.Errorf("failed to check credential status: %w", err)
 	}
 
@@ -304,15 +304,13 @@ func (h *Handler) RemoveOAuthCredentials(req router.Request, _ router.Response) 
 	// Build the credential name for this entry
 	credName := system.MCPOAuthCredentialName(entry.Name)
 
-	// Delete the OAuth credential if it exists
-	if err := h.gClient.DeleteCredential(req.Ctx, credName, "oauth"); err != nil {
-		if errors.As(err, &gptscript.ErrNotFound{}) {
-			// Already deleted or never existed, that's fine
-			return nil
-		}
+	deleted, err := h.gatewayClient.DeleteCredential(req.Ctx, credName, "oauth")
+	if err != nil {
 		return fmt.Errorf("failed to delete OAuth credential: %w", err)
 	}
-	log.Infof("Removed static OAuth credential for deleted MCP catalog entry: entry=%s", entry.Name)
+	if deleted {
+		log.Infof("Removed static OAuth credential for deleted MCP catalog entry: entry=%s", entry.Name)
+	}
 
 	return nil
 }

@@ -10,10 +10,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gptscript-ai/go-gptscript"
 	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	gateway "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -38,7 +39,7 @@ func (m *MCPWebhookValidationHandler) List(req api.Context) error {
 
 	items := make([]types.MCPWebhookValidation, 0, len(list.Items))
 	for _, item := range list.Items {
-		credEnv, err := getCredentialsForWebhookValidation(req.Context(), req.GPTClient, item)
+		credEnv, err := getCredentialsForWebhookValidation(req.Context(), req.GatewayClient, item)
 		if err != nil {
 			return err
 		}
@@ -54,7 +55,7 @@ func (m *MCPWebhookValidationHandler) Get(req api.Context) error {
 		return err
 	}
 
-	credEnv, err := getCredentialsForWebhookValidation(req.Context(), req.GPTClient, webhookValidation)
+	credEnv, err := getCredentialsForWebhookValidation(req.Context(), req.GatewayClient, webhookValidation)
 	if err != nil {
 		return err
 	}
@@ -100,11 +101,10 @@ func (m *MCPWebhookValidationHandler) Create(req api.Context) error {
 		return fmt.Errorf("failed to create mcp webhook validation: %w", err)
 	}
 
-	if err := req.GPTClient.CreateCredential(req.Context(), gptscript.Credential{
-		Context:  system.MCPWebhookValidationCredentialContext,
-		ToolName: webhookValidation.Name,
-		Type:     gptscript.CredentialTypeTool,
-		Env:      secretCred,
+	if err := req.GatewayClient.UpsertCredential(req.Context(), gatewaytypes.Credential{
+		Context: system.MCPWebhookValidationCredentialContext,
+		Name:    webhookValidation.Name,
+		Secrets: secretCred,
 	}); err != nil {
 		_ = req.Delete(&webhookValidation)
 		return fmt.Errorf("failed to create credential: %w", err)
@@ -144,21 +144,20 @@ func (m *MCPWebhookValidationHandler) Update(req api.Context) error {
 	webhookValidation.Spec.Manifest = manifest
 
 	if secretCred != nil {
-		if err := req.GPTClient.CreateCredential(req.Context(), gptscript.Credential{
-			Context:  system.MCPWebhookValidationCredentialContext,
-			ToolName: webhookValidation.Name,
-			Type:     gptscript.CredentialTypeTool,
-			Env:      secretCred,
+		if err := req.GatewayClient.UpsertCredential(req.Context(), gatewaytypes.Credential{
+			Context: system.MCPWebhookValidationCredentialContext,
+			Name:    webhookValidation.Name,
+			Secrets: secretCred,
 		}); err != nil {
 			return fmt.Errorf("failed to create credential: %w", err)
 		}
 	} else {
-		cred, err := req.GPTClient.RevealCredential(req.Context(), []string{system.MCPWebhookValidationCredentialContext}, webhookValidation.Name)
-		if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+		cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{system.MCPWebhookValidationCredentialContext}, webhookValidation.Name)
+		if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 			return fmt.Errorf("failed to reveal credential: %w", err)
 		}
 
-		secretCred = cred.Env
+		secretCred = cred.Secrets
 	}
 
 	if err := req.Update(&webhookValidation); err != nil {
@@ -174,7 +173,7 @@ func (m *MCPWebhookValidationHandler) Delete(req api.Context) error {
 		return err
 	}
 
-	if err := req.GPTClient.DeleteCredential(req.Context(), system.MCPWebhookValidationCredentialContext, webhookValidation.Name); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+	if _, err := req.GatewayClient.DeleteCredential(req.Context(), system.MCPWebhookValidationCredentialContext, webhookValidation.Name); err != nil {
 		return fmt.Errorf("failed to delete credential: %w", err)
 	}
 
@@ -209,11 +208,10 @@ func (m *MCPWebhookValidationHandler) Configure(req api.Context) error {
 	}
 
 	// Store credentials using GPTScript
-	if err := req.GPTClient.CreateCredential(req.Context(), gptscript.Credential{
-		Context:  system.MCPWebhookValidationCredentialContext,
-		ToolName: webhookValidation.Name,
-		Type:     gptscript.CredentialTypeTool,
-		Env:      envVars,
+	if err := req.GatewayClient.UpsertCredential(req.Context(), gatewaytypes.Credential{
+		Context: system.MCPWebhookValidationCredentialContext,
+		Name:    webhookValidation.Name,
+		Secrets: envVars,
 	}); err != nil {
 		return fmt.Errorf("failed to create credential: %w", err)
 	}
@@ -237,7 +235,7 @@ func (m *MCPWebhookValidationHandler) Deconfigure(req api.Context) error {
 		return err
 	}
 
-	if err := DeleteCredentialIfExists(req.Context(), req.GPTClient, []string{system.MCPWebhookValidationCredentialContext}, webhookValidation.Name); err != nil {
+	if err := DeleteCredentialIfExists(req.Context(), req.GatewayClient, []string{system.MCPWebhookValidationCredentialContext}, webhookValidation.Name); err != nil {
 		return err
 	}
 
@@ -258,11 +256,11 @@ func (m *MCPWebhookValidationHandler) Reveal(req api.Context) error {
 		return err
 	}
 
-	cred, err := req.GPTClient.RevealCredential(req.Context(), []string{system.MCPWebhookValidationCredentialContext}, webhookValidation.Name)
-	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+	cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{system.MCPWebhookValidationCredentialContext}, webhookValidation.Name)
+	if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 		return fmt.Errorf("failed to find credential: %w", err)
 	} else if err == nil {
-		return req.Write(cred.Env)
+		return req.Write(cred.Secrets)
 	}
 
 	return types.NewErrNotFound("no credential found for %q", webhookValidation.Name)
@@ -291,13 +289,13 @@ func convertMCPWebhookValidation(validation v1.MCPWebhookValidation, credEnv map
 	return result
 }
 
-func getCredentialsForWebhookValidation(ctx context.Context, gptClient *gptscript.GPTScript, webhookValidation v1.MCPWebhookValidation) (map[string]string, error) {
-	cred, err := gptClient.RevealCredential(ctx, []string{system.MCPWebhookValidationCredentialContext}, webhookValidation.Name)
-	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+func getCredentialsForWebhookValidation(ctx context.Context, gatewayClient *gateway.Client, webhookValidation v1.MCPWebhookValidation) (map[string]string, error) {
+	cred, err := gatewayClient.RevealCredential(ctx, []string{system.MCPWebhookValidationCredentialContext}, webhookValidation.Name)
+	if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 		return nil, err
 	}
 
-	return cred.Env, nil
+	return cred.Secrets, nil
 }
 
 func (m *MCPWebhookValidationHandler) getSystemServerForWebhookValidation(req api.Context) (v1.SystemMCPServer, error) {
@@ -327,7 +325,7 @@ func (m *MCPWebhookValidationHandler) Restart(req api.Context) error {
 		return err
 	}
 
-	if err := checkEnabledAndConfigured(req.Context(), req.GPTClient, systemServer); err != nil {
+	if err := checkEnabledAndConfigured(req.Context(), req.GatewayClient, systemServer); err != nil {
 		return err
 	}
 
@@ -353,7 +351,7 @@ func (m *MCPWebhookValidationHandler) Launch(req api.Context) error {
 		return err
 	}
 
-	if err := checkEnabledAndConfigured(req.Context(), req.GPTClient, systemServer); err != nil {
+	if err := checkEnabledAndConfigured(req.Context(), req.GatewayClient, systemServer); err != nil {
 		return err
 	}
 
@@ -392,7 +390,7 @@ func (m *MCPWebhookValidationHandler) Logs(req api.Context) error {
 		return err
 	}
 
-	if err := checkEnabledAndConfigured(req.Context(), req.GPTClient, systemServer); err != nil {
+	if err := checkEnabledAndConfigured(req.Context(), req.GatewayClient, systemServer); err != nil {
 		return err
 	}
 
@@ -422,7 +420,7 @@ func (m *MCPWebhookValidationHandler) GetDetails(req api.Context) error {
 		return err
 	}
 
-	if err := checkEnabledAndConfigured(req.Context(), req.GPTClient, systemServer); err != nil {
+	if err := checkEnabledAndConfigured(req.Context(), req.GatewayClient, systemServer); err != nil {
 		return err
 	}
 

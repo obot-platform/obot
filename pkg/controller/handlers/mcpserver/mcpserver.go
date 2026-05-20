@@ -11,13 +11,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gptscript-ai/go-gptscript"
 	"github.com/gptscript-ai/gptscript/pkg/hash"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/nah/pkg/untriggered"
 	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
+	gateway "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -34,7 +35,7 @@ var log = logger.Package()
 const oauthMetadataSyncInterval = time.Hour
 
 type Handler struct {
-	gptClient                    *gptscript.GPTScript
+	gatewayClient                *gateway.Client
 	mcpSessionManager            *mcp.SessionManager
 	networkPolicyProviderEnabled bool
 	defaultDenyAllEgress         bool
@@ -53,9 +54,9 @@ func effectiveDenyAllEgress(v *bool, domains []string, defaultWhenEmpty bool) bo
 	return defaultWhenEmpty && len(domains) == 0
 }
 
-func New(gptClient *gptscript.GPTScript, mcpSessionManager *mcp.SessionManager, networkPolicyProviderEnabled, defaultDenyAllEgress bool, singleUserIdleShutdownDelay, multiUserIdleShutdownDelay, agentIdleShutdownDelay time.Duration, baseURL string, mcpRuntimeBackend string, mcpImagePullSecrets []string) *Handler {
+func New(gatewayClient *gateway.Client, mcpSessionManager *mcp.SessionManager, networkPolicyProviderEnabled, defaultDenyAllEgress bool, singleUserIdleShutdownDelay, multiUserIdleShutdownDelay, agentIdleShutdownDelay time.Duration, baseURL string, mcpRuntimeBackend string, mcpImagePullSecrets []string) *Handler {
 	return &Handler{
-		gptClient:                    gptClient,
+		gatewayClient:                gatewayClient,
 		mcpSessionManager:            mcpSessionManager,
 		networkPolicyProviderEnabled: networkPolicyProviderEnabled,
 		defaultDenyAllEgress:         defaultDenyAllEgress,
@@ -572,12 +573,12 @@ func (h *Handler) EnsureMCPServerSecretInfo(req router.Request, _ router.Respons
 	}
 
 	if server.Status.AuditLogTokenHash != "" {
-		cred, err := h.gptClient.RevealCredential(req.Ctx, []string{server.Name}, server.Name)
+		cred, err := h.gatewayClient.RevealCredential(req.Ctx, []string{server.Name}, server.Name)
 		if err != nil {
 			return fmt.Errorf("failed to get credential: %w", err)
 		}
 
-		if server.Status.AuditLogTokenHash != hash.Digest(cred.Env["AUDIT_LOG_TOKEN"]) {
+		if server.Status.AuditLogTokenHash != hash.Digest(cred.Secrets["AUDIT_LOG_TOKEN"]) {
 			log.Infof("Audit log token drift detected for MCP server, rotating credential: server=%s", server.Name)
 			// Reset the audit log token hash to reset the credential.
 			server.Status.AuditLogTokenHash = ""
@@ -598,11 +599,10 @@ func (h *Handler) EnsureMCPServerSecretInfo(req router.Request, _ router.Respons
 
 	auditLogToken := strings.ToLower(rand.Text() + rand.Text())
 
-	if err := h.gptClient.CreateCredential(req.Ctx, gptscript.Credential{
-		Context:  server.Name,
-		ToolName: server.Name,
-		Type:     gptscript.CredentialTypeTool,
-		Env: map[string]string{
+	if err := h.gatewayClient.UpsertCredential(req.Ctx, gatewaytypes.Credential{
+		Context: server.Name,
+		Name:    server.Name,
+		Secrets: map[string]string{
 			"TOKEN_EXCHANGE_CLIENT_ID":     fmt.Sprintf("%s:%s", req.Namespace, clientID),
 			"TOKEN_EXCHANGE_CLIENT_SECRET": clientSecret,
 			"AUDIT_LOG_TOKEN":              auditLogToken,
@@ -920,12 +920,12 @@ func (h *Handler) SyncOAuthMetadata(req router.Request, _ router.Response) error
 	} else {
 		credCtxs = []string{fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name)}
 	}
-	cred, err := h.gptClient.RevealCredential(req.Ctx, credCtxs, server.Name)
-	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+	cred, err := h.gatewayClient.RevealCredential(req.Ctx, credCtxs, server.Name)
+	if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 		return fmt.Errorf("failed to reveal credential: %w", err)
 	}
 
-	serverConfig, missingConfig, err := mcp.ServerToServerConfig(*server, server.ValidConnectURLs(h.baseURL), h.baseURL, server.Spec.UserID, server.Name, server.Status.MCPCatalogID, cred.Env, nil)
+	serverConfig, missingConfig, err := mcp.ServerToServerConfig(*server, server.ValidConnectURLs(h.baseURL), h.baseURL, server.Spec.UserID, server.Name, server.Status.MCPCatalogID, cred.Secrets, nil)
 	if err != nil {
 		return fmt.Errorf("failed to convert MCP server to server config: %w", err)
 	} else if len(missingConfig) > 0 {
