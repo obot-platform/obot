@@ -40,7 +40,7 @@ func (in *NanobotAgent) Get(field string) (value string) {
 }
 
 func (in *NanobotAgent) FieldNames() []string {
-	return []string{"spec.userID", "spec.projectV2ID"}
+	return []string{"spec.userID", "spec.projectID", "spec.projectV2ID"}
 }
 
 func (in *NanobotAgent) DeleteRefs() []Ref {

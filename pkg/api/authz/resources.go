@@ -145,7 +145,7 @@ type Resources struct {
 	MCPID               string
 	WorkspaceID         string
 	NanobotAgentID      string
-	ProjectV2ID         string
+	ProjectID           string
 	PublishedArtifactID string
 	ArtifactVersion     string
 	Authorizated        ResourcesAuthorized
@@ -156,7 +156,7 @@ type ResourcesAuthorized struct {
 	MCPServerInstance  *v1.MCPServerInstance
 	PowerUserWorkspace *v1.PowerUserWorkspace
 	NanobotAgent       *v1.NanobotAgent
-	ProjectV2          *v1.ProjectV2
+	Project            *v1.Project
 	PublishedArtifact  *v1.PublishedArtifact
 }
 
@@ -167,7 +167,7 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user user
 		MCPID:               vars("mcp_id"), // this can be a server ID, server instance ID, or a catalog entry ID
 		WorkspaceID:         vars("workspace_id"),
 		NanobotAgentID:      vars("nanobot_agent_id"),
-		ProjectV2ID:         vars("project_id"),
+		ProjectID:           vars("project_id"),
 		PublishedArtifactID: vars("artifact_id"),
 		ArtifactVersion:     vars("artifact_version"),
 	}
@@ -192,7 +192,7 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user user
 		return false, err
 	}
 
-	if ok, err := a.checkProjectV2(req, &resources, user); !ok || err != nil {
+	if ok, err := a.checkProject(req, &resources, user); !ok || err != nil {
 		return false, err
 	}
 

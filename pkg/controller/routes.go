@@ -20,6 +20,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/oauthclients"
 	"github.com/obot-platform/obot/pkg/controller/handlers/oktagroupmigration"
 	"github.com/obot-platform/obot/pkg/controller/handlers/poweruserworkspace"
+	"github.com/obot-platform/obot/pkg/controller/handlers/project"
 	"github.com/obot-platform/obot/pkg/controller/handlers/scheduledauditlogexport"
 	"github.com/obot-platform/obot/pkg/controller/handlers/skillrepository"
 	"github.com/obot-platform/obot/pkg/controller/handlers/systemmcpserver"
@@ -51,6 +52,7 @@ func (c *Controller) setupRoutes() {
 	systemMCPServerHandler := systemmcpserver.New(c.services.GPTClient, c.services.MCPLoader, c.services.ServerURL)
 	nanobotAgentHandler := nanobotagent.New(c.services.GPTClient, c.services.PersistentTokenServer, c.services.GatewayClient, c.localK8sRouter, c.services.NanobotAgentImage, c.services.ServerURL, c.services.MCPServerNamespace, c.services.MCPLoader)
 	oktaGroupMigrationHandler := oktagroupmigration.New()
+	projectHandler := project.New(c.services.GatewayClient)
 	imagePullSecretHandler := imagepullsecret.New(c.services.GPTClient, c.runtimeClient, c.services.MCPRuntimeBackend, c.services.MCPServerNamespace, c.services.ServiceNamespace, c.services.ServiceAccountName, c.services.MCPImagePullSecrets, c.services.ServiceAccountIssuerURL)
 
 	// Threads
@@ -200,6 +202,11 @@ func (c *Controller) setupRoutes() {
 	// ScheduledAuditLogExport
 	root.Type(&v1.ScheduledAuditLogExport{}).HandlerFunc(scheduledAuditLogExportHandler.ScheduleExports)
 
+	// ProjectV2 Migration
+	//nolint:staticcheck
+	root.Type(&v1.ProjectV2{}).HandlerFunc(projectHandler.MigrateProjectV2)
+
+	// NanobotAgent
 	root.Type(&v1.NanobotAgent{}).HandlerFunc(nanobotAgentHandler.EnsureMCPServer)
 	root.Type(&v1.NanobotAgent{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.NanobotAgent{}).FinalizeFunc(v1.NanobotAgentFinalizer, nanobotAgentHandler.Cleanup)

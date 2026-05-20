@@ -11,26 +11,26 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
-func (a *Authorizer) checkProjectV2(req *http.Request, resources *Resources, u user.Info) (bool, error) {
-	if resources.ProjectV2ID == "" {
+func (a *Authorizer) checkProject(req *http.Request, resources *Resources, u user.Info) (bool, error) {
+	if resources.ProjectID == "" {
 		return true, nil
 	}
 
-	var projectV2 v1.ProjectV2
-	if err := a.get(req.Context(), router.Key(system.DefaultNamespace, resources.ProjectV2ID), &projectV2); err != nil {
+	var project v1.Project
+	if err := a.get(req.Context(), router.Key(system.DefaultNamespace, resources.ProjectID), &project); err != nil {
 		return false, err
 	}
 
 	// If the user owns the project, then authorization is granted.
-	if projectV2.Spec.UserID == u.GetUID() {
-		resources.Authorizated.ProjectV2 = &projectV2
+	if project.Spec.UserID == u.GetUID() {
+		resources.Authorizated.Project = &project
 		return true, nil
 	}
 
 	// If the user has impersonation + admin privileges, allow access to any project.
 	groups := u.GetGroups()
 	if slices.Contains(groups, types.GroupUserImpersonation) && slices.Contains(groups, types.GroupAdmin) {
-		resources.Authorizated.ProjectV2 = &projectV2
+		resources.Authorizated.Project = &project
 		return true, nil
 	}
 

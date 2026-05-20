@@ -35,8 +35,8 @@
 		if (!agent) return;
 		launchingAgentId = agent.id;
 		try {
-			await NanobotService.launchProjectAgent(agent.projectV2ID, agent.id);
-			window.open(`/agent?projectId=${agent.projectV2ID}&agentId=${agent.id}`, '_blank');
+			await NanobotService.launchProjectAgent(agent.projectID, agent.id);
+			window.open(`/agent?projectId=${agent.projectID}&agentId=${agent.id}`, '_blank');
 		} catch (error) {
 			console.error('Failed to launch agent:', error);
 		} finally {

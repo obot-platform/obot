@@ -97,7 +97,7 @@ func (h *ProjectHandler) Update(req api.Context) error {
 func (h *ProjectHandler) Delete(req api.Context) error {
 	var id = req.PathValue("project_id")
 
-	return req.Delete(&v1.ProjectV2{
+	return req.Delete(&v1.Project{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      id,
 			Namespace: req.Namespace(),

@@ -466,7 +466,7 @@ export interface ProjectV2Agent {
 	id: string;
 	connectURL: string;
 	created: string;
-	projectV2ID: string;
+	projectID: string;
 	userID: string;
 	displayName?: string;
 	description?: string;

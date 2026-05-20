@@ -28,7 +28,7 @@ func (a *Authorizer) checkNanobotAgent(req *http.Request, resources *Resources, 
 	}
 
 	// If the workflow belongs to a project and the user owns that project, authorization is granted.
-	if resources.Authorizated.ProjectV2 != nil && resources.Authorizated.ProjectV2.Spec.UserID == u.GetUID() && agent.Spec.ProjectV2ID == resources.Authorizated.ProjectV2.Name {
+	if resources.Authorizated.Project != nil && resources.Authorizated.Project.Spec.UserID == u.GetUID() && agent.Spec.ProjectID == resources.Authorizated.Project.Name {
 		resources.Authorizated.NanobotAgent = &agent
 		return true, nil
 	}

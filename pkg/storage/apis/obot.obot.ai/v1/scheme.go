@@ -97,6 +97,8 @@ func AddToSchemeWithGV(scheme *runtime.Scheme, schemeGroupVersion schema.GroupVe
 		&MessagePolicyList{},
 		&NanobotAgent{},
 		&NanobotAgentList{},
+		&Project{},
+		&ProjectList{},
 		&ProjectV2{},
 		&ProjectV2List{},
 		&PublishedArtifact{},
