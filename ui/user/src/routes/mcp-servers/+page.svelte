@@ -8,15 +8,15 @@
 	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import {
-		AdminService,
-		ChatService,
+		UserService,
 		Group,
 		type LaunchServerType,
-		type MCPCatalogServer
+		type MCPCatalogServer,
+		type MCPCatalogEntry,
+		type OrgUser
 	} from '$lib/services';
-	import type { MCPCatalogEntry, OrgUser } from '$lib/services/admin/types';
-	import { getServerTypeLabelByType } from '$lib/services/chat/mcp.js';
-	import { mcpServersAndEntries, profile } from '$lib/stores/index.js';
+	import { getServerTypeLabelByType } from '$lib/services/user/mcp';
+	import { mcpServersAndEntries, profile } from '$lib/stores/index';
 	import { goto } from '$lib/url';
 	import {
 		clearUrlParams,
@@ -52,7 +52,7 @@
 	let usersMap = $derived(new Map(users.map((user) => [user.id, user])));
 
 	onMount(async () => {
-		users = await AdminService.listUsers();
+		users = await UserService.listUsers();
 	});
 
 	function selectServerType(type: LaunchServerType, updateUrl = true) {
@@ -210,7 +210,7 @@
 			return;
 		}
 
-		await ChatService.deleteWorkspaceMCPCatalogEntry(workspaceId, deletingEntry.id);
+		await UserService.deleteWorkspaceMCPCatalogEntry(workspaceId, deletingEntry.id);
 		await mcpServersAndEntries.refreshAll();
 		deletingEntry = undefined;
 	}}
@@ -227,7 +227,7 @@
 			return;
 		}
 
-		await ChatService.deleteWorkspaceMCPCatalogServer(workspaceId, deletingServer.id);
+		await UserService.deleteWorkspaceMCPCatalogServer(workspaceId, deletingServer.id);
 		await mcpServersAndEntries.refreshAll();
 		deletingServer = undefined;
 	}}

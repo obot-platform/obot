@@ -2,8 +2,9 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
-	import { AdminService } from '$lib/services';
 	import {
+		AdminService,
+		UserService,
 		type MessagePolicy,
 		type MessagePolicyManifest,
 		type AccessControlRuleSubject,
@@ -11,7 +12,7 @@
 		type OrgGroup,
 		type PolicyDirection,
 		PolicyDirectionLabels
-	} from '$lib/services/admin/types';
+	} from '$lib/services';
 	import { goto } from '$lib/url';
 	import { getUserDisplayName } from '$lib/utils';
 	import Confirm from '../Confirm.svelte';
@@ -88,10 +89,10 @@
 		];
 
 		if (!usersAndGroups?.users) {
-			promises[0] = AdminService.listUsers();
+			promises[0] = UserService.listUsers();
 		}
 		if (!usersAndGroups?.groups) {
-			promises[1] = AdminService.listGroups();
+			promises[1] = UserService.listGroups();
 		}
 
 		Promise.all(promises)

@@ -3,26 +3,23 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
-		ChatService,
+		UserService,
 		type MCPCatalogEntry,
-		type MCPCatalogServer,
-		type Project,
-		type ProjectMCP
+		type MCPCatalogServer
 	} from '$lib/services';
 	import { Info } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 
 	interface Props {
-		entry: MCPCatalogEntry | MCPCatalogServer | ProjectMCP;
+		entry: MCPCatalogEntry | MCPCatalogServer;
 		onAuthenticate?: () => void;
 		error?: string;
-		project?: Project;
 		text?: string;
 		entity?: 'workspace' | 'catalog';
 		id?: string;
 	}
 
-	let { onAuthenticate, error = $bindable(), project, entry, text, entity, id }: Props = $props();
+	let { onAuthenticate, error = $bindable(), entry, text, entity, id }: Props = $props();
 
 	let oauthURL = $state<string>('');
 	let showRefresh = $state(false);
@@ -52,25 +49,16 @@
 		error = '';
 
 		try {
-			if (project) {
-				oauthURL = await ChatService.getProjectMcpServerOauthURL(
-					project.assistantID,
-					project.id,
-					entry.id,
-					{
-						signal: abortController.signal
-					}
-				);
-			} else if ('mcpCatalogID' in entry) {
+			if ('mcpCatalogID' in entry) {
 				oauthURL = await AdminService.getMCPCatalogServerOAuthURL(entry.mcpCatalogID, entry.id, {
 					signal: abortController.signal
 				});
 			} else if (entity === 'workspace' && id) {
-				oauthURL = await ChatService.getWorkspaceMcpServerOauthURL(id, entry.id, {
+				oauthURL = await UserService.getWorkspaceMcpServerOauthURL(id, entry.id, {
 					signal: abortController.signal
 				});
 			} else {
-				oauthURL = await ChatService.getMcpServerOauthURL(entry.id, {
+				oauthURL = await UserService.getMcpServerOauthURL(entry.id, {
 					signal: abortController.signal
 				});
 			}

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { compileAvailableMcpServers } from '$lib/services/chat/mcp';
+	import { compileAvailableMcpServers } from '$lib/services/user/mcp';
 	import { mcpServersAndEntries } from '$lib/stores';
 	import { TriangleAlert } from 'lucide-svelte';
 

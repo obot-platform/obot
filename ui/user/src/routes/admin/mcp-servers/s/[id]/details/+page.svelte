@@ -5,7 +5,7 @@
 	import OAuthMetadataDebug from '$lib/components/mcp/OAuthMetadataDebug.svelte';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
-	import { AdminService, type MCPServerInstance, type OrgUser } from '$lib/services';
+	import { AdminService, UserService, type MCPServerInstance, type OrgUser } from '$lib/services';
 	import { profile } from '$lib/stores/index.js';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -27,7 +27,7 @@
 			DEFAULT_MCP_CATALOG_ID,
 			mcpServer.id
 		);
-		users = await AdminService.listUsersIncludeDeleted();
+		users = await UserService.listUsersIncludeDeleted();
 		loading = false;
 	});
 	let title = $derived(mcpServer?.manifest.name);

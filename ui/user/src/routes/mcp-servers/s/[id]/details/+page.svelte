@@ -5,8 +5,8 @@
 	import OAuthMetadataDebug from '$lib/components/mcp/OAuthMetadataDebug.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
-	import { AdminService, ChatService, type MCPServerInstance, type OrgUser } from '$lib/services';
-	import { profile } from '$lib/stores/index.js';
+	import { UserService, type MCPServerInstance, type OrgUser } from '$lib/services';
+	import { profile } from '$lib/stores';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 
@@ -24,12 +24,12 @@
 		if (!mcpServer || !workspaceId) return;
 		loading = true;
 		if (mcpServer.powerUserWorkspaceID && workspaceId === mcpServer.powerUserWorkspaceID) {
-			instances = await ChatService.listWorkspaceMcpCatalogServerInstances(
+			instances = await UserService.listWorkspaceMcpCatalogServerInstances(
 				workspaceId,
 				mcpServer.id
 			);
 		}
-		users = await AdminService.listUsersIncludeDeleted();
+		users = await UserService.listUsersIncludeDeleted();
 		loading = false;
 	});
 	let title = $derived(mcpServer?.manifest.name);

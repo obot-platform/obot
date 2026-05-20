@@ -3,8 +3,8 @@
 	import Search from '$lib/components/Search.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
-	import { Role, type OrgGroup, type GroupRoleAssignment } from '$lib/services/admin/types';
-	import { responsive } from '$lib/stores/index.js';
+	import { Role, type OrgGroup, type GroupRoleAssignment } from '$lib/services';
+	import { responsive } from '$lib/stores';
 	import { getUserRoleLabel } from '$lib/utils';
 	import GroupRoleForm from './GroupRoleForm.svelte';
 	import type { GroupAssignment } from './types';

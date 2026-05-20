@@ -1,20 +1,23 @@
 <script lang="ts">
 	import Loading from '$lib/icons/Loading.svelte';
-	import { AdminService, ChatService, type MCPCatalogServer } from '$lib/services';
 	import {
+		AdminService,
+		UserService,
+		type MCPCatalogServer,
+		type LaunchServerType,
 		type MCPCatalogEntry,
 		type RuntimeFormData,
 		type MCPCatalogEntryServerManifest,
+		type Runtime,
 		Group
-	} from '$lib/services/admin/types';
+	} from '$lib/services';
 	import {
 		convertCategoriesToMetadata,
 		convertServerRuntimeFormDataToManifest,
 		hasSecretBinding,
 		sanitizeEgressDomains,
 		validateRuntimeForm
-	} from '$lib/services/chat/mcp';
-	import type { LaunchServerType, Runtime } from '$lib/services/chat/types';
+	} from '$lib/services/user/mcp';
 	import { profile, version } from '$lib/stores';
 	import MarkdownInput from '../MarkdownInput.svelte';
 	import CompositeRuntimeForm from '../mcp/CompositeRuntimeForm.svelte';
@@ -239,7 +242,7 @@
 		try {
 			const revealFn =
 				entity === 'workspace'
-					? ChatService.revealWorkspaceMCPCatalogServer
+					? UserService.revealWorkspaceMCPCatalogServer
 					: AdminService.revealMcpCatalogServer;
 			const response = await revealFn(id, entryId);
 
@@ -425,13 +428,13 @@
 		if (entry) {
 			const updateEntryFn =
 				entity === 'workspace'
-					? ChatService.updateWorkspaceMCPCatalogEntry
+					? UserService.updateWorkspaceMCPCatalogEntry
 					: AdminService.updateMCPCatalogEntry;
 			response = await updateEntryFn(id, entry.id, manifest);
 		} else {
 			const createEntryFn =
 				entity === 'workspace'
-					? ChatService.createWorkspaceMCPCatalogEntry
+					? UserService.createWorkspaceMCPCatalogEntry
 					: AdminService.createMCPCatalogEntry;
 			response = await createEntryFn(id, manifest);
 		}
@@ -447,7 +450,7 @@
 		if (entry) {
 			const updateServerFn =
 				entity === 'workspace'
-					? ChatService.updateWorkspaceMCPCatalogServer
+					? UserService.updateWorkspaceMCPCatalogServer
 					: AdminService.updateMCPCatalogServer;
 			response = await updateServerFn(
 				id,
@@ -457,7 +460,7 @@
 		} else {
 			const createServerFn =
 				entity === 'workspace'
-					? ChatService.createWorkspaceMCPCatalogServer
+					? UserService.createWorkspaceMCPCatalogServer
 					: AdminService.createMCPCatalogServer;
 			response = await createServerFn(id, omitSecretValuesFromServerManifest(serverManifest));
 		}
@@ -491,7 +494,7 @@
 		if (Object.keys(configValues).length > 0) {
 			const configureFn =
 				entity === 'workspace'
-					? ChatService.configureWorkspaceMCPCatalogServer
+					? UserService.configureWorkspaceMCPCatalogServer
 					: AdminService.configureMCPCatalogServer;
 			await configureFn(id, response.id, configValues);
 		}
@@ -529,7 +532,7 @@
 
 			const existingRules = isAtLeastPowerUserPlus
 				? entity === 'workspace'
-					? await ChatService.listWorkspaceAccessControlRules(id)
+					? await UserService.listWorkspaceAccessControlRules(id)
 					: await AdminService.listAccessControlRules()
 				: [];
 			const hasEverythingEveryoneRule = existingRules.some(

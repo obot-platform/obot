@@ -1,5 +1,4 @@
-import { AdminService, ChatService, type AuthProvider } from '$lib/services';
-import { Group, type BootstrapStatus } from '$lib/services/admin/types';
+import { UserService, type AuthProvider, type BootstrapStatus, Group } from '$lib/services';
 import type { PageLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 
@@ -11,8 +10,8 @@ export const load: PageLoad = async ({ fetch, url, parent }) => {
 	let authProviders: AuthProvider[] = [];
 	if (!loggedIn) {
 		[bootstrapStatus, authProviders] = await Promise.all([
-			AdminService.getBootstrapStatus(),
-			ChatService.listAuthProviders({ fetch })
+			UserService.getBootstrapStatus(),
+			UserService.listAuthProviders({ fetch })
 		]);
 	}
 	const isAdminOrOwner =

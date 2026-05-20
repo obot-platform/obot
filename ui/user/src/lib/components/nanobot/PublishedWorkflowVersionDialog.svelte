@@ -1,7 +1,12 @@
 <script lang="ts">
 	import SearchUsers from '$lib/components/admin/SearchUsers.svelte';
-	import { AdminService, NanobotService } from '$lib/services';
-	import type { AccessControlRuleSubject, OrgGroup, OrgUser } from '$lib/services/admin/types';
+	import {
+		NanobotService,
+		UserService,
+		type AccessControlRuleSubject,
+		type OrgGroup,
+		type OrgUser
+	} from '$lib/services';
 	import type {
 		PublishedArtifactVersion,
 		PublishedArtifactUpdateRequest
@@ -54,8 +59,8 @@
 
 	$effect(() => {
 		Promise.all([
-			AdminService.listUsers().catch(() => []),
-			AdminService.listGroups().catch(() => [])
+			UserService.listUsers().catch(() => []),
+			UserService.listGroups().catch(() => [])
 		]).then(([loadedUsers, loadedGroups]) => {
 			users = loadedUsers;
 			groups = loadedGroups;

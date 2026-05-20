@@ -11,7 +11,7 @@
 		TOOL_NAME_CHARSET_REGEX,
 		TOOL_NAME_SPECIAL_CHAR_WARNING,
 		toolNameIssue
-	} from '$lib/services/chat/mcp';
+	} from '$lib/services/user/mcp';
 	import ToolNameIssueIcon from '../ToolNameIssueIcon.svelte';
 	import { TriangleAlert } from 'lucide-svelte';
 

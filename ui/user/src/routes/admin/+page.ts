@@ -1,4 +1,4 @@
-import { ChatService, getProfile, type AuthProvider } from '$lib/services';
+import { UserService, getProfile, type AuthProvider } from '$lib/services';
 import { Group } from '$lib/services/admin/types';
 import type { PageLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
@@ -10,7 +10,7 @@ export const load: PageLoad = async ({ fetch, url }) => {
 	try {
 		profile = await getProfile({ fetch });
 	} catch (_err) {
-		authProviders = await ChatService.listAuthProviders({ fetch });
+		authProviders = await UserService.listAuthProviders({ fetch });
 	}
 
 	const showSetupHandoff = url.searchParams.get('setup') === 'complete';

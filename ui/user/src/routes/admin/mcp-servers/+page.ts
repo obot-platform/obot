@@ -1,10 +1,10 @@
-import { ChatService } from '$lib/services';
+import { UserService } from '$lib/services';
 import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ fetch, parent }) => {
 	const { profile } = await parent();
 	try {
-		const workspaceId = await ChatService.fetchWorkspaceIDForProfile(profile.id, { fetch });
+		const workspaceId = await UserService.fetchWorkspaceIDForProfile(profile.id, { fetch });
 		return {
 			workspaceId
 		};

@@ -6,12 +6,11 @@
 	import AccessControlRuleForm from '$lib/components/admin/AccessControlRuleForm.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
-	import { type AccessControlRule, type OrgUser } from '$lib/services/admin/types';
-	import { AdminService, ChatService } from '$lib/services/index.js';
-	import { mcpServersAndEntries, profile } from '$lib/stores/index.js';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { AdminService, UserService, type OrgUser, type AccessControlRule } from '$lib/services';
+	import { mcpServersAndEntries, profile } from '$lib/stores';
 	import { goto, clearUrlParams } from '$lib/url';
-	import { getUserDisplayName, openUrl } from '$lib/utils.js';
+	import { getUserDisplayName, openUrl } from '$lib/utils';
 	import { BookOpenText, Plus, Trash2 } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -83,7 +82,7 @@
 	const duration = PAGE_TRANSITION_DURATION;
 
 	onMount(async () => {
-		users = await AdminService.listUsersIncludeDeleted();
+		users = await UserService.listUsersIncludeDeleted();
 	});
 
 	function getAcrServerCount(powerUserWorkspaceID: string) {
@@ -232,7 +231,7 @@
 	onsuccess={async () => {
 		if (!ruleToDelete) return;
 		if (ruleToDelete.powerUserWorkspaceID) {
-			await ChatService.deleteWorkspaceAccessControlRule(
+			await UserService.deleteWorkspaceAccessControlRule(
 				ruleToDelete.powerUserWorkspaceID,
 				ruleToDelete.id
 			);

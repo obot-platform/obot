@@ -1,10 +1,10 @@
 import { handleRouteError } from '$lib/errors';
-import { AdminService } from '$lib/services';
+import { AdminService, UserService } from '$lib/services';
 import { profile } from '$lib/stores';
 import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ fetch }) => {
-	const allGroupsPromise = await AdminService.listGroups({ fetch });
+	const allGroupsPromise = await UserService.listGroups({ fetch });
 
 	try {
 		return {

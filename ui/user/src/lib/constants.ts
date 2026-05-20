@@ -1,45 +1,9 @@
-export const DEFAULT_PROJECT_NAME = 'My Project';
-export const DEFAULT_PROJECT_DESCRIPTION = 'Do more with AI';
-export const DEFAULT_CUSTOM_SERVER_NAME = 'My Custom Server';
-
 export const ABORTED_THREAD_MESSAGE = 'thread was aborted, cancelling run';
 export const ABORTED_BY_USER_MESSAGE = 'aborted by user';
-
-export const IGNORED_BUILTIN_TOOLS = new Set([
-	'workspace-files',
-	'tasks',
-	'knowledge',
-
-	'time',
-	'threads',
-	'github-com-obot-platform-tools-search-tavily-websiteknowl-d2d96'
-]);
-
-export const MCP_LIST_ORDER = [
-	'github-bundle',
-	'gitlab-bundle',
-	'firecrawl',
-	'postgres',
-	'atlassian-jira-bundle',
-	'aws-ec2-bundle',
-	'pagerduty-bundle',
-	'wordpress-bundle',
-	'obot-search',
-	'slack-bundle'
-];
-
-export const FEATURED_AGENT_PREFERRED_ORDER = [
-	'google productivity assistant',
-	'microsoft productivity assistant',
-	'github productivity assistant',
-	'wordpress blog assistant',
-	'linkedin research assistant'
-];
 
 export const UNAUTHORIZED_PATHS = new Set(['/', '/privacy-policy', '/terms-of-service', '/admin']);
 
 export const PAGE_TRANSITION_DURATION = 200;
-
 export const PAGE_SIZE = 50;
 
 export const CommonModelProviderIds = {
@@ -98,8 +62,6 @@ export const MCP_PUBLISHER_ALL_OPTION = {
 	label: 'Everything in My Registry',
 	description: 'Include all MCP servers I have created in my registry'
 };
-
-export const TASK_NEW_ID = 'new-task';
 
 export const ADMIN_AGENT_DISABLED_MESSAGE =
 	'Set up a model provider w/ default Language Model & Language Model (Fast) models to access this page.';

@@ -5,7 +5,7 @@
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
-		AdminService,
+		UserService,
 		type AuditLogURLFilters,
 		type AuditLogUsageStats,
 		type OrgUser,
@@ -402,7 +402,7 @@
 	});
 
 	afterNavigate(() => {
-		AdminService.listUsersIncludeDeleted().then((userData) => {
+		UserService.listUsersIncludeDeleted().then((userData) => {
 			for (const user of userData) {
 				usersMap.set(user.id, user);
 			}
@@ -424,11 +424,11 @@
 
 	async function reload() {
 		listUsageStats = mcpId
-			? AdminService.listServerOrInstanceAuditLogStats(mcpId, {
+			? UserService.listServerOrInstanceAuditLogStats(mcpId, {
 					start_time: filters.start_time,
 					end_time: filters.end_time
 				})
-			: AdminService.listAuditLogUsageStats({
+			: UserService.listAuditLogUsageStats({
 					...filters
 				});
 	}
@@ -685,7 +685,7 @@
 				!propsFiltersKeys.has(filterId) && !enforcedFiltersKeys.has(filterId)}
 			endpoint={async (filterId: string, ...args) => {
 				const proxyFilterId = proxy.get(filterId as SupportedStateFilter) ?? filterId;
-				return AdminService.listAuditLogFilterOptions(proxyFilterId, ...args);
+				return UserService.listAuditLogFilterOptions(proxyFilterId, ...args);
 			}}
 		/>
 	{/if}

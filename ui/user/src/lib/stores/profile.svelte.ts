@@ -1,4 +1,4 @@
-import { type Profile } from '$lib/services/chat/types';
+import { type Profile } from '$lib/services/user/types';
 
 const store = $state({
 	current: {

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { AdminService } from '$lib/services';
+	import { UserService } from '$lib/services';
 	import { profile } from '$lib/stores';
 	import { HatGlasses } from 'lucide-svelte';
 
@@ -14,7 +14,7 @@
 	let ownerEmail = $state('');
 	$effect(() => {
 		if (impersonating && agent.userID) {
-			AdminService.getUser(agent.userID)
+			UserService.getUser(agent.userID)
 				.then((owner) => {
 					ownerEmail = owner.email || owner.username || agent.userID;
 				})

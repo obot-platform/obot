@@ -6,8 +6,10 @@
 		ADMIN_ALL_OPTION
 	} from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
-	import { AdminService, ChatService, type MCPCatalogServer } from '$lib/services';
 	import {
+		AdminService,
+		UserService,
+		type MCPCatalogServer,
 		type AccessControlRule,
 		type AccessControlRuleManifest,
 		type AccessControlRuleResource,
@@ -15,8 +17,8 @@
 		type OrgUser,
 		type OrgGroup,
 		type MCPCatalogEntry
-	} from '$lib/services/admin/types';
-	import { getUserRegistry } from '$lib/services/chat/mcp';
+	} from '$lib/services';
+	import { getUserRegistry } from '$lib/services/user/mcp';
 	import { profile } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import { getUserDisplayName } from '$lib/utils';
@@ -114,10 +116,10 @@
 		];
 
 		if (!usersAndGroups?.users) {
-			promises[0] = AdminService.listUsers();
+			promises[0] = UserService.listUsers();
 		}
 		if (!usersAndGroups?.groups) {
-			promises[1] = AdminService.listGroups();
+			promises[1] = UserService.listGroups();
 		}
 
 		Promise.all(promises)
@@ -453,7 +455,7 @@
 							saving = true;
 							const response =
 								entity === 'workspace'
-									? await ChatService.createWorkspaceAccessControlRule(id, accessControlRule)
+									? await UserService.createWorkspaceAccessControlRule(id, accessControlRule)
 									: await AdminService.createAccessControlRule(accessControlRule);
 							accessControlRule = response;
 							if (redirect) {
@@ -479,7 +481,7 @@
 							saving = true;
 							accessControlRule =
 								entity === 'workspace'
-									? await ChatService.getWorkspaceAccessControlRule(id, accessControlRule.id)
+									? await UserService.getWorkspaceAccessControlRule(id, accessControlRule.id)
 									: await AdminService.getAccessControlRule(accessControlRule.id);
 							saving = false;
 						}}
@@ -494,7 +496,7 @@
 							saving = true;
 							const response =
 								entity === 'workspace'
-									? await ChatService.updateWorkspaceAccessControlRule(
+									? await UserService.updateWorkspaceAccessControlRule(
 											id,
 											accessControlRule.id,
 											accessControlRule
@@ -577,7 +579,7 @@
 		if (!accessControlRule.id || !id) return;
 		saving = true;
 		await (entity === 'workspace'
-			? ChatService.deleteWorkspaceAccessControlRule(id, accessControlRule.id)
+			? UserService.deleteWorkspaceAccessControlRule(id, accessControlRule.id)
 			: AdminService.deleteAccessControlRule(accessControlRule.id));
 		goto('/admin/mcp-registries');
 	}}

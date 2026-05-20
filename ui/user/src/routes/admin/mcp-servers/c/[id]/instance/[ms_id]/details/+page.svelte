@@ -5,12 +5,7 @@
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
 	import OAuthMetadataDebug from '$lib/components/mcp/OAuthMetadataDebug.svelte';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import {
-		AdminService,
-		ChatService,
-		type MCPCatalogServer,
-		type OrgUser
-	} from '$lib/services/index.js';
+	import { UserService, type MCPCatalogServer, type OrgUser } from '$lib/services/index.js';
 	import { profile } from '$lib/stores/index.js';
 	import { Info } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
@@ -27,13 +22,13 @@
 	let catalogEntryName = $derived(catalogEntry?.manifest?.name ?? 'Unknown');
 
 	async function fetchUserInfo() {
-		mcpServer = await ChatService.getSingleOrRemoteMcpServer(mcpServerId);
+		mcpServer = await UserService.getSingleOrRemoteMcpServer(mcpServerId);
 		const isSameUser =
 			connectedUsers.length === 1 ? connectedUsers[0].id === mcpServer.userID : false;
 		compositeParentName = mcpServer.compositeName;
 
 		if (mcpServer.userID && !isSameUser) {
-			const user = await AdminService.getUser(mcpServer.userID);
+			const user = await UserService.getUser(mcpServer.userID);
 			connectedUsers = [user];
 		}
 	}

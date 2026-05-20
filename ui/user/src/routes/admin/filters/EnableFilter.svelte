@@ -14,7 +14,7 @@
 		type SystemMCPServerCatalogEntry
 	} from '$lib/services';
 	import { EventStreamService } from '$lib/services/admin/eventstream.svelte';
-	import { convertEnvHeadersToRecord, hasEditableConfiguration } from '$lib/services/chat/mcp';
+	import { convertEnvHeadersToRecord, hasEditableConfiguration } from '$lib/services/user/mcp';
 
 	interface Props {
 		configuredFilterServers: SystemMCPServer[];

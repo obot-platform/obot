@@ -17,7 +17,7 @@
 	import {
 		convertServerRuntimeFormDataToManifest,
 		validateRuntimeForm
-	} from '$lib/services/chat/mcp';
+	} from '$lib/services/user/mcp';
 	import PageLoading from '../PageLoading.svelte';
 	import Select from '../Select.svelte';
 	import Toggle from '../Toggle.svelte';

@@ -1,5 +1,5 @@
-import { ChatService } from '$lib/services';
-import type { DefaultModelAlias } from '$lib/services/chat/types';
+import { UserService } from '$lib/services';
+import type { DefaultModelAlias } from '$lib/services/user/types';
 
 const store = $state<{
 	current: DefaultModelAlias[];
@@ -17,7 +17,7 @@ async function initialize(defaultModelAliases?: DefaultModelAlias[]) {
 	} else {
 		store.loading = true;
 		try {
-			const defaultModelAliases = await ChatService.listDefaultModelAliases();
+			const defaultModelAliases = await UserService.listDefaultModelAliases();
 			store.current = defaultModelAliases;
 		} finally {
 			store.loading = false;

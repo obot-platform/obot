@@ -1,6 +1,5 @@
 import { handleRouteError } from '$lib/errors';
-import { ChatService } from '$lib/services';
-import type { AccessControlRule } from '$lib/services/admin/types';
+import { UserService, type AccessControlRule } from '$lib/services';
 import type { PageLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 
@@ -14,8 +13,8 @@ export const load: PageLoad = async ({ fetch, parent }) => {
 	}
 
 	try {
-		workspaceId = await ChatService.fetchWorkspaceIDForProfile(profile?.id, { fetch });
-		accessControlRules = await ChatService.listWorkspaceAccessControlRules(workspaceId, { fetch });
+		workspaceId = await UserService.fetchWorkspaceIDForProfile(profile?.id, { fetch });
+		accessControlRules = await UserService.listWorkspaceAccessControlRules(workspaceId, { fetch });
 	} catch (err) {
 		handleRouteError(err, '/mcp-registries', profile);
 	}

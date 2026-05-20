@@ -5,7 +5,7 @@
 	import Menu from '$lib/components/navbar/Menu.svelte';
 	import ProfileIcon from '$lib/components/profile/ProfileIcon.svelte';
 	import { ADMIN_AGENT_DISABLED_MESSAGE, USER_AGENT_DISABLED_MESSAGE } from '$lib/constants';
-	import { AdminService, ChatService, EditorService, NanobotService } from '$lib/services';
+	import { AdminService, NanobotService, UserService } from '$lib/services';
 	import { profile, responsive, darkMode, errors, defaultModelAliases } from '$lib/stores';
 	import { version } from '$lib/stores';
 	import { goto } from '$lib/url';
@@ -22,7 +22,6 @@
 		Sun,
 		BadgeInfo,
 		X,
-		MessageCircle,
 		CircleFadingArrowUp,
 		LayoutDashboard,
 		KeyRound,
@@ -107,7 +106,7 @@
 		if (!agentId || !projectId) return;
 		restartingAgent = true;
 		try {
-			await AdminService.restartK8sDeployment(`ms1${agentId}`);
+			await UserService.restartK8sDeployment(`ms1${agentId}`);
 			await NanobotService.launchProjectV2Agent(projectId, agentId);
 			window.location.reload();
 		} catch (error) {
@@ -214,7 +213,7 @@
 				>
 			{/if}
 			{#if !impersonating}
-				{#if profile.current.email && page.url.pathname !== '/profile'}
+				{#if profile.current.email && !page.url.pathname.startsWith('/profile')}
 					<MyAccount />
 				{/if}
 				{#if showApiKeysLink}
@@ -234,7 +233,7 @@
 			{/if}
 		</div>
 		<div class="mt-2 p-2">
-			{#if showChatLink && version.current.nanobotIntegration && !impersonating}
+			{#if showChatLink && !impersonating}
 				<button
 					class={twMerge(
 						'dropdown-link',
@@ -257,37 +256,6 @@
 							icon={LockOpen}
 						/>
 					{/if}
-				</button>
-			{/if}
-			{#if showChatLink && version.current.disableLegacyChat !== true && !impersonating}
-				<button
-					class="dropdown-link"
-					class:mt-1={version.current.nanobotIntegration}
-					onclick={async (event) => {
-						const asNewTab = event?.ctrlKey || event?.metaKey;
-						loadingChat = true;
-						try {
-							const projects = (await ChatService.listProjects()).items.sort(
-								(a, b) => new Date(b.created).getTime() - new Date(a.created).getTime()
-							);
-							const lastProject = projects[0];
-							let url: string;
-
-							if (lastProject) {
-								url = `/o/${lastProject.id}`;
-							} else {
-								const newProject = await EditorService.createObot();
-								url = `/o/${newProject.id}`;
-							}
-
-							navigateTo(url, asNewTab);
-						} finally {
-							loadingChat = false;
-						}
-					}}
-				>
-					<MessageCircle class="size-4" />
-					Launch Legacy Chat
 				</button>
 			{/if}
 			{#if showMcpManagement && !impersonating}

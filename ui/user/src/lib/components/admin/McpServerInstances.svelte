@@ -6,7 +6,7 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
-		ChatService,
+		UserService,
 		Group,
 		type LaunchServerType,
 		type MCPCatalogEntry,
@@ -14,7 +14,7 @@
 		type MCPServerInstance,
 		type OrgUser
 	} from '$lib/services';
-	import { hasMissingSecretBindingConfig } from '$lib/services/chat/mcp';
+	import { hasMissingSecretBindingConfig } from '$lib/services/user/mcp';
 	import { profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { openUrl, isOwnSingleUserServer, getUserDisplayName } from '$lib/utils';
@@ -100,7 +100,7 @@
 				loading = false;
 			} else {
 				if (entity === 'workspace') {
-					ChatService.listWorkspaceMcpCatalogServerInstances(id, entry.id)
+					UserService.listWorkspaceMcpCatalogServerInstances(id, entry.id)
 						.then((response) => {
 							instances = response;
 						})
@@ -124,7 +124,7 @@
 				loading = false;
 			} else if (id) {
 				if (entity === 'workspace') {
-					ChatService.listWorkspaceMCPServersForEntry(id, entry.id)
+					UserService.listWorkspaceMCPServersForEntry(id, entry.id)
 						.then((response) => {
 							servers = response;
 						})
@@ -147,7 +147,7 @@
 	async function loadServers() {
 		if (!id || !entry || (entry && !('isCatalogEntry' in entry))) return;
 		if (entity === 'workspace') {
-			ChatService.listWorkspaceMCPServersForEntry(id, entry.id).then((response) => {
+			UserService.listWorkspaceMCPServersForEntry(id, entry.id).then((response) => {
 				servers = response;
 			});
 		} else {
@@ -163,8 +163,8 @@
 			updating[serverId] = { inProgress: true, error: '' };
 			try {
 				await (entity === 'workspace' && id && entry
-					? ChatService.triggerWorkspaceMcpServerUpdate(id, entry.id, serverId)
-					: ChatService.triggerMcpServerUpdate(serverId));
+					? UserService.triggerWorkspaceMcpServerUpdate(id, entry.id, serverId)
+					: UserService.triggerMcpServerUpdate(serverId));
 				updating[serverId] = { inProgress: false, error: '' };
 			} catch (error) {
 				updating[serverId] = {
@@ -186,8 +186,8 @@
 		updating[server.id] = { inProgress: true, error: '' };
 		try {
 			await (entity === 'workspace' && id && entry
-				? ChatService.triggerWorkspaceMcpServerUpdate(id, entry.id, server.id)
-				: ChatService.triggerMcpServerUpdate(server.id));
+				? UserService.triggerWorkspaceMcpServerUpdate(id, entry.id, server.id)
+				: UserService.triggerMcpServerUpdate(server.id));
 			loadServers();
 		} catch (err) {
 			updating[server.id] = {
@@ -377,7 +377,7 @@
 			{#snippet actions(d)}
 				{@const auditLogsUrl = getAuditLogUrl(d)}
 				{@const missingKubernetesSecret = isMissingKubernetesSecret(d)}
-				<div class="flex flex-shrink-0 items-center gap-1">
+				<div class="flex shrink-0 items-center gap-1">
 					{#if auditLogsUrl}
 						<a class="btn btn-link" href={resolve(auditLogsUrl as `/${string}`)}>
 							View Audit Logs

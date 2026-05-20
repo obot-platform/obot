@@ -1,5 +1,5 @@
 import { handleRouteError } from '$lib/errors';
-import { ChatService } from '$lib/services';
+import { UserService } from '$lib/services';
 import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ params, fetch, parent }) => {
@@ -12,10 +12,10 @@ export const load: PageLoad = async ({ params, fetch, parent }) => {
 
 	let catalogEntry;
 	try {
-		catalogEntry = await ChatService.getWorkspaceMCPCatalogEntry(workspaceId, catalogEntryId, {
+		catalogEntry = await UserService.getWorkspaceMCPCatalogEntry(workspaceId, catalogEntryId, {
 			fetch
 		});
-		mcpServer = await ChatService.getSingleOrRemoteMcpServer(mcpServerId, { fetch });
+		mcpServer = await UserService.getSingleOrRemoteMcpServer(mcpServerId, { fetch });
 	} catch (err) {
 		handleRouteError(
 			err,
@@ -25,7 +25,7 @@ export const load: PageLoad = async ({ params, fetch, parent }) => {
 	}
 
 	try {
-		const userWorkspaceId = await ChatService.fetchWorkspaceIDForProfile(profile.id, { fetch });
+		const userWorkspaceId = await UserService.fetchWorkspaceIDForProfile(profile.id, { fetch });
 		belongsToUser = userWorkspaceId === workspaceId;
 	} catch (_err) {
 		belongsToUser = false;

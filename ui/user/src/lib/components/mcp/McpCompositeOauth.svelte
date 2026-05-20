@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { parseErrorContent } from '$lib/errors';
 	import Loading from '$lib/icons/Loading.svelte';
-	import { ChatService, type MCPCatalogServer } from '$lib/services';
+	import { UserService, type MCPCatalogServer } from '$lib/services';
 	import { Server } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 
@@ -43,7 +43,7 @@
 
 	async function fetchParentAndMeta() {
 		try {
-			compositeServer = await ChatService.getSingleOrRemoteMcpServer(compositeMcpId);
+			compositeServer = await UserService.getSingleOrRemoteMcpServer(compositeMcpId);
 
 			const componentServers = compositeServer?.manifest?.compositeConfig?.componentServers || [];
 			componentInfos = componentServers.reduce(
@@ -70,7 +70,7 @@
 		loading = true;
 		error = '';
 		try {
-			const data = await ChatService.checkCompositeOAuth(compositeMcpId, {
+			const data = await UserService.checkCompositeOAuth(compositeMcpId, {
 				oauthAuthRequestID: oauthAuthRequestId
 			});
 			pending = (data as PendingItem[]).map((d) => ({ ...d }));
@@ -99,7 +99,7 @@
 			const payload: Record<string, { config: Record<string, string>; disabled: boolean }> = {
 				[item.catalogEntryID]: { config: {}, disabled: true }
 			};
-			await ChatService.configureCompositeMcpServer(compositeMcpId, payload);
+			await UserService.configureCompositeMcpServer(compositeMcpId, payload);
 
 			// Re-check pending from server; item should disappear
 			await fetchParentAndMeta();

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { LaunchServerType, MCPCatalogEntryFieldManifest } from '$lib/services';
-	import { hasSecretBinding } from '$lib/services/chat/mcp';
+	import { hasSecretBinding } from '$lib/services/user/mcp';
 	import Select from '../Select.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
 	import { Plus, Trash2 } from 'lucide-svelte';

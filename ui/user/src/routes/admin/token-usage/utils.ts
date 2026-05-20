@@ -1,4 +1,4 @@
-import type { OrgUser } from '$lib/services/admin/types';
+import type { OrgUser } from '$lib/services';
 import { getUserDisplayName } from '$lib/utils';
 import {
 	differenceInCalendarDays,

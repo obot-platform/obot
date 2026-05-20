@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ChatService, type MCPCatalogEntry, type MCPCatalogServer } from '$lib/services';
+	import { UserService, type MCPCatalogEntry, type MCPCatalogServer } from '$lib/services';
 	import type { EventStreamService } from '$lib/services/admin/eventstream.svelte';
 	import {
 		convertCompositeInfoToLaunchFormData,
@@ -7,7 +7,7 @@
 		convertEnvHeadersToRecord,
 		getSecretBindingEngineError,
 		isKubernetesRuntimeBackend
-	} from '$lib/services/chat/mcp';
+	} from '$lib/services/user/mcp';
 	import { version } from '$lib/stores';
 	import PageLoading from '../PageLoading.svelte';
 	import CatalogConfigureForm, {
@@ -62,7 +62,7 @@
 
 		let values: Record<string, string>;
 		try {
-			values = await ChatService.revealSingleOrRemoteMcpServer(server.id, {
+			values = await UserService.revealSingleOrRemoteMcpServer(server.id, {
 				dontLogErrors: true
 			});
 		} catch (error) {
@@ -136,11 +136,11 @@
 			entry.manifest.remoteConfig?.hostname &&
 			lf?.url
 		) {
-			await ChatService.updateRemoteMcpServerUrl(server.id, lf.url.trim());
+			await UserService.updateRemoteMcpServerUrl(server.id, lf.url.trim());
 		}
 
 		const envs = convertEnvHeadersToRecord(lf.envs, lf.headers);
-		await ChatService.configureSingleOrRemoteMcpServer(server.id, envs);
+		await UserService.configureSingleOrRemoteMcpServer(server.id, envs);
 	}
 
 	async function updateExistingComposite(lf: CompositeLaunchFormData) {
@@ -148,7 +148,7 @@
 		// Composite flow using CatalogConfigureForm data
 		if ('componentConfigs' in lf) {
 			const payload = convertCompositeLaunchFormDataToPayload(lf);
-			await ChatService.configureCompositeMcpServer(server.id, payload);
+			await UserService.configureCompositeMcpServer(server.id, payload);
 		}
 	}
 

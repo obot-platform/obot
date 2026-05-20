@@ -6,9 +6,8 @@
 	import Search from '$lib/components/Search.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
-	import { NanobotService } from '$lib/services';
-	import type { OrgUser } from '$lib/services/admin/types';
-	import { getMcpServerDeploymentStatus } from '$lib/services/chat/mcp';
+	import { NanobotService, type OrgUser } from '$lib/services';
+	import { getMcpServerDeploymentStatus } from '$lib/services/user/mcp';
 	import { profile, version } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { goto } from '$lib/url';

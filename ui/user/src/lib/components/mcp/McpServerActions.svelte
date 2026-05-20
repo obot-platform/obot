@@ -4,14 +4,14 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
-		ChatService,
+		UserService,
 		AdminService,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
 		type MCPServerInstance
 	} from '$lib/services';
-	import { hasEditableConfiguration, requiresUserUpdate } from '$lib/services/chat/mcp';
-	import { mcpServersAndEntries, profile, userDeviceSettings, version } from '$lib/stores';
+	import { hasEditableConfiguration, requiresUserUpdate } from '$lib/services/user/mcp';
+	import { mcpServersAndEntries, profile, userDeviceSettings } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { goto } from '$lib/url';
 	import DotDotDot from '../DotDotDot.svelte';
@@ -24,7 +24,6 @@
 	import DebugOauthDialog from './oauth/DebugOauthDialog.svelte';
 	import {
 		KeyRound,
-		MessageCircle,
 		PencilLine,
 		ReceiptText,
 		RefreshCw,
@@ -42,7 +41,6 @@
 		| 'rename'
 		| 'edit'
 		| 'disconnect'
-		| 'chat'
 		| 'server-details'
 		| 'restart';
 
@@ -57,7 +55,6 @@
 		promptInitialLaunch?: boolean;
 		promptOAuthConfig?: boolean;
 		connectOnly?: boolean;
-		isProjectMcp?: boolean;
 		readonly?: boolean;
 		allowMultiUserServerConfigurationEdit?: boolean;
 	}
@@ -71,7 +68,6 @@
 		onConnect,
 		onOAuthConfigured,
 		promptInitialLaunch,
-		isProjectMcp,
 		promptOAuthConfig,
 		connectOnly,
 		readonly,
@@ -128,17 +124,15 @@
 		)
 	);
 	let showServerDetails = $derived(entry && !server && configuredServers.length > 0);
-	let hasActions = $derived.by(() => {
-		if (isProjectMcp) {
-			return server && entry && hasEditableConfiguration(entry);
-		}
-		return Boolean(
+	let hasActions = $derived(
+		Boolean(
 			(entry && server) ||
 			showServerDetails ||
 			(server && instance) ||
 			canEditMultiUserServerConfiguration
-		);
-	});
+		)
+	);
+
 	let showDisconnectUser = $derived(
 		entry && server && profile.current.isAdmin?.() && server.userID !== profile.current.id
 	);
@@ -213,7 +207,7 @@
 	}
 
 	async function reauthenticateServer(item: MCPCatalogServer) {
-		await ChatService.clearMcpServerOAuth(item.id);
+		await UserService.clearMcpServerOAuth(item.id);
 		await connectToServerDialog?.authenticate(item, entry);
 		refresh();
 	}
@@ -279,7 +273,6 @@
 		refresh();
 	}}
 	{skipConnectDialog}
-	hideActions={isProjectMcp}
 />
 
 <EditExistingDeployment bind:this={editExistingDialog} onUpdateConfigure={refresh} />
@@ -295,10 +288,6 @@
 		onClickRow={(d) => {
 			selectServerDialog?.close();
 			switch (selectServerMode) {
-				case 'chat': {
-					connectToServerDialog?.handleSetupChat(d);
-					break;
-				}
 				case 'server-details': {
 					if (profile.current?.hasAdminAccess?.()) {
 						goto(
@@ -329,12 +318,12 @@
 					break;
 				}
 				case 'restart': {
-					ChatService.restartMcpServer(d.id);
+					UserService.restartMcpServer(d.id);
 					mcpServersAndEntries.refreshUserConfiguredServers();
 					break;
 				}
 				case 'disconnect': {
-					ChatService.deleteSingleOrRemoteMcpServer(d.id);
+					UserService.deleteSingleOrRemoteMcpServer(d.id);
 					mcpServersAndEntries.refreshUserConfiguredServers();
 					break;
 				}
@@ -423,10 +412,7 @@
 
 {#snippet serverActions(toggle: (value: boolean) => void)}
 	{#if server && (server.userID === profile.current.id || canEditMultiUserServerConfiguration)}
-		<div
-			class="flex flex-col gap-1 p-2 {!isProjectMcp && 'bg-base-200'} {!isProjectMcp &&
-				'rounded-t-xl'}"
-		>
+		<div class="flex flex-col gap-1 p-2 bg-base-200 rounded-t-xl">
 			{#if canEditMultiUserServerConfiguration}
 				<button
 					class="menu-button"
@@ -442,30 +428,18 @@
 					<ServerCog class="size-4" /> Edit Configuration
 				</button>
 			{/if}
-			{#if !isProjectMcp && !connectOnly && version.current.disableLegacyChat !== true}
+			{#if entry}
 				<button
 					class="menu-button"
-					onclick={async () => {
-						connectToServerDialog?.handleSetupChat(server, instance);
+					onclick={() => {
+						editExistingDialog?.rename({
+							server,
+							entry
+						});
 					}}
 				>
-					<MessageCircle class="size-4" /> Chat
+					<PencilLine class="size-4" /> Rename
 				</button>
-			{/if}
-			{#if entry}
-				{#if !isProjectMcp}
-					<button
-						class="menu-button"
-						onclick={() => {
-							editExistingDialog?.rename({
-								server,
-								entry
-							});
-						}}
-					>
-						<PencilLine class="size-4" /> Rename
-					</button>
-				{/if}
 				{#if server && canReauthenticate}
 					<button
 						class="menu-button"
@@ -515,7 +489,7 @@
 						e.stopPropagation();
 						restarting = true;
 						try {
-							await ChatService.restartMcpServer(server.id);
+							await UserService.restartMcpServer(server.id);
 							refresh();
 						} finally {
 							restarting = false;
@@ -537,7 +511,7 @@
 					onclick={async (e) => {
 						e.stopPropagation();
 						disconnecting = true;
-						await ChatService.deleteMcpServerInstance(instance.id);
+						await UserService.deleteMcpServerInstance(instance.id);
 						mcpServersAndEntries.refreshUserInstances();
 						toggle(false);
 
@@ -562,14 +536,14 @@
 						<Unplug class="size-4" />
 					{/if} Disconnect
 				</button>
-			{:else if entry && server && !isProjectMcp}
+			{:else if entry && server}
 				<button
 					class="menu-button"
 					disabled={disconnecting}
 					onclick={async (e) => {
 						e.stopPropagation();
 						disconnecting = true;
-						await ChatService.deleteSingleOrRemoteMcpServer(server.id);
+						await UserService.deleteSingleOrRemoteMcpServer(server.id);
 						mcpServersAndEntries.refreshUserConfiguredServers();
 						toggle(false);
 
@@ -603,20 +577,6 @@
 			My Connection(s)
 		</div>
 		<div class="bg-base-200 flex flex-col gap-1 p-2">
-			{#if !connectOnly && version.current.disableLegacyChat !== true}
-				<button
-					class="menu-button"
-					onclick={() => {
-						if (configuredServers.length === 1) {
-							connectToServerDialog?.handleSetupChat(configuredServers[0]);
-						} else {
-							handleShowSelectServerDialog('chat');
-						}
-					}}
-				>
-					<MessageCircle class="size-4" /> Chat
-				</button>
-			{/if}
 			{#if entry}
 				<button
 					class="menu-button"
@@ -663,7 +623,7 @@
 						if (configuredServers.length === 1) {
 							restarting = true;
 							try {
-								await ChatService.restartMcpServer(configuredServers[0].id);
+								await UserService.restartMcpServer(configuredServers[0].id);
 								refresh();
 							} finally {
 								restarting = false;
@@ -711,7 +671,7 @@
 				onclick={async (e) => {
 					e.stopPropagation();
 					if (configuredServers.length === 1) {
-						await ChatService.deleteSingleOrRemoteMcpServer(configuredServers[0].id);
+						await UserService.deleteSingleOrRemoteMcpServer(configuredServers[0].id);
 						mcpServersAndEntries.refreshUserConfiguredServers();
 					} else {
 						handleShowSelectServerDialog('disconnect');
@@ -729,7 +689,7 @@
 				class="menu-button text-error"
 				onclick={async (e) => {
 					e.stopPropagation();
-					await ChatService.deleteSingleOrRemoteMcpServer(server.id);
+					await UserService.deleteSingleOrRemoteMcpServer(server.id);
 					mcpServersAndEntries.refreshUserConfiguredServers();
 					toggle(false);
 				}}
@@ -745,7 +705,7 @@
 	onSave={async (credentials) => {
 		if (!entry) return;
 		if (entry.powerUserWorkspaceID) {
-			await ChatService.setWorkspaceMCPCatalogEntryOAuthCredentials(
+			await UserService.setWorkspaceMCPCatalogEntryOAuthCredentials(
 				entry.powerUserWorkspaceID,
 				entry.id,
 				credentials

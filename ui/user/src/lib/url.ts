@@ -117,3 +117,22 @@ export function tryDecodeURIComponent(value: string): string {
 		return value;
 	}
 }
+
+export function camelToSnakeCase(str: string): string {
+	return str.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
+}
+
+export function buildQueryString(
+	filters: Record<string, string | number | boolean | string[] | undefined | null>
+) {
+	return Object.entries(filters)
+		.filter(([_, value]) => value !== undefined && value !== null)
+		.map(([key, value]) => {
+			if (Array.isArray(value)) {
+				// Join arrays with commas for multi-value parameters
+				return `${camelToSnakeCase(key)}=${encodeURIComponent(value.join(','))}`;
+			}
+			return `${camelToSnakeCase(key)}=${typeof value === 'string' ? encodeURIComponent(value) : value}`;
+		})
+		.join('&');
+}

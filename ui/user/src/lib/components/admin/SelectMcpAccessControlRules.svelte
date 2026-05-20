@@ -3,7 +3,7 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
-		ChatService,
+		UserService,
 		type AccessControlRule,
 		type AccessControlRuleResource,
 		type MCPCatalogEntry,
@@ -41,10 +41,10 @@
 	export async function open() {
 		accessControlRules =
 			entity === 'workspace' && id
-				? await ChatService.listWorkspaceAccessControlRules(id)
+				? await UserService.listWorkspaceAccessControlRules(id)
 				: await AdminService.listAccessControlRules();
-		users = await AdminService.listUsers();
-		groups = await AdminService.listGroups();
+		users = await UserService.listUsers();
+		groups = await UserService.listGroups();
 		dialog?.open();
 	}
 
@@ -66,7 +66,7 @@
 			if (!mappedRule) continue;
 
 			if (entity === 'workspace' && id) {
-				await ChatService.updateWorkspaceAccessControlRule(id, rule, {
+				await UserService.updateWorkspaceAccessControlRule(id, rule, {
 					...mappedRule,
 					resources: [
 						...(mappedRule.resources ?? []),

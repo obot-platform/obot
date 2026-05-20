@@ -227,3 +227,10 @@ export async function doPatch(
 }
 
 export type Fetcher = typeof fetch;
+
+export type PaginatedResponse<T> = {
+	items: T[] | null;
+	total: number;
+	offset: number;
+	limit: number;
+};

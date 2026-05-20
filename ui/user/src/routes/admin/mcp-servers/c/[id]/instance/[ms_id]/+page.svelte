@@ -8,10 +8,13 @@
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { parseErrorContent } from '$lib/errors';
-	import type { MCPCatalogEntryServerManifest } from '$lib/services/admin/types';
-	import type { MCPServer, MCPCatalogServer } from '$lib/services/chat/types';
-	import { AdminService } from '$lib/services/index.js';
-	import { mcpServersAndEntries, profile } from '$lib/stores/index.js';
+	import {
+		type MCPCatalogEntryServerManifest,
+		type MCPServer,
+		type MCPCatalogServer,
+		AdminService
+	} from '$lib/services';
+	import { mcpServersAndEntries, profile } from '$lib/stores';
 	import { CircleFadingArrowUp, Info, GitCompare } from 'lucide-svelte';
 	import { type Component, untrack } from 'svelte';
 	import { fly } from 'svelte/transition';

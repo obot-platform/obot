@@ -5,8 +5,8 @@
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { ChatService } from '$lib/services/index.js';
-	import { mcpServersAndEntries } from '$lib/stores/index.js';
+	import { UserService } from '$lib/services';
+	import { mcpServersAndEntries } from '$lib/stores';
 	import { type Component } from 'svelte';
 	import { fly } from 'svelte/transition';
 
@@ -49,7 +49,7 @@
 			{promptOAuthConfig}
 			onOAuthConfigured={() => {
 				if (!catalogEntry) return;
-				ChatService.getMCP(catalogEntry.id).then((entry) => {
+				UserService.getMCP(catalogEntry.id).then((entry) => {
 					catalogEntry = entry;
 				});
 			}}

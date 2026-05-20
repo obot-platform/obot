@@ -7,13 +7,12 @@
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import Table from '$lib/components/table/Table.svelte';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
-	import { userRoleOptions } from '$lib/services/admin/constants.js';
-	import { Group, Role, type OrgUser } from '$lib/services/admin/types';
-	import { AdminService, ChatService } from '$lib/services/index.js';
-	import { profile } from '$lib/stores/index.js';
-	import { formatTimeAgo } from '$lib/time.js';
+	import { AdminService, UserService, Group, Role, type OrgUser } from '$lib/services';
+	import { userRoleOptions } from '$lib/services/admin/constants';
+	import { profile } from '$lib/stores';
+	import { formatTimeAgo } from '$lib/time';
 	import { replaceState } from '$lib/url';
 	import {
 		clearUrlParams,
@@ -95,11 +94,11 @@
 		try {
 			await AdminService.updateUserRole(userID, role);
 			if (refreshUsers) {
-				users = await AdminService.listUsers();
+				users = await UserService.listUsers();
 			}
 			if (profile.current.id === userID) {
 				// update with the role change
-				profile.current = await ChatService.getProfile();
+				profile.current = await UserService.getProfile();
 			}
 			closeUpdateRoleDialog();
 			return true;
@@ -268,7 +267,7 @@
 		if (!deletingUser) return;
 		loading = true;
 		await AdminService.deleteUser(deletingUser.id);
-		users = await AdminService.listUsers();
+		users = await UserService.listUsers();
 		loading = false;
 		deletingUser = undefined;
 	}}

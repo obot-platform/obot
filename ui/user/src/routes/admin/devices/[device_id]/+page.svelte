@@ -7,7 +7,7 @@
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import {
-		AdminService,
+		UserService,
 		type DeviceScan,
 		type DeviceScanClient,
 		type DeviceScanMCPServer,
@@ -41,7 +41,7 @@
 			submittedByUser = undefined;
 			return;
 		}
-		AdminService.getUser(id, { dontLogErrors: true })
+		UserService.getUser(id, { dontLogErrors: true })
 			.then((u) => {
 				if (submittedById === id) submittedByUser = u;
 			})

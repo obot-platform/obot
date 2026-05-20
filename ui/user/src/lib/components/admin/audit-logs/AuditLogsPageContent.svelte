@@ -15,10 +15,10 @@
 		type AuditLogURLFilters,
 		AdminService,
 		type AuditLog,
-		ChatService
+		Group,
+		UserService
 	} from '$lib/services';
-	import { Group } from '$lib/services';
-	import { type PaginatedResponse } from '$lib/services/admin/operations';
+	import type { PaginatedResponse } from '$lib/services/http';
 	import { responsive } from '$lib/stores';
 	import profile from '$lib/stores/profile.svelte';
 	import { goto, replaceState } from '$lib/url';
@@ -316,7 +316,7 @@
 	});
 
 	afterNavigate(() => {
-		AdminService.listUsersIncludeDeleted().then((userData) => {
+		UserService.listUsersIncludeDeleted().then((userData) => {
 			for (const user of userData) {
 				users.set(user.id, user);
 			}
@@ -373,7 +373,7 @@
 	}
 
 	async function fetchAuditLogs(filters: typeof searchParamFilters) {
-		return (auditLogsResponse = await AdminService.listAuditLogs(filters));
+		return (auditLogsResponse = await UserService.listAuditLogs(filters));
 	}
 
 	function getFilterDisplayLabel(key: string) {
@@ -697,7 +697,7 @@
 				rightSidebar?.showPopover();
 				// Fetch full audit log details with request/response bodies
 				try {
-					const fullDetails = await AdminService.getAuditLog(d.id);
+					const fullDetails = await UserService.getAuditLog(d.id);
 					selectedAuditLog = { ...fullDetails, user: d.user };
 				} catch (error) {
 					console.error('Failed to fetch audit log details:', error);
@@ -760,14 +760,14 @@
 					end_time: timeRangeFilters.endTime?.toISOString()
 				};
 				if (filterId !== 'mcp_id') {
-					return await AdminService.listAuditLogFilterOptions(filterId, {
+					return await UserService.listAuditLogFilterOptions(filterId, {
 						...opts,
 						...timeFilters
 					});
 				}
 
 				if (mcpId) {
-					const response = await AdminService.listAuditLogFilterOptions(filterId, {
+					const response = await UserService.listAuditLogFilterOptions(filterId, {
 						...opts,
 						...timeFilters
 					});
@@ -776,7 +776,7 @@
 				}
 
 				if (!id || !mcpServerCatalogEntryName) {
-					return await AdminService.listAuditLogFilterOptions(filterId, {
+					return await UserService.listAuditLogFilterOptions(filterId, {
 						...opts,
 						...timeFilters
 					});
@@ -785,7 +785,7 @@
 				const items =
 					entity === 'catalog'
 						? await AdminService.listMCPServersForEntry(id, mcpServerCatalogEntryName)
-						: await ChatService.listWorkspaceMCPServersForEntry(id, mcpServerCatalogEntryName);
+						: await UserService.listWorkspaceMCPServersForEntry(id, mcpServerCatalogEntryName);
 
 				const options = items?.map?.((item) => item.id) ?? [];
 

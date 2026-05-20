@@ -5,13 +5,8 @@
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
 	import OAuthMetadataDebug from '$lib/components/mcp/OAuthMetadataDebug.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import {
-		AdminService,
-		ChatService,
-		type MCPCatalogServer,
-		type OrgUser
-	} from '$lib/services/index.js';
-	import { profile } from '$lib/stores/index.js';
+	import { UserService, type MCPCatalogServer, type OrgUser } from '$lib/services';
+	import { profile } from '$lib/stores';
 	import { Info } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -28,14 +23,14 @@
 		if (!mcpServerId) return;
 		mcpServer =
 			catalogEntry && catalogEntry.powerUserWorkspaceID && workspaceId
-				? await ChatService.getWorkspaceCatalogEntryServer(
+				? await UserService.getWorkspaceCatalogEntryServer(
 						workspaceId,
 						catalogEntry.id,
 						mcpServerId
 					)
-				: await ChatService.getSingleOrRemoteMcpServer(mcpServerId);
+				: await UserService.getSingleOrRemoteMcpServer(mcpServerId);
 		if (mcpServer?.userID) {
-			const user = await AdminService.getUser(mcpServer.userID);
+			const user = await UserService.getUser(mcpServer.userID);
 			connectedUsers = [user];
 		}
 	}

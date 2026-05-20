@@ -1,0 +1,655 @@
+/**
+ * Shared API/domain types for the user-facing client.
+ *
+ * **When editing this file** (including LLM-assisted changes), keep these conventions:
+ *
+ * 1. **Group by related types** — Organize exports into domain sections with a `// Section name`
+ *    header (e.g. `// MCP servers`, `// Audit logs`). Keep related interfaces, types, and enums
+ *    together; do not scatter a domain across the file.
+ *
+ * 2. **Sort alphabetically** —
+ *    - Section headers: A–Z by section name.
+ *    - Exports within a section: A–Z by symbol name (`export interface`, `export type`, `export enum`).
+ *    - Properties on each interface/type: A–Z by field name (unless order is semantically required).
+ *
+ * 3. **New sections** — Add a section header, place it in alphabetical order among other sections,
+ *    and keep all types for that domain inside it.
+ */
+
+// Access control rules
+
+export interface AccessControlRuleResource {
+	type: 'mcpServerCatalogEntry' | 'mcpServer' | 'selector';
+	id: string;
+}
+export interface AccessControlRuleSubject {
+	type: 'user' | 'group' | 'selector';
+	id: string;
+}
+export interface AccessControlRuleManifest {
+	id?: string;
+	displayName: string;
+	subjects?: AccessControlRuleSubject[];
+	resources?: AccessControlRuleResource[];
+}
+export interface AccessControlRule extends Omit<AccessControlRuleManifest, 'id'> {
+	id: string;
+	created: string;
+	deleted?: string;
+	links?: Record<string, string>;
+	metadata?: Record<string, string>;
+	powerUserID?: string;
+	powerUserWorkspaceID?: string;
+}
+
+// App preferences
+
+export interface AppPreferences {
+	logos: {
+		logoIcon: string;
+		logoIconError: string;
+		logoIconWarning: string;
+		logoDefault: string;
+		logoEnterprise: string;
+		logoChat: string;
+		darkLogoDefault: string;
+		darkLogoChat: string;
+		darkLogoEnterprise: string;
+	};
+	theme: {
+		backgroundColor: string;
+		onBackgroundColor: string;
+		onPrimaryColor: string;
+		onSuccessColor: string;
+		onWarningColor: string;
+		onErrorColor: string;
+		surface1Color: string;
+		surface2Color: string;
+		surface3Color: string;
+		secondaryColor: string;
+		primaryColor: string;
+		successColor: string;
+		warningColor: string;
+		errorColor: string;
+		darkBackgroundColor: string;
+		darkOnBackgroundColor: string;
+		darkOnPrimaryColor: string;
+		darkOnSuccessColor: string;
+		darkOnWarningColor: string;
+		darkOnErrorColor: string;
+		darkSurface1Color: string;
+		darkSurface2Color: string;
+		darkSurface3Color: string;
+		darkSecondaryColor: string;
+		darkPrimaryColor: string;
+		darkSuccessColor: string;
+		darkWarningColor: string;
+		darkErrorColor: string;
+		fontFamily: string;
+	};
+}
+
+// Audit logs
+
+export type AuditLogClient = {
+	name: string;
+	version: string;
+};
+export interface AuditLog {
+	id: string;
+	createdAt: string;
+	apiKey?: string;
+	userID: string;
+	userAgent?: string;
+	mcpServerInstanceName: string;
+	mcpServerName: string;
+	mcpServerDisplayName: string;
+	mcpServerCatalogEntryName?: string;
+	mcpID?: string;
+	powerUserWorkspaceID?: string;
+	client: AuditLogClient;
+	clientIP: string;
+	callType: string;
+	callIdentifier?: string;
+	responseStatus: number;
+	processingTimeMs: number;
+	requestHeaders?: Record<string, string | string[]>;
+	requestMutated: boolean;
+	requestBody?: unknown;
+	mutatedRequestBody?: unknown;
+	responseHeaders?: Record<string, string | string[]>;
+	responseMutated: boolean;
+	responseBody?: unknown;
+	originalResponseBody?: unknown;
+	webhookStatuses?: {
+		type?: string;
+		method?: string;
+		name?: string;
+		tool?: string;
+		url?: string;
+		status?: string;
+		message?: string;
+	}[];
+	error?: string;
+	sessionID?: string;
+	requestID?: string;
+}
+export interface AuditLogToolCallStatItem {
+	createdAt: string;
+	userID: string;
+	processingTimeMs: number;
+	responseStatus: number;
+	error: string;
+}
+export interface AuditLogToolCallStat {
+	toolName: string;
+	callCount: number;
+	items?: AuditLogToolCallStatItem[];
+}
+export interface AuditLogResourceReadStat {
+	resourceUri: string;
+	readCount: number;
+}
+export interface AuditLogPromptReadStat {
+	promptName: string;
+	readCount: number;
+}
+export interface AuthLogUsageStatItem {
+	mcpID: string;
+	mcpServerInstanceName: string;
+	mcpServerName: string;
+	mcpServerDisplayName: string;
+	toolCalls?: AuditLogToolCallStat[];
+	resourceReads?: AuditLogResourceReadStat[];
+	promptReads?: AuditLogPromptReadStat[];
+}
+export interface AuditLogUsageStats {
+	items: AuthLogUsageStatItem[];
+	timeStart: string;
+	timeEnd: string;
+	totalCalls: number;
+	uniqueUsers: number;
+}
+export type AuditLogURLFilters = {
+	user_id?: string | null;
+	mcp_server_catalog_entry_name?: string | null;
+	mcp_server_display_name?: string | null;
+	mcp_id?: string | null;
+	call_identifier?: string | null;
+	client_name?: string | null;
+	client_version?: string | null;
+	client_ip?: string | null;
+	call_type?: string | null; // tools/call, resources/read, prompts/get
+	session_id?: string | null;
+	start_time?: string | null; // RFC3339 format (e.g., "2024-01-01T00:00:00Z"
+	end_time?: string | null;
+	limit?: number | null;
+	offset?: number | null;
+	query?: string | null;
+	response_status?: string | null;
+};
+export type AuditLogFilters = {
+	userId?: string | null;
+	mcpServerCatalogEntryName?: string | null;
+	mcpServerDisplayName?: string | null;
+	client?: string | null;
+	callType?: string | null; // tools/call, resources/read, prompts/get
+	sessionId?: string | null;
+	startTime?: string | null; // RFC3339 format (e.g., "2024-01-01T00:00:00Z"
+	endTime?: string | null;
+	limit?: number | null;
+	offset?: number | null;
+	sortBy?: string | null; // Field to sort by (e.g., "created_at", "user_id", "call_type")
+	sortOrder?: string | null; // Sort order: "asc" or "desc"
+};
+export type AuditLogUsageFilters = {
+	mcp_id?: string;
+	mcp_server_catalog_entry_names?: string;
+	mcp_server_display_names?: string;
+	user_ids?: string;
+	start_time?: string | null;
+	end_time?: string | null;
+};
+export type ServerOrInstanceAuditLogStatsFilters = {
+	start_time?: string;
+	end_time?: string;
+};
+export type UsageStatsFilters = {
+	mcp_id?: string;
+	user_ids?: string;
+	mcp_server_display_names?: string;
+	mcp_server_catalog_entry_names?: string;
+	start_time?: string | null;
+	end_time?: string | null;
+};
+
+// Bootstrap
+
+export interface BootstrapStatus {
+	enabled: boolean;
+}
+
+// Files
+
+export interface Files {
+	items: File[];
+}
+export interface File {
+	name: string;
+}
+
+// Images
+
+export interface ImageResponse {
+	imageUrl: string;
+}
+
+// K8s server
+
+export interface K8sServerEvent {
+	action: string;
+	count: number;
+	eventType: string;
+	message: string;
+	reason: string;
+	time: string;
+}
+export interface K8sServerDetail {
+	deploymentName: string;
+	events: K8sServerEvent[];
+	isAvailable: boolean;
+	lastRestart: string;
+	namespace: string;
+	readyReplicas: number;
+	replicas: number;
+}
+export interface K8sServerLog {
+	message: string;
+}
+
+// MCP catalog servers
+
+export interface MCPCatalogServer {
+	id: string;
+	alias?: string;
+	userID: string;
+	connectURL?: string;
+	configured: boolean;
+	catalogEntryID: string;
+	missingRequiredEnvVars: string[];
+	missingRequiredHeader?: string[];
+	mcpCatalogID: string;
+	created: string;
+	deleted?: string;
+	updated: string;
+	type: string;
+	mcpServerInstanceUserCount?: number;
+	manifest: MCPServer;
+	oauthMetadata?: OAuthMetadata;
+	needsUpdate?: boolean;
+	needsK8sUpdate?: boolean;
+	needsURL?: boolean;
+	toolPreviewsLastGenerated?: string;
+	lastUpdated?: string;
+	powerUserWorkspaceID?: string;
+	deploymentStatus?: string;
+	compositeName?: string;
+	canConnect?: boolean;
+}
+export interface OAuthMetadata {
+	protectedResourceUrl?: string;
+	authorizationServerUrl?: string;
+	protectedResourceMetadata?: Record<string, unknown>;
+	authorizationServerMetadata?: Record<string, unknown>;
+	clientRegistration?: Record<string, unknown>;
+	dynamicClientRegistration?: boolean;
+}
+export interface MCPServerInstance {
+	id: string;
+	created: string;
+	deleted?: string;
+	links?: Record<string, string>;
+	metadata?: Record<string, string>;
+	multiUserConfig?: MultiUserConfig;
+	configured: boolean;
+	missingRequiredHeaders?: string[];
+	userID: string;
+	mcpServerID?: string;
+	mcpCatalogID?: string;
+	connectURL?: string;
+}
+
+// MCP runtime
+
+export type Runtime = 'npx' | 'uvx' | 'containerized' | 'remote' | 'composite';
+export interface MCPSubField {
+	description: string;
+	file?: boolean;
+	dynamicFile?: boolean;
+	key: string;
+	name: string;
+	required: boolean;
+	sensitive: boolean;
+	value?: string;
+	prefix?: string;
+	secretBinding?: MCPSecretBinding;
+}
+export interface MCPSecretBinding {
+	name: string;
+	key: string;
+}
+export interface UVXRuntimeConfig {
+	package: string;
+	command?: string;
+	args?: string[];
+	egressDomains?: string[];
+	denyAllEgress?: boolean;
+	startupTimeoutSeconds?: number;
+}
+export interface NPXRuntimeConfig {
+	package: string;
+	args?: string[];
+	egressDomains?: string[];
+	denyAllEgress?: boolean;
+	startupTimeoutSeconds?: number;
+}
+export interface ContainerizedRuntimeConfig {
+	image: string;
+	port: number;
+	path: string;
+	command?: string;
+	args?: string[];
+	egressDomains?: string[];
+	denyAllEgress?: boolean;
+	startupTimeoutSeconds?: number;
+}
+export interface RemoteRuntimeConfig {
+	url: string;
+	headers?: MCPSubField[];
+	fixedURL?: string;
+	isTemplate?: boolean;
+}
+export interface RemoteCatalogConfig {
+	fixedURL?: string;
+	hostname?: string;
+	headers?: MCPSubField[];
+}
+export interface MultiUserConfig {
+	userDefinedHeaders?: MCPSubField[];
+}
+export interface CompositeRuntimeConfig {
+	componentServers: ComponentServer[];
+}
+export interface ComponentServer {
+	catalogEntryID?: string;
+	mcpServerID?: string;
+	manifest?: MCPServer;
+	toolOverrides?: ToolOverride[];
+	toolPrefix?: string;
+	disabled?: boolean;
+}
+export interface ToolOverride {
+	name: string;
+	/**
+	 * Snapshot of the original tool description at the time the override was created.
+	 * Used for display purposes only; the live description from the MCP server is
+	 * still the source of truth unless an overrideDescription is provided.
+	 */
+	description?: string;
+	/**
+	 * Name exposed by the composite server. An empty or undefined value means
+	 * the original tool name should be used.
+	 */
+	overrideName?: string;
+	/**
+	 * Optional description override. When empty or undefined, the live description
+	 * from the MCP server should be used.
+	 */
+	overrideDescription?: string;
+	/**
+	 * Whether this tool is included in the composite server's allowlist.
+	 */
+	enabled?: boolean;
+}
+
+// MCP servers
+
+export interface MCPServer {
+	description?: string;
+	icon?: string;
+	name?: string;
+	env?: MCPSubField[];
+	toolPreview?: MCPServerTool[];
+	metadata?: {
+		categories?: string;
+	};
+
+	runtime: Runtime;
+	uvxConfig?: UVXRuntimeConfig;
+	npxConfig?: NPXRuntimeConfig;
+	containerizedConfig?: ContainerizedRuntimeConfig;
+	remoteConfig?: RemoteRuntimeConfig;
+	compositeConfig?: CompositeRuntimeConfig;
+	multiUserConfig?: MultiUserConfig;
+}
+export interface MCPServerTool {
+	id: string;
+	name: string;
+	description?: string;
+	metadata?: Record<string, string>;
+	params?: Record<string, string>;
+	credentials?: string[];
+	enabled?: boolean;
+	unsupported?: boolean;
+}
+export interface MCPServerPrompt {
+	name: string;
+	description: string;
+	arguments?: {
+		description: string;
+		name: string;
+		required: boolean;
+	}[];
+}
+export interface McpServerResource {
+	uri: string;
+	name: string;
+	mimeType: string;
+}
+export interface MCPInfo extends MCPServer {
+	metadata?: {
+		'allow-multiple'?: string;
+		categories?: string;
+	};
+	repoURL?: string;
+}
+export interface MCP {
+	id: string;
+	created: string;
+	manifest: MCPInfo;
+	type: string;
+}
+
+// Models
+
+export interface ModelProvider {
+	id: string;
+	name: string;
+	description?: string;
+	icon?: string;
+	iconDark?: string;
+	configured: boolean;
+	modelsBackPopulated?: boolean;
+	requiredConfigurationParameters?: {
+		name: string;
+		friendlyName?: string;
+		description?: string;
+		sensitive?: boolean;
+		hidden?: boolean;
+	}[];
+	missingConfigurationParameters?: string[];
+	created: string;
+	optionalConfigurationParameters?: {
+		name: string;
+		friendlyName?: string;
+		description?: string;
+		sensitive?: boolean;
+		hidden?: boolean;
+	}[];
+}
+export interface ModelProviderList {
+	items: ModelProvider[];
+}
+export interface Model {
+	id: string;
+	active: boolean;
+	aliasAssigned: boolean;
+	created: number;
+	modelProvider: string;
+	modelProviderName: string;
+	name: string;
+	displayName: string;
+	targetModel: string;
+	usage: string;
+	icon?: string;
+	iconDark?: string;
+}
+export const ModelAlias = {
+	Llm: 'llm',
+	LlmMini: 'llm-mini',
+	TextEmbedding: 'text-embedding',
+	ImageGeneration: 'image-generation',
+	Vision: 'vision'
+} as const;
+export type ModelAlias = (typeof ModelAlias)[keyof typeof ModelAlias];
+export interface DefaultModelAlias {
+	alias: ModelAlias;
+	model: string;
+}
+
+// Organization
+
+export interface OrgUser {
+	created: string;
+	username: string;
+	email: string;
+	explicitRole: boolean;
+	role: number;
+	effectiveRole: number;
+	groups: string[];
+	iconURL: string;
+	id: string;
+	lastActiveDay?: string;
+	displayName?: string;
+	deletedAt?: string;
+	originalEmail?: string;
+	originalUsername?: string;
+}
+export interface OrgGroup {
+	id: string;
+	name: string;
+	iconURL?: string;
+}
+
+// Profile
+
+export interface Profile {
+	id: string;
+	email: string;
+	iconURL: string;
+	role: number;
+	effectiveRole: number;
+	groups: string[];
+	loaded?: boolean;
+	hasAdminAccess?: () => boolean;
+	isAdmin?: () => boolean;
+	isAdminReadonly?: () => boolean;
+	isBootstrapUser?: () => boolean;
+	canImpersonate?: () => boolean;
+	unauthorized?: boolean;
+	username: string;
+	currentAuthProvider?: string;
+	expired?: boolean;
+	created?: string;
+	displayName?: string;
+	autonomousToolUseEnabled: boolean;
+}
+
+// Schedule
+
+export interface Schedule {
+	interval: string;
+	hour: number;
+	minute: number;
+	day: number;
+	weekday: number;
+	timezone: string;
+}
+
+// Sites
+
+export interface Sites {
+	sites?: Site[];
+	siteTool?: string;
+}
+export interface Site {
+	site?: string;
+	description?: string;
+}
+
+// Tool references
+
+export interface ToolReference {
+	id: string;
+	name: string;
+	description?: string;
+	active: boolean;
+	builtin: boolean;
+	bundle?: boolean;
+	bundleToolName?: string;
+	created: string;
+	credentials: string[];
+	reference: string;
+	resolved: boolean;
+	revision: string;
+	toolType: string;
+	type: string;
+	metadata?: {
+		icon?: string;
+		oauth?: string;
+		category?: string;
+	};
+}
+export interface ToolReferenceList {
+	readonly?: boolean;
+	items: ToolReference[];
+}
+
+// Version
+
+export interface Version {
+	emailDomain?: string;
+	dockerSupported?: boolean;
+	sessionStore?: string;
+	obot?: string;
+	authEnabled?: boolean;
+	enterprise?: boolean;
+	upgradeAvailable?: boolean;
+	engine?: 'docker' | 'kubernetes' | 'local';
+	mcpNetworkPolicyEnabled?: boolean;
+	mcpDefaultDenyAllEgress?: boolean;
+	autonomousToolUseEnabled?: boolean;
+	messagePoliciesEnabled?: boolean;
+	disableLegacyChat?: boolean;
+}
+
+// Workspaces
+
+export type Workspace = {
+	id: string;
+	userID: string;
+	created: string;
+	role: number;
+	type: string;
+};
+export type LaunchServerType = 'single' | 'multi' | 'remote' | 'composite';

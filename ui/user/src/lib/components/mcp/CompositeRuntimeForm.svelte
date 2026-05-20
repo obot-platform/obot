@@ -17,7 +17,7 @@
 		TOOL_NAME_SPECIAL_CHAR_WARNING,
 		toolNameIssue,
 		type ToolNameIssue
-	} from '$lib/services/chat/mcp';
+	} from '$lib/services/user/mcp';
 	import Toggle from '../Toggle.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
 	import ToolNameIssueIcon from './ToolNameIssueIcon.svelte';

@@ -1,7 +1,7 @@
 import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 import {
 	AdminService,
-	ChatService,
+	UserService,
 	type MCPCatalogEntry,
 	type MCPCatalogServer,
 	type MCPServerInstance
@@ -82,9 +82,9 @@ async function fetchData(forceRefresh = false) {
 				AdminService.listMCPCatalogServers(DEFAULT_MCP_CATALOG_ID, { all: true }),
 				AdminService.listAllUserWorkspaceCatalogEntries(),
 				AdminService.listAllUserWorkspaceMCPServers(),
-				ChatService.listSingleOrRemoteMcpServers(),
-				ChatService.listMCPs(),
-				ChatService.listMCPCatalogServers()
+				UserService.listSingleOrRemoteMcpServers(),
+				UserService.listMCPs(),
+				UserService.listMCPCatalogServers()
 			]);
 
 			// Create sets of IDs the admin has access to via ACRs
@@ -101,18 +101,18 @@ async function fetchData(forceRefresh = false) {
 				...server,
 				canConnect: accessibleServerIds.has(server.id)
 			}));
-			userInstances = await ChatService.listMcpServerInstances();
+			userInstances = await UserService.listMcpServerInstances();
 			userConfiguredServers = filterOutDuplicateAndDeleted([...servers, ...ownConfiguredServers]);
 		} else {
 			const [ownConfiguredServers, entriesResult, serversResult] = await Promise.all([
-				ChatService.listSingleOrRemoteMcpServers(),
-				ChatService.listMCPs(),
-				ChatService.listMCPCatalogServers()
+				UserService.listSingleOrRemoteMcpServers(),
+				UserService.listMCPs(),
+				UserService.listMCPCatalogServers()
 			]);
 
 			entries = entriesResult.filter((entry) => !entry.deleted);
 			servers = serversResult;
-			userInstances = await ChatService.listMcpServerInstances();
+			userInstances = await UserService.listMcpServerInstances();
 			userConfiguredServers = filterOutDuplicateAndDeleted([
 				...serversResult,
 				...ownConfiguredServers
@@ -142,7 +142,7 @@ async function initialize(forceRefresh = false) {
 }
 
 async function refreshUserConfiguredServers() {
-	const ownConfiguredServers = await ChatService.listSingleOrRemoteMcpServers();
+	const ownConfiguredServers = await UserService.listSingleOrRemoteMcpServers();
 	const userConfiguredServers = filterOutDuplicateAndDeleted([
 		...store.current.servers,
 		...ownConfiguredServers
@@ -155,7 +155,7 @@ async function refreshUserConfiguredServers() {
 }
 
 async function refreshUserInstances() {
-	const response = await ChatService.listMcpServerInstances();
+	const response = await UserService.listMcpServerInstances();
 	store.current = {
 		...store.current,
 		userInstances: response
