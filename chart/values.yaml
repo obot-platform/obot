@@ -207,12 +207,6 @@ config:
   # config.OBOT_DEFAULT_SKILL_REPO_REF -- The ref (branch, tag, or commit SHA) for the default skill repository. If empty, the repository's default branch is used. Only used on first-time setup.
   # OBOT_DEFAULT_SKILL_REPO_REF: ""
 
-# extraEnv -- A map of additional environment variables to set
-extraEnv: {}
-
-# extraEnvFrom -- A list of additional environment variables to set from a secret
-extraEnvFrom: []
-
 # resources -- Resource requests and limits to use for Obot
 resources: {}
 
