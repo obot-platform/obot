@@ -111,7 +111,7 @@ func (d *Dispatcher) urlForProvider(ctx context.Context, gptClient *gptscript.GP
 func (d *Dispatcher) startProvider(ctx context.Context, gptClient *gptscript.GPTScript, providerType v1.ToolReferenceType, namespace, providerName string, extraEnv ...string) (url.URL, error) {
 	thread := &v1.Thread{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      system.ThreadPrefix + providerName,
+			Name:      system.SystemThreadPrefix + providerName,
 			Namespace: namespace,
 		},
 	}

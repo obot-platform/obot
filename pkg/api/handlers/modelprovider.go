@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/gptscript-ai/go-gptscript"
+	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/handlers/providers"
@@ -151,7 +152,7 @@ func (mp *ModelProviderHandler) Validate(req api.Context) error {
 
 	thread := &v1.Thread{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: fmt.Sprintf("%s-%s-validates", system.ThreadPrefix, ref.Name),
+			GenerateName: name.SafeConcatName(system.SystemThreadPrefix, ref.Name, "validates"),
 			Namespace:    ref.Namespace,
 		},
 		Spec: v1.ThreadSpec{

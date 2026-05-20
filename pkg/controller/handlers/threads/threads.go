@@ -2,12 +2,14 @@ package threads
 
 import (
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/logger"
 
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -28,6 +30,15 @@ func (t *Handler) CleanupEphemeralThreads(req router.Request, _ router.Response)
 
 	log.Infof("Deleting expired ephemeral thread: thread=%s createdAt=%s", thread.Name, thread.CreationTimestamp.Format(time.RFC3339))
 	return kclient.IgnoreNotFound(req.Delete(thread))
+}
+
+// CleanupOldThreads deletes any threads with the system thread prefix. These threads were used for chat.
+// Any threads that are still needed will have a system thread prefix to distinguish them.
+func (t *Handler) CleanupOldThreads(req router.Request, _ router.Response) error {
+	if strings.HasPrefix(req.Name, system.ThreadPrefix) {
+		return kclient.IgnoreNotFound(req.Delete(req.Object))
+	}
+	return nil
 }
 
 func (t *Handler) RemoveOldFinalizers(req router.Request, _ router.Response) error {

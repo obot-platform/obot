@@ -7986,6 +7986,12 @@ func schema_obot_platform_obot_apiclient_types_NanobotAgent(ref common.Reference
 							Format: "",
 						},
 					},
+					"projectID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"projectV2ID": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},

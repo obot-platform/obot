@@ -7,6 +7,7 @@ import (
 )
 
 const (
+	SystemThreadPrefix            = "st1"
 	ThreadPrefix                  = "t1"
 	ThreadAuthorizationPrefix     = "ta1"
 	RunPrefix                     = "r1"
@@ -43,10 +44,6 @@ const (
 
 	ObotMCPServerName = SystemMCPServerPrefix + "obot-mcp-server"
 )
-
-func IsThreadID(id string) bool {
-	return strings.HasPrefix(id, ThreadPrefix)
-}
 
 func IsRunID(id string) bool {
 	return strings.HasPrefix(id, RunPrefix)

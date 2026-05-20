@@ -56,6 +56,7 @@ func (c *Controller) setupRoutes() {
 	imagePullSecretHandler := imagepullsecret.New(c.services.GPTClient, c.runtimeClient, c.services.MCPRuntimeBackend, c.services.MCPServerNamespace, c.services.ServiceNamespace, c.services.ServiceAccountName, c.services.MCPImagePullSecrets, c.services.ServiceAccountIssuerURL)
 
 	// Threads
+	root.Type(&v1.Thread{}).HandlerFunc(threads.CleanupOldThreads)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.CleanupEphemeralThreads)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.RemoveOldFinalizers)
 	root.Type(&v1.Thread{}).FinalizeFunc(v1.ThreadFinalizer, credentialCleanup.Remove)
