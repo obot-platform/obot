@@ -338,6 +338,10 @@ export interface MCPSecretBinding {
 	name: string;
 	key: string;
 }
+export interface MCPAllowedSecretBindingTarget {
+	name: string;
+	keys: string[];
+}
 export interface UVXRuntimeConfig {
 	package: string;
 	command?: string;

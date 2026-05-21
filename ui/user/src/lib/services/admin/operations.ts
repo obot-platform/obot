@@ -23,7 +23,8 @@ import type {
 	AppPreferences,
 	AccessControlRule,
 	AccessControlRuleManifest,
-	K8sServerDetail
+	K8sServerDetail,
+	MCPAllowedSecretBindingTarget
 } from '../user/types';
 import type {
 	FileScannerConfig,
@@ -101,6 +102,16 @@ import { MCPCompositeDeletionDependencyError } from './types';
 
 type ItemsResponse<T> = { items: T[] | null };
 type RequestOptions = { fetch?: Fetcher; dontLogErrors?: boolean; signal?: AbortSignal };
+
+export async function listMCPSecretBindingTargets(opts?: {
+	fetch?: Fetcher;
+}): Promise<MCPAllowedSecretBindingTarget[]> {
+	const response = (await doGet(
+		'/mcp-secret-bindings/secrets',
+		opts
+	)) as ItemsResponse<MCPAllowedSecretBindingTarget>;
+	return response.items ?? [];
+}
 
 // Access control rules
 

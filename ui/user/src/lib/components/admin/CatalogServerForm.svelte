@@ -6,6 +6,7 @@
 		type MCPCatalogServer,
 		type LaunchServerType,
 		type MCPCatalogEntry,
+		type MCPAllowedSecretBindingTarget,
 		type RuntimeFormData,
 		type MCPCatalogEntryServerManifest,
 		type Runtime,
@@ -83,13 +84,19 @@
 	let showRequired = $state<Record<string, boolean>>({});
 	let loading = $state(false);
 	let compositeHasToolNameErrors = $state(false);
+	let secretBindingTargets = $state<MCPAllowedSecretBindingTarget[]>([]);
 
 	let formData = $state<RuntimeFormData>(untrack(() => convertToFormData(entry)));
 
 	const isAtLeastPowerUserPlus = $derived(profile.current?.groups.includes(Group.POWERUSER_PLUS));
 	const showEgressDomains = $derived(!!version.current.mcpNetworkPolicyEnabled);
 	const secretBoundHeaders = $derived(
-		(formData.remoteConfig?.headers ?? []).filter((h) => hasSecretBinding(h))
+		(formData.remoteConfig?.headers ?? formData.remoteServerConfig?.headers ?? []).filter((h) =>
+			hasSecretBinding(h)
+		)
+	);
+	const editableSecretBindingTargets = $derived(
+		entity === 'catalog' && type === 'multi' && !readonly ? secretBindingTargets : undefined
 	);
 	const defaultDenyAllEgress = $derived(!!version.current.mcpDefaultDenyAllEgress);
 
@@ -304,8 +311,11 @@
 				formData.containerizedConfig = defaultContainerizedConfig();
 				break;
 			case 'remote':
-				// For remote servers (catalog entries), use remoteConfig
-				formData.remoteConfig = { fixedURL: '', headers: [] };
+				if (type === 'multi') {
+					formData.remoteServerConfig = { url: '', headers: [] };
+				} else {
+					formData.remoteConfig = { fixedURL: '', headers: [] };
+				}
 				break;
 			case 'composite':
 				formData.compositeConfig = { componentServers: [] };
@@ -316,6 +326,11 @@
 	onMount(() => {
 		if ((type === 'multi' || type === 'remote') && entry && id) {
 			revealCatalogServer(id, entry.id, entity);
+		}
+		if (entity === 'catalog' && type === 'multi' && !readonly) {
+			AdminService.listMCPSecretBindingTargets().then((targets) => {
+				secretBindingTargets = targets;
+			});
 		}
 	});
 
@@ -654,6 +669,29 @@
 		{showRequired}
 		onFieldChange={updateRequired}
 	/>
+{:else if formData.runtime === 'remote' && type === 'multi' && formData.remoteServerConfig}
+	<RemoteRuntimeForm
+		bind:config={formData.remoteServerConfig}
+		variant="server"
+		{readonly}
+		{showRequired}
+		onFieldChange={updateRequired}
+		isNewEntry={!entry}
+		{onConfigureOAuth}
+		secretBindingTargets={editableSecretBindingTargets}
+	>
+		{#snippet afterHeaders()}
+			{#if secretBoundHeaders.length > 0}
+				<CustomConfigurationForm
+					bind:config={formData.env}
+					{readonly}
+					{type}
+					{secretBoundHeaders}
+					secretBindingTargets={editableSecretBindingTargets}
+				/>
+			{/if}
+		{/snippet}
+	</RemoteRuntimeForm>
 {:else if formData.runtime === 'remote' && formData.remoteConfig}
 	<RemoteRuntimeForm
 		bind:config={formData.remoteConfig}
@@ -685,7 +723,13 @@
 {/if}
 <!-- Environment Variables Section -->
 {#if !['remote', 'composite'].includes(formData.runtime)}
-	<CustomConfigurationForm bind:config={formData.env} {readonly} {type} {secretBoundHeaders} />
+	<CustomConfigurationForm
+		bind:config={formData.env}
+		{readonly}
+		{type}
+		{secretBoundHeaders}
+		secretBindingTargets={editableSecretBindingTargets}
+	/>
 {/if}
 
 {#if type === 'multi' && formData.multiUserConfig}
