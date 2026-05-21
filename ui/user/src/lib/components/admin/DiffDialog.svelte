@@ -1,5 +1,9 @@
 <script lang="ts">
-	import { generateJsonDiff, formatJsonWithDiffHighlighting } from '$lib/diff';
+	import {
+		generateJsonDiff,
+		formatJsonWithDiffHighlighting,
+		stripManifestMetadata
+	} from '$lib/diff';
 	import type { MCPCatalogEntry, MCPCatalogServer } from '$lib/services';
 	import { responsive } from '$lib/stores';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
@@ -42,8 +46,8 @@
 		{/if}
 	{/snippet}
 	{#if toServer && fromServer}
-		{@const newServerManifest = toServer.manifest}
-		{@const diffManifest = fromServer?.manifest}
+		{@const newServerManifest = stripManifestMetadata(toServer.manifest)}
+		{@const diffManifest = stripManifestMetadata(fromServer?.manifest)}
 		{#if newServerManifest && diffManifest}
 			{@const diff = generateJsonDiff(diffManifest, newServerManifest)}
 			{#if !responsive.isMobile}
@@ -99,6 +103,10 @@
 					</div>
 				</div>
 			{/if}
+		{:else}
+			<div class="flex items-center justify-center py-8">
+				<p class="text-muted-content">Unable to compare manifests. Missing manifest data.</p>
+			</div>
 		{/if}
 	{:else}
 		<div class="flex items-center justify-center py-8">

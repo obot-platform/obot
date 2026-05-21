@@ -734,7 +734,7 @@
 									</button>
 								{/if}
 
-								{#if d.catalogEntryID}
+								{#if d.catalogEntryID && d.needsUpdate}
 									<button
 										class="menu-button-primary"
 										disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
