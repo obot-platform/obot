@@ -8,7 +8,7 @@
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { stripManifestMetadata } from '$lib/diff';
+	import { normalizeManifestsForDiff } from '$lib/diff';
 	import { parseErrorContent } from '$lib/errors';
 	import {
 		type MCPCatalogEntryServerManifest,
@@ -102,16 +102,12 @@
 						componentType = 'Catalog Entry';
 					}
 
-					const currentManifestStr = JSON.stringify(
-						stripManifestMetadata(currentManifest),
-						null,
-						2
+					const [snapshotManifest, normalizedCurrentManifest] = normalizeManifestsForDiff(
+						component.manifest,
+						currentManifest
 					);
-					const snapshotManifestStr = JSON.stringify(
-						stripManifestMetadata(component.manifest),
-						null,
-						2
-					);
+					const currentManifestStr = JSON.stringify(normalizedCurrentManifest, null, 2);
+					const snapshotManifestStr = JSON.stringify(snapshotManifest, null, 2);
 
 					if (currentManifestStr !== snapshotManifestStr) {
 						diffs.push({

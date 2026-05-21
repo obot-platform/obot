@@ -28,6 +28,7 @@ var (
 		"/api/mcp-catalogs/",
 		"/api/model-info-source",
 		"/api/model-info-source/",
+		"GET /api/mcp-server-binding-secrets",
 		"/api/mcp-servers",
 		"/api/mcp-servers/",
 		"/api/all-mcps",

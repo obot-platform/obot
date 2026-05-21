@@ -1,8 +1,9 @@
 <script lang="ts">
-	import type { MCPCatalogEntryFieldManifest } from '$lib/services';
+	import type { MCPAllowedSecretBindingTarget, MCPCatalogEntryFieldManifest } from '$lib/services';
 	import { hasSecretBinding } from '$lib/services/user/mcp';
 	import Select from '../Select.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
+	import SecretBindingPicker from './SecretBindingPicker.svelte';
 	import { Plus, Trash2 } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 
@@ -12,6 +13,7 @@
 		secretBoundHeaders?: MCPCatalogEntryFieldManifest[];
 		serverUserType?: 'singleUser' | 'multiUser';
 		isPrebuiltEntry?: boolean;
+		secretBindingTargets?: MCPAllowedSecretBindingTarget[];
 		overrideEnvField?: string[];
 		overrideEnvTemplate?: Snippet<[{ config: MCPCatalogEntryFieldManifest; index: number }]>;
 	}
@@ -22,6 +24,7 @@
 		secretBoundHeaders,
 		serverUserType,
 		isPrebuiltEntry,
+		secretBindingTargets,
 		overrideEnvField,
 		overrideEnvTemplate
 	}: Props = $props();
@@ -29,8 +32,13 @@
 	// Separate secret-bound fields from user-configurable fields, preserving
 	// original indices so bind:value still points at the right config slot.
 	const indexedConfig = $derived((config ?? []).map((item, i) => ({ item, index: i })));
-	const userConfig = $derived(indexedConfig.filter(({ item }) => !hasSecretBinding(item)));
-	const secretBoundEnvs = $derived(indexedConfig.filter(({ item }) => hasSecretBinding(item)));
+	const canBindSecrets = $derived(secretBindingTargets !== undefined);
+	const userConfig = $derived(
+		canBindSecrets ? indexedConfig : indexedConfig.filter(({ item }) => !hasSecretBinding(item))
+	);
+	const secretBoundEnvs = $derived(
+		canBindSecrets ? [] : indexedConfig.filter(({ item }) => hasSecretBinding(item))
+	);
 	const allSecretBound = $derived([
 		...secretBoundEnvs.map(({ item }) => ({ item, source: 'env' as const })),
 		...(secretBoundHeaders ?? []).map((item) => ({ item, source: 'header' as const }))
@@ -161,27 +169,32 @@
 									</p>
 								{/if}
 							</div>
-							<div class="flex w-full flex-col gap-1">
-								<label for={`env-value-${i}`} class="text-sm font-light">Value</label>
-								{#if config![i].file}
-									<textarea
-										id={`env-value-${i}`}
-										class="text-input-filled bg-base-100 min-h-24 w-full resize-y shadow-none"
-										bind:value={config![i].value}
-										disabled={readonly}
-										rows={(config![i].value ?? '').split('\n').length + 1}
-									></textarea>
-								{:else}
-									<input
-										id={`env-value-${i}`}
-										class="text-input-filled bg-base-100 w-full shadow-none"
-										bind:value={config![i].value}
-										placeholder="e.g. 123abcdef456"
-										disabled={readonly}
-										type={config![i].sensitive ? 'password' : 'text'}
-									/>
-								{/if}
-							</div>
+							{#if secretBindingTargets}
+								<SecretBindingPicker field={config![i]} targets={secretBindingTargets} {readonly} />
+							{/if}
+							{#if !config![i].secretBinding}
+								<div class="flex w-full flex-col gap-1">
+									<label for={`env-value-${i}`} class="text-sm font-light">Value</label>
+									{#if config![i].file}
+										<textarea
+											id={`env-value-${i}`}
+											class="text-input-filled bg-base-100 min-h-24 w-full resize-y shadow-none"
+											bind:value={config![i].value}
+											disabled={readonly}
+											rows={(config![i].value ?? '').split('\n').length + 1}
+										></textarea>
+									{:else}
+										<input
+											id={`env-value-${i}`}
+											class="text-input-filled bg-base-100 w-full shadow-none"
+											bind:value={config![i].value}
+											placeholder="e.g. 123abcdef456"
+											disabled={readonly}
+											type={config![i].sensitive ? 'password' : 'text'}
+										/>
+									{/if}
+								</div>
+							{/if}
 							<div class="flex w-full gap-4">
 								<label class="flex items-center gap-2">
 									<input

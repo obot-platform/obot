@@ -247,7 +247,7 @@ func (h *handler) callback(req api.Context) error {
 
 	mcpID := oauthAppAuthRequest.Spec.MCPID
 	if mcpID != "" {
-		serverOrInstanceID, audience, err := handlers.MCPIDAndAudienceFromConnectURL(req, mcpID)
+		serverOrInstanceID, audience, err := handlers.MCPIDAndAudienceFromConnectURL(req, mcpID, h.oauthChecker.secretBindingAllowedLabel)
 		if err != nil {
 			if errHTTP := (*types.ErrHTTP)(nil); errors.As(err, &errHTTP) {
 				redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
@@ -315,7 +315,7 @@ func (h *handler) prepareOAuthConsent(req api.Context, oauthAppAuthRequest *v1.O
 	}
 
 	// Check whether the MCP server needs authentication.
-	mcpID, mcpServer, mcpServerConfig, missingConfig, err := handlers.ServerForActionWithConnectIDAllowMissingConfig(req, oauthAppAuthRequest.Spec.MCPID)
+	mcpID, mcpServer, mcpServerConfig, missingConfig, err := handlers.ServerForActionWithConnectIDAllowMissingConfig(req, oauthAppAuthRequest.Spec.MCPID, h.oauthChecker.secretBindingAllowedLabel)
 	if err != nil {
 		return err
 	}
@@ -400,7 +400,7 @@ func (h *handler) consent(req api.Context) error {
 		mcpServer         *types.MCPServer
 		mcpServerInstance *types.MCPServerInstance
 	)
-	mcpServer, mcpServerInstance, err = handlers.ConfigurationTargetForConnectID(req, oauthAppAuthRequest.Spec.MCPID, h.baseURL)
+	mcpServer, mcpServerInstance, err = handlers.ConfigurationTargetForConnectID(req, oauthAppAuthRequest.Spec.MCPID, h.baseURL, h.oauthChecker.secretBindingAllowedLabel)
 	if err != nil {
 		if oauthAppAuthRequest.Spec.ConsentMCPConfigRequired {
 			redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
@@ -533,7 +533,7 @@ func (h *handler) oauthComplete(req api.Context) error {
 }
 
 func (h *handler) ensureMCPAuthComplete(req api.Context, oauthAppAuthRequest v1.OAuthAuthRequest) error {
-	mcpID, mcpServer, mcpServerConfig, err := handlers.ServerForActionWithConnectID(req, oauthAppAuthRequest.Spec.MCPID)
+	mcpID, mcpServer, mcpServerConfig, err := handlers.ServerForActionWithConnectID(req, oauthAppAuthRequest.Spec.MCPID, h.oauthChecker.secretBindingAllowedLabel)
 	if err != nil {
 		return err
 	}

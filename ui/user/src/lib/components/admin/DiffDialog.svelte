@@ -2,7 +2,7 @@
 	import {
 		generateJsonDiff,
 		formatJsonWithDiffHighlighting,
-		stripManifestMetadata
+		normalizeManifestsForDiff
 	} from '$lib/diff';
 	import type { MCPCatalogEntry, MCPCatalogServer } from '$lib/services';
 	import { responsive } from '$lib/stores';
@@ -46,8 +46,12 @@
 		{/if}
 	{/snippet}
 	{#if toServer && fromServer}
-		{@const newServerManifest = stripManifestMetadata(toServer.manifest)}
-		{@const diffManifest = stripManifestMetadata(fromServer?.manifest)}
+		{@const normalizedManifests = normalizeManifestsForDiff(
+			fromServer?.manifest,
+			toServer.manifest
+		)}
+		{@const diffManifest = normalizedManifests[0]}
+		{@const newServerManifest = normalizedManifests[1]}
 		{#if newServerManifest && diffManifest}
 			{@const diff = generateJsonDiff(diffManifest, newServerManifest)}
 			{#if !responsive.isMobile}

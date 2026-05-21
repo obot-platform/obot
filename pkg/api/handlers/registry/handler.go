@@ -21,18 +21,20 @@ import (
 )
 
 type Handler struct {
-	acrHelper      *accesscontrolrule.Helper
-	serverURL      string
-	registryNoAuth bool
-	mimeFetcher    *mimeFetcher
+	acrHelper                 *accesscontrolrule.Helper
+	serverURL                 string
+	registryNoAuth            bool
+	mimeFetcher               *mimeFetcher
+	secretBindingAllowedLabel string
 }
 
-func NewHandler(acrHelper *accesscontrolrule.Helper, serverURL string, registryNoAuth bool) *Handler {
+func NewHandler(acrHelper *accesscontrolrule.Helper, serverURL string, registryNoAuth bool, secretBindingAllowedLabel string) *Handler {
 	return &Handler{
-		acrHelper:      acrHelper,
-		serverURL:      serverURL,
-		registryNoAuth: registryNoAuth,
-		mimeFetcher:    newMimeFetcher(),
+		acrHelper:                 acrHelper,
+		serverURL:                 serverURL,
+		registryNoAuth:            registryNoAuth,
+		mimeFetcher:               newMimeFetcher(),
+		secretBindingAllowedLabel: secretBindingAllowedLabel,
 	}
 }
 
@@ -95,7 +97,7 @@ func (h *Handler) collectAccessibleServers(req api.Context, reverseDNS string) (
 			continue
 		}
 
-		mergedCredEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, credMap[server.Name])
+		mergedCredEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, credMap[server.Name], h.secretBindingAllowedLabel)
 		if err != nil {
 			continue
 		}
@@ -142,7 +144,7 @@ func (h *Handler) collectAccessibleServers(req api.Context, reverseDNS string) (
 			continue
 		}
 
-		mergedCredEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, credMap[server.Name])
+		mergedCredEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, credMap[server.Name], h.secretBindingAllowedLabel)
 		if err != nil {
 			continue
 		}
@@ -184,7 +186,7 @@ func (h *Handler) collectAccessibleServers(req api.Context, reverseDNS string) (
 			continue
 		}
 
-		mergedCredEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, credMap[server.Name])
+		mergedCredEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, credMap[server.Name], h.secretBindingAllowedLabel)
 		if err != nil {
 			continue
 		}
@@ -273,7 +275,7 @@ func (h *Handler) collectAccessibleServersNoAuth(req api.Context, reverseDNS str
 		// Get credentials
 		credEnv, _ := h.getCredentialsForServer(req, server, "", system.DefaultCatalog, "")
 
-		mergedCredEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, credEnv)
+		mergedCredEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, credEnv, h.secretBindingAllowedLabel)
 		if err != nil {
 			continue
 		}
@@ -823,7 +825,7 @@ func (h *Handler) findMCPServer(req api.Context, serverName, reverseDNS string) 
 		return types.RegistryServerResponse{}, fmt.Errorf("server not found")
 	}
 
-	credEnv, err = mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, credEnv)
+	credEnv, err = mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, credEnv, h.secretBindingAllowedLabel)
 	if err != nil {
 		return types.RegistryServerResponse{}, fmt.Errorf("failed to resolve secret bindings: %w", err)
 	}

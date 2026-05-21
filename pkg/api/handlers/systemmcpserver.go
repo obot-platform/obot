@@ -26,12 +26,14 @@ import (
 )
 
 type SystemMCPServerHandler struct {
-	mcpSessionManager *mcp.SessionManager
+	mcpSessionManager         *mcp.SessionManager
+	secretBindingAllowedLabel string
 }
 
-func NewSystemMCPServerHandler(mcpLoader *mcp.SessionManager) *SystemMCPServerHandler {
+func NewSystemMCPServerHandler(mcpLoader *mcp.SessionManager, secretBindingAllowedLabel string) *SystemMCPServerHandler {
 	return &SystemMCPServerHandler{
-		mcpSessionManager: mcpLoader,
+		mcpSessionManager:         mcpLoader,
+		secretBindingAllowedLabel: secretBindingAllowedLabel,
 	}
 }
 
@@ -288,7 +290,7 @@ func (h *SystemMCPServerHandler) RestartNanobotAgentDeployments(req api.Context)
 			continue
 		}
 
-		serverConfig, _, err := serverConfigForAction(req, server, false)
+		serverConfig, _, err := serverConfigForAction(req, server, h.secretBindingAllowedLabel, false)
 		if err != nil {
 			failed = append(failed, map[string]string{
 				"serverID": server.Name,

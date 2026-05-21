@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +13,8 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/mcp"
+	"github.com/obot-platform/obot/pkg/storage"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/assert"
@@ -732,6 +736,327 @@ func TestSanitizeConfig(t *testing.T) {
 	assert.Equal(t, map[string]string{"KEEP": "value"}, config)
 }
 
+func TestMarkAdminAddedSecretBindingsDerivesOwnershipFromCurrentCatalog(t *testing.T) {
+	catalogBinding := &types.MCPSecretBinding{Name: "catalog-secret", Key: "token"}
+	existing := types.MCPServerManifest{
+		Runtime: types.RuntimeRemote,
+		Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+			Key:           "API_TOKEN",
+			SecretBinding: catalogBinding,
+		}}},
+		RemoteConfig: &types.RemoteRuntimeConfig{Headers: []types.MCPHeader{{
+			Key:           "Authorization",
+			SecretBinding: catalogBinding,
+		}}},
+	}
+	updated := existing
+	source := &types.MCPServerCatalogEntryManifest{
+		Runtime:        types.RuntimeRemote,
+		Env:            []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "API_TOKEN"}}},
+		RemoteConfig:   &types.RemoteCatalogConfig{Headers: []types.MCPHeader{{Key: "Authorization"}}},
+		ServerUserType: types.ServerUserTypeMultiUser,
+	}
+
+	markAdminAddedSecretBindings(&updated, source)
+
+	assert.Equal(t, &types.MCPSecretBinding{Name: "catalog-secret", Key: "token", AdminAdded: true}, updated.Env[0].SecretBinding)
+	require.NotNil(t, updated.RemoteConfig)
+	assert.Equal(t, &types.MCPSecretBinding{Name: "catalog-secret", Key: "token", AdminAdded: true}, updated.RemoteConfig.Headers[0].SecretBinding)
+}
+
+func TestMarkAdminAddedSecretBindingsRecordsOnlyAdminOwnedBindings(t *testing.T) {
+	sourceBinding := &types.MCPSecretBinding{Name: "source-secret", Key: "token"}
+	adminBinding := &types.MCPSecretBinding{Name: "admin-secret", Key: "token"}
+	manifest := types.MCPServerManifest{
+		Runtime: types.RuntimeRemote,
+		Env: []types.MCPEnv{
+			{MCPHeader: types.MCPHeader{Key: "PINNED_ENV", SecretBinding: sourceBinding}},
+			{MCPHeader: types.MCPHeader{Key: "ADMIN_ENV", SecretBinding: adminBinding}},
+		},
+		RemoteConfig: &types.RemoteRuntimeConfig{Headers: []types.MCPHeader{
+			{Key: "Pinned-Header", SecretBinding: sourceBinding},
+			{Key: "Admin-Header", SecretBinding: adminBinding},
+		}},
+	}
+	source := &types.MCPServerCatalogEntryManifest{
+		Runtime: types.RuntimeRemote,
+		Env: []types.MCPEnv{
+			{MCPHeader: types.MCPHeader{Key: "PINNED_ENV", SecretBinding: sourceBinding}},
+		},
+		RemoteConfig: &types.RemoteCatalogConfig{Headers: []types.MCPHeader{
+			{Key: "Pinned-Header", SecretBinding: sourceBinding},
+		}},
+	}
+
+	markAdminAddedSecretBindings(&manifest, source)
+
+	assert.False(t, manifest.Env[0].SecretBinding.AdminAdded)
+	assert.True(t, manifest.Env[1].SecretBinding.AdminAdded)
+	require.NotNil(t, manifest.RemoteConfig)
+	assert.False(t, manifest.RemoteConfig.Headers[0].SecretBinding.AdminAdded)
+	assert.True(t, manifest.RemoteConfig.Headers[1].SecretBinding.AdminAdded)
+}
+
+func TestMarkAdminAddedSecretBindingsClearsClientSuppliedMetadata(t *testing.T) {
+	manifest := types.MCPServerManifest{
+		Runtime: types.RuntimeRemote,
+		Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+			Key:           "PINNED_ENV",
+			SecretBinding: &types.MCPSecretBinding{Name: "source-secret", Key: "token", AdminAdded: true},
+		}}},
+	}
+	source := &types.MCPServerCatalogEntryManifest{
+		Runtime: types.RuntimeRemote,
+		Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+			Key:           "PINNED_ENV",
+			SecretBinding: &types.MCPSecretBinding{Name: "source-secret", Key: "token"},
+		}}},
+	}
+
+	markAdminAddedSecretBindings(&manifest, source)
+
+	assert.False(t, manifest.Env[0].SecretBinding.AdminAdded)
+}
+
+func TestRejectCatalogSecretBindingOverrides(t *testing.T) {
+	sourceBinding := &types.MCPSecretBinding{Name: "source-secret", Key: "token"}
+	source := &types.MCPServerCatalogEntryManifest{
+		Runtime: types.RuntimeRemote,
+		Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+			Key:           "PINNED_ENV",
+			SecretBinding: sourceBinding,
+		}}},
+		RemoteConfig: &types.RemoteCatalogConfig{Headers: []types.MCPHeader{{
+			Key:           "Pinned-Header",
+			SecretBinding: sourceBinding,
+		}}},
+	}
+
+	t.Run("allows matching catalog binding", func(t *testing.T) {
+		manifest := types.MCPServerManifest{
+			Runtime: types.RuntimeRemote,
+			Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+				Key:           "PINNED_ENV",
+				SecretBinding: &types.MCPSecretBinding{Name: "source-secret", Key: "token", AdminAdded: true},
+			}}},
+			RemoteConfig: &types.RemoteRuntimeConfig{Headers: []types.MCPHeader{{
+				Key:           "Pinned-Header",
+				SecretBinding: &types.MCPSecretBinding{Name: "source-secret", Key: "token"},
+			}}},
+		}
+
+		require.Nil(t, rejectCatalogSecretBindingOverrides(manifest, source))
+	})
+
+	t.Run("rejects env override", func(t *testing.T) {
+		manifest := types.MCPServerManifest{
+			Runtime: types.RuntimeRemote,
+			Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+				Key:           "PINNED_ENV",
+				SecretBinding: &types.MCPSecretBinding{Name: "admin-secret", Key: "token"},
+			}}},
+		}
+
+		err := rejectCatalogSecretBindingOverrides(manifest, source)
+		require.NotNil(t, err)
+		assert.Equal(t, http.StatusBadRequest, err.Code)
+		assert.Contains(t, err.Message, `env "PINNED_ENV": cannot override catalog entry secretBinding`)
+	})
+
+	t.Run("rejects header override", func(t *testing.T) {
+		manifest := types.MCPServerManifest{
+			Runtime: types.RuntimeRemote,
+			RemoteConfig: &types.RemoteRuntimeConfig{Headers: []types.MCPHeader{{
+				Key:           "Pinned-Header",
+				SecretBinding: &types.MCPSecretBinding{Name: "admin-secret", Key: "token"},
+			}}},
+		}
+
+		err := rejectCatalogSecretBindingOverrides(manifest, source)
+		require.NotNil(t, err)
+		assert.Equal(t, http.StatusBadRequest, err.Code)
+		assert.Contains(t, err.Message, `header "Pinned-Header": cannot override catalog entry secretBinding`)
+	})
+}
+
+func TestApplySecretBindingOverlayOnlyMatchesExistingFields(t *testing.T) {
+	binding := &types.MCPSecretBinding{Name: "allowed-secret", Key: "token"}
+	manifest := types.MCPServerManifest{
+		Runtime: types.RuntimeRemote,
+		Env: []types.MCPEnv{
+			{MCPHeader: types.MCPHeader{Key: "API_TOKEN", Value: "manual"}},
+		},
+		RemoteConfig: &types.RemoteRuntimeConfig{
+			URL: "https://example.com/mcp",
+			Headers: []types.MCPHeader{
+				{Key: "Authorization", Value: "manual"},
+			},
+		},
+	}
+	overlay := types.MCPServerManifest{
+		Env: []types.MCPEnv{
+			{MCPHeader: types.MCPHeader{Key: "API_TOKEN", SecretBinding: binding}},
+			{MCPHeader: types.MCPHeader{Key: "IGNORED", SecretBinding: binding}},
+		},
+		RemoteConfig: &types.RemoteRuntimeConfig{
+			Headers: []types.MCPHeader{
+				{Key: "Authorization", SecretBinding: binding},
+				{Key: "Ignored-Header", SecretBinding: binding},
+			},
+		},
+	}
+
+	result := applySecretBindingOverlay(manifest, overlay)
+
+	assert.Equal(t, binding, result.Env[0].SecretBinding)
+	assert.Empty(t, result.Env[0].Value)
+	require.NotNil(t, result.RemoteConfig)
+	assert.Equal(t, binding, result.RemoteConfig.Headers[0].SecretBinding)
+	assert.Empty(t, result.RemoteConfig.Headers[0].Value)
+	assert.Len(t, result.Env, 1)
+	assert.Len(t, result.RemoteConfig.Headers, 1)
+}
+
+func TestCreateServerWorkspaceSecretBindingRejected(t *testing.T) {
+	handler := newCreateServerSecretBindingTestHandler()
+	storage := newFakeStorage(t, &v1.PowerUserWorkspace{ObjectMeta: metav1.ObjectMeta{Name: "workspace-1", Namespace: system.DefaultNamespace}})
+	localK8sClient := newCreateServerSecretBindingK8sClient(t, &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "source-secret",
+			Namespace: system.DefaultNamespace,
+			Labels:    map[string]string{testSecretBindingAllowedLabel: "true"},
+		},
+		Data: map[string][]byte{"token": []byte("secret-token")},
+	})
+
+	err := handler.CreateServer(newCreateServerSecretBindingRequest(t, storage, localK8sClient, "", "workspace-1", types.MCPServer{
+		MCPServerManifest: newCreateServerSecretBindingManifest("source-secret", "token"),
+	}))
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `validation failed: env "API_TOKEN": secretBinding is only allowed on git-synced catalog entries or admin-managed multi-user servers`)
+}
+
+func TestCreateServerRejectsMultiUserHeaderSecretBinding(t *testing.T) {
+	handler := newCreateServerSecretBindingTestHandler()
+	storage := newFakeStorage(t, &v1.MCPCatalog{ObjectMeta: metav1.ObjectMeta{Name: "catalog-1", Namespace: system.DefaultNamespace}})
+	manifest := types.MCPServerManifest{
+		Name:    "multi-user-server",
+		Runtime: types.RuntimeContainerized,
+		ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+			Image: "example/mcp:latest",
+			Port:  8080,
+			Path:  "/mcp",
+		},
+		MultiUserConfig: &types.MultiUserConfig{UserDefinedHeaders: []types.MCPHeader{{
+			Key:           "X-API-Key",
+			SecretBinding: &types.MCPSecretBinding{Name: "source-secret", Key: "token"},
+		}}},
+	}
+
+	err := handler.CreateServer(newCreateServerSecretBindingRequest(t, storage, nil, "catalog-1", "", types.MCPServer{
+		MCPServerManifest: manifest,
+	}))
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "secretBinding is not supported for user-defined headers")
+}
+
+func TestCreateCatalogEntryRejectsMultiUserHeaderSecretBinding(t *testing.T) {
+	storage := newFakeStorage(t, &v1.MCPCatalog{ObjectMeta: metav1.ObjectMeta{Name: "catalog-1", Namespace: system.DefaultNamespace}})
+	manifest := types.MCPServerCatalogEntryManifest{
+		Name:           "multi-user-entry",
+		Runtime:        types.RuntimeContainerized,
+		ServerUserType: types.ServerUserTypeMultiUser,
+		ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+			Image: "example/mcp:latest",
+			Port:  8080,
+			Path:  "/mcp",
+		},
+		MultiUserConfig: &types.MultiUserConfig{UserDefinedHeaders: []types.MCPHeader{{
+			Key:           "X-API-Key",
+			SecretBinding: &types.MCPSecretBinding{Name: "source-secret", Key: "token"},
+		}}},
+	}
+	body, err := json.Marshal(manifest)
+	require.NoError(t, err)
+	req := httptest.NewRequest(http.MethodPost, "/api/mcp-catalogs/catalog-1/entries", bytes.NewReader(body))
+	req.SetPathValue("catalog_id", "catalog-1")
+
+	err = (&MCPCatalogHandler{mcpBackend: mcp.RuntimeBackendKubernetes, sessionManager: &mcp.SessionManager{}}).CreateEntry(api.Context{
+		ResponseWriter: httptest.NewRecorder(),
+		Request:        req,
+		Storage:        storage,
+		User:           testUserWithRole("admin", types.GroupAdmin),
+	})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "secretBinding is not supported for user-defined headers")
+}
+
+func newCreateServerSecretBindingTestHandler() *MCPHandler {
+	return &MCPHandler{
+		mcpSessionManager:         &mcp.SessionManager{},
+		mcpRuntimeBackend:         mcp.RuntimeBackendKubernetes,
+		secretBindingAllowedLabel: testSecretBindingAllowedLabel,
+	}
+}
+
+func newCreateServerSecretBindingManifest(secretName, secretKey string) types.MCPServerManifest {
+	return types.MCPServerManifest{
+		Name:    "secret-bound-server",
+		Runtime: types.RuntimeContainerized,
+		ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+			Image: "example/mcp:latest",
+			Port:  8080,
+			Path:  "/mcp",
+		},
+		Env: []types.MCPEnv{{
+			MCPHeader: types.MCPHeader{
+				Key:           "API_TOKEN",
+				SecretBinding: &types.MCPSecretBinding{Name: secretName, Key: secretKey},
+			},
+		}},
+	}
+}
+
+func newCreateServerSecretBindingRequest(t *testing.T, storageClient storage.Client, localK8sClient kclient.Client, catalogID, workspaceID string, input types.MCPServer) api.Context {
+	t.Helper()
+
+	body, err := json.Marshal(input)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/mcpservers", bytes.NewReader(body))
+	if catalogID != "" {
+		req.SetPathValue("catalog_id", catalogID)
+	}
+	if workspaceID != "" {
+		req.SetPathValue("workspace_id", workspaceID)
+	}
+
+	groups := []string(nil)
+	if catalogID != "" {
+		groups = append(groups, types.GroupAdmin)
+	}
+
+	return api.Context{
+		ResponseWriter: httptest.NewRecorder(),
+		Request:        req,
+		Storage:        storageClient,
+		User:           testUserWithRole("user-1", groups...),
+		LocalK8sClient: localK8sClient,
+		ObotNamespace:  system.DefaultNamespace,
+	}
+}
+
+func newCreateServerSecretBindingK8sClient(t *testing.T, objects ...kclient.Object) kclient.Client {
+	t.Helper()
+
+	scheme := runtime.NewScheme()
+	require.NoError(t, corev1.AddToScheme(scheme))
+	return fake.NewClientBuilder().WithScheme(scheme).WithObjects(objects...).Build()
+}
+
 func TestConvertMCPServerCompositeAggregatesOnlySecretBoundMissingConfig(t *testing.T) {
 	server := v1.MCPServer{
 		Spec: v1.MCPServerSpec{
@@ -986,8 +1311,8 @@ func TestEntryManifestNeedsUserConfig(t *testing.T) {
 		require.NoError(t, corev1.AddToScheme(scheme))
 		return fake.NewClientBuilder().WithScheme(scheme).WithObjects(objects...).Build()
 	}
-	secret := func(name string, data map[string][]byte) *corev1.Secret {
-		return &corev1.Secret{Data: data, ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns}}
+	secret := func(name string, data map[string][]byte, label string) *corev1.Secret {
+		return &corev1.Secret{Data: data, ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns, Labels: map[string]string{label: ""}}}
 	}
 
 	requiredEnv := types.MCPEnv{MCPHeader: types.MCPHeader{Name: "TOKEN", Required: true}}
@@ -1017,11 +1342,11 @@ func TestEntryManifestNeedsUserConfig(t *testing.T) {
 		// or a secret binding that resolves to a non-empty value. An unresolved binding still blocks.
 		{name: "required env literal value", manifest: types.MCPServerCatalogEntryManifest{Runtime: types.RuntimeNPX, Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "TOKEN", Required: true, Value: "preset"}}}}, want: false},
 		{name: "required env resolved binding", manifest: types.MCPServerCatalogEntryManifest{Runtime: types.RuntimeNPX, Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "TOKEN", Required: true, SecretBinding: &types.MCPSecretBinding{Name: "s", Key: "k"}}}}},
-			client: newClient(t, secret("s", map[string][]byte{"k": []byte("v")})), want: false},
+			client: newClient(t, secret("s", map[string][]byte{"k": []byte("v")}, "label")), want: false},
 		{name: "required env unresolved binding", manifest: types.MCPServerCatalogEntryManifest{Runtime: types.RuntimeNPX, Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "TOKEN", Required: true, SecretBinding: &types.MCPSecretBinding{Name: "s", Key: "k"}}}}},
 			client: newClient(t), want: true},
 		{name: "required env binding empty value", manifest: types.MCPServerCatalogEntryManifest{Runtime: types.RuntimeNPX, Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "TOKEN", Required: true, SecretBinding: &types.MCPSecretBinding{Name: "s", Key: "k"}}}}},
-			client: newClient(t, secret("s", map[string][]byte{"k": []byte("")})), want: true},
+			client: newClient(t, secret("s", map[string][]byte{"k": []byte("")}, "label")), want: true},
 
 		// Remote: a fixed URL with no required headers is shareable; anything else blocks.
 		{name: "remote fixed url", manifest: remoteFixed, want: false},
@@ -1032,7 +1357,7 @@ func TestEntryManifestNeedsUserConfig(t *testing.T) {
 		{name: "remote required env beats fixed url", manifest: types.MCPServerCatalogEntryManifest{Runtime: types.RuntimeRemote, Env: []types.MCPEnv{requiredEnv}, RemoteConfig: &types.RemoteCatalogConfig{FixedURL: "https://example.com"}}, want: true},
 		{name: "remote required header literal value", manifest: types.MCPServerCatalogEntryManifest{Runtime: types.RuntimeRemote, RemoteConfig: &types.RemoteCatalogConfig{FixedURL: "https://example.com", Headers: []types.MCPHeader{{Key: "X-Api-Key", Required: true, Value: "preset"}}}}, want: false},
 		{name: "remote required header resolved binding", manifest: types.MCPServerCatalogEntryManifest{Runtime: types.RuntimeRemote, RemoteConfig: &types.RemoteCatalogConfig{FixedURL: "https://example.com", Headers: []types.MCPHeader{{Key: "X-Api-Key", Required: true, SecretBinding: &types.MCPSecretBinding{Name: "s", Key: "k"}}}}},
-			client: newClient(t, secret("s", map[string][]byte{"k": []byte("v")})), want: false},
+			client: newClient(t, secret("s", map[string][]byte{"k": []byte("v")}, "label")), want: false},
 		{name: "remote required header unresolved binding", manifest: types.MCPServerCatalogEntryManifest{Runtime: types.RuntimeRemote, RemoteConfig: &types.RemoteCatalogConfig{FixedURL: "https://example.com", Headers: []types.MCPHeader{{Key: "X-Api-Key", Required: true, SecretBinding: &types.MCPSecretBinding{Name: "s", Key: "k"}}}}},
 			client: newClient(t), want: true},
 
@@ -1102,7 +1427,7 @@ func TestEntryManifestNeedsUserConfig(t *testing.T) {
 				Spec:   v1.MCPServerCatalogEntrySpec{Manifest: tt.manifest},
 				Status: v1.MCPServerCatalogEntryStatus{OAuthCredentialConfigured: tt.oauthConfigured},
 			}
-			got, err := entryNeedsUserConfig(context.Background(), tt.client, ns, entry)
+			got, err := entryNeedsUserConfig(context.Background(), tt.client, ns, entry, "label")
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, got)
 		})
@@ -1119,7 +1444,7 @@ func TestEntryMissingAdminConfig(t *testing.T) {
 		return fake.NewClientBuilder().WithScheme(scheme).WithObjects(objects...).Build()
 	}
 	secret := func(name string, data map[string][]byte) *corev1.Secret {
-		return &corev1.Secret{Data: data, ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns}}
+		return &corev1.Secret{Data: data, ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns, Labels: map[string]string{"label": ""}}}
 	}
 
 	tests := []struct {
@@ -1238,7 +1563,7 @@ func TestEntryMissingAdminConfig(t *testing.T) {
 				Spec:   v1.MCPServerCatalogEntrySpec{Manifest: tt.manifest},
 				Status: v1.MCPServerCatalogEntryStatus{OAuthCredentialConfigured: tt.oauthConfigured},
 			}
-			got, err := entryMissingAdminConfig(context.Background(), tt.client, ns, entry)
+			got, err := entryMissingAdminConfig(context.Background(), tt.client, ns, entry, "label")
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantFields, got.SecretBoundFields)
 			assert.Equal(t, tt.wantOAuth, got.StaticOAuth)

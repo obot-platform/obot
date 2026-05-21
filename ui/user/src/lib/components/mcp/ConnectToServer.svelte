@@ -5,6 +5,8 @@
 		UserService,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
+		type MCPAllowedSecretBindingTarget,
+		type MCPSubField,
 		type MCPServerInstance
 	} from '$lib/services';
 	import { EventStreamService } from '$lib/services/admin/eventstream.svelte';
@@ -15,9 +17,10 @@
 		isMultiUserServer,
 		isKubernetesRuntimeBackend,
 		hasEditableConfiguration,
-		getMCPDisplayName
+		getMCPDisplayName,
+		hasSecretBinding
 	} from '$lib/services/user/mcp';
-	import { version } from '$lib/stores';
+	import { errors, version } from '$lib/stores';
 	import Confirm from '../Confirm.svelte';
 	import CopyField from '../CopyField.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
@@ -74,6 +77,14 @@
 	let isDeployingMultiUserCatalogEntry = $derived(
 		Boolean(entry && !server && isMultiUserCatalogEntry(entry))
 	);
+	let canBindSecretsForCatalogEntry = $derived(
+		Boolean(
+			isDeployingMultiUserCatalogEntry &&
+			catalogID &&
+			!workspaceID &&
+			isKubernetesRuntimeBackend(version.current.engine)
+		)
+	);
 	let secretBindingEngineError = $derived(
 		isKubernetesRuntimeBackend(version.current.engine)
 			? undefined
@@ -87,6 +98,9 @@
 	let configureForm = $state<LaunchFormData | CompositeLaunchFormData>();
 	let configureFormTitle = $state<string>();
 	let configureInstance = $state(false);
+	let secretBindingTargets = $state<MCPAllowedSecretBindingTarget[]>([]);
+	let secretBindingTargetsLoaded = $state(false);
+	let loadingSecretBindingTargets = $state(false);
 
 	let launchError = $state<string>();
 	let launchProgress = $state<number>(0);
@@ -101,6 +115,28 @@
 		isDeployingMultiUserCatalogEntry ||
 			(isConfigured && !isMultiUserServer(server) && launchState !== 'relaunching')
 	);
+
+	async function loadSecretBindingTargets() {
+		if (
+			!canBindSecretsForCatalogEntry ||
+			loadingSecretBindingTargets ||
+			secretBindingTargetsLoaded
+		) {
+			return;
+		}
+		loadingSecretBindingTargets = true;
+		try {
+			secretBindingTargets = await AdminService.listMCPSecretBindingTargets({
+				dontLogErrors: true
+			});
+		} catch (err) {
+			errors.append(`Failed to load Kubernetes Secrets for binding: ${err}`);
+			secretBindingTargets = [];
+		} finally {
+			secretBindingTargetsLoaded = true;
+			loadingSecretBindingTargets = false;
+		}
+	}
 
 	let oauthDialog = $state<HTMLDialogElement>();
 	let oauthURL = $state<string>('');
@@ -173,17 +209,52 @@
 			envs: item.manifest?.env?.map((env) => ({
 				...env,
 				value: '',
-				isStatic: env.value !== ''
+				isStatic: env.value !== '',
+				secretBindingReadonly: hasSecretBinding(env)
 			})),
 			headers: item.manifest?.remoteConfig?.headers?.map((header) => ({
 				...header,
 				value: '',
-				isStatic: header.value !== ''
+				isStatic: header.value !== '',
+				secretBindingReadonly: hasSecretBinding(header)
 			})),
 			...(item.manifest?.remoteConfig?.hostname
 				? { hostname: item.manifest.remoteConfig?.hostname, url: '' }
 				: {})
 		};
+	}
+
+	function secretBoundFields(fields?: MCPSubField[]) {
+		return (fields ?? [])
+			.filter((field) => hasSecretBinding(field))
+			.map(({ value: _value, ...field }) => ({ ...field, value: '' }));
+	}
+
+	type TemplateDeployManifest = {
+		env?: MCPSubField[];
+		remoteConfig?: {
+			url?: string;
+			headers?: MCPSubField[];
+		};
+	};
+
+	function buildTemplateSecretBindingManifest(
+		form?: LaunchFormData
+	): TemplateDeployManifest | undefined {
+		const env = secretBoundFields(form?.envs);
+		const headers = secretBoundFields(form?.headers);
+		const url = form?.url?.trim();
+		const manifest: TemplateDeployManifest = {};
+		if (env.length > 0) {
+			manifest.env = env;
+		}
+		if (url || headers.length > 0) {
+			manifest.remoteConfig = {
+				...(url ? { url } : {}),
+				...(headers.length > 0 ? { headers } : {})
+			};
+		}
+		return Object.keys(manifest).length > 0 ? manifest : undefined;
 	}
 
 	async function initMultiUserInstanceForm(
@@ -600,10 +671,14 @@
 		const { timeout1, timeout2, timeout3 } = initUpdatingOrLaunchProgress();
 		try {
 			const lf = configureForm as LaunchFormData | undefined;
-			const url = lf?.url?.trim();
 			const aliasToUse = lf?.name?.trim() || getUniqueAlias(entry.manifest.name || '');
+			const manifest = canBindSecretsForCatalogEntry
+				? buildTemplateSecretBindingManifest(lf)
+				: lf?.url?.trim()
+					? { remoteConfig: { url: lf.url.trim() } }
+					: undefined;
 			const serverPayload = {
-				manifest: url ? { remoteConfig: { url } } : {},
+				...(manifest ? { manifest } : {}),
 				alias: aliasToUse
 			};
 			if (workspaceID) {
@@ -816,21 +891,25 @@
 		}
 	}
 
-	function initCatalogEntry() {
+	async function initCatalogEntry() {
 		if (!entry) return;
 		error = secretBindingEngineError;
 		if (secretBindingEngineError && entry.manifest?.runtime === 'composite') {
+			await loadSecretBindingTargets();
 			initCompositeForm(entry);
 			return;
 		}
 		if (secretBindingEngineError) {
+			await loadSecretBindingTargets();
 			initConfigureForm(entry);
 			configDialog?.open();
 			return;
 		}
-		if (entry.manifest?.runtime === 'composite') {
+		if (hasEditableConfiguration(entry) && entry.manifest?.runtime === 'composite') {
+			await loadSecretBindingTargets();
 			initCompositeForm(entry);
 		} else if (hasEditableConfiguration(entry) || isMultiUserCatalogEntry(entry)) {
+			await loadSecretBindingTargets();
 			initConfigureForm(entry);
 			configDialog?.open();
 		} else {
@@ -1015,6 +1094,7 @@
 	isNew={!isConfigured}
 	showAlias={shouldShowAlias}
 	configurationTitle={configureFormTitle}
+	secretBindingTargets={canBindSecretsForCatalogEntry ? secretBindingTargets : undefined}
 >
 	{#snippet loadingContent()}
 		<div in:fade class="h-full w-full flex items-center justify-center">

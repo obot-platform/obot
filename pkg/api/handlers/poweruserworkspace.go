@@ -15,14 +15,16 @@ import (
 )
 
 type PowerUserWorkspaceHandler struct {
-	serverURL string
-	acrHelper *accesscontrolrule.Helper
+	serverURL                 string
+	acrHelper                 *accesscontrolrule.Helper
+	secretBindingAllowedLabel string
 }
 
-func NewPowerUserWorkspaceHandler(serverURL string, acrHelper *accesscontrolrule.Helper) *PowerUserWorkspaceHandler {
+func NewPowerUserWorkspaceHandler(serverURL string, acrHelper *accesscontrolrule.Helper, secretBindingAllowedLabel string) *PowerUserWorkspaceHandler {
 	return &PowerUserWorkspaceHandler{
-		serverURL: serverURL,
-		acrHelper: acrHelper,
+		serverURL:                 serverURL,
+		acrHelper:                 acrHelper,
+		secretBindingAllowedLabel: secretBindingAllowedLabel,
 	}
 }
 
@@ -141,7 +143,7 @@ func (p *PowerUserWorkspaceHandler) ListAllServers(req api.Context) error {
 			return fmt.Errorf("failed to determine slug: %w", err)
 		}
 
-		mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, credMap[server.Name])
+		mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, credMap[server.Name], p.secretBindingAllowedLabel)
 		if err != nil {
 			return fmt.Errorf("failed to resolve secret bindings for server %s: %w", server.Name, err)
 		}

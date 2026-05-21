@@ -8,6 +8,7 @@
 		type LaunchServerType,
 		type MCPCatalogEntry,
 		type MCPResourceRequirements,
+		type MCPAllowedSecretBindingTarget,
 		type RuntimeFormData,
 		type MCPCatalogEntryServerManifest,
 		type Runtime,
@@ -17,11 +18,12 @@
 		convertCategoriesToMetadata,
 		convertServerRuntimeFormDataToManifest,
 		hasSecretBinding,
+		isKubernetesRuntimeBackend,
 		sanitizeEgressDomains,
 		sanitizeResourceRuntimeConfig,
 		validateRuntimeForm
 	} from '$lib/services/user/mcp';
-	import { profile, version } from '$lib/stores';
+	import { errors, profile, version } from '$lib/stores';
 	import MarkdownInput from '../MarkdownInput.svelte';
 	import Select from '../Select.svelte';
 	import CompositeRuntimeForm from '../mcp/CompositeRuntimeForm.svelte';
@@ -85,13 +87,23 @@
 	let loading = $state(false);
 	let compositeHasToolNameErrors = $state(false);
 	let mcpResourceDefaults = $state<MCPResourceRequirements>();
+	let secretBindingTargets = $state<MCPAllowedSecretBindingTarget[]>();
 
 	let formData = $state<RuntimeFormData>(untrack(() => convertToFormData(entry)));
 
 	const isAtLeastPowerUserPlus = $derived(profile.current?.groups.includes(Group.POWERUSER_PLUS));
 	const showEgressDomains = $derived(!!version.current.mcpNetworkPolicyEnabled);
 	const secretBoundHeaders = $derived(
-		(formData.remoteConfig?.headers ?? []).filter((h) => hasSecretBinding(h))
+		(type === 'multi'
+			? (formData.remoteServerConfig?.headers ?? [])
+			: (formData.remoteConfig?.headers ?? [])
+		).filter((h) => hasSecretBinding(h))
+	);
+	const secretBindingsSupported = $derived(isKubernetesRuntimeBackend(version.current.engine));
+	const editableSecretBindingTargets = $derived(
+		secretBindingsSupported && entity === 'catalog' && type === 'multi' && !readonly
+			? secretBindingTargets
+			: undefined
 	);
 	const defaultDenyAllEgress = $derived(!!version.current.mcpDefaultDenyAllEgress);
 
@@ -341,8 +353,11 @@
 				formData.containerizedConfig = defaultContainerizedConfig();
 				break;
 			case 'remote':
-				// For remote servers (catalog entries), use remoteConfig
-				formData.remoteConfig = { fixedURL: '', headers: [] };
+				if (type === 'multi') {
+					formData.remoteServerConfig = { url: '', headers: [] };
+				} else {
+					formData.remoteConfig = { fixedURL: '', headers: [] };
+				}
 				break;
 			case 'composite':
 				formData.compositeConfig = { componentServers: [] };
@@ -361,6 +376,16 @@
 				})
 				.catch((err) => {
 					console.error('Failed to load Kubernetes resource defaults:', err);
+				});
+		}
+		if (secretBindingsSupported && entity === 'catalog' && type === 'multi' && !readonly) {
+			AdminService.listMCPSecretBindingTargets({ dontLogErrors: true })
+				.then((targets) => {
+					secretBindingTargets = targets;
+				})
+				.catch((err) => {
+					secretBindingTargets = [];
+					errors.append(`Failed to load Kubernetes Secrets for binding: ${err}`);
 				});
 		}
 	});
@@ -755,6 +780,29 @@
 		{showRequired}
 		onFieldChange={updateRequired}
 	/>
+{:else if formData.runtime === 'remote' && type === 'multi' && formData.remoteServerConfig}
+	<RemoteRuntimeForm
+		bind:config={formData.remoteServerConfig}
+		variant="server"
+		{readonly}
+		{showRequired}
+		onFieldChange={updateRequired}
+		isNewEntry={!entry}
+		{onConfigureOAuth}
+		secretBindingTargets={editableSecretBindingTargets}
+	>
+		{#snippet afterHeaders()}
+			{#if secretBoundHeaders.length > 0}
+				<CustomConfigurationForm
+					bind:config={formData.env}
+					{readonly}
+					serverUserType={formData.serverUserType}
+					{secretBoundHeaders}
+					secretBindingTargets={editableSecretBindingTargets}
+				/>
+			{/if}
+		{/snippet}
+	</RemoteRuntimeForm>
 {:else if formData.runtime === 'remote' && formData.remoteConfig}
 	<RemoteRuntimeForm
 		bind:config={formData.remoteConfig}
@@ -800,6 +848,7 @@
 		{readonly}
 		serverUserType={formData.serverUserType}
 		{secretBoundHeaders}
+		secretBindingTargets={editableSecretBindingTargets}
 	/>
 {/if}
 

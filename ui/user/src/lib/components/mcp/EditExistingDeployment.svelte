@@ -4,7 +4,10 @@
 		AdminService,
 		UserService,
 		type MCPCatalogEntry,
-		type MCPCatalogServer
+		type MCPCatalogServer,
+		type MCPAllowedSecretBindingTarget,
+		type MCPCatalogServerManifest,
+		type MCPSubField
 	} from '$lib/services';
 	import type { EventStreamService } from '$lib/services/admin/eventstream.svelte';
 	import {
@@ -16,7 +19,7 @@
 		hasSecretBinding,
 		isKubernetesRuntimeBackend
 	} from '$lib/services/user/mcp';
-	import { version } from '$lib/stores';
+	import { errors, version } from '$lib/stores';
 	import CatalogConfigureForm, {
 		type CompositeLaunchFormData,
 		type LaunchFormData
@@ -51,6 +54,78 @@
 	let launchProgress = $state<number>(0);
 	let launchLogsEventStream = $state<EventStreamService<string>>();
 	let launchLogs = $state<string[]>([]);
+	let secretBindingTargets = $state<MCPAllowedSecretBindingTarget[]>([]);
+
+	const editableSecretBindingTargets = $derived(
+		isKubernetesRuntimeBackend(version.current.engine) &&
+			server?.mcpCatalogID &&
+			isMultiUserServer(server)
+			? secretBindingTargets
+			: undefined
+	);
+
+	function isMultiUserServer(server?: MCPCatalogServer) {
+		return (server as { serverUserType?: string } | undefined)?.serverUserType === 'multiUser';
+	}
+
+	function sameSecretBinding(
+		a?: { name?: string; key?: string },
+		b?: { name?: string; key?: string }
+	) {
+		if (!a?.name || !a?.key || !b?.name || !b?.key) return false;
+		return a.name === b.name && a.key === b.key;
+	}
+
+	function templateBindingByKey(fields?: MCPSubField[]) {
+		return new Map(
+			(fields ?? [])
+				.filter((field) => hasSecretBinding(field))
+				.map((field) => [field.key, field.secretBinding])
+		);
+	}
+
+	function markPinnedSecretBinding(
+		field: MCPSubField,
+		templateBindings: Map<string, MCPSubField['secretBinding']>
+	) {
+		return {
+			...field,
+			secretBindingReadonly: sameSecretBinding(field.secretBinding, templateBindings.get(field.key))
+		};
+	}
+
+	function applyFormBindingsToManifest(
+		manifest: MCPCatalogServer['manifest'],
+		form: LaunchFormData
+	): MCPCatalogServerManifest['manifest'] {
+		const envByKey = new Map((form.envs ?? []).map((field) => [field.key, field]));
+		const headerByKey = new Map((form.headers ?? []).map((field) => [field.key, field]));
+		const withoutSecretBinding = <T extends MCPSubField>(field: T) => {
+			const result = { ...field };
+			delete result.secretBinding;
+			return result;
+		};
+		const updated = {
+			...manifest,
+			env: manifest.env?.map((field) => {
+				const formField = envByKey.get(field.key);
+				if (!formField?.secretBinding) return withoutSecretBinding(field);
+				return { ...field, value: '', secretBinding: formField.secretBinding };
+			})
+		};
+		if (manifest.remoteConfig) {
+			updated.remoteConfig = {
+				...manifest.remoteConfig,
+				...(form.url?.trim() ? { url: form.url.trim() } : {}),
+				headers: manifest.remoteConfig.headers?.map((field) => {
+					const formField = headerByKey.get(field.key);
+					if (!formField?.secretBinding) return withoutSecretBinding(field);
+					return { ...field, value: '', secretBinding: formField.secretBinding };
+				})
+			};
+		}
+		return updated as unknown as MCPCatalogServerManifest['manifest'];
+	}
 
 	export async function edit({
 		server: initServer,
@@ -71,6 +146,22 @@
 			configDialog?.open();
 			return;
 		}
+		if (
+			isKubernetesRuntimeBackend(version.current.engine) &&
+			initServer.mcpCatalogID &&
+			isMultiUserServer(initServer)
+		) {
+			try {
+				secretBindingTargets = await AdminService.listMCPSecretBindingTargets({
+					dontLogErrors: true
+				});
+			} catch (err) {
+				errors.append(`Failed to load Kubernetes Secrets for binding: ${err}`);
+				secretBindingTargets = [];
+			}
+		} else {
+			secretBindingTargets = [];
+		}
 
 		let values: Record<string, string>;
 		try {
@@ -81,14 +172,16 @@
 			}
 			values = {};
 		}
+		const templateEnvBindings = templateBindingByKey(entry?.manifest.env);
+		const templateHeaderBindings = templateBindingByKey(entry?.manifest.remoteConfig?.headers);
 		configureForm = {
 			name: server.alias || '',
 			envs: server.manifest.env?.map((env) => ({
-				...env,
+				...markPinnedSecretBinding(env, templateEnvBindings),
 				value: values[env.key] ?? ''
 			})),
 			headers: server.manifest.remoteConfig?.headers?.map((header) => ({
-				...header,
+				...markPinnedSecretBinding(header, templateHeaderBindings),
 				value: values[header.key] ?? '',
 				isStatic: header.value !== ''
 			})),
@@ -220,14 +313,21 @@
 		}
 
 		const envs = convertEnvHeadersToRecord(lf.envs, lf.headers);
-		if (server.powerUserWorkspaceID) {
+		if (server.mcpCatalogID) {
+			if (isMultiUserServer(server)) {
+				await AdminService.updateMCPCatalogServer(
+					server.mcpCatalogID,
+					server.id,
+					applyFormBindingsToManifest(server.manifest, lf)
+				);
+			}
+			await AdminService.configureMCPCatalogServer(server.mcpCatalogID, server.id, envs);
+		} else if (server.powerUserWorkspaceID) {
 			await UserService.configureWorkspaceMCPCatalogServer(
 				server.powerUserWorkspaceID,
 				server.id,
 				envs
 			);
-		} else if (server.mcpCatalogID) {
-			await AdminService.configureMCPCatalogServer(server.mcpCatalogID, server.id, envs);
 		} else {
 			await UserService.configureSingleOrRemoteMcpServer(server.id, envs);
 		}
@@ -366,6 +466,7 @@
 	isNew={false}
 	showAlias={mode === 'edit'}
 	configurationTitle={mode === 'catalog-update' ? 'Required Configuration' : undefined}
+	secretBindingTargets={editableSecretBindingTargets}
 >
 	{#snippet loadingContent()}
 		<div in:fade class="h-full w-full flex items-center justify-center">

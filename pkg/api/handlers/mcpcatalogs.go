@@ -30,24 +30,26 @@ import (
 var dnsLabelRegex = regexp.MustCompile("[^a-z0-9-]+")
 
 type MCPCatalogHandler struct {
-	defaultCatalogPath string
-	serverURL          string
-	mcpBackend         string
-	sessionManager     *mcp.SessionManager
-	oauthChecker       MCPOAuthChecker
-	gatewayClient      *gclient.Client
-	acrHelper          *accesscontrolrule.Helper
+	defaultCatalogPath        string
+	serverURL                 string
+	mcpBackend                string
+	sessionManager            *mcp.SessionManager
+	oauthChecker              MCPOAuthChecker
+	gatewayClient             *gclient.Client
+	acrHelper                 *accesscontrolrule.Helper
+	secretBindingAllowedLabel string
 }
 
-func NewMCPCatalogHandler(defaultCatalogPath string, serverURL string, mcpBackend string, sessionManager *mcp.SessionManager, oauthChecker MCPOAuthChecker, gatewayClient *gclient.Client, acrHelper *accesscontrolrule.Helper) *MCPCatalogHandler {
+func NewMCPCatalogHandler(defaultCatalogPath string, serverURL string, mcpBackend string, sessionManager *mcp.SessionManager, oauthChecker MCPOAuthChecker, gatewayClient *gclient.Client, acrHelper *accesscontrolrule.Helper, secretBindingAllowedLabel string) *MCPCatalogHandler {
 	return &MCPCatalogHandler{
-		defaultCatalogPath: defaultCatalogPath,
-		serverURL:          serverURL,
-		mcpBackend:         mcpBackend,
-		sessionManager:     sessionManager,
-		oauthChecker:       oauthChecker,
-		gatewayClient:      gatewayClient,
-		acrHelper:          acrHelper,
+		defaultCatalogPath:        defaultCatalogPath,
+		serverURL:                 serverURL,
+		mcpBackend:                mcpBackend,
+		sessionManager:            sessionManager,
+		oauthChecker:              oauthChecker,
+		gatewayClient:             gatewayClient,
+		acrHelper:                 acrHelper,
+		secretBindingAllowedLabel: secretBindingAllowedLabel,
 	}
 }
 
@@ -319,7 +321,7 @@ func (h *MCPCatalogHandler) CreateEntry(req api.Context) error {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
 	// UI-created catalog entries are never git-managed, so secretBinding is forbidden.
-	if err := validation.ValidateSecretBindingsCatalogEntry(manifest, false, h.mcpBackend); err != nil {
+	if err := validation.ValidateSecretBindingsCatalogEntry(manifest, false, false, h.mcpBackend); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
 	if err := validation.ValidateTemplateReferencesCatalogEntry(manifest); err != nil {
@@ -398,7 +400,7 @@ func (h *MCPCatalogHandler) UpdateEntry(req api.Context) error {
 	}
 	// UI-updated catalog entries are never git-managed at this call site. The
 	// git-sync controller reconciles git-managed entries through a separate path.
-	if err := validation.ValidateSecretBindingsCatalogEntry(manifest, false, h.mcpBackend); err != nil {
+	if err := validation.ValidateSecretBindingsCatalogEntry(manifest, false, false, h.mcpBackend); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
 	if err := validation.ValidateTemplateReferencesCatalogEntry(manifest); err != nil {
@@ -501,7 +503,7 @@ func (h *MCPCatalogHandler) AdminListServersForEntryInCatalog(req api.Context) e
 			return fmt.Errorf("failed to find credential: %w", err)
 		}
 
-		mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, cred.Secrets)
+		mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, cred.Secrets, h.secretBindingAllowedLabel)
 		if err != nil {
 			return fmt.Errorf("failed to resolve secret bindings: %w", err)
 		}
@@ -513,7 +515,7 @@ func (h *MCPCatalogHandler) AdminListServersForEntryInCatalog(req api.Context) e
 
 		var components []types.MCPServer
 		if server.Spec.Manifest.Runtime == types.RuntimeComposite {
-			components, err = resolveCompositeComponents(req, server)
+			components, err = resolveCompositeComponents(req, server, h.secretBindingAllowedLabel)
 			if err != nil {
 				return err
 			}
@@ -586,7 +588,7 @@ func (h *MCPCatalogHandler) AdminListServersForAllEntriesInCatalog(req api.Conte
 			return fmt.Errorf("failed to find credential: %w", err)
 		}
 
-		mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, cred.Secrets)
+		mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, cred.Secrets, h.secretBindingAllowedLabel)
 		if err != nil {
 			return fmt.Errorf("failed to resolve secret bindings: %w", err)
 		}
@@ -598,7 +600,7 @@ func (h *MCPCatalogHandler) AdminListServersForAllEntriesInCatalog(req api.Conte
 
 		var components []types.MCPServer
 		if server.Spec.Manifest.Runtime == types.RuntimeComposite {
-			components, err = resolveCompositeComponents(req, server)
+			components, err = resolveCompositeComponents(req, server, h.secretBindingAllowedLabel)
 			if err != nil {
 				return err
 			}
@@ -664,7 +666,7 @@ func (h *MCPCatalogHandler) ListServersForEntry(req api.Context) error {
 			return fmt.Errorf("failed to find credential: %w", err)
 		}
 
-		mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, cred.Secrets)
+		mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, cred.Secrets, h.secretBindingAllowedLabel)
 		if err != nil {
 			return fmt.Errorf("failed to resolve secret bindings: %w", err)
 		}
@@ -676,7 +678,7 @@ func (h *MCPCatalogHandler) ListServersForEntry(req api.Context) error {
 
 		var components []types.MCPServer
 		if server.Spec.Manifest.Runtime == types.RuntimeComposite {
-			components, err = resolveCompositeComponents(req, server)
+			components, err = resolveCompositeComponents(req, server, h.secretBindingAllowedLabel)
 			if err != nil {
 				return fmt.Errorf("failed to resolve composite components: %w", err)
 			}
@@ -733,7 +735,7 @@ func (h *MCPCatalogHandler) GetServerFromEntry(req api.Context) error {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
 
-	mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, cred.Secrets)
+	mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, cred.Secrets, h.secretBindingAllowedLabel)
 	if err != nil {
 		return fmt.Errorf("failed to resolve secret bindings: %w", err)
 	}
@@ -745,7 +747,7 @@ func (h *MCPCatalogHandler) GetServerFromEntry(req api.Context) error {
 
 	var components []types.MCPServer
 	if server.Spec.Manifest.Runtime == types.RuntimeComposite {
-		components, err = resolveCompositeComponents(req, server)
+		components, err = resolveCompositeComponents(req, server, h.secretBindingAllowedLabel)
 		if err != nil {
 			log.Warnf("failed to resolve composite components for catalog server %s: %v", server.Name, err)
 			return err
@@ -816,6 +818,7 @@ func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
 		req.Storage,
 		req.LocalK8sClient,
 		req.ObotNamespace,
+		h.secretBindingAllowedLabel,
 		entry.Namespace,
 		catalogName,
 		entry.Spec.Manifest,
@@ -902,7 +905,7 @@ func (h *MCPCatalogHandler) generateCompositeToolPreviews(req api.Context, entry
 				return fmt.Errorf("failed to get MCP server %q: %w", componentEntry.MCPServerID, err)
 			}
 
-			serverConfig, _, err := serverConfigForAction(req, mcpServer, false)
+			serverConfig, _, err := serverConfigForAction(req, mcpServer, h.secretBindingAllowedLabel, false)
 			if err != nil {
 				return fmt.Errorf("failed to build server configuration for MCP server %q: %w", mcpServer.Name, err)
 			}
@@ -940,6 +943,7 @@ func (h *MCPCatalogHandler) generateCompositeToolPreviews(req api.Context, entry
 			req.Storage,
 			req.LocalK8sClient,
 			req.ObotNamespace,
+			h.secretBindingAllowedLabel,
 			entry.Namespace,
 			catalogName,
 			componentEntry.Manifest,
@@ -1065,7 +1069,7 @@ func (h *MCPCatalogHandler) GenerateToolPreviewsOAuthURL(req api.Context) error 
 	if catalogName == "" {
 		catalogName = entry.Spec.PowerUserWorkspaceID
 	}
-	server, serverConfig, err := tempServerAndConfig(req.Context(), req.GatewayClient, req.Storage, req.LocalK8sClient, req.ObotNamespace, entry.Namespace, catalogName, entry.Spec.Manifest, configRequest.Config, configRequest.URL, h.serverURL)
+	server, serverConfig, err := tempServerAndConfig(req.Context(), req.GatewayClient, req.Storage, req.LocalK8sClient, req.ObotNamespace, h.secretBindingAllowedLabel, entry.Namespace, catalogName, entry.Spec.Manifest, configRequest.Config, configRequest.URL, h.serverURL)
 	if err != nil {
 		return types.NewErrBadRequest("failed to create temporary server and config: %v", err)
 	}
@@ -1156,6 +1160,7 @@ func (h *MCPCatalogHandler) GenerateComponentToolPreviews(req api.Context) error
 		req.Storage,
 		req.LocalK8sClient,
 		req.ObotNamespace,
+		h.secretBindingAllowedLabel,
 		composite.Namespace,
 		catalogName,
 		component.Manifest,
@@ -1280,6 +1285,7 @@ func (h *MCPCatalogHandler) GenerateComponentToolPreviewsOAuthURL(req api.Contex
 		req.Storage,
 		req.LocalK8sClient,
 		req.ObotNamespace,
+		h.secretBindingAllowedLabel,
 		composite.Namespace,
 		catalogName,
 		component.Manifest,
@@ -1363,6 +1369,7 @@ func (h *MCPCatalogHandler) generateCompositeOAuthURLs(req api.Context, entry v1
 			req.Storage,
 			req.LocalK8sClient,
 			req.ObotNamespace,
+			h.secretBindingAllowedLabel,
 			entry.Namespace,
 			catalogName,
 			componentEntry.Manifest,
@@ -1391,7 +1398,7 @@ func (h *MCPCatalogHandler) generateCompositeOAuthURLs(req api.Context, entry v1
 	return req.Write(oauthURLs)
 }
 
-func tempServerAndConfig(ctx context.Context, gatewayClient *gclient.Client, client client.Client, localK8sClient client.Client, obotNamespace, namespace, catalogName string, entryManifest types.MCPServerCatalogEntryManifest, config map[string]string, url, baseURL string) (v1.MCPServer, mcp.ServerConfig, error) {
+func tempServerAndConfig(ctx context.Context, gatewayClient *gclient.Client, client client.Client, localK8sClient client.Client, obotNamespace, secretBindingAllowedLabel, namespace, catalogName string, entryManifest types.MCPServerCatalogEntryManifest, config map[string]string, url, baseURL string) (v1.MCPServer, mcp.ServerConfig, error) {
 	// Convert catalog entry to server manifest
 	serverManifest, err := types.MapCatalogEntryToServer(entryManifest, url, false)
 	if err != nil {
@@ -1401,7 +1408,7 @@ func tempServerAndConfig(ctx context.Context, gatewayClient *gclient.Client, cli
 	// Merge any secretBinding-resolved values into the user-supplied
 	// config so URL-template substitution and ServerToServerConfig see
 	// them. The caller's config map is not mutated.
-	config, err = mcp.MergeBoundCreds(ctx, localK8sClient, obotNamespace, serverManifest.Env, serverManifest.RemoteConfig, config)
+	config, err = mcp.MergeBoundCreds(ctx, localK8sClient, obotNamespace, serverManifest.Env, serverManifest.RemoteConfig, config, secretBindingAllowedLabel)
 	if err != nil {
 		return v1.MCPServer{}, mcp.ServerConfig{}, fmt.Errorf("failed to resolve secret bindings: %w", err)
 	}
@@ -1736,7 +1743,7 @@ func (h *MCPCatalogHandler) RefreshCompositeComponents(req api.Context) error {
 	}
 	// Preserve the git-managed status of the original entry when re-validating.
 	entryGitManaged := entry.IsGitManaged()
-	if err := validation.ValidateSecretBindingsCatalogEntry(entry.Spec.Manifest, entryGitManaged, h.mcpBackend); err != nil {
+	if err := validation.ValidateSecretBindingsCatalogEntry(entry.Spec.Manifest, entryGitManaged, false, h.mcpBackend); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
 	if err := validation.ValidateTemplateReferencesCatalogEntry(entry.Spec.Manifest); err != nil {

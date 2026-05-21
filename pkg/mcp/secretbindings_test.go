@@ -20,6 +20,7 @@ func binding(secretName, key string) *types.MCPSecretBinding {
 
 func TestMergeBoundCreds(t *testing.T) {
 	const ns = "obot-ns"
+	const label = "test-secret-binding-label"
 
 	newClient := func(t *testing.T, objects ...kclient.Object) kclient.Client {
 		t.Helper()
@@ -35,10 +36,10 @@ func TestMergeBoundCreds(t *testing.T) {
 
 		c := newClient(t, &corev1.Secret{
 			Data:       map[string][]byte{"api_key": []byte("fresh")},
-			ObjectMeta: metav1.ObjectMeta{Name: "bound-secret", Namespace: ns},
+			ObjectMeta: metav1.ObjectMeta{Name: "bound-secret", Namespace: ns, Labels: map[string]string{label: "true"}},
 		})
 
-		out, err := MergeBoundCreds(context.Background(), c, ns, manifestEnv, nil, input)
+		out, err := MergeBoundCreds(context.Background(), c, ns, manifestEnv, nil, input, label)
 		require.NoError(t, err)
 		assert.Equal(t, inputBefore, input)
 		assert.Equal(t, "fresh", out["API_KEY"])
@@ -49,7 +50,7 @@ func TestMergeBoundCreds(t *testing.T) {
 		manifestEnv := []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "API_KEY", SecretBinding: binding("missing-secret", "api_key")}}}
 		input := map[string]string{"API_KEY": "stale", "OTHER": "ok"}
 
-		out, err := MergeBoundCreds(context.Background(), newClient(t), ns, manifestEnv, nil, input)
+		out, err := MergeBoundCreds(context.Background(), newClient(t), ns, manifestEnv, nil, input, label)
 		require.NoError(t, err)
 		assert.NotContains(t, out, "API_KEY")
 		assert.Equal(t, "ok", out["OTHER"])
@@ -57,9 +58,9 @@ func TestMergeBoundCreds(t *testing.T) {
 		manifestEnv[0].SecretBinding = binding("present-secret", "missing-key")
 		c := newClient(t, &corev1.Secret{
 			Data:       map[string][]byte{"other": []byte("x")},
-			ObjectMeta: metav1.ObjectMeta{Name: "present-secret", Namespace: ns},
+			ObjectMeta: metav1.ObjectMeta{Name: "present-secret", Namespace: ns, Labels: map[string]string{label: "true"}},
 		})
-		out, err = MergeBoundCreds(context.Background(), c, ns, manifestEnv, nil, input)
+		out, err = MergeBoundCreds(context.Background(), c, ns, manifestEnv, nil, input, label)
 		require.NoError(t, err)
 		assert.NotContains(t, out, "API_KEY")
 	})
@@ -68,10 +69,10 @@ func TestMergeBoundCreds(t *testing.T) {
 		remote := &types.RemoteRuntimeConfig{Headers: []types.MCPHeader{{Key: "Authorization", SecretBinding: binding("auth-secret", "token")}}}
 		c := newClient(t, &corev1.Secret{
 			Data:       map[string][]byte{"token": []byte("Bearer abc")},
-			ObjectMeta: metav1.ObjectMeta{Name: "auth-secret", Namespace: ns},
+			ObjectMeta: metav1.ObjectMeta{Name: "auth-secret", Namespace: ns, Labels: map[string]string{label: "true"}},
 		})
 
-		out, err := MergeBoundCreds(context.Background(), c, ns, nil, remote, map[string]string{"Authorization": "stale"})
+		out, err := MergeBoundCreds(context.Background(), c, ns, nil, remote, map[string]string{"Authorization": "stale"}, label)
 		require.NoError(t, err)
 		assert.Equal(t, "Bearer abc", out["Authorization"])
 	})
@@ -81,7 +82,7 @@ func TestMergeBoundCreds(t *testing.T) {
 		remote := &types.RemoteRuntimeConfig{Headers: []types.MCPHeader{{Key: "Authorization", SecretBinding: binding("s", "token")}}}
 		in := map[string]string{"API_KEY": "x", "Authorization": "y", "OTHER": "ok"}
 
-		out, err := MergeBoundCreds(context.Background(), nil, ns, manifestEnv, remote, in)
+		out, err := MergeBoundCreds(context.Background(), nil, ns, manifestEnv, remote, in, label)
 		require.NoError(t, err)
 		assert.NotContains(t, out, "API_KEY")
 		assert.NotContains(t, out, "Authorization")
@@ -93,11 +94,57 @@ func TestMergeBoundCreds(t *testing.T) {
 		in := map[string]string{"API_KEY": "stale"}
 		c := newClient(t, &corev1.Secret{
 			Data:       map[string][]byte{"api_key": []byte("")},
-			ObjectMeta: metav1.ObjectMeta{Name: "bound-secret", Namespace: ns},
+			ObjectMeta: metav1.ObjectMeta{Name: "bound-secret", Namespace: ns, Labels: map[string]string{label: "true"}},
 		})
 
-		out, err := MergeBoundCreds(context.Background(), c, ns, manifestEnv, nil, in)
+		out, err := MergeBoundCreds(context.Background(), c, ns, manifestEnv, nil, in, label)
 		require.NoError(t, err)
 		assert.NotContains(t, out, "API_KEY")
 	})
+
+	t.Run("unlabeled secret is treated as missing", func(t *testing.T) {
+		manifestEnv := []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "API_KEY", SecretBinding: binding("bound-secret", "api_key")}}}
+		in := map[string]string{"API_KEY": "stale", "OTHER": "ok"}
+		c := newClient(t, &corev1.Secret{
+			Data:       map[string][]byte{"api_key": []byte("fresh")},
+			ObjectMeta: metav1.ObjectMeta{Name: "bound-secret", Namespace: ns},
+		})
+
+		out, err := MergeBoundCreds(context.Background(), c, ns, manifestEnv, nil, in, label)
+		require.NoError(t, err)
+		assert.NotContains(t, out, "API_KEY")
+		assert.Equal(t, "ok", out["OTHER"])
+	})
+}
+
+func TestListAllowedSecretBindingTargets(t *testing.T) {
+	const ns = "obot-ns"
+	const label = "test-secret-binding-label"
+
+	scheme := runtime.NewScheme()
+	require.NoError(t, corev1.AddToScheme(scheme))
+	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "z-secret", Namespace: ns, Labels: map[string]string{label: "false"}},
+			Data:       map[string][]byte{"b": []byte("value-b"), "a": []byte("value-a")},
+		},
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "a-secret", Namespace: ns, Labels: map[string]string{label: "true"}},
+			Data:       map[string][]byte{"token": []byte("secret-value")},
+		},
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "empty", Namespace: ns, Labels: map[string]string{label: "true"}},
+		},
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "unlabeled", Namespace: ns},
+			Data:       map[string][]byte{"token": []byte("hidden")},
+		},
+	).Build()
+
+	targets, err := ListAllowedSecretBindingTargets(context.Background(), c, ns, label)
+	require.NoError(t, err)
+	assert.Equal(t, []types.MCPAllowedSecretBindingTarget{
+		{Name: "a-secret", Keys: []string{"token"}},
+		{Name: "z-secret", Keys: []string{"a", "b"}},
+	}, targets)
 }
