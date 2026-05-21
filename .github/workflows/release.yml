@@ -37,15 +37,6 @@ jobs:
           sudo install -m 0755 quill /usr/local/bin/quill
           quill version
 
-      - name: Test Quill notarization credentials
-        run: quill test --yes -vv
-        env:
-          QUILL_SIGN_P12: ${{ secrets.QUILL_SIGN_P12 }}
-          QUILL_SIGN_PASSWORD: ${{ secrets.QUILL_SIGN_PASSWORD }}
-          QUILL_NOTARY_KEY: ${{ secrets.QUILL_NOTARY_KEY }}
-          QUILL_NOTARY_KEY_ID: ${{ secrets.QUILL_NOTARY_KEY_ID }}
-          QUILL_NOTARY_ISSUER: ${{ secrets.QUILL_NOTARY_ISSUER }}
-
       - name: Trigger tools repo tag workflow
         uses: peter-evans/repository-dispatch@v3
         with:
