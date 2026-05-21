@@ -14,6 +14,38 @@ jobs:
     runs-on: depot-ubuntu-22.04
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+
+      - name: Install Quill
+        env:
+          QUILL_TARBALL: quill_0.7.1_linux_amd64.tar.gz
+          QUILL_TARBALL_URL: https://github.com/anchore/quill/releases/download/v0.7.1/quill_0.7.1_linux_amd64.tar.gz
+          QUILL_CHECKSUMS_URL: https://github.com/anchore/quill/releases/download/v0.7.1/quill_0.7.1_checksums.txt
+        run: |
+          curl -sSfL -o "${QUILL_TARBALL}" "${QUILL_TARBALL_URL}"
+          curl -sSfL -o quill_checksums.txt "${QUILL_CHECKSUMS_URL}"
+          grep "${QUILL_TARBALL}$" quill_checksums.txt | sha256sum --check -
+          tar -xzf "${QUILL_TARBALL}" quill
+          sudo install -m 0755 quill /usr/local/bin/quill
+          quill version
+
+      - name: Test Quill notarization credentials
+        run: quill test --yes -vv
+        env:
+          QUILL_SIGN_P12: ${{ secrets.QUILL_SIGN_P12 }}
+          QUILL_SIGN_PASSWORD: ${{ secrets.QUILL_SIGN_PASSWORD }}
+          QUILL_NOTARY_KEY: ${{ secrets.QUILL_NOTARY_KEY }}
+          QUILL_NOTARY_KEY_ID: ${{ secrets.QUILL_NOTARY_KEY_ID }}
+          QUILL_NOTARY_ISSUER: ${{ secrets.QUILL_NOTARY_ISSUER }}
+
       - name: Trigger tools repo tag workflow
         uses: peter-evans/repository-dispatch@v3
         with:
@@ -30,16 +62,6 @@ jobs:
           event-type: release
           client-payload: '{"tag": "${{ github.ref_name }}"}'
 
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: "1.26"
-
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
@@ -49,6 +71,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
           GORELEASER_CURRENT_TAG: ${{ github.ref_name }}
+          QUILL_SIGN_P12: ${{ secrets.QUILL_SIGN_P12 }}
+          QUILL_SIGN_PASSWORD: ${{ secrets.QUILL_SIGN_PASSWORD }}
+          QUILL_NOTARY_KEY: ${{ secrets.QUILL_NOTARY_KEY }}
+          QUILL_NOTARY_KEY_ID: ${{ secrets.QUILL_NOTARY_KEY_ID }}
+          QUILL_NOTARY_ISSUER: ${{ secrets.QUILL_NOTARY_ISSUER }}
   winget-release:
     needs: release-tag
     if: "! contains(github.ref_name, '-')"

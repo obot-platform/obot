@@ -3,11 +3,25 @@ version: 2
 project_name: "obot"
 
 builds:
-  - id: build
+  - id: build-darwin
+    main: .
+    goos:
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -X "github.com/obot-platform/obot/pkg/version.Tag=v{{ .Version }}"
+    hooks:
+      post:
+        - cmd: quill sign-and-notarize "{{ .Path }}" --dry-run={{ .IsSnapshot }} --ad-hoc={{ .IsSnapshot }} -vv
+          env:
+            - QUILL_LOG_FILE=/tmp/quill-{{ .Target }}.log
+
+  - id: build-other
     main: .
     goos:
       - linux
-      - darwin
       - windows
     goarch:
       - amd64
@@ -16,11 +30,13 @@ builds:
       - -X "github.com/obot-platform/obot/pkg/version.Tag=v{{ .Version }}"
 
 archives:
-  - format: tar.gz
+  - formats:
+      - tar.gz
     name_template: "{{ .ProjectName }}_v{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     format_overrides:
       - goos: windows
-        format: zip
+        formats:
+          - zip
 
 release:
   github:
