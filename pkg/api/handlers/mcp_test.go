@@ -8,6 +8,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -334,6 +335,72 @@ func TestSanitizeConfig(t *testing.T) {
 	sanitizeConfig(config, manifest)
 
 	assert.Equal(t, map[string]string{"KEEP": "value"}, config)
+}
+
+func TestAdminManagedSecretBindingManifest(t *testing.T) {
+	sourceBinding := &types.MCPSecretBinding{Name: "source-secret", Key: "token"}
+	adminBinding := &types.MCPSecretBinding{Name: "admin-secret", Key: "token"}
+	headerBinding := &types.MCPSecretBinding{Name: "header-secret", Key: "token"}
+
+	source := &types.MCPServerCatalogEntryManifest{
+		Runtime: types.RuntimeRemote,
+		Env: []types.MCPEnv{
+			{MCPHeader: types.MCPHeader{Key: "PINNED_ENV", SecretBinding: sourceBinding}},
+			{MCPHeader: types.MCPHeader{Key: "CHANGED_ENV", SecretBinding: sourceBinding}},
+		},
+		RemoteConfig: &types.RemoteCatalogConfig{
+			Headers: []types.MCPHeader{
+				{Key: "Pinned-Header", SecretBinding: headerBinding},
+				{Key: "Changed-Header", SecretBinding: sourceBinding},
+			},
+		},
+	}
+
+	manifest := types.MCPServerManifest{
+		Runtime: types.RuntimeRemote,
+		Env: []types.MCPEnv{
+			{MCPHeader: types.MCPHeader{Key: "PINNED_ENV", SecretBinding: sourceBinding}},
+			{MCPHeader: types.MCPHeader{Key: "CHANGED_ENV", SecretBinding: adminBinding}},
+			{MCPHeader: types.MCPHeader{Key: "ADMIN_ENV", SecretBinding: adminBinding}},
+			{MCPHeader: types.MCPHeader{Key: "PLAIN_ENV"}},
+		},
+		RemoteConfig: &types.RemoteRuntimeConfig{
+			Headers: []types.MCPHeader{
+				{Key: "Pinned-Header", SecretBinding: headerBinding},
+				{Key: "Changed-Header", SecretBinding: adminBinding},
+				{Key: "Admin-Header", SecretBinding: adminBinding},
+				{Key: "Plain-Header"},
+			},
+		},
+	}
+
+	result := adminManagedSecretBindingManifest(manifest, source)
+
+	assert.Equal(t, types.RuntimeRemote, result.Runtime)
+	assert.Equal(t, []types.MCPEnv{
+		{MCPHeader: types.MCPHeader{Key: "CHANGED_ENV", SecretBinding: adminBinding}},
+		{MCPHeader: types.MCPHeader{Key: "ADMIN_ENV", SecretBinding: adminBinding}},
+	}, result.Env)
+	require.NotNil(t, result.RemoteConfig)
+	assert.Equal(t, []types.MCPHeader{
+		{Key: "Changed-Header", SecretBinding: adminBinding},
+		{Key: "Admin-Header", SecretBinding: adminBinding},
+	}, result.RemoteConfig.Headers)
+}
+
+func TestAdminManagedSecretBindingManifestNoSourceValidatesAllBindings(t *testing.T) {
+	binding := &types.MCPSecretBinding{Name: "admin-secret", Key: "token"}
+	manifest := types.MCPServerManifest{
+		Runtime: types.RuntimeContainerized,
+		Env: []types.MCPEnv{
+			{MCPHeader: types.MCPHeader{Key: "ADMIN_ENV", SecretBinding: binding}},
+			{MCPHeader: types.MCPHeader{Key: "PLAIN_ENV"}},
+		},
+	}
+
+	result := adminManagedSecretBindingManifest(manifest, nil)
+
+	assert.Equal(t, manifest, result)
 }
 
 func TestConvertMCPServerCompositeAggregatesOnlySecretBoundMissingConfig(t *testing.T) {

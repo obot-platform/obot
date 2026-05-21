@@ -64,6 +64,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kvalidation "k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apiserver/pkg/authentication/request/union"
 	"k8s.io/apiserver/pkg/server/options/encryptionconfig"
 	k8sscheme "k8s.io/client-go/kubernetes/scheme"
@@ -226,6 +227,7 @@ type Services struct {
 
 	DisableUpdateCheck                   bool
 	MCPRuntimeBackend                    string
+	MCPSecretBindingAllowedLabel         string
 	MCPImagePullSecrets                  []string
 	MCPRemoteShimBaseImage               string
 	MCPHTTPWebhookBaseImage              string
@@ -1012,6 +1014,13 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	// Derive registryNoAuth flag from config
 	// When EnableRegistryAuth is false (default), registry is in no-auth mode
 	registryNoAuth := !config.EnableRegistryAuth
+	secretBindingAllowedLabel := strings.TrimSpace(config.MCPSecretBindingAllowedLabel)
+	if secretBindingAllowedLabel == "" {
+		secretBindingAllowedLabel = mcp.DefaultSecretBindingAllowedLabel
+	}
+	if errs := kvalidation.IsQualifiedName(secretBindingAllowedLabel); len(errs) > 0 {
+		return nil, fmt.Errorf("invalid MCP secret binding allowed label %q: %s", secretBindingAllowedLabel, strings.Join(errs, "; "))
+	}
 
 	// For now, always auto-migrate the gateway database
 	svcs := &Services{
@@ -1091,6 +1100,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		PSASettingsFromHelm:                  psaSettings,
 		DisableUpdateCheck:                   config.DisableUpdateCheck,
 		MCPRuntimeBackend:                    config.MCPRuntimeBackend,
+		MCPSecretBindingAllowedLabel:         secretBindingAllowedLabel,
 		MCPImagePullSecrets:                  config.MCPImagePullSecrets,
 		MCPRemoteShimBaseImage:               config.MCPRemoteShimBaseImage,
 		MCPHTTPWebhookBaseImage:              config.MCPHTTPWebhookBaseImage,

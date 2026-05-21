@@ -4,12 +4,16 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"sort"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+// DefaultSecretBindingAllowedLabel is the Kubernetes Secret label key that enables admin UI discovery for MCP secret bindings.
+const DefaultSecretBindingAllowedLabel = "obot.obot.ai/enable-secret-binding"
 
 // MergeBoundCreds resolves every secretBinding referenced by envs and (for
 // remote runtime) remoteConfig.Headers from the obot namespace and returns a
@@ -166,4 +170,92 @@ func hasAnyBinding(envs []types.MCPEnv, remoteConfig *types.RemoteRuntimeConfig)
 		}
 	}
 	return false
+}
+
+// ListAllowedSecretBindingTargets returns labeled Kubernetes Secrets and data keys that admins may select for MCP secret bindings.
+func ListAllowedSecretBindingTargets(ctx context.Context, c kclient.Client, obotNamespace, allowedLabel string) ([]types.MCPAllowedSecretBindingTarget, error) {
+	if c == nil {
+		return nil, nil
+	}
+
+	var secrets corev1.SecretList
+	if err := c.List(ctx, &secrets, kclient.InNamespace(obotNamespace)); err != nil {
+		return nil, fmt.Errorf("list allowed secret bindings: %w", err)
+	}
+
+	targets := make([]types.MCPAllowedSecretBindingTarget, 0, len(secrets.Items))
+	for _, secret := range secrets.Items {
+		if _, ok := secret.Labels[allowedLabel]; !ok {
+			continue
+		}
+		keys := make([]string, 0, len(secret.Data))
+		for key := range secret.Data {
+			keys = append(keys, key)
+		}
+		if len(keys) == 0 {
+			continue
+		}
+		sort.Strings(keys)
+		targets = append(targets, types.MCPAllowedSecretBindingTarget{
+			Name: secret.Name,
+			Keys: keys,
+		})
+	}
+
+	sort.Slice(targets, func(i, j int) bool {
+		return targets[i].Name < targets[j].Name
+	})
+	return targets, nil
+}
+
+// ValidateAllowedSecretBindings verifies that admin-managed secret bindings reference currently allowed Secrets and existing keys.
+func ValidateAllowedSecretBindings(ctx context.Context, c kclient.Client, obotNamespace string, manifest types.MCPServerManifest, allowedLabel string) error {
+	if !hasAnyBinding(manifest.Env, manifest.RemoteConfig) {
+		return nil
+	}
+	if c == nil {
+		return fmt.Errorf("secretBinding requires the kubernetes runtime client")
+	}
+
+	secretCache := map[string]*corev1.Secret{}
+	check := func(kind, key string, binding *types.MCPSecretBinding) error {
+		if binding == nil {
+			return nil
+		}
+
+		secret, cached := secretCache[binding.Name]
+		if !cached {
+			var s corev1.Secret
+			if err := c.Get(ctx, kclient.ObjectKey{Namespace: obotNamespace, Name: binding.Name}, &s); err != nil {
+				if apierrors.IsNotFound(err) {
+					return fmt.Errorf("%s %q: bound secret %q was not found", kind, key, binding.Name)
+				}
+				return fmt.Errorf("%s %q: get bound secret %q: %w", kind, key, binding.Name, err)
+			}
+			secret = &s
+			secretCache[binding.Name] = secret
+		}
+
+		if _, ok := secret.Labels[allowedLabel]; !ok {
+			return fmt.Errorf("%s %q: bound secret %q is not allowed for binding", kind, key, binding.Name)
+		}
+		if _, ok := secret.Data[binding.Key]; !ok {
+			return fmt.Errorf("%s %q: bound secret %q key %q was not found", kind, key, binding.Name, binding.Key)
+		}
+		return nil
+	}
+
+	for _, env := range manifest.Env {
+		if err := check("env", env.Key, env.SecretBinding); err != nil {
+			return err
+		}
+	}
+	if manifest.RemoteConfig != nil {
+		for _, header := range manifest.RemoteConfig.Headers {
+			if err := check("header", header.Key, header.SecretBinding); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

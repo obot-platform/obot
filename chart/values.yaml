@@ -151,6 +151,8 @@ config:
   OBOT_SERVER_DISALLOW_LOCALHOST_MCP: ""
   # config.OBOT_SERVER_MCPRUNTIME_BACKEND -- The runtime backend to use for MCP servers. Can be 'docker' or 'kubernetes'. Defaults to 'docker'. Setting this to 'kubernetes' will also create the necessary service account, role and rolebinding.
   OBOT_SERVER_MCPRUNTIME_BACKEND: "kubernetes"
+  # config.OBOT_SERVER_MCPSECRET_BINDING_ALLOWED_LABEL -- Kubernetes Secret label key used for admin UI secret-binding lookup and save-time validation. Empty uses the server default: obot.obot.ai/enable-secret-binding.
+  OBOT_SERVER_MCPSECRET_BINDING_ALLOWED_LABEL: ""
 
   # Network policy provider Helm chart configuration.
   # config.OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_REPO -- Helm repository URL for the network policy provider chart. Used when config.OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_NAME is set.

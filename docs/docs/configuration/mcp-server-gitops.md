@@ -154,7 +154,11 @@ When omitted, Obot uses the configured MCP server resource defaults. When specif
 
 Secret bindings let you wire an env var, header, or file to a key in an externally-managed Kubernetes Secret instead of asking the user to supply the value at install time.
 
-Secret bindings are only available on git-managed catalog entries, and only when Obot is using the Kubernetes MCP runtime backend.
+Secret bindings are only available when Obot is using the Kubernetes MCP runtime backend.
+
+Admin UI secret-binding lookup only lists Kubernetes Secrets in the Obot server namespace that have the `obot.obot.ai/enable-secret-binding` label. The label value is ignored; only label presence is checked. Set `OBOT_SERVER_MCPSECRET_BINDING_ALLOWED_LABEL` to use a different label key.
+
+This label gates discovery and save-time validation. Runtime resolution of explicit `secretBinding` references does not require the label.
 
 #### Basic env var binding
 

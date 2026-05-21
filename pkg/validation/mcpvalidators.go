@@ -1213,7 +1213,7 @@ func validateStartupTimeout(runtime types.Runtime, field string, startupTimeoutS
 // kubernetes MCP runtime backend, are mutually exclusive with a static value,
 // require non-empty name/key, and are rejected in unsupported combinations
 // (env bindings under remote runtime).
-func ValidateSecretBindings(manifest types.MCPServerManifest, gitManaged bool, mcpBackend string) error {
+func ValidateSecretBindings(manifest types.MCPServerManifest, gitManaged bool, adminManaged bool, mcpBackend string) error {
 	check := func(kind, key string, h types.MCPHeader) error {
 		if h.SecretBinding == nil {
 			return nil
@@ -1221,8 +1221,8 @@ func ValidateSecretBindings(manifest types.MCPServerManifest, gitManaged bool, m
 		if !mcp.IsKubernetesBackend(mcpBackend) {
 			return fmt.Errorf("%s %q: secretBinding requires the kubernetes MCP runtime backend", kind, key)
 		}
-		if !gitManaged {
-			return fmt.Errorf("%s %q: secretBinding is only allowed on git-synced catalog entries", kind, key)
+		if !gitManaged && !adminManaged {
+			return fmt.Errorf("%s %q: secretBinding is only allowed on git-synced catalog entries or admin-managed multi-user servers", kind, key)
 		}
 		if h.Value != "" {
 			return fmt.Errorf("%s %q: secretBinding and value are mutually exclusive", kind, key)
@@ -1258,7 +1258,7 @@ func ValidateSecretBindings(manifest types.MCPServerManifest, gitManaged bool, m
 // carry the runtime/env shape of MCPServerManifest directly) by extracting
 // the fields that matter for binding validation. The catalog-entry manifest
 // uses the same MCPEnv/MCPHeader types, so we reuse the core logic.
-func ValidateSecretBindingsCatalogEntry(manifest types.MCPServerCatalogEntryManifest, gitManaged bool, mcpBackend string) error {
+func ValidateSecretBindingsCatalogEntry(manifest types.MCPServerCatalogEntryManifest, gitManaged bool, adminManaged bool, mcpBackend string) error {
 	// Reject URL templates that reference secret-bound env vars. Remote
 	// secretBinding support is limited to headers; URL templates are not a
 	// supported binding target.
@@ -1282,7 +1282,7 @@ func ValidateSecretBindingsCatalogEntry(manifest types.MCPServerCatalogEntryMani
 		Env:          manifest.Env,
 		RemoteConfig: remoteCatalogToRuntime(manifest.RemoteConfig),
 	}
-	return ValidateSecretBindings(synthetic, gitManaged, mcpBackend)
+	return ValidateSecretBindings(synthetic, gitManaged, adminManaged, mcpBackend)
 }
 
 func remoteCatalogToRuntime(c *types.RemoteCatalogConfig) *types.RemoteRuntimeConfig {

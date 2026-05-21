@@ -1845,11 +1845,12 @@ func TestValidateSecretBindings(t *testing.T) {
 	binding := &types.MCPSecretBinding{Name: "datadog-prod", Key: "api-key"}
 
 	tests := []struct {
-		name       string
-		manifest   types.MCPServerManifest
-		gitManaged bool
-		backend    string
-		wantErr    string // substring; "" = expect no error
+		name         string
+		manifest     types.MCPServerManifest
+		gitManaged   bool
+		adminManaged bool
+		backend      string
+		wantErr      string // substring; "" = expect no error
 	}{
 		{
 			name: "no bindings is allowed regardless",
@@ -1884,6 +1885,15 @@ func TestValidateSecretBindings(t *testing.T) {
 			},
 			gitManaged: true,
 			backend:    "kubernetes",
+		},
+		{
+			name: "bound env accepted for admin-managed multi-user server",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeContainerized,
+				Env:     []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "DD_API_KEY", SecretBinding: binding}}},
+			},
+			adminManaged: true,
+			backend:      "kubernetes",
 		},
 		{
 			name: "bound header rejected on non-kubernetes backend",
@@ -1979,7 +1989,7 @@ func TestValidateSecretBindings(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateSecretBindings(tt.manifest, tt.gitManaged, tt.backend)
+			err := ValidateSecretBindings(tt.manifest, tt.gitManaged, tt.adminManaged, tt.backend)
 			if tt.wantErr == "" {
 				require.NoError(t, err)
 				return
@@ -2036,7 +2046,7 @@ func TestValidateSecretBindingsCatalogEntry_URLTemplate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateSecretBindingsCatalogEntry(tt.manifest, true, "kubernetes")
+			err := ValidateSecretBindingsCatalogEntry(tt.manifest, true, false, "kubernetes")
 			if tt.wantErr == "" {
 				require.NoError(t, err)
 				return

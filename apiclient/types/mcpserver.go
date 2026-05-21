@@ -249,6 +249,15 @@ type MCPSecretBinding struct {
 	Key  string `json:"key"`
 }
 
+// MCPAllowedSecretBindingTarget describes a Kubernetes Secret that admins can select for MCP secret bindings.
+type MCPAllowedSecretBindingTarget struct {
+	Name string   `json:"name"`
+	Keys []string `json:"keys"`
+}
+
+// MCPAllowedSecretBindingTargetList is a list of Kubernetes Secrets allowed for MCP secret bindings.
+type MCPAllowedSecretBindingTargetList List[MCPAllowedSecretBindingTarget]
+
 type MCPEnv struct {
 	MCPHeader `json:",inline"`
 	File      bool `json:"file"`

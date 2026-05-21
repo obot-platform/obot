@@ -101,3 +101,91 @@ func TestMergeBoundCreds(t *testing.T) {
 		assert.NotContains(t, out, "API_KEY")
 	})
 }
+
+func TestListAllowedSecretBindingTargets(t *testing.T) {
+	const ns = "obot-ns"
+	const label = DefaultSecretBindingAllowedLabel
+
+	scheme := runtime.NewScheme()
+	require.NoError(t, corev1.AddToScheme(scheme))
+	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "z-secret", Namespace: ns, Labels: map[string]string{label: "false"}},
+			Data:       map[string][]byte{"b": []byte("value-b"), "a": []byte("value-a")},
+		},
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "a-secret", Namespace: ns, Labels: map[string]string{label: "true"}},
+			Data:       map[string][]byte{"token": []byte("secret-value")},
+		},
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "empty", Namespace: ns, Labels: map[string]string{label: "true"}},
+		},
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "unlabeled", Namespace: ns},
+			Data:       map[string][]byte{"token": []byte("hidden")},
+		},
+	).Build()
+
+	targets, err := ListAllowedSecretBindingTargets(context.Background(), c, ns, label)
+	require.NoError(t, err)
+	assert.Equal(t, []types.MCPAllowedSecretBindingTarget{
+		{Name: "a-secret", Keys: []string{"token"}},
+		{Name: "z-secret", Keys: []string{"a", "b"}},
+	}, targets)
+}
+
+func TestValidateAllowedSecretBindings(t *testing.T) {
+	const ns = "obot-ns"
+	const label = DefaultSecretBindingAllowedLabel
+
+	newClient := func(t *testing.T, objects ...kclient.Object) kclient.Client {
+		t.Helper()
+		scheme := runtime.NewScheme()
+		require.NoError(t, corev1.AddToScheme(scheme))
+		return fake.NewClientBuilder().WithScheme(scheme).WithObjects(objects...).Build()
+	}
+
+	manifest := types.MCPServerManifest{
+		Runtime: types.RuntimeContainerized,
+		Env: []types.MCPEnv{{
+			MCPHeader: types.MCPHeader{Key: "API_KEY", SecretBinding: binding("allowed", "token")},
+		}},
+	}
+
+	t.Run("validates allowed secret and key", func(t *testing.T) {
+		c := newClient(t, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "allowed", Namespace: ns, Labels: map[string]string{label: ""}},
+			Data:       map[string][]byte{"token": []byte("value")},
+		})
+
+		require.NoError(t, ValidateAllowedSecretBindings(context.Background(), c, ns, manifest, label))
+	})
+
+	t.Run("requires label", func(t *testing.T) {
+		c := newClient(t, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "allowed", Namespace: ns},
+			Data:       map[string][]byte{"token": []byte("value")},
+		})
+
+		err := ValidateAllowedSecretBindings(context.Background(), c, ns, manifest, label)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not allowed for binding")
+	})
+
+	t.Run("requires key", func(t *testing.T) {
+		c := newClient(t, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "allowed", Namespace: ns, Labels: map[string]string{label: "true"}},
+			Data:       map[string][]byte{"other": []byte("value")},
+		})
+
+		err := ValidateAllowedSecretBindings(context.Background(), c, ns, manifest, label)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "key \"token\" was not found")
+	})
+
+	t.Run("requires secret", func(t *testing.T) {
+		err := ValidateAllowedSecretBindings(context.Background(), newClient(t), ns, manifest, label)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "was not found")
+	})
+}

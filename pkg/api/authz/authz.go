@@ -31,6 +31,7 @@ var (
 		"/api/tool-references/",
 		"/api/mcp-catalogs",
 		"/api/mcp-catalogs/",
+		"GET /api/mcp-secret-bindings/secrets",
 		"/api/mcp-servers",
 		"/api/mcp-servers/",
 		"/api/workspaces",

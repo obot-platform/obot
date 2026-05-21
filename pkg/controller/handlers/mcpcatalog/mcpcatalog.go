@@ -443,7 +443,7 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 			continue
 		}
 		// secretBinding references are only allowed for git-managed entries.
-		if err := validation.ValidateSecretBindingsCatalogEntry(entry, catalogEntry.IsGitManaged(), h.mcpBackend); err != nil {
+		if err := validation.ValidateSecretBindingsCatalogEntry(entry, catalogEntry.IsGitManaged(), false, h.mcpBackend); err != nil {
 			errs = append(errs, fmt.Errorf("failed to validate catalog entry %s: %w", entry.Name, err))
 			continue
 		}
