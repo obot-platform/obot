@@ -1,7 +1,10 @@
 <script lang="ts">
-	import { generateJsonDiff, formatJsonWithDiffHighlighting } from '$lib/diff';
+	import {
+		generateJsonDiff,
+		formatJsonWithDiffHighlighting,
+		stripManifestMetadata
+	} from '$lib/diff';
 	import type { MCPCatalogEntry, MCPCatalogServer } from '$lib/services';
-	import { stripManifestMetadata } from '$lib/services/user/mcp';
 	import { responsive } from '$lib/stores';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { Server } from 'lucide-svelte';

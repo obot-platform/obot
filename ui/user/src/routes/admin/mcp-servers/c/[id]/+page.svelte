@@ -8,6 +8,7 @@
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { stripManifestMetadata } from '$lib/diff';
 	import { parseErrorContent } from '$lib/errors';
 	import {
 		type MCPCatalogEntryServerManifest,
@@ -15,7 +16,6 @@
 		type MCPCatalogServer,
 		AdminService
 	} from '$lib/services';
-	import { stripManifestMetadata } from '$lib/services/user/mcp';
 	import { mcpServersAndEntries, profile } from '$lib/stores';
 	import { CircleFadingArrowUp, Info, GitCompare } from 'lucide-svelte';
 	import { untrack, type Component } from 'svelte';

@@ -853,31 +853,3 @@ export function conflictIssue(
 	if (!duplicates.has(effectiveName)) return undefined;
 	return { severity: 'error', message: 'Tool name is not unique.' };
 }
-
-/**
- * Strips fields from a manifest that should not be considered when computing
- * configuration drift. These are either informational metadata or fields that
- * differ structurally between catalog entry and runtime manifest types.
- *
- * - `repoURL`: tracks the source repository, not server configuration
- * - `remoteConfig.fixedURL`: catalog-only field translated to `url` at deploy time
- * - `remoteConfig.url`: runtime-only field derived from catalog's `fixedURL`
- * - `remoteConfig.isTemplate`: runtime-only field not present on catalog manifests
- */
-export function stripManifestMetadata<T>(manifest: T): T {
-	if (!manifest || typeof manifest !== 'object') return manifest;
-
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	const clone: any = JSON.parse(JSON.stringify(manifest));
-
-	delete clone.repoURL;
-
-	if (clone.remoteConfig) {
-		// fixedURL is catalog-only; url and isTemplate are runtime-only
-		delete clone.remoteConfig.fixedURL;
-		delete clone.remoteConfig.url;
-		delete clone.remoteConfig.isTemplate;
-	}
-
-	return clone as T;
-}
