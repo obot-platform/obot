@@ -6,6 +6,25 @@ import (
 	"github.com/moby/moby/api/types/container"
 )
 
+func TestDockerTransformObotHostnameAlwaysRewritesHost(t *testing.T) {
+	d := &dockerBackend{hostBaseURLWithPort: "http://172.17.0.1:8080"}
+
+	tests := map[string]string{
+		"http://localhost:8080/oauth/token":                 "http://172.17.0.1:8080/oauth/token",
+		"http://obot.example.com/oauth/token":               "http://172.17.0.1:8080/oauth/token",
+		"https://obot.example.com/oauth/token?audience=mcp": "http://172.17.0.1:8080/oauth/token?audience=mcp",
+		"http://obot.example.com":                           "http://172.17.0.1:8080",
+		"":                                                  "",
+		"not-a-url":                                         "not-a-url",
+	}
+
+	for input, expected := range tests {
+		if result := d.transformObotHostname(input); result != expected {
+			t.Fatalf("transformObotHostname(%q) = %q, want %q", input, result, expected)
+		}
+	}
+}
+
 func TestContainerFilesStablePathsAcrossDataChanges(t *testing.T) {
 	filesA := []File{{
 		EnvKey: "TLS_CERT",
