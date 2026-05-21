@@ -517,7 +517,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 		return nil, fmt.Errorf("failed to get effective image pull secrets: %w", err)
 	}
 
-	annotations["obot.ai/k8s-settings-hash"] = ComputeK8sSettingsHash(k8sSettings, server.Runtime, server.NanobotAgentName != "", effectiveImagePullSecrets)
+	annotations["obot.ai/k8s-settings-hash"] = ComputeK8sSettingsHash(k8sSettings, server.Resources, server.Runtime, server.NanobotAgentName != "", effectiveImagePullSecrets)
 
 	// Get PSA enforce level for security context decisions
 	psaLevel := GetPSAEnforceLevelFromSpec(k8sSettings)
@@ -713,7 +713,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 			Name:          portName,
 			ContainerPort: int32(port),
 		}},
-		Resources:       mcpContainerResources(server, k8sSettings),
+		Resources:       mcpContainerResources(server.Resources, server.Runtime, server.NanobotAgentName != "", k8sSettings),
 		SecurityContext: getContainerSecurityContext(psaLevel),
 		Command:         command,
 		Args:            args,
@@ -1123,11 +1123,11 @@ func (k *kubernetesBackend) deleteDeploymentCache(mcpServerName string) {
 	delete(k.deploymentCache, mcpServerName)
 }
 
-func mcpContainerResources(server ServerConfig, k8sSettings v1.K8sSettingsSpec) corev1.ResourceRequirements {
+func mcpContainerResources(serverSpecificResources *corev1.ResourceRequirements, runtime types.Runtime, nanobotAgent bool, k8sSettings v1.K8sSettingsSpec) corev1.ResourceRequirements {
 	var defaults corev1.ResourceRequirements
-	if server.Runtime == types.RuntimeRemote {
+	if runtime == types.RuntimeRemote {
 		defaults = memoryRequestResources(remoteMemoryRequest)
-	} else if server.NanobotAgentName != "" {
+	} else if nanobotAgent {
 		if k8sSettings.NanobotAgentResources != nil {
 			defaults = withDefaultCPURequest(*k8sSettings.NanobotAgentResources)
 		} else {
@@ -1139,11 +1139,11 @@ func mcpContainerResources(server ServerConfig, k8sSettings v1.K8sSettingsSpec) 
 		defaults = memoryRequestResources(defaultMCPMemoryRequest)
 	}
 
-	return withServerResourceOverrides(defaults, server.Resources)
+	return withServerResourceOverrides(defaults, serverSpecificResources)
 }
 
-func withServerResourceOverrides(defaults, overrides corev1.ResourceRequirements) corev1.ResourceRequirements {
-	if len(overrides.Requests) == 0 && len(overrides.Limits) == 0 {
+func withServerResourceOverrides(defaults corev1.ResourceRequirements, overrides *corev1.ResourceRequirements) corev1.ResourceRequirements {
+	if overrides == nil || len(overrides.Requests) == 0 && len(overrides.Limits) == 0 {
 		return defaults
 	}
 
@@ -1197,8 +1197,8 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, server ServerConf
 	}
 
 	// Compute K8s settings hash
-	k8sSettingsHash := ComputeK8sSettingsHash(k8sSettings, server.Runtime, server.NanobotAgentName != "", effectiveImagePullSecrets)
-	desiredResources := mcpContainerResources(server, k8sSettings)
+	k8sSettingsHash := ComputeK8sSettingsHash(k8sSettings, server.Resources, server.Runtime, server.NanobotAgentName != "", effectiveImagePullSecrets)
+	desiredResources := mcpContainerResources(server.Resources, server.Runtime, server.NanobotAgentName != "", k8sSettings)
 
 	// Get PSA enforce level for security context decisions
 	psaLevel := GetPSAEnforceLevelFromSpec(k8sSettings)
@@ -1537,16 +1537,14 @@ func (k *kubernetesBackend) patchDeploymentHash(ctx context.Context, deployment 
 // allowed because some Kubernetes environments mutate resource requirements
 // after admission, for example GKE Autopilot adding ephemeral-storage.
 func resourcesMatch(actual corev1.ResourceRequirements, desired *corev1.ResourceRequirements) bool {
-	desiredResources := desiredMCPResourceRequirements(v1.K8sSettingsSpec{Resources: desired})
-
-	for resourceName, desiredQty := range desiredResources.Limits {
+	for resourceName, desiredQty := range desired.Limits {
 		actualQty, exists := actual.Limits[resourceName]
 		if !exists || !actualQty.Equal(desiredQty) {
 			return false
 		}
 	}
 
-	for resourceName, desiredQty := range desiredResources.Requests {
+	for resourceName, desiredQty := range desired.Requests {
 		actualQty, exists := actual.Requests[resourceName]
 		if !exists || !actualQty.Equal(desiredQty) {
 			return false
@@ -1569,21 +1567,6 @@ func stringValue(value *string) string {
 		return ""
 	}
 	return *value
-}
-
-func desiredMCPResourceRequirements(settings v1.K8sSettingsSpec) corev1.ResourceRequirements {
-	if settings.Resources != nil {
-		return *settings.Resources
-	}
-	return defaultMCPResourceRequirements()
-}
-
-func defaultMCPResourceRequirements() corev1.ResourceRequirements {
-	return corev1.ResourceRequirements{
-		Requests: corev1.ResourceList{
-			corev1.ResourceMemory: resource.MustParse("400Mi"),
-		},
-	}
 }
 
 // runtimeClassNameMatches checks if the runtime class names match
@@ -1813,7 +1796,7 @@ func getPodSecurityContextPatch(psaLevel PSAEnforceLevel) map[string]any {
 // MCP Deployment needs to be updated. The API/status field is still named
 // K8sSettingsHash, but managed image pull secret names are part of the same
 // v1 drift path.
-func ComputeK8sSettingsHash(settings v1.K8sSettingsSpec, serverRuntime types.Runtime, nanobotAgentServer bool, imagePullSecretNames []string) string {
+func ComputeK8sSettingsHash(settings v1.K8sSettingsSpec, serverSpecificResources *corev1.ResourceRequirements, serverRuntime types.Runtime, nanobotAgentServer bool, imagePullSecretNames []string) string {
 	var buf bytes.Buffer
 
 	// Hash affinity
@@ -1828,12 +1811,9 @@ func ComputeK8sSettingsHash(settings v1.K8sSettingsSpec, serverRuntime types.Run
 		buf.Write(tolerationsJSON)
 	}
 
-	// Hash resources for regular MCP server pods. Remote servers use fixed shim resources,
-	// and nanobot-agent-backed servers use NanobotAgentResources instead.
-	if serverRuntime != types.RuntimeRemote && !nanobotAgentServer && settings.Resources != nil {
-		resourcesJSON, _ := json.Marshal(settings.Resources)
-		buf.Write(resourcesJSON)
-	}
+	// Resources are server specific
+	// Ignoring errors from JSON encoding since the inputs are well-defined structs that should always marshal successfully
+	_ = json.NewEncoder(&buf).Encode(mcpContainerResources(serverSpecificResources, serverRuntime, nanobotAgentServer, settings))
 
 	// Hash runtimeClassName
 	if settings.RuntimeClassName != nil && *settings.RuntimeClassName != "" {
@@ -1847,10 +1827,6 @@ func ComputeK8sSettingsHash(settings v1.K8sSettingsSpec, serverRuntime types.Run
 
 	// Hash nanobot-only settings
 	if nanobotAgentServer {
-		if settings.NanobotAgentResources != nil {
-			resourcesJSON, _ := json.Marshal(settings.NanobotAgentResources)
-			buf.Write(resourcesJSON)
-		}
 		if settings.NanobotWorkspaceSize != "" {
 			buf.WriteString(settings.NanobotWorkspaceSize)
 		}
@@ -2071,7 +2047,7 @@ func (k *kubernetesBackend) CheckCapacity(ctx context.Context, server ServerConf
 
 	memoryRequest := resource.MustParse("0")
 	cpuRequest := resource.MustParse("0")
-	resources := mcpContainerResources(server, k8sSettings)
+	resources := mcpContainerResources(server.Resources, server.Runtime, server.NanobotAgentName != "", k8sSettings)
 	if mem, ok := resources.Requests[corev1.ResourceMemory]; ok {
 		memoryRequest = mem
 	}

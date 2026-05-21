@@ -81,16 +81,16 @@ type ServerConfig struct {
 	AuditLogEndpoint string `json:"auditLogEndpoint"`
 	AuditLogMetadata string `json:"auditLogMetadata"`
 
-	StartupTimeout time.Duration               `json:"startupTimeout,omitempty"`
-	Resources      corev1.ResourceRequirements `json:"resources,omitempty"`
+	StartupTimeout time.Duration                `json:"startupTimeout,omitempty"`
+	Resources      *corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
-func coreResourceRequirements(resources *types.MCPResourceRequirements) (corev1.ResourceRequirements, error) {
+func CoreResourceRequirements(resources *types.MCPResourceRequirements) (*corev1.ResourceRequirements, error) {
 	if resources == nil {
-		return corev1.ResourceRequirements{}, nil
+		return nil, nil
 	}
 
-	result := corev1.ResourceRequirements{}
+	result := new(corev1.ResourceRequirements)
 	if resources.Requests.CPU != "" || resources.Requests.Memory != "" {
 		result.Requests = corev1.ResourceList{}
 		if resources.Requests.CPU != "" {
@@ -377,7 +377,7 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, us
 		}
 	}
 
-	resources, err := coreResourceRequirements(mcpServer.Spec.Manifest.Resources)
+	resources, err := CoreResourceRequirements(mcpServer.Spec.Manifest.Resources)
 	if err != nil {
 		return ServerConfig{}, nil, err
 	}
@@ -490,7 +490,7 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []str
 		return ServerConfig{}, nil, fmt.Errorf("input %d exceeds the max of %s", startupTimeoutSeconds, MaxMCPServerStartupTimeout)
 	}
 
-	resources, err := coreResourceRequirements(systemServer.Spec.Manifest.Resources)
+	resources, err := CoreResourceRequirements(systemServer.Spec.Manifest.Resources)
 	if err != nil {
 		return ServerConfig{}, nil, err
 	}

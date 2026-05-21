@@ -63,12 +63,20 @@ func (m *MCPHandler) currentImagePullSecretNames(req api.Context) ([]string, err
 	return mcp.CurrentImagePullSecretNames(req.Context(), req.Storage, m.mcpSessionManager.MCPRuntimeBackend(), m.mcpImagePullSecrets)
 }
 
-func (m *MCPHandler) currentK8sSettingsHash(req api.Context, settings v1.K8sSettingsSpec, serverRuntime types.Runtime, nanobotAgentServer bool) (string, error) {
+func (m *MCPHandler) currentK8sSettingsHash(req api.Context, settings v1.K8sSettingsSpec, mcpServer v1.MCPServer) (string, error) {
 	imagePullSecretNames, err := m.currentImagePullSecretNames(req)
 	if err != nil {
 		return "", err
 	}
-	return mcp.ComputeK8sSettingsHash(settings, serverRuntime, nanobotAgentServer, imagePullSecretNames), nil
+	return m.currentK8sSettingsHashWithImagePullSecrets(settings, mcpServer, imagePullSecretNames)
+}
+
+func (m *MCPHandler) currentK8sSettingsHashWithImagePullSecrets(settings v1.K8sSettingsSpec, mcpServer v1.MCPServer, imagePullSecretNames []string) (string, error) {
+	resources, err := mcp.CoreResourceRequirements(mcpServer.Spec.Manifest.Resources)
+	if err != nil {
+		return "", fmt.Errorf("failed to compute core resource requirements: %w", err)
+	}
+	return mcp.ComputeK8sSettingsHash(settings, resources, mcpServer.Spec.Manifest.Runtime, mcpServer.Spec.NanobotAgentID != "", imagePullSecretNames), nil
 }
 
 func (m *MCPHandler) GetEntryFromAllSources(req api.Context) error {
@@ -3197,7 +3205,7 @@ func (m *MCPHandler) CheckK8sSettingsStatus(req api.Context) error {
 		return err
 	}
 
-	currentHash, err := m.currentK8sSettingsHash(req, k8sSettings.Spec, server.Spec.Manifest.Runtime, server.Spec.NanobotAgentID != "")
+	currentHash, err := m.currentK8sSettingsHash(req, k8sSettings.Spec, server)
 	if err != nil {
 		return err
 	}
@@ -3268,7 +3276,7 @@ func (m *MCPHandler) RedeployWithK8sSettings(req api.Context) error {
 		return err
 	}
 
-	currentHash, err := m.currentK8sSettingsHash(req, k8sSettings.Spec, serverConfig.Runtime, serverConfig.NanobotAgentName != "")
+	currentHash, err := m.currentK8sSettingsHash(req, k8sSettings.Spec, server)
 	if err != nil {
 		return err
 	}
@@ -3394,7 +3402,11 @@ func (m *MCPHandler) ListServersNeedingK8sUpdateInCatalog(req api.Context) error
 		}
 
 		// Check if hash differs from current settings
-		currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec, server.Spec.Manifest.Runtime, server.Spec.NanobotAgentID != "", imagePullSecretNames)
+		currentHash, err := m.currentK8sSettingsHashWithImagePullSecrets(k8sSettings.Spec, server, imagePullSecretNames)
+		if err != nil {
+			return err
+		}
+
 		if server.Status.K8sSettingsHash != currentHash {
 			serversNeedingUpdate = append(serversNeedingUpdate, types.MCPServerNeedingK8sUpdate{
 				MCPServerID:             server.Name,
@@ -3457,7 +3469,11 @@ func (m *MCPHandler) ListServersNeedingK8sUpdateAcrossWorkspaces(req api.Context
 		}
 
 		// Check if hash differs from current settings
-		currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec, server.Spec.Manifest.Runtime, server.Spec.NanobotAgentID != "", imagePullSecretNames)
+		currentHash, err := m.currentK8sSettingsHashWithImagePullSecrets(k8sSettings.Spec, server, imagePullSecretNames)
+		if err != nil {
+			return err
+		}
+
 		if server.Status.K8sSettingsHash != currentHash {
 			serversNeedingUpdate = append(serversNeedingUpdate, types.MCPServerNeedingK8sUpdate{
 				MCPServerID:             server.Name,

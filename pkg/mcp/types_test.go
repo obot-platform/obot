@@ -2,12 +2,73 @@ package mcp
 
 import (
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
+
+func TestCoreResourceRequirements(t *testing.T) {
+	t.Run("nil resources returns nil", func(t *testing.T) {
+		result, err := CoreResourceRequirements(nil)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if result != nil {
+			t.Fatalf("expected nil result, got %#v", result)
+		}
+	})
+
+	t.Run("empty resources returns non nil empty requirements", func(t *testing.T) {
+		result, err := CoreResourceRequirements(&types.MCPResourceRequirements{})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if result == nil {
+			t.Fatal("expected non-nil result")
+		}
+		if len(result.Requests) != 0 || len(result.Limits) != 0 {
+			t.Fatalf("expected empty requirements, got %#v", result)
+		}
+	})
+
+	t.Run("valid resources are converted", func(t *testing.T) {
+		result, err := CoreResourceRequirements(&types.MCPResourceRequirements{
+			Requests: types.MCPResourceRequests{CPU: "250m", Memory: "512Mi"},
+			Limits:   types.MCPResourceRequests{CPU: "1", Memory: "1Gi"},
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		assertQuantityEqual(t, result.Requests[corev1.ResourceCPU], resource.MustParse("250m"), "cpu request")
+		assertQuantityEqual(t, result.Requests[corev1.ResourceMemory], resource.MustParse("512Mi"), "memory request")
+		assertQuantityEqual(t, result.Limits[corev1.ResourceCPU], resource.MustParse("1"), "cpu limit")
+		assertQuantityEqual(t, result.Limits[corev1.ResourceMemory], resource.MustParse("1Gi"), "memory limit")
+	})
+
+	t.Run("invalid quantity returns contextual error", func(t *testing.T) {
+		_, err := CoreResourceRequirements(&types.MCPResourceRequirements{
+			Requests: types.MCPResourceRequests{CPU: "not-a-quantity"},
+		})
+		if err == nil {
+			t.Fatal("expected error")
+		}
+		if !strings.Contains(err.Error(), `invalid CPU request "not-a-quantity"`) {
+			t.Fatalf("expected contextual error, got %v", err)
+		}
+	})
+}
+
+func assertQuantityEqual(t *testing.T, got, want resource.Quantity, name string) {
+	t.Helper()
+	if got.Cmp(want) != 0 {
+		t.Fatalf("%s = %s, want %s", name, got.String(), want.String())
+	}
+}
 
 func TestServerToServerConfig_StartupTimeoutFromRuntimeConfig(t *testing.T) {
 	baseURL := "http://localhost:8080"
