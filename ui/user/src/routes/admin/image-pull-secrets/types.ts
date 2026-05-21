@@ -67,6 +67,10 @@ export function statusMessage(secret?: ImagePullSecret) {
 	return secret?.status?.lastError ?? '';
 }
 
+export function canTest(secret: ImagePullSecret) {
+	return statusLabel(secret) !== 'Error';
+}
+
 export function statusClass(secret: ImagePullSecret) {
 	switch (statusLabel(secret)) {
 		case 'Ready':

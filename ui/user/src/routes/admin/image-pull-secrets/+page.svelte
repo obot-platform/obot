@@ -17,7 +17,13 @@
 	import ImagePullSecretStatusDialog from './ImagePullSecretStatusDialog.svelte';
 	import ImagePullSecretTestDialog from './ImagePullSecretTestDialog.svelte';
 	import ImagePullSecretsList from './ImagePullSecretsList.svelte';
-	import { defaultForm, displayName, formFromSecret, type ImagePullSecretFormState } from './types';
+	import {
+		canTest,
+		defaultForm,
+		displayName,
+		formFromSecret,
+		type ImagePullSecretFormState
+	} from './types';
 	import { Plus } from 'lucide-svelte';
 	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -169,6 +175,7 @@
 	}
 
 	function openTestDialog(secret: ImagePullSecret) {
+		if (!canTest(secret)) return;
 		testingSecret = secret;
 		testImage = '';
 		testResult = undefined;
@@ -184,7 +191,7 @@
 	}
 
 	async function testSecret() {
-		if (!testingSecret || !testImage.trim() || mutationsDisabled) return;
+		if (!testingSecret || !canTest(testingSecret) || !testImage.trim() || mutationsDisabled) return;
 		testing = true;
 		testResult = undefined;
 		testError = '';

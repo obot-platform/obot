@@ -5,7 +5,7 @@
 	import { userDeviceSettings } from '$lib/stores';
 	import { formatTime } from '$lib/time.js';
 	import { openUrl } from '$lib/utils.js';
-	import { displayName, statusClass, statusLabel, statusMessage } from './types';
+	import { canTest, displayName, statusClass, statusLabel, statusMessage } from './types';
 	import { Info, KeyRound, Plus, RefreshCw, ShieldCheck, Trash2 } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -87,7 +87,7 @@
 					{#snippet actions(secret)}
 						<div class="flex items-center gap-1">
 							<IconButton
-								disabled={mutationsDisabled}
+								disabled={mutationsDisabled || !canTest(secret)}
 								tooltip={{ text: 'Test' }}
 								onclick={(e) => {
 									e.stopPropagation();
@@ -158,7 +158,7 @@
 					<Info class="size-4" />
 				</IconButton>
 				<IconButton
-					disabled={mutationsDisabled}
+					disabled={mutationsDisabled || !canTest(secret)}
 					tooltip={{ text: 'Test' }}
 					onclick={(e) => {
 						e.stopPropagation();
