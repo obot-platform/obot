@@ -119,7 +119,7 @@
 					{#if detail.gitRemoteURL}
 						<div class="flex flex-col gap-1">
 							<span class="text-muted-content text-xs uppercase">Git remote</span>
-							<code class="font-mono text-xs break-all">{detail.gitRemoteURL}</code>
+							<code class="text-sm">{detail.gitRemoteURL}</code>
 						</div>
 					{/if}
 					{#if detail.files?.length}
@@ -127,9 +127,9 @@
 							<span class="text-muted-content text-xs uppercase">
 								Files ({detail.files.length})
 							</span>
-							<ul class="flex flex-col gap-0.5">
+							<ul class="flex flex-col gap-1.5">
 								{#each detail.files as f (f)}
-									<li class="flex items-center gap-1.5 font-mono text-xs">
+									<li class="flex items-center gap-1.5 text-xs">
 										<FileText class="text-muted-content size-3 shrink-0" />
 										<span class="break-all">{f}</span>
 									</li>
@@ -173,14 +173,14 @@
 						{#if property === 'shortDeviceID'}
 							<a
 								href={resolve(`/admin/devices/${d.deviceID}`)}
-								class="font-mono text-xs btn-link text-primary"
+								class="btn-link text-primary"
 								title={d.deviceID}
 								onclick={(e) => e.stopPropagation()}
 							>
 								{d.shortDeviceID}
 							</a>
 						{:else if property === 'projectPath'}
-							<span class="text-muted-content font-mono text-xs">{d.projectPath ?? '—'}</span>
+							{d.projectPath ?? '—'}
 						{:else}
 							{d[property as keyof Row]}
 						{/if}

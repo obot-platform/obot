@@ -166,7 +166,7 @@
 			>
 				{#snippet onRenderColumn(property, d: Row)}
 					{#if property === 'short_device_id'}
-						<span class="font-mono text-xs" title={d.deviceID}>{d.short_device_id}</span>
+						<span title={d.deviceID}>{d.short_device_id}</span>
 					{:else if property === 'username'}
 						{@const u = d.submittedBy ? userById.get(d.submittedBy) : undefined}
 						{#if u}
