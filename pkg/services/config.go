@@ -743,7 +743,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 	webhookHelper := mcp.NewWebhookHelper(mcpWebhookValidationInformer.GetIndexer(), config.Hostname)
 
-	mcpSessionManager, err := mcp.NewSessionManager(ctx, persistentTokenServer, config.Hostname, config.HTTPListenPort, mcp.Options(config.MCPConfig), webhookHelper, localK8sConfig, storageClient)
+	mcpSessionManager, err := mcp.NewSessionManager(ctx, config.EnableAuthentication, persistentTokenServer, config.Hostname, config.HTTPListenPort, mcp.Options(config.MCPConfig), webhookHelper, localK8sConfig, storageClient)
 	if err != nil {
 		return nil, err
 	}

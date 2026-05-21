@@ -60,6 +60,7 @@ type kubernetesBackend struct {
 	imagePullSecrets              []string
 	auditLogsBatchSize            int
 	auditLogsFlushIntervalSeconds int
+	authEnabled                   bool
 	obotClient                    kclient.Client
 	deploymentCacheMu             sync.RWMutex
 	deploymentCache               map[string]*kubernetesDeploymentCacheEntry
@@ -70,7 +71,7 @@ type kubernetesDeploymentCacheEntry struct {
 	podName string
 }
 
-func newKubernetesBackend(clientset *kubernetes.Clientset, client kclient.WithWatch, obotClient kclient.Client, opts Options) backend {
+func newKubernetesBackend(authEnabled bool, clientset *kubernetes.Clientset, client kclient.WithWatch, obotClient kclient.Client, opts Options) backend {
 	var serviceFQDN string
 	if opts.ServiceName != "" && opts.ServiceNamespace != "" {
 		serviceFQDN = fmt.Sprintf("%s.%s.svc.%s", opts.ServiceName, opts.ServiceNamespace, opts.MCPClusterDomain)
@@ -84,6 +85,7 @@ func newKubernetesBackend(clientset *kubernetes.Clientset, client kclient.WithWa
 		mcpNamespace:                  opts.MCPNamespace,
 		mcpClusterDomain:              opts.MCPClusterDomain,
 		serviceFQDN:                   serviceFQDN,
+		authEnabled:                   authEnabled,
 		imagePullSecrets:              opts.MCPImagePullSecrets,
 		auditLogsBatchSize:            opts.MCPAuditLogsPersistBatchSize,
 		auditLogsFlushIntervalSeconds: opts.MCPAuditLogPersistIntervalSeconds,
@@ -380,6 +382,11 @@ func (k *kubernetesBackend) shutdownServer(ctx context.Context, id string, hardS
 }
 
 func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig, webhooks []Webhook) ([]kclient.Object, error) {
+	if !k.authEnabled {
+		server.Issuer = ""
+		server.Audiences = nil
+	}
+
 	var (
 		command  []string
 		objs     = make([]kclient.Object, 0, 5)
@@ -485,7 +492,10 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 		secretEnvData["NANOBOT_RUN_OAUTH_AUTHORIZE_URL"] = []byte(k.transformObotHostname(server.AuthorizeEndpoint))
 		secretEnvData["NANOBOT_DISABLE_HEALTH_CHECKER"] = []byte(strconv.FormatBool(server.Runtime == types.RuntimeRemote || server.Runtime == types.RuntimeComposite))
 		// API key authentication webhook URL
-		secretEnvData["NANOBOT_RUN_APIKEY_AUTH_WEBHOOK_URL"] = []byte(k.transformObotHostname(server.Issuer + "/api/api-keys/auth"))
+		if server.Issuer != "" {
+			// If the issuer is not set then authentication not on.
+			secretEnvData["NANOBOT_RUN_APIKEY_AUTH_WEBHOOK_URL"] = []byte(k.transformObotHostname(server.Issuer + "/api/api-keys/auth"))
+		}
 		secretEnvData["NANOBOT_RUN_MCPSERVER_ID"] = []byte(strings.TrimSuffix(server.MCPServerName, "-shim"))
 
 		// Nanobot-agent-backed MCP servers should not emit MCP audit logs.
