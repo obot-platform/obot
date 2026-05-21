@@ -7,6 +7,7 @@ import (
 	"io"
 	"maps"
 	"net"
+	neturl "net/url"
 	"os"
 	"path"
 	"regexp"
@@ -30,7 +31,6 @@ import (
 	otypes "github.com/obot-platform/obot/apiclient/types"
 )
 
-var localhostURLRegexp = regexp.MustCompile(`^http://localhost(:\d+)?`)
 var containerFileNameSanitizer = regexp.MustCompile(`[^a-zA-Z0-9._-]+`)
 
 type dockerBackend struct {
@@ -139,8 +139,25 @@ func detectCurrentLocalIP() (string, error) {
 	return ip, nil
 }
 
-func (d *dockerBackend) transformObotHostname(url string) string {
-	return localhostURLRegexp.ReplaceAllString(url, d.hostBaseURLWithPort)
+func (d *dockerBackend) transformObotHostname(rawURL string) string {
+	if d.hostBaseURLWithPort == "" || rawURL == "" {
+		return rawURL
+	}
+
+	parsed, err := neturl.Parse(rawURL)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return rawURL
+	}
+
+	base, err := neturl.Parse(d.hostBaseURLWithPort)
+	if err != nil || base.Scheme == "" || base.Host == "" {
+		return rawURL
+	}
+
+	parsed.Scheme = base.Scheme
+	parsed.Host = base.Host
+	parsed.User = nil
+	return parsed.String()
 }
 
 func (d *dockerBackend) transformCollectorEndpoint(rawURL string) string {
@@ -253,6 +270,7 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 
 func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfig, mcpServerName string, containerEnv bool, webhooks []Webhook) (ServerConfig, error) {
 	server.TokenExchangeEndpoint = d.transformObotHostname(server.TokenExchangeEndpoint)
+	server.AuthorizeEndpoint = d.transformObotHostname(server.AuthorizeEndpoint)
 	server.AuditLogEndpoint = d.transformObotHostname(server.AuditLogEndpoint)
 	server.JWKSEndpoint = d.transformObotHostname(server.JWKSEndpoint)
 
@@ -864,7 +882,7 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 			// Set nanobot environment variables
 			env = []string{
 				"NANOBOT_RUN_TRUSTED_ISSUER=" + server.Issuer,
-				"NANOBOT_RUN_OAUTH_JWKSURL=" + d.transformObotHostname(server.JWKSEndpoint),
+				"NANOBOT_RUN_OAUTH_JWKSURL=" + server.JWKSEndpoint,
 				"NANOBOT_RUN_TRUSTED_AUDIENCES=" + strings.Join(server.Audiences, ","),
 				"NANOBOT_RUN_OAUTH_CLIENT_ID=" + server.TokenExchangeClientID,
 				"NANOBOT_RUN_OAUTH_CLIENT_SECRET=" + server.TokenExchangeClientSecret,
