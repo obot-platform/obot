@@ -63,6 +63,7 @@ MCP server configurations consist of individual YAML files, each defining a sing
 - **Tool Previews**: Documentation of available tools and their parameters
 - **Metadata**: Categories, icons, repository URLs, and classification information
 - **Environment Variables**: Required and optional configuration parameters
+- **Resource Requirements**: Optional CPU and memory requests and limits for hosted server deployments
 - **Runtime Configuration**: Deployment and connection details
 
 For examples and reference implementations, see the official Obot MCP server repository at [github.com/obot-platform/mcp-catalog](https://github.com/obot-platform/mcp-catalog).
@@ -123,6 +124,31 @@ The `serverUserType` field specifies how users interact with the catalog entry:
 - `singleUser` (default): Each user who installs this catalog entry gets their own independent MCP server instance.
 
 Omitting the field or setting it to `""` is equivalent to `singleUser`. Currently only `singleUser` is supported; other values will be rejected at validation time.
+
+### Resource Requirements
+
+Catalog entries can optionally define CPU and memory requests and limits for hosted MCP server deployments. These values are useful when a specific server needs more or fewer resources than the platform defaults.
+
+```yaml
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi
+```
+
+Supported fields are:
+
+- `resources.requests.cpu`
+- `resources.requests.memory`
+- `resources.limits.cpu`
+- `resources.limits.memory`
+
+Values use standard Kubernetes resource quantity syntax, such as `250m`, `1`, `512Mi`, or `1Gi`.
+
+When omitted, Obot uses the configured MCP server resource defaults. When specified, catalog entry resource values override the corresponding default request or limit for servers created from that catalog entry.
 
 ### Kubernetes Secret Bindings
 
