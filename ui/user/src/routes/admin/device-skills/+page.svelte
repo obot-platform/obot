@@ -114,11 +114,7 @@
 				}}
 			>
 				{#snippet onRenderColumn(property, d: Row)}
-					{#if property === 'name'}
-						<span class="font-medium">{d.name}</span>
-					{:else}
-						{d[property as keyof Row]}
-					{/if}
+					{d[property as keyof Row] ?? '—'}
 				{/snippet}
 			</Table>
 

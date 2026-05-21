@@ -71,12 +71,12 @@
 		{:else}
 			<div class="dark:bg-base-300 bg-base-100 flex flex-col gap-3 rounded-md p-4 shadow-sm">
 				<div class="flex flex-wrap items-baseline gap-2">
-					<h2 class="font-mono text-xl font-semibold">{server.name}</h2>
+					<h2 class="text-xl font-semibold">{server.name}</h2>
 					<span class="pill-primary bg-primary">{server.transport}</span>
-					<span class="dark:bg-base-400 bg-base-300 rounded px-1.5 py-0.5 font-mono text-xs">
+					<span class="dark:bg-base-400 bg-base-300 rounded px-1.5 py-0.5 text-xs">
 						{server.client}
 					</span>
-					<span class="dark:bg-base-400 bg-base-300 rounded px-1.5 py-0.5 font-mono text-xs">
+					<span class="dark:bg-base-400 bg-base-300 rounded px-1.5 py-0.5 text-xs">
 						{scope}
 					</span>
 				</div>
@@ -84,15 +84,15 @@
 				<dl class="grid grid-cols-1 gap-x-6 gap-y-2 text-sm md:grid-cols-[max-content_1fr]">
 					{#if endpoint}
 						<dt class="text-muted-content">Endpoint</dt>
-						<dd class="font-mono break-all">{endpoint}</dd>
+						<dd class="break-all">{endpoint}</dd>
 					{/if}
 					{#if server.command}
 						<dt class="text-muted-content">Command</dt>
 						<dd class="font-mono break-all">{server.command}</dd>
 					{/if}
 					{#if server.args && server.args.length > 0}
-						<dt class="text-mute-content">Args</dt>
-						<dd class="font-mono text-xs break-all">
+						<dt class="text-muted-content">Args</dt>
+						<dd class="text-xs break-all">
 							{#each server.args as arg, i (i)}
 								<span class="dark:bg-base-400 bg-base-300 mr-1 inline-block rounded px-1.5 py-0.5">
 									{arg}
@@ -102,16 +102,14 @@
 					{/if}
 					{#if server.url}
 						<dt class="text-muted-content">URL</dt>
-						<dd class="font-mono break-all">{server.url}</dd>
+						<dd class="break-all">{server.url}</dd>
 					{/if}
 					<dt class="text-muted-content">Env keys</dt>
 					<dd>
 						{#if server.envKeys && server.envKeys.length > 0}
-							<div class="flex flex-wrap gap-1">
+							<div class="flex flex-wrap gap-2">
 								{#each server.envKeys as k (k)}
-									<span
-										class="dark:bg-base-400 bg-base-300 rounded px-1.5 py-0.5 font-mono text-xs"
-									>
+									<span class="dark:bg-base-400 bg-base-300 rounded px-1.5 py-0.5 text-xs">
 										{k}
 									</span>
 								{/each}
@@ -123,11 +121,9 @@
 					<dt class="text-muted-content">Header keys</dt>
 					<dd>
 						{#if server.headerKeys && server.headerKeys.length > 0}
-							<div class="flex flex-wrap gap-1">
+							<div class="flex flex-wrap gap-2">
 								{#each server.headerKeys as k (k)}
-									<span
-										class="dark:bg-base-400 bg-base-300 rounded px-1.5 py-0.5 font-mono text-xs"
-									>
+									<span class="dark:bg-base-400 bg-base-300 rounded px-1.5 py-0.5 text-xs">
 										{k}
 									</span>
 								{/each}
@@ -138,13 +134,13 @@
 					</dd>
 					{#if server.file}
 						<dt class="text-muted-content">File</dt>
-						<dd class="font-mono text-xs break-all">{server.file}</dd>
+						<dd class="text-sm break-all">{server.file}</dd>
 					{/if}
 					{#if parentPlugin}
 						<dt class="text-muted-content">Part of plugin</dt>
 						<dd>
 							<a
-								class="text-link font-mono"
+								class="text-sm text-link"
 								href={resolve(
 									`/admin/devices/${page.params.device_id}/scans/${page.params.scan_id}/plugins/${parentPlugin.id}`
 								)}
@@ -155,12 +151,12 @@
 					{/if}
 					{#if server.projectPath}
 						<dt class="text-muted-content">Project path</dt>
-						<dd class="font-mono text-xs break-all">{server.projectPath}</dd>
+						<dd class="break-all">{server.projectPath}</dd>
 					{/if}
 					{#if server.configHash}
 						<dt class="text-muted-content">Config hash</dt>
 						<dd class="flex items-center gap-1">
-							<span class="font-mono text-xs" use:tooltip={server.configHash}>
+							<span class="text-sm" use:tooltip={server.configHash}>
 								{shortHash(server.configHash)}
 							</span>
 							<CopyButton text={server.configHash} />
@@ -176,7 +172,7 @@
 				</div>
 				<div class="dark:bg-base-300 bg-base-100 flex flex-col gap-2 rounded-md p-3 shadow-sm">
 					<pre
-						class="dark:bg-base-400 bg-base-200 text-base-content max-h-96 overflow-auto rounded p-2 font-mono text-xs">{renderConfig(
+						class="dark:bg-base-400 bg-base-200 text-base-content max-h-96 overflow-auto rounded p-2 font-mono text-xs mb-0 mt-2">{renderConfig(
 							server
 						)}</pre>
 					<p class="text-muted-content text-xs">

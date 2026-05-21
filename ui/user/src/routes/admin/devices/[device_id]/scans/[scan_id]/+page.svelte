@@ -222,7 +222,7 @@
 				<dl class="grid flex-1 grid-cols-[max-content_1fr] items-center gap-x-4 gap-y-2 text-sm">
 					<dt class="text-muted-content text-xs font-medium uppercase tracking-wide">Device ID</dt>
 					<dd class="flex items-center gap-2">
-						<span class="font-mono text-base font-semibold">{scan.deviceID}</span>
+						<span class="text-base font-semibold">{scan.deviceID}</span>
 						<CopyButton text={scan.deviceID} />
 						{#if isLatest}
 							<span
@@ -259,14 +259,14 @@
 								<span>{userDisplay(submittedByUser)}</span>
 							</div>
 						{:else if scan.submittedBy}
-							<span class="font-mono text-xs">{scan.submittedBy}</span>
+							<span class="text-xs">{scan.submittedBy}</span>
 						{:else}
 							<span class="text-muted-content">—</span>
 						{/if}
 					</dd>
 
 					<dt class="text-muted-content text-xs font-medium uppercase tracking-wide">Scanner</dt>
-					<dd class="font-mono">{scan.scannerVersion || '—'}</dd>
+					<dd>{scan.scannerVersion || '—'}</dd>
 
 					<dt class="text-muted-content text-xs font-medium uppercase tracking-wide">Scanned</dt>
 					<dd use:tooltip={scannedTime.fullDate}>
@@ -346,11 +346,7 @@
 							}}
 						>
 							{#snippet onRenderColumn(property, d: MCPRow)}
-								{#if property === 'name'}
-									<span class="font-mono text-xs">{d.name}</span>
-								{:else if property === 'endpoint'}
-									<span class="font-mono text-xs">{d.endpoint}</span>
-								{:else if property === 'client'}
+								{#if property === 'client'}
 									{@render clientLink(d.client)}
 								{:else}
 									{d[property as keyof MCPRow] ?? '—'}
@@ -433,8 +429,6 @@
 							{#snippet onRenderColumn(property, d: PluginRow)}
 								{#if property === 'enabled'}
 									{d.enabled ? 'yes' : 'no'}
-								{:else if property === 'version'}
-									<span class="font-mono text-xs">{d.version ?? '—'}</span>
 								{:else if property === 'client'}
 									{@render clientLink(d.client)}
 								{:else}
@@ -468,15 +462,7 @@
 							filterable={['name']}
 						>
 							{#snippet onRenderColumn(property, d: ClientRow)}
-								{#if property === 'version'}
-									<span class="font-mono text-xs">{d.version ?? '—'}</span>
-								{:else if property === 'paths_display'}
-									<span class="font-mono text-xs">{d.paths_display}</span>
-								{:else if property === 'has_display'}
-									<span class="text-xs">{d.has_display}</span>
-								{:else}
-									{d[property as keyof ClientRow] ?? '—'}
-								{/if}
+								{d[property as keyof ClientRow] ?? '—'}
 							{/snippet}
 						</Table>
 					{/if}

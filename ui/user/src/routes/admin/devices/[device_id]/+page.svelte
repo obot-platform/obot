@@ -210,7 +210,7 @@
 				<dl class="grid grid-cols-[max-content_1fr] items-center gap-x-4 gap-y-2 text-sm">
 					<dt class="text-muted-content text-xs font-medium tracking-wide uppercase">Device ID</dt>
 					<dd class="flex items-center gap-2">
-						<span class="font-mono text-base font-semibold">{deviceId}</span>
+						<span class="text-base font-semibold">{deviceId}</span>
 						<CopyButton text={deviceId} />
 					</dd>
 
@@ -240,20 +240,20 @@
 								<span>{userDisplay(submittedByUser)}</span>
 							</div>
 						{:else if latest.submittedBy}
-							<span class="font-mono text-xs">{latest.submittedBy}</span>
+							<span class="text-xs">{latest.submittedBy}</span>
 						{:else}
 							<span class="text-muted-content">—</span>
 						{/if}
 					</dd>
 
 					<dt class="text-muted-content text-xs font-medium tracking-wide uppercase">OS user</dt>
-					<dd class="font-mono">{latest.username || '—'}</dd>
+					<dd>{latest.username || '—'}</dd>
 
 					<dt class="text-muted-content text-xs font-medium tracking-wide uppercase">Hostname</dt>
-					<dd class="font-mono">{latest.hostname || '—'}</dd>
+					<dd>{latest.hostname || '—'}</dd>
 
 					<dt class="text-muted-content text-xs font-medium tracking-wide uppercase">Scanner</dt>
-					<dd class="font-mono">{latest.scannerVersion || '—'}</dd>
+					<dd>{latest.scannerVersion || '—'}</dd>
 
 					<dt class="text-muted-content text-xs font-medium tracking-wide uppercase">
 						Last scanned
@@ -331,11 +331,7 @@
 							}}
 						>
 							{#snippet onRenderColumn(property, d: MCPRow)}
-								{#if property === 'name'}
-									<span class="font-mono text-xs">{d.name}</span>
-								{:else if property === 'endpoint'}
-									<span class="font-mono text-xs">{d.endpoint}</span>
-								{:else if property === 'client'}
+								{#if property === 'client'}
 									{@render clientLink(d.client)}
 								{:else}
 									{d[property as keyof MCPRow] ?? '—'}
@@ -471,7 +467,7 @@
 								{#if property === 'enabled'}
 									{d.enabled ? 'yes' : 'no'}
 								{:else if property === 'version'}
-									<span class="font-mono text-xs">{d.version ?? '—'}</span>
+									{d.version ?? '—'}
 								{:else if property === 'client'}
 									{@render clientLink(d.client)}
 								{:else}
@@ -498,15 +494,7 @@
 							filterable={['name']}
 						>
 							{#snippet onRenderColumn(property, d: ClientRow)}
-								{#if property === 'version'}
-									<span class="font-mono text-xs">{d.version ?? '—'}</span>
-								{:else if property === 'paths_display'}
-									<span class="font-mono text-xs">{d.paths_display}</span>
-								{:else if property === 'has_display'}
-									<span class="text-xs">{d.has_display}</span>
-								{:else}
-									{d[property as keyof ClientRow] ?? '—'}
-								{/if}
+								{d[property as keyof ClientRow] ?? '—'}
 							{/snippet}
 						</Table>
 					{/if}
@@ -545,7 +533,7 @@
 					{#snippet onRenderColumn(property, d: HistoryRow)}
 						{#if property === 'id'}
 							<span class="flex items-center gap-2">
-								<span class="font-mono text-xs">#{d.id}</span>
+								<span class="text-xs">#{d.id}</span>
 								{#if d.is_latest}
 									<span
 										class="bg-primary/15 text-primary rounded-full px-2 py-0.5 text-[10px] font-medium tracking-wide uppercase"

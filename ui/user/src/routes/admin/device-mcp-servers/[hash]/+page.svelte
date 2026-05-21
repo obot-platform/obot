@@ -119,15 +119,15 @@
 					{#if detail.url}
 						<div class="flex flex-col gap-1">
 							<span class="text-muted-content text-xs uppercase">URL</span>
-							<code class="font-mono text-xs break-all">{detail.url}</code>
+							<p class="text-sm break-all">{detail.url}</p>
 						</div>
 					{/if}
 					{#if detail.envKeys?.length}
 						<div class="flex flex-col gap-1">
 							<span class="text-muted-content text-xs uppercase">Env keys</span>
-							<div class="flex flex-wrap gap-1">
+							<div class="flex flex-wrap gap-2">
 								{#each detail.envKeys as k (k)}
-									<code class="bg-base-400 rounded px-1.5 py-0.5 font-mono text-xs">{k}</code>
+									<code class="bg-base-400 rounded px-1.5 py-0.5 text-xs">{k}</code>
 								{/each}
 							</div>
 						</div>
@@ -135,9 +135,9 @@
 					{#if detail.headerKeys?.length}
 						<div class="flex flex-col gap-1">
 							<span class="text-muted-content text-xs uppercase">Header keys</span>
-							<div class="flex flex-wrap gap-1">
+							<div class="flex flex-wrap gap-2">
 								{#each detail.headerKeys as k (k)}
-									<code class="bg-base-400 rounded px-1.5 py-0.5 font-mono text-xs">{k}</code>
+									<code class="bg-base-400 rounded px-1.5 py-0.5 text-xs">{k}</code>
 								{/each}
 							</div>
 						</div>
@@ -170,7 +170,7 @@
 						{#if property === 'shortDeviceID'}
 							<a
 								href={resolve(`/admin/devices/${d.deviceID}`)}
-								class="font-mono text-xs btn-link text-primary"
+								class="btn-link text-primary"
 								title={d.deviceID}
 								onclick={(e) => e.stopPropagation()}
 							>
