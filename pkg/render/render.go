@@ -3,6 +3,7 @@ package render
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/obot-platform/nah/pkg/router"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -11,6 +12,10 @@ import (
 )
 
 func ResolveToolReference(ctx context.Context, c kclient.Client, toolRefType v1.ToolReferenceType, ns, name string) (string, error) {
+	if strings.ContainsAny(name, " .\\/") {
+		return name, nil
+	}
+
 	var tool v1.ToolReference
 	if err := c.Get(ctx, router.Key(ns, name), &tool); apierrors.IsNotFound(err) {
 		return name, nil
