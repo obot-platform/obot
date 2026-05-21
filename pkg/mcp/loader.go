@@ -96,12 +96,12 @@ const streamableHTTPHealthcheckBody string = `{
     }
 }`
 
-func NewSessionManager(ctx context.Context, tokenService TokenService, baseURL string, httpListenPort int, opts Options, webhookHelper *WebhookHelper, localK8sConfig *rest.Config, obotStorageClient storage.Client) (*SessionManager, error) {
+func NewSessionManager(ctx context.Context, authEnabled bool, tokenService TokenService, baseURL string, httpListenPort int, opts Options, webhookHelper *WebhookHelper, localK8sConfig *rest.Config, obotStorageClient storage.Client) (*SessionManager, error) {
 	var backend backend
 
 	switch opts.MCPRuntimeBackend {
 	case runtimeBackendDocker:
-		dockerBackend, err := newDockerBackend(ctx, httpListenPort, opts)
+		dockerBackend, err := newDockerBackend(ctx, authEnabled, httpListenPort, opts)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize Docker backend: %w", err)
 		}
@@ -145,7 +145,7 @@ func NewSessionManager(ctx context.Context, tokenService TokenService, baseURL s
 			return nil, err
 		}
 
-		backend = newKubernetesBackend(clientset, client, obotStorageClient, opts)
+		backend = newKubernetesBackend(authEnabled, clientset, client, obotStorageClient, opts)
 	default:
 		return nil, fmt.Errorf("unknown runtime backend: %s", opts.MCPRuntimeBackend)
 	}

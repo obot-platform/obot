@@ -43,6 +43,7 @@ type dockerBackend struct {
 	remoteShimBaseImage           string
 	auditLogsBatchSize            int
 	auditLogsFlushIntervalSeconds int
+	authEnabled                   bool
 	deploymentCacheMu             sync.RWMutex
 	deploymentCache               map[string]*dockerDeploymentCacheEntry
 	fileSyncMu                    sync.RWMutex
@@ -55,7 +56,7 @@ type dockerDeploymentCacheEntry struct {
 	containerIDs map[string]string
 }
 
-func newDockerBackend(ctx context.Context, exposedPort int, opts Options) (backend, error) {
+func newDockerBackend(ctx context.Context, authEnabled bool, exposedPort int, opts Options) (backend, error) {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Docker client: %w", err)
@@ -88,6 +89,7 @@ func newDockerBackend(ctx context.Context, exposedPort int, opts Options) (backe
 		remoteShimBaseImage:           opts.MCPRemoteShimBaseImage,
 		auditLogsBatchSize:            opts.MCPAuditLogsPersistBatchSize,
 		auditLogsFlushIntervalSeconds: opts.MCPAuditLogPersistIntervalSeconds,
+		authEnabled:                   authEnabled,
 		deploymentCache:               map[string]*dockerDeploymentCacheEntry{},
 		syncedFilesHash:               map[string]string{},
 	}
@@ -273,6 +275,11 @@ func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfi
 	server.AuthorizeEndpoint = d.transformObotHostname(server.AuthorizeEndpoint)
 	server.AuditLogEndpoint = d.transformObotHostname(server.AuditLogEndpoint)
 	server.JWKSEndpoint = d.transformObotHostname(server.JWKSEndpoint)
+
+	if !d.authEnabled {
+		server.Issuer = ""
+		server.Audiences = nil
+	}
 
 	for i, component := range server.Components {
 		component.URL = d.transformObotHostname(component.URL)
@@ -879,6 +886,11 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 		image = d.containerizedBaseImage
 		if server.Runtime == otypes.RuntimeRemote || server.Runtime == otypes.RuntimeComposite {
 			image = d.remoteShimBaseImage
+			var authWebhookURL string
+			if server.Issuer != "" {
+				// If the issuer is not set then authentication is not on.
+				authWebhookURL = d.transformObotHostname(server.Issuer + "/api/api-keys/auth")
+			}
 			// Set nanobot environment variables
 			env = []string{
 				"NANOBOT_RUN_TRUSTED_ISSUER=" + server.Issuer,
@@ -891,7 +903,7 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 				"NANOBOT_RUN_OAUTH_SCOPES=profile",
 				"NANOBOT_RUN_FORCE_FETCH_TOOL_LIST=true",
 				"NANOBOT_DISABLE_HEALTH_CHECKER=true",
-				"NANOBOT_RUN_APIKEY_AUTH_WEBHOOK_URL=" + d.transformObotHostname(server.Issuer+"/api/api-keys/auth"),
+				"NANOBOT_RUN_APIKEY_AUTH_WEBHOOK_URL=" + authWebhookURL,
 				"NANOBOT_RUN_MCPSERVER_ID=" + strings.TrimSuffix(server.MCPServerName, "-shim"),
 			}
 
