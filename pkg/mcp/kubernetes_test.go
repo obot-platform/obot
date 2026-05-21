@@ -43,36 +43,47 @@ func TestComputeK8sSettingsHashUsesServerSpecificResources(t *testing.T) {
 		},
 	}
 
-	baseHash := ComputeK8sSettingsHash(baseSettings, types.RuntimeNPX, false, nil)
-	if got := ComputeK8sSettingsHash(resourceSettings, types.RuntimeNPX, false, nil); got == baseHash {
-		t.Fatalf("regular server hash = %s, want it to differ when resources are set", got)
+	baseHash := ComputeK8sSettingsHash(baseSettings, nil, types.RuntimeNPX, false, nil)
+	if got := ComputeK8sSettingsHash(resourceSettings, nil, types.RuntimeNPX, false, nil); got == baseHash {
+		t.Fatalf("regular server hash = %s, want it to differ when default resources are set", got)
 	}
-	if got := ComputeK8sSettingsHash(resourceSettings, types.RuntimeRemote, false, nil); got != baseHash {
-		t.Fatalf("remote server hash = %s, want %s", got, baseHash)
+
+	remoteBaseHash := ComputeK8sSettingsHash(baseSettings, nil, types.RuntimeRemote, false, nil)
+	if got := ComputeK8sSettingsHash(resourceSettings, nil, types.RuntimeRemote, false, nil); got != remoteBaseHash {
+		t.Fatalf("remote server hash = %s, want %s", got, remoteBaseHash)
 	}
-	if got := ComputeK8sSettingsHash(resourceSettings, types.RuntimeNPX, true, nil); got != baseHash {
-		t.Fatalf("nanobot agent server hash = %s, want %s before nanobot-only settings are set", got, baseHash)
+
+	nanobotBaseHash := ComputeK8sSettingsHash(baseSettings, nil, types.RuntimeNPX, true, nil)
+	if got := ComputeK8sSettingsHash(resourceSettings, nil, types.RuntimeNPX, true, nil); got != nanobotBaseHash {
+		t.Fatalf("nanobot agent server hash = %s, want %s before nanobot-only settings are set", got, nanobotBaseHash)
 	}
-	if got := ComputeK8sSettingsHash(nanobotSettings, types.RuntimeNPX, false, nil); got != ComputeK8sSettingsHash(resourceSettings, types.RuntimeNPX, false, nil) {
+	if got := ComputeK8sSettingsHash(nanobotSettings, nil, types.RuntimeNPX, false, nil); got != ComputeK8sSettingsHash(resourceSettings, nil, types.RuntimeNPX, false, nil) {
 		t.Fatalf("non-nanobot hash = %s, want nanobot-only settings ignored", got)
 	}
-	if got := ComputeK8sSettingsHash(nanobotSettings, types.RuntimeNPX, true, nil); got == baseHash {
+	if got := ComputeK8sSettingsHash(nanobotSettings, nil, types.RuntimeNPX, true, nil); got == nanobotBaseHash {
 		t.Fatalf("nanobot hash = %s, want it to differ when nanobot-only settings are set", got)
+	}
+
+	serverResources := &corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceMemory: resource.MustParse("768Mi"),
+		},
+	}
+	if got := ComputeK8sSettingsHash(baseSettings, serverResources, types.RuntimeNPX, false, nil); got == baseHash {
+		t.Fatalf("server-specific resources hash = %s, want it to differ from default resource hash", got)
 	}
 }
 
 func TestMCPContainerResourcesAppliesServerOverridesWithRequestDefaults(t *testing.T) {
-	resources := mcpContainerResources(ServerConfig{
-		Runtime: types.RuntimeNPX,
-		Resources: corev1.ResourceRequirements{
-			Requests: corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse("512Mi"),
-			},
-			Limits: corev1.ResourceList{
-				corev1.ResourceCPU: resource.MustParse("1"),
-			},
+	serverResources := &corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceMemory: resource.MustParse("512Mi"),
 		},
-	}, v1.K8sSettingsSpec{})
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU: resource.MustParse("1"),
+		},
+	}
+	resources := mcpContainerResources(serverResources, types.RuntimeNPX, false, v1.K8sSettingsSpec{})
 
 	if got, want := resources.Requests[corev1.ResourceMemory], resource.MustParse("512Mi"); got.Cmp(want) != 0 {
 		t.Fatalf("memory request = %s, want %s", got.String(), want.String())
@@ -86,14 +97,12 @@ func TestMCPContainerResourcesAppliesServerOverridesWithRequestDefaults(t *testi
 }
 
 func TestMCPContainerResourcesAppliesServerCPURequestWithMemoryDefault(t *testing.T) {
-	resources := mcpContainerResources(ServerConfig{
-		Runtime: types.RuntimeNPX,
-		Resources: corev1.ResourceRequirements{
-			Requests: corev1.ResourceList{
-				corev1.ResourceCPU: resource.MustParse("250m"),
-			},
+	serverResources := &corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU: resource.MustParse("250m"),
 		},
-	}, v1.K8sSettingsSpec{})
+	}
+	resources := mcpContainerResources(serverResources, types.RuntimeNPX, false, v1.K8sSettingsSpec{})
 
 	if got, want := resources.Requests[corev1.ResourceCPU], resource.MustParse("250m"); got.Cmp(want) != 0 {
 		t.Fatalf("cpu request = %s, want %s", got.String(), want.String())
@@ -707,7 +716,7 @@ func TestK8sObjects_ManagedImagePullSecrets(t *testing.T) {
 	dep := findDeployment(t, objs, "test-server")
 	assertImagePullSecrets(t, dep, []string{"managed-a", "managed-b"})
 
-	expectedHash := ComputeK8sSettingsHash(v1.K8sSettingsSpec{}, types.RuntimeContainerized, false, []string{"managed-b", "managed-a"})
+	expectedHash := ComputeK8sSettingsHash(v1.K8sSettingsSpec{}, nil, types.RuntimeContainerized, false, []string{"managed-b", "managed-a"})
 	if dep.Annotations["obot.ai/k8s-settings-hash"] != expectedHash {
 		t.Fatalf("k8s settings hash = %q, want %q", dep.Annotations["obot.ai/k8s-settings-hash"], expectedHash)
 	}

@@ -129,7 +129,13 @@ func (h *Handler) UpdateMCPServerStatus(req router.Request, _ router.Response) e
 			if err != nil {
 				return err
 			}
-			currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec, mcpServer.Spec.Manifest.Runtime, mcpServer.Spec.NanobotAgentID != "", imagePullSecretNames)
+
+			resources, err := mcp.CoreResourceRequirements(mcpServer.Spec.Manifest.Resources)
+			if err != nil {
+				return fmt.Errorf("failed to compute core resource requirements: %w", err)
+			}
+
+			currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec, resources, mcpServer.Spec.Manifest.Runtime, mcpServer.Spec.NanobotAgentID != "", imagePullSecretNames)
 
 			shouldSetNeedsK8sUpdate := !mcpServer.Status.NeedsK8sUpdate &&
 				k8sSettingsHash != currentHash &&
