@@ -87,7 +87,7 @@
 				{#snippet onRenderColumn(property, d: Row)}
 					{#if property === 'name'}
 						{#if d.name?.trim()}
-							<span class="font-medium">{d.name}</span>
+							{d.name.trim()}
 						{:else}
 							<span class="text-muted-content italic">(unnamed)</span>
 						{/if}

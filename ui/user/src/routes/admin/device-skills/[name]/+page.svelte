@@ -119,7 +119,7 @@
 					{#if detail.gitRemoteURL}
 						<div class="flex flex-col gap-1">
 							<span class="text-muted-content text-xs uppercase">Git remote</span>
-							<code class="text-sm">{detail.gitRemoteURL}</code>
+							<code class="text-sm break-all">{detail.gitRemoteURL}</code>
 						</div>
 					{/if}
 					{#if detail.files?.length}

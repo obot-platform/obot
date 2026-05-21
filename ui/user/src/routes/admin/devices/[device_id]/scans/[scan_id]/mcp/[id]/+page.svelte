@@ -88,10 +88,10 @@
 					{/if}
 					{#if server.command}
 						<dt class="text-muted-content">Command</dt>
-						<dd class="break-all">{server.command}</dd>
+						<dd class="font-mono break-all">{server.command}</dd>
 					{/if}
 					{#if server.args && server.args.length > 0}
-						<dt class="text-mute-content">Args</dt>
+						<dt class="text-muted-content">Args</dt>
 						<dd class="text-xs break-all">
 							{#each server.args as arg, i (i)}
 								<span class="dark:bg-base-400 bg-base-300 mr-1 inline-block rounded px-1.5 py-0.5">
@@ -134,7 +134,7 @@
 					</dd>
 					{#if server.file}
 						<dt class="text-muted-content">File</dt>
-						<dd class="text-sm">{server.file}</dd>
+						<dd class="text-sm break-all">{server.file}</dd>
 					{/if}
 					{#if parentPlugin}
 						<dt class="text-muted-content">Part of plugin</dt>
