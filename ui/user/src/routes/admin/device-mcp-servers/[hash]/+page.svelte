@@ -119,7 +119,7 @@
 					{#if detail.url}
 						<div class="flex flex-col gap-1">
 							<span class="text-muted-content text-xs uppercase">URL</span>
-							<code class="text-sm break-all">{detail.url}</code>
+							<p class="text-sm break-all">{detail.url}</p>
 						</div>
 					{/if}
 					{#if detail.envKeys?.length}
