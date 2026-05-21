@@ -124,6 +124,10 @@ func (h *Handler) ensureServerIsDeployed(req api.Context) (mcp.ServerConfig, str
 }
 
 func (h *Handler) ensureSystemServerIsDeployed(req api.Context, mcpID string) (mcp.ServerConfig, string, bool, error) {
+	if !system.IsProxyableSystemMCPServerID(mcpID) {
+		return mcp.ServerConfig{}, "", false, apierrors.NewNotFound(schema.GroupResource{Group: "obot.obot.ai", Resource: "systemmcpserver"}, mcpID)
+	}
+
 	var systemServer v1.SystemMCPServer
 	if err := req.Get(&systemServer, mcpID); err != nil {
 		return mcp.ServerConfig{}, "", false, fmt.Errorf("failed to get system MCP server %q: %w", mcpID, err)

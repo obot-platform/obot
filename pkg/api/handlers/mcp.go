@@ -1030,6 +1030,13 @@ func mcpServerOrInstanceFromConnectURL(req api.Context, id string) (v1.MCPServer
 // MCPIDAndAudienceFromConnectURL returns the MCP server or instance name and audience based on the provided connect URL.
 // The connect URL could have an MCP server ID, server instance ID, or MCP catalog entry ID.
 func MCPIDAndAudienceFromConnectURL(req api.Context, id string) (string, string, error) {
+	if system.IsSystemMCPServerID(id) {
+		if system.IsExternallyAccessibleSystemMCPServerID(id) {
+			return id, id, nil
+		}
+		return "", "", types.NewErrNotFound("system MCP server %s is not externally accessible", id)
+	}
+
 	server, instance, err := mcpServerOrInstanceFromConnectURL(req, id)
 	if err != nil {
 		return "", "", err

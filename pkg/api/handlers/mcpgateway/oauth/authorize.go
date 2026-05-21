@@ -194,6 +194,14 @@ func (h *handler) authorize(req api.Context) error {
 			return nil
 		}
 	}
+	if system.IsSystemMCPServerID(mcpID) && !system.IsExternallyAccessibleSystemMCPServerID(mcpID) {
+		redirectWithAuthorizeError(req, redirectURI, Error{
+			Code:        ErrAccessDenied,
+			Description: fmt.Sprintf("system MCP server %s is not externally accessible", mcpID),
+			State:       state,
+		})
+		return nil
+	}
 
 	if mcpID == "" {
 		redirectWithAuthorizeError(req, redirectURI, Error{

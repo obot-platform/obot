@@ -65,6 +65,14 @@ func IsSystemMCPServerID(id string) bool {
 	return strings.HasPrefix(id, SystemMCPServerPrefix)
 }
 
+func IsExternallyAccessibleSystemMCPServerID(id string) bool {
+	return id == ObotMCPServerName
+}
+
+func IsProxyableSystemMCPServerID(id string) bool {
+	return IsExternallyAccessibleSystemMCPServerID(id) || IsWebhookSystemMCPServerID(id)
+}
+
 func IsWebhookSystemMCPServerID(id string) bool {
 	return strings.HasPrefix(id, SystemMCPServerPrefix+MCPWebhookValidationPrefix)
 }

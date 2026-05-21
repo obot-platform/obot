@@ -24,10 +24,12 @@ import (
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/proxy"
 	"github.com/obot-platform/obot/pkg/storage"
+	"github.com/obot-platform/obot/pkg/system"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apiserver/pkg/authentication/user"
 )
 
 var log = logger.Package()
@@ -183,6 +185,11 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 			}
 		}
 
+		if isAnonymousRequestForNonExternalSystemMCPServer(req, user) {
+			http.NotFound(rw, req)
+			return
+		}
+
 		if !s.authorizer.Authorize(req, user) {
 			if _, err := req.Cookie(auth.ObotAccessTokenCookie); err == nil && req.URL.Path == "/api/me" {
 				// Tell the browser to delete the obot_access_token cookie.
@@ -244,6 +251,15 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 			log.Errorf("Error handling request for %s: %v", req.URL.Path, err)
 		}
 	}
+}
+
+func isAnonymousRequestForNonExternalSystemMCPServer(req *http.Request, user user.Info) bool {
+	if user.GetUID() != "anonymous" || !strings.HasPrefix(req.URL.Path, "/mcp-connect/") {
+		return false
+	}
+
+	mcpID := req.PathValue("mcp_id")
+	return system.IsSystemMCPServerID(mcpID) && !system.IsExternallyAccessibleSystemMCPServerID(mcpID)
 }
 
 type headersResponseWriter struct {
