@@ -30,11 +30,17 @@ jobs:
           QUILL_TARBALL_URL: https://github.com/anchore/quill/releases/download/v0.7.1/quill_0.7.1_linux_amd64.tar.gz
           QUILL_CHECKSUMS_URL: https://github.com/anchore/quill/releases/download/v0.7.1/quill_0.7.1_checksums.txt
         run: |
-          curl -sSfL -o "${QUILL_TARBALL}" "${QUILL_TARBALL_URL}"
-          curl -sSfL -o quill_checksums.txt "${QUILL_CHECKSUMS_URL}"
-          grep "${QUILL_TARBALL}$" quill_checksums.txt | sha256sum --check -
-          tar -xzf "${QUILL_TARBALL}" quill
-          sudo install -m 0755 quill /usr/local/bin/quill
+          quill_dir="$(mktemp -d)"
+          trap 'rm -rf "${quill_dir}"' EXIT
+
+          curl -sSfL -o "${quill_dir}/${QUILL_TARBALL}" "${QUILL_TARBALL_URL}"
+          curl -sSfL -o "${quill_dir}/quill_checksums.txt" "${QUILL_CHECKSUMS_URL}"
+          (
+            cd "${quill_dir}"
+            grep "${QUILL_TARBALL}$" quill_checksums.txt | sha256sum --check -
+            tar -xzf "${QUILL_TARBALL}" quill
+          )
+          sudo install -m 0755 "${quill_dir}/quill" /usr/local/bin/quill
           quill version
 
       - name: Trigger tools repo tag workflow
