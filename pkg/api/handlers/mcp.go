@@ -47,6 +47,7 @@ type MCPHandler struct {
 	mcpOAuthChecker           MCPOAuthChecker
 	acrHelper                 *accesscontrolrule.Helper
 	mcpImagePullSecrets       []string
+	mcpRuntimeBackend         string
 	serverURL                 string
 	secretBindingAllowedLabel string
 }
@@ -57,13 +58,14 @@ func NewMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.H
 		mcpOAuthChecker:           mcpOAuthChecker,
 		acrHelper:                 acrHelper,
 		mcpImagePullSecrets:       mcpImagePullSecrets,
+		mcpRuntimeBackend:         mcpLoader.MCPRuntimeBackend(),
 		serverURL:                 serverURL,
 		secretBindingAllowedLabel: secretBindingAllowedLabel,
 	}
 }
 
 func (m *MCPHandler) currentImagePullSecretNames(req api.Context) ([]string, error) {
-	return mcp.CurrentImagePullSecretNames(req.Context(), req.Storage, m.mcpSessionManager.MCPRuntimeBackend(), m.mcpImagePullSecrets)
+	return mcp.CurrentImagePullSecretNames(req.Context(), req.Storage, m.mcpRuntimeBackend, m.mcpImagePullSecrets)
 }
 
 func (m *MCPHandler) currentK8sSettingsHash(req api.Context, settings v1.K8sSettingsSpec, serverRuntime types.Runtime, nanobotAgentServer bool) (string, error) {
@@ -1631,7 +1633,7 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 	adminManagedSecretBindings := req.UserIsAdmin() && server.Spec.IsCatalogServer()
-	if err := validation.ValidateSecretBindings(server.Spec.Manifest, gitManagedEntry, adminManagedSecretBindings, m.mcpSessionManager.MCPRuntimeBackend()); err != nil {
+	if err := validation.ValidateSecretBindings(server.Spec.Manifest, gitManagedEntry, adminManagedSecretBindings, m.mcpRuntimeBackend); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 	if adminManagedSecretBindings {
@@ -1752,7 +1754,7 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 		}
 	}
 	adminManagedSecretBindings := req.UserIsAdmin() && existing.Spec.IsCatalogServer()
-	if err := validation.ValidateSecretBindings(updated, gitManagedEntry, adminManagedSecretBindings, m.mcpSessionManager.MCPRuntimeBackend()); err != nil {
+	if err := validation.ValidateSecretBindings(updated, gitManagedEntry, adminManagedSecretBindings, m.mcpRuntimeBackend); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 	if adminManagedSecretBindings {
@@ -3316,7 +3318,7 @@ func (m *MCPHandler) CheckK8sSettingsStatus(req api.Context) error {
 
 // RedeployWithK8sSettings redeploys a server with the current K8s settings
 func (m *MCPHandler) RedeployWithK8sSettings(req api.Context) error {
-	if !mcp.IsKubernetesBackend(m.mcpSessionManager.MCPRuntimeBackend()) {
+	if !mcp.IsKubernetesBackend(m.mcpRuntimeBackend) {
 		return types.NewErrBadRequest("Redeployment with K8s settings is only supported for Kubernetes backend")
 	}
 
