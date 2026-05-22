@@ -2,6 +2,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import Layout from '$lib/components/Layout.svelte';
+	import ObotCliBanner from '$lib/components/ObotCliBanner.svelte';
 	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
 	import DeviceScanDonutCard from '$lib/components/admin/device-scan/DeviceScanDonutCard.svelte';
 	import DeviceScanTimelineCard from '$lib/components/admin/device-scan/DeviceScanTimelineCard.svelte';
@@ -179,6 +180,8 @@
 		in:fly={{ x: 100, duration, delay: duration }}
 		out:fly={{ x: -100, duration }}
 	>
+		<ObotCliBanner description="Gain insight into the AI tooling used in your organization." />
+
 		<div class="flex flex-wrap items-center gap-2">
 			<AuditLogCalendar
 				start={new Date(range.start)}
