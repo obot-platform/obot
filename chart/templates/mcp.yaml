@@ -122,4 +122,14 @@ roleRef:
   name: obot-runtime-role
   apiGroup: rbac.authorization.k8s.io
 
+{{- if .Values.mcpNamespace.resourceQuota }}
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: obot-mcp-resourcequota
+  namespace: {{ include "obot.config.mcpNamespace" . }}
+spec:
+  {{- toYaml .Values.mcpNamespace.resourceQuota | nindent 2 }}
+{{- end }}
 {{- end }}
