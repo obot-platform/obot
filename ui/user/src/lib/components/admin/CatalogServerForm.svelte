@@ -19,7 +19,7 @@
 		sanitizeEgressDomains,
 		validateRuntimeForm
 	} from '$lib/services/user/mcp';
-	import { profile, version } from '$lib/stores';
+	import { errors, profile, version } from '$lib/stores';
 	import MarkdownInput from '../MarkdownInput.svelte';
 	import CompositeRuntimeForm from '../mcp/CompositeRuntimeForm.svelte';
 	import ContainerizedRuntimeForm from '../mcp/ContainerizedRuntimeForm.svelte';
@@ -91,12 +91,16 @@
 	const isAtLeastPowerUserPlus = $derived(profile.current?.groups.includes(Group.POWERUSER_PLUS));
 	const showEgressDomains = $derived(!!version.current.mcpNetworkPolicyEnabled);
 	const secretBoundHeaders = $derived(
-		(formData.remoteConfig?.headers ?? formData.remoteServerConfig?.headers ?? []).filter((h) =>
-			hasSecretBinding(h)
-		)
+		(type === 'multi'
+			? (formData.remoteServerConfig?.headers ?? [])
+			: (formData.remoteConfig?.headers ?? [])
+		).filter((h) => hasSecretBinding(h))
 	);
+	const secretBindingsSupported = $derived(version.current.engine === 'kubernetes');
 	const editableSecretBindingTargets = $derived(
-		entity === 'catalog' && type === 'multi' && !readonly ? secretBindingTargets : undefined
+		secretBindingsSupported && entity === 'catalog' && type === 'multi' && !readonly
+			? secretBindingTargets
+			: undefined
 	);
 	const defaultDenyAllEgress = $derived(!!version.current.mcpDefaultDenyAllEgress);
 
@@ -327,13 +331,14 @@
 		if ((type === 'multi' || type === 'remote') && entry && id) {
 			revealCatalogServer(id, entry.id, entity);
 		}
-		if (entity === 'catalog' && type === 'multi' && !readonly) {
+		if (secretBindingsSupported && entity === 'catalog' && type === 'multi' && !readonly) {
 			AdminService.listMCPSecretBindingTargets()
 				.then((targets) => {
 					secretBindingTargets = targets;
 				})
-				.catch(() => {
+				.catch((err) => {
 					secretBindingTargets = [];
+					errors.append(`Failed to load Kubernetes Secrets for binding: ${err}`);
 				});
 		}
 	});

@@ -1725,7 +1725,6 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
-	credFound := err == nil
 
 	// Shutdown the server, even if there is no credential
 	if catalogID != "" {
@@ -1785,12 +1784,6 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 		return req.Update(&existing)
 	}); err != nil {
 		return err
-	}
-	if credFound {
-		sanitizeConfig(cred.Env, updated)
-		if _, ensureErr := ensureCredential(req.Context(), req.GPTClient, cred); ensureErr != nil {
-			return ensureErr
-		}
 	}
 
 	slug, err := SlugForMCPServer(req.Context(), req.Storage, existing, req.User.GetUID(), catalogID, workspaceID)
