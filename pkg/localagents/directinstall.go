@@ -1,6 +1,7 @@
 package localagents
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -60,6 +61,13 @@ func installBootstrapAssets(skillsRoot string, rendered []assets.SkillAsset) ([]
 	}
 	sort.Strings(installed)
 	return installed, nil
+}
+
+func InstallSkillToRoot(ctx context.Context, skillsRoot string, skill SkillArchive) (string, []string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", nil, err
+	}
+	return installSkillArchiveToRoot(skillsRoot, skill)
 }
 
 func installSkillArchiveToRoot(skillsRoot string, skill SkillArchive) (string, []string, error) {

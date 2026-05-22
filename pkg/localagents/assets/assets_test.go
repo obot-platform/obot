@@ -14,7 +14,7 @@ func TestRenderAgentSkillsForClaudeCode(t *testing.T) {
 	}
 
 	install := renderedByName(t, rendered, "obot-install-skill")
-	assertContains(t, string(install.Content), "obot skills install --agent claude-code <skill>")
+	assertContains(t, string(install.Content), "obot skills install --destination ~/.claude/skills <skill>")
 	assertNotContains(t, string(install.Content), "--json")
 
 	search := renderedByName(t, rendered, "obot-search-skills")
@@ -27,14 +27,14 @@ func TestRenderAgentSkillsForClaudeCode(t *testing.T) {
 	assertContains(t, string(bootstrap.Content), "rendered for `claude-code`")
 }
 
-func TestRenderAgentSkillsForCursor(t *testing.T) {
-	rendered := renderAgentSkillsForTest(t, CursorTemplateData())
+func TestRenderAgentSkillsForSharedAgents(t *testing.T) {
+	rendered := renderAgentSkillsForTest(t, SharedAgentsTemplateData())
 
 	install := renderedByName(t, rendered, "obot-install-skill")
-	assertContains(t, string(install.Content), "obot skills install --agent cursor <skill>")
+	assertContains(t, string(install.Content), "obot skills install --destination ~/.agents/skills <skill>")
 
 	bootstrap := renderedByName(t, rendered, "obot")
-	assertContains(t, string(bootstrap.Content), "rendered for `cursor`")
+	assertContains(t, string(bootstrap.Content), "rendered for `agents`")
 }
 
 func TestRenderedAssetsHaveDeterministicRelativePaths(t *testing.T) {
@@ -61,7 +61,7 @@ func TestRenderedAssetsHaveDeterministicRelativePaths(t *testing.T) {
 
 func TestRenderAgentSkillsRejectsIncompleteTemplateData(t *testing.T) {
 	tests := []TemplateData{
-		{InstallAgentArg: "claude-code"},
+		{InstallDestination: "~/.claude/skills"},
 		{AgentID: "claude-code"},
 	}
 

@@ -126,7 +126,7 @@ func (s *SetupDetectAgents) Run(cmd *cobra.Command, _ []string) error {
 }
 
 func detectSetupAgents(ctx context.Context) setupDetectAgentsOutput {
-	installers := localagents.DirectInstallers()
+	installers := localagents.DetectedAgents()
 	result := setupDetectAgentsOutput{
 		Agents: make([]setupDetectedAgent, 0, len(installers)),
 	}

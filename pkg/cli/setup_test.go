@@ -17,7 +17,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func TestSetupNonInteractiveDetectedInstallsClaudeCode(t *testing.T) {
+func TestSetupNonInteractiveExplicitInstallsClaudeCode(t *testing.T) {
 	restore := useRootTestEnv(t)
 	defer restore()
 	home := useSetupTestHome(t)
@@ -32,7 +32,7 @@ func TestSetupNonInteractiveDetectedInstallsClaudeCode(t *testing.T) {
 	})
 	setup := &Setup{
 		URL:    "https://obot.example.com/",
-		Agents: "detected",
+		Agents: "claude-code",
 		Yes:    true,
 		root:   root,
 	}
@@ -70,20 +70,17 @@ func TestSetupNonInteractiveDetectedInstallsClaudeCode(t *testing.T) {
 	}
 }
 
-func TestSetupNonInteractiveDetectedInstallsCursor(t *testing.T) {
+func TestSetupExplicitSharedAgents(t *testing.T) {
 	restore := useRootTestEnv(t)
 	defer restore()
 	home := useSetupTestHome(t)
-	if err := os.MkdirAll(filepath.Join(home, ".cursor"), 0755); err != nil {
-		t.Fatal(err)
-	}
 
 	root := setupTestRoot(func(_ context.Context, _ string, _, _ bool) (string, error) {
 		return "token", nil
 	})
 	setup := &Setup{
 		URL:    "https://obot.example.com/",
-		Agents: "detected",
+		Agents: "agents",
 		Yes:    true,
 		root:   root,
 	}
@@ -95,33 +92,30 @@ func TestSetupNonInteractiveDetectedInstallsCursor(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	skillPath := filepath.Join(home, ".cursor", "skills", "obot", skillformat.SkillMainFile)
+	skillPath := filepath.Join(home, ".agents", "skills", "obot", skillformat.SkillMainFile)
 	content, err := os.ReadFile(skillPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(content), "rendered for `cursor`") {
+	if !strings.Contains(string(content), "rendered for `agents`") {
 		t.Fatalf("unexpected bootstrap content:\n%s", content)
 	}
-	if !strings.Contains(stdout.String(), "Installed Obot bootstrap skills for Cursor") {
+	if !strings.Contains(stdout.String(), "Installed Obot bootstrap skills for All agents that support ~/.agents") {
 		t.Fatalf("expected install message, got stdout:\n%s", stdout.String())
 	}
 }
 
-func TestSetupExplicitCursor(t *testing.T) {
+func TestSetupExplicitInstallsMultipleTargets(t *testing.T) {
 	restore := useRootTestEnv(t)
 	defer restore()
 	home := useSetupTestHome(t)
-	if err := os.MkdirAll(filepath.Join(home, ".cursor"), 0755); err != nil {
-		t.Fatal(err)
-	}
 
 	root := setupTestRoot(func(_ context.Context, _ string, _, _ bool) (string, error) {
 		return "token", nil
 	})
 	setup := &Setup{
 		URL:    "https://obot.example.com/",
-		Agents: "cursor",
+		Agents: "claude-code,agents",
 		Yes:    true,
 		root:   root,
 	}
@@ -130,7 +124,8 @@ func TestSetupExplicitCursor(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	assertFileContains(t, filepath.Join(home, ".cursor", "skills", "obot", skillformat.SkillMainFile), "rendered for `cursor`")
+	assertFileContains(t, filepath.Join(home, ".claude", "skills", "obot", skillformat.SkillMainFile), "rendered for `claude-code`")
+	assertFileContains(t, filepath.Join(home, ".agents", "skills", "obot", skillformat.SkillMainFile), "rendered for `agents`")
 }
 
 func TestSetupNonInteractiveMissingURLFailsWithoutPrompt(t *testing.T) {
@@ -142,7 +137,7 @@ func TestSetupNonInteractiveMissingURLFailsWithoutPrompt(t *testing.T) {
 		return "", nil
 	})
 	setup := &Setup{
-		Agents:         "detected",
+		Agents:         "agents",
 		NonInteractive: true,
 		root:           root,
 	}
@@ -210,7 +205,7 @@ func TestSetupJSONProgressSuccessfulSequence(t *testing.T) {
 	})
 	setup := &Setup{
 		URL:            "https://obot.example.com/",
-		Agents:         "detected",
+		Agents:         "claude-code",
 		Yes:            true,
 		NonInteractive: true,
 		Output:         "json",
@@ -298,7 +293,7 @@ func TestSetupRefusesToReplaceConfiguredURLWithoutYes(t *testing.T) {
 
 	setup := &Setup{
 		URL:    "https://new.example.com",
-		Agents: "detected",
+		Agents: "agents",
 		root:   setupTestRoot(nil),
 	}
 	err := setup.Run(setupTestCommand(nil, nil, nil), nil)
@@ -383,6 +378,91 @@ func TestSetupInteractiveUsesConfiguredURL(t *testing.T) {
 	}
 }
 
+func TestSetupPromptsForAgentsWhenOmittedWithoutClaudeCode(t *testing.T) {
+	restore := useRootTestEnv(t)
+	defer restore()
+	home := useSetupTestHome(t)
+
+	root := setupTestRoot(func(_ context.Context, _ string, _, _ bool) (string, error) {
+		return "token", nil
+	})
+	setup := &Setup{
+		URL:  "https://obot.example.com/",
+		Yes:  true,
+		root: root,
+	}
+
+	var stdout bytes.Buffer
+	cmd := setupTestCommand(strings.NewReader("agents\n"), &stdout, nil)
+	if err := setup.Run(cmd, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	output := stdout.String()
+	if !strings.Contains(output, "Choose local agent skill targets") {
+		t.Fatalf("expected agent prompt, got:\n%s", output)
+	}
+	if strings.Contains(output, "claude-code") {
+		t.Fatalf("claude-code should not be offered when not detected:\n%s", output)
+	}
+	assertFileContains(t, filepath.Join(home, ".agents", "skills", "obot", skillformat.SkillMainFile), "rendered for `agents`")
+}
+
+func TestSetupPromptsForAgentsWhenOmittedWithClaudeCode(t *testing.T) {
+	restore := useRootTestEnv(t)
+	defer restore()
+	home := useSetupTestHome(t)
+	if err := os.MkdirAll(filepath.Join(home, ".claude"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	root := setupTestRoot(func(_ context.Context, _ string, _, _ bool) (string, error) {
+		return "token", nil
+	})
+	setup := &Setup{
+		URL:  "https://obot.example.com/",
+		Yes:  true,
+		root: root,
+	}
+
+	var stdout bytes.Buffer
+	cmd := setupTestCommand(strings.NewReader("claude-code,agents\n"), &stdout, nil)
+	if err := setup.Run(cmd, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	output := stdout.String()
+	if !strings.Contains(output, "claude-code Claude Code (detected)") {
+		t.Fatalf("expected claude-code prompt option, got:\n%s", output)
+	}
+	assertFileContains(t, filepath.Join(home, ".claude", "skills", "obot", skillformat.SkillMainFile), "rendered for `claude-code`")
+	assertFileContains(t, filepath.Join(home, ".agents", "skills", "obot", skillformat.SkillMainFile), "rendered for `agents`")
+}
+
+func TestSetupNonInteractiveRequiresAgentsWhenOmitted(t *testing.T) {
+	restore := useRootTestEnv(t)
+	defer restore()
+	useSetupTestHome(t)
+
+	root := setupTestRoot(func(_ context.Context, _ string, _, _ bool) (string, error) {
+		return "token", nil
+	})
+	setup := &Setup{
+		URL:            "https://obot.example.com/",
+		Yes:            true,
+		NonInteractive: true,
+		root:           root,
+	}
+
+	err := setup.Run(setupTestCommand(nil, nil, nil), nil)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "--agents is required in non-interactive mode") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestParseSetupAgentsRejectsAll(t *testing.T) {
 	_, err := parseSetupAgents("all")
 	if err == nil {
@@ -393,8 +473,18 @@ func TestParseSetupAgentsRejectsAll(t *testing.T) {
 	}
 }
 
+func TestParseSetupAgentsAcceptsAgents(t *testing.T) {
+	selection, err := parseSetupAgents("agents")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !selection.agentIDs[localagents.SharedAgentsID] {
+		t.Fatalf("agents target was not selected: %#v", selection)
+	}
+}
+
 func TestParseSetupAgentsNoneIsExclusive(t *testing.T) {
-	_, err := parseSetupAgents("none,cursor")
+	_, err := parseSetupAgents("none,agents")
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -509,8 +599,8 @@ func TestSetupDetectAgentsJSON(t *testing.T) {
 	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
 		t.Fatalf("detect-agents output should be JSON: %v\n%s", err, stdout.String())
 	}
-	if len(got.Agents) != 2 {
-		t.Fatalf("expected two agents, got %#v", got.Agents)
+	if len(got.Agents) != 1 {
+		t.Fatalf("expected one agent, got %#v", got.Agents)
 	}
 	if got.Agents[0].ID != localagents.ClaudeCodeAgentID {
 		t.Fatalf("first agent id = %q, want %q", got.Agents[0].ID, localagents.ClaudeCodeAgentID)
@@ -523,18 +613,6 @@ func TestSetupDetectAgentsJSON(t *testing.T) {
 	}
 	if got.Agents[0].Reason == "" {
 		t.Fatalf("expected reason for first agent")
-	}
-	if got.Agents[1].ID != localagents.CursorAgentID {
-		t.Fatalf("second agent id = %q, want %q", got.Agents[1].ID, localagents.CursorAgentID)
-	}
-	if got.Agents[1].DisplayName != "Cursor" {
-		t.Fatalf("second agent displayName = %q, want Cursor", got.Agents[1].DisplayName)
-	}
-	if got.Agents[1].State != string(localagents.DetectionMissing) {
-		t.Fatalf("second agent state = %q, want missing; reason: %s", got.Agents[1].State, got.Agents[1].Reason)
-	}
-	if got.Agents[1].Reason == "" {
-		t.Fatalf("expected reason for second agent")
 	}
 }
 

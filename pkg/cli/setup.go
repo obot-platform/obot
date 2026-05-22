@@ -19,7 +19,7 @@ import (
 
 type Setup struct {
 	URL            string `usage:"Obot app URL to configure"`
-	Agents         string `usage:"Comma-separated target agents: detected, none, claude-code, or cursor" default:"detected"`
+	Agents         string `usage:"Comma-separated target agents: none, claude-code, or agents"`
 	Yes            bool   `usage:"Accept confirmations and use defaults"`
 	NonInteractive bool   `usage:"Never read from stdin; fail if required input is missing"`
 	Output         string `usage:"Output format: text or json" default:"text"`
@@ -103,7 +103,7 @@ func (s *Setup) run(cmd *cobra.Command, progress setupProgressWriter) error {
 		fmt.Fprintf(cmd.ErrOrStderr(), "Logged in to %s\n", appURL)
 	}
 
-	selection, err := parseSetupAgents(s.Agents)
+	selection, err := s.resolveAgentSelection(cmd)
 	if err != nil {
 		return err
 	}
@@ -122,41 +122,15 @@ func (s *Setup) run(cmd *cobra.Command, progress setupProgressWriter) error {
 		return setupErrorf(setupErrorAgentDetectionFailed, "failed to get user home dir: %w", err)
 	}
 
-	installers := localagents.DirectInstallers()
-	detections := make(map[string]localagents.DetectionResult, len(installers))
-	for _, installer := range installers {
-		detections[installer.ID()] = installer.Detect(ctx)
-	}
-
-	if !progress.json {
-		fmt.Fprintln(cmd.OutOrStdout(), "Detected:")
-		for _, installer := range installers {
-			detection := detections[installer.ID()]
-			status := "missing"
-			if detection.State == localagents.DetectionPresent {
-				status = "installed"
-			}
-			fmt.Fprintf(cmd.OutOrStdout(), "  %-15s %s\n", installer.DisplayName(), status)
-		}
-	}
-
 	var installed []localagents.InstallResult
 	var installErrs []error
-	for _, installer := range installers {
-		detection := detections[installer.ID()]
-		shouldInstall := selection.detected && detection.State == localagents.DetectionPresent
-		if selection.agentIDs[installer.ID()] {
-			if detection.State != localagents.DetectionPresent {
-				return setupErrorf(setupErrorAgentDetectionFailed, "%s was selected but was not detected", installer.DisplayName())
-			}
-			shouldInstall = true
-		}
-		if !shouldInstall {
+	for _, target := range localagents.SetupTargets() {
+		if !selection.agentIDs[target.ID()] {
 			continue
 		}
-		result, err := installer.InstallBootstrap(ctx, home)
+		result, err := target.InstallBootstrap(ctx, home)
 		if err != nil {
-			installErrs = append(installErrs, setupErrorf(setupErrorAgentInstallFailed, "install bootstrap for %s: %w", installer.DisplayName(), err))
+			installErrs = append(installErrs, setupErrorf(setupErrorAgentInstallFailed, "install bootstrap for %s: %w", target.DisplayName(), err))
 			continue
 		}
 		installed = append(installed, result)
@@ -187,6 +161,49 @@ func (s *Setup) run(cmd *cobra.Command, progress setupProgressWriter) error {
 	}
 
 	return progress.emit(setupProgressEvent{Type: setupProgressComplete, URL: appURL})
+}
+
+func (s *Setup) resolveAgentSelection(cmd *cobra.Command) (setupAgentSelection, error) {
+	if cmd.Flags().Changed("agents") || strings.TrimSpace(s.Agents) != "" {
+		return parseSetupAgents(s.Agents)
+	}
+	if s.NonInteractive {
+		return setupAgentSelection{}, setupErrorf(setupErrorAgentDetectionFailed, "--agents is required in non-interactive mode")
+	}
+
+	ctx := cmd.Context()
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	claudeDetected := false
+	for _, agent := range localagents.DetectedAgents() {
+		if agent.ID() == localagents.ClaudeCodeAgentID && agent.Detect(ctx).State == localagents.DetectionPresent {
+			claudeDetected = true
+			break
+		}
+	}
+
+	fmt.Fprintln(cmd.OutOrStdout(), "Choose local agent skill targets:")
+	fmt.Fprintln(cmd.OutOrStdout(), "  none        Skip local bootstrap installation")
+	fmt.Fprintln(cmd.OutOrStdout(), "  agents      All agents that support ~/.agents")
+	if claudeDetected {
+		fmt.Fprintln(cmd.OutOrStdout(), "  claude-code Claude Code (detected)")
+	}
+	raw, err := promptLine(cmd, "Agents to support (comma-separated) [agents]: ")
+	if err != nil {
+		return setupAgentSelection{}, err
+	}
+	if strings.TrimSpace(raw) == "" {
+		raw = localagents.SharedAgentsID
+	}
+	selection, err := parseSetupAgents(raw)
+	if err != nil {
+		return setupAgentSelection{}, err
+	}
+	if selection.agentIDs[localagents.ClaudeCodeAgentID] && !claudeDetected {
+		return setupAgentSelection{}, setupErrorf(setupErrorAgentDetectionFailed, "claude-code is only available from the interactive prompt when Claude Code is detected; pass --agents claude-code to install explicitly")
+	}
+	return selection, nil
 }
 
 func (s *Setup) resolveAppURL(cmd *cobra.Command) (string, error) {
@@ -375,7 +392,6 @@ func setupAuthErrorCode(err error) setupErrorCode {
 }
 
 type setupAgentSelection struct {
-	detected bool
 	none     bool
 	agentIDs map[string]bool
 }
@@ -394,24 +410,22 @@ func parseSetupAgents(raw string) (setupAgentSelection, error) {
 		switch value {
 		case "":
 			continue
-		case "detected":
-			selection.detected = true
 		case "none":
 			selection.none = true
 		case localagents.ClaudeCodeAgentID:
 			selection.agentIDs[localagents.ClaudeCodeAgentID] = true
-		case localagents.CursorAgentID:
-			selection.agentIDs[localagents.CursorAgentID] = true
+		case localagents.SharedAgentsID:
+			selection.agentIDs[localagents.SharedAgentsID] = true
 		default:
-			return setupAgentSelection{}, fmt.Errorf("unsupported --agents value %q; supported values are detected, none, claude-code, and cursor", value)
+			return setupAgentSelection{}, fmt.Errorf("unsupported --agents value %q; supported values are none, claude-code, and agents", value)
 		}
 	}
 
-	if selection.none && (selection.detected || len(selection.agentIDs) > 0) {
+	if selection.none && len(selection.agentIDs) > 0 {
 		return setupAgentSelection{}, fmt.Errorf("--agents none cannot be combined with other values")
 	}
-	if !selection.none && !selection.detected && len(selection.agentIDs) == 0 {
-		return setupAgentSelection{}, fmt.Errorf("--agents must include detected, none, claude-code, or cursor")
+	if !selection.none && len(selection.agentIDs) == 0 {
+		return setupAgentSelection{}, fmt.Errorf("--agents must include none, claude-code, or agents")
 	}
 
 	return selection, nil

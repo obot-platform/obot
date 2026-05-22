@@ -111,18 +111,18 @@ func TestSkillsInstallExactIDInstallsClaudeCode(t *testing.T) {
 	}})
 	defer server.Close()
 
-	stdout, err := executeSkillsTestCommand(skillsTestRoot(server.URL), "install", "sk1", "--agent", "claude-code")
+	stdout, err := executeSkillsTestCommand(skillsTestRoot(server.URL), "install", "sk1", "--destination", "~/.claude/skills")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	assertFileContains(t, filepath.Join(home, ".claude", "skills", "github-review", skillformat.SkillMainFile), "Review GitHub pull requests.")
-	if !strings.Contains(stdout, "Installed github-review for Claude Code") {
+	if !strings.Contains(stdout, "Installed github-review to "+filepath.Join(home, ".claude", "skills")) {
 		t.Fatalf("expected install message, got:\n%s", stdout)
 	}
 }
 
-func TestSkillsInstallExactIDInstallsCursor(t *testing.T) {
+func TestSkillsInstallExactIDInstallsSharedAgents(t *testing.T) {
 	home := useSetupTestHome(t)
 	server := skillInstallTestServer(t, []skillInstallTestResponse{{
 		ID:       "sk1",
@@ -131,13 +131,13 @@ func TestSkillsInstallExactIDInstallsCursor(t *testing.T) {
 	}})
 	defer server.Close()
 
-	stdout, err := executeSkillsTestCommand(skillsTestRoot(server.URL), "install", "sk1", "--agent", "cursor")
+	stdout, err := executeSkillsTestCommand(skillsTestRoot(server.URL), "install", "sk1", "--destination", "~/.agents/skills")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	assertFileContains(t, filepath.Join(home, ".cursor", "skills", "github-review", skillformat.SkillMainFile), "Review GitHub pull requests.")
-	if !strings.Contains(stdout, "Installed github-review for Cursor") {
+	assertFileContains(t, filepath.Join(home, ".agents", "skills", "github-review", skillformat.SkillMainFile), "Review GitHub pull requests.")
+	if !strings.Contains(stdout, "Installed github-review to "+filepath.Join(home, ".agents", "skills")) {
 		t.Fatalf("expected install message, got:\n%s", stdout)
 	}
 }
@@ -146,7 +146,7 @@ func TestSkillsInstallNoMatches(t *testing.T) {
 	server := skillInstallTestServer(t, nil)
 	defer server.Close()
 
-	_, err := executeSkillsTestCommand(skillsTestRoot(server.URL), "install", "missing", "--agent", "claude-code")
+	_, err := executeSkillsTestCommand(skillsTestRoot(server.URL), "install", "missing", "--destination", "~/.claude/skills")
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -155,26 +155,7 @@ func TestSkillsInstallNoMatches(t *testing.T) {
 	}
 }
 
-func TestSkillsInstallDetectedInstallsClaudeCodeWhenPresent(t *testing.T) {
-	home := useSetupTestHome(t)
-	if err := os.MkdirAll(filepath.Join(home, ".claude"), 0755); err != nil {
-		t.Fatal(err)
-	}
-	server := skillInstallTestServer(t, []skillInstallTestResponse{{
-		ID:       "sk1",
-		Name:     "github-review",
-		Download: skillTestZip(t, "github-review", "Review GitHub pull requests."),
-	}})
-	defer server.Close()
-
-	if _, err := executeSkillsTestCommand(skillsTestRoot(server.URL), "install", "sk1"); err != nil {
-		t.Fatal(err)
-	}
-
-	assertFileContains(t, filepath.Join(home, ".claude", "skills", "github-review", skillformat.SkillMainFile), "Review GitHub pull requests.")
-}
-
-func TestSkillsInstallJSONMode(t *testing.T) {
+func TestSkillsInstallRequiresDestination(t *testing.T) {
 	useSetupTestHome(t)
 	server := skillInstallTestServer(t, []skillInstallTestResponse{{
 		ID:       "sk1",
@@ -183,7 +164,25 @@ func TestSkillsInstallJSONMode(t *testing.T) {
 	}})
 	defer server.Close()
 
-	stdout, err := executeSkillsTestCommand(skillsTestRoot(server.URL), "install", "sk1", "--agent", "claude-code", "--json")
+	_, err := executeSkillsTestCommand(skillsTestRoot(server.URL), "install", "sk1")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "--destination is required") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestSkillsInstallJSONMode(t *testing.T) {
+	home := useSetupTestHome(t)
+	server := skillInstallTestServer(t, []skillInstallTestResponse{{
+		ID:       "sk1",
+		Name:     "github-review",
+		Download: skillTestZip(t, "github-review", "Review GitHub pull requests."),
+	}})
+	defer server.Close()
+
+	stdout, err := executeSkillsTestCommand(skillsTestRoot(server.URL), "install", "sk1", "--destination", "~/.claude/skills", "--json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -195,7 +194,7 @@ func TestSkillsInstallJSONMode(t *testing.T) {
 	if len(output.Results) != 1 {
 		t.Fatalf("result count = %d, want 1", len(output.Results))
 	}
-	if output.Results[0].Agent != "claude-code" || output.Results[0].Mode != "direct" {
+	if output.Results[0].Destination != filepath.Join(home, ".claude", "skills") || output.Results[0].Mode != "direct" {
 		t.Fatalf("unexpected install result: %#v", output.Results[0])
 	}
 	if len(output.Results[0].Installed) == 0 {
