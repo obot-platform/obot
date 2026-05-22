@@ -22,7 +22,7 @@ import (
 )
 
 type Scan struct {
-	DeviceID string `usage:"Override the persisted device identifier. Empty resolves via OBOT_SCAN_DEVICE_ID env var or the file at $XDG_DATA_HOME/obot/device_id (generated on first run)" env:"OBOT_SCAN_DEVICE_ID"`
+	DeviceID string `usage:"Override the persisted device identifier. Empty resolves via OBOT_SCAN_DEVICE_ID env var or the file at $XDG_DATA_HOME/obot/device_id (generated on first run)" env:"OBOT_SCAN_DEVICE_ID" hidden:"true"`
 	Submit   bool   `usage:"Submit the scan to the configured Obot server" env:"OBOT_SCAN_SUBMIT"`
 	JSON     bool   `usage:"Print the scan result as JSON"`
 	Timeout  int    `usage:"Number of seconds to wait for the scan to complete" default:"60" env:"OBOT_SCAN_TIMEOUT"`
