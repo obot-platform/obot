@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -11,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"text/tabwriter"
 	"time"
 
 	"github.com/adrg/xdg"
@@ -23,7 +23,8 @@ import (
 
 type Scan struct {
 	DeviceID string `usage:"Override the persisted device identifier. Empty resolves via OBOT_SCAN_DEVICE_ID env var or the file at $XDG_DATA_HOME/obot/device_id (generated on first run)" env:"OBOT_SCAN_DEVICE_ID"`
-	DryRun   bool   `usage:"Print the scan payload to stdout without submitting it" env:"OBOT_SCAN_DRY_RUN"`
+	Submit   bool   `usage:"Submit the scan to the configured Obot server" env:"OBOT_SCAN_SUBMIT"`
+	JSON     bool   `usage:"Print the scan result as JSON"`
 	Timeout  int    `usage:"Number of seconds to wait for the scan to complete" default:"60" env:"OBOT_SCAN_TIMEOUT"`
 	MaxDepth int    `usage:"Maximum path depth (in segments below $HOME) to match when crawling for project-scope configs and skills; e.g. 5 matches files up to $HOME/a/b/c/d/e" default:"5" env:"OBOT_SCAN_MAX_DEPTH"`
 
@@ -32,14 +33,54 @@ type Scan struct {
 
 func (s *Scan) Customize(cmd *cobra.Command) {
 	cmd.Use = "scan"
-	cmd.Short = "Inventory local AI client configuration and submit it to Obot"
+	cmd.Short = "Inventory local AI client configuration"
 	cmd.Args = cobra.NoArgs
 }
 
 func (s *Scan) Run(cmd *cobra.Command, _ []string) error {
+	ctx := cmd.Context()
+	if s.Timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(s.Timeout)*time.Second)
+		defer cancel()
+	}
+
+	manifest, err := s.collectScanManifest(ctx)
+	if err != nil {
+		return err
+	}
+
+	if s.JSON {
+		if err := writeJSON(cmd, manifest); err != nil {
+			return err
+		}
+	} else if err := writeScanTable(cmd, manifest); err != nil {
+		return err
+	}
+
+	if !s.Submit {
+		return nil
+	}
+
+	return s.submitScanManifest(ctx, cmd, manifest)
+}
+
+func (s *Scan) submitScanManifest(ctx context.Context, cmd *cobra.Command, manifest types.DeviceScanManifest) error {
+	if s.root.Client == nil {
+		return fmt.Errorf("scan: --submit requires an API client")
+	}
+	resp, err := s.root.Client.SubmitDeviceScan(ctx, manifest)
+	if err != nil {
+		return fmt.Errorf("submit scan: %w", err)
+	}
+	fmt.Fprintf(cmd.ErrOrStderr(), "Submitted scan #%d (received_at=%s)\n", resp.ID, resp.ReceivedAt.GetTime().Format(time.RFC3339))
+	return nil
+}
+
+func (s *Scan) collectScanManifest(ctx context.Context) (types.DeviceScanManifest, error) {
 	deviceID, err := ensureDeviceID(s.DeviceID)
 	if err != nil {
-		return fmt.Errorf("resolve device id: %w", err)
+		return types.DeviceScanManifest{}, fmt.Errorf("resolve device id: %w", err)
 	}
 
 	hostname, _ := os.Hostname()
@@ -58,21 +99,14 @@ func (s *Scan) Run(cmd *cobra.Command, _ []string) error {
 		Username:       username,
 	}
 
-	ctx := cmd.Context()
-	if s.Timeout > 0 {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, time.Duration(s.Timeout)*time.Second)
-		defer cancel()
-	}
-
 	homePath, err := os.UserHomeDir()
 	if err != nil {
-		return fmt.Errorf("failed to get user home dir: %w", err)
+		return types.DeviceScanManifest{}, fmt.Errorf("failed to get user home dir: %w", err)
 	}
 
 	collected, err := devicescan.Scan(ctx, os.DirFS(homePath), homePath, s.MaxDepth)
 	if err != nil {
-		return fmt.Errorf("scan: %w", err)
+		return types.DeviceScanManifest{}, fmt.Errorf("scan: %w", err)
 	}
 
 	manifest.Files = collected.Files
@@ -80,22 +114,50 @@ func (s *Scan) Run(cmd *cobra.Command, _ []string) error {
 	manifest.Skills = collected.Skills
 	manifest.Plugins = collected.Plugins
 	manifest.Clients = collected.Clients
+	return manifest, nil
+}
 
-	if s.DryRun {
-		enc := json.NewEncoder(cmd.OutOrStdout())
-		enc.SetIndent("", "  ")
-		return enc.Encode(manifest)
+func writeScanTable(cmd *cobra.Command, manifest types.DeviceScanManifest) error {
+	out := cmd.OutOrStdout()
+	fmt.Fprintf(out, "Device:    %s (%s/%s)\n", tableCell(manifest.Hostname), tableCell(manifest.OS), tableCell(manifest.Arch))
+	if manifest.Username != "" {
+		fmt.Fprintf(out, "User:      %s\n", tableCell(manifest.Username))
+	}
+	fmt.Fprintf(out, "Device ID: %s\n", tableCell(manifest.DeviceID))
+	fmt.Fprintf(out, "Scanned:   %s\n", manifest.ScannedAt.GetTime().Format(time.RFC3339))
+	fmt.Fprintf(out, "Found:     %d clients, %d MCP servers, %d skills, %d plugins, %d files\n\n",
+		len(manifest.Clients), len(manifest.MCPServers), len(manifest.Skills), len(manifest.Plugins), len(manifest.Files))
+
+	if len(manifest.Clients) == 0 {
+		fmt.Fprintln(out, "No clients found")
+		return nil
 	}
 
-	if s.root.Client == nil {
-		return fmt.Errorf("scan: no API client configured (set OBOT_TOKEN and OBOT_BASE_URL, or pass --dry-run)")
+	mcpCounts := map[string]int{}
+	for _, server := range manifest.MCPServers {
+		mcpCounts[server.Client]++
 	}
-	resp, err := s.root.Client.SubmitDeviceScan(ctx, manifest)
-	if err != nil {
-		return fmt.Errorf("submit scan: %w", err)
+	skillCounts := map[string]int{}
+	for _, skill := range manifest.Skills {
+		skillCounts[skill.Client]++
 	}
-	fmt.Fprintf(cmd.ErrOrStderr(), "Submitted scan #%d (received_at=%s)\n", resp.ID, resp.ReceivedAt.GetTime().Format(time.RFC3339))
-	return nil
+	pluginCounts := map[string]int{}
+	for _, plugin := range manifest.Plugins {
+		pluginCounts[plugin.Client]++
+	}
+
+	w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, "CLIENT\tMCP SERVERS\tSKILLS\tPLUGINS\tCONFIG PATH")
+	for _, client := range manifest.Clients {
+		fmt.Fprintf(w, "%s\t%d\t%d\t%d\t%s\n",
+			tableCell(client.Name),
+			mcpCounts[client.Name],
+			skillCounts[client.Name],
+			pluginCounts[client.Name],
+			tableCell(client.ConfigPath),
+		)
+	}
+	return w.Flush()
 }
 
 // ensureDeviceID returns deviceID if it is non-empty after trimming.
