@@ -186,15 +186,6 @@ export interface BaseProvider {
 export interface AuthProvider extends BaseProvider {
 	type: 'authprovider';
 }
-export interface FileScannerProvider extends BaseProvider {
-	type: 'filescannerprovider';
-}
-export interface FileScannerConfig {
-	id: string;
-	providerName: string;
-	providerNamespace: string;
-	updatedAt: string;
-}
 
 // Devices
 

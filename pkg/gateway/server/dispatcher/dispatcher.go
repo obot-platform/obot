@@ -32,8 +32,6 @@ type Dispatcher struct {
 	authProviderExtraEnv []string
 	modelLock            *sync.RWMutex
 	modelURLs            map[string]url.URL
-	fileScannerLock      *sync.RWMutex
-	fileScannerURLs      map[string]url.URL
 }
 
 func New(invoker *invoke.Invoker, c kclient.Client, gptscriptClient *gptscript.GPTScript, gatewayClient *client.Client, postgresDSN string) *Dispatcher {
@@ -46,8 +44,6 @@ func New(invoker *invoke.Invoker, c kclient.Client, gptscriptClient *gptscript.G
 		modelURLs:       make(map[string]url.URL),
 		authLock:        new(sync.RWMutex),
 		authURLs:        make(map[string]url.URL),
-		fileScannerLock: new(sync.RWMutex),
-		fileScannerURLs: make(map[string]url.URL),
 	}
 
 	if postgresDSN != "" {
@@ -156,10 +152,6 @@ func (d *Dispatcher) StopModelProvider(namespace, modelProviderName string) {
 
 func (d *Dispatcher) StopAuthProvider(namespace, authProviderName string) {
 	stopProvider(namespace, authProviderName, d.authURLs, d.authLock)
-}
-
-func (d *Dispatcher) StopFileScannerProvider(namespace, fileScannerProviderName string) {
-	stopProvider(namespace, fileScannerProviderName, d.fileScannerURLs, d.fileScannerLock)
 }
 
 func stopProvider(namespace, name string, urlMap map[string]url.URL, lock *sync.RWMutex) {

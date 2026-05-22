@@ -66,25 +66,13 @@ type indexEntry struct {
 }
 
 type index struct {
-	Tools                    map[string]indexEntry `json:"tools,omitempty"`
-	KnowledgeDataSources     map[string]indexEntry `json:"knowledgeDataSources,omitempty"`
-	KnowledgeDocumentLoaders map[string]indexEntry `json:"knowledgeDocumentLoaders,omitempty"`
-	System                   map[string]indexEntry `json:"system,omitempty"`
-	ModelProviders           map[string]indexEntry `json:"modelProviders,omitempty"`
-	AuthProviders            map[string]indexEntry `json:"authProviders,omitempty"`
-	FileScanners             map[string]indexEntry `json:"fileScanners,omitempty"`
-	MCPServers               map[string]indexEntry `json:"mcpServers,omitempty"`
+	ModelProviders map[string]indexEntry `json:"modelProviders,omitempty"`
+	AuthProviders  map[string]indexEntry `json:"authProviders,omitempty"`
 }
 
 func indexEntryCount(idx index) int {
-	return len(idx.Tools) +
-		len(idx.KnowledgeDataSources) +
-		len(idx.KnowledgeDocumentLoaders) +
-		len(idx.System) +
-		len(idx.ModelProviders) +
-		len(idx.AuthProviders) +
-		len(idx.FileScanners) +
-		len(idx.MCPServers)
+	return len(idx.ModelProviders) +
+		len(idx.AuthProviders)
 }
 
 type Handler struct {
