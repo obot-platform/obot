@@ -957,8 +957,10 @@
 			</td>
 		{/each}
 		{#if actions}
-			<td class="flex justify-end px-4 py-2 text-sm font-light">
-				{@render actions(d)}
+			<td class="px-4 py-2 text-sm font-light">
+				<div class="flex justify-end">
+					{@render actions(d)}
+				</div>
 			</td>
 		{/if}
 	</tr>
