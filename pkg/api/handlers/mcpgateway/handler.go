@@ -23,28 +23,17 @@ import (
 
 type Handler struct {
 	mcpSessionManager *mcp.SessionManager
-	scope             string
 	transport         http.RoundTripper
 }
 
-func NewHandler(mcpSessionManager *mcp.SessionManager, scopesSupported []string) *Handler {
-	var scope string
-	if len(scopesSupported) > 0 {
-		scope = fmt.Sprintf(", scope=\"%s\"", strings.Join(scopesSupported, " "))
-	}
+func NewHandler(mcpSessionManager *mcp.SessionManager) *Handler {
 	return &Handler{
 		mcpSessionManager: mcpSessionManager,
-		scope:             scope,
 		transport:         otelhttp.NewTransport(http.DefaultTransport),
 	}
 }
 
 func (h *Handler) Proxy(req api.Context) error {
-	if req.User.GetUID() == "anonymous" {
-		req.ResponseWriter.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer error="invalid_request", error_description="Invalid access token", resource_metadata="%s/.well-known/oauth-protected-resource%s"%s`, strings.TrimSuffix(req.APIBaseURL, "/api"), req.URL.Path, h.scope))
-		return apierrors.NewUnauthorized("user is not authenticated")
-	}
-
 	serverConfig, mcpURL, allowDifferentPaths, err := h.ensureServerIsDeployed(req)
 	if err != nil {
 		return fmt.Errorf("failed to ensure server is deployed: %v", err)

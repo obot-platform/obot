@@ -44,13 +44,18 @@ type Server struct {
 	auditLogger    audit.Logger
 	rateLimiter    *ratelimiter.RateLimiter
 	baseURL        string
+	mcpOAuthScope  string
 	registryNoAuth bool
 
 	mux         *http.ServeMux
 	otelHandler http.Handler
 }
 
-func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, gptClient *gptscript.GPTScript, localK8sClient kclient.Client, obotNamespace string, authn *authn.Authenticator, authz *authz.Authorizer, proxyManager *proxy.Manager, auditLogger audit.Logger, rateLimiter *ratelimiter.RateLimiter, baseURL string, registryNoAuth bool) *Server {
+func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, gptClient *gptscript.GPTScript, localK8sClient kclient.Client, obotNamespace string, authn *authn.Authenticator, authz *authz.Authorizer, proxyManager *proxy.Manager, auditLogger audit.Logger, rateLimiter *ratelimiter.RateLimiter, baseURL string, oauthScopesSupported []string, registryNoAuth bool) *Server {
+	var scope string
+	if len(oauthScopesSupported) > 0 {
+		scope = fmt.Sprintf(", scope=\"%s\"", strings.Join(oauthScopesSupported, " "))
+	}
 	s := &Server{
 		storageClient:  storageClient,
 		gatewayClient:  gatewayClient,
@@ -61,6 +66,7 @@ func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, gptC
 		authorizer:     authz,
 		proxyManager:   proxyManager,
 		baseURL:        baseURL + "/api",
+		mcpOAuthScope:  scope,
 		auditLogger:    auditLogger,
 		rateLimiter:    rateLimiter,
 		registryNoAuth: registryNoAuth,
@@ -192,6 +198,8 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 			// Only set WWW-Authenticate if not in no-auth mode
 			if strings.HasPrefix(req.URL.Path, "/v0.1") && !s.registryNoAuth {
 				rw.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="MCP Registry", resource_metadata="%s/.well-known/oauth-protected-resource/v0.1/servers"`, strings.TrimSuffix(s.baseURL, "/api")))
+			} else if strings.HasPrefix(req.URL.Path, "/mcp-connect/") && user.GetUID() == "anonymous" {
+				rw.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer error="invalid_request", error_description="Invalid access token", resource_metadata="%s/.well-known/oauth-protected-resource%s"%s`, strings.TrimSuffix(s.baseURL, "/api"), req.URL.Path, s.mcpOAuthScope))
 			}
 
 			if authenticated {

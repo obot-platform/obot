@@ -995,6 +995,20 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	// When EnableRegistryAuth is false (default), registry is in no-auth mode
 	registryNoAuth := !config.EnableRegistryAuth
 
+	oauthServerConfig := handlers.OAuthAuthorizationServerConfig{
+		Issuer:                            config.Hostname,
+		AuthorizationEndpoint:             fmt.Sprintf("%s/oauth/authorize", config.Hostname),
+		TokenEndpoint:                     fmt.Sprintf("%s/oauth/token", config.Hostname),
+		RegistrationEndpoint:              fmt.Sprintf("%s/oauth/register", config.Hostname),
+		JWKSURI:                           config.Hostname + "/oauth/jwks.json",
+		ScopesSupported:                   []string{"profile"},
+		ResponseTypesSupported:            []string{"code"},
+		GrantTypesSupported:               []string{"authorization_code", "refresh_token", "urn:ietf:params:oauth:grant-type:token-exchange"},
+		CodeChallengeMethodsSupported:     []string{"S256", "plain"},
+		TokenEndpointAuthMethodsSupported: []string{"client_secret_basic", "client_secret_post", "none"},
+		UserInfoEndpoint:                  fmt.Sprintf("%s/oauth/userinfo", config.Hostname),
+	}
+
 	// For now, always auto-migrate the gateway database
 	svcs := &Services{
 		EncryptionConfig:  encryptionConfig,
@@ -1020,6 +1034,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			auditLogger,
 			rateLimiter,
 			config.Hostname,
+			oauthServerConfig.ScopesSupported,
 			registryNoAuth,
 		),
 		PersistentTokenServer: persistentTokenServer,
@@ -1042,21 +1057,9 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		MCPLoader:                      mcpSessionManager,
 		MCPOAuthTokenStorage:           mcpOAuthTokenStorage,
 		MCPOAuthClientSecretExpiration: oauthClientExpiration,
-		OAuthServerConfig: handlers.OAuthAuthorizationServerConfig{
-			Issuer:                            config.Hostname,
-			AuthorizationEndpoint:             fmt.Sprintf("%s/oauth/authorize", config.Hostname),
-			TokenEndpoint:                     fmt.Sprintf("%s/oauth/token", config.Hostname),
-			RegistrationEndpoint:              fmt.Sprintf("%s/oauth/register", config.Hostname),
-			JWKSURI:                           config.Hostname + "/oauth/jwks.json",
-			ScopesSupported:                   []string{"profile"},
-			ResponseTypesSupported:            []string{"code"},
-			GrantTypesSupported:               []string{"authorization_code", "refresh_token", "urn:ietf:params:oauth:grant-type:token-exchange"},
-			CodeChallengeMethodsSupported:     []string{"S256", "plain"},
-			TokenEndpointAuthMethodsSupported: []string{"client_secret_basic", "client_secret_post", "none"},
-			UserInfoEndpoint:                  fmt.Sprintf("%s/oauth/userinfo", config.Hostname),
-		},
-		AccessControlRuleHelper: acrHelper,
-		ModelAccessPolicyHelper: mapHelper,
+		OAuthServerConfig:              oauthServerConfig,
+		AccessControlRuleHelper:        acrHelper,
+		ModelAccessPolicyHelper:        mapHelper,
 
 		SkillAccessRuleHelper:                skillAccessRuleHelper,
 		WebhookHelper:                        webhookHelper,

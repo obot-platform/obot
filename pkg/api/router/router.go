@@ -53,7 +53,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	defaultModelAliases := handlers.NewDefaultModelAliasHandler()
 	images := handlers.NewImageHandler()
 	mcp := handlers.NewMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, oauthChecker, services.MCPImagePullSecrets, services.ServerURL)
-	mcpGateway := mcpgateway.NewHandler(services.MCPLoader, services.OAuthServerConfig.ScopesSupported)
+	mcpGateway := mcpgateway.NewHandler(services.MCPLoader)
 	mcpAuditLogs := mcpgateway.NewAuditLogHandler()
 	auditLogExports := handlers.NewAuditLogExportHandler(services.GPTClient)
 	serverInstances := handlers.NewServerInstancesHandler(services.AccessControlRuleHelper, services.ServerURL)
