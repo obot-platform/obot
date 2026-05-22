@@ -18,6 +18,7 @@
 		onClick?: () => void;
 		disablePortal?: boolean;
 		el?: Element;
+		ariaLabel?: string;
 	}
 
 	let {
@@ -28,7 +29,8 @@
 		icon,
 		onClick,
 		disablePortal,
-		el
+		el,
+		ariaLabel = 'Row actions'
 	}: Props = $props();
 
 	const { tooltip, ref, toggle } = popover({
@@ -39,6 +41,7 @@
 </script>
 
 <button
+	aria-label={ariaLabel}
 	class={twMerge('btn', !clazz?.includes('btn-block') && 'btn-ghost btn-square', clazz)}
 	use:ref
 	onclick={(e) => {

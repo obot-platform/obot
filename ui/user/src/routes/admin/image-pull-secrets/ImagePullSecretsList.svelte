@@ -1,5 +1,5 @@
 <script lang="ts">
-	import IconButton from '$lib/components/primitives/IconButton.svelte';
+	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import type { ImagePullSecret } from '$lib/services';
 	import { canTest } from '$lib/services/admin/utils';
@@ -86,29 +86,37 @@
 						openUrl(`/admin/image-pull-secrets?id=${row.id}`, isCtrlClick)}
 				>
 					{#snippet actions(secret)}
-						<div class="flex items-center gap-1">
-							<IconButton
-								disabled={mutationsDisabled || !canTest(secret)}
-								tooltip={{ text: 'Test' }}
-								onclick={(e) => {
-									e.stopPropagation();
-									onTest(secret);
-								}}
-							>
-								<ShieldCheck class="size-4" />
-							</IconButton>
-							<IconButton
-								variant="danger"
-								disabled={mutationsDisabled}
-								tooltip={{ text: 'Delete' }}
-								onclick={(e) => {
-									e.stopPropagation();
-									onDelete(secret);
-								}}
-							>
-								<Trash2 class="size-4" />
-							</IconButton>
-						</div>
+						<DotDotDot
+							ariaLabel={`Actions for ${displayName(secret)}`}
+							class="shrink-0 hover:dark:bg-base-100/50"
+						>
+							{#snippet children({ toggle })}
+								<button
+									class="menu-button"
+									disabled={mutationsDisabled || !canTest(secret)}
+									onclick={(e) => {
+										e.stopPropagation();
+										onTest(secret);
+										toggle(false);
+									}}
+								>
+									<ShieldCheck class="size-4" />
+									Test
+								</button>
+								<button
+									class="menu-button-destructive"
+									disabled={mutationsDisabled}
+									onclick={(e) => {
+										e.stopPropagation();
+										onDelete(secret);
+										toggle(false);
+									}}
+								>
+									<Trash2 class="size-4" />
+									Delete
+								</button>
+							{/snippet}
+						</DotDotDot>
 					{/snippet}
 					{#snippet onRenderColumn(property, secret)}
 						{#if property === 'displayName'}
@@ -148,48 +156,60 @@
 			openUrl(`/admin/image-pull-secrets?id=${row.id}`, isCtrlClick)}
 	>
 		{#snippet actions(secret)}
-			<div class="flex items-center gap-1">
-				<IconButton
-					tooltip={{ text: 'Status' }}
-					onclick={(e) => {
-						e.stopPropagation();
-						onStatus(secret);
-					}}
-				>
-					<Info class="size-4" />
-				</IconButton>
-				<IconButton
-					disabled={mutationsDisabled || !canTest(secret)}
-					tooltip={{ text: 'Test' }}
-					onclick={(e) => {
-						e.stopPropagation();
-						onTest(secret);
-					}}
-				>
-					<ShieldCheck class="size-4" />
-				</IconButton>
-				<IconButton
-					disabled={mutationsDisabled || refreshing}
-					tooltip={{ text: 'Refresh now' }}
-					onclick={(e) => {
-						e.stopPropagation();
-						onRefresh(secret);
-					}}
-				>
-					<RefreshCw class={twMerge('size-4', refreshing && 'animate-spin')} />
-				</IconButton>
-				<IconButton
-					variant="danger"
-					disabled={mutationsDisabled}
-					tooltip={{ text: 'Delete' }}
-					onclick={(e) => {
-						e.stopPropagation();
-						onDelete(secret);
-					}}
-				>
-					<Trash2 class="size-4" />
-				</IconButton>
-			</div>
+			<DotDotDot
+				ariaLabel={`Actions for ${displayName(secret)}`}
+				class="shrink-0 hover:dark:bg-base-100/50"
+			>
+				{#snippet children({ toggle })}
+					<button
+						class="menu-button"
+						onclick={(e) => {
+							e.stopPropagation();
+							onStatus(secret);
+							toggle(false);
+						}}
+					>
+						<Info class="size-4" />
+						Status
+					</button>
+					<button
+						class="menu-button"
+						disabled={mutationsDisabled || !canTest(secret)}
+						onclick={(e) => {
+							e.stopPropagation();
+							onTest(secret);
+							toggle(false);
+						}}
+					>
+						<ShieldCheck class="size-4" />
+						Test
+					</button>
+					<button
+						class="menu-button"
+						disabled={mutationsDisabled || refreshing}
+						onclick={(e) => {
+							e.stopPropagation();
+							onRefresh(secret);
+							toggle(false);
+						}}
+					>
+						<RefreshCw class={twMerge('size-4', refreshing && 'animate-spin')} />
+						Refresh Now
+					</button>
+					<button
+						class="menu-button-destructive"
+						disabled={mutationsDisabled}
+						onclick={(e) => {
+							e.stopPropagation();
+							onDelete(secret);
+							toggle(false);
+						}}
+					>
+						<Trash2 class="size-4" />
+						Delete
+					</button>
+				{/snippet}
+			</DotDotDot>
 		{/snippet}
 		{#snippet onRenderColumn(property, secret)}
 			{#if property === 'displayName'}
@@ -203,7 +223,7 @@
 			{:else if property === 'statusMessage'}
 				{#if secret.statusMessage}
 					<button
-						class="line-clamp-2 max-w-sm text-left text-red-600 underline-offset-2 hover:underline dark:text-red-300"
+						class="line-clamp-2 min-w-0 max-w-full overflow-hidden break-words text-left text-red-600 underline-offset-2 hover:underline dark:text-red-300"
 						onclick={(e) => {
 							e.stopPropagation();
 							onStatus(secret);
