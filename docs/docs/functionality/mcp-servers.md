@@ -167,6 +167,37 @@ You will need to select the container option from the drop down. Then provide th
 
 You can also provide configuration through environment variables by filling in the configurations.
 
+## Kubernetes Secret Bindings
+
+MCP secret bindings let Admins select a key from an externally managed Kubernetes Secret as the value source for a multi-user MCP server configuration field.
+
+Secret bindings are available only when Obot is using the Kubernetes MCP runtime backend.
+
+### Required Kubernetes Secret Label
+
+Secret binding selection in the admin UI is available for catalog-managed multi-user servers. The Kubernetes Secret must be in the Obot server's namespace and must have the allowed secret-binding label.
+
+By default, the required label key is:
+
+```text
+obot.obot.ai/enable-secret-binding
+```
+
+The label value is ignored; only label presence is checked. Set `OBOT_SERVER_MCPSECRET_BINDING_ALLOWED_LABEL` to use a different label key.
+
+The label controls whether a Secret can be discovered and selected in the admin UI. **If the label is removed after an MCP server is already bound to that Secret, the existing binding still uses the Secret at runtime**.
+
+Secrets without data keys are not shown as bindable targets.
+
+### Configure a Binding in the Admin UI
+
+1. Go to **MCP Management -> MCP Servers**.
+2. Create or edit a **Multi-user** MCP server in the catalog.
+3. Add a configuration value or header.
+4. In **Value Source**, select **Kubernetes Secret**.
+5. Select the Secret name and key.
+6. Save the MCP server.
+
 ## Post-deployment management
 
 After successfully adding a server:
