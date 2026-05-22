@@ -172,13 +172,13 @@
 		</div>
 
 		<div class="flex items-center justify-center mb-12">
-			<div class="max-w-full w-sm paper h-full gap-2 py-8">
+			<div class="max-w-full w-2xl paper h-full gap-2 py-8">
 				<div
-					class="p-4 rounded-full dark:bg-base-300 bg-base-200 w-fit justify-center items-center flex self-center"
+					class="p-3 rounded-full dark:bg-base-300 bg-base-200 w-fit justify-center items-center flex self-center"
 				>
-					<AntennaIcon class="@2xl/cli:size-12 size-8 text-primary translate-y-0.5" />
+					<AntennaIcon class="@2xl/cli:size-10 size-6 text-primary translate-y-0.5" />
 				</div>
-				<h4 class="text-xl font-semibold text-center mt-2 mb-4">
+				<h4 class="text-xl font-semibold text-center my-2">
 					What does <code class="font-mono font-normal mx-2">obot setup</code> do?
 				</h4>
 				<ul class="list-disc font-light flex flex-col gap-2 px-4">
