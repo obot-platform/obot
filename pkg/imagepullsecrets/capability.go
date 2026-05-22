@@ -30,7 +30,7 @@ func Availability(kubernetesBackend bool, staticPullSecrets []string) Capability
 
 	if len(CleanSecretNames(staticPullSecrets)) > 0 {
 		return Capability{
-			Reason: "static MCP image pull secrets are configured",
+			Reason: "Static MCP image pull secrets are configured",
 		}
 	}
 

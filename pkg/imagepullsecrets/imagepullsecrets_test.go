@@ -23,11 +23,17 @@ func TestAvailability(t *testing.T) {
 		k8s       bool
 		static    []string
 		available bool
+		reason    string
 	}{
 		{name: "kubernetes with no static secrets", k8s: true, available: true},
 		{name: "empty static names do not disable", k8s: true, static: []string{"", " "}, available: true},
 		{name: "non-kubernetes backend disabled"},
-		{name: "static secrets disabled", k8s: true, static: []string{"pull-secret"}},
+		{
+			name:   "static secrets disabled",
+			k8s:    true,
+			static: []string{"pull-secret"},
+			reason: "Static MCP image pull secrets are configured",
+		},
 	}
 
 	for _, tt := range tests {
@@ -38,6 +44,9 @@ func TestAvailability(t *testing.T) {
 			}
 			if !tt.available && capability.Reason == "" {
 				t.Fatalf("expected disabled reason")
+			}
+			if tt.reason != "" && capability.Reason != tt.reason {
+				t.Fatalf("expected reason %q, got %q", tt.reason, capability.Reason)
 			}
 		})
 	}
