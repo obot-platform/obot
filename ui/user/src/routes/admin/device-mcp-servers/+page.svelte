@@ -6,7 +6,14 @@
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_SIZE, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { type DeviceMCPServerStat } from '$lib/services';
-	import { setFilterUrlParams } from '$lib/url';
+	import {
+		clearUrlParams,
+		getTableUrlParamsFilters,
+		getTableUrlParamsSort,
+		replaceState,
+		setFilterUrlParams,
+		setSortUrlParams
+	} from '$lib/url';
 	import { openUrl } from '$lib/utils';
 	import { Server } from 'lucide-svelte';
 	import { untrack } from 'svelte';
@@ -14,7 +21,9 @@
 
 	let { data } = $props();
 
-	let nameFilter = $state(untrack(() => page.url.searchParams.get('name') ?? ''));
+	let nameFilter = $state(untrack(() => page.url.searchParams.get('query') ?? ''));
+	let urlFilters = $derived(getTableUrlParamsFilters());
+	let initSort = $derived(getTableUrlParamsSort({ property: 'deviceCount', order: 'desc' }));
 
 	type Row = DeviceMCPServerStat & { id: string };
 
@@ -33,7 +42,10 @@
 
 	function updateName(value: string) {
 		nameFilter = value;
-		setFilterUrlParams('name', value ? [value] : []);
+		const next = new URL(page.url);
+		if (value) next.searchParams.set('query', value);
+		else next.searchParams.delete('query');
+		replaceState(next, {});
 	}
 
 	const duration = PAGE_TRANSITION_DURATION;
@@ -77,6 +89,13 @@
 					{ title: 'Users', property: 'userCount' },
 					{ title: 'Observations', property: 'observationCount' }
 				]}
+				sortable={['name', 'transport', 'deviceCount', 'userCount', 'observationCount']}
+				filterable={['name', 'transport']}
+				filters={urlFilters}
+				{initSort}
+				onSort={setSortUrlParams}
+				onFilter={setFilterUrlParams}
+				onClearAllFilters={clearUrlParams}
 				onClickRow={(d, isCtrlClick) => {
 					openUrl(
 						resolve(`/admin/device-mcp-servers/${encodeURIComponent(d.configHash)}`),

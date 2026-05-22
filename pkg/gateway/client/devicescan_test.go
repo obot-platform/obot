@@ -278,6 +278,10 @@ func TestDeviceClientFleetSummaries(t *testing.T) {
 			Files: datatypes.JSONSlice[string]{"SKILL.md"},
 		}},
 	})
+	insertScan(t, c, types.DeviceScan{
+		SubmittedBy: "charlie", DeviceID: "dev-3", ScannedAt: now.Add(2 * time.Hour),
+		Clients: []types.DeviceScanClient{{Name: "cursor"}},
+	})
 
 	list, total, err := c.ListDeviceClientFleetSummaries(ctx, DeviceClientFleetListOptions{Limit: 50})
 	if err != nil {
@@ -354,5 +358,32 @@ func TestDeviceClientFleetSummaries(t *testing.T) {
 	}
 	if len(list2) != 1 {
 		t.Fatalf("limit=1 offset=1: want 1 row, got %d", len(list2))
+	}
+	if list2[0].Name != "codex" {
+		t.Errorf("default sort page 2: want codex, got %q", list2[0].Name)
+	}
+
+	byUsers, _, err := c.ListDeviceClientFleetSummaries(ctx, DeviceClientFleetListOptions{SortBy: "user_count", SortOrder: "desc", Limit: 50})
+	if err != nil {
+		t.Fatalf("list sort user_count: %v", err)
+	}
+	if len(byUsers) == 0 || byUsers[0].Name != "cursor" {
+		t.Errorf("sort user_count desc: want cursor first, got %+v", byUsers)
+	}
+
+	bySkills, _, err := c.ListDeviceClientFleetSummaries(ctx, DeviceClientFleetListOptions{SortBy: "skill_count", SortOrder: "desc", Limit: 50})
+	if err != nil {
+		t.Fatalf("list sort skill_count: %v", err)
+	}
+	if len(bySkills) < 3 || bySkills[0].Name != "claude-code" || bySkills[1].Name != "codex" || bySkills[2].Name != "cursor" {
+		t.Errorf("sort skill_count desc: got %+v", bySkills)
+	}
+
+	byMCPServers, _, err := c.ListDeviceClientFleetSummaries(ctx, DeviceClientFleetListOptions{SortBy: "mcp_server_count", SortOrder: "desc", Limit: 50})
+	if err != nil {
+		t.Fatalf("list sort mcp_server_count: %v", err)
+	}
+	if len(byMCPServers) == 0 || byMCPServers[0].Name != "claude-code" {
+		t.Errorf("sort mcp_server_count desc: want claude-code first, got %+v", byMCPServers)
 	}
 }
