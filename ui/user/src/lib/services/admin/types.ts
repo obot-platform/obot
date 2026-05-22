@@ -355,7 +355,10 @@ export type DeviceClientListFilters = {
 	name?: string;
 	limit?: number;
 	offset?: number;
+	sortBy?: DeviceClientSortKey;
+	sortOrder?: 'asc' | 'desc';
 };
+export type DeviceClientSortKey = 'name' | 'mcp_server_count' | 'skill_count' | 'user_count';
 export interface DeviceSkillStat {
 	name: string;
 	deviceCount: number;

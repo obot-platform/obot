@@ -465,11 +465,15 @@ func (*DeviceScansHandler) ListClients(req api.Context) error {
 		}
 	}
 	name := strings.TrimSpace(q.Get("name"))
+	sortBy := q.Get("sort_by")
+	sortOrder := q.Get("sort_order")
 
 	rows, total, err := req.GatewayClient.ListDeviceClientFleetSummaries(req.Context(), gateway.DeviceClientFleetListOptions{
-		Name:   name,
-		Limit:  limit,
-		Offset: offset,
+		Name:      name,
+		SortBy:    sortBy,
+		SortOrder: sortOrder,
+		Limit:     limit,
+		Offset:    offset,
 	})
 	if err != nil {
 		return err

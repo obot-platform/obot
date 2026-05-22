@@ -421,13 +421,6 @@ type SkillStatListOptions struct {
 	Offset    int
 }
 
-var skillStatSortColumns = map[string]string{
-	"name":              "name",
-	"device_count":      "device_count",
-	"user_count":        "user_count",
-	"observation_count": "observation_count",
-}
-
 // ListSkillStats returns one row per distinct skill name observed in
 // the latest scan of any device within the requested window.
 // Paginated, sortable, optional name LIKE filter.
@@ -462,13 +455,19 @@ func (c *Client) ListSkillStats(ctx context.Context, opts SkillStatListOptions) 
 		return nil, 0, fmt.Errorf("failed to count skill stats: %w", err)
 	}
 
-	sortCol := skillStatSortColumns[opts.SortBy]
-	if sortCol == "" {
-		sortCol = "device_count"
+	validSortFields := map[string]bool{
+		"name":              true,
+		"device_count":      true,
+		"user_count":        true,
+		"observation_count": true,
 	}
-	sortDir := "DESC"
+	sortBy := opts.SortBy
+	if !validSortFields[sortBy] {
+		sortBy = "device_count"
+	}
+	sortOrder := "DESC"
 	if strings.EqualFold(opts.SortOrder, "asc") {
-		sortDir = "ASC"
+		sortOrder = "ASC"
 	}
 
 	q := base.Session(&gorm.Session{}).
@@ -477,7 +476,7 @@ func (c *Client) ListSkillStats(ctx context.Context, opts SkillStatListOptions) 
 			COUNT(DISTINCT s.submitted_by) AS user_count,
 			COUNT(*) AS observation_count`).
 		Group("sk.name").
-		Order(fmt.Sprintf("%s %s, sk.name ASC", sortCol, sortDir))
+		Order(fmt.Sprintf("%s %s, sk.name ASC", sortBy, sortOrder))
 
 	if opts.Limit > 0 {
 		q = q.Limit(opts.Limit)
@@ -559,18 +558,22 @@ type DeviceClientFleetListOptions struct {
 	// Name, when non-empty after trimming, restricts distinct client names to
 	// those matching as a case-insensitive substring (LIKE/ILIKE %Name%).
 	Name string
+	// SortBy is name | mcp_server_count | skill_count | user_count.
+	SortBy string
+	// SortOrder is asc | desc.
+	SortOrder string
 	// Limit is the max number of client rows to return; 0 means no limit.
 	Limit int
-	// Offset skips that many client names in name order.
+	// Offset skips that many client names in the selected sort order.
 	Offset int
 }
 
 // ListDeviceClientFleetSummaries returns one row per distinct client name
 // observed in device_scan_clients on each device's all-time latest scan,
-// paginated by name. Each row lists distinct submitters, skills with
-// metadata, and MCP servers (by config_hash) attributed to that client on
-// those scans. Optional Name filters distinct names by case-insensitive
-// substring match.
+// paginated after applying the selected sort order. Each row lists distinct
+// submitters, skills with metadata, and MCP servers (by config_hash) attributed
+// to that client on those scans. Optional Name filters distinct names by
+// case-insensitive substring match.
 func (c *Client) ListDeviceClientFleetSummaries(ctx context.Context, opts DeviceClientFleetListOptions) ([]DeviceClientFleetSummary, int64, error) {
 	db := c.db.WithContext(ctx)
 	latest := db.Model(&types.DeviceScan{}).Select("MAX(id)").Group("device_id")
@@ -581,12 +584,13 @@ func (c *Client) ListDeviceClientFleetSummaries(ctx context.Context, opts Device
 		Where("cl.name <> ''")
 
 	nameFilter := strings.TrimSpace(opts.Name)
+	like := "LIKE"
+	if db.Name() == "postgres" {
+		like = "ILIKE"
+	}
+	nameFilterArg := "%" + nameFilter + "%"
 	if nameFilter != "" {
-		like := "LIKE"
-		if db.Name() == "postgres" {
-			like = "ILIKE"
-		}
-		base = base.Where(fmt.Sprintf("cl.name %s ?", like), "%"+nameFilter+"%")
+		base = base.Where(fmt.Sprintf("cl.name %s ?", like), nameFilterArg)
 	}
 
 	var total int64
@@ -594,19 +598,85 @@ func (c *Client) ListDeviceClientFleetSummaries(ctx context.Context, opts Device
 		return nil, 0, fmt.Errorf("failed to count distinct clients: %w", err)
 	}
 
-	qNames := base.Session(&gorm.Session{}).
-		Distinct("cl.name").
-		Order("cl.name ASC")
-	if opts.Limit > 0 {
-		qNames = qNames.Limit(opts.Limit)
-	}
-	if opts.Offset > 0 {
-		qNames = qNames.Offset(opts.Offset)
+	userCounts := db.Table("device_scan_clients AS cl").
+		Joins("JOIN device_scans AS s ON s.id = cl.device_scan_id").
+		Where("s.id IN (?)", latest).
+		Where("cl.name <> ''").
+		Where("s.submitted_by <> ''").
+		Select("cl.name AS name, COUNT(DISTINCT s.submitted_by) AS user_count").
+		Group("cl.name")
+	if nameFilter != "" {
+		userCounts = userCounts.Where(fmt.Sprintf("cl.name %s ?", like), nameFilterArg)
 	}
 
-	var names []string
-	if err := qNames.Pluck("cl.name", &names).Error; err != nil {
+	skillCounts := db.Table("device_scan_skills AS sk").
+		Joins("JOIN device_scans AS s ON s.id = sk.device_scan_id").
+		Where("s.id IN (?)", latest).
+		Where("sk.client <> ''").
+		Where("sk.client <> ?", "multi").
+		Where("sk.name <> ''").
+		Select("sk.client AS name, COUNT(DISTINCT sk.name) AS skill_count").
+		Group("sk.client")
+	if nameFilter != "" {
+		skillCounts = skillCounts.Where(fmt.Sprintf("sk.client %s ?", like), nameFilterArg)
+	}
+
+	mcpServerCounts := db.Table("device_scan_mcp_servers AS m").
+		Joins("JOIN device_scans AS s ON s.id = m.device_scan_id").
+		Where("s.id IN (?)", latest).
+		Where("m.client <> ''").
+		Where("m.client <> ?", "multi").
+		Select("m.client AS name, COUNT(DISTINCT m.config_hash) AS mcp_server_count").
+		Group("m.client")
+	if nameFilter != "" {
+		mcpServerCounts = mcpServerCounts.Where(fmt.Sprintf("m.client %s ?", like), nameFilterArg)
+	}
+
+	validSortFields := map[string]bool{
+		"name":             true,
+		"mcp_server_count": true,
+		"skill_count":      true,
+		"user_count":       true,
+	}
+	sortBy := opts.SortBy
+	if !validSortFields[sortBy] {
+		sortBy = "name"
+	}
+	sortColumn := sortBy
+	if sortBy == "name" {
+		sortColumn = "cl.name"
+	}
+	sortOrder := "ASC"
+	if strings.EqualFold(opts.SortOrder, "desc") {
+		sortOrder = "DESC"
+	}
+
+	q := base.Session(&gorm.Session{}).
+		Select(`cl.name AS name,
+			COALESCE(user_counts.user_count, 0) AS user_count,
+			COALESCE(skill_counts.skill_count, 0) AS skill_count,
+			COALESCE(mcp_server_counts.mcp_server_count, 0) AS mcp_server_count`).
+		Joins("LEFT JOIN (?) AS user_counts ON user_counts.name = cl.name", userCounts).
+		Joins("LEFT JOIN (?) AS skill_counts ON skill_counts.name = cl.name", skillCounts).
+		Joins("LEFT JOIN (?) AS mcp_server_counts ON mcp_server_counts.name = cl.name", mcpServerCounts).
+		Group("cl.name, user_counts.user_count, skill_counts.skill_count, mcp_server_counts.mcp_server_count").
+		Order(fmt.Sprintf("%s %s, cl.name ASC", sortColumn, sortOrder))
+	if opts.Limit > 0 {
+		q = q.Limit(opts.Limit)
+	}
+	if opts.Offset > 0 {
+		q = q.Offset(opts.Offset)
+	}
+
+	var rows []struct {
+		Name string `gorm:"column:name"`
+	}
+	if err := q.Scan(&rows).Error; err != nil {
 		return nil, 0, fmt.Errorf("failed to list client names: %w", err)
+	}
+	names := make([]string, 0, len(rows))
+	for _, row := range rows {
+		names = append(names, row.Name)
 	}
 	if len(names) == 0 {
 		return nil, total, nil

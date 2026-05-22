@@ -1,17 +1,34 @@
 import { handleRouteError } from '$lib/errors';
 import {
 	AdminService,
+	type DeviceClientSortKey,
 	type DeviceClientFleetSummaryResponse,
 	type OrgUser,
 	UserService
 } from '$lib/services';
 import { profile } from '$lib/stores';
 import type { PageLoad } from './$types';
+import { DEFAULT_SORT_BY, DEFAULT_SORT_ORDER, sortFields } from './constants';
+
+function getSortBy(property: string | null): DeviceClientSortKey {
+	const key = property ?? '';
+	return Object.hasOwn(sortFields, key) ? sortFields[key] : DEFAULT_SORT_BY;
+}
+
+function getSortOrder(order: string | null): 'asc' | 'desc' {
+	return order === 'desc' ? 'desc' : 'asc';
+}
 
 export const load: PageLoad = async ({ fetch, url }) => {
 	const limit = parseInt(url.searchParams.get('pageSize') ?? '50', 10) || 50;
 	const offset = parseInt(url.searchParams.get('offset') ?? '0', 10) || 0;
 	const name = url.searchParams.get('name') ?? '';
+	const sortProperty = url.searchParams.get('sort');
+	const hasValidSortProperty = sortProperty != null && Object.hasOwn(sortFields, sortProperty);
+	const sortBy = getSortBy(sortProperty);
+	const sortOrder = hasValidSortProperty
+		? getSortOrder(url.searchParams.get('sortDirection'))
+		: DEFAULT_SORT_ORDER;
 	let clients: DeviceClientFleetSummaryResponse = {
 		items: [],
 		total: 0,
@@ -21,7 +38,7 @@ export const load: PageLoad = async ({ fetch, url }) => {
 	let users: OrgUser[] = [];
 	try {
 		[clients, users] = await Promise.all([
-			AdminService.listDeviceClients({ limit, offset, name }, { fetch }),
+			AdminService.listDeviceClients({ limit, offset, name, sortBy, sortOrder }, { fetch }),
 			UserService.listUsers({ fetch })
 		]);
 		return { clients, users };

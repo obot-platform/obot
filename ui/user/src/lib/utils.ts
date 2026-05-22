@@ -1,6 +1,26 @@
 import { Role, type OrgUser, Group, type DefaultModelAlias, ModelAlias } from './services';
 import { goto } from './url';
 
+type TableSort = { property: string; order: 'asc' | 'desc' };
+
+export function getSortParams<TSortBy extends string>(
+	sort: TableSort | undefined,
+	sortFields: Record<string, TSortBy>,
+	defaultSort: TableSort
+): { sortBy: TSortBy; sortOrder: 'asc' | 'desc' } {
+	const property = sort?.property;
+	if (!property || !Object.hasOwn(sortFields, property)) {
+		return {
+			sortBy: sortFields[defaultSort.property],
+			sortOrder: defaultSort.order
+		};
+	}
+	return {
+		sortBy: sortFields[property],
+		sortOrder: sort.order
+	};
+}
+
 /**
  * Check if the user is a Basic user (not PowerUser or higher).
  *

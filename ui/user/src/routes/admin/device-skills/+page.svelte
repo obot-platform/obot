@@ -7,15 +7,16 @@
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { AdminService, type DeviceSkillStat, type DeviceSkillStatResponse } from '$lib/services';
-	import { replaceState } from '$lib/url';
-	import { openUrl } from '$lib/utils';
+	import { getTableUrlParamsSort, replaceState, setSortUrlParams } from '$lib/url';
+	import { getSortParams, openUrl } from '$lib/utils';
+	import { PAGE_SIZE as DEFAULT_PAGE_SIZE, defaultSort, sortFields } from './constants';
 	import { debounce } from 'es-toolkit';
 	import { PencilRuler } from 'lucide-svelte';
 	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
 
 	let { data } = $props();
-	const PAGE_SIZE = untrack(() => data?.pageSize ?? 50);
+	const PAGE_SIZE = untrack(() => data?.pageSize ?? DEFAULT_PAGE_SIZE);
 
 	let skillsResp = $state<DeviceSkillStatResponse>(
 		untrack(() => data?.skills ?? { items: [], total: 0, limit: PAGE_SIZE, offset: 0 })
@@ -25,6 +26,15 @@
 	let nameFilter = $state(untrack(() => page.url.searchParams.get('name') ?? ''));
 
 	type Row = DeviceSkillStat & { id: string };
+
+	function isSortProperty(property: string | undefined): property is keyof typeof sortFields {
+		return property != null && Object.hasOwn(sortFields, property);
+	}
+
+	let initSort = $derived.by(() => {
+		const sort = getTableUrlParamsSort(defaultSort);
+		return isSortProperty(sort?.property) ? sort : defaultSort;
+	});
 
 	let rows = $derived<Row[]>(
 		(skillsResp.items ?? []).map((s) => ({
@@ -45,13 +55,14 @@
 		replaceState(next, {});
 	}
 
-	async function reload() {
+	async function reload(sort = initSort) {
 		loading = true;
 		try {
 			skillsResp = await AdminService.listDeviceSkills({
 				limit: PAGE_SIZE,
 				offset: pageIndex * PAGE_SIZE,
-				name: nameFilter || undefined
+				name: nameFilter || undefined,
+				...getSortParams(sort, sortFields, defaultSort)
 			});
 		} finally {
 			loading = false;
@@ -68,6 +79,12 @@
 	function fetchPage(idx: number) {
 		pageIndex = idx;
 		reload();
+	}
+
+	function handleSort(property: string, order: 'asc' | 'desc') {
+		setSortUrlParams(property, order);
+		pageIndex = 0;
+		reload({ property, order });
 	}
 
 	const duration = PAGE_TRANSITION_DURATION;
@@ -109,6 +126,9 @@
 					{ title: 'Users', property: 'userCount' },
 					{ title: 'Observations', property: 'observationCount' }
 				]}
+				sortable={['name', 'deviceCount', 'userCount', 'observationCount']}
+				{initSort}
+				onSort={handleSort}
 				onClickRow={(d, isCtrlClick) => {
 					openUrl(resolve(`/admin/device-skills/${encodeURIComponent(d.name)}`), isCtrlClick);
 				}}

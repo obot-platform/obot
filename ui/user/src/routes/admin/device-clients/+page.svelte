@@ -7,8 +7,9 @@
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_SIZE, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { AdminService } from '$lib/services/index.js';
-	import { setFilterUrlParams, setUrlParam } from '$lib/url';
-	import { openUrl } from '$lib/utils';
+	import { getTableUrlParamsSort, replaceState } from '$lib/url';
+	import { getSortParams, openUrl } from '$lib/utils';
+	import { defaultSort, sortFields } from './constants';
 	import { MonitorCheck } from 'lucide-svelte';
 	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -18,15 +19,27 @@
 	let clients = $derived(clientsData.items ?? []);
 	let total = $derived(clientsData.total ?? 0);
 	let userMap = $derived(new Map(data?.users?.map((u) => [u.id, u]) ?? []));
+
+	function isSortProperty(property: string | undefined): property is keyof typeof sortFields {
+		return property != null && Object.hasOwn(sortFields, property);
+	}
+
+	let initSort = $derived.by(() => {
+		const sort = getTableUrlParamsSort(defaultSort);
+		return isSortProperty(sort?.property) ? sort : defaultSort;
+	});
 	let rows = $derived(
 		clients.map((c) => ({
 			id: c.name ?? '',
 			name: c.name ?? '',
 			mcpServers: c.mcpServers ?? [],
+			mcpServerCount: c.mcpServers?.length ?? 0,
 			skills: c.skills ?? [],
+			skillCount: c.skills?.length ?? 0,
 			users:
 				c.users?.map((u) => userMap.get(u) ?? { id: u, displayName: u, email: u, username: u }) ??
-				[]
+				[],
+			userCount: c.users?.length ?? 0
 		}))
 	);
 	let pageSize = $derived(
@@ -37,17 +50,27 @@
 	let nameFilter = $state(untrack(() => page.url.searchParams.get('name') ?? ''));
 	let loading = $state(false);
 
-	let filteredRows = $derived(
-		nameFilter ? rows.filter((c) => c.name.toLowerCase().includes(nameFilter.toLowerCase())) : rows
-	);
+	function syncUrl(nextPageIndex: number, sort = initSort) {
+		const next = new URL(page.url);
+		if (nameFilter) next.searchParams.set('name', nameFilter);
+		else next.searchParams.delete('name');
+		if (nextPageIndex > 0) next.searchParams.set('offset', String(nextPageIndex * pageSize));
+		else next.searchParams.delete('offset');
+		if (isSortProperty(sort?.property)) {
+			next.searchParams.set('sort', sort.property);
+			next.searchParams.set('sortDirection', sort.order);
+		}
+		replaceState(next, {});
+	}
 
-	async function reload(idx: number) {
+	async function reload(idx: number, sort = initSort) {
 		loading = true;
 		try {
 			clientsData = await AdminService.listDeviceClients({
 				limit: pageSize,
 				offset: idx * pageSize,
-				name: nameFilter
+				name: nameFilter,
+				...getSortParams(sort, sortFields, defaultSort)
 			});
 		} finally {
 			loading = false;
@@ -56,14 +79,19 @@
 
 	function updateName(value: string) {
 		nameFilter = value;
-		setFilterUrlParams('name', value ? [value] : []);
+		syncUrl(0);
 		reload(0);
 	}
 
 	function fetchPage(idx: number) {
-		setUrlParam(page.url, 'name', nameFilter);
-		setFilterUrlParams('offset', idx > 0 ? [String(idx * pageSize)] : []);
+		syncUrl(idx);
 		reload(idx);
+	}
+
+	function handleSort(property: string, order: 'asc' | 'desc') {
+		const sort = { property, order };
+		syncUrl(0, sort);
+		reload(0, sort);
 	}
 
 	const duration = PAGE_TRANSITION_DURATION;
@@ -97,15 +125,18 @@
 			</div>
 		{:else}
 			<Table
-				data={filteredRows}
+				data={rows}
 				{pageSize}
-				fields={['name', 'mcpServers', 'skills', 'users']}
+				fields={['name', 'mcpServerCount', 'skillCount', 'userCount']}
 				headers={[
 					{ title: 'Name', property: 'name' },
-					{ title: 'MCP Servers', property: 'mcpServers' },
-					{ title: 'Skills', property: 'skills' },
-					{ title: 'Users', property: 'users' }
+					{ title: 'MCP Servers', property: 'mcpServerCount' },
+					{ title: 'Skills', property: 'skillCount' },
+					{ title: 'Users', property: 'userCount' }
 				]}
+				sortable={['name', 'mcpServerCount', 'skillCount', 'userCount']}
+				{initSort}
+				onSort={handleSort}
 				onClickRow={(d, isCtrlClick) => {
 					openUrl(resolve(`/admin/device-clients/${encodeURIComponent(d.name)}`), isCtrlClick);
 				}}
@@ -117,12 +148,6 @@
 						{:else}
 							<span class="text-muted-content italic">(unnamed)</span>
 						{/if}
-					{:else if property === 'skills'}
-						{d.skills.length}
-					{:else if property === 'mcpServers'}
-						{d.mcpServers.length}
-					{:else if property === 'users'}
-						{d.users.length}
 					{:else}
 						{d[property as keyof (typeof rows)[number]]}
 					{/if}
