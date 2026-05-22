@@ -10,7 +10,7 @@ import (
 
 const (
 	SharedAgentsID          = "agents"
-	sharedAgentsDisplayName = "All agents that support ~/.agents"
+	sharedAgentsDisplayName = "All clients that support ~/.agents"
 )
 
 type SharedAgents struct {
@@ -52,7 +52,7 @@ func (a SharedAgents) InstallBootstrap(ctx context.Context, home string) (Instal
 		AgentID:     a.ID(),
 		DisplayName: a.DisplayName(),
 		Installed:   installed,
-		Message:     "Installed Obot bootstrap skills for All agents that support ~/.agents",
+		Message:     "Installed Obot bootstrap skills for All clients that support ~/.agents",
 	}, nil
 }
 
@@ -73,7 +73,7 @@ func (a SharedAgents) InstallSkill(ctx context.Context, home string, skill Skill
 		AgentID:     a.ID(),
 		DisplayName: a.DisplayName(),
 		Installed:   installed,
-		Message:     fmt.Sprintf("Installed %s for All agents that support ~/.agents", name),
+		Message:     fmt.Sprintf("Installed %s for All clients that support ~/.agents", name),
 	}, nil
 }
 

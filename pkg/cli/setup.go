@@ -10,16 +10,18 @@ import (
 	"os"
 	"strings"
 
+	"github.com/AlecAivazis/survey/v2"
 	gptcmd "github.com/gptscript-ai/cmd"
 	cliinternal "github.com/obot-platform/obot/pkg/cli/internal"
 	"github.com/obot-platform/obot/pkg/cli/internal/localconfig"
 	"github.com/obot-platform/obot/pkg/localagents"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 type Setup struct {
 	URL            string `usage:"Obot app URL to configure"`
-	Agents         string `usage:"Comma-separated target agents: none, claude-code, or agents"`
+	Clients        string `usage:"Comma-separated target clients: none, claude-code, or agents"`
 	Yes            bool   `usage:"Accept confirmations and use defaults"`
 	NonInteractive bool   `usage:"Never read from stdin; fail if required input is missing"`
 	Output         string `usage:"Output format: text or json" default:"text"`
@@ -29,10 +31,10 @@ type Setup struct {
 
 func (s *Setup) Customize(cmd *cobra.Command) {
 	cmd.Use = "setup"
-	cmd.Short = "Configure Obot locally and install supported agent bootstrap assets"
+	cmd.Short = "Configure Obot locally and install supported client bootstrap assets"
 	cmd.Args = cobra.NoArgs
 	cmd.AddCommand(gptcmd.Command(&SetupStatus{}))
-	cmd.AddCommand(gptcmd.Command(&SetupDetectAgents{}))
+	cmd.AddCommand(gptcmd.Command(&SetupDetectClients{}))
 }
 
 func (s *Setup) Run(cmd *cobra.Command, _ []string) error {
@@ -103,13 +105,13 @@ func (s *Setup) run(cmd *cobra.Command, progress setupProgressWriter) error {
 		fmt.Fprintf(cmd.ErrOrStderr(), "Logged in to %s\n", appURL)
 	}
 
-	selection, err := s.resolveAgentSelection(cmd)
+	selection, err := s.resolveClientSelection(cmd)
 	if err != nil {
 		return err
 	}
 	if selection.none {
 		if !progress.json {
-			fmt.Fprintln(cmd.OutOrStdout(), "Skipping local agent bootstrap installation")
+			fmt.Fprintln(cmd.OutOrStdout(), "Skipping local client bootstrap installation")
 		}
 		if err := progress.emit(setupProgressEvent{Type: setupProgressComplete, URL: appURL}); err != nil {
 			return err
@@ -119,24 +121,24 @@ func (s *Setup) run(cmd *cobra.Command, progress setupProgressWriter) error {
 
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return setupErrorf(setupErrorAgentDetectionFailed, "failed to get user home dir: %w", err)
+		return setupErrorf(setupErrorClientDetectionFailed, "failed to get user home dir: %w", err)
 	}
 
 	var installed []localagents.InstallResult
 	var installErrs []error
 	for _, target := range localagents.SetupTargets() {
-		if !selection.agentIDs[target.ID()] {
+		if !selection.clientIDs[target.ID()] {
 			continue
 		}
 		result, err := target.InstallBootstrap(ctx, home)
 		if err != nil {
-			installErrs = append(installErrs, setupErrorf(setupErrorAgentInstallFailed, "install bootstrap for %s: %w", target.DisplayName(), err))
+			installErrs = append(installErrs, setupErrorf(setupErrorClientInstallFailed, "install bootstrap for %s: %w", target.DisplayName(), err))
 			continue
 		}
 		installed = append(installed, result)
 		if err := progress.emit(setupProgressEvent{
-			Type:        setupProgressAgentInstalled,
-			AgentID:     result.AgentID,
+			Type:        setupProgressClientInstalled,
+			ClientID:    result.AgentID,
 			DisplayName: result.DisplayName,
 			Installed:   result.Installed,
 			Message:     result.Message,
@@ -150,7 +152,7 @@ func (s *Setup) run(cmd *cobra.Command, progress setupProgressWriter) error {
 
 	if len(installed) == 0 {
 		if !progress.json {
-			fmt.Fprintln(cmd.OutOrStdout(), "No supported local agents detected")
+			fmt.Fprintln(cmd.OutOrStdout(), "No local clients selected")
 		}
 		return progress.emit(setupProgressEvent{Type: setupProgressComplete, URL: appURL})
 	}
@@ -163,12 +165,12 @@ func (s *Setup) run(cmd *cobra.Command, progress setupProgressWriter) error {
 	return progress.emit(setupProgressEvent{Type: setupProgressComplete, URL: appURL})
 }
 
-func (s *Setup) resolveAgentSelection(cmd *cobra.Command) (setupAgentSelection, error) {
-	if cmd.Flags().Changed("agents") || strings.TrimSpace(s.Agents) != "" {
-		return parseSetupAgents(s.Agents)
+func (s *Setup) resolveClientSelection(cmd *cobra.Command) (setupClientSelection, error) {
+	if cmd.Flags().Changed("clients") || strings.TrimSpace(s.Clients) != "" {
+		return parseSetupClients(s.Clients)
 	}
 	if s.NonInteractive {
-		return setupAgentSelection{}, setupErrorf(setupErrorAgentDetectionFailed, "--agents is required in non-interactive mode")
+		return setupClientSelection{}, setupErrorf(setupErrorClientDetectionFailed, "--clients is required in non-interactive mode")
 	}
 
 	ctx := cmd.Context()
@@ -183,27 +185,93 @@ func (s *Setup) resolveAgentSelection(cmd *cobra.Command) (setupAgentSelection, 
 		}
 	}
 
-	fmt.Fprintln(cmd.OutOrStdout(), "Choose local agent skill targets:")
-	fmt.Fprintln(cmd.OutOrStdout(), "  none        Skip local bootstrap installation")
-	fmt.Fprintln(cmd.OutOrStdout(), "  agents      All agents that support ~/.agents")
-	if claudeDetected {
-		fmt.Fprintln(cmd.OutOrStdout(), "  claude-code Claude Code (detected)")
-	}
-	raw, err := promptLine(cmd, "Agents to support (comma-separated) [agents]: ")
+	raw, err := promptSetupClients(cmd, claudeDetected)
 	if err != nil {
-		return setupAgentSelection{}, err
+		return setupClientSelection{}, err
 	}
 	if strings.TrimSpace(raw) == "" {
 		raw = localagents.SharedAgentsID
 	}
-	selection, err := parseSetupAgents(raw)
+	selection, err := parseSetupClients(raw)
 	if err != nil {
-		return setupAgentSelection{}, err
+		return setupClientSelection{}, err
 	}
-	if selection.agentIDs[localagents.ClaudeCodeAgentID] && !claudeDetected {
-		return setupAgentSelection{}, setupErrorf(setupErrorAgentDetectionFailed, "claude-code is only available from the interactive prompt when Claude Code is detected; pass --agents claude-code to install explicitly")
+	if selection.clientIDs[localagents.ClaudeCodeAgentID] && !claudeDetected {
+		return setupClientSelection{}, setupErrorf(setupErrorClientDetectionFailed, "claude-code is only available from the interactive prompt when Claude Code is detected; pass --clients claude-code to install explicitly")
 	}
 	return selection, nil
+}
+
+func promptSetupClients(cmd *cobra.Command, claudeDetected bool) (string, error) {
+	if setupPromptSupportsMenu(cmd) {
+		return promptSetupClientsMenu(cmd, claudeDetected)
+	}
+	return promptSetupClientsLine(cmd, claudeDetected)
+}
+
+func promptSetupClientsMenu(cmd *cobra.Command, claudeDetected bool) (string, error) {
+	options := []string{"none", localagents.SharedAgentsID}
+	if claudeDetected {
+		options = append(options, localagents.ClaudeCodeAgentID)
+	}
+
+	selected := []string{localagents.SharedAgentsID}
+	prompt := &survey.MultiSelect{
+		Message:  "Install Obot bootstrap skills into:",
+		Options:  options,
+		Default:  selected,
+		PageSize: len(options),
+		Description: func(value string, _ int) string {
+			switch value {
+			case "none":
+				return "Skip local bootstrap installation"
+			case localagents.SharedAgentsID:
+				return "All clients that support ~/.agents"
+			case localagents.ClaudeCodeAgentID:
+				return "Claude Code (detected)"
+			default:
+				return ""
+			}
+		},
+	}
+
+	in := cmd.InOrStdin().(interface {
+		io.Reader
+		Fd() uintptr
+	})
+	out := cmd.OutOrStdout().(interface {
+		io.Writer
+		Fd() uintptr
+	})
+	if err := survey.AskOne(prompt, &selected, survey.WithStdio(in, out, cmd.ErrOrStderr())); err != nil {
+		return "", err
+	}
+	return strings.Join(selected, ","), nil
+}
+
+func promptSetupClientsLine(cmd *cobra.Command, claudeDetected bool) (string, error) {
+	fmt.Fprintln(cmd.OutOrStdout(), "Choose local client skill targets:")
+	fmt.Fprintln(cmd.OutOrStdout(), "  none        Skip local bootstrap installation")
+	fmt.Fprintln(cmd.OutOrStdout(), "  agents      All clients that support ~/.agents")
+	if claudeDetected {
+		fmt.Fprintln(cmd.OutOrStdout(), "  claude-code Claude Code (detected)")
+	}
+	return promptLine(cmd, "Clients to support (comma-separated) [agents]: ")
+}
+
+func setupPromptSupportsMenu(cmd *cobra.Command) bool {
+	in, ok := cmd.InOrStdin().(interface {
+		io.Reader
+		Fd() uintptr
+	})
+	if !ok || !term.IsTerminal(int(in.Fd())) {
+		return false
+	}
+	out, ok := cmd.OutOrStdout().(interface {
+		io.Writer
+		Fd() uintptr
+	})
+	return ok && term.IsTerminal(int(out.Fd()))
 }
 
 func (s *Setup) resolveAppURL(cmd *cobra.Command) (string, error) {
@@ -259,12 +327,12 @@ func (s *Setup) resolveAppURL(cmd *cobra.Command) (string, error) {
 }
 
 const (
-	setupProgressAuthStarted    = "auth_started"
-	setupProgressAuthCompleted  = "auth_completed"
-	setupProgressConfigSaved    = "config_saved"
-	setupProgressAgentInstalled = "agent_installed"
-	setupProgressComplete       = "complete"
-	setupProgressError          = "error"
+	setupProgressAuthStarted     = "auth_started"
+	setupProgressAuthCompleted   = "auth_completed"
+	setupProgressConfigSaved     = "config_saved"
+	setupProgressClientInstalled = "client_installed"
+	setupProgressComplete        = "complete"
+	setupProgressError           = "error"
 )
 
 type setupProgressEvent struct {
@@ -272,7 +340,7 @@ type setupProgressEvent struct {
 	Code        string   `json:"code,omitempty"`
 	Message     string   `json:"message,omitempty"`
 	URL         string   `json:"url,omitempty"`
-	AgentID     string   `json:"agentID,omitempty"`
+	ClientID    string   `json:"clientID,omitempty"`
 	DisplayName string   `json:"displayName,omitempty"`
 	Installed   []string `json:"installed,omitempty"`
 }
@@ -302,15 +370,15 @@ func (w setupProgressWriter) emit(event setupProgressEvent) error {
 type setupErrorCode string
 
 const (
-	setupErrorInvalidURL           setupErrorCode = "invalid_url"
-	setupErrorServerUnreachable    setupErrorCode = "server_unreachable"
-	setupErrorAuthUnavailable      setupErrorCode = "auth_unavailable"
-	setupErrorAuthTimeout          setupErrorCode = "auth_timeout"
-	setupErrorAuthCanceled         setupErrorCode = "auth_canceled"
-	setupErrorConfigSaveFailed     setupErrorCode = "config_save_failed"
-	setupErrorAgentDetectionFailed setupErrorCode = "agent_detection_failed"
-	setupErrorAgentInstallFailed   setupErrorCode = "agent_install_failed"
-	setupErrorUnknown              setupErrorCode = "unknown"
+	setupErrorInvalidURL            setupErrorCode = "invalid_url"
+	setupErrorServerUnreachable     setupErrorCode = "server_unreachable"
+	setupErrorAuthUnavailable       setupErrorCode = "auth_unavailable"
+	setupErrorAuthTimeout           setupErrorCode = "auth_timeout"
+	setupErrorAuthCanceled          setupErrorCode = "auth_canceled"
+	setupErrorConfigSaveFailed      setupErrorCode = "config_save_failed"
+	setupErrorClientDetectionFailed setupErrorCode = "client_detection_failed"
+	setupErrorClientInstallFailed   setupErrorCode = "client_install_failed"
+	setupErrorUnknown               setupErrorCode = "unknown"
 )
 
 type setupCodedError struct {
@@ -391,19 +459,16 @@ func setupAuthErrorCode(err error) setupErrorCode {
 	return setupErrorUnknown
 }
 
-type setupAgentSelection struct {
-	none     bool
-	agentIDs map[string]bool
+type setupClientSelection struct {
+	none      bool
+	clientIDs map[string]bool
 }
 
-func parseSetupAgents(raw string) (setupAgentSelection, error) {
+func parseSetupClients(raw string) (setupClientSelection, error) {
 	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		raw = "detected"
-	}
 
-	selection := setupAgentSelection{
-		agentIDs: map[string]bool{},
+	selection := setupClientSelection{
+		clientIDs: map[string]bool{},
 	}
 	for part := range strings.SplitSeq(raw, ",") {
 		value := strings.TrimSpace(part)
@@ -413,19 +478,19 @@ func parseSetupAgents(raw string) (setupAgentSelection, error) {
 		case "none":
 			selection.none = true
 		case localagents.ClaudeCodeAgentID:
-			selection.agentIDs[localagents.ClaudeCodeAgentID] = true
+			selection.clientIDs[localagents.ClaudeCodeAgentID] = true
 		case localagents.SharedAgentsID:
-			selection.agentIDs[localagents.SharedAgentsID] = true
+			selection.clientIDs[localagents.SharedAgentsID] = true
 		default:
-			return setupAgentSelection{}, fmt.Errorf("unsupported --agents value %q; supported values are none, claude-code, and agents", value)
+			return setupClientSelection{}, fmt.Errorf("unsupported --clients value %q; supported values are none, claude-code, and agents", value)
 		}
 	}
 
-	if selection.none && len(selection.agentIDs) > 0 {
-		return setupAgentSelection{}, fmt.Errorf("--agents none cannot be combined with other values")
+	if selection.none && len(selection.clientIDs) > 0 {
+		return setupClientSelection{}, fmt.Errorf("--clients none cannot be combined with other values")
 	}
-	if !selection.none && len(selection.agentIDs) == 0 {
-		return setupAgentSelection{}, fmt.Errorf("--agents must include none, claude-code, or agents")
+	if !selection.none && len(selection.clientIDs) == 0 {
+		return setupClientSelection{}, fmt.Errorf("--clients must include none, claude-code, or agents")
 	}
 
 	return selection, nil

@@ -16,7 +16,7 @@ import (
 
 var setupCapabilities = []string{
 	"setup.nonInteractive",
-	"setup.detectAgents",
+	"setup.detectClients",
 	"setup.progressJSON",
 }
 
@@ -91,48 +91,48 @@ type setupStatusOutput struct {
 	SetupComplete bool     `json:"setupComplete"`
 }
 
-type SetupDetectAgents struct {
-	JSON bool `usage:"Print detected agents as JSON"`
+type SetupDetectClients struct {
+	JSON bool `usage:"Print detected clients as JSON"`
 }
 
-func (s *SetupDetectAgents) Customize(cmd *cobra.Command) {
-	cmd.Use = "detect-agents"
-	cmd.Short = "Detect supported local agents"
+func (s *SetupDetectClients) Customize(cmd *cobra.Command) {
+	cmd.Use = "detect-clients"
+	cmd.Short = "Detect supported local clients"
 	cmd.Args = cobra.NoArgs
 }
 
-func (s *SetupDetectAgents) Run(cmd *cobra.Command, _ []string) error {
+func (s *SetupDetectClients) Run(cmd *cobra.Command, _ []string) error {
 	ctx := cmd.Context()
 	if ctx == nil {
 		ctx = context.Background()
 	}
 
-	result := detectSetupAgents(ctx)
+	result := detectSetupClients(ctx)
 	if s.JSON {
 		return writeJSON(cmd, result)
 	}
 
 	w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
 	fmt.Fprintln(w, "ID\tNAME\tSTATE\tREASON")
-	for _, agent := range result.Agents {
+	for _, client := range result.Clients {
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
-			tableCell(agent.ID),
-			tableCell(agent.DisplayName),
-			tableCell(agent.State),
-			tableCell(agent.Reason),
+			tableCell(client.ID),
+			tableCell(client.DisplayName),
+			tableCell(client.State),
+			tableCell(client.Reason),
 		)
 	}
 	return w.Flush()
 }
 
-func detectSetupAgents(ctx context.Context) setupDetectAgentsOutput {
+func detectSetupClients(ctx context.Context) setupDetectClientsOutput {
 	installers := localagents.DetectedAgents()
-	result := setupDetectAgentsOutput{
-		Agents: make([]setupDetectedAgent, 0, len(installers)),
+	result := setupDetectClientsOutput{
+		Clients: make([]setupDetectedClient, 0, len(installers)),
 	}
 	for _, installer := range installers {
 		detection := installer.Detect(ctx)
-		result.Agents = append(result.Agents, setupDetectedAgent{
+		result.Clients = append(result.Clients, setupDetectedClient{
 			ID:          detection.AgentID,
 			DisplayName: detection.DisplayName,
 			State:       string(detection.State),
@@ -142,11 +142,11 @@ func detectSetupAgents(ctx context.Context) setupDetectAgentsOutput {
 	return result
 }
 
-type setupDetectAgentsOutput struct {
-	Agents []setupDetectedAgent `json:"agents"`
+type setupDetectClientsOutput struct {
+	Clients []setupDetectedClient `json:"clients"`
 }
 
-type setupDetectedAgent struct {
+type setupDetectedClient struct {
 	ID          string `json:"id"`
 	DisplayName string `json:"displayName"`
 	State       string `json:"state"`

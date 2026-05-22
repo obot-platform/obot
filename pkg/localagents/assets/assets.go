@@ -20,14 +20,14 @@ var claudeSkillTemplates = []string{
 	"claude/skills/obot-scan/SKILL.md.tmpl",
 }
 
-// TemplateData is the agent-specific data used to render bootstrap
+// TemplateData is the client-specific data used to render bootstrap
 // assets.
 type TemplateData struct {
 	AgentID            string
 	InstallDestination string
 }
 
-// SkillAsset is one rendered skill file relative to an agent skills
+// SkillAsset is one rendered skill file relative to a client skills
 // root directory.
 type SkillAsset struct {
 	SkillName string
@@ -82,7 +82,7 @@ func RenderAgentSkills(data TemplateData) ([]SkillAsset, error) {
 
 func validateTemplateData(data TemplateData) error {
 	if strings.TrimSpace(data.AgentID) == "" {
-		return fmt.Errorf("agent ID is required")
+		return fmt.Errorf("client ID is required")
 	}
 	if strings.TrimSpace(data.InstallDestination) == "" {
 		return fmt.Errorf("install destination is required")
