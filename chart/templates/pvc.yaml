@@ -7,7 +7,11 @@ metadata:
     {{- include "obot.labels" . | nindent 4 }}
 spec:
   {{- if .Values.persistence.storageClass }}
-  storageClassName: {{ .Values.persistence.storageClass }}
+  {{- if eq .Values.persistence.storageClass "-" }}
+  storageClassName: ""
+  {{- else }}
+  storageClassName: {{ .Values.persistence.storageClass | quote }}
+  {{- end }}
   {{- end }}
   accessModes:
   {{- range .Values.persistence.accessModes }}

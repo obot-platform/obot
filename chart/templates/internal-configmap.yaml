@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "obot.config.configMapName" . }}
+  labels:
+    {{- include "obot.labels" . | nindent 4 }}
+data:
+  {{- range $key, $value := .Values.config }}
+  {{- if (toString $value) }}
+  {{ $key }}: {{ toString $value | quote }}
+  {{- end }}
+  {{- end }}
+  {{- if eq .Values.config.OBOT_SERVER_MCPRUNTIME_BACKEND "kubernetes" }}
+  OBOT_SERVER_MCPNAMESPACE: {{ include "obot.config.mcpNamespace" . | quote }}
+  OBOT_SERVER_SERVICE_NAME: {{ include "obot.fullname" . | quote }}
+  OBOT_SERVER_SERVICE_NAMESPACE: {{ .Release.Namespace | quote }}
+  {{- end }}
+  {{- if .Values.mcpServerDefaults.affinity }}
+  OBOT_SERVER_MCPK8S_SETTINGS_AFFINITY: {{ .Values.mcpServerDefaults.affinity | toJson | quote }}
+  {{- end }}
+  {{- if .Values.mcpServerDefaults.tolerations }}
+  OBOT_SERVER_MCPK8S_SETTINGS_TOLERATIONS: {{ .Values.mcpServerDefaults.tolerations | toJson | quote }}
+  {{- end }}
+  {{- if .Values.mcpServerDefaults.resources }}
+  OBOT_SERVER_MCPK8S_SETTINGS_RESOURCES: {{ .Values.mcpServerDefaults.resources | toJson | quote }}
+  {{- end }}
+  {{- if .Values.mcpNamespace.podSecurity.enabled }}
+  OBOT_SERVER_MCPPOD_SECURITY_ENABLED: {{ .Values.mcpNamespace.podSecurity.enabled | toString | quote }}
+  OBOT_SERVER_MCPPOD_SECURITY_ENFORCE: {{ .Values.mcpNamespace.podSecurity.enforce | quote }}
+  OBOT_SERVER_MCPPOD_SECURITY_ENFORCE_VERSION: {{ .Values.mcpNamespace.podSecurity.enforceVersion | quote }}
+  OBOT_SERVER_MCPPOD_SECURITY_AUDIT: {{ .Values.mcpNamespace.podSecurity.audit | quote }}
+  OBOT_SERVER_MCPPOD_SECURITY_AUDIT_VERSION: {{ .Values.mcpNamespace.podSecurity.auditVersion | quote }}
+  OBOT_SERVER_MCPPOD_SECURITY_WARN: {{ .Values.mcpNamespace.podSecurity.warn | quote }}
+  OBOT_SERVER_MCPPOD_SECURITY_WARN_VERSION: {{ .Values.mcpNamespace.podSecurity.warnVersion | quote }}
+  {{- end }}
+  {{- if .Values.mcpServerDefaults.runtimeClassName }}
+  OBOT_SERVER_MCPK8S_SETTINGS_RUNTIME_CLASS_NAME: {{ .Values.mcpServerDefaults.runtimeClassName | quote }}
+  {{- end }}
+  {{- if .Values.mcpServerDefaults.storageClassName }}
+  OBOT_SERVER_MCPK8S_SETTINGS_STORAGE_CLASS_NAME: {{ .Values.mcpServerDefaults.storageClassName | quote }}
+  {{- end }}
+  {{- if .Values.mcpServerDefaults.nanobotWorkspaceSize }}
+  OBOT_SERVER_MCPK8S_SETTINGS_NANOBOT_WORKSPACE_SIZE: {{ .Values.mcpServerDefaults.nanobotWorkspaceSize | quote }}
+  {{- end }}
