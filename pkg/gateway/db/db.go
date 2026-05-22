@@ -100,7 +100,6 @@ func (db *DB) AutoMigrate() (err error) {
 		types.APIActivity{},
 		types.Image{},
 		types.RunState{},
-		types.FileScannerConfig{},
 		types.RunTokenActivity{},
 		types.MCPOAuthToken{},
 		types.MCPOAuthPendingState{},

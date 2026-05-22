@@ -26,8 +26,6 @@ import type {
 	K8sServerDetail
 } from '../user/types';
 import type {
-	FileScannerConfig,
-	FileScannerProvider,
 	MCPCatalog,
 	MCPCatalogEntry,
 	MCPCatalogEntryServerManifest,
@@ -400,23 +398,6 @@ export async function acceptEula() {
 	})) as {
 		accepted: boolean;
 	};
-}
-
-// File scanner
-
-export async function listFileScannerProviders(opts?: {
-	fetch?: Fetcher;
-}): Promise<FileScannerProvider[]> {
-	const response = (await doGet(
-		'/file-scanner-providers',
-		opts
-	)) as ItemsResponse<FileScannerProvider>;
-	return response.items ?? [];
-}
-
-export async function getFileScannerConfig(opts?: { fetch?: Fetcher }): Promise<FileScannerConfig> {
-	const response = (await doGet('/file-scanner-config', opts)) as FileScannerConfig;
-	return response;
 }
 
 // Group role assignments

@@ -761,24 +761,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
-	if strings.HasPrefix(config.DSN, "postgres://") {
-		if err := gptscriptClient.CreateCredential(ctx, gptscript.Credential{
-			Context:  system.DefaultNamespace,
-			ToolName: system.KnowledgeCredID,
-			Type:     gptscript.CredentialTypeTool,
-			Env: map[string]string{
-				"KNOW_VECTOR_DSN": strings.Replace(config.DSN, "postgres://", "pgvector://", 1),
-				"KNOW_INDEX_DSN":  config.DSN,
-			},
-		}); err != nil {
-			return nil, err
-		}
-	} else {
-		if err := gptscriptClient.DeleteCredential(ctx, system.DefaultNamespace, system.KnowledgeCredID); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
-			return nil, err
-		}
-	}
-
 	acrGVK, err := r.Backend().GroupVersionKindFor(&v1.AccessControlRule{})
 	if err != nil {
 		return nil, err
