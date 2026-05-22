@@ -11,8 +11,8 @@
 	const duration = PAGE_TRANSITION_DURATION;
 
 	let { data } = $props();
-	let { mcpServer, workspaceId, belongsToUser } = $derived(data);
-	let title = $derived(mcpServer?.manifest?.name ?? 'MCP Server');
+	let { mcpServer, catalogEntry, workspaceId, belongsToUser } = $derived(data);
+	let title = $derived(mcpServer?.alias || mcpServer?.manifest?.name || 'MCP Server');
 </script>
 
 <Layout
@@ -24,7 +24,12 @@
 	showBackButton
 >
 	{#snippet rightNavActions()}
-		<McpServerActions server={mcpServer} />
+		<McpServerActions
+			server={mcpServer}
+			entry={catalogEntry}
+			workspaceID={workspaceId}
+			allowMultiUserServerConfigurationEdit
+		/>
 	{/snippet}
 	<div class="flex h-full flex-col gap-6 pb-8" in:fly={{ x: 100, delay: duration, duration }}>
 		{#if workspaceId && mcpServer}

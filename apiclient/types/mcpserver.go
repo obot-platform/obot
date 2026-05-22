@@ -297,19 +297,20 @@ type MCPServer struct {
 	Metadata
 	MCPServerManifest MCPServerManifest `json:"manifest"`
 
-	// Alias is a user-defined alias for the MCP server.
-	// This may only be set for single user and remote MCP servers (i.e. where `MCPCatalogID` is "").
-	Alias                   string   `json:"alias,omitempty"`
-	UserID                  string   `json:"userID"`
-	Configured              bool     `json:"configured"`
-	MissingRequiredEnvVars  []string `json:"missingRequiredEnvVars,omitempty"`
-	MissingRequiredHeaders  []string `json:"missingRequiredHeader,omitempty"`
-	MissingOAuthCredentials bool     `json:"missingOAuthCredentials,omitempty"`
-	CatalogEntryID          string   `json:"catalogEntryID"`
-	PowerUserWorkspaceID    string   `json:"powerUserWorkspaceID"`
-	MCPCatalogID            string   `json:"mcpCatalogID,omitempty"`
-	ConnectURL              string   `json:"connectURL,omitempty"`
-	NanobotAgentID          string   `json:"nanobotAgentID,omitempty"`
+	// Alias is a user-defined display label for this MCP server.
+	// For personal servers, it is user-managed. For catalog/workspace servers, it labels the shared deployment.
+	Alias                   string         `json:"alias,omitempty"`
+	UserID                  string         `json:"userID"`
+	Configured              bool           `json:"configured"`
+	MissingRequiredEnvVars  []string       `json:"missingRequiredEnvVars,omitempty"`
+	MissingRequiredHeaders  []string       `json:"missingRequiredHeader,omitempty"`
+	MissingOAuthCredentials bool           `json:"missingOAuthCredentials,omitempty"`
+	CatalogEntryID          string         `json:"catalogEntryID"`
+	PowerUserWorkspaceID    string         `json:"powerUserWorkspaceID"`
+	MCPCatalogID            string         `json:"mcpCatalogID,omitempty"`
+	ServerUserType          ServerUserType `json:"serverUserType,omitempty"`
+	ConnectURL              string         `json:"connectURL,omitempty"`
+	NanobotAgentID          string         `json:"nanobotAgentID,omitempty"`
 
 	// NeedsUpdate indicates whether the configuration in this server's catalog entry has drift from this server's configuration.
 	NeedsUpdate bool `json:"needsUpdate,omitempty"`
@@ -492,6 +493,7 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 		Runtime:          catalogEntry.Runtime,
 		Env:              catalogEntry.Env,
 		Resources:        catalogEntry.Resources,
+		MultiUserConfig:  catalogEntry.MultiUserConfig,
 	}
 
 	// Handle runtime-specific mapping

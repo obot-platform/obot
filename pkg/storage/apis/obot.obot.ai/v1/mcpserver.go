@@ -84,7 +84,7 @@ func (in *MCPServer) DeleteRefs() []Ref {
 
 func (in *MCPServer) ValidConnectURLs(base string) []string {
 	var urls []string
-	if in.Spec.MCPServerCatalogEntryName != "" {
+	if in.Spec.IsSingleUser() {
 		urls = append(urls, system.MCPConnectURL(base, in.Spec.MCPServerCatalogEntryName))
 	}
 	return append(urls, system.MCPConnectURL(base, in.Name))
@@ -94,8 +94,8 @@ type MCPServerSpec struct {
 	Manifest types.MCPServerManifest `json:"manifest"`
 	// List of tool names that are known to not work well in Obot.
 	UnsupportedTools []string `json:"unsupportedTools,omitempty"`
-	// Alias is a user-defined alias for the MCP server.
-	// This may only be set for single user and remote MCP servers (i.e. where `MCPCatalogID` is "").
+	// Alias is a user-defined display label for this MCP server.
+	// For personal servers, it is user-managed. For catalog/workspace servers, it labels the shared deployment.
 	Alias string `json:"alias,omitempty"`
 	// UserID is the user that created this server.
 	UserID string `json:"userID,omitempty"`

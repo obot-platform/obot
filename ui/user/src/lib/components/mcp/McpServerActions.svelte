@@ -10,7 +10,15 @@
 		type MCPCatalogServer,
 		type MCPServerInstance
 	} from '$lib/services';
-	import { hasEditableConfiguration, requiresUserUpdate } from '$lib/services/user/mcp';
+	import {
+		deleteMcpServerDeployment,
+		disconnectMcpServerUser,
+		hasEditableConfiguration,
+		isMultiUserServer,
+		isMultiUserTemplateEntry,
+		requiresUserUpdate,
+		restartMcpServer
+	} from '$lib/services/user/mcp';
 	import { mcpServersAndEntries, profile, userDeviceSettings } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { goto } from '$lib/url';
@@ -20,6 +28,7 @@
 	import Table from '../table/Table.svelte';
 	import ConnectToServer from './ConnectToServer.svelte';
 	import EditExistingDeployment from './EditExistingDeployment.svelte';
+	import McpConfirmDelete from './McpConfirmDelete.svelte';
 	import StaticOAuthConfigureModal from './StaticOAuthConfigureModal.svelte';
 	import DebugOauthDialog from './oauth/DebugOauthDialog.svelte';
 	import {
@@ -57,6 +66,8 @@
 		connectOnly?: boolean;
 		readonly?: boolean;
 		allowMultiUserServerConfigurationEdit?: boolean;
+		catalogID?: string;
+		workspaceID?: string;
 	}
 
 	let {
@@ -71,7 +82,9 @@
 		promptOAuthConfig,
 		connectOnly,
 		readonly,
-		allowMultiUserServerConfigurationEdit
+		allowMultiUserServerConfigurationEdit,
+		catalogID,
+		workspaceID
 	}: Props = $props();
 	let connectToServerDialog = $state<ReturnType<typeof ConnectToServer>>();
 	let editExistingDialog = $state<ReturnType<typeof EditExistingDeployment>>();
@@ -85,13 +98,14 @@
 	let isInitialOAuthConfig = $state(false);
 	let oauthConfiguredOverride = $state<boolean | undefined>(undefined);
 	let debugOauthDialog = $state<ReturnType<typeof DebugOauthDialog>>();
+	let deletingServer = $state(false);
 
 	let disconnecting = $state(false);
 	let restarting = $state(false);
 
 	let instance = $derived(
 		instanceProp ??
-			(server && !server.catalogEntryID
+			(server && isMultiUserServer(server)
 				? mcpServersAndEntries.current.userInstances.find(
 						(instance) => instance.mcpServerID === server.id
 					)
@@ -104,37 +118,81 @@
 				)
 			: []
 	);
+
+	// Multi-user templates are deployable catalog entries. Connecting from the
+	// template row always starts a new shared server deployment.
+	let isMultiUserTemplate = $derived(isMultiUserTemplateEntry(entry) && !server);
 	let requiresUpdate = $derived(server && requiresUserUpdate(server));
 	let canReauthenticate = $derived(
 		server?.manifest.runtime === 'remote' && Object.keys(server.oauthMetadata ?? {}).length > 0
 	);
 	let canDebugOauth = $derived(canReauthenticate && userDeviceSettings.developerMode);
-	let canConfigure = $derived(
-		entry && (entry.manifest.runtime === 'composite' || hasEditableConfiguration(entry))
-	);
 	let belongsToComposite = $derived(Boolean(server && server.compositeName));
+	// True when the user can manage the server deployment (restart, rename, edit config).
+	// For multi-user servers, only admins or the workspace owner who deployed it.
+	let isServerOwner = $derived(
+		!isMultiUserServer(server) ||
+			profile.current.isAdmin?.() ||
+			(server?.powerUserWorkspaceID && server?.userID === profile.current.id)
+	);
+	let canConfigure = $derived(
+		entry &&
+			(entry.manifest.runtime === 'composite' || hasEditableConfiguration(entry)) &&
+			isServerOwner
+	);
 	let canEditMultiUserServerConfiguration = $derived(
 		Boolean(
 			server &&
-			!server.catalogEntryID &&
+			isMultiUserServer(server) &&
 			!readonly &&
 			allowMultiUserServerConfigurationEdit &&
 			instance &&
 			(server.manifest.multiUserConfig?.userDefinedHeaders?.length ?? 0) > 0
 		)
 	);
-	let showServerDetails = $derived(entry && !server && configuredServers.length > 0);
-	let hasActions = $derived(
+	let canDeleteMultiUserServer = $derived(
 		Boolean(
-			(entry && server) ||
-			showServerDetails ||
-			(server && instance) ||
-			canEditMultiUserServerConfiguration
+			server &&
+			isMultiUserServer(server) &&
+			!readonly &&
+			(profile.current.isAdmin?.() ||
+				(server.powerUserWorkspaceID && server.userID === profile.current.id))
 		)
 	);
-
+	let canManageServerDeployment = $derived(Boolean(server && isServerOwner));
+	let showServerDetails = $derived(entry && !server && configuredServers.length > 0);
+	let hasMultiUserServerNotOwned = $derived(
+		configuredServers.some(
+			(s) =>
+				(isMultiUserServer(s) || isMultiUserTemplateEntry(entry)) &&
+				!profile.current.isAdmin?.() &&
+				!(s.powerUserWorkspaceID && s.userID === profile.current.id)
+		)
+	);
+	let hasConfiguredServerUserInstance = $derived(
+		configuredServers.some((s) =>
+			mcpServersAndEntries.current.userInstances.some((i) => i.mcpServerID === s.id)
+		)
+	);
+	let showConnectionActions = $derived(
+		!hasMultiUserServerNotOwned || hasConfiguredServerUserInstance
+	);
+	let hasActions = $derived.by(() => {
+		return Boolean(
+			(entry && server && isServerOwner) ||
+			(server && instance) ||
+			(showServerDetails && showConnectionActions) ||
+			canEditMultiUserServerConfiguration ||
+			canDeleteMultiUserServer
+		);
+	});
 	let showDisconnectUser = $derived(
-		entry && server && profile.current.isAdmin?.() && server.userID !== profile.current.id
+		entry &&
+			server &&
+			!isMultiUserServer(server) &&
+			!isMultiUserTemplateEntry(entry) &&
+			profile.current.isAdmin?.() &&
+			server.userID !== profile.current.id
 	);
 	// Look up canConnect from the store if not set on props (e.g., when entry/server loaded directly via API)
 	let canConnect = $derived.by(() => {
@@ -162,10 +220,36 @@
 
 	function refresh() {
 		if (entry) {
-			mcpServersAndEntries.refreshUserConfiguredServers();
-		} else if (!server?.catalogEntryID) {
+			mcpServersAndEntries.refreshAll();
+		} else if (isMultiUserServer(server)) {
 			mcpServersAndEntries.refreshUserInstances();
 		}
+	}
+
+	async function restartServer(server: MCPCatalogServer) {
+		await restartMcpServer(server, catalogID);
+	}
+
+	async function deleteServerDeployment(server: MCPCatalogServer) {
+		await deleteMcpServerDeployment(server, catalogID);
+	}
+
+	function serverDeleteRedirect(server: MCPCatalogServer): string {
+		if (server.catalogEntryID) {
+			if (!profile.current.hasAdminAccess?.()) {
+				return `/mcp-servers/c/${server.catalogEntryID}`;
+			}
+
+			return server.powerUserWorkspaceID
+				? `/admin/mcp-servers/w/${server.powerUserWorkspaceID}/c/${server.catalogEntryID}`
+				: `/admin/mcp-servers/c/${server.catalogEntryID}`;
+		}
+
+		return profile.current.hasAdminAccess?.() ? '/admin/mcp-servers' : '/mcp-servers';
+	}
+
+	async function disconnectCurrentUser(server: MCPCatalogServer) {
+		await disconnectMcpServerUser(server);
 	}
 
 	export function connect() {
@@ -220,13 +304,24 @@
 		class:hidden={!(
 			(entry && !server) ||
 			(server &&
-				(!server.catalogEntryID || (server.catalogEntryID && server.userID === profile.current.id)))
+				(isMultiUserServer(server) ||
+					!server.catalogEntryID ||
+					(server.catalogEntryID && server.userID === profile.current.id)))
 		)}
 		use:tooltip={{
-			text: canConnect ? '' : 'See MCP Registries to grant connect access to this server'
+			text:
+				isMultiUserTemplate && !profile.current?.hasAdminAccess?.()
+					? 'This is a multi-user server template. An administrator must deploy it before you can connect.'
+					: canConnect
+						? ''
+						: 'See MCP Registries to grant connect access to this server'
 		}}
-		onclick={() => {
-			if (entry && !server && configuredServers.length > 0) {
+		onclick={async () => {
+			if (isMultiUserTemplate) {
+				connectToServerDialog?.open({
+					entry
+				});
+			} else if (entry && !server && configuredServers.length > 0) {
 				if (configuredServers.length === 1) {
 					connectToServerDialog?.open({
 						entry,
@@ -243,7 +338,10 @@
 				});
 			}
 		}}
-		disabled={loading || !canConnect || (requiresStaticOAuth && oauthConfigured === false)}
+		disabled={loading ||
+			(isMultiUserTemplate && !catalogID && !workspaceID) ||
+			!canConnect ||
+			(requiresStaticOAuth && oauthConfigured === false)}
 	>
 		{#if loading}
 			<Loading class="size-4" />
@@ -268,6 +366,8 @@
 <ConnectToServer
 	bind:this={connectToServerDialog}
 	userConfiguredServers={mcpServersAndEntries.current.userConfiguredServers}
+	{catalogID}
+	{workspaceID}
 	onConnect={(data) => {
 		onConnect?.(data);
 		refresh();
@@ -285,21 +385,31 @@
 	<Table
 		data={configuredServers || []}
 		fields={['name', 'created']}
-		onClickRow={(d) => {
+		onClickRow={async (d) => {
 			selectServerDialog?.close();
 			switch (selectServerMode) {
 				case 'server-details': {
 					if (profile.current?.hasAdminAccess?.()) {
 						goto(
 							resolve(
-								entry?.powerUserWorkspaceID
-									? `/admin/mcp-servers/w/${d.powerUserWorkspaceID}/c/${d.catalogEntryID}/instance/${d.id}`
-									: `/admin/mcp-servers/c/${d.catalogEntryID}/instance/${d.id}`
+								isMultiUserServer(d)
+									? d.powerUserWorkspaceID
+										? `/admin/mcp-servers/w/${d.powerUserWorkspaceID}/s/${d.id}`
+										: `/admin/mcp-servers/s/${d.id}`
+									: entry?.powerUserWorkspaceID
+										? `/admin/mcp-servers/w/${d.powerUserWorkspaceID}/c/${d.catalogEntryID}/instance/${d.id}`
+										: `/admin/mcp-servers/c/${d.catalogEntryID}/instance/${d.id}`
 							),
 							{ replaceState: true }
 						);
 					} else {
-						goto(resolve(`/mcp-servers/c/${d.catalogEntryID}/instance/${d.id}`));
+						goto(
+							resolve(
+								isMultiUserServer(d)
+									? `/mcp-servers/s/${d.id}`
+									: `/mcp-servers/c/${d.catalogEntryID}/instance/${d.id}`
+							)
+						);
 					}
 					break;
 				}
@@ -318,13 +428,13 @@
 					break;
 				}
 				case 'restart': {
-					UserService.restartMcpServer(d.id);
-					mcpServersAndEntries.refreshUserConfiguredServers();
+					await restartServer(d);
+					await mcpServersAndEntries.refreshAll();
 					break;
 				}
 				case 'disconnect': {
-					UserService.deleteSingleOrRemoteMcpServer(d.id);
-					mcpServersAndEntries.refreshUserConfiguredServers();
+					await disconnectCurrentUser(d);
+					await mcpServersAndEntries.refreshAll();
 					break;
 				}
 				default:
@@ -411,7 +521,7 @@
 </ResponsiveDialog>
 
 {#snippet serverActions(toggle: (value: boolean) => void)}
-	{#if server && (server.userID === profile.current.id || canEditMultiUserServerConfiguration)}
+	{#if server && (server.userID === profile.current.id || instance || canEditMultiUserServerConfiguration || canDeleteMultiUserServer)}
 		<div class="flex flex-col gap-1 p-2 bg-base-200 rounded-t-xl">
 			{#if canEditMultiUserServerConfiguration}
 				<button
@@ -425,10 +535,11 @@
 						toggle(false);
 					}}
 				>
-					<ServerCog class="size-4" /> Edit Configuration
+					<ServerCog class="size-4" />
+					{canConfigure ? 'Edit My Connection' : 'Edit Configuration'}
 				</button>
 			{/if}
-			{#if entry}
+			{#if entry && isServerOwner}
 				<button
 					class="menu-button"
 					onclick={() => {
@@ -481,7 +592,7 @@
 					</button>
 				{/if}
 			{/if}
-			{#if server}
+			{#if server && canManageServerDeployment}
 				<button
 					class="menu-button"
 					disabled={restarting}
@@ -489,7 +600,7 @@
 						e.stopPropagation();
 						restarting = true;
 						try {
-							await UserService.restartMcpServer(server.id);
+							await restartServer(server);
 							refresh();
 						} finally {
 							restarting = false;
@@ -504,6 +615,18 @@
 					{/if} Restart
 				</button>
 			{/if}
+			{#if canDeleteMultiUserServer}
+				<button
+					class="menu-button-destructive"
+					onclick={(e) => {
+						e.stopPropagation();
+						deletingServer = true;
+						toggle(false);
+					}}
+				>
+					<Trash2 class="size-4" /> Delete Server
+				</button>
+			{/if}
 			{#if server && instance}
 				<button
 					class="menu-button"
@@ -512,21 +635,8 @@
 						e.stopPropagation();
 						disconnecting = true;
 						await UserService.deleteMcpServerInstance(instance.id);
-						mcpServersAndEntries.refreshUserInstances();
+						await mcpServersAndEntries.refreshAll();
 						toggle(false);
-
-						if (profile.current.hasAdminAccess?.()) {
-							goto(
-								resolve(
-									entry?.powerUserWorkspaceID
-										? `/admin/mcp-servers/w/${server.powerUserWorkspaceID}/s/${server.id}`
-										: `/admin/mcp-servers/s/${server.id}`
-								),
-								{ replaceState: true }
-							);
-						} else {
-							goto(resolve(`/mcp-servers/c/${server.id}`), { replaceState: true });
-						}
 						disconnecting = false;
 					}}
 				>
@@ -536,15 +646,15 @@
 						<Unplug class="size-4" />
 					{/if} Disconnect
 				</button>
-			{:else if entry && server}
+			{:else if entry && server && isServerOwner && !canDeleteMultiUserServer && !isMultiUserTemplateEntry(entry)}
 				<button
 					class="menu-button"
 					disabled={disconnecting}
 					onclick={async (e) => {
 						e.stopPropagation();
 						disconnecting = true;
-						await UserService.deleteSingleOrRemoteMcpServer(server.id);
-						mcpServersAndEntries.refreshUserConfiguredServers();
+						await deleteServerDeployment(server);
+						await mcpServersAndEntries.refreshAll();
 						toggle(false);
 
 						if (profile.current.hasAdminAccess?.()) {
@@ -571,117 +681,132 @@
 			{/if}
 		</div>
 	{:else if entry && configuredServers.length > 0}
-		<div
-			class="bg-base-100 dark:bg-base-300 rounded-t-xl p-2 pl-4 text-[11px] font-semibold uppercase"
-		>
-			My Connection(s)
-		</div>
-		<div class="bg-base-200 flex flex-col gap-1 p-2">
-			{#if entry}
-				<button
-					class="menu-button"
-					onclick={() => {
-						if (configuredServers.length === 1) {
-							editExistingDialog?.rename({
-								server: configuredServers[0],
-								entry
-							});
-						} else {
-							handleShowSelectServerDialog('rename');
-						}
-					}}
-				>
-					<PencilLine class="size-4" /> Rename
-				</button>
-				{#if canConfigure}
+		{#if showConnectionActions}
+			<div
+				class="bg-base-100 dark:bg-base-300 rounded-t-xl p-2 pl-4 text-[11px] font-semibold uppercase"
+			>
+				My Connection(s)
+			</div>
+			<div class="bg-base-200 flex flex-col gap-1 p-2">
+				{#if entry && !hasMultiUserServerNotOwned}
 					<button
-						class={twMerge(
-							'menu-button',
-							requiresUpdate && 'bg-warning/10 text-warning hover:bg-warning/30'
-						)}
+						class="menu-button"
 						onclick={() => {
 							if (configuredServers.length === 1) {
-								editExistingDialog?.edit({
+								editExistingDialog?.rename({
 									server: configuredServers[0],
 									entry
 								});
 							} else {
-								handleShowSelectServerDialog('edit');
+								handleShowSelectServerDialog('rename');
 							}
 						}}
 					>
-						<ServerCog class="size-4" /> Edit Configuration
+						<PencilLine class="size-4" /> Rename
+					</button>
+					{#if canConfigure}
+						<button
+							class={twMerge(
+								'menu-button',
+								requiresUpdate && 'bg-warning/10 text-warning hover:bg-warning/30'
+							)}
+							onclick={() => {
+								if (configuredServers.length === 1) {
+									editExistingDialog?.edit({
+										server: configuredServers[0],
+										entry
+									});
+								} else {
+									handleShowSelectServerDialog('edit');
+								}
+							}}
+						>
+							<ServerCog class="size-4" /> Edit Configuration
+						</button>
+					{/if}
+				{/if}
+				{#if configuredServers.length > 0 && !hasMultiUserServerNotOwned}
+					<button
+						class="menu-button"
+						disabled={restarting}
+						onclick={async (e) => {
+							e.stopPropagation();
+							if (configuredServers.length === 1) {
+								restarting = true;
+								try {
+									await restartServer(configuredServers[0]);
+									refresh();
+								} finally {
+									restarting = false;
+									toggle(false);
+								}
+							} else {
+								handleShowSelectServerDialog('restart');
+							}
+						}}
+					>
+						{#if restarting}
+							<Loading class="size-4" />
+						{:else}
+							<RefreshCw class="size-4" />
+						{/if} Restart
 					</button>
 				{/if}
-			{/if}
-			{#if configuredServers.length > 0}
 				<button
 					class="menu-button"
-					disabled={restarting}
-					onclick={async (e) => {
-						e.stopPropagation();
+					onclick={() => {
 						if (configuredServers.length === 1) {
-							restarting = true;
-							try {
-								await UserService.restartMcpServer(configuredServers[0].id);
-								refresh();
-							} finally {
-								restarting = false;
-								toggle(false);
+							if (profile.current.hasAdminAccess?.()) {
+								goto(
+									resolve(
+										isMultiUserServer(configuredServers[0])
+											? configuredServers[0].powerUserWorkspaceID
+												? `/admin/mcp-servers/w/${configuredServers[0].powerUserWorkspaceID}/s/${configuredServers[0].id}`
+												: `/admin/mcp-servers/s/${configuredServers[0].id}`
+											: entry?.powerUserWorkspaceID
+												? `/admin/mcp-servers/w/${entry.powerUserWorkspaceID}/c/${entry.id}/instance/${configuredServers[0].id}`
+												: `/admin/mcp-servers/c/${entry.id}/instance/${configuredServers[0].id}`
+									),
+									{ replaceState: true }
+								);
+							} else {
+								goto(
+									resolve(
+										isMultiUserServer(configuredServers[0])
+											? `/mcp-servers/s/${configuredServers[0].id}`
+											: `/mcp-servers/c/${entry.id}/instance/${configuredServers[0].id}`
+									),
+									{
+										replaceState: true
+									}
+								);
 							}
 						} else {
-							handleShowSelectServerDialog('restart');
+							handleShowSelectServerDialog('server-details');
 						}
 					}}
 				>
-					{#if restarting}
-						<Loading class="size-4" />
-					{:else}
-						<RefreshCw class="size-4" />
-					{/if} Restart
+					<ReceiptText class="size-4" /> Server Details
 				</button>
-			{/if}
-			<button
-				class="menu-button"
-				onclick={() => {
-					if (configuredServers.length === 1) {
-						if (profile.current.hasAdminAccess?.()) {
-							goto(
-								resolve(
-									entry?.powerUserWorkspaceID
-										? `/admin/mcp-servers/w/${entry.powerUserWorkspaceID}/c/${entry.id}/instance/${configuredServers[0].id}`
-										: `/admin/mcp-servers/c/${entry.id}/instance/${configuredServers[0].id}`
-								),
-								{ replaceState: true }
-							);
-						} else {
-							goto(resolve(`/mcp-servers/c/${entry.id}/instance/${configuredServers[0].id}`), {
-								replaceState: true
-							});
-						}
-					} else {
-						handleShowSelectServerDialog('server-details');
-					}
-				}}
-			>
-				<ReceiptText class="size-4" /> Server Details
-			</button>
-			<button
-				class="menu-button"
-				onclick={async (e) => {
-					e.stopPropagation();
-					if (configuredServers.length === 1) {
-						await UserService.deleteSingleOrRemoteMcpServer(configuredServers[0].id);
-						mcpServersAndEntries.refreshUserConfiguredServers();
-					} else {
-						handleShowSelectServerDialog('disconnect');
-					}
-					toggle(false);
-				}}
-			>
-				<Unplug class="size-4" /> Disconnect
-			</button>
-		</div>
+				{#if !isMultiUserTemplateEntry(entry)}
+					<button
+						class="menu-button"
+						onclick={async (e) => {
+							e.stopPropagation();
+							if (configuredServers.length === 1) {
+								await disconnectCurrentUser(configuredServers[0]);
+								await mcpServersAndEntries.refreshAll();
+							} else {
+								handleShowSelectServerDialog('disconnect');
+							}
+							toggle(false);
+						}}
+					>
+						<Unplug class="size-4" /> Disconnect
+					</button>
+				{/if}
+			</div>
+		{/if}
 	{/if}
 	{#if showDisconnectUser && server}
 		<div class="flex flex-col gap-2 p-2">
@@ -689,8 +814,8 @@
 				class="menu-button text-error"
 				onclick={async (e) => {
 					e.stopPropagation();
-					await UserService.deleteSingleOrRemoteMcpServer(server.id);
-					mcpServersAndEntries.refreshUserConfiguredServers();
+					await deleteServerDeployment(server);
+					await mcpServersAndEntries.refreshAll();
 					toggle(false);
 				}}
 			>
@@ -699,6 +824,22 @@
 		</div>
 	{/if}
 {/snippet}
+
+<McpConfirmDelete
+	names={[server?.alias || server?.manifest.name || '']}
+	show={deletingServer}
+	onsuccess={async () => {
+		if (!server) return;
+		const redirect = serverDeleteRedirect(server);
+		await deleteServerDeployment(server);
+		await mcpServersAndEntries.refreshAll();
+		deletingServer = false;
+		goto(redirect, { replaceState: true });
+	}}
+	oncancel={() => (deletingServer = false)}
+	entity="server"
+	entityPlural="servers"
+/>
 
 <StaticOAuthConfigureModal
 	bind:this={oauthConfigModal}

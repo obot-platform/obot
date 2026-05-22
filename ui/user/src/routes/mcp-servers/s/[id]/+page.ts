@@ -21,8 +21,21 @@ export const load: PageLoad = async ({ params, fetch }) => {
 		handleRouteError(err, `/mcp-servers/s/${id}`, profile.current);
 	}
 
+	let catalogEntry;
+	const isOwner =
+		profile.current?.isAdmin?.() ||
+		(mcpServer?.powerUserWorkspaceID && mcpServer?.userID === profile.current?.id);
+	if (mcpServer?.catalogEntryID && isOwner) {
+		try {
+			catalogEntry = await UserService.getMCP(mcpServer.catalogEntryID, { fetch });
+		} catch (_err) {
+			// Entry may not be accessible
+		}
+	}
+
 	return {
 		mcpServer,
+		catalogEntry,
 		workspaceId
 	};
 };

@@ -122,8 +122,50 @@ serverUserType: singleUser  # Optional, defaults to "singleUser"
 The `serverUserType` field specifies how users interact with the catalog entry:
 
 - `singleUser` (default): Each user who installs this catalog entry gets their own independent MCP server instance.
+- `multiUser`: The catalog entry is a template for shared multi-user deployments. An administrator or Power User+ deploys the template into a catalog or workspace, and users connect to that shared deployment through per-user MCP server instances.
 
-Omitting the field or setting it to `""` is equivalent to `singleUser`. Currently only `singleUser` is supported; other values will be rejected at validation time.
+Omitting the field or setting it to `""` is equivalent to `singleUser`. Any value other than `singleUser` or `multiUser` is rejected at validation time.
+
+Multi-user catalog templates support the `npx`, `uvx`, `containerized`, and `remote` runtimes. They do not support the `composite` runtime.
+
+#### Multi-user template with shared configuration
+
+Use `serverUserType: multiUser` when the catalog entry should create a shared deployment instead of one server per user. Deployment-level configuration, such as shared credentials, is configured on the deployed server.
+
+```yaml
+name: Shared Weather
+description: Shared weather API server for the organization.
+serverUserType: multiUser
+runtime: uvx
+uvxConfig:
+  package: weather-mcp-server
+env:
+  - key: WEATHER_API_KEY
+    name: Weather API Key
+    required: true
+    sensitive: true
+    description: Shared API key configured on the deployed multi-user server.
+```
+
+#### Per-user headers for multi-user deployments
+
+If each user must provide values after connecting to the shared deployment, define `multiUserConfig.userDefinedHeaders`. These values are stored on the user's MCP server instance and sent through the gateway for that user's requests.
+
+```yaml
+name: Shared Internal API
+description: Shared multi-user server with per-user request headers.
+serverUserType: multiUser
+runtime: remote
+remoteConfig:
+  fixedURL: https://api.example.com/mcp
+multiUserConfig:
+  userDefinedHeaders:
+    - key: X-User-Token
+      name: User Token
+      required: true
+      sensitive: true
+      description: Personal token used by the upstream service for this user.
+```
 
 ### Resource Requirements
 

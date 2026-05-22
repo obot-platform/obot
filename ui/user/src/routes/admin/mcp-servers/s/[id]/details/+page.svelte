@@ -38,6 +38,7 @@
 		<McpServerActions
 			server={mcpServer}
 			instance={currentUserInstance}
+			catalogID={DEFAULT_MCP_CATALOG_ID}
 			{loading}
 			readonly={profile.current.isAdminReadonly?.()}
 			allowMultiUserServerConfigurationEdit

@@ -1065,21 +1065,27 @@ func ValidateServerManifest(manifest types.MCPServerManifest, isMultiUser bool) 
 // ValidateCatalogEntryForRoute checks that a catalog entry is compatible with the
 // route used to create a server. catalogID and workspaceID come from the URL path.
 func ValidateCatalogEntryForRoute(manifest types.MCPServerCatalogEntryManifest, catalogID, workspaceID string) error {
-	isMultiUser := catalogID != "" || workspaceID != ""
-	if isMultiUser {
-		// Deploying catalog entries as multi-user servers is not yet supported.
-		// This will be enabled when multi-user template deployment is implemented.
-		return fmt.Errorf("deploying catalog entries as multi-user servers is not yet supported")
+	isMultiUserRoute := catalogID != "" || workspaceID != ""
+	isMultiUserEntry := !manifest.ServerUserType.IsSingleUser()
+
+	if isMultiUserRoute && !isMultiUserEntry {
+		return fmt.Errorf("singleUser catalog entries cannot be deployed as multi-user servers")
 	}
-	if !manifest.ServerUserType.IsSingleUser() {
-		return fmt.Errorf("only single-user catalog entries are supported")
+	if !isMultiUserRoute && isMultiUserEntry {
+		return fmt.Errorf("multiUser catalog entries cannot be deployed as single-user servers; use the catalog or workspace route")
 	}
 	return nil
 }
 
 func ValidateCatalogEntryManifest(manifest types.MCPServerCatalogEntryManifest) error {
-	if !manifest.ServerUserType.IsSingleUser() {
-		return fmt.Errorf("unsupported serverUserType %q: only %q is currently supported for catalog entries", manifest.ServerUserType, types.ServerUserTypeSingleUser)
+	switch manifest.ServerUserType {
+	case "", types.ServerUserTypeSingleUser, types.ServerUserTypeMultiUser:
+	default:
+		return fmt.Errorf("invalid serverUserType %q: must be %q or %q", manifest.ServerUserType, types.ServerUserTypeSingleUser, types.ServerUserTypeMultiUser)
+	}
+
+	if !manifest.ServerUserType.IsSingleUser() && manifest.Runtime == types.RuntimeComposite {
+		return fmt.Errorf("multiUser catalog entries do not support composite runtime")
 	}
 
 	if err := validateMCPResourceRequirements(manifest.Runtime, manifest.Resources); err != nil {

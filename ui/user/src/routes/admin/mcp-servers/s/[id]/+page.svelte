@@ -13,8 +13,8 @@
 	const duration = PAGE_TRANSITION_DURATION;
 
 	let { data } = $props();
-	let { mcpServer } = $derived(data);
-	let title = $derived(mcpServer?.manifest?.name ?? 'MCP Server');
+	let { mcpServer, catalogEntry } = $derived(data);
+	let title = $derived(mcpServer?.alias || mcpServer?.manifest?.name || 'MCP Server');
 	let promptInitialLaunch = $derived(page.url.searchParams.get('launch') === 'true');
 </script>
 
@@ -29,6 +29,8 @@
 	{#snippet rightNavActions()}
 		<McpServerActions
 			server={mcpServer}
+			entry={catalogEntry}
+			catalogID={DEFAULT_MCP_CATALOG_ID}
 			{promptInitialLaunch}
 			readonly={profile.current.isAdminReadonly?.()}
 			allowMultiUserServerConfigurationEdit

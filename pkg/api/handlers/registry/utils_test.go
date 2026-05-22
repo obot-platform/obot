@@ -2,6 +2,12 @@ package registry
 
 import (
 	"testing"
+
+	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/api/handlers"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	kuser "k8s.io/apiserver/pkg/authentication/user"
 )
 
 func TestReverseDNSFromURL(t *testing.T) {
@@ -100,6 +106,64 @@ func TestFormatRegistryServerName(t *testing.T) {
 			result := FormatRegistryServerName(tt.reverseDNS, tt.serverName)
 			if result != tt.expected {
 				t.Errorf("FormatRegistryServerName() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestHideMultiUserTemplateFromRegistry(t *testing.T) {
+	multiUserEntry := v1.MCPServerCatalogEntry{
+		Spec: v1.MCPServerCatalogEntrySpec{
+			Manifest: types.MCPServerCatalogEntryManifest{
+				ServerUserType: types.ServerUserTypeMultiUser,
+			},
+		},
+	}
+	singleUserEntry := v1.MCPServerCatalogEntry{
+		Spec: v1.MCPServerCatalogEntrySpec{
+			Manifest: types.MCPServerCatalogEntryManifest{
+				ServerUserType: types.ServerUserTypeSingleUser,
+			},
+		},
+	}
+
+	tests := []struct {
+		name  string
+		user  kuser.Info
+		entry v1.MCPServerCatalogEntry
+		want  bool
+	}{
+		{
+			name:  "basic user cannot see multi-user templates",
+			user:  &kuser.DefaultInfo{Groups: types.RoleBasic.Groups()},
+			entry: multiUserEntry,
+			want:  true,
+		},
+		{
+			name:  "basic user can see single-user entries",
+			user:  &kuser.DefaultInfo{Groups: types.RoleBasic.Groups()},
+			entry: singleUserEntry,
+			want:  false,
+		},
+		{
+			name:  "admin can see multi-user templates",
+			user:  &kuser.DefaultInfo{Groups: types.RoleAdmin.Groups()},
+			entry: multiUserEntry,
+			want:  false,
+		},
+		{
+			name:  "power user plus can see multi-user templates",
+			user:  &kuser.DefaultInfo{Groups: types.RolePowerUserPlus.Groups()},
+			entry: multiUserEntry,
+			want:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := handlers.HideMultiUserTemplate(api.Context{User: tt.user}, tt.entry)
+			if got != tt.want {
+				t.Errorf("HideMultiUserTemplate() = %v, want %v", got, tt.want)
 			}
 		})
 	}

@@ -45,6 +45,7 @@
 		CircleAlert,
 		ChevronLeft,
 		ChevronRight,
+		CircleFadingArrowUp,
 		GlobeLock,
 		Info,
 		ListFilter,
@@ -132,6 +133,7 @@
 		const tab = searchParams.get('view');
 		return tab ?? (entry ? 'overview' : 'configuration');
 	});
+	let configurationReadonly = $derived(readonly || isTemplateDeployedMultiUserServer(entry));
 	let showLeftChevron = $state(false);
 	let showRightChevron = $state(false);
 	let scrollContainer = $state<HTMLDivElement>();
@@ -268,10 +270,23 @@
 	function setLastVisitedMcpServer() {
 		if (isDialogView) return;
 		if (!entry) return;
-		const name = entry.manifest.name;
+		const name = getDisplayName(entry);
 		sessionStorage.setItem(
 			ADMIN_SESSION_STORAGE.LAST_VISITED_MCP_SERVER,
 			JSON.stringify({ id: entry.id, name, type, entity, entityId: id })
+		);
+	}
+
+	function getDisplayName(item: MCPCatalogEntry | MCPCatalogServer) {
+		return ('alias' in item && item.alias) || item.manifest.name;
+	}
+
+	function isTemplateDeployedMultiUserServer(item?: MCPCatalogEntry | MCPCatalogServer) {
+		return (
+			!!item &&
+			!('isCatalogEntry' in item) &&
+			item.serverUserType === 'multiUser' &&
+			!!item.catalogEntryID
 		);
 	}
 
@@ -399,25 +414,40 @@
 	async function handleLaunchTemporaryInstance(showInlineError = false) {
 		if (!entry || !id) return;
 
+		// For MCPServers (multi-user deployments), use the catalogEntryID for tool preview generation
+		// and dryRun mode since the underlying catalog entry is not editable.
+		const isMCPServer = entry.type === 'mcpserver';
+		const entryID = isMCPServer ? (entry as MCPCatalogServer).catalogEntryID : entry.id;
+		if (!entryID) return;
+
 		error = undefined;
 		showButtonInlineError = false;
 		saving = true;
 		const body = compileTemporaryInstanceBody();
 		try {
-			if (entity === 'workspace') {
-				await UserService.generateWorkspaceMCPCatalogEntryToolPreviews(
-					id,
-					entry.id,
-					body as unknown as { config?: Record<string, string>; url?: string }
-				);
+			const result =
+				entity === 'workspace'
+					? await UserService.generateWorkspaceMCPCatalogEntryToolPreviews(
+							id,
+							entryID,
+							body as unknown as { config?: Record<string, string>; url?: string },
+							{ dryRun: isMCPServer }
+						)
+					: await AdminService.generateMcpCatalogEntryToolPreviews(
+							id,
+							entryID,
+							body as unknown as { config?: Record<string, string>; url?: string },
+							{ dryRun: isMCPServer }
+						);
+
+			if (isMCPServer && result && entry) {
+				// In dryRun mode, the previews are returned but not persisted.
+				// Update the entry's tool preview in-place.
+				(entry as MCPCatalogServer).manifest.toolPreview = result.manifest?.toolPreview ?? [];
+				saving = false;
 			} else {
-				await AdminService.generateMcpCatalogEntryToolPreviews(
-					id,
-					entry.id,
-					body as unknown as { config?: Record<string, string>; url?: string }
-				);
+				window.location.reload();
 			}
-			window.location.reload();
 		} catch (err) {
 			const errMessage = err instanceof Error ? err.message : 'An unknown error occurred';
 			if (errMessage.includes('MCP server requires OAuth authentication')) {
@@ -425,12 +455,12 @@
 					entity === 'workspace'
 						? await UserService.getWorkspaceMCPCatalogEntryToolPreviewsOauth(
 								id,
-								entry.id,
+								entryID,
 								body as unknown as { config?: Record<string, string>; url?: string }
 							)
 						: await AdminService.getMcpCatalogToolPreviewsOauth(
 								id,
-								entry.id,
+								entryID,
 								body as unknown as { config?: Record<string, string>; url?: string }
 							);
 				if (oauthResponse) {
@@ -577,10 +607,8 @@
 					{/if}
 				</div>
 				<h1 class="text-2xl font-semibold capitalize">
-					{#if entry && server}
-						{server.alias || entry.manifest.name}
-					{:else if entry}
-						{entry.manifest.name}
+					{#if entry}
+						{server?.alias || getDisplayName(entry)}
 					{/if}
 				</h1>
 				<div class="pill-rounded">
@@ -592,7 +620,7 @@
 					</div>
 				{/if}
 			</div>
-			{#if belongsToUser && !readonly}
+			{#if belongsToUser && !readonly && type !== 'multi'}
 				<IconButton
 					variant="danger2"
 					tooltip={{ text: 'Delete Server' }}
@@ -684,6 +712,17 @@
 
 		{#if selected === 'overview' && entry}
 			<div class="pb-8">
+				{#if !('isCatalogEntry' in entry) && entry.needsUpdate}
+					<div class="notification-info mb-3 p-3 text-sm font-light">
+						<div class="flex items-center gap-3">
+							<CircleFadingArrowUp class="size-6" />
+							<p>
+								The configuration for this server's template has changed and can be applied to this
+								server.
+							</p>
+						</div>
+					</div>
+				{/if}
 				{#if hasExistingConfigured}
 					<div class="notification-info mb-3 p-3 text-sm font-light">
 						<div class="flex items-center gap-3">
@@ -786,7 +825,7 @@
 		<CatalogServerForm
 			{entry}
 			{type}
-			{readonly}
+			readonly={configurationReadonly}
 			{id}
 			{entity}
 			onCancel={handleCancel}

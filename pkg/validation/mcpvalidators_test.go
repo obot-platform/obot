@@ -2262,25 +2262,32 @@ func TestValidateCatalogEntryForRoute(t *testing.T) {
 			expectError: true,
 		},
 		{
-			name:        "single-user entry on catalog route: rejected (deploying catalog entries as multi-user not yet supported)",
+			name:        "single-user entry on catalog route: rejected",
 			manifest:    singleUserManifest,
 			catalogID:   "default",
 			workspaceID: "",
 			expectError: true,
 		},
 		{
-			name:        "single-user entry on workspace route: rejected (deploying catalog entries as multi-user not yet supported)",
+			name:        "single-user entry on workspace route: rejected",
 			manifest:    singleUserManifest,
 			catalogID:   "",
 			workspaceID: "ws-1",
 			expectError: true,
 		},
 		{
-			name:        "multiUser entry on catalog route: rejected (deploying catalog entries as multi-user not yet supported)",
+			name:        "multiUser entry on catalog route: ok",
 			manifest:    multiUserManifest,
 			catalogID:   "default",
 			workspaceID: "",
-			expectError: true,
+			expectError: false,
+		},
+		{
+			name:        "multiUser entry on workspace route: ok",
+			manifest:    multiUserManifest,
+			catalogID:   "",
+			workspaceID: "ws-1",
+			expectError: false,
 		},
 	}
 
@@ -2297,43 +2304,96 @@ func TestValidateCatalogEntryForRoute(t *testing.T) {
 }
 
 func TestValidateCatalogEntryManifest_ServerUserType(t *testing.T) {
-	baseManifest := types.MCPServerCatalogEntryManifest{
+	npxManifest := types.MCPServerCatalogEntryManifest{
 		Runtime: types.RuntimeNPX,
 		NPXConfig: &types.NPXRuntimeConfig{
 			Package: "test-server",
 		},
 	}
+	uvxManifest := types.MCPServerCatalogEntryManifest{
+		Runtime: types.RuntimeUVX,
+		UVXConfig: &types.UVXRuntimeConfig{
+			Package: "test-server",
+		},
+	}
+	containerizedManifest := types.MCPServerCatalogEntryManifest{
+		Runtime: types.RuntimeContainerized,
+		ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+			Image: "myimage:latest",
+			Port:  8080,
+			Path:  "/mcp",
+		},
+	}
+	remoteManifest := types.MCPServerCatalogEntryManifest{
+		Runtime: types.RuntimeRemote,
+		RemoteConfig: &types.RemoteCatalogConfig{
+			FixedURL: "https://example.com/mcp",
+		},
+	}
+	compositeManifest := types.MCPServerCatalogEntryManifest{
+		Runtime:         types.RuntimeComposite,
+		CompositeConfig: &types.CompositeCatalogConfig{},
+	}
 
 	tests := []struct {
 		name           string
+		manifest       types.MCPServerCatalogEntryManifest
 		serverUserType types.ServerUserType
 		expectError    bool
 	}{
 		{
-			name:           "empty serverUserType is valid (defaults to singleUser)",
+			name:           "empty serverUserType with npx is valid (defaults to singleUser)",
+			manifest:       npxManifest,
 			serverUserType: "",
 			expectError:    false,
 		},
 		{
-			name:           "explicit singleUser is valid",
+			name:           "explicit singleUser with npx is valid",
+			manifest:       npxManifest,
 			serverUserType: types.ServerUserTypeSingleUser,
 			expectError:    false,
 		},
 		{
-			name:           "multiUser is rejected for catalog entries",
+			name:           "multiUser with npx runtime is valid",
+			manifest:       npxManifest,
+			serverUserType: types.ServerUserTypeMultiUser,
+			expectError:    false,
+		},
+		{
+			name:           "multiUser with uvx runtime is valid",
+			manifest:       uvxManifest,
+			serverUserType: types.ServerUserTypeMultiUser,
+			expectError:    false,
+		},
+		{
+			name:           "multiUser with containerized runtime is valid",
+			manifest:       containerizedManifest,
+			serverUserType: types.ServerUserTypeMultiUser,
+			expectError:    false,
+		},
+		{
+			name:           "multiUser with remote runtime is valid",
+			manifest:       remoteManifest,
+			serverUserType: types.ServerUserTypeMultiUser,
+			expectError:    false,
+		},
+		{
+			name:           "multiUser with composite runtime is rejected",
+			manifest:       compositeManifest,
 			serverUserType: types.ServerUserTypeMultiUser,
 			expectError:    true,
 		},
 		{
-			name:           "unknown value is rejected",
-			serverUserType: types.ServerUserType("unknown"),
+			name:           "invalid serverUserType is rejected",
+			manifest:       npxManifest,
+			serverUserType: "foo",
 			expectError:    true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			manifest := baseManifest
+			manifest := tt.manifest
 			manifest.ServerUserType = tt.serverUserType
 			err := ValidateCatalogEntryManifest(manifest)
 			if tt.expectError && err == nil {

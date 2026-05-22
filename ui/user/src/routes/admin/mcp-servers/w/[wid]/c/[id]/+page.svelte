@@ -35,13 +35,17 @@
 	showBackButton
 >
 	{#snippet rightNavActions()}
-		<McpServerActions entry={catalogEntry} />
+		<McpServerActions entry={catalogEntry} workspaceID={workspaceId} />
 	{/snippet}
 	<div class="flex h-full flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
 		{#if workspaceId && catalogEntry}
 			<McpServerEntryForm
 				entry={catalogEntry}
-				type={catalogEntry?.manifest.runtime === 'remote' ? 'remote' : 'single'}
+				type={catalogEntry?.manifest.runtime === 'remote'
+					? 'remote'
+					: catalogEntry?.manifest.serverUserType === 'multiUser'
+						? 'multi'
+						: 'single'}
 				id={workspaceId}
 				entity="workspace"
 				{readonly}

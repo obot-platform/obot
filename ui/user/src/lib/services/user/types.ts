@@ -286,6 +286,7 @@ export interface MCPCatalogServer {
 	mcpServerInstanceUserCount?: number;
 	manifest: MCPServer;
 	oauthMetadata?: OAuthMetadata;
+	serverUserType: 'singleUser' | 'multiUser';
 	needsUpdate?: boolean;
 	needsK8sUpdate?: boolean;
 	needsURL?: boolean;

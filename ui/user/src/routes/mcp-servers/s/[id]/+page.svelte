@@ -12,8 +12,8 @@
 	const duration = PAGE_TRANSITION_DURATION;
 
 	let { data } = $props();
-	let { mcpServer, workspaceId } = $derived(data);
-	let title = $derived(mcpServer?.manifest?.name ?? 'MCP Server');
+	let { mcpServer, catalogEntry, workspaceId } = $derived(data);
+	let title = $derived(mcpServer?.alias || mcpServer?.manifest?.name || 'MCP Server');
 	let promptInitialLaunch = $derived(page.url.searchParams.get('launch') === 'true');
 </script>
 
@@ -28,6 +28,10 @@
 	{#snippet rightNavActions()}
 		<McpServerActions
 			server={mcpServer}
+			entry={catalogEntry}
+			catalogID={mcpServer?.mcpCatalogID}
+			workspaceID={workspaceId}
+			allowMultiUserServerConfigurationEdit
 			{promptInitialLaunch}
 			onOAuthConfigured={() => {
 				if (!mcpServer) return;

@@ -5159,7 +5159,7 @@ func schema_obot_platform_obot_apiclient_types_MCPServer(ref common.ReferenceCal
 					},
 					"alias": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Alias is a user-defined alias for the MCP server. This may only be set for single user and remote MCP servers (i.e. where `MCPCatalogID` is \"\").",
+							Description: "Alias is a user-defined display label for this MCP server. For personal servers, it is user-managed. For catalog/workspace servers, it labels the shared deployment.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -5227,6 +5227,12 @@ func schema_obot_platform_obot_apiclient_types_MCPServer(ref common.ReferenceCal
 						},
 					},
 					"mcpCatalogID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"serverUserType": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -13993,7 +13999,7 @@ func schema_storage_apis_obotobotai_v1_MCPServerSpec(ref common.ReferenceCallbac
 					},
 					"alias": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Alias is a user-defined alias for the MCP server. This may only be set for single user and remote MCP servers (i.e. where `MCPCatalogID` is \"\").",
+							Description: "Alias is a user-defined display label for this MCP server. For personal servers, it is user-managed. For catalog/workspace servers, it labels the shared deployment.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

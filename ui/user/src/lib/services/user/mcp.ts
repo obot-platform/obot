@@ -1,7 +1,8 @@
 import type { CompositeLaunchFormData } from '$lib/components/mcp/CatalogConfigureForm.svelte';
-import { profile } from '$lib/stores';
+import { mcpServersAndEntries, profile } from '$lib/stores';
 import { getUserDisplayName } from '$lib/utils';
 import {
+	AdminService,
 	UserService,
 	type AccessControlRule,
 	type LaunchServerType,
@@ -178,6 +179,9 @@ export function getSecretBindingEngineError(
 
 export function requiresUserUpdate(server?: MCPCatalogServer) {
 	if (!server) return false;
+	if (server.needsUpdate) {
+		return true;
+	}
 	if (server?.needsURL) {
 		return true;
 	}
@@ -240,11 +244,18 @@ export function getUserRegistry(
 function convertEntriesToTableData(
 	entries?: MCPCatalogEntry[],
 	usersMap?: Map<string, OrgUser>,
-	userConfiguredServers?: MCPCatalogServer[]
+	userConfiguredServers?: MCPCatalogServer[],
+	deployedServers?: MCPCatalogServer[]
 ) {
 	if (!entries) {
 		return [];
 	}
+
+	const deployedMultiUserTemplateEntryIDs = new Set(
+		(deployedServers ?? [])
+			.filter((server) => isMultiUserServer(server) && server.catalogEntryID)
+			.map((server) => server.catalogEntryID)
+	);
 
 	const userConfiguredServersByEntry = new Map<string, MCPCatalogServer[]>();
 	for (const server of userConfiguredServers ?? []) {
@@ -261,6 +272,8 @@ function convertEntriesToTableData(
 			const configuredServers = userConfiguredServersByEntry.get(entry.id) ?? [];
 			const missingSecretBinding = hasMissingSecretBinding(entry, configuredServers);
 			const connected = configuredServers.some((s) => !serverHasMissingSecretBinding(entry, s));
+			const isMultiUserTemplate = isMultiUserTemplateEntry(entry);
+			const isDeployed = isMultiUserTemplate && deployedMultiUserTemplateEntryIDs.has(entry.id);
 			return {
 				id: entry.id,
 				name: entry.manifest?.name ?? '',
@@ -273,7 +286,9 @@ function convertEntriesToTableData(
 						? 'remote'
 						: entry.manifest.runtime === 'composite'
 							? 'composite'
-							: 'single',
+							: isMultiUserTemplate
+								? 'multi-template'
+								: 'single',
 				created: entry.created,
 				registry,
 				needsUpdate: entry.needsUpdate,
@@ -282,11 +297,16 @@ function convertEntriesToTableData(
 				missingKubernetesSecret: missingSecretBinding,
 				status: missingSecretBinding
 					? ''
-					: connected
-						? 'Connected'
-						: entry.manifest?.remoteConfig?.staticOAuthRequired && !entry.oauthCredentialConfigured
-							? 'Requires OAuth Config'
+					: isMultiUserTemplate
+						? isDeployed
+							? 'Deployed'
 							: ''
+						: connected
+							? 'Connected'
+							: entry.manifest?.remoteConfig?.staticOAuthRequired &&
+								  !entry.oauthCredentialConfigured
+								? 'Requires OAuth Config'
+								: ''
 			};
 		});
 }
@@ -323,14 +343,17 @@ function convertServersToTableData(
 		: undefined;
 
 	return servers
-		.filter((server) => !server.catalogEntryID && !server.deleted)
+		.filter(
+			(server) =>
+				(server.serverUserType === 'multiUser' || !server.catalogEntryID) && !server.deleted
+		)
 		.map((server) => {
 			const registry = getUserRegistry(server, usersMap);
 			const instance = instancesMap?.get(server.id);
 			const connected = !!instance;
 			return {
 				id: server.id,
-				name: server.manifest.name ?? '',
+				name: server.alias || server.manifest.name || '',
 				icon: server.manifest.icon,
 				source: 'manual',
 				type: 'multi',
@@ -357,7 +380,12 @@ export function convertEntriesAndServersToTableData(
 	userConfiguredServers?: MCPCatalogServer[],
 	instances?: MCPServerInstance[]
 ) {
-	const entriesTableData = convertEntriesToTableData(entries, usersMap, userConfiguredServers);
+	const entriesTableData = convertEntriesToTableData(
+		entries,
+		usersMap,
+		userConfiguredServers,
+		servers
+	);
 	const serversTableData = convertServersToTableData(servers, usersMap, instances);
 	return [...entriesTableData, ...serversTableData];
 }
@@ -369,10 +397,18 @@ export function getServerTypeLabel(server?: MCPCatalogServer | MCPCatalogEntry) 
 	if (runtime === 'remote') return 'Remote';
 	if (runtime === 'composite') return 'Composite';
 
-	if ('isCatalogEntry' in server) return 'Single User';
+	// Catalog entries carry serverUserType on their manifest; deployed servers carry it top-level.
+	const serverUserType =
+		'isCatalogEntry' in server ? server.manifest.serverUserType : server.serverUserType;
+	return serverUserType === 'multiUser' ? 'Multi-User' : 'Single User';
+}
 
-	const catalogEntryId = 'catalogEntryID' in server ? server.catalogEntryID : undefined;
-	return catalogEntryId ? 'Single User' : 'Multi-User';
+export function isMultiUserTemplateEntry(entry?: MCPCatalogEntry) {
+	return entry?.manifest?.serverUserType === 'multiUser';
+}
+
+export function isMultiUserServer(server?: MCPCatalogServer) {
+	return server?.serverUserType === 'multiUser';
 }
 
 export function getServerTypeLabelByType(type?: string) {
@@ -381,9 +417,11 @@ export function getServerTypeLabelByType(type?: string) {
 		? 'Single User'
 		: type === 'multi'
 			? 'Multi-User'
-			: type === 'remote'
-				? 'Remote'
-				: 'Composite';
+			: type === 'multi-template'
+				? 'Multi-User Template'
+				: type === 'remote'
+					? 'Remote'
+					: 'Composite';
 }
 
 export function getServerType(server?: MCPCatalogServer): LaunchServerType | null {
@@ -391,6 +429,7 @@ export function getServerType(server?: MCPCatalogServer): LaunchServerType | nul
 	const runtime = server.manifest.runtime;
 	if (runtime === 'remote') return 'remote';
 	if (runtime === 'composite') return 'composite';
+	if (server.serverUserType === 'multiUser') return 'multi';
 	return server.catalogEntryID ? 'single' : 'multi';
 }
 
@@ -852,4 +891,66 @@ export function conflictIssue(
 ): ToolNameIssue | undefined {
 	if (!duplicates.has(effectiveName)) return undefined;
 	return { severity: 'error', message: 'Tool name is not unique.' };
+}
+
+// Shared scope-routing helpers for multi-user server operations.
+// These centralize the logic for choosing the correct API endpoint based on
+// whether the server is workspace-scoped, catalog-scoped, or single-user.
+
+export async function restartMcpServer(
+	server: MCPCatalogServer,
+	catalogID?: string
+): Promise<void> {
+	if (isMultiUserServer(server)) {
+		if (server.powerUserWorkspaceID) {
+			await UserService.restartWorkspaceK8sServerDeployment(server.powerUserWorkspaceID, server.id);
+		} else {
+			const serverCatalogID = catalogID || server.mcpCatalogID;
+			if (!serverCatalogID) {
+				throw new Error('Catalog ID is required to restart this MCP server.');
+			}
+			await AdminService.restartMcpCatalogServerDeployment(serverCatalogID, server.id);
+		}
+		return;
+	}
+	await UserService.restartMcpServer(server.id);
+}
+
+export async function deleteMcpServerDeployment(
+	server: MCPCatalogServer,
+	catalogID?: string
+): Promise<boolean> {
+	if (isMultiUserServer(server)) {
+		if (server.powerUserWorkspaceID) {
+			await UserService.deleteWorkspaceMCPCatalogServer(server.powerUserWorkspaceID, server.id);
+		} else {
+			const serverCatalogID = catalogID || server.mcpCatalogID;
+			if (!serverCatalogID) {
+				throw new Error('Catalog ID is required to delete this MCP server.');
+			}
+			await AdminService.deleteMCPCatalogServer(serverCatalogID, server.id);
+		}
+		mcpServersAndEntries.removeServer(server.id);
+		return true;
+	}
+	await UserService.deleteSingleOrRemoteMcpServer(server.id);
+	mcpServersAndEntries.removeServer(server.id);
+	return true;
+}
+
+export async function disconnectMcpServerUser(server: MCPCatalogServer): Promise<void> {
+	if (isMultiUserServer(server)) {
+		let userInstance = mcpServersAndEntries.current.userInstances.find(
+			(instance) => instance.mcpServerID === server.id
+		);
+		if (!userInstance) {
+			const instances = await UserService.listMcpServerInstances();
+			userInstance = instances.find((instance) => instance.mcpServerID === server.id);
+		}
+		if (userInstance) {
+			await UserService.deleteMcpServerInstance(userInstance.id);
+		}
+		return;
+	}
+	await UserService.deleteSingleOrRemoteMcpServer(server.id);
 }

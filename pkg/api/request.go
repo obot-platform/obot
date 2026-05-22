@@ -217,6 +217,10 @@ func (r *Context) UserIsPowerUser() bool {
 	return slices.Contains(r.User.GetGroups(), types.GroupPowerUser)
 }
 
+func (r *Context) UserIsPowerUserPlus() bool {
+	return slices.Contains(r.User.GetGroups(), types.GroupPowerUserPlus)
+}
+
 func (r *Context) UserIsAuthenticated() bool {
 	return slices.Contains(r.User.GetGroups(), types.GroupAuthenticated)
 }

@@ -192,6 +192,7 @@
 	{#snippet rightNavActions()}
 		<McpServerActions
 			entry={catalogEntry}
+			catalogID={DEFAULT_MCP_CATALOG_ID}
 			{promptInitialLaunch}
 			{promptOAuthConfig}
 			onOAuthConfigured={() => {
@@ -229,7 +230,9 @@
 				? 'composite'
 				: catalogEntry?.manifest.runtime === 'remote'
 					? 'remote'
-					: 'single'}
+					: catalogEntry?.manifest.serverUserType === 'multiUser'
+						? 'multi'
+						: 'single'}
 			readonly={isAdminReadonly || isSourcedEntry}
 			id={DEFAULT_MCP_CATALOG_ID}
 			{hasExistingConfigured}

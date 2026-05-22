@@ -23,8 +23,18 @@ export const load: PageLoad = async ({ params, fetch, parent }) => {
 		belongsToUser = false;
 	}
 
+	let catalogEntry;
+	if (mcpServer?.catalogEntryID) {
+		try {
+			catalogEntry = await UserService.getMCP(mcpServer.catalogEntryID, { fetch });
+		} catch (_err) {
+			// Entry may not be accessible
+		}
+	}
+
 	return {
 		mcpServer,
+		catalogEntry,
 		workspaceId: wid,
 		belongsToUser
 	};

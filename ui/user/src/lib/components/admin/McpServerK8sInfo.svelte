@@ -82,6 +82,10 @@
 			return `/api/mcp-webhook-validations/${mcpServerId}/logs`;
 		}
 
+		if (entity === 'catalog' && entityId) {
+			return `/api/mcp-catalogs/${entityId}/servers/${mcpServerId}/logs`;
+		}
+
 		return `/api/mcp-servers/${mcpServerId}/logs`;
 	});
 
@@ -108,7 +112,9 @@
 				: UserService.getWorkspaceK8sServerDetail(entityId, mcpServerId, { dontLogErrors })
 			: entity === 'webhook-validation'
 				? AdminService.getMCPFilterDetails(mcpServerId, { dontLogErrors })
-				: AdminService.getK8sServerDetail(mcpServerId, { dontLogErrors });
+				: entity === 'catalog' && entityId
+					? AdminService.getMcpCatalogServerK8sDetail(entityId, mcpServerId, { dontLogErrors })
+					: AdminService.getK8sServerDetail(mcpServerId, { dontLogErrors });
 	}
 
 	function getK8sSettingsStatus() {
@@ -143,9 +149,17 @@
 				? AdminService.revealMCPFilter(mcpServerId, {
 						dontLogErrors: true
 					})
-				: UserService.revealSingleOrRemoteMcpServer(mcpServerId, {
-						dontLogErrors: true
-					})
+				: entity === 'catalog' && entityId
+					? AdminService.revealMcpCatalogServer(entityId, mcpServerId, {
+							dontLogErrors: true
+						})
+					: entity === 'workspace' && entityId
+						? UserService.revealWorkspaceMCPCatalogServer(entityId, mcpServerId, {
+								dontLogErrors: true
+							})
+						: UserService.revealSingleOrRemoteMcpServer(mcpServerId, {
+								dontLogErrors: true
+							})
 			: Promise.resolve<Record<string, string>>({});
 		listK8sInfo = getK8sInfo();
 		listK8sSettingsStatus = getK8sSettingsStatus();
@@ -188,7 +202,9 @@
 					: UserService.restartWorkspaceK8sServerDeployment(entityId, mcpServerId)
 				: entity === 'webhook-validation'
 					? AdminService.restartMCPFilter(mcpServerId)
-					: UserService.restartK8sDeployment(mcpServerId));
+					: entity === 'catalog' && entityId
+						? AdminService.restartMcpCatalogServerDeployment(entityId, mcpServerId)
+						: UserService.restartK8sDeployment(mcpServerId));
 			// Refresh the k8s info after restart
 			listK8sInfo = getK8sInfo();
 		} catch (err) {

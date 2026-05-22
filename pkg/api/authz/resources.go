@@ -108,6 +108,7 @@ var apiResources = map[string][]string{
 		"DELETE /api/workspaces/{workspace_id}/servers/{mcp_server_id}",
 		"GET    /api/workspaces/{workspace_id}/servers/{mcp_server_id}",
 		"PUT    /api/workspaces/{workspace_id}/servers/{mcp_server_id}",
+		"PUT    /api/workspaces/{workspace_id}/servers/{mcp_server_id}/alias",
 		"POST   /api/workspaces/{workspace_id}/servers/{mcp_server_id}/launch",
 		"POST   /api/workspaces/{workspace_id}/servers/{mcp_server_id}/check-oauth",
 		"GET    /api/workspaces/{workspace_id}/servers/{mcp_server_id}/oauth-url",

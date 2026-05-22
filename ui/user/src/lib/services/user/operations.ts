@@ -832,12 +832,15 @@ export async function generateWorkspaceMCPCatalogEntryToolPreviews(
 		config?: Record<string, string>;
 		url?: string;
 	},
-	opts?: { fetch?: Fetcher }
-): Promise<void> {
-	await doPost(`/workspaces/${workspaceID}/entries/${entryID}/generate-tool-previews`, body ?? {}, {
+	opts?: { fetch?: Fetcher; dryRun?: boolean }
+): Promise<MCPCatalogEntry | void> {
+	const path = `/workspaces/${workspaceID}/entries/${entryID}/generate-tool-previews`;
+	const url = opts?.dryRun ? `${path}?dryRun=true` : path;
+	const resp = await doPost(url, body ?? {}, {
 		...opts,
 		dontLogErrors: true
 	});
+	return opts?.dryRun ? (resp as MCPCatalogEntry) : undefined;
 }
 
 export async function getWorkspaceMCPCatalogEntryToolPreviewsOauth(
@@ -1037,6 +1040,20 @@ export async function createWorkspaceMCPCatalogServer(
 	return response;
 }
 
+export async function deployWorkspaceMultiUserTemplate(
+	workspaceID: string,
+	catalogEntryID: string,
+	server?: { manifest?: { remoteConfig?: { url?: string } }; alias?: string },
+	opts?: { fetch?: Fetcher }
+): Promise<MCPCatalogServer> {
+	const response = (await doPost(
+		`/workspaces/${workspaceID}/servers`,
+		{ ...server, catalogEntryID },
+		opts
+	)) as MCPCatalogServer;
+	return response;
+}
+
 export async function updateWorkspaceMCPCatalogServer(
 	workspaceID: string,
 	serverID: string,
@@ -1072,10 +1089,19 @@ export async function configureWorkspaceMCPCatalogServer(
 	return response;
 }
 
+export async function updateWorkspaceMCPCatalogServerAlias(
+	workspaceID: string,
+	serverID: string,
+	alias: string,
+	opts?: { fetch?: Fetcher }
+): Promise<void> {
+	await doPut(`/workspaces/${workspaceID}/servers/${serverID}/alias`, { alias }, opts);
+}
+
 export async function revealWorkspaceMCPCatalogServer(
 	workspaceID: string,
 	serverID: string,
-	opts?: { fetch?: Fetcher }
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
 ): Promise<Record<string, string>> {
 	const response = (await doPost(
 		`/workspaces/${workspaceID}/servers/${serverID}/reveal`,
