@@ -15,8 +15,8 @@
 	<div class="flex flex-col gap-1">
 		<h3 class="text-base font-semibold">AWS Setup Guide</h3>
 		<p class="text-muted-content text-sm">
-			Configure AWS to trust Obot's service account, then paste the role ARN above and create the
-			image pull secret.
+			Configure AWS to trust Obot's service account, then paste the role ARN above and save the
+			image pull secret in Obot.
 		</p>
 	</div>
 
@@ -58,8 +58,8 @@
 		<div class="pt-5">
 			{@render setupStep(
 				'4',
-				'Create the secret in Obot',
-				'Paste the role ARN into the form and click Create. Obot creates the Kubernetes image pull secret and returns you to the list view.'
+				'Save the secret in Obot',
+				'Paste the role ARN into the form, then click Create or Save. Obot writes the Kubernetes image pull secret and returns you to the list view.'
 			)}
 		</div>
 	</div>
