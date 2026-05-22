@@ -57,10 +57,10 @@
 	<div class="mt-12 flex w-md max-w-full flex-col items-center gap-4 self-center text-center">
 		<KeyRound class="text-muted-content size-24 opacity-25" />
 		<h4 class="text-muted-content text-lg font-semibold">No image pull secrets</h4>
-		<p class="text-muted-content text-sm font-light">
-			Create a managed image pull secret to let Obot pull private MCP server images.
-		</p>
 		{#if !mutationsDisabled}
+			<p class="text-muted-content text-sm font-light">
+				Create a managed image pull secret to let Obot pull private MCP server images.
+			</p>
 			<button class="btn btn-primary flex items-center gap-1 text-sm" onclick={onCreate}>
 				<Plus class="size-4" />
 				Create New Secret
