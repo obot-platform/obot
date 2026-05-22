@@ -1,6 +1,5 @@
 <script lang="ts">
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
-	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import type { ImagePullSecret } from '$lib/services';
 	import { canTest } from '$lib/services/admin/utils';
@@ -87,29 +86,37 @@
 						openUrl(`/admin/image-pull-secrets?id=${row.id}`, isCtrlClick)}
 				>
 					{#snippet actions(secret)}
-						<div class="flex items-center gap-1">
-							<IconButton
-								disabled={mutationsDisabled || !canTest(secret)}
-								tooltip={{ text: 'Test' }}
-								onclick={(e) => {
-									e.stopPropagation();
-									onTest(secret);
-								}}
-							>
-								<ShieldCheck class="size-4" />
-							</IconButton>
-							<IconButton
-								variant="danger"
-								disabled={mutationsDisabled}
-								tooltip={{ text: 'Delete' }}
-								onclick={(e) => {
-									e.stopPropagation();
-									onDelete(secret);
-								}}
-							>
-								<Trash2 class="size-4" />
-							</IconButton>
-						</div>
+						<DotDotDot
+							ariaLabel={`Actions for ${displayName(secret)}`}
+							class="shrink-0 hover:dark:bg-base-100/50"
+						>
+							{#snippet children({ toggle })}
+								<button
+									class="menu-button"
+									disabled={mutationsDisabled || !canTest(secret)}
+									onclick={(e) => {
+										e.stopPropagation();
+										onTest(secret);
+										toggle(false);
+									}}
+								>
+									<ShieldCheck class="size-4" />
+									Test
+								</button>
+								<button
+									class="menu-button-destructive"
+									disabled={mutationsDisabled}
+									onclick={(e) => {
+										e.stopPropagation();
+										onDelete(secret);
+										toggle(false);
+									}}
+								>
+									<Trash2 class="size-4" />
+									Delete
+								</button>
+							{/snippet}
+						</DotDotDot>
 					{/snippet}
 					{#snippet onRenderColumn(property, secret)}
 						{#if property === 'displayName'}
@@ -149,7 +156,10 @@
 			openUrl(`/admin/image-pull-secrets?id=${row.id}`, isCtrlClick)}
 	>
 		{#snippet actions(secret)}
-			<DotDotDot class="shrink-0 hover:dark:bg-base-100/50">
+			<DotDotDot
+				ariaLabel={`Actions for ${displayName(secret)}`}
+				class="shrink-0 hover:dark:bg-base-100/50"
+			>
 				{#snippet children({ toggle })}
 					<button
 						class="menu-button"
