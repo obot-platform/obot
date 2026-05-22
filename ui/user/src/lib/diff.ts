@@ -9,6 +9,11 @@
  * - `remoteConfig.fixedURL`: catalog-only field translated to `url` at deploy time
  * - `remoteConfig.url`: runtime-only field derived from catalog's `fixedURL`
  * - `remoteConfig.isTemplate`: runtime-only field not present on catalog manifests
+ *
+ * For composite manifests, the same fields are stripped from each component's
+ * nested manifest at `compositeConfig.componentServers[].manifest`. Nested
+ * composites are not possible — the backend rejects them — so a single pass over
+ * the component list is sufficient.
  */
 export function stripManifestMetadata<T>(manifest: T): T {
 	if (!manifest || typeof manifest !== 'object') return manifest;
@@ -16,13 +21,20 @@ export function stripManifestMetadata<T>(manifest: T): T {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const clone: any = JSON.parse(JSON.stringify(manifest));
 
-	delete clone.repoURL;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const stripFields = (m: any) => {
+		if (!m || typeof m !== 'object') return;
+		delete m.repoURL;
+		if (m.remoteConfig) {
+			delete m.remoteConfig.fixedURL;
+			delete m.remoteConfig.url;
+			delete m.remoteConfig.isTemplate;
+		}
+	};
 
-	if (clone.remoteConfig) {
-		// fixedURL is catalog-only; url and isTemplate are runtime-only
-		delete clone.remoteConfig.fixedURL;
-		delete clone.remoteConfig.url;
-		delete clone.remoteConfig.isTemplate;
+	stripFields(clone);
+	for (const component of clone.compositeConfig?.componentServers ?? []) {
+		stripFields(component?.manifest);
 	}
 
 	return clone as T;
