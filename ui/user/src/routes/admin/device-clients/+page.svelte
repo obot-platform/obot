@@ -8,7 +8,8 @@
 	import { PAGE_SIZE, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { AdminService } from '$lib/services/index.js';
 	import { getTableUrlParamsSort, replaceState } from '$lib/url';
-	import { openUrl } from '$lib/utils';
+	import { getSortParams, openUrl } from '$lib/utils';
+	import { defaultSort, sortFields } from './constants';
 	import { MonitorCheck } from 'lucide-svelte';
 	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -18,13 +19,6 @@
 	let clients = $derived(clientsData.items ?? []);
 	let total = $derived(clientsData.total ?? 0);
 	let userMap = $derived(new Map(data?.users?.map((u) => [u.id, u]) ?? []));
-	const defaultSort = { property: 'name', order: 'asc' } as const;
-	const sortFields = {
-		name: 'name',
-		mcpServerCount: 'mcp_server_count',
-		skillCount: 'skill_count',
-		userCount: 'user_count'
-	} as const;
 
 	function isSortProperty(property: string | undefined): property is keyof typeof sortFields {
 		return property != null && Object.hasOwn(sortFields, property);
@@ -69,19 +63,6 @@
 		replaceState(next, {});
 	}
 
-	function getSortParams(sort = initSort) {
-		if (!isSortProperty(sort?.property)) {
-			return {
-				sortBy: sortFields[defaultSort.property],
-				sortOrder: defaultSort.order
-			};
-		}
-		return {
-			sortBy: sortFields[sort.property],
-			sortOrder: sort.order
-		};
-	}
-
 	async function reload(idx: number, sort = initSort) {
 		loading = true;
 		try {
@@ -89,7 +70,7 @@
 				limit: pageSize,
 				offset: idx * pageSize,
 				name: nameFilter,
-				...getSortParams(sort)
+				...getSortParams(sort, sortFields, defaultSort)
 			});
 		} finally {
 			loading = false;

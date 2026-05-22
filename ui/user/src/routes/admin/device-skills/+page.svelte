@@ -8,14 +8,15 @@
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { AdminService, type DeviceSkillStat, type DeviceSkillStatResponse } from '$lib/services';
 	import { getTableUrlParamsSort, replaceState, setSortUrlParams } from '$lib/url';
-	import { openUrl } from '$lib/utils';
+	import { getSortParams, openUrl } from '$lib/utils';
+	import { PAGE_SIZE as DEFAULT_PAGE_SIZE, defaultSort, sortFields } from './constants';
 	import { debounce } from 'es-toolkit';
 	import { PencilRuler } from 'lucide-svelte';
 	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
 
 	let { data } = $props();
-	const PAGE_SIZE = untrack(() => data?.pageSize ?? 50);
+	const PAGE_SIZE = untrack(() => data?.pageSize ?? DEFAULT_PAGE_SIZE);
 
 	let skillsResp = $state<DeviceSkillStatResponse>(
 		untrack(() => data?.skills ?? { items: [], total: 0, limit: PAGE_SIZE, offset: 0 })
@@ -25,13 +26,6 @@
 	let nameFilter = $state(untrack(() => page.url.searchParams.get('name') ?? ''));
 
 	type Row = DeviceSkillStat & { id: string };
-	const defaultSort = { property: 'deviceCount', order: 'desc' } as const;
-	const sortFields = {
-		name: 'name',
-		deviceCount: 'device_count',
-		userCount: 'user_count',
-		observationCount: 'observation_count'
-	} as const;
 
 	function isSortProperty(property: string | undefined): property is keyof typeof sortFields {
 		return property != null && Object.hasOwn(sortFields, property);
@@ -61,19 +55,6 @@
 		replaceState(next, {});
 	}
 
-	function getSortParams(sort = initSort) {
-		if (!isSortProperty(sort?.property)) {
-			return {
-				sortBy: sortFields[defaultSort.property],
-				sortOrder: defaultSort.order
-			};
-		}
-		return {
-			sortBy: sortFields[sort.property],
-			sortOrder: sort?.order
-		};
-	}
-
 	async function reload(sort = initSort) {
 		loading = true;
 		try {
@@ -81,7 +62,7 @@
 				limit: PAGE_SIZE,
 				offset: pageIndex * PAGE_SIZE,
 				name: nameFilter || undefined,
-				...getSortParams(sort)
+				...getSortParams(sort, sortFields, defaultSort)
 			});
 		} finally {
 			loading = false;

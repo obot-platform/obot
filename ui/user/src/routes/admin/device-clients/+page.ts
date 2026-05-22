@@ -8,15 +8,7 @@ import {
 } from '$lib/services';
 import { profile } from '$lib/stores';
 import type { PageLoad } from './$types';
-
-const sortFields: Record<string, DeviceClientSortKey> = {
-	name: 'name',
-	mcpServerCount: 'mcp_server_count',
-	skillCount: 'skill_count',
-	userCount: 'user_count'
-};
-const DEFAULT_SORT_BY: DeviceClientSortKey = 'name';
-const DEFAULT_SORT_ORDER = 'asc';
+import { DEFAULT_SORT_BY, DEFAULT_SORT_ORDER, sortFields } from './constants';
 
 function getSortBy(property: string | null): DeviceClientSortKey {
 	const key = property ?? '';

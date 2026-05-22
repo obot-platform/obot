@@ -3,16 +3,7 @@ import { AdminService } from '$lib/services';
 import type { DeviceSkillSortKey, DeviceSkillStatResponse } from '$lib/services/admin/types';
 import { profile } from '$lib/stores';
 import type { PageLoad } from './$types';
-
-const PAGE_SIZE = 50;
-const sortFields: Record<string, DeviceSkillSortKey> = {
-	name: 'name',
-	deviceCount: 'device_count',
-	userCount: 'user_count',
-	observationCount: 'observation_count'
-};
-const DEFAULT_SORT_BY: DeviceSkillSortKey = 'device_count';
-const DEFAULT_SORT_ORDER = 'desc';
+import { DEFAULT_SORT_BY, DEFAULT_SORT_ORDER, PAGE_SIZE, sortFields } from './constants';
 
 function getSortBy(property: string | null): DeviceSkillSortKey {
 	const key = property ?? '';
