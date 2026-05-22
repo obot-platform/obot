@@ -84,7 +84,7 @@
 	let showRequired = $state<Record<string, boolean>>({});
 	let loading = $state(false);
 	let compositeHasToolNameErrors = $state(false);
-	let secretBindingTargets = $state<MCPAllowedSecretBindingTarget[]>([]);
+	let secretBindingTargets = $state<MCPAllowedSecretBindingTarget[]>();
 
 	let formData = $state<RuntimeFormData>(untrack(() => convertToFormData(entry)));
 
@@ -328,9 +328,13 @@
 			revealCatalogServer(id, entry.id, entity);
 		}
 		if (entity === 'catalog' && type === 'multi' && !readonly) {
-			AdminService.listMCPSecretBindingTargets().then((targets) => {
-				secretBindingTargets = targets;
-			});
+			AdminService.listMCPSecretBindingTargets()
+				.then((targets) => {
+					secretBindingTargets = targets;
+				})
+				.catch(() => {
+					secretBindingTargets = [];
+				});
 		}
 	});
 

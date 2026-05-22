@@ -10,10 +10,10 @@
 
 	let { field, targets, readonly }: Props = $props();
 
-	const sourceOptions = [
+	const sourceOptions = $derived([
 		{ id: 'value', label: 'Manual Value' },
-		{ id: 'secret', label: 'Kubernetes Secret' }
-	];
+		{ id: 'secret', label: 'Kubernetes Secret', disabled: targets.length === 0 }
+	]);
 	const secretOptions = $derived(
 		targets.map((target) => ({ id: target.name, label: target.name }))
 	);
@@ -58,7 +58,7 @@
 			class="text-input-filled bg-base-100 w-full shadow-none"
 			options={sourceOptions}
 			selected={field.secretBinding ? 'secret' : 'value'}
-			disabled={readonly || targets.length === 0}
+			disabled={readonly}
 			onSelect={(option) => {
 				if (option.id === 'secret') {
 					enableSecretBinding();

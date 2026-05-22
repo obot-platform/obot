@@ -29,7 +29,7 @@
 	}
 </script>
 
-<script lang="ts" generics="T extends { id: string | number; label: string }">
+<script lang="ts" generics="T extends { id: string | number; label: string; disabled?: boolean }">
 	import { ChevronDown, X, Check, SearchIcon } from 'lucide-svelte';
 	import { tick, type Snippet } from 'svelte';
 	import { flip } from 'svelte/animate';
@@ -120,6 +120,8 @@
 	}
 
 	function handleSelect(option: T) {
+		if (option.disabled) return;
+
 		const key = option.id.toString();
 		const isSelected = selectedValues.some((d) => d === key);
 
@@ -312,9 +314,11 @@
 						isSelected &&
 							'dark:bg-base-400/90 dark:hover:bg-base-400/50 bg-base-300/90 hover:bg-base-400/50',
 						isHighlighted && 'dark:bg-base-400 bg-base-400',
+						option.disabled && 'pointer-events-none cursor-not-allowed opacity-50',
 						classes?.option
 					)}
 					type="button"
+					disabled={option.disabled}
 					onclick={(e) => {
 						e.stopPropagation();
 						handleSelect(option);
