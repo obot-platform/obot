@@ -15,8 +15,8 @@
 	<div class="flex flex-col gap-1">
 		<h3 class="text-base font-semibold">AWS Setup Guide</h3>
 		<p class="text-muted-content text-sm">
-			Configure AWS to trust Obot's service account, then save the role ARN above and refresh the
-			generated pull secret.
+			Configure AWS to trust Obot's service account, then paste the role ARN above and save the
+			image pull secret in Obot.
 		</p>
 	</div>
 
@@ -58,8 +58,8 @@
 		<div class="pt-5">
 			{@render setupStep(
 				'4',
-				'Save and refresh in Obot',
-				'Paste the role ARN into the form, save the credential, then run Refresh Now to write the Kubernetes image pull secret.'
+				'Save the secret in Obot',
+				'Paste the role ARN into the form, then click Create or Save. Obot writes the Kubernetes image pull secret and returns you to the list view.'
 			)}
 		</div>
 	</div>
@@ -100,7 +100,7 @@
 			<CopyButton text={value} />
 		</div>
 		<pre
-			class="default-scrollbar-thin bg-base-200 dark:bg-base-100 dark:border-base-400 max-h-80 overflow-auto rounded-md border border-transparent p-3 text-xs">{value ||
+			class="default-scrollbar-thin dark:bg-base-400 bg-base-200 text-base-content max-h-80 overflow-auto rounded-md p-3 font-mono text-xs">{value ||
 				'-'}</pre>
 	</div>
 {/snippet}
