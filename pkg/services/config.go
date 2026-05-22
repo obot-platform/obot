@@ -3,6 +3,7 @@ package services
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -155,6 +156,8 @@ type Services struct {
 	InternalServerURL     string
 	DevUIPort             int
 	UserUIPort            int
+	HTTPListenPort        int
+	CredstoreToken        string
 	StorageClient         storage.Client
 	Router                *router.Router
 	GPTClient             *gptscript.GPTScript
@@ -419,20 +422,22 @@ func newGPTScript(ctx context.Context,
 	credStore string,
 	credStoreEnv []string,
 	mcpSessionManager *mcp.SessionManager,
-) (*gptscript.GPTScript, error) {
+) (*gptscript.GPTScript, func(), error) {
 	if os.Getenv("GPTSCRIPT_URL") != "" {
-		return gptscript.NewGPTScript(gptscript.GlobalOptions{
+		g, err := gptscript.NewGPTScript(gptscript.GlobalOptions{
 			URL:           os.Getenv("GPTSCRIPT_URL"),
 			WorkspaceTool: workspaceTool,
 			DatasetTool:   datasetTool,
 		})
+
+		return g, nil, err
 	}
 
 	credOverrides := strings.Split(os.Getenv("GPTSCRIPT_CREDENTIAL_OVERRIDE"), ",")
 	if len(credOverrides) == 1 && strings.TrimSpace(credOverrides[0]) == "" {
 		credOverrides = nil
 	}
-	url, err := sdkserver.EmbeddedStart(ctx, sdkserver.Options{
+	url, start, err := sdkserver.EmbeddedStart(ctx, sdkserver.Options{
 		Options: gptscriptai.Options{
 			Env: copyKeys(envPassThrough),
 			Cache: cache.Options{
@@ -451,34 +456,36 @@ func newGPTScript(ctx context.Context,
 		MCPLoader:     mcpSessionManager,
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if mcpSessionManager != nil {
 		if err := os.Setenv("GPTSCRIPT_URL", url); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
 	if os.Getenv("WORKSPACE_PROVIDER_DATA_HOME") == "" {
 		if err = os.Setenv("WORKSPACE_PROVIDER_DATA_HOME", filepath.Join(xdg.DataHome, "obot", "workspace-provider")); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
-	return gptscript.NewGPTScript(gptscript.GlobalOptions{
+	g, err := gptscript.NewGPTScript(gptscript.GlobalOptions{
 		Env:           copyKeys(envPassThrough),
 		URL:           url,
 		WorkspaceTool: workspaceTool,
 		DatasetTool:   datasetTool,
 	})
+
+	return g, start, err
 }
 
-func New(ctx context.Context, config Config) (*Services, error) {
+func New(ctx context.Context, config Config) (*Services, func(), error) {
 	// Setup Otel first so other services can use it.
 	otel, err := newOtel(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to bootstrap OTel SDK: %w", err)
+		return nil, nil, fmt.Errorf("failed to bootstrap OTel SDK: %w", err)
 	}
 
 	system.SetBinToSelf()
@@ -494,10 +501,10 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 	oauthClientExpiration, err := otime.ParseDuration(config.MCPOAuthClientExpiration)
 	if err != nil {
-		return nil, fmt.Errorf("invalid MCP OAuth client expiration: %w", err)
+		return nil, nil, fmt.Errorf("invalid MCP OAuth client expiration: %w", err)
 	}
 	if oauthClientExpiration < time.Minute {
-		return nil, fmt.Errorf("invalid MCP OAuth client expiration: must be at least 1 minute")
+		return nil, nil, fmt.Errorf("invalid MCP OAuth client expiration: must be at least 1 minute")
 	}
 
 	runtimeIsK8s := mcp.IsKubernetesBackend(config.MCPRuntimeBackend)
@@ -508,7 +515,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	// Validate network policy provider configuration
 	mcpNetworkPolicyEnabled := config.MCPNetworkPolicyProviderChartPath != "" || config.MCPNetworkPolicyProviderChartName != ""
 	if mcpNetworkPolicyEnabled && !runtimeIsK8s {
-		return nil, fmt.Errorf("network policy provider requires MCP runtime backend to be kubernetes")
+		return nil, nil, fmt.Errorf("network policy provider requires MCP runtime backend to be kubernetes")
 	}
 	if !mcpNetworkPolicyEnabled {
 		config.MCPNetworkPolicyProviderChartRepo = ""
@@ -521,10 +528,10 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			(config.MCPNetworkPolicyProviderChartRepo != "" ||
 				config.MCPNetworkPolicyProviderChartName != "" ||
 				config.MCPNetworkPolicyProviderChartVersion != "") {
-			return nil, fmt.Errorf("network policy provider chart path cannot be combined with chart repo, name, or version")
+			return nil, nil, fmt.Errorf("network policy provider chart path cannot be combined with chart repo, name, or version")
 		}
 		if config.MCPNetworkPolicyProviderChartPath == "" && config.MCPNetworkPolicyProviderChartRepo == "" {
-			return nil, fmt.Errorf("network policy provider requires chart repo when using a remote chart")
+			return nil, nil, fmt.Errorf("network policy provider requires chart repo when using a remote chart")
 		}
 	}
 
@@ -534,7 +541,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	storageClient, restConfig, dbAccess, storageServices, err := storage.Start(ctx, config.Config)
 	if err != nil {
 		pkgLog.Errorf("Failed to connect to database: dsn=%s error=%v", sanitizedDSN, err)
-		return nil, err
+		return nil, nil, err
 	}
 	pkgLog.Infof("Successfully connected to database: dsn=%s", sanitizedDSN)
 
@@ -550,25 +557,26 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	gatewayDB, err := db.New(dbAccess.DB, dbAccess.SQLDB, true)
 	if err != nil {
 		pkgLog.Errorf("Failed to initialize gateway database: error=%v", err)
-		return nil, err
+		return nil, nil, err
 	}
 	// Important: the database needs to be auto-migrated before we create the cred store, so that
 	// the gptscript_credentials table is available.
 	pkgLog.Infof("Running database migrations")
 	if err := gatewayDB.AutoMigrate(); err != nil {
 		pkgLog.Errorf("Failed to run database migrations: error=%v", err)
-		return nil, err
+		return nil, nil, err
 	}
 	pkgLog.Infof("Database migrations completed successfully")
 
-	encryptionConfig, encryptionConfigFile, err := encryption.Init(ctx, encryption.Options(config.EncryptionConfig))
+	encryptionConfig, err := encryption.Init(ctx, encryption.Options(config.EncryptionConfig))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	credStore, credStoreEnv, err := credstores.Init(config.ToolRegistries, config.DSN, encryptionConfigFile)
+	credstoreToken := strings.ToLower(rand.Text() + rand.Text())
+	credStore, credStoreEnv, err := credstores.Init(config.HTTPListenPort, credstoreToken)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if config.DevMode {
@@ -603,7 +611,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		config.MCPAuditLogRetentionDays,
 	)
 	if err := migrateGPTScriptCredentials(ctx, gatewayClient, gatewayDB, config.DSN); err != nil {
-		return nil, fmt.Errorf("failed to migrate GPTScript credentials: %w", err)
+		return nil, nil, fmt.Errorf("failed to migrate GPTScript credentials: %w", err)
 	}
 	storageServices.Authn.SetServiceAccountValidator(func(ctx context.Context, token string) (string, error) {
 		apiKey, err := gatewayClient.ValidateStorageServiceAccountToken(ctx, token)
@@ -630,7 +638,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	if mcp.IsKubernetesBackend(config.MCPRuntimeBackend) {
 		localK8sConfig, err = BuildLocalK8sConfig()
 		if err != nil {
-			return nil, fmt.Errorf("failed to build local Kubernetes config: %w", err)
+			return nil, nil, fmt.Errorf("failed to build local Kubernetes config: %w", err)
 		}
 		serviceAccountIssuerURL, err = imagepullsecrets.DiscoverServiceAccountIssuer(ctx, localK8sConfig)
 		if err != nil {
@@ -643,13 +651,13 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	// PSA settings are always sourced from Helm/environment and cannot be modified via UI
 	psaSettings, err := parsePSASettingsFromHelm(mcp.Options(config.MCPConfig))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	// Pod scheduling settings (affinity, tolerations, resources, runtimeClassName) can be managed
 	// via Helm OR UI. If set via Helm, SetViaHelm=true and UI cannot modify them.
 	podSchedulingSettings, err := parsePodSchedulingSettingsFromHelm(mcp.Options(config.MCPConfig))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	var postgresDSN string
@@ -659,7 +667,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 	persistentTokenServer, err := persistent.NewTokenService(config.Hostname, gatewayClient)
 	if err != nil {
-		return nil, fmt.Errorf("failed to setup persistent token service: %w", err)
+		return nil, nil, fmt.Errorf("failed to setup persistent token service: %w", err)
 	}
 
 	r, err := nah.NewRouter("obot-controller", &nah.Options{
@@ -669,18 +677,18 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		HealthzPort:    -1,
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Set up MCPWebhookValidation indexer
 	mcpWebhookValidationGVK, err := r.Backend().GroupVersionKindFor(&v1.MCPWebhookValidation{})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	mcpWebhookValidationInformer, err := r.Backend().GetInformerForKind(ctx, mcpWebhookValidationGVK)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if err = mcpWebhookValidationInformer.AddIndexers(map[string]gocache.IndexFunc{
@@ -725,37 +733,37 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			return results, nil
 		},
 	}); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	webhookHelper := mcp.NewWebhookHelper(mcpWebhookValidationInformer.GetIndexer(), config.Hostname)
 
 	mcpSessionManager, err := mcp.NewSessionManager(ctx, config.EnableAuthentication, persistentTokenServer, config.Hostname, config.HTTPListenPort, mcp.Options(config.MCPConfig), webhookHelper, localK8sConfig, storageClient)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	var apiLocalK8sClient kclient.Client
 	if localK8sConfig != nil {
 		apiLocalK8sClient, err = kclient.New(localK8sConfig, kclient.Options{Scheme: k8sscheme.Scheme})
 		if err != nil {
-			return nil, fmt.Errorf("failed to build local k8s client for API server: %w", err)
+			return nil, nil, fmt.Errorf("failed to build local k8s client for API server: %w", err)
 		}
 	}
 
-	gptscriptClient, err := newGPTScript(ctx, config.EnvKeys, credStore, credStoreEnv, mcpSessionManager)
+	gptscriptClient, start, err := newGPTScript(ctx, config.EnvKeys, credStore, credStoreEnv, mcpSessionManager)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	acrGVK, err := r.Backend().GroupVersionKindFor(&v1.AccessControlRule{})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	acrInformer, err := r.Backend().GetInformerForKind(ctx, acrGVK)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if err = acrInformer.AddIndexers(map[string]gocache.IndexFunc{
@@ -800,19 +808,19 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			return results, nil
 		},
 	}); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	acrHelper := accesscontrolrule.NewAccessControlRuleHelper(acrInformer.GetIndexer(), r.Backend())
 
 	skillAccessRuleGVK, err := r.Backend().GroupVersionKindFor(&v1.SkillAccessRule{})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	skillAccessRuleInformer, err := r.Backend().GetInformerForKind(ctx, skillAccessRuleGVK)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if err = skillAccessRuleInformer.AddIndexers(map[string]gocache.IndexFunc{
@@ -877,14 +885,14 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			return results, nil
 		},
 	}); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	skillAccessRuleHelper := skillaccessrule.NewHelper(skillAccessRuleInformer.GetIndexer())
 
 	mapHelper, err := modelaccesspolicy.NewHelper(ctx, r.Backend())
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	invoker := invoke.NewInvoker(
@@ -902,7 +910,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	if config.EnableMessagePolicies {
 		msgPolicyHelper, err = messagepolicy.NewHelper(ctx, r.Backend(), storageClient, providerDispatcher, gatewayClient)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
@@ -912,13 +920,13 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	var proxyManager *proxy.Manager
 	bootstrapper, err := bootstrap.New(ctx, config.Hostname, gatewayClient, config.EnableAuthentication, config.ForceEnableBootstrap)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	gatewayOpts := gserver.Options(config.GatewayConfig)
 	gatewayServer, err := gserver.New(ctx, gatewayDB, persistentTokenServer, providerDispatcher, acrHelper, mapHelper, msgPolicyHelper, gatewayOpts)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	authenticators := gserver.NewGatewayTokenReviewer(gatewayClient, providerDispatcher)
@@ -951,7 +959,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			ProviderUserID:       "nobody",
 			HashedProviderUserID: hash.String("nobody"),
 		}); err != nil {
-			return nil, fmt.Errorf(`failed to remove "nobody" user and identity from database: %w`, err)
+			return nil, nil, fmt.Errorf(`failed to remove "nobody" user and identity from database: %w`, err)
 		} else if id != 0 {
 			// Create this UserDelete object so that their stuff gets deleted.
 			if err = storageClient.Create(ctx, &v1.UserDelete{
@@ -963,7 +971,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 					UserID: id,
 				},
 			}); err != nil {
-				return nil, fmt.Errorf(`failed to create "nobody" user delete object: %w`, err)
+				return nil, nil, fmt.Errorf(`failed to create "nobody" user delete object: %w`, err)
 			}
 		}
 	} else {
@@ -981,12 +989,12 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 	auditLogger, err := audit.New(ctx, audit.Options(config.AuditConfig))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create audit logger: %w", err)
+		return nil, nil, fmt.Errorf("failed to create audit logger: %w", err)
 	}
 
 	rateLimiter, err := ratelimiter.New(ratelimiter.Options(config.RateLimiterConfig))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create rate limiter: %w", err)
+		return nil, nil, fmt.Errorf("failed to create rate limiter: %w", err)
 	}
 
 	// Derive registryNoAuth flag from config
@@ -1014,6 +1022,8 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		InternalServerURL: fmt.Sprintf("http://localhost:%d", config.HTTPListenPort),
 		DevUIPort:         devPort,
 		UserUIPort:        config.UserUIPort,
+		HTTPListenPort:    config.HTTPListenPort,
+		CredstoreToken:    credstoreToken,
 		ToolRegistryURLs:  config.ToolRegistries,
 		StorageClient:     storageClient,
 		Router:            r,
@@ -1094,17 +1104,17 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 
 	if (config.ArtifactStorageProvider == "") != (config.ArtifactStorageBucket == "") {
-		return nil, fmt.Errorf("both OBOT_ARTIFACT_STORAGE_PROVIDER and OBOT_ARTIFACT_STORAGE_BUCKET must be set together")
+		return nil, nil, fmt.Errorf("both OBOT_ARTIFACT_STORAGE_PROVIDER and OBOT_ARTIFACT_STORAGE_BUCKET must be set together")
 	}
 
 	if config.ArtifactStorageProvider != "" && config.ArtifactStorageBucket != "" {
 		artifactStorageConfig := buildArtifactStorageConfig(config)
 		artifactBlobStore, err := blob.New(apiclienttypes.StorageProviderType(config.ArtifactStorageProvider), artifactStorageConfig)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create artifact blob store: %w", err)
+			return nil, nil, fmt.Errorf("failed to create artifact blob store: %w", err)
 		}
 		if err := artifactBlobStore.Test(ctx); err != nil {
-			return nil, fmt.Errorf("failed to validate artifact blob store: %w", err)
+			return nil, nil, fmt.Errorf("failed to validate artifact blob store: %w", err)
 		}
 		svcs.ArtifactBlobStore = artifactBlobStore
 	} else {
@@ -1112,13 +1122,13 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		defaultDir := filepath.Join(xdg.DataHome, "obot", "published-artifacts")
 		artifactBlobStore, err := blob.NewDirectoryStore(defaultDir)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create local artifact blob store: %w", err)
+			return nil, nil, fmt.Errorf("failed to create local artifact blob store: %w", err)
 		}
 		svcs.ArtifactBlobStore = artifactBlobStore
 		svcs.ArtifactBlobBucket = "default"
 	}
 
-	return svcs, nil
+	return svcs, start, nil
 }
 
 func migrateGPTScriptCredentials(ctx context.Context, gatewayClient *client.Client, gatewayDB *db.DB, dsn string) error {

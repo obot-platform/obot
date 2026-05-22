@@ -27,17 +27,17 @@ require (
 	github.com/containerd/errdefs v1.0.0
 	github.com/docker/go-connections v0.6.0
 	github.com/fatih/color v1.18.0
+	github.com/glebarez/sqlite v1.11.0
 	github.com/go-git/go-billy/v5 v5.8.0
 	github.com/go-git/go-git/v5 v5.17.0
 	github.com/gobwas/glob v0.2.3
 	github.com/golang-jwt/jwt/v5 v5.3.0
-	github.com/glebarez/sqlite v1.11.0
 	github.com/google/jsonschema-go v0.4.2
 	github.com/google/uuid v1.6.0
 	github.com/gptscript-ai/chat-completion-client v0.0.0-20250224164718-139cb4507b1d
 	github.com/gptscript-ai/cmd v0.0.0-20250530150401-bc71fddf8070
 	github.com/gptscript-ai/go-gptscript v0.9.9-0.20260205140523-98f64d42d2ee
-	github.com/gptscript-ai/gptscript v0.9.10-0.20260507143209-6761bb8f98e8
+	github.com/gptscript-ai/gptscript v0.9.10-0.20260522151821-b374bab0897c
 	github.com/jackc/pgx/v5 v5.9.1
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
 	github.com/moby/moby/api v1.52.0-alpha.1

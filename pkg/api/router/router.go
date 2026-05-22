@@ -65,6 +65,15 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	publishedArtifacts := handlers.NewPublishedArtifactHandler(services.ArtifactBlobStore, services.ArtifactBlobBucket)
 	imagePullSecretsHandler := handlers.NewImagePullSecretHandler(services.MCPRuntimeBackend, services.MCPImagePullSecrets, services.MCPServerNamespace, services.ServiceNamespace, services.ServiceAccountName, services.LocalK8sClient, services.ServiceAccountIssuerURL, services.ServiceAccountIssuerError)
 
+	credHandler := handlers.NewCredentialHandler(services.HTTPListenPort, services.CredstoreToken)
+
+	// Temporary credential handlers
+	mux.HandleFunc("GET /api/credentials/tool.gpt", credHandler.Tool)
+	mux.HandleFunc("POST /api/credentials/store", credHandler.Store)
+	mux.HandleFunc("POST /api/credentials/get", credHandler.Get)
+	mux.HandleFunc("POST /api/credentials/list", credHandler.List)
+	mux.HandleFunc("POST /api/credentials/erase", credHandler.Erase)
+
 	// Version
 	mux.HandleFunc("GET /api/version", version.GetVersion)
 
