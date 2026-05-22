@@ -54,9 +54,9 @@ func (*Handler) EnsureUserCount(req router.Request, _ router.Response) error {
 		if !server.DeletionTimestamp.IsZero() || server.Spec.CompositeName != "" {
 			continue
 		}
-		if isSingleUser {
+		if isSingleUser && server.Spec.UserID != "" {
 			uniqueUsers[server.Spec.UserID] = struct{}{}
-		} else {
+		} else if !isSingleUser {
 			uniqueUsers[server.Name] = struct{}{}
 		}
 	}
