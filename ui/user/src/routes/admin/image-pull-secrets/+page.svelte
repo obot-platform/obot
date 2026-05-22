@@ -10,6 +10,7 @@
 		type ImagePullSecretManifest,
 		type ImagePullSecretTestResponse
 	} from '$lib/services';
+	import { canTest } from '$lib/services/admin/utils';
 	import { profile } from '$lib/stores/index.js';
 	import { goto } from '$lib/url';
 	import CapabilityBanner from './CapabilityBanner.svelte';
@@ -169,6 +170,7 @@
 	}
 
 	function openTestDialog(secret: ImagePullSecret) {
+		if (!canTest(secret)) return;
 		testingSecret = secret;
 		testImage = '';
 		testResult = undefined;
@@ -184,7 +186,7 @@
 	}
 
 	async function testSecret() {
-		if (!testingSecret || !testImage.trim() || mutationsDisabled) return;
+		if (!testingSecret || !canTest(testingSecret) || !testImage.trim() || mutationsDisabled) return;
 		testing = true;
 		testResult = undefined;
 		testError = '';

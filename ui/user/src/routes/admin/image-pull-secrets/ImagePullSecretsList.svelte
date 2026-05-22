@@ -2,6 +2,7 @@
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import type { ImagePullSecret } from '$lib/services';
+	import { canTest } from '$lib/services/admin/utils';
 	import { userDeviceSettings } from '$lib/stores';
 	import { formatTime } from '$lib/time.js';
 	import { openUrl } from '$lib/utils.js';
@@ -87,7 +88,7 @@
 					{#snippet actions(secret)}
 						<div class="flex items-center gap-1">
 							<IconButton
-								disabled={mutationsDisabled}
+								disabled={mutationsDisabled || !canTest(secret)}
 								tooltip={{ text: 'Test' }}
 								onclick={(e) => {
 									e.stopPropagation();
@@ -158,7 +159,7 @@
 					<Info class="size-4" />
 				</IconButton>
 				<IconButton
-					disabled={mutationsDisabled}
+					disabled={mutationsDisabled || !canTest(secret)}
 					tooltip={{ text: 'Test' }}
 					onclick={(e) => {
 						e.stopPropagation();
