@@ -2,10 +2,11 @@
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import type { ImagePullSecret } from '$lib/services';
+	import { canTest } from '$lib/services/admin/utils';
 	import { userDeviceSettings } from '$lib/stores';
 	import { formatTime } from '$lib/time.js';
 	import { openUrl } from '$lib/utils.js';
-	import { canTest, displayName, statusClass, statusLabel, statusMessage } from './types';
+	import { displayName, statusClass, statusLabel, statusMessage } from './types';
 	import { Info, KeyRound, Plus, RefreshCw, ShieldCheck, Trash2 } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 

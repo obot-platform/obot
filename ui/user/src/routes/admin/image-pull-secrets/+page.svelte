@@ -10,6 +10,7 @@
 		type ImagePullSecretManifest,
 		type ImagePullSecretTestResponse
 	} from '$lib/services';
+	import { canTest } from '$lib/services/admin/utils';
 	import { profile } from '$lib/stores/index.js';
 	import { goto } from '$lib/url';
 	import CapabilityBanner from './CapabilityBanner.svelte';
@@ -17,13 +18,7 @@
 	import ImagePullSecretStatusDialog from './ImagePullSecretStatusDialog.svelte';
 	import ImagePullSecretTestDialog from './ImagePullSecretTestDialog.svelte';
 	import ImagePullSecretsList from './ImagePullSecretsList.svelte';
-	import {
-		canTest,
-		defaultForm,
-		displayName,
-		formFromSecret,
-		type ImagePullSecretFormState
-	} from './types';
+	import { defaultForm, displayName, formFromSecret, type ImagePullSecretFormState } from './types';
 	import { Plus } from 'lucide-svelte';
 	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';

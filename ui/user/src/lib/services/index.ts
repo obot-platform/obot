@@ -1,6 +1,7 @@
 export * from './user/operations';
 export * from './user/types';
 export * from './admin/types';
+export * from './admin/utils';
 export * from './api-keys/types';
 export { default as AdminService } from './admin';
 export { default as ApiKeysService } from './api-keys';
