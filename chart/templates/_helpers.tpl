@@ -71,6 +71,13 @@ Set name of secret to use for credentials
 {{- end -}}
 
 {{/*
+Set name of configmap to use for non-sensitive config
+*/}}
+{{- define "obot.internal.configMapName" -}}
+{{ .Release.Name }}-internal-config
+{{- end -}}
+
+{{/*
 Set name of namespace to use for mcp servers
 */}}
 {{- define "obot.config.mcpNamespace" -}}
@@ -118,13 +125,13 @@ Validate all PSA level values in mcpNamespace.podSecurity
 Validate network policy provider Helm chart configuration.
 */}}
 {{- define "obot.validateNetworkPolicyProviderChartConfig" -}}
-{{- $repo := .Values.config.OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_REPO | default "" | toString | trim -}}
-{{- $name := .Values.config.OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_NAME | default "" | toString | trim -}}
+{{- $repo := .Values.internal.OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_REPO | default "" | toString | trim -}}
+{{- $name := .Values.internal.OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_NAME | default "" | toString | trim -}}
 {{- if and $repo (not $name) -}}
-{{- fail "config.OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_NAME is required when config.OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_REPO is set" -}}
+{{- fail "internal.OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_NAME is required when internal.OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_REPO is set" -}}
 {{- end -}}
 {{- if and $name (not $repo) -}}
-{{- fail "config.OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_REPO is required when config.OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_NAME is set" -}}
+{{- fail "internal.OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_REPO is required when internal.OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_NAME is set" -}}
 {{- end -}}
 {{- end -}}
 
@@ -146,7 +153,7 @@ appends the chart's appVersion as the tag. If appVersion looks like a developmen
 defaults to "main" tag instead.
 */}}
 {{- define "obot.config.mcpBaseImage" -}}
-{{- $image := .Values.config.OBOT_SERVER_MCPBASE_IMAGE -}}
+{{- $image := .Values.internal.OBOT_SERVER_MCPBASE_IMAGE -}}
 {{- if $image -}}
 {{- $parts := splitList "/" $image -}}
 {{- $lastPart := last $parts -}}

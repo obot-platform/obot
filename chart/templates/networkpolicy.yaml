@@ -1,4 +1,4 @@
-{{- if and (eq .Values.config.OBOT_SERVER_MCPRUNTIME_BACKEND "kubernetes") .Values.mcpNamespace.networkPolicy.enabled }}
+{{- if and (eq .Values.internal.OBOT_SERVER_MCPRUNTIME_BACKEND "kubernetes") .Values.mcpNamespace.networkPolicy.enabled }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
