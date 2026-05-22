@@ -17,14 +17,13 @@
 	} from '$lib/services';
 	import { getServerTypeLabelByType } from '$lib/services/user/mcp';
 	import { mcpServersAndEntries, profile } from '$lib/stores/index';
-	import { goto } from '$lib/url';
+	import { goto, setUrlParamAndUpdateUrl } from '$lib/url';
 	import {
 		clearUrlParams,
 		getTableUrlParamsFilters,
 		getTableUrlParamsSort,
 		setFilterUrlParams,
-		setSortUrlParams,
-		setUrlParam
+		setSortUrlParams
 	} from '$lib/url';
 	import { debounce } from 'es-toolkit';
 	import { Plus, Server } from 'lucide-svelte';
@@ -67,20 +66,13 @@
 		setFilterUrlParams(property, values);
 	}
 
-	function navigateWithState(url: URL): void {
-		goto(url, { replaceState: true, noScroll: true, keepFocus: true });
-	}
-
 	function handleClearAllFilters() {
 		urlFilters = {};
 		clearUrlParams();
 	}
 
 	const updateSearchQuery = debounce((value: string) => {
-		const newUrl = new URL(page.url);
-
-		setUrlParam(newUrl, 'query', value || null);
-		navigateWithState(newUrl);
+		setUrlParamAndUpdateUrl(page.url, 'query', value);
 	}, 100);
 
 	const duration = PAGE_TRANSITION_DURATION;

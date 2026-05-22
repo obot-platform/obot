@@ -4,6 +4,7 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
+	import ObotCliBanner from '$lib/components/ObotCliBanner.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
@@ -14,7 +15,7 @@
 	import type { Skill } from '$lib/services/nanobot/types';
 	import { errors, profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
-	import { goto } from '$lib/url.js';
+	import { goto, setUrlParamAndUpdateUrl } from '$lib/url.js';
 	import { openUrl } from '$lib/utils.js';
 	import { TriangleAlert, Info, PencilRuler, Plus, RefreshCcw, Trash2, X } from 'lucide-svelte';
 	import { onDestroy, untrack } from 'svelte';
@@ -131,11 +132,7 @@
 	}
 
 	function updateSearchQuery(value: string) {
-		const params = new URLSearchParams({ view, query: value });
-		goto(resolve(`/admin/skills?${params.toString()}`), {
-			replaceState: true,
-			keepFocus: true
-		});
+		setUrlParamAndUpdateUrl(page.url, 'query', value);
 	}
 
 	function closeSourceDialog() {
@@ -147,7 +144,8 @@
 </script>
 
 <Layout classes={{ navbar: 'bg-base-200' }} title="Skills">
-	<div class="flex min-h-full flex-col gap-8">
+	<div class="flex min-h-full flex-col gap-2">
+		<ObotCliBanner description="Give users easy installation & access to their curated skills." />
 		<div class="flex min-h-full flex-col">
 			<div class="bg-base-200 dark:bg-base-100 sticky top-16 left-0 z-20 w-full py-1">
 				<div class="mb-2">

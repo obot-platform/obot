@@ -15,6 +15,7 @@
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
 	import { isAgentEnabled } from '$lib/utils';
 	import InfoTooltip from './InfoTooltip.svelte';
+	import Logo from './Logo.svelte';
 	import Tour from './Tour.svelte';
 	import ConfigureBanner from './admin/ConfigureBanner.svelte';
 	import SetupSplashDialog from './admin/SetupSplashDialog.svelte';
@@ -77,6 +78,7 @@
 		items?: NavLink[];
 		noteIcon?: Component | typeof CircleQuestionMark;
 		note?: Snippet;
+		beta?: boolean;
 	};
 
 	interface Props {
@@ -141,7 +143,6 @@
 
 	let isBootStrapUser = $derived(profile.current.isBootstrapUser?.() ?? false);
 	let isAtLeastPowerUserPlus = $derived(profile.current.groups.includes(Group.POWERUSER_PLUS));
-	let isAtLeastPowerUser = $derived(profile.current.groups.includes(Group.POWERUSER));
 	let chatLinks = $derived<NavLink[]>([
 		{
 			id: 'launch-agent-chat',
@@ -152,6 +153,16 @@
 			collapsible: false,
 			noteIcon: !agentLinkEnabled ? LockOpen : undefined,
 			note: !agentLinkEnabled ? renderAgentDisabledNote : undefined
+		}
+	]);
+	let cliLink = $derived<NavLink[]>([
+		{
+			id: 'install-cli',
+			href: '/install-cli',
+			icon: Logo,
+			label: 'Obot CLI',
+			collapsible: false,
+			beta: true
 		}
 	]);
 	let navLinks = $derived<NavLink[]>(
@@ -350,7 +361,7 @@
 							}
 						]
 					},
-
+					...cliLink,
 					{
 						id: 'agent-management',
 						icon: Bot,
@@ -429,91 +440,62 @@
 						collapsible: false
 					}
 				]
-			: isAtLeastPowerUser
-				? [
-						{
-							id: 'mcp-server-management',
-							icon: RadioTower,
-							label: 'MCP Management',
-							collapsible: false,
-							disabled: false,
-							items: [
-								{
-									id: 'mcp-servers',
-									href: '/mcp-servers',
-									icon: Server,
-									label: 'MCP Servers',
-									disabled: false,
-									collapsible: false
-								},
-								...(isAtLeastPowerUserPlus
-									? [
-											{
-												id: 'mcp-registries',
-												href: '/mcp-registries',
-												icon: GlobeLock,
-												label: 'MCP Registries',
-												disabled: false,
-												collapsible: false
-											}
-										]
-									: []),
-								{
-									id: 'audit-logs',
-									href: '/audit-logs',
-									icon: Captions,
-									label: 'Audit Logs',
-									disabled: false,
-									collapsible: false
-								},
-								{
-									id: 'usage',
-									href: '/usage',
-									icon: ChartBarDecreasing,
-									label: 'Usage',
-									disabled: false,
-									collapsible: false
-								}
-							]
-						},
-						...chatLinks
-					]
-				: [
-						{
-							id: 'mcp-server-management',
-							icon: RadioTower,
-							label: 'MCP Management',
-							collapsible: false,
-							disabled: false,
-							items: [
-								{
-									id: 'mcp-servers',
-									href: '/mcp-servers',
-									icon: Server,
-									label: 'MCP Servers',
-									disabled: false,
-									collapsible: false
-								},
-								{
-									id: 'audit-logs',
-									href: '/audit-logs',
-									icon: Captions,
-									label: 'Audit Logs',
-									disabled: false,
-									collapsible: false
-								},
-								{
-									id: 'usage',
-									href: '/usage',
-									icon: ChartBarDecreasing,
-									label: 'Usage',
-									disabled: false,
-									collapsible: false
-								}
-							]
-						},
-						...chatLinks
-					]
+			: [
+					...cliLink,
+					{
+						id: 'mcp-server-management',
+						icon: RadioTower,
+						label: 'MCP Management',
+						collapsible: false,
+						disabled: false,
+						items: [
+							{
+								id: 'mcp-servers',
+								href: '/mcp-servers',
+								icon: Server,
+								label: 'MCP Servers',
+								disabled: false,
+								collapsible: false
+							},
+							...(isAtLeastPowerUserPlus
+								? [
+										{
+											id: 'mcp-registries',
+											href: '/mcp-registries',
+											icon: GlobeLock,
+											label: 'MCP Registries',
+											disabled: false,
+											collapsible: false
+										}
+									]
+								: []),
+							{
+								id: 'audit-logs',
+								href: '/audit-logs',
+								icon: Captions,
+								label: 'Audit Logs',
+								disabled: false,
+								collapsible: false
+							},
+							{
+								id: 'usage',
+								href: '/usage',
+								icon: ChartBarDecreasing,
+								label: 'Usage',
+								disabled: false,
+								collapsible: false
+							}
+						]
+					},
+					{
+						id: 'skills',
+						href: '/skills',
+						icon: PencilRuler,
+						label: 'Skills',
+						collapsible: false
+					},
+					...chatLinks
+				]
 	);
 
 	$effect(() => {
@@ -583,6 +565,9 @@
 										>
 											<link.icon class="size-5" />
 											{link.label}
+											{#if link.beta}
+												<span class="badge badge-primary badge-xs">Beta</span>
+											{/if}
 										</a>
 									{:else}
 										<div class="sidebar-link no-link">
@@ -613,7 +598,7 @@
 										{@render onRenderSubContent(link.label)}
 									{/if}
 									{#if link.items}
-										<div class="flex flex-col px-7 text-sm font-light">
+										<div class="flex flex-col px-7 text-sm font-light mb-2">
 											{#each link.items as item (item.href)}
 												<div class="relative flex items-center gap-2" id={item.id}>
 													<div

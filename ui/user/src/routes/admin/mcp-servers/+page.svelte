@@ -30,7 +30,8 @@
 		setSortUrlParams,
 		setFilterUrlParams,
 		setUrlParam,
-		replaceState
+		replaceState,
+		setUrlParamAndUpdateUrl
 	} from '$lib/url';
 	import SourceUrlsView from './SourceUrlsView.svelte';
 	import { Info, Plus, RefreshCcw, Server } from 'lucide-svelte';
@@ -163,9 +164,7 @@
 
 	const updateSearchQuery = (value: string) => {
 		urlFilters = getTableUrlParamsFilters();
-		const newUrl = new URL(page.url);
-		setUrlParam(newUrl, 'query', value || null);
-		navigateWithState(newUrl);
+		setUrlParamAndUpdateUrl(page.url, 'query', value);
 	};
 </script>
 

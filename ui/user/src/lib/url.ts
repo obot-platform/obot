@@ -110,6 +110,16 @@ export function setUrlParam(url: URL, key: string, value: string | null): void {
 	}
 }
 
+export function setUrlParamAndUpdateUrl(
+	url: string | URL,
+	key: string,
+	value?: string | null
+): void {
+	const newUrl = url instanceof URL ? new URL(url) : new URL(url, page.url);
+	setUrlParam(newUrl, key, value || null);
+	goto(newUrl, { replaceState: true, noScroll: true, keepFocus: true });
+}
+
 export function tryDecodeURIComponent(value: string): string {
 	try {
 		return decodeURIComponent(value);
