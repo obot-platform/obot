@@ -19,7 +19,8 @@ const DEFAULT_SORT_BY: DeviceClientSortKey = 'name';
 const DEFAULT_SORT_ORDER = 'asc';
 
 function getSortBy(property: string | null): DeviceClientSortKey {
-	return sortFields[property ?? ''] ?? DEFAULT_SORT_BY;
+	const key = property ?? '';
+	return Object.hasOwn(sortFields, key) ? sortFields[key] : DEFAULT_SORT_BY;
 }
 
 function getSortOrder(order: string | null): 'asc' | 'desc' {
@@ -31,7 +32,7 @@ export const load: PageLoad = async ({ fetch, url }) => {
 	const offset = parseInt(url.searchParams.get('offset') ?? '0', 10) || 0;
 	const name = url.searchParams.get('name') ?? '';
 	const sortProperty = url.searchParams.get('sort');
-	const hasValidSortProperty = Boolean(sortFields[sortProperty ?? '']);
+	const hasValidSortProperty = sortProperty != null && Object.hasOwn(sortFields, sortProperty);
 	const sortBy = getSortBy(sortProperty);
 	const sortOrder = hasValidSortProperty
 		? getSortOrder(url.searchParams.get('sortDirection'))

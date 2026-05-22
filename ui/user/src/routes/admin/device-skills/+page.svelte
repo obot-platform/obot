@@ -34,7 +34,7 @@
 	} as const;
 
 	function isSortProperty(property: string | undefined): property is keyof typeof sortFields {
-		return property != null && property in sortFields;
+		return property != null && Object.hasOwn(sortFields, property);
 	}
 
 	let initSort = $derived.by(() => {
@@ -69,7 +69,7 @@
 			};
 		}
 		return {
-			sortBy: sortFields[sort?.property as keyof typeof sortFields],
+			sortBy: sortFields[sort.property],
 			sortOrder: sort?.order
 		};
 	}

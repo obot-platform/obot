@@ -584,12 +584,13 @@ func (c *Client) ListDeviceClientFleetSummaries(ctx context.Context, opts Device
 		Where("cl.name <> ''")
 
 	nameFilter := strings.TrimSpace(opts.Name)
+	like := "LIKE"
+	if db.Name() == "postgres" {
+		like = "ILIKE"
+	}
+	nameFilterArg := "%" + nameFilter + "%"
 	if nameFilter != "" {
-		like := "LIKE"
-		if db.Name() == "postgres" {
-			like = "ILIKE"
-		}
-		base = base.Where(fmt.Sprintf("cl.name %s ?", like), "%"+nameFilter+"%")
+		base = base.Where(fmt.Sprintf("cl.name %s ?", like), nameFilterArg)
 	}
 
 	var total int64
@@ -600,24 +601,36 @@ func (c *Client) ListDeviceClientFleetSummaries(ctx context.Context, opts Device
 	userCounts := db.Table("device_scan_clients AS cl").
 		Joins("JOIN device_scans AS s ON s.id = cl.device_scan_id").
 		Where("s.id IN (?)", latest).
+		Where("cl.name <> ''").
 		Where("s.submitted_by <> ''").
 		Select("cl.name AS name, COUNT(DISTINCT s.submitted_by) AS user_count").
 		Group("cl.name")
+	if nameFilter != "" {
+		userCounts = userCounts.Where(fmt.Sprintf("cl.name %s ?", like), nameFilterArg)
+	}
 
 	skillCounts := db.Table("device_scan_skills AS sk").
 		Joins("JOIN device_scans AS s ON s.id = sk.device_scan_id").
 		Where("s.id IN (?)", latest).
+		Where("sk.client <> ''").
 		Where("sk.client <> ?", "multi").
 		Where("sk.name <> ''").
 		Select("sk.client AS name, COUNT(DISTINCT sk.name) AS skill_count").
 		Group("sk.client")
+	if nameFilter != "" {
+		skillCounts = skillCounts.Where(fmt.Sprintf("sk.client %s ?", like), nameFilterArg)
+	}
 
 	mcpServerCounts := db.Table("device_scan_mcp_servers AS m").
 		Joins("JOIN device_scans AS s ON s.id = m.device_scan_id").
 		Where("s.id IN (?)", latest).
+		Where("m.client <> ''").
 		Where("m.client <> ?", "multi").
 		Select("m.client AS name, COUNT(DISTINCT m.config_hash) AS mcp_server_count").
 		Group("m.client")
+	if nameFilter != "" {
+		mcpServerCounts = mcpServerCounts.Where(fmt.Sprintf("m.client %s ?", like), nameFilterArg)
+	}
 
 	validSortFields := map[string]bool{
 		"name":             true,
