@@ -388,7 +388,6 @@ func TestSetupPromptsForClientsWhenOmittedWithoutClaudeCode(t *testing.T) {
 	})
 	setup := &Setup{
 		URL:  "https://obot.example.com/",
-		Yes:  true,
 		root: root,
 	}
 
@@ -421,7 +420,6 @@ func TestSetupPromptsForClientsWhenOmittedWithClaudeCode(t *testing.T) {
 	})
 	setup := &Setup{
 		URL:  "https://obot.example.com/",
-		Yes:  true,
 		root: root,
 	}
 
@@ -439,6 +437,59 @@ func TestSetupPromptsForClientsWhenOmittedWithClaudeCode(t *testing.T) {
 	assertFileContains(t, filepath.Join(home, ".agents", "skills", "obot", skillformat.SkillMainFile), "rendered for `agents`")
 }
 
+func TestSetupPromptEmptySelectionSkipsLocalClientInstall(t *testing.T) {
+	restore := useRootTestEnv(t)
+	defer restore()
+	home := useSetupTestHome(t)
+
+	root := setupTestRoot(func(_ context.Context, _ string, _, _ bool) (string, error) {
+		return "token", nil
+	})
+	setup := &Setup{
+		URL:  "https://obot.example.com/",
+		root: root,
+	}
+
+	var stdout bytes.Buffer
+	cmd := setupTestCommand(strings.NewReader("\n"), &stdout, nil)
+	if err := setup.Run(cmd, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	if !strings.Contains(stdout.String(), "Skipping local client bootstrap installation") {
+		t.Fatalf("expected skip message, got stdout:\n%s", stdout.String())
+	}
+	if _, err := os.Stat(filepath.Join(home, ".agents", "skills", "obot", skillformat.SkillMainFile)); !os.IsNotExist(err) {
+		t.Fatalf("expected no shared agents skill to be installed, stat err: %v", err)
+	}
+}
+
+func TestSetupYesDefaultsToSharedAgentsWhenClientsOmitted(t *testing.T) {
+	restore := useRootTestEnv(t)
+	defer restore()
+	home := useSetupTestHome(t)
+
+	root := setupTestRoot(func(_ context.Context, _ string, _, _ bool) (string, error) {
+		return "token", nil
+	})
+	setup := &Setup{
+		URL:  "https://obot.example.com/",
+		Yes:  true,
+		root: root,
+	}
+
+	var stdout bytes.Buffer
+	cmd := setupTestCommand(strings.NewReader(""), &stdout, nil)
+	if err := setup.Run(cmd, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	if strings.Contains(stdout.String(), "Choose local client skill targets") {
+		t.Fatalf("--yes should not prompt for clients, got stdout:\n%s", stdout.String())
+	}
+	assertFileContains(t, filepath.Join(home, ".agents", "skills", "obot", skillformat.SkillMainFile), "rendered for `agents`")
+}
+
 func TestSetupNonInteractiveRequiresClientsWhenOmitted(t *testing.T) {
 	restore := useRootTestEnv(t)
 	defer restore()
@@ -449,7 +500,6 @@ func TestSetupNonInteractiveRequiresClientsWhenOmitted(t *testing.T) {
 	})
 	setup := &Setup{
 		URL:            "https://obot.example.com/",
-		Yes:            true,
 		NonInteractive: true,
 		root:           root,
 	}

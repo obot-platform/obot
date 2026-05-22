@@ -169,6 +169,9 @@ func (s *Setup) resolveClientSelection(cmd *cobra.Command) (setupClientSelection
 	if cmd.Flags().Changed("clients") || strings.TrimSpace(s.Clients) != "" {
 		return parseSetupClients(s.Clients)
 	}
+	if s.Yes {
+		return parseSetupClients(localagents.SharedAgentsID)
+	}
 	if s.NonInteractive {
 		return setupClientSelection{}, setupErrorf(setupErrorClientDetectionFailed, "--clients is required in non-interactive mode")
 	}
@@ -189,8 +192,9 @@ func (s *Setup) resolveClientSelection(cmd *cobra.Command) (setupClientSelection
 	if err != nil {
 		return setupClientSelection{}, err
 	}
-	if strings.TrimSpace(raw) == "" {
-		raw = localagents.SharedAgentsID
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		raw = "none"
 	}
 	selection, err := parseSetupClients(raw)
 	if err != nil {
@@ -210,7 +214,7 @@ func promptSetupClients(cmd *cobra.Command, claudeDetected bool) (string, error)
 }
 
 func promptSetupClientsMenu(cmd *cobra.Command, claudeDetected bool) (string, error) {
-	options := []string{"none", localagents.SharedAgentsID}
+	options := []string{localagents.SharedAgentsID}
 	if claudeDetected {
 		options = append(options, localagents.ClaudeCodeAgentID)
 	}
@@ -223,8 +227,6 @@ func promptSetupClientsMenu(cmd *cobra.Command, claudeDetected bool) (string, er
 		PageSize: len(options),
 		Description: func(value string, _ int) string {
 			switch value {
-			case "none":
-				return "Skip local bootstrap installation"
 			case localagents.SharedAgentsID:
 				return "All clients that support ~/.agents"
 			case localagents.ClaudeCodeAgentID:
@@ -246,17 +248,19 @@ func promptSetupClientsMenu(cmd *cobra.Command, claudeDetected bool) (string, er
 	if err := survey.AskOne(prompt, &selected, survey.WithStdio(in, out, cmd.ErrOrStderr())); err != nil {
 		return "", err
 	}
+	if len(selected) == 0 {
+		return "none", nil
+	}
 	return strings.Join(selected, ","), nil
 }
 
 func promptSetupClientsLine(cmd *cobra.Command, claudeDetected bool) (string, error) {
 	fmt.Fprintln(cmd.OutOrStdout(), "Choose local client skill targets:")
-	fmt.Fprintln(cmd.OutOrStdout(), "  none        Skip local bootstrap installation")
 	fmt.Fprintln(cmd.OutOrStdout(), "  agents      All clients that support ~/.agents")
 	if claudeDetected {
 		fmt.Fprintln(cmd.OutOrStdout(), "  claude-code Claude Code (detected)")
 	}
-	return promptLine(cmd, "Clients to support (comma-separated) [agents]: ")
+	return promptLine(cmd, "Clients to support (comma-separated; press Enter to skip): ")
 }
 
 func setupPromptSupportsMenu(cmd *cobra.Command) bool {
