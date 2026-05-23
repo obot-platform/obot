@@ -258,7 +258,7 @@
 
 		const [users, tokens, catalogServers, workspaceServers] = await Promise.all([
 			UserService.listUsersIncludeDeleted(),
-			AdminService.listTotalTokenUsage(),
+			AdminService.listTotalTokenUsage({ start, end }),
 			AdminService.listAllCatalogDeployedSingleRemoteServers(DEFAULT_MCP_CATALOG_ID),
 			AdminService.listAllWorkspaceDeployedSingleRemoteServers()
 		]);
