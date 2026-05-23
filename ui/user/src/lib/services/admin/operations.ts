@@ -1786,8 +1786,12 @@ function unwrapTokenUsageList(response: unknown): TokenUsage[] {
 	return list?.items ?? [];
 }
 
-export async function listTotalTokenUsage(opts?: { fetch?: Fetcher }) {
-	const response = await doGet('/total-token-usage', opts);
+export async function listTotalTokenUsage(
+	timeRange: TokenUsageTimeRange,
+	opts?: { fetch?: Fetcher; signal?: AbortSignal }
+) {
+	const queryString = tokenUsageQueryString(timeRange);
+	const response = await doGet(`/total-token-usage?${queryString}`, opts);
 	return response as TotalTokenUsage;
 }
 

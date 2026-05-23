@@ -310,7 +310,7 @@ func copyBody(r *http.Request) ([]byte, error) {
 }
 
 type responseModifier struct {
-	userID, runID, model                        string
+	userID, model                               string
 	projectID, threadID                         string
 	personalToken                               bool
 	client                                      *client.Client
@@ -769,13 +769,11 @@ func buildToolCallTargetMessage(toolCalls []messagepolicy.ToolCallInfo) string {
 
 func (r *responseModifier) Close() error {
 	r.lock.Lock()
-	runID := r.runID
 	totalTokens := r.totalTokens
 	if totalTokens == 0 {
 		totalTokens = r.promptTokens + r.completionTokens
 	}
 	activity := &types.RunTokenActivity{
-		Name:             runID,
 		UserID:           r.userID,
 		Model:            r.model,
 		PromptTokens:     r.promptTokens,
@@ -784,10 +782,8 @@ func (r *responseModifier) Close() error {
 		PersonalToken:    r.personalToken,
 	}
 	r.lock.Unlock()
-	if runID != "" {
-		if err := r.client.InsertTokenUsage(context.Background(), activity); err != nil {
-			log.Warnf("failed to save token usage for run %s: %v", runID, err)
-		}
+	if err := r.client.InsertTokenUsage(context.Background(), activity); err != nil {
+		log.Warnf("failed to save token usage for user %s: %v", r.userID, err)
 	}
 	return r.c.Close()
 }

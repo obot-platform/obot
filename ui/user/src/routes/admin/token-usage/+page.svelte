@@ -100,17 +100,6 @@
 	onMount(async () => {
 		usersData = await UserService.listUsersIncludeDeleted();
 		modelsData = await AdminService.listModels({ all: true });
-
-		AdminService.listTotalTokenUsage()
-			.then((response) => {
-				totalTokensData = response;
-			})
-			.catch((error) => {
-				errors.append(error);
-			})
-			.finally(() => {
-				loadingTotalTokensData = false;
-			});
 	});
 
 	let fetchAbortController: AbortController | null = null;
@@ -122,7 +111,22 @@
 		const signal = fetchAbortController.signal;
 
 		loadingTableData = true;
+		loadingTotalTokensData = true;
 		const timeRange = { start, end };
+
+		AdminService.listTotalTokenUsage(timeRange, { signal })
+			.then((response) => {
+				if (signal.aborted) return;
+				totalTokensData = response;
+			})
+			.catch((error) => {
+				if (error?.name === 'AbortError') return;
+				errors.append(error);
+			})
+			.finally(() => {
+				if (!signal.aborted) loadingTotalTokensData = false;
+			});
+
 		AdminService.listTokenUsage(timeRange, { signal })
 			.then((tokenUsage) => {
 				if (signal.aborted) return;
