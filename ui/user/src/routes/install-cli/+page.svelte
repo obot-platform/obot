@@ -6,7 +6,6 @@
 	import { darkMode, profile } from '$lib/stores';
 	import {
 		AntennaIcon,
-		ArrowDownToLineIcon,
 		CheckIcon,
 		ComputerIcon,
 		LaptopIcon,
@@ -98,7 +97,8 @@
 		}
 	]);
 
-	const installCommand = $derived(`obot setup --url ${page.url.origin}`);
+	const installCommand = 'brew install obot-platform/tap/obot';
+	const setupCommand = $derived(`obot setup --url ${page.url.origin}`);
 </script>
 
 <Layout title="Obot CLI">
@@ -142,32 +142,16 @@
 			<div class="p-8 @2xl/cli:pb-8 pb-0 flex flex-col gap-1">
 				<h3 class="text-2xl font-bold">How to Install Obot CLI</h3>
 
-				<p class="text-sm">1. Download the correct package for your operating system:</p>
-				<a
-					href="https://github.com/obot-platform/obot/releases/latest"
-					class="btn btn-primary mb-3 my-2 w-fit self-center @lg/cli:self-start"
-					target="_blank"
-					rel="noopener noreferrer external"
-				>
-					<ArrowDownToLineIcon class="size-4" /> Get Latest Release
-				</a>
+				{@render codesnippet('1. Install through Homebrew:', installCommand)}
 
 				{#if isAdmin}
-					<p class="text-sm">2. Have users open the terminal and run the following command:</p>
+					{@render codesnippet(
+						'2. Have users open the terminal and run the following command:',
+						setupCommand
+					)}
 				{:else}
-					<p class="text-sm">2. Open the terminal and run the following command:</p>
+					{@render codesnippet('2. Open the terminal and run the following command:', setupCommand)}
 				{/if}
-
-				<div class="relative mt-0.5 mb-4">
-					<pre class="pl-4 pr-22 py-2 m-0"><code>{installCommand}</code></pre>
-					<div class="absolute top-1/2 right-2 -translate-y-1/2">
-						<CopyButton
-							text={installCommand}
-							classes={{ button: 'flex shrink-0 gap-2 text-xs text-white hover:text-primary' }}
-							showTextLeft
-						/>
-					</div>
-				</div>
 			</div>
 		</div>
 
@@ -268,6 +252,20 @@
 		</div>
 	</div>
 </Layout>
+
+{#snippet codesnippet(step: string, command: string)}
+	<p class="text-sm">{step}</p>
+	<div class="relative mt-0.5 mb-4">
+		<pre class="pl-4 pr-22 py-2 m-0"><code>{command}</code></pre>
+		<div class="absolute top-1/2 right-2 -translate-y-1/2">
+			<CopyButton
+				text={command}
+				classes={{ button: 'flex shrink-0 gap-2 text-xs text-white hover:text-primary' }}
+				showTextLeft
+			/>
+		</div>
+	</div>
+{/snippet}
 
 {#snippet supportedClients(klass: string = 'size-8')}
 	<ul class="flex flex-wrap gap-2 items-center">
