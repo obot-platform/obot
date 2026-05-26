@@ -44,7 +44,7 @@ require (
 	github.com/oasdiff/yaml v0.0.0-20250309154309-f31be36b4037
 	github.com/obot-platform/kinm v0.0.0-20260420174234-eec2cd66c333
 	github.com/obot-platform/nah v0.0.0-20260424131842-3fc648d20cac
-	github.com/obot-platform/nanobot v0.0.81-0.20260514142346-27487c9b5c6a
+	github.com/obot-platform/nanobot v0.0.82
 	github.com/obot-platform/obot/apiclient v0.0.0-20250813183905-ade719c1e8bf
 	github.com/obot-platform/obot/logger v0.0.0-20241217130503-4004a5c69f32
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
@@ -272,7 +272,7 @@ require (
 	github.com/nwaples/rardecode/v2 v2.2.1 // indirect
 	github.com/nxadm/tail v1.4.11 // indirect
 	github.com/oasdiff/yaml3 v0.0.0-20250309153720-d2182401db90 // indirect
-	github.com/obot-platform/mcp-oauth-proxy v0.0.3-0.20260106135339-3745d9b14a30 // indirect
+	github.com/obot-platform/mcp-oauth-proxy v0.0.3-0.20260526141817-32b8278fcf00 // indirect
 	github.com/olekukonko/tablewriter v0.0.6-0.20230925090304-df64c4bbad77 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
