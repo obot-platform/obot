@@ -16,6 +16,7 @@
 	import '../app.css';
 	import type { PageData } from './$types';
 	import { apply, isSupported } from '@oddbird/popover-polyfill/fn';
+	import 'devicon/devicon.min.css';
 	import { untrack } from 'svelte';
 
 	interface Props {

@@ -38,7 +38,6 @@
 		themeDarkLogoFields,
 		standardIconFields
 	} from './constants.js';
-	import 'devicon/devicon.min.css';
 	import {
 		CircleAlert,
 		HouseIcon,
