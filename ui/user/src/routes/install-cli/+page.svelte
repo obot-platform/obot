@@ -8,6 +8,7 @@
 		AntennaIcon,
 		CheckIcon,
 		ComputerIcon,
+		ExternalLinkIcon,
 		LaptopIcon,
 		PcCaseIcon,
 		ServerIcon
@@ -142,16 +143,37 @@
 			<div class="p-8 @2xl/cli:pb-8 pb-0 flex flex-col gap-1">
 				<h3 class="text-2xl font-bold">How to Install Obot CLI</h3>
 
-				{@render codesnippet('1. Install through Homebrew:', installCommand)}
+				{@render codesnippet(
+					isAdmin
+						? '1. Have MacOS users install through Homebrew:'
+						: '1. For MacOS, install through Homebrew:',
+					installCommand
+				)}
 
-				{#if isAdmin}
-					{@render codesnippet(
-						'2. Have users open the terminal and run the following command:',
-						setupCommand
-					)}
-				{:else}
-					{@render codesnippet('2. Open the terminal and run the following command:', setupCommand)}
-				{/if}
+				{@render codesnippet(
+					isAdmin
+						? '2. Have users run the following command:'
+						: '2. Then run the following command:',
+					setupCommand
+				)}
+
+				<div class="flex flex-col">
+					<p class="text-sm">For more installation options, click below:</p>
+					<a
+						href="https://github.com/obot-platform/obot/releases/latest"
+						class="btn btn-primary mb-3 my-2 w-fit self-center @lg/cli:self-start"
+						target="_blank"
+						rel="noopener noreferrer external"
+					>
+						Get Latest Release <ExternalLinkIcon class="size-4" />
+					</a>
+					<div class="flex items-center gap-1 badge badge-outline border-base-400 opacity-50">
+						<div class="devicon devicon-windows11-original text-[#0078D7]"></div>
+						<p class="text-xs font-light">
+							<b class="font-medium">Windows Installer</b> Coming Soon
+						</p>
+					</div>
+				</div>
 			</div>
 		</div>
 
