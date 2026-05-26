@@ -958,26 +958,32 @@ export async function updateMCPCatalogServer(
 	return response;
 }
 
+export async function mcpServerDeleteResponseHandler(
+	resp: Response,
+	path: string,
+	opts?: { dontLogErrors?: boolean }
+): Promise<unknown> {
+	if (resp.status === 409 && resp.headers.get('Content-Type')?.includes('application/json')) {
+		const body = (await resp.json()) as {
+			message?: string;
+			dependencies: MCPCompositeDeletionDependency[];
+		};
+
+		if (body.dependencies && body.dependencies.length > 0) {
+			throw new MCPCompositeDeletionDependencyError(
+				body.message ??
+					'All dependencies on this MCP server must be removed before it can be deleted',
+				body.dependencies
+			);
+		}
+	}
+
+	return handleResponse(resp, path, opts);
+}
+
 export async function deleteMCPCatalogServer(catalogID: string, serverID: string): Promise<void> {
 	await doDelete(`/mcp-catalogs/${catalogID}/servers/${serverID}`, {
-		responseHandler: async (resp, path, opts) => {
-			if (resp.status === 409 && resp.headers.get('Content-Type')?.includes('application/json')) {
-				const body = (await resp.json()) as {
-					message?: string;
-					dependencies: MCPCompositeDeletionDependency[];
-				};
-
-				if (body.dependencies && body.dependencies.length > 0) {
-					throw new MCPCompositeDeletionDependencyError(
-						body.message ??
-							'All dependencies on this MCP server must be removed before it can be deleted',
-						body.dependencies
-					);
-				}
-			}
-
-			return handleResponse(resp, path, opts);
-		}
+		responseHandler: mcpServerDeleteResponseHandler
 	});
 }
 
