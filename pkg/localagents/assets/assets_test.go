@@ -18,7 +18,7 @@ func TestRenderAgentSkillsForClaudeCode(t *testing.T) {
 	assertNotContains(t, string(install.Content), "--json")
 
 	search := renderedByName(t, rendered, "obot-search-skills")
-	assertContains(t, string(search.Content), "obot skills search <query>")
+	assertContains(t, string(search.Content), "obot skills search \"<query>\"")
 
 	scan := renderedByName(t, rendered, "obot-scan")
 	assertContains(t, string(scan.Content), "obot scan")
