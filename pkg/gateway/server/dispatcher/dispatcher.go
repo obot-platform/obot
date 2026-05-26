@@ -11,6 +11,7 @@ import (
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/gptscript-ai/gptscript/pkg/engine"
+	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/api/handlers/providers"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/invoke"
@@ -62,11 +63,18 @@ func (d *Dispatcher) URLForAuthProvider(ctx context.Context, gptClient *gptscrip
 }
 
 func (d *Dispatcher) URLForModelProvider(ctx context.Context, gptClient *gptscript.GPTScript, namespace, modelProviderName string) (url.URL, error) {
-	u, err := d.urlForProvider(ctx, gptClient, v1.ToolReferenceTypeModelProvider, namespace, modelProviderName, d.modelURLs, d.modelLock)
+	u, err := d.urlForProvider(ctx, gptClient, v1.ToolReferenceTypeModelProvider, namespace, modelProviderName, d.modelURLs, d.modelLock, modelProviderLogLevelEnv())
 	if err != nil {
 		return url.URL{}, fmt.Errorf("failed to get model provider url: %w", err)
 	}
 	return u, nil
+}
+
+func modelProviderLogLevelEnv() string {
+	if logger.IsDebug() {
+		return "LOG_LEVEL=DEBUG"
+	}
+	return "LOG_LEVEL=INFO"
 }
 
 var providerTypeToGenericCredContext = map[v1.ToolReferenceType]string{
