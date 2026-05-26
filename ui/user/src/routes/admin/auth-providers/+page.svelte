@@ -206,7 +206,7 @@
 							);
 						} catch (err) {
 							// if 404, ignore, it means no credentials are set
-							if (err instanceof HttpError && err.statusCode !== 404) {
+							if (!(err instanceof HttpError) || err.statusCode !== 404) {
 								console.error('An error occurred while revealing auth provider credentials', err);
 							} else {
 								// no credentials set, set initial default value for allowed domains

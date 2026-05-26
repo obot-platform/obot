@@ -67,7 +67,7 @@
 				dontLogErrors: true
 			});
 		} catch (error) {
-			if (error instanceof HttpError && error.statusCode !== 404) {
+			if (!(error instanceof HttpError) || error.statusCode !== 404) {
 				console.error('Failed to reveal user server values due to unexpected error', error);
 			}
 			values = {};

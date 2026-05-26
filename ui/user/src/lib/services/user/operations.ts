@@ -507,18 +507,11 @@ export async function validateSingleOrRemoteMcpServerLaunched(mcpServerId: strin
 			success: true
 		};
 	} catch (err) {
-		if (err instanceof HttpError) {
-			return {
-				success: false,
-				message: err.message,
-				code: err.statusCode
-			};
-		}
 		if (err instanceof Error) {
 			return {
 				success: false,
 				message: err.message,
-				code: 500
+				code: err instanceof HttpError ? err.statusCode : 500
 			};
 		}
 
