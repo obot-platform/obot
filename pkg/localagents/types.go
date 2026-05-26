@@ -34,3 +34,9 @@ type DirectInstaller interface {
 	InstallBootstrap(ctx context.Context, home string) (InstallResult, error)
 	InstallSkill(ctx context.Context, home string, skill SkillArchive) (InstallResult, error)
 }
+
+type SetupTarget interface {
+	ID() string
+	DisplayName() string
+	InstallBootstrap(ctx context.Context, home string) (InstallResult, error)
+}

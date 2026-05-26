@@ -387,6 +387,6 @@ type DeviceClientFleetSummaryList List[DeviceClientFleetSummary]
 type DeviceClientFleetSummaryResponse struct {
 	DeviceClientFleetSummaryList `json:",inline"`
 	Total                        int64 `json:"total"`
-	Limit                        int    `json:"limit"`
-	Offset                       int    `json:"offset"`
+	Limit                        int   `json:"limit"`
+	Offset                       int   `json:"offset"`
 }

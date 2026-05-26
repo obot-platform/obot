@@ -1,11 +1,12 @@
 package cli
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"text/tabwriter"
 
@@ -107,15 +108,15 @@ func tableCell(value string) string {
 }
 
 type SkillsInstall struct {
-	Agent string `usage:"Target agent: detected, claude-code, or cursor" default:"detected"`
-	JSON  bool   `usage:"Print results as JSON"`
+	Destination string `usage:"Target skills directory, such as ~/.claude/skills or ~/.agents/skills"`
+	JSON        bool   `usage:"Print results as JSON"`
 
 	root *Obot
 }
 
 func (s *SkillsInstall) Customize(cmd *cobra.Command) {
 	cmd.Use = "install <skill-id>"
-	cmd.Short = "Install an Obot skill into a local agent"
+	cmd.Short = "Install an Obot skill into a local skills directory"
 	cmd.Args = cobra.ExactArgs(1)
 }
 
@@ -124,7 +125,7 @@ func (s *SkillsInstall) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("skills install: no API client configured")
 	}
 
-	installers, err := selectedDirectInstallers(cmd.Context(), strings.TrimSpace(s.Agent))
+	destination, err := resolveSkillsDestination(strings.TrimSpace(s.Destination))
 	if err != nil {
 		return err
 	}
@@ -155,21 +156,18 @@ func (s *SkillsInstall) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	output := skillsInstallOutput{
-		Results: make([]skillsInstallResult, 0, len(installers)),
+		Results: make([]skillsInstallResult, 0, 1),
 	}
-	for _, installer := range installers {
-		result, err := installer.InstallSkill(cmd.Context(), "", archive)
-		if err != nil {
-			return err
-		}
-		output.Results = append(output.Results, skillsInstallResult{
-			Agent:       result.AgentID,
-			DisplayName: result.DisplayName,
-			Mode:        "direct",
-			Installed:   result.Installed,
-			Message:     result.Message,
-		})
+	name, installed, err := localagents.InstallSkillToRoot(cmd.Context(), destination, archive)
+	if err != nil {
+		return err
 	}
+	output.Results = append(output.Results, skillsInstallResult{
+		Destination: destination,
+		Mode:        "direct",
+		Installed:   installed,
+		Message:     fmt.Sprintf("Installed %s to %s", name, destination),
+	})
 
 	if s.JSON {
 		enc := json.NewEncoder(cmd.OutOrStdout())
@@ -188,35 +186,31 @@ type skillsInstallOutput struct {
 }
 
 type skillsInstallResult struct {
-	Agent       string   `json:"agent"`
-	DisplayName string   `json:"displayName,omitempty"`
+	Destination string   `json:"destination"`
 	Mode        string   `json:"mode"`
 	Installed   []string `json:"installed,omitempty"`
 	Message     string   `json:"message,omitempty"`
 }
 
-func selectedDirectInstallers(ctx context.Context, agent string) ([]localagents.DirectInstaller, error) {
-	switch agent {
-	case "", "detected":
-		var installers []localagents.DirectInstaller
-		for _, installer := range localagents.DirectInstallers() {
-			if installer.Detect(ctx).State == localagents.DetectionPresent {
-				installers = append(installers, installer)
-			}
-		}
-		if len(installers) == 0 {
-			return nil, fmt.Errorf("no supported local agents detected")
-		}
-		return installers, nil
-	case localagents.ClaudeCodeAgentID:
-		return []localagents.DirectInstaller{localagents.NewClaudeCode()}, nil
-	case localagents.CursorAgentID:
-		return []localagents.DirectInstaller{localagents.NewCursor()}, nil
-	case "all":
-		fallthrough
-	default:
-		return nil, fmt.Errorf("unsupported --agent value %q; supported values are detected, claude-code, and cursor", agent)
+func resolveSkillsDestination(destination string) (string, error) {
+	if destination == "" {
+		return "", fmt.Errorf("--destination is required")
 	}
+	if destination == "~" || strings.HasPrefix(destination, "~/") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("resolve home directory: %w", err)
+		}
+		if home == "" {
+			return "", fmt.Errorf("home directory is empty")
+		}
+		if destination == "~" {
+			destination = home
+		} else {
+			destination = filepath.Join(home, strings.TrimPrefix(destination, "~/"))
+		}
+	}
+	return filepath.Clean(destination), nil
 }
 
 func isHTTPNotFound(err error) bool {

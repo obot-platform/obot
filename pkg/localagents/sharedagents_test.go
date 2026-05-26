@@ -1,7 +1,6 @@
 package localagents
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,48 +9,32 @@ import (
 	"github.com/obot-platform/obot/pkg/skillformat"
 )
 
-func TestCursorDetectPresentFromConfig(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("PATH", t.TempDir())
-	if err := os.MkdirAll(filepath.Join(home, ".cursor"), 0755); err != nil {
-		t.Fatal(err)
-	}
-
-	result := Cursor{home: home}.Detect(context.Background())
-	if result.State != DetectionPresent {
-		t.Fatalf("State = %q, want %q; reason: %s", result.State, DetectionPresent, result.Reason)
-	}
-	if !strings.Contains(result.Reason, ".cursor") {
-		t.Fatalf("Reason = %q, want config path", result.Reason)
-	}
-}
-
-func TestCursorInstallBootstrapWritesExpectedSkills(t *testing.T) {
+func TestSharedAgentsInstallBootstrapWritesExpectedSkills(t *testing.T) {
 	home := t.TempDir()
 
-	result, err := NewCursor().InstallBootstrap(context.Background(), home)
+	result, err := NewSharedAgents().InstallBootstrap(t.Context(), home)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if result.AgentID != CursorAgentID {
-		t.Fatalf("AgentID = %q, want %q", result.AgentID, CursorAgentID)
+	if result.AgentID != SharedAgentsID {
+		t.Fatalf("AgentID = %q, want %q", result.AgentID, SharedAgentsID)
 	}
 	if len(result.Installed) != 4 {
 		t.Fatalf("Installed count = %d, want 4: %#v", len(result.Installed), result.Installed)
 	}
 
 	for _, name := range []string{"obot", "obot-search-skills", "obot-install-skill", "obot-scan"} {
-		content := readFile(t, filepath.Join(home, ".cursor", "skills", name, skillformat.SkillMainFile))
+		content := readFile(t, filepath.Join(home, ".agents", "skills", name, skillformat.SkillMainFile))
 		if !strings.Contains(content, "Obot") && !strings.Contains(content, "obot") {
 			t.Fatalf("%s content did not look like an Obot bootstrap skill:\n%s", name, content)
 		}
 	}
 }
 
-func TestCursorInstallBootstrapOverwritesExistingContent(t *testing.T) {
+func TestSharedAgentsInstallBootstrapOverwritesExistingContent(t *testing.T) {
 	home := t.TempDir()
-	oldSkill := filepath.Join(home, ".cursor", "skills", "obot", skillformat.SkillMainFile)
+	oldSkill := filepath.Join(home, ".agents", "skills", "obot", skillformat.SkillMainFile)
 	if err := os.MkdirAll(filepath.Dir(oldSkill), 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +42,7 @@ func TestCursorInstallBootstrapOverwritesExistingContent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := NewCursor().InstallBootstrap(context.Background(), home); err != nil {
+	if _, err := NewSharedAgents().InstallBootstrap(t.Context(), home); err != nil {
 		t.Fatal(err)
 	}
 
@@ -67,12 +50,12 @@ func TestCursorInstallBootstrapOverwritesExistingContent(t *testing.T) {
 	if strings.Contains(content, "old local edit") {
 		t.Fatalf("bootstrap install preserved old content:\n%s", content)
 	}
-	if !strings.Contains(content, "rendered for `cursor`") {
+	if !strings.Contains(content, "rendered for `agents`") {
 		t.Fatalf("bootstrap content was not replaced with rendered asset:\n%s", content)
 	}
 }
 
-func TestCursorInstallSkillWritesSanitizedDirectory(t *testing.T) {
+func TestSharedAgentsInstallSkillWritesSanitizedDirectory(t *testing.T) {
 	home := t.TempDir()
 	skill := SkillArchive{
 		Name: "GitHub Review!",
@@ -89,12 +72,12 @@ func TestCursorInstallSkillWritesSanitizedDirectory(t *testing.T) {
 		},
 	}
 
-	result, err := NewCursor().InstallSkill(context.Background(), home, skill)
+	result, err := NewSharedAgents().InstallSkill(t.Context(), home, skill)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	target := filepath.Join(home, ".cursor", "skills", "github-review")
+	target := filepath.Join(home, ".agents", "skills", "github-review")
 	assertFileContains(t, filepath.Join(target, skillformat.SkillMainFile), "Review GitHub changes")
 	assertFileContains(t, filepath.Join(target, "scripts", "check.sh"), "exit 0")
 	if len(result.Installed) != 2 {
