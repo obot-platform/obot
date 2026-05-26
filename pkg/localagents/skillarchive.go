@@ -28,7 +28,7 @@ type SkillArchiveFile struct {
 }
 
 const (
-	maxSkillArchiveFiles             = 50
+	maxSkillArchiveFiles             = 200
 	maxSkillArchiveEntryBytes        = 100 * 1024 * 1024
 	maxSkillArchiveUncompressedBytes = 100 * 1024 * 1024
 )
