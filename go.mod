@@ -51,6 +51,7 @@ require (
 	github.com/prometheus/client_golang v1.23.2
 	github.com/rs/cors v1.11.1
 	github.com/sethvargo/go-limiter v1.0.0
+	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/testify v1.11.1
 	github.com/tidwall/gjson v1.18.0
@@ -296,7 +297,6 @@ require (
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sergi/go-diff v1.4.0 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
-	github.com/sirupsen/logrus v1.9.3
 	github.com/skeema/knownhosts v1.3.1 // indirect
 	github.com/sorairolake/lzip-go v0.3.8 // indirect
 	github.com/sourcegraph/go-diff-patch v0.0.0-20240223163233-798fd1e94a8e // indirect
