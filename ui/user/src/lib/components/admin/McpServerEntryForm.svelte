@@ -620,7 +620,7 @@
 					</div>
 				{/if}
 			</div>
-			{#if belongsToUser && !readonly && type !== 'multi'}
+			{#if belongsToUser && !readonly}
 				<IconButton
 					variant="danger2"
 					tooltip={{ text: 'Delete Server' }}
@@ -1059,14 +1059,16 @@
 	show={deleteServer}
 	onsuccess={async () => {
 		if (!id || !entry) return;
-		let url: `/${string}` = entity === 'workspace' ? '/mcp-servers' : '/admin/mcp-servers';
 		if (!('isCatalogEntry' in entry)) {
-			const deleteServerFn =
-				entity === 'workspace'
-					? UserService.deleteWorkspaceMCPCatalogServer
-					: AdminService.deleteMCPCatalogServer;
+			const workspaceID = entry.powerUserWorkspaceID || (entity === 'workspace' ? id : undefined);
+			const url: `/${string}` = profile.current.hasAdminAccess?.()
+				? '/admin/mcp-servers'
+				: '/mcp-servers';
+			const deleteServerFn = workspaceID
+				? UserService.deleteWorkspaceMCPCatalogServer
+				: AdminService.deleteMCPCatalogServer;
 			try {
-				await deleteServerFn(id, entry.id);
+				await deleteServerFn(workspaceID || id, entry.id);
 			} catch (error) {
 				if (error instanceof MCPCompositeDeletionDependencyError) {
 					deleteConflictError = error;
@@ -1074,14 +1076,16 @@
 				}
 				throw error;
 			}
+			goto(url);
 		} else {
+			const url: `/${string}` = entity === 'workspace' ? '/mcp-servers' : '/admin/mcp-servers';
 			const deleteCatalogEntryFn =
 				entity === 'workspace'
 					? UserService.deleteWorkspaceMCPCatalogEntry
 					: AdminService.deleteMCPCatalogEntry;
 			await deleteCatalogEntryFn(id, entry.id);
+			goto(url);
 		}
-		goto(url);
 	}}
 	oncancel={() => (deleteServer = false)}
 />

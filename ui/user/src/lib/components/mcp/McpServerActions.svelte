@@ -28,7 +28,6 @@
 	import Table from '../table/Table.svelte';
 	import ConnectToServer from './ConnectToServer.svelte';
 	import EditExistingDeployment from './EditExistingDeployment.svelte';
-	import McpConfirmDelete from './McpConfirmDelete.svelte';
 	import StaticOAuthConfigureModal from './StaticOAuthConfigureModal.svelte';
 	import DebugOauthDialog from './oauth/DebugOauthDialog.svelte';
 	import {
@@ -98,7 +97,6 @@
 	let isInitialOAuthConfig = $state(false);
 	let oauthConfiguredOverride = $state<boolean | undefined>(undefined);
 	let debugOauthDialog = $state<ReturnType<typeof DebugOauthDialog>>();
-	let deletingServer = $state(false);
 
 	let disconnecting = $state(false);
 	let restarting = $state(false);
@@ -182,8 +180,7 @@
 			(entry && server && isServerOwner) ||
 			(server && instance) ||
 			(showServerDetails && showConnectionActions) ||
-			canEditMultiUserServerConfiguration ||
-			canDeleteMultiUserServer
+			canEditMultiUserServerConfiguration
 		);
 	});
 	let showDisconnectUser = $derived(
@@ -232,20 +229,6 @@
 
 	async function deleteServerDeployment(server: MCPCatalogServer) {
 		await deleteMcpServerDeployment(server, catalogID);
-	}
-
-	function serverDeleteRedirect(server: MCPCatalogServer): string {
-		if (server.catalogEntryID) {
-			if (!profile.current.hasAdminAccess?.()) {
-				return `/mcp-servers/c/${server.catalogEntryID}`;
-			}
-
-			return server.powerUserWorkspaceID
-				? `/admin/mcp-servers/w/${server.powerUserWorkspaceID}/c/${server.catalogEntryID}`
-				: `/admin/mcp-servers/c/${server.catalogEntryID}`;
-		}
-
-		return profile.current.hasAdminAccess?.() ? '/admin/mcp-servers' : '/mcp-servers';
 	}
 
 	async function disconnectCurrentUser(server: MCPCatalogServer) {
@@ -615,18 +598,6 @@
 					{/if} Restart
 				</button>
 			{/if}
-			{#if canDeleteMultiUserServer}
-				<button
-					class="menu-button-destructive"
-					onclick={(e) => {
-						e.stopPropagation();
-						deletingServer = true;
-						toggle(false);
-					}}
-				>
-					<Trash2 class="size-4" /> Delete Server
-				</button>
-			{/if}
 			{#if server && instance}
 				<button
 					class="menu-button"
@@ -824,22 +795,6 @@
 		</div>
 	{/if}
 {/snippet}
-
-<McpConfirmDelete
-	names={[server?.alias || server?.manifest.name || '']}
-	show={deletingServer}
-	onsuccess={async () => {
-		if (!server) return;
-		const redirect = serverDeleteRedirect(server);
-		await deleteServerDeployment(server);
-		await mcpServersAndEntries.refreshAll();
-		deletingServer = false;
-		goto(redirect, { replaceState: true });
-	}}
-	oncancel={() => (deletingServer = false)}
-	entity="server"
-	entityPlural="servers"
-/>
 
 <StaticOAuthConfigureModal
 	bind:this={oauthConfigModal}
