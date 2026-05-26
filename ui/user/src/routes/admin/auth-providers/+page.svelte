@@ -10,6 +10,7 @@
 		PAGE_TRANSITION_DURATION,
 		RecommendedModelProviders
 	} from '$lib/constants';
+	import { HttpError } from '$lib/errors.js';
 	import type { AuthProvider } from '$lib/services/admin/types.js';
 	import { AdminService, Role, UserService } from '$lib/services/index.js';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte.js';
@@ -124,7 +125,7 @@
 		try {
 			await AdminService.cancelTempLogin();
 		} catch (err) {
-			if (err instanceof Error && err.message.includes('404')) {
+			if (err instanceof HttpError && err.statusCode === 404) {
 				// ignore, no current temp login to cancel
 			} else {
 				errors.append(err);
@@ -205,7 +206,7 @@
 							);
 						} catch (err) {
 							// if 404, ignore, it means no credentials are set
-							if (err instanceof Error && !err.message.includes('404')) {
+							if (err instanceof HttpError && err.statusCode !== 404) {
 								console.error('An error occurred while revealing auth provider credentials', err);
 							} else {
 								// no credentials set, set initial default value for allowed domains

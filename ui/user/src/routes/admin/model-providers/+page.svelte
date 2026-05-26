@@ -6,6 +6,7 @@
 	import ProviderConfigure from '$lib/components/admin/ProviderConfigure.svelte';
 	import { CommonModelProviderIds, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { getAdminModels, initModels } from '$lib/context/admin/models.svelte.js';
+	import { HttpError } from '$lib/errors.js';
 	import { AdminService, type ModelProvider as ModelProviderType } from '$lib/services';
 	import { sortModelProviders } from '$lib/sort.js';
 	import { defaultModelAliases as defaultModelAliasesStore } from '$lib/stores';
@@ -172,7 +173,7 @@
 							);
 						} catch (err) {
 							// if 404, ignore, it means no credentials are set
-							if (err instanceof Error && !err.message.includes('404')) {
+							if (err instanceof HttpError && err.statusCode !== 404) {
 								console.error('An error occurred while revealing model provider credentials', err);
 							}
 						}

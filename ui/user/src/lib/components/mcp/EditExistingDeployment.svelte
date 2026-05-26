@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { HttpError } from '$lib/errors';
 	import { UserService, type MCPCatalogEntry, type MCPCatalogServer } from '$lib/services';
 	import type { EventStreamService } from '$lib/services/admin/eventstream.svelte';
 	import {
@@ -66,7 +67,7 @@
 				dontLogErrors: true
 			});
 		} catch (error) {
-			if (error instanceof Error && !error.message.includes('404')) {
+			if (error instanceof HttpError && error.statusCode !== 404) {
 				console.error('Failed to reveal user server values due to unexpected error', error);
 			}
 			values = {};

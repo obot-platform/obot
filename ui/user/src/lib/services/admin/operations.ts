@@ -1,4 +1,5 @@
 import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
+import { HttpError } from '$lib/errors';
 import type { Skill } from '$lib/services/nanobot/types';
 import { buildQueryString } from '$lib/url';
 import {
@@ -1025,7 +1026,7 @@ export async function isMCPCatalogServerOauthNeeded(
 			signal: opts?.signal
 		});
 	} catch (err) {
-		if (err instanceof Error && err.message.includes('412')) {
+		if (err instanceof HttpError && err.statusCode === 412) {
 			return true;
 		}
 	}
@@ -1085,26 +1086,19 @@ export async function launchMCPFilter(id: string): Promise<{
 			success: true
 		};
 	} catch (err) {
+		if (err instanceof HttpError) {
+			return {
+				success: false,
+				message: err.message,
+				code: err.statusCode
+			};
+		}
 		if (err instanceof Error) {
-			if (err.message.includes('404')) {
-				return {
-					success: false,
-					message: err.message,
-					code: 404
-				};
-			} else if (err.message.includes('503')) {
-				return {
-					success: false,
-					message: err.message,
-					code: 503
-				};
-			} else {
-				return {
-					success: false,
-					message: err.message,
-					code: 500
-				};
-			}
+			return {
+				success: false,
+				message: err.message,
+				code: 500
+			};
 		}
 
 		throw err;

@@ -4,22 +4,27 @@
 	import Logo from '$lib/components/Logo.svelte';
 
 	const errorTitles = {
+		400: 'Bad Request',
 		401: 'Unauthorized',
 		403: 'Access Denied',
 		404: 'Page Not Found',
+		422: 'Unprocessable Entity',
+		429: 'Too Many Requests',
 		500: 'Internal Server Error'
 	};
 
-	const defaultMessage = {
+	const defaultErrorCodeMessage = {
 		401: 'You are not logged in.',
 		403: 'You are not allowed to access this page.',
 		404: 'It looks like the page you are trying to access does not exist.',
 		500: 'An error occurred while loading the page.'
 	};
 
+	const defaultMessage = defaultErrorCodeMessage[500];
+
 	const title = errorTitles[page.status as keyof typeof errorTitles] || 'Error';
 	const message =
-		defaultMessage[page.status as keyof typeof defaultMessage] || 'Please try again later.';
+		defaultErrorCodeMessage[page.status as keyof typeof defaultErrorCodeMessage] || defaultMessage;
 </script>
 
 <div class="flex h-dvh w-full flex-col items-center justify-center gap-4">
@@ -39,11 +44,15 @@
 	</div>
 	<p class="text-gray">{message}</p>
 
-	{#if page.error}
+	{#if page.error?.message}
 		<details class="collapse bg-base-300 collapse-arrow border max-w-xl mb-2 w-full">
 			<summary class="collapse-title font-semibold text-base">Error Details</summary>
-			<div class="collapse-content text-sm bg-base-200 pt-4">
-				{page.error.message}
+			<div class="collapse-content p-0 text-sm bg-base-200 space-y-3">
+				<div class="p-4 overflow-y-auto default-scrollbar-thin max-h-64">
+					{#if page.error.message}
+						<p class="wrap-break-word">{page.error.message}</p>
+					{/if}
+				</div>
 			</div>
 		</details>
 	{/if}
