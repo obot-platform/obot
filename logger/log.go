@@ -23,6 +23,10 @@ func SetError() {
 	logrus.SetLevel(logrus.ErrorLevel)
 }
 
+func IsDebug() bool {
+	return logrus.IsLevelEnabled(logrus.DebugLevel)
+}
+
 func Package() Logger {
 	_, p, _, _ := runtime.Caller(1)
 	_, suffix, _ := strings.Cut(p, "obot")
