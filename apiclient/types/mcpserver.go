@@ -63,6 +63,7 @@ type ContainerizedRuntimeConfig struct {
 	Args                  []string `json:"args,omitempty"`                  // Optional: Container arguments
 	Port                  int      `json:"port"`                            // Required: Container port
 	Path                  string   `json:"path"`                            // Required: HTTP path for MCP endpoint
+	HealthzPath           string   `json:"healthzPath,omitempty"`           // Optional: HTTP path to check for readiness instead of probing the MCP endpoint
 	EgressDomains         []string `json:"egressDomains,omitempty"`         // Optional: Empty means allow all, otherwise allow only the listed domains when network policy enforcement is enabled
 	DenyAllEgress         *bool    `json:"denyAllEgress,omitempty"`         // Optional: Deny all egress when network policy enforcement is enabled
 	StartupTimeoutSeconds int      `json:"startupTimeoutSeconds,omitempty"` // Optional: Timeout to start and connect to the MCP server, in seconds. Defaults to 60s, max 600s.
@@ -543,6 +544,7 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 			Args:                  catalogEntry.ContainerizedConfig.Args,
 			Port:                  catalogEntry.ContainerizedConfig.Port,
 			Path:                  catalogEntry.ContainerizedConfig.Path,
+			HealthzPath:           catalogEntry.ContainerizedConfig.HealthzPath,
 			EgressDomains:         catalogEntry.ContainerizedConfig.EgressDomains,
 			DenyAllEgress:         catalogEntry.ContainerizedConfig.DenyAllEgress,
 			StartupTimeoutSeconds: catalogEntry.ContainerizedConfig.StartupTimeoutSeconds,

@@ -10,13 +10,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gptscript-ai/gptscript/pkg/hash"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/obot-platform/obot/pkg/utils"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -150,7 +150,7 @@ func (h *AuditLogHandler) SubmitAuditLogs(req api.Context) error {
 	}
 
 	// Get the MCP server ID from the token
-	tokenHash := hash.Digest(token)
+	tokenHash := utils.Digest(token)
 	var mcpServers v1.MCPServerList
 	if err := req.List(&mcpServers, &kclient.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector("auditLogTokenHash", tokenHash),

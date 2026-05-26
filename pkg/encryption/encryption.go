@@ -66,15 +66,15 @@ func Init(ctx context.Context, opts Options) (*encryptionconfig.EncryptionConfig
 	// Set up encryption provider
 	switch strings.ToLower(opts.EncryptionProvider) {
 	case "aws":
-		if err := setUpAWSKMS(ctx, opts.AWSKMSKeyARN, opts.EncryptionConfigFile); err != nil {
+		if err := setUpAWSKMS(ctx, opts.AWSKMSKeyARN); err != nil {
 			return nil, fmt.Errorf("failed to setup AWS KMS: %w", err)
 		}
 	case "gcp":
-		if err := setUpGoogleKMS(ctx, opts.GCPKMSKeyURI, opts.EncryptionConfigFile); err != nil {
+		if err := setUpGoogleKMS(ctx, opts.GCPKMSKeyURI); err != nil {
 			return nil, fmt.Errorf("failed to setup Google Cloud KMS: %w", err)
 		}
 	case "azure":
-		if err := setUpAzureKeyVault(ctx, opts.AzureKeyVaultName, opts.AzureKeyName, opts.AzureKeyVersion, opts.EncryptionConfigFile); err != nil {
+		if err := setUpAzureKeyVault(ctx, opts.AzureKeyVaultName, opts.AzureKeyName, opts.AzureKeyVersion); err != nil {
 			return nil, fmt.Errorf("failed to setup Azure Key Vault: %w", err)
 		}
 	}
@@ -89,13 +89,9 @@ func Init(ctx context.Context, opts Options) (*encryptionconfig.EncryptionConfig
 	return nil, nil
 }
 
-func setUpAzureKeyVault(ctx context.Context, keyvaultName, keyName, keyVersion, configFile string) error {
+func setUpAzureKeyVault(ctx context.Context, keyvaultName, keyName, keyVersion string) error {
 	if keyvaultName == "" || keyName == "" || keyVersion == "" {
 		return fmt.Errorf("missing Azure Key Vault configuration")
-	}
-
-	if err := os.Setenv("GPTSCRIPT_ENCRYPTION_CONFIG_FILE", configFile); err != nil {
-		return fmt.Errorf("failed to set GPTSCRIPT_ENCRYPTION_CONFIG_FILE: %w", err)
 	}
 
 	if err := os.WriteFile("/tmp/azure.json", []byte(`{"useManagedIdentityExtension": true}`), 0600); err != nil {
@@ -128,13 +124,9 @@ func setUpAzureKeyVault(ctx context.Context, keyvaultName, keyName, keyVersion, 
 	return nil
 }
 
-func setUpGoogleKMS(ctx context.Context, kmsKeyURI, configFile string) error {
+func setUpGoogleKMS(ctx context.Context, kmsKeyURI string) error {
 	if kmsKeyURI == "" {
 		return fmt.Errorf("missing GCP KMS key URI")
-	}
-
-	if err := os.Setenv("GPTSCRIPT_ENCRYPTION_CONFIG_FILE", configFile); err != nil {
-		return fmt.Errorf("failed to set GPTSCRIPT_ENCRYPTION_CONFIG_FILE: %w", err)
 	}
 
 	cmd := exec.CommandContext(ctx,
@@ -183,13 +175,9 @@ func setUpGoogleKMS(ctx context.Context, kmsKeyURI, configFile string) error {
 	return nil
 }
 
-func setUpAWSKMS(ctx context.Context, arn, configFile string) error {
+func setUpAWSKMS(ctx context.Context, arn string) error {
 	if arn == "" {
 		return fmt.Errorf("missing AWS KMS key ARN")
-	}
-
-	if err := os.Setenv("GPTSCRIPT_ENCRYPTION_CONFIG_FILE", configFile); err != nil {
-		return fmt.Errorf("failed to set GPTSCRIPT_ENCRYPTION_CONFIG_FILE: %w", err)
 	}
 
 	region := strings.Split(arn, ":")[3]

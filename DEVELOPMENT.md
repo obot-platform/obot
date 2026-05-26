@@ -33,13 +33,13 @@ To run the User UI in GoLand or WebStorm:
 
 Then you're ready to run or debug this target.
 
-## Developing Obot Tools
+## Developing Obot Providers
 
-Obot has a set of packaged tools. These tools are in the repo `github.com/obot-platform/tools`. By default, Obot will pull the tools from this repo. However, when developing tools in this repo, you can follow these steps to use a local copy.
+Obot has a set of providers. These are in the repo `github.com/obot-platform/providers`. By default, Obot will pull the providers' configuration from this repo. However, when developing tools in this repo, you can follow these steps to use a local copy.
 
-1. Clone `github.com/obot-platform/tools` to your local machine.
-2. In the root directory of the tools repo on your local machine, run `make build`.
-3. Run the Obot server, either with `make dev` or in your IDE, with the `GPTSCRIPT_TOOL_REMAP` environment variable set to `github.com/obot-platform/tools=<local-tools-fork-root-directory>`; e.g. If you cloned the tools repo to the directory "above" the Obot repo, you'd use `GPTSCRIPT_TOOL_REMAP='github.com/obot-platform/tools=../tools' make dev`.
+1. Clone `github.com/obot-platform/providers` to your local machine.
+2. In the root directory of the tools repo on your local machine, run `make build-images`.
+3. Run the Obot server, either with `make dev` or in your IDE, with the `OBOT_SERVER_PROVIDER_REGISTRIES` environment variable set to `<local-tools-fork-root-directory>`; e.g. If you cloned the tools repo to the directory "above" the Obot repo, you'd use `OBOT_SERVER_PROVIDER_REGISTRIES='../providers' make dev`.
 
 Now, any time one of these tools is run, your local copy will be used.
 
@@ -47,7 +47,7 @@ Now, any time one of these tools is run, your local copy will be used.
 > Any time you change a Go based tool in your local repo, you must run `make build` in the tools repo for the changes to take effect with Obot.
 
 > [!NOTE]
-> Tool definitions and metadata are only synced to Obot every hour. Therefore, if you make a change to the tool in your local machine, it may not reflect immediately in Obot. Rest assured that the latest version is used when running the tool.
+> Provider definitions and metadata are only synced to Obot every hour. Therefore, if you make a change to the provider on your local machine, it may not reflect immediately in Obot.
 
 ## Obot Server Dev Mode
 
@@ -85,10 +85,6 @@ make otel-jaeger-logs
 make otel-jaeger-down
 ```
 
-## Obot Credentials
-
-The GPTScript credentials for Obot are, by default, stored in a SQLite database called `obot-credentials.db` in the root of the obot repo. You can use the `sqlite3` CLI to inspect the database directly: `sqlite3 obot-credentials.db`.
-
 ## Resetting
 
 There may be times when you want to completely wipe your setup and start fresh. The location of data and caches is dependent on your system. For Mac or Linux, you can run the respective command in the root of the obot repo on your local machine.
@@ -96,19 +92,15 @@ There may be times when you want to completely wipe your setup and start fresh. 
 On Mac:
 ```bash
 rm -rf ~/Library/Application\ Support/obot &&
-rm -rf ~/Library/Application\ Support/gptscript &&
 rm -rf ~/Library/Caches/obot &&
-rm -rf ~/Library/Caches/gptscript &&
-rm obot.db obot-credentials.db
+rm obot.db
 ```
 
 On Linux:
 ```bash
 rm -rf ~/.local/share/obot &&
-rm -rf ~/.local/share/gptscript &&
 rm -rf ~/.cache/obot &&
-rm -rf ~/.cache/gptscript &&
-rm obot.db obot-credentials.db
+rm obot.db
 ```
 
 ## Serving the Documentation

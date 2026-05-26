@@ -20,24 +20,22 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/oktagroupmigration"
 	"github.com/obot-platform/obot/pkg/controller/handlers/poweruserworkspace"
 	"github.com/obot-platform/obot/pkg/controller/handlers/project"
+	"github.com/obot-platform/obot/pkg/controller/handlers/provider"
 	"github.com/obot-platform/obot/pkg/controller/handlers/scheduledauditlogexport"
 	"github.com/obot-platform/obot/pkg/controller/handlers/skillrepository"
 	"github.com/obot-platform/obot/pkg/controller/handlers/systemmcpserver"
-	"github.com/obot-platform/obot/pkg/controller/handlers/threads"
-	"github.com/obot-platform/obot/pkg/controller/handlers/toolreference"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
 func (c *Controller) setupRoutes() {
 	root := c.router
 
-	toolRef := toolreference.New(c.services.GPTClient, c.services.GatewayClient, c.services.ProviderDispatcher, c.services.ToolRegistryURLs, c.services.LicenseProvider)
-	threads := threads.NewHandler()
-	credentialCleanup := cleanup.NewCredentials(c.services.MCPLoader, c.services.GatewayClient, c.services.ServerURL, c.services.InternalServerURL)
+	providers := provider.New(c.services.GatewayClient, c.services.ProviderDispatcher, c.services.LicenseProvider, c.services.ToolRegistryURLs)
+	credentialCleanup := cleanup.NewCredentials(c.services.MCPSessionManager, c.services.GatewayClient, c.services.ServerURL, c.services.InternalServerURL)
 	userCleanup := cleanup.NewUserCleanup(c.services.GatewayClient, c.services.AccessControlRuleHelper)
 	mcpCatalog := mcpcatalog.New(c.services.DefaultMCPCatalogPath, c.services.DefaultSystemMCPCatalogPath, c.services.GatewayClient, c.services.AccessControlRuleHelper, c.services.MCPRuntimeBackend)
 	skillRepository := skillrepository.New()
-	mcpserver := mcpserver.New(c.services.GatewayClient, c.services.MCPLoader, c.services.MCPNetworkPolicyEnabled, c.services.MCPDefaultDenyAllEgress, c.services.SingleUserIdleServerShutdownInterval, c.services.MultiUserIdleServerShutdownInterval, c.services.AgentIdleServerShutdownInterval, c.services.ServerURL, c.services.MCPRuntimeBackend, c.services.MCPImagePullSecrets)
+	mcpserver := mcpserver.New(c.services.GatewayClient, c.services.MCPSessionManager, c.services.MCPNetworkPolicyEnabled, c.services.MCPDefaultDenyAllEgress, c.services.SingleUserIdleServerShutdownInterval, c.services.MultiUserIdleServerShutdownInterval, c.services.AgentIdleServerShutdownInterval, c.services.ServerURL, c.services.MCPRuntimeBackend, c.services.MCPImagePullSecrets)
 	mcpserverinstance := mcpserverinstance.New(c.services.GatewayClient)
 	accesscontrolrule := accesscontrolrule.New(c.services.AccessControlRuleHelper)
 	mcpWebhookValidations := mcpwebhookvalidation.New(c.services.GatewayClient, c.services.MCPHTTPWebhookBaseImage)
@@ -47,23 +45,19 @@ func (c *Controller) setupRoutes() {
 	auditLogExportHandler := auditlogexport.NewHandler(c.services.GatewayClient)
 	scheduledAuditLogExportHandler := scheduledauditlogexport.NewHandler()
 	oauthclients := oauthclients.NewHandler(c.services.GatewayClient)
-	systemMCPServerHandler := systemmcpserver.New(c.services.GatewayClient, c.services.MCPLoader, c.services.ServerURL)
-	nanobotAgentHandler := nanobotagent.New(c.services.PersistentTokenServer, c.services.GatewayClient, c.localK8sRouter, c.services.NanobotAgentImage, c.services.ServerURL, c.services.MCPServerNamespace, c.services.MCPLoader)
+	systemMCPServerHandler := systemmcpserver.New(c.services.GatewayClient, c.services.MCPSessionManager, c.services.ServerURL)
+	nanobotAgentHandler := nanobotagent.New(c.services.PersistentTokenServer, c.services.GatewayClient, c.localK8sRouter, c.services.NanobotAgentImage, c.services.ServerURL, c.services.MCPServerNamespace, c.services.MCPSessionManager)
 	oktaGroupMigrationHandler := oktagroupmigration.New()
 	projectHandler := project.New(c.services.GatewayClient)
 	imagePullSecretHandler := imagepullsecret.New(c.services.GatewayClient, c.runtimeClient, c.services.MCPRuntimeBackend, c.services.MCPServerNamespace, c.services.ServiceNamespace, c.services.ServiceAccountName, c.services.MCPImagePullSecrets, c.services.ServiceAccountIssuerURL)
 
-	// Threads
-	root.Type(&v1.Thread{}).HandlerFunc(threads.CleanupOldThreads)
-	root.Type(&v1.Thread{}).HandlerFunc(threads.CleanupEphemeralThreads)
-	root.Type(&v1.Thread{}).HandlerFunc(threads.RemoveOldFinalizers)
-	root.Type(&v1.Thread{}).FinalizeFunc(v1.ThreadFinalizer, credentialCleanup.Remove)
+	// AuthProviders
+	root.Type(&v1.AuthProvider{}).HandlerFunc(providers.SetAuthProviderConfiguredStatus)
 
-	// ToolReferences
-	root.Type(&v1.ToolReference{}).HandlerFunc(toolRef.Populate)
-	root.Type(&v1.ToolReference{}).HandlerFunc(toolRef.SetConfiguredStatus)
-	root.Type(&v1.ToolReference{}).HandlerFunc(toolRef.BackPopulateModels)
-	root.Type(&v1.ToolReference{}).FinalizeFunc(v1.ToolReferenceFinalizer, toolRef.CleanupModelProvider)
+	// ModelProviders
+	root.Type(&v1.ModelProvider{}).HandlerFunc(providers.SetModelProviderConfiguredStatus)
+	root.Type(&v1.ModelProvider{}).HandlerFunc(providers.BackPopulateModels)
+	root.Type(&v1.ModelProvider{}).FinalizeFunc(v1.ModelProviderFinalizer, providers.CleanupModelProvider)
 
 	// Models
 	root.Type(&v1.Model{}).HandlerFunc(cleanup.Cleanup)
@@ -208,7 +202,7 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.NanobotAgent{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.NanobotAgent{}).FinalizeFunc(v1.NanobotAgentFinalizer, nanobotAgentHandler.Cleanup)
 
-	c.toolRefHandler = toolRef
+	c.providerHandler = providers
 	c.mcpCatalogHandler = mcpCatalog
 	c.adminWorkspaceHandler = adminWorkspaceHandler
 }

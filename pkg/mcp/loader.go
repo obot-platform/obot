@@ -9,12 +9,11 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/gptscript-ai/gptscript/pkg/hash"
-	"github.com/gptscript-ai/gptscript/pkg/types"
-	otypes "github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/storage"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -168,20 +167,11 @@ func (sm *SessionManager) TransformObotHostname(hostname string) string {
 	return sm.backend.transformObotHostname(hostname)
 }
 
-// Load is used by GPTScript to load tools from dynamic MCP server tool definitions.
-// Obot is responsible for loading these tools and managing the clients and sessions.
-// Error here to catch any server tools that slipped through. This should never be called.
-func (sm *SessionManager) Load(_ context.Context, t types.Tool) ([]types.Tool, error) {
-	return nil, fmt.Errorf("MCP servers must be loaded in Obot: %s", t.Name)
-}
-
 // Close does nothing with the deployments and services. It just closes the local session.
-// This should return an error to satisfy the GPTScript loader interface.
-func (sm *SessionManager) Close() error {
+func (sm *SessionManager) Close() {
 	sm.contextLock.Lock()
 	if sm.sessionCtx == nil {
 		sm.contextLock.Unlock()
-		return nil
 	}
 	sm.contextLock.Unlock()
 
@@ -203,8 +193,6 @@ func (sm *SessionManager) Close() error {
 		})
 		return true
 	})
-
-	return nil
 }
 
 // CloseClient will close the client for this MCP server, but leave the deployment running.
@@ -313,7 +301,7 @@ func (sm *SessionManager) RestartServerDeployment(ctx context.Context, server Se
 
 func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerConfig, transformRemote bool) (ServerConfig, error) {
 	var webhooks []Webhook
-	if (server.Runtime != otypes.RuntimeRemote || transformRemote) && !server.ComponentMCPServer && !server.SystemMCPServer {
+	if (server.Runtime != types.RuntimeRemote || transformRemote) && !server.ComponentMCPServer && !server.SystemMCPServer {
 		// Don't get webhooks for servers that are components of composite servers.
 		// The webhooks would be called at the composite level.
 		var err error
@@ -332,7 +320,7 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerCon
 		})
 	}
 
-	if server.Runtime == otypes.RuntimeRemote {
+	if server.Runtime == types.RuntimeRemote {
 		if server.URL == "" {
 			return ServerConfig{}, fmt.Errorf("MCP server %s needs to update its URL", server.MCPServerDisplayName)
 		}
@@ -389,16 +377,16 @@ func serverID(server ServerConfig) string {
 	}
 	server.Files = files
 
-	return "mcp" + hash.Digest(server)
+	return "mcp" + utils.Digest(server)
 }
 
 func clientID(server ServerConfig, clientScope string) string {
-	return serverID(server) + hash.Digest(server.PassthroughHeaderValues) + clientScope
+	return serverID(server) + utils.Digest(server.PassthroughHeaderValues) + clientScope
 }
 
 // GenerateToolPreviews creates a temporary MCP server from a catalog entry, lists its tools,
 // then shuts it down and returns the tool preview data.
-func (sm *SessionManager) GenerateToolPreviews(ctx context.Context, tempMCPServer v1.MCPServer, serverConfig ServerConfig) ([]otypes.MCPServerTool, error) {
+func (sm *SessionManager) GenerateToolPreviews(ctx context.Context, tempMCPServer v1.MCPServer, serverConfig ServerConfig) ([]types.MCPServerTool, error) {
 	// Ensure cleanup happens regardless of success or failure
 	defer func() {
 		if cleanupErr := sm.ShutdownServer(ctx, serverConfig.MCPServerName); cleanupErr != nil {
@@ -425,9 +413,9 @@ func (sm *SessionManager) GenerateToolPreviews(ctx context.Context, tempMCPServe
 
 // GetCapacityInfo returns capacity information for the MCP namespace.
 // Only available when using the Kubernetes backend.
-func (sm *SessionManager) GetCapacityInfo(ctx context.Context) (otypes.MCPCapacityInfo, error) {
+func (sm *SessionManager) GetCapacityInfo(ctx context.Context) (types.MCPCapacityInfo, error) {
 	if k8sBackend, ok := sm.backend.(*kubernetesBackend); ok {
 		return k8sBackend.GetCapacityInfo(ctx), nil
 	}
-	return otypes.MCPCapacityInfo{}, &ErrNotSupportedByBackend{Feature: "capacity info", Backend: "docker"}
+	return types.MCPCapacityInfo{}, &ErrNotSupportedByBackend{Feature: "capacity info", Backend: "docker"}
 }

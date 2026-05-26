@@ -2,148 +2,116 @@ package dispatcher
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
+	"sort"
 	"strings"
-	"sync"
+	"time"
 
-	"github.com/gptscript-ai/gptscript/pkg/engine"
+	"github.com/obot-platform/nah/pkg/name"
+	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/api/handlers/providers"
 	"github.com/obot-platform/obot/pkg/gateway/client"
-	"github.com/obot-platform/obot/pkg/invoke"
+	"github.com/obot-platform/obot/pkg/license"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const PostgresConnectionEnvVar = "OBOT_AUTH_PROVIDER_POSTGRES_CONNECTION_DSN"
+
+var log = logger.Package()
+
 type Dispatcher struct {
-	invoker              *invoke.Invoker
+	sessionManager       *mcp.SessionManager
 	client               kclient.Client
 	gatewayClient        *client.Client
-	authLock             *sync.RWMutex
-	authURLs             map[string]url.URL
-	authProviderExtraEnv []string
-	modelLock            *sync.RWMutex
-	modelURLs            map[string]url.URL
+	licenseProvider      *license.KeygenProvider
+	serverURL            string
+	internalServerURL    string
+	replaceImageRepo     string
+	authProviderExtraEnv map[string]string
 }
 
-func New(invoker *invoke.Invoker, c kclient.Client, gatewayClient *client.Client, postgresDSN string) *Dispatcher {
+func New(sessionManager *mcp.SessionManager, c kclient.Client, gatewayClient *client.Client, licenseProvider *license.KeygenProvider, serverURL, internalServerURL, postgresDSN string) *Dispatcher {
 	d := &Dispatcher{
-		invoker:       invoker,
-		client:        c,
-		gatewayClient: gatewayClient,
-		modelLock:     new(sync.RWMutex),
-		modelURLs:     make(map[string]url.URL),
-		authLock:      new(sync.RWMutex),
-		authURLs:      make(map[string]url.URL),
+		sessionManager:    sessionManager,
+		client:            c,
+		gatewayClient:     gatewayClient,
+		licenseProvider:   licenseProvider,
+		serverURL:         serverURL,
+		internalServerURL: internalServerURL,
+		replaceImageRepo:  os.Getenv("OBOT_PROVIDER_IMAGE_REPO_OVERRIDE"),
 	}
 
 	if postgresDSN != "" {
-		d.authProviderExtraEnv = []string{providers.PostgresConnectionEnvVar + "=" + postgresDSN}
+		d.authProviderExtraEnv = map[string]string{PostgresConnectionEnvVar: postgresDSN}
 	}
 
 	return d
 }
 
 func (d *Dispatcher) URLForAuthProvider(ctx context.Context, namespace, authProviderName string) (url.URL, error) {
-	u, err := d.urlForProvider(ctx, v1.ToolReferenceTypeAuthProvider, namespace, authProviderName, d.authURLs, d.authLock, d.authProviderExtraEnv...)
-	if err != nil {
-		return url.URL{}, fmt.Errorf("failed to get auth provider url: %w", err)
-	}
-	return u, nil
-}
-
-func (d *Dispatcher) URLForModelProvider(ctx context.Context, namespace, modelProviderName string) (url.URL, error) {
-	u, err := d.urlForProvider(ctx, v1.ToolReferenceTypeModelProvider, namespace, modelProviderName, d.modelURLs, d.modelLock, modelProviderLogLevelEnv())
-	if err != nil {
-		return url.URL{}, fmt.Errorf("failed to get model provider url: %w", err)
-	}
-	return u, nil
-}
-
-func modelProviderLogLevelEnv() string {
-	if logger.IsDebug() {
-		return "LOG_LEVEL=DEBUG"
-	}
-	return "LOG_LEVEL=INFO"
-}
-
-var providerTypeToGenericCredContext = map[v1.ToolReferenceType]string{
-	v1.ToolReferenceTypeModelProvider: system.GenericModelProviderCredentialContext,
-	v1.ToolReferenceTypeAuthProvider:  system.GenericAuthProviderCredentialContext,
-}
-
-func (d *Dispatcher) urlForProvider(ctx context.Context, providerType v1.ToolReferenceType, namespace, name string, urlMap map[string]url.URL, lock *sync.RWMutex, extraEnv ...string) (url.URL, error) {
-	key := namespace + "/" + name
-	// Check the map with the read lock.
-	lock.RLock()
-	u, ok := urlMap[key]
-	lock.RUnlock()
-	if ok && (u.Hostname() != "127.0.0.1" || engine.IsDaemonRunning(u.String())) {
-		return u, nil
-	}
-
-	lock.Lock()
-	defer lock.Unlock()
-
-	// If we didn't find anything with the read lock, check with the write lock.
-	// It could be that another thread beat us to the write lock and added the provider we desire.
-	u, ok = urlMap[key]
-	if ok && (u.Hostname() != "127.0.0.1" || engine.IsDaemonRunning(u.String())) {
-		return u, nil
-	}
-
-	// We didn't find the provider (or the daemon stopped for some reason), so start it and add it to the map.
-	u, err := d.startProvider(ctx, providerType, namespace, name, extraEnv...)
-	if err != nil {
-		return url.URL{}, err
-	}
-
-	urlMap[key] = u
-	return u, nil
-}
-
-func (d *Dispatcher) startProvider(ctx context.Context, providerType v1.ToolReferenceType, namespace, providerName string, extraEnv ...string) (url.URL, error) {
-	thread := &v1.Thread{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      system.SystemThreadPrefix + providerName,
-			Namespace: namespace,
-		},
-	}
-
-	if err := d.client.Get(ctx, kclient.ObjectKey{Namespace: thread.Namespace, Name: thread.Name}, thread); apierrors.IsNotFound(err) {
-		if err = d.client.Create(ctx, thread); err != nil {
-			return url.URL{}, fmt.Errorf("failed to create thread: %w", err)
-		}
-	} else if err != nil {
-		return url.URL{}, fmt.Errorf("failed to get thread: %w", err)
-	}
-
-	var providerToolRef v1.ToolReference
-	if err := d.client.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: providerName}, &providerToolRef); err != nil || providerToolRef.Spec.Type != providerType {
+	var authProvider v1.AuthProvider
+	if err := d.client.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: authProviderName}, &authProvider); err != nil {
 		return url.URL{}, fmt.Errorf("failed to get provider: %w", err)
 	}
 
-	task, err := d.invoker.SystemTask(ctx, thread, providerName, "", invoke.SystemTaskOptions{
-		CredentialContextIDs: []string{string(providerToolRef.UID), providerTypeToGenericCredContext[providerType]},
-		Env:                  extraEnv,
+	credEnv := map[string]string{}
+	cred, err := d.gatewayClient.RevealCredential(ctx, []string{authProvider.Name, system.GenericAuthProviderCredentialContext}, authProvider.Name)
+	if err != nil {
+		if !errors.As(err, &client.CredentialNotFoundError{}) {
+			return url.URL{}, fmt.Errorf("failed to reveal provider credential: %w", err)
+		}
+	} else {
+		credEnv = cred.Secrets
+	}
+
+	var missingConfigParams []string
+	for _, envVar := range authProvider.Spec.RequiredConfigurationParameters {
+		if _, ok := credEnv[envVar.Name]; !ok {
+			missingConfigParams = append(missingConfigParams, envVar.Name)
+		}
+	}
+	if len(missingConfigParams) > 0 {
+		return url.URL{}, fmt.Errorf("provider %q is not configured, missing configuration parameters: %s", authProviderName, strings.Join(missingConfigParams, ", "))
+	}
+
+	image := authProvider.Spec.Image
+	if d.replaceImageRepo != "" {
+		image = strings.Replace(image, "ghcr.io/obot-platform/providers/", d.replaceImageRepo, 1)
+	}
+
+	if credEnv == nil {
+		credEnv = make(map[string]string, 1)
+	}
+	maps.Copy(credEnv, d.authProviderExtraEnv)
+
+	providerURL, err := d.sessionManager.LaunchServer(ctx, mcp.ServerConfig{
+		Runtime:              types.RuntimeContainerized,
+		Env:                  d.providerEnv(credEnv),
+		ContainerImage:       image,
+		ContainerPort:        authProvider.Spec.Port,
+		ContainerPath:        authProvider.Spec.Path,
+		HealthzPath:          "/",
+		MCPServerNamespace:   namespace,
+		MCPServerName:        providerServerName("auth-provider", namespace, authProviderName, false),
+		MCPServerDisplayName: authProviderName,
+		Provider:             true,
+		StartupTimeout:       time.Minute,
 	})
 	if err != nil {
 		return url.URL{}, err
 	}
 
-	result, err := task.Result(ctx)
-	if err != nil {
-		return url.URL{}, err
-	}
-
-	u, err := url.Parse(strings.TrimSpace(result.Output))
+	u, err := url.Parse(strings.TrimSpace(providerURL))
 	if err != nil {
 		return url.URL{}, err
 	}
@@ -151,25 +119,124 @@ func (d *Dispatcher) startProvider(ctx context.Context, providerType v1.ToolRefe
 	return *u, nil
 }
 
-func (d *Dispatcher) StopModelProvider(namespace, modelProviderName string) {
-	stopProvider(namespace, modelProviderName, d.modelURLs, d.modelLock)
+func (d *Dispatcher) URLForModelProvider(ctx context.Context, namespace, modelProviderName string) (url.URL, error) {
+	return d.urlForModelProviderValidation(ctx, namespace, modelProviderName, nil, false)
 }
 
-func (d *Dispatcher) StopAuthProvider(namespace, authProviderName string) {
-	stopProvider(namespace, authProviderName, d.authURLs, d.authLock)
+func (d *Dispatcher) URLForModelProviderValidation(ctx context.Context, namespace, modelProviderName string, credEnv map[string]string) (url.URL, error) {
+	if credEnv == nil {
+		credEnv = make(map[string]string, 1)
+	}
+	credEnv["OBOT_PROVIDER_VALIDATION_MODE"] = "true"
+	return d.urlForModelProviderValidation(ctx, namespace, modelProviderName, credEnv, true)
 }
 
-func stopProvider(namespace, name string, urlMap map[string]url.URL, lock *sync.RWMutex) {
-	key := namespace + "/" + name
-	lock.Lock()
-	defer lock.Unlock()
-
-	u, ok := urlMap[key]
-	if ok && u.Hostname() == "127.0.0.1" && engine.IsDaemonRunning(u.String()) {
-		engine.StopDaemon(u.String())
+func (d *Dispatcher) urlForModelProviderValidation(ctx context.Context, namespace, modelProviderName string, extraEnv map[string]string, isValidate bool) (url.URL, error) {
+	var modelProvider v1.ModelProvider
+	if err := d.client.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: modelProviderName}, &modelProvider); err != nil {
+		return url.URL{}, fmt.Errorf("failed to get provider: %w", err)
 	}
 
-	delete(urlMap, key)
+	credEnv := map[string]string{}
+	cred, err := d.gatewayClient.RevealCredential(ctx, []string{modelProvider.Name, system.GenericModelProviderCredentialContext}, modelProvider.Name)
+	if err != nil {
+		if !errors.As(err, &client.CredentialNotFoundError{}) {
+			return url.URL{}, fmt.Errorf("failed to reveal provider credential: %w", err)
+		}
+	} else {
+		credEnv = cred.Secrets
+	}
+
+	maps.Copy(credEnv, extraEnv)
+	maps.Copy(credEnv, modelProviderLogLevelEnv())
+
+	providerStatus, err := providers.ModelProviderStatus(modelProvider, credEnv, d.licenseProvider)
+	if err != nil {
+		return url.URL{}, err
+	}
+	if !providerStatus.Configured {
+		return url.URL{}, fmt.Errorf("provider %q is not configured, missing configuration parameters: %s", modelProviderName, strings.Join(providerStatus.MissingConfigurationParameters, ", "))
+	}
+
+	image := modelProvider.Spec.Image
+	if d.replaceImageRepo != "" {
+		image = strings.Replace(image, "ghcr.io/obot-platform/providers/", d.replaceImageRepo, 1)
+	}
+
+	providerURL, err := d.sessionManager.LaunchServer(ctx, mcp.ServerConfig{
+		Runtime:              types.RuntimeContainerized,
+		Env:                  d.providerEnv(credEnv),
+		ContainerImage:       image,
+		ContainerPort:        modelProvider.Spec.Port,
+		ContainerPath:        modelProvider.Spec.Path,
+		HealthzPath:          "/",
+		MCPServerNamespace:   namespace,
+		MCPServerName:        providerServerName("model-provider", namespace, modelProviderName, isValidate),
+		MCPServerDisplayName: modelProviderName,
+		Provider:             true,
+		StartupTimeout:       time.Minute,
+	})
+	if err != nil {
+		return url.URL{}, err
+	}
+
+	u, err := url.Parse(strings.TrimSpace(providerURL))
+	if err != nil {
+		return url.URL{}, err
+	}
+
+	return *u, nil
+}
+
+func modelProviderLogLevelEnv() map[string]string {
+	if logger.IsDebug() {
+		return map[string]string{"LOG_LEVEL": "DEBUG"}
+	}
+	return map[string]string{"LOG_LEVEL": "INFO"}
+}
+
+func (d *Dispatcher) StopModelProvider(ctx context.Context, namespace, modelProviderName string) {
+	d.stopProvider(ctx, "model-provider", namespace, modelProviderName, false)
+}
+
+func (d *Dispatcher) StopModelProviderValidation(ctx context.Context, namespace, modelProviderName string) {
+	d.stopProvider(ctx, "model-provider", namespace, modelProviderName, true)
+}
+
+func (d *Dispatcher) StopAuthProvider(ctx context.Context, namespace, authProviderName string) {
+	d.stopProvider(ctx, "auth-provider", namespace, authProviderName, false)
+}
+
+func (d *Dispatcher) stopProvider(ctx context.Context, providerType, namespace, providerName string, isValidate bool) {
+	if err := d.sessionManager.ShutdownServer(ctx, providerServerName(providerType, namespace, providerName, isValidate)); err != nil {
+		log.Warnf("failed to stop provider %s/%s: %v", namespace, providerName, err)
+	}
+}
+
+func providerServerName(providerType, namespace, providerName string, isValidate bool) string {
+	if isValidate {
+		providerName += "-validate"
+	}
+	return name.SafeConcatName("provider", string(providerType), namespace, providerName)
+}
+
+func (d *Dispatcher) providerEnv(credEnv map[string]string) []string {
+	env := make([]string, 0, len(credEnv)+3)
+	for key, val := range credEnv {
+		env = append(env, key+"="+val)
+	}
+	sort.Strings(env)
+
+	publicURL, internalURL := d.serverURL, d.internalServerURL
+	if d.sessionManager != nil {
+		internalURL = d.sessionManager.TransformObotHostname(internalURL)
+	}
+
+	return append(env,
+		"OBOT_PROVIDER_LISTEN_HOST=0.0.0.0",
+		"OBOT_SERVER_PUBLIC_URL="+publicURL,
+		"OBOT_SERVER_URL="+internalURL,
+	)
 }
 
 func TransformRequest(u url.URL, credEnv map[string]string) func(req *http.Request) {
@@ -191,18 +258,15 @@ func TransformRequest(u url.URL, credEnv map[string]string) func(req *http.Reque
 }
 
 func (d *Dispatcher) GetConfiguredAuthProvider(ctx context.Context) (string, error) {
-	var authProviders v1.ToolReferenceList
+	var authProviders v1.AuthProviderList
 	if err := d.client.List(ctx, &authProviders, &kclient.ListOptions{
 		Namespace: system.DefaultNamespace,
-		FieldSelector: fields.SelectorFromSet(map[string]string{
-			"spec.type": string(v1.ToolReferenceTypeAuthProvider),
-		}),
 	}); err != nil {
 		return "", fmt.Errorf("failed to list auth providers: %w", err)
 	}
 
 	for _, authProvider := range authProviders.Items {
-		if isAuthProviderConfigured(authProvider) {
+		if d.isAuthProviderConfigured(ctx, authProvider) {
 			return authProvider.Name, nil
 		}
 	}
@@ -210,20 +274,35 @@ func (d *Dispatcher) GetConfiguredAuthProvider(ctx context.Context) (string, err
 	return "", nil
 }
 
-func isAuthProviderConfigured(toolRef v1.ToolReference) bool {
-	return toolRef.Status.Tool != nil && toolRef.Status.Configured
+// isAuthProviderConfigured checks an auth provider to see if all of its required environment variables are set.
+// Errors are ignored and reported as the auth provider is not configured.
+// We need to check this way instead of using the status fields to avoid race conditions with the controller.
+// Returns: isConfigured (bool)
+func (d *Dispatcher) isAuthProviderConfigured(ctx context.Context, authProvider v1.AuthProvider) bool {
+	credEnv, err := CredentialEnvForAuthProvider(ctx, d.gatewayClient, authProvider)
+	if err != nil {
+		return false
+	}
+
+	for _, envVar := range authProvider.Spec.RequiredConfigurationParameters {
+		if _, ok := credEnv[envVar.Name]; !ok {
+			return false
+		}
+	}
+
+	return true
 }
 
-func CredentialEnvForAuthProvider(ctx context.Context, gatewayClient *client.Client, authProvider v1.ToolReference) (map[string]string, error) {
-	return credentialEnvForProvider(ctx, gatewayClient, authProvider, system.GenericAuthProviderCredentialContext)
+func CredentialEnvForAuthProvider(ctx context.Context, gatewayClient *client.Client, authProvider v1.AuthProvider) (map[string]string, error) {
+	return credentialEnvForProvider(ctx, gatewayClient, &authProvider, system.GenericAuthProviderCredentialContext)
 }
 
-func CredentialEnvForModelProvider(ctx context.Context, gatewayClient *client.Client, modelProvider v1.ToolReference) (map[string]string, error) {
-	return credentialEnvForProvider(ctx, gatewayClient, modelProvider, system.GenericModelProviderCredentialContext)
+func CredentialEnvForModelProvider(ctx context.Context, gatewayClient *client.Client, modelProvider v1.ModelProvider) (map[string]string, error) {
+	return credentialEnvForProvider(ctx, gatewayClient, &modelProvider, system.GenericModelProviderCredentialContext)
 }
 
-func credentialEnvForProvider(ctx context.Context, gatewayClient *client.Client, provider v1.ToolReference, genericCredentialContext string) (map[string]string, error) {
-	cred, err := gatewayClient.RevealCredential(ctx, []string{string(provider.UID), genericCredentialContext}, provider.Name)
+func credentialEnvForProvider(ctx context.Context, gatewayClient *client.Client, provider kclient.Object, genericCredentialContext string) (map[string]string, error) {
+	cred, err := gatewayClient.RevealCredential(ctx, []string{provider.GetName(), genericCredentialContext}, provider.GetName())
 	if err != nil {
 		return nil, fmt.Errorf("failed to reveal credential: %w", err)
 	}

@@ -1,7 +1,6 @@
 package system
 
 const (
-	ModelProviderTool          = "obot-model-provider"
 	OpenAIModelProviderTool    = "openai-model-provider"
 	AnthropicModelProviderTool = "anthropic-model-provider"
 

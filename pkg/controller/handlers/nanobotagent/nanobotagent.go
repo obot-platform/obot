@@ -17,7 +17,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/alias"
-	"github.com/obot-platform/obot/pkg/controller/handlers/toolreference"
+	"github.com/obot-platform/obot/pkg/controller/handlers/provider"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
@@ -97,6 +97,11 @@ func (h *Handler) EnsureMCPServer(req router.Request, resp router.Response) erro
 			needsUpdate = true
 		}
 
+		if existing.Spec.Manifest.ContainerizedConfig.HealthzPath != "/healthz" {
+			existing.Spec.Manifest.ContainerizedConfig.HealthzPath = "/healthz"
+			needsUpdate = true
+		}
+
 		expectedEnv := []types.MCPEnv{
 			{
 				MCPHeader: types.MCPHeader{
@@ -172,11 +177,12 @@ func (h *Handler) EnsureMCPServer(req router.Request, resp router.Response) erro
 				Description:      agent.Spec.Description,
 				Runtime:          types.RuntimeContainerized,
 				ContainerizedConfig: &types.ContainerizedRuntimeConfig{
-					Image:   h.nanobotImage,
-					Command: "nanobot",
-					Args:    expectedArgs,
-					Port:    8080,
-					Path:    "/mcp",
+					Image:       h.nanobotImage,
+					Command:     "nanobot",
+					Args:        expectedArgs,
+					Port:        8080,
+					Path:        "/mcp",
+					HealthzPath: "/healthz",
 				},
 				Env: []types.MCPEnv{
 					{
@@ -577,8 +583,8 @@ func chooseModel(ctx context.Context, client kclient.Client, namespace string, m
 func preferredModelsForAlias(aliasName types.DefaultModelAliasType) []string {
 	preferred := make([]string, 0, 2)
 	for _, defaults := range []map[types.DefaultModelAliasType]string{
-		toolreference.OpenAIDefaultModelAliases(),
-		toolreference.AnthropicDefaultModelAliases(),
+		provider.OpenAIDefaultModelAliases(),
+		provider.AnthropicDefaultModelAliases(),
 	} {
 		if model := strings.TrimSpace(defaults[aliasName]); model != "" {
 			preferred = append(preferred, model)

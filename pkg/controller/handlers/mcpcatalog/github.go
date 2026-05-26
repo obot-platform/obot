@@ -47,9 +47,13 @@ func gitCloneAuthAttempts(catalogToken, fallbackToken string) []gitCloneAuthAtte
 	return []gitCloneAuthAttempt{{name: "anonymous"}}
 }
 
-// isGitRepoURL returns true if the URL points to a git repository on a known
+// IsGitRepoURL returns true if the URL points to a git repository on a known
 // hosting platform (GitHub, GitLab) or ends with ".git".
-func isGitRepoURL(catalogURL string) bool {
+func IsGitRepoURL(catalogURL string) bool {
+	if !strings.Contains(catalogURL, "://") {
+		catalogURL = "https://" + catalogURL
+	}
+
 	u, err := url.Parse(catalogURL)
 	if err != nil {
 		return false
@@ -62,6 +66,10 @@ func isGitRepoURL(catalogURL string) bool {
 	// (e.g. /org/repo.git or /org/repo.git/branch).
 	p := strings.TrimSuffix(u.Path, "/")
 	return strings.HasSuffix(p, ".git") || strings.Contains(p, ".git/")
+}
+
+func isGitRepoURL(catalogURL string) bool {
+	return IsGitRepoURL(catalogURL)
 }
 
 // checkGitHubRepoSize checks repo size via the GitHub API before cloning.
@@ -305,6 +313,15 @@ func parseGitURL(catalogURL string) (string, string, error) {
 }
 
 func readGitCatalogEntries[T any](ctx context.Context, catalogURL string, token string) ([]T, error) {
+	return readGitCatalogEntriesFromSubdir(ctx, catalogURL, token, "", readCatalogDirectory[T])
+}
+
+// ReadGitCatalogSubdir clones a git catalog and lets readDir parse the provided subdirectory.
+func ReadGitCatalogSubdir[T any](ctx context.Context, catalogURL string, token string, subdir string, readDir func(string) ([]T, error)) ([]T, error) {
+	return readGitCatalogEntriesFromSubdir(ctx, catalogURL, token, subdir, readDir)
+}
+
+func readGitCatalogEntriesFromSubdir[T any](ctx context.Context, catalogURL string, token string, subdir string, readDir func(string) ([]T, error)) ([]T, error) {
 	if strings.HasPrefix(catalogURL, "http://") {
 		return nil, fmt.Errorf("only HTTPS is supported for git catalogs")
 	}
@@ -316,6 +333,14 @@ func readGitCatalogEntries[T any](ctx context.Context, catalogURL string, token 
 	u, err := url.Parse(catalogURL)
 	if err != nil {
 		return nil, fmt.Errorf("invalid git URL: %w", err)
+	}
+
+	if subdir != "" {
+		cleanSubdir := filepath.Clean(subdir)
+		if filepath.IsAbs(cleanSubdir) || cleanSubdir == ".." || strings.HasPrefix(cleanSubdir, "../") {
+			return nil, fmt.Errorf("invalid catalog subdirectory %q", subdir)
+		}
+		subdir = cleanSubdir
 	}
 
 	cloneURL, branch, err := parseGitURL(catalogURL)
@@ -365,7 +390,11 @@ func readGitCatalogEntries[T any](ctx context.Context, catalogURL string, token 
 	for i, attempt := range attempts {
 		cloneDir, err := cloneGitCatalog(ctx, tempDir, cloneURL, branch, maxRepoSizeMB, attempt)
 		if err == nil {
-			return readCatalogDirectory[T](cloneDir)
+			readPath := cloneDir
+			if subdir != "" {
+				readPath = filepath.Join(cloneDir, subdir)
+			}
+			return readDir(readPath)
 		}
 		attemptErrs[i] = fmt.Errorf("%s: %w", attempt.name, err)
 		if errors.Is(err, errRepoTooLarge) {

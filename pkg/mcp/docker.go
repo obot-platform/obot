@@ -19,7 +19,6 @@ import (
 
 	cerrdefs "github.com/containerd/errdefs"
 	"github.com/docker/go-connections/nat"
-	"github.com/gptscript-ai/gptscript/pkg/hash"
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/api/types/events"
 	"github.com/moby/moby/api/types/filters"
@@ -29,6 +28,7 @@ import (
 	"github.com/moby/moby/api/types/volume"
 	"github.com/moby/moby/client"
 	otypes "github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/utils"
 )
 
 var containerFileNameSanitizer = regexp.MustCompile(`[^a-zA-Z0-9._-]+`)
@@ -213,7 +213,7 @@ func (d *dockerBackend) deployServer(ctx context.Context, server ServerConfig, _
 
 func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server ServerConfig, webhooks []Webhook) (ServerConfig, error) {
 	serverName := server.MCPServerName
-	serverConfigHash := hash.Digest(map[string]any{"server": server, "webhooks": webhooks})
+	serverConfigHash := utils.Digest(map[string]any{"server": server, "webhooks": webhooks})
 	var err error
 	cachedDeployment := d.getDeploymentCache(serverName)
 	if cachedDeployment != nil && cachedDeployment.hash == serverConfigHash {
@@ -234,14 +234,14 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 	mcpServerName := server.MCPServerName
 	if server.Runtime != otypes.RuntimeRemote {
 		// For non-remote runtimes, we deploy the real MCP server first.
-		server, err = d.ensureDeployment(ctx, server, mcpServerName, d.containerEnv || server.NanobotAgentName == "", nil)
+		server, err = d.ensureDeployment(ctx, server, mcpServerName, d.containerEnv || server.NeedsShim(), nil)
 		if err != nil {
 			return ServerConfig{}, err
 		}
 		expectedContainers[server.MCPServerName] = server.Scope
 
-		// If this is a server for a nanobot agent, return the config pointing to the real server without deploying the shim.
-		if server.NanobotAgentName != "" {
+		// If this is a server for a nanobot agent or a provider, return the config pointing to the real server without deploying the shim.
+		if !server.NeedsShim() {
 			d.setDeploymentCache(serverName, dockerDeploymentCacheEntry{
 				hash:         serverConfigHash,
 				serverConfig: server,
@@ -251,6 +251,7 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 		}
 
 		server.MCPServerName += "-shim"
+		server.HealthzPath = "/healthz"
 	} else {
 		// For remote runtime servers, direct has no effect since there's no shim.
 		server.URL = strings.Replace(server.URL, "http://localhost", d.hostBaseURL, 1)
@@ -297,7 +298,7 @@ func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfi
 	desiredFileEnvKeysHash := fileEnvKeysHash(server.Files)
 	if len(webhooks) > 0 {
 		// Include webhooks in the config hash so that changes to webhooks trigger a redeployment
-		configHash += hash.Digest(webhooks)
+		configHash += utils.Digest(webhooks)
 	}
 
 	// Check if container already exists
@@ -389,9 +390,9 @@ func (d *dockerBackend) deploymentImage(server ServerConfig) string {
 func (d *dockerBackend) transformConfig(ctx context.Context, serverConfig ServerConfig) (*ServerConfig, error) {
 	containerPort := defaultContainerPort
 	containerName := serverConfig.MCPServerName
-	if serverConfig.Runtime != otypes.RuntimeRemote && serverConfig.NanobotAgentName == "" && !strings.HasSuffix(containerName, "-shim") {
+	if serverConfig.Runtime != otypes.RuntimeRemote && serverConfig.NeedsShim() && !strings.HasSuffix(containerName, "-shim") {
 		containerName += "-shim"
-	} else if serverConfig.Runtime == otypes.RuntimeContainerized && serverConfig.NanobotAgentName != "" {
+	} else if serverConfig.Runtime == otypes.RuntimeContainerized && !serverConfig.NeedsShim() {
 		containerPort = serverConfig.ContainerPort
 	}
 
@@ -794,6 +795,7 @@ func (d *dockerBackend) buildServerConfig(server ServerConfig, c *container.Summ
 		AuditLogMetadata:          server.AuditLogMetadata,
 		ContainerPath:             server.ContainerPath,
 		NanobotAgentName:          server.NanobotAgentName,
+		Provider:                  server.Provider,
 		PassthroughHeaderNames:    server.PassthroughHeaderNames,
 		PassthroughHeaderValues:   server.PassthroughHeaderValues,
 		StartupTimeout:            server.StartupTimeout,
@@ -973,6 +975,7 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 		}
 
 		env = append(env, fmt.Sprintf("NANOBOT_META_ENV=%s", strings.Join(metaEnvVar, ",")))
+		env = append(env, "NANOBOT_RUN_HEALTHZ_PATH=/healthz", "OBOT_KUBERNETES_MODE=true")
 	default:
 		return "", 0, fmt.Errorf("unsupported runtime: %s", server.Runtime)
 	}
@@ -1153,7 +1156,7 @@ func (d *dockerBackend) syncContainerFiles(ctx context.Context, server ServerCon
 		return nil
 	}
 
-	desiredFilesHash := hash.Digest(server.Files)
+	desiredFilesHash := utils.Digest(server.Files)
 
 	d.fileSyncMu.RLock()
 	if d.syncedFilesHash[c.ID] == desiredFilesHash {
@@ -1335,7 +1338,7 @@ func fileEnvKeysHash(files []File) string {
 		keys = append(keys, file.EnvKey)
 	}
 	sort.Strings(keys)
-	return hash.Digest(keys)
+	return utils.Digest(keys)
 }
 
 func (d *dockerBackend) populateFilesVolume(ctx context.Context, volumeName, containerName string, fileContents map[string]string) error {

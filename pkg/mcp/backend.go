@@ -70,51 +70,8 @@ func ensureServerReady(ctx context.Context, url string, server ServerConfig) err
 		Timeout: time.Second,
 	}
 
-	if server.Runtime != types.RuntimeContainerized || server.NanobotAgentName != "" {
-		// This server is using nanobot as long as it is not the containerized runtime,
-		// so we can reach out to nanobot's healthz path.
-		url = fmt.Sprintf("%s/healthz", strings.TrimSuffix(url, "/"))
-		var firstServiceUnavailable time.Time
-
-		for {
-			req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
-			if err != nil {
-				return fmt.Errorf("failed to create request: %w", err)
-			}
-
-			resp, err := client.Do(req)
-			if err == nil {
-				resp.Body.Close()
-				switch resp.StatusCode {
-				case http.StatusOK:
-					return nil
-				case http.StatusServiceUnavailable:
-					// Older nanobot versions return 503 when tool listing permanently fails, but service mesh sidecars
-					// (e.g. Istio's envoy) also return 503 during startup. To avoid confusing the two, we don't treat 503
-					// as a permanent failure until we've seen consecutive 503 responses for this duration.
-					// Current nanobot returns 500 instead, which is handled as an immediate failure below.
-					if firstServiceUnavailable.IsZero() {
-						firstServiceUnavailable = time.Now()
-					} else if time.Since(firstServiceUnavailable) > serviceUnavailableGracePeriod {
-						return ErrHealthCheckFailed
-					}
-				case http.StatusInternalServerError:
-					// Nanobot returns 500 when tool listing permanently fails.
-					return ErrHealthCheckFailed
-				default:
-					// A non-503 response (e.g. 425 TooEarly) means we're reaching the actual
-					// nanobot process, not a proxy. Reset the grace period so that any subsequent
-					// 503 gets a fresh window.
-					firstServiceUnavailable = time.Time{}
-				}
-			}
-
-			select {
-			case <-ctx.Done():
-				return ErrHealthCheckTimeout
-			case <-time.After(100 * time.Millisecond):
-			}
-		}
+	if server.HealthzPath != "" {
+		return ensureHTTPGetOK(ctx, client, urlWithPath(url, server.HealthzPath))
 	}
 
 	if server.ContainerPath != "" {
@@ -142,7 +99,8 @@ func ensureServerReady(ctx context.Context, url string, server ServerConfig) err
 			continue
 		}
 
-		resp.Body.Close()
+		_, _ = io.Copy(io.Discard, resp.Body)
+		_ = resp.Body.Close()
 		if resp.StatusCode == http.StatusOK {
 			if sessionID := resp.Header.Get("Mcp-Session-Id"); sessionID != "" {
 				// Send a cancellation, since we don't need this session.
@@ -192,6 +150,54 @@ func ensureServerReady(ctx context.Context, url string, server ServerConfig) err
 			cancel()
 		}
 	}
+}
+
+func ensureHTTPGetOK(ctx context.Context, client *http.Client, url string) error {
+	var firstServiceUnavailable time.Time
+	for {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
+		if err != nil {
+			return fmt.Errorf("failed to create request: %w", err)
+		}
+
+		resp, err := client.Do(req)
+		if err == nil {
+			_, _ = io.Copy(io.Discard, resp.Body)
+			_ = resp.Body.Close()
+			switch resp.StatusCode {
+			case http.StatusOK:
+				return nil
+			case http.StatusServiceUnavailable:
+				// Older nanobot versions return 503 when tool listing permanently fails, but service mesh sidecars
+				// (e.g. Istio's envoy) also return 503 during startup. To avoid confusing the two, we don't treat 503
+				// as a permanent failure until we've seen consecutive 503 responses for this duration.
+				// Current nanobot returns 500 instead, which is handled as an immediate failure below.
+				if firstServiceUnavailable.IsZero() {
+					firstServiceUnavailable = time.Now()
+				} else if time.Since(firstServiceUnavailable) > serviceUnavailableGracePeriod {
+					return ErrHealthCheckFailed
+				}
+			case http.StatusInternalServerError:
+				// Nanobot returns 500 when tool listing permanently fails.
+				return ErrHealthCheckFailed
+			default:
+				// A non-503 response (e.g. 425 TooEarly) means we're reaching the actual
+				// nanobot process, not a proxy. Reset the grace period so that any subsequent
+				// 503 gets a fresh window.
+				firstServiceUnavailable = time.Time{}
+			}
+		}
+
+		select {
+		case <-ctx.Done():
+			return ErrHealthCheckTimeout
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+}
+
+func urlWithPath(url, path string) string {
+	return fmt.Sprintf("%s/%s", strings.TrimSuffix(url, "/"), strings.TrimPrefix(path, "/"))
 }
 
 func constructMCPServerNanobotYAMLForComposite(servers []ComponentServer) ([]byte, error) {

@@ -31,14 +31,6 @@ func AddToSchemeWithGV(scheme *runtime.Scheme, schemeGroupVersion schema.GroupVe
 		&MCPServerInstanceList{},
 		&MCPServerCatalogEntry{},
 		&MCPServerCatalogEntryList{},
-		&Run{},
-		&RunList{},
-		&RunState{},
-		&RunStateList{},
-		&Thread{},
-		&ThreadList{},
-		&ToolReference{},
-		&ToolReferenceList{},
 		&Model{},
 		&ModelList{},
 		&DefaultModelAlias{},
@@ -103,6 +95,10 @@ func AddToSchemeWithGV(scheme *runtime.Scheme, schemeGroupVersion schema.GroupVe
 		&PublishedArtifactList{},
 		&OktaGroupMigration{},
 		&OktaGroupMigrationList{},
+		&AuthProvider{},
+		&AuthProviderList{},
+		&ModelProvider{},
+		&ModelProviderList{},
 	); err != nil {
 		return err
 	}

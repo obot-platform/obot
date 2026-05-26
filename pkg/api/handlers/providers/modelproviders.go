@@ -6,26 +6,37 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
-type ProviderMeta struct {
-	types.CommonProviderMetadata
-	EnvVars         []types.ProviderConfigurationParameter `json:"envVars"`
-	OptionalEnvVars []types.ProviderConfigurationParameter `json:"optionalEnvVars"`
-}
+func ModelProviderStatus(modelProvider v1.ModelProvider, cred map[string]string, licenseProvider *license.KeygenProvider) (*types.ModelProviderStatus, error) {
+	var (
+		modelsPopulated *bool
+		missingEnvVars  []string
+	)
 
-func ConvertModelProviderToolRef(toolRef v1.ToolReference, cred map[string]string, licenseProvider *license.KeygenProvider) (*types.ModelProviderStatus, error) {
-	commonProviderStatus, err := ConvertProviderToolRef(toolRef, cred, licenseProvider)
-	if err != nil {
-		return nil, err
+	if cred != nil {
+		for _, envVar := range modelProvider.Spec.RequiredConfigurationParameters {
+			if _, ok := cred[envVar.Name]; !ok {
+				missingEnvVars = append(missingEnvVars, envVar.Name)
+			}
+		}
+	} else {
+		missingEnvVars = modelProvider.Status.MissingConfigurationParameters
+		if !modelProvider.Status.Configured && len(missingEnvVars) == 0 {
+			for _, envVar := range modelProvider.Spec.RequiredConfigurationParameters {
+				missingEnvVars = append(missingEnvVars, envVar.Name)
+			}
+		}
 	}
 
-	var modelsPopulated *bool
-	if commonProviderStatus.Configured {
-		modelsPopulated = new(bool)
-		*modelsPopulated = toolRef.Status.ObservedGeneration == toolRef.Generation
+	if len(missingEnvVars) == 0 {
+		modelsPopulated = new(modelProvider.Status.ObservedGeneration == modelProvider.Generation)
 	}
 
 	return &types.ModelProviderStatus{
-		CommonProviderStatus: *commonProviderStatus,
-		ModelsBackPopulated:  modelsPopulated,
+		CommonProviderStatus: types.CommonProviderStatus{
+			Configured:                     len(missingEnvVars) == 0,
+			MissingEntitlements:            licenseProvider.MissingEntitlements(modelProvider.Spec.RequiredEntitlements),
+			MissingConfigurationParameters: missingEnvVars,
+		},
+		ModelsBackPopulated: modelsPopulated,
 	}, nil
 }

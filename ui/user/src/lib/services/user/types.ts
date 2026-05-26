@@ -463,6 +463,7 @@ export interface ContainerizedRuntimeConfig {
 	image: string;
 	port: number;
 	path: string;
+	healthzPath?: string;
 	command?: string;
 	args?: string[];
 	egressDomains?: string[];
@@ -613,6 +614,10 @@ export interface ModelProvider {
 		sensitive?: boolean;
 		hidden?: boolean;
 	}[];
+	image: string;
+	port: number;
+	path?: string;
+	dialect?: string;
 }
 export interface ModelProviderList {
 	items: ModelProvider[];

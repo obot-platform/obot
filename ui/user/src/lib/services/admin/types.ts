@@ -183,7 +183,9 @@ export interface BaseProvider {
 	id: string;
 	link?: string;
 	namespace?: string;
-	toolReference?: string;
+	image: string;
+	port: number;
+	path?: string;
 }
 export interface AuthProvider extends BaseProvider {
 	type: 'authprovider';

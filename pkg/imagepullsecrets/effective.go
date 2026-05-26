@@ -4,8 +4,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/gptscript-ai/gptscript/pkg/hash"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/utils"
 )
 
 func EffectiveSecretNames(staticPullSecrets []string, managedSecrets []v1.ImagePullSecret) []string {
@@ -27,7 +27,7 @@ func EffectiveSecretNames(staticPullSecrets []string, managedSecrets []v1.ImageP
 }
 
 func Hash(secretNames []string) string {
-	return hash.Digest(CleanSecretNames(secretNames))
+	return utils.Digest(CleanSecretNames(secretNames))
 }
 
 func CleanSecretNames(names []string) []string {

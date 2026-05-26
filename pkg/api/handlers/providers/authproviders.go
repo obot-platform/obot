@@ -6,16 +6,30 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
-const (
-	CookieSecretEnvVar       = "OBOT_AUTH_PROVIDER_COOKIE_SECRET"
-	PostgresConnectionEnvVar = "OBOT_AUTH_PROVIDER_POSTGRES_CONNECTION_DSN"
-)
+func AuthProviderStatus(authProvider v1.AuthProvider, cred map[string]string, licenseProvider *license.KeygenProvider) (*types.AuthProviderStatus, error) {
+	var missingEnvVars []string
 
-func ConvertAuthProviderToolRef(toolRef v1.ToolReference, cred map[string]string, licenseProvider *license.KeygenProvider) (*types.AuthProviderStatus, error) {
-	providerStatus, err := ConvertProviderToolRef(toolRef, cred, licenseProvider)
-	if err != nil {
-		return nil, err
+	if cred != nil {
+		for _, envVar := range authProvider.Spec.RequiredConfigurationParameters {
+			if _, ok := cred[envVar.Name]; !ok {
+				missingEnvVars = append(missingEnvVars, envVar.Name)
+			}
+		}
+	} else {
+		missingEnvVars = authProvider.Status.MissingConfigurationParameters
+		if !authProvider.Status.Configured && len(missingEnvVars) == 0 {
+			for _, envVar := range authProvider.Spec.RequiredConfigurationParameters {
+				missingEnvVars = append(missingEnvVars, envVar.Name)
+			}
+		}
 	}
 
-	return &types.AuthProviderStatus{CommonProviderStatus: *providerStatus}, nil
+	return &types.AuthProviderStatus{
+		CommonProviderStatus: types.CommonProviderStatus{
+			Configured:                     len(missingEnvVars) == 0,
+			MissingEntitlements:            licenseProvider.MissingEntitlements(authProvider.Spec.RequiredEntitlements),
+			MissingConfigurationParameters: missingEnvVars,
+		},
+		Namespace: authProvider.Namespace,
+	}, nil
 }

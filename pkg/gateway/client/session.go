@@ -10,7 +10,6 @@ import (
 	"github.com/obot-platform/obot/pkg/hash"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	"github.com/tidwall/gjson"
 	"gorm.io/gorm"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -38,8 +37,8 @@ func (c *Client) deleteSessionsForUser(ctx context.Context, db *gorm.DB, storage
 			continue
 		}
 
-		var ref v1.ToolReference
-		if err := storageClient.Get(ctx, kclient.ObjectKey{Namespace: identity.AuthProviderNamespace, Name: identity.AuthProviderName}, &ref); err != nil {
+		var authProvider v1.AuthProvider
+		if err := storageClient.Get(ctx, kclient.ObjectKey{Namespace: identity.AuthProviderNamespace, Name: identity.AuthProviderName}, &authProvider); err != nil {
 			errs = append(errs, fmt.Errorf("failed to get auth provider %q: %w", identity.AuthProviderName, err))
 			continue
 		}
@@ -59,20 +58,17 @@ func (c *Client) deleteSessionsForUser(ctx context.Context, db *gorm.DB, storage
 
 		logger.Debugf("deleting sessions: provider=%s emailHash=%s userHash=%s", identity.AuthProviderName, emailHash, userHash)
 
-		if meta, ok := ref.Status.Tool.Metadata["providerMeta"]; ok {
-			tablePrefix := gjson.Get(meta, "postgresTablePrefix").String()
-			if tablePrefix != "" {
-				var err error
-				if sessionID != "" {
-					err = c.deleteSessionsForUserExceptCurrent(ctx, db, emailHash, userHash, tablePrefix, sessionID)
-				} else {
-					err = c.deleteAllSessionsForUser(ctx, db, emailHash, userHash, tablePrefix)
-				}
-				if err != nil {
-					errs = append(errs, fmt.Errorf("failed to delete sessions for provider %q: %w", identity.AuthProviderName, err))
-				} else {
-					logger.Infof("deleted sessions: provider=%s emailHash=%s userHash=%s", identity.AuthProviderName, emailHash, userHash)
-				}
+		if tablePrefix := authProvider.Spec.PostgresTablePrefix; tablePrefix != "" {
+			var err error
+			if sessionID != "" {
+				err = c.deleteSessionsForUserExceptCurrent(ctx, db, emailHash, userHash, tablePrefix, sessionID)
+			} else {
+				err = c.deleteAllSessionsForUser(ctx, db, emailHash, userHash, tablePrefix)
+			}
+			if err != nil {
+				errs = append(errs, fmt.Errorf("failed to delete sessions for provider %q: %w", identity.AuthProviderName, err))
+			} else {
+				logger.Infof("deleted sessions: provider=%s emailHash=%s userHash=%s", identity.AuthProviderName, emailHash, userHash)
 			}
 		}
 	}

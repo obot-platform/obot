@@ -206,6 +206,23 @@
 		/>
 	</div>
 
+	<!-- Health check path field (optional) -->
+	<div class="flex items-center gap-4">
+		<label for="containerized-healthz-path" class="w-20 text-sm font-light">Healthz</label>
+		<input
+			id="containerized-healthz-path"
+			class="text-input-filled dark:bg-base-100 w-full"
+			bind:value={config.healthzPath}
+			disabled={readonly}
+			placeholder="e.g. /healthz"
+			onblur={() => {
+				if (config.healthzPath) {
+					config.healthzPath = config.healthzPath.trim();
+				}
+			}}
+		/>
+	</div>
+
 	<!-- Command field (optional) -->
 	<div class="flex items-center gap-4">
 		<label for="containerized-command" class="w-20 text-sm font-light">Command</label>

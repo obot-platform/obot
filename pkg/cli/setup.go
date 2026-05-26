@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
-	gptcmd "github.com/gptscript-ai/cmd"
+	"github.com/obot-platform/cmd"
 	cliinternal "github.com/obot-platform/obot/pkg/cli/internal"
 	"github.com/obot-platform/obot/pkg/cli/internal/localconfig"
 	"github.com/obot-platform/obot/pkg/localagents"
@@ -29,12 +29,12 @@ type Setup struct {
 	root *Obot
 }
 
-func (s *Setup) Customize(cmd *cobra.Command) {
-	cmd.Use = "setup"
-	cmd.Short = "Configure Obot locally and install supported client bootstrap assets"
-	cmd.Args = cobra.NoArgs
-	cmd.AddCommand(gptcmd.Command(&SetupStatus{}))
-	cmd.AddCommand(gptcmd.Command(&SetupDetectClients{}))
+func (s *Setup) Customize(c *cobra.Command) {
+	c.Use = "setup"
+	c.Short = "Configure Obot locally and install supported client bootstrap assets"
+	c.Args = cobra.NoArgs
+	c.AddCommand(cmd.Command(&SetupStatus{}))
+	c.AddCommand(cmd.Command(&SetupDetectClients{}))
 }
 
 func (s *Setup) Run(cmd *cobra.Command, _ []string) error {

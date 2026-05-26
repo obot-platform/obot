@@ -50,7 +50,7 @@ const (
 	TokenTypeWorkflow TokenType = "workflow"
 )
 
-// EnsureJWK ensures that the JWK is created and stored in the GPTScript client. It should only be called in a controller post-start hook which only allows one to be run at a time.
+// EnsureJWK ensures that the JWK is created and stored. It should only be called in a controller post-start hook which only allows one to be run at a time.
 func (t *TokenService) EnsureJWK(ctx context.Context) error {
 	// Read the credential, if it exists, then use it.
 	cred, err := t.gatewayClient.RevealCredential(ctx, []string{system.JWKCredentialContext}, system.JWKCredentialContext)
@@ -86,7 +86,7 @@ func (t *TokenService) EnsureJWK(ctx context.Context) error {
 	return nil
 }
 
-// SetJWK sets the JWK in the GPTScript client. It should be called after the JWK is created and stored in the GPTScript client.
+// SetJWK sets the JWK in the database. It should be called after the JWK is created and stored in the GPTScript client.
 func (t *TokenService) setJWK(ctx context.Context) error {
 	cred, err := t.gatewayClient.RevealCredential(ctx, []string{system.JWKCredentialContext}, system.JWKCredentialContext)
 	if err != nil && !errors.As(err, &client.CredentialNotFoundError{}) {

@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	gtypes "github.com/gptscript-ai/gptscript/pkg/types"
 	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/utils"
 )
 
 type Client struct {
@@ -114,7 +114,7 @@ func (sm *SessionManager) loadSession(ctx context.Context, server ServerConfig, 
 		now := time.Now().Add(-time.Second)
 		// TODO(thedadams): This needs to be fixed before user information headers can be passed to the MCP server.
 		jwtToken, token, err = sm.tokenService.NewTokenWithClaims(ctx, jwt.MapClaims{
-			"aud":   gtypes.FirstSet(server.Audiences...),
+			"aud":   utils.FirstSet(server.Audiences...),
 			"exp":   float64(now.Add(time.Hour + 15*time.Minute).Unix()),
 			"iat":   float64(now.Unix()),
 			"sub":   server.UserID,
@@ -159,24 +159,6 @@ func (sm *SessionManager) loadSession(ctx context.Context, server ServerConfig, 
 	}
 
 	return result, nil
-}
-
-func (sm *SessionManager) getClient(id, clientScope string) *Client {
-	sessions, _ := sm.sessions.LoadOrStore(id, &sync.Map{})
-
-	clientSessions, ok := sessions.(*sync.Map)
-	if !ok || clientSessions == nil {
-		// Shouldn't happen, but handle it anyway
-		clientSessions = &sync.Map{}
-		sm.sessions.Store(id, clientSessions)
-	}
-
-	existing, ok := clientSessions.Load(clientScope)
-	if ok && existing != nil {
-		return existing.(*Client)
-	}
-
-	return nil
 }
 
 func copyListIntoMap(m map[string]string, list []string) {

@@ -116,6 +116,7 @@ func TestMapCatalogEntryToServer_Containerized(t *testing.T) {
 			Image:         "test/mcp-server:latest",
 			Port:          8080,
 			Path:          "/mcp",
+			HealthzPath:   "/healthz",
 			EgressDomains: []string{},
 			DenyAllEgress: new(true),
 		},
@@ -144,6 +145,10 @@ func TestMapCatalogEntryToServer_Containerized(t *testing.T) {
 
 	if result.ContainerizedConfig.Path != "/mcp" {
 		t.Errorf("Expected path '/mcp', got '%s'", result.ContainerizedConfig.Path)
+	}
+
+	if result.ContainerizedConfig.HealthzPath != "/healthz" {
+		t.Errorf("Expected healthzPath '/healthz', got '%s'", result.ContainerizedConfig.HealthzPath)
 	}
 
 	if len(result.ContainerizedConfig.EgressDomains) != 0 {

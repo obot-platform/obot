@@ -9,7 +9,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	gptcmd "github.com/gptscript-ai/cmd"
+	"github.com/obot-platform/cmd"
 	"github.com/obot-platform/obot/apiclient"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/cli/internal"
@@ -23,11 +23,11 @@ type MCP struct {
 	root *Obot
 }
 
-func (m *MCP) Customize(cmd *cobra.Command) {
-	cmd.Use = "mcp"
-	cmd.Short = "Manage MCP servers"
-	cmd.Args = cobra.NoArgs
-	cmd.AddCommand(gptcmd.Command(&MCPSearch{root: m.root}))
+func (m *MCP) Customize(c *cobra.Command) {
+	c.Use = "mcp"
+	c.Short = "Manage MCP servers"
+	c.Args = cobra.NoArgs
+	c.AddCommand(cmd.Command(&MCPSearch{root: m.root}))
 }
 
 func (m *MCP) Run(cmd *cobra.Command, _ []string) error {

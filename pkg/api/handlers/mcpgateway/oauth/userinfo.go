@@ -6,8 +6,8 @@ import (
 	"slices"
 	"strings"
 
-	gtypes "github.com/gptscript-ai/gptscript/pkg/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/utils"
 )
 
 // UserInfoResponse represents the OpenID Connect UserInfo response
@@ -28,7 +28,7 @@ type UserInfoResponse struct {
 }
 
 func (h *handler) userInfo(req api.Context) error {
-	scope := gtypes.FirstSet(req.User.GetExtra()["oauthScope"]...)
+	scope := utils.FirstSet(req.User.GetExtra()["oauthScope"]...)
 	if !slices.Contains(strings.Fields(scope), "profile") {
 		log.Infof("Denied OAuth userinfo request due to insufficient scope: userID=%s", req.User.GetUID())
 		return h.writeUserInfoError(req, http.StatusUnauthorized,

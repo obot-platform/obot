@@ -216,6 +216,19 @@ func dropMCPOAuthTokenStateColumns(tx *gorm.DB) error {
 	return nil
 }
 
+func dropRunThreadAndRunStatesTables(tx *gorm.DB) error {
+	migrator := tx.Migrator()
+	for _, table := range []string{"run_states", "run", "thread", "runstate"} {
+		if migrator.HasTable(table) {
+			if err := migrator.DropTable(table); err != nil {
+				return fmt.Errorf("failed to drop table %s: %w", table, err)
+			}
+		}
+	}
+
+	return nil
+}
+
 // migrateIfEntryNotFoundInMigrationsTable runs f only when the named migration
 // has not already been recorded in the migrations table.
 func migrateIfEntryNotFoundInMigrationsTable(tx *gorm.DB, name string, f func(*gorm.DB) error) error {

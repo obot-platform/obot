@@ -51,6 +51,7 @@ type ServerConfig struct {
 	ContainerImage string `json:"containerImage"`
 	ContainerPort  int    `json:"containerPort"`
 	ContainerPath  string `json:"containerPath"`
+	HealthzPath    string `json:"healthzPath,omitempty"`
 
 	// Composite configuration.
 	Components []ComponentServer `json:"components"`
@@ -67,6 +68,7 @@ type ServerConfig struct {
 	ProjectMCPServer     bool   `json:"projectMCPServer"`
 	ComponentMCPServer   bool   `json:"componentMCPServer"`
 	SystemMCPServer      bool   `json:"systemMCPServer"`
+	Provider             bool   `json:"provider,omitempty"`
 
 	Issuer    string   `json:"issuer"`
 	Audiences []string `json:"audiences"`
@@ -83,6 +85,10 @@ type ServerConfig struct {
 
 	StartupTimeout time.Duration                `json:"startupTimeout,omitempty"`
 	Resources      *corev1.ResourceRequirements `json:"resources,omitempty"`
+}
+
+func (s ServerConfig) NeedsShim() bool {
+	return s.NanobotAgentName == "" && !s.Provider
 }
 
 func CoreResourceRequirements(resources *types.MCPResourceRequirements) (*corev1.ResourceRequirements, error) {
@@ -176,6 +182,7 @@ func configureUVXRuntime(serverConfig *ServerConfig, uvxConfig *types.UVXRuntime
 		return fmt.Errorf("uvx runtime requires uvx config")
 	}
 
+	serverConfig.HealthzPath = "/healthz"
 	serverConfig.Command = "uvx"
 	if uvxConfig.Command != "" {
 		serverConfig.Args = []string{"--from", uvxConfig.Package, expandEnvVars(uvxConfig.Command, credEnv, fileEnvVars)}
@@ -195,6 +202,7 @@ func configureNPXRuntime(serverConfig *ServerConfig, npxConfig *types.NPXRuntime
 		return fmt.Errorf("npx runtime requires npx config")
 	}
 
+	serverConfig.HealthzPath = "/healthz"
 	serverConfig.Command = "npx"
 	serverConfig.Args = []string{npxConfig.Package}
 	for _, arg := range npxConfig.Args {
@@ -215,6 +223,7 @@ func configureContainerizedRuntime(serverConfig *ServerConfig, containerizedConf
 	}
 	serverConfig.ContainerPort = containerizedConfig.Port
 	serverConfig.ContainerPath = containerizedConfig.Path
+	serverConfig.HealthzPath = containerizedConfig.HealthzPath
 	serverConfig.Command = expandEnvVars(containerizedConfig.Command, credEnv, fileEnvVars)
 	for _, arg := range containerizedConfig.Args {
 		serverConfig.Args = append(serverConfig.Args, expandEnvVars(arg, credEnv, fileEnvVars))
@@ -228,9 +237,11 @@ func configureRemoteRuntime(serverConfig *ServerConfig, remoteConfig *types.Remo
 		return nil, fmt.Errorf("remote runtime requires remote config")
 	}
 
-	var missingRequiredNames []string
+	serverConfig.HealthzPath = "/healthz"
 	serverConfig.URL = remoteConfig.URL
 	serverConfig.Headers = make([]string, 0, len(remoteConfig.Headers))
+
+	var missingRequiredNames []string
 	for _, header := range remoteConfig.Headers {
 		val := header.Value
 		if val == "" {

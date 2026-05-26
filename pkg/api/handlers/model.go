@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -12,7 +11,6 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -45,19 +43,16 @@ func (a *ModelHandler) List(req api.Context) error {
 		}
 	}
 
-	var toolRefList v1.ToolReferenceList
-	if err := req.Storage.List(req.Context(), &toolRefList, &kclient.ListOptions{
-		FieldSelector: fields.SelectorFromSet(map[string]string{
-			"spec.type": string(v1.ToolReferenceTypeModelProvider),
-		}),
+	var modelProviders v1.ModelProviderList
+	if err := req.Storage.List(req.Context(), &modelProviders, &kclient.ListOptions{
 		Namespace: req.Namespace(),
 	}); err != nil {
 		return err
 	}
 
-	toolRefMap := make(map[string]v1.ToolReference)
-	for _, toolRef := range toolRefList.Items {
-		toolRefMap[toolRef.Name] = toolRef
+	modelProviderMap := make(map[string]v1.ModelProvider)
+	for _, mp := range modelProviders.Items {
+		modelProviderMap[mp.Name] = mp
 	}
 
 	respList := make([]types.Model, 0, len(modelList.Items))
@@ -67,12 +62,12 @@ func (a *ModelHandler) List(req api.Context) error {
 			continue
 		}
 
-		toolRef, ok := toolRefMap[model.Spec.Manifest.ModelProvider]
+		modelProvider, ok := modelProviderMap[model.Spec.Manifest.ModelProvider]
 		if !ok {
-			return types.NewErrNotFound("tool reference %s not found", model.Spec.Manifest.ModelProvider)
+			return types.NewErrNotFound("model provider %s not found", model.Spec.Manifest.ModelProvider)
 		}
 
-		resp, err := convertModel(model, toolRef)
+		resp, err := convertModel(model, modelProvider)
 		if err != nil {
 			return err
 		}
@@ -89,12 +84,12 @@ func (a *ModelHandler) ByID(req api.Context) error {
 		return err
 	}
 
-	var toolRef v1.ToolReference
-	if err := req.Storage.Get(req.Context(), kclient.ObjectKey{Namespace: model.Namespace, Name: model.Spec.Manifest.ModelProvider}, &toolRef); err != nil {
+	var modelProvider v1.ModelProvider
+	if err := req.Storage.Get(req.Context(), kclient.ObjectKey{Namespace: model.Namespace, Name: model.Spec.Manifest.ModelProvider}, &modelProvider); err != nil {
 		return err
 	}
 
-	resp, err := convertModel(model, toolRef)
+	resp, err := convertModel(model, modelProvider)
 	if err != nil {
 		return err
 	}
@@ -123,12 +118,12 @@ func (a *ModelHandler) Update(req api.Context) error {
 		return err
 	}
 
-	var toolRef v1.ToolReference
-	if err := req.Storage.Get(req.Context(), kclient.ObjectKey{Namespace: existing.Namespace, Name: existing.Spec.Manifest.ModelProvider}, &toolRef); err != nil {
+	var modelProvider v1.ModelProvider
+	if err := req.Storage.Get(req.Context(), kclient.ObjectKey{Namespace: existing.Namespace, Name: existing.Spec.Manifest.ModelProvider}, &modelProvider); err != nil {
 		return err
 	}
 
-	resp, err := convertModel(existing, toolRef)
+	resp, err := convertModel(existing, modelProvider)
 	if err != nil {
 		return err
 	}
@@ -146,13 +141,9 @@ func (a *ModelHandler) Create(req api.Context) error {
 		return types.NewErrBadRequest("model provider is required")
 	}
 
-	var toolRef v1.ToolReference
-	if err := req.Get(&toolRef, modelManifest.ModelProvider); err != nil {
+	var modelProvider v1.ModelProvider
+	if err := req.Get(&modelProvider, modelManifest.ModelProvider); err != nil {
 		return err
-	}
-
-	if toolRef.Spec.Type != v1.ToolReferenceTypeModelProvider {
-		return types.NewErrBadRequest("model provider %s must be of type %s not %s", modelManifest.ModelProvider, v1.ToolReferenceTypeModelProvider, toolRef.Spec.Type)
 	}
 
 	model := &v1.Model{
@@ -173,7 +164,7 @@ func (a *ModelHandler) Create(req api.Context) error {
 		return err
 	}
 
-	resp, err := convertModel(*model, toolRef)
+	resp, err := convertModel(*model, modelProvider)
 	if err != nil {
 		return err
 	}
@@ -190,30 +181,10 @@ func (a *ModelHandler) Delete(req api.Context) error {
 	})
 }
 
-func convertModel(model v1.Model, toolRef v1.ToolReference) (types.Model, error) {
-	var (
-		aliasAssigned *bool
-		toolName      string
-		icon          string
-		iconDark      string
-	)
+func convertModel(model v1.Model, modelProvider v1.ModelProvider) (types.Model, error) {
+	var aliasAssigned *bool
 	if model.Generation == model.Status.ObservedGeneration {
 		aliasAssigned = &model.Status.AliasAssigned
-	}
-	if toolRef.Status.Tool != nil {
-		toolName = toolRef.Status.Tool.Name
-
-		// getting model provider meta icon and iconDark
-		if toolRef.Status.Tool.Metadata["providerMeta"] != "" {
-			var providerMeta struct {
-				Icon     string `json:"icon,omitempty"`
-				IconDark string `json:"iconDark,omitempty"`
-			}
-			if err := json.Unmarshal([]byte(toolRef.Status.Tool.Metadata["providerMeta"]), &providerMeta); err == nil {
-				icon = providerMeta.Icon
-				iconDark = providerMeta.IconDark
-			}
-		}
 	}
 
 	return types.Model{
@@ -221,9 +192,9 @@ func convertModel(model v1.Model, toolRef v1.ToolReference) (types.Model, error)
 		ModelManifest: model.Spec.Manifest,
 		ModelStatus: types.ModelStatus{
 			AliasAssigned:     aliasAssigned,
-			ModelProviderName: toolName,
-			Icon:              icon,
-			IconDark:          iconDark,
+			ModelProviderName: modelProvider.Name,
+			Icon:              modelProvider.Spec.Icon,
+			IconDark:          modelProvider.Spec.IconDark,
 		},
 	}, nil
 }

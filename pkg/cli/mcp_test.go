@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	gptcmd "github.com/gptscript-ai/cmd"
+	"github.com/obot-platform/cmd"
 	"github.com/obot-platform/obot/apiclient"
 	"github.com/obot-platform/obot/apiclient/types"
 )
@@ -193,7 +193,7 @@ func mcpTestRoot(baseURL string) *Obot {
 
 func executeMCPTestCommand(root *Obot, args ...string) (string, error) {
 	var stdout bytes.Buffer
-	cmd := gptcmd.Command(&MCP{root: root})
+	cmd := cmd.Command(&MCP{root: root})
 	cmd.SetContext(context.Background())
 	cmd.SetOut(&stdout)
 	cmd.SetArgs(args)

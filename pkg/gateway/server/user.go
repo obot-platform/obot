@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gptscript-ai/gptscript/pkg/mvl"
 	types2 "github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
@@ -20,7 +20,7 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
-var pkgLog = mvl.Package()
+var pkgLog = logger.Package()
 
 func (s *Server) getCurrentUser(apiContext api.Context) error {
 	user, err := apiContext.GatewayClient.User(apiContext.Context(), apiContext.User.GetName())

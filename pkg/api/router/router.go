@@ -35,19 +35,19 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 		return nil, err
 	}
 
-	oauthChecker := oauth.NewMCPOAuthHandlerFactory(services.ServerURL, services.MCPLoader, services.StorageClient, services.GatewayClient, services.MCPOAuthTokenStorage)
+	oauthChecker := oauth.NewMCPOAuthHandlerFactory(services.ServerURL, services.MCPSessionManager, services.StorageClient, services.GatewayClient, services.MCPOAuthTokenStorage)
 
 	models := handlers.NewModelHandler(services.ModelAccessPolicyHelper)
-	mcpCatalogs := handlers.NewMCPCatalogHandler(services.DefaultMCPCatalogPath, services.ServerURL, services.MCPRuntimeBackend, services.MCPLoader, oauthChecker, services.GatewayClient, services.AccessControlRuleHelper)
+	mcpCatalogs := handlers.NewMCPCatalogHandler(services.DefaultMCPCatalogPath, services.ServerURL, services.MCPRuntimeBackend, services.MCPSessionManager, oauthChecker, services.GatewayClient, services.AccessControlRuleHelper)
 	systemMCPCatalogs := handlers.NewSystemMCPCatalogHandler(services.DefaultSystemMCPCatalogPath)
 	accessControlRules := handlers.NewAccessControlRuleHandler()
 	skillRepositories := handlers.NewSkillRepositoryHandler()
 	skillAccessRules := handlers.NewSkillAccessRuleHandler()
 	skills := handlers.NewSkillHandler(services.SkillAccessRuleHelper)
 	powerUserWorkspaces := handlers.NewPowerUserWorkspaceHandler(services.ServerURL, services.AccessControlRuleHelper)
-	mcpWebhookValidations := handlers.NewMCPWebhookValidationHandler(services.MCPLoader)
+	mcpWebhookValidations := handlers.NewMCPWebhookValidationHandler(services.MCPSessionManager)
 	availableModels := handlers.NewAvailableModelsHandler(services.ProviderDispatcher, services.LicenseProvider)
-	modelProviders := handlers.NewModelProviderHandler(services.ProviderDispatcher, services.Invoker, services.LicenseProvider)
+	modelProviders := handlers.NewModelProviderHandler(services.ProviderDispatcher, services.LicenseProvider)
 	modelAccessPolicies := handlers.NewModelAccessPolicyHandler()
 	messagePolicies := handlers.NewMessagePolicyHandler()
 	policyViolations := handlers.NewMessagePolicyViolationHandler()
@@ -55,12 +55,12 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	authProviders := handlers.NewAuthProviderHandler(services.ProviderDispatcher, services.PostgresDSN, services.LicenseProvider)
 	defaultModelAliases := handlers.NewDefaultModelAliasHandler()
 	images := handlers.NewImageHandler()
-	mcp := handlers.NewMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, oauthChecker, services.MCPImagePullSecrets, services.ServerURL)
-	mcpGateway := mcpgateway.NewHandler(services.MCPLoader)
+	mcp := handlers.NewMCPHandler(services.MCPSessionManager, services.AccessControlRuleHelper, oauthChecker, services.MCPImagePullSecrets, services.ServerURL)
+	mcpGateway := mcpgateway.NewHandler(services.MCPSessionManager)
 	mcpAuditLogs := mcpgateway.NewAuditLogHandler()
 	auditLogExports := handlers.NewAuditLogExportHandler(services.GatewayClient)
 	serverInstances := handlers.NewServerInstancesHandler(services.AccessControlRuleHelper, services.ServerURL)
-	systemMCPServers := handlers.NewSystemMCPServerHandler(services.MCPLoader)
+	systemMCPServers := handlers.NewSystemMCPServerHandler(services.MCPSessionManager)
 	userDefaultRoleSettings := handlers.NewUserDefaultRoleSettingHandler()
 	setupHandler := setup.NewHandler(services.ServerURL)
 	registryHandler := registry.NewHandler(services.AccessControlRuleHelper, services.ServerURL, services.RegistryNoAuth)
@@ -68,15 +68,6 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	publishedArtifacts := handlers.NewPublishedArtifactHandler(services.ArtifactBlobStore, services.ArtifactBlobBucket)
 	imagePullSecretsHandler := handlers.NewImagePullSecretHandler(services.MCPRuntimeBackend, services.MCPImagePullSecrets, services.MCPServerNamespace, services.ServiceNamespace, services.ServiceAccountName, services.LocalK8sClient, services.ServiceAccountIssuerURL, services.ServiceAccountIssuerError)
 	licenseHandler := handlers.NewLicenseHandler(services.LicenseProvider)
-
-	credHandler := handlers.NewCredentialHandler(services.HTTPListenPort, services.CredstoreToken)
-
-	// Temporary credential handlers
-	mux.HandleFunc("GET /api/credentials/tool.gpt", credHandler.Tool)
-	mux.HandleFunc("POST /api/credentials/store", credHandler.Store)
-	mux.HandleFunc("POST /api/credentials/get", credHandler.Get)
-	mux.HandleFunc("POST /api/credentials/list", credHandler.List)
-	mux.HandleFunc("POST /api/credentials/erase", credHandler.Erase)
 
 	// Version
 	mux.HandleFunc("GET /api/version", version.GetVersion)
@@ -400,7 +391,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("POST /api/image-pull-secrets/{id}/refresh", imagePullSecretsHandler.Refresh)
 
 	// MCP Capacity (admin only)
-	mcpCapacityHandler := handlers.NewMCPCapacityHandler(services.MCPLoader)
+	mcpCapacityHandler := handlers.NewMCPCapacityHandler(services.MCPSessionManager)
 	mux.HandleFunc("GET /api/mcp-capacity", mcpCapacityHandler.GetCapacity)
 
 	// EULA
@@ -525,7 +516,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("DELETE /api/projects/{project_id}", projects.Delete)
 
 	// NanobotAgents
-	nanobotAgents := handlers.NewNanobotAgentHandler(services.MCPLoader, services.ServerURL)
+	nanobotAgents := handlers.NewNanobotAgentHandler(services.MCPSessionManager, services.ServerURL)
 	mux.HandleFunc("GET /api/nanobot-agents", nanobotAgents.ListAll)
 	mux.HandleFunc("POST /api/projects/{project_id}/agents", nanobotAgents.Create)
 	mux.HandleFunc("GET /api/projects/{project_id}/agents", nanobotAgents.List)

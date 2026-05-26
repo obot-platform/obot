@@ -826,6 +826,7 @@ export const convertServerRuntimeFormDataToManifest = (
 					image: baseData.containerizedConfig.image,
 					port: baseData.containerizedConfig.port,
 					path: baseData.containerizedConfig.path,
+					healthzPath: baseData.containerizedConfig.healthzPath?.trim() || undefined,
 					command: baseData.containerizedConfig.command || undefined,
 					args: baseData.containerizedConfig.args?.filter((arg) => arg.trim()) || [],
 					egressDomains: sanitizeEgressDomains(baseData.containerizedConfig.egressDomains),

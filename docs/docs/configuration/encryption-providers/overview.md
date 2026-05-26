@@ -29,7 +29,6 @@ When you enable an encryption provider, the following resource types are automat
 | Resource Type | Description |
 |---------------|-------------|
 | `credentials` | Credential store data |
-| `runstates.obot.obot.ai` | Run state data for agent executions |
 | `users.obot.obot.ai` | User account information |
 | `identities.obot.obot.ai` | Identity provider data |
 | `mcpoauthtokens.obot.obot.ai` | MCP OAuth tokens |
@@ -79,12 +78,6 @@ Complete request/response data in audit logs is encrypted:
 - `responseBody` - HTTP response body (JSON)
 - `requestHeaders` - HTTP request headers (JSON)
 - `responseHeaders` - HTTP response headers (JSON)
-
-### Run State Data (`runstates.obot.obot.ai`)
-Agent execution state data is encrypted:
-- `output` - Execution output (binary)
-- `callFrame` - Call frame data (binary)
-- `chatState` - Chat state data (binary)
 
 ### Credentials (`credentials`)
 All credential data stored via the credential store system (SQLite or PostgreSQL backend) is encrypted.
