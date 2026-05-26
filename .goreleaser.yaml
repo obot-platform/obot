@@ -51,7 +51,7 @@ brews:
     install: |
       bin.install "obot"
     homepage: "https://github.com/obot-platform/obot"
-    skip_upload: false
+    skip_upload: auto
     directory: "Formula"
     repository:
       owner: obot-platform
