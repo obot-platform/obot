@@ -143,19 +143,9 @@
 			<div class="p-8 @2xl/cli:pb-8 pb-0 flex flex-col gap-1">
 				<h3 class="text-2xl font-bold">How to Install Obot CLI</h3>
 
-				{@render codesnippet(
-					isAdmin
-						? '1. Have MacOS users install through Homebrew:'
-						: '1. For MacOS, install through Homebrew:',
-					installCommand
-				)}
+				{@render codesnippet('For MacOS, install through Homebrew:', installCommand)}
 
-				{@render codesnippet(
-					isAdmin
-						? '2. Have users run the following command:'
-						: '2. Then run the following command:',
-					setupCommand
-				)}
+				{@render codesnippet('Then run the following command:', setupCommand)}
 
 				<div class="flex flex-col">
 					<p class="text-sm">For more installation options, click below:</p>
