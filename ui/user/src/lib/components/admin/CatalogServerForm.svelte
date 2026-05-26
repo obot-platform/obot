@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { HttpError } from '$lib/errors';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
@@ -272,7 +273,7 @@
 				}
 			}
 		} catch (error) {
-			if (error instanceof Error && error.message.includes('404')) {
+			if (error instanceof HttpError && error.statusCode === 404) {
 				// ignore, 404 means no credentials were set
 				return;
 			}

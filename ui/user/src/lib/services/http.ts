@@ -1,4 +1,5 @@
 import { UNAUTHORIZED_PATHS } from '$lib/constants';
+import { createHttpError } from '$lib/errors';
 import { profile } from '$lib/stores';
 import errors from '$lib/stores/errors.svelte';
 
@@ -70,7 +71,7 @@ export async function doGet(path: string, opts?: GetOptions): Promise<unknown> {
 			handle401Redirect();
 		}
 		const body = await resp.text();
-		const e = new Error(`${resp.status} ${path}: ${body}`);
+		const e = createHttpError(resp.status, path, body);
 		if (opts?.dontLogErrors) {
 			throw e;
 		}
@@ -137,7 +138,7 @@ export async function handleResponse(
 ): Promise<unknown> {
 	if (!resp.ok) {
 		const body = await resp.text();
-		const e = new Error(`${resp.status} ${path}: ${body}`);
+		const e = createHttpError(resp.status, path, body);
 		if (opts?.dontLogErrors) {
 			throw e;
 		}

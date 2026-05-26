@@ -1,4 +1,5 @@
 import { BOOTSTRAP_USER_ID } from '$lib/constants';
+import { HttpError } from '$lib/errors';
 import { Group } from '$lib/services/admin/types';
 import { buildQueryString } from '$lib/url';
 import type {
@@ -465,7 +466,7 @@ export async function isMcpServerOauthNeeded(
 			signal: opts?.signal
 		});
 	} catch (err) {
-		if (err instanceof Error && err.message.includes('412')) {
+		if (err instanceof HttpError && err.statusCode === 412) {
 			return true;
 		}
 	}
@@ -507,25 +508,11 @@ export async function validateSingleOrRemoteMcpServerLaunched(mcpServerId: strin
 		};
 	} catch (err) {
 		if (err instanceof Error) {
-			if (err.message.includes('404')) {
-				return {
-					success: false,
-					message: err.message,
-					code: 404
-				};
-			} else if (err.message.includes('503')) {
-				return {
-					success: false,
-					message: err.message,
-					code: 503
-				};
-			} else {
-				return {
-					success: false,
-					message: err.message,
-					code: 500
-				};
-			}
+			return {
+				success: false,
+				message: err.message,
+				code: err instanceof HttpError ? err.statusCode : 500
+			};
 		}
 
 		throw err;
@@ -1192,7 +1179,7 @@ export async function fetchWorkspaceIDForProfile(
 	const workspaces = await listWorkspaces(opts);
 	const workspaceID = workspaces.find((w) => w.userID === currentProfileID)?.id ?? null;
 	if (!workspaceID) {
-		throw new Error('404 Workspace not found.');
+		throw new HttpError(404, 'Workspace not found.');
 	}
 	return workspaceID;
 }
