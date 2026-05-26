@@ -19,6 +19,7 @@ func TestRenderAgentSkillsForClaudeCode(t *testing.T) {
 
 	search := renderedByName(t, rendered, "obot-search-skills")
 	assertContains(t, string(search.Content), "obot skills search \"<query>\"")
+	assertContains(t, string(search.Content), "obot skills search\n")
 
 	scan := renderedByName(t, rendered, "obot-scan")
 	assertContains(t, string(scan.Content), "obot scan")
