@@ -28,23 +28,27 @@ func SetupHandlers(oauthChecker *MCPOAuthHandlerFactory, tokenStore mcp.GlobalTo
 		clientExpiration: clientSecretExpiration,
 	}
 
+	// Expose two sets of endpoints: one for clients that look at the oauth-protected-resource metadata and one for clients that don't.
+	// Clients that don't look at the metadata must use a resource parameter when authorizing.
 	mux.HandleFunc("POST /oauth/register/{mcp_id}", h.register)
+	mux.HandleFunc("POST /oauth/register", h.register)
+	mux.HandleFunc("GET /oauth/authorize/{mcp_id}", h.authorize)
+	mux.HandleFunc("GET /oauth/authorize", h.authorize)
+	mux.HandleFunc("POST /oauth/token/{mcp_id}", h.token)
+	mux.HandleFunc("POST /oauth/token", h.token)
+
+	// This is the callback that Obot will redirect to after the user has authenticated.
+	// It checks for second-level OAuth and redirects there, if necessary.
+	// Otherwise, it redirects to the original redirect URI with the authorization code.
+	mux.HandleFunc("GET /oauth/callback/{oauth_auth_request}", h.callback)
+
 	mux.HandleFunc("GET /oauth/register/{client}", h.readClient)
 	mux.HandleFunc("PUT /oauth/register/{client}", h.updateClient)
 	mux.HandleFunc("DELETE /oauth/register/{client}", h.deleteClient)
-	mux.HandleFunc("GET /oauth/authorize/{mcp_id}", h.authorize)
-	mux.HandleFunc("GET /oauth/callback/{oauth_auth_request}/{mcp_id}", h.callback)
-	mux.HandleFunc("POST /oauth/token/{mcp_id}", h.token)
-	mux.HandleFunc("GET /oauth/mcp/callback", h.oauthCallback)
 
-	// These endpoints allow clients that don't follow the spec to connect to Obot MCP servers.
-	// Such clients will not be able to do second-level OAuth because we aren't able to determine
-	// to which MCP server they're trying to connect. At least they will be able to connect to
-	// MCP servers that don't require second-level OAuth.
-	mux.HandleFunc("POST /oauth/register", h.register)
-	mux.HandleFunc("GET /oauth/authorize", h.authorize)
-	mux.HandleFunc("GET /oauth/callback/{oauth_auth_request}", h.callback)
-	mux.HandleFunc("POST /oauth/token", h.token)
+	// This is the callback handler for second-level OAuth.
+	// In other words, the third-party OAuth will redirect here.
+	mux.HandleFunc("GET /oauth/mcp/callback", h.oauthCallback)
 
 	mux.HandleFunc("GET /oauth/jwks.json", h.tokenService.ServeJWKS)
 	mux.HandleFunc("POST /oauth/replace-jwks", h.tokenService.ReplaceJWK)

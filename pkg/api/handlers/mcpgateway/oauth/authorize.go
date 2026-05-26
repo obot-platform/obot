@@ -195,9 +195,15 @@ func (h *handler) authorize(req api.Context) error {
 		}
 	}
 
-	if mcpID != "" {
-		mcpID = "/" + mcpID
+	if mcpID == "" {
+		redirectWithAuthorizeError(req, redirectURI, Error{
+			Code:        ErrInvalidRequest,
+			Description: "cannot determine MCP server, resource parameter required",
+			State:       state,
+		})
+		return nil
 	}
+
 	oauthAppAuthRequest := v1.OAuthAuthRequest{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: system.OAuthAuthRequestPrefix,
@@ -212,7 +218,7 @@ func (h *handler) authorize(req api.Context) error {
 			CodeChallenge:       codeChallenge,
 			CodeChallengeMethod: codeChallengeMethod,
 			GrantType:           "authorization_code",
-			MCPID:               strings.TrimPrefix(mcpID, "/"),
+			MCPID:               mcpID,
 		},
 	}
 
@@ -225,8 +231,10 @@ func (h *handler) authorize(req api.Context) error {
 
 		return nil
 	}
-	log.Infof("Created OAuth authorization request and redirecting user to authenticate: authRequest=%s client=%s requestedMCPID=%s", oauthAppAuthRequest.Name, oauthClient.Name, strings.TrimPrefix(mcpID, "/"))
-	http.Redirect(req.ResponseWriter, req.Request, fmt.Sprintf("/?rd=/oauth/callback/%s%s", oauthAppAuthRequest.Name, mcpID), http.StatusFound)
+
+	log.Infof("Created OAuth authorization request and redirecting user to authenticate: authRequest=%s client=%s requestedMCPID=%s", oauthAppAuthRequest.Name, oauthClient.Name, mcpID)
+	http.Redirect(req.ResponseWriter, req.Request, fmt.Sprintf("/?rd=/oauth/callback/%s", oauthAppAuthRequest.Name), http.StatusFound)
+
 	return nil
 }
 
@@ -303,30 +311,25 @@ func (h *handler) callback(req api.Context) error {
 		return nil
 	}
 
-	if mcpID == "" {
-		mcpID = req.PathValue("mcp_id")
+	// Check whether the MCP server needs authentication.
+	mcpID, mcpServer, mcpServerConfig, err := handlers.ServerForActionWithConnectID(req, mcpID)
+	if err != nil {
+		return err
 	}
-	if mcpID != "" {
-		// Check whether the MCP server needs authentication.
-		mcpID, mcpServer, mcpServerConfig, err := handlers.ServerForActionWithConnectID(req, mcpID)
-		if err != nil {
-			return err
-		}
 
-		u, err := h.oauthChecker.CheckForMCPAuth(req, mcpServer, mcpServerConfig, req.User.GetUID(), mcpID, oauthAppAuthRequest.Name)
-		if err != nil {
-			redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
-				Code:        ErrServerError,
-				Description: err.Error(),
-			})
-			return nil
-		}
+	u, err := h.oauthChecker.CheckForMCPAuth(req, mcpServer, mcpServerConfig, req.User.GetUID(), mcpID, oauthAppAuthRequest.Name)
+	if err != nil {
+		redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
+			Code:        ErrServerError,
+			Description: err.Error(),
+		})
+		return nil
+	}
 
-		if u != "" {
-			log.Infof("OAuth callback requires second-level MCP authentication: authRequest=%s mcpID=%s", oauthAppAuthRequest.Name, mcpID)
-			http.Redirect(req.ResponseWriter, req.Request, u, http.StatusFound)
-			return nil
-		}
+	if u != "" {
+		log.Infof("OAuth callback requires second-level MCP authentication: authRequest=%s mcpID=%s", oauthAppAuthRequest.Name, mcpID)
+		http.Redirect(req.ResponseWriter, req.Request, u, http.StatusFound)
+		return nil
 	}
 
 	log.Infof("Issuing OAuth authorization code and redirecting to client: authRequest=%s client=%s", oauthAppAuthRequest.Name, oauthAppAuthRequest.Spec.ClientID)
