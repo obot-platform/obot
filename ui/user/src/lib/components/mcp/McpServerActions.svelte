@@ -126,6 +126,7 @@
 	);
 	let canDebugOauth = $derived(canReauthenticate && userDeviceSettings.developerMode);
 	let belongsToComposite = $derived(Boolean(server && server.compositeName));
+	let configurableItem = $derived(server ?? entry);
 	// True when the user can manage the server deployment (restart, rename, edit config).
 	// For multi-user servers, only admins or the workspace owner who deployed it.
 	let isServerOwner = $derived(
@@ -134,8 +135,9 @@
 			(server?.powerUserWorkspaceID && server?.userID === profile.current.id)
 	);
 	let canConfigure = $derived(
-		entry &&
-			(entry.manifest.runtime === 'composite' || hasEditableConfiguration(entry)) &&
+		configurableItem &&
+			(configurableItem.manifest.runtime === 'composite' ||
+				hasEditableConfiguration(configurableItem)) &&
 			isServerOwner
 	);
 	let canEditMultiUserServerConfiguration = $derived(
@@ -519,7 +521,7 @@
 					}}
 				>
 					<ServerCog class="size-4" />
-					{canConfigure ? 'Edit My Connection' : 'Edit Configuration'}
+					Edit My Connection
 				</button>
 			{/if}
 			{#if entry && isServerOwner}

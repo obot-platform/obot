@@ -85,7 +85,13 @@ function hasEditableFields(fields?: MCPSubField[]) {
 	return (fields ?? []).some((field) => !hasSecretBinding(field));
 }
 
-export function hasEditableConfiguration(item: MCPCatalogEntry | SystemMCPServerCatalogEntry) {
+function hasEditableURL(remoteConfig?: { fixedURL?: string; hostname?: string } | null) {
+	return Boolean(remoteConfig && !remoteConfig.fixedURL && remoteConfig.hostname);
+}
+
+export function hasEditableConfiguration(
+	item: MCPCatalogEntry | MCPCatalogServer | SystemMCPServerCatalogEntry
+) {
 	if (!item.manifest) return false;
 	// For composite servers, check if any component has editable configuration
 	if ('compositeConfig' in item.manifest && item.manifest.runtime === 'composite') {
@@ -96,14 +102,12 @@ export function hasEditableConfiguration(item: MCPCatalogEntry | SystemMCPServer
 				(component?.manifest?.remoteConfig?.headers?.filter?.(
 					(header) => !header.value && !hasSecretBinding(header)
 				)?.length ?? 0) > 0;
-			const hasUrlToFill =
-				!component.manifest?.remoteConfig?.fixedURL && component.manifest?.remoteConfig?.hostname;
+			const hasUrlToFill = hasEditableURL(component.manifest?.remoteConfig);
 			return hasEnvs || hasHeaders || hasUrlToFill;
 		});
 	}
 
-	const hasUrlToFill =
-		!item.manifest?.remoteConfig?.fixedURL && item.manifest?.remoteConfig?.hostname;
+	const hasUrlToFill = hasEditableURL(item.manifest?.remoteConfig);
 	const hasEnvsToFill = hasEditableFields(item.manifest?.env);
 	const hasHeadersToFill =
 		(item?.manifest?.remoteConfig?.headers?.filter?.(

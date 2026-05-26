@@ -93,14 +93,14 @@
 	}
 
 	async function revealServerValues(server: MCPCatalogServer) {
-		if (server.mcpCatalogID) {
-			return AdminService.revealMcpCatalogServer(server.mcpCatalogID, server.id, {
+		if (server.powerUserWorkspaceID) {
+			return UserService.revealWorkspaceMCPCatalogServer(server.powerUserWorkspaceID, server.id, {
 				dontLogErrors: true
 			});
 		}
 
-		if (server.powerUserWorkspaceID) {
-			return UserService.revealWorkspaceMCPCatalogServer(server.powerUserWorkspaceID, server.id, {
+		if (server.mcpCatalogID) {
+			return AdminService.revealMcpCatalogServer(server.mcpCatalogID, server.id, {
 				dontLogErrors: true
 			});
 		}
@@ -163,14 +163,14 @@
 		}
 
 		const envs = convertEnvHeadersToRecord(lf.envs, lf.headers);
-		if (server.mcpCatalogID) {
-			await AdminService.configureMCPCatalogServer(server.mcpCatalogID, server.id, envs);
-		} else if (server.powerUserWorkspaceID) {
+		if (server.powerUserWorkspaceID) {
 			await UserService.configureWorkspaceMCPCatalogServer(
 				server.powerUserWorkspaceID,
 				server.id,
 				envs
 			);
+		} else if (server.mcpCatalogID) {
+			await AdminService.configureMCPCatalogServer(server.mcpCatalogID, server.id, envs);
 		} else {
 			await UserService.configureSingleOrRemoteMcpServer(server.id, envs);
 		}
@@ -180,14 +180,14 @@
 	async function updateServerAlias(alias: string) {
 		if (!server || alias === (server.alias || '')) return;
 
-		if (server.mcpCatalogID) {
-			await AdminService.updateMCPCatalogServerAlias(server.mcpCatalogID, server.id, alias);
-		} else if (server.powerUserWorkspaceID) {
+		if (server.powerUserWorkspaceID) {
 			await UserService.updateWorkspaceMCPCatalogServerAlias(
 				server.powerUserWorkspaceID,
 				server.id,
 				alias
 			);
+		} else if (server.mcpCatalogID) {
+			await AdminService.updateMCPCatalogServerAlias(server.mcpCatalogID, server.id, alias);
 		} else {
 			await UserService.updateSingleOrRemoteMcpServerAlias(server.id, alias);
 		}
