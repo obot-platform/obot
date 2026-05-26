@@ -6,7 +6,6 @@
 	import type { Chat, Resource } from '$lib/services/nanobot/types';
 	import { darkMode, errors } from '$lib/stores';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
-	import 'devicon/devicon.min.css';
 	import { onMount, untrack } from 'svelte';
 	import { get } from 'svelte/store';
 
