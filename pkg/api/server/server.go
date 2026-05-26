@@ -217,6 +217,7 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 			rw.Header().Set("Expires", "0")
 		}
 
+		var shouldLogError bool
 		err = f(api.Context{
 			ResponseWriter: rw,
 			Request:        req,
@@ -230,10 +231,17 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 		})
 		if errHTTP := (*types.ErrHTTP)(nil); errors.As(err, &errHTTP) {
 			http.Error(rw, errHTTP.Message, errHTTP.Code)
+			shouldLogError = errHTTP.Code == http.StatusInternalServerError
 		} else if errStatus := (*apierrors.StatusError)(nil); errors.As(err, &errStatus) {
 			http.Error(rw, errStatus.Error(), int(errStatus.ErrStatus.Code))
+			shouldLogError = errStatus.ErrStatus.Code == http.StatusInternalServerError
 		} else if err != nil {
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
+			shouldLogError = true
+		}
+
+		if shouldLogError {
+			log.Errorf("Error handling request for %s: %v", req.URL.Path, err)
 		}
 	}
 }
