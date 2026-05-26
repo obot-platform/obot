@@ -40,6 +40,12 @@ Both use the same core codebase, but the enterprise version includes additional 
 
 Some clients do not support the required OAuth flows. As a workaround, use the `mcp-remote` package as a proxy, or check for client updates that add OAuth support.
 
+### Why do I get a "cannot determine MCP server, resource parameter required" error when my MCP client connects?
+
+Some MCP clients, including Codex CLI in certain versions, do not include the OAuth `resource` parameter authorizing to connect to an MCP server. Obot requires this parameter because it identifies which MCP server the user is trying to connect to. Without it, Obot cannot determine the target server or enforce access control, so the OAuth flow will not work.
+
+If your client gets this error, you can create an [MCP API key](/functionality/api-keys/) and use that instead of the OAuth flow. For more context, see the related [Codex CLI issue](https://github.com/openai/codex/issues/13891).
+
 ## Enterprise Access
 
 ### How do I request an enterprise trial or proof-of-concept?
