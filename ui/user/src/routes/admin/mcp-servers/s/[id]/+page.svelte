@@ -14,6 +14,9 @@
 
 	let { data } = $props();
 	let { mcpServer, catalogEntry } = $derived(data);
+	let workspaceId = $derived(mcpServer?.powerUserWorkspaceID);
+	let serverScopeEntity = $derived(workspaceId ? ('workspace' as const) : ('catalog' as const));
+	let serverScopeID = $derived(workspaceId || DEFAULT_MCP_CATALOG_ID);
 	let title = $derived(mcpServer?.alias || mcpServer?.manifest?.name || 'MCP Server');
 	let promptInitialLaunch = $derived(page.url.searchParams.get('launch') === 'true');
 </script>
@@ -30,7 +33,8 @@
 		<McpServerActions
 			server={mcpServer}
 			entry={catalogEntry}
-			catalogID={DEFAULT_MCP_CATALOG_ID}
+			catalogID={workspaceId ? undefined : DEFAULT_MCP_CATALOG_ID}
+			workspaceID={workspaceId}
 			{promptInitialLaunch}
 			readonly={profile.current.isAdminReadonly?.()}
 			allowMultiUserServerConfigurationEdit
@@ -47,7 +51,8 @@
 		<McpServerEntryForm
 			entry={mcpServer}
 			type="multi"
-			id={DEFAULT_MCP_CATALOG_ID}
+			id={serverScopeID}
+			entity={serverScopeEntity}
 			readonly={profile.current.isAdminReadonly?.()}
 		/>
 	</div>
