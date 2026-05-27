@@ -434,6 +434,8 @@ export function getServerType(server?: MCPCatalogServer): LaunchServerType | nul
 	if (runtime === 'remote') return 'remote';
 	if (runtime === 'composite') return 'composite';
 	if (server.serverUserType === 'multiUser') return 'multi';
+	if (server.serverUserType === 'singleUser') return 'single';
+	// Fall back to catalogEntryID only when serverUserType is unset.
 	return server.catalogEntryID ? 'single' : 'multi';
 }
 
