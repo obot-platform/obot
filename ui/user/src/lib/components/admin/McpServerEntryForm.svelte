@@ -450,7 +450,6 @@
 				// In dryRun mode, the previews are returned but not persisted.
 				// Update the entry's tool preview in-place.
 				(entry as MCPCatalogServer).manifest.toolPreview = result.manifest?.toolPreview ?? [];
-				saving = false;
 			}
 		} catch (err) {
 			const errMessage = err instanceof Error ? err.message : 'An unknown error occurred';
@@ -475,7 +474,7 @@
 				error = err instanceof Error ? err.message : 'An unknown error occurred';
 				showButtonInlineError = showInlineError;
 			}
-
+		} finally {
 			saving = false;
 		}
 	}
