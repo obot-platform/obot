@@ -30,6 +30,27 @@ func TestValidateServerManifestForCatalog_MultiUserConfig(t *testing.T) {
 	require.NoError(t, ValidateServerManifest(manifest, true))
 }
 
+func TestValidateCatalogEntryManifest_MultiUserConfig(t *testing.T) {
+	manifest := types.MCPServerCatalogEntryManifest{
+		Runtime: types.RuntimeNPX,
+		NPXConfig: &types.NPXRuntimeConfig{
+			Package: "test-server",
+		},
+	}
+
+	require.NoError(t, ValidateCatalogEntryManifest(manifest))
+
+	manifest.MultiUserConfig = &types.MultiUserConfig{}
+	require.Equal(t, types.RuntimeValidationError{
+		Runtime: types.RuntimeNPX,
+		Field:   "multiUserConfig",
+		Message: "multiUserConfig may only be set for multi-user catalog entries",
+	}, ValidateCatalogEntryManifest(manifest))
+
+	manifest.ServerUserType = types.ServerUserTypeMultiUser
+	require.NoError(t, ValidateCatalogEntryManifest(manifest))
+}
+
 func TestRemoteValidator_validateRemoteCatalogConfig(t *testing.T) {
 	validator := RemoteValidator{}
 

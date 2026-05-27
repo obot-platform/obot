@@ -1084,6 +1084,14 @@ func ValidateCatalogEntryManifest(manifest types.MCPServerCatalogEntryManifest) 
 		return fmt.Errorf("invalid serverUserType %q: must be %q or %q", manifest.ServerUserType, types.ServerUserTypeSingleUser, types.ServerUserTypeMultiUser)
 	}
 
+	if manifest.ServerUserType.IsSingleUser() && manifest.MultiUserConfig != nil {
+		return types.RuntimeValidationError{
+			Runtime: manifest.Runtime,
+			Field:   "multiUserConfig",
+			Message: "multiUserConfig may only be set for multi-user catalog entries",
+		}
+	}
+
 	if !manifest.ServerUserType.IsSingleUser() && manifest.Runtime == types.RuntimeComposite {
 		return fmt.Errorf("multiUser catalog entries do not support composite runtime")
 	}
