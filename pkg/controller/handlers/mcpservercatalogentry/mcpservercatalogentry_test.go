@@ -188,7 +188,7 @@ func TestEnsureUserCountMultiUserEntry(t *testing.T) {
 	assert.Equal(t, 2, updated.Status.UserCount)
 }
 
-func TestEnsureUserCountMultiUserEntryExcludesDeletedAndComposite(t *testing.T) {
+func TestEnsureUserCountMultiUserEntryExcludesComposite(t *testing.T) {
 	entry := newMCPServerCatalogEntry("multi-entry", types.MCPServerCatalogEntryManifest{
 		Name:           "Multi User Template",
 		Runtime:        types.RuntimeContainerized,
