@@ -495,7 +495,7 @@
 
 		// The menu label is "View Catalog Entry" whenever the deployment has a
 		// catalogEntryID, so link to the catalog entry in that case. This includes
-		// multi-user servers deployed from a catalog template, which carry both a
+		// multi-user servers deployed from a catalog entry, which carry both a
 		// catalogEntryID and a multiUser server type. Servers without a catalog
 		// entry link to the server itself ("View Server").
 

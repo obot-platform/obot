@@ -1723,6 +1723,10 @@ func (h *MCPCatalogHandler) RefreshCompositeComponents(req api.Context) error {
 		return err
 	}
 
+	if entry.Spec.Manifest.ServerUserType == "" {
+		entry.Spec.Manifest.ServerUserType = types.ServerUserTypeSingleUser
+	}
+
 	// Validate the refreshed manifest to ensure it's still valid
 	if err := validation.ValidateCatalogEntryManifest(entry.Spec.Manifest); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)

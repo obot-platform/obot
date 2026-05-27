@@ -179,7 +179,7 @@
 			d.type === 'single' ||
 			d.type === 'remote' ||
 			d.type === 'composite' ||
-			d.type === 'multi-template';
+			d.type === 'multi-catalog-entry';
 		if (isCatalogEntry) {
 			if (useAdminUrl) {
 				return d.data.powerUserWorkspaceID

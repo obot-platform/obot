@@ -216,7 +216,7 @@ func TestTriggerUpdateScope(t *testing.T) {
 
 				var shutdownServerNames []string
 				err := (&MCPHandler{
-					shutdownMCPServer: func(_ context.Context, serverName string) error {
+					shutdownMCPServer: func(serverName string) error {
 						shutdownServerNames = append(shutdownServerNames, serverName)
 						return nil
 					},

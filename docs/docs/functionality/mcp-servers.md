@@ -45,22 +45,22 @@ Multi-user servers still require the user to authenticate to the gateway's confi
 
 **Configuration**: Pre-configure any required API keys or environment variables. These values are deployed with the server instance. Users connect without being prompted for configuration and authenticate using the built-in authentication or OAuth per the MCP specification.
 
-### Multi-user catalog template
+### Multi-user catalog entry
 
-A multi-user catalog template is a catalog entry that can be deployed as a shared multi-user server. Instead of creating one server per user when users connect, Obot creates a shared deployment from the template and then creates per-user MCP server instances for the users who connect to that deployment.
+A multi-user catalog entry can be deployed as a shared multi-user server. Instead of creating one server per user when users connect, Obot creates a shared deployment from the catalog entry and then creates per-user MCP server instances for the users who connect to that deployment.
 
-Use a multi-user catalog template when:
+Use a multi-user catalog entry when:
 
 - Administrators or Power User+ users should publish an approved multi-user server configuration before it is deployed
 - Different workspaces or catalogs need their own shared deployment from the same catalog entry
 - The shared server may need deployment-level configuration, such as a URL, shared API key, or environment variables
 - Individual users still need per-user headers or authentication after connecting to the shared deployment
 
-Multi-user catalog templates are configured with `serverUserType: multiUser`. Admin and Power User+ users can deploy them as multi-user servers.
+Multi-user catalog entries are configured with `serverUserType: multiUser`. Admin and Power User+ users can deploy them as multi-user servers.
 
-Template updates are tracked against deployed servers. When a template changes, affected deployments show an update action and a diff of the current deployed manifest versus the updated template. Applying the update refreshes the shared deployment from the catalog template. Users may need to reconfigure their own instance if the update introduces new required per-user configuration.
+Catalog entry updates are tracked against deployed servers. When a catalog entry changes, affected deployments show an update action and a diff of the current deployed manifest versus the updated catalog entry. Applying the update refreshes the shared deployment from the catalog entry. Users may need to reconfigure their own instance if the update introduces new required per-user configuration.
 
-Multi-user catalog templates do not support the composite runtime. To build a composite server that includes a multi-user server, deploy the multi-user template first and then add that deployed server as a component of the composite server.
+Multi-user catalog entries do not support the composite runtime. To build a composite server that includes a multi-user server, deploy the multi-user catalog entry first and then add that deployed server as a component of the composite server.
 
 ### Remote server
 

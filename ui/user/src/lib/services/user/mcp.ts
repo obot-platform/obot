@@ -291,7 +291,7 @@ function convertEntriesToTableData(
 						: entry.manifest.runtime === 'composite'
 							? 'composite'
 							: isMultiUserEntry
-								? 'multi-template'
+								? 'multi-catalog-entry'
 								: 'single',
 				created: entry.created,
 				registry,
@@ -421,8 +421,8 @@ export function getServerTypeLabelByType(type?: string) {
 		? 'Single User'
 		: type === 'multi'
 			? 'Multi-User'
-			: type === 'multi-template'
-				? 'Multi-User Template'
+			: type === 'multi-catalog-entry'
+				? 'Multi-User Catalog Entry'
 				: type === 'remote'
 					? 'Remote'
 					: 'Composite';
@@ -551,7 +551,7 @@ export async function convertCompositeInfoToLaunchFormData(
 export function getServerUrl(d: MCPCatalogServer) {
 	const belongsToWorkspace = d.powerUserWorkspaceID ? true : false;
 	// Route by the server's actual user type, not by the presence of a catalog
-	// entry. Multi-user servers deployed from a catalog template carry a
+	// entry. Multi-user servers deployed from a catalog entry carry a
 	// catalogEntryID but are catalog-scoped MCPServers, so they must use the
 	// multi-user server details page (which fetches via /all-mcps/servers/{id}).
 	// The single-user instance page fetches via /mcp-servers/{id}, which only

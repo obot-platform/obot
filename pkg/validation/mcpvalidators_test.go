@@ -32,7 +32,8 @@ func TestValidateServerManifestForCatalog_MultiUserConfig(t *testing.T) {
 
 func TestValidateCatalogEntryManifest_MultiUserConfig(t *testing.T) {
 	manifest := types.MCPServerCatalogEntryManifest{
-		Runtime: types.RuntimeNPX,
+		ServerUserType: types.ServerUserTypeSingleUser,
+		Runtime:        types.RuntimeNPX,
 		NPXConfig: &types.NPXRuntimeConfig{
 			Package: "test-server",
 		},
@@ -1676,7 +1677,8 @@ func TestValidateManifestStartupTimeoutNonNegative(t *testing.T) {
 
 	t.Run("catalog manifest rejects negative startup timeout", func(t *testing.T) {
 		err := ValidateCatalogEntryManifest(types.MCPServerCatalogEntryManifest{
-			Runtime: types.RuntimeUVX,
+			ServerUserType: types.ServerUserTypeSingleUser,
+			Runtime:        types.RuntimeUVX,
 			UVXConfig: &types.UVXRuntimeConfig{
 				Package:               "test-package",
 				StartupTimeoutSeconds: -1,
@@ -1712,7 +1714,8 @@ func TestValidateManifestStartupTimeoutNonNegative(t *testing.T) {
 	t.Run("catalog manifest rejects startup timeout above maximum", func(t *testing.T) {
 		maxStartupTimeoutSeconds := int(mcp.MaxMCPServerStartupTimeout.Seconds())
 		err := ValidateCatalogEntryManifest(types.MCPServerCatalogEntryManifest{
-			Runtime: types.RuntimeNPX,
+			ServerUserType: types.ServerUserTypeSingleUser,
+			Runtime:        types.RuntimeNPX,
 			NPXConfig: &types.NPXRuntimeConfig{
 				Package:               "test-package",
 				StartupTimeoutSeconds: maxStartupTimeoutSeconds + 1,
@@ -1750,9 +1753,10 @@ func TestValidateMCPResourceRequirements(t *testing.T) {
 
 	t.Run("catalog manifest accepts valid resources", func(t *testing.T) {
 		err := ValidateCatalogEntryManifest(types.MCPServerCatalogEntryManifest{
-			Runtime:   types.RuntimeUVX,
-			UVXConfig: &types.UVXRuntimeConfig{Package: "test-package"},
-			Resources: validResources,
+			ServerUserType: types.ServerUserTypeSingleUser,
+			Runtime:        types.RuntimeUVX,
+			UVXConfig:      &types.UVXRuntimeConfig{Package: "test-package"},
+			Resources:      validResources,
 		})
 		require.NoError(t, err)
 	})
@@ -1848,9 +1852,10 @@ func TestValidateMCPResourceRequirements(t *testing.T) {
 
 		t.Run("catalog manifest rejects "+tt.name, func(t *testing.T) {
 			err := ValidateCatalogEntryManifest(types.MCPServerCatalogEntryManifest{
-				Runtime:   types.RuntimeUVX,
-				UVXConfig: &types.UVXRuntimeConfig{Package: "test-package"},
-				Resources: tt.resources,
+				ServerUserType: types.ServerUserTypeSingleUser,
+				Runtime:        types.RuntimeUVX,
+				UVXConfig:      &types.UVXRuntimeConfig{Package: "test-package"},
+				Resources:      tt.resources,
 			})
 
 			var validationErr types.RuntimeValidationError
@@ -2252,7 +2257,7 @@ func TestValidateTemplateReferences_CatalogEntry(t *testing.T) {
 func TestValidateCatalogEntryForRoute(t *testing.T) {
 	singleUserManifest := types.MCPServerCatalogEntryManifest{ServerUserType: types.ServerUserTypeSingleUser}
 	multiUserManifest := types.MCPServerCatalogEntryManifest{ServerUserType: types.ServerUserTypeMultiUser}
-	defaultManifest := types.MCPServerCatalogEntryManifest{} // empty = singleUser
+	invalidManifest := types.MCPServerCatalogEntryManifest{}
 
 	tests := []struct {
 		name        string
@@ -2269,11 +2274,11 @@ func TestValidateCatalogEntryForRoute(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name:        "empty serverUserType on single-user route: ok",
-			manifest:    defaultManifest,
+			name:        "empty serverUserType on single-user route: rejected",
+			manifest:    invalidManifest,
 			catalogID:   "",
 			workspaceID: "",
-			expectError: false,
+			expectError: true,
 		},
 		{
 			name:        "multiUser entry on single-user route: rejected",
@@ -2363,10 +2368,10 @@ func TestValidateCatalogEntryManifest_ServerUserType(t *testing.T) {
 		expectError    bool
 	}{
 		{
-			name:           "empty serverUserType with npx is valid (defaults to singleUser)",
+			name:           "empty serverUserType with npx is rejected",
 			manifest:       npxManifest,
 			serverUserType: "",
-			expectError:    false,
+			expectError:    true,
 		},
 		{
 			name:           "explicit singleUser with npx is valid",

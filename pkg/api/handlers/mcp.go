@@ -47,7 +47,9 @@ type MCPHandler struct {
 	acrHelper           *accesscontrolrule.Helper
 	mcpImagePullSecrets []string
 	serverURL           string
-	shutdownMCPServer   func(context.Context, string) error
+
+	// shutdownMCPServer is only injected for testing
+	shutdownMCPServer func(string) error
 }
 
 func NewMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.Helper, mcpOAuthChecker MCPOAuthChecker, mcpImagePullSecrets []string, serverURL string) *MCPHandler {
@@ -2434,7 +2436,7 @@ func toolsForServer(ctx context.Context, mcpSessionManager *mcp.SessionManager, 
 
 func (m *MCPHandler) removeMCPServer(ctx context.Context, mcpServer v1.MCPServer) error {
 	if m.shutdownMCPServer != nil {
-		return m.shutdownMCPServer(ctx, mcpServer.Name)
+		return m.shutdownMCPServer(mcpServer.Name)
 	}
 	if err := m.mcpSessionManager.ShutdownServer(ctx, mcpServer.Name); err != nil {
 		return fmt.Errorf("failed to shutdown server: %w", err)
@@ -2977,8 +2979,7 @@ func (m *MCPHandler) GetServerFromAllSources(req api.Context) error {
 		return err
 	}
 
-	// Check if server is from a catalog or workspace.
-	if server.Spec.MCPCatalogID == "" && server.Spec.PowerUserWorkspaceID == "" {
+	if server.Spec.IsSingleUser() {
 		return types.NewErrNotFound("MCP server not found")
 	}
 
@@ -3693,7 +3694,7 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 		// Multi-user servers deployed from catalog entries can be updated, but only
 		// through catalog- or workspace-scoped routes.
 		if server.Spec.MCPServerCatalogEntryName == "" {
-			return types.NewErrBadRequest("cannot trigger update for a multi-user MCP server without a catalog entry")
+			return types.NewErrBadRequest("cannot trigger update for a multi-user MCP server without a catalog entry; use the UpdateServer endpoint instead")
 		}
 		if err := validateServerScope(req, server); err != nil {
 			return err

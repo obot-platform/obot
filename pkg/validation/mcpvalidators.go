@@ -1065,6 +1065,12 @@ func ValidateServerManifest(manifest types.MCPServerManifest, isMultiUser bool) 
 // ValidateCatalogEntryForRoute checks that a catalog entry is compatible with the
 // route used to create a server. catalogID and workspaceID come from the URL path.
 func ValidateCatalogEntryForRoute(manifest types.MCPServerCatalogEntryManifest, catalogID, workspaceID string) error {
+	switch manifest.ServerUserType {
+	case types.ServerUserTypeSingleUser, types.ServerUserTypeMultiUser:
+	default:
+		return fmt.Errorf("invalid serverUserType %q: must be %q or %q", manifest.ServerUserType, types.ServerUserTypeSingleUser, types.ServerUserTypeMultiUser)
+	}
+
 	isMultiUserRoute := catalogID != "" || workspaceID != ""
 	isMultiUserEntry := !manifest.ServerUserType.IsSingleUser()
 
@@ -1079,7 +1085,7 @@ func ValidateCatalogEntryForRoute(manifest types.MCPServerCatalogEntryManifest, 
 
 func ValidateCatalogEntryManifest(manifest types.MCPServerCatalogEntryManifest) error {
 	switch manifest.ServerUserType {
-	case "", types.ServerUserTypeSingleUser, types.ServerUserTypeMultiUser:
+	case types.ServerUserTypeSingleUser, types.ServerUserTypeMultiUser:
 	default:
 		return fmt.Errorf("invalid serverUserType %q: must be %q or %q", manifest.ServerUserType, types.ServerUserTypeSingleUser, types.ServerUserTypeMultiUser)
 	}

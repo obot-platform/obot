@@ -22,21 +22,19 @@ const (
 	defaultStartupTimeoutSeconds = 60
 )
 
-// ServerUserType specifies whether a catalog entry is a single-user or multi-user template.
+// ServerUserType specifies whether a catalog entry is single-user or multi-user.
 type ServerUserType string
 
 const (
 	// ServerUserTypeSingleUser indicates each user gets their own MCP server instance.
-	// This is the default when the field is empty.
 	ServerUserTypeSingleUser ServerUserType = "singleUser"
 	// ServerUserTypeMultiUser indicates all users share a single MCP server.
 	ServerUserTypeMultiUser ServerUserType = "multiUser"
 )
 
 // IsSingleUser returns true if the type represents a single-user server.
-// An empty value defaults to single-user for backward compatibility.
 func (t ServerUserType) IsSingleUser() bool {
-	return t == "" || t == ServerUserTypeSingleUser
+	return t == ServerUserTypeSingleUser
 }
 
 // UVXRuntimeConfig represents configuration for UVX runtime (Python packages via uvx)
