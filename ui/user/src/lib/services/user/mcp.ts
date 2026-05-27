@@ -291,7 +291,7 @@ function convertEntriesToTableData(
 						: entry.manifest.runtime === 'composite'
 							? 'composite'
 							: isMultiUserEntry
-							? 'multi-template'
+								? 'multi-template'
 								: 'single',
 				created: entry.created,
 				registry,
@@ -421,7 +421,7 @@ export function getServerTypeLabelByType(type?: string) {
 		? 'Single User'
 		: type === 'multi'
 			? 'Multi-User'
-		: type === 'multi-template'
+			: type === 'multi-template'
 				? 'Multi-User Template'
 				: type === 'remote'
 					? 'Remote'
