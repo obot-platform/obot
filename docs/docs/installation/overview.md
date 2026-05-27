@@ -57,7 +57,7 @@ If you plan to deploy Obot on a managed Kubernetes service, these reference arch
 
 1. Choose a deployment method above
 2. Follow the corresponding deployment guide
-3. [Set up the local Obot CLI](/installation/cli-setup/)
+3. [Set up the local Obot CLI](./cli-setup.md)
 4. [Configure authentication](/configuration/auth-providers/)
 5. [Set up model providers](/configuration/model-providers/)
 6. Review the [server configuration options](/configuration/server-configuration/)
