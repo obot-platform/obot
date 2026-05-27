@@ -37,6 +37,7 @@
 			workspaceID={workspaceId}
 			{promptInitialLaunch}
 			readonly={profile.current.isAdminReadonly?.()}
+			allowMultiUserServerConfigurationEdit
 			onOAuthConfigured={() => {
 				if (!mcpServer) return;
 				AdminService.getMCPCatalogServer(serverScopeID, mcpServer.id).then((server) => {
