@@ -451,8 +451,6 @@
 				// Update the entry's tool preview in-place.
 				(entry as MCPCatalogServer).manifest.toolPreview = result.manifest?.toolPreview ?? [];
 				saving = false;
-			} else {
-				window.location.reload();
 			}
 		} catch (err) {
 			const errMessage = err instanceof Error ? err.message : 'An unknown error occurred';
