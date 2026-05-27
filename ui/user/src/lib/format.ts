@@ -81,3 +81,27 @@ export const formatDeviceCommand = (cmd?: string, args?: string[]): string => {
 	const parts = [cmd, ...(args ?? [])];
 	return parts.join(' ');
 };
+
+const AGENTS_HOME_PATTERN = /^(?:\/(?:Users|home|root)\/[^/]+|~)\/\.agents(?:\/|$)/;
+
+export const isAgentsHomeProjectPath = (projectPath?: string): boolean => {
+	if (!projectPath) return false;
+	return AGENTS_HOME_PATTERN.test(projectPath);
+};
+
+export const deriveDeviceScope = (projectPath?: string): string => {
+	if (!projectPath) return 'global';
+	if (isAgentsHomeProjectPath(projectPath)) return 'global';
+	return 'project';
+};
+
+export const MULTI_CLIENT_NAME = 'multi';
+export const AGENTS_HOME_CLIENT_LABEL = '~/.agents';
+
+export const formatDeviceClient = (client?: string, projectPath?: string): string => {
+	if (!client) return '—';
+	if (client.trim() === MULTI_CLIENT_NAME && isAgentsHomeProjectPath(projectPath)) {
+		return AGENTS_HOME_CLIENT_LABEL;
+	}
+	return client;
+};

@@ -2,6 +2,7 @@
 	import { page } from '$app/state';
 	import Layout from '$lib/components/Layout.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { deriveDeviceScope, formatDeviceClient } from '$lib/format.js';
 	import type { DeviceScanPlugin } from '$lib/services/admin/types';
 	import { goto } from '$lib/url';
 	import { formatBytes, lookupFiles } from '../../_shared/files';
@@ -14,7 +15,7 @@
 	let backHref = $derived(`/admin/devices/${page.params.device_id}/scans/${page.params.scan_id}`);
 
 	let files = $derived(lookupFiles(scan?.files, plugin?.files));
-	let scope = $derived(plugin?.projectPath ? 'project' : 'global');
+	let scope = $derived(deriveDeviceScope(plugin?.projectPath));
 
 	let capabilities = $derived(
 		plugin
@@ -50,7 +51,7 @@
 					{/if}
 					<span class="pill-primary bg-primary">{plugin.pluginType}</span>
 					<span class="dark:bg-base-400 bg-base-300 rounded px-1.5 py-0.5 text-xs">
-						{plugin.client}
+						{formatDeviceClient(plugin.client, plugin.projectPath)}
 					</span>
 					<span class="dark:bg-base-400 bg-base-300 rounded px-1.5 py-0.5 text-xs">
 						{scope}

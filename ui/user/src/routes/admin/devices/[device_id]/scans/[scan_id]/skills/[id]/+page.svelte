@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import Layout from '$lib/components/Layout.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { deriveDeviceScope, formatDeviceClient } from '$lib/format.js';
 	import type { DeviceScanSkill } from '$lib/services/admin/types';
 	import { goto } from '$lib/url';
 	import { findParentPlugin, formatBytes, lookupFiles } from '../../_shared/files';
@@ -16,8 +17,8 @@
 
 	let files = $derived(lookupFiles(scan?.files, skill?.files));
 	let parentPlugin = $derived(findParentPlugin(scan, skill?.file));
-	let scope = $derived(skill?.projectPath ? 'project' : 'global');
-	let clientLabel = $derived(skill?.client || '—');
+	let scope = $derived(deriveDeviceScope(skill?.projectPath));
+	let clientLabel = $derived(formatDeviceClient(skill?.client, skill?.projectPath));
 
 	const duration = PAGE_TRANSITION_DURATION;
 </script>
