@@ -7,7 +7,12 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { formatDeviceCommand } from '$lib/format.js';
+	import {
+		AGENTS_HOME_CLIENT_LABEL,
+		deriveDeviceScope,
+		formatDeviceClient,
+		formatDeviceCommand
+	} from '$lib/format.js';
 	import { AdminService, UserService } from '$lib/services';
 	import {
 		Group,
@@ -127,14 +132,11 @@
 		has_display: string;
 	};
 
-	function deriveScope(projectPath?: string): string {
-		return projectPath ? 'project' : 'global';
-	}
-
 	let mcpRows = $derived<MCPRow[]>(
 		mcpServers.map((m) => ({
 			...m,
-			scope: deriveScope(m.projectPath),
+			client: formatDeviceClient(m.client, m.projectPath),
+			scope: deriveDeviceScope(m.projectPath),
 			endpoint: m.transport === 'stdio' ? formatDeviceCommand(m.command, m.args) : m.url || '—'
 		}))
 	);
@@ -142,7 +144,8 @@
 	let skillRows = $derived<SkillRow[]>(
 		skills.map((s) => ({
 			...s,
-			scope: deriveScope(s.projectPath),
+			client: formatDeviceClient(s.client, s.projectPath),
+			scope: deriveDeviceScope(s.projectPath),
 			files_count: (s.files ?? []).length
 		}))
 	);
@@ -150,7 +153,8 @@
 	let pluginRows = $derived<PluginRow[]>(
 		plugins.map((p) => ({
 			...p,
-			scope: deriveScope(p.projectPath),
+			client: formatDeviceClient(p.client, p.projectPath),
+			scope: deriveDeviceScope(p.projectPath),
 			capabilities: capabilitySummary(p)
 		}))
 	);
@@ -487,7 +491,7 @@
 />
 
 {#snippet clientLink(client?: string)}
-	{#if client && client.trim() !== 'multi'}
+	{#if client && client.trim() !== 'multi' && client !== AGENTS_HOME_CLIENT_LABEL}
 		<a
 			class="btn-link text-blue-500"
 			href={resolve(`/admin/device-clients/${encodeURIComponent(client)}`)}

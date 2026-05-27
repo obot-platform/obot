@@ -5,6 +5,7 @@
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { deriveDeviceScope, formatDeviceClient } from '$lib/format.js';
 	import type { DeviceScanMCPServer } from '$lib/services/admin/types';
 	import { goto } from '$lib/url';
 	import { findParentPlugin, shortHash } from '../../_shared/files';
@@ -27,7 +28,7 @@
 	);
 
 	let parentPlugin = $derived(findParentPlugin(scan, server?.file));
-	let scope = $derived(server?.projectPath ? 'project' : 'global');
+	let scope = $derived(deriveDeviceScope(server?.projectPath));
 
 	function renderConfig(s: DeviceScanMCPServer): string {
 		const entry: Record<string, unknown> = { type: s.transport };
@@ -74,7 +75,7 @@
 					<h2 class="text-xl font-semibold">{server.name}</h2>
 					<span class="pill-primary bg-primary">{server.transport}</span>
 					<span class="dark:bg-base-400 bg-base-300 rounded px-1.5 py-0.5 text-xs">
-						{server.client}
+						{formatDeviceClient(server.client, server.projectPath)}
 					</span>
 					<span class="dark:bg-base-400 bg-base-300 rounded px-1.5 py-0.5 text-xs">
 						{scope}
