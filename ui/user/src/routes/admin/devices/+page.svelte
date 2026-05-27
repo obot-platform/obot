@@ -42,19 +42,6 @@
 		scanned_relative: string;
 	};
 
-	let rows = $derived<Row[]>(
-		(devicesResp.items ?? []).map((s) => ({
-			...s,
-			short_device_id: (s.deviceID ?? '').slice(0, 12),
-			os_arch: `${s.os} / ${s.arch}`,
-			mcp_count: s.mcpServers?.length ?? 0,
-			skill_count: s.skills?.length ?? 0,
-			plugin_count: s.plugins?.length ?? 0,
-			client_count: s.clients?.length ?? 0,
-			scanned_relative: formatTimeAgo(s.scannedAt).relativeTime
-		}))
-	);
-
 	const userById = $derived<Map<string, OrgUser>>(
 		new Map((data?.users ?? []).map((u) => [u.id, u]))
 	);
@@ -62,6 +49,23 @@
 	function userDisplay(u: OrgUser): string {
 		return u.displayName ?? u.email ?? u.username ?? u.id;
 	}
+
+	let rows = $derived<Row[]>(
+		(devicesResp.items ?? []).map((s) => {
+			const u = s.submittedBy ? userById.get(s.submittedBy) : undefined;
+			return {
+				...s,
+				username: u ? userDisplay(u) : s.username,
+				short_device_id: (s.deviceID ?? '').slice(0, 12),
+				os_arch: `${s.os} / ${s.arch}`,
+				mcp_count: s.mcpServers?.length ?? 0,
+				skill_count: s.skills?.length ?? 0,
+				plugin_count: s.plugins?.length ?? 0,
+				client_count: s.clients?.length ?? 0,
+				scanned_relative: formatTimeAgo(s.scannedAt).relativeTime
+			};
+		})
+	);
 
 	let filteredRows = $derived.by(() => {
 		const q = query.trim().toLowerCase();
