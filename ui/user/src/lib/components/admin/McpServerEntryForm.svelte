@@ -723,8 +723,8 @@
 						<div class="flex items-center gap-3">
 							<CircleFadingArrowUp class="size-6" />
 							<p>
-								The configuration for this server's catalog entry has changed and can be applied
-								to this server.
+								The configuration for this server's catalog entry has changed and can be applied to
+								this server.
 							</p>
 						</div>
 					</div>
