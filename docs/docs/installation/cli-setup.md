@@ -137,7 +137,7 @@ The Obot server did not report exactly one usable configured authentication prov
 
 Check that the URL points to the Obot app, that the server is running, and that the CLI can reach it from your workstation.
 
-### `--url is required in non-interactive mode`
+### Missing `--url` in non-interactive mode
 
 Pass `--url`, or run setup interactively and enter the URL when prompted.
 
