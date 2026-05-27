@@ -62,11 +62,11 @@
 	let instance = $state<MCPServerInstance>();
 	let manifest = $derived(server?.manifest || entry?.manifest);
 	let isConfigured = $derived(Boolean((entry && server) || (server && instance)));
-	let isDeployingMultiUserTemplate = $derived(
-		Boolean(entry && !server && isMultiUserTemplate(entry))
+	let isDeployingMultiUserCatalogEntry = $derived(
+		Boolean(entry && !server && isMultiUserCatalogEntry(entry))
 	);
 	let shouldShowAlias = $derived(
-		isDeployingMultiUserTemplate || (isConfigured && !isMultiUserServer(server))
+		isDeployingMultiUserCatalogEntry || (isConfigured && !isMultiUserServer(server))
 	);
 	let secretBindingEngineError = $derived(
 		isKubernetesRuntimeBackend(version.current.engine)
@@ -200,7 +200,7 @@
 		return (item?.manifest?.multiUserConfig?.userDefinedHeaders?.length ?? 0) > 0;
 	}
 
-	function isMultiUserTemplate(item?: MCPCatalogEntry) {
+	function isMultiUserCatalogEntry(item?: MCPCatalogEntry) {
 		return item?.manifest?.serverUserType === 'multiUser';
 	}
 
@@ -558,10 +558,10 @@
 		}
 	}
 
-	async function handleLaunchMultiUserTemplate() {
+	async function handleLaunchMultiUserCatalogEntry() {
 		if (!entry) return;
 		if (!catalogID && !workspaceID) {
-			error = 'A catalog or workspace is required to deploy a multi-user server template.';
+			error = 'A catalog or workspace is required to deploy a multi-user catalog entry.';
 			return;
 		}
 
@@ -576,13 +576,17 @@
 				alias: aliasToUse
 			};
 			if (workspaceID) {
-				created = await UserService.deployWorkspaceMultiUserTemplate(
+				created = await UserService.deployWorkspaceMultiUserCatalogEntry(
 					workspaceID,
 					entry.id,
 					serverPayload
 				);
 			} else {
-				created = await AdminService.deployMultiUserTemplate(catalogID!, entry.id, serverPayload);
+				created = await AdminService.deployMultiUserCatalogEntry(
+					catalogID!,
+					entry.id,
+					serverPayload
+				);
 			}
 			server = created;
 
@@ -631,12 +635,12 @@
 		error = undefined;
 		saving = true;
 		try {
-			if (entry && isMultiUserTemplate(entry) && !server) {
-				await handleLaunchMultiUserTemplate();
+			if (entry && isMultiUserCatalogEntry(entry) && !server) {
+				await handleLaunchMultiUserCatalogEntry();
 			} else if (entry && entry.manifest?.runtime === 'composite') {
 				await handleLaunchCompositeServer();
 			} else if (isMultiUserServer(server)) {
-				// Deployed multi-user servers (including template-deployed ones) always
+				// Deployed multi-user servers (including catalog entry deployments) always
 				// create an MCPServerInstance, regardless of whether entry is also set.
 				await handleMultiUserServer();
 			} else if (entry) {

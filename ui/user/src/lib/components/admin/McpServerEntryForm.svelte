@@ -135,7 +135,7 @@
 		if (!tab) return fallback;
 		return tabs.some((t) => t.view === tab) ? tab : fallback;
 	});
-	let configurationReadonly = $derived(readonly || isTemplateDeployedMultiUserServer(entry));
+	let configurationReadonly = $derived(readonly || isCatalogEntryDeployedMultiUserServer(entry));
 	let showLeftChevron = $state(false);
 	let showRightChevron = $state(false);
 	let scrollContainer = $state<HTMLDivElement>();
@@ -182,9 +182,9 @@
 						...(belongsToUser ? [{ label: 'Server Details', view: 'server-instances' }] : []),
 						{ label: 'Tools', view: 'tools' },
 						// Basic users who just connected don't see Configuration.
-						// Template-deployed multi-user servers also hide it: the configuration is
+						// Catalog entry-deployed multi-user servers also hide it: the configuration is
 						// owned by the upstream catalog entry, not the deployment.
-						...(trueOwner && !isTemplateDeployedMultiUserServer(entry)
+						...(trueOwner && !isCatalogEntryDeployedMultiUserServer(entry)
 							? [{ label: 'Configuration', view: 'configuration' }]
 							: []),
 						...(belongsToUser
@@ -287,7 +287,7 @@
 		return ('alias' in item && item.alias) || item.manifest.name;
 	}
 
-	function isTemplateDeployedMultiUserServer(item?: MCPCatalogEntry | MCPCatalogServer) {
+	function isCatalogEntryDeployedMultiUserServer(item?: MCPCatalogEntry | MCPCatalogServer) {
 		return (
 			!!item &&
 			!('isCatalogEntry' in item) &&

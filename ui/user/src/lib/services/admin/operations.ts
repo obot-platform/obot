@@ -930,7 +930,7 @@ export async function createMCPCatalogServer(
 	return response;
 }
 
-export async function deployMultiUserTemplate(
+export async function deployMultiUserCatalogEntry(
 	catalogID: string,
 	catalogEntryID: string,
 	server?: { manifest?: { remoteConfig?: { url?: string } }; alias?: string },

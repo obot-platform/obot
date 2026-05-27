@@ -255,7 +255,7 @@ function convertEntriesToTableData(
 		return [];
 	}
 
-	const deployedMultiUserTemplateEntryIDs = new Set(
+	const deployedMultiUserCatalogEntryIDs = new Set(
 		(deployedServers ?? [])
 			.filter((server) => isMultiUserServer(server) && server.catalogEntryID)
 			.map((server) => server.catalogEntryID)
@@ -276,8 +276,8 @@ function convertEntriesToTableData(
 			const configuredServers = userConfiguredServersByEntry.get(entry.id) ?? [];
 			const missingSecretBinding = hasMissingSecretBinding(entry, configuredServers);
 			const connected = configuredServers.some((s) => !serverHasMissingSecretBinding(entry, s));
-			const isMultiUserTemplate = isMultiUserTemplateEntry(entry);
-			const isDeployed = isMultiUserTemplate && deployedMultiUserTemplateEntryIDs.has(entry.id);
+			const isMultiUserEntry = isMultiUserCatalogEntry(entry);
+			const isDeployed = isMultiUserEntry && deployedMultiUserCatalogEntryIDs.has(entry.id);
 			return {
 				id: entry.id,
 				name: entry.manifest?.name ?? '',
@@ -290,8 +290,8 @@ function convertEntriesToTableData(
 						? 'remote'
 						: entry.manifest.runtime === 'composite'
 							? 'composite'
-							: isMultiUserTemplate
-								? 'multi-template'
+							: isMultiUserEntry
+							? 'multi-template'
 								: 'single',
 				created: entry.created,
 				registry,
@@ -301,7 +301,7 @@ function convertEntriesToTableData(
 				missingKubernetesSecret: missingSecretBinding,
 				status: missingSecretBinding
 					? ''
-					: isMultiUserTemplate
+					: isMultiUserEntry
 						? isDeployed
 							? 'Deployed'
 							: ''
@@ -407,7 +407,7 @@ export function getServerTypeLabel(server?: MCPCatalogServer | MCPCatalogEntry) 
 	return serverUserType === 'multiUser' ? 'Multi-User' : 'Single User';
 }
 
-export function isMultiUserTemplateEntry(entry?: MCPCatalogEntry) {
+export function isMultiUserCatalogEntry(entry?: MCPCatalogEntry) {
 	return entry?.manifest?.serverUserType === 'multiUser';
 }
 
@@ -421,7 +421,7 @@ export function getServerTypeLabelByType(type?: string) {
 		? 'Single User'
 		: type === 'multi'
 			? 'Multi-User'
-			: type === 'multi-template'
+		: type === 'multi-template'
 				? 'Multi-User Template'
 				: type === 'remote'
 					? 'Remote'

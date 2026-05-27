@@ -211,7 +211,7 @@ func (h *Handler) collectAccessibleServersNoAuth(req api.Context, reverseDNS str
 
 	// Filter for wildcard ACR access
 	for _, entry := range entryList.Items {
-		if handlers.HideMultiUserTemplate(req, entry) {
+		if handlers.HideMultiUserCatalogEntry(req, entry) {
 			continue
 		}
 
@@ -338,7 +338,7 @@ func (h *Handler) listCatalogEntriesInCatalog(
 		if exclude[entry.Name] {
 			continue
 		}
-		if handlers.HideMultiUserTemplate(req, entry) {
+		if handlers.HideMultiUserCatalogEntry(req, entry) {
 			continue
 		}
 
@@ -434,7 +434,7 @@ func (h *Handler) listCatalogEntriesInWorkspaces(
 			if exclude[entry.Name] {
 				continue
 			}
-			if handlers.HideMultiUserTemplate(req, entry) {
+			if handlers.HideMultiUserCatalogEntry(req, entry) {
 				continue
 			}
 
@@ -832,7 +832,7 @@ func (h *Handler) findMCPServerCatalogEntry(req api.Context, entryName string, r
 	if err != nil {
 		return types.RegistryServerResponse{}, fmt.Errorf("catalog entry not found")
 	}
-	if handlers.HideMultiUserTemplate(req, entry) {
+	if handlers.HideMultiUserCatalogEntry(req, entry) {
 		return types.RegistryServerResponse{}, fmt.Errorf("catalog entry not found")
 	}
 

@@ -28,8 +28,8 @@
 		deleteMcpServerDeployment,
 		disconnectMcpServerUser,
 		hasMissingSecretBindingConfig,
+		isMultiUserCatalogEntry,
 		isMultiUserServer,
-		isMultiUserTemplateEntry,
 		requiresUserUpdate,
 		restartMcpServer
 	} from '$lib/services/user/mcp';
@@ -497,7 +497,7 @@
 				{@const matchingInstance =
 					d.connected && d.type === 'multi' ? instancesMap.get(d.data.id) : undefined}
 				{@const hasConnectedOptions = isCatalogEntry
-					? catalogEntry && !isMultiUserTemplateEntry(catalogEntry) && matchingServers.length > 0
+					? catalogEntry && !isMultiUserCatalogEntry(catalogEntry) && matchingServers.length > 0
 					: !!matchingInstance}
 				{@const requiresOAuth =
 					catalogEntry?.manifest?.runtime === 'remote' &&
@@ -614,7 +614,7 @@
 									</button>
 								{/if}
 
-								{#if matchingServers.length > 0 && catalogEntry && !isMultiUserTemplateEntry(catalogEntry)}
+								{#if matchingServers.length > 0 && catalogEntry && !isMultiUserCatalogEntry(catalogEntry)}
 									<button
 										class="menu-button hover:bg-base-400"
 										onclick={async (e) => {
@@ -751,17 +751,17 @@
 	isCreateFirst?: boolean
 )}
 	{@const canConnect = d.canConnect !== false}
-	{@const isMultiUserTemplate = 'isCatalogEntry' in d && isMultiUserTemplateEntry(d)}
+	{@const isMultiUserCatalogEntryRow = 'isCatalogEntry' in d && isMultiUserCatalogEntry(d)}
 	{@const isAdminDeployable =
-		isMultiUserTemplate &&
+		isMultiUserCatalogEntryRow &&
 		((!!catalog && profile.current?.hasAdminAccess?.()) || (entity === 'workspace' && !!id))}
 	<button
 		class="menu-button disabled:cursor-not-allowed disabled:opacity-50"
-		disabled={!canConnect || (isMultiUserTemplate && !isAdminDeployable)}
+		disabled={!canConnect || (isMultiUserCatalogEntryRow && !isAdminDeployable)}
 		use:tooltip={{
 			text:
-				isMultiUserTemplate && !isAdminDeployable
-					? 'This is a multi-user server template. An administrator must deploy it before you can connect.'
+				isMultiUserCatalogEntryRow && !isAdminDeployable
+					? 'This is a multi-user catalog entry. An administrator must deploy it before you can connect.'
 					: canConnect
 						? ''
 						: 'See MCP Registries to grant connect access to this server',
@@ -771,7 +771,7 @@
 			e.stopPropagation();
 
 			if ('isCatalogEntry' in d) {
-				if (isMultiUserTemplateEntry(d)) {
+				if (isMultiUserCatalogEntry(d)) {
 					connectToServerDialog?.open({ entry: d });
 					toggle(false);
 					return;

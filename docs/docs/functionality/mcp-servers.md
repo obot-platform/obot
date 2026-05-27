@@ -56,7 +56,7 @@ Use a multi-user catalog template when:
 - The shared server may need deployment-level configuration, such as a URL, shared API key, or environment variables
 - Individual users still need per-user headers or authentication after connecting to the shared deployment
 
-Multi-user catalog templates are configured with `serverUserType: multiUser`. They can be deployed from catalog-scoped admin routes or workspace-scoped Power User+ routes. A workspace deployment created from a global catalog template belongs to the workspace deployment, not to the global catalog entry, so workspace owners manage that deployment from the workspace view.
+Multi-user catalog templates are configured with `serverUserType: multiUser`. Admin and Power User+ users can deploy them as multi-user servers.
 
 Template updates are tracked against deployed servers. When a template changes, affected deployments show an update action and a diff of the current deployed manifest versus the updated template. Applying the update refreshes the shared deployment from the catalog template. Users may need to reconfigure their own instance if the update introduces new required per-user configuration.
 

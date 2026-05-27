@@ -94,7 +94,7 @@ func (m *MCPHandler) GetEntryFromAllSources(req api.Context) error {
 	if entry.Spec.MCPCatalogName != system.DefaultCatalog && entry.Spec.PowerUserWorkspaceID == "" {
 		return types.NewErrNotFound("MCP catalog entry not found")
 	}
-	if HideMultiUserTemplate(req, entry) {
+	if HideMultiUserCatalogEntry(req, entry) {
 		return types.NewErrNotFound("MCP catalog entry not found")
 	}
 
@@ -141,7 +141,7 @@ func (m *MCPHandler) ListEntriesFromAllSources(req api.Context) error {
 	// Apply ACR filtering for regular users and for admins without ?all=true
 	var entries []types.MCPServerCatalogEntry
 	for _, entry := range list.Items {
-		if HideMultiUserTemplate(req, entry) {
+		if HideMultiUserCatalogEntry(req, entry) {
 			continue
 		}
 
@@ -176,9 +176,9 @@ func (m *MCPHandler) ListEntriesFromAllSources(req api.Context) error {
 	return req.Write(types.MCPServerCatalogEntryList{Items: entries})
 }
 
-// HideMultiUserTemplate determines if users should be able to see a CatalogEntry based on whether it
-// is single or multi-user. PowerUserPlus includes admins.
-func HideMultiUserTemplate(req api.Context, entry v1.MCPServerCatalogEntry) bool {
+// HideMultiUserCatalogEntry determines whether a user should be able to see a catalog entry based on
+// its single-user or multi-user type.
+func HideMultiUserCatalogEntry(req api.Context, entry v1.MCPServerCatalogEntry) bool {
 	return !req.UserIsPowerUserPlus() && !entry.Spec.Manifest.ServerUserType.IsSingleUser()
 }
 
@@ -1579,7 +1579,7 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 		}
 
 		// Verify the entry is visible from this route scope. Workspace routes can deploy
-		// global catalog templates, so this intentionally uses visibility validation.
+		// global catalog entries, so this intentionally uses visibility validation.
 		if err := validateEntryVisibleFromScope(catalogEntry, catalogID, workspaceID); err != nil {
 			return err
 		}
@@ -1589,8 +1589,8 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 			return types.NewErrBadRequest("catalog entry requires OAuth configuration by an administrator before it can be used")
 		}
 
-		// For multiUser template deployments, always use template-faithful materialization.
-		// Admins may override single-user catalog entry config, but not a template's runtime shape.
+		// For multi-user catalog entries, preserve the catalog entry's runtime shape.
+		// Admins may override single-user catalog entry config.
 		isAdminOverride := req.UserIsAdmin() && catalogEntry.Spec.Manifest.ServerUserType.IsSingleUser()
 		manifest, err := serverManifestFromCatalogEntryManifest(isAdminOverride, false, catalogEntry.Spec.Manifest, input.MCPServerManifest)
 		if err != nil {
@@ -3690,7 +3690,7 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 	}
 
 	if !server.Spec.IsSingleUser() {
-		// Multi-user servers deployed from templates can be updated, but only
+		// Multi-user servers deployed from catalog entries can be updated, but only
 		// through catalog- or workspace-scoped routes.
 		if server.Spec.MCPServerCatalogEntryName == "" {
 			return types.NewErrBadRequest("cannot trigger update for a multi-user MCP server without a catalog entry")
@@ -3699,7 +3699,7 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 			return err
 		}
 		if !req.UserIsAdmin() {
-			// Multi-user template-deployed servers require PowerUserPlus access to the owning workspace.
+			// Multi-user catalog entry deployments require PowerUserPlus access to the owning workspace.
 			if !req.UserIsPowerUserPlus() || workspaceID == "" || server.Spec.PowerUserWorkspaceID != workspaceID {
 				return types.NewErrNotFound("MCP server %s not found", server.Name)
 			}

@@ -48,7 +48,7 @@ func TestConvertMCPResources(t *testing.T) {
 	assert.Equal(t, resources, server.MCPServerManifest.Resources)
 }
 
-func TestHideMultiUserTemplate(t *testing.T) {
+func TestHideMultiUserCatalogEntry(t *testing.T) {
 	multiUserEntry := v1.MCPServerCatalogEntry{
 		Spec: v1.MCPServerCatalogEntrySpec{
 			Manifest: types.MCPServerCatalogEntryManifest{
@@ -71,7 +71,7 @@ func TestHideMultiUserTemplate(t *testing.T) {
 		want  bool
 	}{
 		{
-			name:  "basic user cannot see multi-user templates",
+			name:  "basic user cannot see multi-user catalog entries",
 			user:  &kuser.DefaultInfo{Groups: types.RoleBasic.Groups()},
 			entry: multiUserEntry,
 			want:  true,
@@ -83,13 +83,13 @@ func TestHideMultiUserTemplate(t *testing.T) {
 			want:  false,
 		},
 		{
-			name:  "admin can see multi-user templates",
+			name:  "admin can see multi-user catalog entries",
 			user:  &kuser.DefaultInfo{Groups: types.RoleAdmin.Groups()},
 			entry: multiUserEntry,
 			want:  false,
 		},
 		{
-			name:  "power user plus can see multi-user templates",
+			name:  "power user plus can see multi-user catalog entries",
 			user:  &kuser.DefaultInfo{Groups: types.RolePowerUserPlus.Groups()},
 			entry: multiUserEntry,
 			want:  false,
@@ -98,7 +98,7 @@ func TestHideMultiUserTemplate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := HideMultiUserTemplate(api.Context{User: tt.user}, tt.entry)
+			got := HideMultiUserCatalogEntry(api.Context{User: tt.user}, tt.entry)
 			assert.Equal(t, tt.want, got)
 		})
 	}
@@ -289,7 +289,7 @@ func TestTriggerUpdateScope(t *testing.T) {
 		})
 	})
 
-	t.Run("multi-user catalog templates", func(t *testing.T) {
+	t.Run("multi-user catalog entries", func(t *testing.T) {
 		runTriggerUpdateScopeCases(t, []triggerUpdateScopeTestCase{
 			{
 				name: "admin can update catalog multi-user server through unscoped route",

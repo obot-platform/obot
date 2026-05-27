@@ -1041,7 +1041,7 @@ export async function createWorkspaceMCPCatalogServer(
 	return response;
 }
 
-export async function deployWorkspaceMultiUserTemplate(
+export async function deployWorkspaceMultiUserCatalogEntry(
 	workspaceID: string,
 	catalogEntryID: string,
 	server?: { manifest?: { remoteConfig?: { url?: string } }; alias?: string },

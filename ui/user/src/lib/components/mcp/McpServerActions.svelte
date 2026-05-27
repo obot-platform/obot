@@ -14,8 +14,8 @@
 		deleteMcpServerDeployment,
 		disconnectMcpServerUser,
 		hasEditableConfiguration,
+		isMultiUserCatalogEntry,
 		isMultiUserServer,
-		isMultiUserTemplateEntry,
 		requiresUserUpdate,
 		restartMcpServer
 	} from '$lib/services/user/mcp';
@@ -117,9 +117,8 @@
 			: []
 	);
 
-	// Multi-user templates are deployable catalog entries. Connecting from the
-	// template row always starts a new shared server deployment.
-	let isMultiUserTemplate = $derived(isMultiUserTemplateEntry(entry) && !server);
+	// Connecting from a multi-user catalog entry row always starts a new shared server deployment.
+	let isMultiUserCatalogEntryRow = $derived(isMultiUserCatalogEntry(entry) && !server);
 	let requiresUpdate = $derived(server && requiresUserUpdate(server));
 	let canReauthenticate = $derived(
 		server?.manifest.runtime === 'remote' && Object.keys(server.oauthMetadata ?? {}).length > 0
@@ -164,7 +163,7 @@
 	let hasMultiUserServerNotOwned = $derived(
 		configuredServers.some(
 			(s) =>
-				(isMultiUserServer(s) || isMultiUserTemplateEntry(entry)) &&
+				(isMultiUserServer(s) || isMultiUserCatalogEntry(entry)) &&
 				!profile.current.isAdmin?.() &&
 				!(s.powerUserWorkspaceID && s.userID === profile.current.id)
 		)
@@ -189,7 +188,7 @@
 		entry &&
 			server &&
 			!isMultiUserServer(server) &&
-			!isMultiUserTemplateEntry(entry) &&
+			!isMultiUserCatalogEntry(entry) &&
 			profile.current.isAdmin?.() &&
 			server.userID !== profile.current.id
 	);
@@ -295,14 +294,14 @@
 		)}
 		use:tooltip={{
 			text:
-				isMultiUserTemplate && !profile.current?.hasAdminAccess?.()
-					? 'This is a multi-user server template. An administrator must deploy it before you can connect.'
+				isMultiUserCatalogEntryRow && !profile.current?.hasAdminAccess?.()
+					? 'This is a multi-user catalog entry. An administrator must deploy it before you can connect.'
 					: canConnect
 						? ''
 						: 'See MCP Registries to grant connect access to this server'
 		}}
 		onclick={async () => {
-			if (isMultiUserTemplate) {
+			if (isMultiUserCatalogEntryRow) {
 				connectToServerDialog?.open({
 					entry
 				});
@@ -324,7 +323,7 @@
 			}
 		}}
 		disabled={loading ||
-			(isMultiUserTemplate && !catalogID && !workspaceID) ||
+			(isMultiUserCatalogEntryRow && !catalogID && !workspaceID) ||
 			!canConnect ||
 			(requiresStaticOAuth && oauthConfigured === false)}
 	>
@@ -619,7 +618,7 @@
 						<Unplug class="size-4" />
 					{/if} Disconnect
 				</button>
-			{:else if entry && server && isServerOwner && !canDeleteMultiUserServer && !isMultiUserTemplateEntry(entry)}
+			{:else if entry && server && isServerOwner && !canDeleteMultiUserServer && !isMultiUserCatalogEntry(entry)}
 				<button
 					class="menu-button"
 					disabled={disconnecting}
@@ -761,7 +760,7 @@
 				>
 					<ReceiptText class="size-4" /> Server Details
 				</button>
-				{#if !isMultiUserTemplateEntry(entry)}
+				{#if !isMultiUserCatalogEntry(entry)}
 					<button
 						class="menu-button"
 						onclick={async (e) => {

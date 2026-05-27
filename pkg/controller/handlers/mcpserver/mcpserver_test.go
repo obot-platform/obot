@@ -799,7 +799,7 @@ func newMCPServer(name string) *v1.MCPServer {
 	}
 }
 
-func TestDetectDriftMarksMultiUserTemplateDeploymentNeedingUpdate(t *testing.T) {
+func TestDetectDriftMarksMultiUserCatalogEntryDeploymentNeedingUpdate(t *testing.T) {
 	entry := newMCPServerCatalogEntry("template-entry", types.MCPServerCatalogEntryManifest{
 		Name:           "Shared Template",
 		Runtime:        types.RuntimeContainerized,
@@ -838,7 +838,7 @@ func TestDetectDriftMarksMultiUserTemplateDeploymentNeedingUpdate(t *testing.T) 
 	assert.True(t, updated.Status.NeedsUpdate)
 }
 
-func TestDetectDriftClearsMultiUserTemplateDeploymentWhenConfigurationMatches(t *testing.T) {
+func TestDetectDriftClearsMultiUserCatalogEntryDeploymentWhenConfigurationMatches(t *testing.T) {
 	entry := newMCPServerCatalogEntry("template-entry", types.MCPServerCatalogEntryManifest{
 		Name:           "Shared Template",
 		Runtime:        types.RuntimeContainerized,

@@ -86,7 +86,7 @@ func validateEntryScope(entry v1.MCPServerCatalogEntry, catalogName, workspaceID
 
 // validateEntryVisibleFromScope checks that a catalog entry is visible from the scope indicated by the request path.
 // Unlike validateEntryScope, workspace-scoped routes also allow global catalog entries (MCPCatalogName set)
-// so PowerUserPlus users can read and deploy servers from global catalog templates into their workspace.
+// so PowerUserPlus users can read and deploy servers from global catalog entries into their workspace.
 func validateEntryVisibleFromScope(entry v1.MCPServerCatalogEntry, catalogName, workspaceID string) error {
 	if catalogName != "" && entry.Spec.MCPCatalogName != catalogName {
 		return types.NewErrBadRequest("entry does not belong to catalog")

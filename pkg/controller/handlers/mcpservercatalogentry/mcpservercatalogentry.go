@@ -35,7 +35,7 @@ func NewHandler(gClient *gptscript.GPTScript) *Handler {
 
 // EnsureUserCount ensures that the user count for an MCP server catalog entry is up to date.
 // For single-user entries, this counts unique users who have an MCPServer created from the entry.
-// For multi-user entries, this counts the number of deployed MCPServers from the template.
+// For multi-user entries, this counts the number of deployed MCPServers from the catalog entry.
 func (*Handler) EnsureUserCount(req router.Request, _ router.Response) error {
 	entry := req.Object.(*v1.MCPServerCatalogEntry)
 
