@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -102,6 +103,38 @@ func TestHideMultiUserCatalogEntry(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func TestUpdateServerAliasUnscopedSharedServer(t *testing.T) {
+	server := v1.MCPServer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "server",
+			Namespace: system.DefaultNamespace,
+		},
+		Spec: v1.MCPServerSpec{
+			MCPCatalogID: "catalog-a",
+			Manifest: types.MCPServerManifest{
+				Name:    "server",
+				Runtime: types.RuntimeNPX,
+			},
+		},
+	}
+
+	req := httptest.NewRequest(http.MethodPut, "/api/mcp-servers/server/alias", strings.NewReader(`{"alias":"new alias"}`))
+	req.SetPathValue("mcp_server_id", "server")
+	storage := newFakeStorage(t, &server)
+
+	err := (&MCPHandler{}).UpdateServerAlias(api.Context{
+		ResponseWriter: httptest.NewRecorder(),
+		Request:        req,
+		Storage:        storage,
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "use the catalog or workspace scoped route")
+
+	var updated v1.MCPServer
+	require.NoError(t, storage.Get(context.Background(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: "server"}, &updated))
+	assert.Empty(t, updated.Spec.Alias)
 }
 
 func TestTriggerUpdateScope(t *testing.T) {
