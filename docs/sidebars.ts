@@ -30,6 +30,7 @@ const sidebars = {
 				"functionality/message-policies",
 				"functionality/skills",
 				"functionality/skill-access-policies",
+				"functionality/device-management",
 				"functionality/user-management",
 				"functionality/api-keys",
 				"functionality/branding",
