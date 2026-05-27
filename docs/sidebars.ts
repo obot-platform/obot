@@ -44,6 +44,7 @@ const sidebars = {
 				"installation/docker-deployment",
 				"installation/kubernetes-deployment",
 				"installation/kubernetes-persistent-storage",
+				"installation/cli-setup",
 				"installation/enabling-authentication",
 				{
 					type: "category",
