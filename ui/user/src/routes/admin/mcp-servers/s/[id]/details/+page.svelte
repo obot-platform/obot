@@ -14,7 +14,7 @@
 	let { mcpServer } = $derived(data);
 	let workspaceId = $derived(mcpServer?.powerUserWorkspaceID);
 	let serverScopeEntity = $derived(workspaceId ? ('workspace' as const) : ('catalog' as const));
-	let serverScopeID = $derived(workspaceId || DEFAULT_MCP_CATALOG_ID);
+	let serverScopeID = $derived(workspaceId || mcpServer?.mcpCatalogID || DEFAULT_MCP_CATALOG_ID);
 	let loading = $state(false);
 	let users = $state<OrgUser[]>([]);
 	let instances = $state<MCPServerInstance[]>([]);
@@ -28,7 +28,7 @@
 		loading = true;
 		instances = workspaceId
 			? await UserService.listWorkspaceMcpCatalogServerInstances(workspaceId, mcpServer.id)
-			: await AdminService.listMcpCatalogServerInstances(DEFAULT_MCP_CATALOG_ID, mcpServer.id);
+			: await AdminService.listMcpCatalogServerInstances(serverScopeID, mcpServer.id);
 		users = await UserService.listUsersIncludeDeleted();
 		loading = false;
 	});
@@ -40,7 +40,7 @@
 		<McpServerActions
 			server={mcpServer}
 			instance={currentUserInstance}
-			catalogID={workspaceId ? undefined : DEFAULT_MCP_CATALOG_ID}
+			catalogID={workspaceId ? undefined : serverScopeID}
 			workspaceID={workspaceId}
 			{loading}
 			readonly={profile.current.isAdminReadonly?.()}

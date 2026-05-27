@@ -2977,8 +2977,8 @@ func (m *MCPHandler) GetServerFromAllSources(req api.Context) error {
 		return err
 	}
 
-	// Check if server is from default catalog or workspace
-	if server.Spec.MCPCatalogID != system.DefaultCatalog && server.Spec.PowerUserWorkspaceID == "" {
+	// Check if server is from a catalog or workspace.
+	if server.Spec.MCPCatalogID == "" && server.Spec.PowerUserWorkspaceID == "" {
 		return types.NewErrNotFound("MCP server not found")
 	}
 
@@ -3034,7 +3034,7 @@ func (m *MCPHandler) GetServerFromAllSources(req api.Context) error {
 		return fmt.Errorf("failed to resolve secret bindings: %w", err)
 	}
 
-	slug, err := SlugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), system.DefaultCatalog, server.Spec.PowerUserWorkspaceID)
+	slug, err := SlugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), server.Spec.MCPCatalogID, server.Spec.PowerUserWorkspaceID)
 	if err != nil {
 		return fmt.Errorf("failed to generate slug: %w", err)
 	}

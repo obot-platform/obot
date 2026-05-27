@@ -16,7 +16,7 @@
 	let { mcpServer, catalogEntry } = $derived(data);
 	let workspaceId = $derived(mcpServer?.powerUserWorkspaceID);
 	let serverScopeEntity = $derived(workspaceId ? ('workspace' as const) : ('catalog' as const));
-	let serverScopeID = $derived(workspaceId || DEFAULT_MCP_CATALOG_ID);
+	let serverScopeID = $derived(workspaceId || mcpServer?.mcpCatalogID || DEFAULT_MCP_CATALOG_ID);
 	let title = $derived(mcpServer?.alias || mcpServer?.manifest?.name || 'MCP Server');
 	let promptInitialLaunch = $derived(page.url.searchParams.get('launch') === 'true');
 </script>
@@ -33,14 +33,13 @@
 		<McpServerActions
 			server={mcpServer}
 			entry={catalogEntry}
-			catalogID={workspaceId ? undefined : DEFAULT_MCP_CATALOG_ID}
+			catalogID={workspaceId ? undefined : serverScopeID}
 			workspaceID={workspaceId}
 			{promptInitialLaunch}
 			readonly={profile.current.isAdminReadonly?.()}
-			allowMultiUserServerConfigurationEdit
 			onOAuthConfigured={() => {
 				if (!mcpServer) return;
-				AdminService.getMCPCatalogServer(DEFAULT_MCP_CATALOG_ID, mcpServer.id).then((server) => {
+				AdminService.getMCPCatalogServer(serverScopeID, mcpServer.id).then((server) => {
 					mcpServer = server;
 				});
 			}}
@@ -54,6 +53,7 @@
 			id={serverScopeID}
 			entity={serverScopeEntity}
 			readonly={profile.current.isAdminReadonly?.()}
+			allowMultiUserServerConfigurationEdit
 		/>
 	</div>
 </Layout>

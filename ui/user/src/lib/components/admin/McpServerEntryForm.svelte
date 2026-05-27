@@ -72,6 +72,7 @@
 		isDialogView?: boolean;
 		limitViews?: string[];
 		configuredServers?: MCPCatalogServer[];
+		allowMultiUserServerConfigurationEdit?: boolean;
 	}
 
 	let {
@@ -86,7 +87,8 @@
 		hasExistingConfigured,
 		isDialogView,
 		limitViews,
-		configuredServers
+		configuredServers,
+		allowMultiUserServerConfigurationEdit
 	}: Props = $props();
 
 	let entry = $state(untrack(() => initialEntry));
@@ -184,7 +186,8 @@
 						// Basic users who just connected don't see Configuration.
 						// Catalog entry-deployed multi-user servers also hide it: the configuration is
 						// owned by the upstream catalog entry, not the deployment.
-						...(trueOwner && !isCatalogEntryDeployedMultiUserServer(entry)
+						...(trueOwner &&
+						(!isCatalogEntryDeployedMultiUserServer(entry) || allowMultiUserServerConfigurationEdit)
 							? [{ label: 'Configuration', view: 'configuration' }]
 							: []),
 						...(belongsToUser
