@@ -71,13 +71,13 @@ func TestHideMultiUserTemplate(t *testing.T) {
 		want  bool
 	}{
 		{
-			name:  "regular user cannot see multi-user templates",
+			name:  "basic user cannot see multi-user templates",
 			user:  &kuser.DefaultInfo{Groups: types.RoleBasic.Groups()},
 			entry: multiUserEntry,
 			want:  true,
 		},
 		{
-			name:  "regular user can see single-user entries",
+			name:  "basic user can see single-user entries",
 			user:  &kuser.DefaultInfo{Groups: types.RoleBasic.Groups()},
 			entry: singleUserEntry,
 			want:  false,
