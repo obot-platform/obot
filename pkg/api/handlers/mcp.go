@@ -3722,7 +3722,6 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 
 	if !req.UserIsAdmin() && server.Spec.IsSingleUser() {
 		// Allow users to upgrade their own single-user servers.
-		// (We already verified this is a single-user server at the check above.)
 		if !server.Spec.IsOwnedBy(req.User.GetUID()) {
 			// Workspace-based authorization for power user workspace entries
 			if workspaceID == "" || entry.Spec.PowerUserWorkspaceID != workspaceID {
