@@ -548,7 +548,13 @@ export async function convertCompositeInfoToLaunchFormData(
 
 export function getServerUrl(d: MCPCatalogServer) {
 	const belongsToWorkspace = d.powerUserWorkspaceID ? true : false;
-	const isMulti = !d.catalogEntryID;
+	// Route by the server's actual user type, not by the presence of a catalog
+	// entry. Multi-user servers deployed from a catalog template carry a
+	// catalogEntryID but are catalog-scoped MCPServers, so they must use the
+	// multi-user server details page (which fetches via /all-mcps/servers/{id}).
+	// The single-user instance page fetches via /mcp-servers/{id}, which only
+	// resolves servers that are not scoped to a catalog or workspace.
+	const isMulti = isMultiUserServer(d);
 
 	let url = '';
 	if (profile.current.hasAdminAccess?.()) {

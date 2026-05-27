@@ -493,15 +493,14 @@
 			}
 		}
 
+		// The menu label is "View Catalog Entry" whenever the deployment has a
+		// catalogEntryID, so link to the catalog entry in that case. This includes
+		// multi-user servers deployed from a catalog template, which carry both a
+		// catalogEntryID and a multiUser server type. Servers without a catalog
+		// entry link to the server itself ("View Server").
+
 		// Workspace-specific server (power user workspace)
 		if (d.powerUserWorkspaceID) {
-			if (isMultiUserServer(d)) {
-				return resolve('/admin/mcp-servers/w/[wid]/s/[id]', {
-					id: d.id,
-					wid: d.powerUserWorkspaceID
-				});
-			}
-
 			// Workspace catalog entry deployment
 			if (d.catalogEntryID) {
 				return resolve('/admin/mcp-servers/w/[wid]/c/[id]', {
@@ -518,12 +517,6 @@
 		}
 
 		// Global catalog entry deployment
-		if (isMultiUserServer(d)) {
-			return resolve('/admin/mcp-servers/s/[id]', {
-				id: d.id
-			});
-		}
-
 		if (d.catalogEntryID) {
 			return resolve('/admin/mcp-servers/c/[id]', {
 				id: d.catalogEntryID
