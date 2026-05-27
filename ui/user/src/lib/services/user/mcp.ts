@@ -11,6 +11,8 @@ import {
 	type MCPCatalogServerManifest,
 	type MCPServer,
 	type MCPServerInstance,
+	type MCPResourceRequests,
+	type MCPResourceRequirements,
 	type MCPSubField,
 	type OrgUser,
 	type RuntimeFormData,
@@ -723,6 +725,47 @@ export const sanitizeEgressDomains = (egressDomains?: string[] | string) => {
 	return domains?.map((domain) => domain.trim()).filter(Boolean) || [];
 };
 
+const sanitizeResourceRequests = (
+	requests?: MCPResourceRequests
+): MCPResourceRequests | undefined => {
+	if (!requests) {
+		return undefined;
+	}
+
+	const sanitized: MCPResourceRequests = {};
+	const cpu = requests.cpu?.trim();
+	const memory = requests.memory?.trim();
+
+	if (cpu) {
+		sanitized.cpu = cpu;
+	}
+	if (memory) {
+		sanitized.memory = memory;
+	}
+
+	return cpu || memory ? sanitized : undefined;
+};
+
+export const sanitizeResourceRuntimeConfig = (
+	resources?: MCPResourceRequirements
+): MCPResourceRequirements | undefined => {
+	if (!resources) {
+		return undefined;
+	}
+
+	const requests = sanitizeResourceRequests(resources.requests);
+	const limits = sanitizeResourceRequests(resources.limits);
+
+	if (!requests && !limits) {
+		return undefined;
+	}
+
+	return {
+		...(requests ? { requests } : {}),
+		...(limits ? { limits } : {})
+	};
+};
+
 export const convertServerRuntimeFormDataToManifest = (
 	formData: RuntimeFormData
 ): MCPCatalogServerManifest => {
@@ -735,6 +778,9 @@ export const convertServerRuntimeFormDataToManifest = (
 			? { startupTimeoutSeconds }
 			: {};
 
+	const resources =
+		baseData.runtime !== 'remote' ? sanitizeResourceRuntimeConfig(baseData.resources) : undefined;
+
 	// Build base manifest structure for server
 	const serverManifest: MCPCatalogServerManifest = {
 		manifest: {
@@ -744,6 +790,7 @@ export const convertServerRuntimeFormDataToManifest = (
 			env: baseData.env,
 			multiUserConfig: baseData.multiUserConfig,
 			runtime: baseData.runtime,
+			...(resources ? { resources } : {}),
 			...convertCategoriesToMetadata(categories)
 		}
 	};

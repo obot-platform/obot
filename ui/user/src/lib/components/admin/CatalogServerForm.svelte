@@ -17,6 +17,7 @@
 		convertServerRuntimeFormDataToManifest,
 		hasSecretBinding,
 		sanitizeEgressDomains,
+		sanitizeResourceRuntimeConfig,
 		validateRuntimeForm
 	} from '$lib/services/user/mcp';
 	import { profile, version } from '$lib/stores';
@@ -27,6 +28,7 @@
 	import MultiUserHeadersForm from '../mcp/MultiUserHeadersForm.svelte';
 	import NpxRuntimeForm from '../mcp/NpxRuntimeForm.svelte';
 	import RemoteRuntimeForm from '../mcp/RemoteRuntimeForm.svelte';
+	import ResourceRuntimeForm from '../mcp/ResourceRuntimeForm.svelte';
 	import RuntimeSelector from '../mcp/RuntimeSelector.svelte';
 	import UvxRuntimeForm from '../mcp/UvxRuntimeForm.svelte';
 	import SelectMcpAccessControlRules from './SelectMcpAccessControlRules.svelte';
@@ -102,6 +104,13 @@
 		return { package: '', command: '', args: [], egressDomains: [], denyAllEgress: undefined };
 	}
 
+	function defaultResourceRuntimeConfig() {
+		return {
+			requests: { cpu: '', memory: '' },
+			limits: { cpu: '', memory: '' }
+		};
+	}
+
 	function defaultContainerizedConfig() {
 		return {
 			image: '',
@@ -126,6 +135,12 @@
 		return config ? { ...defaultContainerizedConfig(), ...config } : defaultContainerizedConfig();
 	}
 
+	function normalizeResourceRuntimeConfig(config?: RuntimeFormData['resources']) {
+		return config
+			? { ...defaultResourceRuntimeConfig(), ...config }
+			: defaultResourceRuntimeConfig();
+	}
+
 	function convertToFormData(item?: MCPCatalogEntry | MCPCatalogServer): RuntimeFormData {
 		if (!item) {
 			// Default initialization for new servers
@@ -136,6 +151,7 @@
 				env: [],
 				icon: '',
 				runtime: 'npx' as Runtime,
+				resources: type !== 'remote' ? defaultResourceRuntimeConfig() : undefined,
 				npxConfig: defaultNpxConfig(),
 				uvxConfig: undefined,
 				containerizedConfig: undefined,
@@ -159,6 +175,7 @@
 				description: manifest.description ?? '',
 				env: manifest.env?.map((env) => ({ ...env, value: '' })) ?? [],
 				runtime: manifest.runtime,
+				resources: normalizeResourceRuntimeConfig(manifest.resources),
 				npxConfig: undefined,
 				uvxConfig: undefined,
 				containerizedConfig: undefined,
@@ -206,6 +223,7 @@
 				env: manifest.env?.map((env) => ({ ...env, value: '' })) ?? [],
 				description: manifest.description ?? '',
 				runtime: manifest.runtime,
+				resources: normalizeResourceRuntimeConfig(manifest.resources),
 				npxConfig: undefined,
 				uvxConfig: undefined,
 				containerizedConfig: undefined,
@@ -293,6 +311,12 @@
 		formData.remoteConfig = undefined;
 		formData.remoteServerConfig = undefined;
 
+		if (newRuntime === 'remote') {
+			formData.resources = undefined;
+		} else if (!formData.resources) {
+			formData.resources = defaultResourceRuntimeConfig();
+		}
+
 		// Initialize the appropriate config based on the new runtime
 		switch (newRuntime) {
 			case 'npx':
@@ -330,6 +354,9 @@
 				? { startupTimeoutSeconds }
 				: {};
 
+		const resources =
+			baseData.runtime !== 'remote' ? sanitizeResourceRuntimeConfig(baseData.resources) : undefined;
+
 		// Build base manifest structure
 		const manifest: MCPCatalogEntryServerManifest = {
 			name: baseData.name,
@@ -338,6 +365,7 @@
 			env: baseData.env,
 			runtime: baseData.runtime,
 			serverUserType: type === 'multi' ? 'multiUser' : 'singleUser',
+			...(resources ? { resources } : {}),
 			...convertCategoriesToMetadata(categories)
 		};
 
@@ -685,6 +713,11 @@
 		id={entry?.id}
 	/>
 {/if}
+
+{#if version.current.engine === 'kubernetes' && formData.runtime !== 'remote' && formData.resources}
+	<ResourceRuntimeForm bind:config={formData.resources} {readonly} />
+{/if}
+
 <!-- Environment Variables Section -->
 {#if !['remote', 'composite'].includes(formData.runtime)}
 	<CustomConfigurationForm bind:config={formData.env} {readonly} {type} {secretBoundHeaders} />
