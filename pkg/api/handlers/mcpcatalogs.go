@@ -72,35 +72,6 @@ func (*MCPCatalogHandler) List(req api.Context) error {
 	})
 }
 
-// checkEntryAccess verifies that the requesting user has ACR access to the entry and that
-// the entry doesn't require unconfigured static OAuth credentials. Returns NotFound to avoid
-// leaking entry existence. Admins bypass these checks.
-func (h *MCPCatalogHandler) checkEntryAccess(req api.Context, entry v1.MCPServerCatalogEntry) error {
-	if req.UserIsAdmin() {
-		return nil
-	}
-	if entryRequiresStaticOAuthCreds(entry) {
-		return types.NewErrNotFound("entry not found")
-	}
-
-	var (
-		hasAccess bool
-		err       error
-	)
-	if entry.Spec.MCPCatalogName != "" {
-		hasAccess, err = h.acrHelper.UserHasAccessToMCPServerCatalogEntryInCatalog(req.User, entry.Name, entry.Spec.MCPCatalogName)
-	} else if entry.Spec.PowerUserWorkspaceID != "" {
-		hasAccess, err = h.acrHelper.UserHasAccessToMCPServerCatalogEntryInWorkspace(req.Context(), req.User, entry.Name, entry.Spec.PowerUserWorkspaceID)
-	}
-	if err != nil {
-		return err
-	}
-	if !hasAccess {
-		return types.NewErrNotFound("entry not found")
-	}
-	return nil
-}
-
 // validateEntryScope checks that a catalog entry strictly belongs to the scope indicated by the request path.
 // Use this for mutating operations (update, delete) where cross-scope access should not be allowed.
 func validateEntryScope(entry v1.MCPServerCatalogEntry, catalogName, workspaceID string) error {
@@ -298,10 +269,6 @@ func (h *MCPCatalogHandler) GetEntry(req api.Context) error {
 	}
 
 	if err := validateEntryVisibleFromScope(entry, catalogName, workspaceID); err != nil {
-		return err
-	}
-
-	if err := h.checkEntryAccess(req, entry); err != nil {
 		return err
 	}
 
@@ -670,10 +637,6 @@ func (h *MCPCatalogHandler) ListServersForEntry(req api.Context) error {
 		return err
 	}
 
-	if err := h.checkEntryAccess(req, entry); err != nil {
-		return err
-	}
-
 	var list v1.MCPServerList
 	if err := req.List(&list, client.MatchingFields{
 		"spec.mcpServerCatalogEntryName": entryName,
@@ -752,10 +715,6 @@ func (h *MCPCatalogHandler) GetServerFromEntry(req api.Context) error {
 		return err
 	}
 
-	if err := h.checkEntryAccess(req, entry); err != nil {
-		return err
-	}
-
 	var server v1.MCPServer
 	if err := req.Get(&server, req.PathValue("mcp_server_id")); err != nil {
 		return fmt.Errorf("failed to list servers: %w", err)
@@ -830,10 +789,6 @@ func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
 	if err := validateEntryVisibleFromScope(entry, catalogName, workspaceID); err != nil {
 		return err
 	}
-	if err := h.checkEntryAccess(req, entry); err != nil {
-		return err
-	}
-
 	if !dryRun && !entry.Spec.Editable {
 		return types.NewErrBadRequest("entry is not editable")
 	}
