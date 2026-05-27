@@ -45,6 +45,7 @@ The only functional difference between Owners and Admins is that Owners can assi
 | Message Policies | | | | ✓ |
 | Skills | | | | ✓ |
 | Skill Access Policies | | | | ✓ |
+| **Device Management** | | | | ✓ |
 | **User Management** | | | | ✓ |
 | API Keys (admin) | | | | ✓ |
 | **API Keys** | ✓ | ✓ | ✓ | ✓ |
@@ -62,6 +63,7 @@ The only functional difference between Owners and Admins is that Owners can assi
 - [Server Scheduling](/functionality/server-scheduling/) - Define server availability windows
 - [Skills](/functionality/skills/) - Manage skill sources and browse discoverable skills for agents
 - [Skill Access Policies](/functionality/skill-access-policies/) - Control which users and groups can access which skills
+- [Device Management](./device-management.md) - Inventory local AI clients, MCP servers, skills, and plugins across submitted device scans
 - [Obot Agent Management](/functionality/obot-agent-management/) - Configure default agent, conversation, and workflow settings, and monitor activity
 - [Message Policies](/functionality/message-policies/) - Enforce content rules on user prompts and tool calls, and review violations
 - [User Management](/functionality/user-management/) - Manage users, roles, and authentication
