@@ -131,7 +131,9 @@
 	let selected = $derived.by(() => {
 		const searchParams = page.url.searchParams;
 		const tab = searchParams.get('view');
-		return tab ?? (entry ? 'overview' : 'configuration');
+		const fallback = entry ? 'overview' : 'configuration';
+		if (!tab) return fallback;
+		return tabs.some((t) => t.view === tab) ? tab : fallback;
 	});
 	let configurationReadonly = $derived(readonly || isTemplateDeployedMultiUserServer(entry));
 	let showLeftChevron = $state(false);
@@ -179,8 +181,12 @@
 						{ label: 'Overview', view: 'overview' },
 						...(belongsToUser ? [{ label: 'Server Details', view: 'server-instances' }] : []),
 						{ label: 'Tools', view: 'tools' },
-						// Basic users who just connected don't see Configuration
-						...(trueOwner ? [{ label: 'Configuration', view: 'configuration' }] : []),
+						// Basic users who just connected don't see Configuration.
+						// Template-deployed multi-user servers also hide it: the configuration is
+						// owned by the upstream catalog entry, not the deployment.
+						...(trueOwner && !isTemplateDeployedMultiUserServer(entry)
+							? [{ label: 'Configuration', view: 'configuration' }]
+							: []),
 						...(belongsToUser
 							? [
 									{ label: 'Audit Logs', view: 'audit-logs' },
