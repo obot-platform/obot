@@ -7,7 +7,7 @@
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import {
-		AdminService,
+		UserService,
 		type DeviceScan,
 		type DeviceScanResponse,
 		type OrgUser
@@ -99,7 +99,7 @@
 	async function fetchPage(idx: number) {
 		loading = true;
 		try {
-			devicesResp = await AdminService.listDeviceScans({
+			devicesResp = await UserService.listDeviceScans({
 				limit: PAGE_SIZE,
 				offset: idx * PAGE_SIZE,
 				groupByDevice: true

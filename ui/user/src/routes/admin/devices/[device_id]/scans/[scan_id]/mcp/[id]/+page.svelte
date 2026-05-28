@@ -6,7 +6,7 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { deriveDeviceScope, formatDeviceClient } from '$lib/format.js';
-	import type { DeviceScanMCPServer } from '$lib/services/admin/types';
+	import type { DeviceScanMCPServer } from '$lib/services/user/types';
 	import { goto } from '$lib/url';
 	import { findParentPlugin, shortHash } from '../../_shared/files';
 	import { fly } from 'svelte/transition';

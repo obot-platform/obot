@@ -1,6 +1,5 @@
 import { handleRouteError } from '$lib/errors';
-import { AdminService } from '$lib/services';
-import type { DeviceScanResponse } from '$lib/services/admin/types';
+import { UserService, type DeviceScanResponse } from '$lib/services';
 import { profile } from '$lib/stores';
 import type { PageLoad } from './$types';
 
@@ -11,7 +10,7 @@ export const load: PageLoad = async ({ params, fetch }) => {
 
 	let scans: DeviceScanResponse = { items: [], total: 0, limit: PAGE_SIZE, offset: 0 };
 	try {
-		scans = await AdminService.listDeviceScans(
+		scans = await UserService.listDeviceScans(
 			{
 				limit: PAGE_SIZE,
 				deviceId: [device_id],

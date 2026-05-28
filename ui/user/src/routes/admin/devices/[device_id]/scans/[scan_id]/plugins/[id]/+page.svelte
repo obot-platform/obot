@@ -3,7 +3,7 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { deriveDeviceScope, formatDeviceClient } from '$lib/format.js';
-	import type { DeviceScanPlugin } from '$lib/services/admin/types';
+	import type { DeviceScanPlugin } from '$lib/services/user/types';
 	import { goto } from '$lib/url';
 	import { formatBytes, lookupFiles } from '../../_shared/files';
 	import { fly } from 'svelte/transition';

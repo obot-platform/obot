@@ -1,5 +1,5 @@
 import { handleRouteError } from '$lib/errors';
-import { AdminService } from '$lib/services';
+import { UserService } from '$lib/services';
 import type { LayoutLoad } from './$types';
 
 export const load: LayoutLoad = async ({ params, fetch, parent }) => {
@@ -7,7 +7,7 @@ export const load: LayoutLoad = async ({ params, fetch, parent }) => {
 	const { profile } = await parent();
 
 	try {
-		const scan = await AdminService.getDeviceScan(scan_id, { fetch });
+		const scan = await UserService.getDeviceScan(scan_id, { fetch });
 		return { scan };
 	} catch (err) {
 		handleRouteError(err, `/admin/devices/${device_id}/scans/${scan_id}`, profile);

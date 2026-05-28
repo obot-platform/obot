@@ -13,9 +13,10 @@
 		formatDeviceClient,
 		formatDeviceCommand
 	} from '$lib/format.js';
-	import { AdminService, UserService } from '$lib/services';
 	import {
 		Group,
+		UserService,
+		AdminService,
 		type DeviceScan,
 		type DeviceScanClient,
 		type DeviceScanMCPServer,
@@ -23,7 +24,6 @@
 		type DeviceScanSkill,
 		type OrgUser
 	} from '$lib/services';
-	import { deleteDeviceScan } from '$lib/services/admin/operations';
 	import { profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { goto } from '$lib/url';
@@ -67,7 +67,7 @@
 			isLatest = false;
 			return;
 		}
-		AdminService.listDeviceScans({ deviceId: [deviceId], groupByDevice: true, limit: 1 })
+		UserService.listDeviceScans({ deviceId: [deviceId], groupByDevice: true, limit: 1 })
 			.then((res) => {
 				if (scanDeviceId !== deviceId || scanIdNum !== id) return;
 				const top = res.items?.[0];
@@ -90,7 +90,7 @@
 		deleting = true;
 		deleteError = undefined;
 		try {
-			await deleteDeviceScan(scan.id);
+			await AdminService.deleteDeviceScan(scan.id);
 			deleteOpen = false;
 			goto(`/admin/devices/${page.params.device_id}`);
 		} catch (e) {

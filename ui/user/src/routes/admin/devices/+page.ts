@@ -1,5 +1,5 @@
 import { handleRouteError } from '$lib/errors';
-import { AdminService, UserService, type OrgUser, type DeviceScanResponse } from '$lib/services';
+import { UserService, type OrgUser, type DeviceScanResponse } from '$lib/services';
 import { profile } from '$lib/stores';
 import type { PageLoad } from './$types';
 
@@ -12,7 +12,7 @@ export const load: PageLoad = async ({ url, fetch }) => {
 	let users: OrgUser[] = [];
 	try {
 		[devices, users] = await Promise.all([
-			AdminService.listDeviceScans({ limit: PAGE_SIZE, offset, groupByDevice: true }, { fetch }),
+			UserService.listDeviceScans({ limit: PAGE_SIZE, offset, groupByDevice: true }, { fetch }),
 			UserService.listUsers({ fetch }).catch(() => [] as OrgUser[])
 		]);
 		return { devices, users, pageSize: PAGE_SIZE };
