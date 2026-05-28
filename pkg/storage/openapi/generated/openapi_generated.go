@@ -5586,7 +5586,7 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryManifest(ref
 					},
 					"serverUserType": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ServerUserType specifies whether this catalog entry produces single-user or multi-user servers. Only \"singleUser\" is currently supported. Empty value defaults to \"singleUser\".",
+							Description: "ServerUserType specifies whether this catalog entry produces single-user or multi-user servers. Valid values are \"singleUser\" and \"multiUser\". Some input paths normalize an empty value to \"singleUser\" for compatibility before validation.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

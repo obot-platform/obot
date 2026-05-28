@@ -116,15 +116,15 @@ env:
 ### Server User Type
 
 ```yaml
-serverUserType: singleUser  # Optional, defaults to "singleUser"
+serverUserType: singleUser  # Valid values: "singleUser" or "multiUser"
 ```
 
 The `serverUserType` field specifies how users interact with the catalog entry:
 
-- `singleUser` (default): Each user who installs this catalog entry gets their own independent MCP server instance.
+- `singleUser`: Each user who installs this catalog entry gets their own independent MCP server instance.
 - `multiUser`: The catalog entry is a template for shared multi-user deployments. An administrator or Power User+ deploys the template into a catalog or workspace, and users connect to that shared deployment through per-user MCP server instances.
 
-Omitting the field or setting it to `""` is equivalent to `singleUser`. Any value other than `singleUser` or `multiUser` is rejected at validation time.
+Catalog entries should set this field explicitly. For compatibility with existing catalogs, some import paths normalize an omitted value to `singleUser` before validation. Any persisted value other than `singleUser` or `multiUser` is rejected at validation time.
 
 Multi-user catalog templates support the `npx`, `uvx`, `containerized`, and `remote` runtimes. They do not support the `composite` runtime.
 

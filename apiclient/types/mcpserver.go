@@ -193,7 +193,7 @@ type MCPServerCatalogEntryManifest struct {
 	MultiUserConfig *MultiUserConfig `json:"multiUserConfig,omitempty"`
 
 	// ServerUserType specifies whether this catalog entry produces single-user or multi-user servers.
-	// Only "singleUser" is currently supported. Empty value defaults to "singleUser".
+	// Valid values are "singleUser" and "multiUser". Some input paths normalize an empty value to "singleUser" for compatibility before validation.
 	ServerUserType ServerUserType `json:"serverUserType,omitempty"`
 
 	Env []MCPEnv `json:"env,omitempty"`

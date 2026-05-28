@@ -574,9 +574,9 @@ func TestServerUserType_IsSingleUser(t *testing.T) {
 		want       bool
 	}{
 		{
-			name:       "empty defaults to single-user",
+			name:       "empty returns false",
 			serverType: "",
-			want:       true,
+			want:       false,
 		},
 		{
 			name:       "explicit singleUser",
