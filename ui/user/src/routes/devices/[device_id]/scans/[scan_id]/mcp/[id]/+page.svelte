@@ -9,7 +9,7 @@
 	import type { DeviceScanMCPServer } from '$lib/services/user/types';
 	import { profile } from '$lib/stores';
 	import { goto } from '$lib/url';
-	import { findParentPlugin, shortHash } from '../../_shared/files.js';
+	import { findParentPlugin, shortHash } from '../../_shared/files';
 	import { fly } from 'svelte/transition';
 
 	let { data } = $props();
