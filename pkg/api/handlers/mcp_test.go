@@ -788,3 +788,116 @@ func TestConvertMCPServerCompositeSkipsDisabledAndConfiguredComponents(t *testin
 	assert.Empty(t, converted.MissingRequiredEnvVars)
 	assert.Empty(t, converted.MissingRequiredHeaders)
 }
+
+func TestEntryManifestNeedsUserConfig(t *testing.T) {
+	requiredEnv := types.MCPEnv{MCPHeader: types.MCPHeader{Name: "TOKEN", Required: true}}
+	optionalEnv := types.MCPEnv{MCPHeader: types.MCPHeader{Name: "DEBUG"}}
+	requiredHeader := types.MCPHeader{Name: "X-Api-Key", Required: true}
+	optionalHeader := types.MCPHeader{Name: "X-Trace", Required: false}
+
+	// component manifests reused across composite cases
+	singleUserNoConfig := types.MCPServerCatalogEntryManifest{Runtime: types.RuntimeNPX}
+	singleUserRequiredEnv := types.MCPServerCatalogEntryManifest{Runtime: types.RuntimeNPX, Env: []types.MCPEnv{requiredEnv}}
+	remoteNeedsURL := types.MCPServerCatalogEntryManifest{Runtime: types.RuntimeRemote, RemoteConfig: &types.RemoteCatalogConfig{}}
+	remoteFixed := types.MCPServerCatalogEntryManifest{Runtime: types.RuntimeRemote, RemoteConfig: &types.RemoteCatalogConfig{FixedURL: "https://example.com"}}
+
+	tests := []struct {
+		name     string
+		manifest types.MCPServerCatalogEntryManifest
+		want     bool
+	}{
+		// Single-user (non-remote, non-composite): only required env blocks.
+		{name: "single-user no config", manifest: singleUserNoConfig, want: false},
+		{name: "single-user optional env", manifest: types.MCPServerCatalogEntryManifest{Runtime: types.RuntimeNPX, Env: []types.MCPEnv{optionalEnv}}, want: false},
+		{name: "single-user required env", manifest: singleUserRequiredEnv, want: true},
+
+		// Remote: a fixed URL with no required headers is shareable; anything else blocks.
+		{name: "remote fixed url", manifest: remoteFixed, want: false},
+		{name: "remote fixed url optional header", manifest: types.MCPServerCatalogEntryManifest{Runtime: types.RuntimeRemote, RemoteConfig: &types.RemoteCatalogConfig{FixedURL: "https://example.com", Headers: []types.MCPHeader{optionalHeader}}}, want: false},
+		{name: "remote nil config", manifest: types.MCPServerCatalogEntryManifest{Runtime: types.RuntimeRemote}, want: true},
+		{name: "remote empty fixed url", manifest: remoteNeedsURL, want: true},
+		{name: "remote required header", manifest: types.MCPServerCatalogEntryManifest{Runtime: types.RuntimeRemote, RemoteConfig: &types.RemoteCatalogConfig{FixedURL: "https://example.com", Headers: []types.MCPHeader{requiredHeader}}}, want: true},
+		{name: "remote required env beats fixed url", manifest: types.MCPServerCatalogEntryManifest{Runtime: types.RuntimeRemote, Env: []types.MCPEnv{requiredEnv}, RemoteConfig: &types.RemoteCatalogConfig{FixedURL: "https://example.com"}}, want: true},
+
+		// Composite: empty/nil cases are shareable.
+		{name: "composite nil config", manifest: types.MCPServerCatalogEntryManifest{Runtime: types.RuntimeComposite}, want: false},
+		{name: "composite no components", manifest: types.MCPServerCatalogEntryManifest{Runtime: types.RuntimeComposite, CompositeConfig: &types.CompositeCatalogConfig{}}, want: false},
+
+		// Composite with catalog-entry components: recurse into each component manifest.
+		{name: "composite single-user component no config", manifest: composite(
+			types.CatalogComponentServer{CatalogEntryID: "c1", Manifest: singleUserNoConfig},
+		), want: false},
+		{name: "composite single-user component required env", manifest: composite(
+			types.CatalogComponentServer{CatalogEntryID: "c1", Manifest: singleUserRequiredEnv},
+		), want: true},
+		{name: "composite remote component needs url", manifest: composite(
+			types.CatalogComponentServer{CatalogEntryID: "c1", Manifest: remoteNeedsURL},
+		), want: true},
+		{name: "composite first ok second needs config", manifest: composite(
+			types.CatalogComponentServer{CatalogEntryID: "c1", Manifest: remoteFixed},
+			types.CatalogComponentServer{CatalogEntryID: "c2", Manifest: singleUserRequiredEnv},
+		), want: true},
+
+		// Composite with multi-user components (MCPServerID set): only required user-defined
+		// headers block. Admin-managed URL/env/static headers on the snapshot must NOT block.
+		{name: "composite multi-user required user header", manifest: composite(
+			types.CatalogComponentServer{MCPServerID: "ms1", Manifest: types.MCPServerCatalogEntryManifest{
+				Runtime:         types.RuntimeRemote,
+				RemoteConfig:    &types.RemoteCatalogConfig{FixedURL: "https://admin.example.com"},
+				MultiUserConfig: &types.MultiUserConfig{UserDefinedHeaders: []types.MCPHeader{requiredHeader}},
+			}},
+		), want: true},
+		{name: "composite multi-user remote admin header not blocking", manifest: composite(
+			types.CatalogComponentServer{MCPServerID: "ms1", Manifest: types.MCPServerCatalogEntryManifest{
+				Runtime:      types.RuntimeRemote,
+				RemoteConfig: &types.RemoteCatalogConfig{FixedURL: "https://admin.example.com", Headers: []types.MCPHeader{requiredHeader}},
+			}},
+		), want: false},
+		{name: "composite multi-user empty fixed url not blocking", manifest: composite(
+			types.CatalogComponentServer{MCPServerID: "ms1", Manifest: types.MCPServerCatalogEntryManifest{
+				Runtime:      types.RuntimeRemote,
+				RemoteConfig: &types.RemoteCatalogConfig{},
+			}},
+		), want: false},
+		{name: "composite multi-user admin env not blocking", manifest: composite(
+			types.CatalogComponentServer{MCPServerID: "ms1", Manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeContainerized,
+				Env:     []types.MCPEnv{requiredEnv},
+			}},
+		), want: false},
+		{name: "composite multi-user nil multiuser config", manifest: composite(
+			types.CatalogComponentServer{MCPServerID: "ms1", Manifest: types.MCPServerCatalogEntryManifest{Runtime: types.RuntimeContainerized}},
+		), want: false},
+		{name: "composite multi-user optional user header", manifest: composite(
+			types.CatalogComponentServer{MCPServerID: "ms1", Manifest: types.MCPServerCatalogEntryManifest{
+				MultiUserConfig: &types.MultiUserConfig{UserDefinedHeaders: []types.MCPHeader{optionalHeader}},
+			}},
+		), want: false},
+
+		// Nested composite: recursion descends into a sub-composite component.
+		{name: "nested composite component needs config", manifest: composite(
+			types.CatalogComponentServer{CatalogEntryID: "sub", Manifest: composite(
+				types.CatalogComponentServer{CatalogEntryID: "leaf", Manifest: singleUserRequiredEnv},
+			)},
+		), want: true},
+		{name: "nested composite component no config", manifest: composite(
+			types.CatalogComponentServer{CatalogEntryID: "sub", Manifest: composite(
+				types.CatalogComponentServer{CatalogEntryID: "leaf", Manifest: singleUserNoConfig},
+			)},
+		), want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, entryManifestNeedsUserConfig(tt.manifest))
+		})
+	}
+}
+
+// composite builds a composite catalog entry manifest from the given components.
+func composite(components ...types.CatalogComponentServer) types.MCPServerCatalogEntryManifest {
+	return types.MCPServerCatalogEntryManifest{
+		Runtime:         types.RuntimeComposite,
+		CompositeConfig: &types.CompositeCatalogConfig{ComponentServers: components},
+	}
+}

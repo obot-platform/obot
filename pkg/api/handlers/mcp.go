@@ -986,28 +986,10 @@ func mcpServerOrInstanceFromConnectURL(req api.Context, id string) (v1.MCPServer
 			return v1.MCPServer{}, v1.MCPServerInstance{}, err
 		}
 		if len(servers.Items) == 0 {
-			// If the user has not configured an MCP server for the catalog entry, and the catalog entry does not have any required configuration, then create an server for the user.
-			if entry.Spec.Manifest.Runtime == types.RuntimeComposite {
-				// For now launching composite servers by connecting to a catalog entry ID is not supported.
-				return v1.MCPServer{}, v1.MCPServerInstance{}, types.NewErrNotFound("user has not configured an MCP server for composite catalog entry %s", id)
-			}
-
-			for _, env := range entry.Spec.Manifest.Env {
-				if env.Required {
-					return v1.MCPServer{}, v1.MCPServerInstance{}, types.NewErrNotFound("user has not configured an MCP server for catalog entry %s", id)
-				}
-			}
-
-			if entry.Spec.Manifest.Runtime == types.RuntimeRemote {
-				if entry.Spec.Manifest.RemoteConfig.FixedURL == "" {
-					return v1.MCPServer{}, v1.MCPServerInstance{}, types.NewErrNotFound("user has not configured an MCP server for catalog entry %s", id)
-				}
-
-				for _, h := range entry.Spec.Manifest.RemoteConfig.Headers {
-					if h.Required {
-						return v1.MCPServer{}, v1.MCPServerInstance{}, types.NewErrNotFound("user has not configured an MCP server for catalog entry %s", id)
-					}
-				}
+			// If the user has not configured an MCP server for the catalog entry, and the catalog
+			// entry does not require any user configuration, then create a server for the user.
+			if entryManifestNeedsUserConfig(entry.Spec.Manifest) {
+				return v1.MCPServer{}, v1.MCPServerInstance{}, types.NewErrNotFound("user has not configured an MCP server for catalog entry %s", id)
 			}
 
 			// Convert the catalog entry manifest to a server manifest. Treat the user as non-admin always.
@@ -1033,6 +1015,19 @@ func mcpServerOrInstanceFromConnectURL(req api.Context, id string) (v1.MCPServer
 				return v1.MCPServer{}, v1.MCPServerInstance{}, types.NewErrNotFound("user has not configured an MCP server for catalog entry %s", id)
 			}
 
+			// The composite's component servers are created asynchronously by the controller
+			// (EnsureCompositeComponents). The connect path builds the nanobot config by listing
+			// components synchronously, so wait for the controller to reconcile them before
+			// returning to avoid baking a config with missing components.
+			if server.Spec.Manifest.Runtime == types.RuntimeComposite &&
+				server.Spec.Manifest.CompositeConfig != nil &&
+				len(server.Spec.Manifest.CompositeConfig.ComponentServers) > 0 {
+				server, err = waitForCompositeReady(req, server, 30*time.Second)
+				if err != nil {
+					return v1.MCPServer{}, v1.MCPServerInstance{}, fmt.Errorf("failed to wait for composite server to be ready: %w", err)
+				}
+			}
+
 			servers.Items = append(servers.Items, server)
 		}
 
@@ -1042,6 +1037,55 @@ func mcpServerOrInstanceFromConnectURL(req api.Context, id string) (v1.MCPServer
 
 		return servers.Items[0], v1.MCPServerInstance{}, nil
 	}
+}
+
+// entryManifestNeedsUserConfig reports whether a catalog entry manifest requires user-supplied
+// configuration before it can be instantiated.
+// For composite manifest, all components are checked for required configuration.
+func entryManifestNeedsUserConfig(m types.MCPServerCatalogEntryManifest) bool {
+	for _, e := range m.Env {
+		if e.Required {
+			return true
+		}
+	}
+
+	switch m.Runtime {
+	case types.RuntimeRemote:
+		if m.RemoteConfig == nil || m.RemoteConfig.FixedURL == "" {
+			// A hostname/template (or missing) remote config requires a user-supplied URL.
+			return true
+		}
+		for _, h := range m.RemoteConfig.Headers {
+			if h.Required {
+				return true
+			}
+		}
+	case types.RuntimeComposite:
+		if m.CompositeConfig == nil {
+			return false
+		}
+		for _, c := range m.CompositeConfig.ComponentServers {
+			// Multi-user components proxy to an admin-managed multi-user server. Their URL, env,
+			// and static headers are admin-supplied; only required user-defined headers block the
+			// user, so don't recurse into the component's runtime config.
+			if c.MCPServerID != "" {
+				if c.Manifest.MultiUserConfig != nil {
+					for _, h := range c.Manifest.MultiUserConfig.UserDefinedHeaders {
+						if h.Required {
+							return true
+						}
+					}
+				}
+				continue
+			}
+
+			if entryManifestNeedsUserConfig(c.Manifest) {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 // MCPIDAndAudienceFromConnectURL returns the MCP server or instance name and audience based on the provided connect URL.
@@ -1927,7 +1971,7 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 	}
 
 	// Wait for the composite server's child MCP servers and instances to match it's current runtime configuration.
-	compositeServer, err := m.waitForCompositeReady(req, compositeServer, 5*time.Second)
+	compositeServer, err := waitForCompositeReady(req, compositeServer, 5*time.Second)
 	if err != nil {
 		return fmt.Errorf("failed to wait for composite server to be ready for configuration: %w", err)
 	}
@@ -2087,7 +2131,7 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 		}
 
 		// Wait for the update to be applied across all component servers
-		compositeServer, err = m.waitForCompositeReady(req, compositeServer, 30)
+		compositeServer, err = waitForCompositeReady(req, compositeServer, 30*time.Second)
 		if err != nil {
 			return fmt.Errorf("failed to wait for composite server to be ready for configuration: %w", err)
 		}
@@ -2788,7 +2832,7 @@ func SlugForMCPServer(ctx context.Context, client kclient.Client, server v1.MCPS
 	}
 
 	slug := server.Spec.MCPServerCatalogEntryName
-	if shouldHaveUnique || server.Spec.MCPServerCatalogEntryName == "" || server.Spec.Manifest.Runtime == types.RuntimeComposite {
+	if shouldHaveUnique || server.Spec.MCPServerCatalogEntryName == "" {
 		slug = server.Name
 	}
 
@@ -3842,7 +3886,7 @@ func (m *MCPHandler) triggerCompositeUpdate(req api.Context, compositeServer v1.
 	}
 
 	// Wait for the composite server to apply the changes to all component servers
-	if _, err := m.waitForCompositeReady(req, compositeServer, 30*time.Second); err != nil {
+	if _, err := waitForCompositeReady(req, compositeServer, 30*time.Second); err != nil {
 		return fmt.Errorf("failed to wait for component servers to sync: %w", err)
 	}
 
@@ -3880,7 +3924,7 @@ func (*MCPHandler) updateCompositeManifest(req api.Context, name, oldManifestHas
 }
 
 // waitForCompositeReady waits until the given timeout for the composite server's current manifest to be applied to its component servers
-func (*MCPHandler) waitForCompositeReady(req api.Context, compositeServer v1.MCPServer, timeout time.Duration) (v1.MCPServer, error) {
+func waitForCompositeReady(req api.Context, compositeServer v1.MCPServer, timeout time.Duration) (v1.MCPServer, error) {
 	latest, err := wait.For(
 		req.Context(),
 		req.Storage,
