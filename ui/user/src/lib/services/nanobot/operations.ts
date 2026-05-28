@@ -1,3 +1,4 @@
+import type { ServerK8sSettings } from '../admin/types';
 import { doDelete, doGet, doPost, doPut, type Fetcher } from '../http';
 import type {
 	Project,
@@ -104,6 +105,31 @@ export async function launchProjectAgent(
 		{},
 		opts
 	)) as unknown;
+	return response;
+}
+
+export async function getProjectAgentK8sSettingsStatus(
+	projectId: string,
+	agentId: string,
+	opts?: { dontLogErrors?: boolean }
+): Promise<ServerK8sSettings> {
+	const response = (await doGet(
+		`/projects/${projectId}/agents/${agentId}/k8s-settings-status`,
+		opts
+	)) as ServerK8sSettings;
+	return response;
+}
+
+export async function redeployProjectAgentWithK8sSettings(
+	projectId: string,
+	agentId: string,
+	opts?: { fetch?: Fetcher }
+): Promise<ProjectV2Agent> {
+	const response = (await doPost(
+		`/projects/${projectId}/agents/${agentId}/redeploy-with-k8s-settings`,
+		{},
+		opts
+	)) as ProjectV2Agent;
 	return response;
 }
 

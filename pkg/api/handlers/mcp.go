@@ -67,14 +67,6 @@ func (m *MCPHandler) currentImagePullSecretNames(req api.Context) ([]string, err
 	return mcp.CurrentImagePullSecretNames(req.Context(), req.Storage, m.mcpSessionManager.MCPRuntimeBackend(), m.mcpImagePullSecrets)
 }
 
-func (m *MCPHandler) currentK8sSettingsHash(req api.Context, settings v1.K8sSettingsSpec, mcpServer v1.MCPServer) (string, error) {
-	imagePullSecretNames, err := m.currentImagePullSecretNames(req)
-	if err != nil {
-		return "", err
-	}
-	return m.currentK8sSettingsHashWithImagePullSecrets(settings, mcpServer, imagePullSecretNames)
-}
-
 func (m *MCPHandler) currentK8sSettingsHashWithImagePullSecrets(settings v1.K8sSettingsSpec, mcpServer v1.MCPServer, imagePullSecretNames []string) (string, error) {
 	resources, err := mcp.CoreResourceRequirements(mcpServer.Spec.Manifest.Resources)
 	if err != nil {

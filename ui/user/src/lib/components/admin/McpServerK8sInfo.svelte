@@ -12,7 +12,8 @@
 		type MCPCatalogServer,
 		type MCPSecretBinding,
 		type OrgUser,
-		type ServerK8sSettings
+		type ServerK8sSettings,
+		NanobotService
 	} from '$lib/services';
 	import { EventStreamService } from '$lib/services/admin/eventstream.svelte';
 	import { profile } from '$lib/stores';
@@ -41,6 +42,7 @@
 		mcpServer?: MCPCatalogServer;
 		readonly?: boolean;
 		compositeParentName?: string;
+		projectId?: string;
 	}
 
 	const {
@@ -55,7 +57,8 @@
 		mcpServer,
 		compositeParentName,
 		entity = 'catalog',
-		readonly
+		readonly,
+		projectId
 	}: Props = $props();
 
 	let listK8sInfo = $state<Promise<K8sServerDetail | undefined>>();
@@ -101,45 +104,55 @@
 
 	function getK8sInfo() {
 		if (!hasAdminAccess) return Promise.resolve<K8sServerDetail | undefined>(undefined);
-		return entity === 'workspace' && entityId
-			? catalogEntry?.id
+
+		if (entity === 'workspace' && entityId) {
+			return catalogEntry?.id
 				? UserService.getWorkspaceCatalogEntryServerK8sDetails(
 						entityId,
 						catalogEntry.id,
 						mcpServerId,
 						{ dontLogErrors }
 					)
-				: UserService.getWorkspaceK8sServerDetail(entityId, mcpServerId, { dontLogErrors })
-			: entity === 'webhook-validation'
-				? AdminService.getMCPFilterDetails(mcpServerId, { dontLogErrors })
-				: entity === 'catalog' && entityId
-					? AdminService.getMcpCatalogServerK8sDetail(entityId, mcpServerId, { dontLogErrors })
-					: AdminService.getK8sServerDetail(mcpServerId, { dontLogErrors });
+				: UserService.getWorkspaceK8sServerDetail(entityId, mcpServerId, { dontLogErrors });
+		}
+
+		if (entity === 'webhook-validation') {
+			return AdminService.getMCPFilterDetails(mcpServerId, { dontLogErrors });
+		}
+
+		return entity === 'catalog' && entityId
+			? AdminService.getMcpCatalogServerK8sDetail(entityId, mcpServerId, { dontLogErrors })
+			: AdminService.getK8sServerDetail(mcpServerId, { dontLogErrors });
 	}
 
 	function getK8sSettingsStatus() {
 		if (!hasAdminAccess || entity === 'webhook-validation')
 			return Promise.resolve<ServerK8sSettings | undefined>(undefined);
-		return entity === 'workspace' && entityId
-			? catalogEntry?.id
+
+		if (entity === 'workspace' && entityId) {
+			return catalogEntry?.id
 				? UserService.getWorkspaceCatalogEntryServerK8sSettingsStatus(
 						entityId,
 						catalogEntry.id,
 						mcpServerId,
-						{
-							dontLogErrors
-						}
+						{ dontLogErrors }
 					)
-				: UserService.getWorkspaceK8sServerStatus(entityId, mcpServerId, {
-						dontLogErrors
-					})
-			: catalogEntry?.id
-				? AdminService.getMCPCatalogEntryServerK8sSettingsStatus(catalogEntry.id, mcpServerId, {
-						dontLogErrors
-					})
-				: AdminService.getMcpCatalogServerK8sSettingsStatus(mcpServerId, {
-						dontLogErrors
-					});
+				: UserService.getWorkspaceK8sServerStatus(entityId, mcpServerId, { dontLogErrors });
+		}
+
+		if (entity === 'agent' && projectId && entityId) {
+			return NanobotService.getProjectAgentK8sSettingsStatus(projectId, entityId, {
+				dontLogErrors
+			});
+		}
+
+		return catalogEntry?.id
+			? AdminService.getMCPCatalogEntryServerK8sSettingsStatus(catalogEntry.id, mcpServerId, {
+					dontLogErrors
+				})
+			: AdminService.getMcpCatalogServerK8sSettingsStatus(mcpServerId, {
+					dontLogErrors
+				});
 	}
 
 	onMount(() => {
@@ -280,23 +293,33 @@
 		return details;
 	}
 
+	async function reployWithK8sSettings() {
+		if (entity === 'workspace' && entityId) {
+			return catalogEntry?.id
+				? UserService.redeployWorkspaceCatalogEntryServerWithK8sSettings(
+						entityId,
+						catalogEntry.id,
+						mcpServerId
+					)
+				: UserService.redeployWorkspaceK8sServerWithK8sSettings(entityId, mcpServerId);
+		}
+
+		if (entity === 'agent' && projectId && entityId) {
+			return NanobotService.redeployProjectAgentWithK8sSettings(projectId, entityId);
+		}
+
+		return catalogEntry?.id
+			? AdminService.redeployMCPCatalogServerWithK8sSettings(catalogEntry.id, mcpServerId)
+			: AdminService.redeployWithK8sSettings(
+					mcpServerId,
+					mcpServer?.mcpCatalogID ?? DEFAULT_MCP_CATALOG_ID
+				);
+	}
+
 	async function handleRedeployWithK8sSettings() {
 		updatingK8sSettings = true;
 		try {
-			await (entity === 'workspace' && entityId
-				? catalogEntry?.id
-					? UserService.redeployWorkspaceCatalogEntryServerWithK8sSettings(
-							entityId,
-							catalogEntry.id,
-							mcpServerId
-						)
-					: UserService.redeployWorkspaceK8sServerWithK8sSettings(entityId, mcpServerId)
-				: catalogEntry?.id
-					? AdminService.redeployMCPCatalogServerWithK8sSettings(catalogEntry.id, mcpServerId)
-					: AdminService.redeployWithK8sSettings(
-							mcpServerId,
-							mcpServer?.mcpCatalogID ?? DEFAULT_MCP_CATALOG_ID
-						));
+			await reployWithK8sSettings();
 			listK8sSettingsStatus = getK8sSettingsStatus();
 		} catch (err) {
 			console.error('Failed to update Kubernetes settings:', err);
