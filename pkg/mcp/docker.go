@@ -279,6 +279,8 @@ func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfi
 	if !d.authEnabled {
 		server.Issuer = ""
 		server.Audiences = nil
+		server.TokenExchangeClientID = ""
+		server.TokenExchangeClientSecret = ""
 	}
 
 	for i, component := range server.Components {

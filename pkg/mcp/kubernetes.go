@@ -385,6 +385,8 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 	if !k.authEnabled {
 		server.Issuer = ""
 		server.Audiences = nil
+		server.TokenExchangeClientID = ""
+		server.TokenExchangeClientSecret = ""
 	}
 
 	var (
