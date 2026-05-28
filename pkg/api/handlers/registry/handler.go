@@ -10,11 +10,13 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/api/authz"
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -46,12 +48,12 @@ func (h *Handler) ListServers(req api.Context) error {
 		return fmt.Errorf("failed to generate reverse DNS: %w", err)
 	}
 
-	// Collect servers based on registry mode
+	// Collect servers based on the request user.
 	var servers []types.RegistryServerResponse
-	if h.registryNoAuth {
-		servers, err = h.collectAccessibleServersNoAuth(req, reverseDNS)
-	} else {
+	if registryUserAuthenticated(req.User) {
 		servers, err = h.collectAccessibleServers(req, reverseDNS)
+	} else {
+		servers, err = h.collectAccessibleServersNoAuth(req, reverseDNS)
 	}
 	if err != nil {
 		return err
@@ -66,6 +68,10 @@ func (h *Handler) ListServers(req api.Context) error {
 	response := paginateServers(servers, cursor, limit)
 
 	return req.Write(response)
+}
+
+func registryUserAuthenticated(u user.Info) bool {
+	return u != nil && !slices.Contains(u.GetGroups(), authz.UnauthenticatedGroup)
 }
 
 func (h *Handler) collectAccessibleServers(req api.Context, reverseDNS string) ([]types.RegistryServerResponse, error) {
