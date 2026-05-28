@@ -73,7 +73,7 @@ func (s *Scan) submitScanManifest(ctx context.Context, cmd *cobra.Command, manif
 	if err != nil {
 		return fmt.Errorf("submit scan: %w", err)
 	}
-	fmt.Fprintf(cmd.ErrOrStderr(), "Submitted scan #%d (received_at=%s)\n", resp.ID, resp.ReceivedAt.GetTime().Format(time.RFC3339))
+	fmt.Fprintf(cmd.ErrOrStderr(), "Submitted scan (received_at=%s)\n", resp.ReceivedAt.GetTime().Format(time.RFC3339))
 	return nil
 }
 
