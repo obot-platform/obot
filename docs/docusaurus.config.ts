@@ -74,6 +74,14 @@ const config: Config = {
             from: "/tutorials/knowledge-assistant",
             to: "/",
           },
+          {
+            from: "/configuration/workspace-provider",
+            to: "/concepts/obot-agent",
+          },
+          {
+            from: "/functionality/chat/overview",
+            to: "/concepts/obot-agent",
+          },
         ],
       },
     ],

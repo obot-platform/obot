@@ -55,8 +55,8 @@ The only functional difference between Owners and Admins is that Owners can assi
 - [Audit Logs and Usage](/functionality/audit-logs-and-usage/) - Monitor activity and track consumption
 - [Filters](/functionality/filters/) - Inspect and control MCP traffic
 - [Server Scheduling](/functionality/server-scheduling/) - Define server availability windows
-- [Chat Management](/functionality/chat-management/) - Configure default chat settings and monitor activity
+- [Chat Management](./chat-management.md) - Configure default chat settings and monitor activity
 - [User Management](/functionality/user-management/) - Manage users, roles, and authentication
 - [Branding](/functionality/branding/) - Customize theme colors and branding
-- [Obot Chat](/functionality/chat/overview/) - Projects, threads, tasks, and chat features
+- [Obot Chat](./chat/overview.md) - Projects, threads, tasks, and chat features
 - [User Roles](/configuration/user-roles) - Detailed permissions and role definitions

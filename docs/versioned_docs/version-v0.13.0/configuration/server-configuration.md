@@ -46,4 +46,4 @@ You can configure optional [encryption providers](/configuration/encryption-prov
 You can configure additional models using [model providers](/configuration/model-providers/)
 
 ## Workspace Provider
-You can configure external storage for workspace files using a [workspace provider](/configuration/workspace-provider/)
+You can configure external storage for workspace files using a [workspace provider](./workspace-provider.md)

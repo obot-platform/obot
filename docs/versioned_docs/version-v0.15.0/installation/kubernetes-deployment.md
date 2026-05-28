@@ -87,7 +87,7 @@ To enable a high availability setup, uncomment the `replicaCount` line and set i
 For detailed configuration options, see:
 
 - **[Server Configuration](/configuration/server-configuration)** - All available environment variables
-- **[Workspace Provider](/configuration/workspace-provider)** - S3 storage configuration
+- **[Workspace Provider](../configuration/workspace-provider.md)** - S3 storage configuration
 - **[Encryption Providers](/configuration/encryption-providers/aws-kms)** - KMS encryption setup
 
 ## Cloud-Specific Guides

@@ -99,7 +99,7 @@ For published workflow storage in HA, use one of these:
 For detailed configuration options, see:
 
 - **[Server Configuration](/configuration/server-configuration/)** - All available environment variables
-- **[Workspace Provider](/configuration/workspace-provider/)** - S3 storage configuration
+- **[Workspace Provider](../configuration/workspace-provider.md)** - S3 storage configuration
 - **[Workflow Sharing](../functionality/workflow-sharing.md)** - How shared workflows work and how to configure their storage
 - **[Encryption Providers](/configuration/encryption-providers/aws-kms/)** - KMS encryption setup
 
