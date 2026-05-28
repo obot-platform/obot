@@ -227,9 +227,18 @@
 	const usersMap = new SvelteMap<string, OrgUser>([]);
 	const usersAsArray = $derived(usersMap.values().toArray());
 
+	const graphConfigIds = {
+		mostFrequentToolCalls: 'most-frequent-tool-calls',
+		mostFrequentlyUsedServers: 'most-frequently-used-servers',
+		toolCallAverageResponseTime: 'tool-call-average-response-time',
+		toolCallIndividualResponseTime: 'tool-call-individual-response-time',
+		toolCallErrors: 'tool-call-errors',
+		toolCallErrorsByServer: 'tool-call-errors-by-server',
+		mostActiveUsers: 'most-active-users'
+	};
 	const graphConfigs: GraphConfig[] = [
 		{
-			id: 'most-frequent-tool-calls',
+			id: graphConfigIds.mostFrequentToolCalls,
 			label: 'Most Frequent Tool Calls',
 			xKey: 'toolName',
 			yKey: 'count',
@@ -239,7 +248,7 @@
 			transform: transformTopToolCalls
 		},
 		{
-			id: 'most-frequently-used-servers',
+			id: graphConfigIds.mostFrequentlyUsedServers,
 			label: 'Most Frequently Used Servers',
 			xKey: 'serverName',
 			yKey: 'count',
@@ -247,7 +256,7 @@
 			transform: transformTopServerUsage
 		},
 		{
-			id: 'tool-call-average-response-time',
+			id: graphConfigIds.toolCallAverageResponseTime,
 			label: 'Tool Call Average Response Time',
 			xKey: 'toolName',
 			yKey: 'averageResponseTimeMs',
@@ -258,7 +267,7 @@
 			transform: transformAvgToolCallResponseTime
 		},
 		{
-			id: 'tool-call-individual-response-time',
+			id: graphConfigIds.toolCallIndividualResponseTime,
 			label: 'Tool Call Individual Response Time',
 			xKey: 'toolName',
 			yKey: 'processingTimeMs',
@@ -286,7 +295,7 @@
 			}
 		},
 		{
-			id: 'tool-call-errors',
+			id: graphConfigIds.toolCallErrors,
 			label: 'Tool Call Errors',
 			xKey: 'toolName',
 			yKey: 'errorCount',
@@ -328,7 +337,7 @@
 			}
 		},
 		{
-			id: 'tool-call-errors-by-server',
+			id: graphConfigIds.toolCallErrorsByServer,
 			label: 'Tool Call Errors by Server',
 			xKey: 'serverName',
 			yKey: 'errorCount',
@@ -357,7 +366,7 @@
 			}
 		},
 		{
-			id: 'most-active-users',
+			id: graphConfigIds.mostActiveUsers,
 			label: 'Most Active Users',
 			xKey: 'userId',
 			yKey: 'callCount',
@@ -395,8 +404,12 @@
 			// Remove server comparison graphs when viewing a specific server
 			return graphConfigs.filter(
 				(cfg) =>
-					cfg.id !== 'most-frequently-used-servers' && cfg.id !== 'tool-call-errors-by-server'
+					cfg.id !== graphConfigIds.mostFrequentlyUsedServers &&
+					cfg.id !== graphConfigIds.toolCallErrorsByServer
 			);
+		}
+		if (!profile.current?.hasAdminAccess?.()) {
+			return graphConfigs.filter((cfg) => cfg.id !== graphConfigIds.mostActiveUsers);
 		}
 		return graphConfigs;
 	});
