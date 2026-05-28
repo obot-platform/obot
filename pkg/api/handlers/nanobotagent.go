@@ -21,14 +21,16 @@ import (
 )
 
 type NanobotAgentHandler struct {
-	sessionManager *mcp.SessionManager
-	serverURL      string
+	sessionManager      *mcp.SessionManager
+	mcpImagePullSecrets []string
+	serverURL           string
 }
 
-func NewNanobotAgentHandler(sessionManager *mcp.SessionManager, serverURL string) *NanobotAgentHandler {
+func NewNanobotAgentHandler(sessionManager *mcp.SessionManager, mcpImagePullSecrets []string, serverURL string) *NanobotAgentHandler {
 	return &NanobotAgentHandler{
-		sessionManager: sessionManager,
-		serverURL:      serverURL,
+		sessionManager:      sessionManager,
+		mcpImagePullSecrets: mcpImagePullSecrets,
+		serverURL:           serverURL,
 	}
 }
 
@@ -240,6 +242,63 @@ func (h *NanobotAgentHandler) Launch(req api.Context) error {
 	}
 
 	return nil
+}
+
+func (h *NanobotAgentHandler) CheckK8sSettingsStatus(req api.Context) error {
+	_, server, err := h.loadAgentAndMCPServer(req)
+	if err != nil {
+		return err
+	}
+
+	status, err := newK8sSettingsHelper(h.sessionManager, h.mcpImagePullSecrets).checkK8sSettingsStatus(req, *server)
+	if err != nil {
+		return err
+	}
+
+	return req.Write(status)
+}
+
+func (h *NanobotAgentHandler) RedeployWithK8sSettings(req api.Context) error {
+	agent, server, err := h.loadAgentAndMCPServer(req)
+	if err != nil {
+		return err
+	}
+
+	serverConfig, err := serverConfigForAction(req, *server)
+	if err != nil {
+		return err
+	}
+
+	updatedServer, err := newK8sSettingsHelper(h.sessionManager, h.mcpImagePullSecrets).redeployWithK8sSettings(req, *server, serverConfig)
+	if err != nil {
+		return err
+	}
+
+	return req.Write(h.convertNanobotAgent(agent, &updatedServer))
+}
+
+func (h *NanobotAgentHandler) loadAgentAndMCPServer(req api.Context) (v1.NanobotAgent, *v1.MCPServer, error) {
+	var agent v1.NanobotAgent
+	if err := req.Get(&agent, req.PathValue("nanobot_agent_id")); err != nil {
+		return agent, nil, err
+	}
+
+	if agent.Spec.ProjectID != req.PathValue("project_id") {
+		return agent, nil, types.NewErrNotFound("nanobot agent not found")
+	}
+
+	server, err := loadNanobotAgentMCPServer(req, agent)
+	if err != nil {
+		return agent, nil, err
+	}
+	if server == nil {
+		return agent, nil, types.NewErrNotFound("MCP server for nanobot agent not found")
+	}
+	if server.Spec.NanobotAgentID != agent.Name {
+		return agent, nil, types.NewErrNotFound("MCP server for nanobot agent not found")
+	}
+
+	return agent, server, nil
 }
 
 func loadNanobotAgentMCPServer(req api.Context, agent v1.NanobotAgent) (*v1.MCPServer, error) {

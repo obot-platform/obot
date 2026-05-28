@@ -525,11 +525,13 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("DELETE /api/projects/{project_id}", projects.Delete)
 
 	// NanobotAgents
-	nanobotAgents := handlers.NewNanobotAgentHandler(services.MCPLoader, services.ServerURL)
+	nanobotAgents := handlers.NewNanobotAgentHandler(services.MCPLoader, services.MCPImagePullSecrets, services.ServerURL)
 	mux.HandleFunc("GET /api/nanobot-agents", nanobotAgents.ListAll)
 	mux.HandleFunc("POST /api/projects/{project_id}/agents", nanobotAgents.Create)
 	mux.HandleFunc("GET /api/projects/{project_id}/agents", nanobotAgents.List)
 	mux.HandleFunc("GET /api/projects/{project_id}/agents/{nanobot_agent_id}", nanobotAgents.ByID)
+	mux.HandleFunc("GET /api/projects/{project_id}/agents/{nanobot_agent_id}/k8s-settings-status", nanobotAgents.CheckK8sSettingsStatus)
+	mux.HandleFunc("POST /api/projects/{project_id}/agents/{nanobot_agent_id}/redeploy-with-k8s-settings", nanobotAgents.RedeployWithK8sSettings)
 	mux.HandleFunc("PUT /api/projects/{project_id}/agents/{nanobot_agent_id}", nanobotAgents.Update)
 	mux.HandleFunc("DELETE /api/projects/{project_id}/agents/{nanobot_agent_id}", nanobotAgents.Delete)
 	mux.HandleFunc("POST /api/projects/{project_id}/agents/{nanobot_agent_id}/launch", nanobotAgents.Launch)

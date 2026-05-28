@@ -3295,69 +3295,18 @@ func (m *MCPHandler) RestartServerDeployment(req api.Context) error {
 
 // CheckK8sSettingsStatus checks if a server needs redeployment with new K8s settings
 func (m *MCPHandler) CheckK8sSettingsStatus(req api.Context) error {
-	catalogID := req.PathValue("catalog_id")
-	workspaceID := req.PathValue("workspace_id")
-	entryID := req.PathValue("entry_id")
-
 	var server v1.MCPServer
 	if err := req.Get(&server, req.PathValue("mcp_server_id")); err != nil {
 		return err
 	}
 
-	// Validate catalog/workspace membership
-	// If entry_id is in the path, validate the server was created from that entry
-	if entryID != "" {
-		if server.Spec.MCPServerCatalogEntryName != entryID {
-			return types.NewErrNotFound("MCP server not found")
-		}
-
-		// Get the entry and validate it's in the correct catalog/workspace
-		var entry v1.MCPServerCatalogEntry
-		if err := req.Get(&entry, entryID); err != nil {
-			return types.NewErrNotFound("MCP server not found")
-		}
-
-		// Validate the entry is in the correct catalog or workspace
-		if entry.Spec.MCPCatalogName != catalogID || entry.Spec.PowerUserWorkspaceID != workspaceID {
-			return types.NewErrNotFound("MCP server not found")
-		}
-	} else if server.Spec.MCPCatalogID != catalogID || server.Spec.PowerUserWorkspaceID != workspaceID {
-		// Multi-user server was not in the specified catalog or workspace
-		return types.NewErrNotFound("MCP server not found")
-	}
-
-	// Check if server has K8sSettingsHash in Status (only populated for Kubernetes runtime)
-	deployedHash := server.Status.K8sSettingsHash
-	if deployedHash == "" {
-		return types.NewErrBadRequest("K8s settings check is only supported for Kubernetes runtime")
-	}
-
-	// Get current K8s settings
-	var k8sSettings v1.K8sSettings
-	if err := req.Storage.Get(req.Context(), kclient.ObjectKey{
-		Namespace: req.Namespace(),
-		Name:      system.K8sSettingsName,
-	}, &k8sSettings); err != nil {
+	if err := validateMCPServerCatalogOrWorkspaceEntry(req, server, req.PathValue("catalog_id"), req.PathValue("workspace_id"), req.PathValue("entry_id")); err != nil {
 		return err
 	}
 
-	currentHash, err := m.currentK8sSettingsHash(req, k8sSettings.Spec, server)
+	status, err := newK8sSettingsHelper(m.mcpSessionManager, m.mcpImagePullSecrets).checkK8sSettingsStatus(req, server)
 	if err != nil {
 		return err
-	}
-
-	// Compare deployed hash with current hash
-	needsUpdate := deployedHash != currentHash
-
-	currentSettings, err := convertK8sSettings(k8sSettings)
-	if err != nil {
-		return err
-	}
-
-	status := types.K8sSettingsStatus{
-		NeedsK8sUpdate:       needsUpdate,
-		CurrentSettings:      &currentSettings,
-		DeployedSettingsHash: deployedHash,
 	}
 
 	return req.Write(status)
@@ -3365,10 +3314,6 @@ func (m *MCPHandler) CheckK8sSettingsStatus(req api.Context) error {
 
 // RedeployWithK8sSettings redeploys a server with the current K8s settings
 func (m *MCPHandler) RedeployWithK8sSettings(req api.Context) error {
-	if !mcp.IsKubernetesBackend(m.mcpSessionManager.MCPRuntimeBackend()) {
-		return types.NewErrBadRequest("Redeployment with K8s settings is only supported for Kubernetes backend")
-	}
-
 	catalogID := req.PathValue("catalog_id")
 	workspaceID := req.PathValue("workspace_id")
 	entryID := req.PathValue("entry_id")
@@ -3378,85 +3323,13 @@ func (m *MCPHandler) RedeployWithK8sSettings(req api.Context) error {
 		return err
 	}
 
-	// Validate catalog/workspace membership
-	// If entry_id is in the path, validate the server was created from that entry
-	if entryID != "" {
-		if server.Spec.MCPServerCatalogEntryName != entryID {
-			return types.NewErrNotFound("MCP server not found")
-		}
-
-		// Get the entry and validate it's in the correct catalog/workspace
-		var entry v1.MCPServerCatalogEntry
-		if err := req.Get(&entry, entryID); err != nil {
-			return types.NewErrNotFound("MCP server not found")
-		}
-
-		// Validate the entry is in the correct catalog or workspace
-		if entry.Spec.MCPCatalogName != catalogID || entry.Spec.PowerUserWorkspaceID != workspaceID {
-			return types.NewErrNotFound("MCP server not found")
-		}
-	} else if server.Spec.MCPCatalogID != catalogID || server.Spec.PowerUserWorkspaceID != workspaceID {
-		// Multi-user server was not in the specified catalog or workspace
-		return types.NewErrNotFound("MCP server not found")
-	}
-
-	// Check if server has K8sSettingsHash in Status
-	deployedHash := server.Status.K8sSettingsHash
-
-	// Get current K8s settings to compute current hash
-	var k8sSettings v1.K8sSettings
-	if err := req.Storage.Get(req.Context(), kclient.ObjectKey{
-		Namespace: req.Namespace(),
-		Name:      system.K8sSettingsName,
-	}, &k8sSettings); err != nil {
+	if err := validateMCPServerCatalogOrWorkspaceEntry(req, server, catalogID, workspaceID, entryID); err != nil {
 		return err
 	}
 
-	currentHash, err := m.currentK8sSettingsHash(req, k8sSettings.Spec, server)
+	server, err = newK8sSettingsHelper(m.mcpSessionManager, m.mcpImagePullSecrets).redeployWithK8sSettings(req, server, serverConfig)
 	if err != nil {
 		return err
-	}
-	hashDrift := deployedHash != currentHash
-
-	// Trigger restart if hash drift OR if the server needs K8s update (e.g., PSA compliance)
-	if hashDrift || server.Status.NeedsK8sUpdate {
-		// Trigger restart to force redeployment with new settings
-		if err := m.mcpSessionManager.RestartServerDeployment(req.Context(), serverConfig); err != nil {
-			if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
-				return types.NewErrBadRequest("Restart is not supported by the current backend")
-			}
-			return fmt.Errorf("failed to redeploy server: %w", err)
-		}
-	}
-
-	if server.Status.NeedsK8sUpdate || hashDrift {
-		// Clear the NeedsK8sUpdate flag now that the redeployment has been initiated.
-		// Also update the K8sSettingsHash to the current expected hash so that the
-		// deployment handler won't re-set NeedsK8sUpdate when it observes the old
-		// deployment before the new one is created.
-		//
-		// Use retry.RetryOnConflict because the RestartServerDeployment call above
-		// can trigger controller-side status updates (e.g. UpdateMCPServerStatus)
-		// that race with this write and bump the ResourceVersion.
-		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			var latest v1.MCPServer
-			if err := req.Storage.Get(req.Context(), kclient.ObjectKey{
-				Namespace: req.Namespace(),
-				Name:      server.Name,
-			}, &latest); err != nil {
-				return err
-			}
-			latest.Status.NeedsK8sUpdate = false
-			latest.Status.K8sSettingsHash = currentHash
-			if err := req.Storage.Status().Update(req.Context(), &latest); err != nil {
-				return err
-			}
-			// Refresh server so the API response reflects the updated status.
-			server = latest
-			return nil
-		}); err != nil {
-			return fmt.Errorf("failed to update server status: %w", err)
-		}
 	}
 
 	// Get credential for server
