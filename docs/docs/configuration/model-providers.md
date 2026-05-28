@@ -125,6 +125,14 @@ Obot supports two Amazon Bedrock providers, each with a different authentication
 Both Bedrock providers use _AWS Bedrock Inference Profiles_ rather than direct on-demand model access. Inference profiles are resources that route model invocation requests and enable cost tracking — AWS provides system-defined cross-region inference profiles by default for supported models, so no manual setup is typically required. Only models with an available inference profile will appear in Obot. See the [AWS documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/inference-profiles-use.html) for more details.
 :::
 
+:::warning
+**First-time Anthropic model use requires explicit access.** When using Anthropic models through Bedrock on an AWS account that has not previously been granted access, requests may succeed initially and then begin failing with the following error:
+
+> Model use case details have not been submitted for this account. Fill out the Anthropic use case details form before using the model. If you have already filled out the form, try again in 15 minutes.
+
+This is expected AWS behavior — Anthropic models on Bedrock require you to submit a use case details form before they can be used. See the [AWS model access documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/model-access.html) to request and enable access for the Anthropic models you intend to use.
+:::
+
 ##### Static Credentials
 
 Use the **Amazon Bedrock (Static Credentials)** provider to authenticate with long-lived AWS credentials.
