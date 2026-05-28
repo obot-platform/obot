@@ -229,7 +229,7 @@
 	{#key isSmallScreen}
 		<div
 			class={twMerge(
-				'popover flex flex-col p-4',
+				'popover flex flex-col p-4 z-60',
 				isSmallScreen && 'w-full max-w-sm',
 				!isSmallScreen && 'max-w-xs',
 				classes?.calendar
