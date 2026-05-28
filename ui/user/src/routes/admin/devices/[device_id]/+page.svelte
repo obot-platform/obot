@@ -509,7 +509,6 @@
 				<Table
 					data={historyRows}
 					fields={[
-						'id',
 						'scanned_relative',
 						'scanner_version',
 						'mcp_count',
@@ -518,7 +517,6 @@
 						'client_count'
 					]}
 					headers={[
-						{ title: 'Scan', property: 'id' },
 						{ title: 'Scanned', property: 'scanned_relative' },
 						{ title: 'Scanner', property: 'scanner_version' },
 						{ title: 'MCP', property: 'mcp_count' },
@@ -531,9 +529,9 @@
 					}}
 				>
 					{#snippet onRenderColumn(property, d: HistoryRow)}
-						{#if property === 'id'}
-							<span class="flex items-center gap-2">
-								<span class="text-xs">#{d.id}</span>
+						{#if property === 'scanned_relative'}
+							<span class="flex items-center gap-2" use:tooltip={d.scanned_at}>
+								<span>{d.scanned_relative || '—'}</span>
 								{#if d.is_latest}
 									<span
 										class="bg-primary/15 text-primary rounded-full px-2 py-0.5 text-[10px] font-medium tracking-wide uppercase"
