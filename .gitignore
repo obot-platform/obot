@@ -59,7 +59,7 @@ catalog.json
 .zed/
 __debug_*
 
-.claude/
+**/.claude/settings.local.json
 thoughts/
 thoughts
 
