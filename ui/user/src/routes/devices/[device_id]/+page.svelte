@@ -345,34 +345,36 @@
 							{/snippet}
 
 							{#snippet actions(d)}
-								<DotDotDot class="hover:dark:bg-base-100/50">
-									{#snippet icon()}
-										<Ellipsis class="size-4" />
-									{/snippet}
-									{#snippet children({ toggle })}
-										<button
-											class="menu-button"
-											onclick={(e) => {
-												e.stopPropagation();
-												e.preventDefault();
-												if (!d.configHash) {
-													console.error('No config hash found for MCP server', d);
-													return;
-												}
-												const isCtrlClick = e.ctrlKey || e.metaKey;
-												openUrl(
-													resolve(
-														`${urlPrefix}/device-mcp-servers/${encodeURIComponent(d.configHash)}`
-													),
-													isCtrlClick
-												);
-												toggle();
-											}}
-										>
-											<Scale class="size-4" /> View Related Occurrences
-										</button>
-									{/snippet}
-								</DotDotDot>
+								{#if hasAdminAccess}
+									<DotDotDot class="hover:dark:bg-base-100/50">
+										{#snippet icon()}
+											<Ellipsis class="size-4" />
+										{/snippet}
+										{#snippet children({ toggle })}
+											<button
+												class="menu-button"
+												onclick={(e) => {
+													e.stopPropagation();
+													e.preventDefault();
+													if (!d.configHash) {
+														console.error('No config hash found for MCP server', d);
+														return;
+													}
+													const isCtrlClick = e.ctrlKey || e.metaKey;
+													openUrl(
+														resolve(
+															`${urlPrefix}/device-mcp-servers/${encodeURIComponent(d.configHash)}`
+														),
+														isCtrlClick
+													);
+													toggle();
+												}}
+											>
+												<Scale class="size-4" /> View Related Occurrences
+											</button>
+										{/snippet}
+									</DotDotDot>
+								{/if}
 							{/snippet}
 						</Table>
 					{/if}
@@ -414,26 +416,28 @@
 							{/snippet}
 
 							{#snippet actions(d)}
-								<DotDotDot class="hover:dark:bg-base-100/50">
-									{#snippet icon()}
-										<Ellipsis class="size-4" />
-									{/snippet}
-									{#snippet children({ toggle })}
-										<button
-											class="menu-button"
-											onclick={(e) => {
-												const isCtrlClick = e.ctrlKey || e.metaKey;
-												openUrl(
-													resolve(`${urlPrefix}/device-skills/${encodeURIComponent(d.name)}`),
-													isCtrlClick
-												);
-												toggle();
-											}}
-										>
-											<Scale class="size-4" /> View Related Occurrences
-										</button>
-									{/snippet}
-								</DotDotDot>
+								{#if hasAdminAccess}
+									<DotDotDot class="hover:dark:bg-base-100/50">
+										{#snippet icon()}
+											<Ellipsis class="size-4" />
+										{/snippet}
+										{#snippet children({ toggle })}
+											<button
+												class="menu-button"
+												onclick={(e) => {
+													const isCtrlClick = e.ctrlKey || e.metaKey;
+													openUrl(
+														resolve(`${urlPrefix}/device-skills/${encodeURIComponent(d.name)}`),
+														isCtrlClick
+													);
+													toggle();
+												}}
+											>
+												<Scale class="size-4" /> View Related Occurrences
+											</button>
+										{/snippet}
+									</DotDotDot>
+								{/if}
 							{/snippet}
 						</Table>
 					{/if}
