@@ -45,6 +45,7 @@
 		CircleAlert,
 		ChevronLeft,
 		ChevronRight,
+		CircleFadingArrowUp,
 		GlobeLock,
 		Info,
 		ListFilter,
@@ -71,6 +72,7 @@
 		isDialogView?: boolean;
 		limitViews?: string[];
 		configuredServers?: MCPCatalogServer[];
+		allowMultiUserServerConfigurationEdit?: boolean;
 	}
 
 	let {
@@ -85,7 +87,8 @@
 		hasExistingConfigured,
 		isDialogView,
 		limitViews,
-		configuredServers
+		configuredServers,
+		allowMultiUserServerConfigurationEdit
 	}: Props = $props();
 
 	let entry = $state(untrack(() => initialEntry));
@@ -130,8 +133,11 @@
 	let selected = $derived.by(() => {
 		const searchParams = page.url.searchParams;
 		const tab = searchParams.get('view');
-		return tab ?? (entry ? 'overview' : 'configuration');
+		const fallback = entry ? 'overview' : 'configuration';
+		if (!tab) return fallback;
+		return tabs.some((t) => t.view === tab) ? tab : fallback;
 	});
+	let configurationReadonly = $derived(readonly || isCatalogEntryDeployedMultiUserServer(entry));
 	let showLeftChevron = $state(false);
 	let showRightChevron = $state(false);
 	let scrollContainer = $state<HTMLDivElement>();
@@ -177,8 +183,13 @@
 						{ label: 'Overview', view: 'overview' },
 						...(belongsToUser ? [{ label: 'Server Details', view: 'server-instances' }] : []),
 						{ label: 'Tools', view: 'tools' },
-						// Basic users who just connected don't see Configuration
-						...(trueOwner ? [{ label: 'Configuration', view: 'configuration' }] : []),
+						// Basic users who just connected don't see Configuration.
+						// Catalog entry-deployed multi-user servers also hide it: the configuration is
+						// owned by the upstream catalog entry, not the deployment.
+						...(trueOwner &&
+						(!isCatalogEntryDeployedMultiUserServer(entry) || allowMultiUserServerConfigurationEdit)
+							? [{ label: 'Configuration', view: 'configuration' }]
+							: []),
 						...(belongsToUser
 							? [
 									{ label: 'Audit Logs', view: 'audit-logs' },
@@ -268,10 +279,23 @@
 	function setLastVisitedMcpServer() {
 		if (isDialogView) return;
 		if (!entry) return;
-		const name = entry.manifest.name;
+		const name = getDisplayName(entry);
 		sessionStorage.setItem(
 			ADMIN_SESSION_STORAGE.LAST_VISITED_MCP_SERVER,
 			JSON.stringify({ id: entry.id, name, type, entity, entityId: id })
+		);
+	}
+
+	function getDisplayName(item: MCPCatalogEntry | MCPCatalogServer) {
+		return ('alias' in item && item.alias) || item.manifest.name;
+	}
+
+	function isCatalogEntryDeployedMultiUserServer(item?: MCPCatalogEntry | MCPCatalogServer) {
+		return (
+			!!item &&
+			!('isCatalogEntry' in item) &&
+			item.serverUserType === 'multiUser' &&
+			!!item.catalogEntryID
 		);
 	}
 
@@ -399,25 +423,37 @@
 	async function handleLaunchTemporaryInstance(showInlineError = false) {
 		if (!entry || !id) return;
 
+		// For MCPServers (multi-user deployments), use the catalogEntryID for tool preview generation
+		// and dryRun mode since the underlying catalog entry is not editable.
+		const isMCPServer = entry.type === 'mcpserver';
+		const entryID = isMCPServer ? (entry as MCPCatalogServer).catalogEntryID : entry.id;
+		if (!entryID) return;
+
 		error = undefined;
 		showButtonInlineError = false;
 		saving = true;
 		const body = compileTemporaryInstanceBody();
 		try {
-			if (entity === 'workspace') {
-				await UserService.generateWorkspaceMCPCatalogEntryToolPreviews(
-					id,
-					entry.id,
-					body as unknown as { config?: Record<string, string>; url?: string }
-				);
-			} else {
-				await AdminService.generateMcpCatalogEntryToolPreviews(
-					id,
-					entry.id,
-					body as unknown as { config?: Record<string, string>; url?: string }
-				);
+			const result =
+				entity === 'workspace'
+					? await UserService.generateWorkspaceMCPCatalogEntryToolPreviews(
+							id,
+							entryID,
+							body as unknown as { config?: Record<string, string>; url?: string },
+							{ dryRun: isMCPServer }
+						)
+					: await AdminService.generateMcpCatalogEntryToolPreviews(
+							id,
+							entryID,
+							body as unknown as { config?: Record<string, string>; url?: string },
+							{ dryRun: isMCPServer }
+						);
+
+			if (isMCPServer && result && entry) {
+				// In dryRun mode, the previews are returned but not persisted.
+				// Update the entry's tool preview in-place.
+				(entry as MCPCatalogServer).manifest.toolPreview = result.manifest?.toolPreview ?? [];
 			}
-			window.location.reload();
 		} catch (err) {
 			const errMessage = err instanceof Error ? err.message : 'An unknown error occurred';
 			if (errMessage.includes('MCP server requires OAuth authentication')) {
@@ -425,12 +461,12 @@
 					entity === 'workspace'
 						? await UserService.getWorkspaceMCPCatalogEntryToolPreviewsOauth(
 								id,
-								entry.id,
+								entryID,
 								body as unknown as { config?: Record<string, string>; url?: string }
 							)
 						: await AdminService.getMcpCatalogToolPreviewsOauth(
 								id,
-								entry.id,
+								entryID,
 								body as unknown as { config?: Record<string, string>; url?: string }
 							);
 				if (oauthResponse) {
@@ -441,7 +477,7 @@
 				error = err instanceof Error ? err.message : 'An unknown error occurred';
 				showButtonInlineError = showInlineError;
 			}
-
+		} finally {
 			saving = false;
 		}
 	}
@@ -577,10 +613,8 @@
 					{/if}
 				</div>
 				<h1 class="text-2xl font-semibold capitalize">
-					{#if entry && server}
-						{server.alias || entry.manifest.name}
-					{:else if entry}
-						{entry.manifest.name}
+					{#if entry}
+						{server?.alias || getDisplayName(entry)}
 					{/if}
 				</h1>
 				<div class="pill-rounded">
@@ -684,6 +718,17 @@
 
 		{#if selected === 'overview' && entry}
 			<div class="pb-8">
+				{#if !('isCatalogEntry' in entry) && entry.needsUpdate}
+					<div class="notification-info mb-3 p-3 text-sm font-light">
+						<div class="flex items-center gap-3">
+							<CircleFadingArrowUp class="size-6" />
+							<p>
+								The configuration for this server's catalog entry has changed and can be applied to
+								this server.
+							</p>
+						</div>
+					</div>
+				{/if}
 				{#if hasExistingConfigured}
 					<div class="notification-info mb-3 p-3 text-sm font-light">
 						<div class="flex items-center gap-3">
@@ -786,7 +831,7 @@
 		<CatalogServerForm
 			{entry}
 			{type}
-			{readonly}
+			readonly={configurationReadonly}
 			{id}
 			{entity}
 			onCancel={handleCancel}
@@ -1020,14 +1065,16 @@
 	show={deleteServer}
 	onsuccess={async () => {
 		if (!id || !entry) return;
-		let url: `/${string}` = entity === 'workspace' ? '/mcp-servers' : '/admin/mcp-servers';
 		if (!('isCatalogEntry' in entry)) {
-			const deleteServerFn =
-				entity === 'workspace'
-					? UserService.deleteWorkspaceMCPCatalogServer
-					: AdminService.deleteMCPCatalogServer;
+			const workspaceID = entry.powerUserWorkspaceID || (entity === 'workspace' ? id : undefined);
+			const url: `/${string}` = profile.current.hasAdminAccess?.()
+				? '/admin/mcp-servers'
+				: '/mcp-servers';
+			const deleteServerFn = workspaceID
+				? UserService.deleteWorkspaceMCPCatalogServer
+				: AdminService.deleteMCPCatalogServer;
 			try {
-				await deleteServerFn(id, entry.id);
+				await deleteServerFn(workspaceID || id, entry.id);
 			} catch (error) {
 				if (error instanceof MCPCompositeDeletionDependencyError) {
 					deleteConflictError = error;
@@ -1035,14 +1082,16 @@
 				}
 				throw error;
 			}
+			goto(url);
 		} else {
+			const url: `/${string}` = entity === 'workspace' ? '/mcp-servers' : '/admin/mcp-servers';
 			const deleteCatalogEntryFn =
 				entity === 'workspace'
 					? UserService.deleteWorkspaceMCPCatalogEntry
 					: AdminService.deleteMCPCatalogEntry;
 			await deleteCatalogEntryFn(id, entry.id);
+			goto(url);
 		}
-		goto(url);
 	}}
 	oncancel={() => (deleteServer = false)}
 />

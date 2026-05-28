@@ -534,6 +534,26 @@ export async function getK8sServerDetail(
 	return response;
 }
 
+export async function getMcpCatalogServerK8sDetail(
+	catalogID: string,
+	mcpServerId: string,
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
+) {
+	const response = (await doGet(
+		`/mcp-catalogs/${catalogID}/servers/${mcpServerId}/details`,
+		opts
+	)) as K8sServerDetail;
+	return response;
+}
+
+export async function restartMcpCatalogServerDeployment(
+	catalogID: string,
+	mcpServerId: string,
+	opts?: { fetch?: Fetcher }
+) {
+	await doPost(`/mcp-catalogs/${catalogID}/servers/${mcpServerId}/restart`, {}, opts);
+}
+
 export async function getMcpCatalogServerK8sSettingsStatus(
 	mcpServerId: string,
 	opts?: { dontLogErrors?: boolean }
@@ -910,6 +930,20 @@ export async function createMCPCatalogServer(
 	return response;
 }
 
+export async function deployMultiUserCatalogEntry(
+	catalogID: string,
+	catalogEntryID: string,
+	server?: { manifest?: { remoteConfig?: { url?: string } }; alias?: string },
+	opts?: { fetch?: Fetcher }
+): Promise<MCPCatalogServer> {
+	const response = (await doPost(
+		`/mcp-catalogs/${catalogID}/servers`,
+		{ ...server, catalogEntryID },
+		opts
+	)) as MCPCatalogServer;
+	return response;
+}
+
 export async function updateMCPCatalogServer(
 	catalogID: string,
 	serverID: string,
@@ -924,26 +958,32 @@ export async function updateMCPCatalogServer(
 	return response;
 }
 
+export async function mcpServerDeleteResponseHandler(
+	resp: Response,
+	path: string,
+	opts?: { dontLogErrors?: boolean }
+): Promise<unknown> {
+	if (resp.status === 409 && resp.headers.get('Content-Type')?.includes('application/json')) {
+		const body = (await resp.json()) as {
+			message?: string;
+			dependencies: MCPCompositeDeletionDependency[];
+		};
+
+		if (body.dependencies && body.dependencies.length > 0) {
+			throw new MCPCompositeDeletionDependencyError(
+				body.message ??
+					'All dependencies on this MCP server must be removed before it can be deleted',
+				body.dependencies
+			);
+		}
+	}
+
+	return handleResponse(resp, path, opts);
+}
+
 export async function deleteMCPCatalogServer(catalogID: string, serverID: string): Promise<void> {
 	await doDelete(`/mcp-catalogs/${catalogID}/servers/${serverID}`, {
-		responseHandler: async (resp, path, opts) => {
-			if (resp.status === 409 && resp.headers.get('Content-Type')?.includes('application/json')) {
-				const body = (await resp.json()) as {
-					message?: string;
-					dependencies: MCPCompositeDeletionDependency[];
-				};
-
-				if (body.dependencies && body.dependencies.length > 0) {
-					throw new MCPCompositeDeletionDependencyError(
-						body.message ??
-							'All dependencies on this MCP server must be removed before it can be deleted',
-						body.dependencies
-					);
-				}
-			}
-
-			return handleResponse(resp, path, opts);
-		}
+		responseHandler: mcpServerDeleteResponseHandler
 	});
 }
 
@@ -981,10 +1021,19 @@ export async function deconfigureMCPCatalogServer(
 	await doPost(`/mcp-catalogs/${catalogID}/servers/${serverID}/deconfigure`, {}, opts);
 }
 
+export async function updateMCPCatalogServerAlias(
+	catalogID: string,
+	serverID: string,
+	alias: string,
+	opts?: { fetch?: Fetcher }
+): Promise<void> {
+	await doPut(`/mcp-catalogs/${catalogID}/servers/${serverID}/alias`, { alias }, opts);
+}
+
 export async function revealMcpCatalogServer(
 	catalogID: string,
 	serverID: string,
-	opts?: { fetch?: Fetcher }
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
 ): Promise<Record<string, string>> {
 	const response = (await doPost(
 		`/mcp-catalogs/${catalogID}/servers/${serverID}/reveal`,
@@ -1031,6 +1080,18 @@ export async function isMCPCatalogServerOauthNeeded(
 		}
 	}
 	return false;
+}
+
+export async function triggerMcpCatalogServerUpdate(
+	catalogID: string,
+	mcpServerId: string,
+	opts?: { fetch?: Fetcher }
+): Promise<MCPCatalogServer> {
+	return (await doPost(
+		`/mcp-catalogs/${catalogID}/servers/${mcpServerId}/trigger-update`,
+		{},
+		opts
+	)) as MCPCatalogServer;
 }
 
 // MCP filters

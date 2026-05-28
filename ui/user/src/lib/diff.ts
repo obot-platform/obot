@@ -6,6 +6,7 @@
  * differ structurally between catalog entry and runtime manifest types.
  *
  * - `repoURL`: tracks the source repository, not server configuration
+ * - `serverUserType`: exists only on catalog entry manifests
  * - `remoteConfig.fixedURL`: catalog-only field translated to `url` at deploy time
  * - `remoteConfig.url`: runtime-only field derived from catalog's `fixedURL`
  * - `remoteConfig.isTemplate`: runtime-only field not present on catalog manifests
@@ -25,6 +26,7 @@ export function stripManifestMetadata<T>(manifest: T): T {
 	const stripFields = (m: any) => {
 		if (!m || typeof m !== 'object') return;
 		delete m.repoURL;
+		delete m.serverUserType;
 		if (m.remoteConfig) {
 			delete m.remoteConfig.fixedURL;
 			delete m.remoteConfig.url;

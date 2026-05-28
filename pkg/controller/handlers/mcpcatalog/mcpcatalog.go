@@ -543,6 +543,10 @@ func sanitizeCatalogEntryManifest(entry *types.MCPServerCatalogEntryManifest) {
 			entry.RemoteConfig.Headers[i] = header
 		}
 	}
+
+	if entry.ServerUserType == "" {
+		entry.ServerUserType = types.ServerUserTypeSingleUser
+	}
 }
 
 func readCatalogDirectory[T any](catalog string) ([]T, error) {

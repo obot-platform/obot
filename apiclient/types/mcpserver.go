@@ -22,21 +22,19 @@ const (
 	defaultStartupTimeoutSeconds = 60
 )
 
-// ServerUserType specifies whether a catalog entry is a single-user or multi-user template.
+// ServerUserType specifies whether a catalog entry is single-user or multi-user.
 type ServerUserType string
 
 const (
 	// ServerUserTypeSingleUser indicates each user gets their own MCP server instance.
-	// This is the default when the field is empty.
 	ServerUserTypeSingleUser ServerUserType = "singleUser"
 	// ServerUserTypeMultiUser indicates all users share a single MCP server.
 	ServerUserTypeMultiUser ServerUserType = "multiUser"
 )
 
 // IsSingleUser returns true if the type represents a single-user server.
-// An empty value defaults to single-user for backward compatibility.
 func (t ServerUserType) IsSingleUser() bool {
-	return t == "" || t == ServerUserTypeSingleUser
+	return t == ServerUserTypeSingleUser
 }
 
 // UVXRuntimeConfig represents configuration for UVX runtime (Python packages via uvx)
@@ -195,7 +193,7 @@ type MCPServerCatalogEntryManifest struct {
 	MultiUserConfig *MultiUserConfig `json:"multiUserConfig,omitempty"`
 
 	// ServerUserType specifies whether this catalog entry produces single-user or multi-user servers.
-	// Only "singleUser" is currently supported. Empty value defaults to "singleUser".
+	// Valid values are "singleUser" and "multiUser". Some input paths normalize an empty value to "singleUser" for compatibility before validation.
 	ServerUserType ServerUserType `json:"serverUserType,omitempty"`
 
 	Env []MCPEnv `json:"env,omitempty"`
@@ -297,19 +295,20 @@ type MCPServer struct {
 	Metadata
 	MCPServerManifest MCPServerManifest `json:"manifest"`
 
-	// Alias is a user-defined alias for the MCP server.
-	// This may only be set for single user and remote MCP servers (i.e. where `MCPCatalogID` is "").
-	Alias                   string   `json:"alias,omitempty"`
-	UserID                  string   `json:"userID"`
-	Configured              bool     `json:"configured"`
-	MissingRequiredEnvVars  []string `json:"missingRequiredEnvVars,omitempty"`
-	MissingRequiredHeaders  []string `json:"missingRequiredHeader,omitempty"`
-	MissingOAuthCredentials bool     `json:"missingOAuthCredentials,omitempty"`
-	CatalogEntryID          string   `json:"catalogEntryID"`
-	PowerUserWorkspaceID    string   `json:"powerUserWorkspaceID"`
-	MCPCatalogID            string   `json:"mcpCatalogID,omitempty"`
-	ConnectURL              string   `json:"connectURL,omitempty"`
-	NanobotAgentID          string   `json:"nanobotAgentID,omitempty"`
+	// Alias is a user-defined display label for this MCP server.
+	// For personal servers, it is user-managed. For catalog/workspace servers, it labels the shared deployment.
+	Alias                   string         `json:"alias,omitempty"`
+	UserID                  string         `json:"userID"`
+	Configured              bool           `json:"configured"`
+	MissingRequiredEnvVars  []string       `json:"missingRequiredEnvVars,omitempty"`
+	MissingRequiredHeaders  []string       `json:"missingRequiredHeader,omitempty"`
+	MissingOAuthCredentials bool           `json:"missingOAuthCredentials,omitempty"`
+	CatalogEntryID          string         `json:"catalogEntryID"`
+	PowerUserWorkspaceID    string         `json:"powerUserWorkspaceID"`
+	MCPCatalogID            string         `json:"mcpCatalogID,omitempty"`
+	ServerUserType          ServerUserType `json:"serverUserType,omitempty"`
+	ConnectURL              string         `json:"connectURL,omitempty"`
+	NanobotAgentID          string         `json:"nanobotAgentID,omitempty"`
 
 	// NeedsUpdate indicates whether the configuration in this server's catalog entry has drift from this server's configuration.
 	NeedsUpdate bool `json:"needsUpdate,omitempty"`
@@ -492,6 +491,7 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 		Runtime:          catalogEntry.Runtime,
 		Env:              catalogEntry.Env,
 		Resources:        catalogEntry.Resources,
+		MultiUserConfig:  catalogEntry.MultiUserConfig,
 	}
 
 	// Handle runtime-specific mapping

@@ -72,6 +72,31 @@ func (*MCPCatalogHandler) List(req api.Context) error {
 	})
 }
 
+// validateEntryScope checks that a catalog entry strictly belongs to the scope indicated by the request path.
+// Use this for mutating operations (update, delete) where cross-scope access should not be allowed.
+func validateEntryScope(entry v1.MCPServerCatalogEntry, catalogName, workspaceID string) error {
+	if catalogName != "" && entry.Spec.MCPCatalogName != catalogName {
+		return types.NewErrBadRequest("entry does not belong to catalog")
+	}
+	if workspaceID != "" && entry.Spec.PowerUserWorkspaceID != workspaceID {
+		return types.NewErrBadRequest("entry does not belong to workspace")
+	}
+	return nil
+}
+
+// validateEntryVisibleFromScope checks that a catalog entry is visible from the scope indicated by the request path.
+// Unlike validateEntryScope, workspace-scoped routes also allow global catalog entries (MCPCatalogName set)
+// so PowerUserPlus users can read and deploy servers from global catalog entries into their workspace.
+func validateEntryVisibleFromScope(entry v1.MCPServerCatalogEntry, catalogName, workspaceID string) error {
+	if catalogName != "" && entry.Spec.MCPCatalogName != catalogName {
+		return types.NewErrBadRequest("entry does not belong to catalog")
+	}
+	if workspaceID != "" && entry.Spec.PowerUserWorkspaceID != workspaceID && entry.Spec.MCPCatalogName == "" {
+		return types.NewErrBadRequest("entry does not belong to workspace")
+	}
+	return nil
+}
+
 // Get returns a specific catalog by ID.
 func (*MCPCatalogHandler) Get(req api.Context) error {
 	var catalog v1.MCPCatalog
@@ -243,11 +268,8 @@ func (h *MCPCatalogHandler) GetEntry(req api.Context) error {
 		return fmt.Errorf("failed to get entry: %w", err)
 	}
 
-	// Verify entry belongs to the requested scope
-	if catalogName != "" && entry.Spec.MCPCatalogName != catalogName {
-		return types.NewErrBadRequest("entry does not belong to catalog")
-	} else if workspaceID != "" && entry.Spec.PowerUserWorkspaceID != workspaceID {
-		return types.NewErrBadRequest("entry does not belong to workspace")
+	if err := validateEntryVisibleFromScope(entry, catalogName, workspaceID); err != nil {
+		return err
 	}
 
 	// For workspace entries, include powerUserId in the response
@@ -283,6 +305,9 @@ func (h *MCPCatalogHandler) CreateEntry(req api.Context) error {
 	var manifest types.MCPServerCatalogEntryManifest
 	if err := req.Read(&manifest); err != nil {
 		return types.NewErrBadRequest("failed to read entry manifest: %v", err)
+	}
+	if manifest.ServerUserType == "" {
+		manifest.ServerUserType = types.ServerUserTypeSingleUser
 	}
 	// Handle composite catalog entries
 	if manifest.Runtime == types.RuntimeComposite && manifest.CompositeConfig != nil {
@@ -353,11 +378,8 @@ func (h *MCPCatalogHandler) UpdateEntry(req api.Context) error {
 		return fmt.Errorf("failed to get entry: %w", err)
 	}
 
-	// Verify entry belongs to the requested scope
-	if catalogName != "" && entry.Spec.MCPCatalogName != catalogName {
-		return types.NewErrBadRequest("entry does not belong to catalog")
-	} else if workspaceID != "" && entry.Spec.PowerUserWorkspaceID != workspaceID {
-		return types.NewErrBadRequest("entry does not belong to workspace")
+	if err := validateEntryScope(entry, catalogName, workspaceID); err != nil {
+		return err
 	}
 
 	if !entry.Spec.Editable {
@@ -367,6 +389,9 @@ func (h *MCPCatalogHandler) UpdateEntry(req api.Context) error {
 	var manifest types.MCPServerCatalogEntryManifest
 	if err := req.Read(&manifest); err != nil {
 		return types.NewErrBadRequest("failed to read entry manifest: %v", err)
+	}
+	if manifest.ServerUserType == "" {
+		manifest.ServerUserType = types.ServerUserTypeSingleUser
 	}
 	if err := validation.ValidateCatalogEntryManifest(manifest); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
@@ -416,11 +441,8 @@ func (h *MCPCatalogHandler) DeleteEntry(req api.Context) error {
 		return fmt.Errorf("failed to get entry: %w", err)
 	}
 
-	// Verify entry belongs to the requested scope
-	if catalogName != "" && entry.Spec.MCPCatalogName != catalogName {
-		return types.NewErrBadRequest("entry does not belong to catalog")
-	} else if workspaceID != "" && entry.Spec.PowerUserWorkspaceID != workspaceID {
-		return types.NewErrBadRequest("entry does not belong to workspace")
+	if err := validateEntryScope(entry, catalogName, workspaceID); err != nil {
+		return err
 	}
 
 	if !entry.Spec.Editable {
@@ -611,11 +633,8 @@ func (h *MCPCatalogHandler) ListServersForEntry(req api.Context) error {
 		return fmt.Errorf("failed to get entry: %w", err)
 	}
 
-	// Verify entry belongs to the requested scope
-	if catalogName != "" && entry.Spec.MCPCatalogName != catalogName {
-		return types.NewErrBadRequest("entry does not belong to catalog")
-	} else if workspaceID != "" && entry.Spec.PowerUserWorkspaceID != workspaceID {
-		return types.NewErrBadRequest("entry does not belong to workspace")
+	if err := validateEntryVisibleFromScope(entry, catalogName, workspaceID); err != nil {
+		return err
 	}
 
 	var list v1.MCPServerList
@@ -692,11 +711,8 @@ func (h *MCPCatalogHandler) GetServerFromEntry(req api.Context) error {
 		return fmt.Errorf("failed to get entry: %w", err)
 	}
 
-	// Verify entry belongs to the requested scope
-	if catalogName != "" && entry.Spec.MCPCatalogName != catalogName {
-		return types.NewErrBadRequest("entry does not belong to catalog")
-	} else if workspaceID != "" && entry.Spec.PowerUserWorkspaceID != workspaceID {
-		return types.NewErrBadRequest("entry does not belong to workspace")
+	if err := validateEntryVisibleFromScope(entry, catalogName, workspaceID); err != nil {
+		return err
 	}
 
 	var server v1.MCPServer
@@ -770,13 +786,9 @@ func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
 		return fmt.Errorf("failed to get catalog entry: %w", err)
 	}
 
-	// Verify entry belongs to the requested scope
-	if catalogName != "" && entry.Spec.MCPCatalogName != catalogName {
-		return types.NewErrBadRequest("entry does not belong to catalog")
-	} else if workspaceID != "" && entry.Spec.PowerUserWorkspaceID != workspaceID {
-		return types.NewErrBadRequest("entry does not belong to workspace")
+	if err := validateEntryVisibleFromScope(entry, catalogName, workspaceID); err != nil {
+		return err
 	}
-
 	if !dryRun && !entry.Spec.Editable {
 		return types.NewErrBadRequest("entry is not editable")
 	}
@@ -1023,11 +1035,8 @@ func (h *MCPCatalogHandler) GenerateToolPreviewsOAuthURL(req api.Context) error 
 		return fmt.Errorf("failed to get catalog entry: %w", err)
 	}
 
-	// Verify entry belongs to the requested scope
-	if catalogName != "" && entry.Spec.MCPCatalogName != catalogName {
-		return types.NewErrBadRequest("entry does not belong to catalog")
-	} else if workspaceID != "" && entry.Spec.PowerUserWorkspaceID != workspaceID {
-		return types.NewErrBadRequest("entry does not belong to workspace")
+	if err := validateEntryVisibleFromScope(entry, catalogName, workspaceID); err != nil {
+		return err
 	}
 
 	if !entry.Spec.Editable && !dryRun {
@@ -1714,6 +1723,10 @@ func (h *MCPCatalogHandler) RefreshCompositeComponents(req api.Context) error {
 		return err
 	}
 
+	if entry.Spec.Manifest.ServerUserType == "" {
+		entry.Spec.Manifest.ServerUserType = types.ServerUserTypeSingleUser
+	}
+
 	// Validate the refreshed manifest to ensure it's still valid
 	if err := validation.ValidateCatalogEntryManifest(entry.Spec.Manifest); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
@@ -1771,11 +1784,8 @@ func verifyOAuthCredentialAccess(req api.Context, catalogName, workspaceID, entr
 		return nil, fmt.Errorf("failed to get entry: %w", err)
 	}
 
-	// Verify entry belongs to the requested scope
-	if catalogName != "" && entry.Spec.MCPCatalogName != catalogName {
-		return nil, types.NewErrBadRequest("entry does not belong to catalog")
-	} else if workspaceID != "" && entry.Spec.PowerUserWorkspaceID != workspaceID {
-		return nil, types.NewErrBadRequest("entry does not belong to workspace")
+	if err := validateEntryScope(entry, catalogName, workspaceID); err != nil {
+		return nil, err
 	}
 
 	// Check if the entry requires static OAuth

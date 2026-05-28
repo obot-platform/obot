@@ -411,6 +411,78 @@ func TestConfigurationHasDrifted(t *testing.T) {
 			expectedError: false,
 		},
 		{
+			name: "no drift - identical multi-user config",
+			serverManifest: types.MCPServerManifest{
+				Name:    "test-server",
+				Runtime: types.RuntimeUVX,
+				UVXConfig: &types.UVXRuntimeConfig{
+					Package: "test-package",
+				},
+				MultiUserConfig: &types.MultiUserConfig{
+					UserDefinedHeaders: []types.MCPHeader{{Key: "X-User"}},
+				},
+			},
+			entryManifest: types.MCPServerCatalogEntryManifest{
+				Name:    "test-server",
+				Runtime: types.RuntimeUVX,
+				UVXConfig: &types.UVXRuntimeConfig{
+					Package: "test-package",
+				},
+				MultiUserConfig: &types.MultiUserConfig{
+					UserDefinedHeaders: []types.MCPHeader{{Key: "X-User"}},
+				},
+			},
+			expectedDrift: false,
+			expectedError: false,
+		},
+		{
+			name: "drift - different multi-user config headers",
+			serverManifest: types.MCPServerManifest{
+				Name:    "test-server",
+				Runtime: types.RuntimeUVX,
+				UVXConfig: &types.UVXRuntimeConfig{
+					Package: "test-package",
+				},
+				MultiUserConfig: &types.MultiUserConfig{
+					UserDefinedHeaders: []types.MCPHeader{{Key: "X-User"}},
+				},
+			},
+			entryManifest: types.MCPServerCatalogEntryManifest{
+				Name:    "test-server",
+				Runtime: types.RuntimeUVX,
+				UVXConfig: &types.UVXRuntimeConfig{
+					Package: "test-package",
+				},
+				MultiUserConfig: &types.MultiUserConfig{
+					UserDefinedHeaders: []types.MCPHeader{{Key: "X-Other"}},
+				},
+			},
+			expectedDrift: true,
+			expectedError: false,
+		},
+		{
+			name: "drift - multi-user config added",
+			serverManifest: types.MCPServerManifest{
+				Name:    "test-server",
+				Runtime: types.RuntimeUVX,
+				UVXConfig: &types.UVXRuntimeConfig{
+					Package: "test-package",
+				},
+			},
+			entryManifest: types.MCPServerCatalogEntryManifest{
+				Name:    "test-server",
+				Runtime: types.RuntimeUVX,
+				UVXConfig: &types.UVXRuntimeConfig{
+					Package: "test-package",
+				},
+				MultiUserConfig: &types.MultiUserConfig{
+					UserDefinedHeaders: []types.MCPHeader{{Key: "X-User"}},
+				},
+			},
+			expectedDrift: true,
+			expectedError: false,
+		},
+		{
 			name: "drift - different env values",
 			serverManifest: types.MCPServerManifest{
 				Name:        "test-server",
@@ -492,7 +564,7 @@ func TestConfigurationHasDrifted(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			drifted, err := configurationHasDrifted(tt.serverManifest, tt.entryManifest, false)
+			drifted, err := ConfigurationHasDrifted(tt.serverManifest, tt.entryManifest, false)
 
 			if tt.expectedError {
 				if err == nil {
@@ -599,6 +671,20 @@ func TestRuntimeSpecificDriftFunctions(t *testing.T) {
 		if !result {
 			t.Errorf("Expected drift=true, got drift=%v", result)
 		}
+	})
+
+	t.Run("multiUserConfigHasDrifted", func(t *testing.T) {
+		assert.False(t, multiUserConfigHasDrifted(nil, nil))
+		assert.True(t, multiUserConfigHasDrifted(nil, &types.MultiUserConfig{}))
+		assert.True(t, multiUserConfigHasDrifted(&types.MultiUserConfig{}, nil))
+		assert.False(t, multiUserConfigHasDrifted(
+			&types.MultiUserConfig{UserDefinedHeaders: []types.MCPHeader{{Key: "X-User"}}},
+			&types.MultiUserConfig{UserDefinedHeaders: []types.MCPHeader{{Key: "X-User"}}},
+		))
+		assert.True(t, multiUserConfigHasDrifted(
+			&types.MultiUserConfig{UserDefinedHeaders: []types.MCPHeader{{Key: "X-User"}}},
+			&types.MultiUserConfig{UserDefinedHeaders: []types.MCPHeader{{Key: "X-Other"}}},
+		))
 	})
 
 	t.Run("default deny semantics are compared effectively", func(t *testing.T) {
@@ -709,6 +795,101 @@ func newMCPServer(name string) *v1.MCPServer {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: "default",
+		},
+	}
+}
+
+func TestDetectDriftMarksMultiUserCatalogEntryDeploymentNeedingUpdate(t *testing.T) {
+	entry := newMCPServerCatalogEntry("template-entry", types.MCPServerCatalogEntryManifest{
+		Name:           "Shared Template",
+		Runtime:        types.RuntimeContainerized,
+		ServerUserType: types.ServerUserTypeMultiUser,
+		ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+			Image: "example/mcp:2.0.0",
+			Port:  8080,
+			Path:  "/mcp",
+		},
+	})
+	server := newMCPServer("shared-server")
+	server.Spec.MCPCatalogID = "default"
+	server.Spec.MCPServerCatalogEntryName = entry.Name
+	server.Spec.Manifest = types.MCPServerManifest{
+		Name:    "Shared Template",
+		Runtime: types.RuntimeContainerized,
+		ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+			Image: "example/mcp:1.0.0",
+			Port:  8080,
+			Path:  "/mcp",
+		},
+	}
+
+	client := newFakeClient(t, entry, server)
+	err := (&Handler{}).DetectDrift(router.Request{
+		Client:    client,
+		Ctx:       context.Background(),
+		Object:    server,
+		Namespace: server.Namespace,
+		Name:      server.Name,
+	}, &router.ResponseWrapper{})
+	require.NoError(t, err)
+
+	var updated v1.MCPServer
+	require.NoError(t, client.Get(context.Background(), router.Key(server.Namespace, server.Name), &updated))
+	assert.True(t, updated.Status.NeedsUpdate)
+}
+
+func TestDetectDriftClearsMultiUserCatalogEntryDeploymentWhenConfigurationMatches(t *testing.T) {
+	entry := newMCPServerCatalogEntry("template-entry", types.MCPServerCatalogEntryManifest{
+		Name:           "Shared Template",
+		Runtime:        types.RuntimeContainerized,
+		ServerUserType: types.ServerUserTypeMultiUser,
+		ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+			Image: "example/mcp:1.0.0",
+			Port:  8080,
+			Path:  "/mcp",
+		},
+	})
+	server := newMCPServer("shared-server")
+	server.Spec.MCPCatalogID = "default"
+	server.Spec.MCPServerCatalogEntryName = entry.Name
+	server.Spec.Manifest = types.MCPServerManifest{
+		Name:    "Shared Template",
+		Runtime: types.RuntimeContainerized,
+		ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+			Image: "example/mcp:1.0.0",
+			Port:  8080,
+			Path:  "/mcp",
+		},
+	}
+	server.Status.NeedsUpdate = true
+
+	client := newFakeClient(t, entry, server)
+	err := (&Handler{}).DetectDrift(router.Request{
+		Client:    client,
+		Ctx:       context.Background(),
+		Object:    server,
+		Namespace: server.Namespace,
+		Name:      server.Name,
+	}, &router.ResponseWrapper{})
+	require.NoError(t, err)
+
+	var updated v1.MCPServer
+	require.NoError(t, client.Get(context.Background(), router.Key(server.Namespace, server.Name), &updated))
+	assert.False(t, updated.Status.NeedsUpdate)
+}
+
+func newMCPServerCatalogEntry(name string, manifest types.MCPServerCatalogEntryManifest) *v1.MCPServerCatalogEntry {
+	return &v1.MCPServerCatalogEntry{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: v1.SchemeGroupVersion.String(),
+			Kind:       "MCPServerCatalogEntry",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: "default",
+		},
+		Spec: v1.MCPServerCatalogEntrySpec{
+			Manifest: manifest,
 		},
 	}
 }

@@ -12,6 +12,9 @@
 
 	let { data } = $props();
 	let { mcpServer } = $derived(data);
+	let workspaceId = $derived(mcpServer?.powerUserWorkspaceID);
+	let serverScopeEntity = $derived(workspaceId ? ('workspace' as const) : ('catalog' as const));
+	let serverScopeID = $derived(workspaceId || mcpServer?.mcpCatalogID || DEFAULT_MCP_CATALOG_ID);
 	let loading = $state(false);
 	let users = $state<OrgUser[]>([]);
 	let instances = $state<MCPServerInstance[]>([]);
@@ -23,10 +26,9 @@
 	onMount(async () => {
 		if (!mcpServer) return;
 		loading = true;
-		instances = await AdminService.listMcpCatalogServerInstances(
-			DEFAULT_MCP_CATALOG_ID,
-			mcpServer.id
-		);
+		instances = workspaceId
+			? await UserService.listWorkspaceMcpCatalogServerInstances(workspaceId, mcpServer.id)
+			: await AdminService.listMcpCatalogServerInstances(serverScopeID, mcpServer.id);
 		users = await UserService.listUsersIncludeDeleted();
 		loading = false;
 	});
@@ -38,6 +40,8 @@
 		<McpServerActions
 			server={mcpServer}
 			instance={currentUserInstance}
+			catalogID={workspaceId ? undefined : serverScopeID}
+			workspaceID={workspaceId}
 			{loading}
 			readonly={profile.current.isAdminReadonly?.()}
 			allowMultiUserServerConfigurationEdit
@@ -53,8 +57,8 @@
 			<div class="flex flex-col gap-6">
 				{#if mcpServer}
 					<McpServerK8sInfo
-						id={DEFAULT_MCP_CATALOG_ID}
-						entity="catalog"
+						id={serverScopeID}
+						entity={serverScopeEntity}
 						mcpServerId={mcpServer.id}
 						name={mcpServer.manifest.name || ''}
 						connectedUsers={(instances ?? []).map((instance) => {

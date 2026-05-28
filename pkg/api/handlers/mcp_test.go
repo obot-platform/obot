@@ -1,14 +1,23 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/api"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kuser "k8s.io/apiserver/pkg/authentication/user"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func TestConvertMCPResources(t *testing.T) {
@@ -38,6 +47,370 @@ func TestConvertMCPResources(t *testing.T) {
 		},
 	}, nil, "", "")
 	assert.Equal(t, resources, server.MCPServerManifest.Resources)
+}
+
+func TestHideMultiUserCatalogEntry(t *testing.T) {
+	multiUserEntry := v1.MCPServerCatalogEntry{
+		Spec: v1.MCPServerCatalogEntrySpec{
+			Manifest: types.MCPServerCatalogEntryManifest{
+				ServerUserType: types.ServerUserTypeMultiUser,
+			},
+		},
+	}
+	singleUserEntry := v1.MCPServerCatalogEntry{
+		Spec: v1.MCPServerCatalogEntrySpec{
+			Manifest: types.MCPServerCatalogEntryManifest{
+				ServerUserType: types.ServerUserTypeSingleUser,
+			},
+		},
+	}
+
+	tests := []struct {
+		name  string
+		user  kuser.Info
+		entry v1.MCPServerCatalogEntry
+		want  bool
+	}{
+		{
+			name:  "basic user cannot see multi-user catalog entries",
+			user:  &kuser.DefaultInfo{Groups: types.RoleBasic.Groups()},
+			entry: multiUserEntry,
+			want:  true,
+		},
+		{
+			name:  "basic user can see single-user entries",
+			user:  &kuser.DefaultInfo{Groups: types.RoleBasic.Groups()},
+			entry: singleUserEntry,
+			want:  false,
+		},
+		{
+			name:  "admin can see multi-user catalog entries",
+			user:  &kuser.DefaultInfo{Groups: types.RoleAdmin.Groups()},
+			entry: multiUserEntry,
+			want:  false,
+		},
+		{
+			name:  "power user plus can see multi-user catalog entries",
+			user:  &kuser.DefaultInfo{Groups: types.RolePowerUserPlus.Groups()},
+			entry: multiUserEntry,
+			want:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := HideMultiUserCatalogEntry(api.Context{User: tt.user}, tt.entry)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestUpdateServerAliasUnscopedSharedServer(t *testing.T) {
+	server := v1.MCPServer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "server",
+			Namespace: system.DefaultNamespace,
+		},
+		Spec: v1.MCPServerSpec{
+			MCPCatalogID: "catalog-a",
+			Manifest: types.MCPServerManifest{
+				Name:    "server",
+				Runtime: types.RuntimeNPX,
+			},
+		},
+	}
+
+	req := httptest.NewRequest(http.MethodPut, "/api/mcp-servers/server/alias", strings.NewReader(`{"alias":"new alias"}`))
+	req.SetPathValue("mcp_server_id", "server")
+	storage := newFakeStorage(t, &server)
+
+	err := (&MCPHandler{}).UpdateServerAlias(api.Context{
+		ResponseWriter: httptest.NewRecorder(),
+		Request:        req,
+		Storage:        storage,
+	})
+	require.Error(t, err)
+	assert.True(t, types.IsNotFound(err), "expected not found error, got %v", err)
+
+	var updated v1.MCPServer
+	require.NoError(t, storage.Get(context.Background(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: "server"}, &updated))
+	assert.Empty(t, updated.Spec.Alias)
+}
+
+func TestTriggerUpdateScope(t *testing.T) {
+	type triggerUpdateScopeTestCase struct {
+		name            string
+		user            kuser.Info
+		server          v1.MCPServer
+		entry           *v1.MCPServerCatalogEntry
+		catalogID       string
+		workspaceID     string
+		wantShutdown    bool
+		wantErrContains string
+	}
+
+	baseEntry := func(workspaceID string) *v1.MCPServerCatalogEntry {
+		return &v1.MCPServerCatalogEntry{
+			ObjectMeta: metav1.ObjectMeta{Name: "entry"},
+			Spec: v1.MCPServerCatalogEntrySpec{
+				PowerUserWorkspaceID: workspaceID,
+				Manifest: types.MCPServerCatalogEntryManifest{
+					Name:    "entry",
+					Runtime: types.RuntimeNPX,
+				},
+			},
+		}
+	}
+
+	baseServer := func(userID string) v1.MCPServer {
+		return v1.MCPServer{
+			ObjectMeta: metav1.ObjectMeta{Name: "server"},
+			Spec: v1.MCPServerSpec{
+				UserID:                    userID,
+				MCPServerCatalogEntryName: "entry",
+				Manifest: types.MCPServerManifest{
+					Name:    "server",
+					Runtime: types.RuntimeNPX,
+				},
+			},
+			Status: v1.MCPServerStatus{NeedsUpdate: true},
+		}
+	}
+	multiUserWorkspaceServer := func(workspaceID string) v1.MCPServer {
+		server := baseServer("")
+		server.Spec.PowerUserWorkspaceID = workspaceID
+		return server
+	}
+	multiUserCatalogServer := func(catalogID string) v1.MCPServer {
+		server := baseServer("")
+		server.Spec.MCPCatalogID = catalogID
+		return server
+	}
+	catalogEntry := func(catalogID string) *v1.MCPServerCatalogEntry {
+		entry := baseEntry("")
+		entry.Spec.MCPCatalogName = catalogID
+		return entry
+	}
+
+	runTriggerUpdateScopeCases := func(t *testing.T, tests []triggerUpdateScopeTestCase) {
+		t.Helper()
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				server := tt.server
+				server.Namespace = system.DefaultNamespace
+				objects := []kclient.Object{&server}
+				if tt.entry != nil {
+					entry := *tt.entry
+					entry.Namespace = system.DefaultNamespace
+					objects = append(objects, &entry)
+				}
+
+				req := httptest.NewRequest(http.MethodPost, "/api/mcp-servers/server/trigger-update", nil)
+				req.SetPathValue("mcp_server_id", "server")
+				if tt.catalogID != "" {
+					req.SetPathValue("catalog_id", tt.catalogID)
+				}
+				if tt.workspaceID != "" {
+					req.SetPathValue("workspace_id", tt.workspaceID)
+				}
+
+				var shutdownServerNames []string
+				err := (&MCPHandler{
+					shutdownMCPServer: func(serverName string) error {
+						shutdownServerNames = append(shutdownServerNames, serverName)
+						return nil
+					},
+				}).TriggerUpdate(api.Context{
+					ResponseWriter: httptest.NewRecorder(),
+					Request:        req,
+					Storage:        newFakeStorage(t, objects...),
+					User:           tt.user,
+				})
+
+				if tt.wantErrContains != "" {
+					require.Error(t, err)
+					assert.Contains(t, err.Error(), tt.wantErrContains)
+					return
+				}
+				require.NoError(t, err)
+				if tt.wantShutdown {
+					assert.Equal(t, []string{"server"}, shutdownServerNames)
+				} else {
+					assert.Empty(t, shutdownServerNames)
+				}
+			})
+		}
+	}
+
+	t.Run("single-user legacy behavior", func(t *testing.T) {
+		runTriggerUpdateScopeCases(t, []triggerUpdateScopeTestCase{
+			{
+				name:         "admin can update unowned server",
+				user:         testUserWithRole("admin", types.GroupAdmin),
+				server:       baseServer("owner"),
+				entry:        baseEntry(""),
+				wantShutdown: true,
+			},
+			{
+				name:         "owner can update own server",
+				user:         testUser("owner"),
+				server:       baseServer("owner"),
+				entry:        baseEntry(""),
+				wantShutdown: true,
+			},
+			{
+				name:         "catalog path is not checked for owner update",
+				user:         testUser("owner"),
+				server:       baseServer("owner"),
+				entry:        baseEntry(""),
+				catalogID:    "different-catalog",
+				wantShutdown: true,
+			},
+			{
+				name:         "non-owner can update through matching workspace",
+				user:         testUser("collaborator"),
+				server:       baseServer("owner"),
+				entry:        baseEntry("workspace"),
+				workspaceID:  "workspace",
+				wantShutdown: true,
+			},
+			{
+				name:            "non-owner without workspace is hidden",
+				user:            testUser("collaborator"),
+				server:          baseServer("owner"),
+				entry:           baseEntry("workspace"),
+				wantErrContains: "MCP server server not found",
+			},
+			{
+				name:            "non-owner with wrong workspace is hidden",
+				user:            testUser("collaborator"),
+				server:          baseServer("owner"),
+				entry:           baseEntry("workspace"),
+				workspaceID:     "other-workspace",
+				wantErrContains: "MCP server server not found",
+			},
+			{
+				name: "component server is rejected",
+				user: testUserWithRole("admin", types.GroupAdmin),
+				server: func() v1.MCPServer {
+					server := baseServer("owner")
+					server.Spec.CompositeName = "composite"
+					return server
+				}(),
+				entry:           baseEntry(""),
+				wantErrContains: "cannot trigger update on a component server",
+			},
+			{
+				name: "server without catalog entry is a no-op",
+				user: testUser("owner"),
+				server: func() v1.MCPServer {
+					server := baseServer("owner")
+					server.Spec.MCPServerCatalogEntryName = ""
+					return server
+				}(),
+			},
+			{
+				name: "server not needing update is a no-op",
+				user: testUser("owner"),
+				server: func() v1.MCPServer {
+					server := baseServer("owner")
+					server.Status.NeedsUpdate = false
+					return server
+				}(),
+				entry: baseEntry(""),
+			},
+		})
+	})
+
+	t.Run("multi-user catalog entries", func(t *testing.T) {
+		runTriggerUpdateScopeCases(t, []triggerUpdateScopeTestCase{
+			{
+				name: "admin can update catalog multi-user server through unscoped route",
+				user: &kuser.DefaultInfo{
+					Name:   "admin",
+					UID:    "admin",
+					Groups: types.RoleAdmin.Groups(),
+				},
+				server:       multiUserCatalogServer("catalog-a"),
+				entry:        catalogEntry("catalog-a"),
+				wantShutdown: true,
+			},
+			{
+				name: "admin cannot use catalog route for server from another catalog",
+				user: &kuser.DefaultInfo{
+					Name:   "admin",
+					UID:    "admin",
+					Groups: types.RoleAdmin.Groups(),
+				},
+				server:          multiUserCatalogServer("catalog-a"),
+				catalogID:       "catalog-b",
+				wantErrContains: "MCP server server not found",
+			},
+			{
+				name: "admin cannot trigger update for multi-user server without catalog entry",
+				user: &kuser.DefaultInfo{
+					Name:   "admin",
+					UID:    "admin",
+					Groups: types.RoleAdmin.Groups(),
+				},
+				server: func() v1.MCPServer {
+					server := multiUserWorkspaceServer("workspace-a")
+					server.Spec.MCPServerCatalogEntryName = ""
+					return server
+				}(),
+				workspaceID:     "workspace-a",
+				wantErrContains: "cannot trigger update for a multi-user MCP server without a catalog entry",
+			},
+			{
+				name: "power user plus can update matching workspace multi-user server",
+				user: &kuser.DefaultInfo{
+					Name:   "power-user-plus",
+					UID:    "power-user-plus",
+					Groups: types.RolePowerUserPlus.Groups(),
+				},
+				server:       multiUserWorkspaceServer("workspace-a"),
+				entry:        baseEntry("workspace-a"),
+				workspaceID:  "workspace-a",
+				wantShutdown: true,
+			},
+			{
+				name: "power user plus cannot update workspace multi-user server through another workspace route",
+				user: &kuser.DefaultInfo{
+					Name:   "power-user-plus",
+					UID:    "power-user-plus",
+					Groups: types.RolePowerUserPlus.Groups(),
+				},
+				server:          multiUserWorkspaceServer("workspace-a"),
+				entry:           baseEntry("workspace-a"),
+				workspaceID:     "workspace-b",
+				wantErrContains: "MCP server server not found",
+			},
+			{
+				name: "power user plus cannot update catalog multi-user server through catalog route",
+				user: &kuser.DefaultInfo{
+					Name:   "power-user-plus",
+					UID:    "power-user-plus",
+					Groups: types.RolePowerUserPlus.Groups(),
+				},
+				server:          multiUserCatalogServer("catalog-a"),
+				entry:           catalogEntry("catalog-a"),
+				catalogID:       "catalog-a",
+				wantErrContains: "MCP server server not found",
+			},
+			{
+				name: "basic user cannot update matching workspace multi-user server",
+				user: &kuser.DefaultInfo{
+					Name:   "basic",
+					UID:    "basic",
+					Groups: types.RoleBasic.Groups(),
+				},
+				server:          multiUserWorkspaceServer("workspace-a"),
+				entry:           baseEntry("workspace-a"),
+				workspaceID:     "workspace-a",
+				wantErrContains: "MCP server server not found",
+			},
+		})
+	})
 }
 
 // Test functions for applyURLTemplate

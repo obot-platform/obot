@@ -25,8 +25,13 @@
 		convertEntriesAndServersToTableData,
 		getServerTypeLabelByType,
 		hasEditableConfiguration,
+		deleteMcpServerDeployment,
+		disconnectMcpServerUser,
 		hasMissingSecretBindingConfig,
-		requiresUserUpdate
+		isMultiUserCatalogEntry,
+		isMultiUserServer,
+		requiresUserUpdate,
+		restartMcpServer
 	} from '$lib/services/user/mcp';
 	import { mcpServersAndEntries, profile, userDeviceSettings } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
@@ -170,7 +175,11 @@
 			return null;
 		}
 
-		const isCatalogEntry = d.type === 'single' || d.type === 'remote' || d.type === 'composite';
+		const isCatalogEntry =
+			d.type === 'single' ||
+			d.type === 'remote' ||
+			d.type === 'composite' ||
+			d.type === 'multi-catalog-entry';
 		if (isCatalogEntry) {
 			if (useAdminUrl) {
 				return d.data.powerUserWorkspaceID
@@ -190,7 +199,7 @@
 	}
 
 	async function fetch() {
-		mcpServersAndEntries.refreshAll();
+		await mcpServersAndEntries.refreshAll();
 	}
 
 	function getConfiguredServersForCatalogEntry(entry: MCPCatalogEntry): MCPCatalogServer[] {
@@ -226,7 +235,19 @@
 			server,
 			server.catalogEntryID ? entriesMap.get(server.catalogEntryID) : undefined
 		);
-		mcpServersAndEntries.refreshUserConfiguredServers();
+		await mcpServersAndEntries.refreshAll();
+	}
+
+	async function restartServer(server: MCPCatalogServer) {
+		await restartMcpServer(server, catalog?.id);
+	}
+
+	async function deleteServerDeployment(server: MCPCatalogServer) {
+		await deleteMcpServerDeployment(server, catalog?.id);
+	}
+
+	async function disconnectCurrentUser(server: MCPCatalogServer) {
+		await disconnectMcpServerUser(server);
 	}
 
 	function handleShowSelectServerDialog(
@@ -245,7 +266,7 @@
 
 	function handleConnectToServer({ instance }: { instance?: MCPServerInstance }) {
 		if (instance) {
-			mcpServersAndEntries.refreshUserInstances();
+			mcpServersAndEntries.refreshAll();
 		}
 		onConnect?.({ instance });
 	}
@@ -347,6 +368,10 @@
 						url = powerUserWorkspaceID
 							? `/admin/mcp-servers/w/${powerUserWorkspaceID}/c/${d.data.id}`
 							: `/admin/mcp-servers/c/${d.data.id}`;
+					} else if (isMultiUserServer(d.data)) {
+						url = powerUserWorkspaceID
+							? `/admin/mcp-servers/w/${powerUserWorkspaceID}/s/${d.id}`
+							: `/admin/mcp-servers/s/${d.id}`;
 					} else if (d.data.catalogEntryID) {
 						url = powerUserWorkspaceID
 							? `/admin/mcp-servers/w/${powerUserWorkspaceID}/c/${d.data.catalogEntryID}/instance/${d.id}`
@@ -359,6 +384,8 @@
 				} else {
 					if ('isCatalogEntry' in d.data) {
 						url = `/mcp-servers/c/${d.data.id}`;
+					} else if (isMultiUserServer(d.data)) {
+						url = `/mcp-servers/s/${d.id}`;
 					} else if (d.data.catalogEntryID) {
 						url = `/mcp-servers/c/${d.data.catalogEntryID}/instance/${d.id}`;
 					} else {
@@ -384,14 +411,17 @@
 				const missingSecretBinding = 'missingKubernetesSecret' in d && d.missingKubernetesSecret;
 				return 'isCatalogEntry' in d.data && d.data.needsUpdate && !missingSecretBinding
 					? 'bg-primary/10'
-					: matchingServers.some(requiresUserUpdate)
-						? 'bg-warning/10'
-						: '';
+					: !('isCatalogEntry' in d.data) && d.data.needsUpdate
+						? 'bg-primary/10'
+						: matchingServers.some(requiresUserUpdate)
+							? 'bg-warning/10'
+							: '';
 			}}
 		>
 			{#snippet onRenderColumn(property, d)}
 				{@const isCatalogEntry = 'isCatalogEntry' in d.data}
 				{@const catalogEntry = isCatalogEntry ? (d.data as MCPCatalogEntry) : undefined}
+				{@const server = !isCatalogEntry ? d.data : undefined}
 				{@const matchingServers = catalogEntry
 					? getConfiguredServersForCatalogEntry(catalogEntry)
 					: []}
@@ -406,7 +436,7 @@
 						</div>
 						<p class="flex items-center gap-2">
 							{d.name}
-							{#if catalogEntry?.needsUpdate && !('missingKubernetesSecret' in d && d.missingKubernetesSecret)}
+							{#if (catalogEntry?.needsUpdate || server?.needsUpdate) && !('missingKubernetesSecret' in d && d.missingKubernetesSecret)}
 								<span
 									use:tooltip={{
 										classes: ['border-primary', 'bg-primary/10', 'dark:bg-primary/50'],
@@ -467,7 +497,7 @@
 				{@const matchingInstance =
 					d.connected && d.type === 'multi' ? instancesMap.get(d.data.id) : undefined}
 				{@const hasConnectedOptions = isCatalogEntry
-					? matchingServers.length > 0
+					? catalogEntry && !isMultiUserCatalogEntry(catalogEntry) && matchingServers.length > 0
 					: !!matchingInstance}
 				{@const requiresOAuth =
 					catalogEntry?.manifest?.runtime === 'remote' &&
@@ -572,8 +602,8 @@
 										onclick={async (e) => {
 											e.stopPropagation();
 											if (matchingServers.length === 1) {
-												await UserService.restartMcpServer(matchingServers[0].id);
-												mcpServersAndEntries.refreshUserConfiguredServers();
+												await restartServer(matchingServers[0]);
+												await mcpServersAndEntries.refreshAll();
 											} else {
 												handleShowSelectServerDialog(catalogEntry, 'restart');
 											}
@@ -584,15 +614,15 @@
 									</button>
 								{/if}
 
-								{#if matchingServers.length > 0 && catalogEntry}
+								{#if matchingServers.length > 0 && catalogEntry && !isMultiUserCatalogEntry(catalogEntry)}
 									<button
 										class="menu-button hover:bg-base-400"
 										onclick={async (e) => {
 											e.stopPropagation();
 
 											if (matchingServers.length === 1) {
-												await UserService.deleteSingleOrRemoteMcpServer(matchingServers[0].id);
-												mcpServersAndEntries.refreshUserConfiguredServers();
+												await disconnectCurrentUser(matchingServers[0]);
+												await mcpServersAndEntries.refreshAll();
 											} else {
 												handleShowSelectServerDialog(catalogEntry, 'disconnect');
 											}
@@ -608,7 +638,7 @@
 										onclick={async (e) => {
 											e.stopPropagation();
 											await UserService.deleteMcpServerInstance(matchingInstance.id);
-											mcpServersAndEntries.refreshUserInstances();
+											await mcpServersAndEntries.refreshAll();
 											toggle(false);
 										}}
 									>
@@ -660,7 +690,8 @@
 										toggle(false);
 									}}
 								>
-									<Trash2 class="size-4" /> Delete Entry
+									<Trash2 class="size-4" />
+									{catalogEntry ? 'Delete Entry' : 'Delete Server'}
 								</button>
 							{/if}
 						</div>
@@ -720,17 +751,32 @@
 	isCreateFirst?: boolean
 )}
 	{@const canConnect = d.canConnect !== false}
+	{@const isMultiUserCatalogEntryRow = 'isCatalogEntry' in d && isMultiUserCatalogEntry(d)}
+	{@const isAdminDeployable =
+		isMultiUserCatalogEntryRow &&
+		((!!catalog && profile.current?.hasAdminAccess?.()) || (entity === 'workspace' && !!id))}
 	<button
 		class="menu-button disabled:cursor-not-allowed disabled:opacity-50"
-		disabled={!canConnect}
+		disabled={!canConnect || (isMultiUserCatalogEntryRow && !isAdminDeployable)}
 		use:tooltip={{
-			text: canConnect ? '' : 'See MCP Registries to grant connect access to this server',
+			text:
+				isMultiUserCatalogEntryRow && !isAdminDeployable
+					? 'This is a multi-user catalog entry. An administrator must deploy it before you can connect.'
+					: canConnect
+						? ''
+						: 'See MCP Registries to grant connect access to this server',
 			disablePortal: true
 		}}
 		onclick={async (e) => {
 			e.stopPropagation();
 
 			if ('isCatalogEntry' in d) {
+				if (isMultiUserCatalogEntry(d)) {
+					connectToServerDialog?.open({ entry: d });
+					toggle(false);
+					return;
+				}
+
 				const matchingServers = getUsableConfiguredServersForCatalogEntry(d);
 				if (isCreateFirst || matchingServers.length === 1) {
 					connectToServerDialog?.open({
@@ -790,16 +836,7 @@
 		}
 
 		try {
-			if (deletingServer.catalogEntryID) {
-				await UserService.deleteSingleOrRemoteMcpServer(deletingServer.id);
-			} else if (deletingServer.powerUserWorkspaceID) {
-				await UserService.deleteWorkspaceMCPCatalogServer(
-					deletingServer.powerUserWorkspaceID,
-					deletingServer.id
-				);
-			} else if (catalog) {
-				await AdminService.deleteMCPCatalogServer(catalog.id, deletingServer.id);
-			}
+			await deleteServerDeployment(deletingServer);
 
 			await fetch();
 			deletingServer = undefined;
@@ -813,8 +850,8 @@
 		}
 	}}
 	oncancel={() => (deletingServer = undefined)}
-	entity="entry"
-	entityPlural="entries"
+	entity="server"
+	entityPlural="servers"
 />
 
 <McpConfirmDelete
@@ -833,16 +870,9 @@
 					} else if (catalog) {
 						await AdminService.deleteMCPCatalogEntry(catalog.id, item.data.id);
 					}
-				} else if (!item.data.catalogEntryID) {
+				} else if (isMultiUserServer(item.data) || !item.data.catalogEntryID) {
 					try {
-						if (item.data.powerUserWorkspaceID) {
-							await UserService.deleteWorkspaceMCPCatalogServer(
-								item.data.powerUserWorkspaceID,
-								item.data.id
-							);
-						} else if (catalog) {
-							await AdminService.deleteMCPCatalogServer(catalog.id, item.data.id);
-						}
+						await deleteServerDeployment(item.data);
 					} catch (error) {
 						if (error instanceof MCPCompositeDeletionDependencyError) {
 							deleteConflictError = error;
@@ -880,6 +910,8 @@
 <ConnectToServer
 	bind:this={connectToServerDialog}
 	userConfiguredServers={mcpServersAndEntries.current.userConfiguredServers}
+	catalogID={catalog?.id}
+	workspaceID={entity === 'workspace' ? id : undefined}
 	onConnect={handleConnectToServer}
 />
 
@@ -895,7 +927,13 @@
 			selectServerDialog?.close();
 			switch (selectServerMode) {
 				case 'server-details': {
-					goto(resolve(`/mcp-servers/c/${d.catalogEntryID}/instance/${d.id}`));
+					goto(
+						resolve(
+							isMultiUserServer(d)
+								? `/mcp-servers/s/${d.id}`
+								: `/mcp-servers/c/${d.catalogEntryID}/instance/${d.id}`
+						)
+					);
 					break;
 				}
 				case 'rename': {
@@ -913,13 +951,13 @@
 					break;
 				}
 				case 'disconnect': {
-					await UserService.deleteSingleOrRemoteMcpServer(d.id);
-					mcpServersAndEntries.refreshUserConfiguredServers();
+					await disconnectCurrentUser(d);
+					await mcpServersAndEntries.refreshAll();
 					break;
 				}
 				case 'restart': {
-					await UserService.restartMcpServer(d.id);
-					mcpServersAndEntries.refreshUserConfiguredServers();
+					await restartServer(d);
+					await mcpServersAndEntries.refreshAll();
 					break;
 				}
 				case 'reauthenticate': {

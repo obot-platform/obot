@@ -19,9 +19,10 @@ interface McpServerAndEntries {
 }
 const store = $state<{
 	current: McpServerAndEntries;
-	refreshAll: () => void;
-	refreshUserConfiguredServers: () => void;
-	refreshUserInstances: () => void;
+	refreshAll: () => Promise<void>;
+	refreshUserConfiguredServers: () => Promise<void>;
+	refreshUserInstances: () => Promise<void>;
+	removeServer: (serverID: string) => void;
 	initialize: (forceRefresh?: boolean) => void;
 	fetchData: (forceRefresh?: boolean) => Promise<void>;
 }>({
@@ -37,6 +38,7 @@ const store = $state<{
 	refreshAll,
 	refreshUserConfiguredServers,
 	refreshUserInstances,
+	removeServer,
 	initialize,
 	fetchData
 });
@@ -159,6 +161,19 @@ async function refreshUserInstances() {
 	store.current = {
 		...store.current,
 		userInstances: response
+	};
+}
+
+function removeServer(serverID: string) {
+	store.current = {
+		...store.current,
+		servers: store.current.servers.filter((server) => server.id !== serverID),
+		userConfiguredServers: store.current.userConfiguredServers.filter(
+			(server) => server.id !== serverID
+		),
+		userInstances: store.current.userInstances.filter(
+			(instance) => instance.mcpServerID !== serverID
+		)
 	};
 }
 

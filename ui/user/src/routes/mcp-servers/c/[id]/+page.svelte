@@ -45,6 +45,7 @@
 	{#snippet rightNavActions()}
 		<McpServerActions
 			entry={catalogEntry}
+			workspaceID={workspaceId}
 			{promptInitialLaunch}
 			{promptOAuthConfig}
 			onOAuthConfigured={() => {
@@ -63,7 +64,9 @@
 					? 'composite'
 					: catalogEntry?.manifest.runtime === 'remote'
 						? 'remote'
-						: 'single'}
+						: catalogEntry?.manifest.serverUserType === 'multiUser'
+							? 'multi'
+							: 'single'}
 				readonly={catalogEntry && 'sourceURL' in catalogEntry && !!catalogEntry.sourceURL}
 				id={workspaceId}
 				entity="workspace"

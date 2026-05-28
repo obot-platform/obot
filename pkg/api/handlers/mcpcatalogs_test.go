@@ -2,6 +2,9 @@ package handlers
 
 import (
 	"testing"
+
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestNormalizeName(t *testing.T) {
@@ -153,6 +156,130 @@ func TestNormalizeNameKubernetesCompliance(t *testing.T) {
 				if result[len(result)-1] == '-' {
 					t.Errorf("NormalizeName(%q) = %q ends with hyphen", input, result)
 				}
+			}
+		})
+	}
+}
+
+func newEntry(catalogName, workspaceID string) v1.MCPServerCatalogEntry {
+	return v1.MCPServerCatalogEntry{
+		Spec: v1.MCPServerCatalogEntrySpec{
+			MCPCatalogName:       catalogName,
+			PowerUserWorkspaceID: workspaceID,
+		},
+	}
+}
+
+func TestValidateEntryScope(t *testing.T) {
+	tests := []struct {
+		name        string
+		entry       v1.MCPServerCatalogEntry
+		catalogName string
+		workspaceID string
+		expectError bool
+	}{
+		{
+			name:        "catalog entry matches catalog scope",
+			entry:       newEntry("default", ""),
+			catalogName: "default",
+			expectError: false,
+		},
+		{
+			name:        "catalog entry mismatches catalog scope",
+			entry:       newEntry("default", ""),
+			catalogName: "other",
+			expectError: true,
+		},
+		{
+			name:        "workspace entry matches workspace scope",
+			entry:       newEntry("", "ws1"),
+			workspaceID: "ws1",
+			expectError: false,
+		},
+		{
+			name:        "workspace entry mismatches workspace scope",
+			entry:       newEntry("", "ws1"),
+			workspaceID: "ws2",
+			expectError: true,
+		},
+		{
+			name:        "global catalog entry rejected by strict workspace check",
+			entry:       newEntry("default", ""),
+			workspaceID: "ws1",
+			expectError: true,
+		},
+		{
+			name:        "unscoped request for unscoped entry passes",
+			entry:       newEntry("", ""),
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateEntryScope(tt.entry, tt.catalogName, tt.workspaceID)
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestValidateEntryVisibleFromScope(t *testing.T) {
+	tests := []struct {
+		name        string
+		entry       v1.MCPServerCatalogEntry
+		catalogName string
+		workspaceID string
+		expectError bool
+	}{
+		{
+			name:        "catalog entry matches catalog scope",
+			entry:       newEntry("default", ""),
+			catalogName: "default",
+			expectError: false,
+		},
+		{
+			name:        "catalog entry mismatches catalog scope",
+			entry:       newEntry("default", ""),
+			catalogName: "other",
+			expectError: true,
+		},
+		{
+			name:        "workspace entry matches workspace scope",
+			entry:       newEntry("", "ws1"),
+			workspaceID: "ws1",
+			expectError: false,
+		},
+		{
+			name:        "workspace entry mismatches workspace scope",
+			entry:       newEntry("", "ws1"),
+			workspaceID: "ws2",
+			expectError: true,
+		},
+		{
+			name:        "global catalog entry allowed via workspace scope (relaxed)",
+			entry:       newEntry("default", ""),
+			workspaceID: "ws1",
+			expectError: false,
+		},
+		{
+			name:        "entry with no scope rejected via workspace scope",
+			entry:       newEntry("", ""),
+			workspaceID: "ws1",
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateEntryVisibleFromScope(tt.entry, tt.catalogName, tt.workspaceID)
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
 			}
 		})
 	}

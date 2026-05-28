@@ -22,6 +22,7 @@
 		getServerTypeLabel,
 		getServerUrl,
 		hasEditableConfiguration,
+		isMultiUserServer,
 		requiresUserUpdate
 	} from '$lib/services/user/mcp';
 	import { profile, mcpServersAndEntries, version } from '$lib/stores';
@@ -115,15 +116,21 @@
 
 	let deployedCatalogEntryServers = $state<MCPCatalogServer[]>([]);
 	let deployedWorkspaceCatalogEntryServers = $state<MCPCatalogServer[]>([]);
-	let serversData = $derived(
-		entity === 'workspace'
-			? mcpServersAndEntries.current.userConfiguredServers.filter((server) => !server.deleted)
-			: [
-					...deployedCatalogEntryServers.filter((server) => !server.deleted),
-					...deployedWorkspaceCatalogEntryServers.filter((server) => !server.deleted),
-					...mcpServersAndEntries.current.servers.filter((server) => !server.deleted)
-				]
-	);
+	let serversData = $derived.by(() => {
+		if (entity === 'workspace') {
+			return mcpServersAndEntries.current.userConfiguredServers.filter((server) => !server.deleted);
+		}
+		const seen: Record<string, boolean> = {};
+		return [
+			...deployedCatalogEntryServers,
+			...deployedWorkspaceCatalogEntryServers,
+			...mcpServersAndEntries.current.servers
+		].filter((server) => {
+			if (server.deleted || seen[server.id]) return false;
+			seen[server.id] = true;
+			return true;
+		});
+	});
 
 	let instancesMap = $derived(
 		new Map(
@@ -271,23 +278,30 @@
 		return (server.manifest.multiUserConfig?.userDefinedHeaders?.length ?? 0) > 0;
 	}
 
+	function canTriggerUpdate(server: MCPCatalogServer) {
+		if (server.compositeName) return false;
+		if (!isMultiUserServer(server)) return true;
+		return !!server.catalogEntryID && (!!server.powerUserWorkspaceID || !!id);
+	}
+
 	async function handleBulkUpdate() {
-		for (const id of Object.keys(selected)) {
+		for (const serverId of Object.keys(selected)) {
+			const server = selected[serverId];
 			// if doesn't need update or is child server of composite mcp
-			if (!selected[id].needsUpdate || (selected[id].needsUpdate && selected[id].compositeName)) {
+			if (!server.needsUpdate || !canTriggerUpdate(server)) {
 				continue;
 			}
-			updating[id] = { inProgress: true, error: '' };
+			updating[serverId] = { inProgress: true, error: '' };
 			try {
-				await UserService.triggerMcpServerUpdate(id);
-				updating[id] = { inProgress: false, error: '' };
+				await updateServer(server);
+				updating[serverId] = { inProgress: false, error: '' };
 			} catch (error) {
-				updating[id] = {
+				updating[serverId] = {
 					inProgress: false,
 					error: error instanceof Error ? error.message : 'An unknown error occurred'
 				};
 			} finally {
-				delete updating[id];
+				delete updating[serverId];
 			}
 		}
 
@@ -330,10 +344,24 @@
 	}
 
 	async function updateServer(server?: MCPCatalogServer) {
-		if (!server) return;
+		if (!server || !canTriggerUpdate(server)) return;
 		updating[server.id] = { inProgress: true, error: '' };
 		try {
-			await UserService.triggerMcpServerUpdate(server.id);
+			if (isMultiUserServer(server)) {
+				if (server.powerUserWorkspaceID) {
+					if (server.catalogEntryID) {
+						await UserService.triggerWorkspaceMcpServerUpdate(
+							server.powerUserWorkspaceID,
+							server.catalogEntryID,
+							server.id
+						);
+					}
+				} else if (id) {
+					await AdminService.triggerMcpCatalogServerUpdate(id, server.id);
+				}
+			} else {
+				await UserService.triggerMcpServerUpdate(server.id);
+			}
 			await reload();
 		} catch (err) {
 			updating[server.id] = {
@@ -384,7 +412,7 @@
 		if (server.compositeName) {
 			return;
 		}
-		if (server.catalogEntryID) {
+		if (!isMultiUserServer(server) && server.catalogEntryID) {
 			await UserService.deleteSingleOrRemoteMcpServer(server.id);
 			// Decrement the count of servers in the catalog
 			const entry = mcpServersAndEntries.current.entries.find(
@@ -472,6 +500,12 @@
 				return getMcpCatalogUrl(parent);
 			}
 		}
+
+		// The menu label is "View Catalog Entry" whenever the deployment has a
+		// catalogEntryID, so link to the catalog entry in that case. This includes
+		// multi-user servers deployed from a catalog entry, which carry both a
+		// catalogEntryID and a multiUser server type. Servers without a catalog
+		// entry link to the server itself ("View Server").
 
 		// Workspace-specific server (power user workspace)
 		if (d.powerUserWorkspaceID) {
@@ -701,7 +735,7 @@
 										<ServerCog class="size-4" /> Edit Configuration
 									</button>
 								{/if}
-								{#if d.needsUpdate && (d.isMyServer || (hasAdminAccess && !readonly))}
+								{#if d.needsUpdate && canTriggerUpdate(d) && (d.isMyServer || (hasAdminAccess && !readonly))}
 									<button
 										class="menu-button-primary"
 										disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
@@ -855,7 +889,7 @@
 						(s) => s.configured
 					).length}
 					{@const upgradeableCount = Object.values(currentSelected).filter(
-						(s) => s.needsUpdate && !s.compositeName
+						(s) => s.needsUpdate && canTriggerUpdate(s)
 					).length}
 					{@const k8sUpgradeableCount = Object.values(currentSelected).filter(
 						(s) => s.needsK8sUpdate && !s.compositeName

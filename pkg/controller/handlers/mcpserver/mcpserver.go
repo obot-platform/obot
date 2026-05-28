@@ -82,7 +82,7 @@ func (h *Handler) DetectDrift(req router.Request, _ router.Response) error {
 		return err
 	}
 
-	drifted, err := configurationHasDrifted(server.Spec.Manifest, entry.Spec.Manifest, h.defaultDenyAllEgress)
+	drifted, err := ConfigurationHasDrifted(server.Spec.Manifest, entry.Spec.Manifest, h.defaultDenyAllEgress)
 	if err != nil {
 		return err
 	}
@@ -254,7 +254,10 @@ func (h *Handler) DetectK8sSettingsDrift(req router.Request, _ router.Response) 
 	return nil
 }
 
-func configurationHasDrifted(serverManifest types.MCPServerManifest, entryManifest types.MCPServerCatalogEntryManifest, defaultDenyAllEgress bool) (bool, error) {
+// ConfigurationHasDrifted compares runtime config, env, and multi-user config between a server
+// manifest and a catalog entry manifest. It handles the type difference between MCPServerManifest
+// and MCPServerCatalogEntryManifest by comparing only the fields common to both.
+func ConfigurationHasDrifted(serverManifest types.MCPServerManifest, entryManifest types.MCPServerCatalogEntryManifest, defaultDenyAllEgress bool) (bool, error) {
 	// Check if runtime types differ
 	if serverManifest.Runtime != entryManifest.Runtime {
 		return true, nil
@@ -285,8 +288,23 @@ func configurationHasDrifted(serverManifest types.MCPServerManifest, entryManife
 		return true, nil
 	}
 
+	// Check multi-user configuration
+	if multiUserConfigHasDrifted(serverManifest.MultiUserConfig, entryManifest.MultiUserConfig) {
+		return true, nil
+	}
+
 	// Check environment
 	return !slicesEqualIgnoreOrderDeep(serverManifest.Env, entryManifest.Env), nil
+}
+
+func multiUserConfigHasDrifted(serverConfig, entryConfig *types.MultiUserConfig) bool {
+	if serverConfig == nil && entryConfig == nil {
+		return false
+	}
+	if serverConfig == nil || entryConfig == nil {
+		return true
+	}
+	return !slicesEqualIgnoreOrderDeep(serverConfig.UserDefinedHeaders, entryConfig.UserDefinedHeaders)
 }
 
 // uvxConfigHasDrifted checks if UVX configuration has drifted
@@ -429,7 +447,7 @@ func compositeConfigHasDrifted(serverConfig *types.CompositeRuntimeConfig, entry
 		}
 
 		// Compare manifests
-		drifted, err := configurationHasDrifted(serverComponent.Manifest, entryComponent.Manifest, defaultDenyAllEgress)
+		drifted, err := ConfigurationHasDrifted(serverComponent.Manifest, entryComponent.Manifest, defaultDenyAllEgress)
 		if err != nil || drifted {
 			return drifted, err
 		}

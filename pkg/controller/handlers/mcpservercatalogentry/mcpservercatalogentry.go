@@ -10,6 +10,7 @@ import (
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
+	"github.com/obot-platform/obot/pkg/controller/handlers/mcpserver"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -33,14 +34,10 @@ func NewHandler(gClient *gptscript.GPTScript) *Handler {
 }
 
 // EnsureUserCount ensures that the user count for an MCP server catalog entry is up to date.
-// This only applies to single-user catalog entries, where each user gets their own MCPServer.
+// For single-user entries, this counts unique users who have an MCPServer created from the entry.
+// For multi-user entries, this counts the number of deployed MCPServers from the catalog entry.
 func (*Handler) EnsureUserCount(req router.Request, _ router.Response) error {
 	entry := req.Object.(*v1.MCPServerCatalogEntry)
-
-	// User count tracking via MCPServers only applies to single-user catalog entries.
-	if !entry.Spec.Manifest.ServerUserType.IsSingleUser() {
-		return nil
-	}
 
 	var mcpServers v1.MCPServerList
 	if err := req.List(&mcpServers, &kclient.ListOptions{
@@ -50,11 +47,17 @@ func (*Handler) EnsureUserCount(req router.Request, _ router.Response) error {
 		return fmt.Errorf("failed to list MCP servers: %w", err)
 	}
 
+	// For single-user entries, count unique users. For multi-user entries, count deployed servers.
+	isSingleUser := entry.Spec.Manifest.ServerUserType.IsSingleUser()
 	uniqueUsers := make(map[string]struct{}, len(mcpServers.Items))
 	for _, server := range mcpServers.Items {
-		// Don't count servers that don't have a user ID, are being deleted, or are part of a composite server.
-		if server.Spec.UserID != "" && server.DeletionTimestamp.IsZero() && server.Spec.CompositeName == "" {
+		if !server.DeletionTimestamp.IsZero() || server.Spec.CompositeName != "" {
+			continue
+		}
+		if isSingleUser && server.Spec.UserID != "" {
 			uniqueUsers[server.Spec.UserID] = struct{}{}
+		} else if !isSingleUser {
+			uniqueUsers[server.Name] = struct{}{}
 		}
 	}
 
@@ -65,6 +68,17 @@ func (*Handler) EnsureUserCount(req router.Request, _ router.Response) error {
 	}
 
 	return nil
+}
+
+// EnsureServerUserType backfills the serverUserType field to "singleUser" for
+// existing catalog entries that were created before the field was introduced.
+func (*Handler) EnsureServerUserType(req router.Request, _ router.Response) error {
+	entry := req.Object.(*v1.MCPServerCatalogEntry)
+	if entry.Spec.Manifest.ServerUserType != "" {
+		return nil
+	}
+	entry.Spec.Manifest.ServerUserType = types.ServerUserTypeSingleUser
+	return kclient.IgnoreNotFound(req.Client.Update(req.Ctx, entry))
 }
 
 func (h *Handler) DeleteEntriesWithoutRuntime(req router.Request, _ router.Response) error {
@@ -133,11 +147,11 @@ func (*Handler) DetectCompositeDrift(req router.Request, _ router.Response) erro
 				return fmt.Errorf("failed to get multi-user server %s: %w", component.MCPServerID, err)
 			}
 
-			var (
-				snapshotHash = hash.Digest(component.Manifest)
-				currentHash  = hash.Digest(server.Spec.Manifest)
-			)
-			if snapshotHash != currentHash {
+			hasDrifted, err := mcpserver.ConfigurationHasDrifted(server.Spec.Manifest, component.Manifest, false)
+			if err != nil {
+				return fmt.Errorf("failed to detect drift for multi-user server %s: %w", component.MCPServerID, err)
+			}
+			if hasDrifted {
 				drifted = true
 				break
 			}

@@ -57,7 +57,6 @@ var apiResources = map[string][]string{
 		"GET    /api/mcp-servers/{mcpserver_id}/resources/{resource_uri}",
 		"GET    /api/mcp-servers/{mcpserver_id}/prompts",
 		"GET    /api/mcp-servers/{mcpserver_id}/prompts/{prompt_name}",
-
 		"GET    /api/published-artifacts/{artifact_id}",
 		"GET    /api/published-artifacts/{artifact_id}/download",
 		"GET    /api/published-artifacts/{artifact_id}/{artifact_version}/skill",
@@ -108,6 +107,7 @@ var apiResources = map[string][]string{
 		"DELETE /api/workspaces/{workspace_id}/servers/{mcp_server_id}",
 		"GET    /api/workspaces/{workspace_id}/servers/{mcp_server_id}",
 		"PUT    /api/workspaces/{workspace_id}/servers/{mcp_server_id}",
+		"PUT    /api/workspaces/{workspace_id}/servers/{mcp_server_id}/alias",
 		"POST   /api/workspaces/{workspace_id}/servers/{mcp_server_id}/launch",
 		"POST   /api/workspaces/{workspace_id}/servers/{mcp_server_id}/check-oauth",
 		"GET    /api/workspaces/{workspace_id}/servers/{mcp_server_id}/oauth-url",

@@ -47,6 +47,9 @@ type MCPHandler struct {
 	acrHelper           *accesscontrolrule.Helper
 	mcpImagePullSecrets []string
 	serverURL           string
+
+	// shutdownMCPServer is only injected for testing
+	shutdownMCPServer func(string) error
 }
 
 func NewMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.Helper, mcpOAuthChecker MCPOAuthChecker, mcpImagePullSecrets []string, serverURL string) *MCPHandler {
@@ -93,6 +96,9 @@ func (m *MCPHandler) GetEntryFromAllSources(req api.Context) error {
 	if entry.Spec.MCPCatalogName != system.DefaultCatalog && entry.Spec.PowerUserWorkspaceID == "" {
 		return types.NewErrNotFound("MCP catalog entry not found")
 	}
+	if HideMultiUserCatalogEntry(req, entry) {
+		return types.NewErrNotFound("MCP catalog entry not found")
+	}
 
 	// Authorization check.
 	var (
@@ -137,6 +143,10 @@ func (m *MCPHandler) ListEntriesFromAllSources(req api.Context) error {
 	// Apply ACR filtering for regular users and for admins without ?all=true
 	var entries []types.MCPServerCatalogEntry
 	for _, entry := range list.Items {
+		if HideMultiUserCatalogEntry(req, entry) {
+			continue
+		}
+
 		var (
 			err       error
 			hasAccess bool
@@ -166,6 +176,12 @@ func (m *MCPHandler) ListEntriesFromAllSources(req api.Context) error {
 	}
 
 	return req.Write(types.MCPServerCatalogEntryList{Items: entries})
+}
+
+// HideMultiUserCatalogEntry determines whether a user should be able to see a catalog entry based on
+// its single-user or multi-user type.
+func HideMultiUserCatalogEntry(req api.Context, entry v1.MCPServerCatalogEntry) bool {
+	return !req.UserIsPowerUserPlus() && !entry.Spec.Manifest.ServerUserType.IsSingleUser()
 }
 
 func ConvertMCPServerCatalogEntry(entry v1.MCPServerCatalogEntry) types.MCPServerCatalogEntry {
@@ -444,8 +460,8 @@ type compositeDeletionDependency struct {
 
 // listCompositeDeletionDependencies lists the composite MCP servers and catalog entries that depend on the given multi-user server.
 func listCompositeDeletionDependencies(req api.Context, server v1.MCPServer) ([]compositeDeletionDependency, error) {
-	if server.Spec.MCPServerCatalogEntryName != "" {
-		// Not a multi-user server, skip dependency check
+	if server.Spec.IsSingleUser() {
+		// Single-user servers cannot be composite components; skip dependency check.
 		return nil, nil
 	}
 
@@ -1297,6 +1313,18 @@ func serverConfigForAction(req api.Context, server v1.MCPServer) (mcp.ServerConf
 	return serverConfig, nil
 }
 
+// validateServerScope checks that the catalog_id or workspace_id in the request URL matches the server.
+// This prevents catalog- or workspace-scoped routes from operating on servers in a different scope.
+func validateServerScope(req api.Context, server v1.MCPServer) error {
+	if catalogID := req.PathValue("catalog_id"); catalogID != "" && server.Spec.MCPCatalogID != catalogID {
+		return types.NewErrNotFound("MCP server %s not found", server.Name)
+	}
+	if workspaceID := req.PathValue("workspace_id"); workspaceID != "" && server.Spec.PowerUserWorkspaceID != workspaceID {
+		return types.NewErrNotFound("MCP server %s not found", server.Name)
+	}
+	return nil
+}
+
 func serverForAction(req api.Context) (v1.MCPServer, mcp.ServerConfig, error) {
 	var server v1.MCPServer
 	if err := req.Get(&server, req.PathValue("mcp_server_id")); err != nil {
@@ -1552,12 +1580,21 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 			return types.NewErrBadRequest("%v", err)
 		}
 
+		// Verify the entry is visible from this route scope. Workspace routes can deploy
+		// global catalog entries, so this intentionally uses visibility validation.
+		if err := validateEntryVisibleFromScope(catalogEntry, catalogID, workspaceID); err != nil {
+			return err
+		}
+
 		// Block server creation if OAuth is required but not configured
 		if entryRequiresStaticOAuthCreds(catalogEntry) {
 			return types.NewErrBadRequest("catalog entry requires OAuth configuration by an administrator before it can be used")
 		}
 
-		manifest, err := serverManifestFromCatalogEntryManifest(req.UserIsAdmin(), false, catalogEntry.Spec.Manifest, input.MCPServerManifest)
+		// For multi-user catalog entries, preserve the catalog entry's runtime shape.
+		// Admins may override single-user catalog entry config.
+		isAdminOverride := req.UserIsAdmin() && catalogEntry.Spec.Manifest.ServerUserType.IsSingleUser()
+		manifest, err := serverManifestFromCatalogEntryManifest(isAdminOverride, false, catalogEntry.Spec.Manifest, input.MCPServerManifest)
 		if err != nil {
 			return err
 		}
@@ -1729,16 +1766,18 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 
 func (m *MCPHandler) UpdateServerAlias(req api.Context) error {
 	var (
-		id     = req.PathValue("mcp_server_id")
-		server v1.MCPServer
+		id          = req.PathValue("mcp_server_id")
+		catalogID   = req.PathValue("catalog_id")
+		workspaceID = req.PathValue("workspace_id")
+		server      v1.MCPServer
 	)
 
 	if err := req.Get(&server, id); err != nil {
 		return err
 	}
 
-	if !server.Spec.IsSingleUser() {
-		return types.NewErrBadRequest("cannot update alias for a multi-user MCP server")
+	if server.Spec.MCPCatalogID != catalogID || server.Spec.PowerUserWorkspaceID != workspaceID {
+		return types.NewErrNotFound("MCP server not found")
 	}
 
 	var input struct {
@@ -2392,6 +2431,9 @@ func toolsForServer(ctx context.Context, mcpSessionManager *mcp.SessionManager, 
 }
 
 func (m *MCPHandler) removeMCPServer(ctx context.Context, mcpServer v1.MCPServer) error {
+	if m.shutdownMCPServer != nil {
+		return m.shutdownMCPServer(mcpServer.Name)
+	}
 	if err := m.mcpSessionManager.ShutdownServer(ctx, mcpServer.Name); err != nil {
 		return fmt.Errorf("failed to shutdown server: %w", err)
 	}
@@ -2636,6 +2678,12 @@ func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL,
 		Template:                    server.Spec.Template,
 		CompositeName:               server.Spec.CompositeName,
 		NanobotAgentID:              server.Spec.NanobotAgentID,
+	}
+
+	if server.Spec.IsSingleUser() {
+		converted.ServerUserType = types.ServerUserTypeSingleUser
+	} else {
+		converted.ServerUserType = types.ServerUserTypeMultiUser
 	}
 
 	// For composite servers, also consider component configuration if provided
@@ -2927,8 +2975,7 @@ func (m *MCPHandler) GetServerFromAllSources(req api.Context) error {
 		return err
 	}
 
-	// Check if server is from default catalog or workspace
-	if server.Spec.MCPCatalogID != system.DefaultCatalog && server.Spec.PowerUserWorkspaceID == "" {
+	if server.Spec.IsSingleUser() {
 		return types.NewErrNotFound("MCP server not found")
 	}
 
@@ -2984,7 +3031,7 @@ func (m *MCPHandler) GetServerFromAllSources(req api.Context) error {
 		return fmt.Errorf("failed to resolve secret bindings: %w", err)
 	}
 
-	slug, err := SlugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), system.DefaultCatalog, server.Spec.PowerUserWorkspaceID)
+	slug, err := SlugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), server.Spec.MCPCatalogID, server.Spec.PowerUserWorkspaceID)
 	if err != nil {
 		return fmt.Errorf("failed to generate slug: %w", err)
 	}
@@ -3021,6 +3068,10 @@ func (m *MCPHandler) ClearOAuthCredentials(req api.Context) error {
 func (m *MCPHandler) GetServerDetails(req api.Context) error {
 	server, serverConfig, err := serverForAction(req)
 	if err != nil {
+		return err
+	}
+
+	if err := validateServerScope(req, server); err != nil {
 		return err
 	}
 
@@ -3068,6 +3119,10 @@ func (m *MCPHandler) GetServerDetails(req api.Context) error {
 func (m *MCPHandler) RestartServerDeployment(req api.Context) error {
 	server, serverConfig, err := serverForAction(req)
 	if err != nil {
+		return err
+	}
+
+	if err := validateServerScope(req, server); err != nil {
 		return err
 	}
 
@@ -3492,6 +3547,10 @@ func (m *MCPHandler) StreamServerLogs(req api.Context) error {
 		return err
 	}
 
+	if err := validateServerScope(req, server); err != nil {
+		return err
+	}
+
 	// If this is a single-user MCP server that belongs to the user, then let them access the logs.
 	if !server.Spec.IsOwnedBy(req.User.GetUID()) || !server.Spec.IsSingleUser() {
 		// If the user doesn't own the server and is not an admin or auditor, check if they have access to the workspace.
@@ -3618,13 +3677,30 @@ func (m *MCPHandler) UpdateURL(req api.Context) error {
 }
 
 func (m *MCPHandler) TriggerUpdate(req api.Context) error {
-	var server v1.MCPServer
+	var (
+		workspaceID = req.PathValue("workspace_id")
+		server      v1.MCPServer
+	)
+
 	if err := req.Get(&server, req.PathValue("mcp_server_id")); err != nil {
 		return err
 	}
 
 	if !server.Spec.IsSingleUser() {
-		return types.NewErrBadRequest("cannot trigger update for a multi-user MCP server; use the UpdateServer endpoint instead")
+		// Multi-user servers deployed from catalog entries can be updated, but only
+		// through catalog- or workspace-scoped routes.
+		if server.Spec.MCPServerCatalogEntryName == "" {
+			return types.NewErrBadRequest("cannot trigger update for a multi-user MCP server without a catalog entry; use the UpdateServer endpoint instead")
+		}
+		if err := validateServerScope(req, server); err != nil {
+			return err
+		}
+		if !req.UserIsAdmin() {
+			// Multi-user catalog entry deployments require PowerUserPlus access to the owning workspace.
+			if !req.UserIsPowerUserPlus() || workspaceID == "" || server.Spec.PowerUserWorkspaceID != workspaceID {
+				return types.NewErrNotFound("MCP server %s not found", server.Name)
+			}
+		}
 	}
 
 	// Reject component servers - must upgrade parent composite
@@ -3641,17 +3717,11 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 		return err
 	}
 
-	if !req.UserIsAdmin() {
+	if !req.UserIsAdmin() && server.Spec.IsSingleUser() {
 		// Allow users to upgrade their own single-user servers.
-		// (We already verified this is a single-user server at the check above.)
 		if !server.Spec.IsOwnedBy(req.User.GetUID()) {
 			// Workspace-based authorization for power user workspace entries
-			workspaceID := req.PathValue("workspace_id")
-			if workspaceID == "" {
-				return types.NewErrNotFound("MCP server %s not found", server.Name)
-			}
-
-			if entry.Spec.PowerUserWorkspaceID != workspaceID {
+			if workspaceID == "" || entry.Spec.PowerUserWorkspaceID != workspaceID {
 				return types.NewErrNotFound("MCP server %s not found", server.Name)
 			}
 		}
@@ -3702,6 +3772,7 @@ func updateServerFromCatalogEntry(server *v1.MCPServer, entry v1.MCPServerCatalo
 	server.Spec.Manifest.UVXConfig = entry.Spec.Manifest.UVXConfig
 	server.Spec.Manifest.NPXConfig = entry.Spec.Manifest.NPXConfig
 	server.Spec.Manifest.ContainerizedConfig = entry.Spec.Manifest.ContainerizedConfig
+	server.Spec.Manifest.MultiUserConfig = entry.Spec.Manifest.MultiUserConfig
 
 	// Handle remote runtime URL updates.
 	if entry.Spec.Manifest.Runtime == types.RuntimeRemote && entry.Spec.Manifest.RemoteConfig != nil {

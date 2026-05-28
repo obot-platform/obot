@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { dialogAnimation } from '$lib/actions/dialogAnimation';
 	import {
+		AdminService,
 		UserService,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
@@ -11,6 +12,7 @@
 		convertCompositeLaunchFormDataToPayload,
 		convertEnvHeadersToRecord,
 		getSecretBindingEngineError,
+		isMultiUserServer,
 		isKubernetesRuntimeBackend,
 		hasEditableConfiguration
 	} from '$lib/services/user/mcp';
@@ -29,6 +31,8 @@
 
 	interface Props {
 		userConfiguredServers: MCPCatalogServer[];
+		catalogID?: string;
+		workspaceID?: string;
 		onConnect?: ({
 			server,
 			entry,
@@ -43,14 +47,27 @@
 		hideActions?: boolean;
 	}
 
-	let { userConfiguredServers, onConnect, onClose, skipConnectDialog, hideActions }: Props =
-		$props();
+	let {
+		userConfiguredServers,
+		catalogID,
+		workspaceID,
+		onConnect,
+		onClose,
+		skipConnectDialog,
+		hideActions
+	}: Props = $props();
 
 	let server = $state<MCPCatalogServer>();
 	let entry = $state<MCPCatalogEntry>();
 	let instance = $state<MCPServerInstance>();
 	let manifest = $derived(server?.manifest || entry?.manifest);
 	let isConfigured = $derived(Boolean((entry && server) || (server && instance)));
+	let isDeployingMultiUserCatalogEntry = $derived(
+		Boolean(entry && !server && isMultiUserCatalogEntry(entry))
+	);
+	let shouldShowAlias = $derived(
+		isDeployingMultiUserCatalogEntry || (isConfigured && !isMultiUserServer(server))
+	);
 	let secretBindingEngineError = $derived(
 		isKubernetesRuntimeBackend(version.current.engine)
 			? undefined
@@ -183,6 +200,10 @@
 		return (item?.manifest?.multiUserConfig?.userDefinedHeaders?.length ?? 0) > 0;
 	}
 
+	function isMultiUserCatalogEntry(item?: MCPCatalogEntry) {
+		return item?.manifest?.serverUserType === 'multiUser';
+	}
+
 	function initCompositeForm(item: MCPCatalogEntry) {
 		configureFormTitle = undefined;
 		// For composite: open form first to collect per-component URLs before creating
@@ -305,6 +326,8 @@
 
 	async function getOauthURL() {
 		if (!server) return '';
+		// Multi-user server OAuth is admin-managed; per-user connect flow doesn't use it.
+		if (isMultiUserServer(server)) return '';
 		const oauthURL = await UserService.getMcpServerOauthURL(server.id);
 		return oauthURL || '';
 	}
@@ -520,7 +543,7 @@
 	}
 
 	async function handleMultiUserServer() {
-		if (!server || server.catalogEntryID) return;
+		if (!server) return;
 		try {
 			if (hasMultiUserInstanceConfiguration(server)) {
 				await initMultiUserInstanceForm(server);
@@ -531,6 +554,70 @@
 			instance = response;
 			await finishMultiUserServerConnect();
 		} catch (err) {
+			error = err instanceof Error ? err.message : 'An unknown error occurred';
+		}
+	}
+
+	async function handleLaunchMultiUserCatalogEntry() {
+		if (!entry) return;
+		if (!catalogID && !workspaceID) {
+			error = 'A catalog or workspace is required to deploy a multi-user catalog entry.';
+			return;
+		}
+
+		let created: MCPCatalogServer | undefined;
+		let launchHandedOff = false;
+		try {
+			const lf = configureForm as LaunchFormData | undefined;
+			const url = lf?.url?.trim();
+			const aliasToUse = lf?.name?.trim() || getUniqueAlias(entry.manifest.name || '');
+			const serverPayload = {
+				manifest: url ? { remoteConfig: { url } } : {},
+				alias: aliasToUse
+			};
+			if (workspaceID) {
+				created = await UserService.deployWorkspaceMultiUserCatalogEntry(
+					workspaceID,
+					entry.id,
+					serverPayload
+				);
+			} else {
+				created = await AdminService.deployMultiUserCatalogEntry(
+					catalogID!,
+					entry.id,
+					serverPayload
+				);
+			}
+			server = created;
+
+			const envs = convertEnvHeadersToRecord(lf?.envs, lf?.headers);
+			server = workspaceID
+				? await UserService.configureWorkspaceMCPCatalogServer(workspaceID, created.id, envs)
+				: await AdminService.configureMCPCatalogServer(catalogID!, created.id, envs);
+
+			if (hasMultiUserInstanceConfiguration(server)) {
+				await initMultiUserInstanceForm(server);
+				launchHandedOff = true;
+				return;
+			}
+
+			instance = await UserService.createMcpServerInstance(server.id);
+			await finishMultiUserServerConnect();
+			launchHandedOff = true;
+		} catch (err) {
+			if (created && !launchHandedOff) {
+				try {
+					if (workspaceID) {
+						await UserService.deleteWorkspaceMCPCatalogServer(workspaceID, created.id);
+					} else if (catalogID) {
+						await AdminService.deleteMCPCatalogServer(catalogID, created.id);
+					}
+					server = undefined;
+					instance = undefined;
+				} catch (cleanupErr) {
+					console.error('Failed to clean up partially-created multi-user server', cleanupErr);
+				}
+			}
 			error = err instanceof Error ? err.message : 'An unknown error occurred';
 		}
 	}
@@ -548,8 +635,14 @@
 		error = undefined;
 		saving = true;
 		try {
-			if (entry && entry.manifest?.runtime === 'composite') {
+			if (entry && isMultiUserCatalogEntry(entry) && !server) {
+				await handleLaunchMultiUserCatalogEntry();
+			} else if (entry && entry.manifest?.runtime === 'composite') {
 				await handleLaunchCompositeServer();
+			} else if (isMultiUserServer(server)) {
+				// Deployed multi-user servers (including catalog entry deployments) always
+				// create an MCPServerInstance, regardless of whether entry is also set.
+				await handleMultiUserServer();
 			} else if (entry) {
 				await handleLaunchCatalogEntry();
 			} else {
@@ -567,7 +660,15 @@
 			launchLogsEventStream.disconnect();
 		}
 		if (server && entry) {
-			await UserService.deleteSingleOrRemoteMcpServer(server.id);
+			if (isMultiUserServer(server)) {
+				if (workspaceID) {
+					await UserService.deleteWorkspaceMCPCatalogServer(workspaceID, server.id);
+				} else if (catalogID) {
+					await AdminService.deleteMCPCatalogServer(catalogID, server.id);
+				}
+			} else {
+				await UserService.deleteSingleOrRemoteMcpServer(server.id);
+			}
 		}
 
 		launchState = undefined;
@@ -603,8 +704,9 @@
 
 	async function handleConfigureForm() {
 		if (!configureForm) return;
-		if (server && !entry && hasMultiUserInstanceConfiguration(server)) {
+		if (isMultiUserServer(server) && hasMultiUserInstanceConfiguration(server)) {
 			try {
+				if (!server) return;
 				saving = true;
 				const lf = configureForm as LaunchFormData;
 				if (!instance) {
@@ -712,6 +814,8 @@
 			hasMultiUserInstanceConfiguration(server)
 		) {
 			initMultiUserInstanceForm(server, instance);
+		} else if (isMultiUserServer(server) && !instance) {
+			handleLaunch();
 		} else if ((entry && server) || (server && instance)) {
 			handleConnect();
 		} else {
@@ -824,7 +928,7 @@
 	loading={saving}
 	disableSave={!!secretBindingEngineError}
 	isNew={!isConfigured}
-	showAlias={isConfigured}
+	showAlias={shouldShowAlias}
 	configurationTitle={configureFormTitle}
 />
 

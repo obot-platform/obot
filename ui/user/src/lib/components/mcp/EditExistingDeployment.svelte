@@ -1,6 +1,11 @@
 <script lang="ts">
 	import { HttpError } from '$lib/errors';
-	import { UserService, type MCPCatalogEntry, type MCPCatalogServer } from '$lib/services';
+	import {
+		AdminService,
+		UserService,
+		type MCPCatalogEntry,
+		type MCPCatalogServer
+	} from '$lib/services';
 	import type { EventStreamService } from '$lib/services/admin/eventstream.svelte';
 	import {
 		convertCompositeInfoToLaunchFormData,
@@ -63,16 +68,15 @@
 
 		let values: Record<string, string>;
 		try {
-			values = await UserService.revealSingleOrRemoteMcpServer(server.id, {
-				dontLogErrors: true
-			});
+			values = await revealServerValues(server);
 		} catch (error) {
 			if (!(error instanceof HttpError) || error.statusCode !== 404) {
-				console.error('Failed to reveal user server values due to unexpected error', error);
+				console.error('Failed to reveal server values due to unexpected error', error);
 			}
 			values = {};
 		}
 		configureForm = {
+			name: server.alias || '',
 			envs: server.manifest.env?.map((env) => ({
 				...env,
 				value: values[env.key] ?? ''
@@ -86,6 +90,24 @@
 			hostname: entry?.manifest.remoteConfig?.hostname
 		};
 		configDialog?.open();
+	}
+
+	async function revealServerValues(server: MCPCatalogServer) {
+		if (server.powerUserWorkspaceID) {
+			return UserService.revealWorkspaceMCPCatalogServer(server.powerUserWorkspaceID, server.id, {
+				dontLogErrors: true
+			});
+		}
+
+		if (server.mcpCatalogID) {
+			return AdminService.revealMcpCatalogServer(server.mcpCatalogID, server.id, {
+				dontLogErrors: true
+			});
+		}
+
+		return UserService.revealSingleOrRemoteMcpServer(server.id, {
+			dontLogErrors: true
+		});
 	}
 
 	export function rename({
@@ -141,7 +163,36 @@
 		}
 
 		const envs = convertEnvHeadersToRecord(lf.envs, lf.headers);
-		await UserService.configureSingleOrRemoteMcpServer(server.id, envs);
+		if (server.powerUserWorkspaceID) {
+			await UserService.configureWorkspaceMCPCatalogServer(
+				server.powerUserWorkspaceID,
+				server.id,
+				envs
+			);
+		} else if (server.mcpCatalogID) {
+			await AdminService.configureMCPCatalogServer(server.mcpCatalogID, server.id, envs);
+		} else {
+			await UserService.configureSingleOrRemoteMcpServer(server.id, envs);
+		}
+		await updateServerAlias(lf.name?.trim() ?? '');
+	}
+
+	async function updateServerAlias(alias: string) {
+		if (!server || alias === (server.alias || '')) return;
+
+		if (server.powerUserWorkspaceID) {
+			await UserService.updateWorkspaceMCPCatalogServerAlias(
+				server.powerUserWorkspaceID,
+				server.id,
+				alias
+			);
+		} else if (server.mcpCatalogID) {
+			await AdminService.updateMCPCatalogServerAlias(server.mcpCatalogID, server.id, alias);
+		} else {
+			await UserService.updateSingleOrRemoteMcpServerAlias(server.id, alias);
+		}
+
+		server = { ...server, alias };
 	}
 
 	async function updateExistingComposite(lf: CompositeLaunchFormData) {
@@ -151,6 +202,7 @@
 			const payload = convertCompositeLaunchFormDataToPayload(lf);
 			await UserService.configureCompositeMcpServer(server.id, payload);
 		}
+		await updateServerAlias(lf.name?.trim() ?? '');
 	}
 
 	async function handleConfigureForm() {
@@ -196,6 +248,7 @@
 	loading={editing}
 	disableSave={!!secretBindingEngineError}
 	isNew={false}
+	showAlias
 />
 
 <CatalogEditAliasForm bind:this={editAliasDialog} {server} {onUpdateConfigure} />
