@@ -13,9 +13,9 @@
 		formatDeviceClient,
 		formatDeviceCommand
 	} from '$lib/format.js';
-	import { AdminService, UserService } from '$lib/services';
 	import {
-		Group,
+		UserService,
+		AdminService,
 		type DeviceScan,
 		type DeviceScanClient,
 		type DeviceScanMCPServer,
@@ -23,7 +23,6 @@
 		type DeviceScanSkill,
 		type OrgUser
 	} from '$lib/services';
-	import { deleteDeviceScan } from '$lib/services/admin/operations';
 	import { profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { goto } from '$lib/url';
@@ -44,6 +43,9 @@
 	let isLatest = $state(false);
 	let scanDeviceId = $derived(scan?.deviceID);
 	let scanIdNum = $derived(scan?.id);
+
+	let hasAdminAccess = $derived(profile.current.hasAdminAccess?.());
+	let urlPrefix = $derived((hasAdminAccess ? '/admin' : '') as `/${string}`);
 
 	$effect(() => {
 		const id = submittedById;
@@ -67,7 +69,7 @@
 			isLatest = false;
 			return;
 		}
-		AdminService.listDeviceScans({ deviceId: [deviceId], groupByDevice: true, limit: 1 })
+		UserService.listDeviceScans({ deviceId: [deviceId], groupByDevice: true, limit: 1 })
 			.then((res) => {
 				if (scanDeviceId !== deviceId || scanIdNum !== id) return;
 				const top = res.items?.[0];
@@ -78,9 +80,7 @@
 			});
 	});
 
-	let canDelete = $derived(
-		profile.current.groups?.includes(Group.ADMIN) || profile.current.groups?.includes(Group.OWNER)
-	);
+	let canDelete = $derived(hasAdminAccess && !profile.current.isAdminReadonly?.());
 	let deleteOpen = $state(false);
 	let deleting = $state(false);
 	let deleteError = $state<string | undefined>();
@@ -90,9 +90,9 @@
 		deleting = true;
 		deleteError = undefined;
 		try {
-			await deleteDeviceScan(scan.id);
+			await AdminService.deleteDeviceScan(scan.id);
 			deleteOpen = false;
-			goto(`/admin/devices/${page.params.device_id}`);
+			goto(`${urlPrefix}/devices/${page.params.device_id}`);
 		} catch (e) {
 			deleteError = e instanceof Error ? e.message : String(e);
 		} finally {
@@ -209,7 +209,7 @@
 <Layout
 	title="Device Scan"
 	showBackButton
-	onBackButtonClick={() => goto(`/admin/devices/${deviceIdParam}`)}
+	onBackButtonClick={() => goto(`${urlPrefix}/devices/${deviceIdParam}`)}
 >
 	<div
 		class="flex flex-col gap-6"
@@ -242,32 +242,34 @@
 						<span class="pill-primary bg-primary">{scan.os}/{scan.arch}</span>
 					</dd>
 
-					<dt class="text-muted-content text-xs font-medium uppercase tracking-wide">
-						Submitted by
-					</dt>
-					<dd>
-						{#if submittedByUser}
-							<div class="flex items-center gap-2">
-								<div
-									class="size-6 shrink-0 overflow-hidden rounded-full bg-base-100 dark:bg-base-300"
-								>
-									{#if submittedByUser.iconURL}
-										<img
-											src={submittedByUser.iconURL}
-											class="h-full w-full object-cover"
-											alt=""
-											referrerpolicy="no-referrer"
-										/>
-									{/if}
+					{#if hasAdminAccess}
+						<dt class="text-muted-content text-xs font-medium uppercase tracking-wide">
+							Submitted by
+						</dt>
+						<dd>
+							{#if submittedByUser}
+								<div class="flex items-center gap-2">
+									<div
+										class="size-6 shrink-0 overflow-hidden rounded-full bg-base-100 dark:bg-base-300"
+									>
+										{#if submittedByUser.iconURL}
+											<img
+												src={submittedByUser.iconURL}
+												class="h-full w-full object-cover"
+												alt=""
+												referrerpolicy="no-referrer"
+											/>
+										{/if}
+									</div>
+									<span>{userDisplay(submittedByUser)}</span>
 								</div>
-								<span>{userDisplay(submittedByUser)}</span>
-							</div>
-						{:else if scan.submittedBy}
-							<span class="text-xs">{scan.submittedBy}</span>
-						{:else}
-							<span class="text-muted-content">—</span>
-						{/if}
-					</dd>
+							{:else if scan.submittedBy}
+								<span class="text-xs">{scan.submittedBy}</span>
+							{:else}
+								<span class="text-muted-content">—</span>
+							{/if}
+						</dd>
+					{/if}
 
 					<dt class="text-muted-content text-xs font-medium uppercase tracking-wide">Scanner</dt>
 					<dd>{scan.scannerVersion || '—'}</dd>
@@ -344,7 +346,7 @@
 							filterable={['client', 'transport', 'scope']}
 							onClickRow={(d, isCtrlClick) => {
 								openUrl(
-									`/admin/devices/${deviceIdParam}/scans/${scanIdParam}/mcp/${d.id}`,
+									`${urlPrefix}/devices/${deviceIdParam}/scans/${scanIdParam}/mcp/${d.id}`,
 									isCtrlClick
 								);
 							}}
@@ -378,7 +380,7 @@
 							filterable={['client', 'scope']}
 							onClickRow={(d, isCtrlClick) => {
 								openUrl(
-									`/admin/devices/${deviceIdParam}/scans/${scanIdParam}/skills/${d.id}`,
+									`${urlPrefix}/devices/${deviceIdParam}/scans/${scanIdParam}/skills/${d.id}`,
 									isCtrlClick
 								);
 							}}
@@ -425,7 +427,7 @@
 							filterable={['client', 'pluginType', 'scope']}
 							onClickRow={(d, isCtrlClick) => {
 								openUrl(
-									`/admin/devices/${deviceIdParam}/scans/${scanIdParam}/plugins/${d.id}`,
+									`${urlPrefix}/devices/${deviceIdParam}/scans/${scanIdParam}/plugins/${d.id}`,
 									isCtrlClick
 								);
 							}}
@@ -455,13 +457,15 @@
 								{ title: 'Paths', property: 'paths_display' },
 								{ title: 'Has', property: 'has_display' }
 							]}
-							onClickRow={(d, isCtrlClick) => {
-								if (d.name.trim() === 'multi') return;
-								openUrl(
-									resolve(`/admin/device-clients/${encodeURIComponent(d.name)}`),
-									isCtrlClick
-								);
-							}}
+							onClickRow={hasAdminAccess
+								? (d, isCtrlClick) => {
+										if (d.name.trim() === 'multi') return;
+										openUrl(
+											resolve(`${urlPrefix}/device-clients/${encodeURIComponent(d.name)}`),
+											isCtrlClick
+										);
+									}
+								: undefined}
 							sortable={['name']}
 							filterable={['name']}
 						>
@@ -491,10 +495,10 @@
 />
 
 {#snippet clientLink(client?: string)}
-	{#if client && client.trim() !== 'multi' && client !== AGENTS_HOME_CLIENT_LABEL}
+	{#if client && client.trim() !== 'multi' && client !== AGENTS_HOME_CLIENT_LABEL && hasAdminAccess}
 		<a
 			class="btn-link text-blue-500"
-			href={resolve(`/admin/device-clients/${encodeURIComponent(client)}`)}
+			href={resolve(`${urlPrefix}/device-clients/${encodeURIComponent(client)}`)}
 			onclick={(e) => e.stopPropagation()}
 		>
 			{client}

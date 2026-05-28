@@ -7,11 +7,12 @@
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import {
-		AdminService,
+		UserService,
 		type DeviceScan,
 		type DeviceScanResponse,
 		type OrgUser
 	} from '$lib/services';
+	import { profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { replaceState } from '$lib/url';
 	import { openUrl } from '$lib/utils';
@@ -99,7 +100,7 @@
 	async function fetchPage(idx: number) {
 		loading = true;
 		try {
-			devicesResp = await AdminService.listDeviceScans({
+			devicesResp = await UserService.listDeviceScans({
 				limit: PAGE_SIZE,
 				offset: idx * PAGE_SIZE,
 				groupByDevice: true
@@ -112,6 +113,7 @@
 	}
 
 	const duration = PAGE_TRANSITION_DURATION;
+	const hasAdminAccess = $derived(profile.current.hasAdminAccess?.());
 </script>
 
 <svelte:head>
@@ -145,7 +147,7 @@
 				fields={[
 					'short_device_id',
 					'os_arch',
-					'username',
+					...(hasAdminAccess ? ['username'] : []),
 					'mcp_count',
 					'skill_count',
 					'plugin_count',
@@ -165,7 +167,8 @@
 				sortable={['short_device_id', 'os_arch', 'username']}
 				filterable={['os_arch']}
 				onClickRow={(d, isCtrlClick) => {
-					openUrl(resolve(`/admin/devices/${d.deviceID}`), isCtrlClick);
+					const prefix = hasAdminAccess ? '/admin' : '';
+					openUrl(resolve(`${prefix}/devices/${d.deviceID}`), isCtrlClick);
 				}}
 			>
 				{#snippet onRenderColumn(property, d: Row)}

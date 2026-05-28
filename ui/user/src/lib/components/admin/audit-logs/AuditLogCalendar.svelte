@@ -10,6 +10,7 @@
 	let { start, end, disabled = false, onChange } = $props();
 
 	let open = $state(false);
+	const today = new Date();
 
 	const actions = [
 		{
@@ -190,5 +191,6 @@
 		{end}
 		{disabled}
 		{onChange}
+		maxDate={today}
 	/>
 </div>
