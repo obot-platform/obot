@@ -87,7 +87,7 @@
 	$effect(() => {
 		if (!loading) return;
 		if (entry && !('isCatalogEntry' in entry) && id) {
-			if (entry.catalogEntryID) {
+			if (entry.catalogEntryID && !isMultiUserServer(entry)) {
 				instances = [
 					{
 						id: entry.id,
