@@ -26,7 +26,7 @@ export function stripManifestMetadata<T>(manifest: T): T {
 	const stripFields = (m: any) => {
 		if (!m || typeof m !== 'object') return;
 		delete m.repoURL;
-		delete clone.serverUserType;
+		delete m.serverUserType;
 		if (m.remoteConfig) {
 			delete m.remoteConfig.fixedURL;
 			delete m.remoteConfig.url;
