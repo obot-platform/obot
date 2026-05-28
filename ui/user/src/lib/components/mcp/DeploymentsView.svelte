@@ -278,11 +278,17 @@
 		return (server.manifest.multiUserConfig?.userDefinedHeaders?.length ?? 0) > 0;
 	}
 
+	function canTriggerUpdate(server: MCPCatalogServer) {
+		if (server.compositeName) return false;
+		if (!isMultiUserServer(server)) return true;
+		return !!server.catalogEntryID && (!!server.powerUserWorkspaceID || !!id);
+	}
+
 	async function handleBulkUpdate() {
 		for (const serverId of Object.keys(selected)) {
 			const server = selected[serverId];
 			// if doesn't need update or is child server of composite mcp
-			if (!server.needsUpdate || (server.needsUpdate && server.compositeName)) {
+			if (!server.needsUpdate || !canTriggerUpdate(server)) {
 				continue;
 			}
 			updating[serverId] = { inProgress: true, error: '' };
@@ -338,16 +344,18 @@
 	}
 
 	async function updateServer(server?: MCPCatalogServer) {
-		if (!server) return;
+		if (!server || !canTriggerUpdate(server)) return;
 		updating[server.id] = { inProgress: true, error: '' };
 		try {
 			if (isMultiUserServer(server)) {
 				if (server.powerUserWorkspaceID) {
-					await UserService.triggerWorkspaceMcpServerUpdate(
-						server.powerUserWorkspaceID,
-						server.catalogEntryID,
-						server.id
-					);
+					if (server.catalogEntryID) {
+						await UserService.triggerWorkspaceMcpServerUpdate(
+							server.powerUserWorkspaceID,
+							server.catalogEntryID,
+							server.id
+						);
+					}
 				} else if (id) {
 					await AdminService.triggerMcpCatalogServerUpdate(id, server.id);
 				}
@@ -727,7 +735,7 @@
 										<ServerCog class="size-4" /> Edit Configuration
 									</button>
 								{/if}
-								{#if d.needsUpdate && (d.isMyServer || (hasAdminAccess && !readonly))}
+								{#if d.needsUpdate && canTriggerUpdate(d) && (d.isMyServer || (hasAdminAccess && !readonly))}
 									<button
 										class="menu-button-primary"
 										disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
@@ -881,7 +889,7 @@
 						(s) => s.configured
 					).length}
 					{@const upgradeableCount = Object.values(currentSelected).filter(
-						(s) => s.needsUpdate && !s.compositeName
+						(s) => s.needsUpdate && canTriggerUpdate(s)
 					).length}
 					{@const k8sUpgradeableCount = Object.values(currentSelected).filter(
 						(s) => s.needsK8sUpdate && !s.compositeName

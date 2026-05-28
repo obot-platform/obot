@@ -160,11 +160,13 @@
 	function canUpdateServer(server: MCPCatalogServer) {
 		if (server.compositeName || isMissingKubernetesSecret(server)) return false;
 
-		if (isAdminUrl && profile.current?.hasAdminAccess?.()) return true;
-
 		if (isMultiUserServer(server)) {
-			return !!server.powerUserWorkspaceID && server.powerUserWorkspaceID === id;
+			if (!server.catalogEntryID) return false;
+			if (server.powerUserWorkspaceID) return server.powerUserWorkspaceID === id;
+			return isAdminUrl && profile.current?.hasAdminAccess?.() && !!server.mcpCatalogID;
 		}
+
+		if (isAdminUrl && profile.current?.hasAdminAccess?.()) return true;
 
 		return server.userID === profile.current?.id;
 	}
