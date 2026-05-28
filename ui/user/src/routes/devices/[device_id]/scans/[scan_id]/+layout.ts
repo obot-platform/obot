@@ -10,6 +10,7 @@ export const load: LayoutLoad = async ({ params, fetch, parent }) => {
 		const scan = await UserService.getDeviceScan(scan_id, { fetch });
 		return { scan };
 	} catch (err) {
-		handleRouteError(err, `/admin/devices/${device_id}/scans/${scan_id}`, profile);
+		const urlPrefix = profile.hasAdminAccess?.() ? '/admin' : '';
+		handleRouteError(err, `${urlPrefix}/devices/${device_id}/scans/${scan_id}`, profile);
 	}
 };

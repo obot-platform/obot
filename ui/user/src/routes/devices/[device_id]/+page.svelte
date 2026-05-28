@@ -16,6 +16,7 @@
 		type DeviceScanSkill,
 		type OrgUser
 	} from '$lib/services';
+	import { profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { goto } from '$lib/url';
 	import { openUrl } from '$lib/utils';
@@ -180,6 +181,9 @@
 	);
 
 	const duration = PAGE_TRANSITION_DURATION;
+
+	const hasAdminAccess = $derived(profile.current.hasAdminAccess?.());
+	const urlPrefix = $derived(hasAdminAccess ? '/admin' : '');
 </script>
 
 <svelte:head>
@@ -193,7 +197,7 @@
 		if (typeof window !== 'undefined' && window.history.length > 1) {
 			window.history.back();
 		} else {
-			goto(resolve('/admin/devices'));
+			goto(resolve(`${urlPrefix}/devices`));
 		}
 	}}
 >
@@ -219,32 +223,34 @@
 						<span class="pill-primary bg-primary">{latest.os}/{latest.arch}</span>
 					</dd>
 
-					<dt class="text-muted-content text-xs font-medium tracking-wide uppercase">
-						Submitted by
-					</dt>
-					<dd>
-						{#if submittedByUser}
-							<div class="flex items-center gap-2">
-								<div
-									class="size-6 shrink-0 overflow-hidden rounded-full bg-base-100 dark:bg-base-300"
-								>
-									{#if submittedByUser.iconURL}
-										<img
-											src={submittedByUser.iconURL}
-											class="h-full w-full object-cover"
-											alt=""
-											referrerpolicy="no-referrer"
-										/>
-									{/if}
+					{#if hasAdminAccess}
+						<dt class="text-muted-content text-xs font-medium tracking-wide uppercase">
+							Submitted by
+						</dt>
+						<dd>
+							{#if submittedByUser}
+								<div class="flex items-center gap-2">
+									<div
+										class="size-6 shrink-0 overflow-hidden rounded-full bg-base-100 dark:bg-base-300"
+									>
+										{#if submittedByUser.iconURL}
+											<img
+												src={submittedByUser.iconURL}
+												class="h-full w-full object-cover"
+												alt=""
+												referrerpolicy="no-referrer"
+											/>
+										{/if}
+									</div>
+									<span>{userDisplay(submittedByUser)}</span>
 								</div>
-								<span>{userDisplay(submittedByUser)}</span>
-							</div>
-						{:else if latest.submittedBy}
-							<span class="text-xs">{latest.submittedBy}</span>
-						{:else}
-							<span class="text-muted-content">—</span>
-						{/if}
-					</dd>
+							{:else if latest.submittedBy}
+								<span class="text-xs">{latest.submittedBy}</span>
+							{:else}
+								<span class="text-muted-content">—</span>
+							{/if}
+						</dd>
+					{/if}
 
 					<dt class="text-muted-content text-xs font-medium tracking-wide uppercase">OS user</dt>
 					<dd>{latest.username || '—'}</dd>
@@ -325,7 +331,7 @@
 							filterable={['client', 'transport', 'scope']}
 							onClickRow={(d, isCtrlClick) => {
 								openUrl(
-									resolve(`/admin/devices/${deviceId}/scans/${latest?.id}/mcp/${d.id}`),
+									resolve(`${urlPrefix}/devices/${deviceId}/scans/${latest?.id}/mcp/${d.id}`),
 									isCtrlClick
 								);
 							}}
@@ -355,7 +361,9 @@
 												}
 												const isCtrlClick = e.ctrlKey || e.metaKey;
 												openUrl(
-													resolve(`/admin/device-mcp-servers/${encodeURIComponent(d.configHash)}`),
+													resolve(
+														`${urlPrefix}/device-mcp-servers/${encodeURIComponent(d.configHash)}`
+													),
 													isCtrlClick
 												);
 												toggle();
@@ -388,7 +396,7 @@
 							filterable={['client', 'scope']}
 							onClickRow={(d, isCtrlClick) => {
 								openUrl(
-									resolve(`/admin/devices/${deviceId}/scans/${latest?.id}/skills/${d.id}`),
+									resolve(`${urlPrefix}/devices/${deviceId}/scans/${latest?.id}/skills/${d.id}`),
 									isCtrlClick
 								);
 							}}
@@ -416,7 +424,7 @@
 											onclick={(e) => {
 												const isCtrlClick = e.ctrlKey || e.metaKey;
 												openUrl(
-													resolve(`/admin/device-skills/${encodeURIComponent(d.name)}`),
+													resolve(`${urlPrefix}/device-skills/${encodeURIComponent(d.name)}`),
 													isCtrlClick
 												);
 												toggle();
@@ -458,7 +466,7 @@
 							filterable={['client', 'pluginType', 'scope']}
 							onClickRow={(d, isCtrlClick) => {
 								openUrl(
-									resolve(`/admin/devices/${deviceId}/scans/${latest?.id}/plugins/${d.id}`),
+									resolve(`${urlPrefix}/devices/${deviceId}/scans/${latest?.id}/plugins/${d.id}`),
 									isCtrlClick
 								);
 							}}
@@ -527,7 +535,7 @@
 						{ title: 'Clients', property: 'client_count' }
 					]}
 					onClickRow={(d, isCtrlClick) => {
-						openUrl(resolve(`/admin/devices/${deviceId}/scans/${d.id}`), isCtrlClick);
+						openUrl(resolve(`${urlPrefix}/devices/${deviceId}/scans/${d.id}`), isCtrlClick);
 					}}
 				>
 					{#snippet onRenderColumn(property, d: HistoryRow)}
@@ -560,10 +568,10 @@
 {/snippet}
 
 {#snippet clientLink(client?: string)}
-	{#if client && client.trim() !== 'multi' && client !== AGENTS_HOME_CLIENT_LABEL}
+	{#if client && client.trim() !== 'multi' && client !== AGENTS_HOME_CLIENT_LABEL && hasAdminAccess}
 		<a
 			class="btn-link text-blue-500"
-			href={resolve(`/admin/device-clients/${encodeURIComponent(client)}`)}
+			href={resolve(`${urlPrefix}/device-clients/${encodeURIComponent(client)}`)}
 			onclick={(e) => e.stopPropagation()}
 		>
 			{client}

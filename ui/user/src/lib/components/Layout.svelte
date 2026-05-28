@@ -494,6 +494,13 @@
 						label: 'Skills',
 						collapsible: false
 					},
+					{
+						id: 'devices',
+						href: '/devices',
+						icon: Laptop,
+						label: 'Devices',
+						collapsible: false
+					},
 					...chatLinks
 				]
 	);

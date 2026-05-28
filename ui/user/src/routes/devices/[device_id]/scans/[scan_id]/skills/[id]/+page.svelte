@@ -1,105 +1,99 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import Layout from '$lib/components/Layout.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { deriveDeviceScope, formatDeviceClient } from '$lib/format.js';
-	import type { DeviceScanPlugin } from '$lib/services/user/types';
+	import type { DeviceScanSkill } from '$lib/services/user/types';
+	import { profile } from '$lib/stores';
 	import { goto } from '$lib/url';
-	import { formatBytes, lookupFiles } from '../../_shared/files';
+	import { findParentPlugin, formatBytes, lookupFiles } from '../../_shared/files';
 	import { fly } from 'svelte/transition';
 
 	let { data } = $props();
 	let scan = $derived(data?.scan);
 	let id = $derived(Number(page.params.id));
-	let plugin = $derived<DeviceScanPlugin | undefined>(scan?.plugins?.find((p) => p.id === id));
-	let backHref = $derived(`/admin/devices/${page.params.device_id}/scans/${page.params.scan_id}`);
-
-	let files = $derived(lookupFiles(scan?.files, plugin?.files));
-	let scope = $derived(deriveDeviceScope(plugin?.projectPath));
-
-	let capabilities = $derived(
-		plugin
-			? [
-					{ key: 'rules', has: plugin.hasRules },
-					{ key: 'commands', has: plugin.hasCommands },
-					{ key: 'hooks', has: plugin.hasHooks }
-				].filter((c) => c.has)
-			: []
+	let skill = $derived<DeviceScanSkill | undefined>(scan?.skills?.find((s) => s.id === id));
+	let urlPrefix = $derived((profile.current.hasAdminAccess?.() ? '/admin' : '') as `/${string}`);
+	let backHref = $derived(
+		`${urlPrefix}/devices/${page.params.device_id}/scans/${page.params.scan_id}`
 	);
+
+	let files = $derived(lookupFiles(scan?.files, skill?.files));
+	let parentPlugin = $derived(findParentPlugin(scan, skill?.file));
+	let scope = $derived(deriveDeviceScope(skill?.projectPath));
+	let clientLabel = $derived(formatDeviceClient(skill?.client, skill?.projectPath));
 
 	const duration = PAGE_TRANSITION_DURATION;
 </script>
 
 <svelte:head>
-	<title>Obot | Plugin {plugin?.name ?? ''}</title>
+	<title>Obot | Skill {skill?.name ?? ''}</title>
 </svelte:head>
 
-<Layout title={plugin?.name || 'Plugin'} showBackButton onBackButtonClick={() => goto(backHref)}>
+<Layout
+	title={skill?.name || 'Skill'}
+	showBackButton
+	onBackButtonClick={() => {
+		if (typeof window !== 'undefined' && window.history.length > 1) {
+			window.history.back();
+		} else {
+			goto(backHref);
+		}
+	}}
+>
 	<div
 		class="flex flex-col gap-6"
 		in:fly={{ x: 100, duration, delay: duration }}
 		out:fly={{ x: -100, duration }}
 	>
-		{#if !scan || !plugin}
-			<p class="text-muted-content text-sm font-light">Plugin not found in this scan.</p>
+		{#if !scan || !skill}
+			<p class="text-muted-content text-sm font-light">Skill not found in this scan.</p>
 		{:else}
 			<div class="dark:bg-base-300 bg-base-100 flex flex-col gap-3 rounded-md p-4 shadow-sm">
 				<div class="flex flex-wrap items-baseline gap-2">
-					<h2 class="text-xl font-semibold">{plugin.name}</h2>
-					{#if plugin.version}
-						<span class="text-muted-content text-sm">v{plugin.version}</span>
-					{/if}
-					<span class="pill-primary bg-primary">{plugin.pluginType}</span>
+					<h2 class="text-xl font-semibold">{skill.name}</h2>
 					<span class="dark:bg-base-400 bg-base-300 rounded px-1.5 py-0.5 text-xs">
-						{formatDeviceClient(plugin.client, plugin.projectPath)}
+						{clientLabel}
 					</span>
 					<span class="dark:bg-base-400 bg-base-300 rounded px-1.5 py-0.5 text-xs">
 						{scope}
 					</span>
-					<span
-						class="pill text-xs"
-						class:bg-success={plugin.enabled}
-						class:bg-base-400={!plugin.enabled}
-					>
-						{plugin.enabled ? 'enabled' : 'disabled'}
-					</span>
+					{#if skill.hasScripts}
+						<span class="pill-primary bg-primary">scripts</span>
+					{/if}
 				</div>
 
 				<dl class="grid grid-cols-1 gap-x-6 gap-y-2 text-sm md:grid-cols-[max-content_1fr]">
-					{#if plugin.description}
+					{#if skill.description}
 						<dt class="text-muted-content">Description</dt>
-						<dd>{plugin.description}</dd>
+						<dd>{skill.description}</dd>
 					{/if}
-					{#if plugin.author}
-						<dt class="text-muted-content">Author</dt>
-						<dd>{plugin.author}</dd>
+					{#if skill.gitRemoteURL}
+						<dt class="text-muted-content">Git remote</dt>
+						<dd class="break-all">{skill.gitRemoteURL}</dd>
 					{/if}
-					{#if plugin.marketplace}
-						<dt class="text-muted-content">Marketplace</dt>
-						<dd class="break-all">{plugin.marketplace}</dd>
-					{/if}
-					{#if plugin.configPath}
+					{#if skill.file}
 						<dt class="text-muted-content">File</dt>
-						<dd class="break-all">{plugin.configPath}</dd>
+						<dd class="break-all">{skill.file}</dd>
 					{/if}
-					{#if plugin.projectPath}
+					{#if skill.projectPath}
 						<dt class="text-muted-content">Project path</dt>
-						<dd class="break-all">{plugin.projectPath}</dd>
+						<dd class="break-all">{skill.projectPath}</dd>
 					{/if}
-					<dt class="text-muted-content">Capabilities</dt>
-					<dd>
-						{#if capabilities.length === 0}
-							<span class="text-muted-content">none detected</span>
-						{:else}
-							<div class="flex flex-wrap gap-2">
-								{#each capabilities as c (c.key)}
-									<span class="dark:bg-base-400 bg-base-300 rounded px-1.5 py-0.5 text-xs">
-										{c.key}
-									</span>
-								{/each}
-							</div>
-						{/if}
-					</dd>
+					{#if parentPlugin}
+						<dt class="text-muted-content">Part of plugin</dt>
+						<dd>
+							<a
+								class="text-link text-sm"
+								href={resolve(
+									`${urlPrefix}/devices/${page.params.device_id}/scans/${page.params.scan_id}/plugins/${parentPlugin.id}`
+								)}
+							>
+								{parentPlugin.name}
+							</a>
+						</dd>
+					{/if}
 				</dl>
 			</div>
 
