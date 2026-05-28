@@ -24,6 +24,9 @@ kubeconfig
 # Ignore packed helm chart
 .packaged/
 
+# Ignore GoReleaser output
+/dist/
+
 # Ignore dependency directories
 vendor/
 
