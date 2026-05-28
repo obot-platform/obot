@@ -251,6 +251,13 @@ export async function listDefaultModelAliases(opts?: {
 
 // Device scans
 
+export async function getDeviceScan(
+	id: number | string,
+	opts?: { fetch?: Fetcher }
+): Promise<DeviceScan> {
+	return (await doGet(`/devices/scans/${id}`, opts)) as DeviceScan;
+}
+
 export async function listDeviceScans(
 	filters?: DeviceScanListFilters,
 	opts?: { fetch?: Fetcher }
@@ -260,13 +267,6 @@ export async function listDeviceScans(
 		`/devices/scans${queryString ? `?${queryString}` : ''}`,
 		opts
 	)) as DeviceScanResponse;
-}
-
-export async function getDeviceScan(
-	id: number | string,
-	opts?: { fetch?: Fetcher }
-): Promise<DeviceScan> {
-	return (await doGet(`/devices/scans/${id}`, opts)) as DeviceScan;
 }
 
 // Images

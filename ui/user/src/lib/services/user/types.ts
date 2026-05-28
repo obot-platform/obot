@@ -232,12 +232,49 @@ export interface BootstrapStatus {
 // Devices
 
 // Device scans — payload shape matches apiclient/types/devicescan.go.
+export interface DeviceScan {
+	id: number;
+	receivedAt: string;
+	submittedBy?: string;
+	scannerVersion: string;
+	scannedAt: string;
+	deviceID: string;
+	hostname: string;
+	os: string;
+	arch: string;
+	username?: string;
+	files: DeviceScanFile[];
+	mcpServers: DeviceScanMCPServer[];
+	skills: DeviceScanSkill[];
+	plugins: DeviceScanPlugin[];
+	clients: DeviceScanClient[];
+}
+export interface DeviceScanClient {
+	name: string;
+	version?: string;
+	binaryPath?: string;
+	installPath?: string;
+	configPath?: string;
+	hasMCPServers: boolean;
+	hasSkills: boolean;
+	hasPlugins: boolean;
+}
 export interface DeviceScanFile {
 	path: string;
 	sizeBytes: number;
 	oversized: boolean;
 	content?: string;
 }
+export interface DeviceScanList {
+	items: DeviceScan[] | null;
+}
+export type DeviceScanListFilters = {
+	limit?: number;
+	offset?: number;
+	submittedBy?: string[];
+	deviceId?: string[];
+	groupByDevice?: boolean;
+};
 export interface DeviceScanMCPServer {
 	id: number;
 	client: string;
@@ -251,17 +288,6 @@ export interface DeviceScanMCPServer {
 	command?: string;
 	args?: string[];
 	url?: string;
-}
-export interface DeviceScanSkill {
-	id: number;
-	client: string;
-	projectPath?: string;
-	file?: string;
-	name: string;
-	description?: string;
-	files: string[];
-	hasScripts: boolean;
-	gitRemoteURL?: string;
 }
 export interface DeviceScanPlugin {
 	id: number;
@@ -282,48 +308,22 @@ export interface DeviceScanPlugin {
 	hasCommands: boolean;
 	hasHooks: boolean;
 }
-export interface DeviceScanClient {
-	name: string;
-	version?: string;
-	binaryPath?: string;
-	installPath?: string;
-	configPath?: string;
-	hasMCPServers: boolean;
-	hasSkills: boolean;
-	hasPlugins: boolean;
-}
-export interface DeviceScan {
-	id: number;
-	receivedAt: string;
-	submittedBy?: string;
-	scannerVersion: string;
-	scannedAt: string;
-	deviceID: string;
-	hostname: string;
-	os: string;
-	arch: string;
-	username?: string;
-	files: DeviceScanFile[];
-	mcpServers: DeviceScanMCPServer[];
-	skills: DeviceScanSkill[];
-	plugins: DeviceScanPlugin[];
-	clients: DeviceScanClient[];
-}
-export interface DeviceScanList {
-	items: DeviceScan[] | null;
-}
 export interface DeviceScanResponse extends DeviceScanList {
 	total: number;
 	limit: number;
 	offset: number;
 }
-export type DeviceScanListFilters = {
-	limit?: number;
-	offset?: number;
-	submittedBy?: string[];
-	deviceId?: string[];
-	groupByDevice?: boolean;
-};
+export interface DeviceScanSkill {
+	id: number;
+	client: string;
+	projectPath?: string;
+	file?: string;
+	name: string;
+	description?: string;
+	files: string[];
+	hasScripts: boolean;
+	gitRemoteURL?: string;
+}
 
 // Files
 
