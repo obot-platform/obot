@@ -1776,10 +1776,6 @@ func (m *MCPHandler) UpdateServerAlias(req api.Context) error {
 		return err
 	}
 
-	if catalogID == "" && workspaceID == "" && !server.Spec.IsSingleUser() {
-		return types.NewErrBadRequest("use the catalog or workspace scoped route to update a shared MCP server alias")
-	}
-
 	if server.Spec.MCPCatalogID != catalogID || server.Spec.PowerUserWorkspaceID != workspaceID {
 		return types.NewErrNotFound("MCP server not found")
 	}

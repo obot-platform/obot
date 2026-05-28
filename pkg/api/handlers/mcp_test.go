@@ -130,7 +130,7 @@ func TestUpdateServerAliasUnscopedSharedServer(t *testing.T) {
 		Storage:        storage,
 	})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "use the catalog or workspace scoped route")
+	assert.True(t, types.IsNotFound(err), "expected not found error, got %v", err)
 
 	var updated v1.MCPServer
 	require.NoError(t, storage.Get(context.Background(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: "server"}, &updated))
