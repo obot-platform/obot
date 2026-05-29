@@ -240,13 +240,8 @@ func catalogEntryRequiresConfiguration(entry v1.MCPServerCatalogEntry) bool {
 			return true
 		}
 
-		// A hostname is not a usable connection URL. It is only a constraint for
-		// the URL the user must supply when configuring the server.
-		if manifest.RemoteConfig.Hostname != "" {
-			return true
-		}
-
-		if manifest.RemoteConfig.URLTemplate != "" {
+		// Without a fixed URL, the user must supply a connection URL.
+		if manifest.RemoteConfig.FixedURL == "" {
 			return true
 		}
 
