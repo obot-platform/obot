@@ -780,7 +780,7 @@
 		}
 		if (hasEditableConfiguration(entry) && entry.manifest?.runtime === 'composite') {
 			initCompositeForm(entry);
-		} else if (hasEditableConfiguration(entry)) {
+		} else if (hasEditableConfiguration(entry) || isMultiUserCatalogEntry(entry)) {
 			initConfigureForm(entry);
 			configDialog?.open();
 		} else {
