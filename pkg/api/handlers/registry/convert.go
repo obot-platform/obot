@@ -230,7 +230,8 @@ func catalogEntryRequiresConfiguration(entry v1.MCPServerCatalogEntry) bool {
 	}
 
 	for _, env := range manifest.Env {
-		if env.Required {
+		// Required env values without a secret binding must be configured
+		if env.Required && env.SecretBinding == nil {
 			return true
 		}
 	}
