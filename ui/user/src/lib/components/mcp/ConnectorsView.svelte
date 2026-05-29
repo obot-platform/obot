@@ -47,6 +47,7 @@
 		Ellipsis,
 		KeyRound,
 		PencilLine,
+		Plus,
 		ReceiptText,
 		RefreshCw,
 		SatelliteDish,
@@ -657,6 +658,18 @@
 							{#if !hasConnectedOptions}
 								{#if !requiresOAuth || catalogEntry?.oauthCredentialConfigured}
 									{@render connectToServerAction(d.data, toggle, true)}
+								{/if}
+								{#if catalogEntry && isMultiUserCatalogEntry(catalogEntry) && matchingServers.length > 0}
+									<button
+										class="menu-button"
+										onclick={(e) => {
+											e.stopPropagation();
+											connectToServerDialog?.open({ entry: catalogEntry });
+											toggle(false);
+										}}
+									>
+										<Plus class="size-4" /> Create Server
+									</button>
 								{/if}
 							{/if}
 							{#if requiresOAuth && catalogEntry}

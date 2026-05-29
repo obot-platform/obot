@@ -33,6 +33,7 @@
 	import {
 		KeyRound,
 		PencilLine,
+		Plus,
 		ReceiptText,
 		RefreshCw,
 		Server,
@@ -793,6 +794,20 @@
 						<Unplug class="size-4" /> Disconnect
 					</button>
 				{/if}
+			</div>
+		{/if}
+		{#if isMultiUserCatalogEntry(entry)}
+			<div class="flex flex-col gap-1 p-2">
+				<button
+					class="menu-button"
+					onclick={(e) => {
+						e.stopPropagation();
+						connectToServerDialog?.open({ entry });
+						toggle(false);
+					}}
+				>
+					<Plus class="size-4" /> Create Server
+				</button>
 			</div>
 		{/if}
 	{/if}
