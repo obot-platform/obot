@@ -1099,6 +1099,46 @@ func TestCompositeValidator_ValidateCatalogConfig(t *testing.T) {
 			},
 		},
 		{
+			name: "multi-user catalog entry component not allowed in catalog",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeCatalogConfig{
+					ComponentServers: []types.CatalogComponentServer{
+						{
+							CatalogEntryID: "entry-1",
+							Manifest: types.MCPServerCatalogEntryManifest{
+								Runtime:        types.RuntimeRemote,
+								ServerUserType: types.ServerUserTypeMultiUser,
+							},
+						},
+					},
+				},
+			},
+			expectedError: types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   "compositeConfig.componentServers[0]",
+				Message: "multi-user catalog entries cannot be included in a composite server; use the multi-user MCP server instead",
+			},
+		},
+		{
+			name: "multi-user MCP server component is allowed in catalog",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeCatalogConfig{
+					ComponentServers: []types.CatalogComponentServer{
+						{
+							MCPServerID: "server-1",
+							Manifest: types.MCPServerCatalogEntryManifest{
+								Runtime:        types.RuntimeRemote,
+								ServerUserType: types.ServerUserTypeMultiUser,
+							},
+						},
+					},
+				},
+			},
+			expectedError: nil,
+		},
+		{
 			name: "duplicate component servers detected in catalog",
 			manifest: types.MCPServerCatalogEntryManifest{
 				Runtime: types.RuntimeComposite,

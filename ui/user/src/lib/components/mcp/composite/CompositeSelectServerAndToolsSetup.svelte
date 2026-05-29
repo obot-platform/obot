@@ -351,7 +351,9 @@
 		};
 		return {
 			...ctx,
-			entries: ctx.entries.filter((e) => e.manifest?.runtime !== 'composite')
+			entries: ctx.entries.filter(
+				(e) => e.manifest?.runtime !== 'composite' && e.manifest?.serverUserType !== 'multiUser'
+			)
 		};
 	}}
 	singleSelect

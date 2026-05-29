@@ -834,6 +834,14 @@ func (v CompositeValidator) ValidateCatalogConfig(manifest types.MCPServerCatalo
 			}
 		}
 
+		if hasCatalogEntry && component.Manifest.ServerUserType == types.ServerUserTypeMultiUser {
+			return types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   fmt.Sprintf("compositeConfig.componentServers[%d]", i),
+				Message: "multi-user catalog entries cannot be included in a composite server; use the multi-user MCP server instead",
+			}
+		}
+
 		// Prevent composite MCP servers from being nested
 		if component.Manifest.Runtime == types.RuntimeComposite {
 			return types.RuntimeValidationError{
