@@ -177,12 +177,16 @@
 	let showConnectionActions = $derived(
 		!hasMultiUserServerNotOwned || hasConfiguredServerUserInstance
 	);
+	let canCreateAnotherMultiUserServer = $derived(
+		isMultiUserCatalogEntry(entry) && (!!catalogID || !!workspaceID) && configuredServers.length > 0
+	);
 	let hasActions = $derived.by(() => {
 		return Boolean(
 			(entry && server && isServerOwner) ||
 			(server && instance) ||
 			(showServerDetails && showConnectionActions) ||
-			canEditMultiUserServerConfiguration
+			canEditMultiUserServerConfiguration ||
+			canCreateAnotherMultiUserServer
 		);
 	});
 	let showDisconnectUser = $derived(
@@ -295,7 +299,7 @@
 		)}
 		use:tooltip={{
 			text:
-				isMultiUserCatalogEntryRow && !profile.current?.hasAdminAccess?.()
+				isMultiUserCatalogEntryRow && !catalogID && !workspaceID
 					? 'This is a multi-user catalog entry. An administrator must deploy it before you can connect.'
 					: canConnect
 						? ''
@@ -796,7 +800,7 @@
 				{/if}
 			</div>
 		{/if}
-		{#if isMultiUserCatalogEntry(entry)}
+		{#if isMultiUserCatalogEntry(entry) && (catalogID || workspaceID)}
 			<div class="flex flex-col gap-1 p-2">
 				<button
 					class="menu-button"

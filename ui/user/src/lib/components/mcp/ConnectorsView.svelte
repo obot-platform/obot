@@ -659,7 +659,7 @@
 								{#if !requiresOAuth || catalogEntry?.oauthCredentialConfigured}
 									{@render connectToServerAction(d.data, toggle, true)}
 								{/if}
-								{#if catalogEntry && isMultiUserCatalogEntry(catalogEntry) && matchingServers.length > 0}
+								{#if catalogEntry && isMultiUserCatalogEntry(catalogEntry) && matchingServers.length > 0 && ((!!catalog && profile.current?.hasAdminAccess?.()) || (entity === 'workspace' && !!id))}
 									<button
 										class="menu-button"
 										onclick={(e) => {
