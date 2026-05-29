@@ -83,6 +83,11 @@
 						: getUserDisplayName(usersMap, s.userID)
 			}))
 	);
+	let serverTableFields = $derived.by(() => {
+		if (type === 'single' || type === 'composite') return ['userID', 'created'];
+		if (type === 'multi') return ['name', 'userID', 'created'];
+		return ['url', 'userID', 'created'];
+	});
 
 	$effect(() => {
 		if (!loading) return;
@@ -331,10 +336,9 @@
 		{/if}
 		<Table
 			data={serverTableData}
-			fields={type === 'single' || type === 'composite'
-				? ['userID', 'created']
-				: ['url', 'userID', 'created']}
+			fields={serverTableFields}
 			headers={[
+				{ title: 'Alias/Name', property: 'name' },
 				{ title: 'User', property: 'userID' },
 				{ title: 'URL', property: 'url' }
 			]}
@@ -359,7 +363,31 @@
 		>
 			{#snippet onRenderColumn(property, d)}
 				{@const missingKubernetesSecret = isMissingKubernetesSecret(d)}
-				{#if property === 'url'}
+				{#if property === 'name'}
+					<span class="flex items-center gap-1">
+						{d.alias || d.manifest.name || d.id}
+						{#if missingKubernetesSecret}
+							<div
+								class="text-warning"
+								use:tooltip={{
+									text: 'Missing Kubernetes Secret.',
+									classes: ['break-words', 'w-58']
+								}}
+							>
+								<TriangleAlert class="size-4" />
+							</div>
+						{:else if d.needsUpdate}
+							<div
+								use:tooltip={{
+									text: 'This server needs an update. View Diff to see the changes.',
+									classes: ['wrap-break-word', 'w-58']
+								}}
+							>
+								<CircleFadingArrowUp class="text-primary size-4" />
+							</div>
+						{/if}
+					</span>
+				{:else if property === 'url'}
 					<span class="flex items-center gap-1">
 						{d.manifest.remoteConfig?.url}
 						{#if missingKubernetesSecret}
