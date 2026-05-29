@@ -247,7 +247,7 @@ func catalogEntryRequiresConfiguration(entry v1.MCPServerCatalogEntry) bool {
 		}
 
 		for _, header := range manifest.RemoteConfig.Headers {
-			if header.Required {
+			if header.Required && header.Value == "" && header.SecretBinding == nil {
 				return true
 			}
 		}
