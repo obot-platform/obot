@@ -264,8 +264,14 @@
 		selectServerMode = mode;
 	}
 
-	function handleConnectToServer({ instance }: { instance?: MCPServerInstance }) {
-		if (instance) {
+	function handleConnectToServer({
+		server,
+		instance
+	}: {
+		server?: MCPCatalogServer;
+		instance?: MCPServerInstance;
+	}) {
+		if (instance || server) {
 			mcpServersAndEntries.refreshAll();
 		}
 		onConnect?.({ instance });
@@ -798,7 +804,8 @@
 			toggle(false);
 		}}
 	>
-		<SatelliteDish class="size-4" /> Connect To Server
+		<SatelliteDish class="size-4" />
+		{isMultiUserCatalogEntryRow ? 'Create Server' : 'Connect To Server'}
 	</button>
 {/snippet}
 

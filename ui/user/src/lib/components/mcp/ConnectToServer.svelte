@@ -595,15 +595,9 @@
 				? await UserService.configureWorkspaceMCPCatalogServer(workspaceID, created.id, envs)
 				: await AdminService.configureMCPCatalogServer(catalogID!, created.id, envs);
 
-			if (hasMultiUserInstanceConfiguration(server)) {
-				await initMultiUserInstanceForm(server);
-				launchHandedOff = true;
-				return;
-			}
-
-			instance = await UserService.createMcpServerInstance(server.id);
-			await finishMultiUserServerConnect();
+			instance = undefined;
 			launchHandedOff = true;
+			onConnect?.({ server, entry });
 		} catch (err) {
 			if (created && !launchHandedOff) {
 				try {
@@ -924,7 +918,11 @@
 	icon={manifest?.icon}
 	name={server?.alias || manifest?.name || ''}
 	onSave={handleConfigureForm}
-	submitText={isConfigured ? 'Update' : 'Launch'}
+	submitText={isDeployingMultiUserCatalogEntry
+		? 'Create Server'
+		: isConfigured
+			? 'Update'
+			: 'Launch'}
 	loading={saving}
 	disableSave={!!secretBindingEngineError}
 	isNew={!isConfigured}
