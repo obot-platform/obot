@@ -255,7 +255,7 @@ func (h *Handler) DetectK8sSettingsDrift(req router.Request, _ router.Response) 
 	return nil
 }
 
-// ConfigurationHasDrifted compares runtime config, env, and multi-user config between a server
+// ConfigurationHasDrifted compares runtime config, env, resources, and multi-user config between a server
 // manifest and a catalog entry manifest. It handles the type difference between MCPServerManifest
 // and MCPServerCatalogEntryManifest by comparing only the fields common to both.
 func ConfigurationHasDrifted(serverManifest types.MCPServerManifest, entryManifest types.MCPServerCatalogEntryManifest, defaultDenyAllEgress bool) (bool, error) {
@@ -295,7 +295,21 @@ func ConfigurationHasDrifted(serverManifest types.MCPServerManifest, entryManife
 	}
 
 	// Check environment
-	return !slicesEqualIgnoreOrderDeep(serverManifest.Env, entryManifest.Env), nil
+	if !slicesEqualIgnoreOrderDeep(serverManifest.Env, entryManifest.Env) {
+		return true, nil
+	}
+
+	return resourcesHasDrifted(serverManifest.Resources, entryManifest.Resources), nil
+}
+
+func resourcesHasDrifted(serverResources, entryResources *types.MCPResourceRequirements) bool {
+	if serverResources == nil && entryResources == nil {
+		return false
+	}
+	if serverResources == nil || entryResources == nil {
+		return true
+	}
+	return !reflect.DeepEqual(serverResources, entryResources)
 }
 
 func multiUserConfigHasDrifted(serverConfig, entryConfig *types.MultiUserConfig) bool {

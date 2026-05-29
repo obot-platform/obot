@@ -931,3 +931,33 @@ func composite(components ...types.CatalogComponentServer) types.MCPServerCatalo
 		CompositeConfig: &types.CompositeCatalogConfig{ComponentServers: components},
 	}
 }
+
+func TestUpdateServerFromCatalogEntryCopiesResources(t *testing.T) {
+	resources := &types.MCPResourceRequirements{
+		Requests: types.MCPResourceRequests{CPU: "500m", Memory: "512Mi"},
+		Limits:   types.MCPResourceRequests{CPU: "1", Memory: "1Gi"},
+	}
+	server := v1.MCPServer{
+		Spec: v1.MCPServerSpec{
+			Manifest: types.MCPServerManifest{
+				Name:    "server",
+				Runtime: types.RuntimeContainerized,
+				Resources: &types.MCPResourceRequirements{
+					Requests: types.MCPResourceRequests{CPU: "250m", Memory: "256Mi"},
+				},
+			},
+		},
+	}
+	entry := v1.MCPServerCatalogEntry{
+		Spec: v1.MCPServerCatalogEntrySpec{
+			Manifest: types.MCPServerCatalogEntryManifest{
+				Name:      "entry",
+				Runtime:   types.RuntimeContainerized,
+				Resources: resources,
+			},
+		},
+	}
+
+	updateServerFromCatalogEntry(&server, entry)
+	assert.Equal(t, resources, server.Spec.Manifest.Resources)
+}
