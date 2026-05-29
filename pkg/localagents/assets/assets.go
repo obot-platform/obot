@@ -16,6 +16,7 @@ var templateFS embed.FS
 var claudeSkillTemplates = []string{
 	"claude/skills/obot/SKILL.md.tmpl",
 	"claude/skills/obot-search-skills/SKILL.md.tmpl",
+	"claude/skills/obot-search-mcp-servers/SKILL.md.tmpl",
 	"claude/skills/obot-install-skill/SKILL.md.tmpl",
 	"claude/skills/obot-scan/SKILL.md.tmpl",
 }

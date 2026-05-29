@@ -9,8 +9,8 @@ import (
 func TestRenderAgentSkillsForClaudeCode(t *testing.T) {
 	rendered := renderAgentSkillsForTest(t, ClaudeCodeTemplateData())
 
-	if len(rendered) != 4 {
-		t.Fatalf("expected 4 rendered assets, got %d", len(rendered))
+	if len(rendered) != 5 {
+		t.Fatalf("expected 5 rendered assets, got %d", len(rendered))
 	}
 
 	install := renderedByName(t, rendered, "obot-install-skill")
@@ -21,11 +21,18 @@ func TestRenderAgentSkillsForClaudeCode(t *testing.T) {
 	assertContains(t, string(search.Content), "obot skills search \"<query>\"")
 	assertContains(t, string(search.Content), "obot skills search\n")
 
+	mcpSearch := renderedByName(t, rendered, "obot-search-mcp-servers")
+	assertContains(t, string(mcpSearch.Content), "Search the configured Obot server for available MCP servers.")
+	assertContains(t, string(mcpSearch.Content), "obot mcp search \"<query>\"")
+	assertContains(t, string(mcpSearch.Content), "obot mcp search\n")
+	assertContains(t, string(mcpSearch.Content), "configuration required")
+
 	scan := renderedByName(t, rendered, "obot-scan")
 	assertContains(t, string(scan.Content), "obot scan")
 
 	bootstrap := renderedByName(t, rendered, "obot")
 	assertContains(t, string(bootstrap.Content), "rendered for `claude-code`")
+	assertContains(t, string(bootstrap.Content), "obot mcp search")
 }
 
 func TestRenderAgentSkillsForSharedAgents(t *testing.T) {
@@ -36,6 +43,7 @@ func TestRenderAgentSkillsForSharedAgents(t *testing.T) {
 
 	bootstrap := renderedByName(t, rendered, "obot")
 	assertContains(t, string(bootstrap.Content), "rendered for `agents`")
+	assertContains(t, string(bootstrap.Content), "obot mcp search")
 }
 
 func TestRenderedAssetsHaveDeterministicRelativePaths(t *testing.T) {
@@ -52,6 +60,7 @@ func TestRenderedAssetsHaveDeterministicRelativePaths(t *testing.T) {
 	want := []string{
 		"obot-install-skill/SKILL.md",
 		"obot-scan/SKILL.md",
+		"obot-search-mcp-servers/SKILL.md",
 		"obot-search-skills/SKILL.md",
 		"obot/SKILL.md",
 	}

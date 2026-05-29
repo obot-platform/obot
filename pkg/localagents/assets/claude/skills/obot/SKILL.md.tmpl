@@ -1,11 +1,11 @@
 ---
 name: obot
-description: Use the Obot CLI to discover and install skills. Load this skill before running the Obot CLI.
+description: Use the Obot CLI to discover skills and MCP servers. Load this skill before running the Obot CLI.
 ---
 
 # Obot
 
-Use the local `obot` CLI for Obot skill discovery and installation.
+Use the local `obot` CLI for Obot skill discovery, skill installation, and MCP server discovery.
 
 These instructions are rendered for `{{ .AgentID }}`.
 
@@ -16,6 +16,20 @@ To find installable skills from Obot, run:
 ```sh
 obot skills search "<query>"
 ```
+
+To search the configured Obot server for available MCP servers, run:
+
+```sh
+obot mcp search "<query>"
+```
+
+Omit the query to list all MCP servers:
+
+```sh
+obot mcp search
+```
+
+Always display the connection or configuration URL to the user if they asked you to find a server.
 
 To install a skill from Obot, run:
 
