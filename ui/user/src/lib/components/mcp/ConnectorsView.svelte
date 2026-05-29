@@ -264,8 +264,14 @@
 		selectServerMode = mode;
 	}
 
-	function handleConnectToServer({ instance }: { instance?: MCPServerInstance }) {
-		if (instance) {
+	function handleConnectToServer({
+		server,
+		instance
+	}: {
+		server?: MCPCatalogServer;
+		instance?: MCPServerInstance;
+	}) {
+		if (instance || server) {
 			mcpServersAndEntries.refreshAll();
 		}
 		onConnect?.({ instance });
