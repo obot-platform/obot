@@ -13719,7 +13719,7 @@ func schema_storage_apis_obotobotai_v1_MCPServerCatalogEntryStatus(ref common.Re
 				Properties: map[string]spec.Schema{
 					"userCount": {
 						SchemaProps: spec.SchemaProps{
-							Description: "UserCount contains the current number of users with an MCP server created from this catalog entry.",
+							Description: "UserCount contains the current number of users with an MCP server created from this catalog entry. For multi-user entries, this is the sum of MCPServerInstanceUserCount across each MCPServer created from this entry (not de-duplicated across servers).",
 							Type:        []string{"integer"},
 							Format:      "int32",
 						},
