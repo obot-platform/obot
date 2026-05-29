@@ -10,15 +10,15 @@ import (
 	"text/template"
 )
 
-//go:embed claude/skills/*/SKILL.md.tmpl
+//go:embed files/skills/*/SKILL.md.tmpl
 var templateFS embed.FS
 
-var claudeSkillTemplates = []string{
-	"claude/skills/obot/SKILL.md.tmpl",
-	"claude/skills/obot-search-skills/SKILL.md.tmpl",
-	"claude/skills/obot-search-mcp-servers/SKILL.md.tmpl",
-	"claude/skills/obot-install-skill/SKILL.md.tmpl",
-	"claude/skills/obot-scan/SKILL.md.tmpl",
+var fileSkillTemplates = []string{
+	"files/skills/obot/SKILL.md.tmpl",
+	"files/skills/obot-search-skills/SKILL.md.tmpl",
+	"files/skills/obot-search-mcp-servers/SKILL.md.tmpl",
+	"files/skills/obot-install-skill/SKILL.md.tmpl",
+	"files/skills/obot-scan/SKILL.md.tmpl",
 }
 
 // TemplateData is the client-specific data used to render bootstrap
@@ -60,8 +60,8 @@ func RenderAgentSkills(data TemplateData) ([]SkillAsset, error) {
 		return nil, err
 	}
 
-	assets := make([]SkillAsset, 0, len(claudeSkillTemplates))
-	for _, templatePath := range claudeSkillTemplates {
+	assets := make([]SkillAsset, 0, len(fileSkillTemplates))
+	for _, templatePath := range fileSkillTemplates {
 		content, err := renderTemplate(templatePath, data)
 		if err != nil {
 			return nil, err
