@@ -364,6 +364,14 @@ export interface ContainerizedRuntimeConfig {
 	denyAllEgress?: boolean;
 	startupTimeoutSeconds?: number;
 }
+export interface MCPResourceRequests {
+	cpu?: string;
+	memory?: string;
+}
+export interface MCPResourceRequirements {
+	requests?: MCPResourceRequests;
+	limits?: MCPResourceRequests;
+}
 export interface RemoteRuntimeConfig {
 	url: string;
 	headers?: MCPSubField[];
@@ -375,6 +383,7 @@ export interface RemoteCatalogConfig {
 	hostname?: string;
 	headers?: MCPSubField[];
 }
+export type ResourceRuntimeConfig = MCPResourceRequirements;
 export interface MultiUserConfig {
 	userDefinedHeaders?: MCPSubField[];
 }
@@ -432,6 +441,7 @@ export interface MCPServer {
 	remoteConfig?: RemoteRuntimeConfig;
 	compositeConfig?: CompositeRuntimeConfig;
 	multiUserConfig?: MultiUserConfig;
+	resources?: MCPResourceRequirements;
 }
 export interface MCPServerTool {
 	id: string;

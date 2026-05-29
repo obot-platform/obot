@@ -11,7 +11,8 @@ import {
 	type ToolOverride,
 	type Schedule,
 	ModelAlias,
-	type AccessControlRuleSubject
+	type AccessControlRuleSubject,
+	type MCPResourceRequirements
 } from '../user/types';
 
 /**
@@ -560,10 +561,6 @@ export interface MCPCapacityInfo {
 	activeDeployments: number;
 	error?: string;
 }
-export interface MCPResourceRequests {
-	cpu?: string;
-	memory?: string;
-}
 
 // MCP catalog
 
@@ -634,6 +631,7 @@ export interface MCPCatalogEntryServerManifest {
 	remoteConfig?: RemoteCatalogConfigAdmin;
 	compositeConfig?: CompositeCatalogConfig;
 	multiUserConfig?: MultiUserConfig;
+	resources?: MCPResourceRequirements;
 }
 export interface MCPCatalogEntry {
 	id: string;
@@ -686,6 +684,7 @@ export interface RuntimeFormData {
 	compositeConfig?: CompositeCatalogConfig; // For catalog entries
 	compositeServerConfig?: CompositeRuntimeConfig; // For servers
 	multiUserConfig?: MultiUserConfig; // For servers
+	resources?: MCPResourceRequirements;
 
 	startupTimeoutSeconds?: number;
 }
