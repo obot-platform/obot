@@ -51,6 +51,9 @@ func (m *MCPSearch) Run(cmd *cobra.Command, args []string) error {
 	if m.root == nil || m.root.Client == nil {
 		return fmt.Errorf("mcp search: no API client configured")
 	}
+	if m.Limit < 0 {
+		return fmt.Errorf("--limit must be >= 0")
+	}
 
 	client := m.root.Client
 	if m.JSON && client.Token == "" {
