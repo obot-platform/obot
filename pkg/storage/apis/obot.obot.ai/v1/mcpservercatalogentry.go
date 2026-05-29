@@ -80,7 +80,7 @@ type MCPServerCatalogEntrySpec struct {
 
 type MCPServerCatalogEntryStatus struct {
 	// UserCount contains the current number of users with an MCP server created from this catalog entry.
-	// For multi-user entries, this is the sum of users connected to each MCP server created from this entry.
+	// For multi-user entries, this is the sum of MCPServerInstanceUserCount across each MCPServer created from this entry (not de-duplicated across servers).
 	UserCount int `json:"userCount,omitempty"`
 	// LastUpdated is the timestamp when this catalog entry was last updated.
 	LastUpdated *metav1.Time `json:"lastUpdated,omitempty"`
