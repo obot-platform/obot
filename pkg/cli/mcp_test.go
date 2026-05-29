@@ -37,7 +37,7 @@ func TestMCPSearchPaginatesAndWritesTable(t *testing.T) {
 			_ = json.NewEncoder(w).Encode(types.RegistryServerList{
 				Servers: []types.RegistryServerResponse{
 					registryTestServer("io.example.one", "One", "first", "https://obot.example.com/mcp-connect/one", false),
-					registryTestServer("io.example.two", "Two", "second", "", true),
+					registryTestServer("io.example/two", "Two", "second", "", true),
 				},
 				Metadata: &types.RegistryServerListMetadata{NextCursor: "two", Count: 2},
 			})
@@ -65,7 +65,7 @@ func TestMCPSearchPaginatesAndWritesTable(t *testing.T) {
 	for _, want := range []string{
 		"TITLE", "DESCRIPTION", "STATUS", "URL",
 		"One", "first", "ready", "https://obot.example.com/mcp-connect/one",
-		"Two", "second", "configuration required", "-",
+		"Two", "second", "configuration required", server.URL + "/mcp-servers/c/two",
 		"Three", "third", "unknown",
 	} {
 		if !strings.Contains(stdout, want) {
@@ -106,6 +106,39 @@ func TestMCPSearchJSONMode(t *testing.T) {
 	got := result.Servers[0]
 	if got.Name != "io.example.github" || got.Status != "ready" || got.URL == "" || got.ConfigurationRequired {
 		t.Fatalf("unexpected JSON result: %#v", got)
+	}
+}
+
+func TestMCPSearchJSONModeIncludesConfigurationURL(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v0.1/servers" {
+			t.Fatalf("path = %s, want /v0.1/servers", r.URL.Path)
+		}
+		_ = json.NewEncoder(w).Encode(types.RegistryServerList{
+			Servers: []types.RegistryServerResponse{
+				registryTestServer("io.example/ms1server", "Personal", "needs setup", "", true),
+			},
+			Metadata: &types.RegistryServerListMetadata{Count: 1},
+		})
+	}))
+	defer server.Close()
+
+	stdout, err := executeMCPTestCommand(mcpTestRoot(server.URL), "search", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var result mcpSearchOutput
+	if err := json.Unmarshal([]byte(stdout), &result); err != nil {
+		t.Fatalf("invalid JSON output: %v\n%s", err, stdout)
+	}
+	if len(result.Servers) != 1 {
+		t.Fatalf("server count = %d, want 1", len(result.Servers))
+	}
+	got := result.Servers[0]
+	wantURL := server.URL + "/mcp-servers/s/ms1server"
+	if !got.ConfigurationRequired || got.Status != "configuration required" || got.URL != wantURL {
+		t.Fatalf("unexpected JSON result: %#v, want URL %q", got, wantURL)
 	}
 }
 

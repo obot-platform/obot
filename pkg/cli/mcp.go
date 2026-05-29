@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"text/tabwriter"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/obot-platform/obot/apiclient"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/cli/internal"
+	"github.com/obot-platform/obot/pkg/system"
 	"github.com/spf13/cobra"
 )
 
@@ -64,7 +66,8 @@ func (m *MCPSearch) Run(cmd *cobra.Command, args []string) error {
 		return registrySearchError(err)
 	}
 
-	output := normalizeRegistryServers(result)
+	appURL, _ := internal.AppURLForAPIBaseURL(client.BaseURL)
+	output := normalizeRegistryServers(result, appURL)
 	if m.JSON {
 		enc := json.NewEncoder(cmd.OutOrStdout())
 		enc.SetIndent("", "  ")
@@ -128,11 +131,14 @@ type mcpSearchServer struct {
 	URL                   string `json:"url"`
 }
 
-func normalizeRegistryServers(servers []types.RegistryServerResponse) []mcpSearchServer {
+func normalizeRegistryServers(servers []types.RegistryServerResponse, appURL string) []mcpSearchServer {
 	result := make([]mcpSearchServer, 0, len(servers))
 	for _, registryServer := range servers {
 		url := firstRegistryRemoteURL(registryServer.Server)
 		configurationRequired := registryServer.Meta.Obot != nil && registryServer.Meta.Obot.ConfigurationRequired
+		if configurationRequired && url == "" {
+			url = registryServerConfigurationURL(appURL, registryServer.Server.Name)
+		}
 		result = append(result, mcpSearchServer{
 			Name:                  registryServer.Server.Name,
 			Title:                 registryServer.Server.Title,
@@ -143,6 +149,27 @@ func normalizeRegistryServers(servers []types.RegistryServerResponse) []mcpSearc
 		})
 	}
 	return result
+}
+
+func registryServerConfigurationURL(appURL, registryName string) string {
+	if appURL == "" {
+		return ""
+	}
+
+	id := registryName
+	if _, resourceName, ok := strings.Cut(registryName, "/"); ok {
+		id = resourceName
+	}
+	if id == "" {
+		return ""
+	}
+
+	route := "c"
+	if system.IsMCPServerID(id) {
+		route = "s"
+	}
+
+	return strings.TrimRight(appURL, "/") + "/mcp-servers/" + route + "/" + url.PathEscape(id)
 }
 
 func firstRegistryRemoteURL(server types.RegistryServerDetail) string {
