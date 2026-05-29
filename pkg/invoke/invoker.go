@@ -35,6 +35,7 @@ const (
 )
 
 type Invoker struct {
+	gptClient         *gptscript.GPTScript
 	uncached          kclient.WithWatch
 	gatewayClient     *client.Client
 	tokenService      *persistent.TokenService
@@ -42,13 +43,14 @@ type Invoker struct {
 	internalServerURL string
 }
 
-func NewInvoker(c kclient.WithWatch, gatewayClient *client.Client, serverURL string, serverPort int, tokenService *persistent.TokenService) *Invoker {
+func NewInvoker(c kclient.WithWatch, gatewayClient *client.Client, serverURL string, serverPort int, tokenService *persistent.TokenService, gptClient *gptscript.GPTScript) *Invoker {
 	return &Invoker{
 		uncached:          c,
 		gatewayClient:     gatewayClient,
 		tokenService:      tokenService,
 		serverURL:         serverURL,
 		internalServerURL: fmt.Sprintf("http://localhost:%d", serverPort),
+		gptClient:         gptClient,
 	}
 }
 
@@ -235,7 +237,7 @@ func isEphemeral(run *v1.Run) bool {
 	return strings.HasPrefix(run.Name, ephemeralRunPrefix)
 }
 
-func (i *Invoker) createRun(ctx context.Context, gptClient *gptscript.GPTScript, c kclient.WithWatch, thread *v1.Thread, tool any, input string, opts runOptions) (*Response, error) {
+func (i *Invoker) createRun(ctx context.Context, c kclient.WithWatch, thread *v1.Thread, tool any, input string, opts runOptions) (*Response, error) {
 	toolData, err := json.Marshal(tool)
 	if err != nil {
 		return nil, err
@@ -273,7 +275,7 @@ func (i *Invoker) createRun(ctx context.Context, gptClient *gptscript.GPTScript,
 	resp.gatewayClient = i.gatewayClient
 	resp.cancel = cancel
 	go func() {
-		if err := i.Resume(ctx, gptClient, c, thread, &run); err != nil {
+		if err := i.Resume(ctx, c, thread, &run); err != nil {
 			log.Errorf("run failed: run=%s thread=%s error=%s", run.Name, thread.Name, err)
 		}
 	}()
@@ -281,7 +283,7 @@ func (i *Invoker) createRun(ctx context.Context, gptClient *gptscript.GPTScript,
 	return resp, nil
 }
 
-func (i *Invoker) Resume(ctx context.Context, gptClient *gptscript.GPTScript, c kclient.WithWatch, thread *v1.Thread, run *v1.Run) (err error) {
+func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Thread, run *v1.Run) (err error) {
 	input := run.Spec.Input
 
 	chatState, err := i.getChatState(ctx, c, run)
@@ -339,7 +341,7 @@ func (i *Invoker) Resume(ctx context.Context, gptClient *gptscript.GPTScript, c 
 		if err != nil {
 			return fmt.Errorf("failed to resolve tool reference: %w", err)
 		}
-		runResp, err = gptClient.Run(ctx, toolRef, options)
+		runResp, err = i.gptClient.Run(ctx, toolRef, options)
 		if err != nil {
 			return fmt.Errorf("failed to run tool: %w", err)
 		}
@@ -347,7 +349,7 @@ func (i *Invoker) Resume(ctx context.Context, gptClient *gptscript.GPTScript, c 
 		if err := json.Unmarshal([]byte(run.Spec.Tool), &toolDefs); err != nil {
 			return fmt.Errorf("invalid tool definition: %s: %w", run.Spec.Tool, err)
 		}
-		runResp, err = gptClient.Evaluate(ctx, options, toolDefs...)
+		runResp, err = i.gptClient.Evaluate(ctx, options, toolDefs...)
 		if err != nil {
 			return fmt.Errorf("failed to evaluate tool: %w", err)
 		}
@@ -355,7 +357,7 @@ func (i *Invoker) Resume(ctx context.Context, gptClient *gptscript.GPTScript, c 
 		if err := json.Unmarshal([]byte(run.Spec.Tool), &toolDef); err != nil {
 			return fmt.Errorf("invalid tool definition: %s: %w", run.Spec.Tool, err)
 		}
-		runResp, err = gptClient.Evaluate(ctx, options, toolDef)
+		runResp, err = i.gptClient.Evaluate(ctx, options, toolDef)
 		if err != nil {
 			return fmt.Errorf("failed to evaluate tool: %w", err)
 		}

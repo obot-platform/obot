@@ -12,10 +12,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gptscript-ai/go-gptscript"
 	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gwtypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -265,11 +265,11 @@ func registerOAuthDebuggerClient(ctx context.Context, registrationEndpoint strin
 func (m *MCPHandler) lookupStaticOAuthClient(req api.Context, server v1.MCPServer) (string, string, error) {
 	if server.Spec.MCPServerCatalogEntryName != "" {
 		credName := system.MCPOAuthCredentialName(server.Spec.MCPServerCatalogEntryName)
-		cred, err := req.GPTClient.RevealCredential(req.Context(), []string{credName}, "oauth")
-		if err == nil && cred.Env["CLIENT_ID"] != "" && cred.Env["CLIENT_SECRET"] != "" {
-			return cred.Env["CLIENT_ID"], cred.Env["CLIENT_SECRET"], nil
+		cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{credName}, "oauth")
+		if err == nil && cred.Secrets["CLIENT_ID"] != "" && cred.Secrets["CLIENT_SECRET"] != "" {
+			return cred.Secrets["CLIENT_ID"], cred.Secrets["CLIENT_SECRET"], nil
 		}
-		if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+		if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 			return "", "", err
 		}
 	}

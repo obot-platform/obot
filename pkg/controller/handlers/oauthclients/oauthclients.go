@@ -1,20 +1,18 @@
 package oauthclients
 
 import (
-	"errors"
-
-	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/router"
+	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
 type Handler struct {
-	gptClient *gptscript.GPTScript
+	gatewayClient *gateway.Client
 }
 
-func NewHandler(gptClient *gptscript.GPTScript) *Handler {
+func NewHandler(gatewayClient *gateway.Client) *Handler {
 	return &Handler{
-		gptClient: gptClient,
+		gatewayClient: gatewayClient,
 	}
 }
 
@@ -25,9 +23,6 @@ func (h *Handler) CleanupOAuthClientCred(req router.Request, _ router.Response) 
 		return nil
 	}
 
-	if err := h.gptClient.DeleteCredential(req.Ctx, o.Spec.MCPServerName, o.Spec.MCPServerName); !errors.As(err, &gptscript.ErrNotFound{}) {
-		return err
-	}
-
-	return nil
+	_, err := h.gatewayClient.DeleteCredential(req.Ctx, o.Spec.MCPServerName, o.Spec.MCPServerName)
+	return err
 }

@@ -4,10 +4,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/api"
+	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -112,7 +112,7 @@ func (p *PowerUserWorkspaceHandler) ListAllServers(req api.Context) error {
 
 	var credMap map[string]map[string]string
 	if len(credCtxs) > 0 {
-		creds, err := req.GPTClient.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
+		creds, err := req.GatewayClient.ListCredentials(req.Context(), gateway.ListCredentialsOptions{
 			CredentialContexts: credCtxs,
 		})
 		if err != nil {
@@ -121,12 +121,12 @@ func (p *PowerUserWorkspaceHandler) ListAllServers(req api.Context) error {
 
 		credMap = make(map[string]map[string]string, len(creds))
 		for _, cred := range creds {
-			if _, ok := credMap[cred.ToolName]; !ok {
-				c, err := req.GPTClient.RevealCredential(req.Context(), []string{cred.Context}, cred.ToolName)
-				if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+			if _, ok := credMap[cred.Name]; !ok {
+				c, err := req.GatewayClient.RevealCredential(req.Context(), []string{cred.Context}, cred.Name)
+				if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 					return fmt.Errorf("failed to find credential: %w", err)
 				}
-				credMap[cred.ToolName] = c.Env
+				credMap[cred.Name] = c.Secrets
 			}
 		}
 	}
@@ -217,7 +217,7 @@ func (p *PowerUserWorkspaceHandler) ListAllServersForAllEntries(req api.Context)
 
 	var credMap map[string]map[string]string
 	if len(credCtxs) > 0 {
-		creds, err := req.GPTClient.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
+		creds, err := req.GatewayClient.ListCredentials(req.Context(), gateway.ListCredentialsOptions{
 			CredentialContexts: credCtxs,
 		})
 		if err != nil {
@@ -226,12 +226,12 @@ func (p *PowerUserWorkspaceHandler) ListAllServersForAllEntries(req api.Context)
 
 		credMap = make(map[string]map[string]string, len(creds))
 		for _, cred := range creds {
-			if _, ok := credMap[cred.ToolName]; !ok {
-				c, err := req.GPTClient.RevealCredential(req.Context(), []string{cred.Context}, cred.ToolName)
-				if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+			if _, ok := credMap[cred.Name]; !ok {
+				c, err := req.GatewayClient.RevealCredential(req.Context(), []string{cred.Context}, cred.Name)
+				if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 					return fmt.Errorf("failed to find credential: %w", err)
 				}
-				credMap[cred.ToolName] = c.Env
+				credMap[cred.Name] = c.Secrets
 			}
 		}
 	}

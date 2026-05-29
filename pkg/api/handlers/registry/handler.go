@@ -6,11 +6,11 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/handlers"
+	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -537,7 +537,7 @@ func (h *Handler) getCredentialsForServers(
 	}
 
 	// List credentials
-	creds, err := req.GPTClient.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
+	creds, err := req.GatewayClient.ListCredentials(req.Context(), gateway.ListCredentialsOptions{
 		CredentialContexts: credCtxs,
 	})
 	if err != nil {
@@ -547,13 +547,13 @@ func (h *Handler) getCredentialsForServers(
 	// Reveal and build map
 	credMap := make(map[string]map[string]string)
 	for _, cred := range creds {
-		if _, ok := credMap[cred.ToolName]; !ok {
-			revealed, err := req.GPTClient.RevealCredential(req.Context(), []string{cred.Context}, cred.ToolName)
+		if _, ok := credMap[cred.Name]; !ok {
+			revealed, err := req.GatewayClient.RevealCredential(req.Context(), []string{cred.Context}, cred.Name)
 			if err != nil {
 				// Skip if credential not found
 				continue
 			}
-			credMap[cred.ToolName] = revealed.Env
+			credMap[cred.Name] = revealed.Secrets
 		}
 	}
 
@@ -567,13 +567,13 @@ func (h *Handler) getCredentialsForServer(
 ) (map[string]string, error) {
 	ctx := h.buildCredentialContext(server, userID, catalogID, workspaceID)
 
-	revealed, err := req.GPTClient.RevealCredential(req.Context(), []string{ctx}, server.Name)
+	revealed, err := req.GatewayClient.RevealCredential(req.Context(), []string{ctx}, server.Name)
 	if err != nil {
 		// Return empty map if not found
 		return make(map[string]string), nil
 	}
 
-	return revealed.Env, nil
+	return revealed.Secrets, nil
 }
 
 func (h *Handler) buildCredentialContext(

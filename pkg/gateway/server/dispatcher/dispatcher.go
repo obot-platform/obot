@@ -9,7 +9,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/gptscript-ai/go-gptscript"
 	"github.com/gptscript-ai/gptscript/pkg/engine"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/api/handlers/providers"
@@ -26,7 +25,6 @@ import (
 type Dispatcher struct {
 	invoker              *invoke.Invoker
 	client               kclient.Client
-	gptscriptClient      *gptscript.GPTScript
 	gatewayClient        *client.Client
 	authLock             *sync.RWMutex
 	authURLs             map[string]url.URL
@@ -35,16 +33,15 @@ type Dispatcher struct {
 	modelURLs            map[string]url.URL
 }
 
-func New(invoker *invoke.Invoker, c kclient.Client, gptscriptClient *gptscript.GPTScript, gatewayClient *client.Client, postgresDSN string) *Dispatcher {
+func New(invoker *invoke.Invoker, c kclient.Client, gatewayClient *client.Client, postgresDSN string) *Dispatcher {
 	d := &Dispatcher{
-		invoker:         invoker,
-		client:          c,
-		gatewayClient:   gatewayClient,
-		gptscriptClient: gptscriptClient,
-		modelLock:       new(sync.RWMutex),
-		modelURLs:       make(map[string]url.URL),
-		authLock:        new(sync.RWMutex),
-		authURLs:        make(map[string]url.URL),
+		invoker:       invoker,
+		client:        c,
+		gatewayClient: gatewayClient,
+		modelLock:     new(sync.RWMutex),
+		modelURLs:     make(map[string]url.URL),
+		authLock:      new(sync.RWMutex),
+		authURLs:      make(map[string]url.URL),
 	}
 
 	if postgresDSN != "" {
@@ -54,16 +51,16 @@ func New(invoker *invoke.Invoker, c kclient.Client, gptscriptClient *gptscript.G
 	return d
 }
 
-func (d *Dispatcher) URLForAuthProvider(ctx context.Context, gptClient *gptscript.GPTScript, namespace, authProviderName string) (url.URL, error) {
-	u, err := d.urlForProvider(ctx, gptClient, v1.ToolReferenceTypeAuthProvider, namespace, authProviderName, d.authURLs, d.authLock, d.authProviderExtraEnv...)
+func (d *Dispatcher) URLForAuthProvider(ctx context.Context, namespace, authProviderName string) (url.URL, error) {
+	u, err := d.urlForProvider(ctx, v1.ToolReferenceTypeAuthProvider, namespace, authProviderName, d.authURLs, d.authLock, d.authProviderExtraEnv...)
 	if err != nil {
 		return url.URL{}, fmt.Errorf("failed to get auth provider url: %w", err)
 	}
 	return u, nil
 }
 
-func (d *Dispatcher) URLForModelProvider(ctx context.Context, gptClient *gptscript.GPTScript, namespace, modelProviderName string) (url.URL, error) {
-	u, err := d.urlForProvider(ctx, gptClient, v1.ToolReferenceTypeModelProvider, namespace, modelProviderName, d.modelURLs, d.modelLock, modelProviderLogLevelEnv())
+func (d *Dispatcher) URLForModelProvider(ctx context.Context, namespace, modelProviderName string) (url.URL, error) {
+	u, err := d.urlForProvider(ctx, v1.ToolReferenceTypeModelProvider, namespace, modelProviderName, d.modelURLs, d.modelLock, modelProviderLogLevelEnv())
 	if err != nil {
 		return url.URL{}, fmt.Errorf("failed to get model provider url: %w", err)
 	}
@@ -82,7 +79,7 @@ var providerTypeToGenericCredContext = map[v1.ToolReferenceType]string{
 	v1.ToolReferenceTypeAuthProvider:  system.GenericAuthProviderCredentialContext,
 }
 
-func (d *Dispatcher) urlForProvider(ctx context.Context, gptClient *gptscript.GPTScript, providerType v1.ToolReferenceType, namespace, name string, urlMap map[string]url.URL, lock *sync.RWMutex, extraEnv ...string) (url.URL, error) {
+func (d *Dispatcher) urlForProvider(ctx context.Context, providerType v1.ToolReferenceType, namespace, name string, urlMap map[string]url.URL, lock *sync.RWMutex, extraEnv ...string) (url.URL, error) {
 	key := namespace + "/" + name
 	// Check the map with the read lock.
 	lock.RLock()
@@ -103,7 +100,7 @@ func (d *Dispatcher) urlForProvider(ctx context.Context, gptClient *gptscript.GP
 	}
 
 	// We didn't find the provider (or the daemon stopped for some reason), so start it and add it to the map.
-	u, err := d.startProvider(ctx, gptClient, providerType, namespace, name, extraEnv...)
+	u, err := d.startProvider(ctx, providerType, namespace, name, extraEnv...)
 	if err != nil {
 		return url.URL{}, err
 	}
@@ -112,7 +109,7 @@ func (d *Dispatcher) urlForProvider(ctx context.Context, gptClient *gptscript.GP
 	return u, nil
 }
 
-func (d *Dispatcher) startProvider(ctx context.Context, gptClient *gptscript.GPTScript, providerType v1.ToolReferenceType, namespace, providerName string, extraEnv ...string) (url.URL, error) {
+func (d *Dispatcher) startProvider(ctx context.Context, providerType v1.ToolReferenceType, namespace, providerName string, extraEnv ...string) (url.URL, error) {
 	thread := &v1.Thread{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      system.SystemThreadPrefix + providerName,
@@ -133,7 +130,7 @@ func (d *Dispatcher) startProvider(ctx context.Context, gptClient *gptscript.GPT
 		return url.URL{}, fmt.Errorf("failed to get provider: %w", err)
 	}
 
-	task, err := d.invoker.SystemTask(ctx, gptClient, thread, providerName, "", invoke.SystemTaskOptions{
+	task, err := d.invoker.SystemTask(ctx, thread, providerName, "", invoke.SystemTaskOptions{
 		CredentialContextIDs: []string{string(providerToolRef.UID), providerTypeToGenericCredContext[providerType]},
 		Env:                  extraEnv,
 	})
@@ -205,7 +202,7 @@ func (d *Dispatcher) GetConfiguredAuthProvider(ctx context.Context) (string, err
 	}
 
 	for _, authProvider := range authProviders.Items {
-		if d.isAuthProviderConfigured(ctx, d.gptscriptClient, authProvider) {
+		if d.isAuthProviderConfigured(ctx, authProvider) {
 			return authProvider.Name, nil
 		}
 	}
@@ -216,12 +213,12 @@ func (d *Dispatcher) GetConfiguredAuthProvider(ctx context.Context) (string, err
 // isAuthProviderConfigured checks an auth provider to see if all of its required environment variables are set.
 // Errors are ignored and reported as the auth provider is not configured.
 // Returns: isConfigured (bool)
-func (d *Dispatcher) isAuthProviderConfigured(ctx context.Context, gptscriptClient *gptscript.GPTScript, toolRef v1.ToolReference) bool {
+func (d *Dispatcher) isAuthProviderConfigured(ctx context.Context, toolRef v1.ToolReference) bool {
 	if toolRef.Status.Tool == nil {
 		return false
 	}
 
-	credEnv, err := CredentialEnvForAuthProvider(ctx, gptscriptClient, toolRef)
+	credEnv, err := CredentialEnvForAuthProvider(ctx, d.gatewayClient, toolRef)
 	if err != nil {
 		return false
 	}
@@ -234,34 +231,19 @@ func (d *Dispatcher) isAuthProviderConfigured(ctx context.Context, gptscriptClie
 	return aps.Configured
 }
 
-// GetAuthProviderConfigEnv returns the value of the specified environment variable from the given auth providers config.
-func (d *Dispatcher) GetAuthProviderConfigEnv(ctx context.Context, gptscriptClient *gptscript.GPTScript, namespace, authProviderName, envName string) (string, error) {
-	var authProvider v1.ToolReference
-	if err := d.client.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: authProviderName}, &authProvider); err != nil {
-		return "", fmt.Errorf("failed to get auth provider: %w", err)
-	}
-
-	cred, err := credentialEnvForProvider(ctx, gptscriptClient, authProvider, system.GenericAuthProviderCredentialContext)
-	if err != nil {
-		return "", fmt.Errorf("failed to reveal credential: %w", err)
-	}
-
-	return cred[envName], nil
+func CredentialEnvForAuthProvider(ctx context.Context, gatewayClient *client.Client, authProvider v1.ToolReference) (map[string]string, error) {
+	return credentialEnvForProvider(ctx, gatewayClient, authProvider, system.GenericAuthProviderCredentialContext)
 }
 
-func CredentialEnvForAuthProvider(ctx context.Context, gptClient *gptscript.GPTScript, authProvider v1.ToolReference) (map[string]string, error) {
-	return credentialEnvForProvider(ctx, gptClient, authProvider, system.GenericAuthProviderCredentialContext)
+func CredentialEnvForModelProvider(ctx context.Context, gatewayClient *client.Client, modelProvider v1.ToolReference) (map[string]string, error) {
+	return credentialEnvForProvider(ctx, gatewayClient, modelProvider, system.GenericModelProviderCredentialContext)
 }
 
-func CredentialEnvForModelProvider(ctx context.Context, gptClient *gptscript.GPTScript, modelProvider v1.ToolReference) (map[string]string, error) {
-	return credentialEnvForProvider(ctx, gptClient, modelProvider, system.GenericModelProviderCredentialContext)
-}
-
-func credentialEnvForProvider(ctx context.Context, gptClient *gptscript.GPTScript, provider v1.ToolReference, genericCredentialContext string) (map[string]string, error) {
-	cred, err := gptClient.RevealCredential(ctx, []string{string(provider.UID), genericCredentialContext}, provider.Name)
+func credentialEnvForProvider(ctx context.Context, gatewayClient *client.Client, provider v1.ToolReference, genericCredentialContext string) (map[string]string, error) {
+	cred, err := gatewayClient.RevealCredential(ctx, []string{string(provider.UID), genericCredentialContext}, provider.Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to reveal credential: %w", err)
 	}
 
-	return cred.Env, nil
+	return cred.Secrets, nil
 }

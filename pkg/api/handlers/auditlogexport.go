@@ -4,10 +4,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/auditlogexport"
+	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,12 +15,12 @@ import (
 )
 
 type AuditLogExportHandler struct {
-	credProvider *auditlogexport.GPTScriptCredentialProvider
+	credProvider *auditlogexport.CredentialProvider
 }
 
-func NewAuditLogExportHandler(gptClient *gptscript.GPTScript) *AuditLogExportHandler {
+func NewAuditLogExportHandler(gatewayClient *gateway.Client) *AuditLogExportHandler {
 	return &AuditLogExportHandler{
-		credProvider: auditlogexport.NewGPTScriptCredentialProvider(gptClient),
+		credProvider: auditlogexport.NewCredentialProvider(gatewayClient),
 	}
 }
 
@@ -282,9 +282,9 @@ func (h *AuditLogExportHandler) ConfigureStorageCredentials(req api.Context) err
 // GetStorageCredentials gets the storage provider credentials
 func (h *AuditLogExportHandler) GetStorageCredentials(req api.Context) error {
 	storageConfig, err := h.credProvider.GetStorageConfig(req.Context())
-	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+	if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 		return fmt.Errorf("failed to get storage credentials: %w", err)
-	} else if errors.As(err, &gptscript.ErrNotFound{}) {
+	} else if errors.As(err, &gateway.CredentialNotFoundError{}) {
 		return types.NewErrNotFound("storage credentials not found")
 	}
 
@@ -347,7 +347,7 @@ func (h *AuditLogExportHandler) TestStorageCredentials(req api.Context) error {
 	// when using test credentials, if user doesn't provide secret, use the existing secret
 	var existingStorageConfig types.StorageConfig
 	storageConfig, err := h.credProvider.GetStorageConfig(req.Context())
-	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+	if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 		return fmt.Errorf("failed to get storage credentials: %w", err)
 	} else if err == nil {
 		existingStorageConfig = *storageConfig

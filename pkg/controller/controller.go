@@ -101,7 +101,7 @@ func (c *Controller) PreStart(ctx context.Context) error {
 		return fmt.Errorf("failed to migrate published artifact visibility: %w", err)
 	}
 
-	if err := migrateMultiUserMCPServerManifestValuesToCredentials(ctx, c.services.StorageClient, c.services.GPTClient); err != nil {
+	if err := migrateMultiUserMCPServerManifestValuesToCredentials(ctx, c.services.StorageClient, c.services.GatewayClient); err != nil {
 		return fmt.Errorf("failed to migrate MCP server manifest values to credentials: %w", err)
 	}
 
@@ -593,7 +593,7 @@ func (c *Controller) setupLocalK8sRoutes() {
 	c.localK8sRouter.Type(&appsv1.Deployment{}).IncludeRemoved().HandlerFunc(deploymentHandler.UpdateMCPServerStatus)
 	c.localK8sRouter.Type(&appsv1.Deployment{}).HandlerFunc(deploymentHandler.CleanupOldIDs)
 
-	secretHandler := secret.New(c.services.MCPServerNamespace, c.services.GPTClient)
+	secretHandler := secret.New(c.services.MCPServerNamespace, c.services.GatewayClient)
 	c.localK8sRouter.Type(&corev1.Secret{}).Namespace(c.services.MCPServerNamespace).HandlerFunc(secretHandler.UpdateNanobotAgentCreds)
 	// Reconcile delete/update events for the provider token secret immediately,
 	// instead of waiting for the periodic service-account key rotation loop.

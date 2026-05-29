@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/backend"
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/router"
@@ -20,6 +19,7 @@ import (
 	"github.com/obot-platform/obot/pkg/alias"
 	"github.com/obot-platform/obot/pkg/controller/handlers/toolreference"
 	"github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -39,7 +39,6 @@ const (
 var log = logger.Package()
 
 type Handler struct {
-	gptClient          *gptscript.GPTScript
 	tokenService       *persistent.TokenService
 	gatewayClient      *client.Client
 	localK8SBackend    backend.Backend
@@ -48,13 +47,12 @@ type Handler struct {
 	mcpServerNamespace string
 }
 
-func New(gptClient *gptscript.GPTScript, tokenService *persistent.TokenService, gatewayClient *client.Client, localK8sRouter *router.Router, nanobotImage, serverURL, mcpServerNamespace string, mcpSessionManager *mcp.SessionManager) *Handler {
+func New(tokenService *persistent.TokenService, gatewayClient *client.Client, localK8sRouter *router.Router, nanobotImage, serverURL, mcpServerNamespace string, mcpSessionManager *mcp.SessionManager) *Handler {
 	var localK8SBackend backend.Backend
 	if localK8sRouter != nil {
 		localK8SBackend = localK8sRouter.Backend()
 	}
 	return &Handler{
-		gptClient:          gptClient,
 		tokenService:       tokenService,
 		gatewayClient:      gatewayClient,
 		localK8SBackend:    localK8SBackend,
@@ -245,11 +243,11 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 
 	// Check if credential exists and if the token needs refreshing
 	var needsRefresh bool
-	cred, err := h.gptClient.RevealCredential(ctx, []string{credCtx}, mcpServerName)
+	cred, err := h.gatewayClient.RevealCredential(ctx, []string{credCtx}, mcpServerName)
 	// Parse the env file before checking the error.
-	credEnvFileVars := parseEnvFile(cred.Env["NANOBOT_ENV_FILE"])
+	credEnvFileVars := parseEnvFile(cred.Secrets["NANOBOT_ENV_FILE"])
 	if err != nil {
-		if _, ok := errors.AsType[gptscript.ErrNotFound](err); !ok {
+		if _, ok := errors.AsType[client.CredentialNotFoundError](err); !ok {
 			return fmt.Errorf("failed to reveal credential: %w", err)
 		}
 		// Credential doesn't exist, needs to be created
@@ -287,7 +285,7 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 	if !needsRefresh &&
 		credEnvFileVars["NANOBOT_DEFAULT_MODEL"] == llmDefault &&
 		credEnvFileVars["NANOBOT_DEFAULT_MINI_MODEL"] == miniDefault &&
-		cred.Env["NANOBOT_CONFIG_FILE"] == providerYAML {
+		cred.Secrets["NANOBOT_CONFIG_FILE"] == providerYAML {
 		// Credentials are up to date
 		return nil
 	}
@@ -321,7 +319,7 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 	apiKeyIDStr := credEnvFileVars["MCP_API_KEY_ID_PREV"]
 	if apiKeyIDStr == "" {
 		// Backward compatibility while migrating old credentials.
-		apiKeyIDStr = cred.Env["MCP_API_KEY_ID"]
+		apiKeyIDStr = cred.Secrets["MCP_API_KEY_ID"]
 	}
 	if apiKeyIDStr != "" {
 		if id, err := strconv.ParseUint(apiKeyIDStr, 10, 32); err == nil {
@@ -366,11 +364,10 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 	}
 
 	// Create or update the credential with the new token, API key, and provider config.
-	if err := h.gptClient.CreateCredential(ctx, gptscript.Credential{
-		Context:  credCtx,
-		ToolName: mcpServerName,
-		Type:     gptscript.CredentialTypeTool,
-		Env: map[string]string{
+	if err := h.gatewayClient.UpsertCredential(ctx, gatewaytypes.Credential{
+		Context: credCtx,
+		Name:    mcpServerName,
+		Secrets: map[string]string{
 			"NANOBOT_ENV_FILE":    strings.Join(envFileLines, "\n"),
 			"NANOBOT_CONFIG_FILE": providerYAML,
 		},
@@ -595,9 +592,9 @@ func (h *Handler) deleteTokens(ctx context.Context, agent *v1.NanobotAgent, mcpS
 	credCtx := fmt.Sprintf("%s-%s", agent.Spec.UserID, mcpServerName)
 
 	// Retrieve the credential to get the API key ID
-	cred, err := h.gptClient.RevealCredential(ctx, []string{credCtx}, mcpServerName)
+	cred, err := h.gatewayClient.RevealCredential(ctx, []string{credCtx}, mcpServerName)
 	if err != nil {
-		if errors.As(err, &gptscript.ErrNotFound{}) {
+		if errors.As(err, &client.CredentialNotFoundError{}) {
 			// Credential doesn't exist, nothing to delete
 			return nil
 		}
@@ -606,7 +603,7 @@ func (h *Handler) deleteTokens(ctx context.Context, agent *v1.NanobotAgent, mcpS
 
 	// Extract and delete the API key if present
 
-	if apiKeyIDStr := parseEnvFile(cred.Env["NANOBOT_ENV_FILE"])["MCP_API_KEY_ID"]; apiKeyIDStr != "" {
+	if apiKeyIDStr := parseEnvFile(cred.Secrets["NANOBOT_ENV_FILE"])["MCP_API_KEY_ID"]; apiKeyIDStr != "" {
 		apiKeyID, err := strconv.ParseUint(apiKeyIDStr, 10, 32)
 		if err != nil {
 			return fmt.Errorf("failed to parse API key ID: %w", err)

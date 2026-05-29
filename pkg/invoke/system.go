@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/gptscript-ai/go-gptscript"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
@@ -49,7 +48,7 @@ func inputToString(input any) (string, error) {
 	return inputString, nil
 }
 
-func (i *Invoker) SystemTask(ctx context.Context, gptClient *gptscript.GPTScript, thread *v1.Thread, tool, input any, opts ...SystemTaskOptions) (*Response, error) {
+func (i *Invoker) SystemTask(ctx context.Context, thread *v1.Thread, tool, input any, opts ...SystemTaskOptions) (*Response, error) {
 	opt := complete(opts)
 
 	inputString, err := inputToString(input)
@@ -67,7 +66,7 @@ func (i *Invoker) SystemTask(ctx context.Context, gptClient *gptscript.GPTScript
 	}
 	credContexts = append(opt.CredentialContextIDs, credContexts...)
 
-	return i.createRun(ctx, gptClient, i.uncached, thread, tool, inputString, runOptions{
+	return i.createRun(ctx, i.uncached, thread, tool, inputString, runOptions{
 		Env:                  opt.Env,
 		CredentialContextIDs: credContexts,
 		Timeout:              opt.Timeout,

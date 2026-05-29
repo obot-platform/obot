@@ -14,7 +14,6 @@ import (
 	"strings"
 	"time"
 
-	gptscript "github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/apply"
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/router"
@@ -65,7 +64,6 @@ const (
 type Handler struct {
 	defaultCatalogPath       string
 	defaultSystemCatalogPath string
-	gptClient                *gptscript.GPTScript
 	gatewayClient            *gclient.Client
 	accessControlRuleHelper  *accesscontrolrule.Helper
 	mcpBackend               string
@@ -75,24 +73,23 @@ type Handler struct {
 // Returns an empty string if no credential is configured (not-found). Any other
 // error is logged so credential-store failures are visible in the sync status.
 func (h *Handler) revealCatalogCredential(ctx context.Context, catalogName, sourceURL string) string {
-	cred, err := h.gptClient.RevealCredential(ctx,
+	cred, err := h.gatewayClient.RevealCredential(ctx,
 		[]string{catalogName},
 		CatalogCredentialToolName,
 	)
 	if err != nil {
-		if !errors.As(err, &gptscript.ErrNotFound{}) {
+		if !errors.As(err, &gclient.CredentialNotFoundError{}) {
 			log.Errorf("failed to retrieve credential for catalog %s source %s: %v", catalogName, sourceURL, err)
 		}
 		return ""
 	}
-	return cred.Env[sourceURL]
+	return cred.Secrets[sourceURL]
 }
 
-func New(defaultCatalogPath, defaultSystemCatalogPath string, gptClient *gptscript.GPTScript, gatewayClient *gclient.Client, accessControlRuleHelper *accesscontrolrule.Helper, mcpBackend string) *Handler {
+func New(defaultCatalogPath, defaultSystemCatalogPath string, gatewayClient *gclient.Client, accessControlRuleHelper *accesscontrolrule.Helper, mcpBackend string) *Handler {
 	return &Handler{
 		defaultCatalogPath:       defaultCatalogPath,
 		defaultSystemCatalogPath: defaultSystemCatalogPath,
-		gptClient:                gptClient,
 		gatewayClient:            gatewayClient,
 		accessControlRuleHelper:  accessControlRuleHelper,
 		mcpBackend:               mcpBackend,

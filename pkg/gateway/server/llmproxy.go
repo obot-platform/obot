@@ -170,7 +170,7 @@ func (s *Server) dispatchLLMProxy(req api.Context) error {
 	req.Request.Body = io.NopCloser(bytes.NewReader(b))
 	req.ContentLength = int64(len(b))
 
-	u, err := s.dispatcher.URLForModelProvider(req.Context(), req.GPTClient, token.Namespace, modelProvider)
+	u, err := s.dispatcher.URLForModelProvider(req.Context(), token.Namespace, modelProvider)
 	if err != nil {
 		return fmt.Errorf("failed to get model provider: %w", err)
 	}
@@ -1023,7 +1023,7 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 		return types2.NewErrHTTP(http.StatusTooManyRequests, fmt.Sprintf("no tokens remaining (prompt tokens remaining: %d, completion tokens remaining: %d)", remainingUsage.PromptTokens, remainingUsage.CompletionTokens))
 	}
 
-	credEnv, err := dispatcher.CredentialEnvForModelProvider(req.Context(), req.GPTClient, *modelProvider)
+	credEnv, err := dispatcher.CredentialEnvForModelProvider(req.Context(), req.GatewayClient, *modelProvider)
 	if err != nil {
 		return fmt.Errorf("failed to get credential environment for model provider: %w", err)
 	}

@@ -7,12 +7,13 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/handlers/providers"
+	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/invoke"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -54,11 +55,11 @@ func (mp *ModelProviderHandler) ByID(req api.Context) error {
 	var credEnvVars map[string]string
 	if ref.Status.Tool != nil {
 		if len(mps.RequiredConfigurationParameters) > 0 {
-			cred, err := req.GPTClient.RevealCredential(req.Context(), []string{string(ref.UID), system.GenericModelProviderCredentialContext}, ref.Name)
-			if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+			cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{string(ref.UID), system.GenericModelProviderCredentialContext}, ref.Name)
+			if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 				return fmt.Errorf("failed to reveal credential for model provider %q: %w", ref.Name, err)
 			} else if err == nil {
-				credEnvVars = cred.Env
+				credEnvVars = cred.Secrets
 			}
 		}
 	}
@@ -88,7 +89,7 @@ func (mp *ModelProviderHandler) List(req api.Context) error {
 	}
 
 	credCtxs = append(credCtxs, system.GenericModelProviderCredentialContext)
-	creds, err := req.GPTClient.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
+	creds, err := req.GatewayClient.ListCredentials(req.Context(), gateway.ListCredentialsOptions{
 		CredentialContexts: credCtxs,
 	})
 	if err != nil {
@@ -97,7 +98,7 @@ func (mp *ModelProviderHandler) List(req api.Context) error {
 
 	credMap := make(map[string]map[string]string, len(creds))
 	for _, cred := range creds {
-		credMap[cred.Context+cred.ToolName] = cred.Env
+		credMap[cred.Context+cred.Name] = cred.Secrets
 	}
 
 	resp := make([]types.ModelProvider, 0, len(refList.Items))
@@ -164,7 +165,7 @@ func (mp *ModelProviderHandler) Validate(req api.Context) error {
 		return fmt.Errorf("failed to create thread: %w", err)
 	}
 
-	task, err := mp.invoker.SystemTask(req.Context(), req.GPTClient, thread, "validate from "+ref.Spec.Reference, "", invoke.SystemTaskOptions{Env: envs})
+	task, err := mp.invoker.SystemTask(req.Context(), thread, "validate from "+ref.Spec.Reference, "", invoke.SystemTaskOptions{Env: envs})
 	if err != nil {
 		return err
 	}
@@ -209,12 +210,12 @@ func (mp *ModelProviderHandler) Configure(req api.Context) error {
 	// If this is a "global" model provider, then the generic model provider context is added to handle more git-ops-ian deployments.
 	credCtxs := []string{string(ref.UID), system.GenericModelProviderCredentialContext}
 	// Allow for updating credentials. The only way to update a credential is to delete the existing one and recreate it.
-	cred, err := req.GPTClient.RevealCredential(req.Context(), credCtxs, ref.Name)
+	cred, err := req.GatewayClient.RevealCredential(req.Context(), credCtxs, ref.Name)
 	if err != nil {
-		if !errors.As(err, &gptscript.ErrNotFound{}) {
+		if !errors.As(err, &gateway.CredentialNotFoundError{}) {
 			return fmt.Errorf("failed to find credential: %w", err)
 		}
-	} else if err = req.GPTClient.DeleteCredential(req.Context(), cred.Context, ref.Name); err != nil {
+	} else if _, err = req.GatewayClient.DeleteCredential(req.Context(), cred.Context, ref.Name); err != nil {
 		return fmt.Errorf("failed to remove existing credential: %w", err)
 	}
 
@@ -224,11 +225,10 @@ func (mp *ModelProviderHandler) Configure(req api.Context) error {
 		}
 	}
 
-	if err := req.GPTClient.CreateCredential(req.Context(), gptscript.Credential{
-		Context:  credCtxs[0],
-		ToolName: ref.Name,
-		Type:     gptscript.CredentialTypeModelProvider,
-		Env:      envVars,
+	if err := req.GatewayClient.UpsertCredential(req.Context(), gatewaytypes.Credential{
+		Context: credCtxs[0],
+		Name:    ref.Name,
+		Secrets: envVars,
 	}); err != nil {
 		return fmt.Errorf("failed to create credential: %w", err)
 	}
@@ -269,12 +269,12 @@ func (mp *ModelProviderHandler) Deconfigure(req api.Context) error {
 		credCtxs = []string{fmt.Sprintf("%s-%s", projectID, ref.Name)}
 	}
 
-	cred, err := req.GPTClient.RevealCredential(req.Context(), credCtxs, ref.Name)
+	cred, err := req.GatewayClient.RevealCredential(req.Context(), credCtxs, ref.Name)
 	if err != nil {
-		if !errors.As(err, &gptscript.ErrNotFound{}) {
+		if !errors.As(err, &gateway.CredentialNotFoundError{}) {
 			return fmt.Errorf("failed to find credential: %w", err)
 		}
-	} else if err = req.GPTClient.DeleteCredential(req.Context(), cred.Context, ref.Name); err != nil {
+	} else if _, err = req.GatewayClient.DeleteCredential(req.Context(), cred.Context, ref.Name); err != nil {
 		return fmt.Errorf("failed to remove existing credential: %w", err)
 	}
 
@@ -309,11 +309,11 @@ func (mp *ModelProviderHandler) Reveal(req api.Context) error {
 
 	// If this is a "global" model provider, then the generic model provider context is added to handle more git-ops-ian deployments.
 	credCtxs := []string{string(ref.UID), system.GenericModelProviderCredentialContext}
-	cred, err := req.GPTClient.RevealCredential(req.Context(), credCtxs, ref.Name)
-	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+	cred, err := req.GatewayClient.RevealCredential(req.Context(), credCtxs, ref.Name)
+	if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 		return fmt.Errorf("failed to reveal credential: %w", err)
 	} else if err == nil {
-		return req.Write(cred.Env)
+		return req.Write(cred.Secrets)
 	}
 
 	return types.NewErrNotFound("no credential found for %q", ref.Name)
@@ -337,11 +337,11 @@ func (mp *ModelProviderHandler) RefreshModels(req api.Context) error {
 	var credEnvVars map[string]string
 	if ref.Status.Tool != nil {
 		if len(mps.RequiredConfigurationParameters) > 0 {
-			cred, err := req.GPTClient.RevealCredential(req.Context(), []string{string(ref.UID), system.GenericModelProviderCredentialContext}, ref.Name)
-			if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+			cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{string(ref.UID), system.GenericModelProviderCredentialContext}, ref.Name)
+			if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 				return fmt.Errorf("failed to reveal credential for model provider %q: %w", ref.Name, err)
 			} else if err == nil {
-				credEnvVars = cred.Env
+				credEnvVars = cred.Secrets
 			}
 		}
 	}

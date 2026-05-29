@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/auditlogexport"
@@ -20,13 +19,13 @@ import (
 
 type Handler struct {
 	gatewayClient *client.Client
-	credProvider  *auditlogexport.GPTScriptCredentialProvider
+	credProvider  *auditlogexport.CredentialProvider
 }
 
-func NewHandler(gptClient *gptscript.GPTScript, gatewayClient *client.Client) *Handler {
+func NewHandler(gatewayClient *client.Client) *Handler {
 	return &Handler{
 		gatewayClient: gatewayClient,
-		credProvider:  auditlogexport.NewGPTScriptCredentialProvider(gptClient),
+		credProvider:  auditlogexport.NewCredentialProvider(gatewayClient),
 	}
 }
 
@@ -81,7 +80,7 @@ func (h *Handler) performExport(ctx context.Context, export *v1.AuditLogExport) 
 	}
 
 	// Create storage provider
-	storageProvider, err := auditlogexport.NewStorageProvider(provider, h.credProvider)
+	storageProvider, err := auditlogexport.NewStorageProvider(provider)
 	if err != nil {
 		return fmt.Errorf("failed to create storage provider: %w", err)
 	}

@@ -9,12 +9,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gptscript-ai/go-gptscript"
 	"github.com/gptscript-ai/gptscript/pkg/hash"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/nah/pkg/untriggered"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
+	gateway "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -29,14 +30,14 @@ import (
 var log = logger.Package()
 
 type Handler struct {
-	gptClient         *gptscript.GPTScript
+	gatewayClient     *gateway.Client
 	mcpSessionManager *mcp.SessionManager
 	serverURL         string
 }
 
-func New(gptClient *gptscript.GPTScript, mcpLoader *mcp.SessionManager, serverURL string) *Handler {
+func New(gatewayClient *gateway.Client, mcpLoader *mcp.SessionManager, serverURL string) *Handler {
 	return &Handler{
-		gptClient:         gptClient,
+		gatewayClient:     gatewayClient,
 		mcpSessionManager: mcpLoader,
 		serverURL:         serverURL,
 	}
@@ -70,12 +71,12 @@ func (h *Handler) EnsureSecretInfo(req router.Request, _ router.Response) error 
 	secretCredToolName := SecretInfoToolName(systemServer.Name)
 
 	if systemServer.Status.AuditLogTokenHash != "" {
-		cred, err := h.gptClient.RevealCredential(req.Ctx, []string{systemServer.Name}, secretCredToolName)
+		cred, err := h.gatewayClient.RevealCredential(req.Ctx, []string{systemServer.Name}, secretCredToolName)
 		if err != nil {
 			return fmt.Errorf("failed to get credential: %w", err)
 		}
 
-		if systemServer.Status.AuditLogTokenHash != hash.Digest(cred.Env["AUDIT_LOG_TOKEN"]) {
+		if systemServer.Status.AuditLogTokenHash != hash.Digest(cred.Secrets["AUDIT_LOG_TOKEN"]) {
 			// Reset the audit log token hash to reset the credential.
 			systemServer.Status.AuditLogTokenHash = ""
 		}
@@ -94,11 +95,10 @@ func (h *Handler) EnsureSecretInfo(req router.Request, _ router.Response) error 
 
 	auditLogToken := strings.ToLower(rand.Text() + rand.Text())
 
-	if err := h.gptClient.CreateCredential(req.Ctx, gptscript.Credential{
-		Context:  systemServer.Name,
-		ToolName: secretCredToolName,
-		Type:     gptscript.CredentialTypeTool,
-		Env: map[string]string{
+	if err := h.gatewayClient.UpsertCredential(req.Ctx, gatewaytypes.Credential{
+		Context: systemServer.Name,
+		Name:    secretCredToolName,
+		Secrets: map[string]string{
 			"TOKEN_EXCHANGE_CLIENT_ID":     fmt.Sprintf("%s:%s", req.Namespace, clientID),
 			"TOKEN_EXCHANGE_CLIENT_SECRET": clientSecret,
 			"AUDIT_LOG_TOKEN":              auditLogToken,
@@ -150,7 +150,7 @@ func (h *Handler) EnsureDeployment(req router.Request, _ router.Response) error 
 	}
 
 	// Check if server is fully configured
-	if !IsSystemServerConfigured(req.Ctx, h.gptClient, *systemServer) {
+	if !IsSystemServerConfigured(req.Ctx, h.gatewayClient, *systemServer) {
 		log.Infof("System MCP server %s is not fully configured, shutting down any existing deployment", systemServer.Name)
 		// Server is not fully configured, ensure any existing deployment is removed
 		err := h.mcpSessionManager.ShutdownIdleServer(req.Ctx, systemServer.Name)
@@ -162,7 +162,7 @@ func (h *Handler) EnsureDeployment(req router.Request, _ router.Response) error 
 
 	// Get credentials for deployment
 	credCtx := systemServer.Name
-	creds, err := h.gptClient.ListCredentials(req.Ctx, gptscript.ListCredentialsOptions{
+	creds, err := h.gatewayClient.ListCredentials(req.Ctx, gateway.ListCredentialsOptions{
 		CredentialContexts: []string{credCtx},
 	})
 	if err != nil {
@@ -173,21 +173,21 @@ func (h *Handler) EnsureDeployment(req router.Request, _ router.Response) error 
 	credEnv := make(map[string]string)
 	for _, cred := range creds {
 		// Skip the secret info credential — those vars go to the shim only, not the MCP server.
-		if cred.ToolName == secretToolName {
+		if cred.Name == secretToolName {
 			continue
 		}
 		// Get credential details
-		credDetail, err := h.gptClient.RevealCredential(req.Ctx, []string{credCtx}, cred.ToolName)
+		credDetail, err := h.gatewayClient.RevealCredential(req.Ctx, []string{credCtx}, cred.Name)
 		if err != nil {
 			continue
 		}
 
-		maps.Copy(credEnv, credDetail.Env)
+		maps.Copy(credEnv, credDetail.Secrets)
 	}
 
 	// Retrieve the token exchange credential
 	var (
-		tokenExchangeCred gptscript.Credential
+		tokenExchangeCred gatewaytypes.Credential
 		tokenCredErr      error
 	)
 	if err = retry.OnError(kwait.Backoff{
@@ -196,15 +196,15 @@ func (h *Handler) EnsureDeployment(req router.Request, _ router.Response) error 
 		Factor:   2.0,
 		Jitter:   0.1,
 	}, func(err error) bool {
-		return errors.As(err, &gptscript.ErrNotFound{})
+		return errors.As(err, &gateway.CredentialNotFoundError{})
 	}, func() error {
-		tokenExchangeCred, tokenCredErr = h.gptClient.RevealCredential(req.Ctx, []string{systemServer.Name}, secretToolName)
+		tokenExchangeCred, tokenCredErr = h.gatewayClient.RevealCredential(req.Ctx, []string{systemServer.Name}, secretToolName)
 		return tokenCredErr
 	}); err != nil {
 		return fmt.Errorf("failed to find token exchange credential: %w", tokenCredErr)
 	}
 
-	secretsCred := tokenExchangeCred.Env
+	secretsCred := tokenExchangeCred.Secrets
 
 	audiences := systemServer.ValidConnectURLs(h.serverURL)
 
@@ -239,7 +239,7 @@ func (h *Handler) EnsureDeployment(req router.Request, _ router.Response) error 
 // CleanupDeployment handles cleanup when SystemMCPServer is deleted
 func (h *Handler) CleanupDeployment(req router.Request, _ router.Response) error {
 	systemServer := req.Object.(*v1.SystemMCPServer)
-	creds, err := h.gptClient.ListCredentials(req.Ctx, gptscript.ListCredentialsOptions{
+	creds, err := h.gatewayClient.ListCredentials(req.Ctx, gateway.ListCredentialsOptions{
 		CredentialContexts: []string{systemServer.Name},
 	})
 	if err != nil {
@@ -247,8 +247,8 @@ func (h *Handler) CleanupDeployment(req router.Request, _ router.Response) error
 	}
 
 	for _, cred := range creds {
-		if err := h.gptClient.DeleteCredential(req.Ctx, cred.Context, cred.ToolName); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
-			return fmt.Errorf("failed to delete credential %s: %w", cred.ToolName, err)
+		if _, err := h.gatewayClient.DeleteCredential(req.Ctx, cred.Context, cred.Name); err != nil {
+			return fmt.Errorf("failed to delete credential %s: %w", cred.Name, err)
 		}
 	}
 
@@ -262,8 +262,8 @@ func (h *Handler) CleanupDeployment(req router.Request, _ router.Response) error
 }
 
 // IsSystemServerConfigured checks if all required configuration is present
-func IsSystemServerConfigured(ctx context.Context, gptClient *gptscript.GPTScript, server v1.SystemMCPServer) bool {
-	credEnv, err := GetCredentialsForSystemServer(ctx, gptClient, server)
+func IsSystemServerConfigured(ctx context.Context, gatewayClient *gateway.Client, server v1.SystemMCPServer) bool {
+	credEnv, err := GetCredentialsForSystemServer(ctx, gatewayClient, server)
 	if err != nil {
 		log.Errorf("Failed to get credentials for system MCP server %s: %v", server.Name, err)
 		return false
@@ -281,9 +281,9 @@ func IsSystemServerConfigured(ctx context.Context, gptClient *gptscript.GPTScrip
 }
 
 // GetCredentialsForSystemServer retrieves all credentials for the given system MCP server and returns them as a single map of env vars.
-func GetCredentialsForSystemServer(ctx context.Context, gptClient *gptscript.GPTScript, server v1.SystemMCPServer) (map[string]string, error) {
+func GetCredentialsForSystemServer(ctx context.Context, gatewayClient *gateway.Client, server v1.SystemMCPServer) (map[string]string, error) {
 	credCtx := server.Name
-	creds, err := gptClient.ListCredentials(ctx, gptscript.ListCredentialsOptions{
+	creds, err := gatewayClient.ListCredentials(ctx, gateway.ListCredentialsOptions{
 		CredentialContexts: []string{credCtx},
 	})
 	if err != nil {
@@ -294,15 +294,15 @@ func GetCredentialsForSystemServer(ctx context.Context, gptClient *gptscript.GPT
 	credEnv := make(map[string]string)
 	for _, cred := range creds {
 		// Skip the secret info credential — those vars go to the shim only, not the MCP server.
-		if cred.ToolName == secretToolName {
+		if cred.Name == secretToolName {
 			continue
 		}
-		credDetail, err := gptClient.RevealCredential(ctx, []string{credCtx}, cred.ToolName)
+		credDetail, err := gatewayClient.RevealCredential(ctx, []string{credCtx}, cred.Name)
 		if err != nil {
 			continue
 		}
 
-		maps.Copy(credEnv, credDetail.Env)
+		maps.Copy(credEnv, credDetail.Secrets)
 	}
 
 	return credEnv, nil

@@ -8,9 +8,9 @@ import (
 	"github.com/obot-platform/obot/pkg/api/handlers/providers"
 
 	openai "github.com/gptscript-ai/chat-completion-client"
-	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -44,7 +44,7 @@ func (a *AvailableModelsHandler) List(req api.Context) error {
 		credCtxs = append(credCtxs, string(ref.UID))
 	}
 
-	creds, err := req.GPTClient.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
+	creds, err := req.GatewayClient.ListCredentials(req.Context(), gateway.ListCredentialsOptions{
 		CredentialContexts: credCtxs,
 	})
 	if err != nil {
@@ -53,7 +53,7 @@ func (a *AvailableModelsHandler) List(req api.Context) error {
 
 	credMap := make(map[string]map[string]string, len(creds))
 	for _, cred := range creds {
-		credMap[cred.Context+cred.ToolName] = cred.Env
+		credMap[cred.Context+cred.Name] = cred.Secrets
 	}
 
 	var oModels openai.ModelsList
@@ -67,7 +67,7 @@ func (a *AvailableModelsHandler) List(req api.Context) error {
 			continue
 		}
 
-		m, err := a.dispatcher.ModelsForProvider(req.Context(), req.GPTClient, modelProvider.Namespace, modelProvider.Name)
+		m, err := a.dispatcher.ModelsForProvider(req.Context(), modelProvider.Namespace, modelProvider.Name)
 		if err != nil {
 			return err
 		}
@@ -104,11 +104,11 @@ func (a *AvailableModelsHandler) ListForModelProvider(req api.Context) error {
 	var credEnvVars map[string]string
 	if modelProviderReference.Status.Tool != nil {
 		if len(modelProvider.RequiredConfigurationParameters) > 0 {
-			cred, err := req.GPTClient.RevealCredential(req.Context(), credCtxs, modelProviderReference.Name)
-			if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+			cred, err := req.GatewayClient.RevealCredential(req.Context(), credCtxs, modelProviderReference.Name)
+			if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 				return fmt.Errorf("failed to reveal credential for model provider %q: %w", modelProviderReference.Name, err)
 			} else if err == nil {
-				credEnvVars = cred.Env
+				credEnvVars = cred.Secrets
 			}
 		}
 	}
@@ -121,7 +121,7 @@ func (a *AvailableModelsHandler) ListForModelProvider(req api.Context) error {
 		return types.NewErrBadRequest("model provider %s is not configured, missing configuration parameters: %s", modelProviderReference.Name, strings.Join(modelProvider.MissingConfigurationParameters, ", "))
 	}
 
-	oModels, err := a.dispatcher.ModelsForProvider(req.Context(), req.GPTClient, modelProviderReference.Namespace, modelProviderReference.Name)
+	oModels, err := a.dispatcher.ModelsForProvider(req.Context(), modelProviderReference.Namespace, modelProviderReference.Name)
 	if err != nil {
 		return err
 	}

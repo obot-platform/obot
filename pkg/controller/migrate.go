@@ -6,8 +6,9 @@ import (
 	"fmt"
 	"maps"
 
-	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
+	gateway "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -72,7 +73,7 @@ func migratePublishedArtifactVisibility(ctx context.Context, client kclient.Clie
 	return nil
 }
 
-func migrateMultiUserMCPServerManifestValuesToCredentials(ctx context.Context, client kclient.Client, gptClient *gptscript.GPTScript) error {
+func migrateMultiUserMCPServerManifestValuesToCredentials(ctx context.Context, client kclient.Client, gatewayClient *gateway.Client) error {
 	var servers v1.MCPServerList
 	if err := client.List(ctx, &servers); err != nil {
 		return err
@@ -91,19 +92,18 @@ func migrateMultiUserMCPServerManifestValuesToCredentials(ctx context.Context, c
 		}
 
 		if len(configValues) > 0 {
-			if existingCred, err := gptClient.RevealCredential(ctx, []string{credCtx}, server.Name); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+			if existingCred, err := gatewayClient.RevealCredential(ctx, []string{credCtx}, server.Name); err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 				return fmt.Errorf("failed to find credential for MCP server %s: %w", server.Name, err)
 			} else if err == nil {
 				// Copy the new config values into the existing credential values so we don't lose any existing values that aren't in the manifest.
-				maps.Copy(existingCred.Env, configValues)
-				configValues = existingCred.Env
+				maps.Copy(existingCred.Secrets, configValues)
+				configValues = existingCred.Secrets
 			}
 
-			if err := gptClient.CreateCredential(ctx, gptscript.Credential{
-				Context:  credCtx,
-				ToolName: server.Name,
-				Type:     gptscript.CredentialTypeTool,
-				Env:      configValues,
+			if err := gatewayClient.UpsertCredential(ctx, gatewaytypes.Credential{
+				Context: credCtx,
+				Name:    server.Name,
+				Secrets: configValues,
 			}); err != nil {
 				return fmt.Errorf("failed to create credential for MCP server %s: %w", server.Name, err)
 			}

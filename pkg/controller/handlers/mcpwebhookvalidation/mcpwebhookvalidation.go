@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"maps"
 
-	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/controller/handlers/systemmcpserver"
+	gateway "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -17,13 +18,13 @@ import (
 )
 
 type Handler struct {
-	gptClient        *gptscript.GPTScript
+	gatewayClient    *gateway.Client
 	webhookBaseImage string
 }
 
-func New(gptClient *gptscript.GPTScript, webhookBaseImage string) *Handler {
+func New(gatewayClient *gateway.Client, webhookBaseImage string) *Handler {
 	return &Handler{
-		gptClient:        gptClient,
+		gatewayClient:    gatewayClient,
 		webhookBaseImage: webhookBaseImage,
 	}
 }
@@ -81,13 +82,12 @@ func (h *Handler) EnsureSystemServer(req router.Request, _ router.Response) erro
 
 	desired := desiredSystemServer(webhookValidation, h.webhookBaseImage)
 
-	webhookMCPCredential, err := h.gptClient.RevealCredential(req.Ctx, []string{desired.Name}, desired.Name)
-	if errors.As(err, &gptscript.ErrNotFound{}) || err == nil && !maps.Equal(cred, webhookMCPCredential.Env) {
-		if err := h.gptClient.CreateCredential(req.Ctx, gptscript.Credential{
-			Context:  desired.Name,
-			ToolName: desired.Name,
-			Type:     gptscript.CredentialTypeTool,
-			Env:      cred,
+	webhookMCPCredential, err := h.gatewayClient.RevealCredential(req.Ctx, []string{desired.Name}, desired.Name)
+	if errors.As(err, &gateway.CredentialNotFoundError{}) || err == nil && !maps.Equal(cred, webhookMCPCredential.Secrets) {
+		if err := h.gatewayClient.UpsertCredential(req.Ctx, gatewaytypes.Credential{
+			Context: desired.Name,
+			Name:    desired.Name,
+			Secrets: cred,
 		}); err != nil {
 			return fmt.Errorf("failed to create credential for webhook validation server %s: %w", webhookValidation.Name, err)
 		}
@@ -95,7 +95,7 @@ func (h *Handler) EnsureSystemServer(req router.Request, _ router.Response) erro
 		return fmt.Errorf("failed to get credential for webhook validation server %s: %w", webhookValidation.Name, err)
 	}
 
-	webhookValidation.Status.Configured = systemmcpserver.IsSystemServerConfigured(req.Ctx, h.gptClient, desired)
+	webhookValidation.Status.Configured = systemmcpserver.IsSystemServerConfigured(req.Ctx, h.gatewayClient, desired)
 
 	var existing v1.SystemMCPServer
 	if err = req.Get(&existing, webhookValidation.Namespace, desired.Name); apierrors.IsNotFound(err) {
@@ -162,17 +162,17 @@ func desiredSystemServer(webhookValidation *v1.MCPWebhookValidation, image strin
 }
 
 func (h *Handler) getWebhookCredential(req router.Request, name string) (map[string]string, error) {
-	cred, err := h.gptClient.RevealCredential(req.Ctx, []string{system.MCPWebhookValidationCredentialContext}, name)
+	cred, err := h.gatewayClient.RevealCredential(req.Ctx, []string{system.MCPWebhookValidationCredentialContext}, name)
 	if err != nil {
-		if errors.As(err, &gptscript.ErrNotFound{}) {
+		if errors.As(err, &gateway.CredentialNotFoundError{}) {
 			return nil, nil
 		}
 		return nil, err
 	}
 
-	if s := cred.Env["secret"]; s != "" {
-		delete(cred.Env, "secret")
-		cred.Env["WEBHOOK_SECRET"] = s
+	if s := cred.Secrets["secret"]; s != "" {
+		delete(cred.Secrets, "secret")
+		cred.Secrets["WEBHOOK_SECRET"] = s
 	}
-	return cred.Env, nil
+	return cred.Secrets, nil
 }

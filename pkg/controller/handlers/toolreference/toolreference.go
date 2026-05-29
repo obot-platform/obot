@@ -21,10 +21,11 @@ import (
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/api/handlers/providers"
 	"github.com/obot-platform/obot/pkg/controller/creds"
+	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	"github.com/obot-platform/obot/pkg/tools"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -77,15 +78,17 @@ func indexEntryCount(idx index) int {
 
 type Handler struct {
 	gptClient      *gptscript.GPTScript
+	gatewayClient  *gateway.Client
 	dispatcher     *dispatcher.Dispatcher
 	registryURLs   []string
 	lastChecksLock *sync.RWMutex
 	lastChecks     map[string]time.Time
 }
 
-func New(gptClient *gptscript.GPTScript, dispatcher *dispatcher.Dispatcher, registryURLs []string) *Handler {
+func New(gptClient *gptscript.GPTScript, gatewayClient *gateway.Client, dispatcher *dispatcher.Dispatcher, registryURLs []string) *Handler {
 	return &Handler{
 		gptClient:      gptClient,
+		gatewayClient:  gatewayClient,
 		dispatcher:     dispatcher,
 		registryURLs:   registryURLs,
 		lastChecks:     make(map[string]time.Time),
@@ -99,7 +102,7 @@ func (h *Handler) toolsToToolReferences(ctx context.Context, toolType v1.ToolRef
 			entry.Reference = registryURL + "/" + ref
 		}
 
-		toolRefs, err := tools.ResolveToolReferences(ctx, h.gptClient, name, entry.Reference, true, toolType)
+		toolRefs, err := h.resolveToolReferences(ctx, name, entry.Reference, toolType)
 		if err != nil {
 			log.Errorf("Failed to resolve tool references for %s: %v", entry.Reference, err)
 			continue
@@ -111,6 +114,39 @@ func (h *Handler) toolsToToolReferences(ctx context.Context, toolType v1.ToolRef
 	}
 
 	return
+}
+
+func (h *Handler) resolveToolReferences(ctx context.Context, name, reference string, toolType v1.ToolReferenceType) ([]*v1.ToolReference, error) {
+	annotations := map[string]string{
+		"obot.obot.ai/timestamp": time.Now().String(),
+	}
+
+	var result []*v1.ToolReference
+
+	prg, err := h.gptClient.LoadFile(ctx, reference)
+	if err != nil {
+		return nil, err
+	}
+
+	tool := prg.ToolSet[prg.EntryToolID]
+
+	entryTool := v1.ToolReference{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        name,
+			Namespace:   system.DefaultNamespace,
+			Finalizers:  []string{v1.ToolReferenceFinalizer},
+			Annotations: annotations,
+		},
+		Spec: v1.ToolReferenceSpec{
+			Type:         toolType,
+			ToolMetadata: tool.MetaData,
+			Reference:    reference,
+			Builtin:      true,
+		},
+	}
+	result = append(result, &entryTool)
+
+	return result, nil
 }
 
 func (h *Handler) readRegistry(ctx context.Context, registryURL string) (index, error) {
@@ -283,30 +319,28 @@ func (h *Handler) ensureModelProviderCredAndDefaults(ctx context.Context, c clie
 		}
 	}
 
-	if cred, err := h.gptClient.RevealCredential(ctx, []string{string(modelProviderRef.UID), system.GenericModelProviderCredentialContext}, modelProviderName); err != nil {
-		if !errors.As(err, &gptscript.ErrNotFound{}) {
+	if cred, err := h.gatewayClient.RevealCredential(ctx, []string{string(modelProviderRef.UID), system.GenericModelProviderCredentialContext}, modelProviderName); err != nil {
+		if !errors.As(err, &gateway.CredentialNotFoundError{}) {
 			return fmt.Errorf("failed to check OpenAI credential: %w", err)
 		}
 
 		// The credential doesn't exist, so create it.
-		if err = h.gptClient.CreateCredential(ctx, gptscript.Credential{
-			Context:  string(modelProviderRef.UID),
-			ToolName: modelProviderName,
-			Type:     gptscript.CredentialTypeModelProvider,
-			Env: map[string]string{
+		if err = h.gatewayClient.UpsertCredential(ctx, gatewaytypes.Credential{
+			Context: string(modelProviderRef.UID),
+			Name:    modelProviderName,
+			Secrets: map[string]string{
 				credentialEnvVarName: apiKey,
 			},
 		}); err != nil {
 			return err
 		}
 		log.Infof("Created model provider credential from environment configuration: provider=%s envVar=%s", modelProviderName, envVarName)
-	} else if cred.Env[credentialEnvVarName] != apiKey {
+	} else if cred.Secrets[credentialEnvVarName] != apiKey {
 		// If the credential exists, but has a different value, then update it.
-		if err = h.gptClient.CreateCredential(ctx, gptscript.Credential{
-			Context:  string(modelProviderRef.UID),
-			ToolName: modelProviderName,
-			Type:     gptscript.CredentialTypeModelProvider,
-			Env: map[string]string{
+		if err = h.gatewayClient.UpsertCredential(ctx, gatewaytypes.Credential{
+			Context: string(modelProviderRef.UID),
+			Name:    modelProviderName,
+			Secrets: map[string]string{
 				credentialEnvVarName: apiKey,
 			},
 		}); err != nil {
@@ -372,15 +406,15 @@ func (h *Handler) BackPopulateModels(req router.Request, _ router.Response) erro
 		return err
 	}
 	if len(mps.RequiredConfigurationParameters) > 0 {
-		cred, err := h.gptClient.RevealCredential(req.Ctx, []string{string(toolRef.UID), system.GenericModelProviderCredentialContext}, toolRef.Name)
+		cred, err := h.gatewayClient.RevealCredential(req.Ctx, []string{string(toolRef.UID), system.GenericModelProviderCredentialContext}, toolRef.Name)
 		if err != nil {
-			if errors.As(err, &gptscript.ErrNotFound{}) {
+			if errors.As(err, &gateway.CredentialNotFoundError{}) {
 				// Unable to find credential, ensure all models remove for this model provider
 				return removeModelsForProvider(req.Ctx, req.Client, req.Namespace, req.Name)
 			}
 			return err
 		}
-		mps, err = providers.ConvertModelProviderToolRef(*toolRef, cred.Env)
+		mps, err = providers.ConvertModelProviderToolRef(*toolRef, cred.Secrets)
 		if err != nil {
 			return err
 		}
@@ -398,7 +432,7 @@ func (h *Handler) BackPopulateModels(req router.Request, _ router.Response) erro
 		}
 	}
 
-	availableModels, err := h.dispatcher.ModelsForProvider(req.Ctx, h.gptClient, req.Namespace, req.Name)
+	availableModels, err := h.dispatcher.ModelsForProvider(req.Ctx, req.Namespace, req.Name)
 	if err != nil {
 		// Don't error and retry because it will likely fail again. Log the error, and the user can re-sync manually.
 		// Also, the toolRef.Status.Error field will bubble up to the user in the UI.
@@ -507,10 +541,13 @@ func (h *Handler) CleanupModelProvider(req router.Request, _ router.Response) er
 	}
 
 	if len(mps.RequiredConfigurationParameters) > 0 {
-		if err := h.gptClient.DeleteCredential(req.Ctx, string(toolRef.UID), toolRef.Name); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+		deleted, err := h.gatewayClient.DeleteCredential(req.Ctx, string(toolRef.UID), toolRef.Name)
+		if err != nil {
 			return err
 		}
-		log.Infof("Removed model provider credential during cleanup: provider=%s", toolRef.Name)
+		if deleted {
+			log.Infof("Removed model provider credential during cleanup: provider=%s", toolRef.Name)
+		}
 	}
 
 	return removeModelsForProvider(req.Ctx, req.Client, req.Namespace, req.Name)

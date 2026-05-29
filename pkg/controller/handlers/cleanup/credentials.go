@@ -1,11 +1,9 @@
 package cleanup
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
-	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
@@ -17,16 +15,14 @@ import (
 )
 
 type Credentials struct {
-	gClient           *gptscript.GPTScript
 	gatewayClient     *gateway.Client
 	mcpSessionManager *mcp.SessionManager
 	serverURL         string
 	internalServerURL string
 }
 
-func NewCredentials(gClient *gptscript.GPTScript, mcpSessionManager *mcp.SessionManager, gatewayClient *gateway.Client, serverURL, internalServerURL string) *Credentials {
+func NewCredentials(mcpSessionManager *mcp.SessionManager, gatewayClient *gateway.Client, serverURL, internalServerURL string) *Credentials {
 	return &Credentials{
-		gClient:           gClient,
 		gatewayClient:     gatewayClient,
 		mcpSessionManager: mcpSessionManager,
 		serverURL:         serverURL,
@@ -35,13 +31,13 @@ func NewCredentials(gClient *gptscript.GPTScript, mcpSessionManager *mcp.Session
 }
 
 func (c *Credentials) Remove(req router.Request, _ router.Response) error {
-	creds, err := c.gClient.ListCredentials(req.Ctx, gptscript.ListCredentialsOptions{
+	creds, err := c.gatewayClient.ListCredentials(req.Ctx, gateway.ListCredentialsOptions{
 		CredentialContexts: []string{req.Object.GetName()},
 	})
 	if err != nil {
 		return err
 	}
-	localCreds, err := c.gClient.ListCredentials(req.Ctx, gptscript.ListCredentialsOptions{
+	localCreds, err := c.gatewayClient.ListCredentials(req.Ctx, gateway.ListCredentialsOptions{
 		CredentialContexts: []string{req.Object.GetName() + "-local"},
 	})
 	if err != nil {
@@ -65,7 +61,7 @@ func (c *Credentials) Remove(req router.Request, _ router.Response) error {
 		modelProviderCredContexts = append(modelProviderCredContexts, fmt.Sprintf("%s-%s", projectName, modelProvider.Name))
 	}
 
-	mpCreds, err := c.gClient.ListCredentials(req.Ctx, gptscript.ListCredentialsOptions{
+	mpCreds, err := c.gatewayClient.ListCredentials(req.Ctx, gateway.ListCredentialsOptions{
 		CredentialContexts: modelProviderCredContexts,
 	})
 	if err != nil {
@@ -75,7 +71,7 @@ func (c *Credentials) Remove(req router.Request, _ router.Response) error {
 	creds = append(creds, mpCreds...)
 
 	for _, cred := range creds {
-		if err := c.gClient.DeleteCredential(req.Ctx, cred.Context, cred.ToolName); err != nil {
+		if _, err := c.gatewayClient.DeleteCredential(req.Ctx, cred.Context, cred.Name); err != nil {
 			return err
 		}
 	}
@@ -91,7 +87,7 @@ func (c *Credentials) RemoveMCPCredentials(req router.Request, _ router.Response
 	}
 
 	// Cleanup the audit log token.
-	if err := c.gClient.DeleteCredential(req.Ctx, mcpServer.Name, mcpServer.Name+"-audit-log-token"); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+	if _, err := c.gatewayClient.DeleteCredential(req.Ctx, mcpServer.Name, mcpServer.Name+"-audit-log-token"); err != nil {
 		return err
 	}
 
@@ -104,7 +100,7 @@ func (c *Credentials) RemoveMCPCredentials(req router.Request, _ router.Response
 		credCtx = fmt.Sprintf("%s-%s", mcpServer.Spec.UserID, mcpServer.Name)
 	}
 
-	creds, err := c.gClient.ListCredentials(req.Ctx, gptscript.ListCredentialsOptions{
+	creds, err := c.gatewayClient.ListCredentials(req.Ctx, gateway.ListCredentialsOptions{
 		CredentialContexts: []string{credCtx},
 	})
 	if err != nil {
@@ -112,7 +108,7 @@ func (c *Credentials) RemoveMCPCredentials(req router.Request, _ router.Response
 	}
 
 	for _, cred := range creds {
-		if err = c.gClient.DeleteCredential(req.Ctx, cred.Context, cred.ToolName); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+		if _, err = c.gatewayClient.DeleteCredential(req.Ctx, cred.Context, cred.Name); err != nil {
 			return err
 		}
 	}
@@ -131,7 +127,7 @@ func (c *Credentials) RemoveMCPInstanceCredentials(req router.Request, _ router.
 		return err
 	}
 
-	creds, err := c.gClient.ListCredentials(req.Ctx, gptscript.ListCredentialsOptions{
+	creds, err := c.gatewayClient.ListCredentials(req.Ctx, gateway.ListCredentialsOptions{
 		CredentialContexts: []string{handlers.MCPServerInstanceCredentialContext(*mcpServerInstance)},
 	})
 	if err != nil {
@@ -139,7 +135,7 @@ func (c *Credentials) RemoveMCPInstanceCredentials(req router.Request, _ router.
 	}
 
 	for _, cred := range creds {
-		if err = c.gClient.DeleteCredential(req.Ctx, cred.Context, cred.ToolName); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+		if _, err = c.gatewayClient.DeleteCredential(req.Ctx, cred.Context, cred.Name); err != nil {
 			return err
 		}
 	}
