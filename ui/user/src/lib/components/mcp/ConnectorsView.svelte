@@ -798,7 +798,8 @@
 			toggle(false);
 		}}
 	>
-		<SatelliteDish class="size-4" /> Connect To Server
+		<SatelliteDish class="size-4" />
+		{isMultiUserCatalogEntryRow ? 'Create Server' : 'Connect To Server'}
 	</button>
 {/snippet}
 

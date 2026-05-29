@@ -329,6 +329,8 @@
 	>
 		{#if loading}
 			<Loading class="size-4" />
+		{:else if isMultiUserCatalogEntryRow}
+			Create Server
 		{:else}
 			Connect To Server
 		{/if}
