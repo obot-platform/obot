@@ -138,6 +138,7 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.MCPServerInstance{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.MCPServerInstance{}).HandlerFunc(mcpserverinstance.MigrationDeleteSingleUserInstances)
 	root.Type(&v1.MCPServerInstance{}).HandlerFunc(mcpserverinstance.UpdateMultiUserConfig)
+	root.Type(&v1.MCPServerInstance{}).HandlerFunc(mcpServerCatalogEntryHandler.EnsureUserCountForMCPServerInstance)
 	root.Type(&v1.MCPServerInstance{}).FinalizeFunc(v1.MCPServerInstanceFinalizer, credentialCleanup.RemoveMCPInstanceCredentials)
 
 	// AccessControlRule

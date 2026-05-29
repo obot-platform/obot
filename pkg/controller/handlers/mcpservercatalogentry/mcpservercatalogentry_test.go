@@ -123,6 +123,13 @@ func newFakeClient(objects ...kclient.Object) kclient.WithWatch {
 			}
 			return []string{server.Spec.MCPServerCatalogEntryName}
 		}).
+		WithIndex(&v1.MCPServerInstance{}, "spec.mcpServerName", func(obj kclient.Object) []string {
+			instance := obj.(*v1.MCPServerInstance)
+			if instance.Spec.MCPServerName == "" {
+				return nil
+			}
+			return []string{instance.Spec.MCPServerName}
+		}).
 		WithObjects(objects...).
 		Build()
 }
@@ -173,7 +180,12 @@ func TestEnsureUserCountMultiUserEntry(t *testing.T) {
 	server2.Spec.MCPServerCatalogEntryName = entry.Name
 	server2.Spec.UserID = "admin2"
 
-	client := newFakeClient(entry, server1, server2)
+	server1User1 := newMCPServerInstance("server-1-user-1", server1.Name, "user1")
+	server1User1Duplicate := newMCPServerInstance("server-1-user-1-duplicate", server1.Name, "user1")
+	server1User2 := newMCPServerInstance("server-1-user-2", server1.Name, "user2")
+	server2User1 := newMCPServerInstance("server-2-user-1", server2.Name, "user1")
+
+	client := newFakeClient(entry, server1, server2, server1User1, server1User1Duplicate, server1User2, server2User1)
 	err := (&Handler{}).EnsureUserCount(router.Request{
 		Client:    client,
 		Ctx:       context.Background(),
@@ -185,7 +197,7 @@ func TestEnsureUserCountMultiUserEntry(t *testing.T) {
 
 	var updated v1.MCPServerCatalogEntry
 	require.NoError(t, client.Get(context.Background(), router.Key(entry.Namespace, entry.Name), &updated))
-	assert.Equal(t, 2, updated.Status.UserCount)
+	assert.Equal(t, 3, updated.Status.UserCount, "should count unique users per server and sum across servers")
 }
 
 func TestEnsureUserCountMultiUserEntryExcludesComposite(t *testing.T) {
@@ -219,7 +231,12 @@ func TestEnsureUserCountMultiUserEntryExcludesComposite(t *testing.T) {
 	compositeChild.Spec.UserID = "admin2"
 	compositeChild.Spec.CompositeName = "parent-composite"
 
-	client := newFakeClient(entry, activeServer, compositeChild)
+	activeInstance := newMCPServerInstance("active-instance", activeServer.Name, "user1")
+	compositeServerInstance := newMCPServerInstance("composite-server-instance", compositeChild.Name, "user2")
+	compositeInstance := newMCPServerInstance("composite-instance", activeServer.Name, "user3")
+	compositeInstance.Spec.CompositeName = "parent-composite"
+
+	client := newFakeClient(entry, activeServer, compositeChild, activeInstance, compositeServerInstance, compositeInstance)
 	err := (&Handler{}).EnsureUserCount(router.Request{
 		Client:    client,
 		Ctx:       context.Background(),
@@ -231,7 +248,83 @@ func TestEnsureUserCountMultiUserEntryExcludesComposite(t *testing.T) {
 
 	var updated v1.MCPServerCatalogEntry
 	require.NoError(t, client.Get(context.Background(), router.Key(entry.Namespace, entry.Name), &updated))
-	assert.Equal(t, 1, updated.Status.UserCount, "should only count active non-composite server")
+	assert.Equal(t, 1, updated.Status.UserCount, "should only count active non-composite server instances")
+}
+
+func TestEnsureUserCountSingleUserEntryCountsUniqueServerUsers(t *testing.T) {
+	entry := newMCPServerCatalogEntry("single-entry", types.MCPServerCatalogEntryManifest{
+		Name:           "Single User Template",
+		Runtime:        types.RuntimeContainerized,
+		ServerUserType: types.ServerUserTypeSingleUser,
+		ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+			Image: "example/mcp:1.0.0",
+			Port:  8080,
+			Path:  "/mcp",
+		},
+	})
+
+	server1 := newMCPServer("server-1", types.MCPServerManifest{Runtime: types.RuntimeContainerized})
+	server1.Spec.MCPServerCatalogEntryName = entry.Name
+	server1.Spec.UserID = "user1"
+
+	server2 := newMCPServer("server-2", types.MCPServerManifest{Runtime: types.RuntimeContainerized})
+	server2.Spec.MCPServerCatalogEntryName = entry.Name
+	server2.Spec.UserID = "user1"
+
+	server3 := newMCPServer("server-3", types.MCPServerManifest{Runtime: types.RuntimeContainerized})
+	server3.Spec.MCPServerCatalogEntryName = entry.Name
+	server3.Spec.UserID = "user2"
+
+	client := newFakeClient(entry, server1, server2, server3)
+	err := (&Handler{}).EnsureUserCount(router.Request{
+		Client:    client,
+		Ctx:       context.Background(),
+		Object:    entry,
+		Namespace: entry.Namespace,
+		Name:      entry.Name,
+	}, &router.ResponseWrapper{})
+	require.NoError(t, err)
+
+	var updated v1.MCPServerCatalogEntry
+	require.NoError(t, client.Get(context.Background(), router.Key(entry.Namespace, entry.Name), &updated))
+	assert.Equal(t, 2, updated.Status.UserCount)
+}
+
+func TestEnsureUserCountForMCPServerInstanceUpdatesParentEntry(t *testing.T) {
+	entry := newMCPServerCatalogEntry("multi-entry", types.MCPServerCatalogEntryManifest{
+		Name:           "Multi User Template",
+		Runtime:        types.RuntimeContainerized,
+		ServerUserType: types.ServerUserTypeMultiUser,
+		ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+			Image: "example/mcp:1.0.0",
+			Port:  8080,
+			Path:  "/mcp",
+		},
+	})
+
+	server := newMCPServer("server-1", types.MCPServerManifest{
+		Runtime: types.RuntimeContainerized,
+		ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+			Image: "example/mcp:1.0.0",
+		},
+	})
+	server.Spec.MCPServerCatalogEntryName = entry.Name
+
+	instance := newMCPServerInstance("server-1-user-1", server.Name, "user1")
+
+	client := newFakeClient(entry, server, instance)
+	err := (&Handler{}).EnsureUserCountForMCPServerInstance(router.Request{
+		Client:    client,
+		Ctx:       context.Background(),
+		Object:    instance,
+		Namespace: instance.Namespace,
+		Name:      instance.Name,
+	}, &router.ResponseWrapper{})
+	require.NoError(t, err)
+
+	var updated v1.MCPServerCatalogEntry
+	require.NoError(t, client.Get(context.Background(), router.Key(entry.Namespace, entry.Name), &updated))
+	assert.Equal(t, 1, updated.Status.UserCount)
 }
 
 func newMCPServer(name string, manifest types.MCPServerManifest) *v1.MCPServer {
@@ -246,6 +339,23 @@ func newMCPServer(name string, manifest types.MCPServerManifest) *v1.MCPServer {
 		},
 		Spec: v1.MCPServerSpec{
 			Manifest: manifest,
+		},
+	}
+}
+
+func newMCPServerInstance(name, serverName, userID string) *v1.MCPServerInstance {
+	return &v1.MCPServerInstance{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: v1.SchemeGroupVersion.String(),
+			Kind:       "MCPServerInstance",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: "default",
+		},
+		Spec: v1.MCPServerInstanceSpec{
+			MCPServerName: serverName,
+			UserID:        userID,
 		},
 	}
 }
