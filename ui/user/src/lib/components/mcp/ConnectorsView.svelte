@@ -758,6 +758,9 @@
 )}
 	{@const canConnect = d.canConnect !== false}
 	{@const isMultiUserCatalogEntryRow = 'isCatalogEntry' in d && isMultiUserCatalogEntry(d)}
+	{@const multiUserCatalogEntryServers = isMultiUserCatalogEntryRow
+		? getConfiguredServersForCatalogEntry(d as MCPCatalogEntry)
+		: []}
 	{@const isAdminDeployable =
 		isMultiUserCatalogEntryRow &&
 		((!!catalog && profile.current?.hasAdminAccess?.()) || (entity === 'workspace' && !!id))}
@@ -778,7 +781,18 @@
 
 			if ('isCatalogEntry' in d) {
 				if (isMultiUserCatalogEntry(d)) {
-					connectToServerDialog?.open({ entry: d });
+					if (multiUserCatalogEntryServers.length === 1) {
+						const targetServer = multiUserCatalogEntryServers[0];
+						connectToServerDialog?.open({
+							entry: d,
+							server: targetServer,
+							instance: instancesMap.get(targetServer.id)
+						});
+					} else if (multiUserCatalogEntryServers.length > 1) {
+						handleShowSelectServerDialog(d);
+					} else {
+						connectToServerDialog?.open({ entry: d });
+					}
 					toggle(false);
 					return;
 				}
@@ -805,7 +819,9 @@
 		}}
 	>
 		<SatelliteDish class="size-4" />
-		{isMultiUserCatalogEntryRow ? 'Create Server' : 'Connect To Server'}
+		{isMultiUserCatalogEntryRow && multiUserCatalogEntryServers.length === 0
+			? 'Create Server'
+			: 'Connect To Server'}
 	</button>
 {/snippet}
 
@@ -974,7 +990,8 @@
 				default:
 					connectToServerDialog?.open({
 						entry: selectedEntry,
-						server: d
+						server: d,
+						instance: isMultiUserServer(d) ? instancesMap.get(d.id) : undefined
 					});
 					break;
 			}

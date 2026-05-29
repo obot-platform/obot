@@ -302,9 +302,20 @@
 		}}
 		onclick={async () => {
 			if (isMultiUserCatalogEntryRow) {
-				connectToServerDialog?.open({
-					entry
-				});
+				if (configuredServers.length === 1) {
+					const targetServer = configuredServers[0];
+					connectToServerDialog?.open({
+						entry,
+						server: targetServer,
+						instance: mcpServersAndEntries.current.userInstances.find(
+							(i) => i.mcpServerID === targetServer.id
+						)
+					});
+				} else if (configuredServers.length > 1) {
+					handleShowSelectServerDialog();
+				} else {
+					connectToServerDialog?.open({ entry });
+				}
 			} else if (entry && !server && configuredServers.length > 0) {
 				if (configuredServers.length === 1) {
 					connectToServerDialog?.open({
@@ -329,7 +340,7 @@
 	>
 		{#if loading}
 			<Loading class="size-4" />
-		{:else if isMultiUserCatalogEntryRow}
+		{:else if isMultiUserCatalogEntryRow && configuredServers.length === 0}
 			Create Server
 		{:else}
 			Connect To Server
@@ -426,7 +437,10 @@
 				default:
 					connectToServerDialog?.open({
 						entry,
-						server: d
+						server: d,
+						instance: isMultiUserServer(d)
+							? mcpServersAndEntries.current.userInstances.find((i) => i.mcpServerID === d.id)
+							: undefined
 					});
 					break;
 			}
