@@ -457,45 +457,6 @@ func compositeConfigHasDrifted(serverConfig *types.CompositeRuntimeConfig, entry
 	return false, nil
 }
 
-// EnsureMCPServerInstanceUserCount ensures that mcp server instance user count for multi-user MCP servers is up to date.
-func (*Handler) EnsureMCPServerInstanceUserCount(req router.Request, _ router.Response) error {
-	server := req.Object.(*v1.MCPServer)
-	if server.Spec.IsSingleUser() {
-		// Server is not multi-user, ensure we're not tracking the instance user count
-		if server.Status.MCPServerInstanceUserCount == nil {
-			return nil
-		}
-
-		// Corrupt state, drop the field to fix it
-		server.Status.MCPServerInstanceUserCount = nil
-		return req.Client.Status().Update(req.Ctx, server)
-	}
-
-	// Get the set of unique users with server instances pointing to this MCP server
-	var mcpServerInstances v1.MCPServerInstanceList
-	if err := req.List(&mcpServerInstances, &kclient.ListOptions{
-		FieldSelector: fields.OneTermEqualSelector("spec.mcpServerName", server.Name),
-		Namespace:     system.DefaultNamespace,
-	}); err != nil {
-		return fmt.Errorf("failed to list MCP server instances: %w", err)
-	}
-
-	uniqueUsers := make(map[string]struct{}, len(mcpServerInstances.Items))
-	for _, instance := range mcpServerInstances.Items {
-		if userID := instance.Spec.UserID; userID != "" && instance.DeletionTimestamp.IsZero() {
-			uniqueUsers[userID] = struct{}{}
-		}
-	}
-
-	if oldUserCount, newUserCount := server.Status.MCPServerInstanceUserCount, len(uniqueUsers); oldUserCount == nil || *oldUserCount != newUserCount {
-		log.Infof("Updated MCP server instance user count: server=%s newCount=%d", server.Name, newUserCount)
-		server.Status.MCPServerInstanceUserCount = &newUserCount
-		return req.Client.Status().Update(req.Ctx, server)
-	}
-
-	return nil
-}
-
 func (h *Handler) DeleteServersWithoutRuntime(req router.Request, _ router.Response) error {
 	server := req.Object.(*v1.MCPServer)
 	if string(server.Spec.Manifest.Runtime) == "" {

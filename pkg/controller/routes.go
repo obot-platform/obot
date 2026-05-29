@@ -123,7 +123,6 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.DetectDrift)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.DetectK8sSettingsDrift)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.EnsureMCPNetworkPolicy)
-	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.EnsureMCPServerInstanceUserCount)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.SyncOAuthCredentialStatus)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.SyncOAuthMetadata)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.EnsureMCPServerSecretInfo)
@@ -138,7 +137,7 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.MCPServerInstance{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.MCPServerInstance{}).HandlerFunc(mcpserverinstance.MigrationDeleteSingleUserInstances)
 	root.Type(&v1.MCPServerInstance{}).HandlerFunc(mcpserverinstance.UpdateMultiUserConfig)
-	root.Type(&v1.MCPServerInstance{}).HandlerFunc(mcpServerCatalogEntryHandler.EnsureUserCountForMCPServerInstance)
+	root.Type(&v1.MCPServerInstance{}).HandlerFunc(mcpserverinstance.EnsureUserCounts)
 	root.Type(&v1.MCPServerInstance{}).FinalizeFunc(v1.MCPServerInstanceFinalizer, credentialCleanup.RemoveMCPInstanceCredentials)
 
 	// AccessControlRule

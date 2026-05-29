@@ -290,43 +290,6 @@ func TestEnsureUserCountSingleUserEntryCountsUniqueServerUsers(t *testing.T) {
 	assert.Equal(t, 2, updated.Status.UserCount)
 }
 
-func TestEnsureUserCountForMCPServerInstanceUpdatesParentEntry(t *testing.T) {
-	entry := newMCPServerCatalogEntry("multi-entry", types.MCPServerCatalogEntryManifest{
-		Name:           "Multi User Template",
-		Runtime:        types.RuntimeContainerized,
-		ServerUserType: types.ServerUserTypeMultiUser,
-		ContainerizedConfig: &types.ContainerizedRuntimeConfig{
-			Image: "example/mcp:1.0.0",
-			Port:  8080,
-			Path:  "/mcp",
-		},
-	})
-
-	server := newMCPServer("server-1", types.MCPServerManifest{
-		Runtime: types.RuntimeContainerized,
-		ContainerizedConfig: &types.ContainerizedRuntimeConfig{
-			Image: "example/mcp:1.0.0",
-		},
-	})
-	server.Spec.MCPServerCatalogEntryName = entry.Name
-
-	instance := newMCPServerInstance("server-1-user-1", server.Name, "user1")
-
-	client := newFakeClient(entry, server, instance)
-	err := (&Handler{}).EnsureUserCountForMCPServerInstance(router.Request{
-		Client:    client,
-		Ctx:       context.Background(),
-		Object:    instance,
-		Namespace: instance.Namespace,
-		Name:      instance.Name,
-	}, &router.ResponseWrapper{})
-	require.NoError(t, err)
-
-	var updated v1.MCPServerCatalogEntry
-	require.NoError(t, client.Get(context.Background(), router.Key(entry.Namespace, entry.Name), &updated))
-	assert.Equal(t, 1, updated.Status.UserCount)
-}
-
 func newMCPServer(name string, manifest types.MCPServerManifest) *v1.MCPServer {
 	return &v1.MCPServer{
 		TypeMeta: metav1.TypeMeta{

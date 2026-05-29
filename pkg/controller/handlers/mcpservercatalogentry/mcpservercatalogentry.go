@@ -38,47 +38,18 @@ func NewHandler(gatewayClient *gclient.Client) *Handler {
 // For multi-user entries, this sums the unique users connected to each MCPServer created from the entry.
 func (*Handler) EnsureUserCount(req router.Request, _ router.Response) error {
 	entry := req.Object.(*v1.MCPServerCatalogEntry)
-	userCount, err := userCountForEntry(req, *entry)
+	userCount, err := UserCountForEntry(req, *entry)
 	if err != nil {
 		return err
 	}
 
-	return updateEntryUserCount(req, entry, userCount)
+	return UpdateUserCount(req, entry, userCount)
 }
 
-// EnsureUserCountForMCPServerInstance refreshes the parent catalog entry count when a multi-user connection changes.
-func (*Handler) EnsureUserCountForMCPServerInstance(req router.Request, _ router.Response) error {
-	instance := req.Object.(*v1.MCPServerInstance)
-	if instance.Spec.MCPServerName == "" {
-		return nil
-	}
-
-	var server v1.MCPServer
-	if err := req.Get(&server, req.Namespace, instance.Spec.MCPServerName); apierrors.IsNotFound(err) {
-		return nil
-	} else if err != nil {
-		return err
-	}
-	if server.Spec.MCPServerCatalogEntryName == "" || server.Spec.CompositeName != "" {
-		return nil
-	}
-
-	var entry v1.MCPServerCatalogEntry
-	if err := req.Get(&entry, req.Namespace, server.Spec.MCPServerCatalogEntryName); apierrors.IsNotFound(err) {
-		return nil
-	} else if err != nil {
-		return err
-	}
-
-	userCount, err := userCountForEntry(req, entry)
-	if err != nil {
-		return err
-	}
-
-	return updateEntryUserCount(req, &entry, userCount)
-}
-
-func userCountForEntry(req router.Request, entry v1.MCPServerCatalogEntry) (int, error) {
+// UserCountForEntry calculates the current user count for an MCP server catalog entry.
+// For single-user entries, this counts unique users who have an MCPServer created from the entry.
+// For multi-user entries, this sums the unique non-composite users connected to each MCPServer created from the entry.
+func UserCountForEntry(req router.Request, entry v1.MCPServerCatalogEntry) (int, error) {
 	var mcpServers v1.MCPServerList
 	if err := req.List(&mcpServers, &kclient.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector("spec.mcpServerCatalogEntryName", entry.Name),
@@ -111,14 +82,14 @@ func userCountForEntry(req router.Request, entry v1.MCPServerCatalogEntry) (int,
 	return userCount, nil
 }
 
-func updateEntryUserCount(req router.Request, entry *v1.MCPServerCatalogEntry, newUserCount int) error {
-	if entry.Status.UserCount != newUserCount {
-		log.Infof("Updated MCP catalog entry user count: entry=%s oldCount=%d newCount=%d", entry.Name, entry.Status.UserCount, newUserCount)
-		entry.Status.UserCount = newUserCount
-		return req.Client.Status().Update(req.Ctx, entry)
+// UpdateUserCount updates the catalog entry status when the calculated count changed.
+func UpdateUserCount(req router.Request, entry *v1.MCPServerCatalogEntry, newUserCount int) error {
+	if entry.Status.UserCount == newUserCount {
+		return nil
 	}
 
-	return nil
+	entry.Status.UserCount = newUserCount
+	return req.Client.Status().Update(req.Ctx, entry)
 }
 
 func mcpServerInstanceUserCount(req router.Request, serverName string) (int, error) {
