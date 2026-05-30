@@ -214,13 +214,15 @@ func (c *Client) UpdateUser(ctx context.Context, actingUserCanChangeRole bool, u
 
 		// If the username is being changed, then ensure that a user with that name doesn't already exist.
 		if len(updatedUser.Username) != 0 && updatedUser.Username != existingUser.Username {
-			if err := tx.Model(updatedUser).Where("username = ? AND deleted_at IS NULL", updatedUser.Username).First(new(types.User)).Error; err == nil {
+			newHashedUsername := hash.String(updatedUser.Username)
+			if err := tx.Model(new(types.User)).Where("id != ? AND hashed_username = ? AND deleted_at IS NULL", userID, newHashedUsername).First(new(types.User)).Error; err == nil {
 				return &AlreadyExistsError{name: fmt.Sprintf("user with username %q", updatedUser.Username)}
 			} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 				return err
 			}
 
 			existingUser.Username = updatedUser.Username
+			existingUser.HashedUsername = newHashedUsername
 		}
 
 		if updatedUser.Timezone != "" {

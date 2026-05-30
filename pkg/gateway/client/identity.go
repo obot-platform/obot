@@ -259,6 +259,22 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 				userChanged = true
 			}
 
+			if id.ProviderUsername != "" {
+				expectedHashedUsername := hash.String(id.ProviderUsername)
+				if user.HashedUsername != expectedHashedUsername {
+					user.HashedUsername = expectedHashedUsername
+					userChanged = true
+				}
+			}
+
+			if email != "" {
+				expectedHashedEmail := hash.String(email)
+				if user.HashedEmail != expectedHashedEmail {
+					user.HashedEmail = expectedHashedEmail
+					userChanged = true
+				}
+			}
+
 			if time.Since(user.LastActiveDay) > 24*time.Hour {
 				user.LastActiveDay = time.Now().UTC().Truncate(24 * time.Hour)
 				userChanged = true
