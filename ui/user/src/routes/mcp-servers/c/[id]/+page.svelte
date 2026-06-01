@@ -30,7 +30,6 @@
 				)
 			: []
 	);
-	let promptInitialLaunch = $derived(page.url.searchParams.get('launch') === 'true');
 	let promptOAuthConfig = $derived(page.url.searchParams.get('configure-oauth') === 'true');
 </script>
 
@@ -46,7 +45,6 @@
 		<McpServerActions
 			entry={catalogEntry}
 			workspaceID={workspaceId}
-			{promptInitialLaunch}
 			{promptOAuthConfig}
 			onOAuthConfigured={() => {
 				if (!catalogEntry) return;
@@ -64,14 +62,13 @@
 					? 'composite'
 					: catalogEntry?.manifest.runtime === 'remote'
 						? 'remote'
-						: catalogEntry?.manifest.serverUserType === 'multiUser'
-							? 'multi'
-							: 'single'}
+						: 'hosted'}
 				readonly={catalogEntry && 'sourceURL' in catalogEntry && !!catalogEntry.sourceURL}
 				id={workspaceId}
 				entity="workspace"
 				{hasExistingConfigured}
 				{configuredServers}
+				limitViews={['overview', 'tools']}
 			/>
 		{/if}
 	</div>

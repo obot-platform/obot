@@ -19,7 +19,7 @@
 	<div class="flex flex-col gap-1">
 		<h4 class="text-sm font-semibold">User-Defined Headers</h4>
 		<p class="text-muted-content text-xs font-light">
-			These headers are collected from each user when they connect to this multi-user MCP server.
+			These headers are collected from each user when they connect to the MCP catalog entry.
 		</p>
 	</div>
 
@@ -122,7 +122,7 @@
 	{#if !readonly}
 		<div class="flex justify-end">
 			<button
-				class="button flex items-center gap-1 text-xs"
+				class="btn btn-secondary btn-sm flex items-center gap-1 text-xs"
 				onclick={() => {
 					if (!headers) {
 						headers = [];

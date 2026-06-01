@@ -119,7 +119,7 @@ func (m *MCPHandler) GetEntryFromAllSources(req api.Context) error {
 		return types.NewErrForbidden("user is not authorized to access this catalog entry")
 	}
 
-	return req.Write(ConvertMCPServerCatalogEntryWithWorkspace(entry, entry.Spec.PowerUserWorkspaceID, ""))
+	return req.Write(ConvertMCPServerCatalogEntryWithWorkspace(entry, entry.Spec.PowerUserWorkspaceID, "", m.serverURL))
 }
 
 func (m *MCPHandler) ListEntriesFromAllSources(req api.Context) error {
@@ -129,7 +129,7 @@ func (m *MCPHandler) ListEntriesFromAllSources(req api.Context) error {
 	}
 
 	convertEntry := func(entry v1.MCPServerCatalogEntry) types.MCPServerCatalogEntry {
-		return ConvertMCPServerCatalogEntryWithWorkspace(entry, entry.Spec.PowerUserWorkspaceID, "")
+		return ConvertMCPServerCatalogEntryWithWorkspace(entry, entry.Spec.PowerUserWorkspaceID, "", m.serverURL)
 	}
 
 	// Allow admins/auditors to bypass ACR filtering with ?all=true
@@ -185,11 +185,11 @@ func HideMultiUserCatalogEntry(req api.Context, entry v1.MCPServerCatalogEntry) 
 	return !req.UserIsPowerUserPlus() && !entry.Spec.Manifest.ServerUserType.IsSingleUser()
 }
 
-func ConvertMCPServerCatalogEntry(entry v1.MCPServerCatalogEntry) types.MCPServerCatalogEntry {
-	return ConvertMCPServerCatalogEntryWithWorkspace(entry, "", "")
+func ConvertMCPServerCatalogEntry(entry v1.MCPServerCatalogEntry, serverURL string) types.MCPServerCatalogEntry {
+	return ConvertMCPServerCatalogEntryWithWorkspace(entry, "", "", serverURL)
 }
 
-func ConvertMCPServerCatalogEntryWithWorkspace(entry v1.MCPServerCatalogEntry, powerUserWorkspaceID, powerUserID string) types.MCPServerCatalogEntry {
+func ConvertMCPServerCatalogEntryWithWorkspace(entry v1.MCPServerCatalogEntry, powerUserWorkspaceID, powerUserID, serverURL string) types.MCPServerCatalogEntry {
 	// Add extracted env vars directly to the entry
 	addExtractedEnvVarsToCatalogEntry(&entry)
 
@@ -206,7 +206,21 @@ func ConvertMCPServerCatalogEntryWithWorkspace(entry v1.MCPServerCatalogEntry, p
 		PowerUserID:               powerUserID,
 		NeedsUpdate:               entry.Status.NeedsUpdate,
 		OAuthCredentialConfigured: entry.Status.OAuthCredentialConfigured,
+		ConnectURL:                defaultCatalogEntryConnectURL(serverURL, entry),
 	}
+}
+
+func defaultCatalogEntryConnectURL(serverURL string, entry v1.MCPServerCatalogEntry) string {
+	if serverURL == "" {
+		return ""
+	}
+	if entry.Spec.Manifest.Runtime == types.RuntimeComposite {
+		return ""
+	}
+	if entry.Spec.Manifest.ServerUserType == types.ServerUserTypeMultiUser {
+		return ""
+	}
+	return system.MCPConnectURL(serverURL, entry.Name)
 }
 
 func (m *MCPHandler) ListServer(req api.Context) error {
@@ -2816,10 +2830,13 @@ func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL,
 	}
 
 	var connectURL string
-	// Only single-user servers get a connect URL.
-	// Multi-user servers have connect URLs on the MCPServerInstances instead.
-	if server.Spec.IsSingleUser() {
-		connectURL = system.MCPConnectURL(serverURL, slug)
+	if serverURL != "" {
+		if server.Spec.IsSingleUser() {
+			connectURL = system.MCPConnectURL(serverURL, slug)
+		} else {
+			// Multi-user servers expose a default connect URL that auto-provisions an instance on first use.
+			connectURL = system.MCPConnectURL(serverURL, server.Name)
+		}
 	}
 
 	conditions := make([]types.DeploymentCondition, 0, len(server.Status.DeploymentConditions))

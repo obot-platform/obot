@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { compileAvailableMcpServers } from '$lib/services/user/mcp';
+	import { compileAvailableMcpServers, getMCPDisplayName } from '$lib/services/user/mcp';
 	import { mcpServersAndEntries } from '$lib/stores';
 	import { TriangleAlert } from 'lucide-svelte';
 
@@ -29,9 +29,9 @@
 		return mcpServerIds
 			.map((id) => {
 				const server = serverMap.get(id);
-				return server?.alias || server?.manifest.name || null;
+				return getMCPDisplayName(server, '');
 			})
-			.filter((name): name is string => name !== null);
+			.filter((name): name is string => name !== '');
 	});
 
 	type DisplayItem = { name: string; deleted: boolean };

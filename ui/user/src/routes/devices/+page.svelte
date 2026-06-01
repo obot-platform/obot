@@ -51,8 +51,16 @@
 		return u.displayName ?? u.email ?? u.username ?? u.id;
 	}
 
+	let onlyShowMyDevices = $derived(
+		!page.url.pathname.startsWith('/admin') && profile.current.hasAdminAccess?.()
+	);
+	let devicesToShow = $derived(
+		onlyShowMyDevices
+			? devicesResp.items?.filter((d) => d.submittedBy === profile.current.id)
+			: devicesResp.items
+	);
 	let rows = $derived<Row[]>(
-		(devicesResp.items ?? []).map((s) => {
+		(devicesToShow ?? []).map((s) => {
 			const u = s.submittedBy ? userById.get(s.submittedBy) : undefined;
 			return {
 				...s,
@@ -80,7 +88,7 @@
 		});
 	});
 
-	let total = $derived(devicesResp.total ?? 0);
+	let total = $derived(onlyShowMyDevices ? (devicesToShow?.length ?? 0) : (devicesResp.total ?? 0));
 	let lastPageIndex = $derived(total > 0 ? Math.ceil(total / PAGE_SIZE) - 1 : 0);
 
 	function syncUrl() {

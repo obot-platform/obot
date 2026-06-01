@@ -378,6 +378,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/skills", skills.List)
 	mux.HandleFunc("GET /api/skills/{id}", skills.Get)
 	mux.HandleFunc("GET /api/skills/{id}/download", skills.Download)
+	mux.HandleFunc("GET /api/skills/{id}/preview", skills.Preview)
 
 	// Skill repositories (admin only)
 	mux.HandleFunc("GET /api/skill-repositories", skillRepositories.List)

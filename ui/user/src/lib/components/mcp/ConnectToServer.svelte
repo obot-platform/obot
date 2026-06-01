@@ -14,7 +14,8 @@
 		getSecretBindingEngineError,
 		isMultiUserServer,
 		isKubernetesRuntimeBackend,
-		hasEditableConfiguration
+		hasEditableConfiguration,
+		getMCPDisplayName
 	} from '$lib/services/user/mcp';
 	import { version } from '$lib/stores';
 	import CopyButton from '../CopyButton.svelte';
@@ -102,7 +103,7 @@
 			.filter(Boolean)
 			.map((name) => name.toLowerCase())
 	);
-	let name = $derived(server?.alias || server?.manifest.name || '');
+	let name = $derived(getMCPDisplayName(server, ''));
 	let copyButtonController = $state<ReturnType<typeof CopyButton>>();
 
 	function handleOnClose() {
@@ -917,7 +918,7 @@
 	bind:form={configureForm}
 	{error}
 	icon={manifest?.icon}
-	name={server?.alias || manifest?.name || ''}
+	name={getMCPDisplayName(server, entry?.manifest?.name ?? '')}
 	onSave={handleConfigureForm}
 	submitText={isDeployingMultiUserCatalogEntry
 		? 'Create Server'
@@ -996,23 +997,19 @@
 				<div class="flex items-center gap-2">
 					<div class="h-fit shrink-0 self-start rounded-md bg-base-200 p-1 dark:bg-base-300">
 						{#if server?.manifest.icon}
-							<img
-								src={server?.manifest.icon}
-								alt={server.alias || server?.manifest.name}
-								class="size-6"
-							/>
+							<img src={server?.manifest.icon} alt={getMCPDisplayName(server)} class="size-6" />
 						{:else}
 							<Server class="size-6" />
 						{/if}
 					</div>
 					<h3 class="text-lg leading-5.5 font-semibold">
-						{server?.alias || server?.manifest.name}
+						{getMCPDisplayName(server)}
 					</h3>
 				</div>
 
 				<p>
-					In order to use {server?.alias || server?.manifest.name}, authentication with the MCP
-					server is required.
+					In order to use {getMCPDisplayName(server)}, authentication with the MCP server is
+					required.
 				</p>
 
 				<p>Click the link below to authenticate.</p>

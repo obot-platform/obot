@@ -3,6 +3,7 @@
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import Logo from '$lib/components/Logo.svelte';
+	import { COMMON_AI_CLIENTS } from '$lib/constants';
 	import { darkMode, profile } from '$lib/stores';
 	import {
 		AntennaIcon,
@@ -39,65 +40,7 @@
 		}
 	];
 
-	const marks = $derived([
-		{
-			id: 'claude',
-			icon: '/user/images/assistant/claude-mark.svg',
-			alt: 'Claude'
-		},
-		{
-			id: 'codex',
-			icon: '/user/images/assistant/codex-mark.svg',
-			alt: 'Codex'
-		},
-		{
-			id: 'cursor',
-			icon: '/user/images/assistant/cursor-mark.svg',
-			iconDark: '/user/images/assistant/cursor-mark-dark.svg',
-			alt: 'Cursor'
-		},
-		{
-			id: 'vscode-copilot',
-			icon: '/user/images/assistant/vscode-mark.svg',
-			alt: 'VS Code GH Copilot'
-		},
-		{
-			id: 'openclaw',
-			icon: '/user/images/assistant/openclaw-mark.svg',
-			alt: 'OpenClaw'
-		},
-		{
-			id: 'open-code',
-			icon: '/user/images/assistant/opencode-mark.svg',
-			iconDark: '/user/images/assistant/opencode-mark-dark.svg',
-			alt: 'Open Code'
-		},
-		{
-			id: 'hermes',
-			icon: '/user/images/assistant/hermes-mark.svg',
-			iconDark: '/user/images/assistant/hermes-mark-dark.svg',
-			alt: 'Hermes'
-		},
-		{
-			id: 'goose',
-			icon: '/user/images/assistant/goose-mark.svg',
-			iconDark: '/user/images/assistant/goose-mark-dark.svg',
-			alt: 'Goose'
-		},
-		{
-			id: 'zed',
-			icon: '/user/images/assistant/zed-mark.svg',
-			iconDark: '/user/images/assistant/zed-mark-dark.svg',
-			alt: 'Zed'
-		},
-		{
-			id: 'windsurf',
-			icon: '/user/images/assistant/windsurf-mark.svg',
-			iconDark: '/user/images/assistant/windsurf-mark-dark.svg',
-			alt: 'Windsurf'
-		}
-	]);
-
+	const marks = COMMON_AI_CLIENTS;
 	const installCommand = 'brew install obot-platform/tap/obot';
 	const setupCommand = $derived(`obot setup --url ${page.url.origin}`);
 </script>

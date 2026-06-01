@@ -570,6 +570,7 @@ export interface MCPCatalogEntry {
 	canConnect?: boolean;
 	needsK8sUpdate?: boolean;
 	oauthCredentialConfigured?: boolean;
+	connectURL?: string;
 }
 
 // Matches the backend compositeDeletionDependency struct used when preventing
@@ -592,6 +593,7 @@ export interface RuntimeFormData {
 	description: string;
 	icon: string;
 	categories: string[];
+	serverUserType: 'singleUser' | 'multiUser';
 	env: MCPCatalogEntryFieldManifest[];
 
 	// Runtime selection

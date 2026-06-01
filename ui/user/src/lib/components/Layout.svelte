@@ -1,3 +1,28 @@
+<script lang="ts" module>
+	const NAV_COLLAPSED_KEY = '@obot/layout/nav-collapsed';
+
+	const defaultNavCollapsed: Record<string, boolean> = {
+		'agent-management': true,
+		'mcp-server-management': true,
+		'skills-management': true,
+		'device-management': true,
+		'user-management': true
+	};
+
+	function readNavCollapsedFromStorage(): Record<string, boolean> {
+		if (typeof localStorage === 'undefined') return { ...defaultNavCollapsed };
+		try {
+			const local = localStorage.getItem(NAV_COLLAPSED_KEY);
+			if (local) return { ...defaultNavCollapsed, ...JSON.parse(local) };
+		} catch {
+			// ignore invalid storage
+		}
+		return { ...defaultNavCollapsed };
+	}
+
+	let navCollapsedCache = readNavCollapsedFromStorage();
+</script>
+
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -40,7 +65,6 @@
 		Palette,
 		RadioTower,
 		Server,
-		SquareLibrary,
 		UserCog,
 		Users,
 		Group as GroupIcon,
@@ -60,11 +84,42 @@
 		MonitorCheck,
 		PanelRightClose,
 		PanelLeftOpen,
-		KeySquare
+		KeySquare,
+		Router
 	} from 'lucide-svelte';
 	import { type Component, type Snippet, untrack } from 'svelte';
-	import { fade, slide } from 'svelte/transition';
+	import { fade, slide, type TransitionConfig } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
+
+	let navCollapsed = $state({ ...navCollapsedCache });
+	let animatingNavSectionId = $state<string | null>(null);
+
+	function isNavCollapsed(id: string): boolean {
+		return navCollapsed[id] ?? false;
+	}
+
+	function toggleNavCollapsed(id: string) {
+		animatingNavSectionId = id;
+		navCollapsed = { ...navCollapsed, [id]: !navCollapsed[id] };
+		navCollapsedCache = navCollapsed;
+		localStorage.setItem(NAV_COLLAPSED_KEY, JSON.stringify(navCollapsed));
+	}
+
+	function navSectionSlide(
+		node: Element,
+		{ id, axis = 'y' }: { id: string; axis?: 'x' | 'y' }
+	): TransitionConfig {
+		if (animatingNavSectionId !== id) {
+			return { duration: 0 };
+		}
+		return slide(node, { axis, duration: 200 });
+	}
+
+	function clearNavSectionAnimation(id: string) {
+		if (animatingNavSectionId === id) {
+			animatingNavSectionId = null;
+		}
+	}
 
 	type LayoutContext = {
 		initLayout: () => void;
@@ -139,7 +194,7 @@
 		alwaysShowHeaderTitle
 	}: Props = $props();
 	let nav = $state<HTMLDivElement>();
-	let collapsed = $state<Record<string, boolean>>({});
+	const advancedNavId = 'advanced';
 	let pathname = $derived(page.url.pathname);
 
 	// Whether the Obot Agent feature is enabled server-side. When false, agent entry
@@ -151,9 +206,43 @@
 	);
 
 	let isBootStrapUser = $derived(profile.current.isBootstrapUser?.() ?? false);
+	let isAtLeastPowerUser = $derived(profile.current.groups.includes(Group.POWERUSER));
 	let isAtLeastPowerUserPlus = $derived(profile.current.groups.includes(Group.POWERUSER_PLUS));
-	let chatLinks = $derived<NavLink[]>(
-		agentsFeatureEnabled
+
+	let defaultLinks = $derived<NavLink[]>([
+		{
+			id: 'install-cli',
+			href: '/install-cli',
+			icon: Logo,
+			label: 'Obot CLI',
+			collapsible: false,
+			beta: true
+		},
+		{
+			id: 'mcp-dashboard',
+			icon: LayoutDashboard,
+			label: 'Dashboard',
+			href: profile.current.hasAdminAccess?.() ? '/admin/dashboard' : '/dashboard'
+		},
+		{
+			id: 'mcp-servers',
+			icon: Server,
+			label: 'MCP Servers',
+			href: '/mcp-servers'
+		},
+		{
+			id: 'mcp-skills',
+			icon: PencilRuler,
+			label: 'Skills',
+			href: '/skills'
+		},
+		{
+			id: 'devices',
+			icon: Laptop,
+			label: 'Devices',
+			href: '/devices'
+		},
+		...(agentsFeatureEnabled
 			? [
 					{
 						id: 'launch-agent-chat',
@@ -166,18 +255,9 @@
 						note: !agentLinkEnabled ? renderAgentDisabledNote : undefined
 					}
 				]
-			: []
-	);
-	let cliLink = $derived<NavLink[]>([
-		{
-			id: 'install-cli',
-			href: '/install-cli',
-			icon: Logo,
-			label: 'Obot CLI',
-			collapsible: false,
-			beta: true
-		}
+			: [])
 	]);
+
 	let agentManagementLinks = $derived<NavLink[]>(
 		agentsFeatureEnabled
 			? [
@@ -194,31 +274,16 @@
 								label: 'Agents',
 								collapsible: false,
 								disabled: isBootStrapUser || !agentLinkEnabled
-							},
-							{
-								id: 'launch-agent-chat',
-								href: '/agent',
-								icon: BotMessageSquare,
-								label: 'Launch Agent',
-								disabled: isBootStrapUser || !agentLinkEnabled,
-								collapsible: false,
-								noteIcon: !agentLinkEnabled ? LockOpen : undefined,
-								note: !agentLinkEnabled ? renderAgentDisabledNote : undefined
 							}
 						]
 					}
 				]
 			: []
 	);
-	let navLinks = $derived<NavLink[]>(
+
+	let managementLinks = $derived<NavLink[]>(
 		profile.current.hasAdminAccess?.()
 			? [
-					{
-						id: 'mcp-dashboard',
-						icon: LayoutDashboard,
-						label: 'Dashboard',
-						href: '/admin/dashboard'
-					},
 					{
 						id: 'mcp-server-management',
 						icon: RadioTower,
@@ -226,19 +291,26 @@
 						collapsible: true,
 						items: [
 							{
-								id: 'mcp-servers',
+								id: 'mcp-catalog',
 								icon: Server,
-								href: '/admin/mcp-servers',
-								label: 'MCP Servers',
+								href: '/admin/mcp-catalog',
+								label: 'MCP Catalog',
 								disabled: isBootStrapUser,
 								collapsible: false
 							},
 							{
-								id: 'mcp-registries',
-								icon: SquareLibrary,
-								href: '/admin/mcp-registries',
-								label: 'MCP Registries',
+								id: 'mcp-access-policies',
+								icon: GlobeLock,
+								href: '/admin/mcp-access-policies',
+								label: 'MCP Access Policies',
 								disabled: isBootStrapUser,
+								collapsible: false
+							},
+							{
+								id: 'mcp-deployments',
+								href: '/admin/mcp-deployments',
+								icon: Router,
+								label: 'MCP Deployments',
 								collapsible: false
 							},
 							{
@@ -295,7 +367,7 @@
 								id: 'skills',
 								href: '/admin/skills',
 								icon: PencilRuler,
-								label: 'Skills',
+								label: 'Skill Sources',
 								collapsible: false
 							},
 							{
@@ -406,8 +478,6 @@
 							}
 						]
 					},
-					...cliLink,
-					...agentManagementLinks,
 					{
 						id: 'llm-gateway',
 						icon: BrainCog,
@@ -463,6 +533,7 @@
 							}
 						]
 					},
+					...agentManagementLinks,
 					{
 						id: 'app-preferences',
 						href: '/admin/app-preferences',
@@ -481,32 +552,35 @@
 					}
 				]
 			: [
-					...cliLink,
 					{
 						id: 'mcp-server-management',
 						icon: RadioTower,
 						label: 'MCP Management',
-						collapsible: false,
+						collapsible: true,
 						disabled: false,
 						items: [
-							{
-								id: 'mcp-servers',
-								href: '/mcp-servers',
-								icon: Server,
-								label: 'MCP Servers',
-								disabled: false,
-								collapsible: false
-							},
-							...(isAtLeastPowerUserPlus
+							...(isAtLeastPowerUser
 								? [
 										{
-											id: 'mcp-registries',
-											href: '/mcp-registries',
-											icon: GlobeLock,
-											label: 'MCP Registries',
+											id: 'mcp-catalog',
+											href: '/mcp-catalog',
+											icon: Server,
+											label: 'MCP Catalog',
 											disabled: false,
 											collapsible: false
-										}
+										},
+										...(isAtLeastPowerUserPlus
+											? [
+													{
+														id: 'mcp-access-policies',
+														href: '/mcp-access-policies',
+														icon: GlobeLock,
+														label: 'MCP Access Policies',
+														disabled: false,
+														collapsible: false
+													}
+												]
+											: [])
 									]
 								: []),
 							{
@@ -526,37 +600,7 @@
 								collapsible: false
 							}
 						]
-					},
-					{
-						id: 'skills',
-						href: '/skills',
-						icon: PencilRuler,
-						label: 'Skills',
-						collapsible: false
-					},
-					{
-						id: 'devices',
-						href: '/devices',
-						icon: Laptop,
-						label: 'Devices',
-						collapsible: false
-					},
-					{
-						id: 'llm-gateway',
-						icon: BrainCog,
-						label: 'LLM Gateway',
-						collapsible: true,
-						items: [
-							{
-								id: 'llm-gateway-models',
-								href: '/llm-gateway/models',
-								icon: Boxes,
-								label: 'Models',
-								collapsible: false
-							}
-						]
-					},
-					...chatLinks
+					}
 				]
 	);
 
@@ -575,9 +619,6 @@
 			(profile.current.hasAdminAccess?.() || profile.current.isBootstrapUser?.());
 		if (isAdminOrBootstrapUser && isAdminRoute) {
 			adminConfigStore.initialize();
-			if (collapsed['agent-management'] === undefined) {
-				collapsed['agent-management'] = true;
-			}
 		}
 	});
 
@@ -608,103 +649,46 @@
 						classes?.sidebar
 					)}
 				>
-					<div class="flex flex-col gap-1">
-						{#each navLinks as link (link.id)}
-							<div class="flex">
-								<div class="flex w-full items-center" id={link.id}>
-									{#if link.disabled}
-										<div class="sidebar-link disabled">
-											<link.icon class="size-5" />
-											{link.label}
-										</div>
-									{:else if link.href}
-										<a
-											href={resolve(link.href as `/${string}`)}
-											class={twMerge(
-												'sidebar-link',
-												link.href && link.href === pathname && 'bg-base-300'
-											)}
-										>
-											<link.icon class="size-5" />
-											{link.label}
-											{#if link.beta}
-												<span class="badge badge-primary badge-xs">Beta</span>
-											{/if}
-										</a>
-									{:else}
-										<div class="sidebar-link no-link">
-											<link.icon class="size-5" />
-											{link.label}
-										</div>
-									{/if}
+					<div class="flex flex-col gap-0.5 h-full">
+						{#each defaultLinks as link (link.id)}
+							{@render navLink(link)}
+						{/each}
 
-									{#if link.noteIcon && link.note}
-										<InfoTooltip icon={link.noteIcon} interactive>
-											{@render link.note()}
-										</InfoTooltip>
-									{/if}
-								</div>
-								{#if link.collapsible}
-									<button class="px-2" onclick={() => (collapsed[link.id] = !collapsed[link.id])}>
-										{#if collapsed[link.id]}
-											<ChevronDown class="size-5" />
+						<div class="flex grow"></div>
+
+						{#if managementLinks.length > 0}
+							<div>
+								<div class="flex items-center justify-between w-full py-2 pl-2">
+									<span class="uppercase text-xs font-semibold tracking-wide text-muted-content">
+										{profile.current.hasAdminAccess?.() ? 'Administration' : 'Advanced Settings'}
+									</span>
+									<button
+										id="administration-toggle-btn"
+										class="px-2"
+										onclick={() => toggleNavCollapsed(advancedNavId)}
+									>
+										{#if isNavCollapsed(advancedNavId)}
+											<ChevronUp class="size-5 text-muted-content" />
 										{:else}
-											<ChevronUp class="size-5" />
+											<ChevronDown class="size-5 text-muted-content" />
 										{/if}
 									</button>
+								</div>
+								{#if !isNavCollapsed(advancedNavId)}
+									<div
+										class="flex flex-col gap-0.5"
+										in:navSectionSlide={{ id: advancedNavId, axis: 'y' }}
+										out:navSectionSlide={{ id: advancedNavId, axis: 'y' }}
+										onintroend={() => clearNavSectionAnimation(advancedNavId)}
+										onoutroend={() => clearNavSectionAnimation(advancedNavId)}
+									>
+										{#each managementLinks as link (link.id)}
+											{@render navLink(link)}
+										{/each}
+									</div>
 								{/if}
 							</div>
-							{#if !collapsed[link.id]}
-								<div in:slide={{ axis: 'y' }}>
-									{#if onRenderSubContent}
-										{@render onRenderSubContent(link.label)}
-									{/if}
-									{#if link.items}
-										<div class="flex flex-col px-7 text-sm font-light mb-2">
-											{#each link.items as item (item.href)}
-												<div class="relative flex items-center gap-2" id={item.id}>
-													<div
-														class={twMerge(
-															'bg-base-400 absolute top-1/2 left-0 h-full w-0.5 -translate-x-3 -translate-y-1/2',
-															item.href === pathname && 'bg-primary'
-														)}
-													></div>
-													{#if item.disabled}
-														<div class="sidebar-link disabled">
-															<div class="flex items-center gap-1 opacity-50">
-																<item.icon class="size-4" />
-																{item.label}
-															</div>
-														</div>
-													{:else if item.href}
-														<a
-															href={resolve(item.href as `/${string}`)}
-															class={twMerge(
-																'sidebar-link',
-																item.href === pathname && 'bg-base-300'
-															)}
-														>
-															<item.icon class="size-4" />
-															{item.label}
-														</a>
-													{:else}
-														<div class="sidebar-link disabled">
-															<item.icon class="size-4" />
-															{item.label}
-														</div>
-													{/if}
-													{#if item.noteIcon && item.note}
-														<InfoTooltip icon={item.noteIcon} interactive>
-															{@render item.note()}
-														</InfoTooltip>
-													{/if}
-												</div>
-											{/each}
-										</div>
-									{/if}
-								</div>
-							{/if}
-						{/each}
+						{/if}
 					</div>
 				</div>
 
@@ -884,6 +868,102 @@
 		<p class="mt-1 text-sm">
 			{profile.current.isAdmin?.() ? ADMIN_AGENT_DISABLED_MESSAGE : USER_AGENT_DISABLED_MESSAGE}
 		</p>
+	{/if}
+{/snippet}
+
+{#snippet navLink(link: NavLink)}
+	<div class="flex">
+		<div class="flex w-full items-center" id={link.id}>
+			{#if link.disabled}
+				<div class="sidebar-link disabled">
+					<link.icon class="size-5" />
+					{link.label}
+				</div>
+			{:else if link.href}
+				<a
+					href={resolve(link.href as `/${string}`)}
+					class={twMerge('sidebar-link', link.href && link.href === pathname && 'bg-base-300')}
+				>
+					<link.icon class="size-5" />
+					{link.label}
+					{#if link.beta}
+						<span class="badge badge-primary badge-xs">Beta</span>
+					{/if}
+				</a>
+			{:else}
+				<div class="sidebar-link no-link">
+					<link.icon class="size-5" />
+					{link.label}
+				</div>
+			{/if}
+
+			{#if link.noteIcon && link.note}
+				<InfoTooltip icon={link.noteIcon} interactive>
+					{@render link.note()}
+				</InfoTooltip>
+			{/if}
+		</div>
+		{#if link.collapsible}
+			<button class="px-2" onclick={() => toggleNavCollapsed(link.id)}>
+				{#if isNavCollapsed(link.id)}
+					<ChevronDown class="size-5" />
+				{:else}
+					<ChevronUp class="size-5" />
+				{/if}
+			</button>
+		{/if}
+	</div>
+	{#if !isNavCollapsed(link.id)}
+		<div
+			in:navSectionSlide={{ id: link.id, axis: 'y' }}
+			out:navSectionSlide={{ id: link.id, axis: 'y' }}
+			onintroend={() => clearNavSectionAnimation(link.id)}
+			onoutroend={() => clearNavSectionAnimation(link.id)}
+		>
+			{#if onRenderSubContent}
+				{@render onRenderSubContent(link.label)}
+			{/if}
+			{#if link.items}
+				<div class="flex flex-col px-7 text-sm font-light mb-2">
+					{#each link.items as item (item.href)}
+						<div class="relative flex items-center gap-2" id={item.id}>
+							<div
+								class={twMerge(
+									'bg-base-400 absolute top-1/2 left-0 h-full w-0.5 -translate-x-3 -translate-y-1/2',
+									item.href === pathname && 'bg-primary'
+								)}
+							></div>
+							{#if item.disabled}
+								<div class="sidebar-link disabled">
+									<div class="flex items-center gap-1 opacity-50">
+										<item.icon class="size-4" />
+										{item.label}
+									</div>
+								</div>
+							{:else if item.href}
+								<a
+									href={resolve(item.href as `/${string}`)}
+									class={twMerge('sidebar-link', item.href === pathname && 'bg-base-300')}
+								>
+									<item.icon class="size-4" />
+									{item.label}
+								</a>
+							{:else}
+								<div class="sidebar-link disabled">
+									<item.icon class="size-4" />
+									{item.label}
+								</div>
+							{/if}
+							{#if item.noteIcon && item.note}
+								<InfoTooltip icon={item.noteIcon} interactive>
+									{@render item.note()}
+								</InfoTooltip>
+							{/if}
+						</div>
+					{/each}
+				</div>
+			{/if}
+		</div>
 	{/if}
 {/snippet}
 

@@ -53,7 +53,7 @@
 		}
 	}
 
-	async function copy() {
+	export async function copy() {
 		if (!text) return;
 
 		let success = false;
@@ -85,7 +85,7 @@
 
 {#if text}
 	<button
-		use:tooltip={message}
+		use:tooltip={disabled ? undefined : message}
 		onclick={() => copy()}
 		{disabled}
 		onmouseenter={() => (buttonTextToShow = buttonText)}

@@ -67,9 +67,9 @@
 			mark: 'data-tour-mcpservers-audit',
 			src: '/admin/assets/tour/mcpservers_2.webp'
 		},
-		registries: {
-			mark: 'data-tour-mcpregistries',
-			src: '/admin/assets/tour/mcpregistries.webp'
+		accessPolicies: {
+			mark: 'data-tour-mcpaccesspolicies',
+			src: '/admin/assets/tour/mcpaccesspolicies.webp'
 		},
 		skills: {
 			mark: 'data-tour-skills',
@@ -115,8 +115,8 @@
 			}
 		};
 
-		const stepMcpRegistries = {
-			element: '#mcp-registries',
+		const stepMcpAccessPolicies = {
+			element: '#mcp-access-policies',
 			popover: {
 				popoverClass: POPOVER_CLASS,
 				title: 'Control MCP Server Accessibility',
@@ -125,8 +125,8 @@
 				side: 'bottom' as const,
 				align: 'end' as const,
 				onPopoverRender: tourImageRender(
-					tourImg.registries.mark,
-					tourImg.registries.src,
+					tourImg.accessPolicies.mark,
+					tourImg.accessPolicies.src,
 					'Control MCP Server Accessibility'
 				)
 			}
@@ -182,7 +182,7 @@
 					)
 				}
 			},
-			stepMcpRegistries,
+			stepMcpAccessPolicies,
 			{
 				element: '#skills',
 				popover: {
@@ -257,7 +257,7 @@
 								)
 							}
 						},
-						stepMcpRegistries
+						stepMcpAccessPolicies
 					]
 				: []),
 			stepAgent

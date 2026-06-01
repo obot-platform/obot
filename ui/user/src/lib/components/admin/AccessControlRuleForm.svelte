@@ -167,8 +167,8 @@
 					];
 					redirect =
 						entity === 'workspace'
-							? `/mcp-servers/c/${entry.id}`
-							: `/admin/mcp-servers/c/${entry.id}`;
+							? `/mcp-catalog/c/${entry.id}`
+							: `/admin/mcp-catalog/c/${entry.id}`;
 				} else {
 					const server = mcpServersMap.get(initialAdditionId);
 					if (server) {
@@ -178,8 +178,8 @@
 						];
 						redirect =
 							entity === 'workspace'
-								? `/mcp-servers/s/${server.id}`
-								: `/admin/mcp-servers/s/${server.id}`;
+								? `/mcp-catalog/s/${server.id}`
+								: `/admin/mcp-catalog/s/${server.id}`;
 					}
 				}
 			}
@@ -439,9 +439,9 @@
 							if (redirect) {
 								goto(redirect);
 							} else if (profile.current.hasAdminAccess?.()) {
-								goto('/admin/mcp-registries');
+								goto('/admin/mcp-access-policies');
 							} else {
-								goto('/mcp-registries');
+								goto('/mcp-access-policies');
 							}
 						}}
 					>
@@ -581,7 +581,7 @@
 		await (entity === 'workspace'
 			? UserService.deleteWorkspaceAccessControlRule(id, accessControlRule.id)
 			: AdminService.deleteAccessControlRule(accessControlRule.id));
-		goto('/admin/mcp-registries');
+		goto('/admin/mcp-access-policies');
 	}}
 	oncancel={() => (deletingRule = false)}
 />

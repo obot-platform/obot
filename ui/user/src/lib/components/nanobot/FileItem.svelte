@@ -120,8 +120,7 @@
 			)}
 			use:tooltip={{
 				text: isSelected ? (name ?? '') : `Open ${name ?? ''}`,
-				placement: 'left',
-				variant: 'daisy'
+				placement: 'left'
 			}}
 			in:fly={{ x: 100, duration: 150 }}
 			onclick={() => onClick?.()}

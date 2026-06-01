@@ -4,7 +4,7 @@ export const userRoleOptions = [
 	{
 		id: Role.BASIC,
 		label: 'Basic User',
-		description: 'Connect to MCP servers made available through registries and use Chat.'
+		description: 'Connect to MCP servers made available through access policies and use Chat.'
 	},
 	{
 		id: Role.POWERUSER,
@@ -16,7 +16,7 @@ export const userRoleOptions = [
 		id: Role.POWERUSER_PLUS,
 		label: 'Power User Plus',
 		description:
-			'In addition to power user features, users can share their custom MCP servers through their own registries.'
+			'In addition to power user features, users can share their custom MCP servers through their own access policies.'
 	},
 	{
 		id: Role.ADMIN,

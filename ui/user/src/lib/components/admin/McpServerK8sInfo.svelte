@@ -41,6 +41,7 @@
 		mcpServer?: MCPCatalogServer;
 		readonly?: boolean;
 		compositeParentName?: string;
+		hideTitle?: boolean;
 	}
 
 	const {
@@ -55,7 +56,8 @@
 		mcpServer,
 		compositeParentName,
 		entity = 'catalog',
-		readonly
+		readonly,
+		hideTitle
 	}: Props = $props();
 
 	let listK8sInfo = $state<Promise<K8sServerDetail | undefined>>();
@@ -447,39 +449,45 @@
 			if (!hasAdminAccess) return null;
 			return entity === 'workspace'
 				? catalogEntry?.id
-					? `/admin/mcp-servers/w/${entityId}/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
-					: `/admin/mcp-servers/w/${entityId}/s/${encodeURIComponent(id ?? '')}?view=audit-logs&user_id=${d.id}`
+					? `/admin/mcp-catalog/w/${entityId}/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
+					: `/admin/mcp-catlaog/w/${entityId}/s/${encodeURIComponent(id ?? '')}?view=audit-logs&user_id=${d.id}`
 				: catalogEntry?.id
-					? `/admin/mcp-servers/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
-					: `/admin/mcp-servers/s/${encodeURIComponent(id ?? '')}?view=audit-logs&user_id=${d.id}`;
+					? `/admin/mcp-catalog/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
+					: `/admin/mcp-catalog/s/${encodeURIComponent(id ?? '')}?view=audit-logs&user_id=${d.id}`;
 		}
 
 		// Basic users can access audit logs for their own single-user servers
 		let isOwnServer = mcpServer && isOwnSingleUserServer(mcpServer, profile.current?.id);
 		if (!isOwnServer && !profile.current?.groups.includes(Group.POWERUSER)) return null;
 		return catalogEntry?.id
-			? `/mcp-servers/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
-			: `/mcp-servers/s/${encodeURIComponent(id ?? '')}?view=audit-logs&user_id=${d.id}`;
+			? `/mcp-catalog/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
+			: `/mcp-catalog/s/${encodeURIComponent(id ?? '')}?view=audit-logs&user_id=${d.id}`;
 	}
 </script>
 
-<div class="flex items-center gap-3">
-	<h1 class={twMerge('text-2xl font-semibold', classes?.title)}>
-		{#if title}
-			{title}
-		{:else if mcpServerInstanceId}
-			{name} | {mcpServerInstanceId}
-		{:else}
-			{name}
-		{/if}
-	</h1>
+<div class="flex items-center gap-2">
+	{#if !hideTitle}
+		<h1 class={twMerge('text-2xl font-semibold', classes?.title)}>
+			{#if title}
+				{title}
+			{:else if mcpServerInstanceId}
+				{name} | {mcpServerInstanceId}
+			{:else}
+				{name}
+			{/if}
+		</h1>
+	{/if}
 	{#if hasAdminAccess}
 		<button
 			onclick={handleRefreshEvents}
-			class="rounded-md p-1 text-muted-content hover:bg-base-200 hover:text-base-content disabled:opacity-50 dark:text-muted-content dark:hover:bg-base-200 dark:hover:text-base-content"
+			class={hideTitle
+				? 'btn btn-secondary btn-sm'
+				: 'btn btn-ghost btn-sm btn-square text-muted-content tooltip tooltip-right'}
 			disabled={refreshingEvents}
+			data-tip="Refresh Events"
 		>
 			<RefreshCw class="size-4 {refreshingEvents ? 'animate-spin' : ''}" />
+			{hideTitle ? 'Refresh Events' : ''}
 		</button>
 	{/if}
 </div>
@@ -670,7 +678,7 @@
 	onClear={() => (messages = [])}
 />
 
-{#if hasAdminAccess && entity !== 'webhook-validation'}
+{#if hasAdminAccess && entity !== 'webhook-validation' && connectedUsers.length > 0}
 	<div>
 		<h2 class="mb-2 text-lg font-semibold">Connected Users</h2>
 		<Table

@@ -33,12 +33,15 @@ func TestConvertMCPResources(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "entry"},
 		Spec: v1.MCPServerCatalogEntrySpec{
 			Manifest: types.MCPServerCatalogEntryManifest{
-				Name:      "entry",
-				Resources: resources,
+				Name:           "entry",
+				Resources:      resources,
+				ServerUserType: types.ServerUserTypeSingleUser,
+				Runtime:        types.RuntimeRemote,
 			},
 		},
-	})
+	}, "https://example.com")
 	assert.Equal(t, resources, entry.Manifest.Resources)
+	assert.Equal(t, "https://example.com/mcp-connect/entry", entry.ConnectURL)
 
 	server := ConvertMCPServer(v1.MCPServer{
 		ObjectMeta: metav1.ObjectMeta{Name: "server"},

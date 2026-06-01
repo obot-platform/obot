@@ -262,8 +262,7 @@
 					)}
 					use:tooltip={{
 						text: browserViewerOpen ? 'Hide browser view' : 'Show browser view',
-						placement: 'left',
-						variant: 'daisy'
+						placement: 'left'
 					}}
 					onclick={onToggleBrowserViewer}
 					aria-label={browserViewerOpen ? 'Hide browser view' : 'Show browser view'}
@@ -286,8 +285,7 @@
 									class="btn btn-ghost btn-xs"
 									use:tooltip={{
 										text: showTodoList ? 'Hide To Do List' : 'Show To Do List',
-										placement: 'left',
-										variant: 'daisy'
+										placement: 'left'
 									}}
 									onclick={() => (showTodoList = !showTodoList)}
 								>
@@ -340,7 +338,7 @@
 			{:else if onToggle}
 				<button
 					class="btn btn-ghost btn-circle size-10 self-center"
-					use:tooltip={{ text: 'Expand to show to-do list', placement: 'left', variant: 'daisy' }}
+					use:tooltip={{ text: 'Expand to show to-do list', placement: 'left' }}
 					onclick={() => onToggle()}
 					aria-label="Expand to show to-do list"
 				>
@@ -361,8 +359,7 @@
 						class="btn btn-ghost btn-circle"
 						use:tooltip={{
 							text: open ? 'Close to-do & file list' : 'Open to-do & file list',
-							placement: 'left',
-							variant: 'daisy'
+							placement: 'left'
 						}}
 						onclick={() => onToggle()}
 					>

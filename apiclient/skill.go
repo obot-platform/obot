@@ -11,9 +11,15 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 )
 
-const MaxSkillDownloadBytes = 100 * 1024 * 1024
+const (
+	MaxSkillDownloadBytes = 100 * 1024 * 1024
+	MaxSkillMDBytes       = 1024 * 1024
+)
 
-var maxSkillDownloadBytes int64 = MaxSkillDownloadBytes // We are doing this for unit testing purposes
+var (
+	maxSkillDownloadBytes int64 = MaxSkillDownloadBytes // We are doing this for unit testing purposes
+	maxSkillMDBytes       int64 = MaxSkillMDBytes       // We are doing this for unit testing purposes
+)
 
 func (c *Client) ListSkills(ctx context.Context, query string, limit int) (types.SkillList, error) {
 	values := url.Values{}
@@ -48,6 +54,24 @@ func (c *Client) GetSkill(ctx context.Context, id string) (types.Skill, error) {
 	obj := types.Skill{}
 	_, err = toObject(resp, &obj)
 	return obj, err
+}
+
+func (c *Client) PreviewSkill(ctx context.Context, id string) ([]byte, error) {
+	_, resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/skills/%s/preview", url.PathEscape(id)), nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxSkillMDBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(data)) > maxSkillMDBytes {
+		return nil, fmt.Errorf("skill preview exceeds maximum size of %d bytes", maxSkillMDBytes)
+	}
+
+	return data, nil
 }
 
 func (c *Client) DownloadSkill(ctx context.Context, id string) ([]byte, error) {

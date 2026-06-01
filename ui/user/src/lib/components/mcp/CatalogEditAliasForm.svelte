@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Loading from '$lib/icons/Loading.svelte';
 	import { UserService, type MCPCatalogServer } from '$lib/services';
+	import { getMCPDisplayName } from '$lib/services/user/mcp';
 	import { errors } from '$lib/stores';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { Server } from 'lucide-svelte';
@@ -18,7 +19,7 @@
 	let saving = $state(false);
 
 	export function open() {
-		const name = server?.alias || server?.manifest?.name || '';
+		const name = getMCPDisplayName(server, '');
 		newName = name;
 		originalName = name;
 		dialog?.open();
@@ -59,14 +60,14 @@
 				{#if server?.manifest?.icon}
 					<img
 						src={server.manifest.icon}
-						alt={newName || server?.alias || server?.manifest?.name}
+						alt={newName || getMCPDisplayName(server, '')}
 						class="size-8"
 					/>
 				{:else}
 					<Server class="size-8" />
 				{/if}
 			</div>
-			{newName || server?.alias || server?.manifest?.name || 'Server'}
+			{newName || getMCPDisplayName(server, 'Server')}
 		</div>
 	{/snippet}
 

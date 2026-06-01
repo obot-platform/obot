@@ -2,7 +2,7 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { stripMarkdownToText } from '$lib/markdown';
 	import type { MCPCatalogServer, MCPCatalogEntry } from '$lib/services';
-	import { parseCategories } from '$lib/services/user/mcp';
+	import { getMCPDisplayName, parseCategories } from '$lib/services/user/mcp';
 	import { Server, TriangleAlert } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -17,7 +17,7 @@
 	let { data, parent, onClick, action }: Props = $props();
 
 	let icon = $derived(data.manifest.icon);
-	let name = $derived(data?.alias ?? parent?.manifest.name ?? data?.manifest?.name);
+	let name = $derived(getMCPDisplayName(data));
 	let description = $derived(parent?.manifest?.description ?? data?.manifest?.description);
 	let categories = $derived(parent?.categories ?? data.categories! ?? parseCategories(data));
 	let needsUpdate = $derived(!('isCatalogEntry' in data) ? !data.configured : false);

@@ -1,0 +1,251 @@
+<script lang="ts">
+	import { invalidate } from '$app/navigation';
+	import { page } from '$app/state';
+	import Confirm from '$lib/components/Confirm.svelte';
+	import Layout from '$lib/components/Layout.svelte';
+	import AccessControlRuleForm from '$lib/components/admin/AccessControlRuleForm.svelte';
+	import IconButton from '$lib/components/primitives/IconButton.svelte';
+	import Table from '$lib/components/table/Table.svelte';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { AdminService, UserService, type OrgUser, type AccessControlRule } from '$lib/services';
+	import { mcpServersAndEntries, profile } from '$lib/stores';
+	import { goto, clearUrlParams } from '$lib/url';
+	import { getUserDisplayName, openUrl } from '$lib/utils';
+	import { BookOpenText, Plus, Trash2 } from 'lucide-svelte';
+	import { onMount } from 'svelte';
+	import { fly } from 'svelte/transition';
+
+	let { data } = $props();
+
+	let accessControlRules = $derived(data.accessControlRules);
+	let showCreateRule = $derived(page.url.searchParams.has('new'));
+	let ruleToDelete = $state<AccessControlRule>();
+
+	let users = $state<OrgUser[]>([]);
+	let usersMap = $derived(new Map(users.map((user) => [user.id, user])));
+
+	let validAccessControlRules = $derived(
+		accessControlRules.filter((rule) => (rule.powerUserID ? usersMap.has(rule.powerUserID) : true))
+	);
+
+	function convertToTableData(rule: AccessControlRule, registry: 'user' | 'global' = 'global') {
+		const owner = rule.powerUserID ? getUserDisplayName(usersMap, rule.powerUserID) : undefined;
+		const totalServers =
+			mcpServersAndEntries.current.entries.length + mcpServersAndEntries.current.servers.length;
+
+		const hasEverything = rule.resources?.find((r) => r.id === '*');
+		const count = (() => {
+			if (registry === 'global') {
+				if (hasEverything) return totalServers;
+
+				return (
+					(rule.resources &&
+						rule.resources.filter(
+							(r) => r.type === 'mcpServerCatalogEntry' || r.type === 'mcpServer'
+						).length) ??
+					0
+				);
+			}
+
+			if (hasEverything) return getAcrServerCount(rule.powerUserWorkspaceID!);
+
+			return (
+				(rule.resources &&
+					rule.resources.filter((r) => r.type === 'mcpServerCatalogEntry' || r.type === 'mcpServer')
+						.length) ??
+				0
+			);
+		})();
+
+		return {
+			...rule,
+			owner: owner || 'Unknown',
+			serversCount: count || 0
+		};
+	}
+	let globalAccessControlRules = $derived(
+		validAccessControlRules.filter((rule) => !rule.powerUserID).map((d) => convertToTableData(d))
+	);
+	let userAccessControlRules = $derived(
+		validAccessControlRules
+			.filter((rule) => rule.powerUserID)
+			.map((d) => convertToTableData(d, 'user'))
+	);
+
+	let isReadonly = $derived(profile.current.isAdminReadonly?.());
+
+	async function navigateToCreated(rule: AccessControlRule) {
+		clearUrlParams(['new']);
+		goto(`/admin/mcp-access-policies/${rule.id}`);
+	}
+
+	const duration = PAGE_TRANSITION_DURATION;
+
+	onMount(async () => {
+		users = await UserService.listUsersIncludeDeleted();
+	});
+
+	function getAcrServerCount(powerUserWorkspaceID: string) {
+		const mcpServers = Array.from(mcpServersAndEntries.current.servers.values());
+		const mcpEntries = Array.from(mcpServersAndEntries.current.entries.values());
+
+		return (
+			mcpServers.filter((server) => server.powerUserWorkspaceID === powerUserWorkspaceID).length +
+			mcpEntries.filter((entry) => entry.powerUserWorkspaceID === powerUserWorkspaceID).length
+		);
+	}
+
+	let title = $derived(showCreateRule ? 'Create MCP Access Policy' : 'MCP Access Policies');
+</script>
+
+<Layout {title} showBackButton={showCreateRule}>
+	<div
+		class="h-full w-full"
+		in:fly={{ x: 100, duration, delay: duration }}
+		out:fly={{ x: -100, duration }}
+	>
+		{#if showCreateRule}
+			{@render createRuleScreen()}
+		{:else}
+			<div
+				class="flex flex-col gap-8"
+				in:fly={{ x: 100, delay: duration, duration }}
+				out:fly={{ x: -100, duration }}
+			>
+				{#if accessControlRules.length === 0}
+					<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
+						<BookOpenText class="text-muted-content size-24 opacity-25" />
+						<h4 class="text-muted-content text-lg font-semibold">No created MCP access policies</h4>
+						<p class="text-muted-content text-sm font-light">
+							Looks like you don't have any access policies created yet. <br />
+							{#if !isReadonly}
+								Click the button below to get started.
+							{/if}
+						</p>
+
+						{@render addRuleButton()}
+					</div>
+				{:else}
+					<div class="flex flex-col gap-2">
+						<h4 class="text-lg font-semibold">Admin Managed Access Policies</h4>
+						{@render accessControlRuleTable('global')}
+					</div>
+
+					<div class="flex flex-col gap-2">
+						<h4 class="text-lg font-semibold">User Managed Access Policies</h4>
+						{@render accessControlRuleTable('user')}
+					</div>
+				{/if}
+			</div>
+		{/if}
+	</div>
+
+	{#snippet rightNavActions()}
+		{#if !showCreateRule}
+			<div class="relative flex items-center gap-4">
+				{@render addRuleButton()}
+			</div>
+		{/if}
+	{/snippet}
+</Layout>
+
+{#snippet accessControlRuleTable(type: 'user' | 'global')}
+	{@const data = type === 'global' ? globalAccessControlRules : userAccessControlRules}
+	<Table
+		{data}
+		fields={type === 'global'
+			? ['displayName', 'serversCount']
+			: ['displayName', 'serversCount', 'owner']}
+		onClickRow={(d, isCtrlClick) => {
+			const url = d.powerUserWorkspaceID
+				? `/admin/mcp-access-policies/w/${d.powerUserWorkspaceID}/r/${d.id}`
+				: `/admin/mcp-access-policies/${d.id}`;
+			openUrl(url, isCtrlClick);
+		}}
+		headers={[
+			{
+				title: 'Name',
+				property: 'displayName'
+			},
+			{
+				title: 'Servers',
+				property: 'serversCount'
+			}
+		]}
+		filterable={['displayName', 'owner']}
+		sortable={['displayName', 'serversCount', 'owner']}
+	>
+		{#snippet actions(d)}
+			{#if !isReadonly}
+				<IconButton
+					variant="danger"
+					onclick={(e) => {
+						e.stopPropagation();
+						ruleToDelete = d;
+					}}
+					tooltip={{ text: 'Delete Rule' }}
+				>
+					<Trash2 class="size-4" />
+				</IconButton>
+			{/if}
+		{/snippet}
+		{#snippet onRenderColumn(property, d)}
+			{#if property === 'serversCount'}
+				{d.serversCount === 0 ? '-' : d.serversCount}
+			{:else}
+				{d[property as keyof typeof d]}
+			{/if}
+		{/snippet}
+	</Table>
+{/snippet}
+
+{#snippet addRuleButton()}
+	{#if !profile.current.isAdminReadonly?.()}
+		<button
+			class="btn btn-primary flex items-center gap-1 text-sm"
+			onclick={() => {
+				goto(`/admin/mcp-access-policies?new=true`);
+			}}
+		>
+			<Plus class="size-4" /> Add New Access Policy
+		</button>
+	{/if}
+{/snippet}
+
+{#snippet createRuleScreen()}
+	<div
+		class="h-full w-full"
+		in:fly={{ x: 100, delay: duration, duration }}
+		out:fly={{ x: -100, duration }}
+	>
+		<AccessControlRuleForm
+			onCreate={navigateToCreated}
+			mcpEntriesContextFn={() => mcpServersAndEntries.current}
+		/>
+	</div>
+{/snippet}
+
+<Confirm
+	msg={`Delete ${ruleToDelete?.displayName || 'this rule'}?`}
+	show={Boolean(ruleToDelete)}
+	onsuccess={async () => {
+		if (!ruleToDelete) return;
+		if (ruleToDelete.powerUserWorkspaceID) {
+			await UserService.deleteWorkspaceAccessControlRule(
+				ruleToDelete.powerUserWorkspaceID,
+				ruleToDelete.id
+			);
+		} else {
+			await AdminService.deleteAccessControlRule(ruleToDelete.id);
+		}
+
+		invalidate('mcp-access-policies:data');
+
+		ruleToDelete = undefined;
+	}}
+	oncancel={() => (ruleToDelete = undefined)}
+/>
+
+<svelte:head>
+	<title>Obot | MCP Access Policies</title>
+</svelte:head>

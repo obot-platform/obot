@@ -25,6 +25,7 @@ var (
 		"GET /api/skills",
 		"GET /api/skills/{id}",
 		"GET /api/skills/{id}/download",
+		"GET /api/skills/{id}/preview",
 	)
 	adminAndOwnerRules = []string{
 		"/api/tool-references",
@@ -111,6 +112,7 @@ var (
 		"GET /api/skills",
 		"GET /api/skills/{id}",
 		"GET /api/skills/{id}/download",
+		"GET /api/skills/{id}/preview",
 		"GET /api/eula",
 		"PUT /api/eula",
 		"PUT /api/app-preferences",
@@ -184,6 +186,7 @@ var (
 			"GET /api/skills",
 			"GET /api/skills/{id}",
 			"GET /api/skills/{id}/download",
+			"GET /api/skills/{id}/preview",
 			"GET /api/message-policy-violations",
 			"GET /api/message-policy-violations/",
 			"GET /api/message-policy-violations/filter-options/{filter}",
@@ -290,6 +293,7 @@ var (
 			"GET /api/skills",
 			"GET /api/skills/{id}",
 			"GET /api/skills/{id}/download",
+			"GET /api/skills/{id}/preview",
 
 			// Allow basic users to create and list projects
 			"POST /api/projects",

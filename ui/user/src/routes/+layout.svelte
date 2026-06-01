@@ -74,9 +74,9 @@
 
 	$effect(() => {
 		const pathname = page.url.pathname;
-		const isMcpServersRoute = pathname === '/mcp-servers' || pathname === '/admin/mcp-servers';
+		const isMcpCatalogRoute = pathname === '/mcp-catalog' || pathname === '/admin/mcp-catalog';
 		if (profile.current.loaded) {
-			untrack(() => mcpServersAndEntries.initialize(isMcpServersRoute));
+			untrack(() => mcpServersAndEntries.initialize(isMcpCatalogRoute));
 		}
 	});
 </script>

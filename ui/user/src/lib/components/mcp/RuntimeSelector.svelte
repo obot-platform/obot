@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { LaunchServerType, Runtime } from '$lib/services/user/types';
 	import Select from '../Select.svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		runtime: Runtime;
@@ -62,10 +63,10 @@
 </script>
 
 <div
-	class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm {serverType ===
-		'remote' || serverType === 'composite'
-		? 'hidden'
-		: ''}"
+	class={twMerge(
+		'paper p-4',
+		serverType === 'remote' || serverType === 'composite' ? 'hidden' : ''
+	)}
 >
 	<h4 class="text-sm font-semibold">Runtime</h4>
 
@@ -74,7 +75,7 @@
 		<div class="w-full">
 			<Select
 				id="runtime-selector"
-				class="bg-base-100 dark:bg-base-200 dark:border-base-400 flex-1 border border-transparent shadow-inner"
+				class="bg-base-200 dark:bg-base-100 dark:border-base-400 flex-1 border border-transparent shadow-none"
 				options={runtimeOptions}
 				selected={runtime}
 				onSelect={handleRuntimeChange}
@@ -84,6 +85,8 @@
 	</div>
 
 	{#if !readonly && serverType !== 'remote'}
-		<p class="text-muted-content text-xs">Choose the runtime environment for your MCP server.</p>
+		<p class="text-muted-content text-xs">
+			Choose the runtime environment for your MCP catalog entry.
+		</p>
 	{/if}
 </div>

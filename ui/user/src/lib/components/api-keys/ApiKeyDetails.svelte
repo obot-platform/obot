@@ -3,7 +3,7 @@
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { stripMarkdownToText } from '$lib/markdown';
 	import type { APIKey } from '$lib/services/api-keys/types';
-	import { compileAvailableMcpServers } from '$lib/services/user/mcp';
+	import { compileAvailableMcpServers, getMCPDisplayName } from '$lib/services/user/mcp';
 	import { mcpServersAndEntries, profile } from '$lib/stores';
 	import { formatTimeAgo, formatTimeUntil } from '$lib/time';
 	import Confirm from '../Confirm.svelte';
@@ -38,7 +38,7 @@
 			const server = serverMap.get(id);
 			return {
 				id,
-				name: server?.alias || server?.manifest.name || '(Deleted)',
+				name: getMCPDisplayName(server, '(Deleted)'),
 				description: server?.manifest.description,
 				icon: server?.manifest.icon,
 				exists: !!server

@@ -353,11 +353,11 @@
 <div
 	class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
 >
-	<h4 class="text-md font-semibold">Component Servers</h4>
+	<h4 class="text-md font-semibold">Component Entries</h4>
 
 	<div class="flex flex-col gap-2">
 		{#if loading}
-			<div class="text-muted-content text-sm">Loading component servers...</div>
+			<div class="text-muted-content text-sm">Loading component entries...</div>
 		{:else if config.componentServers.length > 0}
 			{#each config.componentServers as entry (getComponentId(entry))}
 				{@const componentId = getComponentId(entry)}
@@ -611,8 +611,8 @@
 			{/each}
 		{:else}
 			<div class="text-muted-content text-sm">
-				Select one or more MCP servers to include in the composite server. Users will see this as a
-				single server with aggregated tools and resources.
+				Select one or more entries to include in the composite catalog entry. Users will see this as
+				a single deployment with aggregated tools and resources.
 			</div>
 		{/if}
 	</div>
@@ -630,7 +630,7 @@
 			class="dark:bg-base-300 dark:border-base-400 dark:hover:bg-base-400 bg-base-100 flex items-center justify-center gap-2 rounded-lg border border-gray-200 p-2 text-sm font-medium hover:bg-gray-50"
 		>
 			<Plus class="size-4" />
-			Add MCP Server
+			Add Component Entry
 		</button>
 	{/if}
 </div>

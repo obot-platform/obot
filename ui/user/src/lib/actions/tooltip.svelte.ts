@@ -3,10 +3,6 @@ import SnippetComponent from '$lib/components/primitives/Snippet.svelte';
 import type { Placement } from '@floating-ui/dom';
 import { mount, unmount, type Snippet } from 'svelte';
 
-const DEFAULT_LAYOUT_CLASSES = ['max-w-64', 'wrap-break-word', 'whitespace-pre-wrap'] as const;
-
-export type TooltipVariant = 'default' | 'daisy';
-
 export interface TooltipOptions {
 	text?: string;
 	snippet?: Snippet;
@@ -14,8 +10,6 @@ export interface TooltipOptions {
 	disablePortal?: boolean;
 	classes?: string[];
 	placement?: Placement;
-	/** `daisy`: same surface, typography, and tail as DaisyUI `tooltip` + `data-tip` (neutral). */
-	variant?: TooltipVariant;
 }
 
 function resolveDataTheme(trigger: HTMLElement): string {
@@ -28,10 +22,6 @@ function resolveDataTheme(trigger: HTMLElement): string {
 
 function placementAttr(placement: Placement | undefined): string {
 	return placement ?? 'top';
-}
-
-function isDaisyVariant(o: TooltipOptions | string | undefined): boolean {
-	return typeof o === 'object' && o.variant === 'daisy';
 }
 
 export function tooltip(node: HTMLElement, opts: TooltipOptions | string | undefined) {
@@ -60,25 +50,20 @@ export function tooltip(node: HTMLElement, opts: TooltipOptions | string | undef
 			'tooltip-portal-daisy-host',
 			'tooltip-portal-daisy',
 			'tooltip',
-			'text-left',
-			...DEFAULT_LAYOUT_CLASSES
+			'text-left'
 		);
-		if (typeof o === 'string') {
-			el.classList.add('tooltip', 'text-left', ...DEFAULT_LAYOUT_CLASSES);
-			return;
-		}
-		if (!o) return;
-		const extra = o.classes ?? (o.variant === 'daisy' ? [] : [...DEFAULT_LAYOUT_CLASSES]);
-		if (o.variant === 'daisy') {
-			el.classList.add('tooltip-portal-daisy-host', ...extra);
-		} else {
-			el.classList.add('tooltip', 'text-left', ...extra);
-		}
+		const extra = typeof o === 'object' ? (o.classes ?? []) : [];
+		el.classList.add('tooltip-portal-daisy-host', ...extra);
 	}
 
-	function syncDaisyPortal(trigger: HTMLElement, host: HTMLElement, o: TooltipOptions) {
+	function syncDaisyPortal(
+		trigger: HTMLElement,
+		host: HTMLElement,
+		o: TooltipOptions | string | undefined
+	) {
 		host.setAttribute('data-theme', resolveDataTheme(trigger));
-		host.setAttribute('data-placement', placementAttr(o.placement));
+		const placement = typeof o === 'object' ? o.placement : undefined;
+		host.setAttribute('data-placement', placementAttr(placement));
 	}
 
 	function buildDaisyPortal(): HTMLElement {
@@ -100,20 +85,14 @@ export function tooltip(node: HTMLElement, opts: TooltipOptions | string | undef
 
 		tt = popover({
 			placement,
-			delay: isDaisyVariant(init) ? 0 : 300,
+			delay: 0,
 			strategy: 'fixed'
 		});
 
-		if (isDaisyVariant(init)) {
-			portalRoot = buildDaisyPortal();
-			portalRoot.classList.add('opacity-0', 'tooltip-portal-daisy-host--inactive');
-			applyLookClasses(portalRoot, init);
-			if (typeof init === 'object') syncDaisyPortal(node, portalRoot, init);
-		} else {
-			portalRoot = document.createElement('div');
-			portalRoot.classList.add('hidden');
-			applyLookClasses(portalRoot, init);
-		}
+		portalRoot = buildDaisyPortal();
+		portalRoot.classList.add('opacity-0', 'tooltip-portal-daisy-host--inactive');
+		applyLookClasses(portalRoot, init);
+		syncDaisyPortal(node, portalRoot, init);
 
 		if (typeof init === 'object' && init?.disablePortal) {
 			node.insertAdjacentElement('afterend', portalRoot);
@@ -127,7 +106,7 @@ export function tooltip(node: HTMLElement, opts: TooltipOptions | string | undef
 				hover: true,
 				disablePortal: typeof init === 'object' ? init.disablePortal : false,
 				interactiveHover: typeof init === 'object' ? !!init.interactive : false,
-				enterTransition: isDaisyVariant(init) ? 'daisy' : undefined
+				enterTransition: 'daisy'
 			})
 		);
 
@@ -185,19 +164,8 @@ export function tooltip(node: HTMLElement, opts: TooltipOptions | string | undef
 			return;
 		}
 
-		const wasDaisy = portalRoot?.classList.contains('tooltip-portal-daisy-host') ?? false;
-		const nowDaisy = isDaisyVariant(o);
-		if (wasDaisy !== nowDaisy) {
-			disable();
-			enable(o);
-			updateContent(o);
-			return;
-		}
-
-		if (portalRoot && typeof o === 'object' && nowDaisy) {
+		if (portalRoot) {
 			syncDaisyPortal(node, portalRoot, o);
-			applyLookClasses(portalRoot, o);
-		} else if (portalRoot) {
 			applyLookClasses(portalRoot, o);
 		}
 
@@ -223,7 +191,6 @@ export function tooltip(node: HTMLElement, opts: TooltipOptions | string | undef
 		return (
 			ao.text === bo.text &&
 			ao.placement === bo.placement &&
-			ao.variant === bo.variant &&
 			ao.interactive === bo.interactive &&
 			ao.disablePortal === bo.disablePortal &&
 			ao.snippet === bo.snippet &&

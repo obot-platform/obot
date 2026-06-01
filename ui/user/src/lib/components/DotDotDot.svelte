@@ -71,7 +71,7 @@
 	}}
 	class={twMerge(responsive.isMobile ? 'bottom-0 left-0 w-full' : '', classes?.popover)}
 >
-	<div class={twMerge('dropdown-menu flex min-w-max flex-col p-2', classes?.menu)}>
+	<div class={twMerge('dropdown-menu flex min-w-max flex-col p-2 gap-1', classes?.menu)}>
 		{@render children({ toggle })}
 	</div>
 </div>

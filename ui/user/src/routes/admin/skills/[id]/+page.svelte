@@ -7,6 +7,7 @@
 
 	let { data } = $props();
 	let skill = $derived(data.skill);
+
 	const duration = PAGE_TRANSITION_DURATION;
 
 	let title = $derived(skill?.displayName ?? 'Skill');

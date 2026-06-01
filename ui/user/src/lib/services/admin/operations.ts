@@ -1476,6 +1476,11 @@ export async function listAllSkills(opts?: {
 	return response.items ?? [];
 }
 
+export async function getSkillPreview(id: string, opts?: { fetch?: Fetcher }): Promise<string> {
+	const response = (await doGet(`/skills/${id}/preview`, { ...opts, text: true })) as string;
+	return response;
+}
+
 export async function listSkillRepositories(opts?: {
 	fetch?: Fetcher;
 }): Promise<SkillRepository[]> {

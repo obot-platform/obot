@@ -41,8 +41,8 @@
 					const hasConfigDep = g.hasConfigDep;
 
 					const url = hasConfigDep
-						? `/admin/mcp-servers/c/${catalogEntryID}?view=configuration`
-						: `/admin/mcp-servers/c/${catalogEntryID}?view=server-instances`;
+						? `/admin/mcp-catalog/c/${catalogEntryID}?view=configuration`
+						: `/admin/mcp-catalog/c/${catalogEntryID}?view=server-instances`;
 
 					const label = hasConfigDep ? 'Edit Configuration' : 'Update Instances';
 

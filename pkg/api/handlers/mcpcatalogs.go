@@ -208,7 +208,7 @@ func (h *MCPCatalogHandler) ListEntries(req api.Context) error {
 	if (req.UserIsAdmin() || req.UserIsAuditor()) && req.URL.Query().Get("all") == "true" {
 		entries := make([]types.MCPServerCatalogEntry, 0, len(list.Items))
 		for _, entry := range list.Items {
-			entries = append(entries, ConvertMCPServerCatalogEntryWithWorkspace(entry, workspaceID, powerUserID))
+			entries = append(entries, ConvertMCPServerCatalogEntryWithWorkspace(entry, workspaceID, powerUserID, h.serverURL))
 		}
 		return req.Write(types.MCPServerCatalogEntryList{Items: entries})
 	}
@@ -237,7 +237,7 @@ func (h *MCPCatalogHandler) ListEntries(req api.Context) error {
 			if !req.UserIsAdmin() && entryRequiresStaticOAuthCreds(entry) {
 				continue
 			}
-			entries = append(entries, ConvertMCPServerCatalogEntryWithWorkspace(entry, workspaceID, powerUserID))
+			entries = append(entries, ConvertMCPServerCatalogEntryWithWorkspace(entry, workspaceID, powerUserID, h.serverURL))
 		}
 	}
 
@@ -278,10 +278,10 @@ func (h *MCPCatalogHandler) GetEntry(req api.Context) error {
 		if err := req.Get(&workspace, workspaceID); err != nil {
 			return fmt.Errorf("failed to get workspace for powerUserId: %w", err)
 		}
-		return req.Write(ConvertMCPServerCatalogEntryWithWorkspace(entry, workspaceID, workspace.Spec.UserID))
+		return req.Write(ConvertMCPServerCatalogEntryWithWorkspace(entry, workspaceID, workspace.Spec.UserID, h.serverURL))
 	}
 
-	return req.Write(ConvertMCPServerCatalogEntry(entry))
+	return req.Write(ConvertMCPServerCatalogEntry(entry, h.serverURL))
 }
 
 // CreateEntry creates a new entry for a catalog or workspace.
@@ -352,7 +352,7 @@ func (h *MCPCatalogHandler) CreateEntry(req api.Context) error {
 		return fmt.Errorf("failed to create entry: %w", err)
 	}
 
-	return req.Write(ConvertMCPServerCatalogEntry(entry))
+	return req.Write(ConvertMCPServerCatalogEntry(entry, h.serverURL))
 }
 
 func (h *MCPCatalogHandler) UpdateEntry(req api.Context) error {
@@ -415,7 +415,7 @@ func (h *MCPCatalogHandler) UpdateEntry(req api.Context) error {
 		return fmt.Errorf("failed to update entry: %w", err)
 	}
 
-	return req.Write(ConvertMCPServerCatalogEntry(entry))
+	return req.Write(ConvertMCPServerCatalogEntry(entry, h.serverURL))
 }
 
 func (h *MCPCatalogHandler) DeleteEntry(req api.Context) error {
@@ -852,7 +852,7 @@ func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
 	entry.Spec.Manifest.ToolPreview = toolPreviews
 	if dryRun {
 		// Don't update the entry, just return the entry with the new tool set
-		return req.Write(ConvertMCPServerCatalogEntry(entry))
+		return req.Write(ConvertMCPServerCatalogEntry(entry, h.serverURL))
 	}
 
 	if err := req.Update(&entry); err != nil {
@@ -866,7 +866,7 @@ func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
 	}
 
 	// Return the updated catalog entry
-	return req.Write(ConvertMCPServerCatalogEntry(entry))
+	return req.Write(ConvertMCPServerCatalogEntry(entry, h.serverURL))
 }
 
 func (h *MCPCatalogHandler) generateCompositeToolPreviews(req api.Context, entry v1.MCPServerCatalogEntry, dryRun bool) error {
@@ -988,7 +988,7 @@ func (h *MCPCatalogHandler) generateCompositeToolPreviews(req api.Context, entry
 	entry.Spec.Manifest.ToolPreview = compositeToolPreviews
 	if dryRun {
 		// Don't update the entry, just return the entry with the new tool set
-		return req.Write(ConvertMCPServerCatalogEntry(entry))
+		return req.Write(ConvertMCPServerCatalogEntry(entry, h.serverURL))
 	}
 
 	if err := req.Update(&entry); err != nil {
@@ -1002,7 +1002,7 @@ func (h *MCPCatalogHandler) generateCompositeToolPreviews(req api.Context, entry
 	}
 
 	// Return the updated catalog entry
-	return req.Write(ConvertMCPServerCatalogEntry(entry))
+	return req.Write(ConvertMCPServerCatalogEntry(entry, h.serverURL))
 }
 
 func (h *MCPCatalogHandler) GenerateToolPreviewsOAuthURL(req api.Context) error {
@@ -1203,7 +1203,7 @@ func (h *MCPCatalogHandler) GenerateComponentToolPreviews(req api.Context) error
 	}
 	entry.Spec.Manifest.ToolPreview = toolPreviews
 
-	return req.Write(ConvertMCPServerCatalogEntry(entry))
+	return req.Write(ConvertMCPServerCatalogEntry(entry, h.serverURL))
 }
 
 // GenerateComponentToolPreviewsOAuthURL returns an OAuth URL for a single component of a
@@ -1748,7 +1748,7 @@ func (h *MCPCatalogHandler) RefreshCompositeComponents(req api.Context) error {
 		return fmt.Errorf("failed to update entry: %w", err)
 	}
 
-	return req.Write(ConvertMCPServerCatalogEntry(entry))
+	return req.Write(ConvertMCPServerCatalogEntry(entry, h.serverURL))
 }
 
 // entryRequiresStaticOAuthCreds checks if a catalog entry requires OAuth credentials

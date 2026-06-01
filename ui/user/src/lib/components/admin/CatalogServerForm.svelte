@@ -22,6 +22,7 @@
 	} from '$lib/services/user/mcp';
 	import { profile, version } from '$lib/stores';
 	import MarkdownInput from '../MarkdownInput.svelte';
+	import Select from '../Select.svelte';
 	import CompositeRuntimeForm from '../mcp/CompositeRuntimeForm.svelte';
 	import ContainerizedRuntimeForm from '../mcp/ContainerizedRuntimeForm.svelte';
 	import CustomConfigurationForm from '../mcp/CustomConfigurationForm.svelte';
@@ -43,11 +44,7 @@
 		type?: LaunchServerType;
 		readonly?: boolean;
 		onCancel?: () => void;
-		onSubmit?: (
-			data: MCPCatalogEntry | MCPCatalogServer,
-			type: LaunchServerType,
-			message?: string
-		) => void;
+		onSubmit?: (data: MCPCatalogEntry | MCPCatalogServer, message?: string) => void;
 		hideTitle?: boolean;
 		readonlyMessage?: Snippet;
 		onConfigureOAuth?: () => void;
@@ -64,7 +61,7 @@
 				? 'composite'
 				: catalogEntry.manifest.runtime === 'remote'
 					? 'remote'
-					: 'single';
+					: 'hosted';
 		}
 	}
 
@@ -73,7 +70,7 @@
 		entity = 'catalog',
 		entry,
 		readonly,
-		type: newType = 'single',
+		type: newType = 'hosted',
 		onCancel,
 		onSubmit,
 		readonlyMessage,
@@ -151,8 +148,10 @@
 				description: '',
 				env: [],
 				icon: '',
+				serverUserType: 'multiUser',
 				runtime: 'npx' as Runtime,
-				resources: type !== 'remote' ? defaultResourceRuntimeConfig() : undefined,
+				resources:
+					type !== 'remote' && type !== 'composite' ? defaultResourceRuntimeConfig() : undefined,
 				npxConfig: defaultNpxConfig(),
 				uvxConfig: undefined,
 				containerizedConfig: undefined,
@@ -160,7 +159,7 @@
 				remoteServerConfig: undefined,
 				compositeConfig: undefined,
 				compositeServerConfig: undefined,
-				multiUserConfig: type === 'multi' ? { userDefinedHeaders: [] } : undefined
+				multiUserConfig: { userDefinedHeaders: [] }
 			};
 		}
 
@@ -174,6 +173,7 @@
 				icon: manifest.icon ?? '',
 				name: manifest.name ?? '',
 				description: manifest.description ?? '',
+				serverUserType: 'multiUser',
 				env: manifest.env?.map((env) => ({ ...env, value: '' })) ?? [],
 				runtime: manifest.runtime,
 				resources: normalizeResourceRuntimeConfig(manifest.resources),
@@ -223,8 +223,12 @@
 				icon: manifest.icon ?? '',
 				env: manifest.env?.map((env) => ({ ...env, value: '' })) ?? [],
 				description: manifest.description ?? '',
+				serverUserType: manifest.serverUserType,
 				runtime: manifest.runtime,
-				resources: normalizeResourceRuntimeConfig(manifest.resources),
+				resources:
+					manifest.runtime !== 'composite'
+						? normalizeResourceRuntimeConfig(manifest.resources)
+						: undefined,
 				npxConfig: undefined,
 				uvxConfig: undefined,
 				containerizedConfig: undefined,
@@ -312,7 +316,7 @@
 		formData.remoteConfig = undefined;
 		formData.remoteServerConfig = undefined;
 
-		if (newRuntime === 'remote') {
+		if (newRuntime === 'remote' || newRuntime === 'composite') {
 			formData.resources = undefined;
 		} else if (!formData.resources) {
 			formData.resources = defaultResourceRuntimeConfig();
@@ -356,7 +360,9 @@
 				: {};
 
 		const resources =
-			baseData.runtime !== 'remote' ? sanitizeResourceRuntimeConfig(baseData.resources) : undefined;
+			baseData.runtime !== 'remote' && baseData.runtime !== 'composite'
+				? sanitizeResourceRuntimeConfig(baseData.resources)
+				: undefined;
 
 		// Build base manifest structure
 		const manifest: MCPCatalogEntryServerManifest = {
@@ -365,7 +371,7 @@
 			icon: baseData.icon,
 			env: baseData.env,
 			runtime: baseData.runtime,
-			serverUserType: type === 'multi' ? 'multiUser' : 'singleUser',
+			serverUserType: baseData.serverUserType,
 			...(resources ? { resources } : {}),
 			...convertCategoriesToMetadata(categories)
 		};
@@ -547,7 +553,7 @@
 		loading = true;
 		try {
 			const handleFns = {
-				single: handleEntrySubmit,
+				hosted: handleEntrySubmit,
 				multi: handleServerSubmit,
 				remote: handleEntrySubmit,
 				composite: handleEntrySubmit
@@ -558,7 +564,7 @@
 			// Check if OAuth config is needed - redirect to detail page first, then show modal there
 			if (!entry && type === 'remote' && formData.remoteConfig?.staticOAuthRequired) {
 				loading = false;
-				onSubmit?.(entryResponse, type, 'requires-oauth-config');
+				onSubmit?.(entryResponse, 'requires-oauth-config');
 				return;
 			}
 
@@ -577,7 +583,7 @@
 			} else {
 				loading = false;
 				formData = convertToFormData(entryResponse);
-				onSubmit?.(entryResponse, type, 'MCP server updated successfully!');
+				onSubmit?.(entryResponse, 'Catalog entry updated successfully!');
 			}
 		} catch (error) {
 			loading = false;
@@ -630,7 +636,7 @@
 			<MarkdownInput
 				bind:value={formData.description}
 				disabled={readonly}
-				placeholder="Provide details about the MCP server."
+				placeholder="Provide details about the MCP catalog entry."
 			/>
 		</div>
 
@@ -646,6 +652,51 @@
 		</div>
 	</div>
 </div>
+
+{#if type === 'hosted'}
+	<div class="paper p-4">
+		<h4 class="text-sm font-semibold">Server Tenancy</h4>
+
+		<div class="notification-info">
+			<div class="flex items-center gap-2">
+				<Info class="size-4" />
+				<div>
+					<p class="text-xs font-light">
+						Once the server tenancy has been set, it cannot be changed. In order to change the
+						configuration, you must delete the server and create a new one.
+					</p>
+				</div>
+			</div>
+		</div>
+
+		<div class="flex items-center gap-4">
+			<label for="runtime-selector" class="text-sm font-light">Type</label>
+			<div class="w-full">
+				<Select
+					id="server-configuration-selector"
+					class="bg-base-200 dark:bg-base-100 dark:border-base-400 flex-1 border border-transparent shadow-none"
+					options={[
+						{ id: 'multiUser', label: 'Multi-tenant' },
+						{ id: 'singleUser', label: 'Single-tenant' }
+					]}
+					selected={formData.serverUserType}
+					onSelect={(option) => {
+						formData.serverUserType = option.id as 'singleUser' | 'multiUser';
+						formData.multiUserConfig =
+							option.id === 'multiUser' ? { userDefinedHeaders: [] } : undefined;
+					}}
+					disabled={readonly || !!entry?.id}
+				/>
+			</div>
+		</div>
+
+		<p class="text-muted-content text-xs">
+			Set tenancy to <i>Single-tenant</i> if each user should connect to their own private instance
+			of the server. <br />
+			<i>Multi-tenancy</i> has all users connect to the same server instance.
+		</p>
+	</div>
+{/if}
 
 <!-- Runtime Selection -->
 <RuntimeSelector
@@ -700,7 +751,7 @@
 				<CustomConfigurationForm
 					bind:config={formData.env}
 					{readonly}
-					{type}
+					serverUserType={formData.serverUserType}
 					{secretBoundHeaders}
 				/>
 			{/if}
@@ -716,16 +767,21 @@
 	/>
 {/if}
 
-{#if version.current.engine === 'kubernetes' && formData.runtime !== 'remote' && formData.resources}
+{#if version.current.engine === 'kubernetes' && !['remote', 'composite'].includes(formData.runtime) && formData.resources}
 	<ResourceRuntimeForm bind:config={formData.resources} {readonly} />
 {/if}
 
 <!-- Environment Variables Section -->
 {#if !['remote', 'composite'].includes(formData.runtime)}
-	<CustomConfigurationForm bind:config={formData.env} {readonly} {type} {secretBoundHeaders} />
+	<CustomConfigurationForm
+		bind:config={formData.env}
+		{readonly}
+		serverUserType={formData.serverUserType}
+		{secretBoundHeaders}
+	/>
 {/if}
 
-{#if type === 'multi' && formData.multiUserConfig}
+{#if formData.serverUserType === 'multiUser' && formData.multiUserConfig}
 	<MultiUserHeadersForm bind:headers={formData.multiUserConfig.userDefinedHeaders} {readonly} />
 {/if}
 

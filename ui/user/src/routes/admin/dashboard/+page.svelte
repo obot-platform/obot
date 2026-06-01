@@ -5,7 +5,7 @@
 	import DeviceScanDonutCard from '$lib/components/admin/device-scan/DeviceScanDonutCard.svelte';
 	import DeviceScanTimelineCard from '$lib/components/admin/device-scan/DeviceScanTimelineCard.svelte';
 	import { buildDeviceScanTopBuckets } from '$lib/components/admin/device-scan/deviceScanTopBuckets';
-	import DonutGraph, { type DonutDatum } from '$lib/components/graph/DonutGraph.svelte';
+	import DonutGraph from '$lib/components/graph/DonutGraph.svelte';
 	import HorizontalBarGraph from '$lib/components/graph/HorizontalBarGraph.svelte';
 	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 	import { formatNumber } from '$lib/format';
@@ -23,20 +23,22 @@
 		type OrgUser,
 		type TotalTokenUsage
 	} from '$lib/services';
-	import { errors, mcpServersAndEntries, profile, version } from '$lib/stores';
-	import { ENTRY_TYPE_GRAPH_META, entryTypeDonutLegend } from './constants';
-	import type { AvgToolCallResponseTimeRow, TopServerUsageRow, TopToolCallRow } from './types';
+	import type {
+		AvgToolCallResponseTimeRow,
+		TopServerUsageRow,
+		TopToolCallRow
+	} from '$lib/services/dashboard/types';
 	import {
 		avgToolCallResponseTimeFromStats,
-		catalogServerEntryKind,
+		compileServerAndEntries,
 		deploymentStatusGridColClass,
 		deploymentStatusGridShowBorderRight,
-		deploymentStatusSortKey,
-		mixHex,
-		normalizeServerDeploymentStatus,
 		topServersFromStats,
 		topToolCallsFromStats
-	} from './utils';
+	} from '$lib/services/dashboard/utils';
+	import { getMCPDisplayName } from '$lib/services/user/mcp';
+	import { errors, mcpServersAndEntries, profile, version } from '$lib/stores';
+	import { entryTypeDonutLegend } from '../../../lib/services/dashboard/constants';
 	import { isWithinInterval, subMonths } from 'date-fns';
 	import {
 		Activity,
@@ -93,125 +95,9 @@
 				]
 	);
 
-	function compileServerAndEntries(data: MCPCatalogServer[], entries: MCPCatalogEntry[]) {
-		const entriesMap = new Map(entries.map((e) => [e.id, e]));
-		const catalogEntriesCount = data.reduce<
-			Record<
-				string,
-				{
-					entry?: MCPCatalogEntry | undefined;
-					server?: MCPCatalogServer | undefined;
-					count: number;
-					id: string;
-				}
-			>
-		>((acc, server) => {
-			if (!server.catalogEntryID) {
-				acc[server.id] = {
-					server,
-					count: 1,
-					id: server.id
-				};
-				return acc;
-			}
-			if (!acc[server.catalogEntryID]) {
-				const entry = entriesMap.get(server.catalogEntryID);
-				if (!entry) return acc;
-				acc[server.catalogEntryID] = {
-					entry,
-					count: 0,
-					id: entry.id
-				};
-			}
-			acc[server.catalogEntryID].count++;
-			return acc;
-		}, {});
-		const sortByCountDescending = Object.values(catalogEntriesCount).sort(
-			(a, b) => b.count - a.count
-		);
-
-		const entryTypes = data.reduce(
-			(acc, server) => {
-				if (!server.catalogEntryID) acc.multi++;
-				else if (server.manifest.runtime === 'composite') acc.composite++;
-				else if (server.manifest.runtime === 'remote') acc.remote++;
-				else acc.single++;
-				return acc;
-			},
-			{
-				multi: 0,
-				single: 0,
-				remote: 0,
-				composite: 0
-			}
-		);
-
-		let graphData: DonutDatum[] = [];
-		let deploymentStatusBreakdown: { status: string; count: number }[] = [];
-		if (doesSupportK8sUpdates) {
-			const overallByStatus: Record<string, number> = {};
-			for (const server of data) {
-				const s = normalizeServerDeploymentStatus(server);
-				overallByStatus[s] = (overallByStatus[s] ?? 0) + 1;
-			}
-			deploymentStatusBreakdown = Object.entries(overallByStatus)
-				.filter(([, count]) => count > 0)
-				.sort(([a], [b]) => {
-					const d = deploymentStatusSortKey(a) - deploymentStatusSortKey(b);
-					return d !== 0 ? d : a.localeCompare(b);
-				})
-				.map(([status, count]) => ({ status, count }));
-
-			const countsByKindAndStatus: Record<string, number> = {};
-			for (const server of data) {
-				const kind = catalogServerEntryKind(server);
-				const status = normalizeServerDeploymentStatus(server);
-				const key = `${kind}\0${status}`;
-				countsByKindAndStatus[key] = (countsByKindAndStatus[key] ?? 0) + 1;
-			}
-
-			for (const { key: kind, label: typeLabel, baseColor } of ENTRY_TYPE_GRAPH_META) {
-				const prefix = `${kind}\0`;
-				const statusEntries = Object.entries(countsByKindAndStatus)
-					.filter(([k]) => k.startsWith(prefix))
-					.map(([k, value]) => [k.slice(prefix.length), value] as [string, number])
-					.filter(([, value]) => value > 0)
-					.sort(([a], [b]) => {
-						const d = deploymentStatusSortKey(a) - deploymentStatusSortKey(b);
-						return d !== 0 ? d : a.localeCompare(b);
-					});
-
-				const n = statusEntries.length;
-				const maxTint = 0.25;
-				statusEntries.forEach(([status, value], i) => {
-					const t = n <= 1 ? 0 : i / (n - 1);
-					graphData.push({
-						label: `${typeLabel} · ${status}`,
-						value,
-						color: mixHex(baseColor, '#ffffff', t * maxTint),
-						groupKey: kind
-					});
-				});
-			}
-		} else {
-			graphData = ENTRY_TYPE_GRAPH_META.map(({ key, label, baseColor }) => ({
-				label,
-				value: entryTypes[key],
-				color: baseColor
-			}));
-		}
-
-		return {
-			graphData,
-			popularServers: sortByCountDescending.filter((s) => s.count > 0).slice(0, 5),
-			totalServers: data.length,
-			deploymentStatusBreakdown
-		};
-	}
-
 	const serverAndEntries = $derived(mcpServersAndEntries.current);
 	const { graphData, popularServers, totalServers, deploymentStatusBreakdown } = $derived(
-		compileServerAndEntries(serversData, serverAndEntries.entries)
+		compileServerAndEntries(serversData, serverAndEntries.entries, doesSupportK8sUpdates)
 	);
 
 	let isBootStrapUser = $derived(profile.current.isBootstrapUser?.() ?? false);
@@ -272,16 +158,16 @@
 
 	function getServerUrl(server: MCPCatalogServer) {
 		if (server.powerUserWorkspaceID) {
-			return `/admin/mcp-servers/w/${server.powerUserWorkspaceID}/s/${server.id}?view=server-instances`;
+			return `/admin/mcp-catalog/w/${server.powerUserWorkspaceID}/s/${server.id}?view=server-instances`;
 		}
-		return `/admin/mcp-servers/s/${server.id}?view=server-instances`;
+		return `/admin/mcp-catalog/s/${server.id}?view=server-instances`;
 	}
 
 	function getEntryUrl(entry: MCPCatalogEntry) {
 		if (entry.powerUserWorkspaceID) {
-			return `/admin/mcp-servers/w/${entry.powerUserWorkspaceID}/c/${entry.id}?view=server-instances`;
+			return `/admin/mcp-catalog/w/${entry.powerUserWorkspaceID}/c/${entry.id}?view=server-instances`;
 		}
-		return `/admin/mcp-servers/c/${entry.id}?view=server-instances`;
+		return `/admin/mcp-catalog/c/${entry.id}?view=server-instances`;
 	}
 
 	const platformStatTiles = $derived([
@@ -417,7 +303,7 @@
 			</div>
 			{#if hasDeviceScans}
 				<div
-					class="gap-0 paper min-w-0 p-0 col-span-12 @3xl:col-span-7"
+					class="gap-0 paper min-w-0 p-0 col-span-12 @3xl:col-span-7 h-full"
 					in:fly={{ x: 100, duration: 150 }}
 				>
 					<div class="col-span-12 border-b border-base-300 px-4 py-2">
@@ -518,7 +404,7 @@
 							emptyMsg="No MCP servers observed yet."
 						/>
 					</div>
-					<div class="h-80">
+					<div class="h-80 grow">
 						<DeviceScanTimelineCard
 							rangeStart={start}
 							rangeEnd={end}
@@ -631,7 +517,7 @@
 			{#if !isBootStrapUser && totalServers > 0}
 				<div class="flex justify-end">
 					<a
-						href={resolve('/admin/mcp-servers?view=deployments')}
+						href={resolve('/admin/mcp-deployments')}
 						class="text-[11px] transition-colors self-end translate-x-2 duration-200 bg-base-400/50 hover:bg-base-400 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
 					>
 						See More <ChevronRight class="size-3" />
@@ -658,13 +544,11 @@
 				{/each}
 			</div>
 		{:else if popularServers.length > 0}
-			<div class="pt-2 flex flex-col gap-2">
+			<div class="pt-2 flex flex-col gap-2 -ml-2 w-[calc(100%+1rem)]">
 				{#each popularServers as info (info.id)}
 					{@const icon = 'server' in info ? info.server?.manifest.icon : info.entry?.manifest.icon}
 					{@const displayName =
-						'server' in info
-							? (info.server?.alias ?? info.server?.manifest.name)
-							: info.entry?.manifest.name}
+						'server' in info ? getMCPDisplayName(info.server) : info.entry?.manifest.name}
 					{@const description =
 						'server' in info ? info.server?.manifest.description : info.entry?.manifest.description}
 					{@const url = info.server
@@ -673,7 +557,7 @@
 							? getEntryUrl(info.entry)
 							: undefined}
 					<a
-						class="flex gap-2 items-center dark:hover:bg-base-300 hover:bg-base-200 transition-colors duration-150 -mx-2 px-2 py-1 rounded-md"
+						class="flex gap-2 w-full items-center dark:hover:bg-base-300 hover:bg-base-200 transition-colors duration-150 px-2 py-1 rounded-md"
 						href={url ? resolve(url as `/${string}`) : undefined}
 					>
 						{#if icon}
@@ -685,7 +569,7 @@
 						{:else}
 							<Server class="size-9 opacity-65 bg-base-200 rounded-md p-1" />
 						{/if}
-						<div class="flex flex-col gap-0.5 max-w-[calc(100%-4.5rem)]">
+						<div class="flex flex-col gap-0.5 max-w-[calc(100%-4.5rem)] grow">
 							<p class="text-sm font-medium">{displayName}</p>
 							{#if description}
 								<p class="text-xs truncate line-clamp-1 break-all font-light">
@@ -708,7 +592,7 @@
 		<div class="flex grow"></div>
 		{#if popularServers.length > 0 && !isBootStrapUser}
 			<a
-				href={resolve('/admin/mcp-servers')}
+				href={resolve('/admin/mcp-catalog')}
 				class="justify-end self-end text-[11px] translate-x-2 transition-colors duration-200 bg-base-400/50 hover:bg-base-400 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
 			>
 				See More <ChevronRight class="size-3" />

@@ -164,6 +164,9 @@ type MCPServerCatalogEntry struct {
 	PowerUserID               string                        `json:"powerUserID,omitempty"`
 	NeedsUpdate               bool                          `json:"needsUpdate,omitempty"`
 	OAuthCredentialConfigured bool                          `json:"oauthCredentialConfigured,omitempty"`
+
+	// ConnectURL is the default URL clients can use to connect before configuring a personal server.
+	ConnectURL string `json:"connectURL,omitempty"`
 }
 
 type MCPResourceRequirements struct {
@@ -308,6 +311,7 @@ type MCPServer struct {
 	PowerUserWorkspaceID    string         `json:"powerUserWorkspaceID"`
 	MCPCatalogID            string         `json:"mcpCatalogID,omitempty"`
 	ServerUserType          ServerUserType `json:"serverUserType,omitempty"`
+	// ConnectURL is the URL clients can use to connect to this MCP server.
 	ConnectURL              string         `json:"connectURL,omitempty"`
 	NanobotAgentID          string         `json:"nanobotAgentID,omitempty"`
 

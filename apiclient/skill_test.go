@@ -62,6 +62,22 @@ func TestGetSkillEscapesIDAndDecodesResponse(t *testing.T) {
 	require.Equal(t, "reviewer", skill.Name)
 }
 
+func TestPreviewSkillReturnsRawBytes(t *testing.T) {
+	want := []byte("---\nname: reviewer\ndescription: Preview\n---\n")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, http.MethodGet, r.Method)
+		require.Equal(t, "/skills/sk1/preview", r.URL.Path)
+		w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
+		_, err := w.Write(want)
+		require.NoError(t, err)
+	}))
+	defer server.Close()
+
+	got, err := (&Client{BaseURL: server.URL}).PreviewSkill(context.Background(), "sk1")
+	require.NoError(t, err)
+	require.Equal(t, want, got)
+}
+
 func TestDownloadSkillReturnsRawBytes(t *testing.T) {
 	want := []byte("zip bytes")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

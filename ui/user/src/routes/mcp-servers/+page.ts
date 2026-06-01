@@ -1,15 +1,10 @@
 import { handleRouteError } from '$lib/errors';
 import { UserService } from '$lib/services';
 import type { PageLoad } from './$types';
-import { redirect } from '@sveltejs/kit';
 
 export const load: PageLoad = async ({ fetch, parent }) => {
 	const { profile } = await parent();
 	let workspace;
-
-	if (profile?.hasAdminAccess?.()) {
-		throw redirect(302, '/admin/mcp-servers');
-	}
 
 	try {
 		const workspaces = await UserService.listWorkspaces({ fetch });
