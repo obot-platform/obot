@@ -250,6 +250,24 @@ func TestCheckUI_V2AdminAccess(t *testing.T) {
 			},
 			expected: false,
 		},
+		{
+			name: "/v0.1 is rejected by UI fallback",
+			path: "/v0.1",
+			user: &user.DefaultInfo{
+				Name:   "anonymous",
+				Groups: []string{UnauthenticatedGroup},
+			},
+			expected: false,
+		},
+		{
+			name: "/v0.1/servers is rejected by UI fallback",
+			path: "/v0.1/servers",
+			user: &user.DefaultInfo{
+				Name:   "anonymous",
+				Groups: []string{UnauthenticatedGroup},
+			},
+			expected: false,
+		},
 	}
 
 	for _, tt := range tests {
