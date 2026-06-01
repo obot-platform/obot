@@ -78,9 +78,6 @@ import type {
 	SystemMCPServerManifest,
 	DeviceMCPServerOccurrenceResponse,
 	DeviceMCPServerDetail,
-	DeviceScan,
-	DeviceScanListFilters,
-	DeviceScanResponse,
 	DeviceScanStats,
 	DeviceSkillListFilters,
 	DeviceSkillOccurrenceResponse,
@@ -317,24 +314,6 @@ export async function listDeviceMCPServerOccurrences(
 		`/devices/mcp-servers/${encodeURIComponent(configHash)}/occurrences${queryString ? `?${queryString}` : ''}`,
 		opts
 	)) as DeviceMCPServerOccurrenceResponse;
-}
-
-export async function listDeviceScans(
-	filters?: DeviceScanListFilters,
-	opts?: { fetch?: Fetcher }
-): Promise<DeviceScanResponse> {
-	const queryString = buildQueryString(filters ?? {});
-	return (await doGet(
-		`/devices/scans${queryString ? `?${queryString}` : ''}`,
-		opts
-	)) as DeviceScanResponse;
-}
-
-export async function getDeviceScan(
-	id: number | string,
-	opts?: { fetch?: Fetcher }
-): Promise<DeviceScan> {
-	return (await doGet(`/devices/scans/${id}`, opts)) as DeviceScan;
 }
 
 export async function deleteDeviceScan(id: number | string): Promise<void> {

@@ -4,7 +4,8 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { deriveDeviceScope, formatDeviceClient } from '$lib/format.js';
-	import type { DeviceScanSkill } from '$lib/services/admin/types';
+	import type { DeviceScanSkill } from '$lib/services/user/types';
+	import { profile } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import { findParentPlugin, formatBytes, lookupFiles } from '../../_shared/files';
 	import { fly } from 'svelte/transition';
@@ -13,7 +14,10 @@
 	let scan = $derived(data?.scan);
 	let id = $derived(Number(page.params.id));
 	let skill = $derived<DeviceScanSkill | undefined>(scan?.skills?.find((s) => s.id === id));
-	let backHref = $derived(`/admin/devices/${page.params.device_id}/scans/${page.params.scan_id}`);
+	let urlPrefix = $derived((profile.current.hasAdminAccess?.() ? '/admin' : '') as `/${string}`);
+	let backHref = $derived(
+		`${urlPrefix}/devices/${page.params.device_id}/scans/${page.params.scan_id}`
+	);
 
 	let files = $derived(lookupFiles(scan?.files, skill?.files));
 	let parentPlugin = $derived(findParentPlugin(scan, skill?.file));
@@ -83,7 +87,7 @@
 							<a
 								class="text-link text-sm"
 								href={resolve(
-									`/admin/devices/${page.params.device_id}/scans/${page.params.scan_id}/plugins/${parentPlugin.id}`
+									`${urlPrefix}/devices/${page.params.device_id}/scans/${page.params.scan_id}/plugins/${parentPlugin.id}`
 								)}
 							>
 								{parentPlugin.name}

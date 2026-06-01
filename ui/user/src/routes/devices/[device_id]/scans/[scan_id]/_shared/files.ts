@@ -1,4 +1,4 @@
-import type { DeviceScan, DeviceScanFile } from '$lib/services/admin/types';
+import type { DeviceScan, DeviceScanFile } from '$lib/services/user/types';
 
 export function lookupFiles(
 	scanFiles: DeviceScanFile[] | undefined,

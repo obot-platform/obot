@@ -3,7 +3,8 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { deriveDeviceScope, formatDeviceClient } from '$lib/format.js';
-	import type { DeviceScanPlugin } from '$lib/services/admin/types';
+	import type { DeviceScanPlugin } from '$lib/services/user/types';
+	import { profile } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import { formatBytes, lookupFiles } from '../../_shared/files';
 	import { fly } from 'svelte/transition';
@@ -12,7 +13,11 @@
 	let scan = $derived(data?.scan);
 	let id = $derived(Number(page.params.id));
 	let plugin = $derived<DeviceScanPlugin | undefined>(scan?.plugins?.find((p) => p.id === id));
-	let backHref = $derived(`/admin/devices/${page.params.device_id}/scans/${page.params.scan_id}`);
+
+	let urlPrefix = $derived((profile.current.hasAdminAccess?.() ? '/admin' : '') as `/${string}`);
+	let backHref = $derived(
+		`${urlPrefix}/devices/${page.params.device_id}/scans/${page.params.scan_id}`
+	);
 
 	let files = $derived(lookupFiles(scan?.files, plugin?.files));
 	let scope = $derived(deriveDeviceScope(plugin?.projectPath));

@@ -29,6 +29,9 @@ import {
 	type AuditLogUsageStats,
 	type BootstrapStatus,
 	type DefaultModelAlias,
+	type DeviceScan,
+	type DeviceScanListFilters,
+	type DeviceScanResponse,
 	type ImageResponse,
 	type MCPCatalogServer,
 	type MCPServerInstance,
@@ -245,6 +248,26 @@ export async function listDefaultModelAliases(opts?: {
 		opts
 	)) as ItemsResponse<DefaultModelAlias>;
 	return response.items ?? [];
+}
+
+// Device scans
+
+export async function getDeviceScan(
+	id: number | string,
+	opts?: { fetch?: Fetcher }
+): Promise<DeviceScan> {
+	return (await doGet(`/devices/scans/${id}`, opts)) as DeviceScan;
+}
+
+export async function listDeviceScans(
+	filters?: DeviceScanListFilters,
+	opts?: { fetch?: Fetcher }
+): Promise<DeviceScanResponse> {
+	const queryString = buildQueryString(filters ?? {});
+	return (await doGet(
+		`/devices/scans${queryString ? `?${queryString}` : ''}`,
+		opts
+	)) as DeviceScanResponse;
 }
 
 // Images

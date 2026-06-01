@@ -24,6 +24,14 @@ func NewDeviceScansHandler() *DeviceScansHandler {
 	return &DeviceScansHandler{}
 }
 
+// userIsDeviceScanReader reports whether the caller is
+// allowed to read device scans without being clamped to their own
+// SubmittedBy. Admin, owner, and auditor see all scans; everyone
+// else sees only scans they submitted.
+func userIsDeviceScanReader(req api.Context) bool {
+	return req.UserIsAdmin() || req.UserIsAuditor()
+}
+
 // Submit handles POST /api/devices/scans. The caller's identity is
 // recorded as SubmittedBy; ID and ReceivedAt are server-assigned.
 func (*DeviceScansHandler) Submit(req api.Context) error {
@@ -43,9 +51,14 @@ func (*DeviceScansHandler) Submit(req api.Context) error {
 }
 
 // List handles GET /api/devices/scans. Optional submitted_by / device_id
-// filters narrow the result.
+// filters narrow the result. Non-privileged callers always see only
+// their own scans -- any client-supplied submitted_by filter is
+// overridden so a caller cannot widen the result set to other users.
 func (*DeviceScansHandler) List(req api.Context) error {
 	opts := parseDeviceScanListOpts(req.URL.Query())
+	if !userIsDeviceScanReader(req) {
+		opts.SubmittedBy = []string{req.User.GetUID()}
+	}
 	if opts.Limit == 0 {
 		opts.Limit = 100
 	}
@@ -69,6 +82,8 @@ func (*DeviceScansHandler) List(req api.Context) error {
 
 // Get handles GET /api/devices/scans/{scan_id}. Returns the scan
 // envelope plus all child rows (MCP servers, skills, plugins, files).
+// For non-privileged callers, scans submitted by another user return
+// NotFound.
 func (*DeviceScansHandler) Get(req api.Context) error {
 	id, err := parseDeviceScanID(req.PathValue("scan_id"))
 	if err != nil {
@@ -80,6 +95,9 @@ func (*DeviceScansHandler) Get(req api.Context) error {
 			return types.NewErrNotFound("device scan %d not found", id)
 		}
 		return err
+	}
+	if !userIsDeviceScanReader(req) && scan.SubmittedBy != req.User.GetUID() {
+		return types.NewErrNotFound("device scan %d not found", id)
 	}
 	return req.Write(gtypes.ConvertDeviceScan(*scan))
 }
