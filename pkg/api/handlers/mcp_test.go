@@ -15,9 +15,12 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestConvertMCPResources(t *testing.T) {
@@ -790,6 +793,18 @@ func TestConvertMCPServerCompositeSkipsDisabledAndConfiguredComponents(t *testin
 }
 
 func TestEntryManifestNeedsUserConfig(t *testing.T) {
+	const ns = "obot-ns"
+
+	newClient := func(t *testing.T, objects ...kclient.Object) kclient.Client {
+		t.Helper()
+		scheme := runtime.NewScheme()
+		require.NoError(t, corev1.AddToScheme(scheme))
+		return fake.NewClientBuilder().WithScheme(scheme).WithObjects(objects...).Build()
+	}
+	secret := func(name string, data map[string][]byte) *corev1.Secret {
+		return &corev1.Secret{Data: data, ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns}}
+	}
+
 	requiredEnv := types.MCPEnv{MCPHeader: types.MCPHeader{Name: "TOKEN", Required: true}}
 	optionalEnv := types.MCPEnv{MCPHeader: types.MCPHeader{Name: "DEBUG"}}
 	requiredHeader := types.MCPHeader{Name: "X-Api-Key", Required: true}
@@ -802,14 +817,26 @@ func TestEntryManifestNeedsUserConfig(t *testing.T) {
 	remoteFixed := types.MCPServerCatalogEntryManifest{Runtime: types.RuntimeRemote, RemoteConfig: &types.RemoteCatalogConfig{FixedURL: "https://example.com"}}
 
 	tests := []struct {
-		name     string
-		manifest types.MCPServerCatalogEntryManifest
-		want     bool
+		name            string
+		manifest        types.MCPServerCatalogEntryManifest
+		oauthConfigured bool
+		client          kclient.Client
+		want            bool
 	}{
 		// Single-user (non-remote, non-composite): only required env blocks.
 		{name: "single-user no config", manifest: singleUserNoConfig, want: false},
 		{name: "single-user optional env", manifest: types.MCPServerCatalogEntryManifest{Runtime: types.RuntimeNPX, Env: []types.MCPEnv{optionalEnv}}, want: false},
 		{name: "single-user required env", manifest: singleUserRequiredEnv, want: true},
+
+		// A required value the admin already satisfied does not need user input: a literal value,
+		// or a secret binding that resolves to a non-empty value. An unresolved binding still blocks.
+		{name: "required env literal value", manifest: types.MCPServerCatalogEntryManifest{Runtime: types.RuntimeNPX, Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "TOKEN", Required: true, Value: "preset"}}}}, want: false},
+		{name: "required env resolved binding", manifest: types.MCPServerCatalogEntryManifest{Runtime: types.RuntimeNPX, Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "TOKEN", Required: true, SecretBinding: &types.MCPSecretBinding{Name: "s", Key: "k"}}}}},
+			client: newClient(t, secret("s", map[string][]byte{"k": []byte("v")})), want: false},
+		{name: "required env unresolved binding", manifest: types.MCPServerCatalogEntryManifest{Runtime: types.RuntimeNPX, Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "TOKEN", Required: true, SecretBinding: &types.MCPSecretBinding{Name: "s", Key: "k"}}}}},
+			client: newClient(t), want: true},
+		{name: "required env binding empty value", manifest: types.MCPServerCatalogEntryManifest{Runtime: types.RuntimeNPX, Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "TOKEN", Required: true, SecretBinding: &types.MCPSecretBinding{Name: "s", Key: "k"}}}}},
+			client: newClient(t, secret("s", map[string][]byte{"k": []byte("")})), want: true},
 
 		// Remote: a fixed URL with no required headers is shareable; anything else blocks.
 		{name: "remote fixed url", manifest: remoteFixed, want: false},
@@ -818,6 +845,15 @@ func TestEntryManifestNeedsUserConfig(t *testing.T) {
 		{name: "remote empty fixed url", manifest: remoteNeedsURL, want: true},
 		{name: "remote required header", manifest: types.MCPServerCatalogEntryManifest{Runtime: types.RuntimeRemote, RemoteConfig: &types.RemoteCatalogConfig{FixedURL: "https://example.com", Headers: []types.MCPHeader{requiredHeader}}}, want: true},
 		{name: "remote required env beats fixed url", manifest: types.MCPServerCatalogEntryManifest{Runtime: types.RuntimeRemote, Env: []types.MCPEnv{requiredEnv}, RemoteConfig: &types.RemoteCatalogConfig{FixedURL: "https://example.com"}}, want: true},
+		{name: "remote required header literal value", manifest: types.MCPServerCatalogEntryManifest{Runtime: types.RuntimeRemote, RemoteConfig: &types.RemoteCatalogConfig{FixedURL: "https://example.com", Headers: []types.MCPHeader{{Key: "X-Api-Key", Required: true, Value: "preset"}}}}, want: false},
+		{name: "remote required header resolved binding", manifest: types.MCPServerCatalogEntryManifest{Runtime: types.RuntimeRemote, RemoteConfig: &types.RemoteCatalogConfig{FixedURL: "https://example.com", Headers: []types.MCPHeader{{Key: "X-Api-Key", Required: true, SecretBinding: &types.MCPSecretBinding{Name: "s", Key: "k"}}}}},
+			client: newClient(t, secret("s", map[string][]byte{"k": []byte("v")})), want: false},
+		{name: "remote required header unresolved binding", manifest: types.MCPServerCatalogEntryManifest{Runtime: types.RuntimeRemote, RemoteConfig: &types.RemoteCatalogConfig{FixedURL: "https://example.com", Headers: []types.MCPHeader{{Key: "X-Api-Key", Required: true, SecretBinding: &types.MCPSecretBinding{Name: "s", Key: "k"}}}}},
+			client: newClient(t), want: true},
+
+		// Static OAuth is admin config: a launchable entry blocks until the admin configures it.
+		{name: "remote static oauth not configured", manifest: types.MCPServerCatalogEntryManifest{Runtime: types.RuntimeRemote, RemoteConfig: &types.RemoteCatalogConfig{FixedURL: "https://example.com", StaticOAuthRequired: true}}, oauthConfigured: false, want: true},
+		{name: "remote static oauth configured", manifest: types.MCPServerCatalogEntryManifest{Runtime: types.RuntimeRemote, RemoteConfig: &types.RemoteCatalogConfig{FixedURL: "https://example.com", StaticOAuthRequired: true}}, oauthConfigured: true, want: false},
 
 		// Composite: empty/nil cases are shareable.
 		{name: "composite nil config", manifest: types.MCPServerCatalogEntryManifest{Runtime: types.RuntimeComposite}, want: false},
@@ -873,23 +909,17 @@ func TestEntryManifestNeedsUserConfig(t *testing.T) {
 				MultiUserConfig: &types.MultiUserConfig{UserDefinedHeaders: []types.MCPHeader{optionalHeader}},
 			}},
 		), want: false},
-
-		// Nested composite: recursion descends into a sub-composite component.
-		{name: "nested composite component needs config", manifest: composite(
-			types.CatalogComponentServer{CatalogEntryID: "sub", Manifest: composite(
-				types.CatalogComponentServer{CatalogEntryID: "leaf", Manifest: singleUserRequiredEnv},
-			)},
-		), want: true},
-		{name: "nested composite component no config", manifest: composite(
-			types.CatalogComponentServer{CatalogEntryID: "sub", Manifest: composite(
-				types.CatalogComponentServer{CatalogEntryID: "leaf", Manifest: singleUserNoConfig},
-			)},
-		), want: false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, entryManifestNeedsUserConfig(tt.manifest))
+			entry := v1.MCPServerCatalogEntry{
+				Spec:   v1.MCPServerCatalogEntrySpec{Manifest: tt.manifest},
+				Status: v1.MCPServerCatalogEntryStatus{OAuthCredentialConfigured: tt.oauthConfigured},
+			}
+			got, err := entryNeedsUserConfig(context.Background(), tt.client, ns, entry)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

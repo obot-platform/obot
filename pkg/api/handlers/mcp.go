@@ -987,8 +987,12 @@ func mcpServerOrInstanceFromConnectURL(req api.Context, id string) (v1.MCPServer
 		}
 		if len(servers.Items) == 0 {
 			// If the user has not configured an MCP server for the catalog entry, and the catalog
-			// entry does not require any user configuration, then create a server for the user.
-			if entryManifestNeedsUserConfig(entry.Spec.Manifest) {
+			// entry can be launched without further configuration, then create a server for the user.
+			needsConfig, err := entryNeedsUserConfig(req.Context(), req.LocalK8sClient, req.ObotNamespace, entry)
+			if err != nil {
+				return v1.MCPServer{}, v1.MCPServerInstance{}, fmt.Errorf("failed to determine required configuration for catalog entry %s: %w", id, err)
+			}
+			if needsConfig {
 				return v1.MCPServer{}, v1.MCPServerInstance{}, types.NewErrNotFound("user has not configured an MCP server for catalog entry %s", id)
 			}
 
@@ -1039,53 +1043,88 @@ func mcpServerOrInstanceFromConnectURL(req api.Context, id string) (v1.MCPServer
 	}
 }
 
-// entryManifestNeedsUserConfig reports whether a catalog entry manifest requires user-supplied
-// configuration before it can be instantiated.
-// For composite manifest, all components are checked for required configuration.
-func entryManifestNeedsUserConfig(m types.MCPServerCatalogEntryManifest) bool {
-	for _, e := range m.Env {
-		if e.Required {
-			return true
-		}
+// entryNeedsUserConfig reports whether a catalog entry can't be auto-launched for a user without
+// further configuration. That covers both user-supplied config (required env, headers, or a URL the
+// user must provide) and unfinished admin setup (a required secret binding that doesn't resolve, or
+// static OAuth that isn't configured yet). For composite entries, every component is checked.
+func entryNeedsUserConfig(ctx context.Context, client kclient.Client, obotNamespace string, entry v1.MCPServerCatalogEntry) (bool, error) {
+	// Static OAuth is admin config: if it's required but not configured yet, the entry can't launch.
+	if entryRequiresStaticOAuthCreds(entry) {
+		return true, nil
 	}
 
-	switch m.Runtime {
-	case types.RuntimeRemote:
-		if m.RemoteConfig == nil || m.RemoteConfig.FixedURL == "" {
-			// A hostname/template (or missing) remote config requires a user-supplied URL.
-			return true
-		}
-		for _, h := range m.RemoteConfig.Headers {
-			if h.Required {
-				return true
-			}
-		}
-	case types.RuntimeComposite:
+	m := entry.Spec.Manifest
+
+	// Gather the manifests whose required config must be satisfied: the entry itself, or each
+	// catalog-entry component of a composite. A multi-user component only blocks on its required
+	// user-defined headers (its URL/env/static headers are admin-supplied), so handle it here.
+	manifests := []types.MCPServerCatalogEntryManifest{m}
+	if m.Runtime == types.RuntimeComposite {
 		if m.CompositeConfig == nil {
-			return false
+			return false, nil
 		}
-		for _, c := range m.CompositeConfig.ComponentServers {
-			// Multi-user components proxy to an admin-managed multi-user server. Their URL, env,
-			// and static headers are admin-supplied; only required user-defined headers block the
-			// user, so don't recurse into the component's runtime config.
-			if c.MCPServerID != "" {
-				if c.Manifest.MultiUserConfig != nil {
-					for _, h := range c.Manifest.MultiUserConfig.UserDefinedHeaders {
+		manifests = nil
+		for _, comp := range m.CompositeConfig.ComponentServers {
+			if comp.MCPServerID != "" {
+				if comp.Manifest.MultiUserConfig != nil {
+					for _, h := range comp.Manifest.MultiUserConfig.UserDefinedHeaders {
 						if h.Required {
-							return true
+							return true, nil
 						}
 					}
 				}
 				continue
 			}
+			manifests = append(manifests, comp.Manifest)
+		}
+	}
 
-			if entryManifestNeedsUserConfig(c.Manifest) {
+	for _, cm := range manifests {
+		// Resolve admin-supplied secret bindings so a required value the admin already satisfied
+		// (a literal value, e.g. a git-managed catalog, or a binding to an existing secret) doesn't
+		// count as needing anything from the user.
+		var remote *types.RemoteRuntimeConfig
+		if cm.RemoteConfig != nil {
+			remote = &types.RemoteRuntimeConfig{Headers: cm.RemoteConfig.Headers}
+		}
+		resolved, err := mcp.MergeBoundCreds(ctx, client, obotNamespace, cm.Env, remote, nil)
+		if err != nil {
+			return false, err
+		}
+
+		// satisfied reports whether a required env/header is already provided without user input:
+		// a literal value, or a secret binding that resolved to a non-empty value.
+		satisfied := func(h types.MCPHeader) bool {
+			if h.Value != "" {
 				return true
+			}
+			if h.SecretBinding != nil {
+				_, ok := resolved[h.Key]
+				return ok
+			}
+			return false
+		}
+
+		for _, e := range cm.Env {
+			if e.Required && !satisfied(e.MCPHeader) {
+				return true, nil
+			}
+		}
+
+		if cm.Runtime == types.RuntimeRemote {
+			if cm.RemoteConfig == nil || cm.RemoteConfig.FixedURL == "" {
+				// A hostname/template (or missing) remote config requires a user-supplied URL.
+				return true, nil
+			}
+			for _, h := range cm.RemoteConfig.Headers {
+				if h.Required && !satisfied(h) {
+					return true, nil
+				}
 			}
 		}
 	}
 
-	return false
+	return false, nil
 }
 
 // MCPIDAndAudienceFromConnectURL returns the MCP server or instance name and audience based on the provided connect URL.
