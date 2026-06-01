@@ -891,7 +891,8 @@
 						connectDialog?.close();
 					}}
 				>
-					<Plus class="size-3" /> Connect to New Server
+					<Plus class="size-3" />
+					{isMultiUserCatalogEntry(entry) ? 'Create New Server' : 'Connect to New Server'}
 				</button>
 			</p>
 		{/if}

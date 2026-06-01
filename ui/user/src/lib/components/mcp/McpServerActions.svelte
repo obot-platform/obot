@@ -33,6 +33,7 @@
 	import {
 		KeyRound,
 		PencilLine,
+		Plus,
 		ReceiptText,
 		RefreshCw,
 		Server,
@@ -176,12 +177,16 @@
 	let showConnectionActions = $derived(
 		!hasMultiUserServerNotOwned || hasConfiguredServerUserInstance
 	);
+	let canCreateAnotherMultiUserServer = $derived(
+		isMultiUserCatalogEntry(entry) && (!!catalogID || !!workspaceID) && configuredServers.length > 0
+	);
 	let hasActions = $derived.by(() => {
 		return Boolean(
 			(entry && server && isServerOwner) ||
 			(server && instance) ||
 			(showServerDetails && showConnectionActions) ||
-			canEditMultiUserServerConfiguration
+			canEditMultiUserServerConfiguration ||
+			canCreateAnotherMultiUserServer
 		);
 	});
 	let showDisconnectUser = $derived(
@@ -294,7 +299,7 @@
 		)}
 		use:tooltip={{
 			text:
-				isMultiUserCatalogEntryRow && !profile.current?.hasAdminAccess?.()
+				isMultiUserCatalogEntryRow && !catalogID && !workspaceID
 					? 'This is a multi-user catalog entry. An administrator must deploy it before you can connect.'
 					: canConnect
 						? ''
@@ -302,9 +307,20 @@
 		}}
 		onclick={async () => {
 			if (isMultiUserCatalogEntryRow) {
-				connectToServerDialog?.open({
-					entry
-				});
+				if (configuredServers.length === 1) {
+					const targetServer = configuredServers[0];
+					connectToServerDialog?.open({
+						entry,
+						server: targetServer,
+						instance: mcpServersAndEntries.current.userInstances.find(
+							(i) => i.mcpServerID === targetServer.id
+						)
+					});
+				} else if (configuredServers.length > 1) {
+					handleShowSelectServerDialog();
+				} else {
+					connectToServerDialog?.open({ entry });
+				}
 			} else if (entry && !server && configuredServers.length > 0) {
 				if (configuredServers.length === 1) {
 					connectToServerDialog?.open({
@@ -329,7 +345,7 @@
 	>
 		{#if loading}
 			<Loading class="size-4" />
-		{:else if isMultiUserCatalogEntryRow}
+		{:else if isMultiUserCatalogEntryRow && configuredServers.length === 0}
 			Create Server
 		{:else}
 			Connect To Server
@@ -426,7 +442,10 @@
 				default:
 					connectToServerDialog?.open({
 						entry,
-						server: d
+						server: d,
+						instance: isMultiUserServer(d)
+							? mcpServersAndEntries.current.userInstances.find((i) => i.mcpServerID === d.id)
+							: undefined
 					});
 					break;
 			}
@@ -779,6 +798,20 @@
 						<Unplug class="size-4" /> Disconnect
 					</button>
 				{/if}
+			</div>
+		{/if}
+		{#if isMultiUserCatalogEntry(entry) && (catalogID || workspaceID)}
+			<div class="flex flex-col gap-1 p-2">
+				<button
+					class="menu-button"
+					onclick={(e) => {
+						e.stopPropagation();
+						connectToServerDialog?.open({ entry });
+						toggle(false);
+					}}
+				>
+					<Plus class="size-4" /> Create Server
+				</button>
 			</div>
 		{/if}
 	{/if}
