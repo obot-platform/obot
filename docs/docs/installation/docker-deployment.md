@@ -42,7 +42,7 @@ Running Obot without authentication is not recommended unless you are behind a s
 :::warning Host access and trusted users
 This deployment bind-mounts the host Docker socket (`-v /var/run/docker.sock:/var/run/docker.sock`) so Obot can run MCP servers as sibling containers. Any MCP server Obot launches — including a **containerized** server, which runs an arbitrary container image with a user-supplied command — therefore runs on the host Docker daemon, which is equivalent to host-level access on that machine.
 
-Users with the **Power User** or **Power User+** role can deploy MCP servers, so on this deployment they can effectively run code on the host. Use Docker deployment only for development, evaluation, or single-tenant use where all such users are trusted. For multi-tenant deployments or untrusted users, use the [Kubernetes deployment](/installation/kubernetes-deployment/), which isolates each MCP server in a hardened pod. See [User Roles — Security Model](/configuration/user-roles/#security-model).
+Users with the **Power User** or **Power User+** role can deploy MCP servers, so on this deployment they can effectively run code on the host. Use Docker deployment only for development, evaluation, or single-tenant use where all such users are trusted. For multi-tenant deployments or untrusted users, use the [Kubernetes deployment](/installation/kubernetes-deployment/), which runs each MCP server in its own pod and supports stronger isolation controls you configure (restricted Pod Security Admission, a NetworkPolicy, and sandboxed runtimes such as gVisor or Kata Containers). See [User Roles — Security Model](/configuration/user-roles/#security-model).
 :::
 
 #### With Authentication (Recommended)
