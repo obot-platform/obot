@@ -49,6 +49,17 @@ Obot handles OAuth 2.1 flows for MCP servers that require authentication:
 
 See [MCP Server OAuth Configuration](/configuration/mcp-server-oauth-configuration/) for details on configuring OAuth for MCP servers.
 
+## Security and Isolation
+
+Adding an MCP server causes Obot to run code on the hosting backend: `npx` and `uvx` servers execute the requested npm/PyPI package, and **containerized** servers run an arbitrary OCI image with a user-supplied command. The [Power User and Power User+ roles](/configuration/user-roles/#security-model) can deploy servers, so granting those roles is, by design, granting the ability to run code on your infrastructure.
+
+How well that code is contained depends on the deployment environment:
+
+- **Docker** runs MCP servers as sibling containers through the host Docker socket, which provides little isolation from the host. Use it for development or single-tenant, trusted use only.
+- **Kubernetes** runs each MCP server in its own pod and supports the restricted Pod Security Admission policy, a NetworkPolicy, and sandboxed container runtimes (gVisor, Kata Containers) for stronger isolation. Use it for multi-tenant or untrusted workloads.
+
+See [User Roles — Security Model](/configuration/user-roles/#security-model) and [MCP Deployments in Kubernetes](/configuration/mcp-deployments-in-kubernetes/) for details.
+
 ## Learn More
 
 - [MCP Servers](/functionality/mcp-servers/) - Adding and configuring MCP servers
