@@ -178,6 +178,10 @@ Enabling the NetworkPolicy is recommended for production deployments to prevent 
 If your MCP servers need to access internal Kubernetes services or private network resources, you will need to either disable the NetworkPolicy or create additional NetworkPolicy rules to allow specific traffic.
 :::
 
+:::note Scope: MCP server pods only
+This NetworkPolicy (`mcp-egress-restrictions`) applies to the **MCP server pods** in the MCP namespace. It does **not** restrict egress from the Obot server pod itself, which makes its own outbound connections as part of normal operation. Restricting the Obot server's own egress is left to the operator; see [Restricting Obot Server Egress](/installation/kubernetes-deployment/#restricting-obot-server-egress).
+:::
+
 ### Pod Security Admission
 
 Obot supports Pod Security Admission (PSA) configuration for the MCP namespace to enforce Kubernetes Pod Security Standards. PSA provides a way to enforce security policies on pods at the namespace level.
