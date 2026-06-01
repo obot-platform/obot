@@ -293,7 +293,7 @@
 		return details;
 	}
 
-	async function reployWithK8sSettings() {
+	async function redeployWithK8sSettings() {
 		if (entity === 'workspace' && entityId) {
 			return catalogEntry?.id
 				? UserService.redeployWorkspaceCatalogEntryServerWithK8sSettings(
@@ -319,7 +319,7 @@
 	async function handleRedeployWithK8sSettings() {
 		updatingK8sSettings = true;
 		try {
-			await reployWithK8sSettings();
+			await redeployWithK8sSettings();
 			listK8sSettingsStatus = getK8sSettingsStatus();
 		} catch (err) {
 			console.error('Failed to update Kubernetes settings:', err);
