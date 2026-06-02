@@ -12,6 +12,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
+	"github.com/obot-platform/obot/pkg/license"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apimachinery/pkg/fields"
@@ -19,12 +20,14 @@ import (
 )
 
 type AvailableModelsHandler struct {
-	dispatcher *dispatcher.Dispatcher
+	dispatcher      *dispatcher.Dispatcher
+	licenseProvider *license.KeygenProvider
 }
 
-func NewAvailableModelsHandler(dispatcher *dispatcher.Dispatcher) *AvailableModelsHandler {
+func NewAvailableModelsHandler(dispatcher *dispatcher.Dispatcher, licenseProvider *license.KeygenProvider) *AvailableModelsHandler {
 	return &AvailableModelsHandler{
-		dispatcher: dispatcher,
+		dispatcher:      dispatcher,
+		licenseProvider: licenseProvider,
 	}
 }
 
@@ -58,7 +61,7 @@ func (a *AvailableModelsHandler) List(req api.Context) error {
 
 	var oModels openai.ModelsList
 	for _, modelProvider := range modelProviderReferences.Items {
-		convertedModelProvider, err := providers.ConvertModelProviderToolRef(modelProvider, credMap[string(modelProvider.UID)+modelProvider.Name])
+		convertedModelProvider, err := providers.ConvertModelProviderToolRef(modelProvider, credMap[string(modelProvider.UID)+modelProvider.Name], a.licenseProvider)
 		if err != nil {
 			log.Warnf("failed to convert model provider %q: %v", modelProvider.Name, err)
 			continue
@@ -95,7 +98,7 @@ func (a *AvailableModelsHandler) ListForModelProvider(req api.Context) error {
 		return types.NewErrBadRequest("%s is not a model provider", modelProviderReference.Name)
 	}
 
-	modelProvider, err := providers.ConvertModelProviderToolRef(modelProviderReference, nil)
+	modelProvider, err := providers.ConvertModelProviderToolRef(modelProviderReference, nil, a.licenseProvider)
 	if err != nil {
 		return err
 	}
@@ -113,7 +116,7 @@ func (a *AvailableModelsHandler) ListForModelProvider(req api.Context) error {
 		}
 	}
 
-	modelProvider, err = providers.ConvertModelProviderToolRef(modelProviderReference, credEnvVars)
+	modelProvider, err = providers.ConvertModelProviderToolRef(modelProviderReference, credEnvVars, a.licenseProvider)
 	if err != nil {
 		return err
 	}

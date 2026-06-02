@@ -21,6 +21,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api/server/requestinfo"
 	"github.com/obot-platform/obot/pkg/auth"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/license"
 	"github.com/obot-platform/obot/pkg/proxy"
 	"github.com/obot-platform/obot/pkg/storage"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -32,42 +33,44 @@ import (
 var log = logger.Package()
 
 type Server struct {
-	storageClient  storage.Client
-	gatewayClient  *gclient.Client
-	localK8sClient kclient.Client
-	obotNamespace  string
-	authenticator  *authn.Authenticator
-	authorizer     *authz.Authorizer
-	proxyManager   *proxy.Manager
-	auditLogger    audit.Logger
-	rateLimiter    *ratelimiter.RateLimiter
-	baseURL        string
-	mcpOAuthScope  string
-	registryNoAuth bool
+	storageClient           storage.Client
+	gatewayClient           *gclient.Client
+	localK8sClient          kclient.Client
+	obotNamespace           string
+	authenticator           *authn.Authenticator
+	authorizer              *authz.Authorizer
+	proxyManager            *proxy.Manager
+	auditLogger             audit.Logger
+	rateLimiter             *ratelimiter.RateLimiter
+	baseURL                 string
+	mcpOAuthScope           string
+	registryNoAuth          bool
+	providerEntitlementGate *license.ProviderEntitlementGate
 
 	mux         *http.ServeMux
 	otelHandler http.Handler
 }
 
-func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, localK8sClient kclient.Client, obotNamespace string, authn *authn.Authenticator, authz *authz.Authorizer, proxyManager *proxy.Manager, auditLogger audit.Logger, rateLimiter *ratelimiter.RateLimiter, baseURL string, oauthScopesSupported []string, registryNoAuth bool) *Server {
+func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, localK8sClient kclient.Client, obotNamespace string, authn *authn.Authenticator, authz *authz.Authorizer, proxyManager *proxy.Manager, auditLogger audit.Logger, rateLimiter *ratelimiter.RateLimiter, baseURL string, oauthScopesSupported []string, registryNoAuth bool, licenseProvider *license.KeygenProvider) *Server {
 	var scope string
 	if len(oauthScopesSupported) > 0 {
 		scope = fmt.Sprintf(", scope=\"%s\"", strings.Join(oauthScopesSupported, " "))
 	}
 	s := &Server{
-		storageClient:  storageClient,
-		gatewayClient:  gatewayClient,
-		localK8sClient: localK8sClient,
-		obotNamespace:  obotNamespace,
-		authenticator:  authn,
-		authorizer:     authz,
-		proxyManager:   proxyManager,
-		baseURL:        baseURL + "/api",
-		mcpOAuthScope:  scope,
-		auditLogger:    auditLogger,
-		rateLimiter:    rateLimiter,
-		registryNoAuth: registryNoAuth,
-		mux:            http.NewServeMux(),
+		storageClient:           storageClient,
+		gatewayClient:           gatewayClient,
+		localK8sClient:          localK8sClient,
+		obotNamespace:           obotNamespace,
+		authenticator:           authn,
+		authorizer:              authz,
+		proxyManager:            proxyManager,
+		baseURL:                 baseURL + "/api",
+		mcpOAuthScope:           scope,
+		auditLogger:             auditLogger,
+		rateLimiter:             rateLimiter,
+		registryNoAuth:          registryNoAuth,
+		mux:                     http.NewServeMux(),
+		providerEntitlementGate: license.NewProviderEntitlementGate(licenseProvider, storageClient),
 	}
 	s.otelHandler = otelhttp.NewHandler(
 		s.mux,
@@ -215,16 +218,19 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 		}
 
 		var shouldLogError bool
-		err = f(api.Context{
-			ResponseWriter: rw,
-			Request:        req,
-			Storage:        s.storageClient,
-			GatewayClient:  s.gatewayClient,
-			User:           user,
-			APIBaseURL:     s.baseURL,
-			LocalK8sClient: s.localK8sClient,
-			ObotNamespace:  s.obotNamespace,
-		})
+		err = s.providerEntitlementGate.Check(req)
+		if err == nil {
+			err = f(api.Context{
+				ResponseWriter: rw,
+				Request:        req,
+				Storage:        s.storageClient,
+				GatewayClient:  s.gatewayClient,
+				User:           user,
+				APIBaseURL:     s.baseURL,
+				LocalK8sClient: s.localK8sClient,
+				ObotNamespace:  s.obotNamespace,
+			})
+		}
 		if errHTTP := (*types.ErrHTTP)(nil); errors.As(err, &errHTTP) {
 			http.Error(rw, errHTTP.Message, errHTTP.Code)
 			shouldLogError = errHTTP.Code == http.StatusInternalServerError

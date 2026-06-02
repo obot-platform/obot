@@ -261,6 +261,16 @@
 					<div></div>
 				{/snippet}
 			</Table>
+		{:else if data?.showLicenseError}
+			<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
+				<TriangleAlert class="size-12 text-warning" />
+				<h4 class="text-muted-content text-lg font-semibold">License Error</h4>
+				<p class="text-muted-content text-sm font-light">
+					An issue occurred with fetching skills due to licensing. Please resolve outstanding
+					licensing issues or contact support at
+					<a href="mailto:licensing@obot.ai" class="text-link">licensing@obot.ai</a>.
+				</p>
+			</div>
 		{:else}
 			<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
 				<PencilRuler class="text-base-content/80 size-24" />

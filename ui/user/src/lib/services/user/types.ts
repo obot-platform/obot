@@ -363,6 +363,15 @@ export interface K8sServerLog {
 	message: string;
 }
 
+// Licensing
+export interface LicenseEntitlementViolation {
+	type: string;
+	namespace: string;
+	name: string;
+	requiredEntitlements: string[];
+	missingEntitlements: string[];
+}
+
 // MCP catalog servers
 
 export interface MCPCatalogServer {
@@ -594,6 +603,7 @@ export interface ModelProvider {
 		sensitive?: boolean;
 		hidden?: boolean;
 	}[];
+	missingEntitlements?: string[];
 	missingConfigurationParameters?: string[];
 	created: string;
 	optionalConfigurationParameters?: {
@@ -741,6 +751,9 @@ export interface Version {
 	obot?: string;
 	authEnabled?: boolean;
 	enterprise?: boolean;
+	licenseEntitlements?: string[];
+	licenseEntitlementViolations?: LicenseEntitlementViolation[];
+	missingLicenseEntitlements?: string[];
 	upgradeAvailable?: boolean;
 	engine?: 'docker' | 'kubernetes' | 'local';
 	mcpNetworkPolicyEnabled?: boolean;

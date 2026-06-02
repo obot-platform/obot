@@ -207,6 +207,9 @@ config:
   # config.OBOT_DEFAULT_SKILL_REPO_REF -- The ref (branch, tag, or commit SHA) for the default skill repository. If empty, the repository's default branch is used. Only used on first-time setup.
   # OBOT_DEFAULT_SKILL_REPO_REF: ""
 
+  # config.OBOT_SERVER_KEYGEN_LICENSE_KEY -- A license key for Obot Enterprise. If set here, it cannot be set in the UI.
+  OBOT_SERVER_KEYGEN_LICENSE_KEY: ""
+
 # resources -- Resource requests and limits to use for Obot
 resources: {}
 

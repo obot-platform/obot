@@ -26,6 +26,7 @@
 		disabled?: boolean;
 		submitText?: string;
 		cancelText?: string;
+		titleContent?: Snippet;
 	}
 
 	let {
@@ -41,7 +42,8 @@
 		type = 'delete',
 		disabled,
 		submitText = "Yes, I'm sure",
-		cancelText = 'Cancel'
+		cancelText = 'Cancel',
+		titleContent
 	}: Props = $props();
 
 	let dialog = $state<HTMLDialogElement>();
@@ -59,7 +61,11 @@
 <dialog bind:this={dialog} class="dialog">
 	<div class="dialog-container w-[calc(100dvw-2rem)] md:w-md">
 		<div class="dialog-title p-4 pb-0">
-			{title}
+			{#if titleContent}
+				{@render titleContent()}
+			{:else}
+				{title}
+			{/if}
 			<IconButton onclick={oncancel} class="btn-sm dialog-close-btn">
 				<X class="size-5" />
 			</IconButton>

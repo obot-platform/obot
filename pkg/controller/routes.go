@@ -31,7 +31,7 @@ import (
 func (c *Controller) setupRoutes() {
 	root := c.router
 
-	toolRef := toolreference.New(c.services.GPTClient, c.services.GatewayClient, c.services.ProviderDispatcher, c.services.ToolRegistryURLs)
+	toolRef := toolreference.New(c.services.GPTClient, c.services.GatewayClient, c.services.ProviderDispatcher, c.services.ToolRegistryURLs, c.services.LicenseProvider)
 	threads := threads.NewHandler()
 	credentialCleanup := cleanup.NewCredentials(c.services.MCPLoader, c.services.GatewayClient, c.services.ServerURL, c.services.InternalServerURL)
 	userCleanup := cleanup.NewUserCleanup(c.services.GatewayClient, c.services.AccessControlRuleHelper)
@@ -61,6 +61,7 @@ func (c *Controller) setupRoutes() {
 
 	// ToolReferences
 	root.Type(&v1.ToolReference{}).HandlerFunc(toolRef.Populate)
+	root.Type(&v1.ToolReference{}).HandlerFunc(toolRef.SetConfiguredStatus)
 	root.Type(&v1.ToolReference{}).HandlerFunc(toolRef.BackPopulateModels)
 	root.Type(&v1.ToolReference{}).FinalizeFunc(v1.ToolReferenceFinalizer, toolRef.CleanupModelProvider)
 

@@ -15,6 +15,7 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/invoke"
+	"github.com/obot-platform/obot/pkg/license"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,12 +26,14 @@ import (
 type ModelProviderHandler struct {
 	dispatcher *dispatcher.Dispatcher
 	invoker    *invoke.Invoker
+	license    *license.KeygenProvider
 }
 
-func NewModelProviderHandler(dispatcher *dispatcher.Dispatcher, invoker *invoke.Invoker) *ModelProviderHandler {
+func NewModelProviderHandler(dispatcher *dispatcher.Dispatcher, invoker *invoke.Invoker, licenseProvider *license.KeygenProvider) *ModelProviderHandler {
 	return &ModelProviderHandler{
 		dispatcher: dispatcher,
 		invoker:    invoker,
+		license:    licenseProvider,
 	}
 }
 
@@ -47,24 +50,7 @@ func (mp *ModelProviderHandler) ByID(req api.Context) error {
 		)
 	}
 
-	mps, err := providers.ConvertModelProviderToolRef(ref, nil)
-	if err != nil {
-		return err
-	}
-
-	var credEnvVars map[string]string
-	if ref.Status.Tool != nil {
-		if len(mps.RequiredConfigurationParameters) > 0 {
-			cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{string(ref.UID), system.GenericModelProviderCredentialContext}, ref.Name)
-			if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
-				return fmt.Errorf("failed to reveal credential for model provider %q: %w", ref.Name, err)
-			} else if err == nil {
-				credEnvVars = cred.Secrets
-			}
-		}
-	}
-
-	modelProvider, err := convertToolReferenceToModelProvider(ref, credEnvVars)
+	modelProvider, err := mp.convertToolReferenceToModelProvider(ref, nil)
 	if err != nil {
 		return err
 	}
@@ -83,33 +69,9 @@ func (mp *ModelProviderHandler) List(req api.Context) error {
 		return err
 	}
 
-	credCtxs := make([]string, 0, len(refList.Items)+1)
-	for _, ref := range refList.Items {
-		credCtxs = append(credCtxs, string(ref.UID))
-	}
-
-	credCtxs = append(credCtxs, system.GenericModelProviderCredentialContext)
-	creds, err := req.GatewayClient.ListCredentials(req.Context(), gateway.ListCredentialsOptions{
-		CredentialContexts: credCtxs,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to list model provider credentials: %w", err)
-	}
-
-	credMap := make(map[string]map[string]string, len(creds))
-	for _, cred := range creds {
-		credMap[cred.Context+cred.Name] = cred.Secrets
-	}
-
 	resp := make([]types.ModelProvider, 0, len(refList.Items))
-	var env map[string]string
 	for _, ref := range refList.Items {
-		env = credMap[string(ref.UID)+ref.Name]
-		if env == nil {
-			env = credMap[system.GenericModelProviderCredentialContext+ref.Name]
-		}
-
-		modelProvider, err := convertToolReferenceToModelProvider(ref, env)
+		modelProvider, err := mp.convertToolReferenceToModelProvider(ref, nil)
 		if err != nil {
 			log.Errorf("failed to convert model provider %q: %v", ref.Name, err)
 			continue
@@ -132,6 +94,10 @@ func (mp *ModelProviderHandler) Validate(req api.Context) error {
 	modelProvider := req.PathValue("model_provider_id")
 	var ref v1.ToolReference
 	if err := req.Get(&ref, modelProvider); err != nil {
+		return err
+	}
+
+	if err := mp.license.RequireForProvider(ref); err != nil {
 		return err
 	}
 
@@ -200,6 +166,10 @@ func (mp *ModelProviderHandler) Configure(req api.Context) error {
 
 	if ref.Spec.Type != v1.ToolReferenceTypeModelProvider {
 		return types.NewErrBadRequest("%q is not a model provider", ref.Name)
+	}
+
+	if err := mp.license.RequireForProvider(ref); err != nil {
+		return err
 	}
 
 	var envVars map[string]string
@@ -329,24 +299,7 @@ func (mp *ModelProviderHandler) RefreshModels(req api.Context) error {
 		return types.NewErrBadRequest("%q is not a model provider", ref.Name)
 	}
 
-	mps, err := providers.ConvertModelProviderToolRef(ref, nil)
-	if err != nil {
-		return err
-	}
-
-	var credEnvVars map[string]string
-	if ref.Status.Tool != nil {
-		if len(mps.RequiredConfigurationParameters) > 0 {
-			cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{string(ref.UID), system.GenericModelProviderCredentialContext}, ref.Name)
-			if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
-				return fmt.Errorf("failed to reveal credential for model provider %q: %w", ref.Name, err)
-			} else if err == nil {
-				credEnvVars = cred.Secrets
-			}
-		}
-	}
-
-	modelProvider, err := convertToolReferenceToModelProvider(ref, credEnvVars)
+	modelProvider, err := mp.convertToolReferenceToModelProvider(ref, nil)
 	if err != nil {
 		return err
 	}
@@ -370,17 +323,17 @@ func (mp *ModelProviderHandler) RefreshModels(req api.Context) error {
 	return req.Write(modelProvider)
 }
 
-func convertToolReferenceToModelProvider(ref v1.ToolReference, credEnvVars map[string]string) (types.ModelProvider, error) {
+func (mp *ModelProviderHandler) convertToolReferenceToModelProvider(ref v1.ToolReference, credEnvVars map[string]string) (types.ModelProvider, error) {
 	name := ref.Name
 	if ref.Status.Tool != nil {
 		name = ref.Status.Tool.Name
 	}
 
-	mps, err := providers.ConvertModelProviderToolRef(ref, credEnvVars)
+	mps, err := providers.ConvertModelProviderToolRef(ref, credEnvVars, mp.license)
 	if err != nil {
 		return types.ModelProvider{}, err
 	}
-	mp := types.ModelProvider{
+	modelProvider := types.ModelProvider{
 		Metadata: MetadataFrom(&ref),
 		ModelProviderManifest: types.ModelProviderManifest{
 			Name:          name,
@@ -389,7 +342,7 @@ func convertToolReferenceToModelProvider(ref v1.ToolReference, credEnvVars map[s
 		ModelProviderStatus: *mps,
 	}
 
-	mp.Type = "modelprovider"
+	modelProvider.Type = "modelprovider"
 
-	return mp, nil
+	return modelProvider, nil
 }

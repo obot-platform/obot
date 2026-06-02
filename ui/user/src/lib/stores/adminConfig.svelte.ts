@@ -4,6 +4,8 @@ import { writable, get } from 'svelte/store';
 interface AdminConfig {
 	modelProviderConfigured: boolean;
 	authProviderConfigured: boolean;
+	authProviders: AuthProvider[];
+	modelProviders: ModelProvider[];
 	eulaAccepted: boolean;
 	loading: boolean;
 	lastFetched: number | null;
@@ -13,6 +15,8 @@ const createAdminConfigStore = () => {
 	const { subscribe, set, update } = writable<AdminConfig>({
 		modelProviderConfigured: false,
 		authProviderConfigured: false,
+		authProviders: [],
+		modelProviders: [],
 		eulaAccepted: false,
 		loading: false,
 		lastFetched: null
@@ -48,6 +52,8 @@ const createAdminConfigStore = () => {
 			set({
 				modelProviderConfigured,
 				authProviderConfigured,
+				authProviders,
+				modelProviders,
 				eulaAccepted,
 				loading: false,
 				lastFetched: now

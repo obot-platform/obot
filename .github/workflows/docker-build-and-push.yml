@@ -57,6 +57,7 @@ jobs:
             ghcr.io/${{ github.repository }}:${{ github.ref_name }}
             ${{ github.ref_type == 'tag' && !contains(github.ref_name, '-') && format('docker.io/obot/{0}:{1}', github.event.repository.name, github.ref_name) || '' }}
           build-args: |
+            ENTERPRISE_IMAGE=ghcr.io/obot-platform/enterprise-tools:latest
             BASE_IMAGE=ghcr.io/obot-platform/obot/base:latest
 
       - name: Install Cosign

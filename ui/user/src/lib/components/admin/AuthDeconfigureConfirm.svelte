@@ -1,0 +1,98 @@
+<script lang="ts">
+	import Loading from '$lib/icons/Loading.svelte';
+	import type { AuthProvider } from '$lib/services';
+	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+
+	interface Props {
+		onConfirm: () => void | Promise<void>;
+		onCancel: () => void | Promise<void>;
+		loading?: boolean;
+		title?: string;
+		provider?: AuthProvider;
+		confirmButtonText?: string;
+	}
+
+	let {
+		loading,
+		onConfirm,
+		onCancel,
+		provider,
+		title = 'Confirm Deconfiguration',
+		confirmButtonText = 'Deconfigure'
+	}: Props = $props();
+
+	let authDeconfigureConfirmDialog = $state<ReturnType<typeof ResponsiveDialog>>();
+	let confirmationInput = $state('');
+
+	export function open() {
+		confirmationInput = '';
+		authDeconfigureConfirmDialog?.open();
+	}
+
+	export function close() {
+		authDeconfigureConfirmDialog?.close();
+	}
+</script>
+
+<ResponsiveDialog
+	bind:this={authDeconfigureConfirmDialog}
+	{title}
+	classes={{
+		header: 'border-t-4 border-error px-4 pt-4 md:pb-0',
+		content: 'p-0'
+	}}
+	class="md:max-w-4xl"
+>
+	<div class="flex h-full">
+		<div class="px-4 py-4 md:py-0 flex flex-col gap-4 h-full">
+			<p>
+				This action will deconfigure {provider?.name || 'this provider'}. This action cannot be
+				undone. Are you sure you wish to continue?
+			</p>
+			<div class="p-4 bg-error/10 text-error rounded-md text-sm">
+				<p class="mb-2">
+					Deconfiguring <b>{provider?.name || 'this provider'}</b> will result in the following:
+				</p>
+				<ul class="px-4 list-disc space-y-2">
+					<li>
+						Existing users will need to sign in via a different accessible provider -- each user
+						will log in with a new account & lose access to their previous account.
+					</li>
+					<li>
+						Powerusers will lose access to any of their created MCP entries and registries. They
+						will be available for connection but no longer editable by their creator.
+					</li>
+					<li>
+						The accounts tied to this provider will continue to exist and will require manual
+						cleanup by an administrator.
+					</li>
+				</ul>
+			</div>
+
+			<div class="flex flex-col gap-1">
+				<p>
+					Type the provider ID <code class="text-xs p-1 bg-base-200">{provider?.id}</code> to confirm.
+				</p>
+
+				<input type="text" class="input-text-filled w-full" bind:value={confirmationInput} />
+			</div>
+			<div class="md:hidden flex grow"></div>
+			<div class="flex gap-4 w-full pt-4 md:py-4">
+				<button class="btn btn-secondary flex-1" disabled={loading} onclick={onCancel}
+					>Nevermind</button
+				>
+				<button
+					class="btn btn-error btn-soft flex-1"
+					disabled={loading || !provider || confirmationInput !== provider.id}
+					onclick={onConfirm}
+				>
+					{#if loading}
+						<Loading class="size-4" />
+					{:else}
+						{confirmButtonText}
+					{/if}
+				</button>
+			</div>
+		</div>
+	</div>
+</ResponsiveDialog>

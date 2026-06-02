@@ -64,6 +64,7 @@ spec:
                   - mcpauditlogs.obot.obot.ai
                   - mcpoauthpendingstates.obot.obot.ai
                   - policyviolations.obot.obot.ai
+                  - properties.obot.obot.ai
                 providers:
                   - aesgcm:
                       keys:

@@ -8,4 +8,5 @@ type Property struct {
 	UpdatedAt time.Time `json:"updatedAt"`
 	Key       string    `json:"key" gorm:"primaryKey"`
 	Value     string    `json:"value"`
+	Encrypted bool      `json:"encrypted"`
 }

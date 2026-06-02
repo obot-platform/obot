@@ -2,6 +2,7 @@ package providers
 
 import (
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/license"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
@@ -11,8 +12,8 @@ type ProviderMeta struct {
 	OptionalEnvVars []types.ProviderConfigurationParameter `json:"optionalEnvVars"`
 }
 
-func ConvertModelProviderToolRef(toolRef v1.ToolReference, cred map[string]string) (*types.ModelProviderStatus, error) {
-	commonProviderStatus, err := ConvertProviderToolRef(toolRef, cred)
+func ConvertModelProviderToolRef(toolRef v1.ToolReference, cred map[string]string, licenseProvider *license.KeygenProvider) (*types.ModelProviderStatus, error) {
+	commonProviderStatus, err := ConvertProviderToolRef(toolRef, cred, licenseProvider)
 	if err != nil {
 		return nil, err
 	}

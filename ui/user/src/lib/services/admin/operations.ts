@@ -91,7 +91,9 @@ import type {
 	OAuthDebuggerRegisterClientResponse,
 	OAuthDebuggerTokenRequest,
 	OAuthToken,
-	AppPreferencesManifest
+	AppPreferencesManifest,
+	License,
+	LicenseManifest
 } from './types';
 import { MCPCompositeDeletionDependencyError } from './types';
 
@@ -1912,4 +1914,21 @@ export async function listAllUserWorkspaceAccessControlRules(opts?: { fetch?: Fe
 		opts
 	)) as ItemsResponse<AccessControlRule>;
 	return response.items ?? [];
+}
+
+// License
+
+export async function getLicense(opts?: { fetch?: Fetcher }): Promise<License> {
+	return (await doGet('/license', opts)) as License;
+}
+
+export async function deleteLicense(): Promise<void> {
+	await doDelete('/license');
+}
+
+export async function updateLicense(
+	manifest: LicenseManifest,
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
+): Promise<License> {
+	return (await doPut('/license', manifest, opts)) as License;
 }
