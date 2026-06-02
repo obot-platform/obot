@@ -92,7 +92,7 @@
 						</div>
 					</div>
 				</div>
-			{:else if license && license.locked}
+			{:else if license && license.licenseKey && !license.enterprise}
 				<div class="notification-alert p-3 text-sm font-light">
 					<div class="flex items-center gap-3">
 						<CircleAlert class="size-6" />
@@ -103,7 +103,7 @@
 						</div>
 					</div>
 				</div>
-			{:else if license && !license.enterprise}
+			{:else if license && license.locked}
 				<div class="notification-info p-3 text-sm font-light">
 					<div class="flex items-center gap-3">
 						<Info class="size-6" />
