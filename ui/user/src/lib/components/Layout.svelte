@@ -27,6 +27,7 @@
 	import {
 		AlarmClock,
 		Boxes,
+		BrainCog,
 		Captions,
 		ChartBarDecreasing,
 		ChevronDown,
@@ -371,6 +372,32 @@
 						collapsible: true,
 						items: [
 							{
+								id: 'admin-agents',
+								href: '/admin/agents',
+								icon: Bots,
+								label: 'Agents',
+								collapsible: false,
+								disabled: isBootStrapUser || !agentLinkEnabled
+							},
+							{
+								id: 'launch-agent-chat',
+								href: '/agent',
+								icon: BotMessageSquare,
+								label: 'Launch Agent',
+								disabled: isBootStrapUser || !agentLinkEnabled,
+								collapsible: false,
+								noteIcon: !agentLinkEnabled ? LockOpen : undefined,
+								note: !agentLinkEnabled ? renderAgentDisabledNote : undefined
+							}
+						]
+					},
+					{
+						id: 'llm-gateway',
+						icon: BrainCog,
+						label: 'LLM Gateway',
+						collapsible: true,
+						items: [
+							{
 								id: 'tokens',
 								href: '/admin/token-usage',
 								icon: Coins,
@@ -385,7 +412,6 @@
 								label: 'Model Providers',
 								collapsible: false
 							},
-
 							{
 								id: 'model-access-policies',
 								href: '/admin/model-access-policies',
@@ -411,26 +437,13 @@
 										}
 									]
 								: []),
-							...[
-								{
-									id: 'admin-agents',
-									href: '/admin/agents',
-									icon: Bots,
-									label: 'Agents',
-									collapsible: false,
-									disabled: isBootStrapUser || !agentLinkEnabled
-								},
-								{
-									id: 'launch-agent-chat',
-									href: '/agent',
-									icon: BotMessageSquare,
-									label: 'Launch Agent',
-									disabled: isBootStrapUser || !agentLinkEnabled,
-									collapsible: false,
-									noteIcon: !agentLinkEnabled ? LockOpen : undefined,
-									note: !agentLinkEnabled ? renderAgentDisabledNote : undefined
-								}
-							]
+							{
+								id: 'llm-gateway-models',
+								href: '/llm-gateway/models',
+								icon: Boxes,
+								label: 'Models',
+								collapsible: false
+							}
 						]
 					},
 					{
@@ -510,6 +523,21 @@
 						icon: Laptop,
 						label: 'Devices',
 						collapsible: false
+					},
+					{
+						id: 'llm-gateway',
+						icon: BrainCog,
+						label: 'LLM Gateway',
+						collapsible: true,
+						items: [
+							{
+								id: 'llm-gateway-models',
+								href: '/llm-gateway/models',
+								icon: Boxes,
+								label: 'Models',
+								collapsible: false
+							}
+						]
 					},
 					...chatLinks
 				]
