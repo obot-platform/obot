@@ -42,9 +42,17 @@ Some clients do not support the required OAuth flows. As a workaround, use the `
 
 ### Why do I get a "cannot determine MCP server, resource parameter required" error when my MCP client connects?
 
-Some MCP clients, including Codex CLI in certain versions, do not include the OAuth `resource` parameter authorizing to connect to an MCP server. Obot requires this parameter because it identifies which MCP server the user is trying to connect to. Without it, Obot cannot determine the target server or enforce access control, so the OAuth flow will not work.
+This error means your MCP client did not include the OAuth `resource` parameter when authorizing the connection. Obot requires this parameter because it identifies which MCP server the user is trying to connect to. Without it, Obot cannot determine the target server or enforce access control, so the OAuth flow will not work.
 
-If your client gets this error, you can create an [MCP API key](/functionality/api-keys/) and use that instead of the OAuth flow. For more context, see the related [Codex CLI issue](https://github.com/openai/codex/issues/13891).
+For Codex, you can specify the OAuth `resource` parameter by passing the `--oauth-resource` flag, set to the same value as your MCP server URL:
+
+```
+codex mcp add --url <MCP_SERVER_URL> --oauth-resource <MCP_SERVER_URL> <SERVER_NAME>
+```
+
+Make sure the `--oauth-resource` value matches the `--url` value exactly.
+
+For other clients that don't support specifying the OAuth `resource` parameter, you can create an [MCP API key](/functionality/api-keys/) and use that instead of the OAuth flow. For more context, see the related [Codex CLI issue](https://github.com/openai/codex/issues/13891).
 
 ## Enterprise Access
 
