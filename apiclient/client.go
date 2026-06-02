@@ -100,6 +100,10 @@ func (c *Client) doStream(ctx context.Context, method, path string, body io.Read
 }
 
 func (c *Client) doRequest(ctx context.Context, method, path string, body io.Reader, headerKV ...string) (*http.Request, *http.Response, error) {
+	return c.doRequestWithBaseURL(ctx, method, c.BaseURL, path, body, headerKV...)
+}
+
+func (c *Client) doRequestWithBaseURL(ctx context.Context, method, baseURL, path string, body io.Reader, headerKV ...string) (*http.Request, *http.Response, error) {
 	if log.IsDebug() {
 		var (
 			data    = "[NONE]"
@@ -125,7 +129,7 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body io.Rea
 		log.Fields("method", method, "path", path, "body", data, "headers", headers).Debugf("HTTP Request")
 	}
 
-	req, err := http.NewRequestWithContext(ctx, method, c.BaseURL+path, body)
+	req, err := http.NewRequestWithContext(ctx, method, strings.TrimRight(baseURL, "/")+path, body)
 	if err != nil {
 		return nil, nil, err
 	}

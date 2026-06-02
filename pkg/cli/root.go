@@ -43,6 +43,7 @@ func New() *cobra.Command {
 		&Server{},
 		&Login{root: root},
 		&Logout{root: root},
+		&MCP{root: root},
 		&Scan{root: root},
 		&Setup{root: root},
 		&Skills{root: root},

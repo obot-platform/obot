@@ -101,6 +101,29 @@ func StoredTokenValid(ctx context.Context, appURL string) (bool, error) {
 	return testToken(ctx, localconfig.APIBaseURL(appURL), token), nil
 }
 
+func ExistingToken(ctx context.Context, baseURL string) (string, error) {
+	if testToken(ctx, baseURL, "") {
+		return "", nil
+	}
+
+	appURL, err := AppURLForAPIBaseURL(baseURL)
+	if err != nil {
+		return "", err
+	}
+
+	token, err := credentialStore.Get(appURL)
+	if err != nil {
+		if credentials.IsNotFound(err) {
+			return "", fmt.Errorf("no existing login for %s", appURL)
+		}
+		return "", err
+	}
+	if !testToken(ctx, baseURL, token) {
+		return "", fmt.Errorf("stored login for %s is not valid", appURL)
+	}
+	return token, nil
+}
+
 func enter(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()

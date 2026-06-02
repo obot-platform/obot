@@ -183,29 +183,7 @@ func ConvertMCPServerCatalogEntryToRegistry(
 		}
 	}
 
-	// Check if the catalog entry requires configuration.
-	// Composite servers always require configuration in the UI before they can be used.
-	requiresConfiguration := manifest.Runtime == obottypes.RuntimeComposite
-
-	// Check for required environment variables
-	if !requiresConfiguration {
-		for _, env := range manifest.Env {
-			if env.Required {
-				requiresConfiguration = true
-				break
-			}
-		}
-	}
-
-	// Check for required headers (for remote runtime)
-	if !requiresConfiguration && manifest.Runtime == obottypes.RuntimeRemote && manifest.RemoteConfig != nil {
-		for _, header := range manifest.RemoteConfig.Headers {
-			if header.Required {
-				requiresConfiguration = true
-				break
-			}
-		}
-	}
+	requiresConfiguration := catalogEntryRequiresConfiguration(entry)
 
 	// Create metadata
 	meta := obottypes.RegistryMeta{
@@ -242,6 +220,41 @@ func ConvertMCPServerCatalogEntryToRegistry(
 }
 
 // Helper functions
+
+func catalogEntryRequiresConfiguration(entry v1.MCPServerCatalogEntry) bool {
+	manifest := entry.Spec.Manifest
+
+	// Composite servers always require configuration in the UI before they can be used.
+	if manifest.Runtime == obottypes.RuntimeComposite {
+		return true
+	}
+
+	for _, env := range manifest.Env {
+		// Required env values without a secret binding must be configured
+		if env.Required && env.SecretBinding == nil {
+			return true
+		}
+	}
+
+	if manifest.Runtime == obottypes.RuntimeRemote && manifest.RemoteConfig != nil {
+		if manifest.RemoteConfig.StaticOAuthRequired && !entry.Status.OAuthCredentialConfigured {
+			return true
+		}
+
+		// Without a fixed URL, the user must supply a connection URL.
+		if manifest.RemoteConfig.FixedURL == "" {
+			return true
+		}
+
+		for _, header := range manifest.RemoteConfig.Headers {
+			if header.Required && header.Value == "" && header.SecretBinding == nil {
+				return true
+			}
+		}
+	}
+
+	return false
+}
 
 func guessRepoSource(repoURL string) string {
 	lower := strings.ToLower(repoURL)
