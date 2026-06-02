@@ -87,6 +87,8 @@ require (
 	sigs.k8s.io/yaml v1.6.0
 )
 
+require github.com/tidwall/sjson v1.2.5
+
 require (
 	cel.dev/expr v0.25.1 // indirect
 	cloud.google.com/go v0.123.0 // indirect

@@ -2,15 +2,18 @@ package server
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/messagepolicy"
+	"github.com/tidwall/gjson"
 )
 
 func TestShouldSkipMessagePolicyEnforcement(t *testing.T) {
@@ -376,6 +379,119 @@ func TestLLMTransformRequest_RemovesInternalRequestTypeHeader(t *testing.T) {
 
 	if got := req.Header.Get(internalRequestTypeHeader); got != "" {
 		t.Fatalf("%s = %q, want empty", internalRequestTypeHeader, got)
+	}
+}
+
+// TestLLMTransformRequest_UpstreamPath asserts the upstream URL.Path produced
+// by llmTransformRequest for every (base URL, reqPath) combination the proxy
+// should support. Every reqPath is grounded in real source — either nanobot
+// (nanobot/pkg/llm/{anthropic,responses,completions,bifrost}/client.go) or the
+// official SDK each documented external coding tool uses.
+//
+// The expected paths are also what modifyResponse in llmproxy.go checks against
+// (/v1/messages and /v1/responses) for token counting and policy enforcement.
+func TestLLMTransformRequest_UpstreamPath(t *testing.T) {
+	tests := []struct {
+		name    string
+		baseURL string
+		reqPath string
+		want    string
+	}{
+		// --- Nanobot dialects (exact suffixes from nanobot source) ---
+		// nanobot/pkg/llm/anthropic/client.go → BaseURL + "/messages"
+		{
+			name:    "nanobot AnthropicMessages dialect",
+			baseURL: "https://api.anthropic.com/v1",
+			reqPath: "messages",
+			want:    "/v1/messages",
+		},
+		// nanobot/pkg/llm/responses/client.go → BaseURL + "/responses"
+		{
+			name:    "nanobot OpenAIResponses dialect",
+			baseURL: "https://api.openai.com/v1",
+			reqPath: "responses",
+			want:    "/v1/responses",
+		},
+		// nanobot/pkg/llm/client.go: OpenResponses uses the responses client
+		{
+			name:    "nanobot OpenResponses dialect (dispatch)",
+			baseURL: "http://127.0.0.1:8080",
+			reqPath: "responses",
+			want:    "/v1/responses",
+		},
+		// nanobot/pkg/llm/completions/client.go → BaseURL + "/chat/completions"
+		{
+			name:    "nanobot OpenAIChatCompletions dialect (dispatch)",
+			baseURL: "http://127.0.0.1:8080",
+			reqPath: "chat/completions",
+			want:    "/v1/chat/completions",
+		},
+		// nanobot/pkg/llm/bifrost/client.go → BaseURL + "/v1/responses"
+		{
+			name:    "nanobot BifrostRequest dialect (dispatch)",
+			baseURL: "http://127.0.0.1:8080",
+			reqPath: "v1/responses",
+			want:    "/v1/responses",
+		},
+
+		// --- External coding tools pointed at the passthrough routes ---
+		// Claude Code uses the official Anthropic SDK; its default base URL is
+		// "https://api.anthropic.com" (no /v1) and the SDK appends /v1/messages.
+		// With base=…/api/llm-proxy/anthropic, the mux captures "v1/messages".
+		{
+			name:    "Claude Code → /api/llm-proxy/anthropic",
+			baseURL: "https://api.anthropic.com/v1",
+			reqPath: "v1/messages",
+			want:    "/v1/messages",
+		},
+		// OpenCode's Anthropic provider (Vercel AI SDK) is documented with base
+		// "https://api.anthropic.com/v1" and appends "/messages". Pointed at
+		// base=…/api/llm-proxy/anthropic/v1 the mux still captures "v1/messages".
+		{
+			name:    "OpenCode (Anthropic via Vercel AI SDK) → /api/llm-proxy/anthropic/v1",
+			baseURL: "https://api.anthropic.com/v1",
+			reqPath: "v1/messages",
+			want:    "/v1/messages",
+		},
+		// OpenAI Python/TS SDKs default to base="https://api.openai.com/v1" and
+		// append "/responses". Pointed at base=…/api/llm-proxy/openai/v1 → mux
+		// captures "v1/responses".
+		{
+			name:    "OpenAI SDK (Responses API) → /api/llm-proxy/openai/v1",
+			baseURL: "https://api.openai.com/v1",
+			reqPath: "v1/responses",
+			want:    "/v1/responses",
+		},
+		// Same SDK, chat completions endpoint.
+		{
+			name:    "OpenAI SDK (Chat Completions) → /api/llm-proxy/openai/v1",
+			baseURL: "https://api.openai.com/v1",
+			reqPath: "v1/chat/completions",
+			want:    "/v1/chat/completions",
+		},
+		// OpenAI SDK list-models endpoint (GET /v1/models).
+		{
+			name:    "OpenAI SDK (list models) → /api/llm-proxy/openai/v1",
+			baseURL: "https://api.openai.com/v1",
+			reqPath: "v1/models",
+			want:    "/v1/models",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			u := mustParseURL(tt.baseURL)
+			director := llmTransformRequest(*u, nil)
+
+			req := httptest.NewRequest(http.MethodPost, "http://gateway.local/", nil)
+			req.SetPathValue("path", tt.reqPath)
+
+			director(req)
+
+			if got := req.URL.Path; got != tt.want {
+				t.Fatalf("URL.Path = %q, want %q", got, tt.want)
+			}
+		})
 	}
 }
 
@@ -1209,4 +1325,353 @@ func TestParseMessagesFromBody_ConversationHistoryForPolicyEval(t *testing.T) {
 	if !strings.Contains(ctx, "Find flights to NYC") {
 		t.Error("conversation context should contain user messages")
 	}
+}
+
+// runModelListFilter builds a GET /v1/models response carrying body and runs it
+// through modifyResponse exactly as the passthrough proxy would, returning the
+// (possibly rewritten) response and its body.
+func runModelListFilter(t *testing.T, statusCode int, allowAll bool, allowed map[string]bool, body string) (*http.Response, string) {
+	t.Helper()
+
+	r := &responseModifier{
+		userID:              "u1",
+		allowAllModels:      allowAll,
+		allowedTargetModels: allowed,
+	}
+	resp := &http.Response{
+		StatusCode: statusCode,
+		Header: http.Header{
+			"Content-Type":     []string{"application/json"},
+			"Content-Encoding": []string{"gzip"},
+		},
+		Body:    io.NopCloser(strings.NewReader(body)),
+		Request: &http.Request{URL: &url.URL{Path: "/v1/models"}},
+	}
+
+	if err := r.modifyResponse(resp); err != nil {
+		t.Fatalf("modifyResponse() error = %v", err)
+	}
+
+	out, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	return resp, string(out)
+}
+
+func modelDataIDs(body string) []string {
+	var ids []string
+	for _, r := range gjson.Get(body, "data.#.id").Array() {
+		ids = append(ids, r.String())
+	}
+	return ids
+}
+
+func sameStrings(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// assertCursor checks a pagination cursor field: want == nil means the field must
+// be absent (deleted, not present-but-null); otherwise it must equal *want.
+func assertCursor(t *testing.T, body, key string, want *string) {
+	t.Helper()
+	got := gjson.Get(body, key)
+	if want == nil {
+		if got.Exists() {
+			t.Errorf("%s = %s, want field absent", key, got.Raw)
+		}
+		return
+	}
+	if got.String() != *want {
+		t.Errorf("%s = %q, want %q", key, got.String(), *want)
+	}
+}
+
+// assertEntriesPreserved checks that every surviving entry is byte-identical to
+// the one in the upstream body — the byte-perfect fidelity guarantee.
+func assertEntriesPreserved(t *testing.T, in, out string, ids []string) {
+	t.Helper()
+	for _, id := range ids {
+		q := fmt.Sprintf("data.#(id==%q)", id)
+		if want, got := gjson.Get(in, q).Raw, gjson.Get(out, q).Raw; want != got {
+			t.Errorf("entry %q not preserved byte-for-byte:\n upstream = %s\n filtered = %s", id, want, got)
+		}
+	}
+}
+
+func assertFilteredHeaders(t *testing.T, resp *http.Response, out string) {
+	t.Helper()
+	if got := resp.Header.Get("Content-Encoding"); got != "" {
+		t.Errorf("Content-Encoding = %q, want removed", got)
+	}
+	if got, want := resp.Header.Get("Content-Length"), strconv.Itoa(len(out)); got != want {
+		t.Errorf("Content-Length header = %q, want %q", got, want)
+	}
+	if resp.ContentLength != int64(len(out)) {
+		t.Errorf("ContentLength = %d, want %d", resp.ContentLength, len(out))
+	}
+}
+
+func TestModifyResponse_FiltersAnthropicModelList(t *testing.T) {
+	tests := []struct {
+		name        string
+		allowed     map[string]bool
+		body        string
+		wantIDs     []string
+		wantFirstID *string
+		wantLastID  *string
+	}{
+		{
+			name:        "keeps allowed subset and repoints cursors to boundaries",
+			allowed:     map[string]bool{"claude-opus-4": true, "claude-haiku-4": true},
+			body:        `{"data":[{"type":"model","id":"claude-opus-4"},{"type":"model","id":"claude-sonnet-4"},{"type":"model","id":"claude-haiku-4"}],"first_id":"claude-opus-4","has_more":false,"last_id":"claude-haiku-4"}`,
+			wantIDs:     []string{"claude-opus-4", "claude-haiku-4"},
+			wantFirstID: new("claude-opus-4"),
+			wantLastID:  new("claude-haiku-4"),
+		},
+		{
+			name:        "single middle survivor becomes both cursors",
+			allowed:     map[string]bool{"claude-sonnet-4": true},
+			body:        `{"data":[{"type":"model","id":"claude-opus-4"},{"type":"model","id":"claude-sonnet-4"},{"type":"model","id":"claude-haiku-4"}],"first_id":"claude-opus-4","has_more":false,"last_id":"claude-haiku-4"}`,
+			wantIDs:     []string{"claude-sonnet-4"},
+			wantFirstID: new("claude-sonnet-4"),
+			wantLastID:  new("claude-sonnet-4"),
+		},
+		{
+			name:        "empty page on last page drops both cursors",
+			allowed:     map[string]bool{},
+			body:        `{"data":[{"type":"model","id":"claude-opus-4"}],"first_id":"claude-opus-4","has_more":false,"last_id":"claude-opus-4"}`,
+			wantIDs:     nil,
+			wantFirstID: nil,
+			wantLastID:  nil,
+		},
+		{
+			name:        "empty page with more pages retains upstream last_id",
+			allowed:     map[string]bool{},
+			body:        `{"data":[{"type":"model","id":"claude-opus-4"}],"first_id":"claude-opus-4","has_more":true,"last_id":"page-cursor"}`,
+			wantIDs:     nil,
+			wantFirstID: nil,
+			wantLastID:  new("page-cursor"),
+		},
+		{
+			name:        "preserves entry bytes (key order and large integers)",
+			allowed:     map[string]bool{"claude-sonnet-4": true},
+			body:        `{"data":[{"type":"model","id":"claude-opus-4"},{"zzz_meta":1,"id":"claude-sonnet-4","created":1234567890123456789,"display_name":"Sonnet"}],"first_id":"claude-opus-4","has_more":false,"last_id":"claude-sonnet-4"}`,
+			wantIDs:     []string{"claude-sonnet-4"},
+			wantFirstID: new("claude-sonnet-4"),
+			wantLastID:  new("claude-sonnet-4"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp, out := runModelListFilter(t, http.StatusOK, false, tt.allowed, tt.body)
+
+			if got := modelDataIDs(out); !sameStrings(got, tt.wantIDs) {
+				t.Errorf("data ids = %v, want %v", got, tt.wantIDs)
+			}
+			assertCursor(t, out, "first_id", tt.wantFirstID)
+			assertCursor(t, out, "last_id", tt.wantLastID)
+			assertEntriesPreserved(t, tt.body, out, tt.wantIDs)
+			assertFilteredHeaders(t, resp, out)
+		})
+	}
+}
+
+func TestModifyResponse_FiltersOpenAIModelList(t *testing.T) {
+	tests := []struct {
+		name    string
+		allowed map[string]bool
+		body    string
+		wantIDs []string
+	}{
+		{
+			name:    "keeps allowed subset and leaves the envelope alone",
+			allowed: map[string]bool{"gpt-4o": true},
+			body:    `{"object":"list","data":[{"id":"gpt-4o","object":"model","created":1686935002,"owned_by":"openai"},{"id":"gpt-3.5-turbo","object":"model","created":1677610602,"owned_by":"openai"}]}`,
+			wantIDs: []string{"gpt-4o"},
+		},
+		{
+			name:    "allowed nothing yields empty list",
+			allowed: map[string]bool{},
+			body:    `{"object":"list","data":[{"id":"gpt-4o","object":"model","created":1686935002}]}`,
+			wantIDs: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp, out := runModelListFilter(t, http.StatusOK, false, tt.allowed, tt.body)
+
+			if got := modelDataIDs(out); !sameStrings(got, tt.wantIDs) {
+				t.Errorf("data ids = %v, want %v", got, tt.wantIDs)
+			}
+			if got := gjson.Get(out, "object").String(); got != "list" {
+				t.Errorf("object = %q, want \"list\"", got)
+			}
+			// OpenAI lists carry no cursors; we must not invent them.
+			assertCursor(t, out, "first_id", nil)
+			assertCursor(t, out, "last_id", nil)
+			assertEntriesPreserved(t, tt.body, out, tt.wantIDs)
+			assertFilteredHeaders(t, resp, out)
+		})
+	}
+}
+
+func TestModifyResponse_ModelListPassthrough(t *testing.T) {
+	tests := []struct {
+		name       string
+		statusCode int
+		allowAll   bool
+		allowed    map[string]bool
+		body       string
+	}{
+		{
+			name:       "allow-all forwards the full list untouched",
+			statusCode: http.StatusOK,
+			allowAll:   true,
+			body:       `{"data":[{"id":"a"},{"id":"b"}],"first_id":"a","has_more":false,"last_id":"b"}`,
+		},
+		{
+			name:       "non-200 is forwarded untouched",
+			statusCode: http.StatusInternalServerError,
+			allowed:    map[string]bool{},
+			body:       `{"type":"error","error":{"message":"boom"}}`,
+		},
+		{
+			name:       "non-JSON body is forwarded untouched",
+			statusCode: http.StatusOK,
+			allowed:    map[string]bool{},
+			body:       "not json at all",
+		},
+		{
+			name:       "JSON without a data array is forwarded untouched",
+			statusCode: http.StatusOK,
+			allowed:    map[string]bool{},
+			body:       `{"error":{"message":"nope"}}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp, out := runModelListFilter(t, tt.statusCode, tt.allowAll, tt.allowed, tt.body)
+
+			if out != tt.body {
+				t.Errorf("body modified:\n got = %s\nwant = %s", out, tt.body)
+			}
+			// Passthrough must not strip transfer headers.
+			if got := resp.Header.Get("Content-Encoding"); got != "gzip" {
+				t.Errorf("Content-Encoding = %q, want gzip (untouched)", got)
+			}
+		})
+	}
+}
+
+func TestRewriteAnthropicListCursors(t *testing.T) {
+	tests := []struct {
+		name          string
+		body          string
+		wantFirstID   *string
+		wantLastID    *string
+		wantUnchanged bool
+	}{
+		{
+			name:        "non-empty repoints to boundary ids",
+			body:        `{"data":[{"id":"a"},{"id":"b"},{"id":"c"}],"first_id":"x","has_more":false,"last_id":"y"}`,
+			wantFirstID: new("a"),
+			wantLastID:  new("c"),
+		},
+		{
+			name:          "openai shape without cursors is untouched",
+			body:          `{"object":"list","data":[{"id":"a"}]}`,
+			wantFirstID:   nil,
+			wantLastID:    nil,
+			wantUnchanged: true,
+		},
+		{
+			name:        "empty page on last page drops both cursors",
+			body:        `{"data":[],"first_id":"x","has_more":false,"last_id":"y"}`,
+			wantFirstID: nil,
+			wantLastID:  nil,
+		},
+		{
+			name:        "empty page with more pages retains last_id",
+			body:        `{"data":[],"first_id":"x","has_more":true,"last_id":"y"}`,
+			wantFirstID: nil,
+			wantLastID:  new("y"),
+		},
+		{
+			name:        "only first_id present is the only field set",
+			body:        `{"data":[{"id":"a"}],"first_id":"x"}`,
+			wantFirstID: new("a"),
+			wantLastID:  nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out, err := rewriteAnthropicListCursors([]byte(tt.body))
+			if err != nil {
+				t.Fatalf("rewriteAnthropicListCursors() error = %v", err)
+			}
+			if tt.wantUnchanged && string(out) != tt.body {
+				t.Errorf("body changed:\n got = %s\nwant = %s", out, tt.body)
+			}
+			assertCursor(t, string(out), "first_id", tt.wantFirstID)
+			assertCursor(t, string(out), "last_id", tt.wantLastID)
+		})
+	}
+}
+
+func TestCopyBody(t *testing.T) {
+	t.Run("restores body and returns a copy safe to modify", func(t *testing.T) {
+		body := io.NopCloser(strings.NewReader("hello"))
+
+		got, err := copyBody(&body)
+		if err != nil {
+			t.Fatalf("copyBody() error = %v", err)
+		}
+		if string(got) != "hello" {
+			t.Fatalf("copyBody() = %q, want %q", got, "hello")
+		}
+
+		// Mutating the returned slice must not affect the restored body.
+		got[0] = 'J'
+
+		restored, err := io.ReadAll(body)
+		if err != nil {
+			t.Fatalf("read restored body: %v", err)
+		}
+		if string(restored) != "hello" {
+			t.Errorf("restored body = %q, want %q (unaffected by caller mutation)", restored, "hello")
+		}
+	})
+
+	t.Run("works on an http.Response body field", func(t *testing.T) {
+		resp := &http.Response{Body: io.NopCloser(strings.NewReader("payload"))}
+
+		got, err := copyBody(&resp.Body)
+		if err != nil {
+			t.Fatalf("copyBody() error = %v", err)
+		}
+		if string(got) != "payload" {
+			t.Fatalf("copyBody() = %q, want %q", got, "payload")
+		}
+
+		restored, err := io.ReadAll(resp.Body)
+		if err != nil {
+			t.Fatalf("read restored body: %v", err)
+		}
+		if string(restored) != "payload" {
+			t.Errorf("restored body = %q, want %q", restored, "payload")
+		}
+	})
 }

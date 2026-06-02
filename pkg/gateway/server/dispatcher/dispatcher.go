@@ -242,11 +242,22 @@ func (d *Dispatcher) providerEnv(credEnv map[string]string) []string {
 func TransformRequest(u url.URL, credEnv map[string]string) func(req *http.Request) {
 	return func(req *http.Request) {
 		reqPath := req.PathValue("path")
-		if u.Path == "" {
+		switch {
+		case u.Path == "":
+			// Upstream base has no path. Ensure exactly one /v1 prefix in the
+			// final URL regardless of whether the client supplied it.
 			if strings.HasPrefix(reqPath, "v1/") || reqPath == "v1" {
 				u.Path = "/"
 			} else {
 				u.Path = "/v1"
+			}
+		case strings.HasSuffix(u.Path, "/v1"):
+			// Upstream base already ends in /v1 (the openai/anthropic
+			// passthrough routes). Strip a leading v1/ from the client-supplied
+			// path so we don't produce /v1/v1/...
+			reqPath = strings.TrimPrefix(reqPath, "v1/")
+			if reqPath == "v1" {
+				reqPath = ""
 			}
 		}
 		u.Path = path.Join(u.Path, reqPath)

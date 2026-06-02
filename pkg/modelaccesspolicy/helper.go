@@ -10,19 +10,22 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	gocache "k8s.io/client-go/tools/cache"
 )
 
 const (
-	mapUserIndex     = "user-id"
-	mapGroupIndex    = "group-id"
-	mapSelectorIndex = "selector-id"
-	dmaModelIndex    = "model-id"
+	mapUserIndex       = "user-id"
+	mapGroupIndex      = "group-id"
+	mapSelectorIndex   = "selector-id"
+	dmaModelIndex      = "model-id"
+	modelProviderIndex = "model-provider"
 )
 
 type Helper struct {
-	mapIndexer, dmaIndexer gocache.Indexer
+	mapIndexer, dmaIndexer, modelIndexer gocache.Indexer
 }
 
 func NewHelper(ctx context.Context, backend backend.Backend) (*Helper, error) {
@@ -62,9 +65,29 @@ func NewHelper(ctx context.Context, backend backend.Backend) (*Helper, error) {
 		return nil, err
 	}
 
+	// Create indexer for Model, keyed by provider, so we can resolve external
+	// clients' provider-native target models (e.g. "claude-sonnet-4-5") to the
+	// internal models the user's access is evaluated against.
+	modelGVK, err := backend.GroupVersionKindFor(&v1.Model{})
+	if err != nil {
+		return nil, err
+	}
+
+	modelInformer, err := backend.GetInformerForKind(ctx, modelGVK)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := modelInformer.AddIndexers(gocache.Indexers{
+		modelProviderIndex: modelProviderIndexFunc,
+	}); err != nil {
+		return nil, err
+	}
+
 	return &Helper{
-		mapIndexer: mapInformer.GetIndexer(),
-		dmaIndexer: dmaInformer.GetIndexer(),
+		mapIndexer:   mapInformer.GetIndexer(),
+		dmaIndexer:   dmaInformer.GetIndexer(),
+		modelIndexer: modelInformer.GetIndexer(),
 	}, nil
 }
 
@@ -144,6 +167,79 @@ func (h *Helper) GetUserAllowedModels(user kuser.Info) (map[string]bool, bool, e
 	}
 
 	return allowedModels, false, nil
+}
+
+// GetUserAllowedTargetModels returns the set of provider-native target model
+// ids (v1.Model.Spec.Manifest.TargetModel) for provider that the user is
+// allowed to use. A target is included iff a configured, active model maps to
+// it and the user is allowed that model. This mirrors the access check enforced
+// by the LLM passthrough: a target appears here iff a request for it would
+// succeed.
+//
+// allowAll reports that the user may use every model (admin/owner or a wildcard
+// model selector). In that case there's nothing to enumerate, so the returned
+// map is nil and callers should skip filtering entirely rather than treat the
+// nil map as "allow nothing".
+func (h *Helper) GetUserAllowedTargetModels(user kuser.Info, provider string) (allowed map[string]bool, allowAll bool, _ error) {
+	allowedModels, allowAll, err := h.GetUserAllowedModels(user)
+	if err != nil {
+		return nil, false, err
+	}
+
+	if allowAll {
+		// The user may use any model, so there's nothing to filter; skip the
+		// provider lookup entirely.
+		return nil, true, nil
+	}
+
+	// Models served by provider. The provider index already drops deleted,
+	// inactive, and unconfigured models, so every entry has a usable target.
+	objs, err := h.modelIndexer.ByIndex(modelProviderIndex, provider)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to get models for provider %q: %w", provider, err)
+	}
+
+	allowed = make(map[string]bool, len(objs))
+	for _, obj := range objs {
+		m, ok := obj.(*v1.Model)
+		if ok && allowedModels[m.Name] {
+			allowed[m.Spec.Manifest.TargetModel] = true
+		}
+	}
+
+	return allowed, false, nil
+}
+
+// ResolveTargetModel returns the active Model served by provider whose
+// TargetModel matches targetModel, preferring the most recently created when
+// more than one matches. The lookup is served directly from the
+// (provider, targetModel) index, so it doesn't scan all of a provider's models.
+// It is used to resolve external clients' provider-native model ids
+// (e.g. "claude-sonnet-4-5") to a configured model. Returns a NotFound error if
+// no active model matches. The returned Model is owned by the informer cache;
+// treat it as read-only.
+func (h *Helper) ResolveTargetModel(provider, targetModel string) (*v1.Model, error) {
+	objs, err := h.modelIndexer.ByIndex(modelProviderIndex, modelProviderTargetKey(provider, targetModel))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get models for provider %q target %q: %w", provider, targetModel, err)
+	}
+
+	var newest *v1.Model
+	for _, obj := range objs {
+		m, ok := obj.(*v1.Model)
+		if !ok || m.Spec.Manifest.ModelProvider != provider || m.Spec.Manifest.TargetModel != targetModel {
+			continue
+		}
+		if newest == nil || m.CreationTimestamp.After(newest.CreationTimestamp.Time) {
+			newest = m
+		}
+	}
+
+	if newest == nil {
+		return nil, apierrors.NewNotFound(schema.GroupResource{Group: v1.SchemeGroupVersion.Group, Resource: "model"}, targetModel)
+	}
+
+	return newest, nil
 }
 
 // GetModelAccessPolicysForUser returns all policies that apply to a specific user.
@@ -237,6 +333,31 @@ func dmaModelIndexFunc(obj any) ([]string, error) {
 	return []string{
 		fmt.Sprintf("%s/%s", alias, model),
 	}, nil
+}
+
+// modelProviderIndexFunc indexes a Model by its provider. Deleted, inactive, and
+// unconfigured models are dropped from the index so consumers only ever see the
+// set of models that are actually usable.
+// modelProviderIndexFunc indexes a Model under two keys: its provider (for
+// enumerating a provider's models) and its provider/targetModel pair (for
+// resolving a provider-native target model id with a single lookup). Deleted,
+// inactive, and unconfigured models (no provider or no target model) are dropped
+// from the index.
+func modelProviderIndexFunc(obj any) ([]string, error) {
+	model := obj.(*v1.Model)
+	provider, target := model.Spec.Manifest.ModelProvider, model.Spec.Manifest.TargetModel
+	if !model.DeletionTimestamp.IsZero() || !model.Spec.Manifest.Active || provider == "" || target == "" {
+		return nil, nil
+	}
+
+	return []string{provider, modelProviderTargetKey(provider, target)}, nil
+}
+
+// modelProviderTargetKey builds the provider/targetModel index key. Provider
+// names are Kubernetes resource names and never contain "/", so this is an
+// unambiguous encoding even when targetModel itself contains "/".
+func modelProviderTargetKey(provider, targetModel string) string {
+	return fmt.Sprintf("%s/%s", provider, targetModel)
 }
 
 // authGroupSet returns a set of auth provider groups for a given user.
