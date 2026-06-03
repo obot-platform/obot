@@ -1,10 +1,9 @@
-ARG PROVIDER_IMAGE=ghcr.io/obot-platform/tools/providers:latest
 ARG BASE_IMAGE=cgr.dev/chainguard/wolfi-base
 
 FROM ${BASE_IMAGE} AS base
 ARG BASE_IMAGE
 RUN if [ "${BASE_IMAGE}" = "cgr.dev/chainguard/wolfi-base" ]; then \
-  apk add --no-cache gcc=14.2.0-r13 go make git nodejs npm pnpm; \
+  apk add --no-cache bash gcc=14.2.0-r13 go make git nodejs npm pnpm; \
   fi
 
 FROM base AS bin
@@ -30,7 +29,31 @@ RUN apk add --no-cache postgresql-17 postgresql-17-oci-entrypoint postgresql-17-
 
 ENTRYPOINT [ "/usr/bin/docker-entrypoint.sh", "postgres" ]
 
-FROM ${PROVIDER_IMAGE} AS provider
+FROM base AS provider
+WORKDIR /obot-tools
+RUN --mount=type=cache,target=/root/.cache/go-build \
+  --mount=type=cache,target=/root/go/pkg/mod \
+  BIN_DIR=/bin bash -euxo pipefail -c '\
+    mkdir -p "${BIN_DIR}"; \
+    cd /obot-tools; \
+    if [ ! -e aws-encryption-provider ]; then \
+      git clone --depth=1 https://github.com/kubernetes-sigs/aws-encryption-provider; \
+    fi; \
+    cd /obot-tools/aws-encryption-provider; \
+    go build -o "${BIN_DIR}/aws-encryption-provider" cmd/server/main.go; \
+    cd /obot-tools; \
+    if [ ! -e kubernetes-kms ]; then \
+      git clone --depth=1 https://github.com/Azure/kubernetes-kms; \
+    fi; \
+    cd /obot-tools/kubernetes-kms; \
+    go build -ldflags="-s -w" -o "${BIN_DIR}/azure-encryption-provider" cmd/server/main.go; \
+    cd /obot-tools; \
+    if [ ! -e k8s-cloudkms-plugin ]; then \
+      git clone --depth=1 https://github.com/obot-platform/k8s-cloudkms-plugin; \
+    fi; \
+    cd /obot-tools/k8s-cloudkms-plugin; \
+    go build -ldflags="-s -w -extldflags static" -installsuffix cgo -tags netgo -o "${BIN_DIR}/gcp-encryption-provider" cmd/k8s-cloudkms-plugin/main.go \
+  '
 
 FROM final-base AS build-pgvector
 RUN apk add --no-cache build-base git postgresql-17-dev clang-19
