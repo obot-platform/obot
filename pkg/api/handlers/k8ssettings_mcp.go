@@ -98,7 +98,7 @@ func (h *k8sSettingsHelper) redeployWithK8sSettings(req api.Context, server v1.M
 	if hashDrift || server.Status.NeedsK8sUpdate {
 		// Trigger restart to force redeployment with new settings
 		if err := h.sessionManager.RestartServerDeployment(req.Context(), serverConfig); err != nil {
-			if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+			if _, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
 				return server, types.NewErrBadRequest("Restart is not supported by the current backend")
 			}
 			return server, fmt.Errorf("failed to redeploy server: %w", err)

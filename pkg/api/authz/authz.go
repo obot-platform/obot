@@ -133,8 +133,6 @@ var (
 
 		"/api/projects",
 		"/api/projects/",
-		"GET /api/projects/{project_id}/agents/{nanobot_agent_id}/k8s-settings-status",
-		"POST /api/projects/{project_id}/agents/{nanobot_agent_id}/redeploy-with-k8s-settings",
 		"GET /api/nanobot-agents",
 	}
 	staticRules = map[string][]string{
