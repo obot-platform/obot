@@ -3849,6 +3849,7 @@ func updateServerFromCatalogEntry(server *v1.MCPServer, entry v1.MCPServerCatalo
 	server.Spec.Manifest.Description = entry.Spec.Manifest.Description
 	server.Spec.Manifest.Icon = entry.Spec.Manifest.Icon
 	server.Spec.Manifest.Env = entry.Spec.Manifest.Env
+	server.Spec.Manifest.Resources = entry.Spec.Manifest.Resources
 	server.Spec.Manifest.Runtime = entry.Spec.Manifest.Runtime
 	server.Spec.Manifest.UVXConfig = entry.Spec.Manifest.UVXConfig
 	server.Spec.Manifest.NPXConfig = entry.Spec.Manifest.NPXConfig

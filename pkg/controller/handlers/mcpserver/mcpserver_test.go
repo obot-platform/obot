@@ -506,6 +506,88 @@ func TestConfigurationHasDrifted(t *testing.T) {
 			expectedError: false,
 		},
 		{
+			name: "no drift - identical resources",
+			serverManifest: types.MCPServerManifest{
+				Name:    "test-server",
+				Runtime: types.RuntimeContainerized,
+				ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+					Image: "example/mcp:1.0.0",
+					Port:  8080,
+					Path:  "/mcp",
+				},
+				Resources: &types.MCPResourceRequirements{
+					Requests: types.MCPResourceRequests{CPU: "250m", Memory: "512Mi"},
+					Limits:   types.MCPResourceRequests{CPU: "1", Memory: "1Gi"},
+				},
+			},
+			entryManifest: types.MCPServerCatalogEntryManifest{
+				Name:    "test-server",
+				Runtime: types.RuntimeContainerized,
+				ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+					Image: "example/mcp:1.0.0",
+					Port:  8080,
+					Path:  "/mcp",
+				},
+				Resources: &types.MCPResourceRequirements{
+					Requests: types.MCPResourceRequests{CPU: "250m", Memory: "512Mi"},
+					Limits:   types.MCPResourceRequests{CPU: "1", Memory: "1Gi"},
+				},
+			},
+			expectedDrift: false,
+			expectedError: false,
+		},
+		{
+			name: "drift - different resources",
+			serverManifest: types.MCPServerManifest{
+				Name:    "test-server",
+				Runtime: types.RuntimeContainerized,
+				ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+					Image: "example/mcp:1.0.0",
+					Port:  8080,
+					Path:  "/mcp",
+				},
+				Resources: &types.MCPResourceRequirements{
+					Requests: types.MCPResourceRequests{CPU: "250m", Memory: "512Mi"},
+				},
+			},
+			entryManifest: types.MCPServerCatalogEntryManifest{
+				Name:    "test-server",
+				Runtime: types.RuntimeContainerized,
+				ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+					Image: "example/mcp:1.0.0",
+					Port:  8080,
+					Path:  "/mcp",
+				},
+				Resources: &types.MCPResourceRequirements{
+					Requests: types.MCPResourceRequests{CPU: "500m", Memory: "512Mi"},
+				},
+			},
+			expectedDrift: true,
+			expectedError: false,
+		},
+		{
+			name: "drift - resources added to catalog entry",
+			serverManifest: types.MCPServerManifest{
+				Name:    "test-server",
+				Runtime: types.RuntimeNPX,
+				NPXConfig: &types.NPXRuntimeConfig{
+					Package: "@test/package",
+				},
+			},
+			entryManifest: types.MCPServerCatalogEntryManifest{
+				Name:    "test-server",
+				Runtime: types.RuntimeNPX,
+				NPXConfig: &types.NPXRuntimeConfig{
+					Package: "@test/package",
+				},
+				Resources: &types.MCPResourceRequirements{
+					Requests: types.MCPResourceRequests{CPU: "250m", Memory: "512Mi"},
+				},
+			},
+			expectedDrift: true,
+			expectedError: false,
+		},
+		{
 			name: "error - invalid URL in remote server config",
 			serverManifest: types.MCPServerManifest{
 				Name:        "test-server",
@@ -797,6 +879,52 @@ func newMCPServer(name string) *v1.MCPServer {
 			Namespace: "default",
 		},
 	}
+}
+
+func TestDetectDriftMarksCatalogEntryDeploymentNeedingUpdateForResources(t *testing.T) {
+	resources := &types.MCPResourceRequirements{
+		Requests: types.MCPResourceRequests{CPU: "500m", Memory: "512Mi"},
+	}
+	entry := newMCPServerCatalogEntry("template-entry", types.MCPServerCatalogEntryManifest{
+		Name:           "Shared Template",
+		Runtime:        types.RuntimeContainerized,
+		ServerUserType: types.ServerUserTypeMultiUser,
+		ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+			Image: "example/mcp:1.0.0",
+			Port:  8080,
+			Path:  "/mcp",
+		},
+		Resources: resources,
+	})
+	server := newMCPServer("shared-server")
+	server.Spec.MCPCatalogID = "default"
+	server.Spec.MCPServerCatalogEntryName = entry.Name
+	server.Spec.Manifest = types.MCPServerManifest{
+		Name:    "Shared Template",
+		Runtime: types.RuntimeContainerized,
+		ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+			Image: "example/mcp:1.0.0",
+			Port:  8080,
+			Path:  "/mcp",
+		},
+		Resources: &types.MCPResourceRequirements{
+			Requests: types.MCPResourceRequests{CPU: "250m", Memory: "512Mi"},
+		},
+	}
+
+	client := newFakeClient(t, entry, server)
+	err := (&Handler{}).DetectDrift(router.Request{
+		Client:    client,
+		Ctx:       context.Background(),
+		Object:    server,
+		Namespace: server.Namespace,
+		Name:      server.Name,
+	}, &router.ResponseWrapper{})
+	require.NoError(t, err)
+
+	var updated v1.MCPServer
+	require.NoError(t, client.Get(context.Background(), router.Key(server.Namespace, server.Name), &updated))
+	assert.True(t, updated.Status.NeedsUpdate)
 }
 
 func TestDetectDriftMarksMultiUserCatalogEntryDeploymentNeedingUpdate(t *testing.T) {
