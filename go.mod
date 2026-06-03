@@ -55,6 +55,7 @@ require (
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/testify v1.11.1
 	github.com/tidwall/gjson v1.18.0
+	github.com/tidwall/sjson v1.2.5
 	github.com/zalando/go-keyring v0.2.8
 	go.opentelemetry.io/contrib/exporters/autoexport v0.68.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.61.0
