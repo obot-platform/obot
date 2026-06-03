@@ -14,7 +14,11 @@ import (
 var entitlementPathsToGate = []string{
 	"/mcp-connect/{mcp_id}",
 	"/mcp-connect/{mcp_id}/",
-	"/oauth/",
+	"GET /oauth/authorize",
+	"GET /oauth/authorize/",
+	"GET /oauth/mcp/callback/",
+	"POST /oauth/",
+	"PUT /oauth/",
 	"GET /api/oauth/composite/{mcp_id}",
 	"/api/llm-proxy/",
 	"/api/skills",
