@@ -1,3 +1,4 @@
+ARG PROVIDER_IMAGE=ghcr.io/obot-platform/tools/providers:latest
 ARG BASE_IMAGE=cgr.dev/chainguard/wolfi-base
 
 FROM ${BASE_IMAGE} AS base
@@ -29,6 +30,8 @@ RUN apk add --no-cache postgresql-17 postgresql-17-oci-entrypoint postgresql-17-
 
 ENTRYPOINT [ "/usr/bin/docker-entrypoint.sh", "postgres" ]
 
+FROM ${PROVIDER_IMAGE} AS provider
+
 FROM final-base AS build-pgvector
 RUN apk add --no-cache build-base git postgresql-17-dev clang-19
 RUN git clone --branch v0.8.1 https://github.com/pgvector/pgvector.git && \
@@ -58,6 +61,7 @@ COPY azure-encryption.yaml /
 COPY gcp-encryption.yaml /
 COPY --chmod=0755 run.sh /bin/run.sh
 
+COPY --from=provider /bin/*-encryption-provider /bin/
 COPY --from=bin /app/bin/obot /bin/
 COPY --from=bin --link /app/ui/user/build-node /ui
 
