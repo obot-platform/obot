@@ -267,6 +267,7 @@ func configureRemoteRuntime(serverConfig *ServerConfig, remoteConfig *types.Remo
 }
 
 func configureCompositeRuntime(serverConfig ServerConfig) (ServerConfig, []string, error) {
+	serverConfig.HealthzPath = "/healthz"
 	return serverConfig, nil, nil
 }
 
