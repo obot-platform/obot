@@ -152,7 +152,7 @@
 					'skill_count',
 					'plugin_count',
 					'client_count',
-					'scanned_relative'
+					'scannedAt'
 				]}
 				headers={[
 					{ title: 'Device', property: 'short_device_id' },
@@ -162,9 +162,10 @@
 					{ title: 'Skills', property: 'skill_count' },
 					{ title: 'Plugins', property: 'plugin_count' },
 					{ title: 'Clients', property: 'client_count' },
-					{ title: 'Last Scanned', property: 'scanned_relative' }
+					{ title: 'Last Scanned', property: 'scannedAt' }
 				]}
-				sortable={['short_device_id', 'os_arch', 'username']}
+				sortable={['short_device_id', 'os_arch', 'username', 'scannedAt']}
+				initSort={{ property: 'scannedAt', order: 'desc' }}
 				filterable={['os_arch']}
 				onClickRow={(d, isCtrlClick) => {
 					const prefix = hasAdminAccess ? '/admin' : '';
@@ -172,7 +173,9 @@
 				}}
 			>
 				{#snippet onRenderColumn(property, d: Row)}
-					{#if property === 'short_device_id'}
+					{#if property === 'scannedAt'}
+						<span title={d.scannedAt}>{d.scanned_relative}</span>
+					{:else if property === 'short_device_id'}
 						<span title={d.deviceID}>{d.short_device_id}</span>
 					{:else if property === 'username'}
 						{@const u = d.submittedBy ? userById.get(d.submittedBy) : undefined}
