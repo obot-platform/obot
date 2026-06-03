@@ -235,20 +235,8 @@ func getModelFromReference(ctx context.Context, client kclient.Client, namespace
 	return nil, apierrors.NewNotFound(schema.GroupResource{Group: v1.SchemeGroupVersion.Group, Resource: "model"}, modelReference)
 }
 
-func envVarForModelProvider(modelProvider v1.ToolReference) (string, error) {
-	if modelProvider.Status.Tool == nil {
-		return "", fmt.Errorf("model provider %q is not configured", modelProvider.Name)
-	}
-
-	var providerMeta struct {
-		EnvVars []types2.ProviderConfigurationParameter
-	}
-
-	if err := json.Unmarshal([]byte(modelProvider.Status.Tool.Metadata["providerMeta"]), &providerMeta); err != nil {
-		return "", fmt.Errorf("failed to unmarshal model provider metadata: %w", err)
-	}
-
-	for _, envVar := range providerMeta.EnvVars {
+func envVarForModelProvider(modelProvider v1.ModelProvider) (string, error) {
+	for _, envVar := range modelProvider.Spec.RequiredConfigurationParameters {
 		if strings.HasSuffix(envVar.Name, "_MODEL_PROVIDER_API_KEY") {
 			return envVar.Name, nil
 		}
@@ -918,7 +906,7 @@ type llmProviderProxy struct {
 	dailyUserTokenCompletionTokenLimit int
 	u                                  url.URL
 	modelProviderName                  string
-	modelProvider                      *v1.ToolReference
+	modelProvider                      *v1.ModelProvider
 	mapHelper                          *modelaccesspolicy.Helper
 	messagePolicyHelper                *messagepolicy.Helper
 	lock                               sync.RWMutex
@@ -941,7 +929,7 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 	l.lock.RUnlock()
 
 	if modelProvider == nil {
-		modelProvider = new(v1.ToolReference)
+		modelProvider = new(v1.ModelProvider)
 		if err := req.Get(modelProvider, l.modelProviderName); err != nil {
 			return fmt.Errorf("model provider %s not found: %w", l.modelProviderName, err)
 		}

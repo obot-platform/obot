@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/gptscript-ai/gptscript/pkg/hash"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
@@ -13,6 +12,7 @@ import (
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/obot-platform/obot/pkg/utils"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -111,7 +111,7 @@ func (h *Handler) DeleteEntriesWithoutRuntime(req router.Request, _ router.Respo
 // UpdateManifestHashAndLastUpdated updates the manifest hash and last updated timestamp when configuration changes
 func (*Handler) UpdateManifestHashAndLastUpdated(req router.Request, _ router.Response) error {
 	entry := req.Object.(*v1.MCPServerCatalogEntry)
-	currentHash := hash.Digest(entry.Spec.Manifest)
+	currentHash := utils.Digest(entry.Spec.Manifest)
 	if entry.Status.ManifestHash != currentHash {
 		now := metav1.Now()
 		entry.Status.ManifestHash = currentHash
@@ -125,7 +125,7 @@ func (*Handler) UpdateManifestHashAndLastUpdated(req router.Request, _ router.Re
 
 func (*Handler) UpdateSystemManifestHashAndLastUpdated(req router.Request, _ router.Response) error {
 	entry := req.Object.(*v1.SystemMCPServerCatalogEntry)
-	currentHash := hash.Digest(entry.Spec.Manifest)
+	currentHash := utils.Digest(entry.Spec.Manifest)
 	if entry.Status.ManifestHash != currentHash {
 		now := metav1.Now()
 		entry.Status.ManifestHash = currentHash
@@ -184,8 +184,8 @@ func (*Handler) DetectCompositeDrift(req router.Request, _ router.Response) erro
 			}
 
 			var (
-				snapshotHash = hash.Digest(component.Manifest)
-				currentHash  = hash.Digest(componentEntry.Spec.Manifest)
+				snapshotHash = utils.Digest(component.Manifest)
+				currentHash  = utils.Digest(componentEntry.Spec.Manifest)
 			)
 			if snapshotHash != currentHash {
 				drifted = true

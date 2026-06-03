@@ -13,7 +13,6 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/gptscript-ai/gptscript/pkg/hash"
 	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
@@ -23,6 +22,7 @@ import (
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/obot-platform/obot/pkg/utils"
 	"github.com/obot-platform/obot/pkg/validation"
 	"github.com/obot-platform/obot/pkg/wait"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -2025,7 +2025,7 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 	}
 
 	// Build an index of existing servers and their credential contexts
-	// This lets us get/set the GPTScript credential for each server
+	// This lets us get/set the credential for each server
 	existingServers := make(map[string]v1.MCPServer, len(componentServers.Items))
 	for _, server := range componentServers.Items {
 		if id := server.Spec.MCPServerCatalogEntryName; id != "" {
@@ -2050,7 +2050,7 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 
 	var (
 		manifestChanged   bool
-		oldManifestHash   = hash.Digest(compositeServer.Spec.Manifest)
+		oldManifestHash   = utils.Digest(compositeServer.Spec.Manifest)
 		componentCreds    = make(map[string]gatewaytypes.Credential, len(existingServers))
 		componentInstance = make(map[string]v1.MCPServerInstance, len(existingInstances))
 	)
@@ -3821,14 +3821,14 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 	// Use RetryOnConflict because catalog-entry updates cause controller-side
 	// status writes (for example DetectDrift setting NeedsUpdate) that can race
 	// with this spec update and bump the ResourceVersion.
-	oldManifestHash := hash.Digest(server.Spec.Manifest)
+	oldManifestHash := utils.Digest(server.Spec.Manifest)
 	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		var latest v1.MCPServer
 		if err := req.Get(&latest, server.Name); err != nil {
 			return err
 		}
 
-		if hash.Digest(latest.Spec.Manifest) != oldManifestHash {
+		if utils.Digest(latest.Spec.Manifest) != oldManifestHash {
 			return types.NewErrHTTP(http.StatusConflict, "manifest changed during update")
 		}
 
@@ -3906,7 +3906,7 @@ func updateServerFromCatalogEntry(server *v1.MCPServer, entry v1.MCPServerCatalo
 func (m *MCPHandler) triggerCompositeUpdate(req api.Context, compositeServer v1.MCPServer, entry v1.MCPServerCatalogEntry) error {
 	// Capture the hash of the initial server so we can compare changes on update.
 	// This will let us abort an update if the server's manifest has changed before the update was applied.
-	oldManifestHash := hash.Digest(compositeServer.Spec.Manifest)
+	oldManifestHash := utils.Digest(compositeServer.Spec.Manifest)
 
 	// Build fresh manifest with user URLs applied
 	updatedManifest, err := serverManifestFromCatalogEntryManifest(
@@ -3946,7 +3946,7 @@ func (*MCPHandler) updateCompositeManifest(req api.Context, name, oldManifestHas
 				return false, err
 			}
 
-			if hash.Digest(latest.Spec.Manifest) != oldManifestHash {
+			if utils.Digest(latest.Spec.Manifest) != oldManifestHash {
 				return false, types.NewErrHTTP(http.StatusConflict, "manifest changed during update")
 			}
 
@@ -3972,7 +3972,7 @@ func waitForCompositeReady(req api.Context, compositeServer v1.MCPServer, timeou
 		func(cs *v1.MCPServer) (bool, error) {
 			return cs.Spec.Manifest.CompositeConfig != nil &&
 				len(cs.Spec.Manifest.CompositeConfig.ComponentServers) > 0 &&
-				hash.Digest(cs.Spec.Manifest) == cs.Status.ObservedCompositeManifestHash, nil
+				utils.Digest(cs.Spec.Manifest) == cs.Status.ObservedCompositeManifestHash, nil
 		},
 		wait.Option{
 			Timeout: timeout,

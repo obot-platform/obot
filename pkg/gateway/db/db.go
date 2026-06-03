@@ -80,12 +80,12 @@ func (db *DB) AutoMigrate() (err error) {
 		return fmt.Errorf("failed to drop state columns from mcp_oauth_tokens: %w", err)
 	}
 
-	if err = migrateIfEntryNotFoundInMigrationsTable(tx, "apikey_skills_access_backfill", migrateAPIKeySkillsAccess); err != nil {
-		return fmt.Errorf("failed to migrate API key skills access: %w", err)
+	if err = migrateIfEntryNotFoundInMigrationsTable(tx, "drop_run_thread_run_states_tables", dropRunThreadAndRunStatesTables); err != nil {
+		return fmt.Errorf("failed to drop run, thread, and run_states tables: %w", err)
 	}
 
-	if err := tx.AutoMigrate(&GptscriptCredential{}); err != nil {
-		return fmt.Errorf("failed to auto migrate GptscriptCredential: %w", err)
+	if err = migrateIfEntryNotFoundInMigrationsTable(tx, "apikey_skills_access_backfill", migrateAPIKeySkillsAccess); err != nil {
+		return fmt.Errorf("failed to migrate API key skills access: %w", err)
 	}
 
 	if err := tx.AutoMigrate(
@@ -99,7 +99,6 @@ func (db *DB) AutoMigrate() (err error) {
 		types.GroupRoleAssignment{},
 		types.APIActivity{},
 		types.Image{},
-		types.RunState{},
 		types.RunTokenActivity{},
 		types.MCPOAuthToken{},
 		types.MCPOAuthPendingState{},

@@ -7,7 +7,7 @@ import (
 	"io"
 	"net/http"
 
-	openai "github.com/gptscript-ai/chat-completion-client"
+	openai "github.com/obot-platform/chat-completion-client"
 )
 
 func (d *Dispatcher) ModelsForProvider(ctx context.Context, modelProviderNamespace, modelProviderName string) (*openai.ModelsList, error) {

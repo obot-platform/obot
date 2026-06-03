@@ -9,7 +9,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/gptscript-ai/gptscript/pkg/hash"
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
@@ -20,6 +19,7 @@ import (
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/obot-platform/obot/pkg/utils"
 	"github.com/obot-platform/obot/pkg/validation"
 	"golang.org/x/crypto/bcrypt"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -1407,7 +1407,7 @@ func tempServerAndConfig(ctx context.Context, gatewayClient *gclient.Client, cli
 	}
 
 	// Create temporary MCPServer object to use existing conversion logic
-	tempName := "tool-preview-" + hash.Digest(serverManifest)[:16]
+	tempName := "tool-preview-" + utils.Digest(serverManifest)[:16]
 	tempMCPServer := v1.MCPServer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: tempName,

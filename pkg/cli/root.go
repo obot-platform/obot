@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/fatih/color"
-	"github.com/gptscript-ai/cmd"
+	"github.com/obot-platform/cmd"
 	"github.com/obot-platform/obot/apiclient"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/cli/internal"

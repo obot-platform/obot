@@ -10,7 +10,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	gptcmd "github.com/gptscript-ai/cmd"
+	"github.com/obot-platform/cmd"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/localagents"
 	"github.com/spf13/cobra"
@@ -20,12 +20,12 @@ type Skills struct {
 	root *Obot
 }
 
-func (s *Skills) Customize(cmd *cobra.Command) {
-	cmd.Use = "skills"
-	cmd.Short = "Manage Obot skills"
-	cmd.Args = cobra.NoArgs
-	cmd.AddCommand(gptcmd.Command(&SkillsSearch{root: s.root}))
-	cmd.AddCommand(gptcmd.Command(&SkillsInstall{root: s.root}))
+func (s *Skills) Customize(c *cobra.Command) {
+	c.Use = "skills"
+	c.Short = "Manage Obot skills"
+	c.Args = cobra.NoArgs
+	c.AddCommand(cmd.Command(&SkillsSearch{root: s.root}))
+	c.AddCommand(cmd.Command(&SkillsInstall{root: s.root}))
 }
 
 func (s *Skills) Run(cmd *cobra.Command, _ []string) error {

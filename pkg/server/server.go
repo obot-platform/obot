@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"time"
 
@@ -21,7 +20,7 @@ var log = logger.Package()
 func Run(ctx context.Context, c services.Config) error {
 	servicesCtx, servicesCancel := context.WithCancel(context.Background())
 	defer servicesCancel()
-	svcs, start, err := services.New(servicesCtx, c)
+	svcs, err := services.New(servicesCtx, c)
 	if err != nil {
 		return err
 	}
@@ -103,45 +102,10 @@ func Run(ctx context.Context, c services.Config) error {
 
 		log.Infof("Shutting down MCP servers")
 		// Shutdown all MCP servers
-		svcs.MCPLoader.Close()
+		svcs.MCPSessionManager.Close()
 
 		svcs.GatewayClient.Close()
 	})
-
-	if start != nil {
-		go func() {
-			httpClient := &http.Client{
-				Timeout: 5 * time.Second,
-			}
-
-			for range 10 {
-				select {
-				case <-shutdown:
-					return
-				case <-ctx.Done():
-					return
-				case <-time.After(200 * time.Millisecond):
-				}
-
-				resp, err := httpClient.Get(fmt.Sprintf("http://localhost:%d/api/healthz", c.HTTPListenPort))
-				if err != nil {
-					continue
-				}
-
-				_, _ = io.Copy(io.Discard, resp.Body)
-				_ = resp.Body.Close()
-
-				if resp.StatusCode == http.StatusOK {
-					log.Infof("Server is ready to accept requests")
-					break
-				}
-			}
-
-			// If the server isn't ready after 10 tries, we will call this anyway.
-			// However, there will be other failures so fine as a short-term hack.
-			start()
-		}()
-	}
 
 	if err = s.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 		return err

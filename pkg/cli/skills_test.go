@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	gptcmd "github.com/gptscript-ai/cmd"
+	"github.com/obot-platform/cmd"
 	"github.com/obot-platform/obot/apiclient"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/skillformat"
@@ -224,7 +224,7 @@ func skillsTestRoot(baseURL string) *Obot {
 
 func executeSkillsTestCommand(root *Obot, args ...string) (string, error) {
 	var stdout bytes.Buffer
-	cmd := gptcmd.Command(&Skills{root: root})
+	cmd := cmd.Command(&Skills{root: root})
 	cmd.SetContext(context.Background())
 	cmd.SetOut(&stdout)
 	cmd.SetArgs(args)

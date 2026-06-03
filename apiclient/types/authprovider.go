@@ -7,13 +7,13 @@ type AuthProvider struct {
 }
 
 type AuthProviderManifest struct {
-	Name          string `json:"name"`
-	Namespace     string `json:"namespace"`
-	ToolReference string `json:"toolReference"`
+	CommonProviderMetadata `json:",inline" yaml:",inline"`
+	PostgresTablePrefix    string `json:"postgresTablePrefix,omitempty"`
 }
 
 type AuthProviderStatus struct {
 	CommonProviderStatus
+	Namespace string `json:"namespace,omitempty"`
 }
 
 type AuthProviderList List[AuthProvider]

@@ -24,7 +24,7 @@ type Model struct {
 
 func (m *Model) DeleteRefs() []Ref {
 	return []Ref{
-		{ObjType: &ToolReference{}, Name: m.Spec.Manifest.ModelProvider},
+		{ObjType: &ModelProvider{}, Name: m.Spec.Manifest.ModelProvider},
 	}
 }
 

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gptscript-ai/gptscript/pkg/types"
+	"github.com/obot-platform/obot/pkg/utils"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -21,9 +21,9 @@ type Option struct {
 
 func complete(opts ...Option) (result Option) {
 	for _, opt := range opts {
-		result.Timeout = types.FirstSet(result.Timeout, opt.Timeout)
-		result.Create = types.FirstSet(result.Create, opt.Create)
-		result.WaitForExists = types.FirstSet(result.WaitForExists, opt.WaitForExists)
+		result.Timeout = utils.FirstSet(result.Timeout, opt.Timeout)
+		result.Create = utils.FirstSet(result.Create, opt.Create)
+		result.WaitForExists = utils.FirstSet(result.WaitForExists, opt.WaitForExists)
 	}
 	if result.Timeout == 0 {
 		result.Timeout = 2 * time.Minute

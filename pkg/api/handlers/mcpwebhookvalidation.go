@@ -207,7 +207,6 @@ func (m *MCPWebhookValidationHandler) Configure(req api.Context) error {
 		}
 	}
 
-	// Store credentials using GPTScript
 	if err := req.GatewayClient.UpsertCredential(req.Context(), gatewaytypes.Credential{
 		Context: system.MCPWebhookValidationCredentialContext,
 		Name:    webhookValidation.Name,

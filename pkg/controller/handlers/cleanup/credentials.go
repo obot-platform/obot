@@ -10,7 +10,6 @@ import (
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -47,10 +46,9 @@ func (c *Credentials) Remove(req router.Request, _ router.Response) error {
 	creds = append(creds, localCreds...)
 
 	// Credentials for model providers
-	var modelProviders v1.ToolReferenceList
+	var modelProviders v1.ModelProviderList
 	if err = req.List(&modelProviders, &kclient.ListOptions{
-		FieldSelector: fields.SelectorFromSet(map[string]string{"spec.type": string(v1.ToolReferenceTypeModelProvider)}),
-		Namespace:     req.Namespace,
+		Namespace: req.Namespace,
 	}); err != nil {
 		return err
 	}

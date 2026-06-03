@@ -1,24 +1,23 @@
 package types
 
 type CommonProviderMetadata struct {
-	Icon        string `json:"icon,omitempty"`
-	IconDark    string `json:"iconDark,omitempty"`
-	Description string `json:"description,omitempty"`
-	Link        string `json:"link,omitempty"`
-	// Dialect specifies the LLM API format used by this provider
-	// (e.g. "AnthropicMessages", "OpenAIChatCompletions", "OpenAIResponses").
-	Dialect              string   `json:"dialect,omitempty"`
-	RequiredEntitlements []string `json:"requiredEntitlements,omitempty"`
+	Name                            string                           `json:"name"`
+	Image                           string                           `json:"image,omitempty"`
+	Port                            int                              `json:"port,omitempty"`
+	Path                            string                           `json:"path,omitempty"`
+	Icon                            string                           `json:"icon,omitempty"`
+	IconDark                        string                           `json:"iconDark,omitempty"`
+	Description                     string                           `json:"description,omitempty"`
+	Link                            string                           `json:"link,omitempty"`
+	RequiredEntitlements            []string                         `json:"requiredEntitlements,omitempty" yaml:"requiredEntitlements,omitempty"`
+	RequiredConfigurationParameters []ProviderConfigurationParameter `json:"requiredConfigurationParameters,omitempty" yaml:"requiredConfigurationParameters,omitempty"`
+	OptionalConfigurationParameters []ProviderConfigurationParameter `json:"optionalConfigurationParameters,omitempty" yaml:"optionalConfigurationParameters,omitempty"`
 }
 
 type CommonProviderStatus struct {
-	CommonProviderMetadata
-	Configured                      bool                             `json:"configured"`
-	RequiredConfigurationParameters []ProviderConfigurationParameter `json:"requiredConfigurationParameters,omitempty"`
-	OptionalConfigurationParameters []ProviderConfigurationParameter `json:"optionalConfigurationParameters,omitempty"`
-	MissingConfigurationParameters  []string                         `json:"missingConfigurationParameters,omitempty"`
-	MissingEntitlements             []string                         `json:"missingEntitlements,omitempty"`
-	Error                           string                           `json:"error,omitempty"`
+	Configured                     bool     `json:"configured"`
+	MissingEntitlements            []string `json:"missingEntitlements,omitempty"`
+	MissingConfigurationParameters []string `json:"missingConfigurationParameters,omitempty"`
 }
 
 type ProviderConfigurationParameter struct {
@@ -37,13 +36,16 @@ type ModelProvider struct {
 }
 
 type ModelProviderManifest struct {
-	Name          string `json:"name"`
-	ToolReference string `json:"toolReference"`
+	CommonProviderMetadata `json:",inline" yaml:",inline"`
+	// Dialect specifies the LLM API format used by this provider
+	// (e.g. "AnthropicMessages", "OpenAIChatCompletions", "OpenAIResponses").
+	Dialect string `json:"dialect,omitempty"`
 }
 
 type ModelProviderStatus struct {
 	CommonProviderStatus
-	ModelsBackPopulated *bool `json:"modelsBackPopulated,omitempty"`
+	ModelsBackPopulated *bool  `json:"modelsBackPopulated,omitempty"`
+	Error               string `json:"error,omitempty"`
 }
 
 type ModelProviderList List[ModelProvider]

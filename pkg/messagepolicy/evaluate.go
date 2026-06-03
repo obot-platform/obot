@@ -173,12 +173,12 @@ func (h *Helper) resolveModelByAlias(ctx context.Context, aliasType types.Defaul
 		return nil, fmt.Errorf("failed to get model provider URL: %w", err)
 	}
 
-	var toolRef v1.ToolReference
-	if err := h.client.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: model.Spec.Manifest.ModelProvider}, &toolRef); err != nil {
-		return nil, fmt.Errorf("failed to get model provider tool reference: %w", err)
+	var modelProvider v1.ModelProvider
+	if err := h.client.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: model.Spec.Manifest.ModelProvider}, &modelProvider); err != nil {
+		return nil, fmt.Errorf("failed to get model provider: %w", err)
 	}
 
-	credEnv, err := dispatcher.CredentialEnvForModelProvider(ctx, h.gatewayClient, toolRef)
+	credEnv, err := dispatcher.CredentialEnvForModelProvider(ctx, h.gatewayClient, modelProvider)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get model provider credentials: %w", err)
 	}

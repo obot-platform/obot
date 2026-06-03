@@ -70,6 +70,35 @@ func assertQuantityEqual(t *testing.T, got, want resource.Quantity, name string)
 	}
 }
 
+func TestServerToServerConfig_ContainerizedHealthzPath(t *testing.T) {
+	baseURL := "http://localhost:8080"
+	mcpServer := v1.MCPServer{
+		Spec: v1.MCPServerSpec{
+			Manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeContainerized,
+				ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+					Image:       "test-image",
+					Port:        8080,
+					Path:        "/mcp",
+					HealthzPath: "/healthz",
+				},
+			},
+		},
+	}
+	mcpServer.Name = "test-server"
+
+	config, missing, err := ServerToServerConfig(mcpServer, mcpServer.ValidConnectURLs(baseURL), baseURL, "test-user-id", "test-scope", "test-catalog", nil, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(missing) > 0 {
+		t.Fatalf("expected no missing config, got %v", missing)
+	}
+	if config.HealthzPath != "/healthz" {
+		t.Fatalf("expected healthz path /healthz, got %q", config.HealthzPath)
+	}
+}
+
 func TestServerToServerConfig_StartupTimeoutFromRuntimeConfig(t *testing.T) {
 	baseURL := "http://localhost:8080"
 	mcpServer := v1.MCPServer{

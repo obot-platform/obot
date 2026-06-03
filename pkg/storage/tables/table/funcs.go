@@ -128,19 +128,9 @@ func cleanFields(obj any) any {
 		ro.SetGenerateName("")
 		ro.SetResourceVersion("")
 		labels := ro.GetLabels()
-		for k := range labels {
-			if strings.Contains(k, "gptscript.io/") {
-				delete(labels, k)
-			}
-		}
 		ro.SetLabels(labels)
 
 		annotations := ro.GetAnnotations()
-		for k := range annotations {
-			if strings.Contains(k, "gptscript.io/") {
-				delete(annotations, k)
-			}
-		}
 		ro.SetAnnotations(annotations)
 		return ro
 	}

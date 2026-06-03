@@ -1,6 +1,7 @@
 package dispatcher
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/obot-platform/obot/logger"
@@ -16,16 +17,18 @@ func TestModelProviderLogLevelEnv(t *testing.T) {
 	t.Run("defaults to info", func(t *testing.T) {
 		logrus.SetLevel(logrus.InfoLevel)
 
-		if got := modelProviderLogLevelEnv(); got != "LOG_LEVEL=INFO" {
-			t.Fatalf("modelProviderLogLevelEnv() = %q, want LOG_LEVEL=INFO", got)
+		want := map[string]string{"LOG_LEVEL": "INFO"}
+		if got := modelProviderLogLevelEnv(); !reflect.DeepEqual(got, want) {
+			t.Fatalf("modelProviderLogLevelEnv() = %v, want %v", got, want)
 		}
 	})
 
 	t.Run("uses debug when logger is debug", func(t *testing.T) {
 		logger.SetDebug()
 
-		if got := modelProviderLogLevelEnv(); got != "LOG_LEVEL=DEBUG" {
-			t.Fatalf("modelProviderLogLevelEnv() = %q, want LOG_LEVEL=DEBUG", got)
+		want := map[string]string{"LOG_LEVEL": "DEBUG"}
+		if got := modelProviderLogLevelEnv(); !reflect.DeepEqual(got, want) {
+			t.Fatalf("modelProviderLogLevelEnv() = %v, want %v", got, want)
 		}
 	})
 }

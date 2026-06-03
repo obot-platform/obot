@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gptscript-ai/gptscript/pkg/hash"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/nah/pkg/untriggered"
 	"github.com/obot-platform/obot/apiclient/types"
@@ -19,6 +18,7 @@ import (
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/obot-platform/obot/pkg/utils"
 	"golang.org/x/crypto/bcrypt"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -76,7 +76,7 @@ func (h *Handler) EnsureSecretInfo(req router.Request, _ router.Response) error 
 			return fmt.Errorf("failed to get credential: %w", err)
 		}
 
-		if systemServer.Status.AuditLogTokenHash != hash.Digest(cred.Secrets["AUDIT_LOG_TOKEN"]) {
+		if systemServer.Status.AuditLogTokenHash != utils.Digest(cred.Secrets["AUDIT_LOG_TOKEN"]) {
 			// Reset the audit log token hash to reset the credential.
 			systemServer.Status.AuditLogTokenHash = ""
 		}
@@ -126,7 +126,7 @@ func (h *Handler) EnsureSecretInfo(req router.Request, _ router.Response) error 
 		return fmt.Errorf("failed to create OAuth client: %w", err)
 	}
 
-	systemServer.Status.AuditLogTokenHash = hash.Digest(auditLogToken)
+	systemServer.Status.AuditLogTokenHash = utils.Digest(auditLogToken)
 
 	return nil
 }

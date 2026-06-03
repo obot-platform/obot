@@ -16,7 +16,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gptscript-ai/gptscript/pkg/hash"
 	"github.com/obot-platform/nah/pkg/apply"
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/obot/apiclient/types"
@@ -24,6 +23,7 @@ import (
 	"github.com/obot-platform/obot/pkg/imagepullsecrets"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/obot-platform/obot/pkg/utils"
 	"github.com/obot-platform/obot/pkg/wait"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -132,7 +132,7 @@ func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server S
 		server.Components[i] = component
 	}
 
-	serverConfigHash := hash.Digest(map[string]any{"server": server, "webhooks": webhooks})
+	serverConfigHash := utils.Digest(map[string]any{"server": server, "webhooks": webhooks})
 	cachedDeployment := k.getDeploymentCache(server.MCPServerName)
 
 	shouldDeploy := cachedDeployment == nil || cachedDeployment.hash != serverConfigHash
@@ -173,8 +173,8 @@ func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server S
 		podName: podName,
 	})
 
-	// For direct access to the real MCP server (when there's a shim), use a different port
-	if server.NanobotAgentName != "" {
+	// For direct access to the real server (when there's no shim), use the real container port.
+	if !server.NeedsShim() {
 		return ServerConfig{
 			URL:                  fmt.Sprintf("%s/%s", u, strings.TrimPrefix(server.ContainerPath, "/")),
 			MCPServerName:        server.MCPServerName,
@@ -189,6 +189,7 @@ func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server S
 			ContainerPort:        server.ContainerPort,
 			ContainerPath:        server.ContainerPath,
 			NanobotAgentName:     server.NanobotAgentName,
+			Provider:             server.Provider,
 			StartupTimeout:       server.StartupTimeout,
 		}, nil
 	}
@@ -211,6 +212,7 @@ func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server S
 		ContainerPath:           server.ContainerPath,
 		PassthroughHeaderNames:  server.PassthroughHeaderNames,
 		PassthroughHeaderValues: server.PassthroughHeaderValues,
+		Provider:                server.Provider,
 		StartupTimeout:          server.StartupTimeout,
 	}, nil
 }
@@ -483,7 +485,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 	secretEnvData["NANOBOT_RUN_HEALTHZ_PATH"] = []byte("/healthz")
 
 	// JWT environment variables
-	if server.NanobotAgentName == "" {
+	if server.NanobotAgentName == "" && !server.Provider {
 		secretEnvData["NANOBOT_RUN_OAUTH_SCOPES"] = []byte("profile")
 		secretEnvData["NANOBOT_RUN_TRUSTED_ISSUER"] = []byte(server.Issuer)
 		secretEnvData["NANOBOT_RUN_OAUTH_JWKSURL"] = []byte(k.transformObotHostname(server.JWKSEndpoint))
@@ -517,9 +519,9 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 
 	// Resolved secretBinding values are merged into secretEnvData by the
 	// caller (sm.ServerToServerConfig), so any rotation naturally bumps
-	// this revision via hash.Digest(secretEnvData) — no separate term
+	// this revision via utils.Digest(secretEnvData) — no separate term
 	// needed.
-	annotations["obot-revision"] = hash.Digest(hash.Digest(secretEnvData) + hash.Digest(nonDynamicFileData) + hash.Digest(webhooks) + hash.Digest(headerData))
+	annotations["obot-revision"] = utils.Digest(utils.Digest(secretEnvData) + utils.Digest(nonDynamicFileData) + utils.Digest(webhooks) + utils.Digest(headerData))
 
 	// Fetch K8s settings
 	k8sSettings := k.getK8sSettings(ctx)
@@ -571,7 +573,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 	containers := make([]corev1.Container, 0, 2)
 
 	if server.Runtime != types.RuntimeRemote {
-		if server.NanobotAgentName == "" {
+		if server.NeedsShim() {
 			// If this is anything other than a remote runtime, then we need to add a special shim container.
 			// The remote runtime will just be the shim and is deployed as the "real" container.
 			nanobotFileString, err := constructMCPServerNanobotYAML(
@@ -587,7 +589,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 				return nil, fmt.Errorf("failed to construct nanobot.yaml: %w", err)
 			}
 
-			annotations["nanobot-file-rev"] = hash.Digest(nanobotFileString)
+			annotations["nanobot-file-rev"] = utils.Digest(nanobotFileString)
 
 			objs = append(objs, &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -636,7 +638,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 					maps.Copy(vars, otelEnv)
 
 					// Add the hash of the OTEL env vars to the revision annotation so that changes to OTEL config trigger a redeploy.
-					annotations["obot-revision"] = hash.Digest(annotations["obot-revision"] + hash.Digest(otelEnv))
+					annotations["obot-revision"] = utils.Digest(annotations["obot-revision"] + utils.Digest(otelEnv))
 
 					return vars
 				}(),
@@ -830,7 +832,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 		var nanobotFileString []byte
 		if server.Runtime == types.RuntimeComposite {
 			nanobotFileString, err = constructMCPServerNanobotYAMLForComposite(server.Components)
-			annotations["nanobot-composite-file-rev"] = hash.Digest(nanobotFileString)
+			annotations["nanobot-composite-file-rev"] = utils.Digest(nanobotFileString)
 		} else {
 			nanobotFileString, err = constructMCPServerNanobotYAML(server.MCPServerDisplayName, server.URL, server.Command, server.Args, server.PassthroughHeaderNames, secretEnvData, headerData, webhooks)
 		}
@@ -870,11 +872,13 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 	}
 
 	port80 := "http"
-	if server.NanobotAgentName != "" {
-		// For nanobot-agent-backed MCP servers, allow access via the "mcp" port.
+	if !server.NeedsShim() {
+		// For direct container-backed servers, allow access via the "mcp" port.
 		port80 = "mcp"
-		// We also need to replace since there is a PVC involved.
-		dep.Spec.Strategy.Type = appsv1.RecreateDeploymentStrategyType
+		if server.NanobotAgentName != "" {
+			// We also need to replace since there is a PVC involved.
+			dep.Spec.Strategy.Type = appsv1.RecreateDeploymentStrategyType
+		}
 	}
 	servicePorts := []corev1.ServicePort{
 		{
@@ -1102,13 +1106,8 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 		}
 	}
 
-	// For non-agents, check that the shim is healthy and ready.
-	if server.NanobotAgentName == "" {
-		// We are checking the shim, so set the runtime accordingly.
-		server.Runtime = types.RuntimeRemote
-		if err = ensureServerReady(ctx, url, server); err != nil {
-			return "", fmt.Errorf("failed to ensure MCP server is ready: %w", err)
-		}
+	if err = ensureServerReady(ctx, url, server); err != nil {
+		return "", fmt.Errorf("failed to ensure MCP server is ready: %w", err)
 	}
 
 	return podName, nil
@@ -1861,7 +1860,7 @@ func ComputeK8sSettingsHash(settings v1.K8sSettingsSpec, serverSpecificResources
 		return "none"
 	}
 
-	return hash.Digest(buf.String())
+	return utils.Digest(buf.String())
 }
 
 // CurrentImagePullSecretNames returns the effective image pull secret names for

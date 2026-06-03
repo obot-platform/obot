@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gptscript-ai/gptscript/pkg/hash"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/nah/pkg/untriggered"
 	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
@@ -22,6 +21,7 @@ import (
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/obot-platform/obot/pkg/utils"
 	"golang.org/x/crypto/bcrypt"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -457,7 +457,7 @@ func compositeConfigHasDrifted(serverConfig *types.CompositeRuntimeConfig, entry
 		}
 
 		// Compare tool overrides
-		if hash.Digest(serverComponent.ToolOverrides) != hash.Digest(entryComponent.ToolOverrides) {
+		if utils.Digest(serverComponent.ToolOverrides) != utils.Digest(entryComponent.ToolOverrides) {
 			return true, nil
 		}
 
@@ -592,7 +592,7 @@ func (h *Handler) EnsureMCPServerSecretInfo(req router.Request, _ router.Respons
 			return fmt.Errorf("failed to get credential: %w", err)
 		}
 
-		if server.Status.AuditLogTokenHash != hash.Digest(cred.Secrets["AUDIT_LOG_TOKEN"]) {
+		if server.Status.AuditLogTokenHash != utils.Digest(cred.Secrets["AUDIT_LOG_TOKEN"]) {
 			log.Infof("Audit log token drift detected for MCP server, rotating credential: server=%s", server.Name)
 			// Reset the audit log token hash to reset the credential.
 			server.Status.AuditLogTokenHash = ""
@@ -644,7 +644,7 @@ func (h *Handler) EnsureMCPServerSecretInfo(req router.Request, _ router.Respons
 		return fmt.Errorf("failed to create OAuth client: %w", err)
 	}
 
-	server.Status.AuditLogTokenHash = hash.Digest(auditLogToken)
+	server.Status.AuditLogTokenHash = utils.Digest(auditLogToken)
 	log.Infof("Provisioned OAuth exchange credentials for MCP server: server=%s oauthClient=%s", server.Name, oauthClient.Name)
 
 	return nil
@@ -783,7 +783,7 @@ func (h *Handler) EnsureCompositeComponents(req router.Request, _ router.Respons
 					return fmt.Errorf("failed to get multi-user server %s: %w", component.MCPServerID, err)
 				}
 
-				if hash.Digest(existingInstance.Spec.MultiUserConfig) != hash.Digest(multiUserServer.Spec.Manifest.MultiUserConfig) {
+				if utils.Digest(existingInstance.Spec.MultiUserConfig) != utils.Digest(multiUserServer.Spec.Manifest.MultiUserConfig) {
 					existingInstance.Spec.MultiUserConfig = multiUserServer.Spec.Manifest.MultiUserConfig
 					if err := req.Client.Update(req.Ctx, &existingInstance); err != nil {
 						return fmt.Errorf("failed to update instance for multi-user component: %w", err)
@@ -817,7 +817,7 @@ func (h *Handler) EnsureCompositeComponents(req router.Request, _ router.Respons
 				return fmt.Errorf("failed to create new component server: %w", err)
 			}
 			log.Infof("Created component MCP server for composite server: composite=%s catalogEntry=%s", compositeServer.Name, component.CatalogEntryID)
-		} else if hash.Digest(existingServer.Spec.Manifest) != hash.Digest(component.Manifest) {
+		} else if utils.Digest(existingServer.Spec.Manifest) != utils.Digest(component.Manifest) {
 			log.Infof("Updating component MCP server manifest for composite server: composite=%s componentServer=%s", compositeServer.Name, existingServer.Name)
 			// Ensure the server is shut down before updating it
 			if err := h.mcpSessionManager.ShutdownServer(req.Ctx, existingServer.Name); err != nil {
@@ -860,7 +860,7 @@ func (h *Handler) EnsureCompositeComponents(req router.Request, _ router.Respons
 
 	// All of the component MCP servers should now match the manifest of the composite.
 	// Update the status hash to reflect the observed state.
-	if manifestHash := hash.Digest(manifest); compositeServer.Status.ObservedCompositeManifestHash != manifestHash {
+	if manifestHash := utils.Digest(manifest); compositeServer.Status.ObservedCompositeManifestHash != manifestHash {
 		compositeServer.Status.ObservedCompositeManifestHash = manifestHash
 		log.Infof("Updated observed composite manifest hash: composite=%s hash=%s", compositeServer.Name, manifestHash)
 		if err := req.Client.Status().Update(req.Ctx, compositeServer); err != nil {

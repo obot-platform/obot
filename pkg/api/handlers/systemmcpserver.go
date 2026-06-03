@@ -168,7 +168,6 @@ func (h *SystemMCPServerHandler) Configure(req api.Context) error {
 		}
 	}
 
-	// Store credentials using GPTScript
 	if err := req.GatewayClient.UpsertCredential(req.Context(), gatewaytypes.Credential{
 		Context: credCtx,
 		Name:    systemServer.Name,
@@ -204,7 +203,6 @@ func (h *SystemMCPServerHandler) Deconfigure(req api.Context) error {
 
 	credCtx := systemServer.Name
 
-	// Delete credentials using GPTScript
 	if err := DeleteCredentialIfExists(req.Context(), req.GatewayClient, []string{credCtx}, systemServer.Name); err != nil {
 		return err
 	}

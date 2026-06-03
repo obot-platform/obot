@@ -8,7 +8,7 @@ Obot is an open-source platform for implementing Model Context Protocol (MCP) te
 
 ## Tech Stack
 
-- **Backend**: Go 1.26.0 with PostgreSQL (pgx), MCP protocol (`github.com/modelcontextprotocol/go-sdk`), gptscript, Kubernetes client libraries
+- **Backend**: Go 1.26.0 with PostgreSQL (pgx), MCP protocol (`github.com/modelcontextprotocol/go-sdk`), Kubernetes client libraries
 - **Frontend**: SvelteKit 5 with Vite, Tailwind CSS 4, TypeScript, CodeMirror 6, Milkdown (markdown editor)
 - **Documentation**: Docusaurus 3 (in `/docs`)
 

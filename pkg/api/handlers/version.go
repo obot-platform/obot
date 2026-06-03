@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"runtime/debug"
 	"slices"
 	"strings"
 	"sync"
@@ -21,7 +20,6 @@ import (
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/storage"
 	"github.com/obot-platform/obot/pkg/version"
-	"golang.org/x/mod/module"
 	"gorm.io/gorm"
 )
 
@@ -59,8 +57,7 @@ type VersionHandlerOptions struct {
 type VersionHandler struct {
 	VersionHandlerOptions
 
-	gptscriptVersion string
-	sessionStore     SessionStore
+	sessionStore SessionStore
 
 	upgradeServerURL string
 	upgradeAvailable bool
@@ -77,7 +74,6 @@ func NewVersionHandler(ctx context.Context, opts VersionHandlerOptions) (*Versio
 
 	v := &VersionHandler{
 		VersionHandlerOptions: opts,
-		gptscriptVersion:      getGPTScriptVersion(),
 		sessionStore:          sessionStoreFromPostgresDSN(opts.PostgresDSN),
 		upgradeServerURL:      fmt.Sprintf("%s/check-upgrade", upgradeServerBaseURL),
 	}
@@ -112,53 +108,35 @@ func (v *VersionHandler) GetVersion(req api.Context) error {
 }
 
 func (v *VersionHandler) getVersionResponse(ctx context.Context) (map[string]any, error) {
-	versions := os.Getenv("OBOT_SERVER_VERSIONS")
-	values := make(map[string]any, len(versions)+9)
-	if versions != "" {
-		for pair := range strings.SplitSeq(versions, ",") {
-			if pair == "" {
-				continue
-			}
-			parts := strings.SplitN(pair, "=", 2)
-			if len(parts) != 2 {
-				continue
-			}
-			key := strings.TrimSpace(parts[0])
-			value := strings.TrimSpace(parts[1])
-			values[key] = value
-		}
-	}
-
-	values["obot"] = version.Get().String()
-	values["gptscript"] = v.gptscriptVersion
-	values["authEnabled"] = v.AuthEnabled
-	values["sessionStore"] = v.sessionStore
-	values["enterprise"] = v.LicenseProvider.HasValidLicense()
-	values["licenseEntitlements"] = v.LicenseProvider.Entitlements()
-
 	engine := v.Engine
 	if mcp.IsKubernetesBackend(engine) {
 		engine = mcp.RuntimeBackendKubernetes
 	}
-	values["engine"] = engine
-
-	values["mcpNetworkPolicyEnabled"] = v.MCPNetworkPolicyEnabled
-	values["mcpDefaultDenyAllEgress"] = v.MCPDefaultDenyAllEgress
-	values["messagePoliciesEnabled"] = v.MessagePoliciesEnabled
 
 	violations, err := v.LicenseProvider.ConfiguredProviderViolations(ctx, v.StorageClient)
 	if err != nil {
 		return nil, err
 	}
-	values["licenseEntitlementViolations"] = violations
-	values["missingLicenseEntitlements"] = missingEntitlements(violations)
-
 	v.upgradeLock.RLock()
-	values["upgradeAvailable"] = v.upgradeAvailable
-	values["latestVersion"] = v.latestVersion
+	upgradeAvailable := v.upgradeAvailable
+	latestVersion := v.latestVersion
 	v.upgradeLock.RUnlock()
 
-	return values, nil
+	return map[string]any{
+		"upgradeAvailable":             upgradeAvailable,
+		"latestVersion":                latestVersion,
+		"obot":                         version.Get().String(),
+		"authEnabled":                  v.AuthEnabled,
+		"sessionStore":                 v.sessionStore,
+		"enterprise":                   v.LicenseProvider.HasValidLicense(),
+		"licenseEntitlements":          v.LicenseProvider.Entitlements(),
+		"engine":                       engine,
+		"mcpNetworkPolicyEnabled":      v.MCPNetworkPolicyEnabled,
+		"mcpDefaultDenyAllEgress":      v.MCPDefaultDenyAllEgress,
+		"messagePoliciesEnabled":       v.MessagePoliciesEnabled,
+		"licenseEntitlementViolations": violations,
+		"missingLicenseEntitlements":   missingEntitlements(violations),
+	}, nil
 }
 
 func missingEntitlements(violations []license.ProviderViolation) []string {
@@ -174,50 +152,6 @@ func missingEntitlements(violations []license.ProviderViolation) []string {
 	}
 	slices.Sort(missing)
 	return missing
-}
-
-const gptscriptModulePath = "github.com/gptscript-ai/gptscript"
-
-func getGPTScriptVersion() string {
-	bi, _ := debug.ReadBuildInfo()
-
-	var gptscriptVersion string
-	for _, dep := range bi.Deps {
-		if dep.Path == gptscriptModulePath {
-			gptscriptVersion = simplifyModuleVersion(dep.Version)
-			break
-		}
-	}
-
-	return gptscriptVersion
-}
-
-// simplifyModuleVersion returns a simplified variant of a given module version string.
-// If the given version is a Go pseudo-version, it strips the timestamp and truncates the revision to the first 7 characters.
-// Empty strings and non-Go pseudo-versions are returned unaltered.
-func simplifyModuleVersion(version string) string {
-	if version == "" || !module.IsPseudoVersion(version) {
-		return version
-	}
-
-	// Extract the base version (tag) and revision (commit hash)
-	// Ignore errors, this should never happen if compilation succeeded
-	components := make([]string, 0, 2)
-	if base, err := module.PseudoVersionBase(version); err == nil && base != "" {
-		components = append(components, base)
-	}
-
-	if rev, err := module.PseudoVersionRev(version); err == nil && len(rev) > 0 {
-		// Shorten the hash to the first 7 characters
-		if len(rev) > 7 {
-			rev = rev[:7]
-		}
-
-		components = append(components, rev)
-	}
-
-	// Combine the base version with the shortened hash
-	return strings.Join(components, "-")
 }
 
 func (v *VersionHandler) startUpgradeCheck(ctx context.Context, installationID, currentVersion, engine string) {

@@ -194,11 +194,13 @@ func TestTokenStoresNewTokenByAppURL(t *testing.T) {
 			_ = json.NewEncoder(w).Encode(types.AuthProviderList{Items: []types.AuthProvider{{
 				Metadata: types.Metadata{ID: "github"},
 				AuthProviderManifest: types.AuthProviderManifest{
-					Name:      "GitHub",
-					Namespace: "default",
+					CommonProviderMetadata: types.CommonProviderMetadata{
+						Name: "GitHub",
+					},
 				},
 				AuthProviderStatus: types.AuthProviderStatus{
 					CommonProviderStatus: types.CommonProviderStatus{Configured: true},
+					Namespace:            "default",
 				},
 			}}})
 		case "/api/token-request":
@@ -249,11 +251,13 @@ func TestTokenNonInteractiveSkipsBrowserEnterGate(t *testing.T) {
 			_ = json.NewEncoder(w).Encode(types.AuthProviderList{Items: []types.AuthProvider{{
 				Metadata: types.Metadata{ID: "github"},
 				AuthProviderManifest: types.AuthProviderManifest{
-					Name:      "GitHub",
-					Namespace: "default",
+					CommonProviderMetadata: types.CommonProviderMetadata{
+						Name: "GitHub",
+					},
 				},
 				AuthProviderStatus: types.AuthProviderStatus{
 					CommonProviderStatus: types.CommonProviderStatus{Configured: true},
+					Namespace:            "default",
 				},
 			}}})
 		case "/api/token-request":

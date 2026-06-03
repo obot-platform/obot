@@ -13,8 +13,8 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/adminworkspace"
 	"github.com/obot-platform/obot/pkg/controller/handlers/deployment"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpcatalog"
+	"github.com/obot-platform/obot/pkg/controller/handlers/provider"
 	"github.com/obot-platform/obot/pkg/controller/handlers/secret"
-	"github.com/obot-platform/obot/pkg/controller/handlers/toolreference"
 	"github.com/obot-platform/obot/pkg/serviceaccounts"
 	"github.com/obot-platform/obot/pkg/services"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -38,7 +38,7 @@ type Controller struct {
 	router                *router.Router
 	localK8sRouter        *router.Router
 	services              *services.Services
-	toolRefHandler        *toolreference.Handler
+	providerHandler       *provider.Handler
 	mcpCatalogHandler     *mcpcatalog.Handler
 	adminWorkspaceHandler *adminworkspace.Handler
 	runtimeClient         kclient.Client
@@ -122,7 +122,7 @@ func (c *Controller) PreStart(ctx context.Context) error {
 }
 
 func (c *Controller) ensureObotMCPServer(ctx context.Context) error {
-	internalURL := c.services.MCPLoader.TransformObotHostname(c.services.ServerURL)
+	internalURL := c.services.MCPSessionManager.TransformObotHostname(c.services.ServerURL)
 	image := c.services.MCPServerSearchImage
 
 	var existing v1.SystemMCPServer
@@ -146,30 +146,35 @@ func (c *Controller) ensureObotMCPServer(ctx context.Context) error {
 		}
 
 		expectedConfig := &types.ContainerizedRuntimeConfig{
-			Image: image,
-			Port:  8080,
-			Path:  "/mcp",
+			Image:       image,
+			Port:        8080,
+			Path:        "/mcp",
+			HealthzPath: "/healthz",
 		}
 		if existing.Spec.Manifest.ContainerizedConfig == nil {
 			existing.Spec.Manifest.ContainerizedConfig = expectedConfig
 			needsUpdate = true
 		} else {
-			if existing.Spec.Manifest.ContainerizedConfig.Image != image {
-				existing.Spec.Manifest.ContainerizedConfig.Image = image
+			if existing.Spec.Manifest.ContainerizedConfig.Image != expectedConfig.Image {
+				existing.Spec.Manifest.ContainerizedConfig.Image = expectedConfig.Image
 				needsUpdate = true
 			}
-			if existing.Spec.Manifest.ContainerizedConfig.Port != 8080 {
-				existing.Spec.Manifest.ContainerizedConfig.Port = 8080
+			if existing.Spec.Manifest.ContainerizedConfig.Port != expectedConfig.Port {
+				existing.Spec.Manifest.ContainerizedConfig.Port = expectedConfig.Port
 				needsUpdate = true
 			}
-			if existing.Spec.Manifest.ContainerizedConfig.Path != "/mcp" {
-				existing.Spec.Manifest.ContainerizedConfig.Path = "/mcp"
+			if existing.Spec.Manifest.ContainerizedConfig.Path != expectedConfig.Path {
+				existing.Spec.Manifest.ContainerizedConfig.Path = expectedConfig.Path
+				needsUpdate = true
+			}
+			if existing.Spec.Manifest.ContainerizedConfig.HealthzPath != expectedConfig.HealthzPath {
+				existing.Spec.Manifest.ContainerizedConfig.HealthzPath = expectedConfig.HealthzPath
 				needsUpdate = true
 			}
 		}
 
 		// Check OBOT_URL env var
-		foundOBOTURLEntry := false
+		var foundOBOTURLEntry bool
 		for i, env := range existing.Spec.Manifest.Env {
 			if env.Key == "OBOT_URL" {
 				foundOBOTURLEntry = true
@@ -237,10 +242,10 @@ func (c *Controller) ensureObotMCPServer(ctx context.Context) error {
 }
 
 func (c *Controller) PostStart(ctx context.Context, client kclient.Client) {
-	go c.toolRefHandler.PollRegistries(ctx, client)
+	go c.providerHandler.PollRegistries(ctx, client)
 	var err error
 	for range 3 {
-		err = c.toolRefHandler.EnsureOpenAIEnvCredentialAndDefaults(ctx, client)
+		err = c.providerHandler.EnsureOpenAIEnvCredentialAndDefaults(ctx, client)
 		if err == nil {
 			break
 		}
@@ -254,7 +259,7 @@ func (c *Controller) PostStart(ctx context.Context, client kclient.Client) {
 		panic(fmt.Errorf("failed to ensure JWK: %w", err))
 	}
 
-	if err = c.toolRefHandler.EnsureAnthropicCredentialAndDefaults(ctx, client); err != nil {
+	if err = c.providerHandler.EnsureAnthropicCredentialAndDefaults(ctx, client); err != nil {
 		panic(fmt.Errorf("failed to ensure anthropic credential and defaults: %w", err))
 	}
 

@@ -1,6 +1,3 @@
-ARG TOOLS_IMAGE=ghcr.io/obot-platform/tools:latest
-ARG PROVIDER_IMAGE=ghcr.io/obot-platform/tools/providers:latest
-ARG ENTERPRISE_IMAGE=cgr.dev/chainguard/wolfi-base:latest
 ARG BASE_IMAGE=cgr.dev/chainguard/wolfi-base
 
 FROM ${BASE_IMAGE} AS base
@@ -42,11 +39,6 @@ RUN git clone --branch v0.8.1 https://github.com/pgvector/pgvector.git && \
   cd .. && \
   rm -rf pgvector
 
-FROM ${TOOLS_IMAGE} AS tools
-FROM ${PROVIDER_IMAGE} AS provider
-FROM ${ENTERPRISE_IMAGE} AS enterprise-tools
-RUN mkdir -p /obot-tools
-
 FROM final-base AS final
 ENV POSTGRES_USER=obot
 ENV POSTGRES_PASSWORD=obot
@@ -66,12 +58,6 @@ COPY azure-encryption.yaml /
 COPY gcp-encryption.yaml /
 COPY --chmod=0755 run.sh /bin/run.sh
 
-COPY --link --from=tools /obot-tools /obot-tools
-COPY --link --from=enterprise-tools /obot-tools /obot-tools
-COPY --link --from=provider /obot-tools /obot-tools
-COPY --chmod=0755 /tools/combine-envrc.sh /
-RUN /combine-envrc.sh && rm /combine-envrc.sh
-COPY --from=provider /bin/*-encryption-provider /bin/
 COPY --from=bin /app/bin/obot /bin/
 COPY --from=bin --link /app/ui/user/build-node /ui
 
@@ -81,6 +67,7 @@ ENV HOME=/data
 ENV XDG_CACHE_HOME=/data/cache
 ENV TERM=vt100
 ENV OBOT_CONTAINER_ENV=true
+ENV OBOT_SERVER_PROVIDER_REGISTRIES=https://github.com/obot-platform/providers
 WORKDIR /data
 VOLUME /data
 ENTRYPOINT ["run.sh"]
