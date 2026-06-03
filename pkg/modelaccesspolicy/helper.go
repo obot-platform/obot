@@ -227,7 +227,7 @@ func (h *Helper) ResolveTargetModel(provider, targetModel string) (*v1.Model, er
 	var newest *v1.Model
 	for _, obj := range objs {
 		m, ok := obj.(*v1.Model)
-		if !ok || m.Spec.Manifest.ModelProvider != provider || m.Spec.Manifest.TargetModel != targetModel {
+		if !ok {
 			continue
 		}
 		if newest == nil || m.CreationTimestamp.After(newest.CreationTimestamp.Time) {
@@ -338,11 +338,6 @@ func dmaModelIndexFunc(obj any) ([]string, error) {
 // modelProviderIndexFunc indexes a Model by its provider. Deleted, inactive, and
 // unconfigured models are dropped from the index so consumers only ever see the
 // set of models that are actually usable.
-// modelProviderIndexFunc indexes a Model under two keys: its provider (for
-// enumerating a provider's models) and its provider/targetModel pair (for
-// resolving a provider-native target model id with a single lookup). Deleted,
-// inactive, and unconfigured models (no provider or no target model) are dropped
-// from the index.
 func modelProviderIndexFunc(obj any) ([]string, error) {
 	model := obj.(*v1.Model)
 	provider, target := model.Spec.Manifest.ModelProvider, model.Spec.Manifest.TargetModel

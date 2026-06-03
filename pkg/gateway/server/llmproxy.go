@@ -1145,7 +1145,7 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 		allowedTargetModels map[string]bool
 		allowAllModels      bool
 	)
-	if isModelsListRequest(req.Request) && req.User.GetUID() != "" {
+	if isModelsListRequest(req.Request) {
 		allowedTargetModels, allowAllModels, err = l.mapHelper.GetUserAllowedTargetModels(req.User, l.modelProviderName)
 		if err != nil {
 			return fmt.Errorf("failed to determine accessible models: %w", err)
