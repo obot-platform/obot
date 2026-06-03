@@ -163,6 +163,7 @@ func TestEnsureUserCountMultiUserEntry(t *testing.T) {
 	})
 	server1.Spec.MCPServerCatalogEntryName = entry.Name
 	server1.Spec.UserID = "admin1"
+	server1.Status.MCPServerInstanceUserCount = new(2)
 
 	server2 := newMCPServer("server-2", types.MCPServerManifest{
 		Runtime: types.RuntimeContainerized,
@@ -172,6 +173,7 @@ func TestEnsureUserCountMultiUserEntry(t *testing.T) {
 	})
 	server2.Spec.MCPServerCatalogEntryName = entry.Name
 	server2.Spec.UserID = "admin2"
+	server2.Status.MCPServerInstanceUserCount = new(1)
 
 	client := newFakeClient(entry, server1, server2)
 	err := (&Handler{}).EnsureUserCount(router.Request{
@@ -185,7 +187,7 @@ func TestEnsureUserCountMultiUserEntry(t *testing.T) {
 
 	var updated v1.MCPServerCatalogEntry
 	require.NoError(t, client.Get(context.Background(), router.Key(entry.Namespace, entry.Name), &updated))
-	assert.Equal(t, 2, updated.Status.UserCount)
+	assert.Equal(t, 3, updated.Status.UserCount, "should sum server instance user counts across servers")
 }
 
 func TestEnsureUserCountMultiUserEntryExcludesComposite(t *testing.T) {
@@ -208,6 +210,7 @@ func TestEnsureUserCountMultiUserEntryExcludesComposite(t *testing.T) {
 	})
 	activeServer.Spec.MCPServerCatalogEntryName = entry.Name
 	activeServer.Spec.UserID = "admin1"
+	activeServer.Status.MCPServerInstanceUserCount = new(1)
 
 	compositeChild := newMCPServer("composite-child", types.MCPServerManifest{
 		Runtime: types.RuntimeContainerized,
@@ -218,6 +221,7 @@ func TestEnsureUserCountMultiUserEntryExcludesComposite(t *testing.T) {
 	compositeChild.Spec.MCPServerCatalogEntryName = entry.Name
 	compositeChild.Spec.UserID = "admin2"
 	compositeChild.Spec.CompositeName = "parent-composite"
+	compositeChild.Status.MCPServerInstanceUserCount = new(1)
 
 	client := newFakeClient(entry, activeServer, compositeChild)
 	err := (&Handler{}).EnsureUserCount(router.Request{
@@ -231,7 +235,46 @@ func TestEnsureUserCountMultiUserEntryExcludesComposite(t *testing.T) {
 
 	var updated v1.MCPServerCatalogEntry
 	require.NoError(t, client.Get(context.Background(), router.Key(entry.Namespace, entry.Name), &updated))
-	assert.Equal(t, 1, updated.Status.UserCount, "should only count active non-composite server")
+	assert.Equal(t, 1, updated.Status.UserCount, "should only count active non-composite servers")
+}
+
+func TestEnsureUserCountSingleUserEntryCountsUniqueServerUsers(t *testing.T) {
+	entry := newMCPServerCatalogEntry("single-entry", types.MCPServerCatalogEntryManifest{
+		Name:           "Single User Template",
+		Runtime:        types.RuntimeContainerized,
+		ServerUserType: types.ServerUserTypeSingleUser,
+		ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+			Image: "example/mcp:1.0.0",
+			Port:  8080,
+			Path:  "/mcp",
+		},
+	})
+
+	server1 := newMCPServer("server-1", types.MCPServerManifest{Runtime: types.RuntimeContainerized})
+	server1.Spec.MCPServerCatalogEntryName = entry.Name
+	server1.Spec.UserID = "user1"
+
+	server2 := newMCPServer("server-2", types.MCPServerManifest{Runtime: types.RuntimeContainerized})
+	server2.Spec.MCPServerCatalogEntryName = entry.Name
+	server2.Spec.UserID = "user1"
+
+	server3 := newMCPServer("server-3", types.MCPServerManifest{Runtime: types.RuntimeContainerized})
+	server3.Spec.MCPServerCatalogEntryName = entry.Name
+	server3.Spec.UserID = "user2"
+
+	client := newFakeClient(entry, server1, server2, server3)
+	err := (&Handler{}).EnsureUserCount(router.Request{
+		Client:    client,
+		Ctx:       context.Background(),
+		Object:    entry,
+		Namespace: entry.Namespace,
+		Name:      entry.Name,
+	}, &router.ResponseWrapper{})
+	require.NoError(t, err)
+
+	var updated v1.MCPServerCatalogEntry
+	require.NoError(t, client.Get(context.Background(), router.Key(entry.Namespace, entry.Name), &updated))
+	assert.Equal(t, 2, updated.Status.UserCount)
 }
 
 func newMCPServer(name string, manifest types.MCPServerManifest) *v1.MCPServer {
