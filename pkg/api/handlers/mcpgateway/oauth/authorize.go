@@ -18,6 +18,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -123,8 +124,18 @@ func (h *handler) authorize(req api.Context) error {
 	}
 
 	var oauthClient v1.OAuthClient
-	if err := req.Storage.Get(req.Context(), kclient.ObjectKey{Namespace: clientNamespace, Name: clientName}, &oauthClient); err != nil {
-		return err
+	if err := req.Storage.Get(req.Context(), kclient.ObjectKey{Namespace: clientNamespace, Name: clientName}, &oauthClient); apierrors.IsNotFound(err) {
+		return types.NewErrBadRequest("%v", Error{
+			Code:        ErrInvalidRequest,
+			Description: fmt.Sprintf("client_id does not exist: %s", clientID),
+			State:       state,
+		})
+	} else if err != nil {
+		return Error{
+			Code:        ErrServerError,
+			Description: fmt.Sprintf("failed to get OAuth client: %v", err),
+			State:       state,
+		}
 	}
 
 	if !slices.Contains(oauthClient.Spec.Manifest.RedirectURIs, redirectURI) {
