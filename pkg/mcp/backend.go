@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -196,8 +197,13 @@ func ensureHTTPGetOK(ctx context.Context, client *http.Client, url string) error
 	}
 }
 
-func urlWithPath(url, path string) string {
-	return fmt.Sprintf("%s/%s", strings.TrimSuffix(url, "/"), strings.TrimPrefix(path, "/"))
+func urlWithPath(urlStr, path string) string {
+	u, err := url.Parse(urlStr)
+	if err != nil {
+		return urlStr
+	}
+	u.Path = path
+	return u.String()
 }
 
 func constructMCPServerNanobotYAMLForComposite(servers []ComponentServer) ([]byte, error) {
