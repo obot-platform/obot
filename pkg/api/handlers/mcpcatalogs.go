@@ -1610,6 +1610,10 @@ func (h *MCPCatalogHandler) populateComponentManifests(req api.Context, manifest
 				return types.NewErrBadRequest("component entry %s does not belong to workspace %s", component.CatalogEntryID, workspaceID)
 			}
 
+			if entry.Spec.Manifest.ServerUserType == types.ServerUserTypeMultiUser {
+				return types.NewErrBadRequest("multi-user catalog entry %s cannot be included in a composite server; use the multi-user MCP server instead", component.CatalogEntryID)
+			}
+
 			// Reject remote entries with static OAuth from being included in composites
 			if entry.Spec.Manifest.Runtime == types.RuntimeRemote &&
 				entry.Spec.Manifest.RemoteConfig != nil &&
