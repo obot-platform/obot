@@ -56,4 +56,16 @@ spec:
               - 169.254.0.0/16   # Link-local
               - 224.0.0.0/4      # Multicast
               - 240.0.0.0/4      # Reserved
+    - to:
+        - podSelector:
+            matchLabels:
+              "obot-internal-provider": "true"
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 127.0.0.0/8      # Loopback
+              - 169.254.0.0/16   # Link-local
+              - 224.0.0.0/4      # Multicast
+              - 240.0.0.0/4      # Reserved
+
 {{- end }}

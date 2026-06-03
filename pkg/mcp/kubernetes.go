@@ -753,8 +753,9 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 			Namespace:   k.mcpNamespace,
 			Annotations: annotations,
 			Labels: map[string]string{
-				"app":         server.MCPServerName,
-				"mcp-user-id": server.OwnerUserID,
+				"app":                    server.MCPServerName,
+				"mcp-user-id":            server.OwnerUserID,
+				"obot-internal-provider": strconv.FormatBool(server.Provider),
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -768,8 +769,9 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: annotations,
 					Labels: map[string]string{
-						"app":         server.MCPServerName,
-						"mcp-user-id": server.OwnerUserID,
+						"app":                    server.MCPServerName,
+						"mcp-user-id":            server.OwnerUserID,
+						"obot-internal-provider": strconv.FormatBool(server.Provider),
 					},
 				},
 				Spec: corev1.PodSpec{
