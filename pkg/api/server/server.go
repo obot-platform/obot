@@ -183,43 +183,43 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 			}
 		}
 
-		if !s.authorizer.Authorize(req, user) {
-			if _, err := req.Cookie(auth.ObotAccessTokenCookie); err == nil && req.URL.Path == "/api/me" {
-				// Tell the browser to delete the obot_access_token cookie.
-				// If the user tried to access this path and was unauthorized, then something is wrong with their token.
-				http.SetCookie(rw, &http.Cookie{
-					Name:   auth.ObotAccessTokenCookie,
-					Value:  "",
-					Path:   "/",
-					MaxAge: -1,
-				})
-			}
-
-			// Only set WWW-Authenticate if not in no-auth mode
-			if strings.HasPrefix(req.URL.Path, "/v0.1") && !s.registryNoAuth {
-				rw.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="MCP Registry", resource_metadata="%s/.well-known/oauth-protected-resource/v0.1/servers"`, strings.TrimSuffix(s.baseURL, "/api")))
-			} else if strings.HasPrefix(req.URL.Path, "/mcp-connect/") && user.GetUID() == "anonymous" {
-				rw.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer error="invalid_request", error_description="Invalid access token", resource_metadata="%s/.well-known/oauth-protected-resource%s"%s`, strings.TrimSuffix(s.baseURL, "/api"), req.URL.Path, s.mcpOAuthScope))
-			}
-
-			if authenticated {
-				http.Error(rw, "forbidden", http.StatusForbidden)
-			} else {
-				http.Error(rw, "unauthorized", http.StatusUnauthorized)
-			}
-
-			return
-		}
-
-		if strings.HasPrefix(req.URL.Path, "/api/") {
-			rw.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0")
-			rw.Header().Set("Pragma", "no-cache")
-			rw.Header().Set("Expires", "0")
-		}
-
 		var shouldLogError bool
 		err = s.providerEntitlementGate.Check(req)
 		if err == nil {
+			if !s.authorizer.Authorize(req, user) {
+				if _, err := req.Cookie(auth.ObotAccessTokenCookie); err == nil && req.URL.Path == "/api/me" {
+					// Tell the browser to delete the obot_access_token cookie.
+					// If the user tried to access this path and was unauthorized, then something is wrong with their token.
+					http.SetCookie(rw, &http.Cookie{
+						Name:   auth.ObotAccessTokenCookie,
+						Value:  "",
+						Path:   "/",
+						MaxAge: -1,
+					})
+				}
+
+				// Only set WWW-Authenticate if not in no-auth mode
+				if strings.HasPrefix(req.URL.Path, "/v0.1") && !s.registryNoAuth {
+					rw.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="MCP Registry", resource_metadata="%s/.well-known/oauth-protected-resource/v0.1/servers"`, strings.TrimSuffix(s.baseURL, "/api")))
+				} else if strings.HasPrefix(req.URL.Path, "/mcp-connect/") && user.GetUID() == "anonymous" {
+					rw.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer error="invalid_request", error_description="Invalid access token", resource_metadata="%s/.well-known/oauth-protected-resource%s"%s`, strings.TrimSuffix(s.baseURL, "/api"), req.URL.Path, s.mcpOAuthScope))
+				}
+
+				if authenticated {
+					http.Error(rw, "forbidden", http.StatusForbidden)
+				} else {
+					http.Error(rw, "unauthorized", http.StatusUnauthorized)
+				}
+
+				return
+			}
+
+			if strings.HasPrefix(req.URL.Path, "/api/") {
+				rw.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0")
+				rw.Header().Set("Pragma", "no-cache")
+				rw.Header().Set("Expires", "0")
+			}
+
 			err = f(api.Context{
 				ResponseWriter: rw,
 				Request:        req,
