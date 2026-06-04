@@ -65,7 +65,6 @@ type ServerConfig struct {
 	MCPCatalogEntryName  string `json:"mcpCatalogEntryName"`
 	MCPServerDisplayName string `json:"mcpServerDisplayName"`
 	NanobotAgentName     string `json:"nanobotAgentName"`
-	ProjectMCPServer     bool   `json:"projectMCPServer"`
 	ComponentMCPServer   bool   `json:"componentMCPServer"`
 	SystemMCPServer      bool   `json:"systemMCPServer"`
 	Provider             bool   `json:"provider,omitempty"`

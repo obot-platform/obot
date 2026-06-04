@@ -2,7 +2,6 @@ package mcp
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"net/url"
@@ -197,11 +196,6 @@ func (sm *SessionManager) Close() {
 
 // CloseClient will close the client for this MCP server, but leave the deployment running.
 func (sm *SessionManager) CloseClient(ctx context.Context, server ServerConfig, clientScope string) error {
-	if server.ProjectMCPServer {
-		sm.closeClient(server, clientScope)
-		return nil
-	}
-
 	serverConfig, err := sm.backend.transformConfig(ctx, server)
 	if err != nil {
 		return fmt.Errorf("failed to transform MCP server config: %w", err)
@@ -242,10 +236,6 @@ func (sm *SessionManager) closeClient(server ServerConfig, clientScope string) {
 
 // LaunchServer will ensure that the server is deployed
 func (sm *SessionManager) LaunchServer(ctx context.Context, serverConfig ServerConfig) (string, error) {
-	if serverConfig.ProjectMCPServer {
-		return "", errors.New("cannot launch project MCP server")
-	}
-
 	c, err := sm.ensureDeployment(ctx, serverConfig, true)
 	return c.URL, err
 }
@@ -301,7 +291,7 @@ func (sm *SessionManager) RestartServerDeployment(ctx context.Context, server Se
 
 func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerConfig, transformRemote bool) (ServerConfig, error) {
 	var webhooks []Webhook
-	if (server.Runtime != types.RuntimeRemote || transformRemote) && !server.ComponentMCPServer && !server.SystemMCPServer {
+	if (server.Runtime != types.RuntimeRemote || transformRemote) && !server.ComponentMCPServer && !server.SystemMCPServer && !server.Provider {
 		// Don't get webhooks for servers that are components of composite servers.
 		// The webhooks would be called at the composite level.
 		var err error
@@ -325,7 +315,7 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerCon
 			return ServerConfig{}, fmt.Errorf("MCP server %s needs to update its URL", server.MCPServerDisplayName)
 		}
 
-		if !sm.allowLocalhostMCP && !server.ProjectMCPServer && server.URL != "" {
+		if !sm.allowLocalhostMCP && server.URL != "" {
 			// Ensure the URL is not a localhost URL.
 			u, err := url.Parse(server.URL)
 			if err != nil {
@@ -345,7 +335,7 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerCon
 			}
 		}
 
-		if !transformRemote || server.ProjectMCPServer {
+		if !transformRemote {
 			// If we aren't transforming the remote MCP server, then return it as is.
 			return server, nil
 		}
