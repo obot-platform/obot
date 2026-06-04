@@ -1160,6 +1160,7 @@ func ValidateSystemMCPServerCatalogEntryManifest(manifest types.SystemMCPServerC
 		NPXConfig:           manifest.NPXConfig,
 		ContainerizedConfig: manifest.ContainerizedConfig,
 		RemoteConfig:        manifest.RemoteConfig,
+		ServerUserType:      manifest.ServerUserType,
 		Env:                 manifest.Env,
 		Resources:           manifest.Resources,
 	})

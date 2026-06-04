@@ -310,6 +310,7 @@ func mcpCatalogEntryManifestToSystem(manifest types.MCPServerCatalogEntryManifes
 		RepoURL:             manifest.RepoURL,
 		ToolPreview:         manifest.ToolPreview,
 		SystemMCPServerType: systemMCPServerType,
+		ServerUserType:      manifest.ServerUserType,
 		FilterConfig:        filterConfig,
 		Runtime:             manifest.Runtime,
 		UVXConfig:           manifest.UVXConfig,
