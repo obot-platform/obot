@@ -108,6 +108,7 @@ type Config struct {
 	DisableUpdateCheck                   bool   `usage:"Disable Obot server update checks"`
 	EnableRegistryAuth                   bool   `usage:"Enable authentication for the MCP registry API" default:"false" env:"OBOT_SERVER_ENABLE_REGISTRY_AUTH"`
 	EnableMessagePolicies                bool   `usage:"Enable message policies for LLM proxy content enforcement" default:"false"`
+	EnableAgents                         *bool  `usage:"Enable Obot Agent features. When unset, agents are disabled for new deployments but grandfathered in for deployments that already have agents. Explicitly set to true to force-enable, or false to force-disable, regardless of grandfathering." env:"OBOT_ENABLE_AGENTS"`
 	MCPOAuthClientExpiration             string `usage:"The expiration time in dynamically registered MCP OAuth clients, must be a valid duration string and may include days, hours, or minutes" default:"30d"`
 	MCPServerSearchImage                 string `usage:"Container image for the obot MCP server" default:"ghcr.io/obot-platform/obot-mcp-server:v0.2.0"`
 	NanobotAgentImage                    string `usage:"Container image for the Nanobot agent MCP server" default:"ghcr.io/obot-platform/nanobot-agent:v0.0.83"`
@@ -225,6 +226,7 @@ type Services struct {
 	MCPHTTPWebhookBaseImage              string
 	RegistryNoAuth                       bool
 	MessagePoliciesEnabled               bool
+	EnableAgents                         *bool
 	MCPNetworkPolicyEnabled              bool
 	MCPDefaultDenyAllEgress              bool
 	MCPServerSearchImage                 string
@@ -961,6 +963,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		AgentIdleServerShutdownInterval:      time.Duration(config.IdleAgentShutdownHours) * time.Hour,
 		RegistryNoAuth:                       registryNoAuth,
 		MessagePoliciesEnabled:               config.EnableMessagePolicies,
+		EnableAgents:                         config.EnableAgents,
 		MCPNetworkPolicyEnabled:              mcpNetworkPolicyEnabled,
 		MCPDefaultDenyAllEgress:              config.MCPDefaultDenyAllEgress,
 		MCPServerSearchImage:                 config.MCPServerSearchImage,
