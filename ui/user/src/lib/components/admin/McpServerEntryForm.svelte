@@ -952,7 +952,7 @@
 
 {#snippet auditLogsView()}
 	{#if entry}
-		{@const isMultiUserServer = 'catalogEntryID' in entry ? !entry.catalogEntryID : false}
+		{@const isMultiUserServer = 'serverUserType' in entry && entry.serverUserType === 'multiUser'}
 		{@const isSingleUserServer =
 			!isMultiUserServer && ['npx', 'uvx', 'containerized'].includes(entry.manifest.runtime)}
 		{@const isRemoteServer = !isMultiUserServer && entry.manifest.runtime === 'remote'}
@@ -960,11 +960,17 @@
 		{@const mcpServerDisplayName = entry.manifest?.name ?? null}
 		{@const entryId = entry.id ?? null}
 		{@const mcpCatalogEntryId = 'catalogEntryID' in entry ? entry?.catalogEntryID : null}
+		{@const mcpServerCatalogEntryName =
+			isMultiUserServer && mcpCatalogEntryId
+				? mcpCatalogEntryId
+				: isSingleUserServer || isRemoteServer
+					? entryId
+					: null}
 		<div class="mt-4 flex flex-1 flex-col gap-8 pb-8">
 			<!-- temporary filter mcp server by name and catalog entry id-->
 			<AuditLogsPageContent
 				mcpId={isMultiUserServer ? entryId : server ? server.id : null}
-				mcpServerCatalogEntryName={isSingleUserServer || isRemoteServer ? entryId : null}
+				{mcpServerCatalogEntryName}
 				{mcpServerDisplayName}
 				{id}
 				{entity}
