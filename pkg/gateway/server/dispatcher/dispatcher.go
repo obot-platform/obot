@@ -16,6 +16,7 @@ import (
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
+	"github.com/obot-platform/obot/pkg/api/handlers/providers"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/license"
 	"github.com/obot-platform/obot/pkg/mcp"
@@ -127,7 +128,15 @@ func (d *Dispatcher) urlForModelProviderValidation(ctx context.Context, namespac
 		return url.URL{}, fmt.Errorf("failed to get provider: %w", err)
 	}
 
-	if len(modelProvider.Status.MissingConfigurationParameters) > 0 {
+	if len(extraEnv) > 0 {
+		providerStatus, err := providers.ModelProviderStatus(modelProvider, extraEnv, d.licenseProvider)
+		if err != nil {
+			return url.URL{}, err
+		}
+		if !providerStatus.Configured {
+			return url.URL{}, fmt.Errorf("provider %q is not configured, missing configuration parameters: %s", modelProviderName, strings.Join(providerStatus.MissingConfigurationParameters, ", "))
+		}
+	} else if len(modelProvider.Status.MissingConfigurationParameters) > 0 {
 		return url.URL{}, fmt.Errorf("provider %q is not configured, missing configuration parameters: %s", modelProviderName, strings.Join(modelProvider.Status.MissingConfigurationParameters, ", "))
 	}
 
