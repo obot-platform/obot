@@ -7,7 +7,6 @@ import (
 
 	"github.com/obot-platform/nah/pkg/apply"
 	"github.com/obot-platform/nah/pkg/router"
-	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -113,59 +112,52 @@ func (h *Handler) UpdateMCPServerStatus(req router.Request, _ router.Response) e
 		needsUpdate = true
 	}
 
-	// Manage NeedsK8sUpdate flag for K8s-compatible runtimes
-	isK8sRuntime := mcpServer.Spec.Manifest.Runtime == types.RuntimeContainerized ||
-		mcpServer.Spec.Manifest.Runtime == types.RuntimeUVX ||
-		mcpServer.Spec.Manifest.Runtime == types.RuntimeNPX
+	// Get current K8s settings to compare
+	var k8sSettings v1.K8sSettings
+	if err := h.storageClient.Get(req.Ctx, kclient.ObjectKey{
+		Namespace: h.mcpNamespace,
+		Name:      system.K8sSettingsName,
+	}, &k8sSettings); err == nil {
+		imagePullSecretNames, err := mcp.CurrentImagePullSecretNames(req.Ctx, h.storageClient, h.mcpRuntimeBackend, h.mcpImagePullSecrets)
+		if err != nil {
+			return err
+		}
 
-	if isK8sRuntime {
-		// Get current K8s settings to compare
-		var k8sSettings v1.K8sSettings
-		if err := h.storageClient.Get(req.Ctx, kclient.ObjectKey{
-			Namespace: h.mcpNamespace,
-			Name:      system.K8sSettingsName,
-		}, &k8sSettings); err == nil {
-			imagePullSecretNames, err := mcp.CurrentImagePullSecretNames(req.Ctx, h.storageClient, h.mcpRuntimeBackend, h.mcpImagePullSecrets)
-			if err != nil {
-				return err
-			}
+		resources, err := mcp.CoreResourceRequirements(mcpServer.Spec.Manifest.Resources)
+		if err != nil {
+			return fmt.Errorf("failed to compute core resource requirements: %w", err)
+		}
 
-			resources, err := mcp.CoreResourceRequirements(mcpServer.Spec.Manifest.Resources)
-			if err != nil {
-				return fmt.Errorf("failed to compute core resource requirements: %w", err)
-			}
+		currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec, resources, mcpServer.Spec.Manifest.Runtime, mcpServer.Spec.NanobotAgentID != "", imagePullSecretNames)
 
-			currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec, resources, mcpServer.Spec.Manifest.Runtime, mcpServer.Spec.NanobotAgentID != "", imagePullSecretNames)
+		shouldSetNeedsK8sUpdate := !mcpServer.Status.NeedsK8sUpdate &&
+			k8sSettingsHash != currentHash &&
+			mcpServer.Status.K8sSettingsHash != currentHash
 
-			shouldSetNeedsK8sUpdate := !mcpServer.Status.NeedsK8sUpdate &&
-				k8sSettingsHash != currentHash &&
-				mcpServer.Status.K8sSettingsHash != currentHash
-
-			// Update K8sSettingsHash from deployment only if:
-			// 1. The MCPServer has no hash yet (empty), OR
-			// 2. The deployment's hash matches the current K8sSettings (deployment is up-to-date)
-			// This prevents overwriting a hash that was set by the API handler during a redeploy
-			// before the deployment has been updated.
-			if k8sSettingsHash != "" {
-				if mcpServer.Status.K8sSettingsHash == "" || k8sSettingsHash == currentHash {
-					if mcpServer.Status.K8sSettingsHash != k8sSettingsHash {
-						mcpServer.Status.K8sSettingsHash = k8sSettingsHash
-						needsUpdate = true
-					}
-				}
-			}
-
-			// Only set NeedsK8sUpdate if:
-			// 1. It's not already set
-			// 2. The deployment has a hash (not initializing)
-			// 3. The deployment's hash doesn't match current K8sSettings
-			// 4. The MCPServer's expected hash also doesn't match current K8sSettings
-			//    (if MCPServer already expects the current hash, a redeploy is pending)
-			if !mcpServer.Status.NeedsK8sUpdate {
-				if shouldSetNeedsK8sUpdate {
-					mcpServer.Status.NeedsK8sUpdate = true
+		// Update K8sSettingsHash from deployment only if:
+		// 1. The MCPServer has no hash yet (empty), OR
+		// 2. The deployment's hash matches the current K8sSettings (deployment is up-to-date)
+		// This prevents overwriting a hash that was set by the API handler during a redeploy
+		// before the deployment has been updated.
+		if k8sSettingsHash != "" {
+			if mcpServer.Status.K8sSettingsHash == "" || k8sSettingsHash == currentHash {
+				if mcpServer.Status.K8sSettingsHash != k8sSettingsHash {
+					mcpServer.Status.K8sSettingsHash = k8sSettingsHash
 					needsUpdate = true
 				}
+			}
+		}
+
+		// Only set NeedsK8sUpdate if:
+		// 1. It's not already set
+		// 2. The deployment has a hash (not initializing)
+		// 3. The deployment's hash doesn't match current K8sSettings
+		// 4. The MCPServer's expected hash also doesn't match current K8sSettings
+		//    (if MCPServer already expects the current hash, a redeploy is pending)
+		if !mcpServer.Status.NeedsK8sUpdate {
+			if shouldSetNeedsK8sUpdate {
+				mcpServer.Status.NeedsK8sUpdate = true
+				needsUpdate = true
 			}
 		}
 	} else {
