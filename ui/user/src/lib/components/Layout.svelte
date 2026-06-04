@@ -142,22 +142,32 @@
 	let collapsed = $state<Record<string, boolean>>({});
 	let pathname = $derived(page.url.pathname);
 
-	let agentLinkEnabled = $derived(isAgentEnabled(defaultModelAliases.current));
+	// Whether the Obot Agent feature is enabled server-side. When false, agent entry
+	// points are removed entirely (not just disabled). When the feature is enabled but
+	// models aren't configured, agentLinkEnabled is false so links show as disabled.
+	let agentsFeatureEnabled = $derived(version.current.agentsEnabled !== false);
+	let agentLinkEnabled = $derived(
+		isAgentEnabled(defaultModelAliases.current) && agentsFeatureEnabled
+	);
 
 	let isBootStrapUser = $derived(profile.current.isBootstrapUser?.() ?? false);
 	let isAtLeastPowerUserPlus = $derived(profile.current.groups.includes(Group.POWERUSER_PLUS));
-	let chatLinks = $derived<NavLink[]>([
-		{
-			id: 'launch-agent-chat',
-			href: '/agent',
-			icon: BotMessageSquare,
-			disabled: isBootStrapUser || !agentLinkEnabled,
-			label: 'Launch Agent',
-			collapsible: false,
-			noteIcon: !agentLinkEnabled ? LockOpen : undefined,
-			note: !agentLinkEnabled ? renderAgentDisabledNote : undefined
-		}
-	]);
+	let chatLinks = $derived<NavLink[]>(
+		agentsFeatureEnabled
+			? [
+					{
+						id: 'launch-agent-chat',
+						href: '/agent',
+						icon: BotMessageSquare,
+						disabled: isBootStrapUser || !agentLinkEnabled,
+						label: 'Launch Agent',
+						collapsible: false,
+						noteIcon: !agentLinkEnabled ? LockOpen : undefined,
+						note: !agentLinkEnabled ? renderAgentDisabledNote : undefined
+					}
+				]
+			: []
+	);
 	let cliLink = $derived<NavLink[]>([
 		{
 			id: 'install-cli',
@@ -168,6 +178,38 @@
 			beta: true
 		}
 	]);
+	let agentManagementLinks = $derived<NavLink[]>(
+		agentsFeatureEnabled
+			? [
+					{
+						id: 'agent-management',
+						icon: Bot,
+						label: 'Obot Agent Management',
+						collapsible: true,
+						items: [
+							{
+								id: 'admin-agents',
+								href: '/admin/agents',
+								icon: Bots,
+								label: 'Agents',
+								collapsible: false,
+								disabled: isBootStrapUser || !agentLinkEnabled
+							},
+							{
+								id: 'launch-agent-chat',
+								href: '/agent',
+								icon: BotMessageSquare,
+								label: 'Launch Agent',
+								disabled: isBootStrapUser || !agentLinkEnabled,
+								collapsible: false,
+								noteIcon: !agentLinkEnabled ? LockOpen : undefined,
+								note: !agentLinkEnabled ? renderAgentDisabledNote : undefined
+							}
+						]
+					}
+				]
+			: []
+	);
 	let navLinks = $derived<NavLink[]>(
 		profile.current.hasAdminAccess?.()
 			? [
@@ -365,32 +407,7 @@
 						]
 					},
 					...cliLink,
-					{
-						id: 'agent-management',
-						icon: Bot,
-						label: 'Obot Agent Management',
-						collapsible: true,
-						items: [
-							{
-								id: 'admin-agents',
-								href: '/admin/agents',
-								icon: Bots,
-								label: 'Agents',
-								collapsible: false,
-								disabled: isBootStrapUser || !agentLinkEnabled
-							},
-							{
-								id: 'launch-agent-chat',
-								href: '/agent',
-								icon: BotMessageSquare,
-								label: 'Launch Agent',
-								disabled: isBootStrapUser || !agentLinkEnabled,
-								collapsible: false,
-								noteIcon: !agentLinkEnabled ? LockOpen : undefined,
-								note: !agentLinkEnabled ? renderAgentDisabledNote : undefined
-							}
-						]
-					},
+					...agentManagementLinks,
 					{
 						id: 'llm-gateway',
 						icon: BrainCog,

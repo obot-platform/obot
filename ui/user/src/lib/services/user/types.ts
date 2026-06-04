@@ -765,6 +765,7 @@ export interface Version {
 	mcpDefaultDenyAllEgress?: boolean;
 	autonomousToolUseEnabled?: boolean;
 	messagePoliciesEnabled?: boolean;
+	agentsEnabled?: boolean;
 	disableLegacyChat?: boolean;
 }
 

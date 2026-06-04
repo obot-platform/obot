@@ -6,7 +6,11 @@ import { error } from '@sveltejs/kit';
 export const ssr = false;
 
 export const load: LayoutLoad = async ({ fetch, url, parent }) => {
-	const { profile } = await parent();
+	const { profile, version } = await parent();
+
+	if (version?.agentsEnabled === false) {
+		throw error(403, 'Obot Agent features are disabled.');
+	}
 
 	// Check for an explicit project ID from query params or URL path.
 	// This allows impersonation: navigating directly to another user's project.

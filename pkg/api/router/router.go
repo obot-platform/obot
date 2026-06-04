@@ -2,6 +2,7 @@ package router
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/obot-platform/obot/pkg/api/handlers"
@@ -11,13 +12,42 @@ import (
 	"github.com/obot-platform/obot/pkg/api/handlers/setup"
 	"github.com/obot-platform/obot/pkg/api/handlers/wellknown"
 	"github.com/obot-platform/obot/pkg/services"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/ui"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"k8s.io/component-base/metrics/legacyregistry"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+// resolveAgentsEnabled determines whether Obot Agent features are enabled.
+//
+// An explicitly-set OBOT_ENABLE_AGENTS value (or --enable-agents flag) always
+// wins. Otherwise agents are enabled only if the deployment already has at least
+// one agent: new deployments start with no agents and are therefore disabled by
+// default, while existing deployments that already use agents stay enabled.
+//
+// This is evaluated once at startup, so the value is fixed for the lifetime of
+// the process.
+func resolveAgentsEnabled(ctx context.Context, services *services.Services) (bool, error) {
+	if services.EnableAgents != nil {
+		return *services.EnableAgents, nil
+	}
+
+	// Only need to know whether at least one agent exists.
+	var agents v1.NanobotAgentList
+	if err := services.StorageClient.List(ctx, &agents, kclient.Limit(1)); err != nil {
+		return false, fmt.Errorf("failed to list nanobot agents: %w", err)
+	}
+	return len(agents.Items) > 0, nil
+}
 
 func Router(ctx context.Context, services *services.Services) (http.Handler, error) {
 	mux := services.APIServer
+
+	agentsEnabled, err := resolveAgentsEnabled(ctx, services)
+	if err != nil {
+		return nil, err
+	}
 
 	version, err := handlers.NewVersionHandler(ctx, handlers.VersionHandlerOptions{
 		GatewayClient:           services.GatewayClient,
@@ -30,6 +60,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 		AuthEnabled:             services.AuthEnabled,
 		DisableUpdateCheck:      services.DisableUpdateCheck,
 		MessagePoliciesEnabled:  services.MessagePoliciesEnabled,
+		AgentsEnabled:           agentsEnabled,
 	})
 	if err != nil {
 		return nil, err
@@ -516,7 +547,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("DELETE /api/projects/{project_id}", projects.Delete)
 
 	// NanobotAgents
-	nanobotAgents := handlers.NewNanobotAgentHandler(services.MCPSessionManager, services.ServerURL)
+	nanobotAgents := handlers.NewNanobotAgentHandler(services.MCPSessionManager, services.ServerURL, agentsEnabled)
 	mux.HandleFunc("GET /api/nanobot-agents", nanobotAgents.ListAll)
 	mux.HandleFunc("POST /api/projects/{project_id}/agents", nanobotAgents.Create)
 	mux.HandleFunc("GET /api/projects/{project_id}/agents", nanobotAgents.List)

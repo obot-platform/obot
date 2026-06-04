@@ -23,12 +23,14 @@ import (
 type NanobotAgentHandler struct {
 	sessionManager *mcp.SessionManager
 	serverURL      string
+	agentsEnabled  bool
 }
 
-func NewNanobotAgentHandler(sessionManager *mcp.SessionManager, serverURL string) *NanobotAgentHandler {
+func NewNanobotAgentHandler(sessionManager *mcp.SessionManager, serverURL string, agentsEnabled bool) *NanobotAgentHandler {
 	return &NanobotAgentHandler{
 		sessionManager: sessionManager,
 		serverURL:      serverURL,
+		agentsEnabled:  agentsEnabled,
 	}
 }
 
@@ -73,6 +75,10 @@ func (h *NanobotAgentHandler) List(req api.Context) error {
 }
 
 func (h *NanobotAgentHandler) Create(req api.Context) error {
+	if !h.agentsEnabled {
+		return types.NewErrHTTP(http.StatusForbidden, "Obot Agent features are disabled")
+	}
+
 	var manifest types.NanobotAgentManifest
 	if err := req.Read(&manifest); err != nil {
 		return err
