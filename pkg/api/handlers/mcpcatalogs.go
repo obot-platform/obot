@@ -818,6 +818,7 @@ func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
 		req.ObotNamespace,
 		entry.Namespace,
 		catalogName,
+		entry.Name,
 		entry.Spec.Manifest,
 		configRequest.Config,
 		configRequest.URL,
@@ -942,6 +943,7 @@ func (h *MCPCatalogHandler) generateCompositeToolPreviews(req api.Context, entry
 			req.ObotNamespace,
 			entry.Namespace,
 			catalogName,
+			componentEntry.CatalogEntryID,
 			componentEntry.Manifest,
 			config.Config,
 			config.URL,
@@ -1065,7 +1067,7 @@ func (h *MCPCatalogHandler) GenerateToolPreviewsOAuthURL(req api.Context) error 
 	if catalogName == "" {
 		catalogName = entry.Spec.PowerUserWorkspaceID
 	}
-	server, serverConfig, err := tempServerAndConfig(req.Context(), req.GatewayClient, req.Storage, req.LocalK8sClient, req.ObotNamespace, entry.Namespace, catalogName, entry.Spec.Manifest, configRequest.Config, configRequest.URL, h.serverURL)
+	server, serverConfig, err := tempServerAndConfig(req.Context(), req.GatewayClient, req.Storage, req.LocalK8sClient, req.ObotNamespace, entry.Namespace, catalogName, entry.Name, entry.Spec.Manifest, configRequest.Config, configRequest.URL, h.serverURL)
 	if err != nil {
 		return types.NewErrBadRequest("failed to create temporary server and config: %v", err)
 	}
@@ -1158,6 +1160,7 @@ func (h *MCPCatalogHandler) GenerateComponentToolPreviews(req api.Context) error
 		req.ObotNamespace,
 		composite.Namespace,
 		catalogName,
+		component.CatalogEntryID,
 		component.Manifest,
 		configRequest.Config,
 		configRequest.URL,
@@ -1282,6 +1285,7 @@ func (h *MCPCatalogHandler) GenerateComponentToolPreviewsOAuthURL(req api.Contex
 		req.ObotNamespace,
 		composite.Namespace,
 		catalogName,
+		component.CatalogEntryID,
 		component.Manifest,
 		configRequest.Config,
 		configRequest.URL,
@@ -1365,6 +1369,7 @@ func (h *MCPCatalogHandler) generateCompositeOAuthURLs(req api.Context, entry v1
 			req.ObotNamespace,
 			entry.Namespace,
 			catalogName,
+			componentEntry.CatalogEntryID,
 			componentEntry.Manifest,
 			config.Config,
 			config.URL,
@@ -1391,7 +1396,7 @@ func (h *MCPCatalogHandler) generateCompositeOAuthURLs(req api.Context, entry v1
 	return req.Write(oauthURLs)
 }
 
-func tempServerAndConfig(ctx context.Context, gatewayClient *gclient.Client, client client.Client, localK8sClient client.Client, obotNamespace, namespace, catalogName string, entryManifest types.MCPServerCatalogEntryManifest, config map[string]string, url, baseURL string) (v1.MCPServer, mcp.ServerConfig, error) {
+func tempServerAndConfig(ctx context.Context, gatewayClient *gclient.Client, client client.Client, localK8sClient client.Client, obotNamespace, namespace, catalogName, mcpServerCatalogEntryName string, entryManifest types.MCPServerCatalogEntryManifest, config map[string]string, url, baseURL string) (v1.MCPServer, mcp.ServerConfig, error) {
 	// Convert catalog entry to server manifest
 	serverManifest, err := types.MapCatalogEntryToServer(entryManifest, url, false)
 	if err != nil {
@@ -1414,6 +1419,9 @@ func tempServerAndConfig(ctx context.Context, gatewayClient *gclient.Client, cli
 		},
 		Spec: v1.MCPServerSpec{
 			Manifest: serverManifest,
+			// Link back to the catalog entry so its static OAuth credentials are
+			// resolvable during the preview (this temp server is never persisted).
+			MCPServerCatalogEntryName: mcpServerCatalogEntryName,
 		},
 	}
 
