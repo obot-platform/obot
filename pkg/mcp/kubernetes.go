@@ -1108,8 +1108,12 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 		}
 	}
 
-	if err = ensureServerReady(ctx, url, server); err != nil {
-		return "", fmt.Errorf("failed to ensure MCP server is ready: %w", err)
+	if server.NeedsShim() {
+		// We are checking the shim, set the healthz path accordingly.
+		server.HealthzPath = "/healthz"
+		if err = ensureServerReady(ctx, url, server); err != nil {
+			return "", fmt.Errorf("failed to ensure MCP server is ready: %w", err)
+		}
 	}
 
 	return podName, nil
