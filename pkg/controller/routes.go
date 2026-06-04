@@ -31,7 +31,7 @@ import (
 func (c *Controller) setupRoutes() {
 	root := c.services.Router
 
-	providers := provider.New(c.services.GatewayClient, c.services.ProviderDispatcher, c.services.LicenseProvider, c.services.ToolRegistryURLs)
+	providers := provider.New(c.services.GatewayClient, c.services.ProviderDispatcher, c.services.LicenseProvider, c.services.ProviderRegistryPaths)
 	credentialCleanup := cleanup.NewCredentials(c.services.MCPSessionManager, c.services.GatewayClient, c.services.ServerURL, c.services.InternalServerURL)
 	userCleanup := cleanup.NewUserCleanup(c.services.GatewayClient, c.services.AccessControlRuleHelper)
 	mcpCatalog := mcpcatalog.New(c.services.DefaultMCPCatalogPath, c.services.DefaultSystemMCPCatalogPath, c.services.GatewayClient, c.services.AccessControlRuleHelper, c.services.MCPRuntimeBackend)

@@ -3,8 +3,6 @@ package handlers
 import (
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
 	"strings"
 	"time"
 
@@ -85,52 +83,11 @@ func (mp *ModelProviderHandler) Validate(req api.Context) error {
 		return err
 	}
 
-	u, err := mp.dispatcher.URLForModelProviderValidation(req.Context(), modelProvider.Namespace, modelProvider.Name, envVars)
-	if err != nil {
-		return err
-	}
-	defer mp.dispatcher.StopModelProviderValidation(req.Context(), modelProvider.Namespace, modelProvider.Name)
-
-	validateReq, err := http.NewRequestWithContext(req.Context(), http.MethodGet, u.JoinPath("validate").String(), http.NoBody)
-	if err != nil {
-		return fmt.Errorf("failed to create model provider validation request: %w", err)
+	if err := mp.dispatcher.ValidateModelProvider(req.Context(), modelProvider.Namespace, modelProvider.Name, envVars); err != nil {
+		return types.NewErrBadRequest("failed to validate model provider %q: %v", modelProvider.Name, err)
 	}
 
-	validateResp, err := http.DefaultClient.Do(validateReq)
-	if err != nil {
-		return fmt.Errorf("failed to validate model provider %q: %w", modelProvider.Name, err)
-	}
-	defer validateResp.Body.Close()
-
-	validateRespBody, err := io.ReadAll(validateResp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to read model provider validation response: %w", err)
-	}
-
-	switch validateResp.StatusCode {
-	case http.StatusOK:
-		return nil
-	case http.StatusBadRequest:
-		if len(validateRespBody) > 0 {
-			return writeModelProviderValidationResponse(req, http.StatusBadRequest, validateResp.Header.Get("Content-Type"), validateRespBody)
-		}
-		return types.NewErrHTTP(http.StatusBadRequest, "model provider validation failed")
-	default:
-		message := fmt.Sprintf("model provider validation returned unexpected status code %d", validateResp.StatusCode)
-		if len(validateRespBody) > 0 {
-			message = fmt.Sprintf("%s: %s", message, string(validateRespBody))
-		}
-		return types.NewErrHTTP(http.StatusInternalServerError, message)
-	}
-}
-
-func writeModelProviderValidationResponse(req api.Context, statusCode int, contentType string, body []byte) error {
-	if contentType != "" {
-		req.ResponseWriter.Header().Set("Content-Type", contentType)
-	}
-	req.WriteHeader(statusCode)
-	_, err := req.ResponseWriter.Write(body)
-	return err
+	return nil
 }
 
 func (mp *ModelProviderHandler) Configure(req api.Context) error {
@@ -157,7 +114,7 @@ func (mp *ModelProviderHandler) Configure(req api.Context) error {
 	}
 
 	// We only need to reprocess the model provider if this is the "global" model provider.
-	mp.dispatcher.StopModelProvider(req.Context(), modelProvider.Namespace, modelProvider.Name)
+	mp.dispatcher.StopModelProvider(modelProvider.Namespace, modelProvider.Name)
 
 	if modelProvider.Annotations[v1.ModelProviderSyncAnnotation] == "" {
 		if modelProvider.Annotations == nil {
@@ -202,7 +159,7 @@ func (mp *ModelProviderHandler) Deconfigure(req api.Context) error {
 
 	// We only need to reprocess the model provider if this is the "global" model provider.
 	// Stop the model provider so that the credential is completely removed from the system.
-	mp.dispatcher.StopModelProvider(req.Context(), modelProvider.Namespace, modelProvider.Name)
+	mp.dispatcher.StopModelProvider(modelProvider.Namespace, modelProvider.Name)
 
 	if modelProvider.Annotations[v1.ModelProviderSyncAnnotation] == "" {
 		if modelProvider.Annotations == nil {

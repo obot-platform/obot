@@ -2,15 +2,12 @@ package cleanup
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	"github.com/obot-platform/obot/pkg/system"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Credentials struct {
@@ -27,54 +24,6 @@ func NewCredentials(mcpSessionManager *mcp.SessionManager, gatewayClient *gatewa
 		serverURL:         serverURL,
 		internalServerURL: internalServerURL,
 	}
-}
-
-func (c *Credentials) Remove(req router.Request, _ router.Response) error {
-	creds, err := c.gatewayClient.ListCredentials(req.Ctx, gateway.ListCredentialsOptions{
-		CredentialContexts: []string{req.Object.GetName()},
-	})
-	if err != nil {
-		return err
-	}
-	localCreds, err := c.gatewayClient.ListCredentials(req.Ctx, gateway.ListCredentialsOptions{
-		CredentialContexts: []string{req.Object.GetName() + "-local"},
-	})
-	if err != nil {
-		return err
-	}
-
-	creds = append(creds, localCreds...)
-
-	// Credentials for model providers
-	var modelProviders v1.ModelProviderList
-	if err = req.List(&modelProviders, &kclient.ListOptions{
-		Namespace: req.Namespace,
-	}); err != nil {
-		return err
-	}
-
-	projectName := strings.Replace(req.Name, system.ThreadPrefix, system.ProjectPrefix, 1)
-	modelProviderCredContexts := make([]string, 0, len(modelProviders.Items))
-	for _, modelProvider := range modelProviders.Items {
-		modelProviderCredContexts = append(modelProviderCredContexts, fmt.Sprintf("%s-%s", projectName, modelProvider.Name))
-	}
-
-	mpCreds, err := c.gatewayClient.ListCredentials(req.Ctx, gateway.ListCredentialsOptions{
-		CredentialContexts: modelProviderCredContexts,
-	})
-	if err != nil {
-		return err
-	}
-
-	creds = append(creds, mpCreds...)
-
-	for _, cred := range creds {
-		if _, err := c.gatewayClient.DeleteCredential(req.Ctx, cred.Context, cred.Name); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func (c *Credentials) RemoveMCPCredentials(req router.Request, _ router.Response) error {

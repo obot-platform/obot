@@ -121,7 +121,7 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 		return fmt.Errorf("failed to create credential for auth provider %q: %w", authProvider.Name, err)
 	}
 
-	ap.dispatcher.StopAuthProvider(req.Context(), authProvider.Namespace, authProvider.Name)
+	ap.dispatcher.StopAuthProvider(authProvider.Namespace, authProvider.Name)
 
 	// Check to make sure that only this provider is configured.
 	// Deconfigure it if that is not the case, and return a 400.
@@ -180,7 +180,7 @@ func (ap *AuthProviderHandler) Deconfigure(req api.Context) error {
 	}
 
 	// Stop the auth provider so that the credential is completely removed from the system.
-	ap.dispatcher.StopAuthProvider(req.Context(), authProvider.Namespace, authProvider.Name)
+	ap.dispatcher.StopAuthProvider(authProvider.Namespace, authProvider.Name)
 
 	if authProvider.Annotations[v1.AuthProviderSyncAnnotation] == "" {
 		if authProvider.Annotations == nil {

@@ -191,7 +191,6 @@ func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server S
 			ContainerPort:        server.ContainerPort,
 			ContainerPath:        server.ContainerPath,
 			NanobotAgentName:     server.NanobotAgentName,
-			Provider:             server.Provider,
 			StartupTimeout:       server.StartupTimeout,
 		}, nil
 	}
@@ -214,7 +213,6 @@ func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server S
 		ContainerPath:           server.ContainerPath,
 		PassthroughHeaderNames:  server.PassthroughHeaderNames,
 		PassthroughHeaderValues: server.PassthroughHeaderValues,
-		Provider:                server.Provider,
 		StartupTimeout:          server.StartupTimeout,
 	}, nil
 }
@@ -487,7 +485,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 	secretEnvData["NANOBOT_RUN_HEALTHZ_PATH"] = []byte("/healthz")
 
 	// JWT environment variables
-	if server.NanobotAgentName == "" && !server.Provider {
+	if server.NeedsShim() {
 		secretEnvData["NANOBOT_RUN_OAUTH_SCOPES"] = []byte("profile")
 		secretEnvData["NANOBOT_RUN_TRUSTED_ISSUER"] = []byte(server.Issuer)
 		secretEnvData["NANOBOT_RUN_OAUTH_JWKSURL"] = []byte(k.transformObotHostname(server.JWKSEndpoint))
@@ -755,9 +753,8 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 			Namespace:   k.mcpNamespace,
 			Annotations: annotations,
 			Labels: map[string]string{
-				"app":                    server.MCPServerName,
-				"mcp-user-id":            server.OwnerUserID,
-				"obot-internal-provider": strconv.FormatBool(server.Provider),
+				"app":         server.MCPServerName,
+				"mcp-user-id": server.OwnerUserID,
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -771,9 +768,8 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: annotations,
 					Labels: map[string]string{
-						"app":                    server.MCPServerName,
-						"mcp-user-id":            server.OwnerUserID,
-						"obot-internal-provider": strconv.FormatBool(server.Provider),
+						"app":         server.MCPServerName,
+						"mcp-user-id": server.OwnerUserID,
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -1914,14 +1910,6 @@ func (k *kubernetesBackend) getK8sSettings(ctx context.Context) v1.K8sSettingsSp
 	}
 
 	return settings.Spec
-}
-
-// DeploymentNeedsPSAUpdate checks if a deployment needs to be updated to be PSA compliant
-// based on the given PSA enforce level. For "privileged" level, no update is needed.
-// For "baseline" level, checks for basic privilege escalation restrictions.
-// For "restricted" level, checks for full security context requirements.
-func DeploymentNeedsPSAUpdate(deployment *appsv1.Deployment, level PSAEnforceLevel) bool {
-	return deploymentPSAMismatchReason(deployment, level) != ""
 }
 
 func deploymentPSAMismatchReason(deployment *appsv1.Deployment, level PSAEnforceLevel) string {

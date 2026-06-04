@@ -105,6 +105,7 @@ func Run(ctx context.Context, c services.Config) error {
 		svcs.MCPSessionManager.Close()
 
 		svcs.GatewayClient.Close()
+		svcs.ProviderDispatcher.Close()
 	})
 
 	if err = s.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {

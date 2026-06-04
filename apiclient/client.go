@@ -1,14 +1,12 @@
 package apiclient
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"slices"
 	"strings"
 	"unicode/utf8"
@@ -26,20 +24,6 @@ type Client struct {
 	tokenFetcher func(context.Context, string, bool, bool) (string, error)
 }
 
-func NewClientFromEnv() *Client {
-	url := os.Getenv("OBOT_SERVER_URL")
-	if url == "" {
-		url = "http://localhost:8080/api"
-	} else if !strings.HasSuffix(url, "/api") {
-		url += strings.TrimSuffix(url, "/") + "/api"
-	}
-	token := os.Getenv("OBOT_TOKEN")
-	return &Client{
-		BaseURL: url,
-		Token:   token,
-	}
-}
-
 func (c *Client) WithTokenFetcher(f func(context.Context, string, bool, bool) (string, error)) *Client {
 	n := *c
 	n.tokenFetcher = f
@@ -52,12 +36,6 @@ func (c *Client) WithToken(token string) *Client {
 	return &n
 }
 
-func (c *Client) WithCookie(cookie *http.Cookie) *Client {
-	n := *c
-	n.Cookie = cookie
-	return &n
-}
-
 func (c *Client) GetToken(ctx context.Context, noExpiration, forceRefresh bool) (string, error) {
 	if c.Token != "" && !forceRefresh {
 		return c.Token, nil
@@ -66,14 +44,6 @@ func (c *Client) GetToken(ctx context.Context, noExpiration, forceRefresh bool) 
 		return c.tokenFetcher(ctx, c.BaseURL, noExpiration, forceRefresh)
 	}
 	return "", fmt.Errorf("no token or token fetcher")
-}
-
-func (c *Client) putJSON(ctx context.Context, path string, obj any, headerKV ...string) (*http.Request, *http.Response, error) {
-	data, err := json.Marshal(obj)
-	if err != nil {
-		return nil, nil, err
-	}
-	return c.doRequest(ctx, http.MethodPut, path, bytes.NewBuffer(data), append(headerKV, "Content-Type", "application/json")...)
 }
 
 func (c *Client) postJSON(ctx context.Context, path string, obj any, headerKV ...string) (*http.Request, *http.Response, error) {
@@ -93,10 +63,6 @@ func (c *Client) postJSON(ctx context.Context, path string, obj any, headerKV ..
 		headerKV = append(headerKV, "Content-Type", "application/json")
 	}
 	return c.doRequest(ctx, http.MethodPost, path, body, headerKV...)
-}
-
-func (c *Client) doStream(ctx context.Context, method, path string, body io.Reader, headerKV ...string) (*http.Request, *http.Response, error) {
-	return c.doRequest(ctx, method, path, body, append(headerKV, "Accept", "text/event-stream")...)
 }
 
 func (c *Client) doRequest(ctx context.Context, method, path string, body io.Reader, headerKV ...string) (*http.Request, *http.Response, error) {
@@ -185,42 +151,6 @@ func (c *Client) doRequestWithBaseURL(ctx context.Context, method, baseURL, path
 		resp.Body = io.NopCloser(bytes.NewReader(dataBytes))
 	}
 	return req, resp, err
-}
-
-func toStream[T any](resp *http.Response) chan T {
-	ch := make(chan T)
-	go func() {
-		defer resp.Body.Close()
-		defer close(ch)
-		var eventName string
-		lines := bufio.NewScanner(resp.Body)
-		for lines.Scan() {
-			var obj T
-			if data, ok := strings.CutPrefix(lines.Text(), "data: "); ok && eventName == "" || eventName == "message" {
-				if log.IsDebug() {
-					log.Fields("data", data).Debugf("Received data")
-				}
-				if err := json.Unmarshal([]byte(data), &obj); err == nil {
-					ch <- obj
-				} else {
-					errBytes, _ := json.Marshal(map[string]any{
-						"error": err.Error(),
-					})
-					if err := json.Unmarshal(errBytes, &obj); err == nil {
-						ch <- obj
-					}
-				}
-			} else if event, ok := strings.CutPrefix(lines.Text(), "event: "); ok {
-				if log.IsDebug() {
-					log.Fields("event", event).Debugf("Received event")
-				}
-				eventName = event
-			} else if strings.TrimSpace(lines.Text()) == "" {
-				eventName = ""
-			}
-		}
-	}()
-	return ch
 }
 
 func toObject[T any](resp *http.Response, obj T) (def T, _ error) {

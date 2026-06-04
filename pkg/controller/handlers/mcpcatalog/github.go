@@ -316,11 +316,6 @@ func readGitCatalogEntries[T any](ctx context.Context, catalogURL string, token 
 	return readGitCatalogEntriesFromSubdir(ctx, catalogURL, token, "", readCatalogDirectory[T])
 }
 
-// ReadGitCatalogSubdir clones a git catalog and lets readDir parse the provided subdirectory.
-func ReadGitCatalogSubdir[T any](ctx context.Context, catalogURL string, token string, subdir string, readDir func(string) ([]T, error)) ([]T, error) {
-	return readGitCatalogEntriesFromSubdir(ctx, catalogURL, token, subdir, readDir)
-}
-
 func readGitCatalogEntriesFromSubdir[T any](ctx context.Context, catalogURL string, token string, subdir string, readDir func(string) ([]T, error)) ([]T, error) {
 	if strings.HasPrefix(catalogURL, "http://") {
 		return nil, fmt.Errorf("only HTTPS is supported for git catalogs")

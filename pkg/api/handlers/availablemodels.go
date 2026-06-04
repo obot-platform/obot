@@ -46,7 +46,7 @@ func (a *AvailableModelsHandler) List(req api.Context) error {
 			continue
 		}
 
-		m, err := a.dispatcher.ModelsForProvider(req.Context(), modelProvider.Namespace, modelProvider.Name)
+		m, err := a.dispatcher.ModelsForProvider(req.Context(), modelProvider)
 		if err != nil {
 			return err
 		}
@@ -74,7 +74,7 @@ func (a *AvailableModelsHandler) ListForModelProvider(req api.Context) error {
 		return types.NewErrBadRequest("model provider %s is not configured, missing configuration parameters: %s", modelProvider.Name, strings.Join(modelProvider.Status.MissingConfigurationParameters, ", "))
 	}
 
-	oModels, err := a.dispatcher.ModelsForProvider(req.Context(), modelProvider.Namespace, modelProvider.Name)
+	oModels, err := a.dispatcher.ModelsForProvider(req.Context(), modelProvider)
 	if err != nil {
 		return err
 	}

@@ -45,10 +45,6 @@ const (
 	ObotMCPServerName = SystemMCPServerPrefix + "obot-mcp-server"
 )
 
-func IsRunID(id string) bool {
-	return strings.HasPrefix(id, RunPrefix)
-}
-
 func IsMCPServerID(id string) bool {
 	return strings.HasPrefix(id, MCPServerPrefix)
 }

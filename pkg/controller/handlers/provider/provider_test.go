@@ -20,8 +20,7 @@ func TestReadLocalProviderRegistryFromSubdirectories(t *testing.T) {
 	}
 
 	if err := os.WriteFile(filepath.Join(modelProvidersDir, "openai-model-provider.yaml"), []byte(`name: OpenAI
-image: ghcr.io/example/openai-model-provider
-port: 8080
+command: bin/openai-model-provider
 dialect: OpenAIResponses
 `), 0o644); err != nil {
 		t.Fatal(err)
@@ -30,13 +29,12 @@ dialect: OpenAIResponses
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(authProvidersDir, "github-auth-provider.yaml"), []byte(`name: GitHub
-image: ghcr.io/example/github-auth-provider
-port: 8080
+command: bin/github-auth-provider
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
-	objs, err := readLocalProviderRegistry(dir)
+	objs, err := readRegistry(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,11 +53,8 @@ port: 8080
 			if provider.Spec.Name != "OpenAI" {
 				t.Fatalf("expected model provider display name OpenAI, got %q", provider.Spec.Name)
 			}
-			if provider.Spec.Image != "ghcr.io/example/openai-model-provider" {
-				t.Fatalf("expected model provider image ghcr.io/example/openai-model-provider, got %q", provider.Spec.Image)
-			}
-			if provider.Spec.Port != 8080 {
-				t.Fatalf("expected model provider port 8080, got %d", provider.Spec.Port)
+			if provider.Spec.Command != filepath.Join(dir, "bin/openai-model-provider") {
+				t.Fatalf("expected model provider command %q, got %q", filepath.Join(dir, "bin/openai-model-provider"), provider.Spec.Command)
 			}
 			if provider.Spec.Dialect != "OpenAIResponses" {
 				t.Fatalf("expected model provider dialect OpenAIResponses, got %q", provider.Spec.Dialect)
@@ -72,11 +67,8 @@ port: 8080
 			if provider.Spec.Name != "GitHub" {
 				t.Fatalf("expected auth provider display name GitHub, got %q", provider.Spec.Name)
 			}
-			if provider.Spec.Image != "ghcr.io/example/github-auth-provider" {
-				t.Fatalf("expected auth provider image ghcr.io/example/github-auth-provider, got %q", provider.Spec.Image)
-			}
-			if provider.Spec.Port != 8080 {
-				t.Fatalf("expected auth provider port 8080, got %d", provider.Spec.Port)
+			if provider.Spec.Command != filepath.Join(dir, "bin/github-auth-provider") {
+				t.Fatalf("expected auth provider command %q, got %q", filepath.Join(dir, "bin/github-auth-provider"), provider.Spec.Command)
 			}
 		default:
 			t.Fatalf("unexpected object type %T", obj)

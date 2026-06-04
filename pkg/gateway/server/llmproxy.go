@@ -12,6 +12,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"path"
 	"slices"
 	"strconv"
 	"strings"
@@ -893,16 +894,43 @@ func mustParseURL(s string) *url.URL {
 }
 
 func llmTransformRequest(u url.URL, credEnv map[string]string) func(req *http.Request) {
-	transform := dispatcher.TransformRequest(u, credEnv)
-
+	urlCopy := u // avoid mutating the original url.URL across requests
 	return func(req *http.Request) {
-		transform(req)
+		reqPath := req.PathValue("path")
+		switch {
+		case urlCopy.Path == "":
+			// Upstream base has no path. Ensure exactly one /v1 prefix in the
+			// final URL regardless of whether the client supplied it.
+			if strings.HasPrefix(reqPath, "v1/") || reqPath == "v1" {
+				urlCopy.Path = "/"
+			} else {
+				urlCopy.Path = "/v1"
+			}
+		case strings.HasSuffix(urlCopy.Path, "/v1"):
+			// Upstream base already ends in /v1 (the openai/anthropic
+			// passthrough routes). Strip a leading v1/ from the client-supplied
+			// path so we don't produce /v1/v1/...
+			reqPath = strings.TrimPrefix(reqPath, "v1/")
+			if reqPath == "v1" {
+				reqPath = ""
+			}
+		}
+		urlCopy.Path = path.Join(urlCopy.Path, reqPath)
+		req.URL = &urlCopy
+		req.Host = urlCopy.Host
 
+		addCredHeaders(req, credEnv)
 		// Ensure the upstream transport can transparently decode compressed responses.
 		// If we forward Accept-Encoding from the client, net/http transport will not
 		// auto-decompress and token usage parsing can see compressed bytes.
 		req.Header.Del("Accept-Encoding")
 		req.Header.Del(internalRequestTypeHeader)
+	}
+}
+
+func addCredHeaders(r *http.Request, credEnv map[string]string) {
+	for k, v := range credEnv {
+		r.Header.Set(fmt.Sprintf("X-Obot-%s", k), v)
 	}
 }
 
@@ -1012,7 +1040,7 @@ func extractContentString(content any) string {
 type llmProviderProxy struct {
 	dailyUserTokenPromptTokenLimit     int
 	dailyUserTokenCompletionTokenLimit int
-	u                                  url.URL
+	u                                  *url.URL
 	modelProviderName                  string
 	modelProvider                      *v1.ModelProvider
 	mapHelper                          *modelaccesspolicy.Helper
@@ -1024,7 +1052,7 @@ func (s *Server) newLLMProviderProxy(u *url.URL, modelProviderName string) *llmP
 	return &llmProviderProxy{
 		dailyUserTokenPromptTokenLimit:     s.dailyUserTokenPromptTokenLimit,
 		dailyUserTokenCompletionTokenLimit: s.dailyUserTokenCompletionTokenLimit,
-		u:                                  *u,
+		u:                                  u,
 		modelProviderName:                  modelProviderName,
 		mapHelper:                          s.mapHelper,
 		messagePolicyHelper:                s.messagePolicyHelper,
@@ -1153,7 +1181,7 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 	}
 
 	(&httputil.ReverseProxy{
-		Director: llmTransformRequest(l.u, nil),
+		Director: llmTransformRequest(*l.u, nil),
 		ModifyResponse: (&responseModifier{
 			userID:                 req.User.GetUID(),
 			model:                  targetModel,

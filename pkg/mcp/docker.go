@@ -904,7 +904,6 @@ func (d *dockerBackend) buildServerConfig(server ServerConfig, c *container.Summ
 		AuditLogMetadata:          server.AuditLogMetadata,
 		ContainerPath:             server.ContainerPath,
 		NanobotAgentName:          server.NanobotAgentName,
-		Provider:                  server.Provider,
 		PassthroughHeaderNames:    server.PassthroughHeaderNames,
 		PassthroughHeaderValues:   server.PassthroughHeaderValues,
 		StartupTimeout:            server.StartupTimeout,

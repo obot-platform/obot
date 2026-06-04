@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"maps"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -20,7 +21,6 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/api/handlers/providers"
-	"github.com/obot-platform/obot/pkg/controller/handlers/mcpcatalog"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
@@ -77,15 +77,15 @@ type Handler struct {
 	gatewayClient   *gateway.Client
 	dispatcher      *dispatcher.Dispatcher
 	licenseProvider *license.KeygenProvider
-	registryURLs    []string
+	registryPaths   []string
 }
 
-func New(gatewayClient *gateway.Client, dispatcher *dispatcher.Dispatcher, licenseProvider *license.KeygenProvider, registryURLs []string) *Handler {
+func New(gatewayClient *gateway.Client, dispatcher *dispatcher.Dispatcher, licenseProvider *license.KeygenProvider, registryPaths []string) *Handler {
 	return &Handler{
 		gatewayClient:   gatewayClient,
 		dispatcher:      dispatcher,
 		licenseProvider: licenseProvider,
-		registryURLs:    registryURLs,
+		registryPaths:   registryPaths,
 	}
 }
 
@@ -171,58 +171,38 @@ func readProviderDirectoryIgnoreMissing[T types.ModelProviderManifest | types.Au
 	return entries, err
 }
 
-func readLocalProviderRegistry(registryURL string) ([]client.Object, error) {
-	fileInfo, err := os.Stat(registryURL)
+func readRegistry(registryPath string) ([]client.Object, error) {
+	fileInfo, err := os.Stat(registryPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to stat provider registry %s: %w", registryURL, err)
+		return nil, fmt.Errorf("failed to stat provider registry %s: %w", registryPath, err)
 	}
 	if !fileInfo.IsDir() {
-		return nil, fmt.Errorf("provider registry path %s is not a directory", registryURL)
+		return nil, fmt.Errorf("provider registry path %s is not a directory", registryPath)
 	}
 
-	models, err := readProviderDirectoryIgnoreMissing[types.ModelProviderManifest](filepath.Join(registryURL, modelProvidersRegistryDir))
+	models, err := readProviderDirectoryIgnoreMissing[types.ModelProviderManifest](filepath.Join(registryPath, modelProvidersRegistryDir))
 	if err != nil {
-		return nil, fmt.Errorf("failed to read model providers from registry %s: %w", registryURL, err)
+		return nil, fmt.Errorf("failed to read model providers from registry %s: %w", registryPath, err)
 	}
 
-	auths, err := readProviderDirectoryIgnoreMissing[types.AuthProviderManifest](filepath.Join(registryURL, authProvidersRegistryDir))
+	auths, err := readProviderDirectoryIgnoreMissing[types.AuthProviderManifest](filepath.Join(registryPath, authProvidersRegistryDir))
 	if err != nil {
-		return nil, fmt.Errorf("failed to read auth providers from registry %s: %w", registryURL, err)
+		return nil, fmt.Errorf("failed to read auth providers from registry %s: %w", registryPath, err)
 	}
 
-	return appendProviders(auths, models), nil
+	return appendProviders(registryPath, auths, models), nil
 }
 
-func readRemoteProviderRegistry(ctx context.Context, registryURL string) ([]client.Object, error) {
-	if !mcpcatalog.IsGitRepoURL(registryURL) {
-		return nil, fmt.Errorf("remote provider registry URL %s is not a valid git repository URL", registryURL)
-	}
-
-	models, err := mcpcatalog.ReadGitCatalogSubdir(ctx, registryURL, "", modelProvidersRegistryDir, func(dir string) ([]providerFromFile[types.ModelProviderManifest], error) {
-		return readProviderDirectoryIgnoreMissing[types.ModelProviderManifest](dir)
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to read model providers from git registry %s: %w", registryURL, err)
-	}
-
-	auths, err := mcpcatalog.ReadGitCatalogSubdir(ctx, registryURL, "", authProvidersRegistryDir, func(dir string) ([]providerFromFile[types.AuthProviderManifest], error) {
-		return readProviderDirectoryIgnoreMissing[types.AuthProviderManifest](dir)
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to read auth providers from git registry %s: %w", registryURL, err)
-	}
-
-	return appendProviders(auths, models), nil
-}
-
-func appendProviders(authProviderManifests []providerFromFile[types.AuthProviderManifest], modelProviderManifests []providerFromFile[types.ModelProviderManifest]) []client.Object {
+func appendProviders(registryPath string, authProviderManifests []providerFromFile[types.AuthProviderManifest], modelProviderManifests []providerFromFile[types.ModelProviderManifest]) []client.Object {
 	objs := make([]client.Object, 0, len(authProviderManifests)+len(modelProviderManifests))
 
 	for _, m := range modelProviderManifests {
-		if m.Manifest.Image == "" || m.Manifest.Port == 0 {
-			log.Warnf("Skipping model provider with missing required fields: name=%s image=%s port=%d", m.Name, m.Manifest.Image, m.Manifest.Port)
+		if m.Manifest.Command == "" {
+			log.Warnf("Skipping model provider with missing required fields: name=%s command=%s", m.Name, m.Manifest.Command)
 			continue
 		}
+
+		m.Manifest.Command = path.Join(registryPath, m.Manifest.Command)
 
 		objs = append(objs, &v1.ModelProvider{
 			ObjectMeta: metav1.ObjectMeta{
@@ -234,18 +214,20 @@ func appendProviders(authProviderManifests []providerFromFile[types.AuthProvider
 		})
 	}
 
-	for _, m := range authProviderManifests {
-		if m.Manifest.Image == "" || m.Manifest.Port == 0 {
-			log.Warnf("Skipping auth provider with missing required fields: name=%s image=%s port=%d", m.Name, m.Manifest.Image, m.Manifest.Port)
+	for _, a := range authProviderManifests {
+		if a.Manifest.Command == "" {
+			log.Warnf("Skipping auth provider with missing required fields: name=%s command=%s", a.Name, a.Manifest.Command)
 			continue
 		}
 
+		a.Manifest.Command = path.Join(registryPath, a.Manifest.Command)
+
 		objs = append(objs, &v1.AuthProvider{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: m.Name,
+				Name: a.Name,
 			},
 			Spec: v1.AuthProviderSpec{
-				AuthProviderManifest: m.Manifest,
+				AuthProviderManifest: a.Manifest,
 			},
 		})
 	}
@@ -253,26 +235,18 @@ func appendProviders(authProviderManifests []providerFromFile[types.AuthProvider
 	return objs
 }
 
-func (h *Handler) readRegistry(ctx context.Context, registryURL string) ([]client.Object, error) {
-	if !strings.HasPrefix(registryURL, "http://") && !strings.HasPrefix(registryURL, "https://") {
-		return readLocalProviderRegistry(registryURL)
-	}
-
-	return readRemoteProviderRegistry(ctx, registryURL)
-}
-
 func (h *Handler) readFromRegistry(ctx context.Context, c client.Client) error {
 	var (
 		toAdd []client.Object
 		errs  []error
 	)
-	for _, registryURL := range h.registryURLs {
-		objs, err := h.readRegistry(ctx, registryURL)
+	for _, registryPath := range h.registryPaths {
+		objs, err := readRegistry(registryPath)
 		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to read provider registry %s: %w", registryURL, err))
+			errs = append(errs, fmt.Errorf("failed to read provider registry %s: %w", registryPath, err))
 			continue
 		}
-		log.Infof("Loaded provider registry: registry=%s providers=%d", registryURL, len(objs))
+		log.Infof("Loaded provider registry: registry=%s providers=%d", registryPath, len(objs))
 		toAdd = append(toAdd, objs...)
 	}
 
@@ -370,7 +344,7 @@ func (h *Handler) ensureModelProviderCredAndDefaults(ctx context.Context, c clie
 		log.Infof("Updated model provider credential from environment configuration: provider=%s envVar=%s", modelProviderName, envVarName)
 
 		// Stop the model provider if it was started while we were updating the credential.
-		h.dispatcher.StopModelProvider(ctx, modelProvider.Namespace, modelProvider.Name)
+		h.dispatcher.StopModelProvider(modelProvider.Namespace, modelProvider.Name)
 		log.Infof("Stopped model provider to force restart after credential update: provider=%s", modelProvider.Name)
 	}
 
@@ -489,7 +463,7 @@ func (h *Handler) BackPopulateModels(req router.Request, _ router.Response) erro
 		return nil
 	}
 
-	availableModels, err := h.dispatcher.ModelsForProvider(req.Ctx, req.Namespace, req.Name)
+	availableModels, err := h.dispatcher.ModelsForProvider(req.Ctx, *modelProvider)
 	if err != nil {
 		// Don't error and retry because it will likely fail again. Log the error, and the user can re-sync manually.
 		// Also, the modelProvider.Status.Error field will bubble up to the user in the UI.

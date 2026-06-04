@@ -94,7 +94,7 @@ type Config struct {
 	DevUIPort            int      `usage:"The port on localhost running the dev instance of the UI" default:"5174"`
 	UserUIPort           int      `usage:"The port on localhost running the user production instance of the UI" env:"OBOT_SERVER_USER_UI_PORT"`
 	AllowedOrigin        string   `usage:"Allowed origin for CORS"`
-	ProviderRegistries   []string `usage:"The remote references to the set of provider registries to use" default:"https://github.com/obot-platform/providers"`
+	ProviderRegistries   []string `usage:"Local filesystem paths to provider registries (directories) to load providers from"`
 	ElectionFile         string   `usage:"Use this file for leader election instead of database leases"`
 	EnableAuthentication bool     `usage:"Enable authentication" default:"false"`
 	ForceEnableBootstrap bool     `usage:"Enables the bootstrap user even if other admin users have been created" default:"false"`
@@ -144,8 +144,8 @@ type Config struct {
 }
 
 type Services struct {
-	EncryptionConfig *encryptionconfig.EncryptionConfiguration
-	ToolRegistryURLs []string
+	EncryptionConfig      *encryptionconfig.EncryptionConfiguration
+	ProviderRegistryPaths []string
 
 	ServerURL             string
 	InternalServerURL     string
@@ -913,16 +913,16 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 	// For now, always auto-migrate the gateway database
 	svcs := &Services{
-		EncryptionConfig:  encryptionConfig,
-		ServerURL:         config.Hostname,
-		InternalServerURL: fmt.Sprintf("http://localhost:%d", config.HTTPListenPort),
-		DevUIPort:         devPort,
-		UserUIPort:        config.UserUIPort,
-		HTTPListenPort:    config.HTTPListenPort,
-		ToolRegistryURLs:  config.ProviderRegistries,
-		StorageClient:     storageClient,
-		Router:            r,
-		ObotNamespace:     config.ServiceNamespace,
+		EncryptionConfig:      encryptionConfig,
+		ServerURL:             config.Hostname,
+		InternalServerURL:     fmt.Sprintf("http://localhost:%d", config.HTTPListenPort),
+		DevUIPort:             devPort,
+		UserUIPort:            config.UserUIPort,
+		HTTPListenPort:        config.HTTPListenPort,
+		ProviderRegistryPaths: config.ProviderRegistries,
+		StorageClient:         storageClient,
+		Router:                r,
+		ObotNamespace:         config.ServiceNamespace,
 		APIServer: server.NewServer(
 			storageClient,
 			gatewayClient,
