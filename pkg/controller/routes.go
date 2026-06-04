@@ -28,7 +28,7 @@ import (
 )
 
 func (c *Controller) setupRoutes() {
-	root := c.router
+	root := c.services.Router
 
 	providers := provider.New(c.services.GatewayClient, c.services.ProviderDispatcher, c.services.LicenseProvider, c.services.ToolRegistryURLs)
 	credentialCleanup := cleanup.NewCredentials(c.services.MCPSessionManager, c.services.GatewayClient, c.services.ServerURL, c.services.InternalServerURL)
@@ -46,10 +46,10 @@ func (c *Controller) setupRoutes() {
 	scheduledAuditLogExportHandler := scheduledauditlogexport.NewHandler()
 	oauthclients := oauthclients.NewHandler(c.services.GatewayClient)
 	systemMCPServerHandler := systemmcpserver.New(c.services.GatewayClient, c.services.MCPSessionManager, c.services.ServerURL)
-	nanobotAgentHandler := nanobotagent.New(c.services.PersistentTokenServer, c.services.GatewayClient, c.localK8sRouter, c.services.NanobotAgentImage, c.services.ServerURL, c.services.MCPServerNamespace, c.services.MCPSessionManager)
+	nanobotAgentHandler := nanobotagent.New(c.services.PersistentTokenServer, c.services.GatewayClient, c.services.LocalRouter, c.services.NanobotAgentImage, c.services.ServerURL, c.services.MCPServerNamespace, c.services.MCPSessionManager)
 	oktaGroupMigrationHandler := oktagroupmigration.New()
 	projectHandler := project.New(c.services.GatewayClient)
-	imagePullSecretHandler := imagepullsecret.New(c.services.GatewayClient, c.runtimeClient, c.services.MCPRuntimeBackend, c.services.MCPServerNamespace, c.services.ServiceNamespace, c.services.ServiceAccountName, c.services.MCPImagePullSecrets, c.services.ServiceAccountIssuerURL)
+	imagePullSecretHandler := imagepullsecret.New(c.services.GatewayClient, c.services.LocalK8sClient, c.services.MCPRuntimeBackend, c.services.MCPServerNamespace, c.services.ServiceNamespace, c.services.ServiceAccountName, c.services.MCPImagePullSecrets, c.services.ServiceAccountIssuerURL)
 
 	// AuthProviders
 	root.Type(&v1.AuthProvider{}).HandlerFunc(providers.SetAuthProviderConfiguredStatus)

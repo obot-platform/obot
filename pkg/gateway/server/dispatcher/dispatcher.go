@@ -16,7 +16,6 @@ import (
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
-	"github.com/obot-platform/obot/pkg/api/handlers/providers"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/license"
 	"github.com/obot-platform/obot/pkg/mcp"
@@ -64,24 +63,18 @@ func (d *Dispatcher) URLForAuthProvider(ctx context.Context, namespace, authProv
 		return url.URL{}, fmt.Errorf("failed to get provider: %w", err)
 	}
 
+	if len(authProvider.Status.MissingConfigurationParameters) > 0 {
+		return url.URL{}, fmt.Errorf("provider %q is not configured, missing configuration parameters: %s", authProviderName, strings.Join(authProvider.Status.MissingConfigurationParameters, ", "))
+	}
+
 	credEnv := map[string]string{}
 	cred, err := d.gatewayClient.RevealCredential(ctx, []string{authProvider.Name, system.GenericAuthProviderCredentialContext}, authProvider.Name)
 	if err != nil {
 		if !errors.As(err, &client.CredentialNotFoundError{}) {
 			return url.URL{}, fmt.Errorf("failed to reveal provider credential: %w", err)
 		}
-	} else {
+	} else if cred.Secrets != nil {
 		credEnv = cred.Secrets
-	}
-
-	var missingConfigParams []string
-	for _, envVar := range authProvider.Spec.RequiredConfigurationParameters {
-		if _, ok := credEnv[envVar.Name]; !ok {
-			missingConfigParams = append(missingConfigParams, envVar.Name)
-		}
-	}
-	if len(missingConfigParams) > 0 {
-		return url.URL{}, fmt.Errorf("provider %q is not configured, missing configuration parameters: %s", authProviderName, strings.Join(missingConfigParams, ", "))
 	}
 
 	image := authProvider.Spec.Image
@@ -89,9 +82,6 @@ func (d *Dispatcher) URLForAuthProvider(ctx context.Context, namespace, authProv
 		image = strings.Replace(image, "ghcr.io/obot-platform/providers/", d.replaceImageRepo, 1)
 	}
 
-	if credEnv == nil {
-		credEnv = make(map[string]string, 1)
-	}
 	maps.Copy(credEnv, d.authProviderExtraEnv)
 
 	providerURL, err := d.sessionManager.LaunchServer(ctx, mcp.ServerConfig{
@@ -137,26 +127,22 @@ func (d *Dispatcher) urlForModelProviderValidation(ctx context.Context, namespac
 		return url.URL{}, fmt.Errorf("failed to get provider: %w", err)
 	}
 
+	if len(modelProvider.Status.MissingConfigurationParameters) > 0 {
+		return url.URL{}, fmt.Errorf("provider %q is not configured, missing configuration parameters: %s", modelProviderName, strings.Join(modelProvider.Status.MissingConfigurationParameters, ", "))
+	}
+
 	credEnv := map[string]string{}
 	cred, err := d.gatewayClient.RevealCredential(ctx, []string{modelProvider.Name, system.GenericModelProviderCredentialContext}, modelProvider.Name)
 	if err != nil {
 		if !errors.As(err, &client.CredentialNotFoundError{}) {
 			return url.URL{}, fmt.Errorf("failed to reveal provider credential: %w", err)
 		}
-	} else {
+	} else if cred.Secrets != nil {
 		credEnv = cred.Secrets
 	}
 
 	maps.Copy(credEnv, extraEnv)
 	maps.Copy(credEnv, modelProviderLogLevelEnv())
-
-	providerStatus, err := providers.ModelProviderStatus(modelProvider, credEnv, d.licenseProvider)
-	if err != nil {
-		return url.URL{}, err
-	}
-	if !providerStatus.Configured {
-		return url.URL{}, fmt.Errorf("provider %q is not configured, missing configuration parameters: %s", modelProviderName, strings.Join(providerStatus.MissingConfigurationParameters, ", "))
-	}
 
 	image := modelProvider.Spec.Image
 	if d.replaceImageRepo != "" {

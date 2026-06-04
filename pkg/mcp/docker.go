@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	cerrdefs "github.com/containerd/errdefs"
@@ -29,6 +30,7 @@ import (
 	"github.com/moby/moby/client"
 	otypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/utils"
+	"golang.org/x/sync/singleflight"
 )
 
 var containerFileNameSanitizer = regexp.MustCompile(`[^a-zA-Z0-9._-]+`)
@@ -46,6 +48,8 @@ type dockerBackend struct {
 	authEnabled                   bool
 	deploymentCacheMu             sync.RWMutex
 	deploymentCache               map[string]*dockerDeploymentCacheEntry
+	deploymentCacheEventHealthy   atomic.Bool
+	ensureGroup                   singleflight.Group
 	fileSyncMu                    sync.RWMutex
 	syncedFilesHash               map[string]string
 }
@@ -97,6 +101,7 @@ func newDockerBackend(ctx context.Context, authEnabled bool, exposedPort int, op
 	if err = d.cleanupDeprecatedContainers(ctx); err != nil {
 		return nil, fmt.Errorf("failed to cleanup deprecated containers: %w", err)
 	}
+	d.startDeploymentCacheEventWatcher(ctx)
 	return d, nil
 }
 
@@ -212,26 +217,33 @@ func (d *dockerBackend) deployServer(ctx context.Context, server ServerConfig, _
 }
 
 func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server ServerConfig, webhooks []Webhook) (ServerConfig, error) {
-	serverName := server.MCPServerName
 	serverConfigHash := utils.Digest(map[string]any{"server": server, "webhooks": webhooks})
-	var err error
-	cachedDeployment := d.getDeploymentCache(serverName)
-	if cachedDeployment != nil && cachedDeployment.hash == serverConfigHash {
-		valid, err := d.deploymentCacheValid(ctx, cachedDeployment)
-		if err != nil {
-			return ServerConfig{}, err
-		}
+	if serverConfig, ok, err := d.cachedDeployment(ctx, server.MCPServerName, serverConfigHash); err != nil {
+		return ServerConfig{}, err
+	} else if ok {
+		return serverConfig, nil
+	}
 
-		if valid {
-			return cachedDeployment.serverConfig, nil
-		}
+	result, err, _ := d.ensureGroup.Do(server.MCPServerName+"/"+serverConfigHash, func() (any, error) {
+		return d.ensureServerDeploymentSlow(ctx, server, webhooks, serverConfigHash)
+	})
+	if err != nil {
+		return ServerConfig{}, err
+	}
+	return result.(ServerConfig), nil
+}
 
-		d.deleteDeploymentCache(serverName)
+func (d *dockerBackend) ensureServerDeploymentSlow(ctx context.Context, server ServerConfig, webhooks []Webhook, serverConfigHash string) (ServerConfig, error) {
+	if serverConfig, ok, err := d.cachedDeployment(ctx, server.MCPServerName, serverConfigHash); err != nil {
+		return ServerConfig{}, err
+	} else if ok {
+		return serverConfig, nil
 	}
 
 	expectedContainers := make(map[string]string, 2)
-
 	mcpServerName := server.MCPServerName
+
+	var err error
 	if server.Runtime != otypes.RuntimeRemote {
 		// For non-remote runtimes, we deploy the real MCP server first.
 		server, err = d.ensureDeployment(ctx, server, mcpServerName, d.containerEnv || server.NeedsShim(), nil)
@@ -242,7 +254,7 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 
 		// If this is a server for a nanobot agent or a provider, return the config pointing to the real server without deploying the shim.
 		if !server.NeedsShim() {
-			d.setDeploymentCache(serverName, dockerDeploymentCacheEntry{
+			d.setDeploymentCache(mcpServerName, dockerDeploymentCacheEntry{
 				hash:         serverConfigHash,
 				serverConfig: server,
 				containerIDs: expectedContainers,
@@ -260,9 +272,9 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 	server, err = d.ensureDeployment(ctx, server, mcpServerName, d.containerEnv, webhooks)
 	expectedContainers[server.MCPServerName] = server.Scope
 	// Ensure the name is the same as what it was when we started.
-	server.MCPServerName = serverName
+	server.MCPServerName = mcpServerName
 	if err == nil {
-		d.setDeploymentCache(serverName, dockerDeploymentCacheEntry{
+		d.setDeploymentCache(mcpServerName, dockerDeploymentCacheEntry{
 			hash:         serverConfigHash,
 			serverConfig: server,
 			containerIDs: expectedContainers,
@@ -712,6 +724,103 @@ func (d *dockerBackend) deleteDeploymentCache(mcpServerName string) {
 	defer d.deploymentCacheMu.Unlock()
 
 	delete(d.deploymentCache, mcpServerName)
+}
+
+func (d *dockerBackend) clearDeploymentCache() {
+	d.deploymentCacheMu.Lock()
+	defer d.deploymentCacheMu.Unlock()
+
+	clear(d.deploymentCache)
+}
+
+func (d *dockerBackend) startDeploymentCacheEventWatcher(ctx context.Context) {
+	go func() {
+		for {
+			eventFilters := filters.NewArgs()
+			eventFilters.Add("type", "container")
+			eventFilters.Add("label", "mcp.deployment.id")
+
+			eventMessages, errs := d.client.Events(ctx, events.ListOptions{Filters: eventFilters})
+			d.deploymentCacheEventHealthy.Store(true)
+
+			var disconnected bool
+			for !disconnected {
+				select {
+				case <-ctx.Done():
+					d.deploymentCacheEventHealthy.Store(false)
+					return
+				case eventMessage, ok := <-eventMessages:
+					if !ok {
+						disconnected = true
+						break
+					}
+					d.handleDeploymentCacheDockerEvent(eventMessage)
+				case err, ok := <-errs:
+					if ok && err != nil && ctx.Err() == nil {
+						log.Warnf("Docker MCP deployment cache event watcher disconnected: %v", err)
+					}
+					disconnected = true
+				}
+			}
+
+			d.deploymentCacheEventHealthy.Store(false)
+			d.clearDeploymentCache()
+
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(time.Second):
+			}
+		}
+	}()
+}
+
+func (d *dockerBackend) handleDeploymentCacheDockerEvent(eventMessage events.Message) {
+	action := string(eventMessage.Action)
+	switch {
+	case action == "die",
+		action == "stop",
+		action == "kill",
+		action == "destroy",
+		action == "oom",
+		action == "pause",
+		strings.HasPrefix(action, "health_status: unhealthy"):
+	default:
+		return
+	}
+
+	deploymentID := eventMessage.Actor.Attributes["mcp.deployment.id"]
+	if deploymentID == "" {
+		deploymentID = eventMessage.Actor.Attributes["mcp.server.id"]
+		deploymentID = strings.TrimSuffix(deploymentID, "-shim")
+	}
+	if deploymentID == "" {
+		return
+	}
+
+	d.deleteDeploymentCache(deploymentID)
+}
+
+func (d *dockerBackend) cachedDeployment(ctx context.Context, serverName, serverConfigHash string) (ServerConfig, bool, error) {
+	cachedDeployment := d.getDeploymentCache(serverName)
+	if cachedDeployment == nil || cachedDeployment.hash != serverConfigHash {
+		return ServerConfig{}, false, nil
+	}
+
+	if d.deploymentCacheEventHealthy.Load() {
+		return cachedDeployment.serverConfig, true, nil
+	}
+
+	valid, err := d.deploymentCacheValid(ctx, cachedDeployment)
+	if err != nil {
+		return ServerConfig{}, false, err
+	}
+	if valid {
+		return cachedDeployment.serverConfig, true, nil
+	}
+
+	d.deleteDeploymentCache(serverName)
+	return ServerConfig{}, false, nil
 }
 
 func (d *dockerBackend) deploymentCacheValid(ctx context.Context, entry *dockerDeploymentCacheEntry) (bool, error) {

@@ -52,6 +52,7 @@ const maxDeploymentWatchRetries = 5
 type kubernetesBackend struct {
 	clientset                     *kubernetes.Clientset
 	client                        kclient.WithWatch
+	cachedClient                  kclient.WithWatch
 	baseImage                     string
 	remoteShimBaseImage           string
 	mcpNamespace                  string
@@ -71,7 +72,7 @@ type kubernetesDeploymentCacheEntry struct {
 	podName string
 }
 
-func newKubernetesBackend(authEnabled bool, clientset *kubernetes.Clientset, client kclient.WithWatch, obotClient kclient.Client, opts Options) backend {
+func newKubernetesBackend(authEnabled bool, clientset *kubernetes.Clientset, client, cachedClient, obotClient kclient.WithWatch, opts Options) backend {
 	var serviceFQDN string
 	if opts.ServiceName != "" && opts.ServiceNamespace != "" {
 		serviceFQDN = fmt.Sprintf("%s.%s.svc.%s", opts.ServiceName, opts.ServiceNamespace, opts.MCPClusterDomain)
@@ -80,6 +81,7 @@ func newKubernetesBackend(authEnabled bool, clientset *kubernetes.Clientset, cli
 	return &kubernetesBackend{
 		clientset:                     clientset,
 		client:                        client,
+		cachedClient:                  cachedClient,
 		baseImage:                     opts.MCPBaseImage,
 		remoteShimBaseImage:           opts.MCPRemoteShimBaseImage,
 		mcpNamespace:                  opts.MCPNamespace,
@@ -138,7 +140,7 @@ func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server S
 	shouldDeploy := cachedDeployment == nil || cachedDeployment.hash != serverConfigHash
 	if !shouldDeploy {
 		var deployment appsv1.Deployment
-		if err := k.client.Get(ctx, kclient.ObjectKey{Name: server.MCPServerName, Namespace: k.mcpNamespace}, &deployment); apierrors.IsNotFound(err) {
+		if err := k.cachedClient.Get(ctx, kclient.ObjectKey{Name: server.MCPServerName, Namespace: k.mcpNamespace}, &deployment); apierrors.IsNotFound(err) {
 			shouldDeploy = true
 		} else if err != nil {
 			return ServerConfig{}, fmt.Errorf("failed to get deployment %s: %w", server.MCPServerName, err)
@@ -219,7 +221,7 @@ func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server S
 
 func (k *kubernetesBackend) getServerDetails(ctx context.Context, id string) (types.MCPServerDetails, error) {
 	var deployment appsv1.Deployment
-	if err := k.client.Get(ctx, kclient.ObjectKey{Name: id, Namespace: k.mcpNamespace}, &deployment); err != nil {
+	if err := k.cachedClient.Get(ctx, kclient.ObjectKey{Name: id, Namespace: k.mcpNamespace}, &deployment); err != nil {
 		if apierrors.IsNotFound(err) {
 			return types.MCPServerDetails{}, ErrServerNotRunning
 		}
@@ -232,7 +234,7 @@ func (k *kubernetesBackend) getServerDetails(ctx context.Context, id string) (ty
 		pods        corev1.PodList
 		podEvents   []corev1.Event
 	)
-	if err := k.client.List(ctx, &pods, kclient.InNamespace(k.mcpNamespace), kclient.MatchingLabels(deployment.Spec.Selector.MatchLabels)); err != nil {
+	if err := k.cachedClient.List(ctx, &pods, kclient.InNamespace(k.mcpNamespace), kclient.MatchingLabels(deployment.Spec.Selector.MatchLabels)); err != nil {
 		return types.MCPServerDetails{}, fmt.Errorf("failed to get pods: %w", err)
 	}
 
@@ -242,7 +244,7 @@ func (k *kubernetesBackend) getServerDetails(ctx context.Context, id string) (ty
 		}
 
 		var eventList corev1.EventList
-		if err := k.client.List(ctx, &eventList, kclient.InNamespace(k.mcpNamespace), kclient.MatchingFieldsSelector{
+		if err := k.cachedClient.List(ctx, &eventList, kclient.InNamespace(k.mcpNamespace), kclient.MatchingFieldsSelector{
 			Selector: fields.SelectorFromSet(map[string]string{
 				"involvedObject.kind":      "Pod",
 				"involvedObject.name":      pod.Name,
@@ -256,7 +258,7 @@ func (k *kubernetesBackend) getServerDetails(ctx context.Context, id string) (ty
 	}
 
 	var deploymentEvents corev1.EventList
-	if err := k.client.List(ctx, &deploymentEvents, kclient.InNamespace(k.mcpNamespace), kclient.MatchingFieldsSelector{
+	if err := k.cachedClient.List(ctx, &deploymentEvents, kclient.InNamespace(k.mcpNamespace), kclient.MatchingFieldsSelector{
 		Selector: fields.SelectorFromSet(map[string]string{
 			"involvedObject.kind":      "Deployment",
 			"involvedObject.name":      deployment.Name,
@@ -331,7 +333,7 @@ func (k *kubernetesBackend) streamServerLogs(ctx context.Context, id string) (io
 
 func (k *kubernetesBackend) transformConfig(ctx context.Context, serverConfig ServerConfig) (*ServerConfig, error) {
 	var pods corev1.PodList
-	if err := k.client.List(ctx, &pods, &kclient.ListOptions{
+	if err := k.cachedClient.List(ctx, &pods, &kclient.ListOptions{
 		Namespace: k.mcpNamespace,
 		LabelSelector: labels.SelectorFromSet(map[string]string{
 			"app": serverConfig.MCPServerName,
@@ -1009,7 +1011,7 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 		lastErr error
 	)
 	for attempt := range maxDeploymentWatchRetries {
-		_, err := wait.For(ctx, k.client, &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: id, Namespace: k.mcpNamespace}},
+		_, err := wait.For(ctx, k.cachedClient, &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: id, Namespace: k.mcpNamespace}},
 			func(dep *appsv1.Deployment) (bool, error) {
 				if dep.Generation == dep.Status.ObservedGeneration && dep.Status.UpdatedReplicas == 1 && dep.Status.ReadyReplicas == 1 && dep.Status.AvailableReplicas == 1 {
 					return true, nil
@@ -1017,7 +1019,7 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 
 				// Deployment not ready yet — check pod status for early failure detection.
 				var pods corev1.PodList
-				if listErr := k.client.List(ctx, &pods, &kclient.ListOptions{
+				if listErr := k.cachedClient.List(ctx, &pods, &kclient.ListOptions{
 					Namespace: k.mcpNamespace,
 					LabelSelector: labels.SelectorFromSet(map[string]string{
 						"app": id,
@@ -1076,7 +1078,7 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 		pods    corev1.PodList
 		podName string
 	)
-	if err = k.client.List(ctx, &pods, &kclient.ListOptions{
+	if err = k.cachedClient.List(ctx, &pods, &kclient.ListOptions{
 		Namespace: k.mcpNamespace,
 		LabelSelector: labels.SelectorFromSet(map[string]string{
 			"app": id,

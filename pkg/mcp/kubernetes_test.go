@@ -241,7 +241,7 @@ func TestNewKubernetesBackend_ServiceFQDN(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			backend := newKubernetesBackend(true, nil, nil, nil, Options{ServiceName: tt.serviceName, ServiceNamespace: tt.serviceNamespace, MCPClusterDomain: tt.clusterDomain})
+			backend := newKubernetesBackend(true, nil, nil, nil, nil, Options{ServiceName: tt.serviceName, ServiceNamespace: tt.serviceNamespace, MCPClusterDomain: tt.clusterDomain})
 			k := backend.(*kubernetesBackend)
 			if k.serviceFQDN != tt.expectedFQDN {
 				t.Errorf("newKubernetesBackend() serviceFQDN = %v, want %v", k.serviceFQDN, tt.expectedFQDN)
@@ -253,7 +253,7 @@ func TestNewKubernetesBackend_ServiceFQDN(t *testing.T) {
 func TestK8sObjects_NanobotAgentExcludesAuditLogConfig(t *testing.T) {
 	k := newTestKubernetesBackend(t)
 
-	objs, err := k.k8sObjects(context.Background(), ServerConfig{
+	objs, err := k.k8sObjects(t.Context(), ServerConfig{
 		Runtime:              types.RuntimeContainerized,
 		MCPServerName:        "nanobot-agent-server",
 		MCPServerDisplayName: "Nanobot Agent Server",
@@ -280,7 +280,7 @@ func TestK8sObjects_NanobotAgentExcludesAuditLogConfig(t *testing.T) {
 func TestK8sObjects_NonAgentShimKeepsAuditLogConfig(t *testing.T) {
 	k := newTestKubernetesBackend(t)
 
-	objs, err := k.k8sObjects(context.Background(), ServerConfig{
+	objs, err := k.k8sObjects(t.Context(), ServerConfig{
 		Runtime:              types.RuntimeContainerized,
 		MCPServerName:        "standard-server",
 		MCPServerDisplayName: "Standard Server",
@@ -325,7 +325,7 @@ func TestK8sObjects_ServicePorts(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			k := newTestKubernetesBackend(t)
-			objs, err := k.k8sObjects(context.Background(), ServerConfig{
+			objs, err := k.k8sObjects(t.Context(), ServerConfig{
 				Runtime:              types.RuntimeContainerized,
 				MCPServerName:        "test-server",
 				MCPServerDisplayName: "Test Server",
@@ -437,7 +437,7 @@ func TestK8sObjects_MCPContainerResources(t *testing.T) {
 			server.Command = "server"
 			server.Args = []string{"run"}
 
-			objs, err := k.k8sObjects(context.Background(), server, nil)
+			objs, err := k.k8sObjects(t.Context(), server, nil)
 			if err != nil {
 				t.Fatalf("k8sObjects() error = %v", err)
 			}
@@ -657,10 +657,11 @@ func TestUpdatedMCPPodName_ContainerStartupDeadlineExceeded(t *testing.T) {
 
 	k := &kubernetesBackend{
 		client:       client,
+		cachedClient: client,
 		mcpNamespace: "obot-mcp",
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 	defer cancel()
 
 	_, err := k.updatedMCPPodName(ctx, "http://mcp.example.com", "test-server", ServerConfig{
@@ -697,7 +698,7 @@ func TestK8sObjects_ManagedImagePullSecrets(t *testing.T) {
 	}
 	k := newTestKubernetesBackend(t, objs...)
 
-	objs, err := k.k8sObjects(context.Background(), ServerConfig{
+	objs, err := k.k8sObjects(t.Context(), ServerConfig{
 		Runtime:              types.RuntimeContainerized,
 		MCPServerName:        "test-server",
 		MCPServerDisplayName: "Test Server",
@@ -731,7 +732,7 @@ func TestK8sObjects_StaticImagePullSecretsOverrideManaged(t *testing.T) {
 	)
 	k.imagePullSecrets = []string{"static-b", "static-a", "static-a"}
 
-	objs, err := k.k8sObjects(context.Background(), ServerConfig{
+	objs, err := k.k8sObjects(t.Context(), ServerConfig{
 		Runtime:              types.RuntimeContainerized,
 		MCPServerName:        "test-server",
 		MCPServerDisplayName: "Test Server",
@@ -771,7 +772,7 @@ func TestRestartServerAddsManagedImagePullSecretsToFreshDeployment(t *testing.T)
 		Args:                 []string{"run"},
 	}
 
-	objs, err := k.k8sObjects(context.Background(), server, nil)
+	objs, err := k.k8sObjects(t.Context(), server, nil)
 	if err != nil {
 		t.Fatalf("k8sObjects() error = %v", err)
 	}
@@ -786,19 +787,19 @@ func TestRestartServerAddsManagedImagePullSecretsToFreshDeployment(t *testing.T)
 	}
 	k.client = fake.NewClientBuilder().WithScheme(runtimeScheme).WithObjects(dep).Build()
 
-	if err := k.obotClient.Create(context.Background(), &v1.ImagePullSecret{
+	if err := k.obotClient.Create(t.Context(), &v1.ImagePullSecret{
 		ObjectMeta: metav1.ObjectMeta{Name: "managed", Namespace: system.DefaultNamespace},
 		Spec:       v1.ImagePullSecretSpec{Enabled: true},
 	}); err != nil {
 		t.Fatalf("Create() error = %v", err)
 	}
 
-	if err := k.restartServer(context.Background(), server); err != nil {
+	if err := k.restartServer(t.Context(), server); err != nil {
 		t.Fatalf("restartServer() error = %v", err)
 	}
 
 	var updated appsv1.Deployment
-	if err := k.client.Get(context.Background(), client.ObjectKey{Name: "test-server", Namespace: "obot-mcp"}, &updated); err != nil {
+	if err := k.client.Get(t.Context(), client.ObjectKey{Name: "test-server", Namespace: "obot-mcp"}, &updated); err != nil {
 		t.Fatalf("Get() error = %v", err)
 	}
 	assertImagePullSecrets(t, &updated, []string{"managed"})

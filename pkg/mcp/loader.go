@@ -10,7 +10,6 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
-	"github.com/obot-platform/obot/pkg/storage"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
@@ -94,7 +93,7 @@ const streamableHTTPHealthcheckBody string = `{
     }
 }`
 
-func NewSessionManager(ctx context.Context, authEnabled bool, tokenService TokenService, baseURL string, httpListenPort int, opts Options, webhookHelper *WebhookHelper, localK8sConfig *rest.Config, obotStorageClient storage.Client) (*SessionManager, error) {
+func NewSessionManager(ctx context.Context, authEnabled bool, tokenService TokenService, baseURL string, httpListenPort int, opts Options, webhookHelper *WebhookHelper, localK8sConfig *rest.Config, client, cachedClient, obotStorageClient kclient.WithWatch) (*SessionManager, error) {
 	var backend backend
 
 	switch opts.MCPRuntimeBackend {
@@ -108,11 +107,6 @@ func NewSessionManager(ctx context.Context, authEnabled bool, tokenService Token
 	case RuntimeBackendKubernetes, runtimeBackendKubernetesShort:
 		if localK8sConfig == nil {
 			return nil, fmt.Errorf("use of Kubernetes backend requested but no local K8s config available")
-		}
-
-		client, err := kclient.NewWithWatch(localK8sConfig, kclient.Options{})
-		if err != nil {
-			return nil, err
 		}
 
 		namespace := &corev1.Namespace{
@@ -134,7 +128,7 @@ func NewSessionManager(ctx context.Context, authEnabled bool, tokenService Token
 			namespace.Labels["pod-security.kubernetes.io/warn-version"] = opts.MCPPodSecurityWarnVersion
 		}
 
-		if err = kclient.IgnoreAlreadyExists(client.Create(ctx, namespace)); err != nil {
+		if err := kclient.IgnoreAlreadyExists(client.Create(ctx, namespace)); err != nil {
 			log.Warnf("failed to create MCP namespace, namespace must exist for MCP deployments to work: %v", err)
 		}
 
@@ -143,7 +137,7 @@ func NewSessionManager(ctx context.Context, authEnabled bool, tokenService Token
 			return nil, err
 		}
 
-		backend = newKubernetesBackend(authEnabled, clientset, client, obotStorageClient, opts)
+		backend = newKubernetesBackend(authEnabled, clientset, client, cachedClient, obotStorageClient, opts)
 	default:
 		return nil, fmt.Errorf("unknown runtime backend: %s", opts.MCPRuntimeBackend)
 	}
@@ -171,6 +165,7 @@ func (sm *SessionManager) Close() {
 	sm.contextLock.Lock()
 	if sm.sessionCtx == nil {
 		sm.contextLock.Unlock()
+		return
 	}
 	sm.contextLock.Unlock()
 
