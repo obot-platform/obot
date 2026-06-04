@@ -50,12 +50,12 @@ func TestReconcileServiceAccountKeyBootstrapsSecret(t *testing.T) {
 	base := time.Now().UTC().Add(-time.Hour)
 	controller := &Controller{
 		services: &services.Services{
+			LocalK8sClient:    newRuntimeSecretClient(),
 			GatewayClient:     gatewayClient,
 			MCPRuntimeBackend: "kubernetes",
 			ServiceNamespace:  "obot",
 		},
-		runtimeClient: newRuntimeSecretClient(),
-		now:           func() time.Time { return base },
+		now: func() time.Time { return base },
 	}
 
 	account, ok := serviceaccounts.Get(serviceaccounts.NetworkPolicyProvider)
@@ -81,7 +81,7 @@ func TestReconcileServiceAccountKeyBootstrapsSecret(t *testing.T) {
 	}
 
 	secret := &corev1.Secret{}
-	if err := controller.runtimeClient.Get(ctx, kclient.ObjectKey{
+	if err := controller.services.LocalK8sClient.Get(ctx, kclient.ObjectKey{
 		Namespace: ns,
 		Name:      account.SecretName,
 	}, secret); err != nil {
@@ -105,12 +105,12 @@ func TestReconcileServiceAccountKeyRotatesWithOverlap(t *testing.T) {
 	base := time.Now().UTC().Add(-11 * time.Hour)
 	controller := &Controller{
 		services: &services.Services{
+			LocalK8sClient:    newRuntimeSecretClient(),
 			GatewayClient:     gatewayClient,
 			MCPRuntimeBackend: "kubernetes",
 			ServiceNamespace:  "obot",
 		},
-		runtimeClient: newRuntimeSecretClient(),
-		now:           func() time.Time { return base },
+		now: func() time.Time { return base },
 	}
 
 	account, _ := serviceaccounts.Get(serviceaccounts.NetworkPolicyProvider)
@@ -124,7 +124,7 @@ func TestReconcileServiceAccountKeyRotatesWithOverlap(t *testing.T) {
 	}
 
 	secret := &corev1.Secret{}
-	if err := controller.runtimeClient.Get(ctx, kclient.ObjectKey{
+	if err := controller.services.LocalK8sClient.Get(ctx, kclient.ObjectKey{
 		Namespace: ns,
 		Name:      account.SecretName,
 	}, secret); err != nil {
@@ -137,7 +137,7 @@ func TestReconcileServiceAccountKeyRotatesWithOverlap(t *testing.T) {
 		t.Fatalf("unexpected reconcile error on rotation: %v", err)
 	}
 
-	if err := controller.runtimeClient.Get(ctx, kclient.ObjectKey{
+	if err := controller.services.LocalK8sClient.Get(ctx, kclient.ObjectKey{
 		Namespace: ns,
 		Name:      account.SecretName,
 	}, secret); err != nil {
@@ -180,13 +180,13 @@ func TestReconcileServiceAccountSecretChangeRecreatesDeletedSecret(t *testing.T)
 	base := time.Now().UTC().Add(-time.Hour)
 	controller := &Controller{
 		services: &services.Services{
+			LocalK8sClient:          newRuntimeSecretClient(),
 			GatewayClient:           gatewayClient,
 			MCPRuntimeBackend:       "kubernetes",
 			MCPNetworkPolicyEnabled: true,
 			ServiceNamespace:        "obot",
 		},
-		runtimeClient: newRuntimeSecretClient(),
-		now:           func() time.Time { return base },
+		now: func() time.Time { return base },
 	}
 
 	account, _ := serviceaccounts.Get(serviceaccounts.NetworkPolicyProvider)
@@ -195,7 +195,7 @@ func TestReconcileServiceAccountSecretChangeRecreatesDeletedSecret(t *testing.T)
 	}
 
 	secret := &corev1.Secret{}
-	if err := controller.runtimeClient.Get(ctx, kclient.ObjectKey{
+	if err := controller.services.LocalK8sClient.Get(ctx, kclient.ObjectKey{
 		Namespace: "obot",
 		Name:      account.SecretName,
 	}, secret); err != nil {
@@ -203,7 +203,7 @@ func TestReconcileServiceAccountSecretChangeRecreatesDeletedSecret(t *testing.T)
 	}
 	oldToken := string(secret.Data[account.SecretKey])
 
-	if err := controller.runtimeClient.Delete(ctx, secret); err != nil {
+	if err := controller.services.LocalK8sClient.Delete(ctx, secret); err != nil {
 		t.Fatalf("failed to delete service account secret fixture: %v", err)
 	}
 
@@ -217,7 +217,7 @@ func TestReconcileServiceAccountSecretChangeRecreatesDeletedSecret(t *testing.T)
 	}
 
 	secret = &corev1.Secret{}
-	if err := controller.runtimeClient.Get(ctx, kclient.ObjectKey{
+	if err := controller.services.LocalK8sClient.Get(ctx, kclient.ObjectKey{
 		Namespace: "obot",
 		Name:      account.SecretName,
 	}, secret); err != nil {
@@ -252,12 +252,12 @@ func TestReconcileServiceAccountKeyRecreatesMissingFreshSecret(t *testing.T) {
 	base := time.Now().UTC().Add(-time.Hour)
 	controller := &Controller{
 		services: &services.Services{
+			LocalK8sClient:    newRuntimeSecretClient(),
 			GatewayClient:     gatewayClient,
 			MCPRuntimeBackend: "kubernetes",
 			ServiceNamespace:  "obot",
 		},
-		runtimeClient: newRuntimeSecretClient(),
-		now:           func() time.Time { return base.Add(time.Minute) },
+		now: func() time.Time { return base.Add(time.Minute) },
 	}
 
 	account, _ := serviceaccounts.Get(serviceaccounts.NetworkPolicyProvider)
@@ -271,7 +271,7 @@ func TestReconcileServiceAccountKeyRecreatesMissingFreshSecret(t *testing.T) {
 	}
 
 	secret := &corev1.Secret{}
-	if err := controller.runtimeClient.Get(ctx, kclient.ObjectKey{
+	if err := controller.services.LocalK8sClient.Get(ctx, kclient.ObjectKey{
 		Namespace: "obot",
 		Name:      account.SecretName,
 	}, secret); err != nil {
@@ -307,12 +307,12 @@ func TestReconcileServiceAccountKeyDeletesExpiredOverlapKeys(t *testing.T) {
 	base := time.Now().UTC().Add(-11 * time.Hour)
 	controller := &Controller{
 		services: &services.Services{
+			LocalK8sClient:    newRuntimeSecretClient(),
 			GatewayClient:     gatewayClient,
 			MCPRuntimeBackend: "kubernetes",
 			ServiceNamespace:  "obot",
 		},
-		runtimeClient: newRuntimeSecretClient(),
-		now:           func() time.Time { return base },
+		now: func() time.Time { return base },
 	}
 
 	account, _ := serviceaccounts.Get(serviceaccounts.NetworkPolicyProvider)
@@ -365,7 +365,7 @@ func TestReconcileServiceAccountKeysSkipsWhenBackendNotKubernetes(t *testing.T) 
 		t.Fatalf("expected no keys to be created for non-kubernetes backend, got %d", len(keys))
 	}
 
-	if controller.runtimeClient != nil {
+	if controller.services.LocalK8sClient != nil {
 		t.Fatal("expected no runtime client to be created for non-kubernetes backend")
 	}
 }
@@ -396,7 +396,7 @@ func TestReconcileServiceAccountKeysSkipsWhenNetworkPolicyProviderDisabled(t *te
 		t.Fatalf("expected no keys to be created when network policy provider is disabled, got %d", len(keys))
 	}
 
-	if controller.runtimeClient != nil {
+	if controller.services.LocalK8sClient != nil {
 		t.Fatal("expected no runtime client to be created when network policy provider is disabled")
 	}
 }
@@ -426,12 +426,12 @@ func TestReconcileServiceAccountKeysCleansUpWhenBackendDisabled(t *testing.T) {
 
 	controller := &Controller{
 		services: &services.Services{
+			LocalK8sClient:    runtimeClient,
 			GatewayClient:     gatewayClient,
 			MCPRuntimeBackend: "docker",
 			ServiceNamespace:  "obot",
 		},
-		runtimeClient: runtimeClient,
-		now:           func() time.Time { return base },
+		now: func() time.Time { return base },
 	}
 
 	if err := controller.reconcileServiceAccountKeys(ctx); err != nil {
@@ -479,13 +479,13 @@ func TestReconcileServiceAccountKeysCleansUpWhenNetworkPolicyProviderDisabled(t 
 
 	controller := &Controller{
 		services: &services.Services{
+			LocalK8sClient:          runtimeClient,
 			GatewayClient:           gatewayClient,
 			MCPRuntimeBackend:       "kubernetes",
 			MCPNetworkPolicyEnabled: false,
 			ServiceNamespace:        "obot",
 		},
-		runtimeClient: runtimeClient,
-		now:           func() time.Time { return base },
+		now: func() time.Time { return base },
 	}
 
 	if err := controller.reconcileServiceAccountKeys(ctx); err != nil {

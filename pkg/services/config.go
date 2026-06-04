@@ -66,6 +66,7 @@ import (
 	gocache "k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
+	crcache "sigs.k8s.io/controller-runtime/pkg/cache"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	// Setup nah logging
@@ -190,8 +191,13 @@ type Services struct {
 	OAuthServerConfig              handlers.OAuthAuthorizationServerConfig
 	MCPOAuthClientSecretExpiration time.Duration
 
+	// LocalK8sClient is a kclient for the local Kubernetes cluster — the
+	// cluster the obot pod runs in, where source Secrets for
+	// secretBindings live. Nil on the docker backend.
+	LocalK8sClient kclient.Client
 	// LocalK8sConfig is the Kubernetes config for the MCP runtime cluster.
 	LocalK8sConfig            *rest.Config
+	LocalRouter               *router.Router
 	MCPServerNamespace        string
 	ServiceAccountIssuerURL   string
 	ServiceAccountIssuerError string
@@ -200,11 +206,6 @@ type Services struct {
 	ServiceNamespace          string
 	ServiceAccountName        string
 	StorageListenPort         int
-
-	// LocalK8sClient is a kclient for the local Kubernetes cluster — the
-	// cluster the obot pod runs in, where source Secrets for
-	// secretBindings live. Nil on the docker backend.
-	LocalK8sClient kclient.Client
 
 	// ObotNamespace is the Kubernetes namespace in which the obot server
 	// runs; mcp.MergeBoundCreds reads source Secrets from here.
@@ -617,19 +618,40 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
-	webhookHelper := mcp.NewWebhookHelper(mcpWebhookValidationInformer.GetIndexer(), config.Hostname)
-
-	mcpSessionManager, err := mcp.NewSessionManager(ctx, config.EnableAuthentication, persistentTokenServer, config.Hostname, config.HTTPListenPort, mcp.Options(config.MCPConfig), webhookHelper, localK8sConfig, storageClient)
-	if err != nil {
-		return nil, err
-	}
-
-	var apiLocalK8sClient kclient.Client
+	var (
+		apiLocalK8sClient kclient.WithWatch
+		localCacheClient  kclient.WithWatch
+		localRouter       *router.Router
+	)
 	if localK8sConfig != nil {
-		apiLocalK8sClient, err = kclient.New(localK8sConfig, kclient.Options{Scheme: k8sscheme.Scheme})
+		apiLocalK8sClient, err = kclient.NewWithWatch(localK8sConfig, kclient.Options{Scheme: k8sscheme.Scheme})
 		if err != nil {
 			return nil, fmt.Errorf("failed to build local k8s client for API server: %w", err)
 		}
+
+		// Create a scheme that includes the types we need to watch
+		localRouter, err = nah.NewRouter("obot-local-k8s", &nah.Options{
+			RESTConfig: localK8sConfig,
+			Scheme:     k8sscheme.Scheme,
+			Namespace:  config.MCPNamespace,
+			// The router is scoped to the MCP namespace, but the managed provider token
+			// secret lives in Obot's runtime namespace.
+			ByObject:       localK8sCacheByObject(config.MCPNamespace, config.ServiceNamespace),
+			ElectionConfig: nil, // No leader election for local router
+			HealthzPort:    -1,  // Disable healthz port
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create local Kubernetes router: %w", err)
+		}
+
+		localCacheClient = localRouter.Backend()
+	}
+
+	webhookHelper := mcp.NewWebhookHelper(mcpWebhookValidationInformer.GetIndexer(), config.Hostname)
+
+	mcpSessionManager, err := mcp.NewSessionManager(ctx, config.EnableAuthentication, persistentTokenServer, config.Hostname, config.HTTPListenPort, mcp.Options(config.MCPConfig), webhookHelper, localK8sConfig, apiLocalK8sClient, localCacheClient, storageClient)
+	if err != nil {
+		return nil, err
 	}
 
 	acrGVK, err := r.Backend().GroupVersionKindFor(&v1.AccessControlRule{})
@@ -898,7 +920,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		ToolRegistryURLs:  config.ProviderRegistries,
 		StorageClient:     storageClient,
 		Router:            r,
-		LocalK8sClient:    apiLocalK8sClient,
 		ObotNamespace:     config.ServiceNamespace,
 		APIServer: server.NewServer(
 			storageClient,
@@ -941,6 +962,8 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		SkillAccessRuleHelper:                skillAccessRuleHelper,
 		WebhookHelper:                        webhookHelper,
 		LocalK8sConfig:                       localK8sConfig,
+		LocalK8sClient:                       apiLocalK8sClient,
+		LocalRouter:                          localRouter,
 		MCPServerNamespace:                   config.MCPNamespace,
 		ServiceAccountIssuerURL:              serviceAccountIssuerURL,
 		ServiceAccountIssuerError:            serviceAccountIssuerError,
@@ -1110,4 +1133,23 @@ func startDevMode(ctx context.Context, storageClient storage.Client) {
 			Namespace: "kube-system",
 		},
 	})
+}
+
+func localK8sCacheByObject(mcpServerNamespace, runtimeNamespace string) map[kclient.Object]crcache.ByObject {
+	secretNamespaces := map[string]crcache.Config{}
+	if mcpServerNamespace != "" {
+		secretNamespaces[mcpServerNamespace] = crcache.Config{}
+	}
+	if runtimeNamespace != "" {
+		secretNamespaces[runtimeNamespace] = crcache.Config{}
+	}
+	if len(secretNamespaces) == 0 {
+		return nil
+	}
+
+	return map[kclient.Object]crcache.ByObject{
+		&corev1.Secret{}: {
+			Namespaces: secretNamespaces,
+		},
+	}
 }

@@ -285,8 +285,8 @@ func (c *Controller) runtimeNamespace() (string, error) {
 }
 
 func (c *Controller) runtimeK8sClient() (kclient.Client, error) {
-	if c.runtimeClient == nil {
+	if c.services.LocalK8sClient == nil {
 		return nil, errRuntimeK8sConfigUnavailable
 	}
-	return c.runtimeClient, nil
+	return c.services.LocalK8sClient, nil
 }

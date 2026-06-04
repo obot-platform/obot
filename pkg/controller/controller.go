@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/obot-platform/nah"
-	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/controller/data"
@@ -24,8 +22,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/scheme"
-	crcache "sigs.k8s.io/controller-runtime/pkg/cache"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	// Enable logrus logging in nah
@@ -35,37 +31,18 @@ import (
 var log = logger.Package()
 
 type Controller struct {
-	router                *router.Router
-	localK8sRouter        *router.Router
 	services              *services.Services
 	providerHandler       *provider.Handler
 	mcpCatalogHandler     *mcpcatalog.Handler
 	adminWorkspaceHandler *adminworkspace.Handler
-	runtimeClient         kclient.Client
 	providerInstaller     networkPolicyProviderInstaller
 	now                   func() time.Time
 }
 
 func New(services *services.Services) (*Controller, error) {
 	c := &Controller{
-		router:   services.Router,
 		services: services,
 		now:      time.Now,
-	}
-
-	// Create local Kubernetes router if MCP is enabled and config is available
-	var err error
-	if services.LocalK8sConfig != nil {
-		c.localK8sRouter, err = c.createLocalK8sRouter()
-		if err != nil {
-			// Log warning but don't fail - MCP deployment monitoring is optional
-			return nil, fmt.Errorf("failed to create local Kubernetes router: %w", err)
-		}
-
-		c.runtimeClient = services.LocalK8sClient
-		if c.runtimeClient == nil {
-			return nil, fmt.Errorf("failed to initialize runtime Kubernetes client")
-		}
 	}
 
 	c.setupRoutes()
@@ -325,13 +302,13 @@ func (c *Controller) retriggerCatalogEntries(ctx context.Context, client kclient
 }
 
 func (c *Controller) Start(ctx context.Context) error {
-	if err := c.router.Start(ctx); err != nil {
+	if err := c.services.Router.Start(ctx); err != nil {
 		return fmt.Errorf("failed to start router: %w", err)
 	}
 
 	// Start the local Kubernetes router if it exists
-	if c.localK8sRouter != nil {
-		if err := c.localK8sRouter.Start(ctx); err != nil {
+	if c.services.LocalRouter != nil {
+		if err := c.services.LocalRouter.Start(ctx); err != nil {
 			return fmt.Errorf("failed to start local Kubernetes router: %w", err)
 		}
 	}
@@ -544,63 +521,19 @@ func ensureAppPreferences(ctx context.Context, client kclient.Client) error {
 	return err
 }
 
-// createLocalK8sRouter creates a router for local Kubernetes resources
-func (c *Controller) createLocalK8sRouter() (*router.Router, error) {
-	// Create a scheme that includes the types we need to watch
-	localScheme := scheme.Scheme
-	if err := appsv1.AddToScheme(localScheme); err != nil {
-		return nil, fmt.Errorf("failed to add appsv1 to scheme: %w", err)
-	}
-
-	localRouter, err := nah.NewRouter("obot-local-k8s", &nah.Options{
-		RESTConfig: c.services.LocalK8sConfig,
-		Scheme:     localScheme,
-		Namespace:  c.services.MCPServerNamespace,
-		// The router is scoped to the MCP namespace, but the managed provider token
-		// secret lives in Obot's runtime namespace.
-		ByObject:       localK8sCacheByObject(c.services.MCPServerNamespace, c.services.ServiceNamespace),
-		ElectionConfig: nil, // No leader election for local router
-		HealthzPort:    -1,  // Disable healthz port
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create local Kubernetes router: %w", err)
-	}
-
-	return localRouter, nil
-}
-
-func localK8sCacheByObject(mcpServerNamespace, runtimeNamespace string) map[kclient.Object]crcache.ByObject {
-	secretNamespaces := map[string]crcache.Config{}
-	if mcpServerNamespace != "" {
-		secretNamespaces[mcpServerNamespace] = crcache.Config{}
-	}
-	if runtimeNamespace != "" {
-		secretNamespaces[runtimeNamespace] = crcache.Config{}
-	}
-	if len(secretNamespaces) == 0 {
-		return nil
-	}
-
-	return map[kclient.Object]crcache.ByObject{
-		&corev1.Secret{}: {
-			Namespaces: secretNamespaces,
-		},
-	}
-}
-
 // setupLocalK8sRoutes sets up routes for the local Kubernetes router
 func (c *Controller) setupLocalK8sRoutes() {
-	if c.localK8sRouter == nil {
+	if c.services.LocalRouter == nil {
 		return
 	}
 
 	deploymentHandler := deployment.New(c.services.MCPServerNamespace, c.services.Router.Backend(), c.services.MCPRuntimeBackend, c.services.MCPImagePullSecrets)
-	c.localK8sRouter.Type(&appsv1.Deployment{}).IncludeRemoved().HandlerFunc(deploymentHandler.UpdateMCPServerStatus)
-	c.localK8sRouter.Type(&appsv1.Deployment{}).HandlerFunc(deploymentHandler.CleanupOldIDs)
+	c.services.LocalRouter.Type(&appsv1.Deployment{}).IncludeRemoved().HandlerFunc(deploymentHandler.UpdateMCPServerStatus)
+	c.services.LocalRouter.Type(&appsv1.Deployment{}).HandlerFunc(deploymentHandler.CleanupOldIDs)
 
 	secretHandler := secret.New(c.services.MCPServerNamespace, c.services.GatewayClient)
-	c.localK8sRouter.Type(&corev1.Secret{}).Namespace(c.services.MCPServerNamespace).HandlerFunc(secretHandler.UpdateNanobotAgentCreds)
+	c.services.LocalRouter.Type(&corev1.Secret{}).Namespace(c.services.MCPServerNamespace).HandlerFunc(secretHandler.UpdateNanobotAgentCreds)
 	// Reconcile delete/update events for the provider token secret immediately,
 	// instead of waiting for the periodic service-account key rotation loop.
-	c.localK8sRouter.Type(&corev1.Secret{}).Namespace(c.services.ServiceNamespace).Name(serviceaccounts.NetworkPolicySecretName).IncludeRemoved().HandlerFunc(c.reconcileServiceAccountSecretChange)
+	c.services.LocalRouter.Type(&corev1.Secret{}).Namespace(c.services.ServiceNamespace).Name(serviceaccounts.NetworkPolicySecretName).IncludeRemoved().HandlerFunc(c.reconcileServiceAccountSecretChange)
 }
