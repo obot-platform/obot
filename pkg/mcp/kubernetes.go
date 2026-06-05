@@ -244,7 +244,7 @@ func (k *kubernetesBackend) getServerDetails(ctx context.Context, id string) (ty
 		}
 
 		var eventList corev1.EventList
-		if err := k.cachedClient.List(ctx, &eventList, kclient.InNamespace(k.mcpNamespace), kclient.MatchingFieldsSelector{
+		if err := k.client.List(ctx, &eventList, kclient.InNamespace(k.mcpNamespace), kclient.MatchingFieldsSelector{
 			Selector: fields.SelectorFromSet(map[string]string{
 				"involvedObject.kind":      "Pod",
 				"involvedObject.name":      pod.Name,
@@ -258,7 +258,7 @@ func (k *kubernetesBackend) getServerDetails(ctx context.Context, id string) (ty
 	}
 
 	var deploymentEvents corev1.EventList
-	if err := k.cachedClient.List(ctx, &deploymentEvents, kclient.InNamespace(k.mcpNamespace), kclient.MatchingFieldsSelector{
+	if err := k.client.List(ctx, &deploymentEvents, kclient.InNamespace(k.mcpNamespace), kclient.MatchingFieldsSelector{
 		Selector: fields.SelectorFromSet(map[string]string{
 			"involvedObject.kind":      "Deployment",
 			"involvedObject.name":      deployment.Name,
