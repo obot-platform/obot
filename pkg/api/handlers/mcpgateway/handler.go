@@ -36,7 +36,7 @@ func NewHandler(mcpSessionManager *mcp.SessionManager) *Handler {
 func (h *Handler) Proxy(req api.Context) error {
 	serverConfig, mcpURL, allowDifferentPaths, err := h.ensureServerIsDeployed(req)
 	if err != nil {
-		return fmt.Errorf("failed to ensure server is deployed: %w", err)
+		return fmt.Errorf("failed to ensure server is deployed: %v", err)
 	}
 
 	u, err := url.Parse(mcpURL)
