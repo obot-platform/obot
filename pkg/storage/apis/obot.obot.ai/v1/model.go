@@ -10,7 +10,6 @@ var (
 	_ fields.Fields = (*Model)(nil)
 	_ Aliasable     = (*Model)(nil)
 	_ Generationed  = (*Model)(nil)
-	_ DeleteRefs    = (*Model)(nil)
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -20,12 +19,6 @@ type Model struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	Spec              ModelSpec   `json:"spec,omitempty"`
 	Status            ModelStatus `json:"status,omitempty"`
-}
-
-func (m *Model) DeleteRefs() []Ref {
-	return []Ref{
-		{ObjType: &ModelProvider{}, Name: m.Spec.Manifest.ModelProvider},
-	}
 }
 
 func (m *Model) Has(field string) (exists bool) {
