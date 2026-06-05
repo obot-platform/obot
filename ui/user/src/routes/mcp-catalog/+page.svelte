@@ -356,17 +356,17 @@
 		<div in:fade={{ duration }}>
 			{#if view === 'entries'}
 				<button
-					class="btn btn-primary btn-block w-full text-sm md:w-50"
+					class="btn btn-primary btn-block w-full text-sm md:w-52"
 					onclick={() => selectServerTypeDialog?.open()}
 				>
-					<Plus class="size-4" /> Add Server Entry
+					<Plus class="size-4" /> Add Catalog Entry
 				</button>
 			{:else if view === 'urls'}
 				<button
-					class="btn btn-primary btn-block w-full text-sm md:w-50"
+					class="btn btn-primary btn-block w-full text-sm md:w-52"
 					onclick={() => sourceDialog?.open()}
 				>
-					<Plus class="size-4" /> Add Git Source
+					<Plus class="size-4" /> Add Catalog Source
 				</button>
 			{/if}
 		</div>

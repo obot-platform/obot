@@ -210,7 +210,7 @@
 						{ label: 'Overview', view: 'overview' },
 						...(belongsToUser ? [{ label: 'Server Details', view: 'server-instances' }] : []),
 						{ label: 'Tools', view: 'tools' },
-						...(profile.current?.hasAdminAccess?.()
+						...(profile.current?.hasAdminAccess?.() && entry?.manifest?.runtime === 'remote'
 							? [{ label: 'Troubleshooting', view: 'troubleshooting' }]
 							: [])
 					];
@@ -866,12 +866,12 @@
 			{#snippet readonlyMessage()}
 				{#if entry && 'sourceURL' in entry && !!entry.sourceURL}
 					<p>
-						This MCP Server comes from an external Git Source URL <span
+						This catalog entry comes from an external Git Source URL <span
 							class="text-muted-content text-xs">({entry.sourceURL.split('/').pop()})</span
 						> and cannot be edited.
 					</p>
 				{:else}
-					<p>This MCP server is non-editable.</p>
+					<p>This catalog entry is non-editable.</p>
 				{/if}
 			{/snippet}
 		</CatalogServerForm>

@@ -780,7 +780,7 @@
 					{#if (!layout.sidebarOpen || hideSidebar) && !alwaysShowHeaderTitle}
 						<div
 							class={twMerge(
-								'flex w-full items-center justify-between gap-2 pb-4',
+								'flex w-full items-center justify-between gap-2 pb-4 flex-wrap md:flex-nowrap',
 								classes?.collapsedSidebarHeaderContent
 							)}
 						>

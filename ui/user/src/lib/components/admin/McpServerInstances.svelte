@@ -168,7 +168,7 @@
 				</div>
 			</div>
 		{/if}
-		<DeploymentsView {servers} {readonly} {id} {entity} />
+		<DeploymentsView {servers} {readonly} {id} {entity} {usersMap} />
 	{:else}
 		{@render emptyInstancesContent()}
 	{/if}
