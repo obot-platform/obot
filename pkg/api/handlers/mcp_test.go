@@ -924,6 +924,154 @@ func TestEntryManifestNeedsUserConfig(t *testing.T) {
 	}
 }
 
+func TestEntryMissingAdminConfig(t *testing.T) {
+	const ns = "obot-ns"
+
+	newClient := func(t *testing.T, objects ...kclient.Object) kclient.Client {
+		t.Helper()
+		scheme := runtime.NewScheme()
+		require.NoError(t, corev1.AddToScheme(scheme))
+		return fake.NewClientBuilder().WithScheme(scheme).WithObjects(objects...).Build()
+	}
+	secret := func(name string, data map[string][]byte) *corev1.Secret {
+		return &corev1.Secret{Data: data, ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns}}
+	}
+
+	tests := []struct {
+		name            string
+		manifest        types.MCPServerCatalogEntryManifest
+		oauthConfigured bool
+		client          kclient.Client
+		wantFields      []string
+		wantOAuth       bool
+	}{
+		{
+			name: "required env resolved binding",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeNPX,
+				Env: []types.MCPEnv{{
+					MCPHeader: types.MCPHeader{
+						Key:           "TOKEN",
+						Required:      true,
+						SecretBinding: &types.MCPSecretBinding{Name: "s", Key: "k"},
+					},
+				}},
+			},
+			client: newClient(t, secret("s", map[string][]byte{"k": []byte("v")})),
+		},
+		{
+			name: "required env missing binding",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeNPX,
+				Env: []types.MCPEnv{{
+					MCPHeader: types.MCPHeader{
+						Key:           "TOKEN",
+						Required:      true,
+						SecretBinding: &types.MCPSecretBinding{Name: "s", Key: "k"},
+					},
+				}},
+			},
+			client:     newClient(t),
+			wantFields: []string{"env TOKEN"},
+		},
+		{
+			name: "required env empty binding",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeNPX,
+				Env: []types.MCPEnv{{
+					MCPHeader: types.MCPHeader{
+						Key:           "TOKEN",
+						Required:      true,
+						SecretBinding: &types.MCPSecretBinding{Name: "s", Key: "k"},
+					},
+				}},
+			},
+			client:     newClient(t, secret("s", map[string][]byte{"k": []byte("")})),
+			wantFields: []string{"env TOKEN"},
+		},
+		{
+			name: "required header missing binding",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteCatalogConfig{
+					FixedURL: "https://example.com",
+					Headers: []types.MCPHeader{{
+						Key:           "X-Api-Key",
+						Required:      true,
+						SecretBinding: &types.MCPSecretBinding{Name: "s", Key: "k"},
+					}},
+				},
+			},
+			client:     newClient(t),
+			wantFields: []string{"header X-Api-Key"},
+		},
+		{
+			name: "static oauth missing",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteCatalogConfig{
+					FixedURL:            "https://example.com",
+					StaticOAuthRequired: true,
+				},
+			},
+			wantOAuth: true,
+		},
+		{
+			name: "static oauth configured",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteCatalogConfig{
+					FixedURL:            "https://example.com",
+					StaticOAuthRequired: true,
+				},
+			},
+			oauthConfigured: true,
+		},
+		{
+			name: "composite component missing binding",
+			manifest: composite(types.CatalogComponentServer{
+				CatalogEntryID: "c1",
+				Manifest: types.MCPServerCatalogEntryManifest{
+					Runtime: types.RuntimeNPX,
+					Env: []types.MCPEnv{{
+						MCPHeader: types.MCPHeader{
+							Key:           "TOKEN",
+							Required:      true,
+							SecretBinding: &types.MCPSecretBinding{Name: "s", Key: "k"},
+						},
+					}},
+				},
+			}),
+			client:     newClient(t),
+			wantFields: []string{"component c1 env TOKEN"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			entry := v1.MCPServerCatalogEntry{
+				Spec:   v1.MCPServerCatalogEntrySpec{Manifest: tt.manifest},
+				Status: v1.MCPServerCatalogEntryStatus{OAuthCredentialConfigured: tt.oauthConfigured},
+			}
+			got, err := entryMissingAdminConfig(context.Background(), tt.client, ns, entry)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantFields, got.SecretBoundFields)
+			assert.Equal(t, tt.wantOAuth, got.StaticOAuth)
+
+			err = got.err("entry")
+			if len(tt.wantFields) == 0 && !tt.wantOAuth {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			errHTTP, ok := err.(*types.ErrHTTP)
+			require.True(t, ok)
+			assert.Equal(t, http.StatusBadRequest, errHTTP.Code)
+			assert.Contains(t, errHTTP.Message, "catalog entry entry cannot be connected")
+		})
+	}
+}
+
 // composite builds a composite catalog entry manifest from the given components.
 func composite(components ...types.CatalogComponentServer) types.MCPServerCatalogEntryManifest {
 	return types.MCPServerCatalogEntryManifest{
