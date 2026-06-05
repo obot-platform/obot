@@ -373,7 +373,6 @@
 	{catalogID}
 	{workspaceID}
 	onConnect={(data) => {
-		console.log('step b', data);
 		onConnect?.(data);
 		refresh();
 	}}

@@ -450,7 +450,7 @@
 			return entity === 'workspace'
 				? catalogEntry?.id
 					? `/admin/mcp-catalog/w/${entityId}/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
-					: `/admin/mcp-catlaog/w/${entityId}/s/${encodeURIComponent(id ?? '')}?view=audit-logs&user_id=${d.id}`
+					: `/admin/mcp-catalog/w/${entityId}/s/${encodeURIComponent(id ?? '')}?view=audit-logs&user_id=${d.id}`
 				: catalogEntry?.id
 					? `/admin/mcp-catalog/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
 					: `/admin/mcp-catalog/s/${encodeURIComponent(id ?? '')}?view=audit-logs&user_id=${d.id}`;

@@ -594,7 +594,6 @@
 						? UserService.getWorkspaceCatalogEntryServers
 						: AdminService.listMCPServersForEntry;
 				listInstances(id, updatedEntry.id).then((response) => {
-					console.log(response);
 					if (response.length > 0 && response.some((instance) => instance)) {
 						showUpdateExistingDeploymentsConfirm = true;
 					}
