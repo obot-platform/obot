@@ -31,7 +31,7 @@ func (h *Handler) MigrateProjectV2(req router.Request, _ router.Response) error 
 
 	if _, err := h.gatewayClient.UserByID(req.Ctx, projectV2.Spec.UserID); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return kclient.IgnoreNotFound(req.Delete(projectV2))
+			return req.Delete(projectV2)
 		}
 		return fmt.Errorf("failed to get user %s: %w", projectV2.Spec.UserID, err)
 	}
@@ -69,5 +69,5 @@ func (h *Handler) MigrateProjectV2(req router.Request, _ router.Response) error 
 		}
 	}
 
-	return kclient.IgnoreNotFound(req.Delete(projectV2))
+	return req.Delete(projectV2)
 }

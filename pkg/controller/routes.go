@@ -14,6 +14,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpservercatalogentry"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpserverinstance"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpwebhookvalidation"
+	"github.com/obot-platform/obot/pkg/controller/handlers/model"
 	"github.com/obot-platform/obot/pkg/controller/handlers/modelaccesspolicy"
 	"github.com/obot-platform/obot/pkg/controller/handlers/nanobotagent"
 	"github.com/obot-platform/obot/pkg/controller/handlers/oauthclients"
@@ -50,6 +51,7 @@ func (c *Controller) setupRoutes() {
 	oktaGroupMigrationHandler := oktagroupmigration.New()
 	projectHandler := project.New(c.services.GatewayClient)
 	imagePullSecretHandler := imagepullsecret.New(c.services.GatewayClient, c.services.LocalK8sClient, c.services.MCPRuntimeBackend, c.services.MCPServerNamespace, c.services.ServiceNamespace, c.services.ServiceAccountName, c.services.MCPImagePullSecrets, c.services.ServiceAccountIssuerURL)
+	modelHandler := model.NewHandler(c.services.GatewayClient)
 
 	// AuthProviders
 	root.Type(&v1.AuthProvider{}).HandlerFunc(providers.SetAuthProviderConfiguredStatus)
@@ -60,7 +62,7 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.ModelProvider{}).FinalizeFunc(v1.ModelProviderFinalizer, providers.CleanupModelProvider)
 
 	// Models
-	root.Type(&v1.Model{}).HandlerFunc(cleanup.Cleanup)
+	root.Type(&v1.Model{}).HandlerFunc(modelHandler.Cleanup)
 	root.Type(&v1.Model{}).HandlerFunc(alias.AssignAlias)
 	root.Type(&v1.Model{}).HandlerFunc(generationed.UpdateObservedGeneration)
 

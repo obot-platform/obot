@@ -101,7 +101,7 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 		if server.Spec.MCPCatalogID == system.DefaultCatalog || server.Spec.NanobotAgentID != "" {
 			continue
 		}
-		if err := kclient.IgnoreNotFound(req.Delete(&server)); err != nil {
+		if err := req.Delete(&server); err != nil {
 			return err
 		}
 		deletedServers++
@@ -121,7 +121,7 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 	}
 
 	for _, instance := range instances.Items {
-		if err := kclient.IgnoreNotFound(req.Delete(&instance)); err != nil {
+		if err := req.Delete(&instance); err != nil {
 			return err
 		}
 	}
@@ -164,7 +164,7 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 	}
 
 	for _, workspace := range workspaces.Items {
-		if err := kclient.IgnoreNotFound(req.Delete(&workspace)); err != nil {
+		if err := req.Delete(&workspace); err != nil {
 			return err
 		}
 	}
