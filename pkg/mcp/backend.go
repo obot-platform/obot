@@ -80,10 +80,12 @@ func ensureServerReady(ctx context.Context, url string, server ServerConfig) err
 		url = fmt.Sprintf("%s/%s", strings.TrimSuffix(url, "/"), strings.TrimPrefix(server.ContainerPath, "/"))
 	}
 
+	// This must be a non-nil error because Go does weird things when you use %w with a nil error.
+	lastErr := errors.New("MCP server did not respond to health check")
 	for {
 		select {
 		case <-ctx.Done():
-			return ErrHealthCheckTimeout
+			return fmt.Errorf("%w: last error was %w", ErrHealthCheckTimeout, lastErr)
 		case <-time.After(100 * time.Millisecond):
 		}
 
@@ -100,9 +102,9 @@ func ensureServerReady(ctx context.Context, url string, server ServerConfig) err
 			continue
 		}
 
-		_, _ = io.Copy(io.Discard, resp.Body)
-		_ = resp.Body.Close()
 		if resp.StatusCode == http.StatusOK {
+			_, _ = io.Copy(io.Discard, resp.Body)
+			_ = resp.Body.Close()
 			if sessionID := resp.Header.Get("Mcp-Session-Id"); sessionID != "" {
 				// Send a cancellation, since we don't need this session.
 				// If we get any errors, ignore them, because it doesn't matter for us.
@@ -115,6 +117,11 @@ func ensureServerReady(ctx context.Context, url string, server ServerConfig) err
 			}
 			return nil
 		}
+
+		// We know here that we have a non-200 response.
+		body, _ := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		lastErr = fmt.Errorf("unexpected status code [%d]: %s", resp.StatusCode, string(body))
 
 		// Fallback to trying SSE.
 		req, err = http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -161,14 +168,20 @@ func ensureHTTPGetOK(ctx context.Context, client *http.Client, url string) error
 			return fmt.Errorf("failed to create request: %w", err)
 		}
 
+		var (
+			body []byte
+			// This must be a non-nil error because Go does weird things when you use %w with a nil error.
+			lastErr = errors.New("MCP server did not respond to health check")
+		)
 		resp, err := client.Do(req)
 		if err == nil {
-			_, _ = io.Copy(io.Discard, resp.Body)
+			body, _ = io.ReadAll(resp.Body)
 			_ = resp.Body.Close()
 			switch resp.StatusCode {
 			case http.StatusOK:
 				return nil
 			case http.StatusServiceUnavailable:
+				lastErr = fmt.Errorf("service unavailable: %s", string(body))
 				// Older nanobot versions return 503 when tool listing permanently fails, but service mesh sidecars
 				// (e.g. Istio's envoy) also return 503 during startup. To avoid confusing the two, we don't treat 503
 				// as a permanent failure until we've seen consecutive 503 responses for this duration.
@@ -176,12 +189,15 @@ func ensureHTTPGetOK(ctx context.Context, client *http.Client, url string) error
 				if firstServiceUnavailable.IsZero() {
 					firstServiceUnavailable = time.Now()
 				} else if time.Since(firstServiceUnavailable) > serviceUnavailableGracePeriod {
-					return ErrHealthCheckFailed
+					return fmt.Errorf("%w: %v", ErrHealthCheckFailed, lastErr)
 				}
+
 			case http.StatusInternalServerError:
+				lastErr = fmt.Errorf("internal server error: %s", string(body))
 				// Nanobot returns 500 when tool listing permanently fails.
-				return ErrHealthCheckFailed
+				return fmt.Errorf("%w: %v", ErrHealthCheckFailed, lastErr)
 			default:
+				lastErr = fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(body))
 				// A non-503 response (e.g. 425 TooEarly) means we're reaching the actual
 				// nanobot process, not a proxy. Reset the grace period so that any subsequent
 				// 503 gets a fresh window.
@@ -191,7 +207,7 @@ func ensureHTTPGetOK(ctx context.Context, client *http.Client, url string) error
 
 		select {
 		case <-ctx.Done():
-			return ErrHealthCheckTimeout
+			return fmt.Errorf("%w: %v", ErrHealthCheckFailed, lastErr)
 		case <-time.After(100 * time.Millisecond):
 		}
 	}
