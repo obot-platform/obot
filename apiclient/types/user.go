@@ -134,7 +134,6 @@ type User struct {
 	DeletedAt                  *Time    `json:"deletedAt,omitempty"`
 	OriginalEmail              string   `json:"originalEmail,omitempty"`
 	OriginalUsername           string   `json:"originalUsername,omitempty"`
-	AutonomousToolUseEnabled   *bool    `json:"autonomousToolUseEnabled,omitempty"`
 }
 
 type UserList List[User]
