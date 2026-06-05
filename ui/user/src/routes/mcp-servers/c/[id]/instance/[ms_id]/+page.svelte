@@ -37,7 +37,7 @@
 					? 'composite'
 					: catalogEntry?.manifest.runtime === 'remote'
 						? 'remote'
-						: 'single'}
+						: 'hosted'}
 				readonly={catalogEntry && 'sourceURL' in catalogEntry && !!catalogEntry.sourceURL}
 				id={workspaceId}
 				entity="workspace"
