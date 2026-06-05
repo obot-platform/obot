@@ -590,7 +590,7 @@ func (m *MCPHandler) LaunchServer(req api.Context) error {
 			}
 			if err != nil {
 				if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
-					return types.NewErrHTTP(http.StatusServiceUnavailable, fmt.Sprintf("Component MCP server %s is not healthy, check configuration for errors", component.Name))
+					return types.NewErrHTTP(http.StatusServiceUnavailable, fmt.Sprintf("Component MCP server %s is not healthy, check configuration for errors: %v", component.Name, err))
 				}
 				if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
 					return types.NewErrHTTP(http.StatusServiceUnavailable, fmt.Sprintf("No response from component MCP server %s, check configuration for errors", component.Name))
@@ -617,7 +617,7 @@ func (m *MCPHandler) LaunchServer(req api.Context) error {
 	}
 	if err != nil {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
-			return types.NewErrHTTP(http.StatusServiceUnavailable, "MCP server is not healthy, check configuration for errors")
+			return types.NewErrHTTP(http.StatusServiceUnavailable, fmt.Sprintf("MCP server is not healthy, check configuration for errors: %v", err))
 		}
 		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
@@ -691,7 +691,7 @@ func (m *MCPHandler) GetTools(req api.Context) error {
 	server, serverConfig, caps, err := serverForActionWithCapabilities(req, m.mcpSessionManager)
 	if err != nil {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
-			return types.NewErrHTTP(http.StatusServiceUnavailable, "MCP server is not healthy, check configuration for errors")
+			return types.NewErrHTTP(http.StatusServiceUnavailable, fmt.Sprintf("MCP server is not healthy, check configuration for errors: %v", err))
 		}
 		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
@@ -709,7 +709,7 @@ func (m *MCPHandler) GetTools(req api.Context) error {
 	tools, err := toolsForServer(req.Context(), m.mcpSessionManager, server, serverConfig)
 	if err != nil {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
-			return types.NewErrHTTP(http.StatusServiceUnavailable, "MCP server is not healthy, check configuration for errors")
+			return types.NewErrHTTP(http.StatusServiceUnavailable, fmt.Sprintf("MCP server is not healthy, check configuration for errors: %v", err))
 		}
 		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
@@ -727,7 +727,7 @@ func (m *MCPHandler) GetResources(req api.Context) error {
 	_, serverConfig, caps, err := serverForActionWithCapabilities(req, m.mcpSessionManager)
 	if err != nil {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
-			return types.NewErrHTTP(http.StatusServiceUnavailable, "MCP server is not healthy, check configuration for errors")
+			return types.NewErrHTTP(http.StatusServiceUnavailable, fmt.Sprintf("MCP server is not healthy, check configuration for errors: %v", err))
 		}
 		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
@@ -745,7 +745,7 @@ func (m *MCPHandler) GetResources(req api.Context) error {
 	resources, err := m.mcpSessionManager.ListResources(req.Context(), serverConfig)
 	if err != nil {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
-			return types.NewErrHTTP(http.StatusServiceUnavailable, "MCP server is not healthy, check configuration for errors")
+			return types.NewErrHTTP(http.StatusServiceUnavailable, fmt.Sprintf("MCP server is not healthy, check configuration for errors: %v", err))
 		}
 		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
@@ -771,7 +771,7 @@ func (m *MCPHandler) ReadResource(req api.Context) error {
 	_, serverConfig, caps, err := serverForActionWithCapabilities(req, m.mcpSessionManager)
 	if err != nil {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
-			return types.NewErrHTTP(http.StatusServiceUnavailable, "MCP server is not healthy, check configuration for errors")
+			return types.NewErrHTTP(http.StatusServiceUnavailable, fmt.Sprintf("MCP server is not healthy, check configuration for errors: %v", err))
 		}
 		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
@@ -812,7 +812,7 @@ func (m *MCPHandler) GetPrompts(req api.Context) error {
 	_, serverConfig, caps, err := serverForActionWithCapabilities(req, m.mcpSessionManager)
 	if err != nil {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
-			return types.NewErrHTTP(http.StatusServiceUnavailable, "MCP server is not healthy, check configuration for errors")
+			return types.NewErrHTTP(http.StatusServiceUnavailable, fmt.Sprintf("MCP server is not healthy, check configuration for errors: %v", err))
 		}
 		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
@@ -830,7 +830,7 @@ func (m *MCPHandler) GetPrompts(req api.Context) error {
 	prompts, err := m.mcpSessionManager.ListPrompts(req.Context(), serverConfig)
 	if err != nil {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
-			return types.NewErrHTTP(http.StatusServiceUnavailable, "MCP server is not healthy, check configuration for errors")
+			return types.NewErrHTTP(http.StatusServiceUnavailable, fmt.Sprintf("MCP server is not healthy, check configuration for errors: %v", err))
 		}
 		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
@@ -856,7 +856,7 @@ func (m *MCPHandler) GetPrompt(req api.Context) error {
 	_, serverConfig, caps, err := serverForActionWithCapabilities(req, m.mcpSessionManager)
 	if err != nil {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
-			return types.NewErrHTTP(http.StatusServiceUnavailable, "MCP server is not healthy, check configuration for errors")
+			return types.NewErrHTTP(http.StatusServiceUnavailable, fmt.Sprintf("MCP server is not healthy, check configuration for errors: %v", err))
 		}
 		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
@@ -879,7 +879,7 @@ func (m *MCPHandler) GetPrompt(req api.Context) error {
 	messages, description, err := m.mcpSessionManager.GetPrompt(req.Context(), serverConfig, req.PathValue("prompt_name"), args)
 	if err != nil {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
-			return types.NewErrHTTP(http.StatusServiceUnavailable, "MCP server is not healthy, check configuration for errors")
+			return types.NewErrHTTP(http.StatusServiceUnavailable, fmt.Sprintf("MCP server is not healthy, check configuration for errors: %v", err))
 		}
 		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
