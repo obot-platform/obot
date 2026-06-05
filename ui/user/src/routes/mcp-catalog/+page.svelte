@@ -352,7 +352,7 @@
 {/snippet}
 
 {#snippet addButton()}
-	{#if hasAdminAccess && !isAdminReadonly && !showServerForm}
+	{#if canCreateEntry && !showServerForm}
 		<div in:fade={{ duration }}>
 			{#if view === 'entries'}
 				<button

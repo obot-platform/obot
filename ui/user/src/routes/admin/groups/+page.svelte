@@ -25,6 +25,7 @@
 	import ConfirmUserImpersonationRoleDialog from './ConfirmUserImpersonationRoleDialog.svelte';
 	import type { GroupAssignment } from './types';
 	import { debounce } from 'es-toolkit';
+	import { Plus } from 'lucide-svelte';
 	import { fade } from 'svelte/transition';
 
 	let { data } = $props();
@@ -207,7 +208,7 @@
 					addGroupAssignmentDialog?.clear();
 				}}
 			>
-				Add Assignment
+				<Plus class="size-4" /> Add Assignment
 			</button>
 		{/if}
 	{/snippet}
