@@ -53,6 +53,14 @@ func TestComputeK8sSettingsHashUsesServerSpecificResources(t *testing.T) {
 		t.Fatalf("remote server hash = %s, want %s", got, remoteBaseHash)
 	}
 
+	compositeBaseHash := ComputeK8sSettingsHash(baseSettings, nil, types.RuntimeComposite, false, nil)
+	if got := ComputeK8sSettingsHash(resourceSettings, nil, types.RuntimeComposite, false, nil); got != compositeBaseHash {
+		t.Fatalf("composite server hash = %s, want %s", got, compositeBaseHash)
+	}
+	if compositeBaseHash != remoteBaseHash {
+		t.Fatalf("composite base hash = %s, want remote base hash %s", compositeBaseHash, remoteBaseHash)
+	}
+
 	nanobotBaseHash := ComputeK8sSettingsHash(baseSettings, nil, types.RuntimeNPX, true, nil)
 	if got := ComputeK8sSettingsHash(resourceSettings, nil, types.RuntimeNPX, true, nil); got != nanobotBaseHash {
 		t.Fatalf("nanobot agent server hash = %s, want %s before nanobot-only settings are set", got, nanobotBaseHash)
@@ -408,6 +416,23 @@ func TestK8sObjects_MCPContainerResources(t *testing.T) {
 				Spec: v1.K8sSettingsSpec{
 					Resources: &corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("250Mi")},
+						Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("1Gi")},
+					},
+				},
+			},
+			wantMemoryRequest: "100Mi",
+		},
+		{
+			name: "composite runtime hard-codes 100Mi memory request",
+			server: ServerConfig{
+				Runtime: types.RuntimeComposite,
+			},
+			settings: &v1.K8sSettings{
+				ObjectMeta: metav1.ObjectMeta{Name: system.K8sSettingsName, Namespace: system.DefaultNamespace},
+				Spec: v1.K8sSettingsSpec{
+					Resources: &corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("250Mi")},
+						Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("1Gi")},
 					},
 				},
 			},
