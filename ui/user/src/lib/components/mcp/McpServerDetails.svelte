@@ -2,6 +2,7 @@
 	import McpServerCompositeInfo from '$lib/components/admin/McpServerCompositeInfo.svelte';
 	import McpServerK8sInfo from '$lib/components/admin/McpServerK8sInfo.svelte';
 	import OAuthMetadataDebug from '$lib/components/mcp/OAuthMetadataDebug.svelte';
+	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 	import type { MCPCatalogEntry, MCPCatalogServer } from '$lib/services';
 	import { getMCPDisplayName } from '$lib/services/user/mcp';
 	import { Info } from 'lucide-svelte';
@@ -21,8 +22,8 @@
 			<McpServerCompositeInfo
 				mcpServerId={server.id}
 				name={title}
-				entity="workspace"
-				entityId={server.powerUserWorkspaceID}
+				entity="catalog"
+				entityId={DEFAULT_MCP_CATALOG_ID}
 				{catalogEntry}
 				connectedUsers={[]}
 			/>

@@ -301,7 +301,7 @@
 				{#snippet actions(d)}
 					<a
 						class="btn btn-square btn-ghost hover:text-blue-500 btn-sm tooltip tooltip-left"
-						href={`${d.repoURL}/tree/main/${d.relativePath}`}
+						href={`${d.repoURL}/tree/${d.repoRef || d.commitSHA || 'main'}/${d.relativePath}`}
 						rel="external noopener noreferrer"
 						target="_blank"
 						onclick={(e) => e.stopPropagation()}
