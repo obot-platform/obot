@@ -70,10 +70,8 @@
 							Looks like you don't have any servers created yet. <br />
 							Go to
 							<a
-								href={resolve(
-									`/${profile.current.hasAdminAccess?.() ? 'admin' : 'manage'}/mcp-servers`
-								)}
-								class="text-link">Manage ▸ MCP Servers</a
+								href={resolve(`${profile.current.hasAdminAccess?.() ? '/admin' : ''}/mcp-servers`)}
+								class="text-link">MCP Management ▸ MCP Servers</a
 							> to get started.
 						{:else}
 							There are no servers available to connect to yet. <br />

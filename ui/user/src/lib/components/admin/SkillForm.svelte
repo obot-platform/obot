@@ -51,7 +51,7 @@
 			{#if skill.id}
 				<a
 					class="btn btn-primary"
-					href={`${skill.repoURL}/tree/main/${skill.relativePath}`}
+					href={`${skill.repoURL}/tree/${skill.repoRef || skill.commitSHA || 'main'}/${skill.relativePath}`}
 					rel="external noopener noreferrer"
 					target="_blank"
 				>

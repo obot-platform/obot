@@ -97,7 +97,7 @@
 	function switchView(newView: 'skills' | 'urls', filterByRepository: string = '') {
 		goto(
 			resolve(
-				`/admin/skills?view=${newView}${filterByRepository ? `&repository=${filterByRepository}` : ''}`
+				`/admin/skills?view=${newView}${filterByRepository ? `&repository=${encodeURIComponent(filterByRepository)}` : ''}`
 			),
 			{ replaceState: true }
 		);

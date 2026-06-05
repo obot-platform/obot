@@ -486,7 +486,7 @@
 		</p>
 		<p class="mb-2 text-center">
 			{#if isMultiUserCatalogEntry(entry)}
-				Would like to launch a server now?
+				Would you like to launch a server now?
 			{:else}
 				Would you like to connect now?
 			{/if}

@@ -12,6 +12,7 @@
 	}
 	let { connection, requiresConfiguration, onClick }: Props = $props();
 	let copyButton = $state<ReturnType<typeof CopyButton>>();
+	let disabled = $derived(requiresConfiguration || !connection.connectURL);
 </script>
 
 {#if responsive.isMobile}
@@ -43,7 +44,7 @@
 				value={connection.connectURL}
 				class={twMerge('w-full text-xs', requiresConfiguration && 'opacity-50')}
 				readonly
-				disabled={requiresConfiguration}
+				{disabled}
 			/>
 			<div class="mr-2">
 				<CopyButton
@@ -54,7 +55,7 @@
 					}}
 					text={connection.connectURL}
 					showTextLeft
-					disabled={requiresConfiguration}
+					{disabled}
 				/>
 			</div>
 		</div>

@@ -23,6 +23,7 @@
 		type OrgUser,
 		type TotalTokenUsage
 	} from '$lib/services';
+	import { entryTypeDonutLegend } from '$lib/services/dashboard/constants';
 	import type {
 		AvgToolCallResponseTimeRow,
 		TopServerUsageRow,
@@ -38,7 +39,6 @@
 	} from '$lib/services/dashboard/utils';
 	import { getMCPDisplayName } from '$lib/services/user/mcp';
 	import { errors, mcpServersAndEntries, profile, version } from '$lib/stores';
-	import { entryTypeDonutLegend } from '../../../lib/services/dashboard/constants';
 	import { isWithinInterval, subMonths } from 'date-fns';
 	import {
 		Activity,
