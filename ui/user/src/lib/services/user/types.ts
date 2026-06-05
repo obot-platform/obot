@@ -694,7 +694,6 @@ export interface Profile {
 	expired?: boolean;
 	created?: string;
 	displayName?: string;
-	autonomousToolUseEnabled: boolean;
 }
 
 // Schedule
@@ -763,7 +762,6 @@ export interface Version {
 	engine?: 'docker' | 'kubernetes' | 'local';
 	mcpNetworkPolicyEnabled?: boolean;
 	mcpDefaultDenyAllEgress?: boolean;
-	autonomousToolUseEnabled?: boolean;
 	messagePoliciesEnabled?: boolean;
 	agentsEnabled?: boolean;
 	disableLegacyChat?: boolean;

@@ -227,10 +227,6 @@ func (c *Client) UpdateUser(ctx context.Context, actingUserCanChangeRole bool, u
 			existingUser.Timezone = updatedUser.Timezone
 		}
 
-		if updatedUser.AutonomousToolUseEnabled != nil {
-			existingUser.AutonomousToolUseEnabled = updatedUser.AutonomousToolUseEnabled
-		}
-
 		// Only admins can change user roles.
 		if actingUserCanChangeRole {
 			if updatedUser.Role > 0 {

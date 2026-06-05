@@ -57,7 +57,10 @@
 		page.url.pathname.startsWith('/agent') && !!agentId && !!projectId
 	);
 
-	let agentLinkEnabled = $derived(isAgentEnabled(defaultModelAliases.current));
+	let agentsFeatureEnabled = $derived(version.current.agentsEnabled !== false);
+	let agentLinkEnabled = $derived(
+		isAgentEnabled(defaultModelAliases.current) && agentsFeatureEnabled
+	);
 
 	let showRestartAgentConfirm = $state(false);
 	let restartingAgent = $state(false);
@@ -233,7 +236,7 @@
 			{/if}
 		</div>
 		<div class="mt-2 p-2">
-			{#if showChatLink && !impersonating}
+			{#if showChatLink && !impersonating && agentsFeatureEnabled}
 				<button
 					class={twMerge(
 						'dropdown-link',
