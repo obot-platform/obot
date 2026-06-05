@@ -42,9 +42,9 @@ func (h *handler) registryOAuthProtectedResource(req api.Context) error {
 		}
 	}
 
-	return req.Write(fmt.Sprintf(`{
-	"resource": "%s",
-	"authorization_servers": ["%[1]s"],
-	"bearer_methods_supported": ["header"]
-}`, h.baseURL))
+	return req.Write(map[string]any{
+		"resource":                 h.baseURL,
+		"authorization_servers":    []string{h.baseURL},
+		"bearer_methods_supported": []string{"header"},
+	})
 }

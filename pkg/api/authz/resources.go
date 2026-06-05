@@ -2,6 +2,7 @@ package authz
 
 import (
 	"net/http"
+	"slices"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -137,6 +138,14 @@ var apiResources = map[string][]string{
 		"GET    /api/published-artifacts/{artifact_id}/download",
 		"GET    /api/published-artifacts/{artifact_id}/{artifact_version}/skill",
 	},
+	types.GroupMCPOAuth: {
+		"GET    /mcp-connect/{mcp_id}",
+		"POST   /mcp-connect/{mcp_id}",
+		"DELETE /mcp-connect/{mcp_id}",
+		"GET    /mcp-connect/{mcp_id}/",
+		"POST   /mcp-connect/{mcp_id}/",
+		"DELETE /mcp-connect/{mcp_id}/",
+	},
 }
 
 type Resources struct {
@@ -209,7 +218,15 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user user
 }
 
 func (a *Authorizer) authorizeAPIResources(req *http.Request, user user.Info) bool {
-	for _, group := range user.GetGroups() {
+	var userGroups []string
+	if slices.Contains(user.GetGroups(), types.GroupMCPOAuth) {
+		// MCP OAuth tokens can only access routes for that group or those for the anyGroup.
+		userGroups = []string{types.GroupMCPOAuth}
+	} else {
+		userGroups = user.GetGroups()
+	}
+
+	for _, group := range userGroups {
 		vars, matches := a.apiResources[group].Match(req)
 		if !matches {
 			continue
