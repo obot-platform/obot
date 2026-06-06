@@ -1,7 +1,6 @@
 package logger
 
 import (
-	"io"
 	"maps"
 	"runtime"
 	"strings"
@@ -17,10 +16,6 @@ import (
 
 func SetDebug() {
 	logrus.SetLevel(logrus.DebugLevel)
-}
-
-func SetError() {
-	logrus.SetLevel(logrus.ErrorLevel)
 }
 
 func IsDebug() bool {
@@ -52,10 +47,6 @@ func New(name string) Logger {
 		}
 	}
 	return NewWithFields(fields)
-}
-
-func SetOutput(out io.Writer) {
-	logrus.SetOutput(out)
 }
 
 type Logger struct {

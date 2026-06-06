@@ -286,13 +286,13 @@ func (p *KeygenProvider) update(ctx context.Context) {
 
 	var (
 		entitlements  map[keygen.EntitlementCode]struct{}
-		hasLicenceKey bool
+		hasLicenseKey bool
 		err           error
 	)
 
 	p.lock.RLock()
 	if keygen.LicenseKey != "" {
-		hasLicenceKey = true
+		hasLicenseKey = true
 		entitlements, err = p.validate(ctx)
 	}
 	p.lock.RUnlock()
@@ -300,7 +300,7 @@ func (p *KeygenProvider) update(ctx context.Context) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
-	if err != nil || !hasLicenceKey {
+	if err != nil || !hasLicenseKey {
 		p.entitlements = nil
 		return
 	}

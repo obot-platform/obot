@@ -26,23 +26,6 @@ type SerializableState struct {
 	SetCookies        []string   `json:"setCookies"`
 }
 
-// ProviderUsername returns the username for the given provider.
-func (ss SerializableState) ProviderUsername(providerName string) string {
-	// Important: do not change the order of these checks.
-	// We rely on the preferred username from GitHub being the user ID in the sessions table.
-	// See pkg/gateway/server/logout_all.go for more details, as well as the GitHub auth provider code.
-	if providerName == "github-auth-provider" {
-		return ss.PreferredUsername
-	}
-
-	userName := ss.User
-	if userName == "" {
-		userName = ss.Email
-	}
-
-	return userName
-}
-
 // GroupInfo represents information about a user group from an authentication provider
 type GroupInfo struct {
 	ID      string  `json:"id"`

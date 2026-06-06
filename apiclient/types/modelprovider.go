@@ -2,9 +2,8 @@ package types
 
 type CommonProviderMetadata struct {
 	Name                            string                           `json:"name"`
-	Image                           string                           `json:"image,omitempty"`
-	Port                            int                              `json:"port,omitempty"`
-	Path                            string                           `json:"path,omitempty"`
+	Command                         string                           `json:"command,omitempty"`
+	Args                            []string                         `json:"args,omitempty" yaml:"args,omitempty"`
 	Icon                            string                           `json:"icon,omitempty"`
 	IconDark                        string                           `json:"iconDark,omitempty"`
 	Description                     string                           `json:"description,omitempty"`
@@ -37,6 +36,7 @@ type ModelProvider struct {
 
 type ModelProviderManifest struct {
 	CommonProviderMetadata `json:",inline" yaml:",inline"`
+	ValidateArgs           []string `json:"validateArgs,omitempty" yaml:"validateArgs,omitempty"`
 	// Dialect specifies the LLM API format used by this provider
 	// (e.g. "AnthropicMessages", "OpenAIChatCompletions", "OpenAIResponses").
 	Dialect string `json:"dialect,omitempty"`

@@ -67,7 +67,6 @@ type ServerConfig struct {
 	NanobotAgentName     string `json:"nanobotAgentName"`
 	ComponentMCPServer   bool   `json:"componentMCPServer"`
 	SystemMCPServer      bool   `json:"systemMCPServer"`
-	Provider             bool   `json:"provider,omitempty"`
 
 	Issuer    string   `json:"issuer"`
 	Audiences []string `json:"audiences"`
@@ -87,7 +86,7 @@ type ServerConfig struct {
 }
 
 func (s ServerConfig) NeedsShim() bool {
-	return s.NanobotAgentName == "" && !s.Provider
+	return s.NanobotAgentName == ""
 }
 
 func CoreResourceRequirements(resources *types.MCPResourceRequirements) (*corev1.ResourceRequirements, error) {

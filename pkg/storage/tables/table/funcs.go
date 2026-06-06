@@ -103,6 +103,10 @@ func FormatJSONCompact(data any) (string, error) {
 	return string(bytes) + "\n", err
 }
 
+type objectList struct {
+	Items []any `json:"items"`
+}
+
 func toKObject(obj any) (kclient.Object, bool) {
 	ro, ok := obj.(kclient.Object)
 	if !ok {

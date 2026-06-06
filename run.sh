@@ -14,6 +14,8 @@ check_postgres_active() {
   exit 1
 }
 
+source /obot-providers/.envrc.providers
+
 mkdir -p /data/cache
 
 if [ -z "$OBOT_SERVER_DSN" ]; then
@@ -24,8 +26,7 @@ if [ -z "$OBOT_SERVER_DSN" ]; then
   /usr/bin/docker-entrypoint.sh postgres &
 
   check_postgres_active
-  POSTGRES_HOST="$(hostname -i | awk '{print $1}')"
-  export OBOT_SERVER_DSN="postgresql://obot:obot@${POSTGRES_HOST}:5432/obot"
+  export OBOT_SERVER_DSN="postgresql://obot:obot@localhost:5432/obot"
 fi
 
 exec tini -- obot server

@@ -15,10 +15,6 @@ import (
 	"github.com/obot-platform/obot/pkg/storage"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -120,45 +116,6 @@ func (r *Context) Flush() {
 	if f, ok := r.ResponseWriter.(http.Flusher); ok {
 		f.Flush()
 	}
-}
-
-func Watch[T client.Object](r Context, list client.ObjectList, opts ...client.ListOption) (<-chan T, error) {
-	if err := r.List(list); err != nil {
-		return nil, err
-	}
-
-	startList := list.DeepCopyObject().(client.ObjectList)
-
-	watchOpts := append([]client.ListOption{&client.ListOptions{
-		Namespace: r.Namespace(),
-		Raw: &metav1.ListOptions{
-			ResourceVersion: list.GetResourceVersion(),
-		},
-	}}, opts...)
-	w, err := r.Storage.Watch(r.Context(), list, watchOpts...)
-	if err != nil {
-		return nil, err
-	}
-
-	resp := make(chan T)
-	go func() {
-		defer close(resp)
-		defer w.Stop()
-
-		_ = meta.EachListItem(startList, func(object runtime.Object) error {
-			resp <- object.(T)
-			return nil
-		})
-
-		for event := range w.ResultChan() {
-			switch event.Type {
-			case watch.Added, watch.Modified, watch.Deleted:
-				resp <- event.Object.(T)
-			}
-		}
-	}()
-
-	return resp, nil
 }
 
 func (r *Context) List(obj client.ObjectList, opts ...client.ListOption) error {
