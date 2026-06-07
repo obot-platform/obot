@@ -20,7 +20,7 @@
 		requiresUserUpdate,
 		restartMcpServer
 	} from '$lib/services/user/mcp';
-	import { mcpServersAndEntries, profile } from '$lib/stores';
+	import { mcpServersAndEntries, profile, version } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { goto } from '$lib/url';
 	import DotDotDot from '../DotDotDot.svelte';
@@ -181,6 +181,9 @@
 	);
 	let canCreateAnotherMultiUserServer = $derived(
 		isMultiUserCatalogEntry(entry) && (!!catalogID || !!workspaceID) && configuredServers.length > 0
+	);
+	let hasLicenseEntitlementViolations = $derived(
+		(version.current.licenseEntitlementViolations || []).length > 0
 	);
 	let hasActions = $derived.by(() => {
 		return Boolean(
@@ -349,7 +352,7 @@
 			<Loading class="size-4" />
 		{:else if isMultiUserCatalogEntryRow && configuredServers.length === 0}
 			Create Server
-		{:else}
+		{:else if !hasLicenseEntitlementViolations}
 			Connect To Server
 		{/if}
 	</button>
