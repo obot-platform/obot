@@ -137,7 +137,10 @@
 <AuthDeconfigureConfirm
 	bind:this={confirmDowngradeDialog}
 	onConfirm={handleDowngrade}
-	onCancel={() => licenseViolationDialog?.open()}
+	onCancel={() => {
+		confirmDowngradeDialog?.close();
+		licenseViolationDialog?.open();
+	}}
 	loading={downgrading}
 	provider={authProviderToDeconfigure}
 	title="Confirm Downgrade"
