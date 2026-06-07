@@ -12,10 +12,10 @@
 		RecommendedModelProviders
 	} from '$lib/constants';
 	import { HttpError } from '$lib/errors.js';
+	import { AdminService, Role, UserService } from '$lib/services';
 	import type { AuthProvider } from '$lib/services/admin/types.js';
-	import { AdminService, Role, UserService } from '$lib/services/index.js';
+	import { errors, license, profile } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte.js';
-	import { errors, profile } from '$lib/stores/index.js';
 	import { TriangleAlert, Info } from 'lucide-svelte';
 	import { untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
@@ -249,7 +249,7 @@
 						deconfigureAuthProviderDialog?.open();
 					}}
 					readonly={profile.current.isAdminReadonly?.()}
-					licenseKey={data.license?.licenseKey}
+					licenseKey={license.current.licenseKey}
 				/>
 			{/each}
 		</div>

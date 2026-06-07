@@ -1,9 +1,10 @@
 <script lang="ts">
-	import { version } from '$lib/stores';
+	import { license, version } from '$lib/stores';
 	import LicenseDowngradeDialog from './LicenseDowngradeDialog.svelte';
 	import { ShieldAlert } from 'lucide-svelte';
 
 	let downgradeDialog = $state<ReturnType<typeof LicenseDowngradeDialog>>();
+	let licenseKey = $derived(license.current.licenseKey);
 </script>
 
 {#if version.current.licenseEntitlementViolations}
@@ -12,8 +13,8 @@
 			<div class="flex items-center gap-4 md:gap-0.5 justify-center">
 				<ShieldAlert class="text-warning size-4 shrink-0" />
 				<p class="text-xs">
-					Your license is <b class="font-semibold uppercase">invalid</b>. For full functionality, it
-					is recommended to resolve the outstanding issues.
+					Your license is <b class="font-semibold uppercase">{licenseKey ? 'invalid' : 'missing'}</b
+					>. For full functionality, it is recommended to resolve the outstanding issues.
 				</p>
 			</div>
 			<button class="btn btn-xs btn-warning" onclick={() => downgradeDialog?.open()}>

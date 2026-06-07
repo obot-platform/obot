@@ -1923,10 +1923,6 @@ export async function listAllUserWorkspaceAccessControlRules(opts?: { fetch?: Fe
 
 // License
 
-export async function getLicense(opts?: { fetch?: Fetcher }): Promise<License> {
-	return (await doGet('/license', opts)) as License;
-}
-
 export async function deleteLicense(): Promise<void> {
 	await doDelete('/license');
 }

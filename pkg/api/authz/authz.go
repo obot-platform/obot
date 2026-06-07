@@ -51,7 +51,8 @@ var (
 		"GET /debug/pprof/",
 		"GET /debug/triggers",
 		"GET /debug/metrics",
-		"/api/license",
+		"PUT /api/license",
+		"DELETE /api/license",
 		"/api/auth-providers",
 		"/api/auth-providers/",
 		"/api/model-providers",
@@ -335,6 +336,7 @@ var (
 			"POST /api/logout-all",
 			"GET /api/version",
 			"GET /api/default-k8s-settings",
+			"GET /api/license",
 			"GET /api/setup/oauth-complete",
 
 			// API key management for user's own keys
