@@ -1140,21 +1140,21 @@ func (k *kubernetesBackend) deleteDeploymentCache(mcpServerName string) {
 
 func mcpContainerResources(serverSpecificResources *corev1.ResourceRequirements, runtime types.Runtime, nanobotAgent bool, k8sSettings v1.K8sSettingsSpec) corev1.ResourceRequirements {
 	var defaults corev1.ResourceRequirements
-	if runtime == types.RuntimeRemote {
+	if runtime == types.RuntimeRemote || runtime == types.RuntimeComposite {
 		defaults = memoryRequestResources(remoteMemoryRequest)
 	} else if nanobotAgent {
 		if k8sSettings.NanobotAgentResources != nil {
-			defaults = withDefaultCPURequest(*k8sSettings.NanobotAgentResources)
+			defaults = *k8sSettings.NanobotAgentResources
 		} else {
 			defaults = memoryRequestResources(defaultAgentMemoryRequest)
 		}
 	} else if k8sSettings.Resources != nil {
-		defaults = withDefaultCPURequest(*k8sSettings.Resources)
+		defaults = *k8sSettings.Resources
 	} else {
 		defaults = memoryRequestResources(defaultMCPMemoryRequest)
 	}
 
-	return withServerResourceOverrides(defaults, serverSpecificResources)
+	return withServerResourceOverrides(withDefaultCPURequest(defaults), serverSpecificResources)
 }
 
 func withServerResourceOverrides(defaults corev1.ResourceRequirements, overrides *corev1.ResourceRequirements) corev1.ResourceRequirements {
@@ -1180,11 +1180,11 @@ func withServerResourceOverrides(defaults corev1.ResourceRequirements, overrides
 }
 
 func memoryRequestResources(memory resource.Quantity) corev1.ResourceRequirements {
-	return withDefaultCPURequest(corev1.ResourceRequirements{
+	return corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
 			corev1.ResourceMemory: memory,
 		},
-	})
+	}
 }
 
 func withDefaultCPURequest(resources corev1.ResourceRequirements) corev1.ResourceRequirements {
