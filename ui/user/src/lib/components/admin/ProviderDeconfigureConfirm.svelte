@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Loading from '$lib/icons/Loading.svelte';
-	import type { AuthProvider } from '$lib/services';
+	import type { AuthProvider, ModelProvider } from '$lib/services';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 
 	interface Props {
@@ -8,7 +8,7 @@
 		onCancel: () => void | Promise<void>;
 		loading?: boolean;
 		title?: string;
-		provider?: AuthProvider;
+		provider?: AuthProvider | ModelProvider;
 		confirmButtonText?: string;
 	}
 
@@ -21,21 +21,21 @@
 		confirmButtonText = 'Deconfigure'
 	}: Props = $props();
 
-	let authDeconfigureConfirmDialog = $state<ReturnType<typeof ResponsiveDialog>>();
+	let providerDeconfigureConfirmDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let confirmationInput = $state('');
 
 	export function open() {
 		confirmationInput = '';
-		authDeconfigureConfirmDialog?.open();
+		providerDeconfigureConfirmDialog?.open();
 	}
 
 	export function close() {
-		authDeconfigureConfirmDialog?.close();
+		providerDeconfigureConfirmDialog?.close();
 	}
 </script>
 
 <ResponsiveDialog
-	bind:this={authDeconfigureConfirmDialog}
+	bind:this={providerDeconfigureConfirmDialog}
 	{title}
 	classes={{
 		header: 'border-t-4 border-error px-4 pt-4 md:pb-0',
@@ -46,10 +46,11 @@
 	<div class="flex h-full">
 		<div class="px-4 py-4 md:py-0 flex flex-col gap-4 h-full">
 			<p>
-				This action will deconfigure {provider?.name || 'this provider'}. This action cannot be
-				undone. Are you sure you wish to continue?
+				{#if provider}This action will deconfigure {provider?.name || 'this provider'}.{/if} This action
+				cannot be undone. Are you sure you wish to continue?
 			</p>
 			<div class="p-4 bg-error/10 text-error rounded-md text-sm">
+				<!-- provider is AuthProvider -->
 				<p class="mb-2">
 					Deconfiguring <b>{provider?.name || 'this provider'}</b> will result in the following:
 				</p>
@@ -69,13 +70,15 @@
 				</ul>
 			</div>
 
-			<div class="flex flex-col gap-1">
-				<p>
-					Type the provider ID <code class="text-xs p-1 bg-base-200">{provider?.id}</code> to confirm.
-				</p>
+			{#if provider}
+				<div class="flex flex-col gap-1">
+					<p>
+						Type the provider ID <code class="text-xs p-1 bg-base-200">{provider?.id}</code> to confirm.
+					</p>
 
-				<input type="text" class="input-text-filled w-full" bind:value={confirmationInput} />
-			</div>
+					<input type="text" class="input-text-filled w-full" bind:value={confirmationInput} />
+				</div>
+			{/if}
 			<div class="md:hidden flex grow"></div>
 			<div class="flex gap-4 w-full pt-4 md:py-4">
 				<button class="btn btn-secondary flex-1" disabled={loading} onclick={onCancel}
@@ -83,7 +86,7 @@
 				>
 				<button
 					class="btn btn-error btn-soft flex-1"
-					disabled={loading || !provider || confirmationInput !== provider.id}
+					disabled={loading || (provider && confirmationInput !== provider.id)}
 					onclick={onConfirm}
 				>
 					{#if loading}

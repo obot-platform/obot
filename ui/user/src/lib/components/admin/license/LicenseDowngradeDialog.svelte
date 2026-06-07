@@ -1,7 +1,7 @@
 <script lang="ts">
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
-	import AuthDeconfigureConfirm from '$lib/components/admin/AuthDeconfigureConfirm.svelte';
-	import { AdminService, type AuthProvider } from '$lib/services';
+	import ProviderDeconfigureConfirm from '$lib/components/admin/ProviderDeconfigureConfirm.svelte';
+	import { AdminService, type AuthProvider, type LicenseEntitlementViolation } from '$lib/services';
 	import { version, darkMode } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
 	import { success } from '$lib/stores/success';
@@ -9,7 +9,7 @@
 	import { slide } from 'svelte/transition';
 
 	let licenseViolationDialog = $state<ReturnType<typeof ResponsiveDialog>>();
-	let confirmDowngradeDialog = $state<ReturnType<typeof AuthDeconfigureConfirm>>();
+	let confirmDowngradeDialog = $state<ReturnType<typeof ProviderDeconfigureConfirm>>();
 
 	let authProviderToDeconfigure = $state<AuthProvider | undefined>();
 
@@ -31,12 +31,27 @@
 
 		downgrading = true;
 		try {
-			for (const provider of version.current.licenseEntitlementViolations) {
-				if (provider.type === 'authProvider') {
-					await AdminService.deconfigureAuthProvider(provider.name);
-				} else if (provider.type === 'modelProvider') {
-					await AdminService.deconfigureModelProvider(provider.name);
-				}
+			// do model provider deconfigures first, then auth provider deconfigures
+			const { modelProviderViolations, authProviderViolations } =
+				version.current.licenseEntitlementViolations.reduce<{
+					modelProviderViolations: LicenseEntitlementViolation[];
+					authProviderViolations: LicenseEntitlementViolation[];
+				}>(
+					(acc, provider) => {
+						if (provider.type === 'modelProvider') {
+							acc.modelProviderViolations.push(provider);
+						} else if (provider.type === 'authProvider') {
+							acc.authProviderViolations.push(provider);
+						}
+						return acc;
+					},
+					{ modelProviderViolations: [], authProviderViolations: [] }
+				);
+			for (const modelProvider of modelProviderViolations) {
+				await AdminService.deconfigureModelProvider(modelProvider.name);
+			}
+			for (const authProvider of authProviderViolations) {
+				await AdminService.deconfigureAuthProvider(authProvider.name);
 			}
 
 			const modelProviders = await AdminService.listModelProviders();
@@ -134,7 +149,7 @@
 	</div>
 </ResponsiveDialog>
 
-<AuthDeconfigureConfirm
+<ProviderDeconfigureConfirm
 	bind:this={confirmDowngradeDialog}
 	onConfirm={handleDowngrade}
 	onCancel={() => {

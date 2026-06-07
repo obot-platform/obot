@@ -2,9 +2,9 @@
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
-	import AuthDeconfigureConfirm from '$lib/components/admin/AuthDeconfigureConfirm.svelte';
 	import ProviderCard from '$lib/components/admin/ProviderCard.svelte';
 	import ProviderConfigure from '$lib/components/admin/ProviderConfigure.svelte';
+	import ProviderDeconfigureConfirm from '$lib/components/admin/ProviderDeconfigureConfirm.svelte';
 	import LicenseProviderDialog from '$lib/components/admin/license/LicenseProviderDialog.svelte';
 	import {
 		CommonAuthProviderIds,
@@ -63,7 +63,7 @@
 	let loading = $state(false);
 	let configureError = $state<string>();
 
-	let deconfigureAuthProviderDialog = $state<ReturnType<typeof AuthDeconfigureConfirm>>();
+	let deconfigureAuthProviderDialog = $state<ReturnType<typeof ProviderDeconfigureConfirm>>();
 	let confirmDeconfigureAuthProvider = $state<AuthProvider>();
 
 	const duration = PAGE_TRANSITION_DURATION;
@@ -287,7 +287,7 @@
 	{/snippet}
 </ProviderConfigure>
 
-<AuthDeconfigureConfirm
+<ProviderDeconfigureConfirm
 	bind:this={deconfigureAuthProviderDialog}
 	provider={confirmDeconfigureAuthProvider}
 	onConfirm={handleDeconfigureAuthProvider}
