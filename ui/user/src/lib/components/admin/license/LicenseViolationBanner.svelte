@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { license, version } from '$lib/stores';
+	import { license, version, profile } from '$lib/stores';
 	import LicenseDowngradeDialog from './LicenseDowngradeDialog.svelte';
 	import { ShieldAlert } from 'lucide-svelte';
 
@@ -13,8 +13,12 @@
 			<div class="flex items-center gap-4 md:gap-0.5 justify-center">
 				<ShieldAlert class="text-warning size-4 shrink-0" />
 				<p class="text-xs">
-					Your license is <b class="font-semibold uppercase">{licenseKey ? 'invalid' : 'missing'}</b
-					>. For full functionality, it is recommended to resolve the outstanding issues.
+					{#if profile.current.hasAdminAccess?.()}
+						Your license is <b class="font-semibold uppercase"
+							>{licenseKey ? 'invalid' : 'missing'}</b
+						>. For full functionality, it is recommended to resolve the outstanding issues.
+					{:else}We're sorry, this system is currently operating with limited functionality. Please
+						contact your administrator.{/if}
 				</p>
 			</div>
 			<button class="btn btn-xs btn-warning" onclick={() => downgradeDialog?.open()}>

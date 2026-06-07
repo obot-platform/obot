@@ -722,7 +722,7 @@
 			<div class="sticky top-0 left-0 z-50 w-full">
 				{#if banner}
 					{@render banner()}
-				{:else if isAdminRoute && version.current.licenseEntitlementViolations}
+				{:else if version.current.licenseEntitlementViolations}
 					<LicenseViolationBanner />
 				{/if}
 				<Navbar class={twMerge('dark:bg-base-100', classes?.navbar)} {hideProfileButton}>
