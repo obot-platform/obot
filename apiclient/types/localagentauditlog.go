@@ -36,3 +36,12 @@ type LocalAgentAuditLogIngestResponse struct {
 	Duplicates int    `json:"duplicates"`
 	IDs        []uint `json:"ids,omitempty"`
 }
+
+type LocalAgentAuditLogResponse struct {
+	LocalAgentAuditLogList `json:",inline"`
+	Total                  int64 `json:"total"`
+	Limit                  int   `json:"limit"`
+	Offset                 int   `json:"offset"`
+}
+
+type LocalAgentAuditLogList List[LocalAgentAuditLog]

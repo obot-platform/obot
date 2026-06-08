@@ -348,7 +348,10 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/mcp-stats/{mcp_id}", mcpAuditLogs.GetUsageStats)
 
 	// Local Agent Audit Logs
+	mux.HandleFunc("GET /api/local-agent-audit-logs", localAgentAuditLogs.List)
 	mux.HandleFunc("POST /api/local-agent-audit-logs", localAgentAuditLogs.Submit)
+	mux.HandleFunc("GET /api/local-agent-audit-logs/filter-options/{filter}", localAgentAuditLogs.FilterOptions)
+	mux.HandleFunc("GET /api/local-agent-audit-logs/detail/{audit_log_id}", localAgentAuditLogs.Detail)
 
 	// Audit Log Exports
 	mux.HandleFunc("POST /api/audit-log-exports", auditLogExports.CreateAuditLogExport)
