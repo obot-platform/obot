@@ -113,6 +113,27 @@
 			server.missingRequiredHeader
 		);
 	}
+
+	async function reload() {
+		if (!id || !entry) return;
+		if (entity === 'workspace') {
+			UserService.listWorkspaceMCPServersForEntry(id, entry.id)
+				.then((response) => {
+					servers = response;
+				})
+				.finally(() => {
+					loading = false;
+				});
+		} else {
+			AdminService.listMCPServersForEntry(id, entry.id)
+				.then((response) => {
+					servers = response;
+				})
+				.finally(() => {
+					loading = false;
+				});
+		}
+	}
 </script>
 
 {#if loading}
@@ -168,7 +189,7 @@
 				</div>
 			</div>
 		{/if}
-		<DeploymentsView {servers} {readonly} {id} {entity} {usersMap} />
+		<DeploymentsView {servers} {readonly} {id} {entity} {usersMap} onReload={reload} />
 	{:else}
 		{@render emptyInstancesContent()}
 	{/if}

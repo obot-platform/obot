@@ -59,6 +59,7 @@
 		onFilter?: (property: string, values: string[]) => void;
 		onClearAllFilters?: () => void;
 		onSort?: InitSortFn;
+		onReload?: () => void;
 		initSort?: InitSort;
 		noDataContent?: Snippet;
 		onlyMyServers?: boolean;
@@ -76,6 +77,7 @@
 		onFilter,
 		onClearAllFilters,
 		onSort,
+		onReload,
 		initSort = { property: 'created', order: 'desc' },
 		noDataContent,
 		onlyMyServers,
@@ -93,9 +95,7 @@
 	let updatedServer = $state<MCPCatalogServer | MCPCatalogEntry>();
 
 	let showUpgradeConfirm = $state<
-		| { type: 'multi'; onConfirm?: () => void }
-		| { type: 'single'; server: MCPCatalogServer; onConfirm?: () => void }
-		| undefined
+		{ type: 'multi' } | { type: 'single'; server: MCPCatalogServer } | undefined
 	>();
 	let showK8sUpgradeConfirm = $state<
 		{ type: 'multi' } | { type: 'single'; server: MCPCatalogServer } | undefined
@@ -252,19 +252,23 @@
 			loading = true;
 		}
 
-		if (entity === 'catalog' && profile.current.hasAdminAccess?.() && id) {
-			deployedCatalogEntryServers =
-				await AdminService.listAllCatalogDeployedSingleRemoteServers(id);
-			deployedWorkspaceCatalogEntryServers =
-				await AdminService.listAllWorkspaceDeployedSingleRemoteServers();
-			// Refresh multi-user servers too
-			await mcpServersAndEntries.refreshAll();
-			// Refresh capacity banner when server list changes
-			if (!isInitialLoad) {
-				capacityBanner?.refresh();
+		if (onReload) {
+			await onReload();
+		} else {
+			if (entity === 'catalog' && profile.current.hasAdminAccess?.() && id) {
+				deployedCatalogEntryServers =
+					await AdminService.listAllCatalogDeployedSingleRemoteServers(id);
+				deployedWorkspaceCatalogEntryServers =
+					await AdminService.listAllWorkspaceDeployedSingleRemoteServers();
+				// Refresh multi-user servers too
+				await mcpServersAndEntries.refreshAll();
+				// Refresh capacity banner when server list changes
+				if (!isInitialLoad) {
+					capacityBanner?.refresh();
+				}
+			} else if (!isInitialLoad && entity === 'workspace') {
+				await mcpServersAndEntries.refreshAll();
 			}
-		} else if (!isInitialLoad && entity === 'workspace') {
-			await mcpServersAndEntries.refreshAll();
 		}
 
 		if (isInitialLoad) {
@@ -299,7 +303,6 @@
 
 		selected = {};
 		tableRef?.clearSelectAll();
-		await reload();
 	}
 
 	async function handleK8sBulkUpdate(selections: typeof selected) {
@@ -379,7 +382,6 @@
 			} else {
 				await UserService.triggerMcpServerUpdate(server.id);
 			}
-			await reload();
 		} catch (err) {
 			updating[server.id] = {
 				inProgress: false,
@@ -733,10 +735,7 @@
 											if (!d) return;
 											showUpgradeConfirm = {
 												type: 'single',
-												server: d,
-												onConfirm: async () => {
-													reload();
-												}
+												server: d
 											};
 											toggle(false);
 										}}
@@ -912,10 +911,7 @@
 							onclick={() => {
 								selected = currentSelected;
 								showUpgradeConfirm = {
-									type: 'multi',
-									onConfirm: () => {
-										reload();
-									}
+									type: 'multi'
 								};
 							}}
 							disabled={readonly || upgradeableCount === 0}
@@ -991,7 +987,7 @@
 		} else {
 			await handleBulkUpdate();
 		}
-		showUpgradeConfirm?.onConfirm?.();
+		await reload();
 		showUpgradeConfirm = undefined;
 	}}
 	oncancel={() => (showUpgradeConfirm = undefined)}
