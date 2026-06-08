@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { MCP_CONNECTION_INVALID_LICENSE_MESSAGE } from '$lib/services/user/constants';
 	import { license, version, profile } from '$lib/stores';
 	import LicenseDowngradeDialog from './LicenseDowngradeDialog.svelte';
 	import { ShieldAlert } from 'lucide-svelte';
@@ -17,8 +18,9 @@
 						Your license is <b class="font-semibold uppercase"
 							>{licenseKey ? 'invalid' : 'missing'}</b
 						>. For full functionality, it is recommended to resolve the outstanding issues.
-					{:else}We're sorry, this system is currently operating with limited functionality. Please
-						contact your administrator.{/if}
+					{:else}
+						{MCP_CONNECTION_INVALID_LICENSE_MESSAGE}
+					{/if}
 				</p>
 			</div>
 			<button class="btn btn-xs btn-warning" onclick={() => downgradeDialog?.open()}>

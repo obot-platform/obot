@@ -10,6 +10,7 @@
 		type MCPCatalogServer,
 		type MCPServerInstance
 	} from '$lib/services';
+	import { MCP_CONNECTION_INVALID_LICENSE_MESSAGE } from '$lib/services/user/constants';
 	import {
 		deleteMcpServerDeployment,
 		disconnectMcpServerUser,
@@ -303,8 +304,9 @@
 					(server.catalogEntryID && server.userID === profile.current.id)))
 		)}
 		use:tooltip={{
-			text:
-				isMultiUserCatalogEntryRow && !catalogID && !workspaceID
+			text: hasLicenseEntitlementViolations
+				? MCP_CONNECTION_INVALID_LICENSE_MESSAGE
+				: isMultiUserCatalogEntryRow && !catalogID && !workspaceID
 					? 'This is a multi-user catalog entry. An administrator must deploy it before you can connect.'
 					: canConnect
 						? ''
@@ -344,6 +346,7 @@
 			}
 		}}
 		disabled={loading ||
+			hasLicenseEntitlementViolations ||
 			(isMultiUserCatalogEntryRow && !catalogID && !workspaceID) ||
 			!canConnect ||
 			(requiresStaticOAuth && oauthConfigured === false)}
@@ -352,7 +355,7 @@
 			<Loading class="size-4" />
 		{:else if isMultiUserCatalogEntryRow && configuredServers.length === 0}
 			Create Server
-		{:else if !hasLicenseEntitlementViolations}
+		{:else}
 			Connect To Server
 		{/if}
 	</button>
@@ -487,13 +490,20 @@
 				Your server has been configured.
 			{/if}
 		</p>
-		<p class="mb-2 text-center">
-			{#if isMultiUserCatalogEntry(entry)}
-				Would you like to launch a server now?
-			{:else}
-				Would you like to connect now?
-			{/if}
-		</p>
+		{#if hasLicenseEntitlementViolations}
+			<p class="mb-2 text-center text-muted-content">
+				Connection is currently disabled due to limited functionality. Resolve existing licensing
+				issues to re-enable this feature.
+			</p>
+		{:else}
+			<p class="mb-2 text-center">
+				{#if isMultiUserCatalogEntry(entry)}
+					Would you like to launch a server now?
+				{:else}
+					Would you like to connect now?
+				{/if}
+			</p>
+		{/if}
 		<div class="flex grow"></div>
 		<div class="flex flex-col gap-2">
 			<button class="btn btn-secondary" onclick={() => launchDialog?.close()}>Skip</button>
@@ -506,6 +516,7 @@
 						server
 					});
 				}}
+				disabled={hasLicenseEntitlementViolations}
 			>
 				{#if isMultiUserCatalogEntry(entry)}
 					Launch Server
