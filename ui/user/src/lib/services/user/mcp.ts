@@ -588,7 +588,7 @@ export function getServerUrl(d: MCPCatalogServer) {
 	if (profile.current.hasAdminAccess?.()) {
 		if (isMulti) {
 			url = belongsToWorkspace
-				? `/admin/mcp-catalog//s/${d.id}/details?wid=${d.powerUserWorkspaceID}`
+				? `/admin/mcp-catalog/s/${d.id}/details?wid=${d.powerUserWorkspaceID}`
 				: `/admin/mcp-catalog/s/${d.id}/details`;
 		} else {
 			url = belongsToWorkspace
