@@ -262,7 +262,7 @@
 				}
 
 				if (profile.current.hasAdminAccess?.() && d.data.powerUserWorkspaceID) {
-					url += '?wid=' + d.data.powerUserWorkspaceID;
+					url += '?wid=' + encodeURIComponent(d.data.powerUserWorkspaceID);
 				}
 
 				openUrl(url, isCtrlClick);
