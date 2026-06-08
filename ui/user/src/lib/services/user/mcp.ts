@@ -447,7 +447,11 @@ export function getServerTypeLabel(server?: MCPCatalogServer | MCPCatalogEntry) 
 }
 
 export function isMultiUserCatalogEntry(entry?: MCPCatalogEntry) {
-	return entry?.manifest?.serverUserType === 'multiUser';
+	return (
+		entry?.manifest?.serverUserType === 'multiUser' &&
+		entry.manifest.runtime !== 'remote' &&
+		entry.manifest.runtime !== 'composite'
+	);
 }
 
 export function isMultiUserServer(server?: MCPCatalogServer) {
