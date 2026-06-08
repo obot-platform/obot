@@ -344,6 +344,7 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 		&expiresAt,
 		[]string{"*"}, // Access to all servers
 		true,          // Access to skills
+		false,         // Access to audit log append
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create API key: %w", err)

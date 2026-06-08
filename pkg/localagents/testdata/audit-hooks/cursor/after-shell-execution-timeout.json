@@ -1,0 +1,17 @@
+{
+  "session_id": "cursor-session-003",
+  "conversationId": "cursor-conversation-003",
+  "requestId": "cursor-request-003",
+  "cwd": "/Users/alex/src/obot",
+  "workspace": {
+    "name": "obot"
+  },
+  "hookEventName": "afterShellExecution",
+  "toolName": "shell",
+  "toolType": "shell",
+  "command": "sleep 120",
+  "exitCode": null,
+  "status": "timed_out",
+  "duration_ms": 30000,
+  "stderr": "command timed out"
+}

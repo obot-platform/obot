@@ -1,0 +1,20 @@
+{
+  "session_id": "cursor-session-002",
+  "conversationId": "cursor-conversation-002",
+  "requestId": "cursor-request-002",
+  "cwd": "/Users/alex/src/obot",
+  "workspace": {
+    "name": "obot"
+  },
+  "hookEventName": "postToolUseFailure",
+  "toolName": "mcp__filesystem__read_file",
+  "toolType": "mcp",
+  "args": {
+    "path": "/Users/alex/src/obot/missing.txt"
+  },
+  "error": {
+    "type": "not_found",
+    "message": "file does not exist"
+  },
+  "duration_ms": 18
+}

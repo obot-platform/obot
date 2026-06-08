@@ -4,6 +4,7 @@ export interface APIKey {
 	name: string;
 	description?: string;
 	canAccessSkills: boolean;
+	canAppendAuditLogs: boolean;
 	createdAt: string;
 	lastUsedAt?: string;
 	expiresAt?: string;
@@ -14,8 +15,9 @@ export interface APIKeyCreateRequest {
 	name: string;
 	description?: string;
 	expiresAt?: string;
-	mcpServerIds: string[];
+	mcpServerIds?: string[];
 	canAccessSkills?: boolean;
+	canAppendAuditLogs?: boolean;
 }
 
 export interface APIKeyCreateResponse extends APIKey {

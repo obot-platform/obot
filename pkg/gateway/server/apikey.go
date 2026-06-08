@@ -19,11 +19,12 @@ import (
 )
 
 type createAPIKeyRequest struct {
-	Name            string     `json:"name"`
-	Description     string     `json:"description,omitempty"`
-	ExpiresAt       *time.Time `json:"expiresAt,omitempty"`
-	MCPServerIDs    []string   `json:"mcpServerIds,omitempty"`
-	CanAccessSkills bool       `json:"canAccessSkills"`
+	Name               string     `json:"name"`
+	Description        string     `json:"description,omitempty"`
+	ExpiresAt          *time.Time `json:"expiresAt,omitempty"`
+	MCPServerIDs       []string   `json:"mcpServerIds,omitempty"`
+	CanAccessSkills    bool       `json:"canAccessSkills"`
+	CanAppendAuditLogs bool       `json:"canAppendAuditLogs"`
 }
 
 // createAPIKey creates an API key for the authenticated user.
@@ -37,8 +38,8 @@ func (s *Server) createAPIKey(apiContext api.Context) error {
 		return types2.NewErrBadRequest("name is required")
 	}
 
-	if len(req.MCPServerIDs) == 0 && !req.CanAccessSkills {
-		return types2.NewErrBadRequest("at least one MCP server must be specified or skills access must be enabled")
+	if len(req.MCPServerIDs) == 0 && !req.CanAccessSkills && !req.CanAppendAuditLogs {
+		return types2.NewErrBadRequest("at least one MCP server must be specified, skills access must be enabled, or audit log append access must be enabled")
 	}
 
 	userID := apiContext.UserID()
@@ -77,7 +78,7 @@ func (s *Server) createAPIKey(apiContext api.Context) error {
 		return types2.NewErrHTTP(http.StatusBadRequest, errors.Join(errs...).Error())
 	}
 
-	response, err := apiContext.GatewayClient.CreateAPIKey(apiContext.Context(), userID, req.Name, req.Description, req.ExpiresAt, req.MCPServerIDs, req.CanAccessSkills)
+	response, err := apiContext.GatewayClient.CreateAPIKey(apiContext.Context(), userID, req.Name, req.Description, req.ExpiresAt, req.MCPServerIDs, req.CanAccessSkills, req.CanAppendAuditLogs)
 	if err != nil {
 		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to create API key: %v", err))
 	}
@@ -165,6 +166,39 @@ func (s *Server) deleteAPIKey(apiContext api.Context) error {
 	pkgLog.Infof("Deleted API key for user: userID=%d keyID=%d", userID, keyID)
 
 	return apiContext.Write(map[string]any{"deleted": true})
+}
+
+// inspectAPIKeySelf returns the authenticated API key's scopes and user identity.
+func (s *Server) inspectAPIKeySelf(apiContext api.Context) error {
+	if !slices.Contains(apiContext.User.GetGroups(), types2.GroupAPIKey) {
+		return types2.NewErrHTTP(http.StatusUnauthorized, "API key authentication required")
+	}
+
+	authHeader := apiContext.Request.Header.Get("Authorization")
+	bearer, ok := strings.CutPrefix(authHeader, "Bearer ")
+	if !ok || !strings.HasPrefix(bearer, "ok1-") {
+		return types2.NewErrHTTP(http.StatusUnauthorized, "API key authentication required")
+	}
+
+	apiKey, err := apiContext.GatewayClient.ValidateAPIKey(apiContext.Context(), bearer)
+	if err != nil {
+		return types2.NewErrHTTP(http.StatusUnauthorized, "invalid or expired API key")
+	}
+
+	user, err := apiContext.GatewayClient.UserByID(apiContext.Context(), strconv.FormatUint(uint64(apiKey.UserID), 10))
+	if err != nil {
+		return types2.NewErrHTTP(http.StatusUnauthorized, "user not found")
+	}
+
+	return apiContext.Write(types.APIKeySelfInspectionResponse{
+		APIKey: *apiKey,
+		Identity: types.APIKeySelfInspectionIdentity{
+			Subject:     strconv.FormatUint(uint64(apiKey.UserID), 10),
+			Username:    user.Username,
+			DisplayName: user.DisplayName,
+			Email:       user.Email,
+		},
+	})
 }
 
 // Admin endpoints for managing any user's API keys

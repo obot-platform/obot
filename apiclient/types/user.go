@@ -30,17 +30,18 @@ const (
 
 	RoleUnknown Role = 0
 
-	GroupOwner                 = "owner"
-	GroupAdmin                 = "admin"
-	GroupAuditor               = "auditor"
-	GroupUserImpersonation     = "user-impersonation"
-	GroupPowerUserPlus         = "power-user-plus"
-	GroupPowerUser             = "power-user"
-	GroupBasic                 = "basic"
-	GroupAuthenticated         = "authenticated"
-	GroupAPIKey                = "api-key"
-	APIKeySkillsAccessExtraKey = "api-key-can-access-skills"
-	GroupMCPOAuth              = "mcp-oauth"
+	GroupOwner                    = "owner"
+	GroupAdmin                    = "admin"
+	GroupAuditor                  = "auditor"
+	GroupUserImpersonation        = "user-impersonation"
+	GroupPowerUserPlus            = "power-user-plus"
+	GroupPowerUser                = "power-user"
+	GroupBasic                    = "basic"
+	GroupAuthenticated            = "authenticated"
+	GroupAPIKey                   = "api-key"
+	APIKeySkillsAccessExtraKey    = "api-key-can-access-skills"
+	APIKeyAuditLogsAppendExtraKey = "api-key-can-append-audit-logs"
+	GroupMCPOAuth                 = "mcp-oauth"
 )
 
 type Role int

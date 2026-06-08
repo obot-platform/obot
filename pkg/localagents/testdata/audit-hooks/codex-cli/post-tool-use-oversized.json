@@ -1,0 +1,23 @@
+{
+  "session_id": "codex-session-004",
+  "transcript_path": "/Users/alex/.codex/sessions/2026/06/08/session-004.jsonl",
+  "cwd": "/Users/alex/src/obot",
+  "hook_event_name": "PostToolUse",
+  "model": "gpt-5.4-codex",
+  "permission_mode": "default",
+  "turn_id": "turn-004",
+  "tool_name": "mcp__filesystem__read_file",
+  "tool_use_id": "toolu-codex-004",
+  "tool_input": {
+    "path": "/Users/alex/src/obot/tmp/large-output.json"
+  },
+  "tool_response": {
+    "content": [
+      {
+        "type": "text",
+        "text": "<raw payload omitted in fixture; representative event exceeded 2 MiB>"
+      }
+    ]
+  },
+  "payload_truncated": true
+}

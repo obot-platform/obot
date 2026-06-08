@@ -1,0 +1,14 @@
+{
+  "session_id": "claude-session-004",
+  "transcript_path": "/Users/alex/Library/Application Support/Claude Code/projects/obot/session-004.jsonl",
+  "cwd": "/Users/alex/src/obot",
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Read",
+  "tool_input": {
+    "file_path": "/Users/alex/src/obot/tmp/large-output.txt"
+  },
+  "tool_response": {
+    "content": "<raw payload omitted in fixture; representative event exceeded 2 MiB>"
+  },
+  "payload_truncated": true
+}

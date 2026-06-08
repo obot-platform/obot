@@ -123,6 +123,16 @@ func TestSkillRouteAuthorization(t *testing.T) {
 			allowed: false,
 		},
 		{
+			name:   "api key user can inspect current API key",
+			method: http.MethodGet,
+			path:   "/api/api-keys-self",
+			user: &user.DefaultInfo{
+				Name:   "key-user",
+				Groups: []string{types.GroupAPIKey},
+			},
+			allowed: true,
+		},
+		{
 			name:   "auditor can access skills list",
 			method: http.MethodGet,
 			path:   "/api/skills",

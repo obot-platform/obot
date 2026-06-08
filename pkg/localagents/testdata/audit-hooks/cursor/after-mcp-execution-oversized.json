@@ -1,0 +1,25 @@
+{
+  "session_id": "cursor-session-004",
+  "conversationId": "cursor-conversation-004",
+  "requestId": "cursor-request-004",
+  "cwd": "/Users/alex/src/obot",
+  "workspace": {
+    "name": "obot"
+  },
+  "hookEventName": "afterMCPExecution",
+  "toolName": "mcp__filesystem__read_file",
+  "toolType": "mcp",
+  "args": {
+    "path": "/Users/alex/src/obot/tmp/large-output.json"
+  },
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "<raw payload omitted in fixture; representative event exceeded 2 MiB>"
+      }
+    ]
+  },
+  "payloadTruncated": true,
+  "duration_ms": 44
+}

@@ -1,0 +1,16 @@
+{
+  "session_id": "claude-session-001",
+  "transcript_path": "/Users/alex/Library/Application Support/Claude Code/projects/obot/session-001.jsonl",
+  "cwd": "/Users/alex/src/obot",
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "go test ./pkg/localagents",
+    "description": "Run local-agent package tests"
+  },
+  "tool_response": {
+    "exit_code": 0,
+    "stdout": "ok github.com/obot-platform/obot/pkg/localagents 0.315s",
+    "stderr": ""
+  }
+}

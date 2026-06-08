@@ -1,0 +1,17 @@
+{
+  "session_id": "claude-session-002",
+  "transcript_path": "/Users/alex/Library/Application Support/Claude Code/projects/obot/session-002.jsonl",
+  "cwd": "/Users/alex/src/obot",
+  "hook_event_name": "PostToolUseFailure",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "go test ./pkg/localagents",
+    "description": "Run local-agent package tests"
+  },
+  "error": {
+    "type": "exit_status",
+    "message": "command exited with status 1",
+    "exit_code": 1,
+    "stderr": "FAIL github.com/obot-platform/obot/pkg/localagents"
+  }
+}

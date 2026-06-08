@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"strings"
 	"testing"
 )
@@ -180,5 +181,49 @@ func TestParseAPIKey(t *testing.T) {
 				t.Errorf("ParseAPIKey(%q) secret = %q, want %q", tt.key, secret, tt.wantSecret)
 			}
 		})
+	}
+}
+
+func TestCreateAPIKeyPersistsAuditLogsAppendPermission(t *testing.T) {
+	c := newTestClient(t)
+	ctx := context.Background()
+
+	created, err := c.CreateAPIKey(ctx, 7, "audit", "audit append key", nil, nil, false, true)
+	if err != nil {
+		t.Fatalf("failed to create API key: %v", err)
+	}
+	if created.Key == "" {
+		t.Fatal("expected plaintext key to be returned once")
+	}
+	if created.CanAccessSkills {
+		t.Fatal("expected skills access to be disabled")
+	}
+	if !created.CanAppendAuditLogs {
+		t.Fatal("expected audit append access to be enabled")
+	}
+
+	got, err := c.GetAPIKey(ctx, 7, created.ID)
+	if err != nil {
+		t.Fatalf("failed to get API key: %v", err)
+	}
+	if got.CanAccessSkills {
+		t.Fatal("expected persisted skills access to be disabled")
+	}
+	if !got.CanAppendAuditLogs {
+		t.Fatal("expected persisted audit append access to be enabled")
+	}
+	if len(got.MCPServerIDs) != 0 {
+		t.Fatalf("expected no MCP server scopes, got %v", got.MCPServerIDs)
+	}
+
+	validated, err := c.ValidateAPIKey(ctx, created.Key)
+	if err != nil {
+		t.Fatalf("failed to validate API key: %v", err)
+	}
+	if validated.CanAccessSkills {
+		t.Fatal("expected validated skills access to be disabled")
+	}
+	if !validated.CanAppendAuditLogs {
+		t.Fatal("expected validated audit append access to be enabled")
 	}
 }

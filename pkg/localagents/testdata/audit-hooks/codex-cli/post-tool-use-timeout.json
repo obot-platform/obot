@@ -1,0 +1,22 @@
+{
+  "session_id": "codex-session-003",
+  "transcript_path": "/Users/alex/.codex/sessions/2026/06/08/session-003.jsonl",
+  "cwd": "/Users/alex/src/obot",
+  "hook_event_name": "PostToolUse",
+  "model": "gpt-5.4-codex",
+  "permission_mode": "default",
+  "turn_id": "turn-003",
+  "tool_name": "Bash",
+  "tool_use_id": "toolu-codex-003",
+  "tool_input": {
+    "command": "sleep 120",
+    "description": "Example long-running command"
+  },
+  "tool_response": {
+    "status": "cancelled",
+    "error": {
+      "type": "timeout",
+      "message": "tool execution was cancelled after timeout"
+    }
+  }
+}

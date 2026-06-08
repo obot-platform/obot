@@ -1,0 +1,16 @@
+{
+  "session_id": "claude-session-003",
+  "transcript_path": "/Users/alex/Library/Application Support/Claude Code/projects/obot/session-003.jsonl",
+  "cwd": "/Users/alex/src/obot",
+  "hook_event_name": "PostToolUseFailure",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "sleep 120",
+    "description": "Example long-running command"
+  },
+  "error": {
+    "type": "timeout",
+    "message": "tool execution timed out",
+    "timeout_ms": 30000
+  }
+}

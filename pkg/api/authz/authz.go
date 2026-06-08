@@ -347,6 +347,7 @@ var (
 		// They get access to anyGroup routes automatically (health checks, OAuth flows, etc.)
 		types.GroupAPIKey: {
 			"GET /api/me",
+			"GET /api/api-keys-self",
 			"GET /api/users",
 			"GET /api/groups",
 			"POST /api/published-artifacts",

@@ -1,0 +1,18 @@
+{
+  "session_id": "cursor-session-001",
+  "conversationId": "cursor-conversation-001",
+  "requestId": "cursor-request-001",
+  "cwd": "/Users/alex/src/obot",
+  "workspace": {
+    "name": "obot"
+  },
+  "hookEventName": "afterShellExecution",
+  "toolName": "shell",
+  "toolType": "shell",
+  "command": "go test ./pkg/localagents",
+  "exitCode": 0,
+  "status": "completed",
+  "duration_ms": 315,
+  "stdout": "ok github.com/obot-platform/obot/pkg/localagents 0.315s",
+  "stderr": ""
+}
