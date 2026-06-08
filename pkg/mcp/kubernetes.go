@@ -1157,6 +1157,10 @@ func mcpContainerResources(serverSpecificResources *corev1.ResourceRequirements,
 	return withServerResourceOverrides(withDefaultCPURequest(defaults), serverSpecificResources)
 }
 
+func EffectiveDefaultMCPResourceRequirements(k8sSettings v1.K8sSettingsSpec) corev1.ResourceRequirements {
+	return mcpContainerResources(nil, types.RuntimeNPX, false, k8sSettings)
+}
+
 func withServerResourceOverrides(defaults corev1.ResourceRequirements, overrides *corev1.ResourceRequirements) corev1.ResourceRequirements {
 	if overrides == nil || len(overrides.Requests) == 0 && len(overrides.Limits) == 0 {
 		return defaults
