@@ -291,17 +291,11 @@
 			if (!server.needsUpdate || !canTriggerUpdate(server)) {
 				continue;
 			}
-			updating[serverId] = { inProgress: true, error: '' };
-			try {
-				await updateServer(server);
-				updating[serverId] = { inProgress: false, error: '' };
-			} catch (error) {
-				updating[serverId] = {
-					inProgress: false,
-					error: error instanceof Error ? error.message : 'An unknown error occurred'
-				};
-			} finally {
-				delete updating[serverId];
+			const prompted = await updateServer(server);
+			if (prompted) {
+				selected = {};
+				tableRef?.clearSelectAll();
+				return;
 			}
 		}
 
@@ -343,19 +337,44 @@
 		}
 	}
 
+	async function updateCatalogServerAndPromptForConfiguration(server: MCPCatalogServer) {
+		if (!isMultiUserServer(server) || !server.catalogEntryID) return false;
+
+		const entry = entriesMap[server.catalogEntryID];
+		if (!entry) {
+			// Without the entry manifest loaded, fall back to the plain update path.
+			if (server.powerUserWorkspaceID) {
+				await UserService.triggerWorkspaceMcpServerUpdate(
+					server.powerUserWorkspaceID,
+					server.catalogEntryID,
+					server.id
+				);
+			} else if (id) {
+				await AdminService.triggerMcpCatalogServerUpdate(id, server.id);
+			}
+			return false;
+		}
+
+		return (
+			(await editExistingDialog?.updateFromCatalogEntry({
+				server,
+				entry
+			})) ?? false
+		);
+	}
+
 	async function updateServer(server?: MCPCatalogServer) {
-		if (!server || !canTriggerUpdate(server)) return;
+		if (!server || !canTriggerUpdate(server)) return false;
+
 		updating[server.id] = { inProgress: true, error: '' };
+		let prompted = false;
 		try {
 			if (isMultiUserServer(server)) {
-				if (server.powerUserWorkspaceID) {
-					if (server.catalogEntryID) {
-						await UserService.triggerWorkspaceMcpServerUpdate(
-							server.powerUserWorkspaceID,
-							server.catalogEntryID,
-							server.id
-						);
-					}
+				if (server.catalogEntryID) {
+					// Catalog-backed multi-user servers may need shared config after the manifest update.
+					prompted = await updateCatalogServerAndPromptForConfiguration(server);
+				} else if (server.powerUserWorkspaceID) {
+					prompted = false;
 				} else if (id) {
 					await AdminService.triggerMcpCatalogServerUpdate(id, server.id);
 				}
@@ -371,6 +390,7 @@
 		}
 
 		delete updating[server.id];
+		return prompted;
 	}
 	async function updateK8sSettings(server?: MCPCatalogServer) {
 		if (!server) return;
@@ -1054,10 +1074,8 @@
 	{/snippet}
 	{#snippet note()}
 		<p class="text-sm font-light">
-			If this update introduces new required configuration parameters, users will have to supply
-			them before they can use {showUpgradeConfirm?.type === 'multi'
-				? 'these servers'
-				: 'this server'} again.
+			If this update introduces new required shared configuration parameters, you will be prompted
+			to supply them after the update is applied.
 		</p>
 	{/snippet}
 </Confirm>

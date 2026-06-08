@@ -12,6 +12,7 @@
 		convertCompositeLaunchFormDataToPayload,
 		convertEnvHeadersToRecord,
 		getSecretBindingEngineError,
+		hasSecretBinding,
 		isKubernetesRuntimeBackend
 	} from '$lib/services/user/mcp';
 	import { version } from '$lib/stores';
@@ -33,6 +34,7 @@
 
 	let entry = $state<MCPCatalogEntry>();
 	let server = $state<MCPCatalogServer>();
+	let mode = $state<'edit' | 'catalog-update'>('edit');
 
 	let editingError = $state<string>();
 	let editingManifest = $derived(server?.manifest);
@@ -56,6 +58,7 @@
 	}) {
 		server = initServer;
 		entry = initEntry;
+		mode = 'edit';
 		editingError = isKubernetesRuntimeBackend(version.current.engine)
 			? undefined
 			: getSecretBindingEngineError(initServer.manifest);
@@ -92,6 +95,56 @@
 		configDialog?.open();
 	}
 
+	export async function updateFromCatalogEntry({
+		server: initServer,
+		entry: initEntry
+	}: {
+		server: MCPCatalogServer;
+		entry: MCPCatalogEntry;
+	}): Promise<boolean> {
+		server = initServer;
+		entry = initEntry;
+		mode = 'catalog-update';
+
+		// Apply the catalog manifest first; the updated server response tells us what is missing.
+		const updatedServer = await triggerCatalogUpdate(initServer);
+		server = updatedServer;
+		editingError = isKubernetesRuntimeBackend(version.current.engine)
+			? undefined
+			: getSecretBindingEngineError(updatedServer.manifest);
+
+		// Keep existing shared values so the dialog only asks for newly required input.
+		let values: Record<string, string>;
+		try {
+			values = await revealServerValues(updatedServer);
+		} catch (error) {
+			if (!(error instanceof HttpError) || error.statusCode !== 404) {
+				console.error('Failed to reveal server values due to unexpected error', error);
+			}
+			values = {};
+		}
+
+		const form: LaunchFormData = {
+			envs: updatedServer.manifest.env?.map((env) => ({
+				...env,
+				value: values[env.key] ?? ''
+			})),
+			headers: updatedServer.manifest.remoteConfig?.headers?.map((header) => ({
+				...header,
+				value: values[header.key] ?? '',
+				isStatic: header.value !== ''
+			}))
+		};
+
+		if (!hasMissingRequiredSharedConfiguration(updatedServer, form)) {
+			return false;
+		}
+
+		configureForm = form;
+		configDialog?.open();
+		return true;
+	}
+
 	async function revealServerValues(server: MCPCatalogServer) {
 		if (server.powerUserWorkspaceID) {
 			return UserService.revealWorkspaceMCPCatalogServer(server.powerUserWorkspaceID, server.id, {
@@ -119,6 +172,7 @@
 	}) {
 		server = initServer;
 		entry = initEntry;
+		mode = 'edit';
 
 		editAliasDialog?.open();
 	}
@@ -195,6 +249,61 @@
 		server = { ...server, alias };
 	}
 
+	function hasMissingRequiredSharedConfiguration(server: MCPCatalogServer, form: LaunchFormData) {
+		const missingKeys = new Set([
+			...(server.missingRequiredEnvVars ?? []),
+			...(server.missingRequiredHeader ?? [])
+		]);
+		if (missingKeys.size === 0) return false;
+
+		// Secret-bound and static values are managed outside this shared config form.
+		return [...(form.envs ?? []), ...(form.headers ?? [])].some(
+			(field) =>
+				missingKeys.has(field.key) &&
+				!hasSecretBinding(field) &&
+				!('isStatic' in field && field.isStatic) &&
+				field.required &&
+				!field.value
+		);
+	}
+
+	async function triggerCatalogUpdate(server: MCPCatalogServer): Promise<MCPCatalogServer> {
+		// trigger-update has no useful body, so fetch the scoped server after applying it.
+		if (server.powerUserWorkspaceID && server.catalogEntryID) {
+			await UserService.triggerWorkspaceMcpServerUpdate(
+				server.powerUserWorkspaceID,
+				server.catalogEntryID,
+				server.id
+			);
+			return UserService.getWorkspaceMCPCatalogServer(server.powerUserWorkspaceID, server.id);
+		}
+		if (server.mcpCatalogID) {
+			await AdminService.triggerMcpCatalogServerUpdate(server.mcpCatalogID, server.id);
+			return AdminService.getMCPCatalogServer(server.mcpCatalogID, server.id);
+		}
+		throw new Error('This server cannot be updated from the current view.');
+	}
+
+	async function configureSharedServer(server: MCPCatalogServer, envs: Record<string, string>) {
+		if (server.powerUserWorkspaceID) {
+			return UserService.configureWorkspaceMCPCatalogServer(
+				server.powerUserWorkspaceID,
+				server.id,
+				envs
+			);
+		}
+		if (server.mcpCatalogID) {
+			return AdminService.configureMCPCatalogServer(server.mcpCatalogID, server.id, envs);
+		}
+		throw new Error('This server cannot be configured from the current view.');
+	}
+
+	async function configureUpdatedCatalogServer(lf: LaunchFormData) {
+		if (!server) return;
+		const envs = convertEnvHeadersToRecord(lf.envs, lf.headers);
+		server = await configureSharedServer(server, envs);
+	}
+
 	async function updateExistingComposite(lf: CompositeLaunchFormData) {
 		if (!server) return;
 		// Composite flow using CatalogConfigureForm data
@@ -213,8 +322,10 @@
 		try {
 			configDialog?.close();
 			const { timeout1, timeout2, timeout3 } = initUpdatingOrLaunchProgress();
-			// updating existing
-			if (entry?.manifest.runtime === 'composite') {
+			if (mode === 'catalog-update') {
+				const lf = configureForm as LaunchFormData;
+				await configureUpdatedCatalogServer(lf);
+			} else if (entry?.manifest.runtime === 'composite') {
 				const lf = configureForm as CompositeLaunchFormData;
 				await updateExistingComposite(lf);
 			} else {
@@ -232,6 +343,7 @@
 			}, 1000);
 		} catch (_error) {
 			console.error('Error during configuration:', _error);
+			launchError = _error instanceof Error ? _error.message : 'An unknown error occurred';
 			configDialog?.close();
 		}
 	}
@@ -248,7 +360,8 @@
 	loading={editing}
 	disableSave={!!secretBindingEngineError}
 	isNew={false}
-	showAlias
+	showAlias={mode === 'edit'}
+	configurationTitle={mode === 'catalog-update' ? 'Required Configuration' : undefined}
 />
 
 <CatalogEditAliasForm bind:this={editAliasDialog} {server} {onUpdateConfigure} />
@@ -287,6 +400,8 @@
 					class="btn btn-primary w-full md:w-1/2 md:flex-1"
 					onclick={() => {
 						launchError = undefined;
+						editing = false;
+						launchProgress = 0;
 						configDialog?.open();
 					}}
 				>

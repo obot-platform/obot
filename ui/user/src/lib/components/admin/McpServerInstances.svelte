@@ -20,6 +20,7 @@
 	import { openUrl, isOwnSingleUserServer, getUserDisplayName } from '$lib/utils';
 	import Confirm from '../Confirm.svelte';
 	import DotDotDot from '../DotDotDot.svelte';
+	import EditExistingDeployment from '../mcp/EditExistingDeployment.svelte';
 	import Table from '../table/Table.svelte';
 	import DiffDialog from './DiffDialog.svelte';
 	import McpServerK8sInfo from './McpServerK8sInfo.svelte';
@@ -60,6 +61,7 @@
 		{ type: 'multi' } | { type: 'single'; server: MCPCatalogServer } | undefined
 	>();
 	let diffDialog = $state<ReturnType<typeof DiffDialog>>();
+	let editExistingDialog = $state<ReturnType<typeof EditExistingDeployment>>();
 	let diffServer = $state<MCPCatalogServer>();
 	let selected = $state<Record<string, MCPCatalogServer>>({});
 	let updating = $state<Record<string, { inProgress: boolean; error: string }>>({});
@@ -192,6 +194,27 @@
 		throw new Error('This server cannot be updated from the current view.');
 	}
 
+	function getCatalogEntryForServer(server: MCPCatalogServer) {
+		if (catalogEntry?.id === server.catalogEntryID) return catalogEntry;
+		if (entry && 'isCatalogEntry' in entry && entry.id === server.catalogEntryID) return entry;
+		return undefined;
+	}
+
+	async function updateCatalogServerAndPromptForConfiguration(server: MCPCatalogServer) {
+		if (!isMultiUserServer(server) || !server.catalogEntryID) return undefined;
+
+		const entry = getCatalogEntryForServer(server);
+		// Return undefined so callers can use the normal update path when no entry context is available.
+		if (!entry) return undefined;
+
+		return (
+			(await editExistingDialog?.updateFromCatalogEntry({
+				server,
+				entry
+			})) ?? false
+		);
+	}
+
 	async function handleMultiUpdate() {
 		if (!id || !entry) return;
 		for (const serverId of Object.keys(selected)) {
@@ -200,7 +223,14 @@
 
 			updating[serverId] = { inProgress: true, error: '' };
 			try {
-				await triggerUpdate(server);
+				// Catalog-backed multi-user servers update first, then prompt for any new shared config.
+				const prompted = await updateCatalogServerAndPromptForConfiguration(server);
+				if (prompted === undefined) {
+					await triggerUpdate(server);
+				} else if (prompted) {
+					selected = {};
+					return;
+				}
 				updating[serverId] = { inProgress: false, error: '' };
 			} catch (error) {
 				updating[serverId] = {
@@ -221,8 +251,13 @@
 
 		updating[server.id] = { inProgress: true, error: '' };
 		try {
-			await triggerUpdate(server);
-			loadServers();
+			const prompted = await updateCatalogServerAndPromptForConfiguration(server);
+			if (prompted === undefined) {
+				await triggerUpdate(server);
+			}
+			if (!prompted) {
+				loadServers();
+			}
 		} catch (err) {
 			updating[server.id] = {
 				inProgress: false,
@@ -571,6 +606,8 @@
 
 <DiffDialog bind:this={diffDialog} fromServer={diffServer} toServer={entry} />
 
+<EditExistingDeployment bind:this={editExistingDialog} onUpdateConfigure={loadServers} />
+
 {#snippet emptyInstancesContent()}
 	<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 		<Router class="text-muted-content size-24 opacity-50" />
@@ -599,7 +636,7 @@
 	title="Confirm Update"
 >
 	{#snippet note()}
-		If this update introduces new required configuration parameters, users will have to supply them
-		before they can use {showConfirm?.type === 'multi' ? 'these servers' : 'this server'} again.
+		If this update introduces new required shared configuration parameters, you will be prompted to
+		supply them after the update is applied.
 	{/snippet}
 </Confirm>
