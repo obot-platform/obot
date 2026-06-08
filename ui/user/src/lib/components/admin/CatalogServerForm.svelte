@@ -148,7 +148,7 @@
 				description: '',
 				env: [],
 				icon: '',
-				serverUserType: 'multiUser',
+				serverUserType: type !== 'composite' ? 'multiUser' : 'singleUser',
 				runtime: 'npx' as Runtime,
 				resources:
 					type !== 'remote' && type !== 'composite' ? defaultResourceRuntimeConfig() : undefined,
