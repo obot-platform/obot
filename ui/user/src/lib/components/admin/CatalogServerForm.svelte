@@ -676,7 +676,7 @@
 		</div>
 
 		<div class="flex items-center gap-4">
-			<label for="runtime-selector" class="text-sm font-light">Type</label>
+			<label for="server-configuration-selector" class="text-sm font-light">Type</label>
 			<div class="w-full">
 				<Select
 					id="server-configuration-selector"

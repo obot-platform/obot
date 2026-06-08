@@ -993,6 +993,7 @@
 	oncancel={() => (showUpgradeConfirm = undefined)}
 	loading={Object.values(updating).some((u) => u.inProgress)}
 	type="info"
+	title="Confirm Update"
 >
 	{#snippet msgContent()}
 		<h4 class="flex items-center justify-center gap-2 text-lg font-semibold">
