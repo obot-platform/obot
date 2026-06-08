@@ -103,7 +103,7 @@
 
 	// Effect to handle dark mode changes
 	$effect(() => {
-		if (setDarkMode !== darkMode.isDark) {
+		if (setDarkMode !== darkMode.isDark && typeof reload === 'function') {
 			reload();
 		}
 	});
