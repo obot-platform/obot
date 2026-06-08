@@ -45,9 +45,7 @@
 			version.initialize(data.version);
 		}
 
-		if (data.license) {
-			license.initialize(data.license);
-		}
+		license.initialize(data.license);
 
 		if (data.defaultModelAliases) {
 			untrack(() => defaultModelAliases.initialize(data.defaultModelAliases));

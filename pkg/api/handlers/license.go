@@ -95,11 +95,8 @@ func displayLicenseKey(licenseKey string, canViewPartial bool) string {
 	if licenseKey == "" {
 		return ""
 	}
-	if !canViewPartial {
+	if !canViewPartial || len(licenseKey) <= licenseKeyVisibleSuffix {
 		return licenseKeyMask
-	}
-	if len(licenseKey) <= licenseKeyVisibleSuffix {
-		return licenseKeyMask + licenseKey
 	}
 	return licenseKeyMask + licenseKey[len(licenseKey)-licenseKeyVisibleSuffix:]
 }

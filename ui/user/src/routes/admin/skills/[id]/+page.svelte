@@ -18,7 +18,7 @@
 		{#if data?.showLicenseError}
 			<div class="my-12 flex w-md flex-col items-center gap-4 m-auto text-center">
 				<TriangleAlert class="size-12 text-warning" />
-				<h4 class="text-muted-content text-lg font-semibold">License Error</h4>
+				<h4 class="text-muted-content text-lg font-semibold">Limited Functionality</h4>
 				<p class="text-muted-content text-sm font-light">
 					An issue occurred with fetching the skill due to licensing. Please resolve outstanding
 					licensing issues or contact support at

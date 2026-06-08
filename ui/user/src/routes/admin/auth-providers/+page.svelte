@@ -347,7 +347,7 @@
 
 <LicenseProviderDialog
 	bind:provider={licenseRequiredProvider}
-	licenseKey={data.license?.licenseKey}
+	licenseKey={license.current.licenseKey}
 />
 
 <svelte:head>

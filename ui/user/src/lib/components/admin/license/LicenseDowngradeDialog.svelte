@@ -1,7 +1,12 @@
 <script lang="ts">
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import ProviderDeconfigureConfirm from '$lib/components/admin/ProviderDeconfigureConfirm.svelte';
-	import { AdminService, type AuthProvider, type LicenseEntitlementViolation } from '$lib/services';
+	import {
+		AdminService,
+		type AuthProvider,
+		type LicenseEntitlementViolation,
+		type ModelProvider
+	} from '$lib/services';
 	import { version, darkMode } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
 	import { success } from '$lib/stores/success';
@@ -10,8 +15,7 @@
 
 	let licenseViolationDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let confirmDowngradeDialog = $state<ReturnType<typeof ProviderDeconfigureConfirm>>();
-
-	let authProviderToDeconfigure = $state<AuthProvider | undefined>();
+	let providerToDeconfigure = $state<AuthProvider | ModelProvider | undefined>();
 
 	let downgrading = $state(false);
 	let error = $state('');
@@ -134,12 +138,16 @@
 					const authProviderName = version.current.licenseEntitlementViolations?.find(
 						(violation) => violation.type === 'authProvider'
 					)?.name;
+					const modelProviderName = version.current.licenseEntitlementViolations?.find(
+						(violation) => violation.type === 'modelProvider'
+					)?.name;
 					const authProvider = $adminConfigStore.authProviders.find(
 						(p) => p.id === authProviderName
 					);
-					if (authProvider) {
-						authProviderToDeconfigure = authProvider;
-					}
+					const modelProvider = $adminConfigStore.modelProviders.find(
+						(p) => p.id === modelProviderName
+					);
+					providerToDeconfigure = authProvider || modelProvider;
 					confirmDowngradeDialog?.open();
 				}}
 			>
@@ -157,7 +165,7 @@
 		licenseViolationDialog?.open();
 	}}
 	loading={downgrading}
-	provider={authProviderToDeconfigure}
+	provider={providerToDeconfigure}
 	title="Confirm Downgrade"
 	confirmButtonText="Downgrade"
 />

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
-	import CopyButton from '$lib/components/CopyButton.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
@@ -119,15 +118,10 @@
 				{#if license}
 					{#if license.licenseKey}
 						<div class="flex flex-col gap-1">
-							<div class="flex items-center gap-2">
-								<label for="license-key" class="text-sm font-light">License Key</label>
-
-								<CopyButton
-									classes={{ button: 'flex items-center gap-1 text-xs text-primary' }}
-									text={license.licenseKey}
-								/>
+							<div class="text-sm font-light">License Key</div>
+							<div class="font-mono text-sm text-muted-content">
+								{license.licenseKey}
 							</div>
-							<SensitiveInput name="license-key" value={license.licenseKey} disabled />
 						</div>
 					{/if}
 					<div class="flex items-center justify-between gap-4">

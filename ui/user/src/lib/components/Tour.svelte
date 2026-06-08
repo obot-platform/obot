@@ -33,7 +33,7 @@
 	});
 
 	const correctRoute = $derived(
-		['/admin/dashboard', '/admin/mcp-servers', '/mcp-servers'].includes(page.url.pathname)
+		['/admin/dashboard', '/admin/mcp-catalog', '/mcp-catalog'].includes(page.url.pathname)
 	);
 
 	const POPOVER_CLASS = 'w-2xl! max-w-2xl! min-w-2xl!';

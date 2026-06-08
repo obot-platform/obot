@@ -30,10 +30,10 @@ func TestDisplayLicenseKey(t *testing.T) {
 			want:           "****j13lasds",
 		},
 		{
-			name:           "admin short key shows full suffix",
+			name:           "admin short key is fully masked",
 			licenseKey:     "shortkey",
 			canViewPartial: true,
-			want:           "****shortkey",
+			want:           licenseKeyMask,
 		},
 		{
 			name:           "trims whitespace",
