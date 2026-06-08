@@ -142,13 +142,14 @@
 	function convertToFormData(item?: MCPCatalogEntry | MCPCatalogServer): RuntimeFormData {
 		if (!item) {
 			// Default initialization for new servers
+			const isHostedType = type === 'hosted';
 			return {
 				categories: [''],
 				name: '',
 				description: '',
 				env: [],
 				icon: '',
-				serverUserType: type !== 'composite' ? 'multiUser' : 'singleUser',
+				serverUserType: isHostedType ? 'multiUser' : 'singleUser',
 				runtime: 'npx' as Runtime,
 				resources:
 					type !== 'remote' && type !== 'composite' ? defaultResourceRuntimeConfig() : undefined,
@@ -159,7 +160,7 @@
 				remoteServerConfig: undefined,
 				compositeConfig: undefined,
 				compositeServerConfig: undefined,
-				multiUserConfig: { userDefinedHeaders: [] }
+				multiUserConfig: isHostedType ? { userDefinedHeaders: [] } : undefined
 			};
 		}
 
