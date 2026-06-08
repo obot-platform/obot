@@ -104,7 +104,15 @@ func (c *Client) deleteOldAuditLogs(ctx context.Context, now time.Time, retentio
 		if result.Error != nil {
 			return result.Error
 		}
-		if result.RowsAffected < int64(c.auditLogDeleteBatchSize) {
+
+		localAgentResult := c.db.WithContext(ctx).Exec(
+			"DELETE FROM local_agent_audit_logs WHERE id IN (SELECT id FROM local_agent_audit_logs WHERE created_at < ? LIMIT ?)",
+			cutoff, c.auditLogDeleteBatchSize,
+		)
+		if localAgentResult.Error != nil {
+			return localAgentResult.Error
+		}
+		if result.RowsAffected < int64(c.auditLogDeleteBatchSize) && localAgentResult.RowsAffected < int64(c.auditLogDeleteBatchSize) {
 			return nil
 		}
 	}

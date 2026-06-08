@@ -43,11 +43,28 @@ func insertAuditLog(t *testing.T, c *Client, createdAt time.Time) {
 	}
 }
 
+func insertLocalAgentAuditLog(t *testing.T, c *Client, eventID string, createdAt time.Time) {
+	t.Helper()
+	entry := types.LocalAgentAuditLog{EventID: eventID, CreatedAt: createdAt}
+	if err := c.db.WithContext(t.Context()).Create(&entry).Error; err != nil {
+		t.Fatalf("failed to insert local agent audit log: %v", err)
+	}
+}
+
 func countAuditLogs(t *testing.T, c *Client) int64 {
 	t.Helper()
 	var count int64
-	if err := c.db.WithContext(context.Background()).Model(&types.MCPAuditLog{}).Count(&count).Error; err != nil {
+	if err := c.db.WithContext(t.Context()).Model(&types.MCPAuditLog{}).Count(&count).Error; err != nil {
 		t.Fatalf("failed to count audit logs: %v", err)
+	}
+	return count
+}
+
+func countLocalAgentAuditLogs(t *testing.T, c *Client) int64 {
+	t.Helper()
+	var count int64
+	if err := c.db.WithContext(t.Context()).Model(&types.LocalAgentAuditLog{}).Count(&count).Error; err != nil {
+		t.Fatalf("failed to count local agent audit logs: %v", err)
 	}
 	return count
 }
@@ -68,6 +85,8 @@ func TestDeleteOldAuditLogs(t *testing.T) {
 	insertAuditLog(t, c, now.AddDate(0, 0, -89))   // recent - should be kept
 	insertAuditLog(t, c, now.AddDate(0, 0, -1))    // recent - should be kept
 	insertAuditLog(t, c, now)                      // recent - should be kept
+	insertLocalAgentAuditLog(t, c, "local-old", now.AddDate(0, 0, -100))
+	insertLocalAgentAuditLog(t, c, "local-recent", now)
 
 	if err := c.deleteOldAuditLogs(ctx, now, 90); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -75,6 +94,9 @@ func TestDeleteOldAuditLogs(t *testing.T) {
 
 	if got := countAuditLogs(t, c); got != 5 {
 		t.Errorf("expected 5 audit logs after cleanup, got %d", got)
+	}
+	if got := countLocalAgentAuditLogs(t, c); got != 1 {
+		t.Errorf("expected 1 local agent audit log after cleanup, got %d", got)
 	}
 }
 

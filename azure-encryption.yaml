@@ -8,6 +8,7 @@ resources:
       - mcpoauthtokens.obot.obot.ai
       - mcpoauthpendingstates.obot.obot.ai
       - mcpauditlogs.obot.obot.ai
+      - localagentauditlogs.obot.obot.ai
       - policyviolations.obot.obot.ai
       - properties.obot.obot.ai
     providers:

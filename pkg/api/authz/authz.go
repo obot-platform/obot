@@ -350,6 +350,7 @@ var (
 			"GET /api/api-keys-self",
 			"GET /api/users",
 			"GET /api/groups",
+			"POST /api/local-agent-audit-logs",
 			"POST /api/published-artifacts",
 			"GET /api/published-artifacts",
 		},
