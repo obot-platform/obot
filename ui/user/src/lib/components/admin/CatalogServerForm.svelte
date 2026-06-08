@@ -348,7 +348,12 @@
 	}
 
 	onMount(() => {
-		if (entry && id && 'isCatalogEntry' in entry && entry.manifest.serverUserType === 'multiUser') {
+		if (
+			entry &&
+			id &&
+			(entry.type === 'mcpserver' ||
+				('isCatalogEntry' in entry && entry.manifest.serverUserType === 'multiUser'))
+		) {
 			revealCatalogServer(id, entry.id, entity);
 		}
 	});
