@@ -52,6 +52,8 @@
 		sectionSecondaryTitle?: string;
 		disablePortal?: boolean;
 		columnMaxWidths?: Record<string, number>;
+		/** Field names that should not be auto-hidden when the table is too narrow. Users can still hide them manually. */
+		noAutoHideFields?: string[];
 	}
 
 	const {
@@ -81,7 +83,8 @@
 		sectionPrimaryTitle,
 		sectionSecondaryTitle,
 		disablePortal,
-		columnMaxWidths
+		columnMaxWidths,
+		noAutoHideFields
 	}: Props<T> = $props();
 
 	let page = $state(0);
@@ -99,6 +102,9 @@
 
 	let sortableFields = $derived(new Set(sortable));
 	let filterableFields = $derived(new Set(filterable));
+	let noAutoHideFieldIndices = $derived(
+		new Set(fields.flatMap((field, index) => (noAutoHideFields?.includes(field) ? [index] : [])))
+	);
 	let sortedBy = $derived<{ property: string; order: 'asc' | 'desc' } | undefined>(
 		initSort ?? (sortable?.[0] ? { property: sortable[0], order: 'asc' } : undefined)
 	);
@@ -394,6 +400,7 @@
 		// to exclude actions from being hidden
 		const selectColOffset = tableSelectActions ? 1 : 0;
 		for (let i = fields.length - 1; i >= 1 && totalWidth > availableWidth; i--) {
+			if (noAutoHideFieldIndices.has(i)) continue;
 			const colIndex = selectColOffset + i;
 			newHiddenIndices.add(i);
 			totalWidth -= constrainedWidths[colIndex] || 0;

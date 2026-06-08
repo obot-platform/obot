@@ -4,6 +4,7 @@
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { getMCPDisplayName } from '$lib/services/user/mcp';
 	import type { Component } from 'svelte';
 	import { fly } from 'svelte/transition';
 
@@ -12,7 +13,7 @@
 	let { data } = $props();
 	let { workspaceId, catalogEntry, mcpServer } = $derived(data);
 	let title = $derived(
-		mcpServer?.alias || mcpServer?.manifest?.name || catalogEntry?.manifest?.name || 'MCP Server'
+		getMCPDisplayName(mcpServer) || getMCPDisplayName(catalogEntry) || 'MCP Server'
 	);
 </script>
 
@@ -36,7 +37,7 @@
 					? 'composite'
 					: catalogEntry?.manifest.runtime === 'remote'
 						? 'remote'
-						: 'single'}
+						: 'hosted'}
 				readonly={catalogEntry && 'sourceURL' in catalogEntry && !!catalogEntry.sourceURL}
 				id={workspaceId}
 				entity="workspace"

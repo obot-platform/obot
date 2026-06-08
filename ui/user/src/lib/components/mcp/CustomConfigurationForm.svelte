@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { LaunchServerType, MCPCatalogEntryFieldManifest } from '$lib/services';
+	import type { MCPCatalogEntryFieldManifest } from '$lib/services';
 	import { hasSecretBinding } from '$lib/services/user/mcp';
 	import Select from '../Select.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
@@ -10,7 +10,7 @@
 		readonly?: boolean;
 		config?: MCPCatalogEntryFieldManifest[];
 		secretBoundHeaders?: MCPCatalogEntryFieldManifest[];
-		type?: LaunchServerType;
+		serverUserType?: 'singleUser' | 'multiUser';
 		isPrebuiltEntry?: boolean;
 		overrideEnvField?: string[];
 		overrideEnvTemplate?: Snippet<[{ config: MCPCatalogEntryFieldManifest; index: number }]>;
@@ -20,7 +20,7 @@
 		readonly,
 		config = $bindable(),
 		secretBoundHeaders,
-		type,
+		serverUserType,
 		isPrebuiltEntry,
 		overrideEnvField,
 		overrideEnvTemplate
@@ -43,7 +43,7 @@
 		class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
 	>
 		<h4 class="text-sm font-semibold">
-			{type === 'single' ? 'User Supplied Configuration' : 'Configuration'}
+			{serverUserType === 'singleUser' ? 'User Supplied Configuration' : 'Configuration'}
 		</h4>
 
 		{#each userConfig as { item, index: i } (i)}
@@ -80,20 +80,21 @@
 
 						<p class="text-muted-content text-xs font-light">
 							{#if config![i].file}
-								The value {type === 'single' ? 'the user supplies' : 'you provide'} will be written to
-								a file. An environment variable will be created using the name you specify in the Key
-								field and its value will be the path to that file. This environment variable will be set
-								inside your MCP server and you can reference it in the arguments section above using the
-								syntax ${'{KEY_NAME}'}.
+								The value {serverUserType === 'singleUser' ? 'the user supplies' : 'you provide'} will
+								be written to a file. An environment variable will be created using the name you specify
+								in the Key field and its value will be the path to that file. This environment variable
+								will be set inside your deployment and you can reference it in the arguments section above
+								using the syntax ${'{KEY_NAME}'}.
 							{:else}
-								{type === 'single' ? 'The value the user supplies' : 'The value you provide'} will be
-								set as an environment variable using the name you specify in the Key field. This environment
-								variable will be set inside your MCP server and you can reference it in the arguments
-								section above using the syntax ${'{KEY_NAME}'}.
+								{serverUserType === 'singleUser'
+									? 'The value the user supplies'
+									: 'The value you provide'} will be set as an environment variable using the name you
+								specify in the Key field. This environment variable will be set inside your deployment
+								and you can reference it in the arguments section above using the syntax ${'{KEY_NAME}'}.
 							{/if}
 						</p>
 
-						{#if type === 'single'}
+						{#if serverUserType === 'singleUser'}
 							<p class="text-muted-content text-xs font-light">
 								The Name and Description fields will be displayed to the user when configuring this
 								server. The Key field will not.
@@ -227,7 +228,7 @@
 					}}
 				>
 					<Plus class="size-4" />
-					{type === 'single' ? 'User Configuration' : 'Configuration'}
+					{serverUserType === 'singleUser' ? 'User Configuration' : 'Configuration'}
 				</button>
 			</div>
 		{/if}

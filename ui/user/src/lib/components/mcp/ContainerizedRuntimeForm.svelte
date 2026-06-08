@@ -133,7 +133,7 @@
 	class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
 >
 	<h4 class="text-sm font-semibold">Containerized Runtime Configuration</h4>
-	<p class="text-muted-content text-xs">Only Streamable HTTP and SSE servers are supported.</p>
+	<p class="text-muted-content text-xs">Only Streamable HTTP and SSE entries are supported.</p>
 
 	<!-- Image field (required) -->
 	<div class="flex items-center gap-4">

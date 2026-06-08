@@ -8,6 +8,7 @@
 		type MCPCatalogServer,
 		type OrgUser
 	} from '$lib/services';
+	import { isMultiUserCatalogEntry } from '$lib/services/user/mcp';
 	import { getUserDisplayName } from '$lib/utils';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import Search from '../Search.svelte';
@@ -85,6 +86,10 @@
 						return true;
 					}
 
+					if (isMultiUserCatalogEntry(entry)) {
+						return false;
+					}
+
 					return entity === 'catalog'
 						? !entry.powerUserWorkspaceID
 						: workspaceId
@@ -116,7 +121,7 @@
 				})
 				.map((server) => ({
 					icon: server.manifest.icon,
-					name: server.manifest.name || '',
+					name: server.alias || server.manifest.name || '',
 					description: server.manifest.description,
 					id: server.id,
 					type: 'mcpserver' as const,

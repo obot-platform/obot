@@ -15,9 +15,24 @@
 	import type { Skill } from '$lib/services/nanobot/types';
 	import { errors, profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
-	import { goto, setUrlParamAndUpdateUrl } from '$lib/url.js';
+	import {
+		clearUrlParams,
+		getTableUrlParamsFilters,
+		goto,
+		setFilterUrlParams,
+		setUrlParamAndUpdateUrl
+	} from '$lib/url';
 	import { openUrl } from '$lib/utils.js';
-	import { TriangleAlert, Info, PencilRuler, Plus, RefreshCcw, Trash2, X } from 'lucide-svelte';
+	import {
+		TriangleAlert,
+		Info,
+		PencilRuler,
+		Plus,
+		RefreshCcw,
+		Trash2,
+		X,
+		GitBranch
+	} from 'lucide-svelte';
 	import { onDestroy, untrack } from 'svelte';
 	import { SvelteSet, SvelteMap } from 'svelte/reactivity';
 	import { slide } from 'svelte/transition';
@@ -26,7 +41,7 @@
 	let { data } = $props();
 	let query = $derived(page.url.searchParams.get('query') ?? '');
 	let view = $derived<'skills' | 'urls'>(
-		((page.url.searchParams.get('view') as 'skills' | 'urls') ?? 'skills') === 'urls'
+		((page.url.searchParams.get('view') as 'skills' | 'urls') ?? 'urls') === 'urls'
 			? 'urls'
 			: 'skills'
 	);
@@ -77,9 +92,15 @@
 	>(undefined);
 	let sourceError = $state<string | undefined>(undefined);
 	let saving = $state(false);
+	let urlFilters = $state(getTableUrlParamsFilters());
 
-	function switchView(newView: 'skills' | 'urls') {
-		goto(resolve(`/admin/skills?view=${newView}`), { replaceState: true });
+	function switchView(newView: 'skills' | 'urls', filterByRepository: string = '') {
+		goto(
+			resolve(
+				`/admin/skills?view=${newView}${filterByRepository ? `&repository=${encodeURIComponent(filterByRepository)}` : ''}`
+			),
+			{ replaceState: true }
+		);
 	}
 
 	function clearSyncInterval(id: string) {
@@ -112,6 +133,21 @@
 				}
 			}, 5000)
 		);
+	}
+
+	function handleFilter(property: string, values: string[]) {
+		if (values.length === 0) {
+			delete urlFilters[property];
+			urlFilters = { ...urlFilters };
+		} else {
+			urlFilters[property] = values;
+		}
+		setFilterUrlParams(property, values);
+	}
+
+	function handleClearAllFilters() {
+		urlFilters = {};
+		clearUrlParams();
 	}
 
 	onDestroy(() => {
@@ -160,16 +196,16 @@
 			<div class="dark:bg-base-300 bg-base-100 rounded-t-md shadow-sm">
 				<div class="flex">
 					<button
-						class={twMerge('page-tab max-w-1/2', view === 'skills' && 'page-tab-active')}
-						onclick={() => switchView('skills')}
-					>
-						Skills
-					</button>
-					<button
 						class={twMerge('page-tab max-w-1/2', view === 'urls' && 'page-tab-active')}
 						onclick={() => switchView('urls')}
 					>
 						Sources
+					</button>
+					<button
+						class={twMerge('page-tab max-w-1/2', view === 'skills' && 'page-tab-active')}
+						onclick={() => switchView('skills')}
+					>
+						Skills
 					</button>
 				</div>
 
@@ -238,6 +274,9 @@
 					}
 					return '';
 				}}
+				filters={urlFilters}
+				onFilter={handleFilter}
+				onClearAllFilters={handleClearAllFilters}
 			>
 				{#snippet onRenderColumn(property, d)}
 					{#if property === 'displayName'}
@@ -253,12 +292,23 @@
 						{formatTimeAgo(d.created).relativeTime}
 					{:else if property === 'repository'}
 						<span class="block min-w-0 truncate">{d.repository}</span>
+					{:else if property === 'description'}
+						<span class="line-clamp-2 text-xs">{d.description ?? '—'}</span>
 					{:else}
 						{d[property as keyof typeof d]}
 					{/if}
 				{/snippet}
-				{#snippet actions(_d)}
-					<div></div>
+				{#snippet actions(d)}
+					<a
+						class="btn btn-square btn-ghost hover:text-blue-500 btn-sm tooltip tooltip-left"
+						href={`${d.repoURL}/tree/${d.repoRef || d.commitSHA || 'main'}/${d.relativePath}`}
+						rel="external noopener noreferrer"
+						target="_blank"
+						onclick={(e) => e.stopPropagation()}
+						data-tip="View Source on Git"
+					>
+						<GitBranch class="size-4" />
+					</a>
 				{/snippet}
 			</Table>
 		{:else if data?.showLicenseError}
@@ -306,6 +356,9 @@
 						return 'bg-warning/10';
 					}
 					return '';
+				}}
+				onClickRow={(d) => {
+					switchView('skills', d.displayName);
 				}}
 				classes={{
 					root: 'rounded-none rounded-b-md shadow-none'
@@ -383,7 +436,7 @@
 			</Table>
 		{:else}
 			<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
-				<PencilRuler class="text-base-content/80 size-24" />
+				<PencilRuler class="text-muted-content size-24 opacity-25" />
 				<h4 class="text-muted-content text-lg font-semibold">No current Git Source URLs.</h4>
 				<p class="text-muted-content text-sm font-light">
 					Once a Git Source URL has been added, its <br />

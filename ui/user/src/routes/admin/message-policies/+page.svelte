@@ -133,7 +133,7 @@
 				goto(`/admin/message-policies?new=true`);
 			}}
 		>
-			<Plus class="size-4" /> Add New Policy
+			<Plus class="size-4" /> Add Access Policy
 		</button>
 	{/if}
 {/snippet}

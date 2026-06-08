@@ -2,6 +2,7 @@
 	import { parseErrorContent } from '$lib/errors';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { UserService, type MCPCatalogServer } from '$lib/services';
+	import { getMCPDisplayName } from '$lib/services/user/mcp';
 	import { Server } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 
@@ -133,7 +134,7 @@
 				{#if compositeServer?.manifest?.icon}
 					<img
 						src={compositeServer.manifest.icon}
-						alt={compositeServer.alias || 'MCP Server'}
+						alt={getMCPDisplayName(compositeServer, 'MCP Server')}
 						class="size-8"
 					/>
 				{:else}
@@ -141,7 +142,7 @@
 				{/if}
 			</div>
 			<h1 class="text-2xl font-semibold">
-				{compositeServer?.alias || compositeServer?.manifest?.name || 'MCP Server Authentication'}
+				{getMCPDisplayName(compositeServer, 'MCP Server Authentication')}
 			</h1>
 		</div>
 

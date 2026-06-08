@@ -1,13 +1,8 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
-	import { page } from '$app/state';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
 		UserService,
-		Group,
 		type LaunchServerType,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
@@ -16,23 +11,9 @@
 	} from '$lib/services';
 	import { hasMissingSecretBindingConfig, isMultiUserServer } from '$lib/services/user/mcp';
 	import { profile } from '$lib/stores';
-	import { formatTimeAgo } from '$lib/time';
-	import { openUrl, isOwnSingleUserServer, getUserDisplayName } from '$lib/utils';
-	import Confirm from '../Confirm.svelte';
-	import DotDotDot from '../DotDotDot.svelte';
-	import EditExistingDeployment from '../mcp/EditExistingDeployment.svelte';
-	import Table from '../table/Table.svelte';
-	import DiffDialog from './DiffDialog.svelte';
+	import DeploymentsView from '../mcp/DeploymentsView.svelte';
 	import McpServerK8sInfo from './McpServerK8sInfo.svelte';
-	import {
-		CircleFadingArrowUp,
-		Ellipsis,
-		GitCompare,
-		Router,
-		Square,
-		SquareCheck,
-		TriangleAlert
-	} from 'lucide-svelte';
+	import { CircleFadingArrowUp, Router } from 'lucide-svelte';
 
 	interface Props {
 		id?: string;
@@ -57,39 +38,13 @@
 	let instances = $state<MCPServerInstance[]>([]);
 	let servers = $state<MCPCatalogServer[]>([]);
 	let loading = $state(true);
-	let showConfirm = $state<
-		{ type: 'multi' } | { type: 'single'; server: MCPCatalogServer } | undefined
-	>();
-	let diffDialog = $state<ReturnType<typeof DiffDialog>>();
-	let editExistingDialog = $state<ReturnType<typeof EditExistingDeployment>>();
-	let diffServer = $state<MCPCatalogServer>();
-	let selected = $state<Record<string, MCPCatalogServer>>({});
-	let updating = $state<Record<string, { inProgress: boolean; error: string }>>({});
 
-	let hasSelected = $derived(Object.values(selected).some((v) => v));
 	let usersMap = $derived(new Map(users.map((u) => [u.id, u])));
-	let isAdminUrl = $derived(page.url.pathname.includes('/admin'));
 	let detailsCatalogEntry = $derived(
 		catalogEntry ?? (entry && 'isCatalogEntry' in entry ? entry : undefined)
 	);
 	let detailsMcpServer = $derived(entry && !('isCatalogEntry' in entry) ? entry : undefined);
-
-	let serverTableData = $derived(
-		servers
-			.filter((s) => !s.deleted)
-			.map((s) => ({
-				...s,
-				userDisplayName:
-					configuredServers || users.length === 0
-						? getUserDisplayName(usersMap, profile.current.id)
-						: getUserDisplayName(usersMap, s.userID)
-			}))
-	);
-	let serverTableFields = $derived.by(() => {
-		if (type === 'single' || type === 'composite') return ['userID', 'created'];
-		if (type === 'multi') return ['name', 'userID', 'created'];
-		return ['url', 'userID', 'created'];
-	});
+	let readonly = $derived(profile.current.isAdminReadonly?.());
 
 	$effect(() => {
 		if (!loading) return;
@@ -151,149 +106,6 @@
 		}
 	});
 
-	async function loadServers() {
-		if (!id || !entry || (entry && !('isCatalogEntry' in entry))) return;
-		if (entity === 'workspace') {
-			UserService.listWorkspaceMCPServersForEntry(id, entry.id).then((response) => {
-				servers = response;
-			});
-		} else {
-			AdminService.listMCPServersForEntry(id, entry.id).then((response) => {
-				servers = response;
-			});
-		}
-	}
-
-	function canUpdateServer(server: MCPCatalogServer) {
-		if (server.compositeName || isMissingKubernetesSecret(server)) return false;
-
-		if (isMultiUserServer(server)) {
-			if (!server.catalogEntryID) return false;
-			if (server.powerUserWorkspaceID) return server.powerUserWorkspaceID === id;
-			return isAdminUrl && profile.current?.hasAdminAccess?.() && !!server.mcpCatalogID;
-		}
-
-		if (isAdminUrl && profile.current?.hasAdminAccess?.()) return true;
-
-		return server.userID === profile.current?.id;
-	}
-
-	async function triggerUpdate(server: MCPCatalogServer) {
-		if (server.powerUserWorkspaceID && server.catalogEntryID) {
-			return UserService.triggerWorkspaceMcpServerUpdate(
-				server.powerUserWorkspaceID,
-				server.catalogEntryID,
-				server.id
-			);
-		} else if (isAdminUrl && server.mcpCatalogID) {
-			return AdminService.triggerMcpCatalogServerUpdate(server.mcpCatalogID, server.id);
-		} else if (!isMultiUserServer(server)) {
-			return UserService.triggerMcpServerUpdate(server.id);
-		}
-
-		throw new Error('This server cannot be updated from the current view.');
-	}
-
-	function getCatalogEntryForServer(server: MCPCatalogServer) {
-		if (catalogEntry?.id === server.catalogEntryID) return catalogEntry;
-		if (entry && 'isCatalogEntry' in entry && entry.id === server.catalogEntryID) return entry;
-		return undefined;
-	}
-
-	async function updateCatalogServerAndPromptForConfiguration(server: MCPCatalogServer) {
-		if (!isMultiUserServer(server) || !server.catalogEntryID) return undefined;
-
-		const entry = getCatalogEntryForServer(server);
-		// Return undefined so callers can use the normal update path when no entry context is available.
-		if (!entry) return undefined;
-
-		return (
-			(await editExistingDialog?.updateFromCatalogEntry({
-				server,
-				entry
-			})) ?? false
-		);
-	}
-
-	async function handleMultiUpdate() {
-		if (!id || !entry) return;
-		for (const serverId of Object.keys(selected)) {
-			const server = selected[serverId];
-			if (!canUpdateServer(server)) continue;
-
-			updating[serverId] = { inProgress: true, error: '' };
-			try {
-				// Catalog-backed multi-user servers update first, then prompt for any new shared config.
-				const prompted = await updateCatalogServerAndPromptForConfiguration(server);
-				if (prompted === undefined) {
-					await triggerUpdate(server);
-				} else if (prompted) {
-					selected = {};
-					return;
-				}
-				updating[serverId] = { inProgress: false, error: '' };
-			} catch (error) {
-				updating[serverId] = {
-					inProgress: false,
-					error: error instanceof Error ? error.message : 'An unknown error occurred'
-				};
-			} finally {
-				delete updating[serverId];
-			}
-		}
-
-		loadServers();
-		selected = {};
-	}
-
-	async function updateServer(server?: MCPCatalogServer) {
-		if (!id || !entry || !server) return;
-
-		updating[server.id] = { inProgress: true, error: '' };
-		try {
-			const prompted = await updateCatalogServerAndPromptForConfiguration(server);
-			if (prompted === undefined) {
-				await triggerUpdate(server);
-			}
-			if (!prompted) {
-				loadServers();
-			}
-		} catch (err) {
-			updating[server.id] = {
-				inProgress: false,
-				error: err instanceof Error ? err.message : 'An unknown error occurred'
-			};
-		}
-
-		delete updating[server.id];
-	}
-
-	function setLastVisitedMcpServer() {
-		if (!entry) return;
-		const name = entry.manifest?.name;
-		sessionStorage.setItem(
-			ADMIN_SESSION_STORAGE.LAST_VISITED_MCP_SERVER,
-			JSON.stringify({ id: entry.id, name, type, entity, entityId: id })
-		);
-	}
-
-	function getAuditLogUrl(d: MCPCatalogServer) {
-		if (isAdminUrl) {
-			if (!profile.current?.hasAdminAccess?.()) return null;
-			return entity === 'workspace'
-				? `/admin/mcp-servers/w/${id}/c/${entry?.id}?view=audit-logs&mcp_id=${d.id}&user_id=${d.userID}`
-				: `/admin/mcp-servers/c/${entry?.id}?view=audit-logs&mcp_id=${d.id}&user_id=${d.userID}`;
-		}
-
-		// Basic users can access audit logs for their own servers
-		let isOwnServer = entry && isOwnSingleUserServer(entry, profile.current?.id);
-		// Also check if this specific server instance belongs to the current user
-		let isOwnInstance = d.userID === profile.current?.id;
-		return isOwnServer || isOwnInstance || profile.current?.groups.includes(Group.POWERUSER)
-			? `/mcp-servers/c/${entry?.id}?view=audit-logs&mcp_id=${d.id}&user_id=${d.userID}`
-			: null;
-	}
-
 	function isMissingKubernetesSecret(server: MCPCatalogServer) {
 		return hasMissingSecretBindingConfig(
 			server.manifest,
@@ -302,12 +114,25 @@
 		);
 	}
 
-	function getServerDetailsUrl(d: MCPCatalogServer) {
+	async function reload() {
+		if (!id || !entry) return;
 		if (entity === 'workspace') {
-			return isAdminUrl ? `/admin/mcp-servers/w/${id}/s/${d.id}` : `/mcp-servers/s/${d.id}`;
+			UserService.listWorkspaceMCPServersForEntry(id, entry.id)
+				.then((response) => {
+					servers = response;
+				})
+				.finally(() => {
+					loading = false;
+				});
+		} else {
+			AdminService.listMCPServersForEntry(id, entry.id)
+				.then((response) => {
+					servers = response;
+				})
+				.finally(() => {
+					loading = false;
+				});
 		}
-
-		return isAdminUrl ? `/admin/mcp-servers/s/${d.id}` : `/mcp-servers/s/${d.id}`;
 	}
 </script>
 
@@ -337,7 +162,7 @@
 				classes={{
 					title: 'text-lg font-semibold'
 				}}
-				readonly={profile.current.isAdminReadonly?.()}
+				{readonly}
 			/>
 		</div>
 	{:else}
@@ -349,264 +174,26 @@
 	).length}
 	{#if servers.length > 0}
 		{#if numServerUpdatesNeeded}
-			<button
-				class="group bg-base-100 mb-2 w-fit rounded-md"
-				onclick={() => {
-					// TODO: show all servers with upgrade & update all option
-				}}
-			>
+			<div class="group bg-base-100 mb-2 w-fit rounded-md">
 				<div
 					class="border-primary bg-primary/10 group-hover:bg-primary/20 dark:bg-primary/30 dark:group-hover:bg-primary/40 flex items-center gap-1 rounded-md border px-4 py-2 transition-colors duration-300"
 				>
 					<CircleFadingArrowUp class="text-primary size-4" />
 					<p class="text-primary text-sm font-light">
 						{#if numServerUpdatesNeeded === 1}
-							1 instance has an update available.
+							1 deployment has an update available.
 						{:else}
-							{numServerUpdatesNeeded} instances have updates available.
+							{numServerUpdatesNeeded} deployments have updates available.
 						{/if}
 					</p>
-				</div>
-			</button>
-		{/if}
-		<Table
-			data={serverTableData}
-			fields={serverTableFields}
-			headers={[
-				{ title: 'Alias/Name', property: 'name' },
-				{ title: 'User', property: 'userID' },
-				{ title: 'URL', property: 'url' }
-			]}
-			onClickRow={(d, isCtrlClick) => {
-				if (type === 'multi') {
-					openUrl(getServerDetailsUrl(d), isCtrlClick);
-					return;
-				}
-
-				if (type === 'single' || type === 'composite' || type === 'remote') {
-					setLastVisitedMcpServer();
-
-					const url =
-						entity === 'workspace'
-							? isAdminUrl
-								? `/admin/mcp-servers/w/${id}/c/${entry?.id}/instance/${d.id}/details`
-								: `/mcp-servers/c/${entry?.id}/instance/${d.id}/details`
-							: `/admin/mcp-servers/c/${entry?.id}/instance/${d.id}/details`;
-					openUrl(url, isCtrlClick);
-				}
-			}}
-		>
-			{#snippet onRenderColumn(property, d)}
-				{@const missingKubernetesSecret = isMissingKubernetesSecret(d)}
-				{#if property === 'name'}
-					<span class="flex items-center gap-1">
-						{d.alias || d.manifest.name || d.id}
-						{#if missingKubernetesSecret}
-							<div
-								class="text-warning"
-								use:tooltip={{
-									text: 'Missing Kubernetes Secret.',
-									classes: ['break-words', 'w-58']
-								}}
-							>
-								<TriangleAlert class="size-4" />
-							</div>
-						{:else if d.needsUpdate}
-							<div
-								use:tooltip={{
-									text: 'This server needs an update. View Diff to see the changes.',
-									classes: ['wrap-break-word', 'w-58']
-								}}
-							>
-								<CircleFadingArrowUp class="text-primary size-4" />
-							</div>
-						{/if}
-					</span>
-				{:else if property === 'url'}
-					<span class="flex items-center gap-1">
-						{d.manifest.remoteConfig?.url}
-						{#if missingKubernetesSecret}
-							<div
-								class="text-warning"
-								use:tooltip={{
-									text: 'Missing Kubernetes Secret.',
-									classes: ['break-words', 'w-58']
-								}}
-							>
-								<TriangleAlert class="size-4" />
-							</div>
-						{:else if d.needsUpdate}
-							<div
-								use:tooltip={{
-									text: 'This server needs an update. View Diff to see the changes.',
-									classes: ['wrap-break-word', 'w-58']
-								}}
-							>
-								<CircleFadingArrowUp class="text-primary size-4" />
-							</div>
-						{/if}
-					</span>
-				{:else if property === 'userID'}
-					<span class="flex items-center gap-1">
-						{d.userDisplayName || 'Unknown User'}
-						{#if type === 'single' || type === 'composite'}
-							{#if missingKubernetesSecret}
-								<div
-									class="text-warning"
-									use:tooltip={{
-										text: 'Missing Kubernetes Secret.',
-										classes: ['break-words', 'w-58']
-									}}
-								>
-									<TriangleAlert class="size-4" />
-								</div>
-							{:else if d.needsUpdate}
-								<div
-									use:tooltip={{
-										text: 'This server needs an update. View Diff to see the changes.',
-										classes: ['wrap-break-word', 'w-58']
-									}}
-								>
-									<CircleFadingArrowUp class="text-primary size-4" />
-								</div>
-							{/if}
-						{/if}
-					</span>
-				{:else if property === 'created'}
-					{formatTimeAgo(d[property] as unknown as string).fullDate}
-				{:else}
-					{d[property as keyof typeof d]}
-				{/if}
-			{/snippet}
-
-			{#snippet actions(d)}
-				{@const auditLogsUrl = getAuditLogUrl(d)}
-				{@const missingKubernetesSecret = isMissingKubernetesSecret(d)}
-				{@const canUpdate = canUpdateServer(d)}
-				<div class="flex shrink-0 items-center gap-1">
-					{#if auditLogsUrl}
-						<a class="btn btn-link" href={resolve(auditLogsUrl as `/${string}`)}>
-							View Audit Logs
-						</a>
-					{/if}
-
-					{#if d.needsUpdate && !missingKubernetesSecret}
-						<DotDotDot class="icon-button hover:dark:bg-base-100/50">
-							{#snippet icon()}
-								<Ellipsis class="size-4" />
-							{/snippet}
-							<button
-								class="menu-button"
-								onclick={(e) => {
-									e.stopPropagation();
-									diffServer = d;
-									diffDialog?.open();
-								}}
-							>
-								<GitCompare class="size-4" /> View Diff
-							</button>
-							{#if canUpdate}
-								<button
-									class="menu-button bg-primary/10 text-primary hover:bg-primary/20"
-									disabled={updating[d.id]?.inProgress || !!d.compositeName}
-									onclick={async (e) => {
-										e.stopPropagation();
-										showConfirm = {
-											type: 'single',
-											server: d
-										};
-									}}
-									use:tooltip={d.compositeName
-										? {
-												text: 'Cannot directly update a descendant of a composite server; update the composite MCP server instead.',
-												classes: ['w-md'],
-												disablePortal: true
-											}
-										: undefined}
-								>
-									{#if updating[d.id]?.inProgress}
-										<Loading class="size-4" />
-									{:else}
-										<CircleFadingArrowUp class="size-4" />
-									{/if}
-									Update Server
-								</button>
-							{/if}
-						</DotDotDot>
-						{#if canUpdate}
-							<button
-								class="hover:bg-black/50"
-								onclick={(e) => {
-									e.stopPropagation();
-									if (selected[d.id]) {
-										delete selected[d.id];
-									} else {
-										selected[d.id] = d;
-									}
-								}}
-							>
-								{#if selected[d.id]}
-									<SquareCheck class="size-5" />
-								{:else}
-									<Square class="size-5" />
-								{/if}
-							</button>
-						{/if}
-					{:else if numServerUpdatesNeeded > 0}
-						<div class="size-10"></div>
-						<div class="size-10"></div>
-					{/if}
-				</div>
-			{/snippet}
-		</Table>
-
-		{#if hasSelected}
-			{@const numSelected = Object.keys(selected).length}
-			{@const updatingInProgress = Object.values(updating).some((u) => u.inProgress)}
-			<div
-				class="bg-base-200 dark:bg-base-100 sticky bottom-0 left-0 mt-auto flex w-[calc(100%+2em)] -translate-x-4 justify-end gap-4 p-4 md:w-[calc(100%+4em)] md:-translate-x-8 md:px-8"
-			>
-				<div class="flex w-full items-center justify-between">
-					<p class="text-sm font-medium">
-						{numSelected} server instance{numSelected === 1 ? '' : 's'} selected
-					</p>
-					<div class="flex items-center gap-4">
-						<button
-							class="btn btn-secondary flex items-center gap-1"
-							onclick={() => {
-								selected = {};
-								updating = {};
-							}}
-						>
-							Cancel
-						</button>
-						<button
-							class="btn btn-primary flex items-center gap-1"
-							onclick={() => {
-								showConfirm = {
-									type: 'multi'
-								};
-							}}
-							disabled={updatingInProgress}
-						>
-							{#if updatingInProgress}
-								<Loading class="size-5" />
-							{:else}
-								Update Servers
-							{/if}
-						</button>
-					</div>
 				</div>
 			</div>
 		{/if}
+		<DeploymentsView {servers} {readonly} {id} {entity} {usersMap} onReload={reload} />
 	{:else}
 		{@render emptyInstancesContent()}
 	{/if}
 {/if}
-
-<DiffDialog bind:this={diffDialog} fromServer={diffServer} toServer={entry} />
-
-<EditExistingDeployment bind:this={editExistingDialog} onUpdateConfigure={loadServers} />
 
 {#snippet emptyInstancesContent()}
 	<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
@@ -615,28 +202,3 @@
 		<p class="text-muted-content text-sm font-light">No details available yet for this server.</p>
 	</div>
 {/snippet}
-
-<Confirm
-	show={!!showConfirm}
-	onsuccess={async () => {
-		if (!showConfirm) return;
-		if (showConfirm.type === 'single') {
-			await updateServer(showConfirm.server);
-		} else {
-			await handleMultiUpdate();
-		}
-		showConfirm = undefined;
-	}}
-	oncancel={() => (showConfirm = undefined)}
-	classes={{
-		confirm: 'bg-primary hover:bg-primary/50 transition-colors duration-200'
-	}}
-	msg={`Update ${showConfirm?.type === 'single' ? showConfirm.server.id : 'selected server(s)'}?`}
-	type="info"
-	title="Confirm Update"
->
-	{#snippet note()}
-		If this update introduces new required shared configuration parameters, you will be prompted to
-		supply them after the update is applied.
-	{/snippet}
-</Confirm>

@@ -90,6 +90,19 @@ func TestSkillRouteAuthorization(t *testing.T) {
 			allowed: true,
 		},
 		{
+			name:   "api key user with skills access can preview skill",
+			method: http.MethodGet,
+			path:   "/api/skills/some-skill-id/preview",
+			user: &user.DefaultInfo{
+				Name:   "key-user",
+				Groups: []string{types.GroupAPIKey},
+				Extra: map[string][]string{
+					types.APIKeySkillsAccessExtraKey: {"true"},
+				},
+			},
+			allowed: true,
+		},
+		{
 			name:   "api key user without skills access cannot access skills list",
 			method: http.MethodGet,
 			path:   "/api/skills",
@@ -136,6 +149,16 @@ func TestSkillRouteAuthorization(t *testing.T) {
 			user: &user.DefaultInfo{
 				Name:   "auditor",
 				Groups: []string{types.GroupAuditor, types.GroupAuthenticated},
+			},
+			allowed: true,
+		},
+		{
+			name:   "auditor can preview skill",
+			method: http.MethodGet,
+			path:   "/api/skills/some-skill-id/preview",
+			user: &user.DefaultInfo{
+				Name:   "auditor",
+				Groups: []string{types.GroupAuditor, types.GroupAuthenticated, types.GroupBasic},
 			},
 			allowed: true,
 		},

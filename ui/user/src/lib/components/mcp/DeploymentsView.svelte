@@ -18,12 +18,11 @@
 		MCPCompositeDeletionDependencyError
 	} from '$lib/services';
 	import {
+		getMCPDisplayName,
 		getMcpServerDeploymentStatus,
 		getServerTypeLabel,
 		getServerUrl,
-		hasEditableConfiguration,
-		isMultiUserServer,
-		requiresUserUpdate
+		isMultiUserServer
 	} from '$lib/services/user/mcp';
 	import { profile, mcpServersAndEntries, version } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
@@ -39,15 +38,13 @@
 		Ellipsis,
 		ExternalLink,
 		GitCompare,
-		PencilLine,
 		Power,
-		SatelliteDish,
 		Server,
 		ServerCog,
-		Trash2
+		Trash2,
+		TriangleAlert
 	} from 'lucide-svelte';
 	import { onDestroy, onMount, type Snippet } from 'svelte';
-	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		usersMap?: Map<string, OrgUser>;
@@ -62,9 +59,11 @@
 		onFilter?: (property: string, values: string[]) => void;
 		onClearAllFilters?: () => void;
 		onSort?: InitSortFn;
+		onReload?: () => void;
 		initSort?: InitSort;
 		noDataContent?: Snippet;
 		onlyMyServers?: boolean;
+		servers?: MCPCatalogServer[];
 	}
 
 	let {
@@ -78,9 +77,11 @@
 		onFilter,
 		onClearAllFilters,
 		onSort,
+		onReload,
 		initSort = { property: 'created', order: 'desc' },
 		noDataContent,
-		onlyMyServers
+		onlyMyServers,
+		servers: initialServers
 	}: Props = $props();
 
 	const doesSupportK8sUpdates = $derived(version.current.engine === 'kubernetes');
@@ -94,9 +95,7 @@
 	let updatedServer = $state<MCPCatalogServer | MCPCatalogEntry>();
 
 	let showUpgradeConfirm = $state<
-		| { type: 'multi'; onConfirm?: () => void }
-		| { type: 'single'; server: MCPCatalogServer; onConfirm?: () => void }
-		| undefined
+		{ type: 'multi' } | { type: 'single'; server: MCPCatalogServer } | undefined
 	>();
 	let showK8sUpgradeConfirm = $state<
 		{ type: 'multi' } | { type: 'single'; server: MCPCatalogServer } | undefined
@@ -117,6 +116,7 @@
 	let deployedCatalogEntryServers = $state<MCPCatalogServer[]>([]);
 	let deployedWorkspaceCatalogEntryServers = $state<MCPCatalogServer[]>([]);
 	let serversData = $derived.by(() => {
+		if (initialServers) return initialServers;
 		if (entity === 'workspace') {
 			return mcpServersAndEntries.current.userConfiguredServers.filter((server) => !server.deleted);
 		}
@@ -178,9 +178,7 @@
 
 				const compositeParent =
 					deployment.compositeName && compositeMapping[deployment.compositeName];
-				const compositeParentName = compositeParent
-					? compositeParent.alias || compositeParent.manifest.name
-					: '';
+				const compositeParentName = compositeParent ? getMCPDisplayName(compositeParent) : '';
 
 				const instance = instancesMap.get(deployment.id);
 				const { updateStatus, updatesAvailable, updateStatusTooltip } =
@@ -194,7 +192,7 @@
 
 				return {
 					...deployment,
-					displayName: deployment.alias || deployment.manifest.name || '',
+					displayName: getMCPDisplayName(deployment),
 					userName: getUserDisplayName(usersMap, deployment.userID),
 					registry: powerUserID ? getUserDisplayName(usersMap, powerUserID) : 'Global Registry',
 					type: getServerTypeLabel(deployment),
@@ -254,19 +252,23 @@
 			loading = true;
 		}
 
-		if (entity === 'catalog' && profile.current.hasAdminAccess?.() && id) {
-			deployedCatalogEntryServers =
-				await AdminService.listAllCatalogDeployedSingleRemoteServers(id);
-			deployedWorkspaceCatalogEntryServers =
-				await AdminService.listAllWorkspaceDeployedSingleRemoteServers();
-			// Refresh multi-user servers too
-			await mcpServersAndEntries.refreshAll();
-			// Refresh capacity banner when server list changes
-			if (!isInitialLoad) {
-				capacityBanner?.refresh();
+		if (onReload) {
+			await onReload();
+		} else {
+			if (entity === 'catalog' && profile.current.hasAdminAccess?.() && id) {
+				deployedCatalogEntryServers =
+					await AdminService.listAllCatalogDeployedSingleRemoteServers(id);
+				deployedWorkspaceCatalogEntryServers =
+					await AdminService.listAllWorkspaceDeployedSingleRemoteServers();
+				// Refresh multi-user servers too
+				await mcpServersAndEntries.refreshAll();
+				// Refresh capacity banner when server list changes
+				if (!isInitialLoad) {
+					capacityBanner?.refresh();
+				}
+			} else if (!isInitialLoad && entity === 'workspace') {
+				await mcpServersAndEntries.refreshAll();
 			}
-		} else if (!isInitialLoad && entity === 'workspace') {
-			await mcpServersAndEntries.refreshAll();
 		}
 
 		if (isInitialLoad) {
@@ -301,7 +303,6 @@
 
 		selected = {};
 		tableRef?.clearSelectAll();
-		await reload();
 	}
 
 	async function handleK8sBulkUpdate(selections: typeof selected) {
@@ -381,7 +382,6 @@
 			} else {
 				await UserService.triggerMcpServerUpdate(server.id);
 			}
-			await reload();
 		} catch (err) {
 			updating[server.id] = {
 				inProgress: false,
@@ -531,30 +531,20 @@
 		if (d.powerUserWorkspaceID) {
 			// Workspace catalog entry deployment
 			if (d.catalogEntryID) {
-				return resolve('/admin/mcp-servers/w/[wid]/c/[id]', {
-					id: d.catalogEntryID,
-					wid: d.powerUserWorkspaceID
-				});
+				return `/admin/mcp-catalog/w/${d.powerUserWorkspaceID}/c/${d.catalogEntryID}`;
 			}
 
 			// Workspace multi-user server
-			return resolve('/admin/mcp-servers/w/[wid]/s/[id]', {
-				id: d.id,
-				wid: d.powerUserWorkspaceID
-			});
+			return `/admin/mcp-catalog/w/${d.powerUserWorkspaceID}/s/${d.id}`;
 		}
 
 		// Global catalog entry deployment
 		if (d.catalogEntryID) {
-			return resolve('/admin/mcp-servers/c/[id]', {
-				id: d.catalogEntryID
-			});
+			return `/admin/mcp-catalog/c/${d.catalogEntryID}`;
 		}
 
 		// Global multi-user server
-		return resolve('/admin/mcp-servers/s/[id]', {
-			id: d.id
-		});
+		return `/admin/mcp-catalog/s/${d.id}`;
 	}
 </script>
 
@@ -619,9 +609,6 @@
 					root: 'rounded-none rounded-b-md shadow-none',
 					thead: classes?.tableHeader
 				}}
-				sectionedBy="isMyServer"
-				sectionPrimaryTitle="My Deployments"
-				sectionSecondaryTitle="All Deployments"
 				setRowClasses={(d) => {
 					if (d.needsUpdate && d.needsK8sUpdate) {
 						return 'bg-orange-500/5 hover:bg-orange-500/10 border-orange-500/20';
@@ -656,6 +643,26 @@
 									</span>
 								{/if}
 							</p>
+							{#if 'missingKubernetesSecret' in d && d.missingKubernetesSecret}
+								<div
+									class="text-warning"
+									use:tooltip={{
+										text: 'Missing Kubernetes Secret.',
+										classes: ['break-words', 'w-58']
+									}}
+								>
+									<TriangleAlert class="size-4" />
+								</div>
+							{:else if d.needsUpdate}
+								<div
+									use:tooltip={{
+										text: 'This server needs an update. View Diff to see the changes.',
+										classes: ['wrap-break-word', 'w-58']
+									}}
+								>
+									<CircleFadingArrowUp class="text-primary size-4" />
+								</div>
+							{/if}
 						</div>
 					{:else if property === 'created'}
 						{formatTimeAgo(d.created).relativeTime}
@@ -676,48 +683,12 @@
 					{@const isComposite = !!d.compositeName}
 					{@const auditLogsUrl = getAuditLogsUrl(d)}
 					{@const instance = instancesMap.get(d.id)}
-					{@const hasMyConnection = d.isMyServer || !!instance}
-
-					<DotDotDot class="hover:dark:bg-base-100/50" classes={{ menu: 'p-0' }}>
+					<DotDotDot class="hover:dark:bg-base-100/50" classes={{ menu: 'p-0 gap-0' }}>
 						{#snippet icon()}
 							<Ellipsis class="size-4" />
 						{/snippet}
 
 						{#snippet children({ toggle })}
-							{#if !isComposite && hasMyConnection}
-								<div
-									class="bg-base-100 dark:bg-base-300 rounded-t-xl p-2 pl-4 text-[11px] font-semibold uppercase"
-								>
-									My Connection
-								</div>
-								<div
-									class={twMerge('flex flex-col gap-1 p-2', d.isMyServer ? 'bg-base-200' : 'pb-0')}
-								>
-									<button
-										class="menu-button"
-										onclick={async (e) => {
-											e.stopPropagation();
-											const entry = d.catalogEntryID ? entriesMap[d.catalogEntryID] : undefined;
-											connectToServerDialog?.open({
-												entry,
-												server: d,
-												instance
-											});
-											toggle(false);
-										}}
-									>
-										<SatelliteDish class="size-4" /> Connect To Server
-									</button>
-
-									{#if d.isMyServer || (hasAdminAccess && !readonly)}
-										{@render editConfigAction(d)}
-										{#if d.catalogEntryID}
-											{@render renameAction(d)}
-										{/if}
-									{/if}
-								</div>
-							{/if}
-
 							<div class="flex flex-col gap-1 p-2">
 								<a
 									class="menu-button"
@@ -764,10 +735,7 @@
 											if (!d) return;
 											showUpgradeConfirm = {
 												type: 'single',
-												server: d,
-												onConfirm: async () => {
-													reload();
-												}
+												server: d
 											};
 											toggle(false);
 										}}
@@ -943,10 +911,7 @@
 							onclick={() => {
 								selected = currentSelected;
 								showUpgradeConfirm = {
-									type: 'multi',
-									onConfirm: () => {
-										reload();
-									}
+									type: 'multi'
 								};
 							}}
 							disabled={readonly || upgradeableCount === 0}
@@ -1011,43 +976,6 @@
 	{/if}
 </div>
 
-{#snippet editConfigAction(d: MCPCatalogServer)}
-	{@const requiresUpdate = requiresUserUpdate(d)}
-	{@const entry = d.catalogEntryID ? entriesMap[d.catalogEntryID] : undefined}
-	{@const canConfigure =
-		entry && (entry.manifest.runtime === 'composite' || hasEditableConfiguration(entry))}
-	{#if canConfigure}
-		<button
-			class={twMerge(
-				'menu-button',
-				requiresUpdate && 'bg-warning/10 text-warning hover:bg-warning/30'
-			)}
-			onclick={() => {
-				editExistingDialog?.edit({
-					server: d,
-					entry: d.catalogEntryID ? entriesMap[d.catalogEntryID] : undefined
-				});
-			}}
-		>
-			<ServerCog class="size-4" /> Edit Configuration
-		</button>
-	{/if}
-{/snippet}
-
-{#snippet renameAction(d: MCPCatalogServer)}
-	<button
-		class="menu-button"
-		onclick={() => {
-			editExistingDialog?.rename({
-				server: d,
-				entry: d.catalogEntryID ? entriesMap[d.catalogEntryID] : undefined
-			});
-		}}
-	>
-		<PencilLine class="size-4" /> Rename
-	</button>
-{/snippet}
-
 <DiffDialog bind:this={diffDialog} fromServer={existingServer} toServer={updatedServer} />
 
 <Confirm
@@ -1059,12 +987,13 @@
 		} else {
 			await handleBulkUpdate();
 		}
-		showUpgradeConfirm?.onConfirm?.();
+		await reload();
 		showUpgradeConfirm = undefined;
 	}}
 	oncancel={() => (showUpgradeConfirm = undefined)}
 	loading={Object.values(updating).some((u) => u.inProgress)}
 	type="info"
+	title="Confirm Update"
 >
 	{#snippet msgContent()}
 		<h4 class="flex items-center justify-center gap-2 text-lg font-semibold">

@@ -173,7 +173,7 @@
 			</p>
 			<div class="flex items-center gap-2">
 				<input
-					class="text-input-filled flex-1 text-sm"
+					class="text-input-filled shadow-none bg-base-100 flex-1 text-sm"
 					placeholder="No prefix"
 					bind:value={toolPrefix}
 				/>

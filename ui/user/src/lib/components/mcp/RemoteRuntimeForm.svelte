@@ -70,12 +70,13 @@
 			<h4 class="text-sm font-semibold">Headers</h4>
 			<p class="text-muted-content text-xs font-light">
 				{#if showUrlTemplateHelp}
-					Header values will be supplied with the URL to configure the MCP server. Their values can
-					be supplied by the user during initial setup or as static provided values. Only values
-					provided by the user will be used in URL template interpolation.
+					Header values will be supplied with the URL to configure the deployment of the catalog
+					entry. Their values can be supplied by the user during initial setup or as static provided
+					values. Only values provided by the user will be used in URL template interpolation.
 				{:else}
-					Header values will be supplied with the URL to configure the MCP server. Their values can
-					be supplied by the user during initial setup or as static provided values.
+					Header values will be supplied with the URL to configure the deployment of the catalog
+					entry. Their values can be supplied by the user during initial setup or as static provided
+					values.
 				{/if}
 			</p>
 			{#if config.headers}
@@ -460,8 +461,8 @@
 						</h4>
 					</div>
 					<p class="text-muted-content text-xs font-light">
-						Enable this if the remote MCP server requires OAuth authentication with a static client
-						ID and secret.
+						Enable this if the remote MCP catalog entry requires OAuth authentication with a static
+						client ID and secret.
 					</p>
 				</button>
 				<div class="flex self-start">

@@ -471,6 +471,47 @@ func TestSkillHandlerDownloadPackagesMaterializedSkill(t *testing.T) {
 	assert.Contains(t, names, "scripts/run.sh")
 }
 
+func TestSkillHandlerPreviewReturnsSkillMD(t *testing.T) {
+	want := []byte("---\nname: postgres-helper\ndescription: Preview me\n---\n\n# Instructions\n")
+	skill := &v1.Skill{
+		ObjectMeta: metav1.ObjectMeta{Name: "sk1", Namespace: system.DefaultNamespace},
+		Spec: v1.SkillSpec{
+			SkillManifest: types.SkillManifest{Name: "postgres-helper"},
+			RepoID:        "repo-1",
+			CommitSHA:     "abc123",
+			RelativePath:  "skills/postgres-helper",
+		},
+		Status: v1.SkillStatus{Valid: true},
+	}
+	storage := newFakeStorage(t, skill)
+
+	tempDir := t.TempDir()
+	require.NoError(t, os.WriteFile(tempDir+"/SKILL.md", want, 0o644))
+
+	handler := NewSkillHandler(newSkillAccessRuleHelper(t,
+		newSkillRule("rule1", []types.Subject{{Type: types.SubjectTypeUser, ID: "user1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkillRepository, ID: "repo-1"}}),
+	))
+	handler.materializeSkillSource = func(_ context.Context, got *v1.Skill) (func(), string, error) {
+		assert.Equal(t, "abc123", got.Spec.CommitSHA)
+		return func() {}, tempDir, nil
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/skills/sk1/preview", nil)
+	req.SetPathValue("id", "sk1")
+	rec := httptest.NewRecorder()
+
+	err := handler.Preview(api.Context{
+		ResponseWriter: rec,
+		Request:        req,
+		Storage:        storage,
+		User:           testUser("user1"),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, "text/markdown; charset=utf-8", rec.Header().Get("Content-Type"))
+	assert.Equal(t, string(want), rec.Body.String())
+}
+
 func newFakeStorage(t *testing.T, objects ...kclient.Object) kclient.WithWatch {
 	t.Helper()
 

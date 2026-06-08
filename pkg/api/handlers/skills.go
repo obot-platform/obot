@@ -90,6 +90,42 @@ func (h *SkillHandler) Get(req api.Context) error {
 	return req.Write(convertSkill(*skill))
 }
 
+func (h *SkillHandler) Preview(req api.Context) error {
+	skill, err := h.getAccessibleSkill(req, req.PathValue("id"))
+	if err != nil {
+		return err
+	}
+
+	cleanup, skillDir, err := h.materializeSkillSource(req.Context(), skill)
+	if err != nil {
+		return fmt.Errorf("failed to materialize skill source: %w", err)
+	}
+	defer cleanup()
+
+	skillFile := filepath.Join(skillDir, skillformat.SkillMainFile)
+	f, err := os.Open(skillFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return types.NewErrNotFound("%s not found for skill %s", skillformat.SkillMainFile, skill.Name)
+		}
+		return fmt.Errorf("failed to open %s: %w", skillformat.SkillMainFile, err)
+	}
+	defer f.Close()
+
+	content, err := io.ReadAll(io.LimitReader(f, maxSkillMDBytes+1))
+	if err != nil {
+		return fmt.Errorf("failed to read %s: %w", skillformat.SkillMainFile, err)
+	}
+	if len(content) > maxSkillMDBytes {
+		return types.NewErrBadRequest("%s exceeds maximum size of %d bytes", skillformat.SkillMainFile, maxSkillMDBytes)
+	}
+
+	req.ResponseWriter.Header().Set("Content-Type", "text/markdown; charset=utf-8")
+	req.WriteHeader(http.StatusOK)
+	_, err = req.ResponseWriter.Write(content)
+	return err
+}
+
 func (h *SkillHandler) Download(req api.Context) error {
 	skill, err := h.getAccessibleSkill(req, req.PathValue("id"))
 	if err != nil {

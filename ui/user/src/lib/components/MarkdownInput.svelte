@@ -59,7 +59,7 @@
 
 	let lastSetValue = '';
 	let focused = $state(false);
-	let showPreview = $state(false);
+	let showPreview = $state(untrack(() => value.length > 0));
 
 	let cmView: CMEditorView | undefined = $state();
 	let setDarkMode: boolean;
@@ -187,7 +187,7 @@
 	class={twMerge(
 		'text-input-filled border-base-400 dark:bg-base-100 flex flex-col gap-0 overflow-hidden border p-0 transition-colors',
 		focused && !disabled && !disablePreview && 'ring-primary ring-2 outline-none',
-		disabled && 'disabled opacity-50',
+		disabled && 'disabled',
 		klass
 	)}
 >
@@ -231,6 +231,7 @@
 		<div
 			class={twMerge(
 				'default-scrollbar-thin bg-base-100 max-h-[650px] min-h-48 overflow-y-auto p-4 ',
+				disabled && 'disabled opacity-50',
 				classes?.input
 			)}
 			use:cmEditor

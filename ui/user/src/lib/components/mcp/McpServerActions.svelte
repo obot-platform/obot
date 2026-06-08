@@ -13,13 +13,14 @@
 	import {
 		deleteMcpServerDeployment,
 		disconnectMcpServerUser,
+		getMCPDisplayName,
 		hasEditableConfiguration,
 		isMultiUserCatalogEntry,
 		isMultiUserServer,
 		requiresUserUpdate,
 		restartMcpServer
 	} from '$lib/services/user/mcp';
-	import { mcpServersAndEntries, profile, userDeviceSettings } from '$lib/stores';
+	import { mcpServersAndEntries, profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { goto } from '$lib/url';
 	import DotDotDot from '../DotDotDot.svelte';
@@ -34,7 +35,6 @@
 		KeyRound,
 		PencilLine,
 		Plus,
-		ReceiptText,
 		RefreshCw,
 		Server,
 		ServerCog,
@@ -68,6 +68,7 @@
 		allowMultiUserServerConfigurationEdit?: boolean;
 		catalogID?: string;
 		workspaceID?: string;
+		hideActions?: boolean;
 	}
 
 	let {
@@ -84,7 +85,8 @@
 		readonly,
 		allowMultiUserServerConfigurationEdit,
 		catalogID,
-		workspaceID
+		workspaceID,
+		hideActions
 	}: Props = $props();
 	let connectToServerDialog = $state<ReturnType<typeof ConnectToServer>>();
 	let editExistingDialog = $state<ReturnType<typeof EditExistingDeployment>>();
@@ -124,7 +126,7 @@
 	let canReauthenticate = $derived(
 		server?.manifest.runtime === 'remote' && Object.keys(server.oauthMetadata ?? {}).length > 0
 	);
-	let canDebugOauth = $derived(canReauthenticate && userDeviceSettings.developerMode);
+	let canDebugOauth = $derived(canReauthenticate && profile.current?.hasAdminAccess?.());
 	let belongsToComposite = $derived(Boolean(server && server.compositeName));
 	let configurableItem = $derived(server ?? entry);
 	// True when the user can manage the server deployment (restart, rename, edit config).
@@ -287,7 +289,7 @@
 </script>
 
 <!-- Use class:hidden to avoid Svelte 5 production build with conditional DOM cleanup -->
-<div class="contents" class:hidden={belongsToComposite}>
+<div class="contents" class:hidden={belongsToComposite || hideActions}>
 	<button
 		class="btn btn-primary flex w-full items-center gap-1 text-sm disabled:cursor-not-allowed disabled:opacity-50 md:w-fit"
 		class:hidden={!(
@@ -303,7 +305,7 @@
 					? 'This is a multi-user catalog entry. An administrator must deploy it before you can connect.'
 					: canConnect
 						? ''
-						: 'See MCP Registries to grant connect access to this server'
+						: 'See MCP Access Policies to grant connect access to this server'
 		}}
 		onclick={async () => {
 			if (isMultiUserCatalogEntryRow) {
@@ -390,31 +392,6 @@
 		onClickRow={async (d) => {
 			selectServerDialog?.close();
 			switch (selectServerMode) {
-				case 'server-details': {
-					if (profile.current?.hasAdminAccess?.()) {
-						goto(
-							resolve(
-								isMultiUserServer(d)
-									? d.powerUserWorkspaceID
-										? `/admin/mcp-servers/w/${d.powerUserWorkspaceID}/s/${d.id}`
-										: `/admin/mcp-servers/s/${d.id}`
-									: entry?.powerUserWorkspaceID
-										? `/admin/mcp-servers/w/${d.powerUserWorkspaceID}/c/${d.catalogEntryID}/instance/${d.id}`
-										: `/admin/mcp-servers/c/${d.catalogEntryID}/instance/${d.id}`
-							),
-							{ replaceState: true }
-						);
-					} else {
-						goto(
-							resolve(
-								isMultiUserServer(d)
-									? `/mcp-servers/s/${d.id}`
-									: `/mcp-servers/c/${d.catalogEntryID}/instance/${d.id}`
-							)
-						);
-					}
-					break;
-				}
 				case 'rename': {
 					editExistingDialog?.rename({
 						server: d,
@@ -463,7 +440,7 @@
 						{/if}
 					</div>
 					<p class="flex items-center gap-2">
-						{d.alias || d.manifest.name}
+						{getMCPDisplayName(d)}
 					</p>
 				</div>
 			{:else if property === 'created'}
@@ -500,14 +477,20 @@
 	<div class="flex grow flex-col gap-2 p-4 pt-0 md:p-0">
 		<p class="text-center">
 			{#if entry && entry.manifest.runtime === 'remote'}
-				Your remote server details have been configured.
+				Your remote catalog entry details have been configured.
 			{:else if entry}
-				Your server details have been configured.
+				Your catalog entry has been configured.
 			{:else}
 				Your server has been configured.
 			{/if}
 		</p>
-		<p class="mb-2 text-center">Would you like to connect now?</p>
+		<p class="mb-2 text-center">
+			{#if isMultiUserCatalogEntry(entry)}
+				Would you like to launch a server now?
+			{:else}
+				Would you like to connect now?
+			{/if}
+		</p>
 		<div class="flex grow"></div>
 		<div class="flex flex-col gap-2">
 			<button class="btn btn-secondary" onclick={() => launchDialog?.close()}>Skip</button>
@@ -519,8 +502,14 @@
 						entry,
 						server
 					});
-				}}>Connect To Server</button
+				}}
 			>
+				{#if isMultiUserCatalogEntry(entry)}
+					Launch Server
+				{:else}
+					Connect To Server
+				{/if}
+			</button>
 		</div>
 	</div>
 </ResponsiveDialog>
@@ -570,12 +559,13 @@
 				{/if}
 				{#if server && canDebugOauth}
 					<button
-						class="menu-button bg-warning/10 text-warning hover:bg-warning/30"
+						class="menu-button"
 						onclick={async (e) => {
 							e.stopPropagation();
 							debugOauthDialog?.open(server);
 							toggle(false);
 						}}
+						disabled={profile.current?.isAdminReadonly?.()}
 					>
 						<Bug class="size-4" /> Debug OAuth
 					</button>
@@ -649,19 +639,7 @@
 						await deleteServerDeployment(server);
 						await mcpServersAndEntries.refreshAll();
 						toggle(false);
-
-						if (profile.current.hasAdminAccess?.()) {
-							goto(
-								resolve(
-									entry?.powerUserWorkspaceID
-										? `/admin/mcp-servers/w/${entry.powerUserWorkspaceID}/c/${entry.id}`
-										: `/admin/mcp-servers/c/${entry.id}`
-								),
-								{ replaceState: true }
-							);
-						} else {
-							goto(resolve(`/mcp-servers/c/${entry.id}`), { replaceState: true });
-						}
+						goto(resolve(`/mcp-servers/c/${entry.id}`), { replaceState: true });
 						disconnecting = false;
 					}}
 				>
@@ -745,42 +723,6 @@
 						{/if} Restart
 					</button>
 				{/if}
-				<button
-					class="menu-button"
-					onclick={() => {
-						if (configuredServers.length === 1) {
-							if (profile.current.hasAdminAccess?.()) {
-								goto(
-									resolve(
-										isMultiUserServer(configuredServers[0])
-											? configuredServers[0].powerUserWorkspaceID
-												? `/admin/mcp-servers/w/${configuredServers[0].powerUserWorkspaceID}/s/${configuredServers[0].id}`
-												: `/admin/mcp-servers/s/${configuredServers[0].id}`
-											: entry?.powerUserWorkspaceID
-												? `/admin/mcp-servers/w/${entry.powerUserWorkspaceID}/c/${entry.id}/instance/${configuredServers[0].id}`
-												: `/admin/mcp-servers/c/${entry.id}/instance/${configuredServers[0].id}`
-									),
-									{ replaceState: true }
-								);
-							} else {
-								goto(
-									resolve(
-										isMultiUserServer(configuredServers[0])
-											? `/mcp-servers/s/${configuredServers[0].id}`
-											: `/mcp-servers/c/${entry.id}/instance/${configuredServers[0].id}`
-									),
-									{
-										replaceState: true
-									}
-								);
-							}
-						} else {
-							handleShowSelectServerDialog('server-details');
-						}
-					}}
-				>
-					<ReceiptText class="size-4" /> Server Details
-				</button>
 				{#if !isMultiUserCatalogEntry(entry)}
 					<button
 						class="menu-button"

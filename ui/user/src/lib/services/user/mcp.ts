@@ -26,6 +26,13 @@ export interface MCPServerInfo extends MCPServer {
 	manifest?: MCPServer;
 }
 
+export function getMCPDisplayName(
+	item?: MCPCatalogServer | MCPCatalogEntry,
+	fallback: string = ''
+): string {
+	return (item && 'alias' in item && item?.alias) || item?.manifest.name || fallback;
+}
+
 export function isValidMcpConfig(mcpConfig: MCPServerInfo): boolean {
 	return (
 		(mcpConfig.env ?? []).every((env) => hasSecretBinding(env) || !env.required || env.value) &&
@@ -185,9 +192,6 @@ export function getSecretBindingEngineError(
 
 export function requiresUserUpdate(server?: MCPCatalogServer) {
 	if (!server) return false;
-	if (server.needsUpdate) {
-		return true;
-	}
 	if (server?.needsURL) {
 		return true;
 	}
@@ -230,6 +234,41 @@ export function requiresAdminOAuthConfig(server?: MCPCatalogServer): boolean {
 	return 'missingOAuthCredentials' in server && server.missingOAuthCredentials === true;
 }
 
+function getRegistryName(userID: string, usersMap?: Map<string, OrgUser>): string {
+	return userID === profile.current.id
+		? 'My Registry'
+		: usersMap
+			? `${getUserDisplayName(usersMap, userID)}'s Registry`
+			: 'Unknown Registry';
+}
+
+type EntrySource = { type: 'user' | 'git' | 'global'; url?: string; name: string };
+export function getSource(
+	entity: MCPCatalogEntry | MCPCatalogServer | AccessControlRule,
+	usersMap?: Map<string, OrgUser>
+): EntrySource {
+	if (entity.powerUserWorkspaceID) {
+		const userID = entity.powerUserWorkspaceID.split('-')?.pop() || '';
+		return {
+			type: 'user',
+			name: getRegistryName(userID, usersMap)
+		};
+	}
+
+	if ('isCatalogEntry' in entity && entity.sourceURL) {
+		return {
+			type: 'git',
+			url: entity.sourceURL,
+			name: 'Git Source'
+		};
+	}
+
+	return {
+		type: 'global',
+		name: 'Global Registry'
+	};
+}
+
 export function getUserRegistry(
 	entity: MCPCatalogEntry | MCPCatalogServer | AccessControlRule,
 	usersMap?: Map<string, OrgUser>
@@ -237,12 +276,7 @@ export function getUserRegistry(
 	let registry: string = 'Global Registry';
 	if (entity.powerUserWorkspaceID) {
 		const userID = entity.powerUserWorkspaceID.split('-')?.pop() || '';
-		registry =
-			userID === profile.current.id
-				? 'My Registry'
-				: usersMap
-					? `${getUserDisplayName(usersMap, userID)}'s Registry`
-					: 'Unknown Registry';
+		registry = getRegistryName(userID, usersMap);
 	}
 	return registry;
 }
@@ -275,6 +309,7 @@ function convertEntriesToTableData(
 		.filter((entry) => !entry.deleted)
 		.map((entry) => {
 			const registry = getUserRegistry(entry, usersMap);
+			const source = getSource(entry, usersMap);
 			const configuredServers = userConfiguredServersByEntry.get(entry.id) ?? [];
 			const missingSecretBinding = hasMissingSecretBinding(entry, configuredServers);
 			const connected = configuredServers.some((s) => !serverHasMissingSecretBinding(entry, s));
@@ -285,18 +320,22 @@ function convertEntriesToTableData(
 				name: entry.manifest?.name ?? '',
 				icon: entry.manifest?.icon,
 				data: entry,
-				users: entry.userCount ?? 0,
+				users: isMultiUserEntry
+					? configuredServers.reduce(
+							(acc, server) => acc + (server.mcpServerInstanceUserCount ?? 0),
+							0
+						)
+					: (entry.userCount ?? 0),
 				editable: !entry.sourceURL,
 				type:
 					entry.manifest.runtime === 'remote'
 						? 'remote'
 						: entry.manifest.runtime === 'composite'
 							? 'composite'
-							: isMultiUserEntry
-								? 'multi-catalog-entry'
-								: 'single',
+							: 'hosted',
 				created: entry.created,
 				registry,
+				source,
 				needsUpdate: entry.needsUpdate,
 				hasServers: configuredServers.length > 0,
 				connected,
@@ -355,13 +394,14 @@ function convertServersToTableData(
 		)
 		.map((server) => {
 			const registry = getUserRegistry(server, usersMap);
+			const source = getSource(server, usersMap);
 			const instance = instancesMap?.get(server.id);
 			const connected = !!instance;
 			return {
 				id: server.id,
-				name: server.alias || server.manifest.name || '',
+				name: getMCPDisplayName(server),
 				icon: server.manifest.icon,
-				source: 'manual',
+				source,
 				type: 'multi',
 				data: server,
 				users: server.mcpServerInstanceUserCount ?? 0,
@@ -403,10 +443,7 @@ export function getServerTypeLabel(server?: MCPCatalogServer | MCPCatalogEntry) 
 	if (runtime === 'remote') return 'Remote';
 	if (runtime === 'composite') return 'Composite';
 
-	// Catalog entries carry serverUserType on their manifest; deployed servers carry it top-level.
-	const serverUserType =
-		'isCatalogEntry' in server ? server.manifest.serverUserType : server.serverUserType;
-	return serverUserType === 'multiUser' ? 'Multi-User' : 'Single User';
+	return 'Hosted';
 }
 
 export function isMultiUserCatalogEntry(entry?: MCPCatalogEntry) {
@@ -419,26 +456,13 @@ export function isMultiUserServer(server?: MCPCatalogServer) {
 
 export function getServerTypeLabelByType(type?: string) {
 	if (!type) return '';
-	return type === 'single'
-		? 'Single User'
+	return type === 'hosted'
+		? 'Hosted'
 		: type === 'multi'
-			? 'Multi-User'
-			: type === 'multi-catalog-entry'
-				? 'Multi-User Catalog Entry'
-				: type === 'remote'
-					? 'Remote'
-					: 'Composite';
-}
-
-export function getServerType(server?: MCPCatalogServer): LaunchServerType | null {
-	if (!server) return null;
-	const runtime = server.manifest.runtime;
-	if (runtime === 'remote') return 'remote';
-	if (runtime === 'composite') return 'composite';
-	if (server.serverUserType === 'multiUser') return 'multi';
-	if (server.serverUserType === 'singleUser') return 'single';
-	// Fall back to catalogEntryID only when serverUserType is unset.
-	return server.catalogEntryID ? 'single' : 'multi';
+			? 'Deployment'
+			: type === 'remote'
+				? 'Remote'
+				: 'Composite';
 }
 
 export function convertCompositeLaunchFormDataToPayload(lf: CompositeLaunchFormData) {
@@ -556,7 +580,7 @@ export function getServerUrl(d: MCPCatalogServer) {
 	// entry. Multi-user servers deployed from a catalog entry carry a
 	// catalogEntryID but are catalog-scoped MCPServers, so they must use the
 	// multi-user server details page (which fetches via /all-mcps/servers/{id}).
-	// The single-user instance page fetches via /mcp-servers/{id}, which only
+	// The single-user instance page fetches via /mcp-catalog/{id}, which only
 	// resolves servers that are not scoped to a catalog or workspace.
 	const isMulti = isMultiUserServer(d);
 
@@ -564,17 +588,17 @@ export function getServerUrl(d: MCPCatalogServer) {
 	if (profile.current.hasAdminAccess?.()) {
 		if (isMulti) {
 			url = belongsToWorkspace
-				? `/admin/mcp-servers/w/${d.powerUserWorkspaceID}/s/${d.id}/details`
-				: `/admin/mcp-servers/s/${d.id}/details`;
+				? `/admin/mcp-catalog/w/${d.powerUserWorkspaceID}/s/${d.id}/details`
+				: `/admin/mcp-catalog/s/${d.id}/details`;
 		} else {
 			url = belongsToWorkspace
-				? `/admin/mcp-servers/w/${d.powerUserWorkspaceID}/c/${d.catalogEntryID}/instance/${d.id}/details`
-				: `/admin/mcp-servers/c/${d.catalogEntryID}/instance/${d.id}/details`;
+				? `/admin/mcp-catalog/w/${d.powerUserWorkspaceID}/c/${d.catalogEntryID}/instance/${d.id}/details`
+				: `/admin/mcp-catalog/c/${d.catalogEntryID}/instance/${d.id}/details`;
 		}
 	} else {
 		url = isMulti
-			? `/mcp-servers/s/${d.id}/details`
-			: `/mcp-servers/c/${d.catalogEntryID}/instance/${d.id}/details`;
+			? `/mcp-catalog/s/${d.id}/details`
+			: `/mcp-catalog/c/${d.catalogEntryID}/instance/${d.id}/details`;
 	}
 	return url;
 }

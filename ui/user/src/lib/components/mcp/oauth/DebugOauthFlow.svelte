@@ -5,6 +5,7 @@
 		OAuthDebuggerRegisterClientResponse
 	} from '$lib/services';
 	import AdminService from '$lib/services/admin';
+	import { profile } from '$lib/stores';
 	import OAuthMetadataDebug from '../OAuthMetadataDebug.svelte';
 	import DebugOauthSection from './DebugOauthSection.svelte';
 	import { onMount } from 'svelte';
@@ -27,6 +28,7 @@
 	let currentStep = $state(DEBUG_FLOW_STEPS.metadataDiscovery);
 	let authorizationCodeInput = $state<string>('');
 	let showRequired = $state(false);
+	let isAdminReadonly = $derived(profile.current?.isAdminReadonly?.());
 
 	function resetExpanded() {
 		return {
@@ -343,12 +345,15 @@
 			class="btn btn-primary text-sm"
 			disabled={stepLoading ||
 				currentStep === DEBUG_FLOW_STEPS.authenticationComplete ||
-				Object.values(errors).some(Boolean)}
+				Object.values(errors).some(Boolean) ||
+				isAdminReadonly}
 			onclick={handleNextStep}
 		>
 			Continue Next Step
 		</button>
 
-		<button class="btn btn-secondary text-sm" onclick={handleRestart}> Restart </button>
+		<button class="btn btn-secondary text-sm" onclick={handleRestart} disabled={isAdminReadonly}>
+			Restart
+		</button>
 	</div>
 </div>

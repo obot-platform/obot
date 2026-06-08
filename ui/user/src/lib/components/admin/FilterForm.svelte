@@ -90,7 +90,8 @@
 		)
 	);
 
-	let runtimeFormData = $state<RuntimeFormData | undefined>(
+	type FilterRuntimeFormData = Omit<RuntimeFormData, 'serverUserType'>;
+	let runtimeFormData = $state<FilterRuntimeFormData | undefined>(
 		untrack(() => convertToRuntimeFormData(initialFilter))
 	);
 	let runtimeTypeSelect = $derived(runtimeFormData ? runtimeFormData.runtime : 'webhook-url');
@@ -202,12 +203,12 @@
 		}
 	}
 
-	function convertToRuntimeFormData(filter?: MCPFilterInput): RuntimeFormData | undefined {
+	function convertToRuntimeFormData(filter?: MCPFilterInput): FilterRuntimeFormData | undefined {
 		if (!filter || !filter.mcpServerManifest) {
 			return undefined;
 		} else {
 			const manifest = filter.mcpServerManifest;
-			const formData: RuntimeFormData = {
+			const formData: FilterRuntimeFormData = {
 				categories: manifest.metadata?.categories?.split(',').filter((c) => c.trim()) ?? [''],
 				icon: manifest.icon ?? '',
 				name: manifest.name ?? '',
@@ -430,7 +431,11 @@
 
 		if (runtimeFormData) {
 			showRuntimeRequired = {}; // reset
-			const missingRequiredFields = validateRuntimeForm(runtimeFormData, 'multi', true);
+			const missingRequiredFields = validateRuntimeForm(
+				runtimeFormData as RuntimeFormData,
+				'multi',
+				true
+			);
 			if (Object.keys(missingRequiredFields).length > 0) {
 				showRuntimeRequired = missingRequiredFields;
 				return;
@@ -464,7 +469,7 @@
 
 		try {
 			const mcpServerManifest = runtimeFormData
-				? convertServerRuntimeFormDataToManifest(runtimeFormData)
+				? convertServerRuntimeFormDataToManifest(runtimeFormData as RuntimeFormData)
 				: undefined;
 			const selectors =
 				filter.selectors.length > 0
@@ -710,7 +715,7 @@
 				<CustomConfigurationForm
 					bind:config={runtimeFormData.env}
 					{readonly}
-					type="multi"
+					serverUserType="multiUser"
 					{isPrebuiltEntry}
 					overrideEnvField={[PII_REDACT_TYPES, PII_BLOCK_TYPES]}
 				>

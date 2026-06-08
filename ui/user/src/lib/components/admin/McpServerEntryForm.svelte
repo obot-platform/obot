@@ -16,8 +16,8 @@
 		type MCPCatalogEntry,
 		type OrgUser
 	} from '$lib/services';
-	import { getServerTypeLabel, getUserRegistry } from '$lib/services/user/mcp';
-	import { profile, userDeviceSettings } from '$lib/stores';
+	import { getMCPDisplayName, getServerTypeLabel, getSource } from '$lib/services/user/mcp';
+	import { profile } from '$lib/stores';
 	import { success } from '$lib/stores/success';
 	import { goto } from '$lib/url';
 	import { openUrl, isOwnSingleUserServer } from '$lib/utils';
@@ -30,6 +30,7 @@
 		type ComponentLaunchFormData
 	} from '../mcp/CatalogConfigureForm.svelte';
 	import McpMultiDeleteBlockedDialog from '../mcp/McpMultiDeleteBlockedDialog.svelte';
+	import McpServerDetails from '../mcp/McpServerDetails.svelte';
 	import McpServerInfo from '../mcp/McpServerInfo.svelte';
 	import McpServerTools from '../mcp/McpServerTools.svelte';
 	import StaticOAuthConfigureModal from '../mcp/StaticOAuthConfigureModal.svelte';
@@ -52,9 +53,9 @@
 		Server,
 		Settings,
 		Trash2,
-		TriangleAlert,
 		Users,
-		Wrench
+		Wrench,
+		ExternalLink
 	} from 'lucide-svelte';
 	import { onMount, untrack } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -67,10 +68,11 @@
 		type?: LaunchServerType;
 		readonly?: boolean;
 		onCancel?: () => void;
-		onSubmit?: (id: string, type: LaunchServerType, message?: string) => void;
+		onSubmit?: (id: string, isMultiUserEntry: boolean, message?: string) => void;
 		hasExistingConfigured?: boolean;
 		isDialogView?: boolean;
 		limitViews?: string[];
+		excludeViews?: string[];
 		configuredServers?: MCPCatalogServer[];
 		allowMultiUserServerConfigurationEdit?: boolean;
 	}
@@ -87,12 +89,14 @@
 		hasExistingConfigured,
 		isDialogView,
 		limitViews,
+		excludeViews,
 		configuredServers,
 		allowMultiUserServerConfigurationEdit
 	}: Props = $props();
 
 	let entry = $state(untrack(() => initialEntry));
 	let lastSyncedInitialEntry: MCPCatalogEntry | MCPCatalogServer | undefined = undefined;
+	let prefix = $derived(profile.current.hasAdminAccess?.() ? '/admin' : '');
 
 	$effect(() => {
 		const next = initialEntry;
@@ -122,7 +126,7 @@
 	let listFilters = $state<Promise<MCPFilter[]>>();
 	let users = $state<OrgUser[]>([]);
 	let usersMap = $derived(new Map(users.map((user) => [user.id, user])));
-	let registry = $derived(entry ? getUserRegistry(entry, usersMap) : 'Global Registry');
+	let source = $derived(entry ? getSource(entry, usersMap) : undefined);
 
 	let deleteServer = $state(false);
 	let deleteConflictError = $state<MCPCompositeDeletionDependencyError | undefined>();
@@ -133,7 +137,7 @@
 	let selected = $derived.by(() => {
 		const searchParams = page.url.searchParams;
 		const tab = searchParams.get('view');
-		const fallback = entry ? 'overview' : 'configuration';
+		const fallback = entry && !excludeViews?.includes('overview') ? 'overview' : 'configuration';
 		if (!tab) return fallback;
 		return tabs.some((t) => t.view === tab) ? tab : fallback;
 	});
@@ -155,6 +159,7 @@
 	let saving = $state(false);
 	let error = $state<string>();
 	let showButtonInlineError = $state(false);
+	let showUpdateExistingDeploymentsConfirm = $state(false);
 
 	let showRegenerateToolsButton = $derived(
 		entry &&
@@ -181,15 +186,15 @@
 			entry && !server
 				? [
 						{ label: 'Overview', view: 'overview' },
+						...(trueOwner &&
+						(!isCatalogEntryDeployedMultiUserServer(entry) || allowMultiUserServerConfigurationEdit)
+							? [{ label: 'Configuration', view: 'configuration' }]
+							: []),
 						...(belongsToUser ? [{ label: 'Server Details', view: 'server-instances' }] : []),
 						{ label: 'Tools', view: 'tools' },
 						// Basic users who just connected don't see Configuration.
 						// Catalog entry-deployed multi-user servers also hide it: the configuration is
 						// owned by the upstream catalog entry, not the deployment.
-						...(trueOwner &&
-						(!isCatalogEntryDeployedMultiUserServer(entry) || allowMultiUserServerConfigurationEdit)
-							? [{ label: 'Configuration', view: 'configuration' }]
-							: []),
 						...(belongsToUser
 							? [
 									{ label: 'Audit Logs', view: 'audit-logs' },
@@ -197,7 +202,7 @@
 								]
 							: []),
 						...(isAtLeastPowerUserPlus && trueOwner
-							? [{ label: 'Registries', view: 'access-control' }]
+							? [{ label: 'Access Policies', view: 'access-control' }]
 							: []),
 						...(profile.current?.hasAdminAccess?.() ? [{ label: 'Filters', view: 'filters' }] : [])
 					]
@@ -205,14 +210,13 @@
 						{ label: 'Overview', view: 'overview' },
 						...(belongsToUser ? [{ label: 'Server Details', view: 'server-instances' }] : []),
 						{ label: 'Tools', view: 'tools' },
-						...(belongsToUser ? [{ label: 'Audit Logs', view: 'audit-logs' }] : []),
-						...(userDeviceSettings.developerMode
+						...(profile.current?.hasAdminAccess?.() && entry?.manifest?.runtime === 'remote'
 							? [{ label: 'Troubleshooting', view: 'troubleshooting' }]
 							: [])
 					];
 		return limitViews
 			? availableTabs.filter((tab) => limitViews.includes(tab.view))
-			: availableTabs;
+			: availableTabs.filter((tab) => !excludeViews?.includes(tab.view));
 	});
 
 	$effect(() => {
@@ -279,15 +283,11 @@
 	function setLastVisitedMcpServer() {
 		if (isDialogView) return;
 		if (!entry) return;
-		const name = getDisplayName(entry);
+		const name = getMCPDisplayName(entry);
 		sessionStorage.setItem(
 			ADMIN_SESSION_STORAGE.LAST_VISITED_MCP_SERVER,
 			JSON.stringify({ id: entry.id, name, type, entity, entityId: id })
 		);
-	}
-
-	function getDisplayName(item: MCPCatalogEntry | MCPCatalogServer) {
-		return ('alias' in item && item.alias) || item.manifest.name;
 	}
 
 	function isCatalogEntryDeployedMultiUserServer(item?: MCPCatalogEntry | MCPCatalogServer) {
@@ -574,20 +574,31 @@
 		if (onCancel) {
 			onCancel();
 		} else {
-			const url = profile.current.hasAdminAccess?.() ? '/admin/mcp-servers' : '/mcp-servers';
-			goto(url);
+			goto(`${prefix}/mcp-catalog`);
 		}
 	}
 
-	function handleSubmit(
-		updatedEntry: MCPCatalogEntry | MCPCatalogServer,
-		type: LaunchServerType,
-		message?: string
-	) {
+	function handleSubmit(updatedEntry: MCPCatalogEntry | MCPCatalogServer, message?: string) {
 		if (onSubmit) {
-			onSubmit(updatedEntry.id, type, message);
+			const isMultiUserEntry =
+				'isCatalogEntry' in updatedEntry
+					? updatedEntry.manifest?.serverUserType === 'multiUser'
+					: true;
+			onSubmit(updatedEntry.id, isMultiUserEntry, message);
 		} else {
 			entry = updatedEntry;
+
+			if ('isCatalogEntry' in updatedEntry && id) {
+				const listInstances =
+					entity === 'workspace'
+						? UserService.getWorkspaceCatalogEntryServers
+						: AdminService.listMCPServersForEntry;
+				listInstances(id, updatedEntry.id).then((response) => {
+					if (response.length > 0 && response.some((instance) => instance)) {
+						showUpdateExistingDeploymentsConfirm = true;
+					}
+				});
+			}
 			if (message) {
 				success.add(message);
 			}
@@ -614,16 +625,28 @@
 				</div>
 				<h1 class="text-2xl font-semibold capitalize">
 					{#if entry}
-						{server?.alias || getDisplayName(entry)}
+						{getMCPDisplayName(entry)}
 					{/if}
 				</h1>
 				<div class="pill-rounded">
 					{getServerTypeLabel(entry)}
 				</div>
-				{#if registry}
-					<div class="pill-rounded">
-						{registry}
-					</div>
+				{#if source}
+					{#if source.type === 'git'}
+						<a
+							href={source.url}
+							target="_blank"
+							rel="external noopener noreferrer"
+							class="btn btn-xs btn-primary px-3!"
+						>
+							{source.url?.split('/').pop()}
+							<ExternalLink class="size-3" />
+						</a>
+					{:else}
+						<div class="pill-rounded">
+							{source.name}
+						</div>
+					{/if}
 				{/if}
 			</div>
 			{#if belongsToUser && !readonly}
@@ -690,14 +713,10 @@
 										selected === tab.view &&
 											'dark:bg-base-200 dark:border-base-400 bg-base-100 shadow-sm',
 										selected !== tab.view && 'hover:bg-base-400',
-										tab.view === 'troubleshooting' &&
-											'bg-warning/10 flex items-center justify-center gap-1'
+										tab.view === 'troubleshooting' && 'flex items-center justify-center gap-1'
 									)}
 								>
 									{tab.label}
-									{#if tab.view === 'troubleshooting'}
-										<TriangleAlert class="size-3 text-warning" />
-									{/if}
 								</button>
 							{/each}
 						</div>
@@ -787,8 +806,8 @@
 											tools.
 										{:else}
 											Click above to set up a temporary instance that will populate capabilities and
-											tools. Otherwise, tools will populate when the user first launches this
-											server.
+											tools. Otherwise, tools will populate when the user first deploys a server for
+											the catalog entry.
 										{/if}
 									</p>
 								{/if}
@@ -809,15 +828,19 @@
 		{:else if selected === 'audit-logs'}
 			{@render auditLogsView()}
 		{:else if selected === 'server-instances'}
-			<McpServerInstances
-				{id}
-				{entity}
-				entry={entry && 'isCatalogEntry' in entry && server ? server : entry}
-				catalogEntry={entry && 'isCatalogEntry' in entry ? entry : undefined}
-				{users}
-				{type}
-				{configuredServers}
-			/>
+			{#if entry && 'isCatalogEntry' in entry && server}
+				<McpServerDetails catalogEntry={entry} {server} />
+			{:else}
+				<McpServerInstances
+					{id}
+					{entity}
+					entry={entry && 'isCatalogEntry' in entry && server ? server : entry}
+					catalogEntry={entry && 'isCatalogEntry' in entry ? entry : undefined}
+					{users}
+					{type}
+					{configuredServers}
+				/>
+			{/if}
 		{:else if selected === 'filters'}
 			{@render filtersView()}
 		{:else if selected === 'troubleshooting'}
@@ -842,12 +865,12 @@
 			{#snippet readonlyMessage()}
 				{#if entry && 'sourceURL' in entry && !!entry.sourceURL}
 					<p>
-						This MCP Server comes from an external Git Source URL <span
+						This catalog entry comes from an external Git Source URL <span
 							class="text-muted-content text-xs">({entry.sourceURL.split('/').pop()})</span
 						> and cannot be edited.
 					</p>
 				{:else}
-					<p>This MCP server is non-editable.</p>
+					<p>This catalog entry is non-editable.</p>
 				{/if}
 			{/snippet}
 		</CatalogServerForm>
@@ -878,10 +901,10 @@
 					let url = '';
 					if (entity === 'workspace') {
 						url = !isAdminRoute
-							? `/mcp-registries/${d.id}`
-							: `/admin/mcp-registries/w/${id}/r/${d.id}`;
+							? `/mcp-access-policies/${d.id}`
+							: `/admin/mcp-access-policies/w/${id}/r/${d.id}`;
 					} else {
-						url = `/admin/mcp-registries/${d.id}`;
+						url = `/admin/mcp-access-policies/${d.id}`;
 					}
 					openUrl(url, isCtrlClick);
 				}}
@@ -921,9 +944,9 @@
 		{:else}
 			<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 				<GlobeLock class="text-muted-content size-24 opacity-50" />
-				<h4 class="text-muted-content text-lg font-semibold">No MCP registries</h4>
+				<h4 class="text-muted-content text-lg font-semibold">No MCP access policies</h4>
 				<p class="text-muted-content text-sm font-light">
-					This server is not tied to any registries.
+					This server is not tied to any access policies.
 				</p>
 			</div>
 		{/if}
@@ -1071,11 +1094,10 @@
 	show={deleteServer}
 	onsuccess={async () => {
 		if (!id || !entry) return;
+		const url = `${prefix}/mcp-catalog` as `/${string}`;
+
 		if (!('isCatalogEntry' in entry)) {
 			const workspaceID = entry.powerUserWorkspaceID || (entity === 'workspace' ? id : undefined);
-			const url: `/${string}` = profile.current.hasAdminAccess?.()
-				? '/admin/mcp-servers'
-				: '/mcp-servers';
 			const deleteServerFn = workspaceID
 				? UserService.deleteWorkspaceMCPCatalogServer
 				: AdminService.deleteMCPCatalogServer;
@@ -1090,7 +1112,6 @@
 			}
 			goto(url);
 		} else {
-			const url: `/${string}` = entity === 'workspace' ? '/mcp-servers' : '/admin/mcp-servers';
 			const deleteCatalogEntryFn =
 				entity === 'workspace'
 					? UserService.deleteWorkspaceMCPCatalogEntry
@@ -1253,3 +1274,33 @@
 		</p>
 	</div>
 {/snippet}
+
+<Confirm
+	title="Update Deployments"
+	msg="Update existing deployments now?"
+	show={showUpdateExistingDeploymentsConfirm}
+	onsuccess={() => {
+		showUpdateExistingDeploymentsConfirm = false;
+		handleSelectionChange('server-instances');
+	}}
+	oncancel={() => {
+		showUpdateExistingDeploymentsConfirm = false;
+	}}
+	cancelText="Skip"
+	submitText="Go to Server Details"
+	type="info"
+>
+	{#snippet note()}
+		<p class="text-sm font-light">
+			There are existing deployment(s) of this MCP server that need to be updated. Would you like to
+			take care of this now?
+		</p>
+
+		{#if profile.current.hasAdminAccess?.()}
+			<p class="text-xs font-light mt-2 text-muted-content">
+				Deployments can also be updated at a later time through the "Server Details" tab or through
+				the MCP Management "Deployments" page.
+			</p>
+		{/if}
+	{/snippet}
+</Confirm>

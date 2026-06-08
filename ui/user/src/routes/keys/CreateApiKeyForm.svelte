@@ -5,7 +5,7 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import { stripMarkdownToText } from '$lib/markdown';
 	import { ApiKeysService, type MCPCatalogServer, type APIKeyCreateResponse } from '$lib/services';
-	import { compileAvailableMcpServers } from '$lib/services/user/mcp';
+	import { compileAvailableMcpServers, getMCPDisplayName } from '$lib/services/user/mcp';
 	import { mcpServersAndEntries } from '$lib/stores';
 	import { Check, Server } from 'lucide-svelte';
 	import { SvelteSet } from 'svelte/reactivity';
@@ -46,14 +46,10 @@
 		}
 	} as MCPCatalogServer;
 
-	function getServerDisplayName(server: MCPCatalogServer): string {
-		return server.alias || server.manifest.name || '';
-	}
-
 	let filteredServers = $derived.by(() => {
 		const searchLower = search.toLowerCase();
 		const servers = search
-			? mcpServers.filter((s) => getServerDisplayName(s).toLowerCase().includes(searchLower))
+			? mcpServers.filter((s) => getMCPDisplayName(s).toLowerCase().includes(searchLower))
 			: mcpServers;
 
 		// Include "All MCP Servers" option if it matches the search or there's no search
@@ -212,17 +208,13 @@
 						<div class="flex w-full items-center gap-3 overflow-hidden">
 							<div class="shrink-0">
 								{#if server.manifest.icon}
-									<img
-										src={server.manifest.icon}
-										alt={getServerDisplayName(server)}
-										class="size-6"
-									/>
+									<img src={server.manifest.icon} alt={getMCPDisplayName(server)} class="size-6" />
 								{:else}
 									<Server class="text-muted-content size-6" />
 								{/if}
 							</div>
 							<div class="flex min-w-0 grow flex-col">
-								<p class="truncate text-sm">{getServerDisplayName(server)}</p>
+								<p class="truncate text-sm">{getMCPDisplayName(server)}</p>
 								{#if server.manifest.description}
 									<span class="text-muted-content line-clamp-1 text-xs">
 										{stripMarkdownToText(server.manifest.description)}

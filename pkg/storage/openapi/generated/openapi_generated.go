@@ -5358,8 +5358,9 @@ func schema_obot_platform_obot_apiclient_types_MCPServer(ref common.ReferenceCal
 					},
 					"connectURL": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "ConnectURL is the URL clients can use to connect to this MCP server.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"nanobotAgentID": {
@@ -5555,6 +5556,13 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntry(ref common.
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
 							Format: "",
+						},
+					},
+					"connectURL": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ConnectURL is the default URL clients can use to connect before configuring a personal server.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},

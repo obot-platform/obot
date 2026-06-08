@@ -11,6 +11,7 @@
 		convertCompositeInfoToLaunchFormData,
 		convertCompositeLaunchFormDataToPayload,
 		convertEnvHeadersToRecord,
+		getMCPDisplayName,
 		getSecretBindingEngineError,
 		hasSecretBinding,
 		isKubernetesRuntimeBackend
@@ -354,7 +355,7 @@
 	bind:form={configureForm}
 	error={editingError}
 	icon={editingManifest?.icon}
-	name={server?.alias || server?.manifest?.name || ''}
+	name={getMCPDisplayName(server)}
 	onSave={handleConfigureForm}
 	submitText="Update"
 	loading={editing}

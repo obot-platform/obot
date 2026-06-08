@@ -111,8 +111,8 @@
 		}
 		goto(
 			profile.current?.hasAdminAccess?.()
-				? '/admin/mcp-registries?new=true'
-				: '/mcp-registries?new=true'
+				? '/admin/mcp-access-policies?new=true'
+				: '/mcp-access-policies?new=true'
 		);
 	}
 </script>
@@ -123,11 +123,11 @@
 	class="overflow-visible md:w-2xl"
 >
 	{#if accessControlRules.length === 0}
-		<p class="text-md mb-4 font-light">Looks like you don't have any MCP registries yet!</p>
+		<p class="text-md mb-4 font-light">Looks like you don't have any MCP access policies yet!</p>
 		<p class="text-md mb-8 font-light">Want to go ahead & create one now?</p>
 	{:else}
 		<p class="text-md mb-8 font-light">
-			Select the registries you want to apply to this MCP server.
+			Select the access policies you want to apply to this MCP server.
 		</p>
 	{/if}
 	{#if accessControlRules.length > 0}

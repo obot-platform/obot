@@ -27,9 +27,11 @@
 		};
 		name: string;
 		connectedUsers: OrgUser[];
+		hideTitle?: boolean;
 	}
 
-	let { name, connectedUsers, classes, entityId, catalogEntry, mcpServerId }: Props = $props();
+	let { name, connectedUsers, classes, entityId, catalogEntry, mcpServerId, hideTitle }: Props =
+		$props();
 	let isAdminUrl = $derived(page.url.pathname.includes('/admin'));
 	let servers = $state<MCPCatalogServer[]>([]);
 	let serversMap = $derived(new Map(servers.map((s) => [s.catalogEntryID || s.id, s])));
@@ -49,11 +51,13 @@
 	});
 </script>
 
-<div class="flex items-center gap-3">
-	<h1 class={twMerge('text-2xl font-semibold', classes?.title)}>
-		{name}
-	</h1>
-</div>
+{#if !hideTitle}
+	<div class="flex items-center gap-3">
+		<h1 class={twMerge('text-2xl font-semibold', classes?.title)}>
+			{name}
+		</h1>
+	</div>
+{/if}
 
 {#if catalogEntry?.manifest.compositeConfig?.componentServers}
 	<div>
@@ -71,8 +75,8 @@
 						onclick={(e) => {
 							const isCtrlClick = e.metaKey || e.ctrlKey;
 							const url = componentServer.catalogEntryID
-								? `/admin/mcp-servers/c/${componentServer.catalogEntryID}/instance/${catalogEntryServerId}`
-								: `/admin/mcp-servers/s/${componentServer.mcpServerID}/details`;
+								? `/admin/mcp-catalog/c/${componentServer.catalogEntryID}/instance/${catalogEntryServerId}`
+								: `/admin/mcp-catalog/s/${componentServer.mcpServerID}/details`;
 
 							sessionStorage.setItem(
 								ADMIN_SESSION_STORAGE.LAST_VISITED_MCP_SERVER,
@@ -160,7 +164,7 @@
 			{#if catalogEntry?.id && isAdminUrl && profile.current?.hasAdminAccess?.()}
 				<a
 					href={resolve(
-						`/admin/mcp-servers/c/${catalogEntry.id}?view=audit-logs&user_id=${encodeURIComponent(d.id)}`
+						`/admin/mcp-catalog/c/${catalogEntry.id}?view=audit-logs&user_id=${encodeURIComponent(d.id)}`
 					)}
 					class="btn btn-link"
 				>

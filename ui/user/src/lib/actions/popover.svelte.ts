@@ -207,9 +207,10 @@ export default function popover(initialOptions?: PopoverOptions): Popover {
 			'tooltip-portal-daisy-host--inactive'
 		);
 
-		// Reset positioning styles
-		tooltip.style.removeProperty('left');
-		tooltip.style.removeProperty('top');
+		if (open) {
+			tooltip.style.removeProperty('left');
+			tooltip.style.removeProperty('top');
+		}
 
 		const useFixedLayer = options?.strategy === 'fixed' || options?.fixed;
 		tooltip.classList.add(useFixedLayer ? 'fixed' : 'absolute');
