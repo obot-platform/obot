@@ -348,7 +348,7 @@
 	}
 
 	onMount(() => {
-		if ((type === 'multi' || type === 'remote') && entry && id) {
+		if (entry && id && 'isCatalogEntry' in entry && entry.manifest.serverUserType === 'multiUser') {
 			revealCatalogServer(id, entry.id, entity);
 		}
 	});

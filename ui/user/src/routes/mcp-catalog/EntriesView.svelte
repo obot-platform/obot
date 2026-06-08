@@ -261,6 +261,10 @@
 					url = `${prefix}/mcp-catalog/s/${d.id}`;
 				}
 
+				if (profile.current.hasAdminAccess?.() && d.data.powerUserWorkspaceID) {
+					url += '?wid=' + d.data.powerUserWorkspaceID;
+				}
+
 				openUrl(url, isCtrlClick);
 			}}
 			{initSort}

@@ -588,11 +588,11 @@ export function getServerUrl(d: MCPCatalogServer) {
 	if (profile.current.hasAdminAccess?.()) {
 		if (isMulti) {
 			url = belongsToWorkspace
-				? `/admin/mcp-catalog/w/${d.powerUserWorkspaceID}/s/${d.id}/details`
+				? `/admin/mcp-catalog//s/${d.id}/details?wid=${d.powerUserWorkspaceID}`
 				: `/admin/mcp-catalog/s/${d.id}/details`;
 		} else {
 			url = belongsToWorkspace
-				? `/admin/mcp-catalog/w/${d.powerUserWorkspaceID}/c/${d.catalogEntryID}/instance/${d.id}/details`
+				? `/admin/mcp-catalog/c/${d.catalogEntryID}/instance/${d.id}/details?wid=${d.powerUserWorkspaceID}`
 				: `/admin/mcp-catalog/c/${d.catalogEntryID}/instance/${d.id}/details`;
 		}
 	} else {
