@@ -158,7 +158,7 @@ func TestSkillRouteAuthorization(t *testing.T) {
 			path:   "/api/skills/some-skill-id/preview",
 			user: &user.DefaultInfo{
 				Name:   "auditor",
-				Groups: []string{types.GroupAuditor, types.GroupAuthenticated},
+				Groups: []string{types.GroupAuditor, types.GroupAuthenticated, types.GroupBasic},
 			},
 			allowed: true,
 		},

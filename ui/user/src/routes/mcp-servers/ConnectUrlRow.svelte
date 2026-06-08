@@ -41,7 +41,7 @@
 			<input
 				onmousedown={() => copyButton?.copy()}
 				type="text"
-				value={connection.connectURL}
+				value={connection.connectURL ?? ''}
 				class={twMerge('w-full text-xs', requiresConfiguration && 'opacity-50')}
 				readonly
 				{disabled}
@@ -53,7 +53,7 @@
 						button:
 							'shrink-0 text-xs flex gap-1 :not([disabled]):hover:text-base-content :not([disabled]):text-base-content/65 disabled:cursor-not-allowed'
 					}}
-					text={connection.connectURL}
+					text={connection.connectURL ?? ''}
 					showTextLeft
 					{disabled}
 				/>

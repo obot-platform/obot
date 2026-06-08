@@ -37,6 +37,8 @@
 				mcpServer={server}
 				compositeParentName={server?.compositeName}
 				hideTitle
+				entity={server.powerUserWorkspaceID ? 'workspace' : 'catalog'}
+				id={server.powerUserWorkspaceID || server.mcpCatalogID || DEFAULT_MCP_CATALOG_ID}
 			/>
 			{#if server?.manifest.runtime === 'remote'}
 				<OAuthMetadataDebug metadata={server.oauthMetadata} />
