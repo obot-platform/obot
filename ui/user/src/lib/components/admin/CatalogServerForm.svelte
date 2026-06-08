@@ -213,7 +213,7 @@
 
 			return formData;
 		} else {
-			// Handle MCPCatalogEntry (single-user servers)
+			// Handle MCPCatalogEntry (catalog entries)
 			const entry = item as MCPCatalogEntry;
 			const manifest = entry.manifest;
 
@@ -233,7 +233,11 @@
 				uvxConfig: undefined,
 				containerizedConfig: undefined,
 				remoteConfig: undefined,
-				remoteServerConfig: undefined
+				remoteServerConfig: undefined,
+				multiUserConfig:
+					manifest.serverUserType === 'multiUser'
+						? (manifest.multiUserConfig ?? { userDefinedHeaders: [] })
+						: undefined
 			};
 
 			// Initialize the appropriate runtime config based on the runtime type
@@ -372,6 +376,8 @@
 			env: baseData.env,
 			runtime: baseData.runtime,
 			serverUserType: baseData.serverUserType,
+			multiUserConfig:
+				baseData.serverUserType === 'multiUser' ? baseData.multiUserConfig : undefined,
 			...(resources ? { resources } : {}),
 			...convertCategoriesToMetadata(categories)
 		};
