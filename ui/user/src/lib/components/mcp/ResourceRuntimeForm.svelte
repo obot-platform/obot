@@ -25,8 +25,8 @@
 <div class="paper">
 	<h4 class="text-sm font-semibold">Resource Limits & Requests</h4>
 	<p class="text-xs text-muted-content">
-		Define the CPU and memory requests and limits for this MCP server's deployments. See the
-		Kubernetes <a
+		Define the CPU and memory requests and limits for deployments created by this MCP catalog entry.
+		See the Kubernetes <a
 			href="https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#requests-and-limits"
 			class="text-link"
 			rel="external"
