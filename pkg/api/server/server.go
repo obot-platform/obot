@@ -201,8 +201,6 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 				// Only set WWW-Authenticate if not in no-auth mode
 				if strings.HasPrefix(req.URL.Path, "/v0.1") && !s.registryNoAuth {
 					rw.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="MCP Registry", resource_metadata="%s/.well-known/oauth-protected-resource/v0.1/servers"`, strings.TrimSuffix(s.baseURL, "/api")))
-				} else if strings.HasPrefix(req.URL.Path, "/mcp-connect/") && user.GetUID() == "anonymous" {
-					rw.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer error="invalid_request", error_description="Invalid access token", resource_metadata="%s/.well-known/oauth-protected-resource%s"%s`, strings.TrimSuffix(s.baseURL, "/api"), req.URL.Path, s.mcpOAuthScope))
 				}
 
 				if authenticated {

@@ -221,8 +221,6 @@ var (
 			"GET /api/app-oauth/get-token/{id}",
 			"GET /api/app-oauth/get-token",
 
-			"POST /api/sendgrid",
-
 			"GET /api/healthz",
 
 			"GET /api/app-preferences",
@@ -263,7 +261,6 @@ var (
 
 		types.GroupBasic: {
 			"/api/llm-proxy/",
-			"POST /api/prompt",
 			"GET /api/models",
 			"GET /api/model-providers",
 			"GET /api/users",
@@ -354,6 +351,11 @@ var (
 			"GET /api/published-artifacts",
 		},
 
+		// These are the only generic paths that MCP OAuth tokens can access, plus those for the anyGroup
+		types.GroupMCPOAuth: {
+			"GET /oauth/userinfo",
+		},
+
 		MetricsGroup: {
 			"/debug/metrics",
 		},
@@ -399,17 +401,29 @@ func NewAuthorizer(cache, uncached kclient.Client, devMode bool, acrHelper *acce
 }
 
 func (a *Authorizer) Authorize(req *http.Request, user user.Info) bool {
-	if authorizeAPIKeySkillRoutes(req, user) {
+	isMCPOAuthUser := slices.Contains(user.GetGroups(), types.GroupMCPOAuth)
+	if !isMCPOAuthUser && authorizeAPIKeySkillRoutes(req, user) {
 		return true
 	}
 
-	userGroups := user.GetGroups()
+	var userGroups []string
+	if isMCPOAuthUser {
+		// MCP OAuth tokens can only access routes for that group or those for the anyGroup.
+		userGroups = []string{types.GroupMCPOAuth}
+	} else {
+		userGroups = user.GetGroups()
+	}
+
 	for _, r := range a.rules {
 		if r.group == anyGroup || slices.Contains(userGroups, r.group) {
 			if _, pattern := r.mux.Handler(req); pattern != "" {
 				return true
 			}
 		}
+	}
+
+	if isMCPOAuthUser {
+		return a.authorizeAPIResources(req, user)
 	}
 
 	return a.authorizeAPIResources(req, user) || a.checkOAuthClient(req) || a.checkUI(req, user)
@@ -458,21 +472,31 @@ func defaultRules(devMode bool, registryNoAuth bool) []rule {
 		rules = append(rules, rule)
 	}
 
-	var registryRule rule
+	var registryRuleBasic, registryRuleMCPOAuth rule
 	if registryNoAuth {
-		registryRule = rule{
+		registryRuleBasic = rule{
+			group: anyGroup,
+			mux:   http.NewServeMux(),
+		}
+		registryRuleMCPOAuth = rule{
 			group: anyGroup,
 			mux:   http.NewServeMux(),
 		}
 	} else {
-		registryRule = rule{
+		registryRuleBasic = rule{
 			group: types.GroupBasic,
 			mux:   http.NewServeMux(),
 		}
+		registryRuleMCPOAuth = rule{
+			group: types.GroupMCPOAuth,
+			mux:   http.NewServeMux(),
+		}
 	}
-	registryRule.mux.Handle("GET /v0.1", f)
-	registryRule.mux.Handle("GET /v0.1/", f)
-	rules = append(rules, registryRule)
+	registryRuleBasic.mux.Handle("GET /v0.1", f)
+	registryRuleBasic.mux.Handle("GET /v0.1/", f)
+	registryRuleMCPOAuth.mux.Handle("GET /v0.1", f)
+	registryRuleMCPOAuth.mux.Handle("GET /v0.1/", f)
+	rules = append(rules, registryRuleBasic, registryRuleMCPOAuth)
 
 	if devMode {
 		for group := range devModeRules {

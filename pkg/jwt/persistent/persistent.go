@@ -16,6 +16,7 @@ import (
 
 	"github.com/MicahParks/jwkset"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/client"
@@ -42,13 +43,6 @@ func NewTokenService(serverURL string, gatewayClient *client.Client) (*TokenServ
 	}
 	return t, nil
 }
-
-type TokenType string
-
-const (
-	TokenTypeRun      TokenType = "run"
-	TokenTypeWorkflow TokenType = "workflow"
-)
 
 // EnsureJWK ensures that the JWK is created and stored. It should only be called in a controller post-start hook which only allows one to be run at a time.
 func (t *TokenService) EnsureJWK(ctx context.Context) error {
@@ -155,8 +149,6 @@ type TokenContext struct {
 	ModelProvider string
 	Model         string
 	Scope         string
-
-	TokenType TokenType
 }
 
 func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
@@ -173,58 +165,42 @@ func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Re
 		return nil, false, nil
 	}
 
-	switch tokenContext.TokenType {
-	case TokenTypeRun:
-		return &authenticator.Response{
-			User: &user.DefaultInfo{
-				UID:    tokenContext.UserID,
-				Name:   tokenContext.Scope,
-				Groups: tokenContext.UserGroups,
-				Extra: map[string][]string{
-					"obot:userID":    {tokenContext.UserID},
-					"obot:userName":  {tokenContext.UserName},
-					"obot:userEmail": {tokenContext.UserEmail},
-				},
-			},
-		}, true, nil
-	default:
-		extra := map[string][]string{
-			"email":                   {tokenContext.UserEmail},
-			"auth_provider_name":      {tokenContext.AuthProviderName},
-			"auth_provider_namespace": {tokenContext.AuthProviderNamespace},
-			"mcp_id":                  {tokenContext.MCPID},
-			"resource":                {tokenContext.Audience},
-			"oauthScope":              {tokenContext.OAuthScope},
-		}
-		groups := tokenContext.UserGroups
+	extra := map[string][]string{
+		"email":                   {tokenContext.UserEmail},
+		"auth_provider_name":      {tokenContext.AuthProviderName},
+		"auth_provider_namespace": {tokenContext.AuthProviderNamespace},
+		"mcp_id":                  {tokenContext.MCPID},
+		"resource":                {tokenContext.Audience},
+		"oauthScope":              {tokenContext.OAuthScope},
+	}
+	groups := tokenContext.UserGroups
 
-		// Look up auth provider group memberships from the gateway DB
-		if userID, err := strconv.ParseUint(tokenContext.UserID, 10, 64); err == nil {
-			if authGroupIDs, err := t.gatewayClient.ListGroupIDsForUser(req.Context(), uint(userID)); err != nil {
-				log.Warnf("failed to list auth provider groups for user %s: %s", tokenContext.UserID, err.Error())
+	// Look up auth provider group memberships from the gateway DB
+	if userID, err := strconv.ParseUint(tokenContext.UserID, 10, 64); err == nil {
+		if authGroupIDs, err := t.gatewayClient.ListGroupIDsForUser(req.Context(), uint(userID)); err != nil {
+			log.Warnf("failed to list auth provider groups for user %s: %s", tokenContext.UserID, err.Error())
+		} else {
+			extra["auth_provider_groups"] = authGroupIDs
+
+			// Resolve effective role by merging individual + group roles
+			if gatewayUser, err := t.gatewayClient.UserByID(req.Context(), tokenContext.UserID); err != nil {
+				log.Warnf("failed to look up user %s for role resolution: %s", tokenContext.UserID, err.Error())
+			} else if effectiveRole, err := t.gatewayClient.ResolveUserEffectiveRole(req.Context(), gatewayUser, authGroupIDs); err != nil {
+				log.Warnf("failed to resolve effective role for user %s: %s", tokenContext.UserID, err.Error())
 			} else {
-				extra["auth_provider_groups"] = authGroupIDs
-
-				// Resolve effective role by merging individual + group roles
-				if gatewayUser, err := t.gatewayClient.UserByID(req.Context(), tokenContext.UserID); err != nil {
-					log.Warnf("failed to look up user %s for role resolution: %s", tokenContext.UserID, err.Error())
-				} else if effectiveRole, err := t.gatewayClient.ResolveUserEffectiveRole(req.Context(), gatewayUser, authGroupIDs); err != nil {
-					log.Warnf("failed to resolve effective role for user %s: %s", tokenContext.UserID, err.Error())
-				} else {
-					groups = effectiveRole.Groups()
-				}
+				groups = effectiveRole.Groups()
 			}
 		}
-
-		return &authenticator.Response{
-			User: &user.DefaultInfo{
-				UID:    tokenContext.UserID,
-				Name:   tokenContext.UserName,
-				Groups: groups,
-				Extra:  extra,
-			},
-		}, true, nil
 	}
+
+	return &authenticator.Response{
+		User: &user.DefaultInfo{
+			UID:    tokenContext.UserID,
+			Name:   tokenContext.UserName,
+			Groups: append(groups, types.GroupMCPOAuth),
+			Extra:  extra,
+		},
+	}, true, nil
 }
 
 func (t *TokenService) DecodeToken(ctx context.Context, token string) (*TokenContext, error) {
@@ -294,7 +270,6 @@ func (t *TokenService) DecodeToken(ctx context.Context, token string) (*TokenCon
 		ModelProvider:         getStringClaim("ModelProvider"),
 		Model:                 getStringClaim("Model"),
 		Scope:                 getStringClaim("Scope"),
-		TokenType:             TokenType(getStringClaim("TokenType")),
 		// These two fields were the latter names and changed the former.
 		// This makes this backwards compatible with older tokens.
 		UserName:  getStringClaim("name", "UserName"),
@@ -326,7 +301,6 @@ func (t *TokenService) NewToken(ctx context.Context, context TokenContext) (stri
 		"ModelProvider":         context.ModelProvider,
 		"Model":                 context.Model,
 		"Scope":                 context.Scope,
-		"TokenType":             string(context.TokenType),
 	}
 
 	_, s, err := t.NewTokenWithClaims(ctx, claims)

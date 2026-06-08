@@ -40,6 +40,7 @@ const (
 	GroupAuthenticated         = "authenticated"
 	GroupAPIKey                = "api-key"
 	APIKeySkillsAccessExtraKey = "api-key-can-access-skills"
+	GroupMCPOAuth              = "mcp-oauth"
 )
 
 type Role int
