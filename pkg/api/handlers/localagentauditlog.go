@@ -138,6 +138,9 @@ func (h *LocalAgentAuditLogHandler) Submit(req api.Context) error {
 		if auditLog.EventName == "" {
 			return types.NewErrBadRequest("eventName is required")
 		}
+		if strings.TrimSpace(auditLog.ClientName) == "" {
+			return types.NewErrBadRequest("clientName is required")
+		}
 		logs = append(logs, auditLog)
 	}
 

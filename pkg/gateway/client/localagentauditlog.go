@@ -163,6 +163,8 @@ func (c *Client) GetLocalAgentAuditLogFilterOptions(ctx context.Context, option 
 		return nil, err
 	}
 
+	db = db.Where(option + " IS NOT NULL")
+
 	if len(exclude) > 0 {
 		db = db.Where(option+" NOT IN ?", exclude)
 	}
