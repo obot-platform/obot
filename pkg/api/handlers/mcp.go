@@ -988,18 +988,26 @@ func mcpServerOrInstanceFromConnectURL(req api.Context, id string) (v1.MCPServer
 		if len(servers.Items) == 0 {
 			// If the user has not configured an MCP server for the catalog entry, and the catalog
 			// entry can be launched without further configuration, then create a server for the user.
+			missingAdminConfig, err := entryMissingAdminConfig(req.Context(), req.LocalK8sClient, req.ObotNamespace, entry)
+			if err != nil {
+				return v1.MCPServer{}, v1.MCPServerInstance{}, fmt.Errorf("failed to determine required admin configuration for catalog entry %s: %w", id, err)
+			}
+			if err := missingAdminConfig.err(id); err != nil {
+				return v1.MCPServer{}, v1.MCPServerInstance{}, err
+			}
+
 			needsConfig, err := entryNeedsUserConfig(req.Context(), req.LocalK8sClient, req.ObotNamespace, entry)
 			if err != nil {
 				return v1.MCPServer{}, v1.MCPServerInstance{}, fmt.Errorf("failed to determine required configuration for catalog entry %s: %w", id, err)
 			}
 			if needsConfig {
-				return v1.MCPServer{}, v1.MCPServerInstance{}, types.NewErrNotFound("user has not configured an MCP server for catalog entry %s", id)
+				return v1.MCPServer{}, v1.MCPServerInstance{}, types.NewErrNotFound("catalog entry %s requires user configuration before it can be connected", id)
 			}
 
 			// Convert the catalog entry manifest to a server manifest. Treat the user as non-admin always.
 			manifest, err := serverManifestFromCatalogEntryManifest(false, false, entry.Spec.Manifest, types.MCPServerManifest{})
 			if err != nil {
-				return v1.MCPServer{}, v1.MCPServerInstance{}, types.NewErrNotFound("user has not configured an MCP server for catalog entry %s", id)
+				return v1.MCPServer{}, v1.MCPServerInstance{}, types.NewErrBadRequest("catalog entry %s cannot be connected because it could not be converted to an MCP server: %v", id, err)
 			}
 
 			// Create a new MCP server for the user.
@@ -1016,7 +1024,7 @@ func mcpServerOrInstanceFromConnectURL(req api.Context, id string) (v1.MCPServer
 				},
 			}
 			if err := req.Create(&server); err != nil {
-				return v1.MCPServer{}, v1.MCPServerInstance{}, types.NewErrNotFound("user has not configured an MCP server for catalog entry %s", id)
+				return v1.MCPServer{}, v1.MCPServerInstance{}, fmt.Errorf("failed to create MCP server for catalog entry %s: %w", id, err)
 			}
 
 			// The composite's component servers are created asynchronously by the controller
@@ -1043,10 +1051,105 @@ func mcpServerOrInstanceFromConnectURL(req api.Context, id string) (v1.MCPServer
 	}
 }
 
+type missingCatalogEntryAdminConfig struct {
+	SecretBoundFields []string
+	StaticOAuth       bool
+}
+
+func (m missingCatalogEntryAdminConfig) err(entryID string) error {
+	var parts []string
+	if len(m.SecretBoundFields) > 0 {
+		parts = append(parts, fmt.Sprintf("required Kubernetes Secret bindings are missing or empty for %s", strings.Join(m.SecretBoundFields, ", ")))
+	}
+	if m.StaticOAuth {
+		parts = append(parts, "required static OAuth credentials have not been configured")
+	}
+	if len(parts) == 0 {
+		return nil
+	}
+	return types.NewErrBadRequest("catalog entry %s cannot be connected because %s", entryID, strings.Join(parts, "; "))
+}
+
+func entryMissingAdminConfig(ctx context.Context, client kclient.Client, obotNamespace string, entry v1.MCPServerCatalogEntry) (missingCatalogEntryAdminConfig, error) {
+	missing := missingCatalogEntryAdminConfig{
+		StaticOAuth: entryRequiresStaticOAuthCreds(entry),
+	}
+
+	type manifestRef struct {
+		prefix   string
+		manifest types.MCPServerCatalogEntryManifest
+	}
+
+	m := entry.Spec.Manifest
+	manifests := []manifestRef{{manifest: m}}
+	if m.Runtime == types.RuntimeComposite {
+		if m.CompositeConfig == nil {
+			return missing, nil
+		}
+		manifests = nil
+		for _, comp := range m.CompositeConfig.ComponentServers {
+			if comp.MCPServerID != "" {
+				continue
+			}
+			manifests = append(manifests, manifestRef{
+				prefix:   comp.ComponentID(),
+				manifest: comp.Manifest,
+			})
+		}
+	}
+
+	for _, ref := range manifests {
+		cm := ref.manifest
+		var remote *types.RemoteRuntimeConfig
+		if cm.RemoteConfig != nil {
+			remote = &types.RemoteRuntimeConfig{Headers: cm.RemoteConfig.Headers}
+		}
+
+		resolved, err := mcp.MergeBoundCreds(ctx, client, obotNamespace, cm.Env, remote, nil)
+		if err != nil {
+			return missing, err
+		}
+
+		for _, e := range cm.Env {
+			if e.Required && e.SecretBinding != nil {
+				if _, ok := resolved[e.Key]; !ok {
+					missing.SecretBoundFields = append(missing.SecretBoundFields, secretBoundFieldLabel(ref.prefix, "env", e.MCPHeader))
+				}
+			}
+		}
+
+		if cm.RemoteConfig != nil {
+			for _, h := range cm.RemoteConfig.Headers {
+				if h.Required && h.SecretBinding != nil {
+					if _, ok := resolved[h.Key]; !ok {
+						missing.SecretBoundFields = append(missing.SecretBoundFields, secretBoundFieldLabel(ref.prefix, "header", h))
+					}
+				}
+			}
+		}
+	}
+
+	return missing, nil
+}
+
+func secretBoundFieldLabel(prefix, kind string, h types.MCPHeader) string {
+	key := h.Key
+	if key == "" {
+		key = h.Name
+	}
+	if key == "" {
+		key = "<unknown>"
+	}
+	if prefix != "" {
+		return fmt.Sprintf("component %s %s %s", prefix, kind, key)
+	}
+	return fmt.Sprintf("%s %s", kind, key)
+}
+
 // entryNeedsUserConfig reports whether a catalog entry can't be auto-launched for a user without
-// further configuration. That covers both user-supplied config (required env, headers, or a URL the
-// user must provide) and unfinished admin setup (a required secret binding that doesn't resolve, or
-// static OAuth that isn't configured yet). For composite entries, every component is checked.
+// further configuration. Call entryMissingAdminConfig first when producing user-facing errors so
+// unresolved admin-managed configuration does not get reported as missing user configuration.
+// For composite entries, every component is checked.
 func entryNeedsUserConfig(ctx context.Context, client kclient.Client, obotNamespace string, entry v1.MCPServerCatalogEntry) (bool, error) {
 	// Static OAuth is admin config: if it's required but not configured yet, the entry can't launch.
 	if entryRequiresStaticOAuthCreds(entry) {
