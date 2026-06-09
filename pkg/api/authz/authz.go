@@ -334,6 +334,7 @@ var (
 			"PATCH /api/me",
 			"POST /api/logout-all",
 			"GET /api/version",
+			"GET /api/default-k8s-settings",
 			"GET /api/setup/oauth-complete",
 
 			// API key management for user's own keys

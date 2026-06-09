@@ -104,6 +104,45 @@ func TestMCPContainerResourcesAppliesServerOverridesWithRequestDefaults(t *testi
 	}
 }
 
+func TestEffectiveDefaultMCPResourceRequirements(t *testing.T) {
+	t.Run("uses built-in defaults when no K8s resources are configured", func(t *testing.T) {
+		defaults := EffectiveDefaultMCPResourceRequirements(v1.K8sSettingsSpec{})
+
+		if got, want := defaults.Requests[corev1.ResourceCPU], defaultCPURequest; got.Cmp(want) != 0 {
+			t.Fatalf("cpu request = %s, want %s", got.String(), want.String())
+		}
+		if got, want := defaults.Requests[corev1.ResourceMemory], defaultMCPMemoryRequest; got.Cmp(want) != 0 {
+			t.Fatalf("memory request = %s, want %s", got.String(), want.String())
+		}
+		if len(defaults.Limits) != 0 {
+			t.Fatalf("limits = %#v, want none", defaults.Limits)
+		}
+	})
+
+	t.Run("uses configured MCP resources and adds missing CPU request", func(t *testing.T) {
+		defaults := EffectiveDefaultMCPResourceRequirements(v1.K8sSettingsSpec{
+			Resources: &corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("512Mi"),
+				},
+				Limits: corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("1Gi"),
+				},
+			},
+		})
+
+		if got, want := defaults.Requests[corev1.ResourceCPU], defaultCPURequest; got.Cmp(want) != 0 {
+			t.Fatalf("cpu request = %s, want %s", got.String(), want.String())
+		}
+		if got, want := defaults.Requests[corev1.ResourceMemory], resource.MustParse("512Mi"); got.Cmp(want) != 0 {
+			t.Fatalf("memory request = %s, want %s", got.String(), want.String())
+		}
+		if got, want := defaults.Limits[corev1.ResourceMemory], resource.MustParse("1Gi"); got.Cmp(want) != 0 {
+			t.Fatalf("memory limit = %s, want %s", got.String(), want.String())
+		}
+	})
+}
+
 func TestMCPContainerResourcesAppliesServerCPURequestWithMemoryDefault(t *testing.T) {
 	serverResources := &corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{

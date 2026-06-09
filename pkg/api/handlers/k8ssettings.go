@@ -6,9 +6,11 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -36,6 +38,18 @@ func (h *K8sSettingsHandler) Get(req api.Context) error {
 	}
 
 	return req.Write(converted)
+}
+
+func (h *K8sSettingsHandler) Defaults(req api.Context) error {
+	var settings v1.K8sSettings
+	if err := req.Storage.Get(req.Context(), client.ObjectKey{
+		Namespace: req.Namespace(),
+		Name:      system.K8sSettingsName,
+	}, &settings); err != nil && !apierrors.IsNotFound(err) {
+		return err
+	}
+
+	return req.Write(convertResourceRequirements(mcp.EffectiveDefaultMCPResourceRequirements(settings.Spec)))
 }
 
 func (h *K8sSettingsHandler) Update(req api.Context) error {
@@ -168,6 +182,23 @@ func (h *K8sSettingsHandler) Update(req api.Context) error {
 	}
 
 	return req.Write(converted)
+}
+
+func convertResourceRequirements(resources corev1.ResourceRequirements) *types.MCPResourceRequirements {
+	result := &types.MCPResourceRequirements{}
+	if cpu, ok := resources.Requests[corev1.ResourceCPU]; ok {
+		result.Requests.CPU = cpu.String()
+	}
+	if memory, ok := resources.Requests[corev1.ResourceMemory]; ok {
+		result.Requests.Memory = memory.String()
+	}
+	if cpu, ok := resources.Limits[corev1.ResourceCPU]; ok {
+		result.Limits.CPU = cpu.String()
+	}
+	if memory, ok := resources.Limits[corev1.ResourceMemory]; ok {
+		result.Limits.Memory = memory.String()
+	}
+	return result
 }
 
 func convertK8sSettings(settings v1.K8sSettings) (types.K8sSettings, error) {

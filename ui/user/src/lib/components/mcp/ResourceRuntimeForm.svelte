@@ -1,12 +1,13 @@
 <script lang="ts">
-	import type { ResourceRuntimeConfig } from '$lib/services';
+	import type { MCPResourceRequirements, ResourceRuntimeConfig } from '$lib/services';
 
 	interface Props {
 		config: ResourceRuntimeConfig;
 		readonly?: boolean;
+		defaultResources?: MCPResourceRequirements;
 	}
 
-	let { config = $bindable(), readonly }: Props = $props();
+	let { config = $bindable(), readonly, defaultResources }: Props = $props();
 
 	if (!config.requests) {
 		config.requests = {
@@ -20,13 +21,20 @@
 			memory: ''
 		};
 	}
+
+	function defaultPlaceholder(value: string | undefined, example: string) {
+		if (defaultResources) {
+			return value || 'none';
+		}
+		return example;
+	}
 </script>
 
 <div class="paper">
 	<h4 class="text-sm font-semibold">Resource Limits & Requests</h4>
 	<p class="text-xs text-muted-content">
 		Define the CPU and memory requests and limits for deployments created by this MCP catalog entry.
-		See the Kubernetes <a
+		Leave fields blank to use the platform defaults shown in each field. See the Kubernetes <a
 			href="https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#requests-and-limits"
 			class="text-link"
 			rel="external"
@@ -46,7 +54,7 @@
 					class="text-input-filled dark:bg-base-100 w-full"
 					bind:value={config.requests!.cpu}
 					disabled={readonly}
-					placeholder="e.g. 10m"
+					placeholder={defaultPlaceholder(defaultResources?.requests?.cpu, 'e.g. 10m')}
 					onblur={() => {
 						if (config.requests?.cpu) {
 							config.requests.cpu = config.requests.cpu.trim();
@@ -61,7 +69,7 @@
 					class="text-input-filled dark:bg-base-100 w-full"
 					bind:value={config.limits!.cpu}
 					disabled={readonly}
-					placeholder="e.g. 10m"
+					placeholder={defaultPlaceholder(defaultResources?.limits?.cpu, 'e.g. 10m')}
 					onblur={() => {
 						if (config.limits?.cpu) {
 							config.limits.cpu = config.limits.cpu.trim();
@@ -83,7 +91,7 @@
 						class="text-input-filled dark:bg-base-100 w-full"
 						bind:value={config.requests!.memory}
 						disabled={readonly}
-						placeholder="e.g. 200Mi"
+						placeholder={defaultPlaceholder(defaultResources?.requests?.memory, 'e.g. 200Mi')}
 						onblur={() => {
 							if (config.requests?.memory) {
 								config.requests.memory = config.requests.memory.trim();
@@ -98,7 +106,7 @@
 						class="text-input-filled dark:bg-base-100 w-full"
 						bind:value={config.limits!.memory}
 						disabled={readonly}
-						placeholder="e.g. 200Mi"
+						placeholder={defaultPlaceholder(defaultResources?.limits?.memory, 'e.g. 200Mi')}
 						onblur={() => {
 							if (config.limits?.memory) {
 								config.limits.memory = config.limits.memory.trim();

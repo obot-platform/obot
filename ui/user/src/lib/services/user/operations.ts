@@ -33,6 +33,7 @@ import {
 	type DeviceScanListFilters,
 	type DeviceScanResponse,
 	type ImageResponse,
+	type MCPResourceRequirements,
 	type MCPCatalogServer,
 	type MCPServerInstance,
 	type MCPServerPrompt,
@@ -682,6 +683,14 @@ export async function getUser(
 export async function getVersion(opts?: { fetch?: Fetcher }): Promise<Version> {
 	const version = (await doGet('/version', opts)) as Version;
 	return version;
+}
+
+export async function getK8sResourceDefaults(opts?: {
+	fetch?: Fetcher;
+	signal?: AbortSignal;
+	dontLogErrors?: boolean;
+}): Promise<MCPResourceRequirements> {
+	return (await doGet('/default-k8s-settings', opts)) as MCPResourceRequirements;
 }
 
 // Workspace access control rules

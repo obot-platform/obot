@@ -7,6 +7,7 @@
 		type MCPCatalogServer,
 		type LaunchServerType,
 		type MCPCatalogEntry,
+		type MCPResourceRequirements,
 		type RuntimeFormData,
 		type MCPCatalogEntryServerManifest,
 		type Runtime,
@@ -83,6 +84,7 @@
 	let showRequired = $state<Record<string, boolean>>({});
 	let loading = $state(false);
 	let compositeHasToolNameErrors = $state(false);
+	let mcpResourceDefaults = $state<MCPResourceRequirements>();
 
 	let formData = $state<RuntimeFormData>(untrack(() => convertToFormData(entry)));
 
@@ -351,6 +353,15 @@
 	onMount(() => {
 		if ((type === 'multi' || type === 'remote') && entry && id) {
 			revealCatalogServer(id, entry.id, entity);
+		}
+		if (version.current.engine === 'kubernetes') {
+			UserService.getK8sResourceDefaults()
+				.then((defaults) => {
+					mcpResourceDefaults = defaults;
+				})
+				.catch((err) => {
+					console.error('Failed to load Kubernetes resource defaults:', err);
+				});
 		}
 	});
 
@@ -775,7 +786,11 @@
 {/if}
 
 {#if version.current.engine === 'kubernetes' && !['remote', 'composite'].includes(formData.runtime) && formData.resources}
-	<ResourceRuntimeForm bind:config={formData.resources} {readonly} />
+	<ResourceRuntimeForm
+		bind:config={formData.resources}
+		{readonly}
+		defaultResources={mcpResourceDefaults}
+	/>
 {/if}
 
 <!-- Environment Variables Section -->
