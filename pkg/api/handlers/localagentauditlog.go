@@ -110,8 +110,8 @@ func (h *LocalAgentAuditLogHandler) Submit(req api.Context) error {
 			EventID:            strings.TrimSpace(input.EventID),
 			CreatedAt:          input.CreatedAt.GetTime(),
 			UserID:             userID,
-			ClientName:         input.ClientInfo.Name,
-			ClientVersion:      input.ClientInfo.Version,
+			ClientName:         input.Client.Name,
+			ClientVersion:      input.Client.Version,
 			ClientIP:           clientIP,
 			ToolName:           input.ToolName,
 			ToolType:           input.ToolType,
@@ -217,21 +217,21 @@ func (h *LocalAgentAuditLogHandler) FilterOptions(req api.Context) error {
 	})
 }
 
-func decodeLocalAgentAuditLogInputs(body []byte) ([]types.LocalAgentAuditLog, error) {
+func decodeLocalAgentAuditLogInputs(body []byte) ([]types.LocalAgentAuditLogIngest, error) {
 	trimmed := bytes.TrimSpace(body)
 	if len(trimmed) > 0 && trimmed[0] == '[' {
-		var inputs []types.LocalAgentAuditLog
+		var inputs []types.LocalAgentAuditLogIngest
 		if err := json.Unmarshal(trimmed, &inputs); err != nil {
 			return nil, err
 		}
 		return inputs, nil
 	}
 
-	var input types.LocalAgentAuditLog
+	var input types.LocalAgentAuditLogIngest
 	if err := json.Unmarshal(trimmed, &input); err != nil {
 		return nil, err
 	}
-	return []types.LocalAgentAuditLog{input}, nil
+	return []types.LocalAgentAuditLogIngest{input}, nil
 }
 
 func canViewLocalAgentAuditLogMetadata(req api.Context) bool {
