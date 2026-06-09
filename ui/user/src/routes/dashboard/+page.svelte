@@ -90,7 +90,7 @@
 
 	function getUrl(item: MCPCatalogServer) {
 		if ('manifest' in item) {
-			return item.catalogEntryID
+			return item.catalogEntryID && item.serverUserType === 'singleUser'
 				? `/mcp-servers/c/${item.catalogEntryID}`
 				: `/mcp-servers/s/${item.id}`;
 		}
@@ -209,7 +209,7 @@
 		in:fade={{ duration: 150 }}
 		class={twMerge('paper gap-1 ', latestDeviceScan ? 'h-full' : '')}
 	>
-		<h4 class="flex items-center gap-2 font-semibold">Recently Created Servers</h4>
+		<h4 class="flex items-center gap-2 font-semibold">Recently Connected Servers</h4>
 		{#if mcpServersAndEntries.current.loading}
 			<div class="pt-2 flex flex-col gap-4">
 				{#each Array.from({ length: 5 }) as _, i (i)}
