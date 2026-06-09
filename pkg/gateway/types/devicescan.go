@@ -2,6 +2,10 @@
 package types
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"slices"
+	"strings"
 	"time"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
@@ -60,6 +64,7 @@ type DeviceScanSkill struct {
 	DeviceScanID uint                        `json:"deviceScanID" gorm:"index;not null"`
 	CreatedAt    time.Time                   `json:"createdAt" gorm:"index"`
 	Client       string                      `json:"client" gorm:"index"`
+	SkillID      string                      `json:"skillID" gorm:"index"`
 	Scope        string                      `json:"scope" gorm:"index"`
 	ProjectPath  string                      `json:"projectPath" gorm:"index"`
 	File         string                      `json:"file"`
@@ -68,6 +73,19 @@ type DeviceScanSkill struct {
 	HasScripts   bool                        `json:"hasScripts"`
 	GitRemoteURL string                      `json:"gitRemoteURL" gorm:"index"`
 	Files        datatypes.JSONSlice[string] `json:"files"`
+
+	Attributions []DeviceScanSkillAttribution `json:"attributions,omitempty" gorm:"foreignKey:DeviceScanSkillID;constraint:OnDelete:CASCADE"`
+}
+
+// DeviceScanSkillAttribution is one client attribution for a physical
+// skill observation. The composite unique index guarantees at most one
+// row per (skill, client) pair and serves the by-skill lookups via its
+// leading column.
+type DeviceScanSkillAttribution struct {
+	ID                uint      `json:"id" gorm:"primaryKey"`
+	DeviceScanSkillID uint      `json:"deviceScanSkillID" gorm:"not null;uniqueIndex:idx_skill_attribution_skill_client,priority:1"`
+	CreatedAt         time.Time `json:"createdAt" gorm:"index"`
+	Client            string    `json:"client" gorm:"uniqueIndex:idx_skill_attribution_skill_client,priority:2"`
 }
 
 type DeviceScanPlugin struct {
@@ -217,9 +235,12 @@ func ConvertDeviceScanMCPServer(m DeviceScanMCPServer) types2.DeviceScanMCPServe
 }
 
 func ConvertDeviceScanSkill(s DeviceScanSkill) types2.DeviceScanSkill {
+	clients := s.AttributionClients()
 	return types2.DeviceScanSkill{
 		ID:           s.ID,
 		Client:       s.Client,
+		Clients:      clients,
+		SkillID:      s.SkillID,
 		ProjectPath:  s.ProjectPath,
 		File:         s.File,
 		Name:         s.Name,
@@ -326,6 +347,7 @@ type SkillOccurrence struct {
 	DeviceScanID uint      `gorm:"column:device_scan_id"`
 	DeviceID     string    `gorm:"column:device_id"`
 	Client       string    `gorm:"column:client"`
+	Clients      []string  `gorm:"-"`
 	Scope        string    `gorm:"column:scope"`
 	ProjectPath  string    `gorm:"column:project_path"`
 	ScannedAt    time.Time `gorm:"column:scanned_at"`
@@ -376,22 +398,7 @@ func DeviceScanFromManifest(p types2.DeviceScanManifest) DeviceScan {
 			}
 		}
 	}
-	if len(p.Skills) > 0 {
-		s.Skills = make([]DeviceScanSkill, len(p.Skills))
-		for i, sk := range p.Skills {
-			s.Skills[i] = DeviceScanSkill{
-				Client:       sk.Client,
-				Scope:        deriveScope(sk.ProjectPath),
-				ProjectPath:  sk.ProjectPath,
-				File:         sk.File,
-				Name:         sk.Name,
-				Description:  sk.Description,
-				HasScripts:   sk.HasScripts,
-				GitRemoteURL: sk.GitRemoteURL,
-				Files:        datatypes.JSONSlice[string](sk.Files),
-			}
-		}
-	}
+	s.Skills = normalizeManifestSkills(p.Skills)
 	if len(p.Plugins) > 0 {
 		s.Plugins = make([]DeviceScanPlugin, len(p.Plugins))
 		for i, pl := range p.Plugins {
@@ -432,6 +439,156 @@ func DeviceScanFromManifest(p types2.DeviceScanManifest) DeviceScan {
 		}
 	}
 	return s
+}
+
+func (s DeviceScanSkill) AttributionClients() []string {
+	clients := make([]string, 0, len(s.Attributions)+1)
+	seen := map[string]struct{}{}
+	for _, attr := range s.Attributions {
+		client := strings.TrimSpace(attr.Client)
+		if client == "" {
+			continue
+		}
+		if _, ok := seen[client]; ok {
+			continue
+		}
+		seen[client] = struct{}{}
+		clients = append(clients, client)
+	}
+	if len(clients) == 0 {
+		if client := strings.TrimSpace(s.Client); client != "" {
+			clients = append(clients, client)
+		}
+	}
+	slices.Sort(clients)
+	return clients
+}
+
+// ComputeDeviceScanSkillID derives the stable content identity for a
+// physical skill observation. Not to be confused with
+// DeviceScanSkillAttribution.DeviceScanSkillID, which references the
+// skill row's primary key.
+func ComputeDeviceScanSkillID(file, projectPath, name, gitRemoteURL string) string {
+	h := sha256.New()
+	for _, part := range []string{
+		strings.TrimSpace(file),
+		strings.TrimSpace(projectPath),
+		strings.TrimSpace(name),
+		strings.TrimSpace(gitRemoteURL),
+	} {
+		h.Write([]byte(part))
+		h.Write([]byte{0})
+	}
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+func normalizeManifestSkills(in []types2.DeviceScanSkill) []DeviceScanSkill {
+	if len(in) == 0 {
+		return nil
+	}
+
+	type skillGroup struct {
+		skill   DeviceScanSkill
+		clients map[string]struct{}
+		files   map[string]struct{}
+	}
+
+	groups := map[string]*skillGroup{}
+	order := make([]string, 0, len(in))
+	for _, sk := range in {
+		// SkillID is server-generated: any submitted value is ignored
+		// so a client can't control how observations group.
+		key := ComputeDeviceScanSkillID(sk.File, sk.ProjectPath, sk.Name, sk.GitRemoteURL)
+		group, ok := groups[key]
+		if !ok {
+			group = &skillGroup{
+				skill: DeviceScanSkill{
+					SkillID:      key,
+					Scope:        deriveScope(sk.ProjectPath),
+					ProjectPath:  sk.ProjectPath,
+					File:         sk.File,
+					Name:         sk.Name,
+					Description:  sk.Description,
+					HasScripts:   sk.HasScripts,
+					GitRemoteURL: sk.GitRemoteURL,
+				},
+				clients: map[string]struct{}{},
+				files:   map[string]struct{}{},
+			}
+			groups[key] = group
+			order = append(order, key)
+		}
+
+		if group.skill.ProjectPath == "" {
+			group.skill.ProjectPath = sk.ProjectPath
+			group.skill.Scope = deriveScope(sk.ProjectPath)
+		}
+		if group.skill.File == "" {
+			group.skill.File = sk.File
+		}
+		if group.skill.Name == "" {
+			group.skill.Name = sk.Name
+		}
+		if group.skill.Description == "" {
+			group.skill.Description = sk.Description
+		}
+		group.skill.HasScripts = group.skill.HasScripts || sk.HasScripts
+		if group.skill.GitRemoteURL == "" {
+			group.skill.GitRemoteURL = sk.GitRemoteURL
+		}
+
+		for _, client := range append([]string{sk.Client}, sk.Clients...) {
+			client = strings.TrimSpace(client)
+			if client == "" {
+				continue
+			}
+			group.clients[client] = struct{}{}
+		}
+		for _, file := range sk.Files {
+			file = strings.TrimSpace(file)
+			if file == "" {
+				continue
+			}
+			group.files[file] = struct{}{}
+		}
+	}
+
+	out := make([]DeviceScanSkill, 0, len(order))
+	for _, key := range order {
+		group := groups[key]
+		clients := mapKeys(group.clients)
+		files := mapKeys(group.files)
+		group.skill.Client = canonicalSkillClient(clients)
+		group.skill.Files = datatypes.JSONSlice[string](files)
+		group.skill.Attributions = make([]DeviceScanSkillAttribution, 0, len(clients))
+		for _, client := range clients {
+			group.skill.Attributions = append(group.skill.Attributions, DeviceScanSkillAttribution{Client: client})
+		}
+		out = append(out, group.skill)
+	}
+	return out
+}
+
+func canonicalSkillClient(clients []string) string {
+	if len(clients) == 0 {
+		return ""
+	}
+	if len(clients) == 1 {
+		return clients[0]
+	}
+	if slices.Contains(clients, "multi") {
+		return "multi"
+	}
+	return clients[0]
+}
+
+func mapKeys(m map[string]struct{}) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	slices.Sort(out)
+	return out
 }
 
 // deriveScope returns "global" when projectPath is empty, "project"

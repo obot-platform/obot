@@ -115,9 +115,12 @@ func walkProject(ctx context.Context, fsys fs.FS, scanners []ClientScanner, maxD
 			}
 			// depth=1 for top-level entries under root. SkipDir on a
 			// dir at depth==maxDepth means we don't descend into it,
-			// so files match at depths 1…maxDepth (inclusive).
+			// so files match at depths 1…maxDepth (inclusive) — except
+			// under known project skill roots (isProjectSkillPath),
+			// which are followed past maxDepth so skills in deep repos
+			// are still found.
 			depth := strings.Count(rel, "/") + 1
-			if depth >= maxDepth {
+			if depth >= maxDepth && !isProjectSkillPath(rel) {
 				return fs.SkipDir
 			}
 			return nil
@@ -144,4 +147,21 @@ func walkProject(ctx context.Context, fsys fs.FS, scanners []ClientScanner, maxD
 		return nil
 	})
 	return hits, skillHits
+}
+
+func isProjectSkillPath(rel string) bool {
+	for _, root := range projectSkillRoots {
+		if rel == root.rel || strings.HasPrefix(rel, root.rel+"/") {
+			return true
+		}
+		container, _, ok := strings.Cut(root.rel, "/")
+		if ok && (rel == container || strings.HasSuffix(rel, "/"+container)) {
+			return true
+		}
+		needle := "/" + root.rel
+		if strings.HasSuffix(rel, needle) || strings.Contains(rel, needle+"/") {
+			return true
+		}
+	}
+	return false
 }

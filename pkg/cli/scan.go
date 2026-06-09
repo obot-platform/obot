@@ -126,7 +126,7 @@ func writeScanTable(cmd *cobra.Command, manifest types.DeviceScanManifest) error
 	fmt.Fprintf(out, "Device ID: %s\n", tableCell(manifest.DeviceID))
 	fmt.Fprintf(out, "Scanned:   %s\n", manifest.ScannedAt.GetTime().Format(time.RFC3339))
 	fmt.Fprintf(out, "Found:     %d clients, %d MCP servers, %d skills, %d plugins, %d files\n\n",
-		len(manifest.Clients), len(manifest.MCPServers), len(manifest.Skills), len(manifest.Plugins), len(manifest.Files))
+		len(manifest.Clients), len(manifest.MCPServers), countPhysicalSkills(manifest.Skills), len(manifest.Plugins), len(manifest.Files))
 
 	if len(manifest.Clients) == 0 {
 		fmt.Fprintln(out, "No clients found")
@@ -158,6 +158,18 @@ func writeScanTable(cmd *cobra.Command, manifest types.DeviceScanManifest) error
 		)
 	}
 	return w.Flush()
+}
+
+// countPhysicalSkills counts distinct physical SKILL.md observations.
+// The scanner emits one manifest entry per client attribution, so the
+// same skill directory can appear under multiple clients; the per-client
+// table columns want that fan-out, but the headline count shouldn't.
+func countPhysicalSkills(skills []types.DeviceScanSkill) int {
+	seen := map[string]bool{}
+	for _, skill := range skills {
+		seen[skill.File+"\x00"+skill.ProjectPath+"\x00"+skill.Name] = true
+	}
+	return len(seen)
 }
 
 // ensureDeviceID returns deviceID if it is non-empty after trimming.

@@ -88,6 +88,10 @@ func (db *DB) AutoMigrate() (err error) {
 		return fmt.Errorf("failed to migrate API key skills access: %w", err)
 	}
 
+	if err = migrateIfEntryNotFoundInMigrationsTable(tx, "device_scan_skill_attributions", migrateDeviceScanSkillAttributions); err != nil {
+		return fmt.Errorf("failed to migrate device scan skill attributions: %w", err)
+	}
+
 	if err := tx.AutoMigrate(
 		types.AuthToken{},
 		types.TokenRequest{},
@@ -111,6 +115,7 @@ func (db *DB) AutoMigrate() (err error) {
 		types.DeviceScan{},
 		types.DeviceScanMCPServer{},
 		types.DeviceScanSkill{},
+		types.DeviceScanSkillAttribution{},
 		types.DeviceScanPlugin{},
 		types.DeviceScanFile{},
 		types.DeviceScanClient{},

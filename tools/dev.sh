@@ -21,9 +21,11 @@ print_with_color() {
   local color_code=$1
   local color_message=$2
   local uncolored_message=$3
-  local formatted_message="\033[38;5;${color_code}m${color_message}\033[0m${uncolored_message}"
 
-  printf "$formatted_message\n"
+  # Keep the format string constant — log lines can contain % and \
+  # sequences that would otherwise be interpreted (and crash printf,
+  # which kills the log pump and SIGPIPEs the server under set -e).
+  printf '\033[38;5;%sm%s\033[0m%s\n' "$color_code" "$color_message" "$uncolored_message"
 }
 
 print_section_header() {
@@ -137,7 +139,7 @@ user_ui_pid=$!
 user_ui_ready_pid=$!
 
 # Wait for all services to be ready
-wait "${server_ready_pid}" "${admin_ui_ready_pid}" "${user_ui_ready_pid}"
+wait "${server_ready_pid}" "${user_ui_ready_pid}"
 
 # Services ready, open browser tabs if requested
 print_section_header 120 "All components ready!"

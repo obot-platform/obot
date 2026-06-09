@@ -104,11 +104,18 @@ type DeviceScanMCPServer struct {
 type DeviceScanSkill struct {
 	// ID is the row's primary key. Server-set; ignored on submission.
 	ID uint `json:"id,omitempty"`
-	// Client is the canonical client name; "multi" for free-floating
-	// SKILL.md files with no canonical owning client (e.g.
-	// .agents/skills, .agent/skills, project skills outside a known
-	// client tree).
+	// Client is the legacy canonical client name. New consumers should
+	// prefer Clients, which contains every client attribution for this
+	// physical skill observation.
 	Client string `json:"client"`
+	// Clients is the complete set of client attributions for this physical
+	// skill observation. Older scanners/servers may omit it; in that case
+	// Client is the single attribution.
+	Clients []string `json:"clients,omitempty"`
+	// SkillID is a server-generated stable identity for this physical
+	// skill observation within a scan. Server-set; ignored on
+	// submission.
+	SkillID string `json:"skillID,omitempty"`
 	// ProjectPath is the project root for project-scope skills.
 	ProjectPath string `json:"projectPath,omitempty"`
 	// File is the absolute path of the SKILL.md file.
@@ -329,8 +336,10 @@ type DeviceSkillOccurrence struct {
 	DeviceScanID uint `json:"deviceScanID"`
 	// DeviceID is the device that submitted the parent scan.
 	DeviceID string `json:"deviceID"`
-	// Client is the canonical client name on this row.
+	// Client is the legacy canonical client name on this row.
 	Client string `json:"client"`
+	// Clients is the complete set of client attributions for this occurrence.
+	Clients []string `json:"clients,omitempty"`
 	// Scope is "global" or "project".
 	Scope string `json:"scope"`
 	// ProjectPath is the project root for project-scope rows.

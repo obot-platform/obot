@@ -3299,8 +3299,30 @@ func schema_obot_platform_obot_apiclient_types_DeviceScanSkill(ref common.Refere
 					},
 					"client": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Client is the canonical client name; \"multi\" for free-floating SKILL.md files with no canonical owning client (e.g. .agents/skills, .agent/skills, project skills outside a known client tree).",
+							Description: "Client is the legacy canonical client name. New consumers should prefer Clients, which contains every client attribution for this physical skill observation.",
 							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"clients": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Clients is the complete set of client attributions for this physical skill observation. Older scanners/servers may omit it; in that case Client is the single attribution.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"skillID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SkillID is a server-generated stable identity for this physical skill observation within a scan. Server-set; ignored on submission.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -3554,10 +3576,25 @@ func schema_obot_platform_obot_apiclient_types_DeviceSkillOccurrence(ref common.
 					},
 					"client": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Client is the canonical client name on this row.",
+							Description: "Client is the legacy canonical client name on this row.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
+						},
+					},
+					"clients": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Clients is the complete set of client attributions for this occurrence.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
 						},
 					},
 					"scope": {

@@ -307,6 +307,7 @@ export interface DeviceSkillOccurrence {
 	deviceScanID: number;
 	deviceID: string;
 	client: string;
+	clients?: string[];
 	scope: string;
 	projectPath?: string;
 	scannedAt: string;
