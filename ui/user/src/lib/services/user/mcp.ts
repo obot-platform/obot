@@ -447,7 +447,11 @@ export function getServerTypeLabel(server?: MCPCatalogServer | MCPCatalogEntry) 
 }
 
 export function isMultiUserCatalogEntry(entry?: MCPCatalogEntry) {
-	return entry?.manifest?.serverUserType === 'multiUser';
+	return (
+		entry?.manifest?.serverUserType === 'multiUser' &&
+		entry.manifest.runtime !== 'remote' &&
+		entry.manifest.runtime !== 'composite'
+	);
 }
 
 export function isMultiUserServer(server?: MCPCatalogServer) {
@@ -587,13 +591,15 @@ export function getServerUrl(d: MCPCatalogServer) {
 	let url = '';
 	if (profile.current.hasAdminAccess?.()) {
 		if (isMulti) {
-			url = belongsToWorkspace
-				? `/admin/mcp-catalog/w/${d.powerUserWorkspaceID}/s/${d.id}/details`
-				: `/admin/mcp-catalog/s/${d.id}/details`;
+			url =
+				belongsToWorkspace && d.powerUserWorkspaceID
+					? `/admin/mcp-catalog/s/${d.id}/details?wid=${encodeURIComponent(d.powerUserWorkspaceID)}`
+					: `/admin/mcp-catalog/s/${d.id}/details`;
 		} else {
-			url = belongsToWorkspace
-				? `/admin/mcp-catalog/w/${d.powerUserWorkspaceID}/c/${d.catalogEntryID}/instance/${d.id}/details`
-				: `/admin/mcp-catalog/c/${d.catalogEntryID}/instance/${d.id}/details`;
+			url =
+				belongsToWorkspace && d.powerUserWorkspaceID
+					? `/admin/mcp-catalog/c/${d.catalogEntryID}/instance/${d.id}/details?wid=${encodeURIComponent(d.powerUserWorkspaceID)}`
+					: `/admin/mcp-catalog/c/${d.catalogEntryID}/instance/${d.id}/details`;
 		}
 	} else {
 		url = isMulti

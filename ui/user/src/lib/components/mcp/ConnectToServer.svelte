@@ -157,10 +157,13 @@
 		configureFormTitle = undefined;
 		configureForm = {
 			name: '',
-			envs: item.manifest?.env?.map((env) => ({
-				...env,
-				value: ''
-			})),
+			envs:
+				item.manifest.serverUserType === 'multiUser'
+					? []
+					: item.manifest?.env?.map((env) => ({
+							...env,
+							value: ''
+						})),
 			headers: item.manifest?.remoteConfig?.headers?.map((header) => ({
 				...header,
 				value: '',

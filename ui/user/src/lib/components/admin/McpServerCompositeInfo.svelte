@@ -75,7 +75,7 @@
 						onclick={(e) => {
 							const isCtrlClick = e.metaKey || e.ctrlKey;
 							const url = componentServer.catalogEntryID
-								? `/admin/mcp-catalog/c/${componentServer.catalogEntryID}/instance/${catalogEntryServerId}`
+								? `/admin/mcp-catalog/c/${componentServer.catalogEntryID}/instance/${catalogEntryServerId}/details`
 								: `/admin/mcp-catalog/s/${componentServer.mcpServerID}/details`;
 
 							sessionStorage.setItem(

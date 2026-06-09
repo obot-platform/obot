@@ -23,7 +23,7 @@
 		isMultiUserCatalogEntry,
 		requiresUserUpdate
 	} from '$lib/services/user/mcp';
-	import { mcpServersAndEntries } from '$lib/stores';
+	import { mcpServersAndEntries, profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { openUrl } from '$lib/utils';
 	import ResponsiveDialog from '../../lib/components/ResponsiveDialog.svelte';
@@ -86,8 +86,12 @@
 
 	let tableData = $derived(
 		convertEntriesAndServersToTableData(
-			mcpServersAndEntries.current.entries,
-			mcpServersAndEntries.current.servers,
+			profile.current.hasAdminAccess?.()
+				? mcpServersAndEntries.current.entries.filter((e) => e.canConnect)
+				: mcpServersAndEntries.current.entries,
+			profile.current.hasAdminAccess?.()
+				? mcpServersAndEntries.current.servers.filter((s) => s.canConnect)
+				: mcpServersAndEntries.current.servers,
 			usersMap,
 			mcpServersAndEntries.current.userConfiguredServers,
 			mcpServersAndEntries.current.userInstances
@@ -261,14 +265,12 @@
 </script>
 
 <div class="flex flex-col gap-0.5 @container">
-	{#if mcpServersAndEntries.current.entries.length + mcpServersAndEntries.current.servers.length === 0}
-		{#if mcpServersAndEntries.current.loading}
-			{#each Array.from({ length: 4 }) as _, i (i)}
-				<div class="skeleton h-14 w-full"></div>
-			{/each}
-		{:else if noDataContent}
-			{@render noDataContent?.()}
-		{/if}
+	{#if mcpServersAndEntries.current.loading}
+		{#each Array.from({ length: 4 }) as _, i (i)}
+			<div class="skeleton h-14 w-full"></div>
+		{/each}
+	{:else if tableData.length === 0 && noDataContent}
+		{@render noDataContent?.()}
 	{:else}
 		{#each filteredTableData as d (d.id)}
 			{@const isCatalogEntry = 'isCatalogEntry' in d.data}

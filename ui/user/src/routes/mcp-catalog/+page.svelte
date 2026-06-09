@@ -329,7 +329,7 @@
 			type={selectedServerType}
 			id={profile.current.isAdmin?.() ? defaultCatalogId : (workspaceId ?? '')}
 			onCancel={() => {
-				goto('/admin/mcp-servers');
+				goto('/admin/mcp-catalog');
 			}}
 			onSubmit={async (id, _isMultiUserEntry, message) => {
 				setUrlParam(page.url, 'new', null);
