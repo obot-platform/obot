@@ -90,7 +90,7 @@
 
 	function getUrl(item: MCPCatalogServer) {
 		if ('manifest' in item) {
-			return item.catalogEntryID
+			return item.catalogEntryID && item.serverUserType === 'singleUser'
 				? `/mcp-servers/c/${item.catalogEntryID}`
 				: `/mcp-servers/s/${item.id}`;
 		}

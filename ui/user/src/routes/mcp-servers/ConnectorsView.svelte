@@ -278,8 +278,11 @@
 			{@const userConfiguredServers = catalogEntry
 				? getConfiguredServersForCatalogEntry(catalogEntry)
 				: []}
+			{@const instance = instancesMap.get(d.id)}
 			{@const requiresUserConfiguration = isUserConfigurationRequired(d, userConfiguredServers)}
-			{@const requiresUserAttention = userConfiguredServers.some(requiresUserUpdate)}
+			{@const requiresUserAttention = instance
+				? instance.configured === false
+				: userConfiguredServers.some(requiresUserUpdate)}
 			<div
 				class={twMerge(
 					'grid items-center grid-cols-12 rounded-md px-4 py-2 bg-base-100 dark:bg-base-300 shadow-xs hover:bg-base-300 dark:hover:bg-base-400 cursor-pointer'

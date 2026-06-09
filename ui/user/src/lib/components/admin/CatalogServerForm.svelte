@@ -224,7 +224,7 @@
 				categories: manifest.metadata?.categories?.split(',').filter((c) => c.trim()) ?? [''],
 				name: manifest.name ?? '',
 				icon: manifest.icon ?? '',
-				env: manifest.env?.map((env) => ({ ...env, value: '' })) ?? [],
+				env: manifest.env?.map((env) => ({ ...env, value: env.value ?? '' })) ?? [],
 				description: manifest.description ?? '',
 				serverUserType: manifest.serverUserType,
 				runtime: manifest.runtime,
