@@ -27,6 +27,7 @@ const sidebars = {
 				"functionality/server-scheduling",
 				"functionality/obot-agent-management",
 				"functionality/model-access-policies",
+				"functionality/llm-gateway",
 				"functionality/message-policies",
 				"functionality/skills",
 				"functionality/skill-access-policies",
