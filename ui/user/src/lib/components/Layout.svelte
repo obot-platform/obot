@@ -6,7 +6,9 @@
 		'mcp-server-management': true,
 		'skills-management': true,
 		'device-management': true,
-		'user-management': true
+		'user-management': true,
+		'llm-gateway': true,
+		advanced: true
 	};
 
 	function readNavCollapsedFromStorage(): Record<string, boolean> {
@@ -722,7 +724,7 @@
 			<div class="sticky top-0 left-0 z-50 w-full">
 				{#if banner}
 					{@render banner()}
-				{:else if isAdminRoute && version.current.licenseEntitlementViolations}
+				{:else if (version.current.licenseEntitlementViolations?.length ?? 0) > 0}
 					<LicenseViolationBanner />
 				{/if}
 				<Navbar class={twMerge('dark:bg-base-100', classes?.navbar)} {hideProfileButton}>

@@ -25,12 +25,17 @@ type LicenseUpdate struct {
 	LicenseKey string `json:"licenseKey"`
 }
 
+const (
+	licenseKeyMask          = "****"
+	licenseKeyVisibleSuffix = 8
+)
+
 func NewLicenseHandler(licenseProvider *license.KeygenProvider) *LicenseHandler {
 	return &LicenseHandler{licenseProvider: licenseProvider}
 }
 
 func (h *LicenseHandler) Get(req api.Context) error {
-	return req.Write(h.status())
+	return req.Write(h.status(req))
 }
 
 func (h *LicenseHandler) Update(req api.Context) error {
@@ -53,7 +58,7 @@ func (h *LicenseHandler) Update(req api.Context) error {
 		return err
 	}
 
-	return req.Write(h.status())
+	return req.Write(h.status(req))
 }
 
 func (h *LicenseHandler) Delete(req api.Context) error {
@@ -64,12 +69,13 @@ func (h *LicenseHandler) Delete(req api.Context) error {
 		return err
 	}
 
-	return req.Write(h.status())
+	return req.Write(h.status(req))
 }
 
-func (h *LicenseHandler) status() LicenseStatus {
+func (h *LicenseHandler) status(req api.Context) LicenseStatus {
+	licenseKey := h.licenseProvider.LicenseKey()
 	status := LicenseStatus{
-		LicenseKey:   h.licenseProvider.LicenseKey(),
+		LicenseKey:   displayLicenseKey(licenseKey, req.UserIsAdmin()),
 		Locked:       h.licenseProvider.LicenseKeyViaConfiguration(),
 		Enterprise:   h.licenseProvider.HasValidLicense(),
 		Entitlements: h.licenseProvider.Entitlements(),
@@ -77,9 +83,20 @@ func (h *LicenseHandler) status() LicenseStatus {
 
 	if status.Locked {
 		status.Source = "config"
-	} else if status.LicenseKey != "" {
+	} else if licenseKey != "" {
 		status.Source = "database"
 	}
 
 	return status
+}
+
+func displayLicenseKey(licenseKey string, canViewPartial bool) string {
+	licenseKey = strings.TrimSpace(licenseKey)
+	if licenseKey == "" {
+		return ""
+	}
+	if !canViewPartial || len(licenseKey) <= licenseKeyVisibleSuffix {
+		return licenseKeyMask
+	}
+	return licenseKeyMask + licenseKey[len(licenseKey)-licenseKeyVisibleSuffix:]
 }

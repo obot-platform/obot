@@ -6,6 +6,7 @@
 	import Search from '$lib/components/Search.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import type { Skill } from '$lib/services/nanobot/types';
+	import { MCP_CONNECTION_INVALID_LICENSE_MESSAGE } from '$lib/services/user/constants.js';
 	import { formatTimeAgo } from '$lib/time';
 	import { setUrlParamAndUpdateUrl } from '$lib/url.js';
 	import { TriangleAlert, PencilRuler } from 'lucide-svelte';
@@ -55,7 +56,15 @@
 
 {#snippet skillsView()}
 	<div class="flex flex-col gap-2">
-		{#if skills.length > 0}
+		{#if data?.showLicenseError}
+			<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
+				<TriangleAlert class="size-12 text-warning" />
+				<h4 class="text-muted-content text-lg font-semibold">Limited Functionality</h4>
+				<p class="text-muted-content text-sm font-light">
+					{MCP_CONNECTION_INVALID_LICENSE_MESSAGE}
+				</p>
+			</div>
+		{:else if skills.length > 0}
 			<Table
 				data={skillsTableData}
 				fields={['displayName', 'description', 'created']}

@@ -2,9 +2,9 @@
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
-	import AuthDeconfigureConfirm from '$lib/components/admin/AuthDeconfigureConfirm.svelte';
 	import ProviderCard from '$lib/components/admin/ProviderCard.svelte';
 	import ProviderConfigure from '$lib/components/admin/ProviderConfigure.svelte';
+	import ProviderDeconfigureConfirm from '$lib/components/admin/ProviderDeconfigureConfirm.svelte';
 	import LicenseProviderDialog from '$lib/components/admin/license/LicenseProviderDialog.svelte';
 	import {
 		CommonAuthProviderIds,
@@ -12,10 +12,10 @@
 		RecommendedModelProviders
 	} from '$lib/constants';
 	import { HttpError } from '$lib/errors.js';
+	import { AdminService, Role, UserService } from '$lib/services';
 	import type { AuthProvider } from '$lib/services/admin/types.js';
-	import { AdminService, Role, UserService } from '$lib/services/index.js';
+	import { errors, license, profile } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte.js';
-	import { errors, profile } from '$lib/stores/index.js';
 	import { TriangleAlert, Info } from 'lucide-svelte';
 	import { untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
@@ -63,7 +63,7 @@
 	let loading = $state(false);
 	let configureError = $state<string>();
 
-	let deconfigureAuthProviderDialog = $state<ReturnType<typeof AuthDeconfigureConfirm>>();
+	let deconfigureAuthProviderDialog = $state<ReturnType<typeof ProviderDeconfigureConfirm>>();
 	let confirmDeconfigureAuthProvider = $state<AuthProvider>();
 
 	const duration = PAGE_TRANSITION_DURATION;
@@ -249,7 +249,7 @@
 						deconfigureAuthProviderDialog?.open();
 					}}
 					readonly={profile.current.isAdminReadonly?.()}
-					licenseKey={data.license?.licenseKey}
+					licenseKey={license.current.licenseKey}
 				/>
 			{/each}
 		</div>
@@ -287,7 +287,7 @@
 	{/snippet}
 </ProviderConfigure>
 
-<AuthDeconfigureConfirm
+<ProviderDeconfigureConfirm
 	bind:this={deconfigureAuthProviderDialog}
 	provider={confirmDeconfigureAuthProvider}
 	onConfirm={handleDeconfigureAuthProvider}
@@ -347,7 +347,7 @@
 
 <LicenseProviderDialog
 	bind:provider={licenseRequiredProvider}
-	licenseKey={data.license?.licenseKey}
+	licenseKey={license.current.licenseKey}
 />
 
 <svelte:head>

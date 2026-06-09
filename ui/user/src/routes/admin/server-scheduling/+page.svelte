@@ -258,8 +258,8 @@
 					<div>
 						{@render headerContent('Resource Limits & Requests')}
 						<p class="text-sm">
-							Define the CPU and memory requests and limits for pods in every MCP deployment. See
-							the Kubernetes <a
+							Define the CPU and memory requests and limits for pods in every hosted single or
+							multi-tenant deployment. See the Kubernetes <a
 								href="https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#requests-and-limits"
 								class="text-link"
 								rel="external"

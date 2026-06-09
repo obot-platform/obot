@@ -10,7 +10,7 @@
 	import { HttpError } from '$lib/errors.js';
 	import { AdminService, type ModelProvider as ModelProviderType } from '$lib/services';
 	import { sortModelProviders } from '$lib/sort.js';
-	import { defaultModelAliases as defaultModelAliasesStore } from '$lib/stores';
+	import { defaultModelAliases as defaultModelAliasesStore, license } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte.js';
 	import { profile } from '$lib/stores/index.js';
 	import { delay } from '$lib/utils';
@@ -191,7 +191,7 @@
 						adminConfigStore.updateModelProviders(modelProviders);
 					}}
 					readonly={isAdminReadonly}
-					licenseKey={data.license?.licenseKey}
+					licenseKey={license.current.licenseKey}
 				>
 					{#snippet configuredActions(provider)}
 						<ListModels {provider} readonly={isAdminReadonly} />
@@ -230,7 +230,7 @@
 
 <LicenseProviderDialog
 	bind:provider={licenseRequiredProvider}
-	licenseKey={data.license?.licenseKey}
+	licenseKey={license.current.licenseKey}
 />
 
 <svelte:head>
