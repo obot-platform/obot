@@ -11,7 +11,9 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -417,6 +419,82 @@ func TestTriggerUpdateScope(t *testing.T) {
 			},
 		})
 	})
+}
+
+func TestTriggerUpdateClearsK8sUpdateStatusAfterResourceSync(t *testing.T) {
+	oldResources := &types.MCPResourceRequirements{
+		Requests: types.MCPResourceRequests{CPU: "250m", Memory: "512Mi"},
+	}
+	newResources := &types.MCPResourceRequirements{
+		Requests: types.MCPResourceRequests{CPU: "500m", Memory: "512Mi"},
+	}
+
+	entry := &v1.MCPServerCatalogEntry{
+		ObjectMeta: metav1.ObjectMeta{Name: "entry", Namespace: system.DefaultNamespace},
+		Spec: v1.MCPServerCatalogEntrySpec{
+			Manifest: types.MCPServerCatalogEntryManifest{
+				Name:      "entry",
+				Runtime:   types.RuntimeNPX,
+				NPXConfig: &types.NPXRuntimeConfig{Package: "test"},
+				Resources: newResources,
+			},
+		},
+	}
+
+	server := v1.MCPServer{
+		ObjectMeta: metav1.ObjectMeta{Name: "server", Namespace: system.DefaultNamespace},
+		Spec: v1.MCPServerSpec{
+			UserID:                    "owner",
+			MCPServerCatalogEntryName: "entry",
+			Manifest: types.MCPServerManifest{
+				Name:      "entry",
+				Runtime:   types.RuntimeNPX,
+				NPXConfig: &types.NPXRuntimeConfig{Package: "test"},
+				Resources: oldResources,
+			},
+		},
+		Status: v1.MCPServerStatus{
+			NeedsUpdate:     true,
+			NeedsK8sUpdate:  true,
+			K8sSettingsHash: "old-hash",
+		},
+	}
+
+	k8sSettings := &v1.K8sSettings{
+		ObjectMeta: metav1.ObjectMeta{Name: system.K8sSettingsName, Namespace: system.DefaultNamespace},
+	}
+
+	storage := fake.NewClientBuilder().
+		WithScheme(storagescheme.Scheme).
+		WithStatusSubresource(&v1.MCPServer{}).
+		WithObjects(entry, &server, k8sSettings).
+		Build()
+
+	req := httptest.NewRequest(http.MethodPost, "/api/mcp-servers/server/trigger-update", nil)
+	req.SetPathValue("mcp_server_id", "server")
+
+	err := (&MCPHandler{
+		mcpRuntimeBackend: mcp.RuntimeBackendKubernetes,
+		shutdownMCPServer: func(string) error { return nil },
+	}).TriggerUpdate(api.Context{
+		ResponseWriter: httptest.NewRecorder(),
+		Request:        req,
+		Storage:        storage,
+		User:           testUser("owner"),
+	})
+	require.NoError(t, err)
+
+	var updated v1.MCPServer
+	require.NoError(t, storage.Get(context.Background(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: "server"}, &updated))
+
+	assert.Equal(t, newResources, updated.Spec.Manifest.Resources)
+	assert.False(t, updated.Status.NeedsK8sUpdate)
+	assert.NotEqual(t, "old-hash", updated.Status.K8sSettingsHash)
+
+	coreResources, err := mcp.CoreResourceRequirements(newResources)
+	require.NoError(t, err)
+	wantHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec, coreResources, types.RuntimeNPX, false, nil)
+	assert.Equal(t, wantHash, updated.Status.K8sSettingsHash)
 }
 
 // Test functions for applyURLTemplate

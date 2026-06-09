@@ -51,6 +51,18 @@ type MCPHandler struct {
 
 	// shutdownMCPServer is only injected for testing
 	shutdownMCPServer func(string) error
+	// mcpRuntimeBackend is only injected for testing
+	mcpRuntimeBackend string
+}
+
+func (m *MCPHandler) runtimeBackend() string {
+	if m.mcpRuntimeBackend != "" {
+		return m.mcpRuntimeBackend
+	}
+	if m.mcpSessionManager == nil {
+		return ""
+	}
+	return m.mcpSessionManager.MCPRuntimeBackend()
 }
 
 func NewMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.Helper, mcpOAuthChecker MCPOAuthChecker, mcpImagePullSecrets []string, serverURL string) *MCPHandler {
@@ -64,7 +76,7 @@ func NewMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.H
 }
 
 func (m *MCPHandler) currentImagePullSecretNames(req api.Context) ([]string, error) {
-	return mcp.CurrentImagePullSecretNames(req.Context(), req.Storage, m.mcpSessionManager.MCPRuntimeBackend(), m.mcpImagePullSecrets)
+	return mcp.CurrentImagePullSecretNames(req.Context(), req.Storage, m.runtimeBackend(), m.mcpImagePullSecrets)
 }
 
 func (m *MCPHandler) currentK8sSettingsHash(req api.Context, settings v1.K8sSettingsSpec, mcpServer v1.MCPServer) (string, error) {
@@ -3953,12 +3965,59 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 		}
 
 		updateServerFromCatalogEntry(&latest, entry)
+		latest.Namespace = req.Namespace()
 		return req.Update(&latest)
 	}); err != nil {
 		return err
 	}
 
+	if err := m.clearK8sUpdateStatusAfterConfigSync(req, server.Name); err != nil {
+		return fmt.Errorf("failed to update server k8s status after config sync: %w", err)
+	}
+
 	return nil
+}
+
+// clearK8sUpdateStatusAfterConfigSync clears NeedsK8sUpdate and sets K8sSettingsHash to
+// the expected value after syncing server configuration from its catalog entry.
+// The server has already been shut down, so the next session start will deploy with
+// the updated settings.
+func (m *MCPHandler) clearK8sUpdateStatusAfterConfigSync(req api.Context, serverName string) error {
+	if !mcp.IsKubernetesBackend(m.runtimeBackend()) {
+		return nil
+	}
+
+	var k8sSettings v1.K8sSettings
+	if err := req.Storage.Get(req.Context(), kclient.ObjectKey{
+		Namespace: req.Namespace(),
+		Name:      system.K8sSettingsName,
+	}, &k8sSettings); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		var latest v1.MCPServer
+		if err := req.Get(&latest, serverName); err != nil {
+			return err
+		}
+
+		currentHash, err := m.currentK8sSettingsHash(req, k8sSettings.Spec, latest)
+		if err != nil {
+			return err
+		}
+
+		if !latest.Status.NeedsK8sUpdate && latest.Status.K8sSettingsHash == currentHash {
+			return nil
+		}
+
+		latest.Status.NeedsK8sUpdate = false
+		latest.Status.K8sSettingsHash = currentHash
+		latest.Namespace = req.Namespace()
+		return req.Storage.Status().Update(req.Context(), &latest)
+	})
 }
 
 func updateServerFromCatalogEntry(server *v1.MCPServer, entry v1.MCPServerCatalogEntry) {
