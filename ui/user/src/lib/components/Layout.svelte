@@ -26,6 +26,7 @@
 </script>
 
 <script lang="ts">
+	import { afterNavigate } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { columnResize } from '$lib/actions/resize';
@@ -52,49 +53,43 @@
 	import IconButton from './primitives/IconButton.svelte';
 	import { Render } from './ui/render';
 	import {
-		AlarmClock,
-		Boxes,
 		BrainCog,
-		Captions,
-		ChartBarDecreasing,
 		ChevronDown,
 		ChevronLeft,
 		ChevronUp,
-		Funnel,
-		GlobeLock,
-		KeyRound,
-		LockKeyhole,
 		Palette,
 		RadioTower,
 		Server,
-		UserCog,
 		Users,
-		Group as GroupIcon,
 		BotMessageSquare,
-		Coins,
 		PencilRuler,
-		Vault,
 		LockOpen,
 		CircleQuestionMark,
-		ShieldAlert,
-		ShieldX,
 		Bot,
 		LayoutDashboard,
 		Notebook,
 		Laptop,
-		ScanLine,
-		MonitorCheck,
-		PanelRightClose,
 		PanelLeftOpen,
 		KeySquare,
-		Router
+		Settings,
+		PanelLeftClose
 	} from 'lucide-svelte';
 	import { type Component, type Snippet, untrack } from 'svelte';
 	import { fade, slide, type TransitionConfig } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
 	let navCollapsed = $state({ ...navCollapsedCache });
+	let showAdvancedPane = $state(untrack(() => isAdvancedPaneRoute(page.url.pathname)));
 	let animatingNavSectionId = $state<string | null>(null);
+
+	function isAdvancedPaneRoute(route: string): boolean {
+		return (
+			(route.includes('/admin') && route !== '/admin/dashboard') ||
+			['/mcp-catalog', '/mcp-access-policies', '/audit-logs', '/usage'].some((p) =>
+				route.startsWith(p)
+			)
+		);
+	}
 
 	function isNavCollapsed(id: string): boolean {
 		return navCollapsed[id] ?? false;
@@ -131,7 +126,7 @@
 	type NavLink = {
 		id: string;
 		href?: string;
-		icon: Component | typeof Server;
+		icon?: Component | typeof Server;
 		label: string;
 		disabled?: boolean;
 		collapsible?: boolean;
@@ -196,7 +191,6 @@
 		alwaysShowHeaderTitle
 	}: Props = $props();
 	let nav = $state<HTMLDivElement>();
-	const advancedNavId = 'advanced';
 	let pathname = $derived(page.url.pathname);
 
 	// Whether the Obot Agent feature is enabled server-side. When false, agent entry
@@ -294,7 +288,6 @@
 						items: [
 							{
 								id: 'mcp-catalog',
-								icon: Server,
 								href: '/admin/mcp-catalog',
 								label: 'MCP Catalog',
 								disabled: isBootStrapUser,
@@ -302,7 +295,6 @@
 							},
 							{
 								id: 'mcp-access-policies',
-								icon: GlobeLock,
 								href: '/admin/mcp-access-policies',
 								label: 'MCP Access Policies',
 								disabled: isBootStrapUser,
@@ -311,14 +303,12 @@
 							{
 								id: 'mcp-deployments',
 								href: '/admin/mcp-deployments',
-								icon: Router,
 								label: 'MCP Deployments',
 								collapsible: false
 							},
 							{
 								id: 'audit-logs',
 								href: '/admin/audit-logs',
-								icon: Captions,
 								label: 'Audit Logs',
 								disabled: isBootStrapUser,
 								collapsible: false
@@ -326,7 +316,6 @@
 							{
 								id: 'usage',
 								href: '/admin/usage',
-								icon: ChartBarDecreasing,
 								label: 'Usage',
 								disabled: isBootStrapUser,
 								collapsible: false
@@ -334,7 +323,6 @@
 							{
 								id: 'filters',
 								href: '/admin/filters',
-								icon: Funnel,
 								label: 'Filters',
 								disabled: isBootStrapUser
 							},
@@ -342,7 +330,6 @@
 								? {
 										id: 'server-scheduling',
 										href: '/admin/server-scheduling',
-										icon: AlarmClock,
 										label: 'Server Scheduling',
 										collapsible: false
 									}
@@ -351,7 +338,6 @@
 								? {
 										id: 'image-pull-secrets',
 										href: '/admin/image-pull-secrets',
-										icon: KeyRound,
 										label: 'Image Pull Secrets',
 										disabled: isBootStrapUser,
 										collapsible: false
@@ -368,14 +354,12 @@
 							{
 								id: 'skills',
 								href: '/admin/skills',
-								icon: PencilRuler,
 								label: 'Skill Sources',
 								collapsible: false
 							},
 							{
 								id: 'skill-access-policies',
 								href: '/admin/skill-access-policies',
-								icon: Vault,
 								label: 'Skill Access Policies',
 								collapsible: false
 							}
@@ -390,7 +374,6 @@
 							{
 								id: 'device-overview',
 								href: '/admin/device-overview',
-								icon: LayoutDashboard,
 								label: 'Dashboard',
 								disabled: isBootStrapUser,
 								collapsible: false
@@ -398,7 +381,6 @@
 							{
 								id: 'devices',
 								href: '/admin/devices',
-								icon: ScanLine,
 								label: 'Devices',
 								disabled: isBootStrapUser,
 								collapsible: false
@@ -406,7 +388,6 @@
 							{
 								id: 'device-skills',
 								href: '/admin/device-skills',
-								icon: PencilRuler,
 								label: 'Device Skills',
 								disabled: isBootStrapUser,
 								collapsible: false
@@ -414,7 +395,6 @@
 							{
 								id: 'device-mcps',
 								href: '/admin/device-mcp-servers',
-								icon: Server,
 								label: 'Device MCP Servers',
 								disabled: isBootStrapUser,
 								collapsible: false
@@ -422,7 +402,6 @@
 							{
 								id: 'device-clients',
 								href: '/admin/device-clients',
-								icon: MonitorCheck,
 								label: 'Device Clients',
 								disabled: isBootStrapUser,
 								collapsible: false
@@ -441,7 +420,6 @@
 							{
 								id: 'users',
 								href: '/admin/users',
-								icon: Users,
 								label: 'Users',
 								collapsible: false,
 								disabled: !version.current.authEnabled
@@ -449,7 +427,6 @@
 							{
 								id: 'groups',
 								href: '/admin/groups',
-								icon: GroupIcon,
 								label: 'Groups',
 								collapsible: false,
 								disabled: !version.current.authEnabled
@@ -457,7 +434,6 @@
 							{
 								id: 'user-roles',
 								href: '/admin/user-roles',
-								icon: UserCog,
 								label: 'User Roles',
 								collapsible: false,
 								disabled: !version.current.authEnabled
@@ -465,7 +441,6 @@
 							{
 								id: 'auth-providers',
 								href: '/admin/auth-providers',
-								icon: LockKeyhole,
 								label: 'Auth Providers',
 								disabled: !version.current.authEnabled,
 								collapsible: false
@@ -473,7 +448,6 @@
 							{
 								id: 'api-keys',
 								href: '/admin/api-keys',
-								icon: KeyRound,
 								label: 'API Keys',
 								disabled: !version.current.authEnabled,
 								collapsible: false
@@ -489,7 +463,6 @@
 							{
 								id: 'tokens',
 								href: '/admin/token-usage',
-								icon: Coins,
 								label: 'Token Usage',
 								disabled: isBootStrapUser,
 								collapsible: false
@@ -497,14 +470,12 @@
 							{
 								id: 'model-providers',
 								href: '/admin/model-providers',
-								icon: Boxes,
 								label: 'Model Providers',
 								collapsible: false
 							},
 							{
 								id: 'model-access-policies',
 								href: '/admin/model-access-policies',
-								icon: LockKeyhole,
 								label: 'Model Access Policies',
 								collapsible: false
 							},
@@ -513,14 +484,12 @@
 										{
 											id: 'message-policies',
 											href: '/admin/message-policies',
-											icon: ShieldAlert,
 											label: 'Message Policies',
 											collapsible: false
 										},
 										{
 											id: 'policy-violations',
 											href: '/admin/policy-violations',
-											icon: ShieldX,
 											label: 'Message Policy Violations',
 											collapsible: false
 										}
@@ -529,7 +498,6 @@
 							{
 								id: 'llm-gateway-models',
 								href: '/llm-gateway/models',
-								icon: Boxes,
 								label: 'Models',
 								collapsible: false
 							}
@@ -566,7 +534,6 @@
 										{
 											id: 'mcp-catalog',
 											href: '/mcp-catalog',
-											icon: Server,
 											label: 'MCP Catalog',
 											disabled: false,
 											collapsible: false
@@ -576,7 +543,6 @@
 													{
 														id: 'mcp-access-policies',
 														href: '/mcp-access-policies',
-														icon: GlobeLock,
 														label: 'MCP Access Policies',
 														disabled: false,
 														collapsible: false
@@ -588,7 +554,6 @@
 							{
 								id: 'audit-logs',
 								href: '/audit-logs',
-								icon: Captions,
 								label: 'Audit Logs',
 								disabled: false,
 								collapsible: false
@@ -596,7 +561,6 @@
 							{
 								id: 'usage',
 								href: '/usage',
-								icon: ChartBarDecreasing,
 								label: 'Usage',
 								disabled: false,
 								collapsible: false
@@ -612,9 +576,29 @@
 		}
 	});
 
-	const excludeConfigureBanner = ['/admin/model-providers', '/admin/auth-providers'];
-	const isAdminRoute = $derived(pathname.includes('/admin'));
+	afterNavigate(({ to }) => {
+		if (!to || managementLinks.length === 0) return;
 
+		if (!isAdvancedPaneRoute(to.url.pathname)) {
+			showAdvancedPane = false;
+			return;
+		}
+
+		showAdvancedPane = true;
+		const currentPath = to.url.pathname;
+		const parentNavLink = managementLinks.find((link) =>
+			link.items?.find(
+				(item) =>
+					item.href && (currentPath === item.href || currentPath.startsWith(`${item.href}/`))
+			)
+		);
+		if (parentNavLink && isNavCollapsed(parentNavLink.id)) {
+			toggleNavCollapsed(parentNavLink.id);
+		}
+	});
+
+	const isAdminRoute = $derived(pathname.includes('/admin'));
+	const excludeConfigureBanner = ['/admin/model-providers', '/admin/auth-providers'];
 	$effect(() => {
 		const isAdminOrBootstrapUser =
 			profile.current.loaded &&
@@ -651,47 +635,36 @@
 						classes?.sidebar
 					)}
 				>
-					<div class="flex flex-col gap-0.5 h-full">
-						{#each defaultLinks as link (link.id)}
-							{@render navLink(link)}
-						{/each}
+					{#if showAdvancedPane}
+						<div class="flex flex-col gap-0.5 h-full" in:slide={{ axis: 'x', duration: 100 }}>
+							<button class="sidebar-link" onclick={() => (showAdvancedPane = false)}>
+								<ChevronLeft class="size-5 text-muted-content" />
+								<span class="uppercase text-xs font-semibold tracking-wide text-muted-content">
+									Back to App
+								</span>
+							</button>
+							{#each managementLinks as link (link.id)}
+								{@render navLink(link)}
+							{/each}
+						</div>
+					{:else}
+						<div class="flex flex-col gap-0.5 h-full">
+							{#each defaultLinks as link (link.id)}
+								{@render navLink(link)}
+							{/each}
 
-						<div class="flex grow"></div>
+							<div class="flex grow"></div>
 
-						{#if managementLinks.length > 0}
-							<div>
-								<div class="flex items-center justify-between w-full py-2 pl-2">
+							{#if managementLinks.length > 0}
+								<button class="sidebar-link" onclick={() => (showAdvancedPane = true)}>
+									<Settings class="size-5 text-muted-content" />
 									<span class="uppercase text-xs font-semibold tracking-wide text-muted-content">
 										{profile.current.hasAdminAccess?.() ? 'Administration' : 'Advanced Settings'}
 									</span>
-									<button
-										id="administration-toggle-btn"
-										class="px-2"
-										onclick={() => toggleNavCollapsed(advancedNavId)}
-									>
-										{#if isNavCollapsed(advancedNavId)}
-											<ChevronUp class="size-5 text-muted-content" />
-										{:else}
-											<ChevronDown class="size-5 text-muted-content" />
-										{/if}
-									</button>
-								</div>
-								{#if !isNavCollapsed(advancedNavId)}
-									<div
-										class="flex flex-col gap-0.5"
-										in:navSectionSlide={{ id: advancedNavId, axis: 'y' }}
-										out:navSectionSlide={{ id: advancedNavId, axis: 'y' }}
-										onintroend={() => clearNavSectionAnimation(advancedNavId)}
-										onoutroend={() => clearNavSectionAnimation(advancedNavId)}
-									>
-										{#each managementLinks as link (link.id)}
-											{@render navLink(link)}
-										{/each}
-									</div>
-								{/if}
-							</div>
-						{/if}
-					</div>
+								</button>
+							{/if}
+						</div>
+					{/if}
 				</div>
 
 				<div class="flex justify-end px-3 py-2">
@@ -699,7 +672,7 @@
 						tooltip={{ text: 'Close Sidebar' }}
 						onclick={() => (layout.sidebarOpen = false)}
 					>
-						<PanelRightClose class="size-6" />
+						<PanelLeftClose class="size-6" />
 					</IconButton>
 				</div>
 			</div>
@@ -874,19 +847,24 @@
 {/snippet}
 
 {#snippet navLink(link: NavLink)}
+	{@const isActive = link.href && (link.href === pathname || pathname.startsWith(`${link.href}/`))}
 	<div class="flex">
 		<div class="flex w-full items-center" id={link.id}>
 			{#if link.disabled}
 				<div class="sidebar-link disabled">
-					<link.icon class="size-5" />
+					{#if link.icon}
+						<link.icon class="size-5" />
+					{/if}
 					{link.label}
 				</div>
 			{:else if link.href}
 				<a
 					href={resolve(link.href as `/${string}`)}
-					class={twMerge('sidebar-link', link.href && link.href === pathname && 'bg-base-300')}
+					class={twMerge('sidebar-link', isActive && 'bg-base-300')}
 				>
-					<link.icon class="size-5" />
+					{#if link.icon}
+						<link.icon class="size-5" />
+					{/if}
 					{link.label}
 					{#if link.beta}
 						<span class="badge badge-primary badge-xs">Beta</span>
@@ -894,7 +872,9 @@
 				</a>
 			{:else}
 				<div class="sidebar-link no-link">
-					<link.icon class="size-5" />
+					{#if link.icon}
+						<link.icon class="size-5" />
+					{/if}
 					{link.label}
 				</div>
 			{/if}
@@ -928,31 +908,39 @@
 			{#if link.items}
 				<div class="flex flex-col px-7 text-sm font-light mb-2">
 					{#each link.items as item (item.href)}
+						{@const isActive =
+							item.href && (item.href === pathname || pathname.startsWith(`${item.href}/`))}
 						<div class="relative flex items-center gap-2" id={item.id}>
 							<div
 								class={twMerge(
 									'bg-base-400 absolute top-1/2 left-0 h-full w-0.5 -translate-x-3 -translate-y-1/2',
-									item.href === pathname && 'bg-primary'
+									isActive && 'bg-primary'
 								)}
 							></div>
 							{#if item.disabled}
 								<div class="sidebar-link disabled">
 									<div class="flex items-center gap-1 opacity-50">
-										<item.icon class="size-4" />
+										{#if item.icon}
+											<item.icon class="size-4" />
+										{/if}
 										{item.label}
 									</div>
 								</div>
 							{:else if item.href}
 								<a
 									href={resolve(item.href as `/${string}`)}
-									class={twMerge('sidebar-link', item.href === pathname && 'bg-base-300')}
+									class={twMerge('sidebar-link', isActive && 'bg-base-300')}
 								>
-									<item.icon class="size-4" />
+									{#if item.icon}
+										<item.icon class="size-4" />
+									{/if}
 									{item.label}
 								</a>
 							{:else}
 								<div class="sidebar-link disabled">
-									<item.icon class="size-4" />
+									{#if item.icon}
+										<item.icon class="size-4" />
+									{/if}
 									{item.label}
 								</div>
 							{/if}

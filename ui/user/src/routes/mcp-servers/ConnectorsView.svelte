@@ -4,6 +4,7 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import ConnectToServer from '$lib/components/mcp/ConnectToServer.svelte';
 	import Table from '$lib/components/table/Table.svelte';
+	import { stripMarkdownToText } from '$lib/markdown';
 	import {
 		UserService,
 		type MCPCatalog,
@@ -12,9 +13,9 @@
 		type OrgUser,
 		type MCPServerInstance
 	} from '$lib/services';
+	import { MCP_CONNECTION_INVALID_LICENSE_MESSAGE } from '$lib/services/user/constants';
 	import {
 		convertEntriesAndServersToTableData,
-		hasEditableConfiguration,
 		disconnectMcpServerUser,
 		hasMissingSecretBindingConfig,
 		isMultiUserServer,
@@ -23,14 +24,13 @@
 		isMultiUserCatalogEntry,
 		requiresUserUpdate
 	} from '$lib/services/user/mcp';
-	import { mcpServersAndEntries, profile } from '$lib/stores';
+	import { mcpServersAndEntries, profile, version } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { openUrl } from '$lib/utils';
 	import ResponsiveDialog from '../../lib/components/ResponsiveDialog.svelte';
 	import EditExistingDeployment from '../../lib/components/mcp/EditExistingDeployment.svelte';
 	import DebugOauthDialog from '../../lib/components/mcp/oauth/DebugOauthDialog.svelte';
 	import IconButton from '../../lib/components/primitives/IconButton.svelte';
-	import ConnectUrlRow from './ConnectUrlRow.svelte';
 	import { CircleFadingArrowUp, Server, StepForward } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -51,18 +51,9 @@
 		noDataContent?: Snippet;
 		usersMap?: Map<string, OrgUser>;
 		query?: string;
-		onConnect?: ({ instance }: { instance?: MCPServerInstance }) => void;
 	}
 
-	let {
-		entity,
-		id,
-		catalog = $bindable(),
-		noDataContent,
-		query,
-		onConnect,
-		usersMap
-	}: Props = $props();
+	let { entity, id, catalog = $bindable(), noDataContent, query, usersMap }: Props = $props();
 
 	let connectToServerDialog = $state<ReturnType<typeof ConnectToServer>>();
 	let editExistingDialog = $state<ReturnType<typeof EditExistingDeployment>>();
@@ -122,6 +113,10 @@
 			: sorted;
 	});
 
+	let hasLicenseEntitlementViolations = $derived(
+		(version.current.licenseEntitlementViolations || []).length > 0
+	);
+
 	function getConfiguredServersForCatalogEntry(entry: MCPCatalogEntry): MCPCatalogServer[] {
 		return mcpServersAndEntries.current.userConfiguredServers.filter(
 			(server) => server.catalogEntryID === entry.id
@@ -170,17 +165,12 @@
 		selectServerMode = mode;
 	}
 
-	function handleConnectToServer({
-		server,
-		instance
-	}: {
-		server?: MCPCatalogServer;
-		instance?: MCPServerInstance;
-	}) {
-		if (instance || server) {
-			mcpServersAndEntries.refreshAll();
+	function handleConnectToServer({ instance }: { instance?: MCPServerInstance }) {
+		if (instance) {
+			mcpServersAndEntries.refreshUserInstances();
+		} else {
+			mcpServersAndEntries.refreshUserConfiguredServers();
 		}
-		onConnect?.({ instance });
 	}
 
 	function handleSelect(data: MCPCatalogEntry | MCPCatalogServer, e: MouseEvent | KeyboardEvent) {
@@ -203,19 +193,6 @@
 		}
 
 		openUrl(url, isCtrlClick);
-	}
-
-	function isUserConfigurationRequired(
-		d: (typeof filteredTableData)[number],
-		userConfiguredServers: MCPCatalogServer[]
-	): boolean {
-		if ('isCatalogEntry' in d.data) {
-			return userConfiguredServers.length > 0
-				? userConfiguredServers.some((s) => !s.configured)
-				: hasEditableConfiguration(d.data);
-		}
-
-		return !d.data.configured;
 	}
 
 	function handleConnect(d: MCPCatalogEntry | MCPCatalogServer) {
@@ -264,10 +241,10 @@
 	}
 </script>
 
-<div class="flex flex-col gap-0.5 @container">
+<div class="flex flex-col gap-1 @container">
 	{#if mcpServersAndEntries.current.loading}
 		{#each Array.from({ length: 4 }) as _, i (i)}
-			<div class="skeleton h-14 w-full"></div>
+			<div class="skeleton h-23 w-full"></div>
 		{/each}
 	{:else if tableData.length === 0 && noDataContent}
 		{@render noDataContent?.()}
@@ -279,13 +256,12 @@
 				? getConfiguredServersForCatalogEntry(catalogEntry)
 				: []}
 			{@const instance = instancesMap.get(d.id)}
-			{@const requiresUserConfiguration = isUserConfigurationRequired(d, userConfiguredServers)}
 			{@const requiresUserAttention = instance
 				? instance.configured === false
 				: userConfiguredServers.some(requiresUserUpdate)}
 			<div
 				class={twMerge(
-					'grid items-center grid-cols-12 rounded-md px-4 py-2 bg-base-100 dark:bg-base-300 shadow-xs hover:bg-base-300 dark:hover:bg-base-400 cursor-pointer'
+					'flex items-center justify-between gap-8 rounded-md p-3 bg-base-100 dark:bg-base-300 shadow-xs hover:bg-base-300 dark:hover:bg-base-400 cursor-pointer'
 				)}
 				role="button"
 				tabindex="0"
@@ -298,7 +274,7 @@
 				}}
 				onclick={(e) => handleSelect(d.data, e)}
 			>
-				<div class="@2xl:col-span-4 col-span-7 text-sm font-light">
+				<div class="text-sm font-light line-clamp-2">
 					<div class="flex items-center gap-2">
 						<div class="icon">
 							{#if d.icon}
@@ -321,15 +297,27 @@
 							{/if}
 						</p>
 					</div>
+					<p class="text-xs text-muted-content min-h-8 mt-2">
+						{stripMarkdownToText(d.data.manifest.description ?? '')}
+					</p>
 				</div>
-				<div class="@2xl:col-span-8 col-span-5">
-					<div class="flex items-center gap-2 justify-end">
-						<ConnectUrlRow
-							connection={d.data}
-							requiresConfiguration={requiresUserConfiguration}
-							onClick={() => handleConnect(d.data)}
-						/>
-					</div>
+				<div
+					use:tooltip={{
+						text: hasLicenseEntitlementViolations
+							? MCP_CONNECTION_INVALID_LICENSE_MESSAGE
+							: undefined
+					}}
+				>
+					<button
+						class="btn btn-sm btn-primary border-none"
+						disabled={hasLicenseEntitlementViolations}
+						onclick={(e) => {
+							e.stopPropagation();
+							handleConnect(d.data);
+						}}
+					>
+						Connect
+					</button>
 				</div>
 			</div>
 		{/each}

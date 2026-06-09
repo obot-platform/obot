@@ -214,9 +214,6 @@ func defaultCatalogEntryConnectURL(serverURL string, entry v1.MCPServerCatalogEn
 	if serverURL == "" {
 		return ""
 	}
-	if entry.Spec.Manifest.Runtime == types.RuntimeComposite {
-		return ""
-	}
 	if entry.Spec.Manifest.ServerUserType == types.ServerUserTypeMultiUser {
 		return ""
 	}
