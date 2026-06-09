@@ -75,7 +75,7 @@ func (h *LicenseHandler) Delete(req api.Context) error {
 func (h *LicenseHandler) status(req api.Context) LicenseStatus {
 	licenseKey := h.licenseProvider.LicenseKey()
 	status := LicenseStatus{
-		LicenseKey:   displayLicenseKey(licenseKey, req.UserIsAdmin() || req.UserIsOwner()),
+		LicenseKey:   displayLicenseKey(licenseKey, req.UserIsAdmin()),
 		Locked:       h.licenseProvider.LicenseKeyViaConfiguration(),
 		Enterprise:   h.licenseProvider.HasValidLicense(),
 		Entitlements: h.licenseProvider.Entitlements(),
