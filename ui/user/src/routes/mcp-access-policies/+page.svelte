@@ -153,7 +153,7 @@
 {/snippet}
 
 <Confirm
-	msg={`Delete ${ruleToDelete?.displayName || 'this MCP registry'}?`}
+	msg={`Delete ${ruleToDelete?.displayName || 'this access policy'}?`}
 	show={Boolean(ruleToDelete)}
 	onsuccess={async () => {
 		if (!ruleToDelete || !workspaceId) return;

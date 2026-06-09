@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import Confirm from '$lib/components/Confirm.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import ConnectToServer from '$lib/components/mcp/ConnectToServer.svelte';
 	import McpConfirmDelete from '$lib/components/mcp/McpConfirmDelete.svelte';
@@ -20,8 +21,7 @@
 		type MCPServerOAuthCredentialStatus
 	} from '$lib/services';
 	import {
-		convertEntriesAndServersToTableData,
-		getServerTypeLabelByType,
+		convertEntriesToTableData,
 		deleteMcpServerDeployment,
 		isMultiUserCatalogEntry,
 		isMultiUserServer,
@@ -29,7 +29,7 @@
 	} from '$lib/services/user/mcp';
 	import { mcpServersAndEntries, profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
-	import { openUrl, isOwnSingleUserServer } from '$lib/utils';
+	import { openUrl } from '$lib/utils';
 	import {
 		Captions,
 		CircleFadingArrowUp,
@@ -42,7 +42,7 @@
 	} from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
 
-	type Item = ReturnType<typeof convertEntriesAndServersToTableData>[number];
+	type Item = ReturnType<typeof convertEntriesToTableData>[number];
 
 	interface Props {
 		entity?: 'workspace' | 'catalog';
@@ -93,20 +93,22 @@
 	let oauthConfigEntry = $state<MCPCatalogEntry>();
 	let oauthStatus = $state<MCPServerOAuthCredentialStatus>();
 
+	let confirmNewDeployForMultiUserEntry = $state<{
+		entry: MCPCatalogEntry;
+		servers: MCPCatalogServer[];
+	}>();
+
 	let tableData = $derived(
-		convertEntriesAndServersToTableData(
+		convertEntriesToTableData(
 			mcpServersAndEntries.current.entries,
-			mcpServersAndEntries.current.servers,
 			usersMap,
 			mcpServersAndEntries.current.userConfiguredServers,
-			mcpServersAndEntries.current.userInstances
+			mcpServersAndEntries.current.servers
 		).filter((d) => {
 			const isOwnedByUser =
 				profile.current.hasAdminAccess?.() ||
 				(entity === 'workspace' && id && d.data.powerUserWorkspaceID === id);
-			const isMultiUserFromCatalogEntry = !('isCatalogEntry' in d.data) && !!d.data.catalogEntryID;
-			const isMultiUser = d.type === 'multi';
-			return isOwnedByUser && !isMultiUserFromCatalogEntry && !isMultiUser;
+			return isOwnedByUser;
 		})
 	);
 
@@ -127,33 +129,17 @@
 		let useAdminUrl =
 			window.location.pathname.includes('/admin') && profile.current.hasAdminAccess?.();
 
-		// Basic users can access audit logs for their own servers
-		// Check if this is a server (not a catalog entry) belonging to the user
-		let isOwnServer = 'userID' in d.data && isOwnSingleUserServer(d.data, profile.current?.id);
-
-		let hasAuditLogUrlsAccess = isOwnServer || profile.current.groups.includes(Group.POWERUSER);
-
-		if (!hasAuditLogUrlsAccess) {
+		if (!profile.current.groups.includes(Group.POWERUSER)) {
 			return null;
-		}
-
-		const isCatalogEntry = d.type === 'remote' || d.type === 'composite' || d.type === 'hosted';
-		if (isCatalogEntry) {
-			if (useAdminUrl) {
-				return d.data.powerUserWorkspaceID
-					? `/admin/mcp-catalog/w/${d.data.powerUserWorkspaceID}/c/${d.id}?view=audit-logs`
-					: `/admin/mcp-catalog/c/${d.id}?view=audit-logs`;
-			}
-
-			return `/mcp-catalog/c/${d.id}?view=audit-logs`;
 		}
 
 		if (useAdminUrl) {
 			return d.data.powerUserWorkspaceID
-				? `/admin/mcp-catalog/w/${d.data.powerUserWorkspaceID}/s/${d.id}?view=audit-logs`
-				: `/admin/mcp-catalog/s/${d.id}?view=audit-logs`;
+				? `/admin/mcp-catalog/w/${d.data.powerUserWorkspaceID}/c/${d.id}?view=audit-logs`
+				: `/admin/mcp-catalog/c/${d.id}?view=audit-logs`;
 		}
-		return `/mcp-catalog/s/${d.id}?view=audit-logs`;
+
+		return `/mcp-catalog/c/${d.id}?view=audit-logs`;
 	}
 
 	async function fetch() {
@@ -249,17 +235,8 @@
 			filterable={['name', 'type', 'source']}
 			{filters}
 			onClickRow={(d, isCtrlClick) => {
-				let url = '';
 				const prefix = profile.current.hasAdminAccess?.() ? '/admin' : '';
-				if ('isCatalogEntry' in d.data) {
-					url = `${prefix}/mcp-catalog/c/${d.data.id}`;
-				} else if (isMultiUserServer(d.data)) {
-					url = `${prefix}/mcp-catalog/s/${d.id}`;
-				} else if (d.data.catalogEntryID) {
-					url = `${prefix}/mcp-catalog/c/${d.data.catalogEntryID}/instance/${d.id}`;
-				} else {
-					url = `${prefix}/mcp-catalog/s/${d.id}`;
-				}
+				let url = `${prefix}/mcp-catalog/c/${d.data.id}`;
 
 				if (profile.current.hasAdminAccess?.() && d.data.powerUserWorkspaceID) {
 					url += '?wid=' + encodeURIComponent(d.data.powerUserWorkspaceID);
@@ -285,7 +262,6 @@
 			{#snippet onRenderColumn(property, d)}
 				{@const isCatalogEntry = 'isCatalogEntry' in d.data}
 				{@const catalogEntry = isCatalogEntry ? (d.data as MCPCatalogEntry) : undefined}
-				{@const server = !isCatalogEntry ? d.data : undefined}
 				{#if property === 'name'}
 					<div class="flex shrink-0 items-center gap-2">
 						<div class="icon">
@@ -297,7 +273,7 @@
 						</div>
 						<p class="flex items-center gap-2">
 							{d.name}
-							{#if (catalogEntry?.needsUpdate || server?.needsUpdate) && !('missingKubernetesSecret' in d && d.missingKubernetesSecret)}
+							{#if catalogEntry?.needsUpdate && !('missingKubernetesSecret' in d && d.missingKubernetesSecret)}
 								<span
 									use:tooltip={{
 										classes: ['border-primary', 'bg-primary/10', 'dark:bg-primary/50'],
@@ -319,17 +295,20 @@
 									<TriangleAlert class="size-4" />
 								</span>
 							{/if}
+							{#if d.status.toLowerCase() === 'deployed'}
+								<span class="badge badge-xs badge-secondary">Deployed</span>
+							{/if}
 						</p>
 					</div>
 				{:else if property === 'type'}
-					{getServerTypeLabelByType(d.type)}
+					{d.type}
 				{:else if property === 'created'}
 					{formatTimeAgo(d.created).relativeTime}
 				{:else if property === 'source'}
-					{#if d.source.type === 'git'}
+					{#if d.sourceType === 'git'}
 						<a
 							onclick={(e) => e.stopPropagation()}
-							href={d.source.url}
+							href={d.source}
 							target="_blank"
 							rel="external noopener noreferrer"
 							use:tooltip={{
@@ -338,10 +317,10 @@
 							class="btn btn-ghost hover:text-blue-500 btn-xs shrink-0"
 						>
 							<GitBranch class="size-4" />
-							{d.source.url?.split('/').pop()}
+							{d.source?.split('/').pop()}
 						</a>
 					{:else}
-						{d.source.name}
+						<p class="px-2 text-xs">{d.source}</p>
 					{/if}
 				{:else}
 					{d[property as keyof typeof d]}
@@ -351,9 +330,7 @@
 				{@const isCatalogEntry = 'isCatalogEntry' in d.data}
 				{@const catalogEntry = isCatalogEntry ? (d.data as MCPCatalogEntry) : undefined}
 				{@const auditLogUrl = getAuditLogsUrl(d)}
-				{@const belongsToUser =
-					(entity === 'workspace' && id && d.data.powerUserWorkspaceID === id) ||
-					('catalogEntryID' in d.data && d.data.userID === profile.current.id)}
+				{@const belongsToUser = entity === 'workspace' && id && d.data.powerUserWorkspaceID === id}
 				{@const canDelete =
 					d.editable && !readonly && (belongsToUser || profile.current?.hasAdminAccess?.())}
 				{@const requiresOAuth =
@@ -364,7 +341,18 @@
 						class="btn btn-xs btn-primary self-center mr-2"
 						onclick={(e) => {
 							e.stopPropagation();
-							connectToServerDialog?.open({ entry: catalogEntry });
+
+							const deployedServers = mcpServersAndEntries.current.servers.filter(
+								(s) => !s.deleted && isMultiUserServer(s) && s.catalogEntryID === catalogEntry.id
+							);
+							if (deployedServers.length >= 1) {
+								confirmNewDeployForMultiUserEntry = {
+									entry: catalogEntry,
+									servers: deployedServers
+								};
+							} else {
+								connectToServerDialog?.open({ entry: catalogEntry });
+							}
 						}}
 					>
 						Launch
@@ -406,16 +394,12 @@
 									class="menu-button-destructive"
 									onclick={(e) => {
 										e.stopPropagation();
-										if (catalogEntry) {
-											deletingEntry = catalogEntry;
-										} else {
-											deletingServer = d.data as MCPCatalogServer;
-										}
+										deletingEntry = catalogEntry;
 										toggle(false);
 									}}
 								>
 									<Trash2 class="size-4" />
-									{catalogEntry ? 'Delete Entry' : 'Delete Server'}
+									Delete Entry
 								</button>
 							{/if}
 						</div>
@@ -485,29 +469,13 @@
 		loadingBulkDelete = true;
 		try {
 			for (const item of Object.values(selected)) {
-				if ('isCatalogEntry' in item.data) {
-					if (item.data.powerUserWorkspaceID) {
-						await UserService.deleteWorkspaceMCPCatalogEntry(
-							item.data.powerUserWorkspaceID,
-							item.data.id
-						);
-					} else if (catalog) {
-						await AdminService.deleteMCPCatalogEntry(catalog.id, item.data.id);
-					}
-				} else if (isMultiUserServer(item.data) || !item.data.catalogEntryID) {
-					try {
-						await deleteServerDeployment(item.data);
-					} catch (error) {
-						if (error instanceof MCPCompositeDeletionDependencyError) {
-							deleteConflictError = error;
-							// Stop processing further deletes; user must resolve dependencies first.
-							break;
-						}
-
-						throw error;
-					}
-				} else {
-					await UserService.deleteSingleOrRemoteMcpServer(item.data.id);
+				if (item.data.powerUserWorkspaceID) {
+					await UserService.deleteWorkspaceMCPCatalogEntry(
+						item.data.powerUserWorkspaceID,
+						item.data.id
+					);
+				} else if (catalog) {
+					await AdminService.deleteMCPCatalogEntry(catalog.id, item.data.id);
 				}
 			}
 
@@ -545,3 +513,40 @@
 	onSave={handleSaveOAuth}
 	onDelete={handleDeleteOAuth}
 />
+
+<Confirm
+	show={Boolean(confirmNewDeployForMultiUserEntry)}
+	title="Launch New Server?"
+	msg=""
+	type="info"
+	onsuccess={() => {
+		if (!confirmNewDeployForMultiUserEntry?.entry) {
+			console.error('Entry required to launch a new server');
+			return;
+		}
+		connectToServerDialog?.open({ entry: confirmNewDeployForMultiUserEntry.entry });
+		confirmNewDeployForMultiUserEntry = undefined;
+	}}
+	oncancel={() => (confirmNewDeployForMultiUserEntry = undefined)}
+	submitText="Launch New Server"
+>
+	{#snippet msgContent()}{/snippet}
+	{#snippet note()}
+		<p>
+			There {confirmNewDeployForMultiUserEntry?.servers.length === 1
+				? 'is an existing deployment'
+				: `are ${confirmNewDeployForMultiUserEntry?.servers.length} existing deployments`}
+			of this catalog entry:
+		</p>
+
+		{#if confirmNewDeployForMultiUserEntry?.servers && confirmNewDeployForMultiUserEntry?.servers.length > 0}
+			<ul class="my-4">
+				{#each confirmNewDeployForMultiUserEntry?.servers as server (server.id)}
+					<li>{getMCPDisplayName(server)}</li>
+				{/each}
+			</ul>
+		{/if}
+
+		<p>Would you like to launch a new server?</p>
+	{/snippet}
+</Confirm>

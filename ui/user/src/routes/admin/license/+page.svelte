@@ -6,7 +6,7 @@
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { AdminService } from '$lib/services';
-	import { errors } from '$lib/stores/index.js';
+	import { errors, profile } from '$lib/stores';
 	import { CircleAlert, Info } from 'lucide-svelte';
 	import { untrack } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
@@ -26,6 +26,7 @@
 	let updating = $state(false);
 	let updateError = $state('');
 	let updateLicenseTitle = $derived(license?.licenseKey ? 'Update License Key' : 'Add License Key');
+	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 
 	function handleOpenUpdateLicenseDialog() {
 		if (!license || license.locked) return;
@@ -154,7 +155,7 @@
 							<button
 								class="btn btn-secondary"
 								onclick={handleOpenUpdateLicenseDialog}
-								disabled={license.locked}
+								disabled={license.locked || isAdminReadonly}
 							>
 								{updateLicenseTitle}
 							</button>
@@ -198,7 +199,7 @@
 						>
 							<button
 								class={twMerge('btn btn-error w-full md:w-fit')}
-								disabled={license.locked}
+								disabled={license.locked || isAdminReadonly}
 								onclick={() => (showDeleteLicenseDialog = true)}
 							>
 								Delete License
@@ -220,7 +221,11 @@
 				{updateError}
 			</div>
 		{/if}
-		<button class="btn btn-primary" disabled={updating} onclick={handleUpdateLicense}>
+		<button
+			class="btn btn-primary"
+			disabled={updating || isAdminReadonly}
+			onclick={handleUpdateLicense}
+		>
 			Submit
 		</button>
 	</div>
@@ -228,6 +233,7 @@
 
 <Confirm
 	show={showDeleteLicenseDialog}
+	disabled={isAdminReadonly}
 	onsuccess={handleDeleteLicense}
 	oncancel={() => (showDeleteLicenseDialog = false)}
 	msg="Are you sure you want to delete the license?"

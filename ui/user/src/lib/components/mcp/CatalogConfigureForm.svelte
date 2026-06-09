@@ -92,7 +92,15 @@
 
 	const remoteHeaders = $derived.by(() => {
 		if (form && 'headers' in form) {
-			return getNonStaticServerHeaders(form?.headers);
+			return getNonStaticServerFields(form?.headers);
+		}
+
+		return [];
+	});
+
+	const visibleEnvs = $derived.by(() => {
+		if (form && 'envs' in form) {
+			return getNonStaticServerFields(form?.envs);
 		}
 
 		return [];
@@ -263,14 +271,16 @@
 		return JSON.stringify(form) !== initialFormJson;
 	}
 
-	function getNonStaticServerHeaders(headers: MCPServerInfo['headers'] | undefined) {
-		if (!headers) return [];
+	function getNonStaticServerFields(
+		fields: MCPServerInfo['headers'] | MCPServerInfo['env'] | undefined
+	) {
+		if (!fields) return [];
 
 		return (
-			headers
-				.map((header, i) => ({
+			fields
+				.map((field, i) => ({
 					index: i,
-					data: header as typeof header & { isStatic?: boolean }
+					data: field as typeof field & { isStatic?: boolean }
 				}))
 				?.filter((item) => !item.data.isStatic) ?? []
 		);
@@ -406,73 +416,72 @@
 								/>
 							</div>
 							{#if componentHasConfig(comp)}
-								{@const headers = getNonStaticServerHeaders(comp.headers)}
+								{@const headers = getNonStaticServerFields(comp.headers)}
+								{@const envs = getNonStaticServerFields(comp.envs)}
 
 								<div class="border-t border-base-300 p-3">
-									{#if comp.envs && comp.envs.length > 0}
-										{#each comp.envs as env, i (env.key)}
-											{#if !hasSecretBinding(env)}
-												{@const highlightRequired =
-													highlightedFields.has(`${compId}:${env.key}`) && !env.value}
-												<div class="flex flex-col gap-1">
-													<span class="flex items-center gap-2">
-														<label
-															for={`${compId}-${env.key}`}
-															class={highlightRequired ? 'text-error' : ''}
-														>
-															{env.name}
-															{#if !env.required}
-																<span class="text-muted-content">(optional)</span>
-															{/if}
-														</label>
-														{#if !displayDescriptionInline}
-															<InfoTooltip text={env.description} />
+									{#each envs as env (env.data.key)}
+										{#if !hasSecretBinding(env.data)}
+											{@const highlightRequired =
+												highlightedFields.has(`${compId}:${env.data.key}`) && !env.data.value}
+											<div class="flex flex-col gap-1">
+												<span class="flex items-center gap-2">
+													<label
+														for={`${compId}-${env.data.key}`}
+														class={highlightRequired ? 'text-error' : ''}
+													>
+														{env.data.name}
+														{#if !env.data.required}
+															<span class="text-muted-content">(optional)</span>
 														{/if}
-													</span>
-													{#if env.sensitive}
-														<SensitiveInput
-															error={highlightRequired}
-															name={env.name}
-															bind:value={comp.envs[i].value}
-															disabled={form.componentConfigs[compId].disabled}
-															textarea={env.file}
-															growable
-														/>
-													{:else if env.file}
-														<textarea
-															id={`${compId}-${env.key}`}
-															bind:value={comp.envs[i].value}
-															disabled={form.componentConfigs[compId].disabled}
-															class={twMerge(
-																'text-input-filled h-32 resize-y whitespace-pre-wrap',
-																highlightRequired &&
-																	'border-error bg-error/20 ring-error focus:ring-1'
-															)}
-															onmousedown={() => (resizing = true)}
-															onmouseup={() => (resizing = false)}
-														></textarea>
-													{:else}
-														<input
-															type="text"
-															id={`${compId}-${env.key}`}
-															bind:value={comp.envs[i].value}
-															disabled={form.componentConfigs[compId].disabled}
-															class={twMerge(
-																'text-input-filled',
-																highlightRequired &&
-																	'border-error bg-error/20 ring-error focus:ring-1'
-															)}
-														/>
+													</label>
+													{#if !displayDescriptionInline}
+														<InfoTooltip text={env.data.description} />
 													{/if}
-													{#if displayDescriptionInline}
-														<p class="text-muted-content text-xs font-light break-all">
-															{env.description}
-														</p>
-													{/if}
-												</div>
-											{/if}
-										{/each}
-									{/if}
+												</span>
+												{#if env.data.sensitive}
+													<SensitiveInput
+														error={highlightRequired}
+														name={env.data.name}
+														bind:value={comp.envs![env.index].value}
+														disabled={form.componentConfigs[compId].disabled}
+														textarea={env.data.file}
+														growable
+													/>
+												{:else if env.data.file}
+													<textarea
+														id={`${compId}-${env.data.key}`}
+														bind:value={comp.envs![env.index].value}
+														disabled={form.componentConfigs[compId].disabled}
+														class={twMerge(
+															'text-input-filled h-32 resize-y whitespace-pre-wrap',
+															highlightRequired &&
+																'border-error bg-error/20 ring-error focus:ring-1'
+														)}
+														onmousedown={() => (resizing = true)}
+														onmouseup={() => (resizing = false)}
+													></textarea>
+												{:else}
+													<input
+														type="text"
+														id={`${compId}-${env.data.key}`}
+														bind:value={comp.envs![env.index].value}
+														disabled={form.componentConfigs[compId].disabled}
+														class={twMerge(
+															'text-input-filled',
+															highlightRequired &&
+																'border-error bg-error/20 ring-error focus:ring-1'
+														)}
+													/>
+												{/if}
+												{#if displayDescriptionInline}
+													<p class="text-muted-content text-xs font-light break-all">
+														{env.data.description}
+													</p>
+												{/if}
+											</div>
+										{/if}
+									{/each}
 
 									{#each headers as header (header.data.key)}
 										{#if !hasSecretBinding(header.data)}
@@ -546,61 +555,59 @@
 						<h4 class="text-sm font-semibold">{configurationTitle}</h4>
 					{/if}
 
-					{#if form.envs && form.envs.length > 0}
-						{#each form.envs as env, i (env.key)}
-							{#if !hasSecretBinding(env)}
-								{@const highlightRequired = highlightedFields.has(env.key) && !env.value}
-								<div class="flex flex-col gap-1">
-									<span class="flex items-center gap-2">
-										<label for={env.key} class={highlightRequired ? 'text-error' : ''}>
-											{env.name}
-											{#if !env.required}
-												<span class="text-muted-content">(optional)</span>
-											{/if}
-										</label>
-										{#if !displayDescriptionInline}
-											<InfoTooltip text={env.description} />
+					{#each visibleEnvs as env (env.data.key)}
+						{#if !hasSecretBinding(env.data)}
+							{@const highlightRequired = highlightedFields.has(env.data.key) && !env.data.value}
+							<div class="flex flex-col gap-1">
+								<span class="flex items-center gap-2">
+									<label for={env.data.key} class={highlightRequired ? 'text-error' : ''}>
+										{env.data.name}
+										{#if !env.data.required}
+											<span class="text-muted-content">(optional)</span>
 										{/if}
-									</span>
-									{#if env.sensitive}
-										<SensitiveInput
-											error={highlightRequired}
-											name={env.name}
-											bind:value={form.envs[i].value}
-											textarea={env.file}
-											growable
-										/>
-									{:else if env.file}
-										<textarea
-											id={env.key}
-											bind:value={form.envs[i].value}
-											class={twMerge(
-												'text-input-filled h-32 resize-y whitespace-pre-wrap',
-												highlightRequired && 'border-error bg-error/20 ring-error focus:ring-1'
-											)}
-											onmousedown={() => (resizing = true)}
-											onmouseup={() => (resizing = false)}
-										></textarea>
-									{:else}
-										<input
-											type="text"
-											id={env.key}
-											bind:value={form.envs[i].value}
-											class={twMerge(
-												'text-input-filled',
-												highlightRequired && 'border-error bg-error/20 ring-error focus:ring-1'
-											)}
-										/>
+									</label>
+									{#if !displayDescriptionInline}
+										<InfoTooltip text={env.data.description} />
 									{/if}
-									{#if displayDescriptionInline}
-										<p class="text-muted-content text-xs font-light break-all">
-											{env.description}
-										</p>
-									{/if}
-								</div>
-							{/if}
-						{/each}
-					{/if}
+								</span>
+								{#if env.data.sensitive}
+									<SensitiveInput
+										error={highlightRequired}
+										name={env.data.name}
+										bind:value={form.envs![env.index].value}
+										textarea={env.data.file}
+										growable
+									/>
+								{:else if env.data.file}
+									<textarea
+										id={env.data.key}
+										bind:value={form.envs![env.index].value}
+										class={twMerge(
+											'text-input-filled h-32 resize-y whitespace-pre-wrap',
+											highlightRequired && 'border-error bg-error/20 ring-error focus:ring-1'
+										)}
+										onmousedown={() => (resizing = true)}
+										onmouseup={() => (resizing = false)}
+									></textarea>
+								{:else}
+									<input
+										type="text"
+										id={env.data.key}
+										bind:value={form.envs![env.index].value}
+										class={twMerge(
+											'text-input-filled',
+											highlightRequired && 'border-error bg-error/20 ring-error focus:ring-1'
+										)}
+									/>
+								{/if}
+								{#if displayDescriptionInline}
+									<p class="text-muted-content text-xs font-light break-all">
+										{env.data.description}
+									</p>
+								{/if}
+							</div>
+						{/if}
+					{/each}
 
 					{#each remoteHeaders as header (header.data.key)}
 						{#if !hasSecretBinding(header.data)}

@@ -8,7 +8,6 @@
 		type MCPCatalogServer,
 		type OrgUser
 	} from '$lib/services';
-	import { isMultiUserCatalogEntry } from '$lib/services/user/mcp';
 	import { getUserDisplayName } from '$lib/utils';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import Search from '../Search.svelte';
@@ -50,7 +49,7 @@
 		workspaceId,
 		isAdminView,
 		singleSelect,
-		title = 'Add MCP Server(s)',
+		title = 'Add Entry/Server(s)',
 		entity = 'catalog',
 		all = ADMIN_ALL_OPTION
 	}: Props = $props();
@@ -84,10 +83,6 @@
 				.filter((entry) => {
 					if (type === 'filter') {
 						return true;
-					}
-
-					if (isMultiUserCatalogEntry(entry)) {
-						return false;
 					}
 
 					return entity === 'catalog'

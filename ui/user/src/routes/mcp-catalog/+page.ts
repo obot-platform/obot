@@ -5,8 +5,7 @@ import { redirect } from '@sveltejs/kit';
 export const load: PageLoad = async ({ fetch, parent }) => {
 	const { profile } = await parent();
 
-	const isPowerUserOrAdmin =
-		profile.groups.includes(Group.POWERUSER) || profile.groups.includes(Group.ADMIN);
+	const isPowerUserOrAdmin = profile.groups.includes(Group.POWERUSER) || profile.hasAdminAccess?.();
 
 	if (!isPowerUserOrAdmin) {
 		throw redirect(302, '/mcp-servers');

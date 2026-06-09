@@ -39,7 +39,7 @@
 		}
 	});
 
-	let title = $derived(getMCPDisplayName(mcpServer, `${catalogEntryName} | ${mcpServerId}`));
+	let title = $derived(`${getMCPDisplayName(mcpServer, catalogEntryName)} | ${mcpServerId}`);
 </script>
 
 <Layout {title} showBackButton>
