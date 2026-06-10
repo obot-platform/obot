@@ -32,25 +32,28 @@
 | `pkg/studio/identity.go` | Identity-mapping helpers: `EnsureIdentity(studioIssuer, studioSubject, claims) → (*types.User, *types.Identity)`. Lazy-creates the Obot user from claims when absent. |
 | `pkg/studio/apikey.go` | Studio-managed API key store wrappers — ensure/rotate/disable/delete by `(studioIssuer, studioSubject)` tuple. Uses existing `pkg/gateway/types.APIKey` + `pkg/gateway/client`. |
 | `pkg/studio/catalog.go` | Manifest loader + catalog-entry provision/teardown helpers; uses existing MCPCatalog/MCPServer Kubernetes resources. |
-| `pkg/studio/handlers/apikey_handlers.go` | HTTP handlers: ensure, rotate, disable, delete. |
-| `pkg/studio/handlers/catalog_handlers.go` | HTTP handlers: provision, teardown. |
-| `pkg/studio/handlers/connect_handlers.go` | HTTP handler: connect-URL for configuration-required servers. |
-| `pkg/studio/routes.go` | `RegisterRoutes(mux *http.ServeMux, deps RouteDeps)` — single entry point upstream calls. |
+| `pkg/studio/types.go` | Request/response types for every service-identity route. Single source of truth for the wire contract. Mirrored by `docs/studio/openapi.yaml`. |
+| `pkg/studio/apikey_handlers.go` | HTTP handlers: ensure, rotate, disable, delete. |
+| `pkg/studio/catalog_handlers.go` | HTTP handlers: provision, teardown. |
+| `pkg/studio/connect_handlers.go` | HTTP handler: connect-URL for configuration-required servers. |
+| `pkg/studio/routes.go` | `RegisterRoutes(ctx, mux, deps)` — single entry point upstream calls. |
+| `pkg/studio/adapters.go` | Thin constructors that wrap `*services.Services` fields into the `IdentityStore`/`APIKeyStore`/`CatalogStore` interfaces. |
 | `pkg/studio/ingester.go` | Reads the image-packaged catalog manifest at startup; ensures MCPCatalog entries exist for each. |
 | `pkg/studio/testdata/` | Static fixtures: sample JWKS, signed test tokens, sample catalog manifest. |
-| `pkg/studio/*_test.go` | Co-located unit tests. |
+| `pkg/studio/*_test.go` | Co-located unit tests. All handlers, JWT validation, identity mapping, apikey lifecycle, catalog ops, and ingester live in package `studio`. No subpackages — avoids import-cycle pressure between routes and handlers. |
 | `docs/studio/CHANGES.md` | Manifest of every upstream-file touchpoint, kept current as the plan executes. The rebase checklist. |
 | `docs/studio/manifest-schema.md` | Documents the JSON shape of the image-packaged catalog manifest. |
+| `docs/studio/openapi.yaml` | OpenAPI document for the service-identity API. Mirrors `pkg/studio/types.go`; consumed by Studio's outbound client to generate or hand-write its caller. |
 
 ### Upstream patch points (intentionally minimal)
 
 | File | Change | Lines |
 |---|---|---|
-| `pkg/services/config.go` | Add one field: `StudioConfig studio.StudioConfig` (embedded). One new import line. | ~2 |
-| `pkg/api/router/router.go` | Add one call: `studio.RegisterRoutes(mux, deps)` near the other route registrations. One new import line. | ~2 |
+| `pkg/services/config.go` | Add one field on `Config` and one matching field on `Services` (same file). One new import line. The `Services` field is populated from `Config.StudioConfig` in the existing services constructor. | ~4 |
+| `pkg/api/router/router.go` | Add one call: `studio.RegisterRoutes(ctx, services.APIServer, studio.DepsFromServices(services))`. One new import line. The router function signature already takes `*services.Services`, so the call composes deps from that single argument. | ~2 |
 | `chart/values.yaml` | Append `config.OBOT_SERVER_STUDIO_*` keys in the existing `config:` block. | ~6 |
 
-No other upstream file is modified. No upstream test is modified. No upstream type is renamed or removed.
+No other upstream file is modified. No upstream test is modified. No upstream type is renamed or removed. `Config` and `Services` happen to live in the same file (`pkg/services/config.go`), so the patch-point count stays at three — but Task 16 must touch both struct definitions.
 
 ### Open question deferred to Task 4
 
@@ -940,13 +943,67 @@ git add pkg/studio/apikey.go pkg/studio/apikey_test.go
 git commit -m "feat(studio): add Studio-managed API key lifecycle wrappers"
 ```
 
+> **DisableKey semantics note:** Obot's current `APIKey` storage has no `disabled` field; validation only checks existence, secret, and expiry. The integration implements **disable** by setting `ExpiresAt = time.Now().Add(-time.Second)` (a moment in the past) and explicitly invalidating the apikey cache entry. This makes the contract "immediate disable" implementable with no schema migration. Reactivation is not supported — a re-enabled user gets a fresh key through a new ensure call.
+
 ---
 
-## Task 10: `pkg/studio/handlers/apikey_handlers.go` — HTTP handlers
+## Task 9.5: Define service-identity API request/response types and OpenAPI
 
 **Files:**
-- Create: `pkg/studio/handlers/apikey_handlers.go`
-- Create: `pkg/studio/handlers/apikey_handlers_test.go`
+- Create: `pkg/studio/types.go`
+- Create: `docs/studio/openapi.yaml`
+
+Codex review feedback: the design (per the just-updated Open Question 3) commits to schemas living in this integration, not in Obot's main OpenAPI. This task is the single source of truth for the wire contract. Every handler task that follows (Tasks 10, 11, 12) imports these types and asserts against them.
+
+**Acceptance criteria:**
+- `pkg/studio/types.go` defines exported Go types for every request body and response body of every service-identity route: ensure, rotate, disable, delete, provision catalog entry, teardown catalog entry, connect-URL.
+- `docs/studio/openapi.yaml` describes the same set of routes in OpenAPI 3 YAML, with field names, types, required/optional, and example payloads.
+- A small lint script (`scripts/check-studio-types-vs-openapi.sh`) is added that fails if any exported field in `types.go` lacks a matching OpenAPI property and vice versa. (Stub script is acceptable — the equivalence is enforced by code review until tooling lands.)
+
+**Contract surface (from the design's table):**
+
+| Route | Request body | Response body |
+|---|---|---|
+| `PUT /api/studio/users/{studioSubject}/api-key` | `EnsureKeyRequest{ StudioIssuer, Email, DisplayName, EnabledMcpServerIDs []string, RequestedExpiresAt time.Time, ScopeVersion string }` | `EnsureKeyResponse{ ObotUserID, KeyID, KeyVersion, ExpiresAt, ScopeHash, Key string }` (`Key` is the plaintext, returned once) |
+| `POST /api/studio/users/{studioSubject}/api-key/rotate` | `RotateKeyRequest{ EnabledMcpServerIDs []string, RequestedExpiresAt time.Time, ScopeVersion string }` | `RotateKeyResponse{ KeyID, KeyVersion, ExpiresAt, ScopeHash, Key string }` |
+| `POST /api/studio/users/{studioSubject}/api-key/{keyId}/disable` | empty | `DisableKeyResponse{ KeyID, DisabledAt time.Time }` |
+| `DELETE /api/studio/users/{studioSubject}/api-key/{keyId}` | empty | `DeleteKeyResponse{ KeyID string, Deleted bool }` (Deleted=false when the key was already absent — still 200 OK) |
+| `POST /api/studio/catalog/{serverId}/provision` | `ProvisionCatalogRequest{ }` (the manifest is the source; no body fields in v1) | `ProvisionCatalogResponse{ ServerID, Status string }` |
+| `POST /api/studio/catalog/{serverId}/teardown` | empty | `TeardownCatalogResponse{ ServerID, Status string }` |
+| `GET /api/studio/users/{studioSubject}/mcp-servers/{serverId}/connect-url` | none | `ConnectURLResponse{ ConnectURL string, ExpiresAt time.Time }` |
+
+- [ ] **Step 1: Write `pkg/studio/types.go`**
+
+Define each struct above with JSON tags matching the field names verbatim. Use `time.Time` for timestamps; the OpenAPI doc declares them as `format: date-time`.
+
+- [ ] **Step 2: Write `docs/studio/openapi.yaml`**
+
+Standard OpenAPI 3.0. Group routes under tags `studio-apikey`, `studio-catalog`, `studio-connect`. Security scheme: HTTP bearer with description "Studio-signed JWT validated through Studio's JWKS."
+
+- [ ] **Step 3: Add the equivalence lint script**
+
+```bash
+#!/usr/bin/env bash
+# scripts/check-studio-types-vs-openapi.sh
+set -euo pipefail
+# Stub: enforce equivalence in code review until tooling lands.
+echo "studio types <-> openapi equivalence: enforced by review (no automated check yet)"
+```
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add pkg/studio/types.go docs/studio/openapi.yaml scripts/check-studio-types-vs-openapi.sh
+git commit -m "feat(studio): define service-identity API types and OpenAPI schema"
+```
+
+---
+
+## Task 10: `pkg/studio/apikey_handlers.go` — HTTP handlers
+
+**Files:**
+- Create: `pkg/studio/apikey_handlers.go` (in package `studio` — no subpackage; see File Structure note)
+- Create: `pkg/studio/apikey_handlers_test.go`
 
 The four routes:
 
@@ -957,13 +1014,13 @@ The four routes:
 | `POST /api/studio/users/{studioSubject}/api-key/{keyId}/disable` | `DisableKey` |
 | `DELETE /api/studio/users/{studioSubject}/api-key/{keyId}` | `DeleteKey` |
 
-Request bodies and response shapes follow the design doc's "Obot endpoint contract" table. Use `apiclient/types`-style error envelopes consistent with upstream.
+Request bodies and response shapes come from `pkg/studio/types.go` (Task 9.5). Use `apiclient/types`-style error envelopes consistent with upstream. Disable returns the `DisableKeyResponse` defined in Task 9.5 and is implemented via expire-now per the disable-semantics note above (no schema migration).
 
 Each handler:
 1. Reads the `studioSubject` from the path.
-2. Calls into `pkg/studio/identity.EnsureIdentity` (for ensure) or assumes Identity exists (for rotate/disable/delete; returns 404 otherwise).
-3. Calls into `pkg/studio/apikey` for the lifecycle operation.
-4. Returns the result.
+2. Calls into `EnsureIdentity` (for ensure) or assumes Identity exists (for rotate/disable/delete; returns 404 otherwise) — both in the same `studio` package, no import needed beyond the package.
+3. Calls into the apikey wrappers (Task 9) for the lifecycle operation.
+4. Returns the typed response from `types.go`.
 
 The middleware from Task 7 (`RequireBackendPrincipal`) is applied at route registration in Task 14; handlers themselves do not re-validate the bearer token.
 
@@ -984,13 +1041,13 @@ git commit -m "feat(studio): add ensure-key HTTP handler"
 
 ---
 
-## Task 11: `pkg/studio/catalog.go` + `pkg/studio/handlers/catalog_handlers.go`
+## Task 11: `pkg/studio/catalog.go` + `pkg/studio/catalog_handlers.go`
 
 **Files:**
 - Create: `pkg/studio/catalog.go`
 - Create: `pkg/studio/catalog_test.go`
-- Create: `pkg/studio/handlers/catalog_handlers.go`
-- Create: `pkg/studio/handlers/catalog_handlers_test.go`
+- Create: `pkg/studio/catalog_handlers.go` (package `studio`)
+- Create: `pkg/studio/catalog_handlers_test.go`
 
 The two routes:
 
@@ -1023,11 +1080,11 @@ git commit -m "feat(studio): add catalog provision/teardown helpers and HTTP han
 
 ---
 
-## Task 12: `pkg/studio/handlers/connect_handlers.go` — connect-URL
+## Task 12: `pkg/studio/connect_handlers.go` — connect-URL
 
 **Files:**
-- Create: `pkg/studio/handlers/connect_handlers.go`
-- Create: `pkg/studio/handlers/connect_handlers_test.go`
+- Create: `pkg/studio/connect_handlers.go` (package `studio`)
+- Create: `pkg/studio/connect_handlers_test.go`
 
 The route:
 
@@ -1136,18 +1193,18 @@ func RegisterRoutes(ctx context.Context, mux *http.ServeMux, deps RouteDeps) err
 	validator := NewJWTValidator(deps.Config, jwks)
 	requireBackend := RequireBackendPrincipal(deps.Config, validator)
 
-	// API key lifecycle
-	mux.Handle("PUT /api/studio/users/{studioSubject}/api-key", requireBackend(handlers.NewEnsureKey(deps)))
-	mux.Handle("POST /api/studio/users/{studioSubject}/api-key/rotate", requireBackend(handlers.NewRotateKey(deps)))
-	mux.Handle("POST /api/studio/users/{studioSubject}/api-key/{keyId}/disable", requireBackend(handlers.NewDisableKey(deps)))
-	mux.Handle("DELETE /api/studio/users/{studioSubject}/api-key/{keyId}", requireBackend(handlers.NewDeleteKey(deps)))
+	// API key lifecycle — handlers live in package studio (no subpackage)
+	mux.Handle("PUT /api/studio/users/{studioSubject}/api-key", requireBackend(newEnsureKeyHandler(deps)))
+	mux.Handle("POST /api/studio/users/{studioSubject}/api-key/rotate", requireBackend(newRotateKeyHandler(deps)))
+	mux.Handle("POST /api/studio/users/{studioSubject}/api-key/{keyId}/disable", requireBackend(newDisableKeyHandler(deps)))
+	mux.Handle("DELETE /api/studio/users/{studioSubject}/api-key/{keyId}", requireBackend(newDeleteKeyHandler(deps)))
 
 	// Catalog
-	mux.Handle("POST /api/studio/catalog/{serverId}/provision", requireBackend(handlers.NewProvisionCatalog(deps)))
-	mux.Handle("POST /api/studio/catalog/{serverId}/teardown", requireBackend(handlers.NewTeardownCatalog(deps)))
+	mux.Handle("POST /api/studio/catalog/{serverId}/provision", requireBackend(newProvisionCatalogHandler(deps)))
+	mux.Handle("POST /api/studio/catalog/{serverId}/teardown", requireBackend(newTeardownCatalogHandler(deps)))
 
 	// Connect URL
-	mux.Handle("GET /api/studio/users/{studioSubject}/mcp-servers/{serverId}/connect-url", requireBackend(handlers.NewGetConnectURL(deps)))
+	mux.Handle("GET /api/studio/users/{studioSubject}/mcp-servers/{serverId}/connect-url", requireBackend(newConnectURLHandler(deps)))
 
 	return nil
 }
@@ -1184,29 +1241,28 @@ cd /Users/hbanerjee/src/obot && grep -n "mux.HandleFunc\|mux.Handle" pkg/api/rou
 
 Pseudo-diff:
 
+The real `Router` signature is `Router(ctx context.Context, services *services.Services) (http.Handler, error)` (verify at `pkg/api/router/router.go:44`). It mounts routes on `services.APIServer` (an `*http.ServeMux` via `*server.Server`). The new call composes deps from `services` rather than referencing locals that do not exist.
+
+Pseudo-diff:
+
 ```diff
  import (
    ...
 +  "github.com/obot-platform/obot/pkg/studio"
  )
  ...
- func Router(...) {
+ func Router(ctx context.Context, services *services.Services) (http.Handler, error) {
+   mux := services.APIServer
    ...
    // existing route registrations
-+  if err := studio.RegisterRoutes(ctx, mux, studio.RouteDeps{
-+    Config:        cfg.StudioConfig,
-+    IdentityStore: studio.NewIdentityStoreFromGateway(gatewayClient),
-+    APIKeyStore:   studio.NewAPIKeyStoreFromGateway(gatewayClient),
-+    CatalogStore:  studio.NewCatalogStoreFromKclient(kclient),
-+    Logger:        logger,
-+  }); err != nil {
-+    return fmt.Errorf("register Studio routes: %w", err)
++  if err := studio.RegisterRoutes(ctx, mux, studio.DepsFromServices(services)); err != nil {
++    return nil, fmt.Errorf("register Studio routes: %w", err)
 +  }
    ...
  }
 ```
 
-The `NewXxxFromYyy` adapters are thin constructors that satisfy the Task 8/9/11 interfaces. They live in `pkg/studio/adapters.go` (add this file alongside the others; not separately listed in File Structure because it is mechanical glue).
+`studio.DepsFromServices(*services.Services) RouteDeps` lives in `pkg/studio/adapters.go` (Task 9.5's File Structure addition). It reads `services.StudioConfig`, `services.GatewayClient`, `services.StorageClient`, and any kclient handle the catalog store needs, then constructs the three interface implementations the routes layer expects. Keeping the composition inside `pkg/studio/` makes the upstream call a single line.
 
 - [ ] **Step 3: Run `go build ./...` to verify the wiring compiles**
 
@@ -1223,12 +1279,14 @@ git commit -m "feat(studio): wire RegisterRoutes into upstream router"
 
 ---
 
-## Task 16: Embed StudioConfig in services.Config (PATCH POINT 2)
+## Task 16: Embed StudioConfig in Config AND Services (PATCH POINT 2)
 
 **Files:**
-- Modify: `pkg/services/config.go` (one new import + one new field)
+- Modify: `pkg/services/config.go` (one new import; two new fields — one on `Config`, one on `Services`)
 
-- [ ] **Step 1: Add the field**
+Both `Config` and `Services` live in the same file (`pkg/services/config.go`). The `Config` field is the env-loaded source of truth; the `Services` field is populated from it during construction so downstream code (including the router and `DepsFromServices`) reads it through the existing `*services.Services` argument rather than threading a separate `Config` reference.
+
+- [ ] **Step 1: Add the fields**
 
 Pseudo-diff:
 
@@ -1242,18 +1300,32 @@ Pseudo-diff:
    ...
 +  StudioConfig studio.StudioConfig
  }
+
+ type Services struct {
+   ...
++  StudioConfig studio.StudioConfig
+ }
 ```
 
-- [ ] **Step 2: Apply defaults from `DefaultStudioConfig`**
+- [ ] **Step 2: Populate the Services field at construction**
 
-If `pkg/services/config.go` has a `NewConfig` or default-constructor, splice in `DefaultStudioConfig()`. If env vars are loaded by struct tag automatically (e.g. via `envconfig`), no further change is needed — the field's env tags pick up the variables.
+Find the existing services constructor (likely a `New` function in the same file or a sibling file). Splice in:
+
+```go
+svc.StudioConfig = cfg.StudioConfig
+if svc.StudioConfig.JWKSRefreshInterval == 0 {
+    svc.StudioConfig = studio.DefaultStudioConfig().MergedWith(cfg.StudioConfig)
+}
+```
+
+`MergedWith` is a thin helper added to `pkg/studio/config.go` that returns a copy where zero-valued fields are filled from the receiver's defaults. (If env vars cover everything, the merge is a no-op; the helper exists so missing optional values get their documented defaults.)
 
 - [ ] **Step 3: Build + commit**
 
 ```bash
 cd /Users/hbanerjee/src/obot && go build ./...
-git add pkg/services/config.go docs/studio/CHANGES.md
-git commit -m "feat(studio): embed StudioConfig in services.Config"
+git add pkg/services/config.go pkg/studio/config.go docs/studio/CHANGES.md
+git commit -m "feat(studio): add StudioConfig to Config and Services structs"
 ```
 
 ---
@@ -1326,11 +1398,23 @@ git commit -m "feat(studio): run catalog manifest ingester at startup"
 
 This task is intentionally left at higher granularity because its shape depends entirely on Task 4's outcome.
 
+**Acceptance criteria (must hold regardless of Path A or Path B):**
+
+1. **Active-role allow.** A user who has at least one active Studio role (`vibedata_owner`, `user_access_administrator`, `domain_owner`, `domain_contributor`) completes Obot SSO and gets an Obot session. Verified by an end-to-end test that signs in to Studio as a fixture user with an active role, then opens Obot.
+2. **No-role deny.** A user authenticated to Studio but with no active Studio role is denied at the Obot authorization boundary. Verified by an end-to-end test that signs in as a fixture user with no roles and confirms Obot returns an authorization-denied response (or its equivalent — exact UI affordance depends on the path chosen in Task 4).
+3. **No side effects on deny.** For a denied user, the test asserts that:
+   - No Obot user record was created (or, if a user existed, no session was created).
+   - No `user_service_links` row was created in Studio's database (this is verified from the Studio side once that branch lands; on the Obot side, no Identity row with `AuthProviderName="studio"` is created for the denied user).
+   - No Studio-managed API key was minted for the denied subject.
+4. **Role revocation revokes the session.** A user who had an active role at login but loses it later cannot continue using their existing Obot session beyond the configured session lifetime, and cannot complete a fresh SSO. Acceptance is satisfied by the role-loss reconciliation defined in the Studio runtime design plus a session-lifetime configuration documented here.
+
+The eligibility signal (active-role claim) must come from Studio's userinfo response. The Studio-capable provider reads that claim and decides allow/deny. Do not duplicate role logic in the provider.
+
 - [ ] **Step 1: Confirm decision from Task 4**
 
 - [ ] **Step 2: Implement the chosen path**
 
-- [ ] **Step 3: End-to-end verification — a browser-driven OIDC login against a Studio test instance issues an Obot session**
+- [ ] **Step 3: End-to-end verification — all four acceptance criteria above**
 
 - [ ] **Step 4: Commit (multiple commits, one per sub-task)**
 
