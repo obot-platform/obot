@@ -239,7 +239,10 @@
 		'OBOT_AZURE_OPENAI_MODEL_PROVIDER_DEPLOYMENTS'
 	]);
 
-	const booleanInputs = new Set(['OBOT_AUTH_PROVIDER_ENABLE_LOGGING']);
+	const booleanInputs = new Set([
+		'OBOT_AUTH_PROVIDER_ENABLE_LOGGING',
+		'OBOT_GENERIC_OAUTH_AUTH_PROVIDER_TRUST_EMAIL_LINKING'
+	]);
 </script>
 
 {#snippet booleanToggle(parameter: ProviderParameter)}
@@ -308,6 +311,13 @@
 			{/if}
 			{#if note}
 				{@render note()}
+			{/if}
+
+			{#if provider.id === 'generic-oauth-auth-provider'}
+				<div class="notification-info p-3 text-sm font-light">
+					Changing the issuer changes the identity trust boundary. Re-confirm account linking only
+					when you trust the new issuer to own the email addresses it returns.
+				</div>
 			{/if}
 
 			{#if requiredConfigurationParameters.length > 0}

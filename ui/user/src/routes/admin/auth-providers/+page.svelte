@@ -29,6 +29,7 @@
 			const preferredOrder: string[] = [
 				CommonAuthProviderIds.GOOGLE,
 				CommonAuthProviderIds.GITHUB,
+				CommonAuthProviderIds.GENERIC_OAUTH,
 				CommonAuthProviderIds.OKTA,
 				CommonAuthProviderIds.AUTH0
 			];
@@ -238,7 +239,13 @@
 							} else {
 								// no credentials set, set initial default value for allowed domains
 								configuringAuthProviderValues = {
-									OBOT_AUTH_PROVIDER_EMAIL_DOMAINS: '*'
+									OBOT_AUTH_PROVIDER_EMAIL_DOMAINS: '*',
+									...(authProvider.id === CommonAuthProviderIds.GENERIC_OAUTH
+										? {
+												OBOT_GENERIC_OAUTH_AUTH_PROVIDER_SCOPE: 'openid email profile',
+												OBOT_GENERIC_OAUTH_AUTH_PROVIDER_TRUST_EMAIL_LINKING: 'true'
+											}
+										: {})
 								};
 							}
 						}

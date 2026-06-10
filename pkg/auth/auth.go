@@ -23,6 +23,8 @@ type SerializableState struct {
 	PreferredUsername string     `json:"preferredUsername"`
 	User              string     `json:"user"`
 	Email             string     `json:"email"`
+	Issuer            string     `json:"issuer,omitempty"`
+	EmailVerified     *bool      `json:"emailVerified,omitempty"`
 	SetCookies        []string   `json:"setCookies"`
 }
 

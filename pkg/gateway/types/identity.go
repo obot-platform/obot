@@ -8,6 +8,8 @@ type Identity struct {
 	AuthProviderNamespace string    `json:"authProviderNamespace" gorm:"primaryKey;index:idx_user_auth_id"`
 	ProviderUsername      string    `json:"providerUsername"`
 	ProviderUserID        string    `json:"providerUserID"`
+	ProviderIssuer        string    `json:"providerIssuer"`
+	ProviderEmailVerified *bool     `json:"providerEmailVerified" gorm:"-"`
 	HashedProviderUserID  string    `json:"hashedProviderUserID" gorm:"primaryKey"`
 	ProviderGroupLookupID string    `json:"providerGroupLookupID"`
 	Email                 string    `json:"email"`

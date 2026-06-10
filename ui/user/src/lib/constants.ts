@@ -41,6 +41,7 @@ export const DEFAULT_SYSTEM_MCP_CATALOG_ID = 'default';
 export const CommonAuthProviderIds = {
 	GOOGLE: 'google-auth-provider',
 	GITHUB: 'github-auth-provider',
+	GENERIC_OAUTH: 'generic-oauth-auth-provider',
 	OKTA: 'okta-auth-provider',
 	ENTRA: 'entra-auth-provider',
 	AUTH0: 'auth0-auth-provider'

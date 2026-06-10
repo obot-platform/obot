@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -248,6 +249,8 @@ type serializableState struct {
 	PreferredUsername string     `json:"preferredUsername"`
 	User              string     `json:"user"`
 	Email             string     `json:"email"`
+	Issuer            string     `json:"issuer,omitempty"`
+	EmailVerified     *bool      `json:"emailVerified,omitempty"`
 	SetCookies        []string   `json:"setCookies"`
 }
 
@@ -302,6 +305,12 @@ func (p *Proxy) authenticateRequest(req *http.Request) (*authenticator.Response,
 	if len(ss.SetCookies) != 0 {
 		// This is set if the auth provider needed to refresh the token.
 		u.Extra["set-cookies"] = ss.SetCookies
+	}
+	if ss.Issuer != "" {
+		u.Extra["auth_provider_issuer"] = []string{ss.Issuer}
+	}
+	if ss.EmailVerified != nil {
+		u.Extra["auth_provider_email_verified"] = []string{strconv.FormatBool(*ss.EmailVerified)}
 	}
 
 	// Put the access token and provider URL on the context so that the profile icon and group info can be fetched.

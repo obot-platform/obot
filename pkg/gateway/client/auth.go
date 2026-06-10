@@ -3,6 +3,7 @@ package client
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/obot-platform/obot/pkg/auth"
 	"github.com/obot-platform/obot/pkg/gateway/types"
@@ -30,12 +31,23 @@ func (u UserDecorator) AuthenticateRequest(req *http.Request) (*authenticator.Re
 		return nil, false, nil
 	}
 
+	var emailVerified *bool
+	if raw := auth.FirstExtraValue(resp.User.GetExtra(), "auth_provider_email_verified"); raw != "" {
+		parsed, err := strconv.ParseBool(raw)
+		if err != nil {
+			return nil, false, fmt.Errorf("invalid auth_provider_email_verified value %q: %w", raw, err)
+		}
+		emailVerified = &parsed
+	}
+
 	identity := &types.Identity{
 		Email:                 auth.FirstExtraValue(resp.User.GetExtra(), "email"),
 		AuthProviderName:      auth.FirstExtraValue(resp.User.GetExtra(), "auth_provider_name"),
 		AuthProviderNamespace: auth.FirstExtraValue(resp.User.GetExtra(), "auth_provider_namespace"),
 		ProviderUsername:      resp.User.GetName(),
 		ProviderUserID:        resp.User.GetUID(),
+		ProviderIssuer:        auth.FirstExtraValue(resp.User.GetExtra(), "auth_provider_issuer"),
+		ProviderEmailVerified: emailVerified,
 	}
 	gatewayUser, err := u.client.EnsureIdentity(req.Context(), identity, req.Header.Get("X-Obot-User-Timezone"))
 	if err != nil {

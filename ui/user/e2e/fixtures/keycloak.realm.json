@@ -1,0 +1,32 @@
+{
+	"realm": "obot-e2e",
+	"enabled": true,
+	"clients": [
+		{
+			"clientId": "obot-e2e-keycloak",
+			"enabled": true,
+			"secret": "obot-e2e-keycloak-secret",
+			"redirectUris": ["http://127.0.0.1:15174/oauth2/callback"],
+			"publicClient": false,
+			"protocol": "openid-connect",
+			"standardFlowEnabled": true
+		}
+	],
+	"users": [
+		{
+			"username": "keycloak.user@example.com",
+			"email": "keycloak.user@example.com",
+			"emailVerified": true,
+			"firstName": "Keycloak",
+			"lastName": "User",
+			"enabled": true,
+			"credentials": [
+				{
+					"type": "password",
+					"value": "KeycloakPassw0rd!",
+					"temporary": false
+				}
+			]
+		}
+	]
+}

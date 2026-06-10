@@ -1,0 +1,29 @@
+{
+	"enabledUnless": {
+		"env": "OBOT_E2E_KEYCLOAK",
+		"value": "false"
+	},
+	"container": {
+		"image": "quay.io/keycloak/keycloak:26.0",
+		"realm": "obot-e2e",
+		"port": 18082
+	},
+	"provider": {
+		"id": "generic-oauth-auth-provider",
+		"namespace": "default",
+		"name": "Keycloak",
+		"clientId": "obot-e2e-keycloak",
+		"clientSecret": "obot-e2e-keycloak-secret",
+		"scope": "openid email profile",
+		"emailDomains": "example.com",
+		"trustEmailLinking": true
+	},
+	"user": {
+		"username": "keycloak.user@example.com",
+		"password": "KeycloakPassw0rd!",
+		"email": "keycloak.user@example.com",
+		"emailVerified": true,
+		"firstName": "Keycloak",
+		"lastName": "User"
+	}
+}
