@@ -393,7 +393,7 @@
 
 		<div class="flex flex-col gap-2">
 			<div class="mb-2 flex items-center justify-between">
-				<h2 class="text-lg font-semibold">MCP Servers</h2>
+				<h2 class="text-lg font-semibold">Catalog Entries & Servers</h2>
 				{#if !readonly}
 					<div class="relative flex items-center gap-4">
 						<button
@@ -402,12 +402,16 @@
 								addMcpServerDialog?.open();
 							}}
 						>
-							<Plus class="size-4" /> Add MCP Server
+							<Plus class="size-4" /> Add Entry/Server
 						</button>
 					</div>
 				{/if}
 			</div>
-			<Table data={mcpServersTableData} fields={['name']} noDataMessage="No MCP servers added.">
+			<Table
+				data={mcpServersTableData}
+				fields={['name']}
+				noDataMessage="No entries or servers added."
+			>
 				{#snippet actions(d)}
 					{#if !readonly}
 						<IconButton

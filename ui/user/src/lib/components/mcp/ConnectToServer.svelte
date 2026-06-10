@@ -157,13 +157,11 @@
 		configureFormTitle = undefined;
 		configureForm = {
 			name: '',
-			envs:
-				item.manifest.serverUserType === 'multiUser'
-					? []
-					: item.manifest?.env?.map((env) => ({
-							...env,
-							value: ''
-						})),
+			envs: item.manifest?.env?.map((env) => ({
+				...env,
+				value: '',
+				isStatic: env.value !== ''
+			})),
 			headers: item.manifest?.remoteConfig?.headers?.map((header) => ({
 				...header,
 				value: '',
@@ -243,7 +241,8 @@
 						: (m.env ?? []).map((e) => ({
 								...(e as unknown as Record<string, unknown>),
 								key: e.key,
-								value: ''
+								value: '',
+								isStatic: e.value !== ''
 							})),
 					headers: isMultiUser
 						? (m.multiUserConfig?.userDefinedHeaders ?? []).map((h) => ({
@@ -594,7 +593,14 @@
 			}
 			server = created;
 
-			const envs = convertEnvHeadersToRecord(lf?.envs, lf?.headers);
+			const staticEnvValues =
+				entry.manifest.env?.reduce<Record<string, string>>((acc, env) => {
+					if (env.value) {
+						acc[env.key] = env.value;
+					}
+					return acc;
+				}, {}) ?? {};
+			const envs = convertEnvHeadersToRecord(lf?.envs, lf?.headers, staticEnvValues);
 			server = workspaceID
 				? await UserService.configureWorkspaceMCPCatalogServer(workspaceID, created.id, envs)
 				: await AdminService.configureMCPCatalogServer(catalogID!, created.id, envs);
