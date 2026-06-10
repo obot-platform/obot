@@ -105,31 +105,34 @@ test('Keycloak credential flow can log in through generic OAuth', async ({ page,
 		await readFile(keycloakSettingsPath, 'utf8')
 	) as KeycloakFixture;
 	const keycloak = await startKeycloak(keycloakFixture);
+	const keycloakIssuer = `http://127.0.0.1:${keycloakFixture.container.port}/realms/${keycloakFixture.container.realm}`;
+	const keycloakGenericFixture: GenericOAuthFixture = {
+		provider: keycloakFixture.provider,
+		user: {
+			subject: keycloakFixture.user.username,
+			email: keycloakFixture.user.email,
+			emailVerified: keycloakFixture.user.emailVerified,
+			preferredUsername: keycloakFixture.user.username,
+			name: `${keycloakFixture.user.firstName} ${keycloakFixture.user.lastName}`,
+			picture: ''
+		},
+		bootstrap: fixture.bootstrap
+	};
 
 	try {
-		await configureGenericProvider(
-			request,
-			{
-				provider: keycloakFixture.provider,
-				user: {
-					subject: keycloakFixture.user.username,
-					email: keycloakFixture.user.email,
-					emailVerified: keycloakFixture.user.emailVerified,
-					preferredUsername: keycloakFixture.user.username,
-					name: `${keycloakFixture.user.firstName} ${keycloakFixture.user.lastName}`,
-					picture: ''
-				},
-				bootstrap: fixture.bootstrap
-			},
-			`http://127.0.0.1:${keycloakFixture.container.port}/realms/${keycloakFixture.container.realm}`
-		);
+		if (recordVideo) {
+			test.setTimeout(180_000);
+			await configureGenericProviderInUI(page, keycloakGenericFixture, keycloakIssuer);
+		} else {
+			await configureGenericProvider(request, keycloakGenericFixture, keycloakIssuer);
+		}
 
 		await page.goto('/');
 		await page
 			.getByRole('button', { name: `Continue with ${keycloakFixture.provider.name}` })
 			.click();
 		await page.getByLabel(/username|email/i).fill(keycloakFixture.user.username);
-		await page.getByLabel(/password/i).fill(keycloakFixture.user.password);
+		await page.getByRole('textbox', { name: 'Password' }).fill(keycloakFixture.user.password);
 		await page.getByRole('button', { name: /sign in/i }).click();
 
 		await expect(page).toHaveURL(/\/dashboard/);
@@ -186,6 +189,7 @@ async function configureGenericProviderInUI(
 	await closeOpenDialogs(page);
 	await expect(page.getByRole('heading', { name: 'Custom OAuth / OIDC' })).toBeVisible();
 	await recordPause(page);
+	await closeOpenDialogs(page);
 
 	await page
 		.getByRole('heading', { name: 'Custom OAuth / OIDC' })
