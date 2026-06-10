@@ -12,9 +12,98 @@
 
 **Tech Stack:** Go 1.x, golang-jwt/jwt/v5, MicahParks/jwkset (both already in `go.mod`), standard `net/http` + `http.ServeMux`, Kubernetes custom resources for User/Identity persistence (existing pattern).
 
-**Source design:** `mcp-obot-platform/README.md` (in the Studio repo, branch `feat/better-auth-migration`).
+**Source design:** `/Users/hbanerjee/src/worktrees/feat/obot-integration/docs/design/mcp-obot-platform/README.md` (Studio repo worktree for branch `feat/obot-integration`).
 
-**Sync-with-upstream principle:** This plan is structured so a future `git rebase upstream/main` should produce conflicts only at the three documented patch points listed in `docs/studio/CHANGES.md` (Task 1). All other changes are additive — new files in new directories that upstream does not modify.
+**Functional spec:** `/Users/hbanerjee/src/worktrees/feat/obot-integration/docs/functional/configure-connectors/README.md` (Studio repo worktree for branch `feat/obot-integration`).
+
+**Repository / worktree layout:**
+- Studio-side design, functional spec, generated client/types, or runtime follow-up changes belong only in `/Users/hbanerjee/src/worktrees/feat/obot-integration` on branch `feat/obot-integration`.
+- Obot implementation changes belong only in `/Users/hbanerjee/src/worktrees/feat/mcp-studio-integration` on branch `feat/mcp-studio-integration`, created from `origin/main` of `git@github.com:accelerate-data/obot.git`.
+- `/Users/hbanerjee/src/obot` is the `accelerate-data/obot` source checkout used to create the Obot worktree from `main`. Do not implement this plan directly there after Task 0.
+- Run every Obot command in this plan from `/Users/hbanerjee/src/worktrees/feat/mcp-studio-integration` unless a step explicitly says it is a Studio-side verification in `/Users/hbanerjee/src/worktrees/feat/obot-integration`.
+
+**Sync-with-main principle:** This plan is structured so a future `git rebase origin/main` in the `accelerate-data/obot` repo should produce conflicts only at the three documented patch points listed in `docs/studio/CHANGES.md` (Task 1). All other changes are additive — new files in new directories that main does not modify.
+
+---
+
+## Task 0: Create and verify the Obot implementation worktree
+
+**Files:**
+- No source files changed.
+- Creates worktree directory: `/Users/hbanerjee/src/worktrees/feat/mcp-studio-integration`
+
+This task must be completed before any Obot implementation task. It keeps Obot changes off `/Users/hbanerjee/src/obot`, bases the Obot feature branch on `accelerate-data/obot` `main`, and keeps Studio changes on their own Studio worktree.
+
+- [ ] **Step 1: Verify the Studio worktree exists on the expected branch**
+
+```bash
+cd /Users/hbanerjee/src/worktrees/feat/obot-integration
+git branch --show-current
+test "$(git branch --show-current)" = "feat/obot-integration"
+test -f docs/design/mcp-obot-platform/README.md
+test -f docs/functional/configure-connectors/README.md
+```
+
+Expected: branch output is `feat/obot-integration`; both docs exist.
+
+- [ ] **Step 2: Verify the Obot source checkout is `accelerate-data/obot` on `main`**
+
+```bash
+cd /Users/hbanerjee/src/obot
+git remote get-url origin
+git branch --show-current
+git fetch origin main
+test "$(git remote get-url origin)" = "git@github.com:accelerate-data/obot.git"
+test "$(git branch --show-current)" = "main"
+```
+
+Expected:
+
+```text
+git@github.com:accelerate-data/obot.git
+main
+```
+
+- [ ] **Step 3: Create the Obot worktree from `origin/main`**
+
+```bash
+cd /Users/hbanerjee/src/obot
+git worktree add /Users/hbanerjee/src/worktrees/feat/mcp-studio-integration -b feat/mcp-studio-integration origin/main
+```
+
+Expected: Git creates `/Users/hbanerjee/src/worktrees/feat/mcp-studio-integration` and checks out branch `feat/mcp-studio-integration` based on `origin/main`.
+
+If the branch already exists, use:
+
+```bash
+cd /Users/hbanerjee/src/obot
+git worktree add /Users/hbanerjee/src/worktrees/feat/mcp-studio-integration feat/mcp-studio-integration
+```
+
+- [ ] **Step 4: Verify the Obot feature branch is based on `origin/main`**
+
+```bash
+cd /Users/hbanerjee/src/worktrees/feat/mcp-studio-integration
+git branch --show-current
+git rev-parse --show-toplevel
+git merge-base --is-ancestor origin/main HEAD
+```
+
+Expected:
+
+```text
+feat/mcp-studio-integration
+/Users/hbanerjee/src/worktrees/feat/mcp-studio-integration
+```
+
+- [ ] **Step 5: Install or verify dependencies from the Obot worktree**
+
+```bash
+cd /Users/hbanerjee/src/worktrees/feat/mcp-studio-integration
+go test ./pkg/api/router ./pkg/gateway/client
+```
+
+Expected: PASS. If the command fails because dependencies are missing, resolve from this worktree and rerun before Task 1.
 
 ---
 
@@ -76,7 +165,7 @@ cat > docs/studio/CHANGES.md <<'EOF'
 
 This file lists every file outside `pkg/studio/`, `docs/studio/`, and
 `docs/superpowers/` that the Studio integration modifies. Every entry here is
-a place a future rebase against `upstream/main` may produce a conflict. The
+a place a future rebase against `origin/main` may produce a conflict. The
 expected resolution for each is documented.
 
 If you add a new upstream touchpoint while implementing the plan, add it here
@@ -168,7 +257,7 @@ func TestStudioConfig_ValidatesFullyConfigured(t *testing.T) {
 - [ ] **Step 2: Run test to verify it fails**
 
 ```bash
-cd /Users/hbanerjee/src/obot && go test ./pkg/studio/...
+cd /Users/hbanerjee/src/worktrees/feat/mcp-studio-integration && go test ./pkg/studio/...
 ```
 
 Expected: FAIL — package or symbols not defined.
@@ -226,7 +315,7 @@ func (c StudioConfig) Validate() error {
 - [ ] **Step 4: Run tests**
 
 ```bash
-cd /Users/hbanerjee/src/obot && go test ./pkg/studio/...
+cd /Users/hbanerjee/src/worktrees/feat/mcp-studio-integration && go test ./pkg/studio/...
 ```
 
 Expected: PASS.
@@ -314,7 +403,7 @@ Use any standard tool (e.g., a short Go helper or an online generator restricted
 - [ ] **Step 3: Run test to verify it fails**
 
 ```bash
-cd /Users/hbanerjee/src/obot && go test ./pkg/studio/...
+cd /Users/hbanerjee/src/worktrees/feat/mcp-studio-integration && go test ./pkg/studio/...
 ```
 
 Expected: FAIL — `NewJWKSCache` not defined.
@@ -386,7 +475,7 @@ func (c *JWKSCache) KeySet(ctx context.Context) (jwkset.Storage, error) {
 - [ ] **Step 5: Run tests**
 
 ```bash
-cd /Users/hbanerjee/src/obot && go test ./pkg/studio/...
+cd /Users/hbanerjee/src/worktrees/feat/mcp-studio-integration && go test ./pkg/studio/...
 ```
 
 Expected: PASS.
@@ -418,7 +507,7 @@ Read these files end-to-end and note the contract:
 - [ ] **Step 2: Check whether a generic OIDC provider already exists**
 
 ```bash
-cd /Users/hbanerjee/src/obot && grep -rn "generic\|openid\|oidc" --include="*.go" pkg/api/handlers/providers/ pkg/gateway/server/dispatcher/ 2>/dev/null
+cd /Users/hbanerjee/src/worktrees/feat/mcp-studio-integration && grep -rn "generic\|openid\|oidc" --include="*.go" pkg/api/handlers/providers/ pkg/gateway/server/dispatcher/ 2>/dev/null
 ```
 
 - [ ] **Step 3: Write the decision doc**
@@ -590,7 +679,7 @@ func (v *JWTValidator) Validate(ctx context.Context, raw string) (*StudioClaims,
 - [ ] **Step 4: Run tests**
 
 ```bash
-cd /Users/hbanerjee/src/obot && go test -tags=testdata ./pkg/studio/...
+cd /Users/hbanerjee/src/worktrees/feat/mcp-studio-integration && go test -tags=testdata ./pkg/studio/...
 ```
 
 Expected: PASS.
@@ -665,7 +754,7 @@ func ResolvePrincipal(cfg StudioConfig, subject string) Principal {
 - [ ] **Step 3: Run tests and commit**
 
 ```bash
-cd /Users/hbanerjee/src/obot && go test ./pkg/studio/...
+cd /Users/hbanerjee/src/worktrees/feat/mcp-studio-integration && go test ./pkg/studio/...
 git add pkg/studio/principal.go pkg/studio/principal_test.go
 git commit -m "feat(studio): add subject resolver for backend-vs-user principals"
 ```
@@ -806,7 +895,7 @@ func extractBearer(r *http.Request) string {
 - [ ] **Step 3: Run tests and commit**
 
 ```bash
-cd /Users/hbanerjee/src/obot && go test -tags=testdata ./pkg/studio/...
+cd /Users/hbanerjee/src/worktrees/feat/mcp-studio-integration && go test -tags=testdata ./pkg/studio/...
 git add pkg/studio/middleware.go pkg/studio/middleware_test.go
 git commit -m "feat(studio): add JWT-validating middleware for service-identity routes"
 ```
@@ -832,7 +921,7 @@ The exact storage calls depend on the gateway client API. The implementer should
 - [ ] **Step 1: Read the existing identity-management code**
 
 ```bash
-cd /Users/hbanerjee/src/obot && cat pkg/gateway/client/identity*.go pkg/gateway/types/identity.go pkg/gateway/types/users.go 2>&1 | head -200
+cd /Users/hbanerjee/src/worktrees/feat/mcp-studio-integration && cat pkg/gateway/client/identity*.go pkg/gateway/types/identity.go pkg/gateway/types/users.go 2>&1 | head -200
 ```
 
 Document the relevant call signatures in a comment at the top of `identity.go` so the unit tests can mock the right interface.
@@ -925,7 +1014,7 @@ Implement against an `APIKeyStore` interface (analogous to Task 8's `IdentitySto
 - [ ] **Step 1: Read upstream apikey storage**
 
 ```bash
-cd /Users/hbanerjee/src/obot && cat pkg/gateway/server/apikey.go pkg/gateway/client/apikey.go pkg/gateway/types/apikeys.go 2>&1 | head -200
+cd /Users/hbanerjee/src/worktrees/feat/mcp-studio-integration && cat pkg/gateway/server/apikey.go pkg/gateway/client/apikey.go pkg/gateway/types/apikeys.go 2>&1 | head -200
 ```
 
 - [ ] **Step 2: Write tests against the interface (TDD)**
@@ -1066,8 +1155,8 @@ Acceptance criteria:
 - [ ] **Step 1: Read MCPServer/MCPCatalog storage code**
 
 ```bash
-cd /Users/hbanerjee/src/obot && find pkg/storage -name "*mcp*" -type f 2>&1 | head
-cd /Users/hbanerjee/src/obot && grep -rn "MCPServer\|MCPCatalog" --include="*.go" pkg/api/handlers/mcp*.go pkg/services 2>&1 | head -30
+cd /Users/hbanerjee/src/worktrees/feat/mcp-studio-integration && find pkg/storage -name "*mcp*" -type f 2>&1 | head
+cd /Users/hbanerjee/src/worktrees/feat/mcp-studio-integration && grep -rn "MCPServer\|MCPCatalog" --include="*.go" pkg/api/handlers/mcp*.go pkg/services 2>&1 | head -30
 ```
 
 - [ ] **Step 2: TDD as in earlier tasks**
@@ -1099,7 +1188,7 @@ Implementation: read the existing `/api/mcp-servers/{id}/check-oauth` flow (refe
 - [ ] **Step 1: Read the existing connect-URL machinery**
 
 ```bash
-cd /Users/hbanerjee/src/obot && grep -rn "check-oauth\|connect-url\|CheckOAuth\|ConnectURL" --include="*.go" pkg/ 2>&1 | head
+cd /Users/hbanerjee/src/worktrees/feat/mcp-studio-integration && grep -rn "check-oauth\|connect-url\|CheckOAuth\|ConnectURL" --include="*.go" pkg/ 2>&1 | head
 ```
 
 - [ ] **Step 2: TDD as before**
@@ -1234,7 +1323,7 @@ This is one of the three upstream touchpoints. Update `docs/studio/CHANGES.md` i
 - [ ] **Step 1: Identify the route-registration block**
 
 ```bash
-cd /Users/hbanerjee/src/obot && grep -n "mux.HandleFunc\|mux.Handle" pkg/api/router/router.go | head -10
+cd /Users/hbanerjee/src/worktrees/feat/mcp-studio-integration && grep -n "mux.HandleFunc\|mux.Handle" pkg/api/router/router.go | head -10
 ```
 
 - [ ] **Step 2: Add the import and the call**
@@ -1267,7 +1356,7 @@ Pseudo-diff:
 - [ ] **Step 3: Run `go build ./...` to verify the wiring compiles**
 
 ```bash
-cd /Users/hbanerjee/src/obot && go build ./...
+cd /Users/hbanerjee/src/worktrees/feat/mcp-studio-integration && go build ./...
 ```
 
 - [ ] **Step 4: Commit**
@@ -1323,7 +1412,7 @@ if svc.StudioConfig.JWKSRefreshInterval == 0 {
 - [ ] **Step 3: Build + commit**
 
 ```bash
-cd /Users/hbanerjee/src/obot && go build ./...
+cd /Users/hbanerjee/src/worktrees/feat/mcp-studio-integration && go build ./...
 git add pkg/services/config.go pkg/studio/config.go docs/studio/CHANGES.md
 git commit -m "feat(studio): add StudioConfig to Config and Services structs"
 ```
@@ -1354,7 +1443,7 @@ config:
 - [ ] **Step 2: Verify the helm chart still renders**
 
 ```bash
-cd /Users/hbanerjee/src/obot && helm template chart/ > /dev/null
+cd /Users/hbanerjee/src/worktrees/feat/mcp-studio-integration && helm template chart/ > /dev/null
 ```
 
 - [ ] **Step 3: Commit**
@@ -1447,8 +1536,8 @@ git commit -m "test(studio): add end-to-end integration test for service-identit
 **Files:**
 - Create: `scripts/check-upstream-touchpoints.sh`
 
-A script the team runs after every `git fetch upstream && git rebase upstream/main` that:
-1. Lists every file modified between `upstream/main..HEAD`.
+A script the team runs after every `git fetch origin main && git rebase origin/main` that:
+1. Lists every file modified between `origin/main..HEAD`.
 2. Compares against the manifest in `docs/studio/CHANGES.md`.
 3. Flags any unexpected upstream-file modification.
 
@@ -1465,7 +1554,7 @@ expected_touchpoints=(
   "chart/values.yaml"
 )
 
-modified=$(git diff --name-only upstream/main..HEAD | grep -v -E '^(pkg/studio/|docs/studio/|docs/superpowers/|cmd/studio-auth-provider/|scripts/check-upstream-touchpoints.sh)')
+modified=$(git diff --name-only origin/main..HEAD | grep -v -E '^(pkg/studio/|docs/studio/|docs/superpowers/|cmd/studio-auth-provider/|scripts/check-upstream-touchpoints.sh)')
 
 for f in $modified; do
   found=false
@@ -1499,7 +1588,7 @@ git commit -m "tooling(studio): add upstream-touchpoint check script"
   - Custom-catalog ingester → Task 13
   - Server provisioning lifecycle → Task 11
   - Identity mapping → Task 8 + Task 19
-  - Sync-with-upstream constraint → File structure principle + Tasks 1, 21
+  - Sync-with-main constraint → File structure principle + Tasks 1, 21
 
 - **Placeholders**: Tasks 4, 18, 19 are explicitly investigative or branching on prior decisions — they have concrete deliverables (a decision doc, a single integration point, a chosen path) rather than placeholder code. Other tasks have concrete code, exact files, and runnable commands.
 
