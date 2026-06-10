@@ -137,6 +137,8 @@
 	let duplicateNames = $derived.by(() => {
 		const counts: Record<string, number> = {};
 		for (const item of allData) {
+			if (item.type !== 'mcpcatalogentry' && item.type !== 'mcpserver') continue;
+			if (!item.name) continue;
 			counts[item.name] = (counts[item.name] ?? 0) + 1;
 		}
 		return new Set(Object.keys(counts).filter((name) => counts[name] > 1));
@@ -240,9 +242,9 @@
 											</div>
 										{/if}
 
-										{#if duplicateNames.has(item.name)}
+										{#if duplicateNames.has(item.name) && item.type !== 'all'}
 											<div class="badge badge-xs badge-secondary">
-												{item.type === 'mcpcatalogentry' ? 'Catalog Entry' : 'Server'}
+												{item.type === 'mcpserver' ? 'Server' : 'Catalog Entry'}
 											</div>
 										{/if}
 									</div>
