@@ -81,6 +81,38 @@ func TestGenericOAuthDoesNotLinkWhenEmailVerifiedFalse(t *testing.T) {
 	}
 }
 
+func TestGenericOAuthLinksWhenEmailVerifiedAbsentAndTrustEnabled(t *testing.T) {
+	c := newGenericOAuthTestClient(t, "https://issuer.example.com/", "true")
+	ctx := context.Background()
+
+	existing, err := c.EnsureIdentity(ctx, &types.Identity{
+		Email:                 "alice@example.com",
+		AuthProviderName:      "google-auth-provider",
+		AuthProviderNamespace: system.DefaultNamespace,
+		ProviderUsername:      "alice",
+		ProviderUserID:        "google-alice",
+	}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	actual, err := c.EnsureIdentity(ctx, &types.Identity{
+		Email:                 "alice@example.com",
+		AuthProviderName:      genericOAuthAuthProviderName,
+		AuthProviderNamespace: system.DefaultNamespace,
+		ProviderUsername:      "alice@example.com",
+		ProviderUserID:        "iss:https://issuer.example.com/\x00sub:alice",
+		ProviderIssuer:        "https://issuer.example.com/",
+	}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if actual.ID != existing.ID {
+		t.Fatalf("expected trusted generic OAuth identity with absent email_verified to link to existing user %d, got %d", existing.ID, actual.ID)
+	}
+}
+
 func TestGenericOAuthDoesNotLinkWhenTrustDisabled(t *testing.T) {
 	c := newGenericOAuthTestClient(t, "https://issuer.example.com/", "false")
 	ctx := context.Background()

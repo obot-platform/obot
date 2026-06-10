@@ -26,6 +26,26 @@ func TestValidateGenericOAuthConfigRejectsMissingEmailDomains(t *testing.T) {
 	}
 }
 
+func TestValidateGenericOAuthConfigRejectsInvalidIssuerURL(t *testing.T) {
+	err := validateGenericOAuthConfig(context.Background(), GenericOAuthAuthProviderName, map[string]string{
+		GenericOAuthIssuerEnvVar:       "not a url",
+		GenericOAuthEmailDomainsEnvVar: "*",
+	})
+	if err == nil {
+		t.Fatal("expected invalid issuer URL to fail")
+	}
+}
+
+func TestValidateGenericOAuthConfigRejectsInsecureRemoteIssuer(t *testing.T) {
+	err := validateGenericOAuthConfig(context.Background(), GenericOAuthAuthProviderName, map[string]string{
+		GenericOAuthIssuerEnvVar:       "http://issuer.example.com",
+		GenericOAuthEmailDomainsEnvVar: "*",
+	})
+	if err == nil {
+		t.Fatal("expected insecure remote issuer to fail")
+	}
+}
+
 func TestValidateGenericOAuthConfigRejectsIssuerMismatch(t *testing.T) {
 	issuer := newOIDCDiscoveryServer(t, "https://other.example.com")
 
@@ -35,6 +55,55 @@ func TestValidateGenericOAuthConfigRejectsIssuerMismatch(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected issuer mismatch to fail")
+	}
+}
+
+func TestValidateGenericOAuthConfigRejectsDiscoveryHTTPError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "unavailable", http.StatusServiceUnavailable)
+	}))
+	t.Cleanup(server.Close)
+
+	err := validateGenericOAuthConfig(context.Background(), GenericOAuthAuthProviderName, map[string]string{
+		GenericOAuthIssuerEnvVar:       server.URL,
+		GenericOAuthEmailDomainsEnvVar: "*",
+	})
+	if err == nil {
+		t.Fatal("expected discovery HTTP error to fail")
+	}
+}
+
+func TestValidateGenericOAuthConfigRejectsMalformedDiscovery(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{`))
+	}))
+	t.Cleanup(server.Close)
+
+	err := validateGenericOAuthConfig(context.Background(), GenericOAuthAuthProviderName, map[string]string{
+		GenericOAuthIssuerEnvVar:       server.URL,
+		GenericOAuthEmailDomainsEnvVar: "*",
+	})
+	if err == nil {
+		t.Fatal("expected malformed discovery document to fail")
+	}
+}
+
+func TestValidateGenericOAuthConfigRejectsMissingRequiredEndpoints(t *testing.T) {
+	issuer := newOIDCDiscoveryServerWithDocument(t, func(issuer string) map[string]string {
+		return map[string]string{
+			"issuer":            issuer,
+			"token_endpoint":    issuer + "/token",
+			"jwks_uri":          issuer + "/jwks",
+			"userinfo_endpoint": issuer + "/userinfo",
+		}
+	})
+
+	err := validateGenericOAuthConfig(context.Background(), GenericOAuthAuthProviderName, map[string]string{
+		GenericOAuthIssuerEnvVar:       issuer,
+		GenericOAuthEmailDomainsEnvVar: "*",
+	})
+	if err == nil {
+		t.Fatal("expected missing authorization endpoint to fail")
 	}
 }
 
@@ -75,6 +144,25 @@ func TestRequireGenericOAuthTrustReconfirmationAllowsIssuerChangeWithTrust(t *te
 func newOIDCDiscoveryServer(t *testing.T, overrideIssuer string) string {
 	t.Helper()
 
+	return newOIDCDiscoveryServerWithDocument(t, func(issuer string) map[string]string {
+		responseIssuer := issuer
+		if overrideIssuer != "" {
+			responseIssuer = overrideIssuer
+		}
+
+		return map[string]string{
+			"issuer":                 responseIssuer,
+			"authorization_endpoint": issuer + "/auth",
+			"token_endpoint":         issuer + "/token",
+			"jwks_uri":               issuer + "/jwks",
+			"userinfo_endpoint":      issuer + "/userinfo",
+		}
+	})
+}
+
+func newOIDCDiscoveryServerWithDocument(t *testing.T, document func(issuer string) map[string]string) string {
+	t.Helper()
+
 	var issuer string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/.well-known/openid-configuration" {
@@ -82,18 +170,7 @@ func newOIDCDiscoveryServer(t *testing.T, overrideIssuer string) string {
 			return
 		}
 
-		responseIssuer := issuer
-		if overrideIssuer != "" {
-			responseIssuer = overrideIssuer
-		}
-
-		if err := json.NewEncoder(w).Encode(map[string]string{
-			"issuer":                 responseIssuer,
-			"authorization_endpoint": issuer + "/auth",
-			"token_endpoint":         issuer + "/token",
-			"jwks_uri":               issuer + "/jwks",
-			"userinfo_endpoint":      issuer + "/userinfo",
-		}); err != nil {
+		if err := json.NewEncoder(w).Encode(document(issuer)); err != nil {
 			t.Fatal(err)
 		}
 	}))
