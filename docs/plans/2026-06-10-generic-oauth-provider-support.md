@@ -32,6 +32,8 @@ Main Obot repository:
 - Modify `ui/user/src/lib/components/admin/ProviderConfigure.svelte` to render the trust toggle and issuer-change warning.
 - Modify `ui/user/src/lib/services/admin/types.ts` if the provider parameter model needs a boolean/toggle hint beyond name-based special casing.
 - Modify `docs/docs/configuration/auth-providers.md` for operator documentation.
+- Add Playwright E2E coverage under `ui/user/e2e` or a repo-level `e2e` directory, following whichever layout is introduced for the first Playwright suite.
+- Add E2E fixtures under `ui/user/e2e/fixtures` or `e2e/fixtures`. All provider/client/user settings must come from fixture files, not inline constants, except the single CI gate `OBOT_E2E_KEYCLOAK=false`.
 - Add or update tests under `pkg/gateway/client`, `pkg/proxy`, `pkg/api/handlers`, `pkg/controller/handlers/provider`, and `ui/user`.
 
 Provider image/repo dependency:
@@ -832,7 +834,375 @@ Expected: Docusaurus build passes.
 
 ---
 
-### Task 10: Full Verification and Commit
+### Task 10: Add Full OAuth/OIDC Browser E2E Coverage
+
+**Files:**
+- Create: `ui/user/playwright.config.ts` or repo-level `playwright.config.ts`
+- Modify: `ui/user/package.json` or repo-level package/test scripts
+- Create: `ui/user/e2e/generic-oauth.spec.ts` or `e2e/generic-oauth.spec.ts`
+- Create: `ui/user/e2e/fixtures/generic-oauth.mock.json` or `e2e/fixtures/generic-oauth.mock.json`
+- Create: `ui/user/e2e/fixtures/keycloak.settings.json` or `e2e/fixtures/keycloak.settings.json`
+- Create: `ui/user/e2e/fixtures/keycloak.realm.json` or `e2e/fixtures/keycloak.realm.json`
+- Create: `ui/user/e2e/support/obot.ts` or `e2e/support/obot.ts`
+- Create: `ui/user/e2e/support/mock-oidc.ts` or `e2e/support/mock-oidc.ts`
+- Create: `ui/user/e2e/support/keycloak.ts` or `e2e/support/keycloak.ts`
+
+- [ ] **Step 1: Add fixture files for all test settings**
+
+Create `generic-oauth.mock.json`:
+
+```json
+{
+  "providerName": "Mock OIDC",
+  "clientId": "obot",
+  "clientSecret": "obot-secret",
+  "scope": "openid email profile",
+  "emailDomains": "*",
+  "trustEmailLinking": true,
+  "user": {
+    "sub": "test-user-1",
+    "email": "oauth-user@example.com",
+    "emailVerified": true,
+    "preferredUsername": "oauth-user",
+    "name": "OAuth User",
+    "picture": "https://example.com/oauth-user.png"
+  }
+}
+```
+
+Create `keycloak.settings.json`:
+
+```json
+{
+  "realm": "obot-test",
+  "providerName": "Keycloak OIDC",
+  "clientId": "obot",
+  "clientSecret": "obot-secret",
+  "scope": "openid email profile",
+  "emailDomains": "*",
+  "trustEmailLinking": true,
+  "username": "oauth-user@example.com",
+  "password": "Password123!",
+  "email": "oauth-user@example.com",
+  "preferredUsername": "oauth-user",
+  "name": "OAuth User"
+}
+```
+
+Create `keycloak.realm.json` from the same values. The realm import must define:
+
+```json
+{
+  "realm": "obot-test",
+  "enabled": true,
+  "clients": [
+    {
+      "clientId": "obot",
+      "secret": "obot-secret",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": ["http://localhost:*/oauth2/callback"],
+      "webOrigins": ["http://localhost:*"]
+    }
+  ],
+  "users": [
+    {
+      "username": "oauth-user@example.com",
+      "email": "oauth-user@example.com",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "OAuth",
+      "lastName": "User",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Password123!",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}
+```
+
+Do not put provider/client/user values directly in test code. Test helpers must load these fixture files.
+
+- [ ] **Step 2: Add Playwright and OIDC test dependencies**
+
+Add dev dependencies to the package that owns the E2E suite:
+
+```bash
+pnpm add -D @playwright/test oauth2-mock-server
+pnpm exec playwright install chromium
+```
+
+Add scripts:
+
+```json
+{
+  "scripts": {
+    "e2e": "playwright test",
+    "e2e:generic-oauth": "playwright test generic-oauth.spec.ts"
+  }
+}
+```
+
+- [ ] **Step 3: Add mock OIDC support helper**
+
+Create `mock-oidc.ts` with a helper that:
+
+1. Loads `generic-oauth.mock.json`.
+2. Starts `oauth2-mock-server` on an available local port.
+3. Generates an RSA signing key.
+4. Configures token/userinfo claims from the fixture.
+5. Returns:
+
+```ts
+type MockOIDCServer = {
+  providerName: string;
+  issuer: string;
+  clientId: string;
+  clientSecret: string;
+  scope: string;
+  emailDomains: string;
+  trustEmailLinking: boolean;
+  user: {
+    sub: string;
+    email: string;
+    emailVerified: boolean;
+    preferredUsername: string;
+    name: string;
+  };
+  stop(): Promise<void>;
+};
+```
+
+The mock server must emit:
+
+```json
+{
+  "sub": "test-user-1",
+  "email": "oauth-user@example.com",
+  "email_verified": true,
+  "preferred_username": "oauth-user",
+  "name": "OAuth User"
+}
+```
+
+Expected: Obot's generic provider can discover `/.well-known/openid-configuration`, fetch JWKS, exchange the code, validate the ID token, and call `/userinfo`.
+
+- [ ] **Step 4: Add Keycloak support helper**
+
+Create `keycloak.ts` with a helper that:
+
+1. Returns early with a skipped-test marker when `OBOT_E2E_KEYCLOAK=false`.
+2. Starts a local Keycloak container when `OBOT_E2E_KEYCLOAK` is unset or any value other than `false`.
+3. Imports `keycloak.realm.json`.
+4. Waits for `/.well-known/openid-configuration` under `/realms/obot-test`.
+5. Returns:
+
+```ts
+type KeycloakServer = {
+  providerName: string;
+  issuer: string;
+  clientId: string;
+  clientSecret: string;
+  scope: string;
+  emailDomains: string;
+  trustEmailLinking: boolean;
+  username: string;
+  password: string;
+  stop(): Promise<void>;
+};
+```
+
+The only environment variable allowed for this lane is:
+
+```bash
+OBOT_E2E_KEYCLOAK=false
+```
+
+CI must set `OBOT_E2E_KEYCLOAK=false`. Local runs default to running Keycloak and require Docker. If Docker is unavailable, fail with a message that tells the developer to start Docker or run with `OBOT_E2E_KEYCLOAK=false`.
+
+- [ ] **Step 5: Add Obot E2E harness helper**
+
+Create `obot.ts` with helpers that:
+
+1. Start Obot with authentication enabled and a deterministic bootstrap token.
+2. Start the user UI if the E2E suite runs against Vite rather than the Go server's static UI.
+3. Point `OBOT_SERVER_PROVIDER_REGISTRIES` at a fixture provider registry containing `generic-oauth-auth-provider`.
+4. Configure the generic provider through the public API or admin UI using fixture values.
+5. Expose:
+
+```ts
+type ObotE2E = {
+  baseURL: string;
+  bootstrapToken: string;
+  configureGenericProvider(input: {
+    providerName: string;
+    issuer: string;
+    clientId: string;
+    clientSecret: string;
+    scope: string;
+    emailDomains: string;
+    trustEmailLinking: boolean;
+  }): Promise<void>;
+  stop(): Promise<void>;
+};
+```
+
+Do not bypass the provider configuration API for the main assertions. The test must prove that first-class generic provider configuration works.
+
+- [ ] **Step 6: Write the failing Playwright test for the CI-safe mock OIDC flow**
+
+Create `generic-oauth.spec.ts` with:
+
+```ts
+test('admin configures generic OAuth and user logs in through mock OIDC', async ({ page }) => {
+  const oidc = await startMockOIDCFromFixture();
+  const obot = await startObotE2E();
+
+  await obot.configureGenericProvider({
+    providerName: oidc.providerName,
+    issuer: oidc.issuer,
+    clientId: oidc.clientId,
+    clientSecret: oidc.clientSecret,
+    scope: oidc.scope,
+    emailDomains: oidc.emailDomains,
+    trustEmailLinking: oidc.trustEmailLinking
+  });
+
+  await page.goto(obot.baseURL);
+  await page.getByRole('button', { name: /mock oidc/i }).click();
+  await expect(page).toHaveURL(/oauth2\/callback|\/$/);
+  await expect(page.getByText('oauth-user@example.com')).toBeVisible();
+
+  await obot.stop();
+  await oidc.stop();
+});
+```
+
+Run:
+
+```bash
+pnpm run e2e:generic-oauth -- --grep "mock OIDC"
+```
+
+Expected before implementation: FAIL because the harness/test does not exist.
+
+- [ ] **Step 7: Implement the mock OIDC flow**
+
+Implement the helpers and test from Steps 3, 5, and 6. The browser must travel through:
+
+```text
+Obot login page
+  -> /oauth2/start
+  -> oauth2-mock-server /authorize
+  -> Obot /oauth2/callback
+  -> authenticated Obot UI
+```
+
+Expected after implementation: mock OIDC Playwright test passes in local runs and CI.
+
+- [ ] **Step 8: Write the failing Playwright test for the Keycloak credential flow**
+
+Add a second test:
+
+```ts
+test('user logs in through Keycloak username/password form', async ({ page }) => {
+  test.skip(process.env.OBOT_E2E_KEYCLOAK === 'false', 'Keycloak credential flow disabled for CI');
+
+  const keycloak = await startKeycloakFromFixture();
+  const obot = await startObotE2E();
+
+  await obot.configureGenericProvider({
+    providerName: keycloak.providerName,
+    issuer: keycloak.issuer,
+    clientId: keycloak.clientId,
+    clientSecret: keycloak.clientSecret,
+    scope: keycloak.scope,
+    emailDomains: keycloak.emailDomains,
+    trustEmailLinking: keycloak.trustEmailLinking
+  });
+
+  await page.goto(obot.baseURL);
+  await page.getByRole('button', { name: /keycloak oidc/i }).click();
+  await page.getByLabel(/username|email/i).fill(keycloak.username);
+  await page.getByLabel(/password/i).fill(keycloak.password);
+  await page.getByRole('button', { name: /sign in|log in/i }).click();
+  await expect(page.getByText('oauth-user@example.com')).toBeVisible();
+
+  await obot.stop();
+  await keycloak.stop();
+});
+```
+
+Run:
+
+```bash
+OBOT_E2E_KEYCLOAK=false pnpm run e2e:generic-oauth -- --grep "Keycloak"
+```
+
+Expected: SKIP.
+
+Run locally with Docker:
+
+```bash
+pnpm run e2e:generic-oauth -- --grep "Keycloak"
+```
+
+Expected before implementation: FAIL because Keycloak helper does not exist.
+
+- [ ] **Step 9: Implement the Keycloak credential flow**
+
+Implement the Keycloak helper using the fixture realm import. The test must fill username and password in the Keycloak login page rather than bypassing authentication by API.
+
+Expected after implementation:
+
+```bash
+OBOT_E2E_KEYCLOAK=false pnpm run e2e:generic-oauth
+```
+
+passes the mock OIDC test and skips Keycloak.
+
+```bash
+pnpm run e2e:generic-oauth
+```
+
+passes both mock OIDC and Keycloak tests when Docker is running.
+
+- [ ] **Step 10: Add CI configuration**
+
+Update CI to run:
+
+```bash
+OBOT_E2E_KEYCLOAK=false pnpm run e2e:generic-oauth
+```
+
+Expected: CI runs the mock OIDC full redirect flow and skips the Keycloak credential-flow lane.
+
+- [ ] **Step 11: Commit**
+
+Run:
+
+```bash
+git add \
+  ui/user/package.json \
+  ui/user/pnpm-lock.yaml \
+  ui/user/playwright.config.ts \
+  ui/user/e2e \
+  .github/workflows
+git commit -m "test: add generic oauth browser e2e"
+```
+
+Expected: commit succeeds with Playwright tests, fixtures, and CI wiring.
+
+---
+
+### Task 11: Full Verification and Commit
 
 **Files:**
 - All modified files from prior tasks
@@ -870,7 +1240,27 @@ pnpm run build
 
 Expected: build passes.
 
-- [ ] **Step 4: Review diff**
+- [ ] **Step 4: Run generic OAuth E2E tests**
+
+Run:
+
+```bash
+cd ui/user
+OBOT_E2E_KEYCLOAK=false pnpm run e2e:generic-oauth
+```
+
+Expected: mock OIDC full-flow test passes and Keycloak credential-flow test is skipped.
+
+Run locally with Docker:
+
+```bash
+cd ui/user
+pnpm run e2e:generic-oauth
+```
+
+Expected: mock OIDC full-flow test passes and Keycloak credential-flow test passes.
+
+- [ ] **Step 5: Review diff**
 
 Run:
 
@@ -880,9 +1270,9 @@ git diff --stat
 git diff -- docs/design/generic-oauth-provider/README.md docs/plans/2026-06-10-generic-oauth-provider-support.md
 ```
 
-Expected: diff contains the generic OAuth provider implementation and docs only.
+Expected: diff contains the generic OAuth provider implementation, docs, and E2E fixtures/tests only.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 Run:
 
@@ -903,7 +1293,11 @@ git add \
   pkg/controller/handlers/provider/provider.go \
   ui/user/src/routes/admin/auth-providers/+page.svelte \
   ui/user/src/lib/components/admin/ProviderConfigure.svelte \
-  ui/user/src/lib/services/admin/types.ts
+  ui/user/src/lib/services/admin/types.ts \
+  ui/user/playwright.config.ts \
+  ui/user/e2e \
+  ui/user/package.json \
+  ui/user/pnpm-lock.yaml
 git commit -m "feat: add generic oauth provider support"
 ```
 
@@ -918,3 +1312,6 @@ Expected: commit succeeds.
 - The plan makes trusted email linking explicit provider configuration and issuer-scoped.
 - The plan keeps the current one-configured-provider rule.
 - The plan identifies the provider image/repo dependency as Task 1 because Obot cannot enable the registry entry safely without the daemon contract.
+- The plan adds CI-safe Playwright coverage through `oauth2-mock-server`.
+- The plan adds opt-in Keycloak credential-flow coverage that runs locally by default and is disabled in CI with `OBOT_E2E_KEYCLOAK=false`.
+- The plan requires all E2E provider/client/user settings to live in fixture files.
