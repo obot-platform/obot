@@ -134,6 +134,13 @@
 				})
 			: allData
 	);
+	let duplicateNames = $derived.by(() => {
+		const counts: Record<string, number> = {};
+		for (const item of allData) {
+			counts[item.name] = (counts[item.name] ?? 0) + 1;
+		}
+		return new Set(Object.keys(counts).filter((name) => counts[name] > 1));
+	});
 
 	export function open() {
 		addMcpServerDialog?.open();
@@ -193,7 +200,7 @@
 					{#each filteredData as item (item.id)}
 						<button
 							class={twMerge(
-								'dark:hover:bg-base-200 hover:bg-base-400 flex w-full items-center gap-2 px-4 py-2 text-left',
+								'dark:hover:bg-base-200 hover:bg-base-300 flex w-full items-center gap-2 px-4 py-2 text-left',
 								selectedMap.has(item.id) && 'bg-base-200/50'
 							)}
 							onclick={() => {
@@ -222,11 +229,20 @@
 									{/if}
 								</div>
 								<div class="flex min-w-0 grow flex-col">
-									<div class="flex items-center gap-2">
-										<p class="truncate">{item.name}</p>
+									<div class="flex items-center gap-2 flex-wrap">
+										<p class="truncate">
+											{item.name}
+										</p>
+
 										{#if item.registry}
-											<div class="dark:bg-base-400 bg-base-300 rounded-full px-3 py-1 text-[10px]">
+											<div class="badge badge-xs badge-soft badge-primary">
 												{item.registry}
+											</div>
+										{/if}
+
+										{#if duplicateNames.has(item.name)}
+											<div class="badge badge-xs badge-secondary">
+												{item.type === 'mcpcatalogentry' ? 'Catalog Entry' : 'Server'}
 											</div>
 										{/if}
 									</div>
