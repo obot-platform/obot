@@ -6,6 +6,7 @@ const uiPort = Number(process.env.OBOT_E2E_UI_PORT ?? '15174');
 const baseURL = process.env.BASE_URL ?? `http://127.0.0.1:${uiPort}`;
 const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
 const userUIRoot = fileURLToPath(new URL('.', import.meta.url));
+const recordVideo = process.env.OBOT_E2E_RECORD_VIDEO === 'true';
 
 export default defineConfig({
 	testDir: './e2e',
@@ -18,7 +19,8 @@ export default defineConfig({
 	reporter: process.env.CI ? 'github' : 'list',
 	use: {
 		baseURL,
-		trace: 'on-first-retry'
+		trace: 'on-first-retry',
+		video: recordVideo ? 'on' : 'off'
 	},
 	projects: [
 		{
@@ -42,13 +44,13 @@ export default defineConfig({
 			].join(' '),
 			url: `http://127.0.0.1:${obotPort}/api/bootstrap`,
 			timeout: 120_000,
-			reuseExistingServer: !process.env.CI
+			reuseExistingServer: !process.env.CI && !recordVideo
 		},
 		{
 			command: `VITE_API_TARGET=http://127.0.0.1:${obotPort} pnpm exec vite dev --host 127.0.0.1 --port ${uiPort}`,
 			url: baseURL,
 			timeout: 120_000,
-			reuseExistingServer: !process.env.CI
+			reuseExistingServer: !process.env.CI && !recordVideo
 		}
 	]
 });

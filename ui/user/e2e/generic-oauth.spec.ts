@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext } from '@playwright/test';
+import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -52,13 +52,17 @@ type KeycloakFixture = {
 const fixturePath = new URL('./fixtures/generic-oauth.mock.json', import.meta.url);
 const keycloakSettingsPath = new URL('./fixtures/keycloak.settings.json', import.meta.url);
 const keycloakRealmPath = new URL('./fixtures/keycloak.realm.json', import.meta.url);
+const recordVideo = process.env.OBOT_E2E_RECORD_VIDEO === 'true';
+const recordPauseMs = Number(process.env.OBOT_E2E_RECORD_PAUSE_MS ?? '1200');
 let fixture: GenericOAuthFixture;
 let oidcServer: OAuth2Server;
 
 test.beforeAll(async ({ request }) => {
 	fixture = JSON.parse(await readFile(fixturePath, 'utf8')) as GenericOAuthFixture;
 	oidcServer = await startMockOIDC(fixture);
-	await configureGenericProvider(request, fixture, oidcServer.issuer.url ?? '');
+	if (!recordVideo) {
+		await configureGenericProvider(request, fixture, oidcServer.issuer.url ?? '');
+	}
 });
 
 test.afterAll(async () => {
@@ -66,14 +70,23 @@ test.afterAll(async () => {
 });
 
 test('mock OIDC provider can be configured and used for login', async ({ page }) => {
+	if (recordVideo) {
+		test.setTimeout(180_000);
+		await configureGenericProviderInUI(page, fixture, oidcServer.issuer.url ?? '');
+	}
+
 	await page.goto('/');
+	await recordPause(page);
 
 	await expect(
 		page.getByRole('button', { name: `Continue with ${fixture.provider.name}` })
 	).toBeVisible();
+	await recordPause(page);
 	await page.getByRole('button', { name: `Continue with ${fixture.provider.name}` }).click();
+	await recordPause(page);
 
 	await expect(page).toHaveURL(/\/dashboard/);
+	await recordPause(page);
 
 	const me = await page.request.get('/api/me');
 	expect(me.ok()).toBeTruthy();
@@ -153,6 +166,76 @@ async function startMockOIDC(fixture: GenericOAuthFixture) {
 	});
 	await server.start(0, '127.0.0.1');
 	return server;
+}
+
+async function configureGenericProviderInUI(
+	page: Page,
+	fixture: GenericOAuthFixture,
+	issuer: string
+) {
+	await page.goto('/admin');
+	await recordPause(page);
+	await page.locator('input[name="bootstrap-token"]').fill(fixture.bootstrap.token);
+	await recordPause(page);
+	await page.getByRole('button', { name: 'Login' }).click();
+
+	await expect(page).toHaveURL(/\/admin\/dashboard/);
+	await recordPause(page);
+	await page.goto('/admin/auth-providers');
+	await expect(page.locator('#initial-loader.loaded')).toBeVisible({ timeout: 30_000 });
+	await closeOpenDialogs(page);
+	await expect(page.getByRole('heading', { name: 'Custom OAuth / OIDC' })).toBeVisible();
+	await recordPause(page);
+
+	await page
+		.getByRole('heading', { name: 'Custom OAuth / OIDC' })
+		.locator('xpath=ancestor::div[1]')
+		.getByRole('button', { name: 'Configure' })
+		.click();
+
+	await expect(page.getByText('Set Up Custom OAuth / OIDC')).toBeVisible();
+	await recordPause(page);
+	await page.locator('#OBOT_GENERIC_OAUTH_AUTH_PROVIDER_NAME').fill(fixture.provider.name);
+	await recordPause(page);
+	await page.locator('#OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ISSUER').fill(issuer);
+	await recordPause(page);
+	await page.locator('#OBOT_GENERIC_OAUTH_AUTH_PROVIDER_CLIENT_ID').fill(fixture.provider.clientId);
+	await recordPause(page);
+	await page
+		.locator('input[name="OBOT_GENERIC_OAUTH_AUTH_PROVIDER_CLIENT_SECRET"]')
+		.fill(fixture.provider.clientSecret);
+	await recordPause(page);
+	await page.locator('#OBOT_GENERIC_OAUTH_AUTH_PROVIDER_SCOPE').fill(fixture.provider.scope);
+	await recordPause(page);
+	await page.locator('#OBOT_AUTH_PROVIDER_EMAIL_DOMAINS input').fill(fixture.provider.emailDomains);
+	await page.locator('#OBOT_AUTH_PROVIDER_EMAIL_DOMAINS input').press('Enter');
+	await recordPause(page);
+	await page.getByRole('button', { name: 'Confirm' }).click();
+	await recordPause(page);
+
+	await page.request.post('/api/bootstrap/logout');
+	await page.goto('/oauth2/sign_out?rd=/');
+	await page.waitForURL('/');
+	await recordPause(page);
+}
+
+async function closeOpenDialogs(page: Page) {
+	if ((await page.locator('dialog[open]').count()) === 0) {
+		return;
+	}
+	await page.locator('dialog[open]').evaluateAll((dialogs) => {
+		for (const dialog of dialogs) {
+			(dialog as HTMLDialogElement).close();
+		}
+	});
+	await expect(page.locator('dialog[open]')).toHaveCount(0);
+}
+
+async function recordPause(page: Page) {
+	if (!recordVideo || recordPauseMs <= 0) {
+		return;
+	}
+	await page.waitForTimeout(recordPauseMs);
 }
 
 async function configureGenericProvider(
