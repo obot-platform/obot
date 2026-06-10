@@ -378,6 +378,18 @@ func (c *Client) UpdateProfileIfNeeded(ctx context.Context, user *types.User, au
 		if displayName, ok := profile["name"].(string); ok {
 			user.DisplayName = displayName
 		}
+	case "generic-oauth-auth-provider":
+		if iconURL, ok := profile["picture"].(string); ok {
+			user.IconURL = iconURL
+			identity.IconURL = iconURL
+		}
+		if displayName, ok := profile["preferred_username"].(string); ok && displayName != "" {
+			user.DisplayName = displayName
+		} else if displayName, ok := profile["name"].(string); ok && displayName != "" {
+			user.DisplayName = displayName
+		} else if email, ok := profile["email"].(string); ok {
+			user.DisplayName = email
+		}
 	}
 
 	// Update the provider-native group lookup ID from the profile response.

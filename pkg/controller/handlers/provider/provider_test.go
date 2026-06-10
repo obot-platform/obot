@@ -33,16 +33,30 @@ command: bin/github-auth-provider
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(filepath.Join(authProvidersDir, "generic-oauth-auth-provider.yaml"), []byte(`name: Custom OAuth / OIDC
+command: bin/generic-oauth-auth-provider
+requiredConfigurationParameters:
+  - name: OBOT_GENERIC_OAUTH_AUTH_PROVIDER_NAME
+  - name: OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ISSUER
+  - name: OBOT_GENERIC_OAUTH_AUTH_PROVIDER_CLIENT_ID
+  - name: OBOT_GENERIC_OAUTH_AUTH_PROVIDER_CLIENT_SECRET
+  - name: OBOT_AUTH_PROVIDER_EMAIL_DOMAINS
+  - name: OBOT_GENERIC_OAUTH_AUTH_PROVIDER_TRUST_EMAIL_LINKING
+optionalConfigurationParameters:
+  - name: OBOT_GENERIC_OAUTH_AUTH_PROVIDER_SCOPE
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	objs, err := readRegistry(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(objs) != 2 {
-		t.Fatalf("expected 2 provider objects, got %d", len(objs))
+	if len(objs) != 3 {
+		t.Fatalf("expected 3 provider objects, got %d", len(objs))
 	}
 
-	var foundModel, foundAuth bool
+	var foundModel, foundAuth, foundGenericAuth bool
 	for _, obj := range objs {
 		switch provider := obj.(type) {
 		case *v1.ModelProvider:
@@ -60,6 +74,20 @@ command: bin/github-auth-provider
 				t.Fatalf("expected model provider dialect OpenAIResponses, got %q", provider.Spec.Dialect)
 			}
 		case *v1.AuthProvider:
+			if provider.Name == "generic-oauth-auth-provider" {
+				foundGenericAuth = true
+				if provider.Spec.Name != "Custom OAuth / OIDC" {
+					t.Fatalf("expected generic auth provider display name Custom OAuth / OIDC, got %q", provider.Spec.Name)
+				}
+				if provider.Spec.Command != filepath.Join(dir, "bin/generic-oauth-auth-provider") {
+					t.Fatalf("expected generic auth provider command %q, got %q", filepath.Join(dir, "bin/generic-oauth-auth-provider"), provider.Spec.Command)
+				}
+				if len(provider.Spec.RequiredConfigurationParameters) != 6 {
+					t.Fatalf("expected 6 required generic auth provider params, got %d", len(provider.Spec.RequiredConfigurationParameters))
+				}
+				continue
+			}
+
 			foundAuth = true
 			if provider.Name != "github-auth-provider" {
 				t.Fatalf("expected auth provider name github-auth-provider, got %q", provider.Name)
@@ -74,7 +102,7 @@ command: bin/github-auth-provider
 			t.Fatalf("unexpected object type %T", obj)
 		}
 	}
-	if !foundModel || !foundAuth {
-		t.Fatalf("expected both model and auth providers, foundModel=%v foundAuth=%v", foundModel, foundAuth)
+	if !foundModel || !foundAuth || !foundGenericAuth {
+		t.Fatalf("expected model, github auth, and generic auth providers, foundModel=%v foundAuth=%v foundGenericAuth=%v", foundModel, foundAuth, foundGenericAuth)
 	}
 }

@@ -113,6 +113,24 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 		}
 	}
 
+	existingIssuer := ""
+	if authProvider.Name == GenericOAuthAuthProviderName {
+		existing, err := req.GatewayClient.RevealCredential(req.Context(), []string{authProvider.Name, system.GenericAuthProviderCredentialContext}, authProvider.Name)
+		if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
+			return fmt.Errorf("failed to reveal existing generic OAuth credential: %w", err)
+		}
+		if err == nil && existing.Secrets != nil {
+			existingIssuer = existing.Secrets[GenericOAuthIssuerEnvVar]
+		}
+	}
+
+	if err := validateGenericOAuthConfig(req.Context(), authProvider.Name, envVars); err != nil {
+		return types.NewErrBadRequest("invalid generic OAuth provider configuration: %v", err)
+	}
+	if err := requireGenericOAuthTrustReconfirmation(authProvider.Name, existingIssuer, envVars); err != nil {
+		return types.NewErrBadRequest("invalid generic OAuth provider configuration: %v", err)
+	}
+
 	if err := req.GatewayClient.UpsertCredential(req.Context(), gatewaytypes.Credential{
 		Context: authProvider.Name,
 		Name:    authProvider.Name,
