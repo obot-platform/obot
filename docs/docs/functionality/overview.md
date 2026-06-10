@@ -67,7 +67,7 @@ The only functional difference between Owners and Admins is that Owners can assi
 - [Obot Agent Management](/functionality/obot-agent-management/) - Configure default agent, conversation, and workflow settings, and monitor activity
 - [Message Policies](/functionality/message-policies/) - Enforce content rules on user prompts and tool calls, and review violations
 - [User Management](/functionality/user-management/) - Manage users, roles, and authentication
-- [API Keys](/functionality/api-keys/) - Create and manage API keys for programmatic MCP server access
+- [API Keys](/functionality/api-keys/) - Create and manage API keys for programmatic Obot access
 - [Branding](/functionality/branding/) - Customize theme colors and branding
 - [Workflow Sharing](/functionality/workflow-sharing/) - Publish, discover, install, and operate shared workflows
 - [User Roles](/configuration/user-roles/) - Detailed permissions and role definitions

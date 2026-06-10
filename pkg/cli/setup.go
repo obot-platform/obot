@@ -12,6 +12,7 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/obot-platform/cmd"
+	"github.com/obot-platform/obot/apiclient"
 	cliinternal "github.com/obot-platform/obot/pkg/cli/internal"
 	"github.com/obot-platform/obot/pkg/cli/internal/localconfig"
 	"github.com/obot-platform/obot/pkg/localagents"
@@ -89,7 +90,9 @@ func (s *Setup) run(cmd *cobra.Command, progress setupProgressWriter) error {
 	if err := progress.emit(setupProgressEvent{Type: setupProgressAuthStarted, URL: appURL}); err != nil {
 		return err
 	}
-	if _, err := s.root.Client.GetToken(ctx, false, false); err != nil {
+	if _, err := s.root.Client.GetToken(ctx, apiclient.TokenFetchOptions{
+		Scopes: []string{"api"},
+	}); err != nil {
 		return setupErrorf(setupAuthErrorCode(err), "authenticate with Obot: %w", err)
 	}
 	if err := progress.emit(setupProgressEvent{Type: setupProgressAuthCompleted, URL: appURL}); err != nil {

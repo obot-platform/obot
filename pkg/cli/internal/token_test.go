@@ -12,8 +12,10 @@ import (
 	"testing"
 
 	"github.com/adrg/xdg"
+	"github.com/obot-platform/obot/apiclient"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/cli/internal/credentials"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 )
 
 type fakeCredentialStore struct {
@@ -113,7 +115,7 @@ func TestTokenUsesKeyringTokenScopedByAppURL(t *testing.T) {
 	serverURL = srv.URL
 	store.tokens[serverURL] = "keyring-token"
 
-	token, err := Token(t.Context(), serverURL+"/api", false, false)
+	token, err := Token(t.Context(), serverURL+"/api", apiclient.TokenFetchOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,7 +145,7 @@ func TestTokenKeyringErrorFailsClosed(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	if _, err := Token(t.Context(), srv.URL+"/api", false, false); !errors.Is(err, keyringErr) {
+	if _, err := Token(t.Context(), srv.URL+"/api", apiclient.TokenFetchOptions{}); !errors.Is(err, keyringErr) {
 		t.Fatalf("expected keyring error, got %v", err)
 	}
 	if authProvidersCalled {
@@ -170,7 +172,7 @@ func TestTokenNotFoundTriggersLoginPath(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	if _, err := Token(t.Context(), srv.URL+"/api", false, false); err == nil || !strings.Contains(err.Error(), "no auth providers") {
+	if _, err := Token(t.Context(), srv.URL+"/api", apiclient.TokenFetchOptions{}); err == nil || !strings.Contains(err.Error(), "no auth providers") {
 		t.Fatalf("expected auth provider error, got %v", err)
 	}
 	if !authProvidersCalled {
@@ -216,7 +218,7 @@ func TestTokenStoresNewTokenByAppURL(t *testing.T) {
 	defer srv.Close()
 	store.tokens[srv.URL] = "expired-token"
 
-	token, err := Token(t.Context(), srv.URL+"/api", false, true)
+	token, err := Token(t.Context(), srv.URL+"/api", apiclient.TokenFetchOptions{ForceRefresh: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -228,6 +230,121 @@ func TestTokenStoresNewTokenByAppURL(t *testing.T) {
 	}
 	if _, ok := store.tokens[srv.URL+"/api"]; ok {
 		t.Fatalf("token should not be stored by API URL")
+	}
+}
+
+func TestTokenRequestIncludesRequestedScopes(t *testing.T) {
+	tests := []struct {
+		name         string
+		scopes       []string
+		noExpiration bool
+		want         createRequest
+	}{
+		{
+			name:   "API scope",
+			scopes: []string{"api"},
+			want: createRequest{
+				Scopes: gatewaytypes.APIKeyScopes{CanAccessAPI: true},
+			},
+		},
+		{
+			name:   "LLM scope",
+			scopes: []string{"llm"},
+			want: createRequest{
+				Scopes: gatewaytypes.APIKeyScopes{CanAccessLLMProxy: true},
+			},
+		},
+		{
+			name:   "skills scope",
+			scopes: []string{"skills"},
+			want: createRequest{
+				Scopes: gatewaytypes.APIKeyScopes{CanAccessSkills: true},
+			},
+		},
+		{
+			name:         "all MCP scope and no expiration",
+			scopes:       []string{"all-mcp"},
+			noExpiration: true,
+			want: createRequest{
+				NoExpiration: true,
+				Scopes:       gatewaytypes.APIKeyScopes{MCPServerIDs: []string{"*"}},
+			},
+		},
+		{
+			name:   "combined scopes",
+			scopes: []string{"api", "llm", "skills", "all-mcp"},
+			want: createRequest{
+				Scopes: gatewaytypes.APIKeyScopes{
+					CanAccessAPI:      true,
+					CanAccessLLMProxy: true,
+					CanAccessSkills:   true,
+					MCPServerIDs:      []string{"*"},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store := newFakeCredentialStore()
+			restoreStore := useCredentialStore(t, store)
+			defer restoreStore()
+
+			restoreBrowser := useOpenBrowser(t, func(string) error { return nil })
+			defer restoreBrowser()
+
+			var got createRequest
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/api/me":
+					_ = json.NewEncoder(w).Encode(types.User{Username: "anonymous"})
+				case "/api/auth-providers":
+					_ = json.NewEncoder(w).Encode(types.AuthProviderList{Items: []types.AuthProvider{{
+						Metadata: types.Metadata{ID: "github"},
+						AuthProviderManifest: types.AuthProviderManifest{
+							CommonProviderMetadata: types.CommonProviderMetadata{
+								Name: "GitHub",
+							},
+						},
+						AuthProviderStatus: types.AuthProviderStatus{
+							CommonProviderStatus: types.CommonProviderStatus{Configured: true},
+							Namespace:            "default",
+						},
+					}}})
+				case "/api/token-request":
+					if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+						t.Fatalf("decode token request: %v", err)
+					}
+					_ = json.NewEncoder(w).Encode(map[string]string{"token-path": "https://example.com/login"})
+				default:
+					if strings.HasPrefix(r.URL.Path, "/api/token-request/") {
+						_ = json.NewEncoder(w).Encode(map[string]string{"Token": "new-token"})
+						return
+					}
+					t.Fatalf("unexpected path %s", r.URL.Path)
+				}
+			}))
+			defer srv.Close()
+
+			_, err := Token(WithNonInteractive(t.Context()), srv.URL+"/api", apiclient.TokenFetchOptions{
+				NoExpiration: tt.noExpiration,
+				Scopes:       tt.scopes,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if got.ProviderName != "github" {
+				t.Fatalf("providerName = %q, want github", got.ProviderName)
+			}
+			if got.ProviderNamespace != "default" {
+				t.Fatalf("providerNamespace = %q, want default", got.ProviderNamespace)
+			}
+			if got.ID == "" {
+				t.Fatal("expected generated token request ID")
+			}
+			assertCreateRequestScopes(t, got, tt.want)
+		})
 	}
 }
 
@@ -273,7 +390,7 @@ func TestTokenNonInteractiveSkipsBrowserEnterGate(t *testing.T) {
 	defer srv.Close()
 
 	var output bytes.Buffer
-	token, err := Token(WithOutputWriter(WithNonInteractive(t.Context()), &output), srv.URL+"/api", false, false)
+	token, err := Token(WithOutputWriter(WithNonInteractive(t.Context()), &output), srv.URL+"/api", apiclient.TokenFetchOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -401,9 +518,29 @@ func TestLegacyTokenFileIsIgnored(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	_, _ = Token(t.Context(), srv.URL+"/api", false, false)
+	_, _ = Token(t.Context(), srv.URL+"/api", apiclient.TokenFetchOptions{})
 	if usedLegacyToken {
 		t.Fatalf("legacy token file should be ignored")
+	}
+}
+
+func assertCreateRequestScopes(t *testing.T, got, want createRequest) {
+	t.Helper()
+
+	if got.NoExpiration != want.NoExpiration {
+		t.Fatalf("NoExpiration = %v, want %v", got.NoExpiration, want.NoExpiration)
+	}
+	if got.Scopes.CanAccessAPI != want.Scopes.CanAccessAPI {
+		t.Fatalf("CanAccessAPI = %v, want %v", got.Scopes.CanAccessAPI, want.Scopes.CanAccessAPI)
+	}
+	if got.Scopes.CanAccessLLMProxy != want.Scopes.CanAccessLLMProxy {
+		t.Fatalf("CanAccessLLMProxy = %v, want %v", got.Scopes.CanAccessLLMProxy, want.Scopes.CanAccessLLMProxy)
+	}
+	if got.Scopes.CanAccessSkills != want.Scopes.CanAccessSkills {
+		t.Fatalf("CanAccessSkills = %v, want %v", got.Scopes.CanAccessSkills, want.Scopes.CanAccessSkills)
+	}
+	if strings.Join(got.Scopes.MCPServerIDs, ",") != strings.Join(want.Scopes.MCPServerIDs, ",") {
+		t.Fatalf("MCPServerIDs = %v, want %v", got.Scopes.MCPServerIDs, want.Scopes.MCPServerIDs)
 	}
 }
 

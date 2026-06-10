@@ -121,37 +121,37 @@ func TestGroups(t *testing.T) {
 		{
 			"Owner gets owner, admin, power user groups",
 			RoleOwner,
-			[]string{GroupOwner, GroupAdmin, GroupPowerUserPlus, GroupPowerUser, GroupBasic, GroupAuthenticated},
+			[]string{GroupOwner, GroupAdmin, GroupPowerUserPlus, GroupPowerUser, GroupBasic, GroupAuthenticated, GroupLLM, GroupSkills, GroupPublishedArtifacts, GroupMCP},
 			[]string{GroupAuditor, GroupUserImpersonation},
 		},
 		{
 			"Admin with Auditor",
 			RoleAdmin | RoleAuditor,
-			[]string{GroupAdmin, GroupAuditor, GroupAuthenticated},
+			[]string{GroupAdmin, GroupAuditor, GroupAuthenticated, GroupLLM, GroupSkills, GroupPublishedArtifacts, GroupMCP},
 			[]string{GroupOwner, GroupUserImpersonation},
 		},
 		{
 			"Admin with User Impersonation",
 			RoleAdmin | RoleUserImpersonation,
-			[]string{GroupAdmin, GroupUserImpersonation, GroupAuthenticated},
+			[]string{GroupAdmin, GroupUserImpersonation, GroupAuthenticated, GroupLLM, GroupSkills, GroupPublishedArtifacts, GroupMCP},
 			[]string{GroupOwner, GroupAuditor},
 		},
 		{
 			"Owner with all add-ons",
 			RoleOwner | RoleAuditor | RoleUserImpersonation,
-			[]string{GroupOwner, GroupAdmin, GroupAuditor, GroupUserImpersonation, GroupAuthenticated},
+			[]string{GroupOwner, GroupAdmin, GroupAuditor, GroupUserImpersonation, GroupAuthenticated, GroupLLM, GroupSkills, GroupPublishedArtifacts, GroupMCP},
 			nil,
 		},
 		{
 			"Unknown role gets no groups",
 			RoleUnknown,
 			nil,
-			[]string{GroupOwner, GroupAdmin, GroupAuditor, GroupUserImpersonation, GroupAuthenticated},
+			[]string{GroupOwner, GroupAdmin, GroupAuditor, GroupUserImpersonation, GroupAuthenticated, GroupLLM, GroupSkills, GroupPublishedArtifacts, GroupMCP},
 		},
 		{
 			"User Impersonation alone gets authenticated",
 			RoleUserImpersonation,
-			[]string{GroupUserImpersonation, GroupAuthenticated},
+			[]string{GroupUserImpersonation, GroupAuthenticated, GroupLLM, GroupSkills, GroupPublishedArtifacts, GroupMCP},
 			[]string{GroupOwner, GroupAdmin, GroupAuditor, GroupBasic},
 		},
 	}

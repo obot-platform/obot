@@ -25,6 +25,9 @@ type TokenRequest struct {
 	UpdatedAt             time.Time
 	State                 string `gorm:"index"`
 	Nonce                 string
+	Name                  string
+	Description           string
+	Scopes                APIKeyScopes `gorm:"embedded"`
 	Token                 string
 	NoExpiration          bool
 	ExpiresAt             time.Time

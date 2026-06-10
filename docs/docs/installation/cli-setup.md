@@ -11,9 +11,9 @@ Use it after an Obot server is running and reachable from your machine.
 `obot setup` performs these steps:
 
 1. Resolves the Obot app URL to use, either from `--url`, from an existing local default, or by prompting you.
-2. Authenticates to that Obot server. If `OBOT_TOKEN` is set, the CLI uses that token. Otherwise, it uses the same browser-based token flow as `obot login`.
+2. Authenticates to that Obot server. If `OBOT_TOKEN` is set, the CLI uses that token. Otherwise, it uses the same browser-based API key flow as `obot login`.
 3. Stores the normalized default Obot URL in the local Obot CLI config.
-4. Stores a newly acquired Obot bearer token in the host OS keyring, scoped to that Obot URL.
+4. Stores a newly acquired Obot API key in the host OS keyring, scoped to that Obot URL.
 5. Optionally installs Obot bootstrap skills into supported local AI clients.
 
 The bootstrap skills let local agents use the `obot` CLI to search for Obot-managed skills, install skills, and run local client scans without manually editing client configuration.
@@ -27,7 +27,7 @@ The bootstrap skills let local agents use the `obot` CLI to search for Obot-mana
 - The `obot` CLI is installed and available on your `PATH`.
 - The Obot server URL is reachable from your workstation.
 - If authentication is enabled, Obot has at least one configured authentication provider that your user can use.
-- Your local OS keyring is available so the CLI can store a newly acquired authentication token.
+- Your local OS keyring is available so the CLI can store a newly acquired API key.
 
 If Obot authentication is enabled but no provider is configured yet, finish server-side authentication setup first. See [Enabling Authentication](/installation/enabling-authentication/) and [Auth Providers](/configuration/auth-providers/).
 
@@ -82,7 +82,7 @@ obot setup \
   --non-interactive
 ```
 
-Non-interactive mode never reads from stdin. It still uses the normal token flow, so it may open a browser and wait for authentication unless a valid token is already stored.
+Non-interactive mode never reads from stdin. It still uses the normal API key flow, so it may open a browser and wait for authentication unless a valid key is already stored.
 
 Use `--yes` to accept defaults and confirmations. If `--clients` is omitted with `--yes`, setup installs the shared `agents` target by default:
 
@@ -108,7 +108,7 @@ The command prints:
 
 - CLI version
 - Default Obot URL
-- Whether the stored token is valid
+- Whether the stored API key is valid
 - Whether setup is complete
 
 For JSON output:
@@ -122,7 +122,7 @@ obot setup status --json
 `obot setup` writes:
 
 - The default Obot URL to the Obot CLI config file under the user's XDG config directory.
-- A bearer token to the host OS keyring under the `obot` service, scoped by Obot app URL, when setup acquires a new token through the login flow.
+- An API key to the host OS keyring under the `obot` service, scoped by Obot app URL, when setup acquires a new key through the login flow.
 - Bootstrap skill files under the selected client skill directories, such as `~/.agents/skills` or `~/.claude/skills`.
 
 ## Troubleshooting

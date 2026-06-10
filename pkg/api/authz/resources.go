@@ -2,7 +2,6 @@ package authz
 
 import (
 	"net/http"
-	"slices"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -11,22 +10,18 @@ import (
 
 var apiResources = map[string][]string{
 	types.GroupBasic: {
+		"GET    /api/all-mcps/servers/{mcpserver_id}",
 		"GET    /api/all-mcps/servers/{mcpserver_id}/tools",
 		"GET    /api/all-mcps/servers/{mcpserver_id}/resources",
 		"GET    /api/all-mcps/servers/{mcpserver_id}/resources/{resource_uri}",
 		"GET    /api/all-mcps/servers/{mcpserver_id}/prompts",
 		"GET    /api/all-mcps/servers/{mcpserver_id}/prompts/{prompt_name}",
+		"GET    /api/all-mcps/entries/{entry_id}",
 		"GET    /oauth/callback/{oauth_request_id}",
 		"GET    /oauth/callback/{oauth_request_id}/{mcp_id}",
 		"GET    /oauth/mcp/callback",
 		"GET    /auth/mcp/composite/{mcp_id}",
 		"GET    /api/oauth/composite/{mcp_id}",
-		"GET    /mcp-connect/{mcp_id}",
-		"POST   /mcp-connect/{mcp_id}",
-		"DELETE /mcp-connect/{mcp_id}",
-		"GET    /mcp-connect/{mcp_id}/",
-		"POST   /mcp-connect/{mcp_id}/",
-		"DELETE /mcp-connect/{mcp_id}/",
 		"GET    /api/mcp-stats/{mcp_id}",
 		"GET    /api/mcp-audit-logs/{mcp_id}",
 		"GET    /api/mcp-server-instances",
@@ -58,14 +53,6 @@ var apiResources = map[string][]string{
 		"GET    /api/mcp-servers/{mcpserver_id}/resources/{resource_uri}",
 		"GET    /api/mcp-servers/{mcpserver_id}/prompts",
 		"GET    /api/mcp-servers/{mcpserver_id}/prompts/{prompt_name}",
-		"GET    /api/published-artifacts/{artifact_id}",
-		"GET    /api/published-artifacts/{artifact_id}/download",
-		"GET    /api/published-artifacts/{artifact_id}/{artifact_version}/skill",
-		"PUT    /api/published-artifacts/{artifact_id}",
-		"DELETE /api/published-artifacts/{artifact_id}",
-
-		"GET    /api/tool-references",
-		"GET    /api/tool-references/{id}",
 		"GET    /api/users/{user_id}",
 		"PATCH  /api/users/{user_id}",
 		"GET    /api/users/{user_id}/activities",
@@ -82,6 +69,7 @@ var apiResources = map[string][]string{
 		"PUT    /api/projects/{project_id}/agents/{nanobot_agent_id}",
 		"DELETE /api/projects/{project_id}/agents/{nanobot_agent_id}",
 		"POST   /api/projects/{project_id}/agents/{nanobot_agent_id}/launch",
+		"GET    /api/devices/scans/{scan_id}",
 	},
 	types.GroupPowerUser: {
 		"GET    /api/workspaces/{workspace_id}",
@@ -126,31 +114,32 @@ var apiResources = map[string][]string{
 		"GET    /api/workspaces/{workspace_id}/access-control-rules/{access_control_rule_id}",
 		"PUT    /api/workspaces/{workspace_id}/access-control-rules/{access_control_rule_id}",
 	},
-	types.GroupAPIKey: {
+	types.GroupMCP: {
 		"GET    /mcp-connect/{mcp_id}",
 		"POST   /mcp-connect/{mcp_id}",
 		"DELETE /mcp-connect/{mcp_id}",
 		"GET    /mcp-connect/{mcp_id}/",
 		"POST   /mcp-connect/{mcp_id}/",
 		"DELETE /mcp-connect/{mcp_id}/",
+	},
+	types.GroupSkills: {
+		"GET /api/skills/{skill_id}",
+		"GET /api/skills/{skill_id}/download",
+		"GET /api/skills/{skill_id}/preview",
+	},
+	types.GroupPublishedArtifacts: {
 		"GET    /api/published-artifacts/{artifact_id}",
-		"PUT    /api/published-artifacts/{artifact_id}",
 		"GET    /api/published-artifacts/{artifact_id}/download",
 		"GET    /api/published-artifacts/{artifact_id}/{artifact_version}/skill",
-	},
-	types.GroupMCPOAuth: {
-		"GET    /mcp-connect/{mcp_id}",
-		"POST   /mcp-connect/{mcp_id}",
-		"DELETE /mcp-connect/{mcp_id}",
-		"GET    /mcp-connect/{mcp_id}/",
-		"POST   /mcp-connect/{mcp_id}/",
-		"DELETE /mcp-connect/{mcp_id}/",
+		"PUT    /api/published-artifacts/{artifact_id}",
+		"DELETE /api/published-artifacts/{artifact_id}",
 	},
 }
 
 type Resources struct {
-	MCPServerID         string
-	MCPServerInstanceID string
+	MCPServerID             string
+	MCPServerInstanceID     string
+	MCPServerCatalogEntryID string
 	// MCPID can be the ID of an MCPServer, an MCPServerInstance, or MCPServerCatalogEntry. It is used for interaction with the MCP gateway.
 	MCPID               string
 	WorkspaceID         string
@@ -158,28 +147,35 @@ type Resources struct {
 	ProjectID           string
 	PublishedArtifactID string
 	ArtifactVersion     string
+	SkillID             string
+	DeviceScanID        string
 	Authorizated        ResourcesAuthorized
 }
 
 type ResourcesAuthorized struct {
-	MCPServer          *v1.MCPServer
-	MCPServerInstance  *v1.MCPServerInstance
-	PowerUserWorkspace *v1.PowerUserWorkspace
-	NanobotAgent       *v1.NanobotAgent
-	Project            *v1.Project
-	PublishedArtifact  *v1.PublishedArtifact
+	MCPServer             *v1.MCPServer
+	MCPServerInstance     *v1.MCPServerInstance
+	MCPServerCatalogEntry *v1.MCPServerCatalogEntry
+	PowerUserWorkspace    *v1.PowerUserWorkspace
+	NanobotAgent          *v1.NanobotAgent
+	Project               *v1.Project
+	PublishedArtifact     *v1.PublishedArtifact
+	Skill                 *v1.Skill
 }
 
 func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user user.Info) (bool, error) {
 	resources := Resources{
-		MCPServerID:         vars("mcpserver_id"),
-		MCPServerInstanceID: vars("mcp_server_instance_id"),
-		MCPID:               vars("mcp_id"), // this can be a server ID, server instance ID, or a catalog entry ID
-		WorkspaceID:         vars("workspace_id"),
-		NanobotAgentID:      vars("nanobot_agent_id"),
-		ProjectID:           vars("project_id"),
-		PublishedArtifactID: vars("artifact_id"),
-		ArtifactVersion:     vars("artifact_version"),
+		MCPServerID:             vars("mcpserver_id"),
+		MCPServerInstanceID:     vars("mcp_server_instance_id"),
+		MCPServerCatalogEntryID: vars("entry_id"),
+		MCPID:                   vars("mcp_id"), // this can be a server ID, server instance ID, or a catalog entry ID
+		WorkspaceID:             vars("workspace_id"),
+		NanobotAgentID:          vars("nanobot_agent_id"),
+		ProjectID:               vars("project_id"),
+		PublishedArtifactID:     vars("artifact_id"),
+		ArtifactVersion:         vars("artifact_version"),
+		SkillID:                 vars("skill_id"),
+		DeviceScanID:            vars("scan_id"),
 	}
 
 	if !a.checkUser(user, vars("user_id")) {
@@ -195,6 +191,10 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user user
 	}
 
 	if ok, err := a.checkMCPServerInstance(req, &resources, user); !ok || err != nil {
+		return false, err
+	}
+
+	if ok, err := a.checkCatalogEntry(req, &resources, user); !ok || err != nil {
 		return false, err
 	}
 
@@ -214,19 +214,19 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user user
 		return false, err
 	}
 
+	if ok, err := a.checkSkill(req, &resources, user); !ok || err != nil {
+		return false, err
+	}
+
+	if ok, err := a.checkDeviceScan(req, &resources, user); !ok || err != nil {
+		return false, err
+	}
+
 	return true, nil
 }
 
 func (a *Authorizer) authorizeAPIResources(req *http.Request, user user.Info) bool {
-	var userGroups []string
-	if slices.Contains(user.GetGroups(), types.GroupMCPOAuth) {
-		// MCP OAuth tokens can only access routes for that group or those for the anyGroup.
-		userGroups = []string{types.GroupMCPOAuth}
-	} else {
-		userGroups = user.GetGroups()
-	}
-
-	for _, group := range userGroups {
+	for _, group := range user.GetGroups() {
 		vars, matches := a.apiResources[group].Match(req)
 		if !matches {
 			continue

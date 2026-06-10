@@ -36,7 +36,7 @@ func TestPublishedArtifactAuthorization(t *testing.T) {
 			},
 		},
 	}).Build()
-	authorizer := NewAuthorizer(storage, storage, false, nil, false)
+	authorizer := NewAuthorizer(nil, storage, storage, false, nil, nil, false)
 
 	tests := []struct {
 		name    string
@@ -51,7 +51,7 @@ func TestPublishedArtifactAuthorization(t *testing.T) {
 			path:   "/api/published-artifacts/pa1test",
 			user: &user.DefaultInfo{
 				UID:    "owner",
-				Groups: []string{types.GroupBasic, types.GroupAuthenticated},
+				Groups: []string{types.GroupPublishedArtifacts, types.GroupAuthenticated},
 			},
 			allowed: true,
 		},
@@ -61,7 +61,7 @@ func TestPublishedArtifactAuthorization(t *testing.T) {
 			path:   "/api/published-artifacts/pa1test",
 			user: &user.DefaultInfo{
 				UID:    "other",
-				Groups: []string{types.GroupBasic, types.GroupAuthenticated},
+				Groups: []string{types.GroupPublishedArtifacts, types.GroupAuthenticated},
 				Extra:  map[string][]string{"auth_provider_groups": {"group1"}},
 			},
 			allowed: true,
@@ -72,7 +72,7 @@ func TestPublishedArtifactAuthorization(t *testing.T) {
 			path:   "/api/published-artifacts/pa1test",
 			user: &user.DefaultInfo{
 				UID:    "other",
-				Groups: []string{types.GroupBasic, types.GroupAuthenticated},
+				Groups: []string{types.GroupPublishedArtifacts, types.GroupAuthenticated},
 				Extra:  map[string][]string{"auth_provider_groups": {"group1"}},
 			},
 			allowed: false,
@@ -83,7 +83,7 @@ func TestPublishedArtifactAuthorization(t *testing.T) {
 			path:   "/api/published-artifacts/pa1test/2/skill",
 			user: &user.DefaultInfo{
 				UID:    "other",
-				Groups: []string{types.GroupBasic, types.GroupAuthenticated},
+				Groups: []string{types.GroupPublishedArtifacts, types.GroupAuthenticated},
 				Extra:  map[string][]string{"auth_provider_groups": {"group1"}},
 			},
 			allowed: false,

@@ -19,11 +19,12 @@ import (
 )
 
 type tokenRequestRequest struct {
-	ID                    string `json:"id"`
-	ProviderName          string `json:"providerName"`
-	ProviderNamespace     string `json:"providerNamespace"`
-	CompletionRedirectURL string `json:"completionRedirectURL"`
-	NoExpiration          bool   `json:"noExpiration"`
+	ID                    string             `json:"id"`
+	ProviderName          string             `json:"providerName"`
+	ProviderNamespace     string             `json:"providerNamespace"`
+	CompletionRedirectURL string             `json:"completionRedirectURL"`
+	NoExpiration          bool               `json:"noExpiration"`
+	Scopes                types.APIKeyScopes `json:"scopes"`
 }
 
 type refreshTokenResponse struct {
@@ -84,6 +85,7 @@ func (s *Server) tokenRequest(apiContext api.Context) error {
 		ID:                    reqObj.ID,
 		CompletionRedirectURL: reqObj.CompletionRedirectURL,
 		NoExpiration:          reqObj.NoExpiration,
+		Scopes:                reqObj.Scopes,
 	}
 
 	if err := s.db.WithContext(apiContext.Context()).Create(tokenReq).Error; err != nil {

@@ -30,17 +30,19 @@ const (
 
 	RoleUnknown Role = 0
 
-	GroupOwner                 = "owner"
-	GroupAdmin                 = "admin"
-	GroupAuditor               = "auditor"
-	GroupUserImpersonation     = "user-impersonation"
-	GroupPowerUserPlus         = "power-user-plus"
-	GroupPowerUser             = "power-user"
-	GroupBasic                 = "basic"
-	GroupAuthenticated         = "authenticated"
-	GroupAPIKey                = "api-key"
-	APIKeySkillsAccessExtraKey = "api-key-can-access-skills"
-	GroupMCPOAuth              = "mcp-oauth"
+	GroupOwner              = "owner"
+	GroupAdmin              = "admin"
+	GroupAuditor            = "auditor"
+	GroupUserImpersonation  = "user-impersonation"
+	GroupPowerUserPlus      = "power-user-plus"
+	GroupPowerUser          = "power-user"
+	GroupBasic              = "basic"
+	GroupAuthenticated      = "authenticated"
+	GroupMCP                = "mcp"
+	GroupSkills             = "skills"
+	GroupPublishedArtifacts = "published-artifacts"
+	GroupAPI                = "api"
+	GroupLLM                = "llm"
 )
 
 type Role int
@@ -110,7 +112,7 @@ func (u Role) Groups() []string {
 		groups = append(groups, GroupUserImpersonation)
 	}
 	if u != RoleUnknown {
-		groups = append(groups, GroupAuthenticated)
+		groups = append(groups, GroupLLM, GroupSkills, GroupPublishedArtifacts, GroupMCP, GroupAuthenticated)
 	}
 
 	return groups

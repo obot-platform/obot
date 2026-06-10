@@ -929,7 +929,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			apiLocalK8sClient,
 			config.ServiceNamespace,
 			authn.NewAuthenticator(authenticators),
-			authz.NewAuthorizer(r.Backend(), storageClient, config.DevMode, acrHelper, registryNoAuth),
+			authz.NewAuthorizer(gatewayClient, r.Backend(), storageClient, config.DevMode, acrHelper, skillAccessRuleHelper, registryNoAuth),
 			proxyManager,
 			auditLogger,
 			rateLimiter,

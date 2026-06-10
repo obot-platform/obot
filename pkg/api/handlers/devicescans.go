@@ -96,9 +96,6 @@ func (*DeviceScansHandler) Get(req api.Context) error {
 		}
 		return err
 	}
-	if !userIsDeviceScanReader(req) && scan.SubmittedBy != req.User.GetUID() {
-		return types.NewErrNotFound("device scan %d not found", id)
-	}
 	return req.Write(gtypes.ConvertDeviceScan(*scan))
 }
 

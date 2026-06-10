@@ -197,7 +197,7 @@ func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Re
 		User: &user.DefaultInfo{
 			UID:    tokenContext.UserID,
 			Name:   tokenContext.UserName,
-			Groups: append(groups, types.GroupMCPOAuth),
+			Groups: append(groups, types.GroupMCP),
 			Extra:  extra,
 		},
 	}, true, nil

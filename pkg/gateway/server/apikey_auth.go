@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"strings"
 
-	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -59,8 +58,7 @@ func (a *APIKeyAuthenticator) AuthenticateRequest(req *http.Request) (*authentic
 	}
 
 	extra := map[string][]string{
-		"email":                           {u.Email},
-		types2.APIKeySkillsAccessExtraKey: {fmt.Sprintf("%t", apiKey.CanAccessSkills)},
+		"email": {u.Email},
 	}
 
 	// Look up auth provider group memberships so that group-based access
@@ -70,13 +68,11 @@ func (a *APIKeyAuthenticator) AuthenticateRequest(req *http.Request) (*authentic
 		extra["auth_provider_groups"] = authGroupIDs
 	}
 
-	// IMPORTANT: API key users only get GroupAPIKey, not the full user groups.
-	// This restricts them to MCP-connect routes and /api/me only.
 	return &authenticator.Response{
 		User: &user.DefaultInfo{
 			Name:   u.Username,
 			UID:    fmt.Sprintf("%d", u.ID),
-			Groups: []string{types2.GroupAPIKey},
+			Groups: apiKey.Groups(u),
 			Extra:  extra,
 		},
 	}, true, nil

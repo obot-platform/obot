@@ -320,7 +320,7 @@ func TestMCPConnectSubtreeAuthorization(t *testing.T) {
 			},
 		},
 	).Build()
-	authorizer := NewAuthorizer(storage, storage, false, nil, false)
+	authorizer := NewAuthorizer(nil, storage, storage, false, nil, nil, false)
 
 	tests := []struct {
 		name    string
@@ -330,68 +330,68 @@ func TestMCPConnectSubtreeAuthorization(t *testing.T) {
 		allowed bool
 	}{
 		{
-			name:   "basic user can access exact connect path",
+			name:   "MCP-scoped user can access exact connect path",
 			method: http.MethodGet,
 			path:   "/mcp-connect/msi1test",
 			user: &user.DefaultInfo{
 				Name:   "user",
 				UID:    "user-uid",
-				Groups: []string{types.GroupBasic, types.GroupAuthenticated},
+				Groups: []string{types.GroupMCP, types.GroupAuthenticated},
 			},
 			allowed: true,
 		},
 		{
-			name:   "basic user can access exact server connect path",
+			name:   "MCP-scoped user can access exact server connect path",
 			method: http.MethodGet,
 			path:   "/mcp-connect/ms1test",
 			user: &user.DefaultInfo{
 				Name:   "user",
 				UID:    "user-uid",
-				Groups: []string{types.GroupBasic, types.GroupAuthenticated},
+				Groups: []string{types.GroupMCP, types.GroupAuthenticated},
 			},
 			allowed: true,
 		},
 		{
-			name:   "basic user can access trailing slash",
+			name:   "MCP-scoped user can access trailing slash",
 			method: http.MethodPost,
 			path:   "/mcp-connect/msi1test/",
 			user: &user.DefaultInfo{
 				Name:   "user",
 				UID:    "user-uid",
-				Groups: []string{types.GroupBasic, types.GroupAuthenticated},
+				Groups: []string{types.GroupMCP, types.GroupAuthenticated},
 			},
 			allowed: true,
 		},
 		{
-			name:   "basic user can access server trailing slash",
+			name:   "MCP-scoped user can access server trailing slash",
 			method: http.MethodPost,
 			path:   "/mcp-connect/ms1test/",
 			user: &user.DefaultInfo{
 				Name:   "user",
 				UID:    "user-uid",
-				Groups: []string{types.GroupBasic, types.GroupAuthenticated},
+				Groups: []string{types.GroupMCP, types.GroupAuthenticated},
 			},
 			allowed: true,
 		},
 		{
-			name:   "basic user can access subpath",
+			name:   "MCP-scoped user can access subpath",
 			method: http.MethodDelete,
 			path:   "/mcp-connect/msi1test/messages/123",
 			user: &user.DefaultInfo{
 				Name:   "user",
 				UID:    "user-uid",
-				Groups: []string{types.GroupBasic, types.GroupAuthenticated},
+				Groups: []string{types.GroupMCP, types.GroupAuthenticated},
 			},
 			allowed: true,
 		},
 		{
-			name:   "basic user can access server subpath",
+			name:   "MCP-scoped user can access server subpath",
 			method: http.MethodDelete,
 			path:   "/mcp-connect/ms1test/messages/123",
 			user: &user.DefaultInfo{
 				Name:   "user",
 				UID:    "user-uid",
-				Groups: []string{types.GroupBasic, types.GroupAuthenticated},
+				Groups: []string{types.GroupMCP, types.GroupAuthenticated},
 			},
 			allowed: true,
 		},
@@ -402,7 +402,7 @@ func TestMCPConnectSubtreeAuthorization(t *testing.T) {
 			user: &user.DefaultInfo{
 				Name:   "key-user",
 				UID:    "key-user-uid",
-				Groups: []string{types.GroupAPIKey},
+				Groups: []string{types.GroupMCP},
 			},
 			allowed: false,
 		},
@@ -413,7 +413,7 @@ func TestMCPConnectSubtreeAuthorization(t *testing.T) {
 			user: &user.DefaultInfo{
 				Name:   "key-user",
 				UID:    "key-user-uid",
-				Groups: []string{types.GroupAPIKey},
+				Groups: []string{types.GroupMCP},
 			},
 			allowed: false,
 		},
@@ -424,7 +424,7 @@ func TestMCPConnectSubtreeAuthorization(t *testing.T) {
 			user: &user.DefaultInfo{
 				Name:   "key-user",
 				UID:    "key-user-uid",
-				Groups: []string{types.GroupAPIKey},
+				Groups: []string{types.GroupMCP},
 			},
 			allowed: true,
 		},
@@ -435,7 +435,7 @@ func TestMCPConnectSubtreeAuthorization(t *testing.T) {
 			user: &user.DefaultInfo{
 				Name:   "key-user",
 				UID:    "key-user-uid",
-				Groups: []string{types.GroupAPIKey},
+				Groups: []string{types.GroupMCP},
 			},
 			allowed: true,
 		},
