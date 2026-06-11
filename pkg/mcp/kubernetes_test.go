@@ -530,6 +530,7 @@ func TestAnalyzePodStatus(t *testing.T) {
 	tests := []struct {
 		name            string
 		pod             corev1.Pod
+		isAgent         bool
 		wantRetryable   bool
 		wantErr         error
 		wantErrContains string
@@ -606,6 +607,28 @@ func TestAnalyzePodStatus(t *testing.T) {
 			wantErrContains: "pod failed",
 		},
 		{
+			name: "succeeded phase fails health check timeout for non-agent",
+			pod: corev1.Pod{
+				Status: corev1.PodStatus{
+					Phase: corev1.PodSucceeded,
+				},
+			},
+			wantErr:         ErrHealthCheckTimeout,
+			wantErrContains: "pod succeeded and exited",
+		},
+		{
+			name: "succeeded phase remains retryable for agent",
+			pod: corev1.Pod{
+				Status: corev1.PodStatus{
+					Phase: corev1.PodSucceeded,
+				},
+			},
+			isAgent:         true,
+			wantRetryable:   true,
+			wantErr:         ErrHealthCheckTimeout,
+			wantErrContains: "pod succeeded and exited",
+		},
+		{
 			name: "repeated terminated errors fail crash loop",
 			pod: corev1.Pod{
 				Status: corev1.PodStatus{
@@ -638,7 +661,7 @@ func TestAnalyzePodStatus(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			retryable, err := analyzePodStatus(&tt.pod)
+			retryable, err := analyzePodStatus(&tt.pod, tt.isAgent)
 			if tt.wantErr != nil {
 				if !errors.Is(err, tt.wantErr) {
 					t.Fatalf("analyzePodStatus() error = %v, want %v", err, tt.wantErr)
@@ -663,6 +686,89 @@ type fakeWithWatch struct {
 
 func (f *fakeWithWatch) Watch(_ context.Context, _ client.ObjectList, _ ...client.ListOption) (watch.Interface, error) {
 	return f.watcher, nil
+}
+
+func TestUpdatedMCPPodName_SucceededPodAgentRetryBehavior(t *testing.T) {
+	tests := []struct {
+		name            string
+		nanobotAgent    string
+		wantErrContains string
+	}{
+		{
+			name:            "non-agent succeeded pod fails immediately",
+			wantErrContains: "pod succeeded and exited",
+		},
+		{
+			name:            "agent succeeded pod remains retryable",
+			nanobotAgent:    "agent-1",
+			wantErrContains: "watch retries",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			scheme := runtime.NewScheme()
+			if err := appsv1.AddToScheme(scheme); err != nil {
+				t.Fatalf("AddToScheme(appsv1) error = %v", err)
+			}
+			if err := corev1.AddToScheme(scheme); err != nil {
+				t.Fatalf("AddToScheme(corev1) error = %v", err)
+			}
+
+			deployment := &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-server",
+					Namespace: "obot-mcp",
+				},
+				Status: appsv1.DeploymentStatus{
+					ObservedGeneration: 1,
+					UpdatedReplicas:    1,
+				},
+			}
+			pod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              "test-server-pod",
+					Namespace:         "obot-mcp",
+					CreationTimestamp: metav1.Now(),
+					Labels: map[string]string{
+						"app": "test-server",
+					},
+				},
+				Status: corev1.PodStatus{
+					Phase: corev1.PodSucceeded,
+				},
+			}
+
+			watcher := watch.NewFake()
+			go func() {
+				watcher.Add(deployment.DeepCopy())
+				watcher.Stop()
+			}()
+
+			client := &fakeWithWatch{
+				Client:  fake.NewClientBuilder().WithScheme(scheme).WithObjects(deployment, pod).Build(),
+				watcher: watcher,
+			}
+
+			k := &kubernetesBackend{
+				client:       client,
+				cachedClient: client,
+				mcpNamespace: "obot-mcp",
+			}
+
+			_, err := k.updatedMCPPodName(t.Context(), "http://mcp.example.com", "test-server", ServerConfig{
+				Runtime:          types.RuntimeRemote,
+				NanobotAgentName: tt.nanobotAgent,
+				StartupTimeout:   time.Second,
+			}, "")
+			if !errors.Is(err, ErrHealthCheckTimeout) {
+				t.Fatalf("updatedMCPPodName() error = %v, want %v", err, ErrHealthCheckTimeout)
+			}
+			if !strings.Contains(err.Error(), tt.wantErrContains) {
+				t.Fatalf("updatedMCPPodName() error = %q, want to contain %q", err, tt.wantErrContains)
+			}
+		})
+	}
 }
 
 func TestUpdatedMCPPodName_ContainerStartupDeadlineExceeded(t *testing.T) {
