@@ -49,7 +49,7 @@ config:
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `OBOT_SERVER_ENABLE_AUTHENTICATION` | Yes | Enables authentication |
-| `OBOT_BOOTSTRAP_TOKEN` | No | Token used for initial admin login before an auth provider is configured. If not set, a token will be generated and printed to the logs. |
+| `OBOT_BOOTSTRAP_TOKEN` | No | Token used for bootstrap login while no auth provider is configured or no non-bootstrap owner user exists. If not set, a token will be generated and printed to the logs. |
 | `OBOT_SERVER_AUTH_OWNER_EMAILS` | No | Email address that will have owner access after logging in via the auth provider. If not set, the bootstrap user will be prompted to log in via the auth provider and set themselves as the owner. |
 | `OBOT_SERVER_AUTH_ADMIN_EMAILS` | No | Additional email addresses that will have admin access |
 
@@ -81,7 +81,7 @@ Note that you can always assign the owner or admin role to additional users thro
 
 - Ensure `OBOT_SERVER_ENABLE_AUTHENTICATION=true` is set
 - Check that you're using the correct token
-- If an auth provider has already been configured, set `OBOT_SERVER_FORCE_ENABLE_BOOTSTRAP=true` to re-enable bootstrap login
+- If an auth provider has already been configured and a non-bootstrap owner user exists, set `OBOT_SERVER_FORCE_ENABLE_BOOTSTRAP=true` to re-enable bootstrap login
 
 ### Authentication Provider Issues
 

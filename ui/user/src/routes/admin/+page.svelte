@@ -257,7 +257,7 @@
 			<div class="flex flex-col gap-4" in:slide class:mt-4={authProviders.length === 0}>
 				<h4 class="text-center text-lg font-semibold">Authenticate with Bootstrap Token</h4>
 				<p class="text-md font-light">
-					If this is your first time logging in, you will need to provide a bootstrap token.
+					Enter the bootstrap token to continue setup or restore owner access.
 				</p>
 
 				<div class="text-md flex flex-col gap-1">
