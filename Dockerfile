@@ -6,7 +6,7 @@ ARG BASE_IMAGE=cgr.dev/chainguard/wolfi-base
 FROM ${BASE_IMAGE} AS base
 ARG BASE_IMAGE
 RUN if [ "${BASE_IMAGE}" = "cgr.dev/chainguard/wolfi-base" ]; then \
-  apk add --no-cache gcc=14.2.0-r13 go make git nodejs npm pnpm; \
+  apk add --no-cache gcc=14.2.0-r13 go make git nodejs-24 npm pnpm; \
   fi
 
 FROM base AS bin
@@ -56,7 +56,7 @@ ENV PGDATA=/data/postgresql
 COPY --from=build-pgvector /usr/lib/postgresql17/vector.so /usr/lib/postgresql17/
 COPY --from=build-pgvector /usr/share/postgresql17/extension/vector* /usr/share/postgresql17/extension/
 
-RUN apk add --no-cache git python-3.13 py3.13-pip npm nodejs bash tini procps libreoffice docker perl-utils sqlite sqlite-dev curl kubectl jq
+RUN apk add --no-cache git python-3.13 py3.13-pip npm nodejs-24 bash tini procps libreoffice docker perl-utils sqlite sqlite-dev curl kubectl jq
 
 ENV OBOT_SERVER_DEFAULT_MCPCATALOG_PATH=https://github.com/obot-platform/mcp-catalog
 ENV OBOT_SERVER_DEFAULT_SYSTEM_MCPCATALOG_PATH=https://github.com/obot-platform/system-mcp-catalog
