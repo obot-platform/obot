@@ -527,7 +527,6 @@ func (h *Handler) BackPopulateModels(req router.Request, _ router.Response) erro
 		})
 	}
 
-	// TODO: ensure this works when the owner reference type changes. Maybe we need to migrate.
 	if err = apply.New(req.Client).Apply(req.Ctx, modelProvider, models...); err != nil {
 		return fmt.Errorf("failed to create models for model provider %q: %w", modelProvider.Name, err)
 	}
