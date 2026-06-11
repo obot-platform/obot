@@ -43,8 +43,7 @@
 		StepForward,
 		Trash2,
 		Unplug,
-		Bug,
-		Link2Icon
+		Bug
 	} from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -66,7 +65,6 @@
 		onOAuthConfigured?: () => void;
 		promptInitialLaunch?: boolean;
 		promptOAuthConfig?: boolean;
-		connectOnly?: boolean;
 		readonly?: boolean;
 		allowMultiUserServerConfigurationEdit?: boolean;
 		catalogID?: string;
@@ -84,7 +82,6 @@
 		onOAuthConfigured,
 		promptInitialLaunch,
 		promptOAuthConfig,
-		connectOnly,
 		readonly,
 		allowMultiUserServerConfigurationEdit,
 		catalogID,
@@ -190,7 +187,6 @@
 	);
 	let hasActions = $derived.by(() => {
 		return Boolean(
-			connectOnly ||
 			(entry && server && isServerOwner) ||
 			(server && instance) ||
 			(showServerDetails && showConnectionActions) ||
@@ -366,20 +362,7 @@
 	<div class:hidden={loading || !hasActions}>
 		<DotDotDot classes={{ menu: 'min-w-48 p-0', popover: 'z-60' }}>
 			{#snippet children({ toggle })}
-				{#if connectOnly}
-					<div class="flex flex-col gap-2 p-2 pt-1">
-						<button
-							class="menu-button"
-							onclick={() => {
-								toggle(false);
-							}}
-						>
-							<Link2Icon class="size-4" /> Get Connect URL
-						</button>
-					</div>
-				{:else}
-					{@render serverActions(toggle)}
-				{/if}
+				{@render serverActions(toggle)}
 			{/snippet}
 		</DotDotDot>
 	</div>

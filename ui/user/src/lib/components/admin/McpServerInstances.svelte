@@ -108,7 +108,15 @@
 				</div>
 			</div>
 		{/if}
-		<DeploymentsView servers={configuredServers} {readonly} {id} {entity} {usersMap} {onReload} />
+		<DeploymentsView
+			servers={configuredServers}
+			{readonly}
+			{id}
+			{entity}
+			{usersMap}
+			{onReload}
+			skipLoadOnMount
+		/>
 	{:else}
 		{@render emptyInstancesContent()}
 	{/if}

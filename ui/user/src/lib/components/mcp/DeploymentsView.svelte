@@ -65,6 +65,7 @@
 		noDataContent?: Snippet;
 		onlyMyServers?: boolean;
 		servers?: MCPCatalogServer[];
+		skipLoadOnMount?: boolean;
 	}
 
 	let {
@@ -82,7 +83,8 @@
 		initSort = { property: 'created', order: 'desc' },
 		noDataContent,
 		onlyMyServers,
-		servers: initialServers
+		servers: initialServers,
+		skipLoadOnMount
 	}: Props = $props();
 
 	const doesSupportK8sUpdates = $derived(version.current.engine === 'kubernetes');
@@ -236,6 +238,9 @@
 	}
 
 	onMount(async () => {
+		if (!skipLoadOnMount) {
+			await reload(true);
+		}
 		// Start checking for progressing servers
 		pollingInterval = setInterval(() => checkAndPoll(), POLL_INTERVAL_MS);
 	});

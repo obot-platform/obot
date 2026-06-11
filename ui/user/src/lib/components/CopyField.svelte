@@ -5,15 +5,16 @@
 	interface Props {
 		value?: string;
 		label?: string;
+		id?: string;
 	}
 
-	let { value, label }: Props = $props();
+	let { value, label, id = 'copy-field-input' }: Props = $props();
 
 	let copyButton = $state<ReturnType<typeof CopyButton>>();
 </script>
 
 {#if label}
-	<label class="label" for="copy-field-input">
+	<label class="label" for={id}>
 		{label}
 	</label>
 {/if}
@@ -27,7 +28,7 @@
 		value={value ?? ''}
 		class="w-full text-xs"
 		readonly
-		id="copy-field-input"
+		{id}
 	/>
 	<div class="mr-2">
 		<CopyButton
