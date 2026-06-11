@@ -19,7 +19,8 @@
 	import { isMultiUserCatalogEntry } from '$lib/services/user/mcp';
 	import { profile } from '$lib/stores';
 	import { success } from '$lib/stores/success';
-	import { CircleFadingArrowUp, Info, GitCompare } from 'lucide-svelte';
+	import McpConnectUrlDialog from '../../McpConnectUrlDialog.svelte';
+	import { CircleFadingArrowUp, Info, GitCompare, Link2Icon } from 'lucide-svelte';
 	import { untrack, type Component } from 'svelte';
 	import { fly } from 'svelte/transition';
 
@@ -39,6 +40,8 @@
 	let workspaceId = $derived(catalogEntry?.powerUserWorkspaceID);
 	let serverScopeEntity = $derived(workspaceId ? ('workspace' as const) : ('catalog' as const));
 	let serverScopeID = $derived(workspaceId || DEFAULT_MCP_CATALOG_ID);
+
+	let connectUrlDialog = $state<ReturnType<typeof McpConnectUrlDialog>>();
 
 	let upgrading = $state(false);
 	let showUpgradeConfirm = $state(false);
@@ -207,6 +210,9 @@
 			}}
 			hideActions
 		/>
+		<button class="btn btn-primary" onclick={() => connectUrlDialog?.open(catalogEntry)}>
+			<Link2Icon class="size-4" /> Connect URL
+		</button>
 	{/snippet}
 	<div class="flex h-full flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
 		{#if showUpgradeNotification}
@@ -326,6 +332,8 @@
 			} as unknown as MCPCatalogServer)
 		: undefined}
 />
+
+<McpConnectUrlDialog bind:this={connectUrlDialog} />
 
 <svelte:head>
 	<title>Obot | {catalogEntry?.manifest?.name ?? 'MCP Server'}</title>

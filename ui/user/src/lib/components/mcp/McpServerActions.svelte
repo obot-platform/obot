@@ -24,6 +24,7 @@
 	import { mcpServersAndEntries, profile, version } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { goto } from '$lib/url';
+	import CopyField from '../CopyField.svelte';
 	import DotDotDot from '../DotDotDot.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
@@ -42,7 +43,8 @@
 		StepForward,
 		Trash2,
 		Unplug,
-		Bug
+		Bug,
+		Link2Icon
 	} from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -188,6 +190,7 @@
 	);
 	let hasActions = $derived.by(() => {
 		return Boolean(
+			connectOnly ||
 			(entry && server && isServerOwner) ||
 			(server && instance) ||
 			(showServerDetails && showConnectionActions) ||
@@ -361,13 +364,22 @@
 	</button>
 
 	<div class:hidden={loading || !hasActions}>
-		<DotDotDot
-			class={!connectOnly ? 'hover:bg-base-200 dark:hover:bg-base-300' : ''}
-			disablePortal={connectOnly}
-			classes={{ menu: 'min-w-48 p-0', popover: 'z-60' }}
-		>
+		<DotDotDot classes={{ menu: 'min-w-48 p-0', popover: 'z-60' }}>
 			{#snippet children({ toggle })}
-				{@render serverActions(toggle)}
+				{#if connectOnly}
+					<div class="flex flex-col gap-2 p-2 pt-1">
+						<button
+							class="menu-button"
+							onclick={() => {
+								toggle(false);
+							}}
+						>
+							<Link2Icon class="size-4" /> Get Connect URL
+						</button>
+					</div>
+				{:else}
+					{@render serverActions(toggle)}
+				{/if}
 			{/snippet}
 		</DotDotDot>
 	</div>
@@ -461,7 +473,11 @@
 	</Table>
 </ResponsiveDialog>
 
-<ResponsiveDialog bind:this={launchDialog} animate="slide" class="md:max-w-sm">
+<ResponsiveDialog
+	bind:this={launchDialog}
+	animate="slide"
+	class={isMultiUserCatalogEntry(entry) ? 'md:max-w-sm' : ''}
+>
 	{#snippet titleContent()}
 		{#if entry || server}
 			{@const name = entry?.manifest.name ?? server?.manifest.name ?? 'MCP Server'}
@@ -481,50 +497,52 @@
 		{/if}
 	{/snippet}
 	<div class="flex grow flex-col gap-2 p-4 pt-0 md:p-0">
-		<p class="text-center">
-			{#if entry && entry.manifest.runtime === 'remote'}
-				Your remote catalog entry details have been configured.
-			{:else if entry}
-				Your catalog entry has been configured.
-			{:else}
-				Your server has been configured.
-			{/if}
-		</p>
+		{#if isMultiUserCatalogEntry(entry) || isMultiUserServer(server)}
+			<p class="text-center">
+				{#if entry}
+					Your catalog entry has been configured.
+				{:else}
+					Your server has been configured.
+				{/if}
+			</p>
+		{/if}
 		{#if hasLicenseEntitlementViolations}
 			<p class="mb-2 text-center text-muted-content">
 				Connection is currently disabled due to limited functionality. Resolve existing licensing
 				issues to re-enable this feature.
 			</p>
+		{:else if isMultiUserCatalogEntry(entry)}
+			<p class="mb-2 text-center">Would you like to launch a server now?</p>
+		{:else if !entry && isMultiUserServer(server)}
+			<p class="mb-2 text-center">Would you like to connect to this server now?</p>
 		{:else}
-			<p class="mb-2 text-center">
-				{#if isMultiUserCatalogEntry(entry)}
-					Would you like to launch a server now?
-				{:else}
-					Would you like to connect now?
-				{/if}
-			</p>
+			<div class="mt-4">
+				<CopyField label="Connection URL" value={entry?.connectURL ?? ''} />
+			</div>
 		{/if}
 		<div class="flex grow"></div>
-		<div class="flex flex-col gap-2">
-			<button class="btn btn-secondary" onclick={() => launchDialog?.close()}>Skip</button>
-			<button
-				class="btn btn-primary"
-				onclick={() => {
-					launchDialog?.close();
-					connectToServerDialog?.open({
-						entry,
-						server
-					});
-				}}
-				disabled={hasLicenseEntitlementViolations}
-			>
-				{#if isMultiUserCatalogEntry(entry)}
-					Launch Server
-				{:else}
-					Connect
-				{/if}
-			</button>
-		</div>
+		{#if isMultiUserCatalogEntry(entry) || (!entry && isMultiUserServer(server))}
+			<div class="flex flex-col gap-2">
+				<button class="btn btn-secondary" onclick={() => launchDialog?.close()}>Skip</button>
+				<button
+					class="btn btn-primary"
+					onclick={() => {
+						launchDialog?.close();
+						connectToServerDialog?.open({
+							entry,
+							server
+						});
+					}}
+					disabled={hasLicenseEntitlementViolations}
+				>
+					{#if isMultiUserCatalogEntry(entry)}
+						Launch Server
+					{:else}
+						Connect
+					{/if}
+				</button>
+			</div>
+		{/if}
 	</div>
 </ResponsiveDialog>
 
