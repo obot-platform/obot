@@ -22,8 +22,8 @@ When installing via Helm, this token is saved inside a kubernetes secret `<helm 
 
 This token can be used to authenticate as an admin user in the UI.
 You will then be able to configure authentication providers.
-Once you have configured at least one authentication provider, and have granted admin access to at least one user,
-the bootstrap token will no longer be valid.
+Bootstrap login remains available until at least one authentication provider is configured and at least one non-bootstrap owner user exists.
+Once both are true, the bootstrap token will no longer be valid.
 
 :::tip Custom Bootstrap Token
 You can use the `OBOT_BOOTSTRAP_TOKEN` environment variable to provide a specific value for the token,

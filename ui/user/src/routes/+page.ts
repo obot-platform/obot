@@ -28,7 +28,7 @@ export const load: PageLoad = async ({ fetch, url, parent }) => {
 	}
 
 	if (bootstrapStatus?.enabled && authProviders.length === 0) {
-		// If no auth providers are configured, redirect to admin page for bootstrap login
+		// If no auth providers are available, redirect to the admin page for bootstrap login.
 		throw redirect(302, '/admin');
 	}
 
