@@ -236,7 +236,6 @@
 	}
 
 	onMount(async () => {
-		await reload(true);
 		// Start checking for progressing servers
 		pollingInterval = setInterval(() => checkAndPoll(), POLL_INTERVAL_MS);
 	});
@@ -657,7 +656,7 @@
 							{:else if d.needsUpdate}
 								<div
 									use:tooltip={{
-										text: 'This server needs an update. View Diff to see the changes.',
+										text: 'This deployment needs an update. View Diff to see the changes.',
 										classes: ['wrap-break-word', 'w-58']
 									}}
 								>

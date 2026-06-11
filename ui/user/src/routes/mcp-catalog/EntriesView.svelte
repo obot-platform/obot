@@ -121,6 +121,14 @@
 			: sorted;
 	});
 
+	let deploymentsNeedingAttentionByCatalogEntry = $derived(
+		new Set<string>(
+			mcpServersAndEntries.current.servers
+				.filter((s) => s.catalogEntryID && (s.needsUpdate || s.needsK8sUpdate))
+				?.map((s) => s.catalogEntryID)
+		)
+	);
+
 	function getAuditLogsUrl(d: Item) {
 		let useAdminUrl =
 			window.location.pathname.includes('/admin') && profile.current.hasAdminAccess?.();
@@ -265,12 +273,17 @@
 				}}
 				setRowClasses={(d) => {
 					const missingSecretBinding = 'missingKubernetesSecret' in d && d.missingKubernetesSecret;
-					return d.data.needsUpdate && !missingSecretBinding ? 'bg-primary/10' : '';
+					return (d.data.needsUpdate && !missingSecretBinding) ||
+						deploymentsNeedingAttentionByCatalogEntry.has(d.data.id)
+						? 'bg-primary/10'
+						: '';
 				}}
 			>
 				{#snippet onRenderColumn(property, d)}
-					{@const isCatalogEntry = 'isCatalogEntry' in d.data}
-					{@const catalogEntry = isCatalogEntry ? (d.data as MCPCatalogEntry) : undefined}
+					{@const attentionRequired =
+						(d.data.needsUpdate &&
+							!('missingKubernetesSecret' in d && d.missingKubernetesSecret)) ||
+						deploymentsNeedingAttentionByCatalogEntry.has(d.data.id)}
 					{#if property === 'name'}
 						<div class="flex shrink-0 items-center gap-2">
 							<div class="icon">
@@ -282,11 +295,13 @@
 							</div>
 							<p class="flex items-center gap-2">
 								{d.name}
-								{#if catalogEntry?.needsUpdate && !('missingKubernetesSecret' in d && d.missingKubernetesSecret)}
+								{#if attentionRequired}
 									<span
 										use:tooltip={{
 											classes: ['border-primary', 'bg-primary/10', 'dark:bg-primary/50'],
-											text: 'An update requires your attention'
+											text: deploymentsNeedingAttentionByCatalogEntry.has(d.data.id)
+												? 'One or multiple deployments require your attention'
+												: 'An update requires your attention'
 										}}
 									>
 										<CircleFadingArrowUp class="text-primary size-4" />

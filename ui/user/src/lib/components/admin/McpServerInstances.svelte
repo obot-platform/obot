@@ -1,15 +1,13 @@
 <script lang="ts">
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
-		AdminService,
-		UserService,
 		type LaunchServerType,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
 		type MCPServerInstance,
 		type OrgUser
 	} from '$lib/services';
-	import { hasMissingSecretBindingConfig, isMultiUserServer } from '$lib/services/user/mcp';
+	import { hasMissingSecretBindingConfig } from '$lib/services/user/mcp';
 	import { profile } from '$lib/stores';
 	import DeploymentsView from '../mcp/DeploymentsView.svelte';
 	import McpServerK8sInfo from './McpServerK8sInfo.svelte';
@@ -22,7 +20,10 @@
 		catalogEntry?: MCPCatalogEntry;
 		users?: OrgUser[];
 		type?: LaunchServerType;
+		configuredInstances?: MCPServerInstance[];
 		configuredServers?: MCPCatalogServer[];
+		loading?: boolean;
+		onReload?: () => void | Promise<void>;
 	}
 
 	let {
@@ -32,12 +33,11 @@
 		catalogEntry,
 		users = [],
 		type,
-		configuredServers
+		configuredInstances = [],
+		configuredServers = [],
+		loading = false,
+		onReload
 	}: Props = $props();
-
-	let instances = $state<MCPServerInstance[]>([]);
-	let servers = $state<MCPCatalogServer[]>([]);
-	let loading = $state(true);
 
 	let usersMap = $derived(new Map(users.map((u) => [u.id, u])));
 	let detailsCatalogEntry = $derived(
@@ -46,93 +46,12 @@
 	let detailsMcpServer = $derived(entry && !('isCatalogEntry' in entry) ? entry : undefined);
 	let readonly = $derived(profile.current.isAdminReadonly?.());
 
-	$effect(() => {
-		if (!loading) return;
-		if (entry && !('isCatalogEntry' in entry) && id) {
-			if (entry.catalogEntryID && !isMultiUserServer(entry)) {
-				instances = [
-					{
-						id: entry.id,
-						configured: entry.configured,
-						missingRequiredHeaders: entry.missingRequiredHeader,
-						userID: entry.userID,
-						created: entry.created
-					}
-				];
-				loading = false;
-			} else {
-				if (entity === 'workspace') {
-					UserService.listWorkspaceMcpCatalogServerInstances(id, entry.id)
-						.then((response) => {
-							instances = response;
-						})
-						.finally(() => {
-							loading = false;
-						});
-				} else {
-					AdminService.listMcpCatalogServerInstances(id, entry.id)
-						.then((response) => {
-							instances = response;
-						})
-						.finally(() => {
-							loading = false;
-						});
-				}
-			}
-		} else if (entry && 'isCatalogEntry' in entry) {
-			if (configuredServers && configuredServers.length > 0) {
-				const filtered = configuredServers.filter((s) => s.catalogEntryID === entry.id);
-				servers = filtered;
-				loading = false;
-			} else if (id) {
-				if (entity === 'workspace') {
-					UserService.listWorkspaceMCPServersForEntry(id, entry.id)
-						.then((response) => {
-							servers = response;
-						})
-						.finally(() => {
-							loading = false;
-						});
-				} else {
-					AdminService.listMCPServersForEntry(id, entry.id)
-						.then((response) => {
-							servers = response;
-						})
-						.finally(() => {
-							loading = false;
-						});
-				}
-			}
-		}
-	});
-
 	function isMissingKubernetesSecret(server: MCPCatalogServer) {
 		return hasMissingSecretBindingConfig(
 			server.manifest,
 			server.missingRequiredEnvVars,
 			server.missingRequiredHeader
 		);
-	}
-
-	async function reload() {
-		if (!id || !entry) return;
-		if (entity === 'workspace') {
-			UserService.listWorkspaceMCPServersForEntry(id, entry.id)
-				.then((response) => {
-					servers = response;
-				})
-				.finally(() => {
-					loading = false;
-				});
-		} else {
-			AdminService.listMCPServersForEntry(id, entry.id)
-				.then((response) => {
-					servers = response;
-				})
-				.finally(() => {
-					loading = false;
-				});
-		}
 	}
 </script>
 
@@ -141,7 +60,7 @@
 		<Loading class="size-6" />
 	</div>
 {:else if entry && !('isCatalogEntry' in entry) && id}
-	{#if entry && (type === 'multi' || instances.length > 0)}
+	{#if entry && (type === 'multi' || configuredInstances.length > 0)}
 		<div class="flex flex-col gap-6">
 			<McpServerK8sInfo
 				{id}
@@ -150,7 +69,7 @@
 				name={'manifest' in entry ? entry.manifest.name || '' : ''}
 				catalogEntry={detailsCatalogEntry}
 				mcpServer={detailsMcpServer}
-				connectedUsers={instances.map((instance) => {
+				connectedUsers={configuredInstances.map((instance) => {
 					const user = usersMap.get(instance.userID)!;
 					return {
 						...user,
@@ -169,10 +88,10 @@
 		{@render emptyInstancesContent()}
 	{/if}
 {:else}
-	{@const numServerUpdatesNeeded = servers.filter(
+	{@const numServerUpdatesNeeded = configuredServers.filter(
 		(s) => s.needsUpdate && !isMissingKubernetesSecret(s)
 	).length}
-	{#if servers.length > 0}
+	{#if configuredServers.length > 0}
 		{#if numServerUpdatesNeeded}
 			<div class="group bg-base-100 mb-2 w-fit rounded-md">
 				<div
@@ -189,7 +108,7 @@
 				</div>
 			</div>
 		{/if}
-		<DeploymentsView {servers} {readonly} {id} {entity} {usersMap} onReload={reload} />
+		<DeploymentsView servers={configuredServers} {readonly} {id} {entity} {usersMap} {onReload} />
 	{:else}
 		{@render emptyInstancesContent()}
 	{/if}
