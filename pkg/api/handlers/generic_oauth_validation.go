@@ -42,7 +42,7 @@ func validateGenericOAuthConfig(ctx context.Context, providerName string, envVar
 	if err != nil || u.Scheme == "" || u.Host == "" {
 		return fmt.Errorf("%s must be a valid URL", GenericOAuthIssuerEnvVar)
 	}
-	if u.Scheme != "https" && u.Hostname() != "localhost" && u.Hostname() != "127.0.0.1" {
+	if !genericOAuthIssuerAllowsHTTP(u.Hostname(), u.Scheme) {
 		return fmt.Errorf("%s must use https", GenericOAuthIssuerEnvVar)
 	}
 
@@ -77,6 +77,16 @@ func validateGenericOAuthConfig(ctx context.Context, providerName string, envVar
 
 	envVars[GenericOAuthIssuerEnvVar] = issuer
 	return nil
+}
+
+func genericOAuthIssuerAllowsHTTP(hostname, scheme string) bool {
+	if scheme == "https" {
+		return true
+	}
+	if scheme != "http" {
+		return false
+	}
+	return hostname == "localhost" || hostname == "127.0.0.1" || hostname == "host.docker.internal"
 }
 
 func requireGenericOAuthTrustReconfirmation(providerName, existingIssuer string, envVars map[string]string) error {

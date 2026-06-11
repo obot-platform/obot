@@ -46,6 +46,15 @@ func TestValidateGenericOAuthConfigRejectsInsecureRemoteIssuer(t *testing.T) {
 	}
 }
 
+func TestGenericOAuthIssuerAllowsHTTPForLocalDockerHost(t *testing.T) {
+	if !genericOAuthIssuerAllowsHTTP("host.docker.internal", "http") {
+		t.Fatal("expected host.docker.internal over HTTP to be treated as local Docker")
+	}
+	if genericOAuthIssuerAllowsHTTP("issuer.example.com", "http") {
+		t.Fatal("expected arbitrary HTTP issuers to remain blocked")
+	}
+}
+
 func TestValidateGenericOAuthConfigRejectsIssuerMismatch(t *testing.T) {
 	issuer := newOIDCDiscoveryServer(t, "https://other.example.com")
 
