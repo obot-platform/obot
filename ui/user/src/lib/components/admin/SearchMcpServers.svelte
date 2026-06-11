@@ -85,6 +85,9 @@
 						return true;
 					}
 
+					// exclude multi-user catalog entries
+					if (entry.manifest.serverUserType === 'multiUser') return false;
+
 					return entity === 'catalog'
 						? !entry.powerUserWorkspaceID
 						: workspaceId
@@ -134,15 +137,6 @@
 				})
 			: allData
 	);
-	let duplicateNames = $derived.by(() => {
-		const counts: Record<string, number> = {};
-		for (const item of allData) {
-			if (item.type !== 'mcpcatalogentry' && item.type !== 'mcpserver') continue;
-			if (!item.name) continue;
-			counts[item.name] = (counts[item.name] ?? 0) + 1;
-		}
-		return new Set(Object.keys(counts).filter((name) => counts[name] > 1));
-	});
 
 	export function open() {
 		addMcpServerDialog?.open();
@@ -239,12 +233,6 @@
 										{#if item.registry}
 											<div class="badge badge-xs badge-soft badge-primary">
 												{item.registry}
-											</div>
-										{/if}
-
-										{#if duplicateNames.has(item.name) && item.type !== 'all'}
-											<div class="badge badge-xs badge-secondary">
-												{item.type === 'mcpserver' ? 'Server' : 'Catalog Entry'}
 											</div>
 										{/if}
 									</div>
