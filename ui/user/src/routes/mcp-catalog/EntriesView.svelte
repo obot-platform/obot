@@ -348,14 +348,16 @@
 								use:tooltip={{
 									text: 'View Source on Git'
 								}}
-								class="btn btn-ghost hover:text-blue-500 btn-xs shrink-0"
+								class="btn btn-ghost hover:text-blue-500 shrink-0"
 							>
 								<GitBranch class="size-4" />
-								{#if d.source.startsWith(OBOT_PLATFORM_REPO)}
-									Obot Catalog
-								{:else}
-									{d.source?.split('/').pop()}
-								{/if}
+								<span class="font-light">
+									{#if d.source.startsWith(OBOT_PLATFORM_REPO)}
+										Obot Catalog
+									{:else}
+										{d.source?.split('/').pop()}
+									{/if}
+								</span>
 							</a>
 						{:else}
 							{d.source}
