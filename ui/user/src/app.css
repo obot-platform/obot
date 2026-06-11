@@ -574,12 +574,16 @@
 		inset: 0;
 		overflow: clip;
 		opacity: 0;
-		background-color: rgba(0, 0, 0, 0.6);
+		background-color: transparent;
 
 		&[open] {
 			pointer-events: auto;
 			visibility: visible;
 			opacity: 1;
+		}
+
+		&::backdrop {
+			background-color: transparent;
 		}
 	}
 
@@ -639,9 +643,19 @@
 		grid-column-start: 1;
 		place-self: stretch stretch;
 		display: grid;
+		background-color: rgba(0, 0, 0, 0.6);
+
+		.dialog[open]:not([data-dialog-animated]) > & {
+			opacity: 1;
+		}
+
+		.dialog[data-dialog-animated][open] > & {
+			opacity: 0;
+		}
 
 		& > button {
 			cursor: pointer;
+			opacity: 0;
 		}
 	}
 

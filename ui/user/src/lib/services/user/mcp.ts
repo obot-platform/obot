@@ -587,11 +587,16 @@ export function getServerUrl(d: MCPCatalogServer) {
 
 	let url = '';
 	if (profile.current.hasAdminAccess?.()) {
-		if (isMulti) {
+		if (isMulti && d.catalogEntryID) {
 			url =
 				belongsToWorkspace && d.powerUserWorkspaceID
 					? `/admin/mcp-catalog/s/${d.id}/details?wid=${encodeURIComponent(d.powerUserWorkspaceID)}`
 					: `/admin/mcp-catalog/s/${d.id}/details`;
+		} else if (isMulti) {
+			url =
+				belongsToWorkspace && d.powerUserWorkspaceID
+					? `/admin/mcp-catalog/s/${d.id}?wid=${encodeURIComponent(d.powerUserWorkspaceID)}`
+					: `/admin/mcp-catalog/s/${d.id}`;
 		} else {
 			url =
 				belongsToWorkspace && d.powerUserWorkspaceID

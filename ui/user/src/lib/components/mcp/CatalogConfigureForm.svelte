@@ -7,7 +7,7 @@
 	import SensitiveInput from '../SensitiveInput.svelte';
 	import Toggle from '../Toggle.svelte';
 	import { CircleAlert, Server } from 'lucide-svelte';
-	import type { Snippet } from 'svelte';
+	import { tick, type Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	export type LaunchFormData = {
@@ -106,7 +106,8 @@
 		return [];
 	});
 
-	export function open() {
+	export async function open() {
+		await tick();
 		if (isCompositeForm(form) && isNew) {
 			compositeInfoDialog?.open();
 		} else {
@@ -243,7 +244,9 @@
 		clearHighlights();
 		initialFormJson = '';
 		localError = undefined;
+		compositeInfoDialog?.close();
 		configDialog?.close();
+		isOpen = false;
 	}
 
 	function hasFieldFilledOut(formAny?: LaunchFormData | CompositeLaunchFormData) {
@@ -327,13 +330,14 @@
 	bind:this={configDialog}
 	{animate}
 	onClose={() => {
+		if (loading) return;
 		clearHighlights();
 		localError = undefined;
 		onClose?.();
 		isOpen = false;
 	}}
 	onClickOutside={() => {
-		if (resizing || disableOutsideClick) return;
+		if (resizing || disableOutsideClick || loading) return;
 		if ((isNew && hasFieldFilledOut(form)) || (!isNew && hasFormChanged())) {
 			showConfirmClose = true;
 		} else {
@@ -663,7 +667,7 @@
 		</form>
 		<div class="flex justify-end gap-2">
 			{#if onCancel}
-				<button class="btn btn-secondary" onclick={onCancel}>
+				<button class="btn btn-secondary" onclick={onCancel} disabled={loading}>
 					{cancelText}
 				</button>
 			{/if}

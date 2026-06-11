@@ -18,8 +18,8 @@
 		getMCPDisplayName
 	} from '$lib/services/user/mcp';
 	import { version } from '$lib/stores';
+	import Confirm from '../Confirm.svelte';
 	import CopyButton from '../CopyButton.svelte';
-	import PageLoading from '../PageLoading.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
 	import CatalogConfigureForm, {
@@ -27,8 +27,10 @@
 		type LaunchFormData
 	} from './CatalogConfigureForm.svelte';
 	import HowToConnect from './HowToConnect.svelte';
-	import { Plus, Server, X } from 'lucide-svelte';
+	import { Server, X, CircleAlert } from 'lucide-svelte';
 	import { onMount } from 'svelte';
+	import { fade } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		userConfiguredServers: MCPCatalogServer[];
@@ -45,7 +47,13 @@
 		}) => void;
 		onClose?: () => void;
 		skipConnectDialog?: boolean;
-		hideActions?: boolean;
+		renderIntroText?: ({
+			entry,
+			server
+		}: {
+			entry?: MCPCatalogEntry;
+			server?: MCPCatalogServer;
+		}) => string;
 	}
 
 	let {
@@ -55,7 +63,7 @@
 		onConnect,
 		onClose,
 		skipConnectDialog,
-		hideActions
+		renderIntroText
 	}: Props = $props();
 
 	let server = $state<MCPCatalogServer>();
@@ -66,23 +74,19 @@
 	let isDeployingMultiUserCatalogEntry = $derived(
 		Boolean(entry && !server && isMultiUserCatalogEntry(entry))
 	);
-	let shouldShowAlias = $derived(
-		isDeployingMultiUserCatalogEntry || (isConfigured && !isMultiUserServer(server))
-	);
 	let secretBindingEngineError = $derived(
 		isKubernetesRuntimeBackend(version.current.engine)
 			? undefined
 			: getSecretBindingEngineError(manifest)
 	);
 
+	let showIntroDialog = $state(false);
+
 	let connectDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let configDialog = $state<ReturnType<typeof CatalogConfigureForm>>();
 	let configureForm = $state<LaunchFormData | CompositeLaunchFormData>();
 	let configureFormTitle = $state<string>();
-
-	let chatLoading = $state(false);
-	let chatLoadingProgress = $state(0);
-	let chatLaunchError = $state<string>();
+	let configureInstance = $state(false);
 
 	let launchError = $state<string>();
 	let launchProgress = $state<number>(0);
@@ -92,6 +96,11 @@
 	let launchMissingSecretBinding = $state(false);
 	let error = $state<string>();
 	let saving = $state(false);
+
+	let shouldShowAlias = $derived(
+		isDeployingMultiUserCatalogEntry ||
+			(isConfigured && !isMultiUserServer(server) && launchState !== 'relaunching')
+	);
 
 	let oauthDialog = $state<HTMLDialogElement>();
 	let oauthURL = $state<string>('');
@@ -103,7 +112,6 @@
 			.filter(Boolean)
 			.map((name) => name.toLowerCase())
 	);
-	let name = $derived(getMCPDisplayName(server, ''));
 	let copyButtonController = $state<ReturnType<typeof CopyButton>>();
 
 	function handleOnClose() {
@@ -111,12 +119,14 @@
 		onClose?.();
 	}
 
-	function handleConnect() {
+	function handleConnect(skipOnConnect?: boolean) {
+		launchState = undefined;
+		configDialog?.close();
 		if (!skipConnectDialog) {
 			connectDialog?.open();
 		}
 
-		if (onConnect) {
+		if (onConnect && !skipOnConnect) {
 			onConnect({ server, entry, instance });
 		}
 	}
@@ -361,11 +371,60 @@
 			launchState = undefined;
 			launchProgress = 0;
 			if (oauthURL) {
+				configDialog?.close();
 				oauthDialog?.showModal();
 			} else {
 				handleConnect();
 			}
 		}, 1000);
+	}
+
+	async function validateConfiguredServerAndConnect(configuredResponse: MCPCatalogServer) {
+		server = configuredResponse;
+		const missingConfigMessage = missingSecretBindingConfigMessage(configuredResponse);
+		if (missingConfigMessage) {
+			launchMissingSecretBinding = true;
+			launchError = missingConfigMessage;
+			launchProgress = 100;
+			return;
+		}
+
+		const launchResponse = await UserService.validateSingleOrRemoteMcpServerLaunched(
+			configuredResponse.id
+		);
+		if (!launchResponse.success) {
+			launchError = launchResponse.message;
+			listLaunchLogs(configuredResponse.id);
+		}
+
+		if (!launchError) {
+			verifyOauthOrConnect();
+		}
+	}
+
+	async function handleRelaunchExistingServer() {
+		if (!server || !entry || !configureForm) return;
+
+		const { timeout1, timeout2, timeout3 } = initUpdatingOrLaunchProgress();
+		try {
+			let configuredResponse: MCPCatalogServer;
+			if (entry.manifest?.runtime === 'composite') {
+				const payload = convertCompositeLaunchFormDataToPayload(
+					configureForm as CompositeLaunchFormData
+				);
+				configuredResponse = await UserService.configureCompositeMcpServer(server.id, payload);
+			} else {
+				await updateExistingRemoteOrSingleUser(configureForm as LaunchFormData);
+				configuredResponse = server;
+			}
+			await validateConfiguredServerAndConnect(configuredResponse);
+		} catch (err) {
+			launchError = err instanceof Error ? err.message : 'An unknown error occurred';
+		} finally {
+			clearTimeout(timeout1);
+			clearTimeout(timeout2);
+			clearTimeout(timeout3);
+		}
 	}
 
 	async function handleLaunchCatalogEntry() {
@@ -410,26 +469,7 @@
 					response.id,
 					envs
 				);
-				server = configuredResponse;
-				const missingConfigMessage = missingSecretBindingConfigMessage(configuredResponse);
-				if (missingConfigMessage) {
-					launchMissingSecretBinding = true;
-					launchError = missingConfigMessage;
-					launchProgress = 100;
-					return;
-				}
-
-				const launchResponse = await UserService.validateSingleOrRemoteMcpServerLaunched(
-					configuredResponse.id
-				);
-				if (!launchResponse.success) {
-					launchError = launchResponse.message;
-					listLaunchLogs(configuredResponse.id);
-				}
-
-				if (!launchError) {
-					verifyOauthOrConnect();
-				}
+				await validateConfiguredServerAndConnect(configuredResponse);
 			} catch (err) {
 				launchError = err instanceof Error ? err.message : 'An unknown error occurred';
 			} finally {
@@ -519,23 +559,7 @@
 			server = created;
 
 			const configured = await UserService.configureCompositeMcpServer(created.id, payload);
-			server = configured;
-			const missingConfigMessage = missingSecretBindingConfigMessage(configured);
-			if (missingConfigMessage) {
-				launchMissingSecretBinding = true;
-				launchError = missingConfigMessage;
-				launchProgress = 100;
-				return;
-			}
-
-			const launchResponse = await UserService.validateSingleOrRemoteMcpServerLaunched(created.id);
-			if (!launchResponse.success) {
-				launchError = launchResponse.message;
-			}
-
-			if (!launchError) {
-				verifyOauthOrConnect();
-			}
+			await validateConfiguredServerAndConnect(configured);
 		} catch (err) {
 			launchError = err instanceof Error ? err.message : 'An unknown error occurred';
 		} finally {
@@ -570,6 +594,7 @@
 
 		let created: MCPCatalogServer | undefined;
 		let launchHandedOff = false;
+		const { timeout1, timeout2, timeout3 } = initUpdatingOrLaunchProgress();
 		try {
 			const lf = configureForm as LaunchFormData | undefined;
 			const url = lf?.url?.trim();
@@ -607,6 +632,11 @@
 
 			instance = undefined;
 			launchHandedOff = true;
+			launchState = undefined;
+			launchProgress = 100;
+
+			await new Promise((resolve) => setTimeout(resolve, 1000));
+			configDialog?.close();
 			onConnect?.({ server, entry });
 		} catch (err) {
 			if (created && !launchHandedOff) {
@@ -623,6 +653,10 @@
 				}
 			}
 			error = err instanceof Error ? err.message : 'An unknown error occurred';
+		} finally {
+			clearTimeout(timeout1);
+			clearTimeout(timeout2);
+			clearTimeout(timeout3);
 		}
 	}
 
@@ -659,10 +693,7 @@
 		}
 	}
 
-	async function handleCancelLaunch() {
-		if (launchLogsEventStream) {
-			launchLogsEventStream.disconnect();
-		}
+	async function deleteCatalogEntryServer() {
 		if (server && entry) {
 			if (isMultiUserServer(server)) {
 				if (workspaceID) {
@@ -674,10 +705,19 @@
 				await UserService.deleteSingleOrRemoteMcpServer(server.id);
 			}
 		}
+	}
+
+	async function handleCancelLaunch() {
+		if (launchLogsEventStream) {
+			launchLogsEventStream.disconnect();
+		}
+		await deleteCatalogEntryServer();
 
 		launchState = undefined;
 		launchError = undefined;
 		launchMissingSecretBinding = false;
+
+		configDialog?.close();
 	}
 
 	async function updateExistingRemoteOrSingleUser(lf: LaunchFormData) {
@@ -732,14 +772,18 @@
 		}
 
 		if (launchState === 'relaunching' && server && entry) {
-			configDialog?.close();
-			await handleLaunchCatalogEntry();
+			saving = true;
+			try {
+				await handleRelaunchExistingServer();
+			} finally {
+				saving = false;
+			}
 			return;
 		}
 
 		try {
 			if (server?.id) {
-				configDialog?.close();
+				saving = true;
 				const { timeout1, timeout2, timeout3 } = initUpdatingOrLaunchProgress(true);
 				// updating existing
 				if (entry?.id === 'composite') {
@@ -755,12 +799,11 @@
 				clearTimeout(timeout3);
 				// onUpdate?.();
 
-				setTimeout(() => {
-					launchState = undefined;
-				}, 1000);
+				await new Promise((resolve) => setTimeout(resolve, 1000));
+				launchState = undefined;
+				saving = false;
 			} else {
 				// launching new
-				configDialog?.close();
 				await new Promise((resolve) => setTimeout(resolve, 300));
 				await handleLaunch();
 			}
@@ -782,31 +825,26 @@
 			configDialog?.open();
 			return;
 		}
-		if (hasEditableConfiguration(entry) && entry.manifest?.runtime === 'composite') {
+		if (entry.manifest?.runtime === 'composite') {
 			initCompositeForm(entry);
 		} else if (hasEditableConfiguration(entry) || isMultiUserCatalogEntry(entry)) {
 			initConfigureForm(entry);
 			configDialog?.open();
 		} else {
+			configDialog?.open();
 			handleLaunch();
 		}
 	}
 
-	export function open({
-		server: initServer,
-		entry: initEntry,
-		instance: initInstance,
-		configureInstance
-	}: {
-		server?: MCPCatalogServer;
-		entry?: MCPCatalogEntry;
-		instance?: MCPServerInstance;
-		configureInstance?: boolean;
-	}) {
-		server = initServer;
+	export function setupNewInstance(initEntry: MCPCatalogEntry) {
 		entry = initEntry;
-		instance = initInstance;
+		server = undefined;
+		instance = undefined;
+		initCatalogEntry();
+	}
 
+	function handleLaunchOrConfigure() {
+		showIntroDialog = false;
 		ensureOauthVisibilityListener();
 
 		if (server && instance && configureInstance && hasMultiUserInstanceConfiguration(server)) {
@@ -823,11 +861,36 @@
 		} else if ((entry && server) || (server && instance)) {
 			handleConnect();
 		} else {
-			if (initEntry && !initServer) {
+			if (entry && !server) {
 				initCatalogEntry();
 			} else {
 				handleLaunch();
 			}
+		}
+	}
+
+	export function open({
+		server: initServer,
+		entry: initEntry,
+		instance: initInstance,
+		configureInstance: initConfigureInstance
+	}: {
+		server?: MCPCatalogServer;
+		entry?: MCPCatalogEntry;
+		instance?: MCPServerInstance;
+		configureInstance?: boolean;
+	}) {
+		server = initServer;
+		entry = initEntry;
+		instance = initInstance;
+		configureInstance = initConfigureInstance ?? false;
+
+		if (server && instance && configureInstance && hasMultiUserInstanceConfiguration(server)) {
+			initMultiUserInstanceForm(server, instance);
+		} else if ((entry && server) || (server && instance)) {
+			handleConnect(true);
+		} else {
+			showIntroDialog = true;
 		}
 	}
 
@@ -845,20 +908,25 @@
 	});
 </script>
 
+{#snippet dialogTitle(item?: MCPCatalogServer | MCPCatalogEntry)}
+	{#if item}
+		{@const name = getMCPDisplayName(item)}
+		{@const icon = item.manifest.icon ?? ''}
+
+		<div class="bg-base-200 rounded-sm p-1 dark:bg-base-300">
+			{#if icon}
+				<img src={icon} alt={name} class="size-8" />
+			{:else}
+				<Server class="size-8" />
+			{/if}
+		</div>
+		{name}
+	{/if}
+{/snippet}
+
 <ResponsiveDialog bind:this={connectDialog} animate="slide" onClose={handleOnClose}>
 	{#snippet titleContent()}
-		{#if server}
-			{@const icon = server.manifest.icon ?? ''}
-
-			<div class="bg-base-200 rounded-sm p-1 dark:bg-base-300">
-				{#if icon}
-					<img src={icon} alt={name} class="size-8" />
-				{:else}
-					<Server class="size-8" />
-				{/if}
-			</div>
-			{name}
-		{/if}
+		{@render dialogTitle(server)}
 	{/snippet}
 
 	{#if server}
@@ -887,40 +955,40 @@
 		{#if url}
 			<HowToConnect />
 		{/if}
-
-		{#if entry && !hideActions}
-			<p
-				class="text-muted-content flex items-center justify-end gap-2 text-sm font-light md:px-0 px-4"
-			>
-				Need to set up a different instance?
-				<button
-					class="btn btn-sm btn-primary text-xs"
-					onclick={() => {
-						server = undefined;
-						initCatalogEntry();
-						connectDialog?.close();
-					}}
-				>
-					<Plus class="size-3" />
-					{isMultiUserCatalogEntry(entry) ? 'Create New Server' : 'Connect to New Server'}
-				</button>
-			</p>
-		{/if}
 	{/if}
 </ResponsiveDialog>
 
-<PageLoading
-	show={chatLoading}
-	isProgressBar
-	progress={chatLoadingProgress}
-	text="Loading chat..."
-	error={chatLaunchError}
-	longLoadMessage="Connecting MCP Server to chat..."
-	longLoadDuration={10000}
-	onClose={() => {
-		chatLoading = false;
-	}}
-/>
+<Confirm
+	show={showIntroDialog}
+	onsuccess={handleLaunchOrConfigure}
+	submitText="Continue"
+	type="info"
+	title={isMultiUserCatalogEntry(entry) ? 'Launch Server' : 'Connect To Server'}
+	oncancel={() => (showIntroDialog = false)}
+	hideCancelButton
+>
+	{#snippet msgContent()}
+		<div class="flex items-center gap-2 text-lg font-semibold mb-2">
+			{@render dialogTitle(entry || server)}
+		</div>
+	{/snippet}
+	{#snippet note()}
+		<p>
+			{#if renderIntroText}
+				{renderIntroText({ entry, server })}
+			{:else if isMultiUserCatalogEntry(entry)}
+				You are about to launch a new server.
+			{:else}
+				This will begin the initial setup process for this server.
+			{/if}
+			{#if (entry && hasEditableConfiguration(entry)) || (server && hasMultiUserInstanceConfiguration(server))}
+				Additional configuration details may also be required before the server can be used.
+			{:else}
+				<br />Click below to begin.
+			{/if}
+		</p>
+	{/snippet}
+</Confirm>
 
 <CatalogConfigureForm
 	bind:this={configDialog}
@@ -934,65 +1002,78 @@
 		: isConfigured
 			? 'Update'
 			: 'Launch'}
-	loading={saving}
+	loading={saving || launchState === 'launching'}
 	disableSave={!!secretBindingEngineError}
 	isNew={!isConfigured}
 	showAlias={shouldShowAlias}
 	configurationTitle={configureFormTitle}
-/>
-
-<PageLoading
-	isProgressBar
-	show={typeof launchState !== 'undefined'}
-	text="Configuring and initializing server..."
-	progress={launchProgress}
-	error={launchError}
-	errorClasses={{
-		root: 'md:w-[95vw]'
-	}}
-	onClose={handleCancelLaunch}
 >
-	{#snippet errorPreContent()}
-		<h4 class="text-xl font-semibold">MCP Server Launch Failed</h4>
-	{/snippet}
-	{#snippet errorPostContent()}
-		{#if launchLogs.length > 0}
-			<div
-				class="default-scrollbar-thin bg-base-200 max-h-[50vh] w-full overflow-y-auto rounded-lg p-4 shadow-inner"
-			>
-				{#each launchLogs as log, i (i)}
-					<div class="font-mono text-sm">
-						<span class="text-muted-content">{log}</span>
+	{#snippet loadingContent()}
+		<div in:fade class="h-full w-full flex items-center justify-center">
+			{#if launchError}
+				<div class="flex flex-col gap-1 mb-4 w-full h-full" in:fade>
+					<div class="notification-error flex items-center gap-2">
+						<CircleAlert class="size-6 text-error" />
+						<h4 class="text-md font-medium">MCP Server Launch Failed</h4>
 					</div>
-				{/each}
-			</div>
-		{:else}
-			<p class="text-md self-start">An issue occurred while launching the MCP server.</p>
-		{/if}
+					{#if launchLogs.length > 0}
+						<div
+							class="default-scrollbar-thin bg-base-200 max-h-[50vh] w-full overflow-y-auto rounded-lg p-4 shadow-inner"
+						>
+							{#each launchLogs as log, i (i)}
+								<div class="font-mono text-sm">
+									<span class="text-muted-content">{log}</span>
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<p class="text-sm self-start">An issue occurred while launching the MCP server.</p>
+					{/if}
 
-		<div class="flex w-full flex-col items-center gap-2 md:flex-row">
-			{#if entry && hasEditableConfiguration(entry) && !launchMissingSecretBinding}
-				<button
-					class="btn btn-primary w-full md:w-1/2 md:flex-1"
-					onclick={() => {
-						launchState = 'relaunching';
-						launchError = undefined;
-						if (hasEditableConfiguration(entry!)) {
-							configDialog?.open();
-						} else {
-							handleLaunch();
-						}
-					}}
-				>
-					Update Configuration and Try Again
-				</button>
+					<div class="flex w-full flex-col items-center gap-2 md:flex-row mt-2">
+						{#if entry && hasEditableConfiguration(entry) && !launchMissingSecretBinding}
+							<button
+								class="btn btn-primary w-full md:w-1/2 md:flex-1"
+								onclick={() => {
+									launchState = 'relaunching';
+									launchError = undefined;
+									launchProgress = 0;
+									launchLogs = [];
+									saving = false;
+								}}
+							>
+								Update Configuration and Try Again
+							</button>
+						{/if}
+						<button
+							class="btn btn-secondary w-full md:w-1/2 md:flex-1"
+							onclick={handleCancelLaunch}
+						>
+							Cancel and Delete Server
+						</button>
+					</div>
+				</div>
+			{:else}
+				<div class="flex flex-col gap-1 mb-4">
+					<div class="w-full text-xl font-extralight text-center">
+						{Math.round(launchProgress ?? 0)}%
+					</div>
+
+					<div class="bg-base-400 h-3 w-full overflow-hidden rounded-full">
+						<div
+							class={twMerge('bg-primary h-full rounded-full transition-all duration-500 ease-out')}
+							style="width: {launchProgress ?? 0}%"
+						></div>
+					</div>
+
+					<div class="flex w-md flex-col justify-center gap-2 text-center">
+						<p class="text-xs font-light">Launching MCP server...</p>
+					</div>
+				</div>
 			{/if}
-			<button class="btn btn-secondary w-full md:w-1/2 md:flex-1" onclick={handleCancelLaunch}>
-				Cancel and Delete Server
-			</button>
 		</div>
 	{/snippet}
-</PageLoading>
+</CatalogConfigureForm>
 
 <dialog bind:this={oauthDialog} class="dialog" use:dialogAnimation={{ type: 'slide' }}>
 	<div class="dialog-container md:w-sm">

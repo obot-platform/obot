@@ -27,7 +27,7 @@
 	];
 </script>
 
-<div class="w-full overflow-hidden border-b border-base-300 dark:border-base-400 mb-4">
+<div class="w-full overflow-hidden mb-4">
 	<div class="flex gap-4 flex-col mb-4">
 		<p class="text-sm font-light w-md max-w-full text-center self-center">
 			For more documentation on how to set up your MCP server, click the appropriate resource below:

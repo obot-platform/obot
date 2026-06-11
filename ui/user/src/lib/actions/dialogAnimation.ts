@@ -13,6 +13,10 @@ export const dialogAnimation: Action<HTMLDialogElement, DialogAnimationParams> =
 ) => {
 	let { type } = params;
 
+	if (type) {
+		node.setAttribute('data-dialog-animated', 'true');
+	}
+
 	// Set data attribute for drawer styling
 	if (type === 'drawer') {
 		node.setAttribute('data-drawer', 'true');
@@ -59,7 +63,29 @@ export const dialogAnimation: Action<HTMLDialogElement, DialogAnimationParams> =
 	const getContentElement = () => node.querySelector('.dialog-container') as HTMLElement | null;
 	const getBackdropElement = () => node.querySelector('.dialog-backdrop') as HTMLElement | null;
 
+	// Avoid stacking semi-transparent overlays when slide/drawer dialogs transition.
+	const hasOtherActiveDialog = () => {
+		return Array.from(
+			document.querySelectorAll('dialog.dialog[open], dialog.dialog[closing]')
+		).some((dialog) => dialog !== node);
+	};
+
+	const originalShowModal = node.showModal;
 	const originalClose = node.close;
+
+	node.showModal = function () {
+		originalShowModal.call(node);
+
+		const backdrop = getBackdropElement();
+		if (!backdrop) return;
+
+		// Suppress overlay before paint when another dialog already owns it
+		if (hasOtherActiveDialog()) {
+			backdrop.style.opacity = '0';
+		} else {
+			backdrop.style.removeProperty('opacity');
+		}
+	};
 
 	// Override the dialog.close method
 	node.close = function () {
@@ -81,15 +107,34 @@ export const dialogAnimation: Action<HTMLDialogElement, DialogAnimationParams> =
 			getAnimationOptions(type)
 		);
 
-		// Animate backdrop (always fade)
-		backdrop?.animate(backdropFadeOut, backdropAnimationOptions);
+		// Keep backdrop visible when another dialog is taking over the overlay.
+		// Defer one frame so close-then-open in the same tick still detects the incoming dialog.
+		const animateBackdropOut = () => {
+			if (hasOtherActiveDialog()) {
+				backdrop?.animate([{ opacity: 1 }], { duration: 0, fill: 'forwards' });
+			} else {
+				backdrop?.animate(backdropFadeOut, backdropAnimationOptions);
+			}
+		};
+		requestAnimationFrame(animateBackdropOut);
 
 		// Wait for content animation to complete
 		contentAnimation.addEventListener(
 			'finish',
 			() => {
+				const handedOffToAnotherDialog = hasOtherActiveDialog();
 				originalClose.call(node);
 				node.removeAttribute('closing');
+				getBackdropElement()?.style.removeProperty('opacity');
+
+				// Keep overlay at full strength on the surviving dialog after a handoff
+				if (handedOffToAnotherDialog) {
+					const survivingBackdrop = document.querySelector(
+						'dialog.dialog[open] .dialog-backdrop'
+					) as HTMLElement | null;
+					survivingBackdrop?.style.removeProperty('opacity');
+					survivingBackdrop?.animate([{ opacity: 1 }], { duration: 0, fill: 'forwards' });
+				}
 			},
 			{ once: true }
 		);
@@ -110,8 +155,12 @@ export const dialogAnimation: Action<HTMLDialogElement, DialogAnimationParams> =
 						getAnimationOptions(type)
 					);
 
-					// Animate backdrop (always fade)
-					backdrop?.animate(backdropFadeIn, backdropAnimationOptions);
+					// Skip backdrop fade-in when another dialog already provides the overlay
+					if (hasOtherActiveDialog()) {
+						backdrop?.animate([{ opacity: 0 }], { duration: 0, fill: 'forwards' });
+					} else {
+						backdrop?.animate(backdropFadeIn, backdropAnimationOptions);
+					}
 				}
 			}
 		});
@@ -143,6 +192,12 @@ export const dialogAnimation: Action<HTMLDialogElement, DialogAnimationParams> =
 			const { type: newType } = newParams;
 			type = newType;
 
+			if (newType) {
+				node.setAttribute('data-dialog-animated', 'true');
+			} else {
+				node.removeAttribute('data-dialog-animated');
+			}
+
 			// Update data attribute for drawer styling
 			if (newType === 'drawer') {
 				node.setAttribute('data-drawer', 'true');
@@ -160,7 +215,9 @@ export const dialogAnimation: Action<HTMLDialogElement, DialogAnimationParams> =
 		},
 		destroy() {
 			observer.disconnect();
+			node.showModal = originalShowModal;
 			node.close = originalClose;
+			node.removeAttribute('data-dialog-animated');
 			node.removeAttribute('data-drawer');
 			style.remove();
 		}

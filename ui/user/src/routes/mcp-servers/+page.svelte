@@ -5,7 +5,7 @@
 	import Search from '$lib/components/Search.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { Group } from '$lib/services';
-	import { mcpServersAndEntries, profile } from '$lib/stores/index';
+	import { profile } from '$lib/stores/index';
 	import { setUrlParamAndUpdateUrl } from '$lib/url';
 	import ConnectorsView from './ConnectorsView.svelte';
 	import { debounce } from 'es-toolkit';
@@ -49,18 +49,7 @@
 				/>
 			</div>
 		</div>
-		<ConnectorsView
-			id={workspaceId}
-			entity="workspace"
-			{query}
-			onConnect={({ instance }) => {
-				if (instance) {
-					mcpServersAndEntries.refreshUserInstances();
-				} else {
-					mcpServersAndEntries.refreshUserConfiguredServers();
-				}
-			}}
-		>
+		<ConnectorsView id={workspaceId} entity="workspace" {query}>
 			{#snippet noDataContent()}
 				<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
 					<Server class="text-base-content/80 size-24 opacity-25" />

@@ -170,7 +170,7 @@
 	classes={{ navbar: 'bg-base-200', container: 'pt-0' }}
 	title={showServerForm
 		? `Create ${getServerTypeLabelByType(selectedServerType)}${selectedServerType !== 'multi' ? ' Catalog Entry' : ''}`
-		: 'MCP Servers'}
+		: 'MCP Catalog'}
 	showBackButton={showServerForm}
 >
 	<div class="flex min-h-full flex-col gap-8" in:fade>
@@ -281,13 +281,6 @@
 					onClearAllFilters={handleClearAllFilters}
 					onSort={setSortUrlParams}
 					{initSort}
-					onConnect={({ instance }) => {
-						if (instance) {
-							mcpServersAndEntries.refreshUserInstances();
-						} else {
-							mcpServersAndEntries.refreshUserConfiguredServers();
-						}
-					}}
 				>
 					{#snippet noDataContent()}{@render displayNoData()}{/snippet}
 				</EntriesView>

@@ -43,3 +43,5 @@ export const groupRoleOptions = [
 		description: 'All group members can publish custom MCP servers for their own personal use.'
 	}
 ];
+
+export const OBOT_PLATFORM_REPO = 'https://github.com/obot-platform/';

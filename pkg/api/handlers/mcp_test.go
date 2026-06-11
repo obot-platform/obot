@@ -43,6 +43,23 @@ func TestConvertMCPResources(t *testing.T) {
 	assert.Equal(t, resources, entry.Manifest.Resources)
 	assert.Equal(t, "https://example.com/mcp-connect/entry", entry.ConnectURL)
 
+	compositeEntry := ConvertMCPServerCatalogEntry(v1.MCPServerCatalogEntry{
+		ObjectMeta: metav1.ObjectMeta{Name: "composite-entry"},
+		Spec: v1.MCPServerCatalogEntrySpec{
+			Manifest: types.MCPServerCatalogEntryManifest{
+				Name:           "composite-entry",
+				ServerUserType: types.ServerUserTypeSingleUser,
+				Runtime:        types.RuntimeComposite,
+				CompositeConfig: &types.CompositeCatalogConfig{
+					ComponentServers: []types.CatalogComponentServer{
+						{CatalogEntryID: "component"},
+					},
+				},
+			},
+		},
+	}, "https://example.com")
+	assert.Equal(t, "https://example.com/mcp-connect/composite-entry", compositeEntry.ConnectURL)
+
 	server := ConvertMCPServer(v1.MCPServer{
 		ObjectMeta: metav1.ObjectMeta{Name: "server"},
 		Spec: v1.MCPServerSpec{
