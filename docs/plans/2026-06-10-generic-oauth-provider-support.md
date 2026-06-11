@@ -79,6 +79,7 @@ Expected if it does not exist: no generic OIDC provider command appears. Continu
 Create a generic OIDC auth-provider command in the provider repo using its existing provider-daemon conventions. The command must accept these env vars:
 
 ```text
+OBOT_AUTH_PROVIDER_ID=generic-oauth-auth-provider
 OBOT_GENERIC_OAUTH_AUTH_PROVIDER_NAME
 OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ISSUER
 OBOT_GENERIC_OAUTH_AUTH_PROVIDER_CLIENT_ID
@@ -89,6 +90,8 @@ OBOT_AUTH_PROVIDER_EMAIL_DOMAINS
 OBOT_AUTH_PROVIDER_COOKIE_SECRET
 OBOT_AUTH_PROVIDER_POSTGRES_CONNECTION_DSN
 ```
+
+Implementation update, 2026-06-11: Obot startup auth-provider bootstrap is generic. `OBOT_AUTH_PROVIDER_ID` selects any registry-backed auth provider, and the selected provider manifest controls the required and optional env names read into the credential. The legacy Generic OAuth env names still select `generic-oauth-auth-provider` when `OBOT_AUTH_PROVIDER_ID` is unset, preserving compatibility for existing Generic OAuth startup configuration.
 
 The daemon's `serializableState` JSON returned from `/obot-get-state` must include:
 

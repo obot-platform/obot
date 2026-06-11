@@ -102,6 +102,8 @@ The daemon should support standard OIDC providers first. Provider-specific knobs
 
 ## Provider Configuration
 
+Obot can bootstrap a registry-backed auth provider from startup environment by setting `OBOT_AUTH_PROVIDER_ID` to the provider resource name. The selected provider's registry manifest defines the required and optional configuration environment variables. The generic OAuth / OIDC provider uses `OBOT_AUTH_PROVIDER_ID=generic-oauth-auth-provider`; leaving `OBOT_AUTH_PROVIDER_ID` unset while setting any legacy `OBOT_GENERIC_OAUTH_AUTH_PROVIDER_*` variable keeps the same generic OAuth startup behavior for compatibility.
+
 The registry entry should expose these required parameters:
 
 | Field | Environment variable | Notes |
