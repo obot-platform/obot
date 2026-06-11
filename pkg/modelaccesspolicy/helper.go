@@ -106,8 +106,25 @@ func (h *Helper) UserHasAccessToModel(user kuser.Info, modelID string) (bool, er
 // If a user is an owner/admin or has been granted access to all models via a wildcard model selector, this method returns nil and true.
 func (h *Helper) GetUserAllowedModels(user kuser.Info) (map[string]bool, bool, error) {
 	var (
-		allowedModels   = make(map[string]bool)
-		aliasModels     = h.getAliasModels()
+		allowedModels = make(map[string]bool)
+		aliasModels   = h.getAliasModels()
+
+		// Models are listed at most once per call, no matter how many wildcard
+		// suffix patterns appear across the user's policies.
+		allModels  []*v1.Model
+		listModels = func() []*v1.Model {
+			if allModels == nil {
+				objs := h.modelIndexer.List()
+				allModels = make([]*v1.Model, 0, len(objs))
+				for _, obj := range objs {
+					if m, ok := obj.(*v1.Model); ok {
+						allModels = append(allModels, m)
+					}
+				}
+			}
+			return allModels
+		}
+
 		addAllowedModel = func(model types.ModelResource) bool {
 			if model.IsWildcard() {
 				return true
@@ -119,6 +136,15 @@ func (h *Helper) GetUserAllowedModels(user kuser.Info) (map[string]bool, bool, e
 				// Look up the current model ID and swap it out
 				// If we can't find it, modelID will be an empty string, which is handled by the model ID check below
 				modelID = aliasModels[alias]
+			} else if _, isPattern := model.IsWildcardSuffix(); isPattern {
+				// The model ID is a wildcard suffix pattern (e.g. 'claude-haiku-4.5*')
+				// Allow every model, from any provider, whose target model matches it
+				for _, m := range listModels() {
+					if model.MatchesTargetModel(m.Spec.Manifest.TargetModel) {
+						allowedModels[m.Name] = true
+					}
+				}
+				return false
 			}
 
 			if system.IsModelID(modelID) {

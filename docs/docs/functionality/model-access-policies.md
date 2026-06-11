@@ -31,11 +31,26 @@ When adding models to a policy, you can select:
 
 - **Specific models** — Individual models from your configured providers
 - **Default model aliases** — References to whichever model is currently set as the default for a given purpose (see [Default Model Aliases](#default-model-aliases))
+- **Wildcard suffix patterns** — Grants access to every model whose ID starts with a given prefix (see [Wildcard Suffix Patterns](#wildcard-suffix-patterns))
 - **All models** — Grants access to every available model
 
 :::info Administrators Must Follow Policies
 Administrators do not have automatic access to all models. Like any other user, an administrator must be included in a policy to use a model in Obot Agent.
 :::
+
+#### Wildcard Suffix Patterns
+
+To grant access to a family of models—including versions that don't exist yet—end your entry with a single `*`. For example, `claude-haiku-4.5*` grants access to every model whose provider-native ID starts with `claude-haiku-4.5`, such as date-suffixed releases like `claude-haiku-4.5-20251001`.
+
+To add a pattern, start typing a prefix into the search box of the **Add Models** dialog. A pattern entry (your prefix followed by `*`) is offered at the top of the results, along with a live count of the models it currently matches. You can also type the pattern out explicitly, ending with `*`.
+
+Patterns follow these rules:
+
+- The `*` is only allowed at the end of the entry, and the prefix cannot be empty (a bare `*` is the existing "All models" option)
+- Matching is case-sensitive and applies to the provider-native model ID
+- Patterns match models from **all** providers
+- Patterns automatically cover future models: when a provider adds a new model whose ID starts with the prefix, users gain access without any policy changes
+- Patterns can be combined with specific models and default model aliases in the same policy
 
 ## Model Availability
 

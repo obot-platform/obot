@@ -155,6 +155,51 @@ func TestGetUserAllowedTargetModels(t *testing.T) {
 			},
 			want: map[string]bool{},
 		},
+		{
+			name: "wildcard suffix pattern matches target models by prefix",
+			models: []*v1.Model{
+				newModel("m1-gpt-4o", provider, "gpt-4o", true),
+				newModel("m1-gpt-4o-mini", provider, "gpt-4o-mini", true),
+				newModel("m1-gpt-5", provider, "gpt-5", true),
+			},
+			policies: []*v1.ModelAccessPolicy{userPolicy("gpt-4o*")},
+			want:     map[string]bool{"gpt-4o": true, "gpt-4o-mini": true},
+		},
+		{
+			name: "wildcard suffix pattern is case-sensitive",
+			models: []*v1.Model{
+				newModel("m1-gpt-4o", provider, "gpt-4o", true),
+			},
+			policies: []*v1.ModelAccessPolicy{userPolicy("GPT-4o*")},
+			want:     map[string]bool{},
+		},
+		{
+			name: "wildcard suffix pattern matching nothing allows nothing",
+			models: []*v1.Model{
+				newModel("m1-gpt-4o", provider, "gpt-4o", true),
+			},
+			policies: []*v1.ModelAccessPolicy{userPolicy("claude-haiku-4.5*")},
+			want:     map[string]bool{},
+		},
+		{
+			name: "wildcard suffix pattern combines with explicit model ID",
+			models: []*v1.Model{
+				newModel("m1-gpt-4o", provider, "gpt-4o", true),
+				newModel("m1-gpt-5", provider, "gpt-5", true),
+				newModel("m1-o3", provider, "o3", true),
+			},
+			policies: []*v1.ModelAccessPolicy{userPolicy("gpt-4o*", "m1-o3")},
+			want:     map[string]bool{"gpt-4o": true, "o3": true},
+		},
+		{
+			name: "wildcard suffix pattern matches inactive model but provider index drops it",
+			models: []*v1.Model{
+				newModel("m1-gpt-4o", provider, "gpt-4o", true),
+				newModel("m1-gpt-4o-mini", provider, "gpt-4o-mini", false),
+			},
+			policies: []*v1.ModelAccessPolicy{userPolicy("gpt-4o*")},
+			want:     map[string]bool{"gpt-4o": true},
+		},
 	}
 
 	for _, tt := range tests {
@@ -166,6 +211,38 @@ func TestGetUserAllowedTargetModels(t *testing.T) {
 			assert.Equal(t, tt.wantAllowAll, allowAll)
 			assert.Equal(t, tt.want, got)
 		})
+	}
+}
+
+func TestUserHasAccessToModelWithWildcardSuffix(t *testing.T) {
+	const userID = "u1"
+
+	models := []*v1.Model{
+		newModel("m1-anthropic-claude-haiku", "anthropic-model-provider", "claude-haiku-4-5-20251001", true),
+		newModel("m1-bedrock-claude-haiku", "bedrock-model-provider", "claude-haiku-4-5-20251001", true),
+		newModel("m1-anthropic-claude-opus", "anthropic-model-provider", "claude-opus-4-8", true),
+	}
+
+	policy := &v1.ModelAccessPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "p-pattern", Namespace: "default"},
+		Spec: v1.ModelAccessPolicySpec{Manifest: types2.ModelAccessPolicyManifest{
+			Subjects: []types2.Subject{{Type: types2.SubjectTypeUser, ID: userID}},
+			Models:   []types2.ModelResource{{ID: "claude-haiku-4-5*"}},
+		}},
+	}
+
+	h := newModelHelper(t, models, policy)
+	user := &kuser.DefaultInfo{Name: userID, UID: userID}
+
+	for modelID, want := range map[string]bool{
+		// The pattern grants matching models from every provider
+		"m1-anthropic-claude-haiku": true,
+		"m1-bedrock-claude-haiku":   true,
+		"m1-anthropic-claude-opus":  false,
+	} {
+		got, err := h.UserHasAccessToModel(user, modelID)
+		require.NoError(t, err)
+		assert.Equal(t, want, got, "access for %s", modelID)
 	}
 }
 

@@ -36,12 +36,48 @@
 		modelProviders = await AdminService.listModelProviders();
 	});
 
+	// When the search text is a wildcard suffix pattern (e.g. "claude-haiku-4.5*"),
+	// this holds its prefix; null otherwise. Mirrors backend validation: a single
+	// trailing '*' with a non-empty, non-alias prefix.
+	let patternPrefix = $derived(
+		search.endsWith('*') &&
+			search.length > 1 &&
+			!search.slice(0, -1).includes('*') &&
+			!search.startsWith('obot://')
+			? search.slice(0, -1)
+			: null
+	);
+
+	// The wildcard pattern offered for the current search: the search text itself
+	// when it's an explicit pattern, or "<search>*" suggested while typing a plain
+	// prefix (no '*' required).
+	let patternOption = $derived(
+		patternPrefix !== null
+			? { id: search, prefix: patternPrefix }
+			: search && !search.includes('*') && !search.startsWith('obot://')
+				? { id: `${search}*`, prefix: search }
+				: null
+	);
+
+	// Live count of what the pattern currently grants: a case-sensitive prefix
+	// match on provider-native target models, like the backend.
+	let patternMatchCount = $derived.by(() => {
+		const opt = patternOption;
+		if (!opt) return 0;
+		return models.filter((m) => (m.targetModel || '').startsWith(opt.prefix)).length;
+	});
+
 	// Filter models based on exclude list and search
 	let filteredModels = $derived(
 		models
 			.filter((model) => !exclude?.includes(model.id))
 			.filter((model) => {
 				if (!search) return true;
+				if (patternPrefix !== null) {
+					// Preview exactly what the pattern grants: a case-sensitive prefix
+					// match on the provider-native target model, like the backend.
+					return (model.targetModel || '').startsWith(patternPrefix);
+				}
 				const lowerSearch = search.toLowerCase();
 				return (
 					(model.displayName || model.name).toLowerCase().includes(lowerSearch) ||
@@ -107,17 +143,19 @@
 
 	let availableAliases = $derived(aliasDisplayData.filter((a) => !a.isExcluded));
 
-	// Filter aliases based on search
+	// Filter aliases based on search; patterns only target models, never aliases
 	let filteredAliases = $derived(
-		availableAliases.filter((alias) => {
-			if (!search) return true;
-			const lowerSearch = search.toLowerCase();
-			return (
-				alias.aliasName.toLowerCase().includes(lowerSearch) ||
-				alias.label.toLowerCase().includes(lowerSearch) ||
-				alias.effectiveModelName.toLowerCase().includes(lowerSearch)
-			);
-		})
+		patternPrefix !== null
+			? []
+			: availableAliases.filter((alias) => {
+					if (!search) return true;
+					const lowerSearch = search.toLowerCase();
+					return (
+						alias.aliasName.toLowerCase().includes(lowerSearch) ||
+						alias.label.toLowerCase().includes(lowerSearch) ||
+						alias.effectiveModelName.toLowerCase().includes(lowerSearch)
+					);
+				})
 	);
 
 	let defaultAliasesAvailable = $derived(filteredAliases.length > 0);
@@ -183,6 +221,34 @@
 						</div>
 						<div class="flex size-6 items-center justify-center">
 							{#if selectedSet.has('*')}
+								<Check class="text-primary size-6" />
+							{/if}
+						</div>
+					</button>
+				{/if}
+
+				{#if patternOption !== null && !exclude?.includes(patternOption.id)}
+					{@const pattern = patternOption}
+					<button
+						class={twMerge(
+							'hover:bg-base-300 dark:hover:bg-base-200 flex items-center justify-between gap-4 px-4 py-3 text-left',
+							selectedSet.has(pattern.id) && 'bg-base-200/50'
+						)}
+						onclick={() => toggleSelection(pattern.id)}
+					>
+						<div class="flex items-center gap-2">
+							<Cpu class="size-8 shrink-0" />
+							<div class="flex flex-col">
+								<p class="font-mono font-medium">{pattern.id}</p>
+								<span class="text-muted-content text-xs">
+									Grants access to all current and future models whose ID starts with "{pattern.prefix}"
+									— currently matches {patternMatchCount}
+									{patternMatchCount === 1 ? 'model' : 'models'}
+								</span>
+							</div>
+						</div>
+						<div class="flex size-6 items-center justify-center">
+							{#if selectedSet.has(pattern.id)}
 								<Check class="text-primary size-6" />
 							{/if}
 						</div>
