@@ -500,7 +500,11 @@
 			<p class="mb-2 text-center">Would you like to connect to this server now?</p>
 		{:else}
 			<div class="mt-4">
-				<CopyField label="Connection URL" value={entry?.connectURL ?? server?.connectURL ?? ''} />
+				<CopyField
+					id="server-action-connection-url"
+					label="Connection URL"
+					value={entry?.connectURL ?? server?.connectURL ?? ''}
+				/>
 			</div>
 		{/if}
 		<div class="flex grow"></div>

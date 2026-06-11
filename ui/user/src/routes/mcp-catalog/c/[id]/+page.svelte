@@ -42,6 +42,8 @@
 	let serverScopeID = $derived(workspaceId || DEFAULT_MCP_CATALOG_ID);
 
 	let connectUrlDialog = $state<ReturnType<typeof McpConnectUrlDialog>>();
+	let mcpServerActions = $state<ReturnType<typeof McpServerActions>>();
+	let showUrlOnConnect = $state(false);
 
 	let upgrading = $state(false);
 	let showUpgradeConfirm = $state(false);
@@ -192,6 +194,7 @@
 >
 	{#snippet rightNavActions()}
 		<McpServerActions
+			bind:this={mcpServerActions}
 			entry={catalogEntry}
 			catalogID={workspaceId ? undefined : serverScopeID}
 			workspaceID={workspaceId}
@@ -206,6 +209,10 @@
 			onConnect={({ entry, server }) => {
 				if (isMultiUserCatalogEntry(entry) && server) {
 					success.add(`${server.alias || server.manifest.name} has been created.`);
+				}
+				if (showUrlOnConnect) {
+					showUrlOnConnect = false;
+					connectUrlDialog?.open(entry, server?.connectURL);
 				}
 			}}
 			hideActions
@@ -333,7 +340,13 @@
 		: undefined}
 />
 
-<McpConnectUrlDialog bind:this={connectUrlDialog} />
+<McpConnectUrlDialog
+	bind:this={connectUrlDialog}
+	onLaunchCatalogEntry={() => {
+		showUrlOnConnect = true;
+		mcpServerActions?.connect();
+	}}
+/>
 
 <svelte:head>
 	<title>Obot | {catalogEntry?.manifest?.name ?? 'MCP Server'}</title>

@@ -89,7 +89,7 @@
 	disableMobileStyles
 >
 	<div class={twMerge('px-4', !isMultiUserCatalogEntry(displayConnectUrl?.catalogEntry) && 'pb-4')}>
-		<CopyField value={displayConnectUrl?.url ?? ''} />
+		<CopyField id="connect-url-dialog-connection-url" value={displayConnectUrl?.url ?? ''} />
 	</div>
 	{#if isMultiUserCatalogEntry(displayConnectUrl?.catalogEntry)}
 		<div class="mt-4 p-4 border-t border-base-300 dark:border-base-400">

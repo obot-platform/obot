@@ -5,10 +5,10 @@
 	interface Props {
 		value?: string;
 		label?: string;
-		id?: string;
+		id: string;
 	}
 
-	let { value, label, id = 'copy-field-input' }: Props = $props();
+	let { value, label, id }: Props = $props();
 
 	let copyButton = $state<ReturnType<typeof CopyButton>>();
 </script>
