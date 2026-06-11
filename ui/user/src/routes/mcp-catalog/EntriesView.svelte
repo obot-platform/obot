@@ -14,7 +14,6 @@
 		type MCPCatalogServer,
 		type OrgUser,
 		MCPCompositeDeletionDependencyError,
-		Group,
 		type MCPServerInstance,
 		type MCPServerOAuthCredentialStatus
 	} from '$lib/services';
@@ -132,10 +131,6 @@
 	function getAuditLogsUrl(d: Item) {
 		let useAdminUrl =
 			window.location.pathname.includes('/admin') && profile.current.hasAdminAccess?.();
-
-		if (!profile.current.groups.includes(Group.POWERUSER)) {
-			return null;
-		}
 
 		if (useAdminUrl) {
 			return d.data.powerUserWorkspaceID
@@ -384,7 +379,7 @@
 
 						{#snippet children({ toggle })}
 							<div class="flex flex-col gap-1 p-2">
-								{#if requiresOAuth && catalogEntry}
+								{#if requiresOAuth && catalogEntry && !readonly}
 									<button
 										class="menu-button hover:bg-base-400"
 										onclick={async (e) => {
