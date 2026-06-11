@@ -102,6 +102,19 @@ export function goto(url: string | URL, state?: object) {
 	svelteGoTo(resolve(routeToUse as `/${string}`), state);
 }
 
+export function appBasePath(): string {
+	if (!browser) return '';
+	const pathname = window.location.pathname;
+	return pathname === '/obot' || pathname.startsWith('/obot/') ? '/obot' : '';
+}
+
+export function appPath(path: string): string {
+	const normalized = path.startsWith('/') ? path : `/${path}`;
+	const base = appBasePath();
+	if (!base || normalized === base || normalized.startsWith(`${base}/`)) return normalized;
+	return `${base}${normalized}`;
+}
+
 export function setUrlParam(url: URL, key: string, value: string | null): void {
 	if (value) {
 		url.searchParams.set(key, value);

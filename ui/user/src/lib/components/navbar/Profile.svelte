@@ -8,7 +8,7 @@
 	import { AdminService, NanobotService, UserService } from '$lib/services';
 	import { profile, responsive, darkMode, errors, defaultModelAliases } from '$lib/stores';
 	import { version } from '$lib/stores';
-	import { goto } from '$lib/url';
+	import { appPath, goto } from '$lib/url';
 	import { getUserRoleLabel, isAgentEnabled } from '$lib/utils';
 	import Confirm from '../Confirm.svelte';
 	import InfoTooltip from '../InfoTooltip.svelte';
@@ -90,7 +90,9 @@
 		try {
 			localStorage.removeItem('seenSplashDialog');
 			await AdminService.bootstrapLogout();
-			window.location.href = `/oauth2/sign_out?rd=${profile.current.isBootstrapUser?.() ? '/admin' : '/'}`;
+			window.location.href = appPath(
+				`/oauth2/sign_out?rd=${profile.current.isBootstrapUser?.() ? '/admin' : '/'}`
+			);
 		} catch (err) {
 			console.error(err);
 		}
@@ -99,7 +101,7 @@
 	async function handleLogout() {
 		try {
 			localStorage.removeItem('seenSplashDialog');
-			window.location.href = '/oauth2/sign_out?rd=/';
+			window.location.href = appPath('/oauth2/sign_out?rd=/');
 		} catch (err) {
 			console.error(err);
 		}

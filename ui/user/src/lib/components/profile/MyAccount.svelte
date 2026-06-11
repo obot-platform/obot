@@ -5,7 +5,7 @@
 	import { UserService } from '$lib/services';
 	import { profile, errors, version, userDeviceSettings } from '$lib/stores';
 	import { success } from '$lib/stores/success';
-	import { goto } from '$lib/url';
+	import { appPath, goto } from '$lib/url';
 	import { getUserRoleLabel } from '$lib/utils';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { User } from 'lucide-svelte';
@@ -16,7 +16,7 @@
 
 	async function logoutAll() {
 		try {
-			const response = await fetch('/api/logout-all', {
+			const response = await fetch(appPath('/api/logout-all'), {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json'
@@ -35,7 +35,7 @@
 	async function deleteAccount() {
 		try {
 			await UserService.deleteProfile();
-			goto('/oauth2/sign_out?rd=/');
+			goto(appPath('/oauth2/sign_out?rd=/'));
 		} catch (error) {
 			console.error('Failed to delete account:', error);
 			errors.items.push(new Error('Failed to delete account'));

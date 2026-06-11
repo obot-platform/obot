@@ -5,7 +5,7 @@
 	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService, UserService, type BootstrapStatus, type TempUser } from '$lib/services';
-	import { goto } from '$lib/url';
+	import { appPath, goto } from '$lib/url';
 	import { CircleAlert, Handshake, ShieldAlert } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { slide } from 'svelte/transition';
@@ -95,7 +95,7 @@
 							await AdminService.bootstrapLogout();
 							// make sure to clear seenSplashDialog so splash will show for logged in owner if needed
 							localStorage.removeItem('seenSplashDialog');
-							window.location.href = '/oauth2/sign_out?rd=/admin';
+							window.location.href = appPath('/oauth2/sign_out?rd=/admin');
 						}}
 					>
 						Confirm & Log Out
@@ -226,9 +226,11 @@
 						class="btn btn-secondary w-full"
 						onclick={() => {
 							localStorage.setItem('preAuthRedirect', window.location.href);
-							window.location.href = `/oauth2/start?rd=${encodeURIComponent(
-								'/admin'
-							)}&obot-auth-provider=${authProvider.namespace}/${authProvider.id}`;
+							window.location.href = appPath(
+								`/oauth2/start?rd=${encodeURIComponent(
+									'/admin'
+								)}&obot-auth-provider=${authProvider.namespace}/${authProvider.id}`
+							);
 						}}
 					>
 						{#if authProvider.icon}
@@ -237,8 +239,8 @@
 								src={authProvider.icon}
 								alt={authProvider.name}
 							/>
-							<span class="text-center text-sm font-light">Continue with {authProvider.name}</span>
 						{/if}
+						<span class="text-center text-sm font-light">Continue with {authProvider.name}</span>
 					</button>
 				{/each}
 
