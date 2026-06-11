@@ -500,7 +500,7 @@
 			<p class="mb-2 text-center">Would you like to connect to this server now?</p>
 		{:else}
 			<div class="mt-4">
-				<CopyField label="Connection URL" value={entry?.connectURL ?? ''} />
+				<CopyField label="Connection URL" value={entry?.connectURL ?? server?.connectURL ?? ''} />
 			</div>
 		{/if}
 		<div class="flex grow"></div>
@@ -789,7 +789,7 @@
 						toggle(false);
 					}}
 				>
-					<Plus class="size-4" /> Create New Server
+					<Plus class="size-4" /> Create New Connection
 				</button>
 			{/if}
 			{#if showDisconnectUser && server}
