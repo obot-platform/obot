@@ -66,6 +66,8 @@
 	let deconfigureAuthProviderDialog = $state<ReturnType<typeof ProviderDeconfigureConfirm>>();
 	let confirmDeconfigureAuthProvider = $state<AuthProvider>();
 
+	let isBootstrapUser = $derived(profile.current.isBootstrapUser?.());
+
 	const duration = PAGE_TRANSITION_DURATION;
 
 	const prepareOwnerSetup = async () => {
@@ -87,14 +89,12 @@
 	};
 
 	$effect(() => {
-		const isBootstrapUser = profile.current.isBootstrapUser?.();
 		if (!isBootstrapUser) return;
 
 		prepareOwnerSetup();
 	});
 
 	$effect(() => {
-		const isBootstrapUser = profile.current.isBootstrapUser?.();
 		if (!isBootstrapUser) return;
 
 		if (!atLeastOneConfigured) return;
@@ -160,7 +160,7 @@
 				authProviders = await AdminService.listAuthProviders();
 				adminConfigStore.updateAuthProviders(authProviders);
 				providerConfigure?.close();
-				if (profile.current.isBootstrapUser?.()) {
+				if (isBootstrapUser) {
 					await handleOwnerSetup();
 				}
 			} catch (err: unknown) {
@@ -187,11 +187,16 @@
 		loading = true;
 		try {
 			await AdminService.deconfigureAuthProvider(confirmDeconfigureAuthProvider.id);
-			authProviders = await AdminService.listAuthProviders();
-			adminConfigStore.updateAuthProviders(authProviders);
+			if (isBootstrapUser) {
+				window.location.reload();
+			} else {
+				authProviders = await AdminService.listAuthProviders();
+				adminConfigStore.updateAuthProviders(authProviders);
+			}
 		} catch (err) {
 			errors.append(err);
 		} finally {
+			deconfigureAuthProviderDialog?.close();
 			confirmDeconfigureAuthProvider = undefined;
 			loading = false;
 		}
@@ -289,7 +294,7 @@
 
 <ProviderDeconfigureConfirm
 	bind:this={deconfigureAuthProviderDialog}
-	provider={confirmDeconfigureAuthProvider}
+	providers={confirmDeconfigureAuthProvider ? [confirmDeconfigureAuthProvider] : undefined}
 	onConfirm={handleDeconfigureAuthProvider}
 	onCancel={() => {
 		deconfigureAuthProviderDialog?.close();

@@ -618,6 +618,7 @@ export interface ModelProvider {
 	port: number;
 	path?: string;
 	dialect?: string;
+	type: 'modelprovider';
 }
 export interface ModelProviderList {
 	items: ModelProvider[];

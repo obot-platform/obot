@@ -7,7 +7,7 @@
 		type LicenseEntitlementViolation,
 		type ModelProvider
 	} from '$lib/services';
-	import { version, darkMode } from '$lib/stores';
+	import { version, darkMode, profile } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
 	import { success } from '$lib/stores/success';
 	import { Mail } from 'lucide-svelte';
@@ -15,7 +15,7 @@
 
 	let licenseViolationDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let confirmDowngradeDialog = $state<ReturnType<typeof ProviderDeconfigureConfirm>>();
-	let providerToDeconfigure = $state<AuthProvider | ModelProvider | undefined>();
+	let providersToDeconfigure = $state<(AuthProvider | ModelProvider)[]>([]);
 
 	let downgrading = $state(false);
 	let error = $state('');
@@ -63,11 +63,14 @@
 			adminConfigStore.updateAuthProviders(authProviders);
 			adminConfigStore.updateModelProviders(modelProviders);
 
-			confirmDowngradeDialog?.close();
+			if (profile.current.isBootstrapUser?.()) {
+				window.location.reload();
+			}
 			success.add('Downgrade operation completed successfully.');
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'An unknown error occurred.';
 		} finally {
+			confirmDowngradeDialog?.close();
 			downgrading = false;
 		}
 	}
@@ -135,19 +138,15 @@
 				class="btn btn-error btn-soft mt-2"
 				onclick={() => {
 					licenseViolationDialog?.close();
-					const authProviderName = version.current.licenseEntitlementViolations?.find(
-						(violation) => violation.type === 'authProvider'
-					)?.name;
-					const modelProviderName = version.current.licenseEntitlementViolations?.find(
-						(violation) => violation.type === 'modelProvider'
-					)?.name;
-					const authProvider = $adminConfigStore.authProviders.find(
-						(p) => p.id === authProviderName
-					);
-					const modelProvider = $adminConfigStore.modelProviders.find(
-						(p) => p.id === modelProviderName
-					);
-					providerToDeconfigure = authProvider || modelProvider;
+					providersToDeconfigure = (version.current.licenseEntitlementViolations || [])
+						.map((violation) => {
+							if (violation.type === 'authProvider') {
+								return $adminConfigStore.authProviders.find((p) => p.id === violation.name);
+							} else {
+								return $adminConfigStore.modelProviders.find((p) => p.id === violation.name);
+							}
+						})
+						.filter((p): p is AuthProvider | ModelProvider => p !== undefined);
 					confirmDowngradeDialog?.open();
 				}}
 			>
@@ -165,7 +164,7 @@
 		licenseViolationDialog?.open();
 	}}
 	loading={downgrading}
-	provider={providerToDeconfigure}
+	providers={providersToDeconfigure}
 	title="Confirm Downgrade"
 	confirmButtonText="Downgrade"
 />
