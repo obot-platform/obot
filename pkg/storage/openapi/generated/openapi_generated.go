@@ -21,6 +21,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.AccessControlRule":                                  schema_obot_platform_obot_apiclient_types_AccessControlRule(ref),
 		"github.com/obot-platform/obot/apiclient/types.AccessControlRuleList":                              schema_obot_platform_obot_apiclient_types_AccessControlRuleList(ref),
 		"github.com/obot-platform/obot/apiclient/types.AccessControlRuleManifest":                          schema_obot_platform_obot_apiclient_types_AccessControlRuleManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.AppNotifications":                                   schema_obot_platform_obot_apiclient_types_AppNotifications(ref),
 		"github.com/obot-platform/obot/apiclient/types.AppPreferences":                                     schema_obot_platform_obot_apiclient_types_AppPreferences(ref),
 		"github.com/obot-platform/obot/apiclient/types.AuditLogExportCreateRequest":                        schema_obot_platform_obot_apiclient_types_AuditLogExportCreateRequest(ref),
 		"github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters":                              schema_obot_platform_obot_apiclient_types_AuditLogExportFilters(ref),
@@ -31,6 +32,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.AuthProviderManifest":                               schema_obot_platform_obot_apiclient_types_AuthProviderManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.AuthProviderStatus":                                 schema_obot_platform_obot_apiclient_types_AuthProviderStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.AzureConfig":                                        schema_obot_platform_obot_apiclient_types_AzureConfig(ref),
+		"github.com/obot-platform/obot/apiclient/types.BannerNotification":                                 schema_obot_platform_obot_apiclient_types_BannerNotification(ref),
 		"github.com/obot-platform/obot/apiclient/types.BasicImagePullSecretConfig":                         schema_obot_platform_obot_apiclient_types_BasicImagePullSecretConfig(ref),
 		"github.com/obot-platform/obot/apiclient/types.CatalogComponentServer":                             schema_obot_platform_obot_apiclient_types_CatalogComponentServer(ref),
 		"github.com/obot-platform/obot/apiclient/types.ClientInfo":                                         schema_obot_platform_obot_apiclient_types_ClientInfo(ref),
@@ -242,6 +244,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.Alias":                             schema_storage_apis_obotobotai_v1_Alias(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AliasList":                         schema_storage_apis_obotobotai_v1_AliasList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AliasSpec":                         schema_storage_apis_obotobotai_v1_AliasSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppNotifications":                  schema_storage_apis_obotobotai_v1_AppNotifications(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppNotificationsList":              schema_storage_apis_obotobotai_v1_AppNotificationsList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppNotificationsSpec":              schema_storage_apis_obotobotai_v1_AppNotificationsSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppNotificationsStatus":            schema_storage_apis_obotobotai_v1_AppNotificationsStatus(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppPreferences":                    schema_storage_apis_obotobotai_v1_AppPreferences(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppPreferencesList":                schema_storage_apis_obotobotai_v1_AppPreferencesList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppPreferencesSpec":                schema_storage_apis_obotobotai_v1_AppPreferencesSpec(ref),
@@ -696,6 +702,46 @@ func schema_obot_platform_obot_apiclient_types_AccessControlRuleManifest(ref com
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.Resource", "github.com/obot-platform/obot/apiclient/types.Subject"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AppNotifications(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AppNotifications represents global application notification settings",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"banner": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.BannerNotification"),
+						},
+					},
+					"resetDismissed": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ResetDismissed indicates that previously dismissed banners should be shown again.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"updated": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
+						},
+					},
+				},
+				Required: []string{"updated"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.BannerNotification", "github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
@@ -1322,6 +1368,42 @@ func schema_obot_platform_obot_apiclient_types_AzureConfig(ref common.ReferenceC
 						},
 					},
 					"clientSecret": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_BannerNotification(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"dismissable": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"enabled": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"text": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -12374,6 +12456,143 @@ func schema_storage_apis_obotobotai_v1_AliasSpec(ref common.ReferenceCallback) c
 						},
 					},
 				},
+			},
+		},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_AppNotifications(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppNotificationsSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppNotificationsStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppNotificationsSpec", "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppNotificationsStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_AppNotificationsList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppNotifications"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppNotifications", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_AppNotificationsSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"banner": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.BannerNotification"),
+						},
+					},
+					"resetDismissed": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ResetDismissed indicates that previously dismissed banners should be shown again.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"updated": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Updated is set whenever the notifications are updated after their initial creation. When unset, the creation timestamp is used as the updated time.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.BannerNotification", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_AppNotificationsStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
 			},
 		},
 	}

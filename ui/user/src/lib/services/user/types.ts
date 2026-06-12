@@ -15,6 +15,7 @@
  * 3. **New sections** — Add a section header, place it in alphabetical order among other sections,
  *    and keep all types for that domain inside it.
  */
+import type { BannerType } from '../admin/types';
 
 // Access control rules
 
@@ -40,6 +41,19 @@ export interface AccessControlRule extends Omit<AccessControlRuleManifest, 'id'>
 	metadata?: Record<string, string>;
 	powerUserID?: string;
 	powerUserWorkspaceID?: string;
+}
+
+// App notifications
+
+export interface AppNotifications {
+	banner: {
+		dismissable: boolean;
+		type: BannerType;
+		enabled: boolean;
+		text: string;
+	};
+	resetDismissed?: boolean;
+	updated: string;
 }
 
 // App preferences

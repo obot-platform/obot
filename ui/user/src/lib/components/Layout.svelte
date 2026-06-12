@@ -39,10 +39,19 @@
 	} from '$lib/context/layout.svelte';
 	import Bots from '$lib/icons/Bots.svelte';
 	import LogoIcon from '$lib/icons/LogoIcon.svelte';
+	import { localState } from '$lib/runes/localState.svelte';
 	import { Group } from '$lib/services';
-	import { accessibleModels, defaultModelAliases, profile, responsive, version } from '$lib/stores';
+	import {
+		accessibleModels,
+		defaultModelAliases,
+		profile,
+		responsive,
+		version,
+		appNotifications as appNotificationsStore
+	} from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
 	import { isAgentEnabled } from '$lib/utils';
+	import AppNotificationBanner from './AppNotificationBanner.svelte';
 	import InfoTooltip from './InfoTooltip.svelte';
 	import Tour from './Tour.svelte';
 	import ConfigureBanner from './admin/ConfigureBanner.svelte';
@@ -57,7 +66,6 @@
 		ChevronDown,
 		ChevronLeft,
 		ChevronUp,
-		Palette,
 		RadioTower,
 		Server,
 		Users,
@@ -70,10 +78,10 @@
 		Notebook,
 		Laptop,
 		PanelLeftOpen,
-		KeySquare,
 		Settings,
 		PanelLeftClose,
-		Brain
+		Brain,
+		LayoutGrid
 	} from 'lucide-svelte';
 	import { type Component, type Snippet, untrack } from 'svelte';
 	import { fade, slide, type TransitionConfig } from 'svelte/transition';
@@ -517,20 +525,33 @@
 					},
 					...agentManagementLinks,
 					{
-						id: 'app-preferences',
-						href: '/admin/app-preferences',
-						icon: Palette,
-						label: 'Branding',
-						disabled: false,
-						collapsible: false
-					},
-					{
-						id: 'license',
-						href: '/admin/license',
-						icon: KeySquare,
-						label: 'License',
-						disabled: false,
-						collapsible: false
+						id: 'app-management',
+						icon: LayoutGrid,
+						label: 'App Management',
+						collapsible: true,
+						items: [
+							{
+								id: 'app-preferences',
+								href: '/admin/app-preferences',
+								label: 'Branding',
+								disabled: false,
+								collapsible: false
+							},
+							{
+								id: 'app-notifications',
+								href: '/admin/app-notifications',
+								label: 'Notifications',
+								disabled: false,
+								collapsible: false
+							},
+							{
+								id: 'license',
+								href: '/admin/license',
+								label: 'License',
+								disabled: false,
+								collapsible: false
+							}
+						]
 					}
 				]
 			: [
@@ -622,6 +643,52 @@
 
 	untrack(() => (layoutContext?.initLayout ?? defaultInitLayout)());
 	const layout = untrack(() => (layoutContext?.getLayout ?? defaultGetLayout)());
+
+	type BannerDismissState = {
+		dismissedAt?: string;
+		dismissedWithReset?: boolean;
+	};
+
+	let bannerDismissed = localState<BannerDismissState | undefined>('@obot/banner', undefined, {
+		parse: (ls) => {
+			if (!ls) return undefined;
+			const parsed = JSON.parse(ls) as string | BannerDismissState;
+			if (typeof parsed === 'string') {
+				return { dismissedAt: parsed, dismissedWithReset: false } satisfies BannerDismissState;
+			}
+			if (parsed && typeof parsed === 'object') {
+				return {
+					dismissedAt: typeof parsed.dismissedAt === 'string' ? parsed.dismissedAt : undefined,
+					dismissedWithReset: parsed.dismissedWithReset === true
+				} satisfies BannerDismissState;
+			}
+			return undefined;
+		}
+	});
+
+	function handleDismissBanner() {
+		bannerDismissed.current = {
+			dismissedAt: new Date().toISOString(),
+			dismissedWithReset: appNotificationsStore.current?.resetDismissed === true
+		} satisfies BannerDismissState;
+	}
+
+	let showAppNotificationBanner = $derived.by(() => {
+		const appNotifications = appNotificationsStore.current;
+		const dismissedAt = bannerDismissed.current?.dismissedAt;
+		const wasDismissedAfterBannerUpdate =
+			!!dismissedAt &&
+			new Date(dismissedAt) >= new Date(appNotifications?.updated ?? new Date(0).toISOString());
+		const shouldIgnorePriorDismissal =
+			appNotifications?.resetDismissed === true &&
+			bannerDismissed.current?.dismissedWithReset !== true;
+
+		return !!(
+			appNotifications?.banner.enabled &&
+			appNotifications?.updated &&
+			(!wasDismissedAfterBannerUpdate || shouldIgnorePriorDismissal)
+		);
+	});
 </script>
 
 <div class="flex min-h-dvh flex-col items-center">
@@ -711,6 +778,11 @@
 					{@render banner()}
 				{:else if (version.current.licenseEntitlementViolations?.length ?? 0) > 0}
 					<LicenseViolationBanner />
+				{:else if showAppNotificationBanner}
+					<AppNotificationBanner
+						data={appNotificationsStore.current?.banner}
+						onDismiss={handleDismissBanner}
+					/>
 				{/if}
 				<Navbar class={twMerge('dark:bg-base-100', classes?.navbar)} {hideProfileButton}>
 					{#snippet leftContent()}

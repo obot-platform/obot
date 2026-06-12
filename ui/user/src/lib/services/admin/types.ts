@@ -83,6 +83,20 @@ export interface AppPreferencesManifest {
 	};
 }
 
+// App notifications
+
+export type BannerType = 'info' | 'warning';
+
+export interface AppNotificationsManifest {
+	banner?: {
+		dismissable?: boolean;
+		type?: BannerType;
+		enabled?: boolean;
+		text?: string;
+	};
+	resetDismissed?: boolean;
+}
+
 // Audit log exports
 
 export interface AuditLogExportInput {

@@ -13,7 +13,8 @@
 		defaultModelAliases,
 		userDeviceSettings,
 		license,
-		accessibleModels
+		accessibleModels,
+		appNotifications
 	} from '$lib/stores';
 	import '../app.css';
 	import type { PageData } from './$types';
@@ -44,6 +45,10 @@
 
 		if (data.version) {
 			version.initialize(data.version);
+		}
+
+		if (data.appNotifications) {
+			appNotifications.initialize(data.appNotifications);
 		}
 
 		license.initialize(data.license);
