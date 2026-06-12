@@ -46,7 +46,7 @@
 	bind:this={providerDeconfigureConfirmDialog}
 	{title}
 	classes={{
-		header: 'border-t-4 border-error px-4 pt-4 md:pb-0',
+		header: 'px-4 pt-4 md:pb-0',
 		content: 'p-0'
 	}}
 	class={authProvider ? 'md:max-w-4xl' : 'md:max-w-md'}
