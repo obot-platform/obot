@@ -60,6 +60,12 @@ func TestAuditEventRoundTrip(t *testing.T) {
 	if !log.ResponseReceived {
 		t.Errorf("generic events must be marked ResponseReceived to bypass the merge path")
 	}
+	if log.UserID != "" || log.ReceivedAt != nil {
+		t.Errorf("UserID and ReceivedAt are server-assigned and must not be copied from the event, got userID=%q receivedAt=%v", log.UserID, log.ReceivedAt)
+	}
+
+	// The server assigns the user from the authenticated request.
+	log.UserID = event.UserID
 
 	got := ConvertAuditEvent(log)
 	if !reflect.DeepEqual(event, got) {

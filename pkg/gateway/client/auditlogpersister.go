@@ -20,9 +20,6 @@ func (c *Client) LogMCPAuditEntry(entry types.MCPAuditLog) {
 	entry.RequestMutated = len(entry.MutatedRequestBody) > 0
 	entry.ResponseMutated = len(entry.OriginalResponseBody) > 0
 
-	// Populate the generic audit-event fields for new rows. Historical rows
-	// keep NULL values and are interpreted at read time instead.
-	// TODO(g-linville): why can't we populate them during the migration, instead of interpreting them at read time?
 	if entry.EventID == nil || *entry.EventID == "" {
 		eventID := uuid.NewString()
 		entry.EventID = &eventID
@@ -39,11 +36,10 @@ func (c *Client) LogMCPAuditEntry(entry types.MCPAuditLog) {
 		entry.Outcome = types.OutcomeForResult(entry.Error, entry.ResponseStatus)
 	}
 
-	// TODO(g-linville): does it make sense to just always set entry.ReceivedAt instead of allowing it to be on the input?
-	if entry.ReceivedAt == nil {
-		receivedAt := time.Now().UTC()
-		entry.ReceivedAt = &receivedAt
-	}
+	// ReceivedAt is server receipt time, so it is always assigned here;
+	// callers (including audit log submission requests) cannot supply it.
+	receivedAt := time.Now().UTC()
+	entry.ReceivedAt = &receivedAt
 
 	if err := c.encryptMCPAuditLog(ctx, &entry); err != nil {
 		log.Errorf("Failed to encrypt MCP audit log: %v", err)

@@ -257,6 +257,10 @@ func ConvertMCPAuditLog(a MCPAuditLog) types2.MCPAuditLog {
 // MCPAuditLogFromAuditEvent converts a canonical generic audit event into the
 // internal storage type. The nested client/tool fields map onto the existing
 // generic-named indexed columns; MCP-specific fields are left empty.
+//
+// UserID and ReceivedAt are deliberately never copied from the event: they are
+// server-assigned (from the authenticated user and receipt time respectively),
+// so client-provided values must not reach storage.
 func MCPAuditLogFromAuditEvent(e types2.AuditEvent) (MCPAuditLog, error) {
 	log := MCPAuditLog{
 		CreatedAt:        e.CreatedAt.Time.UTC(),
@@ -264,7 +268,6 @@ func MCPAuditLogFromAuditEvent(e types2.AuditEvent) (MCPAuditLog, error) {
 		EventType:        e.EventType,
 		DeviceID:         e.DeviceID,
 		Outcome:          e.Outcome,
-		UserID:           e.UserID,
 		ClientName:       e.Client.Name,
 		ClientVersion:    e.Client.Version,
 		CallType:         e.Tool.Type,
@@ -282,10 +285,6 @@ func MCPAuditLogFromAuditEvent(e types2.AuditEvent) (MCPAuditLog, error) {
 	if e.EventID != "" {
 		eventID := e.EventID
 		log.EventID = &eventID
-	}
-	if e.ReceivedAt != nil {
-		receivedAt := e.ReceivedAt.Time.UTC()
-		log.ReceivedAt = &receivedAt
 	}
 
 	// Keep a size-capped plaintext summary in the searchable Error column and

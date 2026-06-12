@@ -111,7 +111,7 @@ func (c *Client) insertMCPAuditLogs(ctx context.Context, logs []types.MCPAuditLo
 				// Calculate processing time as difference between response and request timestamps
 				updates["processing_time_ms"] = responseLog.CreatedAt.Sub(existingLog.CreatedAt).Milliseconds()
 
-				// The outcome is only known once the response arrives.
+				// Replace the request row's provisional outcome now that the response result is known.
 				updates["outcome"] = types.OutcomeForResult(responseLog.Error, responseLog.ResponseStatus)
 
 				// Update the existing log

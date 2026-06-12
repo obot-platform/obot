@@ -70,10 +70,12 @@ type MCPAuditLog struct {
 // AuditEvent is the canonical generic audit event shape used for ingestion of
 // non-MCP audit logs (e.g. local agent tool calls submitted by the CLI).
 type AuditEvent struct {
-	EventID     string                      `json:"eventID"`
-	SourceType  string                      `json:"sourceType"`
-	EventType   string                      `json:"eventType"`
-	CreatedAt   Time                        `json:"createdAt"`
+	EventID    string `json:"eventID"`
+	SourceType string `json:"sourceType"`
+	EventType  string `json:"eventType"`
+	CreatedAt  Time   `json:"createdAt"`
+	// ReceivedAt and UserID are assigned by the server on ingestion;
+	// client-provided values are ignored.
 	ReceivedAt  *Time                       `json:"receivedAt,omitempty"`
 	UserID      string                      `json:"userID,omitempty"`
 	DeviceID    string                      `json:"deviceID,omitempty"`
