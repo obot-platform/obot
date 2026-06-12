@@ -114,4 +114,21 @@ func TestBootstrapEnabledDependsOnConfiguredProviderOwner(t *testing.T) {
 	if enabled {
 		t.Fatal("expected bootstrap disabled once an owner belongs to the configured auth provider")
 	}
+
+	b.forceEnableBootstrap = true
+	enabled, err = b.Enabled(ctx)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !enabled {
+		t.Fatal("expected bootstrap enabled when force-enabled")
+	}
+
+	setupEnabled, err := b.SetupEnabled(ctx)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if setupEnabled {
+		t.Fatal("expected setup disabled when a configured auth provider owner exists, even with bootstrap force-enabled")
+	}
 }

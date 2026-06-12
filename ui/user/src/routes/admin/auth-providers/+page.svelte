@@ -12,7 +12,7 @@
 		RecommendedModelProviders
 	} from '$lib/constants';
 	import { HttpError } from '$lib/errors.js';
-	import { AdminService } from '$lib/services';
+	import { AdminService, UserService } from '$lib/services';
 	import type { AuthProvider } from '$lib/services/admin/types.js';
 	import { errors, license, profile } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte.js';
@@ -76,8 +76,9 @@
 		);
 		if (!configuredAuthProvider) return;
 
-		// Only proceed if user is bootstrap user and has a configured provider.
-		// The setup endpoint performs the authoritative owner/provider check.
+		const bootstrapStatus = await UserService.getBootstrapStatus();
+		if (!bootstrapStatus.setupEnabled) return;
+
 		if (!setupLoading && !setupTempLoginUrl) {
 			configuringAuthProvider = configuredAuthProvider;
 			handleOwnerSetup();

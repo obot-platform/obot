@@ -16,6 +16,7 @@ type Handler struct {
 
 type bootstrapEnabler interface {
 	Enabled(context.Context) (bool, error)
+	SetupEnabled(context.Context) (bool, error)
 }
 
 func NewHandler(serverURL string, bootstrapEnabler bootstrapEnabler) *Handler {
@@ -44,7 +45,7 @@ func (h *Handler) requireBootstrapEnabled(req api.Context) error {
 		return fmt.Errorf("bootstrap enabler is not set")
 	}
 
-	enabled, err := h.bootstrapEnabler.Enabled(req.Context())
+	enabled, err := h.bootstrapEnabler.SetupEnabled(req.Context())
 	if err != nil {
 		return err
 	}

@@ -245,7 +245,15 @@ func (b *Bootstrap) IsEnabled(req api.Context) error {
 		return err
 	}
 
-	return req.Write(map[string]bool{"enabled": bootstrapEnabled})
+	setupEnabled, err := b.SetupEnabled(req.Context())
+	if err != nil {
+		return err
+	}
+
+	return req.Write(map[string]bool{
+		"enabled":      bootstrapEnabled,
+		"setupEnabled": setupEnabled,
+	})
 }
 
 func (b *Bootstrap) Enabled(ctx context.Context) (bool, error) {
@@ -256,14 +264,27 @@ func (b *Bootstrap) Enabled(ctx context.Context) (bool, error) {
 	return b.bootstrapEnabled(ctx)
 }
 
+func (b *Bootstrap) SetupEnabled(ctx context.Context) (bool, error) {
+	if !b.authEnabled {
+		return false, nil
+	}
+
+	return b.setupEnabled(ctx)
+}
+
 // bootstrapEnabled determines whether the bootstrap user is currently available for login.
-// It is available while there is no configured auth provider, or until an owner
-// user exists from the currently configured auth provider.
 func (b *Bootstrap) bootstrapEnabled(ctx context.Context) (bool, error) {
 	if b.forceEnableBootstrap {
 		return true, nil
 	}
 
+	return b.setupEnabled(ctx)
+}
+
+// setupEnabled determines whether bootstrap setup flow is currently available.
+// It is available while there is no configured auth provider, or until an owner
+// user exists from the currently configured auth provider.
+func (b *Bootstrap) setupEnabled(ctx context.Context) (bool, error) {
 	if b.authProviderGetter == nil {
 		return false, errors.New("configured auth provider getter is not set")
 	}
