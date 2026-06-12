@@ -1,9 +1,11 @@
 package client
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
+	apitypes "github.com/obot-platform/obot/apiclient/types"
 	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	sservices "github.com/obot-platform/obot/pkg/storage/services"
@@ -68,6 +70,66 @@ func runAuditLogBackfill(t *testing.T, c *Client, db *gatewaydb.DB) {
 	}
 	if err := db.AutoMigrate(); err != nil {
 		t.Fatalf("failed to re-run migrations: %v", err)
+	}
+}
+
+func TestInsertAuditEventsAcceptsDuplicatesAndRejectsInvalid(t *testing.T) {
+	c, _ := newTestClientWithDB(t)
+
+	event := apitypes.AuditEvent{
+		EventID:    "evt-local-1",
+		SourceType: apitypes.AuditLogSourceTypeLocalAgent,
+		EventType:  apitypes.AuditLogEventTypeToolCall,
+		CreatedAt:  apitypes.Time{Time: time.Now().UTC()},
+		DeviceID:   "dev-1",
+		Client:     apitypes.ClientInfo{Name: "codex", Version: "unknown"},
+		Tool:       apitypes.ToolInfo{Name: "shell", Type: "tool"},
+		Outcome:    apitypes.AuditLogOutcomeSuccess,
+		DurationMs: 42,
+		Request:    json.RawMessage(`{"cmd":"go test"}`),
+		RawEvent:   json.RawMessage(`{"tool_name":"shell"}`),
+	}
+	invalid := event
+	invalid.EventID = "evt-invalid"
+	invalid.SourceType = "unsupported"
+
+	statuses, err := c.InsertAuditEvents(t.Context(), "user-1", []apitypes.AuditEvent{event, event, invalid})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(statuses) != 3 {
+		t.Fatalf("statuses len = %d, want 3", len(statuses))
+	}
+	if statuses[0].Status != apitypes.AuditEventSubmitStatusAccepted {
+		t.Fatalf("first status = %#v, want accepted", statuses[0])
+	}
+	if statuses[1].Status != apitypes.AuditEventSubmitStatusDuplicate {
+		t.Fatalf("second status = %#v, want duplicate", statuses[1])
+	}
+	if statuses[2].Status != apitypes.AuditEventSubmitStatusError || statuses[2].Error == "" {
+		t.Fatalf("third status = %#v, want error with message", statuses[2])
+	}
+
+	logs, total, err := c.GetMCPAuditLogs(t.Context(), MCPAuditLogOptions{
+		SourceType: []string{apitypes.AuditLogSourceTypeLocalAgent},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if total != 1 || len(logs) != 1 {
+		t.Fatalf("stored local logs total/len = %d/%d, want 1/1", total, len(logs))
+	}
+	row := logs[0]
+	if row.UserID != "user-1" || row.EventID == nil || *row.EventID != event.EventID || row.ReceivedAt == nil {
+		t.Fatalf("stored row missing server-assigned fields: %+v", row)
+	}
+	if row.SourceType != apitypes.AuditLogSourceTypeLocalAgent ||
+		row.EventType != apitypes.AuditLogEventTypeToolCall ||
+		row.DeviceID != "dev-1" ||
+		row.ClientName != "codex" ||
+		row.CallIdentifier != "shell" ||
+		row.ProcessingTimeMs != 42 {
+		t.Fatalf("stored row mismatch: %+v", row)
 	}
 }
 

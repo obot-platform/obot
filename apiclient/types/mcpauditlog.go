@@ -92,6 +92,22 @@ type AuditEvent struct {
 	PayloadMeta map[string]PayloadFieldMeta `json:"payloadMeta,omitempty"`
 }
 
+const (
+	AuditEventSubmitStatusAccepted  = "accepted"
+	AuditEventSubmitStatusDuplicate = "duplicate"
+	AuditEventSubmitStatusError     = "error"
+)
+
+type AuditEventSubmitResponse struct {
+	Items []AuditEventSubmitStatus `json:"items"`
+}
+
+type AuditEventSubmitStatus struct {
+	EventID string `json:"eventID"`
+	Status  string `json:"status"`
+	Error   string `json:"error,omitempty"`
+}
+
 // ToolInfo identifies what was invoked and what kind of invocation it was.
 type ToolInfo struct {
 	Name string `json:"name"`
