@@ -147,8 +147,8 @@ func TestNanobotParseModelProviderBuiltinFallbacks(t *testing.T) {
 		wantDialect   nanobottypes.Dialect
 		wantBaseURL   string
 	}{
-		{system.OpenAIModelProviderTool, nanobottypes.DialectOpenAIResponses, "https://obot.example.com/api/llm-proxy/openai"},
-		{system.AnthropicModelProviderTool, nanobottypes.DialectAnthropicMessages, "https://obot.example.com/api/llm-proxy/anthropic"},
+		{system.OpenAIModelProvider, nanobottypes.DialectOpenAIResponses, "https://obot.example.com/api/llm-proxy/openai"},
+		{system.AnthropicModelProvider, nanobottypes.DialectAnthropicMessages, "https://obot.example.com/api/llm-proxy/anthropic"},
 		{"unknown-model-provider", nanobottypes.DialectOpenResponses, "https://obot.example.com/api/llm-proxy"},
 	} {
 		model := resolvedLLMModel{Name: "my-model", ModelProvider: tc.modelProvider}
@@ -304,21 +304,21 @@ func TestMultipleProvidersWhenLLMAndMiniDiffer(t *testing.T) {
 
 	llmModel := resolvedLLMModel{
 		Name:          "anthropic-claude-sonnet-4-6",
-		ModelProvider: system.AnthropicModelProviderTool,
+		ModelProvider: system.AnthropicModelProvider,
 	}
 	miniModel := resolvedLLMModel{
 		Name:          "openai-gpt-4.1-mini",
-		ModelProvider: system.OpenAIModelProviderTool,
+		ModelProvider: system.OpenAIModelProvider,
 	}
 
 	llmProvider, llmDefault := h.parseModelProvider(llmModel)
 	miniProvider, miniDefault := h.parseModelProvider(miniModel)
 
-	if llmDefault != system.AnthropicModelProviderTool+"/anthropic-claude-sonnet-4-6" {
-		t.Errorf("llmDefault = %q, want %s/anthropic-claude-sonnet-4-6", llmDefault, system.AnthropicModelProviderTool)
+	if llmDefault != system.AnthropicModelProvider+"/anthropic-claude-sonnet-4-6" {
+		t.Errorf("llmDefault = %q, want %s/anthropic-claude-sonnet-4-6", llmDefault, system.AnthropicModelProvider)
 	}
-	if miniDefault != system.OpenAIModelProviderTool+"/openai-gpt-4.1-mini" {
-		t.Errorf("miniDefault = %q, want %s/openai-gpt-4.1-mini", miniDefault, system.OpenAIModelProviderTool)
+	if miniDefault != system.OpenAIModelProvider+"/openai-gpt-4.1-mini" {
+		t.Errorf("miniDefault = %q, want %s/openai-gpt-4.1-mini", miniDefault, system.OpenAIModelProvider)
 	}
 
 	yaml, err := buildNanobotProviderConfigYAML(llmProvider, miniProvider)
@@ -334,10 +334,10 @@ func TestMultipleProvidersWhenLLMAndMiniDiffer(t *testing.T) {
 	if len(cfg.LLMProviders) != 2 {
 		t.Fatalf("expected 2 providers (one per model), got %d:\n%s", len(cfg.LLMProviders), yaml)
 	}
-	if _, ok := cfg.LLMProviders[system.AnthropicModelProviderTool]; !ok {
+	if _, ok := cfg.LLMProviders[system.AnthropicModelProvider]; !ok {
 		t.Errorf("anthropic-model-provider missing from YAML")
 	}
-	if _, ok := cfg.LLMProviders[system.OpenAIModelProviderTool]; !ok {
+	if _, ok := cfg.LLMProviders[system.OpenAIModelProvider]; !ok {
 		t.Errorf("openai-model-provider missing from YAML")
 	}
 }

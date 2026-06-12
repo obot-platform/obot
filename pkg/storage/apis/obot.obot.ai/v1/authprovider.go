@@ -18,7 +18,7 @@ type AuthProvider struct {
 func (in *AuthProvider) GetColumns() [][]string {
 	return [][]string{
 		{"Name", "Name"},
-		{"Image", "Spec.Image"},
+		{"Command", "Spec.Command"},
 		{"Created", "{{ago .CreationTimestamp}}"},
 	}
 }

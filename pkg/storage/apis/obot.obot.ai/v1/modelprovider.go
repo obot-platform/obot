@@ -18,7 +18,7 @@ type ModelProvider struct {
 func (in *ModelProvider) GetColumns() [][]string {
 	return [][]string{
 		{"Name", "Name"},
-		{"Image", "Spec.Image"},
+		{"Command", "Spec.Command"},
 		{"Created", "{{ago .CreationTimestamp}}"},
 	}
 }
