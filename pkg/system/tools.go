@@ -1,8 +1,8 @@
 package system
 
 const (
-	OpenAIModelProviderTool    = "openai-model-provider"
-	AnthropicModelProviderTool = "anthropic-model-provider"
+	OpenAIModelProvider    = "openai-model-provider"
+	AnthropicModelProvider = "anthropic-model-provider"
 
 	OpenAIAPIKeyEnvVar    = "OPENAI_API_KEY"
 	AnthropicAPIKeyEnvVar = "ANTHROPIC_API_KEY"

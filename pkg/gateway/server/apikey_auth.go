@@ -26,25 +26,21 @@ func NewAPIKeyAuthenticator(client *client.Client) *APIKeyAuthenticator {
 
 // AuthenticateRequest implements authenticator.Request.
 func (a *APIKeyAuthenticator) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
-	// Extract Bearer token from Authorization header
-	authHeader := req.Header.Get("Authorization")
+	authHeader := strings.TrimPrefix(req.Header.Get("Authorization"), "Bearer ")
 	if authHeader == "" {
-		return nil, false, nil
-	}
-
-	bearer := strings.TrimPrefix(authHeader, "Bearer ")
-	if bearer == authHeader {
-		// No "Bearer " prefix
-		return nil, false, nil
+		authHeader = req.Header.Get("X-API-Key")
+		if authHeader == "" {
+			return nil, false, nil
+		}
 	}
 
 	// Check if this is an API key (starts with ok1-)
-	if !strings.HasPrefix(bearer, apiKeyAuthPrefix) {
+	if !strings.HasPrefix(authHeader, apiKeyAuthPrefix) {
 		return nil, false, nil
 	}
 
 	// Validate the API key
-	apiKey, err := a.client.ValidateAPIKey(req.Context(), bearer)
+	apiKey, err := a.client.ValidateAPIKey(req.Context(), authHeader)
 	if err != nil {
 		// Return false, nil to let other authenticators try
 		// This allows the chain to continue if the key is invalid
