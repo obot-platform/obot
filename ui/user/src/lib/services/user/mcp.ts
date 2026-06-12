@@ -267,7 +267,7 @@ export function getSource(
 
 	return {
 		sourceType: 'system',
-		source: 'system'
+		source: 'Obot Admin Console'
 	};
 }
 

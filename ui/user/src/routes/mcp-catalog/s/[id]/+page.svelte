@@ -7,10 +7,14 @@
 	import { AdminService } from '$lib/services';
 	import { getMCPDisplayName } from '$lib/services/user/mcp';
 	import { profile } from '$lib/stores';
+	import McpConnectUrlDialog from '../../McpConnectUrlDialog.svelte';
+	import { Link2Icon } from 'lucide-svelte';
 	import type { Component } from 'svelte';
 	import { fly } from 'svelte/transition';
 
 	const duration = PAGE_TRANSITION_DURATION;
+
+	let connectUrlDialog = $state<ReturnType<typeof McpConnectUrlDialog>>();
 
 	let { data } = $props();
 	let { mcpServer, catalogEntry } = $derived(data);
@@ -44,6 +48,12 @@
 			}}
 			hideActions
 		/>
+		<button
+			class="btn btn-primary"
+			onclick={() => connectUrlDialog?.open(undefined, mcpServer?.connectURL)}
+		>
+			<Link2Icon class="size-4" /> Connect URL
+		</button>
 	{/snippet}
 
 	<div class="flex h-full flex-col gap-6 pb-8" in:fly={{ x: 100, delay: duration, duration }}>
@@ -58,6 +68,8 @@
 		/>
 	</div>
 </Layout>
+
+<McpConnectUrlDialog bind:this={connectUrlDialog} />
 
 <svelte:head>
 	<title>Obot | {title}</title>

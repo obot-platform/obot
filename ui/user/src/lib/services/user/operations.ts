@@ -932,18 +932,6 @@ export async function listWorkspaceMCPServersForEntry(
 	return response.items ?? [];
 }
 
-export async function getWorkspaceCatalogEntryServers(
-	workspaceID: string,
-	entryID: string,
-	opts?: { fetch?: Fetcher }
-) {
-	const response = (await doGet(
-		`/workspaces/${workspaceID}/entries/${entryID}/servers`,
-		opts
-	)) as ItemsResponse<MCPCatalogServer>;
-	return response.items ?? [];
-}
-
 export async function getWorkspaceCatalogEntryServer(
 	workspaceID: string,
 	entryID: string,

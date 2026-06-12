@@ -206,20 +206,17 @@
 	let isAtLeastPowerUserPlus = $derived(profile.current.groups.includes(Group.POWERUSER_PLUS));
 
 	let defaultLinks = $derived<NavLink[]>([
-		{
-			id: 'install-cli',
-			href: '/install-cli',
-			icon: Logo,
-			label: 'Obot CLI',
-			collapsible: false,
-			beta: true
-		},
-		{
-			id: 'mcp-dashboard',
-			icon: LayoutDashboard,
-			label: 'Dashboard',
-			href: profile.current.hasAdminAccess?.() ? '/admin/dashboard' : '/dashboard'
-		},
+		...(profile.current.hasAdminAccess?.()
+			? [
+					{
+						id: 'mcp-dashboard',
+						icon: LayoutDashboard,
+						label: 'Dashboard',
+						href: '/admin/dashboard',
+						collapsible: false
+					}
+				]
+			: []),
 		{
 			id: 'mcp-servers',
 			icon: Server,
@@ -237,6 +234,13 @@
 			icon: Laptop,
 			label: 'Devices',
 			href: '/devices'
+		},
+		{
+			id: 'install-cli',
+			href: '/install-cli',
+			icon: Logo,
+			label: 'Obot CLI',
+			collapsible: false
 		},
 		...(agentsFeatureEnabled
 			? [

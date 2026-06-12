@@ -205,6 +205,7 @@
 				const multiUserCatalogEntryServers = getConfiguredServersForCatalogEntry(d);
 				if (multiUserCatalogEntryServers.length > 1) {
 					handleShowSelectServerDialog(d);
+					return;
 				} else {
 					server = multiUserCatalogEntryServers[0];
 					instance = instancesMap.get(server.id);
@@ -215,6 +216,7 @@
 			const matchingServers = getUsableConfiguredServersForCatalogEntry(d);
 			if (matchingServers.length > 1) {
 				handleShowSelectServerDialog(d);
+				return;
 			} else {
 				entry = d;
 				server = matchingServers[0];
