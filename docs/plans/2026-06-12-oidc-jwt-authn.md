@@ -60,6 +60,113 @@ This section supersedes any older wording in this plan that says `roles: ["admin
 
 ### Remaining Remediation Tasks
 
+## Vibedata Distribution Image Contract
+
+This section covers the distribution work needed so Studio consumes our forked
+Obot and provider images instead of upstream `obot-platform` images. It is part
+of the same Studio/Obot JWT integration because the generic OAuth provider must
+come from our `~/src/providers` fork when the Obot image is built.
+
+- [x] **Provider image source:** `~/src/providers` publishes the provider bundle
+  to `ghcr.io/accelerate-data/providers:<tag>` and the encryption provider
+  bundle to `ghcr.io/accelerate-data/providers/encryption-bins:<tag>`.
+- [x] **Obot image source:** `~/src/obot` builds `ghcr.io/accelerate-data/obot-vibedata:<tag>`
+  from this fork and passes Docker build args pointing at the matching
+  `ghcr.io/accelerate-data/providers:<tag>` and
+  `ghcr.io/accelerate-data/providers/encryption-bins:<tag>` images.
+- [x] **No Studio image-build coupling:** Studio backend/frontend image builds
+  remain unchanged. Studio only composes the released Obot image alongside the
+  existing Studio frontend/backend images.
+- [x] **Studio compose default:** `~/src/studio/docker-compose.yml` defaults
+  `OBOT_IMAGE` to `ghcr.io/accelerate-data/obot-vibedata:latest`, while still allowing
+  operators and tests to override the image with `OBOT_IMAGE=<ref>`.
+- [x] **Provider registry runtime:** Distributed images should not require
+  `OBOT_SERVER_PROVIDER_REGISTRIES` to be set by Studio. The Obot image should
+  source `/obot-providers/.envrc.providers`, which is generated from our baked
+  provider images during the Obot Docker build.
+
+- [x] **No forked enterprise image:** `~/src/providers` does not contain the
+  enterprise auth provider bundle. This fork publishes a Vibedata-specific Obot
+  image (`ghcr.io/accelerate-data/obot-vibedata`) instead of a misleading
+  `obot-enterprise` image.
+
+### Remaining Distribution Tasks
+
+#### Task D1: Publish provider images from the providers fork
+
+**Files in `~/src/providers`:**
+- Modify: `.github/workflows/build-providers.yaml`
+- Modify: `.github/workflows/build-encryption-bins.yaml`
+- Modify: `Makefile`
+
+- [x] **Step 1:** Add workflow-level image constants for the providers fork:
+  `PROVIDERS_IMAGE=ghcr.io/accelerate-data/providers` and
+  `ENCRYPTION_BINS_IMAGE=ghcr.io/accelerate-data/providers/encryption-bins`.
+- [x] **Step 2:** Replace hardcoded `ghcr.io/obot-platform/providers` tag and
+  signing references with those constants.
+- [x] **Step 3:** Keep pull-request builds non-pushing, but make branch and tag
+  pushes publish under `ghcr.io/accelerate-data`.
+- [x] **Step 4:** Update the local `docker-build` target so manual provider
+  image builds also use `ghcr.io/accelerate-data/providers:latest`.
+- [x] **Step 5:** Verify with YAML-aware or textual checks that no provider
+  workflow publish target remains under `ghcr.io/obot-platform`.
+
+#### Task D2: Build Obot from the forked provider images
+
+**Files in `~/src/obot`:**
+- Modify: `.github/workflows/docker-build-and-push.yml`
+- Modify: `.github/workflows/release.yml`
+- Modify: `.github/workflows/test-docker-build.yml`
+- Modify: `docs/plans/2026-06-12-oidc-jwt-authn.md`
+
+- [x] **Step 1:** Add workflow environment constants for
+  `PROVIDERS_IMAGE=ghcr.io/accelerate-data/providers`,
+  `ENCRYPTION_BINS_IMAGE=ghcr.io/accelerate-data/providers/encryption-bins`,
+  and `BASE_IMAGE=ghcr.io/accelerate-data/obot/base:latest`.
+- [x] **Step 2:** Pass `PROVIDERS_IMAGE`, `ENCRYPTION_BINS_IMAGE`, and
+  `ENTERPRISE_IMAGE` build args to the Vibedata Obot Docker build. Tagged Obot
+  builds use the matching provider tag; branch builds use `latest`.
+- [x] **Step 3:** Keep the Obot `Dockerfile` build-arg defaults unchanged so
+  upstream users can still build without our GHCR images; the forked CI owns the
+  distribution override.
+- [x] **Step 4:** Point the Obot release dispatch at `accelerate-data/providers`
+  so tags are created on the provider fork before Obot image builds consume
+  tagged provider images, and add an image-availability gate in the Obot Docker
+  workflow so the build waits until the provider images exist.
+- [x] **Step 5:** Update the pull-request test Docker build to use
+  `:latest` provider images from `ghcr.io/accelerate-data`, proving the forked
+  build wiring works before tags exist.
+- [x] **Step 6:** Verify the workflow build args contain our provider images
+  and no Obot build path still depends on `ghcr.io/obot-platform/providers`.
+
+#### Task D3: Point Studio compose at the forked Obot image
+
+**Files in `~/src/studio`:**
+- Modify: `docker-compose.yml`
+- Modify: `tests/structural/compose/root-compose-shape.test.ts`
+
+- [x] **Step 1:** Update the structural test expectation from
+  `${OBOT_IMAGE:-ghcr.io/obot-platform/obot:latest}` to
+  `${OBOT_IMAGE:-ghcr.io/accelerate-data/obot-vibedata:latest}` and verify it fails.
+- [x] **Step 2:** Update `docker-compose.yml` to use the
+  `ghcr.io/accelerate-data/obot-vibedata:latest` default while preserving the
+  `OBOT_IMAGE` override.
+- [x] **Step 3:** Run the focused Studio compose structural test and verify it
+  passes.
+
+#### Task D4: Distribution verification
+
+**Files:**
+- No additional production changes.
+
+- [x] **Step 1:** In `~/src/providers`, run checks proving publish targets are
+  under `ghcr.io/accelerate-data` and the changed workflows are valid YAML.
+- [x] **Step 2:** In `~/src/obot`, run checks proving Docker build args point at
+  the forked provider image names and the existing Go JWT suite still passes.
+- [x] **Step 3:** In `~/src/studio`, run the focused compose structural test.
+- [x] **Step 4:** Review `git status --short --branch` in all three repos and
+  report which repos have changed.
+
 #### Task R1: Encode the corrected contract in tests
 
 **Files:**
