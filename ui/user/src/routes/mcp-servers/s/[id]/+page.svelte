@@ -61,6 +61,7 @@
 				id={serverScopeID}
 				entity={serverScopeEntity}
 				{limitViews}
+				clientOnly
 			/>
 		{/if}
 	</div>

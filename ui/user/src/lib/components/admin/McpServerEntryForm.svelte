@@ -81,6 +81,7 @@
 		excludeViews?: string[];
 		configuredServers?: MCPCatalogServer[];
 		allowMultiUserServerConfigurationEdit?: boolean;
+		clientOnly?: boolean;
 	}
 
 	let {
@@ -97,7 +98,8 @@
 		limitViews,
 		excludeViews,
 		configuredServers,
-		allowMultiUserServerConfigurationEdit
+		allowMultiUserServerConfigurationEdit,
+		clientOnly
 	}: Props = $props();
 
 	let entry = $state(untrack(() => initialEntry));
@@ -768,7 +770,7 @@
 					{/if}
 				{/if}
 			</div>
-			{#if belongsToUser && !readonly}
+			{#if belongsToUser && !readonly && !clientOnly}
 				<IconButton
 					variant="danger2"
 					tooltip={{ text: 'Delete Server' }}
