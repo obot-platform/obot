@@ -1,0 +1,23 @@
+{
+	"provider": {
+		"id": "generic-oauth-auth-provider",
+		"namespace": "default",
+		"name": "Studio Login",
+		"clientId": "obot-e2e-client",
+		"clientSecret": "obot-e2e-secret",
+		"scope": "openid email profile",
+		"emailDomains": "example.com",
+		"trustEmailLinking": true
+	},
+	"user": {
+		"subject": "studio-user-1",
+		"email": "studio.user@example.com",
+		"emailVerified": true,
+		"preferredUsername": "studio.user",
+		"name": "Studio User",
+		"picture": "https://example.com/avatar.png"
+	},
+	"bootstrap": {
+		"token": "bootstrap-token"
+	}
+}

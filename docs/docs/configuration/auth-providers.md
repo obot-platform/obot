@@ -77,6 +77,36 @@ Follow the instructions [here](https://developers.google.com/identity/protocols/
 
 You can view the source code for Google provider in this [repo](https://github.com/obot-platform/tools).
 
+### Custom OAuth / OIDC
+
+Use Custom OAuth / OIDC when your identity provider supports OpenID Connect discovery.
+Obot supports one configured custom provider at a time, following the same one-provider configuration model as the other auth providers.
+
+You can now return to Obot and finish configuring Custom OAuth / OIDC. Use the table below to determine the values to use for each field:
+
+| Obot | Meaning |
+|------|---------|
+| Provider Name | Login button label, such as `Studio` or `Acme SSO`. |
+| Issuer URL | OIDC issuer URL. The issuer must expose `/.well-known/openid-configuration`. |
+| Client ID | OAuth/OIDC client ID. |
+| Client Secret | OAuth/OIDC client secret. |
+| Email Domains | Comma-separated allowed domains, or `*` to allow every domain trusted by the issuer. |
+| Trust this issuer for account linking | Allows this issuer to link logins to existing Obot users by email. |
+| Scope (Optional) | Space-delimited OIDC scopes. Defaults to `openid email profile`. |
+
+Add the callback URL shown in Obot's provider configuration dialog to the identity provider's allowed redirect URI list.
+
+Account linking trust is scoped to the configured issuer. If you change the issuer, Obot treats it as a new identity trust boundary and requires account-linking trust to be re-confirmed.
+
+If the provider returns `email_verified=false`, Obot does not link by email. If the claim is absent, Obot relies on the admin's issuer trust setting.
+
+Example issuer URL formats:
+
+- Entra: `https://login.microsoftonline.com/<tenant-id>/v2.0`
+- Keycloak: `https://keycloak.example.com/realms/<realm>`
+- Okta: `https://<your-okta-domain>`
+- Studio: use the issuer URL published by the Studio deployment
+
 ### Entra (Enterprise Only)
 
 Within the [Microsoft Entra admin center](https://entra.microsoft.com), go to App registrations and click New registration.

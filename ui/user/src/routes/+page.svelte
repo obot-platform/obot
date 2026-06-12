@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import Logo from '$lib/components/Logo.svelte';
+	import { appPath } from '$lib/url';
 	import { type PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -60,9 +61,11 @@
 							class="btn btn-secondary w-full"
 							onclick={() => {
 								localStorage.setItem('preAuthRedirect', window.location.href);
-								window.location.href = `/oauth2/start?rd=${encodeURIComponent(
-									overrideRedirect !== null ? overrideRedirect : rd
-								)}&obot-auth-provider=${provider.namespace}/${provider.id}`;
+								window.location.href = appPath(
+									`/oauth2/start?rd=${encodeURIComponent(
+										overrideRedirect !== null ? overrideRedirect : rd
+									)}&obot-auth-provider=${provider.namespace}/${provider.id}`
+								);
 							}}
 						>
 							{#if provider.icon}
@@ -71,8 +74,8 @@
 									src={provider.icon}
 									alt={provider.name}
 								/>
-								<span class="text-center text-sm font-light">Continue with {provider.name}</span>
 							{/if}
+							<span class="text-center text-sm font-light">Continue with {provider.name}</span>
 						</button>
 					{/each}
 					{#if authProviders.length === 0}

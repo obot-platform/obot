@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
@@ -46,7 +47,7 @@ func (ap *AuthProviderHandler) ByID(req api.Context) error {
 		return err
 	}
 
-	resp, err := ap.convertAuthProvider(authProvider)
+	resp, err := ap.convertAuthProvider(req.Context(), req.GatewayClient, authProvider)
 	if err != nil {
 		return err
 	}
@@ -64,7 +65,7 @@ func (ap *AuthProviderHandler) List(req api.Context) error {
 
 	resp := make([]types.AuthProvider, 0, len(authProviders.Items))
 	for _, a := range authProviders.Items {
-		authProvider, err := ap.convertAuthProvider(a)
+		authProvider, err := ap.convertAuthProvider(req.Context(), req.GatewayClient, a)
 		if err != nil {
 			log.Warnf("failed to convert auth provider %q: %v", a.Name, err)
 			continue
@@ -111,6 +112,24 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 		if val == "" {
 			delete(envVars, key)
 		}
+	}
+
+	existingIssuer := ""
+	if authProvider.Name == GenericOAuthAuthProviderName {
+		existing, err := req.GatewayClient.RevealCredential(req.Context(), []string{authProvider.Name, system.GenericAuthProviderCredentialContext}, authProvider.Name)
+		if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
+			return fmt.Errorf("failed to reveal existing generic OAuth credential: %w", err)
+		}
+		if err == nil && existing.Secrets != nil {
+			existingIssuer = existing.Secrets[GenericOAuthIssuerEnvVar]
+		}
+	}
+
+	if err := validateGenericOAuthConfig(req.Context(), authProvider.Name, envVars); err != nil {
+		return types.NewErrBadRequest("invalid generic OAuth provider configuration: %v", err)
+	}
+	if err := requireGenericOAuthTrustReconfirmation(authProvider.Name, existingIssuer, envVars); err != nil {
+		return types.NewErrBadRequest("invalid generic OAuth provider configuration: %v", err)
 	}
 
 	if err := req.GatewayClient.UpsertCredential(req.Context(), gatewaytypes.Credential{
@@ -247,15 +266,28 @@ func (ap *AuthProviderHandler) Reveal(req api.Context) error {
 	return types.NewErrNotFound("no credential found for %q", authProvider.Name)
 }
 
-func (ap *AuthProviderHandler) convertAuthProvider(authProvider v1.AuthProvider) (types.AuthProvider, error) {
+func (ap *AuthProviderHandler) convertAuthProvider(ctx context.Context, gatewayClient *gateway.Client, authProvider v1.AuthProvider) (types.AuthProvider, error) {
 	authProviderStatus, err := providers.AuthProviderStatus(authProvider, nil, ap.license)
 	if err != nil {
 		return types.AuthProvider{}, fmt.Errorf("failed to get auth provider status: %w", err)
 	}
 
+	manifest := authProvider.Spec.AuthProviderManifest
+	if authProvider.Name == GenericOAuthAuthProviderName && authProviderStatus.Configured {
+		cred, err := gatewayClient.RevealCredential(ctx, []string{authProvider.Name, system.GenericAuthProviderCredentialContext}, authProvider.Name)
+		if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
+			return types.AuthProvider{}, fmt.Errorf("failed to reveal generic OAuth credential: %w", err)
+		}
+		if err == nil {
+			if name := cred.Secrets["OBOT_GENERIC_OAUTH_AUTH_PROVIDER_NAME"]; name != "" {
+				manifest.Name = name
+			}
+		}
+	}
+
 	return types.AuthProvider{
 		Metadata:             MetadataFrom(&authProvider),
-		AuthProviderManifest: authProvider.Spec.AuthProviderManifest,
+		AuthProviderManifest: manifest,
 		AuthProviderStatus:   *authProviderStatus,
 	}, nil
 }

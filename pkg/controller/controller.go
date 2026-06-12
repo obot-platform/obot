@@ -232,6 +232,10 @@ func (c *Controller) PostStart(ctx context.Context, client kclient.Client) {
 		panic(fmt.Errorf("failed to ensure openai env credential and defaults: %w", err))
 	}
 
+	if err = c.providerHandler.EnsureAuthProviderEnvCredential(ctx, client); err != nil {
+		panic(fmt.Errorf("failed to ensure auth provider env credential: %w", err))
+	}
+
 	if err := c.services.PersistentTokenServer.EnsureJWK(ctx); err != nil {
 		panic(fmt.Errorf("failed to ensure JWK: %w", err))
 	}

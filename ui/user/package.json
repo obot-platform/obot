@@ -13,6 +13,7 @@
 		"preview": "vite preview",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"e2e:generic-oauth": "playwright test generic-oauth.spec.ts",
 		"lint": "prettier --check . && eslint .",
 		"format": "prettier --write .",
 		"ci": "npm run format && npm run lint && npm run check"
@@ -41,6 +42,7 @@
 		"@floating-ui/dom": "^1.7.6",
 		"@milkdown/crepe": "^7.20.0",
 		"@milkdown/kit": "^7.20.0",
+		"@playwright/test": "1.60.0",
 		"@sveltejs/adapter-auto": "^7.0.1",
 		"@sveltejs/adapter-node": "^5.5.4",
 		"@sveltejs/adapter-static": "^3.0.10",
@@ -63,6 +65,7 @@
 		"lucide-svelte": "^0.577.0",
 		"micromark": "^4.0.2",
 		"micromark-extension-gfm": "^3.0.0",
+		"oauth2-mock-server": "8.2.3",
 		"postcss": "^8.5.13",
 		"prettier": "^3.5.2",
 		"prettier-plugin-svelte": "^3.3.3",

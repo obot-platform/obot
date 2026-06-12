@@ -2,6 +2,7 @@ import { UNAUTHORIZED_PATHS } from '$lib/constants';
 import { createHttpError } from '$lib/errors';
 import { profile } from '$lib/stores';
 import errors from '$lib/stores/errors.svelte';
+import { appBasePath, appPath } from '$lib/url';
 
 // For SSR, use VITE_API_TARGET if set (for remote API development)
 // For browser, use window.location.origin (requests go through Vite proxy)
@@ -9,7 +10,7 @@ const apiTarget = import.meta.env.VITE_API_TARGET as string | undefined;
 export let baseURL = 'http://localhost:8080/api';
 
 if (typeof window !== 'undefined') {
-	baseURL = baseURL.replace('http://localhost:8080', window.location.origin);
+	baseURL = `${window.location.origin}${appBasePath()}/api`;
 } else if (apiTarget) {
 	// SSR: use the configured API target directly
 	baseURL = apiTarget.endsWith('/api') ? apiTarget : apiTarget + '/api';
@@ -38,6 +39,11 @@ interface GetOptions {
 function handle401Redirect() {
 	if (typeof window === 'undefined') return;
 	const currentPath = window.location.pathname;
+	const basePath = appBasePath();
+	const currentAppPath =
+		basePath && currentPath.startsWith(`${basePath}/`)
+			? currentPath.slice(basePath.length) || '/'
+			: currentPath;
 
 	// User was logged in, but the session expired
 	// Set expired and re-login dialog will show
@@ -48,8 +54,8 @@ function handle401Redirect() {
 
 	// Not logged in, so if the user is
 	// not already on an unauthorized page, redirect to it
-	if (!UNAUTHORIZED_PATHS.has(currentPath)) {
-		window.location.href = `/?rd=${encodeURIComponent(currentPath)}`;
+	if (!UNAUTHORIZED_PATHS.has(currentAppPath)) {
+		window.location.href = appPath(`/?rd=${encodeURIComponent(currentPath)}`);
 	}
 }
 

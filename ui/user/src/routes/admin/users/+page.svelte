@@ -13,7 +13,7 @@
 	import { userRoleOptions } from '$lib/services/admin/constants';
 	import { profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
-	import { replaceState } from '$lib/url';
+	import { appPath, replaceState } from '$lib/url';
 	import {
 		clearUrlParams,
 		getTableUrlParamsFilters,
@@ -428,7 +428,7 @@
 			return;
 		}
 		await AdminService.bootstrapLogout();
-		window.location.href = '/oauth2/sign_out?rd=/admin';
+		window.location.href = appPath('/oauth2/sign_out?rd=/admin');
 		confirmHandoffToUser = undefined;
 	}}
 	oncancel={() => (confirmHandoffToUser = undefined)}

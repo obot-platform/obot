@@ -6,8 +6,8 @@ apiserver.local.config/
 # Ignore the kubeconfig file
 kubeconfig
 
-# Ignore envrc
-.envrc
+# Ignore local environment files
+.env
 
 # Ignore any compiled Go binaries
 *.exe
@@ -61,6 +61,7 @@ catalog.json
 # Ignore zed files
 .zed/
 __debug_*
+.env
 
 **/.claude/settings.local.json
 thoughts/
