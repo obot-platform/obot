@@ -41,7 +41,7 @@
 				readonly={catalogEntry && 'sourceURL' in catalogEntry && !!catalogEntry.sourceURL}
 				id={workspaceId}
 				entity="workspace"
-				clientOnly
+				connectOnly
 			/>
 		{/if}
 	</div>
