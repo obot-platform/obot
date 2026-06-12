@@ -25,7 +25,7 @@
 | `pkg/oidcjwt/authenticator.go` | new | Implements `authenticator.Request`. Composes config + verifier + identity resolution + role-to-group mapping. |
 | `pkg/oidcjwt/authenticator_test.go` | new | Unit tests (admin role → admin/owner groups, no admin role → authenticated only, missing eligibility → 401, different issuer → fall through). |
 | `pkg/oidcjwt/identity_adapter.go` | new | Maps a validated JWT to an Obot user record via `pkg/gateway/client.EnsureIdentity`. |
-| `pkg/oidcjwt/integration_test.go` | new | End-to-end test: real `authn.Authenticator`, JWT with `roles: ["admin"]` → handler returns 200; JWT with empty roles → handler returns 403. |
+| `pkg/oidcjwt/integration_test.go` | new | End-to-end tests through real `authn.Authenticator` and `authz.Authorize`: admin JWT reaches catalog and MCP server routes; non-admin/empty-role JWTs are forbidden on the same routes. |
 | `pkg/oidcjwt/smokeclient/main.go` | new | Standalone dev smoke client: starts a local OIDC issuer/JWKS endpoint, mints a JWT, and optionally calls an Obot API URL without Studio. |
 | `pkg/services/config.go` | modify (one block) | Load `oidcjwt.Config`, construct verifier, append `oidcjwt.NewAuthenticator(...)` to the authenticators union when enabled. |
 | `chart/values.yaml` | modify | Add 4 new `OBOT_GENERIC_OAUTH_AUTH_PROVIDER_*` keys. |
@@ -1124,7 +1124,13 @@ git commit -m "feat(oidcjwt): wire into authenticator union when configured"
 
 Path: `pkg/oidcjwt/integration_test.go`
 
-The point of this test is to assert that a JWT presented at `GET /api/system-mcp-catalogs/{catalog_id}/entries` actually flows through Obot's real authorization rules — `adminAndOwnerRules` in `pkg/api/authz/authz.go:26` — not just through a fake handler that checks groups. That way a regression in either the authenticator wiring or the authz rule set is caught.
+The point of this test is to assert that a JWT presented at the Studio-facing catalog and MCP server routes actually flows through Obot's real authorization rules — especially `adminAndOwnerRules` in `pkg/api/authz/authz.go:26` — not just through a fake handler that checks groups. The harness should use nil storage clients so it proves admin/owner static-rule access and non-admin denial for these route shapes without depending on seeded MCP resources. That way a regression in either the authenticator wiring, the JWT role-to-group contract, or the authz rule set is caught.
+
+Required route coverage:
+
+- `GET /api/system-mcp-catalogs/{catalog_id}/entries` for catalog discovery.
+- `GET /api/system-mcp-servers/{id}` for system MCP server access gated by admin/owner static rules.
+- `GET /api/mcp-servers/{mcpserver_id}` for user-visible MCP server access, proving the JWT-authenticated admin user also works with the existing MCP route shape.
 
 The test below uses `authz.NewAuthorizer` and runs the request through both `apioauthn.NewAuthenticator(union.NewFailOnError(jwtAuth, apioauthn.Anonymous{}))` and `authz.Authorize(req, info)`, so the assertion is "the real authz layer accepts/rejects."
 
@@ -1236,23 +1242,23 @@ func runWithRoles(t *testing.T, roles []string) (int, map[string]any) {
 	return rec.Code, body
 }
 
-func TestIntegration_AdminRoleReachesCatalog(t *testing.T) {
+func TestIntegration_AdminRoleReachesCatalogAndMCP(t *testing.T) {
 	code, body := runWithRoles(t, []string{"admin"})
 	require.Equal(t, http.StatusOK, code)
 	assert.Contains(t, body, "items")
 }
 
-func TestIntegration_NonAdminForbiddenAtCatalog(t *testing.T) {
+func TestIntegration_NonAdminForbiddenAtCatalogAndMCP(t *testing.T) {
 	code, _ := runWithRoles(t, []string{"user"})
 	assert.Equal(t, http.StatusForbidden, code)
 }
 
-func TestIntegration_EmptyRolesForbiddenAtCatalog(t *testing.T) {
+func TestIntegration_EmptyRolesForbiddenAtCatalogAndMCP(t *testing.T) {
 	code, _ := runWithRoles(t, []string{})
 	assert.Equal(t, http.StatusForbidden, code)
 }
 
-func TestIntegration_UnauthenticatedForbiddenAtCatalog(t *testing.T) {
+func TestIntegration_UnauthenticatedForbiddenAtCatalogAndMCP(t *testing.T) {
 	mux, _, cleanup, _, _ := buildIntegrationStack(t, nil)
 	defer cleanup()
 	req := httptest.NewRequest("GET", "/api/system-mcp-catalogs/default/entries", nil)
@@ -1265,13 +1271,13 @@ var _ authenticator.Request = (*oidcjwt.Authenticator)(nil) // compile-time asse
 ```
 
 - [ ] **Step 2:** `go test ./pkg/oidcjwt/... -run TestIntegration -v`
-Expected: 4 PASS.
+Expected: catalog and MCP route cases PASS for admin, non-admin, empty-role, and unauthenticated JWT scenarios.
 
 - [ ] **Step 3:** Commit.
 
 ```bash
 git add pkg/oidcjwt/integration_test.go
-git commit -m "test(oidcjwt): integration tests for role-based group mapping"
+git commit -m "test(oidcjwt): integration tests for role-based MCP access"
 ```
 
 ---
@@ -1437,8 +1443,9 @@ Expected: exits 0.
 
 ## Acceptance Criteria
 
-- A JWT with `eligible: true, roles: ["admin"]` authenticates as a user with groups `[Admin, Owner, Authenticated]`, and the real `authz.Authorize` path returns 200 for `/api/system-mcp-catalogs/{catalog_id}/entries`. Verified by `TestIntegration_AdminRoleReachesCatalog`.
-- A JWT with `eligible: true, roles: ["user"]` authenticates as a user with groups `[Authenticated]` only, and the same handler returns 403. Verified by `TestIntegration_NonAdminForbiddenAtCatalog`.
+- A JWT with `eligible: true, roles: ["admin"]` authenticates as a user with groups `[Admin, Owner, Authenticated]`, and the real `authz.Authorize` path returns 200 for `/api/system-mcp-catalogs/{catalog_id}/entries`, `/api/system-mcp-servers/{id}`, and `/api/mcp-servers/{mcpserver_id}`. Verified by `TestIntegration_AdminRoleReachesCatalogAndMCP`.
+- A JWT with `eligible: true, roles: ["user"]` authenticates as a user with groups `[Authenticated]` only, and the same catalog/MCP handlers return 403. Verified by `TestIntegration_NonAdminForbiddenAtCatalogAndMCP`.
+- A JWT with `eligible: true, roles: []` is authenticated but has no admin/owner group, and the same catalog/MCP handlers return 403. Verified by `TestIntegration_EmptyRolesForbiddenAtCatalogAndMCP`.
 - A JWT with `eligible: false` returns a real auth error. Verified by `TestAuthenticator_FailsWhenIneligible`.
 - A non-JWT bearer, no `Authorization` header, or a JWT for a different issuer falls through unchanged. Verified by `TestAuthenticator_NoBearerFallsThrough`, `TestAuthenticator_DifferentIssuerFallsThrough`.
 - A JWT for the right issuer but wrong audience is a real error. Verified by `TestVerifier_RejectsWrongAudience`.
@@ -1478,4 +1485,4 @@ Expected: exits 0.
 
 - **No router change.** The authenticator plugs in at the union assembly site only.
 
-- **Integration test.** The point is to assert the JWT flows through Obot's **real** `authz.NewAuthorizer` against `/api/system-mcp-catalogs/{catalog_id}/entries`, not a fake handler.
+- **Integration test.** The point is to assert the JWT flows through Obot's **real** `authz.NewAuthorizer` against catalog and MCP server routes, not a fake handler.

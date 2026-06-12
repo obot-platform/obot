@@ -48,23 +48,38 @@ func buildIntegrationStack(t *testing.T, gwUser *gwtypes.User) (http.Handler, *t
 	az := authz.NewAuthorizer(nil, nil, nil, false, nil, nil, false)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /api/system-mcp-catalogs/{catalog_id}/entries", func(w http.ResponseWriter, r *http.Request) {
-		info, err := wrapped.Authenticate(r)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusUnauthorized)
-			return
-		}
-		if !az.Authorize(r, info) {
-			http.Error(w, "forbidden", http.StatusForbidden)
-			return
-		}
-		_ = json.NewEncoder(w).Encode(map[string]any{"items": []any{}})
-	})
+	gate := integrationAuthzGate{
+		authn: wrapped,
+		az:    az,
+	}
+	mux.HandleFunc("GET /api/system-mcp-catalogs/{catalog_id}/entries", gate.serveJSON(map[string]any{"items": []any{}}))
+	mux.HandleFunc("GET /api/system-mcp-servers/{id}", gate.serveJSON(map[string]any{"id": "system-server"}))
+	mux.HandleFunc("GET /api/mcp-servers/{mcpserver_id}", gate.serveJSON(map[string]any{"id": "user-server"}))
 
 	return mux, issuer, cleanup, priv
 }
 
-func runWithRoles(t *testing.T, roles []string) (int, map[string]any) {
+type integrationAuthzGate struct {
+	authn *apioauthn.Authenticator
+	az    *authz.Authorizer
+}
+
+func (g integrationAuthzGate) serveJSON(body map[string]any) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		info, err := g.authn.Authenticate(r)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+			return
+		}
+		if !g.az.Authorize(r, info) {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(body)
+	}
+}
+
+func runPathWithRoles(t *testing.T, path string, roles []string) (int, map[string]any) {
 	t.Helper()
 
 	gwUser := &gwtypes.User{ID: 42, Username: "alice", Email: "alice@example.com"}
@@ -74,7 +89,7 @@ func runWithRoles(t *testing.T, roles []string) (int, map[string]any) {
 	tok := testutil.MintTestJWT(t, priv, "kid-int", issuer.URL, "obot-default", "user-int",
 		60*time.Second, map[string]any{"eligible": true, "roles": roles, "email": "alice@example.com"})
 
-	req := httptest.NewRequest("GET", "/api/system-mcp-catalogs/default/entries", nil)
+	req := httptest.NewRequest("GET", path, nil)
 	req.Header.Set("Authorization", "Bearer "+tok)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
@@ -84,29 +99,61 @@ func runWithRoles(t *testing.T, roles []string) (int, map[string]any) {
 	return rec.Code, body
 }
 
-func TestIntegration_AdminRoleReachesCatalog(t *testing.T) {
-	code, body := runWithRoles(t, []string{"admin"})
-	require.Equal(t, http.StatusOK, code)
-	assert.Contains(t, body, "items")
+func TestIntegration_AdminRoleReachesCatalogAndMCP(t *testing.T) {
+	for _, tt := range integrationRoutes() {
+		t.Run(tt.name, func(t *testing.T) {
+			code, body := runPathWithRoles(t, tt.path, []string{"admin"})
+			require.Equal(t, http.StatusOK, code)
+			assert.Contains(t, body, tt.bodyKey)
+		})
+	}
 }
 
-func TestIntegration_NonAdminForbiddenAtCatalog(t *testing.T) {
-	code, _ := runWithRoles(t, []string{"user"})
-	assert.Equal(t, http.StatusForbidden, code)
+func TestIntegration_NonAdminForbiddenAtCatalogAndMCP(t *testing.T) {
+	for _, tt := range integrationRoutes() {
+		t.Run(tt.name, func(t *testing.T) {
+			code, _ := runPathWithRoles(t, tt.path, []string{"user"})
+			assert.Equal(t, http.StatusForbidden, code)
+		})
+	}
 }
 
-func TestIntegration_EmptyRolesForbiddenAtCatalog(t *testing.T) {
-	code, _ := runWithRoles(t, []string{})
-	assert.Equal(t, http.StatusForbidden, code)
+func TestIntegration_EmptyRolesForbiddenAtCatalogAndMCP(t *testing.T) {
+	for _, tt := range integrationRoutes() {
+		t.Run(tt.name, func(t *testing.T) {
+			code, _ := runPathWithRoles(t, tt.path, []string{})
+			assert.Equal(t, http.StatusForbidden, code)
+		})
+	}
 }
 
-func TestIntegration_UnauthenticatedForbiddenAtCatalog(t *testing.T) {
+func TestIntegration_UnauthenticatedForbiddenAtCatalogAndMCP(t *testing.T) {
 	mux, _, cleanup, _ := buildIntegrationStack(t, nil)
 	defer cleanup()
-	req := httptest.NewRequest("GET", "/api/system-mcp-catalogs/default/entries", nil)
-	rec := httptest.NewRecorder()
-	mux.ServeHTTP(rec, req)
-	assert.Equal(t, http.StatusForbidden, rec.Code)
+	for _, tt := range integrationRoutes() {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest("GET", tt.path, nil)
+			rec := httptest.NewRecorder()
+			mux.ServeHTTP(rec, req)
+			assert.Equal(t, http.StatusForbidden, rec.Code)
+		})
+	}
+}
+
+func integrationRoutes() []struct {
+	name    string
+	path    string
+	bodyKey string
+} {
+	return []struct {
+		name    string
+		path    string
+		bodyKey string
+	}{
+		{name: "catalog entries", path: "/api/system-mcp-catalogs/default/entries", bodyKey: "items"},
+		{name: "system mcp server", path: "/api/system-mcp-servers/test-server", bodyKey: "id"},
+		{name: "user mcp server", path: "/api/mcp-servers/test-server", bodyKey: "id"},
+	}
 }
 
 var _ authenticator.Request = (*oidcjwt.Authenticator)(nil)
