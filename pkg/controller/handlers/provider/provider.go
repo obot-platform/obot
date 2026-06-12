@@ -285,11 +285,11 @@ func (h *Handler) PollRegistries(ctx context.Context, c client.Client) {
 }
 
 func (h *Handler) EnsureOpenAIEnvCredentialAndDefaults(ctx context.Context, c client.Client) error {
-	return h.ensureModelProviderCredAndDefaults(ctx, c, OpenAIDefaultModelAliases(), system.OpenAIModelProviderTool, system.OpenAIAPIKeyEnvVar)
+	return h.ensureModelProviderCredAndDefaults(ctx, c, OpenAIDefaultModelAliases(), system.OpenAIModelProvider, system.OpenAIAPIKeyEnvVar)
 }
 
 func (h *Handler) EnsureAnthropicCredentialAndDefaults(ctx context.Context, c client.Client) error {
-	return h.ensureModelProviderCredAndDefaults(ctx, c, AnthropicDefaultModelAliases(), system.AnthropicModelProviderTool, system.AnthropicAPIKeyEnvVar)
+	return h.ensureModelProviderCredAndDefaults(ctx, c, AnthropicDefaultModelAliases(), system.AnthropicModelProvider, system.AnthropicAPIKeyEnvVar)
 }
 
 func (h *Handler) ensureModelProviderCredAndDefaults(ctx context.Context, c client.Client, defaultModelAliasMapping map[types.DefaultModelAliasType]string, modelProviderName, envVarName string) error {

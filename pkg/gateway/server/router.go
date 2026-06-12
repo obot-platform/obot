@@ -62,8 +62,8 @@ func (s *Server) AddRoutes(mux *server.Server) {
 	mux.HandleFunc("/api/oauth/redirect/{namespace}/{name}", wrap(s.redirect))
 
 	// LLM proxy
-	mux.HandleFunc("/api/llm-proxy/openai/{path...}", s.newLLMProviderProxy(mustParseURL(openAIBaseURL), system.OpenAIModelProviderTool).proxy)
-	mux.HandleFunc("/api/llm-proxy/anthropic/{path...}", s.newLLMProviderProxy(mustParseURL(anthropicBaseURL), system.AnthropicModelProviderTool).proxy)
+	mux.HandleFunc("/api/llm-proxy/openai/{path...}", s.newLLMProviderProxy(mustParseURL(openAIBaseURL), system.OpenAIModelProvider).proxy)
+	mux.HandleFunc("/api/llm-proxy/anthropic/{path...}", s.newLLMProviderProxy(mustParseURL(anthropicBaseURL), system.AnthropicModelProvider).proxy)
 	mux.HandleFunc("/api/llm-proxy/{path...}", s.dispatchLLMProxy)
 
 	// API Keys for MCP server access - user's own keys
