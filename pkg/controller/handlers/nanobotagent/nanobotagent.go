@@ -418,9 +418,9 @@ func (h *Handler) parseModelProvider(model resolvedLLMModel) (nanobotLLMProvider
 	if dialect == "" {
 		// No declared dialect — fall back to per-provider defaults.
 		switch model.ModelProvider {
-		case system.AnthropicModelProviderTool:
+		case system.AnthropicModelProvider:
 			dialect = nanobottypes.DialectAnthropicMessages
-		case system.OpenAIModelProviderTool:
+		case system.OpenAIModelProvider:
 			dialect = nanobottypes.DialectOpenAIResponses
 		default:
 			dialect = nanobottypes.DialectOpenResponses
