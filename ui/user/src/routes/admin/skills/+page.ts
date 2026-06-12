@@ -11,8 +11,8 @@ export const load: PageLoad = async ({ fetch, parent }) => {
 	let showLicenseError = false;
 
 	try {
-		skillRepositories = await AdminService.listSkillRepositories({ fetch });
-		skills = await AdminService.listAllSkills({ fetch });
+		skillRepositories = await AdminService.listSkillRepositories({ fetch, dontLogErrors: true });
+		skills = await AdminService.listAllSkills({ fetch, dontLogErrors: true });
 	} catch (err) {
 		if (err instanceof HttpError && err.statusCode === 402) {
 			skills = [];
