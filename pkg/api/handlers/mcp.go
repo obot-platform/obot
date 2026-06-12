@@ -13,6 +13,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	nahbackend "github.com/obot-platform/nah/pkg/backend"
 	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
@@ -46,6 +47,7 @@ type MCPHandler struct {
 	mcpSessionManager   *mcp.SessionManager
 	mcpOAuthChecker     MCPOAuthChecker
 	acrHelper           *accesscontrolrule.Helper
+	controllerBackend   nahbackend.Trigger
 	mcpImagePullSecrets []string
 	serverURL           string
 
@@ -53,11 +55,12 @@ type MCPHandler struct {
 	shutdownMCPServer func(string) error
 }
 
-func NewMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.Helper, mcpOAuthChecker MCPOAuthChecker, mcpImagePullSecrets []string, serverURL string) *MCPHandler {
+func NewMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.Helper, mcpOAuthChecker MCPOAuthChecker, controllerBackend nahbackend.Trigger, mcpImagePullSecrets []string, serverURL string) *MCPHandler {
 	return &MCPHandler{
 		mcpSessionManager:   mcpLoader,
 		mcpOAuthChecker:     mcpOAuthChecker,
 		acrHelper:           acrHelper,
+		controllerBackend:   controllerBackend,
 		mcpImagePullSecrets: mcpImagePullSecrets,
 		serverURL:           serverURL,
 	}
@@ -2078,7 +2081,7 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 	}); err != nil {
 		return fmt.Errorf("failed to create credential: %w", err)
 	}
-	if err := kickMCPServerControllers(req, &mcpServer); err != nil {
+	if err := m.triggerMCPServerControllers(req.Context(), mcpServer.Name); err != nil {
 		return fmt.Errorf("failed to trigger MCP server reconciliation: %w", err)
 	}
 
@@ -2258,7 +2261,7 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 	}
 	for id := range componentCreds {
 		if server, ok := existingServers[id]; ok {
-			if err := kickMCPServerControllers(req, &server); err != nil {
+			if err := m.triggerMCPServerControllers(req.Context(), server.Name); err != nil {
 				return fmt.Errorf("failed to trigger component MCP server reconciliation: %w", err)
 			}
 		}
@@ -2297,17 +2300,11 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 	return req.Write(ConvertMCPServer(compositeServer, mergedEnv, m.serverURL, slug, components...))
 }
 
-func kickMCPServerControllers(req api.Context, server *v1.MCPServer) error {
-	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		if err := req.Get(server, server.Name); err != nil {
-			return err
-		}
-		if server.Annotations == nil {
-			server.Annotations = make(map[string]string, 1)
-		}
-		server.Annotations["obot.obot.ai/configured-at"] = metav1.Now().Format(time.RFC3339)
-		return req.Update(server)
-	})
+func (m *MCPHandler) triggerMCPServerControllers(ctx context.Context, serverName string) error {
+	if m.controllerBackend == nil {
+		return fmt.Errorf("MCP server controller backend is not configured")
+	}
+	return m.controllerBackend.Trigger(ctx, v1.SchemeGroupVersion.WithKind("MCPServer"), serverName, 0)
 }
 
 func sanitizeConfig(config map[string]string, manifest types.MCPServerManifest) {
@@ -3225,6 +3222,10 @@ func (m *MCPHandler) ClearOAuthCredentials(req api.Context) error {
 		if err := req.GatewayClient.DeleteMCPOAuthTokenForURL(req.Context(), req.User.GetUID(), server.Name, server.Spec.Manifest.RemoteConfig.URL); err != nil {
 			return fmt.Errorf("failed to delete OAuth credentials: %v", err)
 		}
+	}
+
+	if err := m.triggerMCPServerControllers(req.Context(), server.Name); err != nil {
+		return fmt.Errorf("failed to trigger MCP server reconciliation: %w", err)
 	}
 
 	req.WriteHeader(http.StatusNoContent)

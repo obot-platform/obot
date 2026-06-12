@@ -79,28 +79,38 @@ func (c *Client) ReplaceMCPOAuthToken(ctx context.Context, userID, mcpID, url, o
 		return fmt.Errorf("failed to encrypt token: %w", err)
 	}
 
-	return c.db.WithContext(ctx).Save(t).Error
+	if err := c.db.WithContext(ctx).Save(t).Error; err != nil {
+		return err
+	}
+	return c.triggerMCPOAuthTokenChange(ctx, mcpID)
 }
 
 func (c *Client) DeleteMCPOAuthTokenForURL(ctx context.Context, userID, mcpID, mcpURL string) error {
 	if err := c.db.WithContext(ctx).Delete(&types.MCPOAuthToken{}, "user_id = ? AND mcp_id = ? AND (url = ? OR url = ?)", userID, mcpID, mcpURL, "").Error; !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
-	return nil
+	return c.triggerMCPOAuthTokenChange(ctx, mcpID)
 }
 
 func (c *Client) DeleteMCPOAuthTokens(ctx context.Context, userID, mcpID string) error {
 	if err := c.db.WithContext(ctx).Delete(&types.MCPOAuthToken{}, "user_id = ? AND mcp_id = ?", userID, mcpID).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
-	return nil
+	return c.triggerMCPOAuthTokenChange(ctx, mcpID)
 }
 
 func (c *Client) DeleteMCPOAuthTokenForAllUsers(ctx context.Context, mcpID string) error {
 	if err := c.db.WithContext(ctx).Delete(&types.MCPOAuthToken{}, "mcp_id = ?", mcpID).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
-	return nil
+	return c.triggerMCPOAuthTokenChange(ctx, mcpID)
+}
+
+func (c *Client) triggerMCPOAuthTokenChange(ctx context.Context, mcpID string) error {
+	if mcpID == "" {
+		return nil
+	}
+	return c.mcpOAuthTokenTrigger(ctx, mcpID)
 }
 
 // Pending state methods

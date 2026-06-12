@@ -37,6 +37,7 @@ const oauthMetadataSyncInterval = time.Hour
 type Handler struct {
 	gatewayClient                *gateway.Client
 	mcpSessionManager            *mcp.SessionManager
+	tokenStore                   mcp.GlobalTokenStore
 	networkPolicyProviderEnabled bool
 	defaultDenyAllEgress         bool
 	singleUserIdleShutdownDelay  time.Duration
@@ -54,10 +55,11 @@ func effectiveDenyAllEgress(v *bool, domains []string, defaultWhenEmpty bool) bo
 	return defaultWhenEmpty && len(domains) == 0
 }
 
-func New(gatewayClient *gateway.Client, mcpSessionManager *mcp.SessionManager, networkPolicyProviderEnabled, defaultDenyAllEgress bool, singleUserIdleShutdownDelay, multiUserIdleShutdownDelay, agentIdleShutdownDelay time.Duration, baseURL string, mcpRuntimeBackend string, mcpImagePullSecrets []string) *Handler {
+func New(gatewayClient *gateway.Client, mcpSessionManager *mcp.SessionManager, tokenStore mcp.GlobalTokenStore, networkPolicyProviderEnabled, defaultDenyAllEgress bool, singleUserIdleShutdownDelay, multiUserIdleShutdownDelay, agentIdleShutdownDelay time.Duration, baseURL string, mcpRuntimeBackend string, mcpImagePullSecrets []string) *Handler {
 	return &Handler{
 		gatewayClient:                gatewayClient,
 		mcpSessionManager:            mcpSessionManager,
+		tokenStore:                   tokenStore,
 		networkPolicyProviderEnabled: networkPolicyProviderEnabled,
 		defaultDenyAllEgress:         defaultDenyAllEgress,
 		singleUserIdleShutdownDelay:  singleUserIdleShutdownDelay,
@@ -965,6 +967,25 @@ func (h *Handler) SyncOAuthMetadata(req router.Request, _ router.Response) error
 
 	syncTime := metav1.Now()
 	return setOAuthMetadata(req, server, statusMetadata, &syncTime)
+}
+
+func (h *Handler) SyncThirdPartyAuthStatus(req router.Request, _ router.Response) error {
+	server := req.Object.(*v1.MCPServer)
+	if server.Spec.Manifest.Runtime != types.RuntimeRemote || server.Spec.Manifest.RemoteConfig == nil {
+		return nil
+	}
+
+	token, err := h.gatewayClient.GetMCPOAuthToken(req.Ctx, server.Spec.UserID, server.Name, server.Spec.Manifest.RemoteConfig.URL)
+	if err != nil {
+		return err
+	}
+
+	if hasAuthed := (token != nil && token.AccessToken != ""); server.Status.UserHasAuthenticated != hasAuthed {
+		server.Status.UserHasAuthenticated = hasAuthed
+		return req.Client.Status().Update(req.Ctx, server)
+	}
+
+	return nil
 }
 
 func shouldSyncOAuthMetadata(server *v1.MCPServer, now time.Time) bool {
