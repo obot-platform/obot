@@ -78,6 +78,10 @@ func (c *Controller) PreStart(ctx context.Context) error {
 		return fmt.Errorf("failed to migrate published artifact visibility: %w", err)
 	}
 
+	if err := deleteToolReferenceOwnedModels(ctx, c.services.StorageClient); err != nil {
+		return fmt.Errorf("failed to delete ToolReference-owned models: %w", err)
+	}
+
 	if err := migrateMultiUserMCPServerManifestValuesToCredentials(ctx, c.services.StorageClient, c.services.GatewayClient); err != nil {
 		return fmt.Errorf("failed to migrate MCP server manifest values to credentials: %w", err)
 	}

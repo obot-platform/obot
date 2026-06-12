@@ -10,7 +10,9 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	ktypes "k8s.io/apimachinery/pkg/types"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -125,6 +127,76 @@ func TestMigratePublishedArtifactVisibility(t *testing.T) {
 		}, &publicArtifact))
 		assert.Empty(t, publicArtifact.Status.Versions[0].Subjects)
 	})
+}
+
+func TestDeleteToolReferenceOwnedModels(t *testing.T) {
+	ctx := context.Background()
+	client := newFakeClient(t,
+		&v1.Model{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: v1.SchemeGroupVersion.String(),
+				Kind:       "Model",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "tool-reference-owned",
+				Namespace: system.DefaultNamespace,
+				OwnerReferences: []metav1.OwnerReference{
+					{
+						APIVersion: v1.SchemeGroupVersion.String(),
+						Kind:       "ToolReference",
+						Name:       "tool",
+						UID:        ktypes.UID("tool-uid"),
+					},
+				},
+			},
+		},
+		&v1.Model{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: v1.SchemeGroupVersion.String(),
+				Kind:       "Model",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "model-provider-owned",
+				Namespace: system.DefaultNamespace,
+				OwnerReferences: []metav1.OwnerReference{
+					{
+						APIVersion: v1.SchemeGroupVersion.String(),
+						Kind:       "ModelProvider",
+						Name:       "provider",
+						UID:        ktypes.UID("provider-uid"),
+					},
+				},
+			},
+		},
+		&v1.Model{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: v1.SchemeGroupVersion.String(),
+				Kind:       "Model",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "unowned",
+				Namespace: system.DefaultNamespace,
+			},
+		},
+	)
+
+	require.NoError(t, deleteToolReferenceOwnedModels(ctx, client))
+
+	var model v1.Model
+	err := client.Get(ctx, kclient.ObjectKey{
+		Namespace: system.DefaultNamespace,
+		Name:      "tool-reference-owned",
+	}, &model)
+	require.True(t, apierrors.IsNotFound(err))
+
+	require.NoError(t, client.Get(ctx, kclient.ObjectKey{
+		Namespace: system.DefaultNamespace,
+		Name:      "model-provider-owned",
+	}, &model))
+	require.NoError(t, client.Get(ctx, kclient.ObjectKey{
+		Namespace: system.DefaultNamespace,
+		Name:      "unowned",
+	}, &model))
 }
 
 func TestExtractAndClearMCPServerConfigValues(t *testing.T) {
