@@ -240,15 +240,12 @@ func (b *Bootstrap) Logout(req api.Context) error {
 }
 
 func (b *Bootstrap) IsEnabled(req api.Context) error {
-	bootstrapEnabled, err := b.Enabled(req.Context())
-	if err != nil {
-		return err
-	}
-
 	setupEnabled, err := b.SetupEnabled(req.Context())
 	if err != nil {
 		return err
 	}
+
+	bootstrapEnabled := setupEnabled || (b.authEnabled && b.forceEnableBootstrap)
 
 	return req.Write(map[string]bool{
 		"enabled":      bootstrapEnabled,
