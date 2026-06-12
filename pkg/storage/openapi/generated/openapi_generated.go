@@ -771,7 +771,8 @@ func schema_obot_platform_obot_apiclient_types_AuditEvent(ref common.ReferenceCa
 					},
 					"receivedAt": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+							Description: "ReceivedAt and UserID are assigned by the server on ingestion; client-provided values are ignored.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Time"),
 						},
 					},
 					"userID": {

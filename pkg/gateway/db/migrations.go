@@ -266,6 +266,7 @@ func migrateGenericAuditLogFields(tx *gorm.DB) error {
 
 	// Mirrors types.OutcomeForResult.
 	if err := tx.Exec(`UPDATE mcp_audit_logs SET outcome = CASE
+			WHEN (error IS NULL OR error = '') AND response_status = 0 THEN ''
 			WHEN (error IS NULL OR error = '') AND response_status < 400 THEN ?
 			ELSE ?
 		END
