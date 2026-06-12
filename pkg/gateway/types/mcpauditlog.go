@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+	"unicode/utf8"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"gorm.io/datatypes"
@@ -26,6 +27,18 @@ const (
 // maxErrorSummaryBytes caps the plaintext, searchable Error column for events
 // that carry a full error payload in the encrypted ErrorDetail field.
 const maxErrorSummaryBytes = 1024
+
+func truncateUTF8ByBytes(s string, maxBytes int) string {
+	if len(s) <= maxBytes {
+		return s
+	}
+
+	for maxBytes > 0 && !utf8.ValidString(s[:maxBytes]) {
+		maxBytes--
+	}
+
+	return s[:maxBytes]
+}
 
 // MCPAuditLog represents an audit log entry. Despite the name (kept for
 // storage compatibility), it stores generic audit events distinguished by
@@ -295,7 +308,7 @@ func MCPAuditLogFromAuditEvent(e types2.AuditEvent) (MCPAuditLog, error) {
 	// the full text in the encrypted ErrorDetail field.
 	log.Error = e.Error
 	if len(e.Error) > maxErrorSummaryBytes {
-		log.Error = e.Error[:maxErrorSummaryBytes]
+		log.Error = truncateUTF8ByBytes(e.Error, maxErrorSummaryBytes)
 		log.ErrorDetail = e.Error
 	}
 

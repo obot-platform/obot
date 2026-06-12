@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
 )
@@ -92,6 +93,38 @@ func TestAuditEventErrorSummaryTruncation(t *testing.T) {
 
 	if len(log.Error) != maxErrorSummaryBytes {
 		t.Errorf("Error summary length = %d, want %d", len(log.Error), maxErrorSummaryBytes)
+	}
+	if log.ErrorDetail != fullError {
+		t.Errorf("ErrorDetail must hold the full error text")
+	}
+
+	if got := ConvertAuditEvent(log); got.Error != fullError {
+		t.Errorf("converted event must surface the full error, got %d bytes", len(got.Error))
+	}
+}
+
+func TestAuditEventErrorSummaryTruncationPreservesUTF8(t *testing.T) {
+	fullError := strings.Repeat("x", maxErrorSummaryBytes-1) + "€" + "tail"
+
+	event := types2.AuditEvent{
+		EventID:    "evt-3",
+		SourceType: types2.AuditLogSourceTypeLocalAgent,
+		EventType:  types2.AuditLogEventTypeToolCall,
+		CreatedAt:  *types2.NewTime(time.Date(2026, 6, 11, 12, 0, 0, 0, time.UTC)),
+		Outcome:    types2.AuditLogOutcomeError,
+		Error:      fullError,
+	}
+
+	log, err := MCPAuditLogFromAuditEvent(event)
+	if err != nil {
+		t.Fatalf("MCPAuditLogFromAuditEvent() error: %v", err)
+	}
+
+	if !utf8.ValidString(log.Error) {
+		t.Fatalf("Error summary must remain valid UTF-8")
+	}
+	if len(log.Error) != maxErrorSummaryBytes-1 {
+		t.Errorf("Error summary length = %d, want %d", len(log.Error), maxErrorSummaryBytes-1)
 	}
 	if log.ErrorDetail != fullError {
 		t.Errorf("ErrorDetail must hold the full error text")
