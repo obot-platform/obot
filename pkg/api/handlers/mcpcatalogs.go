@@ -315,7 +315,7 @@ func (h *MCPCatalogHandler) CreateEntry(req api.Context) error {
 			return err
 		}
 	}
-	if err := validation.ValidateCatalogEntryManifest(manifest); err != nil {
+	if err := validation.ValidateCatalogEntryManifest(req.Context(), manifest, validationOptions(h.sessionManager.RemoteMCPURLValidationConfig())); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
 	// UI-created catalog entries are never git-managed, so secretBinding is forbidden.
@@ -393,7 +393,7 @@ func (h *MCPCatalogHandler) UpdateEntry(req api.Context) error {
 	if manifest.ServerUserType == "" {
 		manifest.ServerUserType = types.ServerUserTypeSingleUser
 	}
-	if err := validation.ValidateCatalogEntryManifest(manifest); err != nil {
+	if err := validation.ValidateCatalogEntryManifest(req.Context(), manifest, validationOptions(h.sessionManager.RemoteMCPURLValidationConfig())); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
 	// UI-updated catalog entries are never git-managed at this call site. The
@@ -1731,7 +1731,7 @@ func (h *MCPCatalogHandler) RefreshCompositeComponents(req api.Context) error {
 	}
 
 	// Validate the refreshed manifest to ensure it's still valid
-	if err := validation.ValidateCatalogEntryManifest(entry.Spec.Manifest); err != nil {
+	if err := validation.ValidateCatalogEntryManifest(req.Context(), entry.Spec.Manifest, validationOptions(h.sessionManager.RemoteMCPURLValidationConfig())); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
 	// Preserve the git-managed status of the original entry when re-validating.

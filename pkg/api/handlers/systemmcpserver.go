@@ -76,7 +76,7 @@ func (h *SystemMCPServerHandler) Create(req api.Context) error {
 		return types.NewErrBadRequest("invalid request body: %v", err)
 	}
 	// Validate manifest
-	if err := validation.ValidateSystemMCPServerManifest(manifest); err != nil {
+	if err := validation.ValidateSystemMCPServerManifest(req.Context(), manifest, validationOptions(h.mcpSessionManager.RemoteMCPURLValidationConfig())); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 
@@ -105,7 +105,7 @@ func (h *SystemMCPServerHandler) Update(req api.Context) error {
 		return types.NewErrBadRequest("invalid request body: %v", err)
 	}
 	// Validate manifest
-	if err := validation.ValidateSystemMCPServerManifest(manifest); err != nil {
+	if err := validation.ValidateSystemMCPServerManifest(req.Context(), manifest, validationOptions(h.mcpSessionManager.RemoteMCPURLValidationConfig())); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 

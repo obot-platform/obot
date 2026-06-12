@@ -63,6 +63,12 @@ func NewMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.H
 	}
 }
 
+func validationOptions(remoteValidationConfig mcp.RemoteMCPURLValidationConfig) validation.Options {
+	return validation.Options{
+		RemoteMCPURLValidationConfig: remoteValidationConfig,
+	}
+}
+
 func (m *MCPHandler) currentImagePullSecretNames(req api.Context) ([]string, error) {
 	return mcp.CurrentImagePullSecretNames(req.Context(), req.Storage, m.mcpSessionManager.MCPRuntimeBackend(), m.mcpImagePullSecrets)
 }
@@ -1796,7 +1802,7 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 		return types.NewErrBadRequest("catalogEntryID is required")
 	}
 
-	if err := validation.ValidateServerManifest(server.Spec.Manifest, !server.Spec.IsSingleUser()); err != nil {
+	if err := validation.ValidateServerManifest(req.Context(), server.Spec.Manifest, !server.Spec.IsSingleUser(), validationOptions(m.mcpSessionManager.RemoteMCPURLValidationConfig())); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 	if err := validation.ValidateSecretBindings(server.Spec.Manifest, gitManagedEntry, m.mcpSessionManager.MCPRuntimeBackend()); err != nil {
@@ -1898,7 +1904,7 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 		return err
 	}
 
-	if err := validation.ValidateServerManifest(updated, !existing.Spec.IsSingleUser()); err != nil {
+	if err := validation.ValidateServerManifest(req.Context(), updated, !existing.Spec.IsSingleUser(), validationOptions(m.mcpSessionManager.RemoteMCPURLValidationConfig())); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 
@@ -2044,7 +2050,7 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 			}
 			mcpServer.Spec.Manifest.RemoteConfig.URL = finalURL
 
-			if err := validation.ValidateServerManifest(mcpServer.Spec.Manifest, !mcpServer.Spec.IsSingleUser()); err != nil {
+			if err := validation.ValidateServerManifest(req.Context(), mcpServer.Spec.Manifest, !mcpServer.Spec.IsSingleUser(), validationOptions(m.mcpSessionManager.RemoteMCPURLValidationConfig())); err != nil {
 				return types.NewErrBadRequest("validation failed: %v", err)
 			}
 
@@ -2201,7 +2207,7 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 				if remoteConfig.URL != originalURL {
 					// Capture and validate the changes
 					component.Manifest.RemoteConfig = remoteConfig
-					if err := validation.ValidateServerManifest(component.Manifest, false); err != nil {
+					if err := validation.ValidateServerManifest(req.Context(), component.Manifest, false, validationOptions(m.mcpSessionManager.RemoteMCPURLValidationConfig())); err != nil {
 						return fmt.Errorf("failed to validate server manifest %w", err)
 					}
 
@@ -3805,7 +3811,7 @@ func (m *MCPHandler) UpdateURL(req api.Context) error {
 	mcpServer.Spec.NeedsURL = false
 	mcpServer.Spec.PreviousURL = ""
 
-	if err := validation.ValidateServerManifest(mcpServer.Spec.Manifest, !mcpServer.Spec.IsSingleUser()); err != nil {
+	if err := validation.ValidateServerManifest(req.Context(), mcpServer.Spec.Manifest, !mcpServer.Spec.IsSingleUser(), validationOptions(m.mcpSessionManager.RemoteMCPURLValidationConfig())); err != nil {
 		return err
 	}
 
