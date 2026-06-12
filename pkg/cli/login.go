@@ -4,16 +4,20 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/obot-platform/obot/apiclient"
 	"github.com/obot-platform/obot/pkg/cli/internal/localconfig"
 	"github.com/spf13/cobra"
 )
 
 type Login struct {
-	NoExpiration bool   `usage:"Set the token to never expire"`
-	ForceRefresh bool   `usage:"Force refresh the token even if a valid one is cached"`
-	PrintToken   bool   `usage:"Print the token to stdout after logging in"`
-	URL          string `usage:"Obot app URL to authenticate against"`
-	root         *Obot
+	TokenName        string   `usage:"Name of the token for identification" default:"CLI token"`
+	TokenDescription string   `usage:"Optional description of the token"`
+	NoExpiration     bool     `usage:"Set the token to never expire"`
+	ForceRefresh     bool     `usage:"Force refresh the token even if a valid one is cached"`
+	Scopes           []string `usage:"Scopes to request for this token, valid values are llm, api, all-mcp, skills" name:"scope" default:"api"`
+	PrintToken       bool     `usage:"Print the token to stdout after logging in"`
+	URL              string   `usage:"Obot app URL to authenticate against"`
+	root             *Obot
 }
 
 func (l *Login) Customize(cmd *cobra.Command) {
@@ -31,7 +35,13 @@ func (l *Login) Run(cmd *cobra.Command, _ []string) error {
 		l.root.Client.BaseURL = localconfig.APIBaseURL(appURL)
 	}
 
-	token, err := l.root.Client.GetToken(cmd.Context(), l.NoExpiration, l.ForceRefresh)
+	token, err := l.root.Client.GetToken(cmd.Context(), apiclient.TokenFetchOptions{
+		Name:         l.TokenName,
+		Description:  l.TokenDescription,
+		NoExpiration: l.NoExpiration,
+		ForceRefresh: l.ForceRefresh,
+		Scopes:       l.Scopes,
+	})
 	if err != nil {
 		return err
 	}

@@ -60,16 +60,9 @@ func init() {
 }
 
 func (s *Server) dispatchLLMProxy(req api.Context) error {
-	token, err := s.tokenService.DecodeToken(req.Context(), strings.TrimPrefix(req.Request.Header.Get("Authorization"), "Bearer "))
-	if err != nil {
-		return types2.NewErrHTTP(http.StatusUnauthorized, fmt.Sprintf("invalid token: %v", err))
-	}
-
 	var (
 		credEnv       map[string]string
 		personalToken bool
-		model         = token.Model
-		modelProvider = token.ModelProvider
 	)
 
 	body, err := readBody(req.Request)
@@ -82,58 +75,47 @@ func (s *Server) dispatchLLMProxy(req api.Context) error {
 		return fmt.Errorf("missing model in body")
 	}
 
-	// If the model string is different from the model, then we need to look up the model in our database to get the
-	// correct model and model provider information.
-	var modelID string
-	if modelProvider == "" || modelStr != token.Model {
-		// First, check that the user has token usage available for this request.
-		if token.UserID != "" {
-			remainingUsage, err := req.GatewayClient.RemainingTokenUsageForUser(req.Context(), token.UserID, tokenUsageTimePeriod, s.dailyUserTokenPromptTokenLimit, s.dailyUserTokenCompletionTokenLimit)
-			if err != nil {
-				return err
-			} else if !remainingUsage.UnlimitedPromptTokens && remainingUsage.PromptTokens <= 0 || !remainingUsage.UnlimitedCompletionTokens && remainingUsage.CompletionTokens <= 0 {
-				return types2.NewErrHTTP(http.StatusTooManyRequests, fmt.Sprintf("no tokens remaining (prompt tokens remaining: %d, completion tokens remaining: %d)", remainingUsage.PromptTokens, remainingUsage.CompletionTokens))
-			}
-		}
+	userID := req.User.GetUID()
 
-		m, err := getModelFromReference(req.Context(), req.Storage, token.Namespace, modelStr)
-		if err != nil {
-			return fmt.Errorf("failed to get model: %w", err)
-		}
-
-		modelID = m.Name
-		modelProvider = m.Spec.Manifest.ModelProvider
-		model = m.Spec.Manifest.TargetModel
+	remainingUsage, err := req.GatewayClient.RemainingTokenUsageForUser(req.Context(), userID, tokenUsageTimePeriod, s.dailyUserTokenPromptTokenLimit, s.dailyUserTokenCompletionTokenLimit)
+	if err != nil {
+		return err
+	} else if !remainingUsage.UnlimitedPromptTokens && remainingUsage.PromptTokens <= 0 || !remainingUsage.UnlimitedCompletionTokens && remainingUsage.CompletionTokens <= 0 {
+		return types2.NewErrHTTP(http.StatusTooManyRequests, fmt.Sprintf("no tokens remaining (prompt tokens remaining: %d, completion tokens remaining: %d)", remainingUsage.PromptTokens, remainingUsage.CompletionTokens))
 	}
 
+	m, err := getModelFromReference(req.Context(), req.Storage, req.Namespace(), modelStr)
+	if err != nil {
+		return fmt.Errorf("failed to get model: %w", err)
+	}
+
+	modelID := m.Name
+	modelProvider := m.Spec.Manifest.ModelProvider
+	model := m.Spec.Manifest.TargetModel
+
 	// Fetch auth provider groups once for all checks that need them.
-	var authProviderGroups []string
-	if token.UserID != "" {
-		userIDInt, err := strconv.ParseUint(token.UserID, 10, 64)
-		if err != nil {
-			return fmt.Errorf("failed to parse user ID: %w", err)
-		}
-		authProviderGroups, err = req.GatewayClient.ListGroupIDsForUser(req.Context(), uint(userIDInt))
-		if err != nil {
-			return fmt.Errorf("failed to get user groups: %w", err)
-		}
+	userIDInt, err := strconv.ParseUint(userID, 10, 64)
+	if err != nil {
+		return fmt.Errorf("failed to parse user ID: %w", err)
+	}
+	authProviderGroups, err := req.GatewayClient.ListGroupIDsForUser(req.Context(), uint(userIDInt))
+	if err != nil {
+		return fmt.Errorf("failed to get user groups: %w", err)
 	}
 
 	// Check if the user has permission to use this model
-	if modelID != "" && token.UserID != "" {
-		hasAccess, err := s.mapHelper.UserHasAccessToModel(&user.DefaultInfo{
-			UID:    token.UserID,
-			Groups: token.UserGroups,
-			Extra: map[string][]string{
-				"auth_provider_groups": authProviderGroups,
-			},
-		}, modelID)
-		if err != nil {
-			return fmt.Errorf("failed to check model permission: %w", err)
-		}
-		if !hasAccess {
-			return types2.NewErrForbidden("user does not have permission to use model %q (%s)", model, modelID)
-		}
+	hasAccess, err := s.mapHelper.UserHasAccessToModel(&user.DefaultInfo{
+		UID:    userID,
+		Groups: req.User.GetGroups(),
+		Extra: map[string][]string{
+			"auth_provider_groups": authProviderGroups,
+		},
+	}, modelID)
+	if err != nil {
+		return fmt.Errorf("failed to check model permission: %w", err)
+	}
+	if !hasAccess {
+		return types2.NewErrForbidden("user does not have permission to use model %q (%s)", model, modelID)
 	}
 
 	body["model"] = model
@@ -148,10 +130,10 @@ func (s *Server) dispatchLLMProxy(req api.Context) error {
 	if shouldSkipMessagePolicyEnforcement(req.Request) {
 		messagePolicyHelper = nil
 	}
-	if messagePolicyHelper != nil && token.UserID != "" {
+	if messagePolicyHelper != nil {
 		userInfo := &user.DefaultInfo{
-			UID:    token.UserID,
-			Groups: token.UserGroups,
+			UID:    userID,
+			Groups: req.User.GetGroups(),
 			Extra: map[string][]string{
 				"auth_provider_groups": authProviderGroups,
 			},
@@ -172,13 +154,13 @@ func (s *Server) dispatchLLMProxy(req api.Context) error {
 	req.Request.Body = io.NopCloser(bytes.NewReader(b))
 	req.ContentLength = int64(len(b))
 
-	u, err := s.dispatcher.URLForModelProvider(req.Context(), token.Namespace, modelProvider)
+	u, err := s.dispatcher.URLForModelProvider(req.Context(), req.Namespace(), modelProvider)
 	if err != nil {
 		return fmt.Errorf("failed to get model provider: %w", err)
 	}
 
 	if err = s.db.WithContext(req.Context()).Create(&types.LLMProxyActivity{
-		UserID: token.UserID,
+		UserID: userID,
 		Path:   req.URL.Path,
 	}).Error; err != nil {
 		return fmt.Errorf("failed to create monitor: %w", err)
@@ -187,7 +169,7 @@ func (s *Server) dispatchLLMProxy(req api.Context) error {
 	(&httputil.ReverseProxy{
 		Director: llmTransformRequest(u, credEnv),
 		ModifyResponse: (&responseModifier{
-			userID:                 token.UserID,
+			userID:                 userID,
 			model:                  model,
 			client:                 req.GatewayClient,
 			personalToken:          personalToken,

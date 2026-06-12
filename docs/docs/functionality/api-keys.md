@@ -4,16 +4,17 @@ title: API Keys
 
 # API Keys
 
-API Keys provide programmatic access to MCP servers through external MCP clients. Instead of using interactive browser-based OAuth authentication, you can create API keys to authenticate requests from scripts, automation tools, or other applications.
+API Keys provide programmatic access to Obot from scripts, automation tools, external MCP clients, and compatible LLM clients. Instead of using interactive browser-based OAuth authentication, you can create API keys with only the capabilities each integration needs.
 
 ## Overview
 
-API keys are designed for machine-to-machine communication with MCP servers. Each key:
+API keys are designed for machine-to-machine access to Obot. Each key:
 
 - Belongs to a specific user
-- Is scoped to specific MCP servers (or all servers)
+- Can be scoped to specific MCP servers (or all servers)
+- Can include optional capabilities for Obot API access, LLM proxy access, and skill access
 - Can have an optional expiration date
-- Provides access only to MCP server connections (not the full Obot API)
+- Is still limited by the owning user's permissions and access policies
 
 API keys use the format `ok1-<userId>-<keyId>-<secret>` and are passed as Bearer tokens in the Authorization header.
 
@@ -27,26 +28,36 @@ API keys use the format `ok1-<userId>-<keyId>-<secret>` and are passed as Bearer
    - **Name** (required): A descriptive name to identify the key's purpose
    - **Description** (optional): Additional context about what the key is used for
    - **Expiration Date** (optional): When the key should automatically expire. Keys without an expiration date remain valid until deleted.
-   - **MCP Servers** (required): Select which MCP servers this key can access. You can:
+   - **Optional Capabilities**: Select any non-MCP capabilities this key needs:
+     - **API access**: Access the Obot API using your user role permissions
+     - **LLM proxy access**: Call LLM proxy endpoints
+     - **Skill access**: Discover and download skills
+   - **MCP Servers**: Select which MCP servers this key can access. You can:
      - Select **All MCP Servers** to grant access to all servers you currently have access to, including any servers you gain access to in the future
      - Select individual servers to restrict the key to only those specific servers
+     - Leave this empty when you are creating a capability-only key
 5. Click **Create API Key**
 
 After creation, you'll see a dialog displaying the full API key. **Copy and save this key immediately** - it will only be shown once and cannot be retrieved later.
 
 ## Using an API Key
 
-Include the API key in the Authorization header when connecting to MCP servers:
+Include the API key in the Authorization header when connecting to MCP servers or Obot API endpoints:
 
 ```bash
 Authorization: Bearer ok1-123-456-abcdefghijklmnopqrstuvwxyz
 ```
 
-API keys only grant access to:
-- MCP server connections via the `/mcp-connect/` endpoints
-- The `/api/me` endpoint to verify authentication
+API keys can grant access to:
 
-They cannot be used to access other Obot API endpoints.
+| Capability | Access granted |
+|------------|----------------|
+| Selected MCP servers | MCP server connections via the `/mcp-connect/` endpoints |
+| API access | Obot API endpoints allowed by your user role |
+| LLM proxy access | LLM proxy endpoints such as `/api/llm-proxy/openai` and `/api/llm-proxy/anthropic` |
+| Skill access | Skill discovery and downloads |
+
+All keys can use `/api/me` to verify authentication.
 
 ### Testing an API Key
 
@@ -169,6 +180,7 @@ Navigate to **Profile > API Keys** to see all your API keys. The table displays:
 |--------|-------------|
 | Name | The key's descriptive name |
 | Description | Additional context about the key |
+| Capabilities | Non-MCP capabilities enabled for the key |
 | Servers | Number of MCP servers the key can access |
 | Created | When the key was created |
 | Last Used | When the key was last used for authentication |
@@ -191,6 +203,34 @@ When you create an API key with specific MCP servers, the key can only connect t
 - Any servers you gain access to in the future
 
 Access is still subject to your user permissions. If you lose access to an MCP server (for example, if it's removed from a registry you have access to), the API key will no longer be able to connect to that server, even if it was explicitly included when the key was created.
+
+MCP server access is independent from the optional capabilities. For example, you can create an API key that only connects to MCP servers, a key that only calls the LLM proxy, or a key that combines MCP server access with other capabilities.
+
+## Creating API Keys with the CLI
+
+The `obot login` command creates and stores an API key through the browser-based login flow. By default, it requests API access:
+
+```bash
+obot login --url https://obot.example.com
+```
+
+Use `--scope` to request narrower or additional capabilities:
+
+```bash
+obot login --url https://obot.example.com --scope llm --print-token
+obot login --url https://obot.example.com --scope all-mcp --scope skills --print-token
+```
+
+Valid CLI scopes are `api`, `llm`, `all-mcp`, and `skills`. You can also set a recognizable name and description for the generated key:
+
+```bash
+obot login \
+  --url https://obot.example.com \
+  --token-name "CI gateway key" \
+  --token-description "Used by nightly automation" \
+  --scope llm \
+  --print-token
+```
 
 ## Admin Management
 
@@ -216,6 +256,7 @@ Administrators can delete any user's API key:
 
 - **Use descriptive names**: Name keys based on their purpose (e.g., "CI/CD Pipeline", "Monitoring Script") to easily identify and manage them
 - **Set expiration dates**: For temporary use cases, always set an expiration date
+- **Use least privilege**: Enable only the capabilities each key needs
 - **Scope to specific servers**: When possible, limit keys to only the MCP servers they need rather than using "All MCP Servers"
 - **Rotate keys regularly**: Delete old keys and create new ones periodically
 - **Never share keys**: Each integration should have its own API key

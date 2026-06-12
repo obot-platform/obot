@@ -101,24 +101,6 @@ func (m *MCPHandler) GetEntryFromAllSources(req api.Context) error {
 		return types.NewErrNotFound("MCP catalog entry not found")
 	}
 
-	// Authorization check.
-	var (
-		hasAccess bool
-		err       error
-	)
-
-	if entry.Spec.MCPCatalogName != "" {
-		hasAccess, err = m.acrHelper.UserHasAccessToMCPServerCatalogEntryInCatalog(req.User, entry.Name, entry.Spec.MCPCatalogName)
-	} else if entry.Spec.PowerUserWorkspaceID != "" {
-		hasAccess, err = m.acrHelper.UserHasAccessToMCPServerCatalogEntryInWorkspace(req.Context(), req.User, entry.Name, entry.Spec.PowerUserWorkspaceID)
-	}
-	if err != nil {
-		return err
-	}
-	if !hasAccess {
-		return types.NewErrForbidden("user is not authorized to access this catalog entry")
-	}
-
 	return req.Write(ConvertMCPServerCatalogEntryWithWorkspace(entry, entry.Spec.PowerUserWorkspaceID, "", m.serverURL))
 }
 
@@ -3181,26 +3163,6 @@ func (m *MCPHandler) GetServerFromAllSources(req api.Context) error {
 
 	if server.Spec.IsSingleUser() {
 		return types.NewErrNotFound("MCP server not found")
-	}
-
-	// Authorization check.
-	if !req.UserIsAdmin() {
-		var (
-			hasAccess bool
-			err       error
-		)
-
-		if server.Spec.IsCatalogServer() {
-			hasAccess, err = m.acrHelper.UserHasAccessToMCPServerInCatalog(req.User, server.Name, server.Spec.MCPCatalogID)
-		} else if server.Spec.IsPowerUserWorkspaceServer() {
-			hasAccess, err = m.acrHelper.UserHasAccessToMCPServerInWorkspace(req.User, server.Name, server.Spec.PowerUserWorkspaceID, server.Spec.UserID)
-		}
-		if err != nil {
-			return err
-		}
-		if !hasAccess {
-			return types.NewErrForbidden("user is not authorized to access this MCP server")
-		}
 	}
 
 	// Get credential context based on server scoping

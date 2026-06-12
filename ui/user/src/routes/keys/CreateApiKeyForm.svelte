@@ -5,6 +5,7 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import { stripMarkdownToText } from '$lib/markdown';
 	import { ApiKeysService, type MCPCatalogServer, type APIKeyCreateResponse } from '$lib/services';
+	import { API_KEY_CAPABILITIES, type APIKeyCapabilityKey } from '$lib/services/api-keys/types';
 	import { compileAvailableMcpServers, getMCPDisplayName } from '$lib/services/user/mcp';
 	import { mcpServersAndEntries } from '$lib/stores';
 	import { Check, Server } from 'lucide-svelte';
@@ -23,7 +24,11 @@
 	let description = $state('');
 	let expiresAt = $state<Date | null>(null);
 	let selectedServerIds = new SvelteSet<string>();
-	let canAccessSkills = $state(false);
+	let capabilities = $state<Record<APIKeyCapabilityKey, boolean>>({
+		canAccessAPI: false,
+		canAccessLLMProxy: false,
+		canAccessSkills: false
+	});
 	let search = $state('');
 	let loading = $state(false);
 	let showValidation = $state(false);
@@ -36,7 +41,12 @@
 	);
 
 	let nameError = $derived(showValidation && !name.trim());
-	let serverError = $derived(showValidation && selectedServerIds.size === 0 && !canAccessSkills);
+	let hasOptionalCapability = $derived(
+		API_KEY_CAPABILITIES.some((capability) => capabilities[capability.key])
+	);
+	let serverError = $derived(
+		showValidation && selectedServerIds.size === 0 && !hasOptionalCapability
+	);
 
 	const allServersOption = {
 		id: '*',
@@ -75,7 +85,7 @@
 
 	async function handleCreate() {
 		showValidation = true;
-		if (!name.trim() || (selectedServerIds.size === 0 && !canAccessSkills)) {
+		if (!name.trim() || (selectedServerIds.size === 0 && !hasOptionalCapability)) {
 			return;
 		}
 
@@ -86,7 +96,9 @@
 				description: description.trim() || undefined,
 				expiresAt: expiresAt?.toISOString(),
 				mcpServerIds: Array.from(selectedServerIds),
-				canAccessSkills
+				canAccessAPI: capabilities.canAccessAPI,
+				canAccessLLMProxy: capabilities.canAccessLLMProxy,
+				canAccessSkills: capabilities.canAccessSkills
 			});
 			onCreate(response);
 		} finally {
@@ -148,15 +160,15 @@
 
 			<div class="flex flex-col gap-2" role="group" aria-labelledby="api-key-optional-capabilities">
 				<div id="api-key-optional-capabilities" class="input-label">Optional Capabilities</div>
-				<label class="bg-base-200 flex items-start gap-3 rounded-lg border border-base-400 p-3">
-					<input type="checkbox" bind:checked={canAccessSkills} class="mt-1" />
-					<div class="flex flex-col gap-1">
-						<span class="text-sm font-medium">Allow skill access</span>
-						<span class="input-description">
-							Grants this key read-only access for skill discovery and downloads.
-						</span>
-					</div>
-				</label>
+				{#each API_KEY_CAPABILITIES as capability (capability.key)}
+					<label class="bg-base-200 flex items-start gap-3 rounded-lg border border-base-400 p-3">
+						<input type="checkbox" bind:checked={capabilities[capability.key]} class="mt-1" />
+						<div class="flex flex-col gap-1">
+							<span class="text-sm font-medium">Allow {capability.label}</span>
+							<span class="input-description">{capability.description}</span>
+						</div>
+					</label>
+				{/each}
 			</div>
 		</div>
 	</div>
@@ -165,12 +177,12 @@
 		<p>
 			<span class="text-lg font-semibold">MCP Servers</span>
 			{#if serverError}
-				<span class="text-xs text-error"> Select at least one server or enable skill access </span>
+				<span class="text-xs text-error"> Select at least one server or enable a capability </span>
 			{/if}
 		</p>
 		<p class="input-description">
-			Select which MCP servers this API key can access. To create a skills-only key, leave this
-			empty and enable skill access.
+			Select which MCP servers this API key can access. To create a capability-only key, leave this
+			empty and enable a capability above.
 			{#if selectedServerIds.size > 0}
 				<span class="italic">
 					({#if selectedServerIds.has('*')}All Selected{:else}{selectedServerIds.size} Selected{/if})

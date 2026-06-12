@@ -30,20 +30,29 @@ func (u UserDecorator) AuthenticateRequest(req *http.Request) (*authenticator.Re
 		return nil, false, nil
 	}
 
-	identity := &types.Identity{
-		Email:                 auth.FirstExtraValue(resp.User.GetExtra(), "email"),
-		AuthProviderName:      auth.FirstExtraValue(resp.User.GetExtra(), "auth_provider_name"),
-		AuthProviderNamespace: auth.FirstExtraValue(resp.User.GetExtra(), "auth_provider_namespace"),
-		ProviderUsername:      resp.User.GetName(),
-		ProviderUserID:        resp.User.GetUID(),
-	}
-	gatewayUser, err := u.client.EnsureIdentity(req.Context(), identity, req.Header.Get("X-Obot-User-Timezone"))
-	if err != nil {
-		return nil, false, err
+	var (
+		gatewayUser  *types.User
+		authGroupIDs []string
+	)
+	if authProviderNamespace, authProviderName := auth.FirstExtraValue(resp.User.GetExtra(), "auth_provider_namespace"), auth.FirstExtraValue(resp.User.GetExtra(), "auth_provider_name"); authProviderNamespace != "" && authProviderName != "" {
+		identity := &types.Identity{
+			Email:                 auth.FirstExtraValue(resp.User.GetExtra(), "email"),
+			AuthProviderName:      auth.FirstExtraValue(resp.User.GetExtra(), "auth_provider_name"),
+			AuthProviderNamespace: auth.FirstExtraValue(resp.User.GetExtra(), "auth_provider_namespace"),
+			ProviderUsername:      resp.User.GetName(),
+			ProviderUserID:        resp.User.GetUID(),
+		}
+		gatewayUser, err = u.client.EnsureIdentity(req.Context(), identity, req.Header.Get("X-Obot-User-Timezone"))
+		if err != nil {
+			return nil, false, err
+		}
+
+		authGroupIDs = identity.GetAuthProviderGroupIDs()
+	} else {
+		return nil, false, nil
 	}
 
 	extra := resp.User.GetExtra()
-	authGroupIDs := identity.GetAuthProviderGroupIDs()
 	extra["auth_provider_groups"] = authGroupIDs
 
 	// Resolve effective role by merging individual + group roles
@@ -58,7 +67,7 @@ func (u UserDecorator) AuthenticateRequest(req *http.Request) (*authenticator.Re
 		Name:   gatewayUser.Username,
 		UID:    fmt.Sprintf("%d", gatewayUser.ID),
 		Extra:  extra,
-		Groups: append(resp.User.GetGroups(), effectiveRole.Groups()...),
+		Groups: effectiveRole.Groups(),
 	}
 	return resp, true, nil
 }

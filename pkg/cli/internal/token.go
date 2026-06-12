@@ -10,12 +10,14 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"slices"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/fatih/color"
 	"github.com/google/uuid"
+	"github.com/obot-platform/obot/apiclient"
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/cli/internal/credentials"
 	"github.com/obot-platform/obot/pkg/cli/internal/localconfig"
@@ -142,7 +144,7 @@ func enter(ctx context.Context) error {
 	}
 }
 
-func Token(ctx context.Context, baseURL string, noExpiration, forceRefresh bool) (string, error) {
+func Token(ctx context.Context, baseURL string, opts apiclient.TokenFetchOptions) (string, error) {
 	// Check to see if authentication is required for this baseURL
 	if testToken(ctx, baseURL, "") {
 		return "", nil
@@ -158,7 +160,7 @@ func Token(ctx context.Context, baseURL string, noExpiration, forceRefresh bool)
 	if tokenErr != nil && !credentials.IsNotFound(tokenErr) {
 		return "", tokenErr
 	}
-	if hasStoredToken && !forceRefresh && testToken(ctx, baseURL, token) {
+	if hasStoredToken && !opts.ForceRefresh && testToken(ctx, baseURL, token) {
 		return token, nil
 	}
 
@@ -178,7 +180,7 @@ func Token(ctx context.Context, baseURL string, noExpiration, forceRefresh bool)
 	}
 
 	uuid := uuid.NewString()
-	loginURL, err := create(ctx, baseURL, uuid, provider.ID, provider.Namespace, noExpiration)
+	loginURL, err := create(ctx, baseURL, uuid, provider.ID, provider.Namespace, opts.Name, opts.Description, opts.NoExpiration, opts.Scopes)
 	if err != nil {
 		return "", fmt.Errorf("failed to create login request: %w", err)
 	}
@@ -214,23 +216,37 @@ func Token(ctx context.Context, baseURL string, noExpiration, forceRefresh bool)
 }
 
 type createRequest struct {
-	ProviderName      string `json:"providerName,omitempty"`
-	ProviderNamespace string `json:"providerNamespace,omitempty"`
-	ID                string `json:"id,omitempty"`
-	NoExpiration      bool   `json:"noExpiration,omitempty"`
+	Name              string             `json:"name,omitempty"`
+	Description       string             `json:"description,omitempty"`
+	ProviderName      string             `json:"providerName,omitempty"`
+	ProviderNamespace string             `json:"providerNamespace,omitempty"`
+	ID                string             `json:"id,omitempty"`
+	NoExpiration      bool               `json:"noExpiration,omitempty"`
+	Scopes            types.APIKeyScopes `json:"scopes,omitempty"`
 }
 
 type createResponse struct {
 	TokenPath string `json:"token-path,omitempty"`
 }
 
-func create(ctx context.Context, baseURL, uuid, providerName, providerNamespace string, noExpiration bool) (string, error) {
+func create(ctx context.Context, baseURL, uuid, providerName, providerNamespace, tokenName, tokenDescription string, noExpiration bool, scopes []string) (string, error) {
+	apiScopes := types.APIKeyScopes{
+		CanAccessSkills:   slices.Contains(scopes, "skills"),
+		CanAccessAPI:      slices.Contains(scopes, "api"),
+		CanAccessLLMProxy: slices.Contains(scopes, "llm"),
+	}
+	if slices.Contains(scopes, "all-mcp") {
+		apiScopes.MCPServerIDs = []string{"*"}
+	}
 	var data bytes.Buffer
 	if err := json.NewEncoder(&data).Encode(createRequest{
+		Name:              tokenName,
+		Description:       tokenDescription,
 		ID:                uuid,
 		ProviderName:      providerName,
 		ProviderNamespace: providerNamespace,
 		NoExpiration:      noExpiration,
+		Scopes:            apiScopes,
 	}); err != nil {
 		return "", err
 	}

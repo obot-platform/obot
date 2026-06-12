@@ -7,6 +7,7 @@
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { ApiKeysService, type OrgUser, type APIKey } from '$lib/services';
+	import { getAPIKeyCapabilityLabels } from '$lib/services/api-keys/types';
 	import { profile } from '$lib/stores';
 	import { formatTimeAgo, formatTimeUntil } from '$lib/time';
 	import { goto, getTableUrlParamsSort, setSortUrlParams } from '$lib/url';
@@ -35,7 +36,7 @@
 			...key,
 			prefix: `ok1-${key.userId}-${key.id}-*****`,
 			userDisplay: getUserDisplayName(usersMap, String(key.userId)),
-			skillsAccessDisplay: key.canAccessSkills ? 'Enabled' : 'Disabled',
+			capabilitiesDisplay: getAPIKeyCapabilityLabels(key),
 			createdAtDisplay: formatTimeAgo(key.createdAt).relativeTime,
 			lastUsedAtDisplay: key.lastUsedAt ? formatTimeAgo(key.lastUsedAt).relativeTime : 'Never',
 			expiresAtDisplay: key.expiresAt ? formatTimeUntil(key.expiresAt).relativeTime : 'Never',
@@ -107,7 +108,7 @@
 						'name',
 						'prefix',
 						'description',
-						'canAccessSkills',
+						'capabilitiesDisplay',
 						'mcpServerIds',
 						'createdAt',
 						'lastUsedAt',
@@ -118,7 +119,7 @@
 						{ title: 'Name', property: 'name' },
 						{ title: 'Key', property: 'prefix' },
 						{ title: 'Description', property: 'description' },
-						{ title: 'Skills', property: 'canAccessSkills' },
+						{ title: 'Capabilities', property: 'capabilitiesDisplay' },
 						{ title: 'Servers', property: 'mcpServerIds' },
 						{ title: 'Created', property: 'createdAt' },
 						{ title: 'Last Used', property: 'lastUsedAt' },
@@ -136,8 +137,16 @@
 					{#snippet onRenderColumn(property, d)}
 						{#if property === 'description'}
 							<span class="text-muted">{d.description || '-'}</span>
-						{:else if property === 'canAccessSkills'}
-							{d.skillsAccessDisplay}
+						{:else if property === 'capabilitiesDisplay'}
+							{#if d.capabilitiesDisplay.length}
+								<div class="flex max-w-48 flex-wrap gap-1 py-1">
+									{#each d.capabilitiesDisplay as capability (capability)}
+										<span class="badge badge-ghost badge-xs whitespace-nowrap">{capability}</span>
+									{/each}
+								</div>
+							{:else}
+								<span class="text-muted">-</span>
+							{/if}
 						{:else if property === 'mcpServerIds'}
 							<ServersLabel mcpServerIds={d.mcpServerIds} />
 						{:else if property === 'createdAt'}

@@ -7,6 +7,8 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
+	"github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/skillaccessrule"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -21,12 +23,6 @@ const (
 )
 
 var (
-	apiKeyOptionalSkillRoutes = newPathMatcher(
-		"GET /api/skills",
-		"GET /api/skills/{id}",
-		"GET /api/skills/{id}/download",
-		"GET /api/skills/{id}/preview",
-	)
 	adminAndOwnerRules = []string{
 		"/api/tool-references",
 		"/api/tool-references/",
@@ -34,6 +30,8 @@ var (
 		"/api/mcp-catalogs/",
 		"/api/mcp-servers",
 		"/api/mcp-servers/",
+		"/api/all-mcps",
+		"/api/all-mcps/",
 		"/api/workspaces",
 		"/api/workspaces/",
 		"/api/mcp-webhook-validations",
@@ -43,11 +41,9 @@ var (
 		"/api/system-mcp-catalogs",
 		"/api/system-mcp-catalogs/",
 		"GET /api/mcp-audit-logs",
-		"GET /api/mcp-audit-logs/filter-options/{filter}",
-		"GET /api/mcp-audit-logs/detail/{audit_log_id}",
-		"GET /api/mcp-audit-logs/{mcp_id}",
+		"GET /api/mcp-audit-logs/",
 		"GET /api/mcp-stats",
-		"GET /api/mcp-stats/{mcp_id}",
+		"GET /api/mcp-stats/",
 		"GET /debug/pprof/",
 		"GET /debug/triggers",
 		"GET /debug/metrics",
@@ -79,12 +75,11 @@ var (
 		"/api/available-models/",
 		"/api/default-model-aliases",
 		"/api/default-model-aliases/",
-		"GET /api/users",
+		"/api/users",
 		"GET /api/groups",
 		"/api/group-role-assignments",
 		"/api/group-role-assignments/",
 		"POST /api/encrypt-all-users",
-		"/api/users/",
 		"GET /api/active-users",
 		"GET /api/token-usage",
 		"GET /api/total-token-usage",
@@ -99,9 +94,9 @@ var (
 		"/api/image-pull-secrets/",
 		"/api/mcp-capacity",
 		"/api/audit-log-exports",
-		"/api/audit-log-exports/{id}",
+		"/api/audit-log-exports/",
 		"/api/scheduled-audit-log-exports",
-		"/api/scheduled-audit-log-exports/{id}",
+		"/api/scheduled-audit-log-exports/",
 		"/api/storage-credentials",
 		"/api/storage-credentials/",
 		"/api/oauth-clients",
@@ -111,22 +106,13 @@ var (
 		"/api/skill-access-rules",
 		"/api/skill-access-rules/",
 		"GET /api/skills",
-		"GET /api/skills/{id}",
-		"GET /api/skills/{id}/download",
+		"GET /api/skills/",
 		"GET /api/eula",
 		"PUT /api/eula",
 		"PUT /api/app-preferences",
 
 		// Allow admins to upload custom images
 		"POST /api/image/upload",
-
-		// This rule allows admins without an ACR to fetch tools for MCP servers in the default
-		// catalog (all catalogs really) via the UI. It goes to the same handler as /api/mcp-servers/{mcpserver_id}/tools,
-		// which admins already have access to from the rules above, so it's not exposing anything that
-		// wasn't already accessible to them.
-		// It's a bit of a hack, but it fixes the issue without refactoring the authz rules, changing the UI, or
-		// adding local authz checks to the handler (like the rest of the /api/all-mcps/ endpoints).
-		"GET /api/all-mcps/servers/{mcpserver_id}/tools",
 
 		// Admin API key management endpoints
 		"GET /api/admin-api-keys",
@@ -144,11 +130,9 @@ var (
 			"GET /api/admin-api-keys",
 			"GET /api/admin-api-keys/{id}",
 			"GET /api/mcp-audit-logs",
-			"GET /api/mcp-audit-logs/filter-options/{filter}",
-			"GET /api/mcp-audit-logs/detail/{audit_log_id}",
-			"GET /api/mcp-audit-logs/{mcp_id}",
+			"GET /api/mcp-audit-logs/",
 			"GET /api/mcp-stats",
-			"GET /api/mcp-stats/{mcp_id}",
+			"GET /api/mcp-stats/",
 			"GET /api/mcp-capacity",
 			"GET /api/users",
 			"GET /api/users/",
@@ -170,13 +154,11 @@ var (
 			"GET /api/k8s-settings",
 			"GET /api/image-pull-secrets/capability",
 			"GET /api/image-pull-secrets",
-			"GET /api/image-pull-secrets/{id}",
+			"GET /api/image-pull-secrets/",
 			"POST /api/auth-providers/",
 			"GET /api/workspaces/",
 			"/api/audit-log-exports/",
-			"/api/audit-log-exports/{id}",
 			"/api/scheduled-audit-log-exports",
-			"/api/scheduled-audit-log-exports/{id}",
 			"/api/storage-credentials",
 			"/api/storage-credentials/",
 			"GET /api/skill-repositories",
@@ -188,8 +170,6 @@ var (
 			"GET /api/skills/{id}/download",
 			"GET /api/message-policy-violations",
 			"GET /api/message-policy-violations/",
-			"GET /api/message-policy-violations/filter-options/{filter}",
-			"GET /api/message-policy-violations/{id}",
 			"GET /api/message-policy-violation-stats",
 			"GET /api/devices/scans",
 			"GET /api/devices/scans/",
@@ -269,11 +249,9 @@ var (
 			"GET /api/groups",
 
 			// Allow authenticated users to read servers and entries from MCP catalogs.
-			// The authz logic is handled in the routes themselves, for now.
+			// Filtering is handled in the handler.
 			"GET /api/all-mcps/entries",
-			"GET /api/all-mcps/entries/{entry_id}",
 			"GET /api/all-mcps/servers",
-			"GET /api/all-mcps/servers/{mcp_server_id}",
 
 			// Audit log access for own servers (filtered in handler)
 			"GET /api/mcp-audit-logs",
@@ -283,48 +261,22 @@ var (
 			"GET /api/mcp-stats",
 			"GET /api/mcp-stats/{mcp_id}",
 
-			// Published artifacts — any authenticated user can publish and search.
-			// Artifact-specific access is enforced by resource authorization.
-			"POST   /api/published-artifacts",
-			"GET    /api/published-artifacts",
-
-			// Skill discovery and download are filtered in the handler.
-			"GET /api/skills",
-			"GET /api/skills/{id}",
-			"GET /api/skills/{id}/download",
-			"GET /api/skills/{id}/preview",
-
 			// Allow basic users to create and list projects
 			"POST /api/projects",
 			"GET /api/projects",
 
 			// Device scans: any authenticated user can submit a scan via
 			// `obot scan` and read the scans they themselves submitted.
-			// The List and Get handlers clamp results to
-			// SubmittedBy == req.User.GetUID() for non-privileged
-			// callers.
+			// Clamp list results to SubmittedBy == req.User.GetUID()
 			"POST /api/devices/scans",
 			"GET /api/devices/scans",
-			"GET /api/devices/scans/{scan_id}",
-		},
 
-		types.GroupPowerUserPlus: {
-			"GET /api/users",
-			"GET /api/users/{user_id}",
-			"GET /api/groups",
-		},
+			// API key management for user's own keys
+			"POST /api/api-keys",
+			"GET /api/api-keys",
+			"GET /api/api-keys/{id}",
+			"DELETE /api/api-keys/{id}",
 
-		types.GroupPowerUser: {
-			"GET /api/users",
-			"GET /api/users/{user_id}",
-			"GET /api/mcp-audit-logs",
-			"GET /api/mcp-audit-logs/filter-options/{filter}",
-			"GET /api/mcp-audit-logs/{mcp_id}",
-			"GET /api/mcp-stats",
-			"GET /api/mcp-stats/{mcp_id}",
-		},
-
-		types.GroupAuthenticated: {
 			"GET /oauth/userinfo",
 			"GET /api/users",
 			"GET /api/users/{user_id}",
@@ -338,27 +290,39 @@ var (
 			"GET /api/default-k8s-settings",
 			"GET /api/license",
 			"GET /api/setup/oauth-complete",
-
-			// API key management for user's own keys
-			"POST /api/api-keys",
-			"GET /api/api-keys",
-			"GET /api/api-keys/{id}",
-			"DELETE /api/api-keys/{id}",
 		},
 
-		// API key users have restricted access - they can only access MCP-connect routes and /api/me
-		// They get access to anyGroup routes automatically (health checks, OAuth flows, etc.)
-		types.GroupAPIKey: {
-			"GET /api/me",
-			"GET /api/users",
+		types.GroupPowerUserPlus: {
 			"GET /api/groups",
-			"POST /api/published-artifacts",
-			"GET /api/published-artifacts",
 		},
 
-		// These are the only generic paths that MCP OAuth tokens can access, plus those for the anyGroup
-		types.GroupMCPOAuth: {
+		types.GroupPowerUser: {
+			"GET /api/mcp-audit-logs",
+			"GET /api/mcp-audit-logs/filter-options/{filter}",
+			"GET /api/mcp-audit-logs/{mcp_id}",
+			"GET /api/mcp-stats",
+			"GET /api/mcp-stats/{mcp_id}",
+		},
+
+		types.GroupMCP: {
 			"GET /oauth/userinfo",
+			"GET /api/me",
+		},
+
+		types.GroupSkills: {
+			// Skill discovery and download are filtered in the handler.
+			"GET /api/skills",
+		},
+
+		types.GroupPublishedArtifacts: {
+			// Published artifacts — any authenticated user can publish and search.
+			// Artifact-specific access is enforced by resource authorization.
+			"POST   /api/published-artifacts",
+			"GET    /api/published-artifacts",
+		},
+
+		types.GroupLLM: {
+			"/api/llm-proxy/",
 		},
 
 		MetricsGroup: {
@@ -382,13 +346,15 @@ type Authorizer struct {
 	rules          []rule
 	cache          kclient.Client
 	uncached       kclient.Client
+	gatewayClient  *client.Client
 	apiResources   map[string]*pathMatcher
 	uiResources    *pathMatcher
 	acrHelper      *accesscontrolrule.Helper
+	skillHelper    *skillaccessrule.Helper
 	registryNoAuth bool
 }
 
-func NewAuthorizer(cache, uncached kclient.Client, devMode bool, acrHelper *accesscontrolrule.Helper, registryNoAuth bool) *Authorizer {
+func NewAuthorizer(gatewayClient *client.Client, cache, uncached kclient.Client, devMode bool, acrHelper *accesscontrolrule.Helper, skillHelper *skillaccessrule.Helper, registryNoAuth bool) *Authorizer {
 	apiBasedResources := make(map[string]*pathMatcher, len(apiResources))
 	for group, resources := range apiResources {
 		apiBasedResources[group] = newPathMatcher(resources...)
@@ -398,53 +364,25 @@ func NewAuthorizer(cache, uncached kclient.Client, devMode bool, acrHelper *acce
 		rules:          defaultRules(devMode, registryNoAuth),
 		cache:          cache,
 		uncached:       uncached,
+		gatewayClient:  gatewayClient,
 		apiResources:   apiBasedResources,
 		uiResources:    newPathMatcher(uiResources...),
 		acrHelper:      acrHelper,
+		skillHelper:    skillHelper,
 		registryNoAuth: registryNoAuth,
 	}
 }
 
 func (a *Authorizer) Authorize(req *http.Request, user user.Info) bool {
-	isMCPOAuthUser := slices.Contains(user.GetGroups(), types.GroupMCPOAuth)
-	if !isMCPOAuthUser && authorizeAPIKeySkillRoutes(req, user) {
-		return true
-	}
-
-	var userGroups []string
-	if isMCPOAuthUser {
-		// MCP OAuth tokens can only access routes for that group or those for the anyGroup.
-		userGroups = []string{types.GroupMCPOAuth}
-	} else {
-		userGroups = user.GetGroups()
-	}
-
 	for _, r := range a.rules {
-		if r.group == anyGroup || slices.Contains(userGroups, r.group) {
+		if r.group == anyGroup || slices.Contains(user.GetGroups(), r.group) {
 			if _, pattern := r.mux.Handler(req); pattern != "" {
 				return true
 			}
 		}
 	}
 
-	if isMCPOAuthUser {
-		return a.authorizeAPIResources(req, user)
-	}
-
 	return a.authorizeAPIResources(req, user) || a.checkOAuthClient(req) || a.checkUI(req, user)
-}
-
-func authorizeAPIKeySkillRoutes(req *http.Request, user user.Info) bool {
-	if !slices.Contains(user.GetGroups(), types.GroupAPIKey) {
-		return false
-	}
-
-	if !slices.Contains(user.GetExtra()[types.APIKeySkillsAccessExtraKey], "true") {
-		return false
-	}
-
-	_, ok := apiKeyOptionalSkillRoutes.Match(req)
-	return ok
 }
 
 func (a *Authorizer) get(ctx context.Context, key kclient.ObjectKey, obj kclient.Object, opts ...kclient.GetOption) error {
@@ -471,7 +409,12 @@ func defaultRules(devMode bool, registryNoAuth bool) []rule {
 			group: group,
 			mux:   http.NewServeMux(),
 		}
+		seen := map[string]struct{}{}
 		for _, url := range staticRules[group] {
+			if _, ok := seen[url]; ok {
+				continue
+			}
+			seen[url] = struct{}{}
 			rule.mux.Handle(url, f)
 		}
 		rules = append(rules, rule)
@@ -493,7 +436,7 @@ func defaultRules(devMode bool, registryNoAuth bool) []rule {
 			mux:   http.NewServeMux(),
 		}
 		registryRuleMCPOAuth = rule{
-			group: types.GroupMCPOAuth,
+			group: types.GroupMCP,
 			mux:   http.NewServeMux(),
 		}
 	}

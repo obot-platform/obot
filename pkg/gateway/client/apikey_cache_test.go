@@ -107,12 +107,14 @@ func TestValidatedAPIKeyCacheReturnsDeepCopy(t *testing.T) {
 	}
 
 	original := &types.APIKey{
-		ID:           1,
-		UserID:       7,
-		Name:         "cache-key",
-		MCPServerIDs: []string{"server-a"},
-		LastUsedAt:   &lastUsedAt,
-		ExpiresAt:    &expiresAt,
+		ID:     1,
+		UserID: 7,
+		Name:   "cache-key",
+		APIKeyScopes: types.APIKeyScopes{
+			MCPServerIDs: []string{"server-a"},
+		},
+		LastUsedAt: &lastUsedAt,
+		ExpiresAt:  &expiresAt,
 	}
 
 	now := time.Now()
