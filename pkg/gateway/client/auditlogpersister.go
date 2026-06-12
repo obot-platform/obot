@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 )
@@ -18,6 +19,31 @@ func (c *Client) LogMCPAuditEntry(entry types.MCPAuditLog) {
 
 	entry.RequestMutated = len(entry.MutatedRequestBody) > 0
 	entry.ResponseMutated = len(entry.OriginalResponseBody) > 0
+
+	// Populate the generic audit-event fields for new rows. Historical rows
+	// keep NULL values and are interpreted at read time instead.
+	// TODO(g-linville): why can't we populate them during the migration, instead of interpreting them at read time?
+	if entry.EventID == nil || *entry.EventID == "" {
+		eventID := uuid.NewString()
+		entry.EventID = &eventID
+	}
+	if entry.SourceType == "" {
+		entry.SourceType = types.AuditLogSourceTypeMCP
+	}
+	if entry.EventType == "" {
+		entry.EventType = types.EventTypeForCallType(entry.CallType)
+	}
+	// The outcome is provisional for request-only entries; the response merge
+	// path overwrites it once the response arrives.
+	if entry.Outcome == "" {
+		entry.Outcome = types.OutcomeForResult(entry.Error, entry.ResponseStatus)
+	}
+
+	// TODO(g-linville): does it make sense to just always set entry.ReceivedAt instead of allowing it to be on the input?
+	if entry.ReceivedAt == nil {
+		receivedAt := time.Now().UTC()
+		entry.ReceivedAt = &receivedAt
+	}
 
 	if err := c.encryptMCPAuditLog(ctx, &entry); err != nil {
 		log.Errorf("Failed to encrypt MCP audit log: %v", err)

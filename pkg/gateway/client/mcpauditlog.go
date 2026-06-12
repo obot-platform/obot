@@ -111,6 +111,9 @@ func (c *Client) insertMCPAuditLogs(ctx context.Context, logs []types.MCPAuditLo
 				// Calculate processing time as difference between response and request timestamps
 				updates["processing_time_ms"] = responseLog.CreatedAt.Sub(existingLog.CreatedAt).Milliseconds()
 
+				// The outcome is only known once the response arrives.
+				updates["outcome"] = types.OutcomeForResult(responseLog.Error, responseLog.ResponseStatus)
+
 				// Update the existing log
 				if err := tx.Model(&existingLog).Updates(updates).Error; err != nil {
 					return fmt.Errorf("failed to update audit log with response data: %w", err)
@@ -128,6 +131,25 @@ func (c *Client) insertMCPAuditLogs(ctx context.Context, logs []types.MCPAuditLo
 
 		return nil
 	})
+}
+
+// applyGenericAuditFilters applies the source-generic filters shared by audit
+// log listing and filter-option queries. A startup migration backfills these
+// columns on rows that predate them, so plain matches are sufficient.
+func applyGenericAuditFilters(db *gorm.DB, opts MCPAuditLogOptions) *gorm.DB {
+	if len(opts.SourceType) > 0 {
+		db = db.Where("source_type IN (?)", opts.SourceType)
+	}
+	if len(opts.EventType) > 0 {
+		db = db.Where("event_type IN (?)", opts.EventType)
+	}
+	if len(opts.DeviceID) > 0 {
+		db = db.Where("device_id IN (?)", opts.DeviceID)
+	}
+	if len(opts.Outcome) > 0 {
+		db = db.Where("outcome IN (?)", opts.Outcome)
+	}
+	return db
 }
 
 // GetMCPAuditLogs retrieves MCP audit logs with optional filters
@@ -165,7 +187,7 @@ func (c *Client) GetMCPAuditLogs(ctx context.Context, opts MCPAuditLogOptions) (
 		query := `user_id in (?) OR mcp_id %[1]s ? OR mcp_server_display_name %[1]s ? OR
 mcp_server_catalog_entry_name %[1]s ? OR client_name %[1]s ? OR client_version %[1]s ? OR
 client_ip %[1]s ? OR call_type %[1]s ? OR call_identifier %[1]s ? OR error %[1]s ? OR
-session_id %[1]s ? OR request_id %[1]s ? OR user_agent %[1]s ?`
+session_id %[1]s ? OR request_id %[1]s ? OR user_agent %[1]s ? OR device_id %[1]s ?`
 
 		args := append([]any{userIDs}, slices.Repeat([]any{searchTerm}, strings.Count(query, "%[1]s ?"))...)
 
@@ -227,6 +249,7 @@ session_id %[1]s ? OR request_id %[1]s ? OR user_agent %[1]s ?`
 	if len(opts.ClientIP) > 0 {
 		db = db.Where("client_ip IN (?)", opts.ClientIP)
 	}
+	db = applyGenericAuditFilters(db, opts)
 	if opts.ProcessingTimeMin > 0 {
 		db = db.Where("processing_time_ms >= ?", opts.ProcessingTimeMin)
 	}
@@ -269,6 +292,10 @@ session_id %[1]s ? OR request_id %[1]s ? OR user_agent %[1]s ?`
 			"client_version":                true,
 			"response_status":               true,
 			"client_ip":                     true,
+			"source_type":                   true,
+			"event_type":                    true,
+			"device_id":                     true,
+			"outcome":                       true,
 		}
 
 		if validSortFields[opts.SortBy] {
@@ -302,6 +329,8 @@ session_id %[1]s ? OR request_id %[1]s ? OR user_agent %[1]s ?`
 			logs[i].OriginalResponseBody = nil
 			logs[i].RequestHeaders = nil
 			logs[i].ResponseHeaders = nil
+			logs[i].ErrorDetail = ""
+			logs[i].RawEvent = nil
 		} else {
 			if err := c.decryptMCPAuditLog(ctx, &logs[i]); err != nil {
 				return nil, 0, fmt.Errorf("failed to decrypt MCP audit log: %w", err)
@@ -332,6 +361,8 @@ func (c *Client) GetMCPAuditLog(ctx context.Context, id uint, withRequestAndResp
 		log.MutatedRequestBody = nil
 		log.ResponseBody = nil
 		log.OriginalResponseBody = nil
+		log.ErrorDetail = ""
+		log.RawEvent = nil
 	}
 
 	return &log, nil
@@ -374,6 +405,7 @@ func (c *Client) GetAuditLogFilterOptions(ctx context.Context, option string, op
 	if len(opts.ClientIP) > 0 {
 		db = db.Where("client_ip IN (?)", opts.ClientIP)
 	}
+	db = applyGenericAuditFilters(db, opts)
 	// Apply scope filtering (union of workspace servers OR own servers)
 	if len(opts.PowerUserWorkspaceID) > 0 || len(opts.OwnServerMCPIDs) > 0 {
 		var (
@@ -425,6 +457,9 @@ func (c *Client) GetMCPUsageStats(ctx context.Context, opts MCPUsageStatsOptions
 	// Get basic stats for each server
 	if err := c.db.WithContext(ctx).Transaction(func(base *gorm.DB) error {
 		base = base.Model(&types.MCPAuditLog{}).Session(&gorm.Session{})
+		// Non-MCP audit rows (e.g. local agent events) share this table; keep
+		// usage statistics MCP-only.
+		base = base.Where("source_type = ?", types.AuditLogSourceTypeMCP).Session(&gorm.Session{})
 		tx := base.Where("created_at >= ? AND created_at < ?", opts.StartTime, opts.EndTime)
 
 		if opts.MCPID != "" {
@@ -570,6 +605,10 @@ type MCPAuditLogOptions struct {
 	ClientVersion             []string
 	ResponseStatus            []string
 	ClientIP                  []string
+	SourceType                []string
+	EventType                 []string
+	DeviceID                  []string
+	Outcome                   []string
 	ProcessingTimeMin         int64
 	ProcessingTimeMax         int64
 	Query                     string // Search term for text search across multiple fields
@@ -656,6 +695,22 @@ func (c *Client) encryptMCPAuditLog(ctx context.Context, log *types.MCPAuditLog)
 			errs = append(errs, err)
 		} else {
 			log.ResponseHeaders = json.RawMessage(base64.StdEncoding.EncodeToString(b))
+		}
+	}
+
+	if log.ErrorDetail != "" {
+		if b, err = transformer.TransformToStorage(ctx, []byte(log.ErrorDetail), dataCtx); err != nil {
+			errs = append(errs, err)
+		} else {
+			log.ErrorDetail = base64.StdEncoding.EncodeToString(b)
+		}
+	}
+
+	if len(log.RawEvent) > 0 {
+		if b, err = transformer.TransformToStorage(ctx, log.RawEvent, dataCtx); err != nil {
+			errs = append(errs, err)
+		} else {
+			log.RawEvent = json.RawMessage(base64.StdEncoding.EncodeToString(b))
 		}
 	}
 
@@ -761,6 +816,34 @@ func (c *Client) decryptMCPAuditLog(ctx context.Context, log *types.MCPAuditLog)
 				errs = append(errs, err)
 			} else {
 				log.ResponseHeaders = json.RawMessage(out)
+			}
+		} else {
+			errs = append(errs, err)
+		}
+	}
+
+	if log.ErrorDetail != "" {
+		decoded = make([]byte, base64.StdEncoding.DecodedLen(len(log.ErrorDetail)))
+		n, err = base64.StdEncoding.Decode(decoded, []byte(log.ErrorDetail))
+		if err == nil {
+			if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
+				errs = append(errs, err)
+			} else {
+				log.ErrorDetail = string(out)
+			}
+		} else {
+			errs = append(errs, err)
+		}
+	}
+
+	if len(log.RawEvent) > 0 {
+		decoded = make([]byte, base64.StdEncoding.DecodedLen(len(log.RawEvent)))
+		n, err = base64.StdEncoding.Decode(decoded, log.RawEvent)
+		if err == nil {
+			if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
+				errs = append(errs, err)
+			} else {
+				log.RawEvent = json.RawMessage(out)
 			}
 		} else {
 			errs = append(errs, err)

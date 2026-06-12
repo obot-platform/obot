@@ -97,6 +97,10 @@ func parseAuditLogOpts(query url.Values) gateway.MCPAuditLogOptions {
 		ClientVersion:             parseMultiValueParam(query, "client_version"),
 		ResponseStatus:            parseMultiValueParam(query, "response_status"),
 		ClientIP:                  parseMultiValueParam(query, "client_ip"),
+		SourceType:                parseMultiValueParam(query, "source_type"),
+		EventType:                 parseMultiValueParam(query, "event_type"),
+		DeviceID:                  parseMultiValueParam(query, "device_id"),
+		Outcome:                   parseMultiValueParam(query, "outcome"),
 		SortBy:                    query.Get("sort_by"),
 		SortOrder:                 query.Get("sort_order"),
 		Query:                     strings.TrimSpace(query.Get("query")),
@@ -357,11 +361,29 @@ var filterOptions = map[string]any{
 	"client_version":                "",
 	"response_status":               0,
 	"client_ip":                     "",
+	"source_type":                   "",
+	"event_type":                    "",
+	"device_id":                     "",
+	"outcome":                       "",
 }
 
 // defaultFilterOptions will always be present of the given filter, regardless of what is in the database.
 var defaultFilterOptions = map[string][]string{
 	"call_type": {"prompts/list", "resources/read", "tools/list", "tools/call", "prompts/get", "resources/list"},
+	"source_type": {
+		types.AuditLogSourceTypeMCP,
+		types.AuditLogSourceTypeLocalAgent,
+	},
+	"event_type": {
+		types.AuditLogEventTypeToolCall,
+		types.AuditLogEventTypeResourceRead,
+		types.AuditLogEventTypePromptGet,
+		types.AuditLogEventTypeMCPRequest,
+	},
+	"outcome": {
+		types.AuditLogOutcomeSuccess,
+		types.AuditLogOutcomeError,
+	},
 }
 
 func (h *AuditLogHandler) ListAuditLogFilterOptions(req api.Context) error {
