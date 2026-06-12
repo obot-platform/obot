@@ -31,14 +31,14 @@ func TestPruneModels(t *testing.T) {
 	}{
 		{
 			name:       "keeps wildcard suffix pattern matching no models",
-			modelIDs:   []string{"claude-haiku-4.5*"},
-			wantIDs:    []string{"claude-haiku-4.5*"},
+			modelIDs:   []string{"claude-haiku-4-5*"},
+			wantIDs:    []string{"claude-haiku-4-5*"},
 			wantUpdate: false,
 		},
 		{
 			name:       "keeps pattern and existing model, prunes missing model",
-			modelIDs:   []string{"claude-haiku-4.5*", "m1-existing", "m1-missing"},
-			wantIDs:    []string{"claude-haiku-4.5*", "m1-existing"},
+			modelIDs:   []string{"claude-haiku-4-5*", "m1-existing", "m1-missing"},
+			wantIDs:    []string{"claude-haiku-4-5*", "m1-existing"},
 			wantUpdate: true,
 		},
 		{
@@ -49,13 +49,13 @@ func TestPruneModels(t *testing.T) {
 		},
 		{
 			name:       "prunes duplicate patterns",
-			modelIDs:   []string{"claude-haiku-4.5*", "claude-haiku-4.5*"},
-			wantIDs:    []string{"claude-haiku-4.5*"},
+			modelIDs:   []string{"claude-haiku-4-5*", "claude-haiku-4-5*"},
+			wantIDs:    []string{"claude-haiku-4-5*"},
 			wantUpdate: true,
 		},
 		{
 			name:       "wildcard collapses patterns and explicit references",
-			modelIDs:   []string{"claude-haiku-4.5*", "*", "m1-existing"},
+			modelIDs:   []string{"claude-haiku-4-5*", "*", "m1-existing"},
 			wantIDs:    []string{"*"},
 			wantUpdate: true,
 		},

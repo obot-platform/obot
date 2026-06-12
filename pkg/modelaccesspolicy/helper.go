@@ -137,7 +137,7 @@ func (h *Helper) GetUserAllowedModels(user kuser.Info) (map[string]bool, bool, e
 				// If we can't find it, modelID will be an empty string, which is handled by the model ID check below
 				modelID = aliasModels[alias]
 			} else if _, isPattern := model.IsWildcardSuffix(); isPattern {
-				// The model ID is a wildcard suffix pattern (e.g. 'claude-haiku-4.5*')
+				// The model ID is a wildcard suffix pattern (e.g. 'claude-haiku-4-5*')
 				// Allow every model, from any provider, whose target model matches it
 				for _, m := range listModels() {
 					if model.MatchesTargetModel(m.Spec.Manifest.TargetModel) {

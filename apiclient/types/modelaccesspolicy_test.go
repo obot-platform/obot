@@ -109,7 +109,7 @@ func TestModelAccessPolicyManifestValidate(t *testing.T) {
 					{Type: SubjectTypeUser, ID: "user1"},
 				},
 				Models: []ModelResource{
-					{ID: "claude-haiku-4.5*"},
+					{ID: "claude-haiku-4-5*"},
 				},
 			},
 			expectError: false,
@@ -121,7 +121,7 @@ func TestModelAccessPolicyManifestValidate(t *testing.T) {
 					{Type: SubjectTypeUser, ID: "user1"},
 				},
 				Models: []ModelResource{
-					{ID: "claude-haiku-4.5*"},
+					{ID: "claude-haiku-4-5*"},
 					{ID: "m1234567"},
 					{ID: "obot://llm"},
 				},
@@ -384,7 +384,7 @@ func TestModelAccessPolicyManifestValidate(t *testing.T) {
 				},
 				Models: []ModelResource{
 					{ID: "*"},
-					{ID: "claude-haiku-4.5*"},
+					{ID: "claude-haiku-4-5*"},
 				},
 			},
 			expectError: true,
@@ -397,12 +397,12 @@ func TestModelAccessPolicyManifestValidate(t *testing.T) {
 					{Type: SubjectTypeUser, ID: "user1"},
 				},
 				Models: []ModelResource{
-					{ID: "claude-haiku-4.5*"},
-					{ID: "claude-haiku-4.5*"},
+					{ID: "claude-haiku-4-5*"},
+					{ID: "claude-haiku-4-5*"},
 				},
 			},
 			expectError: true,
-			errorMsg:    "duplicate model claude-haiku-4.5*",
+			errorMsg:    "duplicate model claude-haiku-4-5*",
 		},
 
 		// Combined validation failures

@@ -1,7 +1,7 @@
 import type { RenderContext, SnippetBlock } from './types';
 
 function loginSubstitution(obotURL: string): string {
-	return `$(obot login --url ${obotURL} --print-token)`;
+	return `$(obot login --url ${obotURL} --scope llm --print-token)`;
 }
 
 /** Build a copy-pasteable curl example for the provider's chat/messages endpoint. */

@@ -68,7 +68,7 @@ type ModelResource struct {
 	// - the wildcard '*', which selects all available models
 	// - the model ID of a specific model
 	// - an Obot default model alias in the form "obot://<alias>"
-	// - a wildcard suffix pattern in the form "<prefix>*" (e.g. "claude-haiku-4.5*"), which selects
+	// - a wildcard suffix pattern in the form "<prefix>*" (e.g. "claude-haiku-4-5*"), which selects
 	//   every current and future model, from any provider, whose provider-native target model
 	//   starts with <prefix> (case-sensitive)
 	//
@@ -87,7 +87,7 @@ func (m ModelResource) Validate() error {
 		return nil
 	}
 	if _, isWildcardSuffix := m.IsWildcardSuffix(); strings.Contains(m.ID, "*") && !m.IsWildcard() && !isWildcardSuffix {
-		return fmt.Errorf("wildcard (*) is only allowed as the sole entry %q or as a trailing wildcard suffix (e.g. %q): %s", "*", "claude-haiku-4.5*", m.ID)
+		return fmt.Errorf("wildcard (*) is only allowed as the sole entry %q or as a trailing wildcard suffix (e.g. %q): %s", "*", "claude-haiku-4-5*", m.ID)
 	}
 	return nil
 }
@@ -103,7 +103,7 @@ func (m ModelResource) IsDefaultModelAliasRef() (string, bool) {
 }
 
 // IsWildcardSuffix returns the pattern's prefix and true if this model resource
-// is a wildcard suffix pattern; e.g. "claude-haiku-4.5*". A pattern consists of
+// is a wildcard suffix pattern; e.g. "claude-haiku-4-5*". A pattern consists of
 // a non-empty prefix followed by a single trailing '*'. The bare wildcard "*"
 // is not a pattern (see IsWildcard).
 func (m ModelResource) IsWildcardSuffix() (string, bool) {

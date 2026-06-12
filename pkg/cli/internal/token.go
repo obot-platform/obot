@@ -28,6 +28,12 @@ import (
 var credentialStore credentials.Store = credentials.NewKeyringStore()
 var openBrowser = browser.OpenURL
 
+func init() {
+	// Browser launchers (e.g. xdg-open) may write to stdout; keep stdout
+	// reserved for machine-readable output like `login --print-token`.
+	browser.Stdout = os.Stderr
+}
+
 type nonInteractiveContextKey struct{}
 type outputWriterContextKey struct{}
 
@@ -38,7 +44,7 @@ func WithNonInteractive(ctx context.Context) context.Context {
 }
 
 // WithOutputWriter routes token-acquisition user messages to w instead of
-// stdout. This lets commands that stream machine-readable stdout keep it clean.
+// stderr.
 func WithOutputWriter(ctx context.Context, w io.Writer) context.Context {
 	if w == nil {
 		return ctx
@@ -55,7 +61,9 @@ func outputWriter(ctx context.Context) io.Writer {
 	if w, _ := ctx.Value(outputWriterContextKey{}).(io.Writer); w != nil {
 		return w
 	}
-	return os.Stdout
+	// User-facing auth prompts go to stderr so stdout stays clean for
+	// piping (e.g. `obot login --print-token`).
+	return os.Stderr
 }
 
 // AppURLForAPIBaseURL returns the app URL that owns credentials for an

@@ -40,7 +40,7 @@ Administrators do not have automatic access to all models. Like any other user, 
 
 #### Wildcard Suffix Patterns
 
-To grant access to a family of models—including versions that don't exist yet—end your entry with a single `*`. For example, `claude-haiku-4.5*` grants access to every model whose provider-native ID starts with `claude-haiku-4.5`, such as date-suffixed releases like `claude-haiku-4.5-20251001`.
+To grant access to a family of models—including versions that don't exist yet—end your entry with a single `*`. For example, `claude-haiku-4-5*` grants access to every model whose provider-native ID starts with `claude-haiku-4-5`, such as date-suffixed releases like `claude-haiku-4-5-20251001`.
 
 To add a pattern, start typing a prefix into the search box of the **Add Models** dialog. A pattern entry (your prefix followed by `*`) is offered at the top of the results, along with a live count of the models it currently matches. You can also type the pattern out explicitly, ending with `*`.
 

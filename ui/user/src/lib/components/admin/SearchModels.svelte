@@ -36,7 +36,7 @@
 		modelProviders = await AdminService.listModelProviders();
 	});
 
-	// When the search text is a wildcard suffix pattern (e.g. "claude-haiku-4.5*"),
+	// When the search text is a wildcard suffix pattern (e.g. "claude-haiku-4-5*"),
 	// this holds its prefix; null otherwise. Mirrors backend validation: a single
 	// trailing '*' with a non-empty, non-alias prefix.
 	let patternPrefix = $derived(

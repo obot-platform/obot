@@ -14,7 +14,7 @@ import (
 // - Duplicates
 // - Explicit model references when a wildcard is present
 //
-// Wildcard suffix patterns (e.g. "claude-haiku-4.5*") are always kept, even when
+// Wildcard suffix patterns (e.g. "claude-haiku-4-5*") are always kept, even when
 // they currently match no models, since they apply to future models as well.
 func PruneModels(req router.Request, _ router.Response) error {
 	policy := req.Object.(*v1.ModelAccessPolicy)

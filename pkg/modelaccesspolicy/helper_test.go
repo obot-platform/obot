@@ -178,7 +178,7 @@ func TestGetUserAllowedTargetModels(t *testing.T) {
 			models: []*v1.Model{
 				newModel("m1-gpt-4o", provider, "gpt-4o", true),
 			},
-			policies: []*v1.ModelAccessPolicy{userPolicy("claude-haiku-4.5*")},
+			policies: []*v1.ModelAccessPolicy{userPolicy("claude-haiku-4-5*")},
 			want:     map[string]bool{},
 		},
 		{
