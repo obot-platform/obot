@@ -356,7 +356,7 @@
 		{:else if isMultiUserCatalogEntryRow && configuredServers.length === 0}
 			Create Server
 		{:else}
-			Connect To Server
+			Connect
 		{/if}
 	</button>
 
@@ -521,7 +521,7 @@
 				{#if isMultiUserCatalogEntry(entry)}
 					Launch Server
 				{:else}
-					Connect To Server
+					Connect
 				{/if}
 			</button>
 		</div>
@@ -530,7 +530,12 @@
 
 {#snippet serverActions(toggle: (value: boolean) => void)}
 	{#if server && (server.userID === profile.current.id || instance || canEditMultiUserServerConfiguration || canDeleteMultiUserServer)}
-		<div class="flex flex-col gap-1 p-2 bg-base-200 rounded-t-xl">
+		<div
+			class="bg-base-100 dark:bg-base-300 rounded-t-xl pt-2 pb-1 pl-4 text-[11px] font-semibold uppercase"
+		>
+			My Connection
+		</div>
+		<div class="flex flex-col gap-1 p-2 bg-base-200">
 			{#if canEditMultiUserServerConfiguration}
 				<button
 					class="menu-button"
@@ -668,7 +673,7 @@
 	{:else if entry && configuredServers.length > 0}
 		{#if showConnectionActions}
 			<div
-				class="bg-base-100 dark:bg-base-300 rounded-t-xl p-2 pl-4 text-[11px] font-semibold uppercase"
+				class="bg-base-100 dark:bg-base-300 rounded-t-xl pt-2 pb-1 pl-4 text-[11px] font-semibold uppercase"
 			>
 				My Connection(s)
 			</div>
@@ -771,19 +776,34 @@
 			</div>
 		{/if}
 	{/if}
-	{#if showDisconnectUser && server}
-		<div class="flex flex-col gap-2 p-2">
-			<button
-				class="menu-button text-error"
-				onclick={async (e) => {
-					e.stopPropagation();
-					await deleteServerDeployment(server);
-					await mcpServersAndEntries.refreshAll();
-					toggle(false);
-				}}
-			>
-				<Trash2 class="size-4" /> Disconnect User
-			</button>
+
+	{#if (showDisconnectUser && server) || (entry && configuredServers.length > 0)}
+		<div class="flex flex-col gap-2 p-2 pt-1">
+			{#if entry && configuredServers.length > 0}
+				<button
+					class="menu-button"
+					onclick={(e) => {
+						e.stopPropagation();
+						connectToServerDialog?.setupNewInstance(entry);
+						toggle(false);
+					}}
+				>
+					<Plus class="size-4" /> Create New Server
+				</button>
+			{/if}
+			{#if showDisconnectUser && server}
+				<button
+					class="menu-button text-error"
+					onclick={async (e) => {
+						e.stopPropagation();
+						await deleteServerDeployment(server);
+						await mcpServersAndEntries.refreshAll();
+						toggle(false);
+					}}
+				>
+					<Trash2 class="size-4" /> Disconnect User
+				</button>
+			{/if}
 		</div>
 	{/if}
 {/snippet}

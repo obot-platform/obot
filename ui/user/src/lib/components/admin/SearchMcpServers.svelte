@@ -8,7 +8,6 @@
 		type MCPCatalogServer,
 		type OrgUser
 	} from '$lib/services';
-	import { isMultiUserCatalogEntry } from '$lib/services/user/mcp';
 	import { getUserDisplayName } from '$lib/utils';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import Search from '../Search.svelte';
@@ -50,7 +49,7 @@
 		workspaceId,
 		isAdminView,
 		singleSelect,
-		title = 'Add MCP Server(s)',
+		title = 'Add Entry/Server(s)',
 		entity = 'catalog',
 		all = ADMIN_ALL_OPTION
 	}: Props = $props();
@@ -84,10 +83,6 @@
 				.filter((entry) => {
 					if (type === 'filter') {
 						return true;
-					}
-
-					if (isMultiUserCatalogEntry(entry)) {
-						return false;
 					}
 
 					return entity === 'catalog'
@@ -139,6 +134,15 @@
 				})
 			: allData
 	);
+	let duplicateNames = $derived.by(() => {
+		const counts: Record<string, number> = {};
+		for (const item of allData) {
+			if (item.type !== 'mcpcatalogentry' && item.type !== 'mcpserver') continue;
+			if (!item.name) continue;
+			counts[item.name] = (counts[item.name] ?? 0) + 1;
+		}
+		return new Set(Object.keys(counts).filter((name) => counts[name] > 1));
+	});
 
 	export function open() {
 		addMcpServerDialog?.open();
@@ -198,7 +202,7 @@
 					{#each filteredData as item (item.id)}
 						<button
 							class={twMerge(
-								'dark:hover:bg-base-200 hover:bg-base-400 flex w-full items-center gap-2 px-4 py-2 text-left',
+								'dark:hover:bg-base-200 hover:bg-base-300 flex w-full items-center gap-2 px-4 py-2 text-left',
 								selectedMap.has(item.id) && 'bg-base-200/50'
 							)}
 							onclick={() => {
@@ -227,11 +231,20 @@
 									{/if}
 								</div>
 								<div class="flex min-w-0 grow flex-col">
-									<div class="flex items-center gap-2">
-										<p class="truncate">{item.name}</p>
+									<div class="flex items-center gap-2 flex-wrap">
+										<p class="truncate">
+											{item.name}
+										</p>
+
 										{#if item.registry}
-											<div class="dark:bg-base-400 bg-base-300 rounded-full px-3 py-1 text-[10px]">
+											<div class="badge badge-xs badge-soft badge-primary">
 												{item.registry}
+											</div>
+										{/if}
+
+										{#if duplicateNames.has(item.name) && item.type !== 'all'}
+											<div class="badge badge-xs badge-secondary">
+												{item.type === 'mcpserver' ? 'Server' : 'Catalog Entry'}
 											</div>
 										{/if}
 									</div>

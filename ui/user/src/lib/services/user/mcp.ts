@@ -69,11 +69,14 @@ export function parseCategories(item?: MCPCatalogServer | MCPCatalogEntry | null
 
 export function convertEnvHeadersToRecord(
 	envs: MCPServerInfo['env'],
-	headers: MCPServerInfo['headers']
+	headers: MCPServerInfo['headers'],
+	staticEnvValues: Record<string, string> = {}
 ) {
 	const secretValues: Record<string, string> = {};
 	for (const env of envs ?? []) {
-		if (!hasSecretBinding(env) && env.value) {
+		if (!env.value && !hasSecretBinding(env) && staticEnvValues[env.key]) {
+			secretValues[env.key] = staticEnvValues[env.key];
+		} else if (!hasSecretBinding(env) && env.value) {
 			secretValues[env.key] = env.value;
 		}
 	}
@@ -242,7 +245,7 @@ function getRegistryName(userID: string, usersMap?: Map<string, OrgUser>): strin
 			: 'Unknown Registry';
 }
 
-type EntrySource = { type: 'user' | 'git' | 'global'; url?: string; name: string };
+type EntrySource = { sourceType: 'user' | 'git' | 'system'; source: string };
 export function getSource(
 	entity: MCPCatalogEntry | MCPCatalogServer | AccessControlRule,
 	usersMap?: Map<string, OrgUser>
@@ -250,22 +253,21 @@ export function getSource(
 	if (entity.powerUserWorkspaceID) {
 		const userID = entity.powerUserWorkspaceID.split('-')?.pop() || '';
 		return {
-			type: 'user',
-			name: getRegistryName(userID, usersMap)
+			sourceType: 'user',
+			source: getRegistryName(userID, usersMap)
 		};
 	}
 
 	if ('isCatalogEntry' in entity && entity.sourceURL) {
 		return {
-			type: 'git',
-			url: entity.sourceURL,
-			name: 'Git Source'
+			sourceType: 'git',
+			source: entity.sourceURL
 		};
 	}
 
 	return {
-		type: 'global',
-		name: 'Global Registry'
+		sourceType: 'system',
+		source: 'system'
 	};
 }
 
@@ -281,7 +283,7 @@ export function getUserRegistry(
 	return registry;
 }
 
-function convertEntriesToTableData(
+export function convertEntriesToTableData(
 	entries?: MCPCatalogEntry[],
 	usersMap?: Map<string, OrgUser>,
 	userConfiguredServers?: MCPCatalogServer[],
@@ -309,7 +311,7 @@ function convertEntriesToTableData(
 		.filter((entry) => !entry.deleted)
 		.map((entry) => {
 			const registry = getUserRegistry(entry, usersMap);
-			const source = getSource(entry, usersMap);
+			const { source, sourceType } = getSource(entry, usersMap);
 			const configuredServers = userConfiguredServersByEntry.get(entry.id) ?? [];
 			const missingSecretBinding = hasMissingSecretBinding(entry, configuredServers);
 			const connected = configuredServers.some((s) => !serverHasMissingSecretBinding(entry, s));
@@ -327,17 +329,12 @@ function convertEntriesToTableData(
 						)
 					: (entry.userCount ?? 0),
 				editable: !entry.sourceURL,
-				type:
-					entry.manifest.runtime === 'remote'
-						? 'remote'
-						: entry.manifest.runtime === 'composite'
-							? 'composite'
-							: 'hosted',
+				type: getServerTypeLabel(entry),
 				created: entry.created,
 				registry,
 				source,
+				sourceType,
 				needsUpdate: entry.needsUpdate,
-				hasServers: configuredServers.length > 0,
 				connected,
 				missingKubernetesSecret: missingSecretBinding,
 				status: missingSecretBinding
@@ -394,7 +391,7 @@ function convertServersToTableData(
 		)
 		.map((server) => {
 			const registry = getUserRegistry(server, usersMap);
-			const source = getSource(server, usersMap);
+			const { source, sourceType } = getSource(server, usersMap);
 			const instance = instancesMap?.get(server.id);
 			const connected = !!instance;
 			return {
@@ -402,13 +399,13 @@ function convertServersToTableData(
 				name: getMCPDisplayName(server),
 				icon: server.manifest.icon,
 				source,
+				sourceType,
 				type: 'multi',
 				data: server,
 				users: server.mcpServerInstanceUserCount ?? 0,
 				editable: true,
 				created: server.created,
 				registry,
-				hasServers: connected,
 				connected,
 				status: connected
 					? instance.configured === false
@@ -590,11 +587,16 @@ export function getServerUrl(d: MCPCatalogServer) {
 
 	let url = '';
 	if (profile.current.hasAdminAccess?.()) {
-		if (isMulti) {
+		if (isMulti && d.catalogEntryID) {
 			url =
 				belongsToWorkspace && d.powerUserWorkspaceID
 					? `/admin/mcp-catalog/s/${d.id}/details?wid=${encodeURIComponent(d.powerUserWorkspaceID)}`
 					: `/admin/mcp-catalog/s/${d.id}/details`;
+		} else if (isMulti) {
+			url =
+				belongsToWorkspace && d.powerUserWorkspaceID
+					? `/admin/mcp-catalog/s/${d.id}?wid=${encodeURIComponent(d.powerUserWorkspaceID)}`
+					: `/admin/mcp-catalog/s/${d.id}`;
 		} else {
 			url =
 				belongsToWorkspace && d.powerUserWorkspaceID

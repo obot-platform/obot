@@ -101,24 +101,6 @@ func (m *MCPHandler) GetEntryFromAllSources(req api.Context) error {
 		return types.NewErrNotFound("MCP catalog entry not found")
 	}
 
-	// Authorization check.
-	var (
-		hasAccess bool
-		err       error
-	)
-
-	if entry.Spec.MCPCatalogName != "" {
-		hasAccess, err = m.acrHelper.UserHasAccessToMCPServerCatalogEntryInCatalog(req.User, entry.Name, entry.Spec.MCPCatalogName)
-	} else if entry.Spec.PowerUserWorkspaceID != "" {
-		hasAccess, err = m.acrHelper.UserHasAccessToMCPServerCatalogEntryInWorkspace(req.Context(), req.User, entry.Name, entry.Spec.PowerUserWorkspaceID)
-	}
-	if err != nil {
-		return err
-	}
-	if !hasAccess {
-		return types.NewErrForbidden("user is not authorized to access this catalog entry")
-	}
-
 	return req.Write(ConvertMCPServerCatalogEntryWithWorkspace(entry, entry.Spec.PowerUserWorkspaceID, "", m.serverURL))
 }
 
@@ -212,9 +194,6 @@ func ConvertMCPServerCatalogEntryWithWorkspace(entry v1.MCPServerCatalogEntry, p
 
 func defaultCatalogEntryConnectURL(serverURL string, entry v1.MCPServerCatalogEntry) string {
 	if serverURL == "" {
-		return ""
-	}
-	if entry.Spec.Manifest.Runtime == types.RuntimeComposite {
 		return ""
 	}
 	if entry.Spec.Manifest.ServerUserType == types.ServerUserTypeMultiUser {
@@ -1758,24 +1737,6 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 			return err
 		}
 
-		var (
-			err       error
-			hasAccess bool
-		)
-
-		if catalogEntry.Spec.MCPCatalogName != "" {
-			hasAccess, err = m.acrHelper.UserHasAccessToMCPServerCatalogEntryInCatalog(req.User, catalogEntry.Name, catalogEntry.Spec.MCPCatalogName)
-		} else if catalogEntry.Spec.PowerUserWorkspaceID != "" {
-			hasAccess, err = m.acrHelper.UserHasAccessToMCPServerCatalogEntryInWorkspace(req.Context(), req.User, catalogEntry.Name, catalogEntry.Spec.PowerUserWorkspaceID)
-		}
-		if err != nil {
-			return err
-		}
-
-		if !hasAccess {
-			return types.NewErrForbidden("user does not have access to MCP server catalog entry")
-		}
-
 		// Validate that the catalog entry type is compatible with the route used.
 		if err := validation.ValidateCatalogEntryForRoute(catalogEntry.Spec.Manifest, catalogID, workspaceID); err != nil {
 			return types.NewErrBadRequest("%v", err)
@@ -1785,6 +1746,30 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 		// global catalog entries, so this intentionally uses visibility validation.
 		if err := validateEntryVisibleFromScope(catalogEntry, catalogID, workspaceID); err != nil {
 			return err
+		}
+
+		// POST /api/mcp-catalogs/{catalog_id}/servers is admin-only and skips per-entry ACR.
+		// POST /api/mcp-servers and POST /api/workspaces/{workspace_id}/servers must check ACR
+		// because the catalog entry ID comes from the request body and authz middleware cannot
+		// validate per-entry permissions.
+		if catalogID == "" {
+			var (
+				err       error
+				hasAccess bool
+			)
+
+			if catalogEntry.Spec.MCPCatalogName != "" {
+				hasAccess, err = m.acrHelper.UserHasAccessToMCPServerCatalogEntryInCatalog(req.User, catalogEntry.Name, catalogEntry.Spec.MCPCatalogName)
+			} else if catalogEntry.Spec.PowerUserWorkspaceID != "" {
+				hasAccess, err = m.acrHelper.UserHasAccessToMCPServerCatalogEntryInWorkspace(req.Context(), req.User, catalogEntry.Name, catalogEntry.Spec.PowerUserWorkspaceID)
+			}
+			if err != nil {
+				return err
+			}
+
+			if !hasAccess {
+				return types.NewErrForbidden("user does not have access to MCP server catalog entry")
+			}
 		}
 
 		// Block server creation if OAuth is required but not configured
@@ -3178,26 +3163,6 @@ func (m *MCPHandler) GetServerFromAllSources(req api.Context) error {
 
 	if server.Spec.IsSingleUser() {
 		return types.NewErrNotFound("MCP server not found")
-	}
-
-	// Authorization check.
-	if !req.UserIsAdmin() {
-		var (
-			hasAccess bool
-			err       error
-		)
-
-		if server.Spec.IsCatalogServer() {
-			hasAccess, err = m.acrHelper.UserHasAccessToMCPServerInCatalog(req.User, server.Name, server.Spec.MCPCatalogID)
-		} else if server.Spec.IsPowerUserWorkspaceServer() {
-			hasAccess, err = m.acrHelper.UserHasAccessToMCPServerInWorkspace(req.User, server.Name, server.Spec.PowerUserWorkspaceID, server.Spec.UserID)
-		}
-		if err != nil {
-			return err
-		}
-		if !hasAccess {
-			return types.NewErrForbidden("user is not authorized to access this MCP server")
-		}
 	}
 
 	// Get credential context based on server scoping

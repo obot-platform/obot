@@ -28,6 +28,7 @@
 		animate?: 'slide' | 'fade' | null;
 		hideClose?: boolean;
 		disableClickOutside?: boolean;
+		disableMobileStyles?: boolean;
 	}
 
 	let {
@@ -41,7 +42,8 @@
 		classes,
 		animate,
 		hideClose,
-		disableClickOutside
+		disableClickOutside,
+		disableMobileStyles
 	}: Props = $props();
 	let dialog = $state<HTMLDialogElement>();
 
@@ -68,7 +70,7 @@
 	<div
 		class={twMerge(
 			'dialog-container w-full max-w-2xl font-normal',
-			responsive.isMobile && 'mobile',
+			responsive.isMobile && !disableMobileStyles && 'mobile',
 			klass,
 			'p-0'
 		)}
@@ -76,13 +78,19 @@
 		<div
 			class={twMerge(
 				'flex h-full w-full flex-col',
-				!responsive.isMobile && 'p-4',
+				(!responsive.isMobile || disableMobileStyles) && 'p-4',
 				classes?.content ?? 'max-h-dvh min-h-fit'
 			)}
 		>
 			{#if titleContent || title}
 				<div class="flex flex-col gap-4">
-					<h3 class={twMerge('dialog-title', responsive.isMobile && 'mobile', classes?.header)}>
+					<h3
+						class={twMerge(
+							'dialog-title',
+							responsive.isMobile && !disableMobileStyles && 'mobile',
+							classes?.header
+						)}
+					>
 						<span class={twMerge('flex items-center gap-2', classes?.title ?? '')}>
 							{#if titleContent}
 								{@render titleContent()}
@@ -94,7 +102,7 @@
 							<IconButton
 								class={twMerge(
 									'btn-sm dialog-close-btn',
-									responsive.isMobile && 'mobile',
+									responsive.isMobile && !disableMobileStyles && 'mobile',
 									classes?.closeBtn
 								)}
 								onclick={(e) => {
@@ -102,7 +110,7 @@
 									close();
 								}}
 							>
-								{#if responsive.isMobile && animate === 'slide'}
+								{#if responsive.isMobile && !disableMobileStyles && animate === 'slide'}
 									<ChevronRight class="size-6" />
 								{:else}
 									<X class="size-5" />

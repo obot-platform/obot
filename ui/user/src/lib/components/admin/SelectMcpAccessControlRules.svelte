@@ -12,7 +12,7 @@
 		type OrgGroup,
 		type AccessControlRuleSubject
 	} from '$lib/services';
-	import { profile } from '$lib/stores';
+	import { mcpServersAndEntries, profile } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import InfoTooltip from '../InfoTooltip.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
@@ -37,6 +37,7 @@
 
 	let selectedRules = $state<string[]>([]);
 	let savingRules = $state(false);
+	let updatingBeforeCreate = $state(false);
 
 	export async function open() {
 		accessControlRules =
@@ -105,10 +106,15 @@
 		return '';
 	}
 
-	function handleCreateNewRule() {
+	async function handleCreateNewRule() {
+		updatingBeforeCreate = true;
 		if (entry) {
 			sessionStorage.setItem(ADMIN_SESSION_STORAGE.ACCESS_CONTROL_RULE_CREATION, entry.id);
 		}
+
+		await mcpServersAndEntries.refreshEntries();
+		updatingBeforeCreate = false;
+
 		goto(
 			profile.current?.hasAdminAccess?.()
 				? '/admin/mcp-access-policies?new=true'
@@ -119,7 +125,7 @@
 
 <ResponsiveDialog
 	bind:this={dialog}
-	title="Add to MCP Registry(ies)"
+	title="Add to Access Policies"
 	class="overflow-visible md:w-2xl"
 >
 	{#if accessControlRules.length === 0}
@@ -191,7 +197,7 @@
 	{/if}
 	{#if accessControlRules.length > 0}
 		<div class="mt-auto flex justify-between gap-4">
-			<button class="btn btn-primary" onclick={handleCreateNewRule}> Create New Registry </button>
+			{@render createAccessPolicyButton()}
 			<div class="flex items-center gap-4">
 				<button
 					class="btn btn-primary flex items-center gap-1"
@@ -209,7 +215,17 @@
 	{:else}
 		<div class="mt-auto flex justify-end gap-4">
 			<button class="btn btn-secondary" onclick={close}> Skip Step </button>
-			<button class="btn btn-primary" onclick={handleCreateNewRule}> Create MCP Registry </button>
+			{@render createAccessPolicyButton()}
 		</div>
 	{/if}
 </ResponsiveDialog>
+
+{#snippet createAccessPolicyButton()}
+	<button class="btn btn-primary" onclick={handleCreateNewRule} disabled={updatingBeforeCreate}>
+		{#if updatingBeforeCreate}
+			<Loading class="size-4" />
+		{:else}
+			Create Access Policy
+		{/if}
+	</button>
+{/snippet}

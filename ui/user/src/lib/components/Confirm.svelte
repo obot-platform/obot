@@ -27,6 +27,7 @@
 		submitText?: string;
 		cancelText?: string;
 		titleContent?: Snippet;
+		hideCancelButton?: boolean;
 	}
 
 	let {
@@ -43,7 +44,8 @@
 		disabled,
 		submitText = "Yes, I'm sure",
 		cancelText = 'Cancel',
-		titleContent
+		titleContent,
+		hideCancelButton
 	}: Props = $props();
 
 	let dialog = $state<HTMLDialogElement>();
@@ -111,7 +113,7 @@
 						onclick={onsuccess}
 						type="button"
 						class={twMerge(
-							'flex flex-1 justify-center p-3 btn',
+							'flex flex-1 justify-center p-2 btn w-full',
 							type === 'delete' ? 'btn-error' : 'btn-primary',
 							classes?.confirm
 						)}
@@ -124,12 +126,16 @@
 						{/if}
 					</button>
 				{/if}
-				<button
-					onclick={oncancel}
-					type="button"
-					class="btn btn-secondary flex-1 flex justify-center"
-					disabled={loading}>{cancelText}</button
-				>
+				{#if !hideCancelButton}
+					<button
+						onclick={oncancel}
+						type="button"
+						class="btn btn-secondary flex-1 flex justify-center p-2 w-full"
+						disabled={loading}
+					>
+						{cancelText}
+					</button>
+				{/if}
 			</div>
 		</div>
 	</div>

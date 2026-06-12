@@ -1,0 +1,196 @@
+name: Upstream Sync
+
+permissions:
+  contents: write
+  pull-requests: write
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1"
+
+env:
+  UPSTREAM_REPO: https://github.com/obot-platform/obot.git
+  UPSTREAM_BRANCH: main
+  BASE_BRANCH: main
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch upstream
+        run: |
+          git remote add upstream "$UPSTREAM_REPO"
+          git fetch upstream "$UPSTREAM_BRANCH"
+
+      - name: Analyze upstream delta
+        id: analyze
+        run: |
+          set -euo pipefail
+
+          OURS="origin/${BASE_BRANCH}"
+          THEIRS="upstream/${UPSTREAM_BRANCH}"
+          BASE="$(git merge-base "$OURS" "$THEIRS")"
+
+          NEW_COMMITS="$(git rev-list --count "${OURS}..${THEIRS}")"
+          echo "new_commits=${NEW_COMMITS}" >> "$GITHUB_OUTPUT"
+
+          if [ "$NEW_COMMITS" -eq 0 ]; then
+            echo "No new upstream commits."
+            exit 0
+          fi
+
+          DATE_TAG="$(date -u +%Y%m%d)"
+          BRANCH="sync/upstream-${DATE_TAG}"
+          echo "branch=${BRANCH}" >> "$GITHUB_OUTPUT"
+          echo "date_tag=${DATE_TAG}" >> "$GITHUB_OUTPUT"
+
+          # Files we've changed in our fork since last common base.
+          git diff --name-only "$BASE" "$OURS" | sort -u > /tmp/ours.txt
+          # Files upstream changed since last common base.
+          git diff --name-only "$BASE" "$THEIRS" | sort -u > /tmp/theirs.txt
+          # Overlap = files both sides touched.
+          comm -12 /tmp/ours.txt /tmp/theirs.txt > /tmp/overlap.txt
+
+          OVERLAP_COUNT="$(wc -l < /tmp/overlap.txt | tr -d ' ')"
+          echo "overlap_count=${OVERLAP_COUNT}" >> "$GITHUB_OUTPUT"
+
+          # Trial merge to detect textual conflicts.
+          if git merge-tree --write-tree --no-messages "$BASE" "$OURS" "$THEIRS" > /tmp/merge-out 2> /tmp/merge-err; then
+            CONFLICTS=""
+          else
+            CONFLICTS="$(grep -oE '^[0-9]+ [^ ]+ [^ ]+ .+' /tmp/merge-out | awk '{print $4}' | sort -u || true)"
+          fi
+          CONFLICT_COUNT="$(printf '%s' "$CONFLICTS" | grep -c . || true)"
+          echo "conflict_count=${CONFLICT_COUNT}" >> "$GITHUB_OUTPUT"
+          printf '%s' "$CONFLICTS" > /tmp/conflicts.txt
+
+          # Bucket for label/title.
+          if [ "$CONFLICT_COUNT" -gt 0 ]; then
+            BUCKET="conflicts"
+          elif [ "$OVERLAP_COUNT" -gt 0 ]; then
+            BUCKET="touches-customized-files"
+          else
+            BUCKET="clean"
+          fi
+          echo "bucket=${BUCKET}" >> "$GITHUB_OUTPUT"
+          echo "base=${BASE}" >> "$GITHUB_OUTPUT"
+
+      - name: Skip when no new upstream commits
+        if: steps.analyze.outputs.new_commits == '0'
+        run: echo "Nothing to sync."
+
+      - name: Create sync branch
+        if: steps.analyze.outputs.new_commits != '0'
+        id: branch
+        run: |
+          set -euo pipefail
+          BRANCH="${{ steps.analyze.outputs.branch }}"
+
+          # If a PR for today already exists, exit gracefully.
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+            echo "Branch $BRANCH already exists on origin; skipping."
+            echo "skipped=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git checkout -B "$BRANCH" "origin/${BASE_BRANCH}"
+
+          if [ "${{ steps.analyze.outputs.conflict_count }}" = "0" ]; then
+            # Clean merge — commit it so the PR is mergeable as-is.
+            git merge --no-ff --no-edit "upstream/${UPSTREAM_BRANCH}" \
+              -m "chore: sync upstream ${{ steps.analyze.outputs.date_tag }}"
+          else
+            # Conflicts present — push branch at upstream tip so the PR shows
+            # the full delta and GitHub surfaces the conflicts for manual resolution.
+            git reset --hard "upstream/${UPSTREAM_BRANCH}"
+          fi
+
+          git push origin "$BRANCH"
+          echo "skipped=false" >> "$GITHUB_OUTPUT"
+
+      - name: Build PR body
+        if: steps.analyze.outputs.new_commits != '0' && steps.branch.outputs.skipped == 'false'
+        id: body
+        run: |
+          set -euo pipefail
+          BUCKET="${{ steps.analyze.outputs.bucket }}"
+          NEW_COMMITS="${{ steps.analyze.outputs.new_commits }}"
+          OVERLAP_COUNT="${{ steps.analyze.outputs.overlap_count }}"
+          CONFLICT_COUNT="${{ steps.analyze.outputs.conflict_count }}"
+
+          case "$BUCKET" in
+            clean)
+              VERDICT=":white_check_mark: **Safe to merge.** No overlap with our fork's changes and no textual conflicts."
+              ;;
+            touches-customized-files)
+              VERDICT=":mag: **Review recommended.** Upstream changed files we have also customized. No textual conflicts, but semantic drift possible."
+              ;;
+            conflicts)
+              VERDICT=":warning: **Manual resolution required.** Textual merge conflicts detected. Branch is at upstream tip — resolve when merging."
+              ;;
+          esac
+
+          {
+            echo "## Upstream sync — ${{ steps.analyze.outputs.date_tag }}"
+            echo
+            echo "$VERDICT"
+            echo
+            echo "| Signal | Value |"
+            echo "| --- | --- |"
+            echo "| New upstream commits | ${NEW_COMMITS} |"
+            echo "| Files we've customized that upstream also changed | ${OVERLAP_COUNT} |"
+            echo "| Files with textual conflicts | ${CONFLICT_COUNT} |"
+            echo
+            if [ "$OVERLAP_COUNT" -gt 0 ]; then
+              echo "### Overlap (review these files)"
+              echo '```'
+              cat /tmp/overlap.txt
+              echo '```'
+              echo
+            fi
+            if [ "$CONFLICT_COUNT" -gt 0 ]; then
+              echo "### Conflicting files"
+              echo '```'
+              cat /tmp/conflicts.txt
+              echo '```'
+              echo
+            fi
+            echo "### Upstream commits"
+            git log --no-merges --pretty=format:'- %h %s (%an)' \
+              "origin/${BASE_BRANCH}..upstream/${UPSTREAM_BRANCH}" | head -50
+            echo
+          } > /tmp/pr-body.md
+
+      - name: Create or update PR
+        if: steps.analyze.outputs.new_commits != '0' && steps.branch.outputs.skipped == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          BRANCH="${{ steps.analyze.outputs.branch }}"
+          BUCKET="${{ steps.analyze.outputs.bucket }}"
+          TITLE="chore: sync upstream ${{ steps.analyze.outputs.date_tag }} [${BUCKET}]"
+
+          gh pr create \
+            --base "${BASE_BRANCH}" \
+            --head "${BRANCH}" \
+            --title "${TITLE}" \
+            --body-file /tmp/pr-body.md \
+            --label "upstream-sync" \
+            --label "sync:${BUCKET}" || \
+          gh pr edit "${BRANCH}" \
+            --title "${TITLE}" \
+            --body-file /tmp/pr-body.md

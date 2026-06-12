@@ -42,7 +42,8 @@
 		Server,
 		ServerCog,
 		Trash2,
-		TriangleAlert
+		TriangleAlert,
+		UsersIcon
 	} from 'lucide-svelte';
 	import { onDestroy, onMount, type Snippet } from 'svelte';
 
@@ -674,6 +675,13 @@
 						</div>
 					{:else if property === 'deploymentStatus'}
 						{d.deploymentStatus || '--'}
+					{:else if property === 'type'}
+						{d.type}
+						{#if d.serverUserType === 'multiUser'}
+							<div class="p-2" use:tooltip={{ text: 'Multi-tenant' }}>
+								<UsersIcon class="size-3 text-muted-content" />
+							</div>
+						{/if}
 					{:else}
 						{d[property as keyof typeof d]}
 					{/if}

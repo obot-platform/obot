@@ -26,7 +26,7 @@ func TestSetupNonInteractiveExplicitInstallsClaudeCode(t *testing.T) {
 	}
 
 	var tokenBaseURL string
-	root := setupTestRoot(func(_ context.Context, baseURL string, _, _ bool) (string, error) {
+	root := setupTestRoot(func(_ context.Context, baseURL string, _ apiclient.TokenFetchOptions) (string, error) {
 		tokenBaseURL = baseURL
 		return "token", nil
 	})
@@ -75,7 +75,7 @@ func TestSetupExplicitSharedAgents(t *testing.T) {
 	defer restore()
 	home := useSetupTestHome(t)
 
-	root := setupTestRoot(func(_ context.Context, _ string, _, _ bool) (string, error) {
+	root := setupTestRoot(func(_ context.Context, _ string, _ apiclient.TokenFetchOptions) (string, error) {
 		return "token", nil
 	})
 	setup := &Setup{
@@ -110,7 +110,7 @@ func TestSetupExplicitInstallsMultipleTargets(t *testing.T) {
 	defer restore()
 	home := useSetupTestHome(t)
 
-	root := setupTestRoot(func(_ context.Context, _ string, _, _ bool) (string, error) {
+	root := setupTestRoot(func(_ context.Context, _ string, _ apiclient.TokenFetchOptions) (string, error) {
 		return "token", nil
 	})
 	setup := &Setup{
@@ -132,7 +132,7 @@ func TestSetupNonInteractiveMissingURLFailsWithoutPrompt(t *testing.T) {
 	restore := useRootTestEnv(t)
 	defer restore()
 
-	root := setupTestRoot(func(context.Context, string, bool, bool) (string, error) {
+	root := setupTestRoot(func(context.Context, string, apiclient.TokenFetchOptions) (string, error) {
 		t.Fatal("token fetcher should not be called without a URL")
 		return "", nil
 	})
@@ -164,7 +164,7 @@ func TestSetupClientsNoneSkipsLocalClientInstall(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	root := setupTestRoot(func(_ context.Context, _ string, _, _ bool) (string, error) {
+	root := setupTestRoot(func(_ context.Context, _ string, _ apiclient.TokenFetchOptions) (string, error) {
 		return "token", nil
 	})
 	setup := &Setup{
@@ -200,7 +200,7 @@ func TestSetupJSONProgressSuccessfulSequence(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	root := setupTestRoot(func(_ context.Context, _ string, _, _ bool) (string, error) {
+	root := setupTestRoot(func(_ context.Context, _ string, _ apiclient.TokenFetchOptions) (string, error) {
 		return "token", nil
 	})
 	setup := &Setup{
@@ -248,7 +248,7 @@ func TestSetupJSONProgressStructuredError(t *testing.T) {
 	restore := useRootTestEnv(t)
 	defer restore()
 
-	root := setupTestRoot(func(context.Context, string, bool, bool) (string, error) {
+	root := setupTestRoot(func(context.Context, string, apiclient.TokenFetchOptions) (string, error) {
 		t.Fatal("token fetcher should not be called without a URL")
 		return "", nil
 	})
@@ -355,7 +355,7 @@ func TestSetupInteractiveUsesConfiguredURL(t *testing.T) {
 	}
 
 	var tokenBaseURL string
-	root := setupTestRoot(func(_ context.Context, baseURL string, _, _ bool) (string, error) {
+	root := setupTestRoot(func(_ context.Context, baseURL string, _ apiclient.TokenFetchOptions) (string, error) {
 		tokenBaseURL = baseURL
 		return "token", nil
 	})
@@ -383,7 +383,7 @@ func TestSetupPromptsForClientsWhenOmittedWithoutClaudeCode(t *testing.T) {
 	defer restore()
 	home := useSetupTestHome(t)
 
-	root := setupTestRoot(func(_ context.Context, _ string, _, _ bool) (string, error) {
+	root := setupTestRoot(func(_ context.Context, _ string, _ apiclient.TokenFetchOptions) (string, error) {
 		return "token", nil
 	})
 	setup := &Setup{
@@ -415,7 +415,7 @@ func TestSetupPromptsForClientsWhenOmittedWithClaudeCode(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	root := setupTestRoot(func(_ context.Context, _ string, _, _ bool) (string, error) {
+	root := setupTestRoot(func(_ context.Context, _ string, _ apiclient.TokenFetchOptions) (string, error) {
 		return "token", nil
 	})
 	setup := &Setup{
@@ -442,7 +442,7 @@ func TestSetupPromptEmptySelectionSkipsLocalClientInstall(t *testing.T) {
 	defer restore()
 	home := useSetupTestHome(t)
 
-	root := setupTestRoot(func(_ context.Context, _ string, _, _ bool) (string, error) {
+	root := setupTestRoot(func(_ context.Context, _ string, _ apiclient.TokenFetchOptions) (string, error) {
 		return "token", nil
 	})
 	setup := &Setup{
@@ -469,7 +469,7 @@ func TestSetupYesDefaultsToSharedAgentsWhenClientsOmitted(t *testing.T) {
 	defer restore()
 	home := useSetupTestHome(t)
 
-	root := setupTestRoot(func(_ context.Context, _ string, _, _ bool) (string, error) {
+	root := setupTestRoot(func(_ context.Context, _ string, _ apiclient.TokenFetchOptions) (string, error) {
 		return "token", nil
 	})
 	setup := &Setup{
@@ -495,7 +495,7 @@ func TestSetupNonInteractiveRequiresClientsWhenOmitted(t *testing.T) {
 	defer restore()
 	useSetupTestHome(t)
 
-	root := setupTestRoot(func(_ context.Context, _ string, _, _ bool) (string, error) {
+	root := setupTestRoot(func(_ context.Context, _ string, _ apiclient.TokenFetchOptions) (string, error) {
 		return "token", nil
 	})
 	setup := &Setup{
@@ -666,7 +666,7 @@ func TestSetupDetectClientsJSON(t *testing.T) {
 	}
 }
 
-func setupTestRoot(fetcher func(context.Context, string, bool, bool) (string, error)) *Obot {
+func setupTestRoot(fetcher func(context.Context, string, apiclient.TokenFetchOptions) (string, error)) *Obot {
 	client := &apiclient.Client{}
 	if fetcher != nil {
 		client = client.WithTokenFetcher(fetcher)

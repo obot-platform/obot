@@ -52,7 +52,7 @@ func (h *SkillHandler) List(req api.Context) error {
 		return err
 	}
 
-	includeInvalid := (req.UserIsAdmin() || req.UserIsOwner() || req.UserIsAuditor()) && req.URL.Query().Get("all") == "true"
+	includeInvalid := (req.UserIsAdmin() || req.UserIsAuditor()) && req.URL.Query().Get("all") == "true"
 	query := strings.ToLower(strings.TrimSpace(req.URL.Query().Get("q")))
 	filtered := make([]types.Skill, 0, len(items))
 	for _, item := range items {
@@ -163,18 +163,6 @@ func (h *SkillHandler) getAccessibleSkill(req api.Context, id string) (*v1.Skill
 		return nil, types.NewErrNotFound("skill %s not found", id)
 	}
 
-	if req.UserIsAdmin() || req.UserIsOwner() || req.UserIsAuditor() {
-		return &skill, nil
-	}
-
-	hasAccess, err := h.skillAccessRuleHelper.UserHasAccessToSkill(req.User, &skill)
-	if err != nil {
-		return nil, err
-	}
-	if !hasAccess {
-		return nil, types.NewErrNotFound("skill %s not found", id)
-	}
-
 	return &skill, nil
 }
 
@@ -184,7 +172,7 @@ func (h *SkillHandler) listAccessibleSkills(req api.Context, repoID string) ([]v
 		return nil, err
 	}
 	// Allow admins/owners/auditors to bypass skill access scope with ?all=true
-	if !allowAll && (req.UserIsAdmin() || req.UserIsOwner() || req.UserIsAuditor()) && req.URL.Query().Get("all") == "true" {
+	if !allowAll && (req.UserIsAdmin() || req.UserIsAuditor()) && req.URL.Query().Get("all") == "true" {
 		allowAll = true
 	}
 

@@ -84,14 +84,7 @@ func (s *Server) redirect(apiContext api.Context) error {
 		return types2.NewErrHTTP(http.StatusBadRequest, fmt.Sprintf("invalid state: %v", err))
 	}
 
-	if _, err = apiContext.GatewayClient.NewAuthToken(
-		apiContext.Context(),
-		namespace,
-		name,
-		apiContext.AuthProviderUserID(),
-		apiContext.UserID(),
-		tr,
-	); err != nil {
+	if _, err = apiContext.GatewayClient.CreateAPIKeyFromTokenRequest(apiContext.Context(), apiContext.UserID(), tr); err != nil {
 		return s.errorToken(apiContext.Context(), tr, http.StatusInternalServerError, err)
 	}
 	pkgLog.Infof("Completed OAuth redirect and issued auth token: tokenRequestID=%s provider=%s/%s userID=%d", tr.ID, namespace, name, apiContext.UserID())

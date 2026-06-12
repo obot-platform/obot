@@ -632,19 +632,19 @@
 					{getServerTypeLabel(entry)}
 				</div>
 				{#if source}
-					{#if source.type === 'git'}
+					{#if source.sourceType === 'git'}
 						<a
-							href={source.url}
+							href={source.source}
 							target="_blank"
 							rel="external noopener noreferrer"
 							class="btn btn-xs btn-primary px-3!"
 						>
-							{source.url?.split('/').pop()}
+							{source.source?.split('/').pop()}
 							<ExternalLink class="size-3" />
 						</a>
 					{:else}
 						<div class="pill-rounded">
-							{source.name}
+							{source.source}
 						</div>
 					{/if}
 				{/if}

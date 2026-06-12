@@ -26,9 +26,14 @@ type Bootstrap struct {
 	token, serverURL                  string
 	authEnabled, forceEnableBootstrap bool
 	gatewayClient                     *client.Client
+	authProviderGetter                configuredAuthProviderGetter
 }
 
-func New(ctx context.Context, serverURL string, c *client.Client, authEnabled, forceEnableBootstrap bool) (*Bootstrap, error) {
+type configuredAuthProviderGetter interface {
+	GetConfiguredAuthProvider(context.Context) (string, error)
+}
+
+func New(ctx context.Context, serverURL string, c *client.Client, authProviderGetter configuredAuthProviderGetter, authEnabled, forceEnableBootstrap bool) (*Bootstrap, error) {
 	if !authEnabled {
 		// Auth is not enabled, so skip token generation.
 		return &Bootstrap{
@@ -36,6 +41,7 @@ func New(ctx context.Context, serverURL string, c *client.Client, authEnabled, f
 			authEnabled:          authEnabled,
 			forceEnableBootstrap: forceEnableBootstrap,
 			gatewayClient:        c,
+			authProviderGetter:   authProviderGetter,
 		}, nil
 	}
 
@@ -80,6 +86,7 @@ func New(ctx context.Context, serverURL string, c *client.Client, authEnabled, f
 		serverURL:            serverURL,
 		forceEnableBootstrap: forceEnableBootstrap,
 		gatewayClient:        c,
+		authProviderGetter:   authProviderGetter,
 	}
 
 	bootstrapEnabled, err := b.bootstrapEnabled(ctx)
@@ -191,7 +198,7 @@ func (b *Bootstrap) Login(req api.Context) error {
 		http.Error(req.ResponseWriter, "invalid token", http.StatusUnauthorized)
 
 		if err != nil {
-			fmt.Printf("WARNING: bootstrap login failed: failed to check if admin user exists: %v\n", err)
+			fmt.Printf("WARNING: bootstrap login failed: failed to check if bootstrap is enabled: %v\n", err)
 		}
 		return nil
 	}
@@ -244,23 +251,39 @@ func (b *Bootstrap) IsEnabled(req api.Context) error {
 	return req.Write(map[string]bool{"enabled": bootstrapEnabled})
 }
 
+// bootstrapEnabled determines whether the bootstrap user is currently available for login.
+// It is only available when there are no configured auth providers, or no owner users in the database.
 func (b *Bootstrap) bootstrapEnabled(ctx context.Context) (bool, error) {
 	if b.forceEnableBootstrap {
 		return true, nil
 	}
 
-	adminUsers, err := b.gatewayClient.Users(ctx, types.UserQuery{
+	ownerUsers, err := b.gatewayClient.Users(ctx, types.UserQuery{
 		Role: types2.RoleOwner,
 	})
 	if err != nil {
-		return false, fmt.Errorf("failed to get admin users: %w", err)
+		return false, fmt.Errorf("failed to get owner users: %w", err)
 	}
 
-	for _, u := range adminUsers {
+	hasOwnerUser := false
+	for _, u := range ownerUsers {
 		if u.Username != "bootstrap" && u.Email != "" {
-			// A non-bootstrap admin user exists, so bootstrap is not enabled
-			return false, nil
+			hasOwnerUser = true
+			break
 		}
 	}
-	return true, nil
+	if !hasOwnerUser {
+		return true, nil
+	}
+
+	if b.authProviderGetter == nil {
+		return false, errors.New("configured auth provider getter is not set")
+	}
+
+	configuredAuthProvider, err := b.authProviderGetter.GetConfiguredAuthProvider(ctx)
+	if err != nil {
+		return false, fmt.Errorf("failed to get configured auth provider: %w", err)
+	}
+
+	return configuredAuthProvider == "", nil
 }

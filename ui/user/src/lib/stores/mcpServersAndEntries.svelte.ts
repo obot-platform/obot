@@ -7,6 +7,7 @@ import {
 	type MCPServerInstance
 } from '$lib/services';
 import { profile } from '.';
+import errors from './errors.svelte';
 
 interface McpServerAndEntries {
 	entries: MCPCatalogEntry[];
@@ -20,6 +21,7 @@ interface McpServerAndEntries {
 const store = $state<{
 	current: McpServerAndEntries;
 	refreshAll: () => Promise<void>;
+	refreshEntries: () => Promise<void>;
 	refreshUserConfiguredServers: () => Promise<void>;
 	refreshUserInstances: () => Promise<void>;
 	removeServer: (serverID: string) => void;
@@ -36,6 +38,7 @@ const store = $state<{
 		isInitialized: false
 	},
 	refreshAll,
+	refreshEntries,
 	refreshUserConfiguredServers,
 	refreshUserInstances,
 	removeServer,
@@ -47,6 +50,19 @@ function filterOutDuplicateAndDeleted(servers: MCPCatalogServer[]) {
 	return servers.filter(
 		(server, index, self) => index === self.findIndex((t) => t.id === server.id) && !server.deleted
 	);
+}
+
+function setCanConnectAndFilterDeleted(
+	entries: MCPCatalogEntry[],
+	userScopedEntries: MCPCatalogEntry[]
+) {
+	const accessibleEntryIds = new Set(userScopedEntries.map((e) => e.id));
+	return entries
+		.filter((entry) => !entry.deleted)
+		.map((entry) => ({
+			...entry,
+			canConnect: accessibleEntryIds.has(entry.id)
+		}));
 }
 
 async function fetchData(forceRefresh = false) {
@@ -90,15 +106,12 @@ async function fetchData(forceRefresh = false) {
 			]);
 
 			// Create sets of IDs the admin has access to via ACRs
-			const accessibleEntryIds = new Set(userScopedEntries.map((e) => e.id));
 			const accessibleServerIds = new Set(userScopedServers.map((s) => s.id));
 
-			entries = [...adminEntries, ...workspaceEntries]
-				.filter((entry) => !entry.deleted)
-				.map((entry) => ({
-					...entry,
-					canConnect: accessibleEntryIds.has(entry.id)
-				}));
+			entries = setCanConnectAndFilterDeleted(
+				[...adminEntries, ...workspaceEntries],
+				userScopedEntries
+			);
 			servers = [...adminServers, ...workspaceServers].map((server) => ({
 				...server,
 				canConnect: accessibleServerIds.has(server.id)
@@ -130,7 +143,7 @@ async function fetchData(forceRefresh = false) {
 			isInitialized: true
 		};
 	} catch (error) {
-		console.error('Failed to fetch mcp server, entries, and user configured servers:', error);
+		errors.append(error);
 		store.current.loading = false;
 	}
 }
@@ -141,6 +154,33 @@ async function refreshAll() {
 
 async function initialize(forceRefresh = false) {
 	await fetchData(forceRefresh);
+}
+
+async function refreshEntries() {
+	try {
+		if (profile.current.hasAdminAccess?.()) {
+			const [adminEntries, workspaceEntries, userScopedEntries] = await Promise.all([
+				AdminService.listMCPCatalogEntries(DEFAULT_MCP_CATALOG_ID, { all: true }),
+				AdminService.listAllUserWorkspaceCatalogEntries(),
+				UserService.listMCPs()
+			]);
+			store.current = {
+				...store.current,
+				entries: setCanConnectAndFilterDeleted(
+					[...adminEntries, ...workspaceEntries],
+					userScopedEntries
+				)
+			};
+		} else {
+			const entries = await UserService.listMCPs();
+			store.current = {
+				...store.current,
+				entries: entries.filter((entry) => !entry.deleted)
+			};
+		}
+	} catch (error) {
+		errors.append(error);
+	}
 }
 
 async function refreshUserConfiguredServers() {

@@ -234,11 +234,11 @@ Admins and owners can delete an individual device scan from the scan detail page
 
 ### Authentication opens a browser
 
-If `OBOT_TOKEN` is not set and no valid token is stored locally, `obot scan --submit` may use the browser-based login flow. For unattended jobs, set `OBOT_TOKEN`.
+If `OBOT_TOKEN` is not set and no valid API key is stored locally, `obot scan --submit` may use the browser-based login flow. For unattended jobs, set `OBOT_TOKEN` to an API key with API access.
 
 ### Server submission fails
 
-Check that the configured Obot server is reachable from the workstation and that the token has permission to submit device scans.
+Check that the configured Obot server is reachable from the workstation and that the API key has permission to submit device scans.
 
 ### The scan misses project configuration
 

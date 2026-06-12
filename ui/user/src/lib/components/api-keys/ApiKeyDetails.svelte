@@ -2,7 +2,7 @@
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { stripMarkdownToText } from '$lib/markdown';
-	import type { APIKey } from '$lib/services/api-keys/types';
+	import { API_KEY_CAPABILITIES, type APIKey } from '$lib/services/api-keys/types';
 	import { compileAvailableMcpServers, getMCPDisplayName } from '$lib/services/user/mcp';
 	import { mcpServersAndEntries, profile } from '$lib/stores';
 	import { formatTimeAgo, formatTimeUntil } from '$lib/time';
@@ -108,17 +108,19 @@
 						/>
 					</div>
 
-					<div class="flex flex-col gap-2">
-						<label for="api-key-skills-access" class="flex-1 text-sm font-light capitalize">
-							Skills Access
-						</label>
-						<input
-							id="api-key-skills-access"
-							value={apiKey.canAccessSkills ? 'Enabled' : 'Disabled'}
-							class="text-input-filled mt-0.5"
-							disabled
-						/>
-					</div>
+					{#each API_KEY_CAPABILITIES as capability (capability.key)}
+						<div class="flex flex-col gap-2">
+							<label for={`api-key-${capability.key}`} class="flex-1 text-sm font-light capitalize">
+								{capability.label}
+							</label>
+							<input
+								id={`api-key-${capability.key}`}
+								value={apiKey[capability.key] ? 'Enabled' : 'Disabled'}
+								class="text-input-filled mt-0.5"
+								disabled
+							/>
+						</div>
+					{/each}
 
 					<div class="flex flex-col gap-2">
 						<label for="api-key-created" class="flex-1 text-sm font-light capitalize">Created</label

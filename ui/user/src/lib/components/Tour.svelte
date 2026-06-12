@@ -229,7 +229,7 @@
 					popoverClass: POPOVER_CLASS,
 					title: 'Connect To Available MCP Servers',
 					description:
-						'Click "Connect To Server" to get set up & start using them in your preferred client or IDE.',
+						'Click "Connect" to get set up & start using them in your preferred client or IDE.',
 					side: 'bottom' as const,
 					align: 'end' as const,
 					onPopoverRender: tourImageRender(

@@ -61,9 +61,11 @@
 							class="btn btn-secondary w-full"
 							onclick={() => {
 								localStorage.setItem('preAuthRedirect', window.location.href);
-								window.location.href = appPath(`/oauth2/start?rd=${encodeURIComponent(
-									overrideRedirect !== null ? overrideRedirect : rd
-								)}&obot-auth-provider=${provider.namespace}/${provider.id}`);
+								window.location.href = appPath(
+									`/oauth2/start?rd=${encodeURIComponent(
+										overrideRedirect !== null ? overrideRedirect : rd
+									)}&obot-auth-provider=${provider.namespace}/${provider.id}`
+								);
 							}}
 						>
 							{#if provider.icon}

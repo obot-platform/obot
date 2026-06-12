@@ -20,7 +20,6 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/provider"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
-	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -39,7 +38,6 @@ const (
 var log = logger.Package()
 
 type Handler struct {
-	tokenService       *persistent.TokenService
 	gatewayClient      *client.Client
 	localK8SBackend    backend.Backend
 	nanobotImage       string
@@ -47,13 +45,12 @@ type Handler struct {
 	mcpServerNamespace string
 }
 
-func New(tokenService *persistent.TokenService, gatewayClient *client.Client, localK8sRouter *router.Router, nanobotImage, serverURL, mcpServerNamespace string, mcpSessionManager *mcp.SessionManager) *Handler {
+func New(gatewayClient *client.Client, localK8sRouter *router.Router, nanobotImage, serverURL, mcpServerNamespace string, mcpSessionManager *mcp.SessionManager) *Handler {
 	var localK8SBackend backend.Backend
 	if localK8sRouter != nil {
 		localK8SBackend = localK8sRouter.Backend()
 	}
 	return &Handler{
-		tokenService:       tokenService,
 		gatewayClient:      gatewayClient,
 		localK8SBackend:    localK8SBackend,
 		nanobotImage:       nanobotImage,
@@ -265,21 +262,24 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 		llmEnvVarName := strings.TrimSuffix(strings.TrimPrefix(llmProvider.APIKey, "${"), "}")
 		token := credEnvFileVars[llmEnvVarName]
 		if token != "" {
-			tokenCtx, err := h.tokenService.DecodeToken(ctx, token)
+			apiKey, err := h.gatewayClient.ValidateAPIKey(ctx, token)
 			if err != nil {
 				// Token is invalid, needs refresh
 				needsRefresh = true
 				log.Debugf("Nanobot credential token invalid, refreshing: agent=%s mcpServer=%s", agent.Name, mcpServerName)
-			} else {
-				if untilRefresh := time.Until(tokenCtx.ExpiresAt) - nanobotRefreshBefore; untilRefresh <= 0 {
+			} else if apiKey.ExpiresAt != nil {
+				if untilRefresh := time.Until(*apiKey.ExpiresAt) - nanobotRefreshBefore; untilRefresh <= 0 {
 					// If the token expires soon, then refresh it
 					needsRefresh = true
 					resp.RetryAfter(time.Second)
-					log.Debugf("Nanobot credential due for refresh: agent=%s mcpServer=%s expiresAt=%s", agent.Name, mcpServerName, tokenCtx.ExpiresAt.UTC().Format(time.RFC3339))
+					log.Debugf("Nanobot credential due for refresh: agent=%s mcpServer=%s expiresAt=%s", agent.Name, mcpServerName, apiKey.ExpiresAt.UTC().Format(time.RFC3339))
 				} else {
 					// Otherwise, look at the agent again around the time the refresh would be needed.
 					resp.RetryAfter(untilRefresh)
 				}
+			} else {
+				needsRefresh = true
+				log.Debugf("API key set for no expiration, refreshing: agent=%s mcpServer=%s", agent.Name, mcpServerName)
 			}
 		} else {
 			// No token in credential, needs refresh
@@ -297,21 +297,6 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 	}
 
 	log.Debugf("Refreshing nanobot credentials: agent=%s mcpServer=%s model=%s miniModel=%s", agent.Name, mcpServerName, llmDefault, miniDefault)
-
-	// Generate a new token that expires in 12 hours
-	now := time.Now()
-	expiresAt := now.Add(nanobotTokenTTL)
-	token, err := h.tokenService.NewToken(ctx, persistent.TokenContext{
-		Audience:   h.serverURL,
-		IssuedAt:   now,
-		ExpiresAt:  expiresAt,
-		UserID:     agent.Spec.UserID,
-		UserGroups: types.RoleBasic.Groups(),
-		Namespace:  agent.Namespace,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to generate token: %w", err)
-	}
 
 	// Look up the gateway user to get the uint ID needed for API key creation
 	gatewayUser, err := h.gatewayClient.UserByID(ctx, agent.Spec.UserID)
@@ -341,9 +326,13 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 		gatewayUser.ID,
 		fmt.Sprintf("nanobot-agent-%s", mcpServerName),
 		fmt.Sprintf("API key for nanobot agent %s", agent.Name),
-		&expiresAt,
-		[]string{"*"}, // Access to all servers
-		true,          // Access to skills
+		new(time.Now().Add(nanobotTokenTTL)),
+		gatewaytypes.APIKeyScopes{
+			MCPServerIDs:                []string{"*"},
+			CanAccessSkills:             true,
+			CanAccessLLMProxy:           true,
+			CanAccessPublishedArtifacts: true,
+		},
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create API key: %w", err)
@@ -366,7 +355,7 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 		}
 		seenProviders[p.Name] = struct{}{}
 		envVarName := strings.TrimSuffix(strings.TrimPrefix(p.APIKey, "${"), "}")
-		envFileLines = append(envFileLines, fmt.Sprintf("%s=%s", envVarName, token))
+		envFileLines = append(envFileLines, fmt.Sprintf("%s=%s", envVarName, apiKeyResp.Key))
 	}
 
 	// Create or update the credential with the new token, API key, and provider config.

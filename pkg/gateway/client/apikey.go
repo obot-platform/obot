@@ -18,6 +18,7 @@ const (
 	apiKeyPrefix             = "ok1"
 	apiKeyValidationCacheTTL = 15 * time.Second
 	apiKeyCacheCleanupPeriod = 5 * time.Minute
+	expirationDur            = 7 * 24 * time.Hour
 )
 
 type apiKeyValidationCacheEntry struct {
@@ -143,43 +144,47 @@ func (c *Client) invalidateValidatedAPIKeysByID(keyID uint) {
 
 // CreateAPIKey generates a new API key for the given user.
 // Returns the full key only once in the response.
-func (c *Client) CreateAPIKey(ctx context.Context, userID uint, name, description string, expiresAt *time.Time, mcpServerIDs []string, canAccessSkills bool) (*types.APIKeyCreateResponse, error) {
-	// Generate cryptographically secure random secret
-	secretBytes := make([]byte, apiKeySecretLength)
-	if _, err := rand.Read(secretBytes); err != nil {
-		return nil, fmt.Errorf("failed to generate secret: %w", err)
-	}
-	secret := base64.RawURLEncoding.EncodeToString(secretBytes)
+func (c *Client) CreateAPIKey(ctx context.Context, userID uint, name, description string, expiresAt *time.Time, scopes types.APIKeyScopes) (*types.APIKeyCreateResponse, error) {
+	var resp *types.APIKeyCreateResponse
+	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var err error
 
-	// Hash the secret with bcrypt for storage
-	hashedSecret, err := bcrypt.GenerateFromPassword([]byte(secret), bcrypt.DefaultCost)
-	if err != nil {
-		return nil, fmt.Errorf("failed to hash secret: %w", err)
+		resp, err = c.createAPIKey(tx, userID, name, description, expiresAt, scopes)
+		return err
+	}); err != nil {
+		return nil, err
 	}
 
-	// Create the API key record
-	apiKey := &types.APIKey{
-		UserID:          userID,
-		Name:            name,
-		Description:     description,
-		HashedSecret:    string(hashedSecret),
-		CanAccessSkills: canAccessSkills,
-		ExpiresAt:       expiresAt,
-		CreatedAt:       time.Now(),
-		MCPServerIDs:    mcpServerIDs,
+	return resp, nil
+}
+
+// CreateAPIKeyFromTokenRequest creates an API key from a token request.
+func (c *Client) CreateAPIKeyFromTokenRequest(ctx context.Context, userID uint, tr *types.TokenRequest) (*types.APIKeyCreateResponse, error) {
+	var expiresAt *time.Time
+	if !tr.NoExpiration {
+		expiresAt = new(time.Now().Add(expirationDur))
 	}
 
-	if err := c.db.WithContext(ctx).Create(apiKey).Error; err != nil {
-		return nil, fmt.Errorf("failed to create API key: %w", err)
+	var resp *types.APIKeyCreateResponse
+	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var err error
+
+		resp, err = c.createAPIKey(tx, userID, tr.Name, tr.Description, expiresAt, tr.Scopes)
+		if err != nil {
+			return err
+		}
+
+		if resp.ExpiresAt != nil {
+			tr.ExpiresAt = *resp.ExpiresAt
+		}
+		tr.Token = resp.Key
+
+		return tx.Updates(tr).Error
+	}); err != nil {
+		return nil, err
 	}
 
-	// Construct the full key with the auto-generated ID
-	fullKey := fmt.Sprintf("%s-%d-%d-%s", apiKeyPrefix, userID, apiKey.ID, secret)
-
-	return &types.APIKeyCreateResponse{
-		APIKey: *apiKey,
-		Key:    fullKey,
-	}, nil
+	return resp, nil
 }
 
 // ListAPIKeys returns all API keys for a user (without the secrets).
@@ -316,4 +321,42 @@ func (c *Client) UpdateAPIKeyLastUsed(ctx context.Context, key *types.APIKey) er
 		return fmt.Errorf("failed to update API key last used time: %w", result.Error)
 	}
 	return nil
+}
+
+func (c *Client) createAPIKey(tx *gorm.DB, userID uint, name, description string, expiresAt *time.Time, scopes types.APIKeyScopes) (*types.APIKeyCreateResponse, error) {
+	// Generate cryptographically secure random secret
+	secretBytes := make([]byte, apiKeySecretLength)
+	if _, err := rand.Read(secretBytes); err != nil {
+		return nil, fmt.Errorf("failed to generate secret: %w", err)
+	}
+	secret := base64.RawURLEncoding.EncodeToString(secretBytes)
+
+	// Hash the secret with bcrypt for storage
+	hashedSecret, err := bcrypt.GenerateFromPassword([]byte(secret), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, fmt.Errorf("failed to hash secret: %w", err)
+	}
+
+	// Create the API key record
+	apiKey := &types.APIKey{
+		UserID:       userID,
+		Name:         name,
+		Description:  description,
+		HashedSecret: string(hashedSecret),
+		APIKeyScopes: scopes,
+		ExpiresAt:    expiresAt,
+		CreatedAt:    time.Now(),
+	}
+
+	if err := tx.Create(apiKey).Error; err != nil {
+		return nil, fmt.Errorf("failed to create API key: %w", err)
+	}
+
+	// Construct the full key with the auto-generated ID
+	fullKey := fmt.Sprintf("%s-%d-%d-%s", apiKeyPrefix, userID, apiKey.ID, secret)
+
+	return &types.APIKeyCreateResponse{
+		APIKey: *apiKey,
+		Key:    fullKey,
+	}, nil
 }

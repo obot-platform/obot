@@ -194,7 +194,7 @@
 					licenseKey={license.current.licenseKey}
 				>
 					{#snippet configuredActions(provider)}
-						<ListModels {provider} readonly={isAdminReadonly} />
+						<ListModels provider={provider as ModelProviderType} readonly={isAdminReadonly} />
 					{/snippet}
 				</ProviderCard>
 			{/each}

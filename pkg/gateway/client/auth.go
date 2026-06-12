@@ -31,8 +31,15 @@ func (u UserDecorator) AuthenticateRequest(req *http.Request) (*authenticator.Re
 		return nil, false, nil
 	}
 
+	extra := resp.User.GetExtra()
+	authProviderNamespace := auth.FirstExtraValue(extra, "auth_provider_namespace")
+	authProviderName := auth.FirstExtraValue(extra, "auth_provider_name")
+	if authProviderNamespace == "" || authProviderName == "" {
+		return nil, false, nil
+	}
+
 	var emailVerified *bool
-	if raw := auth.FirstExtraValue(resp.User.GetExtra(), "auth_provider_email_verified"); raw != "" {
+	if raw := auth.FirstExtraValue(extra, "auth_provider_email_verified"); raw != "" {
 		parsed, err := strconv.ParseBool(raw)
 		if err != nil {
 			return nil, false, fmt.Errorf("invalid auth_provider_email_verified value %q: %w", raw, err)
@@ -41,12 +48,12 @@ func (u UserDecorator) AuthenticateRequest(req *http.Request) (*authenticator.Re
 	}
 
 	identity := &types.Identity{
-		Email:                 auth.FirstExtraValue(resp.User.GetExtra(), "email"),
-		AuthProviderName:      auth.FirstExtraValue(resp.User.GetExtra(), "auth_provider_name"),
-		AuthProviderNamespace: auth.FirstExtraValue(resp.User.GetExtra(), "auth_provider_namespace"),
+		Email:                 auth.FirstExtraValue(extra, "email"),
+		AuthProviderName:      authProviderName,
+		AuthProviderNamespace: authProviderNamespace,
 		ProviderUsername:      resp.User.GetName(),
 		ProviderUserID:        resp.User.GetUID(),
-		ProviderIssuer:        auth.FirstExtraValue(resp.User.GetExtra(), "auth_provider_issuer"),
+		ProviderIssuer:        auth.FirstExtraValue(extra, "auth_provider_issuer"),
 		ProviderEmailVerified: emailVerified,
 	}
 	gatewayUser, err := u.client.EnsureIdentity(req.Context(), identity, req.Header.Get("X-Obot-User-Timezone"))
@@ -54,7 +61,6 @@ func (u UserDecorator) AuthenticateRequest(req *http.Request) (*authenticator.Re
 		return nil, false, err
 	}
 
-	extra := resp.User.GetExtra()
 	authGroupIDs := identity.GetAuthProviderGroupIDs()
 	extra["auth_provider_groups"] = authGroupIDs
 
@@ -70,7 +76,7 @@ func (u UserDecorator) AuthenticateRequest(req *http.Request) (*authenticator.Re
 		Name:   gatewayUser.Username,
 		UID:    fmt.Sprintf("%d", gatewayUser.ID),
 		Extra:  extra,
-		Groups: append(resp.User.GetGroups(), effectiveRole.Groups()...),
+		Groups: effectiveRole.Groups(),
 	}
 	return resp, true, nil
 }

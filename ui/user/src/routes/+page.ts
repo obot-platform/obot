@@ -5,8 +5,7 @@ import { redirect } from '@sveltejs/kit';
 export const load: PageLoad = async ({ fetch, url, parent }) => {
 	const { profile } = await parent();
 	const loggedIn = profile?.loaded ?? false;
-	const appBasePath =
-		url.pathname === '/obot' || url.pathname.startsWith('/obot/') ? '/obot' : '';
+	const appBasePath = url.pathname === '/obot' || url.pathname.startsWith('/obot/') ? '/obot' : '';
 
 	let bootstrapStatus: BootstrapStatus | undefined;
 	let authProviders: AuthProvider[] = [];
@@ -33,7 +32,7 @@ export const load: PageLoad = async ({ fetch, url, parent }) => {
 	}
 
 	if (bootstrapStatus?.enabled && authProviders.length === 0) {
-		// If no auth providers are configured, redirect to admin page for bootstrap login
+		// If no auth providers are available, redirect to the admin page for bootstrap login.
 		if (appBasePath) {
 			throw redirect(302, `${appBasePath}/admin`);
 		}

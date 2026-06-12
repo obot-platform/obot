@@ -1,12 +1,14 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import CopyButton from '$lib/components/CopyButton.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
+	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import ConnectToServer from '$lib/components/mcp/ConnectToServer.svelte';
 	import McpConfirmDelete from '$lib/components/mcp/McpConfirmDelete.svelte';
 	import McpMultiDeleteBlockedDialog from '$lib/components/mcp/McpMultiDeleteBlockedDialog.svelte';
 	import StaticOAuthConfigureModal from '$lib/components/mcp/StaticOAuthConfigureModal.svelte';
+	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table, { type InitSort, type InitSortFn } from '$lib/components/table/Table.svelte';
-	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
 		UserService,
@@ -19,30 +21,36 @@
 		type MCPServerInstance,
 		type MCPServerOAuthCredentialStatus
 	} from '$lib/services';
+	import { OBOT_PLATFORM_REPO } from '$lib/services/admin/constants';
 	import {
-		convertEntriesAndServersToTableData,
-		getServerTypeLabelByType,
+		convertEntriesToTableData,
 		deleteMcpServerDeployment,
 		isMultiUserCatalogEntry,
-		isMultiUserServer,
-		getMCPDisplayName
+		getMCPDisplayName,
+		hasEditableConfiguration
 	} from '$lib/services/user/mcp';
 	import { mcpServersAndEntries, profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
-	import { openUrl, isOwnSingleUserServer } from '$lib/utils';
+	import { openUrl } from '$lib/utils';
 	import {
 		Captions,
 		CircleFadingArrowUp,
 		Ellipsis,
 		GitBranch,
+		Info,
+		Link2Icon,
+		Plus,
 		Server,
 		Settings,
+		StepForward,
 		Trash2,
-		TriangleAlert
+		TriangleAlert,
+		UsersIcon
 	} from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
+	import { twMerge } from 'tailwind-merge';
 
-	type Item = ReturnType<typeof convertEntriesAndServersToTableData>[number];
+	type Item = ReturnType<typeof convertEntriesToTableData>[number];
 
 	interface Props {
 		entity?: 'workspace' | 'catalog';
@@ -60,7 +68,6 @@
 		classes?: {
 			tableHeader?: string;
 		};
-		onConnect?: ({ instance }: { instance?: MCPServerInstance }) => void;
 	}
 
 	let {
@@ -76,7 +83,6 @@
 		onSort,
 		initSort = { property: 'name', order: 'asc' },
 		classes,
-		onConnect,
 		usersMap
 	}: Props = $props();
 
@@ -88,25 +94,31 @@
 	let deleteConflictError = $state<MCPCompositeDeletionDependencyError | undefined>();
 
 	let connectToServerDialog = $state<ReturnType<typeof ConnectToServer>>();
+	let displayConnectUrl = $state<{ url: string; entry?: MCPCatalogEntry }>();
+	let connectUrlDialog = $state<ReturnType<typeof ResponsiveDialog>>();
+	let copyButton = $state<ReturnType<typeof CopyButton>>();
+
+	let selectServerForCatalogEntry = $state<{
+		entry: MCPCatalogEntry;
+		servers: MCPCatalogServer[];
+	}>();
+	let selectServerDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 
 	let oauthConfigModal = $state<ReturnType<typeof StaticOAuthConfigureModal>>();
 	let oauthConfigEntry = $state<MCPCatalogEntry>();
 	let oauthStatus = $state<MCPServerOAuthCredentialStatus>();
 
 	let tableData = $derived(
-		convertEntriesAndServersToTableData(
+		convertEntriesToTableData(
 			mcpServersAndEntries.current.entries,
-			mcpServersAndEntries.current.servers,
 			usersMap,
 			mcpServersAndEntries.current.userConfiguredServers,
-			mcpServersAndEntries.current.userInstances
+			mcpServersAndEntries.current.servers
 		).filter((d) => {
 			const isOwnedByUser =
 				profile.current.hasAdminAccess?.() ||
 				(entity === 'workspace' && id && d.data.powerUserWorkspaceID === id);
-			const isMultiUserFromCatalogEntry = !('isCatalogEntry' in d.data) && !!d.data.catalogEntryID;
-			const isMultiUser = d.type === 'multi';
-			return isOwnedByUser && !isMultiUserFromCatalogEntry && !isMultiUser;
+			return isOwnedByUser;
 		})
 	);
 
@@ -127,33 +139,17 @@
 		let useAdminUrl =
 			window.location.pathname.includes('/admin') && profile.current.hasAdminAccess?.();
 
-		// Basic users can access audit logs for their own servers
-		// Check if this is a server (not a catalog entry) belonging to the user
-		let isOwnServer = 'userID' in d.data && isOwnSingleUserServer(d.data, profile.current?.id);
-
-		let hasAuditLogUrlsAccess = isOwnServer || profile.current.groups.includes(Group.POWERUSER);
-
-		if (!hasAuditLogUrlsAccess) {
+		if (!profile.current.groups.includes(Group.POWERUSER)) {
 			return null;
-		}
-
-		const isCatalogEntry = d.type === 'remote' || d.type === 'composite' || d.type === 'hosted';
-		if (isCatalogEntry) {
-			if (useAdminUrl) {
-				return d.data.powerUserWorkspaceID
-					? `/admin/mcp-catalog/w/${d.data.powerUserWorkspaceID}/c/${d.id}?view=audit-logs`
-					: `/admin/mcp-catalog/c/${d.id}?view=audit-logs`;
-			}
-
-			return `/mcp-catalog/c/${d.id}?view=audit-logs`;
 		}
 
 		if (useAdminUrl) {
 			return d.data.powerUserWorkspaceID
-				? `/admin/mcp-catalog/w/${d.data.powerUserWorkspaceID}/s/${d.id}?view=audit-logs`
-				: `/admin/mcp-catalog/s/${d.id}?view=audit-logs`;
+				? `/admin/mcp-catalog/w/${d.data.powerUserWorkspaceID}/c/${d.id}?view=audit-logs`
+				: `/admin/mcp-catalog/c/${d.id}?view=audit-logs`;
 		}
-		return `/mcp-catalog/s/${d.id}?view=audit-logs`;
+
+		return `/mcp-catalog/c/${d.id}?view=audit-logs`;
 	}
 
 	async function fetch() {
@@ -165,16 +161,38 @@
 	}
 
 	function handleConnectToServer({
+		entry,
 		server,
 		instance
 	}: {
+		entry?: MCPCatalogEntry;
 		server?: MCPCatalogServer;
 		instance?: MCPServerInstance;
 	}) {
 		if (instance || server) {
 			mcpServersAndEntries.refreshAll();
 		}
-		onConnect?.({ instance });
+
+		if (server?.connectURL) {
+			displayConnectUrl = { url: server.connectURL, entry };
+			connectUrlDialog?.open();
+		}
+	}
+
+	function handleShowSelectServerDialog(entry: MCPCatalogEntry, servers: MCPCatalogServer[]) {
+		selectServerForCatalogEntry = {
+			entry,
+			servers
+		};
+		selectServerDialog?.open();
+	}
+
+	function getMultiUserCatalogEntryServers(entry: MCPCatalogEntry) {
+		return mcpServersAndEntries.current.servers.filter((s) => s.catalogEntryID === entry.id);
+	}
+
+	function isConfigurableSingleUserCatalogEntry(entry?: MCPCatalogEntry) {
+		return entry && !isMultiUserCatalogEntry(entry) && hasEditableConfiguration(entry);
 	}
 
 	async function handleConfigureOAuth(entry: MCPCatalogEntry) {
@@ -231,200 +249,230 @@
 	}
 </script>
 
-<div class="flex flex-col gap-2">
-	{#if mcpServersAndEntries.current.loading}
-		<div class="my-2 flex items-center justify-center h-72">
-			<Loading class="size-6" />
-		</div>
-	{:else if filteredTableData.length === 0}
-		{#if noDataContent}
-			{@render noDataContent?.()}
-		{/if}
-	{:else}
-		<Table
-			data={filteredTableData}
-			fields={profile.current.hasAdminAccess?.()
-				? ['name', 'type', 'users', 'created', 'source']
-				: ['name', 'created']}
-			filterable={['name', 'type', 'source']}
-			{filters}
-			onClickRow={(d, isCtrlClick) => {
-				let url = '';
-				const prefix = profile.current.hasAdminAccess?.() ? '/admin' : '';
-				if ('isCatalogEntry' in d.data) {
-					url = `${prefix}/mcp-catalog/c/${d.data.id}`;
-				} else if (isMultiUserServer(d.data)) {
-					url = `${prefix}/mcp-catalog/s/${d.id}`;
-				} else if (d.data.catalogEntryID) {
-					url = `${prefix}/mcp-catalog/c/${d.data.catalogEntryID}/instance/${d.id}`;
-				} else {
-					url = `${prefix}/mcp-catalog/s/${d.id}`;
-				}
+{#if mcpServersAndEntries.current.loading && tableData.length === 0}
+	<div class="flex flex-col gap-0.5">
+		{#each Array.from({ length: 10 }) as _, i (i)}
+			<div class="skeleton h-14 w-full rounded-none"></div>
+		{/each}
+	</div>
+{/if}
+{#if mcpServersAndEntries.current.isInitialized}
+	<div class="flex flex-col gap-px">
+		{#if filteredTableData.length === 0}
+			{#if noDataContent}
+				{@render noDataContent?.()}
+			{/if}
+		{:else}
+			<Table
+				data={filteredTableData}
+				fields={profile.current.hasAdminAccess?.()
+					? ['name', 'type', 'users', 'created', 'source']
+					: ['name', 'created']}
+				filterable={['name', 'type', 'source']}
+				{filters}
+				onClickRow={(d, isCtrlClick) => {
+					const prefix = profile.current.hasAdminAccess?.() ? '/admin' : '';
+					let url = `${prefix}/mcp-catalog/c/${d.data.id}`;
 
-				if (profile.current.hasAdminAccess?.() && d.data.powerUserWorkspaceID) {
-					url += '?wid=' + encodeURIComponent(d.data.powerUserWorkspaceID);
-				}
+					if (profile.current.hasAdminAccess?.() && d.data.powerUserWorkspaceID) {
+						url += '?wid=' + encodeURIComponent(d.data.powerUserWorkspaceID);
+					}
 
-				openUrl(url, isCtrlClick);
-			}}
-			{initSort}
-			{onFilter}
-			{onClearAllFilters}
-			{onSort}
-			sortable={['name', 'type', 'users', 'created', 'source']}
-			noDataMessage="No catalog servers added."
-			classes={{
-				root: 'rounded-none rounded-b-md shadow-none',
-				thead: classes?.tableHeader
-			}}
-			setRowClasses={(d) => {
-				const missingSecretBinding = 'missingKubernetesSecret' in d && d.missingKubernetesSecret;
-				return d.data.needsUpdate && !missingSecretBinding ? 'bg-primary/10' : '';
-			}}
-		>
-			{#snippet onRenderColumn(property, d)}
-				{@const isCatalogEntry = 'isCatalogEntry' in d.data}
-				{@const catalogEntry = isCatalogEntry ? (d.data as MCPCatalogEntry) : undefined}
-				{@const server = !isCatalogEntry ? d.data : undefined}
-				{#if property === 'name'}
-					<div class="flex shrink-0 items-center gap-2">
-						<div class="icon">
-							{#if d.icon}
-								<img src={d.icon} alt={d.name} class="size-6" />
-							{:else}
-								<Server class="size-6" />
-							{/if}
+					openUrl(url, isCtrlClick);
+				}}
+				{initSort}
+				{onFilter}
+				{onClearAllFilters}
+				{onSort}
+				sortable={['name', 'type', 'users', 'created', 'source']}
+				noDataMessage="No catalog servers added."
+				classes={{
+					root: 'rounded-none rounded-b-md shadow-none',
+					thead: classes?.tableHeader
+				}}
+				setRowClasses={(d) => {
+					const missingSecretBinding = 'missingKubernetesSecret' in d && d.missingKubernetesSecret;
+					return d.data.needsUpdate && !missingSecretBinding ? 'bg-primary/10' : '';
+				}}
+			>
+				{#snippet onRenderColumn(property, d)}
+					{@const isCatalogEntry = 'isCatalogEntry' in d.data}
+					{@const catalogEntry = isCatalogEntry ? (d.data as MCPCatalogEntry) : undefined}
+					{#if property === 'name'}
+						<div class="flex shrink-0 items-center gap-2">
+							<div class="icon">
+								{#if d.icon}
+									<img src={d.icon} alt={d.name} class="size-6" />
+								{:else}
+									<Server class="size-6" />
+								{/if}
+							</div>
+							<p class="flex items-center gap-2">
+								{d.name}
+								{#if catalogEntry?.needsUpdate && !('missingKubernetesSecret' in d && d.missingKubernetesSecret)}
+									<span
+										use:tooltip={{
+											classes: ['border-primary', 'bg-primary/10', 'dark:bg-primary/50'],
+											text: 'An update requires your attention'
+										}}
+									>
+										<CircleFadingArrowUp class="text-primary size-4" />
+									</span>
+								{:else if 'missingKubernetesSecret' in d && d.missingKubernetesSecret}
+									<span
+										class="text-warning"
+										use:tooltip={{
+											text:
+												'missingKubernetesSecret' in d && d.missingKubernetesSecret
+													? 'Missing Kubernetes Secret.'
+													: 'Server requires an update.'
+										}}
+									>
+										<TriangleAlert class="size-4" />
+									</span>
+								{/if}
+								{#if d.status.toLowerCase() === 'deployed'}
+									<span class="badge badge-xs badge-secondary">Deployed</span>
+								{/if}
+							</p>
 						</div>
-						<p class="flex items-center gap-2">
-							{d.name}
-							{#if (catalogEntry?.needsUpdate || server?.needsUpdate) && !('missingKubernetesSecret' in d && d.missingKubernetesSecret)}
-								<span
-									use:tooltip={{
-										classes: ['border-primary', 'bg-primary/10', 'dark:bg-primary/50'],
-										text: 'An update requires your attention'
-									}}
-								>
-									<CircleFadingArrowUp class="text-primary size-4" />
-								</span>
-							{:else if 'missingKubernetesSecret' in d && d.missingKubernetesSecret}
-								<span
-									class="text-warning"
-									use:tooltip={{
-										text:
-											'missingKubernetesSecret' in d && d.missingKubernetesSecret
-												? 'Missing Kubernetes Secret.'
-												: 'Server requires an update.'
-									}}
-								>
-									<TriangleAlert class="size-4" />
-								</span>
-							{/if}
-						</p>
-					</div>
-				{:else if property === 'type'}
-					{getServerTypeLabelByType(d.type)}
-				{:else if property === 'created'}
-					{formatTimeAgo(d.created).relativeTime}
-				{:else if property === 'source'}
-					{#if d.source.type === 'git'}
-						<a
-							onclick={(e) => e.stopPropagation()}
-							href={d.source.url}
-							target="_blank"
-							rel="external noopener noreferrer"
-							use:tooltip={{
-								text: 'View Source on Git'
-							}}
-							class="btn btn-ghost hover:text-blue-500 btn-xs shrink-0"
-						>
-							<GitBranch class="size-4" />
-							{d.source.url?.split('/').pop()}
-						</a>
+					{:else if property === 'type'}
+						{d.type}
+						{#if 'isCatalogEntry' in d.data && d.data.manifest.serverUserType === 'multiUser'}
+							<div class="p-2" use:tooltip={{ text: 'Multi-tenant' }}>
+								<UsersIcon class="size-3 text-muted-content" />
+							</div>
+						{/if}
+						{#if !isMultiUserCatalogEntry(d.data) && hasEditableConfiguration(d.data)}
+							<div class="p-2" use:tooltip={{ text: 'Requires user configuration' }}>
+								<Settings class="size-3 text-muted-content" />
+							</div>
+						{/if}
+					{:else if property === 'created'}
+						{formatTimeAgo(d.created).relativeTime}
+					{:else if property === 'source'}
+						{#if d.sourceType === 'git'}
+							<a
+								onclick={(e) => e.stopPropagation()}
+								href={d.source}
+								target="_blank"
+								rel="external noopener noreferrer"
+								use:tooltip={{
+									text: 'View Source on Git'
+								}}
+								class="btn btn-ghost hover:text-blue-500 btn-xs shrink-0"
+							>
+								<GitBranch class="size-4" />
+								{#if d.source.startsWith(OBOT_PLATFORM_REPO)}
+									Obot Catalog
+								{:else}
+									{d.source?.split('/').pop()}
+								{/if}
+							</a>
+						{:else}
+							{d.source}
+						{/if}
 					{:else}
-						{d.source.name}
+						{d[property as keyof typeof d]}
 					{/if}
-				{:else}
-					{d[property as keyof typeof d]}
-				{/if}
-			{/snippet}
-			{#snippet actions(d)}
-				{@const isCatalogEntry = 'isCatalogEntry' in d.data}
-				{@const catalogEntry = isCatalogEntry ? (d.data as MCPCatalogEntry) : undefined}
-				{@const auditLogUrl = getAuditLogsUrl(d)}
-				{@const belongsToUser =
-					(entity === 'workspace' && id && d.data.powerUserWorkspaceID === id) ||
-					('catalogEntryID' in d.data && d.data.userID === profile.current.id)}
-				{@const canDelete =
-					d.editable && !readonly && (belongsToUser || profile.current?.hasAdminAccess?.())}
-				{@const requiresOAuth =
-					catalogEntry?.manifest?.runtime === 'remote' &&
-					catalogEntry.manifest?.remoteConfig?.staticOAuthRequired}
-				{#if catalogEntry && isMultiUserCatalogEntry(catalogEntry) && ((!!catalog && profile.current?.hasAdminAccess?.()) || (entity === 'workspace' && !!id))}
-					<button
-						class="btn btn-xs btn-primary self-center mr-2"
-						onclick={(e) => {
-							e.stopPropagation();
-							connectToServerDialog?.open({ entry: catalogEntry });
-						}}
-					>
-						Launch
-					</button>
-				{/if}
-				<DotDotDot class="hover:dark:bg-base-100/50" classes={{ menu: 'p-0' }}>
-					{#snippet icon()}
-						<Ellipsis class="size-4" />
-					{/snippet}
+				{/snippet}
+				{#snippet actions(d)}
+					{@const isCatalogEntry = 'isCatalogEntry' in d.data}
+					{@const catalogEntry = isCatalogEntry ? (d.data as MCPCatalogEntry) : undefined}
+					{@const auditLogUrl = getAuditLogsUrl(d)}
+					{@const belongsToUser =
+						entity === 'workspace' && id && d.data.powerUserWorkspaceID === id}
+					{@const canDelete =
+						d.editable && !readonly && (belongsToUser || profile.current?.hasAdminAccess?.())}
+					{@const requiresOAuth =
+						catalogEntry?.manifest?.runtime === 'remote' &&
+						catalogEntry.manifest?.remoteConfig?.staticOAuthRequired}
+					<DotDotDot class="hover:dark:bg-base-100/50" classes={{ menu: 'p-0' }}>
+						{#snippet icon()}
+							<Ellipsis class="size-4" />
+						{/snippet}
 
-					{#snippet children({ toggle })}
-						<div class="flex flex-col gap-1 p-2">
-							{#if requiresOAuth && catalogEntry}
-								<button
-									class="menu-button hover:bg-base-400"
-									onclick={async (e) => {
-										e.stopPropagation();
-										await handleConfigureOAuth(catalogEntry);
-										toggle(false);
-									}}
-								>
-									<Settings class="size-4" /> Configure OAuth
-								</button>
-							{/if}
-							{#if auditLogUrl && (belongsToUser || profile.current?.hasAdminAccess?.())}
-								<button
-									onclick={(e) => {
-										e.stopPropagation();
-										const isCtrlClick = e.ctrlKey || e.metaKey;
-										openUrl(auditLogUrl, isCtrlClick);
-									}}
-									class="menu-button"
-								>
-									<Captions class="size-4" /> View Audit Logs
-								</button>
-							{/if}
-							{#if canDelete}
-								<button
-									class="menu-button-destructive"
-									onclick={(e) => {
-										e.stopPropagation();
-										if (catalogEntry) {
+						{#snippet children({ toggle })}
+							<div class="flex flex-col gap-1 p-2">
+								{#if requiresOAuth && catalogEntry}
+									<button
+										class="menu-button hover:bg-base-400"
+										onclick={async (e) => {
+											e.stopPropagation();
+											await handleConfigureOAuth(catalogEntry);
+											toggle(false);
+										}}
+									>
+										<Settings class="size-4" /> Configure OAuth
+									</button>
+								{/if}
+								{#if auditLogUrl && (belongsToUser || profile.current?.hasAdminAccess?.())}
+									<button
+										onclick={(e) => {
+											e.stopPropagation();
+											const isCtrlClick = e.ctrlKey || e.metaKey;
+											openUrl(auditLogUrl, isCtrlClick);
+										}}
+										class="menu-button"
+									>
+										<Captions class="size-4" /> View Audit Logs
+									</button>
+								{/if}
+								{#if catalogEntry}
+									<button
+										class="menu-button"
+										onclick={(e) => {
+											e.stopPropagation();
+											if (isMultiUserCatalogEntry(catalogEntry)) {
+												// multi user catalog requires configuration of at least one server to obtain connect URL
+												const matchingServers = getMultiUserCatalogEntryServers(catalogEntry);
+												if (matchingServers.length > 1) {
+													handleShowSelectServerDialog(catalogEntry, matchingServers);
+												} else if (matchingServers[0]?.connectURL) {
+													displayConnectUrl = {
+														url: matchingServers[0].connectURL,
+														entry: catalogEntry
+													};
+													connectUrlDialog?.open();
+												} else {
+													connectToServerDialog?.open({ entry: catalogEntry });
+												}
+											} else {
+												// single user catalog entry contains baseline connect URL
+												displayConnectUrl = {
+													url: catalogEntry?.connectURL ?? '',
+													entry: catalogEntry
+												};
+												connectUrlDialog?.open();
+											}
+
+											toggle(false);
+										}}
+									>
+										<Link2Icon class="size-4" /> Get Connect URL
+									</button>
+								{/if}
+								{#if canDelete}
+									<button
+										class="menu-button-destructive"
+										onclick={(e) => {
+											e.stopPropagation();
 											deletingEntry = catalogEntry;
-										} else {
-											deletingServer = d.data as MCPCatalogServer;
-										}
-										toggle(false);
-									}}
-								>
-									<Trash2 class="size-4" />
-									{catalogEntry ? 'Delete Entry' : 'Delete Server'}
-								</button>
-							{/if}
-						</div>
-					{/snippet}
-				</DotDotDot>
-			{/snippet}
-		</Table>
-	{/if}
-</div>
+											toggle(false);
+										}}
+									>
+										<Trash2 class="size-4" />
+										{catalogEntry ? 'Delete Entry' : 'Delete Server'}
+									</button>
+								{/if}
+							</div>
+						{/snippet}
+					</DotDotDot>
+				{/snippet}
+			</Table>
+		{/if}
+	</div>
+{/if}
 
 <McpConfirmDelete
 	names={[deletingEntry?.manifest?.name ?? '']}
@@ -450,6 +498,70 @@
 	entity="entry"
 	entityPlural="entries"
 />
+
+<ResponsiveDialog
+	bind:this={connectUrlDialog}
+	animate="slide"
+	title="Connection URL"
+	class="max-w-[95vw] md:max-w-2xl"
+	classes={{ content: 'p-0', header: 'p-4 pb-0' }}
+	disableMobileStyles
+>
+	<div class={twMerge('px-4', !isMultiUserCatalogEntry(displayConnectUrl?.entry) && 'pb-4')}>
+		<div class="rounded-field bg-base-200 border-none input w-full pr-0">
+			<div class="label px-2.5 flex items-center gap-2 text-xs text-base-content/75 shrink-0 mr-1">
+				<Link2Icon class="size-4" />
+			</div>
+			<input
+				onmousedown={() => copyButton?.copy()}
+				type="text"
+				value={displayConnectUrl?.url ?? ''}
+				class="w-full text-xs"
+				readonly
+			/>
+			<div class="mr-2">
+				<CopyButton
+					bind:this={copyButton}
+					classes={{
+						button:
+							'shrink-0 text-xs flex gap-1 :not([disabled]):hover:text-base-content :not([disabled]):text-base-content/65 disabled:cursor-not-allowed'
+					}}
+					text={displayConnectUrl?.url ?? ''}
+					showTextLeft
+				/>
+			</div>
+		</div>
+	</div>
+	{#if isMultiUserCatalogEntry(displayConnectUrl?.entry)}
+		<div class="mt-4 p-4 border-t border-base-300 dark:border-base-400">
+			<p
+				class="text-muted-content flex items-center justify-end gap-2 text-sm font-light md:px-0 px-4"
+			>
+				Need to set up a different instance?
+				<button
+					class="btn btn-sm btn-primary text-xs"
+					onclick={() => {
+						if (displayConnectUrl?.entry) {
+							connectUrlDialog?.close();
+							connectToServerDialog?.open({ entry: displayConnectUrl.entry });
+						}
+					}}
+				>
+					<Plus class="size-3" />
+					Launch New Server
+				</button>
+			</p>
+		</div>
+	{:else if isConfigurableSingleUserCatalogEntry(displayConnectUrl?.entry)}
+		<div class="notification-info m-4 mt-0">
+			<p class="flex items-center gap-2 text-xs">
+				<Info class="size-4" />
+				This server requires end-user configuration. Users will need to configure their instance of it
+				here before they can connect to it.
+			</p>
+		</div>
+	{/if}
+</ResponsiveDialog>
 
 <McpConfirmDelete
 	names={[getMCPDisplayName(deletingServer)]}
@@ -485,29 +597,13 @@
 		loadingBulkDelete = true;
 		try {
 			for (const item of Object.values(selected)) {
-				if ('isCatalogEntry' in item.data) {
-					if (item.data.powerUserWorkspaceID) {
-						await UserService.deleteWorkspaceMCPCatalogEntry(
-							item.data.powerUserWorkspaceID,
-							item.data.id
-						);
-					} else if (catalog) {
-						await AdminService.deleteMCPCatalogEntry(catalog.id, item.data.id);
-					}
-				} else if (isMultiUserServer(item.data) || !item.data.catalogEntryID) {
-					try {
-						await deleteServerDeployment(item.data);
-					} catch (error) {
-						if (error instanceof MCPCompositeDeletionDependencyError) {
-							deleteConflictError = error;
-							// Stop processing further deletes; user must resolve dependencies first.
-							break;
-						}
-
-						throw error;
-					}
-				} else {
-					await UserService.deleteSingleOrRemoteMcpServer(item.data.id);
+				if (item.data.powerUserWorkspaceID) {
+					await UserService.deleteWorkspaceMCPCatalogEntry(
+						item.data.powerUserWorkspaceID,
+						item.data.id
+					);
+				} else if (catalog) {
+					await AdminService.deleteMCPCatalogEntry(catalog.id, item.data.id);
 				}
 			}
 
@@ -537,6 +633,15 @@
 	catalogID={catalog?.id}
 	workspaceID={entity === 'workspace' ? id : undefined}
 	onConnect={handleConnectToServer}
+	skipConnectDialog
+	renderIntroText={({ entry }) => {
+		if (isMultiUserCatalogEntry(entry)) {
+			return getMultiUserCatalogEntryServers(entry!).length > 0
+				? 'You are about to launch a new server.'
+				: 'In order to receive a connect URL, a new server must be launched.';
+		}
+		return 'In order to receive a connect URL, the initial setup process for this server must be completed.';
+	}}
 />
 
 <StaticOAuthConfigureModal
@@ -545,3 +650,45 @@
 	onSave={handleSaveOAuth}
 	onDelete={handleDeleteOAuth}
 />
+
+<ResponsiveDialog
+	class="bg-base-200 dark:bg-base-100"
+	bind:this={selectServerDialog}
+	title="Select Your Server"
+>
+	<Table
+		data={selectServerForCatalogEntry?.servers || []}
+		fields={['name', 'created']}
+		onClickRow={async (d) => {
+			selectServerDialog?.close();
+			if (!d.connectURL) return;
+			displayConnectUrl = { url: d.connectURL, entry: selectServerForCatalogEntry?.entry };
+			connectUrlDialog?.open();
+		}}
+		disablePortal
+	>
+		{#snippet onRenderColumn(property, d)}
+			{#if property === 'name'}
+				<div class="flex shrink-0 items-center gap-2">
+					<div class="icon">
+						{#if d.manifest.icon}
+							<img src={d.manifest.icon} alt={d.manifest.name} class="size-6" />
+						{:else}
+							<Server class="size-6" />
+						{/if}
+					</div>
+					<p class="flex items-center gap-2">
+						{getMCPDisplayName(d)}
+					</p>
+				</div>
+			{:else if property === 'created'}
+				{formatTimeAgo(d.created).relativeTime}
+			{/if}
+		{/snippet}
+		{#snippet actions()}
+			<IconButton class="hover:dark:bg-base-100/50">
+				<StepForward class="size-4" />
+			</IconButton>
+		{/snippet}
+	</Table>
+</ResponsiveDialog>

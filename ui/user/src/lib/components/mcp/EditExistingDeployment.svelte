@@ -17,12 +17,14 @@
 		isKubernetesRuntimeBackend
 	} from '$lib/services/user/mcp';
 	import { version } from '$lib/stores';
-	import PageLoading from '../PageLoading.svelte';
 	import CatalogConfigureForm, {
 		type CompositeLaunchFormData,
 		type LaunchFormData
 	} from './CatalogConfigureForm.svelte';
 	import CatalogEditAliasForm from './CatalogEditAliasForm.svelte';
+	import { CircleAlert } from 'lucide-svelte';
+	import { fade } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		onUpdateConfigure?: () => void | Promise<void>;
@@ -321,7 +323,6 @@
 
 		editing = true;
 		try {
-			configDialog?.close();
 			const { timeout1, timeout2, timeout3 } = initUpdatingOrLaunchProgress();
 			if (mode === 'catalog-update') {
 				const lf = configureForm as LaunchFormData;
@@ -338,6 +339,9 @@
 			clearTimeout(timeout2);
 			clearTimeout(timeout3);
 			await onUpdateConfigure?.();
+			// to allow user to see launch completed to 100%
+			await new Promise((resolve) => setTimeout(resolve, 1000));
+			configDialog?.close();
 
 			setTimeout(() => {
 				editing = false;
@@ -345,7 +349,6 @@
 		} catch (_error) {
 			console.error('Error during configuration:', _error);
 			launchError = _error instanceof Error ? _error.message : 'An unknown error occurred';
-			configDialog?.close();
 		}
 	}
 </script>
@@ -363,52 +366,65 @@
 	isNew={false}
 	showAlias={mode === 'edit'}
 	configurationTitle={mode === 'catalog-update' ? 'Required Configuration' : undefined}
-/>
-
-<CatalogEditAliasForm bind:this={editAliasDialog} {server} {onUpdateConfigure} />
-
-<PageLoading
-	isProgressBar
-	show={editing}
-	text="Updating and initializing server..."
-	progress={launchProgress}
-	error={launchError}
-	errorClasses={{
-		root: 'md:w-[95vw]'
-	}}
 >
-	{#snippet errorPreContent()}
-		<h4 class="text-xl font-semibold">MCP Server Update Failed</h4>
-	{/snippet}
-	{#snippet errorPostContent()}
-		{#if launchLogs.length > 0}
-			<div
-				class="default-scrollbar-thin bg-base-200 max-h-[50vh] w-full overflow-y-auto rounded-lg p-4 shadow-inner"
-			>
-				{#each launchLogs as log, i (i)}
-					<div class="font-mono text-sm">
-						<span class="text-muted-content">{log}</span>
+	{#snippet loadingContent()}
+		<div in:fade class="h-full w-full flex items-center justify-center">
+			{#if launchError}
+				<div class="flex flex-col gap-1 mb-4 w-full h-full" in:fade>
+					<div class="notification-error flex items-center gap-2">
+						<CircleAlert class="size-6 text-error" />
+						<h4 class="text-md font-medium">MCP Server Launch Failed</h4>
 					</div>
-				{/each}
-			</div>
-		{:else}
-			<p class="text-md self-start">An issue occurred while launching the MCP server.</p>
-		{/if}
+					{#if launchLogs.length > 0}
+						<div
+							class="default-scrollbar-thin bg-base-200 max-h-[50vh] w-full overflow-y-auto rounded-lg p-4 shadow-inner"
+						>
+							{#each launchLogs as log, i (i)}
+								<div class="font-mono text-sm">
+									<span class="text-muted-content">{log}</span>
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<p class="text-sm self-start">An issue occurred while launching the MCP server.</p>
+					{/if}
 
-		<div class="flex w-full flex-col items-center gap-2 md:flex-row">
-			{#if entry}
-				<button
-					class="btn btn-primary w-full md:w-1/2 md:flex-1"
-					onclick={() => {
-						launchError = undefined;
-						editing = false;
-						launchProgress = 0;
-						configDialog?.open();
-					}}
-				>
-					Update Configuration and Try Again
-				</button>
+					<div class="flex w-full flex-col items-center gap-2 md:flex-row mt-2">
+						{#if entry}
+							<button
+								class="btn btn-primary w-full md:w-1/2 md:flex-1"
+								onclick={() => {
+									launchError = undefined;
+									launchProgress = 0;
+									launchLogs = [];
+									editing = false;
+								}}
+							>
+								Update Configuration and Try Again
+							</button>
+						{/if}
+					</div>
+				</div>
+			{:else}
+				<div class="flex flex-col gap-1 mb-4">
+					<div class="w-full text-xl font-extralight text-center">
+						{Math.round(launchProgress ?? 0)}%
+					</div>
+
+					<div class="bg-base-400 h-3 w-full overflow-hidden rounded-full">
+						<div
+							class={twMerge('bg-primary h-full rounded-full transition-all duration-500 ease-out')}
+							style="width: {launchProgress ?? 0}%"
+						></div>
+					</div>
+
+					<div class="flex w-md flex-col justify-center gap-2 text-center">
+						<p class="text-xs font-light">Launching MCP server...</p>
+					</div>
+				</div>
 			{/if}
 		</div>
 	{/snippet}
-</PageLoading>
+</CatalogConfigureForm>
+
+<CatalogEditAliasForm bind:this={editAliasDialog} {server} {onUpdateConfigure} />

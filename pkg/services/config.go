@@ -814,7 +814,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	apply.AddValidOwnerChange("mcpcatalogentries", "catalog-default")
 
 	var proxyManager *proxy.Manager
-	bootstrapper, err := bootstrap.New(ctx, config.Hostname, gatewayClient, config.EnableAuthentication, config.ForceEnableBootstrap)
+	bootstrapper, err := bootstrap.New(ctx, config.Hostname, gatewayClient, providerDispatcher, config.EnableAuthentication, config.ForceEnableBootstrap)
 	if err != nil {
 		return nil, err
 	}
@@ -929,7 +929,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			apiLocalK8sClient,
 			config.ServiceNamespace,
 			authn.NewAuthenticator(authenticators),
-			authz.NewAuthorizer(r.Backend(), storageClient, config.DevMode, acrHelper, registryNoAuth),
+			authz.NewAuthorizer(gatewayClient, r.Backend(), storageClient, config.DevMode, acrHelper, skillAccessRuleHelper, registryNoAuth),
 			proxyManager,
 			auditLogger,
 			rateLimiter,

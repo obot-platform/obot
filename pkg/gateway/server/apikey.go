@@ -19,11 +19,14 @@ import (
 )
 
 type createAPIKeyRequest struct {
-	Name            string     `json:"name"`
-	Description     string     `json:"description,omitempty"`
-	ExpiresAt       *time.Time `json:"expiresAt,omitempty"`
-	MCPServerIDs    []string   `json:"mcpServerIds,omitempty"`
-	CanAccessSkills bool       `json:"canAccessSkills"`
+	Name                        string     `json:"name"`
+	Description                 string     `json:"description,omitempty"`
+	ExpiresAt                   *time.Time `json:"expiresAt,omitempty"`
+	MCPServerIDs                []string   `json:"mcpServerIds,omitempty"`
+	CanAccessAPI                bool       `json:"canAccessAPI"`
+	CanAccessLLMProxy           bool       `json:"canAccessLLMProxy"`
+	CanAccessSkills             bool       `json:"canAccessSkills"`
+	CanAccessPublishedArtifacts bool       `json:"canAccessPublishedArtifacts"`
 }
 
 // createAPIKey creates an API key for the authenticated user.
@@ -37,8 +40,9 @@ func (s *Server) createAPIKey(apiContext api.Context) error {
 		return types2.NewErrBadRequest("name is required")
 	}
 
-	if len(req.MCPServerIDs) == 0 && !req.CanAccessSkills {
-		return types2.NewErrBadRequest("at least one MCP server must be specified or skills access must be enabled")
+	hasCapability := req.CanAccessAPI || req.CanAccessLLMProxy || req.CanAccessSkills || req.CanAccessPublishedArtifacts
+	if len(req.MCPServerIDs) == 0 && !hasCapability {
+		return types2.NewErrBadRequest("at least one MCP server must be specified or a capability must be enabled")
 	}
 
 	userID := apiContext.UserID()
@@ -77,7 +81,13 @@ func (s *Server) createAPIKey(apiContext api.Context) error {
 		return types2.NewErrHTTP(http.StatusBadRequest, errors.Join(errs...).Error())
 	}
 
-	response, err := apiContext.GatewayClient.CreateAPIKey(apiContext.Context(), userID, req.Name, req.Description, req.ExpiresAt, req.MCPServerIDs, req.CanAccessSkills)
+	response, err := apiContext.GatewayClient.CreateAPIKey(apiContext.Context(), userID, req.Name, req.Description, req.ExpiresAt, types.APIKeyScopes{
+		MCPServerIDs:                req.MCPServerIDs,
+		CanAccessAPI:                req.CanAccessAPI,
+		CanAccessLLMProxy:           req.CanAccessLLMProxy,
+		CanAccessSkills:             req.CanAccessSkills,
+		CanAccessPublishedArtifacts: req.CanAccessPublishedArtifacts,
+	})
 	if err != nil {
 		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to create API key: %v", err))
 	}
