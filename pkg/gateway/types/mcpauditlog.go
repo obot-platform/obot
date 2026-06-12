@@ -108,6 +108,10 @@ func EventTypeForCallType(callType string) string {
 
 // OutcomeForResult maps an error string and response status to an outcome.
 func OutcomeForResult(errMsg string, responseStatus int) string {
+	// responseStatus==0 indicates we haven't observed a response yet (request-only row).
+	if errMsg == "" && responseStatus == 0 {
+		return ""
+	}
 	if errMsg == "" && responseStatus < 400 {
 		return AuditLogOutcomeSuccess
 	}
