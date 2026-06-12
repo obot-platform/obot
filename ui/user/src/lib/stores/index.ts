@@ -9,3 +9,4 @@ export { default as defaultModelAliases } from './defaultModelAliases.svelte';
 export { default as accessibleModels } from './accessibleModels.svelte';
 export { default as userDeviceSettings } from './userDeviceSettings.svelte';
 export { default as license } from './license.svelte';
+export { default as appNotifications } from './appNotifications.svelte';

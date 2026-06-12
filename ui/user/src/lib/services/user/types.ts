@@ -42,6 +42,20 @@ export interface AccessControlRule extends Omit<AccessControlRuleManifest, 'id'>
 	powerUserWorkspaceID?: string;
 }
 
+// App notifications
+
+export type BannerType = 'info' | 'warning';
+export interface AppNotifications {
+	banner?: {
+		dismissible?: boolean;
+		type?: BannerType;
+		enabled?: boolean;
+		text?: string;
+		resetDismissed?: boolean;
+	};
+	updated?: string;
+}
+
 // App preferences
 
 export interface AppPreferences {

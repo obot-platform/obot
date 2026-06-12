@@ -118,7 +118,7 @@ const processVideoAndIframeTags = (html: string): string => {
 };
 
 const updateLinksWithTargetBlank = (html: string) => {
-	return html.replace(/<a href=/g, '<a target="_blank" rel="noopener" href=');
+	return html.replace(/<a href=/g, '<a target="_blank" rel="noopener noreferrer" href=');
 };
 
 export function toHTMLFromMarkdownWithNewTabLinks(
