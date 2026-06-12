@@ -22,11 +22,12 @@
 | `pkg/oidcjwt/verifier_test.go` | new | Tests for the verifier wrapper using an in-process test issuer. |
 | `pkg/oidcjwt/authenticator.go` | new | Implements `authenticator.Request`. Composes config + verifier + identity resolution. |
 | `pkg/oidcjwt/authenticator_test.go` | new | Unit tests for authenticator (backend-principal path, user-subject path, fall-through cases). |
-| `pkg/oidcjwt/identity_adapter.go` | new | Maps a validated user-subject JWT to an Obot user record via `pkg/gateway/client`. |
+| `pkg/oidcjwt/identity_adapter.go` | new | Maps a validated user-subject JWT to an Obot user record via `pkg/gateway/client.EnsureIdentity`, using the current `pkg/gateway/types.Identity` shape. |
+| `pkg/oidcjwt/identity_adapter_test.go` | new | Unit tests that verify generic OAuth provider UID and `email_verified` parity with browser login. |
 | `pkg/oidcjwt/testutil/testutil.go` | new | Shared test helpers: `NewTestIssuer`, `MintTestJWT`, `MustRSAKey`. |
 | `pkg/oidcjwt/integration_test.go` | new | End-to-end test: real `authn.Authenticator`, backend-principal JWT, request hits a handler that checks groups (mimicking `adminAndOwnerRules`), expects 200. |
 | `pkg/services/config.go` | modify (one block) | Load `oidcjwt.Config`, construct verifier, append `oidcjwt.NewAuthenticator(...)` to the authenticators union when enabled. |
-| `chart/values.yaml` | modify | Add 3 new env keys under the existing `genericOAuthAuthProvider` block. |
+| `chart/values.yaml` | modify | Add 3 new `OBOT_GENERIC_OAUTH_AUTH_PROVIDER_*` keys under the existing top-level `config:` map. |
 | `go.mod` / `go.sum` | modify | Add `github.com/coreos/go-oidc/v3`. |
 | `docs/studio/CHANGES.md` | new | Upstream-touchpoint manifest for rebase hygiene. |
 | `scripts/check-upstream-touchpoints.sh` | new | CI check that flags unexpected upstream touches. |
@@ -98,7 +99,7 @@ import (
 
 func TestLoadConfigFromEnv_AllFieldsPresent(t *testing.T) {
 	env := map[string]string{
-		"OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ISSUER":                 "https://studio.example.com/api/auth",
+		"OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ISSUER":                 "https://studio.example.com/api/auth/",
 		"OBOT_GENERIC_OAUTH_AUTH_PROVIDER_AUDIENCE":               "obot-default",
 		"OBOT_GENERIC_OAUTH_AUTH_PROVIDER_BACKEND_PRINCIPAL":      "studio-deployment",
 		"OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ELIGIBILITY_CLAIM_NAME": "studio_eligible",
@@ -139,6 +140,8 @@ Path: `pkg/oidcjwt/config.go`
 ```go
 package oidcjwt
 
+import "strings"
+
 // Config holds the runtime configuration for the JWT authenticator. All
 // fields are sourced from the existing OBOT_GENERIC_OAUTH_AUTH_PROVIDER_*
 // env-var prefix so the provider has one configuration surface.
@@ -162,7 +165,7 @@ func (c Config) Enabled() bool {
 // via the supplied getter. Missing optional values fall back to defaults.
 func LoadConfigFromEnv(getenv func(string) string) (Config, error) {
 	cfg := Config{
-		IssuerURL:            getenv("OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ISSUER"),
+		IssuerURL:            normalizeIssuer(getenv("OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ISSUER")),
 		Audience:             getenv("OBOT_GENERIC_OAUTH_AUTH_PROVIDER_AUDIENCE"),
 		BackendPrincipal:     getenv("OBOT_GENERIC_OAUTH_AUTH_PROVIDER_BACKEND_PRINCIPAL"),
 		EligibilityClaimName: getenv("OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ELIGIBILITY_CLAIM_NAME"),
@@ -171,6 +174,10 @@ func LoadConfigFromEnv(getenv func(string) string) (Config, error) {
 		cfg.EligibilityClaimName = defaultEligibilityClaimName
 	}
 	return cfg, nil
+}
+
+func normalizeIssuer(issuer string) string {
+	return strings.TrimRight(strings.TrimSpace(issuer), "/")
 }
 ```
 
@@ -436,12 +443,15 @@ var ErrNotMyToken = errors.New("oidcjwt: token not for this authenticator")
 
 // Claims is the validated set of claims this authenticator cares about.
 type Claims struct {
-	Subject  string
-	Issuer   string
-	Audience string
-	Eligible bool
-	Email    string
-	Name     string
+	Subject       string
+	Issuer        string
+	Audience      string
+	Eligible      bool
+	Email             string
+	EmailVerified     *bool
+	PreferredUsername string
+	Name              string
+	Picture           string
 }
 
 // Verifier wraps go-oidc's *oidc.Provider + *oidc.IDTokenVerifier with
@@ -498,8 +508,11 @@ func (v *Verifier) Verify(ctx context.Context, raw string) (Claims, error) {
 
 	// Extract optional custom claims (email, name).
 	var custom struct {
-		Email string `json:"email"`
-		Name  string `json:"name"`
+		Email             string `json:"email"`
+		EmailVerified     *bool  `json:"email_verified"`
+		PreferredUsername string `json:"preferred_username"`
+		Name              string `json:"name"`
+		Picture           string `json:"picture"`
 	}
 	_ = idToken.Claims(&custom)
 
@@ -509,12 +522,15 @@ func (v *Verifier) Verify(ctx context.Context, raw string) (Claims, error) {
 	}
 
 	return Claims{
-		Subject:  idToken.Subject,
-		Issuer:   idToken.Issuer,
-		Audience: aud,
-		Eligible: readEligibility(mc, v.cfg.EligibilityClaimName),
-		Email:    custom.Email,
-		Name:     custom.Name,
+		Subject:       idToken.Subject,
+		Issuer:        idToken.Issuer,
+		Audience:      aud,
+		Eligible:      readEligibility(mc, v.cfg.EligibilityClaimName),
+		Email:             custom.Email,
+		EmailVerified:     custom.EmailVerified,
+		PreferredUsername: custom.PreferredUsername,
+		Name:              custom.Name,
+		Picture:           custom.Picture,
 	}, nil
 }
 
@@ -682,8 +698,11 @@ type IdentityResolver interface {
 
 // UserProfile carries display-only claims extracted from the user-subject JWT.
 type UserProfile struct {
-	Email string
-	Name  string
+	Email             string
+	EmailVerified     *bool
+	PreferredUsername string
+	Name              string
+	Picture           string
 }
 
 // Authenticator implements k8s.io/apiserver/pkg/authentication/authenticator.Request.
@@ -727,7 +746,7 @@ func (a *Authenticator) AuthenticateRequest(req *http.Request) (*authenticator.R
 			User: &user.DefaultInfo{
 				UID:    "oidc-backend:" + a.cfg.BackendPrincipal,
 				Name:   a.cfg.BackendPrincipal,
-				Groups: []string{types.GroupAdmin, types.GroupOwner},
+				Groups: (types.RoleOwner | types.RoleAdmin).Groups(),
 			},
 		}, true, nil
 	}
@@ -765,13 +784,36 @@ git commit -m "feat(oidcjwt): authenticator with backend-principal subject path"
 - Modify: `pkg/oidcjwt/authenticator.go`
 - Modify: `pkg/oidcjwt/authenticator_test.go`
 - Create: `pkg/oidcjwt/identity_adapter.go`
+- Create: `pkg/oidcjwt/identity_adapter_test.go`
 
-- [ ] **Step 1: Survey the identity layer**
+- [ ] **Step 1: Confirm the current identity-layer signatures**
 
-Run: `grep -n 'EnsureIdentity\|^func .* Client' pkg/gateway/client/identity.go | head -20`
-Expected: signatures for `EnsureIdentity(ctx, id *types.Identity, ...)`.
+Run:
 
-Read the current `EnsureIdentity` signature and the `types.Identity` shape in `apiclient/types/identity.go`. Adapt the adapter below to match the current API — the contract is "given `{ issuer, sub, email, name }`, look up or create the Obot user record."
+```bash
+grep -n 'func (c \\*Client) EnsureIdentity\\|func (c \\*Client) ResolveUserEffectiveRole' pkg/gateway/client/identity.go pkg/gateway/client/grouproleassignment.go
+sed -n '1,40p' pkg/gateway/types/identity.go
+```
+
+Expected:
+
+```text
+pkg/gateway/client/identity.go:62:func (c *Client) EnsureIdentity(ctx context.Context, id *types.Identity, timezone string) (*types.User, error)
+pkg/gateway/client/grouproleassignment.go:112:func (c *Client) ResolveUserEffectiveRole(ctx context.Context, user *types.User, authGroupIDs []string) (types2.Role, error)
+```
+
+`pkg/gateway/types.Identity` must include:
+
+```go
+AuthProviderName      string
+AuthProviderNamespace string
+ProviderUsername      string
+ProviderUserID        string
+ProviderIssuer        string
+ProviderEmailVerified *bool
+Email                 string
+IconURL               string
+```
 
 - [ ] **Step 2: Write the failing user-subject tests**
 
@@ -799,7 +841,7 @@ func TestAuthenticator_UserSubjectResolvesViaIdentity(t *testing.T) {
 			return &user.DefaultInfo{
 				UID:    "obot-user-1",
 				Name:   p.Email,
-				Groups: []string{types.GroupAuthenticated},
+				Groups: types.RoleBasic.Groups(),
 			}, nil
 		},
 	}
@@ -869,7 +911,13 @@ Replace the last paragraph of `AuthenticateRequest` (the `return nil, false, err
 		return nil, false, errors.New("oidcjwt: identity resolver not configured")
 	}
 	info, err := a.identity.ResolveOrCreate(req.Context(), claims.Issuer, claims.Subject,
-		UserProfile{Email: claims.Email, Name: claims.Name})
+		UserProfile{
+			Email:             claims.Email,
+			EmailVerified:     claims.EmailVerified,
+			PreferredUsername: claims.PreferredUsername,
+			Name:              claims.Name,
+			Picture:           claims.Picture,
+		})
 	if err != nil {
 		return nil, false, fmt.Errorf("oidcjwt: identity resolve: %w", err)
 	}
@@ -890,57 +938,209 @@ package oidcjwt
 
 import (
 	"context"
+	"fmt"
+	"strconv"
 
-	"github.com/obot-platform/obot/apiclient/types"
+	types2 "github.com/obot-platform/obot/apiclient/types"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
+	gtypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
+
+type gatewayIdentityClient interface {
+	EnsureIdentity(ctx context.Context, id *gtypes.Identity, timezone string) (*gtypes.User, error)
+	ResolveUserEffectiveRole(ctx context.Context, user *gtypes.User, authGroupIDs []string) (types2.Role, error)
+}
 
 // NewGatewayIdentityResolver returns an IdentityResolver backed by the
 // gateway client's EnsureIdentity path — the same path the OAuth
 // provider uses at browser-login time.
 func NewGatewayIdentityResolver(c *gclient.Client) IdentityResolver {
+	return newGatewayIdentityResolver(c)
+}
+
+func newGatewayIdentityResolver(c gatewayIdentityClient) IdentityResolver {
 	return &gatewayResolver{c: c}
 }
 
-type gatewayResolver struct{ c *gclient.Client }
+type gatewayResolver struct{ c gatewayIdentityClient }
 
 func (g *gatewayResolver) ResolveOrCreate(ctx context.Context, iss, sub string, p UserProfile) (user.Info, error) {
-	id := &types.Identity{
-		IssuerURL:    iss,
-		Subject:      sub,
-		ProviderName: "generic-oauth-auth-provider",
-		Email:        p.Email,
+	providerUsername := p.PreferredUsername
+	if providerUsername == "" {
+		providerUsername = p.Name
 	}
-	if p.Name != "" {
-		id.Username = p.Name
-		// id.DisplayName = p.Name  // uncomment if the field exists on current types.Identity
+	if providerUsername == "" {
+		providerUsername = p.Email
 	}
-	// EnsureIdentity signature may vary by version — adapt to the
-	// current one. See pkg/gateway/client/identity.go.
-	out, err := g.c.EnsureIdentity(ctx, id, 0)
+	if providerUsername == "" {
+		providerUsername = sub
+	}
+	providerUserID := fmt.Sprintf("iss:%s\x00sub:%s", iss, sub)
+
+	id := &gtypes.Identity{
+		AuthProviderName:      "generic-oauth-auth-provider",
+		AuthProviderNamespace: system.DefaultNamespace,
+		ProviderUsername:      providerUsername,
+		ProviderUserID:        providerUserID,
+		ProviderIssuer:        iss,
+		ProviderEmailVerified: p.EmailVerified,
+		Email:                 p.Email,
+		IconURL:               p.Picture,
+	}
+
+	out, err := g.c.EnsureIdentity(ctx, id, "")
 	if err != nil {
 		return nil, err
 	}
+	effectiveRole, err := g.c.ResolveUserEffectiveRole(ctx, out, id.GetAuthProviderGroupIDs())
+	if err != nil {
+		return nil, err
+	}
+	extra := map[string][]string{
+		"auth_provider_name":      {"generic-oauth-auth-provider"},
+		"auth_provider_namespace": {system.DefaultNamespace},
+		"auth_provider_issuer":    {iss},
+		"auth_provider_user_id":   {providerUserID},
+		"email":                   {p.Email},
+	}
+	if p.EmailVerified != nil {
+		extra["auth_provider_email_verified"] = []string{strconv.FormatBool(*p.EmailVerified)}
+	}
+
 	return &user.DefaultInfo{
-		UID:    out.Subject, // or out.ID, depending on current shape
-		Name:   out.Email,
-		Groups: []string{types.GroupAuthenticated},
+		UID:    fmt.Sprintf("%d", out.ID),
+		Name:   out.Username,
+		Groups: effectiveRole.Groups(),
+		Extra:  extra,
 	}, nil
 }
 ```
 
-> **Note:** The exact `types.Identity` field names and `EnsureIdentity` signature may have evolved. Adapt to the current shape — the contract is "look up or create the Obot user record for `{ issuer, sub }`."
+This mirrors the current `pkg/gateway/client/auth.go` `UserDecorator` pattern: build a gateway identity, call `EnsureIdentity`, resolve effective role, then return `user.DefaultInfo`.
 
-- [ ] **Step 7: Verify it compiles**
+- [ ] **Step 7: Write adapter parity tests**
+
+Path: `pkg/oidcjwt/identity_adapter_test.go`
+
+```go
+package oidcjwt
+
+import (
+	"context"
+	"testing"
+
+	types2 "github.com/obot-platform/obot/apiclient/types"
+	gtypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestGatewayResolverUsesGenericOAuthBrowserProviderUserID(t *testing.T) {
+	emailVerified := true
+	stub := &stubGatewayIdentityClient{
+		ensure: func(_ context.Context, id *gtypes.Identity, timezone string) (*gtypes.User, error) {
+			require.Equal(t, "", timezone)
+			assert.Equal(t, "generic-oauth-auth-provider", id.AuthProviderName)
+			assert.Equal(t, "default", id.AuthProviderNamespace)
+			assert.Equal(t, "alice", id.ProviderUsername)
+			assert.Equal(t, "iss:https://issuer.example.com/\x00sub:alice", id.ProviderUserID)
+			assert.Equal(t, "https://issuer.example.com/", id.ProviderIssuer)
+			require.NotNil(t, id.ProviderEmailVerified)
+			assert.True(t, *id.ProviderEmailVerified)
+			assert.Equal(t, "alice@example.com", id.Email)
+			assert.Equal(t, "https://issuer.example.com/avatar.png", id.IconURL)
+			return &gtypes.User{ID: 42, Username: "alice@example.com", Email: "alice@example.com", Role: types2.RoleBasic}, nil
+		},
+		resolveRole: func(_ context.Context, user *gtypes.User, authGroupIDs []string) (types2.Role, error) {
+			assert.Equal(t, uint(42), user.ID)
+			assert.Empty(t, authGroupIDs)
+			return types2.RoleBasic, nil
+		},
+	}
+
+	info, err := newGatewayIdentityResolver(stub).ResolveOrCreate(context.Background(),
+		"https://issuer.example.com/", "alice",
+		UserProfile{
+			Email:             "alice@example.com",
+			EmailVerified:     &emailVerified,
+			PreferredUsername: "alice",
+			Name:              "Alice",
+			Picture:           "https://issuer.example.com/avatar.png",
+		})
+	require.NoError(t, err)
+	assert.Equal(t, "42", info.GetUID())
+	assert.Equal(t, "alice", info.GetName())
+	assert.Contains(t, info.GetGroups(), types2.GroupBasic)
+	assert.Equal(t, []string{"iss:https://issuer.example.com/\x00sub:alice"}, info.GetExtra()["auth_provider_user_id"])
+	assert.Equal(t, []string{"true"}, info.GetExtra()["auth_provider_email_verified"])
+}
+
+func TestGatewayResolverPreservesEmailVerifiedFalseAndAbsent(t *testing.T) {
+	for _, tt := range []struct {
+		name  string
+		value *bool
+		extra []string
+	}{
+		{name: "false", value: boolPtr(false), extra: []string{"false"}},
+		{name: "absent", value: nil, extra: nil},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			stub := &stubGatewayIdentityClient{
+				ensure: func(_ context.Context, id *gtypes.Identity, _ string) (*gtypes.User, error) {
+					if tt.value == nil {
+						assert.Nil(t, id.ProviderEmailVerified)
+					} else {
+						require.NotNil(t, id.ProviderEmailVerified)
+						assert.Equal(t, *tt.value, *id.ProviderEmailVerified)
+					}
+					return &gtypes.User{ID: 7, Username: "alice", Role: types2.RoleBasic}, nil
+				},
+				resolveRole: func(context.Context, *gtypes.User, []string) (types2.Role, error) {
+					return types2.RoleBasic, nil
+				},
+			}
+			info, err := newGatewayIdentityResolver(stub).ResolveOrCreate(context.Background(),
+				"https://issuer.example.com/", "alice", UserProfile{EmailVerified: tt.value})
+			require.NoError(t, err)
+			assert.Equal(t, tt.extra, info.GetExtra()["auth_provider_email_verified"])
+		})
+	}
+}
+
+type stubGatewayIdentityClient struct {
+	ensure      func(context.Context, *gtypes.Identity, string) (*gtypes.User, error)
+	resolveRole func(context.Context, *gtypes.User, []string) (types2.Role, error)
+}
+
+func (s *stubGatewayIdentityClient) EnsureIdentity(ctx context.Context, id *gtypes.Identity, timezone string) (*gtypes.User, error) {
+	return s.ensure(ctx, id, timezone)
+}
+
+func (s *stubGatewayIdentityClient) ResolveUserEffectiveRole(ctx context.Context, user *gtypes.User, authGroupIDs []string) (types2.Role, error) {
+	return s.resolveRole(ctx, user, authGroupIDs)
+}
+
+func boolPtr(v bool) *bool {
+	return &v
+}
+```
+
+- [ ] **Step 8: Verify it compiles**
 
 Run: `go build ./pkg/oidcjwt/...`
 Expected: clean.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 9: Run adapter tests**
+
+Run: `go test ./pkg/oidcjwt/... -run TestGatewayResolver -v`
+Expected: PASS.
+
+- [ ] **Step 10: Commit**
 
 ```bash
-git add pkg/oidcjwt/authenticator.go pkg/oidcjwt/authenticator_test.go pkg/oidcjwt/identity_adapter.go
+git add pkg/oidcjwt/authenticator.go pkg/oidcjwt/authenticator_test.go pkg/oidcjwt/identity_adapter.go pkg/oidcjwt/identity_adapter_test.go
 git commit -m "feat(oidcjwt): user-subject path with gateway identity resolver"
 ```
 
@@ -1098,39 +1298,56 @@ git commit -m "feat(oidcjwt): integration test for backend-principal JWT auth"
 
 ---
 
-## Task 9: Chart values
+## Task 9: Chart config values
 
 **Files:**
 - Modify: `chart/values.yaml`
 
-- [ ] **Step 1: Locate the genericOAuthAuthProvider block**
+- [ ] **Step 1: Locate the chart config map**
 
-Run: `grep -n 'genericOAuth\|GENERIC_OAUTH' chart/values.yaml | head`
+Run:
 
-- [ ] **Step 2: Add 3 new keys under that block**
-
-```yaml
-genericOAuthAuthProvider:
-  # ... existing fields (issuer, clientId, clientSecret, etc.) ...
-  # Service-identity JWT validation (oidcjwt). Empty audience disables
-  # the JWT authenticator without affecting browser-flow login.
-  audience: ""                              # OBOT_GENERIC_OAUTH_AUTH_PROVIDER_AUDIENCE
-  backendPrincipal: ""                      # OBOT_GENERIC_OAUTH_AUTH_PROVIDER_BACKEND_PRINCIPAL
-  eligibilityClaimName: "studio_eligible"   # OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ELIGIBILITY_CLAIM_NAME
+```bash
+grep -n '^config:' chart/values.yaml
+grep -n 'OBOT_GENERIC_OAUTH_AUTH_PROVIDER' chart/values.yaml || true
 ```
 
-If the existing block templates the issuer/clientId into env-var-prefixed names via the deployment template, add the three new env vars to the same templating.
+Expected: `config:` exists. It is acceptable if the second command prints nothing before this task, because the generic OAuth env vars may be injected through `.env` or a custom secret rather than Helm defaults.
+
+- [ ] **Step 2: Add 3 new keys under `config:`**
+
+Add the keys near the existing authentication config keys in `chart/values.yaml`:
+
+```yaml
+  # config.OBOT_GENERIC_OAUTH_AUTH_PROVIDER_AUDIENCE -- Audience Obot expects on JWTs issued by the configured generic OAuth/OIDC provider. Empty disables OIDC JWT auth without affecting browser login.
+  OBOT_GENERIC_OAUTH_AUTH_PROVIDER_AUDIENCE: ""
+  # config.OBOT_GENERIC_OAUTH_AUTH_PROVIDER_BACKEND_PRINCIPAL -- JWT subject that maps to Obot admin/owner for backend service calls. Empty disables backend-principal recognition.
+  OBOT_GENERIC_OAUTH_AUTH_PROVIDER_BACKEND_PRINCIPAL: ""
+  # config.OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ELIGIBILITY_CLAIM_NAME -- Claim name used to gate user-subject JWTs.
+  OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ELIGIBILITY_CLAIM_NAME: "studio_eligible"
+```
+
+Do not add a new top-level `genericOAuthAuthProvider:` block. This chart renders all `config:` keys into a config secret (`chart/templates/secret.yaml`) and mounts that secret with `envFrom` in `chart/templates/deployment.yaml`.
 
 - [ ] **Step 3: Render the chart locally if possible**
 
-Run: `helm template chart/ > /tmp/rendered.yaml && grep -A 1 'OBOT_GENERIC_OAUTH_AUTH_PROVIDER_AUDIENCE' /tmp/rendered.yaml`
-Expected: the env var appears in the rendered deployment manifest.
+Run:
+
+```bash
+helm template obot chart/ > /tmp/obot-rendered.yaml
+grep -n 'OBOT_GENERIC_OAUTH_AUTH_PROVIDER_AUDIENCE' /tmp/obot-rendered.yaml
+grep -n 'OBOT_GENERIC_OAUTH_AUTH_PROVIDER_BACKEND_PRINCIPAL' /tmp/obot-rendered.yaml
+grep -n 'OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ELIGIBILITY_CLAIM_NAME' /tmp/obot-rendered.yaml
+grep -n 'envFrom:' -A3 /tmp/obot-rendered.yaml
+```
+
+Expected: all three config keys appear in the rendered Secret, and the deployment still references that Secret via `envFrom`.
 
 - [ ] **Step 4: Commit**
 
 ```bash
 git add chart/values.yaml
-git commit -m "feat(oidcjwt): chart values for audience, backend principal, eligibility claim"
+git commit -m "feat(oidcjwt): chart config for audience, backend principal, eligibility claim"
 ```
 
 ---
@@ -1156,7 +1373,7 @@ list is unchanged.
 | File | Why |
 |---|---|
 | `pkg/services/config.go` | Append `oidcjwt.NewAuthenticator(...)` to the authenticator union when the config is enabled. |
-| `chart/values.yaml` | Add 3 new env-var keys under the existing `genericOAuthAuthProvider` block. |
+| `chart/values.yaml` | Add 3 new `OBOT_GENERIC_OAUTH_AUTH_PROVIDER_*` env-var keys under the existing top-level `config:` map. |
 | `go.mod`, `go.sum` | New dependency: `github.com/coreos/go-oidc/v3`. |
 | `docs/design/oidc-jwt-authn/README.md` | Design document. |
 | `docs/plans/2026-06-12-oidc-jwt-authn.md` | Implementation plan (this file). |
@@ -1291,11 +1508,15 @@ End-to-end manual verification (after the Studio-side plan ships):
 
 ## Notes for the implementer
 
+- **Providers repo compatibility.** Checked against `~/src/providers`:
+  - `generic-oauth-auth-provider` is the compatibility target for this JWT authenticator. It normalizes issuer by trimming trailing slashes, fetches OIDC userinfo, preserves nullable `email_verified`, sets `PreferredUsername` from `preferred_username`, then `name`, then `email`, and relies on Obot to store provider user IDs as `iss:<issuer>\x00sub:<sub>`.
+  - `google-auth-provider` and `github-auth-provider` are provider-specific OAuth proxy integrations. They do not mint generic OIDC JWTs for this Obot authenticator path. Their behavior remains covered by the existing provider-login flow and `pkg/gateway/client/auth.go`.
+
 - **go-oidc owns the heavy crypto.** `oidc.NewProvider(ctx, issuer)` does OIDC discovery synchronously. The returned `*oidc.Provider` caches the JWKS and refreshes it transparently on key rotation. `provider.Verifier(&oidc.Config{ClientID: aud, SupportedSigningAlgs: []string{"RS256"}})` returns a verifier that validates signature, `iss`, `aud`, `exp`, and `nbf` per RFC 7519. The only thing we add is the "is this JWT ours?" pre-check (peek at `iss` without verification) so union fall-through stays clean.
 
 - **Authenticator-union semantics.** Each authenticator in the union returns `(response, ok, err)`. `(nil, false, nil)` means "not mine, let the next try"; `(nil, false, err)` is a real auth failure. This authenticator returns a real error only when the JWT is structurally ours (matching `iss`) but fails some other validation, or when the eligibility claim is missing on a user-subject path.
 
-- **Identity layer compatibility.** The exact `pkg/gateway/client.Client.EnsureIdentity` signature and `types.Identity` field names may have evolved since planning. Adapt the `gatewayResolver` adapter to the current shape; the contract — "look up or create the Obot user record for `{ issuer, sub }`" — is what matters.
+- **Identity layer contract.** The adapter intentionally mirrors `pkg/gateway/client/auth.go` as of this plan: build `pkg/gateway/types.Identity` with `AuthProviderName`, `AuthProviderNamespace`, `ProviderUsername`, `ProviderUserID`, `ProviderIssuer`, `ProviderEmailVerified`, `Email`, and `IconURL`; call `EnsureIdentity(ctx, id, "")`; then call `ResolveUserEffectiveRole(ctx, out, id.GetAuthProviderGroupIDs())`.
 
 - **Why `golang-jwt/jwt/v5` is still imported.** Only for `ParseUnverified` in the pre-check. go-oidc's own parser is not exposed for "parse without verifying" cases. If a future version of go-oidc adds that primitive, the dependency can be dropped from `pkg/oidcjwt/` (it remains used elsewhere in Obot).
 

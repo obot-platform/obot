@@ -28,7 +28,7 @@ Future consumers configuring a different OIDC provider follow the same shape —
 - Reading a configured eligibility claim (`studio_eligible` for the Studio integration; the claim name is configurable for future providers) on user-subject JWTs and refusing calls when the claim is absent or empty.
 - Mapping the backend-principal subject onto Obot's existing admin/owner groups; user-subject JWTs map to the corresponding Obot user record the OAuth provider's browser flow would create.
 - Creating the Obot user record on first user-subject JWT if it does not yet exist, using the same `{ issuer, subject }` tuple the OAuth provider uses.
-- A `pkg/oidcjwt/` package that implements the authenticator, JWKS cache, and validator.
+- A `pkg/oidcjwt/` package that implements the authenticator and a thin `go-oidc` verifier wrapper.
 - One additive change to the existing authenticator union (`pkg/services/config.go`).
 
 **Does not cover**
@@ -48,10 +48,10 @@ Future consumers configuring a different OIDC provider follow the same shape —
 | Map the configured backend-principal subject to Obot's `Admin` + `Owner` groups | Existing `adminAndOwnerRules` in `pkg/api/authz/authz.go:26` already governs the catalog and system-MCP-server paths. Mapping the backend principal to those groups lets the integration reach all the endpoints it needs without touching authz rules. |
 | Map user-subject JWTs to the corresponding Obot user, creating the record on first call if absent | The OAuth provider's browser flow already creates Obot users from `{ issuer, sub }`. JWT validation reuses that mapping so service-identity calls and browser logins resolve to the same Obot user record. |
 | Trust the configured eligibility claim; do not call the issuer per request | The issuer is responsible for refusing to mint a user-subject JWT for an ineligible user. Obot's per-call check on the eligibility claim is the second layer. JWT TTL (issuer-controlled) bounds the staleness window. No Obot→issuer callback required. |
-| Reuse the existing OIDC provider's issuer URL and JWKS discovery | One trust anchor per deployment. The authenticator reads the issuer URL from the same configuration that the browser-login flow uses; JWKS comes from OIDC discovery. |
+| Reuse the existing OIDC provider's issuer URL and JWKS discovery | One trust anchor per deployment. The authenticator reads the issuer URL from the same configuration that the browser-login flow uses, normalizes it by trimming trailing slashes like the provider image does, and uses OIDC discovery for JWKS. |
 | Configure the backend principal and audience via env vars piggybacking on the existing `OBOT_GENERIC_OAUTH_AUTH_PROVIDER_*` prefix | Single configuration surface. Operators configure one provider; the JWT authenticator picks up its fields from the same place. |
 | Confine all integration code to `pkg/oidcjwt/` | Single new package keeps the upstream-merge surface minimal. Authn/authz upstream files stay unchanged in structure; the only modification is one additive line in the authenticator union. |
-| Use existing JWT and JWKS libraries (`github.com/golang-jwt/jwt/v5`, `github.com/MicahParks/jwkset`) | Both are already in `go.mod`. No new dependencies introduced. |
+| Use `github.com/coreos/go-oidc/v3` for OIDC discovery, JWKS caching, key rotation, and standard claim validation | This avoids maintaining custom JWKS cache and verifier code in the fork. `github.com/golang-jwt/jwt/v5` remains in use only for the unverified issuer pre-check that preserves authenticator-union fall-through semantics. |
 
 ## Architecture / How It Works
 
@@ -60,41 +60,40 @@ Future consumers configuring a different OIDC provider follow the same shape —
 | Component | Responsibility |
 |---|---|
 | Configured generic OIDC provider | Single-instance `generic-oauth-auth-provider` registry entry. Provides the issuer URL, JWKS discovery, and the OAuth client used for browser login. Existing — see [`../generic-oauth-provider/`](../generic-oauth-provider/README.md). |
-| JWKS cache (`pkg/oidcjwt/jwks`) | Fetches the issuer's JWKS via OIDC discovery on demand. Caches by `kid`. Refreshes on a configurable poll interval; refreshes on demand when a token presents an unknown `kid`. |
-| JWT validator (`pkg/oidcjwt/jwt`) | Validates incoming JWTs: signature using JWKS, standard claims (`iss` matches configured issuer; `aud` matches configured audience; `exp`/`nbf` within 60s clock-skew tolerance). Extracts `sub` and the eligibility claim. |
+| Verifier wrapper (`pkg/oidcjwt/verifier.go`) | Uses `go-oidc` for OIDC discovery, JWKS caching, key rotation, and standard claim validation. Adds a pre-check that parses `iss` without verification so JWTs for other issuers can fall through to the rest of the authenticator union. |
 | JWT authenticator (`pkg/oidcjwt/authenticator.go`) | Implements `authenticator.Request`. Inspects the `Authorization: Bearer …` header; if present and validates, returns a `user.Info`. Two subject paths: backend-principal → groups `[Admin, Owner]`; other subject → resolve or create the Obot user via existing identity layer, then check eligibility claim. |
-| Configuration (`pkg/oidcjwt/config.go`) | Typed config struct populated from existing env / chart values. Holds issuer URL, audience, backend principal, eligibility-claim name, JWKS poll interval. |
+| Configuration (`pkg/oidcjwt/config.go`) | Typed config struct populated from existing env / chart values. Holds issuer URL, audience, backend principal, and eligibility-claim name. |
 
 ### Where it plugs into Obot
 
-Three additive touch points only. All other code lives in `pkg/oidcjwt/`.
+Four additive touch points only. All other code lives in `pkg/oidcjwt/`.
 
 | File | Change |
 |---|---|
-| `pkg/services/config.go` | One additive change: append a `oidcjwt.NewAuthenticator(cfg)` instance to the `authenticators` union just before `authn.NewAuthenticator(authenticators)` is called at `pkg/services/config.go:931`. |
-| `chart/values.yaml` | Add the audience, backend-principal, eligibility-claim-name, and JWKS poll-interval keys to the existing `genericOAuthAuthProvider` block (or sibling). |
+| `pkg/services/config.go` | One additive change: append a `oidcjwt.NewAuthenticator(...)` instance to the `authenticators` union just before `authn.NewAuthenticator(authenticators)` is called. |
+| `chart/values.yaml` | Add `OBOT_GENERIC_OAUTH_AUTH_PROVIDER_AUDIENCE`, `OBOT_GENERIC_OAUTH_AUTH_PROVIDER_BACKEND_PRINCIPAL`, and `OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ELIGIBILITY_CLAIM_NAME` under the existing top-level `config:` map. The chart already renders `config:` through a secret and `envFrom`. |
+| `go.mod`, `go.sum` | Add `github.com/coreos/go-oidc/v3`. |
 | `docs/studio/CHANGES.md` (new) | Manifest tracking every upstream touchpoint for rebase hygiene. |
 
-A `scripts/check-upstream-touchpoints.sh` script (new) verifies CI catches any unexpected upstream touches introduced during execution. The 3 expected files above are the allow-list.
+A `scripts/check-upstream-touchpoints.sh` script (new) verifies CI catches any unexpected upstream touches introduced during execution. The expected files above are the allow-list.
 
 ### JWT validation order
 
 For each incoming request with an `Authorization: Bearer …` header:
 
 1. Parse the bearer as a JWT; on parse failure, return `(nil, false, nil)` so other authenticators in the union can try.
-2. Read the `kid` from the JWT header. Look up the public key in the JWKS cache. If missing, refresh JWKS (single-flight per `kid`). If still missing, return `(nil, false, nil)` so other authenticators can try — invalid `kid` is not a hard 401 because the bearer may belong to a different authenticator's scheme.
-3. Verify signature.
-4. Verify standard claims: `iss` matches configured issuer; `aud` matches configured audience; `exp`/`nbf` honored with up to 60s clock skew.
-5. If validation fails on a token whose `kid` matched our cache, return an error (this is a real auth failure, not a "not for us" case) — surfaces as `401 Unauthorized` from the API server's wrapper.
+2. Parse the JWT without verification and read `iss`. If it differs from the configured issuer, return `(nil, false, nil)` so other authenticators can try.
+3. Hand the JWT to `go-oidc` for signature, issuer, audience, expiry, and not-before validation.
+4. If `go-oidc` validation fails after the issuer pre-check matched, return an error. This is a real auth failure and surfaces as `401 Unauthorized` from the API server's wrapper.
 
-Authenticator-union semantics in Obot: each authenticator returns `(response, ok, err)`. `(nil, false, nil)` means "not mine, try the next." A real error surfaces as 401. This authenticator returns a real error only when the token is structurally ours (matching `kid`) but fails validation.
+Authenticator-union semantics in Obot: each authenticator returns `(response, ok, err)`. `(nil, false, nil)` means "not mine, try the next." A real error surfaces as 401. This authenticator returns a real error only when the token is structurally ours (matching `iss`) but fails validation.
 
 ### Subject resolution
 
 After successful validation:
 
 - **Backend-principal path.** If `sub` equals the configured backend principal value, return a `user.Info` with `UID` = backend principal, `Name` = a fixed label like `oidc-backend-<provider>`, and `Groups` = `[types.GroupAdmin, types.GroupOwner]`. The existing `adminAndOwnerRules` in `pkg/api/authz/authz.go` accepts this principal on `/api/system-mcp-catalogs/**`, `/api/system-mcp-servers/**`, `/api/mcp-catalogs/**` without further changes.
-- **User-subject path.** Resolve the Obot user record by `{ issuer, sub }` via the existing identity layer (`pkg/gateway/client/identity.go`). If absent, create the record using the JWT's `email`, `name`, `picture` claims (same fields the browser OAuth flow uses). Read the eligibility claim by configured name (e.g. `studio_eligible`). If absent or falsy, fail with a real error (401). If true, return a `user.Info` with the Obot user's identity and the standard authenticated-user groups.
+- **User-subject path.** Resolve the Obot user record through the same generic OAuth identity key that browser login uses: `ProviderIssuer = <issuer>` and `ProviderUserID = "iss:<issuer>\x00sub:<sub>"`. If absent, create the record using the JWT's `email`, `email_verified`, `preferred_username`, `name`, and `picture` claims where present. Username selection follows the generic provider: prefer `preferred_username`, then `name`, then `email`, then `sub`. Read the eligibility claim by configured name (e.g. `studio_eligible`). If absent or falsy, fail with a real error (401). If true, return a `user.Info` from the created or resolved Obot user, including `auth_provider_user_id` in `Extra` for downstream setup/OAuth flows.
 
 ### Eligibility claim
 
@@ -107,7 +106,7 @@ Boolean is the v1 default; the validator handles arrays transparently to keep th
 
 ### Identity mapping with the existing OIDC provider
 
-The existing `generic-oauth-auth-provider` (browser flow) creates Obot users keyed by `{ issuer, sub }` through the identity layer at `pkg/gateway/client/identity.go`. This authenticator reuses the same lookup-or-create call. Order of events is not important: a service-identity JWT may create the Obot user record before any browser login, or vice versa. Subsequent events for the same user resolve to the same record.
+The existing `generic-oauth-auth-provider` (browser flow) normalizes the configured issuer by trimming trailing slashes, then creates Obot users keyed by `ProviderIssuer = <normalized issuer>` and `ProviderUserID = "iss:<normalized issuer>\x00sub:<sub>"` through the identity layer at `pkg/gateway/client/identity.go`. This authenticator reuses the same lookup-or-create call and exact provider-user-ID shape. Order of events is not important: a service-identity JWT may create the Obot user record before any browser login, or vice versa. Subsequent events for the same user resolve to the same record.
 
 Email and display fields are display values only, not identity keys.
 
@@ -121,7 +120,6 @@ All values piggyback on the existing `OBOT_GENERIC_OAUTH_AUTH_PROVIDER_*` env-va
 | `OBOT_GENERIC_OAUTH_AUTH_PROVIDER_AUDIENCE` (new) | Audience Obot expects on JWTs. Empty disables service-identity validation; browser-login still works. |
 | `OBOT_GENERIC_OAUTH_AUTH_PROVIDER_BACKEND_PRINCIPAL` (new) | The `sub` value that maps to admin/owner. Empty disables backend-principal recognition; user-subject JWTs still validate. |
 | `OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ELIGIBILITY_CLAIM_NAME` (new) | The claim name read for user-subject eligibility gating. Default `studio_eligible`. |
-| `OBOT_GENERIC_OAUTH_AUTH_PROVIDER_JWKS_POLL_INTERVAL` (new) | Background JWKS refresh interval. Default 300 seconds, bounded 60-3600. |
 
 If `AUDIENCE` is empty, the authenticator is inert (validation fails fast for any presented JWT). This lets deployments that don't use service-identity JWTs keep the authenticator wired without behavioral effect.
 
@@ -131,10 +129,9 @@ If `AUDIENCE` is empty, the authenticator is inert (validation fails fast for an
 |---|---|
 | No `Authorization: Bearer …` header | Authenticator returns `(nil, false, nil)`; next authenticator in union tries. |
 | Bearer is not a JWT (different scheme) | Same as above. |
-| JWT `kid` not in our cache, refresh succeeds with the `kid` | Validate normally. |
-| JWT `kid` not in our cache after a refresh | Return `(nil, false, nil)` — let other authenticators try. |
-| JWT signature invalid | Return real error — surfaces as 401. |
-| JWT `iss` does not match configured issuer | Return real error — 401. |
+| JWT `iss` does not match configured issuer | Return `(nil, false, nil)` — let other authenticators try. |
+| JWT `iss` matches but `kid` is unknown after `go-oidc` refresh | Return real error — surfaces as 401. |
+| JWT signature invalid for the configured issuer | Return real error — 401. |
 | JWT `aud` does not match configured audience | Return real error — 401. |
 | JWT expired (`exp` in the past, beyond skew) | Return real error — 401. |
 | Backend-principal subject | `user.Info` with `[Admin, Owner]` groups; existing authz accepts on admin-scoped paths. |
@@ -146,8 +143,7 @@ If `AUDIENCE` is empty, the authenticator is inert (validation fails fast for an
 
 ## Tests
 
-- Unit: JWKS cache (fetch, kid lookup, refresh-on-miss, refresh interval).
-- Unit: JWT validation (signature, iss, aud, exp/nbf with skew, kid header).
+- Unit: verifier wrapper (valid token, different issuer fall-through, wrong audience real error, custom claim extraction).
 - Unit: subject resolution (backend principal path returns admin/owner; user path resolves or creates the user record; eligibility-claim missing fails).
 - Unit: authenticator union semantics (returns `(nil, false, nil)` for non-JWT bearers, returns error for "ours" but invalid).
 - Integration: spin up a test issuer (signed with a static keypair), present a backend-principal JWT to `GET /api/system-mcp-catalogs/{catalog_id}/entries`, assert 200 and a catalog response shape.
@@ -163,18 +159,18 @@ None remaining for v1. Earlier open items (claim shape, conversation-token strat
 | First consumer: Studio's MCP integration | `~/src/studio` (Studio repo), branch `feat/mcp-catalog-support`, docs under `docs/design/mcp-studio-obot-transport/` and `docs/design/mcp-studio-runtime/` |
 | Studio's functional spec | Studio repo, `docs/functional/configure-connectors/` |
 | Studio's JWT minting + outbound client design | Studio repo, `docs/design/mcp-studio-obot-transport/` |
+| Provider compatibility source | Providers repo, `~/src/providers/generic-oauth-auth-provider/`; Google/GitHub provider images remain provider-specific OAuth proxy flows and are not issuers for this generic JWT authenticator. |
 
 ## Source file map (planned)
 
 | File | Purpose |
 |---|---|
 | `pkg/oidcjwt/config.go` (new) | Typed config struct. Reads env vars; validates ranges. |
-| `pkg/oidcjwt/jwks/cache.go` (new) | JWKS fetch + cache + single-flight refresh. |
-| `pkg/oidcjwt/jwt/validator.go` (new) | JWT signature + standard-claims validation. |
-| `pkg/oidcjwt/authenticator.go` (new) | Implements `authenticator.Request`. Composes config + JWKS + validator + identity layer. |
+| `pkg/oidcjwt/verifier.go` (new) | `go-oidc` provider/verifier wrapper plus issuer pre-check. |
+| `pkg/oidcjwt/authenticator.go` (new) | Implements `authenticator.Request`. Composes config + verifier wrapper + identity layer. |
 | `pkg/oidcjwt/authenticator_test.go` (new) | Unit tests. |
 | `pkg/oidcjwt/integration_test.go` (new) | Integration test against a real Obot router with a test issuer. |
 | `pkg/services/config.go` (modify) | One additive line: append `oidcjwt.NewAuthenticator(...)` to the authenticators union. |
-| `chart/values.yaml` (modify) | Add new env keys under existing `genericOAuthAuthProvider` block. |
+| `chart/values.yaml` (modify) | Add new env keys under the existing top-level `config:` map. |
 | `docs/studio/CHANGES.md` (new) | Manifest of upstream touchpoints. |
 | `scripts/check-upstream-touchpoints.sh` (new) | Verifies upstream-touchpoint allow-list. |
