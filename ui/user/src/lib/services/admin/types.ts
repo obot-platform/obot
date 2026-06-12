@@ -96,15 +96,6 @@ export interface AppNotificationsManifest {
 	};
 }
 
-export interface AppNotifications {
-	banner: {
-		dismissable: boolean;
-		type: BannerType;
-		enabled: boolean;
-		text: string;
-	};
-}
-
 // Audit log exports
 
 export interface AuditLogExportInput {

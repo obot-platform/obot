@@ -718,6 +718,11 @@ func schema_obot_platform_obot_apiclient_types_AppNotifications(ref common.Refer
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.BannerNotification"),
 						},
 					},
+					"updated": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
 					"metadata": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
@@ -725,10 +730,11 @@ func schema_obot_platform_obot_apiclient_types_AppNotifications(ref common.Refer
 						},
 					},
 				},
+				Required: []string{"updated"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.BannerNotification", "github.com/obot-platform/obot/apiclient/types.Metadata"},
+			"github.com/obot-platform/obot/apiclient/types.BannerNotification", "github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
@@ -12554,11 +12560,17 @@ func schema_storage_apis_obotobotai_v1_AppNotificationsSpec(ref common.Reference
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.BannerNotification"),
 						},
 					},
+					"updated": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Updated is set whenever the notifications are updated after their initial creation. When unset, the creation timestamp is used as the updated time.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.BannerNotification"},
+			"github.com/obot-platform/obot/apiclient/types.BannerNotification", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }
 

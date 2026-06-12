@@ -64,6 +64,7 @@ func (h *AppNotificationsHandler) Update(req api.Context) error {
 	} else {
 		// Update existing notifications
 		notifications.Spec.Banner = input.Banner
+		notifications.Spec.Updated = metav1.Now()
 
 		if err := req.Update(&notifications); err != nil {
 			return err
@@ -75,8 +76,15 @@ func (h *AppNotificationsHandler) Update(req api.Context) error {
 }
 
 func convertAppNotifications(notifications v1.AppNotifications) types.AppNotifications {
+	// On first creation, no explicit updated time is stored, so it matches the creation time.
+	updated := notifications.Spec.Updated.Time
+	if updated.IsZero() {
+		updated = notifications.GetCreationTimestamp().Time
+	}
+
 	return types.AppNotifications{
 		Banner:   notifications.Spec.Banner,
+		Updated:  *types.NewTime(updated),
 		Metadata: MetadataFrom(&notifications),
 	}
 }

@@ -14,13 +14,18 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/license"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/storage"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/version"
 	"gorm.io/gorm"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type SessionStore string
@@ -123,7 +128,7 @@ func (v *VersionHandler) getVersionResponse(ctx context.Context) (map[string]any
 	latestVersion := v.latestVersion
 	v.upgradeLock.RUnlock()
 
-	return map[string]any{
+	response := map[string]any{
 		"upgradeAvailable":             upgradeAvailable,
 		"latestVersion":                latestVersion,
 		"obot":                         version.Get().String(),
@@ -138,7 +143,26 @@ func (v *VersionHandler) getVersionResponse(ctx context.Context) (map[string]any
 		"agentsEnabled":                v.AgentsEnabled,
 		"licenseEntitlementViolations": violations,
 		"missingLicenseEntitlements":   missingEntitlements(violations),
-	}, nil
+	}
+
+	var notifications v1.AppNotifications
+	if err := v.StorageClient.Get(ctx, kclient.ObjectKey{
+		Namespace: system.DefaultNamespace,
+		Name:      system.AppNotificationsName,
+	}, &notifications); err == nil {
+		response["banner"] = notifications.Spec.Banner
+
+		// On first creation, no explicit updated time is stored, so it matches the creation time.
+		bannerUpdated := notifications.Spec.Updated.Time
+		if bannerUpdated.IsZero() {
+			bannerUpdated = notifications.GetCreationTimestamp().Time
+		}
+		response["bannerUpdated"] = *types.NewTime(bannerUpdated)
+	} else if !apierrors.IsNotFound(err) {
+		return nil, err
+	}
+
+	return response, nil
 }
 
 func missingEntitlements(violations []license.ProviderViolation) []string {

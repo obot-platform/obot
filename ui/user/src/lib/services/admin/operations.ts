@@ -22,6 +22,7 @@ import type {
 	DefaultModelAlias,
 	BootstrapStatus,
 	AppPreferences,
+	AppNotifications,
 	AccessControlRule,
 	AccessControlRuleManifest,
 	K8sServerDetail
@@ -92,7 +93,6 @@ import type {
 	OAuthDebuggerTokenRequest,
 	OAuthToken,
 	AppPreferencesManifest,
-	AppNotifications,
 	AppNotificationsManifest,
 	License,
 	LicenseManifest

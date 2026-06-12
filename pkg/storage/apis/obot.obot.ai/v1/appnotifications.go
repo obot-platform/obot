@@ -17,6 +17,9 @@ type AppNotifications struct {
 
 type AppNotificationsSpec struct {
 	Banner types.BannerNotification `json:"banner,omitempty"`
+	// Updated is set whenever the notifications are updated after their initial creation.
+	// When unset, the creation timestamp is used as the updated time.
+	Updated metav1.Time `json:"updated,omitempty"`
 }
 
 type AppNotificationsStatus struct{}

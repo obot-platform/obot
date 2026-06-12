@@ -4,7 +4,9 @@
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
+	import { AdminService } from '$lib/services';
 	import { profile, responsive } from '$lib/stores';
+	import { success } from '$lib/stores/success';
 	import { PanelRightOpen, PanelRightClose } from 'lucide-svelte';
 	import { untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
@@ -18,7 +20,17 @@
 	let showConfigurationSidebar = $state(untrack(() => (responsive.isMobile ? false : true)));
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 
-	async function handleSave() {}
+	async function handleSave() {
+		saving = true;
+		try {
+			await AdminService.updateAppNotifications(appNotifications);
+			success.add('App notifications updated successfully.');
+		} catch (_err) {
+			// will get logged by handleRouteError
+		} finally {
+			saving = false;
+		}
+	}
 </script>
 
 <Layout title="App Notifications">
@@ -77,6 +89,20 @@
 				<div class="flex flex-col gap-2 p-4">
 					<p class="text-sm font-medium mb-2">Banner Properties</p>
 					<div class="flex items-center justify-between">
+						<p class="text-sm font-light">Dismissable</p>
+						<input
+							type="checkbox"
+							class="toggle toggle-sm"
+							bind:checked={appNotifications.banner.dismissable}
+						/>
+					</div>
+					<p class="text-xs font-light text-muted-content mb-2">
+						The banner is {appNotifications.banner.dismissable ? 'dismissable' : 'not dismissable'}. {appNotifications
+							.banner.dismissable
+							? 'The user can dismiss the banner and it will not appear again for their device.'
+							: 'The banner will stay visible and cannot be hidden by the user.'}
+					</p>
+					<div class="flex items-center justify-between">
 						<p class="text-sm font-light">Type</p>
 						<select
 							class="select select-sm max-w-46 min-w-0"
@@ -93,14 +119,6 @@
 							bind:value={appNotifications.banner.text}
 						></textarea>
 					</div>
-					<div class="flex items-center justify-between">
-						<p class="text-sm font-light">Dismissable</p>
-						<input
-							type="checkbox"
-							class="toggle toggle-sm"
-							bind:checked={appNotifications.banner.dismissable}
-						/>
-					</div>
 				</div>
 			</div>
 			<div class="flex grow"></div>
@@ -110,7 +128,7 @@
 				>
 					<div class="flex justify-end items-center gap-2">
 						<div class="flex items-center gap-2">
-							<button class="btn btn-primary" onclick={handleSave}>
+							<button class="btn btn-primary" disabled={saving} onclick={handleSave}>
 								{#if saving}
 									<Loading class="size-4" />
 								{:else}
@@ -120,9 +138,12 @@
 							<button
 								class="btn btn-secondary"
 								onclick={() => {
-									//TODO:
-								}}>Cancel</button
+									// reset;
+									appNotifications = data.appNotifications;
+								}}
 							>
+								Cancel
+							</button>
 						</div>
 					</div>
 				</div>
@@ -131,17 +152,17 @@
 	{/snippet}
 	<div class="relative h-full w-full @container mb-8" transition:fade={{ duration }}>
 		<div
-			class="mockup-window border border-base-300 w-full bg-base-100 dark:bg-base-200 h-[50vh] min-h-96px relative"
+			class="mockup-window border border-base-300 w-full bg-base-100 dark:bg-base-200 h-96 relative"
 		>
-			<div class="w-full">
+			<div class="w-full relative z-50">
 				{#if appNotifications.banner.enabled}
 					<AppNotificationBanner
 						data={appNotifications.banner}
-						placeholder="[banner placeholder text]"
+						placeholder="[insert text to display here]"
 					/>
 				{/if}
 			</div>
-			<div class="w-full h-full flex justify-center items-center absolute top-0 left-0">
+			<div class="w-full h-full flex justify-center items-center top-0 left-0">
 				<p class="text-muted-content font-light text-sm">
 					<b class="font-semibold">Enable Banner</b> to see an example of the banner in action.
 				</p>

@@ -11,6 +11,7 @@ const (
 // AppNotifications represents global application notification settings
 type AppNotifications struct {
 	Banner   BannerNotification `json:"banner,omitempty"`
+	Updated  Time               `json:"updated,omitzero"`
 	Metadata Metadata           `json:"metadata,omitempty"`
 }
 

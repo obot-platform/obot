@@ -1,6 +1,6 @@
 import { handleRouteError } from '$lib/errors';
 import { AdminService } from '$lib/services';
-import type { AppNotifications } from '$lib/services/admin/types';
+import type { AppNotifications } from '$lib/services/user/types';
 import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ fetch, parent }) => {
