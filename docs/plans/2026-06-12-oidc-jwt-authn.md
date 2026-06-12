@@ -26,6 +26,7 @@
 | `pkg/oidcjwt/authenticator_test.go` | new | Unit tests (admin role → admin/owner groups, no admin role → authenticated only, missing eligibility → 401, different issuer → fall through). |
 | `pkg/oidcjwt/identity_adapter.go` | new | Maps a validated JWT to an Obot user record via `pkg/gateway/client.EnsureIdentity`. |
 | `pkg/oidcjwt/integration_test.go` | new | End-to-end test: real `authn.Authenticator`, JWT with `roles: ["admin"]` → handler returns 200; JWT with empty roles → handler returns 403. |
+| `pkg/oidcjwt/smokeclient/main.go` | new | Standalone dev smoke client: starts a local OIDC issuer/JWKS endpoint, mints a JWT, and optionally calls an Obot API URL without Studio. |
 | `pkg/services/config.go` | modify (one block) | Load `oidcjwt.Config`, construct verifier, append `oidcjwt.NewAuthenticator(...)` to the authenticators union when enabled. |
 | `chart/values.yaml` | modify | Add 4 new `OBOT_GENERIC_OAUTH_AUTH_PROVIDER_*` keys. |
 | `go.mod` / `go.sum` | modify | Add `github.com/coreos/go-oidc/v3`. |
@@ -1275,7 +1276,42 @@ git commit -m "test(oidcjwt): integration tests for role-based group mapping"
 
 ---
 
-## Task 8: Chart values
+## Task 8: Standalone smoke client
+
+**Files:** `pkg/oidcjwt/smokeclient/main.go`
+
+- [ ] **Step 1:** Add a small `package main` tool that:
+  - starts a local OIDC discovery/JWKS server;
+  - prints the `OBOT_GENERIC_OAUTH_AUTH_PROVIDER_*` env vars needed by Obot;
+  - mints a signed JWT with `eligible` and `roles`;
+  - optionally calls an Obot API URL with `Authorization: Bearer <jwt>`.
+
+- [ ] **Step 2:** Verify it builds.
+Run: `go build ./pkg/oidcjwt/smokeclient`
+Expected: clean.
+
+- [ ] **Step 3:** Example local use:
+
+```bash
+go run ./pkg/oidcjwt/smokeclient \
+  --listen 0.0.0.0:18080 \
+  --issuer-url http://host.docker.internal:18080 \
+  --audience obot-default \
+  --obot-url http://localhost:8080/api/system-mcp-catalogs/default/entries
+```
+
+For non-Docker local Obot, use `--issuer-url http://localhost:18080`.
+
+- [ ] **Step 4:** Commit.
+
+```bash
+git add pkg/oidcjwt/smokeclient/main.go
+git commit -m "chore(oidcjwt): standalone JWT smoke client"
+```
+
+---
+
+## Task 9: Chart values
 
 **Files:** `chart/values.yaml`
 
@@ -1305,7 +1341,7 @@ git commit -m "feat(oidcjwt): chart values (audience, eligibility/roles claim na
 
 ---
 
-## Task 9: Upstream-touchpoint manifest
+## Task 10: Upstream-touchpoint manifest
 
 **Files:** `docs/studio/CHANGES.md`, `scripts/check-upstream-touchpoints.sh`
 
@@ -1384,7 +1420,7 @@ git commit -m "chore(oidcjwt): upstream-touchpoint manifest + CI check"
 
 ---
 
-## Task 10: Verify and push
+## Task 11: Verify and push
 
 - [ ] **Step 1:** `go test ./...`
 Expected: all pass.

@@ -43,6 +43,7 @@ import (
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/messagepolicy"
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
+	"github.com/obot-platform/obot/pkg/oidcjwt"
 	"github.com/obot-platform/obot/pkg/proxy"
 	"github.com/obot-platform/obot/pkg/serviceaccounts"
 	"github.com/obot-platform/obot/pkg/skillaccessrule"
@@ -838,6 +839,17 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		authenticators = union.New(authenticators, gserver.NewAPIKeyAuthenticator(gatewayClient))
 		// Persistent Token Auth
 		authenticators = union.New(authenticators, persistentTokenServer)
+		oidcJWTCfg, err := oidcjwt.LoadConfigFromEnv(os.Getenv)
+		if err != nil {
+			return nil, fmt.Errorf("oidcjwt config: %w", err)
+		}
+		if oidcJWTCfg.Enabled() {
+			oidcVerifier, err := oidcjwt.NewVerifier(ctx, oidcJWTCfg)
+			if err != nil {
+				return nil, fmt.Errorf("oidcjwt verifier: %w", err)
+			}
+			authenticators = union.New(authenticators, oidcjwt.NewAuthenticator(oidcJWTCfg, oidcVerifier, oidcjwt.NewGatewayIdentityResolver(gatewayClient)))
+		}
 		// Add bootstrap auth
 		authenticators = union.NewFailOnError(authenticators, bootstrapper)
 		if config.MetricsBearerToken != "" {

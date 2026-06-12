@@ -109,6 +109,14 @@ config:
   OBOT_SERVER_AUTH_OWNER_EMAILS: ""
   # config.OBOT_SERVER_AUTH_ADMIN_EMAILS -- A comma separated list of email addresses that will have the Admin role in Obot.
   OBOT_SERVER_AUTH_ADMIN_EMAILS: ""
+  # config.OBOT_GENERIC_OAUTH_AUTH_PROVIDER_AUDIENCE -- Audience expected on JWTs from the generic OAuth auth provider. Leave empty to disable generic OAuth JWT authentication.
+  OBOT_GENERIC_OAUTH_AUTH_PROVIDER_AUDIENCE: ""
+  # config.OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ELIGIBILITY_CLAIM_NAME -- Claim name used to gate generic OAuth JWT access.
+  OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ELIGIBILITY_CLAIM_NAME: "eligible"
+  # config.OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ROLES_CLAIM_NAME -- Claim name containing generic OAuth JWT role strings.
+  OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ROLES_CLAIM_NAME: "roles"
+  # config.OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ADMIN_ROLES -- Comma-separated role strings that map to Obot admin/owner groups.
+  OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ADMIN_ROLES: "admin"
   # config.OBOT_SERVER_DSN -- The DSN for your database. For example: postgres://<username>:<password>@<hostname>/<db_name>
   OBOT_SERVER_DSN: ""
   # config.OBOT_SERVER_HOSTNAME -- The hostname of your Obot instance, including protocol
