@@ -11,7 +11,6 @@ import (
 
 	apioauthn "github.com/obot-platform/obot/pkg/api/authn"
 	"github.com/obot-platform/obot/pkg/api/authz"
-	gwtypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/oidcjwt"
 	"github.com/obot-platform/obot/pkg/oidcjwt/testutil"
 	"github.com/stretchr/testify/assert"
@@ -20,15 +19,7 @@ import (
 	"k8s.io/apiserver/pkg/authentication/request/union"
 )
 
-type integrationResolver struct {
-	user *gwtypes.User
-}
-
-func (s *integrationResolver) ResolveOrCreate(context.Context, *gwtypes.Identity, string) (*gwtypes.User, error) {
-	return s.user, nil
-}
-
-func buildIntegrationStack(t *testing.T, gwUser *gwtypes.User) (http.Handler, *testutil.TestIssuer, func(), *rsa.PrivateKey) {
+func buildIntegrationStack(t *testing.T) (http.Handler, *testutil.TestIssuer, func(), *rsa.PrivateKey) {
 	t.Helper()
 
 	priv := testutil.MustRSAKey(t)
@@ -43,8 +34,9 @@ func buildIntegrationStack(t *testing.T, gwUser *gwtypes.User) (http.Handler, *t
 	v, err := oidcjwt.NewVerifier(context.Background(), cfg)
 	require.NoError(t, err)
 
-	jwtAuth := oidcjwt.NewAuthenticator(cfg, v, &integrationResolver{user: gwUser})
-	wrapped := apioauthn.NewAuthenticator(union.NewFailOnError(jwtAuth, apioauthn.Anonymous{}))
+	jwtAuth := oidcjwt.NewAuthenticator(cfg, v)
+	uplifted := oidcjwt.NewRoleUplift(jwtAuth, cfg)
+	wrapped := apioauthn.NewAuthenticator(union.NewFailOnError(uplifted, apioauthn.Anonymous{}))
 	az := authz.NewAuthorizer(nil, nil, nil, false, nil, nil, false)
 
 	mux := http.NewServeMux()
@@ -82,8 +74,7 @@ func (g integrationAuthzGate) serveJSON(body map[string]any) http.HandlerFunc {
 func runPathWithRoles(t *testing.T, path string, roles []string) (int, map[string]any) {
 	t.Helper()
 
-	gwUser := &gwtypes.User{ID: 42, Username: "alice", Email: "alice@example.com"}
-	mux, issuer, cleanup, priv := buildIntegrationStack(t, gwUser)
+	mux, issuer, cleanup, priv := buildIntegrationStack(t)
 	defer cleanup()
 
 	tok := testutil.MintTestJWT(t, priv, "kid-int", issuer.URL, "obot-default", "user-int",
@@ -128,7 +119,7 @@ func TestIntegration_EmptyRolesForbiddenAtCatalogAndMCP(t *testing.T) {
 }
 
 func TestIntegration_UnauthenticatedForbiddenAtCatalogAndMCP(t *testing.T) {
-	mux, _, cleanup, _ := buildIntegrationStack(t, nil)
+	mux, _, cleanup, _ := buildIntegrationStack(t)
 	defer cleanup()
 	for _, tt := range integrationRoutes() {
 		t.Run(tt.name, func(t *testing.T) {

@@ -141,7 +141,7 @@ func TestVerifier_EligibilityArrayRequiresStringValue(t *testing.T) {
 	assert.False(t, claims.Eligible)
 }
 
-func TestVerifier_EligibilityArrayAcceptsNonEmptyString(t *testing.T) {
+func TestVerifier_EligibilityArrayAcceptsExplicitTrueString(t *testing.T) {
 	priv := testutil.MustRSAKey(t)
 	issuer, cleanup := testutil.NewTestIssuer(t, priv, "kid-X")
 	defer cleanup()
@@ -156,9 +156,74 @@ func TestVerifier_EligibilityArrayAcceptsNonEmptyString(t *testing.T) {
 	require.NoError(t, err)
 
 	tok := testutil.MintTestJWT(t, priv, "kid-X", issuer.URL, "obot-default", "user-1", 60*time.Second, map[string]any{
-		"eligible": []string{"studio"},
+		"eligible": []string{"true"},
 	})
 	claims, err := v.Verify(context.Background(), tok)
 	require.NoError(t, err)
 	assert.True(t, claims.Eligible)
+}
+
+func TestVerifier_EligibilityArrayRejectsDeniedString(t *testing.T) {
+	priv := testutil.MustRSAKey(t)
+	issuer, cleanup := testutil.NewTestIssuer(t, priv, "kid-X")
+	defer cleanup()
+
+	cfg := Config{
+		IssuerURL:            issuer.URL,
+		Audience:             "obot-default",
+		EligibilityClaimName: "eligible",
+		RolesClaimName:       "roles",
+	}
+	v, err := NewVerifier(context.Background(), cfg)
+	require.NoError(t, err)
+
+	tok := testutil.MintTestJWT(t, priv, "kid-X", issuer.URL, "obot-default", "user-1", 60*time.Second, map[string]any{
+		"eligible": []string{"denied"},
+	})
+	claims, err := v.Verify(context.Background(), tok)
+	require.NoError(t, err)
+	assert.False(t, claims.Eligible)
+}
+
+func TestVerifier_ReadsScalarStringRoles(t *testing.T) {
+	priv := testutil.MustRSAKey(t)
+	issuer, cleanup := testutil.NewTestIssuer(t, priv, "kid-X")
+	defer cleanup()
+
+	cfg := Config{
+		IssuerURL:            issuer.URL,
+		Audience:             "obot-default",
+		EligibilityClaimName: "eligible",
+		RolesClaimName:       "roles",
+	}
+	v, err := NewVerifier(context.Background(), cfg)
+	require.NoError(t, err)
+
+	tok := testutil.MintTestJWT(t, priv, "kid-X", issuer.URL, "obot-default", "user-1", 60*time.Second, map[string]any{
+		"eligible": true,
+		"roles":    "admin user",
+	})
+	claims, err := v.Verify(context.Background(), tok)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"admin", "user"}, claims.Roles)
+}
+
+func TestVerifier_IssuerPrecheckToleratesTokenTrailingSlash(t *testing.T) {
+	priv := testutil.MustRSAKey(t)
+	issuer, cleanup := testutil.NewTestIssuer(t, priv, "kid-X")
+	defer cleanup()
+
+	cfg := Config{
+		IssuerURL:            issuer.URL,
+		Audience:             "obot-default",
+		EligibilityClaimName: "eligible",
+		RolesClaimName:       "roles",
+	}
+	v, err := NewVerifier(context.Background(), cfg)
+	require.NoError(t, err)
+
+	tok := testutil.MintTestJWT(t, priv, "kid-X", issuer.URL+"/", "obot-default", "user-1", 60*time.Second, nil)
+	claims, err := v.Verify(context.Background(), tok)
+	require.NoError(t, err)
+	assert.Equal(t, issuer.URL+"/", claims.Issuer)
 }

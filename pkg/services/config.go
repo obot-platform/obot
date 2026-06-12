@@ -832,13 +832,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 		// Token Auth + OAuth auth
 		authenticators = union.NewFailOnError(authenticators, proxyManager)
-		// Add gateway user info
-		authenticators = client.NewUserDecorator(authenticators, gatewayClient)
-		// API Key authentication (for MCP server access) - restricted to GroupAPIKey only
-		// Must come after UserDecorator since it handles its own user lookup
-		authenticators = union.New(authenticators, gserver.NewAPIKeyAuthenticator(gatewayClient))
-		// Persistent Token Auth
-		authenticators = union.New(authenticators, persistentTokenServer)
 		oidcJWTCfg, err := oidcjwt.LoadConfigFromEnv(os.Getenv)
 		if err != nil {
 			return nil, fmt.Errorf("oidcjwt config: %w", err)
@@ -848,8 +841,18 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			if err != nil {
 				return nil, fmt.Errorf("oidcjwt verifier: %w", err)
 			}
-			authenticators = union.New(authenticators, oidcjwt.NewAuthenticator(oidcJWTCfg, oidcVerifier, oidcjwt.NewGatewayIdentityResolver(gatewayClient)))
+			authenticators = union.New(authenticators, oidcjwt.NewAuthenticator(oidcJWTCfg, oidcVerifier))
 		}
+		// Add gateway user info
+		authenticators = client.NewUserDecorator(authenticators, gatewayClient)
+		if oidcJWTCfg.Enabled() {
+			authenticators = oidcjwt.NewRoleUplift(authenticators, oidcJWTCfg)
+		}
+		// API Key authentication (for MCP server access) - restricted to GroupAPIKey only
+		// Must come after UserDecorator since it handles its own user lookup
+		authenticators = union.New(authenticators, gserver.NewAPIKeyAuthenticator(gatewayClient))
+		// Persistent Token Auth
+		authenticators = union.New(authenticators, persistentTokenServer)
 		// Add bootstrap auth
 		authenticators = union.NewFailOnError(authenticators, bootstrapper)
 		if config.MetricsBearerToken != "" {

@@ -2,19 +2,17 @@ package oidcjwt
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"testing"
 	"time"
 
-	"github.com/obot-platform/obot/apiclient/types"
-	gwtypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/oidcjwt/testutil"
+	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestAuthenticator_AdminRoleGrantsAdminOwner(t *testing.T) {
+func TestAuthenticator_ReturnsGenericOAuthProviderIdentity(t *testing.T) {
 	priv := testutil.MustRSAKey(t)
 	issuer, cleanup := testutil.NewTestIssuer(t, priv, "kid-X")
 	defer cleanup()
@@ -22,11 +20,16 @@ func TestAuthenticator_AdminRoleGrantsAdminOwner(t *testing.T) {
 	cfg := Config{IssuerURL: issuer.URL, Audience: "obot-default", EligibilityClaimName: "eligible", RolesClaimName: "roles", AdminRoles: []string{"admin"}}
 	v, err := NewVerifier(context.Background(), cfg)
 	require.NoError(t, err)
-	auth := NewAuthenticator(cfg, v, stubResolver(&gwtypes.User{ID: 1, Username: "alice", Email: "alice@example.com"}))
+	auth := NewAuthenticator(cfg, v)
 
+	emailVerified := true
 	tok := testutil.MintTestJWT(t, priv, "kid-X", issuer.URL, "obot-default", "user-1", 60*time.Second, map[string]any{
-		"eligible": true,
-		"roles":    []string{"admin"},
+		"eligible":           true,
+		"roles":              []string{"admin"},
+		"email":              "alice@example.com",
+		"email_verified":     emailVerified,
+		"preferred_username": "alice@example.com",
+		"name":               "Alice Example",
 	})
 	req, _ := http.NewRequest("GET", "/api/system-mcp-catalogs", nil)
 	req.Header.Set("Authorization", "Bearer "+tok)
@@ -34,21 +37,21 @@ func TestAuthenticator_AdminRoleGrantsAdminOwner(t *testing.T) {
 	resp, ok, err := auth.AuthenticateRequest(req)
 	require.NoError(t, err)
 	require.True(t, ok)
-	assert.Contains(t, resp.User.GetGroups(), types.GroupAdmin)
-	assert.Contains(t, resp.User.GetGroups(), types.GroupOwner)
-	assert.Contains(t, resp.User.GetGroups(), types.GroupAuthenticated)
-	assert.Equal(t, "1", resp.User.GetUID())
-	assert.Equal(t, "alice", resp.User.GetName())
+	assert.Empty(t, resp.User.GetGroups(), "UserDecorator owns canonical Obot group derivation")
+	assert.Equal(t, "user-1", resp.User.GetUID())
+	assert.Equal(t, "alice@example.com", resp.User.GetName())
 
 	extra := resp.User.GetExtra()
 	assert.Equal(t, []string{"alice@example.com"}, extra["email"])
 	assert.Equal(t, []string{"generic-oauth-auth-provider"}, extra["auth_provider_name"])
-	require.NotEmpty(t, extra["auth_provider_user_id"])
-	assert.Contains(t, extra["auth_provider_user_id"][0], "iss:")
-	assert.Contains(t, extra["auth_provider_user_id"][0], "\x00sub:user-1")
+	assert.Equal(t, []string{system.DefaultNamespace}, extra["auth_provider_namespace"])
+	assert.Equal(t, []string{"user-1"}, extra["auth_provider_user_id"])
+	assert.Equal(t, []string{issuer.URL}, extra["auth_provider_issuer"])
+	assert.Equal(t, []string{"true"}, extra["auth_provider_email_verified"])
+	assert.Equal(t, []string{"admin"}, extra[jwtRolesExtraKey])
 }
 
-func TestBuildIdentity_UsernameFallback(t *testing.T) {
+func TestProviderUsername_UsernameFallback(t *testing.T) {
 	cases := []struct {
 		name     string
 		claims   Claims
@@ -62,20 +65,12 @@ func TestBuildIdentity_UsernameFallback(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			tc.claims.Issuer = "https://issuer.example.com"
-			id := buildIdentity(tc.claims)
-			assert.Equal(t, tc.wantUser, id.ProviderUsername)
+			assert.Equal(t, tc.wantUser, providerUsername(tc.claims))
 		})
 	}
 }
 
-func TestBuildIdentity_ProviderUserIDFormat(t *testing.T) {
-	claims := Claims{Issuer: "https://issuer.example.com", Subject: "user-1"}
-	id := buildIdentity(claims)
-	assert.Equal(t, "iss:https://issuer.example.com\x00sub:user-1", id.ProviderUserID)
-	assert.Equal(t, "https://issuer.example.com", id.ProviderIssuer)
-}
-
-func TestAuthenticator_NonAdminRoleGetsAuthenticatedOnly(t *testing.T) {
+func TestAuthenticator_NonAdminRoleReturnsProviderIdentityOnly(t *testing.T) {
 	priv := testutil.MustRSAKey(t)
 	issuer, cleanup := testutil.NewTestIssuer(t, priv, "kid-X")
 	defer cleanup()
@@ -83,7 +78,7 @@ func TestAuthenticator_NonAdminRoleGetsAuthenticatedOnly(t *testing.T) {
 	cfg := Config{IssuerURL: issuer.URL, Audience: "obot-default", EligibilityClaimName: "eligible", RolesClaimName: "roles", AdminRoles: []string{"admin"}}
 	v, err := NewVerifier(context.Background(), cfg)
 	require.NoError(t, err)
-	auth := NewAuthenticator(cfg, v, stubResolver(&gwtypes.User{ID: 2, Username: "bob"}))
+	auth := NewAuthenticator(cfg, v)
 
 	tok := testutil.MintTestJWT(t, priv, "kid-X", issuer.URL, "obot-default", "user-2", 60*time.Second, map[string]any{
 		"eligible": true,
@@ -95,9 +90,8 @@ func TestAuthenticator_NonAdminRoleGetsAuthenticatedOnly(t *testing.T) {
 	resp, ok, err := auth.AuthenticateRequest(req)
 	require.NoError(t, err)
 	require.True(t, ok)
-	assert.NotContains(t, resp.User.GetGroups(), types.GroupAdmin)
-	assert.NotContains(t, resp.User.GetGroups(), types.GroupOwner)
-	assert.Contains(t, resp.User.GetGroups(), types.GroupAuthenticated)
+	assert.Empty(t, resp.User.GetGroups())
+	assert.Equal(t, []string{"user"}, resp.User.GetExtra()[jwtRolesExtraKey])
 }
 
 func TestAuthenticator_FailsWhenIneligible(t *testing.T) {
@@ -108,7 +102,7 @@ func TestAuthenticator_FailsWhenIneligible(t *testing.T) {
 	cfg := Config{IssuerURL: issuer.URL, Audience: "obot-default", EligibilityClaimName: "eligible", RolesClaimName: "roles"}
 	v, err := NewVerifier(context.Background(), cfg)
 	require.NoError(t, err)
-	auth := NewAuthenticator(cfg, v, stubResolver(nil))
+	auth := NewAuthenticator(cfg, v)
 
 	tok := testutil.MintTestJWT(t, priv, "kid-X", issuer.URL, "obot-default", "user-3", 60*time.Second, map[string]any{
 		"eligible": false,
@@ -128,7 +122,7 @@ func TestAuthenticator_FailsWhenEligibilityMissing(t *testing.T) {
 	cfg := Config{IssuerURL: issuer.URL, Audience: "obot-default", EligibilityClaimName: "eligible", RolesClaimName: "roles"}
 	v, err := NewVerifier(context.Background(), cfg)
 	require.NoError(t, err)
-	auth := NewAuthenticator(cfg, v, stubResolver(nil))
+	auth := NewAuthenticator(cfg, v)
 
 	tok := testutil.MintTestJWT(t, priv, "kid-X", issuer.URL, "obot-default", "user-3", 60*time.Second, nil)
 	req, _ := http.NewRequest("GET", "/", nil)
@@ -140,7 +134,7 @@ func TestAuthenticator_FailsWhenEligibilityMissing(t *testing.T) {
 
 func TestAuthenticator_NoBearerFallsThrough(t *testing.T) {
 	cfg := Config{IssuerURL: "https://example.com", Audience: "obot-default"}
-	auth := NewAuthenticator(cfg, nil, nil)
+	auth := NewAuthenticator(cfg, nil)
 	req, _ := http.NewRequest("GET", "/", nil)
 	_, ok, err := auth.AuthenticateRequest(req)
 	assert.NoError(t, err)
@@ -149,7 +143,7 @@ func TestAuthenticator_NoBearerFallsThrough(t *testing.T) {
 
 func TestAuthenticator_NonJWTBearerFallsThrough(t *testing.T) {
 	cfg := Config{IssuerURL: "https://example.com", Audience: "obot-default"}
-	auth := NewAuthenticator(cfg, &Verifier{}, nil)
+	auth := NewAuthenticator(cfg, &Verifier{})
 	req, _ := http.NewRequest("GET", "/", nil)
 	req.Header.Set("Authorization", "Bearer bootstrap-token")
 
@@ -166,7 +160,7 @@ func TestAuthenticator_DifferentIssuerFallsThrough(t *testing.T) {
 	cfg := Config{IssuerURL: issuer.URL, Audience: "obot-default", EligibilityClaimName: "eligible", RolesClaimName: "roles"}
 	v, err := NewVerifier(context.Background(), cfg)
 	require.NoError(t, err)
-	auth := NewAuthenticator(cfg, v, stubResolver(nil))
+	auth := NewAuthenticator(cfg, v)
 
 	tok := testutil.MintTestJWT(t, priv, "kid-X", "https://other-issuer.example.com", "obot-default", "user-4", 60*time.Second, nil)
 	req, _ := http.NewRequest("GET", "/", nil)
@@ -175,23 +169,4 @@ func TestAuthenticator_DifferentIssuerFallsThrough(t *testing.T) {
 	_, ok, err := auth.AuthenticateRequest(req)
 	assert.NoError(t, err)
 	assert.False(t, ok)
-}
-
-type stubResolverImpl struct {
-	out *gwtypes.User
-	err error
-}
-
-func (s *stubResolverImpl) ResolveOrCreate(_ context.Context, _ *gwtypes.Identity, _ string) (*gwtypes.User, error) {
-	if s.err != nil {
-		return nil, s.err
-	}
-	if s.out == nil {
-		return nil, errors.New("stub: no user")
-	}
-	return s.out, nil
-}
-
-func stubResolver(out *gwtypes.User) IdentityResolver {
-	return &stubResolverImpl{out: out}
 }

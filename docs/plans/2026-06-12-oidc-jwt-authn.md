@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add a generic JWT authenticator to Obot that accepts JWTs issued by the configured `generic-oauth-auth-provider`. Each JWT carries a single subject shape (a user identity) plus two claims — `eligible` (boolean gate) and `roles` (array of Obot-vocabulary role names). The authenticator resolves or creates the Obot user, refuses if `eligible` is false, and maps `roles` to Obot's existing groups (`admin` → `[Admin, Owner, Authenticated]`; otherwise `[Authenticated]`). The first consumer is Studio's MCP integration — Studio plays the same role as Claude Desktop with an Obot API key, but presents a Studio-signed JWT.
+**Goal:** Add a generic JWT authenticator to Obot that accepts JWTs issued by the configured `generic-oauth-auth-provider`. Each JWT carries a single subject shape (a user identity) plus two claims — `eligible` (boolean gate) and `roles` (Obot-vocabulary role names). The authenticator refuses if `eligible` is false. A JWT with `roles` intersecting the configured admin-role list grants request-time Obot Admin, but never request-time Owner and never a persisted Obot role. The first consumer is Studio's MCP integration — Studio plays the same role as Claude Desktop with an Obot API key, but presents a Studio-signed JWT.
 
-**Architecture:** A new `pkg/oidcjwt/` package holds all integration code — config, a thin `go-oidc`-backed verifier wrapper, and an authenticator implementing the k8s `authenticator.Request` interface. JWT signature validation, OIDC discovery, JWKS caching, and key rotation are owned by `github.com/coreos/go-oidc/v3`. The authenticator is appended to the existing authenticator union in `pkg/services/config.go` with one additive block. The roles-to-groups mapping reuses Obot's existing `adminAndOwnerRules` (`pkg/api/authz/authz.go:26`) without any authz changes — a JWT whose `roles` claim contains a value in the configured admin-role list (default `["admin"]`) gets `[Admin, Owner, Authenticated]` groups; everything else gets `[Authenticated]`. User-subject JWTs resolve through the existing identity layer (`pkg/gateway/client/identity.go`), creating the Obot user record on first call if absent.
+**Architecture:** A new `pkg/oidcjwt/` package holds all integration code — config, a thin `go-oidc`-backed verifier wrapper, and an authenticator implementing the k8s `authenticator.Request` interface. JWT signature validation, OIDC discovery, JWKS caching, and key rotation are owned by `github.com/coreos/go-oidc/v3`. The JWT authenticator must sit before `client.NewUserDecorator` and return a generic-OAuth provider identity; `UserDecorator` remains the only component that creates/links the Obot identity, populates `auth_provider_groups`, and derives canonical Obot role groups from the gateway DB. A small request-time role uplift then merges `types.RoleAdmin.Groups()` when the verified JWT's roles intersect the configured admin-role list. The uplift must not add `GroupOwner`.
 
 **Tech Stack:** Go (same toolchain as Obot today). New dependency: `github.com/coreos/go-oidc/v3`. Existing dep reused: `github.com/golang-jwt/jwt/v5` (for `ParseUnverified` in the issuer pre-check). Tests use `testify`. Integration test signs JWTs with a generated RSA keypair against an `httptest.Server` that serves an OIDC discovery doc.
 
@@ -22,18 +22,110 @@
 | `pkg/oidcjwt/testutil/testutil.go` | new | Shared test helpers: `NewTestIssuer`, `MintTestJWT`, `MustRSAKey`. |
 | `pkg/oidcjwt/verifier.go` | new | Thin wrapper around `go-oidc`'s `*oidc.Provider` + `*oidc.IDTokenVerifier`. Handles the "is this JWT ours?" pre-check (parses `iss` without verification, compares to configured issuer). |
 | `pkg/oidcjwt/verifier_test.go` | new | Tests for the verifier wrapper. |
-| `pkg/oidcjwt/authenticator.go` | new | Implements `authenticator.Request`. Composes config + verifier + identity resolution + role-to-group mapping. |
-| `pkg/oidcjwt/authenticator_test.go` | new | Unit tests (admin role → admin/owner groups, no admin role → authenticated only, missing eligibility → 401, different issuer → fall through). |
-| `pkg/oidcjwt/identity_adapter.go` | new | Maps a validated JWT to an Obot user record via `pkg/gateway/client.EnsureIdentity`. |
+| `pkg/oidcjwt/authenticator.go` | new | Implements `authenticator.Request`. Verifies JWTs and returns provider identity metadata for `client.UserDecorator`; exposes request-time JWT roles in `Extra` for a post-decorator admin uplift. |
+| `pkg/oidcjwt/authenticator_test.go` | new | Unit tests (provider identity shape, admin role metadata, missing eligibility → 401, different issuer → fall through). |
+| `pkg/oidcjwt/role_uplift.go` | new | Wraps a decorated authenticator and adds request-time `RoleAdmin.Groups()` when JWT roles contain a configured admin role; never grants `GroupOwner`. |
+| `pkg/oidcjwt/role_uplift_test.go` | new | Unit tests for request-time Admin, no Owner escalation, canonical role groups preserved, and scalar/array role forms. |
+| `pkg/oidcjwt/identity_adapter.go` | remove | No longer needed. Identity creation/linking belongs to `client.UserDecorator`. |
 | `pkg/oidcjwt/integration_test.go` | new | End-to-end tests through real `authn.Authenticator` and `authz.Authorize`: admin JWT reaches catalog and MCP server routes; non-admin/empty-role JWTs are forbidden on the same routes. |
 | `pkg/oidcjwt/smokeclient/main.go` | new | Standalone dev smoke client: starts a local OIDC issuer/JWKS endpoint, mints a JWT, and optionally calls an Obot API URL without Studio. |
-| `pkg/services/config.go` | modify (one block) | Load `oidcjwt.Config`, construct verifier, append `oidcjwt.NewAuthenticator(...)` to the authenticators union when enabled. |
+| `pkg/gateway/server/user.go` | modify | `/api/me` should not fail JWT-only generic OAuth deployments just because no provider callback URL can be built. |
+| `pkg/services/config.go` | modify (one block) | Load `oidcjwt.Config`, construct verifier, place the JWT provider-identity authenticator before `client.NewUserDecorator`, then wrap the decorated chain with request-time admin uplift. |
 | `chart/values.yaml` | modify | Add 4 new `OBOT_GENERIC_OAUTH_AUTH_PROVIDER_*` keys. |
 | `go.mod` / `go.sum` | modify | Add `github.com/coreos/go-oidc/v3`. |
 | `docs/studio/CHANGES.md` | new | Upstream-touchpoint manifest. |
 | `scripts/check-upstream-touchpoints.sh` | new | CI check that flags unexpected upstream touches. |
 
 The upstream-touch allow-list: `pkg/services/config.go`, `chart/values.yaml`, `go.mod`, `go.sum`, plus the doc/script files. Everything else lives under `pkg/oidcjwt/`.
+
+---
+
+## Review Remediation Contract
+
+This section supersedes any older wording in this plan that says `roles: ["admin"]` maps to Owner or that `pkg/oidcjwt` directly creates Obot users.
+
+- [x] **JWT identity path:** `pkg/oidcjwt.Authenticator` returns provider identity metadata only. It must not call `gatewayClient.EnsureIdentity` or return final Obot user IDs. The returned `UID` is the generic-OAuth upstream subject shape expected by `client.UserDecorator`.
+- [x] **Decorator ownership:** `pkg/services/config.go` wires the JWT provider-identity authenticator into the pre-decorator chain. `client.UserDecorator` remains responsible for identity creation/linking, `auth_provider_groups`, and `ResolveUserEffectiveRole`.
+- [x] **Request-time admin:** After `UserDecorator`, a JWT-specific wrapper merges `types.RoleAdmin.Groups()` into the request's groups when the verified JWT roles intersect `Config.AdminRoles`.
+- [x] **No request-time Owner:** JWT roles must never add `types.GroupOwner`. Owner continues to come only from Obot-side effective role resolution.
+- [x] **No persisted role mutation:** JWT roles must not write user roles or group-role assignments to the gateway DB.
+- [x] **Canonical groups:** Admin uplift and normal users must preserve the full canonical group contract from `apiclient/types.Role.Groups()` (`GroupLLM`, `GroupSkills`, `GroupPublishedArtifacts`, `GroupMCP`, `GroupAuthenticated`, and the base-role group where applicable).
+- [x] **Identity convergence:** JWT generic-OAuth identity shape must match the browser OAuth path and `client.UserDecorator` expectations so the same provider subject does not create a second identity row.
+- [x] **JWT-only `/api/me`:** `/api/me` must still return the current user when the request is JWT-authenticated but the generic OAuth browser client/callback URL is not configured.
+- [x] **Issuer tolerance:** Issuer precheck must compare normalized issuer values so a trailing slash mismatch does not silently fall through to anonymous auth.
+- [x] **Eligibility parsing:** Array eligibility claims must not accept arbitrary non-empty strings such as `"denied"` or `"false"`.
+- [x] **Roles parsing:** Role claims must support `[]any`, `[]string`, and scalar string forms such as `"admin"` or `"admin user"`.
+- [x] **Startup resilience:** OIDC discovery should have a bounded timeout; server startup should not hang indefinitely on issuer discovery.
+- [x] **Tests:** Add tests that encode the fork contract above so future coding agents can understand the behavior by reading the tests.
+
+### Remaining Remediation Tasks
+
+#### Task R1: Encode the corrected contract in tests
+
+**Files:**
+- Modify: `pkg/oidcjwt/authenticator_test.go`
+- Modify: `pkg/oidcjwt/verifier_test.go`
+- Modify: `pkg/oidcjwt/integration_test.go`
+- Create: `pkg/oidcjwt/role_uplift_test.go`
+- Modify or create tests for: `pkg/gateway/server/user.go`
+
+- [x] **Step 1:** Add failing authenticator tests proving the JWT authenticator returns generic-OAuth provider metadata, includes verified email and issuer extras, and does not return final Obot user IDs.
+- [x] **Step 2:** Add failing role-uplift tests proving `roles: ["admin"]` adds `types.RoleAdmin.Groups()`, does not add `types.GroupOwner`, preserves existing decorated groups, and does not persist any gateway role.
+- [x] **Step 3:** Add failing verifier tests for trailing-slash issuer tolerance, scalar role parsing, and strict eligibility parsing.
+- [x] **Step 4:** Add a failing `/api/me` test proving missing provider URL does not turn a JWT-authenticated user request into HTTP 500.
+- [x] **Step 5:** Add or update integration tests proving admin JWT reaches catalog and MCP routes, non-admin JWT is forbidden at admin-only routes, and canonical MCP/LLM groups are present after auth.
+
+#### Task R2: Refactor JWT auth to reuse `UserDecorator`
+
+**Files:**
+- Modify: `pkg/oidcjwt/authenticator.go`
+- Delete: `pkg/oidcjwt/identity_adapter.go`
+- Modify: `pkg/services/config.go`
+
+- [x] **Step 1:** Remove direct `IdentityResolver` usage from `pkg/oidcjwt.Authenticator`.
+- [x] **Step 2:** Return provider identity metadata with generic-OAuth extras and JWT role extras.
+- [x] **Step 3:** Wire `pkg/oidcjwt.Authenticator` before `client.NewUserDecorator`.
+- [x] **Step 4:** Keep API-key and persistent-token authenticators after `UserDecorator`, preserving their existing comments and behavior.
+
+#### Task R3: Add request-time JWT Admin uplift
+
+**Files:**
+- Create: `pkg/oidcjwt/role_uplift.go`
+- Modify: `pkg/services/config.go`
+
+- [x] **Step 1:** Implement a small authenticator wrapper that calls the decorated chain, reads JWT roles from `Extra`, and merges `types.RoleAdmin.Groups()` when a role matches `Config.AdminRoles`.
+- [x] **Step 2:** Deduplicate groups while preserving existing groups.
+- [x] **Step 3:** Explicitly exclude `types.GroupOwner` from the request-time uplift.
+
+#### Task R4: Harden verifier parsing and discovery
+
+**Files:**
+- Modify: `pkg/oidcjwt/verifier.go`
+- Modify: `pkg/oidcjwt/config.go`
+- Modify: `pkg/oidcjwt/testutil/testutil.go` if needed
+
+- [x] **Step 1:** Normalize both configured issuer and token issuer for the precheck.
+- [x] **Step 2:** Use a bounded discovery context so startup cannot hang indefinitely.
+- [x] **Step 3:** Parse eligibility strictly: boolean `true`, string `"true"`, or array containing a strict truthy value; reject `"false"`, `"denied"`, `"pending"`, and empty strings.
+- [x] **Step 4:** Parse roles from arrays and scalar strings, splitting scalar strings on commas and whitespace.
+
+#### Task R5: Make `/api/me` tolerant of JWT-only generic OAuth config
+
+**Files:**
+- Modify: `pkg/gateway/server/user.go`
+
+- [x] **Step 1:** If `URLForAuthProvider` fails while building the profile-provider URL, log a warning and continue writing the current user response.
+- [x] **Step 2:** Keep `UpdateProfileIfNeeded` best-effort behavior unchanged when a provider URL is available.
+
+#### Task R6: Verification
+
+**Files:**
+- No production file changes.
+
+- [x] **Step 1:** Run `go test ./pkg/oidcjwt/... -v`.
+- [x] **Step 2:** Run targeted gateway tests for `UserDecorator`, generic OAuth identity linking, and `/api/me`.
+- [x] **Step 3:** Run `go test ./pkg/...` or the narrowest reliable broader suite if full package tests are too slow locally.
+- [x] **Step 4:** Review `git diff` for unexpected upstream-touch changes.
 
 ---
 
