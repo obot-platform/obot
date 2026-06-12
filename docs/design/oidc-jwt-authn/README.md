@@ -24,10 +24,10 @@ Future consumers configuring a different OIDC provider follow the same shape —
 **Covers**
 
 - Accepting JWTs from the configured `generic-oauth-auth-provider` at Obot's existing auth boundary, validated through the provider's JWKS.
-- Two subject shapes in v1: a configured backend-principal subject (admin-scoped work) and any other subject (treated as a user identity).
-- Reading a configured eligibility claim (`studio_eligible` for the Studio integration; the claim name is configurable for future providers) on user-subject JWTs and refusing calls when the claim is absent or empty.
-- Mapping the backend-principal subject onto Obot's existing admin/owner groups; user-subject JWTs map to the corresponding Obot user record the OAuth provider's browser flow would create.
-- Creating the Obot user record on first user-subject JWT if it does not yet exist, using the same `{ issuer, subject }` tuple the OAuth provider uses.
+- One subject shape in v1: every JWT's `sub` is a user identity. Studio is, in effect, an MCP client of Obot identical in pattern to Claude Desktop — Claude Desktop authenticates with Obot API keys; Studio authenticates with Studio-signed JWTs. Same identity model, different credential format.
+- Reading a configured eligibility claim (`studio_eligible` for the Studio integration; the claim name is configurable for future providers) and refusing calls when the claim is absent or false.
+- Reading a configured roles claim (`studio_roles` for the Studio integration) and mapping it to Obot's existing groups: if the claim contains `vibedata_owner`, the caller is treated as `[Admin, Owner]`; otherwise the caller is an authenticated Obot user. Unrecognized roles map to `[Authenticated]` only.
+- Resolving or creating the Obot user record from `{ issuer, sub }` — same identity mapping the OAuth provider's browser flow uses.
 - A `pkg/oidcjwt/` package that implements the authenticator and a thin `go-oidc` verifier wrapper.
 - One additive change to the existing authenticator union (`pkg/services/config.go`).
 
@@ -45,11 +45,10 @@ Future consumers configuring a different OIDC provider follow the same shape —
 |---|---|
 | Reuse Obot's existing API endpoints — add no new HTTP routes for this integration | Obot already exposes `GET /api/system-mcp-catalogs/{catalog_id}/entries`, `POST/PUT/DELETE /api/system-mcp-servers/*`, and per-user `/api/mcp-servers/*` paths. The integration needs no new endpoint shape — only the ability to authenticate using a JWT and be authorized at those paths. |
 | Plug into the existing authenticator union (`pkg/services/config.go`), not a parallel authz layer | Obot composes its auth from a union of `authenticator.Request` implementations. Adding one more authenticator to that union is the minimum-surface, rebase-friendly integration point. Authz rules stay in `pkg/api/authz/authz.go` unchanged. |
-| Map the configured backend-principal subject to Obot's `Admin` + `Owner` groups | Existing `adminAndOwnerRules` in `pkg/api/authz/authz.go:26` already governs the catalog and system-MCP-server paths. Mapping the backend principal to those groups lets the integration reach all the endpoints it needs without touching authz rules. |
-| Map user-subject JWTs to the corresponding Obot user, creating the record on first call if absent | The OAuth provider's browser flow already creates Obot users from `{ issuer, sub }`. JWT validation reuses that mapping so service-identity calls and browser logins resolve to the same Obot user record. |
-| Trust the configured eligibility claim; do not call the issuer per request | The issuer is responsible for refusing to mint a user-subject JWT for an ineligible user. Obot's per-call check on the eligibility claim is the second layer. JWT TTL (issuer-controlled) bounds the staleness window. No Obot→issuer callback required. |
-| Reuse the existing OIDC provider's issuer URL and JWKS discovery | One trust anchor per deployment. The authenticator reads the issuer URL from the same configuration that the browser-login flow uses, normalizes it by trimming trailing slashes like the provider image does, and uses OIDC discovery for JWKS. |
-| Configure the backend principal and audience via env vars piggybacking on the existing `OBOT_GENERIC_OAUTH_AUTH_PROVIDER_*` prefix | Single configuration surface. Operators configure one provider; the JWT authenticator picks up its fields from the same place. |
+| Map JWTs to Obot users via the existing identity layer, then derive groups from the configured roles claim | Same `{ issuer, sub }` mapping the browser-login flow uses. The roles claim (e.g. `studio_roles`) is read per call and mapped to Obot's existing `Admin`/`Owner`/`Authenticated` groups — `adminAndOwnerRules` in `pkg/api/authz/authz.go:26` is reached by mapping `vibedata_owner` → `[Admin, Owner]`. No new authz rules needed. |
+| Trust the configured eligibility claim; do not call the issuer per request | The issuer (Studio) is responsible for emitting `studio_eligible: false` on JWTs minted for ineligible users. Obot's per-call check is the second layer. JWT TTL bounds the staleness window. No Obot→issuer callback required in v1. |
+| Reuse the existing OIDC provider's issuer URL and JWKS discovery | One trust anchor per deployment. The authenticator reads the issuer URL from the same configuration that the browser-login flow uses and uses OIDC discovery for JWKS. |
+| Configure the audience, eligibility-claim name, and roles-claim name via env vars piggybacking on the existing `OBOT_GENERIC_OAUTH_AUTH_PROVIDER_*` prefix | Single configuration surface. Operators configure one provider; the JWT authenticator picks up its fields from the same place. No backend-principal env var — there is no backend-principal subject. |
 | Confine all integration code to `pkg/oidcjwt/` | Single new package keeps the upstream-merge surface minimal. Authn/authz upstream files stay unchanged in structure; the only modification is one additive line in the authenticator union. |
 | Use `github.com/coreos/go-oidc/v3` for OIDC discovery, JWKS caching, key rotation, and standard claim validation | This avoids maintaining custom JWKS cache and verifier code in the fork. `github.com/golang-jwt/jwt/v5` remains in use only for the unverified issuer pre-check that preserves authenticator-union fall-through semantics. |
 
@@ -61,8 +60,8 @@ Future consumers configuring a different OIDC provider follow the same shape —
 |---|---|
 | Configured generic OIDC provider | Single-instance `generic-oauth-auth-provider` registry entry. Provides the issuer URL, JWKS discovery, and the OAuth client used for browser login. Existing — see [`../generic-oauth-provider/`](../generic-oauth-provider/README.md). |
 | Verifier wrapper (`pkg/oidcjwt/verifier.go`) | Uses `go-oidc` for OIDC discovery, JWKS caching, key rotation, and standard claim validation. Adds a pre-check that parses `iss` without verification so JWTs for other issuers can fall through to the rest of the authenticator union. |
-| JWT authenticator (`pkg/oidcjwt/authenticator.go`) | Implements `authenticator.Request`. Inspects the `Authorization: Bearer …` header; if present and validates, returns a `user.Info`. Two subject paths: backend-principal → groups `[Admin, Owner]`; other subject → resolve or create the Obot user via existing identity layer, then check eligibility claim. |
-| Configuration (`pkg/oidcjwt/config.go`) | Typed config struct populated from existing env / chart values. Holds issuer URL, audience, backend principal, and eligibility-claim name. |
+| JWT authenticator (`pkg/oidcjwt/authenticator.go`) | Implements `authenticator.Request`. Inspects the `Authorization: Bearer …` header; if present and validates, resolves or creates the Obot user via the existing identity layer, checks the eligibility claim, then maps the roles claim to Obot groups: `vibedata_owner` (or whichever role string is configured as admin-mapped) → `[Admin, Owner]`; other recognized roles → `[Authenticated]`; missing / empty roles + `studio_eligible: true` → `[Authenticated]`. Returns a `user.Info` carrying the Obot user + derived groups. |
+| Configuration (`pkg/oidcjwt/config.go`) | Typed config struct populated from existing env / chart values. Holds issuer URL, audience, eligibility-claim name, roles-claim name, and the role-to-admin-mapping table (default: `vibedata_owner` → admin/owner). |
 
 ### Where it plugs into Obot
 
@@ -71,7 +70,7 @@ Four additive touch points only. All other code lives in `pkg/oidcjwt/`.
 | File | Change |
 |---|---|
 | `pkg/services/config.go` | One additive change: append a `oidcjwt.NewAuthenticator(...)` instance to the `authenticators` union just before `authn.NewAuthenticator(authenticators)` is called. |
-| `chart/values.yaml` | Add `OBOT_GENERIC_OAUTH_AUTH_PROVIDER_AUDIENCE`, `OBOT_GENERIC_OAUTH_AUTH_PROVIDER_BACKEND_PRINCIPAL`, and `OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ELIGIBILITY_CLAIM_NAME` under the existing top-level `config:` map. The chart already renders `config:` through a secret and `envFrom`. |
+| `chart/values.yaml` | Add `OBOT_GENERIC_OAUTH_AUTH_PROVIDER_AUDIENCE`, `OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ELIGIBILITY_CLAIM_NAME`, `OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ROLES_CLAIM_NAME`, and `OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ADMIN_ROLES` (comma-separated, default `vibedata_owner`) under the existing top-level `config:` map. The chart already renders `config:` through a secret and `envFrom`. |
 | `go.mod`, `go.sum` | Add `github.com/coreos/go-oidc/v3`. |
 | `docs/studio/CHANGES.md` (new) | Manifest tracking every upstream touchpoint for rebase hygiene. |
 
@@ -88,21 +87,27 @@ For each incoming request with an `Authorization: Bearer …` header:
 
 Authenticator-union semantics in Obot: each authenticator returns `(response, ok, err)`. `(nil, false, nil)` means "not mine, try the next." A real error surfaces as 401. This authenticator returns a real error only when the token is structurally ours (matching `iss`) but fails validation.
 
-### Subject resolution
+### Subject resolution and group mapping
 
-After successful validation:
+After successful validation, all JWTs go through one path:
 
-- **Backend-principal path.** If `sub` equals the configured backend principal value, return a `user.Info` with `UID` = backend principal, `Name` = a fixed label like `oidc-backend-<provider>`, and `Groups` = `[types.GroupAdmin, types.GroupOwner]`. The existing `adminAndOwnerRules` in `pkg/api/authz/authz.go` accepts this principal on `/api/system-mcp-catalogs/**`, `/api/system-mcp-servers/**`, `/api/mcp-catalogs/**` without further changes.
-- **User-subject path.** Resolve the Obot user record through the same generic OAuth identity key that browser login uses: `ProviderIssuer = <issuer>` and `ProviderUserID = "iss:<issuer>\x00sub:<sub>"`. If absent, create the record using the JWT's `email`, `email_verified`, `preferred_username`, `name`, and `picture` claims where present. Username selection follows the generic provider: prefer `preferred_username`, then `name`, then `email`, then `sub`. Read the eligibility claim by configured name (e.g. `studio_eligible`). If absent or falsy, fail with a real error (401). If true, return a `user.Info` from the created or resolved Obot user, including `auth_provider_user_id` in `Extra` for downstream setup/OAuth flows.
+1. **Resolve or create the Obot user.** Use the same generic OAuth identity key the browser flow uses: `ProviderIssuer = <issuer>` and `ProviderUserID = "iss:<issuer>\x00sub:<sub>"`. If absent, create the record using the JWT's `email`, `email_verified`, `preferred_username`, `name`, and `picture` claims where present. Username selection follows the generic provider: prefer `preferred_username`, then `name`, then `email`, then `sub`.
+2. **Check the eligibility claim.** Configured name (default `studio_eligible`). If absent or falsy, return a real error (401).
+3. **Derive groups from the roles claim.** Configured name (default `studio_roles`); configured admin-mapping list (default `["vibedata_owner"]`). If the JWT's roles claim intersects the admin-mapping list → groups = `[types.GroupAdmin, types.GroupOwner, types.GroupAuthenticated]`. Otherwise → groups = `[types.GroupAuthenticated]`. The existing `adminAndOwnerRules` in `pkg/api/authz/authz.go` accepts the admin-mapped caller on `/api/system-mcp-catalogs/**`, `/api/system-mcp-servers/**`, `/api/mcp-catalogs/**` without further changes.
+4. **Return `user.Info`** from the resolved/created Obot user with the derived groups. Include `auth_provider_user_id` in `Extra` for downstream setup/OAuth flows — same pattern the browser-flow authenticator uses.
 
 ### Eligibility claim
 
-The claim name is configured (e.g. `studio_eligible`). Recognized shapes:
+The claim name is configured (default `studio_eligible`). Recognized shapes:
 
 - Boolean: `true` passes; `false`/missing fails.
-- Array of strings (forward-compatible with `studio_roles`-style claims): non-empty array passes; empty/missing fails.
+- Array of strings: non-empty array passes; empty/missing fails (forward-compatible).
 
-Boolean is the v1 default; the validator handles arrays transparently to keep the contract forward-compatible.
+Boolean is the v1 default for the Studio integration; the validator handles arrays transparently to keep the contract flexible for future providers.
+
+### Roles claim
+
+The claim name is configured (default `studio_roles`). Expected shape: array of role strings. The authenticator intersects the roles claim with the configured admin-mapping list (default `["vibedata_owner"]`) to decide whether to add `[Admin, Owner]` groups. Unrecognized roles are ignored — they do not deny the call (the eligibility claim is the deny gate).
 
 ### Identity mapping with the existing OIDC provider
 
@@ -117,9 +122,10 @@ All values piggyback on the existing `OBOT_GENERIC_OAUTH_AUTH_PROVIDER_*` env-va
 | Env var | Purpose |
 |---|---|
 | `OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ISSUER` (existing) | Issuer URL. Drives OIDC discovery → JWKS URL, etc. |
-| `OBOT_GENERIC_OAUTH_AUTH_PROVIDER_AUDIENCE` (new) | Audience Obot expects on JWTs. Empty disables service-identity validation; browser-login still works. |
-| `OBOT_GENERIC_OAUTH_AUTH_PROVIDER_BACKEND_PRINCIPAL` (new) | The `sub` value that maps to admin/owner. Empty disables backend-principal recognition; user-subject JWTs still validate. |
-| `OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ELIGIBILITY_CLAIM_NAME` (new) | The claim name read for user-subject eligibility gating. Default `studio_eligible`. |
+| `OBOT_GENERIC_OAUTH_AUTH_PROVIDER_AUDIENCE` (new) | Audience Obot expects on JWTs. Empty disables this authenticator entirely (browser-login still works). |
+| `OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ELIGIBILITY_CLAIM_NAME` (new) | The claim name read for eligibility gating. Default `studio_eligible`. |
+| `OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ROLES_CLAIM_NAME` (new) | The claim name read for group mapping. Default `studio_roles`. |
+| `OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ADMIN_ROLES` (new) | Comma-separated list of role values that map to `[Admin, Owner]`. Default `vibedata_owner`. |
 
 If `AUDIENCE` is empty, the authenticator is inert (validation fails fast for any presented JWT). This lets deployments that don't use service-identity JWTs keep the authenticator wired without behavioral effect.
 
@@ -134,19 +140,21 @@ If `AUDIENCE` is empty, the authenticator is inert (validation fails fast for an
 | JWT signature invalid for the configured issuer | Return real error — 401. |
 | JWT `aud` does not match configured audience | Return real error — 401. |
 | JWT expired (`exp` in the past, beyond skew) | Return real error — 401. |
-| Backend-principal subject | `user.Info` with `[Admin, Owner]` groups; existing authz accepts on admin-scoped paths. |
-| Backend-principal subject hitting a non-admin endpoint | Existing authz rejects with 403 — same behavior as a regular admin user hitting an unrelated path. |
-| User-subject JWT missing eligibility claim | Return real error — 401 (we know the JWT is "ours" because it validated). |
-| User-subject JWT with `eligibility: false` | Same — 401. |
-| User-subject JWT for an `{ issuer, sub }` not in the Obot user table | Create the user record (same shape as browser-login first-time path); proceed. |
+| JWT with roles claim including a value in the admin-mapping list (default `vibedata_owner`) | `user.Info` with `[Admin, Owner, Authenticated]` groups; existing authz accepts on admin-scoped paths. |
+| JWT with roles claim containing only non-admin values, or empty | `user.Info` with `[Authenticated]` groups; existing authz rejects admin-only endpoints with 403. |
+| Admin-mapped JWT hitting a non-admin endpoint | Existing authz rejects with 403 — same behavior as any admin user hitting an unrelated path. |
+| Non-admin JWT hitting an admin endpoint | Existing authz rejects with 403. |
+| JWT missing eligibility claim | Return real error — 401 (we know the JWT is "ours" because it validated). |
+| JWT with `studio_eligible: false` | Same — 401. |
+| JWT for an `{ issuer, sub }` not in the Obot user table | Create the user record (same shape as browser-login first-time path); proceed. |
 | `AUDIENCE` env var empty | Authenticator returns `(nil, false, nil)` for any JWT (effectively disabled). Other authenticators still run. |
 
 ## Tests
 
 - Unit: verifier wrapper (valid token, different issuer fall-through, wrong audience real error, custom claim extraction).
-- Unit: subject resolution (backend principal path returns admin/owner; user path resolves or creates the user record; eligibility-claim missing fails).
-- Unit: authenticator union semantics (returns `(nil, false, nil)` for non-JWT bearers, returns error for "ours" but invalid).
-- Integration: spin up a test issuer (signed with a static keypair), present a backend-principal JWT to `GET /api/system-mcp-catalogs/{catalog_id}/entries`, assert 200 and a catalog response shape.
+- Unit: subject resolution and group mapping. JWT with `studio_roles: [vibedata_owner]` → admin/owner groups. JWT with `studio_roles: [domain_contributor]` or empty → authenticated only. Eligibility-claim missing or false → 401. New user record created on first call.
+- Unit: authenticator union semantics (returns `(nil, false, nil)` for non-JWT bearers and JWTs with a different issuer; returns error for "ours" but invalid).
+- Integration: spin up a test issuer (signed with a static keypair), present a JWT with `studio_roles: [vibedata_owner]` to `GET /api/system-mcp-catalogs/{catalog_id}/entries`, assert 200 and a catalog response shape. Present a JWT with `studio_roles: []` to the same endpoint, assert 403.
 
 ## Open questions
 
