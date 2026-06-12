@@ -3512,35 +3512,14 @@ func (m *MCPHandler) RedeployWithK8sSettings(req api.Context) error {
 			}
 			return fmt.Errorf("failed to redeploy server: %w", err)
 		}
-	}
 
-	if server.Status.NeedsK8sUpdate || hashDrift {
-		// Clear the NeedsK8sUpdate flag now that the redeployment has been initiated.
-		// Also update the K8sSettingsHash to the current expected hash so that the
-		// deployment handler won't re-set NeedsK8sUpdate when it observes the old
-		// deployment before the new one is created.
-		//
-		// Use retry.RetryOnConflict because the RestartServerDeployment call above
-		// can trigger controller-side status updates (e.g. UpdateMCPServerStatus)
-		// that race with this write and bump the ResourceVersion.
-		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			var latest v1.MCPServer
-			if err := req.Storage.Get(req.Context(), kclient.ObjectKey{
-				Namespace: req.Namespace(),
-				Name:      server.Name,
-			}, &latest); err != nil {
-				return err
-			}
-			latest.Status.NeedsK8sUpdate = false
-			latest.Status.K8sSettingsHash = currentHash
-			if err := req.Storage.Status().Update(req.Context(), &latest); err != nil {
-				return err
-			}
-			// Refresh server so the API response reflects the updated status.
-			server = latest
-			return nil
-		}); err != nil {
-			return fmt.Errorf("failed to update server status: %w", err)
+		// Wait for the redeployment to complete
+		_, err := wait.For(req.Context(), req.Storage, &server, func(s *v1.MCPServer) (bool, error) {
+			server = *s
+			return !s.Status.NeedsK8sUpdate, nil
+		})
+		if err != nil {
+			return fmt.Errorf("failed to wait for redeployment: %w", err)
 		}
 	}
 
