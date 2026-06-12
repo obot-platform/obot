@@ -41,14 +41,14 @@ The upstream-touch allow-list: `pkg/services/config.go`, `chart/values.yaml`, `g
 
 **Files:** `go.mod`, `go.sum`, `pkg/oidcjwt/doc.go`
 
-- [ ] **Step 1:** `go get github.com/coreos/go-oidc/v3@latest`
+- [x] **Step 1:** `go get github.com/coreos/go-oidc/v3@latest`
 Expected: `go.mod` updated; no errors.
 
-- [ ] **Step 2:** Verify the dep landed.
+- [x] **Step 2:** Verify the dep landed.
 Run: `grep coreos/go-oidc go.mod`
 Expected: `github.com/coreos/go-oidc/v3 vX.Y.Z`.
 
-- [ ] **Step 3:** Create `pkg/oidcjwt/doc.go`:
+- [x] **Step 3:** Create `pkg/oidcjwt/doc.go`:
 
 ```go
 // Package oidcjwt implements a generic JWT authenticator that validates
@@ -57,10 +57,10 @@ Expected: `github.com/coreos/go-oidc/v3 vX.Y.Z`.
 package oidcjwt
 ```
 
-- [ ] **Step 4:** `go build ./pkg/oidcjwt/...`
+- [x] **Step 4:** `go build ./pkg/oidcjwt/...`
 Expected: clean.
 
-- [ ] **Step 5:** Commit.
+- [x] **Step 5:** Commit.
 
 ```bash
 git add go.mod go.sum pkg/oidcjwt/doc.go
@@ -73,7 +73,7 @@ git commit -m "feat(oidcjwt): scaffold package with coreos/go-oidc dep"
 
 **Files:** `pkg/oidcjwt/config.go`, `pkg/oidcjwt/config_test.go`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Path: `pkg/oidcjwt/config_test.go`
 
@@ -122,10 +122,10 @@ func envGetter(env map[string]string) func(string) string {
 }
 ```
 
-- [ ] **Step 2:** `go test ./pkg/oidcjwt/... -run TestLoadConfigFromEnv -v`
+- [x] **Step 2:** `go test ./pkg/oidcjwt/... -run TestLoadConfigFromEnv -v`
 Expected: FAIL (`undefined: LoadConfigFromEnv`).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 Path: `pkg/oidcjwt/config.go`
 
@@ -217,10 +217,10 @@ func TestLoadConfigFromEnv_NormalizesIssuer(t *testing.T) {
 }
 ```
 
-- [ ] **Step 4:** `go test ./pkg/oidcjwt/... -run TestLoadConfigFromEnv -v`
+- [x] **Step 4:** `go test ./pkg/oidcjwt/... -run TestLoadConfigFromEnv -v`
 Expected: 4 PASS.
 
-- [ ] **Step 5:** Commit.
+- [x] **Step 5:** Commit.
 
 ```bash
 git add pkg/oidcjwt/config.go pkg/oidcjwt/config_test.go
@@ -233,7 +233,7 @@ git commit -m "feat(oidcjwt): config with env-var binding (generic claim names +
 
 **Files:** `pkg/oidcjwt/testutil/testutil.go`
 
-- [ ] **Step 1: Write the helpers**
+- [x] **Step 1: Write the helpers**
 
 Path: `pkg/oidcjwt/testutil/testutil.go`
 
@@ -336,10 +336,10 @@ func MustRSAKey(t *testing.T) *rsa.PrivateKey {
 }
 ```
 
-- [ ] **Step 2:** `go build ./pkg/oidcjwt/testutil/...`
+- [x] **Step 2:** `go build ./pkg/oidcjwt/testutil/...`
 Expected: clean.
 
-- [ ] **Step 3:** Commit.
+- [x] **Step 3:** Commit.
 
 ```bash
 git add pkg/oidcjwt/testutil/testutil.go
@@ -354,7 +354,7 @@ git commit -m "feat(oidcjwt): test helpers (in-process OIDC issuer, JWT minter)"
 
 Wraps `go-oidc`'s `*oidc.Provider` + `*oidc.IDTokenVerifier`. Adds the "is this JWT ours?" pre-check.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Path: `pkg/oidcjwt/verifier_test.go`
 
@@ -424,10 +424,10 @@ func TestVerifier_RejectsWrongAudience(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2:** `go test ./pkg/oidcjwt/... -run TestVerifier -v`
+- [x] **Step 2:** `go test ./pkg/oidcjwt/... -run TestVerifier -v`
 Expected: FAIL.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 Path: `pkg/oidcjwt/verifier.go`
 
@@ -637,10 +637,10 @@ func TestVerifier_ExtractsFullProviderProfile(t *testing.T) {
 }
 ```
 
-- [ ] **Step 4:** `go test ./pkg/oidcjwt/... -run TestVerifier -v`
+- [x] **Step 4:** `go test ./pkg/oidcjwt/... -run TestVerifier -v`
 Expected: 5 PASS.
 
-- [ ] **Step 5:** Commit.
+- [x] **Step 5:** Commit.
 
 ```bash
 git add pkg/oidcjwt/verifier.go pkg/oidcjwt/verifier_test.go
@@ -653,12 +653,12 @@ git commit -m "feat(oidcjwt): verifier wrapper around coreos/go-oidc"
 
 **Files:** `pkg/oidcjwt/authenticator.go`, `pkg/oidcjwt/authenticator_test.go`, `pkg/oidcjwt/identity_adapter.go`
 
-- [ ] **Step 1: Survey the identity layer**
+- [x] **Step 1: Survey the identity layer**
 
 Run: `grep -n "^func .* Client.*EnsureIdentity\|^type Identity \|^type User " pkg/gateway/client/identity.go pkg/gateway/types/identity.go pkg/gateway/types/users.go`
 Expected: current `EnsureIdentity` signature and `types.Identity` field shapes.
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 Path: `pkg/oidcjwt/authenticator_test.go`
 
@@ -841,10 +841,10 @@ func stubResolver(out *gwtypes.User) IdentityResolver {
 }
 ```
 
-- [ ] **Step 3:** `go test ./pkg/oidcjwt/... -run TestAuthenticator -v`
+- [x] **Step 3:** `go test ./pkg/oidcjwt/... -run TestAuthenticator -v`
 Expected: FAIL.
 
-- [ ] **Step 4: Implement the authenticator**
+- [x] **Step 4: Implement the authenticator**
 
 Path: `pkg/oidcjwt/authenticator.go`
 
@@ -1020,7 +1020,7 @@ const (
 )
 ```
 
-- [ ] **Step 5: Implement the identity adapter**
+- [x] **Step 5: Implement the identity adapter**
 
 Path: `pkg/oidcjwt/identity_adapter.go`
 
@@ -1060,10 +1060,10 @@ func (g *gatewayResolver) ResolveOrCreate(ctx context.Context, id *gwtypes.Ident
 
 The adapter is a one-line passthrough. All the Identity construction logic lives in `Authenticator.buildIdentity` so it's testable without a real gateway client.
 
-- [ ] **Step 6:** `go test ./pkg/oidcjwt/... -v`
+- [x] **Step 6:** `go test ./pkg/oidcjwt/... -v`
 Expected: all PASS.
 
-- [ ] **Step 7:** Commit.
+- [x] **Step 7:** Commit.
 
 ```bash
 git add pkg/oidcjwt/authenticator.go pkg/oidcjwt/authenticator_test.go pkg/oidcjwt/identity_adapter.go
@@ -1076,10 +1076,10 @@ git commit -m "feat(oidcjwt): authenticator with role-to-group mapping"
 
 **Files:** `pkg/services/config.go` (one block)
 
-- [ ] **Step 1:** Locate the union-build region.
+- [x] **Step 1:** Locate the union-build region.
 Run: `sed -n '825,850p' pkg/services/config.go`
 
-- [ ] **Step 2:** Insert after `authenticators = union.New(authenticators, persistentTokenServer)` (around line 840):
+- [x] **Step 2:** Insert after `authenticators = union.New(authenticators, persistentTokenServer)` (around line 840):
 
 ```go
 // OIDC JWT authenticator — accepts JWTs from the configured
@@ -1101,13 +1101,13 @@ if oidcJWTCfg.Enabled() {
 
 Add import `"github.com/obot-platform/obot/pkg/oidcjwt"`.
 
-- [ ] **Step 3:** `go build ./...`
+- [x] **Step 3:** `go build ./...`
 Expected: clean.
 
-- [ ] **Step 4:** `go test ./pkg/...`
+- [x] **Step 4:** `go test ./pkg/...`
 Expected: all pass.
 
-- [ ] **Step 5:** Commit.
+- [x] **Step 5:** Commit.
 
 ```bash
 git add pkg/services/config.go
@@ -1120,7 +1120,7 @@ git commit -m "feat(oidcjwt): wire into authenticator union when configured"
 
 **Files:** `pkg/oidcjwt/integration_test.go`
 
-- [ ] **Step 1: Write the test**
+- [x] **Step 1: Write the test**
 
 Path: `pkg/oidcjwt/integration_test.go`
 
@@ -1270,10 +1270,10 @@ func TestIntegration_UnauthenticatedForbiddenAtCatalogAndMCP(t *testing.T) {
 var _ authenticator.Request = (*oidcjwt.Authenticator)(nil) // compile-time assertion
 ```
 
-- [ ] **Step 2:** `go test ./pkg/oidcjwt/... -run TestIntegration -v`
+- [x] **Step 2:** `go test ./pkg/oidcjwt/... -run TestIntegration -v`
 Expected: catalog and MCP route cases PASS for admin, non-admin, empty-role, and unauthenticated JWT scenarios.
 
-- [ ] **Step 3:** Commit.
+- [x] **Step 3:** Commit.
 
 ```bash
 git add pkg/oidcjwt/integration_test.go
@@ -1286,17 +1286,17 @@ git commit -m "test(oidcjwt): integration tests for role-based MCP access"
 
 **Files:** `pkg/oidcjwt/smokeclient/main.go`
 
-- [ ] **Step 1:** Add a small `package main` tool that:
+- [x] **Step 1:** Add a small `package main` tool that:
   - starts a local OIDC discovery/JWKS server;
   - prints the `OBOT_GENERIC_OAUTH_AUTH_PROVIDER_*` env vars needed by Obot;
   - mints a signed JWT with `eligible` and `roles`;
   - optionally calls an Obot API URL with `Authorization: Bearer <jwt>`.
 
-- [ ] **Step 2:** Verify it builds.
+- [x] **Step 2:** Verify it builds.
 Run: `go build ./pkg/oidcjwt/smokeclient`
 Expected: clean.
 
-- [ ] **Step 3:** Example local use:
+- [x] **Step 3:** Example local use:
 
 ```bash
 go run ./pkg/oidcjwt/smokeclient \
@@ -1308,7 +1308,7 @@ go run ./pkg/oidcjwt/smokeclient \
 
 For non-Docker local Obot, use `--issuer-url http://localhost:18080`.
 
-- [ ] **Step 4:** Commit.
+- [x] **Step 4:** Commit.
 
 ```bash
 git add pkg/oidcjwt/smokeclient/main.go
@@ -1321,10 +1321,10 @@ git commit -m "chore(oidcjwt): standalone JWT smoke client"
 
 **Files:** `chart/values.yaml`
 
-- [ ] **Step 1:** Locate the genericOAuthAuthProvider config block.
+- [x] **Step 1:** Locate the genericOAuthAuthProvider config block.
 Run: `grep -n "genericOAuth\|GENERIC_OAUTH" chart/values.yaml | head`
 
-- [ ] **Step 2:** Add 4 keys under the existing `config:` map (or equivalent rendered env block):
+- [x] **Step 2:** Add 4 keys under the existing `config:` map (or equivalent rendered env block):
 
 ```yaml
 config:
@@ -1335,10 +1335,15 @@ config:
   OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ADMIN_ROLES: "admin"
 ```
 
-- [ ] **Step 3:** Render the chart if possible.
-Run: `helm template chart/ | grep OBOT_GENERIC_OAUTH_AUTH_PROVIDER_AUDIENCE`
+- [x] **Step 3:** Render the chart if possible.
+Run:
+```bash
+rg "OBOT_GENERIC_OAUTH_AUTH_PROVIDER_(AUDIENCE|ELIGIBILITY_CLAIM_NAME|ROLES_CLAIM_NAME|ADMIN_ROLES)" chart/values.yaml
+helm template chart/ --set dev.useEmbeddedDb=true | grep OBOT_GENERIC_OAUTH_AUTH_PROVIDER
+```
+Expected: `chart/values.yaml` contains all four keys. The rendered chart includes the non-empty default claim/admin-role keys; `OBOT_GENERIC_OAUTH_AUTH_PROVIDER_AUDIENCE` is intentionally empty by default to keep the authenticator disabled until configured.
 
-- [ ] **Step 4:** Commit.
+- [x] **Step 4:** Commit.
 
 ```bash
 git add chart/values.yaml
@@ -1351,7 +1356,7 @@ git commit -m "feat(oidcjwt): chart values (audience, eligibility/roles claim na
 
 **Files:** `docs/studio/CHANGES.md`, `scripts/check-upstream-touchpoints.sh`
 
-- [ ] **Step 1:** Write `docs/studio/CHANGES.md`.
+- [x] **Step 1:** Write `docs/studio/CHANGES.md`.
 
 ```markdown
 # OIDC JWT Authenticator — Upstream Touchpoints
@@ -1375,7 +1380,7 @@ authenticator integration touches. Run
 All other code lives under `pkg/oidcjwt/` and is purely additive.
 ```
 
-- [ ] **Step 2:** Write `scripts/check-upstream-touchpoints.sh`:
+- [x] **Step 2:** Write `scripts/check-upstream-touchpoints.sh`:
 
 ```bash
 #!/usr/bin/env bash
@@ -1414,10 +1419,10 @@ echo "OK — all changes within the allowed set."
 chmod +x scripts/check-upstream-touchpoints.sh
 ```
 
-- [ ] **Step 3:** `scripts/check-upstream-touchpoints.sh origin/main`
+- [x] **Step 3:** `scripts/check-upstream-touchpoints.sh origin/main`
 Expected: exits 0.
 
-- [ ] **Step 4:** Commit.
+- [x] **Step 4:** Commit.
 
 ```bash
 git add docs/studio/CHANGES.md scripts/check-upstream-touchpoints.sh
@@ -1428,16 +1433,16 @@ git commit -m "chore(oidcjwt): upstream-touchpoint manifest + CI check"
 
 ## Task 11: Verify and push
 
-- [ ] **Step 1:** `go test ./...`
+- [x] **Step 1:** `go test ./...`
 Expected: all pass.
 
-- [ ] **Step 2:** `go vet ./...`
+- [x] **Step 2:** `go vet ./...`
 Expected: clean.
 
-- [ ] **Step 3:** `scripts/check-upstream-touchpoints.sh origin/main`
+- [x] **Step 3:** `scripts/check-upstream-touchpoints.sh origin/main`
 Expected: exits 0.
 
-- [ ] **Step 4:** `git push`.
+- [x] **Step 4:** `git push`.
 
 ---
 
