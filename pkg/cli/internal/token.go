@@ -43,8 +43,9 @@ func WithNonInteractive(ctx context.Context) context.Context {
 	return context.WithValue(ctx, nonInteractiveContextKey{}, true)
 }
 
-// WithOutputWriter routes token-acquisition user messages to w instead of
-// stderr.
+// WithOutputWriter routes token-acquisition user messages to w. They default
+// to stderr to keep stdout reserved for machine-readable output like
+// `login --print-token`.
 func WithOutputWriter(ctx context.Context, w io.Writer) context.Context {
 	if w == nil {
 		return ctx

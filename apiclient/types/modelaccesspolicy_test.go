@@ -364,6 +364,57 @@ func TestModelAccessPolicyManifestValidate(t *testing.T) {
 			errorMsg:    "wildcard (*) is only allowed",
 		},
 		{
+			name: "whitespace-only wildcard suffix prefix",
+			manifest: ModelAccessPolicyManifest{
+				Subjects: []Subject{
+					{Type: SubjectTypeUser, ID: "user1"},
+				},
+				Models: []ModelResource{
+					{ID: " *"},
+				},
+			},
+			expectError: true,
+			errorMsg:    "must not begin or end with whitespace",
+		},
+		{
+			name: "leading whitespace in wildcard suffix prefix",
+			manifest: ModelAccessPolicyManifest{
+				Subjects: []Subject{
+					{Type: SubjectTypeUser, ID: "user1"},
+				},
+				Models: []ModelResource{
+					{ID: " gpt*"},
+				},
+			},
+			expectError: true,
+			errorMsg:    "must not begin or end with whitespace",
+		},
+		{
+			name: "trailing whitespace in wildcard suffix prefix",
+			manifest: ModelAccessPolicyManifest{
+				Subjects: []Subject{
+					{Type: SubjectTypeUser, ID: "user1"},
+				},
+				Models: []ModelResource{
+					{ID: "gpt *"},
+				},
+			},
+			expectError: true,
+			errorMsg:    "must not begin or end with whitespace",
+		},
+		{
+			name: "interior whitespace in wildcard suffix prefix is allowed",
+			manifest: ModelAccessPolicyManifest{
+				Subjects: []Subject{
+					{Type: SubjectTypeUser, ID: "user1"},
+				},
+				Models: []ModelResource{
+					{ID: "gpt 4*"},
+				},
+			},
+			expectError: false,
+		},
+		{
 			name: "wildcard suffix on model alias reference",
 			manifest: ModelAccessPolicyManifest{
 				Subjects: []Subject{

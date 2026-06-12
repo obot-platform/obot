@@ -46,7 +46,7 @@ To add a pattern, start typing a prefix into the search box of the **Add Models*
 
 Patterns follow these rules:
 
-- The `*` is only allowed at the end of the entry, and the prefix cannot be empty (a bare `*` is the existing "All models" option)
+- The `*` is only allowed at the end of the entry, and the prefix cannot be empty or begin/end with whitespace (a bare `*` is the existing "All models" option)
 - Matching is case-sensitive and applies to the provider-native model ID
 - Patterns match models from **all** providers
 - Patterns automatically cover future models: when a provider adds a new model whose ID starts with the prefix, users gain access without any policy changes

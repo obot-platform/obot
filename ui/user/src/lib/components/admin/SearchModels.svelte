@@ -36,28 +36,27 @@
 		modelProviders = await AdminService.listModelProviders();
 	});
 
-	// When the search text is a wildcard suffix pattern (e.g. "claude-haiku-4-5*"),
-	// this holds its prefix; null otherwise. Mirrors backend validation: a single
-	// trailing '*' with a non-empty, non-alias prefix.
-	let patternPrefix = $derived(
-		search.endsWith('*') &&
-			search.length > 1 &&
-			!search.slice(0, -1).includes('*') &&
-			!search.startsWith('obot://')
-			? search.slice(0, -1)
-			: null
-	);
+	// When the (trimmed) search text is a wildcard suffix pattern (e.g.
+	// "claude-haiku-4-5*"), this holds its prefix; null otherwise. Mirrors
+	// backend validation: a single trailing '*' with a non-empty, non-alias
+	// prefix that doesn't begin or end with whitespace.
+	let patternPrefix = $derived.by(() => {
+		const s = search.trim();
+		if (!s.endsWith('*') || s.length < 2 || s.startsWith('obot://')) return null;
+		const prefix = s.slice(0, -1);
+		if (prefix.includes('*') || prefix !== prefix.trim()) return null;
+		return prefix;
+	});
 
 	// The wildcard pattern offered for the current search: the search text itself
 	// when it's an explicit pattern, or "<search>*" suggested while typing a plain
-	// prefix (no '*' required).
-	let patternOption = $derived(
-		patternPrefix !== null
-			? { id: search, prefix: patternPrefix }
-			: search && !search.includes('*') && !search.startsWith('obot://')
-				? { id: `${search}*`, prefix: search }
-				: null
-	);
+	// prefix (no '*' required). Surrounding whitespace is never part of a pattern.
+	let patternOption = $derived.by(() => {
+		if (patternPrefix !== null) return { id: `${patternPrefix}*`, prefix: patternPrefix };
+		const s = search.trim();
+		if (!s || s.includes('*') || s.startsWith('obot://')) return null;
+		return { id: `${s}*`, prefix: s };
+	});
 
 	// Live count of what the pattern currently grants: a case-sensitive prefix
 	// match on provider-native target models, like the backend.
@@ -241,8 +240,8 @@
 							<div class="flex flex-col">
 								<p class="font-mono font-medium">{pattern.id}</p>
 								<span class="text-muted-content text-xs">
-									Grants access to all current and future models whose ID starts with "{pattern.prefix}"
-									— currently matches {patternMatchCount}
+									Grants access to all current and future models whose provider model ID starts with
+									"{pattern.prefix}" — currently matches {patternMatchCount}
 									{patternMatchCount === 1 ? 'model' : 'models'}
 								</span>
 							</div>

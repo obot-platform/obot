@@ -86,8 +86,10 @@ func (m ModelResource) Validate() error {
 		}
 		return nil
 	}
-	if _, isWildcardSuffix := m.IsWildcardSuffix(); strings.Contains(m.ID, "*") && !m.IsWildcard() && !isWildcardSuffix {
+	if prefix, isWildcardSuffix := m.IsWildcardSuffix(); strings.Contains(m.ID, "*") && !m.IsWildcard() && !isWildcardSuffix {
 		return fmt.Errorf("wildcard (*) is only allowed as the sole entry %q or as a trailing wildcard suffix (e.g. %q): %s", "*", "claude-haiku-4-5*", m.ID)
+	} else if isWildcardSuffix && prefix != strings.TrimSpace(prefix) {
+		return fmt.Errorf("wildcard suffix pattern prefix must not begin or end with whitespace: %q", m.ID)
 	}
 	return nil
 }
