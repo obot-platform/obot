@@ -137,7 +137,19 @@ import "strings"
 // All fields source from the existing OBOT_GENERIC_OAUTH_AUTH_PROVIDER_*
 // env-var prefix.
 type Config struct {
-	IssuerURL            string
+	// IssuerURL is the raw value as configured (trailing slash preserved if
+	// present). It is what we store on the Identity (ProviderIssuer) and use
+	// to compose ProviderUserID — see Identity convergence note in
+	// docs/design/oidc-jwt-authn/README.md.
+	IssuerURL string
+
+	// NormalizedIssuerURL is IssuerURL with whitespace and trailing slashes
+	// trimmed. Used ONLY for the pre-check comparison against a JWT's iss
+	// claim so https://issuer/ and https://issuer match. Mirrors the
+	// generic-oauth-auth-provider's normalizedIssuer() helper in
+	// providers/generic-oauth-auth-provider/main.go.
+	NormalizedIssuerURL string
+
 	Audience             string
 	EligibilityClaimName string
 	RolesClaimName       string
@@ -151,6 +163,12 @@ const (
 
 var defaultAdminRoles = []string{"admin"}
 
+// NormalizeIssuer trims whitespace and trailing slashes. Matches the
+// existing provider behavior so identity convergence is exact.
+func NormalizeIssuer(s string) string {
+	return strings.TrimRight(strings.TrimSpace(s), "/")
+}
+
 // Enabled reports whether the authenticator is functional.
 func (c Config) Enabled() bool {
 	return c.IssuerURL != "" && c.Audience != ""
@@ -159,8 +177,10 @@ func (c Config) Enabled() bool {
 // LoadConfigFromEnv reads OBOT_GENERIC_OAUTH_AUTH_PROVIDER_* env vars
 // via the supplied getter. Missing optional values fall back to defaults.
 func LoadConfigFromEnv(getenv func(string) string) (Config, error) {
+	issuer := getenv("OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ISSUER")
 	cfg := Config{
-		IssuerURL:            getenv("OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ISSUER"),
+		IssuerURL:            issuer,
+		NormalizedIssuerURL:  NormalizeIssuer(issuer),
 		Audience:             getenv("OBOT_GENERIC_OAUTH_AUTH_PROVIDER_AUDIENCE"),
 		EligibilityClaimName: getenv("OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ELIGIBILITY_CLAIM_NAME"),
 		RolesClaimName:       getenv("OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ROLES_CLAIM_NAME"),
@@ -182,6 +202,26 @@ func LoadConfigFromEnv(getenv func(string) string) (Config, error) {
 		}
 	}
 	return cfg, nil
+}
+```
+
+Add a test for normalization:
+
+```go
+func TestNormalizeIssuer(t *testing.T) {
+	assert.Equal(t, "https://issuer.example.com", NormalizeIssuer("https://issuer.example.com/"))
+	assert.Equal(t, "https://issuer.example.com", NormalizeIssuer("  https://issuer.example.com/  "))
+	assert.Equal(t, "https://issuer.example.com", NormalizeIssuer("https://issuer.example.com//"))
+}
+
+func TestLoadConfigFromEnv_NormalizesIssuer(t *testing.T) {
+	cfg, err := LoadConfigFromEnv(envGetter(map[string]string{
+		"OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ISSUER":   "https://issuer.example.com/",
+		"OBOT_GENERIC_OAUTH_AUTH_PROVIDER_AUDIENCE": "obot-default",
+	}))
+	require.NoError(t, err)
+	assert.Equal(t, "https://issuer.example.com/", cfg.IssuerURL)            // raw preserved
+	assert.Equal(t, "https://issuer.example.com", cfg.NormalizedIssuerURL)  // trimmed
 }
 ```
 
@@ -416,14 +456,29 @@ import (
 // through to the next authenticator in the union.
 var ErrNotMyToken = errors.New("oidcjwt: token not for this authenticator")
 
+// Claims is the validated set of claims this authenticator cares about.
+// Mirrors the shape the existing generic-oauth-auth-provider browser
+// flow extracts (see providers/generic-oauth-auth-provider/pkg/profile/
+// profile.go and main.go) so identity convergence with browser-login is
+// exact.
 type Claims struct {
+	// Raw issuer from the JWT (not normalized). Stored on the Identity
+	// as ProviderIssuer to match what the browser flow writes.
+	Issuer string
+
 	Subject  string
-	Issuer   string
 	Audience string
+
 	Eligible bool
 	Roles    []string
-	Email    string
-	Name     string
+
+	// Provider profile claims (same shape as profile.UserInfo in
+	// providers/generic-oauth-auth-provider).
+	Email             string
+	EmailVerified     *bool
+	PreferredUsername string
+	Name              string
+	Picture           string
 }
 
 type Verifier struct {
@@ -433,6 +488,8 @@ type Verifier struct {
 }
 
 func NewVerifier(ctx context.Context, cfg Config) (*Verifier, error) {
+	// Use the raw IssuerURL for discovery — go-oidc will validate the
+	// discovery doc's `issuer` field matches.
 	provider, err := oidc.NewProvider(ctx, cfg.IssuerURL)
 	if err != nil {
 		return nil, fmt.Errorf("oidcjwt: oidc discovery: %w", err)
@@ -455,7 +512,10 @@ func (v *Verifier) Verify(ctx context.Context, raw string) (Claims, error) {
 		return Claims{}, ErrNotMyToken
 	}
 	iss, _ := mc["iss"].(string)
-	if iss != v.cfg.IssuerURL {
+	// Compare normalized form to match the issuer-normalization the
+	// browser-flow provider does (TrimRight "/"). Tokens minted with or
+	// without a trailing slash on iss are accepted equivalently.
+	if NormalizeIssuer(iss) != v.cfg.NormalizedIssuerURL {
 		return Claims{}, ErrNotMyToken
 	}
 
@@ -465,8 +525,11 @@ func (v *Verifier) Verify(ctx context.Context, raw string) (Claims, error) {
 	}
 
 	var custom struct {
-		Email string `json:"email"`
-		Name  string `json:"name"`
+		Email             string `json:"email"`
+		EmailVerified     *bool  `json:"email_verified,omitempty"`
+		PreferredUsername string `json:"preferred_username,omitempty"`
+		Name              string `json:"name,omitempty"`
+		Picture           string `json:"picture,omitempty"`
 	}
 	_ = idToken.Claims(&custom)
 
@@ -476,13 +539,16 @@ func (v *Verifier) Verify(ctx context.Context, raw string) (Claims, error) {
 	}
 
 	return Claims{
-		Subject:  idToken.Subject,
-		Issuer:   idToken.Issuer,
-		Audience: aud,
-		Eligible: readEligibility(mc, v.cfg.EligibilityClaimName),
-		Roles:    readRoles(mc, v.cfg.RolesClaimName),
-		Email:    custom.Email,
-		Name:     custom.Name,
+		Issuer:            idToken.Issuer, // raw issuer from JWT — store on Identity
+		Subject:           idToken.Subject,
+		Audience:          aud,
+		Eligible:          readEligibility(mc, v.cfg.EligibilityClaimName),
+		Roles:             readRoles(mc, v.cfg.RolesClaimName),
+		Email:             custom.Email,
+		EmailVerified:     custom.EmailVerified,
+		PreferredUsername: custom.PreferredUsername,
+		Name:              custom.Name,
+		Picture:           custom.Picture,
 	}, nil
 }
 
@@ -514,6 +580,74 @@ func readRoles(mc jwt.MapClaims, name string) []string {
 		}
 	}
 	return out
+}
+```
+
+Add a test asserting the issuer-normalization equivalence and the full claim extraction:
+
+```go
+func TestVerifier_AcceptsTokenWithTrailingSlashIssuerWhenConfigHasNoSlash(t *testing.T) {
+	priv := testutil.MustRSAKey(t)
+	issuer, cleanup := testutil.NewTestIssuer(t, priv, "kid-X")
+	defer cleanup()
+
+	// Config without trailing slash; JWT with trailing slash.
+	cfg := Config{
+		IssuerURL:            issuer.URL,
+		NormalizedIssuerURL:  NormalizeIssuer(issuer.URL),
+		Audience:             "obot-default",
+		EligibilityClaimName: "eligible",
+		RolesClaimName:       "roles",
+	}
+	v, err := NewVerifier(context.Background(), cfg)
+	require.NoError(t, err)
+
+	tok := testutil.MintTestJWT(t, priv, "kid-X", issuer.URL+"/", "obot-default", "user-1", 60*time.Second, map[string]any{
+		"eligible": true,
+		"roles":    []string{"admin"},
+	})
+	_, err = v.Verify(context.Background(), tok)
+	// Whether this passes depends on what go-oidc's discovery returns
+	// as the canonical `issuer`. The pre-check at least won't reject it
+	// on the trailing slash alone.
+	// (Real go-oidc may still reject if the JWT iss differs from the
+	// discovery doc's issuer. Test against your provider's behavior.)
+	assert.NoError(t, err)
+}
+
+func TestVerifier_ExtractsFullProviderProfile(t *testing.T) {
+	priv := testutil.MustRSAKey(t)
+	issuer, cleanup := testutil.NewTestIssuer(t, priv, "kid-X")
+	defer cleanup()
+
+	cfg := Config{
+		IssuerURL:            issuer.URL,
+		NormalizedIssuerURL:  NormalizeIssuer(issuer.URL),
+		Audience:             "obot-default",
+		EligibilityClaimName: "eligible",
+		RolesClaimName:       "roles",
+	}
+	v, err := NewVerifier(context.Background(), cfg)
+	require.NoError(t, err)
+
+	emailVerified := true
+	tok := testutil.MintTestJWT(t, priv, "kid-X", issuer.URL, "obot-default", "user-1", 60*time.Second, map[string]any{
+		"eligible":           true,
+		"roles":              []string{"admin"},
+		"email":              "alice@example.com",
+		"email_verified":     emailVerified,
+		"preferred_username": "alice",
+		"name":               "Alice Example",
+		"picture":            "https://example.com/alice.png",
+	})
+	claims, err := v.Verify(context.Background(), tok)
+	require.NoError(t, err)
+	assert.Equal(t, "alice@example.com", claims.Email)
+	require.NotNil(t, claims.EmailVerified)
+	assert.True(t, *claims.EmailVerified)
+	assert.Equal(t, "alice", claims.PreferredUsername)
+	assert.Equal(t, "Alice Example", claims.Name)
+	assert.Equal(t, "https://example.com/alice.png", claims.Picture)
 }
 ```
 
@@ -553,10 +687,10 @@ import (
 	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	gwtypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/oidcjwt/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"k8s.io/apiserver/pkg/authentication/user"
 )
 
 func TestAuthenticator_AdminRoleGrantsAdminOwner(t *testing.T) {
@@ -567,7 +701,7 @@ func TestAuthenticator_AdminRoleGrantsAdminOwner(t *testing.T) {
 	cfg := Config{IssuerURL: issuer.URL, Audience: "obot-default", EligibilityClaimName: "eligible", RolesClaimName: "roles", AdminRoles: []string{"admin"}}
 	v, err := NewVerifier(context.Background(), cfg)
 	require.NoError(t, err)
-	auth := NewAuthenticator(cfg, v, stubResolver(&user.DefaultInfo{UID: "obot-user-1", Name: "alice@example.com"}))
+	auth := NewAuthenticator(cfg, v, stubResolver(&gwtypes.User{ID: 1, Username: "alice", Email: "alice@example.com"}))
 
 	tok := testutil.MintTestJWT(t, priv, "kid-X", issuer.URL, "obot-default", "user-1", 60*time.Second, map[string]any{
 		"eligible": true,
@@ -582,6 +716,48 @@ func TestAuthenticator_AdminRoleGrantsAdminOwner(t *testing.T) {
 	assert.Contains(t, resp.User.GetGroups(), types.GroupAdmin)
 	assert.Contains(t, resp.User.GetGroups(), types.GroupOwner)
 	assert.Contains(t, resp.User.GetGroups(), types.GroupAuthenticated)
+
+	// Final user.Info shape matches what APIKeyAuthenticator produces:
+	assert.Equal(t, "1", resp.User.GetUID())
+	assert.Equal(t, "alice", resp.User.GetName())
+
+	// Extras carry the auth_provider_* fields handlers expect.
+	extra := resp.User.GetExtra()
+	assert.Equal(t, []string{"alice@example.com"}, extra["email"])
+	assert.Equal(t, []string{"generic-oauth-auth-provider"}, extra["auth_provider_name"])
+	require.NotEmpty(t, extra["auth_provider_user_id"])
+	assert.Contains(t, extra["auth_provider_user_id"][0], "iss:")
+	assert.Contains(t, extra["auth_provider_user_id"][0], "\x00sub:user-1")
+}
+
+func TestBuildIdentity_UsernameFallback(t *testing.T) {
+	cfg := Config{IssuerURL: "https://issuer.example.com"}
+
+	cases := []struct {
+		name       string
+		claims     Claims
+		wantUser   string
+	}{
+		{"preferred_username wins", Claims{Subject: "s", Email: "e@x", Name: "N", PreferredUsername: "p"}, "p"},
+		{"name when no preferred", Claims{Subject: "s", Email: "e@x", Name: "N"}, "N"},
+		{"email when no name", Claims{Subject: "s", Email: "e@x"}, "e@x"},
+		{"sub when nothing else", Claims{Subject: "s"}, "s"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.claims.Issuer = "https://issuer.example.com"
+			id := buildIdentity(cfg, tc.claims)
+			assert.Equal(t, tc.wantUser, id.ProviderUsername)
+		})
+	}
+}
+
+func TestBuildIdentity_ProviderUserIDFormat(t *testing.T) {
+	cfg := Config{IssuerURL: "https://issuer.example.com/"}
+	claims := Claims{Issuer: "https://issuer.example.com/", Subject: "user-1"}
+	id := buildIdentity(cfg, claims)
+	assert.Equal(t, "iss:https://issuer.example.com/\x00sub:user-1", id.ProviderUserID)
+	assert.Equal(t, "https://issuer.example.com/", id.ProviderIssuer)
 }
 
 func TestAuthenticator_NonAdminRoleGetsAuthenticatedOnly(t *testing.T) {
@@ -592,7 +768,7 @@ func TestAuthenticator_NonAdminRoleGetsAuthenticatedOnly(t *testing.T) {
 	cfg := Config{IssuerURL: issuer.URL, Audience: "obot-default", EligibilityClaimName: "eligible", RolesClaimName: "roles", AdminRoles: []string{"admin"}}
 	v, err := NewVerifier(context.Background(), cfg)
 	require.NoError(t, err)
-	auth := NewAuthenticator(cfg, v, stubResolver(&user.DefaultInfo{UID: "obot-user-2"}))
+	auth := NewAuthenticator(cfg, v, stubResolver(&gwtypes.User{ID: 2, Username: "bob"}))
 
 	tok := testutil.MintTestJWT(t, priv, "kid-X", issuer.URL, "obot-default", "user-2", 60*time.Second, map[string]any{
 		"eligible": true,
@@ -658,21 +834,23 @@ func TestAuthenticator_DifferentIssuerFallsThrough(t *testing.T) {
 }
 
 type stubResolverImpl struct {
-	out user.Info
+	out *gwtypes.User
 	err error
 }
 
-func (s *stubResolverImpl) ResolveOrCreate(ctx context.Context, issuer, sub string, p UserProfile) (user.Info, error) {
+func (s *stubResolverImpl) ResolveOrCreate(ctx context.Context, id *gwtypes.Identity, timezone string) (*gwtypes.User, error) {
 	if s.err != nil {
 		return nil, s.err
 	}
 	if s.out == nil {
-		return nil, errors.New("stub: no info")
+		return nil, errors.New("stub: no user")
 	}
+	// Optionally assert the Identity built by the authenticator looks
+	// right: ProviderUserID format, ProviderIssuer = raw issuer, etc.
 	return s.out, nil
 }
 
-func stubResolver(out user.Info) IdentityResolver {
+func stubResolver(out *gwtypes.User) IdentityResolver {
 	return &stubResolverImpl{out: out}
 }
 ```
@@ -695,19 +873,25 @@ import (
 	"strings"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	gwtypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
+// IdentityResolver maps a validated JWT to an Obot gateway user. The
+// implementation owns the get-or-create call against the gateway
+// identity store.
 type IdentityResolver interface {
-	ResolveOrCreate(ctx context.Context, issuer, subject string, profile UserProfile) (user.Info, error)
+	ResolveOrCreate(ctx context.Context, id *gwtypes.Identity, timezone string) (*gwtypes.User, error)
 }
 
-type UserProfile struct {
-	Email string
-	Name  string
-}
-
+// Authenticator implements k8s.io/apiserver/pkg/authentication/authenticator.Request.
+//
+// MUST be inserted into the union AFTER client.NewUserDecorator so the
+// decorator does not rewrap the response. This authenticator produces
+// the final user.Info itself — UID, Name, Groups, Extra — using the
+// same shape gateway.server.APIKeyAuthenticator uses (see
+// pkg/gateway/server/apikey_auth.go).
 type Authenticator struct {
 	cfg      Config
 	verifier *Verifier
@@ -748,21 +932,79 @@ func (a *Authenticator) AuthenticateRequest(req *http.Request) (*authenticator.R
 		return nil, false, errors.New("oidcjwt: identity resolver not configured")
 	}
 
-	info, err := a.identity.ResolveOrCreate(req.Context(), claims.Issuer, claims.Subject,
-		UserProfile{Email: claims.Email, Name: claims.Name})
+	id := buildIdentity(a.cfg, claims)
+	timezone := req.Header.Get("X-Obot-User-Timezone")
+
+	gwUser, err := a.identity.ResolveOrCreate(req.Context(), id, timezone)
 	if err != nil {
 		return nil, false, fmt.Errorf("oidcjwt: identity resolve: %w", err)
 	}
 
 	groups := deriveGroups(claims.Roles, a.cfg.AdminRoles)
+
+	// Extras match the shape the existing UserDecorator sets so any
+	// downstream handler that inspects `extra` (e.g. for email or
+	// auth_provider_*) sees the same keys it would for a browser user.
+	// We omit auth_provider_groups since this authenticator is not yet
+	// integrated with the auth-provider group lookup; callers that need
+	// it can call gatewayClient.ListGroupIDsForUser themselves.
+	extra := map[string][]string{
+		"email":                        {gwUser.Email},
+		"auth_provider_name":           {genericOAuthAuthProviderName},
+		"auth_provider_namespace":      {genericOAuthAuthProviderNamespace},
+		"auth_provider_issuer":         {claims.Issuer}, // raw, matching browser flow
+		"auth_provider_user_id":        {id.ProviderUserID},
+	}
+	if claims.EmailVerified != nil {
+		if *claims.EmailVerified {
+			extra["auth_provider_email_verified"] = []string{"true"}
+		} else {
+			extra["auth_provider_email_verified"] = []string{"false"}
+		}
+	}
+
 	return &authenticator.Response{
 		User: &user.DefaultInfo{
-			UID:    info.GetUID(),
-			Name:   info.GetName(),
+			Name:   gwUser.Username,
+			UID:    fmt.Sprintf("%d", gwUser.ID),
 			Groups: groups,
-			Extra:  info.GetExtra(),
+			Extra:  extra,
 		},
 	}, true, nil
+}
+
+// buildIdentity composes the *gateway/types.Identity from the JWT
+// claims using the exact same shape the browser-flow provider produces.
+// Identity convergence depends on this — see
+// docs/design/oidc-jwt-authn/README.md §_Identity mapping_.
+//
+// In particular:
+//   - ProviderUserID = "iss:<raw issuer>\x00sub:<sub>"
+//   - ProviderIssuer = raw issuer (with whatever trailing slash the
+//     issuer carries — matches existing test fixtures)
+//   - ProviderUsername follows the provider's fallback rule:
+//     preferred_username → name → email → sub
+func buildIdentity(cfg Config, claims Claims) *gwtypes.Identity {
+	username := claims.PreferredUsername
+	if username == "" {
+		username = claims.Name
+	}
+	if username == "" {
+		username = claims.Email
+	}
+	if username == "" {
+		username = claims.Subject
+	}
+	providerUserID := "iss:" + claims.Issuer + "\x00sub:" + claims.Subject
+	return &gwtypes.Identity{
+		AuthProviderName:      genericOAuthAuthProviderName,
+		AuthProviderNamespace: genericOAuthAuthProviderNamespace,
+		ProviderUsername:      username,
+		ProviderUserID:        providerUserID,
+		ProviderIssuer:        claims.Issuer,
+		ProviderEmailVerified: claims.EmailVerified,
+		Email:                 claims.Email,
+	}
 }
 
 func deriveGroups(jwtRoles, adminRoles []string) []string {
@@ -785,7 +1027,18 @@ func bearerToken(req *http.Request) string {
 	}
 	return strings.TrimSpace(strings.TrimPrefix(h, "Bearer "))
 }
+
+// Constants pulled in to avoid taking a dependency on
+// pkg/controller/handlers/provider just for two strings. Cross-check
+// against pkg/controller/handlers/provider/env_auth_provider.go and
+// pkg/system at implementation time.
+const (
+	genericOAuthAuthProviderName      = "generic-oauth-auth-provider"
+	genericOAuthAuthProviderNamespace = "default" // = system.DefaultNamespace
+)
 ```
+
+> **Note on `system.DefaultNamespace`:** the literal "default" is used in tests (`pkg/gateway/client/identity_generic_oauth_test.go:21` uses `system.DefaultNamespace`). Reference `pkg/system` directly in the implementation rather than hard-coding the literal. The constant is named here as a placeholder for the actual import.
 
 - [ ] **Step 5: Implement the identity adapter**
 
@@ -797,43 +1050,35 @@ package oidcjwt
 import (
 	"context"
 
-	"github.com/obot-platform/obot/apiclient/types"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
-	"k8s.io/apiserver/pkg/authentication/user"
+	gwtypes "github.com/obot-platform/obot/pkg/gateway/types"
 )
 
+// NewGatewayIdentityResolver returns an IdentityResolver backed by the
+// gateway client's EnsureIdentity path — the same path the browser
+// OAuth provider uses at user-login time. The Identity passed in must
+// already carry AuthProviderName, AuthProviderNamespace, ProviderUserID
+// (in "iss:...\x00sub:..." shape), ProviderIssuer, ProviderUsername,
+// Email, and ProviderEmailVerified populated. The authenticator
+// (Authenticator.AuthenticateRequest, via buildIdentity) is responsible
+// for that population; this adapter only forwards.
 func NewGatewayIdentityResolver(c *gclient.Client) IdentityResolver {
 	return &gatewayResolver{c: c}
 }
 
 type gatewayResolver struct{ c *gclient.Client }
 
-func (g *gatewayResolver) ResolveOrCreate(ctx context.Context, iss, sub string, p UserProfile) (user.Info, error) {
-	id := &types.Identity{
-		IssuerURL:    iss,
-		Subject:      sub,
-		ProviderName: "generic-oauth-auth-provider",
-		Email:        p.Email,
-	}
-	if p.Name != "" {
-		id.Username = p.Name
-	}
-	// EnsureIdentity signature may vary by version — adapt to current
-	// one in pkg/gateway/client/identity.go.
-	out, err := g.c.EnsureIdentity(ctx, id, 0)
-	if err != nil {
-		return nil, err
-	}
-	return &user.DefaultInfo{
-		UID:  out.Subject,
-		Name: out.Email,
-		// Groups are added by Authenticator.AuthenticateRequest after
-		// reading the JWT roles claim.
-	}, nil
+func (g *gatewayResolver) ResolveOrCreate(ctx context.Context, id *gwtypes.Identity, timezone string) (*gwtypes.User, error) {
+	// EnsureIdentity(ctx, id, timezone) — confirmed signature in
+	// pkg/gateway/client/identity.go:61 at the time of writing. It
+	// returns the *gwtypes.User associated with the identity, creating
+	// the row on first sight (same shape as the browser-flow first
+	// login).
+	return g.c.EnsureIdentity(ctx, id, timezone)
 }
 ```
 
-> **Note:** Adapt the `types.Identity` field names and `EnsureIdentity` signature to the current shape at implementation time.
+The adapter is a one-line passthrough. All the Identity construction logic lives in `Authenticator.buildIdentity` so it's testable without a real gateway client.
 
 - [ ] **Step 6:** `go test ./pkg/oidcjwt/... -v`
 Expected: all PASS.
@@ -899,6 +1144,10 @@ git commit -m "feat(oidcjwt): wire into authenticator union when configured"
 
 Path: `pkg/oidcjwt/integration_test.go`
 
+The point of this test is to assert that a JWT presented at `GET /api/system-mcp-catalogs/{catalog_id}/entries` actually flows through Obot's real authorization rules — `adminAndOwnerRules` in `pkg/api/authz/authz.go:26` — not just through a fake handler that checks groups. That way a regression in either the authenticator wiring or the authz rule set is caught.
+
+The closest existing testing pattern is `pkg/api/handlers/systemmcpcatalogs_test.go` — read it before writing this test to see how it wires up a request context against the real authorizer. The skeleton below uses `authz.NewAuthorizer` with stub clients and runs the request through both `authn.NewAuthenticator(jwtAuth)` and `authz.Authorize` so the assertion is "the real authz layer accepts/rejects."
+
 ```go
 package oidcjwt_test
 
@@ -910,28 +1159,45 @@ import (
 	"testing"
 	"time"
 
-	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api/authn"
+	"github.com/obot-platform/obot/pkg/api/authz"
 	"github.com/obot-platform/obot/pkg/oidcjwt"
 	"github.com/obot-platform/obot/pkg/oidcjwt/testutil"
+	gwtypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"k8s.io/apiserver/pkg/authentication/user"
+	"k8s.io/apiserver/pkg/authentication/authenticator"
 )
 
-type stubResolver struct{ uid string }
+// stubResolver returns a fixed *gwtypes.User without going through a
+// real gateway. The authenticator's buildIdentity is exercised; only
+// the EnsureIdentity round-trip is stubbed.
+type stubResolver struct{ user *gwtypes.User }
 
-func (s *stubResolver) ResolveOrCreate(ctx context.Context, issuer, sub string, p oidcjwt.UserProfile) (user.Info, error) {
-	return &user.DefaultInfo{UID: s.uid, Name: p.Email}, nil
+func (s *stubResolver) ResolveOrCreate(ctx context.Context, id *gwtypes.Identity, timezone string) (*gwtypes.User, error) {
+	return s.user, nil
 }
 
-func runWithRoles(t *testing.T, roles []string) (int, map[string]any) {
+// buildIntegrationStack wires:
+//
+//   - testutil.NewTestIssuer as the OIDC issuer
+//   - oidcjwt.NewAuthenticator wrapped by authn.NewAuthenticator
+//     (the same wrapper pkg/services/config.go uses)
+//   - authz.NewAuthorizer with the stub kclient/gatewayClient that
+//     existing handler tests use (see pkg/api/handlers/
+//     systemmcpcatalogs_test.go for the pattern)
+//
+// Then registers a real handler (or mounts the real router subset) at
+// /api/system-mcp-catalogs/{catalog_id}/entries that, before doing
+// any work, asks the authorizer to check the request.
+func buildIntegrationStack(t *testing.T, gwUser *gwtypes.User) (http.Handler, *testutil.TestIssuer, func(), oidcjwt.Config, /* test issuer priv */ any) {
+	t.Helper()
 	priv := testutil.MustRSAKey(t)
 	issuer, cleanup := testutil.NewTestIssuer(t, priv, "kid-int")
-	defer cleanup()
 
 	cfg := oidcjwt.Config{
 		IssuerURL:            issuer.URL,
+		NormalizedIssuerURL:  oidcjwt.NormalizeIssuer(issuer.URL),
 		Audience:             "obot-default",
 		EligibilityClaimName: "eligible",
 		RolesClaimName:       "roles",
@@ -939,35 +1205,59 @@ func runWithRoles(t *testing.T, roles []string) (int, map[string]any) {
 	}
 	v, err := oidcjwt.NewVerifier(context.Background(), cfg)
 	require.NoError(t, err)
-	jwtAuth := oidcjwt.NewAuthenticator(cfg, v, &stubResolver{uid: "obot-user-1"})
+
+	jwtAuth := oidcjwt.NewAuthenticator(cfg, v, &stubResolver{user: gwUser})
 	wrapped := authn.NewAuthenticator(jwtAuth)
 
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// Build the authorizer with the same stubs the systemmcpcatalogs
+	// handler tests use. Read that file before implementing — the exact
+	// constructor args evolve.
+	az := authz.NewAuthorizer(
+		/* gatewayClient */ nil,                // see systemmcpcatalogs_test.go for the stub or fake
+		/* cache kclient */ nil,
+		/* uncached kclient */ nil,
+		/* devMode */ false,
+		/* acrHelper */ nil,
+		/* skillHelper */ nil,
+		/* registryNoAuth */ false,
+	)
+	_ = az // pass to handler middleware below; exact wiring borrowed from existing handler tests
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/system-mcp-catalogs/{catalog_id}/entries", func(w http.ResponseWriter, r *http.Request) {
+		// Authn
 		info, err := wrapped.Authenticate(r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusUnauthorized)
 			return
 		}
-		hasAdminOrOwner := false
-		for _, g := range info.GetGroups() {
-			if g == types.GroupAdmin || g == types.GroupOwner {
-				hasAdminOrOwner = true
-				break
-			}
-		}
-		if !hasAdminOrOwner {
+		// Authz — call the real Authorize path. Exact API call shape
+		// depends on Authorizer's public method; see how
+		// pkg/api/handlers/systemmcpcatalogs_test.go invokes it.
+		if !az.Authorize(r, info) /* OR equivalent */ {
 			http.Error(w, "forbidden", http.StatusForbidden)
 			return
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"items": []any{}})
 	})
 
-	tok := testutil.MintTestJWT(t, priv, "kid-int", issuer.URL, "obot-default", "user-int",
+	return mux, issuer, cleanup, cfg, priv
+}
+
+func runWithRoles(t *testing.T, roles []string) (int, map[string]any) {
+	gwUser := &gwtypes.User{ID: 42, Username: "alice", Email: "alice@example.com"}
+	mux, issuer, cleanup, _, priv := buildIntegrationStack(t, gwUser)
+	defer cleanup()
+
+	rsaPriv := priv.(*testutil.RSAKey).Inner() // adjust to whatever testutil returns
+	tok := testutil.MintTestJWT(t, rsaPriv, "kid-int", issuer.URL, "obot-default", "user-int",
 		60*time.Second, map[string]any{"eligible": true, "roles": roles, "email": "alice@example.com"})
+
 	req := httptest.NewRequest("GET", "/api/system-mcp-catalogs/default/entries", nil)
 	req.Header.Set("Authorization", "Bearer "+tok)
 	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, req)
+	mux.ServeHTTP(rec, req)
+
 	var body map[string]any
 	_ = json.Unmarshal(rec.Body.Bytes(), &body)
 	return rec.Code, body
@@ -988,6 +1278,23 @@ func TestIntegration_EmptyRolesForbiddenAtCatalog(t *testing.T) {
 	code, _ := runWithRoles(t, []string{})
 	assert.Equal(t, http.StatusForbidden, code)
 }
+
+func TestIntegration_UnauthenticatedForbiddenAtCatalog(t *testing.T) {
+	mux, _, cleanup, _, _ := buildIntegrationStack(t, nil)
+	defer cleanup()
+	req := httptest.NewRequest("GET", "/api/system-mcp-catalogs/default/entries", nil)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+}
+
+// Note for the implementer: the exact authz API surface (Authorize vs.
+// AuthorizeRequest, what user.Info form it expects, what context keys
+// it reads) is read straight from existing handler tests at
+// pkg/api/handlers/systemmcpcatalogs_test.go and
+// pkg/api/authz/authz_test.go. The above is a skeleton — the test
+// stands or falls on accurately mirroring that wiring.
+var _ authenticator.Request = (*oidcjwt.Authenticator)(nil) // compile-time assertion
 ```
 
 - [ ] **Step 2:** `go test ./pkg/oidcjwt/... -run TestIntegration -v`
@@ -1141,9 +1448,32 @@ Expected: exits 0.
 ## Notes for the implementer
 
 - **No backend-principal.** Every JWT is user-subject. Group mapping is purely from the `roles` claim.
+
 - **Generic vocabulary.** Defaults (`eligible`, `roles`, `admin`) are Obot-vocabulary. Issuers (Studio) map their internal role names to Obot vocabulary before emitting JWTs.
+
 - **`go-oidc` owns crypto.** OIDC discovery, JWKS caching, key rotation, signature/iss/aud/exp validation — all in the library.
-- **Authenticator-union semantics.** `(nil, false, nil)` = "not mine"; `(nil, false, err)` = real failure → 401. We return real errors only when the JWT is structurally ours (matching `iss`) but fails validation or eligibility.
-- **Identity layer compatibility.** The exact `pkg/gateway/client.Client.EnsureIdentity` signature and `types.Identity` field names may have evolved. Adapt the resolver at implementation time.
+
+- **Authenticator-union semantics.** `(nil, false, nil)` = "not mine"; `(nil, false, err)` = real failure → 401. We return real errors only when the JWT is structurally ours (matching `iss`, modulo normalization) but fails validation or eligibility.
+
+- **Identity layer contract (confirmed against current code):**
+  - `pkg/gateway/types.Identity` carries `AuthProviderName`, `AuthProviderNamespace`, `ProviderUsername`, `ProviderUserID`, `ProviderIssuer`, `ProviderEmailVerified`, `Email`. **No `IssuerURL`, `Subject`, `ProviderName`, or `Username` fields.**
+  - `pkg/gateway/client.Client.EnsureIdentity(ctx, id *gwtypes.Identity, timezone string) (*gwtypes.User, error)`. Third arg is a timezone string (read from `X-Obot-User-Timezone` header), not an int.
+  - `ProviderUserID` format: `"iss:" + rawIssuer + "\x00sub:" + sub`. The issuer in `ProviderUserID` is **raw** (not normalized) — tests at `pkg/gateway/client/identity_generic_oauth_test.go` show fixtures with trailing slashes preserved.
+  - `ProviderIssuer` = raw issuer (matches `ProviderUserID` shape).
+  - `ProviderUsername` fallback: `preferred_username` → `name` → `email` → `sub` (mirrors `providers/generic-oauth-auth-provider/main.go:240-253`).
+  - `AuthProviderName` is the constant `"generic-oauth-auth-provider"` (see `pkg/api/handlers/generic_oauth_validation.go:14`).
+  - `AuthProviderNamespace` is `system.DefaultNamespace`. Import from `pkg/system`.
+
+- **Issuer normalization:**
+  - Trim trailing slashes when comparing JWT `iss` to config issuer (the pre-check). Mirrors `providers/generic-oauth-auth-provider/main.go:277`'s `normalizedIssuer` helper.
+  - Do NOT normalize when storing on the Identity — the raw issuer is what the browser flow writes and the existing test fixtures expect.
+
+- **Provider profile claims.** The verifier extracts `email`, `email_verified`, `preferred_username`, `name`, `picture` to match `providers/generic-oauth-auth-provider/pkg/profile/profile.go:11`. These flow through `buildIdentity` into the `*gwtypes.Identity` and `Extra` map exactly as the browser-flow `UserDecorator` (`pkg/gateway/client/auth.go:51-58`) does it.
+
+- **Where this authenticator inserts in the union.** AFTER `client.NewUserDecorator(authenticators, gatewayClient)` (line 835 in `pkg/services/config.go`). The decorator will not rewrap our response. We are responsible for producing the final `user.Info` directly, including `UID = fmt.Sprintf("%d", gwUser.ID)` and `Name = gwUser.Username` — same pattern as `pkg/gateway/server/apikey_auth.go`.
+
 - **`golang-jwt/jwt/v5` import.** Used only for `ParseUnverified` in the issuer pre-check.
+
 - **No router change.** The authenticator plugs in at the union assembly site only.
+
+- **Integration test.** The point is to assert the JWT flows through Obot's **real** `authz.NewAuthorizer` against `/api/system-mcp-catalogs/{catalog_id}/entries`, not a fake handler. Read `pkg/api/handlers/systemmcpcatalogs_test.go` to copy the stub-client wiring before writing this test.
