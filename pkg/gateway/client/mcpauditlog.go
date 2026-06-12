@@ -10,11 +10,20 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
+	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"gorm.io/gorm"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/storage/value"
+)
+
+const (
+	auditEventRequestLimit  = 64 * 1024
+	auditEventResponseLimit = 1024 * 1024
+	auditEventErrorLimit    = 32 * 1024
+	auditEventRawLimit      = 1024 * 1024
 )
 
 var (
@@ -23,6 +32,158 @@ var (
 		Resource: "mcpauditlogs",
 	}
 )
+
+func (c *Client) InsertAuditEvents(ctx context.Context, userID string, events []types2.AuditEvent) ([]types2.AuditEventSubmitStatus, error) {
+	statuses := make([]types2.AuditEventSubmitStatus, 0, len(events))
+	for _, event := range events {
+		status := types2.AuditEventSubmitStatus{
+			EventID: event.EventID,
+			Status:  types2.AuditEventSubmitStatusAccepted,
+		}
+		if err := validateAuditEvent(event); err != nil {
+			status.Status = types2.AuditEventSubmitStatusError
+			status.Error = err.Error()
+			statuses = append(statuses, status)
+			continue
+		}
+
+		var existing types.MCPAuditLog
+		err := c.db.WithContext(ctx).Where("event_id = ?", event.EventID).First(&existing).Error
+		if err == nil {
+			status.Status = types2.AuditEventSubmitStatusDuplicate
+			statuses = append(statuses, status)
+			continue
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, err
+		}
+
+		applyAuditEventPayloadLimits(&event)
+		row, err := types.MCPAuditLogFromAuditEvent(event)
+		if err != nil {
+			status.Status = types2.AuditEventSubmitStatusError
+			status.Error = err.Error()
+			statuses = append(statuses, status)
+			continue
+		}
+		row.UserID = userID
+		row.ReceivedAt = new(time.Now().UTC())
+
+		if err := c.encryptMCPAuditLog(ctx, &row); err != nil {
+			return nil, err
+		}
+		if err := c.db.WithContext(ctx).Create(&row).Error; err != nil {
+			if isDuplicateAuditEventError(err) {
+				status.Status = types2.AuditEventSubmitStatusDuplicate
+				statuses = append(statuses, status)
+				continue
+			}
+			return nil, err
+		}
+
+		statuses = append(statuses, status)
+	}
+	return statuses, nil
+}
+
+func validateAuditEvent(event types2.AuditEvent) error {
+	switch {
+	case event.EventID == "":
+		return fmt.Errorf("eventID is required")
+	case event.SourceType != types2.AuditLogSourceTypeLocalAgent:
+		return fmt.Errorf("unsupported sourceType %q", event.SourceType)
+	case event.EventType != types2.AuditLogEventTypeToolCall:
+		return fmt.Errorf("unsupported eventType %q", event.EventType)
+	case event.CreatedAt.Time.IsZero():
+		return fmt.Errorf("createdAt is required")
+	case event.DeviceID == "":
+		return fmt.Errorf("deviceID is required")
+	case event.Client.Name == "":
+		return fmt.Errorf("client.name is required")
+	case event.Client.Version == "":
+		return fmt.Errorf("client.version is required")
+	case event.Tool.Name == "":
+		return fmt.Errorf("tool.name is required")
+	case event.Tool.Type == "":
+		return fmt.Errorf("tool.type is required")
+	case event.Outcome != types2.AuditLogOutcomeSuccess && event.Outcome != types2.AuditLogOutcomeError:
+		return fmt.Errorf("unsupported outcome %q", event.Outcome)
+	}
+	return nil
+}
+
+func applyAuditEventPayloadLimits(event *types2.AuditEvent) {
+	meta := event.PayloadMeta
+	if meta == nil {
+		meta = map[string]types2.PayloadFieldMeta{}
+	}
+	event.Request = limitAuditEventRaw(meta, "request", event.Request, auditEventRequestLimit)
+	event.Response = limitAuditEventRaw(meta, "response", event.Response, auditEventResponseLimit)
+	event.RawEvent = limitAuditEventRaw(meta, "rawEvent", event.RawEvent, auditEventRawLimit)
+	event.Error = limitAuditEventString(meta, "error", event.Error, auditEventErrorLimit)
+	if len(meta) > 0 {
+		event.PayloadMeta = meta
+	}
+}
+
+func limitAuditEventRaw(meta map[string]types2.PayloadFieldMeta, field string, value json.RawMessage, limit int) json.RawMessage {
+	if len(value) <= limit {
+		return value
+	}
+	stored := auditEventJSONStringWithinLimit(value, limit)
+	meta[field] = types2.PayloadFieldMeta{
+		Truncated:     true,
+		OriginalBytes: int64(len(value)),
+		StoredBytes:   int64(len(stored)),
+	}
+	return stored
+}
+
+func limitAuditEventString(meta map[string]types2.PayloadFieldMeta, field, value string, limit int) string {
+	if len([]byte(value)) <= limit {
+		return value
+	}
+	stored := auditEventTruncateUTF8([]byte(value), limit)
+	meta[field] = types2.PayloadFieldMeta{
+		Truncated:     true,
+		OriginalBytes: int64(len([]byte(value))),
+		StoredBytes:   int64(len([]byte(stored))),
+	}
+	return stored
+}
+
+func auditEventJSONStringWithinLimit(b []byte, limit int) json.RawMessage {
+	if limit <= 2 {
+		return json.RawMessage(`""`)
+	}
+	n := limit - 2
+	for n > 0 {
+		s := auditEventTruncateUTF8(b, n)
+		quoted, _ := json.Marshal(s)
+		if len(quoted) <= limit {
+			return quoted
+		}
+		n = n / 2
+	}
+	return json.RawMessage(`""`)
+}
+
+func auditEventTruncateUTF8(b []byte, limit int) string {
+	if len(b) <= limit {
+		return string(b)
+	}
+	b = b[:limit]
+	for !utf8.Valid(b) && len(b) > 0 {
+		b = b[:len(b)-1]
+	}
+	return string(b)
+}
+
+// TODO(g-linville): let's use actual error types rather than checking the error message
+func isDuplicateAuditEventError(err error) bool {
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "duplicate") || strings.Contains(msg, "unique constraint")
+}
 
 func (c *Client) insertMCPAuditLogs(ctx context.Context, logs []types.MCPAuditLog) error {
 	if len(logs) == 0 {

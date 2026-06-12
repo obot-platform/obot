@@ -271,6 +271,9 @@ var (
 			"POST /api/devices/scans",
 			"GET /api/devices/scans",
 
+			// Allow basic users to submit local agent audit logs
+			"POST /api/audit-events",
+
 			// API key management for user's own keys
 			"POST /api/api-keys",
 			"GET /api/api-keys",
