@@ -51,6 +51,17 @@ func (c *Client) FindIdentitiesForUser(ctx context.Context, userID uint) ([]type
 	return identities, nil
 }
 
+func (c *Client) UserHasIdentityForAuthProvider(ctx context.Context, userID uint, authProviderName string) (bool, error) {
+	var count int64
+	if err := c.db.WithContext(ctx).Model(&types.Identity{}).
+		Where("user_id = ? AND auth_provider_name = ?", userID, authProviderName).
+		Count(&count).Error; err != nil {
+		return false, err
+	}
+
+	return count > 0, nil
+}
+
 // EnsureIdentity ensures that the given identity exists in the database, and returns the user associated with it.
 func (c *Client) EnsureIdentity(ctx context.Context, id *types.Identity, timezone string) (*types.User, error) {
 	return c.EnsureIdentityWithRole(ctx, id, timezone, c.emailsWithExplicitRoles[strings.ToLower(id.Email)])

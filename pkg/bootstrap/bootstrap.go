@@ -20,6 +20,7 @@ import (
 
 const (
 	ObotBootstrapCookie = "obot-bootstrap"
+	bootstrapUsername   = "bootstrap"
 )
 
 type Bootstrap struct {
@@ -239,11 +240,7 @@ func (b *Bootstrap) Logout(req api.Context) error {
 }
 
 func (b *Bootstrap) IsEnabled(req api.Context) error {
-	if !b.authEnabled {
-		return req.Write(map[string]bool{"enabled": false})
-	}
-
-	bootstrapEnabled, err := b.bootstrapEnabled(req.Context())
+	bootstrapEnabled, err := b.Enabled(req.Context())
 	if err != nil {
 		return err
 	}
@@ -251,28 +248,19 @@ func (b *Bootstrap) IsEnabled(req api.Context) error {
 	return req.Write(map[string]bool{"enabled": bootstrapEnabled})
 }
 
+func (b *Bootstrap) Enabled(ctx context.Context) (bool, error) {
+	if !b.authEnabled {
+		return false, nil
+	}
+
+	return b.bootstrapEnabled(ctx)
+}
+
 // bootstrapEnabled determines whether the bootstrap user is currently available for login.
-// It is only available when there are no configured auth providers, or no owner users in the database.
+// It is available while there is no configured auth provider, or until an owner
+// user exists from the currently configured auth provider.
 func (b *Bootstrap) bootstrapEnabled(ctx context.Context) (bool, error) {
 	if b.forceEnableBootstrap {
-		return true, nil
-	}
-
-	ownerUsers, err := b.gatewayClient.Users(ctx, types.UserQuery{
-		Role: types2.RoleOwner,
-	})
-	if err != nil {
-		return false, fmt.Errorf("failed to get owner users: %w", err)
-	}
-
-	hasOwnerUser := false
-	for _, u := range ownerUsers {
-		if u.Username != "bootstrap" && u.Email != "" {
-			hasOwnerUser = true
-			break
-		}
-	}
-	if !hasOwnerUser {
 		return true, nil
 	}
 
@@ -284,6 +272,30 @@ func (b *Bootstrap) bootstrapEnabled(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to get configured auth provider: %w", err)
 	}
+	if configuredAuthProvider == "" {
+		return true, nil
+	}
 
-	return configuredAuthProvider == "", nil
+	ownerUsers, err := b.gatewayClient.Users(ctx, types.UserQuery{
+		Role: types2.RoleOwner,
+	})
+	if err != nil {
+		return false, fmt.Errorf("failed to get owner users: %w", err)
+	}
+
+	for _, u := range ownerUsers {
+		if u.Username == bootstrapUsername || u.Email == "" {
+			continue
+		}
+
+		hasIdentity, err := b.gatewayClient.UserHasIdentityForAuthProvider(ctx, u.ID, configuredAuthProvider)
+		if err != nil {
+			return false, fmt.Errorf("failed to check owner auth provider identity: %w", err)
+		}
+		if hasIdentity {
+			return false, nil
+		}
+	}
+
+	return true, nil
 }

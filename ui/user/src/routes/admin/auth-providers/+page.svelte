@@ -12,7 +12,7 @@
 		RecommendedModelProviders
 	} from '$lib/constants';
 	import { HttpError } from '$lib/errors.js';
-	import { AdminService, Role, UserService } from '$lib/services';
+	import { AdminService } from '$lib/services';
 	import type { AuthProvider } from '$lib/services/admin/types.js';
 	import { errors, license, profile } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte.js';
@@ -76,12 +76,8 @@
 		);
 		if (!configuredAuthProvider) return;
 
-		const users = await UserService.listUsers();
-		const isOwnerExist = users.some((user) => user.role === Role.OWNER);
-
-		if (isOwnerExist) return;
-
-		// Only proceed if user is bootstrap user (not yet a real owner) and has a configured provider and owner does not exist
+		// Only proceed if user is bootstrap user and has a configured provider.
+		// The setup endpoint performs the authoritative owner/provider check.
 		if (!setupLoading && !setupTempLoginUrl) {
 			configuringAuthProvider = configuredAuthProvider;
 			handleOwnerSetup();
@@ -114,15 +110,6 @@
 
 	async function handleOwnerSetup() {
 		if (!configuringAuthProvider || setupLoading) return;
-
-		try {
-			const users = await UserService.listUsers();
-			const isOwnerExist = users.some((user) => user.role === Role.OWNER);
-
-			if (isOwnerExist) return;
-		} catch (err) {
-			errors.append(err);
-		}
 
 		setupLoading = true;
 

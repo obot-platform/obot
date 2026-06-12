@@ -1,20 +1,27 @@
 package setup
 
 import (
+	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
-	gwtypes "github.com/obot-platform/obot/pkg/gateway/types"
 )
 
 type Handler struct {
-	serverURL string
+	serverURL        string
+	bootstrapEnabler bootstrapEnabler
 }
 
-func NewHandler(serverURL string) *Handler {
+type bootstrapEnabler interface {
+	Enabled(context.Context) (bool, error)
+}
+
+func NewHandler(serverURL string, bootstrapEnabler bootstrapEnabler) *Handler {
 	return &Handler{
-		serverURL: serverURL,
+		serverURL:        serverURL,
+		bootstrapEnabler: bootstrapEnabler,
 	}
 }
 
@@ -33,23 +40,18 @@ func (h *Handler) requireBootstrap(req api.Context) error {
 // requireBootstrapEnabled checks if bootstrap mode is enabled.
 // Returns 404 if bootstrap is disabled.
 func (h *Handler) requireBootstrapEnabled(req api.Context) error {
-	// Query all Owner users
-	adminUsers, err := req.GatewayClient.Users(req.Context(), gwtypes.UserQuery{
-		Role: types.RoleOwner,
-	})
+	if h.bootstrapEnabler == nil {
+		return fmt.Errorf("bootstrap enabler is not set")
+	}
+
+	enabled, err := h.bootstrapEnabler.Enabled(req.Context())
 	if err != nil {
 		return err
 	}
-
-	// Check if any non-bootstrap Owner with email exists
-	for _, u := range adminUsers {
-		if u.Username != "bootstrap" && u.Email != "" {
-			log.Infof("Rejected setup endpoint because bootstrap mode is disabled")
-			// Bootstrap is disabled - return 404
-			return types.NewErrHTTP(http.StatusNotFound, "not found")
-		}
+	if !enabled {
+		log.Infof("Rejected setup endpoint because bootstrap mode is disabled")
+		return types.NewErrHTTP(http.StatusNotFound, "not found")
 	}
 
-	// Bootstrap is enabled
 	return nil
 }
