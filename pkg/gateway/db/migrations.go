@@ -229,6 +229,57 @@ func dropRunThreadAndRunStatesTables(tx *gorm.DB) error {
 	return nil
 }
 
+// migrateGenericAuditLogFields backfills the generic audit-event columns
+// (source_type, event_type, outcome) on audit log rows that predate them.
+// It must run after AutoMigrate has added the columns. EventID and ReceivedAt
+// intentionally stay NULL on historical rows: event IDs only exist to dedupe
+// new submissions, and there is no truthful receipt time to invent.
+func migrateGenericAuditLogFields(tx *gorm.DB) error {
+	if !tx.Migrator().HasTable(&types.MCPAuditLog{}) {
+		return nil
+	}
+
+	// Every row written before the generic columns existed came from the MCP
+	// gateway/shim path.
+	if err := tx.Exec(
+		"UPDATE mcp_audit_logs SET source_type = ? WHERE source_type IS NULL OR source_type = ''",
+		types.AuditLogSourceTypeMCP,
+	).Error; err != nil {
+		return fmt.Errorf("failed to backfill source_type: %w", err)
+	}
+
+	// Mirrors types.EventTypeForCallType.
+	if err := tx.Exec(`UPDATE mcp_audit_logs SET event_type = CASE call_type
+			WHEN 'tools/call' THEN ?
+			WHEN 'resources/read' THEN ?
+			WHEN 'prompts/get' THEN ?
+			ELSE ?
+		END
+		WHERE event_type IS NULL OR event_type = ''`,
+		types.AuditLogEventTypeToolCall,
+		types.AuditLogEventTypeResourceRead,
+		types.AuditLogEventTypePromptGet,
+		types.AuditLogEventTypeMCPRequest,
+	).Error; err != nil {
+		return fmt.Errorf("failed to backfill event_type: %w", err)
+	}
+
+	// Mirrors types.OutcomeForResult.
+	if err := tx.Exec(`UPDATE mcp_audit_logs SET outcome = CASE
+			WHEN (error IS NULL OR error = '') AND response_status = 0 THEN ''
+			WHEN (error IS NULL OR error = '') AND response_status < 400 THEN ?
+			ELSE ?
+		END
+		WHERE outcome IS NULL OR outcome = ''`,
+		types.AuditLogOutcomeSuccess,
+		types.AuditLogOutcomeError,
+	).Error; err != nil {
+		return fmt.Errorf("failed to backfill outcome: %w", err)
+	}
+
+	return nil
+}
+
 // migrateIfEntryNotFoundInMigrationsTable runs f only when the named migration
 // has not already been recorded in the migrations table.
 func migrateIfEntryNotFoundInMigrationsTable(tx *gorm.DB, name string, f func(*gorm.DB) error) error {
