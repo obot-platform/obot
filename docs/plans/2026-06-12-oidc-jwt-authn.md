@@ -102,14 +102,14 @@ func TestLoadConfigFromEnv_AllFieldsPresent(t *testing.T) {
 		"OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ISSUER":                 "https://studio.example.com/api/auth/",
 		"OBOT_GENERIC_OAUTH_AUTH_PROVIDER_AUDIENCE":               "obot-default",
 		"OBOT_GENERIC_OAUTH_AUTH_PROVIDER_BACKEND_PRINCIPAL":      "studio-deployment",
-		"OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ELIGIBILITY_CLAIM_NAME": "studio_eligible",
+		"OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ELIGIBILITY_CLAIM_NAME": "eligible",
 	}
 	cfg, err := LoadConfigFromEnv(envGetter(env))
 	require.NoError(t, err)
 	assert.Equal(t, "https://studio.example.com/api/auth", cfg.IssuerURL)
 	assert.Equal(t, "obot-default", cfg.Audience)
 	assert.Equal(t, "studio-deployment", cfg.BackendPrincipal)
-	assert.Equal(t, "studio_eligible", cfg.EligibilityClaimName)
+	assert.Equal(t, "eligible", cfg.EligibilityClaimName)
 	assert.True(t, cfg.Enabled())
 }
 
@@ -120,7 +120,7 @@ func TestLoadConfigFromEnv_DefaultsAndDisabled(t *testing.T) {
 	cfg, err := LoadConfigFromEnv(envGetter(env))
 	require.NoError(t, err)
 	assert.False(t, cfg.Enabled())                              // empty audience -> disabled
-	assert.Equal(t, "studio_eligible", cfg.EligibilityClaimName) // default
+	assert.Equal(t, "eligible", cfg.EligibilityClaimName) // default
 }
 
 func envGetter(env map[string]string) func(string) string {
@@ -152,7 +152,7 @@ type Config struct {
 	EligibilityClaimName string
 }
 
-const defaultEligibilityClaimName = "studio_eligible"
+const defaultEligibilityClaimName = "eligible"
 
 // Enabled reports whether the authenticator is functional. Empty audience
 // or issuer means the deployment has not opted in; the authenticator is
@@ -356,7 +356,7 @@ func TestVerifier_AcceptsValidToken(t *testing.T) {
 	issuer, cleanup := testutil.NewTestIssuer(t, priv, "kid-X")
 	defer cleanup()
 
-	cfg := Config{IssuerURL: issuer.URL, Audience: "obot-default", EligibilityClaimName: "studio_eligible"}
+	cfg := Config{IssuerURL: issuer.URL, Audience: "obot-default", EligibilityClaimName: "eligible"}
 	v, err := NewVerifier(context.Background(), cfg)
 	require.NoError(t, err)
 
@@ -371,7 +371,7 @@ func TestVerifier_ReturnsNotMineForDifferentIssuer(t *testing.T) {
 	issuer, cleanup := testutil.NewTestIssuer(t, priv, "kid-X")
 	defer cleanup()
 
-	cfg := Config{IssuerURL: issuer.URL, Audience: "obot-default", EligibilityClaimName: "studio_eligible"}
+	cfg := Config{IssuerURL: issuer.URL, Audience: "obot-default", EligibilityClaimName: "eligible"}
 	v, err := NewVerifier(context.Background(), cfg)
 	require.NoError(t, err)
 
@@ -386,7 +386,7 @@ func TestVerifier_RejectsWrongAudience(t *testing.T) {
 	issuer, cleanup := testutil.NewTestIssuer(t, priv, "kid-X")
 	defer cleanup()
 
-	cfg := Config{IssuerURL: issuer.URL, Audience: "obot-default", EligibilityClaimName: "studio_eligible"}
+	cfg := Config{IssuerURL: issuer.URL, Audience: "obot-default", EligibilityClaimName: "eligible"}
 	v, err := NewVerifier(context.Background(), cfg)
 	require.NoError(t, err)
 
@@ -401,12 +401,12 @@ func TestVerifier_ExtractsCustomClaims(t *testing.T) {
 	issuer, cleanup := testutil.NewTestIssuer(t, priv, "kid-X")
 	defer cleanup()
 
-	cfg := Config{IssuerURL: issuer.URL, Audience: "obot-default", EligibilityClaimName: "studio_eligible"}
+	cfg := Config{IssuerURL: issuer.URL, Audience: "obot-default", EligibilityClaimName: "eligible"}
 	v, err := NewVerifier(context.Background(), cfg)
 	require.NoError(t, err)
 
 	tok := testutil.MintTestJWT(t, priv, "kid-X", issuer.URL, "obot-default", "user-1", 60*time.Second,
-		map[string]any{"studio_eligible": true, "email": "a@example.com", "name": "Alice"})
+		map[string]any{"eligible": true, "email": "a@example.com", "name": "Alice"})
 	claims, err := v.Verify(context.Background(), tok)
 	require.NoError(t, err)
 	assert.True(t, claims.Eligible)
@@ -596,7 +596,7 @@ func TestAuthenticator_BackendPrincipalGrantsAdminAndOwner(t *testing.T) {
 		IssuerURL:            issuer.URL,
 		Audience:             "obot-default",
 		BackendPrincipal:     "studio-deployment",
-		EligibilityClaimName: "studio_eligible",
+		EligibilityClaimName: "eligible",
 	}
 	v, err := NewVerifier(context.Background(), cfg)
 	require.NoError(t, err)
@@ -831,7 +831,7 @@ func TestAuthenticator_UserSubjectResolvesViaIdentity(t *testing.T) {
 		IssuerURL:            issuer.URL,
 		Audience:             "obot-default",
 		BackendPrincipal:     "studio-deployment",
-		EligibilityClaimName: "studio_eligible",
+		EligibilityClaimName: "eligible",
 	}
 	v, err := NewVerifier(context.Background(), cfg)
 	require.NoError(t, err)
@@ -848,7 +848,7 @@ func TestAuthenticator_UserSubjectResolvesViaIdentity(t *testing.T) {
 	auth := NewAuthenticator(cfg, v, stub)
 
 	tok := testutil.MintTestJWT(t, priv, "kid-X", issuer.URL, "obot-default", "user-123",
-		60*time.Second, map[string]any{"studio_eligible": true, "email": "alice@example.com", "name": "Alice"})
+		60*time.Second, map[string]any{"eligible": true, "email": "alice@example.com", "name": "Alice"})
 	req, _ := http.NewRequest("GET", "/api/mcp-servers", nil)
 	req.Header.Set("Authorization", "Bearer "+tok)
 
@@ -866,14 +866,14 @@ func TestAuthenticator_UserSubjectFailsWhenIneligible(t *testing.T) {
 	cfg := Config{
 		IssuerURL:            issuer.URL,
 		Audience:             "obot-default",
-		EligibilityClaimName: "studio_eligible",
+		EligibilityClaimName: "eligible",
 	}
 	v, err := NewVerifier(context.Background(), cfg)
 	require.NoError(t, err)
 	auth := NewAuthenticator(cfg, v, &stubIdentity{})
 
 	tok := testutil.MintTestJWT(t, priv, "kid-X", issuer.URL, "obot-default", "user-123",
-		60*time.Second, map[string]any{"studio_eligible": false})
+		60*time.Second, map[string]any{"eligible": false})
 	req, _ := http.NewRequest("GET", "/", nil)
 	req.Header.Set("Authorization", "Bearer "+tok)
 
@@ -1243,7 +1243,7 @@ func TestIntegration_BackendPrincipalJWTReachesCatalog(t *testing.T) {
 		IssuerURL:            issuer.URL,
 		Audience:             "obot-default",
 		BackendPrincipal:     "studio-deployment",
-		EligibilityClaimName: "studio_eligible",
+		EligibilityClaimName: "eligible",
 	}
 	v, err := oidcjwt.NewVerifier(context.Background(), cfg)
 	require.NoError(t, err)
@@ -1324,7 +1324,7 @@ Add the keys near the existing authentication config keys in `chart/values.yaml`
   # config.OBOT_GENERIC_OAUTH_AUTH_PROVIDER_BACKEND_PRINCIPAL -- JWT subject that maps to Obot admin/owner for backend service calls. Empty disables backend-principal recognition.
   OBOT_GENERIC_OAUTH_AUTH_PROVIDER_BACKEND_PRINCIPAL: ""
   # config.OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ELIGIBILITY_CLAIM_NAME -- Claim name used to gate user-subject JWTs.
-  OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ELIGIBILITY_CLAIM_NAME: "studio_eligible"
+  OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ELIGIBILITY_CLAIM_NAME: "eligible"
 ```
 
 Do not add a new top-level `genericOAuthAuthProvider:` block. This chart renders all `config:` keys into a config secret (`chart/templates/secret.yaml`) and mounts that secret with `envFrom` in `chart/templates/deployment.yaml`.
@@ -1490,7 +1490,7 @@ git push
 ## Acceptance Criteria
 
 - A backend-principal JWT signed by a test issuer authenticates as a user with groups `[Admin, Owner]`, and a handler mimicking `adminAndOwnerRules` returns 200. Verified by `TestIntegration_BackendPrincipalJWTReachesCatalog`.
-- A user-subject JWT with `studio_eligible: true` resolves through the gateway identity layer to an Obot user. Verified by `TestAuthenticator_UserSubjectResolvesViaIdentity`.
+- A user-subject JWT with `eligible: true` resolves through the gateway identity layer to an Obot user. Verified by `TestAuthenticator_UserSubjectResolvesViaIdentity`.
 - A user-subject JWT without the eligibility claim is refused with a real auth error. Verified by `TestAuthenticator_UserSubjectFailsWhenIneligible`.
 - A non-JWT bearer, no `Authorization` header, or a JWT for a different issuer falls through unchanged. Verified by `TestAuthenticator_NoBearerFallsThrough`, `TestAuthenticator_DisabledConfigFallsThrough`, `TestAuthenticator_DifferentIssuerFallsThrough`.
 - A JWT for the right issuer but wrong audience is a real error ("ours but invalid"). Verified by `TestVerifier_RejectsWrongAudience`.
