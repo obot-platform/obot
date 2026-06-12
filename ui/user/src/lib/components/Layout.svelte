@@ -57,7 +57,6 @@
 		ChevronDown,
 		ChevronLeft,
 		ChevronUp,
-		Palette,
 		RadioTower,
 		Server,
 		Users,
@@ -70,9 +69,9 @@
 		Notebook,
 		Laptop,
 		PanelLeftOpen,
-		KeySquare,
 		Settings,
-		PanelLeftClose
+		PanelLeftClose,
+		LayoutGrid
 	} from 'lucide-svelte';
 	import { type Component, type Snippet, untrack } from 'svelte';
 	import { fade, slide, type TransitionConfig } from 'svelte/transition';
@@ -509,20 +508,33 @@
 					},
 					...agentManagementLinks,
 					{
-						id: 'app-preferences',
-						href: '/admin/app-preferences',
-						icon: Palette,
-						label: 'Branding',
-						disabled: false,
-						collapsible: false
-					},
-					{
-						id: 'license',
-						href: '/admin/license',
-						icon: KeySquare,
-						label: 'License',
-						disabled: false,
-						collapsible: false
+						id: 'app-management',
+						icon: LayoutGrid,
+						label: 'App Management',
+						collapsible: true,
+						items: [
+							{
+								id: 'app-preferences',
+								href: '/admin/app-preferences',
+								label: 'Branding',
+								disabled: false,
+								collapsible: false
+							},
+							{
+								id: 'app-notifications',
+								href: '/admin/app-notifications',
+								label: 'Notifications',
+								disabled: false,
+								collapsible: false
+							},
+							{
+								id: 'license',
+								href: '/admin/license',
+								label: 'License',
+								disabled: false,
+								collapsible: false
+							}
+						]
 					}
 				]
 			: [

@@ -110,6 +110,7 @@ var (
 		"GET /api/eula",
 		"PUT /api/eula",
 		"PUT /api/app-preferences",
+		"PUT /api/app-notifications",
 
 		// Allow admins to upload custom images
 		"POST /api/image/upload",
@@ -206,6 +207,8 @@ var (
 			"GET /api/healthz",
 
 			"GET /api/app-preferences",
+
+			"GET /api/app-notifications",
 
 			"GET /api/auth-providers",
 			"GET /api/auth-providers/{id}",

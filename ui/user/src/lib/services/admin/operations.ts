@@ -92,6 +92,8 @@ import type {
 	OAuthDebuggerTokenRequest,
 	OAuthToken,
 	AppPreferencesManifest,
+	AppNotifications,
+	AppNotificationsManifest,
 	License,
 	LicenseManifest
 } from './types';
@@ -154,6 +156,19 @@ export async function updateAppPreferences(
 	opts?: { fetch?: Fetcher }
 ) {
 	return (await doPut('/app-preferences', preferences, opts)) as AppPreferences;
+}
+
+// App notifications
+
+export async function getAppNotifications(opts?: { fetch?: Fetcher }) {
+	return (await doGet('/app-notifications', opts)) as AppNotifications;
+}
+
+export async function updateAppNotifications(
+	notifications: AppNotificationsManifest,
+	opts?: { fetch?: Fetcher }
+) {
+	return (await doPut('/app-notifications', notifications, opts)) as AppNotifications;
 }
 
 // Audit log exports
