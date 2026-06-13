@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -36,9 +37,8 @@ func (s *Server) getCurrentUser(apiContext api.Context) error {
 	if name != "" && namespace != "" {
 		providerURL, err := s.dispatcher.URLForAuthProvider(apiContext.Context(), namespace, name)
 		if err != nil {
-			return fmt.Errorf("failed to get auth provider URL: %v", err)
-		}
-		if err = apiContext.GatewayClient.UpdateProfileIfNeeded(apiContext.Context(), user, name, namespace, providerURL.String()); err != nil {
+			pkgLog.Warnf("failed to get auth provider URL for %s/%s: %v", namespace, name, err)
+		} else if err = apiContext.GatewayClient.UpdateProfileIfNeeded(apiContext.Context(), user, name, namespace, providerURL.String()); err != nil {
 			pkgLog.Warnf("failed to update profile icon for user %s: %v", user.Username, err)
 		}
 	}
@@ -50,8 +50,16 @@ func (s *Server) getCurrentUser(apiContext api.Context) error {
 		pkgLog.Warnf("failed to resolve effective role for user %s: %v", user.Username, err)
 		effectiveRole = user.Role
 	}
+	effectiveRole = applyRequestTimeRoleUplift(effectiveRole, apiContext.User.GetGroups())
 
 	return apiContext.Write(types.ConvertUserWithEffectiveRole(user, apiContext.GatewayClient.HasExplicitRole(user.Email) != types2.RoleUnknown, name, effectiveRole))
+}
+
+func applyRequestTimeRoleUplift(effectiveRole types2.Role, requestGroups []string) types2.Role {
+	if slices.Contains(requestGroups, types2.GroupAdmin) && !effectiveRole.HasRole(types2.RoleAdmin) {
+		return effectiveRole.SwitchBaseRole(types2.RoleAdmin)
+	}
+	return effectiveRole
 }
 
 func (s *Server) getUsers(apiContext api.Context) error {

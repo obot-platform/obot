@@ -17,7 +17,7 @@ func TestAuthenticateRequestPassesGenericOAuthMetadata(t *testing.T) {
 		if err := json.NewEncoder(w).Encode(serializableState{
 			AccessToken:       "access-token",
 			PreferredUsername: "alice@example.com",
-			User:              "iss:https://issuer.example.com/\x00sub:alice",
+			User:              "alice",
 			Email:             "alice@example.com",
 			Issuer:            "https://issuer.example.com/",
 			EmailVerified:     &emailVerified,
@@ -44,6 +44,12 @@ func TestAuthenticateRequestPassesGenericOAuthMetadata(t *testing.T) {
 	extra := resp.User.GetExtra()
 	if got := extra["auth_provider_issuer"]; len(got) != 1 || got[0] != "https://issuer.example.com/" {
 		t.Fatalf("expected auth_provider_issuer extra, got %#v", got)
+	}
+	if resp.User.GetUID() != "alice" {
+		t.Fatalf("expected provider user ID to be raw subject, got %q", resp.User.GetUID())
+	}
+	if got := extra["auth_provider_user_id"]; len(got) != 1 || got[0] != "alice" {
+		t.Fatalf("expected auth_provider_user_id to be raw subject, got %#v", got)
 	}
 	if got := extra["auth_provider_email_verified"]; len(got) != 1 || got[0] != "true" {
 		t.Fatalf("expected auth_provider_email_verified extra, got %#v", got)

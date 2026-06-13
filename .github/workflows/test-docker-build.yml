@@ -7,6 +7,11 @@ on:
       - docs/**
       - chart/**
 
+env:
+  BASE_IMAGE: ghcr.io/accelerate-data/obot/base:latest
+  PROVIDERS_IMAGE: ghcr.io/accelerate-data/providers:latest
+  ENCRYPTION_BINS_IMAGE: ghcr.io/accelerate-data/providers/encryption-bins:latest
+
 jobs:
   build:
     runs-on: depot-ubuntu-22.04
@@ -24,4 +29,6 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           build-args: |
-            BASE_IMAGE=ghcr.io/obot-platform/obot/base:latest
+            BASE_IMAGE=${{ env.BASE_IMAGE }}
+            PROVIDERS_IMAGE=${{ env.PROVIDERS_IMAGE }}
+            ENCRYPTION_BINS_IMAGE=${{ env.ENCRYPTION_BINS_IMAGE }}
