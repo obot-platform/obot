@@ -68,12 +68,12 @@ of the same Studio/Obot JWT integration because the generic OAuth provider must
 come from our `~/src/providers` fork when the Obot image is built.
 
 - [x] **Provider image source:** `~/src/providers` publishes the provider bundle
-  to `ghcr.io/accelerate-data/providers:<tag>` and the encryption provider
-  bundle to `ghcr.io/accelerate-data/providers/encryption-bins:<tag>`.
+  to `ghcr.io/accelerate-data/providers-vibedata:<tag>` and the encryption provider
+  bundle to `ghcr.io/accelerate-data/providers-vibedata/encryption-bins:<tag>`.
 - [x] **Obot image source:** `~/src/obot` builds `ghcr.io/accelerate-data/obot-vibedata:<tag>`
   from this fork and passes Docker build args pointing at the matching
-  `ghcr.io/accelerate-data/providers:<tag>` and
-  `ghcr.io/accelerate-data/providers/encryption-bins:<tag>` images.
+  `ghcr.io/accelerate-data/providers-vibedata:<tag>` and
+  `ghcr.io/accelerate-data/providers-vibedata/encryption-bins:<tag>` images.
 - [x] **No Studio image-build coupling:** Studio backend/frontend image builds
   remain unchanged. Studio only composes the released Obot image alongside the
   existing Studio frontend/backend images.
@@ -100,14 +100,14 @@ come from our `~/src/providers` fork when the Obot image is built.
 - Modify: `Makefile`
 
 - [x] **Step 1:** Add workflow-level image constants for the providers fork:
-  `PROVIDERS_IMAGE=ghcr.io/accelerate-data/providers` and
-  `ENCRYPTION_BINS_IMAGE=ghcr.io/accelerate-data/providers/encryption-bins`.
+  `PROVIDERS_IMAGE=ghcr.io/accelerate-data/providers-vibedata` and
+  `ENCRYPTION_BINS_IMAGE=ghcr.io/accelerate-data/providers-vibedata/encryption-bins`.
 - [x] **Step 2:** Replace hardcoded `ghcr.io/obot-platform/providers` tag and
   signing references with those constants.
 - [x] **Step 3:** Keep pull-request builds non-pushing, but make branch and tag
   pushes publish under `ghcr.io/accelerate-data`.
 - [x] **Step 4:** Update the local `docker-build` target so manual provider
-  image builds also use `ghcr.io/accelerate-data/providers:latest`.
+  image builds also use `ghcr.io/accelerate-data/providers-vibedata:latest`.
 - [x] **Step 5:** Verify with YAML-aware or textual checks that no provider
   workflow publish target remains under `ghcr.io/obot-platform`.
 
@@ -120,8 +120,8 @@ come from our `~/src/providers` fork when the Obot image is built.
 - Modify: `docs/plans/2026-06-12-oidc-jwt-authn.md`
 
 - [x] **Step 1:** Add workflow environment constants for
-  `PROVIDERS_IMAGE=ghcr.io/accelerate-data/providers`,
-  `ENCRYPTION_BINS_IMAGE=ghcr.io/accelerate-data/providers/encryption-bins`,
+  `PROVIDERS_IMAGE=ghcr.io/accelerate-data/providers-vibedata`,
+  `ENCRYPTION_BINS_IMAGE=ghcr.io/accelerate-data/providers-vibedata/encryption-bins`,
   and `BASE_IMAGE=ghcr.io/accelerate-data/obot/base:latest`.
 - [x] **Step 2:** Pass `PROVIDERS_IMAGE`, `ENCRYPTION_BINS_IMAGE`, and
   `ENTERPRISE_IMAGE` build args to the Vibedata Obot Docker build. Tagged Obot

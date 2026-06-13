@@ -9,8 +9,8 @@ on:
 
 env:
   BASE_IMAGE: ghcr.io/accelerate-data/obot/base:latest
-  PROVIDERS_IMAGE: ghcr.io/accelerate-data/providers:latest
-  ENCRYPTION_BINS_IMAGE: ghcr.io/accelerate-data/providers/encryption-bins:latest
+  PROVIDERS_IMAGE: ghcr.io/accelerate-data/providers-vibedata:latest
+  ENCRYPTION_BINS_IMAGE: ghcr.io/accelerate-data/providers-vibedata/encryption-bins:latest
 
 jobs:
   build:

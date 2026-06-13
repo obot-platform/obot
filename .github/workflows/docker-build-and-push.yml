@@ -10,8 +10,8 @@ permissions:
 env:
   OBOT_IMAGE: ghcr.io/accelerate-data/obot-vibedata
   BASE_IMAGE: ghcr.io/accelerate-data/obot/base:latest
-  PROVIDERS_IMAGE: ghcr.io/accelerate-data/providers
-  ENCRYPTION_BINS_IMAGE: ghcr.io/accelerate-data/providers/encryption-bins
+  PROVIDERS_IMAGE: ghcr.io/accelerate-data/providers-vibedata
+  ENCRYPTION_BINS_IMAGE: ghcr.io/accelerate-data/providers-vibedata/encryption-bins
   PROVIDER_IMAGE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || 'latest' }}
 
 on:
