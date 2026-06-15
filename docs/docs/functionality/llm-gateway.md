@@ -53,14 +53,8 @@ Your API key for the gateway must include LLM proxy access. Print one with the C
 obot login --url https://obot.example.com --scope llm --print-token
 ```
 
-This logs you in (opening a browser if needed) and prints the key to stdout, so you can capture it directly into an environment variable:
-
-```bash
-export OBOT_TOKEN="$(obot login --url https://obot.example.com --scope llm --print-token)"
-```
-
 :::note
-The `Logged in to ...` confirmation is printed to stderr, so command substitution captures only the key. Add `--no-expiration` if you want a key that doesn't expire.
+Add `--no-expiration` if you want a key that doesn't expire.
 :::
 
 ## Quick start with curl
