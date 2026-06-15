@@ -751,8 +751,6 @@ export interface ToolReferenceList {
 // Version
 
 export interface Version {
-	emailDomain?: string;
-	dockerSupported?: boolean;
 	sessionStore?: string;
 	obot?: string;
 	authEnabled?: boolean;

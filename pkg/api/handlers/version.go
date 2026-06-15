@@ -82,7 +82,7 @@ func NewVersionHandler(ctx context.Context, opts VersionHandlerOptions) (*Versio
 	currentVersion, _, _ := strings.Cut(version.Get().String(), "+")
 	currentVersion, _, _ = strings.Cut(currentVersion, "-")
 
-	// Don't start the upgrade check if the interval is non-positive or if this is a development version.
+	// Don't start the upgrade check if explicitly disabled or if this is a development version.
 	if !opts.DisableUpdateCheck && (!strings.HasPrefix(currentVersion, "v0.0.0") || os.Getenv("OBOT_FORCE_UPGRADE_CHECK") == "true") {
 		p, err := opts.GatewayClient.GetProperty(ctx, installationIDPropertyKey)
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -118,12 +118,13 @@ func (v *VersionHandler) getVersionResponse(ctx context.Context) (map[string]any
 	if err != nil {
 		return nil, err
 	}
+
 	v.upgradeLock.RLock()
 	upgradeAvailable := v.upgradeAvailable
 	latestVersion := v.latestVersion
 	v.upgradeLock.RUnlock()
 
-	return map[string]any{
+	values := map[string]any{
 		"upgradeAvailable":             upgradeAvailable,
 		"latestVersion":                latestVersion,
 		"obot":                         version.Get().String(),
@@ -138,7 +139,19 @@ func (v *VersionHandler) getVersionResponse(ctx context.Context) (map[string]any
 		"agentsEnabled":                v.AgentsEnabled,
 		"licenseEntitlementViolations": violations,
 		"missingLicenseEntitlements":   missingEntitlements(violations),
-	}, nil
+	}
+
+	if versions := os.Getenv("OBOT_SERVER_VERSIONS"); versions != "" {
+		for pair := range strings.SplitSeq(versions, ",") {
+			key, value, ok := strings.Cut(pair, "=")
+			if !ok {
+				continue
+			}
+			values[strings.TrimSpace(key)] = strings.TrimSpace(value)
+		}
+	}
+
+	return values, nil
 }
 
 func missingEntitlements(violations []license.ProviderViolation) []string {
