@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -211,6 +212,57 @@ func TestAuditSetupClientSelectionAllDetectedAndExplicit(t *testing.T) {
 	}
 	if len(explicit) != 1 || explicit[0] != auditClientVSCode {
 		t.Fatalf("explicit clients = %v, want [vscode]", explicit)
+	}
+}
+
+func TestAuditSetupPromptsForClientsWhenOmitted(t *testing.T) {
+	home := t.TempDir()
+	var stdout bytes.Buffer
+	setup := &AuditSetup{}
+	cmd := setupTestCommand(strings.NewReader("vscode\n"), &stdout, nil)
+
+	clients, err := setup.resolveClients(t.Context(), cmd, home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(clients) != 1 || clients[0] != auditClientVSCode {
+		t.Fatalf("clients = %v, want [vscode]", clients)
+	}
+	output := stdout.String()
+	if !strings.Contains(output, "Choose local client audit hook targets") {
+		t.Fatalf("expected client prompt, got:\n%s", output)
+	}
+	if !strings.Contains(output, "vscode") {
+		t.Fatalf("expected vscode prompt option, got:\n%s", output)
+	}
+}
+
+func TestAuditSetupPromptDefaultUsesDetectedClients(t *testing.T) {
+	home := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(home, ".codex"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	var stdout bytes.Buffer
+	setup := &AuditSetup{}
+	cmd := setupTestCommand(strings.NewReader("\n"), &stdout, nil)
+
+	oldLookPath := lookPath
+	lookPath = func(string) (string, error) {
+		return "", os.ErrNotExist
+	}
+	defer func() {
+		lookPath = oldLookPath
+	}()
+
+	clients, err := setup.resolveClients(t.Context(), cmd, home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(clients) != 1 || clients[0] != auditClientCodex {
+		t.Fatalf("clients = %v, want [codex]", clients)
+	}
+	if !strings.Contains(stdout.String(), "press Enter for detected") {
+		t.Fatalf("expected detected default prompt, got:\n%s", stdout.String())
 	}
 }
 

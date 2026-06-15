@@ -3,13 +3,14 @@ package cli
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"text/tabwriter"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 )
 
 type AuditSetup struct {
@@ -39,7 +40,7 @@ func (s *AuditSetup) Run(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	clients, err := s.resolveClients(cmd, ctx, home)
+	clients, err := s.resolveClients(ctx, cmd, home)
 	if err != nil {
 		return err
 	}
@@ -73,31 +74,82 @@ func (s *AuditSetup) Run(cmd *cobra.Command, _ []string) error {
 	return w.Flush()
 }
 
-func (s *AuditSetup) resolveClients(cmd *cobra.Command, ctx context.Context, home string) ([]string, error) {
+func (s *AuditSetup) resolveClients(ctx context.Context, cmd *cobra.Command, home string) ([]string, error) {
 	raw := strings.TrimSpace(s.Clients)
 	switch {
 	case raw != "":
+		return parseAuditSetupClients(ctx, home, raw)
 	case s.Yes:
-		raw = "detected"
-	case s.NonInteractive || !auditSetupInteractive(cmd):
+		return parseAuditSetupClients(ctx, home, "detected")
+	case s.NonInteractive:
 		return nil, fmt.Errorf("--clients is required in non-interactive mode unless --yes is provided")
 	default:
+		return promptAuditSetupClients(ctx, cmd, home)
+	}
+}
+
+func promptAuditSetupClients(ctx context.Context, cmd *cobra.Command, home string) ([]string, error) {
+	if setupPromptSupportsMenu(cmd) {
+		return promptAuditSetupClientsMenu(ctx, cmd, home)
+	}
+	return promptAuditSetupClientsLine(ctx, cmd, home)
+}
+
+func promptAuditSetupClientsMenu(ctx context.Context, cmd *cobra.Command, home string) ([]string, error) {
+	detected := detectedAuditClients(ctx, home)
+	options := auditSupportedClients()
+	selected := make([]string, 0, len(options))
+	for _, client := range options {
+		if detected[client] {
+			selected = append(selected, client)
+		}
+	}
+
+	prompt := &survey.MultiSelect{
+		Message:  "Install Obot audit hooks into:",
+		Options:  options,
+		Default:  selected,
+		PageSize: len(options),
+		Description: func(value string, _ int) string {
+			if detected[value] {
+				return "detected"
+			}
+			return "not detected"
+		},
+	}
+
+	in := cmd.InOrStdin().(interface {
+		io.Reader
+		Fd() uintptr
+	})
+	out := cmd.OutOrStdout().(interface {
+		io.Writer
+		Fd() uintptr
+	})
+	if err := survey.AskOne(prompt, &selected, survey.WithStdio(in, out, cmd.ErrOrStderr())); err != nil {
+		return nil, err
+	}
+	return selected, nil
+}
+
+func promptAuditSetupClientsLine(ctx context.Context, cmd *cobra.Command, home string) ([]string, error) {
+	detected := detectedAuditClients(ctx, home)
+	fmt.Fprintln(cmd.OutOrStdout(), "Choose local client audit hook targets:")
+	for _, client := range auditSupportedClients() {
+		status := "not detected"
+		if detected[client] {
+			status = "detected"
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "  %-11s %s\n", client, status)
+	}
+	raw, err := promptLine(cmd, "Clients to support (comma-separated; press Enter for detected): ")
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(raw) == "" {
 		raw = "detected"
 	}
 	return parseAuditSetupClients(ctx, home, raw)
-}
-
-func auditSetupInteractive(cmd *cobra.Command) bool {
-	in, ok := cmd.InOrStdin().(interface {
-		Fd() uintptr
-	})
-	if !ok || !term.IsTerminal(int(in.Fd())) {
-		return false
-	}
-	out, ok := cmd.OutOrStdout().(interface {
-		Fd() uintptr
-	})
-	return ok && term.IsTerminal(int(out.Fd()))
 }
 
 func parseAuditSetupClients(ctx context.Context, home, raw string) ([]string, error) {
