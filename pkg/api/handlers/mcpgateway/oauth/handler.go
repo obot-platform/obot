@@ -1,12 +1,15 @@
 package oauth
 
 import (
+	"net/http"
+	"sync"
 	"time"
 
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	"github.com/obot-platform/obot/pkg/api/server"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	"github.com/obot-platform/obot/pkg/mcp"
+	"github.com/obot-platform/obot/pkg/system"
 )
 
 type handler struct {
@@ -16,16 +19,21 @@ type handler struct {
 	tokenStore       mcp.GlobalTokenStore
 	baseURL          string
 	clientExpiration time.Duration
+
+	clientMetadataHTTPClient *http.Client
+	clientMetadataCache      map[string]clientMetadataCacheEntry
+	clientMetadataCacheLock  sync.Mutex
 }
 
 func SetupHandlers(oauthChecker *MCPOAuthHandlerFactory, tokenStore mcp.GlobalTokenStore, tokenService *persistent.TokenService, oauthConfig handlers.OAuthAuthorizationServerConfig, baseURL string, clientSecretExpiration time.Duration, mux *server.Server) {
 	h := &handler{
-		tokenStore:       tokenStore,
-		tokenService:     tokenService,
-		oauthConfig:      oauthConfig,
-		baseURL:          baseURL,
-		oauthChecker:     oauthChecker,
-		clientExpiration: clientSecretExpiration,
+		tokenStore:          tokenStore,
+		tokenService:        tokenService,
+		oauthConfig:         oauthConfig,
+		baseURL:             baseURL,
+		oauthChecker:        oauthChecker,
+		clientExpiration:    clientSecretExpiration,
+		clientMetadataCache: map[string]clientMetadataCacheEntry{},
 	}
 
 	// Expose two sets of endpoints: one for clients that look at the oauth-protected-resource metadata and one for clients that don't.
@@ -56,6 +64,7 @@ func SetupHandlers(oauthChecker *MCPOAuthHandlerFactory, tokenStore mcp.GlobalTo
 
 	mux.HandleFunc("GET /oauth/jwks.json", h.tokenService.ServeJWKS)
 	mux.HandleFunc("POST /oauth/replace-jwks", h.tokenService.ReplaceJWK)
+	mux.HandleFunc("GET "+system.OAuthClientIDMetadataPath, h.obotClientIDMetadata)
 
 	mux.HandleFunc("GET /api/oauth/composite/{mcp_id}", h.checkCompositeAuth)
 

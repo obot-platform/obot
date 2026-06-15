@@ -122,8 +122,8 @@ github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.21 h1:c31//R3x
 github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.21/go.mod h1:r6+pf23ouCB718FUxaqzZdbpYFyDtehyZcmP5KL9FkA=
 github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.19.21 h1:ZlvrNcHSFFWURB8avufQq9gFsheUgjVD9536obIknfM=
 github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.19.21/go.mod h1:cv3TNhVrssKR0O/xxLJVRfd2oazSnZnkUeTf6ctUwfQ=
-github.com/aws/aws-sdk-go-v2/service/s3 v1.94.0 h1:SWTxh/EcUCDVqi/0s26V6pVUq0BBG7kx0tDTmF/hCgA=
-github.com/aws/aws-sdk-go-v2/service/s3 v1.94.0/go.mod h1:79S2BdqCJpScXZA2y+cpZuocWsjGjJINyXnOsf5DTz8=
+github.com/aws/aws-sdk-go-v2/service/s3 v1.97.3 h1:HwxWTbTrIHm5qY+CAEur0s/figc3qwvLWsNkF4RPToo=
+github.com/aws/aws-sdk-go-v2/service/s3 v1.97.3/go.mod h1:uoA43SdFwacedBfSgfFSjjCvYe8aYBS7EnU5GZ/YKMM=
 github.com/aws/aws-sdk-go-v2/service/signin v1.0.9 h1:QKZH0S178gCmFEgst8hN0mCX1KxLgHBKKY/CLqwP8lg=
 github.com/aws/aws-sdk-go-v2/service/signin v1.0.9/go.mod h1:7yuQJoT+OoH8aqIxw9vwF+8KpvLZ8AWmvmUWHsGQZvI=
 github.com/aws/aws-sdk-go-v2/service/sso v1.30.15 h1:lFd1+ZSEYJZYvv9d6kXzhkZu07si3f+GQ1AaYwa2LUM=
@@ -500,8 +500,8 @@ github.com/obot-platform/mcp-oauth-proxy v0.0.3-0.20260526141817-32b8278fcf00 h1
 github.com/obot-platform/mcp-oauth-proxy v0.0.3-0.20260526141817-32b8278fcf00/go.mod h1:IBdiWaE+aSlf5TpqKhtDkpGwxPetHtjaScewJ/UoSGQ=
 github.com/obot-platform/nah v0.0.0-20260424131842-3fc648d20cac h1:bHzcvYVp5AW+NyS45YzUmp6bZS5iUO9BY0HZX+MMi98=
 github.com/obot-platform/nah v0.0.0-20260424131842-3fc648d20cac/go.mod h1:+dYHcGg+BgcdZ2+eo3XCxhJFNQjmaKNRgD2loOvcFN0=
-github.com/obot-platform/nanobot v0.0.85 h1:O8KNeGkZo47UOIOyvkRXpqfyJNFKtpdxBK/7O67rcHs=
-github.com/obot-platform/nanobot v0.0.85/go.mod h1:lBBUrPngm/jJpwgLrqJzgup4hFniLpXzd6JIRDh1JZM=
+github.com/obot-platform/nanobot v0.0.86-0.20260619135558-06f0043756cf h1:LibEVDhpQYARCWaxMNxVxqhMcoXvG/osc21rxwziry8=
+github.com/obot-platform/nanobot v0.0.86-0.20260619135558-06f0043756cf/go.mod h1:lBBUrPngm/jJpwgLrqJzgup4hFniLpXzd6JIRDh1JZM=
 github.com/onsi/ginkgo v1.6.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=
 github.com/onsi/ginkgo v1.12.0/go.mod h1:oUhWkIvk5aDxtKvDDuw8gItl8pKl42LzjC9KZE0HfGg=
 github.com/onsi/ginkgo v1.16.5 h1:8xi0RTUf59SOSfEtZMvwTvXYMzG4gV23XVHOZiXNtnE=

@@ -285,4 +285,8 @@ type OAuthAuthorizationServerConfig struct {
 
 	// Additional fields can be added here
 	UserInfoEndpoint string `json:"userinfo_endpoint,omitempty"`
+
+	// ClientIDMetadataDocumentSupported indicates whether the client ID metadata document is supported by this authorization server.
+	// OPTIONAL.
+	ClientIDMetadataDocumentSupported bool `json:"client_id_metadata_document_supported,omitempty"`
 }

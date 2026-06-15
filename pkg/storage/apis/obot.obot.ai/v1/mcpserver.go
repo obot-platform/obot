@@ -186,12 +186,13 @@ type MCPServerStatus struct {
 }
 
 type OAuthMetadata struct {
-	ProtectedResourceURL        string          `json:"protectedResourceUrl,omitempty"`
-	AuthorizationServerURL      string          `json:"authorizationServerUrl,omitempty"`
-	ProtectedResourceMetadata   json.RawMessage `json:"protectedResourceMetadata,omitempty"`
-	AuthorizationServerMetadata json.RawMessage `json:"authorizationServerMetadata,omitempty"`
-	ClientRegistration          json.RawMessage `json:"clientRegistration,omitempty"`
-	DynamicClientRegistration   bool            `json:"dynamicClientRegistration,omitempty"`
+	ProtectedResourceURL              string          `json:"protectedResourceUrl,omitempty"`
+	AuthorizationServerURL            string          `json:"authorizationServerUrl,omitempty"`
+	ProtectedResourceMetadata         json.RawMessage `json:"protectedResourceMetadata,omitempty"`
+	AuthorizationServerMetadata       json.RawMessage `json:"authorizationServerMetadata,omitempty"`
+	ClientRegistration                json.RawMessage `json:"clientRegistration,omitempty"`
+	DynamicClientRegistration         bool            `json:"dynamicClientRegistration,omitempty"`
+	ClientIDMetadataDocumentSupported bool            `json:"clientIdMetadataDocumentSupported,omitempty"`
 }
 
 type DeploymentCondition struct {

@@ -8725,6 +8725,12 @@ func schema_obot_platform_obot_apiclient_types_OAuthMetadata(ref common.Referenc
 							Format: "byte",
 						},
 					},
+					"clientIdMetadataDocumentSupported": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 				},
 			},
 		},
@@ -16111,6 +16117,12 @@ func schema_storage_apis_obotobotai_v1_OAuthMetadata(ref common.ReferenceCallbac
 						},
 					},
 					"dynamicClientRegistration": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"clientIdMetadataDocumentSupported": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
 							Format: "",
