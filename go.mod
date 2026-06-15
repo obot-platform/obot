@@ -40,7 +40,7 @@ require (
 	github.com/moby/moby/client v0.1.0-alpha.0
 	github.com/oasdiff/yaml v0.0.0-20250309154309-f31be36b4037
 	github.com/obot-platform/chat-completion-client v0.0.0-20260529163740-88dd50945c18
-	github.com/obot-platform/cmd v0.0.0-20260529163553-3b9a1460f570
+	github.com/obot-platform/cmd v0.0.0-20260615195405-fab7a186f46c
 	github.com/obot-platform/kinm v0.0.0-20260420174234-eec2cd66c333
 	github.com/obot-platform/nah v0.0.0-20260424131842-3fc648d20cac
 	github.com/obot-platform/nanobot v0.0.84
