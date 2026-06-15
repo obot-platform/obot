@@ -343,7 +343,7 @@
 								use:tooltip={{
 									text: 'View Source on Git'
 								}}
-								class="btn btn-ghost hover:text-blue-500 shrink-0"
+								class="link link-hover flex items-center gap-1 shrink-0 hover:text-blue-500"
 							>
 								<GitBranch class="size-4" />
 								<span class="font-light">
