@@ -2,6 +2,7 @@ package validation
 
 import (
 	"cmp"
+	"context"
 	"fmt"
 	"net"
 	"net/url"
@@ -131,18 +132,23 @@ func isDeniedEgressDomain(hostname string) bool {
 
 // RuntimeValidator defines the interface for validating runtime-specific configurations
 type RuntimeValidator interface {
-	ValidateConfig(manifest types.MCPServerManifest) error
-	ValidateCatalogConfig(manifest types.MCPServerCatalogEntryManifest) error
-	ValidateSystemConfig(manifest types.SystemMCPServerManifest) error
+	ValidateConfig(ctx context.Context, manifest types.MCPServerManifest) error
+	ValidateCatalogConfig(ctx context.Context, manifest types.MCPServerCatalogEntryManifest) error
+	ValidateSystemConfig(ctx context.Context, manifest types.SystemMCPServerManifest) error
 }
 
 // RuntimeValidators is a map type for storing validators by runtime type
 type RuntimeValidators map[types.Runtime]RuntimeValidator
 
+// Options configures runtime validation behavior.
+type Options struct {
+	RemoteMCPURLValidationConfig mcp.RemoteMCPURLValidationConfig
+}
+
 // UVXValidator implements RuntimeValidator for UVX runtime
 type UVXValidator struct{}
 
-func (v UVXValidator) ValidateConfig(manifest types.MCPServerManifest) error {
+func (v UVXValidator) ValidateConfig(_ context.Context, manifest types.MCPServerManifest) error {
 	if manifest.Runtime != types.RuntimeUVX {
 		return types.RuntimeValidationError{
 			Runtime: manifest.Runtime,
@@ -162,7 +168,7 @@ func (v UVXValidator) ValidateConfig(manifest types.MCPServerManifest) error {
 	return v.validateUVXConfig(*manifest.UVXConfig)
 }
 
-func (v UVXValidator) ValidateCatalogConfig(manifest types.MCPServerCatalogEntryManifest) error {
+func (v UVXValidator) ValidateCatalogConfig(_ context.Context, manifest types.MCPServerCatalogEntryManifest) error {
 	if manifest.Runtime != types.RuntimeUVX {
 		return types.RuntimeValidationError{
 			Runtime: manifest.Runtime,
@@ -182,7 +188,7 @@ func (v UVXValidator) ValidateCatalogConfig(manifest types.MCPServerCatalogEntry
 	return v.validateUVXConfig(*manifest.UVXConfig)
 }
 
-func (v UVXValidator) ValidateSystemConfig(manifest types.SystemMCPServerManifest) error {
+func (v UVXValidator) ValidateSystemConfig(_ context.Context, manifest types.SystemMCPServerManifest) error {
 	if manifest.Runtime != types.RuntimeUVX {
 		return types.RuntimeValidationError{
 			Runtime: manifest.Runtime,
@@ -235,7 +241,7 @@ func (v UVXValidator) validateUVXConfig(config types.UVXRuntimeConfig) error {
 // NPXValidator implements RuntimeValidator for NPX runtime
 type NPXValidator struct{}
 
-func (v NPXValidator) ValidateConfig(manifest types.MCPServerManifest) error {
+func (v NPXValidator) ValidateConfig(_ context.Context, manifest types.MCPServerManifest) error {
 	if manifest.Runtime != types.RuntimeNPX {
 		return types.RuntimeValidationError{
 			Runtime: manifest.Runtime,
@@ -255,7 +261,7 @@ func (v NPXValidator) ValidateConfig(manifest types.MCPServerManifest) error {
 	return v.validateNPXConfig(*manifest.NPXConfig)
 }
 
-func (v NPXValidator) ValidateCatalogConfig(manifest types.MCPServerCatalogEntryManifest) error {
+func (v NPXValidator) ValidateCatalogConfig(_ context.Context, manifest types.MCPServerCatalogEntryManifest) error {
 	if manifest.Runtime != types.RuntimeNPX {
 		return types.RuntimeValidationError{
 			Runtime: manifest.Runtime,
@@ -275,7 +281,7 @@ func (v NPXValidator) ValidateCatalogConfig(manifest types.MCPServerCatalogEntry
 	return v.validateNPXConfig(*manifest.NPXConfig)
 }
 
-func (v NPXValidator) ValidateSystemConfig(manifest types.SystemMCPServerManifest) error {
+func (v NPXValidator) ValidateSystemConfig(_ context.Context, manifest types.SystemMCPServerManifest) error {
 	if manifest.Runtime != types.RuntimeNPX {
 		return types.RuntimeValidationError{
 			Runtime: manifest.Runtime,
@@ -328,7 +334,7 @@ func (v NPXValidator) validateNPXConfig(config types.NPXRuntimeConfig) error {
 // ContainerizedValidator implements RuntimeValidator for containerized runtime
 type ContainerizedValidator struct{}
 
-func (v ContainerizedValidator) ValidateConfig(manifest types.MCPServerManifest) error {
+func (v ContainerizedValidator) ValidateConfig(_ context.Context, manifest types.MCPServerManifest) error {
 	if manifest.Runtime != types.RuntimeContainerized {
 		return types.RuntimeValidationError{
 			Runtime: manifest.Runtime,
@@ -348,7 +354,7 @@ func (v ContainerizedValidator) ValidateConfig(manifest types.MCPServerManifest)
 	return v.validateContainerizedConfig(*manifest.ContainerizedConfig)
 }
 
-func (v ContainerizedValidator) ValidateCatalogConfig(manifest types.MCPServerCatalogEntryManifest) error {
+func (v ContainerizedValidator) ValidateCatalogConfig(_ context.Context, manifest types.MCPServerCatalogEntryManifest) error {
 	if manifest.Runtime != types.RuntimeContainerized {
 		return types.RuntimeValidationError{
 			Runtime: manifest.Runtime,
@@ -368,7 +374,7 @@ func (v ContainerizedValidator) ValidateCatalogConfig(manifest types.MCPServerCa
 	return v.validateContainerizedConfig(*manifest.ContainerizedConfig)
 }
 
-func (v ContainerizedValidator) ValidateSystemConfig(manifest types.SystemMCPServerManifest) error {
+func (v ContainerizedValidator) ValidateSystemConfig(_ context.Context, manifest types.SystemMCPServerManifest) error {
 	if manifest.Runtime != types.RuntimeContainerized {
 		return types.RuntimeValidationError{
 			Runtime: manifest.Runtime,
@@ -435,9 +441,11 @@ func (v ContainerizedValidator) validateContainerizedConfig(config types.Contain
 }
 
 // RemoteValidator implements RuntimeValidator for remote runtime
-type RemoteValidator struct{}
+type RemoteValidator struct {
+	RemoteMCPURLValidationConfig mcp.RemoteMCPURLValidationConfig
+}
 
-func (v RemoteValidator) ValidateConfig(manifest types.MCPServerManifest) error {
+func (v RemoteValidator) ValidateConfig(ctx context.Context, manifest types.MCPServerManifest) error {
 	if manifest.Runtime != types.RuntimeRemote {
 		return types.RuntimeValidationError{
 			Runtime: manifest.Runtime,
@@ -454,10 +462,10 @@ func (v RemoteValidator) ValidateConfig(manifest types.MCPServerManifest) error 
 		}
 	}
 
-	return v.validateRemoteConfig(*manifest.RemoteConfig)
+	return v.validateRemoteConfig(ctx, *manifest.RemoteConfig)
 }
 
-func (v RemoteValidator) ValidateCatalogConfig(manifest types.MCPServerCatalogEntryManifest) error {
+func (v RemoteValidator) ValidateCatalogConfig(ctx context.Context, manifest types.MCPServerCatalogEntryManifest) error {
 	if manifest.Runtime != types.RuntimeRemote {
 		return types.RuntimeValidationError{
 			Runtime: manifest.Runtime,
@@ -474,10 +482,10 @@ func (v RemoteValidator) ValidateCatalogConfig(manifest types.MCPServerCatalogEn
 		}
 	}
 
-	return v.validateRemoteCatalogConfig(*manifest.RemoteConfig)
+	return v.validateRemoteCatalogConfig(ctx, *manifest.RemoteConfig)
 }
 
-func (v RemoteValidator) ValidateSystemConfig(manifest types.SystemMCPServerManifest) error {
+func (v RemoteValidator) ValidateSystemConfig(ctx context.Context, manifest types.SystemMCPServerManifest) error {
 	if manifest.Runtime != types.RuntimeRemote {
 		return types.RuntimeValidationError{
 			Runtime: manifest.Runtime,
@@ -494,10 +502,10 @@ func (v RemoteValidator) ValidateSystemConfig(manifest types.SystemMCPServerMani
 		}
 	}
 
-	return v.validateRemoteConfig(*manifest.RemoteConfig)
+	return v.validateRemoteConfig(ctx, *manifest.RemoteConfig)
 }
 
-func (v RemoteValidator) validateRemoteConfig(config types.RemoteRuntimeConfig) error {
+func (v RemoteValidator) validateRemoteConfig(ctx context.Context, config types.RemoteRuntimeConfig) error {
 	if strings.TrimSpace(config.URL) == "" {
 		if config.IsTemplate {
 			return nil
@@ -526,6 +534,9 @@ func (v RemoteValidator) validateRemoteConfig(config types.RemoteRuntimeConfig) 
 			Message: "URL scheme must be either https or http",
 		}
 	}
+	if err := v.validateRemoteMCPURL(ctx, "url", config.URL); err != nil {
+		return err
+	}
 
 	// Validate headers
 	for i, header := range config.Headers {
@@ -548,7 +559,7 @@ func (v RemoteValidator) validateRemoteConfig(config types.RemoteRuntimeConfig) 
 	return nil
 }
 
-func (v RemoteValidator) validateRemoteCatalogConfig(config types.RemoteCatalogConfig) error {
+func (v RemoteValidator) validateRemoteCatalogConfig(ctx context.Context, config types.RemoteCatalogConfig) error {
 	// Either FixedURL, Hostname, or URLTemplate must be provided, but only one
 	hasFixedURL := strings.TrimSpace(config.FixedURL) != ""
 	hasHostname := strings.TrimSpace(config.Hostname) != ""
@@ -600,6 +611,9 @@ func (v RemoteValidator) validateRemoteCatalogConfig(config types.RemoteCatalogC
 				Message: "URL scheme must be either https or http",
 			}
 		}
+		if err := v.validateRemoteMCPURL(ctx, "fixedURL", config.FixedURL); err != nil {
+			return err
+		}
 	}
 
 	// Validate hostname format if provided
@@ -635,10 +649,21 @@ func (v RemoteValidator) validateRemoteCatalogConfig(config types.RemoteCatalogC
 	return nil
 }
 
+func (v RemoteValidator) validateRemoteMCPURL(ctx context.Context, field, rawURL string) error {
+	if err := mcp.ValidateRemoteMCPURL(ctx, rawURL, v.RemoteMCPURLValidationConfig); err != nil {
+		return types.RuntimeValidationError{
+			Runtime: types.RuntimeRemote,
+			Field:   field,
+			Message: err.Error(),
+		}
+	}
+	return nil
+}
+
 // CompositeValidator implements RuntimeValidator for composite runtime
 type CompositeValidator struct{}
 
-func (v CompositeValidator) ValidateConfig(manifest types.MCPServerManifest) error {
+func (v CompositeValidator) ValidateConfig(_ context.Context, manifest types.MCPServerManifest) error {
 	if manifest.Runtime != types.RuntimeComposite {
 		return types.RuntimeValidationError{
 			Runtime: manifest.Runtime,
@@ -792,7 +817,7 @@ func (v CompositeValidator) ValidateConfig(manifest types.MCPServerManifest) err
 	return nil
 }
 
-func (v CompositeValidator) ValidateCatalogConfig(manifest types.MCPServerCatalogEntryManifest) error {
+func (v CompositeValidator) ValidateCatalogConfig(_ context.Context, manifest types.MCPServerCatalogEntryManifest) error {
 	if manifest.Runtime != types.RuntimeComposite {
 		return types.RuntimeValidationError{
 			Runtime: manifest.Runtime,
@@ -954,7 +979,7 @@ func (v CompositeValidator) ValidateCatalogConfig(manifest types.MCPServerCatalo
 	return nil
 }
 
-func (v CompositeValidator) ValidateSystemConfig(manifest types.SystemMCPServerManifest) error {
+func (v CompositeValidator) ValidateSystemConfig(_ context.Context, manifest types.SystemMCPServerManifest) error {
 	if manifest.Runtime != types.RuntimeComposite {
 		return types.RuntimeValidationError{
 			Runtime: manifest.Runtime,
@@ -971,12 +996,12 @@ func (v CompositeValidator) ValidateSystemConfig(manifest types.SystemMCPServerM
 }
 
 // getRuntimeValidators returns a map of all available runtime validators
-func getRuntimeValidators() RuntimeValidators {
+func getRuntimeValidators(options Options) RuntimeValidators {
 	return RuntimeValidators{
 		types.RuntimeUVX:           UVXValidator{},
 		types.RuntimeNPX:           NPXValidator{},
 		types.RuntimeContainerized: ContainerizedValidator{},
-		types.RuntimeRemote:        RemoteValidator{},
+		types.RuntimeRemote:        RemoteValidator(options),
 		types.RuntimeComposite:     CompositeValidator{},
 	}
 }
@@ -1043,7 +1068,7 @@ func validateMCPResourceRequirements(runtime types.Runtime, resources *types.MCP
 	return nil
 }
 
-func ValidateServerManifest(manifest types.MCPServerManifest, isMultiUser bool) error {
+func ValidateServerManifest(ctx context.Context, manifest types.MCPServerManifest, isMultiUser bool, options Options) error {
 	if err := validateMCPResourceRequirements(manifest.Runtime, manifest.Resources); err != nil {
 		return err
 	}
@@ -1059,8 +1084,8 @@ func ValidateServerManifest(manifest types.MCPServerManifest, isMultiUser bool) 
 		return err
 	}
 
-	if validator, ok := getRuntimeValidators()[manifest.Runtime]; ok {
-		return validator.ValidateConfig(manifest)
+	if validator, ok := getRuntimeValidators(options)[manifest.Runtime]; ok {
+		return validator.ValidateConfig(ctx, manifest)
 	}
 
 	return types.RuntimeValidationError{
@@ -1091,7 +1116,7 @@ func ValidateCatalogEntryForRoute(manifest types.MCPServerCatalogEntryManifest, 
 	return nil
 }
 
-func ValidateCatalogEntryManifest(manifest types.MCPServerCatalogEntryManifest) error {
+func ValidateCatalogEntryManifest(ctx context.Context, manifest types.MCPServerCatalogEntryManifest, options Options) error {
 	switch manifest.ServerUserType {
 	case types.ServerUserTypeSingleUser, types.ServerUserTypeMultiUser:
 	default:
@@ -1118,8 +1143,8 @@ func ValidateCatalogEntryManifest(manifest types.MCPServerCatalogEntryManifest) 
 		return err
 	}
 
-	if validator, ok := getRuntimeValidators()[manifest.Runtime]; ok {
-		return validator.ValidateCatalogConfig(manifest)
+	if validator, ok := getRuntimeValidators(options)[manifest.Runtime]; ok {
+		return validator.ValidateCatalogConfig(ctx, manifest)
 	}
 
 	return types.RuntimeValidationError{
@@ -1129,7 +1154,7 @@ func ValidateCatalogEntryManifest(manifest types.MCPServerCatalogEntryManifest) 
 	}
 }
 
-func ValidateSystemMCPServerCatalogEntryManifest(manifest types.SystemMCPServerCatalogEntryManifest) error {
+func ValidateSystemMCPServerCatalogEntryManifest(ctx context.Context, manifest types.SystemMCPServerCatalogEntryManifest, options Options) error {
 	if manifest.SystemMCPServerType == types.SystemMCPServerTypeFilter {
 		if manifest.FilterConfig == nil {
 			return types.RuntimeValidationError{
@@ -1147,7 +1172,7 @@ func ValidateSystemMCPServerCatalogEntryManifest(manifest types.SystemMCPServerC
 		}
 	}
 
-	return ValidateCatalogEntryManifest(types.MCPServerCatalogEntryManifest{
+	return ValidateCatalogEntryManifest(ctx, types.MCPServerCatalogEntryManifest{
 		Metadata:            manifest.Metadata,
 		Name:                manifest.Name,
 		ShortDescription:    manifest.ShortDescription,
@@ -1163,10 +1188,10 @@ func ValidateSystemMCPServerCatalogEntryManifest(manifest types.SystemMCPServerC
 		ServerUserType:      manifest.ServerUserType,
 		Env:                 manifest.Env,
 		Resources:           manifest.Resources,
-	})
+	}, options)
 }
 
-func ValidateSystemMCPServerManifest(manifest types.SystemMCPServerManifest) error {
+func ValidateSystemMCPServerManifest(ctx context.Context, manifest types.SystemMCPServerManifest, options Options) error {
 	if err := validateMCPResourceRequirements(manifest.Runtime, manifest.Resources); err != nil {
 		return err
 	}
@@ -1175,8 +1200,8 @@ func ValidateSystemMCPServerManifest(manifest types.SystemMCPServerManifest) err
 		return err
 	}
 
-	if validator, ok := getRuntimeValidators()[manifest.Runtime]; ok {
-		if err := validator.ValidateSystemConfig(manifest); err != nil {
+	if validator, ok := getRuntimeValidators(options)[manifest.Runtime]; ok {
+		if err := validator.ValidateSystemConfig(ctx, manifest); err != nil {
 			return err
 		}
 

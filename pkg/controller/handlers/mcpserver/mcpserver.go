@@ -922,6 +922,12 @@ func (h *Handler) SyncOAuthMetadata(req router.Request, _ router.Response) error
 		return setOAuthMetadata(req, server, new(v1.OAuthMetadata), nil)
 	}
 
+	if err := mcp.ValidateRemoteMCPURL(req.Ctx, server.Spec.Manifest.RemoteConfig.URL, h.mcpSessionManager.RemoteMCPURLValidationConfig()); err != nil {
+		// If the URL doesn't pass validation, then don't do anything so that we sync as soon as the configuration is updated.
+		log.Infof("Remote MCP URL validation failed, not checking OAuth metadata: server=%s error=%v", server.Name, err)
+		return nil
+	}
+
 	if !shouldSyncOAuthMetadata(server, time.Now()) {
 		return nil
 	}

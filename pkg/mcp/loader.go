@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/url"
 	"slices"
+	"strings"
 	"sync"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -27,7 +28,9 @@ type Options struct {
 	MCPRemoteShimBaseImage            string   `usage:"The base image to use for MCP remote shim containers" default:"ghcr.io/obot-platform/nanobot:v0.0.84"`
 	MCPNamespace                      string   `usage:"The namespace to use for MCP containers" default:"obot-mcp"`
 	MCPClusterDomain                  string   `usage:"The cluster domain to use for MCP containers" default:"cluster.local"`
-	DisallowLocalhostMCP              bool     `usage:"Allow MCP containers to run on localhost"`
+	DisallowLocalhostMCP              bool     `usage:"Disallow MCP containers from connecting to localhost" default:"true"`
+	DisallowPrivateIPMCP              bool     `usage:"Disallow MCP containers from connecting to private IPs" default:"true"`
+	DisallowLinkLocalMCP              bool     `usage:"Disallow MCP containers from connecting to link-local addresses" default:"true"`
 	MCPRuntimeBackend                 string   `usage:"The runtime backend to use for running MCP servers: docker, kubernetes, or k8s. Defaults to docker" default:"docker"`
 	MCPImagePullSecrets               []string `usage:"The name of the image pull secret to use for pulling MCP images"`
 	SingleUserIdleServerShutdownHours int      `usage:"The interval in hours to check for idle MCP servers designated to a single user and shut them down, set to -1 to disable shutdown" default:"24"`
@@ -66,17 +69,23 @@ type Options struct {
 }
 
 type SessionManager struct {
-	backend           backend
-	runtimeBackend    string
-	contextLock       sync.Mutex
-	sessionCtx        context.Context
-	cancel            func()
-	sessions          sync.Map
-	tokenService      TokenService
-	baseURL           string
-	allowLocalhostMCP bool
+	backend                   backend
+	runtimeBackend            string
+	contextLock               sync.Mutex
+	sessionCtx                context.Context
+	cancel                    func()
+	sessions                  sync.Map
+	tokenService              TokenService
+	baseURL                   string
+	remoteURLValidationConfig RemoteMCPURLValidationConfig
 
 	webhookHelper *WebhookHelper
+}
+
+type RemoteMCPURLValidationConfig struct {
+	AllowLocalhostMCP bool
+	AllowPrivateIPMCP bool
+	AllowLinkLocalMCP bool
 }
 
 const streamableHTTPHealthcheckBody string = `{
@@ -143,17 +152,25 @@ func NewSessionManager(ctx context.Context, authEnabled bool, tokenService Token
 	}
 
 	return &SessionManager{
-		webhookHelper:     webhookHelper,
-		tokenService:      tokenService,
-		backend:           backend,
-		runtimeBackend:    opts.MCPRuntimeBackend,
-		baseURL:           baseURL,
-		allowLocalhostMCP: !opts.DisallowLocalhostMCP,
+		webhookHelper:  webhookHelper,
+		tokenService:   tokenService,
+		backend:        backend,
+		runtimeBackend: opts.MCPRuntimeBackend,
+		baseURL:        baseURL,
+		remoteURLValidationConfig: RemoteMCPURLValidationConfig{
+			AllowLocalhostMCP: !opts.DisallowLocalhostMCP,
+			AllowPrivateIPMCP: !opts.DisallowPrivateIPMCP,
+			AllowLinkLocalMCP: !opts.DisallowLinkLocalMCP,
+		},
 	}, nil
 }
 
 func (sm *SessionManager) MCPRuntimeBackend() string {
 	return sm.runtimeBackend
+}
+
+func (sm *SessionManager) RemoteMCPURLValidationConfig() RemoteMCPURLValidationConfig {
+	return sm.remoteURLValidationConfig
 }
 
 func (sm *SessionManager) TransformObotHostname(hostname string) string {
@@ -310,24 +327,8 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerCon
 			return ServerConfig{}, fmt.Errorf("MCP server %s needs to update its URL", server.MCPServerDisplayName)
 		}
 
-		if !sm.allowLocalhostMCP && server.URL != "" {
-			// Ensure the URL is not a localhost URL.
-			u, err := url.Parse(server.URL)
-			if err != nil {
-				return ServerConfig{}, fmt.Errorf("failed to parse MCP server URL: %w", err)
-			}
-
-			// LookupHost will properly detect IP addresses.
-			addrs, err := net.DefaultResolver.LookupHost(ctx, u.Hostname())
-			if err != nil {
-				return ServerConfig{}, fmt.Errorf("failed to resolve MCP server URL hostname: %w", err)
-			}
-
-			for _, addr := range addrs {
-				if ip := net.ParseIP(addr); ip != nil && ip.IsLoopback() {
-					return ServerConfig{}, fmt.Errorf("MCP server URL must not be a localhost URL: %s", server.URL)
-				}
-			}
+		if err := ValidateRemoteMCPURL(ctx, server.URL, sm.RemoteMCPURLValidationConfig()); err != nil {
+			return ServerConfig{}, err
 		}
 
 		if !transformRemote {
@@ -340,6 +341,51 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerCon
 	defer cancel()
 
 	return sm.backend.ensureServerDeployment(ctx, server, webhooks)
+}
+
+// ValidateRemoteMCPURL rejects remote MCP URLs that resolve to blocked local address ranges.
+func ValidateRemoteMCPURL(ctx context.Context, rawURL string, config RemoteMCPURLValidationConfig) error {
+	if strings.TrimSpace(rawURL) == "" {
+		return nil
+	}
+	if config.AllowLocalhostMCP && config.AllowPrivateIPMCP && config.AllowLinkLocalMCP {
+		return nil
+	}
+
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return fmt.Errorf("failed to parse MCP server URL: %w", err)
+	}
+
+	hostname := strings.TrimSuffix(strings.ToLower(u.Hostname()), ".")
+	if !config.AllowLocalhostMCP && (hostname == "localhost" || strings.HasSuffix(hostname, ".localhost")) {
+		return fmt.Errorf("MCP server URL must not be a localhost URL: %s", rawURL)
+	}
+
+	// LookupHost handles literal IP addresses and hostnames consistently.
+	addrs, err := net.DefaultResolver.LookupHost(ctx, hostname)
+	if err != nil {
+		return fmt.Errorf("failed to resolve MCP server URL hostname: %w", err)
+	}
+
+	for _, addr := range addrs {
+		ip := net.ParseIP(addr)
+		if ip == nil {
+			continue
+		}
+
+		if !config.AllowLocalhostMCP && ip.IsLoopback() {
+			return fmt.Errorf("MCP server URL must not be a localhost URL: %s", rawURL)
+		}
+		if !config.AllowPrivateIPMCP && ip.IsPrivate() {
+			return fmt.Errorf("MCP server URL must not resolve to a private IP address: %s", rawURL)
+		}
+		if !config.AllowLinkLocalMCP && (ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast()) {
+			return fmt.Errorf("MCP server URL must not resolve to a link-local address: %s", rawURL)
+		}
+	}
+
+	return nil
 }
 
 func serverID(server ServerConfig) string {
