@@ -492,8 +492,8 @@ github.com/oasisprotocol/curve25519-voi v0.0.0-20211102120939-d5a936accd94 h1:YX
 github.com/oasisprotocol/curve25519-voi v0.0.0-20211102120939-d5a936accd94/go.mod h1:WUcXjUd98qaCVFb6j8Xc87MsKeMCXDu9Nk8JRJ9SeC8=
 github.com/obot-platform/chat-completion-client v0.0.0-20260529163740-88dd50945c18 h1:dF7Ao7qL7+PE5+Vo0nakNjKZpNaegpQDOFEIn4++R/c=
 github.com/obot-platform/chat-completion-client v0.0.0-20260529163740-88dd50945c18/go.mod h1:YslCtQ/xUKpZUmiW8AFp2hBefikf4KcbEk57Jso1JAU=
-github.com/obot-platform/cmd v0.0.0-20260529163553-3b9a1460f570 h1:0k/lWau0kQu0WcD0ciWOm96jshwyaeo6N9Zy2MfePQc=
-github.com/obot-platform/cmd v0.0.0-20260529163553-3b9a1460f570/go.mod h1:/CmjUWk+FwdUVmooAZS5pEyO7cm5P4st3m7UCtv68kc=
+github.com/obot-platform/cmd v0.0.0-20260615195405-fab7a186f46c h1:8Jih6ItPAL4mDtqTjre9ugFd6lz7DQgxhBRd6eZ9A2M=
+github.com/obot-platform/cmd v0.0.0-20260615195405-fab7a186f46c/go.mod h1:/CmjUWk+FwdUVmooAZS5pEyO7cm5P4st3m7UCtv68kc=
 github.com/obot-platform/kinm v0.0.0-20260420174234-eec2cd66c333 h1:KMqxyxZ+zBfZ1Bn57roS8cWG8ZNy7/Y3iKLeeqv9ZdE=
 github.com/obot-platform/kinm v0.0.0-20260420174234-eec2cd66c333/go.mod h1:L1cbQ1k31Q9SKSrEG0ToNrXFGdNP03o0zHFTlbNP8WU=
 github.com/obot-platform/mcp-oauth-proxy v0.0.3-0.20260526141817-32b8278fcf00 h1:IzmiE4JJMEsceK7K5f/iYLG4f3YIFUHiSn6zWonypFc=
