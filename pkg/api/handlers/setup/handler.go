@@ -1,25 +1,20 @@
 package setup
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/bootstrap"
 )
 
 type Handler struct {
 	serverURL        string
-	bootstrapEnabler bootstrapEnabler
+	bootstrapEnabler *bootstrap.Bootstrap
 }
 
-type bootstrapEnabler interface {
-	Enabled(context.Context) (bool, error)
-	SetupEnabled(context.Context) (bool, error)
-}
-
-func NewHandler(serverURL string, bootstrapEnabler bootstrapEnabler) *Handler {
+func NewHandler(serverURL string, bootstrapEnabler *bootstrap.Bootstrap) *Handler {
 	return &Handler{
 		serverURL:        serverURL,
 		bootstrapEnabler: bootstrapEnabler,
