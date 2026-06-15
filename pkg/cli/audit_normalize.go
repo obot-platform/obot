@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -262,7 +263,8 @@ func gitRoot(ctx context.Context, dir string) string {
 }
 
 func gitOutput(ctx context.Context, dir string, args ...string) string {
-	if strings.TrimSpace(dir) == "" {
+	dir = strings.TrimSpace(dir)
+	if !safeGitCommand(dir, args) {
 		return ""
 	}
 	if ctx == nil {
@@ -270,11 +272,27 @@ func gitOutput(ctx context.Context, dir string, args ...string) string {
 	}
 	ctx, cancel := context.WithTimeout(ctx, 200*time.Millisecond)
 	defer cancel()
-	// TODO(g-linville): harden this against command injection. dir and args need to be safe.
+	dir = filepath.Clean(dir)
 	cmd := exec.CommandContext(ctx, "git", append([]string{"-C", dir}, args...)...)
 	out, err := cmd.Output()
 	if err != nil {
 		return ""
 	}
 	return strings.TrimSpace(string(out))
+}
+
+func safeGitCommand(dir string, args []string) bool {
+	if dir == "" || strings.ContainsRune(dir, '\x00') || !filepath.IsAbs(dir) {
+		return false
+	}
+	if len(args) == 2 && args[0] == "rev-parse" && args[1] == "--show-toplevel" {
+		return true
+	}
+	if len(args) == 3 && args[0] == "config" && args[1] == "--get" && args[2] == "remote.origin.url" {
+		return true
+	}
+	if len(args) == 2 && args[0] == "branch" && args[1] == "--show-current" {
+		return true
+	}
+	return false
 }

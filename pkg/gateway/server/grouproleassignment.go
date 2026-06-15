@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/jackc/pgx/v5/pgconn"
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -77,9 +77,7 @@ func (s *Server) createGroupRoleAssignment(apiContext api.Context) error {
 		req.Description,
 	)
 	if err != nil {
-		// Check for unique constraint violation
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		if gatewaydb.IsDuplicateKeyError(err) {
 			return types2.NewErrHTTP(http.StatusConflict,
 				fmt.Sprintf("group role assignment for group %q already exists", req.GroupName))
 		}

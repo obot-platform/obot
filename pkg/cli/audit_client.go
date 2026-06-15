@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/obot-platform/obot/apiclient"
@@ -56,7 +55,7 @@ func flushAuditSpool(ctx context.Context, client *apiclient.Client, spool auditS
 		return 0, err
 	}
 
-	statuses := auditAcceptedStatuses(resp, events)
+	statuses := auditTerminalStatuses(resp, events)
 	flushed := 0
 	for _, record := range records {
 		if !statuses[record.Event.EventID] {
@@ -76,13 +75,13 @@ func auditSubmitAccepted(resp *types.AuditEventSubmitResponse, eventID string) b
 	}
 	for _, item := range resp.Items {
 		if item.EventID == eventID {
-			return auditStatusAccepted(item.Status)
+			return auditStatusTerminal(item.Status)
 		}
 	}
 	return false
 }
 
-func auditAcceptedStatuses(resp *types.AuditEventSubmitResponse, events []types.AuditEvent) map[string]bool {
+func auditTerminalStatuses(resp *types.AuditEventSubmitResponse, events []types.AuditEvent) map[string]bool {
 	result := map[string]bool{}
 	if resp == nil || len(resp.Items) == 0 {
 		for _, event := range events {
@@ -91,15 +90,16 @@ func auditAcceptedStatuses(resp *types.AuditEventSubmitResponse, events []types.
 		return result
 	}
 	for _, item := range resp.Items {
-		result[item.EventID] = auditStatusAccepted(item.Status)
+		result[item.EventID] = auditStatusTerminal(item.Status)
 	}
 	return result
 }
 
-func auditStatusAccepted(status string) bool {
-	switch strings.ToLower(strings.TrimSpace(status)) {
-	// TODO(g-linville): we should only use the exact strings that Obot would return
-	case "", "ok", "success", "accepted", "created", "duplicate":
+func auditStatusTerminal(status string) bool {
+	switch status {
+	case types.AuditEventSubmitStatusAccepted,
+		types.AuditEventSubmitStatusDuplicate,
+		types.AuditEventSubmitStatusError:
 		return true
 	default:
 		return false

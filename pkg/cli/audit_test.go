@@ -228,7 +228,7 @@ func TestFileAuditSpoolKeyUnavailableDoesNotWritePlaintext(t *testing.T) {
 	}
 }
 
-func TestFlushAuditSpoolDeletesAcceptedAndDuplicateOnly(t *testing.T) {
+func TestFlushAuditSpoolDeletesTerminalStatuses(t *testing.T) {
 	key := bytes.Repeat([]byte{8}, 32)
 	spool := fileAuditSpool{dir: t.TempDir(), key: staticAuditSpoolKey{key: key}}
 	for _, id := range []string{"accepted", "duplicate", "rejected"} {
@@ -258,16 +258,15 @@ func TestFlushAuditSpoolDeletesAcceptedAndDuplicateOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if flushed != 2 {
-		t.Fatalf("flushed = %d, want 2", flushed)
+	if flushed != 3 {
+		t.Fatalf("flushed = %d, want 3", flushed)
 	}
 	records, err := spool.List(0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	// TODO(g-linville): if we get back rejected, won't it be rejected every time? Seems like we should just delete it also?
-	if len(records) != 1 || records[0].Event.EventID != "rejected" {
-		t.Fatalf("remaining records = %+v, want rejected only", records)
+	if len(records) != 0 {
+		t.Fatalf("remaining records = %+v, want none", records)
 	}
 }
 

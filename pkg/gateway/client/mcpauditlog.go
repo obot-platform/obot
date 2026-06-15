@@ -13,6 +13,7 @@ import (
 	"unicode/utf8"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
+	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -74,7 +75,7 @@ func (c *Client) InsertAuditEvents(ctx context.Context, userID string, events []
 			return nil, err
 		}
 		if err := c.db.WithContext(ctx).Create(&row).Error; err != nil {
-			if isDuplicateAuditEventError(err) {
+			if gatewaydb.IsDuplicateKeyError(err) {
 				status.Status = types2.AuditEventSubmitStatusDuplicate
 				statuses = append(statuses, status)
 				continue
@@ -178,12 +179,6 @@ func auditEventTruncateUTF8(b []byte, limit int) string {
 		b = b[:len(b)-1]
 	}
 	return string(b)
-}
-
-// TODO(g-linville): let's use actual error types rather than checking the error message
-func isDuplicateAuditEventError(err error) bool {
-	msg := strings.ToLower(err.Error())
-	return strings.Contains(msg, "duplicate") || strings.Contains(msg, "unique constraint")
 }
 
 func (c *Client) insertMCPAuditLogs(ctx context.Context, logs []types.MCPAuditLog) error {

@@ -13,6 +13,7 @@ import (
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	loggerpkg "github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/api"
+	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -89,7 +90,7 @@ func (s *Server) tokenRequest(apiContext api.Context) error {
 	}
 
 	if err := s.db.WithContext(apiContext.Context()).Create(tokenReq).Error; err != nil {
-		if errors.Is(err, gorm.ErrDuplicatedKey) {
+		if gatewaydb.IsDuplicateKeyError(err) {
 			return types2.NewErrHTTP(http.StatusConflict, "token request already exists")
 		}
 		return types2.NewErrHTTP(http.StatusInternalServerError, err.Error())
