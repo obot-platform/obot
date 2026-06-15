@@ -44,6 +44,7 @@ func (a *Audit) Customize(c *cobra.Command) {
 	c.Use = "audit"
 	c.Short = "Manage local audit event submission"
 	c.Args = cobra.NoArgs
+	c.AddCommand(cmd.Command(&AuditSetup{}))
 	c.AddCommand(cmd.Command(&AuditSubmit{root: a.root}))
 	c.AddCommand(cmd.Command(&AuditFlush{root: a.root}))
 	c.AddCommand(cmd.Command(&AuditStatus{}))
