@@ -182,13 +182,16 @@ func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Re
 		} else {
 			extra["auth_provider_groups"] = authGroupIDs
 
-			// Resolve effective role by merging individual + group roles
-			if gatewayUser, err := t.gatewayClient.UserByID(req.Context(), tokenContext.UserID); err != nil {
-				log.Warnf("failed to look up user %s for role resolution: %s", tokenContext.UserID, err.Error())
-			} else if effectiveRole, err := t.gatewayClient.ResolveUserEffectiveRole(req.Context(), gatewayUser, authGroupIDs); err != nil {
-				log.Warnf("failed to resolve effective role for user %s: %s", tokenContext.UserID, err.Error())
-			} else {
-				groups = effectiveRole.Groups()
+			// If this token is scoped to the user's groups, then resolve the effective role.
+			if slices.Contains(groups, types.GroupBasic) {
+				// Resolve effective role by merging individual + group roles
+				if gatewayUser, err := t.gatewayClient.UserByID(req.Context(), tokenContext.UserID); err != nil {
+					log.Warnf("failed to look up user %s for role resolution: %s", tokenContext.UserID, err.Error())
+				} else if effectiveRole, err := t.gatewayClient.ResolveUserEffectiveRole(req.Context(), gatewayUser, authGroupIDs); err != nil {
+					log.Warnf("failed to resolve effective role for user %s: %s", tokenContext.UserID, err.Error())
+				} else {
+					groups = effectiveRole.Groups()
+				}
 			}
 		}
 	}
@@ -197,7 +200,7 @@ func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Re
 		User: &user.DefaultInfo{
 			UID:    tokenContext.UserID,
 			Name:   tokenContext.UserName,
-			Groups: append(groups, types.GroupMCP),
+			Groups: groups,
 			Extra:  extra,
 		},
 	}, true, nil
@@ -226,15 +229,29 @@ func (t *TokenService) DecodeToken(ctx context.Context, token string) (*TokenCon
 	if err != nil {
 		return nil, err
 	}
+
 	claims, ok := tk.Claims.(jwt.MapClaims)
 	if !ok {
 		return nil, err
 	}
 
+	audiences, err := claims.GetAudience()
+	if err != nil {
+		return nil, err
+	}
+
 	var groups []string
-	if userGroups, ok := claims["UserGroups"].(string); ok {
-		groups = strings.Split(userGroups, ",")
-		groups = slices.DeleteFunc(groups, func(s string) bool { return s == "" })
+	if len(audiences) == 0 {
+		return nil, fmt.Errorf("no audience")
+	} else if audiences[0] == t.serverURL {
+		// In this case, the token was meant for API access, use the UserGroups claim
+		if userGroups, ok := claims["UserGroups"].(string); ok {
+			groups = strings.Split(userGroups, ",")
+			groups = slices.DeleteFunc(groups, func(s string) bool { return s == "" })
+		}
+	} else if strings.HasPrefix(audiences[0], t.serverURL+"/mcp-connect/") {
+		// In this case, the token was meant for MCP access, just give it the MCP group.
+		groups = []string{types.GroupMCP, types.GroupAuthenticated}
 	}
 
 	var issuedAt, expiresAt time.Time
