@@ -227,6 +227,7 @@ export type UsageStatsFilters = {
 
 export interface BootstrapStatus {
 	enabled: boolean;
+	setupEnabled: boolean;
 }
 
 // Devices

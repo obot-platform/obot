@@ -51,6 +51,19 @@ func (c *Client) FindIdentitiesForUser(ctx context.Context, userID uint) ([]type
 	return identities, nil
 }
 
+func (c *Client) UserHasIdentityForAuthProvider(ctx context.Context, userID uint, authProviderName string) (bool, error) {
+	if err := c.db.WithContext(ctx).
+		Select("auth_provider_name").
+		Where("user_id = ? AND auth_provider_name = ?", userID, authProviderName).
+		First(new(types.Identity)).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+		return false, nil
+	} else if err != nil {
+		return false, err
+	}
+
+	return true, nil
+}
+
 // EnsureIdentity ensures that the given identity exists in the database, and returns the user associated with it.
 func (c *Client) EnsureIdentity(ctx context.Context, id *types.Identity, timezone string) (*types.User, error) {
 	return c.EnsureIdentityWithRole(ctx, id, timezone, c.emailsWithExplicitRoles[strings.ToLower(id.Email)])

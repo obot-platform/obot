@@ -20,6 +20,7 @@ import (
 
 const (
 	ObotBootstrapCookie = "obot-bootstrap"
+	bootstrapUsername   = "bootstrap"
 )
 
 type Bootstrap struct {
@@ -239,22 +240,57 @@ func (b *Bootstrap) Logout(req api.Context) error {
 }
 
 func (b *Bootstrap) IsEnabled(req api.Context) error {
-	if !b.authEnabled {
-		return req.Write(map[string]bool{"enabled": false})
-	}
-
-	bootstrapEnabled, err := b.bootstrapEnabled(req.Context())
+	setupEnabled, err := b.SetupEnabled(req.Context())
 	if err != nil {
 		return err
 	}
 
-	return req.Write(map[string]bool{"enabled": bootstrapEnabled})
+	bootstrapEnabled := setupEnabled || (b.authEnabled && b.forceEnableBootstrap)
+
+	return req.Write(map[string]bool{
+		"enabled":      bootstrapEnabled,
+		"setupEnabled": setupEnabled,
+	})
+}
+
+func (b *Bootstrap) Enabled(ctx context.Context) (bool, error) {
+	if !b.authEnabled {
+		return false, nil
+	}
+
+	return b.bootstrapEnabled(ctx)
+}
+
+func (b *Bootstrap) SetupEnabled(ctx context.Context) (bool, error) {
+	if !b.authEnabled {
+		return false, nil
+	}
+
+	return b.setupEnabled(ctx)
 }
 
 // bootstrapEnabled determines whether the bootstrap user is currently available for login.
-// It is only available when there are no configured auth providers, or no owner users in the database.
 func (b *Bootstrap) bootstrapEnabled(ctx context.Context) (bool, error) {
 	if b.forceEnableBootstrap {
+		return true, nil
+	}
+
+	return b.setupEnabled(ctx)
+}
+
+// setupEnabled determines whether bootstrap setup flow is currently available.
+// It is available while there is no configured auth provider, or until an owner
+// user exists from the currently configured auth provider.
+func (b *Bootstrap) setupEnabled(ctx context.Context) (bool, error) {
+	if b.authProviderGetter == nil {
+		return false, errors.New("configured auth provider getter is not set")
+	}
+
+	configuredAuthProvider, err := b.authProviderGetter.GetConfiguredAuthProvider(ctx)
+	if err != nil {
+		return false, fmt.Errorf("failed to get configured auth provider: %w", err)
+	}
+	if configuredAuthProvider == "" {
 		return true, nil
 	}
 
@@ -265,25 +301,19 @@ func (b *Bootstrap) bootstrapEnabled(ctx context.Context) (bool, error) {
 		return false, fmt.Errorf("failed to get owner users: %w", err)
 	}
 
-	hasOwnerUser := false
 	for _, u := range ownerUsers {
-		if u.Username != "bootstrap" && u.Email != "" {
-			hasOwnerUser = true
-			break
+		if u.Username == bootstrapUsername || u.Email == "" {
+			continue
+		}
+
+		hasIdentity, err := b.gatewayClient.UserHasIdentityForAuthProvider(ctx, u.ID, configuredAuthProvider)
+		if err != nil {
+			return false, fmt.Errorf("failed to check owner auth provider identity: %w", err)
+		}
+		if hasIdentity {
+			return false, nil
 		}
 	}
-	if !hasOwnerUser {
-		return true, nil
-	}
 
-	if b.authProviderGetter == nil {
-		return false, errors.New("configured auth provider getter is not set")
-	}
-
-	configuredAuthProvider, err := b.authProviderGetter.GetConfiguredAuthProvider(ctx)
-	if err != nil {
-		return false, fmt.Errorf("failed to get configured auth provider: %w", err)
-	}
-
-	return configuredAuthProvider == "", nil
+	return true, nil
 }

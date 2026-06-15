@@ -93,7 +93,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	serverInstances := handlers.NewServerInstancesHandler(services.AccessControlRuleHelper, services.ServerURL)
 	systemMCPServers := handlers.NewSystemMCPServerHandler(services.MCPSessionManager)
 	userDefaultRoleSettings := handlers.NewUserDefaultRoleSettingHandler()
-	setupHandler := setup.NewHandler(services.ServerURL)
+	setupHandler := setup.NewHandler(services.ServerURL, services.Bootstrapper)
 	registryHandler := registry.NewHandler(services.AccessControlRuleHelper, services.ServerURL, services.RegistryNoAuth)
 	oauthClients := handlers.NewOAuthClientsHandler(services.OAuthServerConfig, services.ServerURL)
 	publishedArtifacts := handlers.NewPublishedArtifactHandler(services.ArtifactBlobStore, services.ArtifactBlobBucket)
