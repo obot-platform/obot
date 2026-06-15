@@ -98,17 +98,11 @@ func promptAuditSetupClients(ctx context.Context, cmd *cobra.Command, home strin
 func promptAuditSetupClientsMenu(ctx context.Context, cmd *cobra.Command, home string) ([]string, error) {
 	detected := detectedAuditClients(ctx, home)
 	options := auditSupportedClients()
-	selected := make([]string, 0, len(options))
-	for _, client := range options {
-		if detected[client] {
-			selected = append(selected, client)
-		}
-	}
+	var selected []string
 
 	prompt := &survey.MultiSelect{
 		Message:  "Install Obot audit hooks into:",
 		Options:  options,
-		Default:  selected,
 		PageSize: len(options),
 		Description: func(value string, _ int) string {
 			if detected[value] {
