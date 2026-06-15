@@ -6,7 +6,63 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/kballard/go-shellquote"
 )
+
+func TestAuditHookCommandShellQuotesArguments(t *testing.T) {
+	tests := []struct {
+		name      string
+		binary    string
+		client    string
+		want      string
+		wantWords []string
+	}{
+		{
+			name:   "plain absolute path",
+			binary: "/usr/local/bin/obot",
+			client: auditClientCodex,
+			want:   "/usr/local/bin/obot audit submit --format codex --input -",
+			wantWords: []string{
+				"/usr/local/bin/obot", "audit", "submit", "--format", auditClientCodex, "--input", "-",
+			},
+		},
+		{
+			name:   "path with spaces",
+			binary: "/Applications/Obot CLI/obot",
+			client: auditClientClaudeCode,
+			want:   "'/Applications/Obot CLI/obot' audit submit --format claude-code --input -",
+			wantWords: []string{
+				"/Applications/Obot CLI/obot", "audit", "submit", "--format", auditClientClaudeCode, "--input", "-",
+			},
+		},
+		{
+			name:   "path with single quote",
+			binary: "/tmp/obot's/bin/obot",
+			client: auditClientVSCode,
+			wantWords: []string{
+				"/tmp/obot's/bin/obot", "audit", "submit", "--format", auditClientVSCode, "--input", "-",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := auditHookCommand(tt.binary, tt.client)
+			if tt.want != "" && got != tt.want {
+				t.Fatalf("command = %q, want %q", got, tt.want)
+			}
+
+			words, err := shellquote.Split(got)
+			if err != nil {
+				t.Fatalf("split command %q: %v", got, err)
+			}
+			if got, want := strings.Join(words, "\x00"), strings.Join(tt.wantWords, "\x00"); got != want {
+				t.Fatalf("split words = %#v, want %#v", words, tt.wantWords)
+			}
+		})
+	}
+}
 
 func TestAuditSetupAllCreatesExpectedHookFilesAndIsIdempotent(t *testing.T) {
 	home := t.TempDir()

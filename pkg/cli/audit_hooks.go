@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
+	"github.com/kballard/go-shellquote"
 )
 
 const (
@@ -435,18 +436,7 @@ func managedHookObjectPresent(hook map[string]any) bool {
 }
 
 func auditHookCommand(binary, client string) string {
-	return shellQuote(binary) + " audit submit --format " + client + " --input -"
-}
-
-func shellQuote(s string) string {
-	// TODO(g-linville): is there a library func we can use for this?
-	if s != "" && strings.IndexFunc(s, func(r rune) bool {
-		return !(r == '/' || r == '.' || r == '_' || r == '-' || r == '+' || r == ':' ||
-			(r >= '0' && r <= '9') || (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z'))
-	}) < 0 {
-		return s
-	}
-	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
+	return shellquote.Join(binary, "audit", "submit", "--format", client, "--input", "-")
 }
 
 // codexConfigHasInlineHooks parses config.toml and reports whether that file
