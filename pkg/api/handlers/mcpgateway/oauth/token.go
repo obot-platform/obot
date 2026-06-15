@@ -568,18 +568,12 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 		return types.NewErrNotFound("no token exchange for %s", resource)
 	} else if mcpID == system.ObotMCPServerName {
 		// Return a new token that represents the user, so that the Obot MCP server can make API calls to Obot on behalf of the user.
-		// Preserve the user's existing groups/roles when available from the subject token,
-		// otherwise look up the user to determine their role.
-		var userGroups []string
-		if tokenCtx != nil && len(tokenCtx.UserGroups) > 0 {
-			userGroups = tokenCtx.UserGroups
-		} else {
-			user, err := req.GatewayClient.UserByID(req.Context(), userID)
-			if err != nil {
-				return fmt.Errorf("failed to look up user for token exchange: %w", err)
-			}
-			userGroups = user.Role.Groups()
+		// This token must have the user's groups to allow API access. Get the groups from the user's role.
+		user, err := req.GatewayClient.UserByID(req.Context(), userID)
+		if err != nil {
+			return fmt.Errorf("failed to look up user for token exchange: %w", err)
 		}
+		userGroups := user.Role.Groups()
 
 		now := time.Now()
 		expiresAt := now.Add(time.Hour)

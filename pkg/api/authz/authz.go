@@ -24,8 +24,6 @@ const (
 
 var (
 	adminAndOwnerRules = []string{
-		"/api/tool-references",
-		"/api/tool-references/",
 		"/api/mcp-catalogs",
 		"/api/mcp-catalogs/",
 		"/api/mcp-servers",
@@ -210,8 +208,6 @@ var (
 			"GET /api/auth-providers",
 			"GET /api/auth-providers/{id}",
 
-			"GET /api/tool-references",
-
 			"GET /.well-known/",
 			"POST /oauth/register/{mcp_id}",
 			"POST /oauth/register",
@@ -277,12 +273,10 @@ var (
 			"GET /api/api-keys/{id}",
 			"DELETE /api/api-keys/{id}",
 
-			"GET /oauth/userinfo",
 			"GET /api/users",
 			"GET /api/users/{user_id}",
 			"GET /api/default-model-aliases",
 			"/api/oauth/redirect/{namespace}/{name}",
-			"GET /api/me",
 			"DELETE /api/me",
 			"PATCH /api/me",
 			"POST /api/logout-all",
@@ -304,7 +298,7 @@ var (
 			"GET /api/mcp-stats/{mcp_id}",
 		},
 
-		types.GroupMCP: {
+		types.GroupAuthenticated: {
 			"GET /oauth/userinfo",
 			"GET /api/me",
 		},
