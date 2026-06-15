@@ -1,8 +1,9 @@
 <script lang="ts">
+	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
 	import { parseErrorContent } from '$lib/errors';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { UserService, type OAuthConsent } from '$lib/services';
-	import { ChevronDown, ExternalLink, Server, ShieldCheck } from 'lucide-svelte';
+	import { ExternalLink, ShieldAlertIcon } from 'lucide-svelte';
 
 	type Props = {
 		data: {
@@ -13,11 +14,84 @@
 	let { data }: Props = $props();
 
 	let submitting = $state(false);
-	let showDetails = $state(false);
 	let error = $state('');
 
 	const consent = $derived(data.consent);
 	const scopes = $derived(consent.scope?.split(' ').filter(Boolean) ?? []);
+
+	type DetailRow =
+		| { label: string; type: 'text'; value: string; valueClass?: string }
+		| { label: string; type: 'link'; value: string }
+		| { label: string; type: 'scopes'; values: string[] };
+
+	const details = $derived.by((): DetailRow[] => {
+		const rows: DetailRow[] = [
+			{
+				label: 'Application',
+				type: 'text',
+				value: consent.clientName,
+				valueClass: 'wrap-break-word font-medium'
+			}
+		];
+
+		if (consent.clientURI) {
+			rows.push({ label: 'Application URL', type: 'link', value: consent.clientURI });
+		}
+
+		rows.push({
+			label: 'Redirect URL',
+			type: 'text',
+			value: consent.redirectURI,
+			valueClass: 'break-all'
+		});
+
+		if (scopes.length) {
+			rows.push({ label: 'Scopes', type: 'scopes', values: scopes });
+		}
+
+		if (consent.mcpAuthRequired || consent.userHasSecondLevelOAuthed) {
+			rows.push({
+				label: 'MCP server',
+				type: 'text',
+				value: consent.mcpServerName ?? '',
+				valueClass: 'wrap-break-word'
+			});
+			rows.push({
+				label: 'Third-party OAuth',
+				type: 'text',
+				value: consent.userHasSecondLevelOAuthed ? 'Already authorized' : 'Authorization required',
+				valueClass: 'wrap-break-word'
+			});
+
+			if (consent.mcpServerURL) {
+				rows.push({
+					label: 'MCP URL',
+					type: 'text',
+					value: consent.mcpServerURL,
+					valueClass: 'break-all'
+				});
+			}
+
+			if (consent.thirdPartyAuthURL) {
+				rows.push({
+					label: 'OAuth URL',
+					type: 'text',
+					value: consent.thirdPartyAuthURL,
+					valueClass: 'break-all'
+				});
+			}
+		}
+
+		if (consent.policyURI) {
+			rows.push({ label: 'Privacy policy', type: 'link', value: consent.policyURI });
+		}
+
+		if (consent.tosURI) {
+			rows.push({ label: 'Terms', type: 'link', value: consent.tosURI });
+		}
+
+		return rows;
+	});
 
 	function navigateTo(url: string) {
 		window.location.href = url;
@@ -45,173 +119,63 @@
 	<title>Authorize OAuth Access</title>
 </svelte:head>
 
-<div class="colors-background flex min-h-screen items-center justify-center p-4">
-	<main class="popover w-full max-w-xl overflow-hidden p-0">
-		<header class="border-base-300 border-b p-6">
-			<div class="mb-4 flex items-center gap-3">
-				<div class="bg-base-200 flex size-11 shrink-0 items-center justify-center rounded-md">
-					<ShieldCheck class="size-6" />
-				</div>
-				<div class="min-w-0">
-					<h1 class="truncate text-2xl font-semibold">Authorize {consent.clientName}</h1>
-					<p class="text-muted-foreground mt-1 text-sm">
-						{consent.clientName} wants to authenticate with Obot for an MCP server connection.
-					</p>
-				</div>
-			</div>
-		</header>
+<div class="bg-base-200 dark:bg-base-100 flex min-h-screen items-center justify-center p-4">
+	<main class="paper w-full max-w-lg overflow-hidden p-0">
+		<BetaLogo class="self-center mt-6" />
+		<h1 class="truncate text-xl font-semibold text-center">Authorize {consent.clientName}</h1>
 
-		<section class="flex flex-col gap-5 p-6">
-			{#if consent.mcpAuthRequired}
-				<div class="notification-info flex items-start gap-3">
-					<Server class="mt-0.5 size-5 shrink-0" />
-					<p class="min-w-0 text-sm">
-						The MCP server {consent.mcpServerName || 'this MCP server'} requires its own third-party OAuth
-						authorization. After you continue, Obot will redirect you to authorize that MCP server, then
-						return you to the requesting application.
-					</p>
-				</div>
-			{:else if consent.userHasSecondLevelOAuthed}
-				<div class="notification-info flex items-start gap-3">
-					<Server class="mt-0.5 size-5 shrink-0" />
-					<p class="min-w-0 text-sm">
-						The MCP server {consent.mcpServerName || 'this MCP server'} requires its own third-party OAuth
-						authorization, and you have already authorized it. After you continue, Obot will return you
-						to the requesting application.
-					</p>
-				</div>
-			{/if}
+		<section class="flex flex-col gap-5 p-4 pt-0">
+			<div class="notification-info flex items-center gap-3 p-3">
+				<ShieldAlertIcon class="size-5 shrink-0" />
+				<p class="min-w-0 text-sm">
+					{#if consent.mcpAuthRequired}
+						<b class="font-semibold">{consent.mcpServerName || 'This MCP server'}</b> requires its own
+						third-party OAuth authorization.
+					{:else if consent.userHasSecondLevelOAuthed}
+						<b class="font-semibold">{consent.mcpServerName || 'This MCP server'}</b> requires its own
+						third-party OAuth authorization, and you have already authorized it.
+					{/if}
+				</p>
+			</div>
 
 			<p class="text-sm">
-				After authorization, Obot will redirect you back to the OAuth client that started this
-				request.
+				{consent.clientName} wants to authenticate with Obot for an MCP server connection. After authorization,
+				Obot will redirect you back to the OAuth client that started this request.
 			</p>
 
 			<div>
-				<button
-					class="btn btn-text gap-2 px-0"
-					type="button"
-					aria-expanded={showDetails}
-					onclick={() => (showDetails = !showDetails)}
-				>
-					<ChevronDown class={`size-4 transition-transform ${showDetails ? 'rotate-180' : ''}`} />
-					{showDetails ? 'Hide details' : 'See details'}
-				</button>
+				<details class="collapse collapse-arrow border border-base-300" name="more-details-content">
+					<summary class="collapse-title text-muted-content text-xs font-medium"
+						>See details</summary
+					>
 
-				{#if showDetails}
-					<div class="border-base-300 bg-base-100 mt-2 overflow-hidden rounded-lg border">
-						<div
-							class="grid grid-cols-[9rem_minmax(0,1fr)] gap-3 border-b p-4 text-sm max-sm:grid-cols-1"
-						>
-							<div class="text-muted-foreground">Application</div>
-							<div class="min-w-0 break-words font-medium">{consent.clientName}</div>
-						</div>
+					<div class="collapse-content space-y-3 overflow-y-auto default-scrollbar-thin max-h-64">
+						{#each details as detail (detail.label)}
+							<div class="grid grid-cols-[9rem_minmax(0,1fr)] gap-3 text-xs max-sm:grid-cols-1">
+								<div class="text-muted-content font-medium">{detail.label}</div>
 
-						{#if consent.clientURI}
-							<div
-								class="grid grid-cols-[9rem_minmax(0,1fr)] gap-3 border-b p-4 text-sm max-sm:grid-cols-1"
-							>
-								<div class="text-muted-foreground">Application URL</div>
-								<a
-									class="link flex min-w-0 items-center gap-1 break-all"
-									href={consent.clientURI}
-									rel="noreferrer noopener"
-								>
-									<span>{consent.clientURI}</span>
-									<ExternalLink class="size-3 shrink-0" />
-								</a>
+								{#if detail.type === 'text'}
+									<div class="min-w-0 {detail.valueClass ?? ''}">{detail.value}</div>
+								{:else if detail.type === 'link'}
+									<a
+										class="link flex min-w-0 items-center gap-1 break-all"
+										href={detail.value}
+										rel="external noreferrer noopener"
+									>
+										<span class="truncate break-all">{detail.value}</span>
+										<ExternalLink class="size-3 shrink-0" />
+									</a>
+								{:else}
+									<div class="flex min-w-0 flex-wrap gap-2">
+										{#each detail.values as scope, i (i)}
+											<span class="badge badge-secondary badge-xs">{scope}</span>
+										{/each}
+									</div>
+								{/if}
 							</div>
-						{/if}
-
-						<div
-							class="grid grid-cols-[9rem_minmax(0,1fr)] gap-3 border-b p-4 text-sm max-sm:grid-cols-1"
-						>
-							<div class="text-muted-foreground">Redirect URL</div>
-							<div class="min-w-0 break-all">{consent.redirectURI}</div>
-						</div>
-
-						{#if scopes.length}
-							<div
-								class="grid grid-cols-[9rem_minmax(0,1fr)] gap-3 border-b p-4 text-sm max-sm:grid-cols-1"
-							>
-								<div class="text-muted-foreground">Scopes</div>
-								<div class="flex min-w-0 flex-wrap gap-2">
-									{#each scopes as scope}
-										<span class="bg-base-200 rounded px-2 py-1 text-xs">{scope}</span>
-									{/each}
-								</div>
-							</div>
-						{/if}
-
-						{#if consent.mcpAuthRequired || consent.userHasSecondLevelOAuthed}
-							<div
-								class="grid grid-cols-[9rem_minmax(0,1fr)] gap-3 border-b p-4 text-sm max-sm:grid-cols-1"
-							>
-								<div class="text-muted-foreground">MCP server</div>
-								<div class="min-w-0 break-words">{consent.mcpServerName}</div>
-							</div>
-
-							<div
-								class="grid grid-cols-[9rem_minmax(0,1fr)] gap-3 border-b p-4 text-sm max-sm:grid-cols-1"
-							>
-								<div class="text-muted-foreground">Third-party OAuth</div>
-								<div class="min-w-0 break-words">
-									{consent.userHasSecondLevelOAuthed
-										? 'Already authorized'
-										: 'Authorization required'}
-								</div>
-							</div>
-
-							{#if consent.mcpServerURL}
-								<div
-									class="grid grid-cols-[9rem_minmax(0,1fr)] gap-3 border-b p-4 text-sm max-sm:grid-cols-1"
-								>
-									<div class="text-muted-foreground">MCP URL</div>
-									<div class="min-w-0 break-all">{consent.mcpServerURL}</div>
-								</div>
-							{/if}
-
-							{#if consent.thirdPartyAuthURL}
-								<div
-									class="grid grid-cols-[9rem_minmax(0,1fr)] gap-3 border-b p-4 text-sm max-sm:grid-cols-1"
-								>
-									<div class="text-muted-foreground">OAuth URL</div>
-									<div class="min-w-0 break-all">{consent.thirdPartyAuthURL}</div>
-								</div>
-							{/if}
-						{/if}
-
-						{#if consent.policyURI}
-							<div
-								class="grid grid-cols-[9rem_minmax(0,1fr)] gap-3 border-b p-4 text-sm max-sm:grid-cols-1"
-							>
-								<div class="text-muted-foreground">Privacy policy</div>
-								<a
-									class="link flex min-w-0 items-center gap-1 break-all"
-									href={consent.policyURI}
-									rel="noreferrer noopener"
-								>
-									<span>{consent.policyURI}</span>
-									<ExternalLink class="size-3 shrink-0" />
-								</a>
-							</div>
-						{/if}
-
-						{#if consent.tosURI}
-							<div class="grid grid-cols-[9rem_minmax(0,1fr)] gap-3 p-4 text-sm max-sm:grid-cols-1">
-								<div class="text-muted-foreground">Terms</div>
-								<a
-									class="link flex min-w-0 items-center gap-1 break-all"
-									href={consent.tosURI}
-									rel="noreferrer noopener"
-								>
-									<span>{consent.tosURI}</span>
-									<ExternalLink class="size-3 shrink-0" />
-								</a>
-							</div>
-						{/if}
+						{/each}
 					</div>
-				{/if}
+				</details>
 			</div>
 
 			{#if error}
@@ -220,7 +184,7 @@
 		</section>
 
 		<footer
-			class="border-base-300 bg-base-100 flex justify-end gap-3 border-t p-6 max-sm:flex-col-reverse"
+			class="border-base-300 bg-base-100 dark:bg-base-200 flex justify-end gap-3 border-t p-3 max-sm:flex-col-reverse"
 		>
 			<button class="btn btn-text" disabled={submitting} onclick={() => submit('deny')}
 				>Cancel</button
