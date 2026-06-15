@@ -102,6 +102,45 @@ func TestModelAccessPolicyManifestValidate(t *testing.T) {
 			},
 			expectError: false,
 		},
+		{
+			name: "valid with wildcard suffix pattern only",
+			manifest: ModelAccessPolicyManifest{
+				Subjects: []Subject{
+					{Type: SubjectTypeUser, ID: "user1"},
+				},
+				Models: []ModelResource{
+					{ID: "claude-haiku-4-5*"},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "valid with wildcard suffix pattern, model ID, and alias",
+			manifest: ModelAccessPolicyManifest{
+				Subjects: []Subject{
+					{Type: SubjectTypeUser, ID: "user1"},
+				},
+				Models: []ModelResource{
+					{ID: "claude-haiku-4-5*"},
+					{ID: "m1234567"},
+					{ID: "obot://llm"},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "valid with overlapping wildcard suffix patterns",
+			manifest: ModelAccessPolicyManifest{
+				Subjects: []Subject{
+					{Type: SubjectTypeUser, ID: "user1"},
+				},
+				Models: []ModelResource{
+					{ID: "gpt*"},
+					{ID: "gpt-4*"},
+				},
+			},
+			expectError: false,
+		},
 
 		// Validation failures - subjects
 		{
@@ -271,6 +310,150 @@ func TestModelAccessPolicyManifestValidate(t *testing.T) {
 			},
 			expectError: true,
 			errorMsg:    "duplicate model m1234567",
+		},
+		{
+			name: "wildcard in the middle of model ID",
+			manifest: ModelAccessPolicyManifest{
+				Subjects: []Subject{
+					{Type: SubjectTypeUser, ID: "user1"},
+				},
+				Models: []ModelResource{
+					{ID: "claude*haiku"},
+				},
+			},
+			expectError: true,
+			errorMsg:    "wildcard (*) is only allowed",
+		},
+		{
+			name: "leading wildcard in model ID",
+			manifest: ModelAccessPolicyManifest{
+				Subjects: []Subject{
+					{Type: SubjectTypeUser, ID: "user1"},
+				},
+				Models: []ModelResource{
+					{ID: "*haiku"},
+				},
+			},
+			expectError: true,
+			errorMsg:    "wildcard (*) is only allowed",
+		},
+		{
+			name: "double trailing wildcard in model ID",
+			manifest: ModelAccessPolicyManifest{
+				Subjects: []Subject{
+					{Type: SubjectTypeUser, ID: "user1"},
+				},
+				Models: []ModelResource{
+					{ID: "claude**"},
+				},
+			},
+			expectError: true,
+			errorMsg:    "wildcard (*) is only allowed",
+		},
+		{
+			name: "bare double wildcard model ID",
+			manifest: ModelAccessPolicyManifest{
+				Subjects: []Subject{
+					{Type: SubjectTypeUser, ID: "user1"},
+				},
+				Models: []ModelResource{
+					{ID: "**"},
+				},
+			},
+			expectError: true,
+			errorMsg:    "wildcard (*) is only allowed",
+		},
+		{
+			name: "whitespace-only wildcard suffix prefix",
+			manifest: ModelAccessPolicyManifest{
+				Subjects: []Subject{
+					{Type: SubjectTypeUser, ID: "user1"},
+				},
+				Models: []ModelResource{
+					{ID: " *"},
+				},
+			},
+			expectError: true,
+			errorMsg:    "must not begin or end with whitespace",
+		},
+		{
+			name: "leading whitespace in wildcard suffix prefix",
+			manifest: ModelAccessPolicyManifest{
+				Subjects: []Subject{
+					{Type: SubjectTypeUser, ID: "user1"},
+				},
+				Models: []ModelResource{
+					{ID: " gpt*"},
+				},
+			},
+			expectError: true,
+			errorMsg:    "must not begin or end with whitespace",
+		},
+		{
+			name: "trailing whitespace in wildcard suffix prefix",
+			manifest: ModelAccessPolicyManifest{
+				Subjects: []Subject{
+					{Type: SubjectTypeUser, ID: "user1"},
+				},
+				Models: []ModelResource{
+					{ID: "gpt *"},
+				},
+			},
+			expectError: true,
+			errorMsg:    "must not begin or end with whitespace",
+		},
+		{
+			name: "interior whitespace in wildcard suffix prefix is allowed",
+			manifest: ModelAccessPolicyManifest{
+				Subjects: []Subject{
+					{Type: SubjectTypeUser, ID: "user1"},
+				},
+				Models: []ModelResource{
+					{ID: "gpt 4*"},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "wildcard suffix on model alias reference",
+			manifest: ModelAccessPolicyManifest{
+				Subjects: []Subject{
+					{Type: SubjectTypeUser, ID: "user1"},
+				},
+				Models: []ModelResource{
+					{ID: "obot://llm*"},
+				},
+			},
+			expectError: true,
+			errorMsg:    "unknown model alias type reference: llm*",
+		},
+		{
+			name: "wildcard model with wildcard suffix pattern",
+			manifest: ModelAccessPolicyManifest{
+				Subjects: []Subject{
+					{Type: SubjectTypeUser, ID: "user1"},
+				},
+				Models: []ModelResource{
+					{ID: "*"},
+					{ID: "claude-haiku-4-5*"},
+				},
+			},
+			expectError: true,
+			errorMsg:    "wildcard model (*) must be the only model",
+		},
+		{
+			name: "duplicate wildcard suffix patterns",
+			manifest: ModelAccessPolicyManifest{
+				Subjects: []Subject{
+					{Type: SubjectTypeUser, ID: "user1"},
+				},
+				Models: []ModelResource{
+					{ID: "claude-haiku-4-5*"},
+					{ID: "claude-haiku-4-5*"},
+				},
+			},
+			expectError: true,
+			errorMsg:    "duplicate model claude-haiku-4-5*",
 		},
 
 		// Combined validation failures

@@ -8050,7 +8050,7 @@ func schema_obot_platform_obot_apiclient_types_ModelResource(ref common.Referenc
 				Properties: map[string]spec.Schema{
 					"id": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ID is the unique identifier of the model resource. It either be: - the wildcard '*', which selects all available models - the model ID of a specific model - an Obot default model alias in the form \"obot://<alias>\"\n\nWhen a model ID is provided, it must match the ID field of an existing referenced model.",
+							Description: "ID is the unique identifier of the model resource. It either be: - the wildcard '*', which selects all available models - the model ID of a specific model - an Obot default model alias in the form \"obot://<alias>\" - a wildcard suffix pattern in the form \"<prefix>*\" (e.g. \"claude-haiku-4-5*\"), which selects\n  every current and future model, from any provider, whose provider-native target model\n  starts with <prefix> (case-sensitive)\n\nWhen a model ID is provided, it must match the ID field of an existing referenced model.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",

@@ -152,7 +152,9 @@
 				effectiveModel: alias.effectiveModelName,
 				isAlias: true,
 				isConfigured: alias.isConfigured,
-				usage: alias.usage
+				usage: alias.usage,
+				isPattern: false,
+				matchCount: 0
 			};
 		});
 
@@ -164,7 +166,9 @@
 			usage: model.usage,
 			effectiveModel: null,
 			isAlias: false,
-			isConfigured: true
+			isConfigured: true,
+			isPattern: model.isPattern,
+			matchCount: model.matchCount
 		}));
 
 		return [...aliasRows, ...regularRows];
@@ -256,13 +260,32 @@
 		);
 	}
 
-	function convertModelsToTableData(models: ModelResource[]) {
-		return models.map((model) => {
+	function convertModelsToTableData(modelResources: ModelResource[]) {
+		return modelResources.map((model) => {
 			if (model.id === '*') {
 				return {
 					id: model.id,
 					name: 'All Models',
-					provider: '-'
+					usage: undefined,
+					provider: '-',
+					isPattern: false,
+					matchCount: 0
+				};
+			}
+
+			if (model.id.endsWith('*')) {
+				// Wildcard suffix pattern; count the currently matching models
+				// (case-sensitive prefix match on target model, like the backend)
+				const prefix = model.id.slice(0, -1);
+				const matchCount = models.filter((m) => (m.targetModel || '').startsWith(prefix)).length;
+
+				return {
+					id: model.id,
+					name: model.id,
+					usage: undefined,
+					provider: '-',
+					isPattern: true,
+					matchCount
 				};
 			}
 
@@ -271,7 +294,9 @@
 				id: model.id,
 				name: m?.displayName || m?.name || model.id,
 				usage: m?.usage,
-				provider: m?.modelProviderName || '-'
+				provider: m?.modelProviderName || '-',
+				isPattern: false,
+				matchCount: 0
 			};
 		});
 	}
@@ -430,6 +455,25 @@
 										</span>
 									</div>
 									<span class="text-muted-content text-xs">{d.name}</span>
+								</div>
+							{:else if d.isPattern}
+								<div class="flex flex-col">
+									<div class="flex items-center gap-2">
+										<span class="font-mono font-medium">{d.name}</span>
+										<span
+											class="bg-base-300 dark:bg-base-400 rounded-full px-2 py-0.5 text-xs font-medium"
+										>
+											Pattern
+										</span>
+									</div>
+									<span class="text-muted-content text-xs">
+										{#if d.matchCount > 0}
+											Matches {d.matchCount}
+											{d.matchCount === 1 ? 'model' : 'models'} across all providers
+										{:else}
+											No current matches — applies to future models
+										{/if}
+									</span>
 								</div>
 							{:else}
 								<div class="flex flex-col">
