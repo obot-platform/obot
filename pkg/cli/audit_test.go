@@ -78,13 +78,17 @@ func TestNormalizeAuditEventFixtures(t *testing.T) {
 			name:   "vscode success",
 			format: auditClientVSCode,
 			payload: fmt.Sprintf(`{
-				"event_name": "postToolUse",
-				"project_path": %q,
-				"tool": {"name": "codebase_search"},
-				"request": {"query": "audit"},
-				"response": {"results": []}
-			}`, workspace),
-			toolName: "codebase_search",
+				"timestamp": "2026-06-15T18:17:04.421Z",
+				"hook_event_name": "PostToolUse",
+				"session_id": "90a0dd17-6638-4ff5-8d27-aa57b5f0d90b",
+				"transcript_path": "/Users/grant/Library/Application Support/Code/User/workspaceStorage/8befa651e3753624ec68f51c2e2a1c0a/GitHub.copilot-chat/transcripts/90a0dd17-6638-4ff5-8d27-aa57b5f0d90b.jsonl",
+				"tool_name": "list_dir",
+				"tool_input": {"path": %q},
+				"tool_response": "",
+				"tool_use_id": "call_XtPHuexgNF2AUeOxytKP14nN__vscode-1781547413353",
+				"cwd": %q
+			}`, workspace, workspace),
+			toolName: "list_dir",
 			outcome:  types.AuditLogOutcomeSuccess,
 		},
 	}

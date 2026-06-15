@@ -152,41 +152,29 @@ func (p cursorHookPayload) auditHookPayload() auditHookPayload {
 }
 
 type vscodeHookPayload struct {
-	EventID       string            `json:"eventID"`
-	EventName     string            `json:"event_name"`
-	SessionID     string            `json:"sessionID"`
-	Conversation  string            `json:"conversationID"`
-	ClientVersion string            `json:"clientVersion"`
-	ProjectPath   string            `json:"project_path"`
+	HookEventName string            `json:"hook_event_name"`
+	SessionID     string            `json:"session_id"`
 	CWD           string            `json:"cwd"`
-	Request       json.RawMessage   `json:"request"`
-	Response      json.RawMessage   `json:"response"`
+	ToolName      string            `json:"tool_name"`
+	ToolInput     json.RawMessage   `json:"tool_input"`
+	ToolResponse  json.RawMessage   `json:"tool_response"`
+	ToolUseID     string            `json:"tool_use_id"`
 	Error         auditHookError    `json:"error"`
-	DurationMs    int64             `json:"durationMs"`
-	CreatedAt     auditFlexibleTime `json:"createdAt"`
-	Tool          struct {
-		Name string `json:"name"`
-		Type string `json:"type"`
-	} `json:"tool"`
+	Timestamp     auditFlexibleTime `json:"timestamp"`
 }
 
 func (p vscodeHookPayload) auditHookPayload() auditHookPayload {
 	return auditHookPayload{
-		EventID:         p.EventID,
-		CreatedAt:       p.CreatedAt.Time,
-		ClientVersion:   p.ClientVersion,
-		ToolName:        p.Tool.Name,
-		ToolType:        firstNonEmpty(p.Tool.Type, "tool"),
-		Outcome:         auditOutcome(p.EventName, p.Error.String(), ""),
-		DurationMs:      p.DurationMs,
+		CreatedAt:       p.Timestamp.Time,
+		ToolName:        p.ToolName,
+		ToolType:        "tool",
+		Outcome:         auditOutcome(p.HookEventName, p.Error.String(), ""),
 		SessionID:       p.SessionID,
-		ConversationID:  p.Conversation,
 		CWD:             p.CWD,
-		Workspace:       p.ProjectPath,
-		SourceHookEvent: p.EventName,
-		ClientEventID:   p.EventID,
-		Request:         p.Request,
-		Response:        p.Response,
+		SourceHookEvent: p.HookEventName,
+		ClientEventID:   p.ToolUseID,
+		Request:         p.ToolInput,
+		Response:        p.ToolResponse,
 		Error:           p.Error.String(),
 	}
 }
