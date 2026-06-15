@@ -49,7 +49,7 @@
 		workspaceId,
 		isAdminView,
 		singleSelect,
-		title = 'Add Entry/Server(s)',
+		title = 'Add Server(s)',
 		entity = 'catalog',
 		all = ADMIN_ALL_OPTION
 	}: Props = $props();

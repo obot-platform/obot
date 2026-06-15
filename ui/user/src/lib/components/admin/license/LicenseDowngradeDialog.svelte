@@ -67,7 +67,11 @@
 	}
 </script>
 
-<ResponsiveDialog bind:this={licenseViolationDialog} title="Invalid License" class="md:max-w-md">
+<ResponsiveDialog
+	bind:this={licenseViolationDialog}
+	title="Missing or Invalid License"
+	class="md:max-w-md"
+>
 	<div class="md:p-0 p-4">
 		<div class="flex flex-col gap-4">
 			<p class="font-light">

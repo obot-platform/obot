@@ -9,6 +9,7 @@
 	import Search from '$lib/components/Search.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
+	import { HttpError } from '$lib/errors.js';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService } from '$lib/services';
 	import type { SkillRepository } from '$lib/services/admin/types';
@@ -54,6 +55,17 @@
 
 	let skills = $state<Skill[]>(untrack(() => data?.skills ?? []));
 	let skillRepositories = $state<SkillRepository[]>(untrack(() => data.skillRepositories));
+	let showLicenseError = $state(untrack(() => data?.showLicenseError ?? false));
+
+	$effect(() => {
+		skillRepositories = data.skillRepositories;
+	});
+
+	$effect(() => {
+		if (view === 'skills') {
+			skills = data.skills ?? [];
+		}
+	});
 	let skillRepositoriesTableData = $derived(
 		(query
 			? skillRepositories.filter(
@@ -123,11 +135,17 @@
 					if (response && !response.isSyncing) {
 						clearSyncInterval(id);
 						skillRepositories = await AdminService.listSkillRepositories();
-						skills = await AdminService.listAllSkills();
+						if (view === 'skills') {
+							skills = await AdminService.listAllSkills();
+						}
 						syncing.delete(id);
 					}
 				} catch (err) {
-					errors.append(`Failed to sync skill repository: ${err}`);
+					if (err instanceof HttpError && err.statusCode === 402) {
+						showLicenseError = true;
+					} else {
+						errors.append(`Failed to sync skill repository: ${err}`);
+					}
 					clearSyncInterval(id);
 					syncing.delete(id);
 				}
@@ -311,7 +329,7 @@
 					</a>
 				{/snippet}
 			</Table>
-		{:else if data?.showLicenseError}
+		{:else if showLicenseError}
 			<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
 				<TriangleAlert class="size-12 text-warning" />
 				<h4 class="text-muted-content text-lg font-semibold">License Error</h4>
@@ -462,9 +480,15 @@
 				await AdminService.deleteSkillRepository(source.id);
 			}
 			skillRepositories = await AdminService.listSkillRepositories();
-			skills = await AdminService.listAllSkills();
+			if (view === 'skills') {
+				skills = await AdminService.listAllSkills();
+			}
 		} catch (error) {
-			errors.append(`Failed to delete Git Source URLs: ${error}`);
+			if (error instanceof HttpError && error.statusCode === 402) {
+				showLicenseError = true;
+			} else {
+				errors.append(`Failed to delete Git Source URLs: ${error}`);
+			}
 		} finally {
 			deletingSources = undefined;
 			deleting = false;
