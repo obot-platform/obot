@@ -230,6 +230,13 @@
 			href: '/skills'
 		},
 		{
+			id: 'llm-gateway-models',
+			href: '/llm-gateway/models',
+			icon: BrainCog,
+			label: 'Models',
+			collapsible: false
+		},
+		{
 			id: 'devices',
 			icon: Laptop,
 			label: 'Devices',
@@ -498,13 +505,7 @@
 											collapsible: false
 										}
 									]
-								: []),
-							{
-								id: 'llm-gateway-models',
-								href: '/llm-gateway/models',
-								label: 'Models',
-								collapsible: false
-							}
+								: [])
 						]
 					},
 					...agentManagementLinks,

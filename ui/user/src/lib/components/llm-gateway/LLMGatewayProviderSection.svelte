@@ -23,10 +23,12 @@
 	let curlBlock = $derived(renderCurlExample(ctx));
 </script>
 
-<section class="border-base-300 dark:border-base-400 rounded-lg border">
+<section
+	class="border-base-300 dark:border-base-400 rounded-lg border bg-base-100 dark:bg-base-200"
+>
 	<button
 		type="button"
-		class="hover:bg-base-200 dark:hover:bg-base-300 flex w-full items-center justify-between gap-3 rounded-t-lg px-4 py-3 text-left transition-colors"
+		class="hover:bg-base-200/50 dark:hover:bg-base-300/50 flex w-full items-center justify-between gap-3 rounded-t-lg px-4 py-3 text-left transition-colors"
 		onclick={() => (expanded = !expanded)}
 	>
 		<div class="flex items-center gap-3">
