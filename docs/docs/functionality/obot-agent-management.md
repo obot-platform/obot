@@ -4,6 +4,10 @@ title: Obot Agent Management
 
 # Obot Agent Management
 
+:::note
+Obot Agent features are disabled by default for new deployments, and the **Obot Agent Management** section is hidden while they are disabled. To enable them, set the `OBOT_ENABLE_AGENTS=true` environment variable on the server. Deployments that already had agents before upgrading remain enabled automatically. See the [configuration reference](../configuration/server-configuration.md) for details.
+:::
+
 Obot Agent Management provides administrators with tools to configure default agent settings and monitor agent and conversation activity. Access these features from **Obot Agent Management** in the sidebar.
 
 ## Token Usage

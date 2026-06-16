@@ -6,6 +6,10 @@ title: Obot Agent
 
 Obot Agent is a chat interface built to work directly with MCP. It provides a conversational way for users to interact with MCP servers and accomplish tasks using AI.
 
+:::note
+Obot Agent features are disabled by default for new deployments. To enable them, set the `OBOT_ENABLE_AGENTS=true` environment variable on the server. Deployments that already had agents before upgrading remain enabled automatically. See the [configuration reference](../configuration/server-configuration.md) for details.
+:::
+
 ## Key Concepts
 
 ### Conversations
@@ -22,4 +26,4 @@ Obot Agent supports multiple LLM providers including OpenAI, Anthropic, Azure Op
 
 ## Learn More
 
-- [Obot Agent Management](/functionality/obot-agent-management/) - Configure default agent, conversation, and workflow settings
+- [Obot Agent Management](../functionality/obot-agent-management.md) - Configure default agent, conversation, and workflow settings
