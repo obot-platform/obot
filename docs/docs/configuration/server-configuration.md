@@ -40,11 +40,11 @@ The Obot server is configured via environment variables. The following configura
 | `OBOT_SERVER_AUDIT_LOGS_STORE_S3ENDPOINT` | If config.OBOT_SERVER_AUDIT_LOGS_MODE is 's3' and you are not using AWS S3, this needs to be set to the S3 api endpoint of your provider. | - |
 | `OBOT_SERVER_AUDIT_LOGS_COMPRESS_FILE` | Controls whether or not to compress audit log files | `true` |
 | `OBOT_SERVER_AUDIT_LOGS_STORE_USE_PATH_STYLE` | Whether to use path style for S3 object names | - |
-| `OBOT_SERVER_MCPBASE_IMAGE` | Deploy MCP servers in the kubernetes cluster or using docker with this base image. | `ghcr.io/obot-platform/mcp-images/stdio-wrapper:v0.20.5` |
+| `OBOT_SERVER_MCPBASE_IMAGE` | Deploy MCP servers in the kubernetes cluster or using docker with this base image. | `ghcr.io/obot-platform/mcp-images/stdio-wrapper:v0.20.6` |
 | `OBOT_SERVER_MCPIMAGE_PULL_SECRETS` | Comma-separated Kubernetes secret names to use as static image pull secrets for every MCP server Deployment. When set, managed image pull secrets are disabled. See [Image Pull Secrets](./image-pull-secrets.md). | - |
 | `OBOT_SERVER_MCPREMOTE_SHIM_BASE_IMAGE` | Deploy MCP remote shim servers in the cluster using this base image. | `ghcr.io/obot-platform/nanobot:v0.0.84` |
 | `OBOT_SERVER_NANOBOT_AGENT_IMAGE` | Deploy the Nanobot agent in the cluster using this image. | `ghcr.io/obot-platform/nanobot-agent:v0.0.84` |
-| `OBOT_SERVER_MCPHTTPWEBHOOK_BASE_IMAGE` | Deploy MCP HTTP webhook servers in the cluster using this base image. | `ghcr.io/obot-platform/mcp-images/http-webhook-mcp-converter:v0.20.4` |
+| `OBOT_SERVER_MCPHTTPWEBHOOK_BASE_IMAGE` | Deploy MCP HTTP webhook servers in the cluster using this base image. | `ghcr.io/obot-platform/mcp-images/http-webhook-mcp-converter:v0.20.6` |
 | `OBOT_SERVER_MCPRUNTIME_BACKEND` | The runtime backend to use for running MCP servers: docker or kubernetes. | `kubernetes` in the helm chart, `docker` otherwise |
 | `OBOT_SERVER_MCPCLUSTER_DOMAIN` | The cluster domain to use for MCP services. Only matters if `OBOT_SERVER_MCPBASE_IMAGE` is set. | `cluster.local` |
 | `OBOT_SERVER_SERVICE_NAME` | The Kubernetes service name for the obot server. Automatically set by the helm chart when using kubernetes backend. Used to construct the internal service FQDN for token exchange endpoints. | - |
