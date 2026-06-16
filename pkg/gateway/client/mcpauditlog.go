@@ -13,6 +13,7 @@ import (
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/storage/value"
 )
@@ -53,7 +54,10 @@ func (c *Client) insertMCPAuditLogs(ctx context.Context, logs []types.MCPAuditLo
 	return c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// Insert request-only and complete logs in batches
 		if len(toInsert) > 0 {
-			if err := tx.CreateInBatches(toInsert, 100).Error; err != nil {
+			if err := tx.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "event_id"}},
+				DoNothing: true,
+			}).CreateInBatches(toInsert, 100).Error; err != nil {
 				return fmt.Errorf("failed to insert audit logs: %w", err)
 			}
 		}
@@ -120,7 +124,10 @@ func (c *Client) insertMCPAuditLogs(ctx context.Context, logs []types.MCPAuditLo
 				}
 			} else if errors.Is(err, gorm.ErrRecordNotFound) {
 				// No matching request found - insert as new record
-				if err := tx.Create(&responseLog).Error; err != nil {
+				if err := tx.Clauses(clause.OnConflict{
+					Columns:   []clause.Column{{Name: "event_id"}},
+					DoNothing: true,
+				}).Create(&responseLog).Error; err != nil {
 					return fmt.Errorf("failed to insert orphaned response audit log: %w", err)
 				}
 			} else {

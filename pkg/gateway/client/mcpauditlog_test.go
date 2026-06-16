@@ -311,3 +311,86 @@ func TestEventIDUniqueness(t *testing.T) {
 	second := insertAuditLogRow(t, c, types.MCPAuditLog{CreatedAt: time.Now().UTC()})
 	nullGenericColumns(t, c, second.ID)
 }
+
+func TestInsertMCPAuditLogsDedupesEventID(t *testing.T) {
+	c, _ := newTestClientWithDB(t)
+	now := time.Now().UTC()
+
+	err := c.insertMCPAuditLogs(t.Context(), []types.MCPAuditLog{
+		{
+			CreatedAt:        now,
+			EventID:          new("evt-dup"),
+			RequestID:        "first",
+			RequestBody:      []byte(`{}`),
+			ResponseReceived: true,
+		},
+		{
+			CreatedAt:        now.Add(time.Second),
+			EventID:          new("evt-dup"),
+			RequestID:        "duplicate",
+			RequestBody:      []byte(`{}`),
+			ResponseReceived: true,
+		},
+		{
+			CreatedAt:        now.Add(2 * time.Second),
+			EventID:          new("evt-next"),
+			RequestID:        "next",
+			RequestBody:      []byte(`{}`),
+			ResponseReceived: true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("insertMCPAuditLogs() error: %v", err)
+	}
+
+	var count int64
+	if err := c.db.WithContext(t.Context()).Model(&types.MCPAuditLog{}).Count(&count).Error; err != nil {
+		t.Fatalf("failed to count audit logs: %v", err)
+	}
+	if count != 2 {
+		t.Fatalf("count = %d, want 2", count)
+	}
+
+	var row types.MCPAuditLog
+	if err := c.db.WithContext(t.Context()).Where("event_id = 'evt-dup'").First(&row).Error; err != nil {
+		t.Fatalf("failed to fetch deduped row: %v", err)
+	}
+	if row.RequestID != "first" {
+		t.Errorf("RequestID = %q, want first", row.RequestID)
+	}
+}
+
+func TestLogMCPAuditEntryForcesMCPClassification(t *testing.T) {
+	c, _ := newTestClientWithDB(t)
+
+	c.LogMCPAuditEntry(types.MCPAuditLog{
+		CreatedAt:        time.Now().UTC(),
+		SourceType:       types.AuditLogSourceTypeLocalAgent,
+		EventType:        types.AuditLogEventTypeResourceRead,
+		Outcome:          types.AuditLogOutcomeError,
+		CallType:         "tools/call",
+		ResponseStatus:   200,
+		RequestBody:      []byte(`{}`),
+		ResponseReceived: true,
+	})
+	if err := c.persistAuditLogs(); err != nil {
+		t.Fatalf("persistAuditLogs() error: %v", err)
+	}
+
+	var row types.MCPAuditLog
+	if err := c.db.WithContext(t.Context()).First(&row).Error; err != nil {
+		t.Fatalf("failed to fetch audit log: %v", err)
+	}
+	if row.SourceType != types.AuditLogSourceTypeMCP {
+		t.Errorf("SourceType = %q, want %q", row.SourceType, types.AuditLogSourceTypeMCP)
+	}
+	if row.EventType != types.AuditLogEventTypeToolCall {
+		t.Errorf("EventType = %q, want %q", row.EventType, types.AuditLogEventTypeToolCall)
+	}
+	if row.Outcome != types.AuditLogOutcomeSuccess {
+		t.Errorf("Outcome = %q, want %q", row.Outcome, types.AuditLogOutcomeSuccess)
+	}
+	if row.ReceivedAt == nil {
+		t.Error("ReceivedAt must be assigned by LogMCPAuditEntry")
+	}
+}

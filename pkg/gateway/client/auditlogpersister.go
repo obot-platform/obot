@@ -24,17 +24,11 @@ func (c *Client) LogMCPAuditEntry(entry types.MCPAuditLog) {
 		eventID := uuid.NewString()
 		entry.EventID = &eventID
 	}
-	if entry.SourceType == "" {
-		entry.SourceType = types.AuditLogSourceTypeMCP
-	}
-	if entry.EventType == "" {
-		entry.EventType = types.EventTypeForCallType(entry.CallType)
-	}
+	entry.SourceType = types.AuditLogSourceTypeMCP
+	entry.EventType = types.EventTypeForCallType(entry.CallType)
 	// The outcome is provisional for request-only entries; the response merge
 	// path overwrites it once the response arrives.
-	if entry.Outcome == "" {
-		entry.Outcome = types.OutcomeForResult(entry.Error, entry.ResponseStatus)
-	}
+	entry.Outcome = types.OutcomeForResult(entry.Error, entry.ResponseStatus)
 
 	// ReceivedAt is server receipt time, so it is always assigned here;
 	// callers (including audit log submission requests) cannot supply it.
