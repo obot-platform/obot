@@ -6,5 +6,6 @@ export { default as version } from './version.svelte';
 export { default as appPreferences } from './appPreferences.svelte';
 export { default as mcpServersAndEntries } from './mcpServersAndEntries.svelte';
 export { default as defaultModelAliases } from './defaultModelAliases.svelte';
+export { default as accessibleModels } from './accessibleModels.svelte';
 export { default as userDeviceSettings } from './userDeviceSettings.svelte';
 export { default as license } from './license.svelte';

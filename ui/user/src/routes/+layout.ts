@@ -4,6 +4,7 @@ import {
 	type AppPreferences,
 	type DefaultModelAlias,
 	type License,
+	type Model,
 	type Profile,
 	type Version
 } from '$lib/services';
@@ -19,7 +20,7 @@ export const load: LayoutLoad = async ({ fetch }) => {
 	let version: Version | undefined;
 	let license: License | undefined;
 	let defaultModelAliases: DefaultModelAlias[] | undefined;
-
+	let models: Model[] | undefined;
 	try {
 		version = await UserService.getVersion({ fetch });
 	} catch {
@@ -63,6 +64,12 @@ export const load: LayoutLoad = async ({ fetch }) => {
 		} catch {
 			defaultModelAliases = undefined;
 		}
+
+		try {
+			models = await UserService.listModels({ fetch });
+		} catch {
+			models = undefined;
+		}
 	}
 
 	return {
@@ -70,6 +77,7 @@ export const load: LayoutLoad = async ({ fetch }) => {
 		profile,
 		version,
 		license,
-		defaultModelAliases
+		defaultModelAliases,
+		models
 	};
 };

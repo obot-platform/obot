@@ -8,7 +8,7 @@
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { type ModelAccessPolicy } from '$lib/services/admin/types';
 	import { AdminService } from '$lib/services/index.js';
-	import { profile } from '$lib/stores/index.js';
+	import { accessibleModels, profile } from '$lib/stores/index.js';
 	import { goto, clearUrlParams } from '$lib/url';
 	import { openUrl } from '$lib/utils.js';
 	import { LockKeyhole, Plus, Trash2 } from 'lucide-svelte';
@@ -35,6 +35,7 @@
 	let isReadonly = $derived(profile.current.isAdminReadonly?.());
 
 	async function navigateToCreated(policy: ModelAccessPolicy) {
+		accessibleModels.refresh();
 		clearUrlParams(['new']);
 		goto(`/admin/model-access-policies/${policy.id}`, { replaceState: false });
 	}
@@ -164,6 +165,7 @@
 		if (!policyToDelete) return;
 		await AdminService.deleteModelAccessPolicy(policyToDelete.id);
 		modelAccessPolicies = await AdminService.listModelAccessPolicies();
+		await accessibleModels.refresh();
 		policyToDelete = undefined;
 	}}
 	oncancel={() => (policyToDelete = undefined)}
