@@ -35,6 +35,8 @@ func (m *MCP) Run(cmd *cobra.Command, _ []string) error {
 }
 
 type MCPSearch struct {
+	PromptConfig
+
 	Limit int  `usage:"Maximum number of MCP servers to return; 0 means no limit" default:"50"`
 	JSON  bool `usage:"Print results as JSON"`
 

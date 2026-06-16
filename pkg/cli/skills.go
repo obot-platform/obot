@@ -33,6 +33,8 @@ func (s *Skills) Run(cmd *cobra.Command, _ []string) error {
 }
 
 type SkillsSearch struct {
+	PromptConfig
+
 	Limit int  `usage:"Maximum number of skills to return" default:"50"`
 	JSON  bool `usage:"Print results as JSON"`
 
@@ -108,6 +110,8 @@ func tableCell(value string) string {
 }
 
 type SkillsInstall struct {
+	PromptConfig
+
 	Destination string `usage:"Target skills directory, such as ~/.claude/skills or ~/.agents/skills"`
 	JSON        bool   `usage:"Print results as JSON"`
 
