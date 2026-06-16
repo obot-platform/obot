@@ -169,10 +169,11 @@ func Token(ctx context.Context, baseURL string, opts apiclient.TokenFetchOptions
 	}
 
 	token, tokenErr := credentialStore.Get(appURL)
-	hasStoredToken := tokenErr == nil
 	if tokenErr != nil && !credentials.IsNotFound(tokenErr) {
 		return "", tokenErr
 	}
+
+	hasStoredToken := tokenErr == nil
 	if hasStoredToken && !opts.ForceRefresh && testToken(ctx, baseURL, token, opts.Scopes...) {
 		return token, nil
 	}
@@ -198,24 +199,35 @@ func Token(ctx context.Context, baseURL string, opts apiclient.TokenFetchOptions
 		return "", fmt.Errorf("failed to create login request: %w", err)
 	}
 
-	if !hasStoredToken && !isNonInteractive(ctx) {
-		w := outputWriter(ctx)
+	w := outputWriter(ctx)
+	nonInteractive := isNonInteractive(ctx)
+	if !hasStoredToken {
 		fmt.Fprintln(w)
 		fmt.Fprintln(w, color.GreenString("Authentication is needed"))
 		fmt.Fprintln(w, color.GreenString("========================"))
 		fmt.Fprintln(w)
-		fmt.Fprintln(w, color.CyanString(provider.Name)+" is used for authentication using the browser. This can be bypassed by setting")
-		fmt.Fprintln(w, "the env var "+color.CyanString(TokenEnvVar)+" to your API key.")
+		fmt.Fprintln(w, color.CyanString(provider.Name), "is used for authentication using the browser.")
+		fmt.Fprintln(w, "This can be bypassed by setting the env var", color.CyanString(TokenEnvVar), "to your API key.")
 		fmt.Fprintln(w)
-		fmt.Fprintln(w, color.GreenString("Press ENTER to continue (CTRL+C to exit)"))
-		if err := enter(ctx); err != nil {
-			return "", err
+
+		if !nonInteractive {
+			fmt.Fprintln(w, color.GreenString("Press ENTER to continue (CTRL+C to exit)"))
+			if err := enter(ctx); err != nil {
+				return "", err
+			}
+			fmt.Fprintln(w)
 		}
-		fmt.Fprintln(w)
 	}
 
-	fmt.Fprintf(outputWriter(ctx), "Opening browser to %s. if there is an issue paste this link into a browser manually\n", loginURL)
-	_ = openBrowser(loginURL)
+	fmt.Fprintln(w, "Opening browser to", loginURL, "for authentication.")
+	if err := openBrowser(loginURL); err != nil {
+		if nonInteractive {
+			return "", fmt.Errorf("failed to open browser: %w", err)
+		}
+
+		fmt.Fprintln(w, "Failed to open browser:", err.Error())
+		fmt.Fprintln(w, "To finish authenticating, paste", loginURL, "into your browser manually.")
+	}
 
 	ctx, timeoutCancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer timeoutCancel()

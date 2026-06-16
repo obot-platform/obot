@@ -137,9 +137,11 @@ func TestSetupNonInteractiveMissingURLFailsWithoutPrompt(t *testing.T) {
 		return "", nil
 	})
 	setup := &Setup{
-		Clients:        "agents",
-		NonInteractive: true,
-		root:           root,
+		PromptConfig: PromptConfig{
+			NonInteractive: true,
+		},
+		Clients: "agents",
+		root:    root,
 	}
 
 	var stdout bytes.Buffer
@@ -168,11 +170,13 @@ func TestSetupClientsNoneSkipsLocalClientInstall(t *testing.T) {
 		return "token", nil
 	})
 	setup := &Setup{
-		URL:            "https://obot.example.com/",
-		Clients:        "none",
-		Yes:            true,
-		NonInteractive: true,
-		root:           root,
+		PromptConfig: PromptConfig{
+			NonInteractive: true,
+		},
+		URL:     "https://obot.example.com/",
+		Clients: "none",
+		Yes:     true,
+		root:    root,
 	}
 
 	var stdout, stderr bytes.Buffer
@@ -204,12 +208,14 @@ func TestSetupJSONProgressSuccessfulSequence(t *testing.T) {
 		return "token", nil
 	})
 	setup := &Setup{
-		URL:            "https://obot.example.com/",
-		Clients:        "claude-code",
-		Yes:            true,
-		NonInteractive: true,
-		Output:         "json",
-		root:           root,
+		PromptConfig: PromptConfig{
+			NonInteractive: true,
+		},
+		URL:     "https://obot.example.com/",
+		Clients: "claude-code",
+		Yes:     true,
+		Output:  "json",
+		root:    root,
 	}
 
 	var stdout, stderr bytes.Buffer
@@ -253,10 +259,12 @@ func TestSetupJSONProgressStructuredError(t *testing.T) {
 		return "", nil
 	})
 	setup := &Setup{
-		Clients:        "none",
-		NonInteractive: true,
-		Output:         "json",
-		root:           root,
+		PromptConfig: PromptConfig{
+			NonInteractive: true,
+		},
+		Clients: "none",
+		Output:  "json",
+		root:    root,
 	}
 
 	var stdout bytes.Buffer
@@ -499,9 +507,11 @@ func TestSetupNonInteractiveRequiresClientsWhenOmitted(t *testing.T) {
 		return "token", nil
 	})
 	setup := &Setup{
-		URL:            "https://obot.example.com/",
-		NonInteractive: true,
-		root:           root,
+		PromptConfig: PromptConfig{
+			NonInteractive: true,
+		},
+		URL:  "https://obot.example.com/",
+		root: root,
 	}
 
 	err := setup.Run(setupTestCommand(nil, nil, nil), nil)

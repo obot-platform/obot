@@ -21,11 +21,11 @@ import (
 )
 
 type Setup struct {
-	URL            string `usage:"Obot app URL to configure"`
-	Clients        string `usage:"Comma-separated target clients: none, claude-code, or agents"`
-	Yes            bool   `usage:"Accept confirmations and use defaults"`
-	NonInteractive bool   `usage:"Never read from stdin; fail if required input is missing"`
-	Output         string `usage:"Output format: text or json" default:"text"`
+	PromptConfig
+	URL     string `usage:"Obot app URL to configure" local:"true"`
+	Clients string `usage:"Comma-separated target clients: none, claude-code, or agents" local:"true"`
+	Yes     bool   `usage:"Accept confirmations and use defaults" local:"true"`
+	Output  string `usage:"Output format: text or json" default:"text" local:"true"`
 
 	root *Obot
 }
@@ -67,16 +67,10 @@ func (s *Setup) run(cmd *cobra.Command, progress setupProgressWriter) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	if s.NonInteractive {
-		ctx = cliinternal.WithNonInteractive(ctx)
-		cmd.SetContext(ctx)
-	}
 	if progress.json {
-		authOutput := cmd.ErrOrStderr()
 		if s.NonInteractive {
-			authOutput = io.Discard
+			ctx = cliinternal.WithOutputWriter(ctx, io.Discard)
 		}
-		ctx = cliinternal.WithOutputWriter(ctx, authOutput)
 		cmd.SetContext(ctx)
 		cmd.SetOut(cmd.ErrOrStderr())
 	}

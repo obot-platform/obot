@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -11,6 +12,7 @@ import (
 )
 
 type Login struct {
+	PromptConfig
 	TokenName        string   `usage:"Name of the token for identification" default:"CLI token"`
 	TokenDescription string   `usage:"Optional description of the token"`
 	NoExpiration     bool     `usage:"Set the token to never expire"`
@@ -49,9 +51,28 @@ func (l *Login) Run(cmd *cobra.Command, _ []string) error {
 		}
 		return err
 	}
-	fmt.Fprintf(os.Stderr, "Logged in to %s\n", l.root.Client.BaseURL)
+	fmt.Fprintln(os.Stderr, "Logged in to", l.root.Client.BaseURL)
 	if l.PrintToken {
 		fmt.Println(token)
 	}
+	return nil
+}
+
+// PromptConfig contains shared local options for commands that may require interactive input from users.
+// e.g. Any command that performs just-in-time authentication for unauthenticated users.
+type PromptConfig struct {
+	NonInteractive bool `usage:"Never read from stdin; fail if required input is missing" env:"OBOT_NON_INTERACTIVE" local:"true"`
+}
+
+func (p PromptConfig) Pre(cmd *cobra.Command, _ []string) error {
+	ctx := cmd.Context()
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if p.NonInteractive {
+		ctx = internal.WithNonInteractive(ctx)
+	}
+	cmd.SetContext(ctx)
+
 	return nil
 }
