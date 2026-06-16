@@ -21,7 +21,7 @@ func TestCheckMCPIDAllowsAnonymousMCPConnect(t *testing.T) {
 	authorizer := &Authorizer{}
 	req := httptest.NewRequest("GET", "/mcp-connect/ms1test", nil)
 
-	ok, err := authorizer.checkMCPID(req, &Resources{MCPID: "ms1test"}, &user.DefaultInfo{Name: "anonymous"})
+	ok, err := authorizer.checkMCPID(req, &Resources{MCPID: "ms1test"}, newUser(&user.DefaultInfo{Name: "anonymous"}))
 	if err != nil {
 		t.Fatalf("checkMCPID() error = %v", err)
 	}
@@ -35,7 +35,7 @@ func TestCheckMCPIDDoesNotBypassNonMCPConnectForAnonymous(t *testing.T) {
 	authorizer := &Authorizer{cache: storage, uncached: storage}
 	req := httptest.NewRequest("GET", "/oauth/authorize/ms1test", nil)
 
-	ok, err := authorizer.checkMCPID(req, &Resources{MCPID: "ms1test"}, &user.DefaultInfo{Name: "anonymous"})
+	ok, err := authorizer.checkMCPID(req, &Resources{MCPID: "ms1test"}, newUser(&user.DefaultInfo{Name: "anonymous"}))
 	if err == nil {
 		t.Fatal("checkMCPID() error = nil, want error")
 	}
@@ -57,10 +57,10 @@ func TestCheckMCPIDChecksMCPServerInstanceOwner(t *testing.T) {
 	authorizer := &Authorizer{cache: storage, uncached: storage}
 	req := httptest.NewRequest("GET", "/mcp-connect/msi1test", nil)
 
-	ok, err := authorizer.checkMCPID(req, &Resources{MCPID: "msi1test"}, &user.DefaultInfo{
+	ok, err := authorizer.checkMCPID(req, &Resources{MCPID: "msi1test"}, newUser(&user.DefaultInfo{
 		Name: "user",
 		UID:  "user-uid",
-	})
+	}))
 	if err != nil {
 		t.Fatalf("checkMCPID() error = %v", err)
 	}
@@ -108,10 +108,10 @@ func TestCheckMCPIDChecksSystemMCPServerEnabled(t *testing.T) {
 			authorizer := &Authorizer{cache: storage, uncached: storage}
 			req := httptest.NewRequest(http.MethodGet, "/mcp-connect/sms1test", nil)
 
-			ok, err := authorizer.checkMCPID(req, &Resources{MCPID: "sms1test"}, &user.DefaultInfo{
+			ok, err := authorizer.checkMCPID(req, &Resources{MCPID: "sms1test"}, newUser(&user.DefaultInfo{
 				Name: "user",
 				UID:  "user-uid",
-			})
+			}))
 			if err != nil {
 				t.Fatalf("checkMCPID() error = %v", err)
 			}
@@ -148,7 +148,7 @@ func TestCheckMCPIDChecksMCPServerCatalogAccess(t *testing.T) {
 	})
 	req := httptest.NewRequest(http.MethodGet, "/mcp-connect/ms1catalog", nil)
 
-	ok, err := authorizer.checkMCPID(req, &Resources{MCPID: "ms1catalog"}, &user.DefaultInfo{Name: "user", UID: "user-uid"})
+	ok, err := authorizer.checkMCPID(req, &Resources{MCPID: "ms1catalog"}, newUser(&user.DefaultInfo{Name: "user", UID: "user-uid"}))
 	if err != nil {
 		t.Fatalf("checkMCPID() error = %v", err)
 	}
@@ -156,7 +156,7 @@ func TestCheckMCPIDChecksMCPServerCatalogAccess(t *testing.T) {
 		t.Fatal("checkMCPID() = false, want true")
 	}
 
-	ok, err = authorizer.checkMCPID(req, &Resources{MCPID: "ms1catalog"}, &user.DefaultInfo{Name: "other", UID: "other-uid"})
+	ok, err = authorizer.checkMCPID(req, &Resources{MCPID: "ms1catalog"}, newUser(&user.DefaultInfo{Name: "other", UID: "other-uid"}))
 	if err != nil {
 		t.Fatalf("checkMCPID() error = %v", err)
 	}
@@ -190,7 +190,7 @@ func TestCheckMCPIDChecksCatalogEntryAccess(t *testing.T) {
 	})
 	req := httptest.NewRequest(http.MethodGet, "/mcp-connect/entry-test", nil)
 
-	ok, err := authorizer.checkMCPID(req, &Resources{MCPID: "entry-test"}, &user.DefaultInfo{Name: "user", UID: "user-uid"})
+	ok, err := authorizer.checkMCPID(req, &Resources{MCPID: "entry-test"}, newUser(&user.DefaultInfo{Name: "user", UID: "user-uid"}))
 	if err != nil {
 		t.Fatalf("checkMCPID() error = %v", err)
 	}
@@ -198,7 +198,7 @@ func TestCheckMCPIDChecksCatalogEntryAccess(t *testing.T) {
 		t.Fatal("checkMCPID() = false, want true")
 	}
 
-	ok, err = authorizer.checkMCPID(req, &Resources{MCPID: "entry-test"}, &user.DefaultInfo{Name: "other", UID: "other-uid"})
+	ok, err = authorizer.checkMCPID(req, &Resources{MCPID: "entry-test"}, newUser(&user.DefaultInfo{Name: "other", UID: "other-uid"}))
 	if err != nil {
 		t.Fatalf("checkMCPID() error = %v", err)
 	}
@@ -270,7 +270,7 @@ func TestCheckMCPIDChecksWorkspaceAccess(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, "/mcp-connect/"+tt.mcpID, nil)
 
-			ok, err := authorizer.checkMCPID(req, &Resources{MCPID: tt.mcpID}, &user.DefaultInfo{Name: "user", UID: tt.userID})
+			ok, err := authorizer.checkMCPID(req, &Resources{MCPID: tt.mcpID}, newUser(&user.DefaultInfo{Name: "user", UID: tt.userID}))
 			if err != nil {
 				t.Fatalf("checkMCPID() error = %v", err)
 			}

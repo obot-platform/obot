@@ -242,28 +242,28 @@ func TestTokenRequestIncludesRequestedScopes(t *testing.T) {
 	}{
 		{
 			name:   "API scope",
-			scopes: []string{"api"},
+			scopes: []string{types.APIKeyScopeAPI},
 			want: createRequest{
 				Scopes: gatewaytypes.APIKeyScopes{CanAccessAPI: true},
 			},
 		},
 		{
 			name:   "LLM scope",
-			scopes: []string{"llm"},
+			scopes: []string{types.APIKeyScopeLLM},
 			want: createRequest{
 				Scopes: gatewaytypes.APIKeyScopes{CanAccessLLMProxy: true},
 			},
 		},
 		{
 			name:   "skills scope",
-			scopes: []string{"skills"},
+			scopes: []string{types.APIKeyScopeSkills},
 			want: createRequest{
 				Scopes: gatewaytypes.APIKeyScopes{CanAccessSkills: true},
 			},
 		},
 		{
 			name:         "all MCP scope and no expiration",
-			scopes:       []string{"all-mcp"},
+			scopes:       []string{types.APIKeyScopeAllMCP},
 			noExpiration: true,
 			want: createRequest{
 				NoExpiration: true,
@@ -272,7 +272,7 @@ func TestTokenRequestIncludesRequestedScopes(t *testing.T) {
 		},
 		{
 			name:   "combined scopes",
-			scopes: []string{"api", "llm", "skills", "all-mcp"},
+			scopes: []string{types.APIKeyScopeAPI, types.APIKeyScopeLLM, types.APIKeyScopeSkills, types.APIKeyScopeAllMCP},
 			want: createRequest{
 				Scopes: gatewaytypes.APIKeyScopes{
 					CanAccessAPI:      true,
@@ -327,6 +327,8 @@ func TestTokenRequestIncludesRequestedScopes(t *testing.T) {
 			defer srv.Close()
 
 			_, err := Token(WithNonInteractive(t.Context()), srv.URL+"/api", apiclient.TokenFetchOptions{
+				Name:         "CLI token",
+				Description:  "Created by obot login",
 				NoExpiration: tt.noExpiration,
 				Scopes:       tt.scopes,
 			})
@@ -342,6 +344,12 @@ func TestTokenRequestIncludesRequestedScopes(t *testing.T) {
 			}
 			if got.ID == "" {
 				t.Fatal("expected generated token request ID")
+			}
+			if got.Name != "CLI token" {
+				t.Fatalf("name = %q, want CLI token", got.Name)
+			}
+			if got.Description != "Created by obot login" {
+				t.Fatalf("description = %q, want Created by obot login", got.Description)
 			}
 			assertCreateRequestScopes(t, got, tt.want)
 		})
@@ -409,7 +417,7 @@ func TestTokenRefreshesValidKeyringTokenMissingRequestedScopes(t *testing.T) {
 	store.tokens[srv.URL] = "scoped-token"
 
 	token, err := Token(WithNonInteractive(t.Context()), srv.URL+"/api", apiclient.TokenFetchOptions{
-		Scopes: []string{"api"},
+		Scopes: []string{types.APIKeyScopeAPI},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -464,7 +472,7 @@ func TestTokenReusesAPIKeyringTokenForNonMCPScopes(t *testing.T) {
 	store.tokens[srv.URL] = "api-token"
 
 	token, err := Token(WithNonInteractive(t.Context()), srv.URL+"/api", apiclient.TokenFetchOptions{
-		Scopes: []string{"skills", "llm", "published-artifacts"},
+		Scopes: []string{types.APIKeyScopeSkills, types.APIKeyScopeLLM, types.APIKeyScopePublishedArtifacts},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -538,7 +546,7 @@ func TestTokenRefreshesAPIKeyringTokenForMCPScope(t *testing.T) {
 	store.tokens[srv.URL] = "api-token"
 
 	token, err := Token(WithNonInteractive(t.Context()), srv.URL+"/api", apiclient.TokenFetchOptions{
-		Scopes: []string{"all-mcp"},
+		Scopes: []string{types.APIKeyScopeAllMCP},
 	})
 	if err != nil {
 		t.Fatal(err)

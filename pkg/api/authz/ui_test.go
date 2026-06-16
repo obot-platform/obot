@@ -21,7 +21,7 @@ func TestCheckUI_V2AdminAccess(t *testing.T) {
 			path: "/admin/users",
 			user: &user.DefaultInfo{
 				Name:   "admin",
-				Groups: []string{types.GroupAdmin, types.GroupAuthenticated},
+				Groups: types.RoleAdmin.Groups(),
 			},
 			expected: true,
 		},
@@ -30,7 +30,7 @@ func TestCheckUI_V2AdminAccess(t *testing.T) {
 			path: "/admin/users",
 			user: &user.DefaultInfo{
 				Name:   "owner",
-				Groups: []string{types.GroupOwner, types.GroupAuthenticated},
+				Groups: types.RoleOwner.Groups(),
 			},
 			expected: true,
 		},
@@ -39,7 +39,7 @@ func TestCheckUI_V2AdminAccess(t *testing.T) {
 			path: "/admin/auth-providers",
 			user: &user.DefaultInfo{
 				Name:   "bootstrap",
-				Groups: []string{types.GroupOwner, types.GroupAdmin, types.GroupBasic, types.GroupAuthenticated},
+				Groups: types.RoleOwner.Groups(),
 			},
 			expected: true,
 		},
@@ -48,7 +48,7 @@ func TestCheckUI_V2AdminAccess(t *testing.T) {
 			path: "/admin/users",
 			user: &user.DefaultInfo{
 				Name:   "user",
-				Groups: []string{types.GroupBasic, types.GroupAuthenticated},
+				Groups: types.RoleBasic.Groups(),
 			},
 			expected: false,
 		},
@@ -102,7 +102,7 @@ func TestCheckUI_V2AdminAccess(t *testing.T) {
 			path: "/",
 			user: &user.DefaultInfo{
 				Name:   "admin",
-				Groups: []string{types.GroupAdmin, types.GroupAuthenticated},
+				Groups: types.RoleAdmin.Groups(),
 			},
 			expected: true,
 		},
@@ -138,7 +138,7 @@ func TestCheckUI_V2AdminAccess(t *testing.T) {
 			path: "/chat",
 			user: &user.DefaultInfo{
 				Name:   "admin",
-				Groups: []string{types.GroupAdmin, types.GroupAuthenticated},
+				Groups: types.RoleAdmin.Groups(),
 			},
 			expected: true,
 		},
@@ -201,7 +201,7 @@ func TestCheckUI_V2AdminAccess(t *testing.T) {
 			path: "/debug/triggers",
 			user: &user.DefaultInfo{
 				Name:   "user",
-				Groups: []string{types.GroupOwner, types.GroupAdmin, types.GroupAuthenticated},
+				Groups: types.RoleOwner.Groups(),
 			},
 			expected: false,
 		},
@@ -219,7 +219,7 @@ func TestCheckUI_V2AdminAccess(t *testing.T) {
 			path: "/debug/pprof/profile",
 			user: &user.DefaultInfo{
 				Name:   "user",
-				Groups: []string{types.GroupOwner, types.GroupAdmin, types.GroupAuthenticated},
+				Groups: types.RoleOwner.Groups(),
 			},
 			expected: false,
 		},
@@ -281,7 +281,7 @@ func TestCheckUI_V2AdminAccess(t *testing.T) {
 				URL:    &url.URL{Path: tt.path},
 			}
 
-			result := authorizer.checkUI(req, tt.user)
+			result := authorizer.checkUI(req, newUser(tt.user))
 			if result != tt.expected {
 				t.Errorf("checkUI() = %v, want %v", result, tt.expected)
 			}

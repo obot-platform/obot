@@ -7,10 +7,9 @@ import (
 	"github.com/obot-platform/nah/pkg/router"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	"k8s.io/apiserver/pkg/authentication/user"
 )
 
-func (a *Authorizer) checkMCPID(req *http.Request, resources *Resources, user user.Info) (bool, error) {
+func (a *Authorizer) checkMCPID(req *http.Request, resources *Resources, user User) (bool, error) {
 	if resources.MCPID == "" || user.GetName() == "anonymous" && strings.HasPrefix(req.URL.Path, "/mcp-connect/") {
 		// If this is an MCP connect URL and the user is anonymous, then allow access.
 		// The handler will catch this and support the WWW-Authenticate header to trigger the login flow.

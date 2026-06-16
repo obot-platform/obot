@@ -61,8 +61,6 @@ var (
 		"/api/message-policy-violations",
 		"/api/message-policy-violations/",
 		"GET /api/message-policy-violation-stats",
-		"/api/devices/scans",
-		"/api/devices/scans/",
 		"/api/devices/scan-stats",
 		"/api/devices/mcp-servers/",
 		"/api/devices/skills",
@@ -103,8 +101,6 @@ var (
 		"/api/skill-repositories/",
 		"/api/skill-access-rules",
 		"/api/skill-access-rules/",
-		"GET /api/skills",
-		"GET /api/skills/",
 		"GET /api/eula",
 		"PUT /api/eula",
 		"PUT /api/app-preferences",
@@ -163,14 +159,9 @@ var (
 			"GET /api/skill-repositories/",
 			"GET /api/skill-access-rules",
 			"GET /api/skill-access-rules/",
-			"GET /api/skills",
-			"GET /api/skills/{id}",
-			"GET /api/skills/{id}/download",
 			"GET /api/message-policy-violations",
 			"GET /api/message-policy-violations/",
 			"GET /api/message-policy-violation-stats",
-			"GET /api/devices/scans",
-			"GET /api/devices/scans/",
 			"GET /api/devices/scan-stats",
 			"GET /api/devices/mcp-servers/",
 			"GET /api/devices/skills",
@@ -237,8 +228,7 @@ var (
 			"POST /api/credentials/erase",
 		},
 
-		types.GroupBasic: {
-			"/api/llm-proxy/",
+		types.GroupAPI: {
 			"GET /api/models",
 			"GET /api/model-providers",
 			"GET /api/users",
@@ -260,12 +250,6 @@ var (
 			// Allow basic users to create and list projects
 			"POST /api/projects",
 			"GET /api/projects",
-
-			// Device scans: any authenticated user can submit a scan via
-			// `obot scan` and read the scans they themselves submitted.
-			// Clamp list results to SubmittedBy == req.User.GetUID()
-			"POST /api/devices/scans",
-			"GET /api/devices/scans",
 
 			// API key management for user's own keys
 			"POST /api/api-keys",
@@ -319,6 +303,14 @@ var (
 			"/api/llm-proxy/",
 		},
 
+		types.GroupDeviceScans: {
+			// Device scans: any authenticated user can submit a scan via
+			// `obot scan` and read the scans they themselves submitted.
+			// Clamp list results to SubmittedBy == req.User.GetUID()
+			"POST /api/devices/scans",
+			"GET /api/devices/scans",
+		},
+
 		MetricsGroup: {
 			"/debug/metrics",
 		},
@@ -367,7 +359,8 @@ func NewAuthorizer(gatewayClient *client.Client, cache, uncached kclient.Client,
 	}
 }
 
-func (a *Authorizer) Authorize(req *http.Request, user user.Info) bool {
+func (a *Authorizer) Authorize(req *http.Request, userInfo user.Info) bool {
+	user := newUser(userInfo)
 	for _, r := range a.rules {
 		if r.group == anyGroup || slices.Contains(user.GetGroups(), r.group) {
 			if _, pattern := r.mux.Handler(req); pattern != "" {

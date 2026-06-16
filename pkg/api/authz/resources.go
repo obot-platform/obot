@@ -5,11 +5,10 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	"k8s.io/apiserver/pkg/authentication/user"
 )
 
 var apiResources = map[string][]string{
-	types.GroupBasic: {
+	types.GroupAPI: {
 		"GET    /api/all-mcps/servers/{mcpserver_id}",
 		"GET    /api/all-mcps/servers/{mcpserver_id}/tools",
 		"GET    /api/all-mcps/servers/{mcpserver_id}/resources",
@@ -71,7 +70,6 @@ var apiResources = map[string][]string{
 		"PUT    /api/projects/{project_id}/agents/{nanobot_agent_id}",
 		"DELETE /api/projects/{project_id}/agents/{nanobot_agent_id}",
 		"POST   /api/projects/{project_id}/agents/{nanobot_agent_id}/launch",
-		"GET    /api/devices/scans/{scan_id}",
 	},
 	types.GroupPowerUser: {
 		"GET    /api/workspaces/{workspace_id}",
@@ -136,6 +134,9 @@ var apiResources = map[string][]string{
 		"PUT    /api/published-artifacts/{artifact_id}",
 		"DELETE /api/published-artifacts/{artifact_id}",
 	},
+	types.GroupDeviceScans: {
+		"GET    /api/devices/scans/{scan_id}",
+	},
 }
 
 type Resources struct {
@@ -165,7 +166,7 @@ type ResourcesAuthorized struct {
 	Skill                 *v1.Skill
 }
 
-func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user user.Info) (bool, error) {
+func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user User) (bool, error) {
 	resources := Resources{
 		MCPServerID:             vars("mcpserver_id"),
 		MCPServerInstanceID:     vars("mcp_server_instance_id"),
@@ -227,7 +228,7 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user user
 	return true, nil
 }
 
-func (a *Authorizer) authorizeAPIResources(req *http.Request, user user.Info) bool {
+func (a *Authorizer) authorizeAPIResources(req *http.Request, user User) bool {
 	for _, group := range user.GetGroups() {
 		vars, matches := a.apiResources[group].Match(req)
 		if !matches {

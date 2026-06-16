@@ -121,37 +121,37 @@ func TestGroups(t *testing.T) {
 		{
 			"Owner gets owner, admin, power user groups",
 			RoleOwner,
-			[]string{GroupOwner, GroupAdmin, GroupPowerUserPlus, GroupPowerUser, GroupBasic, GroupAuthenticated, GroupLLM, GroupSkills, GroupPublishedArtifacts, GroupMCP},
+			[]string{GroupOwner, GroupAdmin, GroupPowerUserPlus, GroupPowerUser, GroupBasic, GroupAuthenticated, GroupAPI, GroupLLM, GroupSkills, GroupPublishedArtifacts, GroupMCP, GroupDeviceScans},
 			[]string{GroupAuditor, GroupUserImpersonation},
 		},
 		{
 			"Admin with Auditor",
 			RoleAdmin | RoleAuditor,
-			[]string{GroupAdmin, GroupAuditor, GroupAuthenticated, GroupLLM, GroupSkills, GroupPublishedArtifacts, GroupMCP},
+			[]string{GroupAdmin, GroupAuditor, GroupAuthenticated, GroupAPI, GroupLLM, GroupSkills, GroupPublishedArtifacts, GroupMCP, GroupDeviceScans},
 			[]string{GroupOwner, GroupUserImpersonation},
 		},
 		{
 			"Admin with User Impersonation",
 			RoleAdmin | RoleUserImpersonation,
-			[]string{GroupAdmin, GroupUserImpersonation, GroupAuthenticated, GroupLLM, GroupSkills, GroupPublishedArtifacts, GroupMCP},
+			[]string{GroupAdmin, GroupUserImpersonation, GroupAuthenticated, GroupAPI, GroupLLM, GroupSkills, GroupPublishedArtifacts, GroupMCP, GroupDeviceScans},
 			[]string{GroupOwner, GroupAuditor},
 		},
 		{
 			"Owner with all add-ons",
 			RoleOwner | RoleAuditor | RoleUserImpersonation,
-			[]string{GroupOwner, GroupAdmin, GroupAuditor, GroupUserImpersonation, GroupAuthenticated, GroupLLM, GroupSkills, GroupPublishedArtifacts, GroupMCP},
+			[]string{GroupOwner, GroupAdmin, GroupAuditor, GroupUserImpersonation, GroupAuthenticated, GroupAPI, GroupLLM, GroupSkills, GroupPublishedArtifacts, GroupMCP, GroupDeviceScans},
 			nil,
 		},
 		{
 			"Unknown role gets no groups",
 			RoleUnknown,
 			nil,
-			[]string{GroupOwner, GroupAdmin, GroupAuditor, GroupUserImpersonation, GroupAuthenticated, GroupLLM, GroupSkills, GroupPublishedArtifacts, GroupMCP},
+			[]string{GroupOwner, GroupAdmin, GroupAuditor, GroupUserImpersonation, GroupAuthenticated, GroupAPI, GroupLLM, GroupSkills, GroupPublishedArtifacts, GroupMCP, GroupDeviceScans},
 		},
 		{
 			"User Impersonation alone gets authenticated",
 			RoleUserImpersonation,
-			[]string{GroupUserImpersonation, GroupAuthenticated, GroupLLM, GroupSkills, GroupPublishedArtifacts, GroupMCP},
+			[]string{GroupUserImpersonation, GroupAuthenticated, GroupAPI, GroupLLM, GroupSkills, GroupPublishedArtifacts, GroupMCP, GroupDeviceScans},
 			[]string{GroupOwner, GroupAdmin, GroupAuditor, GroupBasic},
 		},
 	}

@@ -25,9 +25,10 @@ type APIKey struct {
 }
 
 type APIKeyScopes struct {
-	CanAccessSkills             bool `json:"canAccessSkills" gorm:"default:false;not null"`
 	CanAccessAPI                bool `json:"canAccessAPI" gorm:"default:false;not null"`
+	CanAccessSkills             bool `json:"canAccessSkills" gorm:"default:false;not null"`
 	CanAccessLLMProxy           bool `json:"canAccessLLMProxy" gorm:"default:false;not null"`
+	CanAccessDeviceScans        bool `json:"canAccessDeviceScans" gorm:"default:false;not null"`
 	CanAccessPublishedArtifacts bool `json:"canAccessPublishedArtifacts" gorm:"default:false;not null"`
 
 	// MCPServerIDs contains Kubernetes resource names of MCPServers this key can access.
@@ -38,14 +39,14 @@ type APIKeyScopes struct {
 }
 
 func (as APIKeyScopes) Groups(u *User) []string {
+	groups := make([]string, 0, 7)
 	if as.CanAccessAPI {
-		if u == nil {
-			return nil
+		groups = append(groups, types.GroupAPI)
+		if u != nil {
+			groups = append(groups, u.Role.RoleGroups()...)
 		}
-		return u.Role.Groups()
 	}
 
-	groups := make([]string, 0, 5)
 	if as.CanAccessSkills {
 		groups = append(groups, types.GroupSkills)
 	}
@@ -55,10 +56,17 @@ func (as APIKeyScopes) Groups(u *User) []string {
 	if as.CanAccessPublishedArtifacts {
 		groups = append(groups, types.GroupPublishedArtifacts)
 	}
+	if as.CanAccessDeviceScans {
+		groups = append(groups, types.GroupDeviceScans)
+	}
 	if len(as.MCPServerIDs) != 0 {
 		groups = append(groups, types.GroupMCP)
 	}
 	return append(groups, types.GroupAuthenticated)
+}
+
+func (as APIKeyScopes) HasSomeScope() bool {
+	return as.CanAccessAPI || as.CanAccessSkills || as.CanAccessLLMProxy || as.CanAccessPublishedArtifacts || as.CanAccessDeviceScans || len(as.MCPServerIDs) != 0
 }
 
 // APIKeyCreateResponse is returned when creating an API key.
