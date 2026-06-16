@@ -93,7 +93,7 @@ func TestInsertAuditEventsAcceptsDuplicatesAndRejectsInvalid(t *testing.T) {
 	invalid.EventID = "evt-invalid"
 	invalid.SourceType = "unsupported"
 
-	statuses, err := c.InsertAuditEvents(t.Context(), "user-1", "203.0.113.10", []apitypes.AuditEvent{event, event, invalid})
+	statuses, err := c.InsertAuditEvents(t.Context(), "user-1", "[::1]:57057", []apitypes.AuditEvent{event, event, invalid})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,8 +123,8 @@ func TestInsertAuditEventsAcceptsDuplicatesAndRejectsInvalid(t *testing.T) {
 	if row.UserID != "user-1" || row.EventID == nil || *row.EventID != event.EventID || row.ReceivedAt == nil {
 		t.Fatalf("stored row missing server-assigned fields: %+v", row)
 	}
-	if row.ClientIP != "203.0.113.10" {
-		t.Fatalf("stored row ClientIP = %q, want %q", row.ClientIP, "203.0.113.10")
+	if row.ClientIP != "::1" {
+		t.Fatalf("stored row ClientIP = %q, want %q", row.ClientIP, "::1")
 	}
 	if row.SourceType != apitypes.AuditLogSourceTypeLocalAgent ||
 		row.EventType != apitypes.AuditLogEventTypeToolCall ||

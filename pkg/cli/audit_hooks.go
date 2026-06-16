@@ -110,7 +110,7 @@ func installClaudeLikeAuditHooks(path, client, command string, events []string) 
 //
 // Example output fragment:
 //
-//	{"hooks":{"postToolUse":[{"command":"user.sh"},{"command":"/usr/bin/obot audit submit --format cursor --input -","failClosed":false}]}}
+//	{"hooks":{"postToolUse":[{"command":"user.sh"},{"command":"/usr/bin/obot audit submit --format cursor --input -","timeout":10,"failClosed":false,"env":{"OBOT_AUDIT_HOOK_ID":"obot-local-agent-audit-v1"}}]}}
 func installFlatAuditHooks(path, client, command string, events []string, cursor bool) auditHookSetupResult {
 	root, err := readJSONObjectFile(path)
 	if err != nil {
@@ -342,12 +342,11 @@ func updateMatcherGroups(raw any, command string) []any {
 }
 
 // updateFlatHooks returns a flat event hook array with exactly one Obot-managed
-// hook appended. For Cursor, it also sets failClosed=false so audit transport
-// cannot block local agent behavior.
+// hook appended. Cursor uses only documented command hook fields.
 //
 // Example output for Cursor:
 //
-//	[{"command":"/usr/bin/obot audit submit --format cursor --input -","failClosed":false}]
+//	[{"command":"/usr/bin/obot audit submit --format cursor --input -","timeout":10,"failClosed":false,"env":{"OBOT_AUDIT_HOOK_ID":"obot-local-agent-audit-v1"}}]
 func updateFlatHooks(raw any, command string, cursor bool) []any {
 	existing, _ := raw.([]any)
 	out := make([]any, 0, len(existing)+1)
@@ -358,11 +357,13 @@ func updateFlatHooks(raw any, command string, cursor bool) []any {
 		}
 		out = append(out, entry)
 	}
-	hook := managedHookObject(command)
 	if cursor {
+		hook := managedCursorHookObject(command)
 		hook["failClosed"] = false
+		out = append(out, hook)
+		return out
 	}
-	out = append(out, hook)
+	out = append(out, managedHookObject(command))
 	return out
 }
 
@@ -413,6 +414,16 @@ func managedHookObject(command string) map[string]any {
 		"command":       command,
 		"timeout":       float64(auditHookTimeoutSecs),
 		"statusMessage": "Sending audit event to Obot",
+		"env": map[string]any{
+			auditHookIDEnv: auditHookID,
+		},
+	}
+}
+
+func managedCursorHookObject(command string) map[string]any {
+	return map[string]any{
+		"command": command,
+		"timeout": float64(auditHookTimeoutSecs),
 		"env": map[string]any{
 			auditHookIDEnv: auditHookID,
 		},

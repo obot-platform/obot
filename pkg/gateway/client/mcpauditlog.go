@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"slices"
 	"strconv"
 	"strings"
@@ -68,7 +69,7 @@ func (c *Client) InsertAuditEvents(ctx context.Context, userID, clientIP string,
 			continue
 		}
 		row.UserID = userID
-		row.ClientIP = clientIP
+		row.ClientIP = normalizeAuditClientIP(clientIP)
 		row.ReceivedAt = new(time.Now().UTC())
 
 		if err := c.encryptMCPAuditLog(ctx, &row); err != nil {
@@ -86,6 +87,21 @@ func (c *Client) InsertAuditEvents(ctx context.Context, userID, clientIP string,
 		statuses = append(statuses, status)
 	}
 	return statuses, nil
+}
+
+func normalizeAuditClientIP(clientIP string) string {
+	clientIP = strings.TrimSpace(clientIP)
+	if clientIP == "" {
+		return ""
+	}
+	host, _, err := net.SplitHostPort(clientIP)
+	if err == nil {
+		return strings.Trim(host, "[]")
+	}
+	if strings.HasPrefix(clientIP, "[") && strings.HasSuffix(clientIP, "]") {
+		return strings.TrimSuffix(strings.TrimPrefix(clientIP, "["), "]")
+	}
+	return clientIP
 }
 
 func validateAuditEvent(event types2.AuditEvent) error {

@@ -64,6 +64,7 @@ func normalizeAuditEvent(ctx context.Context, format string, raw []byte) (types.
 	response, responseMeta := limitedRawMessage(hook.Response, auditPayloadResponseLimit)
 	rawEvent, rawMeta := limitedRawJSON(raw, auditPayloadRawLimit)
 	errorText, errorMeta := limitedText(hook.Error, auditPayloadErrorLimit)
+	clientVersion := firstNonEmpty(hook.ClientVersion, resolveAuditClientVersion(ctx, format), "unknown")
 
 	payloadMeta := map[string]types.PayloadFieldMeta{}
 	addPayloadMeta(payloadMeta, "request", requestMeta)
@@ -79,7 +80,7 @@ func normalizeAuditEvent(ctx context.Context, format string, raw []byte) (types.
 		DeviceID:   deviceID,
 		Client: types.ClientInfo{
 			Name:    format,
-			Version: firstNonEmpty(hook.ClientVersion, "unknown"),
+			Version: clientVersion,
 		},
 		Tool: types.ToolInfo{
 			Name: firstNonEmpty(hook.ToolName, "unknown"),
@@ -111,6 +112,56 @@ func normalizeAuditEvent(ctx context.Context, format string, raw []byte) (types.
 		event.PayloadMeta = nil
 	}
 	return event, nil
+}
+
+func resolveAuditClientVersion(ctx context.Context, format string) string {
+	for _, binary := range auditClientBinaries(format) {
+		if version := localCommandVersion(ctx, binary); version != "" {
+			return version
+		}
+	}
+	return ""
+}
+
+func localCommandVersion(ctx context.Context, binary string) string {
+	path, err := lookPath(binary)
+	if err != nil || path == "" {
+		return ""
+	}
+	versionCtx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(versionCtx, path, "--version").Output()
+	if err != nil {
+		return ""
+	}
+	return parseCommandVersion(out)
+}
+
+func parseCommandVersion(out []byte) string {
+	for _, field := range strings.Fields(string(out)) {
+		version := strings.Trim(field, " \t\r\n,;:()[]{}")
+		version = strings.TrimPrefix(version, "v")
+		if looksLikeCommandVersion(version) {
+			return version
+		}
+	}
+	return ""
+}
+
+func looksLikeCommandVersion(s string) bool {
+	if s == "" || s[0] < '0' || s[0] > '9' || !strings.Contains(s, ".") {
+		return false
+	}
+	for _, r := range s {
+		if (r >= '0' && r <= '9') ||
+			(r >= 'A' && r <= 'Z') ||
+			(r >= 'a' && r <= 'z') ||
+			r == '.' || r == '-' || r == '+' || r == '_' {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 func decodeAuditHookPayload(format string, raw []byte) (auditHookPayload, error) {

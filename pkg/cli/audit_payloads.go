@@ -64,90 +64,82 @@ func (p claudeCodeHookPayload) auditHookPayload() auditHookPayload {
 }
 
 type codexHookPayload struct {
-	Event     string `json:"event"`
-	EventID   string `json:"eventID"`
-	SessionID string `json:"sessionID"`
-	CWD       string `json:"cwd"`
-	Tool      struct {
-		Name     string          `json:"name"`
-		Type     string          `json:"type"`
-		Input    json.RawMessage `json:"input"`
-		Response json.RawMessage `json:"response"`
-		Error    auditHookError  `json:"error"`
-	} `json:"tool"`
-	Error      auditHookError    `json:"error"`
-	DurationMs int64             `json:"durationMs"`
-	CreatedAt  auditFlexibleTime `json:"createdAt"`
-	Client     struct {
-		Version string `json:"version"`
-	} `json:"client"`
+	HookEventName string          `json:"hook_event_name"`
+	SessionID     string          `json:"session_id"`
+	CWD           string          `json:"cwd"`
+	ToolName      string          `json:"tool_name"`
+	ToolInput     json.RawMessage `json:"tool_input"`
+	ToolResponse  json.RawMessage `json:"tool_response"`
+	ToolUseID     string          `json:"tool_use_id"`
 }
 
 func (p codexHookPayload) auditHookPayload() auditHookPayload {
-	errText := p.Error.String()
-	if errText == "" {
-		errText = p.Tool.Error.String()
-	}
 	return auditHookPayload{
-		EventID:         p.EventID,
-		CreatedAt:       p.CreatedAt.Time,
-		ClientVersion:   p.Client.Version,
-		ToolName:        p.Tool.Name,
-		ToolType:        firstNonEmpty(p.Tool.Type, "tool"),
-		Outcome:         auditOutcome(p.Event, errText, ""),
-		DurationMs:      p.DurationMs,
+		EventID:         p.ToolUseID,
+		ToolName:        p.ToolName,
+		ToolType:        "tool",
+		Outcome:         auditOutcome(p.HookEventName, "", ""),
 		SessionID:       p.SessionID,
 		CWD:             p.CWD,
-		SourceHookEvent: p.Event,
-		ClientEventID:   p.EventID,
-		Request:         p.Tool.Input,
-		Response:        p.Tool.Response,
-		Error:           errText,
+		SourceHookEvent: p.HookEventName,
+		ClientEventID:   p.ToolUseID,
+		Request:         p.ToolInput,
+		Response:        p.ToolResponse,
 	}
 }
 
 type cursorHookPayload struct {
-	EventID       string          `json:"eventID"`
-	EventName     string          `json:"eventName"`
-	SessionID     string          `json:"sessionID"`
-	Conversation  string          `json:"conversationID"`
-	ClientVersion string          `json:"clientVersion"`
-	ToolName      string          `json:"toolName"`
-	ToolType      string          `json:"toolType"`
-	Args          json.RawMessage `json:"args"`
-	Response      json.RawMessage `json:"response"`
-	Result        json.RawMessage `json:"result"`
-	Error         auditHookError  `json:"error"`
-	DurationMs    int64           `json:"durationMs"`
-	Workspace     struct {
-		Path string `json:"path"`
-		CWD  string `json:"cwd"`
-	} `json:"workspace"`
-	CreatedAt auditFlexibleTime `json:"createdAt"`
+	HookEventName string          `json:"hook_event_name"`
+	Conversation  string          `json:"conversation_id"`
+	GenerationID  string          `json:"generation_id"`
+	SessionID     string          `json:"session_id"`
+	ClientVersion string          `json:"cursor_version"`
+	Workspace     []string        `json:"workspace_roots"`
+	ToolName      string          `json:"tool_name"`
+	ToolInput     json.RawMessage `json:"tool_input"`
+	ToolOutput    json.RawMessage `json:"tool_output"`
+	ResultJSON    json.RawMessage `json:"result_json"`
+	ToolUseID     string          `json:"tool_use_id"`
+	ErrorMessage  string          `json:"error_message"`
+	FailureType   string          `json:"failure_type"`
+	DurationMs    int64           `json:"duration_ms"`
+	Duration      int64           `json:"duration"`
+	CWD           string          `json:"cwd"`
 }
 
 func (p cursorHookPayload) auditHookPayload() auditHookPayload {
-	response := p.Response
+	response := p.ToolOutput
 	if len(response) == 0 {
-		response = p.Result
+		response = p.ResultJSON
+	}
+	errorText := p.ErrorMessage
+	if errorText == "" {
+		errorText = p.FailureType
+	}
+	workspace := ""
+	if len(p.Workspace) > 0 {
+		workspace = p.Workspace[0]
+	}
+	duration := p.DurationMs
+	if duration == 0 {
+		duration = p.Duration
 	}
 	return auditHookPayload{
-		EventID:         p.EventID,
-		CreatedAt:       p.CreatedAt.Time,
+		EventID:         p.ToolUseID,
 		ClientVersion:   p.ClientVersion,
 		ToolName:        p.ToolName,
-		ToolType:        firstNonEmpty(p.ToolType, "tool"),
-		Outcome:         auditOutcome(p.EventName, p.Error.String(), ""),
-		DurationMs:      p.DurationMs,
-		SessionID:       p.SessionID,
+		ToolType:        "tool",
+		Outcome:         auditOutcome(p.HookEventName, errorText, ""),
+		DurationMs:      duration,
+		SessionID:       firstNonEmpty(p.SessionID, p.Conversation),
 		ConversationID:  p.Conversation,
-		CWD:             p.Workspace.CWD,
-		Workspace:       p.Workspace.Path,
-		SourceHookEvent: p.EventName,
-		ClientEventID:   p.EventID,
-		Request:         p.Args,
+		CWD:             p.CWD,
+		Workspace:       workspace,
+		SourceHookEvent: p.HookEventName,
+		ClientEventID:   firstNonEmpty(p.ToolUseID, p.GenerationID),
+		Request:         p.ToolInput,
 		Response:        response,
-		Error:           p.Error.String(),
+		Error:           errorText,
 	}
 }
 

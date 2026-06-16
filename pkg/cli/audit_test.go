@@ -26,11 +26,15 @@ func TestNormalizeAuditEventFixtures(t *testing.T) {
 	workspace := t.TempDir()
 
 	fixtures := []struct {
-		name     string
-		format   string
-		payload  string
-		toolName string
-		outcome  string
+		name           string
+		format         string
+		payload        string
+		toolName       string
+		eventID        string
+		sessionID      string
+		conversationID string
+		clientEventID  string
+		outcome        string
 	}{
 		{
 			name:   "claude code success",
@@ -52,27 +56,47 @@ func TestNormalizeAuditEventFixtures(t *testing.T) {
 			name:   "codex success",
 			format: auditClientCodex,
 			payload: fmt.Sprintf(`{
-				"event": "PostToolUse",
-				"sessionID": "codex-session",
+				"hook_event_name": "PostToolUse",
+				"session_id": "codex-session",
 				"cwd": %q,
-				"tool": {"name": "shell", "type": "command", "input": {"cmd": "go test"}, "response": {"output": "ok"}},
-				"durationMs": 20
+				"model": "gpt-5-codex",
+				"permission_mode": "default",
+				"tool_name": "Bash",
+				"tool_input": {"cmd": "go test"},
+				"tool_response": {"output": "ok"},
+				"tool_use_id": "call_codex_1",
+				"transcript_path": null,
+				"turn_id": "turn_1"
 			}`, workspace),
-			toolName: "shell",
-			outcome:  types.AuditLogOutcomeSuccess,
+			toolName:      "Bash",
+			eventID:       "call_codex_1",
+			sessionID:     "codex-session",
+			clientEventID: "call_codex_1",
+			outcome:       types.AuditLogOutcomeSuccess,
 		},
 		{
 			name:   "cursor failure",
 			format: auditClientCursor,
 			payload: fmt.Sprintf(`{
-				"eventName": "postToolUseFailure",
-				"workspace": {"path": %q},
-				"toolName": "run_terminal_cmd",
-				"args": {"command": "false"},
-				"error": {"message": "exit status 1"}
-			}`, workspace),
-			toolName: "run_terminal_cmd",
-			outcome:  types.AuditLogOutcomeError,
+				"hook_event_name": "postToolUseFailure",
+				"conversation_id": "cursor-conversation",
+				"generation_id": "cursor-generation",
+				"cursor_version": "3.7.42",
+				"workspace_roots": [%q],
+				"tool_name": "Shell",
+				"tool_input": {"command": "false"},
+				"tool_use_id": "cursor-tool-1",
+				"cwd": %q,
+				"error_message": "exit status 1",
+				"failure_type": "error",
+				"duration": 1234
+			}`, workspace, workspace),
+			toolName:       "Shell",
+			eventID:        "cursor-tool-1",
+			sessionID:      "cursor-conversation",
+			conversationID: "cursor-conversation",
+			clientEventID:  "cursor-tool-1",
+			outcome:        types.AuditLogOutcomeError,
 		},
 		{
 			name:   "vscode success",
@@ -102,6 +126,12 @@ func TestNormalizeAuditEventFixtures(t *testing.T) {
 			if event.EventID == "" {
 				t.Fatal("expected generated eventID")
 			}
+			if tt.eventID != "" && event.EventID != tt.eventID {
+				t.Fatalf("eventID = %q, want %q", event.EventID, tt.eventID)
+			}
+			if tt.sessionID != "" && event.SessionID != tt.sessionID {
+				t.Fatalf("sessionID = %q, want %q", event.SessionID, tt.sessionID)
+			}
 			if event.DeviceID == "" {
 				t.Fatal("expected deviceID")
 			}
@@ -123,6 +153,12 @@ func TestNormalizeAuditEventFixtures(t *testing.T) {
 			if event.Context == nil || event.Context.Workspace == "" || event.Context.OS == "" || event.Context.Arch == "" {
 				t.Fatalf("expected context to be populated: %+v", event.Context)
 			}
+			if tt.conversationID != "" && event.Context.ConversationID != tt.conversationID {
+				t.Fatalf("conversationID = %q, want %q", event.Context.ConversationID, tt.conversationID)
+			}
+			if tt.clientEventID != "" && event.Context.ClientEventID != tt.clientEventID {
+				t.Fatalf("clientEventID = %q, want %q", event.Context.ClientEventID, tt.clientEventID)
+			}
 		})
 	}
 }
@@ -132,16 +168,14 @@ func TestNormalizeAuditEventPayloadLimits(t *testing.T) {
 	defer restore()
 
 	payload := fmt.Sprintf(`{
-		"event": "PostToolUse",
-		"tool": {
-			"name": "big",
-			"input": {"value": %q},
-			"response": {"value": %q}
-		},
-		"error": %q
+		"hook_event_name": "postToolUseFailure",
+		"tool_name": "big",
+		"tool_input": {"value": %q},
+		"tool_output": {"value": %q},
+		"error_message": %q
 	}`, strings.Repeat("a", auditPayloadRequestLimit+1024), strings.Repeat("b", auditPayloadResponseLimit+1024), strings.Repeat("c", auditPayloadErrorLimit+1024))
 
-	event, err := normalizeAuditEvent(t.Context(), auditClientCodex, []byte(payload))
+	event, err := normalizeAuditEvent(t.Context(), auditClientCursor, []byte(payload))
 	if err != nil {
 		t.Fatal(err)
 	}
