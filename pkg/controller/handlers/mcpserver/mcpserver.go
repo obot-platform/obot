@@ -23,6 +23,7 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -982,7 +983,7 @@ func (h *Handler) SyncThirdPartyAuthStatus(req router.Request, _ router.Response
 	}
 
 	token, err := h.gatewayClient.GetMCPOAuthToken(req.Ctx, server.Spec.UserID, server.Name, server.Spec.Manifest.RemoteConfig.URL)
-	if err != nil {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 
