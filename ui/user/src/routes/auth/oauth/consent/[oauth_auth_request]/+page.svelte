@@ -18,6 +18,7 @@
 
 	const consent = $derived(data.consent);
 	const scopes = $derived(consent.scope?.split(' ').filter(Boolean) ?? []);
+	const showMCPAuthNotice = $derived(consent.mcpAuthRequired || consent.userHasSecondLevelOAuthed);
 
 	type DetailRow =
 		| { label: string; type: 'text'; value: string; valueClass?: string }
@@ -125,21 +126,24 @@
 		<h1 class="truncate text-xl font-semibold text-center">Authorize {consent.clientName}</h1>
 
 		<section class="flex flex-col gap-5 p-4 pt-0">
-			<div class="notification-info flex items-center gap-3 p-3">
-				<ShieldAlertIcon class="size-5 shrink-0" />
-				<p class="min-w-0 text-sm">
-					{#if consent.mcpAuthRequired}
-						<b class="font-semibold">{consent.mcpServerName || 'This MCP server'}</b> requires its own
-						third-party OAuth authorization.
-					{:else if consent.userHasSecondLevelOAuthed}
-						<b class="font-semibold">{consent.mcpServerName || 'This MCP server'}</b> requires its own
-						third-party OAuth authorization, and you have already authorized it.
-					{/if}
-				</p>
-			</div>
+			{#if showMCPAuthNotice}
+				<div class="notification-info flex items-center gap-3 p-3">
+					<ShieldAlertIcon class="size-5 shrink-0" />
+					<p class="min-w-0 text-sm">
+						{#if consent.mcpAuthRequired}
+							<b class="font-semibold">{consent.mcpServerName || 'This MCP server'}</b> requires its own
+							third-party OAuth authorization. You will be redirected to the third-party OAuth provider
+							to complete the authorization.
+						{:else if consent.userHasSecondLevelOAuthed}
+							<b class="font-semibold">{consent.mcpServerName || 'This MCP server'}</b> requires its own
+							third-party OAuth authorization, and you have already authorized it.
+						{/if}
+					</p>
+				</div>
+			{/if}
 
 			<p class="text-sm">
-				{consent.clientName} wants to authenticate with Obot for an MCP server connection. After authorization,
+				{consent.clientName} wants to authenticate with Obot for an MCP server connection. If you approve,
 				Obot will redirect you back to the OAuth client that started this request.
 			</p>
 
