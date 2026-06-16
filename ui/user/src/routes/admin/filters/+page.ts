@@ -6,8 +6,8 @@ import { profile } from '$lib/stores';
 import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ fetch }) => {
-	let filters: MCPFilter[] = [];
-	let systemCatalogEntries: SystemMCPServerCatalogEntry[] = [];
+	let filters: MCPFilter[];
+	let systemCatalogEntries: SystemMCPServerCatalogEntry[];
 
 	try {
 		filters = await AdminService.listMCPFilters({ fetch });

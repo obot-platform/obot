@@ -406,7 +406,7 @@
 		// Use powerUserWorkspaceID if available, otherwise use the component's workspace id
 		const workspaceId = server.powerUserWorkspaceID || (entity === 'workspace' ? id : undefined);
 
-		let result: unknown | undefined = undefined;
+		let result: unknown;
 
 		try {
 			result = await (workspaceId

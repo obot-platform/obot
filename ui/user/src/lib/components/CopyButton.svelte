@@ -56,7 +56,7 @@
 	export async function copy() {
 		if (!text) return;
 
-		let success = false;
+		let success: boolean;
 
 		if (navigator.clipboard) {
 			try {
