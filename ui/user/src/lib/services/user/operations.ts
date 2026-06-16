@@ -14,11 +14,13 @@ import type {
 	MCPServerOAuthCredentialStatus
 } from '../admin/types';
 import {
+	baseURL,
 	doDelete,
 	doGet,
 	doPatch,
 	doPost,
 	doPut,
+	handleResponse,
 	type Fetcher,
 	type PaginatedResponse
 } from '../http';
@@ -982,6 +984,59 @@ export async function checkCompositeOAuth(
 	}
 
 	return Array.isArray(response) ? response : [];
+}
+
+export type OAuthConsent = {
+	authRequestID: string;
+	csrfToken: string;
+	clientName: string;
+	clientURI?: string;
+	redirectURI: string;
+	scope?: string;
+	policyURI?: string;
+	tosURI?: string;
+	mcpAuthRequired: boolean;
+	userHasSecondLevelOAuthed: boolean;
+	mcpServerName?: string;
+	mcpServerURL?: string;
+	thirdPartyAuthURL?: string;
+};
+
+function oauthRootURL() {
+	return baseURL.replace(/\/api$/, '');
+}
+
+export async function getOAuthConsent(
+	authRequestID: string,
+	opts?: { fetch?: Fetcher; signal?: AbortSignal; dontLogErrors?: boolean }
+): Promise<OAuthConsent> {
+	const path = `/oauth/consent/${authRequestID}`;
+	const f = opts?.fetch || fetch;
+	const response = await f(oauthRootURL() + path, {
+		signal: opts?.signal
+	});
+	return (await handleResponse(response, path, opts)) as OAuthConsent;
+}
+
+export async function submitOAuthConsent(
+	authRequestID: string,
+	input: { action: 'approve' | 'deny'; csrfToken: string },
+	opts?: { fetch?: Fetcher; signal?: AbortSignal; dontLogErrors?: boolean }
+): Promise<{ redirectURL: string }> {
+	const form = new URLSearchParams();
+	form.set('action', input.action);
+	form.set('csrf_token', input.csrfToken);
+
+	const path = `/oauth/consent/${authRequestID}`;
+	const f = opts?.fetch || fetch;
+	const response = await f(oauthRootURL() + path, {
+		method: 'POST',
+		body: form,
+		signal: opts?.signal
+	});
+	return (await handleResponse(response, path, opts)) as {
+		redirectURL: string;
+	};
 }
 
 export async function getWorkspaceCatalogEntryServerK8sSettingsStatus(

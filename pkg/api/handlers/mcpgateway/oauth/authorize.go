@@ -37,6 +37,11 @@ const (
 	ErrInvalidClientMetadata   ErrorCode = "invalid_client_metadata"
 )
 
+const (
+	consentActionApprove = "approve"
+	consentActionDeny    = "deny"
+)
+
 // Error represents an OAuth 2.0 error response.
 type Error struct {
 	Code        ErrorCode `json:"error"`
@@ -256,18 +261,8 @@ func (h *handler) callback(req api.Context) error {
 		return err
 	}
 
-	authProviderName, authProviderNamespace := req.AuthProviderNameAndNamespace()
-
-	if !req.UserIsAuthenticated() ||
-		req.User.GetName() == "bootstrap" ||
-		authProviderName == "bootstrap" ||
-		authProviderNamespace == "bootstrap" {
-		// The user is either not authenticated or is authenticated as the bootstrap user.
-		log.Infof("Denied OAuth callback because user is not authenticated with a non-bootstrap identity: authRequest=%s", oauthAppAuthRequest.Name)
-		redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
-			Code:        ErrAccessDenied,
-			Description: "user is not authenticated",
-		})
+	authProviderName, authProviderNamespace, ok := authenticatedOAuthUser(req, oauthAppAuthRequest, "OAuth callback")
+	if !ok {
 		return nil
 	}
 
@@ -308,8 +303,6 @@ func (h *handler) callback(req api.Context) error {
 		}
 	}
 
-	code := strings.ToLower(rand.Text() + rand.Text())
-	oauthAppAuthRequest.Spec.HashedAuthCode = fmt.Sprintf("%x", sha256.Sum256([]byte(code)))
 	oauthAppAuthRequest.Spec.UserID = req.UserID()
 	oauthAppAuthRequest.Spec.AuthProviderUserID = auth.FirstExtraValue(req.User.GetExtra(), "auth_provider_user_id")
 	oauthAppAuthRequest.Spec.AuthProviderNamespace = authProviderNamespace
@@ -322,31 +315,157 @@ func (h *handler) callback(req api.Context) error {
 		return nil
 	}
 
+	if err := h.prepareOAuthConsent(req, &oauthAppAuthRequest); err != nil {
+		redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
+			Code:        ErrServerError,
+			Description: err.Error(),
+			State:       oauthAppAuthRequest.Spec.State,
+		})
+		return nil
+	}
+
+	log.Infof("Prepared OAuth consent and redirecting user to consent screen: authRequest=%s client=%s", oauthAppAuthRequest.Name, oauthAppAuthRequest.Spec.ClientID)
+	http.Redirect(req.ResponseWriter, req.Request, fmt.Sprintf("/auth/oauth/consent/%s", oauthAppAuthRequest.Name), http.StatusFound)
+
+	return nil
+}
+
+func (h *handler) prepareOAuthConsent(req api.Context, oauthAppAuthRequest *v1.OAuthAuthRequest) error {
+	if oauthAppAuthRequest.Spec.ConsentPrepared {
+		if oauthAppAuthRequest.Spec.ConsentCSRFToken == "" {
+			oauthAppAuthRequest.Spec.ConsentCSRFToken = strings.ToLower(rand.Text())
+			return req.Update(oauthAppAuthRequest)
+		}
+		return nil
+	}
+
 	// Check whether the MCP server needs authentication.
-	mcpID, mcpServer, mcpServerConfig, err := handlers.ServerForActionWithConnectID(req, mcpID)
+	mcpID, mcpServer, mcpServerConfig, err := handlers.ServerForActionWithConnectID(req, oauthAppAuthRequest.Spec.MCPID)
 	if err != nil {
 		return err
 	}
 
 	u, err := h.oauthChecker.CheckForMCPAuth(req, mcpServer, mcpServerConfig, req.User.GetUID(), mcpID, oauthAppAuthRequest.Name)
 	if err != nil {
+		return err
+	}
+
+	oauthAppAuthRequest.Spec.ConsentPrepared = true
+	oauthAppAuthRequest.Spec.ConsentMCPAuthRequired = u != ""
+	oauthAppAuthRequest.Spec.ConsentMCPAuthURL = u
+	oauthAppAuthRequest.Spec.UserHasSecondLevelOAuthed = u == "" && mcpServer.Status.UserHasAuthenticated
+	oauthAppAuthRequest.Spec.ConsentMCPServerName = mcpServerDisplayName(mcpServer)
+	oauthAppAuthRequest.Spec.ConsentMCPServerURL = mcpServerConfig.URL
+	oauthAppAuthRequest.Spec.ConsentCSRFToken = strings.ToLower(rand.Text())
+
+	return req.Update(oauthAppAuthRequest)
+}
+
+func (h *handler) consent(req api.Context) error {
+	var oauthAppAuthRequest v1.OAuthAuthRequest
+	if err := req.Get(&oauthAppAuthRequest, req.PathValue("oauth_auth_request")); err != nil {
+		return err
+	}
+
+	if _, _, ok := authenticatedOAuthUser(req, oauthAppAuthRequest, "OAuth consent"); !ok {
+		return nil
+	}
+	if !authenticatedOAuthConsentUser(req, oauthAppAuthRequest) {
+		return nil
+	}
+
+	if !oauthAppAuthRequest.Spec.ConsentPrepared {
 		redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
-			Code:        ErrServerError,
-			Description: err.Error(),
+			Code:        ErrInvalidRequest,
+			Description: "OAuth consent has not been prepared",
+			State:       oauthAppAuthRequest.Spec.State,
 		})
 		return nil
 	}
 
-	if u != "" {
-		log.Infof("OAuth callback requires second-level MCP authentication: authRequest=%s mcpID=%s", oauthAppAuthRequest.Name, mcpID)
-		http.Redirect(req.ResponseWriter, req.Request, u, http.StatusFound)
+	oauthClient, err := h.oauthClientForAuthRequest(req, oauthAppAuthRequest)
+	if err != nil {
+		redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
+			Code:        ErrServerError,
+			Description: fmt.Sprintf("failed to get OAuth client: %v", err),
+			State:       oauthAppAuthRequest.Spec.State,
+		})
 		return nil
 	}
 
-	log.Infof("Issuing OAuth authorization code and redirecting to client: authRequest=%s client=%s", oauthAppAuthRequest.Name, oauthAppAuthRequest.Spec.ClientID)
-	redirectWithAuthorizeResponse(req, oauthAppAuthRequest, code, oauthAppAuthRequest.Spec.Scope)
+	return req.Write(oauthConsentPageData(oauthAppAuthRequest, oauthClient))
+}
 
-	return nil
+func (h *handler) approveConsent(req api.Context) error {
+	var oauthAppAuthRequest v1.OAuthAuthRequest
+	if err := req.Get(&oauthAppAuthRequest, req.PathValue("oauth_auth_request")); err != nil {
+		return err
+	}
+
+	if _, _, ok := authenticatedOAuthUser(req, oauthAppAuthRequest, "OAuth consent approval"); !ok {
+		return nil
+	}
+	if !authenticatedOAuthConsentUser(req, oauthAppAuthRequest) {
+		return nil
+	}
+
+	if !oauthAppAuthRequest.Spec.ConsentPrepared {
+		redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
+			Code:        ErrInvalidRequest,
+			Description: "OAuth consent has not been prepared",
+			State:       oauthAppAuthRequest.Spec.State,
+		})
+		return nil
+	}
+
+	if err := req.ParseForm(); err != nil {
+		return err
+	}
+	if req.FormValue("csrf_token") == "" || req.FormValue("csrf_token") != oauthAppAuthRequest.Spec.ConsentCSRFToken {
+		return types.NewErrBadRequest("invalid OAuth consent token")
+	}
+
+	switch req.FormValue("action") {
+	case consentActionDeny:
+		log.Infof("User denied OAuth consent: authRequest=%s client=%s", oauthAppAuthRequest.Name, oauthAppAuthRequest.Spec.ClientID)
+		return req.Write(map[string]string{"redirectURL": authorizeErrorURL(oauthAppAuthRequest.Spec.RedirectURI, Error{
+			Code:        ErrAccessDenied,
+			Description: "user denied OAuth consent",
+			State:       oauthAppAuthRequest.Spec.State,
+		})})
+	case consentActionApprove:
+	default:
+		return types.NewErrBadRequest("invalid OAuth consent action")
+	}
+
+	if oauthAppAuthRequest.Spec.ConsentMCPAuthRequired {
+		u := oauthAppAuthRequest.Spec.ConsentMCPAuthURL
+		if u == "" {
+			redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
+				Code:        ErrServerError,
+				Description: "MCP OAuth URL is missing from consent state",
+				State:       oauthAppAuthRequest.Spec.State,
+			})
+			return nil
+		}
+
+		log.Infof("OAuth consent approved; redirecting to second-level MCP authentication: authRequest=%s mcpID=%s", oauthAppAuthRequest.Name, oauthAppAuthRequest.Spec.MCPID)
+		return req.Write(map[string]string{"redirectURL": u})
+	}
+
+	code := strings.ToLower(rand.Text() + rand.Text())
+	oauthAppAuthRequest.Spec.HashedAuthCode = fmt.Sprintf("%x", sha256.Sum256([]byte(code)))
+	if err := req.Update(&oauthAppAuthRequest); err != nil {
+		redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
+			Code:        ErrServerError,
+			Description: err.Error(),
+			State:       oauthAppAuthRequest.Spec.State,
+		})
+		return nil
+	}
+
+	log.Infof("OAuth consent approved; issuing authorization code and redirecting to client: authRequest=%s client=%s", oauthAppAuthRequest.Name, oauthAppAuthRequest.Spec.ClientID)
+	return req.Write(map[string]string{"redirectURL": authorizeResponseURL(oauthAppAuthRequest, code, oauthAppAuthRequest.Spec.Scope)})
 }
 
 // oauthCallback handles the second-level third-party OAuth for MCP servers.
@@ -423,6 +542,108 @@ func (h *handler) oauthCallback(req api.Context) error {
 	return nil
 }
 
+func authenticatedOAuthUser(req api.Context, oauthAppAuthRequest v1.OAuthAuthRequest, phase string) (authProviderName, authProviderNamespace string, ok bool) {
+	authProviderName, authProviderNamespace = req.AuthProviderNameAndNamespace()
+	if req.UserIsAuthenticated() &&
+		req.User.GetName() != "bootstrap" &&
+		authProviderName != "bootstrap" &&
+		authProviderNamespace != "bootstrap" {
+		return authProviderName, authProviderNamespace, true
+	}
+
+	log.Infof("Denied %s because user is not authenticated with a non-bootstrap identity: authRequest=%s", phase, oauthAppAuthRequest.Name)
+	redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
+		Code:        ErrAccessDenied,
+		Description: "user is not authenticated",
+		State:       oauthAppAuthRequest.Spec.State,
+	})
+	return "", "", false
+}
+
+func authenticatedOAuthConsentUser(req api.Context, oauthAppAuthRequest v1.OAuthAuthRequest) bool {
+	if oauthAppAuthRequest.Spec.UserID == 0 || oauthAppAuthRequest.Spec.UserID == req.UserID() {
+		return true
+	}
+
+	log.Infof("Denied OAuth consent because authenticated user does not match auth request user: authRequest=%s", oauthAppAuthRequest.Name)
+	redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
+		Code:        ErrAccessDenied,
+		Description: "user is not authorized for this OAuth request",
+		State:       oauthAppAuthRequest.Spec.State,
+	})
+	return false
+}
+
+func (h *handler) oauthClientForAuthRequest(req api.Context, oauthAppAuthRequest v1.OAuthAuthRequest) (v1.OAuthClient, error) {
+	var oauthClient v1.OAuthClient
+	return oauthClient, req.Storage.Get(req.Context(), kclient.ObjectKey{
+		Namespace: oauthAppAuthRequest.Namespace,
+		Name:      oauthAppAuthRequest.Spec.ClientID,
+	}, &oauthClient)
+}
+
+type oauthConsentData struct {
+	AuthRequestID             string `json:"authRequestID"`
+	CSRFToken                 string `json:"csrfToken"`
+	ClientName                string `json:"clientName"`
+	ClientURI                 string `json:"clientURI,omitempty"`
+	RedirectURI               string `json:"redirectURI"`
+	Scope                     string `json:"scope,omitempty"`
+	PolicyURI                 string `json:"policyURI,omitempty"`
+	TOSURI                    string `json:"tosURI,omitempty"`
+	MCPAuthRequired           bool   `json:"mcpAuthRequired"`
+	UserHasSecondLevelOAuthed bool   `json:"userHasSecondLevelOAuthed"`
+	MCPServerName             string `json:"mcpServerName,omitempty"`
+	MCPServerURL              string `json:"mcpServerURL,omitempty"`
+	ThirdPartyAuthURL         string `json:"thirdPartyAuthURL,omitempty"`
+}
+
+func oauthConsentPageData(oauthAppAuthRequest v1.OAuthAuthRequest, oauthClient v1.OAuthClient) oauthConsentData {
+	clientName := oauthClient.Spec.Manifest.ClientName
+	if clientName == "" {
+		clientName = fmt.Sprintf("%s:%s", oauthClient.Namespace, oauthClient.Name)
+	}
+
+	return oauthConsentData{
+		AuthRequestID:             oauthAppAuthRequest.Name,
+		CSRFToken:                 oauthAppAuthRequest.Spec.ConsentCSRFToken,
+		ClientName:                clientName,
+		ClientURI:                 oauthClient.Spec.Manifest.ClientURI,
+		RedirectURI:               oauthAppAuthRequest.Spec.RedirectURI,
+		Scope:                     oauthAppAuthRequest.Spec.Scope,
+		PolicyURI:                 oauthClient.Spec.Manifest.PolicyURI,
+		TOSURI:                    oauthClient.Spec.Manifest.TOSURI,
+		MCPAuthRequired:           oauthAppAuthRequest.Spec.ConsentMCPAuthRequired,
+		UserHasSecondLevelOAuthed: oauthAppAuthRequest.Spec.UserHasSecondLevelOAuthed,
+		MCPServerName:             oauthAppAuthRequest.Spec.ConsentMCPServerName,
+		MCPServerURL:              originOnly(oauthAppAuthRequest.Spec.ConsentMCPServerURL),
+		ThirdPartyAuthURL:         originOnly(oauthAppAuthRequest.Spec.ConsentMCPAuthURL),
+	}
+}
+
+func mcpServerDisplayName(mcpServer v1.MCPServer) string {
+	if mcpServer.Spec.Alias != "" {
+		return mcpServer.Spec.Alias
+	}
+	if mcpServer.Spec.Manifest.Name != "" {
+		return mcpServer.Spec.Manifest.Name
+	}
+	return mcpServer.Name
+}
+
+func originOnly(rawURL string) string {
+	if rawURL == "" {
+		return ""
+	}
+
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return rawURL
+	}
+
+	return u.Scheme + "://" + u.Host
+}
+
 func (h *handler) maybeHandleDebuggerCallback(req api.Context) (bool, error) {
 	state := req.URL.Query().Get("state")
 	if state == "" {
@@ -457,15 +678,23 @@ func (h *handler) maybeHandleDebuggerCallback(req api.Context) (bool, error) {
 }
 
 func redirectWithAuthorizeError(req api.Context, redirectURI string, err Error) {
-	http.Redirect(req.ResponseWriter, req.Request, redirectURI+"?"+err.toQuery().Encode(), http.StatusFound)
+	http.Redirect(req.ResponseWriter, req.Request, authorizeErrorURL(redirectURI, err), http.StatusFound)
 }
 
 func redirectWithAuthorizeResponse(req api.Context, oauthAuthRequest v1.OAuthAuthRequest, code, scope string) {
+	http.Redirect(req.ResponseWriter, req.Request, authorizeResponseURL(oauthAuthRequest, code, scope), http.StatusFound)
+}
+
+func authorizeErrorURL(redirectURI string, err Error) string {
+	return redirectURI + "?" + err.toQuery().Encode()
+}
+
+func authorizeResponseURL(oauthAuthRequest v1.OAuthAuthRequest, code, scope string) string {
 	q := url.Values{
 		"code":  {code},
 		"state": {oauthAuthRequest.Spec.State},
 	}
 	q.Set("scope", scope)
 
-	http.Redirect(req.ResponseWriter, req.Request, oauthAuthRequest.Spec.RedirectURI+"?"+q.Encode(), http.StatusFound)
+	return oauthAuthRequest.Spec.RedirectURI + "?" + q.Encode()
 }

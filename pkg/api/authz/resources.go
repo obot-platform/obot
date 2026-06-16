@@ -20,6 +20,8 @@ var apiResources = map[string][]string{
 		"GET    /oauth/callback/{oauth_request_id}",
 		"GET    /oauth/callback/{oauth_request_id}/{mcp_id}",
 		"GET    /oauth/mcp/callback",
+		"GET    /oauth/consent/{oauth_auth_request}",
+		"POST   /oauth/consent/{oauth_auth_request}",
 		"GET    /auth/mcp/composite/{mcp_id}",
 		"GET    /api/oauth/composite/{mcp_id}",
 		"GET    /api/mcp-stats/{mcp_id}",
