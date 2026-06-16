@@ -201,7 +201,7 @@ func Token(ctx context.Context, baseURL string, opts apiclient.TokenFetchOptions
 		fmt.Fprintln(w, color.GreenString("========================"))
 		fmt.Fprintln(w)
 		fmt.Fprintln(w, color.CyanString(provider.Name)+" is used for authentication using the browser. This can be bypassed by setting")
-		fmt.Fprintln(w, "the env var "+color.CyanString("OBOT_API_KEY")+" to your API key.")
+		fmt.Fprintln(w, "the env var "+color.CyanString("OBOT_TOKEN")+" to your API key.")
 		fmt.Fprintln(w)
 		fmt.Fprintln(w, color.GreenString("Press ENTER to continue (CTRL+C to exit)"))
 		if err := enter(ctx); err != nil {
