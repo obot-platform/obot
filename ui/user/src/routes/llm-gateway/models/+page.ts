@@ -1,3 +1,4 @@
+import { browser } from '$app/environment';
 import { handleRouteError } from '$lib/errors';
 import { UserService, type Model } from '$lib/services';
 import accessibleModels, { filterAccessibleModels } from '$lib/stores/accessibleModels.svelte';
@@ -11,7 +12,9 @@ export const load: PageLoad = async ({ fetch, parent }) => {
 	try {
 		const all = await UserService.listModels({ fetch });
 		models = filterAccessibleModels(all);
-		accessibleModels.set(all);
+		if (browser) {
+			accessibleModels.set(all);
+		}
 	} catch (err) {
 		handleRouteError(err, '/llm-gateway/models', profile);
 	}

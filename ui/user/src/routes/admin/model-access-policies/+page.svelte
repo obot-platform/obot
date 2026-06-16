@@ -35,7 +35,7 @@
 	let isReadonly = $derived(profile.current.isAdminReadonly?.());
 
 	async function navigateToCreated(policy: ModelAccessPolicy) {
-		accessibleModels.refresh();
+		await accessibleModels.refresh();
 		clearUrlParams(['new']);
 		goto(`/admin/model-access-policies/${policy.id}`, { replaceState: false });
 	}

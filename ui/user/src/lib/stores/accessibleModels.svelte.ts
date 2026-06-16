@@ -1,7 +1,7 @@
 import { CommonModelProviderIds } from '$lib/constants';
 import { UserService, type Model } from '$lib/services';
 
-// eslint-disable-next-line svelte/prefer-svelte-reactivity -- this not a reactive Set
+// eslint-disable-next-line svelte/prefer-svelte-reactivity -- this is not a reactive Set
 export const SUPPORTED_MODEL_PROVIDER_IDS = new Set<string>([
 	CommonModelProviderIds.OPENAI,
 	CommonModelProviderIds.ANTHROPIC

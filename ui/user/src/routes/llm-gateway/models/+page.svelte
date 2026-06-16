@@ -3,27 +3,24 @@
 	import LLMGatewayProviderSection from '$lib/components/llm-gateway/LLMGatewayProviderSection.svelte';
 	import { CommonModelProviderIds, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { PROVIDER_CONNECTIONS, type RenderContext } from '$lib/services/llm-gateway/types';
-	import { accessibleModels } from '$lib/stores';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 
 	let obotURL = $state('');
+	let { data } = $props();
 
 	onMount(() => {
 		obotURL = window.location.origin;
 	});
 
 	let openaiModels = $derived(
-		accessibleModels.current.filter((m) => m.modelProvider === CommonModelProviderIds.OPENAI)
+		data.models.filter((m) => m.modelProvider === CommonModelProviderIds.OPENAI)
 	);
 	let anthropicModels = $derived(
-		accessibleModels.current.filter((m) => m.modelProvider === CommonModelProviderIds.ANTHROPIC)
+		data.models.filter((m) => m.modelProvider === CommonModelProviderIds.ANTHROPIC)
 	);
 
-	function buildCtx(
-		shortKey: 'openai' | 'anthropic',
-		models: typeof accessibleModels.current
-	): RenderContext {
+	function buildCtx(shortKey: 'openai' | 'anthropic', models: typeof data.models): RenderContext {
 		const provider = PROVIDER_CONNECTIONS[shortKey];
 		return {
 			provider,
