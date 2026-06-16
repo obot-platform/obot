@@ -99,6 +99,10 @@ func (c *Controller) PreStart(ctx context.Context) error {
 		return fmt.Errorf("failed to reconcile service account keys: %w", err)
 	}
 
+	if err := c.ensureAuthProvidersAndModelProviders(ctx); err != nil {
+		return fmt.Errorf("failed to ensure auth providers and model providers: %w", err)
+	}
+
 	return nil
 }
 
@@ -540,4 +544,53 @@ func (c *Controller) setupLocalK8sRoutes() {
 	// Reconcile delete/update events for the provider token secret immediately,
 	// instead of waiting for the periodic service-account key rotation loop.
 	c.services.LocalRouter.Type(&corev1.Secret{}).Namespace(c.services.ServiceNamespace).Name(serviceaccounts.NetworkPolicySecretName).IncludeRemoved().HandlerFunc(c.reconcileServiceAccountSecretChange)
+}
+
+func (c *Controller) ensureAuthProvidersAndModelProviders(ctx context.Context) error {
+	var authProviders v1.AuthProviderList
+	if err := c.services.StorageClient.List(ctx, &authProviders); err != nil {
+		return fmt.Errorf("failed to list auth providers: %w", err)
+	}
+
+	// If there are no auth providers, then read the registry to get them populated and statuses set.
+	// This works around a problem where the controllers weren't shutting down properly, which caused
+	// a significant delay in startup when upgrading from v0.22.1.
+	if len(authProviders.Items) == 0 {
+		if err := c.providerHandler.ReadFromRegistry(ctx, c.services.StorageClient); err != nil {
+			return fmt.Errorf("failed to read from registry: %w", err)
+		}
+
+		if err := c.services.StorageClient.List(ctx, &authProviders); err != nil {
+			return fmt.Errorf("failed to list auth providers: %w", err)
+		}
+
+		for _, authProvider := range authProviders.Items {
+			if err := provider.SetAuthProviderConfiguredStatus(ctx, c.services.GatewayClient, c.services.LicenseProvider, &authProvider); err != nil {
+				return fmt.Errorf("failed to set auth provider configured status: %w", err)
+			}
+
+			if err := c.services.StorageClient.Status().Update(ctx, &authProvider); err != nil {
+				return fmt.Errorf("failed to update auth provider: %w", err)
+			}
+		}
+
+		var modelProviders v1.ModelProviderList
+		if err := c.services.StorageClient.List(ctx, &modelProviders); err != nil {
+			return fmt.Errorf("failed to get model provider: %w", err)
+		}
+
+		for _, modelProvider := range modelProviders.Items {
+			if err := provider.SetModelProviderConfiguredStatus(ctx, c.services.GatewayClient, c.services.LicenseProvider, &modelProvider); err != nil {
+				return fmt.Errorf("failed to set model provider configured status: %w", err)
+			}
+			if err := provider.BackPopulateModels(ctx, c.services.StorageClient, c.services.ProviderDispatcher, &modelProvider); err != nil {
+				return fmt.Errorf("failed to back populate models: %w", err)
+			}
+			if err := c.services.StorageClient.Status().Update(ctx, &modelProvider); err != nil {
+				return fmt.Errorf("failed to update model provider status: %w", err)
+			}
+		}
+	}
+
+	return nil
 }
