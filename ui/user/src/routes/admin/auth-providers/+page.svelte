@@ -109,6 +109,21 @@
 		};
 	});
 
+	function getDocumentationUrl(authProviderId?: string) {
+		if (!authProviderId) return undefined;
+		const idRef = {
+			[CommonAuthProviderIds.GOOGLE]: 'google',
+			[CommonAuthProviderIds.GITHUB]: 'github',
+			[CommonAuthProviderIds.OKTA]: 'okta-enterprise-only',
+			[CommonAuthProviderIds.ENTRA]: 'entra-enterprise-only',
+			[CommonAuthProviderIds.AUTH0]: 'auth0-enterprise-only',
+			[CommonAuthProviderIds.JUMPCLOUD]: 'jumpcloud-enterprise-only'
+		};
+		return idRef[authProviderId as keyof typeof idRef]
+			? `https://docs.obot.ai/configuration/auth-providers/#${idRef[authProviderId as keyof typeof idRef]}`
+			: undefined;
+	}
+
 	async function handleOwnerSetup() {
 		if (!configuringAuthProvider || setupLoading) return;
 
@@ -259,6 +274,7 @@
 	readonly={profile.current.isAdminReadonly?.()}
 >
 	{#snippet note()}
+		{@const documentationUrl = getDocumentationUrl(configuringAuthProvider?.id)}
 		{@const callbackUrl = window.location.protocol + '//' + window.location.host + '/'}
 		<div class="notification-info p-3 text-sm font-light">
 			<div class="flex items-center gap-3">
@@ -277,6 +293,16 @@
 				</p>
 			</div>
 		</div>
+		{#if documentationUrl}
+			<div class="notification-info p-3 text-xs font-light">
+				For more details, please review <a
+					class="text-link"
+					href={documentationUrl}
+					rel="external noopener noreferrer"
+					target="_blank">the documentation</a
+				> for configuring this auth provider.
+			</div>
+		{/if}
 	{/snippet}
 </ProviderConfigure>
 
