@@ -79,6 +79,6 @@ func newClient() *apiclient.Client {
 
 	return &apiclient.Client{
 		BaseURL: baseURL,
-		Token:   os.Getenv("OBOT_TOKEN"),
+		Token:   os.Getenv(internal.TokenEnvVar),
 	}
 }

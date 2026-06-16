@@ -25,8 +25,12 @@ import (
 	"github.com/pkg/browser"
 )
 
-var credentialStore credentials.Store = credentials.NewKeyringStore()
-var openBrowser = browser.OpenURL
+var (
+	credentialStore credentials.Store = credentials.NewKeyringStore()
+	openBrowser                       = browser.OpenURL
+)
+
+const TokenEnvVar = "OBOT_TOKEN"
 
 func init() {
 	// Browser launchers (e.g. xdg-open) may write to stdout; keep stdout
@@ -169,7 +173,7 @@ func Token(ctx context.Context, baseURL string, opts apiclient.TokenFetchOptions
 	if tokenErr != nil && !credentials.IsNotFound(tokenErr) {
 		return "", tokenErr
 	}
-	if hasStoredToken && !opts.ForceRefresh && testToken(ctx, baseURL, token) {
+	if hasStoredToken && !opts.ForceRefresh && testToken(ctx, baseURL, token, opts.Scopes...) {
 		return token, nil
 	}
 
@@ -201,7 +205,7 @@ func Token(ctx context.Context, baseURL string, opts apiclient.TokenFetchOptions
 		fmt.Fprintln(w, color.GreenString("========================"))
 		fmt.Fprintln(w)
 		fmt.Fprintln(w, color.CyanString(provider.Name)+" is used for authentication using the browser. This can be bypassed by setting")
-		fmt.Fprintln(w, "the env var "+color.CyanString("OBOT_TOKEN")+" to your API key.")
+		fmt.Fprintln(w, "the env var "+color.CyanString(TokenEnvVar)+" to your API key.")
 		fmt.Fprintln(w)
 		fmt.Fprintln(w, color.GreenString("Press ENTER to continue (CTRL+C to exit)"))
 		if err := enter(ctx); err != nil {
@@ -240,9 +244,10 @@ type createResponse struct {
 
 func create(ctx context.Context, baseURL, uuid, providerName, providerNamespace, tokenName, tokenDescription string, noExpiration bool, scopes []string) (string, error) {
 	apiScopes := types.APIKeyScopes{
-		CanAccessSkills:   slices.Contains(scopes, "skills"),
-		CanAccessAPI:      slices.Contains(scopes, "api"),
-		CanAccessLLMProxy: slices.Contains(scopes, "llm"),
+		CanAccessSkills:             slices.Contains(scopes, "skills"),
+		CanAccessAPI:                slices.Contains(scopes, "api"),
+		CanAccessLLMProxy:           slices.Contains(scopes, "llm"),
+		CanAccessPublishedArtifacts: slices.Contains(scopes, "published-artifacts"),
 	}
 	if slices.Contains(scopes, "all-mcp") {
 		apiScopes.MCPServerIDs = []string{"*"}
@@ -317,7 +322,7 @@ func get(ctx context.Context, baseURL, uuid string) (string, error) {
 	}
 }
 
-func testToken(ctx context.Context, baseURL, token string) bool {
+func testToken(ctx context.Context, baseURL, token string, scopes ...string) bool {
 	req, err := http.NewRequestWithContext(ctx, "GET", baseURL+"/me", nil)
 	if err != nil {
 		return false
@@ -337,7 +342,17 @@ func testToken(ctx context.Context, baseURL, token string) bool {
 		return false
 	}
 
-	return resp.StatusCode == 200 && user.Username != "anonymous"
+	if resp.StatusCode != http.StatusOK || user.Username == "anonymous" {
+		return false
+	}
+
+	if len(scopes) == 0 || token == "" {
+		// If no scopes are specified or the request passed without a token,
+		// then we don't need to check the token's scopes.
+		return true
+	}
+
+	return apiclient.TokenHasScopes(ctx, baseURL, token, scopes) == nil
 }
 
 func getAuthProviderServiceInfo(ctx context.Context, baseURL string) ([]types2.AuthProvider, error) {
