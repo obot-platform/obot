@@ -34,7 +34,7 @@ var (
 	}
 )
 
-func (c *Client) InsertAuditEvents(ctx context.Context, userID string, events []types2.AuditEvent) ([]types2.AuditEventSubmitStatus, error) {
+func (c *Client) InsertAuditEvents(ctx context.Context, userID, clientIP string, events []types2.AuditEvent) ([]types2.AuditEventSubmitStatus, error) {
 	statuses := make([]types2.AuditEventSubmitStatus, 0, len(events))
 	for _, event := range events {
 		status := types2.AuditEventSubmitStatus{
@@ -68,6 +68,7 @@ func (c *Client) InsertAuditEvents(ctx context.Context, userID string, events []
 			continue
 		}
 		row.UserID = userID
+		row.ClientIP = clientIP
 		row.ReceivedAt = new(time.Now().UTC())
 
 		if err := c.encryptMCPAuditLog(ctx, &row); err != nil {

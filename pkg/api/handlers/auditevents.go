@@ -6,6 +6,7 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/api/server/requestinfo"
 )
 
 const (
@@ -36,7 +37,7 @@ func (*AuditEventsHandler) Create(req api.Context) error {
 		return types.NewErrBadRequest("audit event batch exceeds %d events", auditEventsMaxBatch)
 	}
 
-	statuses, err := req.GatewayClient.InsertAuditEvents(req.Context(), req.User.GetUID(), events)
+	statuses, err := req.GatewayClient.InsertAuditEvents(req.Context(), req.User.GetUID(), requestinfo.GetSourceIP(req.Request), events)
 	if err != nil {
 		return err
 	}
