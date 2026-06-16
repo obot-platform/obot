@@ -5,11 +5,10 @@ import (
 
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	"k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (a *Authorizer) checkPowerUserWorkspace(req *http.Request, resources *Resources, user user.Info) (bool, error) {
+func (a *Authorizer) checkPowerUserWorkspace(req *http.Request, resources *Resources, user User) (bool, error) {
 	if resources.WorkspaceID == "" {
 		return true, nil
 	}

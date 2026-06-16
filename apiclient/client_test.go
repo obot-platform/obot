@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/obot-platform/obot/apiclient/types"
 )
 
 func TestTokenHasScopes(t *testing.T) {
@@ -16,7 +18,7 @@ func TestTokenHasScopes(t *testing.T) {
 	}{
 		{
 			name:   "API scope satisfies non-MCP scopes",
-			scopes: []string{"skills", "llm", "published-artifacts"},
+			scopes: []string{types.APIKeyScopeSkills, types.APIKeyScopeLLM, types.APIKeyScopePublishedArtifacts},
 			resp: map[string]any{
 				"allowed": true,
 				"scopes": map[string]any{
@@ -27,7 +29,7 @@ func TestTokenHasScopes(t *testing.T) {
 		},
 		{
 			name:   "API scope does not satisfy MCP scope",
-			scopes: []string{"all-mcp"},
+			scopes: []string{types.APIKeyScopeAllMCP},
 			resp: map[string]any{
 				"allowed": true,
 				"scopes": map[string]any{
@@ -38,7 +40,7 @@ func TestTokenHasScopes(t *testing.T) {
 		},
 		{
 			name:   "MCP wildcard satisfies MCP scope",
-			scopes: []string{"all-mcp"},
+			scopes: []string{types.APIKeyScopeAllMCP},
 			resp: map[string]any{
 				"allowed": true,
 				"scopes": map[string]any{
@@ -49,7 +51,7 @@ func TestTokenHasScopes(t *testing.T) {
 		},
 		{
 			name:   "specific scope satisfies matching request",
-			scopes: []string{"skills"},
+			scopes: []string{types.APIKeyScopeSkills},
 			resp: map[string]any{
 				"allowed": true,
 				"scopes": map[string]any{
@@ -60,7 +62,7 @@ func TestTokenHasScopes(t *testing.T) {
 		},
 		{
 			name:   "missing requested scope fails",
-			scopes: []string{"api"},
+			scopes: []string{types.APIKeyScopeAPI},
 			resp: map[string]any{
 				"allowed": true,
 				"scopes":  map[string]any{},
@@ -69,7 +71,7 @@ func TestTokenHasScopes(t *testing.T) {
 		},
 		{
 			name:   "disallowed token fails",
-			scopes: []string{"api"},
+			scopes: []string{types.APIKeyScopeAPI},
 			resp: map[string]any{
 				"allowed": false,
 			},

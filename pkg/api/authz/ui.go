@@ -2,11 +2,7 @@ package authz
 
 import (
 	"net/http"
-	"slices"
 	"strings"
-
-	"github.com/obot-platform/obot/apiclient/types"
-	"k8s.io/apiserver/pkg/authentication/user"
 )
 
 var uiResources = []string{
@@ -31,7 +27,7 @@ var uiResources = []string{
 	"GET /usage",
 }
 
-func (a *Authorizer) checkUI(req *http.Request, user user.Info) bool {
+func (a *Authorizer) checkUI(req *http.Request, user User) bool {
 	// Reject direct access to non-UI routes except for /api/image/{id}.
 	if req.URL.Path == "/api" || req.URL.Path == "/v0.1" || hasAnyPrefix(req.URL.Path, "/mcp-connect/", "/oauth/", "/debug/", "/v0.1/") || (strings.HasPrefix(req.URL.Path, "/api/") && !strings.HasPrefix(req.URL.Path, "/api/image/")) {
 		return false
@@ -49,9 +45,7 @@ func (a *Authorizer) checkUI(req *http.Request, user user.Info) bool {
 
 	// For /admin/ subroutes, if user has auditor or admin group
 	if rest, ok := strings.CutPrefix(req.URL.Path, "/admin/"); ok && rest != "" {
-		return slices.ContainsFunc(user.GetGroups(), func(group string) bool {
-			return group == types.GroupAdmin || group == types.GroupOwner || group == types.GroupAuditor
-		})
+		return user.IsAdmin || user.IsAuditor
 	}
 
 	// did not hit any above conditions, so allow access

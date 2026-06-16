@@ -59,10 +59,11 @@ func (c *Client) GetToken(ctx context.Context, opts TokenFetchOptions) (string, 
 type tokenScopeValidationResponse struct {
 	Allowed bool `json:"allowed"`
 	Scopes  struct {
-		CanAccessSkills             bool     `json:"canAccessSkills"`
 		CanAccessAPI                bool     `json:"canAccessAPI"`
+		CanAccessSkills             bool     `json:"canAccessSkills"`
 		CanAccessLLMProxy           bool     `json:"canAccessLLMProxy"`
 		CanAccessPublishedArtifacts bool     `json:"canAccessPublishedArtifacts"`
+		CanAccessDeviceScans        bool     `json:"canAccessDeviceScans"`
 		MCPServerIDs                []string `json:"mcpServerIds,omitempty"`
 	} `json:"scopes"`
 }
@@ -92,24 +93,28 @@ func TokenHasScopes(ctx context.Context, baseURL, token string, scopes []string)
 
 	for _, scope := range scopes {
 		switch scope {
-		case "api":
+		case types.APIKeyScopeAPI:
 			if !validation.Scopes.CanAccessAPI {
 				return fmt.Errorf("token does not have scope: %s", scope)
 			}
-		case "skills":
+		case types.APIKeyScopeSkills:
 			if !validation.Scopes.CanAccessSkills && !validation.Scopes.CanAccessAPI {
 				return fmt.Errorf("token does not have scope: %s", scope)
 			}
-		case "llm":
+		case types.APIKeyScopeLLM:
 			if !validation.Scopes.CanAccessLLMProxy && !validation.Scopes.CanAccessAPI {
 				return fmt.Errorf("token does not have scope: %s", scope)
 			}
-		case "published-artifacts":
+		case types.APIKeyScopePublishedArtifacts:
 			if !validation.Scopes.CanAccessPublishedArtifacts && !validation.Scopes.CanAccessAPI {
 				return fmt.Errorf("token does not have scope: %s", scope)
 			}
-		case "all-mcp":
+		case types.APIKeyScopeAllMCP:
 			if !slices.Contains(validation.Scopes.MCPServerIDs, "*") {
+				return fmt.Errorf("token does not have scope: %s", scope)
+			}
+		case types.APIKeyScopeDeviceScans:
+			if !validation.Scopes.CanAccessDeviceScans {
 				return fmt.Errorf("token does not have scope: %s", scope)
 			}
 		default:
@@ -177,7 +182,7 @@ func (c *Client) doRequestWithBaseURL(ctx context.Context, method, baseURL, path
 	if c.Token == "" && c.tokenFetcher != nil {
 		token, err := c.GetToken(ctx, TokenFetchOptions{
 			Name:   "CLI Token",
-			Scopes: []string{"api"}, // Default to requesting a token with API access.
+			Scopes: types.DefaultCLIAPIKeyScopes(),
 		})
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to fetch token: %w", err)

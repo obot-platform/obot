@@ -19,14 +19,10 @@ import (
 )
 
 type createAPIKeyRequest struct {
-	Name                        string     `json:"name"`
-	Description                 string     `json:"description,omitempty"`
-	ExpiresAt                   *time.Time `json:"expiresAt,omitempty"`
-	MCPServerIDs                []string   `json:"mcpServerIds,omitempty"`
-	CanAccessAPI                bool       `json:"canAccessAPI"`
-	CanAccessLLMProxy           bool       `json:"canAccessLLMProxy"`
-	CanAccessSkills             bool       `json:"canAccessSkills"`
-	CanAccessPublishedArtifacts bool       `json:"canAccessPublishedArtifacts"`
+	Name               string     `json:"name"`
+	Description        string     `json:"description,omitempty"`
+	ExpiresAt          *time.Time `json:"expiresAt,omitempty"`
+	types.APIKeyScopes `json:",inline"`
 }
 
 // createAPIKey creates an API key for the authenticated user.
@@ -40,8 +36,7 @@ func (s *Server) createAPIKey(apiContext api.Context) error {
 		return types2.NewErrBadRequest("name is required")
 	}
 
-	hasCapability := req.CanAccessAPI || req.CanAccessLLMProxy || req.CanAccessSkills || req.CanAccessPublishedArtifacts
-	if len(req.MCPServerIDs) == 0 && !hasCapability {
+	if !req.HasSomeScope() {
 		return types2.NewErrBadRequest("at least one MCP server must be specified or a capability must be enabled")
 	}
 
@@ -81,13 +76,7 @@ func (s *Server) createAPIKey(apiContext api.Context) error {
 		return types2.NewErrHTTP(http.StatusBadRequest, errors.Join(errs...).Error())
 	}
 
-	response, err := apiContext.GatewayClient.CreateAPIKey(apiContext.Context(), userID, req.Name, req.Description, req.ExpiresAt, types.APIKeyScopes{
-		MCPServerIDs:                req.MCPServerIDs,
-		CanAccessAPI:                req.CanAccessAPI,
-		CanAccessLLMProxy:           req.CanAccessLLMProxy,
-		CanAccessSkills:             req.CanAccessSkills,
-		CanAccessPublishedArtifacts: req.CanAccessPublishedArtifacts,
-	})
+	response, err := apiContext.GatewayClient.CreateAPIKey(apiContext.Context(), userID, req.Name, req.Description, req.ExpiresAt, req.APIKeyScopes)
 	if err != nil {
 		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to create API key: %v", err))
 	}

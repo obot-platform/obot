@@ -256,12 +256,13 @@ type createResponse struct {
 
 func create(ctx context.Context, baseURL, uuid, providerName, providerNamespace, tokenName, tokenDescription string, noExpiration bool, scopes []string) (string, error) {
 	apiScopes := types.APIKeyScopes{
-		CanAccessSkills:             slices.Contains(scopes, "skills"),
-		CanAccessAPI:                slices.Contains(scopes, "api"),
-		CanAccessLLMProxy:           slices.Contains(scopes, "llm"),
-		CanAccessPublishedArtifacts: slices.Contains(scopes, "published-artifacts"),
+		CanAccessAPI:                slices.Contains(scopes, types2.APIKeyScopeAPI),
+		CanAccessSkills:             slices.Contains(scopes, types2.APIKeyScopeSkills),
+		CanAccessDeviceScans:        slices.Contains(scopes, types2.APIKeyScopeDeviceScans),
+		CanAccessLLMProxy:           slices.Contains(scopes, types2.APIKeyScopeLLM),
+		CanAccessPublishedArtifacts: slices.Contains(scopes, types2.APIKeyScopePublishedArtifacts),
 	}
-	if slices.Contains(scopes, "all-mcp") {
+	if slices.Contains(scopes, types2.APIKeyScopeAllMCP) {
 		apiScopes.MCPServerIDs = []string{"*"}
 	}
 	var data bytes.Buffer

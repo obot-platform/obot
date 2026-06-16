@@ -43,6 +43,7 @@ const (
 	GroupPublishedArtifacts = "published-artifacts"
 	GroupAPI                = "api"
 	GroupLLM                = "llm"
+	GroupDeviceScans        = "device-scans"
 )
 
 type Role int
@@ -88,7 +89,15 @@ func (u Role) HasUserImpersonationRole() bool {
 	return u&RoleUserImpersonation != 0
 }
 
+func (u Role) RoleGroups() []string {
+	return u.groups(true)
+}
+
 func (u Role) Groups() []string {
+	return u.groups(false)
+}
+
+func (u Role) groups(onlyRoleGroups bool) []string {
 	var groups []string
 	if u.HasRole(RoleOwner) {
 		groups = append(groups, GroupOwner)
@@ -112,7 +121,11 @@ func (u Role) Groups() []string {
 		groups = append(groups, GroupUserImpersonation)
 	}
 	if u != RoleUnknown {
-		groups = append(groups, GroupLLM, GroupSkills, GroupPublishedArtifacts, GroupMCP, GroupAuthenticated)
+		groups = append(groups, GroupAuthenticated)
+
+		if !onlyRoleGroups {
+			groups = append(groups, GroupAPI, GroupLLM, GroupSkills, GroupPublishedArtifacts, GroupMCP, GroupDeviceScans)
+		}
 	}
 
 	return groups

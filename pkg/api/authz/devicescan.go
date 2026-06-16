@@ -3,14 +3,13 @@ package authz
 import (
 	"net/http"
 	"strconv"
-
-	"k8s.io/apiserver/pkg/authentication/user"
 )
 
-func (a *Authorizer) checkDeviceScan(req *http.Request, resources *Resources, u user.Info) (bool, error) {
-	if resources.DeviceScanID == "" {
+func (a *Authorizer) checkDeviceScan(req *http.Request, resources *Resources, u User) (bool, error) {
+	if resources.DeviceScanID == "" || u.IsAdmin || u.IsAuditor {
 		return true, nil
 	}
+
 	id, err := strconv.ParseUint(resources.DeviceScanID, 10, 64)
 	if err != nil {
 		return false, err

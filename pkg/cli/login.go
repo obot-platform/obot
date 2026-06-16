@@ -17,7 +17,7 @@ type Login struct {
 	TokenDescription string   `usage:"Optional description of the token"`
 	NoExpiration     bool     `usage:"Set the token to never expire"`
 	ForceRefresh     bool     `usage:"Force refresh the token even if a valid one is cached"`
-	Scopes           []string `usage:"Scopes to request for this token, valid values are llm, api, all-mcp, skills" name:"scope" default:"api"`
+	Scopes           []string `usage:"Scopes to request for this token, valid scopes are llm, skills, device-scans, all-mcp" name:"scope" default:"llm,skills,device-scans"`
 	PrintToken       bool     `usage:"Print the token to stdout after logging in"`
 	URL              string   `usage:"Obot app URL to authenticate against"`
 	root             *Obot
