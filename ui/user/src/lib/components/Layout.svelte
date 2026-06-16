@@ -40,7 +40,7 @@
 	import Bots from '$lib/icons/Bots.svelte';
 	import LogoIcon from '$lib/icons/LogoIcon.svelte';
 	import { Group } from '$lib/services';
-	import { defaultModelAliases, profile, responsive, version } from '$lib/stores';
+	import { accessibleModels, defaultModelAliases, profile, responsive, version } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
 	import { isAgentEnabled } from '$lib/utils';
 	import InfoTooltip from './InfoTooltip.svelte';
@@ -72,7 +72,8 @@
 		PanelLeftOpen,
 		KeySquare,
 		Settings,
-		PanelLeftClose
+		PanelLeftClose,
+		Brain
 	} from 'lucide-svelte';
 	import { type Component, type Snippet, untrack } from 'svelte';
 	import { fade, slide, type TransitionConfig } from 'svelte/transition';
@@ -205,6 +206,8 @@
 	let isAtLeastPowerUser = $derived(profile.current.groups.includes(Group.POWERUSER));
 	let isAtLeastPowerUserPlus = $derived(profile.current.groups.includes(Group.POWERUSER_PLUS));
 
+	let hasAccessibleModels = $derived(accessibleModels.current.length > 0);
+
 	let defaultLinks = $derived<NavLink[]>([
 		...(profile.current.hasAdminAccess?.()
 			? [
@@ -229,13 +232,17 @@
 			label: 'Skills',
 			href: '/skills'
 		},
-		{
-			id: 'llm-gateway-models',
-			href: '/llm-gateway/models',
-			icon: BrainCog,
-			label: 'Models',
-			collapsible: false
-		},
+		...(hasAccessibleModels
+			? [
+					{
+						id: 'llm-gateway-models',
+						href: '/llm-gateway/models',
+						icon: Brain,
+						label: 'Models',
+						collapsible: false
+					}
+				]
+			: []),
 		{
 			id: 'devices',
 			icon: Laptop,

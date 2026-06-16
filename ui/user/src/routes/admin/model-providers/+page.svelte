@@ -10,7 +10,11 @@
 	import { HttpError } from '$lib/errors.js';
 	import { AdminService, type ModelProvider as ModelProviderType } from '$lib/services';
 	import { sortModelProviders } from '$lib/sort.js';
-	import { defaultModelAliases as defaultModelAliasesStore, license } from '$lib/stores';
+	import {
+		accessibleModels,
+		defaultModelAliases as defaultModelAliasesStore,
+		license
+	} from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte.js';
 	import { profile } from '$lib/stores/index.js';
 	import { delay } from '$lib/utils';
@@ -120,6 +124,8 @@
 				adminConfigStore.updateModelProviders(modelProviders);
 				adminModels.items = await AdminService.listModels({ all: true });
 
+				await accessibleModels.refresh();
+
 				providerConfigure?.close();
 				if (!isAlreadyConfigured) {
 					// if first time configuring, open the default models dialog
@@ -189,6 +195,7 @@
 						await AdminService.deconfigureModelProvider(modelProvider.id);
 						modelProviders = await AdminService.listModelProviders();
 						adminConfigStore.updateModelProviders(modelProviders);
+						accessibleModels.refresh();
 					}}
 					readonly={isAdminReadonly}
 					licenseKey={license.current.licenseKey}

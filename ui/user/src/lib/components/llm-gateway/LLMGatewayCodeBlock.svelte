@@ -24,7 +24,7 @@
 				classes={{ button: 'bg-base-100 dark:bg-base-200 rounded p-1.5' }}
 			/>
 		</div>
-		<pre class="default-scrollbar-thin overflow-x-auto p-3 pr-12 text-xs leading-relaxed"><code
+		<pre class="default-scrollbar-thin overflow-x-auto p-3 pr-12 text-xs leading-relaxed my-0"><code
 				class="font-mono">{block.code}</code
 			></pre>
 	</div>
