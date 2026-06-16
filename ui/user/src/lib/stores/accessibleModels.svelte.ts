@@ -1,11 +1,7 @@
-import { CommonModelProviderIds } from '$lib/constants';
 import { UserService, type Model } from '$lib/services';
+import { SUPPORTED_PROVIDER_IDS } from '$lib/services/llm-gateway/types';
 
-// eslint-disable-next-line svelte/prefer-svelte-reactivity -- this is not a reactive Set
-export const SUPPORTED_MODEL_PROVIDER_IDS = new Set<string>([
-	CommonModelProviderIds.OPENAI,
-	CommonModelProviderIds.ANTHROPIC
-]);
+const SUPPORTED_MODEL_PROVIDER_IDS = new Set<string>(SUPPORTED_PROVIDER_IDS);
 
 export function filterAccessibleModels(models: Model[]): Model[] {
 	return models.filter((m) => m.active && SUPPORTED_MODEL_PROVIDER_IDS.has(m.modelProvider));
@@ -48,7 +44,7 @@ async function load() {
 async function initialize(models?: Model[]) {
 	if (store.initialized) return;
 	if (models) {
-		setModels(filterAccessibleModels(models));
+		setModels(models);
 	} else {
 		await load();
 	}

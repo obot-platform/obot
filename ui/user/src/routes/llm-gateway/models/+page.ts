@@ -5,12 +5,18 @@ import accessibleModels, { filterAccessibleModels } from '$lib/stores/accessible
 import type { PageLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 
+let isInitialLoad = true;
+
 export const load: PageLoad = async ({ fetch, parent }) => {
-	const { profile } = await parent();
+	const { profile, models: parentModels } = await parent();
 	let models: Model[] = [];
 
+	const reuseParentModels = isInitialLoad;
+	isInitialLoad = false;
+
 	try {
-		const all = await UserService.listModels({ fetch });
+		const all =
+			reuseParentModels && parentModels ? parentModels : await UserService.listModels({ fetch });
 		models = filterAccessibleModels(all);
 		if (browser) {
 			accessibleModels.set(all);
