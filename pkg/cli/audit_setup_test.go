@@ -88,6 +88,9 @@ func TestAuditSetupAllCreatesExpectedHookFilesAndIsIdempotent(t *testing.T) {
 	assertManagedFlatHookCount(t, filepath.Join(home, ".cursor", "hooks.json"), "postToolUse", 1)
 	assertManagedFlatHookCount(t, filepath.Join(home, ".cursor", "hooks.json"), "postToolUseFailure", 1)
 	assertManagedFlatHookCount(t, filepath.Join(home, ".copilot", "hooks", "obot-audit.json"), "PostToolUse", 1)
+	assertManagedClaudeLikeHookMatcher(t, filepath.Join(home, ".claude", "settings.json"), "PostToolUse", "*")
+	assertManagedClaudeLikeHookMatcher(t, filepath.Join(home, ".codex", "hooks.json"), "PostToolUse", "*")
+	assertManagedFlatHookFieldAbsent(t, filepath.Join(home, ".copilot", "hooks", "obot-audit.json"), "PostToolUse", "statusMessage")
 }
 
 func TestAuditSetupPreservesUnrelatedHooks(t *testing.T) {
@@ -292,6 +295,9 @@ func TestAuditSetupCodexInlineConfigUpdatedWhenPresent(t *testing.T) {
 	if got := strings.Count(string(data), codexInlineBegin); got != 1 {
 		t.Fatalf("managed codex inline hook marker count = %d, want 1\n%s", got, data)
 	}
+	if !strings.Contains(string(data), "matcher = \"*\"") {
+		t.Fatalf("managed codex inline hook should use documented match-all matcher:\n%s", data)
+	}
 }
 
 func assertManagedClaudeLikeHookCount(t *testing.T, path, event string, want int) {
@@ -329,6 +335,45 @@ func assertManagedFlatHookCount(t *testing.T, path, event string, want int) {
 	if got != want {
 		t.Fatalf("%s %s managed hook count = %d, want %d", path, event, got, want)
 	}
+}
+
+func assertManagedClaudeLikeHookMatcher(t *testing.T, path, event, want string) {
+	t.Helper()
+	var root map[string]any
+	readJSONFile(t, path, &root)
+	hooks := root["hooks"].(map[string]any)
+	groups := hooks[event].([]any)
+	for _, rawGroup := range groups {
+		group := rawGroup.(map[string]any)
+		rawHooks, _ := group["hooks"].([]any)
+		for _, rawHook := range rawHooks {
+			if managedHookObjectPresent(rawHook.(map[string]any)) {
+				if got, _ := group["matcher"].(string); got != want {
+					t.Fatalf("%s %s managed matcher = %q, want %q", path, event, got, want)
+				}
+				return
+			}
+		}
+	}
+	t.Fatalf("%s %s has no managed hook", path, event)
+}
+
+func assertManagedFlatHookFieldAbsent(t *testing.T, path, event, field string) {
+	t.Helper()
+	var root map[string]any
+	readJSONFile(t, path, &root)
+	hooks := root["hooks"].(map[string]any)
+	entries := hooks[event].([]any)
+	for _, rawHook := range entries {
+		hook := rawHook.(map[string]any)
+		if managedHookObjectPresent(hook) {
+			if _, ok := hook[field]; ok {
+				t.Fatalf("%s %s managed hook unexpectedly has %q: %#v", path, event, field, hook)
+			}
+			return
+		}
+	}
+	t.Fatalf("%s %s has no managed hook", path, event)
 }
 
 func readJSONFile(t *testing.T, path string, out any) {

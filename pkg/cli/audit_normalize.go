@@ -84,7 +84,7 @@ func normalizeAuditEvent(ctx context.Context, format string, raw []byte) (types.
 		},
 		Tool: types.ToolInfo{
 			Name: firstNonEmpty(hook.ToolName, "unknown"),
-			Type: firstNonEmpty(hook.ToolType, "tool"),
+			Type: "tool",
 		},
 		Outcome:     firstNonEmpty(hook.Outcome, types.AuditLogOutcomeSuccess),
 		DurationMs:  hook.DurationMs,
@@ -195,16 +195,11 @@ func decodeAuditHookPayload(format string, raw []byte) (auditHookPayload, error)
 	}
 }
 
-func auditOutcome(hookEvent, errorText, status string) string {
+func auditOutcome(hookEvent, errorText string) string {
 	if errorText != "" || strings.Contains(strings.ToLower(hookEvent), "failure") {
 		return types.AuditLogOutcomeError
 	}
-	switch strings.ToLower(strings.TrimSpace(status)) {
-	case "error", "failed", "failure":
-		return types.AuditLogOutcomeError
-	default:
-		return types.AuditLogOutcomeSuccess
-	}
+	return types.AuditLogOutcomeSuccess
 }
 
 func parseAuditTime(v any) (time.Time, bool) {

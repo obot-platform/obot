@@ -77,7 +77,7 @@ func installAuditHook(ctx context.Context, home, binary, client string) auditHoo
 //
 // Example output fragment:
 //
-//	{"hooks":{"PostToolUse":[{"matcher":"Read","hooks":[{"command":"user.sh"}]},{"matcher":".*","hooks":[{"command":"/usr/bin/obot audit submit --format claude-code --input -"}]}]}}
+//	{"hooks":{"PostToolUse":[{"matcher":"Read","hooks":[{"command":"user.sh"}]},{"matcher":"*","hooks":[{"command":"/usr/bin/obot audit submit --format claude-code --input -"}]}]}}
 func installClaudeLikeAuditHooks(path, client, command string, events []string) auditHookSetupResult {
 	root, err := readJSONObjectFile(path)
 	if err != nil {
@@ -313,7 +313,7 @@ func validateFlatHooks(raw any) error {
 //
 // Example output:
 //
-//	[{"matcher":".*","hooks":[{"env":{"OBOT_AUDIT_HOOK_ID":"obot-local-agent-audit-v1"}}]}]
+//	[{"matcher":"*","hooks":[{"env":{"OBOT_AUDIT_HOOK_ID":"obot-local-agent-audit-v1"}}]}]
 func updateMatcherGroups(raw any, command string) []any {
 	existing, _ := raw.([]any)
 	out := make([]any, 0, len(existing)+1)
@@ -335,7 +335,7 @@ func updateMatcherGroups(raw any, command string) []any {
 		out = append(out, group)
 	}
 	out = append(out, map[string]any{
-		"matcher": ".*",
+		"matcher": "*",
 		"hooks":   []any{managedHookObject(command)},
 	})
 	return out
@@ -363,7 +363,7 @@ func updateFlatHooks(raw any, command string, cursor bool) []any {
 		out = append(out, hook)
 		return out
 	}
-	out = append(out, managedHookObject(command))
+	out = append(out, managedVSCodeHookObject(command))
 	return out
 }
 
@@ -402,12 +402,12 @@ func groupOwnedByObot(group map[string]any) bool {
 	return len(hooks) > 0 && len(removeManagedHookObjects(hooks)) == 0
 }
 
-// managedHookObject builds the command hook object that setup writes into JSON
-// hook config files.
+// managedHookObject builds the command hook object that setup writes into
+// Claude/Codex-style hook config files.
 //
 // Example output:
 //
-//	{"type":"command","command":"/usr/bin/obot audit submit --format vscode --input -","timeout":10,"env":{"OBOT_AUDIT_HOOK_ID":"obot-local-agent-audit-v1"}}
+//	{"type":"command","command":"/usr/bin/obot audit submit --format codex --input -","timeout":10,"statusMessage":"Sending audit event to Obot","env":{"OBOT_AUDIT_HOOK_ID":"obot-local-agent-audit-v1"}}
 func managedHookObject(command string) map[string]any {
 	return map[string]any{
 		"type":          "command",
@@ -422,6 +422,17 @@ func managedHookObject(command string) map[string]any {
 
 func managedCursorHookObject(command string) map[string]any {
 	return map[string]any{
+		"command": command,
+		"timeout": float64(auditHookTimeoutSecs),
+		"env": map[string]any{
+			auditHookIDEnv: auditHookID,
+		},
+	}
+}
+
+func managedVSCodeHookObject(command string) map[string]any {
+	return map[string]any{
+		"type":    "command",
 		"command": command,
 		"timeout": float64(auditHookTimeoutSecs),
 		"env": map[string]any{
@@ -481,7 +492,7 @@ const (
 //
 //	# BEGIN OBOT_AUDIT_HOOK_ID=obot-local-agent-audit-v1
 //	[[hooks.PostToolUse]]
-//	matcher = ".*"
+//	matcher = "*"
 //	# END OBOT_AUDIT_HOOK_ID=obot-local-agent-audit-v1
 func writeCodexInlineAuditHooks(path, command string) error {
 	data, err := os.ReadFile(path)
@@ -494,7 +505,7 @@ func writeCodexInlineAuditHooks(path, command string) error {
 	}
 	body += "\n" + codexInlineBegin + "\n"
 	body += "[[hooks.PostToolUse]]\n"
-	body += "matcher = \".*\"\n\n"
+	body += "matcher = \"*\"\n\n"
 	body += "[[hooks.PostToolUse.hooks]]\n"
 	body += "type = \"command\"\n"
 	body += fmt.Sprintf("command = %q\n", command)

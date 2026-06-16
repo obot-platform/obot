@@ -12,7 +12,6 @@ type auditHookPayload struct {
 	CreatedAt       time.Time
 	ClientVersion   string
 	ToolName        string
-	ToolType        string
 	Outcome         string
 	DurationMs      int64
 	SessionID       string
@@ -35,6 +34,7 @@ type claudeCodeHookPayload struct {
 	ToolName      string            `json:"tool_name"`
 	ToolInput     json.RawMessage   `json:"tool_input"`
 	ToolResponse  json.RawMessage   `json:"tool_response"`
+	ToolUseID     string            `json:"tool_use_id"`
 	Error         auditHookError    `json:"error"`
 	DurationMs    int64             `json:"duration_ms"`
 	Timestamp     auditFlexibleTime `json:"timestamp"`
@@ -44,19 +44,19 @@ type claudeCodeHookPayload struct {
 }
 
 func (p claudeCodeHookPayload) auditHookPayload() auditHookPayload {
+	eventID := firstNonEmpty(p.EventID, p.ToolUseID)
 	return auditHookPayload{
-		EventID:         p.EventID,
+		EventID:         eventID,
 		CreatedAt:       p.Timestamp.Time,
 		ClientVersion:   p.Client.Version,
 		ToolName:        p.ToolName,
-		ToolType:        "tool",
-		Outcome:         auditOutcome(p.HookEventName, p.Error.String(), ""),
+		Outcome:         auditOutcome(p.HookEventName, p.Error.String()),
 		DurationMs:      p.DurationMs,
 		SessionID:       p.SessionID,
 		ConversationID:  p.TranscriptID,
 		CWD:             p.CWD,
 		SourceHookEvent: p.HookEventName,
-		ClientEventID:   p.EventID,
+		ClientEventID:   eventID,
 		Request:         p.ToolInput,
 		Response:        p.ToolResponse,
 		Error:           p.Error.String(),
@@ -77,8 +77,7 @@ func (p codexHookPayload) auditHookPayload() auditHookPayload {
 	return auditHookPayload{
 		EventID:         p.ToolUseID,
 		ToolName:        p.ToolName,
-		ToolType:        "tool",
-		Outcome:         auditOutcome(p.HookEventName, "", ""),
+		Outcome:         auditOutcome(p.HookEventName, ""),
 		SessionID:       p.SessionID,
 		CWD:             p.CWD,
 		SourceHookEvent: p.HookEventName,
@@ -128,8 +127,7 @@ func (p cursorHookPayload) auditHookPayload() auditHookPayload {
 		EventID:         p.ToolUseID,
 		ClientVersion:   p.ClientVersion,
 		ToolName:        p.ToolName,
-		ToolType:        "tool",
-		Outcome:         auditOutcome(p.HookEventName, errorText, ""),
+		Outcome:         auditOutcome(p.HookEventName, errorText),
 		DurationMs:      duration,
 		SessionID:       firstNonEmpty(p.SessionID, p.Conversation),
 		ConversationID:  p.Conversation,
@@ -157,10 +155,10 @@ type vscodeHookPayload struct {
 
 func (p vscodeHookPayload) auditHookPayload() auditHookPayload {
 	return auditHookPayload{
+		EventID:         p.ToolUseID,
 		CreatedAt:       p.Timestamp.Time,
 		ToolName:        p.ToolName,
-		ToolType:        "tool",
-		Outcome:         auditOutcome(p.HookEventName, p.Error.String(), ""),
+		Outcome:         auditOutcome(p.HookEventName, p.Error.String()),
 		SessionID:       p.SessionID,
 		CWD:             p.CWD,
 		SourceHookEvent: p.HookEventName,

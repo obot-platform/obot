@@ -46,11 +46,14 @@ func TestNormalizeAuditEventFixtures(t *testing.T) {
 				"tool_name": "Read",
 				"tool_input": {"file_path": "README.md"},
 				"tool_response": {"content": "ok"},
+				"tool_use_id": "claude-tool-1",
 				"duration_ms": 12,
 				"client": {"version": "1.2.3"}
 			}`, workspace),
-			toolName: "Read",
-			outcome:  types.AuditLogOutcomeSuccess,
+			toolName:      "Read",
+			eventID:       "claude-tool-1",
+			clientEventID: "claude-tool-1",
+			outcome:       types.AuditLogOutcomeSuccess,
 		},
 		{
 			name:   "codex success",
@@ -112,8 +115,10 @@ func TestNormalizeAuditEventFixtures(t *testing.T) {
 				"tool_use_id": "call_XtPHuexgNF2AUeOxytKP14nN__vscode-1781547413353",
 				"cwd": %q
 			}`, workspace, workspace),
-			toolName: "list_dir",
-			outcome:  types.AuditLogOutcomeSuccess,
+			toolName:      "list_dir",
+			eventID:       "call_XtPHuexgNF2AUeOxytKP14nN__vscode-1781547413353",
+			clientEventID: "call_XtPHuexgNF2AUeOxytKP14nN__vscode-1781547413353",
+			outcome:       types.AuditLogOutcomeSuccess,
 		},
 	}
 
