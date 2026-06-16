@@ -46,6 +46,8 @@ export function formatTimeAgo(timestamp: string | undefined, granularity?: strin
 
 	const now = new Date();
 	const date = new Date(timestamp);
+	if (isNaN(date.getTime())) return { relativeTime: '', fullDate: '' };
+
 	const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
 	// Format the full date for the tooltip
@@ -113,6 +115,8 @@ export function formatTimeUntil(timestamp: string | undefined): TimeAgoResult {
 
 	const now = new Date();
 	const date = new Date(timestamp);
+	if (isNaN(date.getTime())) return { relativeTime: '', fullDate: '' };
+
 	const seconds = Math.floor((date.getTime() - now.getTime()) / 1000);
 
 	// Format the full date for the tooltip

@@ -646,8 +646,10 @@ export const getMcpServerDeploymentStatus = (
 	const needsK8sUpdate =
 		doesSupportK8sUpdates && deployment.needsK8sUpdate && !deployment.compositeName;
 
-	let updateStatus: string;
-	let updatesAvailable: string[];
+	type ServerUpgradesAvailable =
+		(typeof SERVER_UPGRADES_AVAILABLE)[keyof typeof SERVER_UPGRADES_AVAILABLE];
+	let updateStatus: ServerUpgradesAvailable;
+	let updatesAvailable: ServerUpgradesAvailable[];
 	let updateStatusTooltip: string | undefined = undefined;
 
 	if (needsUpdate && needsK8sUpdate && doesSupportK8sUpdates) {
