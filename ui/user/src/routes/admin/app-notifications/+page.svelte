@@ -6,7 +6,7 @@
 	import Select from '$lib/components/Select.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { AdminService, type AppNotifications, type BannerType } from '$lib/services';
-	import { profile } from '$lib/stores';
+	import { profile, appNotifications as appNotificationsStore } from '$lib/stores';
 	import { success } from '$lib/stores/success';
 	import { untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
@@ -91,6 +91,7 @@
 		saving = true;
 		try {
 			await AdminService.updateAppNotifications(appNotifications);
+			appNotificationsStore.initialize();
 			success.add('App notifications updated successfully.');
 		} catch (_err) {
 			// will get logged by handleRouteError
@@ -204,7 +205,7 @@
 						<div>
 							<p class="text-sm font-light">Reset Dismissed</p>
 							<p class="text-xs font-light text-muted-content mb-2">
-								When enabled, dismissed banners are shown again for users. They can dismiss the
+								When enabled, the dismissed banner is shown again for users. They can dismiss the
 								banner again after it is shown.
 							</p>
 						</div>

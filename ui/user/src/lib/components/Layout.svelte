@@ -531,8 +531,8 @@
 						collapsible: true,
 						items: [
 							{
-								id: 'app-preferences',
-								href: '/admin/app-preferences',
+								id: 'branding',
+								href: '/admin/branding',
 								label: 'Branding',
 								disabled: false,
 								collapsible: false
@@ -540,7 +540,7 @@
 							{
 								id: 'app-notifications',
 								href: '/admin/app-notifications',
-								label: 'Notifications',
+								label: 'App Notifications',
 								disabled: false,
 								collapsible: false
 							},
