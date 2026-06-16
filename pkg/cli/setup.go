@@ -385,6 +385,7 @@ const (
 	setupErrorConfigSaveFailed      setupErrorCode = "config_save_failed"
 	setupErrorClientDetectionFailed setupErrorCode = "client_detection_failed"
 	setupErrorClientInstallFailed   setupErrorCode = "client_install_failed"
+	setupErrorAuthInvalid           setupErrorCode = "auth_invalid"
 	setupErrorUnknown               setupErrorCode = "unknown"
 )
 
@@ -461,6 +462,10 @@ func setupAuthErrorCode(err error) setupErrorCode {
 		strings.Contains(msg, "no such host") ||
 		strings.Contains(msg, "server misbehaving") {
 		return setupErrorServerUnreachable
+	}
+
+	if strings.Contains(msg, "token does not have scope") {
+		return setupErrorAuthInvalid
 	}
 
 	return setupErrorUnknown

@@ -45,7 +45,7 @@ func (as APIKeyScopes) Groups(u *User) []string {
 		return u.Role.Groups()
 	}
 
-	groups := make([]string, 0, 4)
+	groups := make([]string, 0, 5)
 	if as.CanAccessSkills {
 		groups = append(groups, types.GroupSkills)
 	}

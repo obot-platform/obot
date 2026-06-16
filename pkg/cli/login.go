@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/obot-platform/obot/apiclient"
+	"github.com/obot-platform/obot/pkg/cli/internal"
 	"github.com/obot-platform/obot/pkg/cli/internal/localconfig"
 	"github.com/spf13/cobra"
 )
@@ -43,6 +44,9 @@ func (l *Login) Run(cmd *cobra.Command, _ []string) error {
 		Scopes:       l.Scopes,
 	})
 	if err != nil {
+		if l.root.Client.Token != "" {
+			return fmt.Errorf("unable to validate provided %s: %w", internal.TokenEnvVar, err)
+		}
 		return err
 	}
 	fmt.Fprintf(os.Stderr, "Logged in to %s\n", l.root.Client.BaseURL)
