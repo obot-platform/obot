@@ -14,7 +14,7 @@ The gateway proxies your requests transparently to the upstream provider while e
 
 ## The Models page
 
-The **Models** page lists the OpenAI and Anthropic models you currently have access to through the gateway. Find it under **LLM Gateway → Models** in the sidebar (route `/llm-gateway/models`).
+The **Models** page lists the OpenAI and Anthropic models you currently have access to through the gateway. Find it under **Models** in the sidebar (route `/llm-gateway/models`).
 
 For each provider you have access to, the page shows:
 
@@ -35,7 +35,6 @@ The **LLM Gateway** sidebar section also groups the administrator pages that pow
 - **Token Usage** — usage and cost analytics across users and models (admin only).
 - **Model Providers** — configure providers and their available models (admin only). See [Model Providers](/configuration/model-providers/).
 - **Model Access Policies** — control which users can use which models (admin only). See [Model Access Policies](/functionality/model-access-policies/).
-- **Models** — the page described above (visible to any user with gateway model access).
 
 ## Before you begin
 
