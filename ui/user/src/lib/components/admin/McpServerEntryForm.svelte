@@ -1034,7 +1034,7 @@
 
 					const isAdminRoute = window.location.pathname.includes('/admin/');
 
-					let url = '';
+					let url: string;
 					if (entity === 'workspace') {
 						url = !isAdminRoute
 							? `/mcp-access-policies/${d.id}`

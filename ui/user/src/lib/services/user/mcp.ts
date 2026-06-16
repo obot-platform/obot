@@ -492,10 +492,7 @@ export async function convertCompositeInfoToLaunchFormData(
 	server: MCPCatalogServer,
 	parent?: MCPCatalogEntry
 ) {
-	let initial: Record<
-		string,
-		{ config: Record<string, string>; url?: string; disabled?: boolean }
-	> = {};
+	let initial: Record<string, { config: Record<string, string>; url?: string; disabled?: boolean }>;
 	try {
 		const revealed = await UserService.revealCompositeMcpServer(server.id, {
 			dontLogErrors: true
@@ -585,7 +582,7 @@ export function getServerUrl(d: MCPCatalogServer) {
 	// resolves servers that are not scoped to a catalog or workspace.
 	const isMulti = isMultiUserServer(d);
 
-	let url = '';
+	let url: string;
 	if (profile.current.hasAdminAccess?.()) {
 		if (isMulti && d.catalogEntryID) {
 			url =
@@ -649,8 +646,8 @@ export const getMcpServerDeploymentStatus = (
 	const needsK8sUpdate =
 		doesSupportK8sUpdates && deployment.needsK8sUpdate && !deployment.compositeName;
 
-	let updateStatus = SERVER_UPGRADES_AVAILABLE.NONE;
-	let updatesAvailable = [SERVER_UPGRADES_AVAILABLE.NONE];
+	let updateStatus: string;
+	let updatesAvailable: string[];
 	let updateStatusTooltip: string | undefined = undefined;
 
 	if (needsUpdate && needsK8sUpdate && doesSupportK8sUpdates) {

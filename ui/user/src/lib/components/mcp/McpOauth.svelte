@@ -19,6 +19,7 @@
 		id?: string;
 	}
 
+	// eslint-disable-next-line no-useless-assignment -- bindable prop default is read by the parent via two-way binding
 	let { onAuthenticate, error = $bindable(), entry, text, entity, id }: Props = $props();
 
 	let oauthURL = $state<string>('');

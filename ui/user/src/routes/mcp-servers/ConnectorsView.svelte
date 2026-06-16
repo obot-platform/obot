@@ -209,7 +209,6 @@
 				} else {
 					server = multiUserCatalogEntryServers[0];
 					instance = instancesMap.get(server.id);
-					entry = d;
 				}
 			}
 

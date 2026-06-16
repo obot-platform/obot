@@ -10,7 +10,7 @@ export const load: PageLoad = async ({ url, fetch }) => {
 	const start =
 		url.searchParams.get('start') ?? new Date(Date.now() - DEFAULT_WINDOW_MS).toISOString();
 
-	let stats: DeviceScanStats | null = null;
+	let stats: DeviceScanStats | null;
 	try {
 		stats = await AdminService.getDeviceScanStats({ start, end }, { fetch });
 		return { stats, range: { start, end } };

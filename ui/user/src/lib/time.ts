@@ -61,7 +61,7 @@ export function formatTimeAgo(timestamp: string | undefined, granularity?: strin
 	const fullDate = date.toLocaleString(undefined, options);
 
 	// Relative time calculation
-	let relativeTime = '';
+	let relativeTime: string;
 	let interval = Math.floor(seconds / 31536000);
 	if (interval >= 1) {
 		relativeTime = interval === 1 ? '1 year ago' : `${interval} years ago`;
@@ -133,7 +133,7 @@ export function formatTimeUntil(timestamp: string | undefined): TimeAgoResult {
 	}
 
 	// Relative time calculation for future dates
-	let relativeTime = '';
+	let relativeTime: string;
 	let interval = Math.floor(seconds / 31536000);
 	if (interval >= 1) {
 		relativeTime = interval === 1 ? 'in 1 year' : `in ${interval} years`;
