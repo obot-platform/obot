@@ -38,12 +38,12 @@
 		type Layout as LayoutState
 	} from '$lib/context/layout.svelte';
 	import Bots from '$lib/icons/Bots.svelte';
+	import LogoIcon from '$lib/icons/LogoIcon.svelte';
 	import { Group } from '$lib/services';
 	import { defaultModelAliases, profile, responsive, version } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
 	import { isAgentEnabled } from '$lib/utils';
 	import InfoTooltip from './InfoTooltip.svelte';
-	import Logo from './Logo.svelte';
 	import Tour from './Tour.svelte';
 	import ConfigureBanner from './admin/ConfigureBanner.svelte';
 	import SetupSplashDialog from './admin/SetupSplashDialog.svelte';
@@ -245,7 +245,7 @@
 		{
 			id: 'install-cli',
 			href: '/install-cli',
-			icon: Logo,
+			icon: LogoIcon,
 			label: 'Obot CLI',
 			collapsible: false
 		},
