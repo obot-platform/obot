@@ -1,8 +1,7 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
-	import { parseErrorContent } from '$lib/errors';
-	import Loading from '$lib/icons/Loading.svelte';
-	import { UserService, type OAuthConsent } from '$lib/services';
+	import type { OAuthConsent } from '$lib/services';
 	import { ExternalLink, ShieldAlertIcon } from 'lucide-svelte';
 
 	type Props = {
@@ -12,9 +11,6 @@
 	};
 
 	let { data }: Props = $props();
-
-	let submitting = $state(false);
-	let error = $state('');
 
 	const consent = $derived(data.consent);
 	const scopes = $derived(consent.scope?.split(' ').filter(Boolean) ?? []);
@@ -93,27 +89,6 @@
 
 		return rows;
 	});
-
-	function navigateTo(url: string) {
-		window.location.href = url;
-	}
-
-	async function submit(action: 'approve' | 'deny') {
-		if (submitting) return;
-
-		submitting = true;
-		error = '';
-		try {
-			const response = await UserService.submitOAuthConsent(consent.authRequestID, {
-				action,
-				csrfToken: consent.csrfToken
-			});
-			navigateTo(response.redirectURL);
-		} catch (err) {
-			const parsed = parseErrorContent(err);
-			error = parsed.message;
-		}
-	}
 </script>
 
 <svelte:head>
@@ -181,25 +156,13 @@
 					</div>
 				</details>
 			</div>
-
-			{#if error}
-				<div class="notification-error text-sm">{error}</div>
-			{/if}
 		</section>
 
 		<footer
 			class="border-base-300 bg-base-100 dark:bg-base-200 flex justify-end gap-3 border-t p-3 max-sm:flex-col-reverse"
 		>
-			<button class="btn btn-text" disabled={submitting} onclick={() => submit('deny')}
-				>Cancel</button
-			>
-			<button class="btn btn-primary" disabled={submitting} onclick={() => submit('approve')}>
-				{#if submitting}
-					<Loading class="size-4" />
-				{:else}
-					Continue
-				{/if}
-			</button>
+			<a class="btn btn-text" href={resolve(consent.cancelURL as `/${string}`)}>Cancel</a>
+			<a class="btn btn-primary" href={resolve(consent.continueURL as `/${string}`)}> Continue </a>
 		</footer>
 	</main>
 </div>

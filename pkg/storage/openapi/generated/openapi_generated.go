@@ -15838,15 +15838,8 @@ func schema_storage_apis_obotobotai_v1_OAuthAuthRequestSpec(ref common.Reference
 							Format:  "",
 						},
 					},
-					"consentCSRFToken": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
 				},
-				Required: []string{"redirectURI", "state", "clientID", "codeChallenge", "scope", "codeChallengeMethod", "grantType", "resource", "hashedAuthCode", "userID", "mcpID", "authProviderUserID", "authProviderNamespace", "authProviderName", "consentPrepared", "consentMCPAuthRequired", "consentMCPAuthURL", "userHasSecondLevelOAuthed", "consentMCPServerName", "consentMCPServerURL", "consentCSRFToken"},
+				Required: []string{"redirectURI", "state", "clientID", "codeChallenge", "scope", "codeChallengeMethod", "grantType", "resource", "hashedAuthCode", "userID", "mcpID", "authProviderUserID", "authProviderNamespace", "authProviderName", "consentPrepared", "consentMCPAuthRequired", "consentMCPAuthURL", "userHasSecondLevelOAuthed", "consentMCPServerName", "consentMCPServerURL"},
 			},
 		},
 	}

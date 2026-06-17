@@ -65,7 +65,6 @@ type OAuthAuthRequestSpec struct {
 	UserHasSecondLevelOAuthed bool   `json:"userHasSecondLevelOAuthed"`
 	ConsentMCPServerName      string `json:"consentMCPServerName"`
 	ConsentMCPServerURL       string `json:"consentMCPServerURL"`
-	ConsentCSRFToken          string `json:"consentCSRFToken"`
 }
 
 type OAuthAuthRequestStatus struct {

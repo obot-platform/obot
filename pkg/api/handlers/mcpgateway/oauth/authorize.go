@@ -37,11 +37,6 @@ const (
 	ErrInvalidClientMetadata   ErrorCode = "invalid_client_metadata"
 )
 
-const (
-	consentActionApprove = "approve"
-	consentActionDeny    = "deny"
-)
-
 // Error represents an OAuth 2.0 error response.
 type Error struct {
 	Code        ErrorCode `json:"error"`
@@ -332,10 +327,6 @@ func (h *handler) callback(req api.Context) error {
 
 func (h *handler) prepareOAuthConsent(req api.Context, oauthAppAuthRequest *v1.OAuthAuthRequest) error {
 	if oauthAppAuthRequest.Spec.ConsentPrepared {
-		if oauthAppAuthRequest.Spec.ConsentCSRFToken == "" {
-			oauthAppAuthRequest.Spec.ConsentCSRFToken = strings.ToLower(rand.Text())
-			return req.Update(oauthAppAuthRequest)
-		}
 		return nil
 	}
 
@@ -356,31 +347,14 @@ func (h *handler) prepareOAuthConsent(req api.Context, oauthAppAuthRequest *v1.O
 	oauthAppAuthRequest.Spec.UserHasSecondLevelOAuthed = u == "" && mcpServer.Status.UserHasAuthenticated
 	oauthAppAuthRequest.Spec.ConsentMCPServerName = mcpServerDisplayName(mcpServer)
 	oauthAppAuthRequest.Spec.ConsentMCPServerURL = mcpServerConfig.URL
-	oauthAppAuthRequest.Spec.ConsentCSRFToken = strings.ToLower(rand.Text())
 
 	return req.Update(oauthAppAuthRequest)
 }
 
 func (h *handler) consent(req api.Context) error {
-	var oauthAppAuthRequest v1.OAuthAuthRequest
-	if err := req.Get(&oauthAppAuthRequest, req.PathValue("oauth_auth_request")); err != nil {
+	oauthAppAuthRequest, ok, err := h.oauthConsentRequest(req, "OAuth consent")
+	if err != nil || !ok {
 		return err
-	}
-
-	if _, _, ok := authenticatedOAuthUser(req, oauthAppAuthRequest, "OAuth consent"); !ok {
-		return nil
-	}
-	if !authenticatedOAuthConsentUser(req, oauthAppAuthRequest) {
-		return nil
-	}
-
-	if !oauthAppAuthRequest.Spec.ConsentPrepared {
-		redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
-			Code:        ErrInvalidRequest,
-			Description: "OAuth consent has not been prepared",
-			State:       oauthAppAuthRequest.Spec.State,
-		})
-		return nil
 	}
 
 	oauthClient, err := h.oauthClientForAuthRequest(req, oauthAppAuthRequest)
@@ -393,54 +367,18 @@ func (h *handler) consent(req api.Context) error {
 		return nil
 	}
 
-	return req.Write(oauthConsentPageData(oauthAppAuthRequest, oauthClient))
+	continueURL, cancelURL := oauthConsentURLs(oauthAppAuthRequest)
+	return req.Write(oauthConsentPageData(oauthAppAuthRequest, oauthClient, continueURL, cancelURL))
 }
 
 func (h *handler) approveConsent(req api.Context) error {
-	var oauthAppAuthRequest v1.OAuthAuthRequest
-	if err := req.Get(&oauthAppAuthRequest, req.PathValue("oauth_auth_request")); err != nil {
+	oauthAppAuthRequest, ok, err := h.oauthConsentRequest(req, "OAuth consent approval")
+	if err != nil || !ok {
 		return err
-	}
-
-	if _, _, ok := authenticatedOAuthUser(req, oauthAppAuthRequest, "OAuth consent approval"); !ok {
-		return nil
-	}
-	if !authenticatedOAuthConsentUser(req, oauthAppAuthRequest) {
-		return nil
-	}
-
-	if !oauthAppAuthRequest.Spec.ConsentPrepared {
-		redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
-			Code:        ErrInvalidRequest,
-			Description: "OAuth consent has not been prepared",
-			State:       oauthAppAuthRequest.Spec.State,
-		})
-		return nil
-	}
-
-	if err := req.ParseForm(); err != nil {
-		return err
-	}
-	if req.FormValue("csrf_token") == "" || req.FormValue("csrf_token") != oauthAppAuthRequest.Spec.ConsentCSRFToken {
-		return types.NewErrBadRequest("invalid OAuth consent token")
-	}
-
-	switch req.FormValue("action") {
-	case consentActionDeny:
-		log.Infof("User denied OAuth consent: authRequest=%s client=%s", oauthAppAuthRequest.Name, oauthAppAuthRequest.Spec.ClientID)
-		return req.Write(map[string]string{"redirectURL": authorizeErrorURL(oauthAppAuthRequest.Spec.RedirectURI, Error{
-			Code:        ErrAccessDenied,
-			Description: "user denied OAuth consent",
-			State:       oauthAppAuthRequest.Spec.State,
-		})})
-	case consentActionApprove:
-	default:
-		return types.NewErrBadRequest("invalid OAuth consent action")
 	}
 
 	if oauthAppAuthRequest.Spec.ConsentMCPAuthRequired {
-		u := oauthAppAuthRequest.Spec.ConsentMCPAuthURL
-		if u == "" {
+		if oauthAppAuthRequest.Spec.ConsentMCPAuthURL == "" {
 			redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
 				Code:        ErrServerError,
 				Description: "MCP OAuth URL is missing from consent state",
@@ -450,7 +388,8 @@ func (h *handler) approveConsent(req api.Context) error {
 		}
 
 		log.Infof("OAuth consent approved; redirecting to second-level MCP authentication: authRequest=%s mcpID=%s", oauthAppAuthRequest.Name, oauthAppAuthRequest.Spec.MCPID)
-		return req.Write(map[string]string{"redirectURL": u})
+		http.Redirect(req.ResponseWriter, req.Request, oauthAppAuthRequest.Spec.ConsentMCPAuthURL, http.StatusFound)
+		return nil
 	}
 
 	code := strings.ToLower(rand.Text() + rand.Text())
@@ -465,7 +404,53 @@ func (h *handler) approveConsent(req api.Context) error {
 	}
 
 	log.Infof("OAuth consent approved; issuing authorization code and redirecting to client: authRequest=%s client=%s", oauthAppAuthRequest.Name, oauthAppAuthRequest.Spec.ClientID)
-	return req.Write(map[string]string{"redirectURL": authorizeResponseURL(oauthAppAuthRequest, code, oauthAppAuthRequest.Spec.Scope)})
+	redirectWithAuthorizeResponse(req, oauthAppAuthRequest, code, oauthAppAuthRequest.Spec.Scope)
+	return nil
+}
+
+func (h *handler) cancelConsent(req api.Context) error {
+	oauthAppAuthRequest, ok, err := h.oauthConsentRequest(req, "OAuth consent cancellation")
+	if err != nil || !ok {
+		return err
+	}
+
+	log.Infof("User denied OAuth consent: authRequest=%s client=%s", oauthAppAuthRequest.Name, oauthAppAuthRequest.Spec.ClientID)
+	redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
+		Code:        ErrAccessDenied,
+		Description: "user denied OAuth consent",
+		State:       oauthAppAuthRequest.Spec.State,
+	})
+	return nil
+}
+
+func (h *handler) oauthConsentRequest(req api.Context, phase string) (v1.OAuthAuthRequest, bool, error) {
+	var oauthAppAuthRequest v1.OAuthAuthRequest
+	if err := req.Get(&oauthAppAuthRequest, req.PathValue("oauth_auth_request")); err != nil {
+		return oauthAppAuthRequest, false, err
+	}
+
+	if _, _, ok := authenticatedOAuthUser(req, oauthAppAuthRequest, phase); !ok {
+		return oauthAppAuthRequest, false, nil
+	}
+	if !authenticatedOAuthConsentUser(req, oauthAppAuthRequest) {
+		return oauthAppAuthRequest, false, nil
+	}
+
+	if !oauthAppAuthRequest.Spec.ConsentPrepared {
+		redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
+			Code:        ErrInvalidRequest,
+			Description: "OAuth consent has not been prepared",
+			State:       oauthAppAuthRequest.Spec.State,
+		})
+		return oauthAppAuthRequest, false, nil
+	}
+
+	return oauthAppAuthRequest, true, nil
+}
+
+func oauthConsentURLs(oauthAppAuthRequest v1.OAuthAuthRequest) (continueURL, cancelURL string) {
+	base := "/oauth/consent/" + url.PathEscape(oauthAppAuthRequest.Name)
+	return base + "/approve", base + "/cancel"
 }
 
 // oauthCallback handles the second-level third-party OAuth for MCP servers.
@@ -584,7 +569,8 @@ func (h *handler) oauthClientForAuthRequest(req api.Context, oauthAppAuthRequest
 
 type oauthConsentData struct {
 	AuthRequestID             string `json:"authRequestID"`
-	CSRFToken                 string `json:"csrfToken"`
+	ContinueURL               string `json:"continueURL"`
+	CancelURL                 string `json:"cancelURL"`
 	ClientName                string `json:"clientName"`
 	ClientURI                 string `json:"clientURI,omitempty"`
 	RedirectURI               string `json:"redirectURI"`
@@ -598,7 +584,7 @@ type oauthConsentData struct {
 	ThirdPartyAuthURL         string `json:"thirdPartyAuthURL,omitempty"`
 }
 
-func oauthConsentPageData(oauthAppAuthRequest v1.OAuthAuthRequest, oauthClient v1.OAuthClient) oauthConsentData {
+func oauthConsentPageData(oauthAppAuthRequest v1.OAuthAuthRequest, oauthClient v1.OAuthClient, continueURL, cancelURL string) oauthConsentData {
 	clientName := oauthClient.Spec.Manifest.ClientName
 	if clientName == "" {
 		clientName = fmt.Sprintf("%s:%s", oauthClient.Namespace, oauthClient.Name)
@@ -606,7 +592,8 @@ func oauthConsentPageData(oauthAppAuthRequest v1.OAuthAuthRequest, oauthClient v
 
 	return oauthConsentData{
 		AuthRequestID:             oauthAppAuthRequest.Name,
-		CSRFToken:                 oauthAppAuthRequest.Spec.ConsentCSRFToken,
+		ContinueURL:               continueURL,
+		CancelURL:                 cancelURL,
 		ClientName:                clientName,
 		ClientURI:                 oauthClient.Spec.Manifest.ClientURI,
 		RedirectURI:               oauthAppAuthRequest.Spec.RedirectURI,

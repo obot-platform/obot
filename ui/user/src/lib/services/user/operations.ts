@@ -988,7 +988,8 @@ export async function checkCompositeOAuth(
 
 export type OAuthConsent = {
 	authRequestID: string;
-	csrfToken: string;
+	continueURL: string;
+	cancelURL: string;
 	clientName: string;
 	clientURI?: string;
 	redirectURI: string;
@@ -1016,27 +1017,6 @@ export async function getOAuthConsent(
 		signal: opts?.signal
 	});
 	return (await handleResponse(response, path, opts)) as OAuthConsent;
-}
-
-export async function submitOAuthConsent(
-	authRequestID: string,
-	input: { action: 'approve' | 'deny'; csrfToken: string },
-	opts?: { fetch?: Fetcher; signal?: AbortSignal; dontLogErrors?: boolean }
-): Promise<{ redirectURL: string }> {
-	const form = new URLSearchParams();
-	form.set('action', input.action);
-	form.set('csrf_token', input.csrfToken);
-
-	const path = `/oauth/consent/${authRequestID}`;
-	const f = opts?.fetch || fetch;
-	const response = await f(oauthRootURL() + path, {
-		method: 'POST',
-		body: form,
-		signal: opts?.signal
-	});
-	return (await handleResponse(response, path, opts)) as {
-		redirectURL: string;
-	};
 }
 
 export async function getWorkspaceCatalogEntryServerK8sSettingsStatus(
