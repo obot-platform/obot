@@ -101,7 +101,7 @@ var disallowedBannerPatterns = []*regexp.Regexp{
 
 var bannerLinkPattern = regexp.MustCompile(`\[([^\]]+)]\(([^)]+)\)`)
 
-const bannerTextValidationError = "banner text only supports simple formatting and HTTP(S) text links (bold, italic, strikethrough, inline code, and [text](url))"
+const bannerTextValidationError = "banner text only supports simple formatting and HTTP(S) text links (bold, italic, strikethrough, and [text](url))"
 
 func validateBanner(banner types.BannerNotification) error {
 	text := strings.TrimSpace(banner.Text)

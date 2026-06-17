@@ -12,7 +12,8 @@ import {
 	type Schedule,
 	ModelAlias,
 	type AccessControlRuleSubject,
-	type MCPResourceRequirements
+	type MCPResourceRequirements,
+	type BannerType
 } from '../user/types';
 
 /**
@@ -84,8 +85,6 @@ export interface AppPreferencesManifest {
 }
 
 // App notifications
-
-export type BannerType = 'info' | 'warning';
 
 export interface AppNotificationsManifest {
 	banner?: {

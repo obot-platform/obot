@@ -229,7 +229,7 @@
 					<button
 						class="btn btn-secondary text-sm"
 						onclick={() => {
-							appNotifications.banner.enabled = false;
+							appNotifications = data.appNotifications;
 						}}
 						disabled={saving}
 					>
