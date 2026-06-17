@@ -17,7 +17,6 @@ var entitlementPathsToGate = []string{
 	"GET /oauth/authorize",
 	"GET /oauth/authorize/",
 	"GET /oauth/consent/",
-	"POST /oauth/consent/",
 	"GET /oauth/mcp/callback/",
 	"POST /oauth/",
 	"PUT /oauth/",
