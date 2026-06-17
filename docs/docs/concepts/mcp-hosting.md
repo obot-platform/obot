@@ -8,7 +8,7 @@ The MCP Hosting layer runs and manages MCP servers directly within Obot. It hand
 
 ## Runtime Types
 
-- **[Node.js (npx)](../functionality/mcp-servers.md#npx-node-typescript-based-mcp-servers)**: Run npm-packaged MCP servers via STDIO
+- **[Node.js (npx)](../functionality/mcp-servers.md#npx-nodetypescript-based-mcp-servers)**: Run npm-packaged MCP servers via STDIO
 - **[Python (uvx)](../functionality/mcp-servers.md#uvx-for-python-based-packages)**: Run PyPI-packaged MCP servers via STDIO
 - **[Containerized](../functionality/mcp-servers.md#containerized-for-docker-based-deployments)**: Run Docker containers with HTTP/SSE transport
 
