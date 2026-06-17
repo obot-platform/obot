@@ -70,16 +70,6 @@ A single entry point for accessing MCP servers:
 - Usage visibility to understand which servers are being used
 - Request inspection and filtering before requests reach servers
 
-### [Obot Agent](concepts/obot-agent)
-
-A chat client built to work directly with MCP:
-
-- Support for multiple model providers including OpenAI and Anthropic
-- Add domain-specific information to conversations with built-in RAG
-- Project-wide memory to maintain important context across conversations for personalized interactions
-- Create and share reusable project configurations with other users
-- Scheduled tasks for recurring workflow automations
-
 ## Technical Advantages
 
 - **Self-Hosted**: Deploy on your own infrastructure for complete control over data and security
@@ -93,4 +83,3 @@ A chat client built to work directly with MCP:
 - [Installation Guide](installation/overview)
 - [Architecture](concepts/architecture)
 - [Functionality](functionality/overview)
-- [Obot Agent](concepts/obot-agent)

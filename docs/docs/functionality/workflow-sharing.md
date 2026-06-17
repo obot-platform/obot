@@ -4,6 +4,10 @@ title: Workflow Sharing
 
 # Workflow Sharing
 
+:::note
+Workflows are an [Obot Agent](../concepts/obot-agent.md) feature, which is disabled by default for new deployments. To enable it, set the `OBOT_ENABLE_AGENTS=true` environment variable on the server. See the [configuration reference](../configuration/server-configuration.md) for details.
+:::
+
 Workflow sharing lets users publish a workflow from Obot Agent so it can be discovered and installed by other users as a reusable starting point.
 
 This feature is designed for sharing complete workflow packages, not just a single markdown file. When a workflow is published, Obot stores the workflow's `SKILL.md` plus every other file in the workflow directory.
