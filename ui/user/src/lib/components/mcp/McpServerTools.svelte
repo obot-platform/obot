@@ -155,8 +155,8 @@
 				</div>
 			</div>
 		{:else}
-			{#key entry.id}
-				<McpOauth {entry} onAuthenticate={handleAuthenticate} bind:error />
+			{#key server?.id ?? entry.id}
+				<McpOauth entry={server ?? entry} onAuthenticate={handleAuthenticate} bind:error />
 			{/key}
 		{/if}
 		{#if error}
