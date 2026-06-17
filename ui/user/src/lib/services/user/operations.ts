@@ -554,20 +554,6 @@ export async function listSingleOrRemoteMcpServerLogs(mcpServerId: string): Prom
 	return response.items ?? [];
 }
 
-export async function listSingleOrRemoteMcpServerTools(id: string): Promise<MCPServerTool[]> {
-	try {
-		const response = (await doGet(`/mcp-servers/${id}/tools`, {
-			dontLogErrors: true
-		})) as ItemsResponse<MCPServerTool>;
-		return response.items ?? [];
-	} catch (error) {
-		if (error instanceof Error && error.message.startsWith('424')) {
-			return [];
-		}
-		throw error;
-	}
-}
-
 export async function listSingleOrRemoteMcpServerPrompts(id: string): Promise<MCPServerPrompt[]> {
 	try {
 		const response = (await doGet(`/mcp-servers/${id}/prompts`, {

@@ -908,7 +908,8 @@
 					</button>
 				{/if}
 				<McpServerTools
-					entry={'isCatalogEntry' in entry && server ? server : entry}
+					{entry}
+					{server}
 					showToolNameIssues={entry.manifest?.runtime === 'composite'}
 				>
 					{#snippet noToolsContent()}
