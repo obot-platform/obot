@@ -55,6 +55,7 @@ var apiResources = map[string][]string{
 		"GET    /api/mcp-servers/{mcpserver_id}/prompts",
 		"GET    /api/mcp-servers/{mcpserver_id}/prompts/{prompt_name}",
 		"GET    /api/users/{user_id}",
+		"DELETE /api/users/{user_id}",
 		"PATCH  /api/users/{user_id}",
 		"GET    /api/users/{user_id}/activities",
 		"GET    /api/users/{user_id}/token-usage",
