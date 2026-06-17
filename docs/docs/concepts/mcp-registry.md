@@ -36,4 +36,5 @@ Obot implements the [MCP Registry specification](https://github.com/modelcontext
 
 ## Learn More
 
-- [MCP Registries](../functionality/mcp-registries.md) - Managing registries, API details, and contributing servers
+- [MCP Access Policies](../functionality/mcp-access-policies.md) - Controlling which servers are available to which users and groups
+- [MCP Registry API](../functionality/mcp-registry-api.md) - Programmatic server discovery and contributing servers

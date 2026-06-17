@@ -30,34 +30,10 @@ Admins and Owners have full administrative access to the platform, including sys
 
 The only functional difference between Owners and Admins is that Owners can assign the **Auditor** role to users. For more information, see the [Auditor Role](/configuration/user-roles/#auditor).
 
-## Navigation by Role
-
-| Section | Basic | Power | Power+ | Admin/Owner |
-|---------|:-----:|:-----:|:------:|:-----------:|
-| **MCP Management** | | | | |
-| MCP Servers | ✓ | ✓ | ✓ | ✓ |
-| MCP Registries | | | ✓ | ✓ |
-| Audit Logs | | ✓* | ✓* | ✓ |
-| Usage | | ✓* | ✓* | ✓ |
-| Filters | | | | ✓ |
-| Server Scheduling | | | | ✓ |
-| **Obot Agent Management** | | | | ✓ |
-| Message Policies | | | | ✓ |
-| Skills | | | | ✓ |
-| Skill Access Policies | | | | ✓ |
-| **Device Management** | | | | ✓ |
-| **User Management** | | | | ✓ |
-| API Keys (admin) | | | | ✓ |
-| **API Keys** | ✓ | ✓ | ✓ | ✓ |
-| **Branding** | | | | ✓ |
-| **Obot Agent** | ✓ | ✓ | ✓ | ✓ |
-
-\* For servers they deployed only
-
 ## Learn More
 
 - [MCP Servers](/functionality/mcp-servers/) - Deploy, configure, and manage MCP servers
-- [MCP Registries](/functionality/mcp-registries/) - Control which servers are available to which users and groups
+- [MCP Access Policies](./mcp-access-policies.md) - Control which servers are available to which users and groups
 - [Audit Logs and Usage](/functionality/audit-logs-and-usage/) - Monitor activity and track consumption
 - [Filters](/functionality/filters/) - Inspect and control MCP traffic
 - [Server Scheduling](/functionality/server-scheduling/) - Define server availability windows
