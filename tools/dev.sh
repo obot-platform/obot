@@ -137,7 +137,7 @@ user_ui_pid=$!
 user_ui_ready_pid=$!
 
 # Wait for all services to be ready
-wait "${server_ready_pid}" "${admin_ui_ready_pid}" "${user_ui_ready_pid}"
+wait "${server_ready_pid}" "${user_ui_ready_pid}"
 
 # Services ready, open browser tabs if requested
 print_section_header 120 "All components ready!"
