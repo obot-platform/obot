@@ -10,7 +10,7 @@ import (
 )
 
 func TestMissingAndRequire(t *testing.T) {
-	provider := &KeygenProvider{
+	provider := &Provider{
 		entitlements: map[keygen.EntitlementCode]struct{}{
 			"ENTITLED": {},
 		},

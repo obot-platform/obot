@@ -233,7 +233,7 @@ func assertCommonProviderStatus(t *testing.T, got, want types.CommonProviderStat
 	}
 }
 
-func testLicenseProvider(t *testing.T) *license.KeygenProvider {
+func testLicenseProvider(t *testing.T) *license.Provider {
 	t.Helper()
 
 	provider, err := license.NewProvider(t.Context(), nil, license.Config{})
