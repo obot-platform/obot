@@ -20,6 +20,8 @@ async function initialize(appNotifications?: AppNotifications) {
 	store.loading = true;
 	try {
 		store.current = await UserService.getAppNotifications();
+	} catch(_err) {
+		store.current = undefined;
 	} finally {
 		store.loading = false;
 	}

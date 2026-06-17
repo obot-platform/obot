@@ -17,8 +17,6 @@ type AppNotifications struct {
 
 type AppNotificationsSpec struct {
 	Banner types.BannerNotification `json:"banner,omitempty"`
-	// ResetDismissed indicates that previously dismissed banners should be shown again.
-	ResetDismissed bool `json:"resetDismissed,omitempty"`
 	// Updated is set whenever the notifications are updated after their initial creation.
 	// When unset, the creation timestamp is used as the updated time.
 	Updated metav1.Time `json:"updated,omitempty"`

@@ -10,13 +10,17 @@ export const load: PageLoad = async ({ fetch, parent }) => {
 			enabled: false,
 			text: '',
 			dismissable: false,
-			type: 'info'
+			type: 'info',
+			resetDismissed: false
 		},
-		resetDismissed: false,
 		updated: ''
 	};
 	try {
-		appNotifications = await UserService.getAppNotifications({ fetch });
+		const response = await UserService.getAppNotifications({ fetch });
+		appNotifications = {
+			...appNotifications, 
+			...response,
+		}
 	} catch (err) {
 		handleRouteError(err, '/admin/app-notifications', profile);
 	}

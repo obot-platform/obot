@@ -12,9 +12,25 @@
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
+	type EditableAppNotifications = AppNotifications & {
+		banner: NonNullable<AppNotifications['banner']>;
+	};
+
+	function withBanner(notifications: AppNotifications): EditableAppNotifications {
+		return {
+			...notifications,
+			banner: notifications.banner ?? {
+				enabled: false,
+				text: '',
+				dismissable: false,
+				type: 'info',
+				resetDismissed: false
+			}
+		};
+	}
+
 	let { data } = $props();
-	let appNotifications = $state(untrack(() => data.appNotifications));
-	appNotifications.resetDismissed ??= false;
+	let appNotifications = $state(untrack(() => withBanner(data.appNotifications)));
 
 	const duration = PAGE_TRANSITION_DURATION;
 	let saving = $state(false);
@@ -61,7 +77,7 @@
 		return true;
 	}
 
-	function validate(banner: AppNotifications['banner']) {
+	function validate(banner: EditableAppNotifications['banner']) {
 		if (!banner.enabled) {
 			return true;
 		}
@@ -74,7 +90,7 @@
 
 		if (!hasOnlyAllowedMarkdown(text)) {
 			bannerTextValidationError =
-				'Only simple formatting and HTTP(S) text links are supported (bold, italic, strikethrough, inline code, and [text](url)).';
+				'Only simple formatting and HTTP(S) text links are supported (bold, italic, strikethrough, and [text](url)).';
 			return false;
 		}
 
@@ -94,7 +110,7 @@
 			appNotificationsStore.initialize();
 			success.add('App notifications updated successfully.');
 		} catch (_err) {
-			// will get logged by handleRouteError
+			// errors are surfaced via the global HTTP error handling (errors store)
 		} finally {
 			saving = false;
 		}
@@ -213,7 +229,7 @@
 							id="reset-dismissed-toggle"
 							type="checkbox"
 							class="toggle toggle-sm"
-							bind:checked={appNotifications.resetDismissed}
+							bind:checked={appNotifications.banner.resetDismissed}
 							disabled={isAdminReadonly || !appNotifications.banner.dismissable}
 						/>
 					</label>
@@ -229,7 +245,7 @@
 					<button
 						class="btn btn-secondary text-sm"
 						onclick={() => {
-							appNotifications = data.appNotifications;
+							appNotifications = withBanner(data.appNotifications);
 						}}
 						disabled={saving}
 					>

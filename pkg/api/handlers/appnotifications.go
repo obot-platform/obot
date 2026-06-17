@@ -60,8 +60,8 @@ func (h *AppNotificationsHandler) Update(req api.Context) error {
 				Namespace: req.Namespace(),
 			},
 			Spec: v1.AppNotificationsSpec{
-				Banner:         input.Banner,
-				ResetDismissed: input.ResetDismissed,
+				Banner:  input.Banner,
+				Updated: metav1.Now(),
 			},
 		}
 
@@ -73,7 +73,6 @@ func (h *AppNotificationsHandler) Update(req api.Context) error {
 	} else {
 		// Update existing notifications
 		notifications.Spec.Banner = input.Banner
-		notifications.Spec.ResetDismissed = input.ResetDismissed
 		notifications.Spec.Updated = metav1.Now()
 
 		if err := req.Update(&notifications); err != nil {
@@ -154,9 +153,8 @@ func convertAppNotifications(notifications v1.AppNotifications) types.AppNotific
 	}
 
 	return types.AppNotifications{
-		Banner:         notifications.Spec.Banner,
-		ResetDismissed: notifications.Spec.ResetDismissed,
-		Updated:        *types.NewTime(updated),
-		Metadata:       MetadataFrom(&notifications),
+		Banner:   notifications.Spec.Banner,
+		Updated:  *types.NewTime(updated),
+		Metadata: MetadataFrom(&notifications),
 	}
 }

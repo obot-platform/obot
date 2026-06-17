@@ -652,24 +652,26 @@
 	let bannerDismissed = localState<BannerDismissState | undefined>('@obot/banner', undefined, {
 		parse: (ls) => {
 			if (!ls) return undefined;
-			const parsed = JSON.parse(ls) as string | BannerDismissState;
-			if (typeof parsed === 'string') {
-				return { dismissedAt: parsed, dismissedWithReset: false } satisfies BannerDismissState;
+			try {
+				const parsed = JSON.parse(ls) as string | BannerDismissState;
+				if (typeof parsed === 'string') {
+					return { dismissedAt: parsed, dismissedWithReset: false } satisfies BannerDismissState;
+				} else if (parsed && typeof parsed === 'object') {
+					return {
+						dismissedAt: typeof parsed.dismissedAt === 'string' ? parsed.dismissedAt : undefined,
+						dismissedWithReset: parsed.dismissedWithReset === true
+					} satisfies BannerDismissState;
+				} else return undefined;
+			} catch (_err) {
+				return undefined;
 			}
-			if (parsed && typeof parsed === 'object') {
-				return {
-					dismissedAt: typeof parsed.dismissedAt === 'string' ? parsed.dismissedAt : undefined,
-					dismissedWithReset: parsed.dismissedWithReset === true
-				} satisfies BannerDismissState;
-			}
-			return undefined;
 		}
 	});
 
 	function handleDismissBanner() {
 		bannerDismissed.current = {
 			dismissedAt: new Date().toISOString(),
-			dismissedWithReset: appNotificationsStore.current?.resetDismissed === true
+			dismissedWithReset: appNotificationsStore.current?.banner?.resetDismissed === true
 		} satisfies BannerDismissState;
 	}
 
@@ -680,11 +682,11 @@
 			!!dismissedAt &&
 			new Date(dismissedAt) >= new Date(appNotifications?.updated ?? new Date(0).toISOString());
 		const shouldIgnorePriorDismissal =
-			appNotifications?.resetDismissed === true &&
+			appNotifications?.banner?.resetDismissed === true &&
 			bannerDismissed.current?.dismissedWithReset !== true;
 
 		return !!(
-			appNotifications?.banner.enabled &&
+			appNotifications?.banner?.enabled &&
 			appNotifications?.updated &&
 			(!wasDismissedAfterBannerUpdate || shouldIgnorePriorDismissal)
 		);

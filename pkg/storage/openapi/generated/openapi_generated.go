@@ -718,13 +718,6 @@ func schema_obot_platform_obot_apiclient_types_AppNotifications(ref common.Refer
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.BannerNotification"),
 						},
 					},
-					"resetDismissed": {
-						SchemaProps: spec.SchemaProps{
-							Description: "ResetDismissed indicates that previously dismissed banners should be shown again.",
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
 					"updated": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
@@ -1407,6 +1400,13 @@ func schema_obot_platform_obot_apiclient_types_BannerNotification(ref common.Ref
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
+						},
+					},
+					"resetDismissed": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ResetDismissed indicates that previously dismissed banners should be shown again.",
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 				},
@@ -12565,13 +12565,6 @@ func schema_storage_apis_obotobotai_v1_AppNotificationsSpec(ref common.Reference
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.BannerNotification"),
-						},
-					},
-					"resetDismissed": {
-						SchemaProps: spec.SchemaProps{
-							Description: "ResetDismissed indicates that previously dismissed banners should be shown again.",
-							Type:        []string{"boolean"},
-							Format:      "",
 						},
 					},
 					"updated": {

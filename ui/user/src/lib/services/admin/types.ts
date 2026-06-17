@@ -92,8 +92,8 @@ export interface AppNotificationsManifest {
 		type?: BannerType;
 		enabled?: boolean;
 		text?: string;
+		resetDismissed?: boolean;
 	};
-	resetDismissed?: boolean;
 }
 
 // Audit log exports
