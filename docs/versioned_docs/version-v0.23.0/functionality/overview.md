@@ -30,34 +30,10 @@ Admins and Owners have full administrative access to the platform, including sys
 
 The only functional difference between Owners and Admins is that Owners can assign the **Auditor** role to users. For more information, see the [Auditor Role](/configuration/user-roles/#auditor).
 
-## Navigation by Role
-
-| Section | Basic | Power | Power+ | Admin/Owner |
-|---------|:-----:|:-----:|:------:|:-----------:|
-| **MCP Management** | | | | |
-| MCP Servers | ✓ | ✓ | ✓ | ✓ |
-| MCP Registries | | | ✓ | ✓ |
-| Audit Logs | | ✓* | ✓* | ✓ |
-| Usage | | ✓* | ✓* | ✓ |
-| Filters | | | | ✓ |
-| Server Scheduling | | | | ✓ |
-| **Obot Agent Management** | | | | ✓ |
-| Message Policies | | | | ✓ |
-| Skills | | | | ✓ |
-| Skill Access Policies | | | | ✓ |
-| **Device Management** | | | | ✓ |
-| **User Management** | | | | ✓ |
-| API Keys (admin) | | | | ✓ |
-| **API Keys** | ✓ | ✓ | ✓ | ✓ |
-| **Branding** | | | | ✓ |
-| **Obot Agent** | ✓ | ✓ | ✓ | ✓ |
-
-\* For servers they deployed only
-
 ## Learn More
 
 - [MCP Servers](/functionality/mcp-servers/) - Deploy, configure, and manage MCP servers
-- [MCP Registries](./mcp-registries.md) - Control which servers are available to which users and groups
+- [MCP Access Policies](./mcp-access-policies.md) - Control which servers are available to which users and groups
 - [Audit Logs and Usage](/functionality/audit-logs-and-usage/) - Monitor activity and track consumption
 - [Filters](/functionality/filters/) - Inspect and control MCP traffic
 - [Server Scheduling](/functionality/server-scheduling/) - Define server availability windows
@@ -67,7 +43,7 @@ The only functional difference between Owners and Admins is that Owners can assi
 - [Obot Agent Management](/functionality/obot-agent-management/) - Configure default agent, conversation, and workflow settings, and monitor activity
 - [Message Policies](/functionality/message-policies/) - Enforce content rules on user prompts and tool calls, and review violations
 - [User Management](/functionality/user-management/) - Manage users, roles, and authentication
-- [API Keys](/functionality/api-keys/) - Create and manage API keys for programmatic MCP server access
+- [API Keys](/functionality/api-keys/) - Create and manage API keys for programmatic Obot access
 - [Branding](/functionality/branding/) - Customize theme colors and branding
 - [Workflow Sharing](/functionality/workflow-sharing/) - Publish, discover, install, and operate shared workflows
 - [User Roles](/configuration/user-roles/) - Detailed permissions and role definitions

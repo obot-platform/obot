@@ -59,6 +59,10 @@ const config: Config = {
       {
         redirects: [
           {
+            from: "/functionality/mcp-registries",
+            to: "/functionality/mcp-access-policies",
+          },
+          {
             from: "/concepts/admin/mcp-server-catalogs",
             to: "/configuration/mcp-server-gitops",
           },
