@@ -51,9 +51,9 @@ export interface AppNotifications {
 		type: BannerType;
 		enabled: boolean;
 		text: string;
-		resetDismissed?: boolean;
+		resetDismissed: boolean;
 	};
-	updated: string;
+	updated?: string;
 }
 
 // App preferences

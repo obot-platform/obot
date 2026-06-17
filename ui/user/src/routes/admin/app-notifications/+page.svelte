@@ -7,24 +7,24 @@
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { AdminService, type AppNotifications, type BannerType } from '$lib/services';
 	import { profile, appNotifications as appNotificationsStore } from '$lib/stores';
+	import { defaultAppNotifications } from '$lib/stores/appNotifications.svelte.js';
 	import { success } from '$lib/stores/success';
 	import { untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
+	type BannerConfig = NonNullable<AppNotifications['banner']>;
 	type EditableAppNotifications = AppNotifications & {
-		banner: NonNullable<AppNotifications['banner']>;
+		banner: BannerConfig;
 	};
 
 	function withBanner(notifications: AppNotifications): EditableAppNotifications {
+		const defaults: BannerConfig = defaultAppNotifications.banner!;
 		return {
 			...notifications,
-			banner: notifications.banner ?? {
-				enabled: false,
-				text: '',
-				dismissable: false,
-				type: 'info',
-				resetDismissed: false
+			banner: {
+				...defaults,
+				...notifications.banner
 			}
 		};
 	}
@@ -78,12 +78,8 @@
 	}
 
 	function validate(banner: EditableAppNotifications['banner']) {
-		if (!banner.enabled) {
-			return true;
-		}
-
 		const text = banner.text?.trim() ?? '';
-		if (!text || !banner.type) {
+		if ((!text || !banner.type) && banner.enabled) {
 			bannerTextValidationError = 'This field is required.';
 			return false;
 		}

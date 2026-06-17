@@ -22,7 +22,7 @@
 				: 'bg-warning text-warning-content dark:bg-warning/10 dark:text-warning'
 		)}
 	>
-		<div class="flex items-center gap-2">
+		<div class="flex items-center gap-1">
 			<div class="shrink-0">
 				{#if data?.type === 'info'}
 					<Info class="size-4" />

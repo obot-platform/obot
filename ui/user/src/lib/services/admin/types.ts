@@ -87,12 +87,12 @@ export interface AppPreferencesManifest {
 // App notifications
 
 export interface AppNotificationsManifest {
-	banner?: {
-		dismissable?: boolean;
-		type?: BannerType;
-		enabled?: boolean;
-		text?: string;
-		resetDismissed?: boolean;
+	banner: {
+		dismissable: boolean;
+		type: BannerType;
+		enabled: boolean;
+		text: string;
+		resetDismissed: boolean;
 	};
 }
 
