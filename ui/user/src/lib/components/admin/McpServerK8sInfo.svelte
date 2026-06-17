@@ -74,6 +74,7 @@
 	let isAdminUrl = $derived(page.url.pathname.includes('/admin'));
 
 	let logsUrl = $derived.by(() => {
+		console.log(entity, entityId, catalogEntry, mcpServerId);
 		if (entity === 'workspace') {
 			return catalogEntry?.id
 				? `/api/workspaces/${entityId}/entries/${catalogEntry.id}/servers/${mcpServerId}/logs`
@@ -82,10 +83,6 @@
 
 		if (entity === 'webhook-validation') {
 			return `/api/mcp-webhook-validations/${mcpServerId}/logs`;
-		}
-
-		if (entity === 'catalog' && entityId) {
-			return `/api/mcp-catalogs/${entityId}/servers/${mcpServerId}/logs`;
 		}
 
 		return `/api/mcp-servers/${mcpServerId}/logs`;
@@ -114,7 +111,7 @@
 				: UserService.getWorkspaceK8sServerDetail(entityId, mcpServerId, { dontLogErrors })
 			: entity === 'webhook-validation'
 				? AdminService.getMCPFilterDetails(mcpServerId, { dontLogErrors })
-				: entity === 'catalog' && entityId
+				: entity === 'catalog' && entityId && mcpServer && !mcpServer.catalogEntryID
 					? AdminService.getMcpCatalogServerK8sDetail(entityId, mcpServerId, { dontLogErrors })
 					: AdminService.getK8sServerDetail(mcpServerId, { dontLogErrors });
 	}

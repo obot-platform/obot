@@ -842,7 +842,7 @@
 										{tab.label}
 										{#if needsDeploymentsUpdate}
 											<CircleFadingArrowUp class="size-3 shrink-0 text-primary" />
-										{:else if numDeploymentsCount > 0}
+										{:else if numDeploymentsCount > 0 && !connectOnly && !(entry && server)}
 											<span class="text-muted-content text-[10px] font-medium"
 												>({numDeploymentsCount})</span
 											>
