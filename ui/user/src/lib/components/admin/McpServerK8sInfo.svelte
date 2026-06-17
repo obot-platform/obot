@@ -74,7 +74,6 @@
 	let isAdminUrl = $derived(page.url.pathname.includes('/admin'));
 
 	let logsUrl = $derived.by(() => {
-		console.log(entity, entityId, catalogEntry, mcpServerId);
 		if (entity === 'workspace') {
 			return catalogEntry?.id
 				? `/api/workspaces/${entityId}/entries/${catalogEntry.id}/servers/${mcpServerId}/logs`
