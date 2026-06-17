@@ -23,14 +23,14 @@ type Dispatcher struct {
 	sessionManager       *mcp.SessionManager
 	client               kclient.Client
 	gatewayClient        *client.Client
-	licenseProvider      *license.KeygenProvider
+	licenseProvider      *license.Provider
 	serverURL            string
 	internalServerURL    string
 	authProviderExtraEnv map[string]string
 	ports                *ports
 }
 
-func New(sessionManager *mcp.SessionManager, c kclient.Client, gatewayClient *client.Client, licenseProvider *license.KeygenProvider, serverURL, internalServerURL, postgresDSN string) *Dispatcher {
+func New(sessionManager *mcp.SessionManager, c kclient.Client, gatewayClient *client.Client, licenseProvider *license.Provider, serverURL, internalServerURL, postgresDSN string) *Dispatcher {
 	d := &Dispatcher{
 		sessionManager:    sessionManager,
 		client:            c,

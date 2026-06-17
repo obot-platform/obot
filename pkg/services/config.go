@@ -81,7 +81,7 @@ type (
 	RateLimiterConfig ratelimiter.Options
 	EncryptionConfig  encryption.Options
 	MCPConfig         mcp.Options
-	KeygenConfig      license.Config
+	LicenseConfig     license.Config
 )
 
 type MetricsAuthConfig struct {
@@ -139,7 +139,7 @@ type Config struct {
 	AuditConfig
 	RateLimiterConfig
 	MCPConfig
-	KeygenConfig
+	LicenseConfig
 	services.Config
 }
 
@@ -246,7 +246,7 @@ type Services struct {
 	ArtifactBlobBucket string
 
 	// License provider
-	LicenseProvider *license.KeygenProvider
+	LicenseProvider *license.Provider
 }
 
 // BuildLocalK8sConfig creates a Kubernetes config for local cluster access
@@ -798,12 +798,12 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
-	keygenProvider, err := license.NewProvider(ctx, gatewayClient, license.Config(config.KeygenConfig))
+	licenseProvider, err := license.NewProvider(ctx, gatewayClient, license.Config(config.LicenseConfig))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create keygen provider: %w", err)
+		return nil, fmt.Errorf("failed to create license provider: %w", err)
 	}
 
-	providerDispatcher := dispatcher.New(mcpSessionManager, storageClient, gatewayClient, keygenProvider, config.Hostname, fmt.Sprintf("http://localhost:%d", config.HTTPListenPort), postgresDSN)
+	providerDispatcher := dispatcher.New(mcpSessionManager, storageClient, gatewayClient, licenseProvider, config.Hostname, fmt.Sprintf("http://localhost:%d", config.HTTPListenPort), postgresDSN)
 
 	var msgPolicyHelper *messagepolicy.Helper
 	if config.EnableMessagePolicies {
@@ -939,7 +939,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			config.Hostname,
 			oauthServerConfig.ScopesSupported,
 			registryNoAuth,
-			keygenProvider,
+			licenseProvider,
 		),
 		PersistentTokenServer: persistentTokenServer,
 		GatewayServer:         gatewayServer,
@@ -1000,7 +1000,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		MCPNetworkPolicyProviderChartPath:    config.MCPNetworkPolicyProviderChartPath,
 		MCPNetworkPolicyProviderValues:       config.MCPNetworkPolicyProviderValues,
 		ArtifactBlobBucket:                   config.ArtifactStorageBucket,
-		LicenseProvider:                      keygenProvider,
+		LicenseProvider:                      licenseProvider,
 	}
 
 	if (config.ArtifactStorageProvider == "") != (config.ArtifactStorageBucket == "") {

@@ -68,7 +68,7 @@ The Obot server is configured via environment variables. The following configura
 | `OBOT_SERVER_DISABLE_UPDATE_CHECK` | Disable the Obot server update check. | `false` |
 | `OBOT_SERVER_MCPOAUTH_CLIENT_EXPIRATION` | The expiration time for dynamically registered MCP OAuth clients. Must be a valid duration string and may include days, hours, or minutes. | `30d` |
 | `OBOT_SERVER_ENABLE_MESSAGE_POLICIES` | Enable Message Policies for LLM proxy content enforcement. When enabled, Obot exposes the Message Policies and Message Policy Violations admin views and evaluates configured policies on user messages and tool calls. | `false` |
-| `OBOT_SERVER_KEYGEN_LICENSE_KEY` | A license key for Obot Enterprise. If set via configuration, the license key cannot be updated in the UI. | - |
+| `OBOT_SERVER_LICENSE_KEY` | A license key for Obot Enterprise. If set via configuration, the license key cannot be updated in the UI. | - |
 | `OBOT_ARTIFACT_STORAGE_PROVIDER` | Storage provider for published workflows. Supported values: `s3`, `gcs`, `azure`, `custom`. If unset, Obot stores published workflows on local disk. | - |
 | `OBOT_ARTIFACT_STORAGE_BUCKET` | Bucket or container name used for published workflow storage when `OBOT_ARTIFACT_STORAGE_PROVIDER` is set. | - |
 | `OBOT_ARTIFACT_S3_REGION` | AWS region for published workflow storage when using `s3` or `custom`. | - |

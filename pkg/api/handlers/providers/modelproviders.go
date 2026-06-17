@@ -6,7 +6,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
-func ModelProviderStatus(modelProvider v1.ModelProvider, cred map[string]string, licenseProvider *license.KeygenProvider) (*types.ModelProviderStatus, error) {
+func ModelProviderStatus(modelProvider v1.ModelProvider, cred map[string]string, licenseProvider *license.Provider) (*types.ModelProviderStatus, error) {
 	var (
 		modelsPopulated *bool
 		missingEnvVars  []string

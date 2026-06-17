@@ -21,10 +21,10 @@ import (
 
 type ModelProviderHandler struct {
 	dispatcher *dispatcher.Dispatcher
-	license    *license.KeygenProvider
+	license    *license.Provider
 }
 
-func NewModelProviderHandler(dispatcher *dispatcher.Dispatcher, licenseProvider *license.KeygenProvider) *ModelProviderHandler {
+func NewModelProviderHandler(dispatcher *dispatcher.Dispatcher, licenseProvider *license.Provider) *ModelProviderHandler {
 	return &ModelProviderHandler{
 		dispatcher: dispatcher,
 		license:    licenseProvider,

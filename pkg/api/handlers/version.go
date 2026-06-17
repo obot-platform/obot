@@ -44,7 +44,7 @@ func sessionStoreFromPostgresDSN(postgresDSN string) SessionStore {
 type VersionHandlerOptions struct {
 	GatewayClient           *client.Client
 	StorageClient           storage.Client
-	LicenseProvider         *license.KeygenProvider
+	LicenseProvider         *license.Provider
 	PostgresDSN             string
 	Engine                  string
 	MCPNetworkPolicyEnabled bool

@@ -76,11 +76,11 @@ var (
 type Handler struct {
 	gatewayClient   *gateway.Client
 	dispatcher      *dispatcher.Dispatcher
-	licenseProvider *license.KeygenProvider
+	licenseProvider *license.Provider
 	registryPaths   []string
 }
 
-func New(gatewayClient *gateway.Client, dispatcher *dispatcher.Dispatcher, licenseProvider *license.KeygenProvider, registryPaths []string) *Handler {
+func New(gatewayClient *gateway.Client, dispatcher *dispatcher.Dispatcher, licenseProvider *license.Provider, registryPaths []string) *Handler {
 	return &Handler{
 		gatewayClient:   gatewayClient,
 		dispatcher:      dispatcher,
@@ -395,7 +395,7 @@ func (h *Handler) SetAuthProviderConfiguredStatus(req router.Request, _ router.R
 	return SetAuthProviderConfiguredStatus(req.Ctx, h.gatewayClient, h.licenseProvider, authProvider)
 }
 
-func SetAuthProviderConfiguredStatus(ctx context.Context, gatewayClient *gateway.Client, licenseProvider *license.KeygenProvider, authProvider *v1.AuthProvider) error {
+func SetAuthProviderConfiguredStatus(ctx context.Context, gatewayClient *gateway.Client, licenseProvider *license.Provider, authProvider *v1.AuthProvider) error {
 	var (
 		configured          = true
 		missingConfigParams []string
@@ -432,7 +432,7 @@ func (h *Handler) SetModelProviderConfiguredStatus(req router.Request, _ router.
 	return SetModelProviderConfiguredStatus(req.Ctx, h.gatewayClient, h.licenseProvider, modelProvider)
 }
 
-func SetModelProviderConfiguredStatus(ctx context.Context, gatewayClient *gateway.Client, licenseProvider *license.KeygenProvider, modelProvider *v1.ModelProvider) error {
+func SetModelProviderConfiguredStatus(ctx context.Context, gatewayClient *gateway.Client, licenseProvider *license.Provider, modelProvider *v1.ModelProvider) error {
 	var (
 		configured          = true
 		missingConfigParams []string

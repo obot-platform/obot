@@ -16,10 +16,10 @@ import (
 
 type AvailableModelsHandler struct {
 	dispatcher      *dispatcher.Dispatcher
-	licenseProvider *license.KeygenProvider
+	licenseProvider *license.Provider
 }
 
-func NewAvailableModelsHandler(dispatcher *dispatcher.Dispatcher, licenseProvider *license.KeygenProvider) *AvailableModelsHandler {
+func NewAvailableModelsHandler(dispatcher *dispatcher.Dispatcher, licenseProvider *license.Provider) *AvailableModelsHandler {
 	return &AvailableModelsHandler{
 		dispatcher:      dispatcher,
 		licenseProvider: licenseProvider,
