@@ -131,7 +131,8 @@ func (s fileAuditSpool) List(limit int) ([]auditSpoolRecord, error) {
 		path := filepath.Join(dir, entry.Name())
 		record, err := readAuditSpoolRecord(path, key)
 		if err != nil {
-			return nil, err
+			auditLog.Warnf("failed to read local audit spool record %s; skipping: %v", path, err)
+			continue
 		}
 		records = append(records, record)
 		if limit > 0 && len(records) >= limit {

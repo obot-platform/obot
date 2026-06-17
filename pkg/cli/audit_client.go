@@ -75,7 +75,8 @@ func auditSubmitAccepted(resp *types.AuditEventSubmitResponse, eventID string) b
 	}
 	for _, item := range resp.Items {
 		if item.EventID == eventID {
-			return auditStatusTerminal(item.Status)
+			return item.Status == types.AuditEventSubmitStatusAccepted ||
+				item.Status == types.AuditEventSubmitStatusDuplicate
 		}
 	}
 	return false

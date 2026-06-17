@@ -212,6 +212,33 @@ func TestFileAuditSpoolEncryptRoundTripAndDelete(t *testing.T) {
 	}
 }
 
+func TestFileAuditSpoolListSkipsRecordsEncryptedWithOldKey(t *testing.T) {
+	dir := t.TempDir()
+	oldSpool := fileAuditSpool{
+		dir: dir,
+		key: staticAuditSpoolKey{key: bytes.Repeat([]byte{1}, 32)},
+	}
+	currentSpool := fileAuditSpool{
+		dir: dir,
+		key: staticAuditSpoolKey{key: bytes.Repeat([]byte{2}, 32)},
+	}
+
+	if err := oldSpool.Write(types.AuditEvent{EventID: "old-key"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := currentSpool.Write(types.AuditEvent{EventID: "current-key"}); err != nil {
+		t.Fatal(err)
+	}
+
+	records, err := currentSpool.List(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(records) != 1 || records[0].Event.EventID != "current-key" {
+		t.Fatalf("records = %+v, want only current-key", records)
+	}
+}
+
 func TestFileAuditSpoolKeyUnavailableDoesNotWritePlaintext(t *testing.T) {
 	dir := t.TempDir()
 	spool := fileAuditSpool{dir: dir, key: errAuditSpoolKey{err: errors.New("keychain unavailable")}}
@@ -225,6 +252,47 @@ func TestFileAuditSpoolKeyUnavailableDoesNotWritePlaintext(t *testing.T) {
 	}
 	if len(entries) != 0 {
 		t.Fatalf("spool wrote files without a key: %v", entries)
+	}
+}
+
+func TestAuditSubmitAccepted(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		resp   *types.AuditEventSubmitResponse
+		accept bool
+	}{
+		{
+			name: "accepted",
+			resp: &types.AuditEventSubmitResponse{Items: []types.AuditEventSubmitStatus{
+				{EventID: "event", Status: types.AuditEventSubmitStatusAccepted},
+			}},
+			accept: true,
+		},
+		{
+			name: "duplicate",
+			resp: &types.AuditEventSubmitResponse{Items: []types.AuditEventSubmitStatus{
+				{EventID: "event", Status: types.AuditEventSubmitStatusDuplicate},
+			}},
+			accept: true,
+		},
+		{
+			name: "server error",
+			resp: &types.AuditEventSubmitResponse{Items: []types.AuditEventSubmitStatus{
+				{EventID: "event", Status: types.AuditEventSubmitStatusError, Error: "bad"},
+			}},
+		},
+		{
+			name: "missing event",
+			resp: &types.AuditEventSubmitResponse{Items: []types.AuditEventSubmitStatus{
+				{EventID: "other", Status: types.AuditEventSubmitStatusAccepted},
+			}},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := auditSubmitAccepted(tt.resp, "event"); got != tt.accept {
+				t.Fatalf("auditSubmitAccepted() = %t, want %t", got, tt.accept)
+			}
+		})
 	}
 }
 
