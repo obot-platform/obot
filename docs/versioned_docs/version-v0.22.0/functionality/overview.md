@@ -57,7 +57,7 @@ The only functional difference between Owners and Admins is that Owners can assi
 ## Learn More
 
 - [MCP Servers](/functionality/mcp-servers/) - Deploy, configure, and manage MCP servers
-- [MCP Registries](/functionality/mcp-registries/) - Control which servers are available to which users and groups
+- [MCP Registries](./mcp-registries.md) - Control which servers are available to which users and groups
 - [Audit Logs and Usage](/functionality/audit-logs-and-usage/) - Monitor activity and track consumption
 - [Filters](/functionality/filters/) - Inspect and control MCP traffic
 - [Server Scheduling](/functionality/server-scheduling/) - Define server availability windows
