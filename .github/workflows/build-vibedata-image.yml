@@ -15,6 +15,10 @@ on:
       - chart/**
       - .github/workflows/**
 
+concurrency:
+  group: build-obot-vibedata
+  cancel-in-progress: false
+
 jobs:
   resolve:
     name: Resolve version
