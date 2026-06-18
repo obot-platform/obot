@@ -289,10 +289,10 @@ jobs:
             exit 0
           fi
           MANUAL="$([ "$CONFLICT_COUNT" -gt 0 ] && echo 'yes — manual resolution required' || echo 'no')"
-          TEXT=":arrows_counterclockwise: *accelerate-data/obot upstream sync PR opened*
-          • Bucket: \`${BUCKET}\`
-          • Upstream head: \`${UPSTREAM_HEAD}\`
-          • Manual resolution: ${MANUAL}
-          • PR: ${PR_URL}"
-          PAYLOAD="$(jq -n --arg text "$TEXT" '{text: $text}')"
+          PAYLOAD="$(jq -n \
+            --arg bucket "${BUCKET}" \
+            --arg head "${UPSTREAM_HEAD}" \
+            --arg manual "${MANUAL}" \
+            --arg url "${PR_URL}" \
+            '{text: (":arrows_counterclockwise: *accelerate-data/obot upstream sync PR opened*\n• Bucket: `\($bucket)`\n• Upstream head: `\($head)`\n• Manual resolution: \($manual)\n• PR: \($url)")}')"
           curl -fsS -X POST -H 'Content-type: application/json' --data "$PAYLOAD" "$SLACK_DEPS_WEBHOOK"
