@@ -17,10 +17,14 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-type K8sSettingsHandler struct{}
+type K8sSettingsHandler struct {
+	mcpSessionManager *mcp.SessionManager
+}
 
-func NewK8sSettingsHandler() *K8sSettingsHandler {
-	return &K8sSettingsHandler{}
+func NewK8sSettingsHandler(mcpSessionManager *mcp.SessionManager) *K8sSettingsHandler {
+	return &K8sSettingsHandler{
+		mcpSessionManager: mcpSessionManager,
+	}
 }
 
 func (h *K8sSettingsHandler) Get(req api.Context) error {
@@ -169,6 +173,10 @@ func (h *K8sSettingsHandler) Update(req api.Context) error {
 			settings.Spec.NanobotAgentResources = &nanobotAgentResources
 		} else {
 			settings.Spec.NanobotAgentResources = nil
+		}
+
+		if err := validateK8sSettingsResourceMaximums(h.mcpSessionManager, settings.Spec); err != nil {
+			return err
 		}
 
 		return req.Storage.Update(req.Context(), &settings)

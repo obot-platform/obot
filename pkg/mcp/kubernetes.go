@@ -63,6 +63,7 @@ type kubernetesBackend struct {
 	auditLogsFlushIntervalSeconds int
 	authEnabled                   bool
 	obotClient                    kclient.Client
+	resourceMaximums              ResourceMaximums
 	deploymentCacheMu             sync.RWMutex
 	deploymentCache               map[string]*kubernetesDeploymentCacheEntry
 }
@@ -72,7 +73,7 @@ type kubernetesDeploymentCacheEntry struct {
 	podName string
 }
 
-func newKubernetesBackend(authEnabled bool, clientset *kubernetes.Clientset, client, cachedClient, obotClient kclient.WithWatch, opts Options) backend {
+func newKubernetesBackend(authEnabled bool, clientset *kubernetes.Clientset, client, cachedClient, obotClient kclient.WithWatch, opts Options, resourceMaximums ResourceMaximums) backend {
 	var serviceFQDN string
 	if opts.ServiceName != "" && opts.ServiceNamespace != "" {
 		serviceFQDN = fmt.Sprintf("%s.%s.svc.%s", opts.ServiceName, opts.ServiceNamespace, opts.MCPClusterDomain)
@@ -92,6 +93,7 @@ func newKubernetesBackend(authEnabled bool, clientset *kubernetes.Clientset, cli
 		auditLogsBatchSize:            opts.MCPAuditLogsPersistBatchSize,
 		auditLogsFlushIntervalSeconds: opts.MCPAuditLogPersistIntervalSeconds,
 		obotClient:                    obotClient,
+		resourceMaximums:              resourceMaximums,
 		deploymentCache:               map[string]*kubernetesDeploymentCacheEntry{},
 	}
 }
@@ -526,6 +528,12 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 	// Fetch K8s settings
 	k8sSettings := k.getK8sSettings(ctx)
 
+	// Make sure that the resources are under the configured maximums
+	mcpResources := mcpContainerResources(server.Resources, server.Runtime, server.NanobotAgentName != "", k8sSettings)
+	if err := validateServerResourceMaximums(server, mcpResources, k.resourceMaximums); err != nil {
+		return nil, err
+	}
+
 	effectiveImagePullSecrets, err := k.effectiveImagePullSecretNames(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get effective image pull secrets: %w", err)
@@ -727,7 +735,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 			Name:          portName,
 			ContainerPort: int32(port),
 		}},
-		Resources:       mcpContainerResources(server.Resources, server.Runtime, server.NanobotAgentName != "", k8sSettings),
+		Resources:       mcpResources,
 		SecurityContext: getContainerSecurityContext(psaLevel),
 		Command:         command,
 		Args:            args,
@@ -1162,6 +1170,14 @@ func EffectiveDefaultMCPResourceRequirements(k8sSettings v1.K8sSettingsSpec) cor
 	return mcpContainerResources(nil, types.RuntimeNPX, false, k8sSettings)
 }
 
+func validateServerResourceMaximums(server ServerConfig, resources corev1.ResourceRequirements, maximums ResourceMaximums) error {
+	if server.SystemMCPServer {
+		// Maximums are not enforced for SystemMCPServers
+		return nil
+	}
+	return maximums.Validate(resources)
+}
+
 func withServerResourceOverrides(defaults corev1.ResourceRequirements, overrides *corev1.ResourceRequirements) corev1.ResourceRequirements {
 	if overrides == nil || len(overrides.Requests) == 0 && len(overrides.Limits) == 0 {
 		return defaults
@@ -1219,6 +1235,11 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, server ServerConf
 	// Compute K8s settings hash
 	k8sSettingsHash := ComputeK8sSettingsHash(k8sSettings, server.Resources, server.Runtime, server.NanobotAgentName != "", effectiveImagePullSecrets)
 	desiredResources := mcpContainerResources(server.Resources, server.Runtime, server.NanobotAgentName != "", k8sSettings)
+
+	// Make sure that the resources are under the configured maximums
+	if err := validateServerResourceMaximums(server, desiredResources, k.resourceMaximums); err != nil {
+		return err
+	}
 
 	// Get PSA enforce level for security context decisions
 	psaLevel := GetPSAEnforceLevelFromSpec(k8sSettings)

@@ -288,7 +288,7 @@ func TestNewKubernetesBackend_ServiceFQDN(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			backend := newKubernetesBackend(true, nil, nil, nil, nil, Options{ServiceName: tt.serviceName, ServiceNamespace: tt.serviceNamespace, MCPClusterDomain: tt.clusterDomain})
+			backend := newKubernetesBackend(true, nil, nil, nil, nil, Options{ServiceName: tt.serviceName, ServiceNamespace: tt.serviceNamespace, MCPClusterDomain: tt.clusterDomain}, ResourceMaximums{})
 			k := backend.(*kubernetesBackend)
 			if k.serviceFQDN != tt.expectedFQDN {
 				t.Errorf("newKubernetesBackend() serviceFQDN = %v, want %v", k.serviceFQDN, tt.expectedFQDN)
@@ -523,6 +523,44 @@ func TestK8sObjects_MCPContainerResources(t *testing.T) {
 				t.Fatalf("memory limit = %q, want %q", memoryLimit.String(), tt.wantMemoryLimit)
 			}
 		})
+	}
+}
+
+func TestK8sObjectsRejectsNormalServerResourcesAboveMaximum(t *testing.T) {
+	k := newTestKubernetesBackend(t)
+	k.resourceMaximums = ResourceMaximums{CPURequest: new(resource.MustParse(("100m")))}
+
+	server := testK8sServerConfig()
+	server.Resources = &corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU: resource.MustParse("250m"),
+		},
+	}
+
+	_, err := k.k8sObjects(t.Context(), server, nil)
+	if err == nil {
+		t.Fatal("expected resources above maximum to fail")
+	}
+	var exceeded *ResourceMaximumExceededError
+	if !errors.As(err, &exceeded) {
+		t.Fatalf("expected ResourceMaximumExceededError, got %T: %v", err, err)
+	}
+}
+
+func TestK8sObjectsAllowsSystemServerResourcesAboveMaximum(t *testing.T) {
+	k := newTestKubernetesBackend(t)
+	k.resourceMaximums = ResourceMaximums{CPURequest: new(resource.MustParse(("100m")))}
+
+	server := testK8sServerConfig()
+	server.SystemMCPServer = true
+	server.Resources = &corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU: resource.MustParse("250m"),
+		},
+	}
+
+	if _, err := k.k8sObjects(t.Context(), server, nil); err != nil {
+		t.Fatalf("expected system MCP server resources to bypass maximums: %v", err)
 	}
 }
 
@@ -1103,6 +1141,21 @@ func newTestKubernetesBackend(t *testing.T, objs ...client.Object) *kubernetesBa
 		remoteShimBaseImage: "ghcr.io/obot-platform/remote-shim:main",
 		mcpNamespace:        "obot-mcp",
 		obotClient:          clientBuilder.Build(),
+	}
+}
+
+func testK8sServerConfig() ServerConfig {
+	return ServerConfig{
+		Runtime:              types.RuntimeContainerized,
+		MCPServerName:        "test-server",
+		MCPServerDisplayName: "Test Server",
+		UserID:               "user-1",
+		OwnerUserID:          "user-2",
+		ContainerImage:       "ghcr.io/obot-platform/mcp-images/stdio-wrapper:main",
+		ContainerPort:        8080,
+		ContainerPath:        "/mcp",
+		Command:              "server",
+		Args:                 []string{"run"},
 	}
 }
 
