@@ -7,7 +7,7 @@
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { AdminService, type AppNotifications, type BannerType } from '$lib/services';
 	import { profile, appNotifications as appNotificationsStore } from '$lib/stores';
-	import { defaultAppNotifications } from '$lib/stores/appNotifications.svelte.js';
+	import { defaultAppNotifications } from '$lib/stores/appNotifications.svelte';
 	import { success } from '$lib/stores/success';
 	import { untrack } from 'svelte';
 	import { fade } from 'svelte/transition';

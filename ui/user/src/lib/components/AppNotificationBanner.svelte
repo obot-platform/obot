@@ -52,6 +52,8 @@
 					data?.type === 'info' ? 'btn-primary' : ''
 				)}
 				onclick={() => onDismiss?.()}
+				type="button"
+				aria-label="Dismiss notification banner"
 			>
 				<X class="size-3" />
 			</button>

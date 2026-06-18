@@ -111,8 +111,8 @@ func validateBanner(banner types.BannerNotification) error {
 		}
 	}
 
-	if banner.Enabled && (text == "" || banner.Type == "") {
-		return types.NewErrBadRequest("banner text and type are required when the banner is enabled")
+	if banner.Type != "" && banner.Type != types.BannerTypeInfo && banner.Type != types.BannerTypeWarning {
+		return types.NewErrBadRequest("invalid banner type: %s", banner.Type)
 	}
 
 	return nil
