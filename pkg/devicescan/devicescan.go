@@ -9,7 +9,7 @@
 // Each client is integrated as a value type implementing ClientScanner
 // in its own file (claudecode.go, codex.go, …). The orchestrator below
 // runs every scanner through a fixed pipeline: globals → glob walk →
-// project hits → plugins → skills → presence → build.
+// project hits → plugins → presence → skills → build.
 package devicescan
 
 import (
@@ -87,19 +87,21 @@ func Scan(ctx context.Context, fsys fs.FS, homeAbs string, maxDepth int) (types.
 		skills = append(skills, sks...)
 	}
 
-	// Phase 5: skills (global dirs first, then walk hits).
+	// Phase 5: client presence detection (uses real OS access for
+	// $PATH and absolute paths like /Applications). Runs before skill
+	// ingestion so compatible-client attributions can be gated on
+	// detected presence.
+	if err := ctx.Err(); err != nil {
+		return types.DeviceScanManifest{}, err
+	}
+	scanClientPresence(s, homeAbs)
+
+	// Phase 6: skills (global dirs first, then walk hits).
 	if err := ctx.Err(); err != nil {
 		return types.DeviceScanManifest{}, err
 	}
 	skills = append(skills, scanGlobalSkills(s)...)
 	skills = append(skills, scanProjectSkills(s, skillHits)...)
-
-	// Phase 6: client presence detection (uses real OS access for
-	// $PATH and absolute paths like /Applications).
-	if err := ctx.Err(); err != nil {
-		return types.DeviceScanManifest{}, err
-	}
-	scanClientPresence(s, homeAbs)
 
 	// Phase 7: assemble.
 	return build(s, mcps, skills, plugins), nil
@@ -139,8 +141,8 @@ func build(s *scanState, mcps []types.DeviceScanMCPServer, skills []types.Device
 		}
 	}
 	for _, sk := range out.Skills {
-		if sk.Client != "" {
-			hasSkill[sk.Client] = true
+		for _, client := range skillClients(sk) {
+			hasSkill[client] = true
 		}
 	}
 	for _, p := range out.Plugins {
@@ -172,4 +174,12 @@ func build(s *scanState, mcps []types.DeviceScanMCPServer, skills []types.Device
 		out.Clients = append(out.Clients, c)
 	}
 	return out
+}
+
+func skillClients(sk types.DeviceScanSkill) []string {
+	clients := sk.Clients
+	if len(clients) == 0 && sk.Client != "" {
+		clients = []string{sk.Client}
+	}
+	return clients
 }

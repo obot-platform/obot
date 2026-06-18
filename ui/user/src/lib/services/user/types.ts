@@ -317,6 +317,8 @@ export interface DeviceScanResponse extends DeviceScanList {
 export interface DeviceScanSkill {
 	id: number;
 	client: string;
+	clients?: string[];
+	skillID?: string;
 	projectPath?: string;
 	file?: string;
 	name: string;

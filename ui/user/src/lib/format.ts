@@ -105,3 +105,13 @@ export const formatDeviceClient = (client?: string, projectPath?: string): strin
 	}
 	return client;
 };
+
+export const formatDeviceClients = (
+	clients?: string[],
+	client?: string,
+	projectPath?: string
+): string => {
+	const values = clients?.length ? clients : client ? [client] : [];
+	const formatted = values.map((value) => formatDeviceClient(value, projectPath));
+	return Array.from(new Set(formatted)).join(', ') || '—';
+};

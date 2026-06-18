@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -31,6 +32,7 @@ func (c *Client) GetDeviceScan(ctx context.Context, id uint) (*types.DeviceScan,
 	if err := c.db.WithContext(ctx).
 		Preload("MCPServers").
 		Preload("Skills").
+		Preload("Skills.Attributions").
 		Preload("Plugins").
 		Preload("Files").
 		Preload("Clients").
@@ -86,6 +88,7 @@ func (c *Client) ListDeviceScans(ctx context.Context, opts DeviceScanListOptions
 	if err := db.Order("created_at DESC").
 		Preload("MCPServers").
 		Preload("Skills").
+		Preload("Skills.Attributions").
 		Preload("Plugins").
 		Preload("Clients").
 		Find(&scans).Error; err != nil {
@@ -194,7 +197,7 @@ func (c *Client) GetDeviceScanStats(ctx context.Context, opts DeviceScanStatsOpt
 			Select(`sk.name AS name,
 				COUNT(DISTINCT s.device_id) AS device_count,
 				COUNT(DISTINCT s.submitted_by) AS user_count,
-				COUNT(*) AS observation_count`).
+				COUNT(DISTINCT sk.id) AS observation_count`).
 			Group("sk.name").
 			Order("device_count DESC, sk.name ASC").
 			Scan(&out.Skills).Error; err != nil {
@@ -333,7 +336,7 @@ func (c *Client) GetSkillDetail(ctx context.Context, name string) (*types.SkillD
 		Select(`sk.name AS name,
 			COUNT(DISTINCT s.device_id) AS device_count,
 			COUNT(DISTINCT s.submitted_by) AS user_count,
-			COUNT(*) AS observation_count`).
+			COUNT(DISTINCT sk.id) AS observation_count`).
 		Group("sk.name").
 		Scan(&stat)
 	if row.Error != nil {
@@ -404,7 +407,51 @@ func (c *Client) ListSkillOccurrences(ctx context.Context, name string, limit, o
 	if err := q.Scan(&rows).Error; err != nil {
 		return nil, 0, fmt.Errorf("failed to list skill occurrences: %w", err)
 	}
+	if err := c.hydrateSkillOccurrenceClients(ctx, rows); err != nil {
+		return nil, 0, err
+	}
 	return rows, total, nil
+}
+
+func (c *Client) hydrateSkillOccurrenceClients(ctx context.Context, rows []types.SkillOccurrence) error {
+	if len(rows) == 0 {
+		return nil
+	}
+	ids := make([]uint, 0, len(rows))
+	for _, row := range rows {
+		ids = append(ids, row.ID)
+	}
+
+	var attrs []types.DeviceScanSkillAttribution
+	if err := c.db.WithContext(ctx).
+		Where("device_scan_skill_id IN ?", ids).
+		Order("client ASC").
+		Find(&attrs).Error; err != nil {
+		return fmt.Errorf("failed to load skill occurrence clients: %w", err)
+	}
+	clientSetsBySkill := map[uint]map[string]struct{}{}
+	for _, attr := range attrs {
+		client := strings.TrimSpace(attr.Client)
+		if client == "" {
+			continue
+		}
+		if clientSetsBySkill[attr.DeviceScanSkillID] == nil {
+			clientSetsBySkill[attr.DeviceScanSkillID] = map[string]struct{}{}
+		}
+		clientSetsBySkill[attr.DeviceScanSkillID][client] = struct{}{}
+	}
+	for i := range rows {
+		clients := make([]string, 0, len(clientSetsBySkill[rows[i].ID]))
+		for client := range clientSetsBySkill[rows[i].ID] {
+			clients = append(clients, client)
+		}
+		slices.Sort(clients)
+		if len(clients) == 0 && rows[i].Client != "" {
+			clients = []string{rows[i].Client}
+		}
+		rows[i].Clients = clients
+	}
+	return nil
 }
 
 // SkillStatListOptions filters and orders the paginated skill stats
@@ -474,7 +521,7 @@ func (c *Client) ListSkillStats(ctx context.Context, opts SkillStatListOptions) 
 		Select(`sk.name AS name,
 			COUNT(DISTINCT s.device_id) AS device_count,
 			COUNT(DISTINCT s.submitted_by) AS user_count,
-			COUNT(*) AS observation_count`).
+			COUNT(DISTINCT sk.id) AS observation_count`).
 		Group("sk.name").
 		Order(fmt.Sprintf("%s %s, sk.name ASC", sortBy, sortOrder))
 
@@ -609,16 +656,18 @@ func (c *Client) ListDeviceClientFleetSummaries(ctx context.Context, opts Device
 		userCounts = userCounts.Where(fmt.Sprintf("cl.name %s ?", like), nameFilterArg)
 	}
 
+	skillClientExpr := "COALESCE(NULLIF(attr.client, ''), sk.client)"
 	skillCounts := db.Table("device_scan_skills AS sk").
+		Joins("LEFT JOIN device_scan_skill_attributions AS attr ON attr.device_scan_skill_id = sk.id").
 		Joins("JOIN device_scans AS s ON s.id = sk.device_scan_id").
 		Where("s.id IN (?)", latest).
-		Where("sk.client <> ''").
-		Where("sk.client <> ?", "multi").
+		Where(skillClientExpr+" <> ''").
+		Where(skillClientExpr+" <> ?", "multi").
 		Where("sk.name <> ''").
-		Select("sk.client AS name, COUNT(DISTINCT sk.name) AS skill_count").
-		Group("sk.client")
+		Select(skillClientExpr + " AS name, COUNT(DISTINCT sk.name) AS skill_count").
+		Group(skillClientExpr)
 	if nameFilter != "" {
-		skillCounts = skillCounts.Where(fmt.Sprintf("sk.client %s ?", like), nameFilterArg)
+		skillCounts = skillCounts.Where(fmt.Sprintf(skillClientExpr+" %s ?", like), nameFilterArg)
 	}
 
 	mcpServerCounts := db.Table("device_scan_mcp_servers AS m").
@@ -749,28 +798,40 @@ func (c *Client) deviceClientFleetSummariesForNames(ctx context.Context, names [
 		usersByClient[row.ClientName][row.SubmittedBy] = struct{}{}
 	}
 
-	var skillObs []types.DeviceScanSkill
+	// The attributed client is selected under its own alias so it can't
+	// collide with the sk.client column in the scan destination.
+	type clientSkillRow struct {
+		Client      string                      `gorm:"column:attributed_client"`
+		Name        string                      `gorm:"column:name"`
+		Description string                      `gorm:"column:description"`
+		HasScripts  bool                        `gorm:"column:has_scripts"`
+		Files       datatypes.JSONSlice[string] `gorm:"column:files"`
+	}
+	var skillObs []clientSkillRow
+	skillClientExpr := "COALESCE(NULLIF(attr.client, ''), sk.client)"
 	if err := db.Table("device_scan_skills AS sk").
+		Select(skillClientExpr+" AS attributed_client, sk.name AS name, sk.description AS description, sk.has_scripts AS has_scripts, sk.files AS files").
+		Joins("LEFT JOIN device_scan_skill_attributions AS attr ON attr.device_scan_skill_id = sk.id").
 		Joins("JOIN device_scans AS s ON s.id = sk.device_scan_id").
 		Where("s.id IN (?)", latest).
-		Where("sk.client IN ?", names).
-		Where("sk.client <> ?", "multi").
+		Where(skillClientExpr+" IN ?", names).
+		Where(skillClientExpr+" <> ?", "multi").
 		Where("sk.name <> ''").
-		Order("sk.client ASC, sk.name ASC, sk.id ASC").
-		Find(&skillObs).Error; err != nil {
+		Order(skillClientExpr + " ASC, sk.name ASC, sk.id ASC").
+		Scan(&skillObs).Error; err != nil {
 		return nil, fmt.Errorf("failed to load client skill metadata: %w", err)
 	}
 
 	skillsByClient := map[string][]DeviceClientFleetSkill{}
-	seenSkillKey := map[string]map[string]struct{}{}
+	seenSkillNames := map[string]map[string]struct{}{}
 	for _, sk := range skillObs {
-		if seenSkillKey[sk.Client] == nil {
-			seenSkillKey[sk.Client] = map[string]struct{}{}
+		if seenSkillNames[sk.Client] == nil {
+			seenSkillNames[sk.Client] = map[string]struct{}{}
 		}
-		if _, dup := seenSkillKey[sk.Client][sk.Name]; dup {
+		if _, dup := seenSkillNames[sk.Client][sk.Name]; dup {
 			continue
 		}
-		seenSkillKey[sk.Client][sk.Name] = struct{}{}
+		seenSkillNames[sk.Client][sk.Name] = struct{}{}
 		skillsByClient[sk.Client] = append(skillsByClient[sk.Client], DeviceClientFleetSkill{
 			Name:        sk.Name,
 			Description: sk.Description,

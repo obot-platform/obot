@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	apitypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -287,6 +288,7 @@ func TestDeviceClientFleetSummaries(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list: %v", err)
 	}
+
 	if total != 3 {
 		t.Errorf("total distinct clients: want 3, got %d", total)
 	}
@@ -385,5 +387,133 @@ func TestDeviceClientFleetSummaries(t *testing.T) {
 	}
 	if len(byMCPServers) == 0 || byMCPServers[0].Name != "claude-code" {
 		t.Errorf("sort mcp_server_count desc: want claude-code first, got %+v", byMCPServers)
+	}
+}
+
+func TestDeviceScanSkillAttributionsNormalizeManifest(t *testing.T) {
+	c := newTestClient(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+	scan := types.DeviceScanFromManifest(apitypes.DeviceScanManifest{
+		ScannedAt: *apitypes.NewTime(now),
+		DeviceID:  "dev-attrib",
+		Skills: []apitypes.DeviceScanSkill{
+			{
+				Client:      "multi",
+				ProjectPath: "/repo",
+				File:        "/repo/.github/skills/shared/SKILL.md",
+				Name:        "shared",
+				Description: "portable",
+				Files:       []string{"/repo/.github/skills/shared/SKILL.md"},
+			},
+			{
+				Client:      "vscode",
+				ProjectPath: "/repo",
+				File:        "/repo/.github/skills/shared/SKILL.md",
+				Name:        "shared",
+				HasScripts:  true,
+				Files:       []string{"/repo/.github/skills/shared/script.sh"},
+			},
+		},
+		Clients: []apitypes.DeviceScanClient{{Name: "vscode"}},
+	})
+	scan.SubmittedBy = "alice"
+	if err := c.InsertDeviceScan(ctx, &scan); err != nil {
+		t.Fatalf("insert scan: %v", err)
+	}
+
+	stored, err := c.GetDeviceScan(ctx, scan.ID)
+	if err != nil {
+		t.Fatalf("get scan: %v", err)
+	}
+	if len(stored.Skills) != 1 {
+		t.Fatalf("want one physical skill, got %d: %+v", len(stored.Skills), stored.Skills)
+	}
+	if stored.Skills[0].Client != "multi" {
+		t.Errorf("legacy client: want multi, got %q", stored.Skills[0].Client)
+	}
+	assertStringSet(t, stored.Skills[0].AttributionClients(), []string{"multi", "vscode"})
+	if !stored.Skills[0].HasScripts {
+		t.Errorf("merged HasScripts = false, want true")
+	}
+
+	stats, total, err := c.ListSkillStats(ctx, SkillStatListOptions{Name: "shared", Limit: 10})
+	if err != nil {
+		t.Fatalf("list skill stats: %v", err)
+	}
+	if total != 1 || len(stats) != 1 {
+		t.Fatalf("want one skill stat, total=%d stats=%+v", total, stats)
+	}
+	if stats[0].DeviceCount != 1 || stats[0].ObservationCount != 1 {
+		t.Errorf("stats: want device_count=1 observation_count=1, got %+v", stats[0])
+	}
+
+	occurrences, occurrenceTotal, err := c.ListSkillOccurrences(ctx, "shared", 10, 0)
+	if err != nil {
+		t.Fatalf("list occurrences: %v", err)
+	}
+	if occurrenceTotal != 1 || len(occurrences) != 1 {
+		t.Fatalf("want one physical occurrence, total=%d occurrences=%+v", occurrenceTotal, occurrences)
+	}
+	assertStringSet(t, occurrences[0].Clients, []string{"multi", "vscode"})
+}
+
+func TestDeviceClientFleetSummariesUseSkillAttributions(t *testing.T) {
+	c := newTestClient(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+	insertScan(t, c, types.DeviceScan{
+		SubmittedBy: "alice", DeviceID: "dev-1", ScannedAt: now,
+		Clients: []types.DeviceScanClient{{Name: "vscode"}},
+		Skills: []types.DeviceScanSkill{{
+			Client: "multi", Name: "portable", Description: "Portable skill",
+			Attributions: []types.DeviceScanSkillAttribution{
+				{Client: "multi"},
+				{Client: "vscode"},
+			},
+		}},
+	})
+
+	summary, err := c.GetDeviceClientFleetSummary(ctx, "vscode")
+	if err != nil {
+		t.Fatalf("get vscode summary: %v", err)
+	}
+	if len(summary.Skills) != 1 {
+		t.Fatalf("vscode skills: want 1, got %+v", summary.Skills)
+	}
+	if summary.Skills[0].Name != "portable" {
+		t.Errorf("vscode skill name: want portable, got %+v", summary.Skills[0])
+	}
+
+	// The fleet list page sorts on the SQL skill_count and displays
+	// len(Skills); both must count attribution-only skills under the
+	// attributed client.
+	summaries, total, err := c.ListDeviceClientFleetSummaries(ctx, DeviceClientFleetListOptions{
+		SortBy: "skill_count", SortOrder: "desc", Limit: 10,
+	})
+	if err != nil {
+		t.Fatalf("list summaries: %v", err)
+	}
+	if total != 1 || len(summaries) != 1 {
+		t.Fatalf("want one client summary, total=%d summaries=%+v", total, summaries)
+	}
+	if summaries[0].Name != "vscode" || len(summaries[0].Skills) != 1 {
+		t.Errorf("vscode list summary: want 1 skill, got %+v", summaries[0])
+	}
+}
+
+func assertStringSet(t *testing.T, got, want []string) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatalf("want %v, got %v", want, got)
+	}
+	gotSet := map[string]struct{}{}
+	for _, v := range got {
+		gotSet[v] = struct{}{}
+	}
+	for _, v := range want {
+		if _, ok := gotSet[v]; !ok {
+			t.Fatalf("want %v, got %v", want, got)
+		}
 	}
 }

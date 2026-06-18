@@ -5,7 +5,7 @@
 	import Pagination from '$lib/components/table/Pagination.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { deriveDeviceScope, formatDeviceClient } from '$lib/format.js';
+	import { deriveDeviceScope, formatDeviceClients } from '$lib/format.js';
 	import {
 		AdminService,
 		type DeviceSkillOccurrence,
@@ -36,6 +36,7 @@
 	type Row = DeviceSkillOccurrence & {
 		shortDeviceID: string;
 		scannedRelative: string;
+		clientsDisplay: string;
 	};
 
 	let rows = $derived<Row[]>(
@@ -44,6 +45,7 @@
 			rowIndex: ((occurrencesResp.offset ?? 0) + i + 1).toString(),
 			shortDeviceID: (o.deviceID ?? '').slice(0, 12),
 			scannedRelative: formatTimeAgo(o.scannedAt).relativeTime,
+			clientsDisplay: formatDeviceClients(o.clients, o.client, o.projectPath),
 			scope: o.projectPath ? deriveDeviceScope(o.projectPath) : o.scope
 		}))
 	);
@@ -152,7 +154,7 @@
 						'rowIndex',
 						'shortDeviceID',
 						'scannedRelative',
-						'client',
+						'clientsDisplay',
 						'scope',
 						'projectPath'
 					]}
@@ -160,7 +162,7 @@
 						{ title: '#', property: 'rowIndex' },
 						{ title: 'Device', property: 'shortDeviceID' },
 						{ title: 'Scanned', property: 'scannedRelative' },
-						{ title: 'Client', property: 'client' },
+						{ title: 'Clients', property: 'clientsDisplay' },
 						{ title: 'Scope', property: 'scope' },
 						{ title: 'Project', property: 'projectPath' }
 					]}
@@ -183,8 +185,8 @@
 							</a>
 						{:else if property === 'projectPath'}
 							{d.projectPath ?? '—'}
-						{:else if property === 'client'}
-							{formatDeviceClient(d.client, d.projectPath)}
+						{:else if property === 'clientsDisplay'}
+							{d.clientsDisplay}
 						{:else}
 							{d[property as keyof Row]}
 						{/if}

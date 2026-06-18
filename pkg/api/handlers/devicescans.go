@@ -356,6 +356,7 @@ func (*DeviceScansHandler) ListSkillOccurrences(req api.Context) error {
 			DeviceScanID: r.DeviceScanID,
 			DeviceID:     r.DeviceID,
 			Client:       r.Client,
+			Clients:      r.Clients,
 			Scope:        r.Scope,
 			ProjectPath:  r.ProjectPath,
 			ScannedAt:    *types.NewTime(r.ScannedAt),

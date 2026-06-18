@@ -134,6 +134,15 @@ func (s *scanState) addClient(c types.DeviceScanClient) {
 	s.clients[c.Name] = existing
 }
 
+// clientDetected reports whether presence detection recorded the named
+// client. Only meaningful after scanClientPresence has run — phases
+// that gate on it (skills) are ordered after presence detection in
+// Scan.
+func (s *scanState) clientDetected(name string) bool {
+	_, ok := s.clients[name]
+	return ok
+}
+
 // listArtifactPaths walks dirRel and returns absolute paths for every
 // file whose extension is in allowedExts. Files are NOT registered in
 // s.files — only their paths are listed. Used by skills/plugins where

@@ -11,6 +11,7 @@
 		AGENTS_HOME_CLIENT_LABEL,
 		deriveDeviceScope,
 		formatDeviceClient,
+		formatDeviceClients,
 		formatDeviceCommand
 	} from '$lib/format.js';
 	import {
@@ -119,6 +120,7 @@
 	type SkillRow = DeviceScanSkill & {
 		id: number;
 		scope: string;
+		clients_display: string;
 		files_count: number;
 	};
 	type PluginRow = DeviceScanPlugin & {
@@ -145,6 +147,7 @@
 		skills.map((s) => ({
 			...s,
 			client: formatDeviceClient(s.client, s.projectPath),
+			clients_display: formatDeviceClients(s.clients, s.client, s.projectPath),
 			scope: deriveDeviceScope(s.projectPath),
 			files_count: (s.files ?? []).length
 		}))
@@ -367,17 +370,31 @@
 						<Table
 							data={skillRows}
 							pageSize={PAGE_SIZE}
-							fields={['name', 'client', 'scope', 'description', 'hasScripts', 'files_count']}
+							fields={[
+								'name',
+								'clients_display',
+								'scope',
+								'description',
+								'hasScripts',
+								'files_count'
+							]}
 							headers={[
-								{ title: 'Client', property: 'client' },
+								{ title: 'Clients', property: 'clients_display' },
 								{ title: 'Scope', property: 'scope' },
 								{ title: 'Name', property: 'name' },
 								{ title: 'Description', property: 'description' },
 								{ title: 'Has Scripts', property: 'hasScripts' },
 								{ title: 'Files', property: 'files_count' }
 							]}
-							sortable={['client', 'scope', 'name', 'description', 'hasScripts', 'files_count']}
-							filterable={['client', 'scope']}
+							sortable={[
+								'clients_display',
+								'scope',
+								'name',
+								'description',
+								'hasScripts',
+								'files_count'
+							]}
+							filterable={['clients_display', 'scope']}
 							onClickRow={(d, isCtrlClick) => {
 								openUrl(
 									`${urlPrefix}/devices/${deviceIdParam}/scans/${scanIdParam}/skills/${d.id}`,
@@ -390,8 +407,8 @@
 									<span class="text-muted-content text-xs">{d.description ?? '—'}</span>
 								{:else if property === 'hasScripts'}
 									{d.hasScripts ? 'yes' : 'no'}
-								{:else if property === 'client'}
-									{@render clientLink(d.client)}
+								{:else if property === 'clients_display'}
+									{d.clients_display}
 								{:else}
 									{d[property as keyof SkillRow] ?? '—'}
 								{/if}
