@@ -673,6 +673,7 @@
 	}
 
 	let showAppNotificationBanner = $derived.by(() => {
+		if (!bannerDismissed.isReady) return false;
 		const appNotifications = appNotificationsStore.current;
 		const dismissedAt = bannerDismissed.current?.dismissedAt;
 		const wasBannerUpdatedAfterDismissal =
@@ -680,9 +681,12 @@
 			!!dismissedAt &&
 			new Date(dismissedAt) <= new Date(appNotifications?.updated);
 
+		if (!appNotifications?.banner?.enabled) return false;
+		if (!appNotifications.banner.dismissible) return true; // enabled & not dismissable, always show
+
 		return !!(
-			appNotifications?.banner?.enabled &&
-			(!dismissedAt || (wasBannerUpdatedAfterDismissal && appNotifications.banner.resetDismissed))
+			!dismissedAt ||
+			(wasBannerUpdatedAfterDismissal && appNotifications.banner.resetDismissed)
 		);
 	});
 </script>
