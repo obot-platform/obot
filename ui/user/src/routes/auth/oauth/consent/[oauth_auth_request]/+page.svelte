@@ -161,8 +161,12 @@
 		<footer
 			class="border-base-300 bg-base-100 dark:bg-base-200 flex justify-end gap-3 border-t p-3 max-sm:flex-col-reverse"
 		>
-			<a class="btn btn-text" href={resolve(consent.cancelURL as `/${string}`)}>Cancel</a>
-			<a class="btn btn-primary" href={resolve(consent.continueURL as `/${string}`)}> Continue </a>
+			<form method="POST" action={resolve(consent.cancelURL as `/${string}`)}>
+				<button class="btn btn-text w-full" type="submit">Cancel</button>
+			</form>
+			<form method="POST" action={resolve(consent.continueURL as `/${string}`)}>
+				<button class="btn btn-primary w-full" type="submit">Continue</button>
+			</form>
 		</footer>
 	</main>
 </div>

@@ -42,8 +42,9 @@ func SetupHandlers(oauthChecker *MCPOAuthHandlerFactory, tokenStore mcp.GlobalTo
 	// or returning the original redirect URI with the authorization code.
 	mux.HandleFunc("GET /oauth/callback/{oauth_auth_request}", h.callback)
 	mux.HandleFunc("GET /oauth/consent/{oauth_auth_request}", h.consent)
-	mux.HandleFunc("GET /oauth/consent/{oauth_auth_request}/approve", h.approveConsent)
-	mux.HandleFunc("GET /oauth/consent/{oauth_auth_request}/cancel", h.cancelConsent)
+	mux.HandleFunc("POST /oauth/consent/{oauth_auth_request}/approve", h.approveConsent)
+	mux.HandleFunc("POST /oauth/consent/{oauth_auth_request}/cancel", h.cancelConsent)
+	mux.HandleFunc("GET /oauth/complete/{oauth_auth_request}", h.oauthComplete)
 
 	mux.HandleFunc("GET /oauth/register/{client}", h.readClient)
 	mux.HandleFunc("PUT /oauth/register/{client}", h.updateClient)
