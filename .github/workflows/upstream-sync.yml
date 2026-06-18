@@ -74,7 +74,8 @@ jobs:
             exit 0
           fi
           PAYLOAD="$(jq -n --arg text ":no_entry_sign: *accelerate-data/obot upstream sync skipped* — open sync PR already exists: ${OPEN_URL}" '{text: $text}')"
-          curl -fsS -X POST -H 'Content-type: application/json' --data "$PAYLOAD" "$SLACK_DEPS_WEBHOOK"
+          curl -fsS -X POST -H 'Content-type: application/json' --data "$PAYLOAD" "$SLACK_DEPS_WEBHOOK" \
+            || echo "::warning::Slack notification failed — non-fatal"
 
       - name: Analyze upstream delta
         if: steps.existing.outputs.found == 'false'
@@ -94,11 +95,11 @@ jobs:
           fi
 
           DATE_TAG="$(date -u +%Y%m%d)"
-          BRANCH="sync/upstream-${DATE_TAG}"
+          UPSTREAM_HEAD="$(git rev-parse "upstream/${UPSTREAM_BRANCH}")"
+          BRANCH="sync/upstream-${DATE_TAG}-${UPSTREAM_HEAD:0:7}"
           echo "branch=${BRANCH}"       >> "$GITHUB_OUTPUT"
           echo "date_tag=${DATE_TAG}"   >> "$GITHUB_OUTPUT"
 
-          UPSTREAM_HEAD="$(git rev-parse "upstream/${UPSTREAM_BRANCH}")"
           echo "upstream_head=${UPSTREAM_HEAD}" >> "$GITHUB_OUTPUT"
           echo "merge_base=${BASE}"             >> "$GITHUB_OUTPUT"
 
@@ -112,12 +113,18 @@ jobs:
           OVERLAP_COUNT="$(wc -l < /tmp/overlap.txt | tr -d ' ')"
           echo "overlap_count=${OVERLAP_COUNT}" >> "$GITHUB_OUTPUT"
 
-          if git merge-tree --write-tree --no-messages "$BASE" "$OURS" "$THEIRS" > /tmp/merge-out 2> /tmp/merge-err; then
+          SCRATCH="__detect-conflicts-$$"
+          git checkout -B "$SCRATCH" "$OURS" -q
+          if git merge --no-commit --no-ff "$THEIRS" >/dev/null 2>&1; then
             CONFLICTS=""
+            CONFLICT_COUNT=0
           else
-            CONFLICTS="$(grep -oE '^[0-9]+ [^ ]+ [^ ]+ .+' /tmp/merge-out | awk '{print $4}' | sort -u || true)"
+            CONFLICTS="$(git diff --name-only --diff-filter=U 2>/dev/null | sort -u || true)"
+            CONFLICT_COUNT="$(printf '%s' "$CONFLICTS" | grep -c . || true)"
           fi
-          CONFLICT_COUNT="$(printf '%s' "$CONFLICTS" | grep -c . || true)"
+          git merge --abort 2>/dev/null || true
+          git checkout "$OURS" -q 2>/dev/null || true
+          git branch -D "$SCRATCH" 2>/dev/null || true
           echo "conflict_count=${CONFLICT_COUNT}" >> "$GITHUB_OUTPUT"
           printf '%s' "$CONFLICTS" > /tmp/conflicts.txt
 
@@ -178,11 +185,12 @@ jobs:
             git merge --no-ff --no-edit "upstream/${UPSTREAM_BRANCH}" \
               -m "chore: sync upstream ${DATE_TAG}"
           else
-            git checkout -B "$BRANCH" "upstream/${UPSTREAM_BRANCH}"
+            git checkout -B "$BRANCH" "origin/${BASE_BRANCH}"
             mkdir -p .accelerate
             printf '%s\n' "$METADATA" > .accelerate/upstream-sync.json
             git add .accelerate/upstream-sync.json
             git commit -m "chore: update upstream-sync metadata ${DATE_TAG}"
+            git merge --no-commit --no-ff "upstream/${UPSTREAM_BRANCH}" || true
           fi
 
           git push origin "$BRANCH"
@@ -299,4 +307,5 @@ jobs:
             --arg manual "${MANUAL}" \
             --arg url "${PR_URL}" \
             '{text: (":arrows_counterclockwise: *accelerate-data/obot upstream sync PR opened*\n• Bucket: `\($bucket)`\n• Upstream head: `\($head)`\n• Manual resolution: \($manual)\n• PR: \($url)")}')"
-          curl -fsS -X POST -H 'Content-type: application/json' --data "$PAYLOAD" "$SLACK_DEPS_WEBHOOK"
+          curl -fsS -X POST -H 'Content-type: application/json' --data "$PAYLOAD" "$SLACK_DEPS_WEBHOOK" \
+            || echo "::warning::Slack notification failed — non-fatal"
