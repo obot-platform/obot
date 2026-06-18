@@ -97,5 +97,5 @@ Deleting a policy removes model access for the affected subjects. If a user lose
 ## Related Topics
 
 - [Model Providers](/configuration/model-providers) — Configure language models and set defaults
-- [MCP Registries](/functionality/mcp-registries/) — Similar access control for MCP servers
+- [MCP Registries](./mcp-registries.md) — Similar access control for MCP servers
 - [User Roles](/configuration/user-roles) — Understanding administrator and user permissions

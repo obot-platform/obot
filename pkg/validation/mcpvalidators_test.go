@@ -1,6 +1,7 @@
 package validation
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -19,15 +20,15 @@ func TestValidateServerManifestForCatalog_MultiUserConfig(t *testing.T) {
 		},
 	}
 
-	require.NoError(t, ValidateServerManifest(manifest, true))
+	require.NoError(t, ValidateServerManifest(t.Context(), manifest, true, Options{}))
 
 	manifest.MultiUserConfig = &types.MultiUserConfig{}
 	require.Equal(t, types.RuntimeValidationError{
 		Runtime: types.RuntimeNPX,
 		Field:   "multiUserConfig",
 		Message: "multiUserConfig may only be set for multi-user servers",
-	}, ValidateServerManifest(manifest, false))
-	require.NoError(t, ValidateServerManifest(manifest, true))
+	}, ValidateServerManifest(t.Context(), manifest, false, Options{}))
+	require.NoError(t, ValidateServerManifest(t.Context(), manifest, true, Options{}))
 }
 
 func TestValidateCatalogEntryManifest_MultiUserConfig(t *testing.T) {
@@ -39,17 +40,17 @@ func TestValidateCatalogEntryManifest_MultiUserConfig(t *testing.T) {
 		},
 	}
 
-	require.NoError(t, ValidateCatalogEntryManifest(manifest))
+	require.NoError(t, ValidateCatalogEntryManifest(t.Context(), manifest, Options{}))
 
 	manifest.MultiUserConfig = &types.MultiUserConfig{}
 	require.Equal(t, types.RuntimeValidationError{
 		Runtime: types.RuntimeNPX,
 		Field:   "multiUserConfig",
 		Message: "multiUserConfig may only be set for multi-user catalog entries",
-	}, ValidateCatalogEntryManifest(manifest))
+	}, ValidateCatalogEntryManifest(t.Context(), manifest, Options{}))
 
 	manifest.ServerUserType = types.ServerUserTypeMultiUser
-	require.NoError(t, ValidateCatalogEntryManifest(manifest))
+	require.NoError(t, ValidateCatalogEntryManifest(t.Context(), manifest, Options{}))
 }
 
 func TestRemoteValidator_validateRemoteCatalogConfig(t *testing.T) {
@@ -66,37 +67,57 @@ func TestRemoteValidator_validateRemoteCatalogConfig(t *testing.T) {
 		{
 			name: "valid fixedURL with https",
 			config: types.RemoteCatalogConfig{
-				FixedURL: "https://api.example.com/mcp",
+				FixedURL: "https://8.8.8.8/mcp",
 			},
 			expectError: false,
 		},
 		{
 			name: "valid fixedURL with http",
 			config: types.RemoteCatalogConfig{
-				FixedURL: "http://localhost:3000/mcp",
+				FixedURL: "http://8.8.8.8/mcp",
 			},
 			expectError: false,
 		},
 		{
+			name: "invalid fixedURL with localhost hostname",
+			config: types.RemoteCatalogConfig{
+				FixedURL: "http://localhost:3000/mcp",
+			},
+			expectError: true,
+			errorField:  "fixedURL",
+			errorMsg:    "localhost URL",
+		},
+		{
 			name: "valid fixedURL with port",
 			config: types.RemoteCatalogConfig{
-				FixedURL: "https://api.example.com:8080/mcp",
+				FixedURL: "https://8.8.8.8:8080/mcp",
 			},
 			expectError: false,
 		},
 		{
 			name: "valid fixedURL with path and query",
 			config: types.RemoteCatalogConfig{
-				FixedURL: "https://api.example.com/mcp/endpoint?param=value",
+				FixedURL: "https://8.8.8.8/mcp/endpoint?param=value",
 			},
 			expectError: false,
 		},
 		{
-			name: "valid fixedURL with IP address",
+			name: "invalid fixedURL with private IP address",
 			config: types.RemoteCatalogConfig{
 				FixedURL: "http://192.168.1.1:8080/mcp",
 			},
-			expectError: false,
+			expectError: true,
+			errorField:  "fixedURL",
+			errorMsg:    "private IP address",
+		},
+		{
+			name: "invalid fixedURL with link-local IP address",
+			config: types.RemoteCatalogConfig{
+				FixedURL: "http://169.254.169.254/latest/meta-data",
+			},
+			expectError: true,
+			errorField:  "fixedURL",
+			errorMsg:    "link-local address",
 		},
 
 		// Valid cases - Hostname only
@@ -161,7 +182,7 @@ func TestRemoteValidator_validateRemoteCatalogConfig(t *testing.T) {
 		{
 			name: "valid fixedURL with headers",
 			config: types.RemoteCatalogConfig{
-				FixedURL: "https://api.example.com/mcp",
+				FixedURL: "https://8.8.8.8/mcp",
 				Headers: []types.MCPHeader{
 					{Name: "Authorization", Key: "Bearer token"},
 					{Name: "Content-Type", Key: "application/json"},
@@ -558,7 +579,7 @@ func TestRemoteValidator_validateRemoteCatalogConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validator.validateRemoteCatalogConfig(tt.config)
+			err := validator.validateRemoteCatalogConfig(t.Context(), tt.config)
 
 			if tt.expectError {
 				if err == nil {
@@ -641,7 +662,7 @@ func TestRemoteValidator_validateRemoteCatalogConfig_HostnameRegexEdgeCases(t *t
 				Hostname: tt.hostname,
 			}
 
-			err := validator.validateRemoteCatalogConfig(config)
+			err := validator.validateRemoteCatalogConfig(t.Context(), config)
 
 			if tt.expectError {
 				if err == nil {
@@ -738,11 +759,47 @@ func TestRemoteValidator_ValidateConfig_HeaderValidation(t *testing.T) {
 			},
 			expectError: false,
 		},
+		{
+			name: "localhost URL should fail",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					URL: "http://localhost:3000/mcp",
+				},
+			},
+			expectError: true,
+			errorField:  "url",
+			errorMsg:    "localhost URL",
+		},
+		{
+			name: "private IP URL should fail",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					URL: "http://10.0.0.1:8080/mcp",
+				},
+			},
+			expectError: true,
+			errorField:  "url",
+			errorMsg:    "private IP address",
+		},
+		{
+			name: "link-local URL should fail",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					URL: "http://169.254.169.254/latest/meta-data",
+				},
+			},
+			expectError: true,
+			errorField:  "url",
+			errorMsg:    "link-local address",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validator.ValidateConfig(tt.manifest)
+			err := validator.ValidateConfig(t.Context(), tt.manifest)
 
 			if tt.expectError {
 				if err == nil {
@@ -763,6 +820,153 @@ func TestRemoteValidator_ValidateConfig_HeaderValidation(t *testing.T) {
 				if err != nil {
 					t.Errorf("unexpected error: %v", err)
 				}
+			}
+		})
+	}
+}
+
+func TestValidateRemoteManifestURLWithOptions(t *testing.T) {
+	tests := []struct {
+		name    string
+		rawURL  string
+		options Options
+		wantErr string
+	}{
+		{
+			name:    "default rejects localhost",
+			rawURL:  "http://localhost:8080/mcp",
+			wantErr: "localhost URL",
+		},
+		{
+			name:   "localhost allowed",
+			rawURL: "http://localhost:8080/mcp",
+			options: Options{
+				RemoteMCPURLValidationConfig: mcp.RemoteMCPURLValidationConfig{
+					AllowLocalhostMCP: true,
+				},
+			},
+		},
+		{
+			name:    "default rejects loopback IP",
+			rawURL:  "http://127.0.0.1:8080/mcp",
+			wantErr: "localhost URL",
+		},
+		{
+			name:   "loopback IP allowed by localhost option",
+			rawURL: "http://127.0.0.1:8080/mcp",
+			options: Options{
+				RemoteMCPURLValidationConfig: mcp.RemoteMCPURLValidationConfig{
+					AllowLocalhostMCP: true,
+				},
+			},
+		},
+		{
+			name:    "default rejects private IP",
+			rawURL:  "http://10.0.0.1:8080/mcp",
+			wantErr: "private IP address",
+		},
+		{
+			name:   "private IP allowed",
+			rawURL: "http://10.0.0.1:8080/mcp",
+			options: Options{
+				RemoteMCPURLValidationConfig: mcp.RemoteMCPURLValidationConfig{
+					AllowPrivateIPMCP: true,
+				},
+			},
+		},
+		{
+			name:    "default rejects link-local IP",
+			rawURL:  "http://169.254.169.254/latest/meta-data",
+			wantErr: "link-local address",
+		},
+		{
+			name:   "link-local IP allowed",
+			rawURL: "http://169.254.169.254/latest/meta-data",
+			options: Options{
+				RemoteMCPURLValidationConfig: mcp.RemoteMCPURLValidationConfig{
+					AllowLinkLocalMCP: true,
+				},
+			},
+		},
+		{
+			name:    "private option does not allow link-local IP",
+			rawURL:  "http://169.254.169.254/latest/meta-data",
+			wantErr: "link-local address",
+			options: Options{
+				RemoteMCPURLValidationConfig: mcp.RemoteMCPURLValidationConfig{
+					AllowPrivateIPMCP: true,
+				},
+			},
+		},
+		{
+			name:    "link-local option does not allow private IP",
+			rawURL:  "http://10.0.0.1:8080/mcp",
+			wantErr: "private IP address",
+			options: Options{
+				RemoteMCPURLValidationConfig: mcp.RemoteMCPURLValidationConfig{
+					AllowLinkLocalMCP: true,
+				},
+			},
+		},
+		{
+			name:   "all URL validation blocks allowed",
+			rawURL: "http://10.0.0.1:8080/mcp",
+			options: Options{
+				RemoteMCPURLValidationConfig: mcp.RemoteMCPURLValidationConfig{
+					AllowLocalhostMCP: true,
+					AllowPrivateIPMCP: true,
+					AllowLinkLocalMCP: true,
+				},
+			},
+		},
+	}
+
+	validateServerManifest := func(ctx context.Context, rawURL string, options Options) error {
+		return ValidateServerManifest(ctx, types.MCPServerManifest{
+			Runtime: types.RuntimeRemote,
+			RemoteConfig: &types.RemoteRuntimeConfig{
+				URL: rawURL,
+			},
+		}, false, options)
+	}
+
+	validateCatalogEntryManifest := func(ctx context.Context, rawURL string, options Options) error {
+		return ValidateCatalogEntryManifest(ctx, types.MCPServerCatalogEntryManifest{
+			Runtime:        types.RuntimeRemote,
+			ServerUserType: types.ServerUserTypeSingleUser,
+			RemoteConfig: &types.RemoteCatalogConfig{
+				FixedURL: rawURL,
+			},
+		}, options)
+	}
+
+	validateSystemManifest := func(ctx context.Context, rawURL string, options Options) error {
+		return ValidateSystemMCPServerManifest(ctx, types.SystemMCPServerManifest{
+			Runtime: types.RuntimeRemote,
+			RemoteConfig: &types.RemoteRuntimeConfig{
+				URL: rawURL,
+			},
+		}, options)
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for _, validator := range []struct {
+				name string
+				fn   func(context.Context, string, Options) error
+			}{
+				{name: "server", fn: validateServerManifest},
+				{name: "catalog entry", fn: validateCatalogEntryManifest},
+				{name: "system server", fn: validateSystemManifest},
+			} {
+				t.Run(validator.name, func(t *testing.T) {
+					err := validator.fn(t.Context(), tt.rawURL, tt.options)
+					if tt.wantErr == "" {
+						require.NoError(t, err)
+						return
+					}
+					require.ErrorContains(t, err, tt.wantErr)
+				})
 			}
 		})
 	}
@@ -842,7 +1046,7 @@ func TestRemoteValidator_ValidateCatalogConfig_HeaderValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validator.ValidateCatalogConfig(tt.manifest)
+			err := validator.ValidateCatalogConfig(t.Context(), tt.manifest)
 
 			if tt.expectError {
 				if err == nil {
@@ -1516,7 +1720,7 @@ func TestCompositeValidator_ValidateCatalogConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validator.ValidateCatalogConfig(tt.manifest)
+			err := validator.ValidateCatalogConfig(t.Context(), tt.manifest)
 			require.Equal(t, tt.expectedError, err)
 		})
 	}
@@ -1635,7 +1839,7 @@ func TestCompositeValidator_ValidateConfig_StaticOAuth(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validator.ValidateConfig(tt.manifest)
+			err := validator.ValidateConfig(t.Context(), tt.manifest)
 			require.Equal(t, tt.expectedError, err)
 		})
 	}
@@ -1692,7 +1896,7 @@ func TestCompositeValidator_ValidateConfig_ToolPrefixLength(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validator.ValidateConfig(tt.manifest)
+			err := validator.ValidateConfig(t.Context(), tt.manifest)
 			require.Equal(t, tt.expectedError, err)
 		})
 	}
@@ -1700,13 +1904,13 @@ func TestCompositeValidator_ValidateConfig_ToolPrefixLength(t *testing.T) {
 
 func TestValidateManifestStartupTimeoutNonNegative(t *testing.T) {
 	t.Run("server manifest rejects negative startup timeout", func(t *testing.T) {
-		err := ValidateServerManifest(types.MCPServerManifest{
+		err := ValidateServerManifest(t.Context(), types.MCPServerManifest{
 			Runtime: types.RuntimeNPX,
 			NPXConfig: &types.NPXRuntimeConfig{
 				Package:               "test-package",
 				StartupTimeoutSeconds: -1,
 			},
-		}, false)
+		}, false, Options{})
 
 		require.Equal(t, types.RuntimeValidationError{
 			Runtime: types.RuntimeNPX,
@@ -1716,14 +1920,14 @@ func TestValidateManifestStartupTimeoutNonNegative(t *testing.T) {
 	})
 
 	t.Run("catalog manifest rejects negative startup timeout", func(t *testing.T) {
-		err := ValidateCatalogEntryManifest(types.MCPServerCatalogEntryManifest{
+		err := ValidateCatalogEntryManifest(t.Context(), types.MCPServerCatalogEntryManifest{
 			ServerUserType: types.ServerUserTypeSingleUser,
 			Runtime:        types.RuntimeUVX,
 			UVXConfig: &types.UVXRuntimeConfig{
 				Package:               "test-package",
 				StartupTimeoutSeconds: -1,
 			},
-		})
+		}, Options{})
 
 		require.Equal(t, types.RuntimeValidationError{
 			Runtime: types.RuntimeUVX,
@@ -1734,7 +1938,7 @@ func TestValidateManifestStartupTimeoutNonNegative(t *testing.T) {
 
 	t.Run("server manifest rejects startup timeout above maximum", func(t *testing.T) {
 		maxStartupTimeoutSeconds := int(mcp.MaxMCPServerStartupTimeout.Seconds())
-		err := ValidateServerManifest(types.MCPServerManifest{
+		err := ValidateServerManifest(t.Context(), types.MCPServerManifest{
 			Runtime: types.RuntimeContainerized,
 			ContainerizedConfig: &types.ContainerizedRuntimeConfig{
 				Image:                 "test-image",
@@ -1742,7 +1946,7 @@ func TestValidateManifestStartupTimeoutNonNegative(t *testing.T) {
 				Path:                  "/mcp",
 				StartupTimeoutSeconds: maxStartupTimeoutSeconds + 1,
 			},
-		}, false)
+		}, false, Options{})
 
 		require.Equal(t, types.RuntimeValidationError{
 			Runtime: types.RuntimeContainerized,
@@ -1753,14 +1957,14 @@ func TestValidateManifestStartupTimeoutNonNegative(t *testing.T) {
 
 	t.Run("catalog manifest rejects startup timeout above maximum", func(t *testing.T) {
 		maxStartupTimeoutSeconds := int(mcp.MaxMCPServerStartupTimeout.Seconds())
-		err := ValidateCatalogEntryManifest(types.MCPServerCatalogEntryManifest{
+		err := ValidateCatalogEntryManifest(t.Context(), types.MCPServerCatalogEntryManifest{
 			ServerUserType: types.ServerUserTypeSingleUser,
 			Runtime:        types.RuntimeNPX,
 			NPXConfig: &types.NPXRuntimeConfig{
 				Package:               "test-package",
 				StartupTimeoutSeconds: maxStartupTimeoutSeconds + 1,
 			},
-		})
+		}, Options{})
 
 		require.Equal(t, types.RuntimeValidationError{
 			Runtime: types.RuntimeNPX,
@@ -1783,21 +1987,21 @@ func TestValidateMCPResourceRequirements(t *testing.T) {
 	}
 
 	t.Run("server manifest accepts valid resources", func(t *testing.T) {
-		err := ValidateServerManifest(types.MCPServerManifest{
+		err := ValidateServerManifest(t.Context(), types.MCPServerManifest{
 			Runtime:   types.RuntimeNPX,
 			NPXConfig: &types.NPXRuntimeConfig{Package: "test-package"},
 			Resources: validResources,
-		}, false)
+		}, false, Options{})
 		require.NoError(t, err)
 	})
 
 	t.Run("catalog manifest accepts valid resources", func(t *testing.T) {
-		err := ValidateCatalogEntryManifest(types.MCPServerCatalogEntryManifest{
+		err := ValidateCatalogEntryManifest(t.Context(), types.MCPServerCatalogEntryManifest{
 			ServerUserType: types.ServerUserTypeSingleUser,
 			Runtime:        types.RuntimeUVX,
 			UVXConfig:      &types.UVXRuntimeConfig{Package: "test-package"},
 			Resources:      validResources,
-		})
+		}, Options{})
 		require.NoError(t, err)
 	})
 
@@ -1877,11 +2081,11 @@ func TestValidateMCPResourceRequirements(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("server manifest rejects "+tt.name, func(t *testing.T) {
-			err := ValidateServerManifest(types.MCPServerManifest{
+			err := ValidateServerManifest(t.Context(), types.MCPServerManifest{
 				Runtime:   types.RuntimeNPX,
 				NPXConfig: &types.NPXRuntimeConfig{Package: "test-package"},
 				Resources: tt.resources,
-			}, false)
+			}, false, Options{})
 
 			var validationErr types.RuntimeValidationError
 			require.ErrorAs(t, err, &validationErr)
@@ -1891,12 +2095,12 @@ func TestValidateMCPResourceRequirements(t *testing.T) {
 		})
 
 		t.Run("catalog manifest rejects "+tt.name, func(t *testing.T) {
-			err := ValidateCatalogEntryManifest(types.MCPServerCatalogEntryManifest{
+			err := ValidateCatalogEntryManifest(t.Context(), types.MCPServerCatalogEntryManifest{
 				ServerUserType: types.ServerUserTypeSingleUser,
 				Runtime:        types.RuntimeUVX,
 				UVXConfig:      &types.UVXRuntimeConfig{Package: "test-package"},
 				Resources:      tt.resources,
-			})
+			}, Options{})
 
 			var validationErr types.RuntimeValidationError
 			require.ErrorAs(t, err, &validationErr)
@@ -2461,7 +2665,7 @@ func TestValidateCatalogEntryManifest_ServerUserType(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			manifest := tt.manifest
 			manifest.ServerUserType = tt.serverUserType
-			err := ValidateCatalogEntryManifest(manifest)
+			err := ValidateCatalogEntryManifest(t.Context(), manifest, Options{})
 			if tt.expectError && err == nil {
 				t.Errorf("expected error for serverUserType=%q, got nil", tt.serverUserType)
 			} else if !tt.expectError && err != nil {

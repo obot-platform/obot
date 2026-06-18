@@ -8,7 +8,7 @@ export const load: PageLoad = async ({ params, fetch, parent }) => {
 	const { profile } = await parent();
 	const { device_id } = params;
 
-	let scans: DeviceScanResponse = { items: [], total: 0, limit: PAGE_SIZE, offset: 0 };
+	let scans: DeviceScanResponse;
 	try {
 		scans = await UserService.listDeviceScans(
 			{

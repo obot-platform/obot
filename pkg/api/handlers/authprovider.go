@@ -30,10 +30,10 @@ const CookieSecretEnvVar = "OBOT_AUTH_PROVIDER_COOKIE_SECRET"
 type AuthProviderHandler struct {
 	dispatcher  *dispatcher.Dispatcher
 	postgresDSN string
-	license     *license.KeygenProvider
+	license     *license.Provider
 }
 
-func NewAuthProviderHandler(dispatcher *dispatcher.Dispatcher, postgresDSN string, licenseProvider *license.KeygenProvider) *AuthProviderHandler {
+func NewAuthProviderHandler(dispatcher *dispatcher.Dispatcher, postgresDSN string, licenseProvider *license.Provider) *AuthProviderHandler {
 	return &AuthProviderHandler{
 		dispatcher:  dispatcher,
 		postgresDSN: postgresDSN,

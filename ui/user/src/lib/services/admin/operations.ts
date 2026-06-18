@@ -1464,6 +1464,7 @@ export async function listAllSkills(opts?: {
 	query?: string;
 	repoId?: string;
 	limit?: number;
+	dontLogErrors?: boolean;
 }): Promise<Skill[]> {
 	const params = new URLSearchParams();
 	params.set('all', 'true');
@@ -1483,6 +1484,7 @@ export async function getSkillPreview(id: string, opts?: { fetch?: Fetcher }): P
 
 export async function listSkillRepositories(opts?: {
 	fetch?: Fetcher;
+	dontLogErrors?: boolean;
 }): Promise<SkillRepository[]> {
 	const response = (await doGet('/skill-repositories', opts)) as ItemsResponse<SkillRepository>;
 	return response.items ?? [];

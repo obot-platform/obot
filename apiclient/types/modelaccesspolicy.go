@@ -68,6 +68,9 @@ type ModelResource struct {
 	// - the wildcard '*', which selects all available models
 	// - the model ID of a specific model
 	// - an Obot default model alias in the form "obot://<alias>"
+	// - a wildcard suffix pattern in the form "<prefix>*" (e.g. "claude-haiku-4-5*"), which selects
+	//   every current and future model, from any provider, whose provider-native target model
+	//   starts with <prefix> (case-sensitive)
 	//
 	// When a model ID is provided, it must match the ID field of an existing referenced model.
 	ID string `json:"id"`
@@ -81,6 +84,12 @@ func (m ModelResource) Validate() error {
 		if DefaultModelAliasTypeFromString(alias) == DefaultModelAliasTypeUnknown {
 			return fmt.Errorf("unknown model alias type reference: %s", alias)
 		}
+		return nil
+	}
+	if prefix, isWildcardSuffix := m.IsWildcardSuffix(); strings.Contains(m.ID, "*") && !m.IsWildcard() && !isWildcardSuffix {
+		return fmt.Errorf("wildcard (*) is only allowed as the sole entry %q or as a trailing wildcard suffix (e.g. %q): %s", "*", "claude-haiku-4-5*", m.ID)
+	} else if isWildcardSuffix && prefix != strings.TrimSpace(prefix) {
+		return fmt.Errorf("wildcard suffix pattern prefix must not begin or end with whitespace: %q", m.ID)
 	}
 	return nil
 }
@@ -93,6 +102,26 @@ func (m ModelResource) IsWildcard() bool {
 // IsModelAlias returns true if the given model references a DefaultModelAlias.
 func (m ModelResource) IsDefaultModelAliasRef() (string, bool) {
 	return strings.CutPrefix(m.ID, DefaultModelAliasRefPrefix)
+}
+
+// IsWildcardSuffix returns the pattern's prefix and true if this model resource
+// is a wildcard suffix pattern; e.g. "claude-haiku-4-5*". A pattern consists of
+// a non-empty prefix followed by a single trailing '*'. The bare wildcard "*"
+// is not a pattern (see IsWildcard).
+func (m ModelResource) IsWildcardSuffix() (string, bool) {
+	prefix, ok := strings.CutSuffix(m.ID, "*")
+	if !ok || prefix == "" || strings.Contains(prefix, "*") {
+		return "", false
+	}
+	return prefix, true
+}
+
+// MatchesTargetModel returns true if this model resource is a wildcard suffix
+// pattern whose prefix matches the given provider-native target model
+// (case-sensitive).
+func (m ModelResource) MatchesTargetModel(targetModel string) bool {
+	prefix, ok := m.IsWildcardSuffix()
+	return ok && strings.HasPrefix(targetModel, prefix)
 }
 
 type ModelAccessPolicyList List[ModelAccessPolicy]

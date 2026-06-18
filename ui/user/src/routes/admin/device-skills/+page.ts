@@ -24,7 +24,7 @@ export const load: PageLoad = async ({ url, fetch }) => {
 		? getSortOrder(url.searchParams.get('sortDirection'))
 		: DEFAULT_SORT_ORDER;
 
-	let skills: DeviceSkillStatResponse = { items: [], total: 0, limit: PAGE_SIZE, offset };
+	let skills: DeviceSkillStatResponse;
 	try {
 		skills = await AdminService.listDeviceSkills(
 			{ limit: PAGE_SIZE, offset, name: name || undefined, sortBy, sortOrder },

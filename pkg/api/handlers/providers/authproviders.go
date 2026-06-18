@@ -6,7 +6,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
-func AuthProviderStatus(authProvider v1.AuthProvider, cred map[string]string, licenseProvider *license.KeygenProvider) (*types.AuthProviderStatus, error) {
+func AuthProviderStatus(authProvider v1.AuthProvider, cred map[string]string, licenseProvider *license.Provider) (*types.AuthProviderStatus, error) {
 	var missingEnvVars []string
 
 	if cred != nil {

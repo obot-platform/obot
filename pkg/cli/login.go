@@ -1,20 +1,23 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 
 	"github.com/obot-platform/obot/apiclient"
+	"github.com/obot-platform/obot/pkg/cli/internal"
 	"github.com/obot-platform/obot/pkg/cli/internal/localconfig"
 	"github.com/spf13/cobra"
 )
 
 type Login struct {
+	PromptConfig
 	TokenName        string   `usage:"Name of the token for identification" default:"CLI token"`
 	TokenDescription string   `usage:"Optional description of the token"`
 	NoExpiration     bool     `usage:"Set the token to never expire"`
 	ForceRefresh     bool     `usage:"Force refresh the token even if a valid one is cached"`
-	Scopes           []string `usage:"Scopes to request for this token, valid values are llm, api, all-mcp, skills" name:"scope" default:"api"`
+	Scopes           []string `usage:"Scopes to request for this token, valid scopes are llm, skills, device-scans, all-mcp" name:"scope" default:"llm,skills,device-scans"`
 	PrintToken       bool     `usage:"Print the token to stdout after logging in"`
 	URL              string   `usage:"Obot app URL to authenticate against"`
 	root             *Obot
@@ -43,11 +46,33 @@ func (l *Login) Run(cmd *cobra.Command, _ []string) error {
 		Scopes:       l.Scopes,
 	})
 	if err != nil {
+		if l.root.Client.Token != "" {
+			return fmt.Errorf("unable to validate provided %s: %w", internal.TokenEnvVar, err)
+		}
 		return err
 	}
-	fmt.Fprintf(os.Stderr, "Logged in to %s\n", l.root.Client.BaseURL)
+	fmt.Fprintln(os.Stderr, "Logged in to", l.root.Client.BaseURL)
 	if l.PrintToken {
 		fmt.Println(token)
 	}
+	return nil
+}
+
+// PromptConfig contains shared local options for commands that may require interactive input from users.
+// e.g. Any command that performs just-in-time authentication for unauthenticated users.
+type PromptConfig struct {
+	NonInteractive bool `usage:"Never read from stdin; fail if required input is missing" env:"OBOT_NON_INTERACTIVE" local:"true"`
+}
+
+func (p PromptConfig) Pre(cmd *cobra.Command, _ []string) error {
+	ctx := cmd.Context()
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if p.NonInteractive {
+		ctx = internal.WithNonInteractive(ctx)
+	}
+	cmd.SetContext(ctx)
+
 	return nil
 }

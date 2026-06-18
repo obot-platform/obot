@@ -8050,7 +8050,7 @@ func schema_obot_platform_obot_apiclient_types_ModelResource(ref common.Referenc
 				Properties: map[string]spec.Schema{
 					"id": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ID is the unique identifier of the model resource. It either be: - the wildcard '*', which selects all available models - the model ID of a specific model - an Obot default model alias in the form \"obot://<alias>\"\n\nWhen a model ID is provided, it must match the ID field of an existing referenced model.",
+							Description: "ID is the unique identifier of the model resource. It either be: - the wildcard '*', which selects all available models - the model ID of a specific model - an Obot default model alias in the form \"obot://<alias>\" - a wildcard suffix pattern in the form \"<prefix>*\" (e.g. \"claude-haiku-4-5*\"), which selects\n  every current and future model, from any provider, whose provider-native target model\n  starts with <prefix> (case-sensitive)\n\nWhen a model ID is provided, it must match the ID field of an existing referenced model.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
@@ -14631,6 +14631,13 @@ func schema_storage_apis_obotobotai_v1_MCPServerStatus(ref common.ReferenceCallb
 							Ref:         ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthMetadata"),
 						},
 					},
+					"userHasAuthenticated": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UserHasAuthenticated indicates whether the user has authenticated with the third-party OAuth provider.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 					"lastOAuthMetadataSync": {
 						SchemaProps: spec.SchemaProps{
 							Description: "LastOAuthMetadataSync is the time of the last OAuth metadata sync attempt.",
@@ -15789,8 +15796,50 @@ func schema_storage_apis_obotobotai_v1_OAuthAuthRequestSpec(ref common.Reference
 							Format:  "",
 						},
 					},
+					"consentPrepared": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"consentMCPAuthRequired": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"consentMCPAuthURL": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"userHasSecondLevelOAuthed": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"consentMCPServerName": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"consentMCPServerURL": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 				},
-				Required: []string{"redirectURI", "state", "clientID", "codeChallenge", "scope", "codeChallengeMethod", "grantType", "resource", "hashedAuthCode", "userID", "mcpID", "authProviderUserID", "authProviderNamespace", "authProviderName"},
+				Required: []string{"redirectURI", "state", "clientID", "codeChallenge", "scope", "codeChallengeMethod", "grantType", "resource", "hashedAuthCode", "userID", "mcpID", "authProviderUserID", "authProviderNamespace", "authProviderName", "consentPrepared", "consentMCPAuthRequired", "consentMCPAuthURL", "userHasSecondLevelOAuthed", "consentMCPServerName", "consentMCPServerURL"},
 			},
 		},
 	}

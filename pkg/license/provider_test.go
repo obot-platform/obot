@@ -57,7 +57,7 @@ func TestRequireEntitlement(t *testing.T) {
 	defer cancel()
 
 	provider, err := NewProvider(ctx, nil, Config{
-		KeygenLicenseKey: "license-key",
+		LicenseKey: "license-key",
 	})
 	if err != nil {
 		t.Fatalf("expected provider to be created: %v", err)
@@ -98,7 +98,7 @@ func TestRequireEntitlementMissing(t *testing.T) {
 	defer cancel()
 
 	provider, err := NewProvider(ctx, nil, Config{
-		KeygenLicenseKey: "license-key",
+		LicenseKey: "license-key",
 	})
 	if err != nil {
 		t.Fatalf("expected provider to be created: %v", err)
@@ -163,7 +163,7 @@ func TestNewProviderActivatesLicenseOnNoMachine(t *testing.T) {
 	defer cancel()
 
 	provider, err := NewProvider(ctx, nil, Config{
-		KeygenLicenseKey: "license-key",
+		LicenseKey: "license-key",
 	})
 	if err != nil {
 		t.Fatalf("expected provider to be created: %v", err)
@@ -207,7 +207,7 @@ func TestUpdateRefreshesEntitlements(t *testing.T) {
 	defer cancel()
 
 	provider, err := NewProvider(ctx, nil, Config{
-		KeygenLicenseKey: "license-key",
+		LicenseKey: "license-key",
 	})
 	if err != nil {
 		t.Fatalf("expected provider to be created: %v", err)
@@ -253,7 +253,7 @@ func TestUpdateClearsEntitlementsWhenLicenseInvalid(t *testing.T) {
 	defer cancel()
 
 	provider, err := NewProvider(ctx, nil, Config{
-		KeygenLicenseKey: "license-key",
+		LicenseKey: "license-key",
 	})
 	if err != nil {
 		t.Fatalf("expected provider to be created: %v", err)

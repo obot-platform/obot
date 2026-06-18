@@ -157,8 +157,12 @@ config:
   OBOT_SERVER_MCPHTTPWEBHOOK_BASE_IMAGE: ""
   # config.OBOT_SERVER_MCPCLUSTER_DOMAIN -- The cluster domain to use for MCP services. Defaults to cluster.local. Only matters if the above image is set.
   OBOT_SERVER_MCPCLUSTER_DOMAIN: ""
-  # config.OBOT_SERVER_DISALLOW_LOCALHOST_MCP -- disallow MCP servers that try to connect to localhost. Defaults to false.
+  # config.OBOT_SERVER_DISALLOW_LOCALHOST_MCP -- Disallow MCP servers that try to connect to localhost. Defaults to true.
   OBOT_SERVER_DISALLOW_LOCALHOST_MCP: ""
+  # config.OBOT_SERVER_DISALLOW_PRIVATE_IP_MCP -- Disallow MCP servers that resolve to private IP addresses. Defaults to true.
+  OBOT_SERVER_DISALLOW_PRIVATE_IP_MCP: ""
+  # config.OBOT_SERVER_DISALLOW_LINK_LOCAL_MCP -- Disallow MCP servers that resolve to link-local addresses. Defaults to true.
+  OBOT_SERVER_DISALLOW_LINK_LOCAL_MCP: ""
   # config.OBOT_SERVER_MCPRUNTIME_BACKEND -- The runtime backend to use for MCP servers. Can be 'docker' or 'kubernetes'. Defaults to 'docker'. Setting this to 'kubernetes' will also create the necessary service account, role and rolebinding.
   OBOT_SERVER_MCPRUNTIME_BACKEND: "kubernetes"
 
@@ -217,8 +221,8 @@ config:
   # config.OBOT_DEFAULT_SKILL_REPO_REF -- The ref (branch, tag, or commit SHA) for the default skill repository. If empty, the repository's default branch is used. Only used on first-time setup.
   # OBOT_DEFAULT_SKILL_REPO_REF: ""
 
-  # config.OBOT_SERVER_KEYGEN_LICENSE_KEY -- A license key for Obot Enterprise. If set here, it cannot be set in the UI.
-  OBOT_SERVER_KEYGEN_LICENSE_KEY: ""
+  # config.OBOT_SERVER_LICENSE_KEY -- A license key for Obot Enterprise. If set here, it cannot be set in the UI.
+  OBOT_SERVER_LICENSE_KEY: ""
 
 # resources -- Resource requests and limits to use for Obot
 resources: {}

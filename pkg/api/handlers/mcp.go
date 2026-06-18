@@ -13,6 +13,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	nahbackend "github.com/obot-platform/nah/pkg/backend"
 	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
@@ -46,6 +47,7 @@ type MCPHandler struct {
 	mcpSessionManager   *mcp.SessionManager
 	mcpOAuthChecker     MCPOAuthChecker
 	acrHelper           *accesscontrolrule.Helper
+	controllerBackend   nahbackend.Trigger
 	mcpImagePullSecrets []string
 	serverURL           string
 
@@ -53,13 +55,20 @@ type MCPHandler struct {
 	shutdownMCPServer func(string) error
 }
 
-func NewMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.Helper, mcpOAuthChecker MCPOAuthChecker, mcpImagePullSecrets []string, serverURL string) *MCPHandler {
+func NewMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.Helper, mcpOAuthChecker MCPOAuthChecker, controllerBackend nahbackend.Trigger, mcpImagePullSecrets []string, serverURL string) *MCPHandler {
 	return &MCPHandler{
 		mcpSessionManager:   mcpLoader,
 		mcpOAuthChecker:     mcpOAuthChecker,
 		acrHelper:           acrHelper,
+		controllerBackend:   controllerBackend,
 		mcpImagePullSecrets: mcpImagePullSecrets,
 		serverURL:           serverURL,
+	}
+}
+
+func validationOptions(remoteValidationConfig mcp.RemoteMCPURLValidationConfig) validation.Options {
+	return validation.Options{
+		RemoteMCPURLValidationConfig: remoteValidationConfig,
 	}
 }
 
@@ -1796,7 +1805,7 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 		return types.NewErrBadRequest("catalogEntryID is required")
 	}
 
-	if err := validation.ValidateServerManifest(server.Spec.Manifest, !server.Spec.IsSingleUser()); err != nil {
+	if err := validation.ValidateServerManifest(req.Context(), server.Spec.Manifest, !server.Spec.IsSingleUser(), validationOptions(m.mcpSessionManager.RemoteMCPURLValidationConfig())); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 	if err := validation.ValidateSecretBindings(server.Spec.Manifest, gitManagedEntry, m.mcpSessionManager.MCPRuntimeBackend()); err != nil {
@@ -1898,7 +1907,7 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 		return err
 	}
 
-	if err := validation.ValidateServerManifest(updated, !existing.Spec.IsSingleUser()); err != nil {
+	if err := validation.ValidateServerManifest(req.Context(), updated, !existing.Spec.IsSingleUser(), validationOptions(m.mcpSessionManager.RemoteMCPURLValidationConfig())); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 
@@ -2044,7 +2053,7 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 			}
 			mcpServer.Spec.Manifest.RemoteConfig.URL = finalURL
 
-			if err := validation.ValidateServerManifest(mcpServer.Spec.Manifest, !mcpServer.Spec.IsSingleUser()); err != nil {
+			if err := validation.ValidateServerManifest(req.Context(), mcpServer.Spec.Manifest, !mcpServer.Spec.IsSingleUser(), validationOptions(m.mcpSessionManager.RemoteMCPURLValidationConfig())); err != nil {
 				return types.NewErrBadRequest("validation failed: %v", err)
 			}
 
@@ -2078,7 +2087,7 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 	}); err != nil {
 		return fmt.Errorf("failed to create credential: %w", err)
 	}
-	if err := kickMCPServerControllers(req, &mcpServer); err != nil {
+	if err := m.triggerMCPServerControllers(req.Context(), mcpServer.Name); err != nil {
 		return fmt.Errorf("failed to trigger MCP server reconciliation: %w", err)
 	}
 
@@ -2201,7 +2210,7 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 				if remoteConfig.URL != originalURL {
 					// Capture and validate the changes
 					component.Manifest.RemoteConfig = remoteConfig
-					if err := validation.ValidateServerManifest(component.Manifest, false); err != nil {
+					if err := validation.ValidateServerManifest(req.Context(), component.Manifest, false, validationOptions(m.mcpSessionManager.RemoteMCPURLValidationConfig())); err != nil {
 						return fmt.Errorf("failed to validate server manifest %w", err)
 					}
 
@@ -2258,7 +2267,7 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 	}
 	for id := range componentCreds {
 		if server, ok := existingServers[id]; ok {
-			if err := kickMCPServerControllers(req, &server); err != nil {
+			if err := m.triggerMCPServerControllers(req.Context(), server.Name); err != nil {
 				return fmt.Errorf("failed to trigger component MCP server reconciliation: %w", err)
 			}
 		}
@@ -2297,17 +2306,11 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 	return req.Write(ConvertMCPServer(compositeServer, mergedEnv, m.serverURL, slug, components...))
 }
 
-func kickMCPServerControllers(req api.Context, server *v1.MCPServer) error {
-	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		if err := req.Get(server, server.Name); err != nil {
-			return err
-		}
-		if server.Annotations == nil {
-			server.Annotations = make(map[string]string, 1)
-		}
-		server.Annotations["obot.obot.ai/configured-at"] = metav1.Now().Format(time.RFC3339)
-		return req.Update(server)
-	})
+func (m *MCPHandler) triggerMCPServerControllers(ctx context.Context, serverName string) error {
+	if m.controllerBackend == nil {
+		return fmt.Errorf("MCP server controller backend is not configured")
+	}
+	return m.controllerBackend.Trigger(ctx, v1.SchemeGroupVersion.WithKind("MCPServer"), serverName, 0)
 }
 
 func sanitizeConfig(config map[string]string, manifest types.MCPServerManifest) {
@@ -3227,6 +3230,10 @@ func (m *MCPHandler) ClearOAuthCredentials(req api.Context) error {
 		}
 	}
 
+	if err := m.triggerMCPServerControllers(req.Context(), server.Name); err != nil {
+		return fmt.Errorf("failed to trigger MCP server reconciliation: %w", err)
+	}
+
 	req.WriteHeader(http.StatusNoContent)
 	return nil
 }
@@ -3512,35 +3519,14 @@ func (m *MCPHandler) RedeployWithK8sSettings(req api.Context) error {
 			}
 			return fmt.Errorf("failed to redeploy server: %w", err)
 		}
-	}
 
-	if server.Status.NeedsK8sUpdate || hashDrift {
-		// Clear the NeedsK8sUpdate flag now that the redeployment has been initiated.
-		// Also update the K8sSettingsHash to the current expected hash so that the
-		// deployment handler won't re-set NeedsK8sUpdate when it observes the old
-		// deployment before the new one is created.
-		//
-		// Use retry.RetryOnConflict because the RestartServerDeployment call above
-		// can trigger controller-side status updates (e.g. UpdateMCPServerStatus)
-		// that race with this write and bump the ResourceVersion.
-		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			var latest v1.MCPServer
-			if err := req.Storage.Get(req.Context(), kclient.ObjectKey{
-				Namespace: req.Namespace(),
-				Name:      server.Name,
-			}, &latest); err != nil {
-				return err
-			}
-			latest.Status.NeedsK8sUpdate = false
-			latest.Status.K8sSettingsHash = currentHash
-			if err := req.Storage.Status().Update(req.Context(), &latest); err != nil {
-				return err
-			}
-			// Refresh server so the API response reflects the updated status.
-			server = latest
-			return nil
-		}); err != nil {
-			return fmt.Errorf("failed to update server status: %w", err)
+		// Wait for the redeployment to complete
+		_, err := wait.For(req.Context(), req.Storage, &server, func(s *v1.MCPServer) (bool, error) {
+			server = *s
+			return !s.Status.NeedsK8sUpdate, nil
+		})
+		if err != nil {
+			return fmt.Errorf("failed to wait for redeployment: %w", err)
 		}
 	}
 
@@ -3826,7 +3812,7 @@ func (m *MCPHandler) UpdateURL(req api.Context) error {
 	mcpServer.Spec.NeedsURL = false
 	mcpServer.Spec.PreviousURL = ""
 
-	if err := validation.ValidateServerManifest(mcpServer.Spec.Manifest, !mcpServer.Spec.IsSingleUser()); err != nil {
+	if err := validation.ValidateServerManifest(req.Context(), mcpServer.Spec.Manifest, !mcpServer.Spec.IsSingleUser(), validationOptions(m.mcpSessionManager.RemoteMCPURLValidationConfig())); err != nil {
 		return err
 	}
 

@@ -12,6 +12,7 @@ import (
 	mcpcataloghandler "github.com/obot-platform/obot/pkg/controller/handlers/mcpcatalog"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/validation"
@@ -21,10 +22,14 @@ import (
 
 type SystemMCPCatalogHandler struct {
 	defaultCatalogPath string
+	sessionManager     *mcp.SessionManager
 }
 
-func NewSystemMCPCatalogHandler(defaultCatalogPath string) *SystemMCPCatalogHandler {
-	return &SystemMCPCatalogHandler{defaultCatalogPath: defaultCatalogPath}
+func NewSystemMCPCatalogHandler(defaultCatalogPath string, sessionManager *mcp.SessionManager) *SystemMCPCatalogHandler {
+	return &SystemMCPCatalogHandler{
+		defaultCatalogPath: defaultCatalogPath,
+		sessionManager:     sessionManager,
+	}
 }
 
 func (*SystemMCPCatalogHandler) List(req api.Context) error {
@@ -168,7 +173,7 @@ func (*SystemMCPCatalogHandler) GetEntry(req api.Context) error {
 	return req.Write(ConvertSystemMCPServerCatalogEntry(*entry))
 }
 
-func (*SystemMCPCatalogHandler) CreateEntry(req api.Context) error {
+func (h *SystemMCPCatalogHandler) CreateEntry(req api.Context) error {
 	catalogName := req.PathValue("catalog_id")
 	if err := req.Get(&v1.SystemMCPCatalog{}, catalogName); err != nil {
 		return fmt.Errorf("failed to get system catalog: %w", err)
@@ -178,7 +183,7 @@ func (*SystemMCPCatalogHandler) CreateEntry(req api.Context) error {
 	if err := req.Read(&manifest); err != nil {
 		return types.NewErrBadRequest("failed to read entry manifest: %v", err)
 	}
-	if err := validation.ValidateSystemMCPServerCatalogEntryManifest(manifest); err != nil {
+	if err := validation.ValidateSystemMCPServerCatalogEntryManifest(req.Context(), manifest, validationOptions(h.sessionManager.RemoteMCPURLValidationConfig())); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
 
@@ -199,7 +204,7 @@ func (*SystemMCPCatalogHandler) CreateEntry(req api.Context) error {
 	return req.Write(ConvertSystemMCPServerCatalogEntry(entry))
 }
 
-func (*SystemMCPCatalogHandler) UpdateEntry(req api.Context) error {
+func (h *SystemMCPCatalogHandler) UpdateEntry(req api.Context) error {
 	entry, err := getSystemCatalogEntry(req)
 	if err != nil {
 		return err
@@ -212,7 +217,7 @@ func (*SystemMCPCatalogHandler) UpdateEntry(req api.Context) error {
 	if err := req.Read(&manifest); err != nil {
 		return types.NewErrBadRequest("failed to read entry manifest: %v", err)
 	}
-	if err := validation.ValidateSystemMCPServerCatalogEntryManifest(manifest); err != nil {
+	if err := validation.ValidateSystemMCPServerCatalogEntryManifest(req.Context(), manifest, validationOptions(h.sessionManager.RemoteMCPURLValidationConfig())); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
 	manifest.ToolPreview = entry.Spec.Manifest.ToolPreview

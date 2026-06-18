@@ -21,6 +21,7 @@ import (
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/validation"
@@ -62,11 +63,12 @@ const (
 )
 
 type Handler struct {
-	defaultCatalogPath       string
-	defaultSystemCatalogPath string
-	gatewayClient            *gclient.Client
-	accessControlRuleHelper  *accesscontrolrule.Helper
-	mcpBackend               string
+	defaultCatalogPath        string
+	defaultSystemCatalogPath  string
+	gatewayClient             *gclient.Client
+	accessControlRuleHelper   *accesscontrolrule.Helper
+	remoteURLValidationConfig validation.Options
+	mcpBackend                string
 }
 
 // revealCatalogCredential retrieves a stored PAT for the given source URL.
@@ -86,13 +88,16 @@ func (h *Handler) revealCatalogCredential(ctx context.Context, catalogName, sour
 	return cred.Secrets[sourceURL]
 }
 
-func New(defaultCatalogPath, defaultSystemCatalogPath string, gatewayClient *gclient.Client, accessControlRuleHelper *accesscontrolrule.Helper, mcpBackend string) *Handler {
+func New(defaultCatalogPath, defaultSystemCatalogPath string, gatewayClient *gclient.Client, accessControlRuleHelper *accesscontrolrule.Helper, mcpSessionManager *mcp.SessionManager) *Handler {
 	return &Handler{
 		defaultCatalogPath:       defaultCatalogPath,
 		defaultSystemCatalogPath: defaultSystemCatalogPath,
 		gatewayClient:            gatewayClient,
 		accessControlRuleHelper:  accessControlRuleHelper,
-		mcpBackend:               mcpBackend,
+		remoteURLValidationConfig: validation.Options{
+			RemoteMCPURLValidationConfig: mcpSessionManager.RemoteMCPURLValidationConfig(),
+		},
+		mcpBackend: mcpSessionManager.MCPRuntimeBackend(),
 	}
 }
 
@@ -278,7 +283,7 @@ func (h *Handler) readSystemMCPCatalog(ctx context.Context, catalogName, sourceU
 		mcpManifest := systemCatalogEntryManifestToMCP(entry)
 		sanitizeCatalogEntryManifest(&mcpManifest)
 		entry = mcpCatalogEntryManifestToSystem(mcpManifest, entry.SystemMCPServerType, entry.FilterConfig)
-		if err := validation.ValidateSystemMCPServerCatalogEntryManifest(entry); err != nil {
+		if err := validation.ValidateSystemMCPServerCatalogEntryManifest(ctx, entry, validation.Options{}); err != nil {
 			errs = append(errs, fmt.Errorf("failed to validate system catalog entry %s: %w", entry.Name, err))
 			continue
 		}
@@ -436,7 +441,7 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 
 		sanitizeCatalogEntryManifest(&entry)
 
-		if err := validation.ValidateCatalogEntryManifest(entry); err != nil {
+		if err := validation.ValidateCatalogEntryManifest(ctx, entry, h.remoteURLValidationConfig); err != nil {
 			errs = append(errs, fmt.Errorf("failed to validate catalog entry %s: %w", entry.Name, err))
 			continue
 		}

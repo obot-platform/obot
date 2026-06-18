@@ -45,20 +45,26 @@ func (in *OAuthAuthRequest) DeleteRefs() []Ref {
 }
 
 type OAuthAuthRequestSpec struct {
-	RedirectURI           string `json:"redirectURI"`
-	State                 string `json:"state"`
-	ClientID              string `json:"clientID"`
-	CodeChallenge         string `json:"codeChallenge"`
-	Scope                 string `json:"scope"`
-	CodeChallengeMethod   string `json:"codeChallengeMethod"`
-	GrantType             string `json:"grantType"`
-	Resource              string `json:"resource"`
-	HashedAuthCode        string `json:"hashedAuthCode"`
-	UserID                uint   `json:"userID"`
-	MCPID                 string `json:"mcpID"`
-	AuthProviderUserID    string `json:"authProviderUserID"`
-	AuthProviderNamespace string `json:"authProviderNamespace"`
-	AuthProviderName      string `json:"authProviderName"`
+	RedirectURI               string `json:"redirectURI"`
+	State                     string `json:"state"`
+	ClientID                  string `json:"clientID"`
+	CodeChallenge             string `json:"codeChallenge"`
+	Scope                     string `json:"scope"`
+	CodeChallengeMethod       string `json:"codeChallengeMethod"`
+	GrantType                 string `json:"grantType"`
+	Resource                  string `json:"resource"`
+	HashedAuthCode            string `json:"hashedAuthCode"`
+	UserID                    uint   `json:"userID"`
+	MCPID                     string `json:"mcpID"`
+	AuthProviderUserID        string `json:"authProviderUserID"`
+	AuthProviderNamespace     string `json:"authProviderNamespace"`
+	AuthProviderName          string `json:"authProviderName"`
+	ConsentPrepared           bool   `json:"consentPrepared"`
+	ConsentMCPAuthRequired    bool   `json:"consentMCPAuthRequired"`
+	ConsentMCPAuthURL         string `json:"consentMCPAuthURL"`
+	UserHasSecondLevelOAuthed bool   `json:"userHasSecondLevelOAuthed"`
+	ConsentMCPServerName      string `json:"consentMCPServerName"`
+	ConsentMCPServerURL       string `json:"consentMCPServerURL"`
 }
 
 type OAuthAuthRequestStatus struct {

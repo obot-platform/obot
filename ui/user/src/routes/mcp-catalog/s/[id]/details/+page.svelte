@@ -44,6 +44,7 @@
 						id={serverScopeID}
 						entity={serverScopeEntity}
 						mcpServerId={mcpServer.id}
+						{mcpServer}
 						name={mcpServer.manifest.name || ''}
 						connectedUsers={(instances ?? []).map((instance) => {
 							const user = usersMap.get(instance.userID)!;

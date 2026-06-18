@@ -73,7 +73,7 @@ func (m *MCPWebhookValidationHandler) Create(req api.Context) error {
 		return err
 	}
 
-	if err := validateManifest(&manifest); err != nil {
+	if err := validateManifest(req.Context(), &manifest, validationOptions(m.mcpSessionManager.RemoteMCPURLValidationConfig())); err != nil {
 		return types.NewErrBadRequest("invalid manifest: %v", err)
 	}
 
@@ -128,7 +128,7 @@ func (m *MCPWebhookValidationHandler) Update(req api.Context) error {
 		return err
 	}
 
-	if err := validateManifest(&manifest); err != nil {
+	if err := validateManifest(req.Context(), &manifest, validationOptions(m.mcpSessionManager.RemoteMCPURLValidationConfig())); err != nil {
 		return types.NewErrBadRequest("invalid manifest: %v", err)
 	}
 
@@ -196,7 +196,7 @@ func (m *MCPWebhookValidationHandler) Configure(req api.Context) error {
 		return err
 	}
 
-	if err := applyRemoteURLTemplateToWebhookValidation(&webhookValidation, envVars); err != nil {
+	if err := applyRemoteURLTemplateToWebhookValidation(req.Context(), &webhookValidation, envVars, validationOptions(m.mcpSessionManager.RemoteMCPURLValidationConfig())); err != nil {
 		return err
 	}
 
@@ -464,7 +464,7 @@ func (m *MCPWebhookValidationHandler) resolveManifestFromCatalogEntry(req api.Co
 	}
 
 	serverManifest := systemMCPServerManifestFromCatalogEntry(entry.Spec.Manifest, manifest.Disabled)
-	if err := validation.ValidateSystemMCPServerManifest(serverManifest); err != nil {
+	if err := validation.ValidateSystemMCPServerManifest(req.Context(), serverManifest, validationOptions(m.mcpSessionManager.RemoteMCPURLValidationConfig())); err != nil {
 		return types.NewErrBadRequest("invalid system MCP server catalog entry manifest: %v", err)
 	}
 
@@ -503,7 +503,7 @@ func systemMCPServerManifestFromCatalogEntry(entry types.SystemMCPServerCatalogE
 	return manifest
 }
 
-func applyRemoteURLTemplateToWebhookValidation(webhookValidation *v1.MCPWebhookValidation, envVars map[string]string) error {
+func applyRemoteURLTemplateToWebhookValidation(ctx context.Context, webhookValidation *v1.MCPWebhookValidation, envVars map[string]string, options validation.Options) error {
 	manifest := webhookValidation.Spec.Manifest.SystemMCPServerManifest
 	if manifest == nil || manifest.Runtime != types.RuntimeRemote || manifest.RemoteConfig == nil || manifest.RemoteConfig.URLTemplate == "" {
 		return nil
@@ -515,14 +515,14 @@ func applyRemoteURLTemplateToWebhookValidation(webhookValidation *v1.MCPWebhookV
 	}
 
 	manifest.RemoteConfig.URL = finalURL
-	if err := validation.ValidateSystemMCPServerManifest(*manifest); err != nil {
+	if err := validation.ValidateSystemMCPServerManifest(ctx, *manifest, options); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 
 	return nil
 }
 
-func validateManifest(m *types.MCPWebhookValidationManifest) error {
+func validateManifest(ctx context.Context, m *types.MCPWebhookValidationManifest, options validation.Options) error {
 	var sources int
 	if m.URL != "" {
 		sources++
@@ -546,7 +546,7 @@ func validateManifest(m *types.MCPWebhookValidationManifest) error {
 		if m.ToolName == "" {
 			return fmt.Errorf("tool name is required when using system MCP server manifest")
 		}
-		if err := validation.ValidateSystemMCPServerManifest(*m.SystemMCPServerManifest); err != nil {
+		if err := validation.ValidateSystemMCPServerManifest(ctx, *m.SystemMCPServerManifest, options); err != nil {
 			return fmt.Errorf("invalid system MCP server manifest: %w", err)
 		}
 	}

@@ -55,6 +55,8 @@ func (h *Handler) UpdateMCPServerStatus(req router.Request, _ router.Response) e
 		mcpServer.Status.DeploymentReadyReplicas = nil
 		mcpServer.Status.DeploymentReplicas = nil
 		mcpServer.Status.DeploymentConditions = nil
+		mcpServer.Status.K8sSettingsHash = ""
+		mcpServer.Status.NeedsK8sUpdate = false
 
 		return h.storageClient.Status().Update(req.Ctx, &mcpServer)
 	}
@@ -79,6 +81,13 @@ func (h *Handler) UpdateMCPServerStatus(req router.Request, _ router.Response) e
 		return fmt.Errorf("failed to get MCPServer %s: %w", mcpServerName, err)
 	}
 
+	var needsUpdate bool
+
+	if deploymentK8sSettingsHash := deployment.Annotations["obot.ai/k8s-settings-hash"]; deploymentK8sSettingsHash != "" && mcpServer.Status.K8sSettingsHash != deploymentK8sSettingsHash {
+		mcpServer.Status.K8sSettingsHash = deploymentK8sSettingsHash
+		needsUpdate = true
+	}
+
 	// Extract deployment status information
 	deploymentStatus := getDeploymentStatus(deployment)
 	availableReplicas := deployment.Status.AvailableReplicas
@@ -86,11 +95,6 @@ func (h *Handler) UpdateMCPServerStatus(req router.Request, _ router.Response) e
 	replicas := deployment.Spec.Replicas
 	conditions := getDeploymentConditions(deployment)
 
-	// Extract K8s settings hash from deployment annotation (only for Kubernetes runtime)
-	k8sSettingsHash := deployment.Annotations["obot.ai/k8s-settings-hash"]
-
-	// Check if we need to update the MCPServer status
-	var needsUpdate bool
 	if mcpServer.Status.DeploymentStatus != deploymentStatus {
 		mcpServer.Status.DeploymentStatus = deploymentStatus
 		needsUpdate = true
@@ -130,45 +134,12 @@ func (h *Handler) UpdateMCPServerStatus(req router.Request, _ router.Response) e
 
 		currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec, resources, mcpServer.Spec.Manifest.Runtime, mcpServer.Spec.NanobotAgentID != "", imagePullSecretNames)
 
-		shouldSetNeedsK8sUpdate := !mcpServer.Status.NeedsK8sUpdate &&
-			k8sSettingsHash != currentHash &&
-			mcpServer.Status.K8sSettingsHash != currentHash
-
-		// Update K8sSettingsHash from deployment only if:
-		// 1. The MCPServer has no hash yet (empty), OR
-		// 2. The deployment's hash matches the current K8sSettings (deployment is up-to-date)
-		// This prevents overwriting a hash that was set by the API handler during a redeploy
-		// before the deployment has been updated.
-		if k8sSettingsHash != "" {
-			if mcpServer.Status.K8sSettingsHash == "" || k8sSettingsHash == currentHash {
-				if mcpServer.Status.K8sSettingsHash != k8sSettingsHash {
-					mcpServer.Status.K8sSettingsHash = k8sSettingsHash
-					needsUpdate = true
-				}
-			}
-		}
-
-		// Only set NeedsK8sUpdate if:
-		// 1. It's not already set
-		// 2. The deployment has a hash (not initializing)
-		// 3. The deployment's hash doesn't match current K8sSettings
-		// 4. The MCPServer's expected hash also doesn't match current K8sSettings
-		//    (if MCPServer already expects the current hash, a redeploy is pending)
-		if !mcpServer.Status.NeedsK8sUpdate {
-			if shouldSetNeedsK8sUpdate {
-				mcpServer.Status.NeedsK8sUpdate = true
-				needsUpdate = true
-			}
-		}
-	} else {
-		// For non-K8s runtimes, just sync the hash from the deployment annotation
-		if mcpServer.Status.K8sSettingsHash != k8sSettingsHash {
-			mcpServer.Status.K8sSettingsHash = k8sSettingsHash
+		if k8sUpdateNeeded := mcpServer.Status.K8sSettingsHash != currentHash; k8sUpdateNeeded != mcpServer.Status.NeedsK8sUpdate {
+			mcpServer.Status.NeedsK8sUpdate = k8sUpdateNeeded
 			needsUpdate = true
 		}
 	}
 
-	// Update the MCPServer status if needed
 	if needsUpdate {
 		return h.storageClient.Status().Update(req.Ctx, &mcpServer)
 	}

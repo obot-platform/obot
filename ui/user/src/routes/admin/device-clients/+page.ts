@@ -29,13 +29,8 @@ export const load: PageLoad = async ({ fetch, url }) => {
 	const sortOrder = hasValidSortProperty
 		? getSortOrder(url.searchParams.get('sortDirection'))
 		: DEFAULT_SORT_ORDER;
-	let clients: DeviceClientFleetSummaryResponse = {
-		items: [],
-		total: 0,
-		limit,
-		offset
-	};
-	let users: OrgUser[] = [];
+	let clients: DeviceClientFleetSummaryResponse;
+	let users: OrgUser[];
 	try {
 		[clients, users] = await Promise.all([
 			AdminService.listDeviceClients({ limit, offset, name, sortBy, sortOrder }, { fetch }),

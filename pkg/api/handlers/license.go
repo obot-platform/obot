@@ -10,7 +10,7 @@ import (
 )
 
 type LicenseHandler struct {
-	licenseProvider *license.KeygenProvider
+	licenseProvider *license.Provider
 }
 
 type LicenseStatus struct {
@@ -30,7 +30,7 @@ const (
 	licenseKeyVisibleSuffix = 8
 )
 
-func NewLicenseHandler(licenseProvider *license.KeygenProvider) *LicenseHandler {
+func NewLicenseHandler(licenseProvider *license.Provider) *LicenseHandler {
 	return &LicenseHandler{licenseProvider: licenseProvider}
 }
 

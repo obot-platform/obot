@@ -2,18 +2,15 @@ package authz
 
 import (
 	"net/http"
-	"slices"
 	"strconv"
 
 	"github.com/obot-platform/nah/pkg/router"
-	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/publishedartifact"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	"k8s.io/apiserver/pkg/authentication/user"
 )
 
-func (a *Authorizer) checkPublishedArtifact(req *http.Request, resources *Resources, u user.Info) (bool, error) {
+func (a *Authorizer) checkPublishedArtifact(req *http.Request, resources *Resources, u User) (bool, error) {
 	if resources.PublishedArtifactID == "" {
 		return true, nil
 	}
@@ -23,7 +20,7 @@ func (a *Authorizer) checkPublishedArtifact(req *http.Request, resources *Resour
 		return false, err
 	}
 
-	isAdmin := slices.Contains(u.GetGroups(), types.GroupAdmin)
+	isAdmin := u.IsAdmin
 	if isAdmin || artifact.Spec.AuthorID == u.GetUID() {
 		resources.Authorizated.PublishedArtifact = &artifact
 		return true, nil

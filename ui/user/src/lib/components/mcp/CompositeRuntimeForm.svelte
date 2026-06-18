@@ -51,6 +51,7 @@
 		readonly,
 		catalogId,
 		id,
+		// eslint-disable-next-line no-useless-assignment -- bindable prop default is read by the parent via two-way binding
 		hasToolNameErrors = $bindable(false)
 	}: Props = $props();
 	let componentEntries = $state<MCPCatalogEntry[]>([]);

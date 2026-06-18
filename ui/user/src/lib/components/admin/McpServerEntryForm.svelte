@@ -14,9 +14,15 @@
 		type MCPServerOAuthCredentialStatus,
 		type AccessControlRule,
 		type MCPCatalogEntry,
+		type MCPServerInstance,
 		type OrgUser
 	} from '$lib/services';
-	import { getMCPDisplayName, getServerTypeLabel, getSource } from '$lib/services/user/mcp';
+	import {
+		getMCPDisplayName,
+		getServerTypeLabel,
+		getSource,
+		isMultiUserServer
+	} from '$lib/services/user/mcp';
 	import { profile } from '$lib/stores';
 	import { success } from '$lib/stores/success';
 	import { goto } from '$lib/url';
@@ -75,6 +81,7 @@
 		excludeViews?: string[];
 		configuredServers?: MCPCatalogServer[];
 		allowMultiUserServerConfigurationEdit?: boolean;
+		connectOnly?: boolean;
 	}
 
 	let {
@@ -91,7 +98,8 @@
 		limitViews,
 		excludeViews,
 		configuredServers,
-		allowMultiUserServerConfigurationEdit
+		allowMultiUserServerConfigurationEdit,
+		connectOnly
 	}: Props = $props();
 
 	let entry = $state(untrack(() => initialEntry));
@@ -161,6 +169,27 @@
 	let showButtonInlineError = $state(false);
 	let showUpdateExistingDeploymentsConfirm = $state(false);
 
+	let serverInstancesLoading = $state(false);
+	let resolvedConfiguredInstances = $state<MCPServerInstance[]>();
+	let resolvedConfiguredServers = $state<MCPCatalogServer[]>();
+	let showServerInstancesLoading = $derived(
+		serverInstancesLoading ||
+			(selected === 'server-instances' &&
+				!!entry &&
+				!!id &&
+				(!('isCatalogEntry' in entry)
+					? !(entry.catalogEntryID && !isMultiUserServer(entry)) &&
+						resolvedConfiguredInstances === undefined
+					: configuredServers === undefined && resolvedConfiguredServers === undefined))
+	);
+	let numDeploymentsCount = $derived(
+		resolvedConfiguredServers?.length ?? resolvedConfiguredInstances?.length ?? 0
+	);
+	let needsDeploymentsUpdate = $derived(
+		resolvedConfiguredServers?.some((s) => s.needsUpdate || s.needsK8sUpdate) ??
+			resolvedConfiguredInstances?.some((i) => !i.configured)
+	);
+
 	let showRegenerateToolsButton = $derived(
 		entry &&
 			!server &&
@@ -228,6 +257,84 @@
 		} else if (selected === 'filters' && entity !== 'workspace') {
 			// add filters back in for workspace once supported for workspace
 			listFilters = AdminService.listMCPFilters();
+		}
+	});
+
+	$effect(() => {
+		const currentEntry = entry;
+		const currentId = id;
+		if (!belongsToUser || !currentEntry || !currentId) {
+			return;
+		}
+
+		if (!('isCatalogEntry' in currentEntry)) {
+			if (currentEntry.catalogEntryID && !isMultiUserServer(currentEntry)) {
+				resolvedConfiguredInstances = [
+					{
+						id: currentEntry.id,
+						configured: currentEntry.configured,
+						missingRequiredHeaders: currentEntry.missingRequiredHeader,
+						userID: currentEntry.userID,
+						created: currentEntry.created
+					}
+				];
+				resolvedConfiguredServers = undefined;
+				serverInstancesLoading = false;
+				return;
+			}
+
+			let cancelled = false;
+			serverInstancesLoading = true;
+
+			(entity === 'workspace'
+				? UserService.listWorkspaceMcpCatalogServerInstances(currentId, currentEntry.id)
+				: AdminService.listMcpCatalogServerInstances(currentId, currentEntry.id)
+			)
+				.then((response) => {
+					if (!cancelled) {
+						resolvedConfiguredInstances = response;
+					}
+				})
+				.finally(() => {
+					if (!cancelled) {
+						serverInstancesLoading = false;
+					}
+				});
+
+			return () => {
+				cancelled = true;
+			};
+		} else {
+			if (configuredServers !== undefined) {
+				resolvedConfiguredServers = configuredServers.filter(
+					(s) => s.catalogEntryID === currentEntry.id
+				);
+				resolvedConfiguredInstances = undefined;
+				serverInstancesLoading = false;
+				return;
+			}
+
+			let cancelled = false;
+			serverInstancesLoading = true;
+
+			(entity === 'workspace'
+				? UserService.listWorkspaceMCPServersForEntry(currentId, currentEntry.id)
+				: AdminService.listMCPServersForEntry(currentId, currentEntry.id)
+			)
+				.then((response) => {
+					if (!cancelled) {
+						resolvedConfiguredServers = response;
+					}
+				})
+				.finally(() => {
+					if (!cancelled) {
+						serverInstancesLoading = false;
+					}
+				});
+
+			return () => {
+				cancelled = true;
+			};
 		}
 	});
 
@@ -578,6 +685,19 @@
 		}
 	}
 
+	async function reloadConfiguredServers() {
+		if (!id || !entry || !('isCatalogEntry' in entry)) return;
+		serverInstancesLoading = true;
+		try {
+			resolvedConfiguredServers =
+				entity === 'workspace'
+					? await UserService.listWorkspaceMCPServersForEntry(id, entry.id)
+					: await AdminService.listMCPServersForEntry(id, entry.id);
+		} finally {
+			serverInstancesLoading = false;
+		}
+	}
+
 	function handleSubmit(updatedEntry: MCPCatalogEntry | MCPCatalogServer, message?: string) {
 		if (onSubmit) {
 			const isMultiUserEntry =
@@ -591,9 +711,10 @@
 			if ('isCatalogEntry' in updatedEntry && id) {
 				const listInstances =
 					entity === 'workspace'
-						? UserService.getWorkspaceCatalogEntryServers
+						? UserService.listWorkspaceMCPServersForEntry
 						: AdminService.listMCPServersForEntry;
 				listInstances(id, updatedEntry.id).then((response) => {
+					resolvedConfiguredServers = response;
 					if (response.length > 0 && response.some((instance) => instance)) {
 						showUpdateExistingDeploymentsConfirm = true;
 					}
@@ -649,7 +770,7 @@
 					{/if}
 				{/if}
 			</div>
-			{#if belongsToUser && !readonly}
+			{#if belongsToUser && !readonly && !connectOnly}
 				<IconButton
 					variant="danger2"
 					tooltip={{ text: 'Delete Server' }}
@@ -713,10 +834,22 @@
 										selected === tab.view &&
 											'dark:bg-base-200 dark:border-base-400 bg-base-100 shadow-sm',
 										selected !== tab.view && 'hover:bg-base-400',
-										tab.view === 'troubleshooting' && 'flex items-center justify-center gap-1'
+										(tab.view === 'troubleshooting' || tab.view === 'server-instances') &&
+											'flex items-center justify-center gap-1'
 									)}
 								>
-									{tab.label}
+									{#if tab.view === 'server-instances'}
+										{tab.label}
+										{#if needsDeploymentsUpdate}
+											<CircleFadingArrowUp class="size-3 shrink-0 text-primary" />
+										{:else if numDeploymentsCount > 0 && !connectOnly && !(entry && server)}
+											<span class="text-muted-content text-[10px] font-medium"
+												>({numDeploymentsCount})</span
+											>
+										{/if}
+									{:else}
+										{tab.label}
+									{/if}
 								</button>
 							{/each}
 						</div>
@@ -775,7 +908,8 @@
 					</button>
 				{/if}
 				<McpServerTools
-					entry={'isCatalogEntry' in entry && server ? server : entry}
+					{entry}
+					{server}
 					showToolNameIssues={entry.manifest?.runtime === 'composite'}
 				>
 					{#snippet noToolsContent()}
@@ -834,11 +968,14 @@
 				<McpServerInstances
 					{id}
 					{entity}
-					entry={entry && 'isCatalogEntry' in entry && server ? server : entry}
+					{entry}
 					catalogEntry={entry && 'isCatalogEntry' in entry ? entry : undefined}
 					{users}
 					{type}
-					{configuredServers}
+					configuredInstances={resolvedConfiguredInstances}
+					configuredServers={resolvedConfiguredServers}
+					loading={showServerInstancesLoading}
+					onReload={reloadConfiguredServers}
 				/>
 			{/if}
 		{:else if selected === 'filters'}
@@ -898,7 +1035,7 @@
 
 					const isAdminRoute = window.location.pathname.includes('/admin/');
 
-					let url = '';
+					let url: string;
 					if (entity === 'workspace') {
 						url = !isAdminRoute
 							? `/mcp-access-policies/${d.id}`

@@ -12,7 +12,7 @@
 		RecommendedModelProviders
 	} from '$lib/constants';
 	import { HttpError } from '$lib/errors.js';
-	import { AdminService, Role, UserService } from '$lib/services';
+	import { AdminService, UserService } from '$lib/services';
 	import type { AuthProvider } from '$lib/services/admin/types.js';
 	import { errors, license, profile } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte.js';
@@ -77,12 +77,9 @@
 		);
 		if (!configuredAuthProvider) return;
 
-		const users = await UserService.listUsers();
-		const isOwnerExist = users.some((user) => user.role === Role.OWNER);
+		const bootstrapStatus = await UserService.getBootstrapStatus();
+		if (!bootstrapStatus.setupEnabled) return;
 
-		if (isOwnerExist) return;
-
-		// Only proceed if user is bootstrap user (not yet a real owner) and has a configured provider and owner does not exist
 		if (!setupLoading && !setupTempLoginUrl) {
 			configuringAuthProvider = configuredAuthProvider;
 			handleOwnerSetup();
@@ -113,17 +110,23 @@
 		};
 	});
 
+	function getDocumentationUrl(authProviderId?: string) {
+		if (!authProviderId) return undefined;
+		const idRef = {
+			[CommonAuthProviderIds.GOOGLE]: 'google',
+			[CommonAuthProviderIds.GITHUB]: 'github',
+			[CommonAuthProviderIds.OKTA]: 'okta-enterprise-only',
+			[CommonAuthProviderIds.ENTRA]: 'entra-enterprise-only',
+			[CommonAuthProviderIds.AUTH0]: 'auth0-enterprise-only',
+			[CommonAuthProviderIds.JUMPCLOUD]: 'jumpcloud-enterprise-only'
+		};
+		return idRef[authProviderId as keyof typeof idRef]
+			? `https://docs.obot.ai/configuration/auth-providers/#${idRef[authProviderId as keyof typeof idRef]}`
+			: undefined;
+	}
+
 	async function handleOwnerSetup() {
 		if (!configuringAuthProvider || setupLoading) return;
-
-		try {
-			const users = await UserService.listUsers();
-			const isOwnerExist = users.some((user) => user.role === Role.OWNER);
-
-			if (isOwnerExist) return;
-		} catch (err) {
-			errors.append(err);
-		}
 
 		setupLoading = true;
 
@@ -278,6 +281,7 @@
 	readonly={profile.current.isAdminReadonly?.()}
 >
 	{#snippet note()}
+		{@const documentationUrl = getDocumentationUrl(configuringAuthProvider?.id)}
 		{@const callbackUrl = window.location.protocol + '//' + window.location.host + '/'}
 		<div class="notification-info p-3 text-sm font-light">
 			<div class="flex items-center gap-3">
@@ -296,6 +300,16 @@
 				</p>
 			</div>
 		</div>
+		{#if documentationUrl}
+			<div class="notification-info p-3 text-xs font-light">
+				For more details, please review <a
+					class="text-link"
+					href={documentationUrl}
+					rel="external noopener noreferrer"
+					target="_blank">the documentation</a
+				> for configuring this auth provider.
+			</div>
+		{/if}
 	{/snippet}
 </ProviderConfigure>
 

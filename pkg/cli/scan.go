@@ -22,6 +22,7 @@ import (
 )
 
 type Scan struct {
+	PromptConfig
 	DeviceID string `usage:"Override the persisted device identifier. Empty resolves via OBOT_SCAN_DEVICE_ID env var or the file at $XDG_DATA_HOME/obot/device_id (generated on first run)" env:"OBOT_SCAN_DEVICE_ID" hidden:"true"`
 	Submit   bool   `usage:"Submit the scan to the configured Obot server" env:"OBOT_SCAN_SUBMIT"`
 	JSON     bool   `usage:"Print the scan result as JSON"`

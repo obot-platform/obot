@@ -73,6 +73,29 @@ func migratePublishedArtifactVisibility(ctx context.Context, client kclient.Clie
 	return nil
 }
 
+func deleteToolReferenceOwnedModels(ctx context.Context, client kclient.Client) error {
+	var models v1.ModelList
+	if err := client.List(ctx, &models); err != nil {
+		return err
+	}
+
+	for i := range models.Items {
+		model := &models.Items[i]
+		for _, owner := range model.OwnerReferences {
+			if owner.Kind != "ToolReference" {
+				continue
+			}
+
+			if err := kclient.IgnoreNotFound(client.Delete(ctx, model)); err != nil {
+				return fmt.Errorf("failed to delete ToolReference-owned model %s/%s: %w", model.Namespace, model.Name, err)
+			}
+			break
+		}
+	}
+
+	return nil
+}
+
 func migrateMultiUserMCPServerManifestValuesToCredentials(ctx context.Context, client kclient.Client, gatewayClient *gateway.Client) error {
 	var servers v1.MCPServerList
 	if err := client.List(ctx, &servers); err != nil {

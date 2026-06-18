@@ -7,9 +7,8 @@
 		type LicenseEntitlementViolation,
 		type ModelProvider
 	} from '$lib/services';
-	import { version, darkMode, profile } from '$lib/stores';
+	import { version, darkMode } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
-	import { success } from '$lib/stores/success';
 	import { Mail } from 'lucide-svelte';
 	import { slide } from 'svelte/transition';
 
@@ -58,15 +57,7 @@
 				await AdminService.deconfigureAuthProvider(authProvider.name);
 			}
 
-			const modelProviders = await AdminService.listModelProviders();
-			const authProviders = await AdminService.listAuthProviders();
-			adminConfigStore.updateAuthProviders(authProviders);
-			adminConfigStore.updateModelProviders(modelProviders);
-
-			if (profile.current.isBootstrapUser?.()) {
-				window.location.reload();
-			}
-			success.add('Downgrade operation completed successfully.');
+			window.location.reload();
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'An unknown error occurred.';
 		} finally {
@@ -76,7 +67,11 @@
 	}
 </script>
 
-<ResponsiveDialog bind:this={licenseViolationDialog} title="Invalid License" class="md:max-w-md">
+<ResponsiveDialog
+	bind:this={licenseViolationDialog}
+	title="Missing or Invalid License"
+	class="md:max-w-md"
+>
 	<div class="md:p-0 p-4">
 		<div class="flex flex-col gap-4">
 			<p class="font-light">

@@ -118,32 +118,32 @@ func TestSkillRouteAuthorization(t *testing.T) {
 			allowed: false,
 		},
 		{
-			name:   "auditor can access skills list",
+			name:   "auditor with skills scope can access skills list",
 			method: http.MethodGet,
 			path:   "/api/skills",
 			user: &user.DefaultInfo{
 				Name:   "auditor",
-				Groups: []string{types.GroupAuditor, types.GroupAuthenticated},
+				Groups: []string{types.GroupAuditor, types.GroupSkills, types.GroupAuthenticated},
 			},
 			allowed: true,
 		},
 		{
-			name:   "auditor can access skill detail",
+			name:   "auditor with skills scope can access skill detail",
 			method: http.MethodGet,
 			path:   "/api/skills/some-skill-id",
 			user: &user.DefaultInfo{
 				Name:   "auditor",
-				Groups: []string{types.GroupAuditor, types.GroupAuthenticated},
+				Groups: []string{types.GroupAuditor, types.GroupSkills, types.GroupAuthenticated},
 			},
 			allowed: true,
 		},
 		{
-			name:   "auditor can download skill",
+			name:   "auditor with skills scope can download skill",
 			method: http.MethodGet,
 			path:   "/api/skills/some-skill-id/download",
 			user: &user.DefaultInfo{
 				Name:   "auditor",
-				Groups: []string{types.GroupAuditor, types.GroupAuthenticated},
+				Groups: []string{types.GroupAuditor, types.GroupSkills, types.GroupAuthenticated},
 			},
 			allowed: true,
 		},

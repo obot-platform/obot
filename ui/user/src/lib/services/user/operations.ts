@@ -14,11 +14,13 @@ import type {
 	MCPServerOAuthCredentialStatus
 } from '../admin/types';
 import {
+	baseURL,
 	doDelete,
 	doGet,
 	doPatch,
 	doPost,
 	doPut,
+	handleResponse,
 	type Fetcher,
 	type PaginatedResponse
 } from '../http';
@@ -552,20 +554,6 @@ export async function listSingleOrRemoteMcpServerLogs(mcpServerId: string): Prom
 	return response.items ?? [];
 }
 
-export async function listSingleOrRemoteMcpServerTools(id: string): Promise<MCPServerTool[]> {
-	try {
-		const response = (await doGet(`/mcp-servers/${id}/tools`, {
-			dontLogErrors: true
-		})) as ItemsResponse<MCPServerTool>;
-		return response.items ?? [];
-	} catch (error) {
-		if (error instanceof Error && error.message.startsWith('424')) {
-			return [];
-		}
-		throw error;
-	}
-}
-
 export async function listSingleOrRemoteMcpServerPrompts(id: string): Promise<MCPServerPrompt[]> {
 	try {
 		const response = (await doGet(`/mcp-servers/${id}/prompts`, {
@@ -932,18 +920,6 @@ export async function listWorkspaceMCPServersForEntry(
 	return response.items ?? [];
 }
 
-export async function getWorkspaceCatalogEntryServers(
-	workspaceID: string,
-	entryID: string,
-	opts?: { fetch?: Fetcher }
-) {
-	const response = (await doGet(
-		`/workspaces/${workspaceID}/entries/${entryID}/servers`,
-		opts
-	)) as ItemsResponse<MCPCatalogServer>;
-	return response.items ?? [];
-}
-
 export async function getWorkspaceCatalogEntryServer(
 	workspaceID: string,
 	entryID: string,
@@ -994,6 +970,39 @@ export async function checkCompositeOAuth(
 	}
 
 	return Array.isArray(response) ? response : [];
+}
+
+export type OAuthConsent = {
+	authRequestID: string;
+	continueURL: string;
+	cancelURL: string;
+	clientName: string;
+	clientURI?: string;
+	redirectURI: string;
+	scope?: string;
+	policyURI?: string;
+	tosURI?: string;
+	mcpAuthRequired: boolean;
+	userHasSecondLevelOAuthed: boolean;
+	mcpServerName?: string;
+	mcpServerURL?: string;
+	thirdPartyAuthURL?: string;
+};
+
+function oauthRootURL() {
+	return baseURL.replace(/\/api$/, '');
+}
+
+export async function getOAuthConsent(
+	authRequestID: string,
+	opts?: { fetch?: Fetcher; signal?: AbortSignal; dontLogErrors?: boolean }
+): Promise<OAuthConsent> {
+	const path = `/oauth/consent/${authRequestID}`;
+	const f = opts?.fetch || fetch;
+	const response = await f(oauthRootURL() + path, {
+		signal: opts?.signal
+	});
+	return (await handleResponse(response, path, opts)) as OAuthConsent;
 }
 
 export async function getWorkspaceCatalogEntryServerK8sSettingsStatus(

@@ -65,6 +65,7 @@
 		noDataContent?: Snippet;
 		onlyMyServers?: boolean;
 		servers?: MCPCatalogServer[];
+		skipLoadOnMount?: boolean;
 	}
 
 	let {
@@ -82,7 +83,8 @@
 		initSort = { property: 'created', order: 'desc' },
 		noDataContent,
 		onlyMyServers,
-		servers: initialServers
+		servers: initialServers,
+		skipLoadOnMount
 	}: Props = $props();
 
 	const doesSupportK8sUpdates = $derived(version.current.engine === 'kubernetes');
@@ -236,7 +238,9 @@
 	}
 
 	onMount(async () => {
-		await reload(true);
+		if (!skipLoadOnMount) {
+			await reload(true);
+		}
 		// Start checking for progressing servers
 		pollingInterval = setInterval(() => checkAndPoll(), POLL_INTERVAL_MS);
 	});
@@ -402,7 +406,7 @@
 		// Use powerUserWorkspaceID if available, otherwise use the component's workspace id
 		const workspaceId = server.powerUserWorkspaceID || (entity === 'workspace' ? id : undefined);
 
-		let result: unknown | undefined = undefined;
+		let result: unknown;
 
 		try {
 			result = await (workspaceId
@@ -657,7 +661,7 @@
 							{:else if d.needsUpdate}
 								<div
 									use:tooltip={{
-										text: 'This server needs an update. View Diff to see the changes.',
+										text: 'This deployment needs an update. View Diff to see the changes.',
 										classes: ['wrap-break-word', 'w-58']
 									}}
 								>

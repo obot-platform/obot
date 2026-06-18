@@ -23,6 +23,7 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -37,6 +38,7 @@ const oauthMetadataSyncInterval = time.Hour
 type Handler struct {
 	gatewayClient                *gateway.Client
 	mcpSessionManager            *mcp.SessionManager
+	tokenStore                   mcp.GlobalTokenStore
 	networkPolicyProviderEnabled bool
 	defaultDenyAllEgress         bool
 	singleUserIdleShutdownDelay  time.Duration
@@ -54,10 +56,11 @@ func effectiveDenyAllEgress(v *bool, domains []string, defaultWhenEmpty bool) bo
 	return defaultWhenEmpty && len(domains) == 0
 }
 
-func New(gatewayClient *gateway.Client, mcpSessionManager *mcp.SessionManager, networkPolicyProviderEnabled, defaultDenyAllEgress bool, singleUserIdleShutdownDelay, multiUserIdleShutdownDelay, agentIdleShutdownDelay time.Duration, baseURL string, mcpRuntimeBackend string, mcpImagePullSecrets []string) *Handler {
+func New(gatewayClient *gateway.Client, mcpSessionManager *mcp.SessionManager, tokenStore mcp.GlobalTokenStore, networkPolicyProviderEnabled, defaultDenyAllEgress bool, singleUserIdleShutdownDelay, multiUserIdleShutdownDelay, agentIdleShutdownDelay time.Duration, baseURL string, mcpRuntimeBackend string, mcpImagePullSecrets []string) *Handler {
 	return &Handler{
 		gatewayClient:                gatewayClient,
 		mcpSessionManager:            mcpSessionManager,
+		tokenStore:                   tokenStore,
 		networkPolicyProviderEnabled: networkPolicyProviderEnabled,
 		defaultDenyAllEgress:         defaultDenyAllEgress,
 		singleUserIdleShutdownDelay:  singleUserIdleShutdownDelay,
@@ -922,6 +925,12 @@ func (h *Handler) SyncOAuthMetadata(req router.Request, _ router.Response) error
 		return setOAuthMetadata(req, server, new(v1.OAuthMetadata), nil)
 	}
 
+	if err := mcp.ValidateRemoteMCPURL(req.Ctx, server.Spec.Manifest.RemoteConfig.URL, h.mcpSessionManager.RemoteMCPURLValidationConfig()); err != nil {
+		// If the URL doesn't pass validation, then don't do anything so that we sync as soon as the configuration is updated.
+		log.Infof("Remote MCP URL validation failed, not checking OAuth metadata: server=%s error=%v", server.Name, err)
+		return nil
+	}
+
 	if !shouldSyncOAuthMetadata(server, time.Now()) {
 		return nil
 	}
@@ -965,6 +974,25 @@ func (h *Handler) SyncOAuthMetadata(req router.Request, _ router.Response) error
 
 	syncTime := metav1.Now()
 	return setOAuthMetadata(req, server, statusMetadata, &syncTime)
+}
+
+func (h *Handler) SyncThirdPartyAuthStatus(req router.Request, _ router.Response) error {
+	server := req.Object.(*v1.MCPServer)
+	if server.Spec.Manifest.Runtime != types.RuntimeRemote || server.Spec.Manifest.RemoteConfig == nil {
+		return nil
+	}
+
+	token, err := h.gatewayClient.GetMCPOAuthToken(req.Ctx, server.Spec.UserID, server.Name, server.Spec.Manifest.RemoteConfig.URL)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+
+	if hasAuthed := (token != nil && token.AccessToken != ""); server.Status.UserHasAuthenticated != hasAuthed {
+		server.Status.UserHasAuthenticated = hasAuthed
+		return req.Client.Status().Update(req.Ctx, server)
+	}
+
+	return nil
 }
 
 func shouldSyncOAuthMetadata(server *v1.MCPServer, now time.Time) bool {

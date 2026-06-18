@@ -2,16 +2,13 @@ package authz
 
 import (
 	"net/http"
-	"slices"
 
 	"github.com/obot-platform/nah/pkg/router"
-	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	"k8s.io/apiserver/pkg/authentication/user"
 )
 
-func (a *Authorizer) checkNanobotAgent(req *http.Request, resources *Resources, u user.Info) (bool, error) {
+func (a *Authorizer) checkNanobotAgent(req *http.Request, resources *Resources, u User) (bool, error) {
 	if resources.NanobotAgentID == "" {
 		return true, nil
 	}
@@ -34,8 +31,7 @@ func (a *Authorizer) checkNanobotAgent(req *http.Request, resources *Resources, 
 	}
 
 	// If the user has impersonation + admin privileges, allow access to any agent.
-	groups := u.GetGroups()
-	if slices.Contains(groups, types.GroupUserImpersonation) && slices.Contains(groups, types.GroupAdmin) {
+	if u.CanImpersonate && u.IsAdmin {
 		resources.Authorizated.NanobotAgent = &agent
 		return true, nil
 	}
