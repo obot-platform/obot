@@ -84,7 +84,7 @@ func (h *AppNotificationsHandler) Update(req api.Context) error {
 	return req.Write(converted)
 }
 
-// Banner text only supports simple inline formatting (bold, italic, strikethrough, inline code)
+// Banner text only supports simple inline formatting (bold, italic, strikethrough)
 // and HTTP(S) markdown text links; everything else is rejected.
 var disallowedBannerPatterns = []*regexp.Regexp{
 	regexp.MustCompile("```"),                           // fenced code blocks
@@ -158,7 +158,7 @@ func convertAppNotifications(notifications v1.AppNotifications) types.AppNotific
 
 	return types.AppNotifications{
 		Banner:   notifications.Spec.Banner,
-		Updated:  *types.NewTime(updated),
+		Updated:  types.NewTime(updated),
 		Metadata: MetadataFrom(&notifications),
 	}
 }

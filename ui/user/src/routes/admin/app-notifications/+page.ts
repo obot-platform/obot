@@ -4,11 +4,13 @@ import type { AppNotifications } from '$lib/services/user/types';
 import { defaultAppNotifications } from '$lib/stores/appNotifications.svelte';
 import type { PageLoad } from './$types';
 
+let isInitialLoad = true;
 export const load: PageLoad = async ({ fetch, parent }) => {
-	const { profile } = await parent();
+	const { profile, appNotifications: initialAppNotifications } = await parent();
 	let appNotifications: AppNotifications = defaultAppNotifications;
 	try {
-		const response = await UserService.getAppNotifications({ fetch });
+		const response = isInitialLoad ? initialAppNotifications : await UserService.getAppNotifications({ fetch });
+		isInitialLoad = false;
 		appNotifications = {
 			...defaultAppNotifications,
 			...response

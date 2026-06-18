@@ -37,6 +37,18 @@ import {
  * Prefer reusing or extending types from `../user/types` when the same shape exists there.
  */
 
+// App notifications
+
+export interface AppNotificationsManifest {
+	banner: {
+		dismissible?: boolean;
+		type?: BannerType;
+		enabled?: boolean;
+		text?: string;
+		resetDismissed?: boolean;
+	};
+}
+
 // App preferences
 
 export interface AppPreferencesManifest {
@@ -81,18 +93,6 @@ export interface AppPreferencesManifest {
 		darkOnWarningColor?: string;
 		darkOnErrorColor?: string;
 		fontFamily?: string;
-	};
-}
-
-// App notifications
-
-export interface AppNotificationsManifest {
-	banner: {
-		dismissible?: boolean;
-		type?: BannerType;
-		enabled?: boolean;
-		text?: string;
-		resetDismissed?: boolean;
 	};
 }
 

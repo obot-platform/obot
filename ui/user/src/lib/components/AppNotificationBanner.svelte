@@ -17,9 +17,10 @@
 	<div
 		class={twMerge(
 			'w-full py-2 px-4 flex items-center justify-center gap-2',
-			data?.type === 'info'
-				? 'bg-primary/10 text-primary'
-				: 'bg-warning text-warning-content dark:bg-warning/10 dark:text-warning'
+			data?.type === 'warning'
+				? 'bg-warning text-warning-content dark:bg-warning/10 dark:text-warning'
+				:  'bg-primary/10 text-primary'
+				
 		)}
 	>
 		<div class="flex items-center gap-1">
@@ -38,7 +39,7 @@
 				<p
 					class={twMerge(
 						'text-xs font-light',
-						data?.type === 'info' ? 'text-muted-content/50' : 'text-warning-content/50'
+						data?.type === 'warning' ? 'text-warning-content/50' : 'text-muted-content/50'
 					)}
 				>
 					{placeholder}
@@ -49,7 +50,7 @@
 			<button
 				class={twMerge(
 					'btn btn-circle btn-xs w-fit h-fit p-0.5',
-					data?.type === 'info' ? 'btn-primary' : ''
+					data?.type === 'warning' ? '' : 'btn-primary'
 				)}
 				onclick={() => onDismiss?.()}
 				type="button"

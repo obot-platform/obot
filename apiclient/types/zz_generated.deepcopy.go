@@ -114,7 +114,10 @@ func (in *AccessControlRuleManifest) DeepCopy() *AccessControlRuleManifest {
 func (in *AppNotifications) DeepCopyInto(out *AppNotifications) {
 	*out = *in
 	out.Banner = in.Banner
-	in.Updated.DeepCopyInto(&out.Updated)
+	if in.Updated != nil {
+		in, out := &in.Updated, &out.Updated
+		*out = (*in).DeepCopy()
+	}
 	in.Metadata.DeepCopyInto(&out.Metadata)
 }
 

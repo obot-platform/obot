@@ -730,7 +730,6 @@ func schema_obot_platform_obot_apiclient_types_AppNotifications(ref common.Refer
 						},
 					},
 				},
-				Required: []string{"updated"},
 			},
 		},
 		Dependencies: []string{
