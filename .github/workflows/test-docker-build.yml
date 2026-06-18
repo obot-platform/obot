@@ -1,11 +1,6 @@
 name: Test Docker Build
 on:
-  pull_request:
-    branches:
-      - main
-    paths-ignore:
-      - docs/**
-      - chart/**
+  workflow_dispatch:
 
 env:
   PROVIDERS_IMAGE: ghcr.io/accelerate-data/providers-vibedata:latest
