@@ -35,7 +35,45 @@ jobs:
           git remote add upstream "$UPSTREAM_REPO"
           git fetch upstream "$UPSTREAM_BRANCH"
 
+      - name: Check for existing open sync PR
+        id: existing
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          OPEN_URL="$(gh pr list \
+            --state open \
+            --search "head:sync/upstream-" \
+            --json url \
+            --jq '.[0].url // empty')"
+          if [ -n "$OPEN_URL" ]; then
+            echo "open_url=${OPEN_URL}" >> "$GITHUB_OUTPUT"
+            echo "found=true"           >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false"          >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Skip — open sync PR already exists
+        if: steps.existing.outputs.found == 'true'
+        env:
+          SLACK_DEPS_WEBHOOK: ${{ secrets.SLACK_DEPS_WEBHOOK }}
+          OPEN_URL: ${{ steps.existing.outputs.open_url }}
+        run: |
+          set -euo pipefail
+          REASON="Sync skipped: open sync PR already exists — ${OPEN_URL}"
+          echo "### :no_entry_sign: Upstream sync skipped" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "${REASON}" >> "$GITHUB_STEP_SUMMARY"
+          echo "${REASON}"
+          if [ -z "${SLACK_DEPS_WEBHOOK:-}" ]; then
+            echo "::warning::SLACK_DEPS_WEBHOOK not set — skipping Slack notification"
+            exit 0
+          fi
+          PAYLOAD="$(jq -n --arg text ":no_entry_sign: *accelerate-data/obot upstream sync skipped* — open sync PR already exists: ${OPEN_URL}" '{text: $text}')"
+          curl -fsS -X POST -H 'Content-type: application/json' --data "$PAYLOAD" "$SLACK_DEPS_WEBHOOK"
+
       - name: Analyze upstream delta
+        if: steps.existing.outputs.found == 'false'
         id: analyze
         run: |
           set -euo pipefail
@@ -48,26 +86,28 @@ jobs:
           echo "new_commits=${NEW_COMMITS}" >> "$GITHUB_OUTPUT"
 
           if [ "$NEW_COMMITS" -eq 0 ]; then
-            echo "No new upstream commits."
             exit 0
           fi
 
           DATE_TAG="$(date -u +%Y%m%d)"
           BRANCH="sync/upstream-${DATE_TAG}"
-          echo "branch=${BRANCH}" >> "$GITHUB_OUTPUT"
-          echo "date_tag=${DATE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "branch=${BRANCH}"       >> "$GITHUB_OUTPUT"
+          echo "date_tag=${DATE_TAG}"   >> "$GITHUB_OUTPUT"
 
-          # Files we've changed in our fork since last common base.
-          git diff --name-only "$BASE" "$OURS" | sort -u > /tmp/ours.txt
-          # Files upstream changed since last common base.
-          git diff --name-only "$BASE" "$THEIRS" | sort -u > /tmp/theirs.txt
-          # Overlap = files both sides touched.
-          comm -12 /tmp/ours.txt /tmp/theirs.txt > /tmp/overlap.txt
+          UPSTREAM_HEAD="$(git rev-parse "upstream/${UPSTREAM_BRANCH}")"
+          echo "upstream_head=${UPSTREAM_HEAD}" >> "$GITHUB_OUTPUT"
+          echo "merge_base=${BASE}"             >> "$GITHUB_OUTPUT"
+
+          UPSTREAM_VERSION="$(git describe --tags --match 'v*' --abbrev=0 "upstream/${UPSTREAM_BRANCH}" 2>/dev/null || echo '')"
+          echo "upstream_version=${UPSTREAM_VERSION}" >> "$GITHUB_OUTPUT"
+
+          git diff --name-only "$BASE" "$OURS"    | sort -u > /tmp/ours.txt
+          git diff --name-only "$BASE" "$THEIRS"  | sort -u > /tmp/theirs.txt
+          comm -12 /tmp/ours.txt /tmp/theirs.txt  > /tmp/overlap.txt
 
           OVERLAP_COUNT="$(wc -l < /tmp/overlap.txt | tr -d ' ')"
           echo "overlap_count=${OVERLAP_COUNT}" >> "$GITHUB_OUTPUT"
 
-          # Trial merge to detect textual conflicts.
           if git merge-tree --write-tree --no-messages "$BASE" "$OURS" "$THEIRS" > /tmp/merge-out 2> /tmp/merge-err; then
             CONFLICTS=""
           else
@@ -77,7 +117,6 @@ jobs:
           echo "conflict_count=${CONFLICT_COUNT}" >> "$GITHUB_OUTPUT"
           printf '%s' "$CONFLICTS" > /tmp/conflicts.txt
 
-          # Bucket for label/title.
           if [ "$CONFLICT_COUNT" -gt 0 ]; then
             BUCKET="conflicts"
           elif [ "$OVERLAP_COUNT" -gt 0 ]; then
@@ -86,61 +125,80 @@ jobs:
             BUCKET="clean"
           fi
           echo "bucket=${BUCKET}" >> "$GITHUB_OUTPUT"
-          echo "base=${BASE}" >> "$GITHUB_OUTPUT"
 
-      - name: Skip when no new upstream commits
-        if: steps.analyze.outputs.new_commits == '0'
-        run: echo "Nothing to sync."
+      - name: Skip — no new upstream commits
+        if: steps.existing.outputs.found == 'false' && steps.analyze.outputs.new_commits == '0'
+        run: |
+          echo "### :white_check_mark: Upstream sync — nothing to do" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "No new upstream commits found." >> "$GITHUB_STEP_SUMMARY"
+          echo "Nothing to sync."
 
       - name: Create sync branch
-        if: steps.analyze.outputs.new_commits != '0'
+        if: steps.existing.outputs.found == 'false' && steps.analyze.outputs.new_commits != '0'
         id: branch
         run: |
           set -euo pipefail
           BRANCH="${{ steps.analyze.outputs.branch }}"
+          CONFLICT_COUNT="${{ steps.analyze.outputs.conflict_count }}"
+          UPSTREAM_HEAD="${{ steps.analyze.outputs.upstream_head }}"
+          UPSTREAM_VERSION="${{ steps.analyze.outputs.upstream_version }}"
+          DATE_TAG="${{ steps.analyze.outputs.date_tag }}"
+          MERGE_BASE="${{ steps.analyze.outputs.merge_base }}"
+          TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-          # If a PR for today already exists, exit gracefully.
-          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
-            echo "Branch $BRANCH already exists on origin; skipping."
-            echo "skipped=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
+          METADATA="$(jq -n \
+            --arg upstreamRepo "$UPSTREAM_REPO" \
+            --arg upstreamBranch "$UPSTREAM_BRANCH" \
+            --arg upstreamHeadSha "$UPSTREAM_HEAD" \
+            --arg mergeBaseSha "$MERGE_BASE" \
+            --arg upstreamObotVersion "$UPSTREAM_VERSION" \
+            --arg syncBranch "$BRANCH" \
+            --arg syncTimestamp "$TIMESTAMP" \
+            '{
+              upstreamRepo: $upstreamRepo,
+              upstreamBranch: $upstreamBranch,
+              upstreamHeadSha: $upstreamHeadSha,
+              mergeBaseSha: $mergeBaseSha,
+              upstreamObotVersion: $upstreamObotVersion,
+              syncBranch: $syncBranch,
+              syncTimestamp: $syncTimestamp
+            }')"
 
-          git checkout -B "$BRANCH" "origin/${BASE_BRANCH}"
-
-          if [ "${{ steps.analyze.outputs.conflict_count }}" = "0" ]; then
-            # Clean merge — commit it so the PR is mergeable as-is.
+          if [ "$CONFLICT_COUNT" = "0" ]; then
+            git checkout -B "$BRANCH" "origin/${BASE_BRANCH}"
+            mkdir -p .accelerate
+            printf '%s\n' "$METADATA" > .accelerate/upstream-sync.json
+            git add .accelerate/upstream-sync.json
+            git commit -m "chore: update upstream-sync metadata ${DATE_TAG}"
             git merge --no-ff --no-edit "upstream/${UPSTREAM_BRANCH}" \
-              -m "chore: sync upstream ${{ steps.analyze.outputs.date_tag }}"
+              -m "chore: sync upstream ${DATE_TAG}"
           else
-            # Conflicts present — push branch at upstream tip so the PR shows
-            # the full delta and GitHub surfaces the conflicts for manual resolution.
-            git reset --hard "upstream/${UPSTREAM_BRANCH}"
+            git checkout -B "$BRANCH" "upstream/${UPSTREAM_BRANCH}"
+            mkdir -p .accelerate
+            printf '%s\n' "$METADATA" > .accelerate/upstream-sync.json
+            git add .accelerate/upstream-sync.json
+            git commit -m "chore: update upstream-sync metadata ${DATE_TAG}"
           fi
 
           git push origin "$BRANCH"
-          echo "skipped=false" >> "$GITHUB_OUTPUT"
 
       - name: Build PR body
-        if: steps.analyze.outputs.new_commits != '0' && steps.branch.outputs.skipped == 'false'
-        id: body
+        if: steps.existing.outputs.found == 'false' && steps.analyze.outputs.new_commits != '0'
         run: |
           set -euo pipefail
           BUCKET="${{ steps.analyze.outputs.bucket }}"
           NEW_COMMITS="${{ steps.analyze.outputs.new_commits }}"
           OVERLAP_COUNT="${{ steps.analyze.outputs.overlap_count }}"
           CONFLICT_COUNT="${{ steps.analyze.outputs.conflict_count }}"
+          UPSTREAM_HEAD="${{ steps.analyze.outputs.upstream_head }}"
+          MERGE_BASE="${{ steps.analyze.outputs.merge_base }}"
+          UPSTREAM_VERSION="${{ steps.analyze.outputs.upstream_version }}"
 
           case "$BUCKET" in
-            clean)
-              VERDICT=":white_check_mark: **Safe to merge.** No overlap with our fork's changes and no textual conflicts."
-              ;;
-            touches-customized-files)
-              VERDICT=":mag: **Review recommended.** Upstream changed files we have also customized. No textual conflicts, but semantic drift possible."
-              ;;
-            conflicts)
-              VERDICT=":warning: **Manual resolution required.** Textual merge conflicts detected. Branch is at upstream tip — resolve when merging."
-              ;;
+            clean)               VERDICT=":white_check_mark: **Safe to merge.** No overlap and no textual conflicts." ;;
+            touches-customized-files) VERDICT=":mag: **Review recommended.** Upstream changed files we've also customized." ;;
+            conflicts)           VERDICT=":warning: **Manual resolution required.** Textual conflicts detected." ;;
           esac
 
           {
@@ -150,12 +208,18 @@ jobs:
             echo
             echo "| Signal | Value |"
             echo "| --- | --- |"
+            echo "| Upstream repo | ${UPSTREAM_REPO} |"
+            echo "| Upstream branch | ${UPSTREAM_BRANCH} |"
+            echo "| Fork base branch | ${BASE_BRANCH} |"
+            echo "| Upstream head SHA | \`${UPSTREAM_HEAD}\` |"
+            echo "| Merge base SHA | \`${MERGE_BASE}\` |"
+            echo "| Upstream Obot version | \`${UPSTREAM_VERSION:-unknown}\` |"
             echo "| New upstream commits | ${NEW_COMMITS} |"
-            echo "| Files we've customized that upstream also changed | ${OVERLAP_COUNT} |"
+            echo "| Customized files also changed upstream | ${OVERLAP_COUNT} |"
             echo "| Files with textual conflicts | ${CONFLICT_COUNT} |"
             echo
             if [ "$OVERLAP_COUNT" -gt 0 ]; then
-              echo "### Overlap (review these files)"
+              echo "### Overlap"
               echo '```'
               cat /tmp/overlap.txt
               echo '```'
@@ -174,8 +238,9 @@ jobs:
             echo
           } > /tmp/pr-body.md
 
-      - name: Create or update PR
-        if: steps.analyze.outputs.new_commits != '0' && steps.branch.outputs.skipped == 'false'
+      - name: Create PR
+        if: steps.existing.outputs.found == 'false' && steps.analyze.outputs.new_commits != '0'
+        id: pr
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -184,13 +249,50 @@ jobs:
           BUCKET="${{ steps.analyze.outputs.bucket }}"
           TITLE="chore: sync upstream ${{ steps.analyze.outputs.date_tag }} [${BUCKET}]"
 
-          gh pr create \
+          PR_URL="$(gh pr create \
             --base "${BASE_BRANCH}" \
             --head "${BRANCH}" \
             --title "${TITLE}" \
             --body-file /tmp/pr-body.md \
             --label "upstream-sync" \
-            --label "sync:${BUCKET}" || \
-          gh pr edit "${BRANCH}" \
-            --title "${TITLE}" \
-            --body-file /tmp/pr-body.md
+            --label "sync:${BUCKET}" \
+            --draft)"
+          echo "pr_url=${PR_URL}" >> "$GITHUB_OUTPUT"
+
+      - name: Write GitHub Actions summary
+        if: steps.existing.outputs.found == 'false' && steps.analyze.outputs.new_commits != '0'
+        run: |
+          {
+            echo "### :arrows_counterclockwise: Upstream sync — ${{ steps.analyze.outputs.date_tag }}"
+            echo ""
+            echo "| Signal | Value |"
+            echo "| --- | --- |"
+            echo "| PR | ${{ steps.pr.outputs.pr_url }} |"
+            echo "| Bucket | \`${{ steps.analyze.outputs.bucket }}\` |"
+            echo "| Upstream Obot version | \`${{ steps.analyze.outputs.upstream_version }}\` |"
+            echo "| Upstream head SHA | \`${{ steps.analyze.outputs.upstream_head }}\` |"
+            echo "| Manual resolution required | ${{ steps.analyze.outputs.conflict_count != '0' && 'yes' || 'no' }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Notify Slack — new sync PR
+        if: steps.existing.outputs.found == 'false' && steps.analyze.outputs.new_commits != '0'
+        env:
+          SLACK_DEPS_WEBHOOK: ${{ secrets.SLACK_DEPS_WEBHOOK }}
+          PR_URL: ${{ steps.pr.outputs.pr_url }}
+          UPSTREAM_HEAD: ${{ steps.analyze.outputs.upstream_head }}
+          BUCKET: ${{ steps.analyze.outputs.bucket }}
+          CONFLICT_COUNT: ${{ steps.analyze.outputs.conflict_count }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SLACK_DEPS_WEBHOOK:-}" ]; then
+            echo "::warning::SLACK_DEPS_WEBHOOK not set — skipping Slack notification"
+            exit 0
+          fi
+          MANUAL="$([ "$CONFLICT_COUNT" -gt 0 ] && echo 'yes — manual resolution required' || echo 'no')"
+          TEXT=":arrows_counterclockwise: *accelerate-data/obot upstream sync PR opened*
+          • Bucket: \`${BUCKET}\`
+          • Upstream head: \`${UPSTREAM_HEAD}\`
+          • Manual resolution: ${MANUAL}
+          • PR: ${PR_URL}"
+          PAYLOAD="$(jq -n --arg text "$TEXT" '{text: $text}')"
+          curl -fsS -X POST -H 'Content-type: application/json' --data "$PAYLOAD" "$SLACK_DEPS_WEBHOOK"
