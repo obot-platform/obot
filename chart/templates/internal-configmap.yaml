@@ -48,3 +48,15 @@ data:
   {{- if .Values.mcpServerDefaults.nanobotWorkspaceSize }}
   OBOT_SERVER_MCPK8S_SETTINGS_NANOBOT_WORKSPACE_SIZE: {{ .Values.mcpServerDefaults.nanobotWorkspaceSize | quote }}
   {{- end }}
+  {{- if .Values.mcpServerDefaults.maxCPURequest }}
+  OBOT_SERVER_MCPK8S_MAX_CPUREQUEST: {{ .Values.mcpServerDefaults.maxCPURequest | quote }}
+  {{- end }}
+  {{- if .Values.mcpServerDefaults.maxCPULimit }}
+  OBOT_SERVER_MCPK8S_MAX_CPULIMIT: {{ .Values.mcpServerDefaults.maxCPULimit | quote }}
+  {{- end }}
+  {{- if .Values.mcpServerDefaults.maxMemoryRequest }}
+  OBOT_SERVER_MCPK8S_MAX_MEMORY_REQUEST: {{ .Values.mcpServerDefaults.maxMemoryRequest | quote }}
+  {{- end }}
+  {{- if .Values.mcpServerDefaults.maxMemoryLimit }}
+  OBOT_SERVER_MCPK8S_MAX_MEMORY_LIMIT: {{ .Values.mcpServerDefaults.maxMemoryLimit | quote }}
+  {{- end }}
