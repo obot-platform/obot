@@ -102,8 +102,8 @@
 		bannerTextValidationError = null;
 		saving = true;
 		try {
-			await AdminService.updateAppNotifications(appNotifications);
-			appNotificationsStore.initialize();
+			const response = await AdminService.updateAppNotifications(appNotifications);
+			appNotificationsStore.initialize(response);
 			success.add('App notifications updated successfully.');
 		} catch (_err) {
 			// errors are surfaced via the global HTTP error handling (errors store)
@@ -116,29 +116,7 @@
 <Layout title="App Notifications" classes={{ container: 'pb-0' }}>
 	<div class="relative h-full w-full @container flex flex-col gap-4" transition:fade={{ duration }}>
 		<div class="paper gap-0.5">
-			<label for="enable-banner" class="w-full flex items-start justify-between gap-4">
-				<div class="text-sm">
-					<p>Enable Banner</p>
-					<p class="text-xs font-light text-muted-content mb-2">
-						Enabling the banner will display it at the top of the page across all pages (except
-						agents, if enabled).
-					</p>
-				</div>
-				<input
-					type="checkbox"
-					class="toggle toggle-sm"
-					bind:checked={appNotifications.banner.enabled}
-					id="enable-banner"
-					disabled={isAdminReadonly}
-					onclick={() => {
-						bannerTextValidationError = null;
-					}}
-				/>
-			</label>
-
-			<div class="divider mt-0"></div>
-
-			<div class={appNotifications.banner.enabled ? '' : 'opacity-50 pointer-events-none'}>
+			<div>
 				<p class="text-sm font-medium mb-2">Banner Preview</p>
 
 				<div class="w-full mb-4">
@@ -194,6 +172,7 @@
 							<p class="text-xs font-light text-error">{bannerTextValidationError}</p>
 						{/if}
 					</div>
+					<div class="divider my-0"></div>
 					<label for="dismiss-banner-toggle" class="flex items-center justify-between">
 						<div>
 							<p class="text-sm font-light">Dismissable</p>
@@ -227,6 +206,26 @@
 							class="toggle toggle-sm"
 							bind:checked={appNotifications.banner.resetDismissed}
 							disabled={isAdminReadonly || !appNotifications.banner.dismissable}
+						/>
+					</label>
+
+					<label for="enable-banner" class="w-full flex items-start justify-between gap-4">
+						<div class="text-sm">
+							<p>Enable Banner</p>
+							<p class="text-xs font-light text-muted-content mb-2">
+								Enabling the banner will display it at the top of the page across all pages (except
+								agents, if enabled).
+							</p>
+						</div>
+						<input
+							type="checkbox"
+							class="toggle toggle-sm"
+							bind:checked={appNotifications.banner.enabled}
+							id="enable-banner"
+							disabled={isAdminReadonly}
+							onclick={() => {
+								bannerTextValidationError = null;
+							}}
 						/>
 					</label>
 				</div>

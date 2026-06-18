@@ -675,14 +675,14 @@
 	let showAppNotificationBanner = $derived.by(() => {
 		const appNotifications = appNotificationsStore.current;
 		const dismissedAt = bannerDismissed.current?.dismissedAt;
-		const wasDismissedAfterBannerUpdate =
+		const wasBannerUpdatedAfterDismissal =
 			appNotifications?.updated &&
 			!!dismissedAt &&
 			new Date(dismissedAt) <= new Date(appNotifications?.updated);
 
 		return !!(
 			appNotifications?.banner?.enabled &&
-			(!dismissedAt || (wasDismissedAfterBannerUpdate && appNotifications.banner.resetDismissed))
+			(!dismissedAt || (wasBannerUpdatedAfterDismissal && appNotifications.banner.resetDismissed))
 		);
 	});
 </script>
