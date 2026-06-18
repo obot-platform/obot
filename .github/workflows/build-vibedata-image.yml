@@ -63,7 +63,6 @@ jobs:
           build-args: |
             PROVIDERS_IMAGE=ghcr.io/accelerate-data/providers-vibedata:latest
             ENCRYPTION_BINS_IMAGE=ghcr.io/accelerate-data/providers-vibedata/encryption-bins:latest
-            ENTERPRISE_IMAGE=ghcr.io/accelerate-data/providers-vibedata:latest
           outputs: type=image,name=${{ needs.resolve.outputs.image }},push-by-digest=true,name-canonical=true,push=true
 
       - name: Save digest

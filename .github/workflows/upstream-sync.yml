@@ -9,6 +9,10 @@ on:
   schedule:
     - cron: "0 6 * * 1"
 
+concurrency:
+  group: upstream-sync-obot
+  cancel-in-progress: false
+
 env:
   UPSTREAM_REPO: https://github.com/obot-platform/obot.git
   UPSTREAM_BRANCH: main
@@ -33,7 +37,7 @@ jobs:
       - name: Fetch upstream
         run: |
           git remote add upstream "$UPSTREAM_REPO"
-          git fetch upstream "$UPSTREAM_BRANCH"
+          git fetch upstream "$UPSTREAM_BRANCH" --tags
 
       - name: Check for existing open sync PR
         id: existing
