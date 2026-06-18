@@ -3,13 +3,11 @@
 	import LLMGatewayProviderSection from '$lib/components/llm-gateway/LLMGatewayProviderSection.svelte';
 	import { CommonModelProviderIds, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { PROVIDER_CONNECTIONS, type RenderContext } from '$lib/services/llm-gateway/types';
-	import { KeyRound } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 
-	let { data } = $props();
-
 	let obotURL = $state('');
+	let { data } = $props();
 
 	onMount(() => {
 		obotURL = window.location.origin;
@@ -35,7 +33,6 @@
 	let openaiCtx = $derived(buildCtx('openai', openaiModels));
 	let anthropicCtx = $derived(buildCtx('anthropic', anthropicModels));
 
-	let hasAny = $derived(openaiModels.length > 0 || anthropicModels.length > 0);
 	let ready = $derived(obotURL !== '');
 
 	const duration = PAGE_TRANSITION_DURATION;
@@ -52,16 +49,7 @@
 			Configure your client below, then pick from the models you have access to.
 		</p>
 
-		{#if !hasAny}
-			<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-				<KeyRound class="text-base-content/80 size-24 opacity-25" />
-				<h4 class="text-muted-content text-lg font-semibold">No gateway models available</h4>
-				<p class="text-muted-content text-sm font-light">
-					You don't currently have access to any OpenAI or Anthropic models through the gateway.
-					Contact an administrator to request access.
-				</p>
-			</div>
-		{:else if ready}
+		{#if ready}
 			<div class="flex flex-col gap-4">
 				{#if anthropicModels.length > 0}
 					<LLMGatewayProviderSection ctx={anthropicCtx} models={anthropicModels} />

@@ -6,13 +6,19 @@ export interface APIKey {
 	canAccessAPI: boolean;
 	canAccessLLMProxy: boolean;
 	canAccessSkills: boolean;
+	canAccessDeviceScans: boolean;
 	createdAt: string;
 	lastUsedAt?: string;
 	expiresAt?: string;
 	mcpServerIds?: string[];
 }
 
-export type APIKeyCapabilityKey = 'canAccessAPI' | 'canAccessLLMProxy' | 'canAccessSkills';
+export type APIKeyCapabilityKey =
+	| 'canAccessAPI'
+	| 'canAccessLLMProxy'
+	| 'canAccessSkills'
+	| 'canAccessDeviceScans';
+export type APIKeyCreatableCapabilityKey = Exclude<APIKeyCapabilityKey, 'canAccessAPI'>;
 
 export const API_KEY_CAPABILITIES = [
 	{
@@ -32,6 +38,12 @@ export const API_KEY_CAPABILITIES = [
 		label: 'Skill access',
 		shortLabel: 'Skills',
 		description: 'Grants this key read-only access for skill discovery and downloads.'
+	},
+	{
+		key: 'canAccessDeviceScans',
+		label: 'Device scan access',
+		shortLabel: 'Scans',
+		description: 'Grants this key access to submit and read device scans.'
 	}
 ] as const satisfies ReadonlyArray<{
 	key: APIKeyCapabilityKey;
@@ -39,6 +51,15 @@ export const API_KEY_CAPABILITIES = [
 	shortLabel: string;
 	description: string;
 }>;
+
+export const API_KEY_CREATABLE_CAPABILITIES = API_KEY_CAPABILITIES.filter(
+	(
+		capability
+	): capability is Extract<
+		(typeof API_KEY_CAPABILITIES)[number],
+		{ key: APIKeyCreatableCapabilityKey }
+	> => capability.key !== 'canAccessAPI'
+);
 
 export function getAPIKeyCapabilityLabels(apiKey: Pick<APIKey, APIKeyCapabilityKey>): string[] {
 	return API_KEY_CAPABILITIES.filter((capability) => apiKey[capability.key]).map(
@@ -54,6 +75,7 @@ export interface APIKeyCreateRequest {
 	canAccessAPI?: boolean;
 	canAccessLLMProxy?: boolean;
 	canAccessSkills?: boolean;
+	canAccessDeviceScans?: boolean;
 }
 
 export interface APIKeyCreateResponse extends APIKey {

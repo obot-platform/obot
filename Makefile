@@ -80,6 +80,8 @@ generate:
 
 test:
 	go test -v -cover ./...
+	cd apiclient && go test -v -cover ./... && cd ..
+	cd logger && go test -v -cover ./... && cd ..
 
 # Runs Go linters and validates that all generated code is committed.
 validate-go-code: tidy generate lint-go no-changes

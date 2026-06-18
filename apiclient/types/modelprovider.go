@@ -21,7 +21,7 @@ type CommonProviderStatus struct {
 
 type ProviderConfigurationParameter struct {
 	Name         string `json:"name"`
-	FriendlyName string `json:"friendlyName,omitempty"`
+	FriendlyName string `json:"friendlyName,omitempty" yaml:"friendlyName,omitempty"`
 	Description  string `json:"description,omitempty"`
 	Sensitive    bool   `json:"sensitive,omitempty"`
 	Hidden       bool   `json:"hidden,omitempty"`

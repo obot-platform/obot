@@ -9,7 +9,7 @@ export const load: PageLoad = async ({ url, fetch, parent }) => {
 	const hasAdminAccess = profile.hasAdminAccess?.();
 	const offset = parseInt(url.searchParams.get('offset') ?? '0', 10) || 0;
 
-	let devices: DeviceScanResponse = { items: [], total: 0, limit: PAGE_SIZE, offset };
+	let devices: DeviceScanResponse;
 	let users: OrgUser[] = [];
 	try {
 		if (hasAdminAccess) {

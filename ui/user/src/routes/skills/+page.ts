@@ -9,7 +9,7 @@ export const load: PageLoad = async ({ fetch, parent }) => {
 	let showLicenseError = false;
 
 	try {
-		skills = await NanobotService.listSkills({ fetch });
+		skills = await NanobotService.listSkills({ fetch, dontLogErrors: true });
 	} catch (err) {
 		if (err instanceof HttpError && err.statusCode === 402) {
 			skills = [];

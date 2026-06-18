@@ -40,7 +40,7 @@ export function formatFileTime(timestamp: unknown, format: TimeDisplayFormat): F
 	const date = new Date(value);
 	if (Number.isNaN(date.getTime())) return { date: undefined, formatted: '' };
 
-	let formatted = '';
+	let formatted: string;
 	try {
 		formatted = new Intl.DateTimeFormat(undefined, {
 			year: 'numeric',

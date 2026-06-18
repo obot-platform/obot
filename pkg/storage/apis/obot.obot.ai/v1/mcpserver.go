@@ -175,6 +175,8 @@ type MCPServerStatus struct {
 	OAuthCredentialConfigured bool `json:"oauthCredentialConfigured,omitempty"`
 	// OAuthMetadata contains discovered OAuth metadata for remote MCP servers.
 	OAuthMetadata *OAuthMetadata `json:"oauthMetadata,omitempty"`
+	// UserHasAuthenticated indicates whether the user has authenticated with the third-party OAuth provider.
+	UserHasAuthenticated bool `json:"userHasAuthenticated,omitempty"`
 	// LastOAuthMetadataSync is the time of the last OAuth metadata sync attempt.
 	LastOAuthMetadataSync metav1.Time `json:"lastOAuthMetadataSync,omitzero"`
 	// LastRequestTime is the time of the last request to the server, in 15 minute granularity.

@@ -84,10 +84,6 @@
 			return `/api/mcp-webhook-validations/${mcpServerId}/logs`;
 		}
 
-		if (entity === 'catalog' && entityId) {
-			return `/api/mcp-catalogs/${entityId}/servers/${mcpServerId}/logs`;
-		}
-
 		return `/api/mcp-servers/${mcpServerId}/logs`;
 	});
 
@@ -114,7 +110,7 @@
 				: UserService.getWorkspaceK8sServerDetail(entityId, mcpServerId, { dontLogErrors })
 			: entity === 'webhook-validation'
 				? AdminService.getMCPFilterDetails(mcpServerId, { dontLogErrors })
-				: entity === 'catalog' && entityId
+				: entity === 'catalog' && entityId && mcpServer && !mcpServer.catalogEntryID
 					? AdminService.getMcpCatalogServerK8sDetail(entityId, mcpServerId, { dontLogErrors })
 					: AdminService.getK8sServerDetail(mcpServerId, { dontLogErrors });
 	}

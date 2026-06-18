@@ -14,17 +14,17 @@ func TestRenderAgentSkillsForClaudeCode(t *testing.T) {
 	}
 
 	install := renderedByName(t, rendered, "obot-install-skill")
-	assertContains(t, string(install.Content), "obot skills install --destination ~/.claude/skills <skill>")
+	assertContains(t, string(install.Content), "obot skills install --non-interactive --destination ~/.claude/skills <skill>")
 	assertNotContains(t, string(install.Content), "--json")
 
 	search := renderedByName(t, rendered, "obot-search-skills")
-	assertContains(t, string(search.Content), "obot skills search \"<query>\"")
-	assertContains(t, string(search.Content), "obot skills search\n")
+	assertContains(t, string(search.Content), "obot skills search --non-interactive \"<query>\"")
+	assertContains(t, string(search.Content), "obot skills search --non-interactive\n")
 
 	mcpSearch := renderedByName(t, rendered, "obot-search-mcp-servers")
 	assertContains(t, string(mcpSearch.Content), "Search the configured Obot server for available MCP servers.")
-	assertContains(t, string(mcpSearch.Content), "obot mcp search \"<query>\"")
-	assertContains(t, string(mcpSearch.Content), "obot mcp search\n")
+	assertContains(t, string(mcpSearch.Content), "obot mcp search --non-interactive \"<query>\"")
+	assertContains(t, string(mcpSearch.Content), "obot mcp search --non-interactive\n")
 	assertContains(t, string(mcpSearch.Content), "configuration required")
 
 	scan := renderedByName(t, rendered, "obot-scan")
@@ -39,7 +39,7 @@ func TestRenderAgentSkillsForSharedAgents(t *testing.T) {
 	rendered := renderAgentSkillsForTest(t, SharedAgentsTemplateData())
 
 	install := renderedByName(t, rendered, "obot-install-skill")
-	assertContains(t, string(install.Content), "obot skills install --destination ~/.agents/skills <skill>")
+	assertContains(t, string(install.Content), "obot skills install --non-interactive --destination ~/.agents/skills <skill>")
 
 	bootstrap := renderedByName(t, rendered, "obot")
 	assertContains(t, string(bootstrap.Content), "rendered for `agents`")

@@ -24,7 +24,7 @@ export const load: PageLoad = async ({ fetch, url, parent }) => {
 			throw redirect(302, redirectRoute);
 		}
 
-		const defaultRoute = isAdminOrOwner ? '/admin/dashboard' : '/dashboard';
+		const defaultRoute = isAdminOrOwner ? '/admin/dashboard' : '/mcp-servers';
 		if (appBasePath) {
 			throw redirect(302, `${appBasePath}${defaultRoute}`);
 		}

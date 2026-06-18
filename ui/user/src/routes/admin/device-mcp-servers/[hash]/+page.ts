@@ -19,13 +19,8 @@ export const load: PageLoad = async ({
 	fetch: typeof globalThis.fetch;
 }) => {
 	const offset = parseInt(url.searchParams.get('offset') ?? '0', 10) || 0;
-	let detail: DeviceMCPServerDetail | null = null;
-	let occurrences: DeviceMCPServerOccurrenceResponse = {
-		items: [],
-		total: 0,
-		limit: PAGE_SIZE,
-		offset
-	};
+	let detail: DeviceMCPServerDetail | null;
+	let occurrences: DeviceMCPServerOccurrenceResponse;
 	try {
 		[detail, occurrences] = await Promise.all([
 			AdminService.getDeviceMCPServerDetail(params.hash, { fetch }),

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/adrg/xdg"
+	"github.com/obot-platform/obot/pkg/cli/internal"
 	"github.com/obot-platform/obot/pkg/cli/internal/localconfig"
 )
 
@@ -21,7 +22,7 @@ func TestNewClientUsesEnvOverrides(t *testing.T) {
 	if err := os.Setenv("OBOT_BASE_URL", "https://env.example.com/api"); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Setenv("OBOT_TOKEN", "env-token"); err != nil {
+	if err := os.Setenv(internal.TokenEnvVar, "env-token"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -124,13 +125,13 @@ func useRootTestEnv(t *testing.T) func() {
 	configHome := filepath.Join(t.TempDir(), "config")
 	oldConfigHome, hadConfigHome := os.LookupEnv("XDG_CONFIG_HOME")
 	oldBaseURL, hadBaseURL := os.LookupEnv("OBOT_BASE_URL")
-	oldToken, hadToken := os.LookupEnv("OBOT_TOKEN")
+	oldToken, hadToken := os.LookupEnv(internal.TokenEnvVar)
 
 	if err := os.Setenv("XDG_CONFIG_HOME", configHome); err != nil {
 		t.Fatal(err)
 	}
 	_ = os.Unsetenv("OBOT_BASE_URL")
-	_ = os.Unsetenv("OBOT_TOKEN")
+	_ = os.Unsetenv(internal.TokenEnvVar)
 	xdg.Reload()
 
 	return func() {
@@ -145,9 +146,9 @@ func useRootTestEnv(t *testing.T) func() {
 			_ = os.Unsetenv("OBOT_BASE_URL")
 		}
 		if hadToken {
-			_ = os.Setenv("OBOT_TOKEN", oldToken)
+			_ = os.Setenv(internal.TokenEnvVar, oldToken)
 		} else {
-			_ = os.Unsetenv("OBOT_TOKEN")
+			_ = os.Unsetenv(internal.TokenEnvVar)
 		}
 		xdg.Reload()
 	}

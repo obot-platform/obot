@@ -16,6 +16,7 @@ var entitlementPathsToGate = []string{
 	"/mcp-connect/{mcp_id}/",
 	"GET /oauth/authorize",
 	"GET /oauth/authorize/",
+	"GET /oauth/consent/",
 	"GET /oauth/mcp/callback/",
 	"POST /oauth/",
 	"PUT /oauth/",
@@ -42,12 +43,12 @@ type ProviderMeta struct {
 }
 
 type ProviderEntitlementGate struct {
-	licenseProvider *KeygenProvider
+	licenseProvider *Provider
 	client          kclient.Client
 	mux             *http.ServeMux
 }
 
-func NewProviderEntitlementGate(licenseProvider *KeygenProvider, client kclient.Client) *ProviderEntitlementGate {
+func NewProviderEntitlementGate(licenseProvider *Provider, client kclient.Client) *ProviderEntitlementGate {
 	mux := http.NewServeMux()
 	for _, path := range entitlementPathsToGate {
 		mux.Handle(path, (*fake)(nil))
@@ -81,7 +82,7 @@ func (g *ProviderEntitlementGate) requiresProviderEntitlements(req *http.Request
 }
 
 // Missing returns the required entitlements that are unavailable from the current license.
-func (p *KeygenProvider) MissingEntitlements(requiredEntitlements []string) []string {
+func (p *Provider) MissingEntitlements(requiredEntitlements []string) []string {
 	var missing []string
 	for _, entitlement := range requiredEntitlements {
 		if !p.hasEntitlement(entitlement) {
@@ -92,7 +93,7 @@ func (p *KeygenProvider) MissingEntitlements(requiredEntitlements []string) []st
 }
 
 // Require returns Payment Required if any required entitlements are unavailable.
-func (p *KeygenProvider) RequireEntitlements(requiredEntitlements []string) error {
+func (p *Provider) RequireEntitlements(requiredEntitlements []string) error {
 	missing := p.MissingEntitlements(requiredEntitlements)
 	if len(missing) == 0 {
 		return nil
@@ -102,7 +103,7 @@ func (p *KeygenProvider) RequireEntitlements(requiredEntitlements []string) erro
 
 // ConfiguredProviderViolations returns any globally configured auth/model providers
 // that are currently missing required license entitlements.
-func (p *KeygenProvider) ConfiguredProviderViolations(ctx context.Context, c kclient.Client) ([]ProviderViolation, error) {
+func (p *Provider) ConfiguredProviderViolations(ctx context.Context, c kclient.Client) ([]ProviderViolation, error) {
 	modelProviderViolations, err := p.configuredModelProviderViolations(ctx, c)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check model provider license entitlements: %w", err)
@@ -116,7 +117,7 @@ func (p *KeygenProvider) ConfiguredProviderViolations(ctx context.Context, c kcl
 	return append(modelProviderViolations, authProviderViolations...), nil
 }
 
-func (p *KeygenProvider) configuredModelProviderViolations(ctx context.Context, c kclient.Client) ([]ProviderViolation, error) {
+func (p *Provider) configuredModelProviderViolations(ctx context.Context, c kclient.Client) ([]ProviderViolation, error) {
 	var modelProviders v1.ModelProviderList
 	if err := c.List(ctx, &modelProviders, &kclient.ListOptions{
 		Namespace: system.DefaultNamespace,
@@ -143,7 +144,7 @@ func (p *KeygenProvider) configuredModelProviderViolations(ctx context.Context, 
 	return violations, nil
 }
 
-func (p *KeygenProvider) configuredAuthProviderViolations(ctx context.Context, c kclient.Client) ([]ProviderViolation, error) {
+func (p *Provider) configuredAuthProviderViolations(ctx context.Context, c kclient.Client) ([]ProviderViolation, error) {
 	var authProviders v1.AuthProviderList
 	if err := c.List(ctx, &authProviders, &kclient.ListOptions{
 		Namespace: system.DefaultNamespace,

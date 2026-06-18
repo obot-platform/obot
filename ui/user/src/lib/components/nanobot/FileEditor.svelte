@@ -209,8 +209,6 @@
 		loading = true;
 		error = null;
 
-		let cleanup: (() => void) | undefined;
-
 		const loadResource = async () => {
 			if (!$nanobotChat?.api) {
 				console.error('No chat API found');
@@ -230,7 +228,6 @@
 		};
 
 		loadResource();
-		return () => cleanup?.();
 	});
 
 	// Derive the content to display

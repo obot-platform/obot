@@ -13,6 +13,7 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/obot-platform/cmd"
 	"github.com/obot-platform/obot/apiclient"
+	"github.com/obot-platform/obot/apiclient/types"
 	cliinternal "github.com/obot-platform/obot/pkg/cli/internal"
 	"github.com/obot-platform/obot/pkg/cli/internal/localconfig"
 	"github.com/obot-platform/obot/pkg/localagents"
@@ -21,11 +22,11 @@ import (
 )
 
 type Setup struct {
-	URL            string `usage:"Obot app URL to configure"`
-	Clients        string `usage:"Comma-separated target clients: none, claude-code, or agents"`
-	Yes            bool   `usage:"Accept confirmations and use defaults"`
-	NonInteractive bool   `usage:"Never read from stdin; fail if required input is missing"`
-	Output         string `usage:"Output format: text or json" default:"text"`
+	PromptConfig
+	URL     string `usage:"Obot app URL to configure" local:"true"`
+	Clients string `usage:"Comma-separated target clients: none, claude-code, or agents" local:"true"`
+	Yes     bool   `usage:"Accept confirmations and use defaults" local:"true"`
+	Output  string `usage:"Output format: text or json" default:"text" local:"true"`
 
 	root *Obot
 }
@@ -67,16 +68,10 @@ func (s *Setup) run(cmd *cobra.Command, progress setupProgressWriter) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	if s.NonInteractive {
-		ctx = cliinternal.WithNonInteractive(ctx)
-		cmd.SetContext(ctx)
-	}
 	if progress.json {
-		authOutput := cmd.ErrOrStderr()
 		if s.NonInteractive {
-			authOutput = io.Discard
+			ctx = cliinternal.WithOutputWriter(ctx, io.Discard)
 		}
-		ctx = cliinternal.WithOutputWriter(ctx, authOutput)
 		cmd.SetContext(ctx)
 		cmd.SetOut(cmd.ErrOrStderr())
 	}
@@ -91,7 +86,7 @@ func (s *Setup) run(cmd *cobra.Command, progress setupProgressWriter) error {
 		return err
 	}
 	if _, err := s.root.Client.GetToken(ctx, apiclient.TokenFetchOptions{
-		Scopes: []string{"api"},
+		Scopes: types.DefaultCLIAPIKeyScopes(),
 	}); err != nil {
 		return setupErrorf(setupAuthErrorCode(err), "authenticate with Obot: %w", err)
 	}
@@ -385,6 +380,7 @@ const (
 	setupErrorConfigSaveFailed      setupErrorCode = "config_save_failed"
 	setupErrorClientDetectionFailed setupErrorCode = "client_detection_failed"
 	setupErrorClientInstallFailed   setupErrorCode = "client_install_failed"
+	setupErrorAuthInvalid           setupErrorCode = "auth_invalid"
 	setupErrorUnknown               setupErrorCode = "unknown"
 )
 
@@ -461,6 +457,10 @@ func setupAuthErrorCode(err error) setupErrorCode {
 		strings.Contains(msg, "no such host") ||
 		strings.Contains(msg, "server misbehaving") {
 		return setupErrorServerUnreachable
+	}
+
+	if strings.Contains(msg, "token does not have scope") {
+		return setupErrorAuthInvalid
 	}
 
 	return setupErrorUnknown

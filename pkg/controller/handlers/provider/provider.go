@@ -30,7 +30,7 @@ import (
 	"go.yaml.in/yaml/v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var (
@@ -76,11 +76,11 @@ var (
 type Handler struct {
 	gatewayClient   *gateway.Client
 	dispatcher      *dispatcher.Dispatcher
-	licenseProvider *license.KeygenProvider
+	licenseProvider *license.Provider
 	registryPaths   []string
 }
 
-func New(gatewayClient *gateway.Client, dispatcher *dispatcher.Dispatcher, licenseProvider *license.KeygenProvider, registryPaths []string) *Handler {
+func New(gatewayClient *gateway.Client, dispatcher *dispatcher.Dispatcher, licenseProvider *license.Provider, registryPaths []string) *Handler {
 	return &Handler{
 		gatewayClient:   gatewayClient,
 		dispatcher:      dispatcher,
@@ -171,7 +171,7 @@ func readProviderDirectoryIgnoreMissing[T types.ModelProviderManifest | types.Au
 	return entries, err
 }
 
-func readRegistry(registryPath string) ([]client.Object, error) {
+func readRegistry(registryPath string) ([]kclient.Object, error) {
 	fileInfo, err := os.Stat(registryPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to stat provider registry %s: %w", registryPath, err)
@@ -193,8 +193,8 @@ func readRegistry(registryPath string) ([]client.Object, error) {
 	return appendProviders(registryPath, auths, models), nil
 }
 
-func appendProviders(registryPath string, authProviderManifests []providerFromFile[types.AuthProviderManifest], modelProviderManifests []providerFromFile[types.ModelProviderManifest]) []client.Object {
-	objs := make([]client.Object, 0, len(authProviderManifests)+len(modelProviderManifests))
+func appendProviders(registryPath string, authProviderManifests []providerFromFile[types.AuthProviderManifest], modelProviderManifests []providerFromFile[types.ModelProviderManifest]) []kclient.Object {
+	objs := make([]kclient.Object, 0, len(authProviderManifests)+len(modelProviderManifests))
 
 	for _, m := range modelProviderManifests {
 		if m.Manifest.Command == "" {
@@ -235,9 +235,9 @@ func appendProviders(registryPath string, authProviderManifests []providerFromFi
 	return objs
 }
 
-func (h *Handler) readFromRegistry(ctx context.Context, c client.Client) error {
+func (h *Handler) ReadFromRegistry(ctx context.Context, c kclient.Client) error {
 	var (
-		toAdd []client.Object
+		toAdd []kclient.Object
 		errs  []error
 	)
 	for _, registryPath := range h.registryPaths {
@@ -266,11 +266,11 @@ func (h *Handler) readFromRegistry(ctx context.Context, c client.Client) error {
 	return apply.New(c).WithOwnerSubContext(providerRegistryOwnerSubContext).WithPruneTypes(&v1.ModelProvider{}, &v1.AuthProvider{}).Apply(ctx, nil, toAdd...)
 }
 
-func (h *Handler) PollRegistries(ctx context.Context, c client.Client) {
+func (h *Handler) PollRegistries(ctx context.Context, c kclient.Client) {
 	t := time.NewTicker(time.Hour)
 	defer t.Stop()
 	for {
-		if err := h.readFromRegistry(ctx, c); err != nil {
+		if err := h.ReadFromRegistry(ctx, c); err != nil {
 			log.Errorf("Failed to read from registries: %v", err)
 		} else {
 			log.Infof("Completed periodic tool registry refresh")
@@ -284,15 +284,15 @@ func (h *Handler) PollRegistries(ctx context.Context, c client.Client) {
 	}
 }
 
-func (h *Handler) EnsureOpenAIEnvCredentialAndDefaults(ctx context.Context, c client.Client) error {
+func (h *Handler) EnsureOpenAIEnvCredentialAndDefaults(ctx context.Context, c kclient.Client) error {
 	return h.ensureModelProviderCredAndDefaults(ctx, c, OpenAIDefaultModelAliases(), system.OpenAIModelProvider, system.OpenAIAPIKeyEnvVar)
 }
 
-func (h *Handler) EnsureAnthropicCredentialAndDefaults(ctx context.Context, c client.Client) error {
+func (h *Handler) EnsureAnthropicCredentialAndDefaults(ctx context.Context, c kclient.Client) error {
 	return h.ensureModelProviderCredAndDefaults(ctx, c, AnthropicDefaultModelAliases(), system.AnthropicModelProvider, system.AnthropicAPIKeyEnvVar)
 }
 
-func (h *Handler) ensureModelProviderCredAndDefaults(ctx context.Context, c client.Client, defaultModelAliasMapping map[types.DefaultModelAliasType]string, modelProviderName, envVarName string) error {
+func (h *Handler) ensureModelProviderCredAndDefaults(ctx context.Context, c kclient.Client, defaultModelAliasMapping map[types.DefaultModelAliasType]string, modelProviderName, envVarName string) error {
 	apiKey := os.Getenv(envVarName)
 	if apiKey == "" {
 		return nil
@@ -309,7 +309,7 @@ func (h *Handler) ensureModelProviderCredAndDefaults(ctx context.Context, c clie
 			return ctx.Err()
 		}
 
-		if err := c.Get(ctx, client.ObjectKey{Namespace: system.DefaultNamespace, Name: modelProviderName}, &modelProvider); err == nil {
+		if err := c.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: modelProviderName}, &modelProvider); err == nil {
 			break
 		}
 	}
@@ -373,7 +373,7 @@ func (h *Handler) ensureModelProviderCredAndDefaults(ctx context.Context, c clie
 	log.Infof("Populated default model aliases for provider: provider=%s aliases=%d", modelProviderName, updatedAliases)
 
 	// Lastly, ensure that the models are populated from the model provider
-	if err := c.Get(ctx, client.ObjectKey{Namespace: modelProvider.Namespace, Name: modelProvider.Name}, &modelProvider); err != nil {
+	if err := c.Get(ctx, kclient.ObjectKey{Namespace: modelProvider.Namespace, Name: modelProvider.Name}, &modelProvider); err != nil {
 		return nil
 	}
 
@@ -392,13 +392,16 @@ func (h *Handler) ensureModelProviderCredAndDefaults(ctx context.Context, c clie
 
 func (h *Handler) SetAuthProviderConfiguredStatus(req router.Request, _ router.Response) error {
 	authProvider := req.Object.(*v1.AuthProvider)
+	return SetAuthProviderConfiguredStatus(req.Ctx, h.gatewayClient, h.licenseProvider, authProvider)
+}
 
+func SetAuthProviderConfiguredStatus(ctx context.Context, gatewayClient *gateway.Client, licenseProvider *license.Provider, authProvider *v1.AuthProvider) error {
 	var (
 		configured          = true
 		missingConfigParams []string
 	)
 	if len(authProvider.Spec.RequiredConfigurationParameters) > 0 {
-		cred, err := h.gatewayClient.RevealCredential(req.Ctx, []string{authProvider.Name, system.GenericModelProviderCredentialContext}, authProvider.Name)
+		cred, err := gatewayClient.RevealCredential(ctx, []string{authProvider.Name, system.GenericModelProviderCredentialContext}, authProvider.Name)
 		if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 			return fmt.Errorf("failed to reveal credential for auth provider %q: %w", authProvider.Name, err)
 		}
@@ -408,7 +411,7 @@ func (h *Handler) SetAuthProviderConfiguredStatus(req router.Request, _ router.R
 			cred.Secrets = make(map[string]string)
 		}
 
-		providerStatus, err := providers.AuthProviderStatus(*authProvider, cred.Secrets, h.licenseProvider)
+		providerStatus, err := providers.AuthProviderStatus(*authProvider, cred.Secrets, licenseProvider)
 		if err != nil {
 			return err
 		}
@@ -426,13 +429,16 @@ func (h *Handler) SetAuthProviderConfiguredStatus(req router.Request, _ router.R
 
 func (h *Handler) SetModelProviderConfiguredStatus(req router.Request, _ router.Response) error {
 	modelProvider := req.Object.(*v1.ModelProvider)
+	return SetModelProviderConfiguredStatus(req.Ctx, h.gatewayClient, h.licenseProvider, modelProvider)
+}
 
+func SetModelProviderConfiguredStatus(ctx context.Context, gatewayClient *gateway.Client, licenseProvider *license.Provider, modelProvider *v1.ModelProvider) error {
 	var (
 		configured          = true
 		missingConfigParams []string
 	)
 	if len(modelProvider.Spec.RequiredConfigurationParameters) > 0 {
-		cred, err := h.gatewayClient.RevealCredential(req.Ctx, []string{modelProvider.Name, system.GenericModelProviderCredentialContext}, modelProvider.Name)
+		cred, err := gatewayClient.RevealCredential(ctx, []string{modelProvider.Name, system.GenericModelProviderCredentialContext}, modelProvider.Name)
 		if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 			return fmt.Errorf("failed to reveal credential for model provider %q: %w", modelProvider.Name, err)
 		}
@@ -441,7 +447,7 @@ func (h *Handler) SetModelProviderConfiguredStatus(req router.Request, _ router.
 			cred.Secrets = make(map[string]string)
 		}
 
-		providerStatus, err := providers.ModelProviderStatus(*modelProvider, cred.Secrets, h.licenseProvider)
+		providerStatus, err := providers.ModelProviderStatus(*modelProvider, cred.Secrets, licenseProvider)
 		if err != nil {
 			return err
 		}
@@ -459,11 +465,15 @@ func (h *Handler) SetModelProviderConfiguredStatus(req router.Request, _ router.
 
 func (h *Handler) BackPopulateModels(req router.Request, _ router.Response) error {
 	modelProvider := req.Object.(*v1.ModelProvider)
+	return BackPopulateModels(req.Ctx, req.Client, h.dispatcher, modelProvider)
+}
+
+func BackPopulateModels(ctx context.Context, client kclient.Client, dispatcher *dispatcher.Dispatcher, modelProvider *v1.ModelProvider) error {
 	if !modelProvider.Status.Configured {
 		return nil
 	}
 
-	availableModels, err := h.dispatcher.ModelsForProvider(req.Ctx, *modelProvider)
+	availableModels, err := dispatcher.ModelsForProvider(ctx, *modelProvider)
 	if err != nil {
 		// Don't error and retry because it will likely fail again. Log the error, and the user can re-sync manually.
 		// Also, the modelProvider.Status.Error field will bubble up to the user in the UI.
@@ -499,7 +509,7 @@ func (h *Handler) BackPopulateModels(req router.Request, _ router.Response) erro
 		return nil
 	}
 
-	models := make([]client.Object, 0, len(availableModels.Models))
+	models := make([]kclient.Object, 0, len(availableModels.Models))
 	for _, model := range availableModels.Models {
 		displayName := model.Metadata["displayName"]
 		if displayName == "" {
@@ -507,7 +517,7 @@ func (h *Handler) BackPopulateModels(req router.Request, _ router.Response) erro
 		}
 		models = append(models, &v1.Model{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: req.Namespace,
+				Namespace: modelProvider.Namespace,
 				Name:      modelName(modelProvider.Name, model.ID),
 				Annotations: map[string]string{
 					apply.AnnotationUpdate: "false",
@@ -527,8 +537,7 @@ func (h *Handler) BackPopulateModels(req router.Request, _ router.Response) erro
 		})
 	}
 
-	// TODO: ensure this works when the owner reference type changes. Maybe we need to migrate.
-	if err = apply.New(req.Client).Apply(req.Ctx, modelProvider, models...); err != nil {
+	if err = apply.New(client).Apply(ctx, modelProvider, models...); err != nil {
 		return fmt.Errorf("failed to create models for model provider %q: %w", modelProvider.Name, err)
 	}
 	log.Infof("Back-populated models for model provider: provider=%s models=%d", modelProvider.Name, len(models))
@@ -536,9 +545,9 @@ func (h *Handler) BackPopulateModels(req router.Request, _ router.Response) erro
 	return nil
 }
 
-func removeModelsForProvider(ctx context.Context, c client.Client, namespace, name string) error {
+func removeModelsForProvider(ctx context.Context, c kclient.Client, namespace, name string) error {
 	var models v1.ModelList
-	if err := c.List(ctx, &models, &client.ListOptions{
+	if err := c.List(ctx, &models, &kclient.ListOptions{
 		Namespace: namespace,
 		FieldSelector: fields.SelectorFromSet(fields.Set{
 			"spec.manifest.modelProvider": name,
@@ -552,7 +561,7 @@ func removeModelsForProvider(ctx context.Context, c client.Client, namespace, na
 		deleted int
 	)
 	for _, model := range models.Items {
-		if err := client.IgnoreNotFound(c.Delete(ctx, &model)); err != nil {
+		if err := kclient.IgnoreNotFound(c.Delete(ctx, &model)); err != nil {
 			errs = append(errs, fmt.Errorf("failed to delete model %q for cleanup: %w", model.Name, err))
 		} else {
 			deleted++

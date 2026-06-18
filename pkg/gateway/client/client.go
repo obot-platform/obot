@@ -39,6 +39,7 @@ type Client struct {
 	auditLogDeleteBatchSize int
 	oktaGroupMigrationMu    sync.Mutex
 	oktaGroupMigrationDone  bool
+	mcpOAuthTokenTrigger    func(context.Context, string) error
 }
 
 func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, ownerEmails, adminEmails []string, auditLogPersistenceInterval time.Duration, auditLogBatchSize, auditLogRetentionDays int) *Client {
@@ -83,6 +84,10 @@ func (c *Client) Close() error {
 
 func (c *Client) HasExplicitRole(email string) types2.Role {
 	return c.emailsWithExplicitRoles[strings.ToLower(email)]
+}
+
+func (c *Client) SetMCPOAuthTokenTrigger(trigger func(context.Context, string) error) {
+	c.mcpOAuthTokenTrigger = trigger
 }
 
 // GetExplicitRoleEmails returns a copy of all emails with explicit roles.

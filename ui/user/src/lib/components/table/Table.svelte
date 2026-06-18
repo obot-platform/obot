@@ -964,7 +964,11 @@
 			</td>
 		{/each}
 		{#if actions}
-			<td class="px-4 py-2 text-sm font-light">
+			<td
+				class="px-4 py-2 text-sm font-light"
+				onclick={(e) => e.stopPropagation()}
+				onkeydown={(e) => e.stopPropagation()}
+			>
 				<div class="flex justify-end">
 					{@render actions(d)}
 				</div>

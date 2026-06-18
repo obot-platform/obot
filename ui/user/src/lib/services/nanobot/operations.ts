@@ -147,6 +147,7 @@ export async function listSkills(opts?: {
 	fetch?: Fetcher;
 	query?: string;
 	limit?: number;
+	dontLogErrors?: boolean;
 }): Promise<Skill[]> {
 	const params = new URLSearchParams();
 	if (opts?.query != null) params.set('q', opts.query);

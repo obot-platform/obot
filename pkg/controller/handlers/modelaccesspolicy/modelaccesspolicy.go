@@ -13,6 +13,9 @@ import (
 // - Models that no longer exist
 // - Duplicates
 // - Explicit model references when a wildcard is present
+//
+// Wildcard suffix patterns (e.g. "claude-haiku-4-5*") are always kept, even when
+// they currently match no models, since they apply to future models as well.
 func PruneModels(req router.Request, _ router.Response) error {
 	policy := req.Object.(*v1.ModelAccessPolicy)
 
@@ -39,6 +42,13 @@ func PruneModels(req router.Request, _ router.Response) error {
 				resources = append(resources, resource)
 			}
 
+			continue
+		}
+
+		if _, isPattern := resource.IsWildcardSuffix(); isPattern {
+			// Keep wildcard suffix patterns unconditionally; they're forward-looking
+			// and may match models that don't exist yet.
+			resources = append(resources, resource)
 			continue
 		}
 

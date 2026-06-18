@@ -227,6 +227,7 @@ export type UsageStatsFilters = {
 
 export interface BootstrapStatus {
 	enabled: boolean;
+	setupEnabled: boolean;
 }
 
 // Devices
@@ -750,8 +751,6 @@ export interface ToolReferenceList {
 // Version
 
 export interface Version {
-	emailDomain?: string;
-	dockerSupported?: boolean;
 	sessionStore?: string;
 	obot?: string;
 	authEnabled?: boolean;

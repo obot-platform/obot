@@ -82,7 +82,7 @@ type (
 	RateLimiterConfig ratelimiter.Options
 	EncryptionConfig  encryption.Options
 	MCPConfig         mcp.Options
-	KeygenConfig      license.Config
+	LicenseConfig     license.Config
 )
 
 type MetricsAuthConfig struct {
@@ -113,7 +113,7 @@ type Config struct {
 	EnableAgents                         *bool  `usage:"Enable Obot Agent features. When unset, agents are disabled for new deployments but grandfathered in for deployments that already have agents. Explicitly set to true to force-enable, or false to force-disable, regardless of grandfathering." env:"OBOT_ENABLE_AGENTS"`
 	MCPOAuthClientExpiration             string `usage:"The expiration time in dynamically registered MCP OAuth clients, must be a valid duration string and may include days, hours, or minutes" default:"30d"`
 	MCPServerSearchImage                 string `usage:"Container image for the obot MCP server" default:"ghcr.io/obot-platform/obot-mcp-server:v0.2.0"`
-	NanobotAgentImage                    string `usage:"Container image for the Nanobot agent MCP server" default:"ghcr.io/obot-platform/nanobot-agent:v0.0.84"`
+	NanobotAgentImage                    string `usage:"Container image for the Nanobot agent MCP server" default:"ghcr.io/obot-platform/nanobot-agent:v0.0.85"`
 	MCPNetworkPolicyProviderChartRepo    string `usage:"Helm repository URL for the network policy provider chart"`
 	MCPNetworkPolicyProviderChartName    string `usage:"Helm chart name for the network policy provider chart"`
 	MCPNetworkPolicyProviderChartVersion string `usage:"Helm chart version for the network policy provider chart"`
@@ -140,7 +140,7 @@ type Config struct {
 	AuditConfig
 	RateLimiterConfig
 	MCPConfig
-	KeygenConfig
+	LicenseConfig
 	services.Config
 }
 
@@ -247,7 +247,7 @@ type Services struct {
 	ArtifactBlobBucket string
 
 	// License provider
-	LicenseProvider *license.KeygenProvider
+	LicenseProvider *license.Provider
 }
 
 // BuildLocalK8sConfig creates a Kubernetes config for local cluster access
@@ -564,6 +564,9 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	if err != nil {
 		return nil, err
 	}
+	gatewayClient.SetMCPOAuthTokenTrigger(func(ctx context.Context, mcpID string) error {
+		return r.Backend().Trigger(ctx, v1.SchemeGroupVersion.WithKind("MCPServer"), mcpID, 0)
+	})
 
 	// Set up MCPWebhookValidation indexer
 	mcpWebhookValidationGVK, err := r.Backend().GroupVersionKindFor(&v1.MCPWebhookValidation{})
@@ -796,12 +799,12 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
-	keygenProvider, err := license.NewProvider(ctx, gatewayClient, license.Config(config.KeygenConfig))
+	licenseProvider, err := license.NewProvider(ctx, gatewayClient, license.Config(config.LicenseConfig))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create keygen provider: %w", err)
+		return nil, fmt.Errorf("failed to create license provider: %w", err)
 	}
 
-	providerDispatcher := dispatcher.New(mcpSessionManager, storageClient, gatewayClient, keygenProvider, config.Hostname, fmt.Sprintf("http://localhost:%d", config.HTTPListenPort), postgresDSN)
+	providerDispatcher := dispatcher.New(mcpSessionManager, storageClient, gatewayClient, licenseProvider, config.Hostname, fmt.Sprintf("http://localhost:%d", config.HTTPListenPort), postgresDSN)
 
 	var msgPolicyHelper *messagepolicy.Helper
 	if config.EnableMessagePolicies {
@@ -951,7 +954,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			config.Hostname,
 			oauthServerConfig.ScopesSupported,
 			registryNoAuth,
-			keygenProvider,
+			licenseProvider,
 		),
 		PersistentTokenServer: persistentTokenServer,
 		GatewayServer:         gatewayServer,
@@ -1012,7 +1015,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		MCPNetworkPolicyProviderChartPath:    config.MCPNetworkPolicyProviderChartPath,
 		MCPNetworkPolicyProviderValues:       config.MCPNetworkPolicyProviderValues,
 		ArtifactBlobBucket:                   config.ArtifactStorageBucket,
-		LicenseProvider:                      keygenProvider,
+		LicenseProvider:                      licenseProvider,
 	}
 
 	if (config.ArtifactStorageProvider == "") != (config.ArtifactStorageBucket == "") {

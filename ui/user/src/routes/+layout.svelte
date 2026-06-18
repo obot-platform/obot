@@ -12,7 +12,8 @@
 		mcpServersAndEntries,
 		defaultModelAliases,
 		userDeviceSettings,
-		license
+		license,
+		accessibleModels
 	} from '$lib/stores';
 	import '../app.css';
 	import type { PageData } from './$types';
@@ -49,6 +50,10 @@
 
 		if (data.defaultModelAliases) {
 			untrack(() => defaultModelAliases.initialize(data.defaultModelAliases));
+		}
+
+		if (data.models) {
+			untrack(() => accessibleModels.initialize(data.models));
 		}
 
 		if (browser) {

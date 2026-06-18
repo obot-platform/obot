@@ -265,7 +265,7 @@
 			{/if}
 			{#if showMcpManagement && !impersonating}
 				<a
-					href={resolve(profile.current.hasAdminAccess?.() ? '/admin/dashboard' : '/dashboard')}
+					href={resolve(profile.current.hasAdminAccess?.() ? '/admin/dashboard' : '/mcp-servers')}
 					rel="external"
 					class="dropdown-link"
 				>

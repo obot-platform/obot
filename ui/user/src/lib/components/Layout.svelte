@@ -38,12 +38,12 @@
 		type Layout as LayoutState
 	} from '$lib/context/layout.svelte';
 	import Bots from '$lib/icons/Bots.svelte';
+	import LogoIcon from '$lib/icons/LogoIcon.svelte';
 	import { Group } from '$lib/services';
-	import { defaultModelAliases, profile, responsive, version } from '$lib/stores';
+	import { accessibleModels, defaultModelAliases, profile, responsive, version } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
 	import { isAgentEnabled } from '$lib/utils';
 	import InfoTooltip from './InfoTooltip.svelte';
-	import Logo from './Logo.svelte';
 	import Tour from './Tour.svelte';
 	import ConfigureBanner from './admin/ConfigureBanner.svelte';
 	import SetupSplashDialog from './admin/SetupSplashDialog.svelte';
@@ -72,7 +72,8 @@
 		PanelLeftOpen,
 		KeySquare,
 		Settings,
-		PanelLeftClose
+		PanelLeftClose,
+		Brain
 	} from 'lucide-svelte';
 	import { type Component, type Snippet, untrack } from 'svelte';
 	import { fade, slide, type TransitionConfig } from 'svelte/transition';
@@ -205,21 +206,20 @@
 	let isAtLeastPowerUser = $derived(profile.current.groups.includes(Group.POWERUSER));
 	let isAtLeastPowerUserPlus = $derived(profile.current.groups.includes(Group.POWERUSER_PLUS));
 
+	let hasAccessibleModels = $derived(accessibleModels.current.length > 0);
+
 	let defaultLinks = $derived<NavLink[]>([
-		{
-			id: 'install-cli',
-			href: '/install-cli',
-			icon: Logo,
-			label: 'Obot CLI',
-			collapsible: false,
-			beta: true
-		},
-		{
-			id: 'mcp-dashboard',
-			icon: LayoutDashboard,
-			label: 'Dashboard',
-			href: profile.current.hasAdminAccess?.() ? '/admin/dashboard' : '/dashboard'
-		},
+		...(profile.current.hasAdminAccess?.()
+			? [
+					{
+						id: 'mcp-dashboard',
+						icon: LayoutDashboard,
+						label: 'Dashboard',
+						href: '/admin/dashboard',
+						collapsible: false
+					}
+				]
+			: []),
 		{
 			id: 'mcp-servers',
 			icon: Server,
@@ -232,11 +232,29 @@
 			label: 'Skills',
 			href: '/skills'
 		},
+		...(hasAccessibleModels
+			? [
+					{
+						id: 'llm-gateway-models',
+						href: '/llm-gateway/models',
+						icon: Brain,
+						label: 'Models',
+						collapsible: false
+					}
+				]
+			: []),
 		{
 			id: 'devices',
 			icon: Laptop,
 			label: 'Devices',
 			href: '/devices'
+		},
+		{
+			id: 'install-cli',
+			href: '/install-cli',
+			icon: LogoIcon,
+			label: 'Obot CLI',
+			collapsible: false
 		},
 		...(agentsFeatureEnabled
 			? [
@@ -494,13 +512,7 @@
 											collapsible: false
 										}
 									]
-								: []),
-							{
-								id: 'llm-gateway-models',
-								href: '/llm-gateway/models',
-								label: 'Models',
-								collapsible: false
-							}
+								: [])
 						]
 					},
 					...agentManagementLinks,

@@ -49,10 +49,10 @@ var (
 
 // Config contains the Keygen settings needed to validate an Obot license.
 type Config struct {
-	KeygenLicenseKey string `usage:"Keygen license key for this Obot installation"`
+	LicenseKey string `usage:"Keygen license key for this Obot installation"`
 }
 
-type KeygenProvider struct {
+type Provider struct {
 	lock                       sync.RWMutex
 	entitlements               map[keygen.EntitlementCode]struct{}
 	machineFingerprint         string
@@ -61,7 +61,7 @@ type KeygenProvider struct {
 }
 
 // NewProvider creates a Keygen-backed license provider.
-func NewProvider(ctx context.Context, gatewayClient *client.Client, config Config) (*KeygenProvider, error) {
+func NewProvider(ctx context.Context, gatewayClient *client.Client, config Config) (*Provider, error) {
 	keygen.Account = keygenAccount
 	keygen.Product = keygenProduct
 
@@ -70,12 +70,12 @@ func NewProvider(ctx context.Context, gatewayClient *client.Client, config Confi
 		return nil, err
 	}
 
-	k := &KeygenProvider{
+	k := &Provider{
 		machineFingerprint: machineFingerprint,
 		gatewayClient:      gatewayClient,
 	}
 
-	if licenseKey := strings.TrimSpace(config.KeygenLicenseKey); licenseKey != "" {
+	if licenseKey := strings.TrimSpace(config.LicenseKey); licenseKey != "" {
 		if err := k.setLicenseKey(ctx, licenseKey, true, true); err != nil {
 			return nil, err
 		}
@@ -112,28 +112,28 @@ func ensureMachineFingerprint(ctx context.Context, gatewayClient *client.Client)
 	return property.Value, nil
 }
 
-func (p *KeygenProvider) LicenseKey() string {
+func (p *Provider) LicenseKey() string {
 	p.lock.RLock()
 	defer p.lock.RUnlock()
 
 	return keygen.LicenseKey
 }
 
-func (p *KeygenProvider) LicenseKeyViaConfiguration() bool {
+func (p *Provider) LicenseKeyViaConfiguration() bool {
 	p.lock.RLock()
 	defer p.lock.RUnlock()
 
 	return p.licenseKeyViaConfiguration
 }
 
-func (p *KeygenProvider) SetLicenseKey(ctx context.Context, licenseKey string) error {
+func (p *Provider) SetLicenseKey(ctx context.Context, licenseKey string) error {
 	if p.LicenseKeyViaConfiguration() {
 		return ErrLicenseKeyViaConfiguration
 	}
 	return p.setLicenseKey(ctx, licenseKey, false, false)
 }
 
-func (p *KeygenProvider) setLicenseKey(ctx context.Context, licenseKey string, viaConfiguration, allowInvalid bool) error {
+func (p *Provider) setLicenseKey(ctx context.Context, licenseKey string, viaConfiguration, allowInvalid bool) error {
 	licenseKey = strings.TrimSpace(licenseKey)
 
 	p.lock.Lock()
@@ -169,7 +169,7 @@ func (p *KeygenProvider) setLicenseKey(ctx context.Context, licenseKey string, v
 	return nil
 }
 
-func (p *KeygenProvider) restoreLicenseState(licenseKey string, viaConfiguration bool, entitlements map[keygen.EntitlementCode]struct{}) {
+func (p *Provider) restoreLicenseState(licenseKey string, viaConfiguration bool, entitlements map[keygen.EntitlementCode]struct{}) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
@@ -178,7 +178,7 @@ func (p *KeygenProvider) restoreLicenseState(licenseKey string, viaConfiguration
 	p.entitlements = entitlements
 }
 
-func (p *KeygenProvider) RemoveLicenseKey(ctx context.Context) error {
+func (p *Provider) RemoveLicenseKey(ctx context.Context) error {
 	if p.LicenseKeyViaConfiguration() {
 		return ErrLicenseKeyViaConfiguration
 	}
@@ -196,7 +196,7 @@ func (p *KeygenProvider) RemoveLicenseKey(ctx context.Context) error {
 	return nil
 }
 
-func (p *KeygenProvider) validate(ctx context.Context) (map[keygen.EntitlementCode]struct{}, error) {
+func (p *Provider) validate(ctx context.Context) (map[keygen.EntitlementCode]struct{}, error) {
 	p.lock.RLock()
 	defer p.lock.RUnlock()
 
@@ -233,14 +233,14 @@ func (p *KeygenProvider) validate(ctx context.Context) (map[keygen.EntitlementCo
 	return entitlementSet, nil
 }
 
-func (p *KeygenProvider) HasValidLicense() bool {
+func (p *Provider) HasValidLicense() bool {
 	p.lock.RLock()
 	defer p.lock.RUnlock()
 
 	return p.entitlements != nil
 }
 
-func (p *KeygenProvider) Entitlements() []string {
+func (p *Provider) Entitlements() []string {
 	p.lock.RLock()
 	defer p.lock.RUnlock()
 
@@ -258,7 +258,7 @@ func (p *KeygenProvider) Entitlements() []string {
 	return entitlements
 }
 
-func (p *KeygenProvider) hasEntitlement(key string) bool {
+func (p *Provider) hasEntitlement(key string) bool {
 	p.lock.RLock()
 	defer p.lock.RUnlock()
 
@@ -266,7 +266,7 @@ func (p *KeygenProvider) hasEntitlement(key string) bool {
 	return ok
 }
 
-func (p *KeygenProvider) poll(ctx context.Context) {
+func (p *Provider) poll(ctx context.Context) {
 	ticker := time.NewTicker(defaultPollInterval)
 	defer ticker.Stop()
 
@@ -280,7 +280,7 @@ func (p *KeygenProvider) poll(ctx context.Context) {
 	}
 }
 
-func (p *KeygenProvider) update(ctx context.Context) {
+func (p *Provider) update(ctx context.Context) {
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 

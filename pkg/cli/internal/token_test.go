@@ -242,28 +242,28 @@ func TestTokenRequestIncludesRequestedScopes(t *testing.T) {
 	}{
 		{
 			name:   "API scope",
-			scopes: []string{"api"},
+			scopes: []string{types.APIKeyScopeAPI},
 			want: createRequest{
 				Scopes: gatewaytypes.APIKeyScopes{CanAccessAPI: true},
 			},
 		},
 		{
 			name:   "LLM scope",
-			scopes: []string{"llm"},
+			scopes: []string{types.APIKeyScopeLLM},
 			want: createRequest{
 				Scopes: gatewaytypes.APIKeyScopes{CanAccessLLMProxy: true},
 			},
 		},
 		{
 			name:   "skills scope",
-			scopes: []string{"skills"},
+			scopes: []string{types.APIKeyScopeSkills},
 			want: createRequest{
 				Scopes: gatewaytypes.APIKeyScopes{CanAccessSkills: true},
 			},
 		},
 		{
 			name:         "all MCP scope and no expiration",
-			scopes:       []string{"all-mcp"},
+			scopes:       []string{types.APIKeyScopeAllMCP},
 			noExpiration: true,
 			want: createRequest{
 				NoExpiration: true,
@@ -272,7 +272,7 @@ func TestTokenRequestIncludesRequestedScopes(t *testing.T) {
 		},
 		{
 			name:   "combined scopes",
-			scopes: []string{"api", "llm", "skills", "all-mcp"},
+			scopes: []string{types.APIKeyScopeAPI, types.APIKeyScopeLLM, types.APIKeyScopeSkills, types.APIKeyScopeAllMCP},
 			want: createRequest{
 				Scopes: gatewaytypes.APIKeyScopes{
 					CanAccessAPI:      true,
@@ -327,6 +327,8 @@ func TestTokenRequestIncludesRequestedScopes(t *testing.T) {
 			defer srv.Close()
 
 			_, err := Token(WithNonInteractive(t.Context()), srv.URL+"/api", apiclient.TokenFetchOptions{
+				Name:         "CLI token",
+				Description:  "Created by obot login",
 				NoExpiration: tt.noExpiration,
 				Scopes:       tt.scopes,
 			})
@@ -343,8 +345,217 @@ func TestTokenRequestIncludesRequestedScopes(t *testing.T) {
 			if got.ID == "" {
 				t.Fatal("expected generated token request ID")
 			}
+			if got.Name != "CLI token" {
+				t.Fatalf("name = %q, want CLI token", got.Name)
+			}
+			if got.Description != "Created by obot login" {
+				t.Fatalf("description = %q, want Created by obot login", got.Description)
+			}
 			assertCreateRequestScopes(t, got, tt.want)
 		})
+	}
+}
+
+func TestTokenRefreshesValidKeyringTokenMissingRequestedScopes(t *testing.T) {
+	store := newFakeCredentialStore()
+	restoreStore := useCredentialStore(t, store)
+	defer restoreStore()
+
+	restoreBrowser := useOpenBrowser(t, func(string) error { return nil })
+	defer restoreBrowser()
+
+	var createdRequest createRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/me":
+			switch r.Header.Get("Authorization") {
+			case "":
+				_ = json.NewEncoder(w).Encode(types.User{Username: "anonymous"})
+			case "Bearer scoped-token":
+				_ = json.NewEncoder(w).Encode(types.User{Username: "alice"})
+			default:
+				t.Fatalf("unexpected authorization header %q", r.Header.Get("Authorization"))
+			}
+		case "/api/api-keys/auth":
+			if r.Header.Get("Authorization") != "Bearer scoped-token" {
+				t.Fatalf("unexpected scope validation authorization header %q", r.Header.Get("Authorization"))
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"allowed": true,
+				"scopes": map[string]any{
+					"canAccessSkills": true,
+				},
+			})
+		case "/api/auth-providers":
+			_ = json.NewEncoder(w).Encode(types.AuthProviderList{Items: []types.AuthProvider{{
+				Metadata: types.Metadata{ID: "github"},
+				AuthProviderManifest: types.AuthProviderManifest{
+					CommonProviderMetadata: types.CommonProviderMetadata{
+						Name: "GitHub",
+					},
+				},
+				AuthProviderStatus: types.AuthProviderStatus{
+					CommonProviderStatus: types.CommonProviderStatus{Configured: true},
+					Namespace:            "default",
+				},
+			}}})
+		case "/api/token-request":
+			if err := json.NewDecoder(r.Body).Decode(&createdRequest); err != nil {
+				t.Fatalf("decode token request: %v", err)
+			}
+			_ = json.NewEncoder(w).Encode(map[string]string{"token-path": "https://example.com/login"})
+		default:
+			if strings.HasPrefix(r.URL.Path, "/api/token-request/") {
+				_ = json.NewEncoder(w).Encode(map[string]string{"Token": "new-token"})
+				return
+			}
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+	}))
+	defer srv.Close()
+
+	store.tokens[srv.URL] = "scoped-token"
+
+	token, err := Token(WithNonInteractive(t.Context()), srv.URL+"/api", apiclient.TokenFetchOptions{
+		Scopes: []string{types.APIKeyScopeAPI},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if token != "new-token" {
+		t.Fatalf("token = %q, want new token", token)
+	}
+	if got := store.tokens[srv.URL]; got != "new-token" {
+		t.Fatalf("stored token = %q, want new token", got)
+	}
+	if !createdRequest.Scopes.CanAccessAPI {
+		t.Fatalf("new token request should ask for API scope")
+	}
+}
+
+func TestTokenReusesAPIKeyringTokenForNonMCPScopes(t *testing.T) {
+	store := newFakeCredentialStore()
+	restoreStore := useCredentialStore(t, store)
+	defer restoreStore()
+
+	authProvidersCalled := false
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/me":
+			switch r.Header.Get("Authorization") {
+			case "":
+				_ = json.NewEncoder(w).Encode(types.User{Username: "anonymous"})
+			case "Bearer api-token":
+				_ = json.NewEncoder(w).Encode(types.User{Username: "alice"})
+			default:
+				t.Fatalf("unexpected authorization header %q", r.Header.Get("Authorization"))
+			}
+		case "/api/api-keys/auth":
+			if r.Header.Get("Authorization") != "Bearer api-token" {
+				t.Fatalf("unexpected scope validation authorization header %q", r.Header.Get("Authorization"))
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"allowed": true,
+				"scopes": map[string]any{
+					"canAccessAPI": true,
+				},
+			})
+		case "/api/auth-providers":
+			authProvidersCalled = true
+			t.Fatalf("auth provider discovery should not run for reusable API token")
+		default:
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+	}))
+	defer srv.Close()
+
+	store.tokens[srv.URL] = "api-token"
+
+	token, err := Token(WithNonInteractive(t.Context()), srv.URL+"/api", apiclient.TokenFetchOptions{
+		Scopes: []string{types.APIKeyScopeSkills, types.APIKeyScopeLLM, types.APIKeyScopePublishedArtifacts},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if token != "api-token" {
+		t.Fatalf("token = %q, want API token", token)
+	}
+	if authProvidersCalled {
+		t.Fatalf("auth provider discovery should not run")
+	}
+}
+
+func TestTokenRefreshesAPIKeyringTokenForMCPScope(t *testing.T) {
+	store := newFakeCredentialStore()
+	restoreStore := useCredentialStore(t, store)
+	defer restoreStore()
+
+	restoreBrowser := useOpenBrowser(t, func(string) error { return nil })
+	defer restoreBrowser()
+
+	var createdRequest createRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/me":
+			switch r.Header.Get("Authorization") {
+			case "":
+				_ = json.NewEncoder(w).Encode(types.User{Username: "anonymous"})
+			case "Bearer api-token":
+				_ = json.NewEncoder(w).Encode(types.User{Username: "alice"})
+			default:
+				t.Fatalf("unexpected authorization header %q", r.Header.Get("Authorization"))
+			}
+		case "/api/api-keys/auth":
+			if r.Header.Get("Authorization") != "Bearer api-token" {
+				t.Fatalf("unexpected scope validation authorization header %q", r.Header.Get("Authorization"))
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"allowed": true,
+				"scopes": map[string]any{
+					"canAccessAPI": true,
+				},
+			})
+		case "/api/auth-providers":
+			_ = json.NewEncoder(w).Encode(types.AuthProviderList{Items: []types.AuthProvider{{
+				Metadata: types.Metadata{ID: "github"},
+				AuthProviderManifest: types.AuthProviderManifest{
+					CommonProviderMetadata: types.CommonProviderMetadata{
+						Name: "GitHub",
+					},
+				},
+				AuthProviderStatus: types.AuthProviderStatus{
+					CommonProviderStatus: types.CommonProviderStatus{Configured: true},
+					Namespace:            "default",
+				},
+			}}})
+		case "/api/token-request":
+			if err := json.NewDecoder(r.Body).Decode(&createdRequest); err != nil {
+				t.Fatalf("decode token request: %v", err)
+			}
+			_ = json.NewEncoder(w).Encode(map[string]string{"token-path": "https://example.com/login"})
+		default:
+			if strings.HasPrefix(r.URL.Path, "/api/token-request/") {
+				_ = json.NewEncoder(w).Encode(map[string]string{"Token": "new-token"})
+				return
+			}
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+	}))
+	defer srv.Close()
+
+	store.tokens[srv.URL] = "api-token"
+
+	token, err := Token(WithNonInteractive(t.Context()), srv.URL+"/api", apiclient.TokenFetchOptions{
+		Scopes: []string{types.APIKeyScopeAllMCP},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if token != "new-token" {
+		t.Fatalf("token = %q, want new token", token)
+	}
+	if strings.Join(createdRequest.Scopes.MCPServerIDs, ",") != "*" {
+		t.Fatalf("MCPServerIDs = %v, want [*]", createdRequest.Scopes.MCPServerIDs)
 	}
 }
 

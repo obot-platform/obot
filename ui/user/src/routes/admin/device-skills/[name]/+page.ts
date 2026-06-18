@@ -16,13 +16,8 @@ export const load: PageLoad = async ({
 	fetch: typeof globalThis.fetch;
 }) => {
 	const offset = parseInt(url.searchParams.get('offset') ?? '0', 10) || 0;
-	let detail: DeviceSkillDetail | null = null;
-	let occurrences: DeviceSkillOccurrenceResponse = {
-		items: [],
-		total: 0,
-		limit: PAGE_SIZE,
-		offset
-	};
+	let detail: DeviceSkillDetail | null;
+	let occurrences: DeviceSkillOccurrenceResponse;
 	try {
 		[detail, occurrences] = await Promise.all([
 			AdminService.getDeviceSkillDetail(params.name, { fetch }),

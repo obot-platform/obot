@@ -9,20 +9,25 @@ Use the local `obot` CLI for Obot skill discovery, skill installation, and MCP s
 
 These instructions are rendered for `{{ .AgentID }}`.
 
-Authentication is managed by `obot login`. Do not ask the user for Obot API tokens, and do not call Obot APIs directly.
+Authentication can be managed in advance by `obot login`.
+
+`obot` CLI commands may also perform just-in-time authentication when invoked if a user isn't already authenticated. These commands have a `--non-interactive` option that must be used to prevent the command from blocking on user input over stdin.
+
+Do not ask the user for Obot API tokens, and do not call Obot APIs directly.
+
 
 ### Skill Discovery
 
 To find installable skills from Obot, run:
 
 ```sh
-obot skills search "<query>"
+obot skills search --non-interactive "<query>"
 ```
 
 To install a skill from Obot, run:
 
 ```sh
-obot skills install --destination {{ .InstallDestination }} <skill>
+obot skills install --non-interactive --destination {{ .InstallDestination }} <skill>
 ```
 
 Prefer the CLI for Obot-managed skills instead of hand-editing installed skill files from Obot.
@@ -32,13 +37,13 @@ Prefer the CLI for Obot-managed skills instead of hand-editing installed skill f
 To search the configured Obot server for available MCP servers, run:
 
 ```sh
-obot mcp search "<query>"
+obot mcp search --non-interactive "<query>"
 ```
 
 Omit the query to list all MCP servers:
 
 ```sh
-obot mcp search
+obot mcp search --non-interactive
 ```
 
 Always display the connection or configuration URL to the user if they asked you to find a server.

@@ -56,7 +56,7 @@ func TestAllMCPCatalogEntryAuthorizationUsesAccessControlRules(t *testing.T) {
 			u := &user.DefaultInfo{
 				Name:   tt.userID,
 				UID:    tt.userID,
-				Groups: []string{types.GroupBasic, types.GroupAuthenticated},
+				Groups: []string{types.GroupAPI, types.GroupAuthenticated},
 			}
 
 			if allowed := authorizer.Authorize(req, u); allowed != tt.allowed {

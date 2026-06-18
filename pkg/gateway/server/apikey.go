@@ -19,14 +19,10 @@ import (
 )
 
 type createAPIKeyRequest struct {
-	Name                        string     `json:"name"`
-	Description                 string     `json:"description,omitempty"`
-	ExpiresAt                   *time.Time `json:"expiresAt,omitempty"`
-	MCPServerIDs                []string   `json:"mcpServerIds,omitempty"`
-	CanAccessAPI                bool       `json:"canAccessAPI"`
-	CanAccessLLMProxy           bool       `json:"canAccessLLMProxy"`
-	CanAccessSkills             bool       `json:"canAccessSkills"`
-	CanAccessPublishedArtifacts bool       `json:"canAccessPublishedArtifacts"`
+	Name               string     `json:"name"`
+	Description        string     `json:"description,omitempty"`
+	ExpiresAt          *time.Time `json:"expiresAt,omitempty"`
+	types.APIKeyScopes `json:",inline"`
 }
 
 // createAPIKey creates an API key for the authenticated user.
@@ -40,8 +36,7 @@ func (s *Server) createAPIKey(apiContext api.Context) error {
 		return types2.NewErrBadRequest("name is required")
 	}
 
-	hasCapability := req.CanAccessAPI || req.CanAccessLLMProxy || req.CanAccessSkills || req.CanAccessPublishedArtifacts
-	if len(req.MCPServerIDs) == 0 && !hasCapability {
+	if !req.HasSomeScope() {
 		return types2.NewErrBadRequest("at least one MCP server must be specified or a capability must be enabled")
 	}
 
@@ -81,13 +76,7 @@ func (s *Server) createAPIKey(apiContext api.Context) error {
 		return types2.NewErrHTTP(http.StatusBadRequest, errors.Join(errs...).Error())
 	}
 
-	response, err := apiContext.GatewayClient.CreateAPIKey(apiContext.Context(), userID, req.Name, req.Description, req.ExpiresAt, types.APIKeyScopes{
-		MCPServerIDs:                req.MCPServerIDs,
-		CanAccessAPI:                req.CanAccessAPI,
-		CanAccessLLMProxy:           req.CanAccessLLMProxy,
-		CanAccessSkills:             req.CanAccessSkills,
-		CanAccessPublishedArtifacts: req.CanAccessPublishedArtifacts,
-	})
+	response, err := apiContext.GatewayClient.CreateAPIKey(apiContext.Context(), userID, req.Name, req.Description, req.ExpiresAt, req.APIKeyScopes)
 	if err != nil {
 		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to create API key: %v", err))
 	}
@@ -224,12 +213,14 @@ func (s *Server) deleteAnyAPIKey(apiContext api.Context) error {
 // Authentication webhook endpoint
 
 type apiKeyAuthRequest struct {
-	MCPID string `json:"mcpId,omitempty"`
+	MCPID        string `json:"mcpId,omitempty"`
+	ValidateOnly bool   `json:"validateOnly,omitempty"`
 }
 
 type apiKeyAuthResponse struct {
-	Allowed bool   `json:"allowed"`
-	Reason  string `json:"reason,omitempty"`
+	Allowed bool               `json:"allowed"`
+	Reason  string             `json:"reason,omitempty"`
+	Scopes  types.APIKeyScopes `json:"scopes"`
 
 	Subject           string `json:"sub,omitempty"`
 	Name              string `json:"name,omitempty"`
@@ -288,8 +279,7 @@ func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 	}
 
 	hasWildcard := slices.Contains(apiKey.MCPServerIDs, "*")
-	// Tokens have access to all webhook system MCP servers, so we only need to check if the request is not for such an MCP server.
-	if !system.IsWebhookSystemMCPServerID(req.MCPID) {
+	if !req.ValidateOnly && !system.IsWebhookSystemMCPServerID(req.MCPID) {
 		// Check if this server is in the key's allowed list
 		// "*" is a special wildcard that grants access to all servers the user can access
 		if !hasWildcard && !slices.Contains(apiKey.MCPServerIDs, req.MCPID) {
@@ -309,6 +299,7 @@ func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 
 	err = apiContext.Write(apiKeyAuthResponse{
 		Allowed:           true,
+		Scopes:            apiKey.APIKeyScopes,
 		Subject:           fmt.Sprintf("%d", apiKey.UserID),
 		Name:              user.DisplayName,
 		PreferredUsername: user.Username,

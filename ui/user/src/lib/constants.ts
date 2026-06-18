@@ -44,7 +44,8 @@ export const CommonAuthProviderIds = {
 	GENERIC_OAUTH: 'generic-oauth-auth-provider',
 	OKTA: 'okta-auth-provider',
 	ENTRA: 'entra-auth-provider',
-	AUTH0: 'auth0-auth-provider'
+	AUTH0: 'auth0-auth-provider',
+	JUMPCLOUD: 'jumpcloud-auth-provider'
 } as const;
 
 export const BOOTSTRAP_USER_ID = 'bootstrap';

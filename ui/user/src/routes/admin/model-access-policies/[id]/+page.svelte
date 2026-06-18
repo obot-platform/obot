@@ -2,7 +2,7 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import ModelAccessPolicyForm from '$lib/components/admin/ModelAccessPolicyForm.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
-	import { profile } from '$lib/stores/index.js';
+	import { accessibleModels, profile } from '$lib/stores/index.js';
 	import { goto } from '$lib/url';
 	import { fly } from 'svelte/transition';
 
@@ -18,6 +18,7 @@
 		<ModelAccessPolicyForm
 			{modelAccessPolicy}
 			onUpdate={() => {
+				accessibleModels.refresh();
 				goto('/admin/model-access-policies');
 			}}
 			readonly={profile.current.isAdminReadonly?.()}

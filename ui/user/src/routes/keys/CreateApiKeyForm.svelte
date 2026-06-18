@@ -5,7 +5,10 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import { stripMarkdownToText } from '$lib/markdown';
 	import { ApiKeysService, type MCPCatalogServer, type APIKeyCreateResponse } from '$lib/services';
-	import { API_KEY_CAPABILITIES, type APIKeyCapabilityKey } from '$lib/services/api-keys/types';
+	import {
+		API_KEY_CREATABLE_CAPABILITIES,
+		type APIKeyCreatableCapabilityKey
+	} from '$lib/services/api-keys/types';
 	import { compileAvailableMcpServers, getMCPDisplayName } from '$lib/services/user/mcp';
 	import { mcpServersAndEntries } from '$lib/stores';
 	import { Check, Server } from 'lucide-svelte';
@@ -24,10 +27,10 @@
 	let description = $state('');
 	let expiresAt = $state<Date | null>(null);
 	let selectedServerIds = new SvelteSet<string>();
-	let capabilities = $state<Record<APIKeyCapabilityKey, boolean>>({
-		canAccessAPI: false,
+	let capabilities = $state<Record<APIKeyCreatableCapabilityKey, boolean>>({
 		canAccessLLMProxy: false,
-		canAccessSkills: false
+		canAccessSkills: false,
+		canAccessDeviceScans: false
 	});
 	let search = $state('');
 	let loading = $state(false);
@@ -42,7 +45,7 @@
 
 	let nameError = $derived(showValidation && !name.trim());
 	let hasOptionalCapability = $derived(
-		API_KEY_CAPABILITIES.some((capability) => capabilities[capability.key])
+		API_KEY_CREATABLE_CAPABILITIES.some((capability) => capabilities[capability.key])
 	);
 	let serverError = $derived(
 		showValidation && selectedServerIds.size === 0 && !hasOptionalCapability
@@ -96,9 +99,9 @@
 				description: description.trim() || undefined,
 				expiresAt: expiresAt?.toISOString(),
 				mcpServerIds: Array.from(selectedServerIds),
-				canAccessAPI: capabilities.canAccessAPI,
 				canAccessLLMProxy: capabilities.canAccessLLMProxy,
-				canAccessSkills: capabilities.canAccessSkills
+				canAccessSkills: capabilities.canAccessSkills,
+				canAccessDeviceScans: capabilities.canAccessDeviceScans
 			});
 			onCreate(response);
 		} finally {
@@ -158,13 +161,13 @@
 				<p class="input-description">Leave empty for no expiration</p>
 			</div>
 
-			<div class="flex flex-col gap-2" role="group" aria-labelledby="api-key-optional-capabilities">
-				<div id="api-key-optional-capabilities" class="input-label">Optional Capabilities</div>
-				{#each API_KEY_CAPABILITIES as capability (capability.key)}
+			<div class="flex flex-col gap-2" role="group" aria-labelledby="api-key-scopes">
+				<div id="api-key-scopes" class="input-label">API Scopes</div>
+				{#each API_KEY_CREATABLE_CAPABILITIES as capability (capability.key)}
 					<label class="bg-base-200 flex items-start gap-3 rounded-lg border border-base-400 p-3">
 						<input type="checkbox" bind:checked={capabilities[capability.key]} class="mt-1" />
 						<div class="flex flex-col gap-1">
-							<span class="text-sm font-medium">Allow {capability.label}</span>
+							<span class="text-sm font-medium">{capability.label}</span>
 							<span class="input-description">{capability.description}</span>
 						</div>
 					</label>

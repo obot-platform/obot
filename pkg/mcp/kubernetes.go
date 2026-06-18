@@ -932,14 +932,15 @@ func getNewestPod(pods []corev1.Pod) (*corev1.Pod, error) {
 
 // analyzePodStatus examines a pod's status to determine if we should retry waiting for it
 // or if we should fail immediately. Returns (shouldRetry, error).
-func analyzePodStatus(pod *corev1.Pod) (bool, error) {
+func analyzePodStatus(pod *corev1.Pod, isAgent bool) (bool, error) {
 	// Check pod phase first
 	switch pod.Status.Phase {
 	case corev1.PodFailed:
 		return false, fmt.Errorf("%w: pod is in Failed phase: %s", ErrHealthCheckTimeout, pod.Status.Message)
 	case corev1.PodSucceeded:
 		// This shouldn't happen for a long-running deployment, but if it does, it's an error
-		return false, fmt.Errorf("%w: pod succeeded and exited", ErrHealthCheckTimeout)
+		// Except for agents. We use "recreate" update strategy for agents, so it's possible that the old pod exited while the new one is initializing.
+		return isAgent, fmt.Errorf("%w: pod succeeded and exited", ErrHealthCheckTimeout)
 	case corev1.PodUnknown:
 		return false, fmt.Errorf("%w: pod is in Unknown phase", ErrHealthCheckTimeout)
 	}
@@ -1034,7 +1035,7 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 					return false, nil // Keep waiting
 				}
 
-				shouldRetry, podErr := analyzePodStatus(newestPod)
+				shouldRetry, podErr := analyzePodStatus(newestPod, server.NanobotAgentName != "")
 				if !shouldRetry {
 					// Permanent failure - return the error with the appropriate type already wrapped
 					olog.Debugf("pod in non-retryable state: id=%s error=%v attempt=%d", id, podErr, attempt+1)

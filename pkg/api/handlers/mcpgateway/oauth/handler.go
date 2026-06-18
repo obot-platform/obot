@@ -38,9 +38,12 @@ func SetupHandlers(oauthChecker *MCPOAuthHandlerFactory, tokenStore mcp.GlobalTo
 	mux.HandleFunc("POST /oauth/token", h.token)
 
 	// This is the callback that Obot will redirect to after the user has authenticated.
-	// It checks for second-level OAuth and redirects there, if necessary.
-	// Otherwise, it redirects to the original redirect URI with the authorization code.
+	// It prepares the post-login consent screen before continuing to second-level OAuth
+	// or returning the original redirect URI with the authorization code.
 	mux.HandleFunc("GET /oauth/callback/{oauth_auth_request}", h.callback)
+	mux.HandleFunc("GET /oauth/consent/{oauth_auth_request}", h.consent)
+	mux.HandleFunc("GET /oauth/consent/{oauth_auth_request}/approve", h.approveConsent)
+	mux.HandleFunc("GET /oauth/consent/{oauth_auth_request}/cancel", h.cancelConsent)
 
 	mux.HandleFunc("GET /oauth/register/{client}", h.readClient)
 	mux.HandleFunc("PUT /oauth/register/{client}", h.updateClient)

@@ -19,7 +19,8 @@
 	import { isMultiUserCatalogEntry } from '$lib/services/user/mcp';
 	import { profile } from '$lib/stores';
 	import { success } from '$lib/stores/success';
-	import { CircleFadingArrowUp, Info, GitCompare } from 'lucide-svelte';
+	import McpConnectUrlDialog from '../../McpConnectUrlDialog.svelte';
+	import { CircleFadingArrowUp, Info, GitCompare, Link2Icon } from 'lucide-svelte';
 	import { untrack, type Component } from 'svelte';
 	import { fly } from 'svelte/transition';
 
@@ -39,6 +40,10 @@
 	let workspaceId = $derived(catalogEntry?.powerUserWorkspaceID);
 	let serverScopeEntity = $derived(workspaceId ? ('workspace' as const) : ('catalog' as const));
 	let serverScopeID = $derived(workspaceId || DEFAULT_MCP_CATALOG_ID);
+
+	let connectUrlDialog = $state<ReturnType<typeof McpConnectUrlDialog>>();
+	let mcpServerActions = $state<ReturnType<typeof McpServerActions>>();
+	let showUrlOnConnect = $state(false);
 
 	let upgrading = $state(false);
 	let showUpgradeConfirm = $state(false);
@@ -189,6 +194,7 @@
 >
 	{#snippet rightNavActions()}
 		<McpServerActions
+			bind:this={mcpServerActions}
 			entry={catalogEntry}
 			catalogID={workspaceId ? undefined : serverScopeID}
 			workspaceID={workspaceId}
@@ -204,9 +210,16 @@
 				if (isMultiUserCatalogEntry(entry) && server) {
 					success.add(`${server.alias || server.manifest.name} has been created.`);
 				}
+				if (showUrlOnConnect) {
+					showUrlOnConnect = false;
+					connectUrlDialog?.open(entry, server?.connectURL);
+				}
 			}}
 			hideActions
 		/>
+		<button class="btn btn-primary" onclick={() => connectUrlDialog?.open(catalogEntry)}>
+			<Link2Icon class="size-4" /> Connect URL
+		</button>
 	{/snippet}
 	<div class="flex h-full flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
 		{#if showUpgradeNotification}
@@ -325,6 +338,14 @@
 				manifest: selectedDiff.newManifest as unknown as MCPServer
 			} as unknown as MCPCatalogServer)
 		: undefined}
+/>
+
+<McpConnectUrlDialog
+	bind:this={connectUrlDialog}
+	onLaunchCatalogEntry={() => {
+		showUrlOnConnect = true;
+		mcpServerActions?.connect();
+	}}
 />
 
 <svelte:head>

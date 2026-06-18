@@ -69,6 +69,7 @@
 				{hasExistingConfigured}
 				{configuredServers}
 				limitViews={['overview', 'tools']}
+				connectOnly
 			/>
 		{/if}
 	</div>

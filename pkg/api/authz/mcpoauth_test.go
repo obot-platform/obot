@@ -28,7 +28,7 @@ func TestMCPGroupAllowsMCPAndAnyGroupRoutes(t *testing.T) {
 	mcpUser := &user.DefaultInfo{
 		Name:   "mcp-user",
 		UID:    "mcpoauth-user-uid",
-		Groups: []string{types.GroupMCP},
+		Groups: []string{types.GroupMCP, types.GroupAuthenticated},
 	}
 
 	tests := []struct {

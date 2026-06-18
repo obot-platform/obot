@@ -47,13 +47,82 @@ func (c *Client) WithToken(token string) *Client {
 }
 
 func (c *Client) GetToken(ctx context.Context, opts TokenFetchOptions) (string, error) {
-	if c.Token != "" && !opts.ForceRefresh {
-		return c.Token, nil
+	if !opts.ForceRefresh && c.Token != "" {
+		return c.Token, TokenHasScopes(ctx, c.BaseURL, c.Token, opts.Scopes)
 	}
 	if c.tokenFetcher != nil {
 		return c.tokenFetcher(ctx, c.BaseURL, opts)
 	}
 	return "", fmt.Errorf("no token or token fetcher")
+}
+
+type tokenScopeValidationResponse struct {
+	Allowed bool `json:"allowed"`
+	Scopes  struct {
+		CanAccessAPI                bool     `json:"canAccessAPI"`
+		CanAccessSkills             bool     `json:"canAccessSkills"`
+		CanAccessLLMProxy           bool     `json:"canAccessLLMProxy"`
+		CanAccessPublishedArtifacts bool     `json:"canAccessPublishedArtifacts"`
+		CanAccessDeviceScans        bool     `json:"canAccessDeviceScans"`
+		MCPServerIDs                []string `json:"mcpServerIds,omitempty"`
+	} `json:"scopes"`
+}
+
+// TokenHasScopes reports whether token is valid for baseURL and includes all requested scopes.
+func TokenHasScopes(ctx context.Context, baseURL, token string, scopes []string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(baseURL, "/")+"/api-keys/auth", strings.NewReader(`{"validateOnly": true}`))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var validation tokenScopeValidationResponse
+	if err := json.NewDecoder(resp.Body).Decode(&validation); err != nil {
+		return fmt.Errorf("failed to decode response: %w", err)
+	}
+	if !validation.Allowed {
+		return fmt.Errorf("token is not allowed")
+	}
+
+	for _, scope := range scopes {
+		switch scope {
+		case types.APIKeyScopeAPI:
+			if !validation.Scopes.CanAccessAPI {
+				return fmt.Errorf("token does not have scope: %s", scope)
+			}
+		case types.APIKeyScopeSkills:
+			if !validation.Scopes.CanAccessSkills && !validation.Scopes.CanAccessAPI {
+				return fmt.Errorf("token does not have scope: %s", scope)
+			}
+		case types.APIKeyScopeLLM:
+			if !validation.Scopes.CanAccessLLMProxy && !validation.Scopes.CanAccessAPI {
+				return fmt.Errorf("token does not have scope: %s", scope)
+			}
+		case types.APIKeyScopePublishedArtifacts:
+			if !validation.Scopes.CanAccessPublishedArtifacts && !validation.Scopes.CanAccessAPI {
+				return fmt.Errorf("token does not have scope: %s", scope)
+			}
+		case types.APIKeyScopeAllMCP:
+			if !slices.Contains(validation.Scopes.MCPServerIDs, "*") {
+				return fmt.Errorf("token does not have scope: %s", scope)
+			}
+		case types.APIKeyScopeDeviceScans:
+			if !validation.Scopes.CanAccessDeviceScans {
+				return fmt.Errorf("token does not have scope: %s", scope)
+			}
+		default:
+			return fmt.Errorf("unknown scope: %s", scope)
+		}
+	}
+
+	return nil
 }
 
 func (c *Client) postJSON(ctx context.Context, path string, obj any, headerKV ...string) (*http.Request, *http.Response, error) {
@@ -113,7 +182,7 @@ func (c *Client) doRequestWithBaseURL(ctx context.Context, method, baseURL, path
 	if c.Token == "" && c.tokenFetcher != nil {
 		token, err := c.GetToken(ctx, TokenFetchOptions{
 			Name:   "CLI Token",
-			Scopes: []string{"api"}, // Default to requesting a token with API access.
+			Scopes: types.DefaultCLIAPIKeyScopes(),
 		})
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to fetch token: %w", err)

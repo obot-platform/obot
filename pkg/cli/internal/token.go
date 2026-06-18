@@ -25,8 +25,18 @@ import (
 	"github.com/pkg/browser"
 )
 
-var credentialStore credentials.Store = credentials.NewKeyringStore()
-var openBrowser = browser.OpenURL
+var (
+	credentialStore credentials.Store = credentials.NewKeyringStore()
+	openBrowser                       = browser.OpenURL
+)
+
+const TokenEnvVar = "OBOT_TOKEN"
+
+func init() {
+	// Browser launchers (e.g. xdg-open) may write to stdout; keep stdout
+	// reserved for machine-readable output like `login --print-token`.
+	browser.Stdout = os.Stderr
+}
 
 type nonInteractiveContextKey struct{}
 type outputWriterContextKey struct{}
@@ -37,8 +47,9 @@ func WithNonInteractive(ctx context.Context) context.Context {
 	return context.WithValue(ctx, nonInteractiveContextKey{}, true)
 }
 
-// WithOutputWriter routes token-acquisition user messages to w instead of
-// stdout. This lets commands that stream machine-readable stdout keep it clean.
+// WithOutputWriter routes token-acquisition user messages to w. They default
+// to stderr to keep stdout reserved for machine-readable output like
+// `login --print-token`.
 func WithOutputWriter(ctx context.Context, w io.Writer) context.Context {
 	if w == nil {
 		return ctx
@@ -55,7 +66,9 @@ func outputWriter(ctx context.Context) io.Writer {
 	if w, _ := ctx.Value(outputWriterContextKey{}).(io.Writer); w != nil {
 		return w
 	}
-	return os.Stdout
+	// User-facing auth prompts go to stderr so stdout stays clean for
+	// piping (e.g. `obot login --print-token`).
+	return os.Stderr
 }
 
 // AppURLForAPIBaseURL returns the app URL that owns credentials for an
@@ -156,11 +169,12 @@ func Token(ctx context.Context, baseURL string, opts apiclient.TokenFetchOptions
 	}
 
 	token, tokenErr := credentialStore.Get(appURL)
-	hasStoredToken := tokenErr == nil
 	if tokenErr != nil && !credentials.IsNotFound(tokenErr) {
 		return "", tokenErr
 	}
-	if hasStoredToken && !opts.ForceRefresh && testToken(ctx, baseURL, token) {
+
+	hasStoredToken := tokenErr == nil
+	if hasStoredToken && !opts.ForceRefresh && testToken(ctx, baseURL, token, opts.Scopes...) {
 		return token, nil
 	}
 
@@ -185,24 +199,35 @@ func Token(ctx context.Context, baseURL string, opts apiclient.TokenFetchOptions
 		return "", fmt.Errorf("failed to create login request: %w", err)
 	}
 
-	if !hasStoredToken && !isNonInteractive(ctx) {
-		w := outputWriter(ctx)
+	w := outputWriter(ctx)
+	nonInteractive := isNonInteractive(ctx)
+	if !hasStoredToken {
 		fmt.Fprintln(w)
 		fmt.Fprintln(w, color.GreenString("Authentication is needed"))
 		fmt.Fprintln(w, color.GreenString("========================"))
 		fmt.Fprintln(w)
-		fmt.Fprintln(w, color.CyanString(provider.Name)+" is used for authentication using the browser. This can be bypassed by setting")
-		fmt.Fprintln(w, "the env var "+color.CyanString("OBOT_API_KEY")+" to your API key.")
+		fmt.Fprintln(w, color.CyanString(provider.Name), "is used for authentication using the browser.")
+		fmt.Fprintln(w, "This can be bypassed by setting the env var", color.CyanString(TokenEnvVar), "to your API key.")
 		fmt.Fprintln(w)
-		fmt.Fprintln(w, color.GreenString("Press ENTER to continue (CTRL+C to exit)"))
-		if err := enter(ctx); err != nil {
-			return "", err
+
+		if !nonInteractive {
+			fmt.Fprintln(w, color.GreenString("Press ENTER to continue (CTRL+C to exit)"))
+			if err := enter(ctx); err != nil {
+				return "", err
+			}
+			fmt.Fprintln(w)
 		}
-		fmt.Fprintln(w)
 	}
 
-	fmt.Fprintf(outputWriter(ctx), "Opening browser to %s. if there is an issue paste this link into a browser manually\n", loginURL)
-	_ = openBrowser(loginURL)
+	fmt.Fprintln(w, "Opening browser to", loginURL, "for authentication.")
+	if err := openBrowser(loginURL); err != nil {
+		if nonInteractive {
+			return "", fmt.Errorf("failed to open browser: %w", err)
+		}
+
+		fmt.Fprintln(w, "Failed to open browser:", err.Error())
+		fmt.Fprintln(w, "To finish authenticating, paste", loginURL, "into your browser manually.")
+	}
 
 	ctx, timeoutCancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer timeoutCancel()
@@ -231,11 +256,13 @@ type createResponse struct {
 
 func create(ctx context.Context, baseURL, uuid, providerName, providerNamespace, tokenName, tokenDescription string, noExpiration bool, scopes []string) (string, error) {
 	apiScopes := types.APIKeyScopes{
-		CanAccessSkills:   slices.Contains(scopes, "skills"),
-		CanAccessAPI:      slices.Contains(scopes, "api"),
-		CanAccessLLMProxy: slices.Contains(scopes, "llm"),
+		CanAccessAPI:                slices.Contains(scopes, types2.APIKeyScopeAPI),
+		CanAccessSkills:             slices.Contains(scopes, types2.APIKeyScopeSkills),
+		CanAccessDeviceScans:        slices.Contains(scopes, types2.APIKeyScopeDeviceScans),
+		CanAccessLLMProxy:           slices.Contains(scopes, types2.APIKeyScopeLLM),
+		CanAccessPublishedArtifacts: slices.Contains(scopes, types2.APIKeyScopePublishedArtifacts),
 	}
-	if slices.Contains(scopes, "all-mcp") {
+	if slices.Contains(scopes, types2.APIKeyScopeAllMCP) {
 		apiScopes.MCPServerIDs = []string{"*"}
 	}
 	var data bytes.Buffer
@@ -308,7 +335,7 @@ func get(ctx context.Context, baseURL, uuid string) (string, error) {
 	}
 }
 
-func testToken(ctx context.Context, baseURL, token string) bool {
+func testToken(ctx context.Context, baseURL, token string, scopes ...string) bool {
 	req, err := http.NewRequestWithContext(ctx, "GET", baseURL+"/me", nil)
 	if err != nil {
 		return false
@@ -328,7 +355,17 @@ func testToken(ctx context.Context, baseURL, token string) bool {
 		return false
 	}
 
-	return resp.StatusCode == 200 && user.Username != "anonymous"
+	if resp.StatusCode != http.StatusOK || user.Username == "anonymous" {
+		return false
+	}
+
+	if len(scopes) == 0 || token == "" {
+		// If no scopes are specified or the request passed without a token,
+		// then we don't need to check the token's scopes.
+		return true
+	}
+
+	return apiclient.TokenHasScopes(ctx, baseURL, token, scopes) == nil
 }
 
 func getAuthProviderServiceInfo(ctx context.Context, baseURL string) ([]types2.AuthProvider, error) {

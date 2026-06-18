@@ -20,6 +20,8 @@ import (
 
 type tokenRequestRequest struct {
 	ID                    string             `json:"id"`
+	Name                  string             `json:"name"`
+	Description           string             `json:"description"`
 	ProviderName          string             `json:"providerName"`
 	ProviderNamespace     string             `json:"providerNamespace"`
 	CompletionRedirectURL string             `json:"completionRedirectURL"`
@@ -83,6 +85,8 @@ func (s *Server) tokenRequest(apiContext api.Context) error {
 
 	tokenReq := &types.TokenRequest{
 		ID:                    reqObj.ID,
+		Name:                  reqObj.Name,
+		Description:           reqObj.Description,
 		CompletionRedirectURL: reqObj.CompletionRedirectURL,
 		NoExpiration:          reqObj.NoExpiration,
 		Scopes:                reqObj.Scopes,

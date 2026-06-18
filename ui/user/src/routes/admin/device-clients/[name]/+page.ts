@@ -9,13 +9,8 @@ import { profile } from '$lib/stores';
 import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ params, fetch }) => {
-	let client: DeviceClientFleetSummary = {
-		name: '',
-		users: [],
-		skills: [],
-		mcpServers: []
-	};
-	let users: OrgUser[] = [];
+	let client: DeviceClientFleetSummary;
+	let users: OrgUser[];
 	try {
 		[client, users] = await Promise.all([
 			AdminService.getDeviceClient(params.name, { fetch }),
