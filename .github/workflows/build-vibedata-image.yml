@@ -29,11 +29,46 @@ jobs:
       upstream_sha: ${{ steps.resolve.outputs.upstream_sha }}
       fork_sha: ${{ steps.resolve.outputs.fork_sha }}
       image: ${{ steps.resolve.outputs.image }}
+      providers_digest: ${{ steps.check-providers.outputs.providers_digest }}
+      encryption_bins_digest: ${{ steps.check-providers.outputs.encryption_bins_digest }}
     steps:
       - uses: actions/checkout@v4
+
       - name: Resolve upstream version from metadata
         id: resolve
         run: bash scripts/build-vibedata-image.sh
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Verify provider images exist and capture digests
+        id: check-providers
+        run: |
+          set -euo pipefail
+          for ref in \
+            "ghcr.io/accelerate-data/providers-vibedata:latest" \
+            "ghcr.io/accelerate-data/providers-vibedata/encryption-bins:latest"; do
+            if ! docker buildx imagetools inspect "${ref}" >/dev/null 2>&1; then
+              echo "::error::Required image not found: ${ref}"
+              exit 1
+            fi
+            echo "Found: ${ref}"
+          done
+          PROVIDERS_DIGEST="$(docker buildx imagetools inspect \
+            ghcr.io/accelerate-data/providers-vibedata:latest \
+            --format '{{println .Manifest.Digest}}' | head -1 | tr -d '[:space:]')"
+          ENCRYPTION_BINS_DIGEST="$(docker buildx imagetools inspect \
+            ghcr.io/accelerate-data/providers-vibedata/encryption-bins:latest \
+            --format '{{println .Manifest.Digest}}' | head -1 | tr -d '[:space:]')"
+          echo "providers_digest=${PROVIDERS_DIGEST}" >> "$GITHUB_OUTPUT"
+          echo "encryption_bins_digest=${ENCRYPTION_BINS_DIGEST}" >> "$GITHUB_OUTPUT"
 
   build:
     name: Build (${{ matrix.arch }})
@@ -147,6 +182,8 @@ jobs:
           UPSTREAM_VERSION: ${{ needs.resolve.outputs.upstream_version }}
           UPSTREAM_SHA: ${{ needs.resolve.outputs.upstream_sha }}
           FORK_SHA: ${{ needs.resolve.outputs.fork_sha }}
+          PROVIDERS_DIGEST: ${{ needs.resolve.outputs.providers_digest }}
+          ENCRYPTION_BINS_DIGEST: ${{ needs.resolve.outputs.encryption_bins_digest }}
         run: |
           {
             echo "### :whale: obot-vibedata published"
@@ -156,7 +193,9 @@ jobs:
             echo "| Upstream Obot version | \`${UPSTREAM_VERSION}\` |"
             echo "| Upstream Obot SHA | \`${UPSTREAM_SHA}\` |"
             echo "| Fork Obot SHA | \`${FORK_SHA}\` |"
-            echo "| Digest | \`${{ steps.manifest.outputs.digest }}\` |"
+            echo "| providers-vibedata digest | \`${PROVIDERS_DIGEST}\` |"
+            echo "| encryption-bins digest | \`${ENCRYPTION_BINS_DIGEST}\` |"
+            echo "| Obot digest | \`${{ steps.manifest.outputs.digest }}\` |"
             echo "| Tags | \`${IMAGE}:${VERSIONED_TAG}\`, \`${IMAGE}:latest\` |"
             echo "| Run | ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} |"
           } >> "$GITHUB_STEP_SUMMARY"
