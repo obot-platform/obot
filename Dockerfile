@@ -1,6 +1,6 @@
 ARG PROVIDERS_IMAGE=ghcr.io/obot-platform/providers:latest
+ARG ENTERPRISE_PROVIDERS_IMAGE=ghcr.io/obot-platform/enterprise-providers:latest
 ARG ENCRYPTION_BINS_IMAGE=ghcr.io/obot-platform/providers/encryption-bins:latest
-ARG ENTERPRISE_IMAGE=ghcr.io/obot-platform/enterprise-providers:latest
 ARG BASE_IMAGE=cgr.dev/chainguard/wolfi-base
 
 FROM ${BASE_IMAGE} AS base
@@ -32,34 +32,12 @@ RUN apk add --no-cache postgresql-17 postgresql-17-oci-entrypoint postgresql-17-
 
 ENTRYPOINT [ "/usr/bin/docker-entrypoint.sh", "postgres" ]
 
-FROM final-base AS build-pgvector
-RUN apk add --no-cache build-base git postgresql-17-dev clang-19
-RUN git clone --branch v0.8.1 https://github.com/pgvector/pgvector.git && \
-  cd pgvector && \
-  make clean && \
-  make OPTFLAGS="" && \
-  PG_MAJOR=17 make install && \
-  cd .. && \
-  rm -rf pgvector
-
 FROM ${PROVIDERS_IMAGE} AS providers
+FROM ${ENTERPRISE_PROVIDERS_IMAGE} AS enterprise-providers
 FROM ${ENCRYPTION_BINS_IMAGE} AS encryption-bins
-FROM ${ENTERPRISE_IMAGE} AS enterprise-providers
-RUN mkdir -p /obot-providers
 
 FROM final-base AS final
-ENV POSTGRES_USER=obot
-ENV POSTGRES_PASSWORD=obot
-ENV POSTGRES_DB=obot
-ENV PGDATA=/data/postgresql
-
-COPY --from=build-pgvector /usr/lib/postgresql17/vector.so /usr/lib/postgresql17/
-COPY --from=build-pgvector /usr/share/postgresql17/extension/vector* /usr/share/postgresql17/extension/
-
-RUN apk add --no-cache git npm nodejs bash tini procps libreoffice perl-utils sqlite sqlite-dev curl kubectl jq
-
-ENV OBOT_SERVER_DEFAULT_MCPCATALOG_PATH=https://github.com/obot-platform/mcp-catalog
-ENV OBOT_SERVER_DEFAULT_SYSTEM_MCPCATALOG_PATH=https://github.com/obot-platform/system-mcp-catalog
+RUN apk add --no-cache bash tini procps curl kubectl jq
 
 COPY aws-encryption.yaml /
 COPY azure-encryption.yaml /
@@ -73,14 +51,20 @@ COPY --chmod=0755 /tools/combine-envrc.sh /
 RUN /combine-envrc.sh && rm /combine-envrc.sh
 COPY --from=encryption-bins /bin/*-encryption-provider /bin/
 COPY --from=bin /app/bin/obot /bin/
-COPY --from=bin --link /app/ui/user/build-node /ui
 
-ENV PATH=$PATH:/usr/lib/libreoffice/program
-ENV PATH=$PATH:/usr/bin
+ENV OBOT_SERVER_DEFAULT_MCPCATALOG_PATH=https://github.com/obot-platform/mcp-catalog
+ENV OBOT_SERVER_DEFAULT_SYSTEM_MCPCATALOG_PATH=https://github.com/obot-platform/system-mcp-catalog
+ENV OBOT_CONTAINER_ENV=true
+
+ENV POSTGRES_USER=obot
+ENV POSTGRES_PASSWORD=obot
+ENV POSTGRES_DB=obot
+ENV PGDATA=/data/postgresql
+
 ENV HOME=/data
 ENV XDG_CACHE_HOME=/data/cache
 ENV TERM=vt100
-ENV OBOT_CONTAINER_ENV=true
+
 WORKDIR /data
 VOLUME /data
 ENTRYPOINT ["run.sh"]
