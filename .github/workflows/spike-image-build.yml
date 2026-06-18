@@ -57,7 +57,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: ${{ env.IMAGE }}:spike-qemu
           build-args: |
-            BASE_IMAGE=ghcr.io/accelerate-data/obot/base:latest
+            BASE_IMAGE=ghcr.io/obot-platform/obot/base:latest
             PROVIDERS_IMAGE=ghcr.io/accelerate-data/providers-vibedata:latest
             ENCRYPTION_BINS_IMAGE=ghcr.io/accelerate-data/providers-vibedata/encryption-bins:latest
             ENTERPRISE_IMAGE=ghcr.io/accelerate-data/providers-vibedata:latest
@@ -106,7 +106,7 @@ jobs:
           context: .
           platforms: linux/${{ matrix.arch }}
           build-args: |
-            BASE_IMAGE=ghcr.io/accelerate-data/obot/base:latest
+            BASE_IMAGE=ghcr.io/obot-platform/obot/base:latest
             PROVIDERS_IMAGE=ghcr.io/accelerate-data/providers-vibedata:latest
             ENCRYPTION_BINS_IMAGE=ghcr.io/accelerate-data/providers-vibedata/encryption-bins:latest
             ENTERPRISE_IMAGE=ghcr.io/accelerate-data/providers-vibedata:latest
