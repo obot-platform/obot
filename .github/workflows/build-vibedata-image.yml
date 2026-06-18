@@ -69,7 +69,7 @@ jobs:
       - name: Save digest
         run: |
           mkdir -p /tmp/digests
-          echo "${{ steps.build.outputs.digest }}" > /tmp/digests/${{ matrix.arch }}
+          printf '%s' "${{ steps.build.outputs.digest }}" > /tmp/digests/${{ matrix.arch }}
 
       - name: Upload digest artifact
         uses: actions/upload-artifact@v4
