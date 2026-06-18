@@ -56,7 +56,7 @@ ENV PGDATA=/data/postgresql
 COPY --from=build-pgvector /usr/lib/postgresql17/vector.so /usr/lib/postgresql17/
 COPY --from=build-pgvector /usr/share/postgresql17/extension/vector* /usr/share/postgresql17/extension/
 
-RUN apk add --no-cache git python-3.13 py3.13-pip npm nodejs bash tini procps libreoffice perl-utils sqlite sqlite-dev curl kubectl jq
+RUN apk add --no-cache git npm nodejs bash tini procps libreoffice perl-utils sqlite sqlite-dev curl kubectl jq
 
 ENV OBOT_SERVER_DEFAULT_MCPCATALOG_PATH=https://github.com/obot-platform/mcp-catalog
 ENV OBOT_SERVER_DEFAULT_SYSTEM_MCPCATALOG_PATH=https://github.com/obot-platform/system-mcp-catalog
