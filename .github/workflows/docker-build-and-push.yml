@@ -16,15 +16,6 @@ env:
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    tags:
-      - "v*"
-    paths-ignore:
-      - docs/**
-      - chart/**
-      - .github/workflows/**
 
 jobs:
   oss-build:

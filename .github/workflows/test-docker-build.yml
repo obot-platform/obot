@@ -8,27 +8,28 @@ on:
       - chart/**
 
 env:
-  BASE_IMAGE: ghcr.io/accelerate-data/obot/base:latest
   PROVIDERS_IMAGE: ghcr.io/accelerate-data/providers-vibedata:latest
   ENCRYPTION_BINS_IMAGE: ghcr.io/accelerate-data/providers-vibedata/encryption-bins:latest
 
 jobs:
   build:
-    runs-on: depot-ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Depot
-        uses: depot/setup-action@v1
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Build Docker Image
-        uses: depot/build-push-action@v1
+        uses: docker/build-push-action@v6
         with:
-          project: bbqjs4tj1g
           context: .
+          push: false
           platforms: linux/amd64,linux/arm64
           build-args: |
-            BASE_IMAGE=${{ env.BASE_IMAGE }}
             PROVIDERS_IMAGE=${{ env.PROVIDERS_IMAGE }}
             ENCRYPTION_BINS_IMAGE=${{ env.ENCRYPTION_BINS_IMAGE }}

@@ -16,7 +16,7 @@ on:
 
 jobs:
   lint:
-    runs-on: depot-ubuntu-22.04
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
@@ -32,7 +32,7 @@ jobs:
         run: helm template obot chart --namespace obot --set dev.useEmbeddedDb=true
 
   build:
-    runs-on: depot-ubuntu-22.04
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
