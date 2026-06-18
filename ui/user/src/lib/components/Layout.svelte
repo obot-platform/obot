@@ -531,6 +531,13 @@
 						collapsible: true,
 						items: [
 							{
+								id: 'license',
+								href: '/admin/license',
+								label: 'License',
+								disabled: false,
+								collapsible: false
+							},
+							{
 								id: 'branding',
 								href: '/admin/branding',
 								label: 'Branding',
@@ -541,13 +548,6 @@
 								id: 'app-notifications',
 								href: '/admin/app-notifications',
 								label: 'App Notifications',
-								disabled: false,
-								collapsible: false
-							},
-							{
-								id: 'license',
-								href: '/admin/license',
-								label: 'License',
 								disabled: false,
 								collapsible: false
 							}
