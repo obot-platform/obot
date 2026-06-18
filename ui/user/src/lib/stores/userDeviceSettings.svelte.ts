@@ -1,9 +1,12 @@
 import { browser } from '$app/environment';
+import { AiClient } from '$lib/constants';
 
 const store = $state({
 	timeFormat: getTimeFormat(),
 	setTimeFormat,
-	initialize
+	initialize,
+	aiClientPreference: getAiClientPreference(),
+	setAiClientPreference
 });
 
 function initialize() {
@@ -11,6 +14,7 @@ function initialize() {
 		return;
 	}
 	store.timeFormat = getTimeFormat();
+	store.aiClientPreference = getAiClientPreference();
 }
 
 function setTimeFormat(timeFormat: '12h' | '24h') {
@@ -29,6 +33,31 @@ function getTimeFormat(): '12h' | '24h' {
 		return '24h';
 	}
 	return '12h';
+}
+
+function setAiClientPreference(aiClient: AiClient | AiClient[]) {
+	if (browser) {
+		localStorage.setItem(
+			'aiClientPreference',
+			Array.isArray(aiClient) ? aiClient.join(',') : aiClient
+		);
+	}
+	store.aiClientPreference = Array.isArray(aiClient) ? aiClient : [aiClient];
+}
+
+function getAiClientPreference(): AiClient[] | undefined {
+	if (!browser) {
+		return undefined;
+	}
+	const aiClientPreference = localStorage.getItem('aiClientPreference')?.split(',');
+	return (
+		(aiClientPreference as AiClient[]) ?? [
+			AiClient.Cursor,
+			AiClient.Claude,
+			AiClient.Codex,
+			AiClient.VSCode
+		]
+	);
 }
 
 export default store;

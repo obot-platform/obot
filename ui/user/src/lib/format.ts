@@ -57,6 +57,41 @@ export function formatFileTime(timestamp: unknown, format: TimeDisplayFormat): F
 	return { date, formatted };
 }
 
+const BASE64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+function encodeBytesToBase64(bytes: Uint8Array): string {
+	let result = '';
+	const remainder = bytes.length % 3;
+	const end = bytes.length - remainder;
+
+	for (let i = 0; i < end; i += 3) {
+		const n = (bytes[i] << 16) | (bytes[i + 1] << 8) | bytes[i + 2];
+		result +=
+			BASE64_CHARS[(n >> 18) & 63] +
+			BASE64_CHARS[(n >> 12) & 63] +
+			BASE64_CHARS[(n >> 6) & 63] +
+			BASE64_CHARS[n & 63];
+	}
+
+	if (remainder === 1) {
+		const n = bytes[end] << 16;
+		result += BASE64_CHARS[(n >> 18) & 63] + BASE64_CHARS[(n >> 12) & 63] + '==';
+	} else if (remainder === 2) {
+		const n = (bytes[end] << 16) | (bytes[end + 1] << 8);
+		result +=
+			BASE64_CHARS[(n >> 18) & 63] +
+			BASE64_CHARS[(n >> 12) & 63] +
+			BASE64_CHARS[(n >> 6) & 63] +
+			'=';
+	}
+
+	return result;
+}
+
+export function encodeUtf8ToBase64(value: string): string {
+	return encodeBytesToBase64(new TextEncoder().encode(value));
+}
+
 function convertBase64ToBytes(base64: string) {
 	const binary = atob(base64);
 	const bytes = new Uint8Array(binary.length);
