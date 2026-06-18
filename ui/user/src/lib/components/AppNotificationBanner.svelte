@@ -45,7 +45,7 @@
 				</p>
 			{/if}
 		</div>
-		{#if data?.dismissable}
+		{#if data?.dismissible}
 			<button
 				class={twMerge(
 					'btn btn-circle btn-xs w-fit h-fit p-0.5',

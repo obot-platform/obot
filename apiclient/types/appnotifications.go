@@ -16,7 +16,7 @@ type AppNotifications struct {
 }
 
 type BannerNotification struct {
-	Dismissable bool       `json:"dismissable,omitempty"`
+	Dismissible bool       `json:"dismissible,omitempty"`
 	Type        BannerType `json:"type,omitempty"`
 	Enabled     bool       `json:"enabled,omitempty"`
 	Text        string     `json:"text,omitempty"`

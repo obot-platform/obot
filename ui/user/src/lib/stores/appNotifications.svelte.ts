@@ -5,7 +5,7 @@ export const defaultAppNotifications: AppNotifications = {
 	banner: {
 		enabled: false,
 		text: '',
-		dismissable: false,
+		dismissible: false,
 		type: 'info',
 		resetDismissed: false
 	}

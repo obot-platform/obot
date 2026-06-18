@@ -88,11 +88,11 @@ export interface AppPreferencesManifest {
 
 export interface AppNotificationsManifest {
 	banner: {
-		dismissable: boolean;
-		type: BannerType;
-		enabled: boolean;
-		text: string;
-		resetDismissed: boolean;
+		dismissible?: boolean;
+		type?: BannerType;
+		enabled?: boolean;
+		text?: string;
+		resetDismissed?: boolean;
 	};
 }
 

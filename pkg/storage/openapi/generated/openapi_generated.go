@@ -1378,7 +1378,7 @@ func schema_obot_platform_obot_apiclient_types_BannerNotification(ref common.Ref
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"dismissable": {
+					"dismissible": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
 							Format: "",

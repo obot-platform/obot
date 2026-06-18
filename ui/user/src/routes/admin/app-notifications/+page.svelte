@@ -175,11 +175,11 @@
 					<div class="divider my-0"></div>
 					<label for="dismiss-banner-toggle" class="flex items-center justify-between">
 						<div>
-							<p class="text-sm font-light">Dismissable</p>
+							<p class="text-sm font-light">Dismissible</p>
 							<p class="text-xs font-light text-muted-content mb-2">
-								The banner is {appNotifications.banner.dismissable
-									? 'dismissable'
-									: 'not dismissable'}. {appNotifications.banner.dismissable
+								The banner is {appNotifications.banner.dismissible
+									? 'dismissible'
+									: 'not dismissible'}. {appNotifications.banner.dismissible
 									? 'The user can dismiss the banner and it will not appear again for their device.'
 									: 'The banner will stay visible and cannot be hidden by the user.'}
 							</p>
@@ -188,7 +188,7 @@
 							id="dismiss-banner-toggle"
 							type="checkbox"
 							class="toggle toggle-sm"
-							bind:checked={appNotifications.banner.dismissable}
+							bind:checked={appNotifications.banner.dismissible}
 							disabled={isAdminReadonly}
 						/>
 					</label>
@@ -205,7 +205,7 @@
 							type="checkbox"
 							class="toggle toggle-sm"
 							bind:checked={appNotifications.banner.resetDismissed}
-							disabled={isAdminReadonly || !appNotifications.banner.dismissable}
+							disabled={isAdminReadonly || !appNotifications.banner.dismissible}
 						/>
 					</label>
 
@@ -241,6 +241,7 @@
 						class="btn btn-secondary text-sm"
 						onclick={() => {
 							appNotifications = withBanner(data.appNotifications);
+							bannerTextValidationError = null;
 						}}
 						disabled={saving}
 					>
