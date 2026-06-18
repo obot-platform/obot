@@ -19,8 +19,7 @@
 			'w-full py-2 px-4 flex items-center justify-center gap-2',
 			data?.type === 'warning'
 				? 'bg-warning text-warning-content dark:bg-warning/10 dark:text-warning'
-				:  'bg-primary/10 text-primary'
-				
+				: 'bg-primary/10 text-primary'
 		)}
 	>
 		<div class="flex items-center gap-1">
