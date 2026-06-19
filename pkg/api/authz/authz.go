@@ -26,6 +26,8 @@ var (
 	adminAndOwnerRules = []string{
 		"/api/mcp-catalogs",
 		"/api/mcp-catalogs/",
+		"/api/model-info-source",
+		"/api/model-info-source/",
 		"/api/mcp-servers",
 		"/api/mcp-servers/",
 		"/api/all-mcps",

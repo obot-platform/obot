@@ -1825,7 +1825,7 @@ function tokenUsageQueryString(timeRange: TokenUsageTimeRange): string {
 	return parts.join('&');
 }
 
-/** Returns token usage for all users in the time range as a flat list. Does not include personal token. */
+/** Returns token usage for all users in the time range as a flat list. */
 
 function unwrapTokenUsageList(response: unknown): TokenUsage[] {
 	if (Array.isArray(response)) return response;

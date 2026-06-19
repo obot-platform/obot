@@ -64,6 +64,18 @@ func (db *DB) AutoMigrate() (err error) {
 		return fmt.Errorf("failed to migrate mcp_audit_log client info: %w", err)
 	}
 
+	if err = migrateRunTokenActivityInputOutput(tx); err != nil {
+		return fmt.Errorf("failed to rename run_token_activities token columns: %w", err)
+	}
+
+	if err = dropRunTokenActivityPersonalToken(tx); err != nil {
+		return fmt.Errorf("failed to drop run_token_activities personal_token column: %w", err)
+	}
+
+	if err = migrateUserDailyTokenLimits(tx); err != nil {
+		return fmt.Errorf("failed to rename users daily token limit columns: %w", err)
+	}
+
 	if err = migrateIfEntryNotFoundInMigrationsTable(tx, "drop_session_cookies", dropSessionCookiesTable); err != nil {
 		return fmt.Errorf("failed to drop session_cookies table: %w", err)
 	}

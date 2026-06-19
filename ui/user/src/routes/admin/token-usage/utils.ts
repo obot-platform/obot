@@ -93,16 +93,38 @@ export function getBucketStart(date: Date, kind: BucketKind): Date {
 export type TimelineBucketRow = {
 	date: string;
 	category: string;
-	promptTokens: number;
-	completionTokens: number;
+	inputTokens: number;
+	outputTokens: number;
+	totalTokens: number;
+	cacheReadTokens: number;
+	cacheWriteTokens: number;
+	thinkingTokens: number;
+	inputSpend: number;
+	cacheReadSpend: number;
+	cacheWriteSpend: number;
+	outputSpend: number;
+	totalSpend: number;
+	bucketTokens: number;
+	bucketSpend: number;
 };
 
 export function aggregateTimelineDataByBucket(
 	data: {
 		date: string | Date;
 		category: string;
-		promptTokens?: number;
-		completionTokens?: number;
+		inputTokens?: number;
+		outputTokens?: number;
+		totalTokens?: number;
+		cacheReadTokens?: number;
+		cacheWriteTokens?: number;
+		thinkingTokens?: number;
+		inputSpend?: number;
+		cacheReadSpend?: number;
+		cacheWriteSpend?: number;
+		outputSpend?: number;
+		totalSpend?: number;
+		bucketTokens?: number;
+		bucketSpend?: number;
 	}[],
 	rangeStart: Date,
 	rangeEnd: Date
@@ -111,7 +133,7 @@ export function aggregateTimelineDataByBucket(
 	const kind = getBucketKind(rangeStart, rangeEnd);
 	const bucketToCategoryToTotals = new Map<
 		string,
-		Map<string, { prompt: number; completion: number }>
+		Map<string, Omit<TimelineBucketRow, 'date' | 'category'>>
 	>();
 	for (const row of data) {
 		const bucketKey = getBucketStart(new Date(row.date), kind).toISOString();
@@ -121,9 +143,34 @@ export function aggregateTimelineDataByBucket(
 			bucketToCategoryToTotals.set(bucketKey, byCat);
 		}
 		const cat = row.category;
-		const t = byCat.get(cat) ?? { prompt: 0, completion: 0 };
-		t.prompt += row.promptTokens ?? 0;
-		t.completion += row.completionTokens ?? 0;
+		const t = byCat.get(cat) ?? {
+			inputTokens: 0,
+			outputTokens: 0,
+			totalTokens: 0,
+			cacheReadTokens: 0,
+			cacheWriteTokens: 0,
+			thinkingTokens: 0,
+			inputSpend: 0,
+			cacheReadSpend: 0,
+			cacheWriteSpend: 0,
+			outputSpend: 0,
+			totalSpend: 0,
+			bucketTokens: 0,
+			bucketSpend: 0
+		};
+		t.inputTokens += row.inputTokens ?? 0;
+		t.outputTokens += row.outputTokens ?? 0;
+		t.totalTokens += row.totalTokens ?? 0;
+		t.cacheReadTokens += row.cacheReadTokens ?? 0;
+		t.cacheWriteTokens += row.cacheWriteTokens ?? 0;
+		t.thinkingTokens += row.thinkingTokens ?? 0;
+		t.inputSpend += row.inputSpend ?? 0;
+		t.cacheReadSpend += row.cacheReadSpend ?? 0;
+		t.cacheWriteSpend += row.cacheWriteSpend ?? 0;
+		t.outputSpend += row.outputSpend ?? 0;
+		t.totalSpend += row.totalSpend ?? 0;
+		t.bucketTokens += row.bucketTokens ?? 0;
+		t.bucketSpend += row.bucketSpend ?? 0;
 		byCat.set(cat, t);
 	}
 	const result: TimelineBucketRow[] = [];
@@ -132,8 +179,7 @@ export function aggregateTimelineDataByBucket(
 			result.push({
 				date: bucketKey,
 				category,
-				promptTokens: totals.prompt,
-				completionTokens: totals.completion
+				...totals
 			});
 		}
 	}

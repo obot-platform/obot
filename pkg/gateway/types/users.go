@@ -26,11 +26,11 @@ type User struct {
 	Timezone       string      `json:"timezone"`
 
 	// LastActiveDay is the time of the last request made by this user, currently at the 24 hour granularity.
-	LastActiveDay              time.Time `json:"lastActiveDay"`
-	Internal                   bool      `json:"internal" gorm:"default:false"`
-	DailyPromptTokensLimit     int       `json:"dailyPromptTokensLimit"`
-	DailyCompletionTokensLimit int       `json:"dailyCompletionTokensLimit"`
-	Encrypted                  bool      `json:"encrypted"`
+	LastActiveDay          time.Time `json:"lastActiveDay"`
+	Internal               bool      `json:"internal" gorm:"default:false"`
+	DailyInputTokensLimit  int       `json:"dailyInputTokensLimit"`
+	DailyOutputTokensLimit int       `json:"dailyOutputTokensLimit"`
+	Encrypted              bool      `json:"encrypted"`
 	// Soft delete fields
 	DeletedAt        *time.Time `json:"deletedAt,omitempty"`
 	OriginalEmail    string     `json:"-"`
@@ -56,22 +56,22 @@ func ConvertUserWithEffectiveRole(u *User, roleFixed bool, authProviderName stri
 			ID:      fmt.Sprint(u.ID),
 			Created: *types2.NewTime(u.CreatedAt),
 		},
-		DisplayName:                u.DisplayName,
-		Username:                   u.Username,
-		Email:                      u.Email,
-		Role:                       u.Role,
-		EffectiveRole:              effectiveRole,
-		Groups:                     groups,
-		ExplicitRole:               roleFixed,
-		IconURL:                    u.IconURL,
-		Timezone:                   u.Timezone,
-		CurrentAuthProvider:        authProviderName,
-		LastActiveDay:              *types2.NewTime(u.LastActiveDay),
-		Internal:                   u.Internal,
-		DailyPromptTokensLimit:     u.DailyPromptTokensLimit,
-		DailyCompletionTokensLimit: u.DailyCompletionTokensLimit,
-		OriginalEmail:              u.OriginalEmail,
-		OriginalUsername:           u.OriginalUsername,
+		DisplayName:            u.DisplayName,
+		Username:               u.Username,
+		Email:                  u.Email,
+		Role:                   u.Role,
+		EffectiveRole:          effectiveRole,
+		Groups:                 groups,
+		ExplicitRole:           roleFixed,
+		IconURL:                u.IconURL,
+		Timezone:               u.Timezone,
+		CurrentAuthProvider:    authProviderName,
+		LastActiveDay:          *types2.NewTime(u.LastActiveDay),
+		Internal:               u.Internal,
+		DailyInputTokensLimit:  u.DailyInputTokensLimit,
+		DailyOutputTokensLimit: u.DailyOutputTokensLimit,
+		OriginalEmail:          u.OriginalEmail,
+		OriginalUsername:       u.OriginalUsername,
 	}
 
 	if u.DeletedAt != nil {

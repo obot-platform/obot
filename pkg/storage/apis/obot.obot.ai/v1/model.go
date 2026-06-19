@@ -66,6 +66,14 @@ func (m *Model) SetObservedGeneration(gen int64) {
 	m.Status.ObservedGeneration = gen
 }
 
+// GetCost returns OverrideCost when set, otherwise the synced Cost.
+func (m *Model) GetCost() types.ModelCost {
+	if m.Spec.Manifest.OverrideCost != nil {
+		return *m.Spec.Manifest.OverrideCost
+	}
+	return m.Status.Cost
+}
+
 type ModelSpec struct {
 	Manifest types.ModelManifest `json:"manifest,omitempty"`
 }
@@ -73,6 +81,8 @@ type ModelSpec struct {
 type ModelStatus struct {
 	AliasAssigned      bool  `json:"aliasAssigned,omitempty"`
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+	// Cost is the synced model cost.
+	Cost types.ModelCost `json:"cost,omitzero"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

@@ -195,6 +195,7 @@ func convertModel(model v1.Model, modelProvider v1.ModelProvider) (types.Model, 
 			ModelProviderName: modelProvider.Name,
 			Icon:              modelProvider.Spec.Icon,
 			IconDark:          modelProvider.Spec.IconDark,
+			Cost:              model.Status.Cost,
 		},
 	}, nil
 }

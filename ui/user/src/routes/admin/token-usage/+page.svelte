@@ -21,7 +21,7 @@
 	import { goto } from '$lib/url';
 	import { getUserDisplayName } from '$lib/utils';
 	import { aggregateTimelineDataByBucket, getUserLabels } from './utils';
-	import { Coins, X } from '@lucide/svelte';
+	import { X } from '@lucide/svelte';
 	import { subDays } from 'date-fns';
 	import { onMount } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
@@ -172,15 +172,91 @@
 		new Map(modelsData.map((m) => [m.targetModel, m.displayName || m.name]))
 	);
 
-	function toTimelineItem(r: TokenUsage, category: string): TokenUsageWithCategory {
+	type TokenUsageTimelineItem = TokenUsageWithCategory & {
+		bucketTokens?: number;
+		bucketSpend?: number;
+	};
+
+	type UsageBucket = {
+		label: string;
+		tokens: number;
+		spend: number;
+		thinkingTokens?: number;
+	};
+
+	const bucketTooltipValueKeys: (keyof TokenUsageTimelineItem)[] = [
+		'bucketSpend',
+		'cacheReadTokens',
+		'cacheWriteTokens',
+		'cacheReadSpend',
+		'cacheWriteSpend',
+		'thinkingTokens'
+	];
+	const mainTooltipValueKeys: (keyof TokenUsageTimelineItem)[] = [
+		'inputSpend',
+		'outputSpend',
+		'cacheReadTokens',
+		'cacheWriteTokens',
+		'cacheReadSpend',
+		'cacheWriteSpend',
+		'thinkingTokens'
+	];
+
+	function toTimelineItem(r: TokenUsage, category: string): TokenUsageTimelineItem {
 		return {
 			...r,
 			date: r.date,
-			promptTokens: r.promptTokens ?? 0,
-			completionTokens: r.completionTokens ?? 0,
-			totalTokens: r.totalTokens ?? (r.promptTokens ?? 0) + (r.completionTokens ?? 0),
+			inputTokens: r.inputTokens ?? 0,
+			cacheReadTokens: r.cacheReadTokens ?? 0,
+			cacheWriteTokens: r.cacheWriteTokens ?? 0,
+			outputTokens: r.outputTokens ?? 0,
+			thinkingTokens: r.thinkingTokens ?? 0,
+			totalTokens: r.totalTokens ?? (r.inputTokens ?? 0) + (r.outputTokens ?? 0),
+			inputSpend: r.inputSpend ?? 0,
+			cacheReadSpend: r.cacheReadSpend ?? 0,
+			cacheWriteSpend: r.cacheWriteSpend ?? 0,
+			outputSpend: r.outputSpend ?? 0,
+			totalSpend: r.totalSpend ?? 0,
 			category
 		};
+	}
+
+	function positive(value: number | undefined): number {
+		return Math.max(value ?? 0, 0);
+	}
+
+	function tokenBuckets(r: TokenUsage): UsageBucket[] {
+		const inputTokens = positive(r.inputTokens);
+		const outputTokens = positive(r.outputTokens);
+
+		return [
+			{ label: 'Input', tokens: inputTokens, spend: positive(r.inputSpend) },
+			{
+				label: 'Output',
+				tokens: outputTokens,
+				spend: positive(r.outputSpend),
+				thinkingTokens: positive(r.thinkingTokens)
+			}
+		].filter((bucket) => bucket.tokens > 0 || bucket.spend > 0);
+	}
+
+	function toBucketTimelineItems(r: TokenUsage): TokenUsageTimelineItem[] {
+		return tokenBuckets(r).map((bucket) => ({
+			...toTimelineItem(r, bucket.label),
+			bucketTokens: bucket.tokens,
+			bucketSpend: bucket.spend,
+			thinkingTokens: bucket.thinkingTokens ?? 0
+		}));
+	}
+
+	function formatUSD(value: number): string {
+		const fractionDigits = value !== 0 && Math.abs(value) < 0.01 ? 4 : 2;
+		return value.toLocaleString(undefined, {
+			style: 'currency',
+			currency: 'USD',
+			minimumFractionDigits: 2,
+			maximumFractionDigits: fractionDigits
+		});
 	}
 
 	function computeMainTimelineData(
@@ -190,16 +266,10 @@
 		modelToName: Map<string, string>
 	): TokenUsageWithCategory[] {
 		if (group === 'group_by_users') {
-			const userKeys = [...new Set(filtered.map((r) => r.userID ?? r.runName ?? 'Unknown'))].sort();
+			const userKeys = [...new Set(filtered.map((r) => r.userID ?? 'Unknown'))].sort();
 			const userKeyToLabel = getUserLabels(users, userKeys);
 			return filtered.map((r) =>
-				toTimelineItem(
-					r,
-					userKeyToLabel.get(r.userID ?? r.runName ?? 'Unknown') ??
-						r.userID ??
-						r.runName ??
-						'Unknown'
-				)
+				toTimelineItem(r, userKeyToLabel.get(r.userID ?? 'Unknown') ?? r.userID ?? 'Unknown')
 			);
 		}
 		if (group === 'group_by_models') {
@@ -213,9 +283,13 @@
 	type PerModelRow = {
 		modelKey: string;
 		modelLabel: string;
-		timelineData: TokenUsageWithCategory[];
+		timelineData: TokenUsageTimelineItem[];
 	};
-	type PerUserRow = { userKey: string; userLabel: string; timelineData: TokenUsageWithCategory[] };
+	type PerUserRow = {
+		userKey: string;
+		userLabel: string;
+		timelineData: TokenUsageTimelineItem[];
+	};
 
 	let perModelPromptData = $state<PerModelRow[]>([]);
 	let perUserPromptData = $state<PerUserRow[]>([]);
@@ -246,7 +320,7 @@
 				return {
 					modelKey: model,
 					modelLabel,
-					timelineData: modelRows.map((r) => toTimelineItem(r, modelLabel))
+					timelineData: modelRows.flatMap(toBucketTimelineItems)
 				};
 			});
 		}
@@ -255,7 +329,7 @@
 			if (!filtered.length) return [];
 			const byUser = new SvelteMap<string, TokenUsage[]>();
 			for (const r of filtered) {
-				const userKey = r.userID ?? r.runName ?? 'Unknown';
+				const userKey = r.userID ?? 'Unknown';
 				let rows = byUser.get(userKey);
 				if (!rows) {
 					rows = [];
@@ -299,15 +373,15 @@
 	});
 
 	function timelineDataForChartWithRange(
-		items: TokenUsageWithCategory[],
+		items: TokenUsageTimelineItem[],
 		start: Date,
 		end: Date
-	): TokenUsageWithCategory[] {
+	): TokenUsageTimelineItem[] {
 		if (items.length <= TIMELINE_AGGREGATE_THRESHOLD) return items;
-		return aggregateTimelineDataByBucket(items, start, end) as TokenUsageWithCategory[];
+		return aggregateTimelineDataByBucket(items, start, end) as TokenUsageTimelineItem[];
 	}
 
-	let mainChartData = $state<TokenUsageWithCategory[]>([]);
+	let mainChartData = $state<TokenUsageTimelineItem[]>([]);
 
 	$effect(() => {
 		const filtered = filteredData;
@@ -334,17 +408,20 @@
 		});
 	});
 
-	type GraphItem = { label: string; timelineData: TokenUsageWithCategory[] };
+	type GraphMode = 'bucket' | 'input_output';
+	type GraphItem = { label: string; timelineData: TokenUsageTimelineItem[]; mode: GraphMode };
 	const graphItems = $derived.by((): GraphItem[] => {
 		if (selectedSubview === 'models') {
 			return perModelPromptData.map(({ modelLabel, timelineData }) => ({
 				label: modelLabel,
-				timelineData
+				timelineData,
+				mode: 'bucket'
 			}));
 		}
 		return perUserPromptData.map(({ userLabel, timelineData }) => ({
 			label: userLabel,
-			timelineData
+			timelineData,
+			mode: 'input_output'
 		}));
 	});
 
@@ -356,18 +433,23 @@
 	let visibleChartCount = $state(INITIAL_VISIBLE_CHARTS);
 	let gridDataReady = $state(true);
 
+	function graphItemTokens(item: GraphItem): number {
+		return item.timelineData.reduce((sum, r) => {
+			const rowTokens =
+				item.mode === 'bucket'
+					? (r.bucketTokens ?? 0)
+					: (r.totalTokens ?? (r.inputTokens ?? 0) + (r.outputTokens ?? 0));
+			return sum + rowTokens;
+		}, 0);
+	}
+
 	function sortGraphItems(items: GraphItem[], sortBy: SubViewSortBy): GraphItem[] {
-		const total = (item: GraphItem) => {
-			const total = item.timelineData.reduce(
-				(sum, r) => sum + (r.totalTokens ?? (r.promptTokens ?? 0) + (r.completionTokens ?? 0)),
-				0
-			);
-			return total;
-		};
 		const byNameAsc = (a: GraphItem, b: GraphItem) => a.label.localeCompare(b.label);
 		const byNameDesc = (a: GraphItem, b: GraphItem) => b.label.localeCompare(a.label);
-		const byTotalTokensDesc = (a: GraphItem, b: GraphItem) => total(b) - total(a);
-		const byTotalTokensAsc = (a: GraphItem, b: GraphItem) => total(a) - total(b);
+		const byTotalTokensDesc = (a: GraphItem, b: GraphItem) =>
+			graphItemTokens(b) - graphItemTokens(a);
+		const byTotalTokensAsc = (a: GraphItem, b: GraphItem) =>
+			graphItemTokens(a) - graphItemTokens(b);
 		const cmp =
 			sortBy === 'sort_by_name'
 				? byNameAsc
@@ -386,11 +468,7 @@
 	}
 
 	function hasTokenData(item: GraphItem): boolean {
-		const total = item.timelineData.reduce(
-			(sum, r) => sum + (r.totalTokens ?? (r.promptTokens ?? 0) + (r.completionTokens ?? 0)),
-			0
-		);
-		return total > 0;
+		return graphItemTokens(item) > 0;
 	}
 
 	$effect(() => {
@@ -409,7 +487,8 @@
 			gridDataReady = true;
 			const mapped = items.map((item) => ({
 				label: item.label,
-				timelineData: timelineDataForChartWithRange(item.timelineData, start, end)
+				timelineData: timelineDataForChartWithRange(item.timelineData, start, end),
+				mode: item.mode
 			}));
 			const sorted = sortGraphItems(mapped, sortBy).filter(hasTokenData);
 			displayGraphItems = filterGraphItemsBySearch(sorted, searchQuery);
@@ -428,7 +507,8 @@
 			for (const item of chunk) {
 				accumulated.push({
 					label: item.label,
-					timelineData: timelineDataForChartWithRange(item.timelineData, start, end)
+					timelineData: timelineDataForChartWithRange(item.timelineData, start, end),
+					mode: item.mode
 				});
 			}
 			const nextIndex = fromIndex + GRID_CHUNK_SIZE;
@@ -605,11 +685,18 @@
 			<div class="m-auto w-full px-4 py-4 md:max-w-(--breakpoint-xl) md:px-8">
 				<h4 class="font-semibold">Overall Stats</h4>
 				<div class="flex flex-col flex-wrap items-stretch gap-4 md:flex-row">
-					{@render summary('Total Tokens', totalTokensData?.totalTokens ?? 0)}
+					{@render summary('Total', totalTokensData?.totalTokens ?? 0)}
 					<div class="divider-horizontal hidden md:block"></div>
-					{@render summary('Total Prompt Tokens', totalTokensData?.promptTokens ?? 0)}
+					{@render summary('Input', totalTokensData?.inputTokens ?? 0)}
 					<div class="divider-horizontal hidden md:block"></div>
-					{@render summary('Total Completion Tokens', totalTokensData?.completionTokens ?? 0)}
+					{@render summary('Output', totalTokensData?.outputTokens ?? 0)}
+					<div class="divider-horizontal hidden md:block"></div>
+					{@render summary(
+						'Cached Input',
+						(totalTokensData?.cacheReadTokens ?? 0) + (totalTokensData?.cacheWriteTokens ?? 0)
+					)}
+					<div class="divider-horizontal hidden md:block"></div>
+					{@render spendSummary('Spend', totalTokensData?.totalSpend)}
 				</div>
 			</div>
 		</div>
@@ -697,7 +784,7 @@
 				<div class="mb-1 flex flex-wrap justify-between gap-2">
 					<div class="flex flex-wrap items-center gap-4">
 						<h4 class="flex items-center gap-2 font-semibold">
-							Prompt & Completion Tokens
+							Input & Output Tokens
 							{#if loadingTableData}
 								<Loading class="size-4 animate-spin" />
 							{/if}
@@ -742,7 +829,8 @@
 							end={endDate}
 							data={mainChartData}
 							dateKey="date"
-							primaryValueKey={selectedTokenType === 'input' ? 'promptTokens' : 'completionTokens'}
+							primaryValueKey={selectedTokenType === 'input' ? 'inputTokens' : 'outputTokens'}
+							tooltipValueKeys={mainTooltipValueKeys}
 							categoryKey="category"
 							class="h-96"
 							legend={{
@@ -758,6 +846,10 @@
 						>
 							{#snippet tooltipContent(item)}
 								{@const value = item.primaryTotal ?? 0}
+								{@const spend =
+									selectedTokenType === 'input'
+										? (item.details?.inputSpend ?? 0)
+										: (item.details?.outputSpend ?? 0)}
 								<div class="flex flex-col gap-0 text-xs">
 									<div class="text-sm font-light">{item.key}</div>
 									<div class="text-muted-content">{item.date}</div>
@@ -766,6 +858,21 @@
 								<div class="flex flex-col gap-1">
 									<div class="text-base-content flex flex-col">
 										<div class="text-xl font-bold">{value.toLocaleString()}</div>
+										<div class="text-muted-content text-xs">{formatUSD(spend)}</div>
+										{#if selectedTokenType === 'input'}
+											<div class="text-muted-content mt-1 text-xs">
+												Cache read: {(item.details?.cacheReadTokens ?? 0).toLocaleString()} tokens,
+												{formatUSD(item.details?.cacheReadSpend ?? 0)}
+											</div>
+											<div class="text-muted-content text-xs">
+												Cache write: {(item.details?.cacheWriteTokens ?? 0).toLocaleString()} tokens,
+												{formatUSD(item.details?.cacheWriteSpend ?? 0)}
+											</div>
+										{:else if (item.details?.thinkingTokens ?? 0) > 0}
+											<div class="text-muted-content mt-1 text-xs">
+												Thinking: {(item.details?.thinkingTokens ?? 0).toLocaleString()} tokens
+											</div>
+										{/if}
 									</div>
 								</div>
 							{/snippet}
@@ -852,44 +959,99 @@
 											{item.label}
 										</h5>
 										<div class="w-full shrink-0 p-4">
-											<StackedTimeline
-												start={startDate}
-												end={endDate}
-												data={item.timelineData}
-												categoryKey="category"
-												dateKey="date"
-												primaryValueKey="promptTokens"
-												secondaryValueKey="completionTokens"
-												class="h-48"
-												legend={{
-													hideCategoryLabel: true,
-													showSecondaryLabel: true,
-													primaryLabel: 'input tokens',
-													secondaryLabel: 'output tokens'
-												}}
-												classes={{
-													legend: 'pt-4 justify-start'
-												}}
-											>
-												{#snippet tooltipContent(item)}
-													{@const value =
-														item.hoveredPart === 'primary'
-															? (item.primaryTotal ?? 0)
-															: (item.secondaryTotal ?? 0)}
-													<div class="flex flex-col gap-0 text-xs">
-														<div class="text-sm font-light">
-															{item.hoveredPart === 'primary' ? 'Input tokens' : 'Output tokens'}
+											{#if item.mode === 'bucket'}
+												<StackedTimeline
+													start={startDate}
+													end={endDate}
+													data={item.timelineData}
+													categoryKey="category"
+													dateKey="date"
+													primaryValueKey="bucketTokens"
+													tooltipValueKeys={bucketTooltipValueKeys}
+													class="h-48"
+													legend={{
+														showSecondaryLabel: false,
+														primaryLabel: 'tokens'
+													}}
+													classes={{
+														legend: 'pt-4 justify-start'
+													}}
+												>
+													{#snippet tooltipContent(item)}
+														{@const value = item.primaryTotal ?? 0}
+														{@const spend = item.details?.bucketSpend ?? 0}
+														<div class="flex flex-col gap-0 text-xs">
+															<div class="text-sm font-light">{item.key}</div>
+															<div class="text-muted-content">{item.date}</div>
+															<div class="tooltip-divider"></div>
 														</div>
-														<div class="text-muted-content">{item.date}</div>
-														<div class="tooltip-divider"></div>
-													</div>
-													<div class="flex flex-col gap-1">
-														<div class="text-base-content flex flex-col">
-															<div class="text-xl font-bold">{value.toLocaleString()}</div>
+														<div class="flex flex-col gap-1">
+															<div class="text-base-content flex flex-col">
+																<div class="text-xl font-bold">{value.toLocaleString()}</div>
+																<div class="text-muted-content text-xs">{formatUSD(spend)}</div>
+																{#if item.key === 'Input'}
+																	<div class="text-muted-content mt-1 text-xs">
+																		Cache read: {(
+																			item.details?.cacheReadTokens ?? 0
+																		).toLocaleString()}
+																		tokens, {formatUSD(item.details?.cacheReadSpend ?? 0)}
+																	</div>
+																	<div class="text-muted-content text-xs">
+																		Cache write: {(
+																			item.details?.cacheWriteTokens ?? 0
+																		).toLocaleString()}
+																		tokens, {formatUSD(item.details?.cacheWriteSpend ?? 0)}
+																	</div>
+																{:else if item.key === 'Output' && (item.details?.thinkingTokens ?? 0) > 0}
+																	<div class="text-muted-content mt-1 text-xs">
+																		Thinking: {(item.details?.thinkingTokens ?? 0).toLocaleString()}
+																		tokens
+																	</div>
+																{/if}
+															</div>
 														</div>
-													</div>
-												{/snippet}
-											</StackedTimeline>
+													{/snippet}
+												</StackedTimeline>
+											{:else}
+												<StackedTimeline
+													start={startDate}
+													end={endDate}
+													data={item.timelineData}
+													categoryKey="category"
+													dateKey="date"
+													primaryValueKey="inputTokens"
+													secondaryValueKey="outputTokens"
+													class="h-48"
+													legend={{
+														hideCategoryLabel: true,
+														showSecondaryLabel: true,
+														primaryLabel: 'input tokens',
+														secondaryLabel: 'output tokens'
+													}}
+													classes={{
+														legend: 'pt-4 justify-start'
+													}}
+												>
+													{#snippet tooltipContent(item)}
+														{@const value =
+															item.hoveredPart === 'primary'
+																? (item.primaryTotal ?? 0)
+																: (item.secondaryTotal ?? 0)}
+														<div class="flex flex-col gap-0 text-xs">
+															<div class="text-sm font-light">
+																{item.hoveredPart === 'primary' ? 'Input tokens' : 'Output tokens'}
+															</div>
+															<div class="text-muted-content">{item.date}</div>
+															<div class="tooltip-divider"></div>
+														</div>
+														<div class="flex flex-col gap-1">
+															<div class="text-base-content flex flex-col">
+																<div class="text-xl font-bold">{value.toLocaleString()}</div>
+															</div>
+														</div>
+													{/snippet}
+												</StackedTimeline>
+											{/if}
 										</div>
 									</div>
 								{/each}
@@ -927,7 +1089,21 @@
 				</div>
 			{:else}
 				{value.toLocaleString()}
-				<Coins class="size-4" />
+			{/if}
+		</div>
+	</div>
+{/snippet}
+
+{#snippet spendSummary(title: string, value: number | undefined)}
+	<div class="flex min-w-0 flex-1 flex-col gap-1 py-2">
+		<div class="text-base-content text-xs font-light">{title}</div>
+		<div class="text-primary flex items-center gap-1 text-xl font-semibold">
+			{#if loadingTotalTokensData}
+				<div class="py-2">
+					<Loading class="size-4 animate-spin" />
+				</div>
+			{:else}
+				{formatUSD(value ?? 0)}
 			{/if}
 		</div>
 	</div>
