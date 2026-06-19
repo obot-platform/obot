@@ -674,8 +674,8 @@
 	}
 
 	let showAppNotificationBanner = $derived.by(() => {
-		if(isAgentRoute || !bannerDismissed.isReady) return false;
-		
+		if (isAgentRoute || !bannerDismissed.isReady) return false;
+
 		const appNotifications = appNotificationsStore.current;
 		if (!appNotifications?.banner?.enabled) return false;
 		if (!appNotifications.banner.dismissible) return true; // enabled & not dismissable, always show
