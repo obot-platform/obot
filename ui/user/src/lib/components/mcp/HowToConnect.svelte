@@ -72,7 +72,7 @@
 
 	export function resetCopied() {
 		copyFields.forEach((copyField) => {
-			copyField.clear();
+			copyField?.clear();
 		});
 	}
 </script>

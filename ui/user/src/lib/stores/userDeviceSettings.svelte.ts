@@ -54,7 +54,8 @@ function getAiClientPreference(): AiClient[] | undefined {
 	}
 
 	const raw = localStorage.getItem('aiClientPreference');
-	if (!raw) return fallback;
+	if (raw === null) return fallback;
+	if (raw.trim() === '') return fallback;
 
 	const valid = raw
 		.split(',')

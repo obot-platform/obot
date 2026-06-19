@@ -903,6 +903,13 @@
 		handleConnect();
 	}
 
+	function generateIdFromName(name: string) {
+		return name
+			.toLowerCase()
+			.replace(/ /g, '-')
+			.replace(/[^a-z0-9-_]/g, '');
+	}
+
 	onMount(() => {
 		ensureOauthVisibilityListener();
 		return () => {
@@ -943,7 +950,11 @@
 			/>
 		</div>
 		{#if url}
-			<HowToConnect bind:this={howToConnect} {url} id={server.catalogEntryID || server.id || ''} />
+			<HowToConnect
+				bind:this={howToConnect}
+				{url}
+				id={generateIdFromName(getMCPDisplayName(server, entry?.manifest?.name ?? ''))}
+			/>
 		{/if}
 	{/if}
 </ResponsiveDialog>
