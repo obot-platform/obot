@@ -547,7 +547,7 @@
 							{
 								id: 'app-notification',
 								href: '/admin/app-notification',
-								label: 'App Notifications',
+								label: 'App Notification',
 								disabled: false,
 								collapsible: false
 							}

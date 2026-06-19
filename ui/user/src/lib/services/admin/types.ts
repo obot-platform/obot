@@ -37,7 +37,7 @@ import {
  * Prefer reusing or extending types from `../user/types` when the same shape exists there.
  */
 
-// App notifications
+// App notification
 
 export interface AppNotificationManifest {
 	banner: {

@@ -158,7 +158,7 @@ export async function updateAppPreferences(
 	return (await doPut('/app-preferences', preferences, opts)) as AppPreferences;
 }
 
-// App notifications
+// App notification
 
 export async function updateAppNotification(
 	notification: AppNotificationManifest,

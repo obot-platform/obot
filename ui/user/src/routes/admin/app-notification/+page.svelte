@@ -104,7 +104,7 @@
 		try {
 			const response = await AdminService.updateAppNotification(appNotification);
 			appNotificationStore.initialize(response);
-			success.add('App notifications updated successfully.');
+			success.add('App notification updated successfully.');
 		} catch (_err) {
 			// errors are surfaced via the global HTTP error handling (errors store)
 		} finally {
@@ -113,7 +113,7 @@
 	}
 </script>
 
-<Layout title="App Notifications" classes={{ container: 'pb-0' }}>
+<Layout title="App Notification" classes={{ container: 'pb-0' }}>
 	<div class="relative h-full w-full @container flex flex-col gap-4" transition:fade={{ duration }}>
 		<div class="paper gap-0.5">
 			<div>
@@ -257,5 +257,5 @@
 </Layout>
 
 <svelte:head>
-	<title>Obot | App Notifications</title>
+	<title>Obot | App Notification</title>
 </svelte:head>
