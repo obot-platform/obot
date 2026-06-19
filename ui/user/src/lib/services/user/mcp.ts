@@ -1048,10 +1048,10 @@ export async function disconnectMcpServerUser(server: MCPCatalogServer): Promise
 	await UserService.deleteSingleOrRemoteMcpServer(server.id);
 }
 
-export function getAiClientCommand(client: AiClient, url: string): string {
+export function getAiClientCommand(client: AiClient, displayName: string, url: string): string {
 	const commands = {
-		[AiClient.Claude]: `claude mcp add ${url}`,
-		[AiClient.Codex]: `codex mcp add ${url}`
+		[AiClient.Claude]: `claude mcp add --transport http ${displayName} ${url}`,
+		[AiClient.Codex]: `codex mcp add ${displayName} --url ${url}`
 	};
 	return commands[client as keyof typeof commands] ?? '';
 }

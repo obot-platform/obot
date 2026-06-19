@@ -19,7 +19,7 @@
 
 	let aiClientsMap = $derived(new Map(COMMON_AI_CLIENTS.map((client) => [client.id, client])));
 	let magicLinks = $derived(generateMcpLinks(name, url));
-	let commands = $derived(generateAiClientCommands(url));
+	let commands = $derived(generateAiClientCommands(name, url));
 
 	$effect(() => {
 		console.log(aiClientsMap, magicLinks, commands);
@@ -62,21 +62,21 @@
 		);
 	}
 
-	function generateAiClientCommands(url: string) {
+	function generateAiClientCommands(displayName: string, url: string) {
 		const userSetPreferences = new Set(userDeviceSettings.aiClientPreference ?? []);
 		return COMMAND_SUPPORTED_AI_CLIENTS.filter((client) => userSetPreferences.has(client)).map(
 			(client) => ({
 				client,
-				command: getAiClientCommand(client, url)
+				command: getAiClientCommand(client, displayName, url)
 			})
 		);
 	}
 </script>
 
 <div class="w-full @container md:px-0 px-4">
-	{#if Object.keys(magicLinks).length > 0}
+	{#if magicLinks.length > 0}
 		<div class="divider">Quick Install</div>
-		<div class={twMerge('flex gap-2 flex-col', Object.keys(commands).length > 0 ? 'mb-8' : '')}>
+		<div class={twMerge('flex gap-2 flex-col', commands.length > 0 ? 'mb-8' : '')}>
 			{#each magicLinks as magicLink (magicLink.client)}
 				{@const client = aiClientsMap.get(magicLink.client as AiClient)}
 				{#if client && magicLink.link}
@@ -123,7 +123,7 @@
 		</div>
 	{/if}
 
-	{#if Object.keys(commands).length > 0}
+	{#if commands.length > 0}
 		<div class="divider">Install via CLI</div>
 		<div class="flex gap-2 flex-col">
 			{#each commands as aiClientCommand (aiClientCommand.client)}
