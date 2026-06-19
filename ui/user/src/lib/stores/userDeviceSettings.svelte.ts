@@ -1,5 +1,5 @@
 import { browser } from '$app/environment';
-import { AiClient } from '$lib/constants';
+import { AiClient } from '$lib/services/user/constants';
 
 const store = $state({
 	timeFormat: getTimeFormat(),
@@ -36,28 +36,31 @@ function getTimeFormat(): '12h' | '24h' {
 }
 
 function setAiClientPreference(aiClient: AiClient | AiClient[]) {
+	const values = Array.isArray(aiClient) ? aiClient : [aiClient];
 	if (browser) {
-		localStorage.setItem(
-			'aiClientPreference',
-			Array.isArray(aiClient) ? aiClient.join(',') : aiClient
-		);
+		if (values.length === 0) {
+			localStorage.removeItem('aiClientPreference');
+		} else {
+			localStorage.setItem('aiClientPreference', values.join(','));
+		}
 	}
-	store.aiClientPreference = Array.isArray(aiClient) ? aiClient : [aiClient];
+	store.aiClientPreference = values.length ? values : getAiClientPreference();
 }
 
 function getAiClientPreference(): AiClient[] | undefined {
 	if (!browser) {
 		return undefined;
 	}
-	const aiClientPreference = localStorage.getItem('aiClientPreference')?.split(',');
-	return (
-		(aiClientPreference as AiClient[]) ?? [
-			AiClient.Cursor,
-			AiClient.Claude,
-			AiClient.Codex,
-			AiClient.VSCode
-		]
-	);
+
+	const fallback: AiClient[] = [AiClient.Cursor, AiClient.Claude, AiClient.Codex, AiClient.VSCode];
+	const raw = localStorage.getItem('aiClientPreference');
+	if (!raw) return fallback;
+
+	const valid = raw
+		.split(',')
+		.map((s) => s.trim())
+		.filter((s): s is AiClient => (Object.values(AiClient) as string[]).includes(s));
+	return valid.length ? valid : fallback;
 }
 
 export default store;

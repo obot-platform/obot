@@ -4,8 +4,14 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Search from '$lib/components/Search.svelte';
-	import { AiClient, COMMON_AI_CLIENTS, PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { Group } from '$lib/services';
+	import {
+		AiClient,
+		COMMAND_SUPPORTED_AI_CLIENTS,
+		COMMON_AI_CLIENTS,
+		MAGIC_LINK_SUPPORTED_AI_CLIENTS
+	} from '$lib/services/user/constants';
 	import { profile, userDeviceSettings } from '$lib/stores/index';
 	import { setUrlParamAndUpdateUrl } from '$lib/url';
 	import ConnectorsView from './ConnectorsView.svelte';
@@ -27,10 +33,12 @@
 	const clientsMap = $derived(new Map(COMMON_AI_CLIENTS.map((client) => [client.id, client])));
 	const clients = $derived.by(() => {
 		const selectedSet = new Set(selectedClients);
-		return [AiClient.Cursor, AiClient.VSCode, AiClient.Claude, AiClient.Codex].map((clientId) => ({
-			...(clientsMap.get(clientId) ?? { id: clientId, icon: '', iconDark: '', alt: '' }),
-			selected: selectedSet.has(clientId)
-		}));
+		return [...MAGIC_LINK_SUPPORTED_AI_CLIENTS, ...COMMAND_SUPPORTED_AI_CLIENTS].map(
+			(clientId) => ({
+				...(clientsMap.get(clientId) ?? { id: clientId, icon: '', iconDark: '', alt: '' }),
+				selected: selectedSet.has(clientId)
+			})
+		);
 	});
 
 	const updateSearchQuery = debounce((value: string) => {

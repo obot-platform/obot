@@ -19,7 +19,6 @@
 	} from '$lib/services/user/mcp';
 	import { version } from '$lib/stores';
 	import Confirm from '../Confirm.svelte';
-	import CopyButton from '../CopyButton.svelte';
 	import CopyField from '../CopyField.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
@@ -113,10 +112,8 @@
 			.filter(Boolean)
 			.map((name) => name.toLowerCase())
 	);
-	let copyButtonController = $state<ReturnType<typeof CopyButton>>();
 
 	function handleOnClose() {
-		copyButtonController?.clearButtonText();
 		onClose?.();
 	}
 
