@@ -4683,6 +4683,18 @@ func schema_obot_platform_obot_apiclient_types_LocalAuditLog(ref common.Referenc
 				Description: "LocalAuditLog contains fields meaningful only for local-agent audit events.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"eventID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"deviceID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"errorDetail": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -4807,12 +4819,6 @@ func schema_obot_platform_obot_apiclient_types_MCPAuditLog(ref common.ReferenceC
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
 						},
 					},
-					"eventID": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
 					"sourceType": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -4828,12 +4834,6 @@ func schema_obot_platform_obot_apiclient_types_MCPAuditLog(ref common.ReferenceC
 					"receivedAt": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
-						},
-					},
-					"deviceID": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
 						},
 					},
 					"outcome": {

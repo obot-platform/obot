@@ -122,6 +122,8 @@ export interface MCPAuditLogFields {
 	userAgent?: string;
 }
 export interface LocalAuditLogFields {
+	eventID?: string;
+	deviceID?: string;
 	errorDetail?: string;
 	rawEvent?: unknown;
 	context?: {
@@ -149,11 +151,9 @@ export interface LocalAuditLogFields {
 export interface AuditLog {
 	id: string;
 	createdAt: string;
-	eventID?: string;
 	sourceType?: string;
 	eventType?: string;
 	receivedAt?: string;
-	deviceID?: string;
 	outcome?: string;
 	userID: string;
 	client: AuditLogClient;

@@ -44,11 +44,9 @@ func nullGenericColumns(t *testing.T, c *Client, id uint) {
 	t.Helper()
 	err := c.db.WithContext(t.Context()).Model(&types.MCPAuditLog{}).Where("id = ?", id).
 		Updates(map[string]any{
-			"event_id":    nil,
 			"source_type": nil,
 			"event_type":  nil,
 			"outcome":     nil,
-			"device_id":   nil,
 			"received_at": nil,
 		}).Error
 	if err != nil {
@@ -118,22 +116,20 @@ func seedMixedAuditLogs(t *testing.T, c *Client, db *gatewaydb.DB) {
 	// New-style local agent row.
 	insertAuditLogRow(t, c, types.MCPAuditLog{
 		CreatedAt:        now,
-		EventID:          new("evt-local-1"),
 		SourceType:       types.AuditLogSourceTypeLocalAgent,
 		EventType:        types.AuditLogEventTypeToolCall,
 		Outcome:          types.AuditLogOutcomeSuccess,
-		DeviceID:         "dev-1",
 		UserID:           "u3",
 		ClientName:       "claude-code",
 		CallType:         "command",
 		CallIdentifier:   "Bash",
+		Local:            &types.LocalAuditLog{EventID: "evt-local-1", DeviceID: "dev-1"},
 		ResponseReceived: true,
 	})
 
 	// New-style MCP row with generic columns populated at write time.
 	insertAuditLogRow(t, c, types.MCPAuditLog{
 		CreatedAt:      now,
-		EventID:        new("evt-mcp-1"),
 		SourceType:     types.AuditLogSourceTypeMCP,
 		EventType:      types.AuditLogEventTypeToolCall,
 		Outcome:        types.AuditLogOutcomeError,
@@ -233,9 +229,6 @@ func TestGenericAuditLogFieldsBackfillMigration(t *testing.T) {
 			}
 			if row.Outcome != tt.wantOutcome {
 				t.Errorf("Outcome = %q, want %q", row.Outcome, tt.wantOutcome)
-			}
-			if row.EventID != nil {
-				t.Errorf("EventID must stay NULL on historical rows, got %q", *row.EventID)
 			}
 			if row.ReceivedAt != nil {
 				t.Errorf("ReceivedAt must stay NULL on historical rows, got %v", *row.ReceivedAt)
@@ -367,13 +360,15 @@ func TestEventIDUniqueness(t *testing.T) {
 	c, _ := newTestClientWithDB(t)
 
 	insertAuditLogRow(t, c, types.MCPAuditLog{
-		CreatedAt: time.Now().UTC(),
-		EventID:   new("evt-dup"),
+		CreatedAt:  time.Now().UTC(),
+		SourceType: types.AuditLogSourceTypeLocalAgent,
+		Local:      &types.LocalAuditLog{EventID: "evt-dup"},
 	})
 
 	err := c.db.WithContext(t.Context()).Create(&types.MCPAuditLog{
-		CreatedAt: time.Now().UTC(),
-		EventID:   new("evt-dup"),
+		CreatedAt:  time.Now().UTC(),
+		SourceType: types.AuditLogSourceTypeLocalAgent,
+		Local:      &types.LocalAuditLog{EventID: "evt-dup"},
 	}).Error
 	if err == nil {
 		t.Fatalf("expected duplicate event_id insert to fail")
@@ -390,39 +385,30 @@ func TestEventIDUniqueness(t *testing.T) {
 	nullGenericColumns(t, c, second.ID)
 }
 
-func TestInsertMCPAuditLogsDedupesEventID(t *testing.T) {
+func TestInsertMCPAuditLogsDedupesLocalEventID(t *testing.T) {
 	c, _ := newTestClientWithDB(t)
 	now := time.Now().UTC()
 
 	err := c.insertMCPAuditLogs(t.Context(), []types.MCPAuditLog{
 		{
-			CreatedAt:   now,
-			EventID:     new("evt-dup"),
-			RequestBody: []byte(`{}`),
-
-			MCP: &types.MCPAuditLogFields{
-				RequestID: "first",
-			},
+			CreatedAt:        now,
+			SourceType:       types.AuditLogSourceTypeLocalAgent,
+			RequestBody:      []byte(`{}`),
+			Local:            &types.LocalAuditLog{EventID: "evt-dup"},
 			ResponseReceived: true,
 		},
 		{
-			CreatedAt:   now.Add(time.Second),
-			EventID:     new("evt-dup"),
-			RequestBody: []byte(`{}`),
-
-			MCP: &types.MCPAuditLogFields{
-				RequestID: "duplicate",
-			},
+			CreatedAt:        now.Add(time.Second),
+			SourceType:       types.AuditLogSourceTypeLocalAgent,
+			RequestBody:      []byte(`{}`),
+			Local:            &types.LocalAuditLog{EventID: "evt-dup"},
 			ResponseReceived: true,
 		},
 		{
-			CreatedAt:   now.Add(2 * time.Second),
-			EventID:     new("evt-next"),
-			RequestBody: []byte(`{}`),
-
-			MCP: &types.MCPAuditLogFields{
-				RequestID: "next",
-			},
+			CreatedAt:        now.Add(2 * time.Second),
+			SourceType:       types.AuditLogSourceTypeLocalAgent,
+			RequestBody:      []byte(`{}`),
+			Local:            &types.LocalAuditLog{EventID: "evt-next"},
 			ResponseReceived: true,
 		},
 	})
@@ -442,8 +428,8 @@ func TestInsertMCPAuditLogsDedupesEventID(t *testing.T) {
 	if err := c.db.WithContext(t.Context()).Where("event_id = 'evt-dup'").First(&row).Error; err != nil {
 		t.Fatalf("failed to fetch deduped row: %v", err)
 	}
-	if row.MCP == nil || row.MCP.RequestID != "first" {
-		t.Errorf("RequestID = %q, want first", row.MCPFields().RequestID)
+	if row.Local == nil || row.Local.EventID != "evt-dup" {
+		t.Errorf("EventID = %v, want evt-dup", row.LocalFields().EventID)
 	}
 }
 

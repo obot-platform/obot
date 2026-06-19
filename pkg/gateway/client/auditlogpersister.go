@@ -5,7 +5,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 )
@@ -24,10 +23,6 @@ func (c *Client) LogMCPAuditEntry(entry types.MCPAuditLog) {
 	mcpFields.RequestMutated = len(mcpFields.MutatedRequestBody) > 0
 	mcpFields.ResponseMutated = len(mcpFields.OriginalResponseBody) > 0
 
-	if entry.EventID == nil || *entry.EventID == "" {
-		eventID := uuid.NewString()
-		entry.EventID = &eventID
-	}
 	entry.EventType = types.EventTypeForCallType(entry.CallType)
 	// The outcome is provisional for request-only entries; the response merge
 	// path overwrites it once the response arrives.

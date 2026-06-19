@@ -28,14 +28,12 @@ const (
 // compatibility), it can represent generic audit events distinguished by
 // SourceType. Source-specific fields are returned under MCP or Local.
 type MCPAuditLog struct {
-	ID        uint   `json:"id"`
-	CreatedAt Time   `json:"createdAt"`
-	EventID   string `json:"eventID,omitempty"`
+	ID        uint `json:"id"`
+	CreatedAt Time `json:"createdAt"`
 
 	SourceType string `json:"sourceType,omitempty"`
 	EventType  string `json:"eventType,omitempty"`
 	ReceivedAt *Time  `json:"receivedAt,omitempty"`
-	DeviceID   string `json:"deviceID,omitempty"`
 	Outcome    string `json:"outcome,omitempty"`
 	UserID     string `json:"userID"`
 
@@ -75,6 +73,9 @@ type MCPAuditLogMCP struct {
 
 // LocalAuditLog contains fields meaningful only for local-agent audit events.
 type LocalAuditLog struct {
+	EventID  string `json:"eventID,omitempty"`
+	DeviceID string `json:"deviceID,omitempty"`
+
 	ErrorDetail string                      `json:"errorDetail,omitempty"`
 	RawEvent    json.RawMessage             `json:"rawEvent,omitempty"`
 	Context     *AuditLogContext            `json:"context,omitempty"`

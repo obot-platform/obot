@@ -63,6 +63,9 @@ type MCPAuditLogFields struct {
 
 // LocalAuditLog contains fields introduced for local-agent audit events.
 type LocalAuditLog struct {
+	EventID  string `json:"eventID,omitempty" gorm:"uniqueIndex;default:null"`
+	DeviceID string `json:"deviceID,omitempty" gorm:"index"`
+
 	// ErrorDetail holds the full error text for events whose Error column is a
 	// truncated summary. Encrypted at rest like the request/response payloads.
 	ErrorDetail string `json:"errorDetail,omitempty"`
@@ -87,12 +90,10 @@ type MCPAuditLog struct {
 	CreatedAt time.Time `json:"createdAt" gorm:"index"`
 
 	// SourceType, EventType, and Outcome are backfilled on historical rows by a
-	// startup migration; EventID and ReceivedAt remain NULL on rows that predate them.
-	EventID    *string    `json:"eventID,omitempty" gorm:"uniqueIndex"`
+	// startup migration; ReceivedAt remains NULL on rows that predate it.
 	SourceType string     `json:"sourceType,omitempty" gorm:"index"`
 	EventType  string     `json:"eventType,omitempty" gorm:"index"`
 	ReceivedAt *time.Time `json:"receivedAt,omitempty"`
-	DeviceID   string     `json:"deviceID,omitempty" gorm:"index"`
 	Outcome    string     `json:"outcome,omitempty" gorm:"index"`
 	UserID     string     `json:"userID" gorm:"index"`
 
@@ -276,11 +277,6 @@ func ConvertMCPAuditLog(a MCPAuditLog) types2.MCPAuditLog {
 		}
 	}
 
-	var eventID string
-	if a.EventID != nil {
-		eventID = *a.EventID
-	}
-
 	var receivedAt *types2.Time
 	if a.ReceivedAt != nil {
 		receivedAt = types2.NewTime(*a.ReceivedAt)
@@ -303,13 +299,11 @@ func ConvertMCPAuditLog(a MCPAuditLog) types2.MCPAuditLog {
 
 	apiLog := types2.MCPAuditLog{
 		ID:         a.ID,
-		EventID:    eventID,
 		SourceType: a.SourceType,
 		EventType:  a.EventType,
 		CreatedAt:  *types2.NewTime(a.CreatedAt),
 		ReceivedAt: receivedAt,
 		UserID:     a.UserID,
-		DeviceID:   a.DeviceID,
 		Outcome:    a.Outcome,
 		ClientInfo: types2.ClientInfo{
 			Name:    a.ClientName,
@@ -328,6 +322,8 @@ func ConvertMCPAuditLog(a MCPAuditLog) types2.MCPAuditLog {
 	switch a.SourceType {
 	case AuditLogSourceTypeLocalAgent:
 		apiLog.Local = &types2.LocalAuditLog{
+			EventID:     localFields.EventID,
+			DeviceID:    localFields.DeviceID,
 			ErrorDetail: localFields.ErrorDetail,
 			RawEvent:    localFields.RawEvent,
 			Context:     context,
@@ -365,11 +361,14 @@ func ConvertMCPAuditLog(a MCPAuditLog) types2.MCPAuditLog {
 // server-assigned (from the authenticated user and receipt time respectively),
 // so client-provided values must not reach storage.
 func MCPAuditLogFromAuditEvent(e types2.AuditEvent) (MCPAuditLog, error) {
+	if e.EventID == "" {
+		return MCPAuditLog{}, fmt.Errorf("eventID is required")
+	}
+
 	log := MCPAuditLog{
 		CreatedAt:        e.CreatedAt.Time.UTC(),
 		SourceType:       e.SourceType,
 		EventType:        e.EventType,
-		DeviceID:         e.DeviceID,
 		Outcome:          e.Outcome,
 		ClientName:       e.Client.Name,
 		ClientVersion:    e.Client.Version,
@@ -381,16 +380,13 @@ func MCPAuditLogFromAuditEvent(e types2.AuditEvent) (MCPAuditLog, error) {
 		ResponseBody:     e.Response,
 		Error:            e.Error,
 		Local: &LocalAuditLog{
+			DeviceID: e.DeviceID,
+			EventID:  e.EventID,
 			RawEvent: e.RawEvent,
 		},
 		// Generic events arrive complete; never match them against the
 		// request/response merge path used by two-phase MCP shim logs.
 		ResponseReceived: true,
-	}
-
-	if e.EventID != "" {
-		eventID := e.EventID
-		log.EventID = &eventID
 	}
 
 	// Keep a size-capped plaintext summary in the searchable Error column and
@@ -429,13 +425,13 @@ func ConvertAuditEvent(a MCPAuditLog) types2.AuditEvent {
 	}
 
 	event := types2.AuditEvent{
-		EventID:    apiLog.EventID,
+		EventID:    localFields.EventID,
 		SourceType: apiLog.SourceType,
 		EventType:  apiLog.EventType,
 		CreatedAt:  apiLog.CreatedAt,
 		ReceivedAt: apiLog.ReceivedAt,
 		UserID:     apiLog.UserID,
-		DeviceID:   apiLog.DeviceID,
+		DeviceID:   localFields.DeviceID,
 		Client:     apiLog.ClientInfo,
 		Tool: types2.ToolInfo{
 			Name: apiLog.CallIdentifier,

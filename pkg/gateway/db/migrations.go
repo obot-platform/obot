@@ -231,9 +231,8 @@ func dropRunThreadAndRunStatesTables(tx *gorm.DB) error {
 
 // migrateGenericAuditLogFields backfills the generic audit-event columns
 // (source_type, event_type, outcome) on audit log rows that predate them.
-// It must run after AutoMigrate has added the columns. EventID and ReceivedAt
-// intentionally stay NULL on historical rows: event IDs only exist to dedupe
-// new submissions, and there is no truthful receipt time to invent.
+// It must run after AutoMigrate has added the columns. ReceivedAt intentionally
+// stays NULL on historical rows because there is no truthful receipt time to invent.
 func migrateGenericAuditLogFields(tx *gorm.DB) error {
 	if !tx.Migrator().HasTable(&types.MCPAuditLog{}) {
 		return nil
