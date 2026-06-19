@@ -26,7 +26,6 @@ func (h *AppNotificationsHandler) Get(req api.Context) error {
 		Namespace: req.Namespace(),
 		Name:      system.AppNotificationsName,
 	}, &notifications)
-
 	if apierrors.IsNotFound(err) {
 		// Return empty notifications if not yet configured
 		return req.Write(types.AppNotifications{})
