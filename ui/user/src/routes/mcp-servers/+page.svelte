@@ -33,12 +33,12 @@
 	const clientsMap = $derived(new Map(COMMON_AI_CLIENTS.map((client) => [client.id, client])));
 	const clients = $derived.by(() => {
 		const selectedSet = new Set(selectedClients);
-		return [...MAGIC_LINK_SUPPORTED_AI_CLIENTS, ...COMMAND_SUPPORTED_AI_CLIENTS].map(
-			(clientId) => ({
+		return [...MAGIC_LINK_SUPPORTED_AI_CLIENTS, ...COMMAND_SUPPORTED_AI_CLIENTS]
+			.sort((a, b) => a.localeCompare(b))
+			.map((clientId) => ({
 				...(clientsMap.get(clientId) ?? { id: clientId, icon: '', iconDark: '', alt: '' }),
 				selected: selectedSet.has(clientId)
-			})
-		);
+			}));
 	});
 
 	const updateSearchQuery = debounce((value: string) => {
@@ -112,11 +112,34 @@
 	class="md:w-sm"
 >
 	<fieldset class="flex flex-col gap-2">
+		<label
+			class={twMerge(
+				'flex items-center justify-between gap-4',
+				selectedClients.length === 0 ? 'btn btn-primary rounded-md!' : 'btn rounded-md! px-5!'
+			)}
+		>
+			<div class="flex items-center gap-2">
+				<span>No Preference</span>
+			</div>
+			<div class="flex items-center gap-2">
+				<input
+					id="no-preference"
+					type="checkbox"
+					class="checkbox text-primary-content border-0 bg-transparent disabled:opacity-100"
+					checked={selectedClients.length === 0}
+					disabled={selectedClients.length === 0}
+					onchange={(e) => {
+						e.preventDefault();
+						selectedClients = [];
+					}}
+				/>
+			</div>
+		</label>
 		{#each clients as client (client.id)}
 			<label
 				class={twMerge(
-					'flex items-center justify-between gap-4 p-2 border rounded-md transition-colors border-base-300 dark:border-base-400',
-					client.selected ? 'bg-primary/10 border-primary dark:border-primary' : ''
+					'cursor-pointer flex items-center justify-between gap-4',
+					client.selected ? 'btn btn-primary rounded-md!' : 'btn rounded-md! px-5!'
 				)}
 			>
 				<div class="flex items-center gap-2">
@@ -132,7 +155,7 @@
 					<input
 						id={`preferred-client-${client.id}`}
 						type="checkbox"
-						class="checkbox text-primary border-0 bg-transparent"
+						class="checkbox text-primary-content border-0 bg-transparent"
 						checked={client.selected}
 						onchange={(e) => {
 							e.preventDefault();

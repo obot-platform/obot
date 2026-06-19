@@ -48,20 +48,19 @@ function setAiClientPreference(aiClient: AiClient | AiClient[]) {
 }
 
 function getAiClientPreference(): AiClient[] | undefined {
-	const fallback: AiClient[] = [AiClient.Cursor, AiClient.Claude, AiClient.Codex, AiClient.VSCode];
 	if (!browser) {
-		return fallback;
+		return [];
 	}
 
 	const raw = localStorage.getItem('aiClientPreference');
-	if (raw === null) return fallback;
-	if (raw.trim() === '') return fallback;
+	if (raw === null) return [];
+	if (raw.trim() === '') return [];
 
 	const valid = raw
 		.split(',')
 		.map((s) => s.trim())
 		.filter((s): s is AiClient => (Object.values(AiClient) as string[]).includes(s));
-	return valid.length ? valid : fallback;
+	return valid.length ? valid : [];
 }
 
 export default store;
