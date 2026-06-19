@@ -50,7 +50,6 @@ func (h *AppNotificationsHandler) Update(req api.Context) error {
 
 	var notifications v1.AppNotifications
 	err := req.Get(&notifications, system.AppNotificationsName)
-
 	if apierrors.IsNotFound(err) {
 		// Create new notifications
 		notifications = v1.AppNotifications{
