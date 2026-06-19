@@ -22,11 +22,11 @@ func TestAuditLogInputAcceptsFlatMCPFields(t *testing.T) {
 	}
 
 	log := logs[0]
-	if log.MCPAuditLogFields.MCPID != "mcp-1" {
-		t.Fatalf("MCPID = %q, want mcp-1", log.MCPAuditLogFields.MCPID)
+	if log.MCPID != "mcp-1" {
+		t.Fatalf("MCPID = %q, want mcp-1", log.MCPID)
 	}
-	if log.MCPAuditLogFields.RequestID != "req-1" {
-		t.Fatalf("RequestID = %q, want req-1", log.MCPAuditLogFields.RequestID)
+	if log.RequestID != "req-1" {
+		t.Fatalf("RequestID = %q, want req-1", log.RequestID)
 	}
 	if log.CallType != "tools/call" {
 		t.Fatalf("CallType = %q, want tools/call", log.CallType)

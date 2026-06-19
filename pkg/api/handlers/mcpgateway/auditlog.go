@@ -218,7 +218,7 @@ func (h *AuditLogHandler) SubmitAuditLogs(req api.Context) error {
 			mcpFields.MCPServerDisplayName = auditLog.Metadata["mcpServerDisplayName"]
 		}
 
-		auditLog.MCPAuditLog.MCP = &mcpFields
+		auditLog.MCP = &mcpFields
 		req.GatewayClient.LogMCPAuditEntry(auditLog.MCPAuditLog)
 	}
 
