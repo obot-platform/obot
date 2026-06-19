@@ -17,11 +17,13 @@
 	let { auditLog, onClose }: Props = $props();
 
 	let hasAuditorAccess = $derived(profile.current.groups.includes(Group.AUDITOR));
+	let mcp = $derived(auditLog.mcp);
+	let responseStatus = $derived(mcp?.responseStatus ?? 0);
 
 	// Allow payload access for admins OR for users viewing their own single-user server logs
 	const shouldShowPayload = $derived(
 		profile?.current?.hasAdminAccess?.() ||
-			(auditLog.userID === profile.current.id && !auditLog.powerUserWorkspaceID)
+			(auditLog.userID === profile.current.id && !mcp?.powerUserWorkspaceID)
 	);
 
 	function hasBody(body: unknown) {
@@ -38,14 +40,14 @@
 		<div
 			class={twMerge(
 				'absolute top-0 left-0 h-full w-1',
-				auditLog.responseStatus >= 400 ? 'bg-error' : 'bg-primary'
+				responseStatus >= 400 ? 'bg-error' : 'bg-primary'
 			)}
 		></div>
 		<h3 class="text-lg font-semibold">
 			{formatLogTimestamp(auditLog.createdAt, userDeviceSettings.timeFormat)}
 		</h3>
 		<p class="text-muted-content text-xs font-light">
-			{auditLog.requestID}
+			{mcp?.requestID}
 		</p>
 		<IconButton onclick={onClose} class="absolute top-1/2 right-4 -translate-y-1/2">
 			<X class="size-5" />
@@ -67,16 +69,16 @@
 					{auditLog.sessionID}
 				</div>
 			{/if}
-			{#if auditLog.mcpID}
+			{#if mcp?.mcpID}
 				<div class="bg-base-400 rounded-full px-3 py-1 text-[11px] font-light">
 					<span class="font-medium">Server:</span>
-					{auditLog.mcpServerDisplayName} ({auditLog.mcpID})
+					{mcp.mcpServerDisplayName} ({mcp.mcpID})
 				</div>
 			{/if}
-			{#if auditLog.mcpServerCatalogEntryName}
+			{#if mcp?.mcpServerCatalogEntryName}
 				<div class="bg-base-400 rounded-full px-3 py-1 text-[11px] font-light">
 					<span class="font-medium">Parent Entry ID:</span>
-					{auditLog.mcpServerCatalogEntryName}
+					{mcp.mcpServerCatalogEntryName}
 				</div>
 			{/if}
 		</div>
@@ -87,14 +89,14 @@
 				{#if auditLog.user}
 					<p><span class="font-medium">User</span>: {auditLog.user}</p>
 				{/if}
-				{#if auditLog.apiKey}
+				{#if mcp?.apiKey}
 					<p>
-						<span class="font-medium">API Key</span>: {auditLog.apiKey}***
+						<span class="font-medium">API Key</span>: {mcp.apiKey}***
 						<span class="text-muted-content text-xs italic">(redacted)</span>
 					</p>
 				{/if}
-				{#if auditLog.userAgent}
-					<p><span class="font-medium">User Agent</span>: {auditLog.userAgent}</p>
+				{#if mcp?.userAgent}
+					<p><span class="font-medium">User Agent</span>: {mcp.userAgent}</p>
 				{/if}
 				{#if auditLog.client}
 					<p>
@@ -102,13 +104,13 @@
 							.version}
 					</p>
 				{/if}
-				{#if auditLog.clientIP}
-					<p><span class="font-medium">Client IP</span>: {auditLog.clientIP}</p>
+				{#if mcp?.clientIP}
+					<p><span class="font-medium">Client IP</span>: {mcp.clientIP}</p>
 				{/if}
 			</div>
 
 			{#if shouldShowPayload}
-				{#if auditLog.requestHeaders}
+				{#if mcp?.requestHeaders}
 					<p class="my-2 text-base font-semibold">Request Headers</p>
 
 					<div
@@ -116,7 +118,7 @@
 					>
 						<div class="bg-primary/50 absolute top-0 left-0 h-full w-1"></div>
 						<div class="flex flex-col gap-1">
-							{#each Object.entries(auditLog.requestHeaders ?? {}) as [key, value] (key)}
+							{#each Object.entries(mcp.requestHeaders ?? {}) as [key, value] (key)}
 								<p>
 									<span class="font-medium">{key}</span>: {value}
 								</p>
@@ -135,8 +137,8 @@
 					{@render noAuditorAccessInfo('Request Body')}
 				{/if}
 
-				{#if hasBody(auditLog.mutatedRequestBody)}
-					{@render jsonBody('Mutated Request Body', auditLog.mutatedRequestBody)}
+				{#if hasBody(mcp?.mutatedRequestBody)}
+					{@render jsonBody('Mutated Request Body', mcp?.mutatedRequestBody)}
 				{/if}
 			{/if}
 		</div>
@@ -144,27 +146,27 @@
 		<div class="p-4 pl-5">
 			<div class="flex items-center gap-2">
 				<h4 class="text-lg font-semibold">HTTP Response</h4>
-				{#if auditLog.responseStatus}
+				{#if responseStatus}
 					<p
 						class={twMerge(
 							'w-fit rounded-full px-3 py-1 text-xs font-semibold text-white',
-							auditLog.responseStatus >= 400 ? 'bg-error' : 'bg-primary'
+							responseStatus >= 400 ? 'bg-error' : 'bg-primary'
 						)}
 					>
-						{auditLog.responseStatus}
+						{responseStatus}
 					</p>
 				{/if}
 			</div>
 
 			{#if shouldShowPayload}
-				{#if auditLog.responseHeaders}
+				{#if mcp?.responseHeaders}
 					<p class="mt-4 mb-2 text-base font-semibold">Response Headers</p>
 					<div
 						class="dark:bg-base-300 bg-base-100 relative flex flex-col gap-2 overflow-hidden rounded-md p-4 pl-5"
 					>
 						<div class="bg-primary/50 absolute top-0 left-0 h-full w-1"></div>
 						<div class="flex flex-col gap-1">
-							{#each Object.entries(auditLog.responseHeaders ?? {}) as [key, value] (key)}
+							{#each Object.entries(mcp.responseHeaders ?? {}) as [key, value] (key)}
 								<p>
 									<span class="font-medium">{key}</span>: {value}
 								</p>
@@ -184,8 +186,8 @@
 			{/if}
 
 			{#if shouldShowPayload}
-				{#if hasBody(auditLog.originalResponseBody)}
-					{@render jsonBody('Original Response Body', auditLog.originalResponseBody)}
+				{#if hasBody(mcp?.originalResponseBody)}
+					{@render jsonBody('Original Response Body', mcp?.originalResponseBody)}
 				{/if}
 
 				{#if hasBody(auditLog.responseBody)}
@@ -196,8 +198,8 @@
 			{/if}
 
 			{#if shouldShowPayload}
-				{#if auditLog.webhookStatuses && auditLog.webhookStatuses.length > 0}
-					{@const statuses = JSON.stringify(auditLog.webhookStatuses, null, 2)}
+				{#if mcp?.webhookStatuses && mcp.webhookStatuses.length > 0}
+					{@const statuses = JSON.stringify(mcp.webhookStatuses, null, 2)}
 
 					<p class="translate-y-2 pt-4 text-base font-semibold">Webhook Statuses</p>
 					<div class="relative text-white">

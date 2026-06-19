@@ -55,8 +55,8 @@ func TestAuditEventRoundTrip(t *testing.T) {
 	if log.CallIdentifier != "Bash" || log.CallType != "command" {
 		t.Errorf("tool mapping wrong: callIdentifier=%q callType=%q", log.CallIdentifier, log.CallType)
 	}
-	if log.MCPID != "" || log.MCPServerDisplayName != "" {
-		t.Errorf("MCP-specific fields must stay empty for local events")
+	if log.Local == nil || log.MCP != nil {
+		t.Errorf("local events must set only the Local source fields, got local=%v mcp=%v", log.Local, log.MCP)
 	}
 	if !log.ResponseReceived {
 		t.Errorf("generic events must be marked ResponseReceived to bypass the merge path")
@@ -71,6 +71,43 @@ func TestAuditEventRoundTrip(t *testing.T) {
 	got := ConvertAuditEvent(log)
 	if !reflect.DeepEqual(event, got) {
 		t.Errorf("round trip mismatch:\n  want: %+v\n  got:  %+v", event, got)
+	}
+}
+
+func TestConvertMCPAuditLogSourceVariants(t *testing.T) {
+	mcpLog := ConvertMCPAuditLog(MCPAuditLog{
+		CreatedAt:  time.Date(2026, 6, 11, 12, 0, 0, 0, time.UTC),
+		SourceType: AuditLogSourceTypeMCP,
+		CallType:   "tools/call",
+		MCP: &MCPAuditLogFields{
+			MCPID:                "mcp-1",
+			MCPServerDisplayName: "server",
+			ResponseStatus:       200,
+		},
+	})
+
+	if mcpLog.MCP == nil || mcpLog.Local != nil {
+		t.Fatalf("MCP conversion source fields = mcp:%v local:%v, want only MCP", mcpLog.MCP, mcpLog.Local)
+	}
+	if mcpLog.MCP.MCPID != "mcp-1" || mcpLog.MCP.ResponseStatus != 200 {
+		t.Fatalf("MCP fields not converted: %+v", mcpLog.MCP)
+	}
+
+	localLog := ConvertMCPAuditLog(MCPAuditLog{
+		CreatedAt:  time.Date(2026, 6, 11, 12, 0, 0, 0, time.UTC),
+		SourceType: AuditLogSourceTypeLocalAgent,
+		CallType:   "command",
+		Local: &LocalAuditLog{
+			ErrorDetail: "full error",
+			RawEvent:    json.RawMessage(`{"hook":"post"}`),
+		},
+	})
+
+	if localLog.Local == nil || localLog.MCP != nil {
+		t.Fatalf("local conversion source fields = mcp:%v local:%v, want only Local", localLog.MCP, localLog.Local)
+	}
+	if localLog.Local.ErrorDetail != "full error" || string(localLog.Local.RawEvent) != `{"hook":"post"}` {
+		t.Fatalf("local fields not converted: %+v", localLog.Local)
 	}
 }
 
@@ -94,7 +131,7 @@ func TestAuditEventErrorSummaryTruncation(t *testing.T) {
 	if len(log.Error) != maxErrorSummaryBytes {
 		t.Errorf("Error summary length = %d, want %d", len(log.Error), maxErrorSummaryBytes)
 	}
-	if log.ErrorDetail != fullError {
+	if log.Local == nil || log.Local.ErrorDetail != fullError {
 		t.Errorf("ErrorDetail must hold the full error text")
 	}
 
@@ -126,7 +163,7 @@ func TestAuditEventErrorSummaryTruncationPreservesUTF8(t *testing.T) {
 	if len(log.Error) != maxErrorSummaryBytes-1 {
 		t.Errorf("Error summary length = %d, want %d", len(log.Error), maxErrorSummaryBytes-1)
 	}
-	if log.ErrorDetail != fullError {
+	if log.Local == nil || log.Local.ErrorDetail != fullError {
 		t.Errorf("ErrorDetail must hold the full error text")
 	}
 

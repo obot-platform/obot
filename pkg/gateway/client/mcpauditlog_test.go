@@ -79,30 +79,39 @@ func seedMixedAuditLogs(t *testing.T, c *Client, db *gatewaydb.DB) {
 	legacySuccess := insertAuditLogRow(t, c, types.MCPAuditLog{
 		CreatedAt:      now,
 		UserID:         "u1",
-		MCPID:          "mcp-1",
 		CallType:       "tools/call",
 		CallIdentifier: "search",
-		ResponseStatus: 200,
+
+		MCP: &types.MCPAuditLogFields{
+			MCPID:          "mcp-1",
+			ResponseStatus: 200,
+		},
 	})
 	nullGenericColumns(t, c, legacySuccess.ID)
 
 	legacyError := insertAuditLogRow(t, c, types.MCPAuditLog{
 		CreatedAt:      now,
 		UserID:         "u1",
-		MCPID:          "mcp-1",
 		CallType:       "resources/read",
 		CallIdentifier: "file://x",
-		ResponseStatus: 500,
 		Error:          "boom",
+
+		MCP: &types.MCPAuditLogFields{
+			MCPID:          "mcp-1",
+			ResponseStatus: 500,
+		},
 	})
 	nullGenericColumns(t, c, legacyError.ID)
 
 	legacyInit := insertAuditLogRow(t, c, types.MCPAuditLog{
-		CreatedAt:      now,
-		UserID:         "u2",
-		MCPID:          "mcp-2",
-		CallType:       "initialize",
-		ResponseStatus: 200,
+		CreatedAt: now,
+		UserID:    "u2",
+		CallType:  "initialize",
+
+		MCP: &types.MCPAuditLogFields{
+			MCPID:          "mcp-2",
+			ResponseStatus: 200,
+		},
 	})
 	nullGenericColumns(t, c, legacyInit.ID)
 
@@ -123,17 +132,20 @@ func seedMixedAuditLogs(t *testing.T, c *Client, db *gatewaydb.DB) {
 
 	// New-style MCP row with generic columns populated at write time.
 	insertAuditLogRow(t, c, types.MCPAuditLog{
-		CreatedAt:        now,
-		EventID:          new("evt-mcp-1"),
-		SourceType:       types.AuditLogSourceTypeMCP,
-		EventType:        types.AuditLogEventTypeToolCall,
-		Outcome:          types.AuditLogOutcomeError,
-		UserID:           "u1",
-		MCPID:            "mcp-1",
-		CallType:         "tools/call",
-		CallIdentifier:   "search",
-		ResponseStatus:   400,
-		Error:            "bad request",
+		CreatedAt:      now,
+		EventID:        new("evt-mcp-1"),
+		SourceType:     types.AuditLogSourceTypeMCP,
+		EventType:      types.AuditLogEventTypeToolCall,
+		Outcome:        types.AuditLogOutcomeError,
+		UserID:         "u1",
+		CallType:       "tools/call",
+		CallIdentifier: "search",
+		Error:          "bad request",
+
+		MCP: &types.MCPAuditLogFields{
+			MCPID:          "mcp-1",
+			ResponseStatus: 400,
+		},
 		ResponseReceived: true,
 	})
 
@@ -151,26 +163,38 @@ func TestGenericAuditLogFieldsBackfillMigration(t *testing.T) {
 		wantOutcome   string
 	}{
 		{
-			name:          "successful tool call",
-			row:           types.MCPAuditLog{CallType: "tools/call", ResponseStatus: 200},
+			name: "successful tool call",
+			row: types.MCPAuditLog{
+				CallType: "tools/call",
+				MCP:      &types.MCPAuditLogFields{ResponseStatus: 200},
+			},
 			wantEventType: types.AuditLogEventTypeToolCall,
 			wantOutcome:   types.AuditLogOutcomeSuccess,
 		},
 		{
-			name:          "failed resource read",
-			row:           types.MCPAuditLog{CallType: "resources/read", ResponseStatus: 500},
+			name: "failed resource read",
+			row: types.MCPAuditLog{
+				CallType: "resources/read",
+				MCP:      &types.MCPAuditLogFields{ResponseStatus: 500},
+			},
 			wantEventType: types.AuditLogEventTypeResourceRead,
 			wantOutcome:   types.AuditLogOutcomeError,
 		},
 		{
-			name:          "prompt get with error message",
-			row:           types.MCPAuditLog{CallType: "prompts/get", ResponseStatus: 200, Error: "boom"},
+			name: "prompt get with error message",
+			row: types.MCPAuditLog{
+				CallType: "prompts/get", Error: "boom",
+				MCP: &types.MCPAuditLogFields{ResponseStatus: 200},
+			},
 			wantEventType: types.AuditLogEventTypePromptGet,
 			wantOutcome:   types.AuditLogOutcomeError,
 		},
 		{
-			name:          "other call type",
-			row:           types.MCPAuditLog{CallType: "initialize", ResponseStatus: 200},
+			name: "other call type",
+			row: types.MCPAuditLog{
+				CallType: "initialize",
+				MCP:      &types.MCPAuditLogFields{ResponseStatus: 200},
+			},
 			wantEventType: types.AuditLogEventTypeMCPRequest,
 			wantOutcome:   types.AuditLogOutcomeSuccess,
 		},
@@ -265,6 +289,56 @@ func TestGenericAuditFilters(t *testing.T) {
 	}
 }
 
+func TestAuditLogSourcePointersAfterFind(t *testing.T) {
+	c, _ := newTestClientWithDB(t)
+	now := time.Now().UTC()
+
+	mcpRow := insertAuditLogRow(t, c, types.MCPAuditLog{
+		CreatedAt:  now,
+		SourceType: types.AuditLogSourceTypeMCP,
+		EventType:  types.AuditLogEventTypeToolCall,
+		CallType:   "tools/call",
+
+		MCP: &types.MCPAuditLogFields{
+			MCPID:          "mcp-1",
+			ResponseStatus: 204,
+		},
+	})
+
+	localRow := insertAuditLogRow(t, c, types.MCPAuditLog{
+		CreatedAt:  now,
+		SourceType: types.AuditLogSourceTypeLocalAgent,
+		EventType:  types.AuditLogEventTypeToolCall,
+		CallType:   "command",
+
+		Local: &types.LocalAuditLog{
+			RawEvent: []byte(`{"hook":"post"}`),
+		},
+	})
+
+	var gotMCP types.MCPAuditLog
+	if err := c.db.WithContext(t.Context()).First(&gotMCP, mcpRow.ID).Error; err != nil {
+		t.Fatalf("failed to fetch MCP row: %v", err)
+	}
+	if gotMCP.MCP == nil || gotMCP.Local != nil {
+		t.Fatalf("MCP row source pointers = mcp:%v local:%v, want only MCP", gotMCP.MCP, gotMCP.Local)
+	}
+	if gotMCP.MCP.MCPID != "mcp-1" || gotMCP.MCP.ResponseStatus != 204 {
+		t.Fatalf("MCP fields were not hydrated: %+v", gotMCP.MCP)
+	}
+
+	var gotLocal types.MCPAuditLog
+	if err := c.db.WithContext(t.Context()).First(&gotLocal, localRow.ID).Error; err != nil {
+		t.Fatalf("failed to fetch local row: %v", err)
+	}
+	if gotLocal.Local == nil || gotLocal.MCP != nil {
+		t.Fatalf("local row source pointers = mcp:%v local:%v, want only Local", gotLocal.MCP, gotLocal.Local)
+	}
+	if string(gotLocal.Local.RawEvent) != `{"hook":"post"}` {
+		t.Fatalf("local fields were not hydrated: %+v", gotLocal.Local)
+	}
+}
+
 func TestUsageStatsExcludeNonMCPRows(t *testing.T) {
 	c, db := newTestClientWithDB(t)
 	seedMixedAuditLogs(t, c, db)
@@ -306,9 +380,13 @@ func TestEventIDUniqueness(t *testing.T) {
 	}
 
 	// Multiple NULL event IDs (historical rows) must coexist.
-	first := insertAuditLogRow(t, c, types.MCPAuditLog{CreatedAt: time.Now().UTC()})
+	first := insertAuditLogRow(t, c, types.MCPAuditLog{
+		CreatedAt: time.Now().UTC(),
+	})
 	nullGenericColumns(t, c, first.ID)
-	second := insertAuditLogRow(t, c, types.MCPAuditLog{CreatedAt: time.Now().UTC()})
+	second := insertAuditLogRow(t, c, types.MCPAuditLog{
+		CreatedAt: time.Now().UTC(),
+	})
 	nullGenericColumns(t, c, second.ID)
 }
 
@@ -318,24 +396,33 @@ func TestInsertMCPAuditLogsDedupesEventID(t *testing.T) {
 
 	err := c.insertMCPAuditLogs(t.Context(), []types.MCPAuditLog{
 		{
-			CreatedAt:        now,
-			EventID:          new("evt-dup"),
-			RequestID:        "first",
-			RequestBody:      []byte(`{}`),
+			CreatedAt:   now,
+			EventID:     new("evt-dup"),
+			RequestBody: []byte(`{}`),
+
+			MCP: &types.MCPAuditLogFields{
+				RequestID: "first",
+			},
 			ResponseReceived: true,
 		},
 		{
-			CreatedAt:        now.Add(time.Second),
-			EventID:          new("evt-dup"),
-			RequestID:        "duplicate",
-			RequestBody:      []byte(`{}`),
+			CreatedAt:   now.Add(time.Second),
+			EventID:     new("evt-dup"),
+			RequestBody: []byte(`{}`),
+
+			MCP: &types.MCPAuditLogFields{
+				RequestID: "duplicate",
+			},
 			ResponseReceived: true,
 		},
 		{
-			CreatedAt:        now.Add(2 * time.Second),
-			EventID:          new("evt-next"),
-			RequestID:        "next",
-			RequestBody:      []byte(`{}`),
+			CreatedAt:   now.Add(2 * time.Second),
+			EventID:     new("evt-next"),
+			RequestBody: []byte(`{}`),
+
+			MCP: &types.MCPAuditLogFields{
+				RequestID: "next",
+			},
 			ResponseReceived: true,
 		},
 	})
@@ -355,8 +442,8 @@ func TestInsertMCPAuditLogsDedupesEventID(t *testing.T) {
 	if err := c.db.WithContext(t.Context()).Where("event_id = 'evt-dup'").First(&row).Error; err != nil {
 		t.Fatalf("failed to fetch deduped row: %v", err)
 	}
-	if row.RequestID != "first" {
-		t.Errorf("RequestID = %q, want first", row.RequestID)
+	if row.MCP == nil || row.MCP.RequestID != "first" {
+		t.Errorf("RequestID = %q, want first", row.MCPFields().RequestID)
 	}
 }
 
@@ -364,13 +451,16 @@ func TestLogMCPAuditEntryForcesMCPClassification(t *testing.T) {
 	c, _ := newTestClientWithDB(t)
 
 	c.LogMCPAuditEntry(types.MCPAuditLog{
-		CreatedAt:        time.Now().UTC(),
-		SourceType:       types.AuditLogSourceTypeLocalAgent,
-		EventType:        types.AuditLogEventTypeResourceRead,
-		Outcome:          types.AuditLogOutcomeError,
-		CallType:         "tools/call",
-		ResponseStatus:   200,
-		RequestBody:      []byte(`{}`),
+		CreatedAt:   time.Now().UTC(),
+		SourceType:  types.AuditLogSourceTypeLocalAgent,
+		EventType:   types.AuditLogEventTypeResourceRead,
+		Outcome:     types.AuditLogOutcomeError,
+		CallType:    "tools/call",
+		RequestBody: []byte(`{}`),
+
+		MCP: &types.MCPAuditLogFields{
+			ResponseStatus: 200,
+		},
 		ResponseReceived: true,
 	})
 	if err := c.persistAuditLogs(); err != nil {

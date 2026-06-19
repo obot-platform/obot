@@ -26,45 +26,59 @@ const (
 
 // MCPAuditLog represents an audit log entry. Despite the name (kept for API
 // compatibility), it can represent generic audit events distinguished by
-// SourceType; MCP-specific fields are empty for non-MCP rows.
+// SourceType. Source-specific fields are returned under MCP or Local.
 type MCPAuditLog struct {
-	ID                        uint                        `json:"id"`
-	EventID                   string                      `json:"eventID,omitempty"`
-	SourceType                string                      `json:"sourceType,omitempty"`
-	EventType                 string                      `json:"eventType,omitempty"`
-	CreatedAt                 Time                        `json:"createdAt"`
-	ReceivedAt                *Time                       `json:"receivedAt,omitempty"`
-	UserID                    string                      `json:"userID"`
-	DeviceID                  string                      `json:"deviceID,omitempty"`
-	Outcome                   string                      `json:"outcome,omitempty"`
-	MCPID                     string                      `json:"mcpID"`
-	APIKey                    string                      `json:"apiKey,omitempty"`
-	PowerUserWorkspaceID      string                      `json:"powerUserWorkspaceID,omitempty"`
-	MCPServerDisplayName      string                      `json:"mcpServerDisplayName"`
-	MCPServerCatalogEntryName string                      `json:"mcpServerCatalogEntryName"`
-	ClientInfo                ClientInfo                  `json:"client"`
-	ClientIP                  string                      `json:"clientIP"`
-	CallType                  string                      `json:"callType"`
-	CallIdentifier            string                      `json:"callIdentifier,omitempty"`
-	RequestMutated            bool                        `json:"requestMutated"`
-	RequestBody               json.RawMessage             `json:"requestBody,omitempty"`
-	MutatedRequestBody        json.RawMessage             `json:"mutatedRequestBody,omitempty"`
-	ResponseMutated           bool                        `json:"responseMutated"`
-	ResponseBody              json.RawMessage             `json:"responseBody,omitempty"`
-	OriginalResponseBody      json.RawMessage             `json:"originalResponseBody,omitempty"`
-	ResponseStatus            int                         `json:"responseStatus"`
-	WebhookStatuses           []WebhookStatus             `json:"webhookStatuses,omitempty"`
-	Error                     string                      `json:"error,omitempty"`
-	ErrorDetail               string                      `json:"errorDetail,omitempty"`
-	RawEvent                  json.RawMessage             `json:"rawEvent,omitempty"`
-	Context                   *AuditLogContext            `json:"context,omitempty"`
-	PayloadMeta               map[string]PayloadFieldMeta `json:"payloadMeta,omitempty"`
-	ProcessingTimeMs          int64                       `json:"processingTimeMs"`
-	SessionID                 string                      `json:"sessionID,omitempty"`
-	RequestID                 string                      `json:"requestID,omitempty"`
-	UserAgent                 string                      `json:"userAgent,omitempty"`
-	RequestHeaders            json.RawMessage             `json:"requestHeaders,omitempty"`
-	ResponseHeaders           json.RawMessage             `json:"responseHeaders,omitempty"`
+	ID        uint   `json:"id"`
+	CreatedAt Time   `json:"createdAt"`
+	EventID   string `json:"eventID,omitempty"`
+
+	SourceType string `json:"sourceType,omitempty"`
+	EventType  string `json:"eventType,omitempty"`
+	ReceivedAt *Time  `json:"receivedAt,omitempty"`
+	DeviceID   string `json:"deviceID,omitempty"`
+	Outcome    string `json:"outcome,omitempty"`
+	UserID     string `json:"userID"`
+
+	ClientInfo       ClientInfo      `json:"client"`
+	CallType         string          `json:"callType"`
+	CallIdentifier   string          `json:"callIdentifier,omitempty"`
+	RequestBody      json.RawMessage `json:"requestBody,omitempty"`
+	ResponseBody     json.RawMessage `json:"responseBody,omitempty"`
+	Error            string          `json:"error,omitempty"`
+	ProcessingTimeMs int64           `json:"processingTimeMs"`
+	SessionID        string          `json:"sessionID,omitempty"`
+	ResponseReceived bool            `json:"responseReceived"`
+
+	MCP   *MCPAuditLogMCP `json:"mcp,omitempty"`
+	Local *LocalAuditLog  `json:"local,omitempty"`
+}
+
+// MCPAuditLogMCP contains fields meaningful only for MCP gateway/shim rows.
+type MCPAuditLogMCP struct {
+	APIKey                    string          `json:"apiKey,omitempty"`
+	MCPID                     string          `json:"mcpID"`
+	PowerUserWorkspaceID      string          `json:"powerUserWorkspaceID,omitempty"`
+	MCPServerDisplayName      string          `json:"mcpServerDisplayName"`
+	MCPServerCatalogEntryName string          `json:"mcpServerCatalogEntryName"`
+	ClientIP                  string          `json:"clientIP"`
+	RequestMutated            bool            `json:"requestMutated"`
+	MutatedRequestBody        json.RawMessage `json:"mutatedRequestBody,omitempty"`
+	ResponseMutated           bool            `json:"responseMutated"`
+	OriginalResponseBody      json.RawMessage `json:"originalResponseBody,omitempty"`
+	ResponseStatus            int             `json:"responseStatus"`
+	WebhookStatuses           []WebhookStatus `json:"webhookStatuses,omitempty"`
+	RequestID                 string          `json:"requestID,omitempty"`
+	UserAgent                 string          `json:"userAgent,omitempty"`
+	RequestHeaders            json.RawMessage `json:"requestHeaders,omitempty"`
+	ResponseHeaders           json.RawMessage `json:"responseHeaders,omitempty"`
+}
+
+// LocalAuditLog contains fields meaningful only for local-agent audit events.
+type LocalAuditLog struct {
+	ErrorDetail string                      `json:"errorDetail,omitempty"`
+	RawEvent    json.RawMessage             `json:"rawEvent,omitempty"`
+	Context     *AuditLogContext            `json:"context,omitempty"`
+	PayloadMeta map[string]PayloadFieldMeta `json:"payloadMeta,omitempty"`
 }
 
 // AuditEvent is the canonical generic audit event shape used for ingestion of

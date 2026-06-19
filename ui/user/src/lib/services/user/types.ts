@@ -95,32 +95,20 @@ export type AuditLogClient = {
 	name: string;
 	version: string;
 };
-export interface AuditLog {
-	id: string;
-	createdAt: string;
+export interface MCPAuditLogFields {
 	apiKey?: string;
-	userID: string;
-	userAgent?: string;
-	mcpServerInstanceName: string;
-	mcpServerName: string;
-	mcpServerDisplayName: string;
-	mcpServerCatalogEntryName?: string;
 	mcpID?: string;
 	powerUserWorkspaceID?: string;
-	client: AuditLogClient;
-	clientIP: string;
-	callType: string;
-	callIdentifier?: string;
-	responseStatus: number;
-	processingTimeMs: number;
+	mcpServerDisplayName?: string;
+	mcpServerCatalogEntryName?: string;
+	clientIP?: string;
 	requestHeaders?: Record<string, string | string[]>;
 	requestMutated: boolean;
-	requestBody?: unknown;
 	mutatedRequestBody?: unknown;
 	responseHeaders?: Record<string, string | string[]>;
 	responseMutated: boolean;
-	responseBody?: unknown;
 	originalResponseBody?: unknown;
+	responseStatus: number;
 	webhookStatuses?: {
 		type?: string;
 		method?: string;
@@ -130,9 +118,55 @@ export interface AuditLog {
 		status?: string;
 		message?: string;
 	}[];
+	requestID?: string;
+	userAgent?: string;
+}
+export interface LocalAuditLogFields {
+	errorDetail?: string;
+	rawEvent?: unknown;
+	context?: {
+		conversationID?: string;
+		cwd?: string;
+		workspace?: string;
+		gitRemote?: string;
+		gitBranch?: string;
+		sourceHookEvent?: string;
+		clientEventID?: string;
+		hostname?: string;
+		os?: string;
+		arch?: string;
+		username?: string;
+	};
+	payloadMeta?: Record<
+		string,
+		{
+			truncated?: boolean;
+			originalBytes?: number;
+			storedBytes?: number;
+		}
+	>;
+}
+export interface AuditLog {
+	id: string;
+	createdAt: string;
+	eventID?: string;
+	sourceType?: string;
+	eventType?: string;
+	receivedAt?: string;
+	deviceID?: string;
+	outcome?: string;
+	userID: string;
+	client: AuditLogClient;
+	callType: string;
+	callIdentifier?: string;
+	processingTimeMs: number;
+	requestBody?: unknown;
+	responseBody?: unknown;
 	error?: string;
 	sessionID?: string;
-	requestID?: string;
+	responseReceived?: boolean;
+	mcp?: MCPAuditLogFields;
+	local?: LocalAuditLogFields;
 }
 export interface AuditLogToolCallStatItem {
 	createdAt: string;

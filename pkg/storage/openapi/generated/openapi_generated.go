@@ -91,9 +91,11 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.ImagePullSecretTestResponse":                        schema_obot_platform_obot_apiclient_types_ImagePullSecretTestResponse(ref),
 		"github.com/obot-platform/obot/apiclient/types.K8sSettings":                                        schema_obot_platform_obot_apiclient_types_K8sSettings(ref),
 		"github.com/obot-platform/obot/apiclient/types.K8sSettingsStatus":                                  schema_obot_platform_obot_apiclient_types_K8sSettingsStatus(ref),
+		"github.com/obot-platform/obot/apiclient/types.LocalAuditLog":                                      schema_obot_platform_obot_apiclient_types_LocalAuditLog(ref),
 		"github.com/obot-platform/obot/apiclient/types.LogoPreferences":                                    schema_obot_platform_obot_apiclient_types_LogoPreferences(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPAuditLog":                                        schema_obot_platform_obot_apiclient_types_MCPAuditLog(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPAuditLogList":                                    schema_obot_platform_obot_apiclient_types_MCPAuditLogList(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPAuditLogMCP":                                     schema_obot_platform_obot_apiclient_types_MCPAuditLogMCP(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPAuditLogResponse":                                schema_obot_platform_obot_apiclient_types_MCPAuditLogResponse(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPCapacityInfo":                                    schema_obot_platform_obot_apiclient_types_MCPCapacityInfo(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPCatalog":                                         schema_obot_platform_obot_apiclient_types_MCPCatalog(ref),
@@ -4674,6 +4676,52 @@ func schema_obot_platform_obot_apiclient_types_K8sSettingsStatus(ref common.Refe
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_LocalAuditLog(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "LocalAuditLog contains fields meaningful only for local-agent audit events.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"errorDetail": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"rawEvent": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+					"context": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.AuditLogContext"),
+						},
+					},
+					"payloadMeta": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.PayloadFieldMeta"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AuditLogContext", "github.com/obot-platform/obot/apiclient/types.PayloadFieldMeta"},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_LogoPreferences(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -4744,7 +4792,7 @@ func schema_obot_platform_obot_apiclient_types_MCPAuditLog(ref common.ReferenceC
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "MCPAuditLog represents an audit log entry. Despite the name (kept for API compatibility), it can represent generic audit events distinguished by SourceType; MCP-specific fields are empty for non-MCP rows.",
+				Description: "MCPAuditLog represents an audit log entry. Despite the name (kept for API compatibility), it can represent generic audit events distinguished by SourceType. Source-specific fields are returned under MCP or Local.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"id": {
@@ -4752,6 +4800,11 @@ func schema_obot_platform_obot_apiclient_types_MCPAuditLog(ref common.ReferenceC
 							Default: 0,
 							Type:    []string{"integer"},
 							Format:  "int32",
+						},
+					},
+					"createdAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
 						},
 					},
 					"eventID": {
@@ -4772,21 +4825,9 @@ func schema_obot_platform_obot_apiclient_types_MCPAuditLog(ref common.ReferenceC
 							Format: "",
 						},
 					},
-					"createdAt": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
-						},
-					},
 					"receivedAt": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
-						},
-					},
-					"userID": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
 						},
 					},
 					"deviceID": {
@@ -4801,33 +4842,7 @@ func schema_obot_platform_obot_apiclient_types_MCPAuditLog(ref common.ReferenceC
 							Format: "",
 						},
 					},
-					"mcpID": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"apiKey": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"powerUserWorkspaceID": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"mcpServerDisplayName": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"mcpServerCatalogEntryName": {
+					"userID": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
 							Type:    []string{"string"},
@@ -4838,13 +4853,6 @@ func schema_obot_platform_obot_apiclient_types_MCPAuditLog(ref common.ReferenceC
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.ClientInfo"),
-						},
-					},
-					"clientIP": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
 						},
 					},
 					"callType": {
@@ -4860,30 +4868,10 @@ func schema_obot_platform_obot_apiclient_types_MCPAuditLog(ref common.ReferenceC
 							Format: "",
 						},
 					},
-					"requestMutated": {
-						SchemaProps: spec.SchemaProps{
-							Default: false,
-							Type:    []string{"boolean"},
-							Format:  "",
-						},
-					},
 					"requestBody": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "byte",
-						},
-					},
-					"mutatedRequestBody": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "byte",
-						},
-					},
-					"responseMutated": {
-						SchemaProps: spec.SchemaProps{
-							Default: false,
-							Type:    []string{"boolean"},
-							Format:  "",
 						},
 					},
 					"responseBody": {
@@ -4892,67 +4880,10 @@ func schema_obot_platform_obot_apiclient_types_MCPAuditLog(ref common.ReferenceC
 							Format: "byte",
 						},
 					},
-					"originalResponseBody": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "byte",
-						},
-					},
-					"responseStatus": {
-						SchemaProps: spec.SchemaProps{
-							Default: 0,
-							Type:    []string{"integer"},
-							Format:  "int32",
-						},
-					},
-					"webhookStatuses": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/obot-platform/obot/apiclient/types.WebhookStatus"),
-									},
-								},
-							},
-						},
-					},
 					"error": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
-						},
-					},
-					"errorDetail": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"rawEvent": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "byte",
-						},
-					},
-					"context": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/obot-platform/obot/apiclient/types.AuditLogContext"),
-						},
-					},
-					"payloadMeta": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"object"},
-							AdditionalProperties: &spec.SchemaOrBool{
-								Allows: true,
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/obot-platform/obot/apiclient/types.PayloadFieldMeta"),
-									},
-								},
-							},
 						},
 					},
 					"processingTimeMs": {
@@ -4968,36 +4899,29 @@ func schema_obot_platform_obot_apiclient_types_MCPAuditLog(ref common.ReferenceC
 							Format: "",
 						},
 					},
-					"requestID": {
+					"responseReceived": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
 						},
 					},
-					"userAgent": {
+					"mcp": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.MCPAuditLogMCP"),
 						},
 					},
-					"requestHeaders": {
+					"local": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "byte",
-						},
-					},
-					"responseHeaders": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "byte",
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.LocalAuditLog"),
 						},
 					},
 				},
-				Required: []string{"id", "createdAt", "userID", "mcpID", "mcpServerDisplayName", "mcpServerCatalogEntryName", "client", "clientIP", "callType", "requestMutated", "responseMutated", "responseStatus", "processingTimeMs"},
+				Required: []string{"id", "createdAt", "userID", "client", "callType", "processingTimeMs", "responseReceived"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.AuditLogContext", "github.com/obot-platform/obot/apiclient/types.ClientInfo", "github.com/obot-platform/obot/apiclient/types.PayloadFieldMeta", "github.com/obot-platform/obot/apiclient/types.Time", "github.com/obot-platform/obot/apiclient/types.WebhookStatus"},
+			"github.com/obot-platform/obot/apiclient/types.ClientInfo", "github.com/obot-platform/obot/apiclient/types.LocalAuditLog", "github.com/obot-platform/obot/apiclient/types.MCPAuditLogMCP", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
@@ -5027,6 +4951,132 @@ func schema_obot_platform_obot_apiclient_types_MCPAuditLogList(ref common.Refere
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.MCPAuditLog"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MCPAuditLogMCP(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MCPAuditLogMCP contains fields meaningful only for MCP gateway/shim rows.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"apiKey": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"mcpID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"powerUserWorkspaceID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"mcpServerDisplayName": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"mcpServerCatalogEntryName": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"clientIP": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"requestMutated": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"mutatedRequestBody": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+					"responseMutated": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"originalResponseBody": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+					"responseStatus": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"webhookStatuses": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.WebhookStatus"),
+									},
+								},
+							},
+						},
+					},
+					"requestID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"userAgent": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"requestHeaders": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+					"responseHeaders": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+				},
+				Required: []string{"mcpID", "mcpServerDisplayName", "mcpServerCatalogEntryName", "clientIP", "requestMutated", "responseMutated", "responseStatus"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.WebhookStatus"},
 	}
 }
 

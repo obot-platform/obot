@@ -77,9 +77,10 @@ func parseMultiValueParam(queryValues map[string][]string, key string) []string 
 }
 
 type auditLogInput struct {
-	gatewaytypes.MCPAuditLog `json:",inline"`
-	Metadata                 map[string]string `json:"metadata"`
-	Subject                  string            `json:"subject"`
+	gatewaytypes.MCPAuditLog       `json:",inline"`
+	gatewaytypes.MCPAuditLogFields `json:",inline"`
+	Metadata                       map[string]string `json:"metadata"`
+	Subject                        string            `json:"subject"`
 }
 
 // parseAuditLogOpts parses the query parameters common to ListAuditLogs and ListAuditLogFilterOptions.
@@ -191,10 +192,12 @@ func (h *AuditLogHandler) SubmitAuditLogs(req api.Context) error {
 	}
 
 	for _, auditLog := range auditLogs {
-		if auditLog.MCPID == "" {
-			auditLog.MCPID = auditLog.Metadata["mcpID"]
+		mcpFields := auditLog.MCPAuditLogFields
+
+		if mcpFields.MCPID == "" {
+			mcpFields.MCPID = auditLog.Metadata["mcpID"]
 		}
-		if auditLog.MCPID != mcpServerName {
+		if mcpFields.MCPID != mcpServerName {
 			return types.NewErrForbidden("audit log does not belong to MCP server %q", mcpServerName)
 		}
 		if auditLog.UserID == "" {
@@ -205,16 +208,17 @@ func (h *AuditLogHandler) SubmitAuditLogs(req api.Context) error {
 		if auditLog.UserID == "" && nanobotAgentID != "" {
 			auditLog.UserID = userID
 		}
-		if auditLog.MCPServerCatalogEntryName == "" {
-			auditLog.MCPServerCatalogEntryName = auditLog.Metadata["mcpServerCatalogEntryName"]
+		if mcpFields.MCPServerCatalogEntryName == "" {
+			mcpFields.MCPServerCatalogEntryName = auditLog.Metadata["mcpServerCatalogEntryName"]
 		}
-		if auditLog.PowerUserWorkspaceID == "" {
-			auditLog.PowerUserWorkspaceID = auditLog.Metadata["powerUserWorkspaceID"]
+		if mcpFields.PowerUserWorkspaceID == "" {
+			mcpFields.PowerUserWorkspaceID = auditLog.Metadata["powerUserWorkspaceID"]
 		}
-		if auditLog.MCPServerDisplayName == "" {
-			auditLog.MCPServerDisplayName = auditLog.Metadata["mcpServerDisplayName"]
+		if mcpFields.MCPServerDisplayName == "" {
+			mcpFields.MCPServerDisplayName = auditLog.Metadata["mcpServerDisplayName"]
 		}
 
+		auditLog.MCPAuditLog.MCP = &mcpFields
 		req.GatewayClient.LogMCPAuditEntry(auditLog.MCPAuditLog)
 	}
 
@@ -314,12 +318,13 @@ func (h *AuditLogHandler) GetAuditLog(req api.Context) error {
 			return fmt.Errorf("failed to get own server MCPIDs: %w", err)
 		}
 
-		isOwnServer := slices.Contains(ownServerMCPIDs, log.MCPID)
+		mcpFields := log.MCPFields()
+		isOwnServer := slices.Contains(ownServerMCPIDs, mcpFields.MCPID)
 
 		isInWorkspace := false
 		if req.UserIsPowerUser() {
 			workspaceID := system.GetPowerUserWorkspaceID(req.User.GetUID())
-			isInWorkspace = log.PowerUserWorkspaceID == workspaceID
+			isInWorkspace = mcpFields.PowerUserWorkspaceID == workspaceID
 		}
 
 		// Admins can see all logs.
