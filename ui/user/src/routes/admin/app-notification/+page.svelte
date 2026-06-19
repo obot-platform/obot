@@ -240,7 +240,7 @@
 					<button
 						class="btn btn-secondary text-sm"
 						onclick={() => {
-							appNotification = withBanner(data.appNotification);
+							appNotification = withBanner(appNotificationStore.current ?? data.appNotification);
 							bannerTextValidationError = null;
 						}}
 						disabled={saving}
