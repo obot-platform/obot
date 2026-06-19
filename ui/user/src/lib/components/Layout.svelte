@@ -682,12 +682,15 @@
 		if (!bannerDismissed.isReady) return false;
 
 		const dismissedAt = bannerDismissed.current?.dismissedAt;
+		const dismissedDate = dismissedAt ? new Date(dismissedAt) : undefined;
+		const hasValidDismissedAt =
+			dismissedDate !== undefined && !Number.isNaN(dismissedDate.getTime());
 		const wasBannerUpdatedAfterDismissal =
 			appNotification?.updated &&
-			!!dismissedAt &&
-			new Date(dismissedAt) <= new Date(appNotification?.updated);
+			hasValidDismissedAt &&
+			dismissedDate <= new Date(appNotification.updated);
 		return !!(
-			!dismissedAt ||
+			!hasValidDismissedAt ||
 			(wasBannerUpdatedAfterDismissal && appNotification.banner.resetDismissed)
 		);
 	});
