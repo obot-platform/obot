@@ -709,7 +709,7 @@ func schema_obot_platform_obot_apiclient_types_AppNotification(ref common.Refere
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "AppNotification represents global application notification settings",
+				Description: "AppNotification represents a global notification",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"banner": {
