@@ -64,15 +64,15 @@ cleanup() {
 
   # Kill monitoring process groups
   [[ -n "$server_ready_pid" ]] && kill "${kill_signal}" "-${server_ready_pid}" 2>/dev/null || true
-  [[ -n "$user_ui_ready_pid" ]] && kill "${kill_signal}" "-${user_ui_ready_pid}" 2>/dev/null || true
+  [[ -n "$ui_ready_pid" ]] && kill "${kill_signal}" "-${ui_ready_pid}" 2>/dev/null || true
 
   # Kill service process groups
   [[ -n "$server_pid" ]] && kill "${kill_signal}" "-${server_pid}" 2>/dev/null || true
-  [[ -n "$user_ui_pid" ]] && kill "${kill_signal}" "-${user_ui_pid}" 2>/dev/null || true
+  [[ -n "$ui_pid" ]] && kill "${kill_signal}" "-${ui_pid}" 2>/dev/null || true
 
   if [[ "$cleanup_count" -lt 2 ]]; then
-    print_section_header 196 "Waiting for services to exit (PIDs: ${server_pid}, ${user_ui_pid})..."
-    while kill -0 "${server_pid}" 2>/dev/null || kill -0 "${user_ui_pid}" 2>/dev/null; do
+    print_section_header 196 "Waiting for services to exit (PIDs: ${server_pid}, ${ui_pid})..."
+    while kill -0 "${server_pid}" 2>/dev/null || kill -0 "${ui_pid}" 2>/dev/null; do
       sleep 0.5
     done
 
@@ -114,14 +114,14 @@ server_ready_pid=$!
   cd ui/user
 
   pnpm i 2>&1 | while IFS= read -r line; do
-    print_with_color 217 "[user-ui](install)" " $line"
+    print_with_color 217 "[user](install)" " $line"
   done
 
   pnpm run dev --port 5174 2>&1 | while IFS= read -r line; do
-    print_with_color 217 "[user-ui]" " $line"
+    print_with_color 217 "[user]" " $line"
   done
 ) &
-user_ui_pid=$!
+ui_pid=$!
 
 (
   for _ in {1..60}; do # ~1 minute timeout
@@ -134,14 +134,14 @@ user_ui_pid=$!
 
   print_section_header 196 "Timeout waiting for user UI to start"
 ) &
-user_ui_ready_pid=$!
+ui_ready_pid=$!
 
 # Wait for all services to be ready
-wait "${server_ready_pid}" "${user_ui_ready_pid}"
+wait "${server_ready_pid}" "${ui_ready_pid}"
 
 # Services ready, open browser tabs if requested
 print_section_header 120 "All components ready!"
 open_browser_tabs http://localhost:8080/
 
 # Wait for services to exit
-wait "${server_pid}" "${user_ui_pid}"
+wait "${server_pid}" "${ui_pid}"
