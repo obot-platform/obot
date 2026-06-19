@@ -942,13 +942,8 @@
 				label="Connection URL"
 			/>
 		</div>
-
 		{#if url}
-			<HowToConnect
-				bind:this={howToConnect}
-				{url}
-				name={getMCPDisplayName(server, entry?.manifest?.name ?? '')}
-			/>
+			<HowToConnect bind:this={howToConnect} {url} id={server.catalogEntryID || server.id || ''} />
 		{/if}
 	{/if}
 </ResponsiveDialog>

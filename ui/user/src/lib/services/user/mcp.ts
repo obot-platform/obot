@@ -1048,13 +1048,13 @@ export async function disconnectMcpServerUser(server: MCPCatalogServer): Promise
 	await UserService.deleteSingleOrRemoteMcpServer(server.id);
 }
 
-export function getAiClientCommand(client: AiClient, displayName: string, url: string): string {
-	const nameArg = JSON.stringify(displayName);
+export function getAiClientCommand(client: AiClient, id: string, url: string): string {
+	const idArg = JSON.stringify(id);
 	const urlArg = JSON.stringify(url);
 
 	const commands = {
-		[AiClient.Claude]: `claude mcp add --transport http ${nameArg} ${urlArg}`,
-		[AiClient.Codex]: `codex mcp add ${nameArg} --url ${urlArg}`
+		[AiClient.Claude]: `claude mcp add --transport http ${idArg} ${urlArg}`,
+		[AiClient.Codex]: `codex mcp add ${idArg} --url ${urlArg}`
 	};
 	return commands[client as keyof typeof commands] ?? '';
 }
@@ -1102,10 +1102,10 @@ function generateVsCodeMagicLink(displayName: string, url: string): string {
 	return `vscode:mcp/install?${encodeURIComponent(JSON.stringify(vscodeConfig))}`;
 }
 
-export function getAiClientMagicLink(client: AiClient, displayName: string, url: string): string {
+export function getAiClientMagicLink(client: AiClient, id: string, url: string): string {
 	const fn = {
 		[AiClient.Cursor]: generateCursorMagicLink,
 		[AiClient.VSCode]: generateVsCodeMagicLink
 	};
-	return fn[client as keyof typeof fn] ? fn[client as keyof typeof fn](displayName, url) : '';
+	return fn[client as keyof typeof fn] ? fn[client as keyof typeof fn](id, url) : '';
 }

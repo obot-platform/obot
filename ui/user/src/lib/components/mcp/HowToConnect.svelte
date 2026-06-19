@@ -11,15 +11,15 @@
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
-		name: string;
+		id: string;
 		url: string;
 	}
 
-	let { url, name }: Props = $props();
+	let { url, id }: Props = $props();
 
 	let aiClientsMap = $derived(new Map(COMMON_AI_CLIENTS.map((client) => [client.id, client])));
-	let magicLinks = $derived(generateMcpLinks(name, url));
-	let commands = $derived(generateAiClientCommands(name, url));
+	let magicLinks = $derived(generateMcpLinks(id, url));
+	let commands = $derived(generateAiClientCommands(id, url));
 
 	let copyFields = $state<ReturnType<typeof CopyField>[]>([]);
 
@@ -50,22 +50,22 @@
 		}
 	];
 
-	function generateMcpLinks(displayName: string, connectUrl: string) {
+	function generateMcpLinks(id: string, connectUrl: string) {
 		const userSetPreferences = new Set(userDeviceSettings.aiClientPreference ?? []);
 		return MAGIC_LINK_SUPPORTED_AI_CLIENTS.filter((client) => userSetPreferences.has(client)).map(
 			(client) => ({
 				client,
-				link: getAiClientMagicLink(client, displayName, connectUrl)
+				link: getAiClientMagicLink(client, id, connectUrl)
 			})
 		);
 	}
 
-	function generateAiClientCommands(displayName: string, url: string) {
+	function generateAiClientCommands(id: string, url: string) {
 		const userSetPreferences = new Set(userDeviceSettings.aiClientPreference ?? []);
 		return COMMAND_SUPPORTED_AI_CLIENTS.filter((client) => userSetPreferences.has(client)).map(
 			(client) => ({
 				client,
-				command: getAiClientCommand(client, displayName, url)
+				command: getAiClientCommand(client, id, url)
 			})
 		);
 	}
