@@ -4,16 +4,26 @@ import type { AppNotifications } from '$lib/services/user/types';
 import { defaultAppNotifications } from '$lib/stores/appNotifications.svelte';
 import type { PageLoad } from './$types';
 
-let isInitialLoad = true;
+// Distinguishes the first client run (SSR hydration) from later client-side navigations.
+let hasHydrated = false;
+
 export const load: PageLoad = async ({ fetch, parent }) => {
 	const { profile, appNotifications: initialAppNotifications } = await parent();
 	let appNotifications: AppNotifications = defaultAppNotifications;
+
 	try {
-		const response =
-			isInitialLoad && initialAppNotifications
-				? initialAppNotifications
-				: await UserService.getAppNotifications({ fetch });
-		isInitialLoad = false;
+		let response: AppNotifications | undefined;
+
+		if (import.meta.env.SSR && initialAppNotifications) {
+			response = initialAppNotifications;
+		} else if (!hasHydrated && initialAppNotifications) {
+			hasHydrated = true;
+			response = initialAppNotifications;
+		} else {
+			hasHydrated = true;
+			response = await UserService.getAppNotifications({ fetch });
+		}
+
 		appNotifications = {
 			...defaultAppNotifications,
 			...(response ?? {})
