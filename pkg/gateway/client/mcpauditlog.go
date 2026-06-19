@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -145,8 +146,7 @@ func (c *Client) insertMCPAuditLogs(ctx context.Context, logs []types.MCPAuditLo
 }
 
 // applyGenericAuditFilters applies the source-generic filters shared by audit
-// log listing and filter-option queries. A startup migration backfills these
-// columns on rows that predate them, so plain matches are sufficient.
+// log listing and filter-option queries.
 func applyGenericAuditFilters(db *gorm.DB, opts MCPAuditLogOptions) *gorm.DB {
 	if len(opts.SourceType) > 0 {
 		db = db.Where("source_type IN (?)", opts.SourceType)
@@ -478,7 +478,7 @@ func (c *Client) GetMCPUsageStats(ctx context.Context, opts MCPUsageStatsOptions
 		base = base.Model(&types.MCPAuditLog{}).Session(&gorm.Session{})
 		// Non-MCP audit rows (e.g. local agent events) share this table; keep
 		// usage statistics MCP-only.
-		base = base.Where("source_type = ?", types.AuditLogSourceTypeMCP).Session(&gorm.Session{})
+		base = base.Where("source_type = ?", types2.AuditLogSourceTypeMCP).Session(&gorm.Session{})
 		tx := base.Where("created_at >= ? AND created_at < ?", opts.StartTime, opts.EndTime)
 
 		if opts.MCPID != "" {

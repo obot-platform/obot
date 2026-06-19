@@ -4,24 +4,30 @@ import (
 	"encoding/json"
 )
 
+type (
+	AuditLogSourceType string
+	AuditLogEventType  string
+	AuditLogOutcome    string
+)
+
 // Audit log source types.
 const (
-	AuditLogSourceTypeMCP        = "mcp"
-	AuditLogSourceTypeLocalAgent = "local_agent"
+	AuditLogSourceTypeMCP        AuditLogSourceType = "mcp"
+	AuditLogSourceTypeLocalAgent AuditLogSourceType = "local_agent"
 )
 
 // Generic audit event types.
 const (
-	AuditLogEventTypeToolCall     = "tool_call"
-	AuditLogEventTypeResourceRead = "resource_read"
-	AuditLogEventTypePromptGet    = "prompt_get"
-	AuditLogEventTypeMCPRequest   = "mcp_request"
+	AuditLogEventTypeToolCall     AuditLogEventType = "tool_call"
+	AuditLogEventTypeResourceRead AuditLogEventType = "resource_read"
+	AuditLogEventTypePromptGet    AuditLogEventType = "prompt_get"
+	AuditLogEventTypeMCPRequest   AuditLogEventType = "mcp_request"
 )
 
 // Audit log outcomes.
 const (
-	AuditLogOutcomeSuccess = "success"
-	AuditLogOutcomeError   = "error"
+	AuditLogOutcomeSuccess AuditLogOutcome = "success"
+	AuditLogOutcomeError   AuditLogOutcome = "error"
 )
 
 // MCPAuditLog represents an audit log entry. Despite the name (kept for API
@@ -31,11 +37,11 @@ type MCPAuditLog struct {
 	ID        uint `json:"id"`
 	CreatedAt Time `json:"createdAt"`
 
-	SourceType string `json:"sourceType,omitempty"`
-	EventType  string `json:"eventType,omitempty"`
-	ReceivedAt *Time  `json:"receivedAt,omitempty"`
-	Outcome    string `json:"outcome,omitempty"`
-	UserID     string `json:"userID"`
+	SourceType AuditLogSourceType `json:"sourceType,omitempty"`
+	EventType  AuditLogEventType  `json:"eventType,omitempty"`
+	ReceivedAt *Time              `json:"receivedAt,omitempty"`
+	Outcome    AuditLogOutcome    `json:"outcome,omitempty"`
+	UserID     string             `json:"userID"`
 
 	ClientInfo       ClientInfo      `json:"client"`
 	CallType         string          `json:"callType"`
@@ -85,10 +91,10 @@ type LocalAuditLog struct {
 // AuditEvent is the canonical generic audit event shape used for ingestion of
 // non-MCP audit logs (e.g. local agent tool calls submitted by the CLI).
 type AuditEvent struct {
-	EventID    string `json:"eventID"`
-	SourceType string `json:"sourceType"`
-	EventType  string `json:"eventType"`
-	CreatedAt  Time   `json:"createdAt"`
+	EventID    string             `json:"eventID"`
+	SourceType AuditLogSourceType `json:"sourceType"`
+	EventType  AuditLogEventType  `json:"eventType"`
+	CreatedAt  Time               `json:"createdAt"`
 	// ReceivedAt and UserID are assigned by the server on ingestion;
 	// client-provided values are ignored.
 	ReceivedAt  *Time                       `json:"receivedAt,omitempty"`
@@ -96,7 +102,7 @@ type AuditEvent struct {
 	DeviceID    string                      `json:"deviceID,omitempty"`
 	Client      ClientInfo                  `json:"client"`
 	Tool        ToolInfo                    `json:"tool"`
-	Outcome     string                      `json:"outcome"`
+	Outcome     AuditLogOutcome             `json:"outcome"`
 	DurationMs  int64                       `json:"durationMs"`
 	SessionID   string                      `json:"sessionID,omitempty"`
 	Request     json.RawMessage             `json:"request,omitempty"`

@@ -12,19 +12,6 @@ import (
 	"gorm.io/gorm"
 )
 
-const (
-	AuditLogSourceTypeMCP        = "mcp"
-	AuditLogSourceTypeLocalAgent = "local_agent"
-
-	AuditLogEventTypeToolCall     = "tool_call"
-	AuditLogEventTypeResourceRead = "resource_read"
-	AuditLogEventTypePromptGet    = "prompt_get"
-	AuditLogEventTypeMCPRequest   = "mcp_request"
-
-	AuditLogOutcomeSuccess = "success"
-	AuditLogOutcomeError   = "error"
-)
-
 // maxErrorSummaryBytes caps the plaintext, searchable Error column for events
 // that carry a full error payload in the encrypted ErrorDetail field.
 const maxErrorSummaryBytes = 1024
@@ -91,11 +78,11 @@ type MCPAuditLog struct {
 
 	// SourceType, EventType, and Outcome are backfilled on historical rows by a
 	// startup migration; ReceivedAt remains NULL on rows that predate it.
-	SourceType string     `json:"sourceType,omitempty" gorm:"index"`
-	EventType  string     `json:"eventType,omitempty" gorm:"index"`
-	ReceivedAt *time.Time `json:"receivedAt,omitempty"`
-	Outcome    string     `json:"outcome,omitempty" gorm:"index"`
-	UserID     string     `json:"userID" gorm:"index"`
+	SourceType types2.AuditLogSourceType `json:"sourceType,omitempty" gorm:"index"`
+	EventType  types2.AuditLogEventType  `json:"eventType,omitempty" gorm:"index"`
+	ReceivedAt *time.Time                `json:"receivedAt,omitempty"`
+	Outcome    types2.AuditLogOutcome    `json:"outcome,omitempty" gorm:"index"`
+	UserID     string                    `json:"userID" gorm:"index"`
 
 	// MCP rows map their JSON-RPC call type and identifier into these same
 	// indexed columns so local-agent events can reuse list, filter, and export paths.
@@ -149,18 +136,18 @@ func (a MCPAuditLog) LocalFields() LocalAuditLog {
 
 func (a *MCPAuditLog) NormalizeSourceFields() {
 	switch a.SourceType {
-	case AuditLogSourceTypeLocalAgent:
+	case types2.AuditLogSourceTypeLocalAgent:
 		a.EnsureLocal()
 		a.MCP = nil
-	case AuditLogSourceTypeMCP:
+	case types2.AuditLogSourceTypeMCP:
 		a.EnsureMCP()
 		a.Local = nil
 	default:
 		switch {
 		case a.Local != nil && a.MCP == nil:
-			a.SourceType = AuditLogSourceTypeLocalAgent
+			a.SourceType = types2.AuditLogSourceTypeLocalAgent
 		default:
-			a.SourceType = AuditLogSourceTypeMCP
+			a.SourceType = types2.AuditLogSourceTypeMCP
 			a.EnsureMCP()
 			a.Local = nil
 		}
@@ -178,29 +165,29 @@ func (a *MCPAuditLog) AfterFind(*gorm.DB) error {
 }
 
 // EventTypeForCallType maps an MCP call type to the generic audit event type.
-func EventTypeForCallType(callType string) string {
+func EventTypeForCallType(callType string) types2.AuditLogEventType {
 	switch callType {
 	case "tools/call":
-		return AuditLogEventTypeToolCall
+		return types2.AuditLogEventTypeToolCall
 	case "resources/read":
-		return AuditLogEventTypeResourceRead
+		return types2.AuditLogEventTypeResourceRead
 	case "prompts/get":
-		return AuditLogEventTypePromptGet
+		return types2.AuditLogEventTypePromptGet
 	default:
-		return AuditLogEventTypeMCPRequest
+		return types2.AuditLogEventTypeMCPRequest
 	}
 }
 
 // OutcomeForResult maps an error string and response status to an outcome.
-func OutcomeForResult(errMsg string, responseStatus int) string {
+func OutcomeForResult(errMsg string, responseStatus int) types2.AuditLogOutcome {
 	// responseStatus==0 indicates we haven't observed a response yet (request-only row).
 	if errMsg == "" && responseStatus == 0 {
 		return ""
 	}
 	if errMsg == "" && responseStatus < 400 {
-		return AuditLogOutcomeSuccess
+		return types2.AuditLogOutcomeSuccess
 	}
-	return AuditLogOutcomeError
+	return types2.AuditLogOutcomeError
 }
 
 type MCPWebhookStatus struct {
@@ -320,7 +307,7 @@ func ConvertMCPAuditLog(a MCPAuditLog) types2.MCPAuditLog {
 	}
 
 	switch a.SourceType {
-	case AuditLogSourceTypeLocalAgent:
+	case types2.AuditLogSourceTypeLocalAgent:
 		apiLog.Local = &types2.LocalAuditLog{
 			EventID:     localFields.EventID,
 			DeviceID:    localFields.DeviceID,

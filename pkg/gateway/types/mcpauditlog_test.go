@@ -80,7 +80,7 @@ func TestAuditEventRoundTrip(t *testing.T) {
 func TestConvertMCPAuditLogSourceVariants(t *testing.T) {
 	mcpLog := ConvertMCPAuditLog(MCPAuditLog{
 		CreatedAt:  time.Date(2026, 6, 11, 12, 0, 0, 0, time.UTC),
-		SourceType: AuditLogSourceTypeMCP,
+		SourceType: types2.AuditLogSourceTypeMCP,
 		CallType:   "tools/call",
 		MCP: &MCPAuditLogFields{
 			MCPID:                "mcp-1",
@@ -98,7 +98,7 @@ func TestConvertMCPAuditLogSourceVariants(t *testing.T) {
 
 	localLog := ConvertMCPAuditLog(MCPAuditLog{
 		CreatedAt:  time.Date(2026, 6, 11, 12, 0, 0, 0, time.UTC),
-		SourceType: AuditLogSourceTypeLocalAgent,
+		SourceType: types2.AuditLogSourceTypeLocalAgent,
 		CallType:   "command",
 		Local: &LocalAuditLog{
 			ErrorDetail: "full error",

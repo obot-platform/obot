@@ -384,18 +384,18 @@ var filterOptions = map[string]any{
 var defaultFilterOptions = map[string][]string{
 	"call_type": {"prompts/list", "resources/read", "tools/list", "tools/call", "prompts/get", "resources/list"},
 	"source_type": {
-		types.AuditLogSourceTypeMCP,
-		types.AuditLogSourceTypeLocalAgent,
+		string(types.AuditLogSourceTypeMCP),
+		string(types.AuditLogSourceTypeLocalAgent),
 	},
 	"event_type": {
-		types.AuditLogEventTypeToolCall,
-		types.AuditLogEventTypeResourceRead,
-		types.AuditLogEventTypePromptGet,
-		types.AuditLogEventTypeMCPRequest,
+		string(types.AuditLogEventTypeToolCall),
+		string(types.AuditLogEventTypeResourceRead),
+		string(types.AuditLogEventTypePromptGet),
+		string(types.AuditLogEventTypeMCPRequest),
 	},
 	"outcome": {
-		types.AuditLogOutcomeSuccess,
-		types.AuditLogOutcomeError,
+		string(types.AuditLogOutcomeSuccess),
+		string(types.AuditLogOutcomeError),
 	},
 }
 

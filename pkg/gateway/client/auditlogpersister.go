@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 )
@@ -16,7 +17,7 @@ func (c *Client) LogMCPAuditEntry(entry types.MCPAuditLog) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	entry.SourceType = types.AuditLogSourceTypeMCP
+	entry.SourceType = types2.AuditLogSourceTypeMCP
 	mcpFields := entry.EnsureMCP()
 	entry.Local = nil
 
@@ -30,8 +31,7 @@ func (c *Client) LogMCPAuditEntry(entry types.MCPAuditLog) {
 
 	// ReceivedAt is server receipt time, so it is always assigned here;
 	// callers (including audit log submission requests) cannot supply it.
-	receivedAt := time.Now().UTC()
-	entry.ReceivedAt = &receivedAt
+	entry.ReceivedAt = new(time.Now().UTC())
 
 	if err := c.encryptMCPAuditLog(ctx, &entry); err != nil {
 		log.Errorf("Failed to encrypt MCP audit log: %v", err)

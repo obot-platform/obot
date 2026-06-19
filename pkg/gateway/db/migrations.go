@@ -242,7 +242,7 @@ func migrateGenericAuditLogFields(tx *gorm.DB) error {
 	// gateway/shim path.
 	if err := tx.Exec(
 		"UPDATE mcp_audit_logs SET source_type = ? WHERE source_type IS NULL OR source_type = ''",
-		types.AuditLogSourceTypeMCP,
+		types2.AuditLogSourceTypeMCP,
 	).Error; err != nil {
 		return fmt.Errorf("failed to backfill source_type: %w", err)
 	}
@@ -255,10 +255,10 @@ func migrateGenericAuditLogFields(tx *gorm.DB) error {
 			ELSE ?
 		END
 		WHERE event_type IS NULL OR event_type = ''`,
-		types.AuditLogEventTypeToolCall,
-		types.AuditLogEventTypeResourceRead,
-		types.AuditLogEventTypePromptGet,
-		types.AuditLogEventTypeMCPRequest,
+		types2.AuditLogEventTypeToolCall,
+		types2.AuditLogEventTypeResourceRead,
+		types2.AuditLogEventTypePromptGet,
+		types2.AuditLogEventTypeMCPRequest,
 	).Error; err != nil {
 		return fmt.Errorf("failed to backfill event_type: %w", err)
 	}
@@ -270,8 +270,8 @@ func migrateGenericAuditLogFields(tx *gorm.DB) error {
 			ELSE ?
 		END
 		WHERE outcome IS NULL OR outcome = ''`,
-		types.AuditLogOutcomeSuccess,
-		types.AuditLogOutcomeError,
+		types2.AuditLogOutcomeSuccess,
+		types2.AuditLogOutcomeError,
 	).Error; err != nil {
 		return fmt.Errorf("failed to backfill outcome: %w", err)
 	}
