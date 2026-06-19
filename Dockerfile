@@ -14,7 +14,6 @@ WORKDIR /app
 COPY . .
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
   --mount=type=cache,target=/root/.cache/go-build \
-  --mount=type=cache,target=/root/.cache/uv \
   --mount=type=cache,target=/root/go/pkg/mod \
   make all
 

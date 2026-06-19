@@ -1,14 +1,13 @@
 #!/bin/bash
 
 set -e
-# Combine .envrc files from providers, enterprise-providers, and encryption-bins
-PROVIDERS_DIR=/obot-providers
-ENV_FILES=$(ls "$PROVIDERS_DIR"/.envrc.* 2>/dev/null)
 
+# Combine .envrc files from providers, enterprise-providers, and encryption-bins
 server_versions=""
 provider_registries=""
 
-for file in ${ENV_FILES[@]}; do
+shopt -s failglob
+for file in /obot-providers/.envrc.*; do
   eval "$(grep '^export ' "$file" | sed 's/^export //')"
 
   if [[ -n "$OBOT_SERVER_PROVIDER_REGISTRIES" ]]; then
@@ -20,12 +19,9 @@ for file in ${ENV_FILES[@]}; do
   fi
 done
 
-OBOT_SERVER_VERSIONS="${server_versions%,}"
-OBOT_SERVER_PROVIDER_REGISTRIES="${provider_registries%,}"
-
 cat <<EOF >/obot-providers/.envrc.providers
-export OBOT_SERVER_PROVIDER_REGISTRIES="${OBOT_SERVER_PROVIDER_REGISTRIES}"
-export OBOT_SERVER_VERSIONS="${OBOT_SERVER_VERSIONS}"
+export OBOT_SERVER_PROVIDER_REGISTRIES="${provider_registries%,}"
+export OBOT_SERVER_VERSIONS="${server_versions%,}"
 EOF
 
 rm -f /obot-providers/.envrc.providers.*
