@@ -113,7 +113,12 @@
 			.map((name) => name.toLowerCase())
 	);
 
+	let howToConnect = $state<ReturnType<typeof HowToConnect>>();
+	let connectionUrlField = $state<ReturnType<typeof CopyField>>();
+
 	function handleOnClose() {
+		howToConnect?.resetCopied();
+		connectionUrlField?.clear();
 		onClose?.();
 	}
 
@@ -930,11 +935,20 @@
 	{#if server}
 		{@const url = instance ? instance.connectURL : server.connectURL}
 		<div class="flex flex-col gap-1 md:p-0 pb-0 p-4">
-			<CopyField value={url} id="connectURL" label="Connection URL" />
+			<CopyField
+				bind:this={connectionUrlField}
+				value={url}
+				id="connectURL"
+				label="Connection URL"
+			/>
 		</div>
 
 		{#if url}
-			<HowToConnect {url} name={getMCPDisplayName(server, entry?.manifest?.name ?? '')} />
+			<HowToConnect
+				bind:this={howToConnect}
+				{url}
+				name={getMCPDisplayName(server, entry?.manifest?.name ?? '')}
+			/>
 		{/if}
 	{/if}
 </ResponsiveDialog>

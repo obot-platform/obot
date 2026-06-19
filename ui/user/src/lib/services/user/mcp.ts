@@ -1049,9 +1049,12 @@ export async function disconnectMcpServerUser(server: MCPCatalogServer): Promise
 }
 
 export function getAiClientCommand(client: AiClient, displayName: string, url: string): string {
+	const nameArg = JSON.stringify(displayName);
+	const urlArg = JSON.stringify(url);
+
 	const commands = {
-		[AiClient.Claude]: `claude mcp add --transport http ${displayName} ${url}`,
-		[AiClient.Codex]: `codex mcp add ${displayName} --url ${url}`
+		[AiClient.Claude]: `claude mcp add --transport http ${nameArg} ${urlArg}`,
+		[AiClient.Codex]: `codex mcp add ${nameArg} --url ${urlArg}`
 	};
 	return commands[client as keyof typeof commands] ?? '';
 }

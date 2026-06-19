@@ -21,9 +21,7 @@
 	let magicLinks = $derived(generateMcpLinks(name, url));
 	let commands = $derived(generateAiClientCommands(name, url));
 
-	$effect(() => {
-		console.log(aiClientsMap, magicLinks, commands);
-	});
+	let copyFields = $state<ReturnType<typeof CopyField>[]>([]);
 
 	const options = [
 		{
@@ -70,6 +68,12 @@
 				command: getAiClientCommand(client, displayName, url)
 			})
 		);
+	}
+
+	export function resetCopied() {
+		copyFields.forEach((copyField) => {
+			copyField.clear();
+		});
 	}
 </script>
 
@@ -126,7 +130,7 @@
 	{#if commands.length > 0}
 		<div class="divider">Install via CLI</div>
 		<div class="flex gap-2 flex-col">
-			{#each commands as aiClientCommand (aiClientCommand.client)}
+			{#each commands as aiClientCommand, index (aiClientCommand.client)}
 				{@const client = aiClientsMap.get(aiClientCommand.client as AiClient)}
 				{#if client && aiClientCommand.command}
 					<CopyField
@@ -136,6 +140,7 @@
 							inputLabel: 'bg-base-100 dark:bg-base-300',
 							input: 'font-mono'
 						}}
+						bind:this={copyFields[index]}
 					>
 						{#snippet preContent()}
 							<span class="label shrink-0 w-38 mr-0 text-base-content">

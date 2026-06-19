@@ -48,11 +48,11 @@ function setAiClientPreference(aiClient: AiClient | AiClient[]) {
 }
 
 function getAiClientPreference(): AiClient[] | undefined {
+	const fallback: AiClient[] = [AiClient.Cursor, AiClient.Claude, AiClient.Codex, AiClient.VSCode];
 	if (!browser) {
-		return undefined;
+		return fallback;
 	}
 
-	const fallback: AiClient[] = [AiClient.Cursor, AiClient.Claude, AiClient.Codex, AiClient.VSCode];
 	const raw = localStorage.getItem('aiClientPreference');
 	if (!raw) return fallback;
 

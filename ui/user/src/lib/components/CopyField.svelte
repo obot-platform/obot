@@ -18,6 +18,10 @@
 	let { value, label, id, preContent, classes }: Props = $props();
 
 	let copyButton = $state<ReturnType<typeof CopyButton>>();
+
+	export function clear() {
+		copyButton?.clearButtonText();
+	}
 </script>
 
 {#if label}
