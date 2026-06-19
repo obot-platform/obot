@@ -121,7 +121,7 @@ func (h *handler) authorize(req api.Context) error {
 		return err
 	}
 
-	if !slices.Contains(oauthClient.Spec.Manifest.RedirectURIs, redirectURI) {
+	if !isRedirectURIAllowed(oauthClient.Spec.Manifest, redirectURI) {
 		return types.NewErrBadRequest("%v", Error{
 			Code:        ErrInvalidRequest,
 			Description: "redirect_uri is invalid for this client",

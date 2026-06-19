@@ -27,6 +27,10 @@ const (
 	clientMetadataCacheMaxEntries    = 1000
 )
 
+var clientIDNativeExceptions = map[string]struct{}{
+	"https://claude.ai/oauth/claude-code-client-metadata": {},
+}
+
 type clientMetadataCacheEntry struct {
 	client    v1.OAuthClient
 	expiresAt time.Time
@@ -200,6 +204,16 @@ func (h *handler) oauthClientFromMetadataDocument(clientID string, doc clientIDM
 	}
 	if len(doc.RedirectURIs) == 0 {
 		return v1.OAuthClient{}, fmt.Errorf("client metadata document must include redirect_uris")
+	}
+	if doc.ApplicationType == "" {
+		if _, ok := clientIDNativeExceptions[clientID]; ok {
+			doc.ApplicationType = "native"
+		} else {
+			doc.ApplicationType = "web"
+		}
+	}
+	if doc.ApplicationType != "web" && doc.ApplicationType != "native" {
+		return v1.OAuthClient{}, fmt.Errorf("client metadata document application_type must be web or native")
 	}
 	if isSharedSecretAuthMethod(doc.TokenEndpointAuthMethod) {
 		return v1.OAuthClient{}, fmt.Errorf("client metadata document must not use shared-secret token endpoint authentication")

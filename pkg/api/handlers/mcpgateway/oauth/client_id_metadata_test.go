@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -107,6 +108,9 @@ func TestResolveClientIDMetadataDocument(t *testing.T) {
 	if client.Spec.Manifest.TokenEndpointAuthMethod != "none" {
 		t.Fatalf("expected default token endpoint auth method none, got %q", client.Spec.Manifest.TokenEndpointAuthMethod)
 	}
+	if client.Spec.Manifest.ApplicationType != "web" {
+		t.Fatalf("expected default application type web, got %q", client.Spec.Manifest.ApplicationType)
+	}
 
 	if _, err = h.resolveClientIDMetadataDocument(context.Background(), clientID); err != nil {
 		t.Fatalf("resolve cached metadata: %v", err)
@@ -138,6 +142,10 @@ func TestResolveClientIDMetadataDocumentValidation(t *testing.T) {
 		{
 			name: "shared secret auth rejected",
 			body: `{"client_id":"https://client.example/oauth/client.json","client_name":"Example Client","redirect_uris":["http://127.0.0.1/callback"],"token_endpoint_auth_method":"client_secret_post"}`,
+		},
+		{
+			name: "invalid application type rejected",
+			body: `{"client_id":"https://client.example/oauth/client.json","client_name":"Example Client","redirect_uris":["http://127.0.0.1/callback"],"application_type":"service"}`,
 		},
 		{
 			name: "client secret rejected",
@@ -197,6 +205,57 @@ func TestResolveClientIDMetadataDocumentPrivateKeyJWT(t *testing.T) {
 	}
 	if client.Spec.Manifest.JWKS == "" {
 		t.Fatal("expected raw jwks to be retained")
+	}
+}
+
+func TestResolveClientIDMetadataDocumentNativeApplicationType(t *testing.T) {
+	t.Parallel()
+
+	const clientID = "https://client.example/oauth/client.json"
+	h := newTestCIMDHandler(func(*http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body: io.NopCloser(strings.NewReader(`{
+				"client_id":"https://client.example/oauth/client.json",
+				"client_name":"Example Client",
+				"redirect_uris":["http://127.0.0.1/callback"],
+				"application_type":"native"
+			}`)),
+		}, nil
+	})
+
+	client, err := h.resolveClientIDMetadataDocument(context.Background(), clientID)
+	if err != nil {
+		t.Fatalf("resolve metadata: %v", err)
+	}
+	if client.Spec.Manifest.ApplicationType != "native" {
+		t.Fatalf("expected native application type, got %q", client.Spec.Manifest.ApplicationType)
+	}
+}
+
+func TestClientIDNativeExceptionsDefaultToNative(t *testing.T) {
+	t.Parallel()
+
+	h := newTestCIMDHandler(nil)
+	for clientID := range clientIDNativeExceptions {
+		t.Run(clientID, func(t *testing.T) {
+			t.Parallel()
+
+			client, err := h.oauthClientFromMetadataDocument(clientID, clientIDMetadataDocument{
+				OAuthClientManifest: types.OAuthClientManifest{
+					ClientName:   "Example Client",
+					RedirectURIs: []string{"http://127.0.0.1/callback"},
+				},
+				ClientID: clientID,
+			})
+			if err != nil {
+				t.Fatalf("resolve metadata: %v", err)
+			}
+			if client.Spec.Manifest.ApplicationType != "native" {
+				t.Fatalf("expected native application type, got %q", client.Spec.Manifest.ApplicationType)
+			}
+		})
 	}
 }
 
