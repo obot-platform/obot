@@ -13,6 +13,7 @@ const (
 	DefaultRoleSettingName = "user-default-role-setting"
 	K8sSettingsName        = "k8s-settings"
 	AppPreferencesName     = "app-preferences"
+	AppNotificationName    = "app-notification"
 
 	ModelProviderCredential = "sys.model.provider.credential"
 

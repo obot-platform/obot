@@ -437,6 +437,11 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/app-preferences", appPrefsHandler.Get)
 	mux.HandleFunc("PUT /api/app-preferences", appPrefsHandler.Update)
 
+	// App Notification
+	appNotificationHandler := handlers.NewAppNotificationHandler()
+	mux.HandleFunc("GET /api/app-notification", appNotificationHandler.Get)
+	mux.HandleFunc("PUT /api/app-notification", appNotificationHandler.Update)
+
 	// Debug
 	mux.HTTPHandle("GET /debug/pprof/", http.DefaultServeMux)
 	mux.HTTPHandle("GET /debug/triggers", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

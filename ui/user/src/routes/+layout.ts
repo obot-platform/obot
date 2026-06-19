@@ -1,6 +1,7 @@
 import { dev } from '$app/environment';
 import {
 	UserService,
+	type AppNotification,
 	type AppPreferences,
 	type DefaultModelAlias,
 	type License,
@@ -21,6 +22,8 @@ export const load: LayoutLoad = async ({ fetch }) => {
 	let license: License | undefined;
 	let defaultModelAliases: DefaultModelAlias[] | undefined;
 	let models: Model[] | undefined;
+	let appNotification: AppNotification | undefined;
+
 	try {
 		version = await UserService.getVersion({ fetch });
 	} catch {
@@ -70,6 +73,12 @@ export const load: LayoutLoad = async ({ fetch }) => {
 		} catch {
 			models = undefined;
 		}
+
+		try {
+			appNotification = await UserService.getAppNotification({ fetch });
+		} catch {
+			appNotification = undefined;
+		}
 	}
 
 	return {
@@ -78,6 +87,7 @@ export const load: LayoutLoad = async ({ fetch }) => {
 		version,
 		license,
 		defaultModelAliases,
-		models
+		models,
+		appNotification
 	};
 };

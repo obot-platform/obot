@@ -12,7 +12,8 @@ import {
 	type Schedule,
 	ModelAlias,
 	type AccessControlRuleSubject,
-	type MCPResourceRequirements
+	type MCPResourceRequirements,
+	type BannerType
 } from '../user/types';
 
 /**
@@ -35,6 +36,18 @@ import {
  *
  * Prefer reusing or extending types from `../user/types` when the same shape exists there.
  */
+
+// App notification
+
+export interface AppNotificationManifest {
+	banner: {
+		dismissible?: boolean;
+		type?: BannerType;
+		enabled?: boolean;
+		text?: string;
+		resetDismissed?: boolean;
+	};
+}
 
 // App preferences
 
