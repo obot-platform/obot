@@ -207,6 +207,7 @@ var (
 			"POST /oauth/token/{mcp_id}",
 			"POST /oauth/token",
 			"GET /oauth/jwks.json",
+			"GET /oauth/client-metadata.json",
 
 			// Allow any user to read stored images.
 			// This allows the UI to display custom images to unauthenticated users.

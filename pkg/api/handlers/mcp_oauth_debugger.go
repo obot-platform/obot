@@ -40,12 +40,20 @@ func (m *MCPHandler) RegisterOAuthDebuggerClient(req api.Context) error {
 	}
 
 	clientID, clientSecret, err := m.lookupStaticOAuthClient(req, server)
-	if err != nil && authServer.RegistrationEndpoint == "" {
+	useCIMD := m.useOAuthDebuggerCIMD(server, clientID, clientSecret)
+	if err != nil && authServer.RegistrationEndpoint == "" && !useCIMD {
 		return err
 	}
 
 	var registered types.OAuthClient
-	if clientID == "" || clientSecret == "" {
+	if clientID != "" && clientSecret != "" {
+		registered = oauthDebuggerStaticClient(clientID, clientSecret, authServer)
+	} else if useCIMD {
+		clientID = system.OAuthClientIDMetadataURL(m.serverURL)
+		clientSecret = ""
+		registration.TokenEndpointAuthMethod = "none"
+		registered = m.oauthDebuggerCIMDClient(authServer, registration)
+	} else {
 		if authServer.RegistrationEndpoint == "" {
 			return types.NewErrBadRequest("OAuth metadata does not include a dynamic client registration endpoint, must configure static client ID and secret")
 		}
@@ -63,8 +71,6 @@ func (m *MCPHandler) RegisterOAuthDebuggerClient(req api.Context) error {
 		if registered.Scope != "" {
 			registration.Scope = registered.Scope
 		}
-	} else {
-		registered = oauthDebuggerStaticClient(clientID, clientSecret, authServer)
 	}
 
 	if clientID == "" {
@@ -275,6 +281,30 @@ func (m *MCPHandler) lookupStaticOAuthClient(req api.Context, server v1.MCPServe
 	}
 
 	return "", "", nil
+}
+
+func (m *MCPHandler) useOAuthDebuggerCIMD(server v1.MCPServer, clientID, clientSecret string) bool {
+	return (clientID == "" || clientSecret == "") &&
+		server.Status.OAuthMetadata != nil &&
+		server.Status.OAuthMetadata.ClientIDMetadataDocumentSupported &&
+		strings.HasPrefix(m.serverURL, "https://")
+}
+
+func (m *MCPHandler) oauthDebuggerCIMDClient(authServer nmcp.AuthorizationServerMetadata, registration nmcp.ClientRegistrationMetadata) types.OAuthClient {
+	return types.OAuthClient{
+		OAuthClientManifest: types.OAuthClientManifest{
+			RedirectURIs:            registration.RedirectURIs,
+			TokenEndpointAuthMethod: "none",
+			GrantTypes:              registration.GrantTypes,
+			ResponseTypes:           registration.ResponseTypes,
+			ClientName:              registration.ClientName,
+			ClientURI:               m.serverURL,
+			Scope:                   registration.Scope,
+		},
+		ClientID:     system.OAuthClientIDMetadataURL(m.serverURL),
+		AuthorizeURL: authServer.AuthorizationEndpoint,
+		TokenURL:     authServer.TokenEndpoint,
+	}
 }
 
 func oauthDebuggerStaticClient(clientID, clientSecret string, authServer nmcp.AuthorizationServerMetadata) types.OAuthClient {

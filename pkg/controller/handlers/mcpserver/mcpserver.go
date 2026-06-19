@@ -964,12 +964,13 @@ func (h *Handler) SyncOAuthMetadata(req router.Request, _ router.Response) error
 	}
 
 	statusMetadata := &v1.OAuthMetadata{
-		ProtectedResourceURL:        metadata.ProtectedResourceMetadataURL,
-		AuthorizationServerURL:      metadata.AuthorizationServerMetadataURL,
-		ProtectedResourceMetadata:   metadata.ProtectedResourceMetadata,
-		AuthorizationServerMetadata: metadata.AuthorizationServerMetadata,
-		ClientRegistration:          metadata.ClientRegistration,
-		DynamicClientRegistration:   metadata.DynamicClientRegistration,
+		ProtectedResourceURL:              metadata.ProtectedResourceMetadataURL,
+		AuthorizationServerURL:            metadata.AuthorizationServerMetadataURL,
+		ProtectedResourceMetadata:         metadata.ProtectedResourceMetadata,
+		AuthorizationServerMetadata:       metadata.AuthorizationServerMetadata,
+		ClientRegistration:                metadata.ClientRegistration,
+		DynamicClientRegistration:         metadata.DynamicClientRegistration,
+		ClientIDMetadataDocumentSupported: metadata.ClientIDMetadataDocumentSupported,
 	}
 
 	syncTime := metav1.Now()

@@ -15,6 +15,9 @@
 	const consent = $derived(data.consent);
 	const scopes = $derived(consent.scope?.split(' ').filter(Boolean) ?? []);
 	const showMCPAuthNotice = $derived(consent.mcpAuthRequired || consent.userHasSecondLevelOAuthed);
+	const clientCredentialSourceLabel = $derived(
+		clientCredentialSourceLabelFor(consent.clientCredentialSource)
+	);
 
 	type DetailRow =
 		| { label: string; type: 'text'; value: string; valueClass?: string }
@@ -34,6 +37,13 @@
 		if (consent.clientURI) {
 			rows.push({ label: 'Application URL', type: 'link', value: consent.clientURI });
 		}
+
+		rows.push({
+			label: 'OAuth client',
+			type: 'text',
+			value: clientCredentialSourceLabel,
+			valueClass: 'wrap-break-word'
+		});
 
 		rows.push({
 			label: 'Redirect URL',
@@ -89,6 +99,19 @@
 
 		return rows;
 	});
+
+	function clientCredentialSourceLabelFor(source: OAuthConsent['clientCredentialSource']) {
+		switch (source) {
+			case 'client_id_metadata_document':
+				return 'Client ID Metadata Document';
+			case 'static_client_credentials':
+				return 'Static client credentials';
+			case 'dynamic_client':
+				return 'Dynamic client';
+			default:
+				return 'Unknown';
+		}
+	}
 </script>
 
 <svelte:head>

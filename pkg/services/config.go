@@ -910,8 +910,10 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		ResponseTypesSupported:            []string{"code"},
 		GrantTypesSupported:               []string{"authorization_code", "refresh_token", "urn:ietf:params:oauth:grant-type:token-exchange"},
 		CodeChallengeMethodsSupported:     []string{"S256", "plain"},
-		TokenEndpointAuthMethodsSupported: []string{"client_secret_basic", "client_secret_post", "none"},
+		TokenEndpointAuthMethodsSupported: []string{"client_secret_basic", "client_secret_post", "private_key_jwt", "none"},
+		TokenEndpointAuthSigningAlgValuesSupported: []string{"RS256", "RS384", "RS512", "PS256", "PS384", "PS512", "ES256", "ES384", "ES512", "EdDSA"},
 		UserInfoEndpoint:                  fmt.Sprintf("%s/oauth/userinfo", config.Hostname),
+		ClientIDMetadataDocumentSupported: true,
 	}
 
 	// For now, always auto-migrate the gateway database

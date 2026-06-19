@@ -8482,6 +8482,13 @@ func schema_obot_platform_obot_apiclient_types_OAuthClientManifest(ref common.Re
 							},
 						},
 					},
+					"application_type": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ApplicationType is a string indicator of the requested client application type. Values defined include: \"web\", \"native\". If unspecified or omitted, the default is \"web\". Optional.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"token_endpoint_auth_method": {
 						SchemaProps: spec.SchemaProps{
 							Description: "TokenEndpointAuthMethod is a string indicator of the requested authentication method for the token endpoint. Values defined include: \"none\", \"client_secret_post\", \"client_secret_basic\". If unspecified or omitted, the default is \"client_secret_basic\". Optional.",
@@ -8723,6 +8730,12 @@ func schema_obot_platform_obot_apiclient_types_OAuthMetadata(ref common.Referenc
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "byte",
+						},
+					},
+					"clientIdMetadataDocumentSupported": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
 						},
 					},
 				},
@@ -16111,6 +16124,12 @@ func schema_storage_apis_obotobotai_v1_OAuthMetadata(ref common.ReferenceCallbac
 						},
 					},
 					"dynamicClientRegistration": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"clientIdMetadataDocumentSupported": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
 							Format: "",

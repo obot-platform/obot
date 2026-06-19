@@ -734,6 +734,7 @@ export interface OAuthClient {
 export interface OAuthDebuggerRegisterClientResponse {
 	state: string;
 	client: OAuthClient;
+	clientIdMetadataDocument?: boolean;
 }
 export interface OAuthDebuggerAuthorizationURLRequest {
 	state: string;

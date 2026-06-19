@@ -410,6 +410,7 @@ export interface OAuthMetadata {
 	authorizationServerMetadata?: Record<string, unknown>;
 	clientRegistration?: Record<string, unknown>;
 	dynamicClientRegistration?: boolean;
+	clientIdMetadataDocumentSupported?: boolean;
 }
 export interface MCPServerInstance {
 	id: string;

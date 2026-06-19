@@ -176,6 +176,9 @@ func ValidateClientConfig(oauthClient *v1.OAuthClient, oauthConfig OAuthAuthoriz
 	if len(oauthClient.Spec.Manifest.RedirectURIs) == 0 {
 		return fmt.Errorf("redirect_uris is required")
 	}
+	if oauthClient.Spec.Manifest.ApplicationType != "" && oauthClient.Spec.Manifest.ApplicationType != "web" && oauthClient.Spec.Manifest.ApplicationType != "native" {
+		return fmt.Errorf("application_type must be web or native")
+	}
 	if oauthClient.Spec.Manifest.TokenEndpointAuthMethod != "" && !slices.Contains(oauthConfig.TokenEndpointAuthMethodsSupported, oauthClient.Spec.Manifest.TokenEndpointAuthMethod) {
 		return fmt.Errorf("token_endpoint_auth_method must be %s, not %s", strings.Join(oauthConfig.TokenEndpointAuthMethodsSupported, ", "), oauthClient.Spec.Manifest.TokenEndpointAuthMethod)
 	}
@@ -285,4 +288,8 @@ type OAuthAuthorizationServerConfig struct {
 
 	// Additional fields can be added here
 	UserInfoEndpoint string `json:"userinfo_endpoint,omitempty"`
+
+	// ClientIDMetadataDocumentSupported indicates whether the client ID metadata document is supported by this authorization server.
+	// OPTIONAL.
+	ClientIDMetadataDocumentSupported bool `json:"client_id_metadata_document_supported,omitempty"`
 }

@@ -977,6 +977,10 @@ export type OAuthConsent = {
 	continueURL: string;
 	cancelURL: string;
 	clientName: string;
+	clientCredentialSource:
+		| 'client_id_metadata_document'
+		| 'dynamic_client'
+		| 'static_client_credentials';
 	clientURI?: string;
 	redirectURI: string;
 	scope?: string;

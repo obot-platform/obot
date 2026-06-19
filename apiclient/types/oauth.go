@@ -13,6 +13,12 @@ type OAuthClientManifest struct {
 	// Required for redirect-based flows.
 	RedirectURIs []string `json:"redirect_uris,omitempty"`
 
+	// ApplicationType is a string indicator of the requested client application type.
+	// Values defined include: "web", "native".
+	// If unspecified or omitted, the default is "web".
+	// Optional.
+	ApplicationType string `json:"application_type,omitempty"`
+
 	// TokenEndpointAuthMethod is a string indicator of the requested authentication method for the token endpoint.
 	// Values defined include: "none", "client_secret_post", "client_secret_basic".
 	// If unspecified or omitted, the default is "client_secret_basic".

@@ -198,6 +198,11 @@
 	});
 
 	const stepLoading = $derived(Object.values(loading).some(Boolean));
+	const clientRegistrationTitle = $derived(
+		mcpServer.oauthMetadata?.clientIdMetadataDocumentSupported
+			? 'Client ID Metadata Document'
+			: 'Client Registration'
+	);
 </script>
 
 <div class="flex flex-col gap-2 p-4 md:pt-0">
@@ -220,7 +225,7 @@
 	<DebugOauthSection
 		bind:open={expanded.clientRegistration}
 		loading={loading.clientRegistration}
-		title="Client Registration"
+		title={clientRegistrationTitle}
 		errors={errors.clientRegistration}
 		hasResults={Boolean(results.clientRegistration)}
 	>

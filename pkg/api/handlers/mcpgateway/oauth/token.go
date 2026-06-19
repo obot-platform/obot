@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -31,10 +32,11 @@ import (
 var log = logger.Package()
 
 const (
-	tokenExpiration         = 10 * time.Minute
-	tokenTypeJWT            = "urn:ietf:params:oauth:token-type:jwt"
-	tokenTypeAccessToken    = "urn:ietf:params:oauth:token-type:access_token"
-	tokenTypeAPIKey         = "urn:obot:token-type:api-key"
+	tokenExpiration      = 10 * time.Minute
+	tokenTypeJWT         = "urn:ietf:params:oauth:token-type:jwt"
+	tokenTypeAccessToken = "urn:ietf:params:oauth:token-type:access_token"
+	tokenTypeAPIKey      = "urn:obot:token-type:api-key"
+
 	ErrUnsupportedGrantType = ErrorCode("unsupported_grant_type")
 )
 
@@ -55,52 +57,60 @@ func (h *handler) token(req api.Context) error {
 	clientID := req.FormValue("client_id")
 	if clientID == "" {
 		creds := strings.TrimPrefix(req.Request.Header.Get("Authorization"), "Basic ")
-		if creds == "" {
-			log.Infof("Denied OAuth token request due to missing client credentials")
-			return types.NewErrHTTP(http.StatusUnauthorized, "Invalid client credentials")
-		}
+		if creds != "" {
+			c, err := base64.StdEncoding.DecodeString(creds)
+			if err != nil {
+				log.Infof("Denied OAuth token request due to invalid basic auth encoding")
+				return types.NewErrHTTP(http.StatusUnauthorized, "Invalid client credentials")
+			}
 
-		c, err := base64.StdEncoding.DecodeString(creds)
-		if err != nil {
-			log.Infof("Denied OAuth token request due to invalid basic auth encoding")
-			return types.NewErrHTTP(http.StatusUnauthorized, "Invalid client credentials")
-		}
+			idx := bytes.LastIndex(c, []byte{':'})
+			if idx == -1 {
+				log.Infof("Denied OAuth token request due to malformed basic auth credentials")
+				return types.NewErrHTTP(http.StatusUnauthorized, "Invalid client credentials")
+			}
 
-		idx := bytes.LastIndex(c, []byte{':'})
-		if idx == -1 {
-			log.Infof("Denied OAuth token request due to malformed basic auth credentials")
-			return types.NewErrHTTP(http.StatusUnauthorized, "Invalid client credentials")
-		}
+			clientID, clientSecret = string(c[:idx]), string(c[idx+1:])
+			if clientID == "" {
+				return types.NewErrBadRequest("%v", Error{
+					Code:        ErrInvalidRequest,
+					Description: "client_id is required",
+				})
+			}
 
-		clientID, clientSecret = string(c[:idx]), string(c[idx+1:])
-		if clientID == "" {
-			return types.NewErrBadRequest("%v", Error{
-				Code:        ErrInvalidRequest,
-				Description: "client_id is required",
-			})
-		}
-
-		clientID, err = url.QueryUnescape(clientID)
-		if err != nil {
-			return types.NewErrBadRequest("%v", Error{
-				Code:        ErrInvalidRequest,
-				Description: "client_id is invalid",
-			})
+			clientID, err = url.QueryUnescape(clientID)
+			if err != nil {
+				return types.NewErrBadRequest("%v", Error{
+					Code:        ErrInvalidRequest,
+					Description: "client_id is invalid",
+				})
+			}
 		}
 	} else {
 		clientSecret = req.FormValue("client_secret")
 	}
 
-	clientNamespace, clientName, ok := strings.Cut(clientID, ":")
-	if !ok {
-		return types.NewErrBadRequest("%v", Error{
-			Code:        ErrInvalidRequest,
-			Description: "client_id is invalid",
-		})
+	if clientID == "" && req.FormValue("client_assertion_type") == clientAssertionTypeJWTBearer {
+		var err error
+		clientID, err = clientIDFromClientAssertion(req.Form)
+		if err != nil {
+			return types.NewErrBadRequest("%v", Error{
+				Code:        ErrInvalidRequest,
+				Description: err.Error(),
+			})
+		}
 	}
 
-	var client v1.OAuthClient
-	if err := req.Storage.Get(req.Context(), kclient.ObjectKey{Namespace: clientNamespace, Name: clientName}, &client); err != nil {
+	if clientID == "" {
+		log.Infof("Denied OAuth token request due to missing client credentials")
+		return types.NewErrHTTP(http.StatusUnauthorized, "Invalid client credentials")
+	}
+
+	client, err := h.resolveOAuthClient(req.Context(), req.Storage, clientID)
+	if err != nil {
+		if oauthErr, ok := errors.AsType[Error](err); ok {
+			return types.NewErrBadRequest("%v", oauthErr)
+		}
 		return err
 	}
 
@@ -167,6 +177,12 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 	}
 
 	oauthAuthRequest := oauthAuthRequestList.Items[0]
+	if oauthAuthRequest.Spec.ClientID != oauthClient.Name {
+		return types.NewErrBadRequest("%v", Error{
+			Code:        ErrInvalidRequest,
+			Description: "code is invalid",
+		})
+	}
 
 	// Authorization codes are one-time use
 	if err := req.Storage.Delete(req.Context(), &oauthAuthRequest); err != nil {
@@ -271,6 +287,12 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 
 	var oauthToken v1.OAuthToken
 	if err := req.Storage.Get(req.Context(), kclient.ObjectKey{Namespace: oauthClient.Namespace, Name: fmt.Sprintf("%x", sha256.Sum256([]byte(refreshToken)))}, &oauthToken); err != nil {
+		return types.NewErrBadRequest("%v", Error{
+			Code:        ErrInvalidRequest,
+			Description: "refresh_token is invalid",
+		})
+	}
+	if oauthToken.Spec.ClientID != oauthClient.Name {
 		return types.NewErrBadRequest("%v", Error{
 			Code:        ErrInvalidRequest,
 			Description: "refresh_token is invalid",

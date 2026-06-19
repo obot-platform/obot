@@ -8,6 +8,7 @@ import (
 
 	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
 	"golang.org/x/oauth2"
 )
 
@@ -151,6 +152,97 @@ func TestOAuthDebuggerStaticClient(t *testing.T) {
 	}
 	if client.AuthorizeURL != authServer.AuthorizationEndpoint || client.TokenURL != authServer.TokenEndpoint {
 		t.Fatalf("expected auth server URLs to be set")
+	}
+}
+
+func TestOAuthDebuggerUsesCIMD(t *testing.T) {
+	tests := []struct {
+		name         string
+		serverURL    string
+		oauthMeta    *v1.OAuthMetadata
+		clientID     string
+		clientSecret string
+		expected     bool
+	}{
+		{
+			name:      "supported without static credentials",
+			serverURL: "https://obot.example.com",
+			oauthMeta: &v1.OAuthMetadata{
+				ClientIDMetadataDocumentSupported: true,
+			},
+			expected: true,
+		},
+		{
+			name:      "static credentials win",
+			serverURL: "https://obot.example.com",
+			oauthMeta: &v1.OAuthMetadata{
+				ClientIDMetadataDocumentSupported: true,
+			},
+			clientID:     "client-id",
+			clientSecret: "client-secret",
+		},
+		{
+			name:      "unsupported by auth server",
+			serverURL: "https://obot.example.com",
+			oauthMeta: &v1.OAuthMetadata{
+				ClientIDMetadataDocumentSupported: false,
+			},
+		},
+		{
+			name:      "obot client id must be https",
+			serverURL: "http://obot.example.com",
+			oauthMeta: &v1.OAuthMetadata{
+				ClientIDMetadataDocumentSupported: true,
+			},
+		},
+		{
+			name:      "missing metadata",
+			serverURL: "https://obot.example.com",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := v1.MCPServer{
+				Status: v1.MCPServerStatus{OAuthMetadata: tt.oauthMeta},
+			}
+			got := (&MCPHandler{serverURL: tt.serverURL}).useOAuthDebuggerCIMD(server, tt.clientID, tt.clientSecret)
+			if got != tt.expected {
+				t.Fatalf("expected %v, got %v", tt.expected, got)
+			}
+		})
+	}
+}
+
+func TestOAuthDebuggerCIMDClient(t *testing.T) {
+	authServer := nmcp.AuthorizationServerMetadata{
+		AuthorizationEndpoint: "https://auth.example.com/authorize",
+		TokenEndpoint:         "https://auth.example.com/token",
+	}
+	registration := nmcp.ClientRegistrationMetadata{
+		RedirectURIs:  []string{"https://obot.example.com/oauth/mcp/callback"},
+		GrantTypes:    []string{"authorization_code", "refresh_token"},
+		ResponseTypes: []string{"code"},
+		ClientName:    "Obot MCP OAuth Debugger",
+		Scope:         "read write",
+	}
+
+	client := (&MCPHandler{serverURL: "https://obot.example.com"}).oauthDebuggerCIMDClient(authServer, registration)
+
+	if client.ClientID != system.OAuthClientIDMetadataURL("https://obot.example.com") {
+		t.Fatalf("expected CIMD client ID, got %q", client.ClientID)
+	}
+	if client.ClientSecret != "" {
+		t.Fatalf("expected no client secret, got %q", client.ClientSecret)
+	}
+	if client.TokenEndpointAuthMethod != "none" {
+		t.Fatalf("expected token_endpoint_auth_method none, got %q", client.TokenEndpointAuthMethod)
+	}
+	if client.AuthorizeURL != authServer.AuthorizationEndpoint || client.TokenURL != authServer.TokenEndpoint {
+		t.Fatalf("expected auth server URLs to be set")
+	}
+	if !reflect.DeepEqual(client.RedirectURIs, registration.RedirectURIs) {
+		t.Fatalf("expected redirect URIs %#v, got %#v", registration.RedirectURIs, client.RedirectURIs)
 	}
 }
 

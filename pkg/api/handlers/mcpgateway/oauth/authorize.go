@@ -18,9 +18,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // ErrorCode defines the set of OAuth 2.0 error codes as per RFC 6749.
@@ -89,15 +87,6 @@ func (h *handler) authorize(req api.Context) error {
 		})
 	}
 
-	clientNamespace, clientName, ok := strings.Cut(clientID, ":")
-	if !ok {
-		return types.NewErrBadRequest("%v", Error{
-			Code:        ErrInvalidRequest,
-			Description: "client_id is invalid",
-			State:       state,
-		})
-	}
-
 	redirectURI := req.FormValue("redirect_uri")
 	if redirectURI == "" {
 		return types.NewErrBadRequest("%v", Error{
@@ -123,22 +112,16 @@ func (h *handler) authorize(req api.Context) error {
 		})
 	}
 
-	var oauthClient v1.OAuthClient
-	if err := req.Storage.Get(req.Context(), kclient.ObjectKey{Namespace: clientNamespace, Name: clientName}, &oauthClient); apierrors.IsNotFound(err) {
-		return types.NewErrBadRequest("%v", Error{
-			Code:        ErrInvalidRequest,
-			Description: fmt.Sprintf("client_id does not exist: %s", clientID),
-			State:       state,
-		})
-	} else if err != nil {
-		return Error{
-			Code:        ErrServerError,
-			Description: fmt.Sprintf("failed to get OAuth client: %v", err),
-			State:       state,
+	oauthClient, err := h.resolveOAuthClient(req.Context(), req.Storage, clientID)
+	if err != nil {
+		if oauthErr, ok := errors.AsType[Error](err); ok {
+			oauthErr.State = state
+			return types.NewErrBadRequest("%v", oauthErr)
 		}
+		return err
 	}
 
-	if !slices.Contains(oauthClient.Spec.Manifest.RedirectURIs, redirectURI) {
+	if !isRedirectURIAllowed(oauthClient.Spec.Manifest, redirectURI) {
 		return types.NewErrBadRequest("%v", Error{
 			Code:        ErrInvalidRequest,
 			Description: "redirect_uri is invalid for this client",
@@ -160,6 +143,7 @@ func (h *handler) authorize(req api.Context) error {
 			Code:        ErrInvalidRequest,
 			Description: "code_challenge is required when using token endpoint auth method none",
 		})
+		return nil
 	}
 
 	scope := req.FormValue("scope")
@@ -357,7 +341,28 @@ func (h *handler) consent(req api.Context) error {
 		return err
 	}
 
-	oauthClient, err := h.oauthClientForAuthRequest(req, oauthAppAuthRequest)
+	if _, _, ok := authenticatedOAuthUser(req, oauthAppAuthRequest, "OAuth consent"); !ok {
+		return nil
+	}
+	if !authenticatedOAuthConsentUser(req, oauthAppAuthRequest) {
+		return nil
+	}
+
+	if !oauthAppAuthRequest.Spec.ConsentPrepared {
+		redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
+			Code:        ErrInvalidRequest,
+			Description: "OAuth consent has not been prepared",
+			State:       oauthAppAuthRequest.Spec.State,
+		})
+		return nil
+	}
+
+	clientID := oauthAppAuthRequest.Spec.ClientID
+	if !isClientIDMetadataDocumentURL(clientID) {
+		clientID = oauthAppAuthRequest.Namespace + ":" + clientID
+	}
+
+	oauthClient, err := h.resolveOAuthClient(req.Context(), req.Storage, clientID)
 	if err != nil {
 		redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
 			Code:        ErrServerError,
@@ -590,19 +595,12 @@ func authenticatedOAuthConsentUser(req api.Context, oauthAppAuthRequest v1.OAuth
 	return false
 }
 
-func (h *handler) oauthClientForAuthRequest(req api.Context, oauthAppAuthRequest v1.OAuthAuthRequest) (v1.OAuthClient, error) {
-	var oauthClient v1.OAuthClient
-	return oauthClient, req.Storage.Get(req.Context(), kclient.ObjectKey{
-		Namespace: oauthAppAuthRequest.Namespace,
-		Name:      oauthAppAuthRequest.Spec.ClientID,
-	}, &oauthClient)
-}
-
 type oauthConsentData struct {
 	AuthRequestID             string `json:"authRequestID"`
 	ContinueURL               string `json:"continueURL"`
 	CancelURL                 string `json:"cancelURL"`
 	ClientName                string `json:"clientName"`
+	ClientCredentialSource    string `json:"clientCredentialSource"`
 	ClientURI                 string `json:"clientURI,omitempty"`
 	RedirectURI               string `json:"redirectURI"`
 	Scope                     string `json:"scope,omitempty"`
@@ -626,6 +624,7 @@ func oauthConsentPageData(oauthAppAuthRequest v1.OAuthAuthRequest, oauthClient v
 		ContinueURL:               continueURL,
 		CancelURL:                 cancelURL,
 		ClientName:                clientName,
+		ClientCredentialSource:    oauthConsentClientCredentialSource(oauthClient),
 		ClientURI:                 oauthClient.Spec.Manifest.ClientURI,
 		RedirectURI:               oauthAppAuthRequest.Spec.RedirectURI,
 		Scope:                     oauthAppAuthRequest.Spec.Scope,
@@ -637,6 +636,16 @@ func oauthConsentPageData(oauthAppAuthRequest v1.OAuthAuthRequest, oauthClient v
 		MCPServerURL:              originOnly(oauthAppAuthRequest.Spec.ConsentMCPServerURL),
 		ThirdPartyAuthURL:         originOnly(oauthAppAuthRequest.Spec.ConsentMCPAuthURL),
 	}
+}
+
+func oauthConsentClientCredentialSource(oauthClient v1.OAuthClient) string {
+	if isClientIDMetadataDocumentURL(oauthClient.Name) {
+		return "client_id_metadata_document"
+	}
+	if oauthClient.Spec.Static {
+		return "static_client_credentials"
+	}
+	return "dynamic_client"
 }
 
 func mcpServerDisplayName(mcpServer v1.MCPServer) string {
