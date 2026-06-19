@@ -631,7 +631,7 @@
 	});
 
 	const isAdminRoute = $derived(pathname.includes('/admin'));
-	const isAgentRoute = $derived(pathname.includes('/agent'));
+	const isAgentRoute = $derived(pathname === '/agent' || pathname.startsWith('/agent/'));
 	const excludeConfigureBanner = ['/admin/model-providers', '/admin/auth-providers'];
 	$effect(() => {
 		const isAdminOrBootstrapUser =
@@ -678,7 +678,7 @@
 
 		const appNotifications = appNotificationsStore.current;
 		if (!appNotifications?.banner?.enabled) return false;
-		if (!appNotifications.banner.dismissible) return true; // enabled & not dismissable, always show
+		if (!appNotifications.banner.dismissible) return true; // enabled & not dismissible, always show
 
 		const dismissedAt = bannerDismissed.current?.dismissedAt;
 		const wasBannerUpdatedAfterDismissal =

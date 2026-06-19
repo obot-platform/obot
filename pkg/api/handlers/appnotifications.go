@@ -150,7 +150,8 @@ func validateBannerText(text string) error {
 }
 
 func convertAppNotifications(notifications v1.AppNotifications) types.AppNotifications {
-	// On first creation, no explicit updated time is stored, so it matches the creation time.
+	// If Updated was never set (for example, objects created before Updated tracking existed),
+	// fall back to the creation timestamp.
 	updated := notifications.Spec.Updated.Time
 	if updated.IsZero() {
 		updated = notifications.GetCreationTimestamp().Time
