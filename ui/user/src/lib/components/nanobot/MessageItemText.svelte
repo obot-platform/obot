@@ -2,7 +2,7 @@
 	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
 	import type { ChatMessageItemText } from '$lib/services/nanobot/types';
 	import { CANCELLATION_PHRASE_CLIENT } from '$lib/services/nanobot/utils';
-	import { CircleAlert } from 'lucide-svelte';
+	import { CircleAlert } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {

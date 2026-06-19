@@ -15,7 +15,7 @@
 	} from '$lib/services';
 	import { goto } from '$lib/url';
 	import AuditFilter, { type FilterInput, type FilterOption } from './FilterField.svelte';
-	import { X } from 'lucide-svelte';
+	import { X } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 
 	type FilterOptionsEndpoint = typeof UserService.listAuditLogFilterOptions;

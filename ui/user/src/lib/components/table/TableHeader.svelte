@@ -2,7 +2,7 @@
 	import popover from '$lib/actions/popover.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Select from '../Select.svelte';
-	import { ArrowDown, ArrowUp, CircleHelp, Funnel } from 'lucide-svelte';
+	import { ArrowDown, ArrowUp, CircleHelp, Funnel } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {

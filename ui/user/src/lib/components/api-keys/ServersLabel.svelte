@@ -2,7 +2,7 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { compileAvailableMcpServers, getMCPDisplayName } from '$lib/services/user/mcp';
 	import { mcpServersAndEntries } from '$lib/stores';
-	import { TriangleAlert } from 'lucide-svelte';
+	import { TriangleAlert } from '@lucide/svelte';
 
 	interface Props {
 		mcpServerIds: string[];

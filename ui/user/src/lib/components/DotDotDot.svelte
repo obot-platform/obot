@@ -2,7 +2,7 @@
 	import { popover } from '$lib/actions';
 	import { responsive } from '$lib/stores';
 	import type { Placement } from '@floating-ui/dom';
-	import { EllipsisVertical } from 'lucide-svelte';
+	import { EllipsisVertical } from '@lucide/svelte';
 	import { type Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 

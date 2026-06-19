@@ -3,7 +3,7 @@
 	import { MultiValueInput } from '$lib/components/ui/multi-value-input';
 	import type { ContainerizedRuntimeConfig } from '$lib/services/user/types';
 	import IconButton from '../primitives/IconButton.svelte';
-	import { Plus, Trash2 } from 'lucide-svelte';
+	import { Plus, Trash2 } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 

@@ -3,7 +3,7 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import type { ImageResponse } from '$lib/services';
 	import { UserService } from '$lib/services';
-	import { Upload } from 'lucide-svelte/icons';
+	import { Upload } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {

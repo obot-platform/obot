@@ -7,7 +7,7 @@
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { AdminService } from '$lib/services';
 	import { errors, profile } from '$lib/stores';
-	import { CircleAlert, Info } from 'lucide-svelte';
+	import { CircleAlert, Info } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';

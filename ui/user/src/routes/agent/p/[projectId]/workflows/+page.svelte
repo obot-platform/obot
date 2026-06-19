@@ -16,7 +16,7 @@
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { formatTimeAgo } from '$lib/time.js';
 	import { goto } from '$lib/url';
-	import { CircleAlert, FolderInput, Play, Search, Trash2, Workflow } from 'lucide-svelte';
+	import { CircleAlert, FolderInput, Play, Search, Trash2, Workflow } from '@lucide/svelte';
 	import { getContext } from 'svelte';
 	import { untrack } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';

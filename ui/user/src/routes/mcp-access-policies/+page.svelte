@@ -14,7 +14,7 @@
 	import { UserService, type AccessControlRule } from '$lib/services';
 	import { clearUrlParams, goto } from '$lib/url';
 	import { openUrl } from '$lib/utils';
-	import { BookOpenText, Plus, Trash2 } from 'lucide-svelte';
+	import { BookOpenText, Plus, Trash2 } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 

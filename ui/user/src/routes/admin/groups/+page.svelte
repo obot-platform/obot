@@ -24,8 +24,8 @@
 	import ConfirmOwnerRoleDialog from './ConfirmOwnerRoleDialog.svelte';
 	import ConfirmUserImpersonationRoleDialog from './ConfirmUserImpersonationRoleDialog.svelte';
 	import type { GroupAssignment } from './types';
+	import { Plus } from '@lucide/svelte';
 	import { debounce } from 'es-toolkit';
-	import { Plus } from 'lucide-svelte';
 	import { fade } from 'svelte/transition';
 
 	let { data } = $props();

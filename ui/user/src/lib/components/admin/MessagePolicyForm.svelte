@@ -20,7 +20,7 @@
 	import IconButton from '../primitives/IconButton.svelte';
 	import Table from '../table/Table.svelte';
 	import SearchUsers from './SearchUsers.svelte';
-	import { CircleQuestionMark, Plus, Trash2 } from 'lucide-svelte';
+	import { CircleQuestionMark, Plus, Trash2 } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
 

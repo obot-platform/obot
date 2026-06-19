@@ -7,7 +7,7 @@
 	import { AdminService } from '$lib/services';
 	import type { ScheduledAuditLogExport } from '$lib/services/admin/types';
 	import { goto } from '$lib/url';
-	import { TriangleAlert } from 'lucide-svelte';
+	import { TriangleAlert } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
 

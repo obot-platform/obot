@@ -16,7 +16,7 @@
 	} from '$lib/services';
 	import { getMCPDisplayName } from '$lib/services/user/mcp.js';
 	import { mcpServersAndEntries, profile } from '$lib/stores';
-	import { CircleFadingArrowUp, Info, GitCompare } from 'lucide-svelte';
+	import { CircleFadingArrowUp, Info, GitCompare } from '@lucide/svelte';
 	import { type Component, untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
 

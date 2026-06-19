@@ -14,7 +14,7 @@
 	import IconButton from '../primitives/IconButton.svelte';
 	import McpOauth from './McpOauth.svelte';
 	import ToolNameIssueIcon from './ToolNameIssueIcon.svelte';
-	import { CircleAlert, ChevronDown, ChevronUp, Info, Wrench } from 'lucide-svelte';
+	import { CircleAlert, ChevronDown, ChevronUp, Info, Wrench } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 	import { slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';

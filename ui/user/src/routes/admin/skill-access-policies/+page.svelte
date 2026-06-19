@@ -11,7 +11,7 @@
 	import { profile } from '$lib/stores/index.js';
 	import { clearUrlParams, goto } from '$lib/url';
 	import { openUrl } from '$lib/utils.js';
-	import { Plus, Trash2, Vault } from 'lucide-svelte';
+	import { Plus, Trash2, Vault } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
 

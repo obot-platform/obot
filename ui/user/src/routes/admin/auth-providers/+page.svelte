@@ -16,7 +16,7 @@
 	import type { AuthProvider } from '$lib/services/admin/types.js';
 	import { errors, license, profile } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte.js';
-	import { TriangleAlert, Info } from 'lucide-svelte';
+	import { TriangleAlert, Info } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
 

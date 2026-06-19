@@ -33,7 +33,7 @@
 		Trash2,
 		X,
 		GitBranch
-	} from 'lucide-svelte';
+	} from '@lucide/svelte';
 	import { onDestroy, untrack } from 'svelte';
 	import { SvelteSet, SvelteMap } from 'svelte/reactivity';
 	import { slide } from 'svelte/transition';

@@ -3,7 +3,7 @@
 	import InfoTooltip from '../InfoTooltip.svelte';
 	import Toggle from '../Toggle.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
-	import { Plus, Trash2 } from 'lucide-svelte';
+	import { Plus, Trash2 } from '@lucide/svelte';
 
 	interface Props {
 		headers?: MCPSubField[];

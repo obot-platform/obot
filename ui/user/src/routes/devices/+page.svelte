@@ -16,8 +16,8 @@
 	import { formatTimeAgo } from '$lib/time';
 	import { replaceState } from '$lib/url';
 	import { openUrl } from '$lib/utils';
+	import { Laptop } from '@lucide/svelte';
 	import { debounce } from 'es-toolkit';
-	import { Laptop } from 'lucide-svelte';
 	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
 

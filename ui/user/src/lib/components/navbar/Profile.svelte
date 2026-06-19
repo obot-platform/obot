@@ -29,7 +29,7 @@
 		Power,
 		LockOpen,
 		HatGlasses
-	} from 'lucide-svelte/icons';
+	} from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {

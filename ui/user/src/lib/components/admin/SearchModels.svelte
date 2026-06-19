@@ -11,7 +11,7 @@
 	import Logo from '../Logo.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import Search from '../Search.svelte';
-	import { Check, Cpu } from 'lucide-svelte';
+	import { Check, Cpu } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 

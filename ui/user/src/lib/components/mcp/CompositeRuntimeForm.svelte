@@ -30,7 +30,7 @@
 		ChevronUp,
 		TriangleAlert,
 		RefreshCcw
-	} from 'lucide-svelte';
+	} from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import { slide } from 'svelte/transition';

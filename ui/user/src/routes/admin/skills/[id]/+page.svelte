@@ -2,7 +2,7 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import SkillForm from '$lib/components/admin/SkillForm.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
-	import { TriangleAlert } from 'lucide-svelte';
+	import { TriangleAlert } from '@lucide/svelte';
 	import { fly } from 'svelte/transition';
 
 	let { data } = $props();

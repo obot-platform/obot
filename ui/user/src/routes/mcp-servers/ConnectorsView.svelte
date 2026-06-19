@@ -31,7 +31,7 @@
 	import EditExistingDeployment from '../../lib/components/mcp/EditExistingDeployment.svelte';
 	import DebugOauthDialog from '../../lib/components/mcp/oauth/DebugOauthDialog.svelte';
 	import IconButton from '../../lib/components/primitives/IconButton.svelte';
-	import { CircleFadingArrowUp, Server, StepForward } from 'lucide-svelte';
+	import { CircleFadingArrowUp, Server, StepForward } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 

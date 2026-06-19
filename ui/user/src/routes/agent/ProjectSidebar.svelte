@@ -15,7 +15,7 @@
 		SidebarOpen,
 		Workflow,
 		WorkflowIcon
-	} from 'lucide-svelte';
+	} from '@lucide/svelte';
 	import { fly, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 

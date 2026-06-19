@@ -16,7 +16,7 @@
 		CircleCheck,
 		PanelLeftClose,
 		PanelLeftOpen
-	} from 'lucide-svelte';
+	} from '@lucide/svelte';
 	import { getContext } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';

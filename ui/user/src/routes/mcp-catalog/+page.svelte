@@ -30,7 +30,7 @@
 	} from '$lib/url';
 	import EntriesView from './EntriesView.svelte';
 	import SourceUrlsView from './SourceUrlsView.svelte';
-	import { Info, Plus, RefreshCcw, Server, TriangleAlert } from 'lucide-svelte';
+	import { Info, Plus, RefreshCcw, Server, TriangleAlert } from '@lucide/svelte';
 	import { onDestroy, onMount } from 'svelte';
 	import { fade, fly, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';

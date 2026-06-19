@@ -6,7 +6,7 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService } from '$lib/services';
 	import type { AuditLogExport } from '$lib/services/admin/types';
-	import { TriangleAlert } from 'lucide-svelte';
+	import { TriangleAlert } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
 

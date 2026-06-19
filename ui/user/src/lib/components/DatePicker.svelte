@@ -6,8 +6,8 @@
 		isCurrentMonth,
 		isDateDisabled
 	} from './CalendarGrid.svelte';
+	import { Calendar, X } from '@lucide/svelte';
 	import { endOfDay, isSameDay } from 'date-fns';
-	import { Calendar, X } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {

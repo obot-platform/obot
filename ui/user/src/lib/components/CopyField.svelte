@@ -1,6 +1,6 @@
 <script lang="ts">
 	import CopyButton from './CopyButton.svelte';
-	import { Link2Icon } from 'lucide-svelte';
+	import { Link2Icon } from '@lucide/svelte';
 
 	interface Props {
 		value?: string;

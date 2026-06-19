@@ -15,7 +15,7 @@
 	import { openUrl } from '$lib/utils';
 	import ApiKeyRevealDialog from '../../keys/ApiKeyRevealDialog.svelte';
 	import CreateApiKeyForm from '../../keys/CreateApiKeyForm.svelte';
-	import { KeyRound, Plus, Trash2 } from 'lucide-svelte';
+	import { KeyRound, Plus, Trash2 } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
 

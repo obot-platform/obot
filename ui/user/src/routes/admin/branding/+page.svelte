@@ -46,7 +46,7 @@
 		PanelRightOpen,
 		Pencil,
 		X
-	} from 'lucide-svelte';
+	} from '@lucide/svelte';
 	import { onDestroy, untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';

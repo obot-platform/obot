@@ -8,7 +8,7 @@
 	import { goto } from '$lib/url';
 	import { getUserRoleLabel } from '$lib/utils';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
-	import { User } from 'lucide-svelte';
+	import { User } from '@lucide/svelte';
 
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let toDelete = $state(false);

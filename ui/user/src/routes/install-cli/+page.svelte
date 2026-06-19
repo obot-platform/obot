@@ -13,7 +13,7 @@
 		LaptopIcon,
 		PcCaseIcon,
 		ServerIcon
-	} from 'lucide-svelte';
+	} from '@lucide/svelte';
 
 	let isAdmin = $derived(profile.current?.hasAdminAccess?.() ?? false);
 

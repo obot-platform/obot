@@ -3,7 +3,7 @@
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import { AdminService, type MCPCatalog } from '$lib/services';
 	import IconButton from '../primitives/IconButton.svelte';
-	import { Info, TriangleAlert, X } from 'lucide-svelte';
+	import { Info, TriangleAlert, X } from '@lucide/svelte';
 
 	interface Props {
 		defaultCatalog?: MCPCatalog;

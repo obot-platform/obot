@@ -30,7 +30,6 @@
 	import CapacityBanner from './CapacityBanner.svelte';
 	import ConnectToServer from './ConnectToServer.svelte';
 	import EditExistingDeployment from './EditExistingDeployment.svelte';
-	import { delay } from 'es-toolkit';
 	import {
 		Captions,
 		CircleAlert,
@@ -44,7 +43,8 @@
 		Trash2,
 		TriangleAlert,
 		UsersIcon
-	} from 'lucide-svelte';
+	} from '@lucide/svelte';
+	import { delay } from 'es-toolkit';
 	import { onDestroy, onMount, type Snippet } from 'svelte';
 
 	interface Props {

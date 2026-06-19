@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
 	import type { AppNotification } from '$lib/services/user/types';
-	import { CircleAlert, Info, X } from 'lucide-svelte';
+	import { CircleAlert, Info, X } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {

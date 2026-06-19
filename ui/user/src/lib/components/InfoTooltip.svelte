@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { tooltip, type TooltipOptions } from '$lib/actions/tooltip.svelte';
 	import type { Placement } from '@floating-ui/dom';
-	import { CircleHelpIcon, CircleQuestionMark } from 'lucide-svelte';
+	import { CircleHelpIcon, CircleQuestionMark } from '@lucide/svelte';
 	import type { Component, Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 

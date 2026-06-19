@@ -8,7 +8,7 @@
 	import Toggle from '../Toggle.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
 	import Table from '../table/Table.svelte';
-	import { PictureInPicture2 } from 'lucide-svelte';
+	import { PictureInPicture2 } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {

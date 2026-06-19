@@ -7,7 +7,7 @@
 	import { formatTime } from '$lib/time.js';
 	import { openUrl } from '$lib/utils.js';
 	import { displayName, statusClass, statusLabel, statusMessage } from './types';
-	import { Info, KeyRound, Plus, RefreshCw, ShieldCheck, Trash2 } from 'lucide-svelte';
+	import { Info, KeyRound, Plus, RefreshCw, ShieldCheck, Trash2 } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {

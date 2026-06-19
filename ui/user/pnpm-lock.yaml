@@ -8,7 +8,7 @@ overrides:
   cookie: 0.7.0
   ip-address: 10.2.0
   esbuild: 0.28.1
-  hono: 4.12.25
+  dompurify: ^3.4.11
 
 importers:
 
@@ -120,6 +120,9 @@ importers:
       '@floating-ui/dom':
         specifier: ^1.7.6
         version: 1.7.6
+      '@lucide/svelte':
+        specifier: ^1.21.0
+        version: 1.21.0(svelte@5.55.7)
       '@milkdown/crepe':
         specifier: ^7.21.2
         version: 7.21.2(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.8)(typescript@6.0.2)
@@ -169,8 +172,8 @@ importers:
         specifier: ^4.23.8
         version: 4.25.9(@codemirror/language@6.12.3)(@codemirror/state@6.6.0)(@codemirror/view@6.41.0)
       dompurify:
-        specifier: ^3.4.10
-        version: 3.4.10
+        specifier: ^3.4.11
+        version: 3.4.11
       eslint:
         specifier: ^10.5.0
         version: 10.5.0(jiti@2.6.1)
@@ -183,9 +186,6 @@ importers:
       globals:
         specifier: ^15.15.0
         version: 15.15.0
-      lucide-svelte:
-        specifier: ^0.577.0
-        version: 0.577.0(svelte@5.55.7)
       micromark:
         specifier: ^4.0.2
         version: 4.0.2
@@ -577,7 +577,7 @@ packages:
     resolution: {integrity: sha512-TsQLe4i2gvoTtrHje625ngThGBySOgSK3Xo2XRYOdqGN1teR8+I7vchQC46uLJi8OF62YTYA3AhSpumtkhsaKQ==}
     engines: {node: '>=18.14.1'}
     peerDependencies:
-      hono: 4.12.25
+      hono: ^4
 
   '@humanfs/core@0.19.1':
     resolution: {integrity: sha512-5DyQ4+1JEUzejeK1JGICcideyfUbGixgS9jNgex5nqkW+cY7WZhxBigmieN5Qnw9ZosSNVC9KQKyb+GUaGyKUA==}
@@ -661,6 +661,11 @@ packages:
 
   '@lezer/yaml@1.0.4':
     resolution: {integrity: sha512-2lrrHqxalACEbxIbsjhqGpSW8kWpUKuY6RHgnSAFZa6qK62wvnPxA8hGOwOoDbwHcOFs5M4o27mjGu+P7TvBmw==}
+
+  '@lucide/svelte@1.21.0':
+    resolution: {integrity: sha512-MEv//A7Jv3kHukZowv/DWp1MAtUzJKYwtJsmnQ7X98lCgtac3z3NbaToDl3Q6jO3gS9sougFpcD+t+YuxOkRMw==}
+    peerDependencies:
+      svelte: ^5
 
   '@marijn/find-cluster-break@1.0.2':
     resolution: {integrity: sha512-l0h88YhZFyKdXIFNfSWpyjStDjGHwZ/U7iobcK1cQQD8sejsONdQtTVU+1wVN1PBw40PiiHB1vA5S7VTfQiP9g==}
@@ -1797,8 +1802,8 @@ packages:
   docx-preview@0.3.7:
     resolution: {integrity: sha512-Lav69CTA/IYZPJTsKH7oYeoZjyg96N0wEJMNslGJnZJ+dMUZK85Lt5ASC79yUlD48ecWjuv+rkcmFt6EVPV0Xg==}
 
-  dompurify@3.4.10:
-    resolution: {integrity: sha512-0xzNv0e7oYC6yyuOGZIABPM4qtg3QxLFniDNPP4ZP90wR8Yq3zgwpRbrNiT4N3IKqDbbYFEJLV+JWEs19aZ//w==}
+  dompurify@3.4.11:
+    resolution: {integrity: sha512-zhlUV12GsaRzMsf9q5M254YhA4+VuF0fG+QFqu6aYpoGlKtz+w8//jBcGVYBgQkR5GHjUomejY84AV+/uPbWdw==}
 
   driver.js@1.4.0:
     resolution: {integrity: sha512-Gm64jm6PmcU+si21sQhBrTAM1JvUrR0QhNmjkprNLxohOBzul9+pNHXgQaT9lW84gwg9GMLB3NZGuGolsz5uew==}
@@ -2286,12 +2291,6 @@ packages:
   loose-envify@1.4.0:
     resolution: {integrity: sha512-lyuxPGr/Wfhrlem2CL/UcnUc1zcqKAImBDzukY7Y5F/yQiNdko6+fRLevlw1HgMySw7f611UIY408EtxRSoK3Q==}
     hasBin: true
-
-  lucide-svelte@0.577.0:
-    resolution: {integrity: sha512-0i88o57KsaHWnc80J57fY99CWzlZsSdtH5kKjLUJa7z8dum/9/AbINNLzJ7NiRFUdOgMnfAmJt8jFbW2zeC5qQ==}
-    deprecated: Package deprecated. Please use @lucide/svelte instead.
-    peerDependencies:
-      svelte: ^3 || ^4 || ^5.0.0-next.42
 
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
@@ -3653,6 +3652,10 @@ snapshots:
       '@lezer/highlight': 1.2.3
       '@lezer/lr': 1.4.8
 
+  '@lucide/svelte@1.21.0(svelte@5.55.7)':
+    dependencies:
+      svelte: 5.55.7
+
   '@marijn/find-cluster-break@1.0.2': {}
 
   '@mcp-ui/client@6.1.0(@preact/signals-core@1.14.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
@@ -3690,7 +3693,7 @@ snapshots:
       '@milkdown/utils': 7.21.2
       '@types/lodash-es': 4.17.12
       clsx: 2.1.1
-      dompurify: 3.4.10
+      dompurify: 3.4.11
       lodash-es: 4.18.1
       nanoid: 5.1.7
       unist-util-visit: 5.1.0
@@ -3723,7 +3726,7 @@ snapshots:
       '@types/lodash-es': 4.17.12
       clsx: 2.1.1
       codemirror: 6.0.2
-      dompurify: 3.4.10
+      dompurify: 3.4.11
       katex: 0.17.0
       lodash-es: 4.18.1
       prosemirror-virtual-cursor: 0.4.2(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.8)
@@ -4994,7 +4997,7 @@ snapshots:
     dependencies:
       jszip: 3.10.1
 
-  dompurify@3.4.10:
+  dompurify@3.4.11:
     optionalDependencies:
       '@types/trusted-types': 2.0.7
 
@@ -5484,10 +5487,6 @@ snapshots:
   loose-envify@1.4.0:
     dependencies:
       js-tokens: 4.0.0
-
-  lucide-svelte@0.577.0(svelte@5.55.7):
-    dependencies:
-      svelte: 5.55.7
 
   magic-string@0.30.21:
     dependencies:

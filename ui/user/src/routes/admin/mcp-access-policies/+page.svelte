@@ -11,7 +11,7 @@
 	import { mcpServersAndEntries, profile } from '$lib/stores';
 	import { goto, clearUrlParams } from '$lib/url';
 	import { getUserDisplayName, openUrl } from '$lib/utils';
-	import { BookOpenText, Plus, Trash2 } from 'lucide-svelte';
+	import { BookOpenText, Plus, Trash2 } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 

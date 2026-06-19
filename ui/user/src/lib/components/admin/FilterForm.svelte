@@ -29,7 +29,7 @@
 	import UvxRuntimeForm from '../mcp/UvxRuntimeForm.svelte';
 	import FilterFormTypeSelection from './FilterFormTypeSelection.svelte';
 	import SelectorsAndResourcesFormSegment from './SelectorsAndResourcesFormSegment.svelte';
-	import { Eye, EyeOff } from 'lucide-svelte';
+	import { Eye, EyeOff } from '@lucide/svelte';
 	import { onMount, untrack, type Snippet } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';

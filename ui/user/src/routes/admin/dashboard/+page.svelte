@@ -39,7 +39,6 @@
 	} from '$lib/services/dashboard/utils';
 	import { getMCPDisplayName } from '$lib/services/user/mcp';
 	import { errors, mcpServersAndEntries, profile, version } from '$lib/stores';
-	import { isWithinInterval, subMonths } from 'date-fns';
 	import {
 		Activity,
 		ChevronRight,
@@ -51,7 +50,8 @@
 		Siren,
 		Users,
 		Wrench
-	} from 'lucide-svelte';
+	} from '@lucide/svelte';
+	import { isWithinInterval, subMonths } from 'date-fns';
 	import { onMount } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';

@@ -34,7 +34,7 @@
 	import RuntimeSelector from '../mcp/RuntimeSelector.svelte';
 	import UvxRuntimeForm from '../mcp/UvxRuntimeForm.svelte';
 	import SelectMcpAccessControlRules from './SelectMcpAccessControlRules.svelte';
-	import { Info } from 'lucide-svelte';
+	import { Info } from '@lucide/svelte';
 	import { onMount, untrack, type Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 

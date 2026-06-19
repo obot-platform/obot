@@ -15,7 +15,7 @@
 		setFilterUrlParams,
 		setUrlParamAndUpdateUrl
 	} from '$lib/url';
-	import { Server } from 'lucide-svelte';
+	import { Server } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 

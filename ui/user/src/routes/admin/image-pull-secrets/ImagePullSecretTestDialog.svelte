@@ -3,7 +3,7 @@
 	import type { ImagePullSecret, ImagePullSecretTestResponse } from '$lib/services';
 	import FieldLabel from './FieldLabel.svelte';
 	import { displayName } from './types';
-	import { CircleAlert, CircleCheck, LoaderCircle, ShieldCheck } from 'lucide-svelte';
+	import { CircleAlert, CircleCheck, LoaderCircle, ShieldCheck } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {

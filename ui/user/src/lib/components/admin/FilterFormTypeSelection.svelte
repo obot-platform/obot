@@ -10,7 +10,7 @@
 	import { randomUUID } from '$lib/utils';
 	import Select from '../Select.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
-	import { Plus, Trash2 } from 'lucide-svelte';
+	import { Plus, Trash2 } from '@lucide/svelte';
 
 	interface Props {
 		config: MCPCatalogEntryFieldManifest[];

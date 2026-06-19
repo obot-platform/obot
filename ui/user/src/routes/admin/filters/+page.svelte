@@ -23,8 +23,8 @@
 	} from '$lib/url';
 	import { openUrl } from '$lib/utils';
 	import BuiltInFilters from './BuiltInFilters.svelte';
+	import { Funnel, Plus, Trash2 } from '@lucide/svelte';
 	import { debounce } from 'es-toolkit';
-	import { Funnel, Plus, Trash2 } from 'lucide-svelte';
 	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
 

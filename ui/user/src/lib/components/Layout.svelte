@@ -82,7 +82,7 @@
 		PanelLeftClose,
 		Brain,
 		LayoutGrid
-	} from 'lucide-svelte';
+	} from '@lucide/svelte';
 	import { type Component, type Snippet, untrack } from 'svelte';
 	import { fade, slide, type TransitionConfig } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';

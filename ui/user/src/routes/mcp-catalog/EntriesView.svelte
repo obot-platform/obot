@@ -40,7 +40,7 @@
 		Trash2,
 		TriangleAlert,
 		UsersIcon
-	} from 'lucide-svelte';
+	} from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 
 	type Item = ReturnType<typeof convertEntriesToTableData>[number];

@@ -21,8 +21,8 @@
 	import { goto } from '$lib/url';
 	import { getUserDisplayName } from '$lib/utils';
 	import { aggregateTimelineDataByBucket, getUserLabels } from './utils';
+	import { Coins, X } from '@lucide/svelte';
 	import { subDays } from 'date-fns';
-	import { Coins, X } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { fade } from 'svelte/transition';
