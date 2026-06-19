@@ -204,6 +204,7 @@
 				{#each items as item (item.data.id)}
 					{@const d = item.data}
 					{@const mcp = d.mcp}
+					{@const mcpID = mcp?.mcpID}
 
 					<tr
 						class={twMerge(
@@ -218,8 +219,8 @@
 						{@render td(formatLogTimestamp(d.createdAt, userDeviceSettings.timeFormat))}
 						{@render td(getUserDisplayName(d.userID))}
 						{@render td(
-							mcp?.mcpID
-								? serverAliases.get(mcp.mcpID) || mcp.mcpServerDisplayName
+							mcpID
+								? serverAliases.get(mcpID) || mcp?.mcpServerDisplayName
 								: mcp?.mcpServerDisplayName
 						)}
 						{@render td(d.callType)}

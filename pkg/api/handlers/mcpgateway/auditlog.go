@@ -83,6 +83,10 @@ type auditLogInput struct {
 	Subject                        string            `json:"subject"`
 }
 
+func (a auditLogInput) hasNestedSourceFields() bool {
+	return a.MCP != nil || a.Local != nil
+}
+
 // parseAuditLogOpts parses the query parameters common to ListAuditLogs and ListAuditLogFilterOptions.
 // Callers are responsible for setting any additional fields (e.g. default Limit, WithRequestAndResponse).
 func parseAuditLogOpts(query url.Values) gateway.MCPAuditLogOptions {
@@ -192,6 +196,10 @@ func (h *AuditLogHandler) SubmitAuditLogs(req api.Context) error {
 	}
 
 	for _, auditLog := range auditLogs {
+		if auditLog.hasNestedSourceFields() {
+			return types.NewErrBadRequest("nested audit log source fields are not supported by this endpoint")
+		}
+
 		mcpFields := auditLog.MCPAuditLogFields
 
 		if mcpFields.MCPID == "" {

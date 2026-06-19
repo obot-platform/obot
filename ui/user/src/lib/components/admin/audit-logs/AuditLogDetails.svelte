@@ -69,13 +69,13 @@
 					{auditLog.sessionID}
 				</div>
 			{/if}
-			{#if mcp?.mcpID}
+			{#if mcp && mcp.mcpID}
 				<div class="bg-base-400 rounded-full px-3 py-1 text-[11px] font-light">
 					<span class="font-medium">Server:</span>
 					{mcp.mcpServerDisplayName} ({mcp.mcpID})
 				</div>
 			{/if}
-			{#if mcp?.mcpServerCatalogEntryName}
+			{#if mcp && mcp.mcpServerCatalogEntryName}
 				<div class="bg-base-400 rounded-full px-3 py-1 text-[11px] font-light">
 					<span class="font-medium">Parent Entry ID:</span>
 					{mcp.mcpServerCatalogEntryName}
@@ -89,13 +89,13 @@
 				{#if auditLog.user}
 					<p><span class="font-medium">User</span>: {auditLog.user}</p>
 				{/if}
-				{#if mcp?.apiKey}
+				{#if mcp && mcp.apiKey}
 					<p>
 						<span class="font-medium">API Key</span>: {mcp.apiKey}***
 						<span class="text-muted-content text-xs italic">(redacted)</span>
 					</p>
 				{/if}
-				{#if mcp?.userAgent}
+				{#if mcp && mcp.userAgent}
 					<p><span class="font-medium">User Agent</span>: {mcp.userAgent}</p>
 				{/if}
 				{#if auditLog.client}
@@ -104,13 +104,13 @@
 							.version}
 					</p>
 				{/if}
-				{#if mcp?.clientIP}
+				{#if mcp && mcp.clientIP}
 					<p><span class="font-medium">Client IP</span>: {mcp.clientIP}</p>
 				{/if}
 			</div>
 
 			{#if shouldShowPayload}
-				{#if mcp?.requestHeaders}
+				{#if mcp && mcp.requestHeaders}
 					<p class="my-2 text-base font-semibold">Request Headers</p>
 
 					<div
@@ -159,7 +159,7 @@
 			</div>
 
 			{#if shouldShowPayload}
-				{#if mcp?.responseHeaders}
+				{#if mcp && mcp.responseHeaders}
 					<p class="mt-4 mb-2 text-base font-semibold">Response Headers</p>
 					<div
 						class="dark:bg-base-300 bg-base-100 relative flex flex-col gap-2 overflow-hidden rounded-md p-4 pl-5"
@@ -198,7 +198,7 @@
 			{/if}
 
 			{#if shouldShowPayload}
-				{#if mcp?.webhookStatuses && mcp.webhookStatuses.length > 0}
+				{#if mcp && mcp.webhookStatuses && mcp.webhookStatuses.length > 0}
 					{@const statuses = JSON.stringify(mcp.webhookStatuses, null, 2)}
 
 					<p class="translate-y-2 pt-4 text-base font-semibold">Webhook Statuses</p>
