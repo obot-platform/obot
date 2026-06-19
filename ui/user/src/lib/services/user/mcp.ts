@@ -479,7 +479,9 @@ export function convertCompositeLaunchFormDataToPayload(lf: CompositeLaunchFormD
 			...(comp.envs ?? ([] as Array<{ key: string; value: string }>)),
 			...(comp.headers ?? ([] as Array<{ key: string; value: string }>))
 		]) {
-			if (!hasSecretBinding(f) && f.value) config[f.key] = f.value;
+			if (!hasSecretBinding(f) && !('isStatic' in f && f.isStatic) && f.value) {
+				config[f.key] = f.value;
+			}
 		}
 		payload[id] = {
 			config,
@@ -555,7 +557,8 @@ export async function convertCompositeInfoToLaunchFormData(
 				: (m.env ?? []).map((e) => ({
 						...(e as unknown as Record<string, unknown>),
 						key: e.key,
-						value: init?.config?.[e.key] ?? ''
+						value: init?.config?.[e.key] ?? e.value ?? '',
+						isStatic: Boolean(e.value)
 					})),
 			headers: isMultiUser
 				? (m.multiUserConfig?.userDefinedHeaders ?? []).map((h) => ({
@@ -567,7 +570,8 @@ export async function convertCompositeInfoToLaunchFormData(
 				: (m.remoteConfig?.headers ?? []).map((h) => ({
 						...(h as unknown as Record<string, unknown>),
 						key: h.key,
-						value: init?.config?.[h.key] ?? ''
+						value: init?.config?.[h.key] ?? h.value ?? '',
+						isStatic: Boolean(h.value)
 					}))
 		};
 	}

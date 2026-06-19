@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Loading from '$lib/icons/Loading.svelte';
+	import type { MCPSubField } from '$lib/services';
 	import { hasSecretBinding, type MCPServerInfo } from '$lib/services/user/mcp';
 	import Confirm from '../Confirm.svelte';
 	import InfoTooltip from '../InfoTooltip.svelte';
@@ -130,6 +131,16 @@
 		highlightedFields = new Set();
 	}
 
+	function startTextareaResize() {
+		resizing = true;
+		document.addEventListener('pointerup', stopTextareaResize, { once: true });
+		document.addEventListener('mouseup', stopTextareaResize, { once: true });
+	}
+
+	function stopTextareaResize() {
+		resizing = false;
+	}
+
 	function hasUrl(url?: string) {
 		return url?.trim().length ?? 0 > 0;
 	}
@@ -154,14 +165,14 @@
 
 	function componentHasConfig(comp?: ComponentLaunchFormData) {
 		if (!comp) return false;
-		// Multi-user component entries should not expose any configuration
-		// fields in this dialog; they are configured at the multi-user level.
-		if (comp.isMultiUser) return false;
-		const hasEnvs = Array.isArray(comp.envs) && comp.envs.some((e) => !hasSecretBinding(e));
-		const hasHeaders =
-			Array.isArray(comp.headers) && comp.headers.some((h) => !hasSecretBinding(h));
-		const needsURL = Boolean(comp.hostname);
+		const hasEnvs = Array.isArray(comp.envs) && comp.envs.some(isEditableField);
+		const hasHeaders = Array.isArray(comp.headers) && comp.headers.some(isEditableField);
+		const needsURL = !comp.isMultiUser && Boolean(comp.hostname);
 		return hasEnvs || hasHeaders || needsURL;
+	}
+
+	function isEditableField(field: Partial<MCPSubField> & { isStatic?: boolean }) {
+		return !hasSecretBinding(field) && !field.isStatic;
 	}
 
 	function missingRequiredFields(formAny: LaunchFormData | CompositeLaunchFormData) {
@@ -174,7 +185,7 @@
 				if (comp.hostname && !hasUrl(comp.url)) {
 					return true;
 				}
-				if ([...envs, ...headers].some((f) => !hasSecretBinding(f) && f.required && !f.value)) {
+				if ([...envs, ...headers].some((f) => isEditableField(f) && f.required && !f.value)) {
 					return true;
 				}
 			}
@@ -188,7 +199,7 @@
 		const envs = form.envs ?? [];
 		const headers = form.headers ?? [];
 		return [...envs, ...headers].some(
-			(field) => !hasSecretBinding(field) && field.required && !field.value
+			(field) => isEditableField(field) && field.required && !field.value
 		);
 	}
 
@@ -199,11 +210,11 @@
 			for (const [compId, comp] of Object.entries(formAny.componentConfigs || {})) {
 				if (comp.disabled) continue;
 				for (const f of comp.envs ?? []) {
-					if (!hasSecretBinding(f) && f.required && !f.value)
+					if (isEditableField(f) && f.required && !f.value)
 						fieldsToHighlight.add(keyFor(compId, f.key));
 				}
 				for (const f of comp.headers ?? []) {
-					if (!hasSecretBinding(f) && f.required && !f.value)
+					if (isEditableField(f) && f.required && !f.value)
 						fieldsToHighlight.add(keyFor(compId, f.key));
 				}
 				if (comp.hostname && !comp.url) fieldsToHighlight.add(keyFor(compId, 'url'));
@@ -213,7 +224,7 @@
 		}
 		const form = formAny as LaunchFormData;
 		[...(form.envs ?? []), ...(form.headers ?? [])].forEach((field) => {
-			if (!hasSecretBinding(field) && field.required && !field.value) {
+			if (isEditableField(field) && field.required && !field.value) {
 				fieldsToHighlight.add(field.key);
 			}
 		});
@@ -234,6 +245,7 @@
 
 		if (missingRequiredFields(form)) {
 			highlightMissingRequiredFields(form);
+			localError = 'Please fill out all required configuration fields.';
 			return;
 		}
 
@@ -254,7 +266,7 @@
 		if (isCompositeForm(formAny)) {
 			for (const comp of Object.values(formAny.componentConfigs || {})) {
 				const hasEnvOrHeaderFilled = [...(comp.envs ?? []), ...(comp.headers ?? [])].some(
-					(f) => !hasSecretBinding(f) && f.value
+					(f) => isEditableField(f) && f.value
 				);
 				const hasHostnameAndUrl = comp.hostname && hasUrl(comp.url);
 				if (hasEnvOrHeaderFilled || hasHostnameAndUrl) return true;
@@ -263,7 +275,7 @@
 		}
 		const form = formAny as LaunchFormData;
 		const hasEnvOrHeaderFilled = [...(form.envs ?? []), ...(form.headers ?? [])].some(
-			(field) => !hasSecretBinding(field) && field.value
+			(field) => isEditableField(field) && field.value
 		);
 		const hasHostnameAndUrl = form.hostname && hasUrl(form.url);
 		return hasEnvOrHeaderFilled || hasHostnameAndUrl;
@@ -383,8 +395,10 @@
 	{/if}
 	{#if form}
 		<form
+			id="mcp-catalog-configure-form"
 			onsubmit={(e) => {
 				e.preventDefault();
+				handleSave();
 			}}
 		>
 			<div class="my-4 flex flex-col gap-4">
@@ -457,13 +471,14 @@
 														id={`${compId}-${env.data.key}`}
 														bind:value={comp.envs![env.index].value}
 														disabled={form.componentConfigs[compId].disabled}
+														rows="8"
 														class={twMerge(
-															'text-input-filled h-32 resize-y whitespace-pre-wrap',
+															'text-input-filled h-32 min-h-32 resize-y overflow-auto whitespace-pre-wrap',
 															highlightRequired &&
 																'border-error bg-error/20 ring-error focus:ring-1'
 														)}
-														onmousedown={() => (resizing = true)}
-														onmouseup={() => (resizing = false)}
+														onpointerdown={startTextareaResize}
+														onmousedown={startTextareaResize}
 													></textarea>
 												{:else}
 													<input
@@ -537,13 +552,17 @@
 									{/each}
 
 									{#if comp.hostname}
+										{@const highlightRequired = highlightedFields.has(`${compId}:url`) && !comp.url}
 										<label for={`${compId}-url`}> URL </label>
 										<input
 											type="text"
 											id={`${compId}-url`}
 											bind:value={comp.url}
 											disabled={form.componentConfigs[compId].disabled}
-											class="text-input-filled"
+											class={twMerge(
+												'text-input-filled',
+												highlightRequired && 'border-error bg-error/20 ring-error focus:ring-1'
+											)}
 										/>
 										<span class="text-muted-content font-light">
 											The URL must contain the hostname: <b class="font-semibold">{comp.hostname}</b
@@ -586,12 +605,13 @@
 									<textarea
 										id={env.data.key}
 										bind:value={form.envs![env.index].value}
+										rows="8"
 										class={twMerge(
-											'text-input-filled h-32 resize-y whitespace-pre-wrap',
+											'text-input-filled h-32 min-h-32 resize-y overflow-auto whitespace-pre-wrap',
 											highlightRequired && 'border-error bg-error/20 ring-error focus:ring-1'
 										)}
-										onmousedown={() => (resizing = true)}
-										onmouseup={() => (resizing = false)}
+										onpointerdown={startTextareaResize}
+										onmousedown={startTextareaResize}
 									></textarea>
 								{:else}
 									<input
@@ -671,7 +691,12 @@
 					{cancelText}
 				</button>
 			{/if}
-			<button class="btn btn-primary" onclick={handleSave} disabled={loading || disableSave}>
+			<button
+				class="btn btn-primary"
+				type="submit"
+				form="mcp-catalog-configure-form"
+				disabled={loading || disableSave}
+			>
 				{#if loading}
 					<Loading class="size-4" />
 				{:else}

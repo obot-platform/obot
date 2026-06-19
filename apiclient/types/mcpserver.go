@@ -587,6 +587,7 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 			remoteConfig.URL = userURL
 		case catalogEntry.RemoteConfig.URLTemplate != "":
 			remoteConfig.IsTemplate = true
+			remoteConfig.URLTemplate = catalogEntry.RemoteConfig.URLTemplate
 		default:
 			return serverManifest, RuntimeValidationError{
 				Runtime: RuntimeRemote,

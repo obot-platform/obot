@@ -289,6 +289,39 @@ func TestMapCatalogEntryToServer_RemoteHostname(t *testing.T) {
 	}
 }
 
+func TestMapCatalogEntryToServer_RemoteURLTemplate(t *testing.T) {
+	const template = "https://${WORKSPACE}.example.com/mcp/${SPACE_ID}"
+	catalogEntry := MCPServerCatalogEntryManifest{
+		Name:        "Test Remote Server",
+		Description: "Test remote server description",
+		Runtime:     RuntimeRemote,
+		RemoteConfig: &RemoteCatalogConfig{
+			URLTemplate: template,
+		},
+	}
+
+	result, err := MapCatalogEntryToServer(catalogEntry, "", false)
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+
+	if result.RemoteConfig == nil {
+		t.Fatal("Expected RemoteConfig to be populated")
+	}
+
+	if !result.RemoteConfig.IsTemplate {
+		t.Fatal("Expected remote config to be marked as template")
+	}
+
+	if result.RemoteConfig.URLTemplate != template {
+		t.Errorf("Expected URL template %q, got %q", template, result.RemoteConfig.URLTemplate)
+	}
+
+	if result.RemoteConfig.URL != "" {
+		t.Errorf("Expected URL to remain empty until configured, got %q", result.RemoteConfig.URL)
+	}
+}
+
 func TestMapCatalogEntryToServer_RemoteHostnameMismatch(t *testing.T) {
 	catalogEntry := MCPServerCatalogEntryManifest{
 		Name:        "Test Remote Server",
