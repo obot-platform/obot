@@ -21,7 +21,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.AccessControlRule":                                  schema_obot_platform_obot_apiclient_types_AccessControlRule(ref),
 		"github.com/obot-platform/obot/apiclient/types.AccessControlRuleList":                              schema_obot_platform_obot_apiclient_types_AccessControlRuleList(ref),
 		"github.com/obot-platform/obot/apiclient/types.AccessControlRuleManifest":                          schema_obot_platform_obot_apiclient_types_AccessControlRuleManifest(ref),
-		"github.com/obot-platform/obot/apiclient/types.AppNotifications":                                   schema_obot_platform_obot_apiclient_types_AppNotifications(ref),
+		"github.com/obot-platform/obot/apiclient/types.AppNotification":                                    schema_obot_platform_obot_apiclient_types_AppNotification(ref),
 		"github.com/obot-platform/obot/apiclient/types.AppPreferences":                                     schema_obot_platform_obot_apiclient_types_AppPreferences(ref),
 		"github.com/obot-platform/obot/apiclient/types.AuditLogExportCreateRequest":                        schema_obot_platform_obot_apiclient_types_AuditLogExportCreateRequest(ref),
 		"github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters":                              schema_obot_platform_obot_apiclient_types_AuditLogExportFilters(ref),
@@ -244,10 +244,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.Alias":                             schema_storage_apis_obotobotai_v1_Alias(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AliasList":                         schema_storage_apis_obotobotai_v1_AliasList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AliasSpec":                         schema_storage_apis_obotobotai_v1_AliasSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppNotifications":                  schema_storage_apis_obotobotai_v1_AppNotifications(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppNotificationsList":              schema_storage_apis_obotobotai_v1_AppNotificationsList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppNotificationsSpec":              schema_storage_apis_obotobotai_v1_AppNotificationsSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppNotificationsStatus":            schema_storage_apis_obotobotai_v1_AppNotificationsStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppNotification":                   schema_storage_apis_obotobotai_v1_AppNotification(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppNotificationList":               schema_storage_apis_obotobotai_v1_AppNotificationList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppNotificationSpec":               schema_storage_apis_obotobotai_v1_AppNotificationSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppNotificationStatus":             schema_storage_apis_obotobotai_v1_AppNotificationStatus(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppPreferences":                    schema_storage_apis_obotobotai_v1_AppPreferences(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppPreferencesList":                schema_storage_apis_obotobotai_v1_AppPreferencesList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppPreferencesSpec":                schema_storage_apis_obotobotai_v1_AppPreferencesSpec(ref),
@@ -705,11 +705,11 @@ func schema_obot_platform_obot_apiclient_types_AccessControlRuleManifest(ref com
 	}
 }
 
-func schema_obot_platform_obot_apiclient_types_AppNotifications(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_AppNotification(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "AppNotifications represents global application notification settings",
+				Description: "AppNotification represents global application notification settings",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"banner": {
@@ -12454,7 +12454,7 @@ func schema_storage_apis_obotobotai_v1_AliasSpec(ref common.ReferenceCallback) c
 	}
 }
 
-func schema_storage_apis_obotobotai_v1_AppNotifications(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_storage_apis_obotobotai_v1_AppNotification(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -12483,24 +12483,24 @@ func schema_storage_apis_obotobotai_v1_AppNotifications(ref common.ReferenceCall
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppNotificationsSpec"),
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppNotificationSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppNotificationsStatus"),
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppNotificationStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppNotificationsSpec", "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppNotificationsStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppNotificationSpec", "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppNotificationStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
-func schema_storage_apis_obotobotai_v1_AppNotificationsList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_storage_apis_obotobotai_v1_AppNotificationList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -12533,7 +12533,7 @@ func schema_storage_apis_obotobotai_v1_AppNotificationsList(ref common.Reference
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppNotifications"),
+										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppNotification"),
 									},
 								},
 							},
@@ -12544,11 +12544,11 @@ func schema_storage_apis_obotobotai_v1_AppNotificationsList(ref common.Reference
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppNotifications", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AppNotification", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
-func schema_storage_apis_obotobotai_v1_AppNotificationsSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_storage_apis_obotobotai_v1_AppNotificationSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -12562,7 +12562,7 @@ func schema_storage_apis_obotobotai_v1_AppNotificationsSpec(ref common.Reference
 					},
 					"updated": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Updated is set whenever the notifications are updated after their initial creation. When unset, the creation timestamp is used as the updated time.",
+							Description: "Updated is set whenever the notification is updated after its initial creation. When unset, the creation timestamp is used as the updated time.",
 							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
 						},
 					},
@@ -12574,7 +12574,7 @@ func schema_storage_apis_obotobotai_v1_AppNotificationsSpec(ref common.Reference
 	}
 }
 
-func schema_storage_apis_obotobotai_v1_AppNotificationsStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_storage_apis_obotobotai_v1_AppNotificationStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{

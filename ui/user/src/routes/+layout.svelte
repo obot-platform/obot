@@ -14,7 +14,7 @@
 		userDeviceSettings,
 		license,
 		accessibleModels,
-		appNotifications
+		appNotification
 	} from '$lib/stores';
 	import '../app.css';
 	import type { PageData } from './$types';
@@ -47,8 +47,8 @@
 			version.initialize(data.version);
 		}
 
-		if (data.appNotifications) {
-			appNotifications.initialize(data.appNotifications);
+		if (data.appNotification) {
+			appNotification.initialize(data.appNotification);
 		}
 
 		license.initialize(data.license);

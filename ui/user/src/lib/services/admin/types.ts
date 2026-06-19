@@ -39,7 +39,7 @@ import {
 
 // App notifications
 
-export interface AppNotificationsManifest {
+export interface AppNotificationManifest {
 	banner: {
 		dismissible?: boolean;
 		type?: BannerType;

@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
-	import type { AppNotifications } from '$lib/services/user/types';
+	import type { AppNotification } from '$lib/services/user/types';
 	import { CircleAlert, Info, X } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
-		data?: AppNotifications['banner'];
+		data?: AppNotification['banner'];
 		onDismiss?: () => void;
 		placeholder?: string;
 	}

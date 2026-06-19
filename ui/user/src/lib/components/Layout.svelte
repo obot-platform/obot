@@ -47,7 +47,7 @@
 		profile,
 		responsive,
 		version,
-		appNotifications as appNotificationsStore
+		appNotification as appNotificationStore
 	} from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
 	import { isAgentEnabled } from '$lib/utils';
@@ -545,8 +545,8 @@
 								collapsible: false
 							},
 							{
-								id: 'app-notifications',
-								href: '/admin/app-notifications',
+								id: 'app-notification',
+								href: '/admin/app-notification',
 								label: 'App Notifications',
 								disabled: false,
 								collapsible: false
@@ -674,20 +674,21 @@
 	}
 
 	let showAppNotificationBanner = $derived.by(() => {
-		if (isAgentRoute || !bannerDismissed.isReady) return false;
+		if (isAgentRoute) return false;
 
-		const appNotifications = appNotificationsStore.current;
-		if (!appNotifications?.banner?.enabled) return false;
-		if (!appNotifications.banner.dismissible) return true; // enabled & not dismissible, always show
+		const appNotification = appNotificationStore.current;
+		if (!appNotification?.banner?.enabled) return false;
+		if (!appNotification.banner.dismissible) return true; // enabled & not dismissible, always show
+		if (!bannerDismissed.isReady) return false;
 
 		const dismissedAt = bannerDismissed.current?.dismissedAt;
 		const wasBannerUpdatedAfterDismissal =
-			appNotifications?.updated &&
+			appNotification?.updated &&
 			!!dismissedAt &&
-			new Date(dismissedAt) <= new Date(appNotifications?.updated);
+			new Date(dismissedAt) <= new Date(appNotification?.updated);
 		return !!(
 			!dismissedAt ||
-			(wasBannerUpdatedAfterDismissal && appNotifications.banner.resetDismissed)
+			(wasBannerUpdatedAfterDismissal && appNotification.banner.resetDismissed)
 		);
 	});
 </script>
@@ -781,7 +782,7 @@
 					<LicenseViolationBanner />
 				{:else if showAppNotificationBanner}
 					<AppNotificationBanner
-						data={appNotificationsStore.current?.banner}
+						data={appNotificationStore.current?.banner}
 						onDismiss={handleDismissBanner}
 					/>
 				{/if}

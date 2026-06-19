@@ -25,7 +25,7 @@ import {
 	type PaginatedResponse
 } from '../http';
 import {
-	type AppNotifications,
+	type AppNotification,
 	type AppPreferences,
 	type AuditLog,
 	type AuditLogURLFilters,
@@ -689,8 +689,8 @@ export async function getVersion(opts?: { fetch?: Fetcher }): Promise<Version> {
 	return version;
 }
 
-export async function getAppNotifications(opts?: { fetch?: Fetcher }): Promise<AppNotifications> {
-	return (await doGet('/app-notification', opts)) as AppNotifications;
+export async function getAppNotification(opts?: { fetch?: Fetcher }): Promise<AppNotification> {
+	return (await doGet('/app-notification', opts)) as AppNotification;
 }
 
 export async function getK8sResourceDefaults(opts?: {

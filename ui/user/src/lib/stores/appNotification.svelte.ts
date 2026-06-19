@@ -1,7 +1,7 @@
 import { UserService } from '$lib/services';
-import type { AppNotifications } from '$lib/services/user/types';
+import type { AppNotification } from '$lib/services/user/types';
 
-export const defaultAppNotifications: AppNotifications = {
+export const defaultAppNotification: AppNotification = {
 	banner: {
 		enabled: false,
 		text: '',
@@ -12,24 +12,24 @@ export const defaultAppNotifications: AppNotifications = {
 };
 
 const store = $state<{
-	current?: AppNotifications;
+	current?: AppNotification;
 	loading: boolean;
-	initialize: (appNotifications?: AppNotifications) => Promise<void>;
+	initialize: (appNotification?: AppNotification) => Promise<void>;
 }>({
 	current: undefined,
 	loading: false,
 	initialize
 });
 
-async function initialize(appNotifications?: AppNotifications) {
-	if (appNotifications) {
-		store.current = appNotifications;
+async function initialize(appNotification?: AppNotification) {
+	if (appNotification) {
+		store.current = appNotification;
 		return;
 	}
 
 	store.loading = true;
 	try {
-		store.current = await UserService.getAppNotifications();
+		store.current = await UserService.getAppNotification();
 	} catch (_err) {
 		store.current = undefined;
 	} finally {

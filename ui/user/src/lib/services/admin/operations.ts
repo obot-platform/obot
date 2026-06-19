@@ -22,7 +22,7 @@ import type {
 	DefaultModelAlias,
 	BootstrapStatus,
 	AppPreferences,
-	AppNotifications,
+	AppNotification,
 	AccessControlRule,
 	AccessControlRuleManifest,
 	K8sServerDetail
@@ -93,7 +93,7 @@ import type {
 	OAuthDebuggerTokenRequest,
 	OAuthToken,
 	AppPreferencesManifest,
-	AppNotificationsManifest,
+	AppNotificationManifest,
 	License,
 	LicenseManifest
 } from './types';
@@ -160,11 +160,11 @@ export async function updateAppPreferences(
 
 // App notifications
 
-export async function updateAppNotifications(
-	notifications: AppNotificationsManifest,
+export async function updateAppNotification(
+	notification: AppNotificationManifest,
 	opts?: { fetch?: Fetcher }
 ) {
-	return (await doPut('/app-notification', notifications, opts)) as AppNotifications;
+	return (await doPut('/app-notification', notification, opts)) as AppNotification;
 }
 
 // Audit log exports

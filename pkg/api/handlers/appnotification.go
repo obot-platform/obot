@@ -21,25 +21,25 @@ func NewAppNotificationHandler() *AppNotificationHandler {
 }
 
 func (h *AppNotificationHandler) Get(req api.Context) error {
-	var notifications v1.AppNotifications
+	var notification v1.AppNotification
 	err := req.Storage.Get(req.Context(), client.ObjectKey{
 		Namespace: req.Namespace(),
-		Name:      system.AppNotificationsName,
-	}, &notifications)
+		Name:      system.AppNotificationName,
+	}, &notification)
 	if apierrors.IsNotFound(err) {
-		// Return empty notifications if not yet configured
-		return req.Write(types.AppNotifications{})
+		// Return empty notification if not yet configured
+		return req.Write(types.AppNotification{})
 	}
 	if err != nil {
 		return err
 	}
 
-	converted := convertAppNotifications(notifications)
+	converted := convertAppNotification(notification)
 	return req.Write(converted)
 }
 
 func (h *AppNotificationHandler) Update(req api.Context) error {
-	var input types.AppNotifications
+	var input types.AppNotification
 	if err := req.Read(&input); err != nil {
 		return err
 	}
@@ -48,37 +48,37 @@ func (h *AppNotificationHandler) Update(req api.Context) error {
 		return err
 	}
 
-	var notifications v1.AppNotifications
-	err := req.Get(&notifications, system.AppNotificationsName)
+	var notification v1.AppNotification
+	err := req.Get(&notification, system.AppNotificationName)
 	if apierrors.IsNotFound(err) {
-		// Create new notifications
-		notifications = v1.AppNotifications{
+		// Create new notification
+		notification = v1.AppNotification{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      system.AppNotificationsName,
+				Name:      system.AppNotificationName,
 				Namespace: req.Namespace(),
 			},
-			Spec: v1.AppNotificationsSpec{
+			Spec: v1.AppNotificationSpec{
 				Banner:  input.Banner,
 				Updated: metav1.Now(),
 			},
 		}
 
-		if err := req.Create(&notifications); err != nil {
+		if err := req.Create(&notification); err != nil {
 			return err
 		}
 	} else if err != nil {
 		return err
 	} else {
-		// Update existing notifications
-		notifications.Spec.Banner = input.Banner
-		notifications.Spec.Updated = metav1.Now()
+		// Update existing notification
+		notification.Spec.Banner = input.Banner
+		notification.Spec.Updated = metav1.Now()
 
-		if err := req.Update(&notifications); err != nil {
+		if err := req.Update(&notification); err != nil {
 			return err
 		}
 	}
 
-	converted := convertAppNotifications(notifications)
+	converted := convertAppNotification(notification)
 	return req.Write(converted)
 }
 
@@ -147,16 +147,16 @@ func validateBannerText(text string) error {
 	return nil
 }
 
-func convertAppNotifications(notifications v1.AppNotifications) types.AppNotifications {
+func convertAppNotification(notification v1.AppNotification) types.AppNotification {
 	// If Updated was never set (for example, objects created before Updated tracking existed),
 	// fall back to the creation timestamp.
-	updated := notifications.Spec.Updated.Time
+	updated := notification.Spec.Updated.Time
 	if updated.IsZero() {
-		updated = notifications.GetCreationTimestamp().Time
+		updated = notification.GetCreationTimestamp().Time
 	}
 
-	return types.AppNotifications{
-		Banner:  notifications.Spec.Banner,
+	return types.AppNotification{
+		Banner:  notification.Spec.Banner,
 		Updated: types.NewTime(updated),
 	}
 }

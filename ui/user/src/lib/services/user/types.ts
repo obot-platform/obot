@@ -45,7 +45,7 @@ export interface AccessControlRule extends Omit<AccessControlRuleManifest, 'id'>
 // App notifications
 
 export type BannerType = 'info' | 'warning';
-export interface AppNotifications {
+export interface AppNotification {
 	banner?: {
 		dismissible?: boolean;
 		type?: BannerType;

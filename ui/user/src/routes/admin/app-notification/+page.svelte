@@ -5,32 +5,32 @@
 	import MarkdownInput from '$lib/components/MarkdownInput.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { AdminService, type AppNotifications, type BannerType } from '$lib/services';
-	import { profile, appNotifications as appNotificationsStore } from '$lib/stores';
-	import { defaultAppNotifications } from '$lib/stores/appNotifications.svelte';
+	import { AdminService, type AppNotification, type BannerType } from '$lib/services';
+	import { profile, appNotification as appNotificationStore } from '$lib/stores';
+	import { defaultAppNotification } from '$lib/stores/appNotification.svelte';
 	import { success } from '$lib/stores/success';
 	import { untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
-	type BannerConfig = NonNullable<AppNotifications['banner']>;
-	type EditableAppNotifications = AppNotifications & {
+	type BannerConfig = NonNullable<AppNotification['banner']>;
+	type EditableAppNotification = AppNotification & {
 		banner: BannerConfig;
 	};
 
-	function withBanner(notifications: AppNotifications): EditableAppNotifications {
-		const defaults: BannerConfig = defaultAppNotifications.banner!;
+	function withBanner(notification: AppNotification): EditableAppNotification {
+		const defaults: BannerConfig = defaultAppNotification.banner!;
 		return {
-			...notifications,
+			...notification,
 			banner: {
 				...defaults,
-				...notifications.banner
+				...notification.banner
 			}
 		};
 	}
 
 	let { data } = $props();
-	let appNotifications = $state(untrack(() => withBanner(data.appNotifications)));
+	let appNotification = $state(untrack(() => withBanner(data.appNotification)));
 
 	const duration = PAGE_TRANSITION_DURATION;
 	let saving = $state(false);
@@ -77,7 +77,7 @@
 		return true;
 	}
 
-	function validate(banner: EditableAppNotifications['banner']) {
+	function validate(banner: EditableAppNotification['banner']) {
 		const text = banner.text?.trim() ?? '';
 		if ((!text || !banner.type) && banner.enabled) {
 			bannerTextValidationError = 'This field is required.';
@@ -95,15 +95,15 @@
 	}
 
 	async function handleSave() {
-		if (!validate(appNotifications.banner)) {
+		if (!validate(appNotification.banner)) {
 			return;
 		}
 
 		bannerTextValidationError = null;
 		saving = true;
 		try {
-			const response = await AdminService.updateAppNotifications(appNotifications);
-			appNotificationsStore.initialize(response);
+			const response = await AdminService.updateAppNotification(appNotification);
+			appNotificationStore.initialize(response);
 			success.add('App notifications updated successfully.');
 		} catch (_err) {
 			// errors are surfaced via the global HTTP error handling (errors store)
@@ -121,7 +121,7 @@
 
 				<div class="w-full mb-4">
 					<AppNotificationBanner
-						data={appNotifications.banner}
+						data={appNotification.banner}
 						placeholder="[insert text to display here]"
 					/>
 				</div>
@@ -135,9 +135,9 @@
 							<Select
 								id="banner-type-selector"
 								class="bg-base-200 dark:bg-base-100 dark:border-base-400 flex-1 border border-transparent shadow-none"
-								selected={appNotifications.banner.type}
+								selected={appNotification.banner.type}
 								onSelect={(selected) => {
-									appNotifications.banner.type = selected.id as BannerType;
+									appNotification.banner.type = selected.id as BannerType;
 								}}
 								disabled={isAdminReadonly}
 								options={[
@@ -158,7 +158,7 @@
 							Text <InfoTooltip text="Supports simple markdown formatting and text URL links." />
 						</p>
 						<MarkdownInput
-							bind:value={appNotifications.banner.text}
+							bind:value={appNotification.banner.text}
 							class={twMerge(
 								'min-h-[120px]',
 								bannerTextValidationError && 'ring-2 ring-error border-error'
@@ -177,9 +177,9 @@
 						<div>
 							<p class="text-sm font-light">Dismissible</p>
 							<p class="text-xs font-light text-muted-content mb-2">
-								The banner is {appNotifications.banner.dismissible
+								The banner is {appNotification.banner.dismissible
 									? 'dismissible'
-									: 'not dismissible'}. {appNotifications.banner.dismissible
+									: 'not dismissible'}. {appNotification.banner.dismissible
 									? 'The user can dismiss the banner and it will not appear again for their device.'
 									: 'The banner will stay visible and cannot be hidden by the user.'}
 							</p>
@@ -188,7 +188,7 @@
 							id="dismiss-banner-toggle"
 							type="checkbox"
 							class="toggle toggle-sm"
-							bind:checked={appNotifications.banner.dismissible}
+							bind:checked={appNotification.banner.dismissible}
 							disabled={isAdminReadonly}
 						/>
 					</label>
@@ -204,8 +204,8 @@
 							id="reset-dismissed-toggle"
 							type="checkbox"
 							class="toggle toggle-sm"
-							bind:checked={appNotifications.banner.resetDismissed}
-							disabled={isAdminReadonly || !appNotifications.banner.dismissible}
+							bind:checked={appNotification.banner.resetDismissed}
+							disabled={isAdminReadonly || !appNotification.banner.dismissible}
 						/>
 					</label>
 
@@ -220,7 +220,7 @@
 						<input
 							type="checkbox"
 							class="toggle toggle-sm"
-							bind:checked={appNotifications.banner.enabled}
+							bind:checked={appNotification.banner.enabled}
 							id="enable-banner"
 							disabled={isAdminReadonly}
 							onclick={() => {
@@ -240,7 +240,7 @@
 					<button
 						class="btn btn-secondary text-sm"
 						onclick={() => {
-							appNotifications = withBanner(data.appNotifications);
+							appNotification = withBanner(data.appNotification);
 							bannerTextValidationError = null;
 						}}
 						disabled={saving}
@@ -253,8 +253,8 @@
 				</div>
 			</div>
 		{/if}
-	</div></Layout
->
+	</div>
+</Layout>
 
 <svelte:head>
 	<title>Obot | App Notifications</title>

@@ -8,8 +8,8 @@ const (
 	BannerTypeWarning BannerType = "warning"
 )
 
-// AppNotifications represents global application notification settings
-type AppNotifications struct {
+// AppNotification represents a global notification
+type AppNotification struct {
 	Banner  BannerNotification `json:"banner,omitempty"`
 	Updated *Time              `json:"updated,omitempty"`
 }
