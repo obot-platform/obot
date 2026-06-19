@@ -377,8 +377,6 @@ func (c *Client) GetMCPAuditLog(ctx context.Context, id uint, withRequestAndResp
 		if log.MCP != nil {
 			log.MCP.MutatedRequestBody = nil
 			log.MCP.OriginalResponseBody = nil
-			log.MCP.RequestHeaders = nil
-			log.MCP.ResponseHeaders = nil
 		}
 		if log.Local != nil {
 			log.Local.ErrorDetail = ""
@@ -890,5 +888,8 @@ func mcpAuditLogDataCtx(log *types.MCPAuditLog) value.Context {
 	if log.MCP != nil {
 		return value.DefaultContext(fmt.Sprintf("%s/%s/%s", mcpAuditLogGroupResource.String(), log.MCPFields().MCPID, log.UserID))
 	}
-	return value.DefaultContext(fmt.Sprintf("%s/%d/%s", mcpAuditLogGroupResource.String(), log.ID, log.UserID))
+	if log.Local != nil && log.Local.EventID != "" {
+		return value.DefaultContext(fmt.Sprintf("%s/local/%s/%s", mcpAuditLogGroupResource.String(), log.Local.EventID, log.UserID))
+	}
+	return value.DefaultContext(fmt.Sprintf("%s/%s", mcpAuditLogGroupResource.String(), log.UserID))
 }
