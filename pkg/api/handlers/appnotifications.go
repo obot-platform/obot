@@ -14,13 +14,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type AppNotificationsHandler struct{}
+type AppNotificationHandler struct{}
 
-func NewAppNotificationsHandler() *AppNotificationsHandler {
-	return &AppNotificationsHandler{}
+func NewAppNotificationHandler() *AppNotificationHandler {
+	return &AppNotificationHandler{}
 }
 
-func (h *AppNotificationsHandler) Get(req api.Context) error {
+func (h *AppNotificationHandler) Get(req api.Context) error {
 	var notifications v1.AppNotifications
 	err := req.Storage.Get(req.Context(), client.ObjectKey{
 		Namespace: req.Namespace(),
@@ -38,7 +38,7 @@ func (h *AppNotificationsHandler) Get(req api.Context) error {
 	return req.Write(converted)
 }
 
-func (h *AppNotificationsHandler) Update(req api.Context) error {
+func (h *AppNotificationHandler) Update(req api.Context) error {
 	var input types.AppNotifications
 	if err := req.Read(&input); err != nil {
 		return err
@@ -156,8 +156,7 @@ func convertAppNotifications(notifications v1.AppNotifications) types.AppNotific
 	}
 
 	return types.AppNotifications{
-		Banner:   notifications.Spec.Banner,
-		Updated:  types.NewTime(updated),
-		Metadata: MetadataFrom(&notifications),
+		Banner:  notifications.Spec.Banner,
+		Updated: types.NewTime(updated),
 	}
 }

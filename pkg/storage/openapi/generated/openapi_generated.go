@@ -723,17 +723,11 @@ func schema_obot_platform_obot_apiclient_types_AppNotifications(ref common.Refer
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
 						},
 					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
-						},
-					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.BannerNotification", "github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.Time"},
+			"github.com/obot-platform/obot/apiclient/types.BannerNotification", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 

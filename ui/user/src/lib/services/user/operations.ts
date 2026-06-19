@@ -690,7 +690,7 @@ export async function getVersion(opts?: { fetch?: Fetcher }): Promise<Version> {
 }
 
 export async function getAppNotifications(opts?: { fetch?: Fetcher }): Promise<AppNotifications> {
-	return (await doGet('/app-notifications', opts)) as AppNotifications;
+	return (await doGet('/app-notification', opts)) as AppNotifications;
 }
 
 export async function getK8sResourceDefaults(opts?: {

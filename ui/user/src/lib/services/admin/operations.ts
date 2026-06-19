@@ -164,7 +164,7 @@ export async function updateAppNotifications(
 	notifications: AppNotificationsManifest,
 	opts?: { fetch?: Fetcher }
 ) {
-	return (await doPut('/app-notifications', notifications, opts)) as AppNotifications;
+	return (await doPut('/app-notification', notifications, opts)) as AppNotifications;
 }
 
 // Audit log exports

@@ -104,7 +104,7 @@ var (
 		"GET /api/eula",
 		"PUT /api/eula",
 		"PUT /api/app-preferences",
-		"PUT /api/app-notifications",
+		"PUT /api/app-notification",
 
 		// Allow admins to upload custom images
 		"POST /api/image/upload",
@@ -235,7 +235,7 @@ var (
 			"GET /api/users",
 			"GET /api/groups",
 
-			"GET /api/app-notifications",
+			"GET /api/app-notification",
 
 			// Allow authenticated users to read servers and entries from MCP catalogs.
 			// Filtering is handled in the handler.
