@@ -25,6 +25,18 @@ func TestDockerTransformObotHostnameAlwaysRewritesHost(t *testing.T) {
 	}
 }
 
+func TestChooseMCPNetwork(t *testing.T) {
+	if got := chooseMCPNetwork("vibedata-local-default", "some-autodetected"); got != "vibedata-local-default" {
+		t.Fatalf("explicit option should win, got %q", got)
+	}
+	if got := chooseMCPNetwork("", "auto-net"); got != "auto-net" {
+		t.Fatalf("auto-detected should be used when option empty, got %q", got)
+	}
+	if got := chooseMCPNetwork("", ""); got != "bridge" {
+		t.Fatalf("default should be bridge, got %q", got)
+	}
+}
+
 func TestContainerFilesStablePathsAcrossDataChanges(t *testing.T) {
 	filesA := []File{{
 		EnvKey: "TLS_CERT",

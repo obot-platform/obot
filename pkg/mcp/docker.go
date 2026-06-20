@@ -72,15 +72,18 @@ func newDockerBackend(ctx context.Context, authEnabled bool, exposedPort int, op
 		network      = "bridge"
 	)
 	if containerEnv {
-		network, host, err = detectContainerCurrentNetworkIP(ctx, cli)
+		var detected string
+		detected, host, err = detectContainerCurrentNetworkIP(ctx, cli)
 		if err != nil {
 			return nil, fmt.Errorf("failed to detect current IP: %w", err)
 		}
+		network = chooseMCPNetwork(opts.MCPDockerNetwork, detected)
 	} else {
 		host, err = detectCurrentLocalIP()
 		if err != nil {
 			return nil, fmt.Errorf("failed to detect current IP: %w", err)
 		}
+		network = chooseMCPNetwork(opts.MCPDockerNetwork, "")
 	}
 
 	d := &dockerBackend{
@@ -103,6 +106,16 @@ func newDockerBackend(ctx context.Context, authEnabled bool, exposedPort int, op
 	}
 	d.startDeploymentCacheEventWatcher(ctx)
 	return d, nil
+}
+
+func chooseMCPNetwork(optNetwork string, autoDetected string) string {
+	if optNetwork != "" {
+		return optNetwork
+	}
+	if autoDetected != "" {
+		return autoDetected
+	}
+	return "bridge"
 }
 
 // detectContainerCurrentNetworkIP detects the Docker network and IP of the current container if running inside one.

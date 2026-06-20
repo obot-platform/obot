@@ -27,6 +27,7 @@ type Options struct {
 	MCPHTTPWebhookBaseImage           string   `usage:"The base image to use for HTTP-based MCP webhook containers" default:"ghcr.io/obot-platform/mcp-images/http-webhook-mcp-converter:v0.20.6"`
 	MCPRemoteShimBaseImage            string   `usage:"The base image to use for MCP remote shim containers" default:"ghcr.io/obot-platform/nanobot:v0.0.85"`
 	MCPNamespace                      string   `usage:"The namespace to use for MCP containers" default:"obot-mcp"`
+	MCPDockerNetwork                  string   `usage:"Docker network to attach MCP helper containers to; empty falls back to OBOT_CONTAINER_ENV auto-detection or the default bridge" default:"" name:"mcp-docker-network" env:"OBOT_MCP_DOCKER_NETWORK"`
 	MCPClusterDomain                  string   `usage:"The cluster domain to use for MCP containers" default:"cluster.local"`
 	DisallowLocalhostMCP              bool     `usage:"Disallow MCP containers from connecting to localhost" default:"true"`
 	DisallowPrivateIPMCP              bool     `usage:"Disallow MCP containers from connecting to private IPs" default:"true"`
