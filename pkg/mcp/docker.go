@@ -69,7 +69,7 @@ func newDockerBackend(ctx context.Context, authEnabled bool, exposedPort int, op
 	var (
 		host         string
 		containerEnv = os.Getenv("OBOT_CONTAINER_ENV") == "true"
-		network      = "bridge"
+		network      string
 	)
 	if containerEnv {
 		var detected string
