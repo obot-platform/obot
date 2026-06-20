@@ -528,7 +528,7 @@ func TestK8sObjects_MCPContainerResources(t *testing.T) {
 
 func TestK8sObjectsRejectsNormalServerResourcesAboveMaximum(t *testing.T) {
 	k := newTestKubernetesBackend(t)
-	k.resourceMaximums = ResourceMaximums{CPURequest: new(resource.MustParse(("100m")))}
+	k.resourceMaximums = ResourceMaximums{CPURequest: new(resource.MustParse("100m"))}
 
 	server := testK8sServerConfig()
 	server.Resources = &corev1.ResourceRequirements{
@@ -549,7 +549,7 @@ func TestK8sObjectsRejectsNormalServerResourcesAboveMaximum(t *testing.T) {
 
 func TestK8sObjectsAllowsSystemServerResourcesAboveMaximum(t *testing.T) {
 	k := newTestKubernetesBackend(t)
-	k.resourceMaximums = ResourceMaximums{CPURequest: new(resource.MustParse(("100m")))}
+	k.resourceMaximums = ResourceMaximums{CPURequest: new(resource.MustParse("100m"))}
 
 	server := testK8sServerConfig()
 	server.SystemMCPServer = true

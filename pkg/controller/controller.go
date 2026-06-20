@@ -13,6 +13,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpcatalog"
 	"github.com/obot-platform/obot/pkg/controller/handlers/provider"
 	"github.com/obot-platform/obot/pkg/controller/handlers/secret"
+	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/serviceaccounts"
 	"github.com/obot-platform/obot/pkg/services"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -62,7 +63,11 @@ func (c *Controller) PreStart(ctx context.Context) error {
 		return fmt.Errorf("failed to ensure default user role setting: %w", err)
 	}
 
-	if err := ensureK8sSettings(ctx, c.services.StorageClient, c.services.PodSchedulingSettingsFromHelm, c.services.PSASettingsFromHelm); err != nil {
+	resourceMaximums := mcp.ResourceMaximums{}
+	if mcp.IsKubernetesBackend(c.services.MCPRuntimeBackend) && c.services.MCPSessionManager != nil {
+		resourceMaximums = c.services.MCPSessionManager.ResourceMaximums()
+	}
+	if err := ensureK8sSettings(ctx, c.services.StorageClient, c.services.PodSchedulingSettingsFromHelm, c.services.PSASettingsFromHelm, resourceMaximums); err != nil {
 		return fmt.Errorf("failed to ensure K8s settings: %w", err)
 	}
 
@@ -368,7 +373,7 @@ func ensureDefaultUserRoleSetting(ctx context.Context, client kclient.Client) er
 // psaSettings: Pod Security Admission settings - always sourced from Helm/environment.
 //
 //	These are always applied regardless of SetViaHelm flag and cannot be modified via UI.
-func ensureK8sSettings(ctx context.Context, client kclient.Client, podSchedulingSettings *v1.K8sSettingsSpec, psaSettings *v1.PodSecurityAdmissionSettings) error {
+func ensureK8sSettings(ctx context.Context, client kclient.Client, podSchedulingSettings *v1.K8sSettingsSpec, psaSettings *v1.PodSecurityAdmissionSettings, resourceMaximums mcp.ResourceMaximums) error {
 	var k8sSettings v1.K8sSettings
 	if err := client.Get(ctx, kclient.ObjectKey{
 		Namespace: system.DefaultNamespace,
@@ -398,6 +403,10 @@ func ensureK8sSettings(ctx context.Context, client kclient.Client, podScheduling
 
 		// PSA settings are always applied from environment/Helm (independent of SetViaHelm)
 		k8sSettings.Spec.PodSecurityAdmission = psaSettings
+
+		if err := validateStartupK8sSettingsResourceMaximums(k8sSettings.Spec, resourceMaximums); err != nil {
+			return err
+		}
 
 		return client.Create(ctx, &k8sSettings)
 	} else if err != nil {
@@ -445,10 +454,21 @@ func ensureK8sSettings(ctx context.Context, client kclient.Client, podScheduling
 		needsUpdate = true
 	}
 
+	if err := validateStartupK8sSettingsResourceMaximums(k8sSettings.Spec, resourceMaximums); err != nil {
+		return err
+	}
+
 	if needsUpdate {
 		return client.Update(ctx, &k8sSettings)
 	}
 
+	return nil
+}
+
+func validateStartupK8sSettingsResourceMaximums(settings v1.K8sSettingsSpec, maximums mcp.ResourceMaximums) error {
+	if err := mcp.ValidateConfiguredK8sSettingsResourceMaximums(settings, maximums); err != nil {
+		return fmt.Errorf("configured K8s settings resource defaults exceed configured MCP Kubernetes resource maximums: %w. Increase the OBOT_SERVER_MCPK8S_MAX_* values or lower the configured K8s settings resources", err)
+	}
 	return nil
 }
 

@@ -117,3 +117,20 @@ func ValidateK8sSettingsResourceMaximums(k8sSettings v1.K8sSettingsSpec, maximum
 	}
 	return nil
 }
+
+func ValidateConfiguredK8sSettingsResourceMaximums(k8sSettings v1.K8sSettingsSpec, maximums ResourceMaximums) error {
+	if maximums.Empty() {
+		return nil
+	}
+	if k8sSettings.Resources != nil {
+		if err := maximums.Validate(mcpContainerResources(nil, types.RuntimeNPX, false, k8sSettings)); err != nil {
+			return fmt.Errorf("configured default MCP server resources exceed maximums: %w", err)
+		}
+	}
+	if k8sSettings.NanobotAgentResources != nil {
+		if err := maximums.Validate(mcpContainerResources(nil, types.RuntimeNPX, true, k8sSettings)); err != nil {
+			return fmt.Errorf("configured default nanobot agent MCP server resources exceed maximums: %w", err)
+		}
+	}
+	return nil
+}

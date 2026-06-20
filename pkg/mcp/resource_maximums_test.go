@@ -80,3 +80,26 @@ func TestValidateK8sSettingsResourceMaximumsAllowsDefaultsBelowMaximum(t *testin
 		t.Fatalf("expected defaults below maximum to pass: %v", err)
 	}
 }
+
+func TestValidateConfiguredK8sSettingsResourceMaximumsSkipsUnconfiguredDefaults(t *testing.T) {
+	maximums := ResourceMaximums{MemoryRequest: new(resource.MustParse("1Mi"))}
+
+	if err := ValidateConfiguredK8sSettingsResourceMaximums(v1.K8sSettingsSpec{}, maximums); err != nil {
+		t.Fatalf("expected unconfigured defaults to skip startup validation: %v", err)
+	}
+}
+
+func TestValidateConfiguredK8sSettingsResourceMaximumsRejectsConfiguredDefaultAboveMaximum(t *testing.T) {
+	maximums := ResourceMaximums{MemoryRequest: new(resource.MustParse("256Mi"))}
+	settings := v1.K8sSettingsSpec{
+		Resources: &corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceMemory: resource.MustParse("512Mi"),
+			},
+		},
+	}
+
+	if err := ValidateConfiguredK8sSettingsResourceMaximums(settings, maximums); err == nil {
+		t.Fatal("expected configured default memory request to exceed maximum")
+	}
+}
