@@ -9,7 +9,6 @@ import (
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"gorm.io/datatypes"
-	"gorm.io/gorm"
 )
 
 // maxErrorSummaryBytes caps the plaintext, searchable Error column for events
@@ -118,36 +117,6 @@ func (a *MCPAuditLog) EnsureLocal() *LocalAuditLog {
 		a.Local = new(LocalAuditLog)
 	}
 	return a.Local
-}
-
-func (a *MCPAuditLog) NormalizeSourceFields() {
-	switch a.SourceType {
-	case types2.AuditLogSourceTypeLocalAgent:
-		a.EnsureLocal()
-		a.MCP = nil
-	case types2.AuditLogSourceTypeMCP:
-		a.EnsureMCP()
-		a.Local = nil
-	default:
-		switch {
-		case a.Local != nil && a.MCP == nil:
-			a.SourceType = types2.AuditLogSourceTypeLocalAgent
-		default:
-			a.SourceType = types2.AuditLogSourceTypeMCP
-			a.EnsureMCP()
-			a.Local = nil
-		}
-	}
-}
-
-func (a *MCPAuditLog) BeforeSave(*gorm.DB) error {
-	a.NormalizeSourceFields()
-	return nil
-}
-
-func (a *MCPAuditLog) AfterFind(*gorm.DB) error {
-	a.NormalizeSourceFields()
-	return nil
 }
 
 // EventTypeForCallType maps an MCP call type to the generic audit event type.

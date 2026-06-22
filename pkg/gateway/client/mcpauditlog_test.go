@@ -342,7 +342,7 @@ func TestGenericAuditFilters(t *testing.T) {
 	}
 }
 
-func TestAuditLogSourcePointersAfterFind(t *testing.T) {
+func TestGetMCPAuditLogUsesSourceType(t *testing.T) {
 	c, _ := newTestClientWithDB(t)
 	now := time.Now().UTC()
 
@@ -369,26 +369,34 @@ func TestAuditLogSourcePointersAfterFind(t *testing.T) {
 		},
 	})
 
-	var gotMCP types.MCPAuditLog
-	if err := c.db.WithContext(t.Context()).First(&gotMCP, mcpRow.ID).Error; err != nil {
-		t.Fatalf("failed to fetch MCP row: %v", err)
+	gotMCP, err := c.GetMCPAuditLog(t.Context(), mcpRow.ID, true)
+	if err != nil {
+		t.Fatalf("GetMCPAuditLog() MCP row error: %v", err)
 	}
-	if gotMCP.MCP == nil || gotMCP.Local != nil {
-		t.Fatalf("MCP row source pointers = mcp:%v local:%v, want only MCP", gotMCP.MCP, gotMCP.Local)
+	if gotMCP.SourceType != types2.AuditLogSourceTypeMCP || gotMCP.MCP == nil {
+		t.Fatalf("MCP row source = %q mcp:%v, want MCP source fields", gotMCP.SourceType, gotMCP.MCP)
 	}
 	if gotMCP.MCP.MCPID != "mcp-1" || gotMCP.MCP.ResponseStatus != 204 {
 		t.Fatalf("MCP fields were not hydrated: %+v", gotMCP.MCP)
 	}
-
-	var gotLocal types.MCPAuditLog
-	if err := c.db.WithContext(t.Context()).First(&gotLocal, localRow.ID).Error; err != nil {
-		t.Fatalf("failed to fetch local row: %v", err)
+	apiMCP := types.ConvertMCPAuditLog(*gotMCP)
+	if apiMCP.MCP == nil || apiMCP.Local != nil {
+		t.Fatalf("MCP conversion source fields = mcp:%v local:%v, want only MCP", apiMCP.MCP, apiMCP.Local)
 	}
-	if gotLocal.Local == nil || gotLocal.MCP != nil {
-		t.Fatalf("local row source pointers = mcp:%v local:%v, want only Local", gotLocal.MCP, gotLocal.Local)
+
+	gotLocal, err := c.GetMCPAuditLog(t.Context(), localRow.ID, true)
+	if err != nil {
+		t.Fatalf("GetMCPAuditLog() local row error: %v", err)
+	}
+	if gotLocal.SourceType != types2.AuditLogSourceTypeLocalAgent || gotLocal.Local == nil {
+		t.Fatalf("local row source = %q local:%v, want Local source fields", gotLocal.SourceType, gotLocal.Local)
 	}
 	if string(gotLocal.Local.RawEvent) != `{"hook":"post"}` {
 		t.Fatalf("local fields were not hydrated: %+v", gotLocal.Local)
+	}
+	apiLocal := types.ConvertMCPAuditLog(*gotLocal)
+	if apiLocal.Local == nil || apiLocal.MCP != nil {
+		t.Fatalf("local conversion source fields = mcp:%v local:%v, want only Local", apiLocal.MCP, apiLocal.Local)
 	}
 }
 
@@ -453,21 +461,18 @@ func TestInsertMCPAuditLogsDedupesLocalEventID(t *testing.T) {
 		{
 			CreatedAt:        now,
 			SourceType:       types2.AuditLogSourceTypeLocalAgent,
-			RequestBody:      []byte(`{}`),
 			Local:            &types.LocalAuditLog{EventID: "evt-dup"},
 			ResponseReceived: true,
 		},
 		{
 			CreatedAt:        now.Add(time.Second),
 			SourceType:       types2.AuditLogSourceTypeLocalAgent,
-			RequestBody:      []byte(`{}`),
 			Local:            &types.LocalAuditLog{EventID: "evt-dup"},
 			ResponseReceived: true,
 		},
 		{
 			CreatedAt:        now.Add(2 * time.Second),
 			SourceType:       types2.AuditLogSourceTypeLocalAgent,
-			RequestBody:      []byte(`{}`),
 			Local:            &types.LocalAuditLog{EventID: "evt-next"},
 			ResponseReceived: true,
 		},

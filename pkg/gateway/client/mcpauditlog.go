@@ -36,18 +36,19 @@ func (c *Client) insertMCPAuditLogs(ctx context.Context, logs []types.MCPAuditLo
 	responseOnlyLogs := make([]types.MCPAuditLog, 0, len(logs)/2)
 
 	for _, log := range logs {
+		normalizeMCPAuditLogSourceFields(&log)
 		// Convert timestamp to UTC for consistency
 		log.CreatedAt = log.CreatedAt.UTC()
 
 		if !log.ResponseReceived {
 			// Request-only logs
 			toInsert = append(toInsert, log)
-		} else if len(log.RequestBody) > 0 {
-			// Complete logs (has both request and response data)
-			toInsert = append(toInsert, log)
-		} else {
+		} else if log.SourceType == types2.AuditLogSourceTypeMCP && len(log.RequestBody) == 0 {
 			// Response-only logs (need to find and update existing request)
 			responseOnlyLogs = append(responseOnlyLogs, log)
+		} else {
+			// Complete logs (has both request and response data)
+			toInsert = append(toInsert, log)
 		}
 	}
 
@@ -342,15 +343,19 @@ session_id %[1]s ? OR request_id %[1]s ? OR user_agent %[1]s ? OR device_id %[1]
 			// So, just blank them out and skip decryption.
 			logs[i].RequestBody = nil
 			logs[i].ResponseBody = nil
-			if logs[i].MCP != nil {
-				logs[i].MCP.MutatedRequestBody = nil
-				logs[i].MCP.OriginalResponseBody = nil
-				logs[i].MCP.RequestHeaders = nil
-				logs[i].MCP.ResponseHeaders = nil
-			}
-			if logs[i].Local != nil {
-				logs[i].Local.ErrorDetail = ""
-				logs[i].Local.RawEvent = nil
+			switch logs[i].SourceType {
+			case types2.AuditLogSourceTypeMCP:
+				if logs[i].MCP != nil {
+					logs[i].MCP.MutatedRequestBody = nil
+					logs[i].MCP.OriginalResponseBody = nil
+					logs[i].MCP.RequestHeaders = nil
+					logs[i].MCP.ResponseHeaders = nil
+				}
+			case types2.AuditLogSourceTypeLocalAgent:
+				if logs[i].Local != nil {
+					logs[i].Local.ErrorDetail = ""
+					logs[i].Local.RawEvent = nil
+				}
 			}
 		} else {
 			if err := c.decryptMCPAuditLog(ctx, &logs[i]); err != nil {
@@ -380,13 +385,17 @@ func (c *Client) GetMCPAuditLog(ctx context.Context, id uint, withRequestAndResp
 		// Blank out encrypted fields
 		log.RequestBody = nil
 		log.ResponseBody = nil
-		if log.MCP != nil {
-			log.MCP.MutatedRequestBody = nil
-			log.MCP.OriginalResponseBody = nil
-		}
-		if log.Local != nil {
-			log.Local.ErrorDetail = ""
-			log.Local.RawEvent = nil
+		switch log.SourceType {
+		case types2.AuditLogSourceTypeMCP:
+			if log.MCP != nil {
+				log.MCP.MutatedRequestBody = nil
+				log.MCP.OriginalResponseBody = nil
+			}
+		case types2.AuditLogSourceTypeLocalAgent:
+			if log.Local != nil {
+				log.Local.ErrorDetail = ""
+				log.Local.RawEvent = nil
+			}
 		}
 	}
 
@@ -658,8 +667,6 @@ type MCPUsageStatsOptions struct {
 }
 
 func (c *Client) encryptMCPAuditLog(ctx context.Context, log *types.MCPAuditLog) error {
-	log.NormalizeSourceFields()
-
 	if c.encryptionConfig == nil {
 		return nil
 	}
@@ -693,54 +700,57 @@ func (c *Client) encryptMCPAuditLog(ctx context.Context, log *types.MCPAuditLog)
 		}
 	}
 
-	if log.MCP != nil {
-		if len(log.MCP.MutatedRequestBody) > 0 {
-			if b, err = transformer.TransformToStorage(ctx, log.MCP.MutatedRequestBody, dataCtx); err != nil {
-				errs = append(errs, err)
-			} else {
-				log.MCP.MutatedRequestBody = json.RawMessage(base64.StdEncoding.EncodeToString(b))
+	switch log.SourceType {
+	case types2.AuditLogSourceTypeMCP:
+		if log.MCP != nil {
+			if len(log.MCP.MutatedRequestBody) > 0 {
+				if b, err = transformer.TransformToStorage(ctx, log.MCP.MutatedRequestBody, dataCtx); err != nil {
+					errs = append(errs, err)
+				} else {
+					log.MCP.MutatedRequestBody = json.RawMessage(base64.StdEncoding.EncodeToString(b))
+				}
+			}
+
+			if len(log.MCP.OriginalResponseBody) > 0 {
+				if b, err = transformer.TransformToStorage(ctx, log.MCP.OriginalResponseBody, dataCtx); err != nil {
+					errs = append(errs, err)
+				} else {
+					log.MCP.OriginalResponseBody = json.RawMessage(base64.StdEncoding.EncodeToString(b))
+				}
+			}
+
+			if len(log.MCP.RequestHeaders) > 0 {
+				if b, err = transformer.TransformToStorage(ctx, log.MCP.RequestHeaders, dataCtx); err != nil {
+					errs = append(errs, err)
+				} else {
+					log.MCP.RequestHeaders = json.RawMessage(base64.StdEncoding.EncodeToString(b))
+				}
+			}
+
+			if len(log.MCP.ResponseHeaders) > 0 {
+				if b, err = transformer.TransformToStorage(ctx, log.MCP.ResponseHeaders, dataCtx); err != nil {
+					errs = append(errs, err)
+				} else {
+					log.MCP.ResponseHeaders = json.RawMessage(base64.StdEncoding.EncodeToString(b))
+				}
 			}
 		}
-
-		if len(log.MCP.OriginalResponseBody) > 0 {
-			if b, err = transformer.TransformToStorage(ctx, log.MCP.OriginalResponseBody, dataCtx); err != nil {
-				errs = append(errs, err)
-			} else {
-				log.MCP.OriginalResponseBody = json.RawMessage(base64.StdEncoding.EncodeToString(b))
+	case types2.AuditLogSourceTypeLocalAgent:
+		if log.Local != nil {
+			if log.Local.ErrorDetail != "" {
+				if b, err = transformer.TransformToStorage(ctx, []byte(log.Local.ErrorDetail), dataCtx); err != nil {
+					errs = append(errs, err)
+				} else {
+					log.Local.ErrorDetail = base64.StdEncoding.EncodeToString(b)
+				}
 			}
-		}
 
-		if len(log.MCP.RequestHeaders) > 0 {
-			if b, err = transformer.TransformToStorage(ctx, log.MCP.RequestHeaders, dataCtx); err != nil {
-				errs = append(errs, err)
-			} else {
-				log.MCP.RequestHeaders = json.RawMessage(base64.StdEncoding.EncodeToString(b))
-			}
-		}
-
-		if len(log.MCP.ResponseHeaders) > 0 {
-			if b, err = transformer.TransformToStorage(ctx, log.MCP.ResponseHeaders, dataCtx); err != nil {
-				errs = append(errs, err)
-			} else {
-				log.MCP.ResponseHeaders = json.RawMessage(base64.StdEncoding.EncodeToString(b))
-			}
-		}
-	}
-
-	if log.Local != nil {
-		if log.Local.ErrorDetail != "" {
-			if b, err = transformer.TransformToStorage(ctx, []byte(log.Local.ErrorDetail), dataCtx); err != nil {
-				errs = append(errs, err)
-			} else {
-				log.Local.ErrorDetail = base64.StdEncoding.EncodeToString(b)
-			}
-		}
-
-		if len(log.Local.RawEvent) > 0 {
-			if b, err = transformer.TransformToStorage(ctx, log.Local.RawEvent, dataCtx); err != nil {
-				errs = append(errs, err)
-			} else {
-				log.Local.RawEvent = json.RawMessage(base64.StdEncoding.EncodeToString(b))
+			if len(log.Local.RawEvent) > 0 {
+				if b, err = transformer.TransformToStorage(ctx, log.Local.RawEvent, dataCtx); err != nil {
+					errs = append(errs, err)
+				} else {
+					log.Local.RawEvent = json.RawMessage(base64.StdEncoding.EncodeToString(b))
+				}
 			}
 		}
 	}
@@ -751,8 +761,6 @@ func (c *Client) encryptMCPAuditLog(ctx context.Context, log *types.MCPAuditLog)
 }
 
 func (c *Client) decryptMCPAuditLog(ctx context.Context, log *types.MCPAuditLog) error {
-	log.NormalizeSourceFields()
-
 	if !log.Encrypted || c.encryptionConfig == nil {
 		return nil
 	}
@@ -799,90 +807,93 @@ func (c *Client) decryptMCPAuditLog(ctx context.Context, log *types.MCPAuditLog)
 		}
 	}
 
-	if log.MCP != nil {
-		if len(log.MCP.MutatedRequestBody) > 0 {
-			decoded = make([]byte, base64.StdEncoding.DecodedLen(len(log.MCP.MutatedRequestBody)))
-			n, err = base64.StdEncoding.Decode(decoded, log.MCP.MutatedRequestBody)
-			if err == nil {
-				if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
-					errs = append(errs, err)
+	switch log.SourceType {
+	case types2.AuditLogSourceTypeMCP:
+		if log.MCP != nil {
+			if len(log.MCP.MutatedRequestBody) > 0 {
+				decoded = make([]byte, base64.StdEncoding.DecodedLen(len(log.MCP.MutatedRequestBody)))
+				n, err = base64.StdEncoding.Decode(decoded, log.MCP.MutatedRequestBody)
+				if err == nil {
+					if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
+						errs = append(errs, err)
+					} else {
+						log.MCP.MutatedRequestBody = json.RawMessage(out)
+					}
 				} else {
-					log.MCP.MutatedRequestBody = json.RawMessage(out)
+					errs = append(errs, err)
 				}
-			} else {
-				errs = append(errs, err)
+			}
+
+			if len(log.MCP.OriginalResponseBody) > 0 {
+				decoded = make([]byte, base64.StdEncoding.DecodedLen(len(log.MCP.OriginalResponseBody)))
+				n, err = base64.StdEncoding.Decode(decoded, log.MCP.OriginalResponseBody)
+				if err == nil {
+					if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
+						errs = append(errs, err)
+					} else {
+						log.MCP.OriginalResponseBody = json.RawMessage(out)
+					}
+				} else {
+					errs = append(errs, err)
+				}
+			}
+
+			if len(log.MCP.RequestHeaders) > 0 {
+				decoded = make([]byte, base64.StdEncoding.DecodedLen(len(log.MCP.RequestHeaders)))
+				n, err = base64.StdEncoding.Decode(decoded, log.MCP.RequestHeaders)
+				if err == nil {
+					if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
+						errs = append(errs, err)
+					} else {
+						log.MCP.RequestHeaders = json.RawMessage(out)
+					}
+				} else {
+					errs = append(errs, err)
+				}
+			}
+
+			if len(log.MCP.ResponseHeaders) > 0 {
+				decoded = make([]byte, base64.StdEncoding.DecodedLen(len(log.MCP.ResponseHeaders)))
+				n, err = base64.StdEncoding.Decode(decoded, log.MCP.ResponseHeaders)
+				if err == nil {
+					if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
+						errs = append(errs, err)
+					} else {
+						log.MCP.ResponseHeaders = json.RawMessage(out)
+					}
+				} else {
+					errs = append(errs, err)
+				}
 			}
 		}
-
-		if len(log.MCP.OriginalResponseBody) > 0 {
-			decoded = make([]byte, base64.StdEncoding.DecodedLen(len(log.MCP.OriginalResponseBody)))
-			n, err = base64.StdEncoding.Decode(decoded, log.MCP.OriginalResponseBody)
-			if err == nil {
-				if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
-					errs = append(errs, err)
+	case types2.AuditLogSourceTypeLocalAgent:
+		if log.Local != nil {
+			if log.Local.ErrorDetail != "" {
+				decoded = make([]byte, base64.StdEncoding.DecodedLen(len(log.Local.ErrorDetail)))
+				n, err = base64.StdEncoding.Decode(decoded, []byte(log.Local.ErrorDetail))
+				if err == nil {
+					if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
+						errs = append(errs, err)
+					} else {
+						log.Local.ErrorDetail = string(out)
+					}
 				} else {
-					log.MCP.OriginalResponseBody = json.RawMessage(out)
+					errs = append(errs, err)
 				}
-			} else {
-				errs = append(errs, err)
 			}
-		}
 
-		if len(log.MCP.RequestHeaders) > 0 {
-			decoded = make([]byte, base64.StdEncoding.DecodedLen(len(log.MCP.RequestHeaders)))
-			n, err = base64.StdEncoding.Decode(decoded, log.MCP.RequestHeaders)
-			if err == nil {
-				if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
-					errs = append(errs, err)
+			if len(log.Local.RawEvent) > 0 {
+				decoded = make([]byte, base64.StdEncoding.DecodedLen(len(log.Local.RawEvent)))
+				n, err = base64.StdEncoding.Decode(decoded, log.Local.RawEvent)
+				if err == nil {
+					if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
+						errs = append(errs, err)
+					} else {
+						log.Local.RawEvent = json.RawMessage(out)
+					}
 				} else {
-					log.MCP.RequestHeaders = json.RawMessage(out)
-				}
-			} else {
-				errs = append(errs, err)
-			}
-		}
-
-		if len(log.MCP.ResponseHeaders) > 0 {
-			decoded = make([]byte, base64.StdEncoding.DecodedLen(len(log.MCP.ResponseHeaders)))
-			n, err = base64.StdEncoding.Decode(decoded, log.MCP.ResponseHeaders)
-			if err == nil {
-				if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
 					errs = append(errs, err)
-				} else {
-					log.MCP.ResponseHeaders = json.RawMessage(out)
 				}
-			} else {
-				errs = append(errs, err)
-			}
-		}
-	}
-
-	if log.Local != nil {
-		if log.Local.ErrorDetail != "" {
-			decoded = make([]byte, base64.StdEncoding.DecodedLen(len(log.Local.ErrorDetail)))
-			n, err = base64.StdEncoding.Decode(decoded, []byte(log.Local.ErrorDetail))
-			if err == nil {
-				if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
-					errs = append(errs, err)
-				} else {
-					log.Local.ErrorDetail = string(out)
-				}
-			} else {
-				errs = append(errs, err)
-			}
-		}
-
-		if len(log.Local.RawEvent) > 0 {
-			decoded = make([]byte, base64.StdEncoding.DecodedLen(len(log.Local.RawEvent)))
-			n, err = base64.StdEncoding.Decode(decoded, log.Local.RawEvent)
-			if err == nil {
-				if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
-					errs = append(errs, err)
-				} else {
-					log.Local.RawEvent = json.RawMessage(out)
-				}
-			} else {
-				errs = append(errs, err)
 			}
 		}
 	}
@@ -890,12 +901,27 @@ func (c *Client) decryptMCPAuditLog(ctx context.Context, log *types.MCPAuditLog)
 	return errors.Join(errs...)
 }
 
-func mcpAuditLogDataCtx(log *types.MCPAuditLog) value.Context {
-	if log.MCP != nil {
-		return value.DefaultContext(fmt.Sprintf("%s/%s/%s", mcpAuditLogGroupResource.String(), log.MCP.MCPID, log.UserID))
+func normalizeMCPAuditLogSourceFields(log *types.MCPAuditLog) {
+	switch log.SourceType {
+	case types2.AuditLogSourceTypeLocalAgent:
+		log.EnsureLocal()
+		log.MCP = nil
+	case types2.AuditLogSourceTypeMCP:
+		log.EnsureMCP()
+		log.Local = nil
 	}
-	if log.Local != nil && log.Local.EventID != "" {
-		return value.DefaultContext(fmt.Sprintf("%s/local/%s/%s", mcpAuditLogGroupResource.String(), log.Local.EventID, log.UserID))
+}
+
+func mcpAuditLogDataCtx(log *types.MCPAuditLog) value.Context {
+	switch log.SourceType {
+	case types2.AuditLogSourceTypeMCP:
+		if log.MCP != nil {
+			return value.DefaultContext(fmt.Sprintf("%s/%s/%s", mcpAuditLogGroupResource.String(), log.MCP.MCPID, log.UserID))
+		}
+	case types2.AuditLogSourceTypeLocalAgent:
+		if log.Local != nil && log.Local.EventID != "" {
+			return value.DefaultContext(fmt.Sprintf("%s/local/%s/%s", mcpAuditLogGroupResource.String(), log.Local.EventID, log.UserID))
+		}
 	}
 	return value.DefaultContext(fmt.Sprintf("%s/%s", mcpAuditLogGroupResource.String(), log.UserID))
 }
