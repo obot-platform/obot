@@ -47,7 +47,7 @@ function setAiClientPreference(aiClient: AiClient | AiClient[]) {
 	store.aiClientPreference = values.length ? values : getAiClientPreference();
 }
 
-function getAiClientPreference(): AiClient[] | undefined {
+function getAiClientPreference(): AiClient[] {
 	if (!browser) {
 		return [];
 	}

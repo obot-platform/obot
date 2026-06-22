@@ -1066,13 +1066,13 @@ const obotApiKeyInput = {
 	password: true
 } as const;
 
-function toVsCodeMcpServerName(displayName: string, connectUrl: string): string {
+function toVsCodeMcpServerName(id: string, connectUrl: string): string {
 	const fromUrl = connectUrl.match(/\/mcp-connect\/([^/?#]+)/)?.[1];
 	if (fromUrl) {
 		return fromUrl;
 	}
 
-	const sanitized = displayName
+	const sanitized = id
 		.trim()
 		.replace(/\s+(.)/g, (_, char: string) => char.toUpperCase())
 		.replace(/[^a-zA-Z0-9]/g, '');
@@ -1080,18 +1080,18 @@ function toVsCodeMcpServerName(displayName: string, connectUrl: string): string 
 	return sanitized || 'obotMcpServer';
 }
 
-function generateCursorMagicLink(displayName: string, url: string): string {
+function generateCursorMagicLink(id: string, url: string): string {
 	const cursorConfig = {
 		type: 'http',
 		url: url
 	};
 	const cursorBase64 = encodeUtf8ToBase64(JSON.stringify(cursorConfig));
-	return `cursor://anysphere.cursor-deeplink/mcp/install?name=${encodeURIComponent(displayName)}&config=${encodeURIComponent(cursorBase64)}`;
+	return `cursor://anysphere.cursor-deeplink/mcp/install?name=${encodeURIComponent(id)}&config=${encodeURIComponent(cursorBase64)}`;
 }
 
-function generateVsCodeMagicLink(displayName: string, url: string): string {
+function generateVsCodeMagicLink(id: string, url: string): string {
 	const vscodeConfig = {
-		name: toVsCodeMcpServerName(displayName, url),
+		name: toVsCodeMcpServerName(id, url),
 		inputs: [obotApiKeyInput],
 		type: 'http',
 		url: url,

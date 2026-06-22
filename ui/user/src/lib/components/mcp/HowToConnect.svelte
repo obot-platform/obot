@@ -51,8 +51,9 @@
 	];
 
 	function generateMcpLinks(id: string, connectUrl: string) {
-		const userSetPreferences = new Set(userDeviceSettings.aiClientPreference ?? []);
-		return MAGIC_LINK_SUPPORTED_AI_CLIENTS.filter((client) => userSetPreferences.has(client)).map(
+		const prefs = userDeviceSettings.aiClientPreference ?? [];
+		const preferred = prefs.length ? new Set(prefs) : new Set(MAGIC_LINK_SUPPORTED_AI_CLIENTS);
+		return MAGIC_LINK_SUPPORTED_AI_CLIENTS.filter((client) => preferred.has(client)).map(
 			(client) => ({
 				client,
 				link: getAiClientMagicLink(client, id, connectUrl)
@@ -61,13 +62,12 @@
 	}
 
 	function generateAiClientCommands(id: string, url: string) {
-		const userSetPreferences = new Set(userDeviceSettings.aiClientPreference ?? []);
-		return COMMAND_SUPPORTED_AI_CLIENTS.filter((client) => userSetPreferences.has(client)).map(
-			(client) => ({
-				client,
-				command: getAiClientCommand(client, id, url)
-			})
-		);
+		const prefs = userDeviceSettings.aiClientPreference ?? [];
+		const preferred = prefs.length ? new Set(prefs) : new Set(COMMAND_SUPPORTED_AI_CLIENTS);
+		return COMMAND_SUPPORTED_AI_CLIENTS.filter((client) => preferred.has(client)).map((client) => ({
+			client,
+			command: getAiClientCommand(client, id, url)
+		}));
 	}
 
 	export function resetCopied() {
