@@ -188,20 +188,21 @@
 											{readonly}
 										/>
 									{/if}
-									<div class="flex flex-col gap-2">
-										{#if variant === 'server'}
-											<label for={`header-description-${i}`} class="text-sm font-light">Value</label
-											>
-										{/if}
-										{#if !config.headers[i].secretBinding}
+									{#if !config.headers[i].secretBinding}
+										<div class="flex flex-col gap-2">
+											{#if variant === 'server'}
+												<label for={`header-description-${i}`} class="text-sm font-light"
+													>Value</label
+												>
+											{/if}
 											<input
 												id={`header-description-${i}`}
 												class="text-input-filled bg-base-100 w-full shadow-none"
 												bind:value={config.headers[i].value}
 												disabled={readonly}
 											/>
-										{/if}
-									</div>
+										</div>
+									{/if}
 								{/if}
 							</div>
 

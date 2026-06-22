@@ -59,6 +59,13 @@ export function normalizeManifestsForDiff<T>(currentManifest: T, newManifest: T)
 		keepSecretBindingMetadata: true
 	}) as ManifestDiff;
 
+	// stripManifestMetadata returns undefined for an undefined manifest. Bail out before
+	// dereferencing so callers fall through to their "unable to compare" fallback UI
+	// instead of throwing on current.compositeConfig.
+	if (!current || !next) {
+		return [current as T, next as T];
+	}
+
 	const normalize = (currentShape?: ManifestDiff, nextShape?: ManifestDiff) => {
 		if (!currentShape || !nextShape) return;
 		normalizeFieldList(currentShape.env, nextShape.env);
