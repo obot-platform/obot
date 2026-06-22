@@ -1768,7 +1768,7 @@ func serverManifestFromCatalogEntryManifest(
 		result = mergeMCPServerManifests(result, input)
 	}
 
-	return result, nil
+	return *result.DeepCopy(), nil
 }
 
 func mergeMCPServerManifests(existing, override types.MCPServerManifest) types.MCPServerManifest {

@@ -818,6 +818,40 @@ func TestMarkAdminAddedSecretBindingsClearsClientSuppliedMetadata(t *testing.T) 
 	assert.False(t, manifest.Env[0].SecretBinding.AdminAdded)
 }
 
+// TestServerFromMultiUserTemplateMarksAdminAddedSecretBinding reproduces the bug where a
+// multi-user server deployed from a template with an admin-selected secret binding (one the
+// template does not define) is not marked AdminAdded, so drift/diff treats it as catalog drift.
+func TestServerFromMultiUserTemplateMarksAdminAddedSecretBinding(t *testing.T) {
+	entry := types.MCPServerCatalogEntryManifest{
+		Name:           "tmpl",
+		Runtime:        types.RuntimeContainerized,
+		ServerUserType: types.ServerUserTypeMultiUser,
+		ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+			Image: "example/mcp:latest",
+			Port:  8080,
+			Path:  "/mcp",
+		},
+		Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "GREETING", Name: "GREETING"}}},
+	}
+	// Admin selects a secret binding for GREETING at deploy time; the template has none.
+	input := types.MCPServerManifest{
+		Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+			Key:           "GREETING",
+			SecretBinding: &types.MCPSecretBinding{Name: "test-secret-11", Key: "key1"},
+		}}},
+	}
+
+	manifest, err := serverManifestFromCatalogEntryManifest(false, false, entry, input)
+	require.NoError(t, err)
+	manifest = applySecretBindingOverlay(manifest, input)
+	markAdminAddedSecretBindings(&manifest, &entry)
+
+	require.Len(t, manifest.Env, 1)
+	require.NotNil(t, manifest.Env[0].SecretBinding)
+	assert.True(t, manifest.Env[0].SecretBinding.AdminAdded,
+		"a secret binding selected at deploy time (absent from the multi-user template) must be marked AdminAdded")
+}
+
 func TestRejectCatalogSecretBindingOverrides(t *testing.T) {
 	sourceBinding := &types.MCPSecretBinding{Name: "source-secret", Key: "token"}
 	source := &types.MCPServerCatalogEntryManifest{
