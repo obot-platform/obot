@@ -20,7 +20,7 @@
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { formatTimeAgo } from '$lib/time';
 	import { goto } from '$lib/url';
-	import { PencilLine, Play, Workflow, Eye, FolderInput, Trash2 } from 'lucide-svelte';
+	import { PencilLine, Play, Workflow, Eye, FolderInput, Trash2 } from '@lucide/svelte';
 	import { getContext, untrack } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 

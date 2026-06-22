@@ -27,7 +27,7 @@
 	import { formatTimeAgo } from '$lib/time';
 	import { goto } from '$lib/url';
 	import { openUrl } from '$lib/utils';
-	import { Boxes, Cpu, MonitorCheck, PencilRuler, Server, Trash2 } from 'lucide-svelte';
+	import { Boxes, Cpu, MonitorCheck, PencilRuler, Server, Trash2 } from '@lucide/svelte';
 	import { fly } from 'svelte/transition';
 
 	type Tab = 'mcp' | 'skills' | 'plugins' | 'clients';

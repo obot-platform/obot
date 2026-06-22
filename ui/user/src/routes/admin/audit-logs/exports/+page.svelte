@@ -15,7 +15,7 @@
 	import { replaceState, goto } from '$lib/url';
 	import ExportsView from './ExportsView.svelte';
 	import ScheduledExportsView from './ScheduledExportsView.svelte';
-	import { Plus, Settings } from 'lucide-svelte';
+	import { Plus, Settings } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';

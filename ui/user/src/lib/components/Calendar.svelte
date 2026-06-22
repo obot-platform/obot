@@ -9,8 +9,8 @@
 		isDateDisabled
 	} from './CalendarGrid.svelte';
 	import TimeInput from './TimeInput.svelte';
+	import { CalendarCog } from '@lucide/svelte';
 	import { differenceInDays, endOfDay, isBefore, isSameDay, startOfDay } from 'date-fns';
-	import { CalendarCog } from 'lucide-svelte';
 	import { slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 

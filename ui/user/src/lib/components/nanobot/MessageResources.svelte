@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { getFileIcon } from '$lib/components/nanobot/MessageAttachments.svelte';
 	import type { Resource, ChatMessage } from '$lib/services/nanobot/types';
-	import { Library } from 'lucide-svelte';
+	import { Library } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {

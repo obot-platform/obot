@@ -8,7 +8,7 @@
 	import type { DeviceClientFleetSummary } from '$lib/services';
 	import { goto } from '$lib/url';
 	import { openUrl } from '$lib/utils.js';
-	import { CheckIcon, PencilRuler, Server, Users, XIcon } from 'lucide-svelte';
+	import { CheckIcon, PencilRuler, Server, Users, XIcon } from '@lucide/svelte';
 	import { fly } from 'svelte/transition';
 
 	type TabIcon = typeof Users | typeof Server | typeof PencilRuler;

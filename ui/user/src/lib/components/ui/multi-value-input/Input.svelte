@@ -21,7 +21,7 @@
 </script>
 
 <script lang="ts">
-	import { X } from 'lucide-svelte';
+	import { X } from '@lucide/svelte';
 	import { flip } from 'svelte/animate';
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';

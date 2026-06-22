@@ -20,7 +20,7 @@
 	import Table from '../table/Table.svelte';
 	import SearchSkills from './SearchSkills.svelte';
 	import SearchUsers from './SearchUsers.svelte';
-	import { Plus, Trash2 } from 'lucide-svelte';
+	import { Plus, Trash2 } from '@lucide/svelte';
 	import { onMount, untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
 

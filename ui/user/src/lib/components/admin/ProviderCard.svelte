@@ -10,7 +10,7 @@
 		FlaskConicalIcon,
 		TriangleAlert,
 		CircleAlert
-	} from 'lucide-svelte';
+	} from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 

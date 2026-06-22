@@ -2,7 +2,7 @@
 	import { resolve } from '$app/paths';
 	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
 	import type { OAuthConsent } from '$lib/services';
-	import { ExternalLink, ShieldAlertIcon } from 'lucide-svelte';
+	import { ExternalLink, ShieldAlertIcon } from '@lucide/svelte';
 
 	type Props = {
 		data: {

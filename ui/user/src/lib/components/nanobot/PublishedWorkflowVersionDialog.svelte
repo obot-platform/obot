@@ -16,7 +16,7 @@
 	import { getUserDisplayName } from '$lib/utils';
 	import MarkdownEditor from './MarkdownEditor.svelte';
 	import { hasAllUsersSubject } from './publishedArtifactSubjects';
-	import { ChevronLeft, CircleAlert, Plus, Trash2 } from 'lucide-svelte';
+	import { ChevronLeft, CircleAlert, Plus, Trash2 } from '@lucide/svelte';
 	import { fly } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 

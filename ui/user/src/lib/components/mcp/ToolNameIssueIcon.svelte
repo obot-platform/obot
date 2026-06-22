@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { type ToolNameIssue } from '$lib/services/user/mcp';
-	import { TriangleAlert } from 'lucide-svelte';
+	import { TriangleAlert } from '@lucide/svelte';
 
 	interface Props {
 		issue: ToolNameIssue | undefined;

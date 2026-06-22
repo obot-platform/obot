@@ -2,7 +2,7 @@
 	import { resolve } from '$app/paths';
 	import { UserService } from '$lib/services';
 	import { profile } from '$lib/stores';
-	import { HatGlasses } from 'lucide-svelte';
+	import { HatGlasses } from '@lucide/svelte';
 
 	let { agent } = $props();
 

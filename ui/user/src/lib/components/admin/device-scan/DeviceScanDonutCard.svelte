@@ -7,7 +7,7 @@
 	} from '$lib/components/admin/device-scan/deviceScanTopBuckets';
 	import DonutGraph from '$lib/components/graph/DonutGraph.svelte';
 	import { openUrl } from '$lib/utils';
-	import { ChevronRight } from 'lucide-svelte';
+	import { ChevronRight } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	type Props = {

@@ -4,8 +4,8 @@
 	import { getUserRoleLabel } from '$lib/utils';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import Search from '../Search.svelte';
+	import { Check, User, Users } from '@lucide/svelte';
 	import { debounce } from 'es-toolkit';
-	import { Check, User, Users } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {

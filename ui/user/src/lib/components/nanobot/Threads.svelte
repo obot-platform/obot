@@ -5,7 +5,7 @@
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { isRecent } from '$lib/time';
 	import { goto } from '$lib/url';
-	import { Check, EllipsisVertical, Trash2, X, Plus, SquarePen } from 'lucide-svelte';
+	import { Check, EllipsisVertical, Trash2, X, Plus, SquarePen } from '@lucide/svelte';
 	import { tick } from 'svelte';
 	import { get } from 'svelte/store';
 	import { fly } from 'svelte/transition';

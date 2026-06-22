@@ -19,7 +19,7 @@
 	import ImagePullSecretTestDialog from './ImagePullSecretTestDialog.svelte';
 	import ImagePullSecretsList from './ImagePullSecretsList.svelte';
 	import { defaultForm, displayName, formFromSecret, type ImagePullSecretFormState } from './types';
-	import { Plus } from 'lucide-svelte';
+	import { Plus } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
 

@@ -2,7 +2,7 @@ overrides:
   cookie: 0.7.0
   ip-address: 10.2.0
   esbuild: 0.28.1
-  hono: 4.12.25
+  dompurify: ^3.4.11
 engineStrict: true
 allowBuilds:
   '@modelcontextprotocol/ext-apps': true

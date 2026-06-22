@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { SearchIcon } from 'lucide-svelte';
+	import { SearchIcon } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {

@@ -22,8 +22,8 @@
 		setFilterUrlParams
 	} from '$lib/url.js';
 	import { getUserRoleLabel } from '$lib/utils';
+	import { Handshake, Info, ShieldAlert } from '@lucide/svelte';
 	import { debounce } from 'es-toolkit';
-	import { Handshake, Info, ShieldAlert } from 'lucide-svelte';
 	import { untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
 

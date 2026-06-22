@@ -8,7 +8,7 @@
 	import Select from '../Select.svelte';
 	import Toggle from '../Toggle.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
-	import { Plus, Trash2, Info, Settings } from 'lucide-svelte';
+	import { Plus, Trash2, Info, Settings } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';

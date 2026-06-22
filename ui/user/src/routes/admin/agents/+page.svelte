@@ -12,7 +12,7 @@
 	import { formatTimeAgo } from '$lib/time';
 	import { goto } from '$lib/url';
 	import { getUserDisplayName, openUrl } from '$lib/utils';
-	import { HatGlasses } from 'lucide-svelte';
+	import { HatGlasses } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 
 	let { data } = $props();

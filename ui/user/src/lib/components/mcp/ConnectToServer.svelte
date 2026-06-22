@@ -27,7 +27,7 @@
 		type LaunchFormData
 	} from './CatalogConfigureForm.svelte';
 	import HowToConnect from './HowToConnect.svelte';
-	import { Server, X, CircleAlert } from 'lucide-svelte';
+	import { Server, X, CircleAlert } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';

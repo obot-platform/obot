@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ChevronsLeft, ChevronsRight } from 'lucide-svelte';
+	import { ChevronsLeft, ChevronsRight } from '@lucide/svelte';
 
 	interface Props {
 		pageIndex: number;

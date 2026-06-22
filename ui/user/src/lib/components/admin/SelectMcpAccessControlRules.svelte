@@ -16,7 +16,7 @@
 	import { goto } from '$lib/url';
 	import InfoTooltip from '../InfoTooltip.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
-	import { Circle, CircleCheck } from 'lucide-svelte';
+	import { Circle, CircleCheck } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {

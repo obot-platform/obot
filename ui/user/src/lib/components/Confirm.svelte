@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Loading from '$lib/icons/Loading.svelte';
 	import IconButton from './primitives/IconButton.svelte';
-	import { CircleAlert, X } from 'lucide-svelte/icons';
+	import { CircleAlert, X } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 

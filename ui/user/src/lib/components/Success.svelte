@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CircleCheckBig, X } from 'lucide-svelte/icons';
+	import { CircleCheckBig, X } from '@lucide/svelte';
 	import { fade } from 'svelte/transition';
 
 	interface Props {

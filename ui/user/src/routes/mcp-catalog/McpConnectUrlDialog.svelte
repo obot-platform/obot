@@ -11,7 +11,7 @@
 	} from '$lib/services/user/mcp';
 	import { mcpServersAndEntries } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
-	import { Info, Plus, Server, StepForward } from 'lucide-svelte';
+	import { Info, Plus, Server, StepForward } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {

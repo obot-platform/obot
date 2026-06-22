@@ -6,7 +6,7 @@
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import SensitiveInput from '../SensitiveInput.svelte';
 	import Toggle from '../Toggle.svelte';
-	import { CircleAlert, Server } from 'lucide-svelte';
+	import { CircleAlert, Server } from '@lucide/svelte';
 	import { tick, type Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 

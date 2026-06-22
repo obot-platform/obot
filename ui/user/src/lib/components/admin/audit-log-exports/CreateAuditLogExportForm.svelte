@@ -13,8 +13,8 @@
 		type AuditLogURLFilters
 	} from '$lib/services';
 	import { profile } from '$lib/stores';
+	import { TriangleAlert, ChevronDown, ChevronUp } from '@lucide/svelte';
 	import { subDays, set } from 'date-fns';
-	import { TriangleAlert, ChevronDown, ChevronUp } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { slide } from 'svelte/transition';

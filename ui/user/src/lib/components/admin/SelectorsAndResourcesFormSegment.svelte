@@ -4,7 +4,7 @@
 	import IconButton from '../primitives/IconButton.svelte';
 	import Table from '../table/Table.svelte';
 	import SearchMcpServers from './SearchMcpServers.svelte';
-	import { Plus, Trash2, X } from 'lucide-svelte';
+	import { Plus, Trash2, X } from '@lucide/svelte';
 	import { slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 

@@ -6,7 +6,7 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService, UserService, type BootstrapStatus, type TempUser } from '$lib/services';
 	import { goto } from '$lib/url';
-	import { CircleAlert, Handshake, ShieldAlert } from 'lucide-svelte';
+	import { CircleAlert, Handshake, ShieldAlert } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { slide } from 'svelte/transition';
 

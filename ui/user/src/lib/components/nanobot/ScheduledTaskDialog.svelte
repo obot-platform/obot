@@ -21,7 +21,7 @@
 		parseCronSchedule,
 		type TaskFrequency
 	} from './taskSchedule';
-	import { Check, ChevronDown } from 'lucide-svelte';
+	import { Check, ChevronDown } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {

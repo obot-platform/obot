@@ -4,7 +4,7 @@
 	import type { ChatMessageItemResource } from '$lib/services/nanobot/types';
 	import { isCancellationError } from '$lib/services/nanobot/utils';
 	import PDF from './PDF.svelte';
-	import { CircleAlert, TriangleAlert } from 'lucide-svelte';
+	import { CircleAlert, TriangleAlert } from '@lucide/svelte';
 
 	interface Props {
 		item: ChatMessageItemResource;

@@ -5,7 +5,7 @@
 	import type { RenderContext } from '$lib/services/llm-gateway/types';
 	import LLMGatewayCodeBlock from './LLMGatewayCodeBlock.svelte';
 	import LLMGatewayModelList from './LLMGatewayModelList.svelte';
-	import { ChevronDown, ChevronRight } from 'lucide-svelte';
+	import { ChevronDown, ChevronRight } from '@lucide/svelte';
 
 	interface Props {
 		ctx: RenderContext;

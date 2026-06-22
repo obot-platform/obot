@@ -4,7 +4,7 @@
 	import { getMCPDisplayName } from '$lib/services/user/mcp';
 	import { errors } from '$lib/stores';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
-	import { Server } from 'lucide-svelte';
+	import { Server } from '@lucide/svelte';
 
 	interface Props {
 		server?: MCPCatalogServer;

@@ -22,7 +22,7 @@
 		type LaunchFormData
 	} from './CatalogConfigureForm.svelte';
 	import CatalogEditAliasForm from './CatalogEditAliasForm.svelte';
-	import { CircleAlert } from 'lucide-svelte';
+	import { CircleAlert } from '@lucide/svelte';
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 

@@ -8,8 +8,8 @@
 	import { getUserRoleLabel } from '$lib/utils';
 	import GroupRoleForm from './GroupRoleForm.svelte';
 	import type { GroupAssignment } from './types';
+	import { ChevronLeft } from '@lucide/svelte';
 	import { debounce } from 'es-toolkit';
-	import { ChevronLeft } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {

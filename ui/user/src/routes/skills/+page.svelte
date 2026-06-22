@@ -9,7 +9,7 @@
 	import { MCP_CONNECTION_INVALID_LICENSE_MESSAGE } from '$lib/services/user/constants.js';
 	import { formatTimeAgo } from '$lib/time';
 	import { setUrlParamAndUpdateUrl } from '$lib/url.js';
-	import { TriangleAlert, PencilRuler } from 'lucide-svelte';
+	import { TriangleAlert, PencilRuler } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 
 	let { data } = $props();

@@ -4,7 +4,7 @@
 	import { stripMarkdownToText } from '$lib/markdown';
 	import { type SystemMCPServerCatalogEntry } from '$lib/services';
 	import { formatTimeAgo } from '$lib/time';
-	import { StepForward } from 'lucide-svelte';
+	import { StepForward } from '@lucide/svelte';
 
 	interface Props {
 		query: string;

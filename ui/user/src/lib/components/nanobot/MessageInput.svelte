@@ -11,7 +11,7 @@
 	import MessageAttachments from './MessageAttachments.svelte';
 	import type MessageSlashPromptsType from './MessageSlashPrompts.svelte';
 	import MessageSlashPrompts from './MessageSlashPrompts.svelte';
-	import { CircleAlert, Paperclip, Send, Square, X } from 'lucide-svelte';
+	import { CircleAlert, Paperclip, Send, Square, X } from '@lucide/svelte';
 	import { slide } from 'svelte/transition';
 
 	interface Props {

@@ -26,7 +26,7 @@
 		ScanLine,
 		Server,
 		Users
-	} from 'lucide-svelte';
+	} from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
 

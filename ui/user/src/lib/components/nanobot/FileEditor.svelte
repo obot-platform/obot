@@ -11,7 +11,7 @@
 	import MarkdownEditor from './MarkdownEditor.svelte';
 	import OfficeDocumentPreview from './OfficeDocumentPreview.svelte';
 	import PDF from './PDF.svelte';
-	import { Download, X } from 'lucide-svelte';
+	import { Download, X } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {

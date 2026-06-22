@@ -5,7 +5,7 @@
 	import { AdminService } from '$lib/services';
 	import type { Skill } from '$lib/services/nanobot/types';
 	import MarkdownEditor from '../nanobot/MarkdownEditor.svelte';
-	import { ExternalLink, Info } from 'lucide-svelte';
+	import { ExternalLink, Info } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 

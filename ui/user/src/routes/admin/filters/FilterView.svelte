@@ -12,7 +12,7 @@
 	import type { MCPFilterInput, SystemMCPServerCatalogEntry } from '$lib/services/admin/types';
 	import { profile } from '$lib/stores';
 	import { goto } from '$lib/url';
-	import { BookOpenText, Trash2 } from 'lucide-svelte';
+	import { BookOpenText, Trash2 } from '@lucide/svelte';
 	import type { Component } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';

@@ -8,7 +8,7 @@
 	import type { AuditLogExport } from '$lib/services/admin/types';
 	import { formatTimeAgo } from '$lib/time';
 	import { goto } from '$lib/url';
-	import { FileArchive, CircleAlert } from 'lucide-svelte';
+	import { FileArchive, CircleAlert } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 
 	interface Props {

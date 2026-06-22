@@ -8,8 +8,8 @@
 	import { profile } from '$lib/stores/index';
 	import { setUrlParamAndUpdateUrl } from '$lib/url';
 	import ConnectorsView from './ConnectorsView.svelte';
+	import { Server } from '@lucide/svelte';
 	import { debounce } from 'es-toolkit';
-	import { Server } from 'lucide-svelte';
 	import { fade, fly } from 'svelte/transition';
 
 	let { data } = $props();
