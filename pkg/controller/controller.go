@@ -555,7 +555,11 @@ func (c *Controller) setupLocalK8sRoutes() {
 		return
 	}
 
-	deploymentHandler := deployment.New(c.services.MCPServerNamespace, c.services.Router.Backend(), c.services.MCPRuntimeBackend, c.services.MCPImagePullSecrets)
+	resourceMaximums := mcp.ResourceMaximums{}
+	if mcp.IsKubernetesBackend(c.services.MCPRuntimeBackend) && c.services.MCPSessionManager != nil {
+		resourceMaximums = c.services.MCPSessionManager.ResourceMaximums()
+	}
+	deploymentHandler := deployment.New(c.services.MCPServerNamespace, c.services.Router.Backend(), c.services.MCPRuntimeBackend, resourceMaximums, c.services.MCPImagePullSecrets)
 	c.services.LocalRouter.Type(&appsv1.Deployment{}).IncludeRemoved().HandlerFunc(deploymentHandler.UpdateMCPServerStatus)
 	c.services.LocalRouter.Type(&appsv1.Deployment{}).HandlerFunc(deploymentHandler.CleanupOldIDs)
 

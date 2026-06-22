@@ -539,7 +539,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 		return nil, fmt.Errorf("failed to get effective image pull secrets: %w", err)
 	}
 
-	annotations["obot.ai/k8s-settings-hash"] = ComputeK8sSettingsHash(k8sSettings, server.Resources, server.Runtime, server.NanobotAgentName != "", effectiveImagePullSecrets)
+	annotations["obot.ai/k8s-settings-hash"] = ComputeK8sSettingsHash(k8sSettings, server.Resources, server.Runtime, server.NanobotAgentName != "", k.resourceMaximums, effectiveImagePullSecrets)
 
 	// Get PSA enforce level for security context decisions
 	psaLevel := GetPSAEnforceLevelFromSpec(k8sSettings)
@@ -1266,7 +1266,7 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, server ServerConf
 	}
 
 	// Compute K8s settings hash
-	k8sSettingsHash := ComputeK8sSettingsHash(k8sSettings, server.Resources, server.Runtime, server.NanobotAgentName != "", effectiveImagePullSecrets)
+	k8sSettingsHash := ComputeK8sSettingsHash(k8sSettings, server.Resources, server.Runtime, server.NanobotAgentName != "", k.resourceMaximums, effectiveImagePullSecrets)
 	desiredResources := mcpContainerResourcesWithMaximums(server.Resources, server.Runtime, server.NanobotAgentName != "", k8sSettings, k.resourceMaximums)
 
 	// Make sure that the resources are under the configured maximums
@@ -1870,7 +1870,7 @@ func getPodSecurityContextPatch(psaLevel PSAEnforceLevel) map[string]any {
 // MCP Deployment needs to be updated. The API/status field is still named
 // K8sSettingsHash, but managed image pull secret names are part of the same
 // v1 drift path.
-func ComputeK8sSettingsHash(settings v1.K8sSettingsSpec, serverSpecificResources *corev1.ResourceRequirements, serverRuntime types.Runtime, nanobotAgentServer bool, imagePullSecretNames []string) string {
+func ComputeK8sSettingsHash(settings v1.K8sSettingsSpec, serverSpecificResources *corev1.ResourceRequirements, serverRuntime types.Runtime, nanobotAgentServer bool, maximums ResourceMaximums, imagePullSecretNames []string) string {
 	var buf bytes.Buffer
 
 	// Hash affinity
@@ -1885,9 +1885,11 @@ func ComputeK8sSettingsHash(settings v1.K8sSettingsSpec, serverSpecificResources
 		buf.Write(tolerationsJSON)
 	}
 
-	// Resources are server specific
+	// Resources are server specific. Hash the same effective resources that are
+	// applied to the Deployment, including ResourceMaximums capping implicit
+	// built-in defaults.
 	// Ignoring errors from JSON encoding since the inputs are well-defined structs that should always marshal successfully
-	_ = json.NewEncoder(&buf).Encode(mcpContainerResources(serverSpecificResources, serverRuntime, nanobotAgentServer, settings))
+	_ = json.NewEncoder(&buf).Encode(mcpContainerResourcesWithMaximums(serverSpecificResources, serverRuntime, nanobotAgentServer, settings, maximums))
 
 	// Hash runtimeClassName
 	if settings.RuntimeClassName != nil && *settings.RuntimeClassName != "" {
