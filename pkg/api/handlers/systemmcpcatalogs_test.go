@@ -9,6 +9,59 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+func TestMaskCatalogCredential(t *testing.T) {
+	assert.Equal(t, "****", maskCatalogCredential(""))
+	assert.Equal(t, "****abc", maskCatalogCredential("abc"))
+	assert.Equal(t, "****1234", maskCatalogCredential("ghp_abcdefghij1234"))
+}
+
+func TestMaskCatalogCredentials(t *testing.T) {
+	masked := maskCatalogCredentials(
+		[]string{"https://github.com/org/repo", "https://github.com/org/other"},
+		map[string]string{
+			"https://github.com/org/repo": "ghp_abcdefghij1234",
+		},
+	)
+	assert.Equal(t, map[string]string{
+		"https://github.com/org/repo": "****1234",
+	}, masked)
+}
+
+func TestMergeCatalogTokens(t *testing.T) {
+	sourceURLs := []string{"https://github.com/org/repo", "https://github.com/org/other"}
+	existing := map[string]string{
+		"https://github.com/org/repo": "ghp_abcdefghij1234",
+	}
+
+	t.Run("preserves existing token for wildcard sentinel", func(t *testing.T) {
+		got := mergeCatalogTokens(sourceURLs, map[string]string{
+			"https://github.com/org/repo": "*",
+		}, existing)
+		assert.Equal(t, map[string]string{
+			"https://github.com/org/repo": "ghp_abcdefghij1234",
+		}, got)
+	})
+
+	t.Run("preserves existing token for masked round-trip", func(t *testing.T) {
+		got := mergeCatalogTokens(sourceURLs, map[string]string{
+			"https://github.com/org/repo": "****1234",
+		}, existing)
+		assert.Equal(t, map[string]string{
+			"https://github.com/org/repo": "ghp_abcdefghij1234",
+		}, got)
+	})
+
+	t.Run("stores new token when provided", func(t *testing.T) {
+		got := mergeCatalogTokens(sourceURLs, map[string]string{
+			"https://github.com/org/other": "new-token-value",
+		}, existing)
+		assert.Equal(t, map[string]string{
+			"https://github.com/org/repo":  "ghp_abcdefghij1234",
+			"https://github.com/org/other": "new-token-value",
+		}, got)
+	})
+}
+
 func TestConvertSystemMCPServerCatalogEntryResources(t *testing.T) {
 	resources := &types.MCPResourceRequirements{
 		Requests: types.MCPResourceRequests{CPU: "250m", Memory: "512Mi"},
