@@ -406,6 +406,8 @@ func TestK8sObjects_MCPContainerResources(t *testing.T) {
 		name              string
 		server            ServerConfig
 		settings          *v1.K8sSettings
+		resourceMaximums  ResourceMaximums
+		wantCPURequest    string
 		wantMemoryRequest string
 		wantMemoryLimit   string
 	}{
@@ -417,12 +419,37 @@ func TestK8sObjects_MCPContainerResources(t *testing.T) {
 			wantMemoryRequest: "200Mi",
 		},
 		{
+			name: "non-agent implicit defaults are capped by maximums",
+			server: ServerConfig{
+				Runtime: types.RuntimeContainerized,
+			},
+			resourceMaximums: ResourceMaximums{
+				CPURequest:    new(resource.MustParse("5m")),
+				MemoryRequest: new(resource.MustParse("128Mi")),
+			},
+			wantCPURequest:    "5m",
+			wantMemoryRequest: "128Mi",
+		},
+		{
 			name: "nanobot agent default requests 400Mi memory",
 			server: ServerConfig{
 				Runtime:          types.RuntimeContainerized,
 				NanobotAgentName: "agent-1",
 			},
 			wantMemoryRequest: "400Mi",
+		},
+		{
+			name: "nanobot agent implicit defaults are capped by maximums",
+			server: ServerConfig{
+				Runtime:          types.RuntimeContainerized,
+				NanobotAgentName: "agent-1",
+			},
+			resourceMaximums: ResourceMaximums{
+				CPURequest:    new(resource.MustParse("5m")),
+				MemoryRequest: new(resource.MustParse("256Mi")),
+			},
+			wantCPURequest:    "5m",
+			wantMemoryRequest: "256Mi",
 		},
 		{
 			name: "nanobot agent uses dedicated resources",
@@ -482,6 +509,7 @@ func TestK8sObjects_MCPContainerResources(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			k := newTestKubernetesBackend(t)
+			k.resourceMaximums = tt.resourceMaximums
 			if tt.settings != nil {
 				scheme := runtime.NewScheme()
 				if err := v1.AddToScheme(scheme); err != nil {
@@ -512,8 +540,12 @@ func TestK8sObjects_MCPContainerResources(t *testing.T) {
 				t.Fatalf("memory request = %q, want %q", memoryRequest.String(), tt.wantMemoryRequest)
 			}
 			cpuRequest := container.Resources.Requests[corev1.ResourceCPU]
-			if cpuRequest.String() != "10m" {
-				t.Fatalf("CPU request = %q, want %q", cpuRequest.String(), "10m")
+			wantCPURequest := tt.wantCPURequest
+			if wantCPURequest == "" {
+				wantCPURequest = "10m"
+			}
+			if cpuRequest.String() != wantCPURequest {
+				t.Fatalf("CPU request = %q, want %q", cpuRequest.String(), wantCPURequest)
 			}
 			memoryLimit, hasMemoryLimit := container.Resources.Limits[corev1.ResourceMemory]
 			if tt.wantMemoryLimit == "" && hasMemoryLimit {

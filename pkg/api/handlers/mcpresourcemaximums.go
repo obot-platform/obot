@@ -7,13 +7,19 @@ import (
 )
 
 func validateK8sSettingsResourceMaximums(sessionManager *mcp.SessionManager, settings v1.K8sSettingsSpec) error {
-	if sessionManager == nil ||
-		!mcp.IsKubernetesBackend(sessionManager.MCPRuntimeBackend()) ||
-		sessionManager.ResourceMaximums().Empty() {
+	maximums := k8sSettingsResourceMaximums(sessionManager)
+	if maximums.Empty() {
 		return nil
 	}
-	if err := mcp.ValidateK8sSettingsResourceMaximums(settings, sessionManager.ResourceMaximums()); err != nil {
+	if err := mcp.ValidateK8sSettingsResourceMaximums(settings, maximums); err != nil {
 		return types.NewErrBadRequest("resource maximum validation failed: %v", err)
 	}
 	return nil
+}
+
+func k8sSettingsResourceMaximums(sessionManager *mcp.SessionManager) mcp.ResourceMaximums {
+	if sessionManager == nil || !mcp.IsKubernetesBackend(sessionManager.MCPRuntimeBackend()) {
+		return mcp.ResourceMaximums{}
+	}
+	return sessionManager.ResourceMaximums()
 }

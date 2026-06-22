@@ -81,6 +81,17 @@ func TestValidateK8sSettingsResourceMaximumsAllowsDefaultsBelowMaximum(t *testin
 	}
 }
 
+func TestValidateK8sSettingsResourceMaximumsAllowsUnconfiguredDefaultsAboveMaximum(t *testing.T) {
+	maximums := ResourceMaximums{
+		CPURequest:    new(resource.MustParse("1m")),
+		MemoryRequest: new(resource.MustParse("1Mi")),
+	}
+
+	if err := ValidateK8sSettingsResourceMaximums(v1.K8sSettingsSpec{}, maximums); err != nil {
+		t.Fatalf("expected unconfigured defaults to be capped below maximum: %v", err)
+	}
+}
+
 func TestValidateConfiguredK8sSettingsResourceMaximumsSkipsUnconfiguredDefaults(t *testing.T) {
 	maximums := ResourceMaximums{MemoryRequest: new(resource.MustParse("1Mi"))}
 
