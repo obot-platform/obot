@@ -1940,6 +1940,13 @@ export async function deleteLicense(): Promise<void> {
 	await doDelete('/license');
 }
 
+export async function recheckLicense(opts?: {
+	fetch?: Fetcher;
+	dontLogErrors?: boolean;
+}): Promise<License> {
+	return (await doPost('/license', {}, opts)) as License;
+}
+
 export async function updateLicense(
 	manifest: LicenseManifest,
 	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
