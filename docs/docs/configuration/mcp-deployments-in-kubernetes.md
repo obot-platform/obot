@@ -63,8 +63,8 @@ Deployments as desired.
 
 | Helm value | Environment variable | Description |
 |------------|----------------------|-------------|
-| `.mcpServerDefaults.maxCPURequest` | `OBOT_SERVER_MCPK8S_MAX_CPU_REQUEST` | Maximum allowed CPU request |
-| `.mcpServerDefaults.maxCPULimit` | `OBOT_SERVER_MCPK8S_MAX_CPU_LIMIT` | Maximum allowed CPU limit |
+| `.mcpServerDefaults.maxCPURequest` | `OBOT_SERVER_MCPK8S_MAX_CPUREQUEST` | Maximum allowed CPU request |
+| `.mcpServerDefaults.maxCPULimit` | `OBOT_SERVER_MCPK8S_MAX_CPULIMIT` | Maximum allowed CPU limit |
 | `.mcpServerDefaults.maxMemoryRequest` | `OBOT_SERVER_MCPK8S_MAX_MEMORY_REQUEST` | Maximum allowed memory request |
 | `.mcpServerDefaults.maxMemoryLimit` | `OBOT_SERVER_MCPK8S_MAX_MEMORY_LIMIT` | Maximum allowed memory limit |
 
