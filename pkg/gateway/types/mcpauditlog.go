@@ -247,7 +247,7 @@ type MCPPromptReadStats struct {
 }
 
 // ConvertMCPAuditLog converts internal MCPAuditLog to API type
-func ConvertMCPAuditLog(a MCPAuditLog) types2.MCPAuditLog {
+func ConvertMCPAuditLog(a MCPAuditLog) types2.AuditLog {
 	mcpFields := a.MCPFields()
 	localFields := a.LocalFields()
 
@@ -284,7 +284,7 @@ func ConvertMCPAuditLog(a MCPAuditLog) types2.MCPAuditLog {
 		}
 	}
 
-	apiLog := types2.MCPAuditLog{
+	apiLog := types2.AuditLog{
 		ID:         a.ID,
 		SourceType: a.SourceType,
 		EventType:  a.EventType,
@@ -317,7 +317,7 @@ func ConvertMCPAuditLog(a MCPAuditLog) types2.MCPAuditLog {
 			PayloadMeta: payloadMeta,
 		}
 	default:
-		apiLog.MCP = &types2.MCPAuditLogMCP{
+		apiLog.MCP = &types2.MCPAuditLog{
 			MCPID:                     mcpFields.MCPID,
 			APIKey:                    mcpFields.APIKey,
 			PowerUserWorkspaceID:      mcpFields.PowerUserWorkspaceID,

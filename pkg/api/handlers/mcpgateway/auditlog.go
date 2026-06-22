@@ -263,11 +263,11 @@ func (h *AuditLogHandler) ListAuditLogs(req api.Context) error {
 
 		// Return empty if no access scope
 		if len(opts.OwnServerMCPIDs) == 0 && len(opts.PowerUserWorkspaceID) == 0 {
-			return req.Write(types.MCPAuditLogResponse{
-				MCPAuditLogList: types.MCPAuditLogList{Items: []types.MCPAuditLog{}},
-				Total:           0,
-				Limit:           opts.Limit,
-				Offset:          opts.Offset,
+			return req.Write(types.AuditLogResponse{
+				AuditLogList: types.AuditLogList{Items: []types.AuditLog{}},
+				Total:        0,
+				Limit:        opts.Limit,
+				Offset:       opts.Offset,
 			})
 		}
 	}
@@ -284,13 +284,13 @@ func (h *AuditLogHandler) ListAuditLogs(req api.Context) error {
 	}
 
 	// Convert to API types
-	result := make([]types.MCPAuditLog, 0, len(logs))
+	result := make([]types.AuditLog, 0, len(logs))
 	for _, log := range logs {
 		result = append(result, gatewaytypes.ConvertMCPAuditLog(log))
 	}
 
-	return req.Write(types.MCPAuditLogResponse{
-		MCPAuditLogList: types.MCPAuditLogList{
+	return req.Write(types.AuditLogResponse{
+		AuditLogList: types.AuditLogList{
 			Items: result,
 		},
 		Total:  total,

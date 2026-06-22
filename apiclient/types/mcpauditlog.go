@@ -30,10 +30,10 @@ const (
 	AuditLogOutcomeError   AuditLogOutcome = "error"
 )
 
-// MCPAuditLog represents an audit log entry. Despite the name (kept for API
+// AuditLog represents an audit log entry. Despite the name (kept for API
 // compatibility), it can represent generic audit events distinguished by
 // SourceType. Source-specific fields are returned under MCP or Local.
-type MCPAuditLog struct {
+type AuditLog struct {
 	ID        uint `json:"id"`
 	CreatedAt Time `json:"createdAt"`
 
@@ -53,12 +53,12 @@ type MCPAuditLog struct {
 	SessionID        string          `json:"sessionID,omitempty"`
 	ResponseReceived bool            `json:"responseReceived"`
 
-	MCP   *MCPAuditLogMCP `json:"mcp,omitempty"`
-	Local *LocalAuditLog  `json:"local,omitempty"`
+	MCP   *MCPAuditLog   `json:"mcp,omitempty"`
+	Local *LocalAuditLog `json:"local,omitempty"`
 }
 
-// MCPAuditLogMCP contains fields meaningful only for MCP gateway/shim rows.
-type MCPAuditLogMCP struct {
+// MCPAuditLog contains fields meaningful only for MCP gateway/shim rows.
+type MCPAuditLog struct {
 	APIKey                    string          `json:"apiKey,omitempty"`
 	MCPID                     string          `json:"mcpID"`
 	PowerUserWorkspaceID      string          `json:"powerUserWorkspaceID,omitempty"`
@@ -141,11 +141,11 @@ type PayloadFieldMeta struct {
 	StoredBytes   int64 `json:"storedBytes,omitempty"`
 }
 
-type MCPAuditLogResponse struct {
-	MCPAuditLogList `json:",inline"`
-	Total           int64 `json:"total"`
-	Limit           int   `json:"limit"`
-	Offset          int   `json:"offset"`
+type AuditLogResponse struct {
+	AuditLogList `json:",inline"`
+	Total        int64 `json:"total"`
+	Limit        int   `json:"limit"`
+	Offset       int   `json:"offset"`
 }
 
 type ClientInfo struct {
@@ -163,8 +163,8 @@ type WebhookStatus struct {
 	Message string `json:"message"`
 }
 
-// MCPAuditLogList represents a list of MCP audit logs
-type MCPAuditLogList List[MCPAuditLog]
+// AuditLogList represents a list of audit logs
+type AuditLogList List[AuditLog]
 
 // MCPUsageStatItem represents usage statistics for MCP servers
 type MCPUsageStatItem struct {
