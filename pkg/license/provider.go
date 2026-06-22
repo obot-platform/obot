@@ -29,7 +29,7 @@ const (
 	// EnterpriseModelProvidersEntitlement is required to enable enterprise model providers.
 	EnterpriseModelProvidersEntitlement = "OBOT_ENTERPRISE_MODEL_PROVIDERS"
 
-	defaultPollInterval = time.Hour
+	defaultPollInterval = 24 * time.Hour
 	keygenProduct       = "18a762f2-5281-45cf-93fc-e45e2d932094"
 	keygenAccount       = "7565373b-6069-4a0b-9495-9777d9db3fd9"
 )
@@ -133,6 +133,10 @@ func (p *Provider) SetLicenseKey(ctx context.Context, licenseKey string) error {
 	return p.setLicenseKey(ctx, licenseKey, false, false)
 }
 
+func (p *Provider) Validate(ctx context.Context) error {
+	return p.update(ctx)
+}
+
 func (p *Provider) setLicenseKey(ctx context.Context, licenseKey string, viaConfiguration, allowInvalid bool) error {
 	licenseKey = strings.TrimSpace(licenseKey)
 
@@ -192,8 +196,7 @@ func (p *Provider) RemoveLicenseKey(ctx context.Context) error {
 	keygen.LicenseKey = ""
 	p.lock.Unlock()
 
-	p.update(ctx)
-	return nil
+	return p.update(ctx)
 }
 
 func (p *Provider) validate(ctx context.Context) (map[keygen.EntitlementCode]struct{}, error) {
@@ -275,12 +278,14 @@ func (p *Provider) poll(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			p.update(ctx)
+			if err := p.update(ctx); err != nil {
+				log.Warnf("license update failed: %v", err)
+			}
 		}
 	}
 }
 
-func (p *Provider) update(ctx context.Context) {
+func (p *Provider) update(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 
@@ -302,10 +307,11 @@ func (p *Provider) update(ctx context.Context) {
 
 	if err != nil || !hasLicenseKey {
 		p.entitlements = nil
-		return
+		return err
 	}
 
 	p.entitlements = entitlements
+	return nil
 }
 
 func validateConfig() error {
