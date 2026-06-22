@@ -65,7 +65,10 @@ func (c *Client) insertMCPAuditLogs(ctx context.Context, logs []types.MCPAuditLo
 
 		// Process response-only logs
 		for _, responseLog := range responseOnlyLogs {
-			responseMCPFields := responseLog.MCPFields()
+			var responseMCPFields types.MCPAuditLogFields
+			if responseLog.MCP != nil {
+				responseMCPFields = *responseLog.MCP
+			}
 
 			// Find matching request log by RequestID and SessionID
 			var existingLog types.MCPAuditLog
@@ -73,7 +76,10 @@ func (c *Client) insertMCPAuditLogs(ctx context.Context, logs []types.MCPAuditLo
 				First(&existingLog).Error
 
 			if err == nil {
-				existingMCPFields := existingLog.MCPFields()
+				var existingMCPFields types.MCPAuditLogFields
+				if existingLog.MCP != nil {
+					existingMCPFields = *existingLog.MCP
+				}
 
 				// Found matching request - update with response data
 				updates := map[string]any{
@@ -886,7 +892,7 @@ func (c *Client) decryptMCPAuditLog(ctx context.Context, log *types.MCPAuditLog)
 
 func mcpAuditLogDataCtx(log *types.MCPAuditLog) value.Context {
 	if log.MCP != nil {
-		return value.DefaultContext(fmt.Sprintf("%s/%s/%s", mcpAuditLogGroupResource.String(), log.MCPFields().MCPID, log.UserID))
+		return value.DefaultContext(fmt.Sprintf("%s/%s/%s", mcpAuditLogGroupResource.String(), log.MCP.MCPID, log.UserID))
 	}
 	if log.Local != nil && log.Local.EventID != "" {
 		return value.DefaultContext(fmt.Sprintf("%s/local/%s/%s", mcpAuditLogGroupResource.String(), log.Local.EventID, log.UserID))

@@ -120,20 +120,6 @@ func (a *MCPAuditLog) EnsureLocal() *LocalAuditLog {
 	return a.Local
 }
 
-func (a MCPAuditLog) MCPFields() MCPAuditLogFields {
-	if a.MCP == nil {
-		return MCPAuditLogFields{}
-	}
-	return *a.MCP
-}
-
-func (a MCPAuditLog) LocalFields() LocalAuditLog {
-	if a.Local == nil {
-		return LocalAuditLog{}
-	}
-	return *a.Local
-}
-
 func (a *MCPAuditLog) NormalizeSourceFields() {
 	switch a.SourceType {
 	case types2.AuditLogSourceTypeLocalAgent:
@@ -248,8 +234,14 @@ type MCPPromptReadStats struct {
 
 // ConvertMCPAuditLog converts internal MCPAuditLog to API type
 func ConvertMCPAuditLog(a MCPAuditLog) types2.AuditLog {
-	mcpFields := a.MCPFields()
-	localFields := a.LocalFields()
+	var mcpFields MCPAuditLogFields
+	if a.MCP != nil {
+		mcpFields = *a.MCP
+	}
+	var localFields LocalAuditLog
+	if a.Local != nil {
+		localFields = *a.Local
+	}
 
 	webhookStatus := make([]types2.WebhookStatus, len(mcpFields.WebhookStatuses))
 	for i, ws := range mcpFields.WebhookStatuses {

@@ -488,8 +488,12 @@ func TestInsertMCPAuditLogsDedupesLocalEventID(t *testing.T) {
 	if err := c.db.WithContext(t.Context()).Where("event_id = 'evt-dup'").First(&row).Error; err != nil {
 		t.Fatalf("failed to fetch deduped row: %v", err)
 	}
-	if row.Local == nil || row.Local.EventID != "evt-dup" {
-		t.Errorf("EventID = %v, want evt-dup", row.LocalFields().EventID)
+	gotEventID := ""
+	if row.Local != nil {
+		gotEventID = row.Local.EventID
+	}
+	if gotEventID != "evt-dup" {
+		t.Errorf("EventID = %v, want evt-dup", gotEventID)
 	}
 }
 

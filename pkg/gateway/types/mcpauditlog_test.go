@@ -49,11 +49,17 @@ func TestAuditEventRoundTrip(t *testing.T) {
 		t.Fatalf("MCPAuditLogFromAuditEvent() error: %v", err)
 	}
 
-	if log.Local == nil || log.Local.EventID != "evt-1" {
-		t.Errorf("EventID not preserved: %v", log.LocalFields().EventID)
+	gotEventID := ""
+	gotDeviceID := ""
+	if log.Local != nil {
+		gotEventID = log.Local.EventID
+		gotDeviceID = log.Local.DeviceID
 	}
-	if log.Local == nil || log.Local.DeviceID != "dev-1" {
-		t.Errorf("DeviceID not preserved: %v", log.LocalFields().DeviceID)
+	if gotEventID != "evt-1" {
+		t.Errorf("EventID not preserved: %v", gotEventID)
+	}
+	if gotDeviceID != "dev-1" {
+		t.Errorf("DeviceID not preserved: %v", gotDeviceID)
 	}
 	if log.CallIdentifier != "Bash" || log.CallType != "command" {
 		t.Errorf("tool mapping wrong: callIdentifier=%q callType=%q", log.CallIdentifier, log.CallType)

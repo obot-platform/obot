@@ -326,7 +326,10 @@ func (h *AuditLogHandler) GetAuditLog(req api.Context) error {
 			return fmt.Errorf("failed to get own server MCPIDs: %w", err)
 		}
 
-		mcpFields := log.MCPFields()
+		var mcpFields gatewaytypes.MCPAuditLogFields
+		if log.MCP != nil {
+			mcpFields = *log.MCP
+		}
 		isOwnServer := slices.Contains(ownServerMCPIDs, mcpFields.MCPID)
 
 		isInWorkspace := false
