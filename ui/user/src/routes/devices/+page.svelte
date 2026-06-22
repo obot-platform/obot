@@ -14,7 +14,14 @@
 	} from '$lib/services';
 	import { profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
-	import { replaceState } from '$lib/url';
+	import {
+		clearUrlParams,
+		getTableUrlParamsFilters,
+		getTableUrlParamsSort,
+		replaceState,
+		setFilterUrlParams,
+		setSortUrlParams
+	} from '$lib/url';
 	import { openUrl } from '$lib/utils';
 	import { Laptop } from '@lucide/svelte';
 	import { debounce } from 'es-toolkit';
@@ -32,6 +39,9 @@
 	);
 	let loading = $state(false);
 	let query = $state(untrack(() => page.url.searchParams.get('query') ?? ''));
+	let filters = $state<Record<string, (string | number)[]>>(
+		untrack(() => getTableUrlParamsFilters())
+	);
 
 	type Row = DeviceScan & {
 		short_device_id: string;
@@ -40,7 +50,6 @@
 		skill_count: number;
 		plugin_count: number;
 		client_count: number;
-		scanned_relative: string;
 	};
 
 	const userById = $derived<Map<string, OrgUser>>(
@@ -70,8 +79,7 @@
 				mcp_count: s.mcpServers?.length ?? 0,
 				skill_count: s.skills?.length ?? 0,
 				plugin_count: s.plugins?.length ?? 0,
-				client_count: s.clients?.length ?? 0,
-				scanned_relative: formatTimeAgo(s.scannedAt).relativeTime
+				client_count: s.clients?.length ?? 0
 			};
 		})
 	);
@@ -160,7 +168,7 @@
 					'skill_count',
 					'plugin_count',
 					'client_count',
-					'scanned_relative'
+					'scannedAt'
 				]}
 				headers={[
 					{ title: 'Device', property: 'short_device_id' },
@@ -170,14 +178,19 @@
 					{ title: 'Skills', property: 'skill_count' },
 					{ title: 'Plugins', property: 'plugin_count' },
 					{ title: 'Clients', property: 'client_count' },
-					{ title: 'Last Scanned', property: 'scanned_relative' }
+					{ title: 'Last Scanned', property: 'scannedAt' }
 				]}
-				sortable={['short_device_id', 'os_arch', 'username']}
+				sortable={['short_device_id', 'os_arch', 'username', 'scannedAt']}
 				filterable={['os_arch']}
 				onClickRow={(d, isCtrlClick) => {
 					const prefix = hasAdminAccess ? '/admin' : '';
 					openUrl(resolve(`${prefix}/devices/${d.deviceID}`), isCtrlClick);
 				}}
+				initSort={getTableUrlParamsSort({ property: 'scannedAt', order: 'desc' })}
+				onFilter={setFilterUrlParams}
+				onClearAllFilters={clearUrlParams}
+				onSort={setSortUrlParams}
+				{filters}
 			>
 				{#snippet onRenderColumn(property, d: Row)}
 					{#if property === 'short_device_id'}
@@ -205,6 +218,8 @@
 						{:else}
 							—
 						{/if}
+					{:else if property === 'scannedAt'}
+						<span>{formatTimeAgo(d.scannedAt).relativeTime}</span>
 					{:else}
 						{d[property as keyof Row] ?? '—'}
 					{/if}
