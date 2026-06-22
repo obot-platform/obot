@@ -39,9 +39,11 @@
 	);
 	let loading = $state(false);
 	let query = $state(untrack(() => page.url.searchParams.get('query') ?? ''));
-	let filters = $state<Record<string, (string | number)[]>>(
-		untrack(() => getTableUrlParamsFilters())
-	);
+	let filters = $derived.by(() => {
+		const f = getTableUrlParamsFilters();
+		delete f.offset;
+		return f;
+	});
 
 	type Row = DeviceScan & {
 		short_device_id: string;
@@ -98,6 +100,7 @@
 
 	let total = $derived(onlyShowMyDevices ? (devicesToShow?.length ?? 0) : (devicesResp.total ?? 0));
 	let lastPageIndex = $derived(total > 0 ? Math.ceil(total / PAGE_SIZE) - 1 : 0);
+	let initSort = $derived(getTableUrlParamsSort({ property: 'scannedAt', order: 'desc' }));
 
 	function syncUrl() {
 		const next = new URL(page.url);
@@ -130,6 +133,7 @@
 
 	const duration = PAGE_TRANSITION_DURATION;
 	const hasAdminAccess = $derived(profile.current.hasAdminAccess?.());
+	const filterable = ['os_arch'];
 </script>
 
 <svelte:head>
@@ -181,14 +185,14 @@
 					{ title: 'Last Scanned', property: 'scannedAt' }
 				]}
 				sortable={['short_device_id', 'os_arch', 'username', 'scannedAt']}
-				filterable={['os_arch']}
+				{filterable}
 				onClickRow={(d, isCtrlClick) => {
 					const prefix = hasAdminAccess ? '/admin' : '';
 					openUrl(resolve(`${prefix}/devices/${d.deviceID}`), isCtrlClick);
 				}}
-				initSort={getTableUrlParamsSort({ property: 'scannedAt', order: 'desc' })}
+				{initSort}
 				onFilter={setFilterUrlParams}
-				onClearAllFilters={clearUrlParams}
+				onClearAllFilters={() => clearUrlParams(filterable)}
 				onSort={setSortUrlParams}
 				{filters}
 			>
