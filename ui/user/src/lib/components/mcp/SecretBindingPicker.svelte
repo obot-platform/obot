@@ -11,6 +11,12 @@
 	let { field, targets, readonly }: Props = $props();
 	type SecretBindingOption = { id: string; label: string; disabled?: boolean };
 
+	// Pinned/template-owned bindings (secretBindingReadonly) are owned by the catalog
+	// entry; the backend rejects overrides, so never offer edits for them here.
+	const isReadonly = $derived(
+		readonly || Boolean((field as { secretBindingReadonly?: boolean }).secretBindingReadonly)
+	);
+
 	const sourceOptions = $derived([
 		{ id: 'value', label: 'Manual Value' },
 		{ id: 'secret', label: 'Kubernetes Secret', disabled: targets.length === 0 }
@@ -83,7 +89,7 @@
 			class={selectClasses}
 			options={sourceOptions}
 			selected={field.secretBinding ? 'secret' : 'value'}
-			disabled={readonly}
+			disabled={isReadonly}
 			onSelect={(option) => {
 				if (option.id === 'secret') {
 					enableSecretBinding();
@@ -108,7 +114,7 @@
 					class={selectClasses}
 					options={secretOptions}
 					selected={field.secretBinding.name}
-					disabled={readonly}
+					disabled={isReadonly}
 					searchInDropdown
 					onSelect={(option) => selectSecret(option.id)}
 				/>
@@ -120,7 +126,7 @@
 					class={selectClasses}
 					options={keyOptions}
 					selected={field.secretBinding.key}
-					disabled={readonly || keyOptions.length === 0}
+					disabled={isReadonly || keyOptions.length === 0}
 					searchInDropdown
 					onSelect={(option) => selectKey(option.id)}
 				/>
