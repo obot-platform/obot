@@ -209,6 +209,24 @@
 			? undefined
 			: getSecretBindingEngineError(updatedServer.manifest);
 
+		// Load secret binding targets so an admin can re-select a secret during the update flow
+		if (
+			isKubernetesRuntimeBackend(version.current.engine) &&
+			updatedServer.mcpCatalogID &&
+			isMultiUserServer(updatedServer)
+		) {
+			try {
+				secretBindingTargets = await AdminService.listMCPSecretBindingTargets({
+					dontLogErrors: true
+				});
+			} catch (err) {
+				errors.append(`Failed to load Kubernetes Secrets for binding: ${err}`);
+				secretBindingTargets = [];
+			}
+		} else {
+			secretBindingTargets = [];
+		}
+
 		// Keep existing shared values so the dialog only asks for newly required input.
 		let values: Record<string, string>;
 		try {
@@ -220,13 +238,15 @@
 			values = {};
 		}
 
+		const templateEnvBindings = templateBindingByKey(entry?.manifest.env);
+		const templateHeaderBindings = templateBindingByKey(entry?.manifest.remoteConfig?.headers);
 		const form: LaunchFormData = {
 			envs: updatedServer.manifest.env?.map((env) => ({
-				...env,
+				...markPinnedSecretBinding(env, templateEnvBindings),
 				value: values[env.key] ?? ''
 			})),
 			headers: updatedServer.manifest.remoteConfig?.headers?.map((header) => ({
-				...header,
+				...markPinnedSecretBinding(header, templateHeaderBindings),
 				value: values[header.key] ?? '',
 				isStatic: header.value !== ''
 			}))
@@ -403,6 +423,15 @@
 
 	async function configureUpdatedCatalogServer(lf: LaunchFormData) {
 		if (!server) return;
+		// Persist any secret binding the admin (re)selected before applying shared config;
+		// configureSharedServer only writes user-supplied values, not the manifest bindings.
+		if (server.mcpCatalogID && isMultiUserServer(server)) {
+			await AdminService.updateMCPCatalogServer(
+				server.mcpCatalogID,
+				server.id,
+				applyFormBindingsToManifest(server.manifest, lf)
+			);
+		}
 		const envs = convertEnvHeadersToRecord(lf.envs, lf.headers);
 		server = await configureSharedServer(server, envs);
 	}

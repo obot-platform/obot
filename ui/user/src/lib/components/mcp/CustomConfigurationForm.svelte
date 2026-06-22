@@ -170,7 +170,11 @@
 								{/if}
 							</div>
 							{#if secretBindingTargets}
-								<SecretBindingPicker field={config![i]} targets={secretBindingTargets} {readonly} />
+								<SecretBindingPicker
+									bind:field={config![i]}
+									targets={secretBindingTargets}
+									{readonly}
+								/>
 							{/if}
 							{#if !config![i].secretBinding}
 								<div class="flex w-full flex-col gap-1">

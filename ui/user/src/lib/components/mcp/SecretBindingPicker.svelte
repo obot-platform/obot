@@ -8,7 +8,7 @@
 		readonly?: boolean;
 	}
 
-	let { field, targets, readonly }: Props = $props();
+	let { field = $bindable(), targets, readonly }: Props = $props();
 	type SecretBindingOption = { id: string; label: string; disabled?: boolean };
 
 	// Pinned/template-owned bindings (secretBindingReadonly) are owned by the catalog

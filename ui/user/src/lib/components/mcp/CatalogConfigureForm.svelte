@@ -492,7 +492,7 @@
 													</div>
 												{:else if secretBindingTargets}
 													<SecretBindingPicker
-														field={comp.envs![env.index]}
+														bind:field={comp.envs![env.index]}
 														targets={secretBindingTargets}
 														readonly={form.componentConfigs[compId].disabled}
 													/>
@@ -578,7 +578,7 @@
 													</div>
 												{:else if secretBindingTargets}
 													<SecretBindingPicker
-														field={comp.headers![header.index]}
+														bind:field={comp.headers![header.index]}
 														targets={secretBindingTargets}
 														readonly={form.componentConfigs[compId].disabled}
 													/>
@@ -667,7 +667,7 @@
 									</div>
 								{:else if secretBindingTargets && !disableEnvSecretBindings}
 									<SecretBindingPicker
-										field={form.envs![env.index]}
+										bind:field={form.envs![env.index]}
 										targets={secretBindingTargets}
 									/>
 								{/if}
@@ -738,7 +738,7 @@
 									</div>
 								{:else if secretBindingTargets}
 									<SecretBindingPicker
-										field={form.headers![header.index]}
+										bind:field={form.headers![header.index]}
 										targets={secretBindingTargets}
 									/>
 								{/if}

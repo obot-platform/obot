@@ -183,7 +183,7 @@
 								{:else}
 									{#if secretBindingTargets}
 										<SecretBindingPicker
-											field={config.headers[i]}
+											bind:field={config.headers[i]}
 											targets={secretBindingTargets}
 											{readonly}
 										/>
