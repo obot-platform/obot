@@ -6,8 +6,8 @@
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { AdminService } from '$lib/services';
-	import { errors, profile } from '$lib/stores';
-	import { CircleAlert, Info } from 'lucide-svelte';
+	import { errors, license as licenseStore, profile } from '$lib/stores';
+	import { CircleAlert, Info, LoaderCircle, RefreshCw } from 'lucide-svelte';
 	import { untrack } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -20,6 +20,8 @@
 
 	let showDeleteLicenseDialog = $state(false);
 	let deleting = $state(false);
+	let rechecking = $state(false);
+	let now = $state(Date.now());
 
 	let updateLicenseDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let updateLicenseKey = $state('');
@@ -27,6 +29,22 @@
 	let updateError = $state('');
 	let updateLicenseTitle = $derived(license?.licenseKey ? 'Update License Key' : 'Add License Key');
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
+	let manualCheckAvailableAt = $derived(
+		license?.manualCheckAvailableAt ? new Date(license.manualCheckAvailableAt).getTime() : 0
+	);
+	let manualCheckCooldownMs = $derived(Math.max(0, manualCheckAvailableAt - now));
+	let manualCheckCooldownLabel = $derived(formatCooldown(manualCheckCooldownMs));
+
+	$effect(() => {
+		if (!manualCheckAvailableAt || manualCheckCooldownMs <= 0) return;
+
+		now = Date.now();
+		const interval = window.setInterval(() => {
+			now = Date.now();
+		}, 1000);
+
+		return () => window.clearInterval(interval);
+	});
 
 	function handleOpenUpdateLicenseDialog() {
 		if (!license || license.locked) return;
@@ -59,6 +77,29 @@
 		} finally {
 			deleting = false;
 		}
+	}
+
+	async function handleRecheckLicense() {
+		if (!license?.licenseKey || manualCheckCooldownMs > 0) return;
+		rechecking = true;
+		try {
+			license = await AdminService.recheckLicense({ dontLogErrors: true });
+			licenseStore.initialize(license);
+		} catch (err) {
+			errors.append(`Failed to recheck license: ${err}`);
+		} finally {
+			rechecking = false;
+		}
+	}
+
+	function formatCooldown(ms: number) {
+		if (ms <= 0) return '';
+
+		const totalSeconds = Math.ceil(ms / 1000);
+		const minutes = Math.floor(totalSeconds / 60);
+		const seconds = totalSeconds % 60;
+
+		return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 	}
 
 	function convertUserFriendlyEntitlements(entitlements: string[]): string[] {
@@ -125,7 +166,7 @@
 							</div>
 						</div>
 					{/if}
-					<div class="flex items-center justify-between gap-4">
+					<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 						<div class="flex flex-col gap-1">
 							<p class="text-sm font-light">License Status</p>
 							<p
@@ -146,19 +187,38 @@
 								{/if}
 							</p>
 						</div>
-						<div
-							use:tooltip={{
-								text: license.locked ? lockedLicenseMessage : undefined,
-								classes: ['text-xs']
-							}}
-						>
-							<button
-								class="btn btn-secondary"
-								onclick={handleOpenUpdateLicenseDialog}
-								disabled={license.locked || isAdminReadonly}
+						<div class="flex w-full flex-col gap-2 sm:w-fit sm:flex-row">
+							{#if license.licenseKey}
+								<button
+									class="btn btn-secondary w-full sm:w-fit"
+									onclick={handleRecheckLicense}
+									disabled={rechecking || manualCheckCooldownMs > 0 || isAdminReadonly}
+								>
+									{#if rechecking}
+										<LoaderCircle class="size-4 animate-spin" />
+									{:else}
+										<RefreshCw class="size-4" />
+									{/if}
+									{manualCheckCooldownMs > 0
+										? `Recheck in ${manualCheckCooldownLabel}`
+										: 'Recheck License'}
+								</button>
+							{/if}
+							<div
+								use:tooltip={{
+									text: license.locked ? lockedLicenseMessage : undefined,
+									classes: ['text-xs']
+								}}
+								class="w-full sm:w-fit"
 							>
-								{updateLicenseTitle}
-							</button>
+								<button
+									class="btn btn-secondary w-full sm:w-fit"
+									onclick={handleOpenUpdateLicenseDialog}
+									disabled={license.locked || isAdminReadonly}
+								>
+									{updateLicenseTitle}
+								</button>
+							</div>
 						</div>
 					</div>
 					<div class="flex flex-col gap-1">

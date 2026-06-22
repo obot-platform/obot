@@ -465,6 +465,7 @@ export interface License {
 	locked: boolean;
 	enterprise: boolean;
 	entitlements: string[] | null;
+	manualCheckAvailableAt?: string;
 }
 
 export interface LicenseManifest {

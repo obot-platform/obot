@@ -106,6 +106,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	// License
 	mux.HandleFunc("GET /api/license", licenseHandler.Get)
 	mux.HandleFunc("PUT /api/license", licenseHandler.Update)
+	mux.HandleFunc("POST /api/license", licenseHandler.CheckLicense)
 	mux.HandleFunc("DELETE /api/license", licenseHandler.Delete)
 
 	// MCP Catalog Entries (user routes to access single-user and remote MCP servers from all sources)
