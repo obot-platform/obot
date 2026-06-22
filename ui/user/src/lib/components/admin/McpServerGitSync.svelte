@@ -48,6 +48,27 @@
 		sourceError = undefined;
 		sourceDialog?.close();
 	}
+
+	function hasSourceURLCredential(url: string | undefined): boolean {
+		if (!url) {
+			return false;
+		}
+		const credential = defaultCatalog?.sourceURLCredentials?.[url];
+		return credential !== undefined && credential !== '';
+	}
+
+	function hasSourceEditChanges(source: NonNullable<typeof editingSource>): boolean {
+		if (source.index === -1) {
+			return source.value.trim() !== '';
+		}
+
+		const originalUrl = defaultCatalog?.sourceURLs?.[source.index];
+		return (
+			source.value !== originalUrl ||
+			source.clearToken === true ||
+			source.token !== ''
+		);
+	}
 </script>
 
 <dialog bind:this={sourceDialog} class="dialog">
@@ -91,10 +112,10 @@
 								disablePortal: true
 							}}
 						>
-							<Info class="text-base-content size-3.5" />
+							<Info class="text-muted-content size-3.5" />
 						</span>
 					</label>
-					{#if editingSource.index >= 0 && defaultCatalog?.sourceURLCredentials?.[defaultCatalog?.sourceURLs?.[editingSource.index]] === '*' && !editingSource.clearToken}
+					{#if editingSource.index >= 0 && hasSourceURLCredential(defaultCatalog?.sourceURLs?.[editingSource.index]) && !editingSource.clearToken}
 						<button
 							class="text-xs text-error hover:underline"
 							onclick={() => {
@@ -105,17 +126,16 @@
 						</button>
 					{/if}
 				</div>
-				{#if editingSource.clearToken}
-					<p class="text-muted-content text-xs">Token will be removed on save.</p>
+				{#if !editingSource.clearToken && editingSource.index >= 0 && hasSourceURLCredential(defaultCatalog?.sourceURLs?.[editingSource.index])}
+					<p class="text-sm text-muted-content h-[39px]">
+						{defaultCatalog?.sourceURLCredentials?.[
+							defaultCatalog?.sourceURLs?.[editingSource.index]
+						]}
+					</p>
 				{:else}
 					<SensitiveInput
 						name="catalog-source-token"
-						placeholder={editingSource.index >= 0 &&
-						defaultCatalog?.sourceURLCredentials?.[
-							defaultCatalog?.sourceURLs?.[editingSource.index]
-						] === '*'
-							? 'Token is set — enter a new value to replace it'
-							: ''}
+						placeholder=""
 						bind:value={editingSource.token}
 					/>
 				{/if}
@@ -137,7 +157,7 @@
 				>
 				<button
 					class="btn btn-primary"
-					disabled={saving}
+					disabled={saving || !hasSourceEditChanges(editingSource)}
 					onclick={async () => {
 						if (!editingSource || (!defaultCatalog && !defaultCatalogId)) {
 							return;
@@ -171,22 +191,16 @@
 
 								// If the URL changed and the old URL had a credential, remap the
 								// credentials key so the backend can transfer it to the new URL.
-								if (
-									oldUrl !== editingSource.value &&
-									updatingCatalog.sourceURLCredentials?.[oldUrl] === '*'
-								) {
+								if (oldUrl !== editingSource.value && hasSourceURLCredential(oldUrl)) {
 									updatingCatalog.sourceURLCredentials = {
 										...updatingCatalog.sourceURLCredentials,
-										[editingSource.value]: '*'
+										[editingSource.value]: updatingCatalog.sourceURLCredentials?.[oldUrl] ?? '*'
 									};
 									delete updatingCatalog.sourceURLCredentials[oldUrl];
 								}
 							}
 
-							// Send a credential update only when the user typed a new token or
-							// explicitly clicked "Clear token". Leaving the field empty leaves
-							// any existing credential unchanged.
-							if (editingSource.clearToken) {
+							if (editingSource.clearToken && !editingSource.token) {
 								updatingCatalog.sourceURLCredentials = {
 									...(updatingCatalog.sourceURLCredentials ?? {}),
 									[editingSource.value]: ''

@@ -9,6 +9,95 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+func TestMaskCatalogCredential(t *testing.T) {
+	assert.Equal(t, "****", maskCatalogCredential(""))
+	assert.Equal(t, "****abc", maskCatalogCredential("abc"))
+	assert.Equal(t, "****1234", maskCatalogCredential("ghp_abcdefghij1234"))
+}
+
+func TestIsMaskedCatalogCredential(t *testing.T) {
+	assert.True(t, isMaskedCatalogCredential("****"))
+	assert.True(t, isMaskedCatalogCredential("****1234"))
+	assert.True(t, isMaskedCatalogCredential("****abc"))
+	assert.False(t, isMaskedCatalogCredential("ghp_abcdefghij1234"))
+	assert.False(t, isMaskedCatalogCredential("****12345"))
+}
+
+func TestMaskCatalogCredentials(t *testing.T) {
+	masked := maskCatalogCredentials(
+		[]string{"https://github.com/org/repo", "https://github.com/org/other"},
+		map[string]string{
+			"https://github.com/org/repo": "ghp_abcdefghij1234",
+		},
+	)
+	assert.Equal(t, map[string]string{
+		"https://github.com/org/repo": "****1234",
+	}, masked)
+}
+
+func TestMergeCatalogTokens(t *testing.T) {
+	sourceURLs := []string{"https://github.com/org/repo", "https://github.com/org/other"}
+	existing := map[string]string{
+		"https://github.com/org/repo": "ghp_abcdefghij1234",
+	}
+
+	t.Run("preserves existing token for wildcard sentinel", func(t *testing.T) {
+		got := mergeCatalogTokens(sourceURLs, map[string]string{
+			"https://github.com/org/repo": "*",
+		}, existing)
+		assert.Equal(t, map[string]string{
+			"https://github.com/org/repo": "ghp_abcdefghij1234",
+		}, got)
+	})
+
+	t.Run("preserves existing token for masked round-trip", func(t *testing.T) {
+		got := mergeCatalogTokens(sourceURLs, map[string]string{
+			"https://github.com/org/repo": "****1234",
+		}, existing)
+		assert.Equal(t, map[string]string{
+			"https://github.com/org/repo": "ghp_abcdefghij1234",
+		}, got)
+	})
+
+	t.Run("stores new token when provided", func(t *testing.T) {
+		got := mergeCatalogTokens(sourceURLs, map[string]string{
+			"https://github.com/org/other": "new-token-value",
+		}, existing)
+		assert.Equal(t, map[string]string{
+			"https://github.com/org/repo":  "ghp_abcdefghij1234",
+			"https://github.com/org/other": "new-token-value",
+		}, got)
+	})
+
+	t.Run("ignores masked credential remapped to new source URL", func(t *testing.T) {
+		got := mergeCatalogTokens(
+			[]string{"https://github.com/org/renamed"},
+			map[string]string{
+				"https://github.com/org/renamed": "****1234",
+			},
+			map[string]string{
+				"https://github.com/org/repo": "ghp_abcdefghij1234",
+			},
+		)
+		assert.Empty(t, got)
+	})
+
+	t.Run("preserves existing token when masked credential already persisted as secret", func(t *testing.T) {
+		got := mergeCatalogTokens(
+			[]string{"https://github.com/sangee2004/mcp-catalog"},
+			map[string]string{
+				"https://github.com/sangee2004/mcp-catalog": "****3132",
+			},
+			map[string]string{
+				"https://github.com/sangee2004/mcp-catalog": "****3132",
+			},
+		)
+		assert.Equal(t, map[string]string{
+			"https://github.com/sangee2004/mcp-catalog": "****3132",
+		}, got)
+	})
+}
+
 func TestConvertSystemMCPServerCatalogEntryResources(t *testing.T) {
 	resources := &types.MCPResourceRequirements{
 		Requests: types.MCPResourceRequests{CPU: "250m", Memory: "512Mi"},
