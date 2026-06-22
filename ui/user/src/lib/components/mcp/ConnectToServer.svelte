@@ -225,9 +225,21 @@
 	}
 
 	function secretBoundFields(fields?: MCPSubField[]) {
+		// Whitelist the API manifest properties so UI-only runtime fields
+		// (e.g. isStatic, secretBindingReadonly) don't leak into the request payload.
 		return (fields ?? [])
 			.filter((field) => hasSecretBinding(field))
-			.map(({ value: _value, ...field }) => ({ ...field, value: '' }));
+			.map((field) => ({
+				key: field.key,
+				name: field.name,
+				description: field.description,
+				required: field.required,
+				sensitive: field.sensitive,
+				file: field.file,
+				prefix: field.prefix,
+				secretBinding: field.secretBinding,
+				value: ''
+			}));
 	}
 
 	type TemplateDeployManifest = {
