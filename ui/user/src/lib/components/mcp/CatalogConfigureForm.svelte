@@ -62,6 +62,7 @@
 		displayDescriptionInline?: boolean;
 		configurationTitle?: string;
 		secretBindingTargets?: MCPAllowedSecretBindingTarget[];
+		disableEnvSecretBindings?: boolean;
 	}
 	let {
 		form = $bindable(),
@@ -82,6 +83,7 @@
 		displayDescriptionInline,
 		configurationTitle,
 		secretBindingTargets,
+		disableEnvSecretBindings,
 		animate = 'slide'
 	}: Props = $props();
 	let configDialog = $state<ReturnType<typeof ResponsiveDialog>>();
@@ -663,7 +665,7 @@
 											>{env.data.secretBinding?.name} / {env.data.secretBinding?.key}</span
 										>
 									</div>
-								{:else if secretBindingTargets}
+								{:else if secretBindingTargets && !disableEnvSecretBindings}
 									<SecretBindingPicker
 										field={form.envs![env.index]}
 										targets={secretBindingTargets}

@@ -467,6 +467,7 @@
 	showAlias={mode === 'edit'}
 	configurationTitle={mode === 'catalog-update' ? 'Required Configuration' : undefined}
 	secretBindingTargets={editableSecretBindingTargets}
+	disableEnvSecretBindings={editingManifest?.runtime === 'remote'}
 >
 	{#snippet loadingContent()}
 		<div in:fade class="h-full w-full flex items-center justify-center">

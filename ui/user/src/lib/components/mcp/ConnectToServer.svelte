@@ -1107,6 +1107,7 @@
 	showAlias={shouldShowAlias}
 	configurationTitle={configureFormTitle}
 	secretBindingTargets={canBindSecretsForCatalogEntry ? secretBindingTargets : undefined}
+	disableEnvSecretBindings={manifest?.runtime === 'remote'}
 >
 	{#snippet loadingContent()}
 		<div in:fade class="h-full w-full flex items-center justify-center">

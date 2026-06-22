@@ -798,7 +798,6 @@
 					{readonly}
 					serverUserType={formData.serverUserType}
 					{secretBoundHeaders}
-					secretBindingTargets={editableSecretBindingTargets}
 				/>
 			{/if}
 		{/snippet}
