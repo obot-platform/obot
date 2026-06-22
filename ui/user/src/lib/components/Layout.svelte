@@ -23,6 +23,12 @@
 	}
 
 	let navCollapsedCache = readNavCollapsedFromStorage();
+
+	type SidebarPane = 'default' | 'advanced';
+	const sidebarScrollTopCache: Record<SidebarPane, number | null> = {
+		default: null,
+		advanced: null
+	};
 </script>
 
 <script lang="ts">
@@ -83,7 +89,7 @@
 		Brain,
 		LayoutGrid
 	} from '@lucide/svelte';
-	import { type Component, type Snippet, untrack } from 'svelte';
+	import { type Component, type Snippet, tick, untrack } from 'svelte';
 	import { fade, slide, type TransitionConfig } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
@@ -200,7 +206,24 @@
 		alwaysShowHeaderTitle
 	}: Props = $props();
 	let nav = $state<HTMLDivElement>();
+	let sidebarScroll = $state<HTMLDivElement>();
 	let pathname = $derived(page.url.pathname);
+
+	function saveSidebarScroll() {
+		if (!sidebarScroll) return;
+		const pane: SidebarPane = showAdvancedPane ? 'advanced' : 'default';
+		sidebarScrollTopCache[pane] = sidebarScroll.scrollTop;
+	}
+
+	async function restoreSidebarScroll() {
+		await tick();
+		if (!sidebarScroll) return;
+		const pane: SidebarPane = showAdvancedPane ? 'advanced' : 'default';
+		const scrollTop = sidebarScrollTopCache[pane];
+		if (scrollTop !== null) {
+			sidebarScroll.scrollTop = scrollTop;
+		}
+	}
 
 	// Whether the Obot Agent feature is enabled server-side. When false, agent entry
 	// points are removed entirely (not just disabled). When the feature is enabled but
@@ -609,25 +632,26 @@
 		}
 	});
 
-	afterNavigate(({ to }) => {
-		if (!to || managementLinks.length === 0) return;
-
-		if (!isAdvancedPaneRoute(to.url.pathname)) {
-			showAdvancedPane = false;
-			return;
+	afterNavigate(async ({ to }) => {
+		if (to && managementLinks.length > 0) {
+			if (!isAdvancedPaneRoute(to.url.pathname)) {
+				showAdvancedPane = false;
+			} else {
+				showAdvancedPane = true;
+				const currentPath = to.url.pathname;
+				const parentNavLink = managementLinks.find((link) =>
+					link.items?.find(
+						(item) =>
+							item.href && (currentPath === item.href || currentPath.startsWith(`${item.href}/`))
+					)
+				);
+				if (parentNavLink && isNavCollapsed(parentNavLink.id)) {
+					toggleNavCollapsed(parentNavLink.id);
+				}
+			}
 		}
 
-		showAdvancedPane = true;
-		const currentPath = to.url.pathname;
-		const parentNavLink = managementLinks.find((link) =>
-			link.items?.find(
-				(item) =>
-					item.href && (currentPath === item.href || currentPath.startsWith(`${item.href}/`))
-			)
-		);
-		if (parentNavLink && isNavCollapsed(parentNavLink.id)) {
-			toggleNavCollapsed(parentNavLink.id);
-		}
+		await restoreSidebarScroll();
 	});
 
 	const isAdminRoute = $derived(pathname.includes('/admin'));
@@ -714,6 +738,7 @@
 				</div>
 
 				<div
+					bind:this={sidebarScroll}
 					class={twMerge(
 						'text-md scrollbar-default-thin flex max-h-[calc(100vh-64px)] grow flex-col gap-8 overflow-y-auto pr-3 pl-2 font-medium',
 						classes?.sidebar
@@ -950,6 +975,7 @@
 				<a
 					href={resolve(link.href as `/${string}`)}
 					class={twMerge('sidebar-link', isActive && 'bg-base-300')}
+					onclick={saveSidebarScroll}
 				>
 					{#if link.icon}
 						<link.icon class="size-5" />
@@ -1019,6 +1045,7 @@
 								<a
 									href={resolve(item.href as `/${string}`)}
 									class={twMerge('sidebar-link', isActive && 'bg-base-300')}
+									onclick={saveSidebarScroll}
 								>
 									{#if item.icon}
 										<item.icon class="size-4" />
