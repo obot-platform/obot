@@ -1319,7 +1319,7 @@ func ValidateSecretBindings(manifest types.MCPServerManifest, gitManaged bool, a
 // carry the runtime/env shape of MCPServerManifest directly) by extracting
 // the fields that matter for binding validation. The catalog-entry manifest
 // uses the same MCPEnv/MCPHeader types, so we reuse the core logic.
-func ValidateSecretBindingsCatalogEntry(manifest types.MCPServerCatalogEntryManifest, gitManaged bool, adminManaged bool, mcpBackend string) error {
+func ValidateSecretBindingsCatalogEntry(manifest types.MCPServerCatalogEntryManifest, gitManaged bool, mcpBackend string) error {
 	if err := validateNoAdminAddedCatalogBindings(manifest); err != nil {
 		return err
 	}
@@ -1348,7 +1348,7 @@ func ValidateSecretBindingsCatalogEntry(manifest types.MCPServerCatalogEntryMani
 		RemoteConfig:    remoteCatalogToRuntime(manifest.RemoteConfig),
 		MultiUserConfig: manifest.MultiUserConfig,
 	}
-	return ValidateSecretBindings(synthetic, gitManaged, adminManaged, mcpBackend)
+	return ValidateSecretBindings(synthetic, gitManaged, false, mcpBackend)
 }
 
 func validateNoAdminAddedCatalogBindings(manifest types.MCPServerCatalogEntryManifest) error {

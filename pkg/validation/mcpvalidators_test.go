@@ -2328,7 +2328,7 @@ func TestValidateSecretBindingsCatalogEntry_URLTemplate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateSecretBindingsCatalogEntry(tt.manifest, true, false, "kubernetes")
+			err := ValidateSecretBindingsCatalogEntry(tt.manifest, true, "kubernetes")
 			if tt.wantErr == "" {
 				require.NoError(t, err)
 				return
@@ -2386,7 +2386,7 @@ func TestValidateSecretBindingsCatalogEntryRejectsAdminAdded(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateSecretBindingsCatalogEntry(tt.manifest, true, false, "kubernetes")
+			err := ValidateSecretBindingsCatalogEntry(tt.manifest, true, "kubernetes")
 			require.Error(t, err)
 			require.Contains(t, err.Error(), tt.wantErr)
 		})
@@ -2404,7 +2404,7 @@ func TestValidateSecretBindingsCatalogEntryRejectsMultiUserHeaderBinding(t *test
 		}}},
 	}
 
-	err := ValidateSecretBindingsCatalogEntry(manifest, true, false, "kubernetes")
+	err := ValidateSecretBindingsCatalogEntry(manifest, true, "kubernetes")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "secretBinding is not supported for user-defined headers")
 }
