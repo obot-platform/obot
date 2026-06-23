@@ -915,12 +915,12 @@
 					{#snippet noToolsContent()}
 						<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 							<Wrench class="text-muted-content size-24 opacity-50" />
-							{#if !entry || (entry && (readonly || server))}
+							{#if !entry || (entry && (readonly || server || connectOnly))}
 								<h4 class="text-muted-content text-lg font-semibold">No tools</h4>
 								<p class="text-muted-content text-sm font-light">
 									Looks like this MCP server doesn't have any tools available currently.
 								</p>
-							{:else if !readonly}
+							{:else if !readonly && !connectOnly}
 								<h4 class="text-muted-content text-lg font-semibold">No tools</h4>
 								<button
 									class="btn btn-primary flex items-center gap-1 text-sm"
