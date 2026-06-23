@@ -1892,7 +1892,7 @@ func markAdminAddedSecretBindings(manifest *types.MCPServerManifest, source *typ
 	}
 	if manifest.RemoteConfig != nil {
 		for i := range manifest.RemoteConfig.Headers {
-			header := &manifest.RemoteConfig.Headers[i]
+			header := manifest.RemoteConfig.Headers[i]
 			markAdminAddedSecretBinding(header.SecretBinding, sourceHeaders[header.Key])
 		}
 	}
