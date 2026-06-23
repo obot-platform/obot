@@ -149,7 +149,7 @@ export interface LocalAuditLogFields {
 	>;
 }
 export interface AuditLog {
-	id: string;
+	id: number;
 	createdAt: string;
 	sourceType?: string;
 	eventType?: string;
