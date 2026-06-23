@@ -300,8 +300,8 @@ func ConfigurationHasDrifted(serverManifest types.MCPServerManifest, entryManife
 
 	// Check environment. Secret binding selections are deployment configuration,
 	// not source catalog drift.
-	serverEnv := withoutAdminOnlyEnvFields(serverManifest.Env, entryManifest.Env)
-	entryEnv := withoutAdminOnlyEnvFields(entryManifest.Env, serverManifest.Env)
+	serverEnv := withoutAdminManagedSecretBoundEnvFields(serverManifest.Env, entryManifest.Env)
+	entryEnv := withoutAdminManagedSecretBoundEnvFields(entryManifest.Env, serverManifest.Env)
 	if fieldSlicesHaveDrifted(serverEnv, entryEnv, mcpEnvMatchesCatalog) {
 		return true, nil
 	}
@@ -326,9 +326,7 @@ func multiUserConfigHasDrifted(serverConfig, entryConfig *types.MultiUserConfig)
 	if serverConfig == nil || entryConfig == nil {
 		return true
 	}
-	serverHeaders := withoutAdminOnlyHeaderFields(serverConfig.UserDefinedHeaders, entryConfig.UserDefinedHeaders)
-	entryHeaders := withoutAdminOnlyHeaderFields(entryConfig.UserDefinedHeaders, serverConfig.UserDefinedHeaders)
-	return fieldSlicesHaveDrifted(serverHeaders, entryHeaders, mcpHeaderMatchesCatalog)
+	return fieldSlicesHaveDrifted(serverConfig.UserDefinedHeaders, entryConfig.UserDefinedHeaders, mcpHeaderMatchesCatalog)
 }
 
 // uvxConfigHasDrifted checks if UVX configuration has drifted
@@ -406,12 +404,16 @@ func remoteConfigHasDrifted(serverConfig *types.RemoteRuntimeConfig, entryConfig
 	}
 
 	// Check if headers have drifted
-	serverHeaders := withoutAdminOnlyHeaderFields(serverConfig.Headers, entryConfig.Headers)
-	entryHeaders := withoutAdminOnlyHeaderFields(entryConfig.Headers, serverConfig.Headers)
+	serverHeaders := withoutAdminManagedSecretBoundHeaderFields(serverConfig.Headers, entryConfig.Headers)
+	entryHeaders := withoutAdminManagedSecretBoundHeaderFields(entryConfig.Headers, serverConfig.Headers)
 	return fieldSlicesHaveDrifted(serverHeaders, entryHeaders, mcpHeaderMatchesCatalog)
 }
 
-func withoutAdminOnlyEnvFields(serverFields, entryFields []types.MCPEnv) []types.MCPEnv {
+// withoutAdminManagedSecretBoundEnvFields removes env fields that exist only on
+// serverFields because an admin selected a deployment-level secret binding.
+// Catalog-owned fields are kept so pinned catalog bindings still participate in
+// drift detection.
+func withoutAdminManagedSecretBoundEnvFields(serverFields, entryFields []types.MCPEnv) []types.MCPEnv {
 	entryKeys := make(map[string]struct{}, len(entryFields))
 	for _, field := range entryFields {
 		entryKeys[field.Key] = struct{}{}
@@ -428,7 +430,11 @@ func withoutAdminOnlyEnvFields(serverFields, entryFields []types.MCPEnv) []types
 	return result
 }
 
-func withoutAdminOnlyHeaderFields(serverFields, entryFields []types.MCPHeader) []types.MCPHeader {
+// withoutAdminManagedSecretBoundHeaderFields removes header fields that exist
+// only on serverFields because an admin selected a deployment-level secret
+// binding. Catalog-owned fields are kept so pinned catalog bindings still
+// participate in drift detection.
+func withoutAdminManagedSecretBoundHeaderFields(serverFields, entryFields []types.MCPHeader) []types.MCPHeader {
 	entryKeys := make(map[string]struct{}, len(entryFields))
 	for _, field := range entryFields {
 		entryKeys[field.Key] = struct{}{}
