@@ -14,7 +14,7 @@ import (
 func TestAuditEventRoundTrip(t *testing.T) {
 	event := types2.AuditEvent{
 		EventID:    "evt-1",
-		SourceType: types2.AuditLogSourceTypeLocalAgent,
+		SourceType: types2.AuditLogSourceTypeLocalAgentToolCall,
 		EventType:  types2.AuditLogEventTypeToolCall,
 		CreatedAt:  *types2.NewTime(time.Date(2026, 6, 11, 12, 0, 0, 0, time.UTC)),
 		UserID:     "u1",
@@ -28,7 +28,7 @@ func TestAuditEventRoundTrip(t *testing.T) {
 		Response:   json.RawMessage(`{"output":"file.txt"}`),
 		Error:      "",
 		RawEvent:   json.RawMessage(`{"hook_event_name":"PostToolUse"}`),
-		Context: &types2.AuditLogContext{
+		Context: &types2.LocalAgentToolCallAuditLogContext{
 			ConversationID: "conv-1",
 			CWD:            "/home/user/project",
 			Workspace:      "project",
@@ -95,8 +95,8 @@ func TestConvertMCPAuditLogSourceVariants(t *testing.T) {
 		},
 	})
 
-	if mcpLog.MCP == nil || mcpLog.Local != nil {
-		t.Fatalf("MCP conversion source fields = mcp:%v local:%v, want only MCP", mcpLog.MCP, mcpLog.Local)
+	if mcpLog.MCP == nil || mcpLog.LocalAgentToolCall != nil {
+		t.Fatalf("MCP conversion source fields = mcp:%v localAgentToolCall:%v, want only MCP", mcpLog.MCP, mcpLog.LocalAgentToolCall)
 	}
 	if mcpLog.MCP.MCPID != "mcp-1" || mcpLog.MCP.ResponseStatus != 200 {
 		t.Fatalf("MCP fields not converted: %+v", mcpLog.MCP)
@@ -104,7 +104,7 @@ func TestConvertMCPAuditLogSourceVariants(t *testing.T) {
 
 	localLog := ConvertMCPAuditLog(MCPAuditLog{
 		CreatedAt:  time.Date(2026, 6, 11, 12, 0, 0, 0, time.UTC),
-		SourceType: types2.AuditLogSourceTypeLocalAgent,
+		SourceType: types2.AuditLogSourceTypeLocalAgentToolCall,
 		CallType:   "command",
 		LocalAgentToolCall: &LocalAgentToolCallAuditLog{
 			ErrorDetail: "full error",
@@ -112,11 +112,11 @@ func TestConvertMCPAuditLogSourceVariants(t *testing.T) {
 		},
 	})
 
-	if localLog.Local == nil || localLog.MCP != nil {
-		t.Fatalf("local conversion source fields = mcp:%v local:%v, want only Local", localLog.MCP, localLog.Local)
+	if localLog.LocalAgentToolCall == nil || localLog.MCP != nil {
+		t.Fatalf("local conversion source fields = mcp:%v localAgentToolCall:%v, want only Local", localLog.MCP, localLog.LocalAgentToolCall)
 	}
-	if localLog.Local.ErrorDetail != "full error" || string(localLog.Local.RawEvent) != `{"hook":"post"}` {
-		t.Fatalf("local fields not converted: %+v", localLog.Local)
+	if localLog.LocalAgentToolCall.ErrorDetail != "full error" || string(localLog.LocalAgentToolCall.RawEvent) != `{"hook":"post"}` {
+		t.Fatalf("local fields not converted: %+v", localLog.LocalAgentToolCall)
 	}
 }
 
@@ -125,7 +125,7 @@ func TestAuditEventErrorSummaryTruncation(t *testing.T) {
 
 	event := types2.AuditEvent{
 		EventID:    "evt-2",
-		SourceType: types2.AuditLogSourceTypeLocalAgent,
+		SourceType: types2.AuditLogSourceTypeLocalAgentToolCall,
 		EventType:  types2.AuditLogEventTypeToolCall,
 		CreatedAt:  *types2.NewTime(time.Date(2026, 6, 11, 12, 0, 0, 0, time.UTC)),
 		Outcome:    types2.AuditLogOutcomeError,
@@ -154,7 +154,7 @@ func TestAuditEventErrorSummaryTruncationPreservesUTF8(t *testing.T) {
 
 	event := types2.AuditEvent{
 		EventID:    "evt-3",
-		SourceType: types2.AuditLogSourceTypeLocalAgent,
+		SourceType: types2.AuditLogSourceTypeLocalAgentToolCall,
 		EventType:  types2.AuditLogEventTypeToolCall,
 		CreatedAt:  *types2.NewTime(time.Date(2026, 6, 11, 12, 0, 0, 0, time.UTC)),
 		Outcome:    types2.AuditLogOutcomeError,

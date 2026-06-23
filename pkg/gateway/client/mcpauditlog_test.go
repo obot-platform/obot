@@ -116,16 +116,16 @@ func seedMixedAuditLogs(t *testing.T, c *Client, db *gatewaydb.DB) {
 
 	// New-style local agent row.
 	insertAuditLogRow(t, c, types.MCPAuditLog{
-		CreatedAt:        now,
-		SourceType:       types2.AuditLogSourceTypeLocalAgent,
-		EventType:        types2.AuditLogEventTypeToolCall,
-		Outcome:          types2.AuditLogOutcomeSuccess,
-		UserID:           "u3",
-		ClientName:       "claude-code",
-		CallType:         "command",
-		CallIdentifier:   "Bash",
-		LocalAgentToolCall:            &types.LocalAgentToolCallAuditLog{EventID: "evt-local-1", DeviceID: "dev-1"},
-		ResponseReceived: true,
+		CreatedAt:          now,
+		SourceType:         types2.AuditLogSourceTypeLocalAgentToolCall,
+		EventType:          types2.AuditLogEventTypeToolCall,
+		Outcome:            types2.AuditLogOutcomeSuccess,
+		UserID:             "u3",
+		ClientName:         "claude-code",
+		CallType:           "command",
+		CallIdentifier:     "Bash",
+		LocalAgentToolCall: &types.LocalAgentToolCallAuditLog{EventID: "evt-local-1", DeviceID: "dev-1"},
+		ResponseReceived:   true,
 	})
 
 	// New-style MCP row with generic columns populated at write time.
@@ -208,7 +208,7 @@ func TestGenericAuditLogFieldsBackfillMigration(t *testing.T) {
 	// A row that already has values must not be rewritten.
 	preFilled := insertAuditLogRow(t, c, types.MCPAuditLog{
 		CreatedAt:  time.Now().UTC(),
-		SourceType: types2.AuditLogSourceTypeLocalAgent,
+		SourceType: types2.AuditLogSourceTypeLocalAgentToolCall,
 		EventType:  types2.AuditLogEventTypeToolCall,
 		Outcome:    types2.AuditLogOutcomeError,
 		CallType:   "command",
@@ -241,7 +241,7 @@ func TestGenericAuditLogFieldsBackfillMigration(t *testing.T) {
 	if err := c.db.WithContext(ctx).First(&row, preFilled.ID).Error; err != nil {
 		t.Fatalf("failed to fetch pre-filled row: %v", err)
 	}
-	if row.SourceType != types2.AuditLogSourceTypeLocalAgent ||
+	if row.SourceType != types2.AuditLogSourceTypeLocalAgentToolCall ||
 		row.EventType != types2.AuditLogEventTypeToolCall ||
 		row.Outcome != types2.AuditLogOutcomeError {
 		t.Errorf("backfill must not rewrite populated rows, got %+v", row)
@@ -273,7 +273,7 @@ func TestGenericAuditFilters(t *testing.T) {
 		{
 			name: "local agent source",
 			opts: MCPAuditLogOptions{
-				SourceType: []string{string(types2.AuditLogSourceTypeLocalAgent)},
+				SourceType: []string{string(types2.AuditLogSourceTypeLocalAgentToolCall)},
 			},
 			want: 1,
 		},
@@ -360,7 +360,7 @@ func TestGetMCPAuditLogUsesSourceType(t *testing.T) {
 
 	localRow := insertAuditLogRow(t, c, types.MCPAuditLog{
 		CreatedAt:  now,
-		SourceType: types2.AuditLogSourceTypeLocalAgent,
+		SourceType: types2.AuditLogSourceTypeLocalAgentToolCall,
 		EventType:  types2.AuditLogEventTypeToolCall,
 		CallType:   "command",
 
@@ -380,23 +380,23 @@ func TestGetMCPAuditLogUsesSourceType(t *testing.T) {
 		t.Fatalf("MCP fields were not hydrated: %+v", gotMCP.MCP)
 	}
 	apiMCP := types.ConvertMCPAuditLog(*gotMCP)
-	if apiMCP.MCP == nil || apiMCP.Local != nil {
-		t.Fatalf("MCP conversion source fields = mcp:%v local:%v, want only MCP", apiMCP.MCP, apiMCP.Local)
+	if apiMCP.MCP == nil || apiMCP.LocalAgentToolCall != nil {
+		t.Fatalf("MCP conversion source fields = mcp:%v localAgentToolCall:%v, want only MCP", apiMCP.MCP, apiMCP.LocalAgentToolCall)
 	}
 
 	gotLocal, err := c.GetMCPAuditLog(t.Context(), localRow.ID, true)
 	if err != nil {
 		t.Fatalf("GetMCPAuditLog() local row error: %v", err)
 	}
-	if gotLocal.SourceType != types2.AuditLogSourceTypeLocalAgent || gotLocal.LocalAgentToolCall == nil {
-		t.Fatalf("local row source = %q local:%v, want Local source fields", gotLocal.SourceType, gotLocal.LocalAgentToolCall)
+	if gotLocal.SourceType != types2.AuditLogSourceTypeLocalAgentToolCall || gotLocal.LocalAgentToolCall == nil {
+		t.Fatalf("local row source = %q localAgentToolCall:%v, want Local source fields", gotLocal.SourceType, gotLocal.LocalAgentToolCall)
 	}
 	if string(gotLocal.LocalAgentToolCall.RawEvent) != `{"hook":"post"}` {
 		t.Fatalf("local fields were not hydrated: %+v", gotLocal.LocalAgentToolCall)
 	}
 	apiLocal := types.ConvertMCPAuditLog(*gotLocal)
-	if apiLocal.Local == nil || apiLocal.MCP != nil {
-		t.Fatalf("local conversion source fields = mcp:%v local:%v, want only Local", apiLocal.MCP, apiLocal.Local)
+	if apiLocal.LocalAgentToolCall == nil || apiLocal.MCP != nil {
+		t.Fatalf("local conversion source fields = mcp:%v localAgentToolCall:%v, want only Local", apiLocal.MCP, apiLocal.LocalAgentToolCall)
 	}
 }
 
@@ -428,15 +428,15 @@ func TestEventIDUniqueness(t *testing.T) {
 	c, _ := newTestClientWithDB(t)
 
 	insertAuditLogRow(t, c, types.MCPAuditLog{
-		CreatedAt:  time.Now().UTC(),
-		SourceType: types2.AuditLogSourceTypeLocalAgent,
-		LocalAgentToolCall:      &types.LocalAgentToolCallAuditLog{EventID: "evt-dup"},
+		CreatedAt:          time.Now().UTC(),
+		SourceType:         types2.AuditLogSourceTypeLocalAgentToolCall,
+		LocalAgentToolCall: &types.LocalAgentToolCallAuditLog{EventID: "evt-dup"},
 	})
 
 	err := c.db.WithContext(t.Context()).Create(&types.MCPAuditLog{
-		CreatedAt:  time.Now().UTC(),
-		SourceType: types2.AuditLogSourceTypeLocalAgent,
-		LocalAgentToolCall:      &types.LocalAgentToolCallAuditLog{EventID: "evt-dup"},
+		CreatedAt:          time.Now().UTC(),
+		SourceType:         types2.AuditLogSourceTypeLocalAgentToolCall,
+		LocalAgentToolCall: &types.LocalAgentToolCallAuditLog{EventID: "evt-dup"},
 	}).Error
 	if err == nil {
 		t.Fatalf("expected duplicate event_id insert to fail")
@@ -459,22 +459,22 @@ func TestInsertMCPAuditLogsDedupesLocalEventID(t *testing.T) {
 
 	err := c.insertMCPAuditLogs(t.Context(), []types.MCPAuditLog{
 		{
-			CreatedAt:        now,
-			SourceType:       types2.AuditLogSourceTypeLocalAgent,
-			LocalAgentToolCall:            &types.LocalAgentToolCallAuditLog{EventID: "evt-dup"},
-			ResponseReceived: true,
+			CreatedAt:          now,
+			SourceType:         types2.AuditLogSourceTypeLocalAgentToolCall,
+			LocalAgentToolCall: &types.LocalAgentToolCallAuditLog{EventID: "evt-dup"},
+			ResponseReceived:   true,
 		},
 		{
-			CreatedAt:        now.Add(time.Second),
-			SourceType:       types2.AuditLogSourceTypeLocalAgent,
-			LocalAgentToolCall:            &types.LocalAgentToolCallAuditLog{EventID: "evt-dup"},
-			ResponseReceived: true,
+			CreatedAt:          now.Add(time.Second),
+			SourceType:         types2.AuditLogSourceTypeLocalAgentToolCall,
+			LocalAgentToolCall: &types.LocalAgentToolCallAuditLog{EventID: "evt-dup"},
+			ResponseReceived:   true,
 		},
 		{
-			CreatedAt:        now.Add(2 * time.Second),
-			SourceType:       types2.AuditLogSourceTypeLocalAgent,
-			LocalAgentToolCall:            &types.LocalAgentToolCallAuditLog{EventID: "evt-next"},
-			ResponseReceived: true,
+			CreatedAt:          now.Add(2 * time.Second),
+			SourceType:         types2.AuditLogSourceTypeLocalAgentToolCall,
+			LocalAgentToolCall: &types.LocalAgentToolCallAuditLog{EventID: "evt-next"},
+			ResponseReceived:   true,
 		},
 	})
 	if err != nil {
@@ -507,7 +507,7 @@ func TestLogMCPAuditEntryForcesMCPClassification(t *testing.T) {
 
 	c.LogMCPAuditEntry(types.MCPAuditLog{
 		CreatedAt:   time.Now().UTC(),
-		SourceType:  types2.AuditLogSourceTypeLocalAgent,
+		SourceType:  types2.AuditLogSourceTypeLocalAgentToolCall,
 		EventType:   types2.AuditLogEventTypeResourceRead,
 		Outcome:     types2.AuditLogOutcomeError,
 		CallType:    "tools/call",
