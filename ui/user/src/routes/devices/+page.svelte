@@ -14,7 +14,14 @@
 	} from '$lib/services';
 	import { profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
-	import { replaceState } from '$lib/url';
+	import {
+		clearUrlParams,
+		getTableUrlParamsFilters,
+		getTableUrlParamsSort,
+		replaceState,
+		setFilterUrlParams,
+		setSortUrlParams
+	} from '$lib/url';
 	import { openUrl } from '$lib/utils';
 	import { Laptop } from '@lucide/svelte';
 	import { debounce } from 'es-toolkit';
@@ -32,6 +39,11 @@
 	);
 	let loading = $state(false);
 	let query = $state(untrack(() => page.url.searchParams.get('query') ?? ''));
+	let filters = $derived.by(() => {
+		const f = getTableUrlParamsFilters();
+		delete f.offset;
+		return f;
+	});
 
 	type Row = DeviceScan & {
 		short_device_id: string;
@@ -40,7 +52,6 @@
 		skill_count: number;
 		plugin_count: number;
 		client_count: number;
-		scanned_relative: string;
 	};
 
 	const userById = $derived<Map<string, OrgUser>>(
@@ -70,8 +81,7 @@
 				mcp_count: s.mcpServers?.length ?? 0,
 				skill_count: s.skills?.length ?? 0,
 				plugin_count: s.plugins?.length ?? 0,
-				client_count: s.clients?.length ?? 0,
-				scanned_relative: formatTimeAgo(s.scannedAt).relativeTime
+				client_count: s.clients?.length ?? 0
 			};
 		})
 	);
@@ -90,6 +100,7 @@
 
 	let total = $derived(onlyShowMyDevices ? (devicesToShow?.length ?? 0) : (devicesResp.total ?? 0));
 	let lastPageIndex = $derived(total > 0 ? Math.ceil(total / PAGE_SIZE) - 1 : 0);
+	let initSort = $derived(getTableUrlParamsSort({ property: 'scannedAt', order: 'desc' }));
 
 	function syncUrl() {
 		const next = new URL(page.url);
@@ -122,6 +133,7 @@
 
 	const duration = PAGE_TRANSITION_DURATION;
 	const hasAdminAccess = $derived(profile.current.hasAdminAccess?.());
+	const filterable = ['os_arch'];
 </script>
 
 <svelte:head>
@@ -160,7 +172,7 @@
 					'skill_count',
 					'plugin_count',
 					'client_count',
-					'scanned_relative'
+					'scannedAt'
 				]}
 				headers={[
 					{ title: 'Device', property: 'short_device_id' },
@@ -170,14 +182,19 @@
 					{ title: 'Skills', property: 'skill_count' },
 					{ title: 'Plugins', property: 'plugin_count' },
 					{ title: 'Clients', property: 'client_count' },
-					{ title: 'Last Scanned', property: 'scanned_relative' }
+					{ title: 'Last Scanned', property: 'scannedAt' }
 				]}
-				sortable={['short_device_id', 'os_arch', 'username']}
-				filterable={['os_arch']}
+				sortable={['short_device_id', 'os_arch', 'username', 'scannedAt']}
+				{filterable}
 				onClickRow={(d, isCtrlClick) => {
 					const prefix = hasAdminAccess ? '/admin' : '';
 					openUrl(resolve(`${prefix}/devices/${d.deviceID}`), isCtrlClick);
 				}}
+				{initSort}
+				onFilter={setFilterUrlParams}
+				onClearAllFilters={() => clearUrlParams(filterable)}
+				onSort={setSortUrlParams}
+				{filters}
 			>
 				{#snippet onRenderColumn(property, d: Row)}
 					{#if property === 'short_device_id'}
@@ -205,6 +222,8 @@
 						{:else}
 							—
 						{/if}
+					{:else if property === 'scannedAt'}
+						<span>{formatTimeAgo(d.scannedAt).relativeTime}</span>
 					{:else}
 						{d[property as keyof Row] ?? '—'}
 					{/if}
