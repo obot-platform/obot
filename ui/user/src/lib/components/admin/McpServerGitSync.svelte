@@ -56,19 +56,6 @@
 		const credential = defaultCatalog?.sourceURLCredentials?.[url];
 		return credential !== undefined && credential !== '';
 	}
-
-	function hasSourceEditChanges(source: NonNullable<typeof editingSource>): boolean {
-		if (source.index === -1) {
-			return source.value.trim() !== '';
-		}
-
-		const originalUrl = defaultCatalog?.sourceURLs?.[source.index];
-		return (
-			source.value !== originalUrl ||
-			source.clearToken === true ||
-			source.token !== ''
-		);
-	}
 </script>
 
 <dialog bind:this={sourceDialog} class="dialog">
@@ -135,7 +122,9 @@
 				{:else}
 					<SensitiveInput
 						name="catalog-source-token"
-						placeholder=""
+						placeholder={editingSource.clearToken
+							? 'Enter a new value or leave empty to clear'
+							: ''}
 						bind:value={editingSource.token}
 					/>
 				{/if}
@@ -157,7 +146,7 @@
 				>
 				<button
 					class="btn btn-primary"
-					disabled={saving || !hasSourceEditChanges(editingSource)}
+					disabled={saving}
 					onclick={async () => {
 						if (!editingSource || (!defaultCatalog && !defaultCatalogId)) {
 							return;
@@ -199,6 +188,12 @@
 									delete updatingCatalog.sourceURLCredentials[oldUrl];
 								}
 							}
+
+							Object.keys(updatingCatalog.sourceURLCredentials ?? {}).forEach((key) => {
+								if (updatingCatalog.sourceURLCredentials?.[key]) {
+									updatingCatalog.sourceURLCredentials[key] = '*';
+								}
+							});
 
 							if (editingSource.clearToken && !editingSource.token) {
 								updatingCatalog.sourceURLCredentials = {
