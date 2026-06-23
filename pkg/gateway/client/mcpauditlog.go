@@ -11,10 +11,8 @@ import (
 	"strings"
 	"time"
 
-	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/storage/value"
 )
@@ -36,19 +34,18 @@ func (c *Client) insertMCPAuditLogs(ctx context.Context, logs []types.MCPAuditLo
 	responseOnlyLogs := make([]types.MCPAuditLog, 0, len(logs)/2)
 
 	for _, log := range logs {
-		normalizeMCPAuditLogSourceFields(&log)
 		// Convert timestamp to UTC for consistency
 		log.CreatedAt = log.CreatedAt.UTC()
 
 		if !log.ResponseReceived {
 			// Request-only logs
 			toInsert = append(toInsert, log)
-		} else if log.SourceType == types2.AuditLogSourceTypeMCP && len(log.RequestBody) == 0 {
-			// Response-only logs (need to find and update existing request)
-			responseOnlyLogs = append(responseOnlyLogs, log)
-		} else {
+		} else if len(log.RequestBody) > 0 {
 			// Complete logs (has both request and response data)
 			toInsert = append(toInsert, log)
+		} else {
+			// Response-only logs (need to find and update existing request)
+			responseOnlyLogs = append(responseOnlyLogs, log)
 		}
 	}
 
@@ -56,66 +53,53 @@ func (c *Client) insertMCPAuditLogs(ctx context.Context, logs []types.MCPAuditLo
 	return c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// Insert request-only and complete logs in batches
 		if len(toInsert) > 0 {
-			if err := tx.Clauses(clause.OnConflict{
-				Columns:   []clause.Column{{Name: "event_id"}},
-				DoNothing: true,
-			}).CreateInBatches(toInsert, 100).Error; err != nil {
+			if err := tx.CreateInBatches(toInsert, 100).Error; err != nil {
 				return fmt.Errorf("failed to insert audit logs: %w", err)
 			}
 		}
 
 		// Process response-only logs
 		for _, responseLog := range responseOnlyLogs {
-			var responseMCPFields types.MCPAuditLogFields
-			if responseLog.MCP != nil {
-				responseMCPFields = *responseLog.MCP
-			}
-
 			// Find matching request log by RequestID and SessionID
 			var existingLog types.MCPAuditLog
-			err := tx.Where("request_id = ? AND session_id = ? AND response_received = ?", responseMCPFields.RequestID, responseLog.SessionID, false).
+			err := tx.Where("request_id = ? AND session_id = ? AND response_received = ?", responseLog.RequestID, responseLog.SessionID, false).
 				First(&existingLog).Error
 
 			if err == nil {
-				var existingMCPFields types.MCPAuditLogFields
-				if existingLog.MCP != nil {
-					existingMCPFields = *existingLog.MCP
-				}
-
 				// Found matching request - update with response data
 				updates := map[string]any{
 					"response_received": true,
 				}
 
 				// Update response-specific fields if they have values
-				if len(responseMCPFields.MutatedRequestBody) > 0 {
-					updates["mutated_request_body"] = responseMCPFields.MutatedRequestBody
+				if len(responseLog.MutatedRequestBody) > 0 {
+					updates["mutated_request_body"] = responseLog.MutatedRequestBody
 					updates["request_mutated"] = true
 				}
 				if len(responseLog.ResponseBody) > 0 {
 					updates["response_body"] = responseLog.ResponseBody
 				}
-				if len(responseMCPFields.OriginalResponseBody) > 0 {
-					updates["original_response_body"] = responseMCPFields.OriginalResponseBody
+				if len(responseLog.OriginalResponseBody) > 0 {
+					updates["original_response_body"] = responseLog.OriginalResponseBody
 					updates["response_mutated"] = true
 				}
-				if len(responseMCPFields.ResponseHeaders) > 0 {
-					updates["response_headers"] = responseMCPFields.ResponseHeaders
+				if len(responseLog.ResponseHeaders) > 0 {
+					updates["response_headers"] = responseLog.ResponseHeaders
 				}
-				if responseMCPFields.ResponseStatus != 0 {
-					updates["response_status"] = responseMCPFields.ResponseStatus
+				if responseLog.ResponseStatus != 0 {
+					updates["response_status"] = responseLog.ResponseStatus
 				}
 				if responseLog.Error != "" {
 					updates["error"] = responseLog.Error
 				}
-				if len(responseMCPFields.WebhookStatuses) > 0 {
-					updates["webhook_statuses"] = append(existingMCPFields.WebhookStatuses, responseMCPFields.WebhookStatuses...)
+				if len(responseLog.WebhookStatuses) > 0 {
+					updates["webhook_statuses"] = append(existingLog.WebhookStatuses, responseLog.WebhookStatuses...)
 				}
 				if existingLog.UserID == "" {
 					updates["user_id"] = responseLog.UserID
 				}
-				if existingMCPFields.ClientIP == "" {
-					updates["client_ip"] = responseMCPFields.ClientIP
+				if existingLog.ClientIP == "" {
+					updates["client_ip"] = responseLog.ClientIP
 				}
 				if existingLog.ClientName == "" {
 					updates["client_name"] = responseLog.ClientName
@@ -127,19 +111,13 @@ func (c *Client) insertMCPAuditLogs(ctx context.Context, logs []types.MCPAuditLo
 				// Calculate processing time as difference between response and request timestamps
 				updates["processing_time_ms"] = responseLog.CreatedAt.Sub(existingLog.CreatedAt).Milliseconds()
 
-				// Replace the request row's provisional outcome now that the response result is known.
-				updates["outcome"] = types.OutcomeForResult(responseLog.Error, responseMCPFields.ResponseStatus)
-
 				// Update the existing log
 				if err := tx.Model(&existingLog).Updates(updates).Error; err != nil {
 					return fmt.Errorf("failed to update audit log with response data: %w", err)
 				}
 			} else if errors.Is(err, gorm.ErrRecordNotFound) {
 				// No matching request found - insert as new record
-				if err := tx.Clauses(clause.OnConflict{
-					Columns:   []clause.Column{{Name: "event_id"}},
-					DoNothing: true,
-				}).Create(&responseLog).Error; err != nil {
+				if err := tx.Create(&responseLog).Error; err != nil {
 					return fmt.Errorf("failed to insert orphaned response audit log: %w", err)
 				}
 			} else {
@@ -150,24 +128,6 @@ func (c *Client) insertMCPAuditLogs(ctx context.Context, logs []types.MCPAuditLo
 
 		return nil
 	})
-}
-
-// applyGenericAuditFilters applies the source-generic filters shared by audit
-// log listing and filter-option queries.
-func applyGenericAuditFilters(db *gorm.DB, opts MCPAuditLogOptions) *gorm.DB {
-	if len(opts.SourceType) > 0 {
-		db = db.Where("source_type IN (?)", opts.SourceType)
-	}
-	if len(opts.EventType) > 0 {
-		db = db.Where("event_type IN (?)", opts.EventType)
-	}
-	if len(opts.DeviceID) > 0 {
-		db = db.Where("device_id IN (?)", opts.DeviceID)
-	}
-	if len(opts.Outcome) > 0 {
-		db = db.Where("outcome IN (?)", opts.Outcome)
-	}
-	return db
 }
 
 // GetMCPAuditLogs retrieves MCP audit logs with optional filters
@@ -205,7 +165,7 @@ func (c *Client) GetMCPAuditLogs(ctx context.Context, opts MCPAuditLogOptions) (
 		query := `user_id in (?) OR mcp_id %[1]s ? OR mcp_server_display_name %[1]s ? OR
 mcp_server_catalog_entry_name %[1]s ? OR client_name %[1]s ? OR client_version %[1]s ? OR
 client_ip %[1]s ? OR call_type %[1]s ? OR call_identifier %[1]s ? OR error %[1]s ? OR
-session_id %[1]s ? OR request_id %[1]s ? OR user_agent %[1]s ? OR device_id %[1]s ?`
+session_id %[1]s ? OR request_id %[1]s ? OR user_agent %[1]s ?`
 
 		args := append([]any{userIDs}, slices.Repeat([]any{searchTerm}, strings.Count(query, "%[1]s ?"))...)
 
@@ -267,7 +227,6 @@ session_id %[1]s ? OR request_id %[1]s ? OR user_agent %[1]s ? OR device_id %[1]
 	if len(opts.ClientIP) > 0 {
 		db = db.Where("client_ip IN (?)", opts.ClientIP)
 	}
-	db = applyGenericAuditFilters(db, opts)
 	if opts.ProcessingTimeMin > 0 {
 		db = db.Where("processing_time_ms >= ?", opts.ProcessingTimeMin)
 	}
@@ -310,10 +269,6 @@ session_id %[1]s ? OR request_id %[1]s ? OR user_agent %[1]s ? OR device_id %[1]
 			"client_version":                true,
 			"response_status":               true,
 			"client_ip":                     true,
-			"source_type":                   true,
-			"event_type":                    true,
-			"device_id":                     true,
-			"outcome":                       true,
 		}
 
 		if validSortFields[opts.SortBy] {
@@ -342,21 +297,11 @@ session_id %[1]s ? OR request_id %[1]s ? OR user_agent %[1]s ? OR device_id %[1]
 			// These are the only fields that are encrypted right now.
 			// So, just blank them out and skip decryption.
 			logs[i].RequestBody = nil
+			logs[i].MutatedRequestBody = nil
 			logs[i].ResponseBody = nil
-			switch logs[i].SourceType {
-			case types2.AuditLogSourceTypeMCP:
-				if logs[i].MCP != nil {
-					logs[i].MCP.MutatedRequestBody = nil
-					logs[i].MCP.OriginalResponseBody = nil
-					logs[i].MCP.RequestHeaders = nil
-					logs[i].MCP.ResponseHeaders = nil
-				}
-			case types2.AuditLogSourceTypeLocalAgentToolCall:
-				if logs[i].LocalAgentToolCall != nil {
-					logs[i].LocalAgentToolCall.ErrorDetail = ""
-					logs[i].LocalAgentToolCall.RawEvent = nil
-				}
-			}
+			logs[i].OriginalResponseBody = nil
+			logs[i].RequestHeaders = nil
+			logs[i].ResponseHeaders = nil
 		} else {
 			if err := c.decryptMCPAuditLog(ctx, &logs[i]); err != nil {
 				return nil, 0, fmt.Errorf("failed to decrypt MCP audit log: %w", err)
@@ -384,19 +329,9 @@ func (c *Client) GetMCPAuditLog(ctx context.Context, id uint, withRequestAndResp
 	if !withRequestAndResponse {
 		// Blank out encrypted fields
 		log.RequestBody = nil
+		log.MutatedRequestBody = nil
 		log.ResponseBody = nil
-		switch log.SourceType {
-		case types2.AuditLogSourceTypeMCP:
-			if log.MCP != nil {
-				log.MCP.MutatedRequestBody = nil
-				log.MCP.OriginalResponseBody = nil
-			}
-		case types2.AuditLogSourceTypeLocalAgentToolCall:
-			if log.LocalAgentToolCall != nil {
-				log.LocalAgentToolCall.ErrorDetail = ""
-				log.LocalAgentToolCall.RawEvent = nil
-			}
-		}
+		log.OriginalResponseBody = nil
 	}
 
 	return &log, nil
@@ -439,7 +374,6 @@ func (c *Client) GetAuditLogFilterOptions(ctx context.Context, option string, op
 	if len(opts.ClientIP) > 0 {
 		db = db.Where("client_ip IN (?)", opts.ClientIP)
 	}
-	db = applyGenericAuditFilters(db, opts)
 	// Apply scope filtering (union of workspace servers OR own servers)
 	if len(opts.PowerUserWorkspaceID) > 0 || len(opts.OwnServerMCPIDs) > 0 {
 		var (
@@ -491,9 +425,6 @@ func (c *Client) GetMCPUsageStats(ctx context.Context, opts MCPUsageStatsOptions
 	// Get basic stats for each server
 	if err := c.db.WithContext(ctx).Transaction(func(base *gorm.DB) error {
 		base = base.Model(&types.MCPAuditLog{}).Session(&gorm.Session{})
-		// Non-MCP audit rows (e.g. local agent events) share this table; keep
-		// usage statistics MCP-only.
-		base = base.Where("source_type = ?", types2.AuditLogSourceTypeMCP).Session(&gorm.Session{})
 		tx := base.Where("created_at >= ? AND created_at < ?", opts.StartTime, opts.EndTime)
 
 		if opts.MCPID != "" {
@@ -639,10 +570,6 @@ type MCPAuditLogOptions struct {
 	ClientVersion             []string
 	ResponseStatus            []string
 	ClientIP                  []string
-	SourceType                []string
-	EventType                 []string
-	DeviceID                  []string
-	Outcome                   []string
 	ProcessingTimeMin         int64
 	ProcessingTimeMax         int64
 	Query                     string // Search term for text search across multiple fields
@@ -692,6 +619,14 @@ func (c *Client) encryptMCPAuditLog(ctx context.Context, log *types.MCPAuditLog)
 		}
 	}
 
+	if len(log.MutatedRequestBody) > 0 {
+		if b, err = transformer.TransformToStorage(ctx, log.MutatedRequestBody, dataCtx); err != nil {
+			errs = append(errs, err)
+		} else {
+			log.MutatedRequestBody = json.RawMessage(base64.StdEncoding.EncodeToString(b))
+		}
+	}
+
 	if len(log.ResponseBody) > 0 {
 		if b, err = transformer.TransformToStorage(ctx, log.ResponseBody, dataCtx); err != nil {
 			errs = append(errs, err)
@@ -700,58 +635,27 @@ func (c *Client) encryptMCPAuditLog(ctx context.Context, log *types.MCPAuditLog)
 		}
 	}
 
-	switch log.SourceType {
-	case types2.AuditLogSourceTypeMCP:
-		if log.MCP != nil {
-			if len(log.MCP.MutatedRequestBody) > 0 {
-				if b, err = transformer.TransformToStorage(ctx, log.MCP.MutatedRequestBody, dataCtx); err != nil {
-					errs = append(errs, err)
-				} else {
-					log.MCP.MutatedRequestBody = json.RawMessage(base64.StdEncoding.EncodeToString(b))
-				}
-			}
-
-			if len(log.MCP.OriginalResponseBody) > 0 {
-				if b, err = transformer.TransformToStorage(ctx, log.MCP.OriginalResponseBody, dataCtx); err != nil {
-					errs = append(errs, err)
-				} else {
-					log.MCP.OriginalResponseBody = json.RawMessage(base64.StdEncoding.EncodeToString(b))
-				}
-			}
-
-			if len(log.MCP.RequestHeaders) > 0 {
-				if b, err = transformer.TransformToStorage(ctx, log.MCP.RequestHeaders, dataCtx); err != nil {
-					errs = append(errs, err)
-				} else {
-					log.MCP.RequestHeaders = json.RawMessage(base64.StdEncoding.EncodeToString(b))
-				}
-			}
-
-			if len(log.MCP.ResponseHeaders) > 0 {
-				if b, err = transformer.TransformToStorage(ctx, log.MCP.ResponseHeaders, dataCtx); err != nil {
-					errs = append(errs, err)
-				} else {
-					log.MCP.ResponseHeaders = json.RawMessage(base64.StdEncoding.EncodeToString(b))
-				}
-			}
+	if len(log.OriginalResponseBody) > 0 {
+		if b, err = transformer.TransformToStorage(ctx, log.OriginalResponseBody, dataCtx); err != nil {
+			errs = append(errs, err)
+		} else {
+			log.OriginalResponseBody = json.RawMessage(base64.StdEncoding.EncodeToString(b))
 		}
-	case types2.AuditLogSourceTypeLocalAgentToolCall:
-		if log.LocalAgentToolCall != nil {
-			if log.LocalAgentToolCall.ErrorDetail != "" {
-				if b, err = transformer.TransformToStorage(ctx, []byte(log.LocalAgentToolCall.ErrorDetail), dataCtx); err != nil {
-					errs = append(errs, err)
-				} else {
-					log.LocalAgentToolCall.ErrorDetail = base64.StdEncoding.EncodeToString(b)
-				}
-			}
+	}
 
-			if len(log.LocalAgentToolCall.RawEvent) > 0 {
-				if b, err = transformer.TransformToStorage(ctx, log.LocalAgentToolCall.RawEvent, dataCtx); err != nil {
-					errs = append(errs, err)
-				} else {
-					log.LocalAgentToolCall.RawEvent = json.RawMessage(base64.StdEncoding.EncodeToString(b))
-				}
-			}
+	if len(log.RequestHeaders) > 0 {
+		if b, err = transformer.TransformToStorage(ctx, log.RequestHeaders, dataCtx); err != nil {
+			errs = append(errs, err)
+		} else {
+			log.RequestHeaders = json.RawMessage(base64.StdEncoding.EncodeToString(b))
+		}
+	}
+
+	if len(log.ResponseHeaders) > 0 {
+		if b, err = transformer.TransformToStorage(ctx, log.ResponseHeaders, dataCtx); err != nil {
+			errs = append(errs, err)
+		} else {
+			log.ResponseHeaders = json.RawMessage(base64.StdEncoding.EncodeToString(b))
 		}
 	}
 
@@ -793,6 +697,20 @@ func (c *Client) decryptMCPAuditLog(ctx context.Context, log *types.MCPAuditLog)
 		}
 	}
 
+	if len(log.MutatedRequestBody) > 0 {
+		decoded = make([]byte, base64.StdEncoding.DecodedLen(len(log.MutatedRequestBody)))
+		n, err = base64.StdEncoding.Decode(decoded, log.MutatedRequestBody)
+		if err == nil {
+			if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
+				errs = append(errs, err)
+			} else {
+				log.MutatedRequestBody = json.RawMessage(out)
+			}
+		} else {
+			errs = append(errs, err)
+		}
+	}
+
 	if len(log.ResponseBody) > 0 {
 		decoded = make([]byte, base64.StdEncoding.DecodedLen(len(log.ResponseBody)))
 		n, err = base64.StdEncoding.Decode(decoded, log.ResponseBody)
@@ -807,121 +725,51 @@ func (c *Client) decryptMCPAuditLog(ctx context.Context, log *types.MCPAuditLog)
 		}
 	}
 
-	switch log.SourceType {
-	case types2.AuditLogSourceTypeMCP:
-		if log.MCP != nil {
-			if len(log.MCP.MutatedRequestBody) > 0 {
-				decoded = make([]byte, base64.StdEncoding.DecodedLen(len(log.MCP.MutatedRequestBody)))
-				n, err = base64.StdEncoding.Decode(decoded, log.MCP.MutatedRequestBody)
-				if err == nil {
-					if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
-						errs = append(errs, err)
-					} else {
-						log.MCP.MutatedRequestBody = json.RawMessage(out)
-					}
-				} else {
-					errs = append(errs, err)
-				}
+	if len(log.OriginalResponseBody) > 0 {
+		decoded = make([]byte, base64.StdEncoding.DecodedLen(len(log.OriginalResponseBody)))
+		n, err = base64.StdEncoding.Decode(decoded, log.OriginalResponseBody)
+		if err == nil {
+			if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
+				errs = append(errs, err)
+			} else {
+				log.OriginalResponseBody = json.RawMessage(out)
 			}
-
-			if len(log.MCP.OriginalResponseBody) > 0 {
-				decoded = make([]byte, base64.StdEncoding.DecodedLen(len(log.MCP.OriginalResponseBody)))
-				n, err = base64.StdEncoding.Decode(decoded, log.MCP.OriginalResponseBody)
-				if err == nil {
-					if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
-						errs = append(errs, err)
-					} else {
-						log.MCP.OriginalResponseBody = json.RawMessage(out)
-					}
-				} else {
-					errs = append(errs, err)
-				}
-			}
-
-			if len(log.MCP.RequestHeaders) > 0 {
-				decoded = make([]byte, base64.StdEncoding.DecodedLen(len(log.MCP.RequestHeaders)))
-				n, err = base64.StdEncoding.Decode(decoded, log.MCP.RequestHeaders)
-				if err == nil {
-					if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
-						errs = append(errs, err)
-					} else {
-						log.MCP.RequestHeaders = json.RawMessage(out)
-					}
-				} else {
-					errs = append(errs, err)
-				}
-			}
-
-			if len(log.MCP.ResponseHeaders) > 0 {
-				decoded = make([]byte, base64.StdEncoding.DecodedLen(len(log.MCP.ResponseHeaders)))
-				n, err = base64.StdEncoding.Decode(decoded, log.MCP.ResponseHeaders)
-				if err == nil {
-					if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
-						errs = append(errs, err)
-					} else {
-						log.MCP.ResponseHeaders = json.RawMessage(out)
-					}
-				} else {
-					errs = append(errs, err)
-				}
-			}
+		} else {
+			errs = append(errs, err)
 		}
-	case types2.AuditLogSourceTypeLocalAgentToolCall:
-		if log.LocalAgentToolCall != nil {
-			if log.LocalAgentToolCall.ErrorDetail != "" {
-				decoded = make([]byte, base64.StdEncoding.DecodedLen(len(log.LocalAgentToolCall.ErrorDetail)))
-				n, err = base64.StdEncoding.Decode(decoded, []byte(log.LocalAgentToolCall.ErrorDetail))
-				if err == nil {
-					if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
-						errs = append(errs, err)
-					} else {
-						log.LocalAgentToolCall.ErrorDetail = string(out)
-					}
-				} else {
-					errs = append(errs, err)
-				}
-			}
+	}
 
-			if len(log.LocalAgentToolCall.RawEvent) > 0 {
-				decoded = make([]byte, base64.StdEncoding.DecodedLen(len(log.LocalAgentToolCall.RawEvent)))
-				n, err = base64.StdEncoding.Decode(decoded, log.LocalAgentToolCall.RawEvent)
-				if err == nil {
-					if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
-						errs = append(errs, err)
-					} else {
-						log.LocalAgentToolCall.RawEvent = json.RawMessage(out)
-					}
-				} else {
-					errs = append(errs, err)
-				}
+	if len(log.RequestHeaders) > 0 {
+		decoded = make([]byte, base64.StdEncoding.DecodedLen(len(log.RequestHeaders)))
+		n, err = base64.StdEncoding.Decode(decoded, log.RequestHeaders)
+		if err == nil {
+			if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
+				errs = append(errs, err)
+			} else {
+				log.RequestHeaders = json.RawMessage(out)
 			}
+		} else {
+			errs = append(errs, err)
+		}
+	}
+
+	if len(log.ResponseHeaders) > 0 {
+		decoded = make([]byte, base64.StdEncoding.DecodedLen(len(log.ResponseHeaders)))
+		n, err = base64.StdEncoding.Decode(decoded, log.ResponseHeaders)
+		if err == nil {
+			if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
+				errs = append(errs, err)
+			} else {
+				log.ResponseHeaders = json.RawMessage(out)
+			}
+		} else {
+			errs = append(errs, err)
 		}
 	}
 
 	return errors.Join(errs...)
 }
 
-func normalizeMCPAuditLogSourceFields(log *types.MCPAuditLog) {
-	switch log.SourceType {
-	case types2.AuditLogSourceTypeLocalAgentToolCall:
-		log.EnsureLocal()
-		log.MCP = nil
-	case types2.AuditLogSourceTypeMCP:
-		log.EnsureMCP()
-		log.LocalAgentToolCall = nil
-	}
-}
-
 func mcpAuditLogDataCtx(log *types.MCPAuditLog) value.Context {
-	switch log.SourceType {
-	case types2.AuditLogSourceTypeMCP:
-		if log.MCP != nil {
-			return value.DefaultContext(fmt.Sprintf("%s/%s/%s", mcpAuditLogGroupResource.String(), log.MCP.MCPID, log.UserID))
-		}
-	case types2.AuditLogSourceTypeLocalAgentToolCall:
-		if log.LocalAgentToolCall != nil && log.LocalAgentToolCall.EventID != "" {
-			return value.DefaultContext(fmt.Sprintf("%s/local/%s/%s", mcpAuditLogGroupResource.String(), log.LocalAgentToolCall.EventID, log.UserID))
-		}
-	}
-	return value.DefaultContext(fmt.Sprintf("%s/%s", mcpAuditLogGroupResource.String(), log.UserID))
+	return value.DefaultContext(fmt.Sprintf("%s/%s/%s", mcpAuditLogGroupResource.String(), log.MCPID, log.UserID))
 }
