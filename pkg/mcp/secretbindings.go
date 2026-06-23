@@ -186,7 +186,7 @@ func ListAllowedSecretBindingTargets(ctx context.Context, c kclient.Client, obot
 	}
 
 	requirement, err := labels.NewRequirement(allowedLabel, selection.Exists, nil)
-	if err != nil {
+	if err != nil || requirement == nil {
 		return nil, fmt.Errorf("create allowed secret binding label selector: %w", err)
 	}
 	selector := labels.NewSelector().Add(*requirement)
