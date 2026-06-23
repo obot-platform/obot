@@ -98,10 +98,6 @@ type AuditLogExportFilters struct {
 	ClientVersions             []string `json:"clientVersions,omitempty"`
 	ResponseStatuses           []string `json:"responseStatuses,omitempty"`
 	ClientIPs                  []string `json:"clientIPs,omitempty"`
-	SourceTypes                []string `json:"sourceTypes,omitempty"`
-	EventTypes                 []string `json:"eventTypes,omitempty"`
-	DeviceIDs                  []string `json:"deviceIDs,omitempty"`
-	Outcomes                   []string `json:"outcomes,omitempty"`
 	Query                      string   `json:"query,omitempty"`
 }
 
