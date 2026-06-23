@@ -63,6 +63,7 @@ type kubernetesBackend struct {
 	auditLogsFlushIntervalSeconds int
 	authEnabled                   bool
 	obotClient                    kclient.Client
+	resourceMaximums              ResourceMaximums
 	deploymentCacheMu             sync.RWMutex
 	deploymentCache               map[string]*kubernetesDeploymentCacheEntry
 }
@@ -72,7 +73,7 @@ type kubernetesDeploymentCacheEntry struct {
 	podName string
 }
 
-func newKubernetesBackend(authEnabled bool, clientset *kubernetes.Clientset, client, cachedClient, obotClient kclient.WithWatch, opts Options) backend {
+func newKubernetesBackend(authEnabled bool, clientset *kubernetes.Clientset, client, cachedClient, obotClient kclient.WithWatch, opts Options, resourceMaximums ResourceMaximums) backend {
 	var serviceFQDN string
 	if opts.ServiceName != "" && opts.ServiceNamespace != "" {
 		serviceFQDN = fmt.Sprintf("%s.%s.svc.%s", opts.ServiceName, opts.ServiceNamespace, opts.MCPClusterDomain)
@@ -92,6 +93,7 @@ func newKubernetesBackend(authEnabled bool, clientset *kubernetes.Clientset, cli
 		auditLogsBatchSize:            opts.MCPAuditLogsPersistBatchSize,
 		auditLogsFlushIntervalSeconds: opts.MCPAuditLogPersistIntervalSeconds,
 		obotClient:                    obotClient,
+		resourceMaximums:              resourceMaximums,
 		deploymentCache:               map[string]*kubernetesDeploymentCacheEntry{},
 	}
 }
@@ -526,12 +528,18 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 	// Fetch K8s settings
 	k8sSettings := k.getK8sSettings(ctx)
 
+	// Make sure that the resources are under the configured maximums
+	mcpResources := mcpContainerResourcesWithMaximums(server.Resources, server.Runtime, server.NanobotAgentName != "", k8sSettings, k.resourceMaximums)
+	if err := validateServerResourceMaximums(server, mcpResources, k.resourceMaximums); err != nil {
+		return nil, err
+	}
+
 	effectiveImagePullSecrets, err := k.effectiveImagePullSecretNames(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get effective image pull secrets: %w", err)
 	}
 
-	annotations["obot.ai/k8s-settings-hash"] = ComputeK8sSettingsHash(k8sSettings, server.Resources, server.Runtime, server.NanobotAgentName != "", effectiveImagePullSecrets)
+	annotations["obot.ai/k8s-settings-hash"] = ComputeK8sSettingsHash(k8sSettings, server.Resources, server.Runtime, server.NanobotAgentName != "", k.resourceMaximums, effectiveImagePullSecrets)
 
 	// Get PSA enforce level for security context decisions
 	psaLevel := GetPSAEnforceLevelFromSpec(k8sSettings)
@@ -727,7 +735,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 			Name:          portName,
 			ContainerPort: int32(port),
 		}},
-		Resources:       mcpContainerResources(server.Resources, server.Runtime, server.NanobotAgentName != "", k8sSettings),
+		Resources:       mcpResources,
 		SecurityContext: getContainerSecurityContext(psaLevel),
 		Command:         command,
 		Args:            args,
@@ -1140,26 +1148,63 @@ func (k *kubernetesBackend) deleteDeploymentCache(mcpServerName string) {
 }
 
 func mcpContainerResources(serverSpecificResources *corev1.ResourceRequirements, runtime types.Runtime, nanobotAgent bool, k8sSettings v1.K8sSettingsSpec) corev1.ResourceRequirements {
-	var defaults corev1.ResourceRequirements
-	if runtime == types.RuntimeRemote || runtime == types.RuntimeComposite {
-		defaults = memoryRequestResources(remoteMemoryRequest)
-	} else if nanobotAgent {
-		if k8sSettings.NanobotAgentResources != nil {
-			defaults = *k8sSettings.NanobotAgentResources
-		} else {
-			defaults = memoryRequestResources(defaultAgentMemoryRequest)
-		}
-	} else if k8sSettings.Resources != nil {
-		defaults = *k8sSettings.Resources
-	} else {
-		defaults = memoryRequestResources(defaultMCPMemoryRequest)
-	}
+	return mcpContainerResourcesWithMaximums(serverSpecificResources, runtime, nanobotAgent, k8sSettings, ResourceMaximums{})
+}
 
-	return withServerResourceOverrides(withDefaultCPURequest(defaults), serverSpecificResources)
+func mcpContainerResourcesWithMaximums(serverSpecificResources *corev1.ResourceRequirements, runtime types.Runtime, nanobotAgent bool, k8sSettings v1.K8sSettingsSpec, maximums ResourceMaximums) corev1.ResourceRequirements {
+	defaults, implicitMemoryRequest := mcpContainerDefaultResources(runtime, nanobotAgent, k8sSettings)
+	defaults = withImplicitResourceMaximums(defaults, implicitMemoryRequest, maximums)
+	return withServerResourceOverrides(defaults, serverSpecificResources)
+}
+
+// mcpContainerDefaultResources returns the default resource block and whether
+// its memory request came from a built-in fallback. Only built-in fallbacks are
+// capped by ResourceMaximums; explicit K8s settings remain explicit and are
+// validated separately.
+func mcpContainerDefaultResources(runtime types.Runtime, nanobotAgent bool, k8sSettings v1.K8sSettingsSpec) (corev1.ResourceRequirements, bool) {
+	if runtime == types.RuntimeRemote || runtime == types.RuntimeComposite {
+		return memoryRequestResources(remoteMemoryRequest), true
+	}
+	if nanobotAgent {
+		if k8sSettings.NanobotAgentResources != nil {
+			return *k8sSettings.NanobotAgentResources, false
+		}
+		return memoryRequestResources(defaultAgentMemoryRequest), true
+	}
+	if k8sSettings.Resources != nil {
+		return *k8sSettings.Resources, false
+	}
+	return memoryRequestResources(defaultMCPMemoryRequest), true
+}
+
+// withImplicitResourceMaximums lowers only implicit default requests to the
+// configured maximums. It intentionally leaves explicit K8s settings and
+// server-specific overrides alone so over-limit explicit values fail validation
+// instead of being silently rewritten.
+func withImplicitResourceMaximums(resources corev1.ResourceRequirements, implicitMemoryRequest bool, maximums ResourceMaximums) corev1.ResourceRequirements {
+	result := *resources.DeepCopy()
+	if implicitMemoryRequest && maximums.MemoryRequest != nil {
+		if actual, ok := result.Requests[corev1.ResourceMemory]; ok && actual.Cmp(*maximums.MemoryRequest) > 0 {
+			result.Requests[corev1.ResourceMemory] = *maximums.MemoryRequest
+		}
+	}
+	return withDefaultCPURequest(result, maximums.CPURequest)
 }
 
 func EffectiveDefaultMCPResourceRequirements(k8sSettings v1.K8sSettingsSpec) corev1.ResourceRequirements {
 	return mcpContainerResources(nil, types.RuntimeNPX, false, k8sSettings)
+}
+
+func EffectiveDefaultMCPResourceRequirementsWithMaximums(k8sSettings v1.K8sSettingsSpec, maximums ResourceMaximums) corev1.ResourceRequirements {
+	return mcpContainerResourcesWithMaximums(nil, types.RuntimeNPX, false, k8sSettings, maximums)
+}
+
+func validateServerResourceMaximums(server ServerConfig, resources corev1.ResourceRequirements, maximums ResourceMaximums) error {
+	if server.SystemMCPServer {
+		// Maximums are not enforced for SystemMCPServers
+		return nil
+	}
+	return maximums.Validate(resources)
 }
 
 func withServerResourceOverrides(defaults corev1.ResourceRequirements, overrides *corev1.ResourceRequirements) corev1.ResourceRequirements {
@@ -1192,13 +1237,17 @@ func memoryRequestResources(memory resource.Quantity) corev1.ResourceRequirement
 	}
 }
 
-func withDefaultCPURequest(resources corev1.ResourceRequirements) corev1.ResourceRequirements {
+func withDefaultCPURequest(resources corev1.ResourceRequirements, maximum *resource.Quantity) corev1.ResourceRequirements {
 	result := *resources.DeepCopy()
 	if _, ok := result.Requests[corev1.ResourceCPU]; !ok {
 		if result.Requests == nil {
 			result.Requests = corev1.ResourceList{}
 		}
-		result.Requests[corev1.ResourceCPU] = defaultCPURequest
+		cpuRequest := defaultCPURequest
+		if maximum != nil && cpuRequest.Cmp(*maximum) > 0 {
+			cpuRequest = *maximum
+		}
+		result.Requests[corev1.ResourceCPU] = cpuRequest
 	}
 	return result
 }
@@ -1217,8 +1266,13 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, server ServerConf
 	}
 
 	// Compute K8s settings hash
-	k8sSettingsHash := ComputeK8sSettingsHash(k8sSettings, server.Resources, server.Runtime, server.NanobotAgentName != "", effectiveImagePullSecrets)
-	desiredResources := mcpContainerResources(server.Resources, server.Runtime, server.NanobotAgentName != "", k8sSettings)
+	k8sSettingsHash := ComputeK8sSettingsHash(k8sSettings, server.Resources, server.Runtime, server.NanobotAgentName != "", k.resourceMaximums, effectiveImagePullSecrets)
+	desiredResources := mcpContainerResourcesWithMaximums(server.Resources, server.Runtime, server.NanobotAgentName != "", k8sSettings, k.resourceMaximums)
+
+	// Make sure that the resources are under the configured maximums
+	if err := validateServerResourceMaximums(server, desiredResources, k.resourceMaximums); err != nil {
+		return err
+	}
 
 	// Get PSA enforce level for security context decisions
 	psaLevel := GetPSAEnforceLevelFromSpec(k8sSettings)
@@ -1816,7 +1870,7 @@ func getPodSecurityContextPatch(psaLevel PSAEnforceLevel) map[string]any {
 // MCP Deployment needs to be updated. The API/status field is still named
 // K8sSettingsHash, but managed image pull secret names are part of the same
 // v1 drift path.
-func ComputeK8sSettingsHash(settings v1.K8sSettingsSpec, serverSpecificResources *corev1.ResourceRequirements, serverRuntime types.Runtime, nanobotAgentServer bool, imagePullSecretNames []string) string {
+func ComputeK8sSettingsHash(settings v1.K8sSettingsSpec, serverSpecificResources *corev1.ResourceRequirements, serverRuntime types.Runtime, nanobotAgentServer bool, maximums ResourceMaximums, imagePullSecretNames []string) string {
 	var buf bytes.Buffer
 
 	// Hash affinity
@@ -1831,9 +1885,11 @@ func ComputeK8sSettingsHash(settings v1.K8sSettingsSpec, serverSpecificResources
 		buf.Write(tolerationsJSON)
 	}
 
-	// Resources are server specific
+	// Resources are server specific. Hash the same effective resources that are
+	// applied to the Deployment, including ResourceMaximums capping implicit
+	// built-in defaults.
 	// Ignoring errors from JSON encoding since the inputs are well-defined structs that should always marshal successfully
-	_ = json.NewEncoder(&buf).Encode(mcpContainerResources(serverSpecificResources, serverRuntime, nanobotAgentServer, settings))
+	_ = json.NewEncoder(&buf).Encode(mcpContainerResourcesWithMaximums(serverSpecificResources, serverRuntime, nanobotAgentServer, settings, maximums))
 
 	// Hash runtimeClassName
 	if settings.RuntimeClassName != nil && *settings.RuntimeClassName != "" {
@@ -2059,7 +2115,7 @@ func (k *kubernetesBackend) CheckCapacity(ctx context.Context, server ServerConf
 
 	memoryRequest := resource.MustParse("0")
 	cpuRequest := resource.MustParse("0")
-	resources := mcpContainerResources(server.Resources, server.Runtime, server.NanobotAgentName != "", k8sSettings)
+	resources := mcpContainerResourcesWithMaximums(server.Resources, server.Runtime, server.NanobotAgentName != "", k8sSettings, k.resourceMaximums)
 	if mem, ok := resources.Requests[corev1.ResourceMemory]; ok {
 		memoryRequest = mem
 	}

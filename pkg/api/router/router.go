@@ -409,7 +409,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("POST /api/user-default-role-settings", userDefaultRoleSettings.Set)
 
 	// K8s Settings
-	k8sSettingsHandler := handlers.NewK8sSettingsHandler()
+	k8sSettingsHandler := handlers.NewK8sSettingsHandler(services.MCPSessionManager)
 	mux.HandleFunc("GET /api/default-k8s-settings", k8sSettingsHandler.Defaults)
 	mux.HandleFunc("GET /api/k8s-settings", k8sSettingsHandler.Get)
 	mux.HandleFunc("PUT /api/k8s-settings", k8sSettingsHandler.Update)

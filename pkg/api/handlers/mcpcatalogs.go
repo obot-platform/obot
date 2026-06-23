@@ -318,6 +318,9 @@ func (h *MCPCatalogHandler) CreateEntry(req api.Context) error {
 	if err := validation.ValidateCatalogEntryManifest(req.Context(), manifest, validationOptions(h.sessionManager.RemoteMCPURLValidationConfig())); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
+	if err := validateCatalogEntryResourceMaximums(k8sSettingsResourceMaximums(h.sessionManager), manifest); err != nil {
+		return err
+	}
 	// UI-created catalog entries are never git-managed, so secretBinding is forbidden.
 	if err := validation.ValidateSecretBindingsCatalogEntry(manifest, false, h.mcpBackend); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
@@ -396,6 +399,9 @@ func (h *MCPCatalogHandler) UpdateEntry(req api.Context) error {
 	if err := validation.ValidateCatalogEntryManifest(req.Context(), manifest, validationOptions(h.sessionManager.RemoteMCPURLValidationConfig())); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
+	if err := validateCatalogEntryResourceMaximums(k8sSettingsResourceMaximums(h.sessionManager), manifest); err != nil {
+		return err
+	}
 	// UI-updated catalog entries are never git-managed at this call site. The
 	// git-sync controller reconciles git-managed entries through a separate path.
 	if err := validation.ValidateSecretBindingsCatalogEntry(manifest, false, h.mcpBackend); err != nil {
@@ -416,6 +422,26 @@ func (h *MCPCatalogHandler) UpdateEntry(req api.Context) error {
 	}
 
 	return req.Write(ConvertMCPServerCatalogEntry(entry, h.serverURL))
+}
+
+func validateCatalogEntryResourceMaximums(maximums mcp.ResourceMaximums, manifest types.MCPServerCatalogEntryManifest) error {
+	if maximums.Empty() || manifest.Resources == nil {
+		return nil
+	}
+
+	resources, err := mcp.CoreResourceRequirements(manifest.Resources)
+	if err != nil {
+		return types.NewErrBadRequest("failed to validate entry manifest resources: %v", err)
+	}
+	if resources == nil {
+		return nil
+	}
+
+	if err := maximums.Validate(*resources); err != nil {
+		return types.NewErrBadRequest("resource maximum validation failed: %v", err)
+	}
+
+	return nil
 }
 
 func (h *MCPCatalogHandler) DeleteEntry(req api.Context) error {
