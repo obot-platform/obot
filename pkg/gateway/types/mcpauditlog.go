@@ -3,47 +3,146 @@ package types
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
+	"unicode/utf8"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"gorm.io/datatypes"
 )
 
-// MCPAuditLog represents an audit log entry for MCP API calls
-type MCPAuditLog struct {
-	ID                        uint                                  `json:"id" gorm:"primaryKey"`
-	CreatedAt                 time.Time                             `json:"createdAt" gorm:"index"`
+// maxErrorSummaryBytes caps the plaintext, searchable Error column for events
+// that carry a full error payload in the encrypted ErrorDetail field.
+const maxErrorSummaryBytes = 1024
+
+func truncateUTF8ByBytes(s string, maxBytes int) string {
+	if len(s) <= maxBytes {
+		return s
+	}
+
+	for maxBytes > 0 && !utf8.ValidString(s[:maxBytes]) {
+		maxBytes--
+	}
+
+	return s[:maxBytes]
+}
+
+// MCPAuditLogFields are meaningful only for MCP gateway/shim rows.
+type MCPAuditLogFields struct {
 	APIKey                    string                                `json:"apiKey,omitempty"`
-	UserID                    string                                `json:"userID" gorm:"index"`
 	MCPID                     string                                `json:"mcpID" gorm:"index"`
 	PowerUserWorkspaceID      string                                `json:"powerUserWorkspaceID,omitempty" gorm:"index"`
 	MCPServerDisplayName      string                                `json:"mcpServerDisplayName" gorm:"index"`
 	MCPServerCatalogEntryName string                                `json:"mcpServerCatalogEntryName" gorm:"index"`
-	ClientName                string                                `json:"clientName" gorm:"index"`
-	ClientVersion             string                                `json:"clientVersion" gorm:"index"`
 	ClientIP                  string                                `json:"clientIP" gorm:"index"`
-	CallType                  string                                `json:"callType" gorm:"index"`
-	CallIdentifier            string                                `json:"callIdentifier,omitempty" gorm:"index"`
 	RequestMutated            bool                                  `json:"requestMutated"`
-	RequestBody               json.RawMessage                       `json:"requestBody,omitempty"`
 	MutatedRequestBody        json.RawMessage                       `json:"mutatedRequestBody,omitempty"`
 	ResponseMutated           bool                                  `json:"responseMutated"`
-	ResponseBody              json.RawMessage                       `json:"responseBody,omitempty"`
 	OriginalResponseBody      json.RawMessage                       `json:"originalResponseBody,omitempty"`
 	ResponseStatus            int                                   `json:"responseStatus" gorm:"index"`
-	Error                     string                                `json:"error,omitempty"`
-	ProcessingTimeMs          int64                                 `json:"processingTimeMs" gorm:"index"`
-	SessionID                 string                                `json:"sessionID,omitempty" gorm:"index"`
 	WebhookStatuses           datatypes.JSONSlice[MCPWebhookStatus] `json:"webhookStatuses,omitempty"`
+	RequestID                 string                                `json:"requestID,omitempty" gorm:"index"`
+	UserAgent                 string                                `json:"userAgent,omitempty"`
+	RequestHeaders            json.RawMessage                       `json:"requestHeaders,omitempty"`
+	ResponseHeaders           json.RawMessage                       `json:"responseHeaders,omitempty"`
+}
 
-	// Additional metadata
-	RequestID       string          `json:"requestID,omitempty" gorm:"index"`
-	UserAgent       string          `json:"userAgent,omitempty"`
-	RequestHeaders  json.RawMessage `json:"requestHeaders,omitempty"`
-	ResponseHeaders json.RawMessage `json:"responseHeaders,omitempty"`
+// LocalAgentToolCallAuditLog contains fields introduced for local-agent audit events.
+type LocalAgentToolCallAuditLog struct {
+	EventID  string `json:"eventID,omitempty" gorm:"uniqueIndex;default:null"`
+	DeviceID string `json:"deviceID,omitempty" gorm:"index"`
+
+	// ErrorDetail holds the full error text for events whose Error column is a
+	// truncated summary. Encrypted at rest like the request/response payloads.
+	ErrorDetail string `json:"errorDetail,omitempty"`
+	// RawEvent preserves the original client payload (e.g. the local agent hook
+	// JSON) for debugging parser drift. Encrypted at rest.
+	RawEvent json.RawMessage `json:"rawEvent,omitempty"`
+
+	// Context holds source-specific, non-indexed metadata (workspace, git remote,
+	// hostname, etc.). See apiclient types.LocalAgentToolCallAuditLogContext for the
+	// canonical shape.
+	Context datatypes.JSON `json:"context,omitempty"`
+	// PayloadMeta records per-payload-field truncation info, keyed by field
+	// name ("request", "response", "error", "rawEvent").
+	PayloadMeta datatypes.JSON `json:"payloadMeta,omitempty"`
+}
+
+// MCPAuditLog represents an audit log entry. Despite the name (kept for
+// storage compatibility), it stores generic audit events distinguished by
+// SourceType; MCP-specific fields are empty for non-MCP rows.
+type MCPAuditLog struct {
+	ID        uint      `json:"id" gorm:"primaryKey"`
+	CreatedAt time.Time `json:"createdAt" gorm:"index"`
+
+	// SourceType, EventType, and Outcome are backfilled on historical rows by a
+	// startup migration; ReceivedAt remains NULL on rows that predate it.
+	SourceType types2.AuditLogSourceType `json:"sourceType,omitempty" gorm:"index"`
+	EventType  types2.AuditLogEventType  `json:"eventType,omitempty" gorm:"index"`
+	ReceivedAt *time.Time                `json:"receivedAt,omitempty"`
+	Outcome    types2.AuditLogOutcome    `json:"outcome,omitempty" gorm:"index"`
+	UserID     string                    `json:"userID" gorm:"index"`
+
+	// MCP rows map their JSON-RPC call type and identifier into these same
+	// indexed columns so local-agent events can reuse list, filter, and export paths.
+	ClientName       string          `json:"clientName" gorm:"index"`
+	ClientVersion    string          `json:"clientVersion" gorm:"index"`
+	CallType         string          `json:"callType" gorm:"index"`
+	CallIdentifier   string          `json:"callIdentifier,omitempty" gorm:"index"`
+	RequestBody      json.RawMessage `json:"requestBody,omitempty"`
+	ResponseBody     json.RawMessage `json:"responseBody,omitempty"`
+	Error            string          `json:"error,omitempty"`
+	ProcessingTimeMs int64           `json:"processingTimeMs" gorm:"index"`
+	SessionID        string          `json:"sessionID,omitempty" gorm:"index"`
+
+	// Exactly one source-specific struct should be non-nil after normalization.
+	// Both are embedded into the same physical mcp_audit_logs table so existing
+	// MCP rows and indexes remain column-compatible.
+	MCP                *MCPAuditLogFields          `json:"mcp,omitempty" gorm:"embedded"`
+	LocalAgentToolCall *LocalAgentToolCallAuditLog `json:"local,omitempty" gorm:"embedded"`
 
 	ResponseReceived bool `json:"responseReceived"`
 	Encrypted        bool `json:"encrypted"`
+}
+
+func (a *MCPAuditLog) EnsureMCP() *MCPAuditLogFields {
+	if a.MCP == nil {
+		a.MCP = new(MCPAuditLogFields)
+	}
+	return a.MCP
+}
+
+func (a *MCPAuditLog) EnsureLocal() *LocalAgentToolCallAuditLog {
+	if a.LocalAgentToolCall == nil {
+		a.LocalAgentToolCall = new(LocalAgentToolCallAuditLog)
+	}
+	return a.LocalAgentToolCall
+}
+
+// EventTypeForCallType maps an MCP call type to the generic audit event type.
+func EventTypeForCallType(callType string) types2.AuditLogEventType {
+	switch callType {
+	case "tools/call":
+		return types2.AuditLogEventTypeToolCall
+	case "resources/read":
+		return types2.AuditLogEventTypeResourceRead
+	case "prompts/get":
+		return types2.AuditLogEventTypePromptGet
+	default:
+		return types2.AuditLogEventTypeMCPRequest
+	}
+}
+
+// OutcomeForResult maps an error string and response status to an outcome.
+func OutcomeForResult(errMsg string, responseStatus int) types2.AuditLogOutcome {
+	// responseStatus==0 indicates we haven't observed a response yet (request-only row).
+	if errMsg == "" && responseStatus == 0 {
+		return ""
+	}
+	if errMsg == "" && responseStatus < 400 {
+		return types2.AuditLogOutcomeSuccess
+	}
+	return types2.AuditLogOutcomeError
 }
 
 type MCPWebhookStatus struct {
@@ -103,9 +202,18 @@ type MCPPromptReadStats struct {
 }
 
 // ConvertMCPAuditLog converts internal MCPAuditLog to API type
-func ConvertMCPAuditLog(a MCPAuditLog) types2.MCPAuditLog {
-	webhookStatus := make([]types2.WebhookStatus, len(a.WebhookStatuses))
-	for i, ws := range a.WebhookStatuses {
+func ConvertMCPAuditLog(a MCPAuditLog) types2.AuditLog {
+	var mcpFields MCPAuditLogFields
+	if a.MCP != nil {
+		mcpFields = *a.MCP
+	}
+	var localFields LocalAgentToolCallAuditLog
+	if a.LocalAgentToolCall != nil {
+		localFields = *a.LocalAgentToolCall
+	}
+
+	webhookStatus := make([]types2.WebhookStatus, len(mcpFields.WebhookStatuses))
+	for i, ws := range mcpFields.WebhookStatuses {
 		webhookStatus[i] = types2.WebhookStatus{
 			Type:    ws.Type,
 			Method:  ws.Method,
@@ -116,38 +224,183 @@ func ConvertMCPAuditLog(a MCPAuditLog) types2.MCPAuditLog {
 			Message: ws.Message,
 		}
 	}
-	return types2.MCPAuditLog{
-		ID:                        a.ID,
-		CreatedAt:                 *types2.NewTime(a.CreatedAt),
-		UserID:                    a.UserID,
-		MCPID:                     a.MCPID,
-		APIKey:                    a.APIKey,
-		PowerUserWorkspaceID:      a.PowerUserWorkspaceID,
-		MCPServerDisplayName:      a.MCPServerDisplayName,
-		MCPServerCatalogEntryName: a.MCPServerCatalogEntryName,
+
+	var receivedAt *types2.Time
+	if a.ReceivedAt != nil {
+		receivedAt = types2.NewTime(*a.ReceivedAt)
+	}
+
+	var context *types2.LocalAgentToolCallAuditLogContext
+	if len(localFields.Context) > 0 {
+		context = new(types2.LocalAgentToolCallAuditLogContext)
+		if err := json.Unmarshal(localFields.Context, context); err != nil {
+			context = nil
+		}
+	}
+
+	var payloadMeta map[string]types2.PayloadFieldMeta
+	if len(localFields.PayloadMeta) > 0 {
+		if err := json.Unmarshal(localFields.PayloadMeta, &payloadMeta); err != nil {
+			payloadMeta = nil
+		}
+	}
+
+	apiLog := types2.AuditLog{
+		ID:         a.ID,
+		SourceType: a.SourceType,
+		EventType:  a.EventType,
+		CreatedAt:  *types2.NewTime(a.CreatedAt),
+		ReceivedAt: receivedAt,
+		UserID:     a.UserID,
+		Outcome:    a.Outcome,
 		ClientInfo: types2.ClientInfo{
 			Name:    a.ClientName,
 			Version: a.ClientVersion,
 		},
-		ClientIP:             a.ClientIP,
-		CallType:             a.CallType,
-		CallIdentifier:       a.CallIdentifier,
-		RequestMutated:       a.RequestMutated,
-		RequestBody:          a.RequestBody,
-		MutatedRequestBody:   a.MutatedRequestBody,
-		ResponseMutated:      a.ResponseMutated,
-		ResponseBody:         a.ResponseBody,
-		OriginalResponseBody: a.OriginalResponseBody,
-		ResponseStatus:       a.ResponseStatus,
-		Error:                a.Error,
-		WebhookStatuses:      webhookStatus,
-		ProcessingTimeMs:     a.ProcessingTimeMs,
-		SessionID:            a.SessionID,
-		RequestID:            a.RequestID,
-		UserAgent:            a.UserAgent,
-		RequestHeaders:       a.RequestHeaders,
-		ResponseHeaders:      a.ResponseHeaders,
+		CallType:         a.CallType,
+		CallIdentifier:   a.CallIdentifier,
+		RequestBody:      a.RequestBody,
+		ResponseBody:     a.ResponseBody,
+		Error:            a.Error,
+		ProcessingTimeMs: a.ProcessingTimeMs,
+		SessionID:        a.SessionID,
+		ResponseReceived: a.ResponseReceived,
 	}
+
+	switch a.SourceType {
+	case types2.AuditLogSourceTypeLocalAgentToolCall:
+		apiLog.LocalAgentToolCall = &types2.LocalAgentToolCallAuditLog{
+			EventID:     localFields.EventID,
+			DeviceID:    localFields.DeviceID,
+			ErrorDetail: localFields.ErrorDetail,
+			RawEvent:    localFields.RawEvent,
+			Context:     context,
+			PayloadMeta: payloadMeta,
+		}
+	default:
+		apiLog.MCP = &types2.MCPAuditLog{
+			MCPID:                     mcpFields.MCPID,
+			APIKey:                    mcpFields.APIKey,
+			PowerUserWorkspaceID:      mcpFields.PowerUserWorkspaceID,
+			MCPServerDisplayName:      mcpFields.MCPServerDisplayName,
+			MCPServerCatalogEntryName: mcpFields.MCPServerCatalogEntryName,
+			ClientIP:                  mcpFields.ClientIP,
+			RequestMutated:            mcpFields.RequestMutated,
+			MutatedRequestBody:        mcpFields.MutatedRequestBody,
+			ResponseMutated:           mcpFields.ResponseMutated,
+			OriginalResponseBody:      mcpFields.OriginalResponseBody,
+			ResponseStatus:            mcpFields.ResponseStatus,
+			WebhookStatuses:           webhookStatus,
+			RequestID:                 mcpFields.RequestID,
+			UserAgent:                 mcpFields.UserAgent,
+			RequestHeaders:            mcpFields.RequestHeaders,
+			ResponseHeaders:           mcpFields.ResponseHeaders,
+		}
+	}
+
+	return apiLog
+}
+
+// MCPAuditLogFromAuditEvent converts a canonical generic audit event into the
+// internal storage type. The nested client/tool fields map onto the existing
+// generic-named indexed columns; MCP-specific fields are left empty.
+//
+// UserID and ReceivedAt are deliberately never copied from the event: they are
+// server-assigned (from the authenticated user and receipt time respectively),
+// so client-provided values must not reach storage.
+func MCPAuditLogFromAuditEvent(e types2.AuditEvent) (MCPAuditLog, error) {
+	if e.EventID == "" {
+		return MCPAuditLog{}, fmt.Errorf("eventID is required")
+	}
+
+	log := MCPAuditLog{
+		CreatedAt:        e.CreatedAt.Time.UTC(),
+		SourceType:       e.SourceType,
+		EventType:        e.EventType,
+		Outcome:          e.Outcome,
+		ClientName:       e.Client.Name,
+		ClientVersion:    e.Client.Version,
+		CallType:         e.Tool.Type,
+		CallIdentifier:   e.Tool.Name,
+		ProcessingTimeMs: e.DurationMs,
+		SessionID:        e.SessionID,
+		RequestBody:      e.Request,
+		ResponseBody:     e.Response,
+		Error:            e.Error,
+		LocalAgentToolCall: &LocalAgentToolCallAuditLog{
+			DeviceID: e.DeviceID,
+			EventID:  e.EventID,
+			RawEvent: e.RawEvent,
+		},
+		// Generic events arrive complete; never match them against the
+		// request/response merge path used by two-phase MCP shim logs.
+		ResponseReceived: true,
+	}
+
+	// Keep a size-capped plaintext summary in the searchable Error column and
+	// the full text in the encrypted ErrorDetail field.
+	if len(e.Error) > maxErrorSummaryBytes {
+		log.Error = truncateUTF8ByBytes(e.Error, maxErrorSummaryBytes)
+		log.EnsureLocal().ErrorDetail = e.Error
+	}
+
+	if e.Context != nil {
+		b, err := json.Marshal(e.Context)
+		if err != nil {
+			return MCPAuditLog{}, fmt.Errorf("failed to marshal audit event context: %w", err)
+		}
+		log.EnsureLocal().Context = datatypes.JSON(b)
+	}
+
+	if len(e.PayloadMeta) > 0 {
+		b, err := json.Marshal(e.PayloadMeta)
+		if err != nil {
+			return MCPAuditLog{}, fmt.Errorf("failed to marshal audit event payload metadata: %w", err)
+		}
+		log.EnsureLocal().PayloadMeta = datatypes.JSON(b)
+	}
+
+	return log, nil
+}
+
+// ConvertAuditEvent converts an internal audit log row to the canonical
+// generic audit event shape.
+func ConvertAuditEvent(a MCPAuditLog) types2.AuditEvent {
+	apiLog := ConvertMCPAuditLog(a)
+	localFields := apiLog.LocalAgentToolCall
+	if localFields == nil {
+		localFields = new(types2.LocalAgentToolCallAuditLog)
+	}
+
+	event := types2.AuditEvent{
+		EventID:    localFields.EventID,
+		SourceType: apiLog.SourceType,
+		EventType:  apiLog.EventType,
+		CreatedAt:  apiLog.CreatedAt,
+		ReceivedAt: apiLog.ReceivedAt,
+		UserID:     apiLog.UserID,
+		DeviceID:   localFields.DeviceID,
+		Client:     apiLog.ClientInfo,
+		Tool: types2.ToolInfo{
+			Name: apiLog.CallIdentifier,
+			Type: apiLog.CallType,
+		},
+		Outcome:     apiLog.Outcome,
+		DurationMs:  apiLog.ProcessingTimeMs,
+		SessionID:   apiLog.SessionID,
+		Request:     apiLog.RequestBody,
+		Response:    apiLog.ResponseBody,
+		Error:       apiLog.Error,
+		RawEvent:    localFields.RawEvent,
+		Context:     localFields.Context,
+		PayloadMeta: localFields.PayloadMeta,
+	}
+
+	if localFields.ErrorDetail != "" {
+		event.Error = localFields.ErrorDetail
+	}
+
+	return event
 }
 
 // ConvertMCPUsageStats converts internal MCPUsageStatItem to API type

@@ -37,7 +37,9 @@ func newTestClient(t *testing.T) *Client {
 
 func insertAuditLog(t *testing.T, c *Client, createdAt time.Time) {
 	t.Helper()
-	entry := types.MCPAuditLog{CreatedAt: createdAt}
+	entry := types.MCPAuditLog{
+		CreatedAt: createdAt,
+	}
 	if err := c.db.WithContext(context.Background()).Create(&entry).Error; err != nil {
 		t.Fatalf("failed to insert audit log: %v", err)
 	}

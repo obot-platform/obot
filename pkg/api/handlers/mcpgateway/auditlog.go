@@ -77,9 +77,14 @@ func parseMultiValueParam(queryValues map[string][]string, key string) []string 
 }
 
 type auditLogInput struct {
-	gatewaytypes.MCPAuditLog `json:",inline"`
-	Metadata                 map[string]string `json:"metadata"`
-	Subject                  string            `json:"subject"`
+	gatewaytypes.MCPAuditLog       `json:",inline"`
+	gatewaytypes.MCPAuditLogFields `json:",inline"`
+	Metadata                       map[string]string `json:"metadata"`
+	Subject                        string            `json:"subject"`
+}
+
+func (a auditLogInput) hasNestedSourceFields() bool {
+	return a.MCP != nil || a.LocalAgentToolCall != nil
 }
 
 // parseAuditLogOpts parses the query parameters common to ListAuditLogs and ListAuditLogFilterOptions.
@@ -97,6 +102,10 @@ func parseAuditLogOpts(query url.Values) gateway.MCPAuditLogOptions {
 		ClientVersion:             parseMultiValueParam(query, "client_version"),
 		ResponseStatus:            parseMultiValueParam(query, "response_status"),
 		ClientIP:                  parseMultiValueParam(query, "client_ip"),
+		SourceType:                parseMultiValueParam(query, "source_type"),
+		EventType:                 parseMultiValueParam(query, "event_type"),
+		DeviceID:                  parseMultiValueParam(query, "device_id"),
+		Outcome:                   parseMultiValueParam(query, "outcome"),
 		SortBy:                    query.Get("sort_by"),
 		SortOrder:                 query.Get("sort_order"),
 		Query:                     strings.TrimSpace(query.Get("query")),
@@ -187,10 +196,16 @@ func (h *AuditLogHandler) SubmitAuditLogs(req api.Context) error {
 	}
 
 	for _, auditLog := range auditLogs {
-		if auditLog.MCPID == "" {
-			auditLog.MCPID = auditLog.Metadata["mcpID"]
+		if auditLog.hasNestedSourceFields() {
+			return types.NewErrBadRequest("nested audit log source fields are not supported by this endpoint")
 		}
-		if auditLog.MCPID != mcpServerName {
+
+		mcpFields := auditLog.MCPAuditLogFields
+
+		if mcpFields.MCPID == "" {
+			mcpFields.MCPID = auditLog.Metadata["mcpID"]
+		}
+		if mcpFields.MCPID != mcpServerName {
 			return types.NewErrForbidden("audit log does not belong to MCP server %q", mcpServerName)
 		}
 		if auditLog.UserID == "" {
@@ -201,16 +216,17 @@ func (h *AuditLogHandler) SubmitAuditLogs(req api.Context) error {
 		if auditLog.UserID == "" && nanobotAgentID != "" {
 			auditLog.UserID = userID
 		}
-		if auditLog.MCPServerCatalogEntryName == "" {
-			auditLog.MCPServerCatalogEntryName = auditLog.Metadata["mcpServerCatalogEntryName"]
+		if mcpFields.MCPServerCatalogEntryName == "" {
+			mcpFields.MCPServerCatalogEntryName = auditLog.Metadata["mcpServerCatalogEntryName"]
 		}
-		if auditLog.PowerUserWorkspaceID == "" {
-			auditLog.PowerUserWorkspaceID = auditLog.Metadata["powerUserWorkspaceID"]
+		if mcpFields.PowerUserWorkspaceID == "" {
+			mcpFields.PowerUserWorkspaceID = auditLog.Metadata["powerUserWorkspaceID"]
 		}
-		if auditLog.MCPServerDisplayName == "" {
-			auditLog.MCPServerDisplayName = auditLog.Metadata["mcpServerDisplayName"]
+		if mcpFields.MCPServerDisplayName == "" {
+			mcpFields.MCPServerDisplayName = auditLog.Metadata["mcpServerDisplayName"]
 		}
 
+		auditLog.MCP = &mcpFields
 		req.GatewayClient.LogMCPAuditEntry(auditLog.MCPAuditLog)
 	}
 
@@ -247,11 +263,11 @@ func (h *AuditLogHandler) ListAuditLogs(req api.Context) error {
 
 		// Return empty if no access scope
 		if len(opts.OwnServerMCPIDs) == 0 && len(opts.PowerUserWorkspaceID) == 0 {
-			return req.Write(types.MCPAuditLogResponse{
-				MCPAuditLogList: types.MCPAuditLogList{Items: []types.MCPAuditLog{}},
-				Total:           0,
-				Limit:           opts.Limit,
-				Offset:          opts.Offset,
+			return req.Write(types.AuditLogResponse{
+				AuditLogList: types.AuditLogList{Items: []types.AuditLog{}},
+				Total:        0,
+				Limit:        opts.Limit,
+				Offset:       opts.Offset,
 			})
 		}
 	}
@@ -268,13 +284,13 @@ func (h *AuditLogHandler) ListAuditLogs(req api.Context) error {
 	}
 
 	// Convert to API types
-	result := make([]types.MCPAuditLog, 0, len(logs))
+	result := make([]types.AuditLog, 0, len(logs))
 	for _, log := range logs {
 		result = append(result, gatewaytypes.ConvertMCPAuditLog(log))
 	}
 
-	return req.Write(types.MCPAuditLogResponse{
-		MCPAuditLogList: types.MCPAuditLogList{
+	return req.Write(types.AuditLogResponse{
+		AuditLogList: types.AuditLogList{
 			Items: result,
 		},
 		Total:  total,
@@ -310,12 +326,16 @@ func (h *AuditLogHandler) GetAuditLog(req api.Context) error {
 			return fmt.Errorf("failed to get own server MCPIDs: %w", err)
 		}
 
-		isOwnServer := slices.Contains(ownServerMCPIDs, log.MCPID)
+		var mcpFields gatewaytypes.MCPAuditLogFields
+		if log.MCP != nil {
+			mcpFields = *log.MCP
+		}
+		isOwnServer := slices.Contains(ownServerMCPIDs, mcpFields.MCPID)
 
 		isInWorkspace := false
 		if req.UserIsPowerUser() {
 			workspaceID := system.GetPowerUserWorkspaceID(req.User.GetUID())
-			isInWorkspace = log.PowerUserWorkspaceID == workspaceID
+			isInWorkspace = mcpFields.PowerUserWorkspaceID == workspaceID
 		}
 
 		// Admins can see all logs.
@@ -357,11 +377,29 @@ var filterOptions = map[string]any{
 	"client_version":                "",
 	"response_status":               0,
 	"client_ip":                     "",
+	"source_type":                   "",
+	"event_type":                    "",
+	"device_id":                     "",
+	"outcome":                       "",
 }
 
 // defaultFilterOptions will always be present of the given filter, regardless of what is in the database.
 var defaultFilterOptions = map[string][]string{
 	"call_type": {"prompts/list", "resources/read", "tools/list", "tools/call", "prompts/get", "resources/list"},
+	"source_type": {
+		string(types.AuditLogSourceTypeMCP),
+		string(types.AuditLogSourceTypeLocalAgentToolCall),
+	},
+	"event_type": {
+		string(types.AuditLogEventTypeToolCall),
+		string(types.AuditLogEventTypeResourceRead),
+		string(types.AuditLogEventTypePromptGet),
+		string(types.AuditLogEventTypeMCPRequest),
+	},
+	"outcome": {
+		string(types.AuditLogOutcomeSuccess),
+		string(types.AuditLogOutcomeError),
+	},
 }
 
 func (h *AuditLogHandler) ListAuditLogFilterOptions(req api.Context) error {

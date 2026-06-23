@@ -203,6 +203,8 @@
 			{#snippet children({ items }: { items: { index: number; data: (typeof data)[0] }[] })}
 				{#each items as item (item.data.id)}
 					{@const d = item.data}
+					{@const mcp = d.mcp}
+					{@const mcpID = mcp?.mcpID}
 
 					<tr
 						class={twMerge(
@@ -217,17 +219,20 @@
 						{@render td(formatLogTimestamp(d.createdAt, userDeviceSettings.timeFormat))}
 						{@render td(getUserDisplayName(d.userID))}
 						{@render td(
-							d.mcpID
-								? serverAliases.get(d.mcpID) || d.mcpServerDisplayName
-								: d.mcpServerDisplayName
+							mcpID
+								? serverAliases.get(mcpID) || mcp?.mcpServerDisplayName
+								: mcp?.mcpServerDisplayName
 						)}
 						{@render td(d.callType)}
 						{@render td(d.callIdentifier)}
-						{@render td(d.responseStatus)}
+						{@render td(mcp?.responseStatus)}
 						{@render td(d.processingTimeMs)}
-						{@render mutationIndicators(d.requestMutated, d.responseMutated)}
+						{@render mutationIndicators(
+							mcp?.requestMutated ?? false,
+							mcp?.responseMutated ?? false
+						)}
 						{@render td(d.client?.name)}
-						{@render td(d.clientIP)}
+						{@render td(mcp?.clientIP)}
 					</tr>
 				{/each}
 			{/snippet}
