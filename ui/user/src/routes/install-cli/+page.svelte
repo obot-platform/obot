@@ -3,7 +3,7 @@
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import Logo from '$lib/components/Logo.svelte';
-	import { COMMON_AI_CLIENTS } from '$lib/constants';
+	import { COMMON_AI_CLIENTS } from '$lib/services/user/constants';
 	import { darkMode, profile } from '$lib/stores';
 	import {
 		AntennaIcon,
