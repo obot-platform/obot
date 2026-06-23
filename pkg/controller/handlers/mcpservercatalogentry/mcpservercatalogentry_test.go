@@ -63,7 +63,7 @@ func TestDetectCompositeDriftMarksEntryNeedingUpdateWhenMultiUserComponentDrifts
 	assert.True(t, updated.Status.NeedsUpdate)
 }
 
-func TestDetectCompositeDriftIgnoresAnnotatedAdminSecretBindings(t *testing.T) {
+func TestDetectCompositeDriftIgnoresAdminAddedSecretBindings(t *testing.T) {
 	binding := &types.MCPSecretBinding{Name: "admin-secret", Key: "api-key", AdminAdded: true}
 	componentSnapshot := types.MCPServerCatalogEntryManifest{
 		Name:           "Shared Component",
