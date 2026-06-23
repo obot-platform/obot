@@ -14,6 +14,7 @@
 	} from '$lib/services/user/mcp';
 	import { ExternalLink, SettingsIcon, ShieldAlertIcon } from '@lucide/svelte';
 	import { onMount, tick } from 'svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	type Props = {
 		data: {
@@ -269,14 +270,14 @@
 <div class="bg-base-200 dark:bg-base-100 flex min-h-screen items-center justify-center p-4">
 	<main class="paper w-full max-w-lg overflow-hidden p-0">
 		<BetaLogo class="self-center mt-6" />
-		<h1 class="truncate text-xl font-semibold text-center">
+		<h1 class="text-xl font-semibold text-center px-4">
 			{consent.mcpConfigRequired
 				? `Configure ${consent.mcpServerName || 'MCP server'}`
 				: `Authorize ${consent.clientName}`}
 		</h1>
 
 		{#if consent.mcpConfigRequired}
-			<section class="flex flex-col gap-5 p-4 pt-0">
+			<section class="flex flex-col gap-5 p-4 py-0">
 				<div class="notification-info flex items-center gap-3 p-3">
 					<SettingsIcon class="size-5 shrink-0" />
 					<p class="min-w-0 text-sm">
@@ -286,7 +287,7 @@
 				</div>
 
 				{#if configError}
-					<p class="text-error text-sm">{configError}</p>
+					<p class="text-error text-sm mt-4">{configError}</p>
 				{/if}
 			</section>
 		{:else}
@@ -353,7 +354,10 @@
 		{/if}
 
 		<footer
-			class="border-base-300 bg-base-100 dark:bg-base-200 flex justify-end gap-3 border-t p-3 max-sm:flex-col-reverse"
+			class={twMerge(
+				'border-base-300 bg-base-100 dark:bg-base-200 flex justify-end gap-3 border-t p-3 max-sm:flex-col-reverse',
+				consent.mcpConfigRequired && 'border-t-0'
+			)}
 		>
 			<form method="POST" action={resolve(consent.cancelURL as `/${string}`)}>
 				<button class="btn btn-text w-full" type="submit" disabled={savingConfig}>Cancel</button>
