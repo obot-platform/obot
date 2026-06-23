@@ -12,8 +12,8 @@ type (
 
 // Audit log source types.
 const (
-	AuditLogSourceTypeMCP        AuditLogSourceType = "mcp"
-	AuditLogSourceTypeLocalAgent AuditLogSourceType = "local_agent"
+	AuditLogSourceTypeMCP                AuditLogSourceType = "mcp"
+	AuditLogSourceTypeLocalAgentToolCall AuditLogSourceType = "local_agent_tool_call"
 )
 
 // Generic audit event types.
@@ -30,9 +30,9 @@ const (
 	AuditLogOutcomeError   AuditLogOutcome = "error"
 )
 
-// AuditLog represents an audit log entry. Despite the name (kept for API
-// compatibility), it can represent generic audit events distinguished by
-// SourceType. Source-specific fields are returned under MCP or Local.
+// AuditLog represents an audit log entry. It can represent generic audit
+// events distinguished by SourceType. Source-specific fields are returned under
+// MCP or LocalAgentToolCall.
 type AuditLog struct {
 	ID        uint `json:"id"`
 	CreatedAt Time `json:"createdAt"`
@@ -53,8 +53,8 @@ type AuditLog struct {
 	SessionID        string          `json:"sessionID,omitempty"`
 	ResponseReceived bool            `json:"responseReceived"`
 
-	MCP   *MCPAuditLog   `json:"mcp,omitempty"`
-	Local *LocalAuditLog `json:"local,omitempty"`
+	MCP                *MCPAuditLog                `json:"mcp,omitempty"`
+	LocalAgentToolCall *LocalAgentToolCallAuditLog `json:"local,omitempty"`
 }
 
 // MCPAuditLog contains fields meaningful only for MCP gateway/shim rows.
@@ -77,15 +77,15 @@ type MCPAuditLog struct {
 	ResponseHeaders           json.RawMessage `json:"responseHeaders,omitempty"`
 }
 
-// LocalAuditLog contains fields meaningful only for local-agent audit events.
-type LocalAuditLog struct {
+// LocalAgentToolCallAuditLog contains fields meaningful only for local-agent audit events.
+type LocalAgentToolCallAuditLog struct {
 	EventID  string `json:"eventID,omitempty"`
 	DeviceID string `json:"deviceID,omitempty"`
 
-	ErrorDetail string                      `json:"errorDetail,omitempty"`
-	RawEvent    json.RawMessage             `json:"rawEvent,omitempty"`
-	Context     *AuditLogContext            `json:"context,omitempty"`
-	PayloadMeta map[string]PayloadFieldMeta `json:"payloadMeta,omitempty"`
+	ErrorDetail string                             `json:"errorDetail,omitempty"`
+	RawEvent    json.RawMessage                    `json:"rawEvent,omitempty"`
+	Context     *LocalAgentToolCallAuditLogContext `json:"context,omitempty"`
+	PayloadMeta map[string]PayloadFieldMeta        `json:"payloadMeta,omitempty"`
 }
 
 // AuditEvent is the canonical generic audit event shape used for ingestion of
@@ -97,20 +97,20 @@ type AuditEvent struct {
 	CreatedAt  Time               `json:"createdAt"`
 	// ReceivedAt and UserID are assigned by the server on ingestion;
 	// client-provided values are ignored.
-	ReceivedAt  *Time                       `json:"receivedAt,omitempty"`
-	UserID      string                      `json:"userID,omitempty"`
-	DeviceID    string                      `json:"deviceID,omitempty"`
-	Client      ClientInfo                  `json:"client"`
-	Tool        ToolInfo                    `json:"tool"`
-	Outcome     AuditLogOutcome             `json:"outcome"`
-	DurationMs  int64                       `json:"durationMs"`
-	SessionID   string                      `json:"sessionID,omitempty"`
-	Request     json.RawMessage             `json:"request,omitempty"`
-	Response    json.RawMessage             `json:"response,omitempty"`
-	Error       string                      `json:"error,omitempty"`
-	RawEvent    json.RawMessage             `json:"rawEvent,omitempty"`
-	Context     *AuditLogContext            `json:"context,omitempty"`
-	PayloadMeta map[string]PayloadFieldMeta `json:"payloadMeta,omitempty"`
+	ReceivedAt  *Time                              `json:"receivedAt,omitempty"`
+	UserID      string                             `json:"userID,omitempty"`
+	DeviceID    string                             `json:"deviceID,omitempty"`
+	Client      ClientInfo                         `json:"client"`
+	Tool        ToolInfo                           `json:"tool"`
+	Outcome     AuditLogOutcome                    `json:"outcome"`
+	DurationMs  int64                              `json:"durationMs"`
+	SessionID   string                             `json:"sessionID,omitempty"`
+	Request     json.RawMessage                    `json:"request,omitempty"`
+	Response    json.RawMessage                    `json:"response,omitempty"`
+	Error       string                             `json:"error,omitempty"`
+	RawEvent    json.RawMessage                    `json:"rawEvent,omitempty"`
+	Context     *LocalAgentToolCallAuditLogContext `json:"context,omitempty"`
+	PayloadMeta map[string]PayloadFieldMeta        `json:"payloadMeta,omitempty"`
 }
 
 // ToolInfo identifies what was invoked and what kind of invocation it was.
@@ -119,8 +119,9 @@ type ToolInfo struct {
 	Type string `json:"type"`
 }
 
-// AuditLogContext holds source-specific, non-indexed audit event metadata.
-type AuditLogContext struct {
+// LocalAgentToolCallAuditLogContext holds source-specific, non-indexed audit event metadata
+// for local agent tool call audit logs.
+type LocalAgentToolCallAuditLogContext struct {
 	ConversationID  string `json:"conversationID,omitempty"`
 	CWD             string `json:"cwd,omitempty"`
 	Workspace       string `json:"workspace,omitempty"`

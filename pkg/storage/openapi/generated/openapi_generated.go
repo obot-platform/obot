@@ -24,7 +24,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.AppPreferences":                                     schema_obot_platform_obot_apiclient_types_AppPreferences(ref),
 		"github.com/obot-platform/obot/apiclient/types.AuditEvent":                                         schema_obot_platform_obot_apiclient_types_AuditEvent(ref),
 		"github.com/obot-platform/obot/apiclient/types.AuditLog":                                           schema_obot_platform_obot_apiclient_types_AuditLog(ref),
-		"github.com/obot-platform/obot/apiclient/types.AuditLogContext":                                    schema_obot_platform_obot_apiclient_types_AuditLogContext(ref),
 		"github.com/obot-platform/obot/apiclient/types.AuditLogExportCreateRequest":                        schema_obot_platform_obot_apiclient_types_AuditLogExportCreateRequest(ref),
 		"github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters":                              schema_obot_platform_obot_apiclient_types_AuditLogExportFilters(ref),
 		"github.com/obot-platform/obot/apiclient/types.AuditLogExportListResponse":                         schema_obot_platform_obot_apiclient_types_AuditLogExportListResponse(ref),
@@ -94,7 +93,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.ImagePullSecretTestResponse":                        schema_obot_platform_obot_apiclient_types_ImagePullSecretTestResponse(ref),
 		"github.com/obot-platform/obot/apiclient/types.K8sSettings":                                        schema_obot_platform_obot_apiclient_types_K8sSettings(ref),
 		"github.com/obot-platform/obot/apiclient/types.K8sSettingsStatus":                                  schema_obot_platform_obot_apiclient_types_K8sSettingsStatus(ref),
-		"github.com/obot-platform/obot/apiclient/types.LocalAuditLog":                                      schema_obot_platform_obot_apiclient_types_LocalAuditLog(ref),
+		"github.com/obot-platform/obot/apiclient/types.LocalAgentToolCallAuditLog":                         schema_obot_platform_obot_apiclient_types_LocalAgentToolCallAuditLog(ref),
+		"github.com/obot-platform/obot/apiclient/types.LocalAgentToolCallAuditLogContext":                  schema_obot_platform_obot_apiclient_types_LocalAgentToolCallAuditLogContext(ref),
 		"github.com/obot-platform/obot/apiclient/types.LogoPreferences":                                    schema_obot_platform_obot_apiclient_types_LogoPreferences(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPAuditLog":                                        schema_obot_platform_obot_apiclient_types_MCPAuditLog(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPCapacityInfo":                                    schema_obot_platform_obot_apiclient_types_MCPCapacityInfo(ref),
@@ -847,7 +847,7 @@ func schema_obot_platform_obot_apiclient_types_AuditEvent(ref common.ReferenceCa
 					},
 					"context": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/obot-platform/obot/apiclient/types.AuditLogContext"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.LocalAgentToolCallAuditLogContext"),
 						},
 					},
 					"payloadMeta": {
@@ -869,7 +869,7 @@ func schema_obot_platform_obot_apiclient_types_AuditEvent(ref common.ReferenceCa
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.AuditLogContext", "github.com/obot-platform/obot/apiclient/types.ClientInfo", "github.com/obot-platform/obot/apiclient/types.PayloadFieldMeta", "github.com/obot-platform/obot/apiclient/types.Time", "github.com/obot-platform/obot/apiclient/types.ToolInfo"},
+			"github.com/obot-platform/obot/apiclient/types.ClientInfo", "github.com/obot-platform/obot/apiclient/types.LocalAgentToolCallAuditLogContext", "github.com/obot-platform/obot/apiclient/types.PayloadFieldMeta", "github.com/obot-platform/obot/apiclient/types.Time", "github.com/obot-platform/obot/apiclient/types.ToolInfo"},
 	}
 }
 
@@ -877,7 +877,7 @@ func schema_obot_platform_obot_apiclient_types_AuditLog(ref common.ReferenceCall
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "AuditLog represents an audit log entry. Despite the name (kept for API compatibility), it can represent generic audit events distinguished by SourceType. Source-specific fields are returned under MCP or Local.",
+				Description: "AuditLog represents an audit log entry. It can represent generic audit events distinguished by SourceType. Source-specific fields are returned under MCP or LocalAgentToolCall.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"id": {
@@ -986,7 +986,7 @@ func schema_obot_platform_obot_apiclient_types_AuditLog(ref common.ReferenceCall
 					},
 					"local": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/obot-platform/obot/apiclient/types.LocalAuditLog"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.LocalAgentToolCallAuditLog"),
 						},
 					},
 				},
@@ -994,86 +994,7 @@ func schema_obot_platform_obot_apiclient_types_AuditLog(ref common.ReferenceCall
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.ClientInfo", "github.com/obot-platform/obot/apiclient/types.LocalAuditLog", "github.com/obot-platform/obot/apiclient/types.MCPAuditLog", "github.com/obot-platform/obot/apiclient/types.Time"},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_AuditLogContext(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "AuditLogContext holds source-specific, non-indexed audit event metadata.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"conversationID": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"cwd": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"workspace": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"gitRemote": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"gitBranch": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"sourceHookEvent": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"clientEventID": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"hostname": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"os": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"arch": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"username": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-				},
-			},
-		},
+			"github.com/obot-platform/obot/apiclient/types.ClientInfo", "github.com/obot-platform/obot/apiclient/types.LocalAgentToolCallAuditLog", "github.com/obot-platform/obot/apiclient/types.MCPAuditLog", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
@@ -4879,11 +4800,11 @@ func schema_obot_platform_obot_apiclient_types_K8sSettingsStatus(ref common.Refe
 	}
 }
 
-func schema_obot_platform_obot_apiclient_types_LocalAuditLog(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_LocalAgentToolCallAuditLog(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "LocalAuditLog contains fields meaningful only for local-agent audit events.",
+				Description: "LocalAgentToolCallAuditLog contains fields meaningful only for local-agent audit events.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"eventID": {
@@ -4912,7 +4833,7 @@ func schema_obot_platform_obot_apiclient_types_LocalAuditLog(ref common.Referenc
 					},
 					"context": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/obot-platform/obot/apiclient/types.AuditLogContext"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.LocalAgentToolCallAuditLogContext"),
 						},
 					},
 					"payloadMeta": {
@@ -4933,7 +4854,86 @@ func schema_obot_platform_obot_apiclient_types_LocalAuditLog(ref common.Referenc
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.AuditLogContext", "github.com/obot-platform/obot/apiclient/types.PayloadFieldMeta"},
+			"github.com/obot-platform/obot/apiclient/types.LocalAgentToolCallAuditLogContext", "github.com/obot-platform/obot/apiclient/types.PayloadFieldMeta"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_LocalAgentToolCallAuditLogContext(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "LocalAgentToolCallAuditLogContext holds source-specific, non-indexed audit event metadata for local agent tool call audit logs.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"conversationID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"cwd": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"workspace": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"gitRemote": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"gitBranch": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"sourceHookEvent": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"clientEventID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"hostname": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"os": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"arch": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"username": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
 	}
 }
 

@@ -19,7 +19,7 @@ func (c *Client) LogMCPAuditEntry(entry types.MCPAuditLog) {
 
 	entry.SourceType = types2.AuditLogSourceTypeMCP
 	mcpFields := entry.EnsureMCP()
-	entry.Local = nil
+	entry.LocalAgentToolCall = nil
 
 	mcpFields.RequestMutated = len(mcpFields.MutatedRequestBody) > 0
 	mcpFields.ResponseMutated = len(mcpFields.OriginalResponseBody) > 0

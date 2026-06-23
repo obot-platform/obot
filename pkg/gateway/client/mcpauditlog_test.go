@@ -124,7 +124,7 @@ func seedMixedAuditLogs(t *testing.T, c *Client, db *gatewaydb.DB) {
 		ClientName:       "claude-code",
 		CallType:         "command",
 		CallIdentifier:   "Bash",
-		Local:            &types.LocalAuditLog{EventID: "evt-local-1", DeviceID: "dev-1"},
+		LocalAgentToolCall:            &types.LocalAgentToolCallAuditLog{EventID: "evt-local-1", DeviceID: "dev-1"},
 		ResponseReceived: true,
 	})
 
@@ -364,7 +364,7 @@ func TestGetMCPAuditLogUsesSourceType(t *testing.T) {
 		EventType:  types2.AuditLogEventTypeToolCall,
 		CallType:   "command",
 
-		Local: &types.LocalAuditLog{
+		LocalAgentToolCall: &types.LocalAgentToolCallAuditLog{
 			RawEvent: []byte(`{"hook":"post"}`),
 		},
 	})
@@ -388,11 +388,11 @@ func TestGetMCPAuditLogUsesSourceType(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetMCPAuditLog() local row error: %v", err)
 	}
-	if gotLocal.SourceType != types2.AuditLogSourceTypeLocalAgent || gotLocal.Local == nil {
-		t.Fatalf("local row source = %q local:%v, want Local source fields", gotLocal.SourceType, gotLocal.Local)
+	if gotLocal.SourceType != types2.AuditLogSourceTypeLocalAgent || gotLocal.LocalAgentToolCall == nil {
+		t.Fatalf("local row source = %q local:%v, want Local source fields", gotLocal.SourceType, gotLocal.LocalAgentToolCall)
 	}
-	if string(gotLocal.Local.RawEvent) != `{"hook":"post"}` {
-		t.Fatalf("local fields were not hydrated: %+v", gotLocal.Local)
+	if string(gotLocal.LocalAgentToolCall.RawEvent) != `{"hook":"post"}` {
+		t.Fatalf("local fields were not hydrated: %+v", gotLocal.LocalAgentToolCall)
 	}
 	apiLocal := types.ConvertMCPAuditLog(*gotLocal)
 	if apiLocal.Local == nil || apiLocal.MCP != nil {
@@ -430,13 +430,13 @@ func TestEventIDUniqueness(t *testing.T) {
 	insertAuditLogRow(t, c, types.MCPAuditLog{
 		CreatedAt:  time.Now().UTC(),
 		SourceType: types2.AuditLogSourceTypeLocalAgent,
-		Local:      &types.LocalAuditLog{EventID: "evt-dup"},
+		LocalAgentToolCall:      &types.LocalAgentToolCallAuditLog{EventID: "evt-dup"},
 	})
 
 	err := c.db.WithContext(t.Context()).Create(&types.MCPAuditLog{
 		CreatedAt:  time.Now().UTC(),
 		SourceType: types2.AuditLogSourceTypeLocalAgent,
-		Local:      &types.LocalAuditLog{EventID: "evt-dup"},
+		LocalAgentToolCall:      &types.LocalAgentToolCallAuditLog{EventID: "evt-dup"},
 	}).Error
 	if err == nil {
 		t.Fatalf("expected duplicate event_id insert to fail")
@@ -461,19 +461,19 @@ func TestInsertMCPAuditLogsDedupesLocalEventID(t *testing.T) {
 		{
 			CreatedAt:        now,
 			SourceType:       types2.AuditLogSourceTypeLocalAgent,
-			Local:            &types.LocalAuditLog{EventID: "evt-dup"},
+			LocalAgentToolCall:            &types.LocalAgentToolCallAuditLog{EventID: "evt-dup"},
 			ResponseReceived: true,
 		},
 		{
 			CreatedAt:        now.Add(time.Second),
 			SourceType:       types2.AuditLogSourceTypeLocalAgent,
-			Local:            &types.LocalAuditLog{EventID: "evt-dup"},
+			LocalAgentToolCall:            &types.LocalAgentToolCallAuditLog{EventID: "evt-dup"},
 			ResponseReceived: true,
 		},
 		{
 			CreatedAt:        now.Add(2 * time.Second),
 			SourceType:       types2.AuditLogSourceTypeLocalAgent,
-			Local:            &types.LocalAuditLog{EventID: "evt-next"},
+			LocalAgentToolCall:            &types.LocalAgentToolCallAuditLog{EventID: "evt-next"},
 			ResponseReceived: true,
 		},
 	})
@@ -494,8 +494,8 @@ func TestInsertMCPAuditLogsDedupesLocalEventID(t *testing.T) {
 		t.Fatalf("failed to fetch deduped row: %v", err)
 	}
 	gotEventID := ""
-	if row.Local != nil {
-		gotEventID = row.Local.EventID
+	if row.LocalAgentToolCall != nil {
+		gotEventID = row.LocalAgentToolCall.EventID
 	}
 	if gotEventID != "evt-dup" {
 		t.Errorf("EventID = %v, want evt-dup", gotEventID)

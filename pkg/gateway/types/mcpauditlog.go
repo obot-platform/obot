@@ -47,8 +47,8 @@ type MCPAuditLogFields struct {
 	ResponseHeaders           json.RawMessage                       `json:"responseHeaders,omitempty"`
 }
 
-// LocalAuditLog contains fields introduced for local-agent audit events.
-type LocalAuditLog struct {
+// LocalAgentToolCallAuditLog contains fields introduced for local-agent audit events.
+type LocalAgentToolCallAuditLog struct {
 	EventID  string `json:"eventID,omitempty" gorm:"uniqueIndex;default:null"`
 	DeviceID string `json:"deviceID,omitempty" gorm:"index"`
 
@@ -59,8 +59,8 @@ type LocalAuditLog struct {
 	// JSON) for debugging parser drift. Encrypted at rest.
 	RawEvent json.RawMessage `json:"rawEvent,omitempty"`
 
-	// Context holds source-specific, non-indexed metadata (workspace, git
-	// remote, hostname, etc.). See apiclient types.AuditLogContext for the
+	// Context holds source-specific, non-indexed metadata (workspace, git remote,
+	// hostname, etc.). See apiclient types.LocalAgentToolCallAuditLogContext for the
 	// canonical shape.
 	Context datatypes.JSON `json:"context,omitempty"`
 	// PayloadMeta records per-payload-field truncation info, keyed by field
@@ -98,8 +98,8 @@ type MCPAuditLog struct {
 	// Exactly one source-specific struct should be non-nil after normalization.
 	// Both are embedded into the same physical mcp_audit_logs table so existing
 	// MCP rows and indexes remain column-compatible.
-	MCP   *MCPAuditLogFields `json:"mcp,omitempty" gorm:"embedded"`
-	Local *LocalAuditLog     `json:"local,omitempty" gorm:"embedded"`
+	MCP                *MCPAuditLogFields          `json:"mcp,omitempty" gorm:"embedded"`
+	LocalAgentToolCall *LocalAgentToolCallAuditLog `json:"local,omitempty" gorm:"embedded"`
 
 	ResponseReceived bool `json:"responseReceived"`
 	Encrypted        bool `json:"encrypted"`
@@ -112,11 +112,11 @@ func (a *MCPAuditLog) EnsureMCP() *MCPAuditLogFields {
 	return a.MCP
 }
 
-func (a *MCPAuditLog) EnsureLocal() *LocalAuditLog {
-	if a.Local == nil {
-		a.Local = new(LocalAuditLog)
+func (a *MCPAuditLog) EnsureLocal() *LocalAgentToolCallAuditLog {
+	if a.LocalAgentToolCall == nil {
+		a.LocalAgentToolCall = new(LocalAgentToolCallAuditLog)
 	}
-	return a.Local
+	return a.LocalAgentToolCall
 }
 
 // EventTypeForCallType maps an MCP call type to the generic audit event type.
@@ -207,9 +207,9 @@ func ConvertMCPAuditLog(a MCPAuditLog) types2.AuditLog {
 	if a.MCP != nil {
 		mcpFields = *a.MCP
 	}
-	var localFields LocalAuditLog
-	if a.Local != nil {
-		localFields = *a.Local
+	var localFields LocalAgentToolCallAuditLog
+	if a.LocalAgentToolCall != nil {
+		localFields = *a.LocalAgentToolCall
 	}
 
 	webhookStatus := make([]types2.WebhookStatus, len(mcpFields.WebhookStatuses))
@@ -230,9 +230,9 @@ func ConvertMCPAuditLog(a MCPAuditLog) types2.AuditLog {
 		receivedAt = types2.NewTime(*a.ReceivedAt)
 	}
 
-	var context *types2.AuditLogContext
+	var context *types2.LocalAgentToolCallAuditLogContext
 	if len(localFields.Context) > 0 {
-		context = new(types2.AuditLogContext)
+		context = new(types2.LocalAgentToolCallAuditLogContext)
 		if err := json.Unmarshal(localFields.Context, context); err != nil {
 			context = nil
 		}
@@ -268,8 +268,8 @@ func ConvertMCPAuditLog(a MCPAuditLog) types2.AuditLog {
 	}
 
 	switch a.SourceType {
-	case types2.AuditLogSourceTypeLocalAgent:
-		apiLog.Local = &types2.LocalAuditLog{
+	case types2.AuditLogSourceTypeLocalAgentToolCall:
+		apiLog.LocalAgentToolCall = &types2.LocalAgentToolCallAuditLog{
 			EventID:     localFields.EventID,
 			DeviceID:    localFields.DeviceID,
 			ErrorDetail: localFields.ErrorDetail,
@@ -327,7 +327,7 @@ func MCPAuditLogFromAuditEvent(e types2.AuditEvent) (MCPAuditLog, error) {
 		RequestBody:      e.Request,
 		ResponseBody:     e.Response,
 		Error:            e.Error,
-		Local: &LocalAuditLog{
+		LocalAgentToolCall: &LocalAgentToolCallAuditLog{
 			DeviceID: e.DeviceID,
 			EventID:  e.EventID,
 			RawEvent: e.RawEvent,
@@ -367,9 +367,9 @@ func MCPAuditLogFromAuditEvent(e types2.AuditEvent) (MCPAuditLog, error) {
 // generic audit event shape.
 func ConvertAuditEvent(a MCPAuditLog) types2.AuditEvent {
 	apiLog := ConvertMCPAuditLog(a)
-	localFields := apiLog.Local
+	localFields := apiLog.LocalAgentToolCall
 	if localFields == nil {
-		localFields = new(types2.LocalAuditLog)
+		localFields = new(types2.LocalAgentToolCallAuditLog)
 	}
 
 	event := types2.AuditEvent{

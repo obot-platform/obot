@@ -51,9 +51,9 @@ func TestAuditEventRoundTrip(t *testing.T) {
 
 	gotEventID := ""
 	gotDeviceID := ""
-	if log.Local != nil {
-		gotEventID = log.Local.EventID
-		gotDeviceID = log.Local.DeviceID
+	if log.LocalAgentToolCall != nil {
+		gotEventID = log.LocalAgentToolCall.EventID
+		gotDeviceID = log.LocalAgentToolCall.DeviceID
 	}
 	if gotEventID != "evt-1" {
 		t.Errorf("EventID not preserved: %v", gotEventID)
@@ -64,8 +64,8 @@ func TestAuditEventRoundTrip(t *testing.T) {
 	if log.CallIdentifier != "Bash" || log.CallType != "command" {
 		t.Errorf("tool mapping wrong: callIdentifier=%q callType=%q", log.CallIdentifier, log.CallType)
 	}
-	if log.Local == nil || log.MCP != nil {
-		t.Errorf("local events must set only the Local source fields, got local=%v mcp=%v", log.Local, log.MCP)
+	if log.LocalAgentToolCall == nil || log.MCP != nil {
+		t.Errorf("local events must set only the Local source fields, got local=%v mcp=%v", log.LocalAgentToolCall, log.MCP)
 	}
 	if !log.ResponseReceived {
 		t.Errorf("generic events must be marked ResponseReceived to bypass the merge path")
@@ -106,7 +106,7 @@ func TestConvertMCPAuditLogSourceVariants(t *testing.T) {
 		CreatedAt:  time.Date(2026, 6, 11, 12, 0, 0, 0, time.UTC),
 		SourceType: types2.AuditLogSourceTypeLocalAgent,
 		CallType:   "command",
-		Local: &LocalAuditLog{
+		LocalAgentToolCall: &LocalAgentToolCallAuditLog{
 			ErrorDetail: "full error",
 			RawEvent:    json.RawMessage(`{"hook":"post"}`),
 		},
@@ -140,7 +140,7 @@ func TestAuditEventErrorSummaryTruncation(t *testing.T) {
 	if len(log.Error) != maxErrorSummaryBytes {
 		t.Errorf("Error summary length = %d, want %d", len(log.Error), maxErrorSummaryBytes)
 	}
-	if log.Local == nil || log.Local.ErrorDetail != fullError {
+	if log.LocalAgentToolCall == nil || log.LocalAgentToolCall.ErrorDetail != fullError {
 		t.Errorf("ErrorDetail must hold the full error text")
 	}
 
@@ -172,7 +172,7 @@ func TestAuditEventErrorSummaryTruncationPreservesUTF8(t *testing.T) {
 	if len(log.Error) != maxErrorSummaryBytes-1 {
 		t.Errorf("Error summary length = %d, want %d", len(log.Error), maxErrorSummaryBytes-1)
 	}
-	if log.Local == nil || log.Local.ErrorDetail != fullError {
+	if log.LocalAgentToolCall == nil || log.LocalAgentToolCall.ErrorDetail != fullError {
 		t.Errorf("ErrorDetail must hold the full error text")
 	}
 

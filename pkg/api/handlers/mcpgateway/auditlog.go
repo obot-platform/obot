@@ -84,7 +84,7 @@ type auditLogInput struct {
 }
 
 func (a auditLogInput) hasNestedSourceFields() bool {
-	return a.MCP != nil || a.Local != nil
+	return a.MCP != nil || a.LocalAgentToolCall != nil
 }
 
 // parseAuditLogOpts parses the query parameters common to ListAuditLogs and ListAuditLogFilterOptions.
@@ -388,7 +388,7 @@ var defaultFilterOptions = map[string][]string{
 	"call_type": {"prompts/list", "resources/read", "tools/list", "tools/call", "prompts/get", "resources/list"},
 	"source_type": {
 		string(types.AuditLogSourceTypeMCP),
-		string(types.AuditLogSourceTypeLocalAgent),
+		string(types.AuditLogSourceTypeLocalAgentToolCall),
 	},
 	"event_type": {
 		string(types.AuditLogEventTypeToolCall),

@@ -351,10 +351,10 @@ session_id %[1]s ? OR request_id %[1]s ? OR user_agent %[1]s ? OR device_id %[1]
 					logs[i].MCP.RequestHeaders = nil
 					logs[i].MCP.ResponseHeaders = nil
 				}
-			case types2.AuditLogSourceTypeLocalAgent:
-				if logs[i].Local != nil {
-					logs[i].Local.ErrorDetail = ""
-					logs[i].Local.RawEvent = nil
+			case types2.AuditLogSourceTypeLocalAgentToolCall:
+				if logs[i].LocalAgentToolCall != nil {
+					logs[i].LocalAgentToolCall.ErrorDetail = ""
+					logs[i].LocalAgentToolCall.RawEvent = nil
 				}
 			}
 		} else {
@@ -391,10 +391,10 @@ func (c *Client) GetMCPAuditLog(ctx context.Context, id uint, withRequestAndResp
 				log.MCP.MutatedRequestBody = nil
 				log.MCP.OriginalResponseBody = nil
 			}
-		case types2.AuditLogSourceTypeLocalAgent:
-			if log.Local != nil {
-				log.Local.ErrorDetail = ""
-				log.Local.RawEvent = nil
+		case types2.AuditLogSourceTypeLocalAgentToolCall:
+			if log.LocalAgentToolCall != nil {
+				log.LocalAgentToolCall.ErrorDetail = ""
+				log.LocalAgentToolCall.RawEvent = nil
 			}
 		}
 	}
@@ -735,21 +735,21 @@ func (c *Client) encryptMCPAuditLog(ctx context.Context, log *types.MCPAuditLog)
 				}
 			}
 		}
-	case types2.AuditLogSourceTypeLocalAgent:
-		if log.Local != nil {
-			if log.Local.ErrorDetail != "" {
-				if b, err = transformer.TransformToStorage(ctx, []byte(log.Local.ErrorDetail), dataCtx); err != nil {
+	case types2.AuditLogSourceTypeLocalAgentToolCall:
+		if log.LocalAgentToolCall != nil {
+			if log.LocalAgentToolCall.ErrorDetail != "" {
+				if b, err = transformer.TransformToStorage(ctx, []byte(log.LocalAgentToolCall.ErrorDetail), dataCtx); err != nil {
 					errs = append(errs, err)
 				} else {
-					log.Local.ErrorDetail = base64.StdEncoding.EncodeToString(b)
+					log.LocalAgentToolCall.ErrorDetail = base64.StdEncoding.EncodeToString(b)
 				}
 			}
 
-			if len(log.Local.RawEvent) > 0 {
-				if b, err = transformer.TransformToStorage(ctx, log.Local.RawEvent, dataCtx); err != nil {
+			if len(log.LocalAgentToolCall.RawEvent) > 0 {
+				if b, err = transformer.TransformToStorage(ctx, log.LocalAgentToolCall.RawEvent, dataCtx); err != nil {
 					errs = append(errs, err)
 				} else {
-					log.Local.RawEvent = json.RawMessage(base64.StdEncoding.EncodeToString(b))
+					log.LocalAgentToolCall.RawEvent = json.RawMessage(base64.StdEncoding.EncodeToString(b))
 				}
 			}
 		}
@@ -866,30 +866,30 @@ func (c *Client) decryptMCPAuditLog(ctx context.Context, log *types.MCPAuditLog)
 				}
 			}
 		}
-	case types2.AuditLogSourceTypeLocalAgent:
-		if log.Local != nil {
-			if log.Local.ErrorDetail != "" {
-				decoded = make([]byte, base64.StdEncoding.DecodedLen(len(log.Local.ErrorDetail)))
-				n, err = base64.StdEncoding.Decode(decoded, []byte(log.Local.ErrorDetail))
+	case types2.AuditLogSourceTypeLocalAgentToolCall:
+		if log.LocalAgentToolCall != nil {
+			if log.LocalAgentToolCall.ErrorDetail != "" {
+				decoded = make([]byte, base64.StdEncoding.DecodedLen(len(log.LocalAgentToolCall.ErrorDetail)))
+				n, err = base64.StdEncoding.Decode(decoded, []byte(log.LocalAgentToolCall.ErrorDetail))
 				if err == nil {
 					if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
 						errs = append(errs, err)
 					} else {
-						log.Local.ErrorDetail = string(out)
+						log.LocalAgentToolCall.ErrorDetail = string(out)
 					}
 				} else {
 					errs = append(errs, err)
 				}
 			}
 
-			if len(log.Local.RawEvent) > 0 {
-				decoded = make([]byte, base64.StdEncoding.DecodedLen(len(log.Local.RawEvent)))
-				n, err = base64.StdEncoding.Decode(decoded, log.Local.RawEvent)
+			if len(log.LocalAgentToolCall.RawEvent) > 0 {
+				decoded = make([]byte, base64.StdEncoding.DecodedLen(len(log.LocalAgentToolCall.RawEvent)))
+				n, err = base64.StdEncoding.Decode(decoded, log.LocalAgentToolCall.RawEvent)
 				if err == nil {
 					if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
 						errs = append(errs, err)
 					} else {
-						log.Local.RawEvent = json.RawMessage(out)
+						log.LocalAgentToolCall.RawEvent = json.RawMessage(out)
 					}
 				} else {
 					errs = append(errs, err)
@@ -903,12 +903,12 @@ func (c *Client) decryptMCPAuditLog(ctx context.Context, log *types.MCPAuditLog)
 
 func normalizeMCPAuditLogSourceFields(log *types.MCPAuditLog) {
 	switch log.SourceType {
-	case types2.AuditLogSourceTypeLocalAgent:
+	case types2.AuditLogSourceTypeLocalAgentToolCall:
 		log.EnsureLocal()
 		log.MCP = nil
 	case types2.AuditLogSourceTypeMCP:
 		log.EnsureMCP()
-		log.Local = nil
+		log.LocalAgentToolCall = nil
 	}
 }
 
@@ -918,9 +918,9 @@ func mcpAuditLogDataCtx(log *types.MCPAuditLog) value.Context {
 		if log.MCP != nil {
 			return value.DefaultContext(fmt.Sprintf("%s/%s/%s", mcpAuditLogGroupResource.String(), log.MCP.MCPID, log.UserID))
 		}
-	case types2.AuditLogSourceTypeLocalAgent:
-		if log.Local != nil && log.Local.EventID != "" {
-			return value.DefaultContext(fmt.Sprintf("%s/local/%s/%s", mcpAuditLogGroupResource.String(), log.Local.EventID, log.UserID))
+	case types2.AuditLogSourceTypeLocalAgentToolCall:
+		if log.LocalAgentToolCall != nil && log.LocalAgentToolCall.EventID != "" {
+			return value.DefaultContext(fmt.Sprintf("%s/local/%s/%s", mcpAuditLogGroupResource.String(), log.LocalAgentToolCall.EventID, log.UserID))
 		}
 	}
 	return value.DefaultContext(fmt.Sprintf("%s/%s", mcpAuditLogGroupResource.String(), log.UserID))
