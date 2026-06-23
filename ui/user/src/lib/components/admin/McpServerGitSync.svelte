@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
-	import { AdminService, type MCPCatalog } from '$lib/services';
+	import { AdminService, type MCPCatalog, type MCPCatalogManifest } from '$lib/services';
 	import IconButton from '../primitives/IconButton.svelte';
 	import { Info, TriangleAlert, X } from '@lucide/svelte';
+	import { slide } from 'svelte/transition';
 
 	interface Props {
 		defaultCatalog?: MCPCatalog;
@@ -22,9 +23,11 @@
 		clearToken?: boolean;
 	}>();
 	let sourceDialog = $state<HTMLDialogElement>();
+	let tokenClearedForURLChange = $state(false);
 
 	export function open() {
 		sourceError = undefined;
+		tokenClearedForURLChange = false;
 		editingSource = {
 			index: -1,
 			value: '',
@@ -35,6 +38,7 @@
 
 	export function edit(url: string, index: number) {
 		sourceError = undefined;
+		tokenClearedForURLChange = false;
 		editingSource = {
 			index,
 			value: url,
@@ -46,15 +50,54 @@
 	function closeSourceDialog() {
 		editingSource = undefined;
 		sourceError = undefined;
+		tokenClearedForURLChange = false;
 		sourceDialog?.close();
 	}
 
-	function hasSourceURLCredential(url: string | undefined): boolean {
+	function hasSourceURLCredential(url: string | undefined, catalog = defaultCatalog): boolean {
 		if (!url) {
 			return false;
 		}
-		const credential = defaultCatalog?.sourceURLCredentials?.[url];
+		const credential = catalog?.sourceURLCredentials?.[url];
 		return credential !== undefined && credential !== '';
+	}
+
+	const editingSourceURL = $derived(
+		editingSource && editingSource.index >= 0
+			? defaultCatalog?.sourceURLs?.[editingSource.index]
+			: undefined
+	);
+
+	const sourceURLChangedWithCredential = $derived(
+		Boolean(
+			editingSource &&
+			editingSource.index >= 0 &&
+			editingSourceURL &&
+			editingSource.value !== editingSourceURL &&
+			hasSourceURLCredential(editingSourceURL, defaultCatalog) &&
+			!editingSource.token
+		)
+	);
+
+	function handleSourceURLInput() {
+		if (!editingSource || editingSource.index < 0 || !editingSourceURL) {
+			return;
+		}
+
+		const urlChanged = editingSource.value !== editingSourceURL;
+		const hadCredential = hasSourceURLCredential(editingSourceURL, defaultCatalog);
+
+		if (urlChanged && hadCredential) {
+			editingSource.clearToken = true;
+			if (!tokenClearedForURLChange) {
+				editingSource.token = '';
+				tokenClearedForURLChange = true;
+			}
+		} else if (!urlChanged && tokenClearedForURLChange) {
+			editingSource.clearToken = false;
+			editingSource.token = '';
+			tokenClearedForURLChange = false;
+		}
 	}
 </script>
 
@@ -84,6 +127,7 @@
 				<input
 					id="catalog-source-name"
 					bind:value={editingSource.value}
+					oninput={handleSourceURLInput}
 					class="text-input-filled"
 				/>
 			</div>
@@ -138,6 +182,11 @@
 					</div>
 					<span class="font-sm font-light break-all">{sourceError}</span>
 				</div>
+			{:else if sourceURLChangedWithCredential}
+				<p class="mb-4 text-xs notification-alert" in:slide={{ axis: 'y' }}>
+					The source URL has been changed. Please re-enter the personal access token tied to the
+					former URL, otherwise it will be cleared on save.
+				</p>
 			{/if}
 
 			<div class="flex w-full justify-end gap-2">
@@ -166,45 +215,42 @@
 						sourceError = undefined;
 
 						try {
-							const updatingCatalog = { ...catalogToUse };
+							const updatingCatalog: MCPCatalogManifest = {
+								displayName: catalogToUse.displayName,
+								sourceURLs: catalogToUse.sourceURLs ?? [],
+								allowedUserIDs: catalogToUse.allowedUserIDs
+							};
+							const oldURL =
+								editingSource.index >= 0
+									? catalogToUse.sourceURLs?.[editingSource.index]
+									: undefined;
+							const newURL = editingSource.value;
 
 							if (editingSource.index === -1) {
-								updatingCatalog.sourceURLs = [
-									...(updatingCatalog.sourceURLs ?? []),
-									editingSource.value
-								];
+								updatingCatalog.sourceURLs = [...(updatingCatalog.sourceURLs ?? []), newURL];
 							} else {
-								const oldUrl = catalogToUse.sourceURLs[editingSource.index];
 								updatingCatalog.sourceURLs = [...(updatingCatalog.sourceURLs ?? [])];
-								updatingCatalog.sourceURLs[editingSource.index] = editingSource.value;
-
-								// If the URL changed and the old URL had a credential, remap the
-								// credentials key so the backend can transfer it to the new URL.
-								if (oldUrl !== editingSource.value && hasSourceURLCredential(oldUrl)) {
-									updatingCatalog.sourceURLCredentials = {
-										...updatingCatalog.sourceURLCredentials,
-										[editingSource.value]: updatingCatalog.sourceURLCredentials?.[oldUrl] ?? '*'
-									};
-									delete updatingCatalog.sourceURLCredentials[oldUrl];
-								}
+								updatingCatalog.sourceURLs[editingSource.index] = newURL;
 							}
 
-							Object.keys(updatingCatalog.sourceURLCredentials ?? {}).forEach((key) => {
-								if (updatingCatalog.sourceURLCredentials?.[key]) {
-									updatingCatalog.sourceURLCredentials[key] = '*';
-								}
-							});
+							const sourceURLCredentials: Record<string, string> = {};
+
+							if (
+								oldURL !== undefined &&
+								oldURL !== newURL &&
+								hasSourceURLCredential(oldURL, catalogToUse)
+							) {
+								sourceURLCredentials[oldURL] = '';
+							}
 
 							if (editingSource.clearToken && !editingSource.token) {
-								updatingCatalog.sourceURLCredentials = {
-									...(updatingCatalog.sourceURLCredentials ?? {}),
-									[editingSource.value]: ''
-								};
+								sourceURLCredentials[newURL] = '';
 							} else if (editingSource.token) {
-								updatingCatalog.sourceURLCredentials = {
-									...(updatingCatalog.sourceURLCredentials ?? {}),
-									[editingSource.value]: editingSource.token
-								};
+								sourceURLCredentials[newURL] = editingSource.token;
+							}
+
+							if (Object.keys(sourceURLCredentials).length > 0) {
+								updatingCatalog.sourceURLCredentials = sourceURLCredentials;
 							}
 
 							const response = await AdminService.updateMCPCatalog(
