@@ -99,6 +99,12 @@ spec:
             - name: http
               containerPort: 8080
               protocol: TCP
+          startupProbe:
+            httpGet:
+              path: /api/healthz
+              port: http
+            failureThreshold: 3
+            periodSeconds: 10
           livenessProbe:
             httpGet:
               path: /api/healthz
