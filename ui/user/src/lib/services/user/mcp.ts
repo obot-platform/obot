@@ -558,7 +558,7 @@ export async function convertCompositeInfoToLaunchFormData(
 						...(e as unknown as Record<string, unknown>),
 						key: e.key,
 						value: init?.config?.[e.key] ?? e.value ?? '',
-						isStatic: Boolean(e.value)
+						isStatic: !init?.config?.[e.key] && Boolean(e.value)
 					})),
 			headers: isMultiUser
 				? (m.multiUserConfig?.userDefinedHeaders ?? []).map((h) => ({
@@ -571,7 +571,7 @@ export async function convertCompositeInfoToLaunchFormData(
 						...(h as unknown as Record<string, unknown>),
 						key: h.key,
 						value: init?.config?.[h.key] ?? h.value ?? '',
-						isStatic: Boolean(h.value)
+						isStatic: !init?.config?.[h.key] && Boolean(h.value)
 					}))
 		};
 	}

@@ -13,7 +13,7 @@
 		convertEnvHeadersToRecord
 	} from '$lib/services/user/mcp';
 	import { ExternalLink, SettingsIcon, ShieldAlertIcon } from '@lucide/svelte';
-	import { onMount, tick } from 'svelte';
+	import { onMount, tick, untrack } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	type Props = {
@@ -23,8 +23,7 @@
 	};
 
 	let { data }: Props = $props();
-	// svelte-ignore state_referenced_locally
-	let currentConsent = $state(data.consent);
+	let currentConsent = $state(untrack(() => data.consent));
 	let configureForm = $state<LaunchFormData | CompositeLaunchFormData>();
 	let configDialog = $state<ReturnType<typeof CatalogConfigureForm>>();
 	let configError = $state('');
