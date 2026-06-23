@@ -1981,7 +1981,7 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 		if err := req.Get(&catalogEntry, input.CatalogEntryID); err != nil {
 			return err
 		}
-		sourceCatalogEntryManifest = new(catalogEntry.Spec.Manifest)
+		sourceCatalogEntryManifest = catalogEntry.Spec.Manifest.DeepCopy()
 
 		// Validate that the catalog entry type is compatible with the route used.
 		if err := validation.ValidateCatalogEntryForRoute(catalogEntry.Spec.Manifest, catalogID, workspaceID); err != nil {
@@ -2163,7 +2163,7 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 		var catalogEntry v1.MCPServerCatalogEntry
 		if err := req.Get(&catalogEntry, existing.Spec.MCPServerCatalogEntryName); err == nil {
 			gitManagedEntry = catalogEntry.IsGitManaged()
-			sourceCatalogEntryManifest = new(catalogEntry.Spec.Manifest)
+			sourceCatalogEntryManifest = catalogEntry.Spec.Manifest.DeepCopy()
 		}
 	}
 	adminManagedSecretBindings := req.UserIsAdmin() && existing.Spec.IsCatalogServer()
