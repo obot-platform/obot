@@ -11,7 +11,8 @@ import (
 
 func TestMaskCatalogCredential(t *testing.T) {
 	assert.Equal(t, "****", maskCatalogCredential(""))
-	assert.Equal(t, "****abc", maskCatalogCredential("abc"))
+	assert.Equal(t, "****", maskCatalogCredential("abc"))
+	assert.Equal(t, "****", maskCatalogCredential("1234"))
 	assert.Equal(t, "****1234", maskCatalogCredential("ghp_abcdefghij1234"))
 }
 
@@ -56,6 +57,18 @@ func TestMergeCatalogTokens(t *testing.T) {
 		}, existing)
 		assert.Equal(t, map[string]string{
 			"https://github.com/org/repo": "ghp_abcdefghij1234",
+		}, got)
+	})
+
+	t.Run("preserves existing short token for fully masked round-trip", func(t *testing.T) {
+		shortExisting := map[string]string{
+			"https://github.com/org/repo": "abc",
+		}
+		got := mergeCatalogTokens(sourceURLs, map[string]string{
+			"https://github.com/org/repo": "****",
+		}, shortExisting)
+		assert.Equal(t, map[string]string{
+			"https://github.com/org/repo": "abc",
 		}, got)
 	})
 

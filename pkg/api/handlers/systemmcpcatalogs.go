@@ -300,7 +300,7 @@ const (
 
 func maskCatalogCredential(token string) string {
 	if len(token) <= catalogCredentialVisibleSuffix {
-		return catalogCredentialMask + token
+		return catalogCredentialMask
 	}
 	return catalogCredentialMask + token[len(token)-catalogCredentialVisibleSuffix:]
 }
