@@ -213,7 +213,7 @@ func (p *Provider) validate(ctx context.Context) (map[keygen.EntitlementCode]str
 
 	lic, err := keygen.Validate(ctx, p.machineFingerprint)
 	if err != nil {
-		if lic != nil && lic.LastValidation != nil && lic.LastValidation.Code == keygen.ValidationCodeNoMachine || errors.Is(err, keygen.ErrLicenseNotActivated) {
+		if lic != nil && lic.LastValidation != nil && errors.Is(err, keygen.ErrLicenseNotActivated) {
 			if _, activationErr := lic.Activate(ctx, p.machineFingerprint); activationErr != nil && !errors.Is(activationErr, keygen.ErrMachineAlreadyActivated) {
 				log.Warnf("license activation failed: %v", activationErr)
 				return nil, nil
