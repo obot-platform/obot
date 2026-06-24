@@ -24,10 +24,12 @@
 	}>();
 	let sourceDialog = $state<HTMLDialogElement>();
 	let tokenClearedForURLChange = $state(false);
+	let tokenExplicitlyCleared = $state(false);
 
 	export function open() {
 		sourceError = undefined;
 		tokenClearedForURLChange = false;
+		tokenExplicitlyCleared = false;
 		editingSource = {
 			index: -1,
 			value: '',
@@ -39,6 +41,7 @@
 	export function edit(url: string, index: number) {
 		sourceError = undefined;
 		tokenClearedForURLChange = false;
+		tokenExplicitlyCleared = false;
 		editingSource = {
 			index,
 			value: url,
@@ -51,6 +54,7 @@
 		editingSource = undefined;
 		sourceError = undefined;
 		tokenClearedForURLChange = false;
+		tokenExplicitlyCleared = false;
 		sourceDialog?.close();
 	}
 
@@ -93,7 +97,7 @@
 				editingSource.token = '';
 				tokenClearedForURLChange = true;
 			}
-		} else if (!urlChanged && tokenClearedForURLChange) {
+		} else if (!urlChanged && tokenClearedForURLChange && !tokenExplicitlyCleared) {
 			editingSource.clearToken = false;
 			editingSource.token = '';
 			tokenClearedForURLChange = false;
@@ -150,7 +154,10 @@
 						<button
 							class="text-xs text-error hover:underline"
 							onclick={() => {
-								if (editingSource) editingSource.clearToken = true;
+								if (editingSource) {
+									editingSource.clearToken = true;
+									tokenExplicitlyCleared = true;
+								}
 							}}
 						>
 							Clear token
@@ -182,7 +189,7 @@
 					</div>
 					<span class="font-sm font-light break-all">{sourceError}</span>
 				</div>
-			{:else if sourceURLChangedWithCredential}
+			{:else if sourceURLChangedWithCredential && !tokenExplicitlyCleared}
 				<p class="mb-4 text-xs notification-alert" in:slide={{ axis: 'y' }}>
 					The source URL has been changed. Please re-enter the personal access token tied to the
 					former URL, otherwise it will be cleared on save.
