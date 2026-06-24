@@ -7,7 +7,10 @@
 	};
 
 	let { redirectURL }: Props = $props();
+	const REDIRECT_DELAY_SECONDS = 3;
+
 	let redirecting = $state(false);
+	let secondsRemaining = $state(REDIRECT_DELAY_SECONDS);
 
 	function redirectNow() {
 		if (!redirectURL) return;
@@ -19,8 +22,17 @@
 	onMount(() => {
 		if (!redirectURL) return;
 
-		const timeout = window.setTimeout(redirectNow, 3000);
-		return () => window.clearTimeout(timeout);
+		secondsRemaining = REDIRECT_DELAY_SECONDS;
+
+		const interval = window.setInterval(() => {
+			secondsRemaining = Math.max(0, secondsRemaining - 1);
+		}, 1000);
+		const timeout = window.setTimeout(redirectNow, REDIRECT_DELAY_SECONDS * 1000);
+
+		return () => {
+			window.clearInterval(interval);
+			window.clearTimeout(timeout);
+		};
 	});
 </script>
 
@@ -40,7 +52,8 @@
 			{#if redirecting || !redirectURL}
 				You can now close this window.
 			{:else}
-				You will be redirected in 3 seconds,
+				You will be redirected in {secondsRemaining}
+				{secondsRemaining === 1 ? 'second' : 'seconds'},
 				<button class="link" type="button" onclick={redirectNow}>click here</button>
 				to redirect now.
 			{/if}
