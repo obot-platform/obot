@@ -148,7 +148,7 @@ func (h *handler) fetchClientIDMetadataDocument(ctx context.Context, clientID st
 	}
 	httpReq.Header.Set("Accept", "application/json")
 
-	resp, err := h.clientMetadataClient().Do(httpReq)
+	resp, err := h.clientMetadataHTTPClient.Do(httpReq)
 	if err != nil {
 		return clientIDMetadataDocument{}, time.Time{}, fmt.Errorf("failed to fetch client metadata document: %w", err)
 	}
@@ -247,13 +247,6 @@ func (h *handler) oauthClientFromMetadataDocument(clientID string, doc clientIDM
 
 func isSharedSecretAuthMethod(method string) bool {
 	return strings.Contains(method, "client_secret")
-}
-
-func (h *handler) clientMetadataClient() *http.Client {
-	if h.clientMetadataHTTPClient != nil {
-		return h.clientMetadataHTTPClient
-	}
-	return &http.Client{Timeout: clientMetadataFetchTimeout}
 }
 
 func (h *handler) getCachedClientMetadata(clientID string) (v1.OAuthClient, bool) {

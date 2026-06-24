@@ -17,6 +17,7 @@ import (
 	"github.com/obot-platform/nah/pkg/apply"
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/router"
+	"github.com/obot-platform/nanobot/pkg/safehttp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
@@ -65,6 +66,7 @@ const (
 type Handler struct {
 	defaultCatalogPath        string
 	defaultSystemCatalogPath  string
+	httpClient                *http.Client
 	gatewayClient             *gclient.Client
 	accessControlRuleHelper   *accesscontrolrule.Helper
 	remoteURLValidationConfig validation.Options
@@ -89,13 +91,15 @@ func (h *Handler) revealCatalogCredential(ctx context.Context, catalogName, sour
 }
 
 func New(defaultCatalogPath, defaultSystemCatalogPath string, gatewayClient *gclient.Client, accessControlRuleHelper *accesscontrolrule.Helper, mcpSessionManager *mcp.SessionManager) *Handler {
+	remoteURLValidationConfig := mcpSessionManager.RemoteMCPURLValidationConfig()
 	return &Handler{
 		defaultCatalogPath:       defaultCatalogPath,
 		defaultSystemCatalogPath: defaultSystemCatalogPath,
 		gatewayClient:            gatewayClient,
+		httpClient:               safehttp.NewClient(!remoteURLValidationConfig.AllowLocalhostMCP, !remoteURLValidationConfig.AllowPrivateIPMCP, !remoteURLValidationConfig.AllowLinkLocalMCP),
 		accessControlRuleHelper:  accessControlRuleHelper,
 		remoteURLValidationConfig: validation.Options{
-			RemoteMCPURLValidationConfig: mcpSessionManager.RemoteMCPURLValidationConfig(),
+			RemoteMCPURLValidationConfig: remoteURLValidationConfig,
 		},
 		mcpBackend: mcpSessionManager.MCPRuntimeBackend(),
 	}
@@ -261,7 +265,7 @@ func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {
 }
 
 func (h *Handler) readSystemMCPCatalog(ctx context.Context, catalogName, sourceURL, token string) ([]client.Object, error) {
-	entries, err := readCatalogManifests[types.SystemMCPServerCatalogEntryManifest](ctx, sourceURL, token)
+	entries, err := readCatalogManifests[types.SystemMCPServerCatalogEntryManifest](ctx, h.httpClient, sourceURL, token)
 	if err != nil {
 		return nil, err
 	}
@@ -365,7 +369,7 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 			if token != "" {
 				req.Header.Set("Authorization", "Bearer "+token)
 			}
-			resp, err := http.DefaultClient.Do(req)
+			resp, err := h.httpClient.Do(req)
 			if err != nil {
 				return nil, fmt.Errorf("failed to read catalog %s: %w", sourceURL, err)
 			}
@@ -462,7 +466,7 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 	return objs, errors.Join(errs...)
 }
 
-func readCatalogManifests[T any](ctx context.Context, sourceURL, token string) ([]T, error) {
+func readCatalogManifests[T any](ctx context.Context, httpClient *http.Client, sourceURL, token string) ([]T, error) {
 	if strings.HasPrefix(sourceURL, "http://") || strings.HasPrefix(sourceURL, "https://") {
 		if isGitRepoURL(sourceURL) {
 			entries, err := readGitCatalogEntries[T](ctx, sourceURL, token)
@@ -479,7 +483,7 @@ func readCatalogManifests[T any](ctx context.Context, sourceURL, token string) (
 		if token != "" {
 			req.Header.Set("Authorization", "Bearer "+token)
 		}
-		resp, err := http.DefaultClient.Do(req)
+		resp, err := httpClient.Do(req)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read catalog %s: %w", sourceURL, err)
 		}

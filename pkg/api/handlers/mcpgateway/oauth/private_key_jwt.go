@@ -113,7 +113,7 @@ func (h *handler) clientJWKSet(ctx context.Context, client v1.OAuthClient) (jose
 	}
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := h.clientMetadataClient().Do(req)
+	resp, err := h.clientMetadataHTTPClient.Do(req)
 	if err != nil {
 		return jose.JSONWebKeySet{}, fmt.Errorf("failed to fetch client jwks_uri: %w", err)
 	}

@@ -509,6 +509,10 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 		secretEnvData["NANOBOT_RUN_AUDIT_LOG_FLUSH_INTERVAL_SECONDS"] = []byte(strconv.Itoa(k.auditLogsFlushIntervalSeconds))
 		secretEnvData["NANOBOT_RUN_AUDIT_LOG_METADATA"] = []byte(server.AuditLogMetadata)
 
+		secretEnvData["NANOBOT_RUN_BLOCK_LINK_LOCAL"] = []byte("true")
+		secretEnvData["NANOBOT_RUN_BLOCK_PRIVATE_IP"] = []byte("true")
+		// Explicitly not blocking loopback because the shim will communicate with the MCP server via loopback.
+
 		if server.Runtime == types.RuntimeRemote {
 			// non-remote runtimes will have their otel config added to the shim container below
 			maps.Copy(secretEnvData, nanobotOTELEnv("nanobot-shim", nil))
