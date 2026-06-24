@@ -221,14 +221,6 @@ var (
 			// API Key authentication webhook (called by nanobot shim)
 			// This endpoint validates the API key passed in the header
 			"POST /api/api-keys/auth",
-
-			// Since these are temporary and only the credstore token is allowed to access,
-			// then auth is handled in the handler.
-			"GET /api/credentials/tool.gpt",
-			"POST /api/credentials/store",
-			"POST /api/credentials/get",
-			"POST /api/credentials/list",
-			"POST /api/credentials/erase",
 		},
 
 		types.GroupAPI: {

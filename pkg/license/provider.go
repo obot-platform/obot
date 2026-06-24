@@ -95,6 +95,10 @@ func NewProvider(ctx context.Context, gatewayClient *client.Client, config Confi
 		log.Infof("license provider is not configured, license key is empty")
 	}
 
+	if k.entitlements != nil {
+		log.Infof("license provider initialized with entitlements: %v", k.entitlements)
+	}
+
 	go k.poll(ctx)
 
 	return k, nil
@@ -280,6 +284,12 @@ func (p *Provider) poll(ctx context.Context) {
 		case <-ticker.C:
 			if err := p.update(ctx); err != nil {
 				log.Warnf("license update failed: %v", err)
+			} else {
+				p.lock.RLock()
+				entitlements := p.entitlements
+				p.lock.RUnlock()
+
+				log.Infof("license updated successfully with entitlements: %v", entitlements)
 			}
 		}
 	}
