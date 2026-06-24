@@ -313,7 +313,21 @@ func parseGitURL(catalogURL string) (string, string, error) {
 }
 
 func readGitCatalogEntries[T any](ctx context.Context, catalogURL string, token string) ([]T, error) {
-	return readGitCatalogEntriesFromSubdir(ctx, catalogURL, token, "", readCatalogDirectory[T])
+	entries, _, err := readGitCatalogEntriesWithMetadata[T](ctx, catalogURL, token)
+	return entries, err
+}
+
+func readGitCatalogEntriesWithMetadata[T any](ctx context.Context, catalogURL string, token string) ([]T, string, error) {
+	var sourceID string
+	entries, err := readGitCatalogEntriesFromSubdir(ctx, catalogURL, token, "", func(catalog string) ([]T, error) {
+		entries, id, err := readCatalogDirectoryWithMetadata[T](catalog)
+		if err != nil {
+			return nil, err
+		}
+		sourceID = id
+		return entries, nil
+	})
+	return entries, sourceID, err
 }
 
 func readGitCatalogEntriesFromSubdir[T any](ctx context.Context, catalogURL string, token string, subdir string, readDir func(string) ([]T, error)) ([]T, error) {

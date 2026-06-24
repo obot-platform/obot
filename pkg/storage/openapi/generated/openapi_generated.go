@@ -14788,6 +14788,20 @@ func schema_storage_apis_obotobotai_v1_MCPServerCatalogEntrySpec(ref common.Refe
 							Format: "",
 						},
 					},
+					"sourceID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SourceID contains the ID declared by the catalog source metadata file, if any.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"sourceEntryIDRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SourceEntryIDRef contains the source-local stable entry reference declared by the catalog entry, if any.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"powerUserWorkspaceID": {
 						SchemaProps: spec.SchemaProps{
 							Description: "PowerUserWorkspaceID contains the name of the PowerUserWorkspace that owns this catalog entry, if there is one.",

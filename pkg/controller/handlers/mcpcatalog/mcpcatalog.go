@@ -351,12 +351,15 @@ func systemCatalogEntryManifestToMCP(manifest types.SystemMCPServerCatalogEntryM
 }
 
 func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, token string) ([]client.Object, error) {
-	var entries []types.MCPServerCatalogEntryManifest
+	var (
+		entries  []types.MCPServerCatalogEntryManifest
+		sourceID string
+	)
 
 	if strings.HasPrefix(sourceURL, "http://") || strings.HasPrefix(sourceURL, "https://") {
 		if isGitRepoURL(sourceURL) {
 			var err error
-			entries, err = readGitCatalogEntries[types.MCPServerCatalogEntryManifest](ctx, sourceURL, token)
+			entries, sourceID, err = readGitCatalogEntriesWithMetadata[types.MCPServerCatalogEntryManifest](ctx, sourceURL, token)
 			if err != nil {
 				return nil, fmt.Errorf("failed to read git catalog %s: %w", sourceURL, err)
 			}
@@ -395,7 +398,7 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 		}
 
 		if fileInfo.IsDir() {
-			entries, err = readCatalogDirectory[types.MCPServerCatalogEntryManifest](sourceURL)
+			entries, sourceID, err = readCatalogDirectoryWithMetadata[types.MCPServerCatalogEntryManifest](sourceURL)
 			if err != nil {
 				return nil, fmt.Errorf("failed to read catalog %s: %w", sourceURL, err)
 			}
@@ -432,9 +435,11 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 				Namespace: system.DefaultNamespace,
 			},
 			Spec: v1.MCPServerCatalogEntrySpec{
-				MCPCatalogName: catalogName,
-				SourceURL:      sourceURL,
-				Editable:       false, // entries from source URLs are not editable
+				MCPCatalogName:   catalogName,
+				SourceURL:        sourceURL,
+				SourceID:         sourceID,
+				SourceEntryIDRef: entry.IDRef,
+				Editable:         false, // entries from source URLs are not editable
 			},
 		}
 
@@ -557,8 +562,14 @@ func sanitizeCatalogEntryManifest(entry *types.MCPServerCatalogEntryManifest) {
 }
 
 func readCatalogDirectory[T any](catalog string) ([]T, error) {
-	if _, err := readGitCatalogMetadata(catalog); err != nil {
-		return nil, err
+	entries, _, err := readCatalogDirectoryWithMetadata[T](catalog)
+	return entries, err
+}
+
+func readCatalogDirectoryWithMetadata[T any](catalog string) ([]T, string, error) {
+	sourceID, err := readGitCatalogMetadata(catalog)
+	if err != nil {
+		return nil, "", err
 	}
 	var (
 		catalogPatterns       = []string{"*.json", "*.yaml", "*.yml"} // Default to all JSON and YAML files
@@ -600,7 +611,7 @@ func readCatalogDirectory[T any](catalog string) ([]T, error) {
 		if scanner.Err() != nil && scanner.Err() != io.EOF {
 			log.Warnf("Failed to read .ignoreobotcatalogs file: %v", scanner.Err())
 		} else if len(patterns) > 0 {
-			ignorePatterns = patterns
+			ignorePatterns = append(ignorePatterns, patterns...)
 		}
 	}
 
@@ -611,7 +622,7 @@ func readCatalogDirectory[T any](catalog string) ([]T, error) {
 	)
 	const maxFiles = 1000 // Limit the number of files processed to prevent resource exhaustion
 
-	err := filepath.WalkDir(catalog, func(path string, d os.DirEntry, err error) error {
+	err = filepath.WalkDir(catalog, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -696,10 +707,10 @@ func readCatalogDirectory[T any](catalog string) ([]T, error) {
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to walk repository files: %w", err)
+		return nil, "", fmt.Errorf("failed to walk repository files: %w", err)
 	}
 
-	return entries, nil
+	return entries, sourceID, nil
 }
 
 func (h *Handler) SetUpDefaultMCPCatalog(ctx context.Context, c client.Client) error {
