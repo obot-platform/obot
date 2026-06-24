@@ -201,6 +201,14 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 				// Only set WWW-Authenticate if not in no-auth mode
 				if strings.HasPrefix(req.URL.Path, "/v0.1") && !s.registryNoAuth {
 					rw.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="MCP Registry", resource_metadata="%s/.well-known/oauth-protected-resource/v0.1/servers"`, strings.TrimSuffix(s.baseURL, "/api")))
+				} else if id, ok := strings.CutPrefix(req.URL.Path, "/mcp-connect/"); ok {
+					// RFC 9728 §5.1: point MCP clients at the path-aware protected-
+					// resource metadata for this specific connect endpoint, so they
+					// don't fall back to the host-root metadata document (which can't
+					// identify which MCP server is being connected).
+					if id, _, _ = strings.Cut(id, "/"); id != "" {
+						rw.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer resource_metadata="%s/.well-known/oauth-protected-resource/mcp-connect/%s"`, strings.TrimSuffix(s.baseURL, "/api"), id))
+					}
 				}
 
 				if authenticated {
