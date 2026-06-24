@@ -138,16 +138,31 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 
 	toAdd := make([]client.Object, 0)
 	mcpCatalog.Status.SyncErrors = make(map[string]string)
+	uniqueSourceIDs := make(map[string]struct{})
 
 	for _, sourceURL := range mcpCatalog.Spec.SourceURLs {
 		token := h.revealCatalogCredential(req.Ctx, mcpCatalog.Name, sourceURL)
-		objs, err := h.readMCPCatalog(req.Ctx, mcpCatalog.Name, sourceURL, token)
+		objs, sourceID, err := h.readMCPCatalog(req.Ctx, mcpCatalog.Name, sourceURL, token)
 		if err != nil {
 			log.Errorf("failed to read catalog %s: %v", sourceURL, err)
 			mcpCatalog.Status.SyncErrors[sourceURL] = err.Error()
 		} else {
 			log.Infof("Read MCP catalog source successfully: catalog=%s source=%s entries=%d", mcpCatalog.Name, sourceURL, len(objs))
 			delete(mcpCatalog.Status.SyncErrors, sourceURL)
+		}
+
+		if sourceID != "" {
+			if _, ok := uniqueSourceIDs[sourceID]; ok {
+				errMsg := fmt.Sprintf("duplicate catalog source ID %q also used by source %q", sourceID, sourceURL)
+				if existing := mcpCatalog.Status.SyncErrors[sourceURL]; existing != "" {
+					mcpCatalog.Status.SyncErrors[sourceURL] = existing + "; " + errMsg
+				} else {
+					mcpCatalog.Status.SyncErrors[sourceURL] = errMsg
+				}
+				continue
+			} else {
+				uniqueSourceIDs[sourceID] = struct{}{}
+			}
 		}
 
 		toAdd = append(toAdd, objs...)
@@ -350,7 +365,7 @@ func systemCatalogEntryManifestToMCP(manifest types.SystemMCPServerCatalogEntryM
 	}
 }
 
-func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, token string) ([]client.Object, error) {
+func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, token string) ([]client.Object, string, error) {
 	var (
 		entries  []types.MCPServerCatalogEntryManifest
 		sourceID string
@@ -361,61 +376,62 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 			var err error
 			entries, sourceID, err = readGitCatalogEntriesWithMetadata[types.MCPServerCatalogEntryManifest](ctx, sourceURL, token)
 			if err != nil {
-				return nil, fmt.Errorf("failed to read git catalog %s: %w", sourceURL, err)
+				return nil, "", fmt.Errorf("failed to read git catalog %s: %w", sourceURL, err)
 			}
 		} else {
 			// If it wasn't a git repo, treat it as a raw file.
 			req, err := http.NewRequestWithContext(ctx, http.MethodGet, sourceURL, http.NoBody)
 			if err != nil {
-				return nil, fmt.Errorf("failed to create request for catalog %s: %w", sourceURL, err)
+				return nil, "", fmt.Errorf("failed to create request for catalog %s: %w", sourceURL, err)
 			}
 			if token != "" {
 				req.Header.Set("Authorization", "Bearer "+token)
 			}
 			resp, err := h.httpClient.Do(req)
 			if err != nil {
-				return nil, fmt.Errorf("failed to read catalog %s: %w", sourceURL, err)
+				return nil, "", fmt.Errorf("failed to read catalog %s: %w", sourceURL, err)
 			}
 			defer resp.Body.Close()
 
 			contents, err := io.ReadAll(resp.Body)
 			if err != nil {
-				return nil, fmt.Errorf("failed to read catalog %s: %w", sourceURL, err)
+				return nil, "", fmt.Errorf("failed to read catalog %s: %w", sourceURL, err)
 			}
 
 			if resp.StatusCode != http.StatusOK {
-				return nil, fmt.Errorf("unexpected status when reading catalog %s: %s", sourceURL, string(contents))
+				return nil, "", fmt.Errorf("unexpected status when reading catalog %s: %s", sourceURL, string(contents))
 			}
 
 			if err = yaml.Unmarshal(contents, &entries); err != nil {
-				return nil, fmt.Errorf("failed to decode catalog %s: %w", sourceURL, err)
+				return nil, "", fmt.Errorf("failed to decode catalog %s: %w", sourceURL, err)
 			}
 		}
 	} else {
 		fileInfo, err := os.Stat(sourceURL)
 		if err != nil {
-			return nil, fmt.Errorf("failed to stat catalog %s: %w", sourceURL, err)
+			return nil, "", fmt.Errorf("failed to stat catalog %s: %w", sourceURL, err)
 		}
 
 		if fileInfo.IsDir() {
 			entries, sourceID, err = readCatalogDirectoryWithMetadata[types.MCPServerCatalogEntryManifest](sourceURL)
 			if err != nil {
-				return nil, fmt.Errorf("failed to read catalog %s: %w", sourceURL, err)
+				return nil, "", fmt.Errorf("failed to read catalog %s: %w", sourceURL, err)
 			}
 		} else {
 			contents, err := os.ReadFile(sourceURL)
 			if err != nil {
-				return nil, fmt.Errorf("failed to read catalog %s: %w", sourceURL, err)
+				return nil, "", fmt.Errorf("failed to read catalog %s: %w", sourceURL, err)
 			}
 
 			if err = yaml.Unmarshal(contents, &entries); err != nil {
-				return nil, fmt.Errorf("failed to decode catalog %s: %w", sourceURL, err)
+				return nil, "", fmt.Errorf("failed to decode catalog %s: %w", sourceURL, err)
 			}
 		}
 	}
 
 	objs := make([]client.Object, 0, len(entries))
 	var errs []error
+	uniqueIDRefs := make(map[string]struct{})
 	for _, entry := range entries {
 		if entry.Metadata["categories"] == "Official" {
 			delete(entry.Metadata, "categories") // This shouldn't happen, but do this just in case.
@@ -428,10 +444,19 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 			errs = append(errs, err)
 			continue
 		}
+		catalogEntryName := name.SafeHashConcatName(catalogName, cleanName)
+
+		if entry.IDRef != "" {
+			if _, ok := uniqueIDRefs[entry.IDRef]; ok {
+				errs = append(errs, fmt.Errorf("duplicate source entry ref %q also used by catalog entry %q", entry.IDRef, catalogEntryName))
+				continue
+			}
+			uniqueIDRefs[entry.IDRef] = struct{}{}
+		}
 
 		catalogEntry := v1.MCPServerCatalogEntry{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      name.SafeHashConcatName(catalogName, cleanName),
+				Name:      catalogEntryName,
 				Namespace: system.DefaultNamespace,
 			},
 			Spec: v1.MCPServerCatalogEntrySpec{
@@ -468,7 +493,7 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 		objs = append(objs, &catalogEntry)
 	}
 
-	return objs, errors.Join(errs...)
+	return objs, sourceID, errors.Join(errs...)
 }
 
 func readCatalogManifests[T any](ctx context.Context, httpClient *http.Client, sourceURL, token string) ([]T, error) {
