@@ -1,8 +1,20 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import CatalogConfigureForm, {
+		type CompositeLaunchFormData,
+		type LaunchFormData
+	} from '$lib/components/mcp/CatalogConfigureForm.svelte';
 	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
-	import type { OAuthConsent } from '$lib/services';
-	import { ExternalLink, ShieldAlertIcon } from '@lucide/svelte';
+	import { HttpError } from '$lib/errors';
+	import { UserService, type OAuthConsent } from '$lib/services';
+	import {
+		convertCompositeInfoToLaunchFormData,
+		convertCompositeLaunchFormDataToPayload,
+		convertEnvHeadersToRecord
+	} from '$lib/services/user/mcp';
+	import { ExternalLink, SettingsIcon, ShieldAlertIcon } from '@lucide/svelte';
+	import { onMount, tick, untrack } from 'svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	type Props = {
 		data: {
@@ -11,8 +23,14 @@
 	};
 
 	let { data }: Props = $props();
+	let currentConsent = $state(untrack(() => data.consent));
+	let configureForm = $state<LaunchFormData | CompositeLaunchFormData>();
+	let configDialog = $state<ReturnType<typeof CatalogConfigureForm>>();
+	let configError = $state('');
+	let loadingConfig = $state(false);
+	let savingConfig = $state(false);
 
-	const consent = $derived(data.consent);
+	const consent = $derived(currentConsent);
 	const scopes = $derived(consent.scope?.split(' ').filter(Boolean) ?? []);
 	const showMCPAuthNotice = $derived(consent.mcpAuthRequired || consent.userHasSecondLevelOAuthed);
 	const clientCredentialSourceLabel = $derived(
@@ -100,6 +118,136 @@
 		return rows;
 	});
 
+	onMount(() => {
+		if (currentConsent.mcpConfigRequired) {
+			void loadMCPConfiguration(currentConsent);
+		}
+	});
+
+	async function loadMCPConfiguration(nextConsent: OAuthConsent) {
+		loadingConfig = true;
+		configError = '';
+		try {
+			let values: Record<string, string> = {};
+			if (nextConsent.mcpServerInstance?.id) {
+				values = await revealExistingConfiguration(() =>
+					UserService.revealMcpServerInstance(nextConsent.mcpServerInstance!.id, {
+						dontLogErrors: true
+					})
+				);
+				configureForm = {
+					headers: nextConsent.mcpServerInstance.multiUserConfig?.userDefinedHeaders?.map(
+						(header) => ({
+							...header,
+							value: values[header.key] ?? '',
+							isStatic: false
+						})
+					)
+				};
+			} else if (nextConsent.mcpServer?.id) {
+				if (nextConsent.mcpServer.manifest.runtime === 'composite') {
+					configureForm = await convertCompositeInfoToLaunchFormData(nextConsent.mcpServer);
+					return;
+				}
+
+				values = await revealExistingConfiguration(() =>
+					UserService.revealSingleOrRemoteMcpServer(nextConsent.mcpServer!.id, {
+						dontLogErrors: true
+					})
+				);
+				configureForm = {
+					envs: nextConsent.mcpServer.manifest.env?.map((env) => ({
+						...env,
+						value: values[env.key] ?? ''
+					})),
+					headers: nextConsent.mcpServer.manifest.remoteConfig?.headers?.map((header) => ({
+						...header,
+						value: values[header.key] ?? '',
+						isStatic: Boolean(header.value)
+					})),
+					url: nextConsent.mcpServer.manifest.remoteConfig?.url,
+					hostname: nextConsent.mcpServer.manifest.remoteConfig?.hostname
+				};
+			}
+		} catch (_err) {
+			configureForm = undefined;
+			configError = 'Failed to load current MCP server configuration.';
+		} finally {
+			loadingConfig = false;
+		}
+	}
+
+	async function openMCPConfiguration() {
+		if (!configureForm) {
+			await loadMCPConfiguration(consent);
+		}
+		if (!configureForm) return;
+		await tick();
+		configDialog?.open();
+	}
+
+	async function revealExistingConfiguration(
+		reveal: () => Promise<Record<string, string>>
+	): Promise<Record<string, string>> {
+		try {
+			return await reveal();
+		} catch (err) {
+			if (err instanceof HttpError && err.statusCode === 404) {
+				return {};
+			}
+			throw err;
+		}
+	}
+
+	async function saveMCPConfiguration() {
+		if (!configureForm) return;
+
+		configError = '';
+		savingConfig = true;
+		try {
+			if (consent.mcpServerInstance?.id) {
+				if (isCompositeForm(configureForm)) {
+					throw new Error('Unexpected composite configuration for MCP server instance');
+				}
+				const payload = convertEnvHeadersToRecord(undefined, configureForm.headers);
+				await UserService.configureMcpServerInstance(consent.mcpServerInstance.id, payload);
+			} else if (consent.mcpServer?.id) {
+				if (isCompositeForm(configureForm)) {
+					const payload = convertCompositeLaunchFormDataToPayload(configureForm);
+					await UserService.configureCompositeMcpServer(consent.mcpServer.id, payload);
+				} else {
+					const payload = convertEnvHeadersToRecord(configureForm.envs, configureForm.headers);
+					if (configureForm.hostname && configureForm.url) {
+						payload.__url = configureForm.url.trim();
+					}
+					await UserService.configureSingleOrRemoteMcpServer(consent.mcpServer.id, payload);
+				}
+			} else {
+				throw new Error('Missing MCP server configuration target');
+			}
+			const nextConsent = await UserService.getOAuthConsent(consent.authRequestID);
+			currentConsent = nextConsent;
+			if (nextConsent.mcpConfigRequired) {
+				await loadMCPConfiguration(nextConsent);
+				configError =
+					'Configuration was saved, but additional required configuration is still missing.';
+			} else {
+				configureForm = undefined;
+				configDialog?.close();
+			}
+		} catch (err) {
+			configError = err instanceof Error ? err.message : 'Failed to save MCP server configuration.';
+		} finally {
+			savingConfig = false;
+		}
+	}
+
+	function isCompositeForm(
+		form: LaunchFormData | CompositeLaunchFormData
+	): form is CompositeLaunchFormData {
+		return 'componentConfigs' in form;
+	}
+
 	function clientCredentialSourceLabelFor(source: OAuthConsent['clientCredentialSource']) {
 		switch (source) {
 			case 'client_id_metadata_document':
@@ -121,75 +269,127 @@
 <div class="bg-base-200 dark:bg-base-100 flex min-h-screen items-center justify-center p-4">
 	<main class="paper w-full max-w-lg overflow-hidden p-0">
 		<BetaLogo class="self-center mt-6" />
-		<h1 class="truncate text-xl font-semibold text-center">Authorize {consent.clientName}</h1>
+		<h1 class="text-xl font-semibold text-center px-4">
+			{consent.mcpConfigRequired
+				? `Configure ${consent.mcpServerName || 'MCP server'}`
+				: `Authorize ${consent.clientName}`}
+		</h1>
 
-		<section class="flex flex-col gap-5 p-4 pt-0">
-			{#if showMCPAuthNotice}
+		{#if consent.mcpConfigRequired}
+			<section class="flex flex-col gap-5 p-4 py-0">
 				<div class="notification-info flex items-center gap-3 p-3">
-					<ShieldAlertIcon class="size-5 shrink-0" />
+					<SettingsIcon class="size-5 shrink-0" />
 					<p class="min-w-0 text-sm">
-						{#if consent.mcpAuthRequired}
-							<b class="font-semibold">{consent.mcpServerName || 'This MCP server'}</b> requires its own
-							third-party OAuth authorization. You will be redirected to the third-party OAuth provider
-							to complete the authorization.
-						{:else if consent.userHasSecondLevelOAuthed}
-							<b class="font-semibold">{consent.mcpServerName || 'This MCP server'}</b> requires its own
-							third-party OAuth authorization, and you have already authorized it.
-						{/if}
+						<b class="font-semibold">{consent.mcpServerName || 'This MCP server'}</b> needs required configuration
+						before Obot can finish authorizing this connection.
 					</p>
 				</div>
-			{/if}
 
-			<p class="text-sm">
-				{consent.clientName} wants to authenticate with Obot for an MCP server connection. If you approve,
-				Obot will redirect you back to the OAuth client that started this request.
-			</p>
-
-			<div>
-				<details class="collapse collapse-arrow border border-base-300" name="more-details-content">
-					<summary class="collapse-title text-muted-content text-xs font-medium"
-						>See details</summary
-					>
-
-					<div class="collapse-content space-y-3 overflow-y-auto default-scrollbar-thin max-h-64">
-						{#each details as detail (detail.label)}
-							<div class="grid grid-cols-[9rem_minmax(0,1fr)] gap-3 text-xs max-sm:grid-cols-1">
-								<div class="text-muted-content font-medium">{detail.label}</div>
-
-								{#if detail.type === 'text'}
-									<div class="min-w-0 {detail.valueClass ?? ''}">{detail.value}</div>
-								{:else if detail.type === 'link'}
-									<a
-										class="link flex min-w-0 items-center gap-1 break-all"
-										href={detail.value}
-										rel="external noreferrer noopener"
-									>
-										<span class="truncate break-all">{detail.value}</span>
-										<ExternalLink class="size-3 shrink-0" />
-									</a>
-								{:else}
-									<div class="flex min-w-0 flex-wrap gap-2">
-										{#each detail.values as scope, i (i)}
-											<span class="badge badge-secondary badge-xs">{scope}</span>
-										{/each}
-									</div>
-								{/if}
-							</div>
-						{/each}
+				{#if configError}
+					<p class="text-error text-sm mt-4">{configError}</p>
+				{/if}
+			</section>
+		{:else}
+			<section class="flex flex-col gap-5 p-4 pt-0">
+				{#if showMCPAuthNotice}
+					<div class="notification-info flex items-center gap-3 p-3">
+						<ShieldAlertIcon class="size-5 shrink-0" />
+						<p class="min-w-0 text-sm">
+							{#if consent.mcpAuthRequired}
+								<b class="font-semibold">{consent.mcpServerName || 'This MCP server'}</b> requires its
+								own third-party OAuth authorization. You will be redirected to the third-party OAuth provider
+								to complete the authorization.
+							{:else if consent.userHasSecondLevelOAuthed}
+								<b class="font-semibold">{consent.mcpServerName || 'This MCP server'}</b> requires its
+								own third-party OAuth authorization, and you have already authorized it.
+							{/if}
+						</p>
 					</div>
-				</details>
-			</div>
-		</section>
+				{/if}
+
+				<p class="text-sm">
+					{consent.clientName} wants to authenticate with Obot for an MCP server connection. If you approve,
+					Obot will redirect you back to the OAuth client that started this request.
+				</p>
+
+				<div>
+					<details
+						class="collapse collapse-arrow border border-base-300"
+						name="more-details-content"
+					>
+						<summary class="collapse-title text-muted-content text-xs font-medium"
+							>See details</summary
+						>
+
+						<div class="collapse-content space-y-3 overflow-y-auto default-scrollbar-thin max-h-64">
+							{#each details as detail (detail.label)}
+								<div class="grid grid-cols-[9rem_minmax(0,1fr)] gap-3 text-xs max-sm:grid-cols-1">
+									<div class="text-muted-content font-medium">{detail.label}</div>
+
+									{#if detail.type === 'text'}
+										<div class="min-w-0 {detail.valueClass ?? ''}">{detail.value}</div>
+									{:else if detail.type === 'link'}
+										<a
+											class="link flex min-w-0 items-center gap-1 break-all"
+											href={detail.value}
+											rel="external noreferrer noopener"
+										>
+											<span class="truncate break-all">{detail.value}</span>
+											<ExternalLink class="size-3 shrink-0" />
+										</a>
+									{:else}
+										<div class="flex min-w-0 flex-wrap gap-2">
+											{#each detail.values as scope, i (i)}
+												<span class="badge badge-secondary badge-xs">{scope}</span>
+											{/each}
+										</div>
+									{/if}
+								</div>
+							{/each}
+						</div>
+					</details>
+				</div>
+			</section>
+		{/if}
 
 		<footer
-			class="border-base-300 bg-base-100 dark:bg-base-200 flex justify-end gap-3 border-t p-3 max-sm:flex-col-reverse"
+			class={twMerge(
+				'border-base-300 bg-base-100 dark:bg-base-200 flex justify-end gap-3 border-t p-3 max-sm:flex-col-reverse',
+				consent.mcpConfigRequired && 'border-t-0'
+			)}
 		>
 			<form method="POST" action={resolve(consent.cancelURL as `/${string}`)}>
-				<button class="btn btn-text w-full" type="submit">Cancel</button>
+				<button class="btn btn-text w-full" type="submit" disabled={savingConfig}>Cancel</button>
 			</form>
-			<form method="POST" action={resolve(consent.continueURL as `/${string}`)}>
-				<button class="btn btn-primary w-full" type="submit">Continue</button>
-			</form>
+			{#if consent.mcpConfigRequired}
+				<button
+					class="btn btn-primary flex w-full items-center gap-2"
+					type="button"
+					onclick={openMCPConfiguration}
+					disabled={loadingConfig || savingConfig}
+				>
+					<SettingsIcon class="size-4" />
+					{loadingConfig ? 'Loading...' : 'Configure'}
+				</button>
+			{:else}
+				<form method="POST" action={resolve(consent.continueURL as `/${string}`)}>
+					<button class="btn btn-primary w-full" type="submit">Continue</button>
+				</form>
+			{/if}
 		</footer>
 	</main>
 </div>
+
+<CatalogConfigureForm
+	bind:this={configDialog}
+	bind:form={configureForm}
+	name={consent.mcpServerName || 'MCP server'}
+	onSave={saveMCPConfiguration}
+	onCancel={() => configDialog?.close()}
+	loading={savingConfig}
+	error={configError}
+	cancelText="Close"
+	submitText="Save"
+	configurationTitle="Required Configuration"
+	disableOutsideClick
+/>

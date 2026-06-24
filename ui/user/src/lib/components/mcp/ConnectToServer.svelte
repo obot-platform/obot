@@ -890,7 +890,12 @@
 
 		if (server && instance && configureInstance && hasMultiUserInstanceConfiguration(server)) {
 			initMultiUserInstanceForm(server, instance);
-		} else if ((entry && server) || (server && instance)) {
+		} else if (
+			entry?.connectURL ||
+			server?.connectURL ||
+			(entry && server) ||
+			(server && instance)
+		) {
 			handleConnect(true);
 		} else {
 			showIntroDialog = true;
@@ -936,20 +941,20 @@
 
 <ResponsiveDialog bind:this={connectDialog} animate="slide" onClose={handleOnClose}>
 	{#snippet titleContent()}
-		{@render dialogTitle(server)}
+		{@render dialogTitle(server || entry)}
 	{/snippet}
 
-	{#if server}
-		{@const url = instance ? instance.connectURL : server.connectURL}
-		<div class="flex flex-col gap-1 md:p-0 pb-0 p-4">
-			<CopyField
-				bind:this={connectionUrlField}
-				value={url}
-				id="connectURL"
-				label="Connection URL"
-			/>
-		</div>
+	{#if entry?.connectURL || server?.connectURL || instance?.connectURL}
+		{@const url = instance?.connectURL || server?.connectURL || entry?.connectURL}
 		{#if url}
+			<div class="flex flex-col gap-1 md:p-0 pb-0 p-4">
+				<CopyField
+					bind:this={connectionUrlField}
+					value={url}
+					id="connectURL"
+					label="Connection URL"
+				/>
+			</div>
 			<HowToConnect
 				bind:this={howToConnect}
 				{url}

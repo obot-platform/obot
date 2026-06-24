@@ -902,7 +902,7 @@ func (h *MCPCatalogHandler) generateCompositeToolPreviews(req api.Context, entry
 				return fmt.Errorf("failed to get MCP server %q: %w", componentEntry.MCPServerID, err)
 			}
 
-			serverConfig, err := serverConfigForAction(req, mcpServer)
+			serverConfig, _, err := serverConfigForAction(req, mcpServer, false)
 			if err != nil {
 				return fmt.Errorf("failed to build server configuration for MCP server %q: %w", mcpServer.Name, err)
 			}

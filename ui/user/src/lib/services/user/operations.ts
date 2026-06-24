@@ -991,6 +991,9 @@ export type OAuthConsent = {
 	scope?: string;
 	policyURI?: string;
 	tosURI?: string;
+	mcpConfigRequired: boolean;
+	mcpServer?: MCPCatalogServer;
+	mcpServerInstance?: MCPServerInstance;
 	mcpAuthRequired: boolean;
 	userHasSecondLevelOAuthed: boolean;
 	mcpServerName?: string;

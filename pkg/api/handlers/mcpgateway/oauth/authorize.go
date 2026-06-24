@@ -310,14 +310,25 @@ func (h *handler) callback(req api.Context) error {
 }
 
 func (h *handler) prepareOAuthConsent(req api.Context, oauthAppAuthRequest *v1.OAuthAuthRequest) error {
-	if oauthAppAuthRequest.Spec.ConsentPrepared {
+	if oauthAppAuthRequest.Spec.ConsentPrepared && !oauthAppAuthRequest.Spec.ConsentMCPConfigRequired {
 		return nil
 	}
 
 	// Check whether the MCP server needs authentication.
-	mcpID, mcpServer, mcpServerConfig, err := handlers.ServerForActionWithConnectID(req, oauthAppAuthRequest.Spec.MCPID)
+	mcpID, mcpServer, mcpServerConfig, missingConfig, err := handlers.ServerForActionWithConnectIDAllowMissingConfig(req, oauthAppAuthRequest.Spec.MCPID)
 	if err != nil {
 		return err
+	}
+
+	if len(missingConfig) > 0 {
+		oauthAppAuthRequest.Spec.ConsentPrepared = true
+		oauthAppAuthRequest.Spec.ConsentMCPConfigRequired = true
+		oauthAppAuthRequest.Spec.ConsentMCPAuthRequired = false
+		oauthAppAuthRequest.Spec.ConsentMCPAuthURL = ""
+		oauthAppAuthRequest.Spec.UserHasSecondLevelOAuthed = false
+		oauthAppAuthRequest.Spec.ConsentMCPServerName = mcpServerDisplayName(mcpServer)
+		oauthAppAuthRequest.Spec.ConsentMCPServerURL = mcpServerConfig.URL
+		return req.Update(oauthAppAuthRequest)
 	}
 
 	u, err := h.oauthChecker.CheckForMCPAuth(req, mcpServer, mcpServerConfig, req.User.GetUID(), mcpID, oauthAppAuthRequest.Name)
@@ -326,6 +337,7 @@ func (h *handler) prepareOAuthConsent(req api.Context, oauthAppAuthRequest *v1.O
 	}
 
 	oauthAppAuthRequest.Spec.ConsentPrepared = true
+	oauthAppAuthRequest.Spec.ConsentMCPConfigRequired = false
 	oauthAppAuthRequest.Spec.ConsentMCPAuthRequired = u != ""
 	oauthAppAuthRequest.Spec.ConsentMCPAuthURL = u
 	oauthAppAuthRequest.Spec.UserHasSecondLevelOAuthed = u == "" && mcpServer.Status.UserHasAuthenticated
@@ -346,6 +358,17 @@ func (h *handler) consent(req api.Context) error {
 	}
 	if !authenticatedOAuthConsentUser(req, oauthAppAuthRequest) {
 		return nil
+	}
+
+	if !oauthAppAuthRequest.Spec.ConsentPrepared || oauthAppAuthRequest.Spec.ConsentMCPConfigRequired {
+		if err := h.prepareOAuthConsent(req, &oauthAppAuthRequest); err != nil {
+			redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
+				Code:        ErrServerError,
+				Description: err.Error(),
+				State:       oauthAppAuthRequest.Spec.State,
+			})
+			return nil
+		}
 	}
 
 	if !oauthAppAuthRequest.Spec.ConsentPrepared {
@@ -373,7 +396,23 @@ func (h *handler) consent(req api.Context) error {
 	}
 
 	continueURL, cancelURL := oauthConsentURLs(oauthAppAuthRequest)
-	return req.Write(oauthConsentPageData(oauthAppAuthRequest, oauthClient, continueURL, cancelURL))
+	var (
+		mcpServer         *types.MCPServer
+		mcpServerInstance *types.MCPServerInstance
+	)
+	if oauthAppAuthRequest.Spec.ConsentMCPConfigRequired {
+		mcpServer, mcpServerInstance, err = handlers.ConfigurationTargetForConnectID(req, oauthAppAuthRequest.Spec.MCPID, h.baseURL)
+		if err != nil {
+			redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
+				Code:        ErrServerError,
+				Description: err.Error(),
+				State:       oauthAppAuthRequest.Spec.State,
+			})
+			return nil
+		}
+	}
+
+	return req.Write(oauthConsentPageData(oauthAppAuthRequest, oauthClient, continueURL, cancelURL, mcpServer, mcpServerInstance))
 }
 
 func (h *handler) approveConsent(req api.Context) error {
@@ -383,6 +422,14 @@ func (h *handler) approveConsent(req api.Context) error {
 	}
 
 	oauthAppAuthRequest.Spec.ConsentApproved = true
+	if oauthAppAuthRequest.Spec.ConsentMCPConfigRequired {
+		redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
+			Code:        ErrInvalidRequest,
+			Description: "MCP server configuration is required before consent can be approved",
+			State:       oauthAppAuthRequest.Spec.State,
+		})
+		return nil
+	}
 	if err := req.Update(&oauthAppAuthRequest); err != nil {
 		redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
 			Code:        ErrServerError,
@@ -596,24 +643,27 @@ func authenticatedOAuthConsentUser(req api.Context, oauthAppAuthRequest v1.OAuth
 }
 
 type oauthConsentData struct {
-	AuthRequestID             string `json:"authRequestID"`
-	ContinueURL               string `json:"continueURL"`
-	CancelURL                 string `json:"cancelURL"`
-	ClientName                string `json:"clientName"`
-	ClientCredentialSource    string `json:"clientCredentialSource"`
-	ClientURI                 string `json:"clientURI,omitempty"`
-	RedirectURI               string `json:"redirectURI"`
-	Scope                     string `json:"scope,omitempty"`
-	PolicyURI                 string `json:"policyURI,omitempty"`
-	TOSURI                    string `json:"tosURI,omitempty"`
-	MCPAuthRequired           bool   `json:"mcpAuthRequired"`
-	UserHasSecondLevelOAuthed bool   `json:"userHasSecondLevelOAuthed"`
-	MCPServerName             string `json:"mcpServerName,omitempty"`
-	MCPServerURL              string `json:"mcpServerURL,omitempty"`
-	ThirdPartyAuthURL         string `json:"thirdPartyAuthURL,omitempty"`
+	AuthRequestID             string                   `json:"authRequestID"`
+	ContinueURL               string                   `json:"continueURL"`
+	CancelURL                 string                   `json:"cancelURL"`
+	ClientName                string                   `json:"clientName"`
+	ClientCredentialSource    string                   `json:"clientCredentialSource"`
+	ClientURI                 string                   `json:"clientURI,omitempty"`
+	RedirectURI               string                   `json:"redirectURI"`
+	Scope                     string                   `json:"scope,omitempty"`
+	PolicyURI                 string                   `json:"policyURI,omitempty"`
+	TOSURI                    string                   `json:"tosURI,omitempty"`
+	MCPConfigRequired         bool                     `json:"mcpConfigRequired"`
+	MCPServer                 *types.MCPServer         `json:"mcpServer,omitempty"`
+	MCPServerInstance         *types.MCPServerInstance `json:"mcpServerInstance,omitempty"`
+	MCPAuthRequired           bool                     `json:"mcpAuthRequired"`
+	UserHasSecondLevelOAuthed bool                     `json:"userHasSecondLevelOAuthed"`
+	MCPServerName             string                   `json:"mcpServerName,omitempty"`
+	MCPServerURL              string                   `json:"mcpServerURL,omitempty"`
+	ThirdPartyAuthURL         string                   `json:"thirdPartyAuthURL,omitempty"`
 }
 
-func oauthConsentPageData(oauthAppAuthRequest v1.OAuthAuthRequest, oauthClient v1.OAuthClient, continueURL, cancelURL string) oauthConsentData {
+func oauthConsentPageData(oauthAppAuthRequest v1.OAuthAuthRequest, oauthClient v1.OAuthClient, continueURL, cancelURL string, mcpServer *types.MCPServer, mcpServerInstance *types.MCPServerInstance) oauthConsentData {
 	clientName := oauthClient.Spec.Manifest.ClientName
 	if clientName == "" {
 		clientName = fmt.Sprintf("%s:%s", oauthClient.Namespace, oauthClient.Name)
@@ -630,6 +680,9 @@ func oauthConsentPageData(oauthAppAuthRequest v1.OAuthAuthRequest, oauthClient v
 		Scope:                     oauthAppAuthRequest.Spec.Scope,
 		PolicyURI:                 oauthClient.Spec.Manifest.PolicyURI,
 		TOSURI:                    oauthClient.Spec.Manifest.TOSURI,
+		MCPConfigRequired:         oauthAppAuthRequest.Spec.ConsentMCPConfigRequired,
+		MCPServer:                 mcpServer,
+		MCPServerInstance:         mcpServerInstance,
 		MCPAuthRequired:           oauthAppAuthRequest.Spec.ConsentMCPAuthRequired,
 		UserHasSecondLevelOAuthed: oauthAppAuthRequest.Spec.UserHasSecondLevelOAuthed,
 		MCPServerName:             oauthAppAuthRequest.Spec.ConsentMCPServerName,

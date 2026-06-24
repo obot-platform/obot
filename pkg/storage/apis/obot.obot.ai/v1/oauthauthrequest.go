@@ -60,6 +60,7 @@ type OAuthAuthRequestSpec struct {
 	AuthProviderNamespace     string `json:"authProviderNamespace"`
 	AuthProviderName          string `json:"authProviderName"`
 	ConsentPrepared           bool   `json:"consentPrepared"`
+	ConsentMCPConfigRequired  bool   `json:"consentMCPConfigRequired"`
 	ConsentApproved           bool   `json:"consentApproved"`
 	ConsentMCPAuthRequired    bool   `json:"consentMCPAuthRequired"`
 	ConsentMCPAuthURL         string `json:"consentMCPAuthURL"`

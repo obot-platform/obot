@@ -73,8 +73,9 @@
 
 		const deltaY = ev.clientY - startY;
 		const newHeight = Math.max(60, startHeight + deltaY); // Min height 60px
-		scrollableWrapper.style.maxHeight = `${newHeight}px`;
-		scrollableWrapper.style.minHeight = 'auto';
+		scrollableWrapper.style.height = `${newHeight}px`;
+		scrollableWrapper.style.minHeight = `${newHeight}px`;
+		scrollableWrapper.style.maxHeight = 'none';
 	}
 
 	function handleResizeEnd() {
@@ -143,7 +144,7 @@
 				<div
 					bind:this={scrollableWrapper}
 					class={twMerge(
-						'text-input-filled base flex w-full flex-1 flex-col overflow-x-hidden overflow-y-auto font-mono',
+						'text-input-filled base flex min-h-[60px] w-full shrink-0 flex-col overflow-x-hidden overflow-y-auto font-mono',
 						klass,
 						classes?.wrapper,
 						error && 'border-error bg-error/20 text-error ring-error focus:ring-1',

@@ -498,11 +498,14 @@ export interface RemoteRuntimeConfig {
 	url: string;
 	headers?: MCPSubField[];
 	fixedURL?: string;
+	hostname?: string;
 	isTemplate?: boolean;
+	urlTemplate?: string;
 }
 export interface RemoteCatalogConfig {
 	fixedURL?: string;
 	hostname?: string;
+	urlTemplate?: string;
 	headers?: MCPSubField[];
 }
 export type ResourceRuntimeConfig = MCPResourceRequirements;
