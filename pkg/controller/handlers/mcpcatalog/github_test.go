@@ -2,6 +2,8 @@ package mcpcatalog
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -26,6 +28,24 @@ func TestIsGitRepoURL(t *testing.T) {
 			assert.Equal(t, tt.want, isGitRepoURL(tt.url))
 		})
 	}
+}
+
+func TestReadCatalogDirectorySkipsMetadataFile(t *testing.T) {
+	dir := t.TempDir()
+	assert.NoError(t, os.WriteFile(filepath.Join(dir, obotCatalogMetadataFilename+".yaml"), []byte("id: acme/catalog\n"), 0o600))
+	assert.NoError(t, os.WriteFile(filepath.Join(dir, "entry.yaml"), []byte(`name: Test
+shortDescription: Test
+description: Test
+icon: icon
+runtime: npx
+npxConfig:
+  package: test
+`), 0o600))
+
+	entries, err := readCatalogDirectory[types.MCPServerCatalogEntryManifest](dir)
+	assert.NoError(t, err)
+	assert.Len(t, entries, 1)
+	assert.Equal(t, "Test", entries[0].Name)
 }
 
 func TestParseGitURL(t *testing.T) {
