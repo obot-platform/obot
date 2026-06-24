@@ -1533,7 +1533,7 @@ func (d *dockerBackend) prepareMCPServerNanobotConfig(ctx context.Context, serve
 		err         error
 	)
 	if server.Runtime == otypes.RuntimeComposite {
-		nanobotYAML, err = constructMCPServerNanobotYAMLForComposite(server.Components)
+		nanobotYAML, err = constructMCPServerNanobotYAMLForComposite(server.Components, server.PassthroughHeaderNames)
 	} else {
 		nanobotYAML, err = constructMCPServerNanobotYAML(server.MCPServerDisplayName, server.URL, server.Command, server.Args, server.PassthroughHeaderNames, allEnvVars, headers, webhooks)
 	}
