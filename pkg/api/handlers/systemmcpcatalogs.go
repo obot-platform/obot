@@ -293,6 +293,25 @@ func normalizeAndValidateCatalogSourceURLs(sourceURLs []string, localPath string
 	return nil
 }
 
+const (
+	catalogCredentialMask          = "****"
+	catalogCredentialVisibleSuffix = 4
+)
+
+func maskCatalogCredential(token string) string {
+	if len(token) <= catalogCredentialVisibleSuffix {
+		return catalogCredentialMask
+	}
+	return catalogCredentialMask + token[len(token)-catalogCredentialVisibleSuffix:]
+}
+
+func isMaskedCatalogCredential(token string) bool {
+	if !strings.HasPrefix(token, catalogCredentialMask) {
+		return false
+	}
+	return len(token)-len(catalogCredentialMask) <= catalogCredentialVisibleSuffix
+}
+
 func mergeCatalogTokens(sourceURLs []string, incoming, existing map[string]string) map[string]string {
 	activeURLs := make(map[string]struct{}, len(sourceURLs))
 	for _, u := range sourceURLs {
@@ -311,7 +330,13 @@ func mergeCatalogTokens(sourceURLs []string, incoming, existing map[string]strin
 				newTokens[u] = existingToken
 			}
 		default:
-			newTokens[u] = token
+			if isMaskedCatalogCredential(token) {
+				if existingToken, ok := existing[u]; ok {
+					newTokens[u] = existingToken
+				}
+			} else {
+				newTokens[u] = token
+			}
 		}
 	}
 	for _, u := range sourceURLs {
@@ -349,7 +374,7 @@ func maskCatalogCredentials(sourceURLs []string, tokenEnv map[string]string) map
 			if maskedCredentials == nil {
 				maskedCredentials = make(map[string]string)
 			}
-			maskedCredentials[u] = "*"
+			maskedCredentials[u] = maskCatalogCredential(tokenEnv[u])
 		}
 	}
 	return maskedCredentials
