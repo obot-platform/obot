@@ -165,11 +165,17 @@
 					{/if}
 				</div>
 				{#if !editingSource.clearToken && editingSource.index >= 0 && hasSourceURLCredential(defaultCatalog?.sourceURLs?.[editingSource.index])}
-					<p class="text-sm text-muted-content h-[39px]">
-						{defaultCatalog?.sourceURLCredentials?.[
+					<input
+						id="catalog-source-token"
+						type="text"
+						readonly
+						aria-readonly="true"
+						data-1p-ignore
+						value={defaultCatalog?.sourceURLCredentials?.[
 							defaultCatalog?.sourceURLs?.[editingSource.index]
-						]}
-					</p>
+						] ?? ''}
+						class="text-sm text-muted-content w-full border-none bg-transparent p-0 outline-none focus:ring-0"
+					/>
 				{:else}
 					<SensitiveInput
 						name="catalog-source-token"
