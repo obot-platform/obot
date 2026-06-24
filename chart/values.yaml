@@ -151,8 +151,8 @@ config:
   OBOT_SERVER_MCPCLUSTER_DOMAIN: ""
   # config.OBOT_SERVER_DISALLOW_LOCALHOST_MCP -- Disallow MCP servers that try to connect to localhost. Defaults to true.
   OBOT_SERVER_DISALLOW_LOCALHOST_MCP: ""
-  # config.OBOT_SERVER_DISALLOW_PRIVATE_IP_MCP -- Disallow MCP servers that resolve to private IP addresses. Defaults to true.
-  OBOT_SERVER_DISALLOW_PRIVATE_IP_MCP: ""
+  # config.OBOT_SERVER_DISALLOW_PRIVATE_IPMCP -- Disallow MCP servers that resolve to private IP addresses. Defaults to true.
+  OBOT_SERVER_DISALLOW_PRIVATE_IPMCP: ""
   # config.OBOT_SERVER_DISALLOW_LINK_LOCAL_MCP -- Disallow MCP servers that resolve to link-local addresses. Defaults to true.
   OBOT_SERVER_DISALLOW_LINK_LOCAL_MCP: ""
   # config.OBOT_SERVER_MCPRUNTIME_BACKEND -- The runtime backend to use for MCP servers. Can be 'docker' or 'kubernetes'. Defaults to 'docker'. Setting this to 'kubernetes' will also create the necessary service account, role and rolebinding.
