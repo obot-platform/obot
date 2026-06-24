@@ -557,9 +557,12 @@ func sanitizeCatalogEntryManifest(entry *types.MCPServerCatalogEntryManifest) {
 }
 
 func readCatalogDirectory[T any](catalog string) ([]T, error) {
+	if _, err := readGitCatalogMetadata(catalog); err != nil {
+		return nil, err
+	}
 	var (
 		catalogPatterns       = []string{"*.json", "*.yaml", "*.yml"} // Default to all JSON and YAML files
-		ignorePatterns        []string
+		ignorePatterns        = []string{obotCatalogMetadataFilename + ".yaml", obotCatalogMetadataFilename + ".yml"}
 		usingObotCatalogsFile bool
 	)
 
