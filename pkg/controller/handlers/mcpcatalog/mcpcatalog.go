@@ -215,7 +215,7 @@ func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, objs []client.
 		if !ok || entry.Spec.SourceID == "" || entry.Spec.SourceEntryIDRef == "" {
 			continue
 		}
-		refs[entry.Spec.SourceID+catalogReferenceSeparator+entry.Spec.SourceEntryIDRef] = entry
+		refs[sourceRef(entry.Spec.SourceID, entry.Spec.SourceEntryIDRef)] = entry
 	}
 
 	result := make([]client.Object, 0, len(objs))
@@ -231,19 +231,16 @@ func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, objs []client.
 		var errs []error
 		for i := range entry.Spec.Manifest.CompositeConfig.ComponentServers {
 			component := &entry.Spec.Manifest.CompositeConfig.ComponentServers[i]
-			if component.CatalogEntryID == "" || !strings.Contains(component.CatalogEntryID, catalogReferenceSeparator) {
+			if component.CatalogEntryID == "" {
 				continue
 			}
 
-			sourceID, idRef, ok := strings.Cut(component.CatalogEntryID, catalogReferenceSeparator)
-			if !ok || sourceID == "" || idRef == "" {
-				errs = append(errs, fmt.Errorf("invalid catalogEntryID source ref %q", component.CatalogEntryID))
+			target, err := resolveComponentSourceRef(refs, entry.Spec.SourceID, component.CatalogEntryID)
+			if err != nil {
+				errs = append(errs, err)
 				continue
 			}
-
-			target := refs[sourceID+catalogReferenceSeparator+idRef]
 			if target == nil {
-				errs = append(errs, fmt.Errorf("unresolved catalogEntryID source ref %q", component.CatalogEntryID))
 				continue
 			}
 
@@ -276,6 +273,30 @@ func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, objs []client.
 	}
 
 	return result, errsBySourceURL
+}
+
+func resolveComponentSourceRef(refs map[string]*v1.MCPServerCatalogEntry, sourceID, catalogEntryID string) (*v1.MCPServerCatalogEntry, error) {
+	if sourceID == "" {
+		return nil, nil
+	}
+
+	refSourceID, idRef, ok := strings.Cut(catalogEntryID, catalogReferenceSeparator)
+	if !ok {
+		return refs[sourceRef(sourceID, catalogEntryID)], nil
+	}
+	if refSourceID == "" || idRef == "" {
+		return nil, fmt.Errorf("invalid catalogEntryID source ref %q", catalogEntryID)
+	}
+
+	target := refs[sourceRef(refSourceID, idRef)]
+	if target == nil {
+		return nil, fmt.Errorf("unresolved catalogEntryID source ref %q", catalogEntryID)
+	}
+	return target, nil
+}
+
+func sourceRef(sourceID, idRef string) string {
+	return fmt.Sprintf("%s%s%s", sourceID, catalogReferenceSeparator, idRef)
 }
 
 func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {

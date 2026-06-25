@@ -146,7 +146,8 @@ Multi-user catalog templates support the `npx`, `uvx`, `containerized`, and `rem
 Composite MCP servers combine tools from other catalog entries. In GitOps, composite entries can reference component entries in two ways:
 
 - Use a normal internal `catalogEntryID`, such as `default-gmail-8a99d8be`
-- Use a portable source reference with `{sourceID}|{idRef}`. The target source must define a [stable source ID](#stable-source-references), and the target entry must define `idRef`
+- Use a same-source portable reference with `{idRef}`. The target entry must define `idRef` and must be in the same [stable source](#stable-source-references).
+- Use a cross-source portable reference with `{sourceID}|{idRef}`. The target source must define a [stable source ID](#stable-source-references), and the target entry must define `idRef`.
 
 Portable references are useful when the target entry is in the same Git catalog sync and does not have an internal generated ID yet, or when you want to use a purely-gitops workflow.
 
@@ -155,10 +156,11 @@ name: Gmail Composite
 runtime: composite
 compositeConfig:
   componentServers:
+    - catalogEntryID: gmail
     - catalogEntryID: github.com/company/mcp-catalog|gmail
 ```
 
-During sync, Obot resolves this portable reference to the internal generated catalog entry ID and stores the internal ID. If `catalogEntryID` does not contain `|`, Obot treats it as an internal catalog entry ID and leaves it unchanged.
+During sync, Obot resolves portable references to internal generated catalog entry IDs and stores the internal IDs. If `catalogEntryID` does not contain `|` and does not match an `idRef` in the same source, Obot treats it as an internal catalog entry ID and leaves it unchanged.
 
 #### Multi-user template with shared configuration
 

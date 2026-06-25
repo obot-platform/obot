@@ -31,7 +31,7 @@ func TestResolveCompositeSourceRefs(t *testing.T) {
 		Runtime:          types.RuntimeComposite,
 		ServerUserType:   types.ServerUserTypeSingleUser,
 		CompositeConfig: &types.CompositeCatalogConfig{ComponentServers: []types.CatalogComponentServer{
-			{CatalogEntryID: "source" + catalogReferenceSeparator + "tool"},
+			{CatalogEntryID: sourceRef("source", "tool")},
 		}},
 	})
 
@@ -89,6 +89,73 @@ compositeConfig:
 		assert.Equal(t, target.Name, component.CatalogEntryID)
 		assert.Equal(t, "Tool", component.Manifest.Name)
 	}
+}
+
+func TestReadMCPCatalogResolvesSameSourceIDRefShorthand(t *testing.T) {
+	dir := t.TempDir()
+	assert.NoError(t, os.WriteFile(filepath.Join(dir, obotCatalogMetadataFilename+".yaml"), []byte("id: source\n"), 0o600))
+	assert.NoError(t, os.WriteFile(filepath.Join(dir, "target.yaml"), []byte(`idRef: tool
+name: Tool
+shortDescription: Tool
+description: Tool
+icon: icon
+runtime: npx
+npxConfig:
+  package: tool
+`), 0o600))
+	assert.NoError(t, os.WriteFile(filepath.Join(dir, "composite.yaml"), []byte(`idRef: composite
+name: Composite
+shortDescription: Composite
+description: Composite
+icon: icon
+runtime: composite
+compositeConfig:
+  componentServers:
+    - catalogEntryID: tool
+`), 0o600))
+
+	h := &Handler{}
+	objs, _, err := h.readMCPCatalog(context.Background(), "default", dir, "")
+	assert.NoError(t, err)
+
+	objs, errsBySourceURL := h.resolveCompositeSourceRefs(context.Background(), objs)
+	assert.Empty(t, errsBySourceURL)
+	assert.Len(t, objs, 2)
+
+	var composite, target *v1.MCPServerCatalogEntry
+	for _, obj := range objs {
+		entry := obj.(*v1.MCPServerCatalogEntry)
+		if entry.Spec.Manifest.Runtime == types.RuntimeComposite {
+			composite = entry
+		} else {
+			target = entry
+		}
+	}
+	if assert.NotNil(t, composite) && assert.NotNil(t, target) {
+		component := composite.Spec.Manifest.CompositeConfig.ComponentServers[0]
+		assert.Equal(t, target.Name, component.CatalogEntryID)
+		assert.Equal(t, "Tool", component.Manifest.Name)
+	}
+}
+
+func TestResolveCompositeSourceRefsLeavesUnknownShorthandAsInternalID(t *testing.T) {
+	composite := testCatalogEntry("composite", "source", "composite", types.MCPServerCatalogEntryManifest{
+		Name:             "Composite",
+		ShortDescription: "Composite",
+		Description:      "Composite",
+		Icon:             "icon",
+		Runtime:          types.RuntimeComposite,
+		ServerUserType:   types.ServerUserTypeSingleUser,
+		CompositeConfig: &types.CompositeCatalogConfig{ComponentServers: []types.CatalogComponentServer{
+			{CatalogEntryID: "internal-id"},
+		}},
+	})
+
+	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(context.Background(), []client.Object{composite})
+
+	assert.Empty(t, errsBySourceURL)
+	assert.Len(t, result, 1)
+	assert.Equal(t, "internal-id", composite.Spec.Manifest.CompositeConfig.ComponentServers[0].CatalogEntryID)
 }
 
 func TestReadMCPCatalogResolvesCompositeSourceRefsAcrossSources(t *testing.T) {
@@ -161,7 +228,7 @@ func TestResolveCompositeSourceRefsSkipsUnresolvedComposite(t *testing.T) {
 		Runtime:          types.RuntimeComposite,
 		ServerUserType:   types.ServerUserTypeSingleUser,
 		CompositeConfig: &types.CompositeCatalogConfig{ComponentServers: []types.CatalogComponentServer{
-			{CatalogEntryID: "source" + catalogReferenceSeparator + "missing"},
+			{CatalogEntryID: sourceRef("source", "missing")},
 		}},
 	})
 
