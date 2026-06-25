@@ -290,7 +290,7 @@
 								<span
 									use:tooltip={{
 										classes: ['border-primary', 'bg-primary/10', 'dark:bg-primary/50'],
-										text: 'An update requires your attention'
+										text: 'Configuration requires your attention'
 									}}
 								>
 									<CircleFadingArrowUp class="text-primary size-4" />
@@ -409,7 +409,7 @@
 							<span
 								use:tooltip={{
 									classes: ['border-primary', 'bg-primary/10', 'dark:bg-primary/50'],
-									text: 'An update requires your attention'
+									text: 'Configuration requires your attention'
 								}}
 							>
 								<CircleFadingArrowUp class="text-primary size-4" />
