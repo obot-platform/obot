@@ -82,7 +82,7 @@ description: |
   Supports multi-line markdown formatting.
 ```
 
-The optional `entryKey` field defines a stable key for this catalog entry. It must be unique within its source and cannot contain `::`. This is mainly used when [composite MCP servers](#composite-mcp-servers) need to reference entries without knowing Obot's generated internal catalog entry ID.
+The optional `entryKey` field defines a stable key for this catalog entry. It must be unique within its source, DNS-friendly, and cannot contain `::`. This is used when [composite MCP servers](#composite-mcp-servers) need to reference entries without knowing Obot's generated internal catalog entry ID.
 
 ### Tool Previews
 
