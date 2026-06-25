@@ -925,7 +925,9 @@ func (h *Handler) SyncOAuthMetadata(req router.Request, _ router.Response) error
 		return setOAuthMetadata(req, server, new(v1.OAuthMetadata), nil)
 	}
 
-	if err := mcp.ValidateRemoteMCPURL(req.Ctx, server.Spec.Manifest.RemoteConfig.URL, h.mcpSessionManager.RemoteMCPURLValidationConfig()); err != nil {
+	blockingConfig := h.mcpSessionManager.RemoteMCPURLValidationConfig()
+
+	if err := mcp.ValidateRemoteMCPURL(req.Ctx, server.Spec.Manifest.RemoteConfig.URL, blockingConfig); err != nil {
 		// If the URL doesn't pass validation, then don't do anything so that we sync as soon as the configuration is updated.
 		log.Infof("Remote MCP URL validation failed, not checking OAuth metadata: server=%s error=%v", server.Name, err)
 		return nil
@@ -955,10 +957,12 @@ func (h *Handler) SyncOAuthMetadata(req router.Request, _ router.Response) error
 		return nil
 	}
 
-	metadata, err := nmcp.GetOAuthMetadata(req.Ctx, nmcp.Server{
+	metadata, err := nmcp.GetOAuthMetadataWithBlockingConfig(req.Ctx, nmcp.Server{
 		BaseURL: serverConfig.URL,
 		Headers: serverConfigHeaders(serverConfig),
-	}, "Obot Test MCP OAuth Client", system.MCPOAuthCallbackURL(h.baseURL))
+	}, "Obot Test MCP OAuth Client", system.MCPOAuthCallbackURL(h.baseURL),
+		!blockingConfig.AllowLocalhostMCP, !blockingConfig.AllowPrivateIPMCP, !blockingConfig.AllowLinkLocalMCP,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to get OAuth metadata: %w", err)
 	}

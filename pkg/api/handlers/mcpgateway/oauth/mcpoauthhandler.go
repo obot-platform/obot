@@ -105,12 +105,17 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 
 	go func() {
 		defer close(errChan)
+
+		blockingConfig := f.mcpSessionManager.RemoteMCPURLValidationConfig()
 		httpClientOptions := nmcp.HTTPClientOptions{
 			OAuthRedirectURL: system.MCPOAuthCallbackURL(f.baseURL),
 			OAuthClientName:  "Obot MCP Gateway",
 			CallbackHandler:  oauthHandler,
 			ClientCredLookup: oauthHandler,
 			TokenStorage:     f.tokenStore.ForUserAndMCP(oauthHandler.userID, oauthHandler.mcpID),
+			BlockLoopback:    !blockingConfig.AllowLocalhostMCP,
+			BlockPrivateIP:   !blockingConfig.AllowPrivateIPMCP,
+			BlockLinkLocal:   !blockingConfig.AllowLinkLocalMCP,
 		}
 		if strings.HasPrefix(f.baseURL, "https://") {
 			httpClientOptions.OAuthClientIDMetadataDocument = system.OAuthClientIDMetadataURL(f.baseURL)

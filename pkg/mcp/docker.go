@@ -1026,6 +1026,9 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 					"NANOBOT_RUN_AUDIT_LOG_BATCH_SIZE=" + strconv.Itoa(d.auditLogsBatchSize),
 					"NANOBOT_RUN_AUDIT_LOG_FLUSH_INTERVAL_SECONDS=" + strconv.Itoa(d.auditLogsFlushIntervalSeconds),
 					"NANOBOT_RUN_AUDIT_LOG_METADATA=" + server.AuditLogMetadata,
+					"NANOBOT_RUN_BLOCK_LINK_LOCAL=true",
+					"NANOBOT_RUN_BLOCK_LOOPBACK=true",
+					// Explicitly not blocking private IP because the shim will communicate with the MCP server via the MCP server's private IP.
 				}...)
 
 				for key, value := range nanobotOTELEnv("nanobot-shim", d.transformCollectorEndpoint) {
