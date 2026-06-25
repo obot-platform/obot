@@ -76,8 +76,8 @@ type MCPServerCatalogEntrySpec struct {
 	SourceURL        string                              `json:"sourceURL,omitempty"`
 	// SourceID contains the catalog source URL without the https:// prefix.
 	SourceID string `json:"sourceID,omitempty"`
-	// SourceEntryFileRef contains the source-local file path for single-entry catalog files, if any.
-	SourceEntryFileRef string `json:"sourceEntryFileRef,omitempty"`
+	// SourceEntryIDRef contains the source-local stable entry reference declared by the catalog entry, if any.
+	SourceEntryIDRef string `json:"sourceEntryIDRef,omitempty"`
 	// PowerUserWorkspaceID contains the name of the PowerUserWorkspace that owns this catalog entry, if there is one.
 	PowerUserWorkspaceID string `json:"powerUserWorkspaceID,omitempty"`
 }

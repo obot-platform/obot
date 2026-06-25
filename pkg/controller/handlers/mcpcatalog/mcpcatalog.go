@@ -55,7 +55,7 @@ func sanitizeName(n string) string {
 const CatalogCredentialToolName = "catalog-source-tokens"
 
 const (
-	catalogReferenceSeparator = "::"
+	catalogReferenceSeparator = "|"
 
 	// These are used to force catalog sync on startup, used for times when changes are made to
 	// catalogs, and they must be synced on the next start.
@@ -219,8 +219,8 @@ func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, objs []client.
 			continue
 		}
 		entriesByName[entry.Name] = entry
-		if entry.Spec.SourceID != "" && entry.Spec.SourceEntryFileRef != "" {
-			refs[sourceRef(entry.Spec.SourceID, entry.Spec.SourceEntryFileRef)] = entry
+		if entry.Spec.SourceID != "" && entry.Spec.SourceEntryIDRef != "" {
+			refs[sourceRef(entry.Spec.SourceID, entry.Spec.SourceEntryIDRef)] = entry
 		}
 	}
 
@@ -289,23 +289,23 @@ func resolveComponentSourceRef(refs map[string]*v1.MCPServerCatalogEntry, source
 		return nil, nil
 	}
 
-	refSourceID, entryRef, ok := strings.Cut(catalogEntryID, catalogReferenceSeparator)
+	refSourceID, idRef, ok := strings.Cut(catalogEntryID, catalogReferenceSeparator)
 	if !ok {
 		return refs[sourceRef(sourceID, catalogEntryID)], nil
 	}
-	if refSourceID == "" || entryRef == "" {
+	if refSourceID == "" || idRef == "" {
 		return nil, fmt.Errorf("invalid catalogEntryID source ref %q", catalogEntryID)
 	}
 
-	target := refs[sourceRef(refSourceID, entryRef)]
+	target := refs[sourceRef(refSourceID, idRef)]
 	if target == nil {
 		return nil, fmt.Errorf("unresolved catalogEntryID source ref %q", catalogEntryID)
 	}
 	return target, nil
 }
 
-func sourceRef(sourceID, entryRef string) string {
-	return fmt.Sprintf("%s%s%s", sourceID, catalogReferenceSeparator, entryRef)
+func sourceRef(sourceID, idRef string) string {
+	return fmt.Sprintf("%s%s%s", sourceID, catalogReferenceSeparator, idRef)
 }
 
 func sourceIDForURL(sourceURL string) string {
@@ -476,14 +476,14 @@ func systemCatalogEntryManifestToMCP(manifest types.SystemMCPServerCatalogEntryM
 
 func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, token string) ([]client.Object, string, error) {
 	var (
-		entries  []catalogFileEntry[types.MCPServerCatalogEntryManifest]
+		entries  []types.MCPServerCatalogEntryManifest
 		sourceID = sourceIDForURL(sourceURL)
 	)
 
 	if strings.HasPrefix(sourceURL, "http://") || strings.HasPrefix(sourceURL, "https://") {
 		if isGitRepoURL(sourceURL) {
 			var err error
-			entries, err = readGitCatalogFileEntries[types.MCPServerCatalogEntryManifest](ctx, sourceURL, token)
+			entries, err = readGitCatalogEntries[types.MCPServerCatalogEntryManifest](ctx, sourceURL, token)
 			if err != nil {
 				return nil, "", fmt.Errorf("failed to read git catalog %s: %w", sourceURL, err)
 			}
@@ -511,11 +511,9 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 				return nil, "", fmt.Errorf("unexpected status when reading catalog %s: %s", sourceURL, string(contents))
 			}
 
-			var manifests []types.MCPServerCatalogEntryManifest
-			if err = yaml.Unmarshal(contents, &manifests); err != nil {
+			if err = yaml.Unmarshal(contents, &entries); err != nil {
 				return nil, "", fmt.Errorf("failed to decode catalog %s: %w", sourceURL, err)
 			}
-			entries = catalogFileEntries(manifests)
 		}
 	} else {
 		fileInfo, err := os.Stat(sourceURL)
@@ -524,7 +522,7 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 		}
 
 		if fileInfo.IsDir() {
-			entries, err = readCatalogDirectoryEntries[types.MCPServerCatalogEntryManifest](sourceURL)
+			entries, err = readCatalogDirectory[types.MCPServerCatalogEntryManifest](sourceURL)
 			if err != nil {
 				return nil, "", fmt.Errorf("failed to read catalog %s: %w", sourceURL, err)
 			}
@@ -534,18 +532,16 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 				return nil, "", fmt.Errorf("failed to read catalog %s: %w", sourceURL, err)
 			}
 
-			var manifests []types.MCPServerCatalogEntryManifest
-			if err = yaml.Unmarshal(contents, &manifests); err != nil {
+			if err = yaml.Unmarshal(contents, &entries); err != nil {
 				return nil, "", fmt.Errorf("failed to decode catalog %s: %w", sourceURL, err)
 			}
-			entries = catalogFileEntries(manifests)
 		}
 	}
 
 	objs := make([]client.Object, 0, len(entries))
 	var errs []error
-	for _, sourceEntry := range entries {
-		entry := sourceEntry.Entry
+	uniqueIDRefs := make(map[string]struct{})
+	for _, entry := range entries {
 		if entry.Metadata["categories"] == "Official" {
 			delete(entry.Metadata, "categories") // This shouldn't happen, but do this just in case.
 			// We don't want to mark random MCP servers from the catalog as official.
@@ -559,17 +555,29 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 		}
 		catalogEntryName := name.SafeHashConcatName(catalogName, cleanName)
 
+		if entry.IDRef != "" {
+			if strings.Contains(entry.IDRef, catalogReferenceSeparator) {
+				errs = append(errs, fmt.Errorf("source entry ref %q cannot contain %s; skipping catalog entry %q", entry.IDRef, catalogReferenceSeparator, catalogEntryName))
+				continue
+			}
+			if _, ok := uniqueIDRefs[entry.IDRef]; ok {
+				errs = append(errs, fmt.Errorf("duplicate source entry ref %q also used by catalog entry %q", entry.IDRef, catalogEntryName))
+				continue
+			}
+			uniqueIDRefs[entry.IDRef] = struct{}{}
+		}
+
 		catalogEntry := v1.MCPServerCatalogEntry{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      catalogEntryName,
 				Namespace: system.DefaultNamespace,
 			},
 			Spec: v1.MCPServerCatalogEntrySpec{
-				MCPCatalogName:     catalogName,
-				SourceURL:          sourceURL,
-				SourceID:           sourceID,
-				SourceEntryFileRef: sourceEntry.SourceEntryFileRef,
-				Editable:           false, // entries from source URLs are not editable
+				MCPCatalogName:   catalogName,
+				SourceURL:        sourceURL,
+				SourceID:         sourceID,
+				SourceEntryIDRef: entry.IDRef,
+				Editable:         false, // entries from source URLs are not editable
 			},
 		}
 
@@ -663,19 +671,6 @@ func readCatalogManifests[T any](ctx context.Context, sourceURL, token string) (
 	return entries, nil
 }
 
-type catalogFileEntry[T any] struct {
-	Entry              T
-	SourceEntryFileRef string
-}
-
-func catalogFileEntries[T any](entries []T) []catalogFileEntry[T] {
-	result := make([]catalogFileEntry[T], 0, len(entries))
-	for _, entry := range entries {
-		result = append(result, catalogFileEntry[T]{Entry: entry})
-	}
-	return result
-}
-
 func sanitizeCatalogEntryManifest(entry *types.MCPServerCatalogEntryManifest) {
 	for i, env := range entry.Env {
 		if env.Key == "" {
@@ -705,19 +700,6 @@ func sanitizeCatalogEntryManifest(entry *types.MCPServerCatalogEntryManifest) {
 }
 
 func readCatalogDirectory[T any](catalog string) ([]T, error) {
-	fileEntries, err := readCatalogDirectoryEntries[T](catalog)
-	if err != nil {
-		return nil, err
-	}
-
-	entries := make([]T, 0, len(fileEntries))
-	for _, entry := range fileEntries {
-		entries = append(entries, entry.Entry)
-	}
-	return entries, nil
-}
-
-func readCatalogDirectoryEntries[T any](catalog string) ([]catalogFileEntry[T], error) {
 	var (
 		catalogPatterns       = []string{"*.json", "*.yaml", "*.yml"} // Default to all JSON and YAML files
 		ignorePatterns        []string
@@ -764,7 +746,7 @@ func readCatalogDirectoryEntries[T any](catalog string) ([]catalogFileEntry[T], 
 
 	// Walk through the cloned repository to find matching files
 	var (
-		entries   []catalogFileEntry[T]
+		entries   []T
 		fileCount int
 	)
 	const maxFiles = 1000 // Limit the number of files processed to prevent resource exhaustion
@@ -849,16 +831,7 @@ func readCatalogDirectoryEntries[T any](catalog string) ([]catalogFileEntry[T], 
 			fileEntries = []T{entry}
 		}
 
-		sourceEntryFileRef := filepath.ToSlash(relPath)
-		if len(fileEntries) != 1 {
-			sourceEntryFileRef = ""
-		}
-		for _, entry := range fileEntries {
-			entries = append(entries, catalogFileEntry[T]{
-				Entry:              entry,
-				SourceEntryFileRef: sourceEntryFileRef,
-			})
-		}
+		entries = append(entries, fileEntries...)
 		return nil
 	})
 
