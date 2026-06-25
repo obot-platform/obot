@@ -100,10 +100,15 @@
 		).filter((h) => hasSecretBinding(h))
 	);
 	const secretBindingsSupported = $derived(isKubernetesRuntimeBackend(version.current.engine));
+	const canEditSecretBindings = $derived(
+		secretBindingsSupported &&
+			entity === 'catalog' &&
+			profile.current.isAdmin?.() &&
+			!readonly &&
+			(type === 'multi' || (type === 'hosted' && formData.serverUserType === 'multiUser'))
+	);
 	const editableSecretBindingTargets = $derived(
-		secretBindingsSupported && entity === 'catalog' && type === 'multi' && !readonly
-			? secretBindingTargets
-			: undefined
+		canEditSecretBindings ? secretBindingTargets : undefined
 	);
 	const defaultDenyAllEgress = $derived(!!version.current.mcpDefaultDenyAllEgress);
 
@@ -365,6 +370,25 @@
 		}
 	}
 
+	function loadSecretBindingTargets() {
+		AdminService.listMCPSecretBindingTargets({ dontLogErrors: true })
+			.then((targets) => {
+				secretBindingTargets = targets;
+			})
+			.catch((err) => {
+				secretBindingTargets = [];
+				errors.append(`Failed to load Kubernetes Secrets for binding: ${err}`);
+			});
+	}
+
+	function stripSecretBindingSource<T extends object>(field: T) {
+		const rest = { ...field } as T & {
+			secretBindingSource?: string;
+		};
+		delete rest.secretBindingSource;
+		return rest;
+	}
+
 	onMount(() => {
 		if ((type === 'multi' || type === 'remote') && entry && id) {
 			revealCatalogServer(id, entry.id, entity);
@@ -378,15 +402,8 @@
 					console.error('Failed to load Kubernetes resource defaults:', err);
 				});
 		}
-		if (secretBindingsSupported && entity === 'catalog' && type === 'multi' && !readonly) {
-			AdminService.listMCPSecretBindingTargets({ dontLogErrors: true })
-				.then((targets) => {
-					secretBindingTargets = targets;
-				})
-				.catch((err) => {
-					secretBindingTargets = [];
-					errors.append(`Failed to load Kubernetes Secrets for binding: ${err}`);
-				});
+		if (canEditSecretBindings) {
+			loadSecretBindingTargets();
 		}
 	});
 
@@ -410,7 +427,7 @@
 			name: baseData.name,
 			description: baseData.description,
 			icon: baseData.icon,
-			env: baseData.env,
+			env: baseData.env?.map(stripSecretBindingSource),
 			runtime: baseData.runtime,
 			serverUserType: baseData.serverUserType,
 			multiUserConfig:
@@ -465,7 +482,7 @@
 						fixedURL: baseData.remoteConfig.fixedURL?.trim() || undefined,
 						hostname: baseData.remoteConfig.hostname?.trim() || undefined,
 						urlTemplate: baseData.remoteConfig.urlTemplate?.trim() || undefined,
-						headers: baseData.remoteConfig.headers || [],
+						headers: baseData.remoteConfig.headers?.map(stripSecretBindingSource) || [],
 						staticOAuthRequired: baseData.remoteConfig.staticOAuthRequired
 					};
 				}
@@ -727,6 +744,15 @@
 						formData.serverUserType = option.id as 'singleUser' | 'multiUser';
 						formData.multiUserConfig =
 							option.id === 'multiUser' ? { userDefinedHeaders: [] } : undefined;
+						if (
+							secretBindingsSupported &&
+							entity === 'catalog' &&
+							profile.current.isAdmin?.() &&
+							option.id === 'multiUser' &&
+							secretBindingTargets === undefined
+						) {
+							loadSecretBindingTargets();
+						}
 					}}
 					disabled={readonly || !!entry?.id}
 				/>

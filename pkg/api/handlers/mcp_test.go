@@ -968,7 +968,7 @@ func TestCreateServerWorkspaceSecretBindingRejected(t *testing.T) {
 	}))
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), `validation failed: env "API_TOKEN": secretBinding is only allowed on git-synced catalog entries or admin-managed multi-user servers`)
+	assert.Contains(t, err.Error(), `validation failed: env "API_TOKEN": secretBinding is only allowed on git-synced catalog entries, multi-user catalog entries, or admin-managed multi-user servers`)
 }
 
 func TestCreateServerRejectsMultiUserHeaderSecretBinding(t *testing.T) {

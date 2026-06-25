@@ -1262,12 +1262,12 @@ func validateStartupTimeout(runtime types.Runtime, field string, startupTimeoutS
 }
 
 // ValidateSecretBindings enforces the rules for secretBinding references on
-// env vars and headers. Bindings may appear on git-managed catalog entries or
-// admin-managed multi-user servers. They require the kubernetes MCP runtime
+// env vars and headers. Bindings may appear on git-managed catalog entries,
+// multi-user catalog entries, or admin-managed multi-user servers. They require the kubernetes MCP runtime
 // backend, are mutually exclusive with a static value, require non-empty
 // name/key, and are rejected in unsupported combinations (env bindings under
 // remote runtime).
-func ValidateSecretBindings(manifest types.MCPServerManifest, gitManaged bool, adminManaged bool, mcpBackend string) error {
+func ValidateSecretBindings(manifest types.MCPServerManifest, gitManaged, adminManaged bool, mcpBackend string) error {
 	check := func(kind, key string, h types.MCPHeader) error {
 		if h.SecretBinding == nil {
 			return nil
@@ -1276,7 +1276,7 @@ func ValidateSecretBindings(manifest types.MCPServerManifest, gitManaged bool, a
 			return fmt.Errorf("%s %q: secretBinding requires the kubernetes MCP runtime backend", kind, key)
 		}
 		if !gitManaged && !adminManaged {
-			return fmt.Errorf("%s %q: secretBinding is only allowed on git-synced catalog entries or admin-managed multi-user servers", kind, key)
+			return fmt.Errorf("%s %q: secretBinding is only allowed on git-synced catalog entries, multi-user catalog entries, or admin-managed multi-user servers", kind, key)
 		}
 		if h.Value != "" {
 			return fmt.Errorf("%s %q: secretBinding and value are mutually exclusive", kind, key)
@@ -1319,7 +1319,7 @@ func ValidateSecretBindings(manifest types.MCPServerManifest, gitManaged bool, a
 // carry the runtime/env shape of MCPServerManifest directly) by extracting
 // the fields that matter for binding validation. The catalog-entry manifest
 // uses the same MCPEnv/MCPHeader types, so we reuse the core logic.
-func ValidateSecretBindingsCatalogEntry(manifest types.MCPServerCatalogEntryManifest, gitManaged bool, mcpBackend string) error {
+func ValidateSecretBindingsCatalogEntry(manifest types.MCPServerCatalogEntryManifest, gitManaged, userIsAdmin bool, mcpBackend string) error {
 	if err := validateNoAdminAddedCatalogBindings(manifest); err != nil {
 		return err
 	}
@@ -1348,7 +1348,7 @@ func ValidateSecretBindingsCatalogEntry(manifest types.MCPServerCatalogEntryMani
 		RemoteConfig:    remoteCatalogToRuntime(manifest.RemoteConfig),
 		MultiUserConfig: manifest.MultiUserConfig,
 	}
-	return ValidateSecretBindings(synthetic, gitManaged, false, mcpBackend)
+	return ValidateSecretBindings(synthetic, gitManaged, userIsAdmin && manifest.ServerUserType == types.ServerUserTypeMultiUser, mcpBackend)
 }
 
 func validateNoAdminAddedCatalogBindings(manifest types.MCPServerCatalogEntryManifest) error {
