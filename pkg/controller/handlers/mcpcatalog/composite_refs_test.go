@@ -154,6 +154,37 @@ func TestResolveCompositeSourceRefsLeavesUnknownShorthandAsInternalID(t *testing
 	assert.Equal(t, "internal-id", composite.Spec.Manifest.CompositeConfig.ComponentServers[0].CatalogEntryID)
 }
 
+func TestResolveCompositeSourceRefsHydratesInternalIDComponents(t *testing.T) {
+	target := testCatalogEntry("default-gmail-8a99d8be", "source", "gmail.yaml", types.MCPServerCatalogEntryManifest{
+		Name:             "Gmail",
+		ShortDescription: "Gmail",
+		Description:      "Gmail",
+		Icon:             "icon",
+		Runtime:          types.RuntimeNPX,
+		NPXConfig:        &types.NPXRuntimeConfig{Package: "gmail"},
+		ServerUserType:   types.ServerUserTypeSingleUser,
+	})
+	composite := testCatalogEntry("composite", "source", "composite.yaml", types.MCPServerCatalogEntryManifest{
+		Name:             "Composite",
+		ShortDescription: "Composite",
+		Description:      "Composite",
+		Icon:             "icon",
+		Runtime:          types.RuntimeComposite,
+		ServerUserType:   types.ServerUserTypeSingleUser,
+		CompositeConfig: &types.CompositeCatalogConfig{ComponentServers: []types.CatalogComponentServer{
+			{CatalogEntryID: "default-gmail-8a99d8be"},
+		}},
+	})
+
+	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(context.Background(), []client.Object{target, composite})
+
+	assert.Empty(t, errsBySourceURL)
+	assert.Len(t, result, 2)
+	component := composite.Spec.Manifest.CompositeConfig.ComponentServers[0]
+	assert.Equal(t, "default-gmail-8a99d8be", component.CatalogEntryID)
+	assert.Equal(t, "Gmail", component.Manifest.Name)
+}
+
 func TestReadMCPCatalogResolvesCompositeSourceRefsAcrossSources(t *testing.T) {
 	first := t.TempDir()
 	assert.NoError(t, os.WriteFile(filepath.Join(first, "target.yaml"), []byte(`name: Tool
