@@ -394,13 +394,8 @@ func TestK8sObjects_NanobotShimUsesFixedResourceRequests(t *testing.T) {
 	if memoryRequest.String() != "64Mi" {
 		t.Fatalf("shim memory request = %q, want %q", memoryRequest.String(), "64Mi")
 	}
-	cpuLimit := shimContainer.Resources.Limits[corev1.ResourceCPU]
-	if cpuLimit.String() != "200m" {
-		t.Fatalf("shim CPU limit = %q, want %q", cpuLimit.String(), "200m")
-	}
-	memoryLimit := shimContainer.Resources.Limits[corev1.ResourceMemory]
-	if memoryLimit.String() != "100Mi" {
-		t.Fatalf("shim memory limit = %q, want %q", memoryLimit.String(), "100Mi")
+	if len(shimContainer.Resources.Limits) > 0 {
+		t.Fatalf("shim resource limits = %v, want none", shimContainer.Resources.Limits)
 	}
 }
 
