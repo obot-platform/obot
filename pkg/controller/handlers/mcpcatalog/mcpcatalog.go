@@ -56,7 +56,7 @@ func sanitizeName(n string) string {
 const CatalogCredentialToolName = "catalog-source-tokens"
 
 const (
-	catalogReferenceSeparator = "|"
+	catalogReferenceSeparator = "::"
 
 	// These are used to force catalog sync on startup, used for times when changes are made to
 	// catalogs, and they must be synced on the next start.
@@ -223,8 +223,8 @@ func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, objs []client.
 			continue
 		}
 		entriesByName[entry.Name] = entry
-		if entry.Spec.SourceID != "" && entry.Spec.SourceEntryIDRef != "" {
-			refs[sourceRef(entry.Spec.SourceID, entry.Spec.SourceEntryIDRef)] = entry
+		if entry.Spec.SourceID != "" && entry.Spec.SourceEntryKey != "" {
+			refs[sourceRef(entry.Spec.SourceID, entry.Spec.SourceEntryKey)] = entry
 		}
 	}
 
@@ -293,23 +293,23 @@ func resolveComponentSourceRef(refs map[string]*v1.MCPServerCatalogEntry, source
 		return nil, nil
 	}
 
-	refSourceID, idRef, ok := strings.Cut(catalogEntryID, catalogReferenceSeparator)
+	refSourceID, entryKey, ok := strings.Cut(catalogEntryID, catalogReferenceSeparator)
 	if !ok {
 		return refs[sourceRef(sourceID, catalogEntryID)], nil
 	}
-	if refSourceID == "" || idRef == "" {
+	if refSourceID == "" || entryKey == "" {
 		return nil, fmt.Errorf("invalid catalogEntryID source ref %q", catalogEntryID)
 	}
 
-	target := refs[sourceRef(refSourceID, idRef)]
+	target := refs[sourceRef(refSourceID, entryKey)]
 	if target == nil {
 		return nil, fmt.Errorf("unresolved catalogEntryID source ref %q", catalogEntryID)
 	}
 	return target, nil
 }
 
-func sourceRef(sourceID, idRef string) string {
-	return fmt.Sprintf("%s%s%s", sourceID, catalogReferenceSeparator, idRef)
+func sourceRef(sourceID, entryKey string) string {
+	return fmt.Sprintf("%s%s%s", sourceID, catalogReferenceSeparator, entryKey)
 }
 
 func sourceIDForURL(sourceURL string) string {
@@ -544,7 +544,7 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 
 	objs := make([]client.Object, 0, len(entries))
 	var errs []error
-	uniqueIDRefs := make(map[string]struct{})
+	uniqueEntryKeys := make(map[string]struct{})
 	for _, entry := range entries {
 		if entry.Metadata["categories"] == "Official" {
 			delete(entry.Metadata, "categories") // This shouldn't happen, but do this just in case.
@@ -559,16 +559,16 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 		}
 		catalogEntryName := name.SafeHashConcatName(catalogName, cleanName)
 
-		if entry.IDRef != "" {
-			if strings.Contains(entry.IDRef, catalogReferenceSeparator) {
-				errs = append(errs, fmt.Errorf("source entry ref %q cannot contain %s; skipping catalog entry %q", entry.IDRef, catalogReferenceSeparator, catalogEntryName))
+		if entry.EntryKey != "" {
+			if strings.Contains(entry.EntryKey, catalogReferenceSeparator) {
+				errs = append(errs, fmt.Errorf("source entry key %q cannot contain %s; skipping catalog entry %q", entry.EntryKey, catalogReferenceSeparator, catalogEntryName))
 				continue
 			}
-			if _, ok := uniqueIDRefs[entry.IDRef]; ok {
-				errs = append(errs, fmt.Errorf("duplicate source entry ref %q also used by catalog entry %q", entry.IDRef, catalogEntryName))
+			if _, ok := uniqueEntryKeys[entry.EntryKey]; ok {
+				errs = append(errs, fmt.Errorf("duplicate source entry key %q also used by catalog entry %q", entry.EntryKey, catalogEntryName))
 				continue
 			}
-			uniqueIDRefs[entry.IDRef] = struct{}{}
+			uniqueEntryKeys[entry.EntryKey] = struct{}{}
 		}
 
 		catalogEntry := v1.MCPServerCatalogEntry{
@@ -577,11 +577,11 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 				Namespace: system.DefaultNamespace,
 			},
 			Spec: v1.MCPServerCatalogEntrySpec{
-				MCPCatalogName:   catalogName,
-				SourceURL:        sourceURL,
-				SourceID:         sourceID,
-				SourceEntryIDRef: entry.IDRef,
-				Editable:         false, // entries from source URLs are not editable
+				MCPCatalogName: catalogName,
+				SourceURL:      sourceURL,
+				SourceID:       sourceID,
+				SourceEntryKey: entry.EntryKey,
+				Editable:       false, // entries from source URLs are not editable
 			},
 		}
 

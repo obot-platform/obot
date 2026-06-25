@@ -5784,7 +5784,7 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryManifest(ref
 							},
 						},
 					},
-					"idRef": {
+					"entryKey": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -14795,9 +14795,9 @@ func schema_storage_apis_obotobotai_v1_MCPServerCatalogEntrySpec(ref common.Refe
 							Format:      "",
 						},
 					},
-					"sourceEntryIDRef": {
+					"sourceEntryKey": {
 						SchemaProps: spec.SchemaProps{
-							Description: "SourceEntryIDRef contains the source-local stable entry reference declared by the catalog entry, if any.",
+							Description: "SourceEntryKey contains the source-local stable entry key declared by the catalog entry, if any.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

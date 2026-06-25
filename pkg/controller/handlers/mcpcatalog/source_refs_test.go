@@ -9,9 +9,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestReadMCPCatalogReturnsDuplicateIDRefErrors(t *testing.T) {
+func TestReadMCPCatalogReturnsDuplicateEntryKeyErrors(t *testing.T) {
 	dir := t.TempDir()
-	assert.NoError(t, os.WriteFile(filepath.Join(dir, "first.yaml"), []byte(`idRef: shared
+	assert.NoError(t, os.WriteFile(filepath.Join(dir, "first.yaml"), []byte(`entryKey: shared
 name: First
 shortDescription: First
 description: First
@@ -20,7 +20,7 @@ runtime: npx
 npxConfig:
   package: test
 `), 0o600))
-	assert.NoError(t, os.WriteFile(filepath.Join(dir, "second.yaml"), []byte(`idRef: shared
+	assert.NoError(t, os.WriteFile(filepath.Join(dir, "second.yaml"), []byte(`entryKey: shared
 name: Second
 shortDescription: Second
 description: Second
@@ -34,14 +34,14 @@ npxConfig:
 	objs, sourceID, err := h.readMCPCatalog(context.Background(), "default", dir, "")
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), `duplicate source entry ref "shared"`)
+	assert.Contains(t, err.Error(), `duplicate source entry key "shared"`)
 	assert.Equal(t, dir, sourceID)
 	assert.Len(t, objs, 1)
 }
 
-func TestReadMCPCatalogRejectsSeparatorInIDRef(t *testing.T) {
+func TestReadMCPCatalogRejectsSeparatorInEntryKey(t *testing.T) {
 	dir := t.TempDir()
-	assert.NoError(t, os.WriteFile(filepath.Join(dir, "entry.yaml"), []byte(`idRef: bad|ref
+	assert.NoError(t, os.WriteFile(filepath.Join(dir, "entry.yaml"), []byte(`entryKey: bad::key
 name: Bad
 shortDescription: Bad
 description: Bad
@@ -55,7 +55,7 @@ npxConfig:
 	objs, sourceID, err := h.readMCPCatalog(context.Background(), "default", dir, "")
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), `source entry ref "bad|ref" cannot contain |`)
+	assert.Contains(t, err.Error(), `source entry key "bad::key" cannot contain ::`)
 	assert.Equal(t, dir, sourceID)
 	assert.Empty(t, objs)
 }
