@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/obot-platform/nanobot/pkg/safehttp"
+	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	"github.com/obot-platform/obot/pkg/api/server"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
@@ -18,6 +19,7 @@ type handler struct {
 	tokenService     *persistent.TokenService
 	oauthConfig      handlers.OAuthAuthorizationServerConfig
 	tokenStore       mcp.GlobalTokenStore
+	acrHelper        *accesscontrolrule.Helper
 	baseURL          string
 	clientExpiration time.Duration
 
@@ -26,7 +28,7 @@ type handler struct {
 	clientMetadataCacheLock  sync.Mutex
 }
 
-func SetupHandlers(oauthChecker *MCPOAuthHandlerFactory, tokenStore mcp.GlobalTokenStore, tokenService *persistent.TokenService, oauthConfig handlers.OAuthAuthorizationServerConfig, mcpSessionManager *mcp.SessionManager, baseURL string, clientSecretExpiration time.Duration, mux *server.Server) {
+func SetupHandlers(oauthChecker *MCPOAuthHandlerFactory, tokenStore mcp.GlobalTokenStore, tokenService *persistent.TokenService, oauthConfig handlers.OAuthAuthorizationServerConfig, mcpSessionManager *mcp.SessionManager, acrHelper *accesscontrolrule.Helper, baseURL string, clientSecretExpiration time.Duration, mux *server.Server) {
 	remoteURLValidationConfig := mcpSessionManager.RemoteMCPURLValidationConfig()
 	h := &handler{
 		tokenStore:               tokenStore,
@@ -35,6 +37,7 @@ func SetupHandlers(oauthChecker *MCPOAuthHandlerFactory, tokenStore mcp.GlobalTo
 		clientMetadataHTTPClient: safehttp.NewClientWithTimeout(!remoteURLValidationConfig.AllowLocalhostMCP, !remoteURLValidationConfig.AllowPrivateIPMCP, !remoteURLValidationConfig.AllowLinkLocalMCP, clientMetadataFetchTimeout),
 		baseURL:                  baseURL,
 		oauthChecker:             oauthChecker,
+		acrHelper:                acrHelper,
 		clientExpiration:         clientSecretExpiration,
 		clientMetadataCache:      map[string]clientMetadataCacheEntry{},
 	}
