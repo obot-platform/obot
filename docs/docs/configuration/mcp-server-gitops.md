@@ -68,6 +68,16 @@ MCP server configurations consist of individual YAML files, each defining a sing
 
 For examples and reference implementations, see the official Obot MCP server repository at [github.com/obot-platform/mcp-catalog](https://github.com/obot-platform/mcp-catalog).
 
+### Stable source references
+
+Git catalog repositories can define an optional source ID in `.obotcatalog.yaml` or `.obotcatalog.yml`. The recommended format is the Git repository URL without the `https://` scheme:
+
+```yaml
+id: github.com/company/mcp-catalog
+```
+
+The source ID must be unique across source catalogs and cannot contain `|`. Use the same string everywhere you reference the source; Obot does not normalize source IDs, so `github.com/company/mcp-catalog` and `https://github.com/company/mcp-catalog` are different IDs.
+
 ## YAML Configuration Structure
 
 Each MCP server is defined in its own YAML file with the following structure:
@@ -75,11 +85,14 @@ Each MCP server is defined in its own YAML file with the following structure:
 ### Basic Information
 
 ```yaml
+idRef: server-name # optional identifier for referencing in composite servers
 name: Server Name
 description: |
   Detailed description of the server's capabilities and features.
   Supports multi-line markdown formatting.
 ```
+
+The optional `idRef` field defines a source-local stable reference for this catalog entry. It must be unique within its [stable source](#stable-source-references) and cannot contain `|`. This is mainly used when [composite MCP servers](#composite-mcp-servers) need to reference entries without knowing Obot's generated internal catalog entry ID.
 
 ### Tool Previews
 
@@ -127,6 +140,25 @@ The `serverUserType` field specifies how users interact with the catalog entry:
 Catalog entries should set this field explicitly. For compatibility with existing catalogs, some import paths normalize an omitted value to `singleUser` before validation. Any persisted value other than `singleUser` or `multiUser` is rejected at validation time.
 
 Multi-user catalog templates support the `npx`, `uvx`, `containerized`, and `remote` runtimes. They do not support the `composite` runtime.
+
+### Composite MCP servers
+
+Composite MCP servers combine tools from other catalog entries. In GitOps, composite entries can reference component entries in two ways:
+
+- Use a normal internal `catalogEntryID`, such as `default-gmail-8a99d8be`
+- Use a portable source reference with `{sourceID}|{idRef}`. The target source must define a [stable source ID](#stable-source-references), and the target entry must define `idRef`
+
+Portable references are useful when the target entry is in the same Git catalog sync and does not have an internal generated ID yet, or when you want to use a purely-gitops workflow.
+
+```yaml
+name: Gmail Composite
+runtime: composite
+compositeConfig:
+  componentServers:
+    - catalogEntryID: github.com/company/mcp-catalog|gmail
+```
+
+During sync, Obot resolves this portable reference to the internal generated catalog entry ID and stores the internal ID. If `catalogEntryID` does not contain `|`, Obot treats it as an internal catalog entry ID and leaves it unchanged.
 
 #### Multi-user template with shared configuration
 
@@ -326,6 +358,7 @@ description: |
   ## What you'll need to connect
   **Required:**
   - **Personal Access Token**: GitHub Personal Access Token with appropriate repository permissions
+idRef: github
 
 toolPreview:
   - name: create_issue
