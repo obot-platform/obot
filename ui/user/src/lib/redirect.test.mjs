@@ -34,6 +34,7 @@ test('safeRedirectPath accepts app-relative paths only', async () => {
 	const { safeRedirectPath } = await loadModule();
 
 	assert.equal(safeRedirectPath('/mcp-servers'), '/mcp-servers');
+	assert.equal(safeRedirectPath('/', '/obot'), '/obot/');
 	assert.equal(safeRedirectPath('/obot/mcp-servers'), '/obot/mcp-servers');
 	assert.equal(safeRedirectPath('/mcp-servers', '/obot'), '/obot/mcp-servers');
 	assert.equal(safeRedirectPath('/obot/mcp-servers', '/obot'), '/obot/mcp-servers');

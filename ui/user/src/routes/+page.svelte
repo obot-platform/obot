@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import Logo from '$lib/components/Logo.svelte';
-	import { appPath } from '$lib/url';
+	import { safeRedirectPath } from '$lib/redirect';
+	import { appBasePath, appPath } from '$lib/url';
 	import { type PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -12,14 +13,18 @@
 		if (browser) {
 			const rd = new URL(window.location.href).searchParams.get('rd');
 			if (rd) {
-				return rd;
+				return redirectPath(rd);
 			}
 		}
 		if (overrideRedirect !== null) {
-			return overrideRedirect;
+			return redirectPath(overrideRedirect);
 		}
-		return '/';
+		return appPath('/');
 	});
+
+	function redirectPath(path: string) {
+		return safeRedirectPath(path, appBasePath()) ?? appPath('/');
+	}
 </script>
 
 <svelte:head>
