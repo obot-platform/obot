@@ -1,5 +1,12 @@
 name: Build and Push Docker Image
 
+# PUBLISHING DISABLED. The canonical obot-vibedata image is built and pushed by
+# build-vibedata-image.yml (auto on push to main, multi-arch, signed, version-
+# resolved). This workflow is retained for reference only: it builds the image
+# to validate the Dockerfile but does NOT push, sign, tag, or scan a registry
+# image. A past manual dispatch of this workflow is what left the stale
+# obot-vibedata:main tag in the registry.
+
 permissions:
   id-token: write
   contents: read
@@ -73,7 +80,7 @@ jobs:
         with:
           project: bbqjs4tj1g
           context: .
-          push: true
+          push: false # publishing disabled — see header; canonical build is build-vibedata-image.yml
           pull: true
           platforms: linux/amd64,linux/arm64
           tags: |
@@ -84,14 +91,20 @@ jobs:
             ENCRYPTION_BINS_IMAGE=${{ env.ENCRYPTION_BINS_IMAGE }}:${{ env.PROVIDER_IMAGE_TAG }}
             ENTERPRISE_IMAGE=${{ env.PROVIDERS_IMAGE }}:${{ env.PROVIDER_IMAGE_TAG }}
 
+      # Publishing disabled: nothing is pushed, so the image cannot be signed,
+      # tagged, or scanned from the registry. These steps are kept (guarded off)
+      # to document what the workflow did when it published.
       - name: Install Cosign
+        if: false
         uses: sigstore/cosign-installer@v3.8.1
         with:
           cosign-release: "v2.4.3"
       - name: Check install!
+        if: false
         run: cosign version
 
       - name: Sign Images
+        if: false
         env:
           DIGEST: ${{ steps.build-and-push.outputs.digest }}
           TAGS: ${{ env.OBOT_IMAGE }}:${{ github.ref_name }}
@@ -103,11 +116,13 @@ jobs:
           cosign sign --yes ${images}
 
       - name: Copy OSS image to latest tag
-        if: ${{ github.ref_type == 'tag' && !contains(github.ref_name, '-') }}
+        if: false
         run: |
           crane tag ${{ env.OBOT_IMAGE }}:${{ github.ref_name }} latest
 
   oss-image-scan:
+    # Publishing disabled — no registry image to scan.
+    if: false
     runs-on: depot-ubuntu-22.04
     needs: oss-build
 
