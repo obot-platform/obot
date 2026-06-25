@@ -14360,7 +14360,7 @@ func schema_storage_apis_obotobotai_v1_MCPServerCatalogEntrySpec(ref common.Refe
 					},
 					"sourceID": {
 						SchemaProps: spec.SchemaProps{
-							Description: "SourceID contains the ID declared by the catalog source metadata file, if any.",
+							Description: "SourceID contains the catalog source URL without the https:// prefix.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

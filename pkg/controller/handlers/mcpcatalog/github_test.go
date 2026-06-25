@@ -31,27 +31,8 @@ func TestIsGitRepoURL(t *testing.T) {
 	}
 }
 
-func TestReadCatalogDirectorySkipsMetadataFile(t *testing.T) {
-	dir := t.TempDir()
-	assert.NoError(t, os.WriteFile(filepath.Join(dir, obotCatalogMetadataFilename+".yaml"), []byte("id: acme/catalog\n"), 0o600))
-	assert.NoError(t, os.WriteFile(filepath.Join(dir, "entry.yaml"), []byte(`name: Test
-shortDescription: Test
-description: Test
-icon: icon
-runtime: npx
-npxConfig:
-  package: test
-`), 0o600))
-
-	entries, err := readCatalogDirectory[types.MCPServerCatalogEntryManifest](dir)
-	assert.NoError(t, err)
-	assert.Len(t, entries, 1)
-	assert.Equal(t, "Test", entries[0].Name)
-}
-
 func TestReadMCPCatalogSetsSourceMetadata(t *testing.T) {
 	dir := t.TempDir()
-	assert.NoError(t, os.WriteFile(filepath.Join(dir, obotCatalogMetadataFilename+".yaml"), []byte("id: acme/catalog\n"), 0o600))
 	assert.NoError(t, os.WriteFile(filepath.Join(dir, "entry.yaml"), []byte(`idRef: test-entry
 name: Test
 shortDescription: Test
@@ -65,12 +46,12 @@ npxConfig:
 	h := &Handler{}
 	objs, sourceID, err := h.readMCPCatalog(context.Background(), "default", dir, "")
 	assert.NoError(t, err)
-	assert.Equal(t, "acme/catalog", sourceID)
+	assert.Equal(t, dir, sourceID)
 	assert.Len(t, objs, 1)
 
 	entry, ok := objs[0].(*v1.MCPServerCatalogEntry)
 	assert.True(t, ok)
-	assert.Equal(t, "acme/catalog", entry.Spec.SourceID)
+	assert.Equal(t, dir, entry.Spec.SourceID)
 	assert.Equal(t, "test-entry", entry.Spec.SourceEntryIDRef)
 	assert.Equal(t, "test-entry", entry.Spec.Manifest.IDRef)
 }

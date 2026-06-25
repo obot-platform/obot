@@ -2,6 +2,7 @@ package mcpcatalog
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -46,7 +47,6 @@ func TestResolveCompositeSourceRefs(t *testing.T) {
 
 func TestReadMCPCatalogResolvesCompositeSourceRefs(t *testing.T) {
 	dir := t.TempDir()
-	assert.NoError(t, os.WriteFile(filepath.Join(dir, obotCatalogMetadataFilename+".yaml"), []byte("id: source\n"), 0o600))
 	assert.NoError(t, os.WriteFile(filepath.Join(dir, "target.yaml"), []byte(`idRef: tool
 name: Tool
 shortDescription: Tool
@@ -56,7 +56,7 @@ runtime: npx
 npxConfig:
   package: tool
 `), 0o600))
-	assert.NoError(t, os.WriteFile(filepath.Join(dir, "composite.yaml"), []byte(`idRef: composite
+	assert.NoError(t, os.WriteFile(filepath.Join(dir, "composite.yaml"), fmt.Appendf(nil, `idRef: composite
 name: Composite
 shortDescription: Composite
 description: Composite
@@ -64,8 +64,8 @@ icon: icon
 runtime: composite
 compositeConfig:
   componentServers:
-    - catalogEntryID: source|tool
-`), 0o600))
+    - catalogEntryID: %s
+`, sourceRef(dir, "tool")), 0o600))
 
 	h := &Handler{}
 	objs, _, err := h.readMCPCatalog(context.Background(), "default", dir, "")
@@ -93,7 +93,6 @@ compositeConfig:
 
 func TestReadMCPCatalogResolvesSameSourceIDRefShorthand(t *testing.T) {
 	dir := t.TempDir()
-	assert.NoError(t, os.WriteFile(filepath.Join(dir, obotCatalogMetadataFilename+".yaml"), []byte("id: source\n"), 0o600))
 	assert.NoError(t, os.WriteFile(filepath.Join(dir, "target.yaml"), []byte(`idRef: tool
 name: Tool
 shortDescription: Tool
@@ -160,7 +159,6 @@ func TestResolveCompositeSourceRefsLeavesUnknownShorthandAsInternalID(t *testing
 
 func TestReadMCPCatalogResolvesCompositeSourceRefsAcrossSources(t *testing.T) {
 	first := t.TempDir()
-	assert.NoError(t, os.WriteFile(filepath.Join(first, obotCatalogMetadataFilename+".yaml"), []byte("id: first\n"), 0o600))
 	assert.NoError(t, os.WriteFile(filepath.Join(first, "target.yaml"), []byte(`idRef: tool
 name: Tool
 shortDescription: Tool
@@ -172,8 +170,7 @@ npxConfig:
 `), 0o600))
 
 	second := t.TempDir()
-	assert.NoError(t, os.WriteFile(filepath.Join(second, obotCatalogMetadataFilename+".yaml"), []byte("id: second\n"), 0o600))
-	assert.NoError(t, os.WriteFile(filepath.Join(second, "composite.yaml"), []byte(`idRef: composite
+	assert.NoError(t, os.WriteFile(filepath.Join(second, "composite.yaml"), fmt.Appendf(nil, `idRef: composite
 name: Composite
 shortDescription: Composite
 description: Composite
@@ -181,8 +178,8 @@ icon: icon
 runtime: composite
 compositeConfig:
   componentServers:
-    - catalogEntryID: first|tool
-`), 0o600))
+    - catalogEntryID: %s
+`, sourceRef(first, "tool")), 0o600))
 
 	h := &Handler{}
 	firstObjs, _, err := h.readMCPCatalog(context.Background(), "default", first, "")
