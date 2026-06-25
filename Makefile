@@ -3,7 +3,7 @@
 default: build
 
 # All target
-all: ui-user
+all: ui
 	$(MAKE) build
 
 ui: ui-user ui-user-node
