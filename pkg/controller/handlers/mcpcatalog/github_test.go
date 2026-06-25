@@ -33,8 +33,7 @@ func TestIsGitRepoURL(t *testing.T) {
 
 func TestReadMCPCatalogSetsSourceMetadata(t *testing.T) {
 	dir := t.TempDir()
-	assert.NoError(t, os.WriteFile(filepath.Join(dir, "entry.yaml"), []byte(`idRef: test-entry
-name: Test
+	assert.NoError(t, os.WriteFile(filepath.Join(dir, "entry.yaml"), []byte(`name: Test
 shortDescription: Test
 description: Test
 icon: icon
@@ -52,8 +51,7 @@ npxConfig:
 	entry, ok := objs[0].(*v1.MCPServerCatalogEntry)
 	assert.True(t, ok)
 	assert.Equal(t, dir, entry.Spec.SourceID)
-	assert.Equal(t, "test-entry", entry.Spec.SourceEntryIDRef)
-	assert.Equal(t, "test-entry", entry.Spec.Manifest.IDRef)
+	assert.Equal(t, "entry.yaml", entry.Spec.SourceEntryFileRef)
 }
 
 func TestParseGitURL(t *testing.T) {

@@ -47,8 +47,7 @@ func TestResolveCompositeSourceRefs(t *testing.T) {
 
 func TestReadMCPCatalogResolvesCompositeSourceRefs(t *testing.T) {
 	dir := t.TempDir()
-	assert.NoError(t, os.WriteFile(filepath.Join(dir, "target.yaml"), []byte(`idRef: tool
-name: Tool
+	assert.NoError(t, os.WriteFile(filepath.Join(dir, "target.yaml"), []byte(`name: Tool
 shortDescription: Tool
 description: Tool
 icon: icon
@@ -56,8 +55,7 @@ runtime: npx
 npxConfig:
   package: tool
 `), 0o600))
-	assert.NoError(t, os.WriteFile(filepath.Join(dir, "composite.yaml"), fmt.Appendf(nil, `idRef: composite
-name: Composite
+	assert.NoError(t, os.WriteFile(filepath.Join(dir, "composite.yaml"), fmt.Appendf(nil, `name: Composite
 shortDescription: Composite
 description: Composite
 icon: icon
@@ -65,7 +63,7 @@ runtime: composite
 compositeConfig:
   componentServers:
     - catalogEntryID: %s
-`, sourceRef(dir, "tool")), 0o600))
+`, sourceRef(dir, "target.yaml")), 0o600))
 
 	h := &Handler{}
 	objs, _, err := h.readMCPCatalog(context.Background(), "default", dir, "")
@@ -91,10 +89,10 @@ compositeConfig:
 	}
 }
 
-func TestReadMCPCatalogResolvesSameSourceIDRefShorthand(t *testing.T) {
+func TestReadMCPCatalogResolvesSameSourceFileRefShorthand(t *testing.T) {
 	dir := t.TempDir()
-	assert.NoError(t, os.WriteFile(filepath.Join(dir, "target.yaml"), []byte(`idRef: tool
-name: Tool
+	assert.NoError(t, os.Mkdir(filepath.Join(dir, "google"), 0o700))
+	assert.NoError(t, os.WriteFile(filepath.Join(dir, "google", "gmail.yaml"), []byte(`name: Tool
 shortDescription: Tool
 description: Tool
 icon: icon
@@ -102,15 +100,14 @@ runtime: npx
 npxConfig:
   package: tool
 `), 0o600))
-	assert.NoError(t, os.WriteFile(filepath.Join(dir, "composite.yaml"), []byte(`idRef: composite
-name: Composite
+	assert.NoError(t, os.WriteFile(filepath.Join(dir, "composite.yaml"), []byte(`name: Composite
 shortDescription: Composite
 description: Composite
 icon: icon
 runtime: composite
 compositeConfig:
   componentServers:
-    - catalogEntryID: tool
+    - catalogEntryID: google/gmail.yaml
 `), 0o600))
 
 	h := &Handler{}
@@ -159,8 +156,7 @@ func TestResolveCompositeSourceRefsLeavesUnknownShorthandAsInternalID(t *testing
 
 func TestReadMCPCatalogResolvesCompositeSourceRefsAcrossSources(t *testing.T) {
 	first := t.TempDir()
-	assert.NoError(t, os.WriteFile(filepath.Join(first, "target.yaml"), []byte(`idRef: tool
-name: Tool
+	assert.NoError(t, os.WriteFile(filepath.Join(first, "target.yaml"), []byte(`name: Tool
 shortDescription: Tool
 description: Tool
 icon: icon
@@ -170,8 +166,7 @@ npxConfig:
 `), 0o600))
 
 	second := t.TempDir()
-	assert.NoError(t, os.WriteFile(filepath.Join(second, "composite.yaml"), fmt.Appendf(nil, `idRef: composite
-name: Composite
+	assert.NoError(t, os.WriteFile(filepath.Join(second, "composite.yaml"), fmt.Appendf(nil, `name: Composite
 shortDescription: Composite
 description: Composite
 icon: icon
@@ -179,7 +174,7 @@ runtime: composite
 compositeConfig:
   componentServers:
     - catalogEntryID: %s
-`, sourceRef(first, "tool")), 0o600))
+`, sourceRef(first, "target.yaml")), 0o600))
 
 	h := &Handler{}
 	firstObjs, _, err := h.readMCPCatalog(context.Background(), "default", first, "")
@@ -233,7 +228,7 @@ func TestResolveCompositeSourceRefsSkipsUnresolvedComposite(t *testing.T) {
 
 	assert.Len(t, result, 1)
 	assert.Equal(t, "target", result[0].GetName())
-	assert.Contains(t, errsBySourceURL["source-url"], `unresolved catalogEntryID source ref "source|missing"`)
+	assert.Contains(t, errsBySourceURL["source-url"], `unresolved catalogEntryID source ref "source::missing"`)
 }
 
 func TestResolveCompositeSourceRefsSkipsMalformedRef(t *testing.T) {
@@ -245,25 +240,25 @@ func TestResolveCompositeSourceRefsSkipsMalformedRef(t *testing.T) {
 		Runtime:          types.RuntimeComposite,
 		ServerUserType:   types.ServerUserTypeSingleUser,
 		CompositeConfig: &types.CompositeCatalogConfig{ComponentServers: []types.CatalogComponentServer{
-			{CatalogEntryID: "source|"},
+			{CatalogEntryID: "source::"},
 		}},
 	})
 
 	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(context.Background(), []client.Object{composite})
 
 	assert.Empty(t, result)
-	assert.Contains(t, errsBySourceURL["source-url"], `invalid catalogEntryID source ref "source|"`)
+	assert.Contains(t, errsBySourceURL["source-url"], `invalid catalogEntryID source ref "source::"`)
 }
 
-func testCatalogEntry(name, sourceID, idRef string, manifest types.MCPServerCatalogEntryManifest) *v1.MCPServerCatalogEntry {
+func testCatalogEntry(name, sourceID, entryRef string, manifest types.MCPServerCatalogEntryManifest) *v1.MCPServerCatalogEntry {
 	return &v1.MCPServerCatalogEntry{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
 		Spec: v1.MCPServerCatalogEntrySpec{
-			SourceURL:        "source-url",
-			SourceID:         sourceID,
-			SourceEntryIDRef: idRef,
-			Manifest:         manifest,
-			Editable:         false,
+			SourceURL:          "source-url",
+			SourceID:           sourceID,
+			SourceEntryFileRef: entryRef,
+			Manifest:           manifest,
+			Editable:           false,
 		},
 	}
 }

@@ -176,7 +176,6 @@ type MCPResourceRequirements struct {
 
 type MCPServerCatalogEntryManifest struct {
 	Metadata         map[string]string `json:"metadata,omitempty"`
-	IDRef            string            `json:"idRef,omitempty"`
 	Name             string            `json:"name"`
 	ShortDescription string            `json:"shortDescription"`
 	Description      string            `json:"description"`
