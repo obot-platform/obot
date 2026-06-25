@@ -216,12 +216,16 @@ func addSyncError(syncErrors map[string]string, sourceURL, errMsg string) {
 
 func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, objs []client.Object) ([]client.Object, map[string]string) {
 	refs := make(map[string]*v1.MCPServerCatalogEntry)
+	entriesByName := make(map[string]*v1.MCPServerCatalogEntry)
 	for _, obj := range objs {
 		entry, ok := obj.(*v1.MCPServerCatalogEntry)
-		if !ok || entry.Spec.SourceID == "" || entry.Spec.SourceEntryFileRef == "" {
+		if !ok {
 			continue
 		}
-		refs[sourceRef(entry.Spec.SourceID, entry.Spec.SourceEntryFileRef)] = entry
+		entriesByName[entry.Name] = entry
+		if entry.Spec.SourceID != "" && entry.Spec.SourceEntryFileRef != "" {
+			refs[sourceRef(entry.Spec.SourceID, entry.Spec.SourceEntryFileRef)] = entry
+		}
 	}
 
 	result := make([]client.Object, 0, len(objs))
@@ -245,6 +249,9 @@ func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, objs []client.
 			if err != nil {
 				errs = append(errs, err)
 				continue
+			}
+			if target == nil {
+				target = entriesByName[component.CatalogEntryID]
 			}
 			if target == nil {
 				continue
