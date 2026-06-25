@@ -155,6 +155,128 @@ in addition to the Client ID for this app. When you are done with that, the `Cli
 
 ![Okta API Services App Client Credentials configuration](/img/okta-client-credentials.png)
 
+#### Configuring Okta using terraform
+
+To configure Okta using Terraform, you can use the example code below.
+
+```hcl
+
+terraform {
+  required_version = ">= 1.7.5"
+
+  required_providers {
+    okta = {
+      source = "okta/okta"
+    }
+    tls = {
+      source = "hashicorp/tls"
+    }
+    jwks = {
+      source = "iwarapter/jwks"
+    }
+  }
+}
+
+locals {
+  obot_domain   = "https://obot.example.com/"
+  obot_api_jwks = jsondecode(data.jwks_from_key.obot_api.jwks)
+  okta_domain   = "https://example.okta.com"
+}
+
+resource "okta_app_oauth" "obot" {
+  accessibility_self_service = false
+  app_links_json             = "{\"oidc_client_link\":true}"
+  app_settings_json = jsonencode({
+    app                = {}
+    manualProvisioning = false
+  })
+  auto_key_rotation          = true
+  auto_submit_toolbar        = false
+  grant_types                = ["authorization_code"]
+  hide_ios                   = true
+  hide_web                   = false
+  implicit_assignment        = false
+  issuer_mode                = "DYNAMIC"
+  label                      = "Obot"
+  login_mode                 = "SPEC"
+  login_uri                  = local.obot_domain
+  pkce_required              = false
+  redirect_uris              = [local.obot_domain]
+  response_types             = ["code"]
+  status                     = "ACTIVE"
+  token_endpoint_auth_method = "client_secret_basic"
+  type                       = "web"
+  user_name_template         = "$${source.login}"
+  user_name_template_type    = "BUILT_IN"
+  wildcard_redirect          = "DISABLED"
+}
+
+resource "tls_private_key" "obot_api" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
+}
+
+data "jwks_from_key" "obot_api" {
+  key = tls_private_key.obot_api.private_key_pem
+  kid = "obot-api"
+}
+
+resource "okta_app_oauth" "obot_api" {
+  accessibility_self_service = false
+  app_links_json             = "{\"oidc_client_link\":true}"
+  app_settings_json = jsonencode({
+    app                = {}
+    manualProvisioning = false
+  })
+  auto_key_rotation          = true
+  auto_submit_toolbar        = false
+  grant_types                = ["client_credentials"]
+  hide_ios                   = true
+  hide_web                   = true
+  implicit_assignment        = false
+  issuer_mode                = "DYNAMIC"
+  label                      = "Obot API"
+  login_mode                 = "DISABLED"
+  pkce_required              = false
+  response_types             = ["token"]
+  status                     = "ACTIVE"
+  token_endpoint_auth_method = "private_key_jwt"
+  type                       = "service"
+  user_name_template         = "$${source.login}"
+  user_name_template_type    = "BUILT_IN"
+  wildcard_redirect          = "DISABLED"
+
+  jwks {
+    kty = local.obot_api_jwks.kty
+    kid = local.obot_api_jwks.kid
+    e   = local.obot_api_jwks.e
+    n   = local.obot_api_jwks.n
+  }
+}
+
+resource "okta_app_oauth_api_scope" "obot_api" {
+  app_id = okta_app_oauth.obot_api.id
+  issuer = local.okta_domain
+  scopes = ["okta.users.read", "okta.groups.read"]
+}
+
+resource "okta_app_oauth_role_assignment" "obot_api" {
+  client_id = okta_app_oauth.obot_api.client_id
+  type      = "READ_ONLY_ADMIN"
+}
+
+output "obot" {
+  description = "This variable contains Client IDs and secret for the OAuth applications created in Okta"
+  sensitive = true
+  value = {
+    obot_client_id       = okta_app_oauth.obot.client_id
+    obot_client_secret   = okta_app_oauth.obot.client_secret
+    obot_api_client_id   = okta_app_oauth.obot_api.client_id
+  }
+}
+```
+
+
 #### Restricting Login to Specific Users and Groups (Optional)
 
 You can restrict login access to specific Okta users and groups by taking the following steps:
