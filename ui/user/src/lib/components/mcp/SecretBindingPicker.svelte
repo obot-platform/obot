@@ -10,6 +10,13 @@
 
 	let { field = $bindable(), targets, readonly }: Props = $props();
 	type SecretBindingOption = { id: string; label: string; disabled?: boolean };
+	type ValueSource = 'value' | 'secret';
+	type SecretBindingField = MCPSubField & { secretBindingSource?: ValueSource };
+	let valueSource = $state<ValueSource>(field.secretBinding ? 'secret' : 'value');
+
+	$effect(() => {
+		(field as SecretBindingField).secretBindingSource = valueSource;
+	});
 
 	// Pinned/template-owned bindings (secretBindingReadonly) are owned by the catalog
 	// entry; the backend rejects overrides, so never offer edits for them here.
@@ -19,7 +26,7 @@
 
 	const sourceOptions = $derived([
 		{ id: 'value', label: 'Manual Value' },
-		{ id: 'secret', label: 'Kubernetes Secret', disabled: targets.length === 0 }
+		{ id: 'secret', label: 'Kubernetes Secret' }
 	]);
 	const secretOptions = $derived.by(() => {
 		const options: SecretBindingOption[] = targets.map((target) => ({
@@ -53,19 +60,27 @@
 	const selectClasses =
 		'bg-base-200 dark:bg-base-300 border border-base-300 dark:border-base-400 w-full shadow-inner';
 
+	function setValueSource(source: ValueSource) {
+		valueSource = source;
+		(field as SecretBindingField).secretBindingSource = source;
+	}
+
 	function enableSecretBinding() {
+		setValueSource('secret');
+		field.value = '';
 		const firstTarget = targets[0];
 		const firstKey = firstTarget?.keys[0];
 		if (!firstTarget || !firstKey) return;
-		field.value = '';
 		field.secretBinding = { name: firstTarget.name, key: firstKey };
 	}
 
 	function clearSecretBinding() {
+		setValueSource('value');
 		field.secretBinding = undefined;
 	}
 
 	function selectSecret(name: string | number) {
+		setValueSource('secret');
 		const target = targets.find((candidate) => candidate.name === String(name));
 		const key = target?.keys[0];
 		if (!target || !key) return;
@@ -74,6 +89,7 @@
 	}
 
 	function selectKey(key: string | number) {
+		setValueSource('secret');
 		if (!field.secretBinding) return;
 		field.value = '';
 		field.secretBinding = { ...field.secretBinding, key: String(key) };
@@ -88,7 +104,7 @@
 			id={`secret-binding-source-${field.key}`}
 			class={selectClasses}
 			options={sourceOptions}
-			selected={field.secretBinding ? 'secret' : 'value'}
+			selected={valueSource}
 			disabled={isReadonly}
 			onSelect={(option) => {
 				if (option.id === 'secret') {
@@ -98,14 +114,9 @@
 				}
 			}}
 		/>
-		{#if targets.length === 0}
-			<p class="text-muted-content text-xs font-light">
-				No labeled Kubernetes Secrets are available for binding.
-			</p>
-		{/if}
 	</div>
 
-	{#if field.secretBinding}
+	{#if valueSource === 'secret'}
 		<div class="grid gap-3 md:grid-cols-2">
 			<div class="flex w-full flex-col gap-1">
 				<label for={`secret-binding-secret-${field.key}`} class="text-sm font-light">Secret</label>
@@ -113,8 +124,9 @@
 					id={`secret-binding-secret-${field.key}`}
 					class={selectClasses}
 					options={secretOptions}
-					selected={field.secretBinding.name}
-					disabled={isReadonly}
+					selected={field.secretBinding?.name}
+					disabled={isReadonly || targets.length === 0}
+					placeholder="No secrets found"
 					searchInDropdown
 					onSelect={(option) => selectSecret(option.id)}
 				/>
@@ -125,8 +137,9 @@
 					id={`secret-binding-key-${field.key}`}
 					class={selectClasses}
 					options={keyOptions}
-					selected={field.secretBinding.key}
+					selected={field.secretBinding?.key}
 					disabled={isReadonly || keyOptions.length === 0}
+					placeholder="N/A"
 					searchInDropdown
 					onSelect={(option) => selectKey(option.id)}
 				/>

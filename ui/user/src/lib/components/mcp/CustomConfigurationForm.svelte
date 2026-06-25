@@ -43,6 +43,13 @@
 		...secretBoundEnvs.map(({ item }) => ({ item, source: 'env' as const })),
 		...(secretBoundHeaders ?? []).map((item) => ({ item, source: 'header' as const }))
 	]);
+
+	function usesSecretBindingSource(field: {
+		secretBinding?: unknown;
+		secretBindingSource?: string;
+	}) {
+		return Boolean(field.secretBinding) || field.secretBindingSource === 'secret';
+	}
 </script>
 
 <!-- Environment Variables / Files Section -->
@@ -176,7 +183,7 @@
 									{readonly}
 								/>
 							{/if}
-							{#if !config![i].secretBinding}
+							{#if !usesSecretBindingSource(config![i])}
 								<div class="flex w-full flex-col gap-1">
 									<label for={`env-value-${i}`} class="text-sm font-light">Value</label>
 									{#if config![i].file}

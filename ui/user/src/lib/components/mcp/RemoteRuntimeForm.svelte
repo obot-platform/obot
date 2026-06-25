@@ -64,6 +64,13 @@
 				? 'hostname'
 				: 'fixedURL'
 	);
+
+	function usesSecretBindingSource(field: {
+		secretBinding?: unknown;
+		secretBindingSource?: string;
+	}) {
+		return Boolean(field.secretBinding) || field.secretBindingSource === 'secret';
+	}
 </script>
 
 {#snippet remoteHeaders(showUrlTemplateHelp: boolean)}
@@ -188,7 +195,7 @@
 											{readonly}
 										/>
 									{/if}
-									{#if !config.headers[i].secretBinding}
+									{#if !usesSecretBindingSource(config.headers[i])}
 										<div class="flex flex-col gap-2">
 											{#if variant === 'server'}
 												<label for={`header-description-${i}`} class="text-sm font-light"

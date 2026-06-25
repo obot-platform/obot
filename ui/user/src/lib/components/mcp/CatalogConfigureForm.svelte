@@ -106,6 +106,10 @@
 		);
 	}
 
+	function usesSecretBindingSource(field?: ConfigField & { secretBindingSource?: string }) {
+		return Boolean(field?.secretBinding) || field?.secretBindingSource === 'secret';
+	}
+
 	const remoteHeaders = $derived.by(() => {
 		if (form && 'headers' in form) {
 			return getNonStaticServerFields(form?.headers);
@@ -497,7 +501,7 @@
 														readonly={form.componentConfigs[compId].disabled}
 													/>
 												{/if}
-												{#if env.data.secretBinding}
+												{#if usesSecretBindingSource(env.data)}
 													<!-- Secret-bound value is selected above. -->
 												{:else if env.data.sensitive}
 													<SensitiveInput
@@ -583,7 +587,7 @@
 														readonly={form.componentConfigs[compId].disabled}
 													/>
 												{/if}
-												{#if header.data.secretBinding}
+												{#if usesSecretBindingSource(header.data)}
 													<!-- Secret-bound value is selected above. -->
 												{:else if header.data.sensitive}
 													<SensitiveInput
@@ -671,7 +675,7 @@
 										targets={secretBindingTargets}
 									/>
 								{/if}
-								{#if env.data.secretBinding}
+								{#if usesSecretBindingSource(env.data)}
 									<!-- Secret-bound value is selected above. -->
 								{:else if env.data.sensitive}
 									<SensitiveInput
@@ -742,7 +746,7 @@
 										targets={secretBindingTargets}
 									/>
 								{/if}
-								{#if header.data.secretBinding}
+								{#if usesSecretBindingSource(header.data)}
 									<!-- Secret-bound value is selected above. -->
 								{:else if header.data.sensitive}
 									<SensitiveInput
