@@ -296,7 +296,7 @@
 											classes: ['border-primary', 'bg-primary/10', 'dark:bg-primary/50'],
 											text: deploymentsNeedingAttentionByCatalogEntry.has(d.data.id)
 												? 'One or multiple deployments require your attention'
-												: 'An update requires your attention'
+												: 'Configuration requires your attention'
 										}}
 									>
 										<CircleFadingArrowUp class="text-primary size-4" />
