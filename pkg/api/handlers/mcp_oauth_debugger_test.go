@@ -10,6 +10,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"golang.org/x/oauth2"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 func TestOAuthDebuggerMetadata(t *testing.T) {
@@ -32,8 +33,8 @@ func TestOAuthDebuggerMetadata(t *testing.T) {
 		Status: v1.MCPServerStatus{
 			OAuthMetadata: &v1.OAuthMetadata{
 				AuthorizationServerURL:      authServer.Issuer,
-				AuthorizationServerMetadata: authServerJSON,
-				ClientRegistration:          registrationJSON,
+				AuthorizationServerMetadata: runtime.RawExtension{Raw: authServerJSON},
+				ClientRegistration:          runtime.RawExtension{Raw: registrationJSON},
 			},
 		},
 	})
@@ -66,36 +67,36 @@ func TestOAuthDebuggerMetadataErrors(t *testing.T) {
 		{
 			name: "invalid auth server metadata",
 			oauthMetadata: &v1.OAuthMetadata{
-				AuthorizationServerMetadata: json.RawMessage(`{`),
+				AuthorizationServerMetadata: runtime.RawExtension{Raw: json.RawMessage(`{`)},
 			},
 			expectedContains: "failed to parse OAuth authorization server metadata",
 		},
 		{
 			name: "missing authorization endpoint",
 			oauthMetadata: &v1.OAuthMetadata{
-				AuthorizationServerMetadata: mustJSON(t, nmcp.AuthorizationServerMetadata{
+				AuthorizationServerMetadata: runtime.RawExtension{Raw: mustJSON(t, nmcp.AuthorizationServerMetadata{
 					TokenEndpoint: "https://auth.example.com/token",
-				}),
+				})},
 			},
 			expectedContains: "authorization_endpoint",
 		},
 		{
 			name: "missing token endpoint",
 			oauthMetadata: &v1.OAuthMetadata{
-				AuthorizationServerMetadata: mustJSON(t, nmcp.AuthorizationServerMetadata{
+				AuthorizationServerMetadata: runtime.RawExtension{Raw: mustJSON(t, nmcp.AuthorizationServerMetadata{
 					AuthorizationEndpoint: "https://auth.example.com/authorize",
-				}),
+				})},
 			},
 			expectedContains: "token_endpoint",
 		},
 		{
 			name: "invalid client registration metadata",
 			oauthMetadata: &v1.OAuthMetadata{
-				AuthorizationServerMetadata: mustJSON(t, nmcp.AuthorizationServerMetadata{
+				AuthorizationServerMetadata: runtime.RawExtension{Raw: mustJSON(t, nmcp.AuthorizationServerMetadata{
 					AuthorizationEndpoint: "https://auth.example.com/authorize",
 					TokenEndpoint:         "https://auth.example.com/token",
-				}),
-				ClientRegistration: json.RawMessage(`{`),
+				})},
+				ClientRegistration: runtime.RawExtension{Raw: json.RawMessage(`{`)},
 			},
 			expectedContains: "failed to parse OAuth client registration metadata",
 		},

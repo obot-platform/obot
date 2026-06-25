@@ -27,6 +27,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/util/retry"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -970,9 +971,9 @@ func (h *Handler) SyncOAuthMetadata(req router.Request, _ router.Response) error
 	statusMetadata := &v1.OAuthMetadata{
 		ProtectedResourceURL:              metadata.ProtectedResourceMetadataURL,
 		AuthorizationServerURL:            metadata.AuthorizationServerMetadataURL,
-		ProtectedResourceMetadata:         metadata.ProtectedResourceMetadata,
-		AuthorizationServerMetadata:       metadata.AuthorizationServerMetadata,
-		ClientRegistration:                metadata.ClientRegistration,
+		ProtectedResourceMetadata:         runtime.RawExtension{Raw: metadata.ProtectedResourceMetadata},
+		AuthorizationServerMetadata:       runtime.RawExtension{Raw: metadata.AuthorizationServerMetadata},
+		ClientRegistration:                runtime.RawExtension{Raw: metadata.ClientRegistration},
 		DynamicClientRegistration:         metadata.DynamicClientRegistration,
 		ClientIDMetadataDocumentSupported: metadata.ClientIDMetadataDocumentSupported,
 	}
