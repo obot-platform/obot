@@ -3157,7 +3157,7 @@ func convertOAuthMetadata(metadata *v1.OAuthMetadata) *types.OAuthMetadata {
 		return nil
 	}
 
-	registration := metadata.ClientRegistration
+	registration := metadata.ClientRegistration.Raw
 	if metadata.ClientIDMetadataDocumentSupported {
 		registration = nil
 	}
@@ -3165,8 +3165,8 @@ func convertOAuthMetadata(metadata *v1.OAuthMetadata) *types.OAuthMetadata {
 	return &types.OAuthMetadata{
 		ProtectedResourceURL:              metadata.ProtectedResourceURL,
 		AuthorizationServerURL:            metadata.AuthorizationServerURL,
-		ProtectedResourceMetadata:         metadata.ProtectedResourceMetadata,
-		AuthorizationServerMetadata:       metadata.AuthorizationServerMetadata,
+		ProtectedResourceMetadata:         metadata.ProtectedResourceMetadata.Raw,
+		AuthorizationServerMetadata:       metadata.AuthorizationServerMetadata.Raw,
 		DynamicClientRegistration:         metadata.DynamicClientRegistration,
 		ClientRegistration:                registration,
 		ClientIDMetadataDocumentSupported: metadata.ClientIDMetadataDocumentSupported,

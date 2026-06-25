@@ -214,8 +214,8 @@ func (m *MCPHandler) validateOAuthDebuggerServer(req api.Context, server v1.MCPS
 func (m *MCPHandler) oauthDebuggerMetadata(server v1.MCPServer) (nmcp.AuthorizationServerMetadata, nmcp.ClientRegistrationMetadata, error) {
 	metadata := server.Status.OAuthMetadata
 	var authServer nmcp.AuthorizationServerMetadata
-	if len(metadata.AuthorizationServerMetadata) > 0 {
-		if err := json.Unmarshal(metadata.AuthorizationServerMetadata, &authServer); err != nil {
+	if len(metadata.AuthorizationServerMetadata.Raw) > 0 {
+		if err := json.Unmarshal(metadata.AuthorizationServerMetadata.Raw, &authServer); err != nil {
 			return authServer, nmcp.ClientRegistrationMetadata{}, fmt.Errorf("failed to parse OAuth authorization server metadata: %w", err)
 		}
 	}
@@ -227,8 +227,8 @@ func (m *MCPHandler) oauthDebuggerMetadata(server v1.MCPServer) (nmcp.Authorizat
 	}
 
 	var registration nmcp.ClientRegistrationMetadata
-	if len(metadata.ClientRegistration) > 0 {
-		if err := json.Unmarshal(metadata.ClientRegistration, &registration); err != nil {
+	if len(metadata.ClientRegistration.Raw) > 0 {
+		if err := json.Unmarshal(metadata.ClientRegistration.Raw, &registration); err != nil {
 			return authServer, registration, fmt.Errorf("failed to parse OAuth client registration metadata: %w", err)
 		}
 	}

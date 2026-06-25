@@ -16319,20 +16319,17 @@ func schema_storage_apis_obotobotai_v1_OAuthMetadata(ref common.ReferenceCallbac
 					},
 					"protectedResourceMetadata": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "byte",
+							Ref: ref("k8s.io/apimachinery/pkg/runtime.RawExtension"),
 						},
 					},
 					"authorizationServerMetadata": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "byte",
+							Ref: ref("k8s.io/apimachinery/pkg/runtime.RawExtension"),
 						},
 					},
 					"clientRegistration": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "byte",
+							Ref: ref("k8s.io/apimachinery/pkg/runtime.RawExtension"),
 						},
 					},
 					"dynamicClientRegistration": {
@@ -16350,6 +16347,8 @@ func schema_storage_apis_obotobotai_v1_OAuthMetadata(ref common.ReferenceCallbac
 				},
 			},
 		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/runtime.RawExtension"},
 	}
 }
 
