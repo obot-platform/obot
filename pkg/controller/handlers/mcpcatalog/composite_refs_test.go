@@ -47,7 +47,7 @@ func TestResolveCompositeSourceRefs(t *testing.T) {
 
 func TestReadMCPCatalogResolvesCompositeSourceRefs(t *testing.T) {
 	dir := t.TempDir()
-	assert.NoError(t, os.WriteFile(filepath.Join(dir, "target.yaml"), []byte(`idRef: tool
+	assert.NoError(t, os.WriteFile(filepath.Join(dir, "target.yaml"), []byte(`entryKey: tool
 name: Tool
 shortDescription: Tool
 description: Tool
@@ -56,7 +56,7 @@ runtime: npx
 npxConfig:
   package: tool
 `), 0o600))
-	assert.NoError(t, os.WriteFile(filepath.Join(dir, "composite.yaml"), fmt.Appendf(nil, `idRef: composite
+	assert.NoError(t, os.WriteFile(filepath.Join(dir, "composite.yaml"), fmt.Appendf(nil, `entryKey: composite
 name: Composite
 shortDescription: Composite
 description: Composite
@@ -91,9 +91,9 @@ compositeConfig:
 	}
 }
 
-func TestReadMCPCatalogResolvesSameSourceIDRefShorthand(t *testing.T) {
+func TestReadMCPCatalogResolvesSameSourceEntryKeyShorthand(t *testing.T) {
 	dir := t.TempDir()
-	assert.NoError(t, os.WriteFile(filepath.Join(dir, "target.yaml"), []byte(`idRef: tool
+	assert.NoError(t, os.WriteFile(filepath.Join(dir, "target.yaml"), []byte(`entryKey: tool
 name: Tool
 shortDescription: Tool
 description: Tool
@@ -102,7 +102,7 @@ runtime: npx
 npxConfig:
   package: tool
 `), 0o600))
-	assert.NoError(t, os.WriteFile(filepath.Join(dir, "composite.yaml"), []byte(`idRef: composite
+	assert.NoError(t, os.WriteFile(filepath.Join(dir, "composite.yaml"), []byte(`entryKey: composite
 name: Composite
 shortDescription: Composite
 description: Composite
@@ -190,7 +190,7 @@ func TestResolveCompositeSourceRefsHydratesInternalIDComponents(t *testing.T) {
 
 func TestReadMCPCatalogResolvesCompositeSourceRefsAcrossSources(t *testing.T) {
 	first := t.TempDir()
-	assert.NoError(t, os.WriteFile(filepath.Join(first, "target.yaml"), []byte(`idRef: tool
+	assert.NoError(t, os.WriteFile(filepath.Join(first, "target.yaml"), []byte(`entryKey: tool
 name: Tool
 shortDescription: Tool
 description: Tool
@@ -201,7 +201,7 @@ npxConfig:
 `), 0o600))
 
 	second := t.TempDir()
-	assert.NoError(t, os.WriteFile(filepath.Join(second, "composite.yaml"), fmt.Appendf(nil, `idRef: composite
+	assert.NoError(t, os.WriteFile(filepath.Join(second, "composite.yaml"), fmt.Appendf(nil, `entryKey: composite
 name: Composite
 shortDescription: Composite
 description: Composite
@@ -264,7 +264,7 @@ func TestResolveCompositeSourceRefsSkipsUnresolvedComposite(t *testing.T) {
 
 	assert.Len(t, result, 1)
 	assert.Equal(t, "target", result[0].GetName())
-	assert.Contains(t, errsBySourceURL["source-url"], `unresolved catalogEntryID source ref "source|missing"`)
+	assert.Contains(t, errsBySourceURL["source-url"], `unresolved catalogEntryID source ref "source::missing"`)
 }
 
 func TestResolveCompositeSourceRefsSkipsMalformedRef(t *testing.T) {
@@ -276,25 +276,25 @@ func TestResolveCompositeSourceRefsSkipsMalformedRef(t *testing.T) {
 		Runtime:          types.RuntimeComposite,
 		ServerUserType:   types.ServerUserTypeSingleUser,
 		CompositeConfig: &types.CompositeCatalogConfig{ComponentServers: []types.CatalogComponentServer{
-			{CatalogEntryID: "source|"},
+			{CatalogEntryID: "source::"},
 		}},
 	})
 
 	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(context.Background(), []client.Object{composite})
 
 	assert.Empty(t, result)
-	assert.Contains(t, errsBySourceURL["source-url"], `invalid catalogEntryID source ref "source|"`)
+	assert.Contains(t, errsBySourceURL["source-url"], `invalid catalogEntryID source ref "source::"`)
 }
 
-func testCatalogEntry(name, sourceID, idRef string, manifest types.MCPServerCatalogEntryManifest) *v1.MCPServerCatalogEntry {
+func testCatalogEntry(name, sourceID, entryKey string, manifest types.MCPServerCatalogEntryManifest) *v1.MCPServerCatalogEntry {
 	return &v1.MCPServerCatalogEntry{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
 		Spec: v1.MCPServerCatalogEntrySpec{
-			SourceURL:        "source-url",
-			SourceID:         sourceID,
-			SourceEntryIDRef: idRef,
-			Manifest:         manifest,
-			Editable:         false,
+			SourceURL:      "source-url",
+			SourceID:       sourceID,
+			SourceEntryKey: entryKey,
+			Manifest:       manifest,
+			Editable:       false,
 		},
 	}
 }
