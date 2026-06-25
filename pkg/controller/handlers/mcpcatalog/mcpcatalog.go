@@ -149,12 +149,8 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 
 		if sourceID != "" {
 			if _, ok := uniqueSourceIDs[sourceID]; ok {
-				errMsg := fmt.Sprintf("duplicate catalog source ID %q also used by source %q", sourceID, sourceURL)
-				if existing := mcpCatalog.Status.SyncErrors[sourceURL]; existing != "" {
-					mcpCatalog.Status.SyncErrors[sourceURL] = existing + "; " + errMsg
-				} else {
-					mcpCatalog.Status.SyncErrors[sourceURL] = errMsg
-				}
+				errMsg := fmt.Sprintf("duplicate catalog source ID %q", sourceID)
+				addSyncError(mcpCatalog.Status.SyncErrors, sourceURL, errMsg)
 				continue
 			} else {
 				uniqueSourceIDs[sourceID] = struct{}{}
@@ -162,6 +158,11 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 		}
 
 		toAdd = append(toAdd, objs...)
+	}
+
+	toAdd, compositeRefErrors := h.resolveCompositeSourceRefs(req.Ctx, toAdd)
+	for sourceURL, errMsg := range compositeRefErrors {
+		addSyncError(mcpCatalog.Status.SyncErrors, sourceURL, errMsg)
 	}
 
 	mcpCatalog.Status.LastSyncTime = metav1.Now()
@@ -197,6 +198,84 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	}
 
 	return app.Apply(req.Ctx, mcpCatalog, toAdd...)
+}
+
+func addSyncError(syncErrors map[string]string, sourceURL, errMsg string) {
+	if existing := syncErrors[sourceURL]; existing != "" {
+		syncErrors[sourceURL] = existing + "; " + errMsg
+	} else {
+		syncErrors[sourceURL] = errMsg
+	}
+}
+
+func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, objs []client.Object) ([]client.Object, map[string]string) {
+	refs := make(map[string]*v1.MCPServerCatalogEntry)
+	for _, obj := range objs {
+		entry, ok := obj.(*v1.MCPServerCatalogEntry)
+		if !ok || entry.Spec.SourceID == "" || entry.Spec.SourceEntryIDRef == "" {
+			continue
+		}
+		refs[entry.Spec.SourceID+catalogReferenceSeparator+entry.Spec.SourceEntryIDRef] = entry
+	}
+
+	result := make([]client.Object, 0, len(objs))
+	errsBySourceURL := make(map[string]string)
+	for _, obj := range objs {
+		entry, ok := obj.(*v1.MCPServerCatalogEntry)
+		if !ok || entry.Spec.Manifest.Runtime != types.RuntimeComposite || entry.Spec.Manifest.CompositeConfig == nil {
+			result = append(result, obj)
+			continue
+		}
+
+		changed := false
+		var errs []error
+		for i := range entry.Spec.Manifest.CompositeConfig.ComponentServers {
+			component := &entry.Spec.Manifest.CompositeConfig.ComponentServers[i]
+			if component.CatalogEntryID == "" || !strings.Contains(component.CatalogEntryID, catalogReferenceSeparator) {
+				continue
+			}
+
+			sourceID, idRef, ok := strings.Cut(component.CatalogEntryID, catalogReferenceSeparator)
+			if !ok || sourceID == "" || idRef == "" {
+				errs = append(errs, fmt.Errorf("invalid catalogEntryID source ref %q", component.CatalogEntryID))
+				continue
+			}
+
+			target := refs[sourceID+catalogReferenceSeparator+idRef]
+			if target == nil {
+				errs = append(errs, fmt.Errorf("unresolved catalogEntryID source ref %q", component.CatalogEntryID))
+				continue
+			}
+
+			component.CatalogEntryID = target.Name
+			component.Manifest = target.Spec.Manifest
+			changed = true
+		}
+
+		if len(errs) > 0 {
+			addSyncError(errsBySourceURL, entry.Spec.SourceURL, fmt.Sprintf("failed to resolve composite catalog entry %q: %v", entry.Name, errors.Join(errs...)))
+			continue
+		}
+
+		if changed {
+			if err := validation.ValidateCatalogEntryManifest(ctx, entry.Spec.Manifest, h.remoteURLValidationConfig); err != nil {
+				addSyncError(errsBySourceURL, entry.Spec.SourceURL, fmt.Sprintf("failed to validate resolved composite catalog entry %q: %v", entry.Name, err))
+				continue
+			}
+			if err := validation.ValidateSecretBindingsCatalogEntry(entry.Spec.Manifest, entry.IsGitManaged(), h.mcpBackend); err != nil {
+				addSyncError(errsBySourceURL, entry.Spec.SourceURL, fmt.Sprintf("failed to validate resolved composite catalog entry %q: %v", entry.Name, err))
+				continue
+			}
+			if err := validation.ValidateTemplateReferencesCatalogEntry(entry.Spec.Manifest); err != nil {
+				addSyncError(errsBySourceURL, entry.Spec.SourceURL, fmt.Sprintf("failed to validate resolved composite catalog entry %q: %v", entry.Name, err))
+				continue
+			}
+		}
+
+		result = append(result, obj)
+	}
+
+	return result, errsBySourceURL
 }
 
 func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {
@@ -443,6 +522,10 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 		catalogEntryName := name.SafeHashConcatName(catalogName, cleanName)
 
 		if entry.IDRef != "" {
+			if strings.Contains(entry.IDRef, catalogReferenceSeparator) {
+				errs = append(errs, fmt.Errorf("source entry ref %q cannot contain %s; skipping catalog entry %q", entry.IDRef, catalogReferenceSeparator, catalogEntryName))
+				continue
+			}
 			if _, ok := uniqueIDRefs[entry.IDRef]; ok {
 				errs = append(errs, fmt.Errorf("duplicate source entry ref %q also used by catalog entry %q", entry.IDRef, catalogEntryName))
 				continue
