@@ -19,4 +19,5 @@ const (
 	SkillRepositorySyncAnnotation             = "obot.ai/skill-repository-sync"
 	MCPServerCatalogEntrySyncAnnotation       = "obot.ai/mcp-server-catalog-entry-sync"
 	SystemMCPServerCatalogEntrySyncAnnotation = "obot.ai/system-mcp-server-catalog-entry-sync"
+	ModelInfoSourceSyncAnnotation             = "obot.ai/model-info-source-sync"
 )

@@ -11,6 +11,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/adminworkspace"
 	"github.com/obot-platform/obot/pkg/controller/handlers/deployment"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpcatalog"
+	"github.com/obot-platform/obot/pkg/controller/handlers/modelinfosource"
 	"github.com/obot-platform/obot/pkg/controller/handlers/provider"
 	"github.com/obot-platform/obot/pkg/controller/handlers/secret"
 	"github.com/obot-platform/obot/pkg/serviceaccounts"
@@ -31,12 +32,13 @@ import (
 var log = logger.Package()
 
 type Controller struct {
-	services              *services.Services
-	providerHandler       *provider.Handler
-	mcpCatalogHandler     *mcpcatalog.Handler
-	adminWorkspaceHandler *adminworkspace.Handler
-	providerInstaller     networkPolicyProviderInstaller
-	now                   func() time.Time
+	services               *services.Services
+	providerHandler        *provider.Handler
+	mcpCatalogHandler      *mcpcatalog.Handler
+	modelInfoSourceHandler *modelinfosource.Handler
+	adminWorkspaceHandler  *adminworkspace.Handler
+	providerInstaller      networkPolicyProviderInstaller
+	now                    func() time.Time
 }
 
 func New(services *services.Services) (*Controller, error) {
@@ -246,6 +248,10 @@ func (c *Controller) PostStart(ctx context.Context, client kclient.Client) {
 
 	if err = c.providerHandler.EnsureAnthropicCredentialAndDefaults(ctx, client); err != nil {
 		panic(fmt.Errorf("failed to ensure anthropic credential and defaults: %w", err))
+	}
+
+	if err := c.modelInfoSourceHandler.SetUpDefaultModelInfoSource(ctx, client); err != nil {
+		panic(fmt.Errorf("failed to set up default model info source: %w", err))
 	}
 
 	if err := c.mcpCatalogHandler.SetUpDefaultMCPCatalog(ctx, client); err != nil {

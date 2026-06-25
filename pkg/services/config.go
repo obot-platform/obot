@@ -106,6 +106,7 @@ type Config struct {
 	DefaultSystemMCPCatalogPath          string `usage:"The path to the default System MCP catalog" default:""`
 	DefaultSkillRepoURL                  string `usage:"The default skill repository URL (must be HTTPS GitHub URL)" default:"https://github.com/obot-platform/skills" env:"OBOT_DEFAULT_SKILL_REPO_URL"`
 	DefaultSkillRepoRef                  string `usage:"The ref (branch/tag) for the default skill repository" default:"" env:"OBOT_DEFAULT_SKILL_REPO_REF"`
+	ModelInfoSourceURL                   string `usage:"Authoritative URL for the model info (pricing) source synced into model costs; changes take effect on restart, empty disables it" default:"https://models.dev/api.json"`
 	DisableUpdateCheck                   bool   `usage:"Disable Obot server update checks"`
 	EnableRegistryAuth                   bool   `usage:"Enable authentication for the MCP registry API" default:"false" env:"OBOT_SERVER_ENABLE_REGISTRY_AUTH"`
 	EnableMessagePolicies                bool   `usage:"Enable message policies for LLM proxy content enforcement" default:"false"`
@@ -167,6 +168,7 @@ type Services struct {
 	DefaultSystemMCPCatalogPath string
 	DefaultSkillRepoURL         string
 	DefaultSkillRepoRef         string
+	ModelInfoSourceURL          string
 
 	Otel        *Otel
 	AuditLogger audit.Logger
@@ -959,6 +961,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		DefaultSystemMCPCatalogPath:    config.DefaultSystemMCPCatalogPath,
 		DefaultSkillRepoURL:            config.DefaultSkillRepoURL,
 		DefaultSkillRepoRef:            config.DefaultSkillRepoRef,
+		ModelInfoSourceURL:             config.ModelInfoSourceURL,
 		MCPSessionManager:              mcpSessionManager,
 		MCPOAuthTokenStorage:           mcpOAuthTokenStorage,
 		MCPOAuthClientSecretExpiration: oauthClientExpiration,

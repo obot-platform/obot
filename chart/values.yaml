@@ -113,10 +113,10 @@ config:
   OBOT_SERVER_DSN: ""
   # config.OBOT_SERVER_HOSTNAME -- The hostname of your Obot instance, including protocol
   OBOT_SERVER_HOSTNAME: ""
-  # config.OBOT_SERVER_DAILY_USER_PROMPT_TOKEN_LIMIT -- The maximum number of prompt/input tokens allowed per user per day. Set <= 0 to disable this limit. Defaults to 10000000.
-  OBOT_SERVER_DAILY_USER_PROMPT_TOKEN_LIMIT: ""
-  # config.OBOT_SERVER_DAILY_USER_COMPLETION_TOKEN_LIMIT -- The maximum number of completion/output tokens allowed per user per day. Set <= 0 to disable this limit. Defaults to 100000.
-  OBOT_SERVER_DAILY_USER_COMPLETION_TOKEN_LIMIT: ""
+  # config.OBOT_SERVER_DAILY_USER_INPUT_TOKEN_LIMIT -- The maximum number of prompt/input tokens allowed per user per day. Set to a negative value to disable this limit. Defaults to 10000000.
+  OBOT_SERVER_DAILY_USER_INPUT_TOKEN_LIMIT: ""
+  # config.OBOT_SERVER_DAILY_USER_OUTPUT_TOKEN_LIMIT -- The maximum number of completion/output tokens allowed per user per day. Set to a negative value to disable this limit. Defaults to 100000.
+  OBOT_SERVER_DAILY_USER_OUTPUT_TOKEN_LIMIT: ""
   # config.OBOT_SERVER_IDLE_AGENT_SHUTDOWN_HOURS -- The interval in hours to check for idle agents and shut them down. Set to -1 to disable. Defaults to 72.
   OBOT_SERVER_IDLE_AGENT_SHUTDOWN_HOURS: ""
   # config.OBOT_SERVER_SINGLE_USER_IDLE_SERVER_SHUTDOWN_HOURS -- The interval in hours to check for idle single-user MCP servers and shut them down. Set to -1 to disable. Defaults to 24.

@@ -16,6 +16,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpwebhookvalidation"
 	"github.com/obot-platform/obot/pkg/controller/handlers/model"
 	"github.com/obot-platform/obot/pkg/controller/handlers/modelaccesspolicy"
+	"github.com/obot-platform/obot/pkg/controller/handlers/modelinfosource"
 	"github.com/obot-platform/obot/pkg/controller/handlers/nanobotagent"
 	"github.com/obot-platform/obot/pkg/controller/handlers/oauthclients"
 	"github.com/obot-platform/obot/pkg/controller/handlers/oktagroupmigration"
@@ -35,6 +36,7 @@ func (c *Controller) setupRoutes() {
 	credentialCleanup := cleanup.NewCredentials(c.services.MCPSessionManager, c.services.GatewayClient, c.services.ServerURL, c.services.InternalServerURL)
 	userCleanup := cleanup.NewUserCleanup(c.services.GatewayClient, c.services.AccessControlRuleHelper)
 	mcpCatalog := mcpcatalog.New(c.services.DefaultMCPCatalogPath, c.services.DefaultSystemMCPCatalogPath, c.services.GatewayClient, c.services.AccessControlRuleHelper, c.services.MCPSessionManager)
+	modelInfoSource := modelinfosource.New(c.services.ModelInfoSourceURL, c.services.MCPSessionManager.RemoteMCPURLValidationConfig())
 	skillRepository := skillrepository.New()
 	mcpserver := mcpserver.New(c.services.GatewayClient, c.services.MCPSessionManager, c.services.MCPOAuthTokenStorage, c.services.MCPNetworkPolicyEnabled, c.services.MCPDefaultDenyAllEgress, c.services.SingleUserIdleServerShutdownInterval, c.services.MultiUserIdleServerShutdownInterval, c.services.AgentIdleServerShutdownInterval, c.services.ServerURL, c.services.MCPRuntimeBackend, c.services.MCPImagePullSecrets)
 	mcpserverinstance := mcpserverinstance.New(c.services.GatewayClient)
@@ -63,6 +65,7 @@ func (c *Controller) setupRoutes() {
 
 	// Models
 	root.Type(&v1.Model{}).HandlerFunc(modelHandler.Cleanup)
+	root.Type(&v1.Model{}).HandlerFunc(modelHandler.EnsureModelInfo)
 	root.Type(&v1.Model{}).HandlerFunc(alias.AssignAlias)
 	root.Type(&v1.Model{}).HandlerFunc(generationed.UpdateObservedGeneration)
 
@@ -75,6 +78,10 @@ func (c *Controller) setupRoutes() {
 
 	// User Cleanup
 	root.Type(&v1.UserDelete{}).HandlerFunc(userCleanup.Cleanup)
+
+	// ModelInfoSource
+	root.Type(&v1.ModelInfoSource{}).HandlerFunc(modelInfoSource.Sync)
+	root.Type(&v1.ModelInfo{}).HandlerFunc(cleanup.Cleanup)
 
 	// MCPCatalog
 	root.Type(&v1.MCPCatalog{}).HandlerFunc(mcpCatalog.Sync)
@@ -207,5 +214,6 @@ func (c *Controller) setupRoutes() {
 
 	c.providerHandler = providers
 	c.mcpCatalogHandler = mcpCatalog
+	c.modelInfoSourceHandler = modelInfoSource
 	c.adminWorkspaceHandler = adminWorkspaceHandler
 }
