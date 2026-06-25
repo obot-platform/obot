@@ -10,7 +10,9 @@
 	import {
 		convertCompositeInfoToLaunchFormData,
 		convertCompositeLaunchFormDataToPayload,
-		convertEnvHeadersToRecord
+		convertEnvHeadersToRecord,
+		hasEditableConfiguration,
+		hasSecretBinding
 	} from '$lib/services/user/mcp';
 	import { ExternalLink, SettingsIcon, ShieldAlertIcon } from '@lucide/svelte';
 	import { onMount, tick, untrack } from 'svelte';
@@ -33,6 +35,17 @@
 	const consent = $derived(currentConsent);
 	const scopes = $derived(consent.scope?.split(' ').filter(Boolean) ?? []);
 	const showMCPAuthNotice = $derived(consent.mcpAuthRequired || consent.userHasSecondLevelOAuthed);
+	const hasConfigurableMCPConfiguration = $derived.by(() => {
+		if (consent.mcpServer) {
+			return hasEditableConfiguration(consent.mcpServer);
+		}
+		if (consent.mcpServerInstance) {
+			return (consent.mcpServerInstance.multiUserConfig?.userDefinedHeaders ?? []).some(
+				(header) => !hasSecretBinding(header)
+			);
+		}
+		return false;
+	});
 	const clientCredentialSourceLabel = $derived(
 		clientCredentialSourceLabelFor(consent.clientCredentialSource)
 	);
@@ -307,6 +320,35 @@
 					</div>
 				{/if}
 
+				{#if hasConfigurableMCPConfiguration}
+					<div
+						class="border-base-300 bg-base-100 dark:bg-base-200 flex items-center gap-3 rounded-md border p-3"
+					>
+						<SettingsIcon class="text-muted-content size-4 shrink-0" />
+						<div
+							class="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+						>
+							<p class="text-muted-content min-w-0 text-xs">
+								You can update the configuration for
+								<b class="font-semibold">{consent.mcpServerName || 'this MCP server'}</b>
+							</p>
+							<button
+								class="btn btn-text btn-sm flex shrink-0 items-center gap-2"
+								type="button"
+								onclick={openMCPConfiguration}
+								disabled={loadingConfig || savingConfig}
+							>
+								<SettingsIcon class="size-3.5" />
+								{loadingConfig ? 'Loading...' : 'Configure'}
+							</button>
+						</div>
+					</div>
+				{/if}
+
+				{#if configError}
+					<p class="text-error text-sm">{configError}</p>
+				{/if}
+
 				<p class="text-sm">
 					{consent.clientName} wants to authenticate with Obot for an MCP server connection. If you approve,
 					Obot will redirect you back to the OAuth client that started this request.
@@ -390,6 +432,6 @@
 	error={configError}
 	cancelText="Close"
 	submitText="Save"
-	configurationTitle="Required Configuration"
+	configurationTitle="MCP Server Configuration"
 	disableOutsideClick
 />

@@ -400,9 +400,9 @@ func (h *handler) consent(req api.Context) error {
 		mcpServer         *types.MCPServer
 		mcpServerInstance *types.MCPServerInstance
 	)
-	if oauthAppAuthRequest.Spec.ConsentMCPConfigRequired {
-		mcpServer, mcpServerInstance, err = handlers.ConfigurationTargetForConnectID(req, oauthAppAuthRequest.Spec.MCPID, h.baseURL)
-		if err != nil {
+	mcpServer, mcpServerInstance, err = handlers.ConfigurationTargetForConnectID(req, oauthAppAuthRequest.Spec.MCPID, h.baseURL)
+	if err != nil {
+		if oauthAppAuthRequest.Spec.ConsentMCPConfigRequired {
 			redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
 				Code:        ErrServerError,
 				Description: err.Error(),
@@ -410,6 +410,7 @@ func (h *handler) consent(req api.Context) error {
 			})
 			return nil
 		}
+		log.Warnf("Failed to load optional MCP configuration target for OAuth consent: authRequest=%s mcpID=%s error=%v", oauthAppAuthRequest.Name, oauthAppAuthRequest.Spec.MCPID, err)
 	}
 
 	return req.Write(oauthConsentPageData(oauthAppAuthRequest, oauthClient, continueURL, cancelURL, mcpServer, mcpServerInstance))
