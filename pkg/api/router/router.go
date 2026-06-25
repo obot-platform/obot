@@ -90,7 +90,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mcpGateway := mcpgateway.NewHandler(services.MCPSessionManager)
 	mcpAuditLogs := mcpgateway.NewAuditLogHandler()
 	auditLogExports := handlers.NewAuditLogExportHandler(services.GatewayClient)
-	serverInstances := handlers.NewServerInstancesHandler(services.AccessControlRuleHelper, services.ServerURL)
+	serverInstances := handlers.NewServerInstancesHandler(services.AccessControlRuleHelper, oauthChecker, services.ServerURL)
 	systemMCPServers := handlers.NewSystemMCPServerHandler(services.MCPSessionManager)
 	userDefaultRoleSettings := handlers.NewUserDefaultRoleSettingHandler()
 	setupHandler := setup.NewHandler(services.ServerURL, services.Bootstrapper)
@@ -159,6 +159,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("POST /api/mcp-server-instances/{mcp_server_instance_id}/deconfigure", serverInstances.DeconfigureServerInstance)
 	mux.HandleFunc("DELETE /api/mcp-server-instances/{mcp_server_instance_id}", serverInstances.DeleteServerInstance)
 	mux.HandleFunc("DELETE /api/mcp-server-instances/{mcp_server_instance_id}/oauth", serverInstances.ClearOAuthCredentials)
+	mux.HandleFunc("GET /api/mcp-server-instances/{mcp_server_instance_id}/oauth-url", serverInstances.GetOAuthURL)
 
 	// MCP Catalogs (admin only)
 	mux.HandleFunc("GET /api/mcp-catalogs", mcpCatalogs.List)

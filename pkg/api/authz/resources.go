@@ -29,6 +29,7 @@ var apiResources = map[string][]string{
 		"GET    /api/mcp-audit-logs/{mcp_id}",
 		"GET    /api/mcp-server-instances",
 		"GET    /api/mcp-server-instances/{mcp_server_instance_id}",
+		"GET    /api/mcp-server-instances/{mcp_server_instance_id}/oauth-url",
 		"POST   /api/mcp-server-instances",
 		"DELETE /api/mcp-server-instances/{mcp_server_instance_id}",
 		"DELETE /api/mcp-server-instances/{mcp_server_instance_id}/oauth",

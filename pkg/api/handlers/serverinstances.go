@@ -22,14 +22,16 @@ import (
 )
 
 type ServerInstancesHandler struct {
-	acrHelper *accesscontrolrule.Helper
-	serverURL string
+	acrHelper       *accesscontrolrule.Helper
+	mcpOAuthChecker MCPOAuthChecker
+	serverURL       string
 }
 
-func NewServerInstancesHandler(acrHelper *accesscontrolrule.Helper, serverURL string) *ServerInstancesHandler {
+func NewServerInstancesHandler(acrHelper *accesscontrolrule.Helper, mcpOAuthChecker MCPOAuthChecker, serverURL string) *ServerInstancesHandler {
 	return &ServerInstancesHandler{
-		acrHelper: acrHelper,
-		serverURL: serverURL,
+		acrHelper:       acrHelper,
+		mcpOAuthChecker: mcpOAuthChecker,
+		serverURL:       serverURL,
 	}
 }
 
@@ -191,6 +193,32 @@ func (h *ServerInstancesHandler) ClearOAuthCredentials(req api.Context) error {
 
 	req.WriteHeader(http.StatusNoContent)
 	return nil
+}
+
+func (h *ServerInstancesHandler) GetOAuthURL(req api.Context) error {
+	var instance v1.MCPServerInstance
+	if err := req.Get(&instance, req.PathValue("mcp_server_instance_id")); err != nil {
+		return err
+	}
+	if instance.Spec.UserID != req.User.GetUID() {
+		return types.NewErrNotFound("MCP server instance not found")
+	}
+
+	// allowMissingConfig: report OAuth state even when the instance is not yet
+	// fully configured (e.g. required headers unset) so the probe never 500s on
+	// a half-set-up instance. For remote catalog servers (NeedsURL=false) this
+	// is identical to the strict path.
+	server, serverConfig, _, err := serverFromMCPServerInstance(req, instance, true)
+	if err != nil {
+		return fmt.Errorf("failed to resolve MCP server instance: %w", err)
+	}
+
+	u, err := h.mcpOAuthChecker.CheckForMCPAuth(req, server, serverConfig, req.User.GetUID(), instance.Name, "")
+	if err != nil {
+		return fmt.Errorf("failed to get OAuth URL: %w", err)
+	}
+
+	return req.Write(map[string]string{"oauthURL": u})
 }
 
 func (h *ServerInstancesHandler) ConfigureServerInstance(req api.Context) error {

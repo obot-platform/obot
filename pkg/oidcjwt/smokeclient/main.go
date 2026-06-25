@@ -58,7 +58,7 @@ func main() {
 			os.Exit(1)
 		}
 	}()
-	defer server.Shutdown(context.Background())
+	defer func() { _ = server.Shutdown(context.Background()) }()
 
 	token, err := mintJWT(priv, "smoke-key", *issuerURL, *audience, *subject, *email, splitCSV(*roles), *eligible, *ttl)
 	exitOnErr("mint jwt", err)

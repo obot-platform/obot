@@ -68,7 +68,7 @@ func TestValidateGenericOAuthConfigRejectsIssuerMismatch(t *testing.T) {
 }
 
 func TestValidateGenericOAuthConfigRejectsDiscoveryHTTPError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "unavailable", http.StatusServiceUnavailable)
 	}))
 	t.Cleanup(server.Close)
@@ -83,8 +83,8 @@ func TestValidateGenericOAuthConfigRejectsDiscoveryHTTPError(t *testing.T) {
 }
 
 func TestValidateGenericOAuthConfigRejectsMalformedDiscovery(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`{`))
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{`))
 	}))
 	t.Cleanup(server.Close)
 
