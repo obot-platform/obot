@@ -8,8 +8,8 @@
 		ToolOutputItem
 	} from '$lib/services/nanobot/types';
 	import { isSafeImageMimeType } from '$lib/services/nanobot/utils';
+	import { Settings } from '@lucide/svelte';
 	import { isUIResource } from '@mcp-ui/client';
-	import { Settings } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 
 	// Dynamically import web component only in browser (SSR-safe)

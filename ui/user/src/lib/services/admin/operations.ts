@@ -22,6 +22,7 @@ import type {
 	DefaultModelAlias,
 	BootstrapStatus,
 	AppPreferences,
+	AppNotification,
 	AccessControlRule,
 	AccessControlRuleManifest,
 	K8sServerDetail
@@ -92,6 +93,7 @@ import type {
 	OAuthDebuggerTokenRequest,
 	OAuthToken,
 	AppPreferencesManifest,
+	AppNotificationManifest,
 	License,
 	LicenseManifest
 } from './types';
@@ -154,6 +156,15 @@ export async function updateAppPreferences(
 	opts?: { fetch?: Fetcher }
 ) {
 	return (await doPut('/app-preferences', preferences, opts)) as AppPreferences;
+}
+
+// App notification
+
+export async function updateAppNotification(
+	notification: AppNotificationManifest,
+	opts?: { fetch?: Fetcher }
+) {
+	return (await doPut('/app-notification', notification, opts)) as AppNotification;
 }
 
 // Audit log exports
@@ -1927,6 +1938,13 @@ export async function listAllUserWorkspaceAccessControlRules(opts?: { fetch?: Fe
 
 export async function deleteLicense(): Promise<void> {
 	await doDelete('/license');
+}
+
+export async function recheckLicense(opts?: {
+	fetch?: Fetcher;
+	dontLogErrors?: boolean;
+}): Promise<License> {
+	return (await doPost('/license', {}, opts)) as License;
 }
 
 export async function updateLicense(

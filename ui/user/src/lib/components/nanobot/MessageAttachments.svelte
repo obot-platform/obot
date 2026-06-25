@@ -17,7 +17,7 @@
 
 <script lang="ts">
 	import FileItem from '$lib/components/nanobot/FileItem.svelte';
-	import { X } from 'lucide-svelte';
+	import { X } from '@lucide/svelte';
 
 	let {
 		uploadingFiles = [],

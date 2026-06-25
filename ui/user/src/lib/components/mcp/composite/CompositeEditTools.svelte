@@ -13,7 +13,7 @@
 		toolNameIssue
 	} from '$lib/services/user/mcp';
 	import ToolNameIssueIcon from '../ToolNameIssueIcon.svelte';
-	import { TriangleAlert } from 'lucide-svelte';
+	import { TriangleAlert } from '@lucide/svelte';
 
 	interface Props {
 		configuringEntry?: MCPCatalogEntry | MCPCatalogServer;

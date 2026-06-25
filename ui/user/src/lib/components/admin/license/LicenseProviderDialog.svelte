@@ -2,7 +2,7 @@
 	import type { BaseProvider } from '$lib/services';
 	import { darkMode } from '$lib/stores';
 	import Confirm from '../../Confirm.svelte';
-	import { CircleAlert, TriangleAlert } from 'lucide-svelte';
+	import { CircleAlert, TriangleAlert } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {

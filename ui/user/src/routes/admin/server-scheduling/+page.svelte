@@ -5,7 +5,7 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService, type K8sSettings } from '$lib/services';
 	import { profile } from '$lib/stores/index.js';
-	import { Info, Lock } from 'lucide-svelte';
+	import { Info, Lock } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
 

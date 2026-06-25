@@ -1,7 +1,7 @@
 <script lang="ts">
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
-	import { TriangleAlert, KeyRound, ExternalLink } from 'lucide-svelte';
+	import { TriangleAlert, KeyRound, ExternalLink } from '@lucide/svelte';
 
 	interface Props {
 		keyValue?: string;

@@ -12,7 +12,7 @@
 		Square,
 		SquareCheck,
 		SquareMinus
-	} from 'lucide-svelte';
+	} from '@lucide/svelte';
 	import { onMount, type Snippet } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { twMerge } from 'tailwind-merge';

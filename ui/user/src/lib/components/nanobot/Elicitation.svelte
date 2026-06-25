@@ -4,7 +4,7 @@
 		ElicitationResult,
 		PrimitiveSchemaDefinition
 	} from '$lib/services/nanobot/types';
-	import { ChevronLeft, ChevronRight, Pencil, Info, X, ServerIcon } from 'lucide-svelte';
+	import { ChevronLeft, ChevronRight, Pencil, Info, X, ServerIcon } from '@lucide/svelte';
 	import { SvelteSet, SvelteMap } from 'svelte/reactivity';
 	import { twMerge } from 'tailwind-merge';
 

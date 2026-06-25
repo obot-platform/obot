@@ -17,7 +17,7 @@
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { goto } from '$lib/url';
 	import ConfirmScheduleToggle from '../ConfirmScheduleToggle.svelte';
-	import { CalendarClock, PencilLine, Play, Timer, TimerOff, Trash2 } from 'lucide-svelte';
+	import { CalendarClock, PencilLine, Play, Timer, TimerOff, Trash2 } from '@lucide/svelte';
 	import { getContext, tick } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 

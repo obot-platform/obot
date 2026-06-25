@@ -2,7 +2,7 @@
 	import { MCP_CONNECTION_INVALID_LICENSE_MESSAGE } from '$lib/services/user/constants';
 	import { license, profile } from '$lib/stores';
 	import LicenseDowngradeDialog from './LicenseDowngradeDialog.svelte';
-	import { ShieldAlert } from 'lucide-svelte';
+	import { ShieldAlert } from '@lucide/svelte';
 
 	let downgradeDialog = $state<ReturnType<typeof LicenseDowngradeDialog>>();
 	let licenseKey = $derived(license.current.licenseKey);

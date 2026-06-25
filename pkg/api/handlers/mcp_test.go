@@ -812,6 +812,171 @@ func TestConvertMCPServerCompositeSkipsDisabledAndConfiguredComponents(t *testin
 	assert.Empty(t, converted.MissingRequiredHeaders)
 }
 
+func TestServerManifestFromCatalogEntryManifestAllowsMissingRemoteHostname(t *testing.T) {
+	entry := types.MCPServerCatalogEntryManifest{
+		Runtime: types.RuntimeRemote,
+		RemoteConfig: &types.RemoteCatalogConfig{
+			Hostname: "api.example.com",
+		},
+	}
+
+	manifest, err := serverManifestFromCatalogEntryManifest(false, true, entry, types.MCPServerManifest{})
+	require.NoError(t, err)
+	require.NotNil(t, manifest.RemoteConfig)
+	assert.Equal(t, "api.example.com", manifest.RemoteConfig.Hostname)
+	assert.Empty(t, manifest.RemoteConfig.URL)
+}
+
+func TestServerManifestFromCatalogEntryManifestPreservesRemoteURLTemplateConfig(t *testing.T) {
+	const template = "https://${WORKSPACE}.example.com/mcp/${SPACE_ID}"
+	entry := v1.MCPServerCatalogEntry{
+		Spec: v1.MCPServerCatalogEntrySpec{
+			Manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteCatalogConfig{
+					URLTemplate: template,
+				},
+			},
+		},
+	}
+	addExtractedEnvVarsToCatalogEntry(&entry)
+
+	manifest, err := serverManifestFromCatalogEntryManifest(false, true, entry.Spec.Manifest, types.MCPServerManifest{})
+	require.NoError(t, err)
+	require.NotNil(t, manifest.RemoteConfig)
+	assert.True(t, manifest.RemoteConfig.IsTemplate)
+	assert.Equal(t, template, manifest.RemoteConfig.URLTemplate)
+	assert.Empty(t, manifest.RemoteConfig.URL)
+	assert.ElementsMatch(t, []types.MCPHeader{
+		{Name: "WORKSPACE", Key: "WORKSPACE", Description: "Automatically detected variable", Required: true},
+		{Name: "SPACE_ID", Key: "SPACE_ID", Description: "Automatically detected variable", Required: true},
+	}, manifest.RemoteConfig.Headers)
+}
+
+func TestServerManifestFromCatalogEntryManifestAllowsMissingCompositeRemoteHostname(t *testing.T) {
+	entry := types.MCPServerCatalogEntryManifest{
+		Runtime: types.RuntimeComposite,
+		CompositeConfig: &types.CompositeCatalogConfig{
+			ComponentServers: []types.CatalogComponentServer{
+				{
+					CatalogEntryID: "remote",
+					Manifest: types.MCPServerCatalogEntryManifest{
+						Runtime: types.RuntimeRemote,
+						RemoteConfig: &types.RemoteCatalogConfig{
+							Hostname: "api.example.com",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	require.True(t, catalogEntryRequiresUserURL(entry))
+	manifest, err := serverManifestFromCatalogEntryManifest(false, true, entry, types.MCPServerManifest{})
+	require.NoError(t, err)
+	require.NotNil(t, manifest.CompositeConfig)
+	require.Len(t, manifest.CompositeConfig.ComponentServers, 1)
+	component := manifest.CompositeConfig.ComponentServers[0]
+	require.NotNil(t, component.Manifest.RemoteConfig)
+	assert.Equal(t, "api.example.com", component.Manifest.RemoteConfig.Hostname)
+	assert.Empty(t, component.Manifest.RemoteConfig.URL)
+}
+
+func TestAddExtractedEnvVarsToCatalogEntryRecursesIntoCompositeComponents(t *testing.T) {
+	const template = "https://${WORKSPACE}.example.com/mcp/${SPACE_ID}"
+	entry := v1.MCPServerCatalogEntry{
+		Spec: v1.MCPServerCatalogEntrySpec{
+			Manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeCatalogConfig{
+					ComponentServers: []types.CatalogComponentServer{
+						{
+							CatalogEntryID: "remote",
+							Manifest: types.MCPServerCatalogEntryManifest{
+								Runtime: types.RuntimeRemote,
+								RemoteConfig: &types.RemoteCatalogConfig{
+									URLTemplate: template,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	addExtractedEnvVarsToCatalogEntry(&entry)
+	headers := entry.Spec.Manifest.CompositeConfig.ComponentServers[0].Manifest.RemoteConfig.Headers
+	assert.ElementsMatch(t, []types.MCPHeader{
+		{Name: "WORKSPACE", Key: "WORKSPACE", Description: "Automatically detected variable", Required: true},
+		{Name: "SPACE_ID", Key: "SPACE_ID", Description: "Automatically detected variable", Required: true},
+	}, headers)
+}
+
+func TestSyncConnectServerRemoteConfigFromCatalogEntryURLTemplate(t *testing.T) {
+	const template = "https://${WORKSPACE}.example.com/mcp/${SPACE_ID}"
+	server := v1.MCPServer{
+		Spec: v1.MCPServerSpec{
+			Manifest: types.MCPServerManifest{
+				Runtime:      types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{IsTemplate: true},
+			},
+		},
+	}
+	entry := v1.MCPServerCatalogEntry{
+		Spec: v1.MCPServerCatalogEntrySpec{
+			Manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteCatalogConfig{
+					URLTemplate: template,
+					Headers: []types.MCPHeader{
+						{Name: "WORKSPACE", Key: "WORKSPACE", Required: true},
+					},
+				},
+			},
+		},
+	}
+
+	changed := syncConnectServerRemoteConfigFromCatalogEntry(&server, entry)
+	assert.True(t, changed)
+	require.NotNil(t, server.Spec.Manifest.RemoteConfig)
+	assert.True(t, server.Spec.NeedsURL)
+	assert.True(t, server.Spec.Manifest.RemoteConfig.IsTemplate)
+	assert.Equal(t, template, server.Spec.Manifest.RemoteConfig.URLTemplate)
+	assert.Equal(t, entry.Spec.Manifest.RemoteConfig.Headers, server.Spec.Manifest.RemoteConfig.Headers)
+}
+
+func TestSyncConnectServerRemoteConfigFromCatalogEntryHostname(t *testing.T) {
+	server := v1.MCPServer{
+		Spec: v1.MCPServerSpec{
+			Manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					URL: "https://old.example.com/mcp",
+				},
+			},
+		},
+	}
+	entry := v1.MCPServerCatalogEntry{
+		Spec: v1.MCPServerCatalogEntrySpec{
+			Manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteCatalogConfig{
+					Hostname: "api.example.com",
+				},
+			},
+		},
+	}
+
+	changed := syncConnectServerRemoteConfigFromCatalogEntry(&server, entry)
+	assert.True(t, changed)
+	require.NotNil(t, server.Spec.Manifest.RemoteConfig)
+	assert.True(t, server.Spec.NeedsURL)
+	assert.Equal(t, "https://old.example.com/mcp", server.Spec.PreviousURL)
+	assert.Empty(t, server.Spec.Manifest.RemoteConfig.URL)
+	assert.Equal(t, "api.example.com", server.Spec.Manifest.RemoteConfig.Hostname)
+}
+
 func TestEntryManifestNeedsUserConfig(t *testing.T) {
 	const ns = "obot-ns"
 

@@ -5,7 +5,7 @@
 	import { responsive } from '$lib/stores';
 	import { darkMode } from '$lib/stores';
 	import { goto } from '$lib/url';
-	import { MenuIcon } from 'lucide-svelte';
+	import { MenuIcon } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 

@@ -23,6 +23,12 @@
 	}
 
 	let navCollapsedCache = readNavCollapsedFromStorage();
+
+	type SidebarPane = 'default' | 'advanced';
+	const sidebarScrollTopCache: Record<SidebarPane, number | null> = {
+		default: null,
+		advanced: null
+	};
 </script>
 
 <script lang="ts">
@@ -39,10 +45,19 @@
 	} from '$lib/context/layout.svelte';
 	import Bots from '$lib/icons/Bots.svelte';
 	import LogoIcon from '$lib/icons/LogoIcon.svelte';
+	import { localState } from '$lib/runes/localState.svelte';
 	import { Group } from '$lib/services';
-	import { accessibleModels, defaultModelAliases, profile, responsive, version } from '$lib/stores';
+	import {
+		accessibleModels,
+		defaultModelAliases,
+		profile,
+		responsive,
+		version,
+		appNotification as appNotificationStore
+	} from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
 	import { isAgentEnabled } from '$lib/utils';
+	import AppNotificationBanner from './AppNotificationBanner.svelte';
 	import InfoTooltip from './InfoTooltip.svelte';
 	import Tour from './Tour.svelte';
 	import ConfigureBanner from './admin/ConfigureBanner.svelte';
@@ -57,7 +72,6 @@
 		ChevronDown,
 		ChevronLeft,
 		ChevronUp,
-		Palette,
 		RadioTower,
 		Server,
 		Users,
@@ -70,12 +84,12 @@
 		Notebook,
 		Laptop,
 		PanelLeftOpen,
-		KeySquare,
 		Settings,
 		PanelLeftClose,
-		Brain
-	} from 'lucide-svelte';
-	import { type Component, type Snippet, untrack } from 'svelte';
+		Brain,
+		LayoutGrid
+	} from '@lucide/svelte';
+	import { type Component, type Snippet, tick, untrack } from 'svelte';
 	import { fade, slide, type TransitionConfig } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
@@ -192,7 +206,24 @@
 		alwaysShowHeaderTitle
 	}: Props = $props();
 	let nav = $state<HTMLDivElement>();
+	let sidebarScroll = $state<HTMLDivElement>();
 	let pathname = $derived(page.url.pathname);
+
+	function saveSidebarScroll() {
+		if (!sidebarScroll) return;
+		const pane: SidebarPane = showAdvancedPane ? 'advanced' : 'default';
+		sidebarScrollTopCache[pane] = sidebarScroll.scrollTop;
+	}
+
+	async function restoreSidebarScroll() {
+		await tick();
+		if (!sidebarScroll) return;
+		const pane: SidebarPane = showAdvancedPane ? 'advanced' : 'default';
+		const scrollTop = sidebarScrollTopCache[pane];
+		if (scrollTop !== null) {
+			sidebarScroll.scrollTop = scrollTop;
+		}
+	}
 
 	// Whether the Obot Agent feature is enabled server-side. When false, agent entry
 	// points are removed entirely (not just disabled). When the feature is enabled but
@@ -517,20 +548,33 @@
 					},
 					...agentManagementLinks,
 					{
-						id: 'app-preferences',
-						href: '/admin/app-preferences',
-						icon: Palette,
-						label: 'Branding',
-						disabled: false,
-						collapsible: false
-					},
-					{
-						id: 'license',
-						href: '/admin/license',
-						icon: KeySquare,
-						label: 'License',
-						disabled: false,
-						collapsible: false
+						id: 'app-management',
+						icon: LayoutGrid,
+						label: 'App Management',
+						collapsible: true,
+						items: [
+							{
+								id: 'license',
+								href: '/admin/license',
+								label: 'License',
+								disabled: false,
+								collapsible: false
+							},
+							{
+								id: 'branding',
+								href: '/admin/branding',
+								label: 'Branding',
+								disabled: false,
+								collapsible: false
+							},
+							{
+								id: 'app-notification',
+								href: '/admin/app-notification',
+								label: 'App Notification',
+								disabled: false,
+								collapsible: false
+							}
+						]
 					}
 				]
 			: [
@@ -588,28 +632,30 @@
 		}
 	});
 
-	afterNavigate(({ to }) => {
-		if (!to || managementLinks.length === 0) return;
-
-		if (!isAdvancedPaneRoute(to.url.pathname)) {
-			showAdvancedPane = false;
-			return;
+	afterNavigate(async ({ to }) => {
+		if (to && managementLinks.length > 0) {
+			if (!isAdvancedPaneRoute(to.url.pathname)) {
+				showAdvancedPane = false;
+			} else {
+				showAdvancedPane = true;
+				const currentPath = to.url.pathname;
+				const parentNavLink = managementLinks.find((link) =>
+					link.items?.find(
+						(item) =>
+							item.href && (currentPath === item.href || currentPath.startsWith(`${item.href}/`))
+					)
+				);
+				if (parentNavLink && isNavCollapsed(parentNavLink.id)) {
+					toggleNavCollapsed(parentNavLink.id);
+				}
+			}
 		}
 
-		showAdvancedPane = true;
-		const currentPath = to.url.pathname;
-		const parentNavLink = managementLinks.find((link) =>
-			link.items?.find(
-				(item) =>
-					item.href && (currentPath === item.href || currentPath.startsWith(`${item.href}/`))
-			)
-		);
-		if (parentNavLink && isNavCollapsed(parentNavLink.id)) {
-			toggleNavCollapsed(parentNavLink.id);
-		}
+		await restoreSidebarScroll();
 	});
 
 	const isAdminRoute = $derived(pathname.includes('/admin'));
+	const isAgentRoute = $derived(pathname === '/agent' || pathname.startsWith('/agent/'));
 	const excludeConfigureBanner = ['/admin/model-providers', '/admin/auth-providers'];
 	$effect(() => {
 		const isAdminOrBootstrapUser =
@@ -622,6 +668,56 @@
 
 	untrack(() => (layoutContext?.initLayout ?? defaultInitLayout)());
 	const layout = untrack(() => (layoutContext?.getLayout ?? defaultGetLayout)());
+
+	type BannerDismissState = {
+		dismissedAt?: string;
+	};
+
+	let bannerDismissed = localState<BannerDismissState | undefined>('@obot/banner', undefined, {
+		parse: (ls) => {
+			if (!ls) return undefined;
+			try {
+				const parsed = JSON.parse(ls) as string | BannerDismissState;
+				if (typeof parsed === 'string') {
+					return { dismissedAt: parsed } satisfies BannerDismissState;
+				} else if (parsed && typeof parsed === 'object') {
+					return {
+						dismissedAt: typeof parsed.dismissedAt === 'string' ? parsed.dismissedAt : undefined
+					} satisfies BannerDismissState;
+				} else return undefined;
+			} catch (_err) {
+				return undefined;
+			}
+		}
+	});
+
+	function handleDismissBanner() {
+		bannerDismissed.current = {
+			dismissedAt: new Date().toISOString()
+		} satisfies BannerDismissState;
+	}
+
+	let showAppNotificationBanner = $derived.by(() => {
+		if (isAgentRoute) return false;
+
+		const appNotification = appNotificationStore.current;
+		if (!appNotification?.banner?.enabled) return false;
+		if (!appNotification.banner.dismissible) return true; // enabled & not dismissible, always show
+		if (!bannerDismissed.isReady) return false;
+
+		const dismissedAt = bannerDismissed.current?.dismissedAt;
+		const dismissedDate = dismissedAt ? new Date(dismissedAt) : undefined;
+		const hasValidDismissedAt =
+			dismissedDate !== undefined && !Number.isNaN(dismissedDate.getTime());
+		const wasBannerUpdatedAfterDismissal =
+			appNotification?.updated &&
+			hasValidDismissedAt &&
+			dismissedDate <= new Date(appNotification.updated);
+		return !!(
+			!hasValidDismissedAt ||
+			(wasBannerUpdatedAfterDismissal && appNotification.banner.resetDismissed)
+		);
+	});
 </script>
 
 <div class="flex min-h-dvh flex-col items-center">
@@ -642,6 +738,7 @@
 				</div>
 
 				<div
+					bind:this={sidebarScroll}
 					class={twMerge(
 						'text-md scrollbar-default-thin flex max-h-[calc(100vh-64px)] grow flex-col gap-8 overflow-y-auto pr-3 pl-2 font-medium',
 						classes?.sidebar
@@ -711,6 +808,11 @@
 					{@render banner()}
 				{:else if (version.current.licenseEntitlementViolations?.length ?? 0) > 0}
 					<LicenseViolationBanner />
+				{:else if showAppNotificationBanner}
+					<AppNotificationBanner
+						data={appNotificationStore.current?.banner}
+						onDismiss={handleDismissBanner}
+					/>
 				{/if}
 				<Navbar class={twMerge('dark:bg-base-100', classes?.navbar)} {hideProfileButton}>
 					{#snippet leftContent()}
@@ -873,6 +975,7 @@
 				<a
 					href={resolve(link.href as `/${string}`)}
 					class={twMerge('sidebar-link', isActive && 'bg-base-300')}
+					onclick={saveSidebarScroll}
 				>
 					{#if link.icon}
 						<link.icon class="size-5" />
@@ -942,6 +1045,7 @@
 								<a
 									href={resolve(item.href as `/${string}`)}
 									class={twMerge('sidebar-link', isActive && 'bg-base-300')}
+									onclick={saveSidebarScroll}
 								>
 									{#if item.icon}
 										<item.icon class="size-4" />

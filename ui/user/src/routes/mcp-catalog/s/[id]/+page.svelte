@@ -8,7 +8,7 @@
 	import { getMCPDisplayName } from '$lib/services/user/mcp';
 	import { profile } from '$lib/stores';
 	import McpConnectUrlDialog from '../../McpConnectUrlDialog.svelte';
-	import { Link2Icon } from 'lucide-svelte';
+	import { Link2Icon } from '@lucide/svelte';
 	import type { Component } from 'svelte';
 	import { fly } from 'svelte/transition';
 

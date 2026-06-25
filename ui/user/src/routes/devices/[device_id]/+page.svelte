@@ -20,7 +20,7 @@
 	import { formatTimeAgo } from '$lib/time';
 	import { goto } from '$lib/url';
 	import { openUrl } from '$lib/utils';
-	import { Boxes, Cpu, Ellipsis, MonitorCheck, PencilRuler, Scale, Server } from 'lucide-svelte';
+	import { Boxes, Cpu, Ellipsis, MonitorCheck, PencilRuler, Scale, Server } from '@lucide/svelte';
 	import { fly } from 'svelte/transition';
 
 	type Tab = 'mcp' | 'skills' | 'plugins' | 'clients';

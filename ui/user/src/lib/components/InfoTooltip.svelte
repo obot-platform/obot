@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { tooltip, type TooltipOptions } from '$lib/actions/tooltip.svelte';
 	import type { Placement } from '@floating-ui/dom';
-	import { CircleHelpIcon, CircleQuestionMark } from 'lucide-svelte';
+	import { CircleHelpIcon, CircleQuestionMark } from '@lucide/svelte';
 	import type { Component, Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -56,6 +56,6 @@
 	});
 </script>
 
-<div class={twMerge('size-3', klass)} use:tooltip={tooltipOpts}>
+<span class={twMerge('inline-flex size-3', klass)} use:tooltip={tooltipOpts}>
 	<Icon class={twMerge('text-gray size-3', classes?.icon)} />
-</div>
+</span>

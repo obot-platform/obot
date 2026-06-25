@@ -29,7 +29,7 @@ const (
 	// EnterpriseModelProvidersEntitlement is required to enable enterprise model providers.
 	EnterpriseModelProvidersEntitlement = "OBOT_ENTERPRISE_MODEL_PROVIDERS"
 
-	defaultPollInterval = time.Hour
+	defaultPollInterval = 24 * time.Hour
 	keygenProduct       = "18a762f2-5281-45cf-93fc-e45e2d932094"
 	keygenAccount       = "7565373b-6069-4a0b-9495-9777d9db3fd9"
 )
@@ -95,6 +95,10 @@ func NewProvider(ctx context.Context, gatewayClient *client.Client, config Confi
 		log.Infof("license provider is not configured, license key is empty")
 	}
 
+	if k.entitlements != nil {
+		log.Infof("license provider initialized with entitlements: %v", k.entitlements)
+	}
+
 	go k.poll(ctx)
 
 	return k, nil
@@ -131,6 +135,10 @@ func (p *Provider) SetLicenseKey(ctx context.Context, licenseKey string) error {
 		return ErrLicenseKeyViaConfiguration
 	}
 	return p.setLicenseKey(ctx, licenseKey, false, false)
+}
+
+func (p *Provider) Validate(ctx context.Context) error {
+	return p.update(ctx)
 }
 
 func (p *Provider) setLicenseKey(ctx context.Context, licenseKey string, viaConfiguration, allowInvalid bool) error {
@@ -192,8 +200,7 @@ func (p *Provider) RemoveLicenseKey(ctx context.Context) error {
 	keygen.LicenseKey = ""
 	p.lock.Unlock()
 
-	p.update(ctx)
-	return nil
+	return p.update(ctx)
 }
 
 func (p *Provider) validate(ctx context.Context) (map[keygen.EntitlementCode]struct{}, error) {
@@ -206,7 +213,7 @@ func (p *Provider) validate(ctx context.Context) (map[keygen.EntitlementCode]str
 
 	lic, err := keygen.Validate(ctx, p.machineFingerprint)
 	if err != nil {
-		if lic != nil && lic.LastValidation != nil && lic.LastValidation.Code == keygen.ValidationCodeNoMachine || errors.Is(err, keygen.ErrLicenseNotActivated) {
+		if lic != nil && lic.LastValidation != nil && errors.Is(err, keygen.ErrLicenseNotActivated) {
 			if _, activationErr := lic.Activate(ctx, p.machineFingerprint); activationErr != nil && !errors.Is(activationErr, keygen.ErrMachineAlreadyActivated) {
 				log.Warnf("license activation failed: %v", activationErr)
 				return nil, nil
@@ -275,12 +282,20 @@ func (p *Provider) poll(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			p.update(ctx)
+			if err := p.update(ctx); err != nil {
+				log.Warnf("license update failed: %v", err)
+			} else {
+				p.lock.RLock()
+				entitlements := p.entitlements
+				p.lock.RUnlock()
+
+				log.Infof("license updated successfully with entitlements: %v", entitlements)
+			}
 		}
 	}
 }
 
-func (p *Provider) update(ctx context.Context) {
+func (p *Provider) update(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 
@@ -302,10 +317,11 @@ func (p *Provider) update(ctx context.Context) {
 
 	if err != nil || !hasLicenseKey {
 		p.entitlements = nil
-		return
+		return err
 	}
 
 	p.entitlements = entitlements
+	return nil
 }
 
 func validateConfig() error {

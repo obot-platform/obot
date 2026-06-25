@@ -1,6 +1,7 @@
 package mcpgateway
 
 import (
+	"errors"
 	"fmt"
 	"maps"
 	"net/http"
@@ -26,6 +27,8 @@ type Handler struct {
 	transport         http.RoundTripper
 }
 
+var errMCPServerRequiresConfiguration = errors.New("mcp server requires configuration")
+
 func NewHandler(mcpSessionManager *mcp.SessionManager) *Handler {
 	return &Handler{
 		mcpSessionManager: mcpSessionManager,
@@ -36,6 +39,9 @@ func NewHandler(mcpSessionManager *mcp.SessionManager) *Handler {
 func (h *Handler) Proxy(req api.Context) error {
 	serverConfig, mcpURL, allowDifferentPaths, err := h.ensureServerIsDeployed(req)
 	if err != nil {
+		if errors.Is(err, errMCPServerRequiresConfiguration) {
+			return nil
+		}
 		return fmt.Errorf("failed to ensure server is deployed: %v", err)
 	}
 
@@ -96,12 +102,17 @@ func (h *Handler) ensureServerIsDeployed(req api.Context) (mcp.ServerConfig, str
 		return h.ensureSystemServerIsDeployed(req, mcpID)
 	}
 
-	mcpID, mcpServer, mcpServerConfig, err := handlers.ServerForActionWithConnectID(req, mcpID)
+	connectID := mcpID
+	mcpID, mcpServer, mcpServerConfig, missingConfig, err := handlers.ServerForActionWithConnectIDAllowMissingConfig(req, mcpID)
 	if err != nil {
 		return mcp.ServerConfig{}, "", false, fmt.Errorf("failed to get mcp server config: %w", err)
 	}
 	if mcpServer.Spec.Template {
 		return mcp.ServerConfig{}, "", false, apierrors.NewNotFound(schema.GroupResource{Group: "obot.obot.ai", Resource: "mcpserver"}, mcpID)
+	}
+	if len(missingConfig) > 0 {
+		writeMCPAuthRequired(req, connectID)
+		return mcp.ServerConfig{}, "", false, errMCPServerRequiresConfiguration
 	}
 
 	// Add-hoc authorization for nanobot agents
@@ -121,6 +132,12 @@ func (h *Handler) ensureServerIsDeployed(req api.Context) (mcp.ServerConfig, str
 	}
 
 	return mcpServerConfig, url, mcpServerConfig.NanobotAgentName != "", nil
+}
+
+func writeMCPAuthRequired(req api.Context, mcpID string) {
+	baseURL := strings.TrimSuffix(req.APIBaseURL, "/api")
+	req.ResponseWriter.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="Obot MCP Gateway", resource_metadata="%s/.well-known/oauth-protected-resource/mcp-connect/%s"`, baseURL, url.PathEscape(mcpID)))
+	http.Error(req.ResponseWriter, "MCP server requires configuration", http.StatusUnauthorized)
 }
 
 func (h *Handler) ensureSystemServerIsDeployed(req api.Context, mcpID string) (mcp.ServerConfig, string, bool, error) {

@@ -12,7 +12,7 @@
 	import { openUrl } from '$lib/utils';
 	import IconButton from '../primitives/IconButton.svelte';
 	import Table from '../table/Table.svelte';
-	import { CircleAlert, ChevronRight, Server } from 'lucide-svelte';
+	import { CircleAlert, ChevronRight, Server } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 

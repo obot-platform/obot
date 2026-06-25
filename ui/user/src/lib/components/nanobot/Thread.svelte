@@ -21,7 +21,7 @@
 	import AgentHeader from './AgentHeader.svelte';
 	import MessageInput from './MessageInput.svelte';
 	import Messages from './Messages.svelte';
-	import { ChevronDown, Upload } from 'lucide-svelte';
+	import { ChevronDown, Upload } from '@lucide/svelte';
 	import { untrack, type Snippet } from 'svelte';
 	import { slide, fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';

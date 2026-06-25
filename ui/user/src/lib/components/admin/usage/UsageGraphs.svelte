@@ -24,8 +24,8 @@
 		transformTopServerUsage,
 		transformTopToolCalls
 	} from './utils';
+	import { ChevronsLeft, ChevronsRight, Funnel, ChartBarDecreasing, X } from '@lucide/svelte';
 	import { endOfDay, isBefore, set, subDays } from 'date-fns';
-	import { ChevronsLeft, ChevronsRight, Funnel, ChartBarDecreasing, X } from 'lucide-svelte';
 	import { flip } from 'svelte/animate';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { fade, slide } from 'svelte/transition';

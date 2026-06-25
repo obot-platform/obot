@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Loading from '$lib/icons/Loading.svelte';
-	import { Circle, CircleCheckBig, CircleX } from 'lucide-svelte';
+	import { Circle, CircleCheckBig, CircleX } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 

@@ -25,6 +25,7 @@ import {
 	type PaginatedResponse
 } from '../http';
 import {
+	type AppNotification,
 	type AppPreferences,
 	type AuditLog,
 	type AuditLogURLFilters,
@@ -674,6 +675,10 @@ export async function getVersion(opts?: { fetch?: Fetcher }): Promise<Version> {
 	return version;
 }
 
+export async function getAppNotification(opts?: { fetch?: Fetcher }): Promise<AppNotification> {
+	return (await doGet('/app-notification', opts)) as AppNotification;
+}
+
 export async function getK8sResourceDefaults(opts?: {
 	fetch?: Fetcher;
 	signal?: AbortSignal;
@@ -977,11 +982,18 @@ export type OAuthConsent = {
 	continueURL: string;
 	cancelURL: string;
 	clientName: string;
+	clientCredentialSource:
+		| 'client_id_metadata_document'
+		| 'dynamic_client'
+		| 'static_client_credentials';
 	clientURI?: string;
 	redirectURI: string;
 	scope?: string;
 	policyURI?: string;
 	tosURI?: string;
+	mcpConfigRequired: boolean;
+	mcpServer?: MCPCatalogServer;
+	mcpServerInstance?: MCPServerInstance;
 	mcpAuthRequired: boolean;
 	userHasSecondLevelOAuthed: boolean;
 	mcpServerName?: string;

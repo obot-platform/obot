@@ -11,7 +11,7 @@
 	} from '$lib/services/api-keys/types';
 	import { compileAvailableMcpServers, getMCPDisplayName } from '$lib/services/user/mcp';
 	import { mcpServersAndEntries } from '$lib/stores';
-	import { Check, Server } from 'lucide-svelte';
+	import { Check, Server } from '@lucide/svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { fly } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';

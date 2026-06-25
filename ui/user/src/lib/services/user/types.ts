@@ -42,6 +42,20 @@ export interface AccessControlRule extends Omit<AccessControlRuleManifest, 'id'>
 	powerUserWorkspaceID?: string;
 }
 
+// App notifications
+
+export type BannerType = 'info' | 'warning';
+export interface AppNotification {
+	banner?: {
+		dismissible?: boolean;
+		type?: BannerType;
+		enabled?: boolean;
+		text?: string;
+		resetDismissed?: boolean;
+	};
+	updated?: string;
+}
+
 // App preferences
 
 export interface AppPreferences {
@@ -410,6 +424,7 @@ export interface OAuthMetadata {
 	authorizationServerMetadata?: Record<string, unknown>;
 	clientRegistration?: Record<string, unknown>;
 	dynamicClientRegistration?: boolean;
+	clientIdMetadataDocumentSupported?: boolean;
 }
 export interface MCPServerInstance {
 	id: string;
@@ -483,11 +498,14 @@ export interface RemoteRuntimeConfig {
 	url: string;
 	headers?: MCPSubField[];
 	fixedURL?: string;
+	hostname?: string;
 	isTemplate?: boolean;
+	urlTemplate?: string;
 }
 export interface RemoteCatalogConfig {
 	fixedURL?: string;
 	hostname?: string;
+	urlTemplate?: string;
 	headers?: MCPSubField[];
 }
 export type ResourceRuntimeConfig = MCPResourceRequirements;

@@ -4,6 +4,7 @@
 	import { formatLogTimestamp } from '$lib/time';
 	import IconButton from '../primitives/IconButton.svelte';
 	import { autoUpdate, computePosition, flip, offset } from '@floating-ui/dom';
+	import { Ellipsis } from '@lucide/svelte';
 	import {
 		scaleBand,
 		scaleLinear,
@@ -45,7 +46,6 @@
 		type Duration,
 		getDay
 	} from 'date-fns';
-	import { Ellipsis } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { fade } from 'svelte/transition';

@@ -17,7 +17,7 @@
 		LayoutList,
 		FolderTree,
 		ChevronUp
-	} from 'lucide-svelte';
+	} from '@lucide/svelte';
 	import { getContext } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 

@@ -25,7 +25,7 @@ This model provides maximum isolation and is ideal when:
 
 Keep in mind the gateway will deploy these servers in their own environment on a hosted platform. MCP servers that expect local access to the users filesystem, run local executables, or write output to the local disk will not work as expected.
 
-By default, Obot also blocks MCP servers from connecting to `localhost` addresses, private IP addresses, or link-local addresses. Administrators can opt out with `OBOT_SERVER_DISALLOW_LOCALHOST_MCP=false`, `OBOT_SERVER_DISALLOW_PRIVATE_IP_MCP=false`, or `OBOT_SERVER_DISALLOW_LINK_LOCAL_MCP=false`, but should only do so when the server is expected to reach services inside the Obot runtime environment.
+By default, Obot also blocks MCP servers from connecting to `localhost` addresses, private IP addresses, or link-local addresses. Administrators can opt out with `OBOT_SERVER_DISALLOW_LOCALHOST_MCP=false`, `OBOT_SERVER_DISALLOW_PRIVATE_IPMCP=false`, or `OBOT_SERVER_DISALLOW_LINK_LOCAL_MCP=false`, but should only do so when the server is expected to reach services inside the Obot runtime environment.
 
 **Configuration**: Define parameters that users must provide when enabling the server (e.g., API keys). For each parameter, specify a user-friendly name, description, environment variable name, and whether it's required or sensitive. Values are passed as environment variables to the server process.
 

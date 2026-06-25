@@ -106,6 +106,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	// License
 	mux.HandleFunc("GET /api/license", licenseHandler.Get)
 	mux.HandleFunc("PUT /api/license", licenseHandler.Update)
+	mux.HandleFunc("POST /api/license", licenseHandler.CheckLicense)
 	mux.HandleFunc("DELETE /api/license", licenseHandler.Delete)
 
 	// MCP Catalog Entries (user routes to access single-user and remote MCP servers from all sources)
@@ -436,6 +437,11 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	appPrefsHandler := handlers.NewAppPreferencesHandler()
 	mux.HandleFunc("GET /api/app-preferences", appPrefsHandler.Get)
 	mux.HandleFunc("PUT /api/app-preferences", appPrefsHandler.Update)
+
+	// App Notification
+	appNotificationHandler := handlers.NewAppNotificationHandler()
+	mux.HandleFunc("GET /api/app-notification", appNotificationHandler.Get)
+	mux.HandleFunc("PUT /api/app-notification", appNotificationHandler.Update)
 
 	// Debug
 	mux.HTTPHandle("GET /debug/pprof/", http.DefaultServeMux)

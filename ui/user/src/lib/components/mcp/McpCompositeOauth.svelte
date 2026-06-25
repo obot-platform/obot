@@ -3,7 +3,7 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import { UserService, type MCPCatalogServer } from '$lib/services';
 	import { getMCPDisplayName } from '$lib/services/user/mcp';
-	import { Server } from 'lucide-svelte';
+	import { Server } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 
 	interface Props {

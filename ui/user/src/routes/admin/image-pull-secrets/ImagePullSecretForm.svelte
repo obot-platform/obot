@@ -16,7 +16,7 @@
 		ecrTrustPolicyJSON,
 		type ImagePullSecretFormState
 	} from './types';
-	import { ChevronDown, CircleCheck, Info, LoaderCircle, RefreshCw } from 'lucide-svelte';
+	import { ChevronDown, CircleCheck, Info, LoaderCircle, RefreshCw } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {

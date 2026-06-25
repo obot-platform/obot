@@ -3,7 +3,7 @@
 	import { mcpServersAndEntries, userDeviceSettings } from '$lib/stores';
 	import { formatLogTimestamp } from '$lib/time';
 	import { throttle } from '$lib/utils';
-	import { GripVertical } from 'lucide-svelte';
+	import { GripVertical } from '@lucide/svelte';
 	import { tick } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 

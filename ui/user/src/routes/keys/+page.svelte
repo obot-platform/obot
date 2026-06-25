@@ -13,7 +13,7 @@
 	import { openUrl } from '$lib/utils';
 	import ApiKeyRevealDialog from './ApiKeyRevealDialog.svelte';
 	import CreateApiKeyForm from './CreateApiKeyForm.svelte';
-	import { Info, KeyRound, Plus, Trash2 } from 'lucide-svelte';
+	import { Info, KeyRound, Plus, Trash2 } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
 

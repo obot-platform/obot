@@ -7,7 +7,7 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService } from '$lib/services';
 	import type { StorageCredentials } from '$lib/services/admin/types';
-	import { TriangleAlert, Trash } from 'lucide-svelte';
+	import { TriangleAlert, Trash } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 

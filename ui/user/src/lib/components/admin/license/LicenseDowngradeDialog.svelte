@@ -9,7 +9,7 @@
 	} from '$lib/services';
 	import { version, darkMode } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
-	import { Mail } from 'lucide-svelte';
+	import { Mail } from '@lucide/svelte';
 	import { slide } from 'svelte/transition';
 
 	let licenseViolationDialog = $state<ReturnType<typeof ResponsiveDialog>>();

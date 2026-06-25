@@ -7,7 +7,7 @@
 		type MCPCatalogEntry,
 		type MCPCatalogServer
 	} from '$lib/services';
-	import { Info } from 'lucide-svelte';
+	import { Info } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 
 	interface Props {

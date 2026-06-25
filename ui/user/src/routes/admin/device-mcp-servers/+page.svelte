@@ -15,7 +15,7 @@
 		setSortUrlParams
 	} from '$lib/url';
 	import { openUrl } from '$lib/utils';
-	import { Server } from 'lucide-svelte';
+	import { Server } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
 

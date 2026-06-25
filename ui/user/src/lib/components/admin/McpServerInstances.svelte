@@ -11,7 +11,7 @@
 	import { profile } from '$lib/stores';
 	import DeploymentsView from '../mcp/DeploymentsView.svelte';
 	import McpServerK8sInfo from './McpServerK8sInfo.svelte';
-	import { CircleFadingArrowUp, Router } from 'lucide-svelte';
+	import { CircleFadingArrowUp, Router } from '@lucide/svelte';
 
 	interface Props {
 		id?: string;

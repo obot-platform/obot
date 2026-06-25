@@ -5,7 +5,7 @@
 	import { userDeviceSettings } from '$lib/stores';
 	import { formatTime } from '$lib/time.js';
 	import { displayName, statusLabel, statusMessage } from './types';
-	import { CircleAlert, Clock, History, LoaderCircle, Server } from 'lucide-svelte';
+	import { CircleAlert, Clock, History, LoaderCircle, Server } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {

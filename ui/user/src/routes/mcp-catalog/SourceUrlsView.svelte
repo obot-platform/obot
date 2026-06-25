@@ -5,7 +5,7 @@
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { AdminService, type MCPCatalog } from '$lib/services';
-	import { TriangleAlert, Link2, Pencil, Trash2 } from 'lucide-svelte';
+	import { TriangleAlert, Link2, Pencil, Trash2 } from '@lucide/svelte';
 
 	interface Props {
 		catalog?: MCPCatalog;

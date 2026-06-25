@@ -9,7 +9,7 @@
 		Search,
 		TriangleAlert,
 		X
-	} from 'lucide-svelte';
+	} from '@lucide/svelte';
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 

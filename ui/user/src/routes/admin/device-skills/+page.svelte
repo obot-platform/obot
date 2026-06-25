@@ -10,8 +10,8 @@
 	import { getTableUrlParamsSort, replaceState, setSortUrlParams } from '$lib/url';
 	import { getSortParams, openUrl } from '$lib/utils';
 	import { PAGE_SIZE as DEFAULT_PAGE_SIZE, defaultSort, sortFields } from './constants';
+	import { PencilRuler } from '@lucide/svelte';
 	import { debounce } from 'es-toolkit';
-	import { PencilRuler } from 'lucide-svelte';
 	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
 

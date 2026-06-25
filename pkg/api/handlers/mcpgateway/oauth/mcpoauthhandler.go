@@ -105,15 +105,20 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 
 	go func() {
 		defer close(errChan)
+		httpClientOptions := nmcp.HTTPClientOptions{
+			OAuthRedirectURL: system.MCPOAuthCallbackURL(f.baseURL),
+			OAuthClientName:  "Obot MCP Gateway",
+			CallbackHandler:  oauthHandler,
+			ClientCredLookup: oauthHandler,
+			TokenStorage:     f.tokenStore.ForUserAndMCP(oauthHandler.userID, oauthHandler.mcpID),
+		}
+		if strings.HasPrefix(f.baseURL, "https://") {
+			httpClientOptions.OAuthClientIDMetadataDocument = system.OAuthClientIDMetadataURL(f.baseURL)
+		}
+
 		_, err := f.mcpSessionManager.ClientForMCPServerForOAuthCheck(req.Context(), "Obot OAuth Check", mcpServerConfig, nmcp.ClientOption{
-			ClientName: "Obot MCP OAuth",
-			HTTPClientOptions: nmcp.HTTPClientOptions{
-				OAuthRedirectURL: system.MCPOAuthCallbackURL(f.baseURL),
-				OAuthClientName:  "Obot MCP Gateway",
-				CallbackHandler:  oauthHandler,
-				ClientCredLookup: oauthHandler,
-				TokenStorage:     f.tokenStore.ForUserAndMCP(oauthHandler.userID, oauthHandler.mcpID),
-			},
+			ClientName:        "Obot MCP OAuth",
+			HTTPClientOptions: httpClientOptions,
 		})
 		if err != nil {
 			errChan <- fmt.Errorf("failed to get client for server %s: %v", mcpServer.Name, err)

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { profile } from '$lib/stores';
-	import { HatGlasses, ShieldUser } from 'lucide-svelte';
+	import { HatGlasses, ShieldUser } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {

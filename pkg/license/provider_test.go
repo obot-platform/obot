@@ -214,7 +214,9 @@ func TestUpdateRefreshesEntitlements(t *testing.T) {
 	}
 
 	entitlement = "OTHER_ENTITLEMENT"
-	provider.update(ctx)
+	if err := provider.update(ctx); err != nil {
+		t.Fatalf("expected provider update to succeed: %v", err)
+	}
 
 	if provider.hasEntitlement(EnterpriseAuthProvidersEntitlement) {
 		t.Fatal("expected old entitlement to be removed")
@@ -260,7 +262,9 @@ func TestUpdateClearsEntitlementsWhenLicenseInvalid(t *testing.T) {
 	}
 
 	invalid = true
-	provider.update(ctx)
+	if err := provider.update(ctx); err != nil {
+		t.Fatalf("expected provider update to succeed: %v", err)
+	}
 
 	if provider.HasValidLicense() {
 		t.Fatal("expected license to be marked invalid")

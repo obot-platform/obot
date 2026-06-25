@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { popover } from '$lib/actions';
 	import type { Placement } from '@floating-ui/dom';
-	import { RotateCw } from 'lucide-svelte';
+	import { RotateCw } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 

@@ -44,7 +44,7 @@
 		Trash2,
 		Unplug,
 		Bug
-	} from 'lucide-svelte';
+	} from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	type ServerSelectMode =

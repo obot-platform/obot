@@ -27,9 +27,9 @@
 	import AuditLogCalendar from './AuditLogCalendar.svelte';
 	import AuditLogsTable from './AuditLogs.svelte';
 	import { aggregateAuditLogsByBucket, type AuditLogTimelineBucketRow } from './timelineUtils';
+	import { X, ChevronLeft, ChevronRight, Funnel, Captions, Plus, Settings } from '@lucide/svelte';
 	import { set, endOfDay, isBefore, subDays } from 'date-fns';
 	import { debounce } from 'es-toolkit';
-	import { X, ChevronLeft, ChevronRight, Funnel, Captions, Plus, Settings } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
 	import { flip } from 'svelte/animate';
 	import { SvelteMap } from 'svelte/reactivity';

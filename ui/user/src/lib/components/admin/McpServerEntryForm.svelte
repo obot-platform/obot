@@ -62,7 +62,7 @@
 		Users,
 		Wrench,
 		ExternalLink
-	} from 'lucide-svelte';
+	} from '@lucide/svelte';
 	import { onMount, untrack } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 

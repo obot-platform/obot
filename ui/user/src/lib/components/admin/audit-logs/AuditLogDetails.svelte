@@ -4,7 +4,7 @@
 	import { Group, type AuditLog } from '$lib/services';
 	import { profile, userDeviceSettings } from '$lib/stores';
 	import { formatLogTimestamp } from '$lib/time';
-	import { X } from 'lucide-svelte';
+	import { X } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {

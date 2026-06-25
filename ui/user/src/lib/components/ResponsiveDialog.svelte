@@ -7,7 +7,7 @@
 	import { dialogAnimation } from '$lib/actions/dialogAnimation';
 	import { responsive } from '$lib/stores';
 	import IconButton from './primitives/IconButton.svelte';
-	import { ChevronRight, X } from 'lucide-svelte';
+	import { ChevronRight, X } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 

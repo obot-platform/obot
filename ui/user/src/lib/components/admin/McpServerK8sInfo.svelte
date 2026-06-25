@@ -22,7 +22,7 @@
 	import SensitiveInput from '../SensitiveInput.svelte';
 	import Table from '../table/Table.svelte';
 	import DeploymentLogs from './DeploymentLogs.svelte';
-	import { TriangleAlert, Info, RotateCcw, RefreshCw, CircleFadingArrowUp } from 'lucide-svelte';
+	import { TriangleAlert, Info, RotateCcw, RefreshCw, CircleFadingArrowUp } from '@lucide/svelte';
 	import { onDestroy, onMount } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 

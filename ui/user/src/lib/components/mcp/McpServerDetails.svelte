@@ -5,7 +5,7 @@
 	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 	import type { MCPCatalogEntry, MCPCatalogServer } from '$lib/services';
 	import { getMCPDisplayName } from '$lib/services/user/mcp';
-	import { Info } from 'lucide-svelte';
+	import { Info } from '@lucide/svelte';
 
 	interface Props {
 		catalogEntry?: MCPCatalogEntry;

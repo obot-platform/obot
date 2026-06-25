@@ -8,7 +8,7 @@
 	import { formatTimeAgo, formatTimeUntil } from '$lib/time';
 	import Confirm from '../Confirm.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
-	import { Server, Trash2 } from 'lucide-svelte';
+	import { Server, Trash2 } from '@lucide/svelte';
 	import { fly } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 

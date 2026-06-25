@@ -12,7 +12,7 @@
 	import { profile } from '$lib/stores/index.js';
 	import { goto, clearUrlParams } from '$lib/url';
 	import { openUrl } from '$lib/utils.js';
-	import { ShieldAlert, Plus, Trash2 } from 'lucide-svelte';
+	import { ShieldAlert, Plus, Trash2 } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
 

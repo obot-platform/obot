@@ -8,7 +8,7 @@
 	import { NanobotService, UserService, type OrgUser } from '$lib/services';
 	import { profile } from '$lib/stores';
 	import { getUserDisplayName } from '$lib/utils';
-	import { HatGlasses } from 'lucide-svelte';
+	import { HatGlasses } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 

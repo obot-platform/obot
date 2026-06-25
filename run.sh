@@ -23,10 +23,11 @@ if [ -z "$OBOT_SERVER_DSN" ]; then
 
   # Start PostgreSQL in the background
   echo "Starting PostgreSQL server..."
+
   /usr/bin/docker-entrypoint.sh postgres &
 
   check_postgres_active
-  export OBOT_SERVER_DSN="postgresql://obot:obot@localhost:5432/obot"
+  export OBOT_SERVER_DSN="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:5432/${POSTGRES_DB}"
 fi
 
 exec tini -- obot server

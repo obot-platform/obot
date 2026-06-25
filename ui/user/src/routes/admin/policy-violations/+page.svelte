@@ -20,9 +20,8 @@
 	import { responsive, userDeviceSettings } from '$lib/stores';
 	import { formatLogTimestamp } from '$lib/time';
 	import { getUserDisplayName } from '$lib/utils';
+	import { ShieldAlert, X } from '@lucide/svelte';
 	import { subDays, set } from 'date-fns';
-	import { ShieldAlert } from 'lucide-svelte';
-	import { X } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { fade } from 'svelte/transition';

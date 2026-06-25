@@ -212,7 +212,7 @@ func (h *NanobotAgentHandler) Launch(req api.Context) error {
 	// "missing required config: NANOBOT_ENV_FILE" error before the credential exists.
 	var serverConfig mcp.ServerConfig
 	for {
-		serverConfig, err = serverConfigForAction(req, *server)
+		serverConfig, _, err = serverConfigForAction(req, *server, false)
 		if err == nil {
 			break
 		}

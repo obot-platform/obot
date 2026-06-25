@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { navigating } from '$app/state';
 	import { errors, profile } from '$lib/stores';
-	import { CircleX, Copy } from 'lucide-svelte/icons';
-	import { X } from 'lucide-svelte/icons';
+	import { CircleX, Copy, X } from '@lucide/svelte';
 	import { fade } from 'svelte/transition';
 
 	let div: HTMLElement;

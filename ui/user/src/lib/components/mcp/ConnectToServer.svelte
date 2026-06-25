@@ -19,7 +19,7 @@
 	} from '$lib/services/user/mcp';
 	import { version } from '$lib/stores';
 	import Confirm from '../Confirm.svelte';
-	import CopyButton from '../CopyButton.svelte';
+	import CopyField from '../CopyField.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
 	import CatalogConfigureForm, {
@@ -27,7 +27,7 @@
 		type LaunchFormData
 	} from './CatalogConfigureForm.svelte';
 	import HowToConnect from './HowToConnect.svelte';
-	import { Server, X, CircleAlert } from 'lucide-svelte';
+	import { Server, X, CircleAlert } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -112,10 +112,13 @@
 			.filter(Boolean)
 			.map((name) => name.toLowerCase())
 	);
-	let copyButtonController = $state<ReturnType<typeof CopyButton>>();
+
+	let howToConnect = $state<ReturnType<typeof HowToConnect>>();
+	let connectionUrlField = $state<ReturnType<typeof CopyField>>();
 
 	function handleOnClose() {
-		copyButtonController?.clearButtonText();
+		howToConnect?.resetCopied();
+		connectionUrlField?.clear();
 		onClose?.();
 	}
 
@@ -887,7 +890,12 @@
 
 		if (server && instance && configureInstance && hasMultiUserInstanceConfiguration(server)) {
 			initMultiUserInstanceForm(server, instance);
-		} else if ((entry && server) || (server && instance)) {
+		} else if (
+			entry?.connectURL ||
+			server?.connectURL ||
+			(entry && server) ||
+			(server && instance)
+		) {
 			handleConnect(true);
 		} else {
 			showIntroDialog = true;
@@ -898,6 +906,13 @@
 		oauthDialog?.close();
 		oauthURL = '';
 		handleConnect();
+	}
+
+	function generateIdFromName(name: string) {
+		return name
+			.toLowerCase()
+			.replace(/ /g, '-')
+			.replace(/[^a-z0-9-_]/g, '');
 	}
 
 	onMount(() => {
@@ -926,34 +941,25 @@
 
 <ResponsiveDialog bind:this={connectDialog} animate="slide" onClose={handleOnClose}>
 	{#snippet titleContent()}
-		{@render dialogTitle(server)}
+		{@render dialogTitle(server || entry)}
 	{/snippet}
 
-	{#if server}
-		{@const url = instance ? instance.connectURL : server.connectURL}
-		<div class="flex items-center gap-4 md:p-0 p-4">
-			<div class="mb-4 flex grow flex-col gap-1">
-				<label for="connectURL" class="font-light">Connection URL</label>
-				<div class="mock-input-btn flex w-full items-center justify-between gap-2 shadow-inner">
-					<div class="relative flex h-5 flex-1 overflow-hidden">
-						<p class="absolute inset-0 truncate">
-							{url}
-						</p>
-					</div>
-					<CopyButton
-						bind:this={copyButtonController}
-						showTextLeft
-						text={url}
-						classes={{
-							button: 'shrink-0 flex items-center gap-1 text-xs font-light hover:text-blue-500'
-						}}
-					/>
-				</div>
-			</div>
-		</div>
-
+	{#if entry?.connectURL || server?.connectURL || instance?.connectURL}
+		{@const url = instance?.connectURL || server?.connectURL || entry?.connectURL}
 		{#if url}
-			<HowToConnect />
+			<div class="flex flex-col gap-1 md:p-0 pb-0 p-4">
+				<CopyField
+					bind:this={connectionUrlField}
+					value={url}
+					id="connectURL"
+					label="Connection URL"
+				/>
+			</div>
+			<HowToConnect
+				bind:this={howToConnect}
+				{url}
+				id={generateIdFromName(getMCPDisplayName(server, entry?.manifest?.name ?? ''))}
+			/>
 		{/if}
 	{/if}
 </ResponsiveDialog>

@@ -30,7 +30,7 @@
 </script>
 
 <script lang="ts" generics="T extends { id: string | number; label: string }">
-	import { ChevronDown, X, Check, SearchIcon } from 'lucide-svelte';
+	import { ChevronDown, X, Check, SearchIcon } from '@lucide/svelte';
 	import { tick, type Snippet } from 'svelte';
 	import { flip } from 'svelte/animate';
 	import { fade } from 'svelte/transition';

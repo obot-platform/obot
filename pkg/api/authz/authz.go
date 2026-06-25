@@ -46,6 +46,7 @@ var (
 		"GET /debug/triggers",
 		"GET /debug/metrics",
 		"PUT /api/license",
+		"POST /api/license",
 		"DELETE /api/license",
 		"/api/auth-providers",
 		"/api/auth-providers/",
@@ -104,6 +105,7 @@ var (
 		"GET /api/eula",
 		"PUT /api/eula",
 		"PUT /api/app-preferences",
+		"PUT /api/app-notification",
 
 		// Allow admins to upload custom images
 		"POST /api/image/upload",
@@ -207,6 +209,7 @@ var (
 			"POST /oauth/token/{mcp_id}",
 			"POST /oauth/token",
 			"GET /oauth/jwks.json",
+			"GET /oauth/client-metadata.json",
 
 			// Allow any user to read stored images.
 			// This allows the UI to display custom images to unauthenticated users.
@@ -218,14 +221,6 @@ var (
 			// API Key authentication webhook (called by nanobot shim)
 			// This endpoint validates the API key passed in the header
 			"POST /api/api-keys/auth",
-
-			// Since these are temporary and only the credstore token is allowed to access,
-			// then auth is handled in the handler.
-			"GET /api/credentials/tool.gpt",
-			"POST /api/credentials/store",
-			"POST /api/credentials/get",
-			"POST /api/credentials/list",
-			"POST /api/credentials/erase",
 		},
 
 		types.GroupAPI: {
@@ -233,6 +228,8 @@ var (
 			"GET /api/model-providers",
 			"GET /api/users",
 			"GET /api/groups",
+
+			"GET /api/app-notification",
 
 			// Allow authenticated users to read servers and entries from MCP catalogs.
 			// Filtering is handled in the handler.

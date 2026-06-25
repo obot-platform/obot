@@ -10,7 +10,7 @@
 	import { getTableUrlParamsSort, replaceState } from '$lib/url';
 	import { getSortParams, openUrl } from '$lib/utils';
 	import { defaultSort, sortFields } from './constants';
-	import { MonitorCheck } from 'lucide-svelte';
+	import { MonitorCheck } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
 

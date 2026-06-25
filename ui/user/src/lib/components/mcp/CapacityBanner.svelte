@@ -3,7 +3,7 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService } from '$lib/services';
 	import type { MCPCapacityInfo } from '$lib/services/admin/types';
-	import { Info } from 'lucide-svelte';
+	import { Info } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 
 	let capacityInfo = $state<MCPCapacityInfo | null>(null);

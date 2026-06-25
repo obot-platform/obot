@@ -3,7 +3,7 @@
 	import { hasSecretBinding } from '$lib/services/user/mcp';
 	import Select from '../Select.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
-	import { Plus, Trash2 } from 'lucide-svelte';
+	import { Plus, Trash2 } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 
 	interface Props {

@@ -5,7 +5,7 @@
 	import { getUserRoleLabel } from '$lib/utils';
 	import GroupRoleForm from './GroupRoleForm.svelte';
 	import type { GroupAssignment } from './types';
-	import { Group as GroupIcon } from 'lucide-svelte';
+	import { Group as GroupIcon } from '@lucide/svelte';
 
 	interface Props {
 		groupAssignment?: GroupAssignment;

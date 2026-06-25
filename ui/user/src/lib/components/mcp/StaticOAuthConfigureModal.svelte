@@ -4,7 +4,7 @@
 	import Confirm from '../Confirm.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import SensitiveInput from '../SensitiveInput.svelte';
-	import { CircleAlert, Trash2 } from 'lucide-svelte';
+	import { CircleAlert, Trash2 } from '@lucide/svelte';
 
 	interface Props {
 		oauthStatus?: MCPServerOAuthCredentialStatus;

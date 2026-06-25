@@ -20,7 +20,7 @@
 	import { profile } from '$lib/stores';
 	import { success } from '$lib/stores/success';
 	import McpConnectUrlDialog from '../../McpConnectUrlDialog.svelte';
-	import { CircleFadingArrowUp, Info, GitCompare, Link2Icon } from 'lucide-svelte';
+	import { CircleFadingArrowUp, Info, GitCompare, Link2Icon } from '@lucide/svelte';
 	import { untrack, type Component } from 'svelte';
 	import { fly } from 'svelte/transition';
 

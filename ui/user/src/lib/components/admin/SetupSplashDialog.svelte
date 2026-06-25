@@ -7,7 +7,7 @@
 	import { goto } from '$lib/url';
 	import Logo from '../Logo.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
-	import { CircleCheckBig } from 'lucide-svelte';
+	import { CircleCheckBig } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 

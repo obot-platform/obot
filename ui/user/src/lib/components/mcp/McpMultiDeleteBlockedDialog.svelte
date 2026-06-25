@@ -5,7 +5,7 @@
 		MCPCompositeDeletionDependency,
 		MCPCompositeDeletionDependencyError
 	} from '$lib/services';
-	import { TriangleAlert, Server } from 'lucide-svelte/icons';
+	import { TriangleAlert, Server } from '@lucide/svelte';
 
 	interface Props {
 		show: boolean;

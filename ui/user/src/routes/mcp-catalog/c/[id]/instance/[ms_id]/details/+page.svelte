@@ -7,7 +7,7 @@
 	import { UserService, type MCPCatalogServer, type OrgUser } from '$lib/services/index.js';
 	import { getMCPDisplayName } from '$lib/services/user/mcp.js';
 	import { profile } from '$lib/stores/index.js';
-	import { Info } from 'lucide-svelte';
+	import { Info } from '@lucide/svelte';
 	import { fly } from 'svelte/transition';
 
 	let { data } = $props();

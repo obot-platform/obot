@@ -15,7 +15,7 @@
 	import ImpersonateBanner from '../../ImpersonateBanner.svelte';
 	import MobileDock from '../../MobileDock.svelte';
 	import ProjectSidebar from '../../ProjectSidebar.svelte';
-	import { Menu, MessageCirclePlus, X } from 'lucide-svelte';
+	import { Menu, MessageCirclePlus, X } from '@lucide/svelte';
 	import { setContext, untrack } from 'svelte';
 	import { onDestroy } from 'svelte';
 	import { get } from 'svelte/store';

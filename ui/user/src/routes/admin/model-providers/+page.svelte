@@ -18,7 +18,7 @@
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte.js';
 	import { profile } from '$lib/stores/index.js';
 	import { delay } from '$lib/utils';
-	import { TriangleAlert } from 'lucide-svelte';
+	import { TriangleAlert } from '@lucide/svelte';
 	import { onMount, untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
 

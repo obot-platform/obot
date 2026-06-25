@@ -15,7 +15,7 @@
 	import { formatTimeAgo } from '$lib/time';
 	import { goto, setFilterUrlParams } from '$lib/url';
 	import { openUrl } from '$lib/utils';
-	import { FileText } from 'lucide-svelte';
+	import { FileText } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
 

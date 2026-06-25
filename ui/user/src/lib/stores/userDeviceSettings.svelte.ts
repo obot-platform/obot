@@ -1,9 +1,12 @@
 import { browser } from '$app/environment';
+import { AiClient } from '$lib/services/user/constants';
 
 const store = $state({
 	timeFormat: getTimeFormat(),
 	setTimeFormat,
-	initialize
+	initialize,
+	aiClientPreference: getAiClientPreference(),
+	setAiClientPreference
 });
 
 function initialize() {
@@ -11,6 +14,7 @@ function initialize() {
 		return;
 	}
 	store.timeFormat = getTimeFormat();
+	store.aiClientPreference = getAiClientPreference();
 }
 
 function setTimeFormat(timeFormat: '12h' | '24h') {
@@ -29,6 +33,34 @@ function getTimeFormat(): '12h' | '24h' {
 		return '24h';
 	}
 	return '12h';
+}
+
+function setAiClientPreference(aiClient: AiClient | AiClient[]) {
+	const values = Array.isArray(aiClient) ? aiClient : [aiClient];
+	if (browser) {
+		if (values.length === 0) {
+			localStorage.removeItem('aiClientPreference');
+		} else {
+			localStorage.setItem('aiClientPreference', values.join(','));
+		}
+	}
+	store.aiClientPreference = values.length ? values : getAiClientPreference();
+}
+
+function getAiClientPreference(): AiClient[] {
+	if (!browser) {
+		return [];
+	}
+
+	const raw = localStorage.getItem('aiClientPreference');
+	if (raw === null) return [];
+	if (raw.trim() === '') return [];
+
+	const valid = raw
+		.split(',')
+		.map((s) => s.trim())
+		.filter((s): s is AiClient => (Object.values(AiClient) as string[]).includes(s));
+	return valid.length ? valid : [];
 }
 
 export default store;

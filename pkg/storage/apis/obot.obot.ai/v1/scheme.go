@@ -75,6 +75,8 @@ func AddToSchemeWithGV(scheme *runtime.Scheme, schemeGroupVersion schema.GroupVe
 		&ImagePullSecretList{},
 		&AppPreferences{},
 		&AppPreferencesList{},
+		&AppNotification{},
+		&AppNotificationList{},
 		&AuditLogExport{},
 		&AuditLogExportList{},
 		&ScheduledAuditLogExport{},

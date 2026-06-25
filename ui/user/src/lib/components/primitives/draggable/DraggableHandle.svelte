@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { getDraggableItemContext } from './contextItem';
 	import { getDraggableContext } from './contextRoot';
-	import { GripVerticalIcon } from 'lucide-svelte';
+	import { GripVerticalIcon } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	const rootContext = getDraggableContext();

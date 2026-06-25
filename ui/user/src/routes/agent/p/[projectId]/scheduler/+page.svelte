@@ -15,7 +15,7 @@
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { goto } from '$lib/url';
 	import ConfirmScheduleToggle from './ConfirmScheduleToggle.svelte';
-	import { EllipsisVertical, Play, Plus, Search, Timer, TimerOff, Trash2 } from 'lucide-svelte';
+	import { EllipsisVertical, Play, Plus, Search, Timer, TimerOff, Trash2 } from '@lucide/svelte';
 	import { getContext } from 'svelte';
 
 	let { data } = $props();

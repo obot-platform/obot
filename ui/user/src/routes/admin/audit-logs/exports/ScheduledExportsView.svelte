@@ -11,7 +11,7 @@
 	import type { Schedule } from '$lib/services/user/types';
 	import { formatTimeAgo } from '$lib/time';
 	import { goto } from '$lib/url';
-	import { Calendar, Ellipsis, Trash2, CircleAlert, CirclePlay, CirclePause } from 'lucide-svelte';
+	import { Calendar, Ellipsis, Trash2, CircleAlert, CirclePlay, CirclePause } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 
 	interface Props {

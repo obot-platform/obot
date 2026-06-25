@@ -63,6 +63,13 @@
 				</p>
 			</div>
 
+			<div class="grid gap-1">
+				<p class="font-medium">Client ID Metadata Document Supported</p>
+				<p class="text-muted-content">
+					{metadata.clientIdMetadataDocumentSupported ? 'Supported' : 'Unsupported'}
+				</p>
+			</div>
+
 			{#if metadata.protectedResourceMetadata}
 				<div class="grid gap-1">
 					<p class="font-medium">Protected Resource Metadata</p>

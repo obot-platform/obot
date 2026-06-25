@@ -1,4 +1,5 @@
 import type { CompositeLaunchFormData } from '$lib/components/mcp/CatalogConfigureForm.svelte';
+import { encodeUtf8ToBase64 } from '$lib/format';
 import { mcpServersAndEntries, profile } from '$lib/stores';
 import { getUserDisplayName } from '$lib/utils';
 import {
@@ -18,6 +19,7 @@ import {
 	type RuntimeFormData,
 	type SystemMCPServerCatalogEntry
 } from '..';
+import { AiClient } from './constants';
 
 export interface MCPServerInfo extends MCPServer {
 	id?: string;
@@ -477,7 +479,9 @@ export function convertCompositeLaunchFormDataToPayload(lf: CompositeLaunchFormD
 			...(comp.envs ?? ([] as Array<{ key: string; value: string }>)),
 			...(comp.headers ?? ([] as Array<{ key: string; value: string }>))
 		]) {
-			if (!hasSecretBinding(f) && f.value) config[f.key] = f.value;
+			if (!hasSecretBinding(f) && !('isStatic' in f && f.isStatic) && f.value) {
+				config[f.key] = f.value;
+			}
 		}
 		payload[id] = {
 			config,
@@ -553,7 +557,8 @@ export async function convertCompositeInfoToLaunchFormData(
 				: (m.env ?? []).map((e) => ({
 						...(e as unknown as Record<string, unknown>),
 						key: e.key,
-						value: init?.config?.[e.key] ?? ''
+						value: init?.config?.[e.key] ?? e.value ?? '',
+						isStatic: !init?.config?.[e.key] && Boolean(e.value)
 					})),
 			headers: isMultiUser
 				? (m.multiUserConfig?.userDefinedHeaders ?? []).map((h) => ({
@@ -565,7 +570,8 @@ export async function convertCompositeInfoToLaunchFormData(
 				: (m.remoteConfig?.headers ?? []).map((h) => ({
 						...(h as unknown as Record<string, unknown>),
 						key: h.key,
-						value: init?.config?.[h.key] ?? ''
+						value: init?.config?.[h.key] ?? h.value ?? '',
+						isStatic: !init?.config?.[h.key] && Boolean(h.value)
 					}))
 		};
 	}
@@ -1044,4 +1050,66 @@ export async function disconnectMcpServerUser(server: MCPCatalogServer): Promise
 		return;
 	}
 	await UserService.deleteSingleOrRemoteMcpServer(server.id);
+}
+
+export function getAiClientCommand(client: AiClient, id: string, url: string): string {
+	const idArg = JSON.stringify(id);
+	const urlArg = JSON.stringify(url);
+
+	const commands = {
+		[AiClient.Claude]: `claude mcp add --transport http ${idArg} ${urlArg}`,
+		[AiClient.Codex]: `codex mcp add ${idArg} --url ${urlArg}`
+	};
+	return commands[client as keyof typeof commands] ?? '';
+}
+
+const obotApiKeyInput = {
+	type: 'promptString',
+	id: 'obot-api-key',
+	description: 'Obot API Key',
+	password: true
+} as const;
+
+function toVsCodeMcpServerName(id: string, connectUrl: string): string {
+	const fromUrl = connectUrl.match(/\/mcp-connect\/([^/?#]+)/)?.[1];
+	if (fromUrl) {
+		return fromUrl;
+	}
+
+	const sanitized = id
+		.trim()
+		.replace(/\s+(.)/g, (_, char: string) => char.toUpperCase())
+		.replace(/[^a-zA-Z0-9]/g, '');
+
+	return sanitized || 'obotMcpServer';
+}
+
+function generateCursorMagicLink(id: string, url: string): string {
+	const cursorConfig = {
+		type: 'http',
+		url: url
+	};
+	const cursorBase64 = encodeUtf8ToBase64(JSON.stringify(cursorConfig));
+	return `cursor://anysphere.cursor-deeplink/mcp/install?name=${encodeURIComponent(id)}&config=${encodeURIComponent(cursorBase64)}`;
+}
+
+function generateVsCodeMagicLink(id: string, url: string): string {
+	const vscodeConfig = {
+		name: toVsCodeMcpServerName(id, url),
+		inputs: [obotApiKeyInput],
+		type: 'http',
+		url: url,
+		headers: {
+			Authorization: 'Bearer ${input:obot-api-key}'
+		}
+	};
+	return `vscode:mcp/install?${encodeURIComponent(JSON.stringify(vscodeConfig))}`;
+}
+
+export function getAiClientMagicLink(client: AiClient, id: string, url: string): string {
+	const fn = {
+		[AiClient.Cursor]: generateCursorMagicLink,
+		[AiClient.VSCode]: generateVsCodeMagicLink
+	};
+	return fn[client as keyof typeof fn] ? fn[client as keyof typeof fn](id, url) : '';
 }
