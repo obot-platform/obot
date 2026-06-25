@@ -350,6 +350,55 @@ func TestK8sObjects_NonAgentShimKeepsAuditLogConfig(t *testing.T) {
 	assertHasAuditLogEnv(t, shimConfigSecret.Data)
 }
 
+func TestK8sObjects_NanobotShimUsesFixedResourceRequests(t *testing.T) {
+	k := newTestKubernetesBackend(t, &v1.K8sSettings{
+		ObjectMeta: metav1.ObjectMeta{Name: system.K8sSettingsName, Namespace: system.DefaultNamespace},
+		Spec: v1.K8sSettingsSpec{
+			Resources: &corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("250m"),
+					corev1.ResourceMemory: resource.MustParse("512Mi"),
+				},
+			},
+		},
+	})
+
+	objs, err := k.k8sObjects(t.Context(), ServerConfig{
+		Runtime:              types.RuntimeContainerized,
+		MCPServerName:        "standard-server",
+		MCPServerDisplayName: "Standard Server",
+		UserID:               "user-1",
+		OwnerUserID:          "user-2",
+		ContainerImage:       "ghcr.io/obot-platform/mcp-images/stdio-wrapper:main",
+		ContainerPort:        8080,
+		ContainerPath:        "/mcp",
+		Command:              "server",
+		Args:                 []string{"run"},
+		Resources: &corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("500m"),
+				corev1.ResourceMemory: resource.MustParse("1Gi"),
+			},
+		},
+	}, nil)
+	if err != nil {
+		t.Fatalf("k8sObjects() error = %v", err)
+	}
+
+	shimContainer := findContainer(t, findDeployment(t, objs, "standard-server"), "standard-server-shim")
+	cpuRequest := shimContainer.Resources.Requests[corev1.ResourceCPU]
+	if cpuRequest.String() != "5m" {
+		t.Fatalf("shim CPU request = %q, want %q", cpuRequest.String(), "5m")
+	}
+	memoryRequest := shimContainer.Resources.Requests[corev1.ResourceMemory]
+	if memoryRequest.String() != "64Mi" {
+		t.Fatalf("shim memory request = %q, want %q", memoryRequest.String(), "64Mi")
+	}
+	if len(shimContainer.Resources.Limits) > 0 {
+		t.Fatalf("shim resource limits = %v, want none", shimContainer.Resources.Limits)
+	}
+}
+
 func TestK8sObjects_ServicePorts(t *testing.T) {
 	tests := []struct {
 		name                   string

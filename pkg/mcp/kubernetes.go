@@ -45,6 +45,8 @@ var (
 	defaultMCPMemoryRequest   = resource.MustParse("200Mi")
 	defaultAgentMemoryRequest = resource.MustParse("400Mi")
 	defaultCPURequest         = resource.MustParse("10m")
+	nanobotShimCPURequest     = resource.MustParse("5m")
+	nanobotShimMemoryRequest  = resource.MustParse("64Mi")
 )
 
 const maxDeploymentWatchRetries = 5
@@ -658,6 +660,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 					Name:          portName,
 					ContainerPort: int32(shimPort),
 				}},
+				Resources:       nanobotShimContainerResources(),
 				SecurityContext: getContainerSecurityContext(psaLevel),
 				Args:            []string{"run", "--disable-ui", "--listen-address", fmt.Sprintf(":%d", shimPort), "--exclude-built-in-agents", "--config", "/config/nanobot.yaml"},
 				VolumeMounts: []corev1.VolumeMount{
@@ -1192,6 +1195,15 @@ func memoryRequestResources(memory resource.Quantity) corev1.ResourceRequirement
 	return corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
 			corev1.ResourceMemory: memory,
+		},
+	}
+}
+
+func nanobotShimContainerResources() corev1.ResourceRequirements {
+	return corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    nanobotShimCPURequest,
+			corev1.ResourceMemory: nanobotShimMemoryRequest,
 		},
 	}
 }
