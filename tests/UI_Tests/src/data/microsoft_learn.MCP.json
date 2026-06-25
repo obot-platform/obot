@@ -1,0 +1,17 @@
+{
+    "prompts": [
+        "Search Microsoft Learn for an overview of Azure Functions using microsoft_docs_search.",
+        "Find official Microsoft documentation about how to secure an ASP.NET Core web API using microsoft_docs_search and get 1st section.",
+        "Show me the latest Microsoft docs on deploying a React app to Azure Static Web Apps using microsoft_docs_search.",
+        "Find C# code samples for authenticating with Azure Active Directory using microsoft_code_sample_search.",
+        "Show Python code examples for using the Azure Blob Storage SDK with microsoft_code_sample_search.",
+        "Get JavaScript code samples for calling Microsoft Graph API using microsoft_code_sample_search.",
+        "Fetch the 1st section this URL: https://learn.microsoft.com/en-us/azure/active-directory/fundamentals/active-directory-whatis using microsoft_docs_fetch.",
+        "Retrieve the 1st section markdown for the official Microsoft docs on Azure Key Vault: https://learn.microsoft.com/en-us/azure/key-vault/general/overview using microsoft_docs_fetch."
+    ],
+    "tools": [
+        "microsoft_docs_search",
+        "microsoft_code_sample_search",
+        "microsoft_docs_fetch"
+    ]
+}

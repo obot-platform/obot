@@ -1,0 +1,17 @@
+{
+  "prompts": [
+    "Is AWS CDK tool connected?",
+    "How do I structure a multi-environment AWS CDK project for deploying both development and production stacks?",
+    "Explain what the CDK Nag rule AwsSolutions-IAM4 checks for and why it’s important.",
+    "Show me an example of using the aws-apigateway-lambda construct pattern in AWS CDK."
+  ],
+  "tools" : [
+    "CDKGeneralGuidance",
+    "ExplainCDKNagRule",
+    "CheckCDKNagSuppressions",
+    "GenerateBedrockAgentSchema",
+    "GetAwsSolutionsConstructPattern",
+    "SearchGenAICDKConstructs",
+    "LambdaLayerDocumentationProvider"
+  ]
+}
