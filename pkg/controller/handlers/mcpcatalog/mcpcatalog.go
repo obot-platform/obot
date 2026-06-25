@@ -29,6 +29,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	kvalidation "k8s.io/apimachinery/pkg/util/validation"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
@@ -562,6 +563,10 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 		if entry.EntryKey != "" {
 			if strings.Contains(entry.EntryKey, catalogReferenceSeparator) {
 				errs = append(errs, fmt.Errorf("source entry key %q cannot contain %s; skipping catalog entry %q", entry.EntryKey, catalogReferenceSeparator, catalogEntryName))
+				continue
+			}
+			if dnsErrs := kvalidation.IsDNS1123Subdomain(entry.EntryKey); len(dnsErrs) > 0 {
+				errs = append(errs, fmt.Errorf("source entry key %q must be DNS-friendly: %s; skipping catalog entry %q", entry.EntryKey, strings.Join(dnsErrs, "; "), catalogEntryName))
 				continue
 			}
 			if _, ok := uniqueEntryKeys[entry.EntryKey]; ok {
