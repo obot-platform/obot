@@ -181,6 +181,8 @@ config:
   OBOT_SERVER_DISABLE_UPDATE_CHECK: ""
   # config.OBOT_SERVER_MCPOAUTH_CLIENT_EXPIRATION -- The expiration time for dynamically registered MCP OAuth clients. Must be a valid duration string and may include days, hours, or minutes. Defaults to 30d.
   OBOT_SERVER_MCPOAUTH_CLIENT_EXPIRATION: ""
+  # config.OBOT_SERVER_HIDE_MCP_K8S_DETAILS -- Hide Kubernetes configuration details such as the MCP Server Scheduling page from the UI. Defaults to false.
+  OBOT_SERVER_HIDE_MCP_K8S_DETAILS: false
 
   # config.OBOT_ARTIFACT_STORAGE_PROVIDER -- Storage provider for published workflows. Can be 's3', 'gcs', 'azure', or 'custom'. If unset, local disk storage is used.
   OBOT_ARTIFACT_STORAGE_PROVIDER: ""

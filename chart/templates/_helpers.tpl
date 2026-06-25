@@ -115,6 +115,94 @@ Validate all PSA level values in mcpNamespace.podSecurity
 {{- end -}}
 
 {{/*
+Snapshot of IT-configurable Helm values captured at install/upgrade time.
+Excludes mcpImagePullSecrets and mcpServerDefaults, which are managed separately.
+Sensitive values are masked because this snapshot is display-only.
+*/}}
+{{- define "obot.helmValuesSnapshot" -}}
+replicaCount: {{ .Values.replicaCount }}
+dev:
+{{ .Values.dev | toYaml | indent 2 }}
+image:
+{{ .Values.image | toYaml | indent 2 }}
+imagePullSecrets:
+{{ .Values.imagePullSecrets | toYaml | indent 2 }}
+updateStrategy: {{ .Values.updateStrategy | quote }}
+additionalLabels:
+{{ .Values.additionalLabels | toYaml | indent 2 }}
+podAnnotations:
+{{- include "obot.maskedStringMapYAML" .Values.podAnnotations | nindent 2 }}
+service:
+  type: {{ .Values.service.type }}
+  port: {{ .Values.service.port }}
+  annotations:
+{{- include "obot.maskedStringMapYAML" .Values.service.annotations | nindent 4 }}
+  spec:
+{{ .Values.service.spec | toYaml | indent 4 }}
+ingress:
+  enabled: {{ .Values.ingress.enabled }}
+  className: {{ .Values.ingress.className }}
+  annotations:
+{{- include "obot.maskedStringMapYAML" .Values.ingress.annotations | nindent 4 }}
+  extraPaths:
+{{ .Values.ingress.extraPaths | toYaml | indent 4 }}
+  hosts:
+{{ .Values.ingress.hosts | toYaml | indent 4 }}
+  paths:
+{{ .Values.ingress.paths | toYaml | indent 4 }}
+  tls:
+{{ .Values.ingress.tls | toYaml | indent 4 }}
+config:
+{{- range $key, $value := .Values.config }}
+{{- if (toString $value) }}
+  {{ $key }}: "****"
+{{- end }}
+{{- end }}
+resources:
+{{ .Values.resources | toYaml | indent 2 }}
+runtimeClassName: {{ .Values.runtimeClassName | quote }}
+persistence:
+{{ .Values.persistence | toYaml | indent 2 }}
+extraVolumes:
+{{ .Values.extraVolumes | toYaml | indent 2 }}
+extraVolumeMounts:
+{{ .Values.extraVolumeMounts | toYaml | indent 2 }}
+serviceAccount:
+  create: {{ .Values.serviceAccount.create }}
+  name: {{ .Values.serviceAccount.name | quote }}
+  annotations:
+{{- include "obot.maskedStringMapYAML" .Values.serviceAccount.annotations | nindent 4 }}
+mcpNamespace:
+  name: {{ .Values.mcpNamespace.name | quote }}
+  annotations:
+{{- include "obot.maskedStringMapYAML" .Values.mcpNamespace.annotations | nindent 4 }}
+  networkPolicy:
+{{ .Values.mcpNamespace.networkPolicy | toYaml | indent 4 }}
+  podSecurity:
+{{ .Values.mcpNamespace.podSecurity | toYaml | indent 4 }}
+nodeSelector:
+{{ .Values.nodeSelector | toYaml | indent 2 }}
+tolerations:
+{{ .Values.tolerations | toYaml | indent 2 }}
+affinity:
+{{ .Values.affinity | toYaml | indent 2 }}
+{{- end -}}
+
+{{/*
+Render a string map with values masked for display-only snapshots.
+*/}}
+{{- define "obot.maskedStringMapYAML" -}}
+{{- $map := . -}}
+{{- if $map -}}
+{{- range $key, $value := $map -}}
+{{ $key }}: {{ if $value }}"****"{{ else }}""{{ end }}
+{{ end -}}
+{{- else -}}
+{}
+{{- end -}}
+{{- end -}}
+
+{{/*
 Validate network policy provider Helm chart configuration.
 */}}
 {{- define "obot.validateNetworkPolicyProviderChartConfig" -}}

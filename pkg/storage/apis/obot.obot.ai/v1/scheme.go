@@ -71,6 +71,8 @@ func AddToSchemeWithGV(scheme *runtime.Scheme, schemeGroupVersion schema.GroupVe
 		&UserDefaultRoleSettingList{},
 		&K8sSettings{},
 		&K8sSettingsList{},
+		&ObotHelmValues{},
+		&ObotHelmValuesList{},
 		&ImagePullSecret{},
 		&ImagePullSecretList{},
 		&AppPreferences{},

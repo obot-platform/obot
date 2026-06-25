@@ -471,6 +471,30 @@ export interface ServerK8sSettings {
 	deployedSettingsHash: string;
 }
 
+export interface ObotK8sSettings {
+	available: boolean;
+	replicaCount?: number;
+	updateStrategy?: string;
+	runtimeClassName?: string;
+	dev?: string;
+	image?: string;
+	imagePullSecrets?: string;
+	additionalLabels?: string;
+	podAnnotations?: string;
+	service?: string;
+	ingress?: string;
+	config?: string;
+	resources?: string;
+	persistence?: string;
+	extraVolumes?: string;
+	extraVolumeMounts?: string;
+	serviceAccount?: string;
+	mcpNamespace?: string;
+	nodeSelector?: string;
+	tolerations?: string;
+	affinity?: string;
+}
+
 // Licensing
 export interface License {
 	licenseKey: string;
