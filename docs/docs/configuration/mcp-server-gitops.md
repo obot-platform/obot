@@ -68,16 +68,6 @@ MCP server configurations consist of individual YAML files, each defining a sing
 
 For examples and reference implementations, see the official Obot MCP server repository at [github.com/obot-platform/mcp-catalog](https://github.com/obot-platform/mcp-catalog).
 
-### Stable source references
-
-Git catalog repositories can define an optional source ID in `.obotcatalog.yaml` or `.obotcatalog.yml`. The recommended format is the Git repository URL without the `https://` scheme:
-
-```yaml
-id: github.com/company/mcp-catalog
-```
-
-The source ID must be unique across source catalogs and cannot contain `|`. Use the same string everywhere you reference the source; Obot does not normalize source IDs, so `github.com/company/mcp-catalog` and `https://github.com/company/mcp-catalog` are different IDs.
-
 ## YAML Configuration Structure
 
 Each MCP server is defined in its own YAML file with the following structure:
@@ -92,7 +82,7 @@ description: |
   Supports multi-line markdown formatting.
 ```
 
-The optional `idRef` field defines a source-local stable reference for this catalog entry. It must be unique within its [stable source](#stable-source-references) and cannot contain `|`. This is mainly used when [composite MCP servers](#composite-mcp-servers) need to reference entries without knowing Obot's generated internal catalog entry ID.
+The optional `idRef` field defines a source-local stable reference for this catalog entry. It must be unique within its source and cannot contain `|`. This is mainly used when [composite MCP servers](#composite-mcp-servers) need to reference entries without knowing Obot's generated internal catalog entry ID.
 
 ### Tool Previews
 
@@ -146,8 +136,8 @@ Multi-user catalog templates support the `npx`, `uvx`, `containerized`, and `rem
 Composite MCP servers combine tools from other catalog entries. In GitOps, composite entries can reference component entries in two ways:
 
 - Use a normal internal `catalogEntryID`, such as `default-gmail-8a99d8be`
-- Use a same-source portable reference with `{idRef}`. The target entry must define `idRef` and must be in the same [stable source](#stable-source-references).
-- Use a cross-source portable reference with `{sourceID}|{idRef}`. The target source must define a [stable source ID](#stable-source-references), and the target entry must define `idRef`.
+- Use a same-source portable reference with `{idRef}`. The target entry must define `idRef` and must be in the same source.
+- Use a cross-source portable reference with `{sourceID}|{idRef}`. Obot uses the configured source URL without the `https://` prefix as `sourceID`. For example, `https://github.com/company/mcp-catalog` is referenced as `github.com/company/mcp-catalog`. The target entry must define `idRef`.
 
 Portable references are useful when the target entry is in the same Git catalog sync and does not have an internal generated ID yet, or when you want to use a purely-gitops workflow.
 

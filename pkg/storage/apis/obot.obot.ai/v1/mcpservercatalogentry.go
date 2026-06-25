@@ -74,7 +74,7 @@ type MCPServerCatalogEntrySpec struct {
 	MCPCatalogName   string                              `json:"mcpCatalogName,omitempty"`
 	Editable         bool                                `json:"editable,omitempty"`
 	SourceURL        string                              `json:"sourceURL,omitempty"`
-	// SourceID contains the ID declared by the catalog source metadata file, if any.
+	// SourceID contains the catalog source URL without the https:// prefix.
 	SourceID string `json:"sourceID,omitempty"`
 	// SourceEntryIDRef contains the source-local stable entry reference declared by the catalog entry, if any.
 	SourceEntryIDRef string `json:"sourceEntryIDRef,omitempty"`

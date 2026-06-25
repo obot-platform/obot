@@ -11,7 +11,6 @@ import (
 
 func TestReadMCPCatalogReturnsDuplicateIDRefErrors(t *testing.T) {
 	dir := t.TempDir()
-	assert.NoError(t, os.WriteFile(filepath.Join(dir, obotCatalogMetadataFilename+".yaml"), []byte("id: acme/catalog\n"), 0o600))
 	assert.NoError(t, os.WriteFile(filepath.Join(dir, "first.yaml"), []byte(`idRef: shared
 name: First
 shortDescription: First
@@ -36,13 +35,12 @@ npxConfig:
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), `duplicate source entry ref "shared"`)
-	assert.Equal(t, "acme/catalog", sourceID)
+	assert.Equal(t, dir, sourceID)
 	assert.Len(t, objs, 1)
 }
 
 func TestReadMCPCatalogRejectsSeparatorInIDRef(t *testing.T) {
 	dir := t.TempDir()
-	assert.NoError(t, os.WriteFile(filepath.Join(dir, obotCatalogMetadataFilename+".yaml"), []byte("id: acme/catalog\n"), 0o600))
 	assert.NoError(t, os.WriteFile(filepath.Join(dir, "entry.yaml"), []byte(`idRef: bad|ref
 name: Bad
 shortDescription: Bad
@@ -58,6 +56,12 @@ npxConfig:
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), `source entry ref "bad|ref" cannot contain |`)
-	assert.Equal(t, "acme/catalog", sourceID)
+	assert.Equal(t, dir, sourceID)
 	assert.Empty(t, objs)
+}
+
+func TestSourceIDForURL(t *testing.T) {
+	assert.Equal(t, "github.com/company/mcp-catalog", sourceIDForURL("https://github.com/company/mcp-catalog"))
+	assert.Equal(t, "github.com/company/mcp-catalog", sourceIDForURL("github.com/company/mcp-catalog"))
+	assert.Equal(t, "/tmp/catalog", sourceIDForURL("/tmp/catalog"))
 }

@@ -56,6 +56,8 @@ func sanitizeName(n string) string {
 const CatalogCredentialToolName = "catalog-source-tokens"
 
 const (
+	catalogReferenceSeparator = "|"
+
 	// These are used to force catalog sync on startup, used for times when changes are made to
 	// catalogs, and they must be synced on the next start.
 	forceSyncStartupAnnotation = "obot.ai/force-sync-startup"
@@ -303,6 +305,10 @@ func sourceRef(sourceID, idRef string) string {
 	return fmt.Sprintf("%s%s%s", sourceID, catalogReferenceSeparator, idRef)
 }
 
+func sourceIDForURL(sourceURL string) string {
+	return strings.TrimPrefix(sourceURL, "https://")
+}
+
 func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {
 	systemCatalog := req.Object.(*v1.SystemMCPCatalog)
 
@@ -468,13 +474,13 @@ func systemCatalogEntryManifestToMCP(manifest types.SystemMCPServerCatalogEntryM
 func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, token string) ([]client.Object, string, error) {
 	var (
 		entries  []types.MCPServerCatalogEntryManifest
-		sourceID string
+		sourceID = sourceIDForURL(sourceURL)
 	)
 
 	if strings.HasPrefix(sourceURL, "http://") || strings.HasPrefix(sourceURL, "https://") {
 		if isGitRepoURL(sourceURL) {
 			var err error
-			entries, sourceID, err = readGitCatalogEntriesWithMetadata[types.MCPServerCatalogEntryManifest](ctx, sourceURL, token)
+			entries, err = readGitCatalogEntries[types.MCPServerCatalogEntryManifest](ctx, sourceURL, token)
 			if err != nil {
 				return nil, "", fmt.Errorf("failed to read git catalog %s: %w", sourceURL, err)
 			}
@@ -513,7 +519,7 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 		}
 
 		if fileInfo.IsDir() {
-			entries, sourceID, err = readCatalogDirectoryWithMetadata[types.MCPServerCatalogEntryManifest](sourceURL)
+			entries, err = readCatalogDirectory[types.MCPServerCatalogEntryManifest](sourceURL)
 			if err != nil {
 				return nil, "", fmt.Errorf("failed to read catalog %s: %w", sourceURL, err)
 			}
@@ -691,18 +697,9 @@ func sanitizeCatalogEntryManifest(entry *types.MCPServerCatalogEntryManifest) {
 }
 
 func readCatalogDirectory[T any](catalog string) ([]T, error) {
-	entries, _, err := readCatalogDirectoryWithMetadata[T](catalog)
-	return entries, err
-}
-
-func readCatalogDirectoryWithMetadata[T any](catalog string) ([]T, string, error) {
-	sourceID, err := readGitCatalogMetadata(catalog)
-	if err != nil {
-		return nil, "", err
-	}
 	var (
 		catalogPatterns       = []string{"*.json", "*.yaml", "*.yml"} // Default to all JSON and YAML files
-		ignorePatterns        = []string{obotCatalogMetadataFilename + ".yaml", obotCatalogMetadataFilename + ".yml"}
+		ignorePatterns        []string
 		usingObotCatalogsFile bool
 	)
 
@@ -740,7 +737,7 @@ func readCatalogDirectoryWithMetadata[T any](catalog string) ([]T, string, error
 		if scanner.Err() != nil && scanner.Err() != io.EOF {
 			log.Warnf("Failed to read .ignoreobotcatalogs file: %v", scanner.Err())
 		} else if len(patterns) > 0 {
-			ignorePatterns = append(ignorePatterns, patterns...)
+			ignorePatterns = patterns
 		}
 	}
 
@@ -751,7 +748,7 @@ func readCatalogDirectoryWithMetadata[T any](catalog string) ([]T, string, error
 	)
 	const maxFiles = 1000 // Limit the number of files processed to prevent resource exhaustion
 
-	err = filepath.WalkDir(catalog, func(path string, d os.DirEntry, err error) error {
+	err := filepath.WalkDir(catalog, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -836,10 +833,10 @@ func readCatalogDirectoryWithMetadata[T any](catalog string) ([]T, string, error
 	})
 
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to walk repository files: %w", err)
+		return nil, fmt.Errorf("failed to walk repository files: %w", err)
 	}
 
-	return entries, sourceID, nil
+	return entries, nil
 }
 
 func (h *Handler) SetUpDefaultMCPCatalog(ctx context.Context, c client.Client) error {
