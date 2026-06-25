@@ -2,6 +2,8 @@ package mcpcatalog
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -42,6 +44,105 @@ func TestResolveCompositeSourceRefs(t *testing.T) {
 	assert.Equal(t, target.Spec.Manifest.Name, component.Manifest.Name)
 }
 
+func TestReadMCPCatalogResolvesCompositeSourceRefs(t *testing.T) {
+	dir := t.TempDir()
+	assert.NoError(t, os.WriteFile(filepath.Join(dir, obotCatalogMetadataFilename+".yaml"), []byte("id: source\n"), 0o600))
+	assert.NoError(t, os.WriteFile(filepath.Join(dir, "target.yaml"), []byte(`idRef: tool
+name: Tool
+shortDescription: Tool
+description: Tool
+icon: icon
+runtime: npx
+npxConfig:
+  package: tool
+`), 0o600))
+	assert.NoError(t, os.WriteFile(filepath.Join(dir, "composite.yaml"), []byte(`idRef: composite
+name: Composite
+shortDescription: Composite
+description: Composite
+icon: icon
+runtime: composite
+compositeConfig:
+  componentServers:
+    - catalogEntryID: source|tool
+`), 0o600))
+
+	h := &Handler{}
+	objs, _, err := h.readMCPCatalog(context.Background(), "default", dir, "")
+	assert.NoError(t, err)
+
+	objs, errsBySourceURL := h.resolveCompositeSourceRefs(context.Background(), objs)
+	assert.Empty(t, errsBySourceURL)
+	assert.Len(t, objs, 2)
+
+	var composite, target *v1.MCPServerCatalogEntry
+	for _, obj := range objs {
+		entry := obj.(*v1.MCPServerCatalogEntry)
+		if entry.Spec.Manifest.Runtime == types.RuntimeComposite {
+			composite = entry
+		} else {
+			target = entry
+		}
+	}
+	if assert.NotNil(t, composite) && assert.NotNil(t, target) {
+		component := composite.Spec.Manifest.CompositeConfig.ComponentServers[0]
+		assert.Equal(t, target.Name, component.CatalogEntryID)
+		assert.Equal(t, "Tool", component.Manifest.Name)
+	}
+}
+
+func TestReadMCPCatalogResolvesCompositeSourceRefsAcrossSources(t *testing.T) {
+	first := t.TempDir()
+	assert.NoError(t, os.WriteFile(filepath.Join(first, obotCatalogMetadataFilename+".yaml"), []byte("id: first\n"), 0o600))
+	assert.NoError(t, os.WriteFile(filepath.Join(first, "target.yaml"), []byte(`idRef: tool
+name: Tool
+shortDescription: Tool
+description: Tool
+icon: icon
+runtime: npx
+npxConfig:
+  package: tool
+`), 0o600))
+
+	second := t.TempDir()
+	assert.NoError(t, os.WriteFile(filepath.Join(second, obotCatalogMetadataFilename+".yaml"), []byte("id: second\n"), 0o600))
+	assert.NoError(t, os.WriteFile(filepath.Join(second, "composite.yaml"), []byte(`idRef: composite
+name: Composite
+shortDescription: Composite
+description: Composite
+icon: icon
+runtime: composite
+compositeConfig:
+  componentServers:
+    - catalogEntryID: first|tool
+`), 0o600))
+
+	h := &Handler{}
+	firstObjs, _, err := h.readMCPCatalog(context.Background(), "default", first, "")
+	assert.NoError(t, err)
+	secondObjs, _, err := h.readMCPCatalog(context.Background(), "default", second, "")
+	assert.NoError(t, err)
+
+	objs, errsBySourceURL := h.resolveCompositeSourceRefs(context.Background(), append(firstObjs, secondObjs...))
+	assert.Empty(t, errsBySourceURL)
+	assert.Len(t, objs, 2)
+
+	var composite, target *v1.MCPServerCatalogEntry
+	for _, obj := range objs {
+		entry := obj.(*v1.MCPServerCatalogEntry)
+		if entry.Spec.Manifest.Runtime == types.RuntimeComposite {
+			composite = entry
+		} else {
+			target = entry
+		}
+	}
+	if assert.NotNil(t, composite) && assert.NotNil(t, target) {
+		component := composite.Spec.Manifest.CompositeConfig.ComponentServers[0]
+		assert.Equal(t, target.Name, component.CatalogEntryID)
+		assert.Equal(t, "Tool", component.Manifest.Name)
+	}
+}
+
 func TestResolveCompositeSourceRefsSkipsUnresolvedComposite(t *testing.T) {
 	target := testCatalogEntry("target", "source", "tool", types.MCPServerCatalogEntryManifest{
 		Name:             "Tool",
@@ -69,6 +170,25 @@ func TestResolveCompositeSourceRefsSkipsUnresolvedComposite(t *testing.T) {
 	assert.Len(t, result, 1)
 	assert.Equal(t, "target", result[0].GetName())
 	assert.Contains(t, errsBySourceURL["source-url"], `unresolved catalogEntryID source ref "source|missing"`)
+}
+
+func TestResolveCompositeSourceRefsSkipsMalformedRef(t *testing.T) {
+	composite := testCatalogEntry("composite", "source", "composite", types.MCPServerCatalogEntryManifest{
+		Name:             "Composite",
+		ShortDescription: "Composite",
+		Description:      "Composite",
+		Icon:             "icon",
+		Runtime:          types.RuntimeComposite,
+		ServerUserType:   types.ServerUserTypeSingleUser,
+		CompositeConfig: &types.CompositeCatalogConfig{ComponentServers: []types.CatalogComponentServer{
+			{CatalogEntryID: "source|"},
+		}},
+	})
+
+	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(context.Background(), []client.Object{composite})
+
+	assert.Empty(t, result)
+	assert.Contains(t, errsBySourceURL["source-url"], `invalid catalogEntryID source ref "source|"`)
 }
 
 func testCatalogEntry(name, sourceID, idRef string, manifest types.MCPServerCatalogEntryManifest) *v1.MCPServerCatalogEntry {
