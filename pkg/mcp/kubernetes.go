@@ -47,6 +47,8 @@ var (
 	defaultCPURequest         = resource.MustParse("10m")
 	nanobotShimCPURequest     = resource.MustParse("5m")
 	nanobotShimMemoryRequest  = resource.MustParse("64Mi")
+	nanobotShimCPULimit       = resource.MustParse("200m")
+	nanobotShimMemoryLimit    = resource.MustParse("100Mi")
 )
 
 const maxDeploymentWatchRetries = 5
@@ -1204,6 +1206,10 @@ func nanobotShimContainerResources() corev1.ResourceRequirements {
 		Requests: corev1.ResourceList{
 			corev1.ResourceCPU:    nanobotShimCPURequest,
 			corev1.ResourceMemory: nanobotShimMemoryRequest,
+		},
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    nanobotShimCPULimit,
+			corev1.ResourceMemory: nanobotShimMemoryLimit,
 		},
 	}
 }
