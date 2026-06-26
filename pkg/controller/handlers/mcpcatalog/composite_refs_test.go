@@ -295,7 +295,7 @@ func TestResolveCompositeSourceRefsSkipsUnresolvedComposite(t *testing.T) {
 
 	assert.Len(t, result, 1)
 	assert.Equal(t, "target", result[0].GetName())
-	assert.Contains(t, errsBySourceURL["source-url"], `unresolved catalogEntryID source ref "source::missing"`)
+	assert.Contains(t, errsBySourceURL["source"], `unresolved catalogEntryID source ref "source::missing"`)
 }
 
 func TestResolveCompositeSourceRefsSkipsMalformedRef(t *testing.T) {
@@ -314,18 +314,17 @@ func TestResolveCompositeSourceRefsSkipsMalformedRef(t *testing.T) {
 	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(context.Background(), []client.Object{composite})
 
 	assert.Empty(t, result)
-	assert.Contains(t, errsBySourceURL["source-url"], `invalid catalogEntryID source ref "source::"`)
+	assert.Contains(t, errsBySourceURL["source"], `invalid catalogEntryID source ref "source::"`)
 }
 
 func testCatalogEntry(name, sourceID, entryKey string, manifest types.MCPServerCatalogEntryManifest) *v1.MCPServerCatalogEntry {
+	manifest.EntryKey = entryKey
 	return &v1.MCPServerCatalogEntry{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
 		Spec: v1.MCPServerCatalogEntrySpec{
-			SourceURL:      "source-url",
-			SourceID:       sourceID,
-			SourceEntryKey: entryKey,
-			Manifest:       manifest,
-			Editable:       false,
+			SourceURL: sourceID,
+			Manifest:  manifest,
+			Editable:  false,
 		},
 	}
 }
