@@ -133,7 +133,7 @@ Multi-user catalog templates support the `npx`, `uvx`, `containerized`, and `rem
 
 ### Composite MCP servers
 
-Composite MCP servers combine tools from other catalog entries. In GitOps, composite entries can reference component entries in two ways:
+Composite MCP servers combine tools from other catalog entries. In GitOps, composite entries can reference component entries in three ways:
 
 - Use a normal internal `catalogEntryID`, such as `default-gmail-8a99d8be`
 - Use a same-source portable key with `{entryKey}`. The target entry must define `entryKey` and must be in the same source.
