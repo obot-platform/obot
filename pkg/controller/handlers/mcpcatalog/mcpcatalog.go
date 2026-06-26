@@ -204,6 +204,9 @@ func addSyncError(syncErrors map[string]string, sourceURL, errMsg string) {
 	}
 }
 
+// resolveCompositeSourceRefs rewrites GitOps portable component refs to stored
+// catalog entry names and snapshots the target manifests. Entries with invalid
+// portable refs are skipped so bad composites do not get applied.
 func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, objs []client.Object) ([]client.Object, map[string]string) {
 	refs := make(map[string]*v1.MCPServerCatalogEntry)
 	entriesByName := make(map[string]*v1.MCPServerCatalogEntry)
@@ -278,6 +281,10 @@ func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, objs []client.
 	return result, errsBySourceURL
 }
 
+// resolveComponentSourceRef resolves GitOps portable refs. A bare entry key is
+// scoped to the current source; source::entryKey targets another source. If the
+// ref has no separator and no same-source match, callers can treat it as a
+// normal internal catalog entry ID.
 func resolveComponentSourceRef(refs map[string]*v1.MCPServerCatalogEntry, sourceID, catalogEntryID string) (*v1.MCPServerCatalogEntry, error) {
 	refSourceID, entryKey, hasSep, valid := parseSourceRef(sourceID, catalogEntryID)
 	if !valid {
