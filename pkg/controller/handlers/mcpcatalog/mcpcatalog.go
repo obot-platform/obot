@@ -286,23 +286,29 @@ func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, objs []client.
 }
 
 func resolveComponentSourceRef(refs map[string]*v1.MCPServerCatalogEntry, sourceID, catalogEntryID string) (*v1.MCPServerCatalogEntry, error) {
-	if sourceID == "" {
+	refSourceID, entryKey, hasSep, valid := parseSourceRef(sourceID, catalogEntryID)
+	if !valid {
+		return nil, fmt.Errorf("invalid catalogEntryID source ref %q", catalogEntryID)
+	}
+	if refSourceID == "" {
 		return nil, nil
 	}
 
-	refSourceID, entryKey, ok := strings.Cut(catalogEntryID, catalogReferenceSeparator)
-	if !ok {
-		return refs[sourceRef(sourceID, catalogEntryID)], nil
-	}
-	if refSourceID == "" || entryKey == "" {
-		return nil, fmt.Errorf("invalid catalogEntryID source ref %q", catalogEntryID)
-	}
-
 	target := refs[sourceRef(refSourceID, entryKey)]
-	if target == nil {
+	if hasSep && target == nil {
 		return nil, fmt.Errorf("unresolved catalogEntryID source ref %q", catalogEntryID)
 	}
 	return target, nil
+}
+
+// parseSourceRef returns the source/key pair for either an explicit
+// source::entryKey reference or a same-source shorthand entryKey.
+func parseSourceRef(sourceID, catalogEntryID string) (refSourceID, entryKey string, hasSep, valid bool) {
+	refSourceID, entryKey, hasSep = strings.Cut(catalogEntryID, catalogReferenceSeparator)
+	if !hasSep {
+		return sourceID, catalogEntryID, false, true
+	}
+	return refSourceID, entryKey, true, refSourceID != "" && entryKey != ""
 }
 
 func sourceRef(sourceID, entryKey string) string {
@@ -310,7 +316,12 @@ func sourceRef(sourceID, entryKey string) string {
 }
 
 func sourceIDForURL(sourceURL string) string {
-	return strings.TrimPrefix(sourceURL, "https://")
+	sourceURL = strings.TrimPrefix(sourceURL, "https://")
+	sourceURL = strings.TrimPrefix(sourceURL, "http://")
+	if len(sourceURL) > 1 {
+		sourceURL = strings.TrimRight(sourceURL, "/")
+	}
+	return sourceURL
 }
 
 func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {
