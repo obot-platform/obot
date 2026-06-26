@@ -489,7 +489,6 @@ export interface ObotK8sSettings {
 	extraVolumes?: string;
 	extraVolumeMounts?: string;
 	serviceAccount?: string;
-	mcpNamespace?: string;
 	nodeSelector?: string;
 	tolerations?: string;
 	affinity?: string;

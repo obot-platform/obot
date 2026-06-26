@@ -34,10 +34,6 @@ service:
   port: 80
   annotations:
     example.com/setting: enabled
-mcpNamespace:
-  name: custom-mcp
-  annotations:
-    argocd.argoproj.io/sync-wave: "-1"
 resources:
   requests:
     cpu: 500m
@@ -92,9 +88,6 @@ tolerations:
 	}
 	if !strings.Contains(settings.Config, obothelmvalues.MaskedValue) {
 		t.Fatalf("config = %q, want masked config values", settings.Config)
-	}
-	if settings.MCPNamespace == "" || !strings.Contains(settings.MCPNamespace, "custom-mcp") {
-		t.Fatalf("mcpNamespace = %q, want custom namespace", settings.MCPNamespace)
 	}
 	if settings.Tolerations == "" || !strings.Contains(settings.Tolerations, "dedicated") {
 		t.Fatalf("tolerations = %q, want toleration YAML", settings.Tolerations)

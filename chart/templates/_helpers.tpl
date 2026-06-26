@@ -172,14 +172,6 @@ serviceAccount:
   name: {{ .Values.serviceAccount.name | quote }}
   annotations:
 {{- include "obot.maskedStringMapYAML" .Values.serviceAccount.annotations | nindent 4 }}
-mcpNamespace:
-  name: {{ .Values.mcpNamespace.name | quote }}
-  annotations:
-{{- include "obot.maskedStringMapYAML" .Values.mcpNamespace.annotations | nindent 4 }}
-  networkPolicy:
-{{ .Values.mcpNamespace.networkPolicy | toYaml | indent 4 }}
-  podSecurity:
-{{ .Values.mcpNamespace.podSecurity | toYaml | indent 4 }}
 nodeSelector:
 {{ .Values.nodeSelector | toYaml | indent 2 }}
 tolerations:

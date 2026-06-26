@@ -24,7 +24,6 @@ type ObotK8sSettings struct {
 	ExtraVolumes      string `json:"extraVolumes,omitempty"`
 	ExtraVolumeMounts string `json:"extraVolumeMounts,omitempty"`
 	ServiceAccount    string `json:"serviceAccount,omitempty"`
-	MCPNamespace      string `json:"mcpNamespace,omitempty"`
 	NodeSelector      string `json:"nodeSelector,omitempty"`
 	Tolerations       string `json:"tolerations,omitempty"`
 	Affinity          string `json:"affinity,omitempty"`

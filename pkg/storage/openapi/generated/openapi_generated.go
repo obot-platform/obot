@@ -9230,12 +9230,6 @@ func schema_obot_platform_obot_apiclient_types_ObotK8sSettings(ref common.Refere
 							Format: "",
 						},
 					},
-					"mcpNamespace": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
 					"nodeSelector": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},

@@ -48,8 +48,6 @@ func MaskValues(values map[string]any) map[string]any {
 			masked[key] = maskIngressSection(value)
 		case "serviceAccount":
 			masked[key] = maskServiceAccountSection(value)
-		case "mcpNamespace":
-			masked[key] = maskMCPNamespaceSection(value)
 		default:
 			masked[key] = value
 		}
@@ -117,18 +115,6 @@ func maskIngressSection(value any) any {
 }
 
 func maskServiceAccountSection(value any) any {
-	section, ok := toStringAnyMap(value)
-	if !ok {
-		return value
-	}
-	result := copyStringAnyMap(section)
-	if annotations, ok := result["annotations"]; ok {
-		result["annotations"] = maskStringMap(annotations)
-	}
-	return result
-}
-
-func maskMCPNamespaceSection(value any) any {
 	section, ok := toStringAnyMap(value)
 	if !ok {
 		return value

@@ -137,12 +137,6 @@ func buildObotK8sSettingsFromHelmValues(values map[string]any) (types.ObotK8sSet
 		result.ServiceAccount = serviceAccountYAML
 	}
 
-	if mcpNamespaceYAML, err := helmSectionYAML(values["mcpNamespace"]); err != nil {
-		return types.ObotK8sSettings{}, err
-	} else if mcpNamespaceYAML != "" {
-		result.MCPNamespace = mcpNamespaceYAML
-	}
-
 	if nodeSelectorYAML, err := helmSectionYAML(values["nodeSelector"]); err != nil {
 		return types.ObotK8sSettings{}, err
 	} else if nodeSelectorYAML != "" {
