@@ -1731,11 +1731,11 @@ func (h *MCPCatalogHandler) RefreshCompositeComponents(req api.Context) error {
 	}
 
 	// Validate the refreshed manifest to ensure it's still valid
-	if err := validation.ValidateCatalogEntryManifest(req.Context(), entry.Spec.Manifest, false, validationOptions(h.sessionManager.RemoteMCPURLValidationConfig())); err != nil {
+	entryGitManaged := entry.IsGitManaged()
+	if err := validation.ValidateCatalogEntryManifest(req.Context(), entry.Spec.Manifest, entryGitManaged, validationOptions(h.sessionManager.RemoteMCPURLValidationConfig())); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
 	// Preserve the git-managed status of the original entry when re-validating.
-	entryGitManaged := entry.IsGitManaged()
 	if err := validation.ValidateSecretBindingsCatalogEntry(entry.Spec.Manifest, entryGitManaged, h.mcpBackend); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
