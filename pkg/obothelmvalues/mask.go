@@ -30,9 +30,9 @@ func MaskValuesYAML(valuesYAML string) (string, error) {
 	return strings.TrimSpace(string(masked)), nil
 }
 
-// MaskValues returns a display-safe copy of IT-configurable Helm values.
+// MaskValues returns a display-safe copy of configurable Helm values.
 func MaskValues(values map[string]any) map[string]any {
-	values = pickITConfigurableValues(values)
+	values = pickConfigurableValues(values)
 	if len(values) == 0 {
 		return values
 	}

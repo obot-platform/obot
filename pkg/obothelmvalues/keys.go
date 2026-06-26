@@ -1,11 +1,11 @@
 package obothelmvalues
 
-// ITConfigurableTopLevelKeys lists Helm .Values keys captured at install/upgrade time
+// ConfigurableTopLevelKeys lists Helm .Values keys captured at install/upgrade time
 // in chart/templates/_helpers.tpl (obot.helmValuesSnapshot).
 //
-// When adding or removing IT-configurable fields, update both this slice and that template.
+// When adding or removing configurable fields, update both this slice and that template.
 // mcpImagePullSecrets and mcpServerDefaults are intentionally excluded.
-var ITConfigurableTopLevelKeys = []string{
+var ConfigurableTopLevelKeys = []string{
 	"replicaCount",
 	"dev",
 	"image",
@@ -27,7 +27,7 @@ var ITConfigurableTopLevelKeys = []string{
 	"affinity",
 }
 
-// yamlSectionKeys are IT-configurable keys surfaced as YAML strings on ObotK8sSettings.
+// yamlSectionKeys are configurable keys surfaced as YAML strings on ObotK8sSettings.
 var yamlSectionKeys = []string{
 	"dev",
 	"image",
@@ -54,13 +54,13 @@ var sectionsWithAnnotationMaps = map[string]struct{}{
 	"serviceAccount": {},
 }
 
-func pickITConfigurableValues(values map[string]any) map[string]any {
+func pickConfigurableValues(values map[string]any) map[string]any {
 	if len(values) == 0 {
 		return values
 	}
 
-	picked := make(map[string]any, len(ITConfigurableTopLevelKeys))
-	for _, key := range ITConfigurableTopLevelKeys {
+	picked := make(map[string]any, len(ConfigurableTopLevelKeys))
+	for _, key := range ConfigurableTopLevelKeys {
 		value, ok := values[key]
 		if !ok {
 			continue

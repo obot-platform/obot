@@ -115,9 +115,9 @@ Validate all PSA level values in mcpNamespace.podSecurity
 {{- end -}}
 
 {{/*
-Snapshot of IT-configurable Helm values captured at install/upgrade time.
+Snapshot of configurable Helm values captured at install/upgrade time.
 
-Top-level keys must match obothelmvalues.ITConfigurableTopLevelKeys in
+Top-level keys must match obothelmvalues.ConfigurableTopLevelKeys in
 pkg/obothelmvalues/keys.go. Excludes mcpImagePullSecrets and mcpServerDefaults.
 
 Sensitive values are masked in Go (MaskValuesYAML) when serving GET /api/k8s-settings;
