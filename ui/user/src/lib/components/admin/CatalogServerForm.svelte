@@ -103,7 +103,7 @@
 	const canEditSecretBindings = $derived(
 		secretBindingsSupported &&
 			entity === 'catalog' &&
-			profile.current.isAdmin?.() &&
+			profile.current?.isAdmin?.() &&
 			!readonly &&
 			(type === 'multi' || (type === 'hosted' && formData.serverUserType === 'multiUser'))
 	);
@@ -747,7 +747,7 @@
 						if (
 							secretBindingsSupported &&
 							entity === 'catalog' &&
-							profile.current.isAdmin?.() &&
+							profile.current?.isAdmin?.() &&
 							option.id === 'multiUser' &&
 							secretBindingTargets === undefined
 						) {
