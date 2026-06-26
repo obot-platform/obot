@@ -103,7 +103,7 @@ spec:
             httpGet:
               path: /api/healthz
               port: http
-            failureThreshold: 3
+            failureThreshold: 120
             periodSeconds: 10
           livenessProbe:
             httpGet:

@@ -99,6 +99,9 @@ secret:
   # secret.OBOT_ARTIFACT_AZURE_CLIENT_SECRET -- Azure client secret for published workflow storage when using explicit Azure credentials.
   OBOT_ARTIFACT_AZURE_CLIENT_SECRET: ""
 
+  # secret.OBOT_SERVER_LICENSE_KEY -- A license key for Obot Enterprise. If set here, it cannot be set in the UI.
+  OBOT_SERVER_LICENSE_KEY: ""
+
 # config - Non-sensitive configuration variables for the Obot deployment. These values are converted to a ConfigMap and used via envFrom.
 config:
   # config.AWS_REGION -- An AWS region, used to access AWS KMS
@@ -237,9 +240,6 @@ config:
   # OBOT_DEFAULT_SKILL_REPO_URL: ""
   # config.OBOT_DEFAULT_SKILL_REPO_REF -- The ref (branch, tag, or commit SHA) for the default skill repository. If empty, the repository's default branch is used. Only used on first-time setup.
   # OBOT_DEFAULT_SKILL_REPO_REF: ""
-
-  # config.OBOT_SERVER_LICENSE_KEY -- A license key for Obot Enterprise. If set here, it cannot be set in the UI.
-  OBOT_SERVER_LICENSE_KEY: ""
 
 # resources -- Resource requests and limits to use for Obot
 resources: {}
