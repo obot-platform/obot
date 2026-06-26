@@ -78,14 +78,6 @@ npxConfig:
 	assert.Empty(t, objs)
 }
 
-func TestSourceIDForURL(t *testing.T) {
-	assert.Equal(t, "github.com/company/mcp-catalog", sourceIDForURL("https://github.com/company/mcp-catalog"))
-	assert.Equal(t, "github.com/company/mcp-catalog", sourceIDForURL("http://github.com/company/mcp-catalog/"))
-	assert.Equal(t, "github.com/company/mcp-catalog", sourceIDForURL("github.com/company/mcp-catalog"))
-	assert.Equal(t, "/tmp/catalog", sourceIDForURL("/tmp/catalog"))
-	assert.Equal(t, "/", sourceIDForURL("/"))
-}
-
 func TestParseSourceRef(t *testing.T) {
 	const currentSourceID = "current-source"
 

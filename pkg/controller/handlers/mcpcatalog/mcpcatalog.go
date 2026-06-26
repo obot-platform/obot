@@ -214,7 +214,7 @@ func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, objs []client.
 		}
 		entriesByName[entry.Name] = entry
 		if entry.Spec.SourceURL != "" && entry.Spec.Manifest.EntryKey != "" {
-			refs[sourceRef(sourceIDForURL(entry.Spec.SourceURL), entry.Spec.Manifest.EntryKey)] = entry
+			refs[sourceRef(validation.SourceIDForURL(entry.Spec.SourceURL), entry.Spec.Manifest.EntryKey)] = entry
 		}
 	}
 
@@ -235,7 +235,7 @@ func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, objs []client.
 				continue
 			}
 
-			target, err := resolveComponentSourceRef(refs, sourceIDForURL(entry.Spec.SourceURL), component.CatalogEntryID)
+			target, err := resolveComponentSourceRef(refs, validation.SourceIDForURL(entry.Spec.SourceURL), component.CatalogEntryID)
 			if err != nil {
 				errs = append(errs, err)
 				continue
@@ -306,15 +306,6 @@ func parseSourceRef(sourceID, catalogEntryID string) (refSourceID, entryKey stri
 
 func sourceRef(sourceID, entryKey string) string {
 	return fmt.Sprintf("%s%s%s", sourceID, catalogReferenceSeparator, entryKey)
-}
-
-func sourceIDForURL(sourceURL string) string {
-	sourceURL = strings.TrimPrefix(sourceURL, "https://")
-	sourceURL = strings.TrimPrefix(sourceURL, "http://")
-	if len(sourceURL) > 1 {
-		sourceURL = strings.TrimRight(sourceURL, "/")
-	}
-	return sourceURL
 }
 
 func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {
