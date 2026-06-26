@@ -44,9 +44,8 @@ npxConfig:
 `), 0o600))
 
 	h := &Handler{}
-	objs, sourceID, err := h.readMCPCatalog(context.Background(), "default", dir, "")
+	objs, err := h.readMCPCatalog(context.Background(), "default", dir, "")
 	assert.NoError(t, err)
-	assert.Equal(t, dir, sourceID)
 	assert.Len(t, objs, 1)
 
 	entry, ok := objs[0].(*v1.MCPServerCatalogEntry)
