@@ -1731,7 +1731,7 @@ func mergeMCPServerManifests(existing, override types.MCPServerManifest) types.M
 // applySecretBindingOverlay copies admin-selected secret bindings from the request
 // onto matching template fields while preserving the template-owned runtime shape.
 func applySecretBindingOverlay(manifest types.MCPServerManifest, overlay types.MCPServerManifest) types.MCPServerManifest {
-	bindingsByEnv := secretBindingsByEnv(overlay.Env)
+	bindingsByEnv := secretBindingsByEnv(overlay.Env, false)
 	for i := range manifest.Env {
 		if binding := bindingsByEnv[manifest.Env[i].Key]; binding != nil {
 			manifest.Env[i].SecretBinding = binding
@@ -1740,7 +1740,7 @@ func applySecretBindingOverlay(manifest types.MCPServerManifest, overlay types.M
 	}
 
 	if manifest.RemoteConfig != nil && overlay.RemoteConfig != nil {
-		bindingsByHeader := secretBindingsByHeader(overlay.RemoteConfig.Headers)
+		bindingsByHeader := secretBindingsByHeader(overlay.RemoteConfig.Headers, false)
 		for i := range manifest.RemoteConfig.Headers {
 			if binding := bindingsByHeader[manifest.RemoteConfig.Headers[i].Key]; binding != nil {
 				manifest.RemoteConfig.Headers[i].SecretBinding = binding
@@ -1757,12 +1757,14 @@ func rejectCatalogSecretBindingOverrides(manifest types.MCPServerManifest, sourc
 		return nil
 	}
 
-	manifestBindingsByEnv := secretBindingsByEnv(manifest.Env)
+	// Include nil bindings so a present field with no binding is treated as an
+	// attempt to clear a catalog-owned binding, while an omitted field is allowed.
+	manifestBindingsByEnv := secretBindingsByEnv(manifest.Env, true)
 	for _, field := range source.Env {
 		if field.SecretBinding == nil {
 			continue
 		}
-		if binding := manifestBindingsByEnv[field.Key]; binding != nil && !sameSecretBinding(field.SecretBinding, binding) {
+		if binding, ok := manifestBindingsByEnv[field.Key]; ok && !sameSecretBinding(field.SecretBinding, binding) {
 			return types.NewErrBadRequest("env %q: cannot override catalog entry secretBinding", field.Key)
 		}
 	}
@@ -1770,12 +1772,14 @@ func rejectCatalogSecretBindingOverrides(manifest types.MCPServerManifest, sourc
 	if source.RemoteConfig == nil || manifest.RemoteConfig == nil {
 		return nil
 	}
-	manifestBindingsByHeader := secretBindingsByHeader(manifest.RemoteConfig.Headers)
+	// Include nil bindings so a present field with no binding is treated as an
+	// attempt to clear a catalog-owned binding, while an omitted field is allowed.
+	manifestBindingsByHeader := secretBindingsByHeader(manifest.RemoteConfig.Headers, true)
 	for _, field := range source.RemoteConfig.Headers {
 		if field.SecretBinding == nil {
 			continue
 		}
-		if binding := manifestBindingsByHeader[field.Key]; binding != nil && !sameSecretBinding(field.SecretBinding, binding) {
+		if binding, ok := manifestBindingsByHeader[field.Key]; ok && !sameSecretBinding(field.SecretBinding, binding) {
 			return types.NewErrBadRequest("header %q: cannot override catalog entry secretBinding", field.Key)
 		}
 	}
@@ -1789,9 +1793,9 @@ func markAdminAddedSecretBindings(manifest *types.MCPServerManifest, source *typ
 	var sourceEnv map[string]*types.MCPSecretBinding
 	var sourceHeaders map[string]*types.MCPSecretBinding
 	if source != nil {
-		sourceEnv = secretBindingsByEnv(source.Env)
+		sourceEnv = secretBindingsByEnv(source.Env, false)
 		if source.RemoteConfig != nil {
-			sourceHeaders = secretBindingsByHeader(source.RemoteConfig.Headers)
+			sourceHeaders = secretBindingsByHeader(source.RemoteConfig.Headers, false)
 		}
 	}
 	for i := range manifest.Env {
@@ -1812,20 +1816,20 @@ func markAdminAddedSecretBinding(binding, sourceBinding *types.MCPSecretBinding)
 	binding.AdminAdded = !sameSecretBinding(sourceBinding, binding)
 }
 
-func secretBindingsByEnv(fields []types.MCPEnv) map[string]*types.MCPSecretBinding {
+func secretBindingsByEnv(fields []types.MCPEnv, includeNil bool) map[string]*types.MCPSecretBinding {
 	bindings := make(map[string]*types.MCPSecretBinding, len(fields))
 	for _, field := range fields {
-		if field.SecretBinding != nil {
+		if includeNil || field.SecretBinding != nil {
 			bindings[field.Key] = field.SecretBinding
 		}
 	}
 	return bindings
 }
 
-func secretBindingsByHeader(fields []types.MCPHeader) map[string]*types.MCPSecretBinding {
+func secretBindingsByHeader(fields []types.MCPHeader, includeNil bool) map[string]*types.MCPSecretBinding {
 	bindings := make(map[string]*types.MCPSecretBinding, len(fields))
 	for _, field := range fields {
-		if field.SecretBinding != nil {
+		if includeNil || field.SecretBinding != nil {
 			bindings[field.Key] = field.SecretBinding
 		}
 	}

@@ -897,6 +897,20 @@ func TestRejectCatalogSecretBindingOverrides(t *testing.T) {
 		assert.Contains(t, err.Message, `env "PINNED_ENV": cannot override catalog entry secretBinding`)
 	})
 
+	t.Run("rejects env binding clear", func(t *testing.T) {
+		manifest := types.MCPServerManifest{
+			Runtime: types.RuntimeRemote,
+			Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+				Key: "PINNED_ENV",
+			}}},
+		}
+
+		err := rejectCatalogSecretBindingOverrides(manifest, source)
+		require.NotNil(t, err)
+		assert.Equal(t, http.StatusBadRequest, err.Code)
+		assert.Contains(t, err.Message, `env "PINNED_ENV": cannot override catalog entry secretBinding`)
+	})
+
 	t.Run("rejects header override", func(t *testing.T) {
 		manifest := types.MCPServerManifest{
 			Runtime: types.RuntimeRemote,
