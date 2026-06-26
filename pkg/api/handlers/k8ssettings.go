@@ -36,7 +36,7 @@ func NewK8sSettingsHandler(mcpRuntimeBackend, serviceName, serviceNamespace, mcp
 }
 
 func (h *K8sSettingsHandler) GetObotK8sSettings(req api.Context) error {
-	settings, err := h.buildObotK8sSettings(req.Context(), req.Storage)
+	settings, err := h.buildObotK8sSettings(req.Context())
 	if err != nil {
 		return err
 	}

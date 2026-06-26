@@ -7,14 +7,13 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/obothelmvalues"
-	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	"github.com/obot-platform/obot/pkg/system"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-func TestBuildObotK8sSettingsFromStoredHelmValues(t *testing.T) {
+func TestBuildObotK8sSettingsFromHelmValuesSecret(t *testing.T) {
 	valuesYAML := `
 replicaCount: 2
 updateStrategy: RollingUpdate
@@ -46,25 +45,28 @@ tolerations:
 `
 
 	scheme := runtime.NewScheme()
-	if err := v1.AddToScheme(scheme); err != nil {
+	if err := corev1.AddToScheme(scheme); err != nil {
 		t.Fatal(err)
 	}
 
-	helmValues := &v1.ObotHelmValues{
+	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      system.ObotHelmValuesName,
-			Namespace: system.DefaultNamespace,
+			Name:      "obot-obot-helm-values",
+			Namespace: "obot",
 		},
-		Spec: v1.ObotHelmValuesSpec{
-			ValuesYAML: mustMaskValuesYAML(t, valuesYAML),
+		Data: map[string][]byte{
+			"values.yaml": []byte(valuesYAML),
 		},
 	}
 
 	handler := &K8sSettingsHandler{
 		mcpRuntimeBackend: "kubernetes",
+		localK8sClient:    fake.NewClientBuilder().WithScheme(scheme).WithObjects(secret).Build(),
+		serviceNamespace:  "obot",
+		serviceName:       "obot-obot",
 	}
 
-	settings, err := handler.buildObotK8sSettings(context.Background(), fake.NewClientBuilder().WithScheme(scheme).WithObjects(helmValues).Build())
+	settings, err := handler.buildObotK8sSettings(context.Background())
 	if err != nil {
 		t.Fatalf("buildObotK8sSettings() error = %v", err)
 	}
@@ -94,16 +96,16 @@ tolerations:
 	}
 }
 
-func TestBuildObotK8sSettingsFromHelmValuesMasksConfig(t *testing.T) {
-	settings, err := buildObotK8sSettingsFromHelmValues(obothelmvalues.MaskValues(map[string]any{
+func TestBuildObotK8sSettingsFromMaskedValues(t *testing.T) {
+	settings, err := obothelmvalues.ParseObotK8sSettings(map[string]any{
 		"config": map[string]any{
-			"existingSecret":                    "custom-secret",
-			"OBOT_SERVER_ENABLE_AUTHENTICATION": false,
-			"OPENAI_API_KEY":                    "sk-test",
+			"existingSecret":                    obothelmvalues.MaskedValue,
+			"OBOT_SERVER_ENABLE_AUTHENTICATION": obothelmvalues.MaskedValue,
+			"OPENAI_API_KEY":                    obothelmvalues.MaskedValue,
 		},
-	}))
+	})
 	if err != nil {
-		t.Fatalf("buildObotK8sSettingsFromHelmValues() error = %v", err)
+		t.Fatalf("ParseObotK8sSettings() error = %v", err)
 	}
 
 	if settings.Config == "" {
@@ -119,33 +121,36 @@ func TestBuildObotK8sSettingsFromHelmValuesMasksConfig(t *testing.T) {
 	}
 }
 
-func TestBuildObotK8sSettingsUnavailableWithoutStoredValues(t *testing.T) {
+func TestBuildObotK8sSettingsUnavailableWithoutSecret(t *testing.T) {
 	scheme := runtime.NewScheme()
-	if err := v1.AddToScheme(scheme); err != nil {
+	if err := corev1.AddToScheme(scheme); err != nil {
 		t.Fatal(err)
 	}
 
 	handler := &K8sSettingsHandler{
 		mcpRuntimeBackend: "kubernetes",
+		localK8sClient:    fake.NewClientBuilder().WithScheme(scheme).Build(),
+		serviceNamespace:  "obot",
+		serviceName:       "obot-obot",
 	}
 
-	settings, err := handler.buildObotK8sSettings(context.Background(), fake.NewClientBuilder().WithScheme(scheme).Build())
+	settings, err := handler.buildObotK8sSettings(context.Background())
 	if err != nil {
 		t.Fatalf("buildObotK8sSettings() error = %v", err)
 	}
 	if settings.Available {
-		t.Fatal("expected unavailable settings without stored helm values")
+		t.Fatal("expected unavailable settings without helm values secret")
 	}
 }
 
-func TestBuildObotK8sSettingsFromHelmValuesOmitsEmptySections(t *testing.T) {
-	settings, err := buildObotK8sSettingsFromHelmValues(map[string]any{
+func TestParseObotK8sSettingsOmitsEmptySections(t *testing.T) {
+	settings, err := obothelmvalues.ParseObotK8sSettings(map[string]any{
 		"replicaCount": 1,
 		"affinity":     map[string]any{},
 		"resources":    []any{},
 	})
 	if err != nil {
-		t.Fatalf("buildObotK8sSettingsFromHelmValues() error = %v", err)
+		t.Fatalf("ParseObotK8sSettings() error = %v", err)
 	}
 
 	if settings.Affinity != "" {
@@ -161,20 +166,11 @@ func TestBuildObotK8sSettingsNonKubernetesBackend(t *testing.T) {
 		mcpRuntimeBackend: "docker",
 	}
 
-	settings, err := handler.buildObotK8sSettings(context.Background(), fake.NewClientBuilder().Build())
+	settings, err := handler.buildObotK8sSettings(context.Background())
 	if err != nil {
 		t.Fatalf("buildObotK8sSettings() error = %v", err)
 	}
 	if settings != (types.ObotK8sSettings{Available: false}) {
 		t.Fatalf("settings = %#v, want unavailable", settings)
 	}
-}
-
-func mustMaskValuesYAML(t *testing.T, valuesYAML string) string {
-	t.Helper()
-	maskedYAML, err := obothelmvalues.MaskValuesYAML(valuesYAML)
-	if err != nil {
-		t.Fatalf("MaskValuesYAML() error = %v", err)
-	}
-	return maskedYAML
 }

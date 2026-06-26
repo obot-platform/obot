@@ -2,7 +2,7 @@ package types
 
 // ObotK8sSettings surfaces Helm-managed Obot server Kubernetes configuration.
 // Values are read-only and sourced from the Helm values snapshot captured at install/upgrade time.
-// Fields mirror chart/values.yaml; complex values are returned as YAML strings.
+// YAML string fields correspond to obothelmvalues.yamlSectionKeys in pkg/obothelmvalues/keys.go.
 type ObotK8sSettings struct {
 	// Available is false when Obot is not running on the Kubernetes backend.
 	Available bool `json:"available"`

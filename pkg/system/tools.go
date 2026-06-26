@@ -12,9 +12,8 @@ const (
 	DefaultSkillRepository = "default"
 	DefaultModelInfoSource = "default"
 	DefaultRoleSettingName = "user-default-role-setting"
-	K8sSettingsName        = "k8s-settings"
-	ObotHelmValuesName     = "obot-helm-values"
-	AppPreferencesName     = "app-preferences"
+	K8sSettingsName    = "k8s-settings"
+	AppPreferencesName = "app-preferences"
 	AppNotificationName    = "app-notification"
 
 	ModelProviderCredential = "sys.model.provider.credential"

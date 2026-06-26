@@ -11,6 +11,7 @@ import (
 const MaskedValue = "****"
 
 // MaskValuesYAML parses a Helm values snapshot and returns a display-safe YAML string.
+// This is the only masking entry point for Helm values displayed via GET /api/k8s-settings.
 func MaskValuesYAML(valuesYAML string) (string, error) {
 	valuesYAML = strings.TrimSpace(valuesYAML)
 	if valuesYAML == "" {
@@ -31,6 +32,7 @@ func MaskValuesYAML(valuesYAML string) (string, error) {
 
 // MaskValues returns a display-safe copy of IT-configurable Helm values.
 func MaskValues(values map[string]any) map[string]any {
+	values = pickITConfigurableValues(values)
 	if len(values) == 0 {
 		return values
 	}
@@ -42,13 +44,11 @@ func MaskValues(values map[string]any) map[string]any {
 			masked[key] = maskConfigSection(value)
 		case "podAnnotations":
 			masked[key] = maskStringMap(value)
-		case "service":
-			masked[key] = maskServiceSection(value)
-		case "ingress":
-			masked[key] = maskIngressSection(value)
-		case "serviceAccount":
-			masked[key] = maskServiceAccountSection(value)
 		default:
+			if _, ok := sectionsWithAnnotationMaps[key]; ok {
+				masked[key] = maskSectionWithAnnotations(value)
+				continue
+			}
 			masked[key] = value
 		}
 	}
@@ -90,31 +90,7 @@ func maskStringMap(value any) any {
 	return maskStringMapValues(stringMap)
 }
 
-func maskServiceSection(value any) any {
-	section, ok := toStringAnyMap(value)
-	if !ok {
-		return value
-	}
-	result := copyStringAnyMap(section)
-	if annotations, ok := result["annotations"]; ok {
-		result["annotations"] = maskStringMap(annotations)
-	}
-	return result
-}
-
-func maskIngressSection(value any) any {
-	section, ok := toStringAnyMap(value)
-	if !ok {
-		return value
-	}
-	result := copyStringAnyMap(section)
-	if annotations, ok := result["annotations"]; ok {
-		result["annotations"] = maskStringMap(annotations)
-	}
-	return result
-}
-
-func maskServiceAccountSection(value any) any {
+func maskSectionWithAnnotations(value any) any {
 	section, ok := toStringAnyMap(value)
 	if !ok {
 		return value

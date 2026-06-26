@@ -116,8 +116,12 @@ Validate all PSA level values in mcpNamespace.podSecurity
 
 {{/*
 Snapshot of IT-configurable Helm values captured at install/upgrade time.
-Excludes mcpImagePullSecrets and mcpServerDefaults, which are managed separately.
-Sensitive values are masked because this snapshot is display-only.
+
+Top-level keys must match obothelmvalues.ITConfigurableTopLevelKeys in
+pkg/obothelmvalues/keys.go. Excludes mcpImagePullSecrets and mcpServerDefaults.
+
+Sensitive values are masked in Go (MaskValuesYAML) when serving GET /api/k8s-settings;
+do not mask in this template.
 */}}
 {{- define "obot.helmValuesSnapshot" -}}
 replicaCount: {{ .Values.replicaCount }}
@@ -131,19 +135,19 @@ updateStrategy: {{ .Values.updateStrategy | quote }}
 additionalLabels:
 {{ .Values.additionalLabels | toYaml | indent 2 }}
 podAnnotations:
-{{- include "obot.maskedStringMapYAML" .Values.podAnnotations | nindent 2 }}
+{{ .Values.podAnnotations | toYaml | indent 2 }}
 service:
   type: {{ .Values.service.type }}
   port: {{ .Values.service.port }}
   annotations:
-{{- include "obot.maskedStringMapYAML" .Values.service.annotations | nindent 4 }}
+{{ .Values.service.annotations | toYaml | indent 4 }}
   spec:
 {{ .Values.service.spec | toYaml | indent 4 }}
 ingress:
   enabled: {{ .Values.ingress.enabled }}
   className: {{ .Values.ingress.className }}
   annotations:
-{{- include "obot.maskedStringMapYAML" .Values.ingress.annotations | nindent 4 }}
+{{ .Values.ingress.annotations | toYaml | indent 4 }}
   extraPaths:
 {{ .Values.ingress.extraPaths | toYaml | indent 4 }}
   hosts:
@@ -153,11 +157,7 @@ ingress:
   tls:
 {{ .Values.ingress.tls | toYaml | indent 4 }}
 config:
-{{- range $key, $value := .Values.config }}
-{{- if (toString $value) }}
-  {{ $key }}: "****"
-{{- end }}
-{{- end }}
+{{ .Values.config | toYaml | indent 2 }}
 resources:
 {{ .Values.resources | toYaml | indent 2 }}
 runtimeClassName: {{ .Values.runtimeClassName | quote }}
@@ -171,27 +171,13 @@ serviceAccount:
   create: {{ .Values.serviceAccount.create }}
   name: {{ .Values.serviceAccount.name | quote }}
   annotations:
-{{- include "obot.maskedStringMapYAML" .Values.serviceAccount.annotations | nindent 4 }}
+{{ .Values.serviceAccount.annotations | toYaml | indent 4 }}
 nodeSelector:
 {{ .Values.nodeSelector | toYaml | indent 2 }}
 tolerations:
 {{ .Values.tolerations | toYaml | indent 2 }}
 affinity:
 {{ .Values.affinity | toYaml | indent 2 }}
-{{- end -}}
-
-{{/*
-Render a string map with values masked for display-only snapshots.
-*/}}
-{{- define "obot.maskedStringMapYAML" -}}
-{{- $map := . -}}
-{{- if $map -}}
-{{- range $key, $value := $map -}}
-{{ $key }}: {{ if $value }}"****"{{ else }}""{{ end }}
-{{ end -}}
-{{- else -}}
-{}
-{{- end -}}
 {{- end -}}
 
 {{/*

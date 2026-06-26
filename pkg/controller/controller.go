@@ -14,7 +14,6 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/modelinfosource"
 	"github.com/obot-platform/obot/pkg/controller/handlers/provider"
 	"github.com/obot-platform/obot/pkg/controller/handlers/secret"
-	"github.com/obot-platform/obot/pkg/obothelmvalues"
 	"github.com/obot-platform/obot/pkg/serviceaccounts"
 	"github.com/obot-platform/obot/pkg/services"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -67,10 +66,6 @@ func (c *Controller) PreStart(ctx context.Context) error {
 
 	if err := ensureK8sSettings(ctx, c.services.StorageClient, c.services.PodSchedulingSettingsFromHelm, c.services.PSASettingsFromHelm); err != nil {
 		return fmt.Errorf("failed to ensure K8s settings: %w", err)
-	}
-
-	if err := obothelmvalues.SyncFromSecret(ctx, c.services.StorageClient, c.services.LocalK8sClient, c.services.ServiceNamespace, c.services.ServiceName); err != nil {
-		return fmt.Errorf("failed to sync obot helm values: %w", err)
 	}
 
 	if err := ensureAppPreferences(ctx, c.services.StorageClient); err != nil {

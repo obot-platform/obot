@@ -53,9 +53,9 @@ func TestMaskValuesConfigMasksAllKeys(t *testing.T) {
 func TestMaskValuesConfigOmitsEmptyStrings(t *testing.T) {
 	masked := MaskValues(map[string]any{
 		"config": map[string]any{
-			"OPENAI_API_KEY":                    "sk-test",
+			"OPENAI_API_KEY":                          "sk-test",
 			"OBOT_SERVER_AUDIT_LOGS_STORE_S3ENDPOINT": "",
-			"OBOT_SERVER_ENABLE_AUTHENTICATION": false,
+			"OBOT_SERVER_ENABLE_AUTHENTICATION":       false,
 		},
 	})
 
@@ -74,6 +74,21 @@ func TestMaskValuesConfigOmitsEmptyStrings(t *testing.T) {
 	}
 }
 
+func TestMaskValuesIgnoresUnknownTopLevelKeys(t *testing.T) {
+	masked := MaskValues(map[string]any{
+		"config": map[string]any{
+			"OPENAI_API_KEY": "sk-test",
+		},
+		"mcpServerDefaults": map[string]any{
+			"shouldNotPersist": "value",
+		},
+	})
+
+	if _, ok := masked["mcpServerDefaults"]; ok {
+		t.Fatal("expected unknown top-level keys to be dropped")
+	}
+}
+
 func TestMaskStringMapValues(t *testing.T) {
 	masked := maskStringMapValues(map[string]string{
 		"example.com/setting": "enabled",
@@ -88,5 +103,27 @@ func TestMaskStringMapValues(t *testing.T) {
 	}
 	if masked["empty-value"] != "" {
 		t.Fatalf("empty value should remain empty, got %q", masked["empty-value"])
+	}
+}
+
+func TestParseObotK8sSettingsFromMaskedValues(t *testing.T) {
+	settings, err := ParseObotK8sSettings(map[string]any{
+		"replicaCount":     float64(2),
+		"runtimeClassName": "gvisor",
+		"config": map[string]any{
+			"OPENAI_API_KEY": MaskedValue,
+		},
+	})
+	if err != nil {
+		t.Fatalf("ParseObotK8sSettings() error = %v", err)
+	}
+	if settings.ReplicaCount == nil || *settings.ReplicaCount != 2 {
+		t.Fatalf("replicaCount = %v, want 2", settings.ReplicaCount)
+	}
+	if settings.RuntimeClassName != "gvisor" {
+		t.Fatalf("runtimeClassName = %q, want gvisor", settings.RuntimeClassName)
+	}
+	if !strings.Contains(settings.Config, "OPENAI_API_KEY") {
+		t.Fatalf("config = %q, want OPENAI_API_KEY key", settings.Config)
 	}
 }
