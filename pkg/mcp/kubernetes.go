@@ -512,11 +512,8 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 		secretEnvData["NANOBOT_RUN_AUDIT_LOG_METADATA"] = []byte(server.AuditLogMetadata)
 
 		secretEnvData["NANOBOT_RUN_BLOCK_LINK_LOCAL"] = []byte("true")
-		if server.Runtime != types.RuntimeComposite {
-			// Composite runtimes talk to Obot via a service domain, which resolves to a private address.
-			secretEnvData["NANOBOT_RUN_BLOCK_PRIVATE_IP"] = []byte("true")
-		}
 		// Explicitly not blocking loopback because the shim will communicate with the MCP server via loopback.
+		// Also, not blocking private IPs because the shim will use them to communicate with filters.
 
 		if server.Runtime == types.RuntimeRemote {
 			// non-remote runtimes will have their otel config added to the shim container below
@@ -704,6 +701,11 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 			image = expandEnvVars(server.ContainerImage, fileMapping, nil)
 			args = server.Args
 		}
+	}
+
+	if server.Runtime != types.RuntimeComposite {
+		// Composite runtimes talk to Obot via a service domain, which resolves to a private address.
+		secretEnvData["NANOBOT_RUN_BLOCK_PRIVATE_IP"] = []byte("true")
 	}
 
 	objs = append(objs, &corev1.Secret{
