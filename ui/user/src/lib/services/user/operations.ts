@@ -53,7 +53,8 @@ import {
 	type Workspace,
 	type AccessControlRule,
 	type AccessControlRuleManifest,
-	type K8sServerDetail
+	type K8sServerDetail,
+	type MCPSubField
 } from './types';
 
 type ItemsResponse<T> = { items: T[] | null };
@@ -1098,7 +1099,10 @@ export async function createWorkspaceMCPCatalogServer(
 export async function deployWorkspaceMultiUserCatalogEntry(
 	workspaceID: string,
 	catalogEntryID: string,
-	server?: { manifest?: { remoteConfig?: { url?: string } }; alias?: string },
+	server?: {
+		manifest?: { env?: MCPSubField[]; remoteConfig?: { url?: string; headers?: MCPSubField[] } };
+		alias?: string;
+	},
 	opts?: { fetch?: Fetcher }
 ): Promise<MCPCatalogServer> {
 	const response = (await doPost(

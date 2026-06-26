@@ -23,16 +23,18 @@ import (
 )
 
 type Handler struct {
-	mcpSessionManager *mcp.SessionManager
-	transport         http.RoundTripper
+	mcpSessionManager         *mcp.SessionManager
+	transport                 http.RoundTripper
+	secretBindingAllowedLabel string
 }
 
 var errMCPServerRequiresConfiguration = errors.New("mcp server requires configuration")
 
-func NewHandler(mcpSessionManager *mcp.SessionManager) *Handler {
+func NewHandler(mcpSessionManager *mcp.SessionManager, secretBindingAllowedLabel string) *Handler {
 	return &Handler{
-		mcpSessionManager: mcpSessionManager,
-		transport:         otelhttp.NewTransport(http.DefaultTransport),
+		mcpSessionManager:         mcpSessionManager,
+		transport:                 otelhttp.NewTransport(http.DefaultTransport),
+		secretBindingAllowedLabel: secretBindingAllowedLabel,
 	}
 }
 
@@ -103,7 +105,7 @@ func (h *Handler) ensureServerIsDeployed(req api.Context) (mcp.ServerConfig, str
 	}
 
 	connectID := mcpID
-	mcpID, mcpServer, mcpServerConfig, missingConfig, err := handlers.ServerForActionWithConnectIDAllowMissingConfig(req, mcpID)
+	mcpID, mcpServer, mcpServerConfig, missingConfig, err := handlers.ServerForActionWithConnectIDAllowMissingConfig(req, mcpID, h.secretBindingAllowedLabel)
 	if err != nil {
 		return mcp.ServerConfig{}, "", false, fmt.Errorf("failed to get mcp server config: %w", err)
 	}
@@ -192,7 +194,7 @@ func (h *Handler) ensureSystemServerIsDeployed(req api.Context, mcpID string) (m
 		secretsCred = tokenExchangeCred.Secrets
 	}
 
-	credEnv, err = mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, systemServer.Spec.Manifest.Env, systemServer.Spec.Manifest.RemoteConfig, credEnv)
+	credEnv, err = mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, systemServer.Spec.Manifest.Env, systemServer.Spec.Manifest.RemoteConfig, credEnv, h.secretBindingAllowedLabel)
 	if err != nil {
 		return mcp.ServerConfig{}, "", false, fmt.Errorf("failed to resolve secret bindings: %w", err)
 	}

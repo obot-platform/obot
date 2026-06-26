@@ -245,11 +245,23 @@ type MCPHeader struct {
 }
 
 // MCPSecretBinding references a single key in a pre-existing Kubernetes Secret
-// in the Obot namespace (the namespace where the Obot server runs)
+// in the Obot namespace (the namespace where the Obot server runs).
 type MCPSecretBinding struct {
 	Name string `json:"name"`
 	Key  string `json:"key"`
+	// AdminAdded marks bindings selected on a deployed multi-user server by an admin.
+	// Catalog YAML must not set this; drift/diff logic uses it to ignore local admin config.
+	AdminAdded bool `json:"adminAdded,omitempty"`
 }
+
+// MCPAllowedSecretBindingTarget describes a Kubernetes Secret that admins can select for MCP secret bindings.
+type MCPAllowedSecretBindingTarget struct {
+	Name string   `json:"name"`
+	Keys []string `json:"keys"`
+}
+
+// MCPAllowedSecretBindingTargetList is a list of Kubernetes Secrets allowed for MCP secret bindings.
+type MCPAllowedSecretBindingTargetList List[MCPAllowedSecretBindingTarget]
 
 type MCPEnv struct {
 	MCPHeader `json:",inline"`

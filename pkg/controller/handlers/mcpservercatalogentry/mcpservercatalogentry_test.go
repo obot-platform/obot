@@ -51,7 +51,7 @@ func TestDetectCompositeDriftMarksEntryNeedingUpdateWhenMultiUserComponentDrifts
 	client := newFakeClient(compositeEntry, sharedServer)
 	err := (&Handler{}).DetectCompositeDrift(router.Request{
 		Client:    client,
-		Ctx:       context.Background(),
+		Ctx:       t.Context(),
 		Object:    compositeEntry,
 		Namespace: compositeEntry.Namespace,
 		Name:      compositeEntry.Name,
@@ -59,8 +59,68 @@ func TestDetectCompositeDriftMarksEntryNeedingUpdateWhenMultiUserComponentDrifts
 	require.NoError(t, err)
 
 	var updated v1.MCPServerCatalogEntry
-	require.NoError(t, client.Get(context.Background(), router.Key(compositeEntry.Namespace, compositeEntry.Name), &updated))
+	require.NoError(t, client.Get(t.Context(), router.Key(compositeEntry.Namespace, compositeEntry.Name), &updated))
 	assert.True(t, updated.Status.NeedsUpdate)
+}
+
+func TestDetectCompositeDriftIgnoresAdminAddedSecretBindings(t *testing.T) {
+	binding := &types.MCPSecretBinding{Name: "admin-secret", Key: "api-key", AdminAdded: true}
+	componentSnapshot := types.MCPServerCatalogEntryManifest{
+		Name:           "Shared Component",
+		Runtime:        types.RuntimeContainerized,
+		ServerUserType: types.ServerUserTypeMultiUser,
+		ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+			Image: "example/component:1.0.0",
+			Port:  8080,
+			Path:  "/mcp",
+		},
+		Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+			Key:       "API_KEY",
+			Name:      "API Key",
+			Required:  true,
+			Sensitive: true,
+		}}},
+	}
+	compositeEntry := newMCPServerCatalogEntry("composite-entry", types.MCPServerCatalogEntryManifest{
+		Name:    "Composite Entry",
+		Runtime: types.RuntimeComposite,
+		CompositeConfig: &types.CompositeCatalogConfig{
+			ComponentServers: []types.CatalogComponentServer{{
+				MCPServerID: "shared-server",
+				Manifest:    componentSnapshot,
+			}},
+		},
+	})
+	compositeEntry.Status.NeedsUpdate = true
+	sharedServer := newMCPServer("shared-server", types.MCPServerManifest{
+		Name:    "Shared Component",
+		Runtime: types.RuntimeContainerized,
+		ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+			Image: "example/component:1.0.0",
+			Port:  8080,
+			Path:  "/mcp",
+		},
+		Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+			Key:           "API_KEY",
+			Name:          "API Key",
+			Required:      true,
+			Sensitive:     true,
+			SecretBinding: binding,
+		}}},
+	})
+	client := newFakeClient(compositeEntry, sharedServer)
+	err := (&Handler{}).DetectCompositeDrift(router.Request{
+		Client:    client,
+		Ctx:       t.Context(),
+		Object:    compositeEntry,
+		Namespace: compositeEntry.Namespace,
+		Name:      compositeEntry.Name,
+	}, &router.ResponseWrapper{})
+	require.NoError(t, err)
+
+	var updated v1.MCPServerCatalogEntry
+	require.NoError(t, client.Get(t.Context(), router.Key(compositeEntry.Namespace, compositeEntry.Name), &updated))
+	assert.False(t, updated.Status.NeedsUpdate)
 }
 
 func TestDetectCompositeDriftClearsEntryWhenMultiUserComponentMatches(t *testing.T) {
@@ -100,7 +160,7 @@ func TestDetectCompositeDriftClearsEntryWhenMultiUserComponentMatches(t *testing
 	client := newFakeClient(compositeEntry, sharedServer)
 	err := (&Handler{}).DetectCompositeDrift(router.Request{
 		Client:    client,
-		Ctx:       context.Background(),
+		Ctx:       t.Context(),
 		Object:    compositeEntry,
 		Namespace: compositeEntry.Namespace,
 		Name:      compositeEntry.Name,
@@ -108,7 +168,7 @@ func TestDetectCompositeDriftClearsEntryWhenMultiUserComponentMatches(t *testing
 	require.NoError(t, err)
 
 	var updated v1.MCPServerCatalogEntry
-	require.NoError(t, client.Get(context.Background(), router.Key(compositeEntry.Namespace, compositeEntry.Name), &updated))
+	require.NoError(t, client.Get(t.Context(), router.Key(compositeEntry.Namespace, compositeEntry.Name), &updated))
 	assert.False(t, updated.Status.NeedsUpdate)
 }
 
@@ -178,7 +238,7 @@ func TestEnsureUserCountMultiUserEntry(t *testing.T) {
 	client := newFakeClient(entry, server1, server2)
 	err := (&Handler{}).EnsureUserCount(router.Request{
 		Client:    client,
-		Ctx:       context.Background(),
+		Ctx:       t.Context(),
 		Object:    entry,
 		Namespace: entry.Namespace,
 		Name:      entry.Name,
@@ -186,7 +246,7 @@ func TestEnsureUserCountMultiUserEntry(t *testing.T) {
 	require.NoError(t, err)
 
 	var updated v1.MCPServerCatalogEntry
-	require.NoError(t, client.Get(context.Background(), router.Key(entry.Namespace, entry.Name), &updated))
+	require.NoError(t, client.Get(t.Context(), router.Key(entry.Namespace, entry.Name), &updated))
 	assert.Equal(t, 3, updated.Status.UserCount, "should sum server instance user counts across servers")
 }
 
@@ -226,7 +286,7 @@ func TestEnsureUserCountMultiUserEntryExcludesComposite(t *testing.T) {
 	client := newFakeClient(entry, activeServer, compositeChild)
 	err := (&Handler{}).EnsureUserCount(router.Request{
 		Client:    client,
-		Ctx:       context.Background(),
+		Ctx:       t.Context(),
 		Object:    entry,
 		Namespace: entry.Namespace,
 		Name:      entry.Name,
@@ -234,7 +294,7 @@ func TestEnsureUserCountMultiUserEntryExcludesComposite(t *testing.T) {
 	require.NoError(t, err)
 
 	var updated v1.MCPServerCatalogEntry
-	require.NoError(t, client.Get(context.Background(), router.Key(entry.Namespace, entry.Name), &updated))
+	require.NoError(t, client.Get(t.Context(), router.Key(entry.Namespace, entry.Name), &updated))
 	assert.Equal(t, 1, updated.Status.UserCount, "should only count active non-composite servers")
 }
 
@@ -273,8 +333,8 @@ func TestEnsureUserCountSingleUserEntryCountsUniqueServerUsers(t *testing.T) {
 	require.NoError(t, err)
 
 	var updated v1.MCPServerCatalogEntry
-	require.NoError(t, client.Get(context.Background(), router.Key(entry.Namespace, entry.Name), &updated))
-	assert.Equal(t, 2, updated.Status.UserCount)
+	require.NoError(t, client.Get(t.Context(), router.Key(entry.Namespace, entry.Name), &updated))
+	assert.Equal(t, 2, updated.Status.UserCount, "should only count active non-composite server")
 }
 
 func newMCPServer(name string, manifest types.MCPServerManifest) *v1.MCPServer {

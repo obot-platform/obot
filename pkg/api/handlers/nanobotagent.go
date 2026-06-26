@@ -21,16 +21,18 @@ import (
 )
 
 type NanobotAgentHandler struct {
-	sessionManager *mcp.SessionManager
-	serverURL      string
-	agentsEnabled  bool
+	sessionManager            *mcp.SessionManager
+	serverURL                 string
+	agentsEnabled             bool
+	secretBindingAllowedLabel string
 }
 
-func NewNanobotAgentHandler(sessionManager *mcp.SessionManager, serverURL string, agentsEnabled bool) *NanobotAgentHandler {
+func NewNanobotAgentHandler(sessionManager *mcp.SessionManager, serverURL string, agentsEnabled bool, secretBindingAllowedLabel string) *NanobotAgentHandler {
 	return &NanobotAgentHandler{
-		sessionManager: sessionManager,
-		serverURL:      serverURL,
-		agentsEnabled:  agentsEnabled,
+		sessionManager:            sessionManager,
+		serverURL:                 serverURL,
+		agentsEnabled:             agentsEnabled,
+		secretBindingAllowedLabel: secretBindingAllowedLabel,
 	}
 }
 
@@ -212,7 +214,7 @@ func (h *NanobotAgentHandler) Launch(req api.Context) error {
 	// "missing required config: NANOBOT_ENV_FILE" error before the credential exists.
 	var serverConfig mcp.ServerConfig
 	for {
-		serverConfig, _, err = serverConfigForAction(req, *server, false)
+		serverConfig, _, err = serverConfigForAction(req, *server, h.secretBindingAllowedLabel, false)
 		if err == nil {
 			break
 		}

@@ -1262,12 +1262,12 @@ func validateStartupTimeout(runtime types.Runtime, field string, startupTimeoutS
 }
 
 // ValidateSecretBindings enforces the rules for secretBinding references on
-// env vars and headers. Bindings are GitOps-only: they may only appear on
-// catalog entries synced from git (gitManaged=true). They also require the
-// kubernetes MCP runtime backend, are mutually exclusive with a static value,
-// require non-empty name/key, and are rejected in unsupported combinations
-// (env bindings under remote runtime).
-func ValidateSecretBindings(manifest types.MCPServerManifest, gitManaged bool, mcpBackend string) error {
+// env vars and headers. Bindings may appear on git-managed catalog entries,
+// multi-user catalog entries, or admin-managed multi-user servers. They require the kubernetes MCP runtime
+// backend, are mutually exclusive with a static value, require non-empty
+// name/key, and are rejected in unsupported combinations (env bindings under
+// remote runtime).
+func ValidateSecretBindings(manifest types.MCPServerManifest, gitManaged, adminManaged bool, mcpBackend string) error {
 	check := func(kind, key string, h types.MCPHeader) error {
 		if h.SecretBinding == nil {
 			return nil
@@ -1275,8 +1275,8 @@ func ValidateSecretBindings(manifest types.MCPServerManifest, gitManaged bool, m
 		if !mcp.IsKubernetesBackend(mcpBackend) {
 			return fmt.Errorf("%s %q: secretBinding requires the kubernetes MCP runtime backend", kind, key)
 		}
-		if !gitManaged {
-			return fmt.Errorf("%s %q: secretBinding is only allowed on git-synced catalog entries", kind, key)
+		if !gitManaged && !adminManaged {
+			return fmt.Errorf("%s %q: secretBinding is only allowed on git-synced catalog entries, multi-user catalog entries, or admin-managed multi-user servers", kind, key)
 		}
 		if h.Value != "" {
 			return fmt.Errorf("%s %q: secretBinding and value are mutually exclusive", kind, key)
@@ -1304,6 +1304,13 @@ func ValidateSecretBindings(manifest types.MCPServerManifest, gitManaged bool, m
 			}
 		}
 	}
+	if manifest.MultiUserConfig != nil {
+		for _, h := range manifest.MultiUserConfig.UserDefinedHeaders {
+			if h.SecretBinding != nil {
+				return fmt.Errorf("multi-user header %q: secretBinding is not supported for user-defined headers", h.Key)
+			}
+		}
+	}
 	return nil
 }
 
@@ -1312,7 +1319,11 @@ func ValidateSecretBindings(manifest types.MCPServerManifest, gitManaged bool, m
 // carry the runtime/env shape of MCPServerManifest directly) by extracting
 // the fields that matter for binding validation. The catalog-entry manifest
 // uses the same MCPEnv/MCPHeader types, so we reuse the core logic.
-func ValidateSecretBindingsCatalogEntry(manifest types.MCPServerCatalogEntryManifest, gitManaged bool, mcpBackend string) error {
+func ValidateSecretBindingsCatalogEntry(manifest types.MCPServerCatalogEntryManifest, gitManaged, userIsAdmin bool, mcpBackend string) error {
+	if err := validateNoAdminAddedCatalogBindings(manifest); err != nil {
+		return err
+	}
+
 	// Reject URL templates that reference secret-bound env vars. Remote
 	// secretBinding support is limited to headers; URL templates are not a
 	// supported binding target.
@@ -1332,11 +1343,35 @@ func ValidateSecretBindingsCatalogEntry(manifest types.MCPServerCatalogEntryMani
 
 	// Synthesize a minimal MCPServerManifest so we can reuse the core check.
 	synthetic := types.MCPServerManifest{
-		Runtime:      manifest.Runtime,
-		Env:          manifest.Env,
-		RemoteConfig: remoteCatalogToRuntime(manifest.RemoteConfig),
+		Runtime:         manifest.Runtime,
+		Env:             manifest.Env,
+		RemoteConfig:    remoteCatalogToRuntime(manifest.RemoteConfig),
+		MultiUserConfig: manifest.MultiUserConfig,
 	}
-	return ValidateSecretBindings(synthetic, gitManaged, mcpBackend)
+	return ValidateSecretBindings(synthetic, gitManaged, userIsAdmin && manifest.ServerUserType == types.ServerUserTypeMultiUser, mcpBackend)
+}
+
+func validateNoAdminAddedCatalogBindings(manifest types.MCPServerCatalogEntryManifest) error {
+	for _, env := range manifest.Env {
+		if env.SecretBinding != nil && env.SecretBinding.AdminAdded {
+			return fmt.Errorf("env %q: secretBinding.adminAdded is not valid for catalog entry", env.Key)
+		}
+	}
+	if manifest.RemoteConfig != nil {
+		for _, h := range manifest.RemoteConfig.Headers {
+			if h.SecretBinding != nil && h.SecretBinding.AdminAdded {
+				return fmt.Errorf("header %q: secretBinding.adminAdded is not valid for catalog entry", h.Key)
+			}
+		}
+	}
+	if manifest.CompositeConfig != nil {
+		for _, component := range manifest.CompositeConfig.ComponentServers {
+			if err := validateNoAdminAddedCatalogBindings(component.Manifest); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func remoteCatalogToRuntime(c *types.RemoteCatalogConfig) *types.RemoteRuntimeConfig {

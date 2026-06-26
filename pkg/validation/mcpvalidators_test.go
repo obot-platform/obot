@@ -2115,11 +2115,12 @@ func TestValidateSecretBindings(t *testing.T) {
 	binding := &types.MCPSecretBinding{Name: "datadog-prod", Key: "api-key"}
 
 	tests := []struct {
-		name       string
-		manifest   types.MCPServerManifest
-		gitManaged bool
-		backend    string
-		wantErr    string // substring; "" = expect no error
+		name         string
+		manifest     types.MCPServerManifest
+		gitManaged   bool
+		adminManaged bool
+		backend      string
+		wantErr      string // substring; "" = expect no error
 	}{
 		{
 			name: "no bindings is allowed regardless",
@@ -2154,6 +2155,27 @@ func TestValidateSecretBindings(t *testing.T) {
 			},
 			gitManaged: true,
 			backend:    "kubernetes",
+		},
+		{
+			name: "bound env accepted for admin-managed multi-user server",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeContainerized,
+				Env:     []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "DD_API_KEY", SecretBinding: binding}}},
+			},
+			adminManaged: true,
+			backend:      "kubernetes",
+		},
+		{
+			name: "bound multi-user header is rejected",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeContainerized,
+				MultiUserConfig: &types.MultiUserConfig{UserDefinedHeaders: []types.MCPHeader{{
+					Key: "X-API-Key", SecretBinding: binding,
+				}}},
+			},
+			adminManaged: true,
+			backend:      "kubernetes",
+			wantErr:      "secretBinding is not supported for user-defined headers",
 		},
 		{
 			name: "bound header rejected on non-kubernetes backend",
@@ -2249,7 +2271,7 @@ func TestValidateSecretBindings(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateSecretBindings(tt.manifest, tt.gitManaged, tt.backend)
+			err := ValidateSecretBindings(tt.manifest, tt.gitManaged, tt.adminManaged, tt.backend)
 			if tt.wantErr == "" {
 				require.NoError(t, err)
 				return
@@ -2306,7 +2328,7 @@ func TestValidateSecretBindingsCatalogEntry_URLTemplate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateSecretBindingsCatalogEntry(tt.manifest, true, "kubernetes")
+			err := ValidateSecretBindingsCatalogEntry(tt.manifest, true, false, "kubernetes")
 			if tt.wantErr == "" {
 				require.NoError(t, err)
 				return
@@ -2315,6 +2337,145 @@ func TestValidateSecretBindingsCatalogEntry_URLTemplate(t *testing.T) {
 			require.Contains(t, err.Error(), tt.wantErr)
 		})
 	}
+}
+
+func TestValidateSecretBindingsCatalogEntryMultiUser(t *testing.T) {
+	binding := &types.MCPSecretBinding{Name: "my-secret", Key: "token"}
+
+	tests := []struct {
+		name         string
+		manifest     types.MCPServerCatalogEntryManifest
+		adminManaged bool
+		wantErr      string
+	}{
+		{
+			name: "admin-managed non-git multi-user catalog entry allows env binding",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime:        types.RuntimeNPX,
+				ServerUserType: types.ServerUserTypeMultiUser,
+				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+					Key: "TOKEN", SecretBinding: binding,
+				}}},
+			},
+			adminManaged: true,
+		},
+		{
+			name: "non-admin non-git multi-user catalog entry rejects env binding",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime:        types.RuntimeNPX,
+				ServerUserType: types.ServerUserTypeMultiUser,
+				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+					Key: "TOKEN", SecretBinding: binding,
+				}}},
+			},
+			wantErr: "multi-user catalog entries",
+		},
+		{
+			name: "admin-managed non-git single-user catalog entry rejects env binding",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime:        types.RuntimeNPX,
+				ServerUserType: types.ServerUserTypeSingleUser,
+				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+					Key: "TOKEN", SecretBinding: binding,
+				}}},
+			},
+			adminManaged: true,
+			wantErr:      "multi-user catalog entries",
+		},
+		{
+			name: "admin-managed non-git multi-user remote catalog entry allows header binding",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime:        types.RuntimeRemote,
+				ServerUserType: types.ServerUserTypeMultiUser,
+				RemoteConfig: &types.RemoteCatalogConfig{Headers: []types.MCPHeader{{
+					Key: "Authorization", SecretBinding: binding,
+				}}},
+			},
+			adminManaged: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateSecretBindingsCatalogEntry(tt.manifest, false, tt.adminManaged, "kubernetes")
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tt.wantErr)
+		})
+	}
+}
+
+func TestValidateSecretBindingsCatalogEntryRejectsAdminAdded(t *testing.T) {
+	binding := &types.MCPSecretBinding{Name: "my-secret", Key: "token", AdminAdded: true}
+
+	tests := []struct {
+		name     string
+		manifest types.MCPServerCatalogEntryManifest
+		wantErr  string
+	}{
+		{
+			name: "env adminAdded rejected",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeNPX,
+				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+					Key: "TOKEN", SecretBinding: binding,
+				}}},
+			},
+			wantErr: "secretBinding.adminAdded is not valid for catalog entry",
+		},
+		{
+			name: "header adminAdded rejected",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteCatalogConfig{Headers: []types.MCPHeader{{
+					Key: "Authorization", SecretBinding: binding,
+				}}},
+			},
+			wantErr: "secretBinding.adminAdded is not valid for catalog entry",
+		},
+		{
+			name: "composite component adminAdded rejected",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeCatalogConfig{ComponentServers: []types.CatalogComponentServer{{
+					Manifest: types.MCPServerCatalogEntryManifest{
+						Runtime: types.RuntimeNPX,
+						Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+							Key: "TOKEN", SecretBinding: binding,
+						}}},
+					},
+				}}},
+			},
+			wantErr: "secretBinding.adminAdded is not valid for catalog entry",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateSecretBindingsCatalogEntry(tt.manifest, true, false, "kubernetes")
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tt.wantErr)
+		})
+	}
+}
+
+func TestValidateSecretBindingsCatalogEntryRejectsMultiUserHeaderBinding(t *testing.T) {
+	binding := &types.MCPSecretBinding{Name: "my-secret", Key: "token"}
+	manifest := types.MCPServerCatalogEntryManifest{
+		Runtime:        types.RuntimeContainerized,
+		ServerUserType: types.ServerUserTypeMultiUser,
+		MultiUserConfig: &types.MultiUserConfig{UserDefinedHeaders: []types.MCPHeader{{
+			Key:           "X-API-Key",
+			SecretBinding: binding,
+		}}},
+	}
+
+	err := ValidateSecretBindingsCatalogEntry(manifest, true, false, "kubernetes")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "secretBinding is not supported for user-defined headers")
 }
 
 func TestValidateTemplateReferences_Server(t *testing.T) {

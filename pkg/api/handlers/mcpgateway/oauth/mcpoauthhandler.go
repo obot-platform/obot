@@ -19,20 +19,22 @@ import (
 )
 
 type MCPOAuthHandlerFactory struct {
-	baseURL           string
-	mcpSessionManager *mcp.SessionManager
-	client            kclient.Client
-	stateMgr          *stateManager
-	tokenStore        mcp.GlobalTokenStore
+	baseURL                   string
+	mcpSessionManager         *mcp.SessionManager
+	client                    kclient.Client
+	stateMgr                  *stateManager
+	tokenStore                mcp.GlobalTokenStore
+	secretBindingAllowedLabel string
 }
 
-func NewMCPOAuthHandlerFactory(baseURL string, sessionManager *mcp.SessionManager, client kclient.Client, gatewayClient *client.Client, globalTokenStore mcp.GlobalTokenStore) *MCPOAuthHandlerFactory {
+func NewMCPOAuthHandlerFactory(baseURL string, sessionManager *mcp.SessionManager, client kclient.Client, gatewayClient *client.Client, globalTokenStore mcp.GlobalTokenStore, secretBindingAllowedLabel string) *MCPOAuthHandlerFactory {
 	return &MCPOAuthHandlerFactory{
-		baseURL:           baseURL,
-		mcpSessionManager: sessionManager,
-		client:            client,
-		stateMgr:          newStateManager(gatewayClient),
-		tokenStore:        globalTokenStore,
+		baseURL:                   baseURL,
+		mcpSessionManager:         sessionManager,
+		client:                    client,
+		stateMgr:                  newStateManager(gatewayClient),
+		tokenStore:                globalTokenStore,
+		secretBindingAllowedLabel: secretBindingAllowedLabel,
 	}
 }
 
@@ -64,7 +66,7 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 				continue
 			}
 
-			_, componentConfig, err := handlers.ServerForAction(req, componentServer.Name)
+			_, componentConfig, err := handlers.ServerForAction(req, componentServer.Name, f.secretBindingAllowedLabel)
 			if err != nil {
 				continue
 			}
