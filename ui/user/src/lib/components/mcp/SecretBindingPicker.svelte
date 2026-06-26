@@ -67,10 +67,10 @@
 
 	function enableSecretBinding() {
 		setValueSource('secret');
-		field.value = '';
 		const firstTarget = targets[0];
 		const firstKey = firstTarget?.keys[0];
 		if (!firstTarget || !firstKey) return;
+		field.value = '';
 		field.secretBinding = { name: firstTarget.name, key: firstKey };
 	}
 
