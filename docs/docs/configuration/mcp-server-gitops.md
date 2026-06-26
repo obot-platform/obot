@@ -152,6 +152,8 @@ compositeConfig:
 
 During sync, Obot resolves portable keys to internal generated catalog entry IDs and stores the internal IDs. If `catalogEntryID` does not contain `::` and does not match an `entryKey` in the same source, Obot treats it as an internal catalog entry ID and leaves it unchanged.
 
+When customizing composite tools in GitOps manifests, use `overrideDescription` for custom tool text. The `description` field is reserved for Obot and is rejected in Git-synced tool overrides.
+
 #### Multi-user template with shared configuration
 
 Use `serverUserType: multiUser` when the catalog entry should create a shared deployment instead of one server per user. Deployment-level configuration, such as shared credentials, is configured on the deployed server.
