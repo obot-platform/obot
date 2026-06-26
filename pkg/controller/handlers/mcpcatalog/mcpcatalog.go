@@ -159,9 +159,8 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 				errMsg := fmt.Sprintf("duplicate catalog source ID %q", sourceID)
 				addSyncError(mcpCatalog.Status.SyncErrors, sourceURL, errMsg)
 				continue
-			} else {
-				uniqueSourceIDs[sourceID] = struct{}{}
 			}
+			uniqueSourceIDs[sourceID] = struct{}{}
 		}
 
 		toAdd = append(toAdd, objs...)

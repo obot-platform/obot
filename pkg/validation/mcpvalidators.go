@@ -1001,7 +1001,7 @@ func getRuntimeValidators(options Options) RuntimeValidators {
 		types.RuntimeUVX:           UVXValidator{},
 		types.RuntimeNPX:           NPXValidator{},
 		types.RuntimeContainerized: ContainerizedValidator{},
-		types.RuntimeRemote:        RemoteValidator{RemoteMCPURLValidationConfig: options.RemoteMCPURLValidationConfig},
+		types.RuntimeRemote:        RemoteValidator(options),
 		types.RuntimeComposite:     CompositeValidator{},
 	}
 }
