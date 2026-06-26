@@ -1,0 +1,101 @@
+name: Nanobot Python Evals
+
+on:
+  schedule:
+    # Daily at 03:00 UTC
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # static:
+  #   name: Static DeepEval (fixtures)
+  #   runs-on: ubuntu-latest
+  #   env:
+  #     OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
+  #
+  #     - name: Set up Python
+  #       uses: actions/setup-python@v5
+  #       with:
+  #         python-version: "3.11"
+  #
+  #     - name: Install Python dependencies
+  #       run: |
+  #         python -m pip install --upgrade pip
+  #         python -m pip install -r eval_py/requirements.txt
+  #
+  #     - name: Run 3 evals
+  #       working-directory: eval_py
+  #       run: |
+  #         # Runs:
+  #         # - python_review_1
+  #         # - deep_news_briefing_1
+  #         # - antv_charts_1
+  #         python -m eval.agent_deepeval all
+
+  live:
+    name: Live Obot/MCP Conversation Evals
+    runs-on: ubuntu-latest
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      OBOT_EVAL_BASE_URL: http://localhost:8080
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Start Obot container
+        run: |
+          docker run -d --name obot-python-evals \
+            -p 8080:8080 \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -e OPENAI_API_KEY="${OPENAI_API_KEY}" \
+            -e OBOT_SERVER_DISABLE_UPDATE_CHECK=true \
+            ghcr.io/obot-platform/obot:latest --pull=always
+
+      - name: Wait for Obot to be ready
+        run: |
+          echo "Waiting for OBOT API to be ready..."
+          for i in {1..24}; do
+            if curl -sf http://localhost:8080/api/me | grep -q '"username":"nobody"'; then
+              echo "OBOT API is ready."
+              exit 0
+            fi
+            echo "Not ready yet... retry #$i"
+            sleep 5
+          done
+          echo "OBOT did not become ready in time."
+          exit 1
+
+      # /api/me can succeed before the MCP gateway can launch nanobot; evals hit MCP immediately.
+      - name: Brief settle before MCP evals
+        run: sleep 10
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r eval_py/requirements.txt
+
+      - name: Run live conversation evals (all 3 workflows + combined summary)
+        working-directory: eval_py
+        run: python -m eval.run nanobot_conversation_workflows
+
+      - name: Upload eval run summary (JSON + text)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-run-summary
+          path: |
+            eval_py/eval/data/eval_run_summary.json
+            eval_py/eval/data/eval_run_summary.txt
+          if-no-files-found: ignore
+
