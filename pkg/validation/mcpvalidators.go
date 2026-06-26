@@ -1116,7 +1116,7 @@ func ValidateCatalogEntryForRoute(manifest types.MCPServerCatalogEntryManifest, 
 	return nil
 }
 
-func ValidateCatalogEntryManifest(ctx context.Context, manifest types.MCPServerCatalogEntryManifest, options Options) error {
+func ValidateCatalogEntryManifest(ctx context.Context, manifest types.MCPServerCatalogEntryManifest, gitManaged bool, options Options) error {
 	switch manifest.ServerUserType {
 	case types.ServerUserTypeSingleUser, types.ServerUserTypeMultiUser:
 	default:
@@ -1143,6 +1143,12 @@ func ValidateCatalogEntryManifest(ctx context.Context, manifest types.MCPServerC
 		return err
 	}
 
+	if gitManaged {
+		if err := validateGitManagedCatalogEntryManifest(manifest); err != nil {
+			return err
+		}
+	}
+
 	if validator, ok := getRuntimeValidators(options)[manifest.Runtime]; ok {
 		return validator.ValidateCatalogConfig(ctx, manifest)
 	}
@@ -1152,6 +1158,26 @@ func ValidateCatalogEntryManifest(ctx context.Context, manifest types.MCPServerC
 		Field:   "runtime",
 		Message: "unsupported runtime",
 	}
+}
+
+func validateGitManagedCatalogEntryManifest(manifest types.MCPServerCatalogEntryManifest) error {
+	if manifest.Runtime != types.RuntimeComposite || manifest.CompositeConfig == nil {
+		return nil
+	}
+
+	for i, component := range manifest.CompositeConfig.ComponentServers {
+		for j, override := range component.ToolOverrides {
+			if override.Description != "" {
+				return types.RuntimeValidationError{
+					Runtime: types.RuntimeComposite,
+					Field:   fmt.Sprintf("compositeConfig.componentServers[%d].toolOverrides[%d].description", i, j),
+					Message: "cannot be set in Git-managed catalogs; use overrideDescription instead",
+				}
+			}
+		}
+	}
+
+	return nil
 }
 
 func ValidateSystemMCPServerCatalogEntryManifest(ctx context.Context, manifest types.SystemMCPServerCatalogEntryManifest, options Options) error {
@@ -1188,7 +1214,7 @@ func ValidateSystemMCPServerCatalogEntryManifest(ctx context.Context, manifest t
 		ServerUserType:      manifest.ServerUserType,
 		Env:                 manifest.Env,
 		Resources:           manifest.Resources,
-	}, options)
+	}, false, options)
 }
 
 func ValidateSystemMCPServerManifest(ctx context.Context, manifest types.SystemMCPServerManifest, options Options) error {

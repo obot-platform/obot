@@ -75,11 +75,14 @@ Each MCP server is defined in its own YAML file with the following structure:
 ### Basic Information
 
 ```yaml
+entryKey: server-name # optional key for referencing in composite servers
 name: Server Name
 description: |
   Detailed description of the server's capabilities and features.
   Supports multi-line markdown formatting.
 ```
+
+The optional `entryKey` field defines a stable key for this catalog entry. It must be unique within its source, DNS-friendly, and cannot contain `::`. This is used when [composite MCP servers](#composite-mcp-servers) need to reference entries without knowing Obot's generated internal catalog entry ID.
 
 ### Tool Previews
 
@@ -127,6 +130,29 @@ The `serverUserType` field specifies how users interact with the catalog entry:
 Catalog entries should set this field explicitly. For compatibility with existing catalogs, some import paths normalize an omitted value to `singleUser` before validation. Any persisted value other than `singleUser` or `multiUser` is rejected at validation time.
 
 Multi-user catalog templates support the `npx`, `uvx`, `containerized`, and `remote` runtimes. They do not support the `composite` runtime.
+
+### Composite MCP servers
+
+Composite MCP servers combine tools from other catalog entries. In GitOps, composite entries can reference component entries in three ways:
+
+- Use a normal internal `catalogEntryID`, such as `default-gmail-8a99d8be`
+- Use a same-source portable key with `{entryKey}`. The target entry must define `entryKey` and must be in the same source.
+- Use a cross-source portable key with `{sourceID}::{entryKey}`. Obot uses the configured source URL without the `https://` prefix as `sourceID`. For example, `https://github.com/company/mcp-catalog` is referenced as `github.com/company/mcp-catalog`. The target entry must define `entryKey`.
+
+Portable references are useful when the target entry is in the same Git catalog sync and does not have an internal generated ID yet, or when you want to use a purely-gitops workflow.
+
+```yaml
+name: Gmail Composite
+runtime: composite
+compositeConfig:
+  componentServers:
+    - catalogEntryID: gmail
+    - catalogEntryID: github.com/company/mcp-catalog::gmail
+```
+
+During sync, Obot resolves portable keys to internal generated catalog entry IDs and stores the internal IDs. If `catalogEntryID` does not contain `::` and does not match an `entryKey` in the same source, Obot treats it as an internal catalog entry ID and leaves it unchanged.
+
+When customizing composite tools in GitOps manifests, use `overrideDescription` for custom tool text. The `description` field is reserved for Obot and is rejected in Git-synced tool overrides.
 
 #### Multi-user template with shared configuration
 
@@ -321,6 +347,7 @@ description: |
   ## What you'll need to connect
   **Required:**
   - **Personal Access Token**: GitHub Personal Access Token with appropriate repository permissions
+entryKey: github
 
 toolPreview:
   - name: create_issue

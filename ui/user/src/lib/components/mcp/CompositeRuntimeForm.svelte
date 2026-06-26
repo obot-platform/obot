@@ -232,6 +232,8 @@
 
 	// Open the tools configuration / refresh flow for a specific component
 	function openToolsConfigurator(componentId: string) {
+		if (readonly) return;
+
 		const match =
 			componentServers.get(componentId) || componentEntries.find((e) => e.id === componentId);
 		if (match) {
@@ -341,6 +343,8 @@
 	});
 
 	function removeServer(componentId: string) {
+		if (readonly) return;
+
 		config.componentServers = (config.componentServers || []).filter(
 			(c) => getComponentId(c) !== componentId
 		) as unknown as typeof config.componentServers;
@@ -457,28 +461,30 @@
 										All tools are enabled by default.
 									</p>
 									<p class="text-muted-content mb-4 text-sm font-light">
-										Click below to further modify tool availability or details.
+										{readonly
+											? 'Tool customization is disabled for this catalog entry.'
+											: 'Click below to further modify tool availability or details.'}
 									</p>
-									<button
-										type="button"
-										class="btn btn-primary text-sm"
-										disabled={loadingByEntry[componentId]}
-										onclick={async () => {
-											if (readonly) return;
-
-											const entry = buildCompositeConfiguringEntry(componentId);
-											configuringEntry = entry;
-											configuringComponentId = componentId;
-											configuringIsNewComponent = isComponentNew(componentId);
-											compositeToolsSetupDialog?.open();
-										}}
-									>
-										{#if loadingByEntry[componentId]}
-											<Loading class="size-4" />
-										{:else}
-											Configure Tools
-										{/if}
-									</button>
+									{#if !readonly}
+										<button
+											type="button"
+											class="btn btn-primary text-sm"
+											disabled={loadingByEntry[componentId]}
+											onclick={async () => {
+												const entry = buildCompositeConfiguringEntry(componentId);
+												configuringEntry = entry;
+												configuringComponentId = componentId;
+												configuringIsNewComponent = isComponentNew(componentId);
+												compositeToolsSetupDialog?.open();
+											}}
+										>
+											{#if loadingByEntry[componentId]}
+												<Loading class="size-4" />
+											{:else}
+												Configure Tools
+											{/if}
+										</button>
+									{/if}
 								</div>
 							{/if}
 							{#if entry.toolOverrides?.length}
@@ -529,6 +535,7 @@
 													<div class="flex shrink-0 items-center gap-2">
 														<Toggle
 															checked={tool.enabled === true}
+															disabled={readonly}
 															onChange={(checked) => {
 																tool.enabled = checked;
 															}}
@@ -538,6 +545,7 @@
 														<button
 															type="button"
 															class="btn btn-secondary btn-sm text-xs"
+															disabled={readonly}
 															onclick={() => {
 																const toolKey = `${componentId}-${tool.name}`;
 																// When expanding, initialize inputs with current effective values
@@ -574,6 +582,7 @@
 															<p class="text-xs text-muted-content">Tool name</p>
 															<input
 																class="text-input-filled flex-1 text-sm"
+																disabled={readonly}
 																bind:value={tool.overrideName}
 															/>
 														</div>
@@ -582,6 +591,7 @@
 															<p class="text-xs text-muted-content">Description</p>
 															<textarea
 																class="text-input-filled h-24 resize-none text-xs"
+																disabled={readonly}
 																bind:value={tool.overrideDescription}
 																placeholder="Enter tool description..."
 															></textarea>
@@ -591,6 +601,7 @@
 															<button
 																type="button"
 																class="btn btn-sm btn-secondary text-xs"
+																disabled={readonly}
 																onclick={() => {
 																	tool.overrideName = tool.name;
 																	tool.overrideDescription = tool.description;
@@ -656,6 +667,8 @@
 		configuringEntry = undefined;
 	}}
 	onSuccess={(componentConfig, entry, tools) => {
+		if (readonly) return;
+
 		const id = getComponentId(componentConfig);
 		const idx = (config.componentServers || []).findIndex((c) => getComponentId(c) === id);
 
