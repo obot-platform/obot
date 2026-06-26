@@ -285,6 +285,7 @@ serviceAccount:
 
 # mcpImagePullSecrets -- Configuration for creating image pull secrets for MCP containers.
 # Each entry should contain registry credentials that will be used to create Kubernetes secrets.
+# If you set .Values.secret.existingSecret, you must define `OBOT_SERVER_MCPIMAGE_PULL_SECRETS` to use these
 mcpImagePullSecrets: []
 # Example:
 # mcpImagePullSecrets:

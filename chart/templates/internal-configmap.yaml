@@ -24,8 +24,8 @@ data:
   {{- if .Values.mcpServerDefaults.resources }}
   OBOT_SERVER_MCPK8S_SETTINGS_RESOURCES: {{ .Values.mcpServerDefaults.resources | toJson | quote }}
   {{- end }}
-  {{- if .Values.mcpNamespace.podSecurity.enabled }}
   OBOT_SERVER_MCPPOD_SECURITY_ENABLED: {{ .Values.mcpNamespace.podSecurity.enabled | toString | quote }}
+  {{- if .Values.mcpNamespace.podSecurity.enabled }}
   OBOT_SERVER_MCPPOD_SECURITY_ENFORCE: {{ .Values.mcpNamespace.podSecurity.enforce | quote }}
   OBOT_SERVER_MCPPOD_SECURITY_ENFORCE_VERSION: {{ .Values.mcpNamespace.podSecurity.enforceVersion | quote }}
   OBOT_SERVER_MCPPOD_SECURITY_AUDIT: {{ .Values.mcpNamespace.podSecurity.audit | quote }}
