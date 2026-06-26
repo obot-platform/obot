@@ -31,11 +31,10 @@ npxConfig:
 `), 0o600))
 
 	h := &Handler{}
-	objs, sourceID, err := h.readMCPCatalog(context.Background(), "default", dir, "")
+	objs, err := h.readMCPCatalog(context.Background(), "default", dir, "")
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), `duplicate source entry key "shared"`)
-	assert.Equal(t, dir, sourceID)
 	assert.Len(t, objs, 1)
 }
 
@@ -52,11 +51,10 @@ npxConfig:
 `), 0o600))
 
 	h := &Handler{}
-	objs, sourceID, err := h.readMCPCatalog(context.Background(), "default", dir, "")
+	objs, err := h.readMCPCatalog(context.Background(), "default", dir, "")
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), `source entry key "bad::key" cannot contain ::`)
-	assert.Equal(t, dir, sourceID)
 	assert.Empty(t, objs)
 }
 
@@ -73,11 +71,10 @@ npxConfig:
 `), 0o600))
 
 	h := &Handler{}
-	objs, sourceID, err := h.readMCPCatalog(context.Background(), "default", dir, "")
+	objs, err := h.readMCPCatalog(context.Background(), "default", dir, "")
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), `source entry key "Bad_Key" must be DNS-friendly`)
-	assert.Equal(t, dir, sourceID)
 	assert.Empty(t, objs)
 }
 

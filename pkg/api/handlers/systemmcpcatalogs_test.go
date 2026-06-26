@@ -55,3 +55,23 @@ func TestValidateSystemCatalogManifest_NormalizesNonLocalSourceURLs(t *testing.T
 		t.Fatalf("expected source URL to be normalized, got %q", manifest.SourceURLs[0])
 	}
 }
+
+func TestValidateSystemCatalogManifestRejectsDuplicateSourceURLs(t *testing.T) {
+	manifest := &types.SystemMCPCatalogManifest{
+		SourceURLs: []string{"example.com/catalog", "https://example.com/catalog"},
+	}
+
+	err := validateSystemCatalogManifest(manifest, "/tmp/system-catalog")
+
+	assert.ErrorContains(t, err, `duplicate catalog source ID "example.com/catalog"`)
+}
+
+func TestValidateSystemCatalogManifestRejectsDuplicateSourceIDs(t *testing.T) {
+	manifest := &types.SystemMCPCatalogManifest{
+		SourceURLs: []string{"https://example.com/catalog", "https://example.com/catalog/"},
+	}
+
+	err := validateSystemCatalogManifest(manifest, "/tmp/system-catalog")
+
+	assert.ErrorContains(t, err, `duplicate catalog source ID "example.com/catalog"`)
+}
