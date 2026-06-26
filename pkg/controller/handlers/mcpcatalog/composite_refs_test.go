@@ -238,6 +238,37 @@ compositeConfig:
 	}
 }
 
+func TestResolveCompositeSourceRefsResolvesExplicitSourceRefWithoutCurrentSource(t *testing.T) {
+	target := testCatalogEntry("target", "external-source", "tool", types.MCPServerCatalogEntryManifest{
+		Name:             "Tool",
+		ShortDescription: "Tool",
+		Description:      "Tool",
+		Icon:             "icon",
+		Runtime:          types.RuntimeNPX,
+		NPXConfig:        &types.NPXRuntimeConfig{Package: "tool"},
+		ServerUserType:   types.ServerUserTypeSingleUser,
+	})
+	composite := testCatalogEntry("composite", "", "", types.MCPServerCatalogEntryManifest{
+		Name:             "Composite",
+		ShortDescription: "Composite",
+		Description:      "Composite",
+		Icon:             "icon",
+		Runtime:          types.RuntimeComposite,
+		ServerUserType:   types.ServerUserTypeSingleUser,
+		CompositeConfig: &types.CompositeCatalogConfig{ComponentServers: []types.CatalogComponentServer{
+			{CatalogEntryID: sourceRef("external-source", "tool")},
+		}},
+	})
+
+	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(context.Background(), []client.Object{target, composite})
+
+	assert.Empty(t, errsBySourceURL)
+	assert.Len(t, result, 2)
+	component := composite.Spec.Manifest.CompositeConfig.ComponentServers[0]
+	assert.Equal(t, "target", component.CatalogEntryID)
+	assert.Equal(t, "Tool", component.Manifest.Name)
+}
+
 func TestResolveCompositeSourceRefsSkipsUnresolvedComposite(t *testing.T) {
 	target := testCatalogEntry("target", "source", "tool", types.MCPServerCatalogEntryManifest{
 		Name:             "Tool",
