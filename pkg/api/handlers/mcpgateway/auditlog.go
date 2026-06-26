@@ -112,7 +112,7 @@ func (a *auditLogInput) UnmarshalJSON(data []byte) error {
 		MCPFields:  &in.MCPAuditLogFields,
 		Encrypted:  in.Encrypted,
 	}
-	a.MCPAuditLog.MCPFields.ResponseReceived = in.ResponseReceived
+	a.MCPFields.ResponseReceived = in.ResponseReceived
 	a.Metadata = in.Metadata
 	a.Subject = in.Subject
 	return nil
