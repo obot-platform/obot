@@ -49,7 +49,7 @@ func clientIDFromClientAssertion(form url.Values) (string, error) {
 	return claims.Subject, nil
 }
 
-func (h *handler) validatePrivateKeyJWT(ctx context.Context, form url.Values, client v1.OAuthClient) error {
+func (h *handler) validatePrivateKeyJWT(ctx context.Context, form url.Values, client v1.OAuthClient, clientID string) error {
 	if form.Get("client_assertion_type") != clientAssertionTypeJWTBearer {
 		return fmt.Errorf("client_assertion_type must be %s", clientAssertionTypeJWTBearer)
 	}
@@ -78,8 +78,8 @@ func (h *handler) validatePrivateKeyJWT(ctx context.Context, form url.Values, cl
 	parser := jwt.NewParser(
 		jwt.WithAudience(tokenEndpoint),
 		jwt.WithExpirationRequired(),
-		jwt.WithIssuer(client.Name),
-		jwt.WithSubject(client.Name),
+		jwt.WithIssuer(clientID),
+		jwt.WithSubject(clientID),
 		jwt.WithValidMethods(validMethods),
 	)
 

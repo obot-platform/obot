@@ -25,6 +25,7 @@ import (
 type ErrorCode string
 
 const (
+	ErrInvalidClient           ErrorCode = "invalid_client"
 	ErrInvalidRequest          ErrorCode = "invalid_request"
 	ErrUnauthorizedClient      ErrorCode = "unauthorized_client"
 	ErrAccessDenied            ErrorCode = "access_denied"
@@ -48,6 +49,17 @@ func (e Error) Error() string {
 		return string(e.Code) + ": " + e.Description
 	}
 	return string(b)
+}
+
+func newOAuthErrHTTP(statusCode int, oauthErr Error) *types.ErrHTTP {
+	return types.NewErrHTTP(statusCode, oauthErr.Error())
+}
+
+func newInvalidClientErr(statusCode int, description string) *types.ErrHTTP {
+	return newOAuthErrHTTP(statusCode, Error{
+		Code:        ErrInvalidClient,
+		Description: description,
+	})
 }
 
 func (e Error) toQuery() url.Values {
@@ -123,7 +135,7 @@ func (h *handler) authorize(req api.Context) error {
 
 	if !isRedirectURIAllowed(oauthClient.Spec.Manifest, redirectURI) {
 		return types.NewErrBadRequest("%v", Error{
-			Code:        ErrInvalidRequest,
+			Code:        ErrInvalidClient,
 			Description: "redirect_uri is invalid for this client",
 			State:       state,
 		})
@@ -387,6 +399,11 @@ func (h *handler) consent(req api.Context) error {
 
 	oauthClient, err := h.resolveOAuthClient(req.Context(), req.Storage, clientID)
 	if err != nil {
+		if oauthErr, ok := errors.AsType[Error](err); ok {
+			oauthErr.State = oauthAppAuthRequest.Spec.State
+			redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, oauthErr)
+			return nil
+		}
 		redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
 			Code:        ErrServerError,
 			Description: fmt.Sprintf("failed to get OAuth client: %v", err),

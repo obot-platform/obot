@@ -623,6 +623,7 @@ func (c *Client) UserInfoByID(ctx context.Context, userID uint) (kuser.Info, err
 		Groups: u.Role.Groups(),
 		Extra: map[string][]string{
 			"auth_provider_groups": groupIDs,
+			"email":                {u.Email},
 		},
 	}, nil
 }
