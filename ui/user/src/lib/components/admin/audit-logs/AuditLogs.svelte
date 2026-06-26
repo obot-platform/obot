@@ -124,7 +124,7 @@
 	</th>
 {/snippet}
 
-{#snippet td(content: string)}
+{#snippet td(content: string | number | boolean | null | undefined)}
 	<td class="text-sm whitespace-nowrap">
 		<div class="box-content flex h-full px-6">
 			<div class="flex-1 truncate py-4">
@@ -135,7 +135,7 @@
 	</td>
 {/snippet}
 
-{#snippet mutationIndicators(requestMutated: boolean, responseMutated: boolean)}
+{#snippet mutationIndicators(requestMutated: boolean = false, responseMutated: boolean = false)}
 	<td class="text-sm whitespace-nowrap">
 		<div class="box-content flex h-full px-6">
 			<div class="flex flex-1 items-center gap-1 py-4">
@@ -203,6 +203,7 @@
 			{#snippet children({ items }: { items: { index: number; data: (typeof data)[0] }[] })}
 				{#each items as item (item.data.id)}
 					{@const d = item.data}
+					{@const mcp = d.mcpFields}
 
 					<tr
 						class={twMerge(
@@ -217,16 +218,16 @@
 						{@render td(formatLogTimestamp(d.createdAt, userDeviceSettings.timeFormat))}
 						{@render td(getUserDisplayName(d.userID))}
 						{@render td(
-							d.mcpID
-								? serverAliases.get(d.mcpID) || d.mcpServerDisplayName
-								: d.mcpServerDisplayName
+							mcp?.mcpID
+								? serverAliases.get(mcp.mcpID) || mcp.mcpServerDisplayName
+								: mcp?.mcpServerDisplayName
 						)}
-						{@render td(d.callType)}
-						{@render td(d.callIdentifier)}
-						{@render td(d.responseStatus)}
-						{@render td(d.processingTimeMs)}
-						{@render mutationIndicators(d.requestMutated, d.responseMutated)}
-						{@render td(d.client?.name)}
+						{@render td(mcp?.callType)}
+						{@render td(mcp?.callIdentifier)}
+						{@render td(mcp?.responseStatus)}
+						{@render td(mcp?.processingTimeMs)}
+						{@render mutationIndicators(mcp?.requestMutated, mcp?.responseMutated)}
+						{@render td(mcp?.client?.name)}
 						{@render td(d.clientIP)}
 					</tr>
 				{/each}

@@ -1,6 +1,7 @@
 package mcpgateway
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -80,6 +81,41 @@ type auditLogInput struct {
 	gatewaytypes.MCPAuditLog `json:",inline"`
 	Metadata                 map[string]string `json:"metadata"`
 	Subject                  string            `json:"subject"`
+}
+
+func (a *auditLogInput) UnmarshalJSON(data []byte) error {
+	// This custom unmarshaling logic allows us to accept the old, flat structure for MCP audit logs.
+	type auditLogInputJSON struct {
+		ID                             uint                     `json:"id"`
+		CreatedAt                      time.Time                `json:"createdAt"`
+		SourceType                     types.AuditLogSourceType `json:"sourceType"`
+		UserID                         string                   `json:"userID"`
+		ClientIP                       string                   `json:"clientIP"`
+		ResponseReceived               bool                     `json:"responseReceived"`
+		Encrypted                      bool                     `json:"encrypted"`
+		Metadata                       map[string]string        `json:"metadata"`
+		Subject                        string                   `json:"subject"`
+		gatewaytypes.MCPAuditLogFields `json:",inline"`
+	}
+
+	var in auditLogInputJSON
+	if err := json.Unmarshal(data, &in); err != nil {
+		return err
+	}
+
+	a.MCPAuditLog = gatewaytypes.MCPAuditLog{
+		ID:         in.ID,
+		CreatedAt:  in.CreatedAt,
+		SourceType: in.SourceType,
+		UserID:     in.UserID,
+		ClientIP:   in.ClientIP,
+		MCPFields:  &in.MCPAuditLogFields,
+		Encrypted:  in.Encrypted,
+	}
+	a.MCPAuditLog.MCPFields.ResponseReceived = in.ResponseReceived
+	a.Metadata = in.Metadata
+	a.Subject = in.Subject
+	return nil
 }
 
 // parseAuditLogOpts parses the query parameters common to ListAuditLogs and ListAuditLogFilterOptions.
@@ -187,10 +223,12 @@ func (h *AuditLogHandler) SubmitAuditLogs(req api.Context) error {
 	}
 
 	for _, auditLog := range auditLogs {
-		if auditLog.MCPID == "" {
-			auditLog.MCPID = auditLog.Metadata["mcpID"]
+		auditLog.NormalizeMCPFields()
+		mcp := auditLog.MCP()
+		if mcp.MCPID == "" {
+			mcp.MCPID = auditLog.Metadata["mcpID"]
 		}
-		if auditLog.MCPID != mcpServerName {
+		if mcp.MCPID != mcpServerName {
 			return types.NewErrForbidden("audit log does not belong to MCP server %q", mcpServerName)
 		}
 		if auditLog.UserID == "" {
@@ -201,14 +239,17 @@ func (h *AuditLogHandler) SubmitAuditLogs(req api.Context) error {
 		if auditLog.UserID == "" && nanobotAgentID != "" {
 			auditLog.UserID = userID
 		}
-		if auditLog.MCPServerCatalogEntryName == "" {
-			auditLog.MCPServerCatalogEntryName = auditLog.Metadata["mcpServerCatalogEntryName"]
+		if mcp.MCPServerCatalogEntryName == "" {
+			mcp.MCPServerCatalogEntryName = auditLog.Metadata["mcpServerCatalogEntryName"]
 		}
-		if auditLog.PowerUserWorkspaceID == "" {
-			auditLog.PowerUserWorkspaceID = auditLog.Metadata["powerUserWorkspaceID"]
+		if mcp.PowerUserWorkspaceID == "" {
+			mcp.PowerUserWorkspaceID = auditLog.Metadata["powerUserWorkspaceID"]
 		}
-		if auditLog.MCPServerDisplayName == "" {
-			auditLog.MCPServerDisplayName = auditLog.Metadata["mcpServerDisplayName"]
+		if mcp.MCPServerDisplayName == "" {
+			mcp.MCPServerDisplayName = auditLog.Metadata["mcpServerDisplayName"]
+		}
+		if err := auditLog.ValidateSourceFields(); err != nil {
+			return types.NewErrBadRequest("invalid audit log source fields: %v", err)
 		}
 
 		req.GatewayClient.LogMCPAuditEntry(auditLog.MCPAuditLog)
@@ -305,17 +346,18 @@ func (h *AuditLogHandler) GetAuditLog(req api.Context) error {
 
 	canAccessFullPayload := req.UserIsAuditor()
 	if !req.UserIsAuditor() {
+		mcp := log.MCP()
 		ownServerMCPIDs, err := getOwnServerMCPIDs(req)
 		if err != nil {
 			return fmt.Errorf("failed to get own server MCPIDs: %w", err)
 		}
 
-		isOwnServer := slices.Contains(ownServerMCPIDs, log.MCPID)
+		isOwnServer := slices.Contains(ownServerMCPIDs, mcp.MCPID)
 
 		isInWorkspace := false
 		if req.UserIsPowerUser() {
 			workspaceID := system.GetPowerUserWorkspaceID(req.User.GetUID())
-			isInWorkspace = log.PowerUserWorkspaceID == workspaceID
+			isInWorkspace = mcp.PowerUserWorkspaceID == workspaceID
 		}
 
 		// Admins can see all logs.
