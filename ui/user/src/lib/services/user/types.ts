@@ -109,20 +109,57 @@ export type AuditLogClient = {
 	name: string;
 	version: string;
 };
-export interface AuditLog {
-	id: string;
-	createdAt: string;
+export type AuditLogSourceType = 'mcp' | 'local_agent_tool_call';
+export type LocalAgentToolCallAuditLogFields = {
+	agentProvider: 'claude_code' | 'codex' | 'vscode' | 'cursor' | string;
+	agentVersion?: string;
+	cliName?: string;
+	cliVersion: string;
+	hookEventPhase: 'pre_tool' | 'post_tool' | 'failure' | string;
+	status: 'started' | 'allowed' | 'denied' | 'succeeded' | 'failed' | 'timeout' | string;
+	failureType?: string;
+	observedAt: string;
+	invocationKey?: string;
+	idempotencyKey?: string;
+	toolUseID?: string;
+	sessionID?: string;
+	turnID?: string;
+	toolName: string;
+	toolKind?: string;
+	mcpServerHint?: string;
+	mcpToolName?: string;
+	obotAuditCorrelationID?: string;
+	correlatedMCPAuditLogID?: number;
+	model?: string;
+	modelID?: string;
+	permissionMode?: string;
+	durationMs?: number;
+	error?: string;
+	deviceID?: string;
+	hostname?: string;
+	os?: string;
+	arch?: string;
+	localUsername?: string;
+	reportedUserEmail?: string;
+	identityStatus: 'authenticated_user' | 'anonymous_device' | 'unresolved' | string;
+	cwd?: string;
+	gitRepoRoot?: string;
+	gitRemoteURLs?: string[];
+	gitBranch?: string;
+	gitCommitSHA?: string;
+	transcriptPath?: string;
+	toolInput?: unknown;
+	toolOutput?: unknown;
+	rawHookPayload?: unknown;
+};
+export type MCPAuditLogFields = {
 	apiKey?: string;
-	userID: string;
 	userAgent?: string;
-	mcpServerInstanceName: string;
-	mcpServerName: string;
 	mcpServerDisplayName: string;
 	mcpServerCatalogEntryName?: string;
 	mcpID?: string;
 	powerUserWorkspaceID?: string;
 	client: AuditLogClient;
-	clientIP: string;
 	callType: string;
 	callIdentifier?: string;
 	responseStatus: number;
@@ -147,6 +184,15 @@ export interface AuditLog {
 	error?: string;
 	sessionID?: string;
 	requestID?: string;
+};
+export interface AuditLog {
+	id: string;
+	createdAt: string;
+	sourceType?: AuditLogSourceType;
+	userID: string;
+	clientIP: string;
+	mcpFields?: MCPAuditLogFields;
+	localAgentToolCallFields?: LocalAgentToolCallAuditLogFields;
 }
 export interface AuditLogToolCallStatItem {
 	createdAt: string;

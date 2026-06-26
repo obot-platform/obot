@@ -93,7 +93,7 @@ export type AuditLogTimelineBucketRow = {
 };
 
 export function aggregateAuditLogsByBucket(
-	logs: { createdAt: string; callType: string }[],
+	logs: { createdAt: string; mcpFields?: { callType?: string } }[],
 	rangeStart: Date,
 	rangeEnd: Date
 ): AuditLogTimelineBucketRow[] {
@@ -107,7 +107,7 @@ export function aggregateAuditLogsByBucket(
 			byCat = new Map();
 			bucketToCategoryToCount.set(bucketKey, byCat);
 		}
-		const cat = row.callType || 'unknown';
+		const cat = row.mcpFields?.callType || 'unknown';
 		byCat.set(cat, (byCat.get(cat) ?? 0) + 1);
 	}
 	const result: AuditLogTimelineBucketRow[] = [];

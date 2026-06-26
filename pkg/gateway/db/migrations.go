@@ -210,6 +210,16 @@ func migrateMCPAuditLogClientInfo(tx *gorm.DB) error {
 	return nil
 }
 
+func migrateMCPAuditLogSourceType(tx *gorm.DB) error {
+	migrator := tx.Migrator()
+	if !migrator.HasTable(&types.MCPAuditLog{}) || !migrator.HasColumn(&types.MCPAuditLog{}, "source_type") {
+		return nil
+	}
+	return tx.Model(&types.MCPAuditLog{}).
+		Where("source_type = '' OR source_type IS NULL").
+		Update("source_type", types2.AuditLogSourceTypeMCP).Error
+}
+
 func migrateUserRoles(tx *gorm.DB) error {
 	migrator := tx.Migrator()
 	if migrator.HasTable(&types.User{}) && migrator.HasColumn(&types.User{}, "role") {
