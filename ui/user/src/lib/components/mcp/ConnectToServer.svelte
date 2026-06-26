@@ -946,6 +946,7 @@
 
 	{#if entry?.connectURL || server?.connectURL || instance?.connectURL}
 		{@const url = instance?.connectURL || server?.connectURL || entry?.connectURL}
+		{@const displayName = getMCPDisplayName(server, entry?.manifest?.name ?? '')}
 		{#if url}
 			<div class="flex flex-col gap-1 md:p-0 pb-0 p-4">
 				<CopyField
@@ -958,7 +959,8 @@
 			<HowToConnect
 				bind:this={howToConnect}
 				{url}
-				id={generateIdFromName(getMCPDisplayName(server, entry?.manifest?.name ?? ''))}
+				id={generateIdFromName(displayName)}
+				{displayName}
 			/>
 		{/if}
 	{/if}
