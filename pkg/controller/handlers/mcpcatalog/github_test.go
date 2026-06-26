@@ -50,8 +50,7 @@ npxConfig:
 
 	entry, ok := objs[0].(*v1.MCPServerCatalogEntry)
 	assert.True(t, ok)
-	assert.Equal(t, dir, entry.Spec.SourceID)
-	assert.Equal(t, "test-entry", entry.Spec.SourceEntryKey)
+	assert.Equal(t, dir, entry.Spec.SourceURL)
 	assert.Equal(t, "test-entry", entry.Spec.Manifest.EntryKey)
 }
 

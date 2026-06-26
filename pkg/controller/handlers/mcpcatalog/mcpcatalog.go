@@ -209,8 +209,8 @@ func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, objs []client.
 			continue
 		}
 		entriesByName[entry.Name] = entry
-		if entry.Spec.SourceID != "" && entry.Spec.SourceEntryKey != "" {
-			refs[sourceRef(entry.Spec.SourceID, entry.Spec.SourceEntryKey)] = entry
+		if entry.Spec.SourceURL != "" && entry.Spec.Manifest.EntryKey != "" {
+			refs[sourceRef(sourceIDForURL(entry.Spec.SourceURL), entry.Spec.Manifest.EntryKey)] = entry
 		}
 	}
 
@@ -231,7 +231,7 @@ func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, objs []client.
 				continue
 			}
 
-			target, err := resolveComponentSourceRef(refs, entry.Spec.SourceID, component.CatalogEntryID)
+			target, err := resolveComponentSourceRef(refs, sourceIDForURL(entry.Spec.SourceURL), component.CatalogEntryID)
 			if err != nil {
 				errs = append(errs, err)
 				continue
@@ -476,10 +476,7 @@ func systemCatalogEntryManifestToMCP(manifest types.SystemMCPServerCatalogEntryM
 }
 
 func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, token string) ([]client.Object, error) {
-	var (
-		entries  []types.MCPServerCatalogEntryManifest
-		sourceID = sourceIDForURL(sourceURL)
-	)
+	var entries []types.MCPServerCatalogEntryManifest
 
 	if strings.HasPrefix(sourceURL, "http://") || strings.HasPrefix(sourceURL, "https://") {
 		if isGitRepoURL(sourceURL) {
@@ -580,8 +577,6 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 			Spec: v1.MCPServerCatalogEntrySpec{
 				MCPCatalogName: catalogName,
 				SourceURL:      sourceURL,
-				SourceID:       sourceID,
-				SourceEntryKey: entry.EntryKey,
 				Editable:       false, // entries from source URLs are not editable
 			},
 		}
