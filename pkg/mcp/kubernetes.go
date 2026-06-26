@@ -703,11 +703,6 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 		}
 	}
 
-	if server.Runtime != types.RuntimeComposite {
-		// Composite runtimes talk to Obot via a service domain, which resolves to a private address.
-		secretEnvData["NANOBOT_RUN_BLOCK_PRIVATE_IP"] = []byte("true")
-	}
-
 	objs = append(objs, &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        name.SafeConcatName(server.MCPServerName, "mcp", "config"),
