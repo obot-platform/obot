@@ -31,14 +31,6 @@ const (
 	LocalAgentProviderCursor     LocalAgentProvider = "cursor"
 )
 
-type LocalAgentAuditLogPhase string
-
-const (
-	LocalAgentAuditLogPhasePreTool  LocalAgentAuditLogPhase = "pre_tool"
-	LocalAgentAuditLogPhasePostTool LocalAgentAuditLogPhase = "post_tool"
-	LocalAgentAuditLogPhaseFailure  LocalAgentAuditLogPhase = "failure"
-)
-
 type LocalAgentAuditLogStatus string
 
 const (
