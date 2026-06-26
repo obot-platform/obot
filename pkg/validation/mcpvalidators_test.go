@@ -40,17 +40,17 @@ func TestValidateCatalogEntryManifest_MultiUserConfig(t *testing.T) {
 		},
 	}
 
-	require.NoError(t, ValidateCatalogEntryManifest(t.Context(), manifest, Options{}))
+	require.NoError(t, ValidateCatalogEntryManifest(t.Context(), manifest, false, Options{}))
 
 	manifest.MultiUserConfig = &types.MultiUserConfig{}
 	require.Equal(t, types.RuntimeValidationError{
 		Runtime: types.RuntimeNPX,
 		Field:   "multiUserConfig",
 		Message: "multiUserConfig may only be set for multi-user catalog entries",
-	}, ValidateCatalogEntryManifest(t.Context(), manifest, Options{}))
+	}, ValidateCatalogEntryManifest(t.Context(), manifest, false, Options{}))
 
 	manifest.ServerUserType = types.ServerUserTypeMultiUser
-	require.NoError(t, ValidateCatalogEntryManifest(t.Context(), manifest, Options{}))
+	require.NoError(t, ValidateCatalogEntryManifest(t.Context(), manifest, false, Options{}))
 }
 
 func TestRemoteValidator_validateRemoteCatalogConfig(t *testing.T) {
@@ -937,7 +937,7 @@ func TestValidateRemoteManifestURLWithOptions(t *testing.T) {
 			RemoteConfig: &types.RemoteCatalogConfig{
 				FixedURL: rawURL,
 			},
-		}, options)
+		}, false, options)
 	}
 
 	validateSystemManifest := func(ctx context.Context, rawURL string, options Options) error {
@@ -1927,7 +1927,7 @@ func TestValidateManifestStartupTimeoutNonNegative(t *testing.T) {
 				Package:               "test-package",
 				StartupTimeoutSeconds: -1,
 			},
-		}, Options{})
+		}, false, Options{})
 
 		require.Equal(t, types.RuntimeValidationError{
 			Runtime: types.RuntimeUVX,
@@ -1964,7 +1964,7 @@ func TestValidateManifestStartupTimeoutNonNegative(t *testing.T) {
 				Package:               "test-package",
 				StartupTimeoutSeconds: maxStartupTimeoutSeconds + 1,
 			},
-		}, Options{})
+		}, false, Options{})
 
 		require.Equal(t, types.RuntimeValidationError{
 			Runtime: types.RuntimeNPX,
@@ -2001,7 +2001,7 @@ func TestValidateMCPResourceRequirements(t *testing.T) {
 			Runtime:        types.RuntimeUVX,
 			UVXConfig:      &types.UVXRuntimeConfig{Package: "test-package"},
 			Resources:      validResources,
-		}, Options{})
+		}, false, Options{})
 		require.NoError(t, err)
 	})
 
@@ -2100,7 +2100,7 @@ func TestValidateMCPResourceRequirements(t *testing.T) {
 				Runtime:        types.RuntimeUVX,
 				UVXConfig:      &types.UVXRuntimeConfig{Package: "test-package"},
 				Resources:      tt.resources,
-			}, Options{})
+			}, false, Options{})
 
 			var validationErr types.RuntimeValidationError
 			require.ErrorAs(t, err, &validationErr)
@@ -2826,7 +2826,7 @@ func TestValidateCatalogEntryManifest_ServerUserType(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			manifest := tt.manifest
 			manifest.ServerUserType = tt.serverUserType
-			err := ValidateCatalogEntryManifest(t.Context(), manifest, Options{})
+			err := ValidateCatalogEntryManifest(t.Context(), manifest, false, Options{})
 			if tt.expectError && err == nil {
 				t.Errorf("expected error for serverUserType=%q, got nil", tt.serverUserType)
 			} else if !tt.expectError && err != nil {
@@ -2834,4 +2834,26 @@ func TestValidateCatalogEntryManifest_ServerUserType(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestValidateCatalogEntryManifestGitManagedRequiresOverrideDescription(t *testing.T) {
+	manifest := types.MCPServerCatalogEntryManifest{
+		Name:           "Composite",
+		ServerUserType: types.ServerUserTypeSingleUser,
+		Runtime:        types.RuntimeComposite,
+		CompositeConfig: &types.CompositeCatalogConfig{ComponentServers: []types.CatalogComponentServer{
+			{CatalogEntryID: "target", ToolOverrides: []types.ToolOverride{
+				{Name: "tool", Description: "old description", Enabled: true},
+			}},
+		}},
+	}
+
+	require.NoError(t, ValidateCatalogEntryManifest(t.Context(), manifest, false, Options{}))
+
+	err := ValidateCatalogEntryManifest(t.Context(), manifest, true, Options{})
+	require.ErrorContains(t, err, "compositeConfig.componentServers[0].toolOverrides[0].description: cannot be set in Git-managed catalogs; use overrideDescription instead")
+
+	manifest.CompositeConfig.ComponentServers[0].ToolOverrides[0].Description = ""
+	manifest.CompositeConfig.ComponentServers[0].ToolOverrides[0].OverrideDescription = "new description"
+	require.NoError(t, ValidateCatalogEntryManifest(t.Context(), manifest, true, Options{}))
 }

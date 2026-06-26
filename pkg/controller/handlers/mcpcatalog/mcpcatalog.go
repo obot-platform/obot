@@ -269,7 +269,7 @@ func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, objs []client.
 		}
 
 		if changed {
-			if err := validation.ValidateCatalogEntryManifest(ctx, entry.Spec.Manifest, h.remoteURLValidationConfig); err != nil {
+			if err := validation.ValidateCatalogEntryManifest(ctx, entry.Spec.Manifest, entry.IsGitManaged(), h.remoteURLValidationConfig); err != nil {
 				addSyncError(errsBySourceURL, entry.Spec.SourceURL, fmt.Sprintf("failed to validate resolved composite catalog entry %q: %v", entry.Name, err))
 				continue
 			}
@@ -607,8 +607,7 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 		}
 
 		sanitizeCatalogEntryManifest(&entry)
-
-		if err := validation.ValidateCatalogEntryManifest(ctx, entry, h.remoteURLValidationConfig); err != nil {
+		if err := validation.ValidateCatalogEntryManifest(ctx, entry, true, h.remoteURLValidationConfig); err != nil {
 			errs = append(errs, fmt.Errorf("failed to validate catalog entry %s: %w", entry.Name, err))
 			continue
 		}
