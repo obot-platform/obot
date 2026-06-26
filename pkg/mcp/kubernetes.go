@@ -512,7 +512,10 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 		secretEnvData["NANOBOT_RUN_AUDIT_LOG_METADATA"] = []byte(server.AuditLogMetadata)
 
 		secretEnvData["NANOBOT_RUN_BLOCK_LINK_LOCAL"] = []byte("true")
-		secretEnvData["NANOBOT_RUN_BLOCK_PRIVATE_IP"] = []byte("true")
+		if server.Runtime != types.RuntimeComposite {
+			// Composite runtimes talk to Obot via a service domain, which resolves to a private address.
+			secretEnvData["NANOBOT_RUN_BLOCK_PRIVATE_IP"] = []byte("true")
+		}
 		// Explicitly not blocking loopback because the shim will communicate with the MCP server via loopback.
 
 		if server.Runtime == types.RuntimeRemote {
