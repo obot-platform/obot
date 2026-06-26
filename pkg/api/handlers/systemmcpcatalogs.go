@@ -285,22 +285,13 @@ func normalizeAndValidateCatalogSourceURLs(sourceURLs []string, localPath string
 		if urlStr == "" {
 			continue
 		}
-		sourceID := normalizedCatalogSourceID(urlStr)
+		sourceID := validation.SourceIDForURL(urlStr)
 		if _, ok := seen[sourceID]; ok {
 			return types.NewErrBadRequest("duplicate catalog source ID %q", sourceID)
 		}
 		seen[sourceID] = struct{}{}
 	}
 	return nil
-}
-
-func normalizedCatalogSourceID(sourceURL string) string {
-	sourceURL = strings.TrimPrefix(sourceURL, "https://")
-	sourceURL = strings.TrimPrefix(sourceURL, "http://")
-	if len(sourceURL) > 1 {
-		return strings.TrimRight(sourceURL, "/")
-	}
-	return sourceURL
 }
 
 func mergeCatalogTokens(sourceURLs []string, incoming, existing map[string]string) map[string]string {

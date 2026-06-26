@@ -56,22 +56,28 @@ func TestValidateSystemCatalogManifest_NormalizesNonLocalSourceURLs(t *testing.T
 	}
 }
 
-func TestValidateSystemCatalogManifestRejectsDuplicateSourceURLs(t *testing.T) {
-	manifest := &types.SystemMCPCatalogManifest{
-		SourceURLs: []string{"example.com/catalog", "https://example.com/catalog"},
-	}
-
-	err := validateSystemCatalogManifest(manifest, "/tmp/system-catalog")
-
-	assert.ErrorContains(t, err, `duplicate catalog source ID "example.com/catalog"`)
-}
-
 func TestValidateSystemCatalogManifestRejectsDuplicateSourceIDs(t *testing.T) {
-	manifest := &types.SystemMCPCatalogManifest{
-		SourceURLs: []string{"https://example.com/catalog", "https://example.com/catalog/"},
+	tests := []struct {
+		name       string
+		sourceURLs []string
+	}{
+		{
+			name:       "normalized URL duplicates",
+			sourceURLs: []string{"example.com/catalog", "https://example.com/catalog"},
+		},
+		{
+			name:       "trailing slash duplicates",
+			sourceURLs: []string{"https://example.com/catalog", "https://example.com/catalog/"},
+		},
 	}
 
-	err := validateSystemCatalogManifest(manifest, "/tmp/system-catalog")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manifest := &types.SystemMCPCatalogManifest{SourceURLs: tt.sourceURLs}
 
-	assert.ErrorContains(t, err, `duplicate catalog source ID "example.com/catalog"`)
+			err := validateSystemCatalogManifest(manifest, "/tmp/system-catalog")
+
+			assert.ErrorContains(t, err, `duplicate catalog source ID "example.com/catalog"`)
+		})
+	}
 }
