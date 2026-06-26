@@ -1752,19 +1752,27 @@ func applySecretBindingOverlay(manifest types.MCPServerManifest, overlay types.M
 	return manifest
 }
 
-func rejectCatalogSecretBindingOverrides(manifest types.MCPServerManifest, source *types.MCPServerCatalogEntryManifest) *types.ErrHTTP {
+func rejectCatalogSecretBindingOverrides(manifest types.MCPServerManifest, source *types.MCPServerCatalogEntryManifest, requirePinnedFields bool) *types.ErrHTTP {
 	if source == nil {
 		return nil
 	}
 
 	// Include nil bindings so a present field with no binding is treated as an
-	// attempt to clear a catalog-owned binding, while an omitted field is allowed.
+	// attempt to clear a catalog-owned binding. Omitted fields are allowed only
+	// for partial deploy-time overlays, not full update payloads.
 	manifestBindingsByEnv := secretBindingsByEnv(manifest.Env, true)
 	for _, field := range source.Env {
 		if field.SecretBinding == nil {
 			continue
 		}
-		if binding, ok := manifestBindingsByEnv[field.Key]; ok && !sameSecretBinding(field.SecretBinding, binding) {
+		binding, ok := manifestBindingsByEnv[field.Key]
+		if !ok {
+			if requirePinnedFields {
+				return types.NewErrBadRequest("env %q: cannot omit catalog entry secretBinding", field.Key)
+			}
+			continue
+		}
+		if !sameSecretBinding(field.SecretBinding, binding) {
 			return types.NewErrBadRequest("env %q: cannot override catalog entry secretBinding", field.Key)
 		}
 	}
@@ -1773,13 +1781,21 @@ func rejectCatalogSecretBindingOverrides(manifest types.MCPServerManifest, sourc
 		return nil
 	}
 	// Include nil bindings so a present field with no binding is treated as an
-	// attempt to clear a catalog-owned binding, while an omitted field is allowed.
+	// attempt to clear a catalog-owned binding. Omitted fields are allowed only
+	// for partial deploy-time overlays, not full update payloads.
 	manifestBindingsByHeader := secretBindingsByHeader(manifest.RemoteConfig.Headers, true)
 	for _, field := range source.RemoteConfig.Headers {
 		if field.SecretBinding == nil {
 			continue
 		}
-		if binding, ok := manifestBindingsByHeader[field.Key]; ok && !sameSecretBinding(field.SecretBinding, binding) {
+		binding, ok := manifestBindingsByHeader[field.Key]
+		if !ok {
+			if requirePinnedFields {
+				return types.NewErrBadRequest("header %q: cannot omit catalog entry secretBinding", field.Key)
+			}
+			continue
+		}
+		if !sameSecretBinding(field.SecretBinding, binding) {
 			return types.NewErrBadRequest("header %q: cannot override catalog entry secretBinding", field.Key)
 		}
 	}
@@ -1942,7 +1958,7 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 			return err
 		}
 		if req.UserIsAdmin() && catalogID != "" && !catalogEntry.Spec.Manifest.ServerUserType.IsSingleUser() {
-			if err := rejectCatalogSecretBindingOverrides(input.MCPServerManifest, &catalogEntry.Spec.Manifest); err != nil {
+			if err := rejectCatalogSecretBindingOverrides(input.MCPServerManifest, &catalogEntry.Spec.Manifest, false); err != nil {
 				return err
 			}
 			manifest = applySecretBindingOverlay(manifest, input.MCPServerManifest)
@@ -2079,7 +2095,7 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 	}
 	adminManagedSecretBindings := req.UserIsAdmin() && existing.Spec.IsCatalogServer()
 	if adminManagedSecretBindings {
-		if err := rejectCatalogSecretBindingOverrides(updated, sourceCatalogEntryManifest); err != nil {
+		if err := rejectCatalogSecretBindingOverrides(updated, sourceCatalogEntryManifest, true); err != nil {
 			return err
 		}
 		markAdminAddedSecretBindings(&updated, sourceCatalogEntryManifest)

@@ -879,7 +879,7 @@ func TestRejectCatalogSecretBindingOverrides(t *testing.T) {
 			}}},
 		}
 
-		require.Nil(t, rejectCatalogSecretBindingOverrides(manifest, source))
+		require.Nil(t, rejectCatalogSecretBindingOverrides(manifest, source, true))
 	})
 
 	t.Run("rejects env override", func(t *testing.T) {
@@ -891,7 +891,7 @@ func TestRejectCatalogSecretBindingOverrides(t *testing.T) {
 			}}},
 		}
 
-		err := rejectCatalogSecretBindingOverrides(manifest, source)
+		err := rejectCatalogSecretBindingOverrides(manifest, source, true)
 		require.NotNil(t, err)
 		assert.Equal(t, http.StatusBadRequest, err.Code)
 		assert.Contains(t, err.Message, `env "PINNED_ENV": cannot override catalog entry secretBinding`)
@@ -905,22 +905,41 @@ func TestRejectCatalogSecretBindingOverrides(t *testing.T) {
 			}}},
 		}
 
-		err := rejectCatalogSecretBindingOverrides(manifest, source)
+		err := rejectCatalogSecretBindingOverrides(manifest, source, true)
 		require.NotNil(t, err)
 		assert.Equal(t, http.StatusBadRequest, err.Code)
 		assert.Contains(t, err.Message, `env "PINNED_ENV": cannot override catalog entry secretBinding`)
 	})
 
+	t.Run("rejects env binding omission for full update", func(t *testing.T) {
+		manifest := types.MCPServerManifest{Runtime: types.RuntimeRemote}
+
+		err := rejectCatalogSecretBindingOverrides(manifest, source, true)
+		require.NotNil(t, err)
+		assert.Equal(t, http.StatusBadRequest, err.Code)
+		assert.Contains(t, err.Message, `env "PINNED_ENV": cannot omit catalog entry secretBinding`)
+	})
+
+	t.Run("allows env binding omission for partial overlay", func(t *testing.T) {
+		manifest := types.MCPServerManifest{Runtime: types.RuntimeRemote}
+
+		require.Nil(t, rejectCatalogSecretBindingOverrides(manifest, source, false))
+	})
+
 	t.Run("rejects header override", func(t *testing.T) {
 		manifest := types.MCPServerManifest{
 			Runtime: types.RuntimeRemote,
+			Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+				Key:           "PINNED_ENV",
+				SecretBinding: sourceBinding,
+			}}},
 			RemoteConfig: &types.RemoteRuntimeConfig{Headers: []types.MCPHeader{{
 				Key:           "Pinned-Header",
 				SecretBinding: &types.MCPSecretBinding{Name: "admin-secret", Key: "token"},
 			}}},
 		}
 
-		err := rejectCatalogSecretBindingOverrides(manifest, source)
+		err := rejectCatalogSecretBindingOverrides(manifest, source, true)
 		require.NotNil(t, err)
 		assert.Equal(t, http.StatusBadRequest, err.Code)
 		assert.Contains(t, err.Message, `header "Pinned-Header": cannot override catalog entry secretBinding`)
