@@ -53,7 +53,7 @@ func TestMaskValuesConfigMasksAllKeys(t *testing.T) {
 func TestMaskValuesConfigOmitsEmptyStrings(t *testing.T) {
 	masked := MaskValues(map[string]any{
 		"config": map[string]any{
-			"OPENAI_API_KEY":                          "sk-test",
+			"OPENAI_API_KEY": "sk-test",
 			"OBOT_SERVER_AUDIT_LOGS_STORE_S3ENDPOINT": "",
 			"OBOT_SERVER_ENABLE_AUTHENTICATION":       false,
 		},
