@@ -442,17 +442,20 @@ export interface ImagePullSecretRefreshResponse {
 
 // K8s settings
 
-export interface K8sSettings {
+export interface SharedK8sSettings {
+	affinity?: string;
+	tolerations?: string;
+	resources?: string;
+	runtimeClassName?: string;
+}
+
+export interface K8sSettings extends SharedK8sSettings {
 	id: string;
 	created: string;
 	deleted?: string;
 	links?: Record<string, string>;
 	metadata?: Record<string, string>;
 	type: string;
-	affinity?: string;
-	tolerations?: string;
-	resources?: string;
-	runtimeClassName?: string;
 	storageClassName?: string;
 	nanobotWorkspaceSize?: string;
 	setViaHelm?: boolean;
@@ -469,6 +472,25 @@ export interface ServerK8sSettings {
 	needsK8sUpdate: boolean;
 	currentSettings: K8sSettings;
 	deployedSettingsHash: string;
+}
+
+export interface ObotK8sSettings extends SharedK8sSettings {
+	available: boolean;
+	replicaCount?: number;
+	updateStrategy?: string;
+	dev?: string;
+	image?: string;
+	imagePullSecrets?: string;
+	additionalLabels?: string;
+	podAnnotations?: string;
+	service?: string;
+	ingress?: string;
+	config?: string;
+	persistence?: string;
+	extraVolumes?: string;
+	extraVolumeMounts?: string;
+	serviceAccount?: string;
+	nodeSelector?: string;
 }
 
 // Licensing

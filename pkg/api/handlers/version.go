@@ -53,6 +53,7 @@ type VersionHandlerOptions struct {
 	DisableUpdateCheck      bool
 	MessagePoliciesEnabled  bool
 	AgentsEnabled           bool
+	HideMcpK8sDetails       bool
 }
 
 type VersionHandler struct {
@@ -137,6 +138,7 @@ func (v *VersionHandler) getVersionResponse(ctx context.Context) (map[string]any
 		"mcpDefaultDenyAllEgress":      v.MCPDefaultDenyAllEgress,
 		"messagePoliciesEnabled":       v.MessagePoliciesEnabled,
 		"agentsEnabled":                v.AgentsEnabled,
+		"hideMcpK8sDetails":            v.HideMcpK8sDetails,
 		"licenseEntitlementViolations": violations,
 		"missingLicenseEntitlements":   missingEntitlements(violations),
 	}

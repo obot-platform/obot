@@ -172,6 +172,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.OAuthDebuggerTokenRequest":                          schema_obot_platform_obot_apiclient_types_OAuthDebuggerTokenRequest(ref),
 		"github.com/obot-platform/obot/apiclient/types.OAuthMetadata":                                      schema_obot_platform_obot_apiclient_types_OAuthMetadata(ref),
 		"github.com/obot-platform/obot/apiclient/types.OAuthToken":                                         schema_obot_platform_obot_apiclient_types_OAuthToken(ref),
+		"github.com/obot-platform/obot/apiclient/types.ObotK8sSettings":                                    schema_obot_platform_obot_apiclient_types_ObotK8sSettings(ref),
 		"github.com/obot-platform/obot/apiclient/types.PodSecurityAdmissionSettings":                       schema_obot_platform_obot_apiclient_types_PodSecurityAdmissionSettings(ref),
 		"github.com/obot-platform/obot/apiclient/types.PowerUserWorkspace":                                 schema_obot_platform_obot_apiclient_types_PowerUserWorkspace(ref),
 		"github.com/obot-platform/obot/apiclient/types.PowerUserWorkspaceList":                             schema_obot_platform_obot_apiclient_types_PowerUserWorkspaceList(ref),
@@ -9109,6 +9110,142 @@ func schema_obot_platform_obot_apiclient_types_OAuthToken(ref common.ReferenceCa
 					},
 				},
 				Required: []string{"access_token", "refresh_token", "expires_in", "token_type"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_ObotK8sSettings(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ObotK8sSettings surfaces Helm-managed Obot server Kubernetes configuration. Values are read-only and sourced from the Helm values snapshot captured at install/upgrade time. YAML string fields correspond to obothelmvalues.yamlSectionKeys in pkg/obothelmvalues/keys.go.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"available": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Available is false when Obot is not running on the Kubernetes backend.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"replicaCount": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+					"updateStrategy": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"runtimeClassName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"dev": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"image": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"imagePullSecrets": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"additionalLabels": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"podAnnotations": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"service": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"ingress": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"config": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"resources": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"persistence": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"extraVolumes": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"extraVolumeMounts": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"serviceAccount": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"nodeSelector": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"tolerations": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"affinity": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"available"},
 			},
 		},
 	}

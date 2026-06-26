@@ -115,6 +115,72 @@ Validate all PSA level values in mcpNamespace.podSecurity
 {{- end -}}
 
 {{/*
+Snapshot of configurable Helm values captured at install/upgrade time.
+
+Top-level keys must match obothelmvalues.ConfigurableTopLevelKeys in
+pkg/obothelmvalues/keys.go. Excludes mcpImagePullSecrets and mcpServerDefaults.
+
+Sensitive values are masked in Go (MaskValuesYAML) when serving GET /api/k8s-settings;
+do not mask in this template.
+*/}}
+{{- define "obot.helmValuesSnapshot" -}}
+replicaCount: {{ .Values.replicaCount }}
+dev:
+{{ .Values.dev | toYaml | indent 2 }}
+image:
+{{ .Values.image | toYaml | indent 2 }}
+imagePullSecrets:
+{{ .Values.imagePullSecrets | toYaml | indent 2 }}
+updateStrategy: {{ .Values.updateStrategy | quote }}
+additionalLabels:
+{{ .Values.additionalLabels | toYaml | indent 2 }}
+podAnnotations:
+{{ .Values.podAnnotations | toYaml | indent 2 }}
+service:
+  type: {{ .Values.service.type }}
+  port: {{ .Values.service.port }}
+  annotations:
+{{ .Values.service.annotations | toYaml | indent 4 }}
+  spec:
+{{ .Values.service.spec | toYaml | indent 4 }}
+ingress:
+  enabled: {{ .Values.ingress.enabled }}
+  className: {{ .Values.ingress.className }}
+  annotations:
+{{ .Values.ingress.annotations | toYaml | indent 4 }}
+  extraPaths:
+{{ .Values.ingress.extraPaths | toYaml | indent 4 }}
+  hosts:
+{{ .Values.ingress.hosts | toYaml | indent 4 }}
+  paths:
+{{ .Values.ingress.paths | toYaml | indent 4 }}
+  tls:
+{{ .Values.ingress.tls | toYaml | indent 4 }}
+config:
+{{ .Values.config | toYaml | indent 2 }}
+resources:
+{{ .Values.resources | toYaml | indent 2 }}
+runtimeClassName: {{ .Values.runtimeClassName | quote }}
+persistence:
+{{ .Values.persistence | toYaml | indent 2 }}
+extraVolumes:
+{{ .Values.extraVolumes | toYaml | indent 2 }}
+extraVolumeMounts:
+{{ .Values.extraVolumeMounts | toYaml | indent 2 }}
+serviceAccount:
+  create: {{ .Values.serviceAccount.create }}
+  name: {{ .Values.serviceAccount.name | quote }}
+  annotations:
+{{ .Values.serviceAccount.annotations | toYaml | indent 4 }}
+nodeSelector:
+{{ .Values.nodeSelector | toYaml | indent 2 }}
+tolerations:
+{{ .Values.tolerations | toYaml | indent 2 }}
+affinity:
+{{ .Values.affinity | toYaml | indent 2 }}
+{{- end -}}
+
+{{/*
 Validate network policy provider Helm chart configuration.
 */}}
 {{- define "obot.validateNetworkPolicyProviderChartConfig" -}}

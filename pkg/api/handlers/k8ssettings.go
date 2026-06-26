@@ -17,13 +17,33 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-type K8sSettingsHandler struct{}
-
-func NewK8sSettingsHandler() *K8sSettingsHandler {
-	return &K8sSettingsHandler{}
+type K8sSettingsHandler struct {
+	mcpRuntimeBackend  string
+	localK8sClient     client.Client
+	serviceName        string
+	serviceNamespace   string
+	mcpServerNamespace string
 }
 
-func (h *K8sSettingsHandler) Get(req api.Context) error {
+func NewK8sSettingsHandler(mcpRuntimeBackend, serviceName, serviceNamespace, mcpServerNamespace string, localK8sClient client.Client) *K8sSettingsHandler {
+	return &K8sSettingsHandler{
+		mcpRuntimeBackend:  mcpRuntimeBackend,
+		localK8sClient:     localK8sClient,
+		serviceName:        serviceName,
+		serviceNamespace:   serviceNamespace,
+		mcpServerNamespace: mcpServerNamespace,
+	}
+}
+
+func (h *K8sSettingsHandler) GetObotK8sSettings(req api.Context) error {
+	settings, err := h.buildObotK8sSettings(req.Context())
+	if err != nil {
+		return err
+	}
+	return req.Write(settings)
+}
+
+func (h *K8sSettingsHandler) GetMCPServers(req api.Context) error {
 	var settings v1.K8sSettings
 	if err := req.Storage.Get(req.Context(), client.ObjectKey{
 		Namespace: req.Namespace(),
@@ -52,7 +72,7 @@ func (h *K8sSettingsHandler) Defaults(req api.Context) error {
 	return req.Write(convertResourceRequirements(mcp.EffectiveDefaultMCPResourceRequirements(settings.Spec)))
 }
 
-func (h *K8sSettingsHandler) Update(req api.Context) error {
+func (h *K8sSettingsHandler) UpdateMCPServers(req api.Context) error {
 	var input types.K8sSettings
 	if err := req.Read(&input); err != nil {
 		return err

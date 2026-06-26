@@ -45,6 +45,7 @@ import type {
 	AuditLogExportInput,
 	ScheduledAuditLogExportInput,
 	K8sSettings,
+	ObotK8sSettings,
 	ServerK8sSettings,
 	ImagePullSecret,
 	ImagePullSecretCapability,
@@ -509,13 +510,20 @@ export async function refreshImagePullSecret(
 
 // K8s settings
 
-export async function listK8sSettings(opts?: { fetch?: Fetcher }) {
-	const response = (await doGet('/k8s-settings', opts)) as K8sSettings;
+export async function listMcpServersK8sSettings(opts?: { fetch?: Fetcher }) {
+	const response = (await doGet('/k8s-settings/mcp-servers', opts)) as K8sSettings;
 	return response;
 }
 
-export async function updateK8sSettings(settings: K8sSettings, opts?: { fetch?: Fetcher }) {
-	return (await doPut('/k8s-settings', settings, opts)) as K8sSettings;
+export async function updateMcpServerK8sSettings(
+	settings: K8sSettings,
+	opts?: { fetch?: Fetcher }
+) {
+	return (await doPut('/k8s-settings/mcp-servers', settings, opts)) as K8sSettings;
+}
+
+export async function listObotK8sSettings(opts?: { fetch?: Fetcher }) {
+	return (await doGet('/k8s-settings', opts)) as ObotK8sSettings;
 }
 
 export async function getK8sServerDetail(
