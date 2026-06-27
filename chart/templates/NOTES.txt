@@ -9,5 +9,5 @@ To learn more about the release, try:
 
 {{ if eq .Values.config.OBOT_SERVER_ENABLE_AUTHENTICATION true }}
 You can retrieve the bootstrap token by running:
-  $ kubectl get secret -n {{ .Release.Namespace }} {{ include "obot.config.secretName" . }} -ojson | jq -r .data.OBOT_BOOTSTRAP_TOKEN | base64 -d; echo
+  $ kubectl get secret -n {{ .Release.Namespace }} {{ include "obot.secret.secretName" . }} -ojson | jq -r .data.OBOT_BOOTSTRAP_TOKEN | base64 -d; echo
 {{ end }}
