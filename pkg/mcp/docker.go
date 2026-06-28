@@ -700,7 +700,44 @@ func (d *dockerBackend) getContainer(ctx context.Context, name string) (*contain
 		}
 	}
 
-	return nil, nil
+	inspect, err := d.client.ContainerInspect(ctx, name)
+	if cerrdefs.IsNotFound(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimPrefix(inspect.Name, "/") != name {
+		return nil, nil
+	}
+
+	return inspectResponseToSummary(name, inspect), nil
+}
+
+func inspectResponseToSummary(name string, inspect container.InspectResponse) *container.Summary {
+	summary := &container.Summary{
+		ID:              inspect.ID,
+		Names:           []string{inspect.Name},
+		Image:           inspect.Image,
+		Labels:          map[string]string{},
+		Mounts:          inspect.Mounts,
+		NetworkSettings: &container.NetworkSettingsSummary{},
+	}
+	if summary.Names[0] == "" {
+		summary.Names[0] = "/" + name
+	}
+	if inspect.Config != nil {
+		summary.Image = inspect.Config.Image
+		summary.Labels = maps.Clone(inspect.Config.Labels)
+	}
+	if inspect.State != nil {
+		summary.State = inspect.State.Status
+	}
+	if inspect.NetworkSettings != nil {
+		summary.NetworkSettings.Networks = inspect.NetworkSettings.Networks
+	}
+
+	return summary
 }
 
 func (d *dockerBackend) getDeploymentCache(mcpServerName string) *dockerDeploymentCacheEntry {
