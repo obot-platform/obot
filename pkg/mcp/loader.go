@@ -50,6 +50,7 @@ type Options struct {
 	// Obot service configuration for constructing internal service FQDN
 	ServiceName      string `usage:"The Kubernetes service name for the obot server"`
 	ServiceNamespace string `usage:"The Kubernetes namespace where the obot server runs"`
+	ConfigSecret     string `usage:"The Kubernetes secret name containing the Helm values snapshot and config env vars"`
 
 	// Auto-populated by the Helm chart - used for network policy provider deployment
 	ServiceAccountName string `usage:"The Kubernetes service account name for the obot server"`

@@ -422,6 +422,13 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/k8s-settings", k8sSettingsHandler.Get)
 	mux.HandleFunc("PUT /api/k8s-settings", k8sSettingsHandler.Update)
 
+	appK8sSettingsHandler := handlers.NewAppK8sSettingsHandler(
+		services.ConfigSecret,
+		services.ServiceNamespace,
+		services.LocalK8sClient,
+	)
+	mux.HandleFunc("GET /api/app-k8s-settings", appK8sSettingsHandler.Get)
+
 	// Image Pull Secrets
 	mux.HandleFunc("GET /api/image-pull-secrets/capability", imagePullSecretsHandler.Capability)
 	mux.HandleFunc("GET /api/image-pull-secrets", imagePullSecretsHandler.List)

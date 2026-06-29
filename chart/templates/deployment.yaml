@@ -109,6 +109,8 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.serviceAccountName
+            - name: OBOT_SERVER_CONFIG_SECRET
+              value: {{ include "obot.config.secretName" . | quote }}
           envFrom:
             - secretRef:
                 name: {{ include "obot.config.secretName" . }}

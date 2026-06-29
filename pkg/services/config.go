@@ -209,6 +209,7 @@ type Services struct {
 	MCPClusterDomain          string
 	ServiceName               string
 	ServiceNamespace          string
+	ConfigSecret              string
 	ServiceAccountName        string
 	StorageListenPort         int
 
@@ -310,9 +311,7 @@ func parsePSASettingsFromHelm(opts mcp.Options) (*v1.PodSecurityAdmissionSetting
 	}, nil
 }
 
-// parsePodSchedulingSettingsFromHelm parses pod scheduling settings (affinity, tolerations, resources,
-// runtimeClassName) from Helm options. These settings can be managed via Helm OR UI.
-// If this returns non-nil, SetViaHelm will be true and UI cannot modify these settings.
+// parsePodSchedulingSettingsFromHelm parses pod scheduling settings from legacy env vars.
 func parsePodSchedulingSettingsFromHelm(opts mcp.Options) (*v1.K8sSettingsSpec, error) {
 	hasPodSettings := (opts.MCPK8sSettingsAffinity != "" && opts.MCPK8sSettingsAffinity != "{}") ||
 		(opts.MCPK8sSettingsTolerations != "" && opts.MCPK8sSettingsTolerations != "[]") ||
@@ -537,19 +536,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		}
 	}
 
-	// Parse Helm K8s settings - PSA settings and pod scheduling settings are handled separately
-	// PSA settings are always sourced from Helm/environment and cannot be modified via UI
-	psaSettings, err := parsePSASettingsFromHelm(mcp.Options(config.MCPConfig))
-	if err != nil {
-		return nil, err
-	}
-	// Pod scheduling settings (affinity, tolerations, resources, runtimeClassName) can be managed
-	// via Helm OR UI. If set via Helm, SetViaHelm=true and UI cannot modify them.
-	podSchedulingSettings, err := parsePodSchedulingSettingsFromHelm(mcp.Options(config.MCPConfig))
-	if err != nil {
-		return nil, err
-	}
-
 	var postgresDSN string
 	if strings.HasPrefix(config.DSN, "postgres://") {
 		postgresDSN = config.DSN
@@ -656,6 +642,21 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		}
 
 		localCacheClient = localRouter.Backend()
+	}
+
+	var (
+		psaSettings           *v1.PodSecurityAdmissionSettings
+		podSchedulingSettings *v1.K8sSettingsSpec
+	)
+	if mcp.IsKubernetesBackend(config.MCPRuntimeBackend) {
+		psaSettings, err = parsePSASettingsFromHelm(mcp.Options(config.MCPConfig))
+		if err != nil {
+			return nil, err
+		}
+		podSchedulingSettings, err = parsePodSchedulingSettingsFromHelm(mcp.Options(config.MCPConfig))
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	webhookHelper := mcp.NewWebhookHelper(mcpWebhookValidationInformer.GetIndexer(), config.Hostname)
@@ -988,6 +989,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		MCPClusterDomain:                     config.MCPClusterDomain,
 		ServiceName:                          config.ServiceName,
 		ServiceNamespace:                     config.ServiceNamespace,
+		ConfigSecret:                         config.ConfigSecret,
 		ServiceAccountName:                   config.ServiceAccountName,
 		StorageListenPort:                    config.StorageListenPort,
 		PodSchedulingSettingsFromHelm:        podSchedulingSettings,

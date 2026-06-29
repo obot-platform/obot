@@ -115,6 +115,19 @@ Validate all PSA level values in mcpNamespace.podSecurity
 {{- end -}}
 
 {{/*
+Capture Helm values for read-only Obot server pod scheduling display.
+*/}}
+{{- define "obot.appK8sSettingsSnapshot" -}}
+resources:
+{{ .Values.resources | toYaml | indent 2 }}
+runtimeClassName: {{ .Values.runtimeClassName | quote }}
+tolerations:
+{{ .Values.tolerations | toYaml | indent 2 }}
+affinity:
+{{ .Values.affinity | toYaml | indent 2 }}
+{{- end -}}
+
+{{/*
 Validate network policy provider Helm chart configuration.
 */}}
 {{- define "obot.validateNetworkPolicyProviderChartConfig" -}}

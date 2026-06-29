@@ -573,6 +573,13 @@
 								label: 'App Notification',
 								disabled: false,
 								collapsible: false
+							},
+							{
+								id: 'app-scheduling',
+								href: '/admin/app-scheduling',
+								label: 'App Scheduling',
+								disabled: false,
+								collapsible: false
 							}
 						]
 					}

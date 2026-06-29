@@ -140,3 +140,70 @@ export const formatDeviceClient = (client?: string, projectPath?: string): strin
 	}
 	return client;
 };
+
+function stripQuotes(value: string): string {
+	// Remove double quotes if the entire value is wrapped in them
+	if (value.startsWith('"') && value.endsWith('"')) {
+		return value.slice(1, -1);
+	}
+	return value;
+}
+
+export function formatSchedulingResources(resources?: string) {
+	if (!resources)
+		return {
+			requests: {
+				cpu: '',
+				memory: ''
+			},
+			limits: {
+				cpu: '',
+				memory: ''
+			}
+		};
+
+	const result = {
+		requests: {
+			cpu: '',
+			memory: ''
+		},
+		limits: {
+			cpu: '',
+			memory: ''
+		}
+	};
+
+	const segments = resources.split('\n').map((segment) => segment.trim());
+	const limitsIndex = segments.findIndex((segment) => segment.startsWith('limits:'));
+	const requestsIndex = segments.findIndex((segment) => segment.startsWith('requests:'));
+
+	if (requestsIndex !== -1) {
+		const endIndex =
+			limitsIndex !== -1 && limitsIndex > requestsIndex ? limitsIndex : segments.length;
+
+		for (let i = requestsIndex + 1; i < endIndex; i++) {
+			const line = segments[i];
+			if (line.includes('cpu:')) {
+				result.requests.cpu = stripQuotes(line.split('cpu:')[1]?.trim() ?? '');
+			} else if (line.includes('memory:')) {
+				result.requests.memory = stripQuotes(line.split('memory:')[1]?.trim() ?? '');
+			}
+		}
+	}
+
+	if (limitsIndex !== -1) {
+		const endIndex =
+			requestsIndex !== -1 && requestsIndex > limitsIndex ? requestsIndex : segments.length;
+
+		for (let i = limitsIndex + 1; i < endIndex; i++) {
+			const line = segments[i];
+			if (line.includes('cpu:')) {
+				result.limits.cpu = stripQuotes(line.split('cpu:')[1]?.trim() ?? '');
+			} else if (line.includes('memory:')) {
+				result.limits.memory = stripQuotes(line.split('memory:')[1]?.trim() ?? '');
+			}
+		}
+	}
+
+	return result;
+}
