@@ -50,6 +50,8 @@
 	}) {
 		return Boolean(field.secretBinding) || field.secretBindingSource === 'secret';
 	}
+
+	const inputClass = 'text-input-filled bg-base-100 w-full shadow-none';
 </script>
 
 <!-- Environment Variables / Files Section -->
@@ -118,7 +120,7 @@
 								<label for={`env-name-${i}`} class="text-sm font-light">Name</label>
 								<input
 									id={`env-name-${i}`}
-									class="text-input-filled bg-base-100 w-full shadow-none"
+									class={inputClass}
 									bind:value={config![i].name}
 									disabled={readonly || isPrebuiltEntry}
 								/>
@@ -127,7 +129,7 @@
 								<label for={`env-description-${i}`} class="text-sm font-light">Description</label>
 								<input
 									id={`env-description-${i}`}
-									class="text-input-filled bg-base-100 w-full shadow-none"
+									class={inputClass}
 									bind:value={config![i].description}
 									disabled={readonly || isPrebuiltEntry}
 								/>
@@ -136,7 +138,7 @@
 								<label for={`env-key-${i}`} class="text-sm font-light">Key</label>
 								<input
 									id={`env-key-${i}`}
-									class="text-input-filled bg-base-100 w-full shadow-none"
+									class={inputClass}
 									bind:value={config![i].key}
 									placeholder="e.g. CUSTOM_API_KEY"
 									disabled={readonly || isPrebuiltEntry}
@@ -165,7 +167,7 @@
 								<label for={`env-key-${i}`} class="text-sm font-light">Key</label>
 								<input
 									id={`env-key-${i}`}
-									class="text-input-filled bg-base-100 w-full shadow-none"
+									class={inputClass}
 									bind:value={config![i].key}
 									placeholder="e.g. CUSTOM_API_KEY"
 									disabled={readonly || isPrebuiltEntry}
@@ -272,68 +274,64 @@
 			>
 				<div class="flex w-full flex-col gap-4">
 					<div class="flex w-full flex-col gap-1">
-						<div id={`sb-${sbIdx}-type`} class="text-sm font-light">Type</div>
-						<span class="text-sm" aria-labelledby={`sb-${sbIdx}-type`}
-							>{source === 'header' ? 'Header' : item.file ? 'File' : 'Environment Variable'}</span
-						>
+						<label for={`sb-${sbIdx}-type`} class="text-sm font-light">Type</label>
+						<input
+							class={inputClass}
+							id={`sb-${sbIdx}-type`}
+							value={source === 'header' ? 'Header' : item.file ? 'File' : 'Environment Variable'}
+							disabled
+						/>
 					</div>
 
 					<div class="flex w-full flex-col gap-1">
-						<div id={`sb-${sbIdx}-name`} class="text-sm font-light">Name</div>
-						<span class="text-sm" aria-labelledby={`sb-${sbIdx}-name`}>{item.name || item.key}</span
-						>
+						<label for={`sb-${sbIdx}-name`} class="text-sm font-light">Name</label>
+						<input
+							class={inputClass}
+							id={`sb-${sbIdx}-name`}
+							value={item.name || item.key}
+							disabled
+						/>
 					</div>
 
 					{#if item.description}
 						<div class="flex w-full flex-col gap-1">
-							<div id={`sb-${sbIdx}-description`} class="text-sm font-light">Description</div>
-							<span class="text-sm" aria-labelledby={`sb-${sbIdx}-description`}
-								>{item.description}</span
-							>
+							<label for={`sb-${sbIdx}-description`} class="text-sm font-light">Description</label>
+							<input
+								class={inputClass}
+								id={`sb-${sbIdx}-description`}
+								value={item.description}
+								disabled
+							/>
 						</div>
 					{/if}
 
 					<div class="flex w-full flex-col gap-1">
-						<div id={`sb-${sbIdx}-key`} class="text-sm font-light">Key</div>
-						<span class="text-sm font-mono" aria-labelledby={`sb-${sbIdx}-key`}>{item.key}</span>
+						<label for={`sb-${sbIdx}-key`} class="text-sm font-light">Key</label>
+						<input class={inputClass} id={`sb-${sbIdx}-key`} value={item.key} disabled />
 					</div>
 
 					<div class="flex w-full flex-col gap-1">
-						<div id={`sb-${sbIdx}-secret`} class="text-sm font-light">Secret</div>
-						<span class="text-sm" aria-labelledby={`sb-${sbIdx}-secret`}>
-							<code class="font-mono">{item.secretBinding?.name}</code> /
-							<code class="font-mono">{item.secretBinding?.key}</code>
-						</span>
+						<label for={`sb-${sbIdx}-secret`} class="text-sm font-light">Secret</label>
+						<input
+							class={inputClass}
+							id={`sb-${sbIdx}-secret`}
+							value={`${item.secretBinding?.name} / ${item.secretBinding?.key}`}
+							disabled
+						/>
 					</div>
 
 					<div class="flex flex-wrap gap-2">
 						{#if item.sensitive}
-							<span
-								class="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300"
-							>
-								sensitive
-							</span>
+							<span class="badge badge-secondary badge-xs"> sensitive </span>
 						{/if}
 						{#if item.required}
-							<span
-								class="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300"
-							>
-								required
-							</span>
+							<span class="badge badge-secondary badge-xs"> required </span>
 						{/if}
 						{#if source === 'env' && item.file}
-							<span
-								class="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300"
-							>
-								file
-							</span>
+							<span class="badge badge-secondary badge-xs"> file </span>
 						{/if}
 						{#if source === 'env' && item.dynamicFile}
-							<span
-								class="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300"
-							>
-								dynamic
-							</span>
+							<span class="badge badge-secondary badge-xs"> dynamic </span>
 						{/if}
 					</div>
 				</div>
