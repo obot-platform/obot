@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"testing"
@@ -8,6 +9,10 @@ import (
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"gorm.io/datatypes"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apiserver/pkg/server/options/encryptionconfig"
+	"k8s.io/apiserver/pkg/storage/value"
 )
 
 func TestInsertMCPAuditLogsAllowsMultipleMCPRowsWithLocalAgentIndexes(t *testing.T) {
@@ -141,4 +146,264 @@ func TestGetMCPAuditLogLocalAgentDoesNotRequireMCPFields(t *testing.T) {
 	if local.ToolInput != nil || local.ToolOutput != nil || local.RawHookPayload != nil || local.TranscriptPath != "" {
 		t.Fatalf("expected sensitive local-agent payload fields to be blanked, got %#v", local)
 	}
+}
+
+func TestInsertLocalAgentAuditLogsCompletedSuccess(t *testing.T) {
+	c := newTestClient(t)
+	ctx := t.Context()
+
+	log := validLocalAgentAuditLog(time.Now().UTC(), "entry-1", string(types2.LocalAgentAuditLogStatusSucceeded))
+	if err := c.InsertLocalAgentAuditLogs(ctx, []types.MCPAuditLog{log}); err != nil {
+		t.Fatalf("insert local-agent audit log: %v", err)
+	}
+
+	if got := countAuditLogs(t, c); got != 1 {
+		t.Fatalf("expected 1 audit log, got %d", got)
+	}
+
+	var stored types.MCPAuditLog
+	if err := c.db.WithContext(ctx).First(&stored).Error; err != nil {
+		t.Fatalf("load stored audit log: %v", err)
+	}
+	if stored.SourceType != types2.AuditLogSourceTypeLocalAgentToolCall {
+		t.Fatalf("expected local-agent source type, got %q", stored.SourceType)
+	}
+	if stored.MCPFields != nil && (stored.MCPFields.MCPID != "" || len(stored.MCPFields.RequestBody) > 0 || len(stored.MCPFields.ResponseBody) > 0) {
+		t.Fatalf("expected no populated MCP fields, got %#v", stored.MCPFields)
+	}
+}
+
+func TestInsertLocalAgentAuditLogsAcceptsTerminalStatuses(t *testing.T) {
+	c := newTestClient(t)
+	ctx := t.Context()
+	now := time.Now().UTC()
+
+	statuses := []types2.LocalAgentAuditLogStatus{
+		types2.LocalAgentAuditLogStatusSucceeded,
+		types2.LocalAgentAuditLogStatusFailed,
+		types2.LocalAgentAuditLogStatusDenied,
+		types2.LocalAgentAuditLogStatusTimeout,
+	}
+	for i, status := range statuses {
+		log := validLocalAgentAuditLog(now.Add(time.Duration(i)*time.Second), string(status)+"-entry", string(status))
+		if err := c.InsertLocalAgentAuditLogs(ctx, []types.MCPAuditLog{log}); err != nil {
+			t.Fatalf("insert %s local-agent audit log: %v", status, err)
+		}
+	}
+
+	if got := countAuditLogs(t, c); got != int64(len(statuses)) {
+		t.Fatalf("expected %d audit logs, got %d", len(statuses), got)
+	}
+}
+
+func TestInsertLocalAgentAuditLogsDuplicateIdempotencyKeyIsNoop(t *testing.T) {
+	c := newTestClient(t)
+	ctx := t.Context()
+	now := time.Now().UTC()
+
+	first := validLocalAgentAuditLog(now, "same-entry", string(types2.LocalAgentAuditLogStatusSucceeded))
+	duplicate := validLocalAgentAuditLog(now.Add(time.Second), "same-entry", string(types2.LocalAgentAuditLogStatusFailed))
+	duplicate.LocalAgentToolCallFields.ToolName = "different-tool"
+
+	if err := c.InsertLocalAgentAuditLogs(ctx, []types.MCPAuditLog{first}); err != nil {
+		t.Fatalf("insert first local-agent audit log: %v", err)
+	}
+	if err := c.InsertLocalAgentAuditLogs(ctx, []types.MCPAuditLog{duplicate}); err != nil {
+		t.Fatalf("duplicate idempotency key should be a no-op: %v", err)
+	}
+
+	if got := countAuditLogs(t, c); got != 1 {
+		t.Fatalf("expected duplicate idempotency key to keep 1 audit log, got %d", got)
+	}
+	var stored types.MCPAuditLog
+	if err := c.db.WithContext(ctx).First(&stored).Error; err != nil {
+		t.Fatalf("load stored audit log: %v", err)
+	}
+	if stored.LocalAgentToolCallFields.ToolName != "mcp__server__tool" {
+		t.Fatalf("expected original row to remain unchanged, got tool %q", stored.LocalAgentToolCallFields.ToolName)
+	}
+}
+
+func TestInsertLocalAgentAuditLogsRejectsMissingRequiredFields(t *testing.T) {
+	c := newTestClient(t)
+	ctx := t.Context()
+
+	log := validLocalAgentAuditLog(time.Now().UTC(), "", string(types2.LocalAgentAuditLogStatusSucceeded))
+	if err := c.InsertLocalAgentAuditLogs(ctx, []types.MCPAuditLog{log}); err == nil {
+		t.Fatal("expected missing idempotency key to be rejected")
+	}
+}
+
+func TestInsertLocalAgentAuditLogsRejectsNonTerminalStatus(t *testing.T) {
+	c := newTestClient(t)
+	ctx := t.Context()
+
+	log := validLocalAgentAuditLog(time.Now().UTC(), "entry-1", "pre_tool")
+	if err := c.InsertLocalAgentAuditLogs(ctx, []types.MCPAuditLog{log}); err == nil {
+		t.Fatal("expected non-terminal status to be rejected")
+	}
+}
+
+func TestLocalAgentAuditLogEncryptedFieldsDecryptWhenRequested(t *testing.T) {
+	c := newTestClient(t)
+	c.encryptionConfig = testEncryptionConfig()
+	ctx := t.Context()
+	now := time.Now().UTC()
+
+	log := validLocalAgentAuditLog(now, "entry-1", string(types2.LocalAgentAuditLogStatusSucceeded))
+	if err := c.InsertLocalAgentAuditLogs(ctx, []types.MCPAuditLog{log}); err != nil {
+		t.Fatalf("insert local-agent audit log: %v", err)
+	}
+
+	var stored types.MCPAuditLog
+	if err := c.db.WithContext(ctx).First(&stored).Error; err != nil {
+		t.Fatalf("load encrypted local-agent audit log: %v", err)
+	}
+	if !stored.Encrypted {
+		t.Fatal("expected stored audit log to be marked encrypted")
+	}
+	local := stored.LocalAgentToolCallFields
+	if local.Error == "permission denied for /Users/alice/project/secret.txt" ||
+		local.DeviceID == "device-1" ||
+		local.Hostname == "alice-macbook" ||
+		local.LocalUsername == "alice" ||
+		local.ReportedUserEmail == "alice@example.com" ||
+		local.CWD == "/Users/alice/project" ||
+		local.GitRepoRoot == "/Users/alice/project" ||
+		local.GitRemoteURLs[0] == "git@github.com:acme/private-repo.git" ||
+		local.GitBranch == "alice/customer-fix" ||
+		local.TranscriptPath == "/tmp/transcript.jsonl" ||
+		bytes.Equal(local.ToolInput, []byte(`{"arg":true}`)) ||
+		bytes.Equal(local.ToolOutput, []byte(`{"ok":true}`)) ||
+		bytes.Equal(local.RawHookPayload, []byte(`{"native":true}`)) {
+		t.Fatalf("expected sensitive local-agent fields to be encrypted at rest: %#v", local)
+	}
+
+	got, err := c.GetMCPAuditLog(ctx, stored.ID, true)
+	if err != nil {
+		t.Fatalf("get decrypted local-agent audit log: %v", err)
+	}
+	gotLocal := got.LocalAgentToolCallFields
+	if gotLocal.Error != "permission denied for /Users/alice/project/secret.txt" ||
+		gotLocal.DeviceID != "device-1" ||
+		gotLocal.Hostname != "alice-macbook" ||
+		gotLocal.LocalUsername != "alice" ||
+		gotLocal.ReportedUserEmail != "alice@example.com" ||
+		gotLocal.CWD != "/Users/alice/project" ||
+		gotLocal.GitRepoRoot != "/Users/alice/project" ||
+		gotLocal.GitRemoteURLs[0] != "git@github.com:acme/private-repo.git" ||
+		gotLocal.GitBranch != "alice/customer-fix" ||
+		gotLocal.TranscriptPath != "/tmp/transcript.jsonl" ||
+		string(gotLocal.ToolInput) != `{"arg":true}` ||
+		string(gotLocal.ToolOutput) != `{"ok":true}` ||
+		string(gotLocal.RawHookPayload) != `{"native":true}` {
+		t.Fatalf("expected local-agent sensitive fields to decrypt, got %#v", gotLocal)
+	}
+
+	blanked, err := c.GetMCPAuditLog(ctx, stored.ID, false)
+	if err != nil {
+		t.Fatalf("get blanked local-agent audit log: %v", err)
+	}
+	blankedLocal := blanked.LocalAgentToolCallFields
+	if blankedLocal.Error != "" ||
+		blankedLocal.DeviceID != "" ||
+		blankedLocal.Hostname != "" ||
+		blankedLocal.LocalUsername != "" ||
+		blankedLocal.ReportedUserEmail != "" ||
+		blankedLocal.CWD != "" ||
+		blankedLocal.GitRepoRoot != "" ||
+		blankedLocal.GitRemoteURLs != nil ||
+		blankedLocal.GitBranch != "" ||
+		blankedLocal.TranscriptPath != "" ||
+		blankedLocal.ToolInput != nil ||
+		blankedLocal.ToolOutput != nil ||
+		blankedLocal.RawHookPayload != nil {
+		t.Fatalf("expected sensitive fields to be blanked without payload access, got %#v", blankedLocal)
+	}
+}
+
+func TestMCPAuditLogEncryptionStillDecryptsMCPFields(t *testing.T) {
+	c := newTestClient(t)
+	c.encryptionConfig = testEncryptionConfig()
+	ctx := t.Context()
+	now := time.Now().UTC()
+
+	log := types.MCPAuditLog{
+		CreatedAt:  now,
+		SourceType: types2.AuditLogSourceTypeMCP,
+		UserID:     "user-1",
+		MCPFields: &types.MCPAuditLogFields{
+			MCPID:           "mcp-1",
+			RequestBody:     json.RawMessage(`{"name":"tool"}`),
+			ResponseBody:    json.RawMessage(`{"ok":true}`),
+			RequestHeaders:  json.RawMessage(`{"authorization":"bearer token"}`),
+			ResponseHeaders: json.RawMessage(`{"content-type":"application/json"}`),
+		},
+	}
+
+	if err := c.encryptMCPAuditLog(ctx, &log); err != nil {
+		t.Fatalf("encrypt MCP audit log: %v", err)
+	}
+	if string(log.MCP().RequestBody) == `{"name":"tool"}` {
+		t.Fatal("expected MCP request body to be encrypted")
+	}
+	if err := c.decryptMCPAuditLog(ctx, &log); err != nil {
+		t.Fatalf("decrypt MCP audit log: %v", err)
+	}
+	if string(log.MCP().RequestBody) != `{"name":"tool"}` ||
+		string(log.MCP().ResponseBody) != `{"ok":true}` ||
+		string(log.MCP().RequestHeaders) != `{"authorization":"bearer token"}` ||
+		string(log.MCP().ResponseHeaders) != `{"content-type":"application/json"}` {
+		t.Fatalf("expected MCP fields to decrypt, got %#v", log.MCP())
+	}
+}
+
+func validLocalAgentAuditLog(observedAt time.Time, idempotencyKey, status string) types.MCPAuditLog {
+	return types.MCPAuditLog{
+		CreatedAt:  observedAt,
+		SourceType: types2.AuditLogSourceTypeLocalAgentToolCall,
+		UserID:     "user-1",
+		ClientIP:   "127.0.0.1",
+		LocalAgentToolCallFields: &types.LocalAgentToolCallAuditLogFields{
+			AgentProvider:          string(types2.LocalAgentProviderCodex),
+			CLIVersion:             "1.2.3",
+			Status:                 status,
+			Error:                  "permission denied for /Users/alice/project/secret.txt",
+			ObservedAt:             observedAt,
+			IdempotencyKey:         idempotencyKey,
+			ToolName:               "mcp__server__tool",
+			ToolKind:               "mcp",
+			ObotAuditCorrelationID: "correlation-1",
+			DeviceID:               "device-1",
+			Hostname:               "alice-macbook",
+			LocalUsername:          "alice",
+			ReportedUserEmail:      "alice@example.com",
+			CWD:                    "/Users/alice/project",
+			GitRepoRoot:            "/Users/alice/project",
+			GitRemoteURLs:          datatypes.JSONSlice[string]{"git@github.com:acme/private-repo.git"},
+			GitBranch:              "alice/customer-fix",
+			ToolInput:              json.RawMessage(`{"arg":true}`),
+			ToolOutput:             json.RawMessage(`{"ok":true}`),
+			RawHookPayload:         json.RawMessage(`{"native":true}`),
+			TranscriptPath:         "/tmp/transcript.jsonl",
+		},
+	}
+}
+
+func testEncryptionConfig() *encryptionconfig.EncryptionConfiguration {
+	return &encryptionconfig.EncryptionConfiguration{
+		Transformers: map[schema.GroupResource]value.Transformer{
+			mcpAuditLogGroupResource: testTransformer{},
+		},
+	}
+}
+
+type testTransformer struct{}
+
+func (testTransformer) TransformToStorage(_ context.Context, data []byte, _ value.Context) ([]byte, error) {
+	return append([]byte("encrypted:"), data...), nil
+}
+
+func (testTransformer) TransformFromStorage(_ context.Context, data []byte, _ value.Context) ([]byte, bool, error) {
+	return bytes.TrimPrefix(data, []byte("encrypted:")), false, nil
 }

@@ -14,6 +14,7 @@ import (
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/storage/value"
 )
@@ -136,6 +137,37 @@ func (c *Client) insertMCPAuditLogs(ctx context.Context, logs []types.MCPAuditLo
 
 		return nil
 	})
+}
+
+// InsertLocalAgentAuditLogs persists completed local-agent tool-call audit logs.
+// Duplicate idempotency keys are treated as successful no-ops for transport retries.
+func (c *Client) InsertLocalAgentAuditLogs(ctx context.Context, logs []types.MCPAuditLog) error {
+	if len(logs) == 0 {
+		return nil
+	}
+
+	toInsert := make([]types.MCPAuditLog, 0, len(logs))
+	for i := range logs {
+		log := logs[i]
+		log.CreatedAt = log.CreatedAt.UTC()
+		if log.SourceType != types2.AuditLogSourceTypeLocalAgentToolCall {
+			return fmt.Errorf("local agent audit log source type is required")
+		}
+		if err := log.ValidateSourceFields(); err != nil {
+			return fmt.Errorf("invalid local agent audit log source fields: %w", err)
+		}
+		if err := c.encryptMCPAuditLog(ctx, &log); err != nil {
+			return fmt.Errorf("failed to encrypt local agent audit log: %w", err)
+		}
+		toInsert = append(toInsert, log)
+	}
+
+	return c.db.WithContext(ctx).
+		Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "idempotency_key"}},
+			DoNothing: true,
+		}).
+		CreateInBatches(toInsert, 100).Error
 }
 
 // GetMCPAuditLogs retrieves MCP audit logs with optional filters
@@ -351,6 +383,15 @@ func (c *Client) GetMCPAuditLog(ctx context.Context, id uint, withRequestAndResp
 			// Request and response headers are intentionally kept non-nil, since sensitive values are redacted
 		}
 		if local := log.LocalAgentToolCallFields; local != nil {
+			local.Error = ""
+			local.DeviceID = ""
+			local.Hostname = ""
+			local.LocalUsername = ""
+			local.ReportedUserEmail = ""
+			local.CWD = ""
+			local.GitRepoRoot = ""
+			local.GitRemoteURLs = nil
+			local.GitBranch = ""
 			local.ToolInput = nil
 			local.ToolOutput = nil
 			local.RawHookPayload = nil
@@ -621,70 +662,44 @@ func (c *Client) encryptMCPAuditLog(ctx context.Context, log *types.MCPAuditLog)
 	if c.encryptionConfig == nil {
 		return nil
 	}
-	mcp := log.MCP()
-	if mcp == nil {
-		return nil
-	}
-
 	transformer := c.encryptionConfig.Transformers[mcpAuditLogGroupResource]
 	if transformer == nil {
 		return nil
 	}
 
 	var (
-		b    []byte
-		err  error
 		errs []error
 
 		dataCtx = mcpAuditLogDataCtx(log)
 	)
 
-	if len(mcp.RequestBody) > 0 {
-		if b, err = transformer.TransformToStorage(ctx, mcp.RequestBody, dataCtx); err != nil {
-			errs = append(errs, err)
-		} else {
-			mcp.RequestBody = json.RawMessage(base64.StdEncoding.EncodeToString(b))
-		}
+	if mcp := log.MCP(); mcp != nil {
+		errs = append(errs,
+			encryptRawMessageField(ctx, transformer, dataCtx, &mcp.RequestBody),
+			encryptRawMessageField(ctx, transformer, dataCtx, &mcp.MutatedRequestBody),
+			encryptRawMessageField(ctx, transformer, dataCtx, &mcp.ResponseBody),
+			encryptRawMessageField(ctx, transformer, dataCtx, &mcp.OriginalResponseBody),
+			encryptRawMessageField(ctx, transformer, dataCtx, &mcp.RequestHeaders),
+			encryptRawMessageField(ctx, transformer, dataCtx, &mcp.ResponseHeaders),
+		)
 	}
 
-	if len(mcp.MutatedRequestBody) > 0 {
-		if b, err = transformer.TransformToStorage(ctx, mcp.MutatedRequestBody, dataCtx); err != nil {
-			errs = append(errs, err)
-		} else {
-			mcp.MutatedRequestBody = json.RawMessage(base64.StdEncoding.EncodeToString(b))
-		}
-	}
-
-	if len(mcp.ResponseBody) > 0 {
-		if b, err = transformer.TransformToStorage(ctx, mcp.ResponseBody, dataCtx); err != nil {
-			errs = append(errs, err)
-		} else {
-			mcp.ResponseBody = json.RawMessage(base64.StdEncoding.EncodeToString(b))
-		}
-	}
-
-	if len(mcp.OriginalResponseBody) > 0 {
-		if b, err = transformer.TransformToStorage(ctx, mcp.OriginalResponseBody, dataCtx); err != nil {
-			errs = append(errs, err)
-		} else {
-			mcp.OriginalResponseBody = json.RawMessage(base64.StdEncoding.EncodeToString(b))
-		}
-	}
-
-	if len(mcp.RequestHeaders) > 0 {
-		if b, err = transformer.TransformToStorage(ctx, mcp.RequestHeaders, dataCtx); err != nil {
-			errs = append(errs, err)
-		} else {
-			mcp.RequestHeaders = json.RawMessage(base64.StdEncoding.EncodeToString(b))
-		}
-	}
-
-	if len(mcp.ResponseHeaders) > 0 {
-		if b, err = transformer.TransformToStorage(ctx, mcp.ResponseHeaders, dataCtx); err != nil {
-			errs = append(errs, err)
-		} else {
-			mcp.ResponseHeaders = json.RawMessage(base64.StdEncoding.EncodeToString(b))
-		}
+	if local := log.LocalAgentToolCallFields; local != nil {
+		errs = append(errs,
+			encryptStringField(ctx, transformer, dataCtx, &local.Error),
+			encryptStringField(ctx, transformer, dataCtx, &local.DeviceID),
+			encryptStringField(ctx, transformer, dataCtx, &local.Hostname),
+			encryptStringField(ctx, transformer, dataCtx, &local.LocalUsername),
+			encryptStringField(ctx, transformer, dataCtx, &local.ReportedUserEmail),
+			encryptStringField(ctx, transformer, dataCtx, &local.CWD),
+			encryptStringField(ctx, transformer, dataCtx, &local.GitRepoRoot),
+			encryptStringSliceField(ctx, transformer, dataCtx, []string(local.GitRemoteURLs)),
+			encryptStringField(ctx, transformer, dataCtx, &local.GitBranch),
+			encryptStringField(ctx, transformer, dataCtx, &local.TranscriptPath),
+			encryptRawMessageField(ctx, transformer, dataCtx, &local.ToolInput),
+			encryptRawMessageField(ctx, transformer, dataCtx, &local.ToolOutput),
+			encryptRawMessageField(ctx, transformer, dataCtx, &local.RawHookPayload),
+		)
 	}
 
 	log.Encrypted = true
@@ -696,110 +711,122 @@ func (c *Client) decryptMCPAuditLog(ctx context.Context, log *types.MCPAuditLog)
 	if !log.Encrypted || c.encryptionConfig == nil {
 		return nil
 	}
-	mcp := log.MCP()
-	if mcp == nil {
-		return nil
-	}
-
 	transformer := c.encryptionConfig.Transformers[mcpAuditLogGroupResource]
 	if transformer == nil {
 		return nil
 	}
 
 	var (
-		out, decoded []byte
-		n            int
-		err          error
-		errs         []error
-
+		errs    []error
 		dataCtx = mcpAuditLogDataCtx(log)
 	)
 
-	if len(mcp.RequestBody) > 0 {
-		decoded = make([]byte, base64.StdEncoding.DecodedLen(len(mcp.RequestBody)))
-		n, err = base64.StdEncoding.Decode(decoded, mcp.RequestBody)
-		if err == nil {
-			if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
-				errs = append(errs, err)
-			} else {
-				mcp.RequestBody = json.RawMessage(out)
-			}
-		} else {
-			errs = append(errs, err)
-		}
+	if mcp := log.MCP(); mcp != nil {
+		errs = append(errs,
+			decryptRawMessageField(ctx, transformer, dataCtx, &mcp.RequestBody),
+			decryptRawMessageField(ctx, transformer, dataCtx, &mcp.MutatedRequestBody),
+			decryptRawMessageField(ctx, transformer, dataCtx, &mcp.ResponseBody),
+			decryptRawMessageField(ctx, transformer, dataCtx, &mcp.OriginalResponseBody),
+			decryptRawMessageField(ctx, transformer, dataCtx, &mcp.RequestHeaders),
+			decryptRawMessageField(ctx, transformer, dataCtx, &mcp.ResponseHeaders),
+		)
 	}
 
-	if len(mcp.MutatedRequestBody) > 0 {
-		decoded = make([]byte, base64.StdEncoding.DecodedLen(len(mcp.MutatedRequestBody)))
-		n, err = base64.StdEncoding.Decode(decoded, mcp.MutatedRequestBody)
-		if err == nil {
-			if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
-				errs = append(errs, err)
-			} else {
-				mcp.MutatedRequestBody = json.RawMessage(out)
-			}
-		} else {
-			errs = append(errs, err)
-		}
-	}
-
-	if len(mcp.ResponseBody) > 0 {
-		decoded = make([]byte, base64.StdEncoding.DecodedLen(len(mcp.ResponseBody)))
-		n, err = base64.StdEncoding.Decode(decoded, mcp.ResponseBody)
-		if err == nil {
-			if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
-				errs = append(errs, err)
-			} else {
-				mcp.ResponseBody = json.RawMessage(out)
-			}
-		} else {
-			errs = append(errs, err)
-		}
-	}
-
-	if len(mcp.OriginalResponseBody) > 0 {
-		decoded = make([]byte, base64.StdEncoding.DecodedLen(len(mcp.OriginalResponseBody)))
-		n, err = base64.StdEncoding.Decode(decoded, mcp.OriginalResponseBody)
-		if err == nil {
-			if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
-				errs = append(errs, err)
-			} else {
-				mcp.OriginalResponseBody = json.RawMessage(out)
-			}
-		} else {
-			errs = append(errs, err)
-		}
-	}
-
-	if len(mcp.RequestHeaders) > 0 {
-		decoded = make([]byte, base64.StdEncoding.DecodedLen(len(mcp.RequestHeaders)))
-		n, err = base64.StdEncoding.Decode(decoded, mcp.RequestHeaders)
-		if err == nil {
-			if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
-				errs = append(errs, err)
-			} else {
-				mcp.RequestHeaders = json.RawMessage(out)
-			}
-		} else {
-			errs = append(errs, err)
-		}
-	}
-
-	if len(mcp.ResponseHeaders) > 0 {
-		decoded = make([]byte, base64.StdEncoding.DecodedLen(len(mcp.ResponseHeaders)))
-		n, err = base64.StdEncoding.Decode(decoded, mcp.ResponseHeaders)
-		if err == nil {
-			if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
-				errs = append(errs, err)
-			} else {
-				mcp.ResponseHeaders = json.RawMessage(out)
-			}
-		} else {
-			errs = append(errs, err)
-		}
+	if local := log.LocalAgentToolCallFields; local != nil {
+		errs = append(errs,
+			decryptStringField(ctx, transformer, dataCtx, &local.Error),
+			decryptStringField(ctx, transformer, dataCtx, &local.DeviceID),
+			decryptStringField(ctx, transformer, dataCtx, &local.Hostname),
+			decryptStringField(ctx, transformer, dataCtx, &local.LocalUsername),
+			decryptStringField(ctx, transformer, dataCtx, &local.ReportedUserEmail),
+			decryptStringField(ctx, transformer, dataCtx, &local.CWD),
+			decryptStringField(ctx, transformer, dataCtx, &local.GitRepoRoot),
+			decryptStringSliceField(ctx, transformer, dataCtx, []string(local.GitRemoteURLs)),
+			decryptStringField(ctx, transformer, dataCtx, &local.GitBranch),
+			decryptStringField(ctx, transformer, dataCtx, &local.TranscriptPath),
+			decryptRawMessageField(ctx, transformer, dataCtx, &local.ToolInput),
+			decryptRawMessageField(ctx, transformer, dataCtx, &local.ToolOutput),
+			decryptRawMessageField(ctx, transformer, dataCtx, &local.RawHookPayload),
+		)
 	}
 
 	return errors.Join(errs...)
+}
+
+func encryptRawMessageField(ctx context.Context, transformer value.Transformer, dataCtx value.Context, field *json.RawMessage) error {
+	if len(*field) == 0 {
+		return nil
+	}
+	b, err := transformer.TransformToStorage(ctx, *field, dataCtx)
+	if err != nil {
+		return err
+	}
+	*field = json.RawMessage(base64.StdEncoding.EncodeToString(b))
+	return nil
+}
+
+func decryptRawMessageField(ctx context.Context, transformer value.Transformer, dataCtx value.Context, field *json.RawMessage) error {
+	if len(*field) == 0 {
+		return nil
+	}
+	decoded := make([]byte, base64.StdEncoding.DecodedLen(len(*field)))
+	n, err := base64.StdEncoding.Decode(decoded, *field)
+	if err != nil {
+		return err
+	}
+	out, _, err := transformer.TransformFromStorage(ctx, decoded[:n], dataCtx)
+	if err != nil {
+		return err
+	}
+	*field = json.RawMessage(out)
+	return nil
+}
+
+func encryptStringField(ctx context.Context, transformer value.Transformer, dataCtx value.Context, field *string) error {
+	if *field == "" {
+		return nil
+	}
+	b, err := transformer.TransformToStorage(ctx, []byte(*field), dataCtx)
+	if err != nil {
+		return err
+	}
+	*field = base64.StdEncoding.EncodeToString(b)
+	return nil
+}
+
+func decryptStringField(ctx context.Context, transformer value.Transformer, dataCtx value.Context, field *string) error {
+	if *field == "" {
+		return nil
+	}
+	decoded := make([]byte, base64.StdEncoding.DecodedLen(len(*field)))
+	n, err := base64.StdEncoding.Decode(decoded, []byte(*field))
+	if err != nil {
+		return err
+	}
+	out, _, err := transformer.TransformFromStorage(ctx, decoded[:n], dataCtx)
+	if err != nil {
+		return err
+	}
+	*field = string(out)
+	return nil
+}
+
+func encryptStringSliceField(ctx context.Context, transformer value.Transformer, dataCtx value.Context, field []string) error {
+	for i := range field {
+		if err := encryptStringField(ctx, transformer, dataCtx, &field[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func decryptStringSliceField(ctx context.Context, transformer value.Transformer, dataCtx value.Context, field []string) error {
+	for i := range field {
+		if err := decryptStringField(ctx, transformer, dataCtx, &field[i]); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func mcpAuditLogDataCtx(log *types.MCPAuditLog) value.Context {
