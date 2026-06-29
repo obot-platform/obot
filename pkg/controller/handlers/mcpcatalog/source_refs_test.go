@@ -119,6 +119,14 @@ func TestParseSourceRef(t *testing.T) {
 			wantHasSep:     true,
 			wantValid:      false,
 		},
+		{
+			name:           "too many separators",
+			catalogEntryID: "source::key::extra",
+			wantSourceID:   "source",
+			wantEntryKey:   "key::extra",
+			wantHasSep:     true,
+			wantValid:      false,
+		},
 	}
 
 	for _, tt := range tests {
