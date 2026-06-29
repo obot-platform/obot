@@ -265,7 +265,7 @@ func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, objs []client.
 				addSyncError(errsBySourceURL, entry.Spec.SourceURL, fmt.Sprintf("failed to validate resolved composite catalog entry %q: %v", entry.Name, err))
 				continue
 			}
-			if err := validation.ValidateSecretBindingsCatalogEntry(entry.Spec.Manifest, entry.IsGitManaged(), h.mcpBackend); err != nil {
+			if err := validation.ValidateSecretBindingsCatalogEntry(entry.Spec.Manifest, entry.IsGitManaged(), false, h.mcpBackend); err != nil {
 				addSyncError(errsBySourceURL, entry.Spec.SourceURL, fmt.Sprintf("failed to validate resolved composite catalog entry %q: %v", entry.Name, err))
 				continue
 			}
