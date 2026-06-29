@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { MCPAllowedSecretBindingTarget, MCPCatalogEntryFieldManifest } from '$lib/services';
 	import { hasSecretBinding } from '$lib/services/user/mcp';
+	import { version } from '$lib/stores';
 	import Select from '../Select.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
 	import SecretBindingPicker from './SecretBindingPicker.svelte';
@@ -176,7 +177,7 @@
 									</p>
 								{/if}
 							</div>
-							{#if secretBindingTargets}
+							{#if secretBindingTargets && !version.current.hideK8sDetails}
 								<SecretBindingPicker
 									bind:field={config![i]}
 									targets={secretBindingTargets}

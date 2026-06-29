@@ -2,6 +2,7 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import type { MCPAllowedSecretBindingTarget, MCPSubField } from '$lib/services';
 	import { hasSecretBinding, type MCPServerInfo } from '$lib/services/user/mcp';
+	import { version } from '$lib/stores';
 	import Confirm from '../Confirm.svelte';
 	import InfoTooltip from '../InfoTooltip.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
@@ -494,7 +495,7 @@
 															>{env.data.secretBinding?.name} / {env.data.secretBinding?.key}</span
 														>
 													</div>
-												{:else if secretBindingTargets}
+												{:else if secretBindingTargets && !version.current.hideK8sDetails}
 													<SecretBindingPicker
 														bind:field={comp.envs![env.index]}
 														targets={secretBindingTargets}
@@ -580,7 +581,7 @@
 																?.key}</span
 														>
 													</div>
-												{:else if secretBindingTargets}
+												{:else if secretBindingTargets && !version.current.hideK8sDetails}
 													<SecretBindingPicker
 														bind:field={comp.headers![header.index]}
 														targets={secretBindingTargets}
@@ -669,7 +670,7 @@
 											>{env.data.secretBinding?.name} / {env.data.secretBinding?.key}</span
 										>
 									</div>
-								{:else if secretBindingTargets && !disableEnvSecretBindings}
+								{:else if secretBindingTargets && !disableEnvSecretBindings && !version.current.hideK8sDetails}
 									<SecretBindingPicker
 										bind:field={form.envs![env.index]}
 										targets={secretBindingTargets}
@@ -740,7 +741,7 @@
 											>{header.data.secretBinding?.name} / {header.data.secretBinding?.key}</span
 										>
 									</div>
-								{:else if secretBindingTargets}
+								{:else if secretBindingTargets && !version.current.hideK8sDetails}
 									<SecretBindingPicker
 										bind:field={form.headers![header.index]}
 										targets={secretBindingTargets}

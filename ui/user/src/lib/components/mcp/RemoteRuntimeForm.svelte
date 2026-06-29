@@ -5,6 +5,7 @@
 		RemoteRuntimeConfigAdmin
 	} from '$lib/services/admin/types';
 	import { hasSecretBinding } from '$lib/services/user/mcp';
+	import { version } from '$lib/stores';
 	import InfoTooltip from '../InfoTooltip.svelte';
 	import Select from '../Select.svelte';
 	import Toggle from '../Toggle.svelte';
@@ -188,7 +189,7 @@
 										}}
 									/>
 								{:else}
-									{#if secretBindingTargets}
+									{#if secretBindingTargets && !version.current.hideK8sDetails}
 										<SecretBindingPicker
 											bind:field={config.headers[i]}
 											targets={secretBindingTargets}
