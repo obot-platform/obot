@@ -356,11 +356,11 @@ func convertLocalAgentToolCallAuditLogFields(local *LocalAgentToolCallAuditLogFi
 	}
 
 	return &types2.LocalAgentToolCallAuditLogFields{
-		AgentProvider:          local.AgentProvider,
+		AgentProvider:          types2.LocalAgentProvider(local.AgentProvider),
 		AgentVersion:           local.AgentVersion,
 		CLIName:                local.CLIName,
 		CLIVersion:             local.CLIVersion,
-		Status:                 local.Status,
+		Status:                 types2.LocalAgentAuditLogStatus(local.Status),
 		FailureType:            local.FailureType,
 		ObservedAt:             *types2.NewTime(local.ObservedAt),
 		StartedAt:              startedAt,
@@ -384,7 +384,7 @@ func convertLocalAgentToolCallAuditLogFields(local *LocalAgentToolCallAuditLogFi
 		Arch:                   local.Arch,
 		LocalUsername:          local.LocalUsername,
 		ReportedUserEmail:      local.ReportedUserEmail,
-		IdentityStatus:         local.IdentityStatus,
+		IdentityStatus:         types2.LocalAgentIdentityStatus(local.IdentityStatus),
 		CWD:                    local.CWD,
 		GitRepoRoot:            local.GitRepoRoot,
 		GitRemoteURLs:          []string(local.GitRemoteURLs),

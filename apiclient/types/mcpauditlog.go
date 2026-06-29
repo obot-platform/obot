@@ -76,17 +76,17 @@ type MCPAuditLogFields struct {
 }
 
 type LocalAgentToolCallAuditLogFields struct {
-	AgentProvider string `json:"agentProvider"`
-	AgentVersion  string `json:"agentVersion,omitempty"`
-	CLIName       string `json:"cliName,omitempty"`
-	CLIVersion    string `json:"cliVersion"`
+	AgentProvider LocalAgentProvider `json:"agentProvider"`
+	AgentVersion  string             `json:"agentVersion,omitempty"`
+	CLIName       string             `json:"cliName,omitempty"`
+	CLIVersion    string             `json:"cliVersion"`
 
-	Status      string `json:"status"`
-	FailureType string `json:"failureType,omitempty"`
-	ObservedAt  Time   `json:"observedAt"`
-	StartedAt   *Time  `json:"startedAt,omitempty"`
-	DurationMs  int64  `json:"durationMs,omitempty"`
-	Error       string `json:"error,omitempty"`
+	Status      LocalAgentAuditLogStatus `json:"status"`
+	FailureType string                   `json:"failureType,omitempty"`
+	ObservedAt  Time                     `json:"observedAt"`
+	StartedAt   *Time                    `json:"startedAt,omitempty"`
+	DurationMs  int64                    `json:"durationMs,omitempty"`
+	Error       string                   `json:"error,omitempty"`
 
 	IdempotencyKey string `json:"idempotencyKey"`
 	ToolUseID      string `json:"toolUseID,omitempty"`
@@ -104,13 +104,13 @@ type LocalAgentToolCallAuditLogFields struct {
 	ModelID        string `json:"modelID,omitempty"`
 	PermissionMode string `json:"permissionMode,omitempty"`
 
-	DeviceID          string `json:"deviceID,omitempty"`
-	Hostname          string `json:"hostname,omitempty"`
-	OS                string `json:"os,omitempty"`
-	Arch              string `json:"arch,omitempty"`
-	LocalUsername     string `json:"localUsername,omitempty"`
-	ReportedUserEmail string `json:"reportedUserEmail,omitempty"`
-	IdentityStatus    string `json:"identityStatus"`
+	DeviceID          string                   `json:"deviceID,omitempty"`
+	Hostname          string                   `json:"hostname,omitempty"`
+	OS                string                   `json:"os,omitempty"`
+	Arch              string                   `json:"arch,omitempty"`
+	LocalUsername     string                   `json:"localUsername,omitempty"`
+	ReportedUserEmail string                   `json:"reportedUserEmail,omitempty"`
+	IdentityStatus    LocalAgentIdentityStatus `json:"identityStatus"`
 
 	CWD           string   `json:"cwd,omitempty"`
 	GitRepoRoot   string   `json:"gitRepoRoot,omitempty"`

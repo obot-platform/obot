@@ -102,6 +102,9 @@ func (a *auditLogInput) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &in); err != nil {
 		return err
 	}
+	if in.SourceType == "" {
+		in.SourceType = types.AuditLogSourceTypeMCP
+	}
 
 	a.MCPAuditLog = gatewaytypes.MCPAuditLog{
 		ID:         in.ID,
@@ -223,6 +226,9 @@ func (h *AuditLogHandler) SubmitAuditLogs(req api.Context) error {
 	}
 
 	for _, auditLog := range auditLogs {
+		if auditLog.SourceType != "" && auditLog.SourceType != types.AuditLogSourceTypeMCP {
+			return types.NewErrBadRequest("MCP audit log endpoint only accepts sourceType %q", types.AuditLogSourceTypeMCP)
+		}
 		auditLog.NormalizeMCPFields()
 		mcp := auditLog.MCP()
 		if mcp.MCPID == "" {
@@ -352,10 +358,10 @@ func (h *AuditLogHandler) GetAuditLog(req api.Context) error {
 			return fmt.Errorf("failed to get own server MCPIDs: %w", err)
 		}
 
-		isOwnServer := slices.Contains(ownServerMCPIDs, mcp.MCPID)
+		isOwnServer := mcp != nil && slices.Contains(ownServerMCPIDs, mcp.MCPID)
 
 		isInWorkspace := false
-		if req.UserIsPowerUser() {
+		if req.UserIsPowerUser() && mcp != nil {
 			workspaceID := system.GetPowerUserWorkspaceID(req.User.GetUID())
 			isInWorkspace = mcp.PowerUserWorkspaceID == workspaceID
 		}
