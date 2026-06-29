@@ -35,7 +35,7 @@ func newTestGatewayClient(t *testing.T) *gatewayclient.Client {
 		t.Fatalf("failed to migrate gateway db: %v", err)
 	}
 
-	return gatewayclient.New(context.Background(), db, nil, nil, nil, nil, time.Minute, 10, 90)
+	return gatewayclient.New(context.Background(), db, nil, nil, nil, nil, time.Minute, 10, 90, 30)
 }
 
 func newRuntimeSecretClient() kclient.Client {
