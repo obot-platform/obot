@@ -1,6 +1,6 @@
 import { handleRouteError } from '$lib/errors';
 import { AdminService, type AppK8sSettings } from '$lib/services';
-import type { PageLoad } from '../$types';
+import type { PageLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 
 export const load: PageLoad = async ({ fetch, parent }) => {

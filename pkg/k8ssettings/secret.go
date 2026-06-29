@@ -11,7 +11,7 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-const secretKeyAppK8sSettingsYAML = "app-k8s-settings.yaml"
+const secretKeyAppK8sSettingsYAML = "OBOT_APP_K8S_SETTINGS_YAML"
 
 // AppK8sSettingsValuesFromSecret reads the app scheduling snapshot from the config secret.
 // Returns nil when the secret is missing, forbidden, or empty.

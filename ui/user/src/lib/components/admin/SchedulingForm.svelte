@@ -1,8 +1,10 @@
 <script lang="ts">
-	import type { formatSchedulingResources } from '$lib/format';
+	import { formatSchedulingResources } from '$lib/format.js';
 	import YamlEditor from './YamlEditor.svelte';
 	import { Info, Lock } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
+
+	type SchedulingResources = ReturnType<typeof formatSchedulingResources>;
 
 	interface Props {
 		readonly?: boolean;
@@ -10,7 +12,7 @@
 		affinity?: string;
 		tolerations?: string;
 		runtimeClassName?: string;
-		resourceInfo: ReturnType<typeof formatSchedulingResources>;
+		resourceInfo: SchedulingResources;
 		children?: Snippet;
 		notes?: Snippet;
 		type: 'app' | 'mcpserver';

@@ -36,7 +36,7 @@ tolerations:
 			Namespace: "obot",
 		},
 		Data: map[string][]byte{
-			"app-k8s-settings.yaml": []byte(valuesYAML),
+			"OBOT_APP_K8S_SETTINGS_YAML": []byte(valuesYAML),
 		},
 	}
 
