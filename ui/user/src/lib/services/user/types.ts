@@ -115,12 +115,11 @@ export type LocalAgentToolCallAuditLogFields = {
 	agentVersion?: string;
 	cliName?: string;
 	cliVersion: string;
-	hookEventPhase: 'pre_tool' | 'post_tool' | 'failure' | string;
-	status: 'started' | 'allowed' | 'denied' | 'succeeded' | 'failed' | 'timeout' | string;
+	status: 'denied' | 'succeeded' | 'failed' | 'timeout' | string;
 	failureType?: string;
 	observedAt: string;
-	invocationKey?: string;
-	idempotencyKey?: string;
+	startedAt?: string;
+	idempotencyKey: string;
 	toolUseID?: string;
 	sessionID?: string;
 	turnID?: string;
@@ -129,7 +128,6 @@ export type LocalAgentToolCallAuditLogFields = {
 	mcpServerHint?: string;
 	mcpToolName?: string;
 	obotAuditCorrelationID?: string;
-	correlatedMCPAuditLogID?: number;
 	model?: string;
 	modelID?: string;
 	permissionMode?: string;

@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 )
 
@@ -95,5 +96,49 @@ func TestInsertMCPAuditLogsMergesResponseOnlyRowWithGroupedFields(t *testing.T) 
 	}
 	if got.MCP().ProcessingTimeMs != 250 {
 		t.Fatalf("expected processing time 250ms, got %d", got.MCP().ProcessingTimeMs)
+	}
+}
+
+func TestGetMCPAuditLogLocalAgentDoesNotRequireMCPFields(t *testing.T) {
+	c := newTestClient(t)
+	ctx := t.Context()
+	now := time.Now().UTC()
+
+	log := types.MCPAuditLog{
+		CreatedAt:  now,
+		SourceType: types2.AuditLogSourceTypeLocalAgentToolCall,
+		UserID:     "user-1",
+		ClientIP:   "127.0.0.1",
+		LocalAgentToolCallFields: &types.LocalAgentToolCallAuditLogFields{
+			AgentProvider:  string(types2.LocalAgentProviderCodex),
+			CLIVersion:     "1.2.3",
+			Status:         string(types2.LocalAgentAuditLogStatusSucceeded),
+			ObservedAt:     now,
+			IdempotencyKey: "entry-1",
+			ToolName:       "mcp__server__tool",
+			ToolInput:      json.RawMessage(`{"arg":true}`),
+			ToolOutput:     json.RawMessage(`{"ok":true}`),
+			RawHookPayload: json.RawMessage(`{"native":true}`),
+			TranscriptPath: "/tmp/transcript.jsonl",
+		},
+	}
+
+	if err := c.db.WithContext(ctx).Create(&log).Error; err != nil {
+		t.Fatalf("insert local-agent audit log: %v", err)
+	}
+
+	got, err := c.GetMCPAuditLog(ctx, log.ID, false)
+	if err != nil {
+		t.Fatalf("get local-agent audit log: %v", err)
+	}
+	if got.MCPFields != nil {
+		t.Fatalf("expected no MCP fields for local-agent log, got %#v", got.MCPFields)
+	}
+	local := got.LocalAgentToolCallFields
+	if local == nil {
+		t.Fatal("expected local-agent fields")
+	}
+	if local.ToolInput != nil || local.ToolOutput != nil || local.RawHookPayload != nil || local.TranscriptPath != "" {
+		t.Fatalf("expected sensitive local-agent payload fields to be blanked, got %#v", local)
 	}
 }

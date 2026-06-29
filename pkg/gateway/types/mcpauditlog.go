@@ -4,6 +4,8 @@ package types
 import (
 	"encoding/json"
 	"errors"
+	"reflect"
+	"strings"
 	"time"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
@@ -124,6 +126,15 @@ func (a *MCPAuditLog) NormalizeMCPFields() {
 }
 
 func (a *MCPAuditLog) MCP() *MCPAuditLogFields {
+	if a == nil {
+		return nil
+	}
+	if a.SourceType != types2.AuditLogSourceTypeMCP {
+		return nil
+	}
+	if a.MCPFields == nil {
+		a.MCPFields = &MCPAuditLogFields{}
+	}
 	return a.MCPFields
 }
 
@@ -132,21 +143,78 @@ func (a *MCPAuditLog) ValidateSourceFields() error {
 		return nil
 	}
 	hasMCPFields := a.MCPFields != nil
+	hasPopulatedMCPFields := !isZeroMCPAuditLogFields(a.MCPFields)
 	hasLocalAgentFields := a.LocalAgentToolCallFields != nil
+	hasPopulatedLocalAgentFields := !isZeroLocalAgentToolCallAuditLogFields(a.LocalAgentToolCallFields)
 
 	switch a.SourceType {
 	case types2.AuditLogSourceTypeMCP:
-		if hasLocalAgentFields {
+		if !hasMCPFields {
+			return errors.New("MCP audit fields are required for MCP audit logs")
+		}
+		if hasPopulatedLocalAgentFields {
 			return errors.New("local agent audit fields cannot be populated for MCP audit logs")
 		}
 	case types2.AuditLogSourceTypeLocalAgentToolCall:
-		if hasMCPFields {
+		if hasPopulatedMCPFields {
 			return errors.New("MCP audit fields cannot be populated for local agent tool call audit logs")
+		}
+		if !hasLocalAgentFields {
+			return errors.New("local agent audit fields are required for local agent tool call audit logs")
+		}
+		if err := a.validateLocalAgentToolCallFields(); err != nil {
+			return err
 		}
 	default:
 		return errors.New("invalid audit log source type")
 	}
 	return nil
+}
+
+func (a *MCPAuditLog) validateLocalAgentToolCallFields() error {
+	local := a.LocalAgentToolCallFields
+	if local == nil {
+		return errors.New("local agent audit fields are required for local agent tool call audit logs")
+	}
+
+	var missing []string
+	if local.AgentProvider == "" {
+		missing = append(missing, "agentProvider")
+	}
+	if local.ObservedAt.IsZero() {
+		missing = append(missing, "observedAt")
+	}
+	if local.ToolName == "" {
+		missing = append(missing, "toolName")
+	}
+	if len(local.ToolInput) == 0 {
+		missing = append(missing, "toolInput")
+	}
+	if local.Status == "" {
+		missing = append(missing, "status")
+	}
+	if local.IdempotencyKey == "" {
+		missing = append(missing, "idempotencyKey")
+	}
+	if len(local.RawHookPayload) == 0 {
+		missing = append(missing, "rawHookPayload")
+	}
+	if local.CLIVersion == "" {
+		missing = append(missing, "cliVersion")
+	}
+
+	if len(missing) > 0 {
+		return errors.New("local agent audit fields missing required field(s): " + strings.Join(missing, ", "))
+	}
+	return nil
+}
+
+func isZeroMCPAuditLogFields(mcp *MCPAuditLogFields) bool {
+	return mcp == nil || reflect.ValueOf(*mcp).IsZero()
+}
+
+func isZeroLocalAgentToolCallAuditLogFields(local *LocalAgentToolCallAuditLogFields) bool {
+	return local == nil || reflect.ValueOf(*local).IsZero()
 }
 
 type MCPWebhookStatus struct {
@@ -207,15 +275,26 @@ type MCPPromptReadStats struct {
 
 // ConvertMCPAuditLog converts internal MCPAuditLog to API type
 func ConvertMCPAuditLog(a MCPAuditLog) types2.MCPAuditLog {
-	mcp := a.MCP()
+	var (
+		mcpFields        *types2.MCPAuditLogFields
+		localAgentFields *types2.LocalAgentToolCallAuditLogFields
+	)
+
+	switch a.SourceType {
+	case types2.AuditLogSourceTypeMCP:
+		mcpFields = convertMCPAuditLogFields(a.MCP())
+	case types2.AuditLogSourceTypeLocalAgentToolCall:
+		localAgentFields = convertLocalAgentToolCallAuditLogFields(a.LocalAgentToolCallFields)
+	}
+
 	return types2.MCPAuditLog{
 		ID:                       a.ID,
 		CreatedAt:                *types2.NewTime(a.CreatedAt),
 		SourceType:               a.SourceType,
 		UserID:                   a.UserID,
 		ClientIP:                 a.ClientIP,
-		MCPFields:                convertMCPAuditLogFields(mcp),
-		LocalAgentToolCallFields: convertLocalAgentToolCallAuditLogFields(a.LocalAgentToolCallFields),
+		MCPFields:                mcpFields,
+		LocalAgentToolCallFields: localAgentFields,
 	}
 }
 

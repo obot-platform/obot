@@ -330,6 +330,11 @@ func (c *Client) GetMCPAuditLog(ctx context.Context, id uint, withRequestAndResp
 	if err := db.Where("id = ?", id).First(&log).Error; err != nil {
 		return nil, err
 	}
+	if log.SourceType == types2.AuditLogSourceTypeLocalAgentToolCall {
+		log.MCPFields = nil
+	} else {
+		log.LocalAgentToolCallFields = nil
+	}
 
 	// Decrypt if requested
 	if err := c.decryptMCPAuditLog(ctx, &log); err != nil {
@@ -337,12 +342,20 @@ func (c *Client) GetMCPAuditLog(ctx context.Context, id uint, withRequestAndResp
 	}
 	if !withRequestAndResponse {
 		mcp := log.MCP()
-		// Blank out encrypted fields
-		mcp.RequestBody = nil
-		mcp.MutatedRequestBody = nil
-		mcp.ResponseBody = nil
-		mcp.OriginalResponseBody = nil
-		// Request and response headers are intentionally kept non-nil, since sensitive values are redacted
+		if mcp != nil {
+			// Blank out encrypted fields
+			mcp.RequestBody = nil
+			mcp.MutatedRequestBody = nil
+			mcp.ResponseBody = nil
+			mcp.OriginalResponseBody = nil
+			// Request and response headers are intentionally kept non-nil, since sensitive values are redacted
+		}
+		if local := log.LocalAgentToolCallFields; local != nil {
+			local.ToolInput = nil
+			local.ToolOutput = nil
+			local.RawHookPayload = nil
+			local.TranscriptPath = ""
+		}
 	}
 
 	return &log, nil
@@ -609,6 +622,9 @@ func (c *Client) encryptMCPAuditLog(ctx context.Context, log *types.MCPAuditLog)
 		return nil
 	}
 	mcp := log.MCP()
+	if mcp == nil {
+		return nil
+	}
 
 	transformer := c.encryptionConfig.Transformers[mcpAuditLogGroupResource]
 	if transformer == nil {
@@ -681,6 +697,9 @@ func (c *Client) decryptMCPAuditLog(ctx context.Context, log *types.MCPAuditLog)
 		return nil
 	}
 	mcp := log.MCP()
+	if mcp == nil {
+		return nil
+	}
 
 	transformer := c.encryptionConfig.Transformers[mcpAuditLogGroupResource]
 	if transformer == nil {
@@ -785,5 +804,8 @@ func (c *Client) decryptMCPAuditLog(ctx context.Context, log *types.MCPAuditLog)
 
 func mcpAuditLogDataCtx(log *types.MCPAuditLog) value.Context {
 	mcp := log.MCP()
+	if mcp == nil {
+		return value.DefaultContext(fmt.Sprintf("%s/%s/%s", mcpAuditLogGroupResource.String(), log.SourceType, log.UserID))
+	}
 	return value.DefaultContext(fmt.Sprintf("%s/%s/%s", mcpAuditLogGroupResource.String(), mcp.MCPID, log.UserID))
 }

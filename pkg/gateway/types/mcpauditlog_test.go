@@ -22,6 +22,31 @@ func TestMCPAuditLogNormalizeMCPFields(t *testing.T) {
 	}
 }
 
+func TestMCPAuditLogMCPInitializesOnlyMCPRows(t *testing.T) {
+	mcpLog := MCPAuditLog{
+		SourceType: types2.AuditLogSourceTypeMCP,
+	}
+	if mcp := mcpLog.MCP(); mcp == nil {
+		t.Fatal("expected MCP fields to be initialized for MCP log")
+	}
+
+	untypedLog := MCPAuditLog{}
+	if mcp := untypedLog.MCP(); mcp != nil {
+		t.Fatalf("expected no MCP fields for empty source type, got %#v", mcp)
+	}
+
+	localLog := MCPAuditLog{
+		SourceType: types2.AuditLogSourceTypeLocalAgentToolCall,
+		LocalAgentToolCallFields: &LocalAgentToolCallAuditLogFields{
+			AgentProvider:  string(types2.LocalAgentProviderCodex),
+			IdempotencyKey: "entry-1",
+		},
+	}
+	if mcp := localLog.MCP(); mcp != nil {
+		t.Fatalf("expected no MCP fields for local-agent log, got %#v", mcp)
+	}
+}
+
 func TestMCPAuditLogValidationRejectsBothFieldGroups(t *testing.T) {
 	log := MCPAuditLog{
 		SourceType: types2.AuditLogSourceTypeMCP,
@@ -36,6 +61,70 @@ func TestMCPAuditLogValidationRejectsBothFieldGroups(t *testing.T) {
 
 	if err := log.ValidateSourceFields(); err == nil {
 		t.Fatal("expected validation error")
+	}
+}
+
+func TestMCPAuditLogValidationRequiresSelectedFieldGroup(t *testing.T) {
+	tests := []struct {
+		name string
+		log  MCPAuditLog
+	}{
+		{
+			name: "mcp without mcp fields",
+			log: MCPAuditLog{
+				SourceType: types2.AuditLogSourceTypeMCP,
+			},
+		},
+		{
+			name: "local-agent without local fields",
+			log: MCPAuditLog{
+				SourceType: types2.AuditLogSourceTypeLocalAgentToolCall,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := tt.log.ValidateSourceFields(); err == nil {
+				t.Fatal("expected validation error")
+			}
+		})
+	}
+}
+
+func TestMCPAuditLogValidationRequiresLocalAgentFields(t *testing.T) {
+	observedAt := time.Date(2026, 6, 25, 12, 0, 0, 0, time.UTC)
+	valid := LocalAgentToolCallAuditLogFields{
+		AgentProvider:  string(types2.LocalAgentProviderCodex),
+		CLIVersion:     "1.2.3",
+		Status:         string(types2.LocalAgentAuditLogStatusSucceeded),
+		ObservedAt:     observedAt,
+		IdempotencyKey: "entry-1",
+		ToolName:       "mcp__server__tool",
+		ToolInput:      json.RawMessage(`{"arg":true}`),
+		RawHookPayload: json.RawMessage(`{"native":true}`),
+	}
+
+	log := MCPAuditLog{
+		SourceType:               types2.AuditLogSourceTypeLocalAgentToolCall,
+		LocalAgentToolCallFields: &valid,
+	}
+	if err := log.ValidateSourceFields(); err != nil {
+		t.Fatalf("expected valid local-agent log, got error: %v", err)
+	}
+
+	invalid := valid
+	invalid.IdempotencyKey = ""
+	log.LocalAgentToolCallFields = &invalid
+	if err := log.ValidateSourceFields(); err == nil {
+		t.Fatal("expected missing idempotency key validation error")
+	}
+
+	invalid = valid
+	invalid.ToolInput = nil
+	log.LocalAgentToolCallFields = &invalid
+	if err := log.ValidateSourceFields(); err == nil {
+		t.Fatal("expected missing tool input validation error")
 	}
 }
 
@@ -66,6 +155,7 @@ func TestConvertMCPAuditLogUsesNestedMCPAPIFields(t *testing.T) {
 			ResponseReceived:          true,
 			RequestID:                 "request-1",
 		},
+		LocalAgentToolCallFields: &LocalAgentToolCallAuditLogFields{},
 	}
 
 	apiLog := ConvertMCPAuditLog(log)
@@ -77,6 +167,9 @@ func TestConvertMCPAuditLogUsesNestedMCPAPIFields(t *testing.T) {
 	}
 	if apiLog.MCPFields == nil {
 		t.Fatal("expected nested MCP fields")
+	}
+	if apiLog.LocalAgentToolCallFields != nil {
+		t.Fatalf("expected no local-agent fields for MCP log: %#v", apiLog.LocalAgentToolCallFields)
 	}
 	if apiLog.MCPFields.MCPID != "mcp-1" || apiLog.MCPFields.CallIdentifier != "tool" || apiLog.MCPFields.ClientInfo.Name != "client" {
 		t.Fatalf("nested MCP API fields were not populated: %#v", apiLog.MCPFields)
@@ -95,6 +188,7 @@ func TestConvertMCPAuditLogLocalAgentToolCallFields(t *testing.T) {
 		SourceType: types2.AuditLogSourceTypeLocalAgentToolCall,
 		UserID:     "user-1",
 		ClientIP:   "127.0.0.1",
+		MCPFields:  &MCPAuditLogFields{},
 		LocalAgentToolCallFields: &LocalAgentToolCallAuditLogFields{
 			AgentProvider:          string(types2.LocalAgentProviderCodex),
 			CLIVersion:             "1.2.3",
