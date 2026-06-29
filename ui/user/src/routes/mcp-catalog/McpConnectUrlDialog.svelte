@@ -32,6 +32,12 @@
 		return mcpServersAndEntries.current.servers.filter((s) => s.catalogEntryID === entry.id);
 	}
 
+	function getUserConfiguredCatalogEntryServers(entry: MCPCatalogEntry) {
+		return mcpServersAndEntries.current.userConfiguredServers.filter(
+			(s) => s.catalogEntryID === entry.id
+		);
+	}
+
 	function handleShowSelectServerDialog(entry: MCPCatalogEntry, servers: MCPCatalogServer[]) {
 		selectServerForCatalogEntry = {
 			entry,
@@ -47,6 +53,26 @@
 				catalogEntry
 			};
 			connectUrlDialog?.open();
+			return;
+		}
+
+		if (isConfigurableSingleUserCatalogEntry(catalogEntry)) {
+			const matchingServers = getUserConfiguredCatalogEntryServers(catalogEntry!);
+			if (matchingServers.length > 1) {
+				handleShowSelectServerDialog(catalogEntry!, matchingServers);
+			} else if (matchingServers[0]?.connectURL) {
+				displayConnectUrl = {
+					url: matchingServers[0].connectURL,
+					catalogEntry
+				};
+				connectUrlDialog?.open();
+			} else {
+				displayConnectUrl = {
+					url: '',
+					catalogEntry
+				};
+				connectUrlDialog?.open();
+			}
 			return;
 		}
 
@@ -78,6 +104,10 @@
 	function isConfigurableSingleUserCatalogEntry(entry?: MCPCatalogEntry) {
 		return entry && !isMultiUserCatalogEntry(entry) && hasEditableConfiguration(entry);
 	}
+
+	function needsSingleUserConfiguration(entry?: MCPCatalogEntry, url?: string) {
+		return isConfigurableSingleUserCatalogEntry(entry) && !url;
+	}
 </script>
 
 <ResponsiveDialog
@@ -88,9 +118,13 @@
 	classes={{ content: 'p-0', header: 'p-4 pb-0' }}
 	disableMobileStyles
 >
-	<div class={twMerge('px-4', !isMultiUserCatalogEntry(displayConnectUrl?.catalogEntry) && 'pb-4')}>
-		<CopyField id="connect-url-dialog-connection-url" value={displayConnectUrl?.url ?? ''} />
-	</div>
+	{#if !needsSingleUserConfiguration(displayConnectUrl?.catalogEntry, displayConnectUrl?.url)}
+		<div
+			class={twMerge('px-4', !isMultiUserCatalogEntry(displayConnectUrl?.catalogEntry) && 'pb-4')}
+		>
+			<CopyField id="connect-url-dialog-connection-url" value={displayConnectUrl?.url ?? ''} />
+		</div>
+	{/if}
 	{#if isMultiUserCatalogEntry(displayConnectUrl?.catalogEntry)}
 		<div class="mt-4 p-4 border-t border-base-300 dark:border-base-400">
 			<p
@@ -111,12 +145,31 @@
 				</button>
 			</p>
 		</div>
+	{:else if needsSingleUserConfiguration(displayConnectUrl?.catalogEntry, displayConnectUrl?.url)}
+		<div class="notification-info m-4 flex flex-col gap-3">
+			<p class="flex items-center gap-2 text-xs">
+				<Info class="size-4 shrink-0" />
+				This server requires user configuration before it can be connected from an MCP client.
+			</p>
+			{#if displayConnectUrl?.catalogEntry}
+				<button
+					class="btn btn-primary btn-sm w-fit text-xs"
+					onclick={() => {
+						if (!displayConnectUrl?.catalogEntry) return;
+						connectUrlDialog?.close();
+						onLaunchCatalogEntry?.(displayConnectUrl.catalogEntry);
+					}}
+				>
+					<Plus class="size-3" />
+					Configure Server
+				</button>
+			{/if}
+		</div>
 	{:else if isConfigurableSingleUserCatalogEntry(displayConnectUrl?.catalogEntry)}
 		<div class="notification-info m-4 mt-0">
 			<p class="flex items-center gap-2 text-xs">
 				<Info class="size-4" />
-				This server requires end-user configuration. Users will need to configure their instance of it
-				here before they can connect to it.
+				This connection URL uses your configured server instance.
 			</p>
 		</div>
 	{/if}

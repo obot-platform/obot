@@ -285,10 +285,14 @@ func normalizeAndValidateCatalogSourceURLs(sourceURLs []string, localPath string
 		if urlStr == "" {
 			continue
 		}
-		if _, ok := seen[urlStr]; ok {
-			return types.NewErrBadRequest("duplicate URL found: %s", urlStr)
+		sourceID := validation.SourceIDForURL(urlStr)
+		if sourceID == "" {
+			return types.NewErrBadRequest("invalid catalog source URL %q", urlStr)
 		}
-		seen[urlStr] = struct{}{}
+		if _, ok := seen[sourceID]; ok {
+			return types.NewErrBadRequest("duplicate catalog source ID %q", sourceID)
+		}
+		seen[sourceID] = struct{}{}
 	}
 	return nil
 }

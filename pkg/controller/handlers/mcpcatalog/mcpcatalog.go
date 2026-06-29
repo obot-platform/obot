@@ -29,6 +29,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	kvalidation "k8s.io/apimachinery/pkg/util/validation"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
@@ -56,6 +57,8 @@ func sanitizeName(n string) string {
 const CatalogCredentialToolName = "catalog-source-tokens"
 
 const (
+	catalogReferenceSeparator = "::"
+
 	// These are used to force catalog sync on startup, used for times when changes are made to
 	// catalogs, and they must be synced on the next start.
 	forceSyncStartupAnnotation = "obot.ai/force-sync-startup"
@@ -153,6 +156,11 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 		toAdd = append(toAdd, objs...)
 	}
 
+	toAdd, compositeRefErrors := h.resolveCompositeSourceRefs(req.Ctx, toAdd)
+	for sourceURL, errMsg := range compositeRefErrors {
+		addSyncError(mcpCatalog.Status.SyncErrors, sourceURL, errMsg)
+	}
+
 	mcpCatalog.Status.LastSyncTime = metav1.Now()
 	if err := req.Client.Status().Update(req.Ctx, mcpCatalog); err != nil {
 		return fmt.Errorf("failed to update catalog status: %w", err)
@@ -186,6 +194,128 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	}
 
 	return app.Apply(req.Ctx, mcpCatalog, toAdd...)
+}
+
+func addSyncError(syncErrors map[string]string, sourceURL, errMsg string) {
+	if existing := syncErrors[sourceURL]; existing != "" {
+		syncErrors[sourceURL] = existing + "; " + errMsg
+	} else {
+		syncErrors[sourceURL] = errMsg
+	}
+}
+
+// resolveCompositeSourceRefs rewrites GitOps portable component refs to stored
+// catalog entry names and snapshots the target manifests. Entries with invalid
+// portable refs are skipped so bad composites do not get applied.
+func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, objs []client.Object) ([]client.Object, map[string]string) {
+	refs := make(map[string]*v1.MCPServerCatalogEntry)
+	entriesByName := make(map[string]*v1.MCPServerCatalogEntry)
+	for _, obj := range objs {
+		entry, ok := obj.(*v1.MCPServerCatalogEntry)
+		if !ok {
+			continue
+		}
+		entriesByName[entry.Name] = entry
+		if entry.Spec.SourceURL != "" && entry.Spec.Manifest.EntryKey != "" {
+			refs[sourceRef(validation.SourceIDForURL(entry.Spec.SourceURL), entry.Spec.Manifest.EntryKey)] = entry
+		}
+	}
+
+	result := make([]client.Object, 0, len(objs))
+	errsBySourceURL := make(map[string]string)
+	for _, obj := range objs {
+		entry, ok := obj.(*v1.MCPServerCatalogEntry)
+		if !ok || entry.Spec.Manifest.Runtime != types.RuntimeComposite || entry.Spec.Manifest.CompositeConfig == nil {
+			result = append(result, obj)
+			continue
+		}
+
+		changed := false
+		var errs []error
+		for i := range entry.Spec.Manifest.CompositeConfig.ComponentServers {
+			component := &entry.Spec.Manifest.CompositeConfig.ComponentServers[i]
+			if component.CatalogEntryID == "" {
+				continue
+			}
+
+			target, err := resolveComponentSourceRef(refs, validation.SourceIDForURL(entry.Spec.SourceURL), component.CatalogEntryID)
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+			if target == nil {
+				target = entriesByName[component.CatalogEntryID]
+			}
+			if target == nil {
+				continue
+			}
+
+			component.CatalogEntryID = target.Name
+			component.Manifest = target.Spec.Manifest
+			changed = true
+		}
+
+		if len(errs) > 0 {
+			addSyncError(errsBySourceURL, entry.Spec.SourceURL, fmt.Sprintf("failed to resolve composite catalog entry %q: %v", entry.Name, errors.Join(errs...)))
+			continue
+		}
+
+		if changed {
+			if err := validation.ValidateCatalogEntryManifest(ctx, entry.Spec.Manifest, entry.IsGitManaged(), h.remoteURLValidationConfig); err != nil {
+				addSyncError(errsBySourceURL, entry.Spec.SourceURL, fmt.Sprintf("failed to validate resolved composite catalog entry %q: %v", entry.Name, err))
+				continue
+			}
+			if err := validation.ValidateSecretBindingsCatalogEntry(entry.Spec.Manifest, entry.IsGitManaged(), false, h.mcpBackend); err != nil {
+				addSyncError(errsBySourceURL, entry.Spec.SourceURL, fmt.Sprintf("failed to validate resolved composite catalog entry %q: %v", entry.Name, err))
+				continue
+			}
+			if err := validation.ValidateTemplateReferencesCatalogEntry(entry.Spec.Manifest); err != nil {
+				addSyncError(errsBySourceURL, entry.Spec.SourceURL, fmt.Sprintf("failed to validate resolved composite catalog entry %q: %v", entry.Name, err))
+				continue
+			}
+		}
+
+		result = append(result, obj)
+	}
+
+	return result, errsBySourceURL
+}
+
+// resolveComponentSourceRef resolves GitOps portable refs. A bare entry key is
+// scoped to the current source; source::entryKey targets another source. If the
+// ref has no separator and no same-source match, callers can treat it as a
+// normal internal catalog entry ID.
+func resolveComponentSourceRef(refs map[string]*v1.MCPServerCatalogEntry, sourceID, catalogEntryID string) (*v1.MCPServerCatalogEntry, error) {
+	refSourceID, entryKey, hasSep, valid := parseSourceRef(sourceID, catalogEntryID)
+	if !valid {
+		return nil, fmt.Errorf("invalid catalogEntryID source ref %q", catalogEntryID)
+	}
+	if refSourceID == "" {
+		return nil, nil
+	}
+
+	target := refs[sourceRef(refSourceID, entryKey)]
+	if hasSep && target == nil {
+		return nil, fmt.Errorf("unresolved catalogEntryID source ref %q", catalogEntryID)
+	}
+	return target, nil
+}
+
+// parseSourceRef returns the source/key pair for either an explicit
+// source::entryKey reference or a same-source shorthand entryKey.
+func parseSourceRef(sourceID, catalogEntryID string) (refSourceID, entryKey string, hasSep, valid bool) {
+	refSourceID, entryKey, hasSep = strings.Cut(catalogEntryID, catalogReferenceSeparator)
+	if !hasSep {
+		return sourceID, catalogEntryID, false, true
+	}
+	if strings.Contains(entryKey, catalogReferenceSeparator) {
+		return refSourceID, entryKey, true, false
+	}
+	return refSourceID, entryKey, true, refSourceID != "" && entryKey != ""
+}
+
+func sourceRef(sourceID, entryKey string) string {
+	return fmt.Sprintf("%s%s%s", sourceID, catalogReferenceSeparator, entryKey)
 }
 
 func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {
@@ -413,6 +543,7 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 
 	objs := make([]client.Object, 0, len(entries))
 	var errs []error
+	uniqueEntryKeys := make(map[string]struct{})
 	for _, entry := range entries {
 		if entry.Metadata["categories"] == "Official" {
 			delete(entry.Metadata, "categories") // This shouldn't happen, but do this just in case.
@@ -425,10 +556,27 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 			errs = append(errs, err)
 			continue
 		}
+		catalogEntryName := name.SafeHashConcatName(catalogName, cleanName)
+
+		if entry.EntryKey != "" {
+			if strings.Contains(entry.EntryKey, catalogReferenceSeparator) {
+				errs = append(errs, fmt.Errorf("source entry key %q cannot contain %s; skipping catalog entry %q", entry.EntryKey, catalogReferenceSeparator, catalogEntryName))
+				continue
+			}
+			if dnsErrs := kvalidation.IsDNS1123Subdomain(entry.EntryKey); len(dnsErrs) > 0 {
+				errs = append(errs, fmt.Errorf("source entry key %q must be DNS-friendly: %s; skipping catalog entry %q", entry.EntryKey, strings.Join(dnsErrs, "; "), catalogEntryName))
+				continue
+			}
+			if _, ok := uniqueEntryKeys[entry.EntryKey]; ok {
+				errs = append(errs, fmt.Errorf("duplicate source entry key %q also used by catalog entry %q", entry.EntryKey, catalogEntryName))
+				continue
+			}
+			uniqueEntryKeys[entry.EntryKey] = struct{}{}
+		}
 
 		catalogEntry := v1.MCPServerCatalogEntry{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      name.SafeHashConcatName(catalogName, cleanName),
+				Name:      catalogEntryName,
 				Namespace: system.DefaultNamespace,
 			},
 			Spec: v1.MCPServerCatalogEntrySpec{
@@ -444,8 +592,7 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 		}
 
 		sanitizeCatalogEntryManifest(&entry)
-
-		if err := validation.ValidateCatalogEntryManifest(ctx, entry, h.remoteURLValidationConfig); err != nil {
+		if err := validation.ValidateCatalogEntryManifest(ctx, entry, true, h.remoteURLValidationConfig); err != nil {
 			errs = append(errs, fmt.Errorf("failed to validate catalog entry %s: %w", entry.Name, err))
 			continue
 		}
