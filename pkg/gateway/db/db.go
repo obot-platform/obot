@@ -100,6 +100,10 @@ func (db *DB) AutoMigrate() (err error) {
 		return fmt.Errorf("failed to migrate API key skills access: %w", err)
 	}
 
+	if err = migrateLLMAuditLogs(tx); err != nil {
+		return fmt.Errorf("failed to migrate LLM audit logs: %w", err)
+	}
+
 	if err := tx.AutoMigrate(
 		types.AuthToken{},
 		types.TokenRequest{},
