@@ -196,7 +196,11 @@ When omitted, Obot uses the configured MCP server resource defaults. When specif
 
 Secret bindings let you wire an env var, header, or file to a key in an externally-managed Kubernetes Secret instead of asking the user to supply the value at install time.
 
-Secret bindings are only available on git-managed catalog entries, and only when Obot is using the Kubernetes MCP runtime backend.
+Secret bindings are only available when Obot is using the Kubernetes MCP runtime backend.
+
+The referenced Kubernetes Secret must be in the Obot server namespace and must have the [configured allowed secret-binding label](./server-configuration.md#mcp-secret-binding-allowed-label).
+
+Obot checks this label when resolving bound values. If the Secret is missing the label, the binding is treated the same as a missing Secret or key. Required bound fields are reported as missing configuration.
 
 #### Basic env var binding
 
@@ -218,6 +222,7 @@ env:
 - Not supported for `remote` runtime env vars (use a header binding instead).
 - `required: false` is allowed — when the Secret or key is absent the server deploys without that env var.
 - For `remoteConfig.urlTemplate`, `${VAR}` placeholders must not reference env vars that use `secretBinding`.
+- Do not set `secretBinding.adminAdded` in Git catalog YAML. Obot sets this field only on deployed servers for admin-selected bindings.
 
 #### File binding
 

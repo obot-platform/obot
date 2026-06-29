@@ -459,6 +459,11 @@ export interface MCPSubField {
 export interface MCPSecretBinding {
 	name: string;
 	key: string;
+	adminAdded?: boolean;
+}
+export interface MCPAllowedSecretBindingTarget {
+	name: string;
+	keys: string[];
 }
 export interface UVXRuntimeConfig {
 	package: string;

@@ -1,4 +1,8 @@
 // json diff utility functions
+import type { MCPCatalogEntryServerManifest } from '$lib/services/admin/types';
+import type { MCPServer } from '$lib/services/user/types';
+
+type ManifestDiff = MCPCatalogEntryServerManifest | MCPServer;
 
 /**
  * Strips fields from a manifest that should not be considered when computing
@@ -10,13 +14,17 @@
  * - `remoteConfig.fixedURL`: catalog-only field translated to `url` at deploy time
  * - `remoteConfig.url`: runtime-only field derived from catalog's `fixedURL`
  * - `remoteConfig.isTemplate`: runtime-only field not present on catalog manifests
+ * - `secretBinding.adminAdded`: runtime-only ownership metadata
  *
  * For composite manifests, the same fields are stripped from each component's
  * nested manifest at `compositeConfig.componentServers[].manifest`. Nested
  * composites are not possible — the backend rejects them — so a single pass over
  * the component list is sufficient.
  */
-export function stripManifestMetadata<T>(manifest: T): T {
+export function stripManifestMetadata<T>(
+	manifest: T,
+	options?: { keepSecretBindingMetadata?: boolean }
+): T {
 	if (!manifest || typeof manifest !== 'object') return manifest;
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -32,6 +40,7 @@ export function stripManifestMetadata<T>(manifest: T): T {
 			delete m.remoteConfig.url;
 			delete m.remoteConfig.isTemplate;
 		}
+		if (!options?.keepSecretBindingMetadata) stripSecretBindingMetadata(m);
 	};
 
 	stripFields(clone);
@@ -40,6 +49,115 @@ export function stripManifestMetadata<T>(manifest: T): T {
 	}
 
 	return clone as T;
+}
+
+export function normalizeManifestsForDiff<T>(currentManifest: T, newManifest: T): [T, T] {
+	const current = stripManifestMetadata(currentManifest, {
+		keepSecretBindingMetadata: true
+	}) as ManifestDiff;
+	const next = stripManifestMetadata(newManifest, {
+		keepSecretBindingMetadata: true
+	}) as ManifestDiff;
+
+	// stripManifestMetadata returns undefined for an undefined manifest. Bail out before
+	// dereferencing so callers fall through to their "unable to compare" fallback UI
+	// instead of throwing on current.compositeConfig.
+	if (!current || !next) {
+		return [current as T, next as T];
+	}
+
+	const normalize = (currentShape?: ManifestDiff, nextShape?: ManifestDiff) => {
+		if (!currentShape || !nextShape) return;
+		normalizeFieldList(currentShape.env, nextShape.env);
+		normalizeFieldList(currentShape.remoteConfig?.headers, nextShape.remoteConfig?.headers);
+		normalizeFieldList(
+			currentShape.multiUserConfig?.userDefinedHeaders,
+			nextShape.multiUserConfig?.userDefinedHeaders
+		);
+	};
+
+	normalize(current, next);
+	for (let i = 0; i < (current.compositeConfig?.componentServers ?? []).length; i++) {
+		const currentComponent = current.compositeConfig?.componentServers?.[i];
+		const nextComponent = next.compositeConfig?.componentServers?.[i];
+		normalize(currentComponent?.manifest, nextComponent?.manifest);
+	}
+
+	stripSecretBindingMetadata(current);
+	stripSecretBindingMetadata(next);
+	return [current as T, next as T];
+}
+
+type DiffField = {
+	key: string;
+	value?: unknown;
+	secretBinding?: {
+		adminAdded?: boolean;
+	};
+};
+
+function normalizeFieldList(
+	currentFields: DiffField[] | undefined,
+	nextFields: DiffField[] | undefined
+) {
+	removeAdminAddedOnlyFields(currentFields, nextFields);
+	removeAdminAddedOnlyFields(nextFields, currentFields);
+	normalizeAdminAddedFieldBindings(currentFields, nextFields);
+	normalizeAdminAddedFieldBindings(nextFields, currentFields);
+}
+
+function removeAdminAddedOnlyFields(
+	currentFields: DiffField[] | undefined,
+	nextFields: DiffField[] | undefined
+) {
+	if (!currentFields) return;
+	const nextByKey = new Map((nextFields ?? []).map((field) => [field.key, field]));
+
+	for (let i = currentFields.length - 1; i >= 0; i--) {
+		const currentField = currentFields[i];
+		if (currentField?.secretBinding?.adminAdded && !nextByKey.has(currentField.key)) {
+			currentFields.splice(i, 1);
+		}
+	}
+}
+
+function normalizeAdminAddedFieldBindings(
+	currentFields: DiffField[] | undefined,
+	nextFields: DiffField[] | undefined
+) {
+	if (!currentFields || !nextFields) return;
+	const nextByKey = new Map(nextFields.map((field) => [field.key, field]));
+
+	for (const currentField of currentFields) {
+		if (!currentField?.secretBinding?.adminAdded) continue;
+
+		const nextField = nextByKey.get(currentField.key);
+		if (!nextField?.secretBinding || nextField.secretBinding.adminAdded) {
+			delete currentField.secretBinding;
+			currentField.value = nextField?.value;
+		}
+	}
+}
+
+function stripSecretBindingMetadata(manifest?: ManifestDiff) {
+	if (!manifest || typeof manifest !== 'object') return;
+
+	const stripFields = (m?: ManifestDiff) => {
+		for (const field of m?.env ?? []) {
+			if (field.secretBinding) delete field.secretBinding.adminAdded;
+		}
+		for (const field of m?.remoteConfig?.headers ?? []) {
+			if (field.secretBinding) delete field.secretBinding.adminAdded;
+		}
+		for (const field of m?.multiUserConfig?.userDefinedHeaders ?? []) {
+			if (field.secretBinding) delete field.secretBinding.adminAdded;
+		}
+	};
+
+	stripFields(manifest);
+	for (const component of manifest.compositeConfig?.componentServers ?? []) {
+		stripFields(component?.manifest);
+	}
 }
 
 export function formatJsonWithHighlighting(json: unknown): string {

@@ -1,12 +1,13 @@
 <script lang="ts">
 	import Loading from '$lib/icons/Loading.svelte';
-	import type { MCPSubField } from '$lib/services';
+	import type { MCPAllowedSecretBindingTarget, MCPSubField } from '$lib/services';
 	import { hasSecretBinding, type MCPServerInfo } from '$lib/services/user/mcp';
 	import Confirm from '../Confirm.svelte';
 	import InfoTooltip from '../InfoTooltip.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import SensitiveInput from '../SensitiveInput.svelte';
 	import Toggle from '../Toggle.svelte';
+	import SecretBindingPicker from './SecretBindingPicker.svelte';
 	import { CircleAlert, Server } from '@lucide/svelte';
 	import { tick, type Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -60,6 +61,8 @@
 		animate?: 'slide' | 'fade' | null;
 		displayDescriptionInline?: boolean;
 		configurationTitle?: string;
+		secretBindingTargets?: MCPAllowedSecretBindingTarget[];
+		disableEnvSecretBindings?: boolean;
 	}
 	let {
 		form = $bindable(),
@@ -79,6 +82,8 @@
 		disableOutsideClick,
 		displayDescriptionInline,
 		configurationTitle,
+		secretBindingTargets,
+		disableEnvSecretBindings,
 		animate = 'slide'
 	}: Props = $props();
 	let configDialog = $state<ReturnType<typeof ResponsiveDialog>>();
@@ -90,6 +95,20 @@
 
 	let isOpen = $state(false);
 	let localError = $state<string | undefined>();
+
+	type ConfigField =
+		| NonNullable<MCPServerInfo['env']>[number]
+		| NonNullable<MCPServerInfo['headers']>[number];
+
+	function isPinnedSecretBinding(field?: ConfigField) {
+		return Boolean(
+			(field as { secretBindingReadonly?: boolean } | undefined)?.secretBindingReadonly
+		);
+	}
+
+	function usesSecretBindingSource(field?: ConfigField & { secretBindingSource?: string }) {
+		return Boolean(field?.secretBinding) || field?.secretBindingSource === 'secret';
+	}
 
 	const remoteHeaders = $derived.by(() => {
 		if (form && 'headers' in form) {
@@ -165,9 +184,16 @@
 
 	function componentHasConfig(comp?: ComponentLaunchFormData) {
 		if (!comp) return false;
-		const hasEnvs = Array.isArray(comp.envs) && comp.envs.some(isEditableField);
-		const hasHeaders = Array.isArray(comp.headers) && comp.headers.some(isEditableField);
-		const needsURL = !comp.isMultiUser && Boolean(comp.hostname);
+		// Multi-user component entries should not expose any configuration
+		// fields in this dialog; they are configured at the multi-user level.
+		if (comp.isMultiUser) return false;
+		const hasEnvs =
+			Array.isArray(comp.envs) &&
+			(secretBindingTargets !== undefined || comp.envs.some((e) => !hasSecretBinding(e)));
+		const hasHeaders =
+			Array.isArray(comp.headers) &&
+			(secretBindingTargets !== undefined || comp.headers.some((h) => !hasSecretBinding(h)));
+		const needsURL = Boolean(comp.hostname);
 		return hasEnvs || hasHeaders || needsURL;
 	}
 
@@ -439,7 +465,7 @@
 
 								<div class="border-t border-base-300 p-3">
 									{#each envs as env (env.data.key)}
-										{#if !hasSecretBinding(env.data)}
+										{#if secretBindingTargets !== undefined || !hasSecretBinding(env.data)}
 											{@const highlightRequired =
 												highlightedFields.has(`${compId}:${env.data.key}`) && !env.data.value}
 											<div class="flex flex-col gap-1">
@@ -457,7 +483,27 @@
 														<InfoTooltip text={env.data.description} />
 													{/if}
 												</span>
-												{#if env.data.sensitive}
+												{#if isPinnedSecretBinding(env.data)}
+													<div
+														class="bg-base-200 dark:bg-base-300 border-base-300 dark:border-base-400 flex flex-col gap-1 rounded-lg border p-3 text-sm shadow-inner"
+													>
+														<span class="text-muted-content text-xs font-light"
+															>Kubernetes Secret</span
+														>
+														<span class="font-mono"
+															>{env.data.secretBinding?.name} / {env.data.secretBinding?.key}</span
+														>
+													</div>
+												{:else if secretBindingTargets}
+													<SecretBindingPicker
+														bind:field={comp.envs![env.index]}
+														targets={secretBindingTargets}
+														readonly={form.componentConfigs[compId].disabled}
+													/>
+												{/if}
+												{#if usesSecretBindingSource(env.data)}
+													<!-- Secret-bound value is selected above. -->
+												{:else if env.data.sensitive}
 													<SensitiveInput
 														error={highlightRequired}
 														name={env.data.name}
@@ -503,7 +549,7 @@
 									{/each}
 
 									{#each headers as header (header.data.key)}
-										{#if !hasSecretBinding(header.data)}
+										{#if secretBindingTargets !== undefined || !hasSecretBinding(header.data)}
 											{@const highlightRequired =
 												highlightedFields.has(`${compId}:${header.data.key}`) && !header.data.value}
 
@@ -522,7 +568,28 @@
 														<InfoTooltip text={header.data.description} />
 													{/if}
 												</span>
-												{#if header.data.sensitive}
+												{#if isPinnedSecretBinding(header.data)}
+													<div
+														class="bg-base-200 dark:bg-base-300 border-base-300 dark:border-base-400 flex flex-col gap-1 rounded-lg border p-3 text-sm shadow-inner"
+													>
+														<span class="text-muted-content text-xs font-light"
+															>Kubernetes Secret</span
+														>
+														<span class="font-mono"
+															>{header.data.secretBinding?.name} / {header.data.secretBinding
+																?.key}</span
+														>
+													</div>
+												{:else if secretBindingTargets}
+													<SecretBindingPicker
+														bind:field={comp.headers![header.index]}
+														targets={secretBindingTargets}
+														readonly={form.componentConfigs[compId].disabled}
+													/>
+												{/if}
+												{#if usesSecretBindingSource(header.data)}
+													<!-- Secret-bound value is selected above. -->
+												{:else if header.data.sensitive}
 													<SensitiveInput
 														name={header.data.name}
 														bind:value={comp.headers![header.index].value}
@@ -579,7 +646,7 @@
 					{/if}
 
 					{#each visibleEnvs as env (env.data.key)}
-						{#if !hasSecretBinding(env.data)}
+						{#if secretBindingTargets !== undefined || !hasSecretBinding(env.data)}
 							{@const highlightRequired = highlightedFields.has(env.data.key) && !env.data.value}
 							<div class="flex flex-col gap-1">
 								<span class="flex items-center gap-2">
@@ -593,7 +660,24 @@
 										<InfoTooltip text={env.data.description} />
 									{/if}
 								</span>
-								{#if env.data.sensitive}
+								{#if isPinnedSecretBinding(env.data)}
+									<div
+										class="bg-base-200 dark:bg-base-300 border-base-300 dark:border-base-400 flex flex-col gap-1 rounded-lg border p-3 text-sm shadow-inner"
+									>
+										<span class="text-muted-content text-xs font-light">Kubernetes Secret</span>
+										<span class="font-mono"
+											>{env.data.secretBinding?.name} / {env.data.secretBinding?.key}</span
+										>
+									</div>
+								{:else if secretBindingTargets && !disableEnvSecretBindings}
+									<SecretBindingPicker
+										bind:field={form.envs![env.index]}
+										targets={secretBindingTargets}
+									/>
+								{/if}
+								{#if usesSecretBindingSource(env.data)}
+									<!-- Secret-bound value is selected above. -->
+								{:else if env.data.sensitive}
 									<SensitiveInput
 										error={highlightRequired}
 										name={env.data.name}
@@ -634,7 +718,7 @@
 					{/each}
 
 					{#each remoteHeaders as header (header.data.key)}
-						{#if !hasSecretBinding(header.data)}
+						{#if secretBindingTargets !== undefined || !hasSecretBinding(header.data)}
 							{@const highlightRequired =
 								highlightedFields.has(header.data.key) && !header.data.value}
 							<div class="flex flex-col gap-1">
@@ -647,7 +731,24 @@
 									</label>
 									<InfoTooltip text={header.data.description} />
 								</span>
-								{#if header.data.sensitive}
+								{#if isPinnedSecretBinding(header.data)}
+									<div
+										class="bg-base-200 dark:bg-base-300 border-base-300 dark:border-base-400 flex flex-col gap-1 rounded-lg border p-3 text-sm shadow-inner"
+									>
+										<span class="text-muted-content text-xs font-light">Kubernetes Secret</span>
+										<span class="font-mono"
+											>{header.data.secretBinding?.name} / {header.data.secretBinding?.key}</span
+										>
+									</div>
+								{:else if secretBindingTargets}
+									<SecretBindingPicker
+										bind:field={form.headers![header.index]}
+										targets={secretBindingTargets}
+									/>
+								{/if}
+								{#if usesSecretBindingSource(header.data)}
+									<!-- Secret-bound value is selected above. -->
+								{:else if header.data.sensitive}
 									<SensitiveInput
 										error={highlightRequired}
 										name={header.data.name}
