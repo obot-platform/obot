@@ -61,6 +61,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 		DisableUpdateCheck:      services.DisableUpdateCheck,
 		MessagePoliciesEnabled:  services.MessagePoliciesEnabled,
 		AgentsEnabled:           agentsEnabled,
+		HideK8sDetails:          services.HideK8sDetails,
 	})
 	if err != nil {
 		return nil, err
