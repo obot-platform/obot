@@ -19,9 +19,9 @@
 	let resourceInfo = $state(untrack(() => formatSchedulingResources(data.k8sSettings?.resources)));
 </script>
 
-<Layout classes={{ container: 'pb-0' }} title="Server Scheduling">
+<Layout classes={{ container: 'pb-0' }} title="App Scheduling">
 	<div class="relative h-full w-full" transition:fade={{ duration }}>
-		{#if k8sSettings}
+		{#if k8sSettings && k8sSettings.available}
 			<div class="flex flex-col gap-8">
 				<SchedulingForm
 					readonly

@@ -14,7 +14,7 @@ export const load: PageLoad = async ({ fetch, parent }) => {
 	try {
 		k8sSettings = await AdminService.listK8sSettings({ fetch });
 	} catch (err) {
-		handleRouteError(err, '/admin/chat-configuration', profile);
+		handleRouteError(err, '/admin/server-scheduling', profile);
 	}
 
 	return {

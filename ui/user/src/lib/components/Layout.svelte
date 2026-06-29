@@ -574,13 +574,13 @@
 								disabled: false,
 								collapsible: false
 							},
-							{
+							...(version.current.engine === 'kubernetes' ? [{
 								id: 'app-scheduling',
 								href: '/admin/app-scheduling',
 								label: 'App Scheduling',
 								disabled: false,
 								collapsible: false
-							}
+							}] : [])
 						]
 					}
 				]

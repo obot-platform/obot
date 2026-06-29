@@ -17,6 +17,10 @@ export const load: PageLoad = async ({ fetch, parent }) => {
 		handleRouteError(err, '/admin/app-scheduling', profile);
 	}
 
+	if (!k8sSettings?.available) {
+		throw redirect(302, '/');
+	}
+
 	return {
 		k8sSettings
 	};

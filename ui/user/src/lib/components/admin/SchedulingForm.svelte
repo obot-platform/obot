@@ -30,7 +30,7 @@
 </script>
 
 <div class="flex flex-col gap-2">
-	{#if readonly}
+	{#if locked}
 		<div class="notification-info p-3 text-sm font-light">
 			<div class="flex items-center gap-3">
 				<Info class="size-6" />
