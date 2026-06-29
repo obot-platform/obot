@@ -181,6 +181,8 @@ config:
 
   # config.OBOT_SERVER_DISABLE_UPDATE_CHECK -- Disable the Obot server update check. Defaults to false.
   OBOT_SERVER_DISABLE_UPDATE_CHECK: ""
+  # config.OBOT_SERVER_HIDE_K8S_DETAILS -- Hide Kubernetes configuration details such as the Server Scheduling page from the UI. Defaults to false.
+  OBOT_SERVER_HIDE_K8S_DETAILS: false
   # config.OBOT_SERVER_MCPOAUTH_CLIENT_EXPIRATION -- The expiration time for dynamically registered MCP OAuth clients. Must be a valid duration string and may include days, hours, or minutes. Defaults to 30d.
   OBOT_SERVER_MCPOAUTH_CLIENT_EXPIRATION: ""
 

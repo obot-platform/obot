@@ -109,6 +109,7 @@ type Config struct {
 	DefaultSkillRepoRef                  string `usage:"The ref (branch/tag) for the default skill repository" default:"" env:"OBOT_DEFAULT_SKILL_REPO_REF"`
 	ModelInfoSourceURL                   string `usage:"Authoritative URL for the model info (pricing) source synced into model costs; changes take effect on restart, empty disables it" default:"https://models.dev/api.json"`
 	DisableUpdateCheck                   bool   `usage:"Disable Obot server update checks"`
+	HideK8sDetails                       bool   `usage:"Hide Kubernetes configuration details such as the Server Scheduling page from the UI" default:"false"`
 	EnableRegistryAuth                   bool   `usage:"Enable authentication for the MCP registry API" default:"false" env:"OBOT_SERVER_ENABLE_REGISTRY_AUTH"`
 	EnableMessagePolicies                bool   `usage:"Enable message policies for LLM proxy content enforcement" default:"false"`
 	EnableAgents                         *bool  `usage:"Enable Obot Agent features. When unset, agents are disabled for new deployments but grandfathered in for deployments that already have agents. Explicitly set to true to force-enable, or false to force-disable, regardless of grandfathering." env:"OBOT_ENABLE_AGENTS"`
@@ -224,6 +225,7 @@ type Services struct {
 	PSASettingsFromHelm *v1.PodSecurityAdmissionSettings
 
 	DisableUpdateCheck                   bool
+	HideK8sDetails                       bool
 	MCPRuntimeBackend                    string
 	MCPSecretBindingAllowedLabel         string
 	MCPImagePullSecrets                  []string
@@ -991,6 +993,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		PodSchedulingSettingsFromHelm:        podSchedulingSettings,
 		PSASettingsFromHelm:                  psaSettings,
 		DisableUpdateCheck:                   config.DisableUpdateCheck,
+		HideK8sDetails:                       config.HideK8sDetails,
 		MCPRuntimeBackend:                    config.MCPRuntimeBackend,
 		MCPSecretBindingAllowedLabel:         secretBindingAllowedLabel,
 		MCPImagePullSecrets:                  config.MCPImagePullSecrets,

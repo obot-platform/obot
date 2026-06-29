@@ -787,6 +787,7 @@ export interface Version {
 	mcpDefaultDenyAllEgress?: boolean;
 	messagePoliciesEnabled?: boolean;
 	agentsEnabled?: boolean;
+	hideK8sDetails?: boolean;
 	disableLegacyChat?: boolean;
 }
 
