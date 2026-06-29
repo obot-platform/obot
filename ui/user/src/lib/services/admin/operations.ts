@@ -47,6 +47,7 @@ import type {
 	AuditLogExportInput,
 	ScheduledAuditLogExportInput,
 	K8sSettings,
+	AppK8sSettings,
 	ServerK8sSettings,
 	ImagePullSecret,
 	ImagePullSecretCapability,
@@ -524,6 +525,10 @@ export async function refreshImagePullSecret(
 export async function listK8sSettings(opts?: { fetch?: Fetcher }) {
 	const response = (await doGet('/k8s-settings', opts)) as K8sSettings;
 	return response;
+}
+
+export async function getAppK8sSettings(opts?: { fetch?: Fetcher }) {
+	return (await doGet('/app-k8s-settings', opts)) as AppK8sSettings;
 }
 
 export async function updateK8sSettings(settings: K8sSettings, opts?: { fetch?: Fetcher }) {
