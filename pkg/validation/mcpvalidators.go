@@ -1131,8 +1131,9 @@ func ValidateCatalogEntryManifest(ctx context.Context, manifest types.MCPServerC
 		}
 	}
 
-	if !manifest.ServerUserType.IsSingleUser() && manifest.Runtime == types.RuntimeComposite {
-		return fmt.Errorf("multiUser catalog entries do not support composite runtime")
+	if !manifest.ServerUserType.IsSingleUser() &&
+		(manifest.Runtime == types.RuntimeComposite || manifest.Runtime == types.RuntimeRemote) {
+		return fmt.Errorf("multiUser catalog entries do not support %s runtime", manifest.Runtime)
 	}
 
 	if err := validateMCPResourceRequirements(manifest.Runtime, manifest.Resources); err != nil {
