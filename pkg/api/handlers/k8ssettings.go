@@ -17,10 +17,16 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-type K8sSettingsHandler struct{}
+type K8sSettingsHandler struct {
+	appSettings types.AppK8sSettings
+}
 
-func NewK8sSettingsHandler() *K8sSettingsHandler {
-	return &K8sSettingsHandler{}
+func NewK8sSettingsHandler(appSettings types.AppK8sSettings) *K8sSettingsHandler {
+	return &K8sSettingsHandler{appSettings: appSettings}
+}
+
+func (h *K8sSettingsHandler) GetApp(req api.Context) error {
+	return req.Write(h.appSettings)
 }
 
 func (h *K8sSettingsHandler) Get(req api.Context) error {
@@ -207,33 +213,19 @@ func convertK8sSettings(settings v1.K8sSettings) (types.K8sSettings, error) {
 		Metadata:   MetadataFrom(&settings),
 	}
 
-	if settings.Spec.Affinity != nil {
-		affinityYAML, err := yaml.Marshal(settings.Spec.Affinity)
-		if err != nil {
-			return types.K8sSettings{}, err
-		}
-		result.Affinity = string(affinityYAML)
+	formatted, err := FormatPodSchedulingYAML(
+		settings.Spec.Affinity,
+		settings.Spec.Tolerations,
+		settings.Spec.Resources,
+		settings.Spec.RuntimeClassName,
+	)
+	if err != nil {
+		return types.K8sSettings{}, err
 	}
-
-	if len(settings.Spec.Tolerations) > 0 {
-		tolerationsYAML, err := yaml.Marshal(settings.Spec.Tolerations)
-		if err != nil {
-			return types.K8sSettings{}, err
-		}
-		result.Tolerations = string(tolerationsYAML)
-	}
-
-	if settings.Spec.Resources != nil {
-		resourcesYAML, err := yaml.Marshal(settings.Spec.Resources)
-		if err != nil {
-			return types.K8sSettings{}, err
-		}
-		result.Resources = string(resourcesYAML)
-	}
-
-	if settings.Spec.RuntimeClassName != nil {
-		result.RuntimeClassName = *settings.Spec.RuntimeClassName
-	}
+	result.Affinity = formatted.Affinity
+	result.Tolerations = formatted.Tolerations
+	result.Resources = formatted.Resources
+	result.RuntimeClassName = formatted.RuntimeClassName
 
 	if settings.Spec.StorageClassName != nil {
 		result.StorageClassName = *settings.Spec.StorageClassName
@@ -262,6 +254,54 @@ func convertK8sSettings(settings v1.K8sSettings) (types.K8sSettings, error) {
 			Warn:           settings.Spec.PodSecurityAdmission.Warn,
 			WarnVersion:    settings.Spec.PodSecurityAdmission.WarnVersion,
 		}
+	}
+
+	return result, nil
+}
+
+// PodSchedulingYAML contains the shared pod scheduling fields returned by the API.
+type PodSchedulingYAML struct {
+	Affinity         string
+	Tolerations      string
+	Resources        string
+	RuntimeClassName string
+}
+
+// FormatPodSchedulingYAML converts parsed pod scheduling fields into API YAML strings.
+func FormatPodSchedulingYAML(
+	affinity *corev1.Affinity,
+	tolerations []corev1.Toleration,
+	resources *corev1.ResourceRequirements,
+	runtimeClassName *string,
+) (PodSchedulingYAML, error) {
+	var result PodSchedulingYAML
+
+	if affinity != nil {
+		affinityYAML, err := yaml.Marshal(affinity)
+		if err != nil {
+			return PodSchedulingYAML{}, err
+		}
+		result.Affinity = string(affinityYAML)
+	}
+
+	if len(tolerations) > 0 {
+		tolerationsYAML, err := yaml.Marshal(tolerations)
+		if err != nil {
+			return PodSchedulingYAML{}, err
+		}
+		result.Tolerations = string(tolerationsYAML)
+	}
+
+	if resources != nil {
+		resourcesYAML, err := yaml.Marshal(resources)
+		if err != nil {
+			return PodSchedulingYAML{}, err
+		}
+		result.Resources = string(resourcesYAML)
+	}
+
+	if runtimeClassName != nil {
+		result.RuntimeClassName = *runtimeClassName
 	}
 
 	return result, nil
