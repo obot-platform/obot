@@ -2216,6 +2216,7 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 			return fmt.Errorf("failed to get catalog entry %s: %w", mcpServer.Spec.MCPServerCatalogEntryName, err)
 		}
 
+		var updateServer bool
 		if url := envVars[configURLKey]; url != "" {
 			if err := updateMCPServerURLFromCatalogEntry(req.Context(), &mcpServer, catalogEntry, url, validationOptions(m.mcpSessionManager.RemoteMCPURLValidationConfig())); err != nil {
 				return err
@@ -2223,6 +2224,7 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 
 			// The URL is part of user configuration, but it is stored on the MCPServer spec rather than in credentials.
 			delete(envVars, configURLKey)
+			updateServer = true
 		}
 
 		// Check if the catalog entry has a URL template for remote runtime
@@ -2246,13 +2248,17 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 			if err := validation.ValidateServerManifest(req.Context(), mcpServer.Spec.Manifest, !mcpServer.Spec.IsSingleUser(), validationOptions(m.mcpSessionManager.RemoteMCPURLValidationConfig())); err != nil {
 				return types.NewErrBadRequest("validation failed: %v", err)
 			}
+
+			updateServer = updateServer || mcpServer.Spec.NeedsURL || mcpServer.Spec.Manifest.RemoteConfig.URL != ""
 			mcpServer.Spec.NeedsURL = false
 			mcpServer.Spec.PreviousURL = ""
 		}
-	}
 
-	if err := req.Update(&mcpServer); err != nil {
-		return fmt.Errorf("failed to update server configuration: %w", err)
+		if updateServer {
+			if err := req.Update(&mcpServer); err != nil {
+				return fmt.Errorf("failed to update server configuration: %w", err)
+			}
+		}
 	}
 
 	var credCtx string
