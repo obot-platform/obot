@@ -256,13 +256,18 @@
 					{#if buttonStartContent}
 						{@render buttonStartContent()}
 					{/if}
-					<div class="min-w-0 flex-1 items-center gap-2 truncate">
+					<div
+						class={twMerge(
+							'min-w-0 flex-1 items-center gap-2 truncate',
+							!buttonStartContent && 'pl-2'
+						)}
+					>
 						{selectedOptions[0]?.label || placeholder || ''}
 					</div>
 				{/if}
 			{/if}
 
-			<ChevronDown class="size-5 shrink-0 self-start" />
+			<ChevronDown class="size-5 shrink-0 self-start translate-y-0.5" />
 		</div>
 
 		{#if onClear && !multiple}

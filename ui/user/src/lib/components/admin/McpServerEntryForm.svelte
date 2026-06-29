@@ -40,11 +40,11 @@
 	import McpServerInfo from '../mcp/McpServerInfo.svelte';
 	import McpServerTools from '../mcp/McpServerTools.svelte';
 	import StaticOAuthConfigureModal from '../mcp/StaticOAuthConfigureModal.svelte';
-	import DebugOauthFlow from '../mcp/oauth/DebugOauthFlow.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
 	import Table from '../table/Table.svelte';
 	import { setVirtualPageDisabled } from '../ui/virtual-page/context';
 	import CatalogServerForm from './CatalogServerForm.svelte';
+	import McpServerEntryTroubleshooting from './McpServerEntryTroubleshooting.svelte';
 	import McpServerInstances from './McpServerInstances.svelte';
 	import AuditLogsPageContent from './audit-logs/AuditLogsPageContent.svelte';
 	import UsageGraphs from './usage/UsageGraphs.svelte';
@@ -233,15 +233,17 @@
 						...(isAtLeastPowerUserPlus && trueOwner
 							? [{ label: 'Access Policies', view: 'access-control' }]
 							: []),
-						...(profile.current?.hasAdminAccess?.() ? [{ label: 'Filters', view: 'filters' }] : [])
+						...(profile.current?.hasAdminAccess?.()
+							? [
+									{ label: 'Filters', view: 'filters' },
+									{ label: 'Troubleshooting', view: 'troubleshooting' }
+								]
+							: [])
 					]
 				: [
 						{ label: 'Overview', view: 'overview' },
 						...(belongsToUser ? [{ label: 'Server Details', view: 'server-instances' }] : []),
-						{ label: 'Tools', view: 'tools' },
-						...(profile.current?.hasAdminAccess?.() && entry?.manifest?.runtime === 'remote'
-							? [{ label: 'Troubleshooting', view: 'troubleshooting' }]
-							: [])
+						{ label: 'Tools', view: 'tools' }
 					];
 		return limitViews
 			? availableTabs.filter((tab) => limitViews.includes(tab.view))
@@ -307,7 +309,7 @@
 		} else {
 			if (configuredServers !== undefined) {
 				resolvedConfiguredServers = configuredServers.filter(
-					(s) => s.catalogEntryID === currentEntry.id
+					(s) => s.catalogEntryID === currentEntry.id && !s.deleted
 				);
 				resolvedConfiguredInstances = undefined;
 				serverInstancesLoading = false;
@@ -323,7 +325,7 @@
 			)
 				.then((response) => {
 					if (!cancelled) {
-						resolvedConfiguredServers = response;
+						resolvedConfiguredServers = response.filter((s) => !s.deleted);
 					}
 				})
 				.finally(() => {
@@ -689,10 +691,11 @@
 		if (!id || !entry || !('isCatalogEntry' in entry)) return;
 		serverInstancesLoading = true;
 		try {
-			resolvedConfiguredServers =
+			const response =
 				entity === 'workspace'
 					? await UserService.listWorkspaceMCPServersForEntry(id, entry.id)
 					: await AdminService.listMCPServersForEntry(id, entry.id);
+			resolvedConfiguredServers = response.filter((s) => !s.deleted);
 		} finally {
 			serverInstancesLoading = false;
 		}
@@ -714,7 +717,7 @@
 						? UserService.listWorkspaceMCPServersForEntry
 						: AdminService.listMCPServersForEntry;
 				listInstances(id, updatedEntry.id).then((response) => {
-					resolvedConfiguredServers = response;
+					resolvedConfiguredServers = response.filter((s) => !s.deleted);
 					if (response.length > 0 && response.some((instance) => instance)) {
 						showUpdateExistingDeploymentsConfirm = true;
 					}
@@ -1218,12 +1221,12 @@
 {/snippet}
 
 {#snippet troubleshootingView()}
-	{#if server}
-		<div class="flex flex-col bg-base-100 dark:bg-base-300 rounded-md pt-4">
-			<h1 class="text-lg font-semibold px-4 pb-2">Debug OAuth Flow</h1>
-			<DebugOauthFlow mcpServer={server} />
-		</div>
-	{/if}
+	<McpServerEntryTroubleshooting
+		{entry}
+		{server}
+		onCreateServerForEntry={(server) =>
+			(resolvedConfiguredServers = [...(resolvedConfiguredServers ?? []), server])}
+	/>
 {/snippet}
 
 <Confirm

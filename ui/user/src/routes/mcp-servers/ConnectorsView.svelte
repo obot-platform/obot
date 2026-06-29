@@ -29,7 +29,6 @@
 	import { openUrl } from '$lib/utils';
 	import ResponsiveDialog from '../../lib/components/ResponsiveDialog.svelte';
 	import EditExistingDeployment from '../../lib/components/mcp/EditExistingDeployment.svelte';
-	import DebugOauthDialog from '../../lib/components/mcp/oauth/DebugOauthDialog.svelte';
 	import IconButton from '../../lib/components/primitives/IconButton.svelte';
 	import { CircleFadingArrowUp, Server, StepForward } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
@@ -62,8 +61,6 @@
 	let selectedEntry = $state<MCPCatalogEntry>();
 	let selectServerDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let selectServerMode = $state<ServerSelectMode>('connect');
-
-	let debugOauthDialog = $state<ReturnType<typeof DebugOauthDialog>>();
 
 	let instancesMap = $derived(
 		new Map(
@@ -105,9 +102,13 @@
 	);
 
 	let filteredTableData = $derived.by(() => {
-		const sorted = tableData.sort((a, b) => {
+		const sorted = [...tableData].sort((a, b) => {
+			if (a.connected !== b.connected) {
+				return a.connected ? -1 : 1;
+			}
 			return a.name.localeCompare(b.name);
 		});
+
 		return query
 			? sorted.filter((d) => d.name.toLowerCase().includes(query.toLowerCase()))
 			: sorted;
@@ -262,7 +263,7 @@
 				: userConfiguredServers.some(requiresUserUpdate)}
 			<div
 				class={twMerge(
-					'flex items-center justify-between gap-8 rounded-md p-3 bg-base-100 dark:bg-base-300 shadow-xs hover:bg-base-300 dark:hover:bg-base-400 cursor-pointer'
+					'flex items-center justify-between gap-8 rounded-md p-3 bg-base-100 dark:bg-base-300 shadow-xs hover:bg-base-300 dark:hover:bg-base-400/75 cursor-pointer'
 				)}
 				role="button"
 				tabindex="0"
@@ -284,8 +285,8 @@
 								<Server class="size-6" />
 							{/if}
 						</div>
-						<p class="flex items-center gap-2">
-							{d.name}
+						<div class="flex items-center gap-2">
+							<p>{d.name}</p>
 							{#if requiresUserAttention}
 								<span
 									use:tooltip={{
@@ -295,8 +296,13 @@
 								>
 									<CircleFadingArrowUp class="text-primary size-4" />
 								</span>
+							{:else if d.connected}
+								<div class="badge badge-xs badge-secondary gap-1">
+									<span class="status status-primary"></span>
+									Connected
+								</div>
 							{/if}
-						</p>
+						</div>
 					</div>
 					<p class="text-xs text-muted-content min-h-8 mt-2">
 						{stripMarkdownToText(d.data.manifest.description ?? '')}
@@ -327,7 +333,6 @@
 
 <ConnectToServer
 	bind:this={connectToServerDialog}
-	userConfiguredServers={mcpServersAndEntries.current.userConfiguredServers}
 	catalogID={catalog?.id}
 	workspaceID={entity === 'workspace' ? id : undefined}
 	onConnect={handleConnectToServer}
@@ -435,5 +440,3 @@
 		mcpServersAndEntries.refreshUserConfiguredServers();
 	}}
 />
-
-<DebugOauthDialog bind:this={debugOauthDialog} />

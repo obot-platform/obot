@@ -370,7 +370,6 @@
 
 <ConnectToServer
 	bind:this={connectToServerDialog}
-	userConfiguredServers={mcpServersAndEntries.current.userConfiguredServers}
 	{catalogID}
 	{workspaceID}
 	onConnect={(data) => {

@@ -36,6 +36,6 @@
 		</div>
 	{/snippet}
 	{#if serverToDebug}
-		<DebugOauthFlow mcpServer={serverToDebug} />
+		<DebugOauthFlow mcpServer={serverToDebug} classes={{ footer: 'sticky bottom-0 left-0' }} />
 	{/if}
 </ResponsiveDialog>

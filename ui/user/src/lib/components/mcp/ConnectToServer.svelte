@@ -20,7 +20,7 @@
 		getMCPDisplayName,
 		hasSecretBinding
 	} from '$lib/services/user/mcp';
-	import { errors, version } from '$lib/stores';
+	import { errors, mcpServersAndEntries, version } from '$lib/stores';
 	import Confirm from '../Confirm.svelte';
 	import CopyField from '../CopyField.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
@@ -36,7 +36,6 @@
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
-		userConfiguredServers: MCPCatalogServer[];
 		catalogID?: string;
 		workspaceID?: string;
 		onConnect?: ({
@@ -57,21 +56,25 @@
 			entry?: MCPCatalogEntry;
 			server?: MCPCatalogServer;
 		}) => string;
+		introTitle?: string;
 	}
 
 	let {
-		userConfiguredServers,
 		catalogID,
 		workspaceID,
 		onConnect,
 		onClose,
 		skipConnectDialog,
-		renderIntroText
+		renderIntroText,
+		introTitle
 	}: Props = $props();
 
 	let server = $state<MCPCatalogServer>();
 	let entry = $state<MCPCatalogEntry>();
 	let instance = $state<MCPServerInstance>();
+	let userConfiguredServers = $derived(mcpServersAndEntries.current.userConfiguredServers);
+	let userInstances = $derived(mcpServersAndEntries.current.userInstances);
+
 	let manifest = $derived(server?.manifest || entry?.manifest);
 	let isConfigured = $derived(Boolean((entry && server) || (server && instance)));
 	let isDeployingMultiUserCatalogEntry = $derived(
@@ -147,6 +150,16 @@
 			.flatMap((server) => [server.manifest?.name || '', server.alias || ''])
 			.filter(Boolean)
 			.map((name) => name.toLowerCase())
+	);
+
+	let requiresConfiguration = $derived(
+		entry
+			? entry && !userConfiguredServers.some((s) => s.catalogEntryID === entry?.id)
+			: server &&
+				  hasMultiUserInstanceConfiguration(server) &&
+				  !userInstances.some((i) => i.mcpServerID === server?.id)
+				? true
+				: false
 	);
 
 	let howToConnect = $state<ReturnType<typeof HowToConnect>>();
@@ -934,7 +947,7 @@
 		entry = initEntry;
 		server = undefined;
 		instance = undefined;
-		initCatalogEntry();
+		showIntroDialog = true;
 	}
 
 	function handleLaunchOrConfigure() {
@@ -987,7 +1000,7 @@
 			(entry && server) ||
 			(server && instance)
 		) {
-			handleConnect(true);
+			connectDialog?.open();
 		} else {
 			showIntroDialog = true;
 		}
@@ -1004,6 +1017,11 @@
 			.toLowerCase()
 			.replace(/ /g, '-')
 			.replace(/[^a-z0-9-_]/g, '');
+	}
+
+	function initConnectFromUi() {
+		connectDialog?.close();
+		showIntroDialog = true;
 	}
 
 	onMount(() => {
@@ -1052,6 +1070,7 @@
 				{url}
 				id={generateIdFromName(displayName)}
 				{displayName}
+				onSetup={requiresConfiguration ? initConnectFromUi : undefined}
 			/>
 		{/if}
 	{/if}
@@ -1062,7 +1081,7 @@
 	onsuccess={handleLaunchOrConfigure}
 	submitText="Continue"
 	type="info"
-	title={isMultiUserCatalogEntry(entry) ? 'Launch Server' : 'Connect To Server'}
+	title={introTitle ?? (isMultiUserCatalogEntry(entry) ? 'Launch Server' : 'Connect To Server')}
 	oncancel={() => (showIntroDialog = false)}
 	hideCancelButton
 >

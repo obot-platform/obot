@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import Loading from '$lib/icons/Loading.svelte';
 	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
 	import {
 		UserService,
@@ -31,6 +30,7 @@
 		// name for names that may be problematic for MCP clients / inference
 		// APIs (length, disallowed chars, or duplicates in this list).
 		showToolNameIssues?: boolean;
+		debugMode?: boolean;
 	}
 
 	let {
@@ -39,7 +39,8 @@
 		onAuthenticate,
 		noToolsContent,
 		classes,
-		showToolNameIssues = false
+		showToolNameIssues = false,
+		debugMode = false
 	}: Props = $props();
 	let search = $state('');
 	let tools = $state<MCPServerTool[]>([]);
@@ -53,13 +54,10 @@
 	let abortController = $state<AbortController | null>(null);
 
 	// Determine if we have "real" tools or should show previews
-	let hasConnectedServer = $derived(
+	let showRealTools = $derived(
 		!('isCatalogEntry' in entry) || ('isCatalogEntry' in entry && server)
 	);
-	let showRealTools = $derived(hasConnectedServer && tools.length > 0);
-	let showPreviewTools = $derived(
-		previewTools.length > 0 && (!hasConnectedServer || (loading && tools.length === 0))
-	);
+	let showPreviewTools = $derived(previewTools.length > 0 && !showRealTools);
 	let displayTools = $derived(
 		(showRealTools
 			? tools
@@ -130,7 +128,7 @@
 	}
 
 	$effect(() => {
-		if (entry && hasConnectedServer && (!previousEntryId || entry.id !== previousEntryId)) {
+		if (entry && showRealTools && (!previousEntryId || entry.id !== previousEntryId)) {
 			previousEntryId = entry.id;
 			loadTools();
 		}
@@ -143,51 +141,55 @@
 </script>
 
 <div class={twMerge('flex w-full flex-col gap-4', classes?.root)}>
-	<div class="flex w-full flex-col items-center gap-2 md:flex-row">
-		{#if showPreviewTools}
-			<div class="notification-info w-full p-3 text-sm font-light">
-				<div class="flex items-center gap-3">
-					<Info class="size-6 shrink-0" />
-					<div>
-						This is a preview of the tools that are available for this MCP server; the actual tools
-						may differ on user connection.
+	{#if showPreviewTools || error}
+		<div class="flex w-full flex-col items-center gap-2 md:flex-row">
+			{#if showPreviewTools}
+				<div class="notification-info w-full p-3 text-sm font-light">
+					<div class="flex items-center gap-3">
+						<Info class="size-6 shrink-0" />
+						<div>
+							This is a preview of the tools that are available for this MCP server; the actual
+							tools may differ on user connection.
+						</div>
 					</div>
 				</div>
-			</div>
-		{:else}
-			{#key server?.id ?? entry.id}
-				<McpOauth entry={server ?? entry} onAuthenticate={handleAuthenticate} bind:error />
-			{/key}
-		{/if}
-		{#if error}
-			<div class="notification-error flex w-full items-center gap-2 p-3">
-				<CircleAlert class="size-4" />
-				<div class="flex flex-col">
-					<p class="text-sm font-semibold">Unable to retrieve the server's tools</p>
-					<p class="text-sm font-light">
-						{error}
-					</p>
+			{:else}
+				{#key server?.id ?? entry.id}
+					<McpOauth entry={server ?? entry} onAuthenticate={handleAuthenticate} bind:error />
+				{/key}
+			{/if}
+			{#if error}
+				<div class="notification-error flex w-full items-center gap-2 p-3">
+					<CircleAlert class="size-4" />
+					<div class="flex flex-col">
+						<p class="text-sm font-semibold">Unable to retrieve the server's tools</p>
+						<p class="text-sm font-light">
+							{error}
+						</p>
+					</div>
 				</div>
-			</div>
-		{/if}
-	</div>
+			{/if}
+		</div>
+	{/if}
 
 	<div class="flex w-full flex-col gap-2">
 		<div class="mb-2 flex w-full flex-col gap-4">
-			<div class="flex flex-wrap items-center justify-end gap-2 md:shrink-0">
-				<Toggle
-					checked={allDescriptionsEnabled}
-					onChange={(checked) => {
-						allDescriptionsEnabled = checked;
-						expanded = {};
-					}}
-					label="Show All Descriptions"
-					labelInline
-					classes={{
-						label: 'text-sm gap-2'
-					}}
-				/>
-			</div>
+			{#if !debugMode}
+				<div class="flex flex-wrap items-center justify-end gap-2 md:shrink-0">
+					<Toggle
+						checked={allDescriptionsEnabled}
+						onChange={(checked) => {
+							allDescriptionsEnabled = checked;
+							expanded = {};
+						}}
+						label="Show All Descriptions"
+						labelInline
+						classes={{
+							label: 'text-sm gap-2'
+						}}
+					/>
+				</div>
+			{/if}
 
 			<Search
 				class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
@@ -195,11 +197,11 @@
 				placeholder="Search tools..."
 			/>
 		</div>
-		<div class="flex flex-col gap-4 overflow-hidden">
+		<div class={twMerge('flex flex-col gap-4 overflow-hidden', debugMode && 'gap-2')}>
 			{#if loading}
-				<div class="flex items-center justify-center">
-					<Loading class="size-6" />
-				</div>
+				{#each Array.from({ length: 3 }) as _, i (i)}
+					<div class="skeleton h-14 w-full rounded-none"></div>
+				{/each}
 			{:else if displayTools.length > 0}
 				{#each displayTools as tool, index (`${tool.name}-${index}`)}
 					{@const hasContentDisplayed = allDescriptionsEnabled || expanded[tool.id]}
@@ -273,7 +275,7 @@
 					<Wrench class="text-muted-content size-24 opacity-50" />
 					<h4 class="text-muted-content text-lg font-semibold">No tools</h4>
 					<p class="text-muted-content text-sm font-light">
-						{#if !entry || hasConnectedServer}
+						{#if !entry || !showRealTools}
 							Looks like this MCP server doesn't have any tools available.
 						{:else}
 							Connection to to the server is required to list available tools.

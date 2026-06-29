@@ -35,6 +35,7 @@
 		Ellipsis,
 		GitBranch,
 		Link2Icon,
+		RocketIcon,
 		Server,
 		Settings,
 		Trash2,
@@ -414,6 +415,17 @@
 									>
 										<Link2Icon class="size-4" /> Get Connect URL
 									</button>
+									<button
+										class="menu-button"
+										onclick={(e) => {
+											e.stopPropagation();
+											connectToServerDialog?.setupNewInstance(catalogEntry);
+											toggle(false);
+										}}
+									>
+										<RocketIcon class="size-4" />
+										{isMultiUserCatalogEntry(catalogEntry) ? 'Launch Server' : 'Launch Connection'}
+									</button>
 								{/if}
 								{#if canDelete}
 									<button
@@ -535,7 +547,6 @@
 
 <ConnectToServer
 	bind:this={connectToServerDialog}
-	userConfiguredServers={mcpServersAndEntries.current.userConfiguredServers}
 	catalogID={catalog?.id}
 	workspaceID={entity === 'workspace' ? id : undefined}
 	onConnect={handleConnectToServer}
