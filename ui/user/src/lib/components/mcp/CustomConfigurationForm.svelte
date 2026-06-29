@@ -6,6 +6,7 @@
 	import SecretBindingPicker from './SecretBindingPicker.svelte';
 	import { Plus, Trash2 } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		readonly?: boolean;
@@ -310,28 +311,30 @@
 						<input class={inputClass} id={`sb-${sbIdx}-key`} value={item.key} disabled />
 					</div>
 
-					<div class="flex w-full flex-col gap-1">
-						<label for={`sb-${sbIdx}-secret`} class="text-sm font-light">Secret</label>
-						<input
-							class={inputClass}
-							id={`sb-${sbIdx}-secret`}
-							value={`${item.secretBinding?.name} / ${item.secretBinding?.key}`}
-							disabled
-						/>
-					</div>
+					{#if item.secretBinding?.name && item.secretBinding?.key}
+						<div class="flex w-full flex-col gap-1">
+							<label for={`sb-${sbIdx}-secret`} class="text-sm font-light">Secret</label>
+							<input
+								class={twMerge(inputClass, 'font-mono')}
+								id={`sb-${sbIdx}-secret`}
+								value={`${item.secretBinding?.name} / ${item.secretBinding?.key}`}
+								disabled
+							/>
+						</div>
+					{/if}
 
 					<div class="flex flex-wrap gap-2">
 						{#if item.sensitive}
-							<span class="badge badge-secondary badge-xs"> sensitive </span>
+							<span class="badge badge-secondary badge-xs">sensitive</span>
 						{/if}
 						{#if item.required}
-							<span class="badge badge-secondary badge-xs"> required </span>
+							<span class="badge badge-secondary badge-xs">required</span>
 						{/if}
 						{#if source === 'env' && item.file}
-							<span class="badge badge-secondary badge-xs"> file </span>
+							<span class="badge badge-secondary badge-xs">file</span>
 						{/if}
 						{#if source === 'env' && item.dynamicFile}
-							<span class="badge badge-secondary badge-xs"> dynamic </span>
+							<span class="badge badge-secondary badge-xs">dynamic</span>
 						{/if}
 					</div>
 				</div>
