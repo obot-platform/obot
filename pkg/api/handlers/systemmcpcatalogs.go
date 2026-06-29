@@ -286,6 +286,9 @@ func normalizeAndValidateCatalogSourceURLs(sourceURLs []string, localPath string
 			continue
 		}
 		sourceID := validation.SourceIDForURL(urlStr)
+		if sourceID == "" {
+			return types.NewErrBadRequest("invalid catalog source URL %q", urlStr)
+		}
 		if _, ok := seen[sourceID]; ok {
 			return types.NewErrBadRequest("duplicate catalog source ID %q", sourceID)
 		}

@@ -158,6 +158,24 @@ func TestValidateSystemCatalogManifest_NormalizesNonLocalSourceURLs(t *testing.T
 	}
 }
 
+func TestValidateSystemCatalogManifestRejectsInvalidSourceURLs(t *testing.T) {
+	tests := []struct {
+		name      string
+		sourceURL string
+	}{
+		{"bare slash", "/"},
+		{"double slash", "//"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manifest := &types.SystemMCPCatalogManifest{SourceURLs: []string{tt.sourceURL}}
+			err := validateSystemCatalogManifest(manifest, "/tmp/system-catalog")
+			assert.ErrorContains(t, err, "invalid catalog source URL")
+		})
+	}
+}
+
 func TestValidateSystemCatalogManifestRejectsDuplicateSourceIDs(t *testing.T) {
 	tests := []struct {
 		name       string
