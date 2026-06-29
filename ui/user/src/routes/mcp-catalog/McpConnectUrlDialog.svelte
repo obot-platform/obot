@@ -56,26 +56,6 @@
 			return;
 		}
 
-		if (isConfigurableSingleUserCatalogEntry(catalogEntry)) {
-			const matchingServers = getUserConfiguredCatalogEntryServers(catalogEntry!);
-			if (matchingServers.length > 1) {
-				handleShowSelectServerDialog(catalogEntry!, matchingServers);
-			} else if (matchingServers[0]?.connectURL) {
-				displayConnectUrl = {
-					url: matchingServers[0].connectURL,
-					catalogEntry
-				};
-				connectUrlDialog?.open();
-			} else {
-				displayConnectUrl = {
-					url: '',
-					catalogEntry
-				};
-				connectUrlDialog?.open();
-			}
-			return;
-		}
-
 		if (isMultiUserCatalogEntry(catalogEntry)) {
 			// multi user catalog requires configuration of at least one server to obtain connect URL
 			const matchingServers = getMultiUserCatalogEntryServers(catalogEntry!);
@@ -93,11 +73,18 @@
 			return;
 		}
 
+		const matchingServers = getUserConfiguredCatalogEntryServers(catalogEntry!);
+		if (matchingServers.length > 1) {
+			handleShowSelectServerDialog(catalogEntry!, matchingServers);
+			return;
+		}
+
 		// single user catalog entry contains baseline connect URL
 		displayConnectUrl = {
 			url: catalogEntry?.connectURL ?? '',
 			catalogEntry
 		};
+
 		connectUrlDialog?.open();
 	}
 
@@ -149,21 +136,8 @@
 		<div class="notification-info m-4 flex flex-col gap-3">
 			<p class="flex items-center gap-2 text-xs">
 				<Info class="size-4 shrink-0" />
-				This server requires user configuration before it can be connected from an MCP client.
+				This server requires user configuration on connection with an MCP client.
 			</p>
-			{#if displayConnectUrl?.catalogEntry}
-				<button
-					class="btn btn-primary btn-sm w-fit text-xs"
-					onclick={() => {
-						if (!displayConnectUrl?.catalogEntry) return;
-						connectUrlDialog?.close();
-						onLaunchCatalogEntry?.(displayConnectUrl.catalogEntry);
-					}}
-				>
-					<Plus class="size-3" />
-					Configure Server
-				</button>
-			{/if}
 		</div>
 	{:else if isConfigurableSingleUserCatalogEntry(displayConnectUrl?.catalogEntry)}
 		<div class="notification-info m-4 mt-0">
