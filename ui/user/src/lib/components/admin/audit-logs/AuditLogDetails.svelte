@@ -21,8 +21,9 @@
 
 	// Allow payload access for admins OR for users viewing their own single-user server logs
 	const shouldShowPayload = $derived(
-		profile?.current?.hasAdminAccess?.() ||
-			(auditLog.userID === profile.current.id && !mcp?.powerUserWorkspaceID)
+		!!mcp &&
+			(profile?.current?.hasAdminAccess?.() ||
+				(auditLog.userID === profile.current.id && !mcp.powerUserWorkspaceID))
 	);
 
 	function hasBody(body: unknown) {
