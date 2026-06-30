@@ -37,7 +37,8 @@ CREATE TABLE IF NOT EXISTS llm_audit_logs (
     input_tokens integer NOT NULL DEFAULT 0,
     output_tokens integer NOT NULL DEFAULT 0,
     request_id text NOT NULL DEFAULT '',
-    user_agent text NOT NULL DEFAULT '',
+    client text NOT NULL DEFAULT '',
+    client_version text NOT NULL DEFAULT '',
     client_ip text NOT NULL DEFAULT '',
     PRIMARY KEY (id, created_at)
 ) PARTITION BY RANGE (created_at);
