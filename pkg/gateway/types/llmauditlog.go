@@ -21,7 +21,6 @@ type LLMAuditLog struct {
 	RequestBody     string
 	ResponseHeaders datatypes.JSON
 	ResponseBody    string
-	ResponseText    string
 	ResponseID      string `gorm:"index:idx_llm_audit_response_created,priority:1"`
 	ResponseStatus  int
 	Outcome         string

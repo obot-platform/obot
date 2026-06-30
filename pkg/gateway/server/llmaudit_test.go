@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/tidwall/gjson"
 )
 
 func TestRedactedHeaders(t *testing.T) {
@@ -34,18 +35,6 @@ func TestNewLLMAuditRecorderCapturesRequest(t *testing.T) {
 	}
 	if recorder.log.RequestMethod != http.MethodPost {
 		t.Fatalf("expected request method, got %q", recorder.log.RequestMethod)
-	}
-}
-
-func TestExtractLLMResponseText(t *testing.T) {
-	body := strings.Join([]string{
-		`data: {"choices":[{"delta":{"content":"hello "}}]}`,
-		`data: {"type":"response.output_text.delta","delta":"world"}`,
-		`data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"!"}}`,
-	}, "\n")
-
-	if got := extractLLMResponseText([]byte(body)); got != "hello world!" {
-		t.Fatalf("expected response text, got %q", got)
 	}
 }
 
@@ -152,36 +141,123 @@ func TestExtractLLMReasoningEffort(t *testing.T) {
 	}
 }
 
-func TestExtractLLMResponseID(t *testing.T) {
-	for _, tt := range []struct {
-		name string
-		body string
-		want string
-	}{
-		{
-			name: "openai response created",
-			body: `data: {"type":"response.created","response":{"id":"resp_123"}}`,
-			want: "resp_123",
-		},
-		{
-			name: "anthropic message start",
-			body: `data: {"type":"message_start","message":{"id":"msg_123"}}`,
-			want: "msg_123",
-		},
-		{
-			name: "plain json id",
-			body: `{"id":"resp_plain"}`,
-			want: "resp_plain",
-		},
-		{
-			name: "missing id",
-			body: `data: {"type":"response.output_text.delta","delta":"hello"}`,
-		},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := extractLLMResponseID([]byte(tt.body)); got != tt.want {
-				t.Fatalf("expected %q, got %q", tt.want, got)
-			}
-		})
+func TestLLMResponseAccumulatorOpenAITerminalResponseWins(t *testing.T) {
+	a := newLLMResponseAccumulator(system.OpenAIModelProvider)
+	a.Write([]byte(strings.Join([]string{
+		`data: {"type":"response.created","response":{"id":"resp_123","model":"gpt-5","output":null}}`,
+		`data: {"type":"response.output_text.delta","output_index":0,"content_index":0,"delta":"ignored"}`,
+		`data: {"type":"response.completed","response":{"id":"resp_123","model":"gpt-5","status":"completed","output":[{"id":"msg_1","type":"message","content":[{"type":"output_text","text":"final"}]}]}}`,
+	}, "\n") + "\n"))
+
+	got := a.JSON()
+	if gjson.Get(got, "output.0.content.0.text").String() != "final" {
+		t.Fatalf("expected terminal response text, got %s", got)
+	}
+	if a.ResponseID() != "resp_123" {
+		t.Fatalf("expected response ID, got %q", a.ResponseID())
+	}
+}
+
+func TestLLMResponseAccumulatorOpenAIPartialTextAndSplitLine(t *testing.T) {
+	a := newLLMResponseAccumulator(system.OpenAIModelProvider)
+	a.Write([]byte(`data: {"type":"response.created","response":{"id":"resp_partial","model":"gpt-5","output":null}}` + "\n"))
+	a.Write([]byte(`data: {"type":"response.output_text.delta","item_id":"msg_1","output_index":0,"content_index":0,"delta":"hel`))
+	a.Write([]byte(`lo"}` + "\n"))
+
+	got := a.JSON()
+	if gjson.Get(got, "output.0.content.0.text").String() != "hello" {
+		t.Fatalf("expected accumulated text, got %s", got)
+	}
+}
+
+func TestLLMResponseAccumulatorOpenAIFunctionAndReasoning(t *testing.T) {
+	a := newLLMResponseAccumulator(system.OpenAIModelProvider)
+	a.Write([]byte(strings.Join([]string{
+		`data: {"type":"response.created","response":{"id":"resp_tools","model":"gpt-5","output":[]}}`,
+		`data: {"type":"response.output_item.added","output_index":0,"item":{"id":"call_1","type":"function_call","name":"lookup","arguments":""}}`,
+		`data: {"type":"response.function_call_arguments.delta","output_index":0,"delta":"{\"q\":"}`,
+		`data: {"type":"response.function_call_arguments.delta","output_index":0,"delta":"\"hi\"}"}`,
+		`data: {"type":"response.output_item.added","output_index":1,"item":{"id":"rs_1","type":"reasoning","encrypted_content":"secret"}}`,
+	}, "\n") + "\n"))
+
+	got := a.JSON()
+	if gjson.Get(got, "output.0.arguments").String() != `{"q":"hi"}` {
+		t.Fatalf("expected function arguments, got %s", got)
+	}
+	if gjson.Get(got, "output.1.encrypted_content").String() != "secret" {
+		t.Fatalf("expected reasoning encrypted content, got %s", got)
+	}
+}
+
+func TestLLMResponseAccumulatorAnthropicMessage(t *testing.T) {
+	a := newLLMResponseAccumulator(system.AnthropicModelProvider)
+	a.Write([]byte(strings.Join([]string{
+		`event: message_start`,
+		`data: {"type":"message_start","message":{"id":"msg_123","type":"message","role":"assistant","model":"claude","content":[],"usage":{"input_tokens":1}}}`,
+		`event: content_block_start`,
+		`data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}`,
+		`event: content_block_delta`,
+		`data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"hello"}}`,
+		`event: message_delta`,
+		`data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":5}}`,
+	}, "\n") + "\n"))
+
+	got := a.JSON()
+	if gjson.Get(got, "content.0.text").String() != "hello" {
+		t.Fatalf("expected anthropic text, got %s", got)
+	}
+	if gjson.Get(got, "usage.output_tokens").Int() != 5 {
+		t.Fatalf("expected usage, got %s", got)
+	}
+	if a.ResponseID() != "msg_123" {
+		t.Fatalf("expected message ID, got %q", a.ResponseID())
+	}
+}
+
+func TestLLMResponseAccumulatorAnthropicToolAndThinking(t *testing.T) {
+	a := newLLMResponseAccumulator(system.AnthropicModelProvider)
+	a.Write([]byte(strings.Join([]string{
+		`data: {"type":"message_start","message":{"id":"msg_tool","type":"message","role":"assistant","content":[]}}`,
+		`data: {"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"tool_1","name":"lookup","input":{}}}`,
+		`data: {"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"{\"q\":"}}`,
+		`data: {"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"\"hi\"}"}}`,
+		`data: {"type":"content_block_stop","index":0}`,
+		`data: {"type":"content_block_start","index":1,"content_block":{"type":"thinking","thinking":"","signature":""}}`,
+		`data: {"type":"content_block_delta","index":1,"delta":{"type":"thinking_delta","thinking":"ponder"}}`,
+		`data: {"type":"content_block_delta","index":1,"delta":{"type":"signature_delta","signature":"sig"}}`,
+	}, "\n") + "\n"))
+
+	got := a.JSON()
+	if gjson.Get(got, "content.0.input.q").String() != "hi" {
+		t.Fatalf("expected tool input, got %s", got)
+	}
+	if gjson.Get(got, "content.1.thinking").String() != "ponder" || gjson.Get(got, "content.1.signature").String() != "sig" {
+		t.Fatalf("expected thinking/signature, got %s", got)
+	}
+}
+
+func TestLLMResponseAccumulatorNonStreamAndEmpty(t *testing.T) {
+	a := newLLMResponseAccumulator(system.OpenAIModelProvider)
+	a.Write([]byte(`{"id":"resp_plain","status":"completed"}`))
+	if got := a.JSON(); gjson.Get(got, "id").String() != "resp_plain" {
+		t.Fatalf("expected plain JSON response, got %s", got)
+	}
+
+	empty := newLLMResponseAccumulator(system.OpenAIModelProvider)
+	if got := empty.JSON(); got != "{}" {
+		t.Fatalf("expected empty object, got %s", got)
+	}
+}
+
+func TestLLMAuditRecorderStoresAggregatedResponseBody(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/api/llm-provider/openai/v1/responses", nil)
+	recorder := newLLMAuditRecorder(req, nil)
+	recorder.setModel(system.OpenAIModelProvider, "", "")
+	chunk := []byte(`data: {"type":"response.created","response":{"id":"resp_rec","output":[]}}` + "\n")
+	recorder.captureResponseChunk(chunk)
+	recorder.log.ResponseBody = recorder.accumulator.JSON()
+
+	if gjson.Get(recorder.log.ResponseBody, "id").String() != "resp_rec" {
+		t.Fatalf("expected aggregated response body, got %s", recorder.log.ResponseBody)
 	}
 }
