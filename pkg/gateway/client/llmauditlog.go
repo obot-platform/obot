@@ -5,9 +5,7 @@ import (
 	"errors"
 	"time"
 
-	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	"github.com/obot-platform/obot/pkg/gateway/types"
-	"gorm.io/gorm"
 )
 
 func (c *Client) InsertLLMAuditLog(ctx context.Context, auditLog *types.LLMAuditLog) error {
@@ -15,9 +13,13 @@ func (c *Client) InsertLLMAuditLog(ctx context.Context, auditLog *types.LLMAudit
 }
 
 func (c *Client) runLLMAuditLogCleanup(ctx context.Context, retentionDays int) {
-	err := c.maintainLLMAuditLogPartitions(ctx, time.Now().UTC(), retentionDays)
+	if retentionDays <= 0 {
+		return
+	}
+
+	err := c.deleteOldLLMAuditLogs(ctx, time.Now().UTC(), retentionDays)
 	if err != nil && !errors.Is(err, context.Canceled) {
-		log.Errorf("Failed to maintain LLM audit log partitions: %v", err)
+		log.Errorf("Failed to delete old LLM audit logs: %v", err)
 	}
 
 	ticker := time.NewTicker(c.auditLogCleanupInterval)
@@ -28,20 +30,38 @@ func (c *Client) runLLMAuditLogCleanup(ctx context.Context, retentionDays int) {
 		case <-ctx.Done():
 			return
 		case now := <-ticker.C:
-			err = c.maintainLLMAuditLogPartitions(ctx, now.UTC(), retentionDays)
+			err = c.deleteOldLLMAuditLogs(ctx, now.UTC(), retentionDays)
 			if err != nil && !errors.Is(err, context.Canceled) {
-				log.Errorf("Failed to maintain LLM audit log partitions: %v", err)
+				log.Errorf("Failed to delete old LLM audit logs: %v", err)
 			}
 		}
 	}
 }
 
-func (c *Client) maintainLLMAuditLogPartitions(ctx context.Context, now time.Time, retentionDays int) error {
+func (c *Client) deleteOldLLMAuditLogs(ctx context.Context, now time.Time, retentionDays int) error {
+	if retentionDays <= 0 {
+		return nil
+	}
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
 
-	return c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		return gatewaydb.MaintainLLMAuditLogPartitions(ctx, tx, retentionDays, now)
-	})
+	cutoff := now.Truncate(24*time.Hour).AddDate(0, 0, -retentionDays)
+
+	for {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
+		result := c.db.WithContext(ctx).Exec(
+			"DELETE FROM llm_audit_logs WHERE id IN (SELECT id FROM llm_audit_logs WHERE created_at < ? LIMIT ?)",
+			cutoff, c.auditLogDeleteBatchSize,
+		)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected < int64(c.auditLogDeleteBatchSize) {
+			return nil
+		}
+	}
 }

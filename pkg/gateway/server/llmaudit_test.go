@@ -17,10 +17,10 @@ func TestRedactedHeaders(t *testing.T) {
 	}
 
 	got := redactedHeaders(headers)
-	if strings.Contains(got, "Bearer secret") || strings.Contains(got, "secret") {
+	if strings.Contains(string(got), "Bearer secret") || strings.Contains(string(got), "secret") {
 		t.Fatalf("expected secrets to be redacted, got %s", got)
 	}
-	if !strings.Contains(got, "application/json") {
+	if !strings.Contains(string(got), "application/json") {
 		t.Fatalf("expected non-sensitive header to remain, got %s", got)
 	}
 }
