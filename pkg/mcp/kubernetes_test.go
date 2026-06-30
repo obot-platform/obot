@@ -618,27 +618,6 @@ func TestK8sObjects_MCPContainerResources(t *testing.T) {
 	}
 }
 
-func TestK8sObjectsRejectsNormalServerResourcesAboveMaximum(t *testing.T) {
-	k := newTestKubernetesBackend(t)
-	k.resourceMaximums = ResourceMaximums{CPURequest: new(resource.MustParse("100m"))}
-
-	server := testK8sServerConfig()
-	server.Resources = &corev1.ResourceRequirements{
-		Requests: corev1.ResourceList{
-			corev1.ResourceCPU: resource.MustParse("250m"),
-		},
-	}
-
-	_, err := k.k8sObjects(t.Context(), server, nil)
-	if err == nil {
-		t.Fatal("expected resources above maximum to fail")
-	}
-	var exceeded *ResourceMaximumExceededError
-	if !errors.As(err, &exceeded) {
-		t.Fatalf("expected ResourceMaximumExceededError, got %T: %v", err, err)
-	}
-}
-
 func TestK8sObjectsAllowsSystemServerResourcesAboveMaximum(t *testing.T) {
 	k := newTestKubernetesBackend(t)
 	k.resourceMaximums = ResourceMaximums{CPURequest: new(resource.MustParse("100m"))}

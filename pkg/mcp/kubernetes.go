@@ -534,11 +534,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 	// Fetch K8s settings
 	k8sSettings := k.getK8sSettings(ctx)
 
-	// Make sure that the resources are under the configured maximums
 	mcpResources := mcpContainerResourcesWithMaximums(server.Resources, server.Runtime, server.NanobotAgentName != "", k8sSettings, k.resourceMaximums)
-	if err := validateServerResourceMaximums(server, mcpResources, k.resourceMaximums); err != nil {
-		return nil, err
-	}
 
 	effectiveImagePullSecrets, err := k.effectiveImagePullSecretNames(ctx)
 	if err != nil {
@@ -1206,14 +1202,6 @@ func EffectiveDefaultMCPResourceRequirementsWithMaximums(k8sSettings v1.K8sSetti
 	return mcpContainerResourcesWithMaximums(nil, types.RuntimeNPX, false, k8sSettings, maximums)
 }
 
-func validateServerResourceMaximums(server ServerConfig, resources corev1.ResourceRequirements, maximums ResourceMaximums) error {
-	if server.SystemMCPServer {
-		// Maximums are not enforced for SystemMCPServers
-		return nil
-	}
-	return maximums.Validate(resources)
-}
-
 func withServerResourceOverrides(defaults corev1.ResourceRequirements, overrides *corev1.ResourceRequirements) corev1.ResourceRequirements {
 	if overrides == nil || len(overrides.Requests) == 0 && len(overrides.Limits) == 0 {
 		return defaults
@@ -1284,11 +1272,6 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, server ServerConf
 	// Compute K8s settings hash
 	k8sSettingsHash := ComputeK8sSettingsHash(k8sSettings, server.Resources, server.Runtime, server.NanobotAgentName != "", k.resourceMaximums, effectiveImagePullSecrets)
 	desiredResources := mcpContainerResourcesWithMaximums(server.Resources, server.Runtime, server.NanobotAgentName != "", k8sSettings, k.resourceMaximums)
-
-	// Make sure that the resources are under the configured maximums
-	if err := validateServerResourceMaximums(server, desiredResources, k.resourceMaximums); err != nil {
-		return err
-	}
 
 	// Get PSA enforce level for security context decisions
 	psaLevel := GetPSAEnforceLevelFromSpec(k8sSettings)

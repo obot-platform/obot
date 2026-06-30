@@ -3,11 +3,8 @@ package handlers
 import (
 	"testing"
 
-	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/stretchr/testify/assert"
-	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 func TestNormalizeName(t *testing.T) {
@@ -286,40 +283,4 @@ func TestValidateEntryVisibleFromScope(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestValidateCatalogEntryResourceMaximums(t *testing.T) {
-	maxCPURequest := resource.MustParse("100m")
-
-	err := validateCatalogEntryResourceMaximums(mcp.ResourceMaximums{
-		CPURequest: &maxCPURequest,
-	}, types.MCPServerCatalogEntryManifest{
-		Resources: &types.MCPResourceRequirements{
-			Requests: types.MCPResourceRequests{
-				CPU: "250m",
-			},
-		},
-	})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "resource maximum validation failed: resources.requests.cpu 250m exceeds configured maximum 100m")
-
-	err = validateCatalogEntryResourceMaximums(mcp.ResourceMaximums{
-		CPURequest: &maxCPURequest,
-	}, types.MCPServerCatalogEntryManifest{
-		Resources: &types.MCPResourceRequirements{
-			Requests: types.MCPResourceRequests{
-				CPU: "50m",
-			},
-		},
-	})
-	assert.NoError(t, err)
-
-	err = validateCatalogEntryResourceMaximums(mcp.ResourceMaximums{}, types.MCPServerCatalogEntryManifest{
-		Resources: &types.MCPResourceRequirements{
-			Requests: types.MCPResourceRequests{
-				CPU: "250m",
-			},
-		},
-	})
-	assert.NoError(t, err)
 }

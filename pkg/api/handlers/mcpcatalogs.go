@@ -317,11 +317,8 @@ func (h *MCPCatalogHandler) CreateEntry(req api.Context) error {
 			return err
 		}
 	}
-	if err := validation.ValidateCatalogEntryManifest(req.Context(), manifest, false, validationOptions(h.sessionManager.RemoteMCPURLValidationConfig())); err != nil {
+	if err := validation.ValidateCatalogEntryManifest(req.Context(), manifest, false, validationOptionsWithResourceMaximums(h.sessionManager)); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
-	}
-	if err := validateCatalogEntryResourceMaximums(k8sSettingsResourceMaximums(h.sessionManager), manifest); err != nil {
-		return err
 	}
 	// UI-created catalog entries are never git-managed, but multi-user catalog
 	// entries may still define secretBinding as part of their shared template.
@@ -399,11 +396,8 @@ func (h *MCPCatalogHandler) UpdateEntry(req api.Context) error {
 	if manifest.ServerUserType == "" {
 		manifest.ServerUserType = types.ServerUserTypeSingleUser
 	}
-	if err := validation.ValidateCatalogEntryManifest(req.Context(), manifest, false, validationOptions(h.sessionManager.RemoteMCPURLValidationConfig())); err != nil {
+	if err := validation.ValidateCatalogEntryManifest(req.Context(), manifest, false, validationOptionsWithResourceMaximums(h.sessionManager)); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
-	}
-	if err := validateCatalogEntryResourceMaximums(k8sSettingsResourceMaximums(h.sessionManager), manifest); err != nil {
-		return err
 	}
 	// UI-updated catalog entries are never git-managed at this call site. The
 	// git-sync controller reconciles git-managed entries through a separate path.
@@ -427,26 +421,6 @@ func (h *MCPCatalogHandler) UpdateEntry(req api.Context) error {
 	}
 
 	return req.Write(ConvertMCPServerCatalogEntry(entry, h.serverURL))
-}
-
-func validateCatalogEntryResourceMaximums(maximums mcp.ResourceMaximums, manifest types.MCPServerCatalogEntryManifest) error {
-	if maximums.Empty() || manifest.Resources == nil {
-		return nil
-	}
-
-	resources, err := mcp.CoreResourceRequirements(manifest.Resources)
-	if err != nil {
-		return types.NewErrBadRequest("failed to validate entry manifest resources: %v", err)
-	}
-	if resources == nil {
-		return nil
-	}
-
-	if err := maximums.Validate(*resources); err != nil {
-		return types.NewErrBadRequest("resource maximum validation failed: %v", err)
-	}
-
-	return nil
 }
 
 func (h *MCPCatalogHandler) DeleteEntry(req api.Context) error {
@@ -1768,7 +1742,7 @@ func (h *MCPCatalogHandler) RefreshCompositeComponents(req api.Context) error {
 
 	// Validate the refreshed manifest to ensure it's still valid
 	entryGitManaged := entry.IsGitManaged()
-	if err := validation.ValidateCatalogEntryManifest(req.Context(), entry.Spec.Manifest, entryGitManaged, validationOptions(h.sessionManager.RemoteMCPURLValidationConfig())); err != nil {
+	if err := validation.ValidateCatalogEntryManifest(req.Context(), entry.Spec.Manifest, entryGitManaged, validationOptionsWithResourceMaximums(h.sessionManager)); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
 	// Preserve the git-managed status of the original entry when re-validating.

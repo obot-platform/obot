@@ -182,8 +182,9 @@ func TestTriggerUpdateScope(t *testing.T) {
 			Spec: v1.MCPServerCatalogEntrySpec{
 				PowerUserWorkspaceID: workspaceID,
 				Manifest: types.MCPServerCatalogEntryManifest{
-					Name:    "entry",
-					Runtime: types.RuntimeNPX,
+					Name:      "entry",
+					Runtime:   types.RuntimeNPX,
+					NPXConfig: &types.NPXRuntimeConfig{Package: "test-package"},
 				},
 			},
 		}
@@ -196,8 +197,9 @@ func TestTriggerUpdateScope(t *testing.T) {
 				UserID:                    userID,
 				MCPServerCatalogEntryName: "entry",
 				Manifest: types.MCPServerManifest{
-					Name:    "server",
-					Runtime: types.RuntimeNPX,
+					Name:      "server",
+					Runtime:   types.RuntimeNPX,
+					NPXConfig: &types.NPXRuntimeConfig{Package: "test-package"},
 				},
 			},
 			Status: v1.MCPServerStatus{NeedsUpdate: true},

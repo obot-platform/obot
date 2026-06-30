@@ -80,6 +80,15 @@ func validationOptions(remoteValidationConfig mcp.RemoteMCPURLValidationConfig) 
 	}
 }
 
+func validationOptionsWithResourceMaximums(sessionManager *mcp.SessionManager) validation.Options {
+	if sessionManager == nil {
+		return validation.Options{}
+	}
+	options := validationOptions(sessionManager.RemoteMCPURLValidationConfig())
+	options.ResourceMaximums = k8sSettingsResourceMaximums(sessionManager)
+	return options
+}
+
 func (m *MCPHandler) currentImagePullSecretNames(req api.Context) ([]string, error) {
 	return mcp.CurrentImagePullSecretNames(req.Context(), req.Storage, m.mcpRuntimeBackend, m.mcpImagePullSecrets)
 }
@@ -1975,7 +1984,7 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 		return types.NewErrBadRequest("catalogEntryID is required")
 	}
 
-	if err := validation.ValidateServerManifest(req.Context(), server.Spec.Manifest, !server.Spec.IsSingleUser(), validationOptions(m.mcpSessionManager.RemoteMCPURLValidationConfig())); err != nil {
+	if err := validation.ValidateServerManifest(req.Context(), server.Spec.Manifest, !server.Spec.IsSingleUser(), validationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 	adminManagedSecretBindings := req.UserIsAdmin() && server.Spec.IsCatalogServer()
@@ -2068,19 +2077,7 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
 
-	// Shutdown the server, even if there is no credential
-	if catalogID != "" {
-		err = m.removeMCPServer(req.Context(), existing)
-	} else if workspaceID != "" {
-		err = m.removeMCPServer(req.Context(), existing)
-	} else {
-		err = m.removeMCPServer(req.Context(), existing)
-	}
-	if err != nil {
-		return err
-	}
-
-	if err := validation.ValidateServerManifest(req.Context(), updated, !existing.Spec.IsSingleUser(), validationOptions(m.mcpSessionManager.RemoteMCPURLValidationConfig())); err != nil {
+	if err := validation.ValidateServerManifest(req.Context(), updated, !existing.Spec.IsSingleUser(), validationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 
@@ -2106,6 +2103,12 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 	if err := validation.ValidateTemplateReferences(updated); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
+
+	// Shutdown the server only after the candidate configuration is known to be valid.
+	if err := m.removeMCPServer(req.Context(), existing); err != nil {
+		return err
+	}
+
 	// Use retry.RetryOnConflict because controllers (e.g. DetectK8sSettingsDrift,
 	// UpdateMCPServerStatus) can update this MCPServer concurrently, bumping the
 	// ResourceVersion between our read and write.
@@ -2218,7 +2221,7 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 
 		var updateServer bool
 		if url := envVars[configURLKey]; url != "" {
-			if err := updateMCPServerURLFromCatalogEntry(req.Context(), &mcpServer, catalogEntry, url, validationOptions(m.mcpSessionManager.RemoteMCPURLValidationConfig())); err != nil {
+			if err := updateMCPServerURLFromCatalogEntry(req.Context(), &mcpServer, catalogEntry, url, validationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
 				return err
 			}
 
@@ -2245,7 +2248,7 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 			}
 			mcpServer.Spec.Manifest.RemoteConfig.URL = finalURL
 
-			if err := validation.ValidateServerManifest(req.Context(), mcpServer.Spec.Manifest, !mcpServer.Spec.IsSingleUser(), validationOptions(m.mcpSessionManager.RemoteMCPURLValidationConfig())); err != nil {
+			if err := validation.ValidateServerManifest(req.Context(), mcpServer.Spec.Manifest, !mcpServer.Spec.IsSingleUser(), validationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
 				return types.NewErrBadRequest("validation failed: %v", err)
 			}
 
@@ -2410,7 +2413,7 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 				if remoteConfig.URL != originalURL {
 					// Capture and validate the changes
 					component.Manifest.RemoteConfig = remoteConfig
-					if err := validation.ValidateServerManifest(req.Context(), component.Manifest, false, validationOptions(m.mcpSessionManager.RemoteMCPURLValidationConfig())); err != nil {
+					if err := validation.ValidateServerManifest(req.Context(), component.Manifest, false, validationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
 						return fmt.Errorf("failed to validate server manifest %w", err)
 					}
 					server.Spec.Manifest = component.Manifest
@@ -4094,7 +4097,7 @@ func (m *MCPHandler) UpdateURL(req api.Context) error {
 		return fmt.Errorf("failed to read input: %w", err)
 	}
 
-	if err := updateMCPServerURLFromCatalogEntry(req.Context(), &mcpServer, entry, input.URL, validationOptions(m.mcpSessionManager.RemoteMCPURLValidationConfig())); err != nil {
+	if err := updateMCPServerURLFromCatalogEntry(req.Context(), &mcpServer, entry, input.URL, validationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
 		return err
 	}
 
@@ -4205,6 +4208,12 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 		return m.triggerCompositeUpdate(req, server, entry)
 	}
 
+	candidate := server.DeepCopy()
+	updateServerFromCatalogEntry(candidate, entry)
+	if err := validation.ValidateServerManifest(req.Context(), candidate.Spec.Manifest, !candidate.Spec.IsSingleUser(), validationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
+		return types.NewErrBadRequest("validation failed: %v", err)
+	}
+
 	// Shutdown the server, even if there is no credential
 	if err := m.removeMCPServer(req.Context(), server); err != nil {
 		return err
@@ -4225,6 +4234,11 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 		}
 
 		updateServerFromCatalogEntry(&latest, entry)
+
+		// Validate again in case the catalog entry changed between retries.
+		if err := validation.ValidateServerManifest(req.Context(), latest.Spec.Manifest, !latest.Spec.IsSingleUser(), validationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
+			return types.NewErrBadRequest("validation failed: %v", err)
+		}
 		return req.Update(&latest)
 	}); err != nil {
 		return err
@@ -4309,6 +4323,9 @@ func (m *MCPHandler) triggerCompositeUpdate(req api.Context, compositeServer v1.
 	)
 	if err != nil {
 		return err
+	}
+	if err := validation.ValidateServerManifest(req.Context(), updatedManifest, !compositeServer.Spec.IsSingleUser(), validationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
+		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 
 	// Ensure the composite server's manifest is updated
