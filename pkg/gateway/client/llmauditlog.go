@@ -6,8 +6,13 @@ import (
 	"time"
 
 	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
+	"github.com/obot-platform/obot/pkg/gateway/types"
 	"gorm.io/gorm"
 )
+
+func (c *Client) InsertLLMAuditLog(ctx context.Context, auditLog *types.LLMAuditLog) error {
+	return c.db.WithContext(ctx).Create(auditLog).Error
+}
 
 func (c *Client) runLLMAuditLogCleanup(ctx context.Context, retentionDays int) {
 	err := c.maintainLLMAuditLogPartitions(ctx, time.Now().UTC(), retentionDays)
