@@ -42,7 +42,7 @@ The Obot server is configured via environment variables. The following configura
 | `OBOT_SERVER_AUDIT_LOGS_STORE_USE_PATH_STYLE` | Whether to use path style for S3 object names | - |
 | `OBOT_SERVER_MCPBASE_IMAGE` | Deploy MCP servers in the kubernetes cluster or using docker with this base image. | `ghcr.io/obot-platform/mcp-images/stdio-wrapper:v0.24.0` |
 | `OBOT_SERVER_MCPIMAGE_PULL_SECRETS` | Comma-separated Kubernetes secret names to use as static image pull secrets for every MCP server Deployment. When set, managed image pull secrets are disabled. See [Image Pull Secrets](./image-pull-secrets.md). | - |
-| `OBOT_SERVER_MCPSECRET_BINDING_ALLOWED_LABEL` | Kubernetes Secret label key required before a Secret can be selected or resolved by MCP secret bindings. See [MCP Secret Binding Allowed Label](#mcp-secret-binding-allowed-label). | `obot.obot.ai/allow-secret-binding` |
+| `OBOT_SERVER_MCPSECRET_BINDING_ALLOWED_LABEL` | Kubernetes Secret label key required before a Secret can be selected or resolved by MCP secret bindings. Only label presence is checked; the label value is ignored. Secrets without this label are not shown as bindable targets in the admin UI and are treated as unavailable when Obot resolves a secret binding at runtime. | `obot.obot.ai/allow-secret-binding` |
 | `OBOT_SERVER_MCPREMOTE_SHIM_BASE_IMAGE` | Deploy MCP remote shim servers in the cluster using this base image. | `ghcr.io/obot-platform/nanobot:v0.0.87` |
 | `OBOT_SERVER_NANOBOT_AGENT_IMAGE` | Deploy the Nanobot agent in the cluster using this image. | `ghcr.io/obot-platform/nanobot-agent:v0.0.87` |
 | `OBOT_SERVER_MCPHTTPWEBHOOK_BASE_IMAGE` | Deploy MCP HTTP webhook servers in the cluster using this base image. | `ghcr.io/obot-platform/mcp-images/http-webhook-mcp-converter:v0.24.0` |
@@ -85,9 +85,3 @@ The Obot server is configured via environment variables. The following configura
 | `OBOT_ARTIFACT_AZURE_CLIENT_SECRET` | Azure client secret for published workflow storage when using explicit Azure credentials. | - |
 | `OBOT_DEFAULT_SKILL_REPO_URL` | The default skill repository URL. Must be a full HTTPS GitHub URL (e.g. `https://github.com/org/repo`). Only used on first-time setup (before the first owner user is created). A SkillRepository resource will be created from this URL and synced automatically. | `https://github.com/obot-platform/skills` |
 | `OBOT_DEFAULT_SKILL_REPO_REF` | The ref (branch, tag, or commit SHA) for the default skill repository. If empty, the repository's default branch is used. Only used on first-time setup. | - |
-
-## MCP Secret Binding Allowed Label
-
-`OBOT_SERVER_MCPSECRET_BINDING_ALLOWED_LABEL` sets the Kubernetes Secret label key required for MCP secret bindings. The default label key is `obot.obot.ai/allow-secret-binding`.
-
-Only label presence is checked; the label value is ignored. Secrets without this label are not shown as bindable targets in the admin UI and are treated as unavailable when Obot resolves a secret binding at runtime.

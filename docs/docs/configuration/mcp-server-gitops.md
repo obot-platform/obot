@@ -224,7 +224,7 @@ Secret bindings let you wire an env var, header, or file to a key in an external
 
 Secret bindings are only available when Obot is using the Kubernetes MCP runtime backend.
 
-The referenced Kubernetes Secret must be in the Obot server namespace and must have the [configured allowed secret-binding label](./server-configuration.md#mcp-secret-binding-allowed-label).
+The referenced Kubernetes Secret must be in the Obot server namespace and must have the [configured allowed secret-binding label](./server-configuration.md).
 
 Obot checks this label when resolving bound values. If the Secret is missing the label, the binding is treated the same as a missing Secret or key. Required bound fields are reported as missing configuration.
 
