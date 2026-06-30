@@ -53,6 +53,14 @@ func (h *Handler) Proxy(req api.Context) error {
 		return nil
 	}
 
+	// RFC 9728 §5.1: if the upstream MCP server replies 401 without pointing the
+	// client at its protected-resource metadata, advertise the path-aware
+	// metadata URL for this connect endpoint. Without this, clients that don't
+	// already know the path fall back to the host-root metadata document, which
+	// cannot identify this specific MCP server.
+	mcpID := req.PathValue("mcp_id")
+	connectBaseURL := strings.TrimSuffix(req.APIBaseURL, "/api")
+
 	(&httputil.ReverseProxy{
 		Transport: h.transport,
 		Director: func(r *http.Request) {
@@ -91,6 +99,12 @@ func (h *Handler) Proxy(req api.Context) error {
 					r.Header.Set(serverConfig.PassthroughHeaderNames[i], serverConfig.PassthroughHeaderValues[i])
 				}
 			}
+		},
+		ModifyResponse: func(resp *http.Response) error {
+			if resp.StatusCode == http.StatusUnauthorized && mcpID != "" && resp.Header.Get("WWW-Authenticate") == "" {
+				resp.Header.Set("WWW-Authenticate", fmt.Sprintf(`Bearer resource_metadata="%s/.well-known/oauth-protected-resource/mcp-connect/%s"`, connectBaseURL, mcpID))
+			}
+			return nil
 		},
 	}).ServeHTTP(req.ResponseWriter, req.Request)
 
