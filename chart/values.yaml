@@ -139,8 +139,6 @@ config:
   OBOT_SERVER_DAILY_USER_INPUT_TOKEN_LIMIT: ""
   # config.OBOT_SERVER_DAILY_USER_OUTPUT_TOKEN_LIMIT -- The maximum number of completion/output tokens allowed per user per day. Set to a negative value to disable this limit. Defaults to 100000.
   OBOT_SERVER_DAILY_USER_OUTPUT_TOKEN_LIMIT: ""
-  # config.OBOT_SERVER_RETENTION_POLICY_HOURS -- The retention policy for the system. Set to 0 to disable retention. Default is 2160 (90 days) if left blank. This field should just be a number in a string, no `h` suffix.
-  OBOT_SERVER_RETENTION_POLICY_HOURS: ""
   # config.OBOT_SERVER_DAILY_USER_PROMPT_TOKEN_LIMIT -- The maximum number of prompt/input tokens allowed per user per day. Set <= 0 to disable this limit. Defaults to 10000000.
   OBOT_SERVER_DAILY_USER_PROMPT_TOKEN_LIMIT: ""
   # config.OBOT_SERVER_DAILY_USER_COMPLETION_TOKEN_LIMIT -- The maximum number of completion/output tokens allowed per user per day. Set <= 0 to disable this limit. Defaults to 100000.
@@ -152,11 +150,6 @@ config:
   OBOT_SERVER_SINGLE_USER_IDLE_SERVER_SHUTDOWN_HOURS: ""
   # config.OBOT_SERVER_MULTI_USER_IDLE_SERVER_SHUTDOWN_HOURS -- The interval in hours to check for idle multi-user MCP servers and shut them down. Set to -1 to disable. Defaults to 168.
   OBOT_SERVER_MULTI_USER_IDLE_SERVER_SHUTDOWN_HOURS: ""
-
-  # config.OBOT_SERVER_OTEL_BASE_EXPORT_ENDPOINT -- The base export endpoint for OpenTelemetry
-  OBOT_SERVER_OTEL_BASE_EXPORT_ENDPOINT: ""
-  # config.OBOT_SERVER_OTEL_SAMPLE_PROB -- The sampling probability for OpenTelemetry
-  OBOT_SERVER_OTEL_SAMPLE_PROB: ""
 
   # config.OBOT_SERVER_AUDIT_LOGS_MODE -- Configures the storage backend for audit logs in Obot. Can be 'off', 'disk', or 's3'
   OBOT_SERVER_AUDIT_LOGS_MODE: "off"
