@@ -80,7 +80,8 @@ func validationOptions(remoteValidationConfig mcp.RemoteMCPURLValidationConfig) 
 	}
 }
 
-func validationOptionsWithResourceMaximums(sessionManager *mcp.SessionManager) validation.Options {
+// ValidationOptionsWithResourceMaximums builds MCP manifest validation options from the active MCP session manager.
+func ValidationOptionsWithResourceMaximums(sessionManager *mcp.SessionManager) validation.Options {
 	if sessionManager == nil {
 		return validation.Options{}
 	}
@@ -921,7 +922,7 @@ func (m *MCPHandler) GetPrompt(req api.Context) error {
 	})
 }
 
-func mcpServerOrInstanceFromConnectURL(req api.Context, id, secretBindingAllowedLabel string) (v1.MCPServer, v1.MCPServerInstance, error) {
+func mcpServerOrInstanceFromConnectURL(req api.Context, id, secretBindingAllowedLabel string, validationOptions validation.Options) (v1.MCPServer, v1.MCPServerInstance, error) {
 	switch {
 	case system.IsMCPServerInstanceID(id):
 		var instance v1.MCPServerInstance
@@ -1013,6 +1014,9 @@ func mcpServerOrInstanceFromConnectURL(req api.Context, id, secretBindingAllowed
 			manifest, err := serverManifestFromCatalogEntryManifest(false, allowMissingURL, entry.Spec.Manifest, types.MCPServerManifest{})
 			if err != nil {
 				return v1.MCPServer{}, v1.MCPServerInstance{}, types.NewErrBadRequest("catalog entry %s cannot be connected because it could not be converted to an MCP server: %v", id, err)
+			}
+			if err := validation.ValidateServerManifest(req.Context(), manifest, false, validationOptions); err != nil {
+				return v1.MCPServer{}, v1.MCPServerInstance{}, types.NewErrBadRequest("catalog entry %s cannot be connected because its MCP server manifest is invalid: %v", id, err)
 			}
 
 			// Create a new MCP server for the user.
@@ -1223,8 +1227,8 @@ func syncConnectServerRemoteConfigFromCatalogEntry(server *v1.MCPServer, entry v
 
 // MCPIDAndAudienceFromConnectURL returns the MCP server or instance name and audience based on the provided connect URL.
 // The connect URL could have an MCP server ID, server instance ID, or MCP catalog entry ID.
-func MCPIDAndAudienceFromConnectURL(req api.Context, id, secretBindingAllowedLabel string) (string, string, error) {
-	server, instance, err := mcpServerOrInstanceFromConnectURL(req, id, secretBindingAllowedLabel)
+func MCPIDAndAudienceFromConnectURL(req api.Context, id, secretBindingAllowedLabel string, validationOptions validation.Options) (string, string, error) {
+	server, instance, err := mcpServerOrInstanceFromConnectURL(req, id, secretBindingAllowedLabel, validationOptions)
 	if err != nil {
 		return "", "", err
 	}
@@ -1239,17 +1243,17 @@ func MCPIDAndAudienceFromConnectURL(req api.Context, id, secretBindingAllowedLab
 	}
 }
 
-func ServerForActionWithConnectID(req api.Context, id, secretBindingAllowedLabel string) (string, v1.MCPServer, mcp.ServerConfig, error) {
-	id, server, config, _, err := serverForActionWithConnectID(req, id, secretBindingAllowedLabel, false)
+func ServerForActionWithConnectID(req api.Context, id, secretBindingAllowedLabel string, validationOptions validation.Options) (string, v1.MCPServer, mcp.ServerConfig, error) {
+	id, server, config, _, err := serverForActionWithConnectID(req, id, secretBindingAllowedLabel, false, validationOptions)
 	return id, server, config, err
 }
 
-func ServerForActionWithConnectIDAllowMissingConfig(req api.Context, id, secretBindingAllowedLabel string) (string, v1.MCPServer, mcp.ServerConfig, []string, error) {
-	return serverForActionWithConnectID(req, id, secretBindingAllowedLabel, true)
+func ServerForActionWithConnectIDAllowMissingConfig(req api.Context, id, secretBindingAllowedLabel string, validationOptions validation.Options) (string, v1.MCPServer, mcp.ServerConfig, []string, error) {
+	return serverForActionWithConnectID(req, id, secretBindingAllowedLabel, true, validationOptions)
 }
 
-func serverForActionWithConnectID(req api.Context, id, secretBindingAllowedLabel string, allowMissingConfig bool) (string, v1.MCPServer, mcp.ServerConfig, []string, error) {
-	server, instance, err := mcpServerOrInstanceFromConnectURL(req, id, secretBindingAllowedLabel)
+func serverForActionWithConnectID(req api.Context, id, secretBindingAllowedLabel string, allowMissingConfig bool, validationOptions validation.Options) (string, v1.MCPServer, mcp.ServerConfig, []string, error) {
+	server, instance, err := mcpServerOrInstanceFromConnectURL(req, id, secretBindingAllowedLabel, validationOptions)
 	if err != nil {
 		return "", v1.MCPServer{}, mcp.ServerConfig{}, nil, err
 	}
@@ -1984,7 +1988,7 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 		return types.NewErrBadRequest("catalogEntryID is required")
 	}
 
-	if err := validation.ValidateServerManifest(req.Context(), server.Spec.Manifest, !server.Spec.IsSingleUser(), validationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
+	if err := validation.ValidateServerManifest(req.Context(), server.Spec.Manifest, !server.Spec.IsSingleUser(), ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 	adminManagedSecretBindings := req.UserIsAdmin() && server.Spec.IsCatalogServer()
@@ -2077,7 +2081,7 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
 
-	if err := validation.ValidateServerManifest(req.Context(), updated, !existing.Spec.IsSingleUser(), validationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
+	if err := validation.ValidateServerManifest(req.Context(), updated, !existing.Spec.IsSingleUser(), ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 
@@ -2221,7 +2225,7 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 
 		var updateServer bool
 		if url := envVars[configURLKey]; url != "" {
-			if err := updateMCPServerURLFromCatalogEntry(req.Context(), &mcpServer, catalogEntry, url, validationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
+			if err := updateMCPServerURLFromCatalogEntry(req.Context(), &mcpServer, catalogEntry, url, ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
 				return err
 			}
 
@@ -2248,7 +2252,7 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 			}
 			mcpServer.Spec.Manifest.RemoteConfig.URL = finalURL
 
-			if err := validation.ValidateServerManifest(req.Context(), mcpServer.Spec.Manifest, !mcpServer.Spec.IsSingleUser(), validationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
+			if err := validation.ValidateServerManifest(req.Context(), mcpServer.Spec.Manifest, !mcpServer.Spec.IsSingleUser(), ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
 				return types.NewErrBadRequest("validation failed: %v", err)
 			}
 
@@ -2413,7 +2417,7 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 				if remoteConfig.URL != originalURL {
 					// Capture and validate the changes
 					component.Manifest.RemoteConfig = remoteConfig
-					if err := validation.ValidateServerManifest(req.Context(), component.Manifest, false, validationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
+					if err := validation.ValidateServerManifest(req.Context(), component.Manifest, false, ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
 						return fmt.Errorf("failed to validate server manifest %w", err)
 					}
 					server.Spec.Manifest = component.Manifest
@@ -3143,8 +3147,8 @@ func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL,
 	return converted
 }
 
-func ConfigurationTargetForConnectID(req api.Context, id, serverURL, secretBindingAllowedLabel string) (*types.MCPServer, *types.MCPServerInstance, error) {
-	server, instance, err := mcpServerOrInstanceFromConnectURL(req, id, secretBindingAllowedLabel)
+func ConfigurationTargetForConnectID(req api.Context, id, serverURL, secretBindingAllowedLabel string, validationOptions validation.Options) (*types.MCPServer, *types.MCPServerInstance, error) {
+	server, instance, err := mcpServerOrInstanceFromConnectURL(req, id, secretBindingAllowedLabel, validationOptions)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -4097,7 +4101,7 @@ func (m *MCPHandler) UpdateURL(req api.Context) error {
 		return fmt.Errorf("failed to read input: %w", err)
 	}
 
-	if err := updateMCPServerURLFromCatalogEntry(req.Context(), &mcpServer, entry, input.URL, validationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
+	if err := updateMCPServerURLFromCatalogEntry(req.Context(), &mcpServer, entry, input.URL, ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
 		return err
 	}
 
@@ -4210,7 +4214,7 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 
 	candidate := server.DeepCopy()
 	updateServerFromCatalogEntry(candidate, entry)
-	if err := validation.ValidateServerManifest(req.Context(), candidate.Spec.Manifest, !candidate.Spec.IsSingleUser(), validationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
+	if err := validation.ValidateServerManifest(req.Context(), candidate.Spec.Manifest, !candidate.Spec.IsSingleUser(), ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 
@@ -4236,7 +4240,7 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 		updateServerFromCatalogEntry(&latest, entry)
 
 		// Validate again in case the catalog entry changed between retries.
-		if err := validation.ValidateServerManifest(req.Context(), latest.Spec.Manifest, !latest.Spec.IsSingleUser(), validationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
+		if err := validation.ValidateServerManifest(req.Context(), latest.Spec.Manifest, !latest.Spec.IsSingleUser(), ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
 			return types.NewErrBadRequest("validation failed: %v", err)
 		}
 		return req.Update(&latest)
@@ -4324,7 +4328,7 @@ func (m *MCPHandler) triggerCompositeUpdate(req api.Context, compositeServer v1.
 	if err != nil {
 		return err
 	}
-	if err := validation.ValidateServerManifest(req.Context(), updatedManifest, !compositeServer.Spec.IsSingleUser(), validationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
+	if err := validation.ValidateServerManifest(req.Context(), updatedManifest, !compositeServer.Spec.IsSingleUser(), ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 

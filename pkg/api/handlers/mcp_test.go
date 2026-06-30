@@ -17,9 +17,11 @@ import (
 	"github.com/obot-platform/obot/pkg/storage"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/obot-platform/obot/pkg/validation"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
@@ -162,6 +164,48 @@ func TestUpdateServerAliasUnscopedSharedServer(t *testing.T) {
 	var updated v1.MCPServer
 	require.NoError(t, storage.Get(context.Background(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: "server"}, &updated))
 	assert.Empty(t, updated.Spec.Alias)
+}
+
+func TestMCPServerOrInstanceFromConnectURLRejectsCatalogEntryResourcesAboveMaximum(t *testing.T) {
+	entry := v1.MCPServerCatalogEntry{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "entry",
+			Namespace: system.DefaultNamespace,
+		},
+		Spec: v1.MCPServerCatalogEntrySpec{
+			Manifest: types.MCPServerCatalogEntryManifest{
+				Name:           "entry",
+				ServerUserType: types.ServerUserTypeSingleUser,
+				Runtime:        types.RuntimeNPX,
+				NPXConfig: &types.NPXRuntimeConfig{
+					Package: "test-package",
+				},
+				Resources: &types.MCPResourceRequirements{
+					Requests: types.MCPResourceRequests{
+						CPU: "250m",
+					},
+				},
+			},
+		},
+	}
+	storage := newFakeStorage(t, &entry)
+
+	_, _, err := mcpServerOrInstanceFromConnectURL(api.Context{
+		ResponseWriter: httptest.NewRecorder(),
+		Request:        httptest.NewRequest(http.MethodGet, "/mcp-connect/entry", nil),
+		Storage:        storage,
+		User:           testUser("user"),
+	}, "entry", "", validation.Options{
+		ResourceMaximums: mcp.ResourceMaximums{
+			CPURequest: new(resource.MustParse("100m")),
+		},
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "resources.requests.cpu 250m exceeds configured maximum 100m")
+
+	var servers v1.MCPServerList
+	require.NoError(t, storage.List(context.Background(), &servers, kclient.InNamespace(system.DefaultNamespace)))
+	assert.Empty(t, servers.Items)
 }
 
 func TestTriggerUpdateScope(t *testing.T) {
