@@ -31,9 +31,10 @@ const (
 )
 
 type llmAuditRecorder struct {
-	once sync.Once
-	ctx  context.Context
-	log  types.LLMAuditLog
+	once        sync.Once
+	ctx         context.Context
+	log         types.LLMAuditLog
+	accumulator *llmResponseAccumulator
 }
 
 func newLLMAuditRecorder(req *http.Request, user user.Info) *llmAuditRecorder {
@@ -91,6 +92,9 @@ func (r *llmAuditRecorder) setModel(modelProvider, modelID, targetModel string) 
 	r.log.ModelProvider = modelProvider
 	r.log.ModelID = modelID
 	r.log.TargetModel = targetModel
+	if r.accumulator == nil {
+		r.accumulator = newLLMResponseAccumulator(modelProvider)
+	}
 }
 
 func (r *llmAuditRecorder) recordResponse(resp *http.Response) {
@@ -105,10 +109,12 @@ func (r *llmAuditRecorder) captureResponseChunk(p []byte) {
 	if r == nil || len(p) == 0 {
 		return
 	}
-	r.log.ResponseBody += string(p)
-	r.log.ResponseText += extractLLMResponseText(p)
+	if r.accumulator == nil {
+		r.accumulator = newLLMResponseAccumulator(r.log.ModelProvider)
+	}
+	r.accumulator.Write(p)
 	if r.log.ResponseID == "" {
-		r.log.ResponseID = extractLLMResponseID(p)
+		r.log.ResponseID = r.accumulator.ResponseID()
 	}
 }
 
@@ -126,8 +132,12 @@ func (r *llmAuditRecorder) finish(c *client.Client, err error) {
 	}
 	r.once.Do(func() {
 		r.log.Duration = time.Since(r.log.CreatedAt).Milliseconds()
-		if r.log.ResponseText == "" {
-			r.log.ResponseText = extractLLMResponseText([]byte(r.log.ResponseBody))
+		if r.accumulator == nil {
+			r.accumulator = newLLMResponseAccumulator(r.log.ModelProvider)
+		}
+		r.log.ResponseBody = r.accumulator.JSON()
+		if r.log.ResponseID == "" {
+			r.log.ResponseID = r.accumulator.ResponseID()
 		}
 		r.log.Outcome = "success"
 		if errors.Is(r.ctx.Err(), context.Canceled) {
@@ -236,54 +246,4 @@ func extractLLMReasoningEffort(modelProvider string, body []byte) string {
 	default:
 		return ""
 	}
-}
-
-func extractLLMResponseID(p []byte) string {
-	for line := range strings.SplitSeq(string(p), "\n") {
-		line = strings.TrimSpace(line)
-		line = strings.TrimPrefix(line, "data: ")
-		if line == "" || line == "[DONE]" || !gjson.Valid(line) {
-			continue
-		}
-		if id := gjson.Get(line, "response.id").String(); id != "" {
-			return id
-		}
-		if id := gjson.Get(line, "message.id").String(); id != "" {
-			return id
-		}
-		if id := gjson.Get(line, "id").String(); id != "" {
-			return id
-		}
-	}
-	return ""
-}
-
-func extractLLMResponseText(p []byte) string {
-	var out strings.Builder
-	for line := range strings.SplitSeq(string(p), "\n") {
-		line = strings.TrimSpace(line)
-		line = strings.TrimPrefix(line, "data: ")
-		if line == "" || line == "[DONE]" || !gjson.Valid(line) {
-			continue
-		}
-		if delta := gjson.Get(line, "delta"); gjson.Get(line, "type").String() == "response.output_text.delta" && delta.Exists() {
-			out.WriteString(delta.String())
-		}
-		if text := gjson.Get(line, "delta.text"); gjson.Get(line, "type").String() == "content_block_delta" && text.Exists() {
-			out.WriteString(text.String())
-		}
-		gjson.Get(line, "choices.#.delta.content").ForEach(func(_, value gjson.Result) bool {
-			out.WriteString(value.String())
-			return true
-		})
-		gjson.Get(line, "output.#.content.#.text").ForEach(func(_, value gjson.Result) bool {
-			out.WriteString(value.String())
-			return true
-		})
-		gjson.Get(line, "content.#.text").ForEach(func(_, value gjson.Result) bool {
-			out.WriteString(value.String())
-			return true
-		})
-	}
-	return out.String()
 }
