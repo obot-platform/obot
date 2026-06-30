@@ -1034,6 +1034,7 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 		return fmt.Errorf("failed to copy body: %w", err)
 	}
 	audit.setRequestBody(body)
+	audit.setClientSessionID(extractLLMClientSessionID(l.modelProviderName, body))
 
 	var tokenUsageTracker *threadSafeTokenUsageTracker
 	targetModel := extractModelFromBody(body)

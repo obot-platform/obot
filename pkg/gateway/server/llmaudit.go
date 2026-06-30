@@ -14,6 +14,7 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaycontext "github.com/obot-platform/obot/pkg/gateway/context"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/system"
 	"github.com/tidwall/gjson"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
@@ -65,6 +66,12 @@ func newLLMAuditRecorder(req *http.Request, user user.Info) *llmAuditRecorder {
 func (r *llmAuditRecorder) setRequestBody(body []byte) {
 	if r != nil {
 		r.log.RequestBody = string(body)
+	}
+}
+
+func (r *llmAuditRecorder) setClientSessionID(sessionID string) {
+	if r != nil {
+		r.log.ClientSessionID = sessionID
 	}
 }
 
@@ -191,6 +198,21 @@ func parseLLMClientUserAgent(userAgent string) (string, string) {
 		name = llmAuditClientCodex
 	}
 	return name, version
+}
+
+func extractLLMClientSessionID(modelProvider string, body []byte) string {
+	switch modelProvider {
+	case system.OpenAIModelProvider:
+		return gjson.GetBytes(body, "client_metadata.session_id").String()
+	case system.AnthropicModelProvider:
+		userID := gjson.GetBytes(body, "metadata.user_id").String()
+		if !gjson.Valid(userID) {
+			return ""
+		}
+		return gjson.Get(userID, "session_id").String()
+	default:
+		return ""
+	}
 }
 
 func extractLLMResponseText(p []byte) string {

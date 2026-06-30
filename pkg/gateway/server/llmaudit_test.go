@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/obot-platform/obot/pkg/system"
 )
 
 func TestRedactedHeaders(t *testing.T) {
@@ -53,5 +55,48 @@ func TestParseLLMClientUserAgent(t *testing.T) {
 		if client != tt.client || version != tt.version {
 			t.Fatalf("parseLLMClientUserAgent(%q) = %q/%q, want %q/%q", tt.userAgent, client, version, tt.client, tt.version)
 		}
+	}
+}
+
+func TestExtractLLMClientSessionID(t *testing.T) {
+	for _, tt := range []struct {
+		name          string
+		modelProvider string
+		body          string
+		want          string
+	}{
+		{
+			name:          "openai client metadata session id",
+			modelProvider: system.OpenAIModelProvider,
+			body:          `{"client_metadata":{"session_id":"openai-session"}}`,
+			want:          "openai-session",
+		},
+		{
+			name:          "openai ignores codex metadata fallback",
+			modelProvider: system.OpenAIModelProvider,
+			body:          `{"client_metadata":{"x-codex-turn-metadata":"{\"session_id\":\"ignored\"}"}}`,
+		},
+		{
+			name:          "anthropic metadata user id session id",
+			modelProvider: system.AnthropicModelProvider,
+			body:          `{"metadata":{"user_id":"{\"session_id\":\"claude-session\"}"}}`,
+			want:          "claude-session",
+		},
+		{
+			name:          "anthropic malformed metadata user id",
+			modelProvider: system.AnthropicModelProvider,
+			body:          `{"metadata":{"user_id":"not-json"}}`,
+		},
+		{
+			name:          "wrong provider",
+			modelProvider: "other",
+			body:          `{"client_metadata":{"session_id":"ignored"}}`,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := extractLLMClientSessionID(tt.modelProvider, []byte(tt.body)); got != tt.want {
+				t.Fatalf("expected %q, got %q", tt.want, got)
+			}
+		})
 	}
 }
