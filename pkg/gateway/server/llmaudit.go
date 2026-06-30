@@ -54,6 +54,8 @@ func newLLMAuditRecorder(req *http.Request, user user.Info) *llmAuditRecorder {
 			ID:             uuid.NewString(),
 			CreatedAt:      now,
 			UserID:         userID,
+			RequestPath:    req.URL.Path,
+			RequestMethod:  req.Method,
 			RequestHeaders: redactedHeaders(req.Header),
 			RequestID:      requestID,
 			Client:         clientName,

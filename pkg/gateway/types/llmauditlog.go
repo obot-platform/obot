@@ -11,6 +11,8 @@ type LLMAuditLog struct {
 	ModelID         string
 	TargetModel     string
 	ReasoningEffort string
+	RequestPath     string
+	RequestMethod   string
 	RequestHeaders  string
 	RequestBody     string
 	ResponseHeaders string

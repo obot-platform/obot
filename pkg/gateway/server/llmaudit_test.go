@@ -2,6 +2,7 @@ package server
 
 import (
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -21,6 +22,18 @@ func TestRedactedHeaders(t *testing.T) {
 	}
 	if !strings.Contains(got, "application/json") {
 		t.Fatalf("expected non-sensitive header to remain, got %s", got)
+	}
+}
+
+func TestNewLLMAuditRecorderCapturesRequest(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/api/llm-provider/openai/v1/responses?stream=true", nil)
+	recorder := newLLMAuditRecorder(req, nil)
+
+	if recorder.log.RequestPath != "/api/llm-provider/openai/v1/responses" {
+		t.Fatalf("expected request path, got %q", recorder.log.RequestPath)
+	}
+	if recorder.log.RequestMethod != http.MethodPost {
+		t.Fatalf("expected request method, got %q", recorder.log.RequestMethod)
 	}
 }
 

@@ -27,6 +27,8 @@ CREATE TABLE IF NOT EXISTS llm_audit_logs (
     model_id text NOT NULL DEFAULT '',
     target_model text NOT NULL DEFAULT '',
     reasoning_effort text NOT NULL DEFAULT '',
+    request_path text NOT NULL DEFAULT '',
+    request_method text NOT NULL DEFAULT '',
     request_headers text NOT NULL DEFAULT '',
     request_body text,
     response_headers text NOT NULL DEFAULT '',
@@ -49,6 +51,8 @@ CREATE TABLE IF NOT EXISTS llm_audit_logs (
 ALTER TABLE llm_audit_logs ADD COLUMN IF NOT EXISTS request_headers text NOT NULL DEFAULT '';
 ALTER TABLE llm_audit_logs ADD COLUMN IF NOT EXISTS response_headers text NOT NULL DEFAULT '';
 ALTER TABLE llm_audit_logs ADD COLUMN IF NOT EXISTS reasoning_effort text NOT NULL DEFAULT '';
+ALTER TABLE llm_audit_logs ADD COLUMN IF NOT EXISTS request_path text NOT NULL DEFAULT '';
+ALTER TABLE llm_audit_logs ADD COLUMN IF NOT EXISTS request_method text NOT NULL DEFAULT '';
 
 CREATE INDEX IF NOT EXISTS llm_audit_logs_created_at_idx ON llm_audit_logs (created_at DESC);
 CREATE INDEX IF NOT EXISTS llm_audit_logs_user_created_idx ON llm_audit_logs (user_id, created_at DESC);
