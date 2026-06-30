@@ -98,6 +98,9 @@ func (r *llmAuditRecorder) captureResponseChunk(p []byte) {
 	}
 	r.log.ResponseBody += string(p)
 	r.log.ResponseText += extractLLMResponseText(p)
+	if r.log.ResponseID == "" {
+		r.log.ResponseID = extractLLMResponseID(p)
+	}
 }
 
 func (r *llmAuditRecorder) setTokenUsage(usage types.TokenUsage) {
@@ -213,6 +216,26 @@ func extractLLMClientSessionID(modelProvider string, body []byte) string {
 	default:
 		return ""
 	}
+}
+
+func extractLLMResponseID(p []byte) string {
+	for line := range strings.SplitSeq(string(p), "\n") {
+		line = strings.TrimSpace(line)
+		line = strings.TrimPrefix(line, "data: ")
+		if line == "" || line == "[DONE]" || !gjson.Valid(line) {
+			continue
+		}
+		if id := gjson.Get(line, "response.id").String(); id != "" {
+			return id
+		}
+		if id := gjson.Get(line, "message.id").String(); id != "" {
+			return id
+		}
+		if id := gjson.Get(line, "id").String(); id != "" {
+			return id
+		}
+	}
+	return ""
 }
 
 func extractLLMResponseText(p []byte) string {

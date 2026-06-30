@@ -15,6 +15,7 @@ type LLMAuditLog struct {
 	ResponseHeaders string
 	ResponseBody    string
 	ResponseText    string
+	ResponseID      string
 	ResponseStatus  int
 	Outcome         string
 	Error           string
