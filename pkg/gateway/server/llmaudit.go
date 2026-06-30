@@ -32,7 +32,6 @@ const (
 
 type llmAuditRecorder struct {
 	once        sync.Once
-	ctx         context.Context
 	log         types.LLMAuditLog
 	accumulator *llmResponseAccumulator
 }
@@ -51,7 +50,6 @@ func newLLMAuditRecorder(req *http.Request, user user.Info) *llmAuditRecorder {
 	clientName, clientVersion := parseLLMClientUserAgent(req.UserAgent())
 
 	return &llmAuditRecorder{
-		ctx: req.Context(),
 		log: types.LLMAuditLog{
 			ID:             uuid.NewString(),
 			CreatedAt:      now,
@@ -139,14 +137,7 @@ func (r *llmAuditRecorder) finish(c *client.Client, err error) {
 		if r.log.ResponseID == "" {
 			r.log.ResponseID = r.accumulator.ResponseID()
 		}
-		r.log.Outcome = "success"
-		if errors.Is(r.ctx.Err(), context.Canceled) {
-			r.log.Outcome = "canceled"
-			r.log.Error = r.ctx.Err().Error()
-		} else if err != nil {
-			r.log.Outcome = "error"
-			r.log.Error = err.Error()
-		}
+		r.setOutcome(err)
 
 		insertCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -154,6 +145,23 @@ func (r *llmAuditRecorder) finish(c *client.Client, err error) {
 			log.Warnf("failed to insert LLM audit log: %v", err)
 		}
 	})
+}
+
+func (r *llmAuditRecorder) setOutcome(err error) {
+	if r == nil {
+		return
+	}
+	r.log.Outcome = types.LLMAuditOutcomeSuccess
+	r.log.Error = ""
+	if err == nil {
+		return
+	}
+	r.log.Error = err.Error()
+	if errors.Is(err, context.Canceled) {
+		r.log.Outcome = types.LLMAuditOutcomeCanceled
+		return
+	}
+	r.log.Outcome = types.LLMAuditOutcomeError
 }
 
 type llmAuditReadCloser struct {

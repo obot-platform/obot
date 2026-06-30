@@ -6,6 +6,12 @@ import (
 	"gorm.io/datatypes"
 )
 
+const (
+	LLMAuditOutcomeSuccess  = "success"
+	LLMAuditOutcomeCanceled = "canceled"
+	LLMAuditOutcomeError    = "error"
+)
+
 type LLMAuditLog struct {
 	ID              string    `gorm:"primaryKey"`
 	CreatedAt       time.Time `gorm:"primaryKey;index;index:idx_llm_audit_user_created,priority:2;index:idx_llm_audit_provider_created,priority:2;index:idx_llm_audit_client_session_created,priority:2;index:idx_llm_audit_response_created,priority:2"`

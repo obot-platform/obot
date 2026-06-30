@@ -1,11 +1,14 @@
 package server
 
 import (
+	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/tidwall/gjson"
 )
@@ -35,6 +38,43 @@ func TestNewLLMAuditRecorderCapturesRequest(t *testing.T) {
 	}
 	if recorder.log.RequestMethod != http.MethodPost {
 		t.Fatalf("expected request method, got %q", recorder.log.RequestMethod)
+	}
+}
+
+func TestLLMAuditRecorderSetOutcome(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		err     error
+		outcome string
+		wantErr string
+	}{
+		{
+			name:    "success even if request context is canceled after response",
+			outcome: types.LLMAuditOutcomeSuccess,
+		},
+		{
+			name:    "actual context cancellation error",
+			err:     context.Canceled,
+			outcome: types.LLMAuditOutcomeCanceled,
+			wantErr: context.Canceled.Error(),
+		},
+		{
+			name:    "actual proxy error",
+			err:     errors.New("proxy failed"),
+			outcome: types.LLMAuditOutcomeError,
+			wantErr: "proxy failed",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			recorder := &llmAuditRecorder{}
+			recorder.setOutcome(tt.err)
+			if recorder.log.Outcome != tt.outcome {
+				t.Fatalf("expected outcome %q, got %q", tt.outcome, recorder.log.Outcome)
+			}
+			if recorder.log.Error != tt.wantErr {
+				t.Fatalf("expected error %q, got %q", tt.wantErr, recorder.log.Error)
+			}
+		})
 	}
 }
 
