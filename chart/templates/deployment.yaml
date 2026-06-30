@@ -15,9 +15,10 @@ spec:
   template:
     metadata:
       annotations:
-        {{- if not .Values.config.existingSecret }}
-        checksum/config-secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- if not .Values.secret.existingSecret }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
         {{- end }}
+        checksum/internal-config: {{ include (print $.Template.BasePath "/internal-configmap.yaml") . | sha256sum }}
         {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -32,13 +33,16 @@ spec:
       imagePullSecrets:
         {{- toYaml .Values.imagePullSecrets | nindent 8 }}
       {{- end }}
+      {{- if eq (lower (toString .Values.config.OBOT_SERVER_ENCRYPTION_PROVIDER)) "custom" }}
       initContainers:
         - name: encryptionsetup
           image: "{{ .Values.image.repository }}:{{ include "obot.imageTag" . }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           envFrom:
+            - configMapRef:
+                name: {{ include "obot.config.configMapName" . }}
             - secretRef:
-                name: {{ include "obot.config.secretName" . }}
+                name: {{ include "obot.secret.secretName" . }}
           command:
           - /bin/sh
           - -c
@@ -74,13 +78,17 @@ spec:
           volumeMounts:
             - name: config
               mountPath: /config
+      {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ include "obot.imageTag" . }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if or .Values.persistence.enabled .Values.extraVolumeMounts (eq (lower (toString .Values.config.OBOT_SERVER_ENCRYPTION_PROVIDER)) "custom") }}
           volumeMounts:
+            {{- if eq (lower (toString .Values.config.OBOT_SERVER_ENCRYPTION_PROVIDER)) "custom" }}
             - name: config
               mountPath: /config
+            {{- end }}
             {{- if .Values.persistence.enabled }}
             - name: data
               mountPath: {{ .Values.persistence.path }}
@@ -88,10 +96,17 @@ spec:
             {{- if .Values.extraVolumeMounts }}
             {{- toYaml .Values.extraVolumeMounts | nindent 12 }}
             {{- end }}
+            {{- end }}
           ports:
             - name: http
               containerPort: 8080
               protocol: TCP
+          startupProbe:
+            httpGet:
+              path: /api/healthz
+              port: http
+            failureThreshold: 120
+            periodSeconds: 10
           livenessProbe:
             httpGet:
               path: /api/healthz
@@ -110,8 +125,10 @@ spec:
                 fieldRef:
                   fieldPath: spec.serviceAccountName
           envFrom:
+            - configMapRef:
+                name: {{ include "obot.config.configMapName" . }}
             - secretRef:
-                name: {{ include "obot.config.secretName" . }}
+                name: {{ include "obot.secret.secretName" . }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       {{- with .Values.nodeSelector }}
@@ -126,17 +143,19 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- if or .Values.persistence.enabled .Values.extraVolumes (eq (lower (toString .Values.config.OBOT_SERVER_ENCRYPTION_PROVIDER)) "custom") }}
       volumes:
+      {{- if eq (lower (toString .Values.config.OBOT_SERVER_ENCRYPTION_PROVIDER)) "custom" }}
         - name: config
           emptyDir:
             medium: Memory
+      {{- end }}
       {{- if .Values.persistence.enabled }}
         - name: data
           persistentVolumeClaim:
             claimName: {{ ternary .Values.persistence.existingClaim (print .Release.Name "-pvc") (ne .Values.persistence.existingClaim "") }}
       {{- end }}
       {{- if .Values.extraVolumes }}
-        {{- if .Values.extraVolumes }}
         {{- toYaml .Values.extraVolumes | nindent 8 }}
-        {{- end }}
+      {{- end }}
       {{- end }}
