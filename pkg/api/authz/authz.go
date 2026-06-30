@@ -90,7 +90,7 @@ var (
 		"/api/user-default-role-settings",
 		"/api/setup/",
 		"/api/k8s-settings",
-		"/api/app-k8s-settings",
+		"GET /api/app-k8s-settings",
 		"/api/image-pull-secrets",
 		"/api/image-pull-secrets/",
 		"/api/mcp-capacity",

@@ -2,10 +2,10 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import SchedulingForm from '$lib/components/admin/SchedulingForm.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
-	import { formatSchedulingResources } from '$lib/format.js';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService, type K8sSettings } from '$lib/services';
 	import { profile } from '$lib/stores/index.js';
+	import { parseSchedulingResources } from '$lib/utils.js';
 	import { Info, Lock } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
@@ -31,9 +31,9 @@
 	let saving = $state(false);
 	let showSaved = $state(false);
 	let timeout = $state<ReturnType<typeof setTimeout>>();
-	let resourceInfo = $state(untrack(() => formatSchedulingResources(data.k8sSettings?.resources)));
+	let resourceInfo = $state(untrack(() => parseSchedulingResources(data.k8sSettings?.resources)));
 
-	function convertResourcesForOutput(output: ReturnType<typeof formatSchedulingResources>) {
+	function convertResourcesForOutput(output: ReturnType<typeof parseSchedulingResources>) {
 		let outputString = '';
 		if (output.requests.cpu || output.requests.memory) {
 			outputString += `requests:`;
@@ -75,7 +75,7 @@
 			});
 			prevK8sSettings = k8sSettings;
 			k8sSettings = response;
-			resourceInfo = formatSchedulingResources(response.resources);
+			resourceInfo = parseSchedulingResources(response.resources);
 			showSaved = true;
 			timeout = setTimeout(() => {
 				showSaved = false;
@@ -185,7 +185,7 @@
 							class="btn btn-secondary hover:bg-base-400 flex items-center gap-1 bg-transparent"
 							onclick={() => {
 								k8sSettings = prevK8sSettings;
-								resourceInfo = formatSchedulingResources(prevK8sSettings?.resources);
+								resourceInfo = parseSchedulingResources(prevK8sSettings?.resources);
 							}}
 						>
 							Reset

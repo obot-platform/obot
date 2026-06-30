@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { formatSchedulingResources } from '$lib/format.js';
+	import { parseSchedulingResources } from '$lib/utils.js';
 	import YamlEditor from './YamlEditor.svelte';
 	import { Info, Lock } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 
-	type SchedulingResources = ReturnType<typeof formatSchedulingResources>;
+	type SchedulingResources = ReturnType<typeof parseSchedulingResources>;
 
 	interface Props {
 		readonly?: boolean;

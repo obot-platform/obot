@@ -2,8 +2,8 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import SchedulingForm from '$lib/components/admin/SchedulingForm.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
-	import { formatSchedulingResources } from '$lib/format.js';
 	import { type AppK8sSettings } from '$lib/services';
+	import { parseSchedulingResources } from '$lib/utils.js';
 	import { untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
 
@@ -21,7 +21,7 @@
 			};
 		})
 	);
-	let resourceInfo = $state(untrack(() => formatSchedulingResources(data.k8sSettings?.resources)));
+	let resourceInfo = $state(untrack(() => parseSchedulingResources(data.k8sSettings?.resources)));
 </script>
 
 <Layout classes={{ container: 'pb-0' }} title="App Scheduling">
