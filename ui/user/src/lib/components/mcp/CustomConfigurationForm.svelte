@@ -127,17 +127,15 @@
 									disabled={readonly || isPrebuiltEntry}
 								/>
 							</div>
-							{#if !isPrebuiltEntry}
-								<div class="flex w-full flex-col gap-1">
-									<label for={`env-description-${i}`} class="text-sm font-light">Description</label>
-									<input
-										id={`env-description-${i}`}
-										class={inputClass}
-										bind:value={config![i].description}
-										disabled={readonly}
-									/>
-								</div>
-							{/if}
+							<div class="flex w-full flex-col gap-1">
+								<label for={`env-description-${i}`} class="text-sm font-light">Description</label>
+								<input
+									id={`env-description-${i}`}
+									class={inputClass}
+									bind:value={config![i].description}
+									disabled={readonly || isPrebuiltEntry}
+								/>
+							</div>
 							<div class="flex w-full flex-col gap-1">
 								<label for={`env-key-${i}`} class="text-sm font-light">Key</label>
 								<input
