@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS llm_audit_logs (
     request_id text NOT NULL DEFAULT '',
     client text NOT NULL DEFAULT '',
     client_version text NOT NULL DEFAULT '',
+    client_session_id text NOT NULL DEFAULT '',
     client_ip text NOT NULL DEFAULT '',
     PRIMARY KEY (id, created_at)
 ) PARTITION BY RANGE (created_at);
@@ -49,6 +50,7 @@ ALTER TABLE llm_audit_logs ADD COLUMN IF NOT EXISTS response_headers text NOT NU
 CREATE INDEX IF NOT EXISTS llm_audit_logs_created_at_idx ON llm_audit_logs (created_at DESC);
 CREATE INDEX IF NOT EXISTS llm_audit_logs_user_created_idx ON llm_audit_logs (user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS llm_audit_logs_provider_created_idx ON llm_audit_logs (model_provider, created_at DESC);
+CREATE INDEX IF NOT EXISTS llm_audit_logs_client_session_created_idx ON llm_audit_logs (client_session_id, created_at DESC);
 `
 
 // migrateLLMAuditLogs creates the LLM audit log table for the active database dialect.

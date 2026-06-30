@@ -23,6 +23,7 @@ type LLMAuditLog struct {
 	RequestID       string
 	Client          string
 	ClientVersion   string
+	ClientSessionID string
 	ClientIP        string
 }
 
