@@ -838,7 +838,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 		// to the underlying MCP server) and mount it into the last container in the deployment.
 		var nanobotFileString []byte
 		if server.Runtime == types.RuntimeComposite {
-			nanobotFileString, err = constructMCPServerNanobotYAMLForComposite(server.Components)
+			nanobotFileString, err = constructMCPServerNanobotYAMLForComposite(server.Components, server.PassthroughHeaderNames)
 			annotations["nanobot-composite-file-rev"] = utils.Digest(nanobotFileString)
 		} else {
 			nanobotFileString, err = constructMCPServerNanobotYAML(server.MCPServerDisplayName, server.URL, server.Command, server.Args, server.PassthroughHeaderNames, secretEnvData, headerData, webhooks)
