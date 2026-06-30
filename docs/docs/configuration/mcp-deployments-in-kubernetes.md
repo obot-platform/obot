@@ -56,7 +56,7 @@ The values that are configurable, and how to change them, follow.
 
 The configuration for affinity and tolerations applies to all MCP server Deployments across Obot and cannot be customized for individual MCP server Deployments.
 Resource requests and limits can be configured globally, and catalog entries can override individual CPU and memory requests or limits for servers created from that entry.
-Administrators can also set maximum allowed resource values for MCP server Deployments. These maximums are enforced when Obot creates or updates MCP server Deployments and when Kubernetes settings are updated through the API. Catalog entries can still be saved with higher resource values, but MCP server deployments that would exceed the maximums are blocked. Maximums also cap Obot's built-in fallback CPU and memory requests when no explicit resource defaults are configured.
+Administrators can also set maximum allowed resource values for MCP server Deployments. These maximums are enforced when MCP server or catalog entry manifests are created or changed, when Obot creates an MCP server from a catalog entry at connection time, and when Kubernetes settings are updated through the API. Existing MCP servers that already exceed the configured maximums can still be connected to and started, but configuration changes to those servers are blocked until the resources are lowered below the maximums. Maximums also cap Obot's built-in fallback CPU and memory requests when no explicit resource defaults are configured.
 When configuration changes, it will only affect new Deployments (or restarted existing Deployments)
 from that point forward. The admin can use the UI to manually apply this configuration change to existing MCP server
 Deployments as desired.
