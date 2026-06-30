@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS llm_audit_logs (
     response_headers text NOT NULL DEFAULT '',
     response_body text,
     response_text text NOT NULL DEFAULT '',
+    response_id text NOT NULL DEFAULT '',
     response_status integer NOT NULL DEFAULT 0,
     outcome text NOT NULL DEFAULT '',
     error text NOT NULL DEFAULT '',
@@ -51,6 +52,7 @@ CREATE INDEX IF NOT EXISTS llm_audit_logs_created_at_idx ON llm_audit_logs (crea
 CREATE INDEX IF NOT EXISTS llm_audit_logs_user_created_idx ON llm_audit_logs (user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS llm_audit_logs_provider_created_idx ON llm_audit_logs (model_provider, created_at DESC);
 CREATE INDEX IF NOT EXISTS llm_audit_logs_client_session_created_idx ON llm_audit_logs (client_session_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS llm_audit_logs_response_created_idx ON llm_audit_logs (response_id, created_at DESC);
 `
 
 // migrateLLMAuditLogs creates the LLM audit log table for the active database dialect.

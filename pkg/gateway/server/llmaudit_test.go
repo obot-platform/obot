@@ -100,3 +100,37 @@ func TestExtractLLMClientSessionID(t *testing.T) {
 		})
 	}
 }
+
+func TestExtractLLMResponseID(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		body string
+		want string
+	}{
+		{
+			name: "openai response created",
+			body: `data: {"type":"response.created","response":{"id":"resp_123"}}`,
+			want: "resp_123",
+		},
+		{
+			name: "anthropic message start",
+			body: `data: {"type":"message_start","message":{"id":"msg_123"}}`,
+			want: "msg_123",
+		},
+		{
+			name: "plain json id",
+			body: `{"id":"resp_plain"}`,
+			want: "resp_plain",
+		},
+		{
+			name: "missing id",
+			body: `data: {"type":"response.output_text.delta","delta":"hello"}`,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := extractLLMResponseID([]byte(tt.body)); got != tt.want {
+				t.Fatalf("expected %q, got %q", tt.want, got)
+			}
+		})
+	}
+}
