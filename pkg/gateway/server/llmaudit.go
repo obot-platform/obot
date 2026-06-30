@@ -75,6 +75,12 @@ func (r *llmAuditRecorder) setClientSessionID(sessionID string) {
 	}
 }
 
+func (r *llmAuditRecorder) setReasoningEffort(reasoningEffort string) {
+	if r != nil {
+		r.log.ReasoningEffort = reasoningEffort
+	}
+}
+
 func (r *llmAuditRecorder) setModel(modelProvider, modelID, targetModel string) {
 	if r == nil {
 		return
@@ -213,6 +219,17 @@ func extractLLMClientSessionID(modelProvider string, body []byte) string {
 			return ""
 		}
 		return gjson.Get(userID, "session_id").String()
+	default:
+		return ""
+	}
+}
+
+func extractLLMReasoningEffort(modelProvider string, body []byte) string {
+	switch modelProvider {
+	case system.OpenAIModelProvider:
+		return gjson.GetBytes(body, "reasoning.effort").String()
+	case system.AnthropicModelProvider:
+		return gjson.GetBytes(body, "output_config.effort").String()
 	default:
 		return ""
 	}

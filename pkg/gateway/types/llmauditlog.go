@@ -10,6 +10,7 @@ type LLMAuditLog struct {
 	ModelProvider   string
 	ModelID         string
 	TargetModel     string
+	ReasoningEffort string
 	RequestHeaders  string
 	RequestBody     string
 	ResponseHeaders string

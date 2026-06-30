@@ -1035,6 +1035,7 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 	}
 	audit.setRequestBody(body)
 	audit.setClientSessionID(extractLLMClientSessionID(l.modelProviderName, body))
+	audit.setReasoningEffort(extractLLMReasoningEffort(l.modelProviderName, body))
 
 	var tokenUsageTracker *threadSafeTokenUsageTracker
 	targetModel := extractModelFromBody(body)

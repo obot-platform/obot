@@ -101,6 +101,44 @@ func TestExtractLLMClientSessionID(t *testing.T) {
 	}
 }
 
+func TestExtractLLMReasoningEffort(t *testing.T) {
+	for _, tt := range []struct {
+		name          string
+		modelProvider string
+		body          string
+		want          string
+	}{
+		{
+			name:          "openai reasoning effort",
+			modelProvider: system.OpenAIModelProvider,
+			body:          `{"reasoning":{"effort":"medium"}}`,
+			want:          "medium",
+		},
+		{
+			name:          "anthropic output effort",
+			modelProvider: system.AnthropicModelProvider,
+			body:          `{"output_config":{"effort":"high"}}`,
+			want:          "high",
+		},
+		{
+			name:          "anthropic thinking type is not effort",
+			modelProvider: system.AnthropicModelProvider,
+			body:          `{"thinking":{"type":"adaptive"}}`,
+		},
+		{
+			name:          "wrong provider",
+			modelProvider: "other",
+			body:          `{"reasoning":{"effort":"medium"}}`,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := extractLLMReasoningEffort(tt.modelProvider, []byte(tt.body)); got != tt.want {
+				t.Fatalf("expected %q, got %q", tt.want, got)
+			}
+		})
+	}
+}
+
 func TestExtractLLMResponseID(t *testing.T) {
 	for _, tt := range []struct {
 		name string
