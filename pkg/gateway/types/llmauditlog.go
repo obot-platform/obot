@@ -21,7 +21,8 @@ type LLMAuditLog struct {
 	InputTokens     int
 	OutputTokens    int
 	RequestID       string
-	UserAgent       string
+	Client          string
+	ClientVersion   string
 	ClientIP        string
 }
 

@@ -18,6 +18,16 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
+const (
+	llmAuditClientClaudeCode = "claude-code"
+	llmAuditClientCodex      = "codex"
+
+	llmAuditUserAgentClaudeCode = "claude-code"
+	llmAuditUserAgentClaudeCLI  = "claude-cli"
+	llmAuditUserAgentCodexCLI   = "codex_cli_rs"
+	llmAuditUserAgentCodexTUI   = "codex-tui"
+)
+
 type llmAuditRecorder struct {
 	once sync.Once
 	ctx  context.Context
@@ -35,6 +45,7 @@ func newLLMAuditRecorder(req *http.Request, user user.Info) *llmAuditRecorder {
 	if user != nil {
 		userID = user.GetUID()
 	}
+	clientName, clientVersion := parseLLMClientUserAgent(req.UserAgent())
 
 	return &llmAuditRecorder{
 		ctx: req.Context(),
@@ -44,7 +55,8 @@ func newLLMAuditRecorder(req *http.Request, user user.Info) *llmAuditRecorder {
 			UserID:         userID,
 			RequestHeaders: redactedHeaders(req.Header),
 			RequestID:      requestID,
-			UserAgent:      req.UserAgent(),
+			Client:         clientName,
+			ClientVersion:  clientVersion,
 			ClientIP:       requestinfo.GetSourceIP(req),
 		},
 	}
@@ -159,6 +171,26 @@ func shouldRedactHeader(key string) bool {
 		return true
 	}
 	return strings.Contains(k, "token") || strings.Contains(k, "secret") || strings.Contains(k, "key") || strings.Contains(k, "credential")
+}
+
+func parseLLMClientUserAgent(userAgent string) (string, string) {
+	token, _, _ := strings.Cut(strings.TrimSpace(userAgent), " ")
+	if token == "" {
+		return "", ""
+	}
+	name, version, ok := strings.Cut(token, "/")
+	if !ok {
+		name = token
+		version = ""
+	}
+
+	switch name {
+	case llmAuditUserAgentClaudeCode, llmAuditUserAgentClaudeCLI:
+		name = llmAuditClientClaudeCode
+	case llmAuditUserAgentCodexCLI, llmAuditUserAgentCodexTUI:
+		name = llmAuditClientCodex
+	}
+	return name, version
 }
 
 func extractLLMResponseText(p []byte) string {
