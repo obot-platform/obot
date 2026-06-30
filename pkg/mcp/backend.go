@@ -6,12 +6,15 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
 	"github.com/oasdiff/yaml"
+	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
+	ntypes "github.com/obot-platform/nanobot/pkg/types"
 	"github.com/obot-platform/obot/apiclient/types"
 )
 
@@ -36,15 +39,15 @@ func IsKubernetesBackend(backend string) bool {
 
 type backend interface {
 	// ensureServerDeployment will deploy a server if it is not already deployed, and return the updated ServerConfig
-	ensureServerDeployment(ctx context.Context, serverConfig ServerConfig, webhooks []Webhook) (ServerConfig, error)
+	ensureServerDeployment(ctx context.Context, serverConfig ServerConfig) (ServerConfig, error)
 	// deployServer will deploy a server if it is not already deployed, and will not wait or do any readiness checks
-	deployServer(ctx context.Context, server ServerConfig, webhooks []Webhook) error
-	transformConfig(ctx context.Context, serverConfig ServerConfig) (*ServerConfig, error)
+	deployServer(ctx context.Context, server ServerConfig) error
 	streamServerLogs(ctx context.Context, id string) (io.ReadCloser, error)
 	getServerDetails(ctx context.Context, id string) (types.MCPServerDetails, error)
 	restartServer(ctx context.Context, server ServerConfig) error
 	shutdownServer(ctx context.Context, id string, hardShutdown bool) error
 	transformObotHostname(url string) string
+	remoteConfig(globalConfig RemoteMCPURLValidationConfig) (RemoteMCPURLValidationConfig, []string)
 }
 
 type ErrNotSupportedByBackend struct {
@@ -222,25 +225,29 @@ func urlWithPath(urlStr, path string) string {
 	return u.String()
 }
 
-func constructMCPServerNanobotYAMLForComposite(servers []ComponentServer) ([]byte, error) {
-	mcpServers := make(map[string]nanobotConfigMCPServer, len(servers))
-	names := make([]string, 0, len(servers))
+func compositeMCPServerNanobotConfig(server ServerConfig) ntypes.Config {
+	names := make([]string, 0, len(server.Components))
+	mcpServers := make(map[string]nmcp.Server, len(server.Components))
+
 	replacer := strings.NewReplacer("/", "-", ":", "-", "?", "-")
 
-	for _, component := range servers {
-		tools := make(map[string]toolOverride, len(component.Tools))
+	for _, component := range server.Components {
+		var tools map[string]nmcp.ToolOverride
 		for _, tool := range component.Tools {
 			if !tool.Enabled {
 				continue
 			}
-			tools[tool.Name] = toolOverride{
+			if tools == nil {
+				tools = make(map[string]nmcp.ToolOverride, len(component.Tools))
+			}
+			tools[tool.Name] = nmcp.ToolOverride{
 				Name:        tool.OverrideName,
 				Description: tool.OverrideDescription,
 			}
 		}
 
 		name := replacer.Replace(component.Name)
-		mcpServers[name] = nanobotConfigMCPServer{
+		mcpServers[name] = nmcp.Server{
 			BaseURL:       component.URL,
 			ToolOverrides: tools,
 			NoTools:       component.noTools,
@@ -250,14 +257,16 @@ func constructMCPServerNanobotYAMLForComposite(servers []ComponentServer) ([]byt
 		names = append(names, name)
 	}
 
-	config := nanobotConfig{
-		Publish: nanobotConfigPublish{
+	return ntypes.Config{
+		Publish: ntypes.Publish{
 			MCPServers: names,
 		},
 		MCPServers: mcpServers,
 	}
+}
 
-	data, err := yaml.Marshal(config)
+func constructMCPServerNanobotYAMLForComposite(server ServerConfig) ([]byte, error) {
+	data, err := yaml.Marshal(compositeMCPServerNanobotConfig(server))
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal nanobot.yaml: %w", err)
 	}
@@ -265,91 +274,114 @@ func constructMCPServerNanobotYAMLForComposite(servers []ComponentServer) ([]byt
 	return data, nil
 }
 
-func constructMCPServerNanobotYAML(name, url, command string, args, passthroughHeaders []string, env, headers map[string][]byte, webhooks []Webhook) ([]byte, error) {
+func ServerNanobotConfig(server ServerConfig) ntypes.Config {
+	config := serverNanobotConfig(server, nil)
+
+	config.Auth = &ntypes.Auth{
+		OAuthClientID:     server.TokenExchangeClientID,
+		OAuthClientSecret: server.TokenExchangeClientSecret,
+	}
+
+	return config
+}
+
+func serverNanobotConfig(server ServerConfig, env map[string][]byte) ntypes.Config {
 	replacer := strings.NewReplacer("/", "-", ":", "-", "?", "-")
 
-	webhookDefinitions := make(map[string][]string, len(webhooks))
-	mcpServers := make(map[string]nanobotConfigMCPServer, len(webhooks)+1)
+	webhookDefinitions, mcpServers := webhookDefinitions(server.Webhooks, replacer)
+
+	completeEnv := maps.Clone(keyValueSliceToMap(server.Env))
+	if completeEnv == nil {
+		completeEnv = make(map[string]string, len(env))
+	}
+
+	for k, v := range env {
+		completeEnv[k] = string(v)
+	}
+
+	name := replacer.Replace(server.MCPServerDisplayName)
+	mcpServers[name] = nmcp.Server{
+		BaseURL:            server.URL,
+		Command:            server.Command,
+		Args:               server.Args,
+		Env:                completeEnv,
+		Headers:            keyValueSliceToMap(server.Headers),
+		PassthroughHeaders: server.PassthroughHeaderNames,
+		Hooks:              webhookDefinitions,
+	}
+
+	return ntypes.Config{
+		Publish: ntypes.Publish{
+			MCPServers: []string{name},
+		},
+		MCPServers: mcpServers,
+	}
+}
+
+func constructMCPServerNanobotYAML(server ServerConfig, env map[string][]byte) ([]byte, error) {
+	// Don't include webhooks in the nanobot.yaml file in the MCP server. They belong in the proxy.
+	server.Webhooks = nil
+	data, err := yaml.Marshal(serverNanobotConfig(server, env))
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal nanobot.yaml: %w", err)
+	}
+
+	return data, nil
+}
+
+func webhookDefinitions(webhooks []Webhook, replacer *strings.Replacer) (nmcp.Hooks, map[string]nmcp.Server) {
+	webhookDefinitions := make(nmcp.Hooks, 0, len(webhooks))
+	mcpServers := make(map[string]nmcp.Server, len(webhooks)+1)
 
 	for _, webhook := range webhooks {
 		webhookName := replacer.Replace(webhook.DisplayName)
 		if webhookName == "" {
 			webhookName = replacer.Replace(webhook.Name)
 		}
-		mcpServers[webhookName] = nanobotConfigMCPServer{
+		mcpServers[webhookName] = nmcp.Server{
 			BaseURL: webhook.URL,
 		}
 
-		if !webhook.MutateAllowed {
-			webhookName = "!mutate:" + webhookName
+		targetName := webhookName + "/" + webhook.ToolName
+
+		if len(webhook.Definitions) == 0 {
+			webhookDefinitions = append(webhookDefinitions, nmcp.HookMapping{
+				Name:    "*",
+				Targets: []nmcp.HookTarget{{Target: targetName, MutateDisallowed: !webhook.MutateAllowed}},
+			})
+			continue
 		}
+
 		for _, def := range webhook.Definitions {
-			webhookDefinitions[def] = append(webhookDefinitions[def], fmt.Sprintf("%s/%s", webhookName, webhook.ToolName))
+			if len(def.Identifiers) == 0 {
+				webhookDefinitions = append(webhookDefinitions, nmcp.HookMapping{
+					Name:    def.Method,
+					Targets: []nmcp.HookTarget{{Target: targetName, MutateDisallowed: !webhook.MutateAllowed}},
+				})
+			}
+			for _, id := range def.Identifiers {
+				webhookDefinitions = append(webhookDefinitions, nmcp.HookMapping{
+					Name:    def.Method,
+					Params:  map[string]string{"name": id},
+					Targets: []nmcp.HookTarget{{Target: targetName, MutateDisallowed: !webhook.MutateAllowed}},
+				})
+			}
 		}
 	}
 
-	name = replacer.Replace(name)
-	mcpServers[name] = nanobotConfigMCPServer{
-		BaseURL:            url,
-		Command:            command,
-		Args:               args,
-		Env:                convertMapStringBytesToMapStringString(env),
-		Headers:            convertMapStringBytesToMapStringString(headers),
-		PassthroughHeaders: passthroughHeaders,
-		Hooks:              webhookDefinitions,
-	}
-
-	config := nanobotConfig{
-		Publish: nanobotConfigPublish{
-			MCPServers: []string{name},
-		},
-		MCPServers: mcpServers,
-	}
-
-	data, err := yaml.Marshal(config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal nanobot.yaml: %w", err)
-	}
-
-	return data, nil
+	return webhookDefinitions, mcpServers
 }
 
-func convertMapStringBytesToMapStringString(m map[string][]byte) map[string]string {
-	if m == nil {
+func keyValueSliceToMap(values []string) map[string]string {
+	if len(values) == 0 {
 		return nil
 	}
 
-	result := make(map[string]string, len(m))
-	for k, v := range m {
-		result[k] = string(v)
+	result := make(map[string]string, len(values))
+	for _, value := range values {
+		if k, v, ok := strings.Cut(value, "="); ok && v != "" {
+			result[k] = v
+		}
 	}
 	return result
-}
-
-type nanobotConfig struct {
-	Publish    nanobotConfigPublish              `json:"publish,omitzero"`
-	MCPServers map[string]nanobotConfigMCPServer `json:"mcpServers,omitempty"`
-}
-
-type nanobotConfigPublish struct {
-	MCPServers []string `json:"mcpServers,omitempty"`
-}
-
-type nanobotConfigMCPServer struct {
-	Command            string              `json:"command,omitempty"`
-	Args               []string            `json:"args,omitempty"`
-	Hooks              map[string][]string `json:"hooks,omitempty"`
-	Env                map[string]string   `json:"env,omitempty"`
-	Headers            map[string]string   `json:"headers,omitempty"`
-	PassthroughHeaders []string            `json:"passthroughHeaders,omitempty"`
-	BaseURL            string              `json:"url,omitempty"`
-
-	ToolOverrides map[string]toolOverride `json:"toolOverrides,omitempty"`
-	NoTools       bool                    `json:"noTools,omitempty"`
-	ToolPrefix    string                  `json:"toolPrefix,omitempty"`
-}
-
-type toolOverride struct {
-	Name        string `json:"name,omitempty"`
-	Description string `json:"description,omitempty"`
 }

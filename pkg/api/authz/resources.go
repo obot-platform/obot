@@ -17,12 +17,12 @@ var apiResources = map[string][]string{
 		"GET    /api/all-mcps/servers/{mcpserver_id}/prompts/{prompt_name}",
 		"GET    /api/all-mcps/entries/{entry_id}",
 		"GET    /oauth/callback/{oauth_request_id}",
+		"GET    /oauth/callback/{oauth_request_id}/{mcp_id}",
 		"GET    /oauth/mcp/callback",
-		"GET    /oauth/consent/{oauth_request_id}",
-		"POST   /oauth/consent/{oauth_request_id}/approve",
-		"POST   /oauth/consent/{oauth_request_id}/cancel",
-		"GET    /oauth/complete/{oauth_request_id}",
-		"GET    /auth/mcp/composite/{mcp_id}",
+		"GET    /oauth/consent/{oauth_auth_request}",
+		"POST   /oauth/consent/{oauth_auth_request}/approve",
+		"POST   /oauth/consent/{oauth_auth_request}/cancel",
+		"GET    /oauth/complete/{oauth_auth_request}",
 		"GET    /api/oauth/composite/{mcp_id}",
 		"GET    /api/mcp-stats/{mcp_id}",
 		"GET    /api/mcp-audit-logs/{mcp_id}",
@@ -138,6 +138,11 @@ var apiResources = map[string][]string{
 	},
 	types.GroupDeviceScans: {
 		"GET    /api/devices/scans/{scan_id}",
+	},
+	UnauthenticatedGroup: {
+		// Allow unauthenticated access to MCP connect endpoints.
+		// This allows the authorization to pass, but the handler will issue the 401 with the WWW-Authenticate header.
+		"/mcp-connect/",
 	},
 }
 

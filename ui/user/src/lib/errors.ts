@@ -36,7 +36,7 @@ function parseHttpErrorMessage(message: string): string {
 	return errorMatch?.[1] || message || defaultErrorMessage;
 }
 
-export function handleRouteError(e: unknown, path: string, profile?: Profile) {
+export function handleRouteError(e: unknown, path: string, profile?: Profile): never {
 	if (!(e instanceof Error)) {
 		throw error(500, { message: 'Unknown error occurred' });
 	}

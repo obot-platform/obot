@@ -19,7 +19,8 @@
 		hasEditableConfiguration,
 		getMCPDisplayName,
 		hasSecretBinding,
-		isDeprecatedMCPServer
+		isDeprecatedMCPServer,
+		supportsMCPBackendDetails
 	} from '$lib/services/user/mcp';
 	import { errors, mcpServersAndEntries, profile, version } from '$lib/stores';
 	import { goto } from '$lib/url';
@@ -493,7 +494,9 @@
 		);
 		if (!launchResponse.success) {
 			launchError = launchResponse.message;
-			listLaunchLogs(configuredResponse.id);
+			if (supportsMCPBackendDetails(configuredResponse)) {
+				listLaunchLogs(configuredResponse.id);
+			}
 		}
 
 		if (!launchError) {

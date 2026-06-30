@@ -14,6 +14,7 @@
 	let prevK8sSettings = $state(untrack(() => data.k8sSettings));
 	let k8sSettings = $state<K8sSettings | undefined>(
 		untrack(() => ({
+			...data.k8sSettings,
 			id: data.k8sSettings?.id ?? '',
 			created: data.k8sSettings?.created ?? '',
 			type: data.k8sSettings?.type ?? '',
@@ -23,8 +24,7 @@
 			tolerations: data.k8sSettings?.tolerations ?? '',
 			runtimeClassName: data.k8sSettings?.runtimeClassName ?? '',
 			storageClassName: data.k8sSettings?.storageClassName ?? '',
-			nanobotWorkspaceSize: data.k8sSettings?.nanobotWorkspaceSize ?? '',
-			...data.k8sSettings
+			nanobotWorkspaceSize: data.k8sSettings?.nanobotWorkspaceSize ?? ''
 		}))
 	);
 	let saving = $state(false);

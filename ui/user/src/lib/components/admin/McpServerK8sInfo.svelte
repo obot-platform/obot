@@ -15,6 +15,7 @@
 		type ServerK8sSettings
 	} from '$lib/services';
 	import { EventStreamService } from '$lib/services/admin/eventstream.svelte';
+	import { supportsMCPBackendDetails } from '$lib/services/user/mcp';
 	import { profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { isOwnSingleUserServer } from '$lib/utils';
@@ -72,6 +73,7 @@
 	let showUpdateK8sSettingsConfirm = $state(false);
 	let updatingK8sSettings = $state(false);
 	let isAdminUrl = $derived(page.url.pathname.includes('/admin'));
+	let supportsDetails = $derived(supportsMCPBackendDetails(mcpServer ?? catalogEntry));
 
 	let logsUrl = $derived.by(() => {
 		if (entity === 'workspace') {
@@ -89,6 +91,7 @@
 
 	let deploymentLogsInstance = $state<ReturnType<typeof DeploymentLogs>>();
 	const hasAdminAccess = $derived(profile.current?.hasAdminAccess?.() ?? false);
+	let supportsRestart = $derived(supportsMCPBackendDetails(mcpServer ?? catalogEntry));
 
 	const eventStream = new EventStreamService<string>();
 	const dontLogErrors = true;
@@ -98,7 +101,8 @@
 	}
 
 	function getK8sInfo() {
-		if (!hasAdminAccess) return Promise.resolve<K8sServerDetail | undefined>(undefined);
+		if (!hasAdminAccess || !supportsDetails)
+			return Promise.resolve<K8sServerDetail | undefined>(undefined);
 		return entity === 'workspace' && entityId
 			? catalogEntry?.id
 				? UserService.getWorkspaceCatalogEntryServerK8sDetails(
@@ -116,7 +120,7 @@
 	}
 
 	function getK8sSettingsStatus() {
-		if (!hasAdminAccess || entity === 'webhook-validation')
+		if (!hasAdminAccess || !supportsDetails || entity === 'webhook-validation')
 			return Promise.resolve<ServerK8sSettings | undefined>(undefined);
 		return entity === 'workspace' && entityId
 			? catalogEntry?.id
@@ -142,27 +146,28 @@
 
 	onMount(() => {
 		// Only load sensitive server values and k8s info if the user has admin access
-		revealServerValues = profile.current.isAdmin?.()
-			? entity === 'webhook-validation'
-				? AdminService.revealMCPFilter(mcpServerId, {
-						dontLogErrors: true
-					})
-				: entity === 'catalog' && entityId
-					? AdminService.revealMcpCatalogServer(entityId, mcpServerId, {
+		revealServerValues =
+			supportsDetails && profile.current.isAdmin?.()
+				? entity === 'webhook-validation'
+					? AdminService.revealMCPFilter(mcpServerId, {
 							dontLogErrors: true
 						})
-					: entity === 'workspace' && entityId
-						? UserService.revealWorkspaceMCPCatalogServer(entityId, mcpServerId, {
+					: entity === 'catalog' && entityId
+						? AdminService.revealMcpCatalogServer(entityId, mcpServerId, {
 								dontLogErrors: true
 							})
-						: UserService.revealSingleOrRemoteMcpServer(mcpServerId, {
-								dontLogErrors: true
-							})
-			: Promise.resolve<Record<string, string>>({});
+						: entity === 'workspace' && entityId
+							? UserService.revealWorkspaceMCPCatalogServer(entityId, mcpServerId, {
+									dontLogErrors: true
+								})
+							: UserService.revealSingleOrRemoteMcpServer(mcpServerId, {
+									dontLogErrors: true
+								})
+				: Promise.resolve<Record<string, string>>({});
 		listK8sInfo = getK8sInfo();
 		listK8sSettingsStatus = getK8sSettingsStatus();
 
-		if (logsUrl) {
+		if (supportsDetails && logsUrl) {
 			eventStream.connect(logsUrl, {
 				onMessage: (data) => {
 					messages = [...messages, data];
@@ -188,6 +193,8 @@
 	});
 
 	async function handleRestart() {
+		if (!supportsRestart) return;
+
 		restarting = true;
 		try {
 			await (entity === 'workspace' && entityId
@@ -214,6 +221,7 @@
 	}
 
 	async function handleRefreshEvents() {
+		if (!supportsDetails) return;
 		refreshingEvents = true;
 		try {
 			listK8sInfo = getK8sInfo();
@@ -225,12 +233,13 @@
 	}
 
 	async function handleRefreshLogs() {
+		if (!supportsDetails) return;
 		refreshingLogs = true;
 		try {
 			// Clear existing messages and reconnect to get fresh logs
 			messages = [];
 			eventStream.disconnect();
-			if (logsUrl) {
+			if (supportsDetails && logsUrl) {
 				eventStream.connect(logsUrl, {
 					onMessage: (data) => {
 						messages = [...messages, data];
@@ -708,7 +717,7 @@
 			<p class="col-span-4 text-sm font-semibold">{label}</p>
 			<div class="col-span-8 flex items-center justify-between">
 				<p class="truncate text-sm font-light">{value}</p>
-				{#if id === 'status' && !readonly}
+				{#if id === 'status' && !readonly && supportsRestart}
 					<button
 						onclick={() => (showRestartConfirm = true)}
 						class="btn btn-primary flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"

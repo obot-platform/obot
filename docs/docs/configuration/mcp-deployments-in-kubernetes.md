@@ -48,7 +48,7 @@ The values that are configurable, and how to change them, follow.
 
 - Affinity and Tolerations: can be set using the `.mcpServerDefaults.affinity` and `.mcpServerDefaults.tolerations` in Helm, or via the admin UI if not set in Helm values
 - Resources: the default value is a CPU request of `10m` and a memory request of `200Mi`, with no limits. Nanobot agent-backed MCP servers use a `400Mi` default memory request, and remote/composite servers use a `100Mi` default memory request. If resource maximums are configured and one of these built-in default requests is higher than the maximum, Obot uses the maximum as the default request instead. Resource defaults can be set globally in Helm using the `.mcpServerDefaults.resources` value, or via the Admin UI if not set in Helm values. Individual catalog entries can also override CPU and memory requests and limits with a `resources` field; see [MCP Server GitOps](./mcp-server-gitops.md#resource-requirements).
-- Image: the default value is `ghcr.io/obot-platform/mcp-images/stdio-wrapper:v0.24.0` and it can be changed by setting the Helm value `.config.OBOT_SERVER_MCPBASE_IMAGE`.
+- Image: the default value is `ghcr.io/obot-platform/mcp-images/stdio-wrapper:v0.24.1` and it can be changed by setting the Helm value `.config.OBOT_SERVER_MCPBASE_IMAGE`.
 - RuntimeClassName: can be set using `.mcpServerDefaults.runtimeClassName` in Helm, or via the admin UI if not set in Helm values. See [RuntimeClass](#runtimeclass) for details.
 - ImagePullSecrets: private registry credentials can be configured with static Helm `mcpImagePullSecrets` or managed image pull secrets in the admin UI. See [Image Pull Secrets](./image-pull-secrets.md).
 

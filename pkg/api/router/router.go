@@ -67,6 +67,17 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 		return nil, err
 	}
 
+	mcpGateway, err := mcpgateway.NewHandler(
+		ctx,
+		services.MCPSessionManager,
+		mcpgateway.NewAuditLogHandler(services.GatewayClient),
+		services.ServerURL,
+		services.DSN,
+		services.MCPSecretBindingAllowedLabel)
+	if err != nil {
+		return nil, err
+	}
+
 	oauthChecker := oauth.NewMCPOAuthHandlerFactory(services.ServerURL, services.MCPSessionManager, services.StorageClient, services.GatewayClient, services.MCPOAuthTokenStorage, services.MCPSecretBindingAllowedLabel)
 
 	models := handlers.NewModelHandler(services.ModelAccessPolicyHelper)
@@ -92,8 +103,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	images := handlers.NewImageHandler()
 	mcp := handlers.NewMCPHandler(services.MCPSessionManager, services.AccessControlRuleHelper, oauthChecker, services.Router.Backend(), services.MCPImagePullSecrets, services.ServerURL, services.MCPSecretBindingAllowedLabel)
 	mcpSecretBindings := handlers.NewMCPSecretBindingHandler(services.MCPRuntimeBackend, services.LocalK8sClient, services.ObotNamespace, services.MCPSecretBindingAllowedLabel)
-	mcpGateway := mcpgateway.NewHandler(services.MCPSessionManager, services.MCPSecretBindingAllowedLabel)
-	mcpAuditLogs := mcpgateway.NewAuditLogHandler()
+	mcpAuditLogs := mcpgateway.NewAuditLogHandler(services.GatewayClient)
 	localAgentAuditLogs := mcpgateway.NewLocalAgentAuditLogHandler()
 	auditLogExports := handlers.NewAuditLogExportHandler(services.GatewayClient)
 	serverInstances := handlers.NewServerInstancesHandler(services.AccessControlRuleHelper, services.ServerURL)
@@ -338,11 +348,6 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/system-mcp-catalogs/{catalog_id}/entries/{entry_id}", systemMCPCatalogs.GetEntry)
 	mux.HandleFunc("PUT /api/system-mcp-catalogs/{catalog_id}/entries/{entry_id}", systemMCPCatalogs.UpdateEntry)
 	mux.HandleFunc("DELETE /api/system-mcp-catalogs/{catalog_id}/entries/{entry_id}", systemMCPCatalogs.DeleteEntry)
-
-	// MCP Gateway Endpoints
-	// The first pattern handles the root path, the second handles all sub-paths
-	mux.HandleFunc("/mcp-connect/{mcp_id}", mcpGateway.Proxy)
-	mux.HandleFunc("/mcp-connect/{mcp_id}/{rest...}", mcpGateway.Proxy)
 
 	// Registry API
 	mux.HandleFunc("GET /v0.1/servers", registryHandler.ListServers)
@@ -596,16 +601,20 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	// Auth Provider tools
 	mux.HandleFunc("/oauth2/", services.ProxyManager.HandlerFunc)
 
-	// Well-known
-	wellknown.SetupHandlers(services.ServerURL, services.OAuthServerConfig, services.RegistryNoAuth, mux)
-
-	// Obot OAuth
-	oauth.SetupHandlers(oauthChecker, services.MCPOAuthTokenStorage, services.PersistentTokenServer, services.OAuthServerConfig, services.MCPSessionManager, services.AccessControlRuleHelper, services.ServerURL, services.MCPOAuthClientSecretExpiration, mux)
+	// MCP Gateway Endpoints
+	// The first pattern handles the root path, the second handles all sub-paths.
+	mux.HandleFunc("/mcp-connect/{mcp_id}", mcpGateway.Proxy)
+	mux.HandleFunc("/mcp-connect/{mcp_id}/{rest...}", mcpGateway.Proxy)
 
 	// Gateway APIs
 	services.GatewayServer.AddRoutes(services.APIServer)
 
-	services.APIServer.HTTPHandle("/", ui.Handler(services.DevUIPort, services.UserUIPort))
+	// Well-known
+	wellknown.SetupHandlers(services.ServerURL, services.OAuthServerConfig, services.RegistryNoAuth, mux)
+	// Obot OAuth
+	oauth.SetupHandlers(oauthChecker, services.MCPOAuthTokenStorage, services.PersistentTokenServer, services.OAuthServerConfig, services.MCPSessionManager, services.AccessControlRuleHelper, services.ServerURL, services.MCPOAuthClientSecretExpiration, mux)
+
+	mux.HTTPHandle("/", ui.Handler(services.DevUIPort, services.UserUIPort))
 
 	return services.APIServer, nil
 }

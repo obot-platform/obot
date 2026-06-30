@@ -145,7 +145,7 @@ export async function handleResponse(
 		errors.items.push(e);
 		throw e;
 	}
-	if (resp.headers.get('Content-Type') === 'application/json') {
+	if (resp.headers.get('Content-Type')?.includes('application/json')) {
 		return resp.json();
 	}
 	return resp.text();

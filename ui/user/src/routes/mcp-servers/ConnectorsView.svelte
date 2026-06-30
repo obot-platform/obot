@@ -23,7 +23,8 @@
 		restartMcpServer,
 		isMultiUserCatalogEntry,
 		requiresUserUpdate,
-		isDeprecatedMCPServer
+		isDeprecatedMCPServer,
+		supportsMCPBackendDetails
 	} from '$lib/services/user/mcp';
 	import { mcpServersAndEntries, profile, version } from '$lib/stores';
 	import { openUrl } from '$lib/utils';
@@ -153,13 +154,14 @@
 		entry: MCPCatalogEntry,
 		mode: ServerSelectMode = 'connect'
 	) {
-		const allServers =
+		const allServers = (
 			mode === 'connect'
 				? getUsableConfiguredServersForCatalogEntry(entry)
-				: getConfiguredServersForCatalogEntry(entry);
+				: getConfiguredServersForCatalogEntry(entry)
+		).filter((server) => mode !== 'restart' || supportsMCPBackendDetails(server));
 		selectedEntry = entry;
-		selectServerDialog?.open(allServers);
 		selectServerMode = mode;
+		selectServerDialog?.open(allServers);
 	}
 
 	function handleConnectToServer({ instance }: { instance?: MCPServerInstance }) {
@@ -379,8 +381,10 @@
 				break;
 			}
 			case 'restart': {
-				await restartServer(d);
-				await mcpServersAndEntries.refreshAll();
+				if (supportsMCPBackendDetails(d)) {
+					await restartServer(d);
+					await mcpServersAndEntries.refreshAll();
+				}
 				break;
 			}
 			case 'reauthenticate': {

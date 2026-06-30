@@ -1,6 +1,7 @@
 package authz
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -281,6 +282,225 @@ func TestCheckMCPIDChecksWorkspaceAccess(t *testing.T) {
 	}
 }
 
+func TestMCPIDIsAuthorized(t *testing.T) {
+	tests := []struct {
+		name       string
+		objects    []client.Object
+		authorized []string
+		userID     string
+		mcpID      string
+		want       bool
+		wantErr    bool
+	}{
+		{
+			name:       "wildcard allows missing server",
+			authorized: []string{"*"},
+			userID:     "user-uid",
+			mcpID:      "ms1missing",
+			want:       true,
+		},
+		{
+			name:       "direct server ID allows without storage lookup",
+			authorized: []string{"ms1missing"},
+			userID:     "user-uid",
+			mcpID:      "ms1missing",
+			want:       true,
+		},
+		{
+			name: "server composite parent allows component server",
+			objects: []client.Object{&v1.MCPServer{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "ms1component",
+					Namespace: system.DefaultNamespace,
+				},
+				Spec: v1.MCPServerSpec{
+					CompositeName: "ms1composite",
+				},
+			}},
+			authorized: []string{"ms1composite"},
+			userID:     "user-uid",
+			mcpID:      "ms1component",
+			want:       true,
+		},
+		{
+			name: "server without authorized composite is denied",
+			objects: []client.Object{&v1.MCPServer{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "ms1component",
+					Namespace: system.DefaultNamespace,
+				},
+				Spec: v1.MCPServerSpec{
+					CompositeName: "ms1composite",
+				},
+			}},
+			authorized: []string{"ms1other"},
+			userID:     "user-uid",
+			mcpID:      "ms1component",
+			want:       false,
+		},
+		{
+			name:       "missing server returns error",
+			authorized: []string{"ms1other"},
+			userID:     "user-uid",
+			mcpID:      "ms1missing",
+			wantErr:    true,
+		},
+		{
+			name: "instance direct ID allows without storage lookup",
+			objects: []client.Object{&v1.MCPServerInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "msi1instance",
+					Namespace: system.DefaultNamespace,
+				},
+			}},
+			authorized: []string{"msi1instance"},
+			userID:     "user-uid",
+			mcpID:      "msi1instance",
+			want:       true,
+		},
+		{
+			name: "instance composite parent allows component instance",
+			objects: []client.Object{&v1.MCPServerInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "msi1component",
+					Namespace: system.DefaultNamespace,
+				},
+				Spec: v1.MCPServerInstanceSpec{
+					CompositeName: "ms1composite",
+				},
+			}},
+			authorized: []string{"ms1composite"},
+			userID:     "user-uid",
+			mcpID:      "msi1component",
+			want:       true,
+		},
+		{
+			name: "instance checks associated server composite parent",
+			objects: []client.Object{
+				&v1.MCPServerInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "msi1instance",
+						Namespace: system.DefaultNamespace,
+					},
+					Spec: v1.MCPServerInstanceSpec{
+						MCPServerName: "ms1component",
+					},
+				},
+				&v1.MCPServer{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "ms1component",
+						Namespace: system.DefaultNamespace,
+					},
+					Spec: v1.MCPServerSpec{
+						CompositeName: "ms1composite",
+					},
+				},
+			},
+			authorized: []string{"ms1composite"},
+			userID:     "user-uid",
+			mcpID:      "msi1instance",
+			want:       true,
+		},
+		{
+			name: "catalog entry allows matching user server",
+			objects: []client.Object{
+				&v1.MCPServerCatalogEntry{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "entry-test",
+						Namespace: system.DefaultNamespace,
+					},
+				},
+				&v1.MCPServer{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "ms1fromentry",
+						Namespace: system.DefaultNamespace,
+					},
+					Spec: v1.MCPServerSpec{
+						MCPServerCatalogEntryName: "entry-test",
+						UserID:                    "user-uid",
+					},
+				},
+			},
+			authorized: []string{"ms1fromentry"},
+			userID:     "user-uid",
+			mcpID:      "entry-test",
+			want:       true,
+		},
+		{
+			name: "catalog entry allows matching user server composite parent",
+			objects: []client.Object{
+				&v1.MCPServerCatalogEntry{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "entry-test",
+						Namespace: system.DefaultNamespace,
+					},
+				},
+				&v1.MCPServer{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "ms1fromentry",
+						Namespace: system.DefaultNamespace,
+					},
+					Spec: v1.MCPServerSpec{
+						MCPServerCatalogEntryName: "entry-test",
+						UserID:                    "user-uid",
+						CompositeName:             "ms1composite",
+					},
+				},
+			},
+			authorized: []string{"ms1composite"},
+			userID:     "user-uid",
+			mcpID:      "entry-test",
+			want:       true,
+		},
+		{
+			name: "catalog entry ignores matching server for different user",
+			objects: []client.Object{
+				&v1.MCPServerCatalogEntry{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "entry-test",
+						Namespace: system.DefaultNamespace,
+					},
+				},
+				&v1.MCPServer{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "ms1fromentry",
+						Namespace: system.DefaultNamespace,
+					},
+					Spec: v1.MCPServerSpec{
+						MCPServerCatalogEntryName: "entry-test",
+						UserID:                    "other-uid",
+					},
+				},
+			},
+			authorized: []string{"ms1fromentry"},
+			userID:     "user-uid",
+			mcpID:      "entry-test",
+			want:       false,
+		},
+		{
+			name:       "missing catalog entry denies without error",
+			authorized: []string{"ms1fromentry"},
+			userID:     "user-uid",
+			mcpID:      "entry-test",
+			want:       false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			storage := newMCPIDIsAuthorizedTestStorage(tt.objects...)
+
+			got, err := MCPIDIsAuthorized(context.Background(), storage, tt.authorized, tt.userID, tt.mcpID)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("MCPIDIsAuthorized() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if got != tt.want {
+				t.Fatalf("MCPIDIsAuthorized() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestMCPConnectSubtreeAuthorization(t *testing.T) {
 	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(
 		&v1.MCPServer{
@@ -493,6 +713,27 @@ func TestMCPConnectSubtreeAuthorization(t *testing.T) {
 			}
 		})
 	}
+}
+
+func newMCPIDIsAuthorizedTestStorage(objects ...client.Object) client.Client {
+	return clientfake.NewClientBuilder().
+		WithScheme(storagescheme.Scheme).
+		WithIndex(&v1.MCPServer{}, "spec.mcpServerCatalogEntryName", func(obj client.Object) []string {
+			server := obj.(*v1.MCPServer)
+			if server.Spec.MCPServerCatalogEntryName == "" {
+				return nil
+			}
+			return []string{server.Spec.MCPServerCatalogEntryName}
+		}).
+		WithIndex(&v1.MCPServer{}, "spec.userID", func(obj client.Object) []string {
+			server := obj.(*v1.MCPServer)
+			if server.Spec.UserID == "" {
+				return nil
+			}
+			return []string{server.Spec.UserID}
+		}).
+		WithObjects(objects...).
+		Build()
 }
 
 func newMCPIDTestAuthorizer(t *testing.T, storage client.Client, acrs ...*v1.AccessControlRule) *Authorizer {

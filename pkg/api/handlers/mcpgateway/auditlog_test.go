@@ -186,7 +186,7 @@ func newLocalAgentAuditLogTestGatewayClient(t *testing.T) *gatewayclient.Client 
 		t.Fatalf("failed to migrate gateway db: %v", err)
 	}
 
-	c := gatewayclient.New(t.Context(), db, nil, nil, nil, nil, time.Hour, 10, 90, 90, true)
+	c := gatewayclient.New(t.Context(), db, nil, nil, nil, nil, nil, time.Hour, 10, 90, 90, true)
 	t.Cleanup(func() {
 		_ = c.Close()
 	})

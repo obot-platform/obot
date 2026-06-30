@@ -23,7 +23,8 @@
 		getServerTypeLabel,
 		getServerUrl,
 		hasMissingSecretBindingConfig,
-		isMultiUserServer
+		isMultiUserServer,
+		supportsMCPBackendDetails
 	} from '$lib/services/user/mcp';
 	import { profile, mcpServersAndEntries, version } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
@@ -292,6 +293,10 @@
 		return !!server.catalogEntryID && (!!server.powerUserWorkspaceID || !!id);
 	}
 
+	function canRestartServer(server: MCPCatalogServer) {
+		return server.configured && supportsMCPBackendDetails(server);
+	}
+
 	async function handleBulkUpdate() {
 		for (const serverId of Object.keys(selected)) {
 			const server = selected[serverId];
@@ -322,8 +327,7 @@
 		restarting = true;
 		try {
 			for (const id of Object.keys(selected)) {
-				if (!selected[id].configured) {
-					// skip unconfigured servers
+				if (!canRestartServer(selected[id])) {
 					continue;
 				}
 				if (selected[id].powerUserWorkspaceID) {
@@ -725,7 +729,7 @@
 										{/if}
 									</span>
 								</a>
-								{#if d.isMyServer || (hasAdminAccess && !readonly)}
+								{#if (d.isMyServer || (hasAdminAccess && !readonly)) && supportsMCPBackendDetails(d)}
 									<button
 										class="menu-button"
 										onclick={(e) => {
@@ -887,8 +891,8 @@
 				{/snippet}
 
 				{#snippet tableSelectActions(currentSelected)}
-					{@const restartableCount = Object.values(currentSelected).filter(
-						(s) => s.configured
+					{@const restartableCount = Object.values(currentSelected).filter((s) =>
+						canRestartServer(s)
 					).length}
 					{@const upgradeableCount = Object.values(currentSelected).filter(
 						(s) => s.needsUpdate && canTriggerUpdate(s)

@@ -1,10 +1,9 @@
-package validation
+package mcp
 
 import (
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -147,7 +146,7 @@ func TestValidateSystemMCPServerManifest(t *testing.T) {
 					Image:                 "test-image",
 					Port:                  8080,
 					Path:                  "/mcp",
-					StartupTimeoutSeconds: int(mcp.MaxMCPServerStartupTimeout.Seconds()) + 1,
+					StartupTimeoutSeconds: int(MaxMCPServerStartupTimeout.Seconds()) + 1,
 				},
 			},
 			expectError: true,
@@ -195,7 +194,7 @@ func TestValidateSystemMCPServerManifest(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateSystemMCPServerManifest(t.Context(), tt.manifest, Options{})
+			err := ValidateSystemMCPServerManifest(t.Context(), tt.manifest, ValidationOptions{})
 			if tt.expectError {
 				assert.Error(t, err)
 				if tt.expectedErrContains != "" {

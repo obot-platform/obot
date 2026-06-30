@@ -187,7 +187,6 @@ export OBOT_SERVER_SERVICE_NAMESPACE=default
 
 # optional if using locally-built Nanobot images
 export OBOT_SERVER_NANOBOT_AGENT_IMAGE='nanobot-agent:local'
-export OBOT_SERVER_MCPREMOTE_SHIM_BASE_IMAGE='nanobot:local'
 ```
 
 ### Troubleshooting

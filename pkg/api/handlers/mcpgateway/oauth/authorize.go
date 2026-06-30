@@ -259,7 +259,7 @@ func (h *handler) callback(req api.Context) error {
 
 	mcpID := oauthAppAuthRequest.Spec.MCPID
 	if mcpID != "" {
-		serverOrInstanceID, audience, err := handlers.MCPIDAndAudienceFromConnectURL(req, mcpID, h.oauthChecker.secretBindingAllowedLabel, handlers.ValidationOptionsWithResourceMaximums(h.oauthChecker.mcpSessionManager))
+		serverOrInstanceID, audience, err := h.oauthChecker.mcpSessionManager.IDAndAudienceFromConnectURL(req.Context(), mcpID, req.User.GetUID())
 		if err != nil {
 			if errHTTP := (*types.ErrHTTP)(nil); errors.As(err, &errHTTP) {
 				redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
@@ -327,7 +327,7 @@ func (h *handler) prepareOAuthConsent(req api.Context, oauthAppAuthRequest *v1.O
 	}
 
 	// Check whether the MCP server needs authentication.
-	mcpID, mcpServer, mcpServerConfig, missingConfig, err := handlers.ServerForActionWithConnectIDAllowMissingConfig(req, oauthAppAuthRequest.Spec.MCPID, h.oauthChecker.secretBindingAllowedLabel, handlers.ValidationOptionsWithResourceMaximums(h.oauthChecker.mcpSessionManager))
+	mcpID, mcpServer, mcpServerConfig, missingConfig, err := h.oauthChecker.mcpSessionManager.ServerForActionWithConnectIDAllowMissingConfig(req.Context(), oauthAppAuthRequest.Spec.MCPID, req.User.GetUID())
 	if err != nil {
 		return err
 	}
@@ -550,7 +550,7 @@ func (h *handler) oauthComplete(req api.Context) error {
 }
 
 func (h *handler) ensureMCPAuthComplete(req api.Context, oauthAppAuthRequest v1.OAuthAuthRequest) error {
-	mcpID, mcpServer, mcpServerConfig, err := handlers.ServerForActionWithConnectID(req, oauthAppAuthRequest.Spec.MCPID, h.oauthChecker.secretBindingAllowedLabel, handlers.ValidationOptionsWithResourceMaximums(h.oauthChecker.mcpSessionManager))
+	mcpID, mcpServer, mcpServerConfig, err := h.oauthChecker.mcpSessionManager.ServerForActionWithConnectID(req.Context(), oauthAppAuthRequest.Spec.MCPID, req.User.GetUID())
 	if err != nil {
 		return err
 	}

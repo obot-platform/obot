@@ -6,11 +6,11 @@ import (
 	"strings"
 )
 
-// nanobotOTELEnv returns OTEL environment variables to inject into Nanobot containers.
+// OTELEnv returns OTEL environment variables to inject into Nanobot containers.
 // It copies all OTEL_* variables from the current process, optionally rewriting OTLP
 // endpoint URLs for the target runtime, and sets the service name so spans are
 // distinguishable.
-func nanobotOTELEnv(serviceName string, transformEndpoint func(string) string) map[string][]byte {
+func OTELEnv(serviceName string, hostBaseURL string) map[string][]byte {
 	env := make(map[string][]byte)
 
 	for _, entry := range os.Environ() {
@@ -19,8 +19,8 @@ func nanobotOTELEnv(serviceName string, transformEndpoint func(string) string) m
 			continue
 		}
 
-		if isOTLPEndpointEnv(key) && transformEndpoint != nil {
-			value = transformEndpoint(value)
+		if isOTLPEndpointEnv(key) {
+			value = rewriteLocalhostURLHost(value, hostBaseURL)
 		}
 
 		env[key] = []byte(value)
@@ -31,7 +31,9 @@ func nanobotOTELEnv(serviceName string, transformEndpoint func(string) string) m
 	return env
 }
 
-func rewriteLocalhostURLHost(rawURL, host string) string {
+func rewriteLocalhostURLHost(rawURL, baseURL string) string {
+	host := strings.TrimPrefix(baseURL, "http://")
+
 	if rawURL == "" || host == "" {
 		return rawURL
 	}

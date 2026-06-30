@@ -19,7 +19,8 @@
 		isMultiUserCatalogEntry,
 		isMultiUserServer,
 		requiresUserUpdate,
-		restartMcpServer
+		restartMcpServer,
+		supportsMCPBackendDetails
 	} from '$lib/services/user/mcp';
 	import { mcpServersAndEntries, profile, version } from '$lib/stores';
 	import { goto } from '$lib/url';
@@ -117,6 +118,9 @@
 				)
 			: []
 	);
+	let restartableConfiguredServers = $derived(
+		configuredServers.filter((server) => supportsMCPBackendDetails(server))
+	);
 
 	// Connecting from a multi-user catalog entry row always starts a new shared server deployment.
 	let isMultiUserCatalogEntryRow = $derived(isMultiUserCatalogEntry(entry) && !server);
@@ -161,7 +165,15 @@
 		)
 	);
 	let canManageServerDeployment = $derived(Boolean(server && isServerOwner));
-	let showServerDetails = $derived(entry && !server && configuredServers.length > 0);
+	let canRestartServerDeployment = $derived(
+		Boolean(server && canManageServerDeployment && supportsMCPBackendDetails(server))
+	);
+	let showServerDetails = $derived(
+		entry &&
+			!server &&
+			supportsMCPBackendDetails(entry) &&
+			configuredServers.some((s) => supportsMCPBackendDetails(s))
+	);
 	let hasMultiUserServerNotOwned = $derived(
 		configuredServers.some(
 			(s) =>
@@ -405,8 +417,10 @@
 				break;
 			}
 			case 'restart': {
-				await restartServer(d);
-				await mcpServersAndEntries.refreshAll();
+				if (supportsMCPBackendDetails(d)) {
+					await restartServer(d);
+					await mcpServersAndEntries.refreshAll();
+				}
 				break;
 			}
 			case 'disconnect': {
@@ -583,7 +597,7 @@
 					</button>
 				{/if}
 			{/if}
-			{#if server && canManageServerDeployment}
+			{#if server && canRestartServerDeployment}
 				<button
 					class="menu-button"
 					disabled={restarting}
@@ -692,16 +706,16 @@
 						</button>
 					{/if}
 				{/if}
-				{#if configuredServers.length > 0 && !hasMultiUserServerNotOwned}
+				{#if restartableConfiguredServers.length > 0 && !hasMultiUserServerNotOwned}
 					<button
 						class="menu-button"
 						disabled={restarting}
 						onclick={async (e) => {
 							e.stopPropagation();
-							if (configuredServers.length === 1) {
+							if (restartableConfiguredServers.length === 1) {
 								restarting = true;
 								try {
-									await restartServer(configuredServers[0]);
+									await restartServer(restartableConfiguredServers[0]);
 									refresh();
 								} finally {
 									restarting = false;

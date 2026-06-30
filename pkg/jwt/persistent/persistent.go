@@ -173,6 +173,17 @@ func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Re
 		"resource":                {tokenContext.Audience},
 		"oauthScope":              {tokenContext.OAuthScope},
 	}
+	if tokenContext.MCPID != "" {
+		extra["authorized_mcp_ids"] = []string{tokenContext.MCPID}
+	}
+	if mcpID, ok := strings.CutPrefix(tokenContext.Audience, t.serverURL+"/mcp-connect/"); ok {
+		// Ensure we only get the MCP ID
+		mcpID, _, _ := strings.Cut(mcpID, "/")
+		if mcpID != tokenContext.MCPID {
+			extra["authorized_mcp_ids"] = append(extra["authorized_mcp_ids"], mcpID)
+		}
+	}
+
 	groups := tokenContext.UserGroups
 
 	// Look up auth provider group memberships from the gateway DB

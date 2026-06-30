@@ -45,7 +45,7 @@ type Client struct {
 	mcpOAuthTokenTrigger    func(context.Context, string) error
 }
 
-func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, ownerEmails, adminEmails []string, auditLogPersistenceInterval time.Duration, auditLogBatchSize, auditLogRetentionDays, llmAuditLogRetentionDays int, llmAuditEnabled bool) *Client {
+func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, mcpOAuthTokenTrigger func(context.Context, string) error, ownerEmails, adminEmails []string, auditLogPersistenceInterval time.Duration, auditLogBatchSize, auditLogRetentionDays, llmAuditLogRetentionDays int, llmAuditEnabled bool) *Client {
 	explicitRoleEmailsSet := make(map[string]types2.Role, len(ownerEmails)+len(adminEmails))
 	for _, email := range adminEmails {
 		explicitRoleEmailsSet[strings.ToLower(email)] = types2.RoleAdmin
@@ -61,6 +61,7 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 		auditBuffer:             make([]types.MCPAuditLog, 0, 2*auditLogBatchSize),
 		kickAuditPersist:        make(chan struct{}),
 		storageClient:           storageClient,
+		mcpOAuthTokenTrigger:    mcpOAuthTokenTrigger,
 		apiKeyCache:             make(map[[32]byte]apiKeyValidationCacheEntry),
 		apiKeyCacheTTL:          apiKeyValidationCacheTTL,
 		serviceAccountCache:     make(map[[32]byte]serviceAccountValidationCacheEntry),
@@ -95,10 +96,6 @@ func (c *Client) Close() error {
 
 func (c *Client) HasExplicitRole(email string) types2.Role {
 	return c.emailsWithExplicitRoles[strings.ToLower(email)]
-}
-
-func (c *Client) SetMCPOAuthTokenTrigger(trigger func(context.Context, string) error) {
-	c.mcpOAuthTokenTrigger = trigger
 }
 
 // GetExplicitRoleEmails returns a copy of all emails with explicit roles.

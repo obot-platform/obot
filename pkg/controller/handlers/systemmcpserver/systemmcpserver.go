@@ -209,7 +209,7 @@ func (h *Handler) EnsureDeployment(req router.Request, _ router.Response) error 
 	audiences := systemServer.ValidConnectURLs(h.serverURL)
 
 	// Transform to ServerConfig
-	serverConfig, missingRequired, err := mcp.SystemServerToServerConfig(*systemServer, audiences, h.serverURL, credEnv, secretsCred)
+	serverConfig, missingRequired, err := mcp.SystemServerToServerConfig(*systemServer, audiences, h.serverURL, "", credEnv, secretsCred)
 	if err != nil {
 		return fmt.Errorf("failed to transform system server to config: %w", err)
 	}

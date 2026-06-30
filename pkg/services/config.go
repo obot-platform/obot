@@ -43,6 +43,7 @@ import (
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/messagepolicy"
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
+	"github.com/obot-platform/obot/pkg/otel"
 	"github.com/obot-platform/obot/pkg/proxy"
 	"github.com/obot-platform/obot/pkg/serviceaccounts"
 	"github.com/obot-platform/obot/pkg/skillaccessrule"
@@ -51,7 +52,7 @@ import (
 	storageauthn "github.com/obot-platform/obot/pkg/storage/authn"
 	"github.com/obot-platform/obot/pkg/storage/blob"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
-	"github.com/obot-platform/obot/pkg/storage/services"
+	storageservices "github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
@@ -85,23 +86,23 @@ type (
 	LicenseConfig     license.Config
 )
 
-type MetricsAuthConfig struct {
-	MetricsBearerToken string `usage:"Bearer token for metrics endpoint authentication" name:"metrics-bearer-token"`
-}
-
 type Config struct {
 	HTTPListenPort       int      `usage:"HTTP port to listen on" default:"8080" name:"http-listen-port"`
-	DevMode              bool     `usage:"Enable development mode" default:"false" name:"dev-mode" env:"OBOT_DEV_MODE"`
-	DevUIPort            int      `usage:"The port on localhost running the dev instance of the UI" default:"5174"`
-	UserUIPort           int      `usage:"The port on localhost running the user production instance of the UI" env:"OBOT_SERVER_USER_UI_PORT"`
 	AllowedOrigin        string   `usage:"Allowed origin for CORS"`
 	ProviderRegistries   []string `usage:"Local filesystem paths to provider registries (directories) to load providers from"`
-	ElectionFile         string   `usage:"Use this file for leader election instead of database leases"`
 	EnableAuthentication bool     `usage:"Enable authentication" default:"false"`
-	ForceEnableBootstrap bool     `usage:"Enables the bootstrap user even if other admin users have been created" default:"false"`
 	AuthAdminEmails      []string `usage:"Emails of admin users"`
 	AuthOwnerEmails      []string `usage:"Emails of owner users"`
-	StaticDir            string   `usage:"The directory to serve static files from"`
+
+	MCPOAuthClientExpiration string `usage:"The expiration time in dynamically registered MCP OAuth clients, must be a valid duration string and may include days, hours, or minutes" default:"30d"`
+
+	DevMode              bool   `usage:"Enable development mode" default:"false" name:"dev-mode" env:"OBOT_DEV_MODE"`
+	DevUIPort            int    `usage:"The port on localhost running the dev instance of the UI" default:"5174"`
+	UserUIPort           int    `usage:"The port on localhost running the user production instance of the UI" env:"OBOT_SERVER_USER_UI_PORT"`
+	ElectionFile         string `usage:"Use this file for leader election instead of database leases"`
+	ForceEnableBootstrap bool   `usage:"Enables the bootstrap user even if other admin users have been created" default:"false"`
+	StaticDir            string `usage:"The directory to serve static files from"`
+	MetricsBearerToken   string `usage:"Bearer token for metrics endpoint authentication" name:"metrics-bearer-token"`
 
 	DefaultMCPCatalogPath                string `usage:"The path to the default MCP catalog (accessible to all users)" default:""`
 	DefaultSystemMCPCatalogPath          string `usage:"The path to the default System MCP catalog" default:""`
@@ -115,9 +116,8 @@ type Config struct {
 	LLMAuditLogRetentionDays             int    `usage:"Number of days to retain LLM audit logs (0 to disable cleanup)." default:"90"`
 	DisableLLMAuditLog                   bool   `usage:"Disable LLM gateway audit logging" default:"false"`
 	EnableAgents                         *bool  `usage:"Enable Obot Agent features. When unset, agents are disabled for new deployments but grandfathered in for deployments that already have agents. Explicitly set to true to force-enable, or false to force-disable, regardless of grandfathering." env:"OBOT_ENABLE_AGENTS"`
-	MCPOAuthClientExpiration             string `usage:"The expiration time in dynamically registered MCP OAuth clients, must be a valid duration string and may include days, hours, or minutes" default:"30d"`
 	MCPServerSearchImage                 string `usage:"Container image for the obot MCP server" default:"ghcr.io/obot-platform/obot-mcp-server:v0.2.0"`
-	NanobotAgentImage                    string `usage:"Container image for the Nanobot agent MCP server" default:"ghcr.io/obot-platform/nanobot-agent:v0.0.88"`
+	NanobotAgentImage                    string `usage:"Container image for the Nanobot agent MCP server" default:"ghcr.io/obot-platform/nanobot-agent:v0.0.89"`
 	MCPNetworkPolicyProviderChartRepo    string `usage:"Helm repository URL for the network policy provider chart"`
 	MCPNetworkPolicyProviderChartName    string `usage:"Helm chart name for the network policy provider chart"`
 	MCPNetworkPolicyProviderChartVersion string `usage:"Helm chart version for the network policy provider chart"`
@@ -140,32 +140,39 @@ type Config struct {
 
 	GatewayConfig
 	EncryptionConfig
-	MetricsAuthConfig
 	AuditConfig
 	RateLimiterConfig
 	MCPConfig
 	LicenseConfig
-	services.Config
+	storageservices.Config
 }
 
 type Services struct {
 	EncryptionConfig      *encryptionconfig.EncryptionConfiguration
-	ProviderRegistryPaths []string
-
-	ServerURL             string
-	InternalServerURL     string
-	DevUIPort             int
-	UserUIPort            int
-	HTTPListenPort        int
 	StorageClient         storage.Client
 	Router                *router.Router
 	PersistentTokenServer *persistent.TokenService
 	APIServer             *server.Server
+	GatewayClient         *client.Client
+	ProxyManager          *proxy.Manager
+	ProviderDispatcher    *dispatcher.Dispatcher
+	Otel                  *otel.Otel
+	AuditLogger           audit.Logger
+	DSN                   string
+	ServerURL             string
+	MCPSessionManager     *mcp.SessionManager
+	OAuthServerConfig     handlers.OAuthAuthorizationServerConfig
 
+	// Global token storage client for MCP OAuth
+	MCPOAuthTokenStorage         mcp.GlobalTokenStore
+	MCPSecretBindingAllowedLabel string
+	RegistryNoAuth               bool
+
+	PostgresDSN                 string
+	ProviderRegistryPaths       []string
+	DevUIPort                   int
+	UserUIPort                  int
 	GatewayServer               *gserver.Server
-	GatewayClient               *client.Client
-	ProxyManager                *proxy.Manager
-	ProviderDispatcher          *dispatcher.Dispatcher
 	Bootstrapper                *bootstrap.Bootstrap
 	AuthEnabled                 bool
 	DefaultMCPCatalogPath       string
@@ -173,10 +180,6 @@ type Services struct {
 	DefaultSkillRepoURL         string
 	DefaultSkillRepoRef         string
 	ModelInfoSourceURL          string
-
-	Otel        *Otel
-	AuditLogger audit.Logger
-	PostgresDSN string
 
 	// Used for indexed lookups of access control rules.
 	AccessControlRuleHelper *accesscontrolrule.Helper
@@ -187,23 +190,12 @@ type Services struct {
 	// Used for indexed lookups of skill access rules.
 	SkillAccessRuleHelper *skillaccessrule.Helper
 
-	WebhookHelper *mcp.WebhookHelper
-
-	MCPSessionManager *mcp.SessionManager
-
-	// Global token storage client for MCP OAuth
-	MCPOAuthTokenStorage mcp.GlobalTokenStore
-
-	// OAuth configuration
-	OAuthServerConfig              handlers.OAuthAuthorizationServerConfig
 	MCPOAuthClientSecretExpiration time.Duration
 
 	// LocalK8sClient is a kclient for the local Kubernetes cluster — the
 	// cluster the obot pod runs in, where source Secrets for
 	// secretBindings live. Nil on the docker backend.
-	LocalK8sClient kclient.Client
-	// LocalK8sConfig is the Kubernetes config for the MCP runtime cluster.
-	LocalK8sConfig            *rest.Config
+	LocalK8sClient            kclient.Client
 	LocalRouter               *router.Router
 	MCPServerNamespace        string
 	ServiceAccountIssuerURL   string
@@ -229,11 +221,8 @@ type Services struct {
 	DisableUpdateCheck                   bool
 	HideK8sDetails                       bool
 	MCPRuntimeBackend                    string
-	MCPSecretBindingAllowedLabel         string
 	MCPImagePullSecrets                  []string
-	MCPRemoteShimBaseImage               string
 	MCPHTTPWebhookBaseImage              string
-	RegistryNoAuth                       bool
 	MessagePoliciesEnabled               bool
 	EnableAgents                         *bool
 	MCPNetworkPolicyEnabled              bool
@@ -383,7 +372,7 @@ func parsePodSchedulingSettingsFromHelm(opts mcp.Options) (*v1.K8sSettingsSpec, 
 
 func New(ctx context.Context, config Config) (*Services, error) {
 	// Setup Otel first so other services can use it.
-	otel, err := newOtel(ctx)
+	otel, err := otel.New(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to bootstrap OTel SDK: %w", err)
 	}
@@ -433,7 +422,11 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	// Sanitize DSN for logging (remove credentials)
 	sanitizedDSN := logutil.SanitizeDSN(config.DSN)
 	pkgLog.Infof("Connecting to database: dsn=%s", sanitizedDSN)
-	storageClient, restConfig, dbAccess, storageServices, err := storage.Start(ctx, config.Config)
+	storageClient, restConfig, dbAccess, storageServices, err := storage.Start(ctx, storageservices.Config{
+		StorageListenPort: config.StorageListenPort,
+		StorageToken:      config.StorageToken,
+		DSN:               config.DSN,
+	})
 	if err != nil {
 		pkgLog.Errorf("Failed to connect to database: dsn=%s error=%v", sanitizedDSN, err)
 		return nil, err
@@ -486,11 +479,24 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		config.UIHostname = "https://" + config.UIHostname
 	}
 
+	r, err := nah.NewRouter("obot-controller", &nah.Options{
+		RESTConfig:     restConfig,
+		Scheme:         scheme.Scheme,
+		ElectionConfig: electionConfig,
+		HealthzPort:    -1,
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	gatewayClient := client.New(
 		ctx,
 		gatewayDB,
 		storageClient,
 		encryptionConfig,
+		func(ctx context.Context, mcpID string) error {
+			return r.Backend().Trigger(ctx, v1.SchemeGroupVersion.WithKind("MCPServer"), mcpID, 0)
+		},
 		config.AuthOwnerEmails,
 		config.AuthAdminEmails,
 		time.Duration(config.MCPAuditLogPersistIntervalSeconds)*time.Second,
@@ -563,19 +569,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to setup persistent token service: %w", err)
 	}
-
-	r, err := nah.NewRouter("obot-controller", &nah.Options{
-		RESTConfig:     restConfig,
-		Scheme:         scheme.Scheme,
-		ElectionConfig: electionConfig,
-		HealthzPort:    -1,
-	})
-	if err != nil {
-		return nil, err
-	}
-	gatewayClient.SetMCPOAuthTokenTrigger(func(ctx context.Context, mcpID string) error {
-		return r.Backend().Trigger(ctx, v1.SchemeGroupVersion.WithKind("MCPServer"), mcpID, 0)
-	})
 
 	// Set up MCPWebhookValidation indexer
 	mcpWebhookValidationGVK, err := r.Backend().GroupVersionKindFor(&v1.MCPWebhookValidation{})
@@ -664,7 +657,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 	webhookHelper := mcp.NewWebhookHelper(mcpWebhookValidationInformer.GetIndexer(), config.Hostname)
 
-	mcpSessionManager, err := mcp.NewSessionManager(ctx, config.EnableAuthentication, persistentTokenServer, config.Hostname, config.HTTPListenPort, mcp.Options(config.MCPConfig), webhookHelper, localK8sConfig, apiLocalK8sClient, localCacheClient, storageClient)
+	mcpSessionManager, err := mcp.NewSessionManager(ctx, config.EnableAuthentication, persistentTokenServer, config.Hostname, config.HTTPListenPort, mcp.Options(config.MCPConfig), webhookHelper, localK8sConfig, apiLocalK8sClient, localCacheClient, storageClient, gatewayClient, config.ServiceNamespace)
 	if err != nil {
 		return nil, err
 	}
@@ -934,25 +927,21 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		ClientIDMetadataDocumentSupported: true,
 	}
 
+	authorizer := authz.NewAuthorizer(gatewayClient, r.Backend(), storageClient, config.DevMode, acrHelper, skillAccessRuleHelper, registryNoAuth)
 	// For now, always auto-migrate the gateway database
 	svcs := &Services{
 		EncryptionConfig:      encryptionConfig,
 		ServerURL:             config.Hostname,
-		InternalServerURL:     fmt.Sprintf("http://localhost:%d", config.HTTPListenPort),
-		DevUIPort:             devPort,
-		UserUIPort:            config.UserUIPort,
-		HTTPListenPort:        config.HTTPListenPort,
-		ProviderRegistryPaths: config.ProviderRegistries,
 		StorageClient:         storageClient,
 		Router:                r,
-		ObotNamespace:         config.ServiceNamespace,
+		PersistentTokenServer: persistentTokenServer,
 		APIServer: server.NewServer(
 			storageClient,
 			gatewayClient,
 			apiLocalK8sClient,
 			config.ServiceNamespace,
 			authn.NewAuthenticator(authenticators),
-			authz.NewAuthorizer(gatewayClient, r.Backend(), storageClient, config.DevMode, acrHelper, skillAccessRuleHelper, registryNoAuth),
+			authorizer,
 			proxyManager,
 			auditLogger,
 			rateLimiter,
@@ -961,33 +950,36 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			registryNoAuth,
 			licenseProvider,
 		),
-		PersistentTokenServer: persistentTokenServer,
-		GatewayServer:         gatewayServer,
-		GatewayClient:         gatewayClient,
-		AuthEnabled:           config.EnableAuthentication,
-		ProxyManager:          proxyManager,
-		ProviderDispatcher:    providerDispatcher,
-		Bootstrapper:          bootstrapper,
-
-		Otel:        otel,
-		AuditLogger: auditLogger,
-		PostgresDSN: postgresDSN,
+		GatewayClient:                gatewayClient,
+		ProxyManager:                 proxyManager,
+		ProviderDispatcher:           providerDispatcher,
+		Otel:                         otel,
+		AuditLogger:                  auditLogger,
+		MCPSessionManager:            mcpSessionManager,
+		OAuthServerConfig:            oauthServerConfig,
+		MCPOAuthTokenStorage:         mcpOAuthTokenStorage,
+		MCPSecretBindingAllowedLabel: secretBindingAllowedLabel,
+		RegistryNoAuth:               registryNoAuth,
+		DSN:                          config.DSN,
+		PostgresDSN:                  postgresDSN,
+		ObotNamespace:                config.ServiceNamespace,
+		DevUIPort:                    devPort,
+		UserUIPort:                   config.UserUIPort,
+		ProviderRegistryPaths:        config.ProviderRegistries,
+		GatewayServer:                gatewayServer,
+		AuthEnabled:                  config.EnableAuthentication,
+		Bootstrapper:                 bootstrapper,
 
 		DefaultMCPCatalogPath:          config.DefaultMCPCatalogPath,
 		DefaultSystemMCPCatalogPath:    config.DefaultSystemMCPCatalogPath,
 		DefaultSkillRepoURL:            config.DefaultSkillRepoURL,
 		DefaultSkillRepoRef:            config.DefaultSkillRepoRef,
 		ModelInfoSourceURL:             config.ModelInfoSourceURL,
-		MCPSessionManager:              mcpSessionManager,
-		MCPOAuthTokenStorage:           mcpOAuthTokenStorage,
 		MCPOAuthClientSecretExpiration: oauthClientExpiration,
-		OAuthServerConfig:              oauthServerConfig,
 		AccessControlRuleHelper:        acrHelper,
 		ModelAccessPolicyHelper:        mapHelper,
 
 		SkillAccessRuleHelper:                skillAccessRuleHelper,
-		WebhookHelper:                        webhookHelper,
-		LocalK8sConfig:                       localK8sConfig,
 		LocalK8sClient:                       apiLocalK8sClient,
 		LocalRouter:                          localRouter,
 		MCPServerNamespace:                   config.MCPNamespace,
@@ -1003,14 +995,11 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		DisableUpdateCheck:                   config.DisableUpdateCheck,
 		HideK8sDetails:                       config.HideK8sDetails,
 		MCPRuntimeBackend:                    config.MCPRuntimeBackend,
-		MCPSecretBindingAllowedLabel:         secretBindingAllowedLabel,
 		MCPImagePullSecrets:                  config.MCPImagePullSecrets,
-		MCPRemoteShimBaseImage:               config.MCPRemoteShimBaseImage,
 		MCPHTTPWebhookBaseImage:              config.MCPHTTPWebhookBaseImage,
 		SingleUserIdleServerShutdownInterval: time.Duration(config.SingleUserIdleServerShutdownHours) * time.Hour,
 		MultiUserIdleServerShutdownInterval:  time.Duration(config.MultiUserIdleServerShutdownHours) * time.Hour,
 		AgentIdleServerShutdownInterval:      time.Duration(config.IdleAgentShutdownHours) * time.Hour,
-		RegistryNoAuth:                       registryNoAuth,
 		MessagePoliciesEnabled:               config.EnableMessagePolicies,
 		EnableAgents:                         config.EnableAgents,
 		MCPNetworkPolicyEnabled:              mcpNetworkPolicyEnabled,

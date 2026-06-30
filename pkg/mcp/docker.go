@@ -12,7 +12,6 @@ import (
 	"path"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -36,22 +35,20 @@ import (
 var containerFileNameSanitizer = regexp.MustCompile(`[^a-zA-Z0-9._-]+`)
 
 type dockerBackend struct {
-	client                        *client.Client
-	containerEnv                  bool
-	network                       string
-	hostBaseURL                   string
-	hostBaseURLWithPort           string
-	containerizedBaseImage        string
-	remoteShimBaseImage           string
-	auditLogsBatchSize            int
-	auditLogsFlushIntervalSeconds int
-	authEnabled                   bool
-	deploymentCacheMu             sync.RWMutex
-	deploymentCache               map[string]*dockerDeploymentCacheEntry
-	deploymentCacheEventHealthy   atomic.Bool
-	ensureGroup                   singleflight.Group
-	fileSyncMu                    sync.RWMutex
-	syncedFilesHash               map[string]string
+	client                      *client.Client
+	containerEnv                bool
+	network                     string
+	hostBaseURL                 string
+	hostBaseURLWithPort         string
+	containerizedBaseImage      string
+	compositeBaseImage          string
+	authEnabled                 bool
+	deploymentCacheMu           sync.RWMutex
+	deploymentCache             map[string]*dockerDeploymentCacheEntry
+	deploymentCacheEventHealthy atomic.Bool
+	ensureGroup                 singleflight.Group
+	fileSyncMu                  sync.RWMutex
+	syncedFilesHash             map[string]string
 }
 
 type dockerDeploymentCacheEntry struct {
@@ -66,36 +63,22 @@ func newDockerBackend(ctx context.Context, authEnabled bool, exposedPort int, op
 		return nil, fmt.Errorf("failed to create Docker client: %w", err)
 	}
 
-	var (
-		host         string
-		containerEnv = os.Getenv("OBOT_CONTAINER_ENV") == "true"
-		network      = "bridge"
-	)
-	if containerEnv {
-		network, host, err = detectContainerCurrentNetworkIP(ctx, cli)
-		if err != nil {
-			return nil, fmt.Errorf("failed to detect current IP: %w", err)
-		}
-	} else {
-		host, err = detectCurrentLocalIP()
-		if err != nil {
-			return nil, fmt.Errorf("failed to detect current IP: %w", err)
-		}
+	containerEnv, network, host, err := detectDockerBackendNetwork(ctx, cli)
+	if err != nil {
+		return nil, err
 	}
 
 	d := &dockerBackend{
-		client:                        cli,
-		containerEnv:                  containerEnv,
-		network:                       network,
-		hostBaseURL:                   "http://" + host,
-		hostBaseURLWithPort:           "http://" + fmt.Sprintf("%s:%d", host, exposedPort),
-		containerizedBaseImage:        opts.MCPBaseImage,
-		remoteShimBaseImage:           opts.MCPRemoteShimBaseImage,
-		auditLogsBatchSize:            opts.MCPAuditLogsPersistBatchSize,
-		auditLogsFlushIntervalSeconds: opts.MCPAuditLogPersistIntervalSeconds,
-		authEnabled:                   authEnabled,
-		deploymentCache:               map[string]*dockerDeploymentCacheEntry{},
-		syncedFilesHash:               map[string]string{},
+		client:                 cli,
+		containerEnv:           containerEnv,
+		network:                network,
+		hostBaseURL:            "http://" + host,
+		hostBaseURLWithPort:    "http://" + fmt.Sprintf("%s:%d", host, exposedPort),
+		containerizedBaseImage: opts.MCPBaseImage,
+		compositeBaseImage:     opts.MCPRemoteShimBaseImage,
+		authEnabled:            authEnabled,
+		deploymentCache:        map[string]*dockerDeploymentCacheEntry{},
+		syncedFilesHash:        map[string]string{},
 	}
 
 	if err = d.cleanupDeprecatedContainers(ctx); err != nil {
@@ -105,10 +88,32 @@ func newDockerBackend(ctx context.Context, authEnabled bool, exposedPort int, op
 	return d, nil
 }
 
-// detectContainerCurrentNetworkIP detects the Docker network and IP of the current container if running inside one.
-// Returns empty string if not running in a container or if detection fails.
+func detectDockerBackendNetwork(ctx context.Context, cli *client.Client) (bool, string, string, error) {
+	return dockerBackendNetworkConfig(
+		func() (string, string, error) {
+			return detectContainerCurrentNetworkIP(ctx, cli)
+		},
+		detectCurrentLocalIP,
+	)
+}
+
+func dockerBackendNetworkConfig(detectContainer func() (string, string, error), detectLocal func() (string, error)) (bool, string, string, error) {
+	const defaultNetwork = "bridge"
+
+	if network, host, err := detectContainer(); err == nil && host != "" {
+		return true, network, host, nil
+	}
+
+	host, err := detectLocal()
+	if err != nil {
+		return false, "", "", fmt.Errorf("failed to detect current IP: %w", err)
+	}
+
+	return false, defaultNetwork, host, nil
+}
+
+// detectContainerCurrentNetworkIP detects the Docker network and IP of the current container.
 func detectContainerCurrentNetworkIP(ctx context.Context, cli *client.Client) (string, string, error) {
-	// Read container ID from cgroup file
 	hostname, err := os.Hostname()
 	if err != nil {
 		return "", "", fmt.Errorf("failed to get hostname: %w", err)
@@ -146,6 +151,17 @@ func detectCurrentLocalIP() (string, error) {
 	return ip, nil
 }
 
+func (d *dockerBackend) remoteConfig(globalConfig RemoteMCPURLValidationConfig) (RemoteMCPURLValidationConfig, []string) {
+	if d.containerEnv {
+		// If Obot is running in a container, then Obot communicates with the MCP containers via the Docker network IPs.
+		globalConfig.AllowPrivateIPMCP = true
+	} else {
+		// If Obot is not running in a container, then Obot communicates with the MCP containers via localhost.
+		globalConfig.AllowLocalhostMCP = true
+	}
+	return globalConfig, []string{strings.TrimPrefix(d.hostBaseURLWithPort, "http://")}
+}
+
 func (d *dockerBackend) transformObotHostname(rawURL string) string {
 	if d.hostBaseURLWithPort == "" || rawURL == "" {
 		return rawURL
@@ -165,11 +181,6 @@ func (d *dockerBackend) transformObotHostname(rawURL string) string {
 	parsed.Host = base.Host
 	parsed.User = nil
 	return parsed.String()
-}
-
-func (d *dockerBackend) transformCollectorEndpoint(rawURL string) string {
-	host := strings.TrimPrefix(d.hostBaseURL, "http://")
-	return rewriteLocalhostURLHost(rawURL, host)
 }
 
 // cleanupDeprecatedContainers removes containers with old ID and no config hash label.
@@ -201,9 +212,14 @@ func (d *dockerBackend) cleanupDeprecatedContainers(ctx context.Context) error {
 	return nil
 }
 
-// deployServer will deploy the underlying container for the server. It will not deploy any shims or webhooks.
+// deployServer will deploy the underlying container for the server.
 // This is only to give users the opportunity to view logs and debug the server they are trying to deploy.
-func (d *dockerBackend) deployServer(ctx context.Context, server ServerConfig, _ []Webhook) error {
+func (d *dockerBackend) deployServer(ctx context.Context, server ServerConfig) error {
+	if server.Runtime == otypes.RuntimeRemote {
+		return nil
+	}
+	server = d.transformServerConfig(server)
+
 	configHash := serverID(server)
 	// Check if container already exists
 	existing, err := d.getContainer(ctx, server.MCPServerName)
@@ -212,12 +228,18 @@ func (d *dockerBackend) deployServer(ctx context.Context, server ServerConfig, _
 		return nil
 	}
 
-	_, _, err = d.createAndStartContainer(ctx, server, server.MCPServerName, configHash, fileEnvKeysHash(server.Files), nil)
+	_, _, err = d.createAndStartContainer(ctx, server, server.MCPServerName, configHash, fileEnvKeysHash(server.Files))
 	return err
 }
 
-func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server ServerConfig, webhooks []Webhook) (ServerConfig, error) {
-	serverConfigHash := utils.Digest(map[string]any{"server": server, "webhooks": webhooks})
+func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server ServerConfig) (ServerConfig, error) {
+	server = d.transformServerConfig(server)
+
+	if server.Runtime == otypes.RuntimeRemote {
+		return server, nil
+	}
+
+	serverConfigHash := utils.Digest(server)
 	if serverConfig, ok, err := d.cachedDeployment(ctx, server.MCPServerName, serverConfigHash); err != nil {
 		return ServerConfig{}, err
 	} else if ok {
@@ -225,7 +247,7 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 	}
 
 	result, err, _ := d.ensureGroup.Do(server.MCPServerName+"/"+serverConfigHash, func() (any, error) {
-		return d.ensureServerDeploymentSlow(ctx, server, webhooks, serverConfigHash)
+		return d.ensureServerDeploymentSlow(ctx, server, serverConfigHash)
 	})
 	if err != nil {
 		return ServerConfig{}, err
@@ -233,62 +255,49 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 	return result.(ServerConfig), nil
 }
 
-func (d *dockerBackend) ensureServerDeploymentSlow(ctx context.Context, server ServerConfig, webhooks []Webhook, serverConfigHash string) (ServerConfig, error) {
+func (d *dockerBackend) transformServerConfig(server ServerConfig) ServerConfig {
+	server.AuthorizeEndpoint = d.transformObotHostname(server.AuthorizeEndpoint)
+	server.TokenExchangeEndpoint = d.transformObotHostname(server.TokenExchangeEndpoint)
+	server.JWKSEndpoint = d.transformObotHostname(server.JWKSEndpoint)
+
+	for i, component := range server.Components {
+		component.URL = d.transformObotHostname(component.URL)
+		server.Components[i] = component
+	}
+
+	for i, webhook := range server.Webhooks {
+		webhook.URL = d.transformObotHostname(webhook.URL)
+		server.Webhooks[i] = webhook
+	}
+
+	return server
+}
+
+func (d *dockerBackend) ensureServerDeploymentSlow(ctx context.Context, server ServerConfig, serverConfigHash string) (ServerConfig, error) {
 	if serverConfig, ok, err := d.cachedDeployment(ctx, server.MCPServerName, serverConfigHash); err != nil {
 		return ServerConfig{}, err
 	} else if ok {
 		return serverConfig, nil
 	}
 
-	expectedContainers := make(map[string]string, 2)
+	expectedContainers := make(map[string]string, 1)
 	mcpServerName := server.MCPServerName
 
-	var err error
-	if server.Runtime != otypes.RuntimeRemote {
-		// For non-remote runtimes, we deploy the real MCP server first.
-		server, err = d.ensureDeployment(ctx, server, mcpServerName, d.containerEnv || server.NeedsShim(), nil)
-		if err != nil {
-			return ServerConfig{}, err
-		}
-		expectedContainers[server.MCPServerName] = server.Scope
-
-		// If this is a server for a nanobot agent or a provider, return the config pointing to the real server without deploying the shim.
-		if !server.NeedsShim() {
-			d.setDeploymentCache(mcpServerName, dockerDeploymentCacheEntry{
-				hash:         serverConfigHash,
-				serverConfig: server,
-				containerIDs: expectedContainers,
-			})
-			return server, nil
-		}
-
-		server.MCPServerName += "-shim"
-		server.HealthzPath = "/healthz"
-	} else {
-		// For remote runtime servers, direct has no effect since there's no shim.
-		server.URL = strings.Replace(server.URL, "http://localhost", d.hostBaseURL, 1)
+	server, err := d.ensureDeployment(ctx, server, mcpServerName, d.containerEnv)
+	if err != nil {
+		return ServerConfig{}, err
 	}
-
-	server, err = d.ensureDeployment(ctx, server, mcpServerName, d.containerEnv, webhooks)
 	expectedContainers[server.MCPServerName] = server.Scope
-	// Ensure the name is the same as what it was when we started.
-	server.MCPServerName = mcpServerName
-	if err == nil {
-		d.setDeploymentCache(mcpServerName, dockerDeploymentCacheEntry{
-			hash:         serverConfigHash,
-			serverConfig: server,
-			containerIDs: expectedContainers,
-		})
-	}
-	return server, err
+
+	d.setDeploymentCache(mcpServerName, dockerDeploymentCacheEntry{
+		hash:         serverConfigHash,
+		serverConfig: server,
+		containerIDs: expectedContainers,
+	})
+	return server, nil
 }
 
-func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfig, mcpServerName string, containerEnv bool, webhooks []Webhook) (ServerConfig, error) {
-	server.TokenExchangeEndpoint = d.transformObotHostname(server.TokenExchangeEndpoint)
-	server.AuthorizeEndpoint = d.transformObotHostname(server.AuthorizeEndpoint)
-	server.AuditLogEndpoint = d.transformObotHostname(server.AuditLogEndpoint)
-	server.JWKSEndpoint = d.transformObotHostname(server.JWKSEndpoint)
-
+func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfig, mcpServerName string, containerEnv bool) (ServerConfig, error) {
 	if !d.authEnabled {
 		server.Issuer = ""
 		server.Audiences = nil
@@ -296,22 +305,8 @@ func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfi
 		server.TokenExchangeClientSecret = ""
 	}
 
-	for i, component := range server.Components {
-		component.URL = d.transformObotHostname(component.URL)
-		server.Components[i] = component
-	}
-
-	for i, webhook := range webhooks {
-		webhook.URL = d.transformObotHostname(webhook.URL)
-		webhooks[i] = webhook
-	}
-
 	configHash := serverID(server)
 	desiredFileEnvKeysHash := fileEnvKeysHash(server.Files)
-	if len(webhooks) > 0 {
-		// Include webhooks in the config hash so that changes to webhooks trigger a redeployment
-		configHash += utils.Digest(webhooks)
-	}
 
 	// Check if container already exists
 	existing, err := d.getContainer(ctx, server.MCPServerName)
@@ -385,37 +380,18 @@ func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfi
 	}
 
 	// Create new container
-	return d.createAndStartAndWaitForContainer(ctx, server, mcpServerName, configHash, desiredFileEnvKeysHash, containerEnv, webhooks)
+	return d.createAndStartAndWaitForContainer(ctx, server, mcpServerName, configHash, desiredFileEnvKeysHash, containerEnv)
 }
 
 func (d *dockerBackend) deploymentImage(server ServerConfig) string {
 	switch server.Runtime {
 	case otypes.RuntimeUVX, otypes.RuntimeNPX:
 		return d.containerizedBaseImage
-	case otypes.RuntimeRemote, otypes.RuntimeComposite:
-		return d.remoteShimBaseImage
+	case otypes.RuntimeComposite:
+		return d.compositeBaseImage
 	default:
 		return ""
 	}
-}
-
-func (d *dockerBackend) transformConfig(ctx context.Context, serverConfig ServerConfig) (*ServerConfig, error) {
-	containerPort := defaultContainerPort
-	containerName := serverConfig.MCPServerName
-	if serverConfig.Runtime != otypes.RuntimeRemote && serverConfig.NeedsShim() && !strings.HasSuffix(containerName, "-shim") {
-		containerName += "-shim"
-	} else if serverConfig.Runtime == otypes.RuntimeContainerized && !serverConfig.NeedsShim() {
-		containerPort = serverConfig.ContainerPort
-	}
-
-	existing, err := d.getContainer(ctx, containerName)
-	if err != nil || existing == nil || existing.State != "running" {
-		// Container doesn't exist or isn't running, config can't be transformed
-		return nil, nil
-	}
-
-	transformed, err := d.buildServerConfig(serverConfig, existing, containerPort, d.containerEnv)
-	return &transformed, err
 }
 
 func (d *dockerBackend) streamServerLogs(ctx context.Context, id string) (io.ReadCloser, error) {
@@ -609,10 +585,10 @@ func (d *dockerBackend) shutdownServer(ctx context.Context, id string, hardShutd
 
 	c, err = d.getContainer(ctx, id)
 	if err != nil && !cerrdefs.IsNotFound(err) {
-		return fmt.Errorf("failed to check for shim container %s for shutdown: %w", id, err)
+		return fmt.Errorf("failed to check for legacy shim container %s for shutdown: %w", id, err)
 	} else if err == nil {
 		if err = d.removeObjectsForContainer(ctx, c, id, hardShutdown); err != nil {
-			return fmt.Errorf("failed to remove objects for shim container %s: %w", id, err)
+			return fmt.Errorf("failed to remove objects for legacy shim container %s: %w", id, err)
 		}
 	}
 
@@ -893,25 +869,20 @@ func (d *dockerBackend) buildServerConfig(server ServerConfig, c *container.Summ
 		OwnerUserID:               server.OwnerUserID,
 		Runtime:                   otypes.RuntimeRemote,
 		Audiences:                 server.Audiences,
-		Issuer:                    server.Issuer,
-		JWKSEndpoint:              server.JWKSEndpoint,
-		TokenExchangeEndpoint:     server.TokenExchangeEndpoint,
-		AuthorizeEndpoint:         server.AuthorizeEndpoint,
 		TokenExchangeClientID:     server.TokenExchangeClientID,
 		TokenExchangeClientSecret: server.TokenExchangeClientSecret,
-		AuditLogEndpoint:          server.AuditLogEndpoint,
-		AuditLogToken:             server.AuditLogToken,
 		AuditLogMetadata:          server.AuditLogMetadata,
 		ContainerPath:             server.ContainerPath,
 		NanobotAgentName:          server.NanobotAgentName,
 		PassthroughHeaderNames:    server.PassthroughHeaderNames,
 		PassthroughHeaderValues:   server.PassthroughHeaderValues,
 		StartupTimeout:            server.StartupTimeout,
+		Webhooks:                  server.Webhooks,
 	}, nil
 }
 
-func (d *dockerBackend) createAndStartAndWaitForContainer(ctx context.Context, server ServerConfig, mcpServerName, configHash, fileEnvKeysHash string, containerEnv bool, webhooks []Webhook) (retConfig ServerConfig, retErr error) {
-	containerID, containerPort, err := d.createAndStartContainer(ctx, server, mcpServerName, configHash, fileEnvKeysHash, webhooks)
+func (d *dockerBackend) createAndStartAndWaitForContainer(ctx context.Context, server ServerConfig, mcpServerName, configHash, fileEnvKeysHash string, containerEnv bool) (retConfig ServerConfig, retErr error) {
+	containerID, containerPort, err := d.createAndStartContainer(ctx, server, mcpServerName, configHash, fileEnvKeysHash)
 	if err != nil {
 		return ServerConfig{}, err
 	}
@@ -933,7 +904,7 @@ func (d *dockerBackend) createAndStartAndWaitForContainer(ctx context.Context, s
 	return d.buildServerConfig(server, c, containerPort, containerEnv)
 }
 
-func (d *dockerBackend) createAndStartContainer(ctx context.Context, server ServerConfig, mcpServerName, configHash, fileEnvKeysHash string, webhooks []Webhook) (string, int, error) {
+func (d *dockerBackend) createAndStartContainer(ctx context.Context, server ServerConfig, mcpServerName, configHash, fileEnvKeysHash string) (string, int, error) {
 	var (
 		volumeMounts  []mount.Mount
 		entrypoint    []string
@@ -993,53 +964,16 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 
 	// Configure based on runtime
 	switch server.Runtime {
-	case otypes.RuntimeUVX, otypes.RuntimeNPX, otypes.RuntimeRemote, otypes.RuntimeComposite:
+	case otypes.RuntimeUVX, otypes.RuntimeNPX, otypes.RuntimeComposite:
 		// Use base image with nanobot
 		image = d.containerizedBaseImage
-		if server.Runtime == otypes.RuntimeRemote || server.Runtime == otypes.RuntimeComposite {
-			image = d.remoteShimBaseImage
-			var authWebhookURL string
-			if server.Issuer != "" {
-				// If the issuer is not set then authentication is not on.
-				authWebhookURL = d.transformObotHostname(server.Issuer + "/api/api-keys/auth")
-			}
-			// Set nanobot environment variables
-			env = []string{
-				"NANOBOT_RUN_TRUSTED_ISSUER=" + server.Issuer,
-				"NANOBOT_RUN_OAUTH_JWKSURL=" + server.JWKSEndpoint,
-				"NANOBOT_RUN_TRUSTED_AUDIENCES=" + strings.Join(server.Audiences, ","),
-				"NANOBOT_RUN_OAUTH_CLIENT_ID=" + server.TokenExchangeClientID,
-				"NANOBOT_RUN_OAUTH_CLIENT_SECRET=" + server.TokenExchangeClientSecret,
-				"NANOBOT_RUN_OAUTH_TOKEN_URL=" + server.TokenExchangeEndpoint,
-				"NANOBOT_RUN_OAUTH_AUTHORIZE_URL=" + server.AuthorizeEndpoint,
-				"NANOBOT_RUN_OAUTH_SCOPES=profile",
-				"NANOBOT_RUN_FORCE_FETCH_TOOL_LIST=true",
-				"NANOBOT_DISABLE_HEALTH_CHECKER=true",
-				"NANOBOT_RUN_APIKEY_AUTH_WEBHOOK_URL=" + authWebhookURL,
-				"NANOBOT_RUN_MCPSERVER_ID=" + strings.TrimSuffix(server.MCPServerName, "-shim"),
-			}
-
-			if server.Runtime == otypes.RuntimeRemote {
-				env = append(env, []string{
-					"NANOBOT_RUN_AUDIT_LOG_TOKEN=" + server.AuditLogToken,
-					"NANOBOT_RUN_AUDIT_LOG_SEND_URL=" + server.AuditLogEndpoint,
-					"NANOBOT_RUN_AUDIT_LOG_BATCH_SIZE=" + strconv.Itoa(d.auditLogsBatchSize),
-					"NANOBOT_RUN_AUDIT_LOG_FLUSH_INTERVAL_SECONDS=" + strconv.Itoa(d.auditLogsFlushIntervalSeconds),
-					"NANOBOT_RUN_AUDIT_LOG_METADATA=" + server.AuditLogMetadata,
-					"NANOBOT_RUN_BLOCK_LINK_LOCAL=true",
-					"NANOBOT_RUN_BLOCK_LOOPBACK=true",
-					// Explicitly not blocking private IP because the shim will communicate with the MCP server via the MCP server's private IP.
-				}...)
-
-				for key, value := range nanobotOTELEnv("nanobot-shim", d.transformCollectorEndpoint) {
-					env = append(env, key+"="+string(value))
-				}
-			}
+		if server.Runtime == otypes.RuntimeComposite {
+			image = d.compositeBaseImage
 		}
 
 		containerPort = defaultContainerPort
 
-		nanobotVolumeName, err := d.prepareMCPServerNanobotConfig(ctx, server, fileEnvVars, webhooks)
+		nanobotVolumeName, err := d.prepareMCPServerNanobotConfig(ctx, server, fileEnvVars)
 		if err != nil {
 			return "", 0, fmt.Errorf("failed to prepare MCP server nanobot config: %w", err)
 		}
@@ -1055,6 +989,9 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 
 		// Set nanobot environment variables
 		env = append(env, "NANOBOT_RUN_HEALTHZ_PATH=/healthz", "OBOT_KUBERNETES_MODE=true")
+		if server.Runtime == otypes.RuntimeComposite {
+			env = append(env, d.compositeRuntimeEnv(server)...)
+		}
 
 	case otypes.RuntimeContainerized:
 		// Use specified container image or base image
@@ -1114,7 +1051,7 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 		config.WorkingDir = nanobotWorkspaceMountPath
 		config.Env = append(config.Env, "NANOBOT_RUN_HEALTHZ_PATH=/healthz", "OBOT_KUBERNETES_MODE=true")
 
-		for key, value := range nanobotOTELEnv("nanobot-agent", d.transformCollectorEndpoint) {
+		for key, value := range OTELEnv("nanobot-agent", d.hostBaseURL) {
 			config.Env = append(config.Env, key+"="+string(value))
 		}
 	}
@@ -1179,6 +1116,28 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 	}
 
 	return containerID, containerPort, nil
+}
+
+func (d *dockerBackend) compositeRuntimeEnv(server ServerConfig) []string {
+	var authWebhookURL string
+	if server.Issuer != "" {
+		authWebhookURL = d.transformObotHostname(server.Issuer + "/api/api-keys/auth")
+	}
+
+	return []string{
+		"NANOBOT_RUN_TRUSTED_ISSUER=" + server.Issuer,
+		"NANOBOT_RUN_TRUSTED_AUDIENCES=" + strings.Join(server.Audiences, ","),
+		"NANOBOT_RUN_OAUTH_JWKSURL=" + server.JWKSEndpoint,
+		"NANOBOT_RUN_OAUTH_AUTHORIZE_URL=" + server.AuthorizeEndpoint,
+		"NANOBOT_RUN_OAUTH_TOKEN_URL=" + server.TokenExchangeEndpoint,
+		"NANOBOT_RUN_OAUTH_CLIENT_ID=" + server.TokenExchangeClientID,
+		"NANOBOT_RUN_OAUTH_CLIENT_SECRET=" + server.TokenExchangeClientSecret,
+		"NANOBOT_RUN_OAUTH_SCOPES=profile",
+		"NANOBOT_RUN_APIKEY_AUTH_WEBHOOK_URL=" + authWebhookURL,
+		"NANOBOT_RUN_MCPSERVER_ID=" + strings.TrimSuffix(server.MCPServerName, "-shim"),
+		"NANOBOT_RUN_FORCE_FETCH_TOOL_LIST=true",
+		"NANOBOT_DISABLE_HEALTH_CHECKER=true",
+	}
 }
 
 func (d *dockerBackend) waitForContainer(ctx context.Context, containerID string) error {
@@ -1508,11 +1467,10 @@ func (d *dockerBackend) pullImage(ctx context.Context, imageName string, ifNotEx
 }
 
 // prepareMCPServerNanobotConfig creates a volume containing the nanobot.yaml that configures
-// how nanobot proxies to the underlying MCP server (used for UVX/NPX/remote/composite runtimes).
-func (d *dockerBackend) prepareMCPServerNanobotConfig(ctx context.Context, server ServerConfig, envVars map[string]string, webhooks []Webhook) (string, error) {
+// how nanobot proxies to the underlying MCP server (used for UVX/NPX/composite runtimes).
+func (d *dockerBackend) prepareMCPServerNanobotConfig(ctx context.Context, server ServerConfig, envVars map[string]string) (string, error) {
 	// Create all environment variables map
 	allEnvVars := make(map[string][]byte, len(server.Env)+len(envVars))
-	headers := make(map[string][]byte, len(server.Headers))
 
 	// Add server environment variables
 	for _, env := range server.Env {
@@ -1524,21 +1482,14 @@ func (d *dockerBackend) prepareMCPServerNanobotConfig(ctx context.Context, serve
 		allEnvVars[k] = []byte(v)
 	}
 
-	// Add server headers
-	for _, header := range server.Headers {
-		if k, v, ok := strings.Cut(header, "="); ok {
-			headers[k] = []byte(v)
-		}
-	}
-
 	var (
 		nanobotYAML []byte
 		err         error
 	)
 	if server.Runtime == otypes.RuntimeComposite {
-		nanobotYAML, err = constructMCPServerNanobotYAMLForComposite(server.Components)
+		nanobotYAML, err = constructMCPServerNanobotYAMLForComposite(server)
 	} else {
-		nanobotYAML, err = constructMCPServerNanobotYAML(server.MCPServerDisplayName, server.URL, server.Command, server.Args, server.PassthroughHeaderNames, allEnvVars, headers, webhooks)
+		nanobotYAML, err = constructMCPServerNanobotYAML(server, allEnvVars)
 	}
 	if err != nil {
 		return "", fmt.Errorf("failed to construct nanobot YAML: %w", err)

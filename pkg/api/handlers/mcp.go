@@ -25,7 +25,6 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
-	"github.com/obot-platform/obot/pkg/validation"
 	"github.com/obot-platform/obot/pkg/wait"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -74,16 +73,16 @@ func NewMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.H
 	}
 }
 
-func validationOptions(remoteValidationConfig mcp.RemoteMCPURLValidationConfig) validation.Options {
-	return validation.Options{
+func validationOptions(remoteValidationConfig mcp.RemoteMCPURLValidationConfig) mcp.ValidationOptions {
+	return mcp.ValidationOptions{
 		RemoteMCPURLValidationConfig: remoteValidationConfig,
 	}
 }
 
 // ValidationOptionsWithResourceMaximums builds MCP manifest validation options from the active MCP session manager.
-func ValidationOptionsWithResourceMaximums(sessionManager *mcp.SessionManager) validation.Options {
+func ValidationOptionsWithResourceMaximums(sessionManager *mcp.SessionManager) mcp.ValidationOptions {
 	if sessionManager == nil {
-		return validation.Options{}
+		return mcp.ValidationOptions{}
 	}
 	options := validationOptions(sessionManager.RemoteMCPURLValidationConfig())
 	options.ResourceMaximums = sessionManager.KubernetesResourceMaximums()
@@ -557,7 +556,7 @@ func (m *MCPHandler) LaunchServer(req api.Context) error {
 	catalogID := req.PathValue("catalog_id")
 	workspaceID := req.PathValue("workspace_id")
 
-	server, serverConfig, err := serverForAction(req, m.secretBindingAllowedLabel)
+	server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), req.PathValue("mcp_server_id"), req.User.GetUID())
 	if err != nil {
 		return err
 	}
@@ -596,7 +595,7 @@ func (m *MCPHandler) LaunchServer(req api.Context) error {
 				continue
 			}
 
-			config, _, err := serverConfigForAction(req, component, m.secretBindingAllowedLabel, false)
+			_, config, err := m.mcpSessionManager.ServerForAction(req.Context(), component.Name, req.User.GetUID())
 			if err != nil {
 				return fmt.Errorf("failed to get config for component server %s: %w", component.Name, err)
 			}
@@ -657,7 +656,7 @@ func (m *MCPHandler) CheckOAuth(req api.Context) error {
 	catalogID := req.PathValue("catalog_id")
 	workspaceID := req.PathValue("workspace_id")
 
-	server, serverConfig, err := serverForAction(req, m.secretBindingAllowedLabel)
+	server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), req.PathValue("mcp_server_id"), req.User.GetUID())
 	if err != nil {
 		return err
 	}
@@ -686,7 +685,7 @@ func (m *MCPHandler) GetOAuthURL(req api.Context) error {
 	catalogID := req.PathValue("catalog_id")
 	workspaceID := req.PathValue("workspace_id")
 
-	server, serverConfig, err := serverForAction(req, m.secretBindingAllowedLabel)
+	server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), req.PathValue("mcp_server_id"), req.User.GetUID())
 	if err != nil {
 		return err
 	}
@@ -707,7 +706,7 @@ func (m *MCPHandler) GetOAuthURL(req api.Context) error {
 }
 
 func (m *MCPHandler) GetTools(req api.Context) error {
-	server, serverConfig, caps, err := serverForActionWithCapabilities(req, m.mcpSessionManager, m.secretBindingAllowedLabel)
+	server, serverConfig, caps, err := serverForActionWithCapabilities(req, m.mcpSessionManager)
 	if err != nil {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, fmt.Sprintf("MCP server is not healthy, check configuration for errors: %v", err))
@@ -743,7 +742,7 @@ func (m *MCPHandler) GetTools(req api.Context) error {
 }
 
 func (m *MCPHandler) GetResources(req api.Context) error {
-	_, serverConfig, caps, err := serverForActionWithCapabilities(req, m.mcpSessionManager, m.secretBindingAllowedLabel)
+	_, serverConfig, caps, err := serverForActionWithCapabilities(req, m.mcpSessionManager)
 	if err != nil {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, fmt.Sprintf("MCP server is not healthy, check configuration for errors: %v", err))
@@ -787,7 +786,7 @@ func (m *MCPHandler) GetResources(req api.Context) error {
 }
 
 func (m *MCPHandler) ReadResource(req api.Context) error {
-	_, serverConfig, caps, err := serverForActionWithCapabilities(req, m.mcpSessionManager, m.secretBindingAllowedLabel)
+	_, serverConfig, caps, err := serverForActionWithCapabilities(req, m.mcpSessionManager)
 	if err != nil {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, fmt.Sprintf("MCP server is not healthy, check configuration for errors: %v", err))
@@ -828,7 +827,7 @@ func (m *MCPHandler) ReadResource(req api.Context) error {
 }
 
 func (m *MCPHandler) GetPrompts(req api.Context) error {
-	_, serverConfig, caps, err := serverForActionWithCapabilities(req, m.mcpSessionManager, m.secretBindingAllowedLabel)
+	_, serverConfig, caps, err := serverForActionWithCapabilities(req, m.mcpSessionManager)
 	if err != nil {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, fmt.Sprintf("MCP server is not healthy, check configuration for errors: %v", err))
@@ -872,7 +871,7 @@ func (m *MCPHandler) GetPrompts(req api.Context) error {
 }
 
 func (m *MCPHandler) GetPrompt(req api.Context) error {
-	_, serverConfig, caps, err := serverForActionWithCapabilities(req, m.mcpSessionManager, m.secretBindingAllowedLabel)
+	_, serverConfig, caps, err := serverForActionWithCapabilities(req, m.mcpSessionManager)
 	if err != nil {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, fmt.Sprintf("MCP server is not healthy, check configuration for errors: %v", err))
@@ -922,7 +921,7 @@ func (m *MCPHandler) GetPrompt(req api.Context) error {
 	})
 }
 
-func mcpServerOrInstanceFromConnectURL(req api.Context, id, secretBindingAllowedLabel string, validationOptions validation.Options) (v1.MCPServer, v1.MCPServerInstance, error) {
+func mcpServerOrInstanceFromConnectURL(req api.Context, id, secretBindingAllowedLabel string, validationOptions mcp.ValidationOptions) (v1.MCPServer, v1.MCPServerInstance, error) {
 	switch {
 	case system.IsMCPServerInstanceID(id):
 		var instance v1.MCPServerInstance
@@ -1015,7 +1014,7 @@ func mcpServerOrInstanceFromConnectURL(req api.Context, id, secretBindingAllowed
 			if err != nil {
 				return v1.MCPServer{}, v1.MCPServerInstance{}, types.NewErrBadRequest("catalog entry %s cannot be connected because it could not be converted to an MCP server: %v", id, err)
 			}
-			if err := validation.ValidateServerManifest(req.Context(), manifest, false, validationOptions); err != nil {
+			if err := mcp.ValidateServerManifest(req.Context(), manifest, false, validationOptions); err != nil {
 				return v1.MCPServer{}, v1.MCPServerInstance{}, types.NewErrBadRequest("catalog entry %s cannot be connected because its MCP server manifest is invalid: %v", id, err)
 			}
 
@@ -1209,327 +1208,6 @@ func syncConnectServerRemoteConfigFromCatalogEntry(server *v1.MCPServer, entry v
 	return before != utils.Digest(server.Spec)
 }
 
-// MCPIDAndAudienceFromConnectURL returns the MCP server or instance name and audience based on the provided connect URL.
-// The connect URL could have an MCP server ID, server instance ID, or MCP catalog entry ID.
-func MCPIDAndAudienceFromConnectURL(req api.Context, id, secretBindingAllowedLabel string, validationOptions validation.Options) (string, string, error) {
-	server, instance, err := mcpServerOrInstanceFromConnectURL(req, id, secretBindingAllowedLabel, validationOptions)
-	if err != nil {
-		return "", "", err
-	}
-
-	switch {
-	case instance.Name != "":
-		return instance.Name, instance.Spec.MCPServerName, nil
-	case server.Name != "":
-		return server.Name, id, nil
-	default:
-		return "", "", fmt.Errorf("unknown MCP server ID %s", id)
-	}
-}
-
-func ServerForActionWithConnectID(req api.Context, id, secretBindingAllowedLabel string, validationOptions validation.Options) (string, v1.MCPServer, mcp.ServerConfig, error) {
-	id, server, config, _, err := serverForActionWithConnectID(req, id, secretBindingAllowedLabel, false, validationOptions)
-	return id, server, config, err
-}
-
-func ServerForActionWithConnectIDAllowMissingConfig(req api.Context, id, secretBindingAllowedLabel string, validationOptions validation.Options) (string, v1.MCPServer, mcp.ServerConfig, []string, error) {
-	return serverForActionWithConnectID(req, id, secretBindingAllowedLabel, true, validationOptions)
-}
-
-func serverForActionWithConnectID(req api.Context, id, secretBindingAllowedLabel string, allowMissingConfig bool, validationOptions validation.Options) (string, v1.MCPServer, mcp.ServerConfig, []string, error) {
-	server, instance, err := mcpServerOrInstanceFromConnectURL(req, id, secretBindingAllowedLabel, validationOptions)
-	if err != nil {
-		return "", v1.MCPServer{}, mcp.ServerConfig{}, nil, err
-	}
-
-	switch {
-	case instance.Name != "":
-		server, config, missingConfig, err := serverFromMCPServerInstance(req, instance, secretBindingAllowedLabel, allowMissingConfig)
-		return instance.Name, server, config, missingConfig, err
-	case server.Name != "":
-		config, missingConfig, err := serverConfigForAction(req, server, secretBindingAllowedLabel, allowMissingConfig)
-		return server.Name, server, config, missingConfig, err
-	default:
-		return "", v1.MCPServer{}, mcp.ServerConfig{}, nil, fmt.Errorf("unknown MCP server ID %s", id)
-	}
-}
-
-func serverFromMCPServerInstance(req api.Context, instance v1.MCPServerInstance, secretBindingAllowedLabel string, allowMissingConfig bool) (v1.MCPServer, mcp.ServerConfig, []string, error) {
-	var server v1.MCPServer
-	if err := req.Get(&server, instance.Spec.MCPServerName); err != nil {
-		return server, mcp.ServerConfig{}, nil, err
-	}
-
-	if server.Spec.NeedsURL {
-		if allowMissingConfig {
-			return server, mcp.ServerConfig{}, []string{"URL"}, nil
-		}
-		return server, mcp.ServerConfig{}, nil, fmt.Errorf("mcp server %s needs to update its URL", server.Name)
-	}
-
-	addExtractedEnvVars(&server)
-
-	var credCtx, scope string
-	if server.Spec.MCPCatalogID != "" {
-		credCtx = fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name)
-		scope = server.Spec.MCPCatalogID
-	} else if server.Spec.PowerUserWorkspaceID != "" {
-		credCtx = fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name)
-		scope = server.Spec.PowerUserWorkspaceID
-	} else {
-		credCtx = fmt.Sprintf("%s-%s", instance.Spec.UserID, server.Name)
-		scope = instance.Spec.UserID
-	}
-
-	cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{credCtx}, server.Name)
-	if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
-		return server, mcp.ServerConfig{}, nil, fmt.Errorf("failed to find credential: %w", err)
-	}
-
-	catalogName := server.Spec.MCPCatalogID
-	if catalogName == "" {
-		catalogName = server.Status.MCPCatalogID
-	}
-	if catalogName == "" {
-		// For multi-user servers in a workspace, use the workspace ID as the catalog name
-		catalogName = server.Spec.PowerUserWorkspaceID
-	}
-	// Look up catalog entry for catalog name if needed
-	if server.Spec.MCPServerCatalogEntryName != "" {
-		var entry v1.MCPServerCatalogEntry
-		if err := req.Get(&entry, server.Spec.MCPServerCatalogEntryName); err != nil {
-			return server, mcp.ServerConfig{}, nil, fmt.Errorf("failed to get MCP server catalog entry: %w", err)
-		}
-		if catalogName == "" {
-			catalogName = entry.Spec.MCPCatalogName
-		}
-		if catalogName == "" {
-			catalogName = entry.Spec.PowerUserWorkspaceID
-		}
-	}
-
-	tokenExchangeCred, err := req.GatewayClient.RevealCredential(req.Context(), []string{server.Name}, server.Name)
-	if err != nil {
-		return server, mcp.ServerConfig{}, nil, fmt.Errorf("failed to find token exchange credential: %w", err)
-	}
-
-	mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, cred.Secrets, secretBindingAllowedLabel)
-	if err != nil {
-		return server, mcp.ServerConfig{}, nil, fmt.Errorf("failed to resolve secret bindings: %w", err)
-	}
-
-	baseURL := strings.TrimSuffix(req.APIBaseURL, "/api")
-	serverConfig, missingConfig, err := mcp.ServerToServerConfig(server, instance.ValidConnectURLs(baseURL), baseURL, req.User.GetUID(), scope, catalogName, mergedEnv, tokenExchangeCred.Secrets)
-	if err != nil {
-		return server, mcp.ServerConfig{}, nil, err
-	}
-
-	instanceCredEnv, err := mcpServerInstanceCredEnv(req, instance)
-	if err != nil {
-		return server, mcp.ServerConfig{}, nil, err
-	}
-
-	var missingInstanceConfig []string
-	serverConfig.PassthroughHeaderNames, serverConfig.PassthroughHeaderValues, missingInstanceConfig = mcpServerInstanceHeaders(instance, instanceCredEnv)
-	missingConfig = append(missingConfig, missingInstanceConfig...)
-
-	if len(missingConfig) > 0 {
-		if allowMissingConfig {
-			return server, serverConfig, missingConfig, nil
-		}
-		return server, mcp.ServerConfig{}, missingConfig, types.NewErrBadRequest("missing required config: %s", strings.Join(missingConfig, ", "))
-	}
-
-	// Best effort to update the last request time.
-	// Don't update on every request, only if it's been a while since the last update, to avoid excessive writes to storage.
-	if time.Since(server.Status.LastRequestTime.Time) > requestTimeUpdateInterval {
-		server.Status.LastRequestTime = metav1.Now()
-		if err := req.Storage.Status().Update(req.Context(), &server); err != nil {
-			log.Warnf("failed to update mcp server status: %v", err)
-		}
-	}
-
-	return server, serverConfig, nil, nil
-}
-
-func ServerForAction(req api.Context, id, secretBindingAllowedLabel string) (v1.MCPServer, mcp.ServerConfig, error) {
-	var server v1.MCPServer
-	if err := req.Get(&server, id); err != nil {
-		return server, mcp.ServerConfig{}, err
-	}
-
-	serverConfig, _, err := serverConfigForAction(req, server, secretBindingAllowedLabel, false)
-	return server, serverConfig, err
-}
-
-// serverConfigForAction handles both composite and non-composite server configuration.
-// For composite servers, it uses the tokenService to create an ephemeral token and constructs
-// a remote MCP server config pointing to the gateway. For non-composite servers, it retrieves
-// credentials and builds the appropriate server configuration.
-func serverConfigForAction(req api.Context, server v1.MCPServer, secretBindingAllowedLabel string, allowMissingConfig bool) (mcp.ServerConfig, []string, error) {
-	if server.Spec.NeedsURL {
-		if allowMissingConfig {
-			return mcp.ServerConfig{}, []string{"URL"}, nil
-		}
-		return mcp.ServerConfig{}, nil, types.NewErrBadRequest("mcp server %s needs to update its URL", server.Name)
-	}
-
-	var (
-		credCtxs []string
-		scope    string
-	)
-	if server.Spec.MCPCatalogID != "" {
-		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name))
-		scope = server.Spec.MCPCatalogID
-	} else if server.Spec.PowerUserWorkspaceID != "" {
-		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name))
-		scope = server.Spec.PowerUserWorkspaceID
-	} else {
-		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name))
-		scope = server.Spec.UserID
-	}
-
-	// Add extracted env vars to the server definition
-	addExtractedEnvVars(&server)
-
-	cred, err := req.GatewayClient.RevealCredential(req.Context(), credCtxs, server.Name)
-	if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
-		return mcp.ServerConfig{}, nil, fmt.Errorf("failed to find credential: %w", err)
-	}
-
-	mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, cred.Secrets, secretBindingAllowedLabel)
-	if err != nil {
-		return mcp.ServerConfig{}, nil, fmt.Errorf("failed to resolve secret bindings: %w", err)
-	}
-
-	catalogName := server.Spec.MCPCatalogID
-	if catalogName == "" {
-		catalogName = server.Status.MCPCatalogID
-	}
-	if catalogName == "" {
-		// For multi-user servers in a workspace, use the workspace ID as the catalog name
-		catalogName = server.Spec.PowerUserWorkspaceID
-	}
-	// Look up catalog entry for catalog name if needed
-	if server.Spec.MCPServerCatalogEntryName != "" {
-		var entry v1.MCPServerCatalogEntry
-		if err := req.Get(&entry, server.Spec.MCPServerCatalogEntryName); err == nil {
-			if catalogName == "" {
-				catalogName = entry.Spec.MCPCatalogName
-			}
-			if catalogName == "" {
-				catalogName = entry.Spec.PowerUserWorkspaceID
-			}
-		} else if apierrors.IsNotFound(err) && server.Spec.CompositeName != "" {
-			// For composite component's, this usually happens when the component's catalog entry
-			// was deleted, but the component hasn't been removed from the composite catalog entry yet.
-			// At the moment, composite MCP servers can only contain catalog entries from the default catalog,
-			// so we can assume the deleted entry belongs to the default catalog for now.
-			if catalogName == "" {
-				catalogName = system.DefaultCatalog
-			}
-		} else {
-			return mcp.ServerConfig{}, nil, fmt.Errorf("failed to get MCP server catalog entry: %w", err)
-		}
-	}
-
-	var (
-		tokenExchangeCred gatewaytypes.Credential
-		tokenCredErr      error
-	)
-	if err = retry.OnError(kwait.Backoff{
-		Steps:    10,
-		Duration: 100 * time.Millisecond,
-		Factor:   2.0,
-		Jitter:   0.1,
-	}, func(err error) bool {
-		return errors.As(err, &gateway.CredentialNotFoundError{})
-	}, func() error {
-		tokenExchangeCred, tokenCredErr = req.GatewayClient.RevealCredential(req.Context(), []string{server.Name}, server.Name)
-		return tokenCredErr
-	}); err != nil {
-		return mcp.ServerConfig{}, nil, fmt.Errorf("failed to find token exchange credential: %w", tokenCredErr)
-	}
-
-	baseURL := strings.TrimSuffix(req.APIBaseURL, "/api")
-	var (
-		serverConfig  mcp.ServerConfig
-		missingConfig []string
-	)
-	if server.Spec.Manifest.Runtime == types.RuntimeComposite {
-		var componentServers v1.MCPServerList
-		if err = req.List(&componentServers,
-			kclient.InNamespace(server.Namespace),
-			kclient.MatchingFields{"spec.compositeName": server.Name},
-		); err != nil {
-			return mcp.ServerConfig{}, nil, fmt.Errorf("failed to list component servers: %w", err)
-		}
-
-		var componentInstances v1.MCPServerInstanceList
-		if err = req.List(&componentInstances,
-			kclient.InNamespace(server.Namespace),
-			kclient.MatchingFields{"spec.compositeName": server.Name},
-		); err != nil {
-			return mcp.ServerConfig{}, nil, fmt.Errorf("failed to list component servers instances: %w", err)
-		}
-
-		serverConfig, missingConfig, err = mcp.CompositeServerToServerConfig(server, componentServers.Items, componentInstances.Items, server.ValidConnectURLs(baseURL), baseURL, req.User.GetUID(), scope, catalogName, mergedEnv, tokenExchangeCred.Secrets)
-		componentMissingConfig, componentErr := compositeComponentsMissingConfig(req, secretBindingAllowedLabel, componentServers.Items, componentInstances.Items)
-		if componentErr != nil {
-			return mcp.ServerConfig{}, nil, componentErr
-		}
-		missingConfig = append(missingConfig, componentMissingConfig...)
-	} else {
-		serverConfig, missingConfig, err = mcp.ServerToServerConfig(server, server.ValidConnectURLs(baseURL), baseURL, req.User.GetUID(), scope, catalogName, mergedEnv, tokenExchangeCred.Secrets)
-	}
-	if err != nil {
-		return mcp.ServerConfig{}, nil, err
-	}
-
-	if len(missingConfig) > 0 {
-		if allowMissingConfig {
-			return serverConfig, missingConfig, nil
-		}
-		return mcp.ServerConfig{}, missingConfig, types.NewErrBadRequest("missing required config: %s", strings.Join(missingConfig, ", "))
-	}
-
-	// Best effort to update the last request time.
-	// Don't update on every request, only if it's been a while since the last update, to avoid excessive writes to storage.
-	if time.Since(server.Status.LastRequestTime.Time) > requestTimeUpdateInterval {
-		server.Status.LastRequestTime = metav1.Now()
-		if err := req.Storage.Status().Update(req.Context(), &server); err != nil {
-			log.Warnf("failed to update mcp server status: %v", err)
-		}
-	}
-
-	return serverConfig, nil, nil
-}
-
-func compositeComponentsMissingConfig(req api.Context, secretBindingAllowedLabel string, componentServers []v1.MCPServer, componentInstances []v1.MCPServerInstance) ([]string, error) {
-	var missingConfig []string
-	for _, component := range componentServers {
-		_, componentMissingConfig, err := serverConfigForAction(req, component, secretBindingAllowedLabel, true)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get config for component server %s: %w", component.Name, err)
-		}
-		for _, missing := range componentMissingConfig {
-			missingConfig = append(missingConfig, fmt.Sprintf("%s: %s", component.Spec.MCPServerCatalogEntryName, missing))
-		}
-	}
-
-	for _, instance := range componentInstances {
-		_, _, instanceMissingConfig, err := serverFromMCPServerInstance(req, instance, secretBindingAllowedLabel, true)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get config for component server instance %s: %w", instance.Name, err)
-		}
-		for _, missing := range instanceMissingConfig {
-			missingConfig = append(missingConfig, fmt.Sprintf("%s: %s", instance.Spec.MCPServerName, missing))
-		}
-	}
-
-	return missingConfig, nil
-}
-
 // validateServerScope checks that the catalog_id or workspace_id in the request URL matches the server.
 // This prevents catalog- or workspace-scoped routes from operating on servers in a different scope.
 func validateServerScope(req api.Context, server v1.MCPServer) error {
@@ -1542,18 +1220,8 @@ func validateServerScope(req api.Context, server v1.MCPServer) error {
 	return nil
 }
 
-func serverForAction(req api.Context, secretBindingAllowedLabel string) (v1.MCPServer, mcp.ServerConfig, error) {
-	var server v1.MCPServer
-	if err := req.Get(&server, req.PathValue("mcp_server_id")); err != nil {
-		return server, mcp.ServerConfig{}, err
-	}
-
-	serverConfig, _, err := serverConfigForAction(req, server, secretBindingAllowedLabel, false)
-	return server, serverConfig, err
-}
-
-func serverForActionWithCapabilities(req api.Context, mcpSessionManager *mcp.SessionManager, secretBindingAllowedLabel string) (v1.MCPServer, mcp.ServerConfig, nmcp.ServerCapabilities, error) {
-	server, serverConfig, err := serverForAction(req, secretBindingAllowedLabel)
+func serverForActionWithCapabilities(req api.Context, mcpSessionManager *mcp.SessionManager) (v1.MCPServer, mcp.ServerConfig, nmcp.ServerCapabilities, error) {
+	server, serverConfig, err := mcpSessionManager.ServerForAction(req.Context(), req.PathValue("mcp_server_id"), req.User.GetUID())
 	if err != nil {
 		return server, serverConfig, nmcp.ServerCapabilities{}, err
 	}
@@ -1908,7 +1576,7 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 		sourceCatalogEntryManifest = catalogEntry.Spec.Manifest.DeepCopy()
 
 		// Validate that the catalog entry type is compatible with the route used.
-		if err := validation.ValidateCatalogEntryForRoute(catalogEntry.Spec.Manifest, catalogID, workspaceID); err != nil {
+		if err := mcp.ValidateCatalogEntryForRoute(catalogEntry.Spec.Manifest, catalogID, workspaceID); err != nil {
 			return types.NewErrBadRequest("%v", err)
 		}
 
@@ -1972,14 +1640,14 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 		return types.NewErrBadRequest("catalogEntryID is required")
 	}
 
-	if err := validation.ValidateServerManifest(req.Context(), server.Spec.Manifest, !server.Spec.IsSingleUser(), ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
+	if err := mcp.ValidateServerManifest(req.Context(), server.Spec.Manifest, !server.Spec.IsSingleUser(), ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 	adminManagedSecretBindings := req.UserIsAdmin() && server.Spec.IsCatalogServer()
 	if adminManagedSecretBindings {
 		markAdminAddedSecretBindings(&server.Spec.Manifest, sourceCatalogEntryManifest)
 	}
-	if err := validation.ValidateSecretBindings(server.Spec.Manifest, gitManagedEntry, adminManagedSecretBindings, m.mcpRuntimeBackend); err != nil {
+	if err := mcp.ValidateSecretBindings(server.Spec.Manifest, gitManagedEntry, adminManagedSecretBindings, m.mcpRuntimeBackend); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 	addExtractedEnvVars(&server)
@@ -1992,7 +1660,7 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 	// template references the user did not pre-declare. This still catches the
 	// case where the user pre-supplied a matching env entry with required=false
 	// (which would otherwise ship a literal "${VAR}" string at runtime).
-	if err := validation.ValidateTemplateReferences(server.Spec.Manifest); err != nil {
+	if err := mcp.ValidateTemplateReferences(server.Spec.Manifest); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 	if err := req.Create(&server); err != nil {
@@ -2070,7 +1738,7 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
 
-	if err := validation.ValidateServerManifest(req.Context(), updated, !existing.Spec.IsSingleUser(), ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
+	if err := mcp.ValidateServerManifest(req.Context(), updated, !existing.Spec.IsSingleUser(), ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 
@@ -2090,10 +1758,10 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 		}
 		markAdminAddedSecretBindings(&updated, sourceCatalogEntryManifest)
 	}
-	if err := validation.ValidateSecretBindings(updated, gitManagedEntry, adminManagedSecretBindings, m.mcpRuntimeBackend); err != nil {
+	if err := mcp.ValidateSecretBindings(updated, gitManagedEntry, adminManagedSecretBindings, m.mcpRuntimeBackend); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
-	if err := validation.ValidateTemplateReferences(updated); err != nil {
+	if err := mcp.ValidateTemplateReferences(updated); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 	if adminManagedSecretBindings && !existing.Spec.IsSingleUser() {
@@ -2249,7 +1917,7 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 			}
 			mcpServer.Spec.Manifest.RemoteConfig.URL = finalURL
 
-			if err := validation.ValidateServerManifest(req.Context(), mcpServer.Spec.Manifest, !mcpServer.Spec.IsSingleUser(), ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
+			if err := mcp.ValidateServerManifest(req.Context(), mcpServer.Spec.Manifest, !mcpServer.Spec.IsSingleUser(), ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
 				return types.NewErrBadRequest("validation failed: %v", err)
 			}
 
@@ -2414,7 +2082,7 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 				if remoteConfig.URL != originalURL {
 					// Capture and validate the changes
 					component.Manifest.RemoteConfig = remoteConfig
-					if err := validation.ValidateServerManifest(req.Context(), component.Manifest, false, ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
+					if err := mcp.ValidateServerManifest(req.Context(), component.Manifest, false, ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
 						return fmt.Errorf("failed to validate server manifest %w", err)
 					}
 					server.Spec.Manifest = component.Manifest
@@ -2455,12 +2123,9 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 
 			if modified {
 				if instance, ok := componentInstance[id]; ok {
-					_, serverConfig, _, err := serverFromMCPServerInstance(req, instance, m.secretBindingAllowedLabel, false)
+					_, _, serverConfig, err := m.mcpSessionManager.ServerForActionWithConnectID(ctx, instance.Name, req.User.GetUID())
 					if err == nil {
-						// Best effort
-						if err = m.mcpSessionManager.CloseClient(ctx, serverConfig, "default"); err != nil {
-							log.Warnf("failed to close client for component %s: %v", instance.Name, err)
-						}
+						m.mcpSessionManager.CloseClient(serverConfig, "default")
 					}
 				} else {
 					// Only remove the server if the credential was created or updated
@@ -2651,12 +2316,9 @@ func (m *MCPHandler) deconfigureCompositeServer(req api.Context, compositeServer
 		if err := DeleteCredentialIfExists(req.Context(), req.GatewayClient, []string{MCPServerInstanceCredentialContext(instance)}, instance.Name); err != nil {
 			return fmt.Errorf("failed to delete component instance configuration %s: %w", instance.Name, err)
 		}
-		_, serverConfig, _, err := serverFromMCPServerInstance(req, instance, m.secretBindingAllowedLabel, false)
+		_, _, serverConfig, err := m.mcpSessionManager.ServerForActionWithConnectID(req.Context(), instance.Name, req.User.GetUID())
 		if err == nil {
-			// Best effort
-			if err = m.mcpSessionManager.CloseClient(req.Context(), serverConfig, "default"); err != nil {
-				log.Warnf("failed to close client for component %s: %v", instance.Name, err)
-			}
+			m.mcpSessionManager.CloseClient(serverConfig, "default")
 		}
 	}
 
@@ -3144,7 +2806,7 @@ func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL,
 	return converted
 }
 
-func ConfigurationTargetForConnectID(req api.Context, id, serverURL, secretBindingAllowedLabel string, validationOptions validation.Options) (*types.MCPServer, *types.MCPServerInstance, error) {
+func ConfigurationTargetForConnectID(req api.Context, id, serverURL, secretBindingAllowedLabel string, validationOptions mcp.ValidationOptions) (*types.MCPServer, *types.MCPServerInstance, error) {
 	server, instance, err := mcpServerOrInstanceFromConnectURL(req, id, secretBindingAllowedLabel, validationOptions)
 	if err != nil {
 		return nil, nil, err
@@ -3546,17 +3208,21 @@ func (m *MCPHandler) ClearOAuthCredentials(req api.Context) error {
 }
 
 func (m *MCPHandler) GetServerDetails(req api.Context) error {
-	server, serverConfig, err := serverForAction(req, m.secretBindingAllowedLabel)
+	server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), req.PathValue("mcp_server_id"), req.User.GetUID())
 	if err != nil {
 		return err
+	}
+
+	if server.Spec.Template {
+		return types.NewErrNotFound("MCP server not found")
 	}
 
 	if err := validateServerScope(req, server); err != nil {
 		return err
 	}
 
-	if server.Spec.Template {
-		return types.NewErrNotFound("MCP server not found")
+	if server.Spec.Manifest.Runtime == types.RuntimeRemote || server.Spec.Manifest.Runtime == types.RuntimeComposite {
+		return types.NewErrBadRequest("MCP server %s has runtime %s, which does not support details retrieval", server.Name, server.Spec.Manifest.Runtime)
 	}
 
 	if !req.UserIsAdmin() && !req.UserIsAuditor() {
@@ -3597,13 +3263,17 @@ func (m *MCPHandler) GetServerDetails(req api.Context) error {
 }
 
 func (m *MCPHandler) RestartServerDeployment(req api.Context) error {
-	server, serverConfig, err := serverForAction(req, m.secretBindingAllowedLabel)
+	server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), req.PathValue("mcp_server_id"), req.User.GetUID())
 	if err != nil {
 		return err
 	}
 
 	if err := validateServerScope(req, server); err != nil {
 		return err
+	}
+
+	if server.Spec.Manifest.Runtime == types.RuntimeRemote || server.Spec.Manifest.Runtime == types.RuntimeComposite {
+		return types.NewErrBadRequest("MCP server %s has runtime %s, which does not support restart", server.Name, server.Spec.Manifest.Runtime)
 	}
 
 	if !req.UserIsAdmin() {
@@ -3664,7 +3334,7 @@ func (m *MCPHandler) RestartServerDeployment(req api.Context) error {
 				continue
 			}
 
-			componentConfig, _, err := serverConfigForAction(req, component, m.secretBindingAllowedLabel, false)
+			_, componentConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), component.Name, req.User.GetUID())
 			if err != nil {
 				return err
 			}
@@ -3772,7 +3442,7 @@ func (m *MCPHandler) RedeployWithK8sSettings(req api.Context) error {
 	workspaceID := req.PathValue("workspace_id")
 	entryID := req.PathValue("entry_id")
 
-	server, serverConfig, err := serverForAction(req, m.secretBindingAllowedLabel)
+	server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), req.PathValue("mcp_server_id"), req.User.GetUID())
 	if err != nil {
 		return err
 	}
@@ -4001,13 +3671,17 @@ func (m *MCPHandler) ListServersNeedingK8sUpdateAcrossWorkspaces(req api.Context
 }
 
 func (m *MCPHandler) StreamServerLogs(req api.Context) error {
-	server, serverConfig, err := serverForAction(req, m.secretBindingAllowedLabel)
+	server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), req.PathValue("mcp_server_id"), req.User.GetUID())
 	if err != nil {
 		return err
 	}
 
 	if err := validateServerScope(req, server); err != nil {
 		return err
+	}
+
+	if serverConfig.Runtime == types.RuntimeRemote || serverConfig.Runtime == types.RuntimeComposite {
+		return types.NewErrBadRequest("MCP server %s has runtime %s, which does not support log retrieval", server.Name, serverConfig.Runtime)
 	}
 
 	// If this is a single-user MCP server that belongs to the user, then let them access the logs.
@@ -4114,7 +3788,7 @@ func (m *MCPHandler) UpdateURL(req api.Context) error {
 	return req.Write(ConvertMCPServer(mcpServer, nil, m.serverURL, slug))
 }
 
-func updateMCPServerURLFromCatalogEntry(ctx context.Context, mcpServer *v1.MCPServer, entry v1.MCPServerCatalogEntry, inputURL string, opts validation.Options) error {
+func updateMCPServerURLFromCatalogEntry(ctx context.Context, mcpServer *v1.MCPServer, entry v1.MCPServerCatalogEntry, inputURL string, opts mcp.ValidationOptions) error {
 	if entry.Spec.Manifest.RemoteConfig == nil {
 		return types.NewErrBadRequest("the catalog entry for this server does not have remote configuration")
 	}
@@ -4146,7 +3820,7 @@ func updateMCPServerURLFromCatalogEntry(ctx context.Context, mcpServer *v1.MCPSe
 	mcpServer.Spec.NeedsURL = false
 	mcpServer.Spec.PreviousURL = ""
 
-	if err := validation.ValidateServerManifest(ctx, mcpServer.Spec.Manifest, !mcpServer.Spec.IsSingleUser(), opts); err != nil {
+	if err := mcp.ValidateServerManifest(ctx, mcpServer.Spec.Manifest, !mcpServer.Spec.IsSingleUser(), opts); err != nil {
 		return err
 	}
 
@@ -4211,7 +3885,7 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 
 	candidate := server.DeepCopy()
 	updateServerFromCatalogEntry(candidate, entry)
-	if err := validation.ValidateServerManifest(req.Context(), candidate.Spec.Manifest, !candidate.Spec.IsSingleUser(), ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
+	if err := mcp.ValidateServerManifest(req.Context(), candidate.Spec.Manifest, !candidate.Spec.IsSingleUser(), ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 
@@ -4237,7 +3911,7 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 		updateServerFromCatalogEntry(&latest, entry)
 
 		// Validate again in case the catalog entry changed between retries.
-		if err := validation.ValidateServerManifest(req.Context(), latest.Spec.Manifest, !latest.Spec.IsSingleUser(), ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
+		if err := mcp.ValidateServerManifest(req.Context(), latest.Spec.Manifest, !latest.Spec.IsSingleUser(), ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
 			return types.NewErrBadRequest("validation failed: %v", err)
 		}
 		return req.Update(&latest)
@@ -4325,7 +3999,7 @@ func (m *MCPHandler) triggerCompositeUpdate(req api.Context, compositeServer v1.
 	if err != nil {
 		return err
 	}
-	if err := validation.ValidateServerManifest(req.Context(), updatedManifest, !compositeServer.Spec.IsSingleUser(), ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
+	if err := mcp.ValidateServerManifest(req.Context(), updatedManifest, !compositeServer.Spec.IsSingleUser(), ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 

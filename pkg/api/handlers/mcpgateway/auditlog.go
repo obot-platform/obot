@@ -11,10 +11,14 @@ import (
 	"strings"
 	"time"
 
+	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
+	"github.com/obot-platform/nanobot/pkg/mcp/auditlogs"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/api"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
@@ -22,10 +26,16 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type AuditLogHandler struct{}
+var log = logger.Package()
 
-func NewAuditLogHandler() *AuditLogHandler {
-	return &AuditLogHandler{}
+type AuditLogHandler struct {
+	gatewayClient *gateway.Client
+}
+
+func NewAuditLogHandler(gatewayClient *gateway.Client) *AuditLogHandler {
+	return &AuditLogHandler{
+		gatewayClient: gatewayClient,
+	}
 }
 
 // getOwnServerMCPIDs returns the MCP server IDs for servers that the user owns directly
@@ -226,34 +236,31 @@ func (h *AuditLogHandler) SubmitAuditLogs(req api.Context) error {
 	}
 
 	for _, auditLog := range auditLogs {
+		if auditLog.Metadata[mcp.AuditLogIgnore] == "true" {
+			continue
+		}
+
 		if auditLog.SourceType != "" && auditLog.SourceType != types.AuditLogSourceTypeMCP {
 			return types.NewErrBadRequest("MCP audit log endpoint only accepts sourceType %q", types.AuditLogSourceTypeMCP)
 		}
+
 		auditLog.NormalizeMCPFields()
-		mcp := auditLog.MCP()
-		if mcp.MCPID == "" {
-			mcp.MCPID = auditLog.Metadata["mcpID"]
-		}
-		if mcp.MCPID != mcpServerName {
-			return types.NewErrForbidden("audit log does not belong to MCP server %q", mcpServerName)
-		}
-		if auditLog.UserID == "" {
-			auditLog.UserID = auditLog.Subject
-		}
+		convertMCPAuditLog(&auditLog)
+
 		// NanobotAgent containers are single-user; attribute audit logs to the owner
 		// when the container doesn't report a user (no auth middleware configured).
 		if auditLog.UserID == "" && nanobotAgentID != "" {
 			auditLog.UserID = userID
 		}
-		if mcp.MCPServerCatalogEntryName == "" {
-			mcp.MCPServerCatalogEntryName = auditLog.Metadata["mcpServerCatalogEntryName"]
+
+		if auditLog.MCPFields == nil {
+			return types.NewErrBadRequest("MCP audit log must have MCPFields")
 		}
-		if mcp.PowerUserWorkspaceID == "" {
-			mcp.PowerUserWorkspaceID = auditLog.Metadata["powerUserWorkspaceID"]
+
+		if auditLog.MCPFields.MCPID != mcpServerName {
+			return types.NewErrForbidden("audit log does not belong to MCP server %q", mcpServerName)
 		}
-		if mcp.MCPServerDisplayName == "" {
-			mcp.MCPServerDisplayName = auditLog.Metadata["mcpServerDisplayName"]
-		}
+
 		if err := auditLog.ValidateSourceFields(); err != nil {
 			return types.NewErrBadRequest("invalid audit log source fields: %v", err)
 		}
@@ -565,3 +572,54 @@ func (h *AuditLogHandler) GetUsageStats(req api.Context) error {
 		Items:       result,
 	})
 }
+
+// CollectMCPAuditEntry converts a nanobot audit log entry to an API audit log entry and queues it for processing.
+func (h *AuditLogHandler) CollectMCPAuditEntry(entry auditlogs.MCPAuditLog) {
+	if entry.Metadata[mcp.AuditLogIgnore] == "true" || entry.CallType == "" {
+		// If the call type is empty, then this is a response to a request.
+		// The audit log will be handled elsewhere.
+		// Additionally, if the ignore flag is set, we should not process this log entry.
+		return
+	}
+
+	var auditLog auditLogInput
+	if err := nmcp.JSONCoerce(entry, &auditLog); err != nil {
+		log.Warnf("failed to convert audit log entry: %v", err)
+		return
+	}
+
+	convertMCPAuditLog(&auditLog)
+	h.gatewayClient.LogMCPAuditEntry(auditLog.MCPAuditLog)
+}
+
+func convertMCPAuditLog(auditLog *auditLogInput) {
+	if auditLog.UserID == "" {
+		auditLog.UserID = auditLog.Subject
+	}
+	if auditLog.UserID == "" {
+		auditLog.UserID = auditLog.Metadata["userID"]
+	}
+	if auditLog.SourceType == "" {
+		auditLog.SourceType = types.AuditLogSourceTypeMCP
+	}
+
+	mcp := auditLog.MCP()
+	if mcp == nil {
+		return
+	}
+
+	if mcp.MCPID == "" {
+		mcp.MCPID = auditLog.Metadata["mcpID"]
+	}
+	if mcp.MCPServerCatalogEntryName == "" {
+		mcp.MCPServerCatalogEntryName = auditLog.Metadata["mcpServerCatalogEntryName"]
+	}
+	if mcp.PowerUserWorkspaceID == "" {
+		mcp.PowerUserWorkspaceID = auditLog.Metadata["powerUserWorkspaceID"]
+	}
+	if mcp.MCPServerDisplayName == "" {
+		mcp.MCPServerDisplayName = auditLog.Metadata["mcpServerDisplayName"]
+	}
+}
+
+func (h *AuditLogHandler) Close() {}

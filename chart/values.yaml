@@ -163,7 +163,7 @@ config:
 
   # config.OBOT_SERVER_MCPBASE_IMAGE -- Deploy MCP servers in the cluster using this base image.
   OBOT_SERVER_MCPBASE_IMAGE: ""
-  # config.OBOT_SERVER_MCPREMOTE_SHIM_BASE_IMAGE -- Deploy MCP remote shim servers in the cluster using this base image.
+  # config.OBOT_SERVER_MCPREMOTE_SHIM_BASE_IMAGE -- Deploy composite MCP servers using this base image.
   OBOT_SERVER_MCPREMOTE_SHIM_BASE_IMAGE: ""
   # config.OBOT_SERVER_NANOBOT_AGENT_IMAGE -- Container image for the Nanobot agent MCP server.
   OBOT_SERVER_NANOBOT_AGENT_IMAGE: ""

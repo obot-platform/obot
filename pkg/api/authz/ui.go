@@ -29,7 +29,7 @@ var uiResources = []string{
 
 func (a *Authorizer) checkUI(req *http.Request, user User) bool {
 	// Reject direct access to non-UI routes except for /api/image/{id}.
-	if req.URL.Path == "/api" || req.URL.Path == "/v0.1" || hasAnyPrefix(req.URL.Path, "/mcp-connect/", "/oauth/", "/debug/", "/v0.1/") || (strings.HasPrefix(req.URL.Path, "/api/") && !strings.HasPrefix(req.URL.Path, "/api/image/")) {
+	if req.URL.Path == "/api" || req.URL.Path == "/v0.1" || hasAnyPrefix(req.URL.Path, "/.well-known/", "/mcp-connect/", "/oauth/", "/debug/", "/v0.1/") || (strings.HasPrefix(req.URL.Path, "/api/") && !strings.HasPrefix(req.URL.Path, "/api/image/")) {
 		return false
 	}
 

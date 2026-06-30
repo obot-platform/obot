@@ -1,4 +1,4 @@
-package validation
+package mcp
 
 import (
 	"cmp"
@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/mcp"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
@@ -141,9 +140,9 @@ type RuntimeValidator interface {
 type RuntimeValidators map[types.Runtime]RuntimeValidator
 
 // Options configures runtime validation behavior.
-type Options struct {
-	RemoteMCPURLValidationConfig mcp.RemoteMCPURLValidationConfig
-	ResourceMaximums             mcp.ResourceMaximums
+type ValidationOptions struct {
+	RemoteMCPURLValidationConfig RemoteMCPURLValidationConfig
+	ResourceMaximums             ResourceMaximums
 }
 
 // UVXValidator implements RuntimeValidator for UVX runtime
@@ -443,7 +442,7 @@ func (v ContainerizedValidator) validateContainerizedConfig(config types.Contain
 
 // RemoteValidator implements RuntimeValidator for remote runtime
 type RemoteValidator struct {
-	RemoteMCPURLValidationConfig mcp.RemoteMCPURLValidationConfig
+	RemoteMCPURLValidationConfig RemoteMCPURLValidationConfig
 }
 
 func (v RemoteValidator) ValidateConfig(ctx context.Context, manifest types.MCPServerManifest) error {
@@ -651,7 +650,7 @@ func (v RemoteValidator) validateRemoteCatalogConfig(ctx context.Context, config
 }
 
 func (v RemoteValidator) validateRemoteMCPURL(ctx context.Context, field, rawURL string) error {
-	if err := mcp.ValidateRemoteMCPURL(ctx, rawURL, v.RemoteMCPURLValidationConfig); err != nil {
+	if err := ValidateRemoteMCPURL(ctx, rawURL, v.RemoteMCPURLValidationConfig); err != nil {
 		return types.RuntimeValidationError{
 			Runtime: types.RuntimeRemote,
 			Field:   field,
@@ -997,7 +996,7 @@ func (v CompositeValidator) ValidateSystemConfig(_ context.Context, manifest typ
 }
 
 // getRuntimeValidators returns a map of all available runtime validators
-func getRuntimeValidators(options Options) RuntimeValidators {
+func getRuntimeValidators(options ValidationOptions) RuntimeValidators {
 	return RuntimeValidators{
 		types.RuntimeUVX:           UVXValidator{},
 		types.RuntimeNPX:           NPXValidator{},
@@ -1069,12 +1068,12 @@ func validateMCPResourceRequirements(runtime types.Runtime, resources *types.MCP
 	return nil
 }
 
-func validateMCPResourceMaximums(resources *types.MCPResourceRequirements, maximums mcp.ResourceMaximums) error {
+func validateMCPResourceMaximums(resources *types.MCPResourceRequirements, maximums ResourceMaximums) error {
 	if maximums.Empty() || resources == nil {
 		return nil
 	}
 
-	coreResources, err := mcp.CoreResourceRequirements(resources)
+	coreResources, err := CoreResourceRequirements(resources)
 	if err != nil {
 		return err
 	}
@@ -1087,7 +1086,7 @@ func validateMCPResourceMaximums(resources *types.MCPResourceRequirements, maxim
 
 // validateCompositeServerResourceMaximums validates the resource maximums for a composite server.
 // No-op if the server is not a composite server.
-func validateCompositeServerResourceMaximums(manifest types.MCPServerManifest, maximums mcp.ResourceMaximums) error {
+func validateCompositeServerResourceMaximums(manifest types.MCPServerManifest, maximums ResourceMaximums) error {
 	if maximums.Empty() || manifest.CompositeConfig == nil {
 		return nil
 	}
@@ -1102,7 +1101,7 @@ func validateCompositeServerResourceMaximums(manifest types.MCPServerManifest, m
 
 // validateCompositeCatalogEntryResourceMaximums validates the resource maximums for a composite catalog entry.
 // No-op if the catalog entry is not a composite entry.
-func validateCompositeCatalogEntryResourceMaximums(manifest types.MCPServerCatalogEntryManifest, maximums mcp.ResourceMaximums) error {
+func validateCompositeCatalogEntryResourceMaximums(manifest types.MCPServerCatalogEntryManifest, maximums ResourceMaximums) error {
 	if maximums.Empty() || manifest.CompositeConfig == nil {
 		return nil
 	}
@@ -1115,7 +1114,7 @@ func validateCompositeCatalogEntryResourceMaximums(manifest types.MCPServerCatal
 	return nil
 }
 
-func ValidateServerManifest(ctx context.Context, manifest types.MCPServerManifest, isMultiUser bool, options Options) error {
+func ValidateServerManifest(ctx context.Context, manifest types.MCPServerManifest, isMultiUser bool, options ValidationOptions) error {
 	if err := validateMCPResourceRequirements(manifest.Runtime, manifest.Resources); err != nil {
 		return err
 	}
@@ -1170,7 +1169,7 @@ func ValidateCatalogEntryForRoute(manifest types.MCPServerCatalogEntryManifest, 
 	return nil
 }
 
-func ValidateCatalogEntryManifest(ctx context.Context, manifest types.MCPServerCatalogEntryManifest, gitManaged bool, options Options) error {
+func ValidateCatalogEntryManifest(ctx context.Context, manifest types.MCPServerCatalogEntryManifest, gitManaged bool, options ValidationOptions) error {
 	switch manifest.ServerUserType {
 	case types.ServerUserTypeSingleUser, types.ServerUserTypeMultiUser:
 	default:
@@ -1242,7 +1241,7 @@ func validateGitManagedCatalogEntryManifest(manifest types.MCPServerCatalogEntry
 	return nil
 }
 
-func ValidateSystemMCPServerCatalogEntryManifest(ctx context.Context, manifest types.SystemMCPServerCatalogEntryManifest, options Options) error {
+func ValidateSystemMCPServerCatalogEntryManifest(ctx context.Context, manifest types.SystemMCPServerCatalogEntryManifest, options ValidationOptions) error {
 	if manifest.SystemMCPServerType == types.SystemMCPServerTypeFilter {
 		if manifest.FilterConfig == nil {
 			return types.RuntimeValidationError{
@@ -1279,7 +1278,7 @@ func ValidateSystemMCPServerCatalogEntryManifest(ctx context.Context, manifest t
 	}, false, options)
 }
 
-func ValidateSystemMCPServerManifest(ctx context.Context, manifest types.SystemMCPServerManifest, options Options) error {
+func ValidateSystemMCPServerManifest(ctx context.Context, manifest types.SystemMCPServerManifest, options ValidationOptions) error {
 	if err := validateMCPResourceRequirements(manifest.Runtime, manifest.Resources); err != nil {
 		return err
 	}
@@ -1338,11 +1337,11 @@ func validateStartupTimeout(runtime types.Runtime, field string, startupTimeoutS
 			Message: "must be greater than or equal to 0",
 		}
 	}
-	if startupTimeoutSeconds > int(mcp.MaxMCPServerStartupTimeout.Seconds()) {
+	if startupTimeoutSeconds > int(MaxMCPServerStartupTimeout.Seconds()) {
 		return types.RuntimeValidationError{
 			Runtime: runtime,
 			Field:   field,
-			Message: fmt.Sprintf("must be less than %d", int(mcp.MaxMCPServerStartupTimeout.Seconds())),
+			Message: fmt.Sprintf("must be less than %d", int(MaxMCPServerStartupTimeout.Seconds())),
 		}
 	}
 
@@ -1360,7 +1359,7 @@ func ValidateSecretBindings(manifest types.MCPServerManifest, gitManaged, adminM
 		if h.SecretBinding == nil {
 			return nil
 		}
-		if !mcp.IsKubernetesBackend(mcpBackend) {
+		if !IsKubernetesBackend(mcpBackend) {
 			return fmt.Errorf("%s %q: secretBinding requires the kubernetes MCP runtime backend", kind, key)
 		}
 		if !gitManaged && !adminManaged {

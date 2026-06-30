@@ -18,7 +18,6 @@ import (
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	"github.com/obot-platform/obot/pkg/validation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
@@ -78,7 +77,7 @@ func (h *SystemMCPServerHandler) Create(req api.Context) error {
 		return types.NewErrBadRequest("invalid request body: %v", err)
 	}
 	// Validate manifest
-	if err := validation.ValidateSystemMCPServerManifest(req.Context(), manifest, validationOptions(h.mcpSessionManager.RemoteMCPURLValidationConfig())); err != nil {
+	if err := mcp.ValidateSystemMCPServerManifest(req.Context(), manifest, validationOptions(h.mcpSessionManager.RemoteMCPURLValidationConfig())); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 
@@ -107,7 +106,7 @@ func (h *SystemMCPServerHandler) Update(req api.Context) error {
 		return types.NewErrBadRequest("invalid request body: %v", err)
 	}
 	// Validate manifest
-	if err := validation.ValidateSystemMCPServerManifest(req.Context(), manifest, validationOptions(h.mcpSessionManager.RemoteMCPURLValidationConfig())); err != nil {
+	if err := mcp.ValidateSystemMCPServerManifest(req.Context(), manifest, validationOptions(h.mcpSessionManager.RemoteMCPURLValidationConfig())); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 
@@ -233,6 +232,10 @@ func (h *SystemMCPServerHandler) Restart(req api.Context) error {
 		return err
 	}
 
+	if systemServer.Spec.Manifest.Runtime == types.RuntimeRemote || systemServer.Spec.Manifest.Runtime == types.RuntimeComposite {
+		return types.NewErrBadRequest("system MCP server %s has runtime %s, which does not support restart", systemServer.Name, systemServer.Spec.Manifest.Runtime)
+	}
+
 	// Check if server is both enabled and configured
 	if err := checkEnabledAndConfigured(req.Context(), req.GatewayClient, systemServer); err != nil {
 		return err
@@ -290,7 +293,7 @@ func (h *SystemMCPServerHandler) RestartNanobotAgentDeployments(req api.Context)
 			continue
 		}
 
-		serverConfig, _, err := serverConfigForAction(req, server, h.secretBindingAllowedLabel, false)
+		_, serverConfig, err := h.mcpSessionManager.ServerForAction(req.Context(), server.Name, req.User.GetUID())
 		if err != nil {
 			failed = append(failed, map[string]string{
 				"serverID": server.Name,
@@ -339,6 +342,10 @@ func (h *SystemMCPServerHandler) Logs(req api.Context) error {
 	var systemServer v1.SystemMCPServer
 	if err := req.Get(&systemServer, req.PathValue("id")); err != nil {
 		return err
+	}
+
+	if systemServer.Spec.Manifest.Runtime == types.RuntimeRemote || systemServer.Spec.Manifest.Runtime == types.RuntimeComposite {
+		return types.NewErrBadRequest("system MCP server %s has runtime %s, which does not support logs retrieval", systemServer.Name, systemServer.Spec.Manifest.Runtime)
 	}
 
 	// Check if server is both enabled and configured
@@ -422,6 +429,10 @@ func (h *SystemMCPServerHandler) GetDetails(req api.Context) error {
 	var systemServer v1.SystemMCPServer
 	if err := req.Get(&systemServer, req.PathValue("id")); err != nil {
 		return err
+	}
+
+	if systemServer.Spec.Manifest.Runtime == types.RuntimeRemote || systemServer.Spec.Manifest.Runtime == types.RuntimeComposite {
+		return types.NewErrBadRequest("system MCP server %s has runtime %s, which does not support details retrieval", systemServer.Name, systemServer.Spec.Manifest.Runtime)
 	}
 
 	// Check if server is both enabled and configured
@@ -550,5 +561,5 @@ func systemServerToServerConfig(req api.Context, server v1.SystemMCPServer) (mcp
 	baseURL := strings.TrimSuffix(req.APIBaseURL, "/api")
 	audiences := server.ValidConnectURLs(baseURL)
 
-	return mcp.SystemServerToServerConfig(server, audiences, baseURL, credEnv, secretsCred)
+	return mcp.SystemServerToServerConfig(server, audiences, baseURL, req.User.GetUID(), credEnv, secretsCred)
 }
