@@ -71,6 +71,12 @@ func (r *llmAuditRecorder) setRequestBody(body []byte) {
 	}
 }
 
+func (r *llmAuditRecorder) setRedactedRequestBody(body []byte) {
+	if r != nil {
+		r.log.RedactedRequestBody = string(body)
+	}
+}
+
 func (r *llmAuditRecorder) setClientSessionID(sessionID string) {
 	if r != nil {
 		r.log.ClientSessionID = sessionID
