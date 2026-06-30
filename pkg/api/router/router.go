@@ -102,6 +102,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	publishedArtifacts := handlers.NewPublishedArtifactHandler(services.ArtifactBlobStore, services.ArtifactBlobBucket)
 	imagePullSecretsHandler := handlers.NewImagePullSecretHandler(services.MCPRuntimeBackend, services.MCPImagePullSecrets, services.MCPServerNamespace, services.ServiceNamespace, services.ServiceAccountName, services.LocalK8sClient, services.ServiceAccountIssuerURL, services.ServiceAccountIssuerError)
 	licenseHandler := handlers.NewLicenseHandler(services.LicenseProvider)
+	k8sSettingsHandler := handlers.NewK8sSettingsHandler(services.AppK8sSettings)
 
 	// Version
 	mux.HandleFunc("GET /api/version", version.GetVersion)
@@ -417,10 +418,10 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("POST /api/user-default-role-settings", userDefaultRoleSettings.Set)
 
 	// K8s Settings
-	k8sSettingsHandler := handlers.NewK8sSettingsHandler()
 	mux.HandleFunc("GET /api/default-k8s-settings", k8sSettingsHandler.Defaults)
 	mux.HandleFunc("GET /api/k8s-settings", k8sSettingsHandler.Get)
 	mux.HandleFunc("PUT /api/k8s-settings", k8sSettingsHandler.Update)
+	mux.HandleFunc("GET /api/app-k8s-settings", k8sSettingsHandler.GetApp)
 
 	// Image Pull Secrets
 	mux.HandleFunc("GET /api/image-pull-secrets/capability", imagePullSecretsHandler.Capability)

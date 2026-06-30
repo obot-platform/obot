@@ -425,3 +425,32 @@ func TestPSASettingsIndependentOfPodScheduling(t *testing.T) {
 		t.Error("expected PSA settings to be non-nil")
 	}
 }
+
+func TestParseAppK8sSettingsFromHelm(t *testing.T) {
+	config := Config{
+		AppK8sSettingsRuntimeClassName: "gvisor",
+		AppK8sSettingsResources:        `{"requests":{"cpu":"500m","memory":"512Mi"}}`,
+		AppK8sSettingsTolerations:      `[{"key":"dedicated","operator":"Equal","value":"obot","effect":"NoSchedule"}]`,
+	}
+
+	settings, err := parseAppK8sSettingsFromHelm(config)
+	if err != nil {
+		t.Fatalf("parseAppK8sSettingsFromHelm() error = %v", err)
+	}
+	if settings.RuntimeClassName != "gvisor" {
+		t.Fatalf("runtimeClassName = %q, want gvisor", settings.RuntimeClassName)
+	}
+	if settings.Tolerations == "" || !strings.Contains(settings.Tolerations, "dedicated") {
+		t.Fatalf("tolerations = %q, want toleration YAML", settings.Tolerations)
+	}
+}
+
+func TestParseAppK8sSettingsFromHelmEmpty(t *testing.T) {
+	settings, err := parseAppK8sSettingsFromHelm(Config{})
+	if err != nil {
+		t.Fatalf("parseAppK8sSettingsFromHelm() error = %v", err)
+	}
+	if settings.Affinity != "" || settings.Tolerations != "" || settings.Resources != "" || settings.RuntimeClassName != "" {
+		t.Fatalf("expected empty settings when env vars are unset, got %+v", settings)
+	}
+}

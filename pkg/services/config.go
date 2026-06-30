@@ -122,6 +122,10 @@ type Config struct {
 	MCPNetworkPolicyProviderChartPath    string `usage:"Local filesystem path to the network policy provider chart"`
 	MCPNetworkPolicyProviderValues       string `usage:"YAML or JSON values blob merged into the network policy provider chart values"`
 	MCPDefaultDenyAllEgress              bool   `usage:"Default new MCP servers to deny all egress when network policy enforcement is enabled" default:"false"`
+	AppK8sSettingsAffinity               string `usage:"Affinity rules for Obot server pods (JSON)" env:"OBOT_APP_K8S_SETTINGS_AFFINITY"`
+	AppK8sSettingsTolerations            string `usage:"Tolerations for Obot server pods (JSON)" env:"OBOT_APP_K8S_SETTINGS_TOLERATIONS"`
+	AppK8sSettingsResources              string `usage:"Resource requests/limits for Obot server pods (JSON)" env:"OBOT_APP_K8S_SETTINGS_RESOURCES"`
+	AppK8sSettingsRuntimeClassName       string `usage:"RuntimeClass name for Obot server pods" env:"OBOT_APP_K8S_SETTINGS_RUNTIME_CLASS_NAME"`
 
 	// Published artifact storage
 	ArtifactStorageProvider       string `usage:"Storage provider for published artifacts (s3, gcs, azure, custom)" name:"artifact-storage-provider" env:"OBOT_ARTIFACT_STORAGE_PROVIDER"`
@@ -223,6 +227,8 @@ type Services struct {
 	// PSASettingsFromHelm contains Pod Security Admission settings, always sourced from
 	// environment/Helm config and not modifiable via UI.
 	PSASettingsFromHelm *v1.PodSecurityAdmissionSettings
+	// AppK8sSettings contains read-only Obot server pod scheduling settings from Helm.
+	AppK8sSettings apiclienttypes.AppK8sSettings
 
 	DisableUpdateCheck                   bool
 	HideK8sDetails                       bool
@@ -310,9 +316,9 @@ func parsePSASettingsFromHelm(opts mcp.Options) (*v1.PodSecurityAdmissionSetting
 	}, nil
 }
 
-// parsePodSchedulingSettingsFromHelm parses pod scheduling settings (affinity, tolerations, resources,
-// runtimeClassName) from Helm options. These settings can be managed via Helm OR UI.
-// If this returns non-nil, SetViaHelm will be true and UI cannot modify these settings.
+// parsePodSchedulingSettingsFromHelm parses MCP pod scheduling settings (affinity, tolerations,
+// resources, runtimeClassName, etc.) from Helm-populated mcp.Options env vars.
+// If this returns non-nil, SetViaHelm will be true and the UI cannot modify these settings.
 func parsePodSchedulingSettingsFromHelm(opts mcp.Options) (*v1.K8sSettingsSpec, error) {
 	hasPodSettings := (opts.MCPK8sSettingsAffinity != "" && opts.MCPK8sSettingsAffinity != "{}") ||
 		(opts.MCPK8sSettingsTolerations != "" && opts.MCPK8sSettingsTolerations != "[]") ||
@@ -326,42 +332,29 @@ func parsePodSchedulingSettingsFromHelm(opts mcp.Options) (*v1.K8sSettingsSpec, 
 		return nil, nil
 	}
 
-	spec := &v1.K8sSettingsSpec{}
-
-	if opts.MCPK8sSettingsAffinity != "" && opts.MCPK8sSettingsAffinity != "{}" {
-		var affinity corev1.Affinity
-		if err := unmarshalJSONStrict([]byte(opts.MCPK8sSettingsAffinity), &affinity); err != nil {
-			return nil, fmt.Errorf("failed to parse affinity from Helm: %w", err)
-		}
-		spec.Affinity = &affinity
+	affinity, tolerations, resources, runtimeClassName, err := parsePodSchedulingJSONFields(
+		opts.MCPK8sSettingsAffinity,
+		opts.MCPK8sSettingsTolerations,
+		opts.MCPK8sSettingsResources,
+		opts.MCPK8sSettingsRuntimeClassName,
+	)
+	if err != nil {
+		return nil, err
 	}
 
-	if opts.MCPK8sSettingsTolerations != "" && opts.MCPK8sSettingsTolerations != "[]" {
-		var tolerations []corev1.Toleration
-		if err := unmarshalJSONStrict([]byte(opts.MCPK8sSettingsTolerations), &tolerations); err != nil {
-			return nil, fmt.Errorf("failed to parse tolerations from Helm: %w", err)
-		}
-		spec.Tolerations = tolerations
-	}
-
-	if opts.MCPK8sSettingsResources != "" && opts.MCPK8sSettingsResources != "{}" {
-		var resources corev1.ResourceRequirements
-		if err := unmarshalJSONStrict([]byte(opts.MCPK8sSettingsResources), &resources); err != nil {
-			return nil, fmt.Errorf("failed to parse resources from Helm: %w", err)
-		}
-		spec.Resources = &resources
+	spec := &v1.K8sSettingsSpec{
+		Affinity:         affinity,
+		Tolerations:      tolerations,
+		Resources:        resources,
+		RuntimeClassName: runtimeClassName,
 	}
 
 	if opts.MCPK8sSettingsNanobotAgentResources != "" && opts.MCPK8sSettingsNanobotAgentResources != "{}" {
-		var resources corev1.ResourceRequirements
-		if err := unmarshalJSONStrict([]byte(opts.MCPK8sSettingsNanobotAgentResources), &resources); err != nil {
+		var nanobotAgentResources corev1.ResourceRequirements
+		if err := unmarshalJSONStrict([]byte(opts.MCPK8sSettingsNanobotAgentResources), &nanobotAgentResources); err != nil {
 			return nil, fmt.Errorf("failed to parse nanobot agent resources from Helm: %w", err)
 		}
-		spec.NanobotAgentResources = &resources
-	}
-
-	if opts.MCPK8sSettingsRuntimeClassName != "" {
-		spec.RuntimeClassName = &opts.MCPK8sSettingsRuntimeClassName
+		spec.NanobotAgentResources = &nanobotAgentResources
 	}
 
 	if opts.MCPK8sSettingsStorageClassName != "" {
@@ -377,6 +370,75 @@ func parsePodSchedulingSettingsFromHelm(opts mcp.Options) (*v1.K8sSettingsSpec, 
 	}
 
 	return spec, nil
+}
+
+func parsePodSchedulingJSONFields(affinityJSON, tolerationsJSON, resourcesJSON, runtimeClassName string) (
+	*corev1.Affinity,
+	[]corev1.Toleration,
+	*corev1.ResourceRequirements,
+	*string,
+	error,
+) {
+	var (
+		affinity              *corev1.Affinity
+		tolerations           []corev1.Toleration
+		resources             *corev1.ResourceRequirements
+		runtimeClassNameValue *string
+	)
+
+	if affinityJSON != "" && affinityJSON != "{}" {
+		var parsed corev1.Affinity
+		if err := unmarshalJSONStrict([]byte(affinityJSON), &parsed); err != nil {
+			return nil, nil, nil, nil, fmt.Errorf("failed to parse affinity from Helm: %w", err)
+		}
+		affinity = &parsed
+	}
+
+	if tolerationsJSON != "" && tolerationsJSON != "[]" {
+		var parsed []corev1.Toleration
+		if err := unmarshalJSONStrict([]byte(tolerationsJSON), &parsed); err != nil {
+			return nil, nil, nil, nil, fmt.Errorf("failed to parse tolerations from Helm: %w", err)
+		}
+		tolerations = parsed
+	}
+
+	if resourcesJSON != "" && resourcesJSON != "{}" {
+		var parsed corev1.ResourceRequirements
+		if err := unmarshalJSONStrict([]byte(resourcesJSON), &parsed); err != nil {
+			return nil, nil, nil, nil, fmt.Errorf("failed to parse resources from Helm: %w", err)
+		}
+		resources = &parsed
+	}
+
+	if runtimeClassName != "" {
+		runtimeClassNameValue = &runtimeClassName
+	}
+
+	return affinity, tolerations, resources, runtimeClassNameValue, nil
+}
+
+func parseAppK8sSettingsFromHelm(config Config) (apiclienttypes.AppK8sSettings, error) {
+	affinity, tolerations, resources, runtimeClassName, err := parsePodSchedulingJSONFields(
+		config.AppK8sSettingsAffinity,
+		config.AppK8sSettingsTolerations,
+		config.AppK8sSettingsResources,
+		config.AppK8sSettingsRuntimeClassName,
+	)
+	if err != nil {
+		return apiclienttypes.AppK8sSettings{}, err
+	}
+
+	formatted, err := handlers.FormatPodSchedulingYAML(affinity, tolerations, resources, runtimeClassName)
+	if err != nil {
+		return apiclienttypes.AppK8sSettings{}, err
+	}
+
+	return apiclienttypes.AppK8sSettings{
+		Affinity:         formatted.Affinity,
+		Tolerations:      formatted.Tolerations,
+		Resources:        formatted.Resources,
+		RuntimeClassName: formatted.RuntimeClassName,
+	}, nil
 }
 
 func New(ctx context.Context, config Config) (*Services, error) {
@@ -538,16 +600,26 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 
 	// Parse Helm K8s settings - PSA settings and pod scheduling settings are handled separately
-	// PSA settings are always sourced from Helm/environment and cannot be modified via UI
-	psaSettings, err := parsePSASettingsFromHelm(mcp.Options(config.MCPConfig))
-	if err != nil {
-		return nil, err
-	}
-	// Pod scheduling settings (affinity, tolerations, resources, runtimeClassName) can be managed
-	// via Helm OR UI. If set via Helm, SetViaHelm=true and UI cannot modify them.
-	podSchedulingSettings, err := parsePodSchedulingSettingsFromHelm(mcp.Options(config.MCPConfig))
-	if err != nil {
-		return nil, err
+	// PSA settings are always sourced from Helm/environment and cannot be modified via UI.
+	// App scheduling settings are sourced from Helm/environment and are read-only via UI.
+	var (
+		psaSettings           *v1.PodSecurityAdmissionSettings
+		podSchedulingSettings *v1.K8sSettingsSpec
+		appK8sSettings        apiclienttypes.AppK8sSettings
+	)
+	if mcp.IsKubernetesBackend(config.MCPRuntimeBackend) {
+		psaSettings, err = parsePSASettingsFromHelm(mcp.Options(config.MCPConfig))
+		if err != nil {
+			return nil, err
+		}
+		podSchedulingSettings, err = parsePodSchedulingSettingsFromHelm(mcp.Options(config.MCPConfig))
+		if err != nil {
+			return nil, err
+		}
+		appK8sSettings, err = parseAppK8sSettingsFromHelm(config)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	var postgresDSN string
@@ -992,6 +1064,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		StorageListenPort:                    config.StorageListenPort,
 		PodSchedulingSettingsFromHelm:        podSchedulingSettings,
 		PSASettingsFromHelm:                  psaSettings,
+		AppK8sSettings:                       appK8sSettings,
 		DisableUpdateCheck:                   config.DisableUpdateCheck,
 		HideK8sDetails:                       config.HideK8sDetails,
 		MCPRuntimeBackend:                    config.MCPRuntimeBackend,
