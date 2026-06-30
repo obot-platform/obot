@@ -599,6 +599,29 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		}
 	}
 
+	// Parse Helm K8s settings - PSA settings and pod scheduling settings are handled separately
+	// PSA settings are always sourced from Helm/environment and cannot be modified via UI.
+	// App scheduling settings are sourced from Helm/environment and are read-only via UI.
+	var (
+		psaSettings           *v1.PodSecurityAdmissionSettings
+		podSchedulingSettings *v1.K8sSettingsSpec
+		appK8sSettings        apiclienttypes.AppK8sSettings
+	)
+	if mcp.IsKubernetesBackend(config.MCPRuntimeBackend) {
+		psaSettings, err = parsePSASettingsFromHelm(mcp.Options(config.MCPConfig))
+		if err != nil {
+			return nil, err
+		}
+		podSchedulingSettings, err = parsePodSchedulingSettingsFromHelm(mcp.Options(config.MCPConfig))
+		if err != nil {
+			return nil, err
+		}
+		appK8sSettings, err = parseAppK8sSettingsFromHelm(config)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	var postgresDSN string
 	if strings.HasPrefix(config.DSN, "postgres://") {
 		postgresDSN = config.DSN
@@ -705,26 +728,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		}
 
 		localCacheClient = localRouter.Backend()
-	}
-
-	var (
-		psaSettings           *v1.PodSecurityAdmissionSettings
-		podSchedulingSettings *v1.K8sSettingsSpec
-	)
-	if mcp.IsKubernetesBackend(config.MCPRuntimeBackend) {
-		psaSettings, err = parsePSASettingsFromHelm(mcp.Options(config.MCPConfig))
-		if err != nil {
-			return nil, err
-		}
-		podSchedulingSettings, err = parsePodSchedulingSettingsFromHelm(mcp.Options(config.MCPConfig))
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	appK8sSettings, err := parseAppK8sSettingsFromHelm(config)
-	if err != nil {
-		return nil, err
 	}
 
 	webhookHelper := mcp.NewWebhookHelper(mcpWebhookValidationInformer.GetIndexer(), config.Hostname)

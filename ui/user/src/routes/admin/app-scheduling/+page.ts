@@ -6,7 +6,7 @@ import { redirect } from '@sveltejs/kit';
 export const load: PageLoad = async ({ fetch, parent }) => {
 	const { profile, version } = await parent();
 
-	if (version?.engine !== 'kubernetes') {
+	if (version?.engine !== 'kubernetes' || version?.hideK8sDetails) {
 		throw redirect(302, '/');
 	}
 

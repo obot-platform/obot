@@ -9,12 +9,18 @@
 
 	const duration = PAGE_TRANSITION_DURATION;
 	let { data } = $props();
-	let k8sSettings = $derived<AppK8sSettings | undefined>({
-		resources: data.k8sSettings?.resources ?? '',
-		affinity: data.k8sSettings?.affinity ?? '',
-		tolerations: data.k8sSettings?.tolerations ?? '',
-		runtimeClassName: data.k8sSettings?.runtimeClassName ?? ''
-	});
+	let k8sSettings = $state<AppK8sSettings | undefined>(
+		untrack(() => {
+			if (!data.k8sSettings) return undefined;
+			return {
+				affinity: data.k8sSettings.affinity ?? '',
+				tolerations: data.k8sSettings.tolerations ?? '',
+				resources: data.k8sSettings.resources ?? '',
+				runtimeClassName: data.k8sSettings.runtimeClassName ?? '',
+				...data.k8sSettings
+			};
+		})
+	);
 	let resourceInfo = $state(untrack(() => formatSchedulingResources(data.k8sSettings?.resources)));
 </script>
 
@@ -25,10 +31,10 @@
 				<SchedulingForm
 					readonly
 					locked
-					{resourceInfo}
-					affinity={k8sSettings.affinity}
-					tolerations={k8sSettings.tolerations}
-					runtimeClassName={k8sSettings.runtimeClassName}
+					bind:resourceInfo
+					bind:affinity={k8sSettings.affinity}
+					bind:tolerations={k8sSettings.tolerations}
+					bind:runtimeClassName={k8sSettings.runtimeClassName}
 					type="app"
 				/>
 			</div>

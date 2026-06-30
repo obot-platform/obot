@@ -574,7 +574,7 @@
 								disabled: false,
 								collapsible: false
 							},
-							...(version.current.engine === 'kubernetes'
+							...(version.current.engine === 'kubernetes' && !version.current.hideK8sDetails
 								? [
 										{
 											id: 'app-scheduling',
