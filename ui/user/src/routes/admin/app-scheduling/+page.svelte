@@ -10,7 +10,6 @@
 	const duration = PAGE_TRANSITION_DURATION;
 	let { data } = $props();
 	let k8sSettings = $derived<AppK8sSettings | undefined>({
-		available: data.k8sSettings?.available ?? false,
 		resources: data.k8sSettings?.resources ?? '',
 		affinity: data.k8sSettings?.affinity ?? '',
 		tolerations: data.k8sSettings?.tolerations ?? '',
@@ -21,8 +20,8 @@
 
 <Layout classes={{ container: 'pb-0' }} title="App Scheduling">
 	<div class="relative h-full w-full" transition:fade={{ duration }}>
-		{#if k8sSettings && k8sSettings.available}
-			<div class="flex flex-col gap-8">
+		{#if k8sSettings}
+			<div class="flex flex-col gap-8 mb-8">
 				<SchedulingForm
 					readonly
 					locked

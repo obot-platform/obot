@@ -725,17 +725,9 @@ func schema_obot_platform_obot_apiclient_types_AppK8sSettings(ref common.Referen
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "AppK8sSettings surfaces Helm-managed Obot server pod scheduling configuration. Values are read-only and sourced from the app scheduling snapshot captured at install/upgrade time.",
+				Description: "AppK8sSettings surfaces Helm-managed Obot server pod scheduling configuration. Values are read-only and sourced from OBOT_APP_K8S_SETTINGS_* env vars at startup.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"available": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Available is false when Helm values are unavailable (for example, non-Kubernetes deployments).",
-							Default:     false,
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
 					"affinity": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Affinity rules (YAML)",
@@ -765,7 +757,6 @@ func schema_obot_platform_obot_apiclient_types_AppK8sSettings(ref common.Referen
 						},
 					},
 				},
-				Required: []string{"available"},
 			},
 		},
 	}

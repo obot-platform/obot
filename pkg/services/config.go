@@ -213,7 +213,6 @@ type Services struct {
 	MCPClusterDomain          string
 	ServiceName               string
 	ServiceNamespace          string
-	ConfigSecret              string
 	ServiceAccountName        string
 	StorageListenPort         int
 
@@ -419,15 +418,6 @@ func parsePodSchedulingJSONFields(affinityJSON, tolerationsJSON, resourcesJSON, 
 }
 
 func parseAppK8sSettingsFromHelm(config Config) (apiclienttypes.AppK8sSettings, error) {
-	hasSettings := (config.AppK8sSettingsAffinity != "" && config.AppK8sSettingsAffinity != "{}") ||
-		(config.AppK8sSettingsTolerations != "" && config.AppK8sSettingsTolerations != "[]") ||
-		(config.AppK8sSettingsResources != "" && config.AppK8sSettingsResources != "{}") ||
-		config.AppK8sSettingsRuntimeClassName != ""
-
-	if !hasSettings {
-		return apiclienttypes.AppK8sSettings{Available: false}, nil
-	}
-
 	affinity, tolerations, resources, runtimeClassName, err := parsePodSchedulingJSONFields(
 		config.AppK8sSettingsAffinity,
 		config.AppK8sSettingsTolerations,
@@ -444,7 +434,6 @@ func parseAppK8sSettingsFromHelm(config Config) (apiclienttypes.AppK8sSettings, 
 	}
 
 	return apiclienttypes.AppK8sSettings{
-		Available:        true,
 		Affinity:         formatted.Affinity,
 		Tolerations:      formatted.Tolerations,
 		Resources:        formatted.Resources,
@@ -1068,7 +1057,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		MCPClusterDomain:                     config.MCPClusterDomain,
 		ServiceName:                          config.ServiceName,
 		ServiceNamespace:                     config.ServiceNamespace,
-		ConfigSecret:                         config.ConfigSecret,
 		ServiceAccountName:                   config.ServiceAccountName,
 		StorageListenPort:                    config.StorageListenPort,
 		PodSchedulingSettingsFromHelm:        podSchedulingSettings,

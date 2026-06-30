@@ -437,9 +437,6 @@ func TestParseAppK8sSettingsFromHelm(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseAppK8sSettingsFromHelm() error = %v", err)
 	}
-	if !settings.Available {
-		t.Fatal("expected available settings")
-	}
 	if settings.RuntimeClassName != "gvisor" {
 		t.Fatalf("runtimeClassName = %q, want gvisor", settings.RuntimeClassName)
 	}
@@ -453,7 +450,7 @@ func TestParseAppK8sSettingsFromHelmEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseAppK8sSettingsFromHelm() error = %v", err)
 	}
-	if settings.Available {
-		t.Fatal("expected unavailable settings when env vars are unset")
+	if settings.Affinity != "" || settings.Tolerations != "" || settings.Resources != "" || settings.RuntimeClassName != "" {
+		t.Fatalf("expected empty settings when env vars are unset, got %+v", settings)
 	}
 }

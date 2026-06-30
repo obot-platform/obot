@@ -459,7 +459,6 @@ export interface K8sSettings {
 }
 
 export interface AppK8sSettings {
-	available: boolean;
 	affinity?: string;
 	tolerations?: string;
 	resources?: string;
