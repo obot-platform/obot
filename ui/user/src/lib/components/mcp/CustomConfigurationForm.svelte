@@ -127,15 +127,17 @@
 									disabled={readonly || isPrebuiltEntry}
 								/>
 							</div>
-							<div class="flex w-full flex-col gap-1">
-								<label for={`env-description-${i}`} class="text-sm font-light">Description</label>
-								<input
-									id={`env-description-${i}`}
-									class={inputClass}
-									bind:value={config![i].description}
-									disabled={readonly || isPrebuiltEntry}
-								/>
-							</div>
+							{#if !isPrebuiltEntry}
+								<div class="flex w-full flex-col gap-1">
+									<label for={`env-description-${i}`} class="text-sm font-light">Description</label>
+									<input
+										id={`env-description-${i}`}
+										class={inputClass}
+										bind:value={config![i].description}
+										disabled={readonly}
+									/>
+								</div>
+							{/if}
 							<div class="flex w-full flex-col gap-1">
 								<label for={`env-key-${i}`} class="text-sm font-light">Key</label>
 								<input
@@ -180,6 +182,15 @@
 									</p>
 								{/if}
 							</div>
+							<div class="flex w-full flex-col gap-1">
+								<label for={`env-description-${i}`} class="text-sm font-light">Description</label>
+								<input
+									id={`env-description-${i}`}
+									class="text-input-filled bg-base-100 w-full shadow-none"
+									bind:value={config![i].description}
+									disabled={readonly || isPrebuiltEntry}
+								/>
+							</div>
 							{#if secretBindingTargets && !version.current.hideK8sDetails}
 								<SecretBindingPicker
 									bind:field={config![i]}
@@ -218,6 +229,14 @@
 										disabled={readonly || isPrebuiltEntry}
 									/>
 									<span class="text-sm">Sensitive</span>
+								</label>
+								<label class="flex items-center gap-2">
+									<input
+										type="checkbox"
+										bind:checked={config![i].required}
+										disabled={readonly || isPrebuiltEntry}
+									/>
+									<span class="text-sm">Required</span>
 								</label>
 							</div>
 						{/if}
