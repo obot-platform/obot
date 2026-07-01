@@ -181,6 +181,37 @@ func TestServerToServerConfig_MultiUserPassthroughHeaders(t *testing.T) {
 	}
 }
 
+func TestCompositeServerToServerConfig_OmittedToolOverridesRemainNil(t *testing.T) {
+	baseURL := "http://localhost:8080"
+	mcpServer := v1.MCPServer{
+		Spec: v1.MCPServerSpec{
+			Manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeRuntimeConfig{ComponentServers: []types.ComponentServer{
+					{CatalogEntryID: "search"},
+				}},
+			},
+		},
+	}
+	mcpServer.Name = "composite"
+	component := v1.MCPServer{Spec: v1.MCPServerSpec{MCPServerCatalogEntryName: "search"}}
+	component.Name = "search-server"
+
+	config, missing, err := CompositeServerToServerConfig(mcpServer, []v1.MCPServer{component}, nil, mcpServer.ValidConnectURLs(baseURL), baseURL, "test-user-id", "test-scope", "test-catalog", nil, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(missing) > 0 {
+		t.Fatalf("expected no missing config, got %v", missing)
+	}
+	if len(config.Components) != 1 {
+		t.Fatalf("expected one component, got %d", len(config.Components))
+	}
+	if config.Components[0].Tools != nil {
+		t.Fatalf("expected omitted tool overrides to keep nil tools, got %#v", config.Components[0].Tools)
+	}
+}
+
 func TestServerToServerConfig_StaticHeaders_Remote(t *testing.T) {
 	baseURL := "http://localhost:8080"
 	tests := []struct {

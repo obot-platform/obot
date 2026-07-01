@@ -296,15 +296,18 @@ func CompositeServerToServerConfig(mcpServer v1.MCPServer, components []v1.MCPSe
 			continue
 		}
 
-		tools := make([]types.ToolOverride, 0, len(override.ToolOverrides))
-		for _, tool := range override.ToolOverrides {
-			if tool.Enabled {
-				tools = append(tools, types.ToolOverride{
-					Name:                tool.Name,
-					OverrideName:        tool.OverrideName,
-					OverrideDescription: tool.OverrideDescription,
-					Enabled:             tool.Enabled,
-				})
+		var tools []types.ToolOverride
+		if override.ToolOverrides != nil {
+			tools = make([]types.ToolOverride, 0, len(override.ToolOverrides))
+			for _, tool := range override.ToolOverrides {
+				if tool.Enabled {
+					tools = append(tools, types.ToolOverride{
+						Name:                tool.Name,
+						OverrideName:        tool.OverrideName,
+						OverrideDescription: tool.OverrideDescription,
+						Enabled:             tool.Enabled,
+					})
+				}
 			}
 		}
 
@@ -322,15 +325,18 @@ func CompositeServerToServerConfig(mcpServer v1.MCPServer, components []v1.MCPSe
 			continue
 		}
 
-		tools := make([]types.ToolOverride, 0, len(override.ToolOverrides))
-		for _, tool := range override.ToolOverrides {
-			if tool.Enabled {
-				tools = append(tools, types.ToolOverride{
-					Name:                tool.Name,
-					OverrideName:        tool.OverrideName,
-					OverrideDescription: tool.OverrideDescription,
-					Enabled:             tool.Enabled,
-				})
+		var tools []types.ToolOverride
+		if override.ToolOverrides != nil {
+			tools = make([]types.ToolOverride, 0, len(override.ToolOverrides))
+			for _, tool := range override.ToolOverrides {
+				if tool.Enabled {
+					tools = append(tools, types.ToolOverride{
+						Name:                tool.Name,
+						OverrideName:        tool.OverrideName,
+						OverrideDescription: tool.OverrideDescription,
+						Enabled:             tool.Enabled,
+					})
+				}
 			}
 		}
 

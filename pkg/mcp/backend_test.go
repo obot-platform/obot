@@ -103,6 +103,23 @@ func TestConstructMCPServerNanobotYAMLForCompositeIncludesOnlyEnabledTools(t *te
 	}
 }
 
+func TestConstructMCPServerNanobotYAMLForCompositeOmitsToolConfigWhenOverridesOmitted(t *testing.T) {
+	data, err := constructMCPServerNanobotYAMLForComposite([]ComponentServer{
+		{
+			Name: "default-tools",
+			URL:  "https://example.com/mcp",
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	yaml := string(data)
+	if strings.Contains(yaml, "noTools") || strings.Contains(yaml, "toolOverrides") {
+		t.Fatalf("expected omitted overrides to expose all tools, got:\n%s", yaml)
+	}
+}
+
 func TestConstructMCPServerNanobotYAMLForCompositePreservesComponentsWithNoEnabledTools(t *testing.T) {
 	data, err := constructMCPServerNanobotYAMLForComposite([]ComponentServer{
 		{
