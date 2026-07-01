@@ -85,6 +85,8 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	messagePolicies := handlers.NewMessagePolicyHandler()
 	policyViolations := handlers.NewMessagePolicyViolationHandler()
 	deviceScans := handlers.NewDeviceScansHandler()
+	deviceDeployments := handlers.NewDeviceDeploymentsHandler()
+	deviceEnroll := handlers.NewDeviceEnrollHandler()
 	authProviders := handlers.NewAuthProviderHandler(services.ProviderDispatcher, services.PostgresDSN, services.LicenseProvider)
 	defaultModelAliases := handlers.NewDefaultModelAliasHandler()
 	images := handlers.NewImageHandler()
@@ -540,6 +542,20 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/devices/skills/{name}/occurrences", deviceScans.ListSkillOccurrences)
 	mux.HandleFunc("GET /api/devices/clients", deviceScans.ListClients)
 	mux.HandleFunc("GET /api/devices/clients/{name}", deviceScans.GetClient)
+
+	// Device Deployments + enrollment keys (admin). A deployment can have
+	// multiple keys; deleting one only stops it from enrolling new devices.
+	mux.HandleFunc("POST /api/device-deployments", deviceDeployments.Create)
+	mux.HandleFunc("GET /api/device-deployments", deviceDeployments.List)
+	mux.HandleFunc("GET /api/device-deployments/{id}", deviceDeployments.Get)
+	mux.HandleFunc("DELETE /api/device-deployments/{id}", deviceDeployments.Delete)
+	mux.HandleFunc("GET /api/device-deployments/{id}/enrollment-keys", deviceDeployments.ListEnrollmentKeys)
+	mux.HandleFunc("POST /api/device-deployments/{id}/enrollment-keys", deviceDeployments.CreateEnrollmentKey)
+	mux.HandleFunc("DELETE /api/device-deployments/{id}/enrollment-keys/{key_id}", deviceDeployments.DeleteEnrollmentKey)
+	mux.HandleFunc("GET /api/device-deployments/{id}/devices", deviceDeployments.ListDevices)
+
+	// Device enrollment (authenticated by an enrollment token -> DeviceDeployment principal)
+	mux.HandleFunc("POST /api/devices/enroll", deviceEnroll.Enroll)
 
 	// Available Models
 	mux.HandleFunc("GET /api/available-models", availableModels.List)
