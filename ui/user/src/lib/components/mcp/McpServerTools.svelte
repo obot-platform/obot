@@ -4,6 +4,7 @@
 	import {
 		UserService,
 		type MCPCatalogEntry,
+		type MCPCatalogEntryServerManifest,
 		type MCPCatalogServer,
 		type MCPServerTool
 	} from '$lib/services';
@@ -26,6 +27,7 @@
 		classes?: {
 			root?: string;
 		};
+		previewOverride?: MCPCatalogEntryServerManifest['toolPreview'];
 		// When true, surface inline warning/error indicators next to each tool
 		// name for names that may be problematic for MCP clients / inference
 		// APIs (length, disallowed chars, or duplicates in this list).
@@ -38,11 +40,12 @@
 		onAuthenticate,
 		noToolsContent,
 		classes,
+		previewOverride,
 		showToolNameIssues = false
 	}: Props = $props();
 	let search = $state('');
 	let tools = $state<MCPServerTool[]>([]);
-	let previewTools = $derived(getToolPreview(entry));
+	let previewTools = $derived(previewOverride ?? getToolPreview(entry));
 	let loading = $state(false);
 	let previousEntryId = $state<string | undefined>(undefined);
 	let previousServerId = $state<string | undefined>(undefined);

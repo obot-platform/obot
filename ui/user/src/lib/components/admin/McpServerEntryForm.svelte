@@ -15,7 +15,8 @@
 		type AccessControlRule,
 		type MCPCatalogEntry,
 		type MCPServerInstance,
-		type OrgUser
+		type OrgUser,
+		type MCPCatalogEntryServerManifest
 	} from '$lib/services';
 	import {
 		getMCPDisplayName,
@@ -221,6 +222,7 @@
 					entry.manifest?.remoteConfig?.staticOAuthRequired &&
 					!entry.oauthCredentialConfigured
 	);
+	let previewToolsOverride = $state<MCPCatalogEntryServerManifest['toolPreview']>();
 
 	const tabs = $derived.by(() => {
 		const availableTabs =
@@ -570,10 +572,8 @@
 							{ dryRun: isMCPServer }
 						);
 
-			if (isMCPServer && result && entry) {
-				// In dryRun mode, the previews are returned but not persisted.
-				// Update the entry's tool preview in-place.
-				(entry as MCPCatalogServer).manifest.toolPreview = result.manifest?.toolPreview ?? [];
+			if (result && entry) {
+				previewToolsOverride = result.manifest?.toolPreview;
 			}
 		} catch (err) {
 			const errMessage = err instanceof Error ? err.message : 'An unknown error occurred';
@@ -1279,6 +1279,7 @@
 				{entry}
 				server={server ?? deploymentToDisplayTools}
 				showToolNameIssues={entry.manifest?.runtime === 'composite'}
+				previewOverride={previewToolsOverride}
 			>
 				{#snippet noToolsContent()}
 					<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
