@@ -126,6 +126,9 @@ func (db *DB) AutoMigrate() (err error) {
 		types.DeviceScanPlugin{},
 		types.DeviceScanFile{},
 		types.DeviceScanClient{},
+		types.DeviceDeployment{},
+		types.DeviceEnrollmentKey{},
+		types.Device{},
 		types.Credential{},
 	); err != nil {
 		return fmt.Errorf("failed to auto migrate gateway types: %w", err)

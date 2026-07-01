@@ -47,11 +47,15 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.DefaultModelAliasList":                              schema_obot_platform_obot_apiclient_types_DefaultModelAliasList(ref),
 		"github.com/obot-platform/obot/apiclient/types.DefaultModelAliasManifest":                          schema_obot_platform_obot_apiclient_types_DefaultModelAliasManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.DeploymentCondition":                                schema_obot_platform_obot_apiclient_types_DeploymentCondition(ref),
+		"github.com/obot-platform/obot/apiclient/types.Device":                                             schema_obot_platform_obot_apiclient_types_Device(ref),
 		"github.com/obot-platform/obot/apiclient/types.DeviceClientFleetSkill":                             schema_obot_platform_obot_apiclient_types_DeviceClientFleetSkill(ref),
 		"github.com/obot-platform/obot/apiclient/types.DeviceClientFleetSummary":                           schema_obot_platform_obot_apiclient_types_DeviceClientFleetSummary(ref),
 		"github.com/obot-platform/obot/apiclient/types.DeviceClientFleetSummaryList":                       schema_obot_platform_obot_apiclient_types_DeviceClientFleetSummaryList(ref),
 		"github.com/obot-platform/obot/apiclient/types.DeviceClientFleetSummaryResponse":                   schema_obot_platform_obot_apiclient_types_DeviceClientFleetSummaryResponse(ref),
 		"github.com/obot-platform/obot/apiclient/types.DeviceClientStat":                                   schema_obot_platform_obot_apiclient_types_DeviceClientStat(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceEnrollRequest":                                schema_obot_platform_obot_apiclient_types_DeviceEnrollRequest(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceEnrollResponse":                               schema_obot_platform_obot_apiclient_types_DeviceEnrollResponse(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceList":                                         schema_obot_platform_obot_apiclient_types_DeviceList(ref),
 		"github.com/obot-platform/obot/apiclient/types.DeviceMCPServerDetail":                              schema_obot_platform_obot_apiclient_types_DeviceMCPServerDetail(ref),
 		"github.com/obot-platform/obot/apiclient/types.DeviceMCPServerOccurrence":                          schema_obot_platform_obot_apiclient_types_DeviceMCPServerOccurrence(ref),
 		"github.com/obot-platform/obot/apiclient/types.DeviceMCPServerOccurrenceList":                      schema_obot_platform_obot_apiclient_types_DeviceMCPServerOccurrenceList(ref),
@@ -2081,6 +2085,71 @@ func schema_obot_platform_obot_apiclient_types_DeploymentCondition(ref common.Re
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_Device(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Device is an enrolled machine belonging to a device deployment. It is the API representation of a gateway device record (the registered public key is not exposed).",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"deviceID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"deviceDeploymentID": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"hostname": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"os": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"osVersion": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"enrolledAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"lastSeenAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+				},
+				Required: []string{"id", "deviceID", "deviceDeploymentID", "enrolledAt"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_DeviceClientFleetSkill(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -2314,6 +2383,102 @@ func schema_obot_platform_obot_apiclient_types_DeviceClientStat(ref common.Refer
 				Required: []string{"name", "deviceCount", "userCount", "observationCount"},
 			},
 		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceEnrollRequest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceEnrollRequest is the body of POST /api/devices/enroll. PublicKey is the device's identity key as base64-encoded DER (PKIX / SubjectPublicKeyInfo); the device proves possession of it by signing the access JWTs it presents when submitting scans.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"deviceID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"publicKey": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"hostname": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"os": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"osVersion": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"deviceID", "publicKey"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceEnrollResponse(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceEnrollResponse is returned by POST /api/devices/enroll.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"device": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Device"),
+						},
+					},
+				},
+				Required: []string{"device"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Device"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.Device"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Device"},
 	}
 }
 
