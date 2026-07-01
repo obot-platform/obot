@@ -1033,9 +1033,9 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 	if err != nil {
 		return fmt.Errorf("failed to copy body: %w", err)
 	}
-	audit.setRequestBody(body)
-	audit.setClientSessionID(extractLLMClientSessionID(l.modelProviderName, body))
-	audit.setReasoningEffort(extractLLMReasoningEffort(l.modelProviderName, body))
+	audit.log.RequestBody = string(body)
+	audit.log.ClientSessionID = extractLLMClientSessionID(l.modelProviderName, body)
+	audit.log.ReasoningEffort = extractLLMReasoningEffort(l.modelProviderName, body)
 
 	var tokenUsageTracker *threadSafeTokenUsageTracker
 	targetModel := extractModelFromBody(body)
@@ -1070,7 +1070,7 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 		}
 		req.Request.Body = io.NopCloser(bytes.NewReader(body))
 		req.ContentLength = int64(len(body))
-		audit.setRequestBody(body)
+		audit.log.RequestBody = string(body)
 	}
 
 	// Evaluate message policies if the helper is available and we have a user.
@@ -1099,7 +1099,7 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 				}
 				req.Request.Body = io.NopCloser(bytes.NewReader(b))
 				req.ContentLength = int64(len(b))
-				audit.setRedactedRequestBody(b)
+				audit.log.RedactedRequestBody = string(b)
 			}
 		}
 	}

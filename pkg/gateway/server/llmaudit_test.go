@@ -44,8 +44,8 @@ func TestNewLLMAuditRecorderCapturesRequest(t *testing.T) {
 
 func TestLLMAuditRecorderStoresRedactedRequestSeparately(t *testing.T) {
 	recorder := &llmAuditRecorder{}
-	recorder.setRequestBody([]byte(`{"input":"original"}`))
-	recorder.setRedactedRequestBody([]byte(`{"input":"redacted"}`))
+	recorder.log.RequestBody = `{"input":"original"}`
+	recorder.log.RedactedRequestBody = `{"input":"redacted"}`
 
 	if recorder.log.RequestBody != `{"input":"original"}` {
 		t.Fatalf("expected raw request body, got %q", recorder.log.RequestBody)
