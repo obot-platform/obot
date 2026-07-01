@@ -314,7 +314,9 @@ export function convertEntriesToTableData(
 		.map((entry) => {
 			const registry = getUserRegistry(entry, usersMap);
 			const { source, sourceType } = getSource(entry, usersMap);
-			const configuredServers = userConfiguredServersByEntry.get(entry.id) ?? [];
+			const configuredServers = [...(userConfiguredServersByEntry.get(entry.id) ?? [])].sort(
+				(a, b) => new Date(b.created).getTime() - new Date(a.created).getTime()
+			);
 			const missingSecretBinding = hasMissingSecretBinding(entry, configuredServers);
 			const connected = configuredServers.some((s) => !serverHasMissingSecretBinding(entry, s));
 			const isMultiUserEntry = isMultiUserCatalogEntry(entry);
@@ -338,6 +340,7 @@ export function convertEntriesToTableData(
 				sourceType,
 				needsUpdate: entry.needsUpdate,
 				connected,
+				connectedAt: configuredServers[0]?.created,
 				missingKubernetesSecret: missingSecretBinding,
 				status: missingSecretBinding
 					? ''
@@ -409,6 +412,7 @@ function convertServersToTableData(
 				created: server.created,
 				registry,
 				connected,
+				connectedAt: instance?.created,
 				status: connected
 					? instance.configured === false
 						? 'Configuration Required'

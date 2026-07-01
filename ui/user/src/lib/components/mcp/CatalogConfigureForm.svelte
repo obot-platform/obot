@@ -385,6 +385,8 @@
 		}
 	}}
 	class={isCompositeForm(form) ? 'bg-base-200 dark:bg-base-100' : ''}
+	disableClickOutside={loading}
+	hideClose={loading}
 >
 	{#snippet titleContent()}
 		<div class="flex items-center gap-2">

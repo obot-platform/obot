@@ -30,6 +30,7 @@
 	import Confirm from '../Confirm.svelte';
 	import OverflowContainer from '../OverflowContainer.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import Select from '../Select.svelte';
 	import CatalogConfigureForm, {
 		type LaunchFormData,
 		type CompositeLaunchFormData,
@@ -40,11 +41,11 @@
 	import McpServerInfo from '../mcp/McpServerInfo.svelte';
 	import McpServerTools from '../mcp/McpServerTools.svelte';
 	import StaticOAuthConfigureModal from '../mcp/StaticOAuthConfigureModal.svelte';
-	import DebugOauthFlow from '../mcp/oauth/DebugOauthFlow.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
 	import Table from '../table/Table.svelte';
 	import { setVirtualPageDisabled } from '../ui/virtual-page/context';
 	import CatalogServerForm from './CatalogServerForm.svelte';
+	import McpServerEntryTroubleshooting from './McpServerEntryTroubleshooting.svelte';
 	import McpServerInstances from './McpServerInstances.svelte';
 	import AuditLogsPageContent from './audit-logs/AuditLogsPageContent.svelte';
 	import UsageGraphs from './usage/UsageGraphs.svelte';
@@ -61,7 +62,8 @@
 		Trash2,
 		Users,
 		Wrench,
-		ExternalLink
+		ExternalLink,
+		X
 	} from '@lucide/svelte';
 	import { onMount, untrack } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -150,9 +152,17 @@
 		return tabs.some((t) => t.view === tab) ? tab : fallback;
 	});
 	let configurationReadonly = $derived(readonly || isCatalogEntryDeployedMultiUserServer(entry));
-	let showLeftChevron = $state(false);
-	let showRightChevron = $state(false);
-	let scrollContainer = $state<HTMLDivElement>();
+
+	type ScrollState = {
+		hasMoreLeft: boolean;
+		hasMoreRight: boolean;
+		ref?: HTMLDivElement;
+	};
+	let rootScrollContainer = $state<ScrollState>({
+		hasMoreLeft: false,
+		hasMoreRight: false,
+		ref: undefined
+	});
 
 	let oauthDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let oauthURL = $state<string>();
@@ -168,6 +178,7 @@
 	let error = $state<string>();
 	let showButtonInlineError = $state(false);
 	let showUpdateExistingDeploymentsConfirm = $state(false);
+	let selectedDeploymentsToView = $state<MCPCatalogServer[]>([]);
 
 	let serverInstancesLoading = $state(false);
 	let resolvedConfiguredInstances = $state<MCPServerInstance[]>();
@@ -190,6 +201,7 @@
 			resolvedConfiguredInstances?.some((i) => !i.configured)
 	);
 
+	let deploymentToDisplayTools = $state<MCPCatalogServer>();
 	let showRegenerateToolsButton = $derived(
 		entry &&
 			!server &&
@@ -233,15 +245,17 @@
 						...(isAtLeastPowerUserPlus && trueOwner
 							? [{ label: 'Access Policies', view: 'access-control' }]
 							: []),
-						...(profile.current?.hasAdminAccess?.() ? [{ label: 'Filters', view: 'filters' }] : [])
+						...(profile.current?.hasAdminAccess?.()
+							? [
+									{ label: 'Filters', view: 'filters' },
+									{ label: 'Troubleshooting', view: 'troubleshooting' }
+								]
+							: [])
 					]
 				: [
 						{ label: 'Overview', view: 'overview' },
 						...(belongsToUser ? [{ label: 'Server Details', view: 'server-instances' }] : []),
-						{ label: 'Tools', view: 'tools' },
-						...(profile.current?.hasAdminAccess?.() && entry?.manifest?.runtime === 'remote'
-							? [{ label: 'Troubleshooting', view: 'troubleshooting' }]
-							: [])
+						{ label: 'Tools', view: 'tools' }
 					];
 		return limitViews
 			? availableTabs.filter((tab) => limitViews.includes(tab.view))
@@ -307,7 +321,7 @@
 		} else {
 			if (configuredServers !== undefined) {
 				resolvedConfiguredServers = configuredServers.filter(
-					(s) => s.catalogEntryID === currentEntry.id
+					(s) => s.catalogEntryID === currentEntry.id && !s.deleted
 				);
 				resolvedConfiguredInstances = undefined;
 				serverInstancesLoading = false;
@@ -323,7 +337,7 @@
 			)
 				.then((response) => {
 					if (!cancelled) {
-						resolvedConfiguredServers = response;
+						resolvedConfiguredServers = response.filter((s) => !s.deleted);
 					}
 				})
 				.finally(() => {
@@ -359,11 +373,11 @@
 		});
 
 		checkScrollPosition();
-		scrollContainer?.addEventListener('scroll', checkScrollPosition);
+		rootScrollContainer.ref?.addEventListener('scroll', checkScrollPosition);
 		window.addEventListener('resize', checkScrollPosition);
 
 		return () => {
-			scrollContainer?.removeEventListener('scroll', checkScrollPosition);
+			rootScrollContainer.ref?.removeEventListener('scroll', checkScrollPosition);
 			window.removeEventListener('resize', checkScrollPosition);
 			document.removeEventListener('visibilitychange', handleVisibilityChange);
 		};
@@ -407,22 +421,22 @@
 	}
 
 	function checkScrollPosition() {
-		if (!scrollContainer) return;
+		if (!rootScrollContainer.ref) return;
 
-		const { scrollLeft, scrollWidth, clientWidth } = scrollContainer;
-		showLeftChevron = scrollLeft > 0;
-		showRightChevron = scrollLeft < scrollWidth - clientWidth - 1; // -1 for rounding errors
+		const { scrollLeft, scrollWidth, clientWidth } = rootScrollContainer.ref;
+		rootScrollContainer.hasMoreLeft = scrollLeft > 0;
+		rootScrollContainer.hasMoreRight = scrollLeft < scrollWidth - clientWidth - 1; // -1 for rounding errors
 	}
 
 	function scrollLeft() {
-		if (scrollContainer) {
-			scrollContainer.scrollBy({ left: -200, behavior: 'smooth' });
+		if (rootScrollContainer.ref) {
+			rootScrollContainer.ref.scrollBy({ left: -200, behavior: 'smooth' });
 		}
 	}
 
 	function scrollRight() {
-		if (scrollContainer) {
-			scrollContainer.scrollBy({ left: 200, behavior: 'smooth' });
+		if (rootScrollContainer.ref) {
+			rootScrollContainer.ref.scrollBy({ left: 200, behavior: 'smooth' });
 		}
 	}
 
@@ -689,10 +703,11 @@
 		if (!id || !entry || !('isCatalogEntry' in entry)) return;
 		serverInstancesLoading = true;
 		try {
-			resolvedConfiguredServers =
+			const response =
 				entity === 'workspace'
 					? await UserService.listWorkspaceMCPServersForEntry(id, entry.id)
 					: await AdminService.listMCPServersForEntry(id, entry.id);
+			resolvedConfiguredServers = response.filter((s) => !s.deleted);
 		} finally {
 			serverInstancesLoading = false;
 		}
@@ -714,7 +729,7 @@
 						? UserService.listWorkspaceMCPServersForEntry
 						: AdminService.listMCPServersForEntry;
 				listInstances(id, updatedEntry.id).then((response) => {
-					resolvedConfiguredServers = response;
+					resolvedConfiguredServers = response.filter((s) => !s.deleted);
 					if (response.length > 0 && response.some((instance) => instance)) {
 						showUpdateExistingDeploymentsConfirm = true;
 					}
@@ -809,13 +824,13 @@
 			<OverflowContainer
 				class="scrollbar-none flex min-h-12 w-full items-center gap-2 overflow-x-auto"
 				style="scroll-behavior: smooth;"
-				{@attach (node: HTMLDivElement) => (scrollContainer = node)}
+				{@attach (node: HTMLDivElement) => (rootScrollContainer.ref = node)}
 			>
 				{#snippet children({ x })}
 					{#if tabs.length > 0 && (entry?.id || server?.id)}
 						{#if x}
 							<button
-								disabled={!showLeftChevron}
+								disabled={!rootScrollContainer.hasMoreLeft}
 								onclick={scrollLeft}
 								class="bg-base-200 dark:bg-base-100 sticky left-0 flex aspect-square h-full items-center justify-center rounded-l-md p-2.5 opacity-100 transition-all duration-200 disabled:opacity-30"
 							>
@@ -856,7 +871,7 @@
 
 						{#if x}
 							<button
-								disabled={!showRightChevron}
+								disabled={!rootScrollContainer.hasMoreRight}
 								onclick={scrollRight}
 								class="bg-base-200 dark:bg-base-100 sticky right-0 flex aspect-square h-full items-center justify-center rounded-r-md p-2.5 opacity-100 transition-all duration-200 disabled:opacity-30"
 							>
@@ -900,61 +915,8 @@
 			</div>
 		{:else if selected === 'configuration'}
 			{@render configurationView()}
-		{:else if selected === 'tools' && entry}
-			<div class="pb-8">
-				{#if showRegenerateToolsButton}
-					<button class="btn btn-primary mb-4 text-sm" onclick={handleInitTemporaryInstance}>
-						Regenerate Tools & Capabilities
-					</button>
-				{/if}
-				<McpServerTools
-					{entry}
-					{server}
-					showToolNameIssues={entry.manifest?.runtime === 'composite'}
-				>
-					{#snippet noToolsContent()}
-						<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-							<Wrench class="text-muted-content size-24 opacity-50" />
-							{#if !entry || (entry && (readonly || server || connectOnly))}
-								<h4 class="text-muted-content text-lg font-semibold">No tools</h4>
-								<p class="text-muted-content text-sm font-light">
-									Looks like this MCP server doesn't have any tools available currently.
-								</p>
-							{:else if !readonly && !connectOnly}
-								<h4 class="text-muted-content text-lg font-semibold">No tools</h4>
-								<button
-									class="btn btn-primary flex items-center gap-1 text-sm"
-									onclick={handleInitTemporaryInstance}
-									disabled={saving}
-								>
-									{#if saving}
-										<Loading class="size-4" />
-									{:else}
-										Populate Tool Preview
-									{/if}
-								</button>
-								{#if !error}
-									<p class="text-muted-content text-sm font-light">
-										{#if type === 'remote'}
-											Click above to connect to the remote MCP server to populate capabilities and
-											tools.
-										{:else}
-											Click above to set up a temporary instance that will populate capabilities and
-											tools. Otherwise, tools will populate when the user first deploys a server for
-											the catalog entry.
-										{/if}
-									</p>
-								{/if}
-							{/if}
-						</div>
-						{#if error && showButtonInlineError}
-							<div class="mt-4 w-full">
-								{@render errorSnippet()}
-							</div>
-						{/if}
-					{/snippet}
-				</McpServerTools>
-			</div>
+		{:else if selected === 'tools'}
+			{@render toolsView()}
 		{:else if selected === 'access-control'}
 			{@render accessControlView()}
 		{:else if selected === 'usage'}
@@ -1217,13 +1179,170 @@
 	{/if}
 {/snippet}
 
+{#snippet toolsView()}
+	{@const displayTabsByDeployment =
+		entry &&
+		!server &&
+		'isCatalogEntry' in entry &&
+		resolvedConfiguredServers &&
+		resolvedConfiguredServers.length > 0}
+
+	<div class="pb-8">
+		{#if displayTabsByDeployment}
+			<div class="flex justify-between gap-4 border-base-400 border-b mb-4">
+				<div role="tablist" class="flex flex-1">
+					<button
+						type="button"
+						role="tab"
+						aria-selected={deploymentToDisplayTools === undefined}
+						class={twMerge(
+							'tab-button text-nowrap',
+							deploymentToDisplayTools === undefined && 'tab-active'
+						)}
+						onclick={() => (deploymentToDisplayTools = undefined)}>Preview</button
+					>
+
+					{#each selectedDeploymentsToView as deployment (deployment.id)}
+						{@const deploymentLabel = `${deployment.alias || deployment.manifest.name} (${deployment.id})`}
+						<div
+							role="presentation"
+							class={twMerge(
+								'inline-flex items-center tab-button',
+								deploymentToDisplayTools?.id === deployment.id && 'tab-active'
+							)}
+						>
+							<button
+								type="button"
+								role="tab"
+								aria-selected={deploymentToDisplayTools?.id === deployment.id}
+								class="text-nowrap"
+								onclick={() => (deploymentToDisplayTools = deployment)}
+							>
+								{deploymentLabel}
+							</button>
+							<button
+								type="button"
+								aria-label="Close {deploymentLabel} tab"
+								onclick={() => {
+									selectedDeploymentsToView = selectedDeploymentsToView.filter(
+										(d) => d.id !== deployment.id
+									);
+									if (deploymentToDisplayTools?.id === deployment.id) {
+										deploymentToDisplayTools = undefined;
+									}
+								}}
+								class="btn btn-circle btn-xs btn-ghost"
+							>
+								<X class="size-3" aria-hidden="true" />
+							</button>
+						</div>
+					{/each}
+				</div>
+
+				<Select
+					id="select-deployment-tools-view"
+					class="bg-base-200 hover:bg-base-300 dark:bg-base-100 dark:hover:bg-base-200 mb-0.5 border border-transparent shadow-none md:w-64"
+					options={(resolvedConfiguredServers ?? []).map((deployment) => ({
+						id: deployment.id,
+						label: `${deployment.alias || deployment.manifest.name} (${deployment.id})`,
+						data: deployment
+					}))}
+					multiple
+					selected={selectedDeploymentsToView.map((deployment) => deployment.id).join(',')}
+					onSelect={(option) => {
+						if (selectedDeploymentsToView.find((deployment) => deployment.id === option.id)) {
+							selectedDeploymentsToView = selectedDeploymentsToView.filter(
+								(deployment) => deployment.id !== option.id
+							);
+							if (deploymentToDisplayTools?.id === option.id) {
+								deploymentToDisplayTools = undefined;
+							}
+						} else {
+							selectedDeploymentsToView = [...selectedDeploymentsToView, option.data];
+							deploymentToDisplayTools = option.data;
+						}
+					}}
+					searchInDropdown
+					buttonReadOnly
+					buttonTitle="Include Deployment(s)"
+					displayCount={selectedDeploymentsToView.length > 0}
+				/>
+			</div>
+		{/if}
+		{#if showRegenerateToolsButton}
+			<button class="btn btn-primary mb-4 text-sm" onclick={handleInitTemporaryInstance}>
+				Regenerate Tools & Capabilities
+			</button>
+		{/if}
+		{#if entry}
+			<McpServerTools
+				{entry}
+				server={server ?? deploymentToDisplayTools}
+				showToolNameIssues={entry.manifest?.runtime === 'composite'}
+			>
+				{#snippet noToolsContent()}
+					<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
+						<Wrench class="text-muted-content size-24 opacity-50" />
+						{#if !entry || (entry && (readonly || server || deploymentToDisplayTools || connectOnly))}
+							<h4 class="text-muted-content text-lg font-semibold">No tools</h4>
+							<p class="text-muted-content text-sm font-light">
+								Looks like this MCP server doesn't have any tools available currently.
+							</p>
+						{:else if !readonly && !connectOnly}
+							<h4 class="text-muted-content text-lg font-semibold">No tools</h4>
+							<button
+								class="btn btn-primary flex items-center gap-1 text-sm"
+								onclick={handleInitTemporaryInstance}
+								disabled={saving}
+							>
+								{#if saving}
+									<Loading class="size-4" />
+								{:else}
+									Populate Tool Preview
+								{/if}
+							</button>
+							{#if !error}
+								<p class="text-muted-content text-sm font-light">
+									{#if type === 'remote'}
+										Click above to connect to the remote MCP server to populate capabilities and
+										tools.
+									{:else}
+										Click above to set up a temporary instance that will populate capabilities and
+										tools. Otherwise, tools will populate when the user first deploys a server for
+										the catalog entry.
+									{/if}
+								</p>
+							{/if}
+						{/if}
+					</div>
+					{#if error && showButtonInlineError}
+						<div class="mt-4 w-full">
+							{@render errorSnippet()}
+						</div>
+					{/if}
+				{/snippet}
+			</McpServerTools>
+		{:else}
+			<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
+				<Wrench class="text-muted-content size-24 opacity-50" />
+				<h4 class="text-muted-content text-lg font-semibold">No tools</h4>
+				<p class="text-muted-content text-sm font-light">
+					Looks like this MCP server doesn't have any tools available currently.
+				</p>
+			</div>
+		{/if}
+	</div>
+{/snippet}
+
 {#snippet troubleshootingView()}
-	{#if server}
-		<div class="flex flex-col bg-base-100 dark:bg-base-300 rounded-md pt-4">
-			<h1 class="text-lg font-semibold px-4 pb-2">Debug OAuth Flow</h1>
-			<DebugOauthFlow mcpServer={server} />
-		</div>
-	{/if}
+	<McpServerEntryTroubleshooting
+		entityId={id}
+		{entity}
+		{entry}
+		{server}
+		servers={resolvedConfiguredServers}
+		onRefresh={reloadConfiguredServers}
+	/>
 {/snippet}
 
 <Confirm

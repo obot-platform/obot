@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import Loading from '$lib/icons/Loading.svelte';
 	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
 	import {
 		UserService,
@@ -46,6 +45,7 @@
 	let previewTools = $derived(getToolPreview(entry));
 	let loading = $state(false);
 	let previousEntryId = $state<string | undefined>(undefined);
+	let previousServerId = $state<string | undefined>(undefined);
 	let error = $state('');
 
 	let expanded = $state<Record<string, boolean>>({});
@@ -53,13 +53,10 @@
 	let abortController = $state<AbortController | null>(null);
 
 	// Determine if we have "real" tools or should show previews
-	let hasConnectedServer = $derived(
+	let showRealTools = $derived(
 		!('isCatalogEntry' in entry) || ('isCatalogEntry' in entry && server)
 	);
-	let showRealTools = $derived(hasConnectedServer && tools.length > 0);
-	let showPreviewTools = $derived(
-		previewTools.length > 0 && (!hasConnectedServer || (loading && tools.length === 0))
-	);
+	let showPreviewTools = $derived(previewTools.length > 0 && !showRealTools);
 	let displayTools = $derived(
 		(showRealTools
 			? tools
@@ -123,15 +120,22 @@
 			});
 			tools = await toolCall;
 		} catch (err) {
-			console.error(err);
+			if (err instanceof DOMException && err.name === 'AbortError') return;
+			error = err instanceof Error ? err.message : 'An unknown error occurred';
 		} finally {
 			loading = false;
 		}
 	}
 
 	$effect(() => {
-		if (entry && hasConnectedServer && (!previousEntryId || entry.id !== previousEntryId)) {
-			previousEntryId = entry.id;
+		if (!showRealTools) return;
+		const changedEntry = entry && (!previousEntryId || entry.id !== previousEntryId);
+		const changedServer =
+			(server?.id && (!previousServerId || server.id !== previousServerId)) ||
+			(!server && previousServerId);
+		if (changedEntry || changedServer) {
+			previousEntryId = entry?.id;
+			previousServerId = server?.id;
 			loadTools();
 		}
 	});
@@ -143,34 +147,38 @@
 </script>
 
 <div class={twMerge('flex w-full flex-col gap-4', classes?.root)}>
-	<div class="flex w-full flex-col items-center gap-2 md:flex-row">
-		{#if showPreviewTools}
-			<div class="notification-info w-full p-3 text-sm font-light">
-				<div class="flex items-center gap-3">
-					<Info class="size-6 shrink-0" />
-					<div>
-						This is a preview of the tools that are available for this MCP server; the actual tools
-						may differ on user connection.
+	{#if showPreviewTools || error}
+		<div class="flex w-full flex-col items-center gap-2 md:flex-row">
+			{#if showPreviewTools}
+				<div class="notification-info w-full p-3 text-sm font-light">
+					<div class="flex items-center gap-3">
+						<Info class="size-6 shrink-0" />
+						<div>
+							This is a preview of the tools that are available for this MCP server; the actual
+							tools may differ on user connection.
+						</div>
 					</div>
 				</div>
-			</div>
-		{:else}
-			{#key server?.id ?? entry.id}
-				<McpOauth entry={server ?? entry} onAuthenticate={handleAuthenticate} bind:error />
-			{/key}
-		{/if}
-		{#if error}
-			<div class="notification-error flex w-full items-center gap-2 p-3">
-				<CircleAlert class="size-4" />
-				<div class="flex flex-col">
-					<p class="text-sm font-semibold">Unable to retrieve the server's tools</p>
-					<p class="text-sm font-light">
-						{error}
-					</p>
+			{/if}
+			{#if error}
+				<div class="notification-error flex w-full items-center gap-2 p-3">
+					<CircleAlert class="size-4" />
+					<div class="flex flex-col">
+						<p class="text-sm font-semibold">Unable to retrieve the server's tools</p>
+						<p class="text-sm font-light">
+							{error}
+						</p>
+					</div>
 				</div>
-			</div>
-		{/if}
-	</div>
+			{/if}
+		</div>
+	{/if}
+
+	{#if showRealTools}
+		{#key server?.id ?? entry.id}
+			<McpOauth entry={server ?? entry} onAuthenticate={handleAuthenticate} bind:error />
+		{/key}
+	{/if}
 
 	<div class="flex w-full flex-col gap-2">
 		<div class="mb-2 flex w-full flex-col gap-4">
@@ -197,9 +205,9 @@
 		</div>
 		<div class="flex flex-col gap-4 overflow-hidden">
 			{#if loading}
-				<div class="flex items-center justify-center">
-					<Loading class="size-6" />
-				</div>
+				{#each Array.from({ length: 3 }) as _, i (i)}
+					<div class="skeleton h-14 w-full rounded-none"></div>
+				{/each}
 			{:else if displayTools.length > 0}
 				{#each displayTools as tool, index (`${tool.name}-${index}`)}
 					{@const hasContentDisplayed = allDescriptionsEnabled || expanded[tool.id]}
@@ -273,10 +281,10 @@
 					<Wrench class="text-muted-content size-24 opacity-50" />
 					<h4 class="text-muted-content text-lg font-semibold">No tools</h4>
 					<p class="text-muted-content text-sm font-light">
-						{#if !entry || hasConnectedServer}
+						{#if showRealTools}
 							Looks like this MCP server doesn't have any tools available.
 						{:else}
-							Connection to to the server is required to list available tools.
+							Connection to the server is required to list available tools.
 						{/if}
 					</p>
 				</div>
