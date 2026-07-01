@@ -19,13 +19,21 @@ var llmAuditLogGroupResource = schema.GroupResource{
 }
 
 const (
-	defaultLLMAuditLogBatchSize  = 100
-	defaultLLMAuditLogBufferSize = 10000
+	defaultLLMAuditLogBatchSize            = 100
+	defaultLLMAuditLogBufferSize           = 10000
+	defaultLLMAuditLogResponseCaptureLimit = 5 << 20 // 5MiB
 )
 
 type llmAuditEntry struct {
 	log            types.LLMAuditLog
 	responseStream string
+}
+
+func (c *Client) LLMAuditLogResponseCaptureLimit() int {
+	if c == nil || c.llmAuditResponseLimit <= 0 {
+		return defaultLLMAuditLogResponseCaptureLimit
+	}
+	return c.llmAuditResponseLimit
 }
 
 func (c *Client) LogLLMAuditEntry(auditLog types.LLMAuditLog, responseStream string) {
