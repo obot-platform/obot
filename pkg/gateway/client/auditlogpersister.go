@@ -41,7 +41,7 @@ func (c *Client) LogMCPAuditEntry(entry types.MCPAuditLog) {
 	}
 }
 
-func (c *Client) runPersistenceLoop(ctx context.Context, flushInterval time.Duration) {
+func (c *Client) runMCPAuditLogPersistenceLoop(ctx context.Context, flushInterval time.Duration) {
 	timer := time.NewTimer(flushInterval)
 	defer timer.Stop()
 
@@ -54,7 +54,7 @@ func (c *Client) runPersistenceLoop(ctx context.Context, flushInterval time.Dura
 		case <-timer.C:
 		}
 
-		if err := c.persistAuditLogs(); err != nil {
+		if err := c.persistMCPAuditLogs(); err != nil {
 			log.Errorf("Failed to persist audit log: %v", err)
 		}
 
@@ -62,12 +62,12 @@ func (c *Client) runPersistenceLoop(ctx context.Context, flushInterval time.Dura
 	}
 }
 
-func (c *Client) runAuditLogCleanup(ctx context.Context, retentionDays int) {
+func (c *Client) runMCPAuditLogCleanup(ctx context.Context, retentionDays int) {
 	if retentionDays <= 0 {
 		return
 	}
 
-	err := c.deleteOldAuditLogs(ctx, time.Now().UTC(), retentionDays)
+	err := c.deleteOldMCPAuditLogs(ctx, time.Now().UTC(), retentionDays)
 	if err != nil && !errors.Is(err, context.Canceled) {
 		log.Errorf("Failed to delete old audit logs: %v", err)
 	}
@@ -80,7 +80,7 @@ func (c *Client) runAuditLogCleanup(ctx context.Context, retentionDays int) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			err = c.deleteOldAuditLogs(ctx, time.Now().UTC(), retentionDays)
+			err = c.deleteOldMCPAuditLogs(ctx, time.Now().UTC(), retentionDays)
 			if err != nil && !errors.Is(err, context.Canceled) {
 				log.Errorf("Failed to delete old audit logs: %v", err)
 			}
@@ -88,7 +88,7 @@ func (c *Client) runAuditLogCleanup(ctx context.Context, retentionDays int) {
 	}
 }
 
-func (c *Client) deleteOldAuditLogs(ctx context.Context, now time.Time, retentionDays int) error {
+func (c *Client) deleteOldMCPAuditLogs(ctx context.Context, now time.Time, retentionDays int) error {
 	if retentionDays <= 0 {
 		return nil
 	}
@@ -116,7 +116,7 @@ func (c *Client) deleteOldAuditLogs(ctx context.Context, now time.Time, retentio
 	}
 }
 
-func (c *Client) persistAuditLogs() error {
+func (c *Client) persistMCPAuditLogs() error {
 	c.auditLock.Lock()
 	if len(c.auditBuffer) == 0 {
 		c.auditLock.Unlock()

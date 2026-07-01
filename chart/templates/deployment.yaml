@@ -65,6 +65,7 @@ spec:
                   - identities.obot.obot.ai
                   - mcpoauthtokens.obot.obot.ai
                   - mcpauditlogs.obot.obot.ai
+                  - llmauditlogs.obot.obot.ai
                   - mcpoauthpendingstates.obot.obot.ai
                   - policyviolations.obot.obot.ai
                   - properties.obot.obot.ai
