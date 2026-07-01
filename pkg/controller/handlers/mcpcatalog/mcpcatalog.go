@@ -95,16 +95,21 @@ func (h *Handler) revealCatalogCredential(ctx context.Context, catalogName, sour
 
 func New(defaultCatalogPath, defaultSystemCatalogPath string, gatewayClient *gclient.Client, accessControlRuleHelper *accesscontrolrule.Helper, mcpSessionManager *mcp.SessionManager) *Handler {
 	remoteURLValidationConfig := mcpSessionManager.RemoteMCPURLValidationConfig()
+	validationOptions := validation.Options{
+		RemoteMCPURLValidationConfig: remoteURLValidationConfig,
+	}
+	if mcp.IsKubernetesBackend(mcpSessionManager.MCPRuntimeBackend()) {
+		validationOptions.ResourceMaximums = mcpSessionManager.ResourceMaximums()
+	}
+
 	return &Handler{
-		defaultCatalogPath:       defaultCatalogPath,
-		defaultSystemCatalogPath: defaultSystemCatalogPath,
-		gatewayClient:            gatewayClient,
-		httpClient:               safehttp.NewClient(!remoteURLValidationConfig.AllowLocalhostMCP, !remoteURLValidationConfig.AllowPrivateIPMCP, !remoteURLValidationConfig.AllowLinkLocalMCP),
-		accessControlRuleHelper:  accessControlRuleHelper,
-		remoteURLValidationConfig: validation.Options{
-			RemoteMCPURLValidationConfig: remoteURLValidationConfig,
-		},
-		mcpBackend: mcpSessionManager.MCPRuntimeBackend(),
+		defaultCatalogPath:        defaultCatalogPath,
+		defaultSystemCatalogPath:  defaultSystemCatalogPath,
+		gatewayClient:             gatewayClient,
+		httpClient:                safehttp.NewClient(!remoteURLValidationConfig.AllowLocalhostMCP, !remoteURLValidationConfig.AllowPrivateIPMCP, !remoteURLValidationConfig.AllowLinkLocalMCP),
+		accessControlRuleHelper:   accessControlRuleHelper,
+		remoteURLValidationConfig: validationOptions,
+		mcpBackend:                mcpSessionManager.MCPRuntimeBackend(),
 	}
 }
 
