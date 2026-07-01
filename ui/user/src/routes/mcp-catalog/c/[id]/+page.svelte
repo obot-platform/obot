@@ -16,11 +16,11 @@
 		type MCPCatalogServer,
 		AdminService
 	} from '$lib/services';
-	import { isMultiUserCatalogEntry } from '$lib/services/user/mcp';
+	import { isDeprecatedMCPServer, isMultiUserCatalogEntry } from '$lib/services/user/mcp';
 	import { profile } from '$lib/stores';
 	import { success } from '$lib/stores/success';
 	import McpConnectUrlDialog from '../../McpConnectUrlDialog.svelte';
-	import { CircleFadingArrowUp, Info, GitCompare, Link2Icon } from '@lucide/svelte';
+	import { CircleAlert, CircleFadingArrowUp, Info, GitCompare, Link2Icon } from '@lucide/svelte';
 	import { untrack, type Component } from 'svelte';
 	import { fly } from 'svelte/transition';
 
@@ -36,6 +36,7 @@
 	let isComposite = $derived(catalogEntry?.manifest?.runtime === 'composite');
 	let needsUpdate = $derived(catalogEntry?.needsUpdate === true);
 	let showUpgradeNotification = $derived(isComposite && needsUpdate && !isAdminReadonly);
+	let deprecated = $derived(isDeprecatedMCPServer(catalogEntry));
 
 	let workspaceId = $derived(catalogEntry?.powerUserWorkspaceID);
 	let serverScopeEntity = $derived(workspaceId ? ('workspace' as const) : ('catalog' as const));
@@ -208,7 +209,7 @@
 				}
 				if (showUrlOnConnect) {
 					showUrlOnConnect = false;
-					connectUrlDialog?.open(entry, server?.connectURL);
+					connectUrlDialog?.open(entry, server?.connectURL, server);
 				}
 			}}
 			hideActions
@@ -218,6 +219,19 @@
 		</button>
 	{/snippet}
 	<div class="flex h-full flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
+		{#if deprecated}
+			<div class="border-warning bg-warning/10 flex items-start gap-3 rounded-lg border p-4">
+				<CircleAlert class="text-warning mt-0.5 size-5 shrink-0" />
+				<div class="flex-1">
+					<p class="text-sm font-medium">This server is deprecated.</p>
+					<p class="text-muted-content mt-1 text-xs">
+						It may stop receiving updates or be removed in a future catalog release. Use a
+						replacement server when possible.
+					</p>
+				</div>
+			</div>
+		{/if}
+
 		{#if showUpgradeNotification}
 			<div class="border-primary bg-primary/10 flex items-center gap-3 rounded-lg border p-4">
 				<Info class="text-primary size-5 shrink-0" />

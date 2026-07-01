@@ -9,9 +9,13 @@
 		API_KEY_CREATABLE_CAPABILITIES,
 		type APIKeyCreatableCapabilityKey
 	} from '$lib/services/api-keys/types';
-	import { compileAvailableMcpServers, getMCPDisplayName } from '$lib/services/user/mcp';
+	import {
+		compileAvailableMcpServers,
+		getMCPDisplayName,
+		isDeprecatedMCPServer
+	} from '$lib/services/user/mcp';
 	import { mcpServersAndEntries } from '$lib/stores';
-	import { Check, Server } from '@lucide/svelte';
+	import { Check, Server, TriangleAlert } from '@lucide/svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { fly } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -229,7 +233,15 @@
 								{/if}
 							</div>
 							<div class="flex min-w-0 grow flex-col">
-								<p class="truncate text-sm">{getMCPDisplayName(server)}</p>
+								<div class="flex items-center gap-2">
+									<p class="truncate text-sm">{getMCPDisplayName(server)}</p>
+									{#if isDeprecatedMCPServer(server)}
+										<span class="badge badge-xs border-warning text-warning gap-1 bg-warning/10">
+											<TriangleAlert class="size-3" />
+											Deprecated
+										</span>
+									{/if}
+								</div>
 								{#if server.manifest.description}
 									<span class="text-muted-content line-clamp-1 text-xs">
 										{stripMarkdownToText(server.manifest.description)}

@@ -164,6 +164,7 @@
 			const isHostedType = type === 'hosted';
 			return {
 				categories: [''],
+				metadata: undefined,
 				name: '',
 				description: '',
 				env: [],
@@ -190,6 +191,7 @@
 
 			const formData: RuntimeFormData = {
 				categories: manifest.metadata?.categories?.split(',').filter((c) => c.trim()) ?? [''],
+				metadata: manifest.metadata,
 				icon: manifest.icon ?? '',
 				name: manifest.name ?? '',
 				description: manifest.description ?? '',
@@ -239,6 +241,7 @@
 
 			const formData: RuntimeFormData = {
 				categories: manifest.metadata?.categories?.split(',').filter((c) => c.trim()) ?? [''],
+				metadata: manifest.metadata,
 				name: manifest.name ?? '',
 				icon: manifest.icon ?? '',
 				env: manifest.env?.map((env) => ({ ...env, value: env.value ?? '' })) ?? [],
@@ -408,7 +411,7 @@
 	});
 
 	function convertToEntryManifest(formData: RuntimeFormData): MCPCatalogEntryServerManifest {
-		const { categories, ...baseData } = formData;
+		const { categories, metadata, ...baseData } = formData;
 		const startupTimeoutSeconds = baseData.startupTimeoutSeconds;
 		const startupTimeoutConfig =
 			typeof startupTimeoutSeconds === 'number' &&
@@ -433,7 +436,7 @@
 			multiUserConfig:
 				baseData.serverUserType === 'multiUser' ? baseData.multiUserConfig : undefined,
 			...(resources ? { resources } : {}),
-			...convertCategoriesToMetadata(categories)
+			...convertCategoriesToMetadata(categories, metadata)
 		};
 
 		// Add runtime-specific config based on the runtime type

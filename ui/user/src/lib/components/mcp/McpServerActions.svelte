@@ -16,6 +16,7 @@
 		disconnectMcpServerUser,
 		getMCPDisplayName,
 		hasEditableConfiguration,
+		isDeprecatedMCPServer,
 		isMultiUserCatalogEntry,
 		isMultiUserServer,
 		requiresUserUpdate,
@@ -41,6 +42,7 @@
 		Server,
 		ServerCog,
 		StepForward,
+		TriangleAlert,
 		Trash2,
 		Unplug,
 		Bug
@@ -128,6 +130,7 @@
 	);
 	let canDebugOauth = $derived(canReauthenticate && profile.current?.hasAdminAccess?.());
 	let belongsToComposite = $derived(Boolean(server && server.compositeName));
+	let deprecated = $derived(isDeprecatedMCPServer(entry) || isDeprecatedMCPServer(server));
 	let configurableItem = $derived(server ?? entry);
 	// True when the user can manage the server deployment (restart, rename, edit config).
 	// For multi-user servers, only admins or the workspace owner who deployed it.
@@ -442,6 +445,12 @@
 					</div>
 					<p class="flex items-center gap-2">
 						{getMCPDisplayName(d)}
+						{#if isDeprecatedMCPServer(entry) || isDeprecatedMCPServer(d)}
+							<span class="badge badge-xs border-warning text-warning gap-1 bg-warning/10">
+								<TriangleAlert class="size-3" />
+								Deprecated
+							</span>
+						{/if}
 					</p>
 				</div>
 			{:else if property === 'created'}
@@ -499,7 +508,21 @@
 		{:else if !entry && isMultiUserServer(server)}
 			<p class="mb-2 text-center">Would you like to connect to this server now?</p>
 		{:else}
-			<div class="mt-4">
+			<div class="mt-4 flex flex-col gap-3">
+				{#if deprecated}
+					<div
+						class="border-warning bg-warning/10 flex w-full items-start gap-2 rounded-md border p-3 text-left"
+					>
+						<TriangleAlert class="text-warning mt-0.5 size-4 shrink-0" />
+						<div class="text-sm">
+							<p class="font-medium">This server is deprecated.</p>
+							<p class="text-muted-content">
+								It may stop receiving updates or be removed in a future catalog release. Use a
+								replacement server when possible.
+							</p>
+						</div>
+					</div>
+				{/if}
 				<CopyField
 					id="server-action-connection-url"
 					label="Connection URL"

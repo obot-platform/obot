@@ -18,7 +18,8 @@
 		isKubernetesRuntimeBackend,
 		hasEditableConfiguration,
 		getMCPDisplayName,
-		hasSecretBinding
+		hasSecretBinding,
+		isDeprecatedMCPServer
 	} from '$lib/services/user/mcp';
 	import { errors, version } from '$lib/stores';
 	import Confirm from '../Confirm.svelte';
@@ -73,6 +74,7 @@
 	let entry = $state<MCPCatalogEntry>();
 	let instance = $state<MCPServerInstance>();
 	let manifest = $derived(server?.manifest || entry?.manifest);
+	let deprecated = $derived(isDeprecatedMCPServer(entry) || isDeprecatedMCPServer(server));
 	let isConfigured = $derived(Boolean((entry && server) || (server && instance)));
 	let isDeployingMultiUserCatalogEntry = $derived(
 		Boolean(entry && !server && isMultiUserCatalogEntry(entry))
@@ -92,6 +94,7 @@
 	);
 
 	let showIntroDialog = $state(false);
+	let showDeprecatedConnectDialog = $state(false);
 
 	let connectDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let configDialog = $state<ReturnType<typeof CatalogConfigureForm>>();
@@ -168,6 +171,11 @@
 		if (onConnect && !skipOnConnect) {
 			onConnect({ server, entry, instance });
 		}
+	}
+
+	function handleDeprecatedConnectContinue() {
+		showDeprecatedConnectDialog = false;
+		handleConnect(true);
 	}
 
 	export async function authenticate(item: MCPCatalogServer, parentEntry?: MCPCatalogEntry) {
@@ -978,6 +986,7 @@
 		entry = initEntry;
 		instance = initInstance;
 		configureInstance = initConfigureInstance ?? false;
+		const isDeprecated = isDeprecatedMCPServer(initEntry) || isDeprecatedMCPServer(initServer);
 
 		if (server && instance && configureInstance && hasMultiUserInstanceConfiguration(server)) {
 			initMultiUserInstanceForm(server, instance);
@@ -987,7 +996,11 @@
 			(entry && server) ||
 			(server && instance)
 		) {
-			handleConnect(true);
+			if (isDeprecated) {
+				showDeprecatedConnectDialog = true;
+			} else {
+				handleConnect(true);
+			}
 		} else {
 			showIntroDialog = true;
 		}
@@ -1030,16 +1043,40 @@
 	{/if}
 {/snippet}
 
+{#snippet deprecatedWarning()}
+	<div
+		class="border-warning bg-warning/10 flex w-full items-start gap-2 rounded-md border p-3 text-left"
+	>
+		<CircleAlert class="text-warning mt-0.5 size-4 shrink-0" />
+		<div class="text-sm">
+			<p class="font-medium">This server is deprecated.</p>
+			<p class="text-muted-content">
+				It may stop receiving updates or be removed in a future catalog release. Use a replacement
+				server when possible.
+			</p>
+		</div>
+	</div>
+{/snippet}
+
 <ResponsiveDialog bind:this={connectDialog} animate="slide" onClose={handleOnClose}>
 	{#snippet titleContent()}
 		{@render dialogTitle(server || entry)}
+		{#if deprecated}
+			<span class="badge badge-sm border-warning text-warning gap-1 bg-warning/10">
+				<CircleAlert class="size-3" />
+				Deprecated
+			</span>
+		{/if}
 	{/snippet}
 
 	{#if entry?.connectURL || server?.connectURL || instance?.connectURL}
 		{@const url = instance?.connectURL || server?.connectURL || entry?.connectURL}
 		{@const displayName = getMCPDisplayName(server, entry?.manifest?.name ?? '')}
 		{#if url}
-			<div class="flex flex-col gap-1 md:p-0 pb-0 p-4">
+			<div class="flex flex-col gap-3 md:p-0 pb-0 p-4">
+				{#if deprecated}
+					{@render deprecatedWarning()}
+				{/if}
 				<CopyField
 					bind:this={connectionUrlField}
 					value={url}
@@ -1069,9 +1106,20 @@
 	{#snippet msgContent()}
 		<div class="flex items-center gap-2 text-lg font-semibold mb-2">
 			{@render dialogTitle(entry || server)}
+			{#if deprecated}
+				<span class="badge badge-sm border-warning text-warning gap-1 bg-warning/10">
+					<CircleAlert class="size-3" />
+					Deprecated
+				</span>
+			{/if}
 		</div>
 	{/snippet}
 	{#snippet note()}
+		{#if deprecated}
+			<div class="mb-3">
+				{@render deprecatedWarning()}
+			</div>
+		{/if}
 		<p>
 			{#if renderIntroText}
 				{renderIntroText({ entry, server })}
@@ -1086,6 +1134,31 @@
 				<br />Click below to begin.
 			{/if}
 		</p>
+	{/snippet}
+</Confirm>
+
+<Confirm
+	show={showDeprecatedConnectDialog}
+	onsuccess={handleDeprecatedConnectContinue}
+	submitText="Continue"
+	type="info"
+	title="Deprecated Server"
+	oncancel={() => (showDeprecatedConnectDialog = false)}
+>
+	{#snippet msgContent()}
+		<div class="flex items-center gap-2 text-lg font-semibold mb-2">
+			{@render dialogTitle(entry || server)}
+			<span class="badge badge-sm border-warning text-warning gap-1 bg-warning/10">
+				<CircleAlert class="size-3" />
+				Deprecated
+			</span>
+		</div>
+	{/snippet}
+	{#snippet note()}
+		<div class="flex flex-col gap-3">
+			{@render deprecatedWarning()}
+			<p>Continue to view the connection URL.</p>
+		</div>
 	{/snippet}
 </Confirm>
 

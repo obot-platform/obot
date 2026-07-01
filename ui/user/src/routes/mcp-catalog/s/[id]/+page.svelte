@@ -5,10 +5,10 @@
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { AdminService } from '$lib/services';
-	import { getMCPDisplayName } from '$lib/services/user/mcp';
+	import { getMCPDisplayName, isDeprecatedMCPServer } from '$lib/services/user/mcp';
 	import { profile } from '$lib/stores';
 	import McpConnectUrlDialog from '../../McpConnectUrlDialog.svelte';
-	import { Link2Icon } from '@lucide/svelte';
+	import { CircleAlert, Link2Icon } from '@lucide/svelte';
 	import type { Component } from 'svelte';
 	import { fly } from 'svelte/transition';
 
@@ -22,6 +22,9 @@
 	let serverScopeEntity = $derived(workspaceId ? ('workspace' as const) : ('catalog' as const));
 	let serverScopeID = $derived(workspaceId || mcpServer?.mcpCatalogID || DEFAULT_MCP_CATALOG_ID);
 	let title = $derived(getMCPDisplayName(mcpServer) || 'MCP Server');
+	let deprecated = $derived(
+		isDeprecatedMCPServer(catalogEntry) || isDeprecatedMCPServer(mcpServer)
+	);
 </script>
 
 <Layout
@@ -50,13 +53,26 @@
 		/>
 		<button
 			class="btn btn-primary"
-			onclick={() => connectUrlDialog?.open(undefined, mcpServer?.connectURL)}
+			onclick={() => connectUrlDialog?.open(catalogEntry, mcpServer?.connectURL, mcpServer)}
 		>
 			<Link2Icon class="size-4" /> Connect URL
 		</button>
 	{/snippet}
 
 	<div class="flex h-full flex-col gap-6 pb-8" in:fly={{ x: 100, delay: duration, duration }}>
+		{#if deprecated}
+			<div class="border-warning bg-warning/10 flex items-start gap-3 rounded-lg border p-4">
+				<CircleAlert class="text-warning mt-0.5 size-5 shrink-0" />
+				<div class="flex-1">
+					<p class="text-sm font-medium">This server is deprecated.</p>
+					<p class="text-muted-content mt-1 text-xs">
+						It may stop receiving updates or be removed in a future catalog release. Use a
+						replacement server when possible.
+					</p>
+				</div>
+			</div>
+		{/if}
+
 		<McpServerEntryForm
 			entry={mcpServer}
 			type="multi"

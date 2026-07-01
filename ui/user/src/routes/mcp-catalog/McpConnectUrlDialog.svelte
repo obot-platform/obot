@@ -7,11 +7,12 @@
 	import {
 		getMCPDisplayName,
 		hasEditableConfiguration,
+		isDeprecatedMCPServer,
 		isMultiUserCatalogEntry
 	} from '$lib/services/user/mcp';
 	import { mcpServersAndEntries } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
-	import { Info, Plus, Server, StepForward } from '@lucide/svelte';
+	import { CircleAlert, Info, Plus, Server, StepForward, TriangleAlert } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -20,7 +21,15 @@
 
 	let { onLaunchCatalogEntry }: Props = $props();
 	let connectUrlDialog = $state<ReturnType<typeof ResponsiveDialog>>();
-	let displayConnectUrl = $state<{ url: string; catalogEntry?: MCPCatalogEntry }>();
+	let displayConnectUrl = $state<{
+		url: string;
+		catalogEntry?: MCPCatalogEntry;
+		server?: MCPCatalogServer;
+	}>();
+	let displayConnectUrlDeprecated = $derived(
+		isDeprecatedMCPServer(displayConnectUrl?.catalogEntry) ||
+			isDeprecatedMCPServer(displayConnectUrl?.server)
+	);
 
 	let selectServerForCatalogEntry = $state<{
 		entry: MCPCatalogEntry;
@@ -46,11 +55,16 @@
 		selectServerDialog?.open();
 	}
 
-	export function open(catalogEntry?: MCPCatalogEntry, urlToDisplay?: string) {
+	export function open(
+		catalogEntry?: MCPCatalogEntry,
+		urlToDisplay?: string,
+		server?: MCPCatalogServer
+	) {
 		if (urlToDisplay) {
 			displayConnectUrl = {
 				url: urlToDisplay,
-				catalogEntry
+				catalogEntry,
+				server
 			};
 			connectUrlDialog?.open();
 			return;
@@ -64,7 +78,8 @@
 			} else if (matchingServers[0]?.connectURL) {
 				displayConnectUrl = {
 					url: matchingServers[0].connectURL,
-					catalogEntry
+					catalogEntry,
+					server: matchingServers[0]
 				};
 				connectUrlDialog?.open();
 			} else {
@@ -97,6 +112,21 @@
 	}
 </script>
 
+{#snippet deprecatedWarning()}
+	<div
+		class="border-warning bg-warning/10 flex w-full items-start gap-2 rounded-md border p-3 text-left"
+	>
+		<CircleAlert class="text-warning mt-0.5 size-4 shrink-0" />
+		<div class="text-sm">
+			<p class="font-medium">This server is deprecated.</p>
+			<p class="text-muted-content">
+				It may stop receiving updates or be removed in a future catalog release. Use a replacement
+				server when possible.
+			</p>
+		</div>
+	</div>
+{/snippet}
+
 <ResponsiveDialog
 	bind:this={connectUrlDialog}
 	animate="slide"
@@ -107,8 +137,14 @@
 >
 	{#if !needsSingleUserConfiguration(displayConnectUrl?.catalogEntry, displayConnectUrl?.url)}
 		<div
-			class={twMerge('px-4', !isMultiUserCatalogEntry(displayConnectUrl?.catalogEntry) && 'pb-4')}
+			class={twMerge(
+				'flex flex-col gap-3 px-4',
+				!isMultiUserCatalogEntry(displayConnectUrl?.catalogEntry) && 'pb-4'
+			)}
 		>
+			{#if displayConnectUrlDeprecated}
+				{@render deprecatedWarning()}
+			{/if}
 			<CopyField id="connect-url-dialog-connection-url" value={displayConnectUrl?.url ?? ''} />
 		</div>
 	{/if}
@@ -162,7 +198,8 @@
 			if (!d.connectURL) return;
 			displayConnectUrl = {
 				url: d.connectURL,
-				catalogEntry: selectServerForCatalogEntry?.entry
+				catalogEntry: selectServerForCatalogEntry?.entry,
+				server: d
 			};
 			connectUrlDialog?.open();
 		}}
@@ -180,6 +217,12 @@
 					</div>
 					<p class="flex items-center gap-2">
 						{getMCPDisplayName(d)}
+						{#if isDeprecatedMCPServer(selectServerForCatalogEntry?.entry) || isDeprecatedMCPServer(d)}
+							<span class="badge badge-xs border-warning text-warning gap-1 bg-warning/10">
+								<TriangleAlert class="size-3" />
+								Deprecated
+							</span>
+						{/if}
 					</p>
 				</div>
 			{:else if property === 'created'}

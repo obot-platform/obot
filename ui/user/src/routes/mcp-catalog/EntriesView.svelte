@@ -23,7 +23,8 @@
 		deleteMcpServerDeployment,
 		isMultiUserCatalogEntry,
 		getMCPDisplayName,
-		hasEditableConfiguration
+		hasEditableConfiguration,
+		isDeprecatedMCPServer
 	} from '$lib/services/user/mcp';
 	import { mcpServersAndEntries, profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
@@ -163,7 +164,7 @@
 		}
 
 		if (server?.connectURL) {
-			connectUrlDialog?.open(entry, server.connectURL);
+			connectUrlDialog?.open(entry, server.connectURL, server);
 		}
 	}
 
@@ -279,6 +280,7 @@
 						(d.data.needsUpdate &&
 							!('missingKubernetesSecret' in d && d.missingKubernetesSecret)) ||
 						deploymentsNeedingAttentionByCatalogEntry.has(d.data.id)}
+					{@const deprecated = isDeprecatedMCPServer(d.data)}
 					{#if property === 'name'}
 						<div class="flex shrink-0 items-center gap-2">
 							<div class="icon">
@@ -316,6 +318,15 @@
 								{/if}
 								{#if d.status.toLowerCase() === 'deployed'}
 									<span class="badge badge-xs badge-secondary">Deployed</span>
+								{/if}
+								{#if deprecated}
+									<span
+										class="badge badge-xs border-warning text-warning gap-1 bg-warning/10"
+										use:tooltip={{ text: 'This server is deprecated.' }}
+									>
+										<TriangleAlert class="size-3" />
+										Deprecated
+									</span>
 								{/if}
 							</p>
 						</div>

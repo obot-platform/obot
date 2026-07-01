@@ -22,7 +22,8 @@
 		restartMcpServer,
 		getMCPDisplayName,
 		isMultiUserCatalogEntry,
-		requiresUserUpdate
+		requiresUserUpdate,
+		isDeprecatedMCPServer
 	} from '$lib/services/user/mcp';
 	import { mcpServersAndEntries, profile, version } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
@@ -31,7 +32,7 @@
 	import EditExistingDeployment from '../../lib/components/mcp/EditExistingDeployment.svelte';
 	import DebugOauthDialog from '../../lib/components/mcp/oauth/DebugOauthDialog.svelte';
 	import IconButton from '../../lib/components/primitives/IconButton.svelte';
-	import { CircleFadingArrowUp, Server, StepForward } from '@lucide/svelte';
+	import { CircleFadingArrowUp, Server, StepForward, TriangleAlert } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -260,6 +261,7 @@
 			{@const requiresUserAttention = instance
 				? instance.configured === false
 				: userConfiguredServers.some(requiresUserUpdate)}
+			{@const deprecated = isDeprecatedMCPServer(d.data)}
 			<div
 				class={twMerge(
 					'flex items-center justify-between gap-8 rounded-md p-3 bg-base-100 dark:bg-base-300 shadow-xs hover:bg-base-300 dark:hover:bg-base-400 cursor-pointer'
@@ -286,6 +288,12 @@
 						</div>
 						<p class="flex items-center gap-2">
 							{d.name}
+							{#if deprecated}
+								<span class="badge badge-xs border-warning text-warning gap-1 bg-warning/10">
+									<TriangleAlert class="size-3" />
+									Deprecated
+								</span>
+							{/if}
 							{#if requiresUserAttention}
 								<span
 									use:tooltip={{
@@ -405,6 +413,12 @@
 					</div>
 					<p class="flex items-center gap-2">
 						{getMCPDisplayName(d)}
+						{#if isDeprecatedMCPServer(selectedEntry) || isDeprecatedMCPServer(d)}
+							<span class="badge badge-xs border-warning text-warning gap-1 bg-warning/10">
+								<TriangleAlert class="size-3" />
+								Deprecated
+							</span>
+						{/if}
 						{#if requiresUserUpdate(d)}
 							<span
 								use:tooltip={{

@@ -556,6 +556,7 @@ export interface MCPCatalogEntryServerManifest {
 	toolPreview?: MCPServerTool[];
 	metadata?: {
 		categories?: string;
+		deprecated?: string;
 		'allow-multiple'?: string;
 	};
 
@@ -607,6 +608,7 @@ export interface RuntimeFormData {
 	description: string;
 	icon: string;
 	categories: string[];
+	metadata?: MCPCatalogEntryServerManifest['metadata'];
 	serverUserType: 'singleUser' | 'multiUser';
 	env: MCPCatalogEntryFieldManifest[];
 
