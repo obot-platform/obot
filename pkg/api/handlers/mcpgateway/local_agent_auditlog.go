@@ -23,13 +23,14 @@ func (*LocalAgentAuditLogHandler) Submit(req api.Context) error {
 	}
 
 	logs := make([]gatewaytypes.MCPAuditLog, 0, len(input.Logs))
+	createdAt := time.Now().UTC()
 	for i, manifest := range input.Logs {
 		log := gatewaytypes.NewLocalAgentToolCallAuditLogFromManifest(
 			manifest,
 			req.User.GetUID(),
 			requestinfo.GetSourceIP(req.Request),
 			types.LocalAgentIdentityStatusAuthenticatedUser,
-			time.Now().UTC(),
+			createdAt,
 		)
 		if err := log.ValidateSourceFields(); err != nil {
 			return types.NewErrBadRequest("invalid local agent audit log at index %d: %v", i, err)
