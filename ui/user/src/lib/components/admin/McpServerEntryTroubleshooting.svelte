@@ -1,6 +1,11 @@
 <script lang="ts">
 	import Loading from '$lib/icons/Loading.svelte';
-	import { UserService, type MCPCatalogEntry, type MCPCatalogServer } from '$lib/services';
+	import {
+		AdminService,
+		UserService,
+		type MCPCatalogEntry,
+		type MCPCatalogServer
+	} from '$lib/services';
 	import {
 		MCP_MULTI_TENANT_LAUNCH_TEXT,
 		MCP_SINGLE_TENANT_LAUNCH_TEXT
@@ -12,16 +17,26 @@
 	import ConnectToServer from '../mcp/ConnectToServer.svelte';
 	import DebugOauthFlow from '../mcp/oauth/DebugOauthFlow.svelte';
 	import { CircleAlert } from '@lucide/svelte';
+	import { untrack } from 'svelte';
 	import { slide } from 'svelte/transition';
 
 	interface Props {
-		catalogID?: string;
+		entity?: 'workspace' | 'catalog';
+		entityId?: string;
 		entry?: MCPCatalogEntry | MCPCatalogServer;
 		server?: MCPCatalogServer;
-		onCreateServerForEntry?: (server: MCPCatalogServer) => void;
+		servers?: MCPCatalogServer[];
+		onRefresh?: () => void;
 	}
 
-	let { catalogID, entry, server, onCreateServerForEntry }: Props = $props();
+	let {
+		entry,
+		server: restrictedSingleDeployment,
+		servers,
+		entity,
+		entityId,
+		onRefresh
+	}: Props = $props();
 
 	let connectToServerDialog = $state<ReturnType<typeof ConnectToServer>>();
 	let launchError = $state('');
@@ -29,12 +44,16 @@
 	let launchSuccessDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let pending = $state<'deleting' | 'refreshing' | undefined>(undefined);
 
-	let selectedDebugOauthDeployment = $state<MCPCatalogServer | undefined>(undefined);
+	let selectedDebugOauthDeployment = $state<MCPCatalogServer | undefined>(
+		untrack(() => (servers ? (servers.length === 1 ? servers[0] : undefined) : undefined))
+	);
 
 	let selectableDeployments = $derived(
-		mcpServersAndEntries.current.userConfiguredServers.filter(
-			(server) => server.catalogEntryID === entry?.id
-		)
+		servers
+			? servers
+			: mcpServersAndEntries.current.userConfiguredServers.filter(
+					(server) => server.catalogEntryID === entry?.id
+				)
 	);
 	let deploymentOptions = $derived(
 		selectableDeployments.map((server) => ({
@@ -51,10 +70,11 @@
 	}
 </script>
 
-{#if entry && 'isCatalogEntry' in entry}
+{#if entry && 'isCatalogEntry' in entry && !restrictedSingleDeployment}
 	{#if entry?.manifest.runtime === 'remote'}
 		<div class="paper">
 			<h1 class="text-lg font-semibold">Debug OAuth Flow</h1>
+
 			<div class="flex flex-col gap-2">
 				<label for="debug-oauth-deployment-selector" class="text-sm font-light">Deployment</label>
 				<Select
@@ -74,6 +94,13 @@
 					placeholder="Select Deployment"
 				/>
 			</div>
+
+			{#if deploymentOptions.length === 0}
+				<div class="notification-info flex items-center gap-2">
+					<p class="text-xs">Launch a server below to begin debugging the OAuth flow.</p>
+				</div>
+			{/if}
+
 			{#if selectedDebugOauthDeployment}
 				<div
 					in:slide={{ axis: 'y', duration: 150 }}
@@ -90,7 +117,7 @@
 	<div class="paper gap-2">
 		<h1 class="text-lg font-semibold">Launch Server</h1>
 		<p class="text-sm text-muted-content">
-			Each launch will create a new deployment for this catalog entry.
+			Each launch will create a new server deployment for this catalog entry.
 		</p>
 		<button
 			class="btn btn-primary w-full"
@@ -101,8 +128,8 @@
 			Launch Server
 		</button>
 	</div>
-{:else if (entry && !('isCatalogEntry' in entry)) || server}
-	{@const mcpServer = entry || server}
+{:else if (entry && !('isCatalogEntry' in entry)) || restrictedSingleDeployment}
+	{@const mcpServer = restrictedSingleDeployment ?? (entry as MCPCatalogServer)}
 	{#if mcpServer?.manifest.runtime === 'remote'}
 		<div class="flex flex-col bg-base-100 dark:bg-base-300 rounded-md pt-4">
 			<h1 class="text-lg font-semibold px-4 pb-2">Debug OAuth Flow</h1>
@@ -113,7 +140,8 @@
 
 <ConnectToServer
 	bind:this={connectToServerDialog}
-	{catalogID}
+	catalogID={entity === 'catalog' ? entityId : undefined}
+	workspaceID={entity === 'workspace' ? entityId : undefined}
 	onConnect={({ server }) => {
 		if (!server) {
 			launchError = 'No server was launched';
@@ -155,15 +183,28 @@
 		<button
 			class="btn btn-error"
 			disabled={!!pending}
-			onclick={() => {
+			onclick={async () => {
 				if (launchedServer) {
 					pending = 'deleting';
 					try {
-						UserService.deleteSingleOrRemoteMcpServer(launchedServer.id);
-					} catch (_err) {
-						// built-in error will display a toast
+						if (
+							entry &&
+							'isCatalogEntry' in entry &&
+							isMultiUserCatalogEntry(entry) &&
+							entity &&
+							entityId
+						) {
+							if (entity === 'workspace') {
+								await UserService.deleteWorkspaceMCPCatalogServer(entityId, launchedServer.id);
+							} else {
+								await AdminService.deleteMCPCatalogServer(entityId, launchedServer.id);
+							}
+						} else {
+							await UserService.deleteSingleOrRemoteMcpServer(launchedServer.id);
+						}
+					} finally {
+						resetLaunchStates();
 					}
-					resetLaunchStates();
 				}
 			}}
 		>
@@ -179,9 +220,8 @@
 			onclick={async () => {
 				launchSuccessDialog?.close();
 				pending = 'refreshing';
-				await mcpServersAndEntries.refreshUserConfiguredServers();
 				if (launchedServer) {
-					onCreateServerForEntry?.(launchedServer);
+					onRefresh?.();
 				}
 				resetLaunchStates();
 			}}

@@ -46,9 +46,9 @@
 				: getUserConfiguredCatalogEntryServers(catalogEntry);
 			if (matchingServers.length > 1) {
 				selectServerDialog?.open(matchingServers);
-			} else if (matchingServers[0]?.connectURL) {
+			} else if (matchingServers[0]?.connectURL || catalogEntry?.connectURL) {
 				displayConnectUrl = {
-					url: matchingServers[0].connectURL,
+					url: matchingServers[0]?.connectURL || catalogEntry?.connectURL || '',
 					catalogEntry
 				};
 
@@ -61,10 +61,6 @@
 
 	function isConfigurableSingleUserCatalogEntry(entry?: MCPCatalogEntry) {
 		return entry && !isMultiUserCatalogEntry(entry) && hasEditableConfiguration(entry);
-	}
-
-	function needsSingleUserConfiguration(entry?: MCPCatalogEntry, url?: string) {
-		return isConfigurableSingleUserCatalogEntry(entry) && !url;
 	}
 </script>
 
@@ -82,43 +78,40 @@
 		>
 			<CopyField id="connect-url-dialog-connection-url" value={displayConnectUrl?.url ?? ''} />
 		</div>
-		{#if isMultiUserCatalogEntry(displayConnectUrl?.catalogEntry)}
-			<div class="mt-4 p-4 border-t border-base-300 dark:border-base-400">
-				<p
-					class="text-muted-content flex items-center justify-end gap-2 text-sm font-light md:px-0 px-4"
-				>
-					Need to set up a different instance?
-					<button
-						class="btn btn-sm btn-primary text-xs"
-						onclick={() => {
-							if (displayConnectUrl?.catalogEntry) {
-								connectUrlDialog?.close();
-								onLaunchCatalogEntry?.(displayConnectUrl.catalogEntry);
-							}
-						}}
-					>
-						<Plus class="size-3" />
-						Launch New Server
-					</button>
-				</p>
-			</div>
-		{:else if isConfigurableSingleUserCatalogEntry(displayConnectUrl?.catalogEntry)}
-			<div class="notification-info m-4 mt-0">
-				<p class="flex items-center gap-2 text-xs">
-					<Info class="size-4" />
-					This connection URL uses your configured server instance.
-				</p>
-			</div>
-		{:else if needsSingleUserConfiguration(displayConnectUrl?.catalogEntry, displayConnectUrl?.url)}
-			<div class="notification-info m-4 flex flex-col gap-3">
-				<p class="flex items-center gap-2 text-xs">
-					<Info class="size-4 shrink-0" />
-					This server requires user configuration on connection with an MCP client.
-				</p>
-			</div>
-		{/if}
 	{:else}
-		<p class="px-4 text-muted-content text-sm">No connection URL available.</p>
+		<p class="px-4 text-muted-content text-sm text-center w-full">No connection URL available.</p>
+	{/if}
+	{#if isMultiUserCatalogEntry(displayConnectUrl?.catalogEntry)}
+		<div class="mt-4 p-4 border-t border-base-300 dark:border-base-400">
+			<p
+				class="text-muted-content flex items-center justify-end gap-2 text-sm font-light md:px-0 px-4"
+			>
+				Need to set up a different instance?
+				<button
+					class="btn btn-sm btn-primary text-xs"
+					onclick={() => {
+						if (displayConnectUrl?.catalogEntry) {
+							connectUrlDialog?.close();
+							onLaunchCatalogEntry?.(displayConnectUrl.catalogEntry);
+						}
+					}}
+				>
+					<Plus class="size-3" />
+					Launch New Server
+				</button>
+			</p>
+		</div>
+	{:else if isConfigurableSingleUserCatalogEntry(displayConnectUrl?.catalogEntry)}
+		<div class="notification-info m-4 mt-0">
+			<p class="flex items-center gap-2 text-xs">
+				<Info class="size-4" />
+				{#if getUserConfiguredCatalogEntryServers(displayConnectUrl!.catalogEntry!).length > 0}
+					This connection URL uses your configured server instance.
+				{:else}
+					This server requires user configuration on connection with an MCP client.
+				{/if}
+			</p>
+		</div>
 	{/if}
 </ResponsiveDialog>
 
@@ -126,9 +119,8 @@
 	bind:this={selectServerDialog}
 	onSelectServer={(d) => {
 		selectServerDialog?.close();
-		if (!d.connectURL) return;
 		displayConnectUrl = {
-			url: d.connectURL,
+			url: d.connectURL || catalogEntry?.connectURL || '',
 			catalogEntry
 		};
 		connectUrlDialog?.open();

@@ -1289,7 +1289,7 @@
 				{#snippet noToolsContent()}
 					<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 						<Wrench class="text-muted-content size-24 opacity-50" />
-						{#if !entry || (entry && (readonly || server || connectOnly))}
+						{#if !entry || (entry && (readonly || server || deploymentToDisplayTools || connectOnly))}
 							<h4 class="text-muted-content text-lg font-semibold">No tools</h4>
 							<p class="text-muted-content text-sm font-light">
 								Looks like this MCP server doesn't have any tools available currently.
@@ -1342,10 +1342,12 @@
 
 {#snippet troubleshootingView()}
 	<McpServerEntryTroubleshooting
+		entityId={id}
+		{entity}
 		{entry}
 		{server}
-		onCreateServerForEntry={(server) =>
-			(resolvedConfiguredServers = [...(resolvedConfiguredServers ?? []), server])}
+		servers={resolvedConfiguredServers}
+		onRefresh={reloadConfiguredServers}
 	/>
 {/snippet}
 

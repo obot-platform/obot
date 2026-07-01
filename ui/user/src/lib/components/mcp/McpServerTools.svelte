@@ -30,7 +30,6 @@
 		// name for names that may be problematic for MCP clients / inference
 		// APIs (length, disallowed chars, or duplicates in this list).
 		showToolNameIssues?: boolean;
-		debugMode?: boolean;
 	}
 
 	let {
@@ -39,14 +38,14 @@
 		onAuthenticate,
 		noToolsContent,
 		classes,
-		showToolNameIssues = false,
-		debugMode = false
+		showToolNameIssues = false
 	}: Props = $props();
 	let search = $state('');
 	let tools = $state<MCPServerTool[]>([]);
 	let previewTools = $derived(getToolPreview(entry));
 	let loading = $state(false);
 	let previousEntryId = $state<string | undefined>(undefined);
+	let previousServerId = $state<string | undefined>(undefined);
 	let error = $state('');
 
 	let expanded = $state<Record<string, boolean>>({});
@@ -121,15 +120,22 @@
 			});
 			tools = await toolCall;
 		} catch (err) {
-			console.error(err);
+			if (err instanceof DOMException && err.name === 'AbortError') return;
+			error = err instanceof Error ? err.message : 'An unknown error occurred';
 		} finally {
 			loading = false;
 		}
 	}
 
 	$effect(() => {
-		if (entry && showRealTools && (!previousEntryId || entry.id !== previousEntryId)) {
-			previousEntryId = entry.id;
+		if (!showRealTools) return;
+		const changedEntry = entry && (!previousEntryId || entry.id !== previousEntryId);
+		const changedServer =
+			(server?.id && (!previousServerId || server.id !== previousServerId)) ||
+			(!server && previousServerId);
+		if (changedEntry || changedServer) {
+			previousEntryId = entry?.id;
+			previousServerId = server?.id;
 			loadTools();
 		}
 	});
@@ -153,10 +159,6 @@
 						</div>
 					</div>
 				</div>
-			{:else}
-				{#key server?.id ?? entry.id}
-					<McpOauth entry={server ?? entry} onAuthenticate={handleAuthenticate} bind:error />
-				{/key}
 			{/if}
 			{#if error}
 				<div class="notification-error flex w-full items-center gap-2 p-3">
@@ -172,24 +174,28 @@
 		</div>
 	{/if}
 
+	{#if showRealTools}
+		{#key server?.id ?? entry.id}
+			<McpOauth entry={server ?? entry} onAuthenticate={handleAuthenticate} bind:error />
+		{/key}
+	{/if}
+
 	<div class="flex w-full flex-col gap-2">
 		<div class="mb-2 flex w-full flex-col gap-4">
-			{#if !debugMode}
-				<div class="flex flex-wrap items-center justify-end gap-2 md:shrink-0">
-					<Toggle
-						checked={allDescriptionsEnabled}
-						onChange={(checked) => {
-							allDescriptionsEnabled = checked;
-							expanded = {};
-						}}
-						label="Show All Descriptions"
-						labelInline
-						classes={{
-							label: 'text-sm gap-2'
-						}}
-					/>
-				</div>
-			{/if}
+			<div class="flex flex-wrap items-center justify-end gap-2 md:shrink-0">
+				<Toggle
+					checked={allDescriptionsEnabled}
+					onChange={(checked) => {
+						allDescriptionsEnabled = checked;
+						expanded = {};
+					}}
+					label="Show All Descriptions"
+					labelInline
+					classes={{
+						label: 'text-sm gap-2'
+					}}
+				/>
+			</div>
 
 			<Search
 				class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
@@ -197,7 +203,7 @@
 				placeholder="Search tools..."
 			/>
 		</div>
-		<div class={twMerge('flex flex-col gap-4 overflow-hidden', debugMode && 'gap-2')}>
+		<div class="flex flex-col gap-4 overflow-hidden">
 			{#if loading}
 				{#each Array.from({ length: 3 }) as _, i (i)}
 					<div class="skeleton h-14 w-full rounded-none"></div>
@@ -275,7 +281,7 @@
 					<Wrench class="text-muted-content size-24 opacity-50" />
 					<h4 class="text-muted-content text-lg font-semibold">No tools</h4>
 					<p class="text-muted-content text-sm font-light">
-						{#if !entry || !showRealTools}
+						{#if showRealTools}
 							Looks like this MCP server doesn't have any tools available.
 						{:else}
 							Connection to to the server is required to list available tools.

@@ -280,8 +280,8 @@
 		servers: MCPCatalogServer[] = []
 	) {
 		if (!entry) return;
-		selectServerDialog?.open(servers);
 		selectServerMode = mode;
+		selectServerDialog?.open(servers);
 	}
 
 	async function reauthenticateServer(item: MCPCatalogServer) {
