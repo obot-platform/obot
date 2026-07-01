@@ -32,8 +32,12 @@ func userIsDeviceScanReader(req api.Context) bool {
 	return req.UserIsAdmin() || req.UserIsAuditor()
 }
 
-// Submit handles POST /api/devices/scans. The caller's identity is
-// recorded as SubmittedBy; ID and ReceivedAt are server-assigned.
+// Submit handles POST /api/devices/scans. ID and ReceivedAt are
+// server-assigned. Attribution depends on who submitted:
+//   - a human running `obot scan` -> SubmittedBy is their user UID
+//   - an enrolled device -> SubmittedBy is left empty (there is no user); the
+//     device is identified by DeviceID, stamped from the authenticated
+//     principal rather than trusted from the request body
 func (*DeviceScansHandler) Submit(req api.Context) error {
 	var manifest types.DeviceScanManifest
 	if err := req.Read(&manifest); err != nil {
@@ -41,7 +45,12 @@ func (*DeviceScansHandler) Submit(req api.Context) error {
 	}
 
 	scan := gtypes.DeviceScanFromManifest(manifest)
-	scan.SubmittedBy = req.User.GetUID()
+	if deviceID := req.User.GetExtra()["device_id"]; len(deviceID) > 0 && deviceID[0] != "" {
+		// Device submission: no user submitter, so SubmittedBy stays empty.
+		scan.DeviceID = deviceID[0]
+	} else {
+		scan.SubmittedBy = req.User.GetUID()
+	}
 
 	if err := req.GatewayClient.InsertDeviceScan(req.Context(), &scan); err != nil {
 		return err

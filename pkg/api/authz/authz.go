@@ -71,6 +71,8 @@ var (
 		"/api/devices/skills/",
 		"/api/devices/clients",
 		"/api/devices/clients/",
+		"/api/device-deployments",
+		"/api/device-deployments/",
 		"/api/available-models",
 		"/api/available-models/",
 		"/api/default-model-aliases",
@@ -309,6 +311,12 @@ var (
 			// Clamp list results to SubmittedBy == req.User.GetUID()
 			"POST /api/devices/scans",
 			"GET /api/devices/scans",
+		},
+
+		types.GroupDeviceEnroll: {
+			// A device enrollment token authenticates as its deployment and may
+			// only enroll a device — nothing else.
+			"POST /api/devices/enroll",
 		},
 
 		MetricsGroup: {
