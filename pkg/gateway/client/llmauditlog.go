@@ -70,50 +70,50 @@ func (c *Client) runLLMAuditPersistenceLoop(ctx context.Context, batchSize int, 
 	defer ticker.Stop()
 
 	batch := make([]llmAuditEntry, 0, batchSize)
-	flush := func() {
-		if len(batch) == 0 {
-			return
-		}
-		if err := c.persistLLMAuditLogs(batch); err != nil {
-			log.Errorf("Failed to persist LLM audit logs: %v", err)
-		}
-		batch = batch[:0]
-	}
-	drainQueuedIntoBatch := func() {
-		for len(batch) < batchSize {
-			select {
-			case entry := <-c.llmAuditEntries:
-				batch = append(batch, entry)
-			default:
-				return
-			}
-		}
-	}
-
 	for {
 		select {
 		case <-ctx.Done():
 			// Best-effort graceful shutdown: drain what is already buffered without
 			// waiting for any more writers, then flush the final partial batch.
 			for {
-				drainQueuedIntoBatch()
-				if len(batch) > 0 {
-					flush()
-				}
+				batch = c.drainQueuedLLMAuditEntries(batch, batchSize)
+				batch = c.flushLLMAuditBatch(batch)
 				if len(c.llmAuditEntries) == 0 {
 					return
 				}
 			}
 		case entry := <-c.llmAuditEntries:
 			batch = append(batch, entry)
-			drainQueuedIntoBatch()
+			batch = c.drainQueuedLLMAuditEntries(batch, batchSize)
 			if len(batch) >= batchSize {
-				flush()
+				batch = c.flushLLMAuditBatch(batch)
 			}
 		case <-ticker.C:
-			flush()
+			batch = c.flushLLMAuditBatch(batch)
 		}
 	}
+}
+
+func (c *Client) drainQueuedLLMAuditEntries(batch []llmAuditEntry, batchSize int) []llmAuditEntry {
+	for len(batch) < batchSize {
+		select {
+		case entry := <-c.llmAuditEntries:
+			batch = append(batch, entry)
+		default:
+			return batch
+		}
+	}
+	return batch
+}
+
+func (c *Client) flushLLMAuditBatch(batch []llmAuditEntry) []llmAuditEntry {
+	if len(batch) == 0 {
+		return batch
+	}
+	if err := c.persistLLMAuditLogs(batch); err != nil {
+		log.Errorf("Failed to persist LLM audit logs: %v", err)
+	}
+	return batch[:0]
 }
 
 func (c *Client) persistQueuedLLMAuditLogs() error {
