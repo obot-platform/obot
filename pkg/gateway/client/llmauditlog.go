@@ -73,14 +73,13 @@ func (c *Client) runLLMAuditPersistenceLoop(ctx context.Context, batchSize int, 
 	for {
 		select {
 		case <-ctx.Done():
-			// Best-effort graceful shutdown: drain what is already buffered without
-			// waiting for any more writers, then flush the final partial batch.
 			for {
 				batch = c.drainQueuedLLMAuditEntries(batch, batchSize)
-				batch = c.flushLLMAuditBatch(batch)
-				if len(c.llmAuditEntries) == 0 {
+				if len(batch) < batchSize {
+					c.flushLLMAuditBatch(batch)
 					return
 				}
+				batch = c.flushLLMAuditBatch(batch)
 			}
 		case entry := <-c.llmAuditEntries:
 			batch = append(batch, entry)
