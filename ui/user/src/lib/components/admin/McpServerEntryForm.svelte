@@ -1192,7 +1192,9 @@
 			<div class="flex justify-between gap-4 border-base-400 border-b mb-4">
 				<div role="tablist" class="flex flex-1">
 					<button
+						type="button"
 						role="tab"
+						aria-selected={deploymentToDisplayTools === undefined}
 						class={twMerge(
 							'tab-button text-nowrap',
 							deploymentToDisplayTools === undefined && 'tab-active'
@@ -1201,17 +1203,26 @@
 					>
 
 					{#each selectedDeploymentsToView as deployment (deployment.id)}
+						{@const deploymentLabel = `${deployment.alias || deployment.manifest.name} (${deployment.id})`}
 						<div
-							role="tab"
+							role="presentation"
 							class={twMerge(
-								'tab-button text-nowrap flex items-center gap-1',
+								'inline-flex items-center tab-button',
 								deploymentToDisplayTools?.id === deployment.id && 'tab-active'
 							)}
 						>
-							<button onclick={() => (deploymentToDisplayTools = deployment)}>
-								{deployment.alias || deployment.manifest.name} ({deployment.id})
+							<button
+								type="button"
+								role="tab"
+								aria-selected={deploymentToDisplayTools?.id === deployment.id}
+								class="text-nowrap"
+								onclick={() => (deploymentToDisplayTools = deployment)}
+							>
+								{deploymentLabel}
 							</button>
 							<button
+								type="button"
+								aria-label="Close {deploymentLabel} tab"
 								onclick={() => {
 									selectedDeploymentsToView = selectedDeploymentsToView.filter(
 										(d) => d.id !== deployment.id
@@ -1222,7 +1233,7 @@
 								}}
 								class="btn btn-circle btn-xs btn-ghost"
 							>
-								<X class="size-3" />
+								<X class="size-3" aria-hidden="true" />
 							</button>
 						</div>
 					{/each}

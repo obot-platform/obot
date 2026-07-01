@@ -17,7 +17,6 @@
 	import ConnectToServer from '../mcp/ConnectToServer.svelte';
 	import DebugOauthFlow from '../mcp/oauth/DebugOauthFlow.svelte';
 	import { CircleAlert } from '@lucide/svelte';
-	import { untrack } from 'svelte';
 	import { slide } from 'svelte/transition';
 
 	interface Props {
@@ -44,9 +43,7 @@
 	let launchSuccessDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let pending = $state<'deleting' | 'refreshing' | undefined>(undefined);
 
-	let selectedDebugOauthDeployment = $state<MCPCatalogServer | undefined>(
-		untrack(() => (servers ? (servers.length === 1 ? servers[0] : undefined) : undefined))
-	);
+	let selectedDebugOauthDeployment = $state<MCPCatalogServer | undefined>();
 
 	let selectableDeployments = $derived(
 		servers
