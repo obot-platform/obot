@@ -2,8 +2,6 @@ package types
 
 import (
 	"time"
-
-	"gorm.io/datatypes"
 )
 
 const (
@@ -23,10 +21,10 @@ type LLMAuditLog struct {
 	ReasoningEffort     string
 	RequestPath         string
 	RequestMethod       string
-	RequestHeaders      datatypes.JSON
+	RequestHeaders      string
 	RequestBody         string
 	RedactedRequestBody string
-	ResponseHeaders     datatypes.JSON
+	ResponseHeaders     string
 	ResponseBody        string
 	ResponseID          string `gorm:"index:idx_llm_audit_response_created,priority:1"`
 	ResponseStatus      int
@@ -39,6 +37,7 @@ type LLMAuditLog struct {
 	ClientVersion       string
 	ClientSessionID     string `gorm:"index:idx_llm_audit_client_session_created,priority:1"`
 	ClientIP            string
+	Encrypted           bool
 }
 
 func (LLMAuditLog) TableName() string {

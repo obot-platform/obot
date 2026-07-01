@@ -16,7 +16,6 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/tidwall/gjson"
-	"gorm.io/datatypes"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
@@ -195,7 +194,7 @@ func (r *llmAuditReadCloser) Close() error {
 	return err
 }
 
-func redactedHeaders(headers http.Header) datatypes.JSON {
+func redactedHeaders(headers http.Header) string {
 	out := make(http.Header, len(headers))
 	for k, values := range headers {
 		if shouldRedactHeader(k) {
@@ -205,7 +204,7 @@ func redactedHeaders(headers http.Header) datatypes.JSON {
 		out[k] = append([]string(nil), values...)
 	}
 	b, _ := json.Marshal(out)
-	return b
+	return string(b)
 }
 
 func shouldRedactHeader(key string) bool {
