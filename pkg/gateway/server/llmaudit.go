@@ -32,12 +32,14 @@ const (
 )
 
 type llmAuditRecorder struct {
-	once           sync.Once
-	log            types.LLMAuditLog
-	responseStream bytes.Buffer
+	once                  sync.Once
+	log                   types.LLMAuditLog
+	responseStream        bytes.Buffer
+	responseCaptureLimit  int
+	responseCaptureFilled bool
 }
 
-func newLLMAuditRecorder(req *http.Request, user user.Info) *llmAuditRecorder {
+func newLLMAuditRecorder(req *http.Request, user user.Info, responseCaptureLimit int) *llmAuditRecorder {
 	now := time.Now().UTC()
 	requestID := gatewaycontext.GetRequestID(req.Context())
 	if requestID == "" {
@@ -51,6 +53,7 @@ func newLLMAuditRecorder(req *http.Request, user user.Info) *llmAuditRecorder {
 	clientName, clientVersion := parseLLMClientUserAgent(req.UserAgent())
 
 	return &llmAuditRecorder{
+		responseCaptureLimit: responseCaptureLimit,
 		log: types.LLMAuditLog{
 			ID:             uuid.NewString(),
 			CreatedAt:      now,
@@ -86,6 +89,18 @@ func (r *llmAuditRecorder) recordResponse(resp *http.Response) {
 func (r *llmAuditRecorder) captureResponseChunk(p []byte) {
 	if r == nil || len(p) == 0 {
 		return
+	}
+	if r.responseCaptureFilled {
+		return
+	}
+	remaining := r.responseCaptureLimit - r.responseStream.Len()
+	if remaining <= 0 {
+		r.responseCaptureFilled = true
+		return
+	}
+	if len(p) > remaining {
+		p = p[:remaining]
+		r.responseCaptureFilled = true
 	}
 	_, _ = r.responseStream.Write(p)
 }
