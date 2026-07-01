@@ -152,6 +152,7 @@ func (c *Client) persistLLMAuditLogs(entries []llmAuditEntry) error {
 	logs := make([]types.LLMAuditLog, len(entries))
 	for i, entry := range entries {
 		logs[i] = entry.log
+		logs[i].CreatedAt = logs[i].CreatedAt.UTC()
 		aggregateLLMAuditResponse(&logs[i], entry.responseStream)
 	}
 	return c.insertLLMAuditLogs(ctx, logs)
@@ -173,10 +174,11 @@ func (c *Client) insertLLMAuditLogs(ctx context.Context, logs []types.LLMAuditLo
 	if len(logs) == 0 {
 		return nil
 	}
-	for i := range logs {
-		logs[i].CreatedAt = logs[i].CreatedAt.UTC()
-		if err := c.encryptLLMAuditLog(ctx, &logs[i]); err != nil {
-			return err
+	if c.encryptionConfig != nil && c.encryptionConfig.Transformers[llmAuditLogGroupResource] != nil {
+		for i := range logs {
+			if err := c.encryptLLMAuditLog(ctx, &logs[i]); err != nil {
+				return err
+			}
 		}
 	}
 	batchSize := c.llmAuditBatchSize
