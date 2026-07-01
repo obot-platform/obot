@@ -32,7 +32,7 @@ func TestRedactedHeaders(t *testing.T) {
 
 func TestNewLLMAuditRecorderCapturesRequest(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/llm-provider/openai/v1/responses?stream=true", nil)
-	recorder := newLLMAuditRecorder(req, nil, 5<<20)
+	recorder := newLLMAuditRecorder(req, nil)
 
 	if recorder.log.RequestPath != "/api/llm-provider/openai/v1/responses" {
 		t.Fatalf("expected request path, got %q", recorder.log.RequestPath)
@@ -305,7 +305,7 @@ func TestLLMResponseAccumulatorNonStreamAndEmpty(t *testing.T) {
 
 func TestLLMAuditRecorderStoresAggregatedResponseBody(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/llm-provider/openai/v1/responses", nil)
-	recorder := newLLMAuditRecorder(req, nil, 5<<20)
+	recorder := newLLMAuditRecorder(req, nil)
 	recorder.setModel(system.OpenAIModelProvider, "", "")
 	chunk := []byte(`data: {"type":"response.created","response":{"id":"resp_rec","output":[]}}` + "\n")
 	recorder.captureResponseChunk(chunk)
@@ -318,13 +318,13 @@ func TestLLMAuditRecorderStoresAggregatedResponseBody(t *testing.T) {
 	}
 }
 
-func TestLLMAuditRecorderCapsResponseCapture(t *testing.T) {
+func TestLLMAuditRecorderAppendsResponseCapture(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/llm-provider/openai/v1/responses", nil)
-	recorder := newLLMAuditRecorder(req, nil, 5)
+	recorder := newLLMAuditRecorder(req, nil)
 	recorder.captureResponseChunk([]byte("hello"))
 	recorder.captureResponseChunk([]byte(" world"))
 
-	if got := recorder.responseStream.String(); got != "hello" {
-		t.Fatalf("expected capped response stream, got %q", got)
+	if got := recorder.responseStream.String(); got != "hello world" {
+		t.Fatalf("expected appended response stream, got %q", got)
 	}
 }
