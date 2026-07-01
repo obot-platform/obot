@@ -12,7 +12,7 @@ const (
 
 type LLMAuditLog struct {
 	ID                  string    `gorm:"primaryKey"`
-	CreatedAt           time.Time `gorm:"primaryKey;index;index:idx_llm_audit_user_created,priority:2;index:idx_llm_audit_provider_created,priority:2;index:idx_llm_audit_client_session_created,priority:2;index:idx_llm_audit_response_created,priority:2;index:idx_llm_audit_target_model_created,priority:2;index:idx_llm_audit_request_path_created,priority:2;index:idx_llm_audit_response_status_created,priority:2;index:idx_llm_audit_outcome_created,priority:2;index:idx_llm_audit_client_created,priority:2"`
+	CreatedAt           time.Time `gorm:"index;index:idx_llm_audit_user_created,priority:2;index:idx_llm_audit_provider_created,priority:2;index:idx_llm_audit_client_session_created,priority:2;index:idx_llm_audit_response_created,priority:2;index:idx_llm_audit_target_model_created,priority:2;index:idx_llm_audit_request_path_created,priority:2;index:idx_llm_audit_response_status_created,priority:2;index:idx_llm_audit_outcome_created,priority:2;index:idx_llm_audit_client_created,priority:2"`
 	Duration            int64
 	UserID              string `gorm:"index:idx_llm_audit_user_created,priority:1"`
 	ModelProvider       string `gorm:"index:idx_llm_audit_provider_created,priority:1"`
