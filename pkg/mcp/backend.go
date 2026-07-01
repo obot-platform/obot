@@ -238,11 +238,13 @@ func constructMCPServerNanobotYAMLForComposite(servers []ComponentServer) ([]byt
 				Description: tool.OverrideDescription,
 			}
 		}
+		noTools := component.Tools != nil && len(tools) == 0
 
 		name := replacer.Replace(component.Name)
 		mcpServers[name] = nanobotConfigMCPServer{
 			BaseURL:       component.URL,
 			ToolOverrides: tools,
+			NoTools:       noTools,
 			ToolPrefix:    component.ToolPrefix,
 		}
 
@@ -344,6 +346,7 @@ type nanobotConfigMCPServer struct {
 	BaseURL            string              `json:"url,omitempty"`
 
 	ToolOverrides map[string]toolOverride `json:"toolOverrides,omitempty"`
+	NoTools       bool                    `json:"noTools,omitempty"`
 	ToolPrefix    string                  `json:"toolPrefix,omitempty"`
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -72,5 +73,68 @@ func TestEnsureServerReadyHealthzPathWaitsForOK(t *testing.T) {
 
 	if calls != 2 {
 		t.Fatalf("expected two healthz calls, got %d", calls)
+	}
+}
+
+func TestConstructMCPServerNanobotYAMLForCompositeIncludesOnlyEnabledTools(t *testing.T) {
+	data, err := constructMCPServerNanobotYAMLForComposite([]ComponentServer{
+		{
+			Name:       "configured-ping-echo",
+			URL:        "https://example.com/mcp",
+			ToolPrefix: "configured_",
+			Tools: []types.ToolOverride{
+				{Name: "ping", Enabled: false},
+				{Name: "echo", Enabled: true},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	yaml := string(data)
+	for _, expected := range []string{"toolOverrides:", "echo:", "toolPrefix: configured_"} {
+		if !strings.Contains(yaml, expected) {
+			t.Fatalf("expected YAML to contain %q, got:\n%s", expected, yaml)
+		}
+	}
+	if strings.Contains(yaml, "\n            ping:") {
+		t.Fatalf("expected disabled tool to be omitted, got:\n%s", yaml)
+	}
+}
+
+func TestConstructMCPServerNanobotYAMLForCompositePreservesComponentsWithNoEnabledTools(t *testing.T) {
+	data, err := constructMCPServerNanobotYAMLForComposite([]ComponentServer{
+		{
+			Name: "ping-echo",
+			URL:  "https://example.com/mcp",
+			Tools: []types.ToolOverride{
+				{Name: "echo", OverrideName: "repeat", OverrideDescription: "Repeat a message", Enabled: false},
+			},
+		},
+		{
+			Name:       "configured-ping-echo",
+			URL:        "https://example.com/configured-mcp",
+			ToolPrefix: "configured_",
+			Tools: []types.ToolOverride{
+				{Name: "ping", Enabled: false},
+				{Name: "echo", Enabled: true},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	yaml := string(data)
+	for _, expected := range []string{"\n    ping-echo:", "noTools: true", "configured-ping-echo:", "toolPrefix: configured_", "echo:"} {
+		if !strings.Contains(yaml, expected) {
+			t.Fatalf("expected YAML to contain %q, got:\n%s", expected, yaml)
+		}
+	}
+	for _, unexpected := range []string{"repeat", "\n            ping:", "noTools: false"} {
+		if strings.Contains(yaml, unexpected) {
+			t.Fatalf("expected YAML not to contain %q, got:\n%s", unexpected, yaml)
+		}
 	}
 }
