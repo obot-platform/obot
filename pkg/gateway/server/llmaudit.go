@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"strings"
 	"sync"
@@ -140,27 +141,22 @@ func (r *llmAuditRecorder) setOutcome(err error) {
 	r.log.Outcome = types.LLMAuditOutcomeError
 }
 
-type llmAuditReadCloser struct {
-	ioCloser ioReadCloser
-	audit    *llmAuditRecorder
-	client   *client.Client
+type llmAuditResponseBody struct {
+	body   io.ReadCloser
+	audit  *llmAuditRecorder
+	client *client.Client
 }
 
-type ioReadCloser interface {
-	Read([]byte) (int, error)
-	Close() error
-}
-
-func (r *llmAuditReadCloser) Read(p []byte) (int, error) {
-	n, err := r.ioCloser.Read(p)
+func (r *llmAuditResponseBody) Read(p []byte) (int, error) {
+	n, err := r.body.Read(p)
 	if n > 0 {
 		r.audit.captureResponseChunk(p[:n])
 	}
 	return n, err
 }
 
-func (r *llmAuditReadCloser) Close() error {
-	err := r.ioCloser.Close()
+func (r *llmAuditResponseBody) Close() error {
+	err := r.body.Close()
 	r.audit.finish(r.client, err)
 	return err
 }

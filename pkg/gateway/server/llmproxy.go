@@ -832,10 +832,10 @@ func wrapAuditOnlyResponse(resp *http.Response, audit *llmAuditRecorder, client 
 	if audit == nil || resp == nil || resp.Body == nil {
 		return
 	}
-	resp.Body = &llmAuditReadCloser{
-		ioCloser: resp.Body,
-		audit:    audit,
-		client:   client,
+	resp.Body = &llmAuditResponseBody{
+		body:   resp.Body,
+		audit:  audit,
+		client: client,
 	}
 }
 
