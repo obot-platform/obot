@@ -40,7 +40,7 @@ type llmAuditRecorder struct {
 }
 
 func newLLMAuditRecorder(req *http.Request, user user.Info, responseCaptureLimit int) *llmAuditRecorder {
-	now := time.Now().UTC()
+	now := time.Now()
 	requestID := gatewaycontext.GetRequestID(req.Context())
 	if requestID == "" {
 		requestID = uuid.NewString()
