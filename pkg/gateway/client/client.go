@@ -7,7 +7,6 @@ import (
 	"maps"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
@@ -32,7 +31,6 @@ type Client struct {
 	llmAuditEntries         chan llmAuditEntry
 	llmAuditBatchSize       int
 	llmAuditResponseLimit   int
-	llmAuditDropped         atomic.Uint64
 	storageClient           kclient.Client
 	apiKeyCacheLock         sync.RWMutex
 	apiKeyCache             map[[32]byte]apiKeyValidationCacheEntry

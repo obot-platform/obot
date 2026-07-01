@@ -47,8 +47,7 @@ func (c *Client) LogLLMAuditEntry(auditLog types.LLMAuditLog, responseStream str
 	select {
 	case c.llmAuditEntries <- llmAuditEntry{log: auditLog, responseStream: responseStream}:
 	default:
-		dropped := c.llmAuditDropped.Add(1)
-		log.Warnf("dropping LLM audit log: buffer is full (dropped=%d)", dropped)
+		log.Warnf("dropping LLM audit log: buffer is full")
 	}
 }
 

@@ -167,9 +167,6 @@ func TestLogLLMAuditEntryDropsWhenBufferFull(t *testing.T) {
 	if got := len(c.llmAuditEntries); got != 1 {
 		t.Fatalf("expected one queued entry, got %d", got)
 	}
-	if got := c.llmAuditDropped.Load(); got != 1 {
-		t.Fatalf("expected one dropped entry, got %d", got)
-	}
 }
 
 func TestRunLLMAuditPersistenceLoopFlushesQueuedEntries(t *testing.T) {
