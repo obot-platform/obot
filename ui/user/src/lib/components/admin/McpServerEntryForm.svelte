@@ -1244,7 +1244,7 @@
 						<button
 							role="tab"
 							class={twMerge(
-								'tab-button text-no-wrap',
+								'tab-button text-nowrap',
 								deploymentToDisplayTools === undefined && 'tab-active'
 							)}
 							onclick={() => (deploymentToDisplayTools = undefined)}>Preview</button

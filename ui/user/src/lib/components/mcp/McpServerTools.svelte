@@ -284,7 +284,7 @@
 						{#if showRealTools}
 							Looks like this MCP server doesn't have any tools available.
 						{:else}
-							Connection to to the server is required to list available tools.
+							Connection to the server is required to list available tools.
 						{/if}
 					</p>
 				</div>
