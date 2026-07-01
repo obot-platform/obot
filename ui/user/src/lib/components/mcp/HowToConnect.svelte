@@ -8,18 +8,15 @@
 	import { getAiClientCommand, getAiClientMagicLink } from '$lib/services/user/mcp';
 	import { userDeviceSettings } from '$lib/stores';
 	import CopyField from '../CopyField.svelte';
-	import DotDotDot from '../DotDotDot.svelte';
-	import { slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		id: string;
 		displayName: string;
 		url: string;
-		onSetup?: () => void;
 	}
 
-	let { id, displayName, url, onSetup }: Props = $props();
+	let { id, displayName, url }: Props = $props();
 
 	let aiClientsMap = $derived(new Map(COMMON_AI_CLIENTS.map((client) => [client.id, client])));
 	let magicLinks = $derived(generateMcpLinks(displayName, url));
@@ -166,20 +163,6 @@
 			{/each}
 		</div>
 	{/if}
-
-	{#if onSetup}
-		<div transition:slide={{ duration: 150 }}>
-			<div class="divider mt-8">Setup & Connect</div>
-			<p class="text-xs font-light mb-4 text-center">
-				On initial connection to the MCP server from your third party AI client, you will be
-				prompted to configure the server. Otherwise, click below to go ahead and setup the server
-				here.
-			</p>
-			<div class="flex justify-center">
-				<button class="btn btn-primary w-full" onclick={onSetup}>Launch {displayName} Now</button>
-			</div>
-		</div>
-	{/if}
 </div>
 <div class="divider mb-2"></div>
 <div class="w-full px-4 md:px-0">
@@ -200,12 +183,6 @@
 					<img src={option.icon} alt={`${option.label} branding icon`} class="size-4" />
 				</a>
 			{/each}
-
-			{#if onSetup}
-				<DotDotDot disablePortal class="btn-sm">
-					<button class="menu-button font-normal" onclick={onSetup}> Launch & Connect </button>
-				</DotDotDot>
-			{/if}
 		</div>
 	</div>
 </div>

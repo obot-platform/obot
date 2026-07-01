@@ -73,7 +73,6 @@
 	let entry = $state<MCPCatalogEntry>();
 	let instance = $state<MCPServerInstance>();
 	let userConfiguredServers = $derived(mcpServersAndEntries.current.userConfiguredServers);
-	let userInstances = $derived(mcpServersAndEntries.current.userInstances);
 
 	let manifest = $derived(server?.manifest || entry?.manifest);
 	let isConfigured = $derived(Boolean((entry && server) || (server && instance)));
@@ -150,16 +149,6 @@
 			.flatMap((server) => [server.manifest?.name || '', server.alias || ''])
 			.filter(Boolean)
 			.map((name) => name.toLowerCase())
-	);
-
-	let requiresConfiguration = $derived(
-		entry
-			? entry && !userConfiguredServers.some((s) => s.catalogEntryID === entry?.id)
-			: server &&
-				  hasMultiUserInstanceConfiguration(server) &&
-				  !userInstances.some((i) => i.mcpServerID === server?.id)
-				? true
-				: false
 	);
 
 	let howToConnect = $state<ReturnType<typeof HowToConnect>>();
@@ -1019,11 +1008,6 @@
 			.replace(/[^a-z0-9-_]/g, '');
 	}
 
-	function initConnectFromUi() {
-		connectDialog?.close();
-		showIntroDialog = true;
-	}
-
 	onMount(() => {
 		ensureOauthVisibilityListener();
 		return () => {
@@ -1070,7 +1054,6 @@
 				{url}
 				id={generateIdFromName(displayName)}
 				{displayName}
-				onSetup={requiresConfiguration ? initConnectFromUi : undefined}
 			/>
 		{/if}
 	{/if}

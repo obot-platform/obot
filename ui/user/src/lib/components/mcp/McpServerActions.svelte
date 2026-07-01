@@ -14,7 +14,6 @@
 	import {
 		deleteMcpServerDeployment,
 		disconnectMcpServerUser,
-		getMCPDisplayName,
 		hasEditableConfiguration,
 		isMultiUserCatalogEntry,
 		isMultiUserServer,
@@ -22,15 +21,13 @@
 		restartMcpServer
 	} from '$lib/services/user/mcp';
 	import { mcpServersAndEntries, profile, version } from '$lib/stores';
-	import { formatTimeAgo } from '$lib/time';
 	import { goto } from '$lib/url';
 	import CopyField from '../CopyField.svelte';
 	import DotDotDot from '../DotDotDot.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
-	import IconButton from '../primitives/IconButton.svelte';
-	import Table from '../table/Table.svelte';
 	import ConnectToServer from './ConnectToServer.svelte';
 	import EditExistingDeployment from './EditExistingDeployment.svelte';
+	import McpSelectServerDeployment from './McpSelectServerDeployment.svelte';
 	import StaticOAuthConfigureModal from './StaticOAuthConfigureModal.svelte';
 	import DebugOauthDialog from './oauth/DebugOauthDialog.svelte';
 	import {
@@ -40,7 +37,6 @@
 		RefreshCw,
 		Server,
 		ServerCog,
-		StepForward,
 		Trash2,
 		Unplug,
 		Bug
@@ -90,7 +86,7 @@
 	}: Props = $props();
 	let connectToServerDialog = $state<ReturnType<typeof ConnectToServer>>();
 	let editExistingDialog = $state<ReturnType<typeof EditExistingDeployment>>();
-	let selectServerDialog = $state<ReturnType<typeof ResponsiveDialog>>();
+	let selectServerDialog = $state<ReturnType<typeof McpSelectServerDeployment>>();
 	let selectServerMode = $state<ServerSelectMode>('connect');
 	let launchDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let launchPromptHandled = $state(false);
@@ -279,8 +275,12 @@
 		}
 	});
 
-	function handleShowSelectServerDialog(mode: ServerSelectMode = 'connect') {
-		selectServerDialog?.open();
+	function handleShowSelectServerDialog(
+		mode: ServerSelectMode = 'connect',
+		servers: MCPCatalogServer[] = []
+	) {
+		if (!entry) return;
+		selectServerDialog?.open(servers);
 		selectServerMode = mode;
 	}
 
@@ -323,7 +323,7 @@
 						)
 					});
 				} else if (configuredServers.length > 1) {
-					handleShowSelectServerDialog();
+					handleShowSelectServerDialog('connect', configuredServers);
 				} else {
 					connectToServerDialog?.open({ entry });
 				}
@@ -334,7 +334,7 @@
 						server: configuredServers[0]
 					});
 				} else {
-					handleShowSelectServerDialog();
+					handleShowSelectServerDialog('connect', configuredServers);
 				}
 			} else {
 				connectToServerDialog?.open({
@@ -381,79 +381,47 @@
 
 <EditExistingDeployment bind:this={editExistingDialog} onUpdateConfigure={refresh} />
 
-<ResponsiveDialog
-	class="bg-base-200 dark:bg-base-100"
+<McpSelectServerDeployment
 	bind:this={selectServerDialog}
-	title="Select Your Server"
->
-	<Table
-		data={configuredServers || []}
-		fields={['name', 'created']}
-		onClickRow={async (d) => {
-			selectServerDialog?.close();
-			switch (selectServerMode) {
-				case 'rename': {
-					editExistingDialog?.rename({
-						server: d,
-						entry
-					});
-					break;
-				}
-				case 'edit': {
-					editExistingDialog?.edit({
-						server: d,
-						entry
-					});
-					break;
-				}
-				case 'restart': {
-					await restartServer(d);
-					await mcpServersAndEntries.refreshAll();
-					break;
-				}
-				case 'disconnect': {
-					await disconnectCurrentUser(d);
-					await mcpServersAndEntries.refreshAll();
-					break;
-				}
-				default:
-					connectToServerDialog?.open({
-						entry,
-						server: d,
-						instance: isMultiUserServer(d)
-							? mcpServersAndEntries.current.userInstances.find((i) => i.mcpServerID === d.id)
-							: undefined
-					});
-					break;
+	onSelectServer={async (d) => {
+		selectServerDialog?.close();
+		switch (selectServerMode) {
+			case 'rename': {
+				editExistingDialog?.rename({
+					server: d,
+					entry
+				});
+				break;
 			}
-		}}
-		disablePortal
-	>
-		{#snippet onRenderColumn(property, d)}
-			{#if property === 'name'}
-				<div class="flex shrink-0 items-center gap-2">
-					<div class="icon">
-						{#if d.manifest.icon}
-							<img src={d.manifest.icon} alt={d.manifest.name} class="size-6" />
-						{:else}
-							<Server class="size-6" />
-						{/if}
-					</div>
-					<p class="flex items-center gap-2">
-						{getMCPDisplayName(d)}
-					</p>
-				</div>
-			{:else if property === 'created'}
-				{formatTimeAgo(d.created).relativeTime}
-			{/if}
-		{/snippet}
-		{#snippet actions()}
-			<IconButton class="hover:dark:bg-base-100/50">
-				<StepForward class="size-4" />
-			</IconButton>
-		{/snippet}
-	</Table>
-</ResponsiveDialog>
+			case 'edit': {
+				editExistingDialog?.edit({
+					server: d,
+					entry
+				});
+				break;
+			}
+			case 'restart': {
+				await restartServer(d);
+				await mcpServersAndEntries.refreshAll();
+				break;
+			}
+			case 'disconnect': {
+				await disconnectCurrentUser(d);
+				await mcpServersAndEntries.refreshAll();
+				break;
+			}
+			default:
+				connectToServerDialog?.open({
+					entry,
+					server: d,
+					instance: isMultiUserServer(d)
+						? mcpServersAndEntries.current.userInstances.find((i) => i.mcpServerID === d.id)
+						: undefined
+				});
+				break;
+		}
+	}}
+/>
 
 <ResponsiveDialog
 	bind:this={launchDialog}
@@ -692,7 +660,7 @@
 									entry
 								});
 							} else {
-								handleShowSelectServerDialog('rename');
+								handleShowSelectServerDialog('rename', configuredServers);
 							}
 						}}
 					>
@@ -711,7 +679,7 @@
 										entry
 									});
 								} else {
-									handleShowSelectServerDialog('edit');
+									handleShowSelectServerDialog('edit', configuredServers);
 								}
 							}}
 						>
@@ -735,7 +703,7 @@
 									toggle(false);
 								}
 							} else {
-								handleShowSelectServerDialog('restart');
+								handleShowSelectServerDialog('restart', configuredServers);
 							}
 						}}
 					>
@@ -755,7 +723,7 @@
 								await disconnectCurrentUser(configuredServers[0]);
 								await mcpServersAndEntries.refreshAll();
 							} else {
-								handleShowSelectServerDialog('disconnect');
+								handleShowSelectServerDialog('disconnect', configuredServers);
 							}
 							toggle(false);
 						}}
