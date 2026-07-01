@@ -9,7 +9,7 @@
 	import SensitiveInput from '../SensitiveInput.svelte';
 	import Toggle from '../Toggle.svelte';
 	import SecretBindingPicker from './SecretBindingPicker.svelte';
-	import { CircleAlert, Server } from '@lucide/svelte';
+	import { CircleAlert, Server, TriangleAlert } from '@lucide/svelte';
 	import { tick, type Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -28,6 +28,7 @@
 		hostname?: string;
 		name?: string;
 		icon?: string;
+		deprecated?: boolean;
 		disabled?: boolean; // source of truth; checkbox shows Enable and binds to !disabled
 		// When true, this component represents a multi-user server. Composite
 		// configuration can still collect the component instance's user-specific
@@ -346,6 +347,12 @@
 						<Server class="size-6" />
 					{/if}
 					<div class="font-xs font-semibold">{comp.name}</div>
+					{#if comp.deprecated}
+						<span class="badge badge-xs border-warning text-warning gap-1 bg-warning/10">
+							<TriangleAlert class="size-3" />
+							Deprecated
+						</span>
+					{/if}
 				</div>
 			{/each}
 		</div>
@@ -452,6 +459,12 @@
 									<img src={comp.icon} alt={comp.name || compId} class="size-8" />
 								{/if}
 								<div class="grow font-medium">{comp.name || compId}</div>
+								{#if comp.deprecated}
+									<span class="badge badge-xs border-warning text-warning gap-1 bg-warning/10">
+										<TriangleAlert class="size-3" />
+										Deprecated
+									</span>
+								{/if}
 								<Toggle
 									checked={!form.componentConfigs[compId].disabled}
 									onChange={(checked) => (form.componentConfigs[compId].disabled = !checked)}
@@ -465,6 +478,20 @@
 								{@const envs = getNonStaticServerFields(comp.envs)}
 
 								<div class="border-t border-base-300 p-3">
+									{#if comp.deprecated}
+										<div
+											class="border-warning bg-warning/10 mb-3 flex items-start gap-2 rounded-md border p-3 text-left"
+										>
+											<TriangleAlert class="text-warning mt-0.5 size-4 shrink-0" />
+											<div class="text-sm">
+												<p class="font-medium">This component server is deprecated.</p>
+												<p class="text-muted-content">
+													It may stop receiving updates or be removed in a future catalog release.
+													Use a replacement component when possible.
+												</p>
+											</div>
+										</div>
+									{/if}
 									{#each envs as env (env.data.key)}
 										{#if secretBindingTargets !== undefined || !hasSecretBinding(env.data)}
 											{@const highlightRequired =

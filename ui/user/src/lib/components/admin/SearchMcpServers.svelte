@@ -8,10 +8,11 @@
 		type MCPCatalogServer,
 		type OrgUser
 	} from '$lib/services';
+	import { isDeprecatedMCPServer } from '$lib/services/user/mcp';
 	import { getUserDisplayName } from '$lib/utils';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import Search from '../Search.svelte';
-	import { Check, Server } from '@lucide/svelte';
+	import { Check, Server, TriangleAlert } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -39,6 +40,7 @@
 		id: string;
 		type: 'mcpcatalogentry' | 'mcpserver' | 'all' | 'mcpCatalog';
 		registry?: string;
+		deprecated?: boolean;
 	};
 
 	let {
@@ -100,6 +102,7 @@
 					description: entry.manifest?.description,
 					id: entry.id,
 					type: 'mcpcatalogentry' as const,
+					deprecated: isDeprecatedMCPServer(entry),
 					registry:
 						entry.powerUserID && isAdminView
 							? `${getUserDisplayName(usersMap, entry.powerUserID)}'s Registry`
@@ -123,6 +126,7 @@
 					description: server.manifest.description,
 					id: server.id,
 					type: 'mcpserver' as const,
+					deprecated: isDeprecatedMCPServer(server),
 					registry:
 						server.userID && server.powerUserWorkspaceID && isAdminView
 							? `${getUserDisplayName(usersMap, server.userID)}'s Registry`
@@ -233,6 +237,12 @@
 										{#if item.registry}
 											<div class="badge badge-xs badge-soft badge-primary">
 												{item.registry}
+											</div>
+										{/if}
+										{#if item.deprecated}
+											<div class="badge badge-xs border-warning text-warning gap-1 bg-warning/10">
+												<TriangleAlert class="size-3" />
+												Deprecated
 											</div>
 										{/if}
 									</div>

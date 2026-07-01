@@ -69,6 +69,10 @@ export function parseCategories(item?: MCPCatalogServer | MCPCatalogEntry | null
 		: [];
 }
 
+export function isDeprecatedMCPServer(item?: MCPCatalogServer | MCPCatalogEntry | null) {
+	return item?.manifest.metadata?.deprecated === 'true';
+}
+
 export function convertEnvHeadersToRecord(
 	envs: MCPServerInfo['env'],
 	headers: MCPServerInfo['headers'],
@@ -525,6 +529,7 @@ export async function convertCompositeInfoToLaunchFormData(
 		{
 			name?: string;
 			icon?: string;
+			deprecated?: boolean;
 			hostname?: string;
 			url?: string;
 			disabled?: boolean;
@@ -545,6 +550,7 @@ export async function convertCompositeInfoToLaunchFormData(
 		componentConfigs[id] = {
 			name: m.name,
 			icon: m.icon,
+			deprecated: m.metadata?.deprecated === 'true',
 			hostname:
 				isMultiUser || !(m.remoteConfig && 'hostname' in m.remoteConfig)
 					? ''
@@ -746,15 +752,19 @@ export const validateRuntimeForm = (
 	return missingFields;
 };
 
-export const convertCategoriesToMetadata = (categories: string[]) => {
+export const convertCategoriesToMetadata = (
+	categories: string[],
+	metadata?: RuntimeFormData['metadata']
+) => {
 	const validCategories = categories.filter((c) => c);
-	return validCategories
-		? {
-				metadata: {
-					categories: validCategories.join(',')
-				}
-			}
-		: undefined;
+	const nextMetadata = { ...metadata };
+	if (validCategories.length > 0) {
+		nextMetadata.categories = validCategories.join(',');
+	} else {
+		delete nextMetadata.categories;
+	}
+
+	return Object.keys(nextMetadata).length > 0 ? { metadata: nextMetadata } : undefined;
 };
 
 export const sanitizeEgressDomains = (egressDomains?: string[] | string) => {
@@ -806,7 +816,7 @@ export const sanitizeResourceRuntimeConfig = (
 export const convertServerRuntimeFormDataToManifest = (
 	formData: RuntimeFormData
 ): MCPCatalogServerManifest => {
-	const { categories, ...baseData } = formData;
+	const { categories, metadata, ...baseData } = formData;
 	const startupTimeoutSeconds = baseData.startupTimeoutSeconds;
 	const startupTimeoutConfig =
 		typeof startupTimeoutSeconds === 'number' &&
@@ -828,7 +838,7 @@ export const convertServerRuntimeFormDataToManifest = (
 			multiUserConfig: baseData.multiUserConfig,
 			runtime: baseData.runtime,
 			...(resources ? { resources } : {}),
-			...convertCategoriesToMetadata(categories)
+			...convertCategoriesToMetadata(categories, metadata)
 		}
 	};
 

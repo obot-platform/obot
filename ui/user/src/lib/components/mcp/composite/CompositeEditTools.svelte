@@ -7,6 +7,7 @@
 		conflictIssue,
 		duplicateToolNames,
 		effectiveToolName,
+		isDeprecatedMCPServer,
 		MAX_TOOL_PREFIX_LENGTH,
 		TOOL_NAME_CHARSET_REGEX,
 		TOOL_NAME_SPECIAL_CHAR_WARNING,
@@ -97,6 +98,7 @@
 	let initialConfigState = $state<string>('');
 
 	let allToolsEnabled = $derived(tools.every((tool) => tool.enabled));
+	let configuringEntryDeprecated = $derived(isDeprecatedMCPServer(configuringEntry));
 
 	let visibleTools = $derived(
 		tools.filter(
@@ -157,6 +159,20 @@
 	classes={{ content: 'p-0', header: 'p-4 pb-0' }}
 	onClickOutside={handleClose}
 >
+	{#if configuringEntryDeprecated}
+		<div
+			class="border-warning bg-warning/10 mx-4 mb-3 flex items-start gap-2 rounded-md border p-3"
+		>
+			<TriangleAlert class="text-warning mt-0.5 size-4 shrink-0" />
+			<div class="text-sm">
+				<p class="font-medium">This component server is deprecated.</p>
+				<p class="text-muted-content">
+					It may stop receiving updates or be removed in a future catalog release. Use a replacement
+					component when possible.
+				</p>
+			</div>
+		</div>
+	{/if}
 	<p class="text-muted-content px-4 text-xs font-light">
 		Toggle what tools are available to users of this composite server. Or modify the name or
 		description of a tool; this will override the default name or description provided by the

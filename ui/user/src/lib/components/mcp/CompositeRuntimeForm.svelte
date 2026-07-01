@@ -367,6 +367,7 @@
 			{#each config.componentServers as entry (getComponentId(entry))}
 				{@const componentId = getComponentId(entry)}
 				{@const headerSeverity = componentSeverity(entry)}
+				{@const deprecated = entry.manifest?.metadata?.deprecated === 'true'}
 				<div
 					class="dark:bg-base-300 dark:border-base-400 rounded-lg border border-gray-200 bg-gray-50"
 				>
@@ -380,6 +381,12 @@
 							<div class="truncate font-medium" title={entry.manifest?.name || 'Unnamed Server'}>
 								{entry.manifest?.name || 'Unnamed Server'}
 							</div>
+							{#if deprecated}
+								<span class="badge badge-xs border-warning text-warning gap-1 bg-warning/10">
+									<TriangleAlert class="size-3" />
+									Deprecated
+								</span>
+							{/if}
 							{#if headerSeverity}
 								<ToolNameIssueIcon
 									issue={{
@@ -417,6 +424,20 @@
 					{#if expanded[componentId]}
 						{@const issue = prefixIssue(entry)}
 						<div class="border-t border-gray-200 p-3" in:slide={{ axis: 'y' }}>
+							{#if deprecated}
+								<div
+									class="border-warning bg-warning/10 mb-3 flex items-start gap-2 rounded-md border p-3 text-left"
+								>
+									<TriangleAlert class="text-warning mt-0.5 size-4 shrink-0" />
+									<div class="text-sm">
+										<p class="font-medium">This component server is deprecated.</p>
+										<p class="text-muted-content">
+											It may stop receiving updates or be removed in a future catalog release. Use a
+											replacement component when possible.
+										</p>
+									</div>
+								</div>
+							{/if}
 							<div class="mb-3 flex flex-col gap-1">
 								<p class="flex items-center gap-1.5 text-xs text-muted-content">
 									<span>Tool name prefix</span>

@@ -6,7 +6,9 @@
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { UserService } from '$lib/services';
+	import { isDeprecatedMCPServer } from '$lib/services/user/mcp';
 	import { mcpServersAndEntries } from '$lib/stores';
+	import { CircleAlert } from '@lucide/svelte';
 	import { type Component } from 'svelte';
 	import { fly } from 'svelte/transition';
 
@@ -31,6 +33,7 @@
 			: []
 	);
 	let promptOAuthConfig = $derived(page.url.searchParams.get('configure-oauth') === 'true');
+	let deprecated = $derived(isDeprecatedMCPServer(catalogEntry));
 </script>
 
 <Layout
@@ -55,6 +58,19 @@
 		/>
 	{/snippet}
 	<div class="flex h-full flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
+		{#if deprecated}
+			<div class="border-warning bg-warning/10 flex items-start gap-3 rounded-lg border p-4">
+				<CircleAlert class="text-warning mt-0.5 size-5 shrink-0" />
+				<div class="flex-1">
+					<p class="text-sm font-medium">This server is deprecated.</p>
+					<p class="text-muted-content mt-1 text-xs">
+						It may stop receiving updates or be removed in a future catalog release. Use a
+						replacement server when possible.
+					</p>
+				</div>
+			</div>
+		{/if}
+
 		{#if catalogEntry}
 			<McpServerEntryForm
 				entry={catalogEntry}

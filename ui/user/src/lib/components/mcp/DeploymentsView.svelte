@@ -23,6 +23,7 @@
 		getServerTypeLabel,
 		getServerUrl,
 		hasMissingSecretBindingConfig,
+		isDeprecatedMCPServer,
 		isMultiUserServer
 	} from '$lib/services/user/mcp';
 	import { profile, mcpServersAndEntries, version } from '$lib/stores';
@@ -648,6 +649,12 @@
 									</span>
 								{/if}
 							</p>
+							{#if isDeprecatedMCPServer(d)}
+								<span class="badge badge-xs border-warning text-warning gap-1 bg-warning/10">
+									<TriangleAlert class="size-3" />
+									Deprecated
+								</span>
+							{/if}
 							{#if 'missingKubernetesSecret' in d && d.missingKubernetesSecret}
 								<div
 									class="text-warning"

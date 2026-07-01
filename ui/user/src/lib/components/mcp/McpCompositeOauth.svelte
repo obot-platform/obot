@@ -3,7 +3,7 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import { UserService, type MCPCatalogServer } from '$lib/services';
 	import { getMCPDisplayName } from '$lib/services/user/mcp';
-	import { Server } from '@lucide/svelte';
+	import { Server, TriangleAlert } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 
 	interface Props {
@@ -22,7 +22,9 @@
 	};
 
 	let compositeServer = $state<MCPCatalogServer>();
-	let componentInfos = $state<Record<string, { name?: string; icon?: string }>>({});
+	let componentInfos = $state<
+		Record<string, { name?: string; icon?: string; deprecated?: boolean }>
+	>({});
 	let pending = $state<PendingItem[]>([]);
 	let loading = $state(true);
 	let error = $state<string>('');
@@ -49,14 +51,18 @@
 			const componentServers = compositeServer?.manifest?.compositeConfig?.componentServers || [];
 			componentInfos = componentServers.reduce(
 				(
-					acc: Record<string, { name?: string; icon?: string }>,
-					c: { catalogEntryID?: string; manifest?: { name?: string; icon?: string } }
+					acc: Record<string, { name?: string; icon?: string; deprecated?: boolean }>,
+					c: {
+						catalogEntryID?: string;
+						manifest?: { name?: string; icon?: string; metadata?: { deprecated?: string } };
+					}
 				) => {
 					const id = c.catalogEntryID;
 					if (!id) return acc;
 					acc[id] = {
 						name: c.manifest?.name,
-						icon: c.manifest?.icon
+						icon: c.manifest?.icon,
+						deprecated: c.manifest?.metadata?.deprecated === 'true'
 					};
 					return acc;
 				},
@@ -183,6 +189,12 @@
 									item.catalogEntryID ||
 									item.mcpServerID}</span
 							>
+							{#if componentInfos[item.catalogEntryID || '']?.deprecated}
+								<span class="badge badge-xs border-warning text-warning gap-1 bg-warning/10">
+									<TriangleAlert class="size-3" />
+									Deprecated
+								</span>
+							{/if}
 						</div>
 						<div class="flex items-center gap-2">
 							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external OAuth URL -->
