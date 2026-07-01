@@ -31,6 +31,8 @@ func newTestClient(t *testing.T) *Client {
 
 	return &Client{
 		db:                      db,
+		llmAuditEntries:         make(chan types.LLMAuditLog, 6),
+		llmAuditBatchSize:       3,
 		auditLogCleanupInterval: 50 * time.Millisecond,
 		auditLogDeleteBatchSize: 3,
 	}
@@ -87,7 +89,7 @@ func TestDeleteOldAuditLogs(t *testing.T) {
 	insertAuditLog(t, c, now.AddDate(0, 0, -1))    // recent - should be kept
 	insertAuditLog(t, c, now)                      // recent - should be kept
 
-	if err := c.deleteOldAuditLogs(ctx, now, 90); err != nil {
+	if err := c.deleteOldMCPAuditLogs(ctx, now, 90); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -105,7 +107,7 @@ func TestDeleteOldAuditLogsDisabled(t *testing.T) {
 	insertAuditLog(t, c, now.AddDate(0, 0, -100))
 
 	// retentionDays=0 should be a no-op
-	if err := c.deleteOldAuditLogs(ctx, now, 0); err != nil {
+	if err := c.deleteOldMCPAuditLogs(ctx, now, 0); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -126,7 +128,7 @@ func TestDeleteOldAuditLogsBatching(t *testing.T) {
 	insertAuditLog(t, c, now.AddDate(0, 0, -1))
 	insertAuditLog(t, c, now)
 
-	if err := c.deleteOldAuditLogs(ctx, now, 90); err != nil {
+	if err := c.deleteOldMCPAuditLogs(ctx, now, 90); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -145,7 +147,7 @@ func TestRunAuditLogCleanup(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	go c.runAuditLogCleanup(ctx, 90)
+	go c.runMCPAuditLogCleanup(ctx, 90)
 
 	// Wait until the cleanup has deleted old logs, or time out.
 	deadline := time.Now().Add(2 * time.Second)
@@ -177,7 +179,7 @@ func TestRunAuditLogCleanupDisabled(t *testing.T) {
 
 	// retentionDays=0 means the function returns immediately without cleanup.
 	// Call synchronously — if it ever blocks, the test timeout will catch it.
-	c.runAuditLogCleanup(t.Context(), 0)
+	c.runMCPAuditLogCleanup(t.Context(), 0)
 
 	if got := countAuditLogs(t, c); got != 2 {
 		t.Errorf("expected 2 audit logs (cleanup disabled), got %d", got)

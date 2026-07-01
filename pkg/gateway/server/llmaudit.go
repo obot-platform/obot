@@ -143,12 +143,7 @@ func (r *llmAuditRecorder) finish(c *client.Client, err error) {
 			r.log.ResponseID = r.accumulator.ResponseID()
 		}
 		r.setOutcome(err)
-
-		insertCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if err := c.InsertLLMAuditLog(insertCtx, &r.log); err != nil {
-			log.Warnf("failed to insert LLM audit log: %v", err)
-		}
+		c.LogLLMAuditEntry(r.log)
 	})
 }
 
