@@ -92,6 +92,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mcpSecretBindings := handlers.NewMCPSecretBindingHandler(services.MCPRuntimeBackend, services.LocalK8sClient, services.ObotNamespace, services.MCPSecretBindingAllowedLabel)
 	mcpGateway := mcpgateway.NewHandler(services.MCPSessionManager, services.MCPSecretBindingAllowedLabel)
 	mcpAuditLogs := mcpgateway.NewAuditLogHandler()
+	localAgentAuditLogs := mcpgateway.NewLocalAgentAuditLogHandler()
 	auditLogExports := handlers.NewAuditLogExportHandler(services.GatewayClient)
 	serverInstances := handlers.NewServerInstancesHandler(services.AccessControlRuleHelper, services.ServerURL)
 	systemMCPServers := handlers.NewSystemMCPServerHandler(services.MCPSessionManager, services.MCPSecretBindingAllowedLabel)
@@ -354,6 +355,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/mcp-audit-logs/{mcp_id}", mcpAuditLogs.ListAuditLogs)
 	mux.HandleFunc("GET /api/mcp-stats", mcpAuditLogs.GetUsageStats)
 	mux.HandleFunc("GET /api/mcp-stats/{mcp_id}", mcpAuditLogs.GetUsageStats)
+	mux.HandleFunc("POST /api/local-agent-audit-logs", localAgentAuditLogs.Submit)
 
 	// Audit Log Exports
 	mux.HandleFunc("POST /api/audit-log-exports", auditLogExports.CreateAuditLogExport)
