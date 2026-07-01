@@ -1,15 +1,16 @@
-package server
+package llmaudit
 
 import (
 	"bytes"
 	"encoding/json"
+	"maps"
 	"strconv"
 	"strings"
 
 	"github.com/obot-platform/obot/pkg/system"
 )
 
-type llmResponseAccumulator struct {
+type ResponseAccumulator struct {
 	modelProvider string
 	pending       string
 	sawSSE        bool
@@ -20,11 +21,11 @@ type llmResponseAccumulator struct {
 	anthropic anthropicResponseAccumulator
 }
 
-func newLLMResponseAccumulator(modelProvider string) *llmResponseAccumulator {
-	return &llmResponseAccumulator{modelProvider: modelProvider}
+func NewResponseAccumulator(modelProvider string) *ResponseAccumulator {
+	return &ResponseAccumulator{modelProvider: modelProvider}
 }
 
-func (a *llmResponseAccumulator) Write(p []byte) {
+func (a *ResponseAccumulator) Write(p []byte) {
 	if a == nil || len(p) == 0 {
 		return
 	}
@@ -42,7 +43,7 @@ func (a *llmResponseAccumulator) Write(p []byte) {
 	}
 }
 
-func (a *llmResponseAccumulator) JSON() string {
+func (a *ResponseAccumulator) JSON() string {
 	if a == nil {
 		return "{}"
 	}
@@ -67,7 +68,7 @@ func (a *llmResponseAccumulator) JSON() string {
 	return compactJSONObject(raw)
 }
 
-func (a *llmResponseAccumulator) ResponseID() string {
+func (a *ResponseAccumulator) ResponseID() string {
 	if a == nil {
 		return ""
 	}
@@ -84,7 +85,7 @@ func (a *llmResponseAccumulator) ResponseID() string {
 	}
 }
 
-func (a *llmResponseAccumulator) processLine(line string) {
+func (a *ResponseAccumulator) processLine(line string) {
 	trimmed := strings.TrimSpace(line)
 	if trimmed == "" {
 		return
@@ -106,7 +107,7 @@ func (a *llmResponseAccumulator) processLine(line string) {
 	}
 }
 
-func (a *llmResponseAccumulator) processJSON(body string) {
+func (a *ResponseAccumulator) processJSON(body string) {
 	if a.modelProvider == system.OpenAIModelProvider {
 		a.openAI.Process(body)
 		if a.responseID == "" {
@@ -262,9 +263,7 @@ func (a *anthropicResponseAccumulator) Process(body string) {
 	case "message_delta":
 		message := a.ensureMessage()
 		if delta, ok := event["delta"].(map[string]any); ok {
-			for k, v := range delta {
-				message[k] = v
-			}
+			maps.Copy(message, delta)
 		}
 		if usage, ok := event["usage"].(map[string]any); ok {
 			message["usage"] = cloneMap(usage)

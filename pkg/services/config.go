@@ -113,6 +113,7 @@ type Config struct {
 	EnableRegistryAuth                   bool   `usage:"Enable authentication for the MCP registry API" default:"false" env:"OBOT_SERVER_ENABLE_REGISTRY_AUTH"`
 	EnableMessagePolicies                bool   `usage:"Enable message policies for LLM proxy content enforcement" default:"false"`
 	LLMAuditLogRetentionDays             int    `usage:"Number of days to retain LLM audit logs (0 to disable cleanup)." default:"90"`
+	LLMAuditLogResponseCaptureLimitBytes int    `usage:"Maximum number of response bytes to capture per LLM audit log before best-effort aggregation." default:"5242880"`
 	EnableAgents                         *bool  `usage:"Enable Obot Agent features. When unset, agents are disabled for new deployments but grandfathered in for deployments that already have agents. Explicitly set to true to force-enable, or false to force-disable, regardless of grandfathering." env:"OBOT_ENABLE_AGENTS"`
 	MCPOAuthClientExpiration             string `usage:"The expiration time in dynamically registered MCP OAuth clients, must be a valid duration string and may include days, hours, or minutes" default:"30d"`
 	MCPServerSearchImage                 string `usage:"Container image for the obot MCP server" default:"ghcr.io/obot-platform/obot-mcp-server:v0.2.0"`
@@ -496,6 +497,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		config.MCPAuditLogsPersistBatchSize,
 		config.MCPAuditLogRetentionDays,
 		config.LLMAuditLogRetentionDays,
+		config.LLMAuditLogResponseCaptureLimitBytes,
 	)
 
 	if err := migrateGPTScriptCredentials(ctx, gatewayClient, gatewayDB, config.DSN); err != nil {

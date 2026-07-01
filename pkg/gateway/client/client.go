@@ -29,8 +29,9 @@ type Client struct {
 	auditLock               sync.Mutex
 	auditBuffer             []types.MCPAuditLog
 	kickAuditPersist        chan struct{}
-	llmAuditEntries         chan types.LLMAuditLog
+	llmAuditEntries         chan llmAuditEntry
 	llmAuditBatchSize       int
+	llmAuditResponseLimit   int
 	llmAuditDropped         atomic.Uint64
 	storageClient           kclient.Client
 	apiKeyCacheLock         sync.RWMutex
@@ -46,7 +47,7 @@ type Client struct {
 	mcpOAuthTokenTrigger    func(context.Context, string) error
 }
 
-func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, ownerEmails, adminEmails []string, auditLogPersistenceInterval time.Duration, auditLogBatchSize, auditLogRetentionDays, llmAuditLogRetentionDays int) *Client {
+func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, ownerEmails, adminEmails []string, auditLogPersistenceInterval time.Duration, auditLogBatchSize, auditLogRetentionDays, llmAuditLogRetentionDays, llmAuditLogResponseCaptureLimit int) *Client {
 	explicitRoleEmailsSet := make(map[string]types2.Role, len(ownerEmails)+len(adminEmails))
 	for _, email := range adminEmails {
 		explicitRoleEmailsSet[strings.ToLower(email)] = types2.RoleAdmin
@@ -66,8 +67,9 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 		apiKeyCacheTTL:          apiKeyValidationCacheTTL,
 		serviceAccountCache:     make(map[[32]byte]serviceAccountValidationCacheEntry),
 		serviceAccountCacheTTL:  serviceAccountValidationCacheTTL,
-		llmAuditEntries:         make(chan types.LLMAuditLog, defaultLLMAuditLogBufferSize),
+		llmAuditEntries:         make(chan llmAuditEntry, defaultLLMAuditLogBufferSize),
 		llmAuditBatchSize:       defaultLLMAuditLogBatchSize,
+		llmAuditResponseLimit:   llmAuditLogResponseCaptureLimit,
 		auditLogCleanupInterval: defaultAuditLogCleanupInterval,
 		auditLogDeleteBatchSize: defaultAuditLogDeleteBatchSize,
 	}

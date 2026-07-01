@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/server/options/encryptionconfig"
 	"k8s.io/apiserver/pkg/storage/value"
@@ -136,28 +137,32 @@ func TestLogLLMAuditEntryQueuesPlaintextWithoutBlocking(t *testing.T) {
 		},
 	}
 	entry := types.LLMAuditLog{
-		ID:          uuid.NewString(),
-		CreatedAt:   time.Now().UTC(),
-		RequestBody: `{"prompt":"secret"}`,
+		ID:            uuid.NewString(),
+		CreatedAt:     time.Now().UTC(),
+		ModelProvider: system.OpenAIModelProvider,
+		RequestBody:   `{"prompt":"secret"}`,
 	}
 
-	c.LogLLMAuditEntry(entry)
+	c.LogLLMAuditEntry(entry, `data: {"type":"response.created","response":{"id":"resp_1","output":[]}}`+"\n")
 
 	queued := <-c.llmAuditEntries
-	if queued.Encrypted {
+	if queued.log.Encrypted {
 		t.Fatal("expected request-path enqueue to skip encryption")
 	}
-	if queued.RequestBody != entry.RequestBody {
-		t.Fatalf("expected plaintext queued body %q, got %q", entry.RequestBody, queued.RequestBody)
+	if queued.log.RequestBody != entry.RequestBody {
+		t.Fatalf("expected plaintext queued body %q, got %q", entry.RequestBody, queued.log.RequestBody)
+	}
+	if queued.responseStream == "" {
+		t.Fatal("expected raw response stream to be queued")
 	}
 }
 
 func TestLogLLMAuditEntryDropsWhenBufferFull(t *testing.T) {
 	c := newTestClient(t)
-	c.llmAuditEntries = make(chan types.LLMAuditLog, 1)
+	c.llmAuditEntries = make(chan llmAuditEntry, 1)
 
-	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.NewString(), CreatedAt: time.Now().UTC()})
-	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.NewString(), CreatedAt: time.Now().UTC()})
+	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.NewString(), CreatedAt: time.Now().UTC()}, "")
+	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.NewString(), CreatedAt: time.Now().UTC()}, "")
 
 	if got := len(c.llmAuditEntries); got != 1 {
 		t.Fatalf("expected one queued entry, got %d", got)
@@ -184,10 +189,11 @@ func TestRunLLMAuditPersistenceLoopFlushesQueuedEntries(t *testing.T) {
 
 	for i := range 3 {
 		c.LogLLMAuditEntry(types.LLMAuditLog{
-			ID:          uuid.NewString(),
-			CreatedAt:   time.Now().UTC(),
-			RequestBody: fmt.Sprintf(`{"prompt":"secret-%d"}`, i),
-		})
+			ID:            uuid.NewString(),
+			CreatedAt:     time.Now().UTC(),
+			ModelProvider: system.OpenAIModelProvider,
+			RequestBody:   fmt.Sprintf(`{"prompt":"secret-%d"}`, i),
+		}, `data: {"type":"response.created","response":{"id":"resp_async","output":[]}}`+"\n")
 	}
 
 	waitForLLMAuditLogCount(t, c, 3)
@@ -201,6 +207,12 @@ func TestRunLLMAuditPersistenceLoopFlushesQueuedEntries(t *testing.T) {
 	if !stored.Encrypted {
 		t.Fatal("expected writer to encrypt persisted audit logs")
 	}
+	if err := c.decryptLLMAuditLog(t.Context(), &stored); err != nil {
+		t.Fatalf("failed to decrypt LLM audit log: %v", err)
+	}
+	if stored.ResponseID != "resp_async" {
+		t.Fatalf("expected async response aggregation, got response ID %q", stored.ResponseID)
+	}
 }
 
 func TestRunLLMAuditPersistenceLoopFlushesOnInterval(t *testing.T) {
@@ -213,7 +225,7 @@ func TestRunLLMAuditPersistenceLoopFlushesOnInterval(t *testing.T) {
 		c.runLLMAuditPersistenceLoop(ctx, 3, 20*time.Millisecond)
 	}()
 
-	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.NewString(), CreatedAt: time.Now().UTC()})
+	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.NewString(), CreatedAt: time.Now().UTC()}, "")
 	waitForLLMAuditLogCount(t, c, 1)
 	cancel()
 	<-done
@@ -228,8 +240,8 @@ func TestRunLLMAuditPersistenceLoopDrainsOnShutdown(t *testing.T) {
 		c.runLLMAuditPersistenceLoop(ctx, 3, time.Hour)
 	}()
 
-	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.NewString(), CreatedAt: time.Now().UTC()})
-	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.NewString(), CreatedAt: time.Now().UTC()})
+	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.NewString(), CreatedAt: time.Now().UTC()}, "")
+	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.NewString(), CreatedAt: time.Now().UTC()}, "")
 	cancel()
 	<-done
 

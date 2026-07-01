@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	gatewayllmaudit "github.com/obot-platform/obot/pkg/gateway/llmaudit"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/storage/value"
@@ -18,11 +19,24 @@ var llmAuditLogGroupResource = schema.GroupResource{
 }
 
 const (
-	defaultLLMAuditLogBatchSize  = 100
-	defaultLLMAuditLogBufferSize = 10000
+	defaultLLMAuditLogBatchSize            = 100
+	defaultLLMAuditLogBufferSize           = 10000
+	defaultLLMAuditLogResponseCaptureLimit = 5 << 20 // 5MiB
 )
 
-func (c *Client) LogLLMAuditEntry(entry types.LLMAuditLog) {
+type llmAuditEntry struct {
+	log            types.LLMAuditLog
+	responseStream string
+}
+
+func (c *Client) LLMAuditLogResponseCaptureLimit() int {
+	if c == nil || c.llmAuditResponseLimit <= 0 {
+		return defaultLLMAuditLogResponseCaptureLimit
+	}
+	return c.llmAuditResponseLimit
+}
+
+func (c *Client) LogLLMAuditEntry(auditLog types.LLMAuditLog, responseStream string) {
 	if c.llmAuditEntries == nil {
 		log.Warnf("dropping LLM audit log: writer is not configured")
 		return
@@ -31,7 +45,7 @@ func (c *Client) LogLLMAuditEntry(entry types.LLMAuditLog) {
 	// Never let audit logging block an LLM request. A full channel means the
 	// writer is behind for long enough that keeping request latency matters more.
 	select {
-	case c.llmAuditEntries <- entry:
+	case c.llmAuditEntries <- llmAuditEntry{log: auditLog, responseStream: responseStream}:
 	default:
 		dropped := c.llmAuditDropped.Add(1)
 		log.Warnf("dropping LLM audit log: buffer is full (dropped=%d)", dropped)
@@ -56,7 +70,7 @@ func (c *Client) runLLMAuditPersistenceLoop(ctx context.Context, batchSize int, 
 	ticker := time.NewTicker(flushInterval)
 	defer ticker.Stop()
 
-	batch := make([]types.LLMAuditLog, 0, batchSize)
+	batch := make([]llmAuditEntry, 0, batchSize)
 	flush := func() {
 		if len(batch) == 0 {
 			return
@@ -112,7 +126,7 @@ func (c *Client) persistQueuedLLMAuditLogs() error {
 	if batchSize <= 0 {
 		batchSize = defaultLLMAuditLogBatchSize
 	}
-	batch := make([]types.LLMAuditLog, 0, batchSize)
+	batch := make([]llmAuditEntry, 0, batchSize)
 	for {
 		select {
 		case entry := <-c.llmAuditEntries:
@@ -129,14 +143,31 @@ func (c *Client) persistQueuedLLMAuditLogs() error {
 	}
 }
 
-func (c *Client) persistLLMAuditLogs(logs []types.LLMAuditLog) error {
-	if len(logs) == 0 {
+func (c *Client) persistLLMAuditLogs(entries []llmAuditEntry) error {
+	if len(entries) == 0 {
 		return nil
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+	logs := make([]types.LLMAuditLog, len(entries))
+	for i, entry := range entries {
+		logs[i] = entry.log
+		aggregateLLMAuditResponse(&logs[i], entry.responseStream)
+	}
 	return c.insertLLMAuditLogs(ctx, logs)
+}
+
+func aggregateLLMAuditResponse(log *types.LLMAuditLog, responseStream string) {
+	if log == nil || responseStream == "" {
+		return
+	}
+	accumulator := gatewayllmaudit.NewResponseAccumulator(log.ModelProvider)
+	accumulator.Write([]byte(responseStream))
+	log.ResponseBody = accumulator.JSON()
+	if log.ResponseID == "" {
+		log.ResponseID = accumulator.ResponseID()
+	}
 }
 
 func (c *Client) insertLLMAuditLogs(ctx context.Context, logs []types.LLMAuditLog) error {
