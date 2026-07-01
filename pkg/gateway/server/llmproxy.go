@@ -1138,7 +1138,8 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 		ErrorHandler: func(w http.ResponseWriter, _ *http.Request, err error) {
 			proxyErr = err
 			audit.finish(req.GatewayClient, err)
-			http.Error(w, err.Error(), http.StatusBadGateway)
+			log.Warnf("LLM provider proxy error: %v", err)
+			http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
 		},
 		ModifyResponse: (&responseModifier{
 			user:                   req.User,
