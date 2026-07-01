@@ -12,7 +12,7 @@
 	import { openUrl } from '$lib/utils';
 	import IconButton from '../primitives/IconButton.svelte';
 	import Table from '../table/Table.svelte';
-	import { CircleAlert, ChevronRight, Server } from '@lucide/svelte';
+	import { CircleAlert, ChevronRight, Server, TriangleAlert } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -69,6 +69,7 @@
 				{@const mcpServerId =
 					componentServer.mcpServerID && serversMap.get(componentServer.mcpServerID)?.id}
 				{@const componentExists = !!(catalogEntryServerId || mcpServerId)}
+				{@const deprecated = componentServer.manifest?.metadata?.deprecated === 'true'}
 
 				{#if componentExists}
 					<button
@@ -107,6 +108,12 @@
 								{/if}
 							</div>
 							<p class="text-sm">{componentServer.manifest?.name}</p>
+							{#if deprecated}
+								<span class="badge badge-xs border-warning text-warning gap-1 bg-warning/10">
+									<TriangleAlert class="size-3" />
+									Deprecated
+								</span>
+							{/if}
 							{#if catalogEntryServerId}
 								<span class="text-muted-content text-sm">({catalogEntryServerId})</span>
 							{/if}
@@ -132,6 +139,12 @@
 								{/if}
 							</div>
 							<p class="text-sm">{componentServer.manifest?.name}</p>
+							{#if deprecated}
+								<span class="badge badge-xs border-warning text-warning gap-1 bg-warning/10">
+									<TriangleAlert class="size-3" />
+									Deprecated
+								</span>
+							{/if}
 							<span
 								class="text-muted-content flex items-center gap-1 text-xs"
 								title="This component server no longer exists"

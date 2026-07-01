@@ -16,11 +16,13 @@
 		deriveToolPrefix,
 		getSecretBindingEngineError,
 		isKubernetesRuntimeBackend,
-		hasEditableConfiguration
+		hasEditableConfiguration,
+		isDeprecatedMCPServer
 	} from '$lib/services/user/mcp';
 	import { mcpServersAndEntries, version } from '$lib/stores';
 	import CatalogConfigureForm, { type LaunchFormData } from '../CatalogConfigureForm.svelte';
 	import CompositeEditTools from './CompositeEditTools.svelte';
+	import { TriangleAlert } from '@lucide/svelte';
 
 	interface Props {
 		catalogId?: string;
@@ -81,6 +83,7 @@
 			? undefined
 			: getSecretBindingEngineError(configuringEntry?.manifest)
 	);
+	let configuringEntryDeprecated = $derived(isDeprecatedMCPServer(configuringEntry));
 
 	function handleVisibilityChange() {
 		if (!componentConfig) return;
@@ -366,6 +369,18 @@
 	title={`Configure ${configuringEntry?.manifest?.name ?? 'MCP Server'} Tools`}
 	class="bg-base-200 md:w-md"
 >
+	{#if configuringEntryDeprecated}
+		<div class="border-warning bg-warning/10 mb-4 flex items-start gap-2 rounded-md border p-3">
+			<TriangleAlert class="text-warning mt-0.5 size-4 shrink-0" />
+			<div class="text-sm">
+				<p class="font-medium">This component server is deprecated.</p>
+				<p class="text-muted-content">
+					It may stop receiving updates or be removed in a future catalog release. Use a replacement
+					component when possible.
+				</p>
+			</div>
+		</div>
+	{/if}
 	<p class="text-muted-content text-sm font-light">
 		All <i>{configuringEntry?.manifest?.name ?? 'MCP Server'}</i> tools are enabled by default. Would
 		you like to modify the available tools?
@@ -421,6 +436,20 @@
 				</div>
 			{:else}
 				<div class="mb-6 h-full text-left">
+					{#if configuringEntryDeprecated}
+						<div
+							class="border-warning bg-warning/10 mb-4 flex items-start gap-2 rounded-md border p-3"
+						>
+							<TriangleAlert class="text-warning mt-0.5 size-4 shrink-0" />
+							<div class="text-sm">
+								<p class="font-medium">This component server is deprecated.</p>
+								<p class="text-muted-content">
+									It may stop receiving updates or be removed in a future catalog release. Use a
+									replacement component when possible.
+								</p>
+							</div>
+						</div>
+					{/if}
 					{#if 'isCatalogEntry' in configuringEntry && hasEditableConfiguration(configuringEntry)}
 						<p>
 							In order to request tools from the server, you'll need to pass some configuration

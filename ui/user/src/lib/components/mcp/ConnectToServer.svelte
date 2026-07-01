@@ -320,6 +320,7 @@
 				{
 					name?: string;
 					icon?: string;
+					deprecated?: boolean;
 					hostname?: string;
 					url?: string;
 					disabled?: boolean;
@@ -336,6 +337,7 @@
 				componentConfigs[id] = {
 					name: m.name,
 					icon: m.icon,
+					deprecated: m.metadata?.deprecated === 'true',
 					hostname: isMultiUser ? undefined : m.remoteConfig?.hostname,
 					url: isMultiUser ? undefined : (m.remoteConfig?.fixedURL ?? ''),
 					disabled: false,

@@ -529,6 +529,7 @@ export async function convertCompositeInfoToLaunchFormData(
 		{
 			name?: string;
 			icon?: string;
+			deprecated?: boolean;
 			hostname?: string;
 			url?: string;
 			disabled?: boolean;
@@ -549,6 +550,7 @@ export async function convertCompositeInfoToLaunchFormData(
 		componentConfigs[id] = {
 			name: m.name,
 			icon: m.icon,
+			deprecated: m.metadata?.deprecated === 'true',
 			hostname:
 				isMultiUser || !(m.remoteConfig && 'hostname' in m.remoteConfig)
 					? ''
