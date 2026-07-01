@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"fmt"
 	"testing"
 	"time"
 
@@ -124,5 +125,130 @@ func TestInsertLLMAuditLogWithoutEncryptionStoresPlaintext(t *testing.T) {
 	}
 	if stored.RequestHeaders != entry.RequestHeaders || stored.RequestBody != entry.RequestBody {
 		t.Fatalf("expected decrypt no-op, got headers=%q body=%q", stored.RequestHeaders, stored.RequestBody)
+	}
+}
+
+func TestLogLLMAuditEntryQueuesPlaintextWithoutBlocking(t *testing.T) {
+	c := newTestClient(t)
+	c.encryptionConfig = &encryptionconfig.EncryptionConfiguration{
+		Transformers: map[schema.GroupResource]value.Transformer{
+			llmAuditLogGroupResource: testTransformer{},
+		},
+	}
+	entry := types.LLMAuditLog{
+		ID:          uuid.NewString(),
+		CreatedAt:   time.Now().UTC(),
+		RequestBody: `{"prompt":"secret"}`,
+	}
+
+	c.LogLLMAuditEntry(entry)
+
+	queued := <-c.llmAuditEntries
+	if queued.Encrypted {
+		t.Fatal("expected request-path enqueue to skip encryption")
+	}
+	if queued.RequestBody != entry.RequestBody {
+		t.Fatalf("expected plaintext queued body %q, got %q", entry.RequestBody, queued.RequestBody)
+	}
+}
+
+func TestLogLLMAuditEntryDropsWhenBufferFull(t *testing.T) {
+	c := newTestClient(t)
+	c.llmAuditEntries = make(chan types.LLMAuditLog, 1)
+
+	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.NewString(), CreatedAt: time.Now().UTC()})
+	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.NewString(), CreatedAt: time.Now().UTC()})
+
+	if got := len(c.llmAuditEntries); got != 1 {
+		t.Fatalf("expected one queued entry, got %d", got)
+	}
+	if got := c.llmAuditDropped.Load(); got != 1 {
+		t.Fatalf("expected one dropped entry, got %d", got)
+	}
+}
+
+func TestRunLLMAuditPersistenceLoopFlushesQueuedEntries(t *testing.T) {
+	c := newTestClient(t)
+	c.encryptionConfig = &encryptionconfig.EncryptionConfiguration{
+		Transformers: map[schema.GroupResource]value.Transformer{
+			llmAuditLogGroupResource: testTransformer{},
+		},
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		c.runLLMAuditPersistenceLoop(ctx, 3, time.Hour)
+	}()
+
+	for i := range 3 {
+		c.LogLLMAuditEntry(types.LLMAuditLog{
+			ID:          uuid.NewString(),
+			CreatedAt:   time.Now().UTC(),
+			RequestBody: fmt.Sprintf(`{"prompt":"secret-%d"}`, i),
+		})
+	}
+
+	waitForLLMAuditLogCount(t, c, 3)
+	cancel()
+	<-done
+
+	var stored types.LLMAuditLog
+	if err := c.db.WithContext(t.Context()).First(&stored).Error; err != nil {
+		t.Fatalf("failed to get LLM audit log: %v", err)
+	}
+	if !stored.Encrypted {
+		t.Fatal("expected writer to encrypt persisted audit logs")
+	}
+}
+
+func TestRunLLMAuditPersistenceLoopFlushesOnInterval(t *testing.T) {
+	c := newTestClient(t)
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		c.runLLMAuditPersistenceLoop(ctx, 3, 20*time.Millisecond)
+	}()
+
+	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.NewString(), CreatedAt: time.Now().UTC()})
+	waitForLLMAuditLogCount(t, c, 1)
+	cancel()
+	<-done
+}
+
+func TestRunLLMAuditPersistenceLoopDrainsOnShutdown(t *testing.T) {
+	c := newTestClient(t)
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		c.runLLMAuditPersistenceLoop(ctx, 3, time.Hour)
+	}()
+
+	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.NewString(), CreatedAt: time.Now().UTC()})
+	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.NewString(), CreatedAt: time.Now().UTC()})
+	cancel()
+	<-done
+
+	waitForLLMAuditLogCount(t, c, 2)
+}
+
+func waitForLLMAuditLogCount(t *testing.T, c *Client, want int64) {
+	t.Helper()
+	deadline := time.After(2 * time.Second)
+	tick := time.NewTicker(10 * time.Millisecond)
+	defer tick.Stop()
+	for {
+		select {
+		case <-deadline:
+			t.Fatalf("timed out waiting for %d LLM audit logs, got %d", want, countLLMAuditLogs(t, c))
+		case <-tick.C:
+			if got := countLLMAuditLogs(t, c); got == want {
+				return
+			}
+		}
 	}
 }

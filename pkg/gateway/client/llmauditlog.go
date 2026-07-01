@@ -17,11 +17,143 @@ var llmAuditLogGroupResource = schema.GroupResource{
 	Resource: "llmauditlogs",
 }
 
-func (c *Client) InsertLLMAuditLog(ctx context.Context, auditLog *types.LLMAuditLog) error {
-	if err := c.encryptLLMAuditLog(ctx, auditLog); err != nil {
-		return err
+const (
+	defaultLLMAuditLogBatchSize  = 100
+	defaultLLMAuditLogBufferSize = 10000
+)
+
+func (c *Client) LogLLMAuditEntry(entry types.LLMAuditLog) {
+	if c.llmAuditEntries == nil {
+		log.Warnf("dropping LLM audit log: writer is not configured")
+		return
 	}
-	return c.db.WithContext(ctx).Create(auditLog).Error
+
+	// Never let audit logging block an LLM request. A full channel means the
+	// writer is behind for long enough that keeping request latency matters more.
+	select {
+	case c.llmAuditEntries <- entry:
+	default:
+		dropped := c.llmAuditDropped.Add(1)
+		log.Warnf("dropping LLM audit log: buffer is full (dropped=%d)", dropped)
+	}
+}
+
+func (c *Client) InsertLLMAuditLog(ctx context.Context, auditLog *types.LLMAuditLog) error {
+	return c.insertLLMAuditLogs(ctx, []types.LLMAuditLog{*auditLog})
+}
+
+func (c *Client) runLLMAuditPersistenceLoop(ctx context.Context, batchSize int, flushInterval time.Duration) {
+	if c.llmAuditEntries == nil {
+		return
+	}
+	if batchSize <= 0 {
+		batchSize = defaultLLMAuditLogBatchSize
+	}
+	if flushInterval <= 0 {
+		flushInterval = time.Second
+	}
+
+	ticker := time.NewTicker(flushInterval)
+	defer ticker.Stop()
+
+	batch := make([]types.LLMAuditLog, 0, batchSize)
+	flush := func() {
+		if len(batch) == 0 {
+			return
+		}
+		if err := c.persistLLMAuditLogs(batch); err != nil {
+			log.Errorf("Failed to persist LLM audit logs: %v", err)
+		}
+		batch = batch[:0]
+	}
+	drainQueuedIntoBatch := func() {
+		for len(batch) < batchSize {
+			select {
+			case entry := <-c.llmAuditEntries:
+				batch = append(batch, entry)
+			default:
+				return
+			}
+		}
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			// Best-effort graceful shutdown: drain what is already buffered without
+			// waiting for any more writers, then flush the final partial batch.
+			for {
+				drainQueuedIntoBatch()
+				if len(batch) > 0 {
+					flush()
+				}
+				if len(c.llmAuditEntries) == 0 {
+					return
+				}
+			}
+		case entry := <-c.llmAuditEntries:
+			batch = append(batch, entry)
+			drainQueuedIntoBatch()
+			if len(batch) >= batchSize {
+				flush()
+			}
+		case <-ticker.C:
+			flush()
+		}
+	}
+}
+
+func (c *Client) persistQueuedLLMAuditLogs() error {
+	if c.llmAuditEntries == nil {
+		return nil
+	}
+
+	batchSize := c.llmAuditBatchSize
+	if batchSize <= 0 {
+		batchSize = defaultLLMAuditLogBatchSize
+	}
+	batch := make([]types.LLMAuditLog, 0, batchSize)
+	for {
+		select {
+		case entry := <-c.llmAuditEntries:
+			batch = append(batch, entry)
+			if len(batch) >= batchSize {
+				if err := c.persistLLMAuditLogs(batch); err != nil {
+					return err
+				}
+				batch = batch[:0]
+			}
+		default:
+			return c.persistLLMAuditLogs(batch)
+		}
+	}
+}
+
+func (c *Client) persistLLMAuditLogs(logs []types.LLMAuditLog) error {
+	if len(logs) == 0 {
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	return c.insertLLMAuditLogs(ctx, logs)
+}
+
+func (c *Client) insertLLMAuditLogs(ctx context.Context, logs []types.LLMAuditLog) error {
+	if len(logs) == 0 {
+		return nil
+	}
+	for i := range logs {
+		logs[i].CreatedAt = logs[i].CreatedAt.UTC()
+		if err := c.encryptLLMAuditLog(ctx, &logs[i]); err != nil {
+			return err
+		}
+	}
+	batchSize := c.llmAuditBatchSize
+	if batchSize <= 0 {
+		batchSize = defaultLLMAuditLogBatchSize
+	}
+	return c.db.WithContext(ctx).CreateInBatches(logs, batchSize).Error
 }
 
 func (c *Client) runLLMAuditLogCleanup(ctx context.Context, retentionDays int) {
