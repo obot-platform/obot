@@ -26,7 +26,11 @@
 	import FiltersDrawer from '../filters-drawer/FiltersDrawer.svelte';
 	import AuditLogCalendar from './AuditLogCalendar.svelte';
 	import AuditLogsTable from './AuditLogs.svelte';
-	import { aggregateAuditLogsByBucket, type AuditLogTimelineBucketRow } from './timelineUtils';
+	import {
+		aggregateAuditLogsByBucket,
+		toAuditLogTimelineChartRow,
+		type AuditLogTimelineChartRow
+	} from './timelineUtils';
 	import { X, ChevronLeft, ChevronRight, Funnel, Captions, Plus, Settings } from '@lucide/svelte';
 	import { set, endOfDay, isBefore, subDays } from 'date-fns';
 	import { debounce } from 'es-toolkit';
@@ -69,7 +73,7 @@
 
 	/** When there are more than this many results, defer timeline aggregation and table data to keep UI responsive. */
 	const DEFER_THRESHOLD = 500;
-	let displayTimelineData = $state<AuditLog[] | AuditLogTimelineBucketRow[]>([]);
+	let displayTimelineData = $state<AuditLogTimelineChartRow[]>([]);
 	let displayTableData = $state<AuditLog[]>([]);
 
 	$effect(() => {
@@ -80,7 +84,7 @@
 
 		if (items.length <= threshold) {
 			displayTableData = items;
-			displayTimelineData = items;
+			displayTimelineData = items.map(toAuditLogTimelineChartRow);
 			return;
 		}
 
@@ -108,9 +112,6 @@
 	const isTimelineAggregated = $derived(
 		displayTimelineData.length > 0 && 'count' in (displayTimelineData[0] as Record<string, unknown>)
 	);
-
-	/** Timeline accepts raw logs or bucketed rows; use a shape that includes optional value keys for StackedTimeline. */
-	type TimelineChartRow = { createdAt: string; callType: string; count?: number; _secondary?: 0 };
 
 	const isReachedMax = $derived(pageIndex >= numberOfPages - 1);
 	const isReachedMin = $derived(pageIndex <= 0);
@@ -636,7 +637,7 @@
 					<StackedTimeline
 						start={timeRangeFilters.startTime}
 						end={timeRangeFilters.endTime}
-						data={displayTimelineData as TimelineChartRow[]}
+						data={displayTimelineData}
 						categoryKey="callType"
 						dateKey="createdAt"
 						primaryValueKey={isTimelineAggregated ? 'count' : undefined}

@@ -92,8 +92,35 @@ export type AuditLogTimelineBucketRow = {
 	_secondary: 0;
 };
 
+export type AuditLogTimelineSourceRow = {
+	createdAt: string;
+	// Raw audit log API rows keep MCP-specific values under mcpFields.
+	mcpFields?: { callType?: string };
+};
+
+export type AuditLogTimelineChartRow = {
+	createdAt: string;
+	callType: string;
+	count?: number;
+	_secondary?: 0;
+};
+
+function getAuditLogTimelineCallType(row: AuditLogTimelineSourceRow): string {
+	return row.mcpFields?.callType || 'unknown';
+}
+
+export function toAuditLogTimelineChartRow(
+	row: AuditLogTimelineSourceRow
+): AuditLogTimelineChartRow {
+	// StackedTimeline reads a flat category key, so raw API rows are normalized before charting.
+	return {
+		createdAt: row.createdAt,
+		callType: getAuditLogTimelineCallType(row)
+	};
+}
+
 export function aggregateAuditLogsByBucket(
-	logs: { createdAt: string; callType: string }[],
+	logs: AuditLogTimelineSourceRow[],
 	rangeStart: Date,
 	rangeEnd: Date
 ): AuditLogTimelineBucketRow[] {
@@ -107,7 +134,7 @@ export function aggregateAuditLogsByBucket(
 			byCat = new Map();
 			bucketToCategoryToCount.set(bucketKey, byCat);
 		}
-		const cat = row.callType || 'unknown';
+		const cat = getAuditLogTimelineCallType(row);
 		byCat.set(cat, (byCat.get(cat) ?? 0) + 1);
 	}
 	const result: AuditLogTimelineBucketRow[] = [];

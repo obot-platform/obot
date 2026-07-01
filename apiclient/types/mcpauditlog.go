@@ -6,16 +6,55 @@ import (
 
 // MCPAuditLog represents an audit log entry for MCP API calls
 type MCPAuditLog struct {
-	ID                        uint            `json:"id"`
-	CreatedAt                 Time            `json:"createdAt"`
-	UserID                    string          `json:"userID"`
+	ID                       uint                              `json:"id"`
+	CreatedAt                Time                              `json:"createdAt"`
+	SourceType               AuditLogSourceType                `json:"sourceType"`
+	UserID                   string                            `json:"userID"`
+	ClientIP                 string                            `json:"clientIP"`
+	MCPFields                *MCPAuditLogFields                `json:"mcpFields,omitempty"`
+	LocalAgentToolCallFields *LocalAgentToolCallAuditLogFields `json:"localAgentToolCallFields,omitempty"`
+}
+
+type AuditLogSourceType string
+
+const (
+	AuditLogSourceTypeMCP                AuditLogSourceType = "mcp"
+	AuditLogSourceTypeLocalAgentToolCall AuditLogSourceType = "local_agent_tool_call"
+)
+
+type LocalAgentProvider string
+
+const (
+	LocalAgentProviderClaudeCode LocalAgentProvider = "claude_code"
+	LocalAgentProviderCodex      LocalAgentProvider = "codex"
+	LocalAgentProviderVSCode     LocalAgentProvider = "vscode"
+	LocalAgentProviderCursor     LocalAgentProvider = "cursor"
+)
+
+type LocalAgentAuditLogStatus string
+
+const (
+	LocalAgentAuditLogStatusDenied    LocalAgentAuditLogStatus = "denied"
+	LocalAgentAuditLogStatusSucceeded LocalAgentAuditLogStatus = "succeeded"
+	LocalAgentAuditLogStatusFailed    LocalAgentAuditLogStatus = "failed"
+	LocalAgentAuditLogStatusTimeout   LocalAgentAuditLogStatus = "timeout"
+)
+
+type LocalAgentIdentityStatus string
+
+const (
+	LocalAgentIdentityStatusAuthenticatedUser LocalAgentIdentityStatus = "authenticated_user"
+	LocalAgentIdentityStatusAnonymousDevice   LocalAgentIdentityStatus = "anonymous_device"
+	LocalAgentIdentityStatusUnresolved        LocalAgentIdentityStatus = "unresolved"
+)
+
+type MCPAuditLogFields struct {
 	MCPID                     string          `json:"mcpID"`
 	APIKey                    string          `json:"apiKey,omitempty"`
 	PowerUserWorkspaceID      string          `json:"powerUserWorkspaceID,omitempty"`
 	MCPServerDisplayName      string          `json:"mcpServerDisplayName"`
 	MCPServerCatalogEntryName string          `json:"mcpServerCatalogEntryName"`
 	ClientInfo                ClientInfo      `json:"client"`
-	ClientIP                  string          `json:"clientIP"`
 	CallType                  string          `json:"callType"`
 	CallIdentifier            string          `json:"callIdentifier,omitempty"`
 	RequestMutated            bool            `json:"requestMutated"`
@@ -29,10 +68,61 @@ type MCPAuditLog struct {
 	Error                     string          `json:"error,omitempty"`
 	ProcessingTimeMs          int64           `json:"processingTimeMs"`
 	SessionID                 string          `json:"sessionID,omitempty"`
+	ObotAuditCorrelationID    string          `json:"obotAuditCorrelationID,omitempty"`
 	RequestID                 string          `json:"requestID,omitempty"`
 	UserAgent                 string          `json:"userAgent,omitempty"`
 	RequestHeaders            json.RawMessage `json:"requestHeaders,omitempty"`
 	ResponseHeaders           json.RawMessage `json:"responseHeaders,omitempty"`
+}
+
+type LocalAgentToolCallAuditLogFields struct {
+	AgentProvider LocalAgentProvider `json:"agentProvider"`
+	AgentVersion  string             `json:"agentVersion,omitempty"`
+	CLIName       string             `json:"cliName,omitempty"`
+	CLIVersion    string             `json:"cliVersion"`
+
+	Status      LocalAgentAuditLogStatus `json:"status"`
+	FailureType string                   `json:"failureType,omitempty"`
+	ObservedAt  Time                     `json:"observedAt"`
+	StartedAt   *Time                    `json:"startedAt,omitempty"`
+	DurationMs  int64                    `json:"durationMs,omitempty"`
+	Error       string                   `json:"error,omitempty"`
+
+	IdempotencyKey string `json:"idempotencyKey"`
+	ToolUseID      string `json:"toolUseID,omitempty"`
+	SessionID      string `json:"sessionID,omitempty"`
+	TurnID         string `json:"turnID,omitempty"`
+
+	ToolName      string `json:"toolName"`
+	ToolKind      string `json:"toolKind,omitempty"`
+	MCPServerHint string `json:"mcpServerHint,omitempty"`
+	MCPToolName   string `json:"mcpToolName,omitempty"`
+
+	ObotAuditCorrelationID string `json:"obotAuditCorrelationID,omitempty"`
+
+	Model          string `json:"model,omitempty"`
+	ModelID        string `json:"modelID,omitempty"`
+	PermissionMode string `json:"permissionMode,omitempty"`
+
+	DeviceID          string                   `json:"deviceID,omitempty"`
+	Hostname          string                   `json:"hostname,omitempty"`
+	OS                string                   `json:"os,omitempty"`
+	Arch              string                   `json:"arch,omitempty"`
+	LocalUsername     string                   `json:"localUsername,omitempty"`
+	ReportedUserEmail string                   `json:"reportedUserEmail,omitempty"`
+	IdentityStatus    LocalAgentIdentityStatus `json:"identityStatus"`
+
+	CWD           string   `json:"cwd,omitempty"`
+	GitRepoRoot   string   `json:"gitRepoRoot,omitempty"`
+	GitRemoteURLs []string `json:"gitRemoteURLs,omitempty"`
+	GitBranch     string   `json:"gitBranch,omitempty"`
+	GitCommitSHA  string   `json:"gitCommitSHA,omitempty"`
+
+	TranscriptPath string `json:"transcriptPath,omitempty"`
+
+	ToolInput      json.RawMessage `json:"toolInput,omitempty"`
+	ToolOutput     json.RawMessage `json:"toolOutput,omitempty"`
+	RawHookPayload json.RawMessage `json:"rawHookPayload,omitempty"`
 }
 
 type MCPAuditLogResponse struct {
