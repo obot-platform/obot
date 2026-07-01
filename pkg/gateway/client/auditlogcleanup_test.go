@@ -58,7 +58,7 @@ func countAuditLogs(t *testing.T, c *Client) int64 {
 func insertLLMAuditLog(t *testing.T, c *Client, createdAt time.Time) {
 	t.Helper()
 	entry := types.LLMAuditLog{ID: uuid.NewString(), CreatedAt: createdAt}
-	if err := c.db.WithContext(context.Background()).Create(&entry).Error; err != nil {
+	if err := c.db.WithContext(t.Context()).Create(&entry).Error; err != nil {
 		t.Fatalf("failed to insert LLM audit log: %v", err)
 	}
 }
@@ -66,7 +66,7 @@ func insertLLMAuditLog(t *testing.T, c *Client, createdAt time.Time) {
 func countLLMAuditLogs(t *testing.T, c *Client) int64 {
 	t.Helper()
 	var count int64
-	if err := c.db.WithContext(context.Background()).Model(&types.LLMAuditLog{}).Count(&count).Error; err != nil {
+	if err := c.db.WithContext(t.Context()).Model(&types.LLMAuditLog{}).Count(&count).Error; err != nil {
 		t.Fatalf("failed to count LLM audit logs: %v", err)
 	}
 	return count
@@ -188,7 +188,7 @@ func TestRunAuditLogCleanupDisabled(t *testing.T) {
 
 func TestDeleteOldLLMAuditLogs(t *testing.T) {
 	c := newTestClient(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	now := time.Now().UTC()
 	today := now.Truncate(24 * time.Hour)
@@ -210,7 +210,7 @@ func TestDeleteOldLLMAuditLogs(t *testing.T) {
 
 func TestDeleteOldLLMAuditLogsDisabled(t *testing.T) {
 	c := newTestClient(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	now := time.Now().UTC()
 	insertLLMAuditLog(t, c, now.AddDate(0, 0, -40))
@@ -227,7 +227,7 @@ func TestDeleteOldLLMAuditLogsDisabled(t *testing.T) {
 
 func TestDeleteOldLLMAuditLogsBatching(t *testing.T) {
 	c := newTestClient(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	now := time.Now().UTC()
 	for range 7 {
