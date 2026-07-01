@@ -101,6 +101,7 @@ func TestMCPAuditLogValidationRequiresLocalAgentFields(t *testing.T) {
 		ObservedAt:     observedAt,
 		IdempotencyKey: "entry-1",
 		ToolName:       "mcp__server__tool",
+		IdentityStatus: string(types2.LocalAgentIdentityStatusAuthenticatedUser),
 		ToolInput:      json.RawMessage(`{"arg":true}`),
 		ToolOutput:     json.RawMessage(`{"ok":true}`),
 		RawHookPayload: json.RawMessage(`{"native":true}`),
@@ -133,6 +134,20 @@ func TestMCPAuditLogValidationRequiresLocalAgentFields(t *testing.T) {
 	log.LocalAgentToolCallFields = &invalid
 	if err := log.ValidateSourceFields(); err == nil {
 		t.Fatal("expected missing tool output validation error")
+	}
+
+	invalid = valid
+	invalid.IdentityStatus = ""
+	log.LocalAgentToolCallFields = &invalid
+	if err := log.ValidateSourceFields(); err == nil {
+		t.Fatal("expected missing identity status validation error")
+	}
+
+	invalid = valid
+	invalid.IdentityStatus = "authenticated_robot"
+	log.LocalAgentToolCallFields = &invalid
+	if err := log.ValidateSourceFields(); err == nil {
+		t.Fatal("expected invalid identity status validation error")
 	}
 }
 

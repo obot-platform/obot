@@ -205,6 +205,9 @@ func (a *MCPAuditLog) validateLocalAgentToolCallFields() error {
 	if local.CLIVersion == "" {
 		missing = append(missing, "cliVersion")
 	}
+	if local.IdentityStatus == "" {
+		missing = append(missing, "identityStatus")
+	}
 
 	if len(missing) > 0 {
 		return errors.New("local agent audit fields missing required field(s): " + strings.Join(missing, ", "))
@@ -216,6 +219,13 @@ func (a *MCPAuditLog) validateLocalAgentToolCallFields() error {
 		types2.LocalAgentAuditLogStatusTimeout:
 	default:
 		return errors.New("local agent audit status must be one of: succeeded, failed, denied, timeout")
+	}
+	switch types2.LocalAgentIdentityStatus(local.IdentityStatus) {
+	case types2.LocalAgentIdentityStatusAuthenticatedUser,
+		types2.LocalAgentIdentityStatusAnonymousDevice,
+		types2.LocalAgentIdentityStatusUnresolved:
+	default:
+		return errors.New("local agent identity status must be one of: authenticated_user, anonymous_device, unresolved")
 	}
 	return nil
 }
