@@ -30,6 +30,7 @@
 	import Confirm from '../Confirm.svelte';
 	import OverflowContainer from '../OverflowContainer.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import Select from '../Select.svelte';
 	import CatalogConfigureForm, {
 		type LaunchFormData,
 		type CompositeLaunchFormData,
@@ -61,7 +62,8 @@
 		Trash2,
 		Users,
 		Wrench,
-		ExternalLink
+		ExternalLink,
+		X
 	} from '@lucide/svelte';
 	import { onMount, untrack } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -161,11 +163,6 @@
 		hasMoreRight: false,
 		ref: undefined
 	});
-	let toolScrollContainer = $state<ScrollState>({
-		hasMoreLeft: false,
-		hasMoreRight: false,
-		ref: undefined
-	});
 
 	let oauthDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let oauthURL = $state<string>();
@@ -181,6 +178,7 @@
 	let error = $state<string>();
 	let showButtonInlineError = $state(false);
 	let showUpdateExistingDeploymentsConfirm = $state(false);
+	let selectedDeploymentsToView = $state<MCPCatalogServer[]>([]);
 
 	let serverInstancesLoading = $state(false);
 	let resolvedConfiguredInstances = $state<MCPServerInstance[]>();
@@ -385,19 +383,6 @@
 		};
 	});
 
-	$effect(() => {
-		if (selected === 'tools' && toolScrollContainer.ref) {
-			checkToolScrollPosition();
-			toolScrollContainer.ref.addEventListener('scroll', checkToolScrollPosition);
-			window.addEventListener('resize', checkToolScrollPosition);
-		}
-
-		return () => {
-			toolScrollContainer.ref?.removeEventListener('scroll', checkToolScrollPosition);
-			window.removeEventListener('resize', checkToolScrollPosition);
-		};
-	});
-
 	function filterRulesByEntry(rules?: AccessControlRule[]) {
 		if (!entry || !rules) return [];
 		return rules.filter((r) =>
@@ -452,26 +437,6 @@
 	function scrollRight() {
 		if (rootScrollContainer.ref) {
 			rootScrollContainer.ref.scrollBy({ left: 200, behavior: 'smooth' });
-		}
-	}
-
-	function checkToolScrollPosition() {
-		if (!toolScrollContainer.ref) return;
-
-		const { scrollLeft, scrollWidth, clientWidth } = toolScrollContainer.ref;
-		toolScrollContainer.hasMoreLeft = scrollLeft > 0;
-		toolScrollContainer.hasMoreRight = scrollLeft < scrollWidth - clientWidth - 1; // -1 for rounding errors
-	}
-
-	function scrollToolLeft() {
-		if (toolScrollContainer.ref) {
-			toolScrollContainer.ref.scrollBy({ left: -200, behavior: 'smooth' });
-		}
-	}
-
-	function scrollToolRight() {
-		if (toolScrollContainer.ref) {
-			toolScrollContainer.ref.scrollBy({ left: 200, behavior: 'smooth' });
 		}
 	}
 
@@ -1224,56 +1189,74 @@
 
 	<div class="pb-8">
 		{#if displayTabsByDeployment}
-			<OverflowContainer
-				class="scrollbar-none flex min-h-12 w-full items-center gap-2 overflow-x-auto relative mb-4"
-				style="scroll-behavior: smooth;"
-				{@attach (node: HTMLDivElement) => (toolScrollContainer.ref = node)}
-			>
-				{#snippet children({ x })}
-					{#if x}
-						<button
-							disabled={!toolScrollContainer.hasMoreLeft}
-							onclick={scrollToolLeft}
-							class="shrink-0 bg-base-200 dark:bg-base-100 sticky left-0 flex aspect-square h-full items-center justify-center rounded-l-md p-2.5 pl-4 opacity-100 transition-all duration-200 disabled:opacity-30"
-						>
-							<ChevronLeft class="size-4" />
-						</button>
-					{/if}
+			<div class="flex justify-between gap-4 border-base-400 border-b mb-4">
+				<div role="tablist" class="flex flex-1">
+					<button
+						role="tab"
+						class={twMerge(
+							'tab-button text-nowrap',
+							deploymentToDisplayTools === undefined && 'tab-active'
+						)}
+						onclick={() => (deploymentToDisplayTools = undefined)}>Preview</button
+					>
 
-					<div role="tablist" class="border-base-400 flex flex-1 gap-2 border-b">
-						<button
+					{#each selectedDeploymentsToView as deployment (deployment.id)}
+						<div
 							role="tab"
 							class={twMerge(
-								'tab-button text-nowrap',
-								deploymentToDisplayTools === undefined && 'tab-active'
+								'tab-button text-nowrap flex items-center gap-1',
+								deploymentToDisplayTools?.id === deployment.id && 'tab-active'
 							)}
-							onclick={() => (deploymentToDisplayTools = undefined)}>Preview</button
 						>
-						{#each resolvedConfiguredServers as deployment (deployment.id)}
-							<button
-								role="tab"
-								class={twMerge(
-									'tab-button text-nowrap',
-									deploymentToDisplayTools?.id === deployment.id && 'tab-active'
-								)}
-								onclick={() => (deploymentToDisplayTools = deployment)}
-							>
+							<button onclick={() => (deploymentToDisplayTools = deployment)}>
 								{deployment.alias || deployment.manifest.name} ({deployment.id})
 							</button>
-						{/each}
-					</div>
+							<button
+								onclick={() => {
+									selectedDeploymentsToView = selectedDeploymentsToView.filter(
+										(d) => d.id !== deployment.id
+									);
+									if (deploymentToDisplayTools?.id === deployment.id) {
+										deploymentToDisplayTools = undefined;
+									}
+								}}
+								class="btn btn-circle btn-xs btn-ghost"
+							>
+								<X class="size-3" />
+							</button>
+						</div>
+					{/each}
+				</div>
 
-					{#if x}
-						<button
-							disabled={!toolScrollContainer.hasMoreRight}
-							onclick={scrollToolRight}
-							class="shrink-0 bg-base-200 dark:bg-base-100 sticky right-0 flex aspect-square h-full items-center justify-center rounded-r-md p-2.5 pr-4 opacity-100 transition-all duration-200 disabled:opacity-30"
-						>
-							<ChevronRight class="size-4" />
-						</button>
-					{/if}
-				{/snippet}
-			</OverflowContainer>
+				<Select
+					id="select-deployment-tools-view"
+					class="bg-base-200 hover:bg-base-300 dark:bg-base-100 dark:hover:bg-base-200 mb-0.5 border border-transparent shadow-none md:w-64"
+					options={(resolvedConfiguredServers ?? []).map((deployment) => ({
+						id: deployment.id,
+						label: `${deployment.alias || deployment.manifest.name} (${deployment.id})`,
+						data: deployment
+					}))}
+					multiple
+					selected={selectedDeploymentsToView.map((deployment) => deployment.id).join(',')}
+					onSelect={(option) => {
+						if (selectedDeploymentsToView.find((deployment) => deployment.id === option.id)) {
+							selectedDeploymentsToView = selectedDeploymentsToView.filter(
+								(deployment) => deployment.id !== option.id
+							);
+							if (deploymentToDisplayTools?.id === option.id) {
+								deploymentToDisplayTools = undefined;
+							}
+						} else {
+							selectedDeploymentsToView = [...selectedDeploymentsToView, option.data];
+							deploymentToDisplayTools = option.data;
+						}
+					}}
+					searchInDropdown
+					buttonReadOnly
+					buttonTitle="Include Deployment(s)"
+					displayCount={selectedDeploymentsToView.length > 0}
+				/>
+			</div>
 		{/if}
 		{#if showRegenerateToolsButton}
 			<button class="btn btn-primary mb-4 text-sm" onclick={handleInitTemporaryInstance}>
