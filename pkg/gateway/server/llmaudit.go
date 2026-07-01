@@ -68,30 +68,6 @@ func newLLMAuditRecorder(req *http.Request, user user.Info, responseCaptureLimit
 	}
 }
 
-func (r *llmAuditRecorder) setRequestBody(body []byte) {
-	if r != nil {
-		r.log.RequestBody = string(body)
-	}
-}
-
-func (r *llmAuditRecorder) setRedactedRequestBody(body []byte) {
-	if r != nil {
-		r.log.RedactedRequestBody = string(body)
-	}
-}
-
-func (r *llmAuditRecorder) setClientSessionID(sessionID string) {
-	if r != nil {
-		r.log.ClientSessionID = sessionID
-	}
-}
-
-func (r *llmAuditRecorder) setReasoningEffort(reasoningEffort string) {
-	if r != nil {
-		r.log.ReasoningEffort = reasoningEffort
-	}
-}
-
 func (r *llmAuditRecorder) setModel(modelProvider, modelID, targetModel string) {
 	if r == nil {
 		return
