@@ -158,6 +158,17 @@
 			: defaultResourceRuntimeConfig();
 	}
 
+	function manifestSupportsShortDescription(item?: MCPCatalogEntry | MCPCatalogServer) {
+		if (!item) return true;
+		const manifest =
+			item.type === 'mcpserver'
+				? (item as MCPCatalogServer).manifest
+				: (item as MCPCatalogEntry).manifest;
+		return 'shortDescription' in manifest;
+	}
+
+	const showShortDescription = $derived(manifestSupportsShortDescription(entry));
+
 	function convertToFormData(item?: MCPCatalogEntry | MCPCatalogServer): RuntimeFormData {
 		if (!item) {
 			// Default initialization for new servers
@@ -165,6 +176,7 @@
 			return {
 				categories: [''],
 				name: '',
+				...(manifestSupportsShortDescription(item) ? { shortDescription: '' } : {}),
 				description: '',
 				env: [],
 				icon: '',
@@ -192,6 +204,9 @@
 				categories: manifest.metadata?.categories?.split(',').filter((c) => c.trim()) ?? [''],
 				icon: manifest.icon ?? '',
 				name: manifest.name ?? '',
+				...(manifestSupportsShortDescription(item)
+					? { shortDescription: manifest.shortDescription ?? '' }
+					: {}),
 				description: manifest.description ?? '',
 				serverUserType: 'multiUser',
 				env: manifest.env?.map((env) => ({ ...env, value: '' })) ?? [],
@@ -241,6 +256,9 @@
 				categories: manifest.metadata?.categories?.split(',').filter((c) => c.trim()) ?? [''],
 				name: manifest.name ?? '',
 				icon: manifest.icon ?? '',
+				...(manifestSupportsShortDescription(item)
+					? { shortDescription: manifest.shortDescription ?? '' }
+					: {}),
 				env: manifest.env?.map((env) => ({ ...env, value: env.value ?? '' })) ?? [],
 				description: manifest.description ?? '',
 				serverUserType: manifest.serverUserType,
@@ -426,6 +444,9 @@
 		const manifest: MCPCatalogEntryServerManifest = {
 			name: baseData.name,
 			description: baseData.description,
+			...(baseData.shortDescription !== undefined
+				? { shortDescription: baseData.shortDescription }
+				: {}),
 			icon: baseData.icon,
 			env: baseData.env?.map(stripSecretBindingSource),
 			runtime: baseData.runtime,
@@ -699,6 +720,21 @@
 				placeholder="Provide details about the MCP catalog entry."
 			/>
 		</div>
+
+		{#if showShortDescription}
+			<div class="flex flex-col gap-1">
+				<label for="shortDescription" class="text-sm font-light capitalize">Short Description</label
+				>
+				<input
+					type="text"
+					id="shortDescription"
+					bind:value={formData.shortDescription}
+					class="text-input-filled dark:bg-base-100"
+					disabled={readonly}
+					placeholder="Provide a brief summary that will be shown in catalog listings."
+				/>
+			</div>
+		{/if}
 
 		<div class="flex flex-col gap-1">
 			<label for="icon" class="text-sm font-light capitalize">Icon URL</label>
