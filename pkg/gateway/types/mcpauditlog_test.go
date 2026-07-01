@@ -136,6 +136,45 @@ func TestMCPAuditLogValidationRequiresLocalAgentFields(t *testing.T) {
 		t.Fatal("expected missing tool output validation error")
 	}
 
+	for _, tt := range []struct {
+		name   string
+		update func(*LocalAgentToolCallAuditLogFields)
+	}{
+		{
+			name: "null tool input",
+			update: func(local *LocalAgentToolCallAuditLogFields) {
+				local.ToolInput = json.RawMessage(`null`)
+			},
+		},
+		{
+			name: "null tool output",
+			update: func(local *LocalAgentToolCallAuditLogFields) {
+				local.ToolOutput = json.RawMessage(`null`)
+			},
+		},
+		{
+			name: "null raw hook payload",
+			update: func(local *LocalAgentToolCallAuditLogFields) {
+				local.RawHookPayload = json.RawMessage(`null`)
+			},
+		},
+		{
+			name: "whitespace padded null payload",
+			update: func(local *LocalAgentToolCallAuditLogFields) {
+				local.ToolInput = json.RawMessage(`  null  `)
+			},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			invalid := valid
+			tt.update(&invalid)
+			log.LocalAgentToolCallFields = &invalid
+			if err := log.ValidateSourceFields(); err == nil {
+				t.Fatal("expected missing JSON payload validation error")
+			}
+		})
+	}
+
 	invalid = valid
 	invalid.IdentityStatus = ""
 	log.LocalAgentToolCallFields = &invalid

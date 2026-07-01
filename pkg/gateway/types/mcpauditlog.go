@@ -2,6 +2,7 @@
 package types
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"reflect"
@@ -187,10 +188,10 @@ func (a *MCPAuditLog) validateLocalAgentToolCallFields() error {
 	if local.ToolName == "" {
 		missing = append(missing, "toolName")
 	}
-	if len(local.ToolInput) == 0 {
+	if isMissingRequiredJSONPayload(local.ToolInput) {
 		missing = append(missing, "toolInput")
 	}
-	if len(local.ToolOutput) == 0 {
+	if isMissingRequiredJSONPayload(local.ToolOutput) {
 		missing = append(missing, "toolOutput")
 	}
 	if local.Status == "" {
@@ -199,7 +200,7 @@ func (a *MCPAuditLog) validateLocalAgentToolCallFields() error {
 	if local.IdempotencyKey == "" {
 		missing = append(missing, "idempotencyKey")
 	}
-	if len(local.RawHookPayload) == 0 {
+	if isMissingRequiredJSONPayload(local.RawHookPayload) {
 		missing = append(missing, "rawHookPayload")
 	}
 	if local.CLIVersion == "" {
@@ -236,6 +237,10 @@ func isZeroMCPAuditLogFields(mcp *MCPAuditLogFields) bool {
 
 func isZeroLocalAgentToolCallAuditLogFields(local *LocalAgentToolCallAuditLogFields) bool {
 	return local == nil || reflect.ValueOf(*local).IsZero()
+}
+
+func isMissingRequiredJSONPayload(payload json.RawMessage) bool {
+	return len(payload) == 0 || bytes.Equal(bytes.TrimSpace(payload), []byte("null"))
 }
 
 type MCPWebhookStatus struct {
