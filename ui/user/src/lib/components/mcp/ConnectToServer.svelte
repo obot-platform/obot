@@ -18,7 +18,8 @@
 		isKubernetesRuntimeBackend,
 		hasEditableConfiguration,
 		getMCPDisplayName,
-		hasSecretBinding
+		hasSecretBinding,
+		isDeprecatedMCPServer
 	} from '$lib/services/user/mcp';
 	import { errors, mcpServersAndEntries, version } from '$lib/stores';
 	import Confirm from '../Confirm.svelte';
@@ -30,6 +31,7 @@
 		type LaunchFormData
 	} from './CatalogConfigureForm.svelte';
 	import HowToConnect from './HowToConnect.svelte';
+	import McpDeprecatedNotice from './McpDeprecatedNotice.svelte';
 	import { Server, X, CircleAlert } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
@@ -75,6 +77,7 @@
 	let userConfiguredServers = $derived(mcpServersAndEntries.current.userConfiguredServers);
 
 	let manifest = $derived(server?.manifest || entry?.manifest);
+	let deprecated = $derived(isDeprecatedMCPServer(entry) || isDeprecatedMCPServer(server));
 	let isConfigured = $derived(Boolean((entry && server) || (server && instance)));
 	let isDeployingMultiUserCatalogEntry = $derived(
 		Boolean(entry && !server && isMultiUserCatalogEntry(entry))
@@ -94,6 +97,7 @@
 	);
 
 	let showIntroDialog = $state(false);
+	let showDeprecatedConnectDialog = $state(false);
 
 	let connectDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let configDialog = $state<ReturnType<typeof CatalogConfigureForm>>();
@@ -170,6 +174,11 @@
 		if (onConnect && !skipOnConnect) {
 			onConnect({ server, entry, instance });
 		}
+	}
+
+	function handleDeprecatedConnectContinue() {
+		showDeprecatedConnectDialog = false;
+		handleConnect();
 	}
 
 	export async function authenticate(item: MCPCatalogServer, parentEntry?: MCPCatalogEntry) {
@@ -314,6 +323,7 @@
 				{
 					name?: string;
 					icon?: string;
+					deprecated?: boolean;
 					hostname?: string;
 					url?: string;
 					disabled?: boolean;
@@ -330,6 +340,7 @@
 				componentConfigs[id] = {
 					name: m.name,
 					icon: m.icon,
+					deprecated: isDeprecatedMCPServer({ manifest: m }),
 					hostname: isMultiUser ? undefined : m.remoteConfig?.hostname,
 					url: isMultiUser ? undefined : (m.remoteConfig?.fixedURL ?? ''),
 					disabled: false,
@@ -980,6 +991,7 @@
 		entry = initEntry;
 		instance = initInstance;
 		configureInstance = initConfigureInstance ?? false;
+		const isDeprecated = isDeprecatedMCPServer(initEntry) || isDeprecatedMCPServer(initServer);
 
 		if (server && instance && configureInstance && hasMultiUserInstanceConfiguration(server)) {
 			initMultiUserInstanceForm(server, instance);
@@ -989,7 +1001,11 @@
 			(entry && server) ||
 			(server && instance)
 		) {
-			connectDialog?.open();
+			if (isDeprecated) {
+				showDeprecatedConnectDialog = true;
+			} else {
+				connectDialog?.open();
+			}
 		} else {
 			showIntroDialog = true;
 		}
@@ -1035,13 +1051,15 @@
 <ResponsiveDialog bind:this={connectDialog} animate="slide" onClose={handleOnClose}>
 	{#snippet titleContent()}
 		{@render dialogTitle(server || entry)}
+		<McpDeprecatedNotice {deprecated} />
 	{/snippet}
 
 	{#if entry?.connectURL || server?.connectURL || instance?.connectURL}
 		{@const url = instance?.connectURL || server?.connectURL || entry?.connectURL}
 		{@const displayName = getMCPDisplayName(server, entry?.manifest?.name ?? '')}
 		{#if url}
-			<div class="flex flex-col gap-1 md:p-0 pb-0 p-4">
+			<div class="flex flex-col gap-3 md:p-0 pb-0 p-4">
+				<McpDeprecatedNotice {deprecated} variant="notification" />
 				<CopyField
 					bind:this={connectionUrlField}
 					value={url}
@@ -1071,9 +1089,15 @@
 	{#snippet msgContent()}
 		<div class="flex items-center gap-2 text-lg font-semibold mb-2">
 			{@render dialogTitle(entry || server)}
+			<McpDeprecatedNotice {deprecated} />
 		</div>
 	{/snippet}
 	{#snippet note()}
+		{#if deprecated}
+			<div class="mb-3">
+				<McpDeprecatedNotice {deprecated} variant="notification" />
+			</div>
+		{/if}
 		<p>
 			{#if renderIntroText}
 				{renderIntroText({ entry, server })}
@@ -1088,6 +1112,28 @@
 				<br />Click below to begin.
 			{/if}
 		</p>
+	{/snippet}
+</Confirm>
+
+<Confirm
+	show={showDeprecatedConnectDialog}
+	onsuccess={handleDeprecatedConnectContinue}
+	submitText="Continue"
+	type="info"
+	title="Deprecated Server"
+	oncancel={() => (showDeprecatedConnectDialog = false)}
+>
+	{#snippet msgContent()}
+		<div class="flex items-center gap-2 text-lg font-semibold mb-2">
+			{@render dialogTitle(entry || server)}
+			<McpDeprecatedNotice {deprecated} />
+		</div>
+	{/snippet}
+	{#snippet note()}
+		<div class="flex flex-col gap-3">
+			<McpDeprecatedNotice {deprecated} variant="notification" />
+			<p>Continue to view the connection URL.</p>
+		</div>
 	{/snippet}
 </Confirm>
 
@@ -1110,6 +1156,7 @@
 	configurationTitle={configureFormTitle}
 	secretBindingTargets={canBindSecretsForCatalogEntry ? secretBindingTargets : undefined}
 	disableEnvSecretBindings={manifest?.runtime === 'remote'}
+	{deprecated}
 >
 	{#snippet loadingContent()}
 		<div in:fade class="h-full w-full flex items-center justify-center">

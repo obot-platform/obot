@@ -30,6 +30,7 @@
 	import { getUserDisplayName, openUrl } from '$lib/utils';
 	import CapacityBanner from './CapacityBanner.svelte';
 	import EditExistingDeployment from './EditExistingDeployment.svelte';
+	import McpDeprecatedNotice from './McpDeprecatedNotice.svelte';
 	import {
 		Captions,
 		CircleAlert,
@@ -650,6 +651,7 @@
 									</span>
 								{/if}
 							</p>
+							<McpDeprecatedNotice item={d} />
 							{#if 'missingKubernetesSecret' in d && d.missingKubernetesSecret}
 								<div
 									class="text-warning"

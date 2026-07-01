@@ -8,8 +8,10 @@
 		type MCPCatalogServer,
 		type OrgUser
 	} from '$lib/services';
+	import { isDeprecatedMCPServer } from '$lib/services/user/mcp';
 	import { profile } from '$lib/stores';
 	import { openUrl } from '$lib/utils';
+	import McpDeprecatedNotice from '../mcp/McpDeprecatedNotice.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
 	import Table from '../table/Table.svelte';
 	import { CircleAlert, ChevronRight, Server } from '@lucide/svelte';
@@ -69,6 +71,7 @@
 				{@const mcpServerId =
 					componentServer.mcpServerID && serversMap.get(componentServer.mcpServerID)?.id}
 				{@const componentExists = !!(catalogEntryServerId || mcpServerId)}
+				{@const deprecated = isDeprecatedMCPServer(componentServer)}
 
 				{#if componentExists}
 					<button
@@ -107,6 +110,7 @@
 								{/if}
 							</div>
 							<p class="text-sm">{componentServer.manifest?.name}</p>
+							<McpDeprecatedNotice {deprecated} child />
 							{#if catalogEntryServerId}
 								<span class="text-muted-content text-sm">({catalogEntryServerId})</span>
 							{/if}
@@ -132,6 +136,7 @@
 								{/if}
 							</div>
 							<p class="text-sm">{componentServer.manifest?.name}</p>
+							<McpDeprecatedNotice {deprecated} child />
 							<span
 								class="text-muted-content flex items-center gap-1 text-xs"
 								title="This component server no longer exists"

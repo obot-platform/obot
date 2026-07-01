@@ -15,11 +15,13 @@
 		MAX_TOOL_PREFIX_LENGTH,
 		TOOL_NAME_CHARSET_REGEX,
 		TOOL_NAME_SPECIAL_CHAR_WARNING,
+		isDeprecatedMCPServer,
 		toolNameIssue,
 		type ToolNameIssue
 	} from '$lib/services/user/mcp';
 	import Toggle from '../Toggle.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
+	import McpDeprecatedNotice from './McpDeprecatedNotice.svelte';
 	import ToolNameIssueIcon from './ToolNameIssueIcon.svelte';
 	import CompositeToolsSetup from './composite/CompositeSelectServerAndToolsSetup.svelte';
 	import {
@@ -367,6 +369,7 @@
 			{#each config.componentServers as entry (getComponentId(entry))}
 				{@const componentId = getComponentId(entry)}
 				{@const headerSeverity = componentSeverity(entry)}
+				{@const deprecated = isDeprecatedMCPServer(entry)}
 				<div
 					class="dark:bg-base-300 dark:border-base-400 rounded-lg border border-gray-200 bg-gray-50"
 				>
@@ -380,6 +383,7 @@
 							<div class="truncate font-medium" title={entry.manifest?.name || 'Unnamed Server'}>
 								{entry.manifest?.name || 'Unnamed Server'}
 							</div>
+							<McpDeprecatedNotice {deprecated} child />
 							{#if headerSeverity}
 								<ToolNameIssueIcon
 									issue={{
@@ -417,6 +421,7 @@
 					{#if expanded[componentId]}
 						{@const issue = prefixIssue(entry)}
 						<div class="border-t border-gray-200 p-3" in:slide={{ axis: 'y' }}>
+							<McpDeprecatedNotice {deprecated} variant="notification" child class="mb-3" />
 							<div class="mb-3 flex flex-col gap-1">
 								<p class="flex items-center gap-1.5 text-xs text-muted-content">
 									<span>Tool name prefix</span>

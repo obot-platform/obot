@@ -5,6 +5,7 @@
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import DiffDialog from '$lib/components/admin/DiffDialog.svelte';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
+	import McpDeprecatedNotice from '$lib/components/mcp/McpDeprecatedNotice.svelte';
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
@@ -16,7 +17,7 @@
 		type MCPCatalogServer,
 		AdminService
 	} from '$lib/services';
-	import { isMultiUserCatalogEntry } from '$lib/services/user/mcp';
+	import { isDeprecatedMCPServer, isMultiUserCatalogEntry } from '$lib/services/user/mcp';
 	import { profile } from '$lib/stores';
 	import { success } from '$lib/stores/success';
 	import McpConnectUrlDialog from '../../McpConnectUrlDialog.svelte';
@@ -36,6 +37,7 @@
 	let isComposite = $derived(catalogEntry?.manifest?.runtime === 'composite');
 	let needsUpdate = $derived(catalogEntry?.needsUpdate === true);
 	let showUpgradeNotification = $derived(isComposite && needsUpdate && !isAdminReadonly);
+	let deprecated = $derived(isDeprecatedMCPServer(catalogEntry));
 
 	let workspaceId = $derived(catalogEntry?.powerUserWorkspaceID);
 	let serverScopeEntity = $derived(workspaceId ? ('workspace' as const) : ('catalog' as const));
@@ -208,7 +210,7 @@
 				}
 				if (showUrlOnConnect) {
 					showUrlOnConnect = false;
-					connectUrlDialog?.open(entry, server?.connectURL);
+					connectUrlDialog?.open(entry, server?.connectURL, server);
 				}
 			}}
 			hideActions
@@ -218,6 +220,8 @@
 		</button>
 	{/snippet}
 	<div class="flex h-full flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
+		<McpDeprecatedNotice {deprecated} variant="notification" />
+
 		{#if showUpgradeNotification}
 			<div class="border-primary bg-primary/10 flex items-center gap-3 rounded-lg border p-4">
 				<Info class="text-primary size-5 shrink-0" />
