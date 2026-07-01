@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -30,12 +31,14 @@ const (
 )
 
 type llmAuditRecorder struct {
-	once        sync.Once
-	log         types.LLMAuditLog
-	accumulator *llmResponseAccumulator
+	once                  sync.Once
+	log                   types.LLMAuditLog
+	responseStream        bytes.Buffer
+	responseCaptureLimit  int
+	responseCaptureFilled bool
 }
 
-func newLLMAuditRecorder(req *http.Request, user user.Info) *llmAuditRecorder {
+func newLLMAuditRecorder(req *http.Request, user user.Info, responseCaptureLimit int) *llmAuditRecorder {
 	now := time.Now().UTC()
 	requestID := gatewaycontext.GetRequestID(req.Context())
 	if requestID == "" {
@@ -49,6 +52,7 @@ func newLLMAuditRecorder(req *http.Request, user user.Info) *llmAuditRecorder {
 	clientName, clientVersion := parseLLMClientUserAgent(req.UserAgent())
 
 	return &llmAuditRecorder{
+		responseCaptureLimit: responseCaptureLimit,
 		log: types.LLMAuditLog{
 			ID:             uuid.NewString(),
 			CreatedAt:      now,
@@ -95,9 +99,6 @@ func (r *llmAuditRecorder) setModel(modelProvider, modelID, targetModel string) 
 	r.log.ModelProvider = modelProvider
 	r.log.ModelID = modelID
 	r.log.TargetModel = targetModel
-	if r.accumulator == nil {
-		r.accumulator = newLLMResponseAccumulator(modelProvider)
-	}
 }
 
 func (r *llmAuditRecorder) recordResponse(resp *http.Response) {
@@ -112,13 +113,19 @@ func (r *llmAuditRecorder) captureResponseChunk(p []byte) {
 	if r == nil || len(p) == 0 {
 		return
 	}
-	if r.accumulator == nil {
-		r.accumulator = newLLMResponseAccumulator(r.log.ModelProvider)
+	if r.responseCaptureFilled {
+		return
 	}
-	r.accumulator.Write(p)
-	if r.log.ResponseID == "" {
-		r.log.ResponseID = r.accumulator.ResponseID()
+	remaining := r.responseCaptureLimit - r.responseStream.Len()
+	if remaining <= 0 {
+		r.responseCaptureFilled = true
+		return
 	}
+	if len(p) > remaining {
+		p = p[:remaining]
+		r.responseCaptureFilled = true
+	}
+	_, _ = r.responseStream.Write(p)
 }
 
 func (r *llmAuditRecorder) setTokenUsage(usage types.TokenUsage) {
@@ -135,15 +142,8 @@ func (r *llmAuditRecorder) finish(c *client.Client, err error) {
 	}
 	r.once.Do(func() {
 		r.log.Duration = time.Since(r.log.CreatedAt).Milliseconds()
-		if r.accumulator == nil {
-			r.accumulator = newLLMResponseAccumulator(r.log.ModelProvider)
-		}
-		r.log.ResponseBody = r.accumulator.JSON()
-		if r.log.ResponseID == "" {
-			r.log.ResponseID = r.accumulator.ResponseID()
-		}
 		r.setOutcome(err)
-		c.LogLLMAuditEntry(r.log)
+		c.LogLLMAuditEntry(r.log, r.responseStream.String())
 	})
 }
 

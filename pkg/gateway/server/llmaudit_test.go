@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	gatewayllmaudit "github.com/obot-platform/obot/pkg/gateway/llmaudit"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/tidwall/gjson"
@@ -31,7 +32,7 @@ func TestRedactedHeaders(t *testing.T) {
 
 func TestNewLLMAuditRecorderCapturesRequest(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/llm-provider/openai/v1/responses?stream=true", nil)
-	recorder := newLLMAuditRecorder(req, nil)
+	recorder := newLLMAuditRecorder(req, nil, 5<<20)
 
 	if recorder.log.RequestPath != "/api/llm-provider/openai/v1/responses" {
 		t.Fatalf("expected request path, got %q", recorder.log.RequestPath)
@@ -195,7 +196,7 @@ func TestExtractLLMReasoningEffort(t *testing.T) {
 }
 
 func TestLLMResponseAccumulatorOpenAITerminalResponseWins(t *testing.T) {
-	a := newLLMResponseAccumulator(system.OpenAIModelProvider)
+	a := gatewayllmaudit.NewResponseAccumulator(system.OpenAIModelProvider)
 	a.Write([]byte(strings.Join([]string{
 		`data: {"type":"response.created","response":{"id":"resp_123","model":"gpt-5","output":null}}`,
 		`data: {"type":"response.output_text.delta","output_index":0,"content_index":0,"delta":"ignored"}`,
@@ -212,7 +213,7 @@ func TestLLMResponseAccumulatorOpenAITerminalResponseWins(t *testing.T) {
 }
 
 func TestLLMResponseAccumulatorOpenAIPartialTextAndSplitLine(t *testing.T) {
-	a := newLLMResponseAccumulator(system.OpenAIModelProvider)
+	a := gatewayllmaudit.NewResponseAccumulator(system.OpenAIModelProvider)
 	a.Write([]byte(`data: {"type":"response.created","response":{"id":"resp_partial","model":"gpt-5","output":null}}` + "\n"))
 	a.Write([]byte(`data: {"type":"response.output_text.delta","item_id":"msg_1","output_index":0,"content_index":0,"delta":"hel`))
 	a.Write([]byte(`lo"}` + "\n"))
@@ -224,7 +225,7 @@ func TestLLMResponseAccumulatorOpenAIPartialTextAndSplitLine(t *testing.T) {
 }
 
 func TestLLMResponseAccumulatorOpenAIFunctionAndReasoning(t *testing.T) {
-	a := newLLMResponseAccumulator(system.OpenAIModelProvider)
+	a := gatewayllmaudit.NewResponseAccumulator(system.OpenAIModelProvider)
 	a.Write([]byte(strings.Join([]string{
 		`data: {"type":"response.created","response":{"id":"resp_tools","model":"gpt-5","output":[]}}`,
 		`data: {"type":"response.output_item.added","output_index":0,"item":{"id":"call_1","type":"function_call","name":"lookup","arguments":""}}`,
@@ -243,7 +244,7 @@ func TestLLMResponseAccumulatorOpenAIFunctionAndReasoning(t *testing.T) {
 }
 
 func TestLLMResponseAccumulatorAnthropicMessage(t *testing.T) {
-	a := newLLMResponseAccumulator(system.AnthropicModelProvider)
+	a := gatewayllmaudit.NewResponseAccumulator(system.AnthropicModelProvider)
 	a.Write([]byte(strings.Join([]string{
 		`event: message_start`,
 		`data: {"type":"message_start","message":{"id":"msg_123","type":"message","role":"assistant","model":"claude","content":[],"usage":{"input_tokens":1}}}`,
@@ -268,7 +269,7 @@ func TestLLMResponseAccumulatorAnthropicMessage(t *testing.T) {
 }
 
 func TestLLMResponseAccumulatorAnthropicToolAndThinking(t *testing.T) {
-	a := newLLMResponseAccumulator(system.AnthropicModelProvider)
+	a := gatewayllmaudit.NewResponseAccumulator(system.AnthropicModelProvider)
 	a.Write([]byte(strings.Join([]string{
 		`data: {"type":"message_start","message":{"id":"msg_tool","type":"message","role":"assistant","content":[]}}`,
 		`data: {"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"tool_1","name":"lookup","input":{}}}`,
@@ -290,13 +291,13 @@ func TestLLMResponseAccumulatorAnthropicToolAndThinking(t *testing.T) {
 }
 
 func TestLLMResponseAccumulatorNonStreamAndEmpty(t *testing.T) {
-	a := newLLMResponseAccumulator(system.OpenAIModelProvider)
+	a := gatewayllmaudit.NewResponseAccumulator(system.OpenAIModelProvider)
 	a.Write([]byte(`{"id":"resp_plain","status":"completed"}`))
 	if got := a.JSON(); gjson.Get(got, "id").String() != "resp_plain" {
 		t.Fatalf("expected plain JSON response, got %s", got)
 	}
 
-	empty := newLLMResponseAccumulator(system.OpenAIModelProvider)
+	empty := gatewayllmaudit.NewResponseAccumulator(system.OpenAIModelProvider)
 	if got := empty.JSON(); got != "{}" {
 		t.Fatalf("expected empty object, got %s", got)
 	}
@@ -304,13 +305,26 @@ func TestLLMResponseAccumulatorNonStreamAndEmpty(t *testing.T) {
 
 func TestLLMAuditRecorderStoresAggregatedResponseBody(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/llm-provider/openai/v1/responses", nil)
-	recorder := newLLMAuditRecorder(req, nil)
+	recorder := newLLMAuditRecorder(req, nil, 5<<20)
 	recorder.setModel(system.OpenAIModelProvider, "", "")
 	chunk := []byte(`data: {"type":"response.created","response":{"id":"resp_rec","output":[]}}` + "\n")
 	recorder.captureResponseChunk(chunk)
-	recorder.log.ResponseBody = recorder.accumulator.JSON()
+	accumulator := gatewayllmaudit.NewResponseAccumulator(recorder.log.ModelProvider)
+	accumulator.Write(recorder.responseStream.Bytes())
+	recorder.log.ResponseBody = accumulator.JSON()
 
 	if gjson.Get(recorder.log.ResponseBody, "id").String() != "resp_rec" {
 		t.Fatalf("expected aggregated response body, got %s", recorder.log.ResponseBody)
+	}
+}
+
+func TestLLMAuditRecorderCapsResponseCapture(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/api/llm-provider/openai/v1/responses", nil)
+	recorder := newLLMAuditRecorder(req, nil, 5)
+	recorder.captureResponseChunk([]byte("hello"))
+	recorder.captureResponseChunk([]byte(" world"))
+
+	if got := recorder.responseStream.String(); got != "hello" {
+		t.Fatalf("expected capped response stream, got %q", got)
 	}
 }
