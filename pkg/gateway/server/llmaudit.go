@@ -22,6 +22,8 @@ import (
 )
 
 const (
+	defaultLLMAuditLogResponseCaptureLimit = 5 << 20 // 5MiB
+
 	llmAuditClientClaudeCode = "claude-code"
 	llmAuditClientCodex      = "codex"
 

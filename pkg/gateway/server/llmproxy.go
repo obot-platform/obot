@@ -1007,7 +1007,7 @@ func (s *Server) newLLMProviderProxy(u *url.URL, modelProviderName string) *llmP
 }
 
 func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
-	audit := newLLMAuditRecorder(req.Request, req.User, req.GatewayClient.LLMAuditLogResponseCaptureLimit())
+	audit := newLLMAuditRecorder(req.Request, req.User, defaultLLMAuditLogResponseCaptureLimit)
 	defer func() {
 		audit.finish(req.GatewayClient, retErr)
 	}()

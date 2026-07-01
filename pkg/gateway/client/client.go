@@ -30,7 +30,6 @@ type Client struct {
 	kickAuditPersist        chan struct{}
 	llmAuditEntries         chan llmAuditEntry
 	llmAuditBatchSize       int
-	llmAuditResponseLimit   int
 	storageClient           kclient.Client
 	apiKeyCacheLock         sync.RWMutex
 	apiKeyCache             map[[32]byte]apiKeyValidationCacheEntry
@@ -45,7 +44,7 @@ type Client struct {
 	mcpOAuthTokenTrigger    func(context.Context, string) error
 }
 
-func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, ownerEmails, adminEmails []string, auditLogPersistenceInterval time.Duration, auditLogBatchSize, auditLogRetentionDays, llmAuditLogRetentionDays, llmAuditLogResponseCaptureLimit int) *Client {
+func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, ownerEmails, adminEmails []string, auditLogPersistenceInterval time.Duration, auditLogBatchSize, auditLogRetentionDays, llmAuditLogRetentionDays int) *Client {
 	explicitRoleEmailsSet := make(map[string]types2.Role, len(ownerEmails)+len(adminEmails))
 	for _, email := range adminEmails {
 		explicitRoleEmailsSet[strings.ToLower(email)] = types2.RoleAdmin
@@ -67,7 +66,6 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 		serviceAccountCacheTTL:  serviceAccountValidationCacheTTL,
 		llmAuditEntries:         make(chan llmAuditEntry, defaultLLMAuditLogBufferSize),
 		llmAuditBatchSize:       defaultLLMAuditLogBatchSize,
-		llmAuditResponseLimit:   llmAuditLogResponseCaptureLimit,
 		auditLogCleanupInterval: defaultAuditLogCleanupInterval,
 		auditLogDeleteBatchSize: defaultAuditLogDeleteBatchSize,
 	}
