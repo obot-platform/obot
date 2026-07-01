@@ -111,6 +111,10 @@
 		return Boolean(field?.secretBinding) || field?.secretBindingSource === 'secret';
 	}
 
+	function fieldLabel(field: Partial<MCPSubField>) {
+		return field.name || field.key || '';
+	}
+
 	const remoteHeaders = $derived.by(() => {
 		if (form && 'headers' in form) {
 			return getNonStaticServerFields(form?.headers);
@@ -475,7 +479,7 @@
 														for={`${compId}-${env.data.key}`}
 														class={highlightRequired ? 'text-error' : ''}
 													>
-														{env.data.name}
+														{fieldLabel(env.data)}
 														{#if !env.data.required}
 															<span class="text-muted-content">(optional)</span>
 														{/if}
@@ -560,7 +564,7 @@
 														for={`${compId}-${header.data.key}`}
 														class={highlightRequired ? 'text-error' : ''}
 													>
-														{header.data.name}
+														{fieldLabel(header.data)}
 														{#if !header.data.required}
 															<span class="text-muted-content">(optional)</span>
 														{/if}
@@ -652,7 +656,7 @@
 							<div class="flex flex-col gap-1">
 								<span class="flex items-center gap-2">
 									<label for={env.data.key} class={highlightRequired ? 'text-error' : ''}>
-										{env.data.name}
+										{fieldLabel(env.data)}
 										{#if !env.data.required}
 											<span class="text-muted-content">(optional)</span>
 										{/if}
@@ -725,7 +729,7 @@
 							<div class="flex flex-col gap-1">
 								<span class="flex items-center gap-2">
 									<label for={header.data.key} class={highlightRequired ? 'text-error' : ''}>
-										{header.data.name}
+										{fieldLabel(header.data)}
 										{#if !header.data.required}
 											<span class="text-muted-content">(optional)</span>
 										{/if}

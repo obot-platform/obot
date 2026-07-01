@@ -194,7 +194,7 @@ Secret bindings are available only when Obot is using the Kubernetes MCP runtime
 
 ### Required Kubernetes Secret Label
 
-Secret binding selection in the admin UI is available for multi-user MCP deployments. The Kubernetes Secret must be in the Obot server's namespace and must have the [configured allowed secret-binding label](../configuration/server-configuration.md#mcp-secret-binding-allowed-label).
+Secret binding selection in the admin UI is available for multi-user MCP deployments. The Kubernetes Secret must be in the Obot server's namespace and must have the [configured allowed secret-binding label](../configuration/server-configuration.md).
 
 The label controls whether a Secret can be discovered and selected in the admin UI, and Obot also checks the label when resolving the binding at runtime. If the label is removed after an MCP server is already bound to that Secret, the binding is treated as unavailable. Required fields then appear as missing configuration until the label is restored or the binding is changed.
 

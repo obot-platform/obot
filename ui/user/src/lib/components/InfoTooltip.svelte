@@ -56,6 +56,8 @@
 	});
 </script>
 
-<span class={twMerge('inline-flex size-3', klass)} use:tooltip={tooltipOpts}>
-	<Icon class={twMerge('text-gray size-3', classes?.icon)} />
-</span>
+{#if tooltipOpts}
+	<span class={twMerge('inline-flex size-3', klass)} use:tooltip={tooltipOpts}>
+		<Icon class={twMerge('text-gray size-3', classes?.icon)} />
+	</span>
+{/if}
