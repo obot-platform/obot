@@ -2,13 +2,25 @@ package client
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apiserver/pkg/storage/value"
 )
 
+var llmAuditLogGroupResource = schema.GroupResource{
+	Group:    "obot.obot.ai",
+	Resource: "llmauditlogs",
+}
+
 func (c *Client) InsertLLMAuditLog(ctx context.Context, auditLog *types.LLMAuditLog) error {
+	if err := c.encryptLLMAuditLog(ctx, auditLog); err != nil {
+		return err
+	}
 	return c.db.WithContext(ctx).Create(auditLog).Error
 }
 
@@ -64,4 +76,80 @@ func (c *Client) deleteOldLLMAuditLogs(ctx context.Context, now time.Time, reten
 			return nil
 		}
 	}
+}
+
+func (c *Client) encryptLLMAuditLog(ctx context.Context, log *types.LLMAuditLog) error {
+	if c.encryptionConfig == nil {
+		return nil
+	}
+
+	transformer := c.encryptionConfig.Transformers[llmAuditLogGroupResource]
+	if transformer == nil {
+		return nil
+	}
+
+	var errs []error
+	dataCtx := llmAuditLogDataCtx(log)
+	encrypt := func(field string) string {
+		if field == "" {
+			return ""
+		}
+		b, err := transformer.TransformToStorage(ctx, []byte(field), dataCtx)
+		if err != nil {
+			errs = append(errs, err)
+			return field
+		}
+		return base64.StdEncoding.EncodeToString(b)
+	}
+
+	log.RequestHeaders = encrypt(log.RequestHeaders)
+	log.RequestBody = encrypt(log.RequestBody)
+	log.RedactedRequestBody = encrypt(log.RedactedRequestBody)
+	log.ResponseHeaders = encrypt(log.ResponseHeaders)
+	log.ResponseBody = encrypt(log.ResponseBody)
+	log.Encrypted = true
+
+	return errors.Join(errs...)
+}
+
+func (c *Client) decryptLLMAuditLog(ctx context.Context, log *types.LLMAuditLog) error {
+	if !log.Encrypted || c.encryptionConfig == nil {
+		return nil
+	}
+
+	transformer := c.encryptionConfig.Transformers[llmAuditLogGroupResource]
+	if transformer == nil {
+		return nil
+	}
+
+	var errs []error
+	dataCtx := llmAuditLogDataCtx(log)
+	decrypt := func(field string) string {
+		if field == "" {
+			return ""
+		}
+		decoded, err := base64.StdEncoding.DecodeString(field)
+		if err != nil {
+			errs = append(errs, err)
+			return field
+		}
+		out, _, err := transformer.TransformFromStorage(ctx, decoded, dataCtx)
+		if err != nil {
+			errs = append(errs, err)
+			return field
+		}
+		return string(out)
+	}
+
+	log.RequestHeaders = decrypt(log.RequestHeaders)
+	log.RequestBody = decrypt(log.RequestBody)
+	log.RedactedRequestBody = decrypt(log.RedactedRequestBody)
+	log.ResponseHeaders = decrypt(log.ResponseHeaders)
+	log.ResponseBody = decrypt(log.ResponseBody)
+
+	return errors.Join(errs...)
+}
+
+func llmAuditLogDataCtx(log *types.LLMAuditLog) value.Context {
+	return value.DefaultContext(fmt.Sprintf("%s/%s/%s", llmAuditLogGroupResource.String(), log.ID, log.UserID))
 }
