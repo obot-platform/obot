@@ -67,10 +67,7 @@ func parseResourceMaximum(field, value string) (*resource.Quantity, error) {
 }
 
 func (m ResourceMaximums) Empty() bool {
-	return m.CPURequest == nil &&
-		m.CPULimit == nil &&
-		m.MemoryRequest == nil &&
-		m.MemoryLimit == nil
+	return m == ResourceMaximums{}
 }
 
 func (m ResourceMaximums) Validate(resources corev1.ResourceRequirements) error {
