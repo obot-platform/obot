@@ -20,7 +20,7 @@ var llmAuditLogGroupResource = schema.GroupResource{
 
 const (
 	defaultLLMAuditLogBatchSize            = 100
-	defaultLLMAuditLogBufferSize           = 10000
+	defaultLLMAuditLogBufferSize           = 3 * defaultLLMAuditLogBatchSize
 	defaultLLMAuditLogResponseCaptureLimit = 5 << 20 // 5MiB
 )
 
