@@ -687,7 +687,6 @@ func (c *Client) encryptMCPAuditLog(ctx context.Context, log *types.MCPAuditLog)
 	if local := log.LocalAgentToolCallFields; local != nil {
 		errs = append(errs,
 			encryptStringField(ctx, transformer, dataCtx, &local.Error),
-			encryptStringField(ctx, transformer, dataCtx, &local.DeviceID),
 			encryptStringField(ctx, transformer, dataCtx, &local.Hostname),
 			encryptStringField(ctx, transformer, dataCtx, &local.LocalUsername),
 			encryptStringField(ctx, transformer, dataCtx, &local.ReportedUserEmail),
@@ -735,7 +734,6 @@ func (c *Client) decryptMCPAuditLog(ctx context.Context, log *types.MCPAuditLog)
 	if local := log.LocalAgentToolCallFields; local != nil {
 		errs = append(errs,
 			decryptStringField(ctx, transformer, dataCtx, &local.Error),
-			decryptStringField(ctx, transformer, dataCtx, &local.DeviceID),
 			decryptStringField(ctx, transformer, dataCtx, &local.Hostname),
 			decryptStringField(ctx, transformer, dataCtx, &local.LocalUsername),
 			decryptStringField(ctx, transformer, dataCtx, &local.ReportedUserEmail),

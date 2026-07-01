@@ -264,8 +264,10 @@ func TestLocalAgentAuditLogEncryptedFieldsDecryptWhenRequested(t *testing.T) {
 		t.Fatal("expected stored audit log to be marked encrypted")
 	}
 	local := stored.LocalAgentToolCallFields
+	if local.DeviceID != "device-1" {
+		t.Fatalf("expected device ID to be stored unencrypted, got %q", local.DeviceID)
+	}
 	if local.Error == "permission denied for /Users/alice/project/secret.txt" ||
-		local.DeviceID == "device-1" ||
 		local.Hostname == "alice-macbook" ||
 		local.LocalUsername == "alice" ||
 		local.ReportedUserEmail == "alice@example.com" ||

@@ -91,7 +91,7 @@ type LocalAgentToolCallAuditLogFields struct {
 	ModelID        string `json:"modelID,omitempty" gorm:"index"`
 	PermissionMode string `json:"permissionMode,omitempty" gorm:"index"`
 
-	DeviceID          string `json:"deviceID,omitempty"`
+	DeviceID          string `json:"deviceID,omitempty" gorm:"index"`
 	Hostname          string `json:"hostname,omitempty"`
 	OS                string `json:"os,omitempty" gorm:"index"`
 	Arch              string `json:"arch,omitempty" gorm:"index"`
