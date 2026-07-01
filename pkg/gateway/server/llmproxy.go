@@ -1135,7 +1135,7 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 	var proxyErr error
 	(&httputil.ReverseProxy{
 		Director: llmTransformRequest(*l.u),
-		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
+		ErrorHandler: func(w http.ResponseWriter, _ *http.Request, err error) {
 			proxyErr = err
 			audit.finish(req.GatewayClient, err)
 			http.Error(w, err.Error(), http.StatusBadGateway)
