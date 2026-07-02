@@ -246,6 +246,46 @@ export type AuditLogURLFilters = {
 	query?: string | null;
 	response_status?: string | null;
 };
+
+export interface LLMAuditLog {
+	id: string;
+	createdAt: string;
+	duration: number;
+	userID: string;
+	modelProvider: string;
+	modelID: string;
+	targetModel: string;
+	reasoningEffort: string;
+	requestPath: string;
+	requestMethod: string;
+	responseID: string;
+	responseStatus: number;
+	outcome: string;
+	error?: string;
+	inputTokens: number;
+	outputTokens: number;
+	requestID: string;
+	client: string;
+	clientVersion: string;
+	clientSessionID: string;
+	clientIP: string;
+}
+
+export type LLMAuditLogURLFilters = {
+	user_id?: string | null;
+	model_provider?: string | null;
+	target_model?: string | null;
+	request_path?: string | null;
+	response_status?: string | null;
+	outcome?: string | null;
+	client?: string | null;
+	client_session_id?: string | null;
+	start_time?: string | null;
+	end_time?: string | null;
+	limit?: number | null;
+	offset?: number | null;
+	query?: string | null;
+};
 export type AuditLogFilters = {
 	userId?: string | null;
 	mcpServerCatalogEntryName?: string | null;
