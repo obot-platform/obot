@@ -5,10 +5,13 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	gatewayllmaudit "github.com/obot-platform/obot/pkg/gateway/llmaudit"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"gorm.io/gorm"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/storage/value"
 )
@@ -57,6 +60,94 @@ func (c *Client) InsertLLMAuditLog(ctx context.Context, auditLog *types.LLMAudit
 	return c.insertLLMAuditLogs(ctx, []types.LLMAuditLog{*auditLog})
 }
 
+func (c *Client) GetLLMAuditLogs(ctx context.Context, opts LLMAuditLogOptions) ([]types.LLMAuditLog, int64, error) {
+	var logs []types.LLMAuditLog
+
+	db := c.db.WithContext(ctx).Model(&types.LLMAuditLog{})
+	db = applyLLMAuditLogOptions(db, opts)
+	if !opts.WithSensitiveFields {
+		db = omitLLMAuditLogSensitiveFields(db)
+	}
+
+	var total int64
+	if err := db.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	if opts.Limit > 0 {
+		db = db.Limit(opts.Limit)
+	}
+	if opts.Offset > 0 {
+		db = db.Offset(opts.Offset)
+	}
+
+	sortBy := opts.SortBy
+	validSortFields := map[string]bool{
+		"created_at":        true,
+		"user_id":           true,
+		"model_provider":    true,
+		"target_model":      true,
+		"request_path":      true,
+		"response_status":   true,
+		"outcome":           true,
+		"client":            true,
+		"client_session_id": true,
+	}
+	if !validSortFields[sortBy] {
+		sortBy = "created_at"
+	}
+	sortOrder := "DESC"
+	if opts.SortOrder == "asc" {
+		sortOrder = "ASC"
+	}
+	db = db.Order(sortBy + " " + sortOrder)
+
+	if err := db.Find(&logs).Error; err != nil {
+		return nil, 0, err
+	}
+	for i := range logs {
+		if err := c.prepareLLMAuditLog(ctx, &logs[i], opts.WithSensitiveFields); err != nil {
+			return nil, 0, err
+		}
+	}
+
+	return logs, total, nil
+}
+
+func (c *Client) GetLLMAuditLog(ctx context.Context, id string, withSensitiveFields bool) (*types.LLMAuditLog, error) {
+	var log types.LLMAuditLog
+	db := c.db.WithContext(ctx)
+	if !withSensitiveFields {
+		db = omitLLMAuditLogSensitiveFields(db)
+	}
+	if err := db.First(&log, "id = ?", id).Error; err != nil {
+		return nil, err
+	}
+	if err := c.prepareLLMAuditLog(ctx, &log, withSensitiveFields); err != nil {
+		return nil, err
+	}
+	return &log, nil
+}
+
+func (c *Client) prepareLLMAuditLog(ctx context.Context, log *types.LLMAuditLog, withSensitiveFields bool) error {
+	if withSensitiveFields {
+		if err := c.decryptLLMAuditLog(ctx, log); err != nil {
+			return fmt.Errorf("failed to decrypt LLM audit log: %w", err)
+		}
+		return nil
+	}
+	log.RequestHeaders = ""
+	log.RequestBody = ""
+	log.RedactedRequestBody = ""
+	log.ResponseHeaders = ""
+	log.ResponseBody = ""
+	return nil
+}
+
+func omitLLMAuditLogSensitiveFields(db *gorm.DB) *gorm.DB {
+	return db.Omit("request_headers", "request_body", "redacted_request_body", "response_headers", "response_body")
+}
+
 func (c *Client) runLLMAuditPersistenceLoop(ctx context.Context, batchSize int, flushInterval time.Duration) {
 	if c.llmAuditEntries == nil {
 		return
@@ -93,6 +184,57 @@ func (c *Client) runLLMAuditPersistenceLoop(ctx context.Context, batchSize int, 
 			batch = c.flushLLMAuditBatch(batch)
 		}
 	}
+}
+
+func applyLLMAuditLogOptions(db *gorm.DB, opts LLMAuditLogOptions) *gorm.DB {
+	if opts.Query != "" {
+		searchTerm := "%" + opts.Query + "%"
+		like := "LIKE"
+		if db.Name() == "postgres" {
+			like = "ILIKE"
+		}
+		query := `user_id %[1]s ? OR model_provider %[1]s ? OR model_id %[1]s ? OR target_model %[1]s ? OR request_path %[1]s ? OR response_id %[1]s ? OR outcome %[1]s ? OR error %[1]s ? OR request_id %[1]s ? OR client %[1]s ? OR client_version %[1]s ? OR client_session_id %[1]s ? OR client_ip %[1]s ?`
+		args := make([]any, strings.Count(query, "%[1]s ?"))
+		for i := range args {
+			args[i] = searchTerm
+		}
+		if responseStatus, err := strconv.Atoi(opts.Query); err == nil {
+			query += " OR response_status = ?"
+			args = append(args, responseStatus)
+		}
+		db = db.Where(fmt.Sprintf(query, like), args...)
+	}
+	if len(opts.UserID) > 0 {
+		db = db.Where("user_id IN (?)", opts.UserID)
+	}
+	if len(opts.ModelProvider) > 0 {
+		db = db.Where("model_provider IN (?)", opts.ModelProvider)
+	}
+	if len(opts.TargetModel) > 0 {
+		db = db.Where("target_model IN (?)", opts.TargetModel)
+	}
+	if len(opts.RequestPath) > 0 {
+		db = db.Where("request_path IN (?)", opts.RequestPath)
+	}
+	if len(opts.ResponseStatus) > 0 {
+		db = db.Where("response_status IN (?)", opts.ResponseStatus)
+	}
+	if len(opts.Outcome) > 0 {
+		db = db.Where("outcome IN (?)", opts.Outcome)
+	}
+	if len(opts.Client) > 0 {
+		db = db.Where("client IN (?)", opts.Client)
+	}
+	if len(opts.ClientSessionID) > 0 {
+		db = db.Where("client_session_id IN (?)", opts.ClientSessionID)
+	}
+	if !opts.StartTime.IsZero() {
+		db = db.Where("created_at >= ?", opts.StartTime.UTC())
+	}
+	if !opts.EndTime.IsZero() {
+		db = db.Where("created_at < ?", opts.EndTime.UTC())
+	}
+	return db
 }
 
 func (c *Client) drainQueuedLLMAuditEntries(batch []llmAuditEntry, batchSize int) []llmAuditEntry {
@@ -317,4 +459,23 @@ func (c *Client) decryptLLMAuditLog(ctx context.Context, log *types.LLMAuditLog)
 
 func llmAuditLogDataCtx(log *types.LLMAuditLog) value.Context {
 	return value.DefaultContext(fmt.Sprintf("%s/%s/%s", llmAuditLogGroupResource.String(), log.ID, log.UserID))
+}
+
+type LLMAuditLogOptions struct {
+	WithSensitiveFields bool
+	UserID              []string
+	ModelProvider       []string
+	TargetModel         []string
+	RequestPath         []string
+	ResponseStatus      []int
+	Outcome             []string
+	Client              []string
+	ClientSessionID     []string
+	Query               string
+	StartTime           time.Time
+	EndTime             time.Time
+	Limit               int
+	Offset              int
+	SortBy              string
+	SortOrder           string
 }

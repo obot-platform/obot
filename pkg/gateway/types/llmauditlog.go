@@ -2,6 +2,8 @@ package types
 
 import (
 	"time"
+
+	types2 "github.com/obot-platform/obot/apiclient/types"
 )
 
 const (
@@ -42,4 +44,35 @@ type LLMAuditLog struct {
 
 func (LLMAuditLog) TableName() string {
 	return "llm_audit_logs"
+}
+
+func ConvertLLMAuditLog(a LLMAuditLog) types2.LLMAuditLog {
+	return types2.LLMAuditLog{
+		ID:                  a.ID,
+		CreatedAt:           *types2.NewTime(a.CreatedAt),
+		Duration:            a.Duration,
+		UserID:              a.UserID,
+		ModelProvider:       a.ModelProvider,
+		ModelID:             a.ModelID,
+		TargetModel:         a.TargetModel,
+		ReasoningEffort:     a.ReasoningEffort,
+		RequestPath:         a.RequestPath,
+		RequestMethod:       a.RequestMethod,
+		RequestHeaders:      a.RequestHeaders,
+		RequestBody:         a.RequestBody,
+		RedactedRequestBody: a.RedactedRequestBody,
+		ResponseHeaders:     a.ResponseHeaders,
+		ResponseBody:        a.ResponseBody,
+		ResponseID:          a.ResponseID,
+		ResponseStatus:      a.ResponseStatus,
+		Outcome:             a.Outcome,
+		Error:               a.Error,
+		InputTokens:         a.InputTokens,
+		OutputTokens:        a.OutputTokens,
+		RequestID:           a.RequestID,
+		Client:              a.Client,
+		ClientVersion:       a.ClientVersion,
+		ClientSessionID:     a.ClientSessionID,
+		ClientIP:            a.ClientIP,
+	}
 }
