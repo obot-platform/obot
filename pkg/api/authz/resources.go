@@ -17,12 +17,11 @@ var apiResources = map[string][]string{
 		"GET    /api/all-mcps/servers/{mcpserver_id}/prompts/{prompt_name}",
 		"GET    /api/all-mcps/entries/{entry_id}",
 		"GET    /oauth/callback/{oauth_request_id}",
-		"GET    /oauth/callback/{oauth_request_id}/{mcp_id}",
 		"GET    /oauth/mcp/callback",
-		"GET    /oauth/consent/{oauth_auth_request}",
-		"POST   /oauth/consent/{oauth_auth_request}/approve",
-		"POST   /oauth/consent/{oauth_auth_request}/cancel",
-		"GET    /oauth/complete/{oauth_auth_request}",
+		"GET    /oauth/consent/{oauth_request_id}",
+		"POST   /oauth/consent/{oauth_request_id}/approve",
+		"POST   /oauth/consent/{oauth_request_id}/cancel",
+		"GET    /oauth/complete/{oauth_request_id}",
 		"GET    /auth/mcp/composite/{mcp_id}",
 		"GET    /api/oauth/composite/{mcp_id}",
 		"GET    /api/mcp-stats/{mcp_id}",
@@ -155,6 +154,7 @@ type Resources struct {
 	ArtifactVersion     string
 	SkillID             string
 	DeviceScanID        string
+	OAuthAuthRequestID  string
 	Authorizated        ResourcesAuthorized
 }
 
@@ -182,6 +182,7 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user User
 		ArtifactVersion:         vars("artifact_version"),
 		SkillID:                 vars("skill_id"),
 		DeviceScanID:            vars("scan_id"),
+		OAuthAuthRequestID:      vars("oauth_request_id"),
 	}
 
 	if !a.checkUser(user, vars("user_id")) {
@@ -225,6 +226,10 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user User
 	}
 
 	if ok, err := a.checkDeviceScan(req, &resources, user); !ok || err != nil {
+		return false, err
+	}
+
+	if ok, err := a.checkOAuthAuthRequest(req, &resources, user); !ok || err != nil {
 		return false, err
 	}
 
