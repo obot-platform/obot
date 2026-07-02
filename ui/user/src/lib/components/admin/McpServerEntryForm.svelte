@@ -21,6 +21,7 @@
 		getMCPDisplayName,
 		getServerTypeLabel,
 		getSource,
+		isMultiUserCatalogEntry,
 		isMultiUserServer
 	} from '$lib/services/user/mcp';
 	import { profile } from '$lib/stores';
@@ -199,6 +200,11 @@
 	let needsDeploymentsUpdate = $derived(
 		resolvedConfiguredServers?.some((s) => s.needsUpdate || s.needsK8sUpdate) ??
 			resolvedConfiguredInstances?.some((i) => !i.configured)
+	);
+	let ownedDeployments = $derived(
+		(isMultiUserCatalogEntry(entry)
+			? resolvedConfiguredServers
+			: resolvedConfiguredServers?.filter((s) => s.userID === profile.current?.id)) ?? []
 	);
 
 	let deploymentToDisplayTools = $state<MCPCatalogServer>();
@@ -1242,7 +1248,7 @@
 				<Select
 					id="select-deployment-tools-view"
 					class="bg-base-200 hover:bg-base-300 dark:bg-base-100 dark:hover:bg-base-200 mb-0.5 border border-transparent shadow-none md:w-64"
-					options={(resolvedConfiguredServers ?? []).map((deployment) => ({
+					options={ownedDeployments.map((deployment) => ({
 						id: deployment.id,
 						label: `${deployment.alias || deployment.manifest.name} (${deployment.id})`,
 						data: deployment
@@ -1340,7 +1346,7 @@
 		{entity}
 		{entry}
 		{server}
-		servers={resolvedConfiguredServers}
+		servers={ownedDeployments}
 		onRefresh={reloadConfiguredServers}
 	/>
 {/snippet}

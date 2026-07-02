@@ -12,6 +12,7 @@
 	} from '$lib/services/admin/constants';
 	import { isMultiUserCatalogEntry } from '$lib/services/user/mcp';
 	import { mcpServersAndEntries } from '$lib/stores';
+	import { profile } from '$lib/stores';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import Select from '../Select.svelte';
 	import ConnectToServer from '../mcp/ConnectToServer.svelte';
@@ -48,9 +49,16 @@
 	let selectableDeployments = $derived(
 		servers
 			? servers
-			: mcpServersAndEntries.current.userConfiguredServers.filter(
-					(server) => server.catalogEntryID === entry?.id
-				)
+			: mcpServersAndEntries.current.userConfiguredServers.filter((deployment) => {
+					if (isMultiUserCatalogEntry(entry)) {
+						return deployment.catalogEntryID === entry?.id;
+					}
+
+					// single-tenant entry: just get deployments tied to the user
+					return (
+						deployment.catalogEntryID === entry?.id && deployment.userID === profile.current?.id
+					);
+				})
 	);
 	let deploymentOptions = $derived(
 		selectableDeployments.map((server) => ({
@@ -184,13 +192,7 @@
 				if (launchedServer) {
 					pending = 'deleting';
 					try {
-						if (
-							entry &&
-							'isCatalogEntry' in entry &&
-							isMultiUserCatalogEntry(entry) &&
-							entity &&
-							entityId
-						) {
+						if (isMultiUserCatalogEntry(entry) && entity && entityId) {
 							if (entity === 'workspace') {
 								await UserService.deleteWorkspaceMCPCatalogServer(entityId, launchedServer.id);
 							} else {
