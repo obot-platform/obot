@@ -180,7 +180,7 @@
 				description: '',
 				env: [],
 				icon: '',
-				serverUserType: isHostedType ? 'multiUser' : 'singleUser',
+				serverUserType: isHostedType && entity === 'catalog' ? 'multiUser' : 'singleUser',
 				runtime: 'npx' as Runtime,
 				resources:
 					type !== 'remote' && type !== 'composite' ? defaultResourceRuntimeConfig() : undefined,
@@ -753,17 +753,19 @@
 	<div class="paper p-4">
 		<h4 class="text-sm font-semibold">Server Tenancy</h4>
 
-		<div class="notification-info">
-			<div class="flex items-center gap-2">
-				<Info class="size-4" />
-				<div>
-					<p class="text-xs font-light">
-						Once the server tenancy has been set, it cannot be changed. In order to change the
-						configuration, you must delete the server and create a new one.
-					</p>
+		{#if entity === 'catalog'}
+			<div class="notification-info">
+				<div class="flex items-center gap-2">
+					<Info class="size-4" />
+					<div>
+						<p class="text-xs font-light">
+							Once the server tenancy has been set, it cannot be changed. In order to change the
+							configuration, you must delete the server and create a new one.
+						</p>
+					</div>
 				</div>
 			</div>
-		</div>
+		{/if}
 
 		<div class="flex items-center gap-4">
 			<label for="server-configuration-selector" class="text-sm font-light">Type</label>
@@ -790,15 +792,19 @@
 							loadSecretBindingTargets();
 						}
 					}}
-					disabled={readonly || !!entry?.id}
+					disabled={readonly || !!entry?.id || entity !== 'catalog'}
 				/>
 			</div>
 		</div>
 
 		<p class="text-muted-content text-xs">
-			Set tenancy to <i>Single-tenant</i> if each user should connect to their own private instance
-			of the server. <br />
-			<i>Multi-tenancy</i> has all users connect to the same server instance.
+			{#if entity === 'catalog'}
+				Set tenancy to <i>Single-tenant</i> if each user should connect to their own private
+				instance of the server. <br />
+				<i>Multi-tenancy</i> has all users connect to the same server instance.
+			{:else}
+				<i>Single-tenant</i> requires each user to connect to their own private instance of the server.
+			{/if}
 		</p>
 	</div>
 {/if}
