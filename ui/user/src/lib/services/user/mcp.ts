@@ -449,7 +449,9 @@ export function getServerTypeLabel(server?: MCPCatalogServer | MCPCatalogEntry) 
 	return 'Hosted';
 }
 
-export function isMultiUserCatalogEntry(entry?: MCPCatalogEntry) {
+export function isMultiUserCatalogEntry(entry?: MCPCatalogEntry | MCPCatalogServer) {
+	if (!entry) return false;
+	if (!('isCatalogEntry' in entry)) return false;
 	return (
 		entry?.manifest?.serverUserType === 'multiUser' &&
 		entry.manifest.runtime !== 'remote' &&
