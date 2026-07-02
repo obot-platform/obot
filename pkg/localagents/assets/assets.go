@@ -18,7 +18,6 @@ var fileSkillTemplates = []string{
 	"files/skills/obot-search-skills/SKILL.md.tmpl",
 	"files/skills/obot-search-mcp-servers/SKILL.md.tmpl",
 	"files/skills/obot-install-skill/SKILL.md.tmpl",
-	"files/skills/obot-scan/SKILL.md.tmpl",
 }
 
 // TemplateData is the client-specific data used to render bootstrap

@@ -20,11 +20,11 @@ func TestSharedAgentsInstallBootstrapWritesExpectedSkills(t *testing.T) {
 	if result.AgentID != SharedAgentsID {
 		t.Fatalf("AgentID = %q, want %q", result.AgentID, SharedAgentsID)
 	}
-	if len(result.Installed) != 5 {
-		t.Fatalf("Installed count = %d, want 5: %#v", len(result.Installed), result.Installed)
+	if len(result.Installed) != 4 {
+		t.Fatalf("Installed count = %d, want 4: %#v", len(result.Installed), result.Installed)
 	}
 
-	for _, name := range []string{"obot", "obot-search-skills", "obot-search-mcp-servers", "obot-install-skill", "obot-scan"} {
+	for _, name := range []string{"obot", "obot-search-skills", "obot-search-mcp-servers", "obot-install-skill"} {
 		content := readFile(t, filepath.Join(home, ".agents", "skills", name, skillformat.SkillMainFile))
 		if !strings.Contains(content, "Obot") && !strings.Contains(content, "obot") {
 			t.Fatalf("%s content did not look like an Obot bootstrap skill:\n%s", name, content)
