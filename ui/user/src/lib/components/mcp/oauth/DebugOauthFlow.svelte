@@ -13,9 +13,12 @@
 
 	interface Props {
 		mcpServer: MCPCatalogServer;
+		classes?: {
+			footer?: string;
+		};
 	}
 
-	let { mcpServer }: Props = $props();
+	let { mcpServer, classes }: Props = $props();
 	const DEBUG_FLOW_STEPS = {
 		metadataDiscovery: 'metadataDiscovery',
 		clientRegistration: 'clientRegistration',
@@ -343,7 +346,10 @@
 	</DebugOauthSection>
 </div>
 <div
-	class="sticky bottom-0 left-0 w-full bg-base-100 dark:bg-base-200 p-4 border-t border-base-300 dark:border-base-200"
+	class={twMerge(
+		'w-full bg-base-100 dark:bg-base-200 p-4 border-t border-base-300 dark:border-base-200',
+		classes?.footer
+	)}
 >
 	<div class="flex justify-between gap-4">
 		<button

@@ -456,6 +456,8 @@
 				mcpServersAndEntries.current.servers = mcpServersAndEntries.current.servers.filter(
 					(s) => s.id !== server.id
 				);
+				mcpServersAndEntries.current.userConfiguredServers =
+					mcpServersAndEntries.current.userConfiguredServers.filter((s) => s.id !== server.id);
 			} catch (error) {
 				if (error instanceof MCPCompositeDeletionDependencyError) {
 					deleteConflictError = error;

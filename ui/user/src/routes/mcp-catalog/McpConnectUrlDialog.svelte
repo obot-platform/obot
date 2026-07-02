@@ -1,17 +1,11 @@
 <script lang="ts">
 	import CopyField from '$lib/components/CopyField.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
-	import IconButton from '$lib/components/primitives/IconButton.svelte';
-	import Table from '$lib/components/table/Table.svelte';
-	import type { MCPCatalogEntry, MCPCatalogServer } from '$lib/services';
-	import {
-		getMCPDisplayName,
-		hasEditableConfiguration,
-		isMultiUserCatalogEntry
-	} from '$lib/services/user/mcp';
+	import McpSelectServerDeployment from '$lib/components/mcp/McpSelectServerDeployment.svelte';
+	import type { MCPCatalogEntry } from '$lib/services';
+	import { hasEditableConfiguration, isMultiUserCatalogEntry } from '$lib/services/user/mcp';
 	import { mcpServersAndEntries } from '$lib/stores';
-	import { formatTimeAgo } from '$lib/time';
-	import { Info, Plus, Server, StepForward } from '@lucide/svelte';
+	import { Info, Plus } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -21,12 +15,8 @@
 	let { onLaunchCatalogEntry }: Props = $props();
 	let connectUrlDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let displayConnectUrl = $state<{ url: string; catalogEntry?: MCPCatalogEntry }>();
-
-	let selectServerForCatalogEntry = $state<{
-		entry: MCPCatalogEntry;
-		servers: MCPCatalogServer[];
-	}>();
-	let selectServerDialog = $state<ReturnType<typeof ResponsiveDialog>>();
+	let catalogEntry = $state<MCPCatalogEntry>();
+	let selectServerDialog = $state<ReturnType<typeof McpSelectServerDeployment>>();
 
 	function getMultiUserCatalogEntryServers(entry: MCPCatalogEntry) {
 		return mcpServersAndEntries.current.servers.filter((s) => s.catalogEntryID === entry.id);
@@ -38,15 +28,9 @@
 		);
 	}
 
-	function handleShowSelectServerDialog(entry: MCPCatalogEntry, servers: MCPCatalogServer[]) {
-		selectServerForCatalogEntry = {
-			entry,
-			servers
-		};
-		selectServerDialog?.open();
-	}
+	export function open(initEntry?: MCPCatalogEntry, urlToDisplay?: string) {
+		catalogEntry = initEntry;
 
-	export function open(catalogEntry?: MCPCatalogEntry, urlToDisplay?: string) {
 		if (urlToDisplay) {
 			displayConnectUrl = {
 				url: urlToDisplay,
@@ -56,44 +40,27 @@
 			return;
 		}
 
-		if (isMultiUserCatalogEntry(catalogEntry)) {
-			// multi user catalog requires configuration of at least one server to obtain connect URL
-			const matchingServers = getMultiUserCatalogEntryServers(catalogEntry!);
+		if (catalogEntry) {
+			const matchingServers = isMultiUserCatalogEntry(catalogEntry)
+				? getMultiUserCatalogEntryServers(catalogEntry)
+				: getUserConfiguredCatalogEntryServers(catalogEntry);
 			if (matchingServers.length > 1) {
-				handleShowSelectServerDialog(catalogEntry!, matchingServers);
-			} else if (matchingServers[0]?.connectURL) {
+				selectServerDialog?.open(matchingServers);
+			} else if (matchingServers[0]?.connectURL || catalogEntry?.connectURL) {
 				displayConnectUrl = {
-					url: matchingServers[0].connectURL,
+					url: matchingServers[0]?.connectURL || catalogEntry?.connectURL || '',
 					catalogEntry
 				};
+
 				connectUrlDialog?.open();
 			} else {
 				onLaunchCatalogEntry?.(catalogEntry!);
 			}
-			return;
 		}
-
-		const matchingServers = getUserConfiguredCatalogEntryServers(catalogEntry!);
-		if (matchingServers.length > 1) {
-			handleShowSelectServerDialog(catalogEntry!, matchingServers);
-			return;
-		}
-
-		// single user catalog entry contains baseline connect URL
-		displayConnectUrl = {
-			url: catalogEntry?.connectURL ?? '',
-			catalogEntry
-		};
-
-		connectUrlDialog?.open();
 	}
 
 	function isConfigurableSingleUserCatalogEntry(entry?: MCPCatalogEntry) {
 		return entry && !isMultiUserCatalogEntry(entry) && hasEditableConfiguration(entry);
-	}
-
-	function needsSingleUserConfiguration(entry?: MCPCatalogEntry, url?: string) {
-		return isConfigurableSingleUserCatalogEntry(entry) && !url;
 	}
 </script>
 
@@ -105,12 +72,14 @@
 	classes={{ content: 'p-0', header: 'p-4 pb-0' }}
 	disableMobileStyles
 >
-	{#if !needsSingleUserConfiguration(displayConnectUrl?.catalogEntry, displayConnectUrl?.url)}
+	{#if displayConnectUrl?.url}
 		<div
 			class={twMerge('px-4', !isMultiUserCatalogEntry(displayConnectUrl?.catalogEntry) && 'pb-4')}
 		>
 			<CopyField id="connect-url-dialog-connection-url" value={displayConnectUrl?.url ?? ''} />
 		</div>
+	{:else}
+		<p class="px-4 text-muted-content text-sm text-center w-full">No connection URL available.</p>
 	{/if}
 	{#if isMultiUserCatalogEntry(displayConnectUrl?.catalogEntry)}
 		<div class="mt-4 p-4 border-t border-base-300 dark:border-base-400">
@@ -132,64 +101,28 @@
 				</button>
 			</p>
 		</div>
-	{:else if needsSingleUserConfiguration(displayConnectUrl?.catalogEntry, displayConnectUrl?.url)}
-		<div class="notification-info m-4 flex flex-col gap-3">
-			<p class="flex items-center gap-2 text-xs">
-				<Info class="size-4 shrink-0" />
-				This server requires user configuration on connection with an MCP client.
-			</p>
-		</div>
 	{:else if isConfigurableSingleUserCatalogEntry(displayConnectUrl?.catalogEntry)}
 		<div class="notification-info m-4 mt-0">
 			<p class="flex items-center gap-2 text-xs">
 				<Info class="size-4" />
-				This connection URL uses your configured server instance.
+				{#if getUserConfiguredCatalogEntryServers(displayConnectUrl!.catalogEntry!).length > 0}
+					This connection URL uses your configured server instance.
+				{:else}
+					This server requires user configuration on connection with an MCP client.
+				{/if}
 			</p>
 		</div>
 	{/if}
 </ResponsiveDialog>
 
-<ResponsiveDialog
-	class="bg-base-200 dark:bg-base-100"
+<McpSelectServerDeployment
 	bind:this={selectServerDialog}
-	title="Select Your Server"
->
-	<Table
-		data={selectServerForCatalogEntry?.servers || []}
-		fields={['name', 'created']}
-		onClickRow={async (d) => {
-			selectServerDialog?.close();
-			if (!d.connectURL) return;
-			displayConnectUrl = {
-				url: d.connectURL,
-				catalogEntry: selectServerForCatalogEntry?.entry
-			};
-			connectUrlDialog?.open();
-		}}
-		disablePortal
-	>
-		{#snippet onRenderColumn(property, d)}
-			{#if property === 'name'}
-				<div class="flex shrink-0 items-center gap-2">
-					<div class="icon">
-						{#if d.manifest.icon}
-							<img src={d.manifest.icon} alt={d.manifest.name} class="size-6" />
-						{:else}
-							<Server class="size-6" />
-						{/if}
-					</div>
-					<p class="flex items-center gap-2">
-						{getMCPDisplayName(d)}
-					</p>
-				</div>
-			{:else if property === 'created'}
-				{formatTimeAgo(d.created).relativeTime}
-			{/if}
-		{/snippet}
-		{#snippet actions()}
-			<IconButton class="hover:dark:bg-base-100/50">
-				<StepForward class="size-4" />
-			</IconButton>
-		{/snippet}
-	</Table>
-</ResponsiveDialog>
+	onSelectServer={(d) => {
+		selectServerDialog?.close();
+		displayConnectUrl = {
+			url: d.connectURL || catalogEntry?.connectURL || '',
+			catalogEntry
+		};
+		connectUrlDialog?.open();
+	}}
+/>

@@ -17,7 +17,11 @@
 		type MCPServerInstance,
 		type MCPServerOAuthCredentialStatus
 	} from '$lib/services';
-	import { OBOT_PLATFORM_REPO } from '$lib/services/admin/constants';
+	import {
+		MCP_MULTI_TENANT_LAUNCH_TEXT,
+		MCP_SINGLE_TENANT_LAUNCH_TEXT,
+		OBOT_PLATFORM_REPO
+	} from '$lib/services/admin/constants';
 	import {
 		convertEntriesToTableData,
 		deleteMcpServerDeployment,
@@ -35,6 +39,7 @@
 		Ellipsis,
 		GitBranch,
 		Link2Icon,
+		RocketIcon,
 		Server,
 		Settings,
 		Trash2,
@@ -92,6 +97,8 @@
 	let oauthConfigModal = $state<ReturnType<typeof StaticOAuthConfigureModal>>();
 	let oauthConfigEntry = $state<MCPCatalogEntry>();
 	let oauthStatus = $state<MCPServerOAuthCredentialStatus>();
+
+	let setupType = $state<'launch' | 'connect'>('launch');
 
 	let tableData = $derived(
 		convertEntriesToTableData(
@@ -169,6 +176,18 @@
 
 	function getMultiUserCatalogEntryServers(entry: MCPCatalogEntry) {
 		return mcpServersAndEntries.current.servers.filter((s) => s.catalogEntryID === entry.id);
+	}
+
+	function renderIntroText({ entry }: { entry?: MCPCatalogEntry }) {
+		if (isMultiUserCatalogEntry(entry)) {
+			return getMultiUserCatalogEntryServers(entry!).length > 0 || setupType === 'launch'
+				? MCP_MULTI_TENANT_LAUNCH_TEXT
+				: 'In order to receive a connect URL, a new server must be launched.';
+		}
+
+		return setupType === 'launch'
+			? MCP_SINGLE_TENANT_LAUNCH_TEXT
+			: 'In order to receive a connect URL, the initial setup process for this server must be completed.';
 	}
 
 	async function handleConfigureOAuth(entry: MCPCatalogEntry) {
@@ -408,11 +427,24 @@
 										class="menu-button"
 										onclick={(e) => {
 											e.stopPropagation();
+											setupType = 'connect';
 											connectUrlDialog?.open(catalogEntry);
 											toggle(false);
 										}}
 									>
 										<Link2Icon class="size-4" /> Get Connect URL
+									</button>
+									<button
+										class="menu-button"
+										onclick={(e) => {
+											e.stopPropagation();
+											setupType = 'launch';
+											connectToServerDialog?.setupNewInstance(catalogEntry);
+											toggle(false);
+										}}
+									>
+										<RocketIcon class="size-4" />
+										Launch Server
 									</button>
 								{/if}
 								{#if canDelete}
@@ -465,7 +497,7 @@
 <McpConnectUrlDialog
 	bind:this={connectUrlDialog}
 	onLaunchCatalogEntry={(entry) => {
-		connectToServerDialog?.open({ entry });
+		connectToServerDialog?.setupNewInstance(entry);
 	}}
 />
 
@@ -535,19 +567,11 @@
 
 <ConnectToServer
 	bind:this={connectToServerDialog}
-	userConfiguredServers={mcpServersAndEntries.current.userConfiguredServers}
 	catalogID={catalog?.id}
 	workspaceID={entity === 'workspace' ? id : undefined}
 	onConnect={handleConnectToServer}
 	skipConnectDialog
-	renderIntroText={({ entry }) => {
-		if (isMultiUserCatalogEntry(entry)) {
-			return getMultiUserCatalogEntryServers(entry!).length > 0
-				? 'You are about to launch a new server.'
-				: 'In order to receive a connect URL, a new server must be launched.';
-		}
-		return 'In order to receive a connect URL, the initial setup process for this server must be completed.';
-	}}
+	{renderIntroText}
 />
 
 <StaticOAuthConfigureModal

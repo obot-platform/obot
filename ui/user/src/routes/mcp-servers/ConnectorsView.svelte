@@ -3,7 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import ConnectToServer from '$lib/components/mcp/ConnectToServer.svelte';
-	import Table from '$lib/components/table/Table.svelte';
+	import McpSelectServerDeployment from '$lib/components/mcp/McpSelectServerDeployment.svelte';
 	import { stripMarkdownToText } from '$lib/markdown';
 	import {
 		UserService,
@@ -20,18 +20,13 @@
 		hasMissingSecretBindingConfig,
 		isMultiUserServer,
 		restartMcpServer,
-		getMCPDisplayName,
 		isMultiUserCatalogEntry,
 		requiresUserUpdate
 	} from '$lib/services/user/mcp';
 	import { mcpServersAndEntries, profile, version } from '$lib/stores';
-	import { formatTimeAgo } from '$lib/time';
 	import { openUrl } from '$lib/utils';
-	import ResponsiveDialog from '../../lib/components/ResponsiveDialog.svelte';
 	import EditExistingDeployment from '../../lib/components/mcp/EditExistingDeployment.svelte';
-	import DebugOauthDialog from '../../lib/components/mcp/oauth/DebugOauthDialog.svelte';
-	import IconButton from '../../lib/components/primitives/IconButton.svelte';
-	import { CircleFadingArrowUp, Server, StepForward } from '@lucide/svelte';
+	import { CircleFadingArrowUp, Server } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -58,12 +53,9 @@
 	let connectToServerDialog = $state<ReturnType<typeof ConnectToServer>>();
 	let editExistingDialog = $state<ReturnType<typeof EditExistingDeployment>>();
 
-	let selectedConfiguredServers = $state<MCPCatalogServer[]>([]);
 	let selectedEntry = $state<MCPCatalogEntry>();
-	let selectServerDialog = $state<ReturnType<typeof ResponsiveDialog>>();
+	let selectServerDialog = $state<ReturnType<typeof McpSelectServerDeployment>>();
 	let selectServerMode = $state<ServerSelectMode>('connect');
-
-	let debugOauthDialog = $state<ReturnType<typeof DebugOauthDialog>>();
 
 	let instancesMap = $derived(
 		new Map(
@@ -105,9 +97,13 @@
 	);
 
 	let filteredTableData = $derived.by(() => {
-		const sorted = tableData.sort((a, b) => {
+		const sorted = [...tableData].sort((a, b) => {
+			if (a.connected !== b.connected) {
+				return a.connected ? -1 : 1;
+			}
 			return a.name.localeCompare(b.name);
 		});
+
 		return query
 			? sorted.filter((d) => d.name.toLowerCase().includes(query.toLowerCase()))
 			: sorted;
@@ -159,9 +155,8 @@
 			mode === 'connect'
 				? getUsableConfiguredServersForCatalogEntry(entry)
 				: getConfiguredServersForCatalogEntry(entry);
-		selectedConfiguredServers = allServers;
 		selectedEntry = entry;
-		selectServerDialog?.open();
+		selectServerDialog?.open(allServers);
 		selectServerMode = mode;
 	}
 
@@ -262,7 +257,7 @@
 				: userConfiguredServers.some(requiresUserUpdate)}
 			<div
 				class={twMerge(
-					'flex items-center justify-between gap-8 rounded-md p-3 bg-base-100 dark:bg-base-300 shadow-xs hover:bg-base-300 dark:hover:bg-base-400 cursor-pointer'
+					'flex items-center justify-between gap-8 rounded-md p-3 bg-base-100 dark:bg-base-300 shadow-xs hover:bg-base-300 dark:hover:bg-base-400/75 cursor-pointer'
 				)}
 				role="button"
 				tabindex="0"
@@ -284,8 +279,8 @@
 								<Server class="size-6" />
 							{/if}
 						</div>
-						<p class="flex items-center gap-2">
-							{d.name}
+						<div class="flex items-center gap-2">
+							<p>{d.name}</p>
 							{#if requiresUserAttention}
 								<span
 									use:tooltip={{
@@ -295,8 +290,13 @@
 								>
 									<CircleFadingArrowUp class="text-primary size-4" />
 								</span>
+							{:else if d.connected}
+								<div class="badge badge-xs badge-secondary gap-1">
+									<span class="status status-primary"></span>
+									Connected
+								</div>
 							{/if}
-						</p>
+						</div>
 					</div>
 					<p class="text-xs text-muted-content min-h-8 mt-2">
 						{stripMarkdownToText(d.data.manifest.description ?? '')}
@@ -327,107 +327,64 @@
 
 <ConnectToServer
 	bind:this={connectToServerDialog}
-	userConfiguredServers={mcpServersAndEntries.current.userConfiguredServers}
 	catalogID={catalog?.id}
 	workspaceID={entity === 'workspace' ? id : undefined}
 	onConnect={handleConnectToServer}
 />
 
-<ResponsiveDialog
-	class="bg-base-200 dark:bg-base-100"
+<McpSelectServerDeployment
 	bind:this={selectServerDialog}
-	title="Select Your Server"
->
-	<Table
-		data={selectedConfiguredServers || []}
-		fields={['name', 'created']}
-		onClickRow={async (d) => {
-			selectServerDialog?.close();
-			switch (selectServerMode) {
-				case 'server-details': {
-					goto(
-						resolve(
-							isMultiUserServer(d)
-								? `/mcp-servers/s/${d.id}`
-								: `/mcp-servers/c/${d.catalogEntryID}/instance/${d.id}`
-						)
-					);
-					break;
-				}
-				case 'rename': {
-					editExistingDialog?.rename({
-						server: d,
-						entry: d.catalogEntryID ? entriesMap.get(d.catalogEntryID) : undefined
-					});
-					break;
-				}
-				case 'edit': {
-					editExistingDialog?.edit({
-						server: d,
-						entry: d.catalogEntryID ? entriesMap.get(d.catalogEntryID) : undefined
-					});
-					break;
-				}
-				case 'disconnect': {
-					await disconnectCurrentUser(d);
-					await mcpServersAndEntries.refreshAll();
-					break;
-				}
-				case 'restart': {
-					await restartServer(d);
-					await mcpServersAndEntries.refreshAll();
-					break;
-				}
-				case 'reauthenticate': {
-					await reauthenticateServer(d);
-					break;
-				}
-				default:
-					connectToServerDialog?.open({
-						entry: selectedEntry,
-						server: d,
-						instance: isMultiUserServer(d) ? instancesMap.get(d.id) : undefined
-					});
-					break;
+	onSelectServer={async (d) => {
+		selectServerDialog?.close();
+		switch (selectServerMode) {
+			case 'server-details': {
+				goto(
+					resolve(
+						isMultiUserServer(d)
+							? `/mcp-servers/s/${d.id}`
+							: `/mcp-servers/c/${d.catalogEntryID}/instance/${d.id}`
+					)
+				);
+				break;
 			}
-		}}
-		disablePortal
-	>
-		{#snippet onRenderColumn(property, d)}
-			{#if property === 'name'}
-				<div class="flex shrink-0 items-center gap-2">
-					<div class="icon">
-						{#if d.manifest.icon}
-							<img src={d.manifest.icon} alt={d.manifest.name} class="size-6" />
-						{:else}
-							<Server class="size-6" />
-						{/if}
-					</div>
-					<p class="flex items-center gap-2">
-						{getMCPDisplayName(d)}
-						{#if requiresUserUpdate(d)}
-							<span
-								use:tooltip={{
-									classes: ['border-primary', 'bg-primary/10', 'dark:bg-primary/50'],
-									text: 'Configuration requires your attention'
-								}}
-							>
-								<CircleFadingArrowUp class="text-primary size-4" />
-							</span>
-						{/if}
-					</p>
-				</div>
-			{:else if property === 'created'}
-				{formatTimeAgo(d.created).relativeTime}
-			{/if}
-		{/snippet}
-		{#snippet actions()}
-			<IconButton class="hover:dark:bg-base-100/50">
-				<StepForward class="size-4" />
-			</IconButton>
-		{/snippet}
-	</Table>
-</ResponsiveDialog>
+			case 'rename': {
+				editExistingDialog?.rename({
+					server: d,
+					entry: d.catalogEntryID ? entriesMap.get(d.catalogEntryID) : undefined
+				});
+				break;
+			}
+			case 'edit': {
+				editExistingDialog?.edit({
+					server: d,
+					entry: d.catalogEntryID ? entriesMap.get(d.catalogEntryID) : undefined
+				});
+				break;
+			}
+			case 'disconnect': {
+				await disconnectCurrentUser(d);
+				await mcpServersAndEntries.refreshAll();
+				break;
+			}
+			case 'restart': {
+				await restartServer(d);
+				await mcpServersAndEntries.refreshAll();
+				break;
+			}
+			case 'reauthenticate': {
+				await reauthenticateServer(d);
+				break;
+			}
+			default:
+				connectToServerDialog?.open({
+					entry: selectedEntry,
+					server: d,
+					instance: isMultiUserServer(d) ? instancesMap.get(d.id) : undefined
+				});
+				break;
+		}
+	}}
+/>
 
 <EditExistingDeployment
 	bind:this={editExistingDialog}
@@ -435,5 +392,3 @@
 		mcpServersAndEntries.refreshUserConfiguredServers();
 	}}
 />
-
-<DebugOauthDialog bind:this={debugOauthDialog} />
