@@ -10,6 +10,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 func TestValidateServerManifestForCatalog_MultiUserConfig(t *testing.T) {
@@ -2109,6 +2110,116 @@ func TestValidateMCPResourceRequirements(t *testing.T) {
 			require.Contains(t, validationErr.Message, tt.messagePart)
 		})
 	}
+}
+
+func TestValidateMCPResourceMaximums(t *testing.T) {
+	maxCPURequest := resource.MustParse("100m")
+	options := Options{
+		ResourceMaximums: mcp.ResourceMaximums{
+			CPURequest: &maxCPURequest,
+		},
+	}
+
+	t.Run("server manifest rejects resources above maximum", func(t *testing.T) {
+		err := ValidateServerManifest(t.Context(), types.MCPServerManifest{
+			Runtime:   types.RuntimeNPX,
+			NPXConfig: &types.NPXRuntimeConfig{Package: "test-package"},
+			Resources: &types.MCPResourceRequirements{
+				Requests: types.MCPResourceRequests{
+					CPU: "250m",
+				},
+			},
+		}, false, options)
+		require.ErrorContains(t, err, "resources.requests.cpu 250m exceeds configured maximum 100m")
+	})
+
+	t.Run("server manifest accepts resources below maximum", func(t *testing.T) {
+		err := ValidateServerManifest(t.Context(), types.MCPServerManifest{
+			Runtime:   types.RuntimeNPX,
+			NPXConfig: &types.NPXRuntimeConfig{Package: "test-package"},
+			Resources: &types.MCPResourceRequirements{
+				Requests: types.MCPResourceRequests{
+					CPU: "50m",
+				},
+			},
+		}, false, options)
+		require.NoError(t, err)
+	})
+
+	t.Run("server manifest skips empty maximums", func(t *testing.T) {
+		err := ValidateServerManifest(t.Context(), types.MCPServerManifest{
+			Runtime:   types.RuntimeNPX,
+			NPXConfig: &types.NPXRuntimeConfig{Package: "test-package"},
+			Resources: &types.MCPResourceRequirements{
+				Requests: types.MCPResourceRequests{
+					CPU: "250m",
+				},
+			},
+		}, false, Options{})
+		require.NoError(t, err)
+	})
+
+	t.Run("catalog manifest rejects resources above maximum", func(t *testing.T) {
+		err := ValidateCatalogEntryManifest(t.Context(), types.MCPServerCatalogEntryManifest{
+			ServerUserType: types.ServerUserTypeSingleUser,
+			Runtime:        types.RuntimeUVX,
+			UVXConfig:      &types.UVXRuntimeConfig{Package: "test-package"},
+			Resources: &types.MCPResourceRequirements{
+				Requests: types.MCPResourceRequests{
+					CPU: "250m",
+				},
+			},
+		}, false, options)
+		require.ErrorContains(t, err, "resources.requests.cpu 250m exceeds configured maximum 100m")
+	})
+
+	t.Run("composite server manifest rejects component resources above maximum", func(t *testing.T) {
+		err := ValidateServerManifest(t.Context(), types.MCPServerManifest{
+			Runtime: types.RuntimeComposite,
+			CompositeConfig: &types.CompositeRuntimeConfig{
+				ComponentServers: []types.ComponentServer{
+					{
+						CatalogEntryID: "component",
+						Manifest: types.MCPServerManifest{
+							Runtime:   types.RuntimeNPX,
+							NPXConfig: &types.NPXRuntimeConfig{Package: "test-package"},
+							Resources: &types.MCPResourceRequirements{
+								Requests: types.MCPResourceRequests{
+									CPU: "250m",
+								},
+							},
+						},
+					},
+				},
+			},
+		}, false, options)
+		require.ErrorContains(t, err, "resources.requests.cpu 250m exceeds configured maximum 100m")
+	})
+
+	t.Run("composite catalog manifest rejects component resources above maximum", func(t *testing.T) {
+		err := ValidateCatalogEntryManifest(t.Context(), types.MCPServerCatalogEntryManifest{
+			ServerUserType: types.ServerUserTypeSingleUser,
+			Runtime:        types.RuntimeComposite,
+			CompositeConfig: &types.CompositeCatalogConfig{
+				ComponentServers: []types.CatalogComponentServer{
+					{
+						CatalogEntryID: "component",
+						Manifest: types.MCPServerCatalogEntryManifest{
+							ServerUserType: types.ServerUserTypeSingleUser,
+							Runtime:        types.RuntimeNPX,
+							NPXConfig:      &types.NPXRuntimeConfig{Package: "test-package"},
+							Resources: &types.MCPResourceRequirements{
+								Requests: types.MCPResourceRequests{
+									CPU: "250m",
+								},
+							},
+						},
+					},
+				},
+			},
+		}, false, options)
+		require.ErrorContains(t, err, "resources.requests.cpu 250m exceeds configured maximum 100m")
+	})
 }
 
 func TestValidateSecretBindings(t *testing.T) {

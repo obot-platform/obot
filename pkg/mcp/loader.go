@@ -46,6 +46,10 @@ type Options struct {
 	MCPK8sSettingsRuntimeClassName      string `usage:"RuntimeClass name for MCP server pods (e.g., gvisor, kata)"`
 	MCPK8sSettingsStorageClassName      string `usage:"StorageClass name for nanobot workspace volumes"`
 	MCPK8sSettingsNanobotWorkspaceSize  string `usage:"Nanobot workspace size for MCP server pods (e.g., 1Gi)"`
+	MCPK8sMaxCPURequest                 string `usage:"Maximum CPU request allowed for normal MCP server pods"`
+	MCPK8sMaxCPULimit                   string `usage:"Maximum CPU limit allowed for normal MCP server pods"`
+	MCPK8sMaxMemoryRequest              string `usage:"Maximum memory request allowed for normal MCP server pods"`
+	MCPK8sMaxMemoryLimit                string `usage:"Maximum memory limit allowed for normal MCP server pods"`
 
 	// Obot service configuration for constructing internal service FQDN
 	ServiceName      string `usage:"The Kubernetes service name for the obot server"`
@@ -79,6 +83,7 @@ type SessionManager struct {
 	tokenService              TokenService
 	baseURL                   string
 	remoteURLValidationConfig RemoteMCPURLValidationConfig
+	resourceMaximums          ResourceMaximums
 
 	webhookHelper *WebhookHelper
 }
@@ -105,6 +110,10 @@ const streamableHTTPHealthcheckBody string = `{
 
 func NewSessionManager(ctx context.Context, authEnabled bool, tokenService TokenService, baseURL string, httpListenPort int, opts Options, webhookHelper *WebhookHelper, localK8sConfig *rest.Config, client, cachedClient, obotStorageClient kclient.WithWatch) (*SessionManager, error) {
 	var backend backend
+	resourceMaximums, err := ParseResourceMaximums(opts)
+	if err != nil {
+		return nil, err
+	}
 
 	switch opts.MCPRuntimeBackend {
 	case runtimeBackendDocker:
@@ -147,17 +156,18 @@ func NewSessionManager(ctx context.Context, authEnabled bool, tokenService Token
 			return nil, err
 		}
 
-		backend = newKubernetesBackend(authEnabled, clientset, client, cachedClient, obotStorageClient, opts)
+		backend = newKubernetesBackend(authEnabled, clientset, client, cachedClient, obotStorageClient, opts, resourceMaximums)
 	default:
 		return nil, fmt.Errorf("unknown runtime backend: %s", opts.MCPRuntimeBackend)
 	}
 
 	return &SessionManager{
-		webhookHelper:  webhookHelper,
-		tokenService:   tokenService,
-		backend:        backend,
-		runtimeBackend: opts.MCPRuntimeBackend,
-		baseURL:        baseURL,
+		webhookHelper:    webhookHelper,
+		tokenService:     tokenService,
+		backend:          backend,
+		runtimeBackend:   opts.MCPRuntimeBackend,
+		baseURL:          baseURL,
+		resourceMaximums: resourceMaximums,
 		remoteURLValidationConfig: RemoteMCPURLValidationConfig{
 			AllowLocalhostMCP: !opts.DisallowLocalhostMCP,
 			AllowPrivateIPMCP: !opts.DisallowPrivateIPMCP,
@@ -172,6 +182,20 @@ func (sm *SessionManager) MCPRuntimeBackend() string {
 
 func (sm *SessionManager) RemoteMCPURLValidationConfig() RemoteMCPURLValidationConfig {
 	return sm.remoteURLValidationConfig
+}
+
+func (sm *SessionManager) ResourceMaximums() ResourceMaximums {
+	if sm == nil {
+		return ResourceMaximums{}
+	}
+	return sm.resourceMaximums
+}
+
+func (sm *SessionManager) KubernetesResourceMaximums() ResourceMaximums {
+	if sm == nil || !IsKubernetesBackend(sm.runtimeBackend) {
+		return ResourceMaximums{}
+	}
+	return sm.resourceMaximums
 }
 
 func (sm *SessionManager) TransformObotHostname(hostname string) string {

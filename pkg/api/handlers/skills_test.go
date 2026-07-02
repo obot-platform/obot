@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -399,6 +400,30 @@ func newFakeStorage(t *testing.T, objects ...kclient.Object) kclient.WithWatch {
 	builder := fake.NewClientBuilder().
 		WithScheme(storagescheme.Scheme).
 		WithObjects(objects...).
+		WithIndex(&v1.MCPServer{}, "spec.userID", func(obj kclient.Object) []string {
+			return []string{obj.(*v1.MCPServer).Spec.UserID}
+		}).
+		WithIndex(&v1.MCPServer{}, "spec.mcpServerCatalogEntryName", func(obj kclient.Object) []string {
+			return []string{obj.(*v1.MCPServer).Spec.MCPServerCatalogEntryName}
+		}).
+		WithIndex(&v1.MCPServer{}, "spec.template", func(obj kclient.Object) []string {
+			return []string{strconv.FormatBool(obj.(*v1.MCPServer).Spec.Template)}
+		}).
+		WithIndex(&v1.MCPServer{}, "spec.compositeName", func(obj kclient.Object) []string {
+			return []string{obj.(*v1.MCPServer).Spec.CompositeName}
+		}).
+		WithIndex(&v1.MCPServerInstance{}, "spec.userID", func(obj kclient.Object) []string {
+			return []string{obj.(*v1.MCPServerInstance).Spec.UserID}
+		}).
+		WithIndex(&v1.MCPServerInstance{}, "spec.mcpServerName", func(obj kclient.Object) []string {
+			return []string{obj.(*v1.MCPServerInstance).Spec.MCPServerName}
+		}).
+		WithIndex(&v1.MCPServerInstance{}, "spec.template", func(obj kclient.Object) []string {
+			return []string{strconv.FormatBool(obj.(*v1.MCPServerInstance).Spec.Template)}
+		}).
+		WithIndex(&v1.MCPServerInstance{}, "spec.compositeName", func(obj kclient.Object) []string {
+			return []string{obj.(*v1.MCPServerInstance).Spec.CompositeName}
+		}).
 		WithIndex(&v1.Skill{}, "spec.repoID", func(obj kclient.Object) []string {
 			skill := obj.(*v1.Skill)
 			if skill.Spec.RepoID == "" {

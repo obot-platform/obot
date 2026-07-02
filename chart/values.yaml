@@ -380,6 +380,20 @@ mcpServerDefaults:
   # mcpServerDefaults.nanobotWorkspaceSize -- Size for nanobot workspace volumes (e.g., 1Gi)
   nanobotWorkspaceSize: ""
 
+  # mcpServerDefaults.maxCPURequest -- Maximum CPU request allowed for MCP server pods
+  # Also caps the built-in default CPU request when no explicit default is configured.
+  maxCPURequest: ""
+
+  # mcpServerDefaults.maxCPULimit -- Maximum CPU limit allowed for MCP server pods
+  maxCPULimit: ""
+
+  # mcpServerDefaults.maxMemoryRequest -- Maximum memory request allowed for MCP server pods
+  # Also caps the built-in default memory request when no explicit default is configured.
+  maxMemoryRequest: ""
+
+  # mcpServerDefaults.maxMemoryLimit -- Maximum memory limit allowed for MCP server pods
+  maxMemoryLimit: ""
+
 # nodeSelector -- Configure node selector for pod assignment
 nodeSelector: {}
 

@@ -218,6 +218,8 @@ Values use standard Kubernetes resource quantity syntax, such as `250m`, `1`, `5
 
 When omitted, Obot uses the configured MCP server resource defaults. When specified, catalog entry resource values override the corresponding default request or limit for servers created from that catalog entry.
 
+If the Kubernetes runtime has MCP resource maximums configured, catalog entry resource values must be less than or equal to those maximums when the entry is created, updated, or refreshed from Git. If a previously-created MCP server already exceeds the current maximums, users can still connect to it, but configuration changes to that server must lower the resources below the maximums.
+
 ### Kubernetes Secret Bindings
 
 Secret bindings let you wire an env var, header, or file to a key in an externally-managed Kubernetes Secret instead of asking the user to supply the value at install time.

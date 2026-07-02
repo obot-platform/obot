@@ -143,6 +143,7 @@ type RuntimeValidators map[types.Runtime]RuntimeValidator
 // Options configures runtime validation behavior.
 type Options struct {
 	RemoteMCPURLValidationConfig mcp.RemoteMCPURLValidationConfig
+	ResourceMaximums             mcp.ResourceMaximums
 }
 
 // UVXValidator implements RuntimeValidator for UVX runtime
@@ -1001,7 +1002,7 @@ func getRuntimeValidators(options Options) RuntimeValidators {
 		types.RuntimeUVX:           UVXValidator{},
 		types.RuntimeNPX:           NPXValidator{},
 		types.RuntimeContainerized: ContainerizedValidator{},
-		types.RuntimeRemote:        RemoteValidator(options),
+		types.RuntimeRemote:        RemoteValidator{RemoteMCPURLValidationConfig: options.RemoteMCPURLValidationConfig},
 		types.RuntimeComposite:     CompositeValidator{},
 	}
 }
@@ -1068,8 +1069,57 @@ func validateMCPResourceRequirements(runtime types.Runtime, resources *types.MCP
 	return nil
 }
 
+func validateMCPResourceMaximums(resources *types.MCPResourceRequirements, maximums mcp.ResourceMaximums) error {
+	if maximums.Empty() || resources == nil {
+		return nil
+	}
+
+	coreResources, err := mcp.CoreResourceRequirements(resources)
+	if err != nil {
+		return err
+	}
+	if coreResources == nil {
+		return nil
+	}
+
+	return maximums.Validate(*coreResources)
+}
+
+// validateCompositeServerResourceMaximums validates the resource maximums for a composite server.
+// No-op if the server is not a composite server.
+func validateCompositeServerResourceMaximums(manifest types.MCPServerManifest, maximums mcp.ResourceMaximums) error {
+	if maximums.Empty() || manifest.CompositeConfig == nil {
+		return nil
+	}
+
+	for _, component := range manifest.CompositeConfig.ComponentServers {
+		if err := validateMCPResourceMaximums(component.Manifest.Resources, maximums); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// validateCompositeCatalogEntryResourceMaximums validates the resource maximums for a composite catalog entry.
+// No-op if the catalog entry is not a composite entry.
+func validateCompositeCatalogEntryResourceMaximums(manifest types.MCPServerCatalogEntryManifest, maximums mcp.ResourceMaximums) error {
+	if maximums.Empty() || manifest.CompositeConfig == nil {
+		return nil
+	}
+
+	for _, component := range manifest.CompositeConfig.ComponentServers {
+		if err := validateMCPResourceMaximums(component.Manifest.Resources, maximums); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func ValidateServerManifest(ctx context.Context, manifest types.MCPServerManifest, isMultiUser bool, options Options) error {
 	if err := validateMCPResourceRequirements(manifest.Runtime, manifest.Resources); err != nil {
+		return err
+	}
+	if err := validateMCPResourceMaximums(manifest.Resources, options.ResourceMaximums); err != nil {
 		return err
 	}
 
@@ -1081,6 +1131,10 @@ func ValidateServerManifest(ctx context.Context, manifest types.MCPServerManifes
 		}
 	}
 	if err := validateRuntimeStartupTimeout(manifest.Runtime, manifest.RuntimeStartupTimeoutSeconds()); err != nil {
+		return err
+	}
+
+	if err := validateCompositeServerResourceMaximums(manifest, options.ResourceMaximums); err != nil {
 		return err
 	}
 
@@ -1139,8 +1193,15 @@ func ValidateCatalogEntryManifest(ctx context.Context, manifest types.MCPServerC
 	if err := validateMCPResourceRequirements(manifest.Runtime, manifest.Resources); err != nil {
 		return err
 	}
+	if err := validateMCPResourceMaximums(manifest.Resources, options.ResourceMaximums); err != nil {
+		return err
+	}
 
 	if err := validateRuntimeStartupTimeout(manifest.Runtime, manifest.RuntimeStartupTimeoutSeconds()); err != nil {
+		return err
+	}
+
+	if err := validateCompositeCatalogEntryResourceMaximums(manifest, options.ResourceMaximums); err != nil {
 		return err
 	}
 

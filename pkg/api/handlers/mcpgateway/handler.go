@@ -105,7 +105,7 @@ func (h *Handler) ensureServerIsDeployed(req api.Context) (mcp.ServerConfig, str
 	}
 
 	connectID := mcpID
-	mcpID, mcpServer, mcpServerConfig, missingConfig, err := handlers.ServerForActionWithConnectIDAllowMissingConfig(req, mcpID, h.secretBindingAllowedLabel)
+	mcpID, mcpServer, mcpServerConfig, missingConfig, err := handlers.ServerForActionWithConnectIDAllowMissingConfig(req, mcpID, h.secretBindingAllowedLabel, handlers.ValidationOptionsWithResourceMaximums(h.mcpSessionManager))
 	if err != nil {
 		return mcp.ServerConfig{}, "", false, fmt.Errorf("failed to get mcp server config: %w", err)
 	}
