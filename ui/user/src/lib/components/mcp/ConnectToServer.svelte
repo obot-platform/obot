@@ -20,9 +20,11 @@
 		getMCPDisplayName,
 		hasSecretBinding
 	} from '$lib/services/user/mcp';
-	import { errors, mcpServersAndEntries, version } from '$lib/stores';
+	import { errors, mcpServersAndEntries, profile, version } from '$lib/stores';
+	import { goto } from '$lib/url';
 	import Confirm from '../Confirm.svelte';
 	import CopyField from '../CopyField.svelte';
+	import DotDotDot from '../DotDotDot.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
 	import CatalogConfigureForm, {
@@ -116,6 +118,10 @@
 	let shouldShowAlias = $derived(
 		isDeployingMultiUserCatalogEntry ||
 			(isConfigured && !isMultiUserServer(server) && launchState !== 'relaunching')
+	);
+
+	let canModifyCatalogEntry = $derived(
+		profile.current.isAdmin?.() || (entry && entry.powerUserID === profile.current.id)
 	);
 
 	async function loadSecretBindingTargets() {
@@ -1008,6 +1014,15 @@
 			.replace(/[^a-z0-9-_]/g, '');
 	}
 
+	function isEditableCatalogEntry(entry?: MCPCatalogEntry) {
+		return Boolean(
+			entry &&
+			'isCatalogEntry' in entry &&
+			hasEditableConfiguration(entry) &&
+			!launchMissingSecretBinding
+		);
+	}
+
 	onMount(() => {
 		ensureOauthVisibilityListener();
 		return () => {
@@ -1114,10 +1129,30 @@
 	{#snippet loadingContent()}
 		<div in:fade class="h-full w-full flex items-center justify-center">
 			{#if launchError}
-				<div class="flex flex-col gap-1 mb-4 w-full h-full" in:fade>
-					<div class="notification-error flex items-center gap-2">
-						<CircleAlert class="size-6 text-error" />
-						<h4 class="text-md font-medium">MCP Server Launch Failed</h4>
+				<div class="flex flex-col gap-2 w-full h-full" in:fade>
+					<div class="notification-error">
+						<div class="flex items-center gap-2">
+							<CircleAlert class="size-5 text-error" />
+							<h4 class="text-md font-medium">MCP Server Launch Failed</h4>
+						</div>
+
+						<div class="text-xs mt-2">
+							There was an issue launching the MCP server. Launch logs, if available, will be
+							provided below.
+
+							<ul class="list-disc px-4 py-1 space-y-1">
+								{#if isEditableCatalogEntry(entry)}
+									<li>Verify your configurations provided at launch are correct and try again.</li>
+								{/if}
+								{#if canModifyCatalogEntry}
+									<li>
+										Verify your catalog entry configurations consist of all necessary information to
+										properly configure the server.
+									</li>
+								{/if}
+								<li>If the issue persists, please contact support.</li>
+							</ul>
+						</div>
 					</div>
 					{#if launchLogs.length > 0}
 						<div
@@ -1132,29 +1167,72 @@
 					{:else}
 						<p class="text-sm self-start">An issue occurred while launching the MCP server.</p>
 					{/if}
-
-					<div class="flex w-full flex-col items-center gap-2 md:flex-row mt-2">
-						{#if entry && hasEditableConfiguration(entry) && !launchMissingSecretBinding}
+					{#if canModifyCatalogEntry}
+						<div class="flex w-full items-center gap-0.5">
 							<button
-								class="btn btn-primary w-full md:w-1/2 md:flex-1"
-								onclick={() => {
-									launchState = 'relaunching';
-									launchError = undefined;
-									launchProgress = 0;
-									launchLogs = [];
-									saving = false;
-								}}
+								onclick={handleCancelLaunch}
+								class="flex grow items-center justify-center btn btn-secondary rounded-r-none!"
 							>
-								Update Configuration and Try Again
+								Cancel and Delete Server
 							</button>
-						{/if}
-						<button
-							class="btn btn-secondary w-full md:w-1/2 md:flex-1"
-							onclick={handleCancelLaunch}
-						>
-							Cancel and Delete Server
-						</button>
-					</div>
+							<DotDotDot
+								class="btn btn-secondary btn-block w-14 rounded-l-none! p-0!"
+								disablePortal
+							>
+								{#snippet children({ toggle })}
+									<button
+										class="menu-button"
+										onclick={() => {
+											launchState = 'relaunching';
+											launchError = undefined;
+											launchProgress = 0;
+											launchLogs = [];
+											saving = false;
+											toggle(false);
+										}}
+									>
+										Update Configuration and Try Again
+									</button>
+									<button
+										class="menu-button"
+										onclick={async () => {
+											await deleteCatalogEntryServer();
+											const url = profile.current.isAdmin?.()
+												? `/admin/mcp-catalog/c/${entry?.id}`
+												: `/mcp-catalog/c/${entry?.id}`;
+											goto(url);
+											toggle(false);
+										}}
+									>
+										Go to Catalog Entry
+									</button>
+								{/snippet}
+							</DotDotDot>
+						</div>
+					{:else}
+						<div class="flex w-full flex-col items-center gap-2 md:flex-row mt-2">
+							{#if isEditableCatalogEntry(entry)}
+								<button
+									class="btn btn-primary w-full md:w-1/2 md:flex-1"
+									onclick={() => {
+										launchState = 'relaunching';
+										launchError = undefined;
+										launchProgress = 0;
+										launchLogs = [];
+										saving = false;
+									}}
+								>
+									Update Configuration and Try Again
+								</button>
+							{/if}
+							<button
+								class="btn btn-secondary w-full md:w-1/2 md:flex-1"
+								onclick={handleCancelLaunch}
+							>
+								Cancel and Delete Server
+							</button>
+						</div>
+					{/if}
 				</div>
 			{:else}
 				<div class="flex flex-col gap-1 mb-4">
