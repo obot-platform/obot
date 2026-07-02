@@ -1594,7 +1594,7 @@ func (h *MCPCatalogHandler) populateComponentManifests(req api.Context, manifest
 
 			// Verify the server belongs to the same catalog
 			if catalogName != "" && server.Spec.MCPCatalogID != catalogName {
-				return types.NewErrBadRequest("multi-user server %q not found in catalog %q", component.MCPServerID, catalogName)
+				return types.NewErrBadRequest("multi-user server %s belongs to catalog %s, not %s", component.MCPServerID, server.Spec.MCPCatalogID, catalogName)
 			}
 
 			// Populate the manifest snapshot from the multi-user server

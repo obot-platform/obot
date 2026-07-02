@@ -244,7 +244,7 @@ func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, c client.Clien
 					errs = append(errs, fmt.Errorf("server %q is not a multi-user server", component.MCPServerID))
 					continue
 				}
-				if server.Spec.MCPCatalogID != "" && catalogName != "" && server.Spec.MCPCatalogID != catalogName {
+				if catalogName != "" && server.Spec.MCPCatalogID != catalogName {
 					errs = append(errs, fmt.Errorf("multi-user server %q not found in catalog %q", component.MCPServerID, catalogName))
 					continue
 				}

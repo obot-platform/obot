@@ -226,6 +226,34 @@ func TestResolveCompositeSourceRefsHydratesMultiUserServerIDComponents(t *testin
 	assert.NotNil(t, component.Manifest.MultiUserConfig)
 }
 
+func TestResolveCompositeSourceRefsRejectsMultiUserServerOutsideCatalog(t *testing.T) {
+	server := testMCPServer("shared-server", "default", types.MCPServerManifest{
+		Name:            "Shared Server",
+		Runtime:         types.RuntimeContainerized,
+		MultiUserConfig: &types.MultiUserConfig{},
+		ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+			Image: "example/shared:1.0.0",
+			Port:  8080,
+			Path:  "/mcp",
+		},
+	})
+	server.Spec.PowerUserWorkspaceID = "workspace-1"
+	composite := testCatalogEntry("composite", "source", "composite.yaml", types.MCPServerCatalogEntryManifest{
+		Name:           "Composite",
+		Runtime:        types.RuntimeComposite,
+		ServerUserType: types.ServerUserTypeSingleUser,
+		CompositeConfig: &types.CompositeCatalogConfig{ComponentServers: []types.CatalogComponentServer{
+			{MCPServerID: "shared-server"},
+		}},
+	})
+	c := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(server).Build()
+
+	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(t.Context(), c, "default", "default", []client.Object{composite})
+
+	assert.Empty(t, result)
+	assert.Contains(t, errsBySourceURL["source"], `multi-user server "shared-server" not found in catalog "default"`)
+}
+
 func TestReadMCPCatalogResolvesCompositeSourceRefsAcrossSources(t *testing.T) {
 	first := t.TempDir()
 	assert.NoError(t, os.WriteFile(filepath.Join(first, "target.yaml"), []byte(`entryKey: tool
