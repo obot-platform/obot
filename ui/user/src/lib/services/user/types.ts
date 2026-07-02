@@ -146,9 +146,9 @@ export type LocalAgentToolCallAuditLogFields = {
 	gitBranch?: string;
 	gitCommitSHA?: string;
 	transcriptPath?: string;
-	toolInput?: unknown;
-	toolOutput?: unknown;
-	rawHookPayload?: unknown;
+	toolInput: unknown;
+	toolOutput: unknown;
+	rawHookPayload: unknown;
 };
 export type MCPAuditLogFields = {
 	apiKey?: string;

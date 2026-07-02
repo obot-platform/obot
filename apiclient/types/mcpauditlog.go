@@ -75,7 +75,9 @@ type MCPAuditLogFields struct {
 	ResponseHeaders           json.RawMessage `json:"responseHeaders,omitempty"`
 }
 
-type LocalAgentToolCallAuditLogFields struct {
+// LocalAgentToolCallAuditLogManifest contains the client-reported fields common to request and response
+// local agent tool call audit logs.
+type LocalAgentToolCallAuditLogManifest struct {
 	AgentProvider LocalAgentProvider `json:"agentProvider"`
 	AgentVersion  string             `json:"agentVersion,omitempty"`
 	CLIName       string             `json:"cliName,omitempty"`
@@ -104,13 +106,12 @@ type LocalAgentToolCallAuditLogFields struct {
 	ModelID        string `json:"modelID,omitempty"`
 	PermissionMode string `json:"permissionMode,omitempty"`
 
-	DeviceID          string                   `json:"deviceID,omitempty"`
-	Hostname          string                   `json:"hostname,omitempty"`
-	OS                string                   `json:"os,omitempty"`
-	Arch              string                   `json:"arch,omitempty"`
-	LocalUsername     string                   `json:"localUsername,omitempty"`
-	ReportedUserEmail string                   `json:"reportedUserEmail,omitempty"`
-	IdentityStatus    LocalAgentIdentityStatus `json:"identityStatus"`
+	DeviceID          string `json:"deviceID,omitempty"`
+	Hostname          string `json:"hostname,omitempty"`
+	OS                string `json:"os,omitempty"`
+	Arch              string `json:"arch,omitempty"`
+	LocalUsername     string `json:"localUsername,omitempty"`
+	ReportedUserEmail string `json:"reportedUserEmail,omitempty"`
 
 	CWD           string   `json:"cwd,omitempty"`
 	GitRepoRoot   string   `json:"gitRepoRoot,omitempty"`
@@ -120,9 +121,18 @@ type LocalAgentToolCallAuditLogFields struct {
 
 	TranscriptPath string `json:"transcriptPath,omitempty"`
 
-	ToolInput      json.RawMessage `json:"toolInput,omitempty"`
-	ToolOutput     json.RawMessage `json:"toolOutput,omitempty"`
-	RawHookPayload json.RawMessage `json:"rawHookPayload,omitempty"`
+	ToolInput      json.RawMessage `json:"toolInput"`
+	ToolOutput     json.RawMessage `json:"toolOutput"`
+	RawHookPayload json.RawMessage `json:"rawHookPayload"`
+}
+
+type LocalAgentToolCallAuditLogFields struct {
+	LocalAgentToolCallAuditLogManifest `json:",inline"`
+	IdentityStatus                     LocalAgentIdentityStatus `json:"identityStatus"`
+}
+
+type LocalAgentToolCallAuditLogSubmitRequest struct {
+	Logs []LocalAgentToolCallAuditLogManifest `json:"logs"`
 }
 
 type MCPAuditLogResponse struct {

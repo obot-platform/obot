@@ -227,6 +227,7 @@ var (
 		},
 
 		types.GroupAPI: {
+			"POST /api/local-agent-audit-logs",
 			"GET /api/models",
 			"GET /api/model-providers",
 			"GET /api/users",
