@@ -97,7 +97,6 @@
 	);
 
 	let showIntroDialog = $state(false);
-	let showDeprecatedConnectDialog = $state(false);
 
 	let connectDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let configDialog = $state<ReturnType<typeof CatalogConfigureForm>>();
@@ -174,11 +173,6 @@
 		if (onConnect && !skipOnConnect) {
 			onConnect({ server, entry, instance });
 		}
-	}
-
-	function handleDeprecatedConnectContinue() {
-		showDeprecatedConnectDialog = false;
-		handleConnect();
 	}
 
 	export async function authenticate(item: MCPCatalogServer, parentEntry?: MCPCatalogEntry) {
@@ -991,7 +985,6 @@
 		entry = initEntry;
 		instance = initInstance;
 		configureInstance = initConfigureInstance ?? false;
-		const isDeprecated = isDeprecatedMCPServer(initEntry) || isDeprecatedMCPServer(initServer);
 
 		if (server && instance && configureInstance && hasMultiUserInstanceConfiguration(server)) {
 			initMultiUserInstanceForm(server, instance);
@@ -1001,11 +994,7 @@
 			(entry && server) ||
 			(server && instance)
 		) {
-			if (isDeprecated) {
-				showDeprecatedConnectDialog = true;
-			} else {
-				connectDialog?.open();
-			}
+			connectDialog?.open();
 		} else {
 			showIntroDialog = true;
 		}
@@ -1112,28 +1101,6 @@
 				<br />Click below to begin.
 			{/if}
 		</p>
-	{/snippet}
-</Confirm>
-
-<Confirm
-	show={showDeprecatedConnectDialog}
-	onsuccess={handleDeprecatedConnectContinue}
-	submitText="Continue"
-	type="info"
-	title="Deprecated Server"
-	oncancel={() => (showDeprecatedConnectDialog = false)}
->
-	{#snippet msgContent()}
-		<div class="flex items-center gap-2 text-lg font-semibold mb-2">
-			{@render dialogTitle(entry || server)}
-			<McpDeprecatedNotice {deprecated} />
-		</div>
-	{/snippet}
-	{#snippet note()}
-		<div class="flex flex-col gap-3">
-			<McpDeprecatedNotice {deprecated} variant="notification" />
-			<p>Continue to view the connection URL.</p>
-		</div>
 	{/snippet}
 </Confirm>
 
