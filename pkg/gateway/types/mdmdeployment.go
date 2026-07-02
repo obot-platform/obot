@@ -6,21 +6,21 @@ import (
 	"time"
 )
 
-// DeviceDeploymentPrincipalPrefix namespaces the principal identity (Name/UID)
-// of a device deployment so it never collides with user UIDs or device
+// MDMDeploymentPrincipalPrefix namespaces the principal identity (Name/UID)
+// of a MDM deployment so it never collides with user UIDs or device
 // principals. An enrollment credential authenticates as its deployment.
-const DeviceDeploymentPrincipalPrefix = "device-deployment"
+const MDMDeploymentPrincipalPrefix = "mdm-deployment"
 
-// DeviceDeploymentPrincipalName returns the stable principal identity for a
-// deployment, e.g. "device-deployment:12".
-func DeviceDeploymentPrincipalName(id uint) string {
-	return fmt.Sprintf("%s:%d", DeviceDeploymentPrincipalPrefix, id)
+// MDMDeploymentPrincipalName returns the stable principal identity for a
+// deployment, e.g. "mdm-deployment:12".
+func MDMDeploymentPrincipalName(id uint) string {
+	return fmt.Sprintf("%s:%d", MDMDeploymentPrincipalPrefix, id)
 }
 
-// DeviceDeployment is a fleet grouping that devices enroll into. Enrollment is
+// MDMDeployment is a fleet grouping that devices enroll into. Enrollment is
 // authorized by one or more DeviceEnrollmentKeys attached to it; a device
 // belongs to the deployment itself, not to any particular key.
-type DeviceDeployment struct {
+type MDMDeployment struct {
 	ID          uint      `json:"id" gorm:"primaryKey;autoIncrement"`
 	Name        string    `json:"name" gorm:"not null"`
 	Description string    `json:"description,omitempty"`
@@ -37,14 +37,14 @@ type DeviceDeployment struct {
 // The credential format is: ode1-<deployment_id>-<key_id>-<secret>
 // Lookup is by key ID (scoped to the deployment), then bcrypt verifies the secret.
 type DeviceEnrollmentKey struct {
-	ID                 uint       `json:"id" gorm:"primaryKey;autoIncrement"`
-	DeviceDeploymentID uint       `json:"deviceDeploymentID" gorm:"index;not null"`
-	Name               string     `json:"name,omitempty"` // optional, admin-provided
-	HashedSecret       string     `json:"-"`              // bcrypt hash of the secret portion only
-	CreatedBy          uint       `json:"createdBy"`
-	CreatedAt          time.Time  `json:"createdAt"`
-	LastUsedAt         *time.Time `json:"lastUsedAt,omitempty"`
-	ExpiresAt          *time.Time `json:"expiresAt,omitempty"` // nil means no expiration
+	ID              uint       `json:"id" gorm:"primaryKey;autoIncrement"`
+	MDMDeploymentID uint       `json:"mdmDeploymentID" gorm:"index;not null"`
+	Name            string     `json:"name,omitempty"` // optional, admin-provided
+	HashedSecret    string     `json:"-"`              // bcrypt hash of the secret portion only
+	CreatedBy       uint       `json:"createdBy"`
+	CreatedAt       time.Time  `json:"createdAt"`
+	LastUsedAt      *time.Time `json:"lastUsedAt,omitempty"`
+	ExpiresAt       *time.Time `json:"expiresAt,omitempty"` // nil means no expiration
 }
 
 // DeviceEnrollmentKeyCreateResponse is returned when minting a key. The full

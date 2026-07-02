@@ -2091,7 +2091,7 @@ func schema_obot_platform_obot_apiclient_types_Device(ref common.ReferenceCallba
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "Device is an enrolled machine belonging to a device deployment. It is the API representation of a gateway device record (the registered public key is not exposed).",
+				Description: "Device is an enrolled machine belonging to a MDM deployment. It is the API representation of a gateway device record (the registered public key is not exposed).",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"id": {
@@ -2108,7 +2108,7 @@ func schema_obot_platform_obot_apiclient_types_Device(ref common.ReferenceCallba
 							Format:  "",
 						},
 					},
-					"deviceDeploymentID": {
+					"mdmDeploymentID": {
 						SchemaProps: spec.SchemaProps{
 							Default: 0,
 							Type:    []string{"integer"},
@@ -2144,7 +2144,7 @@ func schema_obot_platform_obot_apiclient_types_Device(ref common.ReferenceCallba
 						},
 					},
 				},
-				Required: []string{"id", "deviceID", "deviceDeploymentID", "enrolledAt"},
+				Required: []string{"id", "deviceID", "mdmDeploymentID", "enrolledAt"},
 			},
 		},
 		Dependencies: []string{
@@ -2392,7 +2392,7 @@ func schema_obot_platform_obot_apiclient_types_DeviceEnrollRequest(ref common.Re
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "DeviceEnrollRequest is the body of POST /api/devices/enroll. PublicKey is the device's identity key as base64-encoded DER (PKIX / SubjectPublicKeyInfo); the device proves possession of it by signing the access JWTs it presents when submitting scans.",
+				Description: "DeviceEnrollRequest is the body of POST /api/mdm/enroll. PublicKey is the device's identity key as DER (PKIX / SubjectPublicKeyInfo), carried as base64 in JSON; the device proves possession of it by signing the access JWTs it presents when submitting scans.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"deviceID": {
@@ -2404,9 +2404,8 @@ func schema_obot_platform_obot_apiclient_types_DeviceEnrollRequest(ref common.Re
 					},
 					"publicKey": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Type:   []string{"string"},
+							Format: "byte",
 						},
 					},
 					"hostname": {
@@ -2438,7 +2437,7 @@ func schema_obot_platform_obot_apiclient_types_DeviceEnrollResponse(ref common.R
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "DeviceEnrollResponse is returned by POST /api/devices/enroll.",
+				Description: "DeviceEnrollResponse is returned by POST /api/mdm/enroll.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"device": {

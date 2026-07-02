@@ -2,8 +2,8 @@ package handlers
 
 import (
 	"crypto/x509"
-	"encoding/base64"
 	"strconv"
+	"strings"
 
 	types "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
@@ -18,12 +18,12 @@ func NewDeviceEnrollHandler() *DeviceEnrollHandler {
 	return &DeviceEnrollHandler{}
 }
 
-// Enroll handles POST /api/devices/enroll. The caller is authenticated by an
+// Enroll handles POST /api/mdm/enroll. The caller is authenticated by an
 // enrollment credential (the DeviceEnroll principal carries the deployment id
 // in Extra). It registers the device's identity key (trust-on-first-use; a
 // different key for an existing device is rejected).
 func (*DeviceEnrollHandler) Enroll(req api.Context) error {
-	deploymentID, ok := uintFromExtra(req.User.GetExtra(), "device_deployment_id")
+	deploymentID, ok := uintFromExtra(req.User.GetExtra(), "mdm_deployment_id")
 	if !ok {
 		return types.NewErrBadRequest("enrollment requires a device enrollment credential")
 	}
@@ -31,25 +31,23 @@ func (*DeviceEnrollHandler) Enroll(req api.Context) error {
 	if err := req.Read(&in); err != nil {
 		return err
 	}
-	if in.DeviceID == "" {
+	// Validation only — the id is stored untrimmed because it must match the
+	// iss/sub the device signs into its access JWTs byte-for-byte.
+	if strings.TrimSpace(in.DeviceID) == "" {
 		return types.NewErrBadRequest("deviceID is required")
 	}
 
-	der, err := base64.StdEncoding.DecodeString(in.PublicKey)
-	if err != nil {
-		return types.NewErrBadRequest("publicKey must be base64-encoded DER: %v", err)
-	}
-	if _, err := x509.ParsePKIXPublicKey(der); err != nil {
+	if _, err := x509.ParsePKIXPublicKey(in.PublicKey); err != nil {
 		return types.NewErrBadRequest("publicKey is not a valid PKIX public key: %v", err)
 	}
 
 	device, err := req.GatewayClient.EnrollDevice(req.Context(), gateway.DeviceEnrollment{
-		DeviceID:           in.DeviceID,
-		DeviceDeploymentID: deploymentID,
-		PublicKey:          der,
-		Hostname:           in.Hostname,
-		OS:                 in.OS,
-		OSVersion:          in.OSVersion,
+		DeviceID:        in.DeviceID,
+		MDMDeploymentID: deploymentID,
+		PublicKey:       in.PublicKey,
+		Hostname:        in.Hostname,
+		OS:              in.OS,
+		OSVersion:       in.OSVersion,
 	})
 	if err != nil {
 		return types.NewErrBadRequest("%v", err)

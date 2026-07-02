@@ -10,7 +10,7 @@ import (
 // authenticating with the credential as a bearer (not the client's own token).
 // The same call re-enrolls an already-known device presenting the same key.
 func (c *Client) EnrollDevice(ctx context.Context, enrollmentCredential string, in types.DeviceEnrollRequest) (*types.DeviceEnrollResponse, error) {
-	_, resp, err := c.postJSON(ctx, "/devices/enroll", in, "Authorization", "Bearer "+enrollmentCredential)
+	_, resp, err := c.postJSON(ctx, "/mdm/enroll", in, "Authorization", "Bearer "+enrollmentCredential)
 	if err != nil {
 		return nil, err
 	}

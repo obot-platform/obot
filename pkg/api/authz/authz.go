@@ -71,8 +71,8 @@ var (
 		"/api/devices/skills/",
 		"/api/devices/clients",
 		"/api/devices/clients/",
-		"/api/device-deployments",
-		"/api/device-deployments/",
+		"/api/mdm/deployments",
+		"/api/mdm/deployments/",
 		"/api/available-models",
 		"/api/available-models/",
 		"/api/default-model-aliases",
@@ -317,7 +317,7 @@ var (
 		types.GroupDeviceEnroll: {
 			// A device enrollment token authenticates as its deployment and may
 			// only enroll a device — nothing else.
-			"POST /api/devices/enroll",
+			"POST /api/mdm/enroll",
 		},
 
 		MetricsGroup: {

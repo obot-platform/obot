@@ -11,6 +11,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gtypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/utils"
 	"gorm.io/gorm"
 )
 
@@ -45,9 +46,9 @@ func (*DeviceScansHandler) Submit(req api.Context) error {
 	}
 
 	scan := gtypes.DeviceScanFromManifest(manifest)
-	if deviceID := req.User.GetExtra()["device_id"]; len(deviceID) > 0 && deviceID[0] != "" {
+	if deviceID := utils.FirstSet(req.User.GetExtra()["device_id"]...); deviceID != "" {
 		// Device submission: no user submitter, so SubmittedBy stays empty.
-		scan.DeviceID = deviceID[0]
+		scan.DeviceID = deviceID
 	} else {
 		scan.SubmittedBy = req.User.GetUID()
 	}

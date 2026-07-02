@@ -14,12 +14,12 @@ import (
 // DeviceEnrollment is the input to enrolling (or re-enrolling) a device.
 // PublicKey is DER SubjectPublicKeyInfo (PKIX) of the device identity key.
 type DeviceEnrollment struct {
-	DeviceID           string
-	DeviceDeploymentID uint
-	PublicKey          []byte
-	Hostname           string
-	OS                 string
-	OSVersion          string
+	DeviceID        string
+	MDMDeploymentID uint
+	PublicKey       []byte
+	Hostname        string
+	OS              string
+	OSVersion       string
 }
 
 // EnrollDevice registers a device's identity key trust-on-first-use and returns
@@ -38,26 +38,29 @@ func (c *Client) EnrollDevice(ctx context.Context, in DeviceEnrollment) (*types.
 				return fmt.Errorf("device %q is already enrolled with a different identity key", in.DeviceID)
 			}
 			updates := map[string]any{
-				"device_deployment_id": in.DeviceDeploymentID,
-				"hostname":             in.Hostname,
-				"os":                   in.OS,
-				"os_version":           in.OSVersion,
+				"mdm_deployment_id": in.MDMDeploymentID,
+				"hostname":          in.Hostname,
+				"os":                in.OS,
+				"os_version":        in.OSVersion,
 			}
 			if err := tx.Model(&existing).Updates(updates).Error; err != nil {
 				return fmt.Errorf("failed to re-enroll device: %w", err)
 			}
-			existing.DeviceDeploymentID = in.DeviceDeploymentID
+			existing.MDMDeploymentID = in.MDMDeploymentID
+			existing.Hostname = in.Hostname
+			existing.OS = in.OS
+			existing.OSVersion = in.OSVersion
 			device = existing
 			return nil
 		case errors.Is(err, gorm.ErrRecordNotFound):
 			device = types.Device{
-				DeviceID:           in.DeviceID,
-				DeviceDeploymentID: in.DeviceDeploymentID,
-				PublicKey:          in.PublicKey,
-				Hostname:           in.Hostname,
-				OS:                 in.OS,
-				OSVersion:          in.OSVersion,
-				EnrolledAt:         time.Now(),
+				DeviceID:        in.DeviceID,
+				MDMDeploymentID: in.MDMDeploymentID,
+				PublicKey:       in.PublicKey,
+				Hostname:        in.Hostname,
+				OS:              in.OS,
+				OSVersion:       in.OSVersion,
+				EnrolledAt:      time.Now(),
 			}
 			if err := tx.Create(&device).Error; err != nil {
 				return fmt.Errorf("failed to enroll device: %w", err)
@@ -85,7 +88,7 @@ func (c *Client) GetDeviceByDeviceID(ctx context.Context, deviceID string) (*typ
 func (c *Client) ListDevices(ctx context.Context, deploymentID uint) ([]types.Device, error) {
 	var devices []types.Device
 	if err := c.db.WithContext(ctx).
-		Where("device_deployment_id = ?", deploymentID).
+		Where("mdm_deployment_id = ?", deploymentID).
 		Order("enrolled_at DESC").
 		Find(&devices).Error; err != nil {
 		return nil, fmt.Errorf("failed to list devices: %w", err)

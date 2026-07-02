@@ -49,27 +49,31 @@ func (a *DeviceAuthenticator) AuthenticateRequest(req *http.Request) (*authentic
 		return nil, false, nil
 	}
 
-	// Read sub + aud WITHOUT verifying, only to decide if this token is ours and
-	// to locate the device's registered key. Claim only our audience so this
-	// never shadows user/session JWTs.
-	sub, aud, err := unverifiedSubAud(tok)
-	if err != nil || sub == "" || !hasAudience(aud, deviceTokenAudience) {
-		return nil, false, nil
-	}
-
-	device, err := a.client.GetDeviceByDeviceID(req.Context(), sub)
-	if err != nil {
-		return nil, false, nil
-	}
-
-	pubKey, err := x509.ParsePKIXPublicKey(device.PublicKey)
-	if err != nil {
-		return nil, false, nil
-	}
-
-	// Verify the signature against the STORED key: this is the proof of
-	// device_id — only the holder of the registered private key can sign for it.
-	if err := verifyDeviceJWT(tok, device.DeviceID, pubKey); err != nil {
+	var device *gtypes.Device
+	parser := jwt.NewParser(
+		jwt.WithValidMethods(deviceAssertionAlgs),
+		jwt.WithAudience(deviceTokenAudience),
+		jwt.WithExpirationRequired(),
+	)
+	// The keyfunc sees the decoded (not yet verified) claims: it claims only
+	// our audience — so this never shadows user/session JWTs and foreign tokens
+	// bail before the DB lookup — then locates the device's registered key by
+	// sub. iss == sub is checked here rather than via parser options because
+	// the device id isn't known until the claims are read. Verifying the
+	// signature against the STORED key is the proof of device_id — only the
+	// holder of the registered private key can sign for it.
+	if _, err := parser.ParseWithClaims(tok, &jwt.RegisteredClaims{}, func(t *jwt.Token) (any, error) {
+		claims, ok := t.Claims.(*jwt.RegisteredClaims)
+		if !ok || !slices.Contains(claims.Audience, deviceTokenAudience) ||
+			claims.Subject == "" || claims.Issuer != claims.Subject {
+			return nil, fmt.Errorf("not a device access token")
+		}
+		var err error
+		if device, err = a.client.GetDeviceByDeviceID(req.Context(), claims.Subject); err != nil {
+			return nil, err
+		}
+		return x509.ParsePKIXPublicKey(device.PublicKey)
+	}); err != nil || device == nil {
 		return nil, false, nil
 	}
 
@@ -78,51 +82,14 @@ func (a *DeviceAuthenticator) AuthenticateRequest(req *http.Request) (*authentic
 		User: &user.DefaultInfo{
 			Name: principal,
 			UID:  principal,
-			// device-scans is the only capability — authorizes the scan
-			// endpoints and nothing else (see authz staticRules).
-			Groups: []string{types.GroupDeviceScans},
+			// device-scans is the sole capability — beyond baseline
+			// authenticated access, it authorizes only the scan endpoints
+			// (see authz staticRules).
+			Groups: []string{types.GroupDeviceScans, types.GroupAuthenticated},
 			Extra: map[string][]string{
-				"device_id":            {device.DeviceID},
-				"device_deployment_id": {fmt.Sprintf("%d", device.DeviceDeploymentID)},
+				"device_id":         {device.DeviceID},
+				"mdm_deployment_id": {fmt.Sprintf("%d", device.MDMDeploymentID)},
 			},
 		},
 	}, true, nil
-}
-
-// unverifiedSubAud reads the sub and aud of a JWT WITHOUT verifying its
-// signature, used only to route the request to this authenticator and locate
-// the device's registered key.
-func unverifiedSubAud(tok string) (sub string, aud jwt.ClaimStrings, err error) {
-	var claims jwt.RegisteredClaims
-	if _, _, err = jwt.NewParser().ParseUnverified(tok, &claims); err != nil {
-		return "", nil, err
-	}
-	return claims.Subject, claims.Audience, nil
-}
-
-func hasAudience(aud jwt.ClaimStrings, want string) bool {
-	return slices.Contains(aud, want)
-}
-
-// verifyDeviceJWT verifies a device access JWT against the device's registered
-// public key: signature (asymmetric alg only), audience, expiry, and that
-// iss == sub == the device id.
-func verifyDeviceJWT(tok, deviceID string, pubKey any) error {
-	parser := jwt.NewParser(
-		jwt.WithValidMethods(deviceAssertionAlgs),
-		jwt.WithAudience(deviceTokenAudience),
-		jwt.WithExpirationRequired(),
-		jwt.WithIssuer(deviceID),
-		jwt.WithSubject(deviceID),
-	)
-	t, err := parser.ParseWithClaims(tok, &jwt.RegisteredClaims{}, func(*jwt.Token) (any, error) {
-		return pubKey, nil
-	})
-	if err != nil {
-		return err
-	}
-	if !t.Valid {
-		return fmt.Errorf("device assertion is invalid")
-	}
-	return nil
 }
