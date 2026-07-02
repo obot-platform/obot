@@ -4,10 +4,10 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
+	"github.com/oasdiff/yaml"
 	"github.com/obot-platform/obot/apiclient/types"
 )
 
@@ -92,14 +92,22 @@ func TestConstructMCPServerNanobotYAMLForCompositeIncludesOnlyEnabledTools(t *te
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	yaml := string(data)
-	for _, expected := range []string{"toolOverrides:", "echo:", "toolPrefix: configured_"} {
-		if !strings.Contains(yaml, expected) {
-			t.Fatalf("expected YAML to contain %q, got:\n%s", expected, yaml)
-		}
+	config := mustUnmarshalNanobotConfig(t, data)
+	server := config.MCPServers["configured-ping-echo"]
+	if server.ToolPrefix != "configured_" {
+		t.Fatalf("expected toolPrefix configured_, got %q", server.ToolPrefix)
 	}
-	if strings.Contains(yaml, "\n            ping:") {
-		t.Fatalf("expected disabled tool to be omitted, got:\n%s", yaml)
+	if server.NoTools {
+		t.Fatal("expected noTools to be false")
+	}
+	if len(server.ToolOverrides) != 1 {
+		t.Fatalf("expected one tool override, got %#v", server.ToolOverrides)
+	}
+	if _, ok := server.ToolOverrides["echo"]; !ok {
+		t.Fatalf("expected echo to be included, got %#v", server.ToolOverrides)
+	}
+	if _, ok := server.ToolOverrides["ping"]; ok {
+		t.Fatalf("expected ping to be omitted, got %#v", server.ToolOverrides)
 	}
 }
 
@@ -114,9 +122,13 @@ func TestConstructMCPServerNanobotYAMLForCompositeOmitsToolConfigWhenOverridesOm
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	yaml := string(data)
-	if strings.Contains(yaml, "noTools") || strings.Contains(yaml, "toolOverrides") {
-		t.Fatalf("expected omitted overrides to expose all tools, got:\n%s", yaml)
+	config := mustUnmarshalNanobotConfig(t, data)
+	server := config.MCPServers["default-tools"]
+	if server.NoTools {
+		t.Fatal("expected omitted overrides not to set noTools")
+	}
+	if server.ToolOverrides != nil {
+		t.Fatalf("expected omitted overrides not to set toolOverrides, got %#v", server.ToolOverrides)
 	}
 }
 
@@ -143,15 +155,39 @@ func TestConstructMCPServerNanobotYAMLForCompositePreservesComponentsWithNoEnabl
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	yaml := string(data)
-	for _, expected := range []string{"\n    ping-echo:", "noTools: true", "configured-ping-echo:", "toolPrefix: configured_", "echo:"} {
-		if !strings.Contains(yaml, expected) {
-			t.Fatalf("expected YAML to contain %q, got:\n%s", expected, yaml)
-		}
+	config := mustUnmarshalNanobotConfig(t, data)
+
+	disabledOnlyServer := config.MCPServers["ping-echo"]
+	if !disabledOnlyServer.NoTools {
+		t.Fatal("expected component with no enabled tools to set noTools")
 	}
-	for _, unexpected := range []string{"repeat", "\n            ping:", "noTools: false"} {
-		if strings.Contains(yaml, unexpected) {
-			t.Fatalf("expected YAML not to contain %q, got:\n%s", unexpected, yaml)
-		}
+	if len(disabledOnlyServer.ToolOverrides) != 0 {
+		t.Fatalf("expected no enabled tool overrides, got %#v", disabledOnlyServer.ToolOverrides)
 	}
+
+	configuredServer := config.MCPServers["configured-ping-echo"]
+	if configuredServer.ToolPrefix != "configured_" {
+		t.Fatalf("expected toolPrefix configured_, got %q", configuredServer.ToolPrefix)
+	}
+	if configuredServer.NoTools {
+		t.Fatal("expected configured component to expose enabled tools")
+	}
+	if len(configuredServer.ToolOverrides) != 1 {
+		t.Fatalf("expected one configured tool override, got %#v", configuredServer.ToolOverrides)
+	}
+	if _, ok := configuredServer.ToolOverrides["echo"]; !ok {
+		t.Fatalf("expected echo to be included, got %#v", configuredServer.ToolOverrides)
+	}
+	if _, ok := configuredServer.ToolOverrides["ping"]; ok {
+		t.Fatalf("expected ping to be omitted, got %#v", configuredServer.ToolOverrides)
+	}
+}
+
+func mustUnmarshalNanobotConfig(t *testing.T, data []byte) nanobotConfig {
+	t.Helper()
+	var config nanobotConfig
+	if err := yaml.Unmarshal(data, &config); err != nil {
+		t.Fatalf("failed to unmarshal nanobot config: %v\n%s", err, string(data))
+	}
+	return config
 }
