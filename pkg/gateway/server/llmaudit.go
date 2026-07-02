@@ -122,7 +122,7 @@ func (r *llmAuditRecorder) finish(c *client.Client, err error) {
 	r.once.Do(func() {
 		r.log.Duration = time.Since(r.log.CreatedAt).Milliseconds()
 		r.setOutcome(err)
-		c.LogLLMAuditEntry(r.log, r.responseStream.String())
+		c.LogLLMAuditEntry(r.log, r.responseStream.Bytes())
 	})
 }
 

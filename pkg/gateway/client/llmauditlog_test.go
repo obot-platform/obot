@@ -143,7 +143,7 @@ func TestLogLLMAuditEntryQueuesPlaintextWithoutBlocking(t *testing.T) {
 		RequestBody:   `{"prompt":"secret"}`,
 	}
 
-	c.LogLLMAuditEntry(entry, `data: {"type":"response.created","response":{"id":"resp_1","output":[]}}`+"\n")
+	c.LogLLMAuditEntry(entry, []byte(`data: {"type":"response.created","response":{"id":"resp_1","output":[]}}`+"\n"))
 
 	queued := <-c.llmAuditEntries
 	if queued.log.Encrypted {
@@ -152,7 +152,7 @@ func TestLogLLMAuditEntryQueuesPlaintextWithoutBlocking(t *testing.T) {
 	if queued.log.RequestBody != entry.RequestBody {
 		t.Fatalf("expected plaintext queued body %q, got %q", entry.RequestBody, queued.log.RequestBody)
 	}
-	if queued.responseStream == "" {
+	if len(queued.responseStream) == 0 {
 		t.Fatal("expected raw response stream to be queued")
 	}
 }
@@ -161,8 +161,8 @@ func TestLogLLMAuditEntryDropsWhenBufferFull(t *testing.T) {
 	c := newTestClient(t)
 	c.llmAuditEntries = make(chan llmAuditEntry, 1)
 
-	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.NewString(), CreatedAt: time.Now().UTC()}, "")
-	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.NewString(), CreatedAt: time.Now().UTC()}, "")
+	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.NewString(), CreatedAt: time.Now().UTC()}, nil)
+	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.NewString(), CreatedAt: time.Now().UTC()}, nil)
 
 	if got := len(c.llmAuditEntries); got != 1 {
 		t.Fatalf("expected one queued entry, got %d", got)
@@ -190,7 +190,7 @@ func TestRunLLMAuditPersistenceLoopFlushesQueuedEntries(t *testing.T) {
 			CreatedAt:     time.Now().UTC(),
 			ModelProvider: system.OpenAIModelProvider,
 			RequestBody:   fmt.Sprintf(`{"prompt":"secret-%d"}`, i),
-		}, `data: {"type":"response.created","response":{"id":"resp_async","output":[]}}`+"\n")
+		}, []byte(`data: {"type":"response.created","response":{"id":"resp_async","output":[]}}`+"\n"))
 	}
 
 	waitForLLMAuditLogCount(t, c, 3)
@@ -222,7 +222,7 @@ func TestRunLLMAuditPersistenceLoopFlushesOnInterval(t *testing.T) {
 		c.runLLMAuditPersistenceLoop(ctx, 3, 20*time.Millisecond)
 	}()
 
-	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.NewString(), CreatedAt: time.Now().UTC()}, "")
+	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.NewString(), CreatedAt: time.Now().UTC()}, nil)
 	waitForLLMAuditLogCount(t, c, 1)
 	cancel()
 	<-done
@@ -237,8 +237,8 @@ func TestRunLLMAuditPersistenceLoopDrainsOnShutdown(t *testing.T) {
 		c.runLLMAuditPersistenceLoop(ctx, 3, time.Hour)
 	}()
 
-	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.NewString(), CreatedAt: time.Now().UTC()}, "")
-	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.NewString(), CreatedAt: time.Now().UTC()}, "")
+	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.NewString(), CreatedAt: time.Now().UTC()}, nil)
+	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.NewString(), CreatedAt: time.Now().UTC()}, nil)
 	cancel()
 	<-done
 

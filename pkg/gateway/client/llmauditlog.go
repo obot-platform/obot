@@ -25,10 +25,10 @@ const (
 
 type llmAuditEntry struct {
 	log            types.LLMAuditLog
-	responseStream string
+	responseStream []byte
 }
 
-func (c *Client) LogLLMAuditEntry(auditLog types.LLMAuditLog, responseStream string) {
+func (c *Client) LogLLMAuditEntry(auditLog types.LLMAuditLog, responseStream []byte) {
 	if c.llmAuditEntries == nil {
 		log.Warnf("dropping LLM audit log: writer is not configured")
 		return
@@ -149,12 +149,12 @@ func (c *Client) persistLLMAuditLogs(entries []llmAuditEntry) error {
 	return c.insertLLMAuditLogs(ctx, logs)
 }
 
-func aggregateLLMAuditResponse(log *types.LLMAuditLog, responseStream string) {
-	if log == nil || responseStream == "" {
+func aggregateLLMAuditResponse(log *types.LLMAuditLog, responseStream []byte) {
+	if log == nil || len(responseStream) == 0 {
 		return
 	}
 	accumulator := gatewayllmaudit.NewResponseAccumulator(log.ModelProvider)
-	accumulator.Write([]byte(responseStream))
+	accumulator.Write(responseStream)
 	log.ResponseBody = accumulator.JSON()
 	if log.ResponseID == "" {
 		log.ResponseID = accumulator.ResponseID()
