@@ -1,0 +1,124 @@
+package handlers
+
+import (
+	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/api"
+	gateway "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+)
+
+type LLMAuditLogHandler struct{}
+
+func NewLLMAuditLogHandler() *LLMAuditLogHandler {
+	return &LLMAuditLogHandler{}
+}
+
+func (h *LLMAuditLogHandler) List(req api.Context) error {
+	if !req.UserIsAdmin() && !req.UserIsAuditor() {
+		return types.NewErrHTTP(http.StatusNotFound, "not found")
+	}
+
+	opts := parseLLMAuditLogOpts(req.URL.Query())
+	if opts.Limit == 0 {
+		opts.Limit = 100
+	}
+
+	logs, total, err := req.GatewayClient.GetLLMAuditLogs(req.Context(), opts)
+	if err != nil {
+		return err
+	}
+
+	items := make([]types.LLMAuditLog, 0, len(logs))
+	for _, log := range logs {
+		items = append(items, gatewaytypes.ConvertLLMAuditLog(log))
+	}
+
+	return req.Write(types.LLMAuditLogResponse{
+		LLMAuditLogList: types.LLMAuditLogList{Items: items},
+		Total:           total,
+		Limit:           opts.Limit,
+		Offset:          opts.Offset,
+	})
+}
+
+func (h *LLMAuditLogHandler) Get(req api.Context) error {
+	if !req.UserIsAdmin() && !req.UserIsAuditor() {
+		return types.NewErrHTTP(http.StatusNotFound, "not found")
+	}
+
+	id := req.PathValue("audit_log_id")
+	if id == "" {
+		return types.NewErrBadRequest("missing audit log id")
+	}
+
+	log, err := req.GatewayClient.GetLLMAuditLog(req.Context(), id, req.UserIsAuditor())
+	if err != nil {
+		return err
+	}
+
+	return req.Write(gatewaytypes.ConvertLLMAuditLog(*log))
+}
+
+func parseLLMAuditLogOpts(query url.Values) gateway.LLMAuditLogOptions {
+	opts := gateway.LLMAuditLogOptions{
+		UserID:          parseStringList(query, "user_id"),
+		ModelProvider:   parseStringList(query, "model_provider"),
+		TargetModel:     parseStringList(query, "target_model"),
+		RequestPath:     parseStringList(query, "request_path"),
+		Outcome:         parseStringList(query, "outcome"),
+		Client:          parseStringList(query, "client"),
+		ClientSessionID: parseStringList(query, "client_session_id"),
+		Query:           strings.TrimSpace(query.Get("query")),
+		SortBy:          query.Get("sort_by"),
+		SortOrder:       query.Get("sort_order"),
+		StartTime:       time.Now().UTC().AddDate(0, 0, -30),
+	}
+
+	for _, value := range parseStringList(query, "response_status") {
+		status, err := strconv.Atoi(value)
+		if err == nil {
+			opts.ResponseStatus = append(opts.ResponseStatus, status)
+		}
+	}
+	if startTime := query.Get("start_time"); startTime != "" {
+		if t, err := time.Parse(time.RFC3339, startTime); err == nil {
+			opts.StartTime = t
+		}
+	}
+	if endTime := query.Get("end_time"); endTime != "" {
+		if t, err := time.Parse(time.RFC3339, endTime); err == nil {
+			opts.EndTime = t
+		}
+	}
+	if limit := query.Get("limit"); limit != "" {
+		if l, err := strconv.Atoi(limit); err == nil && l > 0 {
+			opts.Limit = l
+		}
+	}
+	if offset := query.Get("offset"); offset != "" {
+		if o, err := strconv.Atoi(offset); err == nil && o >= 0 {
+			opts.Offset = o
+		}
+	}
+
+	return opts
+}
+
+func parseStringList(queryValues url.Values, key string) []string {
+	var result []string
+	for _, value := range queryValues[key] {
+		for part := range strings.SplitSeq(value, ",") {
+			part = strings.TrimSpace(part)
+			if part != "" {
+				result = append(result, part)
+			}
+		}
+	}
+	return result
+}
