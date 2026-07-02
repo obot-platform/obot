@@ -65,10 +65,7 @@ func (c *Controller) PreStart(ctx context.Context) error {
 		return fmt.Errorf("failed to ensure default user role setting: %w", err)
 	}
 
-	resourceMaximums := mcp.ResourceMaximums{}
-	if mcp.IsKubernetesBackend(c.services.MCPRuntimeBackend) && c.services.MCPSessionManager != nil {
-		resourceMaximums = c.services.MCPSessionManager.ResourceMaximums()
-	}
+	resourceMaximums := c.services.MCPSessionManager.KubernetesResourceMaximums()
 	if err := ensureK8sSettings(ctx, c.services.StorageClient, c.services.PodSchedulingSettingsFromHelm, c.services.PSASettingsFromHelm, resourceMaximums); err != nil {
 		return fmt.Errorf("failed to ensure K8s settings: %w", err)
 	}
@@ -561,10 +558,7 @@ func (c *Controller) setupLocalK8sRoutes() {
 		return
 	}
 
-	resourceMaximums := mcp.ResourceMaximums{}
-	if mcp.IsKubernetesBackend(c.services.MCPRuntimeBackend) && c.services.MCPSessionManager != nil {
-		resourceMaximums = c.services.MCPSessionManager.ResourceMaximums()
-	}
+	resourceMaximums := c.services.MCPSessionManager.KubernetesResourceMaximums()
 	deploymentHandler := deployment.New(c.services.MCPServerNamespace, c.services.Router.Backend(), c.services.MCPRuntimeBackend, resourceMaximums, c.services.MCPImagePullSecrets)
 	c.services.LocalRouter.Type(&appsv1.Deployment{}).IncludeRemoved().HandlerFunc(deploymentHandler.UpdateMCPServerStatus)
 	c.services.LocalRouter.Type(&appsv1.Deployment{}).HandlerFunc(deploymentHandler.CleanupOldIDs)

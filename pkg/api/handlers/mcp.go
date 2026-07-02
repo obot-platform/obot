@@ -86,7 +86,7 @@ func ValidationOptionsWithResourceMaximums(sessionManager *mcp.SessionManager) v
 		return validation.Options{}
 	}
 	options := validationOptions(sessionManager.RemoteMCPURLValidationConfig())
-	options.ResourceMaximums = k8sSettingsResourceMaximums(sessionManager)
+	options.ResourceMaximums = sessionManager.KubernetesResourceMaximums()
 	return options
 }
 
@@ -107,7 +107,7 @@ func (m *MCPHandler) currentK8sSettingsHashWithImagePullSecrets(settings v1.K8sS
 	if err != nil {
 		return "", fmt.Errorf("failed to compute core resource requirements: %w", err)
 	}
-	return mcp.ComputeK8sSettingsHash(settings, resources, mcpServer.Spec.Manifest.Runtime, mcpServer.Spec.NanobotAgentID != "", k8sSettingsResourceMaximums(m.mcpSessionManager), imagePullSecretNames), nil
+	return mcp.ComputeK8sSettingsHash(settings, resources, mcpServer.Spec.Manifest.Runtime, mcpServer.Spec.NanobotAgentID != "", m.mcpSessionManager.KubernetesResourceMaximums(), imagePullSecretNames), nil
 }
 
 func (m *MCPHandler) GetEntryFromAllSources(req api.Context) error {

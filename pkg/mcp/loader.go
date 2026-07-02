@@ -191,6 +191,13 @@ func (sm *SessionManager) ResourceMaximums() ResourceMaximums {
 	return sm.resourceMaximums
 }
 
+func (sm *SessionManager) KubernetesResourceMaximums() ResourceMaximums {
+	if sm == nil || !IsKubernetesBackend(sm.runtimeBackend) {
+		return ResourceMaximums{}
+	}
+	return sm.resourceMaximums
+}
+
 func (sm *SessionManager) TransformObotHostname(hostname string) string {
 	return sm.backend.transformObotHostname(hostname)
 }

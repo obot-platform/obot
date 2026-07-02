@@ -98,9 +98,7 @@ func New(defaultCatalogPath, defaultSystemCatalogPath string, gatewayClient *gcl
 	validationOptions := validation.Options{
 		RemoteMCPURLValidationConfig: remoteURLValidationConfig,
 	}
-	if mcp.IsKubernetesBackend(mcpSessionManager.MCPRuntimeBackend()) {
-		validationOptions.ResourceMaximums = mcpSessionManager.ResourceMaximums()
-	}
+	validationOptions.ResourceMaximums = mcpSessionManager.KubernetesResourceMaximums()
 
 	return &Handler{
 		defaultCatalogPath:        defaultCatalogPath,
