@@ -16,16 +16,6 @@ import (
 	"k8s.io/apiserver/pkg/storage/value"
 )
 
-type testTransformer struct{}
-
-func (testTransformer) TransformToStorage(_ context.Context, data []byte, _ value.Context) ([]byte, error) {
-	return append([]byte("encrypted:"), data...), nil
-}
-
-func (testTransformer) TransformFromStorage(_ context.Context, data []byte, _ value.Context) ([]byte, bool, error) {
-	return bytes.TrimPrefix(data, []byte("encrypted:")), false, nil
-}
-
 func TestInsertLLMAuditLogEncryptsSensitiveFields(t *testing.T) {
 	c := newTestClient(t)
 	c.encryptionConfig = &encryptionconfig.EncryptionConfiguration{
