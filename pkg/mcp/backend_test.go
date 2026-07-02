@@ -135,11 +135,10 @@ func TestConstructMCPServerNanobotYAMLForCompositeOmitsToolConfigWhenOverridesOm
 func TestConstructMCPServerNanobotYAMLForCompositePreservesComponentsWithNoEnabledTools(t *testing.T) {
 	data, err := constructMCPServerNanobotYAMLForComposite([]ComponentServer{
 		{
-			Name: "ping-echo",
-			URL:  "https://example.com/mcp",
-			Tools: []types.ToolOverride{
-				{Name: "echo", OverrideName: "repeat", OverrideDescription: "Repeat a message", Enabled: false},
-			},
+			Name:    "ping-echo",
+			URL:     "https://example.com/mcp",
+			Tools:   []types.ToolOverride{},
+			noTools: true,
 		},
 		{
 			Name:       "configured-ping-echo",

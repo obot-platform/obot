@@ -238,13 +238,12 @@ func constructMCPServerNanobotYAMLForComposite(servers []ComponentServer) ([]byt
 				Description: tool.OverrideDescription,
 			}
 		}
-		noTools := component.Tools != nil && len(tools) == 0
 
 		name := replacer.Replace(component.Name)
 		mcpServers[name] = nanobotConfigMCPServer{
 			BaseURL:       component.URL,
 			ToolOverrides: tools,
-			NoTools:       noTools,
+			NoTools:       component.noTools,
 			ToolPrefix:    component.ToolPrefix,
 		}
 
