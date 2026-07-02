@@ -4,7 +4,7 @@ title: Device Management
 
 Device management gives administrators visibility into the AI clients, MCP servers, skills, and plugins configured on user workstations.
 
-Device data is collected by the `obot scan` CLI command and submitted to Obot. Each submitted scan is stored as a point-in-time inventory for that device.
+Device data is submitted to Obot through the device scan API. Each submitted scan is stored as a point-in-time inventory for that device.
 
 ## What it does
 
@@ -122,46 +122,9 @@ Skill details include the client and scope where the skill was found, descriptio
 
 Plugin details include the client and scope where the plugin was found, plugin metadata, enabled state, detected capabilities, and supporting files.
 
-## Submitting device scans
-
-Use `obot scan` from a workstation to collect local AI client inventory.
-
-Run a local scan and print a summary table:
-
-```bash
-obot scan
-```
-
-Print the full scan manifest as JSON:
-
-```bash
-obot scan --json
-```
-
-Log in to the Obot server that should receive scan results:
-
-```bash
-obot login --url https://obot.example.com
-```
-
-Then submit the scan:
-
-```bash
-obot scan --submit
-```
-
-When `--submit` is used, the CLI prints the local scan result first. After the upload succeeds, it prints the submitted scan ID and server receipt time to stderr.
-
-For unattended jobs, set `OBOT_TOKEN` instead of using browser-based login:
-
-```bash
-OBOT_TOKEN=<token> \
-obot scan --submit
-```
-
 ## Supported local clients
 
-`obot scan` detects and inventories these local AI clients:
+Device scans detect and inventory these local AI clients:
 
 | Client | What scan can collect |
 |--------|-----------------------|
@@ -179,32 +142,6 @@ obot scan --submit
 
 Project-scoped configuration is found by walking the user's home directory. Global client configuration is read directly from each client's known config location. Skills are detected from known skill directories, nested plugin skills, and `SKILL.md` files found during the project crawl.
 
-## Choosing scan scope
-
-Use `--max-depth` to control how deep the project crawl descends below the user's home directory:
-
-```bash
-obot scan --max-depth 3
-```
-
-The default is `5`. A smaller value finishes faster but may miss deeply nested project configuration. A larger value searches more of the home directory.
-
-Use `--timeout` to limit how long the scan may run:
-
-```bash
-obot scan --timeout 30
-```
-
-The default timeout is `60` seconds. If the timeout expires, the command stops and returns an error.
-
-You can also enable submission and tune scan behavior through environment variables:
-
-| Environment variable | Description |
-|----------------------|-------------|
-| `OBOT_SCAN_SUBMIT` | Submit the scan to Obot when set to `true`. |
-| `OBOT_SCAN_TIMEOUT` | Number of seconds to wait for the scan to complete. |
-| `OBOT_SCAN_MAX_DEPTH` | Maximum project crawl depth below the user's home directory. |
-
 ## What scans include
 
 Submitted scans include:
@@ -216,7 +153,7 @@ Submitted scans include:
 - Plugin observations, including plugin metadata, enabled state, related files, and detected capabilities.
 - Captured config or manifest files.
 
-MCP server environment variable values and HTTP header values are not copied into the structured MCP server observations. The scanner records only their key names.
+MCP server environment variable values and HTTP header values are not part of the structured MCP server observations. Only their key names are recorded.
 
 :::caution
 Captured config and manifest file content may contain whatever is present in those files. Files larger than 1 MiB are recorded as oversized and their content is not included.
@@ -232,18 +169,6 @@ Admins and owners can delete an individual device scan from the scan detail page
 
 ## Troubleshooting
 
-### Authentication opens a browser
-
-If `OBOT_TOKEN` is not set and no valid API key is stored locally, `obot scan --submit` may use the browser-based login flow. For unattended jobs, set `OBOT_TOKEN` to an API key with API access.
-
 ### Server submission fails
 
-Check that the configured Obot server is reachable from the workstation and that the API key has permission to submit device scans.
-
-### The scan misses project configuration
-
-Increase `--max-depth` so the project crawl reaches deeper directories under the user's home directory.
-
-### The scan takes too long
-
-Lower `--max-depth` or `--timeout`. The project crawl skips common dependency, build, cache, and trash directories, but very large home directories can still take longer to scan.
+Check that the Obot server is reachable from the workstation and that the API key has permission to submit device scans.

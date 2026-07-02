@@ -13,7 +13,6 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.20.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.13.1
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.6.3
-	github.com/BurntSushi/toml v1.6.0
 	github.com/MicahParks/jwkset v0.11.0
 	github.com/adhocore/gronx v1.19.5
 	github.com/adrg/xdg v0.5.3
@@ -31,7 +30,6 @@ require (
 	github.com/go-git/go-billy/v5 v5.9.0
 	github.com/go-git/go-git/v5 v5.19.0
 	github.com/go-jose/go-jose/v4 v4.1.4
-	github.com/gobwas/glob v0.2.3
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/google/jsonschema-go v0.4.2
 	github.com/google/uuid v1.6.0
@@ -86,6 +84,11 @@ require (
 	k8s.io/utils v0.0.0-20250604170112-4c0f3b243397
 	sigs.k8s.io/controller-runtime v0.22.5
 	sigs.k8s.io/yaml v1.6.0
+)
+
+require (
+	github.com/BurntSushi/toml v1.6.0 // indirect
+	github.com/gobwas/glob v0.2.3 // indirect
 )
 
 require (
