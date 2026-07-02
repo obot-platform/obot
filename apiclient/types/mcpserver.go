@@ -493,6 +493,53 @@ func (m SystemMCPServerManifest) RuntimeStartupTimeoutSeconds() int {
 	return startupTimeoutSeconds(m.Runtime, m.UVXConfig, m.NPXConfig, m.ContainerizedConfig)
 }
 
+// ConvertToCatalogEntry converts an MCPServerManifest to an MCPServerCatalogEntryManifest.
+func (m MCPServerManifest) ConvertToCatalogEntry() MCPServerCatalogEntryManifest {
+	catalogManifest := MCPServerCatalogEntryManifest{
+		Metadata:         m.Metadata,
+		Name:             m.Name,
+		ShortDescription: m.ShortDescription,
+		Description:      m.Description,
+		Icon:             m.Icon,
+		Runtime:          m.Runtime,
+		Env:              m.Env,
+		ToolPreview:      m.ToolPreview,
+		MultiUserConfig:  m.MultiUserConfig,
+		Resources:        m.Resources,
+	}
+
+	switch m.Runtime {
+	case RuntimeUVX:
+		catalogManifest.UVXConfig = m.UVXConfig
+	case RuntimeNPX:
+		catalogManifest.NPXConfig = m.NPXConfig
+	case RuntimeContainerized:
+		catalogManifest.ContainerizedConfig = m.ContainerizedConfig
+	case RuntimeRemote:
+		if m.RemoteConfig != nil {
+			catalogManifest.RemoteConfig = &RemoteCatalogConfig{
+				FixedURL: m.RemoteConfig.URL,
+				Headers:  m.RemoteConfig.Headers,
+			}
+		}
+	case RuntimeComposite:
+		if m.CompositeConfig != nil {
+			componentServers := make([]CatalogComponentServer, len(m.CompositeConfig.ComponentServers))
+			for i, comp := range m.CompositeConfig.ComponentServers {
+				componentServers[i] = CatalogComponentServer{
+					CatalogEntryID: comp.CatalogEntryID,
+					MCPServerID:    comp.MCPServerID,
+					Manifest:       comp.Manifest.ConvertToCatalogEntry(),
+					ToolOverrides:  comp.ToolOverrides,
+				}
+			}
+			catalogManifest.CompositeConfig = &CompositeCatalogConfig{ComponentServers: componentServers}
+		}
+	}
+
+	return catalogManifest
+}
+
 // MapCatalogEntryToServer converts an MCPServerCatalogEntryManifest to an MCPServerManifest
 // For remote runtime, userURL is used when the catalog entry has a hostname constraint
 // If disableHostnameValidation is true, the hostname constraint is not validated.

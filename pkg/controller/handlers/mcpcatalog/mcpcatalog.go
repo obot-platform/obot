@@ -156,7 +156,7 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 		toAdd = append(toAdd, objs...)
 	}
 
-	toAdd, compositeRefErrors := h.resolveCompositeSourceRefs(req.Ctx, toAdd)
+	toAdd, compositeRefErrors := h.resolveCompositeSourceRefs(req.Ctx, req.Client, mcpCatalog.Namespace, mcpCatalog.Name, toAdd)
 	for sourceURL, errMsg := range compositeRefErrors {
 		addSyncError(mcpCatalog.Status.SyncErrors, sourceURL, errMsg)
 	}
@@ -207,7 +207,7 @@ func addSyncError(syncErrors map[string]string, sourceURL, errMsg string) {
 // resolveCompositeSourceRefs rewrites GitOps portable component refs to stored
 // catalog entry names and snapshots the target manifests. Entries with invalid
 // portable refs are skipped so bad composites do not get applied.
-func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, objs []client.Object) ([]client.Object, map[string]string) {
+func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, c client.Client, namespace, catalogName string, objs []client.Object) ([]client.Object, map[string]string) {
 	refs := make(map[string]*v1.MCPServerCatalogEntry)
 	entriesByName := make(map[string]*v1.MCPServerCatalogEntry)
 	for _, obj := range objs {
@@ -234,6 +234,25 @@ func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, objs []client.
 		var errs []error
 		for i := range entry.Spec.Manifest.CompositeConfig.ComponentServers {
 			component := &entry.Spec.Manifest.CompositeConfig.ComponentServers[i]
+			if component.MCPServerID != "" {
+				var server v1.MCPServer
+				if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: component.MCPServerID}, &server); err != nil {
+					errs = append(errs, fmt.Errorf("failed to get multi-user server %q: %w", component.MCPServerID, err))
+					continue
+				}
+				if server.Spec.IsSingleUser() {
+					errs = append(errs, fmt.Errorf("server %q is not a multi-user server", component.MCPServerID))
+					continue
+				}
+				if server.Spec.MCPCatalogID != "" && catalogName != "" && server.Spec.MCPCatalogID != catalogName {
+					errs = append(errs, fmt.Errorf("multi-user server %q not found in catalog %q", component.MCPServerID, catalogName))
+					continue
+				}
+
+				component.Manifest = server.Spec.Manifest.ConvertToCatalogEntry()
+				changed = true
+				continue
+			}
 			if component.CatalogEntryID == "" {
 				continue
 			}

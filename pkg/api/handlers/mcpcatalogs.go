@@ -1594,11 +1594,11 @@ func (h *MCPCatalogHandler) populateComponentManifests(req api.Context, manifest
 
 			// Verify the server belongs to the same catalog
 			if catalogName != "" && server.Spec.MCPCatalogID != catalogName {
-				return types.NewErrBadRequest("multi-user server %s belongs to catalog %s, not %s", component.MCPServerID, server.Spec.MCPCatalogID, catalogName)
+				return types.NewErrBadRequest("multi-user server %q not found in catalog %q", component.MCPServerID, catalogName)
 			}
 
 			// Populate the manifest snapshot from the multi-user server
-			component.Manifest = convertServerManifestToCatalogManifest(server.Spec.Manifest)
+			component.Manifest = server.Spec.Manifest.ConvertToCatalogEntry()
 			// Keep this component
 			componentServers = append(componentServers, *component)
 		} else {
@@ -1642,58 +1642,6 @@ func (h *MCPCatalogHandler) populateComponentManifests(req api.Context, manifest
 	manifest.CompositeConfig.ComponentServers = componentServers
 
 	return nil
-}
-
-// convertServerManifestToCatalogManifest converts an MCPServerManifest to MCPServerCatalogEntryManifest
-func convertServerManifestToCatalogManifest(serverManifest types.MCPServerManifest) types.MCPServerCatalogEntryManifest {
-	catalogManifest := types.MCPServerCatalogEntryManifest{
-		Metadata:         serverManifest.Metadata,
-		Name:             serverManifest.Name,
-		ShortDescription: serverManifest.ShortDescription,
-		Description:      serverManifest.Description,
-		Icon:             serverManifest.Icon,
-		Runtime:          serverManifest.Runtime,
-		Env:              serverManifest.Env,
-		ToolPreview:      serverManifest.ToolPreview,
-		MultiUserConfig:  serverManifest.MultiUserConfig,
-		Resources:        serverManifest.Resources,
-	}
-
-	// Convert runtime-specific configs
-	switch serverManifest.Runtime {
-	case types.RuntimeUVX:
-		catalogManifest.UVXConfig = serverManifest.UVXConfig
-	case types.RuntimeNPX:
-		catalogManifest.NPXConfig = serverManifest.NPXConfig
-	case types.RuntimeContainerized:
-		catalogManifest.ContainerizedConfig = serverManifest.ContainerizedConfig
-	case types.RuntimeRemote:
-		if serverManifest.RemoteConfig != nil {
-			catalogManifest.RemoteConfig = &types.RemoteCatalogConfig{
-				FixedURL: serverManifest.RemoteConfig.URL,
-				Headers:  serverManifest.RemoteConfig.Headers,
-			}
-		}
-	case types.RuntimeComposite:
-		if serverManifest.CompositeConfig != nil {
-			// TODO(njhale): Figure out if this can be removed
-			// Convert CompositeRuntimeConfig to CompositeCatalogConfig
-			componentServers := make([]types.CatalogComponentServer, len(serverManifest.CompositeConfig.ComponentServers))
-			for i, comp := range serverManifest.CompositeConfig.ComponentServers {
-				componentServers[i] = types.CatalogComponentServer{
-					CatalogEntryID: comp.CatalogEntryID,
-					MCPServerID:    comp.MCPServerID,
-					Manifest:       convertServerManifestToCatalogManifest(comp.Manifest),
-					ToolOverrides:  comp.ToolOverrides,
-				}
-			}
-			catalogManifest.CompositeConfig = &types.CompositeCatalogConfig{
-				ComponentServers: componentServers,
-			}
-		}
-	}
-
-	return catalogManifest
 }
 
 // RefreshCompositeComponents refreshes the component snapshots in a composite catalog entry
