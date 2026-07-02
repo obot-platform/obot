@@ -163,9 +163,13 @@ func MergeBoundCreds(
 	return merged, nil
 }
 
-// ValidateSecretBindingsAvailable verifies secret-bound config can be resolved
-// before creating/updating/launching a server that users cannot fix.
-func ValidateSecretBindingsAvailable(ctx context.Context, c kclient.Client, obotNamespace string, envs []types.MCPEnv, remoteConfig *types.RemoteRuntimeConfig, allowedLabel string) error {
+type MissingSecretBinding struct {
+	Kind    string
+	Header  types.MCPHeader
+	Binding *types.MCPSecretBinding
+}
+
+func MissingSecretBindings(ctx context.Context, c kclient.Client, obotNamespace string, envs []types.MCPEnv, remoteConfig *types.RemoteRuntimeConfig, allowedLabel string) ([]MissingSecretBinding, error) {
 	hasBinding := false
 	for _, env := range envs {
 		if env.SecretBinding != nil {
@@ -182,38 +186,49 @@ func ValidateSecretBindingsAvailable(ctx context.Context, c kclient.Client, obot
 		}
 	}
 	if !hasBinding {
-		return nil
+		return nil, nil
 	}
 	if c == nil {
-		return fmt.Errorf("secret bindings require a Kubernetes client")
+		return nil, fmt.Errorf("secret bindings require a Kubernetes client")
 	}
 
 	resolved, err := MergeBoundCreds(ctx, c, obotNamespace, envs, remoteConfig, nil, allowedLabel)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	check := func(kind, key string, b *types.MCPSecretBinding) error {
-		if b == nil {
-			return nil
-		}
-		if _, ok := resolved[key]; !ok {
-			return fmt.Errorf("secret binding %s %q references unavailable Kubernetes Secret %s/%s", kind, key, obotNamespace, b.Name)
-		}
-		return nil
-	}
-
+	var missing []MissingSecretBinding
 	for _, env := range envs {
-		if err := check("env", env.Key, env.SecretBinding); err != nil {
-			return err
+		if env.SecretBinding == nil {
+			continue
+		}
+		if _, ok := resolved[env.Key]; !ok {
+			missing = append(missing, MissingSecretBinding{Kind: "env", Header: env.MCPHeader, Binding: env.SecretBinding})
 		}
 	}
 	if remoteConfig != nil {
 		for _, header := range remoteConfig.Headers {
-			if err := check("header", header.Key, header.SecretBinding); err != nil {
-				return err
+			if header.SecretBinding == nil {
+				continue
+			}
+			if _, ok := resolved[header.Key]; !ok {
+				missing = append(missing, MissingSecretBinding{Kind: "header", Header: header, Binding: header.SecretBinding})
 			}
 		}
+	}
+	return missing, nil
+}
+
+// ValidateSecretBindingsAvailable verifies secret-bound config can be resolved
+// before creating/updating/launching a server that users cannot fix.
+func ValidateSecretBindingsAvailable(ctx context.Context, c kclient.Client, obotNamespace string, envs []types.MCPEnv, remoteConfig *types.RemoteRuntimeConfig, allowedLabel string) error {
+	missing, err := MissingSecretBindings(ctx, c, obotNamespace, envs, remoteConfig, allowedLabel)
+	if err != nil {
+		return err
+	}
+	if len(missing) > 0 {
+		field := missing[0]
+		return fmt.Errorf("secret binding %s %q references unavailable Kubernetes Secret %s/%s", field.Kind, field.Header.Key, obotNamespace, field.Binding.Name)
 	}
 	return nil
 }

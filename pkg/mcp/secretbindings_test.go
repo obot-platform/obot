@@ -197,6 +197,29 @@ func TestValidateSecretBindingsAvailable(t *testing.T) {
 	})
 }
 
+func TestMissingSecretBindings(t *testing.T) {
+	const ns = "obot-ns"
+	const label = "test-secret-binding-label"
+
+	scheme := runtime.NewScheme()
+	require.NoError(t, corev1.AddToScheme(scheme))
+	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(&corev1.Secret{
+		Data:       map[string][]byte{"env_key": []byte("fresh")},
+		ObjectMeta: metav1.ObjectMeta{Name: "bound-secret", Namespace: ns, Labels: map[string]string{label: "true"}},
+	}).Build()
+
+	missing, err := MissingSecretBindings(context.Background(), c, ns,
+		[]types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "ENV_KEY", SecretBinding: binding("bound-secret", "env_key")}}},
+		&types.RemoteRuntimeConfig{Headers: []types.MCPHeader{{Key: "Authorization", SecretBinding: binding("missing-secret", "token")}}},
+		label,
+	)
+	require.NoError(t, err)
+	require.Len(t, missing, 1)
+	assert.Equal(t, "header", missing[0].Kind)
+	assert.Equal(t, "Authorization", missing[0].Header.Key)
+	assert.Equal(t, binding("missing-secret", "token"), missing[0].Binding)
+}
+
 func TestListAllowedSecretBindingTargets(t *testing.T) {
 	const ns = "obot-ns"
 	const label = "test-secret-binding-label"

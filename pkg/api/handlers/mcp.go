@@ -1121,27 +1121,12 @@ func entryMissingAdminConfig(ctx context.Context, client kclient.Client, obotNam
 			remote = &types.RemoteRuntimeConfig{Headers: cm.RemoteConfig.Headers}
 		}
 
-		resolved, err := mcp.MergeBoundCreds(ctx, client, obotNamespace, cm.Env, remote, nil, secretBindingAllowedLabel)
+		missingBindings, err := mcp.MissingSecretBindings(ctx, client, obotNamespace, cm.Env, remote, secretBindingAllowedLabel)
 		if err != nil {
 			return missing, err
 		}
-
-		for _, e := range cm.Env {
-			if e.SecretBinding != nil {
-				if _, ok := resolved[e.Key]; !ok {
-					missing.SecretBoundFields = append(missing.SecretBoundFields, secretBoundFieldLabel(ref.prefix, "env", e.MCPHeader))
-				}
-			}
-		}
-
-		if cm.RemoteConfig != nil {
-			for _, h := range cm.RemoteConfig.Headers {
-				if h.SecretBinding != nil {
-					if _, ok := resolved[h.Key]; !ok {
-						missing.SecretBoundFields = append(missing.SecretBoundFields, secretBoundFieldLabel(ref.prefix, "header", h))
-					}
-				}
-			}
+		for _, binding := range missingBindings {
+			missing.SecretBoundFields = append(missing.SecretBoundFields, secretBoundFieldLabel(ref.prefix, binding.Kind, binding.Header))
 		}
 	}
 
