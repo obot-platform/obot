@@ -80,6 +80,34 @@ func (r *llmAuditRecorder) setModel(modelProvider, modelID, targetModel string) 
 	r.log.TargetModel = targetModel
 }
 
+func (r *llmAuditRecorder) setRequestBody(body []byte) {
+	if r == nil {
+		return
+	}
+	r.log.RequestBody = string(body)
+}
+
+func (r *llmAuditRecorder) setRedactedRequestBody(body []byte) {
+	if r == nil {
+		return
+	}
+	r.log.RedactedRequestBody = string(body)
+}
+
+func (r *llmAuditRecorder) setClientSessionID(modelProvider string, body []byte) {
+	if r == nil {
+		return
+	}
+	r.log.ClientSessionID = extractLLMClientSessionID(modelProvider, body)
+}
+
+func (r *llmAuditRecorder) setReasoningEffort(modelProvider string, body []byte) {
+	if r == nil {
+		return
+	}
+	r.log.ReasoningEffort = extractLLMReasoningEffort(modelProvider, body)
+}
+
 func (r *llmAuditRecorder) recordResponse(resp *http.Response) {
 	if r == nil || resp == nil {
 		return

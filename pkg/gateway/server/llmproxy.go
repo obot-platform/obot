@@ -1007,10 +1007,13 @@ func (s *Server) newLLMProviderProxy(u *url.URL, modelProviderName string) *llmP
 }
 
 func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
-	audit := newLLMAuditRecorder(req.Request, req.User, defaultLLMAuditLogResponseCaptureLimit)
-	defer func() {
-		audit.finish(req.GatewayClient, retErr)
-	}()
+	var audit *llmAuditRecorder
+	if req.GatewayClient.LLMAuditLogEnabled() {
+		audit = newLLMAuditRecorder(req.Request, req.User, defaultLLMAuditLogResponseCaptureLimit)
+		defer func() {
+			audit.finish(req.GatewayClient, retErr)
+		}()
+	}
 	audit.setModel(l.modelProviderName, "", "")
 
 	l.lock.RLock()
@@ -1033,9 +1036,9 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 	if err != nil {
 		return fmt.Errorf("failed to copy body: %w", err)
 	}
-	audit.log.RequestBody = string(body)
-	audit.log.ClientSessionID = extractLLMClientSessionID(l.modelProviderName, body)
-	audit.log.ReasoningEffort = extractLLMReasoningEffort(l.modelProviderName, body)
+	audit.setRequestBody(body)
+	audit.setClientSessionID(l.modelProviderName, body)
+	audit.setReasoningEffort(l.modelProviderName, body)
 
 	var tokenUsageTracker *threadSafeTokenUsageTracker
 	targetModel := extractModelFromBody(body)
@@ -1070,7 +1073,7 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 		}
 		req.Request.Body = io.NopCloser(bytes.NewReader(body))
 		req.ContentLength = int64(len(body))
-		audit.log.RequestBody = string(body)
+		audit.setRequestBody(body)
 	}
 
 	// Evaluate message policies if the helper is available and we have a user.
@@ -1099,7 +1102,7 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 				}
 				req.Request.Body = io.NopCloser(bytes.NewReader(b))
 				req.ContentLength = int64(len(b))
-				audit.log.RedactedRequestBody = string(b)
+				audit.setRedactedRequestBody(b)
 			}
 		}
 	}

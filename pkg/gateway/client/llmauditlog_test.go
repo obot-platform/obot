@@ -169,6 +169,17 @@ func TestLogLLMAuditEntryDropsWhenBufferFull(t *testing.T) {
 	}
 }
 
+func TestLogLLMAuditEntryNoopsWhenDisabled(t *testing.T) {
+	c := newTestClient(t)
+	c.llmAuditEnabled = false
+
+	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.NewString(), CreatedAt: time.Now().UTC()}, nil)
+
+	if got := len(c.llmAuditEntries); got != 0 {
+		t.Fatalf("expected no queued entries, got %d", got)
+	}
+}
+
 func TestRunLLMAuditPersistenceLoopFlushesQueuedEntries(t *testing.T) {
 	c := newTestClient(t)
 	c.encryptionConfig = &encryptionconfig.EncryptionConfiguration{

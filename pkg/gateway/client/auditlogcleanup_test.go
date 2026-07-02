@@ -33,6 +33,7 @@ func newTestClient(t *testing.T) *Client {
 		db:                      db,
 		llmAuditEntries:         make(chan llmAuditEntry, 6),
 		llmAuditBatchSize:       3,
+		llmAuditEnabled:         true,
 		auditLogCleanupInterval: 50 * time.Millisecond,
 		auditLogDeleteBatchSize: 3,
 	}

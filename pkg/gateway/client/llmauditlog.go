@@ -28,7 +28,14 @@ type llmAuditEntry struct {
 	responseStream []byte
 }
 
+func (c *Client) LLMAuditLogEnabled() bool {
+	return c != nil && c.llmAuditEnabled
+}
+
 func (c *Client) LogLLMAuditEntry(auditLog types.LLMAuditLog, responseStream []byte) {
+	if !c.LLMAuditLogEnabled() {
+		return
+	}
 	if c.llmAuditEntries == nil {
 		log.Warnf("dropping LLM audit log: writer is not configured")
 		return
