@@ -517,6 +517,13 @@
 								collapsible: false
 							},
 							{
+								id: 'llm-audit-logs',
+								href: '/admin/llm-audit-logs',
+								label: 'Audit Logs',
+								disabled: isBootStrapUser,
+								collapsible: false
+							},
+							{
 								id: 'model-providers',
 								href: '/admin/model-providers',
 								label: 'Model Providers',
