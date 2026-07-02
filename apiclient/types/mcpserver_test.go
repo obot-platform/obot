@@ -25,6 +25,64 @@ func TestMapCatalogEntryToServerCopiesResources(t *testing.T) {
 	}
 }
 
+func TestMCPServerManifestConvertToCatalogEntryPreservesRemoteFields(t *testing.T) {
+	manifest := MCPServerManifest{
+		Runtime: RuntimeRemote,
+		RemoteConfig: &RemoteRuntimeConfig{
+			URL:                 "https://api.example.com/mcp",
+			URLTemplate:         "https://${WORKSPACE}.example.com/mcp",
+			Hostname:            "*.example.com",
+			Headers:             []MCPHeader{{Key: "Authorization", Name: "Authorization"}},
+			StaticOAuthRequired: true,
+		},
+	}
+
+	result := manifest.ConvertToCatalogEntry()
+
+	if result.RemoteConfig == nil {
+		t.Fatal("Expected RemoteConfig to be populated")
+	}
+	if result.RemoteConfig.FixedURL != manifest.RemoteConfig.URL {
+		t.Errorf("Expected fixedURL %q, got %q", manifest.RemoteConfig.URL, result.RemoteConfig.FixedURL)
+	}
+	if result.RemoteConfig.URLTemplate != manifest.RemoteConfig.URLTemplate {
+		t.Errorf("Expected urlTemplate %q, got %q", manifest.RemoteConfig.URLTemplate, result.RemoteConfig.URLTemplate)
+	}
+	if result.RemoteConfig.Hostname != manifest.RemoteConfig.Hostname {
+		t.Errorf("Expected hostname %q, got %q", manifest.RemoteConfig.Hostname, result.RemoteConfig.Hostname)
+	}
+	if len(result.RemoteConfig.Headers) != 1 || result.RemoteConfig.Headers[0].Key != "Authorization" {
+		t.Errorf("Expected headers to be copied, got %v", result.RemoteConfig.Headers)
+	}
+	if !result.RemoteConfig.StaticOAuthRequired {
+		t.Error("Expected staticOAuthRequired to be copied")
+	}
+}
+
+func TestMCPServerManifestConvertToCatalogEntryPreservesCompositeToolPrefix(t *testing.T) {
+	manifest := MCPServerManifest{
+		Runtime: RuntimeComposite,
+		CompositeConfig: &CompositeRuntimeConfig{ComponentServers: []ComponentServer{{
+			CatalogEntryID: "component",
+			ToolPrefix:     "prefix_",
+			Manifest: MCPServerManifest{
+				Runtime:   RuntimeNPX,
+				NPXConfig: &NPXRuntimeConfig{Package: "component"},
+			},
+		}}},
+	}
+
+	result := manifest.ConvertToCatalogEntry()
+
+	if result.CompositeConfig == nil || len(result.CompositeConfig.ComponentServers) != 1 {
+		t.Fatalf("Expected one composite component, got %#v", result.CompositeConfig)
+	}
+	component := result.CompositeConfig.ComponentServers[0]
+	if component.ToolPrefix != "prefix_" {
+		t.Errorf("Expected toolPrefix %q, got %q", "prefix_", component.ToolPrefix)
+	}
+}
+
 func TestMapCatalogEntryToServer_UVX(t *testing.T) {
 	catalogEntry := MCPServerCatalogEntryManifest{
 		Name:        "Test UVX Server",

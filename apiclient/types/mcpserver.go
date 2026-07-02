@@ -518,8 +518,11 @@ func (m MCPServerManifest) ConvertToCatalogEntry() MCPServerCatalogEntryManifest
 	case RuntimeRemote:
 		if m.RemoteConfig != nil {
 			catalogManifest.RemoteConfig = &RemoteCatalogConfig{
-				FixedURL: m.RemoteConfig.URL,
-				Headers:  m.RemoteConfig.Headers,
+				FixedURL:            m.RemoteConfig.URL,
+				URLTemplate:         m.RemoteConfig.URLTemplate,
+				Hostname:            m.RemoteConfig.Hostname,
+				Headers:             m.RemoteConfig.Headers,
+				StaticOAuthRequired: m.RemoteConfig.StaticOAuthRequired,
 			}
 		}
 	case RuntimeComposite:
@@ -531,6 +534,7 @@ func (m MCPServerManifest) ConvertToCatalogEntry() MCPServerCatalogEntryManifest
 					MCPServerID:    comp.MCPServerID,
 					Manifest:       comp.Manifest.ConvertToCatalogEntry(),
 					ToolOverrides:  comp.ToolOverrides,
+					ToolPrefix:     comp.ToolPrefix,
 				}
 			}
 			catalogManifest.CompositeConfig = &CompositeCatalogConfig{ComponentServers: componentServers}
