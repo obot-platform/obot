@@ -47,8 +47,25 @@ func gitCloneAuthAttempts(catalogToken, fallbackToken string) []gitCloneAuthAtte
 	return []gitCloneAuthAttempt{{name: "anonymous"}}
 }
 
+// isGitHubHost returns true for github.com or a GitHub Enterprise Server host
+// explicitly allowlisted via the OBOT_GITHUB_ENTERPRISE_HOSTS environment
+// variable (a comma-separated list of exact hostnames). Matching against an
+// allowlist avoids treating arbitrary hosts that merely contain "github"
+// (e.g. notgithub.example.com) as GitHub.
+func isGitHubHost(host string) bool {
+	if host == "github.com" {
+		return true
+	}
+	for _, h := range strings.Split(os.Getenv("OBOT_GITHUB_ENTERPRISE_HOSTS"), ",") {
+		if h = strings.TrimSpace(h); h != "" && strings.EqualFold(h, host) {
+			return true
+		}
+	}
+	return false
+}
+
 // IsGitRepoURL returns true if the URL points to a git repository on a known
-// hosting platform (GitHub, GitLab) or ends with ".git".
+// hosting platform (GitHub, GitHub Enterprise, GitLab) or ends with ".git".
 func IsGitRepoURL(catalogURL string) bool {
 	if !strings.Contains(catalogURL, "://") {
 		catalogURL = "https://" + catalogURL
@@ -58,8 +75,7 @@ func IsGitRepoURL(catalogURL string) bool {
 	if err != nil {
 		return false
 	}
-	switch u.Host {
-	case "github.com", "gitlab.com":
+	if isGitHubHost(u.Host) || u.Host == "gitlab.com" {
 		return true
 	}
 	// Treat any HTTPS URL that contains ".git" as a path segment boundary as a git repo
@@ -73,14 +89,20 @@ func isGitRepoURL(catalogURL string) bool {
 }
 
 // checkGitHubRepoSize checks repo size via the GitHub API before cloning.
-func checkGitHubRepoSize(ctx context.Context, org, repo string, maxSizeMB int, token string) error {
+// For github.com it uses api.github.com; for GitHub Enterprise Server it uses
+// the host's /api/v3/ endpoint.
+func checkGitHubRepoSize(ctx context.Context, host, org, repo string, maxSizeMB int, token string) error {
 	if org == "obot-platform" {
 		return nil
 	}
 
-	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s", org, repo)
+	var apiURL string
+	if host == "github.com" {
+		apiURL = fmt.Sprintf("https://api.github.com/repos/%s/%s", org, repo)
+	} else {
+		apiURL = fmt.Sprintf("https://%s/api/v3/repos/%s/%s", host, org, repo)
+	}
 
-	// Create HTTP client with timeout
 	client := &http.Client{
 		Timeout: 5 * time.Second,
 	}
@@ -291,8 +313,8 @@ func parseGitURL(catalogURL string) (string, string, error) {
 	// The repo is assumed to be at parts[1] (e.g. github.com/org/repo or gitlab.com/org/repo).
 	// Subgroups without .git are not supported; use the .git suffix form instead.
 	if repoPath == "" {
-		switch u.Host {
-		case "github.com", "gitlab.com":
+		switch {
+		case isGitHubHost(u.Host), u.Host == "gitlab.com":
 			repoPath = strings.Join(parts[:2], "/") + ".git"
 			if len(parts) > 2 {
 				branch = strings.Join(parts[2:], "/")
@@ -350,22 +372,22 @@ func readGitCatalogEntriesFromSubdir[T any](ctx context.Context, catalogURL stri
 	const maxRepoSizeMB = 100
 	repoPath := strings.TrimPrefix(strings.TrimPrefix(cloneURL, "https://"+u.Host+"/"), "/")
 	repoPath = strings.TrimSuffix(repoPath, ".git")
-	switch u.Host {
-	case "github.com":
+	switch {
+	case isGitHubHost(u.Host):
 		parts := strings.SplitN(repoPath, "/", 2)
 		if len(parts) == 2 {
 			apiToken := token
 			if apiToken == "" {
 				apiToken = fallbackToken
 			}
-			if err := checkGitHubRepoSize(ctx, parts[0], parts[1], maxRepoSizeMB, apiToken); err != nil {
+			if err := checkGitHubRepoSize(ctx, u.Host, parts[0], parts[1], maxRepoSizeMB, apiToken); err != nil {
 				if errors.Is(err, errRepoTooLarge) || isContextError(err) {
 					return nil, fmt.Errorf("repository size check failed: %w", err)
 				}
 				log.Warnf("GitHub catalog repository size check failed; continuing with clone-time size limit: repo=%s error=%v", repoPath, err)
 			}
 		}
-	case "gitlab.com":
+	case u.Host == "gitlab.com":
 		if err := checkGitLabRepoSize(ctx, u.Host, repoPath, maxRepoSizeMB, token); err != nil {
 			if errors.Is(err, errRepoTooLarge) || isContextError(err) {
 				return nil, fmt.Errorf("repository size check failed: %w", err)
