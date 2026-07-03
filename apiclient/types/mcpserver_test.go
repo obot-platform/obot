@@ -260,6 +260,65 @@ func TestMapCatalogEntryToServer_RemoteFixedURL(t *testing.T) {
 	}
 }
 
+func TestMapCatalogEntryToServer_RemoteFixedURLKeepsRemoteHeadersAsServerConfig(t *testing.T) {
+	header := MCPHeader{Name: "API Key", Key: "X-API-Key", Required: true, Sensitive: true}
+	catalogEntry := MCPServerCatalogEntryManifest{
+		Name:    "Test Remote Server",
+		Runtime: RuntimeRemote,
+		RemoteConfig: &RemoteCatalogConfig{
+			FixedURL: "https://api.example.com/mcp",
+			Headers:  []MCPHeader{header},
+		},
+	}
+
+	result, err := MapCatalogEntryToServer(catalogEntry, "", false)
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+
+	if result.MultiUserConfig != nil {
+		t.Fatalf("Expected remote headers to remain server config, got multi-user config %#v", result.MultiUserConfig)
+	}
+	if result.RemoteConfig == nil || len(result.RemoteConfig.Headers) != 1 {
+		t.Fatalf("Expected one remote header, got %#v", result.RemoteConfig)
+	}
+	if result.RemoteConfig.Headers[0] != header {
+		t.Fatalf("Expected remote header %#v, got %#v", header, result.RemoteConfig.Headers[0])
+	}
+}
+
+func TestMapCatalogEntryToServer_RemoteFixedURLCopiesMultiUserHeadersSeparately(t *testing.T) {
+	header := MCPHeader{Name: "API Key", Key: "X-API-Key", Required: true, Sensitive: true}
+	catalogEntry := MCPServerCatalogEntryManifest{
+		Name:    "Test Remote Server",
+		Runtime: RuntimeRemote,
+		RemoteConfig: &RemoteCatalogConfig{
+			FixedURL: "https://api.example.com/mcp",
+		},
+		MultiUserConfig: &MultiUserConfig{
+			UserDefinedHeaders: []MCPHeader{header},
+		},
+	}
+
+	result, err := MapCatalogEntryToServer(catalogEntry, "", false)
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+
+	if result.RemoteConfig == nil {
+		t.Fatal("Expected RemoteConfig to be populated")
+	}
+	if len(result.RemoteConfig.Headers) != 0 {
+		t.Fatalf("Expected no remote headers, got %#v", result.RemoteConfig.Headers)
+	}
+	if result.MultiUserConfig == nil || len(result.MultiUserConfig.UserDefinedHeaders) != 1 {
+		t.Fatalf("Expected one multi-user header, got %#v", result.MultiUserConfig)
+	}
+	if result.MultiUserConfig.UserDefinedHeaders[0] != header {
+		t.Fatalf("Expected multi-user header %#v, got %#v", header, result.MultiUserConfig.UserDefinedHeaders[0])
+	}
+}
+
 func TestMapCatalogEntryToServer_RemoteHostname(t *testing.T) {
 	catalogEntry := MCPServerCatalogEntryManifest{
 		Name:        "Test Remote Server",

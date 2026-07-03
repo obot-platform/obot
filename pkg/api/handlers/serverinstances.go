@@ -196,12 +196,35 @@ func (h *ServerInstancesHandler) ClearOAuthCredentials(req api.Context) error {
 }
 
 func (h *ServerInstancesHandler) GetOAuthURL(req api.Context) error {
-	var instance v1.MCPServerInstance
-	if err := req.Get(&instance, req.PathValue("mcp_server_instance_id")); err != nil {
+	u, err := h.oauthURLForInstance(req)
+	if err != nil {
 		return err
 	}
+
+	return req.Write(map[string]string{"oauthURL": u})
+}
+
+func (h *ServerInstancesHandler) RedirectOAuthURL(req api.Context) error {
+	u, err := h.oauthURLForInstance(req)
+	if err != nil {
+		return err
+	}
+	if u == "" {
+		http.Redirect(req.ResponseWriter, req.Request, "/auth/oauth/complete", http.StatusFound)
+		return nil
+	}
+
+	http.Redirect(req.ResponseWriter, req.Request, u, http.StatusFound)
+	return nil
+}
+
+func (h *ServerInstancesHandler) oauthURLForInstance(req api.Context) (string, error) {
+	var instance v1.MCPServerInstance
+	if err := req.Get(&instance, req.PathValue("mcp_server_instance_id")); err != nil {
+		return "", err
+	}
 	if instance.Spec.UserID != req.User.GetUID() {
-		return types.NewErrNotFound("MCP server instance not found")
+		return "", types.NewErrNotFound("MCP server instance not found")
 	}
 
 	// allowMissingConfig: report OAuth state even when the instance is not yet
@@ -210,15 +233,15 @@ func (h *ServerInstancesHandler) GetOAuthURL(req api.Context) error {
 	// is identical to the strict path.
 	server, serverConfig, _, err := serverFromMCPServerInstance(req, instance, true)
 	if err != nil {
-		return fmt.Errorf("failed to resolve MCP server instance: %w", err)
+		return "", fmt.Errorf("failed to resolve MCP server instance: %w", err)
 	}
 
 	u, err := h.mcpOAuthChecker.CheckForMCPAuth(req, server, serverConfig, req.User.GetUID(), instance.Name, "")
 	if err != nil {
-		return fmt.Errorf("failed to get OAuth URL: %w", err)
+		return "", fmt.Errorf("failed to get OAuth URL: %w", err)
 	}
 
-	return req.Write(map[string]string{"oauthURL": u})
+	return u, nil
 }
 
 func (h *ServerInstancesHandler) ConfigureServerInstance(req api.Context) error {

@@ -160,6 +160,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("DELETE /api/mcp-server-instances/{mcp_server_instance_id}", serverInstances.DeleteServerInstance)
 	mux.HandleFunc("DELETE /api/mcp-server-instances/{mcp_server_instance_id}/oauth", serverInstances.ClearOAuthCredentials)
 	mux.HandleFunc("GET /api/mcp-server-instances/{mcp_server_instance_id}/oauth-url", serverInstances.GetOAuthURL)
+	mux.HandleFunc("GET /api/mcp-server-instances/{mcp_server_instance_id}/oauth-redirect", serverInstances.RedirectOAuthURL)
 
 	// MCP Catalogs (admin only)
 	mux.HandleFunc("GET /api/mcp-catalogs", mcpCatalogs.List)

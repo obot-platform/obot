@@ -181,6 +181,81 @@ func TestServerToServerConfig_MultiUserPassthroughHeaders(t *testing.T) {
 	}
 }
 
+func TestServerToServerConfig_RemoteHeadersAreDeploymentConfigAndMultiUserHeadersArePassthrough(t *testing.T) {
+	baseURL := "http://localhost:8080"
+	requiredHeader := types.MCPHeader{Key: "X-API-Key", Required: true, Sensitive: true}
+	tests := []struct {
+		name                       string
+		manifest                   types.MCPServerManifest
+		credEnv                    map[string]string
+		expectedMissing            []string
+		expectedHeaders            []string
+		expectedPassthroughHeaders []string
+	}{
+		{
+			name: "remote header without deployment credential is missing server config",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					URL:     "https://example.com/mcp",
+					Headers: []types.MCPHeader{requiredHeader},
+				},
+			},
+			expectedMissing: []string{"X-API-Key"},
+		},
+		{
+			name: "multi-user header is passthrough and not missing server config",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					URL: "https://example.com/mcp",
+				},
+				MultiUserConfig: &types.MultiUserConfig{
+					UserDefinedHeaders: []types.MCPHeader{requiredHeader},
+				},
+			},
+			expectedPassthroughHeaders: []string{"X-API-Key"},
+		},
+		{
+			name: "remote header with deployment credential becomes server header",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					URL:     "https://example.com/mcp",
+					Headers: []types.MCPHeader{requiredHeader},
+				},
+			},
+			credEnv:         map[string]string{"X-API-Key": "server-secret"},
+			expectedHeaders: []string{"X-API-Key=server-secret"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mcpServer := v1.MCPServer{
+				Spec: v1.MCPServerSpec{
+					Manifest: tt.manifest,
+				},
+			}
+			mcpServer.Name = "test-server"
+
+			config, missing, err := ServerToServerConfig(mcpServer, mcpServer.ValidConnectURLs(baseURL), baseURL, "test-user-id", "test-scope", "test-catalog", tt.credEnv, nil)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if !slices.Equal(missing, tt.expectedMissing) {
+				t.Fatalf("expected missing config %v, got %v", tt.expectedMissing, missing)
+			}
+			if !slices.Equal(config.Headers, tt.expectedHeaders) {
+				t.Fatalf("expected server headers %v, got %v", tt.expectedHeaders, config.Headers)
+			}
+			if !slices.Equal(config.PassthroughHeaderNames, tt.expectedPassthroughHeaders) {
+				t.Fatalf("expected passthrough headers %v, got %v", tt.expectedPassthroughHeaders, config.PassthroughHeaderNames)
+			}
+		})
+	}
+}
+
 func TestServerToServerConfig_StaticHeaders_Remote(t *testing.T) {
 	baseURL := "http://localhost:8080"
 	tests := []struct {
