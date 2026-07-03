@@ -149,7 +149,7 @@ func TestNanobotParseModelProviderBuiltinFallbacks(t *testing.T) {
 	}{
 		{system.OpenAIModelProvider, nanobottypes.DialectOpenAIResponses, "https://obot.example.com/api/llm-proxy/openai"},
 		{system.AnthropicModelProvider, nanobottypes.DialectAnthropicMessages, "https://obot.example.com/api/llm-proxy/anthropic"},
-		{"unknown-model-provider", nanobottypes.DialectOpenResponses, "https://obot.example.com/api/llm-proxy"},
+		{"unknown-model-provider", nanobottypes.DialectOpenAIChatCompletions, "https://obot.example.com/api/llm-proxy"},
 	} {
 		model := resolvedLLMModel{Name: "my-model", ModelProvider: tc.modelProvider}
 		p, qualifiedName := h.parseModelProvider(model)
