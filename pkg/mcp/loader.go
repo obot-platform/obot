@@ -33,6 +33,9 @@ type Options struct {
 	DisallowLinkLocalMCP              bool     `usage:"Disallow MCP containers from connecting to link-local addresses" default:"true"`
 	MCPRuntimeBackend                 string   `usage:"The runtime backend to use for running MCP servers: docker, kubernetes, or k8s. Defaults to docker" default:"docker"`
 	MCPSecretBindingAllowedLabel      string   `usage:"Kubernetes Secret label key required for admin UI secret-binding lookup and save-time validation" default:"obot.obot.ai/allow-secret-binding"`
+	MCPCACertFile                     string   `usage:"Path to a PEM CA certificate file to mount into MCP containers for custom TLS trust (Docker backend only)"`
+	MCPCACertSecretName               string   `usage:"Name of a Kubernetes Secret holding a PEM CA bundle to mount into MCP pods for custom TLS trust (Kubernetes backend only)"`
+	MCPCACertSecretKey                string   `usage:"Key within MCPCACertSecretName that holds the PEM CA bundle" default:"ca-bundle.crt"`
 	MCPImagePullSecrets               []string `usage:"The name of the image pull secret to use for pulling MCP images"`
 	SingleUserIdleServerShutdownHours int      `usage:"The interval in hours to check for idle MCP servers designated to a single user and shut them down, set to -1 to disable shutdown" default:"24"`
 	MultiUserIdleServerShutdownHours  int      `usage:"The interval in hours to check for idle multi-user MCP servers and shut them down, set to -1 to disable" default:"168"`
