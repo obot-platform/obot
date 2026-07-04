@@ -49,26 +49,26 @@ func TestSyncSkipsRecentCatalogAndForceSyncPrunesRemovedEntries(t *testing.T) {
 
 	resp := &router.ResponseWrapper{}
 	require.NoError(t, handler.Sync(syncRequest(ctx, storageClient, catalog), resp))
-	require.ElementsMatch(t, []string{"Alpha", "Beta"}, catalogEntryManifestNames(t, ctx, storageClient))
+	require.ElementsMatch(t, []string{"Alpha", "Beta"}, catalogEntryManifestNames(ctx, t, storageClient))
 
 	require.NoError(t, os.Remove(filepath.Join(catalogDir, "beta.yaml")))
-	synced := getCatalog(t, ctx, storageClient)
+	synced := getCatalog(ctx, t, storageClient)
 
 	resp = &router.ResponseWrapper{}
 	require.NoError(t, handler.Sync(syncRequest(ctx, storageClient, synced), resp))
 	require.True(t, resp.Delay > 0 && resp.Delay <= time.Hour)
-	require.ElementsMatch(t, []string{"Alpha", "Beta"}, catalogEntryManifestNames(t, ctx, storageClient))
+	require.ElementsMatch(t, []string{"Alpha", "Beta"}, catalogEntryManifestNames(ctx, t, storageClient))
 
-	forceSync := getCatalog(t, ctx, storageClient)
+	forceSync := getCatalog(ctx, t, storageClient)
 	forceSync.Annotations[v1.MCPCatalogSyncAnnotation] = "true"
 	require.NoError(t, storageClient.Update(ctx, forceSync))
 
 	resp = &router.ResponseWrapper{}
-	require.NoError(t, handler.Sync(syncRequest(ctx, storageClient, getCatalog(t, ctx, storageClient)), resp))
+	require.NoError(t, handler.Sync(syncRequest(ctx, storageClient, getCatalog(ctx, t, storageClient)), resp))
 	require.Equal(t, time.Hour, resp.Delay)
-	require.Equal(t, []string{"Alpha"}, catalogEntryManifestNames(t, ctx, storageClient))
+	require.Equal(t, []string{"Alpha"}, catalogEntryManifestNames(ctx, t, storageClient))
 
-	afterForce := getCatalog(t, ctx, storageClient)
+	afterForce := getCatalog(ctx, t, storageClient)
 	require.NotContains(t, afterForce.Annotations, v1.MCPCatalogSyncAnnotation)
 }
 
@@ -127,7 +127,7 @@ remoteConfig:
 	require.NoError(t, os.WriteFile(filepath.Join(dir, filename), []byte(content), 0o600))
 }
 
-func catalogEntryManifestNames(t *testing.T, ctx context.Context, storageClient kclient.Client) []string {
+func catalogEntryManifestNames(ctx context.Context, t *testing.T, storageClient kclient.Client) []string {
 	t.Helper()
 
 	var entries v1.MCPServerCatalogEntryList
@@ -140,7 +140,7 @@ func catalogEntryManifestNames(t *testing.T, ctx context.Context, storageClient 
 	return names
 }
 
-func getCatalog(t *testing.T, ctx context.Context, storageClient kclient.Client) *v1.MCPCatalog {
+func getCatalog(ctx context.Context, t *testing.T, storageClient kclient.Client) *v1.MCPCatalog {
 	t.Helper()
 
 	var catalog v1.MCPCatalog

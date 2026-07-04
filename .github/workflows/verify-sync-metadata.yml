@@ -8,7 +8,10 @@ permissions:
   contents: read
 
 on:
+  # ready_for_review: upstream-sync drafts are created with GITHUB_TOKEN, whose
+  # events trigger no workflows — marking the draft ready must start the checks.
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
   push:
     branches: [main]

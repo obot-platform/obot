@@ -132,3 +132,31 @@ Main module with local sub-modules:
 - `github.com/obot-platform/obot` (main)
 - `github.com/obot-platform/obot/apiclient` → `./apiclient`
 - `github.com/obot-platform/obot/logger` → `./logger`
+
+## CI Gates and Release Contract (Accelerate fork)
+
+This fork publishes `ghcr.io/accelerate-data/obot-vibedata` (`:latest` and `:<upstream-version>-vibedata`). Studio's nightly release pipeline resolves the `:latest` digest at candidate time and pins it into the candidate tag (vd-studio `docs/functional/release-management/README.md`). Treat `main` and the publish workflow as release inputs.
+
+### Required checks on `main`
+
+The GitHub ruleset is versioned at `.github/rulesets/main-branch.json`. Create it with `gh api repos/accelerate-data/obot/rulesets --input .github/rulesets/main-branch.json`; update an existing one with `--method PUT` against `.../rulesets/<id>`. Required contexts:
+
+- `lint-go` (`go.yml`) — `make build` + `make validate-go-code`. Runs on every PR; do not add paths filters to a required check or non-matching PRs can never merge.
+- `test` (`test.yaml`) — `make test`.
+- `verify` (`verify-sync-metadata.yml`) — guards `.accelerate/upstream-sync.json`, which drives the published image version tag.
+
+Deliberately not required: `user` UI lint (paths-filtered to `ui/user/**`) and helm `lint` (chart-only).
+
+Upstream-sync PRs are drafts created with `GITHUB_TOKEN`, whose events trigger no workflows — the required checks start when a maintainer marks the PR ready for review. If the branch is updated by automation after that, close and reopen the PR to re-trigger the checks.
+
+### Image publication is fail-closed
+
+`build-vibedata-image.yml` (push to `main` or manual dispatch) is the only workflow that advances Studio-consumable tags; upstream's `docker-build-and-push.yml` has publishing disabled. Stage order: resolve version from sync metadata → verify both provider images exist and capture digests → per-arch builds pushed by digest only (untagged) → manifest merge creates the `:latest`/versioned tags → both-arch verification → cosign signing. A failure at any stage leaves the previous `:latest` untouched. Provider inputs are pinned to the pre-verified digests, so the image checked is the image consumed.
+
+If Studio picks up a broken or stale obot input, the owning failure is a red `Build and Push obot-vibedata` run on `main` in this repo.
+
+### Local verification
+
+- `make build && make validate-go-code` (installs the pinned golangci-lint if missing)
+- `make test` (or a narrower `go test ./pkg/...`)
+- `bash scripts/verify-sync-metadata.sh` after touching sync metadata

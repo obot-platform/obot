@@ -4,15 +4,20 @@ on:
   push:
     branches:
       - main
+  # No paths-ignore: lint is a required check on main, so it must report a
+  # status on every PR or chart/UI-only PRs would never become mergeable.
+  # ready_for_review: upstream-sync drafts are created with GITHUB_TOKEN, whose
+  # events trigger no workflows — marking the draft ready must start the checks.
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches:
       - main
-    paths-ignore:
-      - chart/**
-      - ui/user/**
 
 jobs:
   lint:
+    # Distinct display name: helm.yml and user-ui.yml also have a job called
+    # "lint", and required status checks match by check-run name.
+    name: lint-go
     runs-on: ubuntu-latest
 
     steps:
