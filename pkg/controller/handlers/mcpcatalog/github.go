@@ -53,7 +53,7 @@ func gitCloneAuthAttempts(catalogToken, fallbackToken string) []gitCloneAuthAtte
 // allowlist avoids treating arbitrary hosts that merely contain "github"
 // (e.g. notgithub.example.com) as GitHub.
 func isGitHubHost(host string) bool {
-	if host == "github.com" {
+	if strings.EqualFold(host, "github.com") {
 		return true
 	}
 	for _, h := range strings.Split(os.Getenv("OBOT_GITHUB_ENTERPRISE_HOSTS"), ",") {
@@ -97,7 +97,7 @@ func checkGitHubRepoSize(ctx context.Context, host, org, repo string, maxSizeMB 
 	}
 
 	var apiURL string
-	if host == "github.com" {
+	if strings.EqualFold(host, "github.com") {
 		apiURL = fmt.Sprintf("https://api.github.com/repos/%s/%s", org, repo)
 	} else {
 		apiURL = fmt.Sprintf("https://%s/api/v3/repos/%s/%s", host, org, repo)
@@ -365,7 +365,13 @@ func readGitCatalogEntriesFromSubdir[T any](ctx context.Context, catalogURL stri
 		return nil, err
 	}
 
-	fallbackToken := os.Getenv("GITHUB_AUTH_TOKEN")
+	// Only fall back to GITHUB_AUTH_TOKEN for GitHub hosts, so the server-level
+	// GitHub credential is never sent (via API or clone BasicAuth) to GitLab or
+	// other self-hosted git endpoints.
+	var fallbackToken string
+	if isGitHubHost(u.Host) {
+		fallbackToken = os.Getenv("GITHUB_AUTH_TOKEN")
+	}
 
 	// Platform API pre-clone size checks: faster and more accurate than waiting
 	// for the clone to start. The generic clone-time check below acts as a fallback.

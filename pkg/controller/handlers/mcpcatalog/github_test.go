@@ -31,6 +31,24 @@ func TestIsGitRepoURL(t *testing.T) {
 	}
 }
 
+func TestIsGitHubHostAllowlist(t *testing.T) {
+	// Without an allowlist, only github.com (case-insensitive) is recognized;
+	// a "github"-substring host must NOT be treated as GitHub.
+	assert.True(t, isGitHubHost("github.com"))
+	assert.True(t, isGitHubHost("GitHub.com"))
+	assert.False(t, isGitHubHost("github.enterprise.com"))
+	assert.False(t, isGitHubHost("notgithub.example.com"))
+
+	// With the allowlist set, listed enterprise hosts are recognized
+	// case-insensitively; unlisted "github" hosts remain rejected.
+	t.Setenv("OBOT_GITHUB_ENTERPRISE_HOSTS", "github.enterprise.com, ghe.internal")
+	assert.True(t, isGitHubHost("github.enterprise.com"))
+	assert.True(t, isGitHubHost("GHE.Internal"))
+	assert.True(t, isGitHubHost("github.com"))
+	assert.False(t, isGitHubHost("notgithub.example.com"))
+	assert.False(t, isGitHubHost("github.other.com"))
+}
+
 func TestReadMCPCatalogSetsSourceMetadata(t *testing.T) {
 	dir := t.TempDir()
 	assert.NoError(t, os.WriteFile(filepath.Join(dir, "entry.yaml"), []byte(`entryKey: test-entry

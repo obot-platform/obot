@@ -58,7 +58,7 @@ type githubRepository struct {
 // variable (a comma-separated list of exact hostnames), matching the rule used
 // by the MCP catalog handler.
 func isGitHubHost(host string) bool {
-	if host == "github.com" {
+	if strings.EqualFold(host, "github.com") {
 		return true
 	}
 	for _, h := range strings.Split(os.Getenv("OBOT_GITHUB_ENTERPRISE_HOSTS"), ",") {
@@ -73,7 +73,7 @@ func isGitHubHost(host string) bool {
 // For github.com it returns the configured apiBaseURL (so tests can inject an
 // httptest URL). For GitHub Enterprise Server it derives https://<host>/api/v3.
 func (f *githubRepositoryFetcher) apiBaseFor(repo githubRepository) string {
-	if repo.Host == "github.com" {
+	if strings.EqualFold(repo.Host, "github.com") {
 		return f.apiBaseURL
 	}
 	return fmt.Sprintf("https://%s/api/v3", repo.Host)
