@@ -83,7 +83,7 @@ spec:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ include "obot.imageTag" . }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          {{- if or .Values.persistence.enabled .Values.extraVolumeMounts (eq (lower (toString .Values.config.OBOT_SERVER_ENCRYPTION_PROVIDER)) "custom") }}
+          {{- if or .Values.persistence.enabled .Values.extraVolumeMounts (eq (lower (toString .Values.config.OBOT_SERVER_ENCRYPTION_PROVIDER)) "custom") (include "obot.mcpCACertificate.secretName" .) }}
           volumeMounts:
             {{- if eq (lower (toString .Values.config.OBOT_SERVER_ENCRYPTION_PROVIDER)) "custom" }}
             - name: config
@@ -157,7 +157,7 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- if or .Values.persistence.enabled .Values.extraVolumes (eq (lower (toString .Values.config.OBOT_SERVER_ENCRYPTION_PROVIDER)) "custom") }}
+      {{- if or .Values.persistence.enabled .Values.extraVolumes (eq (lower (toString .Values.config.OBOT_SERVER_ENCRYPTION_PROVIDER)) "custom") (include "obot.mcpCACertificate.secretName" .) }}
       volumes:
       {{- if eq (lower (toString .Values.config.OBOT_SERVER_ENCRYPTION_PROVIDER)) "custom" }}
         - name: config

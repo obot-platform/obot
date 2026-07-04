@@ -397,7 +397,7 @@ mcpServerDefaults:
   maxMemoryLimit: ""
 
 # mcpCACertificate -- Mount a custom PEM CA bundle into the Obot pod and every MCP server pod so they trust TLS certificates issued by an internal CA (airgapped / enterprise deployments).
-# Only used when config.OBOT_SERVER_MCPRUNTIME_BACKEND is "kubernetes". For the Docker backend, use config.OBOT_SERVER_MCPCACERT_FILE.
+# When set, the bundle is always mounted on the Obot pod. It is additionally mounted on MCP server pods only when config.OBOT_SERVER_MCPRUNTIME_BACKEND is "kubernetes". For the Docker runtime backend, use config.OBOT_SERVER_MCPCACERT_FILE for the MCP containers.
 # The bundle replaces the default trust store for Go (SSL_CERT_FILE) and Python (REQUESTS_CA_BUNDLE); if public-internet TLS must also work, concatenate your CA with the system bundle before supplying it.
 mcpCACertificate:
   # mcpCACertificate.content -- Inline PEM content. When set, the chart creates a Secret in both the Obot release namespace and the MCP namespace.

@@ -100,9 +100,19 @@ func newDockerBackend(ctx context.Context, authEnabled bool, exposedPort int, op
 		syncedFilesHash:               map[string]string{},
 	}
 	if d.caCertFile != "" {
-		if _, err := os.Stat(d.caCertFile); err != nil {
+		fi, err := os.Stat(d.caCertFile)
+		if err != nil {
 			return nil, fmt.Errorf("MCP CA cert file %q not accessible: %w", d.caCertFile, err)
 		}
+		if !fi.Mode().IsRegular() {
+			return nil, fmt.Errorf("MCP CA cert file %q is not a regular file", d.caCertFile)
+		}
+		// Confirm it's readable now, rather than failing later at container start.
+		f, err := os.Open(d.caCertFile)
+		if err != nil {
+			return nil, fmt.Errorf("MCP CA cert file %q is not readable: %w", d.caCertFile, err)
+		}
+		_ = f.Close()
 	}
 
 	if err = d.cleanupDeprecatedContainers(ctx); err != nil {

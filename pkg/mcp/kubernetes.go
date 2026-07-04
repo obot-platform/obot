@@ -956,6 +956,12 @@ func (k *kubernetesBackend) applyCACertVolume(dep *appsv1.Deployment) {
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
 				SecretName: k.caCertSecretName,
+				// Project only the configured key so a misconfigured secretKey
+				// fails fast at mount time instead of silently pointing
+				// SSL_CERT_FILE et al. at a non-existent path.
+				Items: []corev1.KeyToPath{
+					{Key: k.caCertSecretKey, Path: k.caCertSecretKey},
+				},
 			},
 		},
 	})
