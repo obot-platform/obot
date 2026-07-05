@@ -1,10 +1,24 @@
 package mcp
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/moby/moby/api/types/container"
 )
+
+func TestNewMCPServerHostConfigMapsHostDockerInternal(t *testing.T) {
+	hc := newMCPServerHostConfig("8099/tcp", nil)
+
+	// The shim (and other MCP server containers) must be able to reach services
+	// published on the host via host.docker.internal, matching how Obot's own
+	// container is reached. Without this mapping, a remote MCP server whose URL
+	// resolves to host.docker.internal is unreachable from the shim on native
+	// Linux dockerd (Docker Desktop injects it automatically, masking the bug).
+	if !slices.Contains(hc.ExtraHosts, "host.docker.internal:host-gateway") {
+		t.Fatalf("ExtraHosts = %v, want it to contain host.docker.internal:host-gateway", hc.ExtraHosts)
+	}
+}
 
 func TestDockerTransformObotHostnameAlwaysRewritesHost(t *testing.T) {
 	d := &dockerBackend{hostBaseURLWithPort: "http://172.17.0.1:8080"}

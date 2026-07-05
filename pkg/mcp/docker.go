@@ -118,6 +118,26 @@ func chooseMCPNetwork(optNetwork string, autoDetected string) string {
 	return "bridge"
 }
 
+// newMCPServerHostConfig builds the HostConfig for an MCP server container.
+//
+// It maps host.docker.internal to the host gateway so MCP server containers (the
+// remote shim in particular) can reach services published on the host, the same
+// way Obot's own container is reached. Docker Desktop injects this mapping
+// automatically, but native Linux dockerd does not — so a remote MCP server whose
+// URL resolves to host.docker.internal is reachable from Obot itself yet
+// unreachable from the shim Obot deploys. Adding it keeps the shim's host
+// reachability consistent with Obot's.
+func newMCPServerHostConfig(containerPortStr string, mounts []mount.Mount) *container.HostConfig {
+	return &container.HostConfig{
+		PortBindings: map[nat.Port][]nat.PortBinding{nat.Port(containerPortStr): {{HostIP: "127.0.0.1"}}},
+		Mounts:       mounts,
+		ExtraHosts:   []string{"host.docker.internal:host-gateway"},
+		RestartPolicy: container.RestartPolicy{
+			Name: "unless-stopped",
+		},
+	}
+}
+
 // detectContainerCurrentNetworkIP detects the Docker network and IP of the current container if running inside one.
 // Returns empty string if not running in a container or if detection fails.
 func detectContainerCurrentNetworkIP(ctx context.Context, cli *client.Client) (string, string, error) {
@@ -1129,14 +1149,8 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 		}
 	}
 
-	// Host config with port bindings and volume mounts
-	hostConfig := &container.HostConfig{
-		PortBindings: map[nat.Port][]nat.PortBinding{nat.Port(containerPortStr): {{HostIP: "127.0.0.1"}}},
-		Mounts:       volumeMounts,
-		RestartPolicy: container.RestartPolicy{
-			Name: "unless-stopped",
-		},
-	}
+	// Host config with port bindings and volume mounts.
+	hostConfig := newMCPServerHostConfig(containerPortStr, volumeMounts)
 
 	if err := d.pullImage(ctx, image, false); err != nil {
 		return "", 0, fmt.Errorf("failed to ensure image exists: %w", err)
