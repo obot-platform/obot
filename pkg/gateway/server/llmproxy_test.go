@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/messagepolicy"
@@ -477,6 +478,30 @@ func TestLLMTransformRequest_UpstreamPath(t *testing.T) {
 			reqPath: "v1/models",
 			want:    "/v1/models",
 		},
+		{
+			name:    "Claude Code Mantle → /api/llm-proxy/aws-bedrock",
+			baseURL: "https://bedrock-mantle.us-east-1.api.aws/anthropic/v1",
+			reqPath: "anthropic/v1/messages",
+			want:    "/anthropic/v1/messages",
+		},
+		{
+			name:    "Claude Code Mantle v1 path → /api/llm-proxy/aws-bedrock",
+			baseURL: "https://bedrock-mantle.us-east-1.api.aws/anthropic/v1",
+			reqPath: "v1/messages",
+			want:    "/anthropic/v1/messages",
+		},
+		{
+			name:    "Claude Code Mantle models → /api/llm-proxy/aws-bedrock",
+			baseURL: "https://bedrock-mantle.us-east-1.api.aws/anthropic/v1",
+			reqPath: "v1/models",
+			want:    "/anthropic/v1/models",
+		},
+		{
+			name:    "Claude Code Mantle full models path → /api/llm-proxy/aws-bedrock",
+			baseURL: "https://bedrock-mantle.us-east-1.api.aws/anthropic/v1",
+			reqPath: "anthropic/v1/models",
+			want:    "/anthropic/v1/models",
+		},
 	}
 
 	for _, tt := range tests {
@@ -493,6 +518,139 @@ func TestLLMTransformRequest_UpstreamPath(t *testing.T) {
 				t.Fatalf("URL.Path = %q, want %q", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestIsBedrockModelsListRequest(t *testing.T) {
+	for _, path := range []string{"models", "v1/models", "anthropic/v1/models"} {
+		t.Run(path, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "http://gateway.local/", nil)
+			req.SetPathValue("path", path)
+			if !isBedrockModelsListRequest(req) {
+				t.Fatalf("isBedrockModelsListRequest(%q) = false, want true", path)
+			}
+		})
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "http://gateway.local/", nil)
+	req.SetPathValue("path", "v1/models")
+	if isBedrockModelsListRequest(req) {
+		t.Fatal("POST /v1/models should not be a models list request")
+	}
+}
+
+func TestBedrockStaticAuthFromCredential(t *testing.T) {
+	tests := []struct {
+		name    string
+		cred    map[string]string
+		want    bedrockStaticAuth
+		wantErr string
+	}{
+		{
+			name: "required credentials with default region",
+			cred: map[string]string{
+				bedrockAccessKeyIDEnv:     "akid",
+				bedrockSecretAccessKeyEnv: "secret",
+			},
+			want: bedrockStaticAuth{region: "us-east-1", signingService: "bedrock", accessKeyID: "akid", secretAccessKey: "secret"},
+		},
+		{
+			name: "all credentials",
+			cred: map[string]string{
+				bedrockAccessKeyIDEnv:     "akid",
+				bedrockSecretAccessKeyEnv: "secret",
+				bedrockSessionTokenEnv:    "session",
+				bedrockRegionEnv:          "us-west-2",
+			},
+			want: bedrockStaticAuth{region: "us-west-2", signingService: "bedrock", accessKeyID: "akid", secretAccessKey: "secret", sessionToken: "session"},
+		},
+		{
+			name:    "missing access key",
+			cred:    map[string]string{bedrockSecretAccessKeyEnv: "secret"},
+			wantErr: bedrockAccessKeyIDEnv,
+		},
+		{
+			name:    "missing secret key",
+			cred:    map[string]string{bedrockAccessKeyIDEnv: "akid"},
+			wantErr: bedrockSecretAccessKeyEnv,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := bedrockStaticAuthFromCredential(tt.cred)
+			if tt.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("error = %v, want containing %q", err, tt.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != tt.want {
+				t.Fatalf("auth = %#v, want %#v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestBedrockSignGetRequest(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "https://bedrock-mantle.us-east-1.api.aws/anthropic/v1/models", nil)
+	err := signBedrockRequest(req, bedrockStaticAuth{
+		region:          "us-east-1",
+		accessKeyID:     "AKIDEXAMPLE",
+		secretAccessKey: "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY",
+	}, time.Date(2026, 7, 6, 12, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := req.Header.Get("Authorization"); !strings.Contains(got, "AWS4-HMAC-SHA256") {
+		t.Fatalf("Authorization = %q, want SigV4", got)
+	}
+	if got := req.Header.Get("X-Amz-Content-Sha256"); got != "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" {
+		t.Fatalf("X-Amz-Content-Sha256 = %q, want empty payload hash", got)
+	}
+}
+
+func TestBedrockMantleTransformAndSign(t *testing.T) {
+	base := bedrockMantleBaseURL("us-east-1")
+	director := llmTransformRequest(base)
+
+	req := httptest.NewRequest(http.MethodPost, "http://gateway.local/", strings.NewReader(`{"model":"us.anthropic.claude-sonnet-4-6"}`))
+	req.SetPathValue("path", "v1/messages")
+	req.Header.Set("Authorization", "Bearer client-token")
+	req.Header.Set("X-Forwarded-For", "::1")
+	director(req)
+
+	if got := req.URL.String(); got != "https://bedrock-mantle.us-east-1.api.aws/anthropic/v1/messages" {
+		t.Fatalf("URL = %q, want Bedrock Mantle messages URL", got)
+	}
+
+	err := signBedrockRequest(req, bedrockStaticAuth{
+		region:          "us-east-1",
+		accessKeyID:     "AKIDEXAMPLE",
+		secretAccessKey: "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY",
+		sessionToken:    "session-token",
+	}, time.Date(2026, 7, 6, 12, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got := req.Header.Get("Authorization"); !strings.Contains(got, "AWS4-HMAC-SHA256") || !strings.Contains(got, "Credential=AKIDEXAMPLE/") {
+		t.Fatalf("Authorization = %q, want SigV4 credential", got)
+	}
+	if got := req.Header.Get("X-Amz-Date"); got != "20260706T120000Z" {
+		t.Fatalf("X-Amz-Date = %q, want fixed signing time", got)
+	}
+	if got := req.Header.Get("X-Amz-Security-Token"); got != "session-token" {
+		t.Fatalf("X-Amz-Security-Token = %q, want session token", got)
+	}
+	if got := req.Header.Get("X-Api-Key"); got != "" {
+		t.Fatalf("X-Api-Key = %q, want empty", got)
+	}
+	if got := req.Header.Get("X-Forwarded-For"); got != "" {
+		t.Fatalf("X-Forwarded-For = %q, want empty", got)
 	}
 }
 
