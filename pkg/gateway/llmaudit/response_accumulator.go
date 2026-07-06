@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/tidwall/gjson"
 )
 
 type ResponseAccumulator struct {
@@ -60,6 +61,12 @@ func (a *ResponseAccumulator) JSON() json.RawMessage {
 		raw = a.openAI.JSON()
 	case system.AnthropicModelProvider:
 		raw = a.anthropic.JSON()
+	default:
+		if a.anthropic.ResponseID() != "" {
+			raw = a.anthropic.JSON()
+		} else {
+			raw = a.openAI.JSON()
+		}
 	}
 	if len(raw) == 0 {
 		return json.RawMessage(`{}`)
@@ -80,7 +87,10 @@ func (a *ResponseAccumulator) ResponseID() string {
 	case system.AnthropicModelProvider:
 		return a.anthropic.ResponseID()
 	default:
-		return ""
+		if id := a.openAI.ResponseID(); id != "" {
+			return id
+		}
+		return a.anthropic.ResponseID()
 	}
 }
 
@@ -115,6 +125,22 @@ func (a *ResponseAccumulator) processJSON(body []byte) {
 		return
 	}
 	if a.modelProvider == system.AnthropicModelProvider {
+		a.anthropic.Process(body)
+		if a.responseID == "" {
+			a.responseID = a.anthropic.ResponseID()
+		}
+		return
+	}
+
+	typ := gjson.Get(body, "type").String()
+	if strings.HasPrefix(typ, "response.") {
+		a.openAI.Process(body)
+		if a.responseID == "" {
+			a.responseID = a.openAI.ResponseID()
+		}
+		return
+	}
+	if typ != "" {
 		a.anthropic.Process(body)
 		if a.responseID == "" {
 			a.responseID = a.anthropic.ResponseID()
