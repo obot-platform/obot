@@ -1,7 +1,6 @@
 package mcpcatalog
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,9 +8,12 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestResolveCompositeSourceRefs(t *testing.T) {
@@ -36,7 +38,7 @@ func TestResolveCompositeSourceRefs(t *testing.T) {
 		}},
 	})
 
-	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(context.Background(), []client.Object{target, composite})
+	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(t.Context(), nil, "", "", []client.Object{target, composite})
 
 	assert.Empty(t, errsBySourceURL)
 	assert.Len(t, result, 2)
@@ -68,10 +70,10 @@ compositeConfig:
 `, sourceRef(dir, "tool")), 0o600))
 
 	h := &Handler{}
-	objs, err := h.readMCPCatalog(context.Background(), "default", dir, "")
+	objs, err := h.readMCPCatalog(t.Context(), "default", dir, "")
 	assert.NoError(t, err)
 
-	objs, errsBySourceURL := h.resolveCompositeSourceRefs(context.Background(), objs)
+	objs, errsBySourceURL := h.resolveCompositeSourceRefs(t.Context(), nil, "", "", objs)
 	assert.Empty(t, errsBySourceURL)
 	assert.Len(t, objs, 2)
 
@@ -114,10 +116,10 @@ compositeConfig:
 `), 0o600))
 
 	h := &Handler{}
-	objs, err := h.readMCPCatalog(context.Background(), "default", dir, "")
+	objs, err := h.readMCPCatalog(t.Context(), "default", dir, "")
 	assert.NoError(t, err)
 
-	objs, errsBySourceURL := h.resolveCompositeSourceRefs(context.Background(), objs)
+	objs, errsBySourceURL := h.resolveCompositeSourceRefs(t.Context(), nil, "", "", objs)
 	assert.Empty(t, errsBySourceURL)
 	assert.Len(t, objs, 2)
 
@@ -150,7 +152,7 @@ func TestResolveCompositeSourceRefsLeavesUnknownShorthandAsInternalID(t *testing
 		}},
 	})
 
-	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(context.Background(), []client.Object{composite})
+	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(t.Context(), nil, "", "", []client.Object{composite})
 
 	assert.Empty(t, errsBySourceURL)
 	assert.Len(t, result, 1)
@@ -179,13 +181,77 @@ func TestResolveCompositeSourceRefsHydratesInternalIDComponents(t *testing.T) {
 		}},
 	})
 
-	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(context.Background(), []client.Object{target, composite})
+	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(t.Context(), nil, "", "", []client.Object{target, composite})
 
 	assert.Empty(t, errsBySourceURL)
 	assert.Len(t, result, 2)
 	component := composite.Spec.Manifest.CompositeConfig.ComponentServers[0]
 	assert.Equal(t, "default-gmail-8a99d8be", component.CatalogEntryID)
 	assert.Equal(t, "Gmail", component.Manifest.Name)
+}
+
+func TestResolveCompositeSourceRefsHydratesMultiUserServerIDComponents(t *testing.T) {
+	server := testMCPServer("shared-server", "default", types.MCPServerManifest{
+		Name:            "Shared Server",
+		Runtime:         types.RuntimeContainerized,
+		MultiUserConfig: &types.MultiUserConfig{UserDefinedHeaders: []types.MCPHeader{{Key: "API_KEY", Name: "API Key"}}},
+		ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+			Image: "example/shared:1.0.0",
+			Port:  8080,
+			Path:  "/mcp",
+		},
+	})
+	server.Spec.MCPCatalogID = "default"
+	composite := testCatalogEntry("composite", "source", "composite.yaml", types.MCPServerCatalogEntryManifest{
+		Name:           "Composite",
+		Runtime:        types.RuntimeComposite,
+		ServerUserType: types.ServerUserTypeSingleUser,
+		CompositeConfig: &types.CompositeCatalogConfig{ComponentServers: []types.CatalogComponentServer{
+			{MCPServerID: "shared-server"},
+		}},
+	})
+	c := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(server).Build()
+
+	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(t.Context(), c, "default", "default", []client.Object{composite})
+
+	assert.Empty(t, errsBySourceURL)
+	assert.Len(t, result, 1)
+	component := composite.Spec.Manifest.CompositeConfig.ComponentServers[0]
+	assert.Equal(t, "shared-server", component.MCPServerID)
+	assert.Empty(t, component.CatalogEntryID)
+	require.NotNil(t, component.Manifest.ContainerizedConfig)
+	assert.Equal(t, "Shared Server", component.Manifest.Name)
+	assert.Equal(t, types.RuntimeContainerized, component.Manifest.Runtime)
+	assert.Equal(t, "example/shared:1.0.0", component.Manifest.ContainerizedConfig.Image)
+	assert.NotNil(t, component.Manifest.MultiUserConfig)
+}
+
+func TestResolveCompositeSourceRefsRejectsMultiUserServerOutsideCatalog(t *testing.T) {
+	server := testMCPServer("shared-server", "default", types.MCPServerManifest{
+		Name:            "Shared Server",
+		Runtime:         types.RuntimeContainerized,
+		MultiUserConfig: &types.MultiUserConfig{},
+		ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+			Image: "example/shared:1.0.0",
+			Port:  8080,
+			Path:  "/mcp",
+		},
+	})
+	server.Spec.PowerUserWorkspaceID = "workspace-1"
+	composite := testCatalogEntry("composite", "source", "composite.yaml", types.MCPServerCatalogEntryManifest{
+		Name:           "Composite",
+		Runtime:        types.RuntimeComposite,
+		ServerUserType: types.ServerUserTypeSingleUser,
+		CompositeConfig: &types.CompositeCatalogConfig{ComponentServers: []types.CatalogComponentServer{
+			{MCPServerID: "shared-server"},
+		}},
+	})
+	c := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(server).Build()
+
+	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(t.Context(), c, "default", "default", []client.Object{composite})
+
+	assert.Empty(t, result)
+	assert.Contains(t, errsBySourceURL["source"], `multi-user server "shared-server" not found in catalog "default"`)
 }
 
 func TestReadMCPCatalogResolvesCompositeSourceRefsAcrossSources(t *testing.T) {
@@ -213,12 +279,12 @@ compositeConfig:
 `, sourceRef(first, "tool")), 0o600))
 
 	h := &Handler{}
-	firstObjs, err := h.readMCPCatalog(context.Background(), "default", first, "")
+	firstObjs, err := h.readMCPCatalog(t.Context(), "default", first, "")
 	assert.NoError(t, err)
-	secondObjs, err := h.readMCPCatalog(context.Background(), "default", second, "")
+	secondObjs, err := h.readMCPCatalog(t.Context(), "default", second, "")
 	assert.NoError(t, err)
 
-	objs, errsBySourceURL := h.resolveCompositeSourceRefs(context.Background(), append(firstObjs, secondObjs...))
+	objs, errsBySourceURL := h.resolveCompositeSourceRefs(t.Context(), nil, "", "", append(firstObjs, secondObjs...))
 	assert.Empty(t, errsBySourceURL)
 	assert.Len(t, objs, 2)
 
@@ -260,7 +326,7 @@ func TestResolveCompositeSourceRefsResolvesExplicitSourceRefWithoutCurrentSource
 		}},
 	})
 
-	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(context.Background(), []client.Object{target, composite})
+	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(t.Context(), nil, "", "", []client.Object{target, composite})
 
 	assert.Empty(t, errsBySourceURL)
 	assert.Len(t, result, 2)
@@ -291,7 +357,7 @@ func TestResolveCompositeSourceRefsSkipsUnresolvedComposite(t *testing.T) {
 		}},
 	})
 
-	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(context.Background(), []client.Object{target, composite})
+	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(t.Context(), nil, "", "", []client.Object{target, composite})
 
 	assert.Len(t, result, 1)
 	assert.Equal(t, "target", result[0].GetName())
@@ -311,7 +377,7 @@ func TestResolveCompositeSourceRefsSkipsMalformedRef(t *testing.T) {
 		}},
 	})
 
-	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(context.Background(), []client.Object{composite})
+	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(t.Context(), nil, "", "", []client.Object{composite})
 
 	assert.Empty(t, result)
 	assert.Contains(t, errsBySourceURL["source"], `invalid catalogEntryID source ref "source::"`)
@@ -325,6 +391,15 @@ func testCatalogEntry(name, sourceID, entryKey string, manifest types.MCPServerC
 			SourceURL: sourceID,
 			Manifest:  manifest,
 			Editable:  false,
+		},
+	}
+}
+
+func testMCPServer(name, namespace string, manifest types.MCPServerManifest) *v1.MCPServer {
+	return &v1.MCPServer{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+		Spec: v1.MCPServerSpec{
+			Manifest: manifest,
 		},
 	}
 }
