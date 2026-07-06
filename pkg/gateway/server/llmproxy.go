@@ -304,7 +304,7 @@ func (r *responseModifier) modifyResponse(resp *http.Response) error {
 	}
 	r.audit.recordResponse(resp)
 
-	if resp.StatusCode != http.StatusOK || (resp.Request.URL.Path != "/v1/messages" && resp.Request.URL.Path != "/anthropic/v1/messages" && resp.Request.URL.Path != "/v1/responses") {
+	if resp.StatusCode != http.StatusOK || (resp.Request.URL.Path != "/v1/messages" && resp.Request.URL.Path != "/anthropic/v1/messages" && resp.Request.URL.Path != "/v1/responses" && resp.Request.URL.Path != "/openai/v1/responses") {
 		wrapAuditOnlyResponse(resp, r.audit, r.client)
 		return nil
 	}

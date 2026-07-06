@@ -181,6 +181,8 @@ func TestBedrockMantleModelName(t *testing.T) {
 		"eu.anthropic.claude-sonnet-4-6":                 "anthropic.claude-sonnet-4-6",
 		"us.anthropic.claude-haiku-4-5-20251001-v1:0":    "anthropic.claude-haiku-4-5",
 		"apac.anthropic.claude-sonnet-4-5-20250929-v1:0": "anthropic.claude-sonnet-4-5",
+		"openai.gpt-5.4":                                 "openai.gpt-5.4",
+		"openai.gpt-5.5":                                 "openai.gpt-5.5",
 	}
 
 	for in, want := range tests {

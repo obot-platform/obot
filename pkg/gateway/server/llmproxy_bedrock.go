@@ -90,8 +90,8 @@ func (b bedrockMantleProviderBackend) prepare(req api.Context, l *llmProviderPro
 			return nil, types2.NewErrForbidden("user does not have permission to use model %q", modelStr)
 		}
 	}
-
 	targetModel := bedrockMantleModelName(model.Spec.Manifest.TargetModel)
+
 	bodyMap["model"] = targetModel
 	body, err = json.Marshal(bodyMap)
 	if err != nil {

@@ -557,6 +557,24 @@ func TestLLMTransformRequest_UpstreamPath(t *testing.T) {
 			reqPath: "anthropic/v1/models",
 			want:    "/anthropic/v1/models",
 		},
+		{
+			name:    "OpenAI Bedrock Responses → /api/llm-proxy/aws-bedrock/openai/v1",
+			baseURL: "https://bedrock-mantle.us-east-1.api.aws/openai/v1",
+			reqPath: "openai/v1/responses",
+			want:    "/openai/v1/responses",
+		},
+		{
+			name:    "OpenAI Bedrock Responses v1 path → /api/llm-proxy/aws-bedrock",
+			baseURL: "https://bedrock-mantle.us-east-1.api.aws/openai/v1",
+			reqPath: "v1/responses",
+			want:    "/openai/v1/responses",
+		},
+		{
+			name:    "OpenAI Bedrock models → /api/llm-proxy/aws-bedrock/openai/v1",
+			baseURL: "https://bedrock-mantle.us-east-1.api.aws/openai/v1",
+			reqPath: "openai/v1/models",
+			want:    "/openai/v1/models",
+		},
 	}
 
 	for _, tt := range tests {
