@@ -103,6 +103,7 @@ func (db *DB) AutoMigrate() (err error) {
 	if err := tx.AutoMigrate(
 		types.AuthToken{},
 		types.TokenRequest{},
+		types.LLMAuditLog{},
 		types.LLMProxyActivity{},
 		types.User{},
 		types.Identity{},

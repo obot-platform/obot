@@ -282,6 +282,7 @@ type responseModifier struct {
 	outputPolicies      []messagepolicy.ApplicablePolicy
 	conversationHistory []messagepolicy.ConversationMessage
 	pipeReader          *io.PipeReader // set when output policies are active; Read() reads from this
+	audit               *llmAuditRecorder
 }
 
 func (r *responseModifier) modifyResponse(resp *http.Response) error {
@@ -290,14 +291,21 @@ func (r *responseModifier) modifyResponse(resp *http.Response) error {
 		if err != nil {
 			return fmt.Errorf("failed to determine accessible models: %w", err)
 		}
-		return filterModelListResponse(resp, allowedTargetModels, allowAllModels)
+		if err := filterModelListResponse(resp, allowedTargetModels, allowAllModels); err != nil {
+			return err
+		}
+		r.audit.recordResponse(resp)
+		wrapAuditOnlyResponse(resp, r.audit, r.client)
+		return nil
 	}
 
 	if r.inputPolicyReplacement != "" {
 		resp.Header.Set("X-Obot-Message-Policy-Replacement", r.inputPolicyReplacement)
 	}
+	r.audit.recordResponse(resp)
 
 	if resp.StatusCode != http.StatusOK || (resp.Request.URL.Path != "/v1/messages" && resp.Request.URL.Path != "/v1/responses") {
+		wrapAuditOnlyResponse(resp, r.audit, r.client)
 		return nil
 	}
 
@@ -415,12 +423,17 @@ func rewriteAnthropicListCursors(body []byte) ([]byte, error) {
 func (r *responseModifier) Read(p []byte) (int, error) {
 	// When output policies are active, the goroutine handles everything via the pipe.
 	if r.pipeReader != nil {
-		return r.pipeReader.Read(p)
+		n, err := r.pipeReader.Read(p)
+		if n > 0 {
+			r.audit.captureResponseChunk(p[:n])
+		}
+		return n, err
 	}
 
 	if len(r.leftover) > 0 {
 		n := copy(p, r.leftover)
 		r.leftover = r.leftover[n:]
+		r.audit.captureResponseChunk(p[:n])
 		return n, nil
 	}
 
@@ -430,7 +443,9 @@ func (r *responseModifier) Read(p []byte) (int, error) {
 		err = nil
 	}
 	if err != nil {
-		return copy(p, line), err
+		n := copy(p, line)
+		r.audit.captureResponseChunk(p[:n])
+		return n, err
 	}
 
 	var prefix []byte
@@ -439,7 +454,9 @@ func (r *responseModifier) Read(p []byte) (int, error) {
 		rest, ok := bytes.CutPrefix(line, prefix)
 		if !ok {
 			// This isn't a data line, so send it through.
-			return copy(p, line), nil
+			n := copy(p, line)
+			r.audit.captureResponseChunk(p[:n])
+			return n, nil
 		}
 		line = rest
 	}
@@ -450,6 +467,7 @@ func (r *responseModifier) Read(p []byte) (int, error) {
 	if n < len(prefix) {
 		// We couldn't copy the entire prefix, so save the leftover for the next read and return.
 		r.leftover = append(prefix[n:], line...)
+		r.audit.captureResponseChunk(p[:n])
 		return n, nil
 	}
 
@@ -458,6 +476,7 @@ func (r *responseModifier) Read(p []byte) (int, error) {
 	// If we didn't copy the entire line, then save the leftover for the next read.
 	r.leftover = line[n-len(prefix):]
 
+	r.audit.captureResponseChunk(p[:n])
 	return n, nil
 }
 
@@ -790,15 +809,34 @@ func buildToolCallTargetMessage(toolCalls []messagepolicy.ToolCallInfo) string {
 }
 
 func (r *responseModifier) Close() error {
-	activity := &types.RunTokenActivity{
-		UserID: r.user.GetUID(),
-		Model:  r.model,
-		Usage:  r.tokenUsageTracker.getTokenUsage(),
+	if r.tokenUsageTracker != nil {
+		usage := r.tokenUsageTracker.getTokenUsage()
+		r.audit.setTokenUsage(usage)
+		activity := &types.RunTokenActivity{
+			UserID: r.user.GetUID(),
+			Model:  r.model,
+			Usage:  usage,
+		}
+		if err := r.client.InsertTokenUsage(context.Background(), activity); err != nil {
+			log.Warnf("failed to save token usage for user %s: %v", r.user.GetUID(), err)
+		}
 	}
-	if err := r.client.InsertTokenUsage(context.Background(), activity); err != nil {
-		log.Warnf("failed to save token usage for user %s: %v", r.user.GetUID(), err)
+	// ReverseProxy does not return body-copy errors to the handler, so Close is
+	// the terminal point for proxied responses. The handler defer is a fallback.
+	err := r.c.Close()
+	r.audit.finish(r.client, err)
+	return err
+}
+
+func wrapAuditOnlyResponse(resp *http.Response, audit *llmAuditRecorder, client *client.Client) {
+	if audit == nil || resp == nil || resp.Body == nil {
+		return
 	}
-	return r.c.Close()
+	resp.Body = &llmAuditResponseBody{
+		body:   resp.Body,
+		audit:  audit,
+		client: client,
+	}
 }
 
 func mustParseURL(s string) *url.URL {
@@ -968,7 +1006,16 @@ func (s *Server) newLLMProviderProxy(u *url.URL, modelProviderName string) *llmP
 	}
 }
 
-func (l *llmProviderProxy) proxy(req api.Context) error {
+func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
+	var audit *llmAuditRecorder
+	if req.GatewayClient.LLMAuditLogEnabled() {
+		audit = newLLMAuditRecorder(req.Request, req.User, defaultLLMAuditLogResponseCaptureLimit)
+		defer func() {
+			audit.finish(req.GatewayClient, retErr)
+		}()
+	}
+	audit.setModel(l.modelProviderName, "", "")
+
 	l.lock.RLock()
 	modelProvider := l.modelProvider
 	l.lock.RUnlock()
@@ -989,6 +1036,9 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to copy body: %w", err)
 	}
+	audit.setRequestBody(body)
+	audit.setClientSessionID(l.modelProviderName, body)
+	audit.setReasoningEffort(l.modelProviderName, body)
 
 	var tokenUsageTracker *threadSafeTokenUsageTracker
 	targetModel := extractModelFromBody(body)
@@ -1014,6 +1064,7 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 
 		tokenUsageTracker = newTokenUsageTracker(*model)
 		targetModel = model.Spec.Manifest.TargetModel
+		audit.setModel(l.modelProviderName, model.Name, targetModel)
 
 		// Replace the model resource name with the actual provider model name
 		body, err = rewriteModelInBody(body, targetModel)
@@ -1022,6 +1073,7 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 		}
 		req.Request.Body = io.NopCloser(bytes.NewReader(body))
 		req.ContentLength = int64(len(body))
+		audit.setRequestBody(body)
 	}
 
 	// Evaluate message policies if the helper is available and we have a user.
@@ -1050,6 +1102,7 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 				}
 				req.Request.Body = io.NopCloser(bytes.NewReader(b))
 				req.ContentLength = int64(len(b))
+				audit.setRedactedRequestBody(b)
 			}
 		}
 	}
@@ -1082,8 +1135,15 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 		req.Request.Header.Set("X-Api-Key", credEnv[credEnvKey])
 	}
 
+	var proxyErr error
 	(&httputil.ReverseProxy{
 		Director: llmTransformRequest(*l.u),
+		ErrorHandler: func(w http.ResponseWriter, _ *http.Request, err error) {
+			proxyErr = err
+			audit.finish(req.GatewayClient, err)
+			log.Warnf("LLM provider proxy error: %v", err)
+			http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
+		},
 		ModifyResponse: (&responseModifier{
 			user:                   req.User,
 			model:                  targetModel,
@@ -1095,8 +1155,12 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 			messagePolicyHelper:    messagePolicyHelper,
 			outputPolicies:         outputPolicies,
 			conversationHistory:    conversationHistory,
+			audit:                  audit,
 		}).modifyResponse,
 	}).ServeHTTP(req.ResponseWriter, req.Request)
+	if proxyErr != nil {
+		return nil
+	}
 
 	return nil
 }

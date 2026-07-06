@@ -56,7 +56,7 @@ func newBootstrapTestClient(t *testing.T) (*client.Client, context.Context) {
 		}).
 		Build()
 
-	c := client.New(ctx, db, storageClient, nil, nil, nil, time.Hour, 1, 90)
+	c := client.New(ctx, db, storageClient, nil, nil, nil, time.Hour, 1, 90, 90, true)
 	t.Cleanup(func() {
 		cancel()
 		_ = c.Close()
