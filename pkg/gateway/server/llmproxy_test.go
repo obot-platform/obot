@@ -14,8 +14,18 @@ import (
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/messagepolicy"
+	"github.com/obot-platform/obot/pkg/system"
 	"github.com/tidwall/gjson"
 )
+
+type captureRoundTripper struct {
+	req *http.Request
+}
+
+func (c *captureRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	c.req = req
+	return &http.Response{StatusCode: http.StatusOK, Body: http.NoBody, Request: req}, nil
+}
 
 func TestShouldSkipMessagePolicyEnforcement(t *testing.T) {
 	tests := []struct {
@@ -384,6 +394,51 @@ func TestLLMTransformRequest_RemovesInternalRequestTypeHeader(t *testing.T) {
 	}
 }
 
+func TestAPIKeyTransportHeaders(t *testing.T) {
+	tests := []struct {
+		name              string
+		providerName      string
+		clientHeaderName  string
+		clientHeaderValue string
+		wantAuth          string
+		wantAPIKey        string
+	}{
+		{
+			name:              "anthropic converts bearer auth to api key",
+			providerName:      system.AnthropicModelProvider,
+			clientHeaderName:  "Authorization",
+			clientHeaderValue: "Bearer client-token",
+			wantAPIKey:        "provider-key",
+		},
+		{
+			name:              "openai converts api key to bearer auth",
+			providerName:      system.OpenAIModelProvider,
+			clientHeaderName:  "X-Api-Key",
+			clientHeaderValue: "client-token",
+			wantAuth:          "Bearer provider-key",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			capture := &captureRoundTripper{}
+			transport := apiKeyTransport{providerName: tt.providerName, key: "provider-key", next: capture}
+			req := httptest.NewRequest(http.MethodPost, "https://provider.example/v1/messages", nil)
+			req.Header.Set(tt.clientHeaderName, tt.clientHeaderValue)
+
+			if _, err := transport.RoundTrip(req); err != nil {
+				t.Fatal(err)
+			}
+			if got := capture.req.Header.Get("Authorization"); got != tt.wantAuth {
+				t.Fatalf("Authorization = %q, want %q", got, tt.wantAuth)
+			}
+			if got := capture.req.Header.Get("X-Api-Key"); got != tt.wantAPIKey {
+				t.Fatalf("X-Api-Key = %q, want %q", got, tt.wantAPIKey)
+			}
+		})
+	}
+}
+
 // TestLLMTransformRequest_UpstreamPath asserts the upstream URL.Path produced
 // by llmTransformRequest for every (base URL, reqPath) combination the proxy
 // should support. Every reqPath is grounded in real source — either nanobot
@@ -522,7 +577,7 @@ func TestLLMTransformRequest_UpstreamPath(t *testing.T) {
 }
 
 func TestIsBedrockModelsListRequest(t *testing.T) {
-	for _, path := range []string{"models", "v1/models", "anthropic/v1/models"} {
+	for _, path := range []string{"models", "v1/models", "anthropic/v1/models", "openai/v1/models"} {
 		t.Run(path, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, "http://gateway.local/", nil)
 			req.SetPathValue("path", path)
@@ -536,6 +591,21 @@ func TestIsBedrockModelsListRequest(t *testing.T) {
 	req.SetPathValue("path", "v1/models")
 	if isBedrockModelsListRequest(req) {
 		t.Fatal("POST /v1/models should not be a models list request")
+	}
+}
+
+func TestBedrockModelsListTransformRequest(t *testing.T) {
+	director := bedrockModelsListTransformRequest("us-east-1")
+	for _, path := range []string{"v1/models", "anthropic/v1/models", "openai/v1/models"} {
+		t.Run(path, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "http://gateway.local/", nil)
+			req.SetPathValue("path", path)
+			director(req)
+
+			if got := req.URL.String(); got != "https://bedrock-mantle.us-east-1.api.aws/v1/models" {
+				t.Fatalf("URL = %q, want Bedrock models URL", got)
+			}
+		})
 	}
 }
 
@@ -614,7 +684,7 @@ func TestBedrockSignGetRequest(t *testing.T) {
 }
 
 func TestBedrockMantleTransformAndSign(t *testing.T) {
-	base := bedrockMantleBaseURL("us-east-1")
+	base := bedrockBaseURL("us-east-1", "us.anthropic.claude-sonnet-4-6")
 	director := llmTransformRequest(base)
 
 	req := httptest.NewRequest(http.MethodPost, "http://gateway.local/", strings.NewReader(`{"model":"us.anthropic.claude-sonnet-4-6"}`))
@@ -625,6 +695,10 @@ func TestBedrockMantleTransformAndSign(t *testing.T) {
 
 	if got := req.URL.String(); got != "https://bedrock-mantle.us-east-1.api.aws/anthropic/v1/messages" {
 		t.Fatalf("URL = %q, want Bedrock Mantle messages URL", got)
+	}
+	openAIBase := bedrockBaseURL("us-east-1", "openai.gpt-5.5")
+	if got := openAIBase.String(); got != "https://bedrock-mantle.us-east-1.api.aws/openai/v1" {
+		t.Fatalf("OpenAI URL = %q, want Bedrock OpenAI URL", got)
 	}
 
 	err := signBedrockRequest(req, bedrockStaticAuth{

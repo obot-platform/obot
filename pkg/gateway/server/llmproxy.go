@@ -4,8 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,8 +19,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	v4signer "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/alias"
@@ -42,16 +38,6 @@ import (
 )
 
 const tokenUsageTimePeriod = 24 * time.Hour
-
-const amazonBedrockModelProvider = "amazon-bedrock-model-provider"
-
-const (
-	bedrockAccessKeyIDEnv     = "OBOT_AMAZON_BEDROCK_MODEL_PROVIDER_ACCESS_KEY_ID"
-	bedrockSecretAccessKeyEnv = "OBOT_AMAZON_BEDROCK_MODEL_PROVIDER_SECRET_ACCESS_KEY"
-	bedrockSessionTokenEnv    = "OBOT_AMAZON_BEDROCK_MODEL_PROVIDER_SESSION_TOKEN"
-	bedrockRegionEnv          = "OBOT_AMAZON_BEDROCK_MODEL_PROVIDER_REGION"
-	bedrockSigningServiceEnv  = "OBOT_AMAZON_BEDROCK_MODEL_PROVIDER_SIGNING_SERVICE"
-)
 
 var (
 	log              = logger.Package()
@@ -173,222 +159,6 @@ func (s *Server) dispatchLLMProxy(req api.Context) error {
 	}).ServeHTTP(req.ResponseWriter, req.Request)
 
 	return nil
-}
-
-func (s *Server) awsBedrockLLMProxy(req api.Context) error {
-	if isBedrockModelsListRequest(req.Request) {
-		return s.proxyAWSBedrockModels(req)
-	}
-
-	body, err := readBody(req.Request)
-	if err != nil {
-		return fmt.Errorf("failed to read body: %w", err)
-	}
-
-	modelStr, ok := body["model"].(string)
-	if !ok {
-		return fmt.Errorf("missing model in body")
-	}
-
-	userID := req.User.GetUID()
-	if remainingUsage, err := req.GatewayClient.RemainingTokenUsageForUser(
-		req.Context(),
-		userID,
-		tokenUsageTimePeriod,
-		s.dailyUserInputTokenLimit,
-		s.dailyUserOutputTokenLimit,
-	); err != nil {
-		return err
-	} else if remainingUsage.IsDepleted() {
-		return types2.NewErrHTTP(http.StatusTooManyRequests, fmt.Sprintf("no tokens remaining (input tokens remaining: %d, output tokens remaining: %d)", remainingUsage.InputTokens, remainingUsage.OutputTokens))
-	}
-
-	m, err := getBedrockModelFromReference(req.Context(), req.Storage, req.Namespace(), modelStr)
-	if err != nil {
-		return fmt.Errorf("failed to get model: %w", err)
-	}
-
-	modelID := m.Name
-	modelProviderName := m.Spec.Manifest.ModelProvider
-	if modelProviderName != amazonBedrockModelProvider {
-		return types2.NewErrBadRequest("requested model does not use provider %q", amazonBedrockModelProvider)
-	}
-
-	hasAccess, err := s.mapHelper.UserHasAccessToModel(req.User, modelID)
-	if err != nil {
-		return fmt.Errorf("failed to check model permission: %w", err)
-	}
-	if !hasAccess {
-		return types2.NewErrForbidden("user does not have permission to use model %q", modelStr)
-	}
-
-	targetModel := bedrockMantleModelName(m.Spec.Manifest.TargetModel)
-	body["model"] = targetModel
-
-	var (
-		outputPolicies         []messagepolicy.ApplicablePolicy
-		conversationHistory    []messagepolicy.ConversationMessage
-		inputPolicyReplacement string
-	)
-	messagePolicyHelper := s.messagePolicyHelper
-	if shouldSkipMessagePolicyEnforcement(req.Request) {
-		messagePolicyHelper = nil
-	}
-	if messagePolicyHelper != nil {
-		outputPolicies, conversationHistory, inputPolicyReplacement, err = applyMessagePolicies(
-			req.Context(), messagePolicyHelper, req.User, req.GatewayClient, body, "", "",
-		)
-		if err != nil {
-			return err
-		}
-	}
-
-	b, err := json.Marshal(body)
-	if err != nil {
-		return err
-	}
-	req.Request.Body = io.NopCloser(bytes.NewReader(b))
-	req.ContentLength = int64(len(b))
-
-	auth, err := bedrockStaticAuthForProvider(req, amazonBedrockModelProvider)
-	if err != nil {
-		return err
-	}
-	u := bedrockMantleBaseURL(auth.region)
-
-	if err = s.db.WithContext(req.Context()).Create(&types.LLMProxyActivity{
-		UserID: userID,
-		Path:   req.URL.Path,
-	}).Error; err != nil {
-		return fmt.Errorf("failed to create monitor: %w", err)
-	}
-
-	(&httputil.ReverseProxy{
-		Director:  llmTransformRequest(u),
-		Transport: bedrockSigV4Transport{auth: auth, next: http.DefaultTransport},
-		ModifyResponse: func(resp *http.Response) error {
-			if resp.StatusCode >= http.StatusBadRequest {
-				return logBedrockMessagesErrorResponse(resp, targetModel)
-			}
-			return (&responseModifier{
-				user:                   req.User,
-				model:                  targetModel,
-				modelProvider:          modelProviderName,
-				client:                 req.GatewayClient,
-				tokenUsageTracker:      newTokenUsageTracker(*m),
-				mapHelper:              s.mapHelper,
-				inputPolicyReplacement: inputPolicyReplacement,
-				messagePolicyHelper:    messagePolicyHelper,
-				outputPolicies:         outputPolicies,
-				conversationHistory:    conversationHistory,
-			}).modifyResponse(resp)
-		},
-	}).ServeHTTP(req.ResponseWriter, req.Request)
-
-	return nil
-}
-
-func (s *Server) proxyAWSBedrockModels(req api.Context) error {
-	auth, err := bedrockStaticAuthForProvider(req, amazonBedrockModelProvider)
-	if err != nil {
-		return err
-	}
-
-	if err = s.db.WithContext(req.Context()).Create(&types.LLMProxyActivity{
-		UserID: req.User.GetUID(),
-		Path:   req.URL.Path,
-	}).Error; err != nil {
-		return fmt.Errorf("failed to create monitor: %w", err)
-	}
-
-	(&httputil.ReverseProxy{
-		Director:  llmTransformRequest(bedrockMantleBaseURL(auth.region)),
-		Transport: bedrockSigV4Transport{auth: auth, next: http.DefaultTransport},
-		ModifyResponse: func(resp *http.Response) error {
-			return filterBedrockModelListResponse(resp, s.mapHelper, req.User)
-		},
-	}).ServeHTTP(req.ResponseWriter, req.Request)
-
-	return nil
-}
-
-func bedrockStaticAuthForProvider(req api.Context, modelProviderName string) (bedrockStaticAuth, error) {
-	var modelProvider v1.ModelProvider
-	if err := req.Get(&modelProvider, modelProviderName); err != nil {
-		return bedrockStaticAuth{}, fmt.Errorf("model provider %s not found: %w", modelProviderName, err)
-	}
-	credEnv, err := dispatcher.CredentialEnvForModelProvider(req.Context(), req.GatewayClient, modelProvider)
-	if err != nil {
-		return bedrockStaticAuth{}, fmt.Errorf("failed to get credential environment for model provider: %w", err)
-	}
-	auth, err := bedrockStaticAuthFromCredential(credEnv)
-	if err != nil {
-		return bedrockStaticAuth{}, err
-	}
-	return auth, nil
-}
-
-func getBedrockModelFromReference(ctx context.Context, client kclient.Client, namespace, modelReference string) (*v1.Model, error) {
-	m, err := getModelFromReference(ctx, client, namespace, modelReference)
-	if err == nil || !apierrors.IsNotFound(err) {
-		return m, err
-	}
-
-	var models v1.ModelList
-	if err := client.List(ctx, &models, &kclient.ListOptions{Namespace: namespace}); err != nil {
-		return nil, fmt.Errorf("failed to list models: %w", err)
-	}
-	for _, model := range models.Items {
-		if model.Spec.Manifest.ModelProvider == amazonBedrockModelProvider && model.Spec.Manifest.Active && slices.Contains(bedrockModelNames(model.Spec.Manifest.TargetModel), modelReference) {
-			return &model, nil
-		}
-	}
-
-	return nil, apierrors.NewNotFound(schema.GroupResource{Group: v1.SchemeGroupVersion.Group, Resource: "model"}, modelReference)
-}
-
-func bedrockModelNames(model string) []string {
-	seen := map[string]bool{model: true}
-	if mantleName := bedrockMantleModelName(model); strings.HasPrefix(mantleName, "anthropic.") {
-		seen[mantleName] = true
-		for _, prefix := range []string{"us.", "eu.", "apac.", "us-gov."} {
-			seen[prefix+mantleName] = true
-		}
-	}
-	names := make([]string, 0, len(seen))
-	for name := range seen {
-		names = append(names, name)
-	}
-	return names
-}
-
-func bedrockMantleModelName(model string) string {
-	model = strings.TrimPrefix(model, "us.")
-	model = strings.TrimPrefix(model, "eu.")
-	model = strings.TrimPrefix(model, "apac.")
-	model = strings.TrimPrefix(model, "us-gov.")
-	if i := strings.LastIndex(model, "-"); i > 0 && strings.HasSuffix(model, ":0") {
-		version := model[i+1:]
-		if strings.HasPrefix(version, "v") {
-			model = model[:i]
-		}
-	}
-	if i := strings.LastIndex(model, "-"); i > 0 && isYYYYMMDD(model[i+1:]) {
-		model = model[:i]
-	}
-	return model
-}
-
-func isYYYYMMDD(s string) bool {
-	if len(s) != 8 {
-		return false
-	}
-	for _, r := range s {
-		if r < '0' || r > '9' {
-			return false
-		}
-	}
-	return true
 }
 
 // getModelFromReference retrieves the model with a matching reference name.
@@ -1077,137 +847,6 @@ func mustParseURL(s string) *url.URL {
 	return u
 }
 
-type bedrockStaticAuth struct {
-	region          string
-	signingService  string
-	accessKeyID     string
-	secretAccessKey string
-	sessionToken    string
-}
-
-func bedrockStaticAuthFromCredential(cred map[string]string) (bedrockStaticAuth, error) {
-	auth := bedrockStaticAuth{
-		region:          cred[bedrockRegionEnv],
-		signingService:  cred[bedrockSigningServiceEnv],
-		accessKeyID:     cred[bedrockAccessKeyIDEnv],
-		secretAccessKey: cred[bedrockSecretAccessKeyEnv],
-		sessionToken:    cred[bedrockSessionTokenEnv],
-	}
-	if auth.region == "" {
-		auth.region = "us-east-1"
-	}
-	if auth.signingService == "" {
-		auth.signingService = "bedrock"
-	}
-	if auth.accessKeyID == "" {
-		return bedrockStaticAuth{}, fmt.Errorf("missing %s for Amazon Bedrock model provider", bedrockAccessKeyIDEnv)
-	}
-	if auth.secretAccessKey == "" {
-		return bedrockStaticAuth{}, fmt.Errorf("missing %s for Amazon Bedrock model provider", bedrockSecretAccessKeyEnv)
-	}
-	return auth, nil
-}
-
-func bedrockMantleBaseURL(region string) url.URL {
-	return *mustParseURL(fmt.Sprintf("https://bedrock-mantle.%s.api.aws/anthropic/v1", region))
-}
-
-func logBedrockMessagesErrorResponse(resp *http.Response, model string) error {
-	body, err := copyBody(&resp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to copy AWS Bedrock messages error response body: %w", err)
-	}
-	log.Infof("AWS Bedrock LLM proxy messages error response: status=%d model=%s body=%s", resp.StatusCode, model, string(body))
-	return nil
-}
-
-func filterBedrockModelListResponse(resp *http.Response, mapHelper *modelaccesspolicy.Helper, user kuser.Info) error {
-	if resp.StatusCode >= http.StatusBadRequest {
-		body, err := copyBody(&resp.Body)
-		if err != nil {
-			return fmt.Errorf("failed to copy AWS Bedrock models error response body: %w", err)
-		}
-		log.Infof("AWS Bedrock LLM proxy models error response: status=%d body=%s", resp.StatusCode, string(body))
-		return nil
-	}
-
-	allowedTargetModels, allowAllModels, err := mapHelper.GetUserAllowedTargetModels(user, amazonBedrockModelProvider)
-	if err != nil {
-		return fmt.Errorf("failed to determine accessible models: %w", err)
-	}
-	if allowAllModels {
-		return nil
-	}
-
-	allowed := make(map[string]bool, len(allowedTargetModels)*3)
-	for model := range allowedTargetModels {
-		for _, name := range bedrockModelNames(model) {
-			allowed[name] = true
-		}
-	}
-	return filterModelListResponse(resp, allowed, false)
-}
-
-type bedrockSigV4Transport struct {
-	auth bedrockStaticAuth
-	next http.RoundTripper
-}
-
-func (b bedrockSigV4Transport) RoundTrip(req *http.Request) (*http.Response, error) {
-	if err := signBedrockRequest(req, b.auth, time.Now()); err != nil {
-		return nil, err
-	}
-	next := b.next
-	if next == nil {
-		next = http.DefaultTransport
-	}
-	return next.RoundTrip(req)
-}
-
-func signBedrockRequest(req *http.Request, auth bedrockStaticAuth, signingTime time.Time) error {
-	if req.Body == nil {
-		req.Body = http.NoBody
-	}
-	body, err := copyBody(&req.Body)
-	if err != nil {
-		return fmt.Errorf("failed to copy request body for AWS signing: %w", err)
-	}
-	sum := sha256.Sum256(body)
-	payloadHash := hex.EncodeToString(sum[:])
-
-	req.Header.Del("Authorization")
-	req.Header.Del("X-Api-Key")
-	req.Header.Del("Forwarded")
-	req.Header.Del("X-Forwarded-For")
-	req.Header.Del("X-Forwarded-Host")
-	req.Header.Del("X-Forwarded-Proto")
-	req.Header.Del("X-Real-Ip")
-	req.Header.Set("X-Amz-Content-Sha256", payloadHash)
-	log.Debugf(
-		"AWS Bedrock LLM proxy signing request: service=%s region=%s host=%s path=%s access_key_suffix=%s session_token=%t payload_sha256=%s",
-		auth.signingService,
-		auth.region,
-		req.URL.Host,
-		req.URL.Path,
-		accessKeySuffix(auth.accessKeyID),
-		auth.sessionToken != "",
-		payloadHash,
-	)
-
-	return v4signer.NewSigner().SignHTTP(req.Context(), aws.Credentials{
-		AccessKeyID:     auth.accessKeyID,
-		SecretAccessKey: auth.secretAccessKey,
-		SessionToken:    auth.sessionToken,
-	}, req, payloadHash, auth.signingService, auth.region, signingTime)
-}
-
-func accessKeySuffix(accessKeyID string) string {
-	if len(accessKeyID) <= 4 {
-		return accessKeyID
-	}
-	return accessKeyID[len(accessKeyID)-4:]
-}
-
 func llmTransformRequest(u url.URL) func(req *http.Request) {
 	urlCopy := u // avoid mutating the original url.URL across requests
 	return func(req *http.Request) {
@@ -1351,11 +990,29 @@ func extractContentString(content any) string {
 	}
 }
 
+type preparedLLMProxyRequest struct {
+	body                   []byte
+	model                  string
+	modelProvider          string
+	tokenUsageTracker      *threadSafeTokenUsageTracker
+	messagePolicyHelper    *messagepolicy.Helper
+	outputPolicies         []messagepolicy.ApplicablePolicy
+	conversationHistory    []messagepolicy.ConversationMessage
+	inputPolicyReplacement string
+}
+
+type llmProviderProxyBackend interface {
+	modelProviderName() string
+	prepare(api.Context, *llmProviderProxy, *v1.ModelProvider, []byte) (*preparedLLMProxyRequest, error)
+	upstreamURL(*preparedLLMProxyRequest, map[string]string) (url.URL, error)
+	transport(v1.ModelProvider, map[string]string) (http.RoundTripper, error)
+	proxyModelsList(api.Context, *llmProviderProxy, *v1.ModelProvider, map[string]string) (bool, error)
+}
+
 type llmProviderProxy struct {
 	dailyUserInputTokenLimit  int
 	dailyUserOutputTokenLimit int
-	u                         *url.URL
-	modelProviderName         string
+	backend                   llmProviderProxyBackend
 	modelProvider             *v1.ModelProvider
 	mapHelper                 *modelaccesspolicy.Helper
 	messagePolicyHelper       *messagepolicy.Helper
@@ -1366,8 +1023,7 @@ func (s *Server) newLLMProviderProxy(u *url.URL, modelProviderName string) *llmP
 	return &llmProviderProxy{
 		dailyUserInputTokenLimit:  s.dailyUserInputTokenLimit,
 		dailyUserOutputTokenLimit: s.dailyUserOutputTokenLimit,
-		u:                         u,
-		modelProviderName:         modelProviderName,
+		backend:                   apiKeyLLMProviderBackend{u: *u, providerName: modelProviderName},
 		mapHelper:                 s.mapHelper,
 		messagePolicyHelper:       s.messagePolicyHelper,
 	}
@@ -1381,7 +1037,7 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 			audit.finish(req.GatewayClient, retErr)
 		}()
 	}
-	audit.setModel(l.modelProviderName, "", "")
+	audit.setModel(l.backend.modelProviderName(), "", "")
 
 	l.lock.RLock()
 	modelProvider := l.modelProvider
@@ -1389,8 +1045,8 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 
 	if modelProvider == nil {
 		modelProvider = new(v1.ModelProvider)
-		if err := req.Get(modelProvider, l.modelProviderName); err != nil {
-			return fmt.Errorf("model provider %s not found: %w", l.modelProviderName, err)
+		if err := req.Get(modelProvider, l.backend.modelProviderName()); err != nil {
+			return fmt.Errorf("model provider %s not found: %w", l.backend.modelProviderName(), err)
 		}
 
 		l.lock.Lock()
@@ -1398,81 +1054,56 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 		l.lock.Unlock()
 	}
 
-	// Attempt to get the target model
+	credEnv, err := dispatcher.CredentialEnvForModelProvider(req.Context(), req.GatewayClient, *modelProvider)
+	if err != nil {
+		return fmt.Errorf("failed to get credential environment for model provider: %w", err)
+	}
+
+	if handled, err := l.backend.proxyModelsList(req, l, modelProvider, credEnv); handled || err != nil {
+		return err
+	}
+
 	body, err := copyBody(&req.Request.Body)
 	if err != nil {
 		return fmt.Errorf("failed to copy body: %w", err)
 	}
 	audit.setRequestBody(body)
-	audit.setClientSessionID(l.modelProviderName, body)
-	audit.setReasoningEffort(l.modelProviderName, body)
+	audit.setClientSessionID(l.backend.modelProviderName(), body)
+	audit.setReasoningEffort(l.backend.modelProviderName(), body)
 
-	var tokenUsageTracker *threadSafeTokenUsageTracker
-	targetModel := extractModelFromBody(body)
-	if targetModel != "" {
-		model, err := getModelFromReference(req.Context(), req.Storage, modelProvider.Namespace, targetModel)
-		if apierrors.IsNotFound(err) {
-			model, err = l.mapHelper.ResolveTargetModel(modelProvider.Name, targetModel)
-		}
-		if err != nil {
-			return fmt.Errorf("failed to get model: %w", err)
-		}
-		if model.Spec.Manifest.ModelProvider != modelProvider.Name {
-			return types2.NewErrBadRequest("requested model does not match configured provider %q", targetModel)
-		}
-
-		hasAccess, err := l.mapHelper.UserHasAccessToModel(req.User, model.Name)
-		if err != nil {
-			return fmt.Errorf("failed to check user access to model %q: %w", model.Name, err)
-		}
-		if !hasAccess {
-			return types2.NewErrForbidden("user does not have permission to use model %q", targetModel)
-		}
-
-		tokenUsageTracker = newTokenUsageTracker(*model)
-		targetModel = model.Spec.Manifest.TargetModel
-		audit.setModel(l.modelProviderName, model.Name, targetModel)
-
-		// Replace the model resource name with the actual provider model name
-		body, err = rewriteModelInBody(body, targetModel)
-		if err != nil {
-			return fmt.Errorf("failed to rewrite model in request body: %w", err)
-		}
-		req.Request.Body = io.NopCloser(bytes.NewReader(body))
-		req.ContentLength = int64(len(body))
-		audit.setRequestBody(body)
+	prepared, err := l.backend.prepare(req, l, modelProvider, body)
+	if err != nil {
+		return err
 	}
+	audit.setModel(prepared.modelProvider, prepared.model, prepared.model)
+	audit.setRequestBody(prepared.body)
 
-	// Evaluate message policies if the helper is available and we have a user.
-	var (
-		messagePolicyHelper    = l.messagePolicyHelper
-		outputPolicies         []messagepolicy.ApplicablePolicy
-		conversationHistory    []messagepolicy.ConversationMessage
-		inputPolicyReplacement string
-	)
+	messagePolicyHelper := l.messagePolicyHelper
 	if shouldSkipMessagePolicyEnforcement(req.Request) {
 		messagePolicyHelper = nil
 	}
 	if messagePolicyHelper != nil && req.User.GetUID() != "" {
 		var bodyMap map[string]any
-		if err := json.Unmarshal(body, &bodyMap); err == nil {
-			outputPolicies, conversationHistory, inputPolicyReplacement, err = applyMessagePolicies(
+		if err := json.Unmarshal(prepared.body, &bodyMap); err == nil {
+			prepared.outputPolicies, prepared.conversationHistory, prepared.inputPolicyReplacement, err = applyMessagePolicies(
 				req.Context(), messagePolicyHelper, req.User, req.GatewayClient, bodyMap, "", "",
 			)
 			if err != nil {
 				return err
 			}
-			if inputPolicyReplacement != "" {
+			if prepared.inputPolicyReplacement != "" {
 				b, err := json.Marshal(bodyMap)
 				if err != nil {
 					return fmt.Errorf("failed to marshal modified body: %w", err)
 				}
-				req.Request.Body = io.NopCloser(bytes.NewReader(b))
-				req.ContentLength = int64(len(b))
 				audit.setPolicyModifiedRequestBody(b)
+				prepared.body = b
 			}
 		}
 	}
+	prepared.messagePolicyHelper = messagePolicyHelper
+	req.Request.Body = io.NopCloser(bytes.NewReader(prepared.body))
+	req.ContentLength = int64(len(prepared.body))
 
 	if remainingUsage, err := req.GatewayClient.RemainingTokenUsageForUser(
 		req.Context(),
@@ -1486,44 +1117,39 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 		return types2.NewErrHTTP(http.StatusTooManyRequests, fmt.Sprintf("no tokens remaining (input tokens remaining: %d, output tokens remaining: %d)", remainingUsage.InputTokens, remainingUsage.OutputTokens))
 	}
 
-	credEnv, err := dispatcher.CredentialEnvForModelProvider(req.Context(), req.GatewayClient, *modelProvider)
+	u, err := l.backend.upstreamURL(prepared, credEnv)
 	if err != nil {
-		return fmt.Errorf("failed to get credential environment for model provider: %w", err)
+		return err
+	}
+	transport, err := l.backend.transport(*modelProvider, credEnv)
+	if err != nil {
+		return err
 	}
 
-	credEnvKey, err := envVarForModelProvider(*modelProvider)
-	if err != nil {
-		return fmt.Errorf("failed to get credential environment key for model provider: %w", err)
-	}
-
-	if bearer := req.Request.Header.Get("Authorization"); bearer != "" {
-		req.Request.Header.Set("Authorization", fmt.Sprintf("Bearer %s", credEnv[credEnvKey]))
-	} else if token := req.Request.Header.Get("X-Api-Key"); token != "" {
-		req.Request.Header.Set("X-Api-Key", credEnv[credEnvKey])
+	modifier := &responseModifier{
+		user:                   req.User,
+		model:                  prepared.model,
+		modelProvider:          prepared.modelProvider,
+		client:                 req.GatewayClient,
+		tokenUsageTracker:      prepared.tokenUsageTracker,
+		mapHelper:              l.mapHelper,
+		inputPolicyReplacement: prepared.inputPolicyReplacement,
+		messagePolicyHelper:    prepared.messagePolicyHelper,
+		outputPolicies:         prepared.outputPolicies,
+		conversationHistory:    prepared.conversationHistory,
 	}
 
 	var proxyErr error
 	(&httputil.ReverseProxy{
-		Director: llmTransformRequest(*l.u),
+		Director:  llmTransformRequest(u),
+		Transport: transport,
 		ErrorHandler: func(w http.ResponseWriter, _ *http.Request, err error) {
 			proxyErr = err
 			audit.finish(req.GatewayClient, err)
 			log.Warnf("LLM provider proxy error: %v", err)
 			http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
 		},
-		ModifyResponse: (&responseModifier{
-			user:                   req.User,
-			model:                  targetModel,
-			modelProvider:          l.modelProviderName,
-			client:                 req.GatewayClient,
-			tokenUsageTracker:      tokenUsageTracker,
-			mapHelper:              l.mapHelper,
-			inputPolicyReplacement: inputPolicyReplacement,
-			messagePolicyHelper:    messagePolicyHelper,
-			outputPolicies:         outputPolicies,
-			conversationHistory:    conversationHistory,
-			audit:                  audit,
-		}).modifyResponse,
+		ModifyResponse: modifier.modifyResponse,
 	}).ServeHTTP(req.ResponseWriter, req.Request)
 	if proxyErr != nil {
 		return nil
@@ -1540,16 +1166,6 @@ func isModelsListRequest(req *http.Request) bool {
 	}
 	// The {path...} route value holds the client path, e.g. "v1/models".
 	return strings.TrimPrefix(req.PathValue("path"), "v1/") == "models"
-}
-
-func isBedrockModelsListRequest(req *http.Request) bool {
-	if req.Method != http.MethodGet {
-		return false
-	}
-	reqPath := req.PathValue("path")
-	reqPath = strings.TrimPrefix(reqPath, "anthropic/v1/")
-	reqPath = strings.TrimPrefix(reqPath, "v1/")
-	return reqPath == "models"
 }
 
 // applyMessagePolicies evaluates input and output message policies against body, modifying
