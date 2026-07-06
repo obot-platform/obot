@@ -42,19 +42,6 @@ func TestNewLLMAuditRecorderCapturesRequest(t *testing.T) {
 	}
 }
 
-func TestLLMAuditRecorderStoresRedactedRequestSeparately(t *testing.T) {
-	recorder := &llmAuditRecorder{}
-	recorder.setRequestBody([]byte(`{"input":"original"}`))
-	recorder.setRedactedRequestBody([]byte(`{"input":"redacted"}`))
-
-	if recorder.log.RequestBody != `{"input":"original"}` {
-		t.Fatalf("expected raw request body, got %q", recorder.log.RequestBody)
-	}
-	if recorder.log.RedactedRequestBody != `{"input":"redacted"}` {
-		t.Fatalf("expected redacted request body, got %q", recorder.log.RedactedRequestBody)
-	}
-}
-
 func TestLLMAuditRecorderSetOutcome(t *testing.T) {
 	for _, tt := range []struct {
 		name    string

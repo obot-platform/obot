@@ -51,6 +51,9 @@ func (c *Client) LogLLMAuditEntry(auditLog types.LLMAuditLog, responseStream []b
 }
 
 func (c *Client) InsertLLMAuditLog(ctx context.Context, auditLog *types.LLMAuditLog) error {
+	if auditLog == nil {
+		return nil
+	}
 	return c.insertLLMAuditLogs(ctx, []types.LLMAuditLog{*auditLog})
 }
 
