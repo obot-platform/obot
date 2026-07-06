@@ -104,7 +104,7 @@ func TestGetBedrockModelFromReference_ReturnsStaticBedrockModelByTargetModel(t *
 		Build()
 
 	for _, ref := range []string{"anthropic.claude-haiku-4-5", "us.anthropic.claude-haiku-4-5"} {
-		got, err := getBedrockModelFromReference(context.Background(), client, "default", ref)
+		got, err := getBedrockModelFromReference(context.Background(), client, "default", amazonBedrockModelProvider, ref)
 		if err != nil {
 			t.Fatalf("%s: expected no error, got %v", ref, err)
 		}
@@ -132,7 +132,7 @@ func TestGetBedrockModelFromReference_ReturnsStaticBedrockModelByMantleName(t *t
 		WithObjects(model).
 		Build()
 
-	got, err := getBedrockModelFromReference(context.Background(), client, "default", "anthropic.claude-haiku-4-5")
+	got, err := getBedrockModelFromReference(context.Background(), client, "default", amazonBedrockModelProvider, "anthropic.claude-haiku-4-5")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -165,7 +165,7 @@ func TestGetBedrockModelFromReference_OnlyFallsBackForActiveStaticBedrockModels(
 		WithLists(&v1.ModelList{Items: models}).
 		Build()
 
-	_, err := getBedrockModelFromReference(context.Background(), client, "default", "anthropic.claude-haiku-4-5")
+	_, err := getBedrockModelFromReference(context.Background(), client, "default", amazonBedrockModelProvider, "anthropic.claude-haiku-4-5")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}

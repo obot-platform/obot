@@ -710,6 +710,24 @@ func TestBedrockStaticAuthFromCredential(t *testing.T) {
 	}
 }
 
+func TestBedrockAPIKeyTransportSetsBearer(t *testing.T) {
+	capture := &captureRoundTripper{}
+	transport := bedrockAPIKeyTransport{key: "bedrock-key", next: capture}
+	req := httptest.NewRequest(http.MethodPost, "https://bedrock-mantle.us-east-1.api.aws/openai/v1/responses", nil)
+	req.Header.Set("Authorization", "Bearer client-token")
+	req.Header.Set("X-Api-Key", "client-key")
+
+	if _, err := transport.RoundTrip(req); err != nil {
+		t.Fatal(err)
+	}
+	if got := capture.req.Header.Get("Authorization"); got != "Bearer bedrock-key" {
+		t.Fatalf("Authorization = %q, want Bedrock API key bearer", got)
+	}
+	if got := capture.req.Header.Get("X-Api-Key"); got != "" {
+		t.Fatalf("X-Api-Key = %q, want empty", got)
+	}
+}
+
 func TestBedrockSignGetRequest(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "https://bedrock-mantle.us-east-1.api.aws/anthropic/v1/models", nil)
 	err := signBedrockRequest(req, bedrockStaticAuth{
