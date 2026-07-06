@@ -1137,6 +1137,7 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 		messagePolicyHelper:    prepared.messagePolicyHelper,
 		outputPolicies:         prepared.outputPolicies,
 		conversationHistory:    prepared.conversationHistory,
+		audit:                  audit,
 	}
 
 	var proxyErr error

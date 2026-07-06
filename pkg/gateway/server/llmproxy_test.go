@@ -199,6 +199,33 @@ func TestResponseModifier_NonStreamingResponse(t *testing.T) {
 	}
 }
 
+func TestResponseModifierCapturesAuditResponseBody(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+	recorder := newLLMAuditRecorder(req, nil, 5<<20)
+	body := "{\"id\":\"resp_1\",\"usage\":{\"input_tokens\":1,\"output_tokens\":2}}\n"
+	r := &responseModifier{
+		tokenUsageTracker: &threadSafeTokenUsageTracker{inner: &responseTokenUsageTracker{}},
+		audit:             recorder,
+	}
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     make(http.Header),
+		Body:       io.NopCloser(strings.NewReader(body)),
+		Request:    req,
+	}
+
+	if err := r.modifyResponse(resp); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := io.ReadAll(resp.Body); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := recorder.responseStream.String(); got != body {
+		t.Fatalf("captured response body = %q, want %q", got, body)
+	}
+}
+
 func TestResponseModifier_ModelFromRequestPreserved(t *testing.T) {
 	// If model is already set from the request, don't overwrite from response
 	stream := "data: {\"model\":\"gpt-4o-realmodel\",\"usage\":{\"prompt_tokens\":1}}\n"
