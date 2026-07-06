@@ -29,11 +29,11 @@
 	});
 
 	function handleCancel() {
-		goto('/admin/audit-logs/exports');
+		goto('/admin/mcp-audit-logs/exports');
 	}
 
 	function handleSave() {
-		goto('/admin/audit-logs/exports');
+		goto('/admin/mcp-audit-logs/exports');
 	}
 
 	const duration = PAGE_TRANSITION_DURATION;

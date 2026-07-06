@@ -119,7 +119,7 @@
 	}
 
 	function handleRowClick(exportItem: AuditLogExport) {
-		goto(`/admin/audit-logs/exports/${exportItem.id}/view`);
+		goto(`/admin/mcp-audit-logs/exports/${exportItem.id}/view`);
 	}
 </script>
 

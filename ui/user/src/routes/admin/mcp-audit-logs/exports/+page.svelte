@@ -103,28 +103,32 @@
 				if (response.provider) {
 					// Storage is configured, proceed to the form
 					showForm = formType;
-					goto(`/admin/audit-logs/exports?form=${formType}`, { replaceState: false });
+					goto(`/admin/mcp-audit-logs/exports?form=${formType}`, { replaceState: false });
 				} else {
 					// No storage provider configured, redirect to storage form first
 					showForm = 'storage';
-					goto(`/admin/audit-logs/exports?form=storage&next=${formType}`, { replaceState: false });
+					goto(`/admin/mcp-audit-logs/exports?form=storage&next=${formType}`, {
+						replaceState: false
+					});
 				}
 			} catch (error) {
 				// Error getting storage credentials, assume not configured and redirect to storage form
 				console.error('Failed to get storage credentials:', error);
 				showForm = 'storage';
-				goto(`/admin/audit-logs/exports?form=storage&next=${formType}`, { replaceState: false });
+				goto(`/admin/mcp-audit-logs/exports?form=storage&next=${formType}`, {
+					replaceState: false
+				});
 			}
 		} else {
 			// For storage form, proceed directly
 			showForm = formType;
-			goto(`/admin/audit-logs/exports?form=${formType}`, { replaceState: false });
+			goto(`/admin/mcp-audit-logs/exports?form=${formType}`, { replaceState: false });
 		}
 	}
 
 	function closeForm() {
 		showForm = null;
-		goto('/admin/audit-logs/exports', { replaceState: false });
+		goto('/admin/mcp-audit-logs/exports', { replaceState: false });
 	}
 
 	async function handleFormSuccess(item?: AuditLogExport | ScheduledAuditLogExport) {
@@ -132,7 +136,7 @@
 
 		showForm = null;
 
-		await goto('/admin/audit-logs/exports', { replaceState: false });
+		await goto('/admin/mcp-audit-logs/exports', { replaceState: false });
 
 		if (item) {
 			const id = setTimeout(() => {
@@ -155,7 +159,7 @@
 			goto(url, { replaceState: false });
 		} else {
 			showForm = null;
-			goto('/admin/audit-logs/exports', { replaceState: false });
+			goto('/admin/mcp-audit-logs/exports', { replaceState: false });
 		}
 	}
 

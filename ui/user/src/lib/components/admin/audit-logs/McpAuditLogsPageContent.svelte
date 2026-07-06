@@ -5,7 +5,7 @@
 	import { type DateRange } from '$lib/components/Calendar.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Search from '$lib/components/Search.svelte';
-	import AuditLogDetails from '$lib/components/admin/audit-logs/AuditLogDetails.svelte';
+	import McpAuditLogDetails from '$lib/components/admin/audit-logs/McpAuditLogDetails.svelte';
 	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
 	import { setVirtualPageData } from '$lib/components/ui/virtual-page/context';
 	import Loading from '$lib/icons/Loading.svelte';
@@ -25,7 +25,7 @@
 	import { getUserDisplayName, isBasicUser } from '$lib/utils';
 	import FiltersDrawer from '../filters-drawer/FiltersDrawer.svelte';
 	import AuditLogCalendar from './AuditLogCalendar.svelte';
-	import AuditLogsTable from './AuditLogs.svelte';
+	import McpAuditLogsTable from './McpAuditLogsTable.svelte';
 	import {
 		aggregateAuditLogsByBucket,
 		toAuditLogTimelineChartRow,
@@ -475,7 +475,7 @@
 			const response = await AdminService.getStorageCredentials();
 
 			// Prepare URL with current filters and time range
-			const url = new URL(window.location.origin + `/admin/audit-logs/exports`);
+			const url = new URL(window.location.origin + `/admin/mcp-audit-logs/exports`);
 			url.searchParams.set('form', formType);
 
 			if (includeFilters) {
@@ -505,7 +505,7 @@
 			}
 		} catch (error) {
 			console.error('Failed to get storage credentials:', error);
-			const url = new URL(window.location.origin + `/admin/audit-logs/exports`);
+			const url = new URL(window.location.origin + `/admin/mcp-audit-logs/exports`);
 			url.searchParams.set('form', 'storage');
 			url.searchParams.set('next', formType);
 
@@ -610,7 +610,7 @@
 					<button
 						class="btn btn-neutral rounded-4xl"
 						onclick={() => {
-							goto('/admin/audit-logs/exports');
+							goto('/admin/mcp-audit-logs/exports');
 						}}
 					>
 						<Settings class="size-4" />
@@ -691,7 +691,7 @@
 		</div>
 	</div>
 	{#if displayTableData.length > 0}
-		<AuditLogsTable
+		<McpAuditLogsTable
 			data={displayTableData}
 			onSelectRow={async (d: AuditLog & { user: string }) => {
 				showFilters = false;
@@ -709,7 +709,7 @@
 			getUserDisplayName={(userId: string, hasConflict?: () => boolean) =>
 				getUserDisplayName(users, userId, hasConflict)}
 			{emptyContent}
-		></AuditLogsTable>
+		/>
 	{:else if remoteAuditLogs.length > 0}
 		<div class="text-muted-content flex items-center justify-center gap-2 py-12 text-sm font-light">
 			<Loading class="size-5 animate-spin" />
@@ -741,7 +741,7 @@
 				use:columnResize={{ column: rightSidebar, direction: 'right' }}
 			></div>
 		{/if}
-		<AuditLogDetails onClose={handleRightSidebarClose} auditLog={selectedAuditLog} />
+		<McpAuditLogDetails onClose={handleRightSidebarClose} auditLog={selectedAuditLog} />
 	{/if}
 
 	{#if showFilters}

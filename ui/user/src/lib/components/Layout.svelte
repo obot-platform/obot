@@ -100,7 +100,7 @@
 	function isAdvancedPaneRoute(route: string): boolean {
 		return (
 			(route.includes('/admin') && route !== '/admin/dashboard') ||
-			['/mcp-catalog', '/mcp-access-policies', '/audit-logs', '/usage'].some((p) =>
+			['/mcp-catalog', '/mcp-access-policies', '/mcp-audit-logs', '/usage'].some((p) =>
 				route.startsWith(p)
 			)
 		);
@@ -171,6 +171,7 @@
 		rightMenu?: Snippet;
 		leftMenu?: Snippet;
 		title?: string;
+		subtitle?: string;
 		showBackButton?: boolean;
 		onBackButtonClick?: () => void;
 		leftSidebar?: Snippet;
@@ -192,6 +193,7 @@
 		main,
 		rightNavActions,
 		title,
+		subtitle,
 		showBackButton,
 		onBackButtonClick,
 		leftSidebar,
@@ -356,8 +358,8 @@
 								collapsible: false
 							},
 							{
-								id: 'audit-logs',
-								href: '/admin/audit-logs',
+								id: 'mcp-audit-logs',
+								href: '/admin/mcp-audit-logs',
 								label: 'Audit Logs',
 								disabled: isBootStrapUser,
 								collapsible: false
@@ -615,8 +617,8 @@
 									]
 								: []),
 							{
-								id: 'audit-logs',
-								href: '/audit-logs',
+								id: 'mcp-audit-logs',
+								href: '/mcp-audit-logs',
 								label: 'Audit Logs',
 								disabled: false,
 								collapsible: false
@@ -935,14 +937,14 @@
 		</IconButton>
 	{/if}
 	{#if title}
-		<h1
-			class={twMerge(
-				'text-xl font-semibold md:w-full',
-				!layout.sidebarOpen && classes?.noSidebarTitle
-			)}
-		>
-			{title}
-		</h1>
+		<div class="flex flex-col md:w-full">
+			{#if subtitle}
+				<span class="text-xs font-light text-muted-content">{subtitle}</span>
+			{/if}
+			<h1 class={twMerge('text-xl font-semibold', !layout.sidebarOpen && classes?.noSidebarTitle)}>
+				{title}
+			</h1>
+		</div>
 	{/if}
 {/snippet}
 

@@ -47,7 +47,7 @@
 	import CatalogServerForm from './CatalogServerForm.svelte';
 	import McpServerEntryTroubleshooting from './McpServerEntryTroubleshooting.svelte';
 	import McpServerInstances from './McpServerInstances.svelte';
-	import AuditLogsPageContent from './audit-logs/AuditLogsPageContent.svelte';
+	import McpAuditLogsPageContent from './audit-logs/McpAuditLogsPageContent.svelte';
 	import UsageGraphs from './usage/UsageGraphs.svelte';
 	import {
 		CircleAlert,
@@ -1090,7 +1090,7 @@
 					: null}
 		<div class="mt-4 flex flex-1 flex-col gap-8 pb-8">
 			<!-- temporary filter mcp server by name and catalog entry id-->
-			<AuditLogsPageContent
+			<McpAuditLogsPageContent
 				mcpId={isMultiUserServer ? entryId : server ? server.id : null}
 				{mcpServerCatalogEntryName}
 				{mcpServerDisplayName}
@@ -1108,7 +1108,7 @@
 							{@const param = entryId ? 'mcpId=' + entryId : 'entryId=' + mcpCatalogEntryId}
 							<p class="text-muted-content text-sm font-light">
 								See more usage details in the server's <a
-									href={resolve(`/admin/audit-logs?${param}`)}
+									href={resolve(`/admin/mcp-audit-logs?${param}`)}
 									class="text-link"
 								>
 									Audit Logs
@@ -1117,7 +1117,7 @@
 						{/if}
 					</div>
 				{/snippet}
-			</AuditLogsPageContent>
+			</McpAuditLogsPageContent>
 		</div>
 	{/if}
 {/snippet}

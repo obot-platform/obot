@@ -506,16 +506,16 @@
 		const useAdminUrl = profile.current.hasAdminAccess?.();
 		if (isComposite) {
 			return useAdminUrl
-				? `/admin/audit-logs?mcp_id=${d.compositeName}`
-				: `/audit-logs?mcp_id=${d.compositeName}`;
+				? `/admin/mcp-audit-logs?mcp_id=${d.compositeName}`
+				: `/mcp-audit-logs?mcp_id=${d.compositeName}`;
 		}
 		return isMultiUser
 			? useAdminUrl
-				? `/admin/audit-logs?mcp_server_display_name=${d.manifest.name}`
-				: `/audit-logs?mcp_server_display_name=${d.manifest.name}`
+				? `/admin/mcp-audit-logs?mcp_server_display_name=${d.manifest.name}`
+				: `/mcp-audit-logs?mcp_server_display_name=${d.manifest.name}`
 			: useAdminUrl
-				? `/admin/audit-logs?mcp_id=${d.id}`
-				: `/audit-logs?mcp_id=${d.id}`;
+				? `/admin/mcp-audit-logs?mcp_id=${d.id}`
+				: `/mcp-audit-logs?mcp_id=${d.id}`;
 	}
 
 	function getMcpCatalogUrl(d: MCPCatalogServer) {

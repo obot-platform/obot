@@ -165,7 +165,7 @@
 	}
 
 	function handleRowClick(scheduledExport: ScheduledAuditLogExport) {
-		goto(`/admin/audit-logs/exports/scheduled/${scheduledExport.id}/edit`);
+		goto(`/admin/mcp-audit-logs/exports/scheduled/${scheduledExport.id}/edit`);
 	}
 </script>
 
