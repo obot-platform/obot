@@ -1,0 +1,200 @@
+<script lang="ts">
+	import { VirtualPageTable } from '$lib/components/ui';
+	import { type LLMAuditLog } from '$lib/services';
+	import { userDeviceSettings } from '$lib/stores';
+	import { formatLogTimestamp } from '$lib/time';
+	import { throttle } from '$lib/utils';
+	import { GripVertical } from '@lucide/svelte';
+	import { tick } from 'svelte';
+	import { twMerge } from 'tailwind-merge';
+
+	let { onSelectRow, getUserDisplayName } = $props();
+
+	let startX = 0;
+	let startWidth = 0;
+	let currentCell: HTMLElement | null | undefined = undefined;
+	let cellHandle: HTMLElement | null | undefined = undefined;
+
+	let headerRowElement: HTMLElement | null | undefined = $state();
+
+	const resizeColumn = throttle((ev: PointerEvent) => {
+		const diff = ev.pageX - startX;
+		const minWidth = currentCell?.getAttribute('data-min-width') ?? '0ch';
+
+		currentCell!.style.width = `max(${minWidth}, ${startWidth + diff}px)`;
+	}, 1000 / 60);
+
+	const stopResize = async () => {
+		document.removeEventListener('pointermove', resizeColumn);
+		document.removeEventListener('pointerup', stopResize);
+
+		await tick();
+
+		cellHandle?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+	};
+
+	function formatDuration(ms: number) {
+		return ms ? Intl.NumberFormat().format(ms) : '';
+	}
+
+	function formatNumber(value: number) {
+		return value ? Intl.NumberFormat().format(value) : '';
+	}
+</script>
+
+{#snippet thResizeHandler()}
+	<button
+		class="resize-handle sticky right-0 ml-auto flex min-h-full cursor-col-resize items-center outline-none"
+		{@attach (node) => {
+			const pointerDownHandler = (ev: PointerEvent) => {
+				currentCell = (ev.target as HTMLElement).closest('th');
+				if (!currentCell) return;
+
+				cellHandle = ev.currentTarget as typeof cellHandle;
+
+				startX = ev.pageX;
+				startWidth = currentCell.clientWidth;
+
+				document.addEventListener('pointermove', resizeColumn);
+				document.addEventListener('pointerup', stopResize);
+			};
+
+			node.addEventListener('pointerdown', pointerDownHandler);
+
+			return () => {
+				node.removeEventListener('pointerdown', pointerDownHandler);
+			};
+		}}
+	>
+		<GripVertical class="w-3" />
+	</button>
+{/snippet}
+
+{#snippet tdResizeHandler()}
+	<button
+		class="resize-handle ml-auto flex min-h-full cursor-col-resize items-center opacity-0 outline-none group-hover:opacity-100"
+		onclick={(ev) => ev.stopPropagation()}
+		{@attach (node) => {
+			const pointerDownHandler = (ev: PointerEvent) => {
+				const td = (ev.target as HTMLElement).closest('td');
+				if (!td) return;
+
+				cellHandle = ev.currentTarget as typeof cellHandle;
+
+				const row = td.closest('tr');
+				if (!row) return;
+
+				const index = Array.from(row.children).indexOf(td);
+
+				currentCell = headerRowElement?.children.item(index) as typeof currentCell;
+				if (!currentCell) return;
+
+				startX = ev.pageX;
+				startWidth = currentCell.clientWidth;
+
+				document.addEventListener('pointermove', resizeColumn);
+				document.addEventListener('pointerup', stopResize);
+			};
+
+			node.addEventListener('pointerdown', pointerDownHandler);
+
+			return () => {
+				node.removeEventListener('pointerdown', pointerDownHandler);
+			};
+		}}
+	>
+		<GripVertical class="w-3" />
+	</button>
+{/snippet}
+
+{#snippet th(content: string, { class: klass = '', minWidth = '0ch' } = {})}
+	<th
+		class={twMerge(
+			'dark:bg-base-200 bg-base-300 text-muted-content sticky top-0 box-content w-[24ch] truncate text-left text-xs font-medium tracking-wider uppercase',
+			klass
+		)}
+		data-min-width={minWidth}
+	>
+		<div class="box-content flex h-full px-6">
+			<div class=" self-center py-3 text-nowrap">{content}</div>
+			{@render thResizeHandler()}
+		</div>
+	</th>
+{/snippet}
+
+{#snippet td(content: string | number | boolean | null | undefined)}
+	<td class="text-sm whitespace-nowrap">
+		<div class="box-content flex h-full px-6">
+			<div class="flex-1 truncate py-4">
+				{content}
+			</div>
+			{@render tdResizeHandler()}
+		</div>
+	</td>
+{/snippet}
+
+<!-- Data Table -->
+<div>
+	<div
+		class="dark:bg-base-300 bg-base-100 flex w-full min-w-full flex-1 divide-y divide-gray-200 overflow-x-auto overflow-y-visible rounded-lg border border-transparent shadow-sm"
+	>
+		<VirtualPageTable class={twMerge('w-full flex-1 table-fixed border-collapse border-spacing-0')}>
+			{#snippet header()}
+				<thead>
+					<tr bind:this={headerRowElement}>
+						<th
+							class="bg-base-300 dark:bg-base-200 text-muted-content sticky top-0 box-content w-[4ch] px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
+						>
+							<div>#</div>
+						</th>
+						{@render th('Timestamp', { class: 'w-[32ch]', minWidth: '32ch' })}
+						{@render th('User', { class: 'w-[24ch]', minWidth: '24ch' })}
+						{@render th('Provider', { class: 'w-[18ch]', minWidth: '18ch' })}
+						{@render th('Model', { class: 'w-[28ch]', minWidth: '28ch' })}
+						{@render th('Target Model', { class: 'w-[28ch]', minWidth: '28ch' })}
+						{@render th('Path', { class: 'w-[26ch]', minWidth: '26ch' })}
+						{@render th('Status', { class: 'w-[16ch]', minWidth: '16ch' })}
+						{@render th('Outcome', { class: 'w-[18ch]', minWidth: '18ch' })}
+						{@render th('Duration (ms)', { class: 'w-[22ch]', minWidth: '18ch' })}
+						{@render th('Input', { class: 'w-[18ch]', minWidth: '18ch' })}
+						{@render th('Output', { class: 'w-[18ch]', minWidth: '18ch' })}
+						{@render th('Client', { class: 'w-[22ch]', minWidth: '22ch' })}
+						{@render th('Session', { class: 'w-[28ch]', minWidth: '28ch' })}
+						{@render th('IP Address', { class: 'w-[22ch]', minWidth: '22ch' })}
+					</tr>
+				</thead>
+			{/snippet}
+
+			{#snippet children({ items }: { items: { index: number; data: LLMAuditLog }[] })}
+				{#each items as item (item.data.id)}
+					{@const d = item.data}
+					<tr
+						class={twMerge(
+							'group m-0 h-14 text-sm leading-0 text-[0] transition-colors duration-300',
+							onSelectRow && 'hover:bg-base-200 dark:hover:bg-base-400 cursor-pointer'
+						)}
+						onclick={() => onSelectRow?.(d)}
+					>
+						<td class="px-6 py-3">
+							{item.index + 1}
+						</td>
+						{@render td(formatLogTimestamp(d.createdAt, userDeviceSettings.timeFormat))}
+						{@render td(getUserDisplayName(d.userID))}
+						{@render td(d.modelProvider)}
+						{@render td(d.modelID)}
+						{@render td(d.targetModel)}
+						{@render td(d.requestPath)}
+						{@render td(d.responseStatus || '')}
+						{@render td(d.outcome)}
+						{@render td(formatDuration(d.duration))}
+						{@render td(formatNumber(d.inputTokens))}
+						{@render td(formatNumber(d.outputTokens))}
+						{@render td(d.client)}
+						{@render td(d.clientSessionID)}
+						{@render td(d.clientIP)}
+					</tr>
+				{/each}
+			{/snippet}
+		</VirtualPageTable>
+	</div>
+</div>

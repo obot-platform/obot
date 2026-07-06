@@ -90,3 +90,7 @@ export function parseErrorContent(e: unknown) {
 		message: messageContent || 'Unknown error occurred'
 	};
 }
+
+export function isAbortError(err: unknown) {
+	return err instanceof DOMException && err.name === 'AbortError';
+}

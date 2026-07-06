@@ -107,13 +107,17 @@
 				} else {
 					// No storage provider configured, redirect to storage form first
 					showForm = 'storage';
-					goto(`/admin/audit-logs/exports?form=storage&next=${formType}`, { replaceState: false });
+					goto(`/admin/audit-logs/exports?form=storage&next=${formType}`, {
+						replaceState: false
+					});
 				}
 			} catch (error) {
 				// Error getting storage credentials, assume not configured and redirect to storage form
 				console.error('Failed to get storage credentials:', error);
 				showForm = 'storage';
-				goto(`/admin/audit-logs/exports?form=storage&next=${formType}`, { replaceState: false });
+				goto(`/admin/audit-logs/exports?form=storage&next=${formType}`, {
+					replaceState: false
+				});
 			}
 		} else {
 			// For storage form, proceed directly

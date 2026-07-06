@@ -1,35 +1,36 @@
-<script module lang="ts">
-	export type FilterKey = Exclude<
-		keyof AuditLogURLFilters,
-		'query' | 'offset' | 'limit' | 'start_time' | 'end_time'
-	>;
-</script>
-
-<script lang="ts">
+<script lang="ts" generics="T extends Record<string, string | number | null | undefined>">
 	import { page } from '$app/state';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
-	import {
-		UserService,
-		AUDIT_LOG_FILTER_OPTIONS_LIMIT,
-		type AuditLogURLFilters
-	} from '$lib/services';
+	import { UserService } from '$lib/services';
+	import { AUDIT_LOG_FILTER_OPTIONS_LIMIT } from '$lib/services/user/constants';
 	import { goto } from '$lib/url';
 	import AuditFilter, { type FilterInput, type FilterOption } from './FilterField.svelte';
 	import { X } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 
-	type FilterOptionsEndpoint = typeof UserService.listAuditLogFilterOptions;
+	type FilterKey = Extract<
+		Exclude<
+			keyof T,
+			'query' | 'offset' | 'limit' | 'start_time' | 'end_time' | 'sort_by' | 'sort_order'
+		>,
+		string
+	>;
+
+	type FilterOptionsEndpoint = (
+		filterId: string,
+		filters?: Partial<T>
+	) => Promise<{ options: string[] } | undefined>;
 
 	interface Props {
-		filters?: Record<string, string | number | undefined | null>;
-		isFilterDisabled?: (key: keyof AuditLogURLFilters) => boolean;
-		isFilterClearable?: (key: keyof AuditLogURLFilters) => boolean;
+		filters?: Partial<T>;
+		isFilterDisabled?: (key: FilterKey) => boolean;
+		isFilterClearable?: (key: FilterKey) => boolean;
 		// Used to filter server ids when selecting a multi instance server
-		filterOptions?: (option: string, filterId?: keyof AuditLogURLFilters) => boolean;
+		filterOptions?: (option: string, filterId?: FilterKey) => boolean;
 		onClose: () => void;
 		getUserDisplayName: (userId: string, hasConflict?: () => boolean) => string;
 		getFilterDisplayLabel?: (key: string) => string;
-		getDefaultValue?: <T extends keyof AuditLogURLFilters>(filter: T) => AuditLogURLFilters[T];
+		getDefaultValue?: <K extends FilterKey>(filter: K) => T[K] | undefined;
 		endpoint?: FilterOptionsEndpoint;
 	}
 
@@ -42,12 +43,10 @@
 		getFilterDisplayLabel,
 		getDefaultValue,
 		filterOptions,
-		endpoint = UserService.listAuditLogFilterOptions
+		endpoint = UserService.listMcpAuditLogFilterOptions as FilterOptionsEndpoint
 	}: Props = $props();
 
-	const url = new URL(page.url);
-
-	let filters = $derived({ ...(externFilters ?? {}) });
+	let filters = $derived({ ...(externFilters ?? {}) } as Partial<T>);
 
 	type FilterOptions = Record<FilterKey, FilterOption[]>;
 	let filtersOptions: FilterOptions = $state({} as FilterOptions);
@@ -65,15 +64,15 @@
 						: undefined;
 				},
 				get selected() {
-					return filters?.[filterId];
+					return filters?.[filterId] as string | number | null | undefined;
 				},
 				set selected(v) {
-					filters[filterId] = v;
+					(filters as Partial<T>)[filterId] = v as T[typeof filterId];
 					// Force Component to react
-					filters = { ...filters };
+					filters = { ...filters } as Partial<T>;
 				},
 				get default() {
-					return getDefaultValue?.(filterId);
+					return getDefaultValue?.(filterId) as string | number | null | undefined;
 				},
 				get options() {
 					return filtersOptions[filterId];
@@ -89,13 +88,13 @@
 	const filterInputsAsArray = $derived(Object.values(filterInputs));
 
 	$effect(() => {
-		const processLog = async (filterId: keyof AuditLogURLFilters) => {
+		const processLog = async (filterId: FilterKey) => {
 			// Exclude the current filterId from the filters sent to the endpoint,
 			// so the backend can return all distinct values for this field
 			// given the *other* active filters.
 			const otherFilters = Object.fromEntries(
 				Object.entries(filters ?? {}).filter(([k]) => k !== filterId)
-			);
+			) as Partial<T>;
 			const response = await endpoint(filterId, otherFilters);
 
 			if (['user_id', 'user_ids'].includes(filterId)) {
@@ -131,12 +130,10 @@
 	});
 
 	async function handleApplyFilters() {
+		const url = new URL(page.url);
 		for (const filterInput of filterInputsAsArray) {
 			if (filterInput.selected) {
-				url.searchParams.set(
-					filterInput.property,
-					encodeURIComponent(filterInput.selected.toString())
-				);
+				url.searchParams.set(filterInput.property, filterInput.selected.toString());
 			} else {
 				if (filterInput.selected === null) {
 					// Clear the search param
@@ -155,7 +152,9 @@
 
 	function handleClearAllFilters() {
 		filterInputsAsArray
-			.filter((filter) => (isFilterClearable ? isFilterClearable?.(filter.property) : true))
+			.filter((filter) =>
+				isFilterClearable ? isFilterClearable?.(filter.property as FilterKey) : true
+			)
 			.forEach((filterInput) => {
 				filterInput.selected = '';
 			});
@@ -184,7 +183,7 @@
 					// This code section is called only when user click clear all
 					// single clear value is handled inside the component
 					const key = filterInputsAsArray[index].property;
-					filterInputs[key].selected = '';
+					filterInputs[key as FilterKey].selected = '';
 				}}
 				onReset={() => {
 					filterInput.selected = null;

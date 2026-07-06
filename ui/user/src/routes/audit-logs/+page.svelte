@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Layout from '$lib/components/Layout.svelte';
-	import AuditLogsPageContent from '$lib/components/admin/audit-logs/AuditLogsPageContent.svelte';
+	import McpAuditLogsPageContent from '$lib/components/admin/audit-logs/McpAuditLogsPageContent.svelte';
 	import VirtualPageRoot from '$lib/components/ui/virtual-page/virtual-page-viewport.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import type { Component } from 'svelte';
@@ -16,14 +16,15 @@
 		props: { class: '', as: 'main', itemHeight: 56, overscan: 5 }
 	}}
 	title="Audit Logs"
+	subtitle="MCP Management"
 >
 	<div class="flex-1" in:fade={{ duration }} out:fade={{ duration }}>
 		<div class="flex min-h-full flex-col gap-8 pb-8">
-			<AuditLogsPageContent />
+			<McpAuditLogsPageContent />
 		</div>
 	</div>
 </Layout>
 
 <svelte:head>
-	<title>Obot | Audit Logs</title>
+	<title>Obot | MCP Audit Logs</title>
 </svelte:head>

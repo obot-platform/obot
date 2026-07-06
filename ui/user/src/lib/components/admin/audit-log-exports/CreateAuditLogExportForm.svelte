@@ -10,7 +10,7 @@
 		UserService,
 		type AuditLogExport,
 		type OrgUser,
-		type AuditLogURLFilters
+		type McpAuditLogURLFilters
 	} from '$lib/services';
 	import { profile } from '$lib/stores';
 	import { TriangleAlert, ChevronDown, ChevronUp } from '@lucide/svelte';
@@ -145,7 +145,7 @@
 			response_status: '',
 			session_id: '',
 			query: ''
-		} as Partial<AuditLogURLFilters>
+		} as Partial<McpAuditLogURLFilters>
 	});
 
 	let creating = $state(false);
@@ -247,7 +247,7 @@
 
 	$effect(() => {
 		filtersIds.forEach((id) => {
-			UserService.listAuditLogFilterOptions(id).then((res) => {
+			UserService.listMcpAuditLogFilterOptions(id).then((res) => {
 				filtersOptions[id] = res.options ?? [];
 			});
 		});
