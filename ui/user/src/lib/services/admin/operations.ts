@@ -97,7 +97,9 @@ import type {
 	AppPreferencesManifest,
 	AppNotificationManifest,
 	License,
-	LicenseManifest
+	LicenseManifest,
+	LLMAuditLog,
+	LLMAuditLogURLFilters
 } from './types';
 import { MCPCompositeDeletionDependencyError } from './types';
 
@@ -238,6 +240,25 @@ export async function updateScheduledAuditLogExport(
 
 export async function deleteScheduledAuditLogExport(name: string, opts?: { signal?: AbortSignal }) {
 	await doDelete(`/scheduled-audit-log-exports/${name}`, { signal: opts?.signal });
+}
+
+// LLM audit logs
+
+export async function getLLMAuditLog(id: string, opts?: { fetch?: Fetcher }) {
+	const response = (await doGet(`/llm-audit-logs/detail/${id}`, opts)) as LLMAuditLog;
+	return response;
+}
+
+export async function listLLMAuditLogs(
+	filters?: LLMAuditLogURLFilters,
+	opts?: { fetch?: Fetcher }
+) {
+	const queryString = buildQueryString(filters ?? {});
+	const response = (await doGet(
+		`/llm-audit-logs${queryString ? `?${queryString}` : ''}`,
+		opts
+	)) as PaginatedResponse<LLMAuditLog>;
+	return response;
 }
 
 // Auth providers

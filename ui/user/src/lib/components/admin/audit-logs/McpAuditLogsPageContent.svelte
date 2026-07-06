@@ -25,6 +25,7 @@
 	import { getUserDisplayName, isBasicUser } from '$lib/utils';
 	import FiltersDrawer from '../filters-drawer/FiltersDrawer.svelte';
 	import AuditLogCalendar from './AuditLogCalendar.svelte';
+	import AuditLogTableSkeleton from './AuditLogTableSkeleton.svelte';
 	import McpAuditLogsTable from './McpAuditLogsTable.svelte';
 	import {
 		aggregateAuditLogsByBucket,
@@ -37,7 +38,7 @@
 	import type { Snippet } from 'svelte';
 	import { flip } from 'svelte/animate';
 	import { SvelteMap } from 'svelte/reactivity';
-	import { fade, slide } from 'svelte/transition';
+	import { slide } from 'svelte/transition';
 
 	interface Props {
 		mcpId?: string | null;
@@ -536,21 +537,6 @@
 	}
 </script>
 
-{#if showLoadingSpinner}
-	<div
-		class="absolute inset-0 z-20 flex items-center justify-center"
-		in:fade={{ duration: 100 }}
-		out:fade|global={{ duration: 300, delay: 500 }}
-	>
-		<div
-			class="bg-base-400/50 border-base-400 text-primary dark:text-primary flex flex-col items-center gap-4 rounded-2xl border px-16 py-8 shadow-md backdrop-blur-[1px]"
-		>
-			<Loading class="size-32 stroke-1" />
-			<div class="text-2xl font-semibold">Loading logs...</div>
-		</div>
-	</div>
-{/if}
-
 <div class="flex flex-col justify-end gap-2 @container">
 	<div class="flex flex-col gap-4 @min-[768px]:flex-row">
 		<Search
@@ -625,7 +611,10 @@
 	{/if}
 </div>
 
-{#if auditLogsTotalItems > 0}
+{#if showLoadingSpinner}
+	<div class="skeleton rounded-md h-71 mb-4"></div>
+	<AuditLogTableSkeleton />
+{:else if auditLogsTotalItems > 0}
 	<!-- Timeline Graph (Placeholder) -->
 	<div
 		class="dark:bg-base-300 dark:border-base-400 bg-base-100 text-muted-content rounded-lg border border-transparent shadow-sm"

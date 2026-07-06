@@ -54,8 +54,6 @@ import {
 	type AccessControlRule,
 	type AccessControlRuleManifest,
 	type K8sServerDetail,
-	type LLMAuditLog,
-	type LLMAuditLogURLFilters,
 	type MCPSubField
 } from './types';
 
@@ -173,18 +171,6 @@ export async function listAuditLogs(filters?: AuditLogURLFilters, opts?: { fetch
 		`/mcp-audit-logs${queryString ? `?${queryString}` : ''}`,
 		opts
 	)) as PaginatedResponse<AuditLog>;
-	return response;
-}
-
-export async function listLLMAuditLogs(
-	filters?: LLMAuditLogURLFilters,
-	opts?: { fetch?: Fetcher }
-) {
-	const queryString = buildQueryString(filters ?? {});
-	const response = (await doGet(
-		`/llm-audit-logs${queryString ? `?${queryString}` : ''}`,
-		opts
-	)) as PaginatedResponse<LLMAuditLog>;
 	return response;
 }
 
