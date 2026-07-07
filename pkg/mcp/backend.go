@@ -222,10 +222,26 @@ func urlWithPath(urlStr, path string) string {
 	return u.String()
 }
 
-func constructMCPServerNanobotYAMLForComposite(servers []ComponentServer) ([]byte, error) {
+func constructMCPServerNanobotYAMLForComposite(servers []ComponentServer, passthroughHeaderNames []string) ([]byte, error) {
 	mcpServers := make(map[string]nanobotConfigMCPServer, len(servers))
 	names := make([]string, 0, len(servers))
 	replacer := strings.NewReplacer("/", "-", ":", "-", "?", "-")
+
+	// #6845: composite children are always internal Obot /mcp-connect endpoints
+	// that resolve the caller's per-user credentials, so the caller's auth must
+	// reach them. Forward the operator-configured passthrough headers plus
+	// Authorization (required for the child endpoint to identify the user).
+	childPassthrough := append([]string(nil), passthroughHeaderNames...)
+	hasAuth := false
+	for _, h := range childPassthrough {
+		if strings.EqualFold(h, "Authorization") {
+			hasAuth = true
+			break
+		}
+	}
+	if !hasAuth {
+		childPassthrough = append(childPassthrough, "Authorization")
+	}
 
 	for _, component := range servers {
 		tools := make(map[string]toolOverride, len(component.Tools))
@@ -241,9 +257,10 @@ func constructMCPServerNanobotYAMLForComposite(servers []ComponentServer) ([]byt
 
 		name := replacer.Replace(component.Name)
 		mcpServers[name] = nanobotConfigMCPServer{
-			BaseURL:       component.URL,
-			ToolOverrides: tools,
-			ToolPrefix:    component.ToolPrefix,
+			BaseURL:            component.URL,
+			ToolOverrides:      tools,
+			ToolPrefix:         component.ToolPrefix,
+			PassthroughHeaders: childPassthrough,
 		}
 
 		names = append(names, name)
