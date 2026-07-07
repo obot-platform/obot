@@ -1114,7 +1114,6 @@ func entryMissingAdminConfig(ctx context.Context, client kclient.Client, obotNam
 			})
 		}
 	}
-
 	for _, ref := range manifests {
 		cm := ref.manifest
 		var remote *types.RemoteRuntimeConfig
@@ -1122,27 +1121,12 @@ func entryMissingAdminConfig(ctx context.Context, client kclient.Client, obotNam
 			remote = &types.RemoteRuntimeConfig{Headers: cm.RemoteConfig.Headers}
 		}
 
-		resolved, err := mcp.MergeBoundCreds(ctx, client, obotNamespace, cm.Env, remote, nil, secretBindingAllowedLabel)
+		missingBindings, err := mcp.MissingSecretBindings(ctx, client, obotNamespace, cm.Env, remote, secretBindingAllowedLabel)
 		if err != nil {
 			return missing, err
 		}
-
-		for _, e := range cm.Env {
-			if e.Required && e.SecretBinding != nil {
-				if _, ok := resolved[e.Key]; !ok {
-					missing.SecretBoundFields = append(missing.SecretBoundFields, secretBoundFieldLabel(ref.prefix, "env", e.MCPHeader))
-				}
-			}
-		}
-
-		if cm.RemoteConfig != nil {
-			for _, h := range cm.RemoteConfig.Headers {
-				if h.Required && h.SecretBinding != nil {
-					if _, ok := resolved[h.Key]; !ok {
-						missing.SecretBoundFields = append(missing.SecretBoundFields, secretBoundFieldLabel(ref.prefix, "header", h))
-					}
-				}
-			}
+		for _, binding := range missingBindings {
+			missing.SecretBoundFields = append(missing.SecretBoundFields, secretBoundFieldLabel(ref.prefix, binding.Kind, binding.Header))
 		}
 	}
 
@@ -1999,6 +1983,11 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 	addExtractedEnvVars(&server)
+	if adminManagedSecretBindings && !server.Spec.IsSingleUser() {
+		if err := mcp.ValidateSecretBindingsAvailable(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, m.secretBindingAllowedLabel); err != nil {
+			return types.NewErrBadRequest("validation failed: %v", err)
+		}
+	}
 	// Run after extraction so auto-created Required=true entries cover any
 	// template references the user did not pre-declare. This still catches the
 	// case where the user pre-supplied a matching env entry with required=false
@@ -2106,6 +2095,14 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 	}
 	if err := validation.ValidateTemplateReferences(updated); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
+	}
+	if adminManagedSecretBindings && !existing.Spec.IsSingleUser() {
+		updatedServer := existing
+		updatedServer.Spec.Manifest = updated
+		addExtractedEnvVars(&updatedServer)
+		if err := mcp.ValidateSecretBindingsAvailable(req.Context(), req.LocalK8sClient, req.ObotNamespace, updatedServer.Spec.Manifest.Env, updatedServer.Spec.Manifest.RemoteConfig, m.secretBindingAllowedLabel); err != nil {
+			return types.NewErrBadRequest("validation failed: %v", err)
+		}
 	}
 
 	// Shutdown the server only after the candidate configuration is known to be valid.

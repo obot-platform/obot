@@ -224,7 +224,14 @@
 			entry = matchingEntry;
 		}
 
-		if (server && !server.configured) {
+		const missingAdminSecret = server
+			? hasMissingSecretBindingConfig(
+					server.manifest,
+					server.missingRequiredEnvVars,
+					server.missingRequiredHeader
+				)
+			: false;
+		if (server && !server.configured && !missingAdminSecret) {
 			editExistingDialog?.edit({
 				server,
 				entry

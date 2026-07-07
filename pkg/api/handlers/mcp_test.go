@@ -1050,6 +1050,45 @@ func TestCreateServerWorkspaceSecretBindingRejected(t *testing.T) {
 	assert.Contains(t, err.Error(), `validation failed: env "API_TOKEN": secretBinding is only allowed on git-synced catalog entries, multi-user catalog entries, or admin-managed multi-user servers`)
 }
 
+func TestCreateServerRejectsMissingSecretBinding(t *testing.T) {
+	handler := newCreateServerSecretBindingTestHandler()
+	entry := v1.MCPServerCatalogEntry{
+		ObjectMeta: metav1.ObjectMeta{Name: "entry-1", Namespace: system.DefaultNamespace},
+		Spec: v1.MCPServerCatalogEntrySpec{
+			MCPCatalogName: "catalog-1",
+			Manifest: types.MCPServerCatalogEntryManifest{
+				Name:           "multi-user-entry",
+				Runtime:        types.RuntimeContainerized,
+				ServerUserType: types.ServerUserTypeMultiUser,
+				ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+					Image: "example/mcp:latest",
+					Port:  8080,
+					Path:  "/mcp",
+				},
+				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+					Key:           "API_TOKEN",
+					SecretBinding: &types.MCPSecretBinding{Name: "missing-secret", Key: "token"},
+				}}},
+			},
+		},
+	}
+	storage := newFakeStorage(t,
+		&v1.MCPCatalog{ObjectMeta: metav1.ObjectMeta{Name: "catalog-1", Namespace: system.DefaultNamespace}},
+		&entry,
+	)
+
+	err := handler.CreateServer(newCreateServerSecretBindingRequest(t, storage, newCreateServerSecretBindingK8sClient(t), "catalog-1", "", types.MCPServer{
+		CatalogEntryID: "entry-1",
+	}))
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unavailable Kubernetes Secret")
+
+	var servers v1.MCPServerList
+	require.NoError(t, storage.List(context.Background(), &servers))
+	assert.Empty(t, servers.Items)
+}
+
 func TestCreateServerRejectsMultiUserHeaderSecretBinding(t *testing.T) {
 	handler := newCreateServerSecretBindingTestHandler()
 	storage := newFakeStorage(t, &v1.MCPCatalog{ObjectMeta: metav1.ObjectMeta{Name: "catalog-1", Namespace: system.DefaultNamespace}})
@@ -1458,6 +1497,20 @@ func TestEntryMissingAdminConfig(t *testing.T) {
 					MCPHeader: types.MCPHeader{
 						Key:           "TOKEN",
 						Required:      true,
+						SecretBinding: &types.MCPSecretBinding{Name: "s", Key: "k"},
+					},
+				}},
+			},
+			client:     newClient(t),
+			wantFields: []string{"env TOKEN"},
+		},
+		{
+			name: "non-required env missing binding",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeNPX,
+				Env: []types.MCPEnv{{
+					MCPHeader: types.MCPHeader{
+						Key:           "TOKEN",
 						SecretBinding: &types.MCPSecretBinding{Name: "s", Key: "k"},
 					},
 				}},

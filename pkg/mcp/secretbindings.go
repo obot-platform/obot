@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"maps"
 	"sort"
+	"strings"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	corev1 "k8s.io/api/core/v1"
@@ -161,6 +162,79 @@ func MergeBoundCreds(
 	}
 
 	return merged, nil
+}
+
+type MissingSecretBinding struct {
+	Kind    string
+	Header  types.MCPHeader
+	Binding *types.MCPSecretBinding
+}
+
+func MissingSecretBindings(ctx context.Context, c kclient.Client, obotNamespace string, envs []types.MCPEnv, remoteConfig *types.RemoteRuntimeConfig, allowedLabel string) ([]MissingSecretBinding, error) {
+	hasBinding := false
+	for _, env := range envs {
+		if env.SecretBinding != nil {
+			hasBinding = true
+			break
+		}
+	}
+	if !hasBinding && remoteConfig != nil {
+		for _, header := range remoteConfig.Headers {
+			if header.SecretBinding != nil {
+				hasBinding = true
+				break
+			}
+		}
+	}
+	if !hasBinding {
+		return nil, nil
+	}
+	if c == nil {
+		return nil, fmt.Errorf("secret bindings require a Kubernetes client")
+	}
+
+	resolved, err := MergeBoundCreds(ctx, c, obotNamespace, envs, remoteConfig, nil, allowedLabel)
+	if err != nil {
+		return nil, err
+	}
+
+	var missing []MissingSecretBinding
+	for _, env := range envs {
+		if env.SecretBinding == nil {
+			continue
+		}
+		if _, ok := resolved[env.Key]; !ok {
+			missing = append(missing, MissingSecretBinding{Kind: "env", Header: env.MCPHeader, Binding: env.SecretBinding})
+		}
+	}
+	if remoteConfig != nil {
+		for _, header := range remoteConfig.Headers {
+			if header.SecretBinding == nil {
+				continue
+			}
+			if _, ok := resolved[header.Key]; !ok {
+				missing = append(missing, MissingSecretBinding{Kind: "header", Header: header, Binding: header.SecretBinding})
+			}
+		}
+	}
+	return missing, nil
+}
+
+// ValidateSecretBindingsAvailable verifies secret-bound config can be resolved
+// before creating/updating/launching a server that users cannot fix.
+func ValidateSecretBindingsAvailable(ctx context.Context, c kclient.Client, obotNamespace string, envs []types.MCPEnv, remoteConfig *types.RemoteRuntimeConfig, allowedLabel string) error {
+	missing, err := MissingSecretBindings(ctx, c, obotNamespace, envs, remoteConfig, allowedLabel)
+	if err != nil {
+		return err
+	}
+	if len(missing) > 0 {
+		fields := make([]string, 0, len(missing))
+		for _, field := range missing {
+			fields = append(fields, fmt.Sprintf("%s %q references %s/%s", field.Kind, field.Header.Key, obotNamespace, field.Binding.Name))
+		}
+		return fmt.Errorf("secret bindings reference unavailable Kubernetes Secrets: %s", strings.Join(fields, ", "))
+	}
+	return nil
 }
 
 func hasAnyBinding(envs []types.MCPEnv, remoteConfig *types.RemoteRuntimeConfig) bool {

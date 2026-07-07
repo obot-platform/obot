@@ -742,6 +742,8 @@
 			configDialog?.close();
 			onConnect?.({ server, entry });
 		} catch (err) {
+			launchError = err instanceof Error ? err.message : 'An unknown error occurred';
+			launchMissingSecretBinding = launchError.includes('secret binding');
 			if (created && !launchHandedOff) {
 				try {
 					if (workspaceID) {
@@ -755,7 +757,6 @@
 					console.error('Failed to clean up partially-created multi-user server', cleanupErr);
 				}
 			}
-			error = err instanceof Error ? err.message : 'An unknown error occurred';
 		} finally {
 			clearTimeout(timeout1);
 			clearTimeout(timeout2);
@@ -1179,16 +1180,30 @@
 							{/each}
 						</div>
 					{:else}
-						<p class="text-sm self-start">An issue occurred while launching the MCP server.</p>
+						<p class="text-sm self-start">{launchError}</p>
 					{/if}
 					{#if canModifyCatalogEntry}
 						<div class="flex w-full items-center gap-0.5">
-							<button
-								onclick={handleCancelLaunch}
-								class="flex grow items-center justify-center btn btn-secondary rounded-r-none!"
-							>
-								Cancel and Delete Server
-							</button>
+							{#if server}
+								<button
+									onclick={handleCancelLaunch}
+									class="flex grow items-center justify-center btn btn-secondary rounded-r-none!"
+								>
+									Cancel and Delete Server
+								</button>
+							{:else}
+								<button
+									class="flex grow items-center justify-center btn btn-secondary rounded-r-none!"
+									onclick={() => {
+										launchState = undefined;
+										launchError = undefined;
+										launchMissingSecretBinding = false;
+										configDialog?.close();
+									}}
+								>
+									Close
+								</button>
+							{/if}
 							<DotDotDot
 								class="btn btn-secondary btn-block w-14 rounded-l-none! p-0!"
 								disablePortal
@@ -1239,12 +1254,26 @@
 									Update Configuration and Try Again
 								</button>
 							{/if}
-							<button
-								class="btn btn-secondary w-full md:w-1/2 md:flex-1"
-								onclick={handleCancelLaunch}
-							>
-								Cancel and Delete Server
-							</button>
+							{#if server}
+								<button
+									class="btn btn-secondary w-full md:w-1/2 md:flex-1"
+									onclick={handleCancelLaunch}
+								>
+									Cancel and Delete Server
+								</button>
+							{:else}
+								<button
+									class="btn btn-secondary w-full md:w-1/2 md:flex-1"
+									onclick={() => {
+										launchState = undefined;
+										launchError = undefined;
+										launchMissingSecretBinding = false;
+										configDialog?.close();
+									}}
+								>
+									Close
+								</button>
+							{/if}
 						</div>
 					{/if}
 				</div>
