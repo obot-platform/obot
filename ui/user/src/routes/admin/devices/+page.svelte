@@ -15,8 +15,9 @@
 		type DeviceScanStats,
 		type DeviceSkillStat
 	} from '$lib/services';
-	import { replaceState } from '$lib/url';
+	import { clearUrlParams, goto, replaceState } from '$lib/url';
 	import { openUrl } from '$lib/utils';
+	import DeviceClients from './DeviceClients.svelte';
 	import { DEFAULT_WINDOW_MS } from './constants';
 	import {
 		ChevronRight,
@@ -29,9 +30,42 @@
 	} from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	let { data } = $props();
 
+	let view = $derived<
+		'overview' | 'devices' | 'device-clients' | 'device-mcp-servers' | 'device-skills'
+	>(
+		(page.url.searchParams.get('view') ?? 'overview') as
+			| 'overview'
+			| 'devices'
+			| 'device-clients'
+			| 'device-mcp-servers'
+			| 'device-skills'
+	);
+	let views = [
+		{
+			label: 'Overview',
+			value: 'overview'
+		},
+		{
+			label: 'Devices',
+			value: 'devices'
+		},
+		{
+			label: 'Device Clients',
+			value: 'device-clients'
+		},
+		{
+			label: 'Device MCP Servers',
+			value: 'device-mcp-servers'
+		},
+		{
+			label: 'Device Skills',
+			value: 'device-skills'
+		}
+	];
 	let stats = $state<DeviceScanStats | null>(untrack(() => data?.stats ?? null));
 	let range = $state<{ start: string; end: string }>(
 		untrack(
@@ -182,58 +216,41 @@
 	>
 		<ObotCliBanner description="Gain insight into the AI tooling used in your organization." />
 
-		<div class="flex flex-wrap items-center gap-2">
-			<AuditLogCalendar
-				start={new Date(range.start)}
-				end={new Date(range.end)}
-				onChange={onRangeChange}
-				disabled={loading}
-			/>
+		<!-- add overflow container -->
+		<div class="w-full">
+			<div class="relative z-10 flex shrink-0 items-center justify-between">
+				<div class="flex shrink-0">
+					{#each views as viewOption (viewOption.value)}
+						<button
+							class={twMerge(
+								'border-b-2 border-transparent px-8 py-2 transition-colors duration-400',
+								view === viewOption.value
+									? 'border-primary'
+									: 'hover:border-primary/25 text-muted-content hover:text-base-content'
+							)}
+							onclick={() => {
+								clearUrlParams();
+								goto(`/admin/devices?view=${viewOption.value}`);
+							}}
+						>
+							{viewOption.label}
+						</button>
+					{/each}
+				</div>
+			</div>
+			<div class="bg-base-400 h-0.5 w-full shrink-0 -translate-y-0.5"></div>
 		</div>
 
-		{#if !stats || stats.deviceCount === 0}
-			<div class="mx-auto mt-12 flex w-md flex-col items-center gap-4 text-center">
-				<ScanLine class="text-muted-content size-24 opacity-50" />
-				<h4 class="text-muted-content text-lg font-semibold">No device scans in this window</h4>
-				<p class="text-muted-content text-sm font-light">
-					Adjust the date range or run <code class="font-mono">obot scan</code> from a managed device.
-				</p>
-			</div>
-		{:else}
-			<div
-				class="paper dark:divide-base-400 divide-base-300 grid grid-cols-2 divide-x sm:grid-cols-3 lg:grid-cols-5"
-			>
-				{#each tiles as tile (tile.key)}
-					{@render statCell(tile)}
-				{/each}
-			</div>
-
-			<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-				<DeviceScanDonutCard
-					title="Clients"
-					buckets={clientBuckets}
-					totalGroups={totalClientGroups}
-					emptyMsg="No clients observed yet."
-				/>
-				<DeviceScanDonutCard
-					title="Top MCPs"
-					buckets={mcpBuckets}
-					totalGroups={totalMcpGroups}
-					emptyMsg="No MCP servers observed yet."
-				/>
-				<DeviceScanDonutCard
-					title="Top Skills"
-					buckets={skillBuckets}
-					totalGroups={totalSkillGroups}
-					emptyMsg="No skills observed yet."
-				/>
-				<DeviceScanTimelineCard
-					rangeStart={range.start}
-					rangeEnd={range.end}
-					{timelineRows}
-					totalSubmissions={totalScansInWindow}
-				/>
-			</div>
+		{#if view === 'overview'}
+			{@render overview()}
+		{:else if view === 'devices'}
+			{@render devices()}
+		{:else if view === 'device-clients'}
+			{@render deviceClients()}
+		{:else if view === 'device-mcp-servers'}
+			{@render deviceMCPServers()}
+		{:else if view === 'device-skills'}
+			{@render deviceSkills()}
 		{/if}
 	</div>
 </Layout>
@@ -289,4 +306,82 @@
 		<span class="text-2xl font-semibold tabular-nums">{tile.value}</span>
 	</div>
 	<tile.icon class="text-primary size-7 shrink-0" />
+{/snippet}
+
+{#snippet overview()}
+	<div class="flex flex-wrap items-center gap-2">
+		<AuditLogCalendar
+			start={new Date(range.start)}
+			end={new Date(range.end)}
+			onChange={onRangeChange}
+			disabled={loading}
+		/>
+	</div>
+
+	{#if !stats || stats.deviceCount === 0}
+		<div class="mx-auto mt-12 flex w-md flex-col items-center gap-4 text-center">
+			<ScanLine class="text-muted-content size-24 opacity-50" />
+			<h4 class="text-muted-content text-lg font-semibold">No device scans in this window</h4>
+			<p class="text-muted-content text-sm font-light">
+				Adjust the date range or run <code class="font-mono">obot scan</code> from a managed device.
+			</p>
+		</div>
+	{:else}
+		<div
+			class="paper dark:divide-base-400 divide-base-300 grid grid-cols-2 divide-x sm:grid-cols-3 lg:grid-cols-5"
+		>
+			{#each tiles as tile (tile.key)}
+				{@render statCell(tile)}
+			{/each}
+		</div>
+
+		<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+			<DeviceScanDonutCard
+				title="Clients"
+				buckets={clientBuckets}
+				totalGroups={totalClientGroups}
+				emptyMsg="No clients observed yet."
+			/>
+			<DeviceScanDonutCard
+				title="Top MCPs"
+				buckets={mcpBuckets}
+				totalGroups={totalMcpGroups}
+				emptyMsg="No MCP servers observed yet."
+			/>
+			<DeviceScanDonutCard
+				title="Top Skills"
+				buckets={skillBuckets}
+				totalGroups={totalSkillGroups}
+				emptyMsg="No skills observed yet."
+			/>
+			<DeviceScanTimelineCard
+				rangeStart={range.start}
+				rangeEnd={range.end}
+				{timelineRows}
+				totalSubmissions={totalScansInWindow}
+			/>
+		</div>
+	{/if}
+{/snippet}
+
+{#snippet devices()}
+	<div>
+		<h1>Devices</h1>
+	</div>
+{/snippet}
+
+{#snippet deviceClients()}
+	<DeviceClients />
+{/snippet}
+
+{#snippet deviceMCPServers()}
+	<div>
+		<h1>Device MCP Servers</h1>
+	</div>
+{/snippet}
+
+{#snippet deviceSkills()}
+	<div>
+		<h1>Device Skills</h1>
+	</div>
 {/snippet}

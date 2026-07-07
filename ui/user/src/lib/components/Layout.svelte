@@ -417,37 +417,9 @@
 						collapsible: true,
 						items: [
 							{
-								id: 'device-overview',
-								href: '/admin/device-overview',
-								label: 'Dashboard',
-								disabled: isBootStrapUser,
-								collapsible: false
-							},
-							{
 								id: 'devices',
 								href: '/admin/devices',
 								label: 'Devices',
-								disabled: isBootStrapUser,
-								collapsible: false
-							},
-							{
-								id: 'device-skills',
-								href: '/admin/device-skills',
-								label: 'Device Skills',
-								disabled: isBootStrapUser,
-								collapsible: false
-							},
-							{
-								id: 'device-mcps',
-								href: '/admin/device-mcp-servers',
-								label: 'Device MCP Servers',
-								disabled: isBootStrapUser,
-								collapsible: false
-							},
-							{
-								id: 'device-clients',
-								href: '/admin/device-clients',
-								label: 'Device Clients',
 								disabled: isBootStrapUser,
 								collapsible: false
 							}

@@ -1,18 +1,6 @@
-import { handleRouteError } from '$lib/errors';
-import { AdminService } from '$lib/services';
-import type { DeviceScanStats } from '$lib/services/admin/types';
-import { profile } from '$lib/stores';
 import type { PageLoad } from './$types';
+import { redirect } from '@sveltejs/kit';
 
-export const load: PageLoad = async ({ url, fetch }) => {
-	const start = url.searchParams.get('start') ?? undefined;
-	const end = url.searchParams.get('end') ?? undefined;
-
-	let stats: DeviceScanStats;
-	try {
-		stats = await AdminService.getDeviceScanStats({ start, end }, { fetch });
-		return { stats };
-	} catch (err) {
-		handleRouteError(err, '/admin/device-mcp-servers', profile.current);
-	}
+export const load: PageLoad = async () => {
+	throw redirect(301, '/admin/devices?view=device-mcp-servers');
 };
