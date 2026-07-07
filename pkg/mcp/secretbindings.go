@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"maps"
 	"sort"
+	"strings"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	corev1 "k8s.io/api/core/v1"
@@ -227,8 +228,11 @@ func ValidateSecretBindingsAvailable(ctx context.Context, c kclient.Client, obot
 		return err
 	}
 	if len(missing) > 0 {
-		field := missing[0]
-		return fmt.Errorf("secret binding %s %q references unavailable Kubernetes Secret %s/%s", field.Kind, field.Header.Key, obotNamespace, field.Binding.Name)
+		fields := make([]string, 0, len(missing))
+		for _, field := range missing {
+			fields = append(fields, fmt.Sprintf("%s %q references %s/%s", field.Kind, field.Header.Key, obotNamespace, field.Binding.Name))
+		}
+		return fmt.Errorf("secret bindings reference unavailable Kubernetes Secrets: %s", strings.Join(fields, ", "))
 	}
 	return nil
 }

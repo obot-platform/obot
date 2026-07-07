@@ -195,6 +195,14 @@ func TestValidateSecretBindingsAvailable(t *testing.T) {
 
 		require.NoError(t, ValidateSecretBindingsAvailable(context.Background(), c, ns, nil, remote, label))
 	})
+
+	t.Run("reports all missing bindings", func(t *testing.T) {
+		remote := &types.RemoteRuntimeConfig{Headers: []types.MCPHeader{{Key: "Authorization", Required: true, SecretBinding: binding("auth-secret", "token")}}}
+
+		err := ValidateSecretBindingsAvailable(context.Background(), newClient(t), ns, requiredEnv, remote, label)
+		require.Error(t, err)
+		assert.Equal(t, err.Error(), `secret bindings reference unavailable Kubernetes Secrets: env "API_KEY" references obot-ns/bound-secret, header "Authorization" references obot-ns/auth-secret`)
+	})
 }
 
 func TestMissingSecretBindings(t *testing.T) {
