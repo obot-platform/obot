@@ -1056,7 +1056,12 @@
 	{/if}
 {/snippet}
 
-<ResponsiveDialog bind:this={connectDialog} animate="slide" onClose={handleOnClose}>
+<ResponsiveDialog
+	bind:this={connectDialog}
+	animate="slide"
+	onClose={handleOnClose}
+	id="connect-to-server-dialog"
+>
 	{#snippet titleContent()}
 		{@render dialogTitle(server || entry)}
 		<McpDeprecatedNotice {deprecated} />

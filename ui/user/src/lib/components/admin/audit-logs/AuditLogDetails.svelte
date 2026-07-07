@@ -66,7 +66,10 @@
 	}
 </script>
 
-<div class="bg-base-200 text-base-content flex h-full w-[inherit] min-w-[inherit] flex-col">
+<div
+	id="mcp-audit-log-details"
+	class="bg-base-200 text-base-content flex h-full w-[inherit] min-w-[inherit] flex-col"
+>
 	<div class="dark:bg-base-300 bg-base-100 relative flex w-full flex-col p-4 pl-5 shadow-xs">
 		<div
 			class={twMerge(
@@ -80,7 +83,11 @@
 		<p class="text-muted-content text-xs font-light">
 			{auditLog.requestID}
 		</p>
-		<IconButton onclick={onClose} class="absolute top-1/2 right-4 -translate-y-1/2">
+		<IconButton
+			id="mcp-audit-log-details-close-btn"
+			onclick={onClose}
+			class="absolute top-1/2 right-4 -translate-y-1/2"
+		>
 			<X class="size-5" />
 		</IconButton>
 	</div>

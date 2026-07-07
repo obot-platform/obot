@@ -47,6 +47,10 @@
 	function handleDisplay24HourFormatToggle(checked: boolean) {
 		userDeviceSettings.setTimeFormat(checked ? '24h' : '12h');
 	}
+
+	function handleDisplayGetStartedGuidesToggle(checked: boolean) {
+		userDeviceSettings.setShowAllGuides(checked);
+	}
 </script>
 
 <button class="dropdown-link" onclick={() => dialog?.open()}>
@@ -93,6 +97,21 @@
 			label=""
 			checked={userDeviceSettings.timeFormat === '24h'}
 			onChange={handleDisplay24HourFormatToggle}
+		/>
+	</div>
+	<hr />
+
+	<div class="flex flex-row items-center justify-between py-3">
+		<div class="flex flex-col gap-1">
+			<p>Display "Get Started" Guides</p>
+			<span class="text-sm font-light opacity-70">
+				When enabled, the "Get Started" guides will be displayed at the bottom right of the screen.
+			</span>
+		</div>
+		<Toggle
+			label=""
+			checked={userDeviceSettings.showAllGuides}
+			onChange={handleDisplayGetStartedGuidesToggle}
 		/>
 	</div>
 	<hr />

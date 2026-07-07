@@ -86,6 +86,7 @@
 				{@const client = aiClientsMap.get(magicLink.client as AiClient)}
 				{#if client && magicLink.link}
 					<div
+						id={`magic-link-${magicLink.client.toLowerCase()}-container`}
 						class="rounded-field bg-base-200 shadow-inner border-none input gap-0 w-full px-0 overflow-y-hidden"
 					>
 						<div
@@ -105,6 +106,7 @@
 						</div>
 						<div class="grow flex mr-1 relative">
 							<a
+								id={`magic-link-${magicLink.client.toLowerCase()}`}
 								href={magicLink.link}
 								rel="noopener noreferrer external"
 								class="h-8 flex gap-2 justify-center font-mono uppercase items-center text-xs btn btn-secondary hover:bg-primary hover:text-primary-content mx-2 grow"
@@ -134,31 +136,33 @@
 			{#each commands as aiClientCommand, index (aiClientCommand.client)}
 				{@const client = aiClientsMap.get(aiClientCommand.client as AiClient)}
 				{#if client && aiClientCommand.command}
-					<CopyField
-						value={aiClientCommand.command}
-						id={`command-${aiClientCommand.client}`}
-						classes={{
-							inputLabel: 'bg-base-100 dark:bg-base-300',
-							input: 'font-mono'
-						}}
-						bind:this={copyFields[index]}
-					>
-						{#snippet preContent()}
-							<span class="label shrink-0 w-38 mr-0 text-base-content">
-								<img
-									src={client?.iconDark ?? client?.icon}
-									alt={`${client?.alt} branding icon`}
-									class="size-4 dark:block hidden"
-								/>
-								<img
-									src={client?.icon}
-									alt={`${client?.alt} branding icon`}
-									class="size-4 block dark:hidden"
-								/>
-								{client?.alt}
-							</span>
-						{/snippet}
-					</CopyField>
+					<div id={`command-${aiClientCommand.client}-container`}>
+						<CopyField
+							value={aiClientCommand.command}
+							id={`command-${aiClientCommand.client}`}
+							classes={{
+								inputLabel: 'bg-base-100 dark:bg-base-300',
+								input: 'font-mono'
+							}}
+							bind:this={copyFields[index]}
+						>
+							{#snippet preContent()}
+								<span class="label shrink-0 w-38 mr-0 text-base-content">
+									<img
+										src={client?.iconDark ?? client?.icon}
+										alt={`${client?.alt} branding icon`}
+										class="size-4 dark:block hidden"
+									/>
+									<img
+										src={client?.icon}
+										alt={`${client?.alt} branding icon`}
+										class="size-4 block dark:hidden"
+									/>
+									{client?.alt}
+								</span>
+							{/snippet}
+						</CopyField>
+					</div>
 				{/if}
 			{/each}
 		</div>

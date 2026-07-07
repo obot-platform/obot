@@ -150,6 +150,7 @@
 				'rounded-none h-[calc(100vh-64px)] left-0 top-[64px] !rounded-none w-full h-full'
 		)
 	}}
+	id="btn-navbar-profile"
 >
 	{#snippet icon()}
 		<div class="relative shrink-0">

@@ -565,7 +565,10 @@
 		<h3 class="mb-6 px-4 pt-4 text-xs uppercase font-medium">Timeline</h3>
 		<div class="px-4">
 			{#if displayTimelineData.length > 0}
-				<div class="text-muted-content flex h-40 items-center justify-center rounded-md">
+				<div
+					id="mcp-audit-logs-timeline-chart"
+					class="text-muted-content flex h-40 items-center justify-center rounded-md"
+				>
 					<StackedTimeline
 						start={timeRangeFilters.startTime}
 						end={timeRangeFilters.endTime}
@@ -667,6 +670,7 @@
 		selectedMcpAuditLog ? 'max-w-[85vw] min-w-lg' : 'md:w-lg lg:w-xl'
 	)}
 	style={selectedMcpAuditLog ? 'width: 32rem' : ''}
+	id="mcp-audit-logs-details-sidebar"
 >
 	{#if selectedMcpAuditLog}
 		{#if !responsive.isMobile && rightSidebar}

@@ -1,4 +1,5 @@
 import { browser } from '$app/environment';
+import { AI_CLIENT_PREFERENCE_KEY, OBOT_GUIDE_KEYS } from '$lib/constants';
 import { AiClient } from '$lib/services/user/constants';
 
 const store = $state({
@@ -6,7 +7,9 @@ const store = $state({
 	setTimeFormat,
 	initialize,
 	aiClientPreference: getAiClientPreference(),
-	setAiClientPreference
+	setAiClientPreference,
+	showAllGuides: getShowAllGuides(),
+	setShowAllGuides
 });
 
 function initialize() {
@@ -14,6 +17,7 @@ function initialize() {
 		return;
 	}
 	store.timeFormat = getTimeFormat();
+	store.showAllGuides = getShowAllGuides();
 	store.aiClientPreference = getAiClientPreference();
 }
 
@@ -39,9 +43,9 @@ function setAiClientPreference(aiClient: AiClient | AiClient[]) {
 	const values = Array.isArray(aiClient) ? aiClient : [aiClient];
 	if (browser) {
 		if (values.length === 0) {
-			localStorage.removeItem('aiClientPreference');
+			localStorage.removeItem(AI_CLIENT_PREFERENCE_KEY);
 		} else {
-			localStorage.setItem('aiClientPreference', values.join(','));
+			localStorage.setItem(AI_CLIENT_PREFERENCE_KEY, values.join(','));
 		}
 	}
 	store.aiClientPreference = values.length ? values : getAiClientPreference();
@@ -52,7 +56,7 @@ function getAiClientPreference(): AiClient[] {
 		return [];
 	}
 
-	const raw = localStorage.getItem('aiClientPreference');
+	const raw = localStorage.getItem(AI_CLIENT_PREFERENCE_KEY);
 	if (raw === null) return [];
 	if (raw.trim() === '') return [];
 
@@ -61,6 +65,21 @@ function getAiClientPreference(): AiClient[] {
 		.map((s) => s.trim())
 		.filter((s): s is AiClient => (Object.values(AiClient) as string[]).includes(s));
 	return valid.length ? valid : [];
+}
+
+function getShowAllGuides(): boolean {
+	if (!browser) {
+		return false;
+	}
+	const showAllGuides = localStorage.getItem(OBOT_GUIDE_KEYS.SHOW_ALL_GUIDES);
+	return showAllGuides ? showAllGuides === 'true' : true;
+}
+
+function setShowAllGuides(showAllGuides: boolean) {
+	if (browser) {
+		localStorage.setItem(OBOT_GUIDE_KEYS.SHOW_ALL_GUIDES, showAllGuides.toString());
+	}
+	store.showAllGuides = showAllGuides;
 }
 
 export default store;

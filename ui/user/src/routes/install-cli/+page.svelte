@@ -83,16 +83,25 @@
 					</div>
 				{/each}
 			</div>
-			<div class="p-8 @2xl/cli:pb-8 pb-0 flex flex-col gap-1">
+			<div class="p-8 @2xl/cli:pb-8 pb-0 flex flex-col gap-1" id="obot-cli-installation">
 				<h3 class="text-2xl font-bold">How to Install Obot CLI</h3>
 
-				{@render codesnippet('For MacOS, install through Homebrew:', installCommand)}
+				{@render codesnippet(
+					'For MacOS, install through Homebrew:',
+					installCommand,
+					'obot-cli-homebrew-install'
+				)}
 
-				{@render codesnippet('Then run the following command:', setupCommand)}
+				{@render codesnippet(
+					'Then run the following command:',
+					setupCommand,
+					'obot-cli-setup-command'
+				)}
 
 				<div class="flex flex-col">
 					<p class="text-sm">For more installation options, click below:</p>
 					<a
+						id="obot-cli-windows-installer"
 						href="https://github.com/obot-platform/obot/releases/latest"
 						class="btn btn-primary mb-3 my-2 w-fit self-center @lg/cli:self-start"
 						target="_blank"
@@ -133,10 +142,10 @@
 
 		<div class="divider"></div>
 
-		<div class="mt-12 flex flex-col gap-4">
+		<div class="mt-12 flex flex-col gap-4" id="obot-cli-commands">
 			<h3 class="text-2xl font-bold">Obot CLI Commands</h3>
 
-			<div class="paper">
+			<div class="paper" id="obot-cli-command-setup">
 				{@render commandPreview('obot setup')}
 				<p>
 					Use <code class="inline-code">obot setup</code> to authenticate with Obot and install the Obot
@@ -144,7 +153,7 @@
 				</p>
 			</div>
 
-			<div class="paper">
+			<div class="paper" id="obot-cli-command-skills">
 				{@render commandPreview('obot skills')}
 				<p>
 					Use <code class="inline-code">obot skills</code> to install and manage skills. We support
@@ -172,7 +181,7 @@
 				</ul>
 			</div>
 
-			<div class="paper">
+			<div class="paper" id="obot-cli-command-scan">
 				{@render commandPreview('obot scan')}
 				<div>
 					<p class="mb-2">
@@ -208,13 +217,14 @@
 	</div>
 </Layout>
 
-{#snippet codesnippet(step: string, command: string)}
+{#snippet codesnippet(step: string, command: string, id: string)}
 	<p class="text-sm">{step}</p>
 	<div class="relative mt-0.5 mb-4">
-		<pre class="pl-4 pr-22 py-2 m-0"><code>{command}</code></pre>
+		<pre class="pl-4 pr-22 py-2 m-0" {id}><code>{command}</code></pre>
 		<div class="absolute top-1/2 right-2 -translate-y-1/2">
 			<CopyButton
 				text={command}
+				id={`${id}-copy-button`}
 				classes={{ button: 'flex shrink-0 gap-2 text-xs text-white hover:text-primary' }}
 				showTextLeft
 			/>

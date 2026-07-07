@@ -24,6 +24,7 @@
 <ResponsiveDialog title="Select Server Type" class="md:w-lg" bind:this={selectServerTypeDialog}>
 	<div class="flex flex-col gap-4 p-4 md:p-0">
 		<button
+			id="add-hosted-server-button"
 			class="dark:bg-base-300 hover:bg-base-200 dark:hover:bg-base-400 dark:border-base-400 border-base-300 group bg-base-100 flex cursor-pointer items-center gap-4 rounded-md border px-2 py-4 text-left transition-colors duration-300"
 			onclick={() => onSelectServerType('hosted')}
 		>
@@ -39,6 +40,7 @@
 			</div>
 		</button>
 		<button
+			id="add-remote-server-button"
 			class="dark:bg-base-300 hover:bg-base-200 dark:hover:bg-base-400 dark:border-base-400 border-base-300 group bg-base-100 flex cursor-pointer items-center gap-4 rounded-md border px-2 py-4 text-left transition-colors duration-300"
 			onclick={() => onSelectServerType('remote')}
 		>
@@ -56,6 +58,7 @@
 		</button>
 		{#if entity === 'catalog' && profile.current?.groups.includes(Group.ADMIN)}
 			<button
+				id="add-composite-server-button"
 				class="dark:bg-base-300 hover:bg-base-200 dark:hover:bg-base-400 dark:border-base-400 border-base-300 group bg-base-100 flex cursor-pointer items-center gap-4 rounded-md border px-2 py-4 text-left transition-colors duration-300"
 				onclick={() => onSelectServerType('composite')}
 			>

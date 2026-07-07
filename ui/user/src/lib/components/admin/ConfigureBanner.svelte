@@ -37,6 +37,7 @@
 
 {#if !loading && (showModelConfiguration || !isAuthProviderConfigured) && profile.current?.isAdmin?.()}
 	<div
+		id="configure-setup-banner"
 		class="dark:bg-base-300 bg-base-100 mb-4 flex min-h-44 justify-center overflow-hidden rounded-xl py-4"
 	>
 		<div

@@ -164,6 +164,7 @@
 <!-- Data Table -->
 <div
 	bind:this={tableContainer}
+	id="mcp-audit-logs-table"
 	class="dark:bg-base-300 bg-base-100 flex w-full min-w-full flex-1 divide-y divide-gray-200 overflow-x-auto overflow-y-visible rounded-lg border border-transparent shadow-sm"
 >
 	{#if data.length}
@@ -206,8 +207,9 @@
 					{@const mcp = d.mcpFields}
 
 					<tr
+						id={`mcp-audit-log-${item.index}`}
 						class={twMerge(
-							'group m-0 h-14 text-sm leading-0 text-[0] transition-colors duration-300',
+							'virtual-list-row group m-0 h-14 text-sm leading-0 text-[0] transition-colors duration-300',
 							onSelectRow && 'hover:bg-base-200 dark:hover:bg-base-400 cursor-pointer'
 						)}
 						onclick={() => onSelectRow?.(d)}

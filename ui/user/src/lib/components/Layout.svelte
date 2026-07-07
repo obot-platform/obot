@@ -59,10 +59,11 @@
 	import { isAgentEnabled } from '$lib/utils';
 	import AppNotificationBanner from './AppNotificationBanner.svelte';
 	import InfoTooltip from './InfoTooltip.svelte';
-	import Tour from './Tour.svelte';
 	import ConfigureBanner from './admin/ConfigureBanner.svelte';
 	import SetupSplashDialog from './admin/SetupSplashDialog.svelte';
 	import LicenseViolationBanner from './admin/license/LicenseViolationBanner.svelte';
+	import GuidePanel from './guides/GuidePanel.svelte';
+	import Guide from './guides/Guides.svelte';
 	import BetaLogo from './navbar/BetaLogo.svelte';
 	import Profile from './navbar/Profile.svelte';
 	import IconButton from './primitives/IconButton.svelte';
@@ -701,8 +702,8 @@
 	});
 </script>
 
-<div class="flex min-h-dvh flex-col items-center">
-	<div class="relative flex w-full grow">
+<div class="flex min-h-dvh items-center">
+	<div class="relative flex min-w-0 grow">
 		{#if leftSidebar}
 			{@render leftSidebar()}
 		{:else if layout.sidebarOpen && !hideSidebar}
@@ -727,7 +728,11 @@
 				>
 					{#if showAdvancedPane}
 						<div class="flex flex-col gap-0.5 h-full" in:slide={{ axis: 'x', duration: 100 }}>
-							<button class="sidebar-link" onclick={() => (showAdvancedPane = false)}>
+							<button
+								id="back-to-app-btn"
+								class="sidebar-link"
+								onclick={() => (showAdvancedPane = false)}
+							>
 								<ChevronLeft class="size-5 text-muted-content" />
 								<span class="uppercase text-xs font-semibold tracking-wide text-muted-content">
 									Back to App
@@ -746,7 +751,11 @@
 							<div class="flex grow"></div>
 
 							{#if managementLinks.length > 0}
-								<button class="sidebar-link" onclick={() => (showAdvancedPane = true)}>
+								<button
+									id="advanced-pane-btn"
+									class="sidebar-link"
+									onclick={() => (showAdvancedPane = true)}
+								>
 									<Settings class="size-5 text-muted-content" />
 									<span class="uppercase text-xs font-semibold tracking-wide text-muted-content">
 										{profile.current.hasAdminAccess?.() ? 'Administration' : 'Advanced Settings'}
@@ -877,20 +886,21 @@
 	</div>
 
 	{#if !layout.sidebarOpen && !hideSidebar && !leftSidebar}
-		<div class="absolute bottom-2 left-2 z-30" in:fade={{ delay: 300 }}>
+		<div class="fixed bottom-2 left-2 z-30" in:fade={{ delay: 300 }}>
 			<IconButton onclick={() => (layout.sidebarOpen = true)} tooltip={{ text: 'Open Sidebar' }}>
 				<PanelLeftOpen class="size-6" />
 			</IconButton>
 		</div>
 	{/if}
+
+	{#if !isBootStrapUser}
+		<GuidePanel />
+		<Guide />
+	{/if}
 </div>
 
 {#if isAdminRoute}
 	<SetupSplashDialog />
-{/if}
-
-{#if !isBootStrapUser}
-	<Tour />
 {/if}
 
 {#snippet layoutHeaderContent()}
@@ -954,6 +964,7 @@
 				</div>
 			{:else if link.href}
 				<a
+					id={`sidebar-link-${link.id}`}
 					href={resolve(link.href as `/${string}`)}
 					class={twMerge('sidebar-link', isActive && 'bg-base-300')}
 					onclick={saveSidebarScroll}
@@ -982,7 +993,11 @@
 			{/if}
 		</div>
 		{#if link.collapsible}
-			<button class="px-2" onclick={() => toggleNavCollapsed(link.id)}>
+			<button
+				id={`sidebar-collapse-${link.id}`}
+				class="px-2"
+				onclick={() => toggleNavCollapsed(link.id)}
+			>
 				{#if isNavCollapsed(link.id)}
 					<ChevronDown class="size-5" />
 				{:else}
@@ -1024,6 +1039,7 @@
 								</div>
 							{:else if item.href}
 								<a
+									id={`sidebar-link-${item.id}`}
 									href={resolve(item.href as `/${string}`)}
 									class={twMerge('sidebar-link', isActive && 'bg-base-300')}
 									onclick={saveSidebarScroll}
