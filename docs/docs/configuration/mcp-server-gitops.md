@@ -167,6 +167,8 @@ During sync, Obot resolves portable keys to internal generated catalog entry IDs
 | `componentServers[].toolOverrides[].overrideDescription` | No | Replacement tool description. Use this for custom tool text in Git-managed catalogs. |
 | `componentServers[].toolOverrides[].description` | No | Reserved for Obot's live/source tool metadata and rejected in Git-synced tool overrides. Use `overrideDescription` instead. |
 
+To get `mcpServerID` for an existing deployed multi-tenant server, open the server in Obot, choose **Connect URL**, and copy the path segment after `/mcp-connect/`. For example, if the connect URL is `https://obot.example.com/mcp-connect/ms1qc7nz`, use `ms1qc7nz` as `mcpServerID`.
+
 When `toolOverrides` is present, it acts as an allowlist. This means adding a tool to the list without `enabled: true` disables that tool, and also hides any other component tools that are not listed. To disable only a few tools, list those disabled tools and also list every tool you still want exposed with `enabled: true`. To rename or redescribe a tool while keeping it available, include `enabled: true`.
 
 This does not expose `web_search_exa`:
