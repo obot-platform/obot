@@ -82,18 +82,18 @@ func (c *Client) GetLLMAuditLogs(ctx context.Context, opts LLMAuditLogOptions) (
 	}
 
 	sortBy := opts.SortBy
-	validSortFields := map[string]bool{
-		"created_at":        true,
-		"user_id":           true,
-		"model_provider":    true,
-		"target_model":      true,
-		"request_path":      true,
-		"response_status":   true,
-		"outcome":           true,
-		"client":            true,
-		"client_session_id": true,
+	validSortFields := map[string]struct{}{
+		"created_at":        {},
+		"user_id":           {},
+		"model_provider":    {},
+		"target_model":      {},
+		"request_path":      {},
+		"response_status":   {},
+		"outcome":           {},
+		"client":            {},
+		"client_session_id": {},
 	}
-	if !validSortFields[sortBy] {
+	if _, ok := validSortFields[sortBy]; !ok {
 		sortBy = "created_at"
 	}
 	sortOrder := "DESC"
