@@ -14,8 +14,7 @@ export function buildSearchParamFiltersArray<T>(
 		return [
 			d,
 			isValueDefined
-				? // Value is defined then decode and use it
-					decodeURIComponent(value)
+				? value
 				: hasSearchParam
 					? // Value is not defined but has a search param then override with empty string
 						''

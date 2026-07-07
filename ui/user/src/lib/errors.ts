@@ -92,5 +92,9 @@ export function parseErrorContent(e: unknown) {
 }
 
 export function isAbortError(err: unknown) {
-	return err instanceof DOMException && err.name === 'AbortError';
+	return (
+		(err instanceof Error ||
+			(typeof DOMException !== 'undefined' && err instanceof DOMException)) &&
+		err.name === 'AbortError'
+	);
 }
