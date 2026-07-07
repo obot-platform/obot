@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -11,6 +12,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"gorm.io/gorm"
 )
 
 type LLMAuditLogHandler struct{}
@@ -59,6 +61,9 @@ func (h *LLMAuditLogHandler) Get(req api.Context) error {
 
 	log, err := req.GatewayClient.GetLLMAuditLog(req.Context(), id, req.UserIsAuditor())
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return types.NewErrNotFound("LLM audit log not found")
+		}
 		return err
 	}
 
