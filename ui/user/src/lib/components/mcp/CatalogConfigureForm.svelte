@@ -8,6 +8,7 @@
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import SensitiveInput from '../SensitiveInput.svelte';
 	import Toggle from '../Toggle.svelte';
+	import McpDeprecatedNotice from './McpDeprecatedNotice.svelte';
 	import SecretBindingPicker from './SecretBindingPicker.svelte';
 	import { CircleAlert, Server } from '@lucide/svelte';
 	import { tick, type Snippet } from 'svelte';
@@ -28,6 +29,7 @@
 		hostname?: string;
 		name?: string;
 		icon?: string;
+		deprecated?: boolean;
 		disabled?: boolean; // source of truth; checkbox shows Enable and binds to !disabled
 		// When true, this component represents a multi-user server. Composite
 		// configuration can still collect the component instance's user-specific
@@ -64,6 +66,7 @@
 		configurationTitle?: string;
 		secretBindingTargets?: MCPAllowedSecretBindingTarget[];
 		disableEnvSecretBindings?: boolean;
+		deprecated?: boolean;
 	}
 	let {
 		form = $bindable(),
@@ -85,6 +88,7 @@
 		configurationTitle,
 		secretBindingTargets,
 		disableEnvSecretBindings,
+		deprecated,
 		animate = 'slide'
 	}: Props = $props();
 	let configDialog = $state<ReturnType<typeof ResponsiveDialog>>();
@@ -350,6 +354,7 @@
 						<Server class="size-6" />
 					{/if}
 					<div class="font-xs font-semibold">{comp.name}</div>
+					<McpDeprecatedNotice deprecated={comp.deprecated} child />
 				</div>
 			{/each}
 		</div>
@@ -435,6 +440,8 @@
 			}}
 		>
 			<div class="my-4 flex flex-col gap-4">
+				<McpDeprecatedNotice {deprecated} variant="notification" />
+
 				{#if showAlias}
 					<div class="flex flex-col gap-1">
 						<span class="flex items-center gap-2">
@@ -458,6 +465,7 @@
 									<img src={comp.icon} alt={comp.name || compId} class="size-8" />
 								{/if}
 								<div class="grow font-medium">{comp.name || compId}</div>
+								<McpDeprecatedNotice deprecated={comp.deprecated} child />
 								<Toggle
 									checked={!form.componentConfigs[compId].disabled}
 									onChange={(checked) => (form.componentConfigs[compId].disabled = !checked)}
@@ -471,6 +479,12 @@
 								{@const envs = getNonStaticServerFields(comp.envs)}
 
 								<div class="border-t border-base-300 p-3">
+									<McpDeprecatedNotice
+										deprecated={comp.deprecated}
+										variant="notification"
+										child
+										class="mb-3"
+									/>
 									{#each envs as env (env.data.key)}
 										{#if secretBindingTargets !== undefined || !hasSecretBinding(env.data)}
 											{@const highlightRequired =

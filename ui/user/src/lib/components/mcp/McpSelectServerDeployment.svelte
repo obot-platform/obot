@@ -1,18 +1,24 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import type { MCPCatalogServer } from '$lib/services';
-	import { getMCPDisplayName, requiresUserUpdate } from '$lib/services/user/mcp';
+	import type { MCPCatalogEntry, MCPCatalogServer } from '$lib/services';
+	import {
+		getMCPDisplayName,
+		isDeprecatedMCPServer,
+		requiresUserUpdate
+	} from '$lib/services/user/mcp';
 	import { formatTimeAgo } from '$lib/time';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
 	import Table from '../table/Table.svelte';
+	import McpDeprecatedNotice from './McpDeprecatedNotice.svelte';
 	import { CircleFadingArrowUp, Server, StepForward } from '@lucide/svelte';
 
 	interface Props {
 		onSelectServer: (server: MCPCatalogServer) => void;
+		contextEntry?: MCPCatalogEntry;
 	}
 
-	let { onSelectServer }: Props = $props();
+	let { onSelectServer, contextEntry }: Props = $props();
 
 	let selectServerDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let servers = $state<MCPCatalogServer[]>([]);
@@ -53,6 +59,9 @@
 					</div>
 					<p class="flex items-center gap-2">
 						{getMCPDisplayName(d)}
+						<McpDeprecatedNotice
+							deprecated={isDeprecatedMCPServer(contextEntry) || isDeprecatedMCPServer(d)}
+						/>
 						{#if requiresUserUpdate(d)}
 							<span
 								use:tooltip={{

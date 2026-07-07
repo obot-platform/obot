@@ -4,6 +4,7 @@
 		type CompositeLaunchFormData,
 		type LaunchFormData
 	} from '$lib/components/mcp/CatalogConfigureForm.svelte';
+	import McpDeprecatedNotice from '$lib/components/mcp/McpDeprecatedNotice.svelte';
 	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
 	import { HttpError } from '$lib/errors';
 	import { UserService, type OAuthConsent } from '$lib/services';
@@ -12,7 +13,8 @@
 		convertCompositeLaunchFormDataToPayload,
 		convertEnvHeadersToRecord,
 		hasEditableConfiguration,
-		hasSecretBinding
+		hasSecretBinding,
+		isDeprecatedMCPServer
 	} from '$lib/services/user/mcp';
 	import { ExternalLink, SettingsIcon, ShieldAlertIcon } from '@lucide/svelte';
 	import { onMount, tick, untrack } from 'svelte';
@@ -35,6 +37,7 @@
 	const consent = $derived(currentConsent);
 	const scopes = $derived(consent.scope?.split(' ').filter(Boolean) ?? []);
 	const showMCPAuthNotice = $derived(consent.mcpAuthRequired || consent.userHasSecondLevelOAuthed);
+	const deprecated = $derived(isDeprecatedMCPServer(consent.mcpServer));
 	const hasConfigurableMCPConfiguration = $derived.by(() => {
 		if (consent.mcpServer) {
 			return hasEditableConfiguration(consent.mcpServer);
@@ -290,6 +293,8 @@
 
 		{#if consent.mcpConfigRequired}
 			<section class="flex flex-col gap-5 p-4 py-0">
+				<McpDeprecatedNotice {deprecated} variant="notification" />
+
 				<div class="notification-info flex items-center gap-3 p-3">
 					<SettingsIcon class="size-5 shrink-0" />
 					<p class="min-w-0 text-sm">
@@ -304,6 +309,8 @@
 			</section>
 		{:else}
 			<section class="flex flex-col gap-5 p-4 pt-0">
+				<McpDeprecatedNotice {deprecated} variant="notification" />
+
 				{#if showMCPAuthNotice}
 					<div class="notification-info flex items-center gap-3 p-3">
 						<ShieldAlertIcon class="size-5 shrink-0" />
@@ -430,6 +437,7 @@
 	onCancel={() => configDialog?.close()}
 	loading={savingConfig}
 	error={configError}
+	{deprecated}
 	cancelText="Close"
 	submitText="Save"
 	configurationTitle="MCP Server Configuration"

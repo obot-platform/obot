@@ -23,6 +23,7 @@
 		getServerTypeLabel,
 		getSource,
 		isMultiUserCatalogEntry,
+		isDeprecatedMCPServer,
 		isMultiUserServer
 	} from '$lib/services/user/mcp';
 	import { profile } from '$lib/stores';
@@ -1462,6 +1463,7 @@
 	submitText="Launch"
 	loading={saving}
 	isNew={false}
+	deprecated={isDeprecatedMCPServer(entry)}
 />
 
 <ResponsiveDialog

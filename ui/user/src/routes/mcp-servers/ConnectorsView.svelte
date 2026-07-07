@@ -3,6 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import ConnectToServer from '$lib/components/mcp/ConnectToServer.svelte';
+	import McpDeprecatedNotice from '$lib/components/mcp/McpDeprecatedNotice.svelte';
 	import McpSelectServerDeployment from '$lib/components/mcp/McpSelectServerDeployment.svelte';
 	import { stripMarkdownToText } from '$lib/markdown';
 	import {
@@ -21,7 +22,8 @@
 		isMultiUserServer,
 		restartMcpServer,
 		isMultiUserCatalogEntry,
-		requiresUserUpdate
+		requiresUserUpdate,
+		isDeprecatedMCPServer
 	} from '$lib/services/user/mcp';
 	import { mcpServersAndEntries, profile, version } from '$lib/stores';
 	import { openUrl } from '$lib/utils';
@@ -255,6 +257,7 @@
 			{@const requiresUserAttention = instance
 				? instance.configured === false
 				: userConfiguredServers.some(requiresUserUpdate)}
+			{@const deprecated = isDeprecatedMCPServer(d.data)}
 			<div
 				class={twMerge(
 					'flex items-center justify-between gap-8 rounded-md p-3 bg-base-100 dark:bg-base-300 shadow-xs hover:bg-base-300 dark:hover:bg-base-400/75 cursor-pointer'
@@ -281,6 +284,7 @@
 						</div>
 						<div class="flex items-center gap-2">
 							<p>{d.name}</p>
+							<McpDeprecatedNotice {deprecated} />
 							{#if requiresUserAttention}
 								<span
 									use:tooltip={{
@@ -334,6 +338,7 @@
 
 <McpSelectServerDeployment
 	bind:this={selectServerDialog}
+	contextEntry={selectedEntry}
 	onSelectServer={async (d) => {
 		selectServerDialog?.close();
 		switch (selectServerMode) {

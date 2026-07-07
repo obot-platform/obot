@@ -3,6 +3,7 @@
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import ConnectToServer from '$lib/components/mcp/ConnectToServer.svelte';
 	import McpConfirmDelete from '$lib/components/mcp/McpConfirmDelete.svelte';
+	import McpDeprecatedNotice from '$lib/components/mcp/McpDeprecatedNotice.svelte';
 	import McpMultiDeleteBlockedDialog from '$lib/components/mcp/McpMultiDeleteBlockedDialog.svelte';
 	import StaticOAuthConfigureModal from '$lib/components/mcp/StaticOAuthConfigureModal.svelte';
 	import Table, { type InitSort, type InitSortFn } from '$lib/components/table/Table.svelte';
@@ -27,7 +28,8 @@
 		deleteMcpServerDeployment,
 		isMultiUserCatalogEntry,
 		getMCPDisplayName,
-		hasEditableConfiguration
+		hasEditableConfiguration,
+		isDeprecatedMCPServer
 	} from '$lib/services/user/mcp';
 	import { mcpServersAndEntries, profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
@@ -170,7 +172,7 @@
 		}
 
 		if (server?.connectURL) {
-			connectUrlDialog?.open(entry, server.connectURL);
+			connectUrlDialog?.open(entry, server.connectURL, server);
 		}
 	}
 
@@ -298,6 +300,7 @@
 						(d.data.needsUpdate &&
 							!('missingKubernetesSecret' in d && d.missingKubernetesSecret)) ||
 						deploymentsNeedingAttentionByCatalogEntry.has(d.data.id)}
+					{@const deprecated = isDeprecatedMCPServer(d.data)}
 					{#if property === 'name'}
 						<div class="flex shrink-0 items-center gap-2">
 							<div class="icon">
@@ -336,6 +339,7 @@
 								{#if d.status.toLowerCase() === 'deployed'}
 									<span class="badge badge-xs badge-secondary">Deployed</span>
 								{/if}
+								<McpDeprecatedNotice {deprecated} />
 							</p>
 						</div>
 					{:else if property === 'type'}
@@ -577,6 +581,7 @@
 <StaticOAuthConfigureModal
 	bind:this={oauthConfigModal}
 	{oauthStatus}
+	deprecated={isDeprecatedMCPServer(oauthConfigEntry)}
 	onSave={handleSaveOAuth}
 	onDelete={handleDeleteOAuth}
 />

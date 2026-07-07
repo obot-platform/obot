@@ -8,6 +8,7 @@ import {
 	type AccessControlRule,
 	type LaunchServerType,
 	type MCPCatalogEntry,
+	type MCPCatalogEntryServerManifest,
 	type MCPCatalogServer,
 	type MCPCatalogServerManifest,
 	type MCPServer,
@@ -67,6 +68,12 @@ export function parseCategories(item?: MCPCatalogServer | MCPCatalogEntry | null
 	return item.manifest.metadata
 		? (item.manifest.metadata.categories?.split(',') ?? []).map((c) => c.trim()).filter((c) => c)
 		: [];
+}
+
+export function isDeprecatedMCPServer(
+	item?: { manifest?: Pick<MCPCatalogEntryServerManifest, 'metadata'> } | null
+) {
+	return item?.manifest?.metadata?.deprecated === 'true';
 }
 
 export function convertEnvHeadersToRecord(
@@ -531,6 +538,7 @@ export async function convertCompositeInfoToLaunchFormData(
 		{
 			name?: string;
 			icon?: string;
+			deprecated?: boolean;
 			hostname?: string;
 			url?: string;
 			disabled?: boolean;
@@ -551,6 +559,7 @@ export async function convertCompositeInfoToLaunchFormData(
 		componentConfigs[id] = {
 			name: m.name,
 			icon: m.icon,
+			deprecated: isDeprecatedMCPServer({ manifest: m }),
 			hostname:
 				isMultiUser || !(m.remoteConfig && 'hostname' in m.remoteConfig)
 					? ''
@@ -752,15 +761,19 @@ export const validateRuntimeForm = (
 	return missingFields;
 };
 
-export const convertCategoriesToMetadata = (categories: string[]) => {
+export const convertCategoriesToMetadata = (
+	categories: string[],
+	metadata?: RuntimeFormData['metadata']
+) => {
 	const validCategories = categories.filter((c) => c);
-	return validCategories
-		? {
-				metadata: {
-					categories: validCategories.join(',')
-				}
-			}
-		: undefined;
+	const nextMetadata = { ...metadata };
+	if (validCategories.length > 0) {
+		nextMetadata.categories = validCategories.join(',');
+	} else {
+		delete nextMetadata.categories;
+	}
+
+	return Object.keys(nextMetadata).length > 0 ? { metadata: nextMetadata } : undefined;
 };
 
 export const sanitizeEgressDomains = (egressDomains?: string[] | string) => {
@@ -812,7 +825,7 @@ export const sanitizeResourceRuntimeConfig = (
 export const convertServerRuntimeFormDataToManifest = (
 	formData: RuntimeFormData
 ): MCPCatalogServerManifest => {
-	const { categories, ...baseData } = formData;
+	const { categories, metadata, ...baseData } = formData;
 	const startupTimeoutSeconds = baseData.startupTimeoutSeconds;
 	const startupTimeoutConfig =
 		typeof startupTimeoutSeconds === 'number' &&
@@ -837,7 +850,7 @@ export const convertServerRuntimeFormDataToManifest = (
 			multiUserConfig: baseData.multiUserConfig,
 			runtime: baseData.runtime,
 			...(resources ? { resources } : {}),
-			...convertCategoriesToMetadata(categories)
+			...convertCategoriesToMetadata(categories, metadata)
 		}
 	};
 

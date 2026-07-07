@@ -15,6 +15,7 @@
 		deleteMcpServerDeployment,
 		disconnectMcpServerUser,
 		hasEditableConfiguration,
+		isDeprecatedMCPServer,
 		isMultiUserCatalogEntry,
 		isMultiUserServer,
 		requiresUserUpdate,
@@ -27,6 +28,7 @@
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import ConnectToServer from './ConnectToServer.svelte';
 	import EditExistingDeployment from './EditExistingDeployment.svelte';
+	import McpDeprecatedNotice from './McpDeprecatedNotice.svelte';
 	import McpSelectServerDeployment from './McpSelectServerDeployment.svelte';
 	import StaticOAuthConfigureModal from './StaticOAuthConfigureModal.svelte';
 	import DebugOauthDialog from './oauth/DebugOauthDialog.svelte';
@@ -124,6 +126,7 @@
 	);
 	let canDebugOauth = $derived(canReauthenticate && profile.current?.hasAdminAccess?.());
 	let belongsToComposite = $derived(Boolean(server && server.compositeName));
+	let deprecated = $derived(isDeprecatedMCPServer(entry) || isDeprecatedMCPServer(server));
 	let configurableItem = $derived(server ?? entry);
 	// True when the user can manage the server deployment (restart, rename, edit config).
 	// For multi-user servers, only admins or the workspace owner who deployed it.
@@ -383,6 +386,7 @@
 
 <McpSelectServerDeployment
 	bind:this={selectServerDialog}
+	contextEntry={entry}
 	onSelectServer={async (d) => {
 		selectServerDialog?.close();
 		switch (selectServerMode) {
@@ -466,7 +470,8 @@
 		{:else if !entry && isMultiUserServer(server)}
 			<p class="mb-2 text-center">Would you like to connect to this server now?</p>
 		{:else}
-			<div class="mt-4">
+			<div class="mt-4 flex flex-col gap-3">
+				<McpDeprecatedNotice {deprecated} variant="notification" />
 				<CopyField
 					id="server-action-connection-url"
 					label="Connection URL"
@@ -782,6 +787,7 @@
 
 <StaticOAuthConfigureModal
 	bind:this={oauthConfigModal}
+	{deprecated}
 	onSave={async (credentials) => {
 		if (!entry) return;
 		if (entry.powerUserWorkspaceID) {

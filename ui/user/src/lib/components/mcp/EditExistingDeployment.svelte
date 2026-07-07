@@ -17,6 +17,7 @@
 		getMCPDisplayName,
 		getSecretBindingEngineError,
 		hasSecretBinding,
+		isDeprecatedMCPServer,
 		isKubernetesRuntimeBackend
 	} from '$lib/services/user/mcp';
 	import { errors, version } from '$lib/stores';
@@ -44,6 +45,7 @@
 
 	let editingError = $state<string>();
 	let editingManifest = $derived(server?.manifest);
+	let deprecated = $derived(isDeprecatedMCPServer(entry) || isDeprecatedMCPServer(server));
 	let secretBindingEngineError = $derived(
 		isKubernetesRuntimeBackend(version.current.engine)
 			? undefined
@@ -497,6 +499,7 @@
 	configurationTitle={mode === 'catalog-update' ? 'Required Configuration' : undefined}
 	secretBindingTargets={editableSecretBindingTargets}
 	disableEnvSecretBindings={editingManifest?.runtime === 'remote'}
+	{deprecated}
 >
 	{#snippet loadingContent()}
 		<div in:fade class="h-full w-full flex items-center justify-center">

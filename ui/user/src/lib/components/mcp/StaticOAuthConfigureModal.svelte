@@ -4,6 +4,7 @@
 	import Confirm from '../Confirm.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import SensitiveInput from '../SensitiveInput.svelte';
+	import McpDeprecatedNotice from './McpDeprecatedNotice.svelte';
 	import { CircleAlert, Trash2 } from '@lucide/svelte';
 
 	interface Props {
@@ -13,9 +14,18 @@
 		onSkip?: () => void;
 		onCancel?: () => void;
 		showSkip?: boolean;
+		deprecated?: boolean;
 	}
 
-	let { oauthStatus, onSave, onDelete, onSkip, onCancel, showSkip = false }: Props = $props();
+	let {
+		oauthStatus,
+		onSave,
+		onDelete,
+		onSkip,
+		onCancel,
+		showSkip = false,
+		deprecated
+	}: Props = $props();
 
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let loading = $state(false);
@@ -130,6 +140,8 @@
 				<p class="text-sm font-light">{error}</p>
 			</div>
 		{/if}
+
+		<McpDeprecatedNotice {deprecated} variant="notification" />
 
 		{#if oauthStatus?.configured}
 			<p class="text-muted-content text-sm font-light">

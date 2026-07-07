@@ -1,6 +1,7 @@
 <script lang="ts">
 	import DatePicker from '$lib/components/DatePicker.svelte';
 	import Search from '$lib/components/Search.svelte';
+	import McpDeprecatedNotice from '$lib/components/mcp/McpDeprecatedNotice.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { stripMarkdownToText } from '$lib/markdown';
@@ -229,7 +230,10 @@
 								{/if}
 							</div>
 							<div class="flex min-w-0 grow flex-col">
-								<p class="truncate text-sm">{getMCPDisplayName(server)}</p>
+								<div class="flex items-center gap-2">
+									<p class="min-w-0 truncate text-sm">{getMCPDisplayName(server)}</p>
+									<McpDeprecatedNotice item={server} />
+								</div>
 								{#if server.manifest.description}
 									<span class="text-muted-content line-clamp-1 text-xs">
 										{stripMarkdownToText(server.manifest.description)}

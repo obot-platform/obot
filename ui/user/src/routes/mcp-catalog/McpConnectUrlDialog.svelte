@@ -1,9 +1,14 @@
 <script lang="ts">
 	import CopyField from '$lib/components/CopyField.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
+	import McpDeprecatedNotice from '$lib/components/mcp/McpDeprecatedNotice.svelte';
 	import McpSelectServerDeployment from '$lib/components/mcp/McpSelectServerDeployment.svelte';
-	import type { MCPCatalogEntry } from '$lib/services';
-	import { hasEditableConfiguration, isMultiUserCatalogEntry } from '$lib/services/user/mcp';
+	import type { MCPCatalogEntry, MCPCatalogServer } from '$lib/services';
+	import {
+		hasEditableConfiguration,
+		isDeprecatedMCPServer,
+		isMultiUserCatalogEntry
+	} from '$lib/services/user/mcp';
 	import { mcpServersAndEntries } from '$lib/stores';
 	import { Info, Plus } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -14,7 +19,15 @@
 
 	let { onLaunchCatalogEntry }: Props = $props();
 	let connectUrlDialog = $state<ReturnType<typeof ResponsiveDialog>>();
-	let displayConnectUrl = $state<{ url: string; catalogEntry?: MCPCatalogEntry }>();
+	let displayConnectUrl = $state<{
+		url: string;
+		catalogEntry?: MCPCatalogEntry;
+		server?: MCPCatalogServer;
+	}>();
+	let displayConnectUrlDeprecated = $derived(
+		isDeprecatedMCPServer(displayConnectUrl?.catalogEntry) ||
+			isDeprecatedMCPServer(displayConnectUrl?.server)
+	);
 	let catalogEntry = $state<MCPCatalogEntry>();
 	let selectServerDialog = $state<ReturnType<typeof McpSelectServerDeployment>>();
 
@@ -28,13 +41,18 @@
 		);
 	}
 
-	export function open(initEntry?: MCPCatalogEntry, urlToDisplay?: string) {
+	export function open(
+		initEntry?: MCPCatalogEntry,
+		urlToDisplay?: string,
+		server?: MCPCatalogServer
+	) {
 		catalogEntry = initEntry;
 
 		if (urlToDisplay) {
 			displayConnectUrl = {
 				url: urlToDisplay,
-				catalogEntry
+				catalogEntry,
+				server
 			};
 			connectUrlDialog?.open();
 			return;
@@ -49,12 +67,13 @@
 			} else if (matchingServers[0]?.connectURL || catalogEntry?.connectURL) {
 				displayConnectUrl = {
 					url: matchingServers[0]?.connectURL || catalogEntry?.connectURL || '',
-					catalogEntry
+					catalogEntry,
+					server: matchingServers[0]
 				};
 
 				connectUrlDialog?.open();
 			} else {
-				onLaunchCatalogEntry?.(catalogEntry!);
+				onLaunchCatalogEntry?.(catalogEntry);
 			}
 		}
 	}
@@ -74,8 +93,12 @@
 >
 	{#if displayConnectUrl?.url}
 		<div
-			class={twMerge('px-4', !isMultiUserCatalogEntry(displayConnectUrl?.catalogEntry) && 'pb-4')}
+			class={twMerge(
+				'flex flex-col gap-3 px-4',
+				!isMultiUserCatalogEntry(displayConnectUrl?.catalogEntry) && 'pb-4'
+			)}
 		>
+			<McpDeprecatedNotice deprecated={displayConnectUrlDeprecated} variant="notification" />
 			<CopyField id="connect-url-dialog-connection-url" value={displayConnectUrl?.url ?? ''} />
 		</div>
 	{:else}
@@ -117,11 +140,13 @@
 
 <McpSelectServerDeployment
 	bind:this={selectServerDialog}
+	contextEntry={catalogEntry}
 	onSelectServer={(d) => {
 		selectServerDialog?.close();
 		displayConnectUrl = {
 			url: d.connectURL || catalogEntry?.connectURL || '',
-			catalogEntry
+			catalogEntry,
+			server: d
 		};
 		connectUrlDialog?.open();
 	}}

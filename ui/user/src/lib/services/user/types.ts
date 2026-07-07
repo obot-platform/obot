@@ -607,6 +607,7 @@ export interface MCPServer {
 	toolPreview?: MCPServerTool[];
 	metadata?: {
 		categories?: string;
+		deprecated?: string;
 	};
 
 	runtime: Runtime;

@@ -2,7 +2,8 @@
 	import { parseErrorContent } from '$lib/errors';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { UserService, type MCPCatalogServer } from '$lib/services';
-	import { getMCPDisplayName } from '$lib/services/user/mcp';
+	import { getMCPDisplayName, isDeprecatedMCPServer } from '$lib/services/user/mcp';
+	import McpDeprecatedNotice from './McpDeprecatedNotice.svelte';
 	import { Server } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 
@@ -22,7 +23,9 @@
 	};
 
 	let compositeServer = $state<MCPCatalogServer>();
-	let componentInfos = $state<Record<string, { name?: string; icon?: string }>>({});
+	let componentInfos = $state<
+		Record<string, { name?: string; icon?: string; deprecated?: boolean }>
+	>({});
 	let pending = $state<PendingItem[]>([]);
 	let loading = $state(true);
 	let error = $state<string>('');
@@ -49,14 +52,18 @@
 			const componentServers = compositeServer?.manifest?.compositeConfig?.componentServers || [];
 			componentInfos = componentServers.reduce(
 				(
-					acc: Record<string, { name?: string; icon?: string }>,
-					c: { catalogEntryID?: string; manifest?: { name?: string; icon?: string } }
+					acc: Record<string, { name?: string; icon?: string; deprecated?: boolean }>,
+					c: {
+						catalogEntryID?: string;
+						manifest?: { name?: string; icon?: string; metadata?: { deprecated?: string } };
+					}
 				) => {
 					const id = c.catalogEntryID;
 					if (!id) return acc;
 					acc[id] = {
 						name: c.manifest?.name,
-						icon: c.manifest?.icon
+						icon: c.manifest?.icon,
+						deprecated: isDeprecatedMCPServer(c)
 					};
 					return acc;
 				},
@@ -183,6 +190,10 @@
 									item.catalogEntryID ||
 									item.mcpServerID}</span
 							>
+							<McpDeprecatedNotice
+								deprecated={componentInfos[item.catalogEntryID || '']?.deprecated}
+								child
+							/>
 						</div>
 						<div class="flex items-center gap-2">
 							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external OAuth URL -->
