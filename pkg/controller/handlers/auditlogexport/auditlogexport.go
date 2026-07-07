@@ -125,6 +125,9 @@ func (h *Handler) streamingExport(ctx context.Context, export *v1.AuditLogExport
 	go func() {
 		defer close(uploadErrCh)
 		err := storageProvider.Upload(ctx, *storageConfig, export.Spec.Bucket, exportPath, pr)
+		if err != nil {
+			_ = pr.CloseWithError(err)
+		}
 		uploadErrCh <- err
 	}()
 

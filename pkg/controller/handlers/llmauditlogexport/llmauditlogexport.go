@@ -112,7 +112,11 @@ func (h *Handler) streamingExport(ctx context.Context, export *v1.LLMAuditLogExp
 	uploadErrCh := make(chan error, 1)
 	go func() {
 		defer close(uploadErrCh)
-		uploadErrCh <- storageProvider.Upload(ctx, *storageConfig, export.Spec.Bucket, exportPath, pr)
+		err := storageProvider.Upload(ctx, *storageConfig, export.Spec.Bucket, exportPath, pr)
+		if err != nil {
+			_ = pr.CloseWithError(err)
+		}
+		uploadErrCh <- err
 	}()
 
 	for {
