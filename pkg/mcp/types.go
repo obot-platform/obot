@@ -143,7 +143,8 @@ type ComponentServer struct {
 	Name       string               `json:"name"`
 	URL        string               `json:"url"`
 	Tools      []types.ToolOverride `json:"tools"`
-	ToolPrefix string               `json:"toolPrefix"`
+	noTools    bool
+	ToolPrefix string `json:"toolPrefix"`
 }
 
 var envVarRegex = regexp.MustCompile(`\${([^}]+)}`)
@@ -312,6 +313,7 @@ func CompositeServerToServerConfig(mcpServer v1.MCPServer, components []v1.MCPSe
 			Name:       name,
 			URL:        system.MCPConnectURL(issuer, component.Name),
 			Tools:      tools,
+			noTools:    len(override.ToolOverrides) > 0 && len(tools) == 0,
 			ToolPrefix: override.ToolPrefix,
 		})
 	}
@@ -338,6 +340,7 @@ func CompositeServerToServerConfig(mcpServer v1.MCPServer, components []v1.MCPSe
 			Name:       instance.Name,
 			URL:        system.MCPConnectURL(issuer, instance.Name),
 			Tools:      tools,
+			noTools:    len(override.ToolOverrides) > 0 && len(tools) == 0,
 			ToolPrefix: override.ToolPrefix,
 		})
 	}

@@ -152,7 +152,60 @@ compositeConfig:
 
 During sync, Obot resolves portable keys to internal generated catalog entry IDs and stores the internal IDs. If `catalogEntryID` does not contain `::` and does not match an `entryKey` in the same source, Obot treats it as an internal catalog entry ID and leaves it unchanged.
 
-When customizing composite tools in GitOps manifests, use `overrideDescription` for custom tool text. The `description` field is reserved for Obot and is rejected in Git-synced tool overrides.
+#### Composite configuration fields
+
+| Field | Required | Description |
+|---|---:|---|
+| `compositeConfig.componentServers` | Yes | List of component servers included in the composite server. |
+| `componentServers[].catalogEntryID` | Yes, unless `mcpServerID` is set | Catalog entry reference. This can be an internal catalog entry ID, same-source `entryKey`, or cross-source `{sourceID}::{entryKey}`. |
+| `componentServers[].mcpServerID` | Yes, unless `catalogEntryID` is set | Existing deployed MCP server to include as a component. Use this when a composite should include a multi-user server that has already been deployed. |
+| `componentServers[].toolPrefix` | No | Prefix added to every exposed tool from this component after any `overrideName` is applied. For example, `configured_` turns `echo` into `configured_echo`. |
+| `componentServers[].toolOverrides` | No | Tool allowlist and customization list. If omitted, all tools from the component are exposed. If present, only tools listed with `enabled: true` are exposed; tools not listed are hidden. |
+| `componentServers[].toolOverrides[].name` | Yes | Original tool name returned by the component server. |
+| `componentServers[].toolOverrides[].enabled` | No | Whether this tool is exposed by the composite server. Defaults to `false`, so set `enabled: true` for every tool you want to expose. |
+| `componentServers[].toolOverrides[].overrideName` | No | Replacement tool name before `toolPrefix` is applied. If omitted, the original `name` is used. |
+| `componentServers[].toolOverrides[].overrideDescription` | No | Replacement tool description. Use this for custom tool text in Git-managed catalogs. |
+| `componentServers[].toolOverrides[].description` | No | Reserved for Obot's live/source tool metadata and rejected in Git-synced tool overrides. Use `overrideDescription` instead. |
+
+To get `mcpServerID` for an existing deployed multi-tenant server, open the server in Obot, choose **Connect URL**, and copy the path segment after `/mcp-connect/`. For example, if the connect URL is `https://obot.example.com/mcp-connect/ms1qc7nz`, use `ms1qc7nz` as `mcpServerID`.
+
+When `toolOverrides` is present, it acts as an allowlist. This means adding a tool to the list without `enabled: true` disables that tool, and also hides any other component tools that are not listed. To disable only a few tools, list those disabled tools and also list every tool you still want exposed with `enabled: true`. To rename or redescribe a tool while keeping it available, include `enabled: true`.
+
+This does not expose `web_search_exa`:
+
+```yaml
+name: Research Search Composite
+runtime: composite
+compositeConfig:
+  componentServers:
+    - catalogEntryID: github.com/obot-platform/mcp-catalog::obot-exa-search
+      toolOverrides:
+        - name: web_search_exa
+```
+
+Because `enabled` defaults to `false`, that component exposes no tools. Set `enabled: true` for each tool that should be available:
+
+```yaml
+name: Research Search Composite
+runtime: composite
+compositeConfig:
+  componentServers:
+    - catalogEntryID: github.com/obot-platform/mcp-catalog::obot-exa-search
+      toolPrefix: research_
+      toolOverrides:
+        - name: web_search_exa
+          enabled: true
+          overrideName: web_search
+          overrideDescription: Search the web for current research and source material.
+        - name: company_research_exa
+          enabled: true
+          overrideName: company_research
+          overrideDescription: Find company information and market context.
+        - name: crawling_exa
+          enabled: false
+```
+
+This example exposes `research_web_search` and `research_company_research`, and hides `crawling_exa`. Because `toolOverrides` is an allowlist, any other tools from the Exa component are also hidden unless they are listed with `enabled: true`.
 
 #### Multi-user template with shared configuration
 
