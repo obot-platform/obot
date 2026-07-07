@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -17,14 +19,96 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+const appContainerName = "obot"
+
 type K8sSettingsHandler struct {
-	mcpSessionManager *mcp.SessionManager
+	mcpSessionManager   *mcp.SessionManager
+	mcpRuntimeBackend   string
+	serviceName         string
+	serviceNamespace    string
+	localK8sClient      client.Client
 }
 
-func NewK8sSettingsHandler(mcpSessionManager *mcp.SessionManager) *K8sSettingsHandler {
+func NewK8sSettingsHandler(
+	mcpSessionManager *mcp.SessionManager,
+	mcpRuntimeBackend string,
+	serviceName string,
+	serviceNamespace string,
+	localK8sClient client.Client,
+) *K8sSettingsHandler {
 	return &K8sSettingsHandler{
 		mcpSessionManager: mcpSessionManager,
+		mcpRuntimeBackend: mcpRuntimeBackend,
+		serviceName:       serviceName,
+		serviceNamespace:  serviceNamespace,
+		localK8sClient:    localK8sClient,
 	}
+}
+
+func (h *K8sSettingsHandler) GetApp(req api.Context) error {
+	if !mcp.IsKubernetesBackend(h.mcpRuntimeBackend) {
+		return req.Write(types.AppK8sSettings{})
+	}
+
+	settings, err := appK8sSettingsFromDeployment(
+		req.Context(),
+		h.localK8sClient,
+		h.serviceNamespace,
+		h.serviceName,
+		appContainerName,
+	)
+	if err != nil {
+		return err
+	}
+
+	return req.Write(settings)
+}
+
+func appK8sSettingsFromDeployment(ctx context.Context, k8sClient client.Client, namespace, deploymentName, containerName string) (types.AppK8sSettings, error) {
+	if k8sClient == nil || namespace == "" || deploymentName == "" {
+		return types.AppK8sSettings{}, nil
+	}
+	if containerName == "" {
+		containerName = appContainerName
+	}
+
+	var deployment appsv1.Deployment
+	if err := k8sClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: deploymentName}, &deployment); err != nil {
+		if apierrors.IsNotFound(err) || apierrors.IsForbidden(err) {
+			return types.AppK8sSettings{}, err
+		}
+		return types.AppK8sSettings{}, fmt.Errorf("failed to get deployment %s/%s: %w", namespace, deploymentName, err)
+	}
+
+	podSpec := deployment.Spec.Template.Spec
+
+	var resources *corev1.ResourceRequirements
+	for i := range podSpec.Containers {
+		if podSpec.Containers[i].Name == containerName {
+			containerResources := podSpec.Containers[i].Resources
+			if len(containerResources.Requests) > 0 || len(containerResources.Limits) > 0 {
+				resources = &containerResources
+			}
+			break
+		}
+	}
+
+	var runtimeClassName *string
+	if podSpec.RuntimeClassName != nil && *podSpec.RuntimeClassName != "" {
+		runtimeClassName = podSpec.RuntimeClassName
+	}
+
+	formatted, err := FormatPodSchedulingYAML(podSpec.Affinity, podSpec.Tolerations, resources, runtimeClassName)
+	if err != nil {
+		return types.AppK8sSettings{}, err
+	}
+
+	return types.AppK8sSettings{
+		Affinity:         formatted.Affinity,
+		Tolerations:      formatted.Tolerations,
+		Resources:        formatted.Resources,
+		RuntimeClassName: formatted.RuntimeClassName,
+	}, nil
 }
 
 func (h *K8sSettingsHandler) Get(req api.Context) error {
@@ -217,33 +301,19 @@ func convertK8sSettings(settings v1.K8sSettings) (types.K8sSettings, error) {
 		Metadata:   MetadataFrom(&settings),
 	}
 
-	if settings.Spec.Affinity != nil {
-		affinityYAML, err := yaml.Marshal(settings.Spec.Affinity)
-		if err != nil {
-			return types.K8sSettings{}, err
-		}
-		result.Affinity = string(affinityYAML)
+	formatted, err := FormatPodSchedulingYAML(
+		settings.Spec.Affinity,
+		settings.Spec.Tolerations,
+		settings.Spec.Resources,
+		settings.Spec.RuntimeClassName,
+	)
+	if err != nil {
+		return types.K8sSettings{}, err
 	}
-
-	if len(settings.Spec.Tolerations) > 0 {
-		tolerationsYAML, err := yaml.Marshal(settings.Spec.Tolerations)
-		if err != nil {
-			return types.K8sSettings{}, err
-		}
-		result.Tolerations = string(tolerationsYAML)
-	}
-
-	if settings.Spec.Resources != nil {
-		resourcesYAML, err := yaml.Marshal(settings.Spec.Resources)
-		if err != nil {
-			return types.K8sSettings{}, err
-		}
-		result.Resources = string(resourcesYAML)
-	}
-
-	if settings.Spec.RuntimeClassName != nil {
-		result.RuntimeClassName = *settings.Spec.RuntimeClassName
-	}
+	result.Affinity = formatted.Affinity
+	result.Tolerations = formatted.Tolerations
+	result.Resources = formatted.Resources
+	result.RuntimeClassName = formatted.RuntimeClassName
 
 	if settings.Spec.StorageClassName != nil {
 		result.StorageClassName = *settings.Spec.StorageClassName
@@ -272,6 +342,54 @@ func convertK8sSettings(settings v1.K8sSettings) (types.K8sSettings, error) {
 			Warn:           settings.Spec.PodSecurityAdmission.Warn,
 			WarnVersion:    settings.Spec.PodSecurityAdmission.WarnVersion,
 		}
+	}
+
+	return result, nil
+}
+
+// PodSchedulingYAML contains the shared pod scheduling fields returned by the API.
+type PodSchedulingYAML struct {
+	Affinity         string
+	Tolerations      string
+	Resources        string
+	RuntimeClassName string
+}
+
+// FormatPodSchedulingYAML converts parsed pod scheduling fields into API YAML strings.
+func FormatPodSchedulingYAML(
+	affinity *corev1.Affinity,
+	tolerations []corev1.Toleration,
+	resources *corev1.ResourceRequirements,
+	runtimeClassName *string,
+) (PodSchedulingYAML, error) {
+	var result PodSchedulingYAML
+
+	if affinity != nil {
+		affinityYAML, err := yaml.Marshal(affinity)
+		if err != nil {
+			return PodSchedulingYAML{}, err
+		}
+		result.Affinity = string(affinityYAML)
+	}
+
+	if len(tolerations) > 0 {
+		tolerationsYAML, err := yaml.Marshal(tolerations)
+		if err != nil {
+			return PodSchedulingYAML{}, err
+		}
+		result.Tolerations = string(tolerationsYAML)
+	}
+
+	if resources != nil {
+		resourcesYAML, err := yaml.Marshal(resources)
+		if err != nil {
+			return PodSchedulingYAML{}, err
+		}
+		result.Resources = string(resourcesYAML)
+	}
+
+	if runtimeClassName != nil {
+		result.RuntimeClassName = *runtimeClassName
 	}
 
 	return result, nil

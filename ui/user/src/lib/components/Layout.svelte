@@ -573,7 +573,18 @@
 								label: 'App Notification',
 								disabled: false,
 								collapsible: false
-							}
+							},
+							...(version.current.engine === 'kubernetes' && !version.current.hideK8sDetails
+								? [
+										{
+											id: 'app-scheduling',
+											href: '/admin/app-scheduling',
+											label: 'App Scheduling',
+											disabled: false,
+											collapsible: false
+										}
+									]
+								: [])
 						]
 					}
 				]
