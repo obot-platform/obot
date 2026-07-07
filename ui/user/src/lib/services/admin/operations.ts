@@ -789,14 +789,14 @@ export async function generateMcpCatalogEntryToolPreviews(
 		url?: string;
 	},
 	opts?: { fetch?: Fetcher; dryRun?: boolean }
-): Promise<MCPCatalogEntry | void> {
+): Promise<MCPCatalogEntry> {
 	const path = `/mcp-catalogs/${catalogID}/entries/${entryID}/generate-tool-previews`;
 	const url = opts?.dryRun ? `${path}?dryRun=true` : path;
 	const resp = await doPost(url, body ?? {}, {
 		...opts,
 		dontLogErrors: true
 	});
-	return opts?.dryRun ? (resp as MCPCatalogEntry) : undefined;
+	return resp as MCPCatalogEntry;
 }
 
 export async function generateMcpCompositeComponentToolPreviews(
@@ -808,14 +808,14 @@ export async function generateMcpCompositeComponentToolPreviews(
 		url?: string;
 	},
 	opts?: { fetch?: Fetcher; dryRun?: boolean }
-): Promise<MCPCatalogEntry | void> {
+): Promise<MCPCatalogEntry> {
 	const path = `/mcp-catalogs/${catalogID}/entries/${compositeEntryID}/${componentID}/generate-tool-previews`;
 	const url = opts?.dryRun ? `${path}?dryRun=true` : path;
 	const resp = await doPost(url, body ?? {}, {
 		...opts,
 		dontLogErrors: true
 	});
-	return opts?.dryRun ? (resp as MCPCatalogEntry) : undefined;
+	return resp as MCPCatalogEntry;
 }
 
 export async function getMcpCatalogToolPreviewsOauth(

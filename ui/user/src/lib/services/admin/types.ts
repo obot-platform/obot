@@ -552,6 +552,7 @@ export interface MCPCatalogEntryServerManifest {
 	env?: MCPCatalogEntryFieldManifest[];
 	repoURL?: string;
 	name?: string;
+	shortDescription?: string;
 	description?: string;
 	toolPreview?: MCPServerTool[];
 	metadata?: {
@@ -604,6 +605,7 @@ export type MCPCatalogEntryFormData = Omit<MCPCatalogEntryServerManifest, 'metad
 export interface RuntimeFormData {
 	// Common fields
 	name: string;
+	shortDescription?: string;
 	description: string;
 	icon: string;
 	categories: string[];

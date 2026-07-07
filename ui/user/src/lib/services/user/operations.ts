@@ -867,14 +867,14 @@ export async function generateWorkspaceMCPCatalogEntryToolPreviews(
 		url?: string;
 	},
 	opts?: { fetch?: Fetcher; dryRun?: boolean }
-): Promise<MCPCatalogEntry | void> {
+): Promise<MCPCatalogEntry> {
 	const path = `/workspaces/${workspaceID}/entries/${entryID}/generate-tool-previews`;
 	const url = opts?.dryRun ? `${path}?dryRun=true` : path;
 	const resp = await doPost(url, body ?? {}, {
 		...opts,
 		dontLogErrors: true
 	});
-	return opts?.dryRun ? (resp as MCPCatalogEntry) : undefined;
+	return resp as MCPCatalogEntry;
 }
 
 export async function getWorkspaceMCPCatalogEntryToolPreviewsOauth(

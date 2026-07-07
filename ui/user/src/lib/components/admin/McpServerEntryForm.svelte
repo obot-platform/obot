@@ -15,7 +15,8 @@
 		type AccessControlRule,
 		type MCPCatalogEntry,
 		type MCPServerInstance,
-		type OrgUser
+		type OrgUser,
+		type MCPCatalogEntryServerManifest
 	} from '$lib/services';
 	import {
 		getMCPDisplayName,
@@ -227,6 +228,7 @@
 					entry.manifest?.remoteConfig?.staticOAuthRequired &&
 					!entry.oauthCredentialConfigured
 	);
+	let previewToolsOverride = $state<MCPCatalogEntryServerManifest['toolPreview']>();
 
 	const tabs = $derived.by(() => {
 		const availableTabs =
@@ -344,6 +346,7 @@
 				.then((response) => {
 					if (!cancelled) {
 						resolvedConfiguredServers = response.filter((s) => !s.deleted);
+						refreshToolsDisplay();
 					}
 				})
 				.finally(() => {
@@ -576,10 +579,8 @@
 							{ dryRun: isMCPServer }
 						);
 
-			if (isMCPServer && result && entry) {
-				// In dryRun mode, the previews are returned but not persisted.
-				// Update the entry's tool preview in-place.
-				(entry as MCPCatalogServer).manifest.toolPreview = result.manifest?.toolPreview ?? [];
+			if (result && entry) {
+				previewToolsOverride = result.manifest?.toolPreview;
 			}
 		} catch (err) {
 			const errMessage = err instanceof Error ? err.message : 'An unknown error occurred';
@@ -705,6 +706,20 @@
 		}
 	}
 
+	function refreshToolsDisplay() {
+		// for multi-tenant catalog entries, showing tool preview is unnecessary, so
+		// display the first server instance by default
+		if (!entry || !('isCatalogEntry' in entry) || !isMultiUserCatalogEntry(entry)) return;
+		if (!resolvedConfiguredServers || resolvedConfiguredServers.length === 0) return;
+
+		if (!deploymentToDisplayTools) {
+			deploymentToDisplayTools = resolvedConfiguredServers[0];
+		}
+		if (selectedDeploymentsToView.length === 0) {
+			selectedDeploymentsToView.push(resolvedConfiguredServers[0]);
+		}
+	}
+
 	async function reloadConfiguredServers() {
 		if (!id || !entry || !('isCatalogEntry' in entry)) return;
 		serverInstancesLoading = true;
@@ -714,6 +729,7 @@
 					? await UserService.listWorkspaceMCPServersForEntry(id, entry.id)
 					: await AdminService.listMCPServersForEntry(id, entry.id);
 			resolvedConfiguredServers = response.filter((s) => !s.deleted);
+			refreshToolsDisplay();
 		} finally {
 			serverInstancesLoading = false;
 		}
@@ -736,6 +752,7 @@
 						: AdminService.listMCPServersForEntry;
 				listInstances(id, updatedEntry.id).then((response) => {
 					resolvedConfiguredServers = response.filter((s) => !s.deleted);
+					refreshToolsDisplay();
 					if (response.length > 0 && response.some((instance) => instance)) {
 						showUpdateExistingDeploymentsConfirm = true;
 					}
@@ -1186,27 +1203,30 @@
 {/snippet}
 
 {#snippet toolsView()}
-	{@const displayTabsByDeployment =
+	{@const hasDisplayTabsByDeployment =
 		entry &&
 		!server &&
 		'isCatalogEntry' in entry &&
 		resolvedConfiguredServers &&
 		resolvedConfiguredServers.length > 0}
+	{@const isMultiTenant = entry && 'isCatalogEntry' in entry && isMultiUserCatalogEntry(entry)}
 
 	<div class="pb-8">
-		{#if displayTabsByDeployment}
+		{#if hasDisplayTabsByDeployment}
 			<div class="flex justify-between gap-4 border-base-400 border-b mb-4">
 				<div role="tablist" class="flex flex-1">
-					<button
-						type="button"
-						role="tab"
-						aria-selected={deploymentToDisplayTools === undefined}
-						class={twMerge(
-							'tab-button text-nowrap',
-							deploymentToDisplayTools === undefined && 'tab-active'
-						)}
-						onclick={() => (deploymentToDisplayTools = undefined)}>Preview</button
-					>
+					{#if !isMultiTenant}
+						<button
+							type="button"
+							role="tab"
+							aria-selected={deploymentToDisplayTools === undefined}
+							class={twMerge(
+								'tab-button text-nowrap',
+								deploymentToDisplayTools === undefined && 'tab-active'
+							)}
+							onclick={() => (deploymentToDisplayTools = undefined)}>Preview</button
+						>
+					{/if}
 
 					{#each selectedDeploymentsToView as deployment (deployment.id)}
 						{@const deploymentLabel = `${deployment.alias || deployment.manifest.name} (${deployment.id})`}
@@ -1285,9 +1305,12 @@
 				{entry}
 				server={server ?? deploymentToDisplayTools}
 				showToolNameIssues={entry.manifest?.runtime === 'composite'}
+				previewOverride={previewToolsOverride}
 			>
 				{#snippet noToolsContent()}
-					<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
+					<div
+						class="mt-12 flex w-lg max-w-full flex-col items-center gap-4 self-center text-center"
+					>
 						<Wrench class="text-muted-content size-24 opacity-50" />
 						{#if !entry || (entry && (readonly || server || deploymentToDisplayTools || connectOnly))}
 							<h4 class="text-muted-content text-lg font-semibold">No tools</h4>
@@ -1296,26 +1319,30 @@
 							</p>
 						{:else if !readonly && !connectOnly}
 							<h4 class="text-muted-content text-lg font-semibold">No tools</h4>
-							<button
-								class="btn btn-primary flex items-center gap-1 text-sm"
-								onclick={handleInitTemporaryInstance}
-								disabled={saving}
-							>
-								{#if saving}
-									<Loading class="size-4" />
-								{:else}
-									Populate Tool Preview
-								{/if}
-							</button>
+							{#if !isMultiTenant}
+								<button
+									class="btn btn-primary flex items-center gap-1 text-sm"
+									onclick={handleInitTemporaryInstance}
+									disabled={saving}
+								>
+									{#if saving}
+										<Loading class="size-4" />
+									{:else}
+										Populate Tool Preview
+									{/if}
+								</button>
+							{/if}
 							{#if !error}
 								<p class="text-muted-content text-sm font-light">
-									{#if type === 'remote'}
+									{#if isMultiTenant}
+										Tools will populate when a server is deployed for the catalog entry.
+									{:else if type === 'remote'}
 										Click above to connect to the remote MCP server to populate capabilities and
-										tools.
+										tools for preview.
 									{:else}
 										Click above to set up a temporary instance that will populate capabilities and
-										tools. Otherwise, tools will populate when the user first deploys a server for
-										the catalog entry.
+										tools for preview. Otherwise, tools will populate when the user first deploys a
+										server for the catalog entry.
 									{/if}
 								</p>
 							{/if}

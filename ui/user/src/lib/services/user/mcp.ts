@@ -829,6 +829,9 @@ export const convertServerRuntimeFormDataToManifest = (
 		manifest: {
 			name: baseData.name,
 			description: baseData.description,
+			...(baseData.shortDescription !== undefined
+				? { shortDescription: baseData.shortDescription }
+				: {}),
 			icon: baseData.icon,
 			env: baseData.env,
 			multiUserConfig: baseData.multiUserConfig,
