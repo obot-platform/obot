@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"slices"
 	"testing"
 	"time"
 
@@ -202,6 +203,47 @@ func TestGetLLMAuditLogsFiltersAndStripsSensitiveFields(t *testing.T) {
 	}
 	if logs[0].ModelProvider != system.OpenAIModelProvider || logs[0].RequestBody != "" {
 		t.Fatalf("expected filtered metadata without sensitive fields, got %#v", logs[0])
+	}
+}
+
+func TestGetLLMAuditLogFilterOptions(t *testing.T) {
+	c := newTestClient(t)
+	now := time.Date(2026, 7, 7, 12, 0, 0, 0, time.UTC)
+	for _, entry := range []types.LLMAuditLog{
+		{ID: uuid.NewString(), CreatedAt: now, ModelProvider: system.OpenAIModelProvider, TargetModel: "model-a", ResponseStatus: 200, Client: "open-webui"},
+		{ID: uuid.NewString(), CreatedAt: now.Add(time.Minute), ModelProvider: system.OpenAIModelProvider, TargetModel: "model-c", ResponseStatus: 500, Client: "obot"},
+		{ID: uuid.NewString(), CreatedAt: now, ModelProvider: system.OpenAIModelProvider, TargetModel: "", ResponseStatus: 0, Client: ""},
+		{ID: uuid.NewString(), CreatedAt: now, ModelProvider: system.AnthropicModelProvider, TargetModel: "model-b", ResponseStatus: 200, Client: "claude"},
+	} {
+		if err := c.InsertLLMAuditLog(t.Context(), &entry); err != nil {
+			t.Fatalf("failed to insert LLM audit log: %v", err)
+		}
+	}
+
+	options, err := c.GetLLMAuditLogFilterOptions(t.Context(), "target_model", LLMAuditLogOptions{ModelProvider: []string{system.OpenAIModelProvider}}, "")
+	if err != nil {
+		t.Fatalf("failed to get target model filter options: %v", err)
+	}
+	slices.Sort(options)
+	if !slices.Equal(options, []string{"model-a", "model-c"}) {
+		t.Fatalf("expected target model options, got %v", options)
+	}
+
+	limited, err := c.GetLLMAuditLogFilterOptions(t.Context(), "client", LLMAuditLogOptions{ModelProvider: []string{system.OpenAIModelProvider}, Limit: 1}, "")
+	if err != nil {
+		t.Fatalf("failed to get limited client options: %v", err)
+	}
+	if !slices.Equal(limited, []string{"obot"}) {
+		t.Fatalf("expected deterministic limited options, got %v", limited)
+	}
+
+	statuses, err := c.GetLLMAuditLogFilterOptions(t.Context(), "response_status", LLMAuditLogOptions{ModelProvider: []string{system.OpenAIModelProvider}}, 0)
+	if err != nil {
+		t.Fatalf("failed to get response status options: %v", err)
+	}
+	slices.Sort(statuses)
+	if !slices.Equal(statuses, []string{"200", "500"}) {
+		t.Fatalf("expected response status options, got %v", statuses)
 	}
 }
 

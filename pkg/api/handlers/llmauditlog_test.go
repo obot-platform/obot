@@ -24,3 +24,17 @@ func TestParseLLMAuditLogOptsUsesProvidedStartTime(t *testing.T) {
 		t.Fatalf("expected start time %s, got %s", want, opts.StartTime)
 	}
 }
+
+func TestParseLLMAuditLogOptsParsesFilterFields(t *testing.T) {
+	opts := parseLLMAuditLogOpts(url.Values{
+		"target_model":      {"model-a,model-b"},
+		"client_session_id": {"session-1"},
+	})
+
+	if got, want := opts.TargetModel, []string{"model-a", "model-b"}; len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
+		t.Fatalf("expected target models %v, got %v", want, got)
+	}
+	if got := opts.ClientSessionID; len(got) != 1 || got[0] != "session-1" {
+		t.Fatalf("expected client session ID, got %v", got)
+	}
+}

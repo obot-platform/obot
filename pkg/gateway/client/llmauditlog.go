@@ -129,6 +129,21 @@ func (c *Client) GetLLMAuditLog(ctx context.Context, id string, withSensitiveFie
 	return &log, nil
 }
 
+func (c *Client) GetLLMAuditLogFilterOptions(ctx context.Context, option string, opts LLMAuditLogOptions, exclude ...any) ([]string, error) {
+	db := c.db.WithContext(ctx).Model(&types.LLMAuditLog{}).Distinct(option)
+	db = applyLLMAuditLogOptions(db, opts)
+
+	if len(exclude) > 0 {
+		db = db.Where(option+" NOT IN ?", exclude)
+	}
+	if opts.Limit > 0 {
+		db = db.Order(option).Limit(opts.Limit)
+	}
+
+	var result []string
+	return result, db.Select(option).Scan(&result).Error
+}
+
 func (c *Client) prepareLLMAuditLog(ctx context.Context, log *types.LLMAuditLog, withSensitiveFields bool) error {
 	if withSensitiveFields {
 		if err := c.decryptLLMAuditLog(ctx, log); err != nil {

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -68,6 +69,41 @@ func (h *LLMAuditLogHandler) Get(req api.Context) error {
 	}
 
 	return req.Write(gatewaytypes.ConvertLLMAuditLog(*log))
+}
+
+var llmAuditLogFilterOptions = map[string]any{
+	"user_id":           "",
+	"model_provider":    "",
+	"target_model":      "",
+	"request_path":      "",
+	"response_status":   0,
+	"outcome":           "",
+	"client":            "",
+	"client_session_id": "",
+}
+
+func (h *LLMAuditLogHandler) ListFilterOptions(req api.Context) error {
+	if !req.UserIsAdmin() && !req.UserIsAuditor() {
+		return types.NewErrHTTP(http.StatusNotFound, "not found")
+	}
+
+	filter := req.PathValue("filter")
+	if filter == "" {
+		return types.NewErrBadRequest("missing filter")
+	}
+
+	exclude, ok := llmAuditLogFilterOptions[filter]
+	if !ok {
+		return types.NewErrBadRequest("invalid filter: %s", filter)
+	}
+
+	options, err := req.GatewayClient.GetLLMAuditLogFilterOptions(req.Context(), filter, parseLLMAuditLogOpts(req.URL.Query()), exclude)
+	if err != nil {
+		return err
+	}
+	sort.Strings(options)
+
+	return req.Write(map[string]any{"options": options})
 }
 
 func parseLLMAuditLogOpts(query url.Values) gateway.LLMAuditLogOptions {

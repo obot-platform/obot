@@ -362,6 +362,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 
 	// LLM Audit Logs
 	mux.HandleFunc("GET /api/llm-audit-logs", llmAuditLogs.List)
+	mux.HandleFunc("GET /api/llm-audit-logs/filter-options/{filter}", llmAuditLogs.ListFilterOptions)
 	mux.HandleFunc("GET /api/llm-audit-logs/detail/{audit_log_id}", llmAuditLogs.Get)
 
 	// Audit Log Exports
