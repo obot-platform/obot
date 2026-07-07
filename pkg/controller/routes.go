@@ -9,6 +9,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/auditlogexport"
 	"github.com/obot-platform/obot/pkg/controller/handlers/cleanup"
 	"github.com/obot-platform/obot/pkg/controller/handlers/imagepullsecret"
+	"github.com/obot-platform/obot/pkg/controller/handlers/llmauditlogexport"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpcatalog"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpserver"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpservercatalogentry"
@@ -24,6 +25,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/project"
 	"github.com/obot-platform/obot/pkg/controller/handlers/provider"
 	"github.com/obot-platform/obot/pkg/controller/handlers/scheduledauditlogexport"
+	"github.com/obot-platform/obot/pkg/controller/handlers/scheduledllmauditlogexport"
 	"github.com/obot-platform/obot/pkg/controller/handlers/skillrepository"
 	"github.com/obot-platform/obot/pkg/controller/handlers/systemmcpserver"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -47,6 +49,8 @@ func (c *Controller) setupRoutes() {
 	mcpServerCatalogEntryHandler := mcpservercatalogentry.NewHandler(c.services.GatewayClient)
 	auditLogExportHandler := auditlogexport.NewHandler(c.services.GatewayClient)
 	scheduledAuditLogExportHandler := scheduledauditlogexport.NewHandler()
+	llmAuditLogExportHandler := llmauditlogexport.NewHandler(c.services.GatewayClient)
+	scheduledLLMAuditLogExportHandler := scheduledllmauditlogexport.NewHandler()
 	oauthclients := oauthclients.NewHandler(c.services.GatewayClient)
 	systemMCPServerHandler := systemmcpserver.New(c.services.GatewayClient, c.services.MCPSessionManager, c.services.ServerURL)
 	nanobotAgentHandler := nanobotagent.New(c.services.GatewayClient, c.services.LocalRouter, c.services.NanobotAgentImage, c.services.ServerURL, c.services.MCPServerNamespace, c.services.MCPSessionManager)
@@ -199,9 +203,11 @@ func (c *Controller) setupRoutes() {
 
 	// AuditLogExport
 	root.Type(&v1.AuditLogExport{}).HandlerFunc(auditLogExportHandler.ExportAuditLogs)
+	root.Type(&v1.LLMAuditLogExport{}).HandlerFunc(llmAuditLogExportHandler.ExportAuditLogs)
 
 	// ScheduledAuditLogExport
 	root.Type(&v1.ScheduledAuditLogExport{}).HandlerFunc(scheduledAuditLogExportHandler.ScheduleExports)
+	root.Type(&v1.ScheduledLLMAuditLogExport{}).HandlerFunc(scheduledLLMAuditLogExportHandler.ScheduleExports)
 
 	// ProjectV2 Migration
 	//nolint:staticcheck

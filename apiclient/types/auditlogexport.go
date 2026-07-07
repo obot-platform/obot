@@ -35,6 +35,41 @@ type AuditLogExportListResponse struct {
 	Total int64                    `json:"total"`
 }
 
+// LLMAuditLogExportCreateRequest represents a request to create an LLM audit log export
+type LLMAuditLogExportCreateRequest struct {
+	Name      string                   `json:"name"`
+	StartTime Time                     `json:"startTime"`
+	EndTime   Time                     `json:"endTime"`
+	Filters   LLMAuditLogExportFilters `json:"filters,omitempty"`
+	Bucket    string                   `json:"bucket,omitempty"`
+	KeyPrefix string                   `json:"keyPrefix,omitempty"`
+}
+
+// LLMAuditLogExportResponse represents an LLM audit log export
+type LLMAuditLogExportResponse struct {
+	ID              string                   `json:"id"`
+	Name            string                   `json:"name"`
+	StorageProvider StorageProviderType      `json:"storageProvider"`
+	Bucket          string                   `json:"bucket,omitempty"`
+	KeyPrefix       string                   `json:"keyPrefix,omitempty"`
+	StartTime       Time                     `json:"startTime"`
+	EndTime         Time                     `json:"endTime"`
+	Filters         LLMAuditLogExportFilters `json:"filters,omitempty"`
+	State           string                   `json:"state"`
+	Error           string                   `json:"error,omitempty"`
+	ExportSize      int64                    `json:"exportSize,omitempty"`
+	ExportPath      string                   `json:"exportPath,omitempty"`
+	StartedAt       Time                     `json:"startedAt,omitempty"`
+	CompletedAt     Time                     `json:"completedAt,omitempty"`
+	CreatedAt       Time                     `json:"createdAt"`
+}
+
+// LLMAuditLogExportListResponse represents a list of LLM audit log exports
+type LLMAuditLogExportListResponse struct {
+	Items []LLMAuditLogExportResponse `json:"items"`
+	Total int64                       `json:"total"`
+}
+
 // ScheduledAuditLogExportCreateRequest represents a request to create a scheduled audit log export
 type ScheduledAuditLogExportCreateRequest struct {
 	Name                  string                `json:"name"`
@@ -85,6 +120,46 @@ type ScheduledAuditLogExportListResponse struct {
 	Total int64                             `json:"total"`
 }
 
+// ScheduledLLMAuditLogExportCreateRequest represents a request to create a scheduled LLM audit log export
+type ScheduledLLMAuditLogExportCreateRequest struct {
+	Name                  string                   `json:"name"`
+	Bucket                string                   `json:"bucket,omitempty"`
+	KeyPrefix             string                   `json:"keyPrefix,omitempty"`
+	Schedule              Schedule                 `json:"schedule"`
+	RetentionPeriodInDays int                      `json:"retentionPeriodInDays,omitempty"`
+	Filters               LLMAuditLogExportFilters `json:"filters,omitempty"`
+}
+
+// ScheduledLLMAuditLogExportUpdateRequest represents a request to update a scheduled LLM audit log export
+type ScheduledLLMAuditLogExportUpdateRequest struct {
+	Name                  *string                   `json:"name,omitempty"`
+	Enabled               *bool                     `json:"enabled,omitempty"`
+	Schedule              *Schedule                 `json:"schedule,omitempty"`
+	RetentionPeriodInDays *int                      `json:"retentionPeriodInDays,omitempty"`
+	Filters               *LLMAuditLogExportFilters `json:"filters,omitempty"`
+	Bucket                *string                   `json:"bucket,omitempty"`
+	KeyPrefix             *string                   `json:"keyPrefix,omitempty"`
+}
+
+// ScheduledLLMAuditLogExportResponse represents a scheduled LLM audit log export
+type ScheduledLLMAuditLogExportResponse struct {
+	ID                    string                   `json:"id"`
+	Bucket                string                   `json:"bucket"`
+	KeyPrefix             string                   `json:"keyPrefix"`
+	Name                  string                   `json:"name"`
+	Enabled               bool                     `json:"enabled"`
+	Schedule              Schedule                 `json:"schedule"`
+	RetentionPeriodInDays int                      `json:"retentionPeriodInDays,omitempty"`
+	Filters               LLMAuditLogExportFilters `json:"filters,omitempty"`
+	LastRunAt             Time                     `json:"lastRunAt,omitempty"`
+}
+
+// ScheduledLLMAuditLogExportListResponse represents a list of scheduled LLM audit log exports
+type ScheduledLLMAuditLogExportListResponse struct {
+	Items []ScheduledLLMAuditLogExportResponse `json:"items"`
+	Total int64                                `json:"total"`
+}
+
 // AuditLogExportFilters represents filters for audit log export
 type AuditLogExportFilters struct {
 	UserIDs                    []string `json:"userIDs,omitempty"`
@@ -99,6 +174,19 @@ type AuditLogExportFilters struct {
 	ResponseStatuses           []string `json:"responseStatuses,omitempty"`
 	ClientIPs                  []string `json:"clientIPs,omitempty"`
 	Query                      string   `json:"query,omitempty"`
+}
+
+// LLMAuditLogExportFilters represents filters for LLM audit log export
+type LLMAuditLogExportFilters struct {
+	UserIDs          []string `json:"userIDs,omitempty"`
+	ModelProviders   []string `json:"modelProviders,omitempty"`
+	TargetModels     []string `json:"targetModels,omitempty"`
+	RequestPaths     []string `json:"requestPaths,omitempty"`
+	ResponseStatuses []int    `json:"responseStatuses,omitempty"`
+	Outcomes         []string `json:"outcomes,omitempty"`
+	Clients          []string `json:"clients,omitempty"`
+	ClientSessionIDs []string `json:"clientSessionIDs,omitempty"`
+	Query            string   `json:"query,omitempty"`
 }
 
 // StorageCredentialsTestRequest represents a request to test storage credentials

@@ -375,6 +375,10 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/audit-log-exports", auditLogExports.ListAuditLogExports)
 	mux.HandleFunc("GET /api/audit-log-exports/{id}", auditLogExports.GetAuditLogExport)
 	mux.HandleFunc("DELETE /api/audit-log-exports/{id}", auditLogExports.DeleteAuditLogExport)
+	mux.HandleFunc("POST /api/llm-audit-log-exports", auditLogExports.CreateLLMAuditLogExport)
+	mux.HandleFunc("GET /api/llm-audit-log-exports", auditLogExports.ListLLMAuditLogExports)
+	mux.HandleFunc("GET /api/llm-audit-log-exports/{id}", auditLogExports.GetLLMAuditLogExport)
+	mux.HandleFunc("DELETE /api/llm-audit-log-exports/{id}", auditLogExports.DeleteLLMAuditLogExport)
 
 	// Scheduled Audit Log Exports
 	mux.HandleFunc("POST /api/scheduled-audit-log-exports", auditLogExports.CreateScheduledAuditLogExport)
@@ -382,6 +386,11 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/scheduled-audit-log-exports/{id}", auditLogExports.GetScheduledAuditLogExport)
 	mux.HandleFunc("PATCH /api/scheduled-audit-log-exports/{id}", auditLogExports.UpdateScheduledAuditLogExport)
 	mux.HandleFunc("DELETE /api/scheduled-audit-log-exports/{id}", auditLogExports.DeleteScheduledAuditLogExport)
+	mux.HandleFunc("POST /api/scheduled-llm-audit-log-exports", auditLogExports.CreateScheduledLLMAuditLogExport)
+	mux.HandleFunc("GET /api/scheduled-llm-audit-log-exports", auditLogExports.ListScheduledLLMAuditLogExports)
+	mux.HandleFunc("GET /api/scheduled-llm-audit-log-exports/{id}", auditLogExports.GetScheduledLLMAuditLogExport)
+	mux.HandleFunc("PATCH /api/scheduled-llm-audit-log-exports/{id}", auditLogExports.UpdateScheduledLLMAuditLogExport)
+	mux.HandleFunc("DELETE /api/scheduled-llm-audit-log-exports/{id}", auditLogExports.DeleteScheduledLLMAuditLogExport)
 
 	// Storage Credentials Management
 	mux.HandleFunc("POST /api/storage-credentials", auditLogExports.ConfigureStorageCredentials)
