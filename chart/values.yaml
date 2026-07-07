@@ -30,6 +30,9 @@ additionalLabels: {}
 # -- Extra pod annotations to add.
 podAnnotations: {}
 
+# topologySpreadConstraints -- Configurable topologySpreadConstraints for Obot pods
+topologySpreadConstraints: {}
+
 service:
   # service.type -- Type of Kubernetes service to create
   type: ClusterIP
