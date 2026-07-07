@@ -1,6 +1,9 @@
 package handlers
 
 import (
+	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/elliptic"
 	"crypto/x509"
 	"strconv"
 	"strings"
@@ -37,8 +40,23 @@ func (*DeviceEnrollHandler) Enroll(req api.Context) error {
 		return types.NewErrBadRequest("deviceID is required")
 	}
 
-	if _, err := x509.ParsePKIXPublicKey(in.PublicKey); err != nil {
+	pub, err := x509.ParsePKIXPublicKey(in.PublicKey)
+	if err != nil {
 		return types.NewErrBadRequest("publicKey is not a valid PKIX public key: %v", err)
+	}
+	// Register only keys the device authenticator can verify access JWTs
+	// against (deviceAssertionAlgs: ES256/384/512, EdDSA). Anything else —
+	// e.g. RSA — would enroll a device that can never authenticate.
+	switch key := pub.(type) {
+	case ed25519.PublicKey:
+	case *ecdsa.PublicKey:
+		switch key.Curve {
+		case elliptic.P256(), elliptic.P384(), elliptic.P521():
+		default:
+			return types.NewErrBadRequest("unsupported ECDSA curve %s: publicKey must be an ECDSA P-256/P-384/P-521 or Ed25519 key", key.Curve.Params().Name)
+		}
+	default:
+		return types.NewErrBadRequest("unsupported public key type %T: publicKey must be an ECDSA P-256/P-384/P-521 or Ed25519 key", pub)
 	}
 
 	device, err := req.GatewayClient.EnrollDevice(req.Context(), gateway.DeviceEnrollment{
