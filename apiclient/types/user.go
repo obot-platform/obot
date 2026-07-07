@@ -44,6 +44,7 @@ const (
 	GroupAPI                = "api"
 	GroupLLM                = "llm"
 	GroupDeviceScans        = "device-scans"
+	GroupDeviceEnroll       = "device-enroll"
 )
 
 type Role int
