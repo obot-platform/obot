@@ -99,7 +99,7 @@
 
 	function isAdvancedPaneRoute(route: string): boolean {
 		return (
-			(route.includes('/admin') && route !== '/admin/dashboard') ||
+			route.includes('/admin') ||
 			['/mcp-catalog', '/mcp-access-policies', '/audit-logs', '/usage'].some((p) =>
 				route.startsWith(p)
 			)
@@ -240,17 +240,6 @@
 	let hasAccessibleModels = $derived(accessibleModels.current.length > 0);
 
 	let defaultLinks = $derived<NavLink[]>([
-		...(profile.current.hasAdminAccess?.()
-			? [
-					{
-						id: 'mcp-dashboard',
-						icon: LayoutDashboard,
-						label: 'Dashboard',
-						href: '/admin/dashboard',
-						collapsible: false
-					}
-				]
-			: []),
 		{
 			id: 'mcp-servers',
 			icon: Server,
@@ -329,6 +318,13 @@
 	let managementLinks = $derived<NavLink[]>(
 		profile.current.hasAdminAccess?.()
 			? [
+					{
+						id: 'mcp-dashboard',
+						icon: LayoutDashboard,
+						label: 'Dashboard',
+						href: '/admin/dashboard',
+						collapsible: false
+					},
 					{
 						id: 'mcp-server-management',
 						icon: RadioTower,
@@ -656,7 +652,11 @@
 
 	const isAdminRoute = $derived(pathname.includes('/admin'));
 	const isAgentRoute = $derived(pathname === '/agent' || pathname.startsWith('/agent/'));
-	const excludeConfigureBanner = ['/admin/model-providers', '/admin/auth-providers'];
+	const excludeConfigureBanner = [
+		...(version.current.agentsEnabled !== false ? ['/admin/model-providers'] : []),
+		'/admin/auth-providers',
+		'/admin/branding'
+	];
 	$effect(() => {
 		const isAdminOrBootstrapUser =
 			profile.current.loaded &&

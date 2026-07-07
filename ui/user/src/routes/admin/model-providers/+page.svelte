@@ -15,8 +15,8 @@
 		defaultModelAliases as defaultModelAliasesStore,
 		license
 	} from '$lib/stores';
+	import { profile, version } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte.js';
-	import { profile } from '$lib/stores/index.js';
 	import { delay } from '$lib/utils';
 	import { TriangleAlert } from '@lucide/svelte';
 	import { onMount, untrack } from 'svelte';
@@ -153,7 +153,7 @@
 <Layout title="Model Providers">
 	<div class="mb-4 @container" in:fade={{ duration }} out:fade={{ duration }}>
 		<div class="flex flex-col gap-8">
-			{#if !atLeastOneConfigured}
+			{#if !atLeastOneConfigured && version.current.agentsEnabled !== false}
 				<div class="notification-alert mb-4 flex flex-col gap-2">
 					<div class="flex items-center gap-2">
 						<TriangleAlert class="size-6 shrink-0 self-start text-warning" />
