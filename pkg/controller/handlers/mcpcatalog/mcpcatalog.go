@@ -268,6 +268,19 @@ func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, c client.Clien
 			if target == nil {
 				target = entriesByName[component.CatalogEntryID]
 			}
+			if target == nil && c != nil {
+				var storedEntry v1.MCPServerCatalogEntry
+				if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: component.CatalogEntryID}, &storedEntry); err != nil && !apierrors.IsNotFound(err) {
+					errs = append(errs, fmt.Errorf("failed to get component catalog entry %q: %w", component.CatalogEntryID, err))
+					continue
+				} else if err == nil {
+					if catalogName != "" && storedEntry.Spec.MCPCatalogName != catalogName {
+						errs = append(errs, fmt.Errorf("component catalog entry %q not found in catalog %q", component.CatalogEntryID, catalogName))
+						continue
+					}
+					target = &storedEntry
+				}
+			}
 			if target == nil {
 				continue
 			}

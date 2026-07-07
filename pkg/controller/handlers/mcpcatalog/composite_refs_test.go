@@ -190,6 +190,40 @@ func TestResolveCompositeSourceRefsHydratesInternalIDComponents(t *testing.T) {
 	assert.Equal(t, "Gmail", component.Manifest.Name)
 }
 
+func TestResolveCompositeSourceRefsHydratesUICreatedSameCatalogEntry(t *testing.T) {
+	target := testCatalogEntry("ui-created-component", "", "", types.MCPServerCatalogEntryManifest{
+		Name:             "UI Created Component",
+		ShortDescription: "UI Created Component",
+		Description:      "UI Created Component",
+		Icon:             "icon",
+		Runtime:          types.RuntimeNPX,
+		NPXConfig:        &types.NPXRuntimeConfig{Package: "ui-created-component"},
+		ServerUserType:   types.ServerUserTypeSingleUser,
+	})
+	target.Namespace = "default"
+	target.Spec.MCPCatalogName = "default"
+	target.Spec.Editable = true
+	composite := testCatalogEntry("composite", "source", "composite.yaml", types.MCPServerCatalogEntryManifest{
+		Name:           "Composite",
+		Runtime:        types.RuntimeComposite,
+		ServerUserType: types.ServerUserTypeSingleUser,
+		CompositeConfig: &types.CompositeCatalogConfig{ComponentServers: []types.CatalogComponentServer{
+			{CatalogEntryID: "ui-created-component"},
+		}},
+	})
+	c := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(target).Build()
+
+	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(t.Context(), c, "default", "default", []client.Object{composite})
+
+	assert.Empty(t, errsBySourceURL)
+	assert.Len(t, result, 1)
+	component := composite.Spec.Manifest.CompositeConfig.ComponentServers[0]
+	assert.Equal(t, "ui-created-component", component.CatalogEntryID)
+	assert.Equal(t, "UI Created Component", component.Manifest.Name)
+	require.NotNil(t, component.Manifest.NPXConfig)
+	assert.Equal(t, "ui-created-component", component.Manifest.NPXConfig.Package)
+}
+
 func TestResolveCompositeSourceRefsHydratesMultiUserServerIDComponents(t *testing.T) {
 	server := testMCPServer("shared-server", "default", types.MCPServerManifest{
 		Name:            "Shared Server",
