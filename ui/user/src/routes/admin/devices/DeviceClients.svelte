@@ -2,6 +2,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import Search from '$lib/components/Search.svelte';
+	import Skeleton from '$lib/components/Skeleton.svelte';
 	import Pagination from '$lib/components/table/Pagination.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_SIZE } from '$lib/constants';
@@ -18,13 +19,6 @@
 	import { onMount, untrack } from 'svelte';
 
 	let users = $state<OrgUser[]>([]);
-	onMount(async () => {
-		UserService.listUsers().then((response) => {
-			users = response;
-		});
-		reload(0);
-	});
-
 	let clientsData = $state<DeviceClientFleetSummaryResponse>({
 		items: [],
 		total: 0,
@@ -65,7 +59,14 @@
 	let pageIndex = $derived(Math.floor((clientsData.offset ?? 0) / pageSize));
 	let lastPageIndex = $derived(total > 0 ? Math.ceil(total / pageSize) - 1 : 0);
 	let nameFilter = $state(untrack(() => page.url.searchParams.get('name') ?? ''));
-	let loading = $state(false);
+	let loading = $state(true);
+
+	onMount(async () => {
+		UserService.listUsers().then((response) => {
+			users = response;
+		});
+		reload(0);
+	});
 
 	function syncUrl(nextPageIndex: number, sort = initSort) {
 		const next = new URL(page.url);
@@ -120,12 +121,7 @@
 />
 
 {#if loading}
-	<div class="flex flex-col gap-0.5">
-		<div class="skeleton h-9 w-full rounded-none"></div>
-		{#each Array.from({ length: 4 }) as _, i (i)}
-			<div class="skeleton h-14 w-full rounded-none"></div>
-		{/each}
-	</div>
+	<Skeleton type="table" />
 {:else if clients.length === 0}
 	<div class="mx-auto mt-12 flex w-md flex-col items-center gap-4 text-center">
 		<MonitorCheck class="text-muted-content size-24 opacity-50" />

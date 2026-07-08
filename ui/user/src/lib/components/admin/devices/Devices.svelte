@@ -2,6 +2,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import Search from '$lib/components/Search.svelte';
+	import Skeleton from '$lib/components/Skeleton.svelte';
 	import Pagination from '$lib/components/table/Pagination.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_SIZE } from '$lib/constants';
@@ -32,7 +33,7 @@
 		loading?: boolean;
 	}
 
-	let { devices, users }: Props = $props();
+	let { devices, users, loading: parentLoading }: Props = $props();
 
 	let usersResp = $state<OrgUser[]>(untrack(() => users ?? []));
 	let devicesResp = $state<DeviceScanResponse>(
@@ -156,13 +157,8 @@
 	placeholder="Search by device ID or user..."
 />
 
-{#if loading}
-	<div class="flex flex-col gap-0.5">
-		<div class="skeleton h-14 w-full rounded-none"></div>
-		{#each Array.from({ length: 4 }) as _, i (i)}
-			<div class="skeleton h-14 w-full rounded-none"></div>
-		{/each}
-	</div>
+{#if loading || parentLoading}
+	<Skeleton type="table" classes={{ header: 'h-14' }} />
 {:else if total === 0}
 	<div class="mx-auto mt-12 flex w-md flex-col items-center gap-4 text-center">
 		<Laptop class="text-muted-content size-24 opacity-50" />
