@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"maps"
 	"strconv"
+	"strings"
 
 	"github.com/obot-platform/obot/pkg/system"
-	"github.com/tidwall/gjson"
 )
 
 type ResponseAccumulator struct {
@@ -16,13 +16,52 @@ type ResponseAccumulator struct {
 	sawSSE        bool
 	rawJSON       bytes.Buffer
 	responseID    string
+	format        responseFormat
 
 	openAI    openAIResponseAccumulator
 	anthropic anthropicResponseAccumulator
 }
 
-func NewResponseAccumulator(modelProvider string) *ResponseAccumulator {
-	return &ResponseAccumulator{modelProvider: modelProvider}
+type responseFormat int
+
+const (
+	responseFormatUnknown responseFormat = iota
+	responseFormatOpenAIResponses
+	responseFormatAnthropicMessages
+)
+
+func NewResponseAccumulator(modelProvider string, requestPath ...string) *ResponseAccumulator {
+	format := responseFormatUnknown
+	if len(requestPath) > 0 {
+		format = responseFormatForRequestPath(requestPath[0])
+	}
+	if format == responseFormatUnknown {
+		format = responseFormatForProvider(modelProvider)
+	}
+	return &ResponseAccumulator{modelProvider: modelProvider, format: format}
+}
+
+func responseFormatForRequestPath(requestPath string) responseFormat {
+	requestPath = strings.TrimSuffix(requestPath, "/")
+	switch {
+	case requestPath == "messages" || strings.HasSuffix(requestPath, "/messages"):
+		return responseFormatAnthropicMessages
+	case requestPath == "responses" || strings.HasSuffix(requestPath, "/responses"):
+		return responseFormatOpenAIResponses
+	default:
+		return responseFormatUnknown
+	}
+}
+
+func responseFormatForProvider(modelProvider string) responseFormat {
+	switch modelProvider {
+	case system.OpenAIModelProvider:
+		return responseFormatOpenAIResponses
+	case system.AnthropicModelProvider:
+		return responseFormatAnthropicMessages
+	default:
+		return responseFormatUnknown
+	}
 }
 
 func (a *ResponseAccumulator) Write(p []byte) {
@@ -56,17 +95,11 @@ func (a *ResponseAccumulator) JSON() json.RawMessage {
 	}
 
 	var raw json.RawMessage
-	switch a.modelProvider {
-	case system.OpenAIModelProvider:
+	switch a.format {
+	case responseFormatOpenAIResponses:
 		raw = a.openAI.JSON()
-	case system.AnthropicModelProvider:
+	case responseFormatAnthropicMessages:
 		raw = a.anthropic.JSON()
-	default:
-		if a.anthropic.ResponseID() != "" {
-			raw = a.anthropic.JSON()
-		} else {
-			raw = a.openAI.JSON()
-		}
 	}
 	if len(raw) == 0 {
 		return json.RawMessage(`{}`)
@@ -81,16 +114,13 @@ func (a *ResponseAccumulator) ResponseID() string {
 	if a.responseID != "" {
 		return a.responseID
 	}
-	switch a.modelProvider {
-	case system.OpenAIModelProvider:
+	switch a.format {
+	case responseFormatOpenAIResponses:
 		return a.openAI.ResponseID()
-	case system.AnthropicModelProvider:
+	case responseFormatAnthropicMessages:
 		return a.anthropic.ResponseID()
 	default:
-		if id := a.openAI.ResponseID(); id != "" {
-			return id
-		}
-		return a.anthropic.ResponseID()
+		return ""
 	}
 }
 
@@ -117,14 +147,14 @@ func (a *ResponseAccumulator) processLine(line []byte) {
 }
 
 func (a *ResponseAccumulator) processJSON(body []byte) {
-	if a.modelProvider == system.OpenAIModelProvider {
+	switch a.format {
+	case responseFormatOpenAIResponses:
 		a.openAI.Process(body)
 		if a.responseID == "" {
 			a.responseID = a.openAI.ResponseID()
 		}
 		return
-	}
-	if a.modelProvider == system.AnthropicModelProvider {
+	case responseFormatAnthropicMessages:
 		a.anthropic.Process(body)
 		if a.responseID == "" {
 			a.responseID = a.anthropic.ResponseID()
@@ -132,20 +162,6 @@ func (a *ResponseAccumulator) processJSON(body []byte) {
 		return
 	}
 
-	typ := gjson.Get(body, "type").String()
-	if strings.HasPrefix(typ, "response.") {
-		a.openAI.Process(body)
-		if a.responseID == "" {
-			a.responseID = a.openAI.ResponseID()
-		}
-		return
-	}
-	if typ != "" {
-		a.anthropic.Process(body)
-		if a.responseID == "" {
-			a.responseID = a.anthropic.ResponseID()
-		}
-	}
 }
 
 type openAIResponseAccumulator struct {

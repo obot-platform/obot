@@ -304,7 +304,7 @@ func (r *responseModifier) modifyResponse(resp *http.Response) error {
 	}
 	r.audit.recordResponse(resp)
 
-	if resp.StatusCode != http.StatusOK || (resp.Request.URL.Path != "/v1/messages" && resp.Request.URL.Path != "/anthropic/v1/messages" && resp.Request.URL.Path != "/v1/responses" && resp.Request.URL.Path != "/openai/v1/responses") {
+	if !shouldWrapLLMResponse(resp) {
 		wrapAuditOnlyResponse(resp, r.audit, r.client)
 		return nil
 	}
@@ -323,6 +323,18 @@ func (r *responseModifier) modifyResponse(resp *http.Response) error {
 	}
 
 	return nil
+}
+
+func shouldWrapLLMResponse(resp *http.Response) bool {
+	if resp.StatusCode != http.StatusOK {
+		return false
+	}
+	switch resp.Request.URL.Path {
+	case "/v1/messages", "/anthropic/v1/messages", "/v1/responses", "/openai/v1/responses":
+		return true
+	default:
+		return false
+	}
 }
 
 // filterModelListResponse rewrites a provider models-list response, dropping any
