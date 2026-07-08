@@ -173,6 +173,63 @@ export interface ScheduledAuditLogExport {
 	filters: AuditLogExportFilterResponse;
 }
 
+export interface LLMAuditLogExportInput {
+	name: string;
+	bucket: string;
+	keyPrefix?: string;
+	startTime: string;
+	endTime: string;
+	filters: LLMAuditLogExportFilters;
+}
+export interface LLMAuditLogExport {
+	id: string;
+	name: string;
+	bucket: string;
+	keyPrefix?: string;
+	storageProvider: string;
+	startTime: string;
+	endTime: string;
+	state: 'pending' | 'running' | 'completed' | 'failed';
+	error?: string;
+	exportSize?: number;
+	exportPath?: string;
+	startedAt?: string;
+	createdAt: string;
+	completedAt?: string;
+	filters: LLMAuditLogExportFilters;
+}
+export type LLMAuditLogExportFilters = {
+	userIDs?: string[];
+	modelProviders?: string[];
+	targetModels?: string[];
+	requestPaths?: string[];
+	responseStatuses?: number[];
+	outcomes?: string[];
+	clients?: string[];
+	clientSessionIDs?: string[];
+	query?: string;
+};
+export interface ScheduledLLMAuditLogExportInput {
+	name: string;
+	enabled?: boolean;
+	schedule: Schedule;
+	bucket: string;
+	keyPrefix?: string;
+	retentionPeriodInDays: number;
+	filters: LLMAuditLogExportFilters;
+}
+export interface ScheduledLLMAuditLogExport {
+	id: string;
+	name: string;
+	enabled: boolean;
+	schedule: Schedule;
+	lastRunAt?: string;
+	bucket: string;
+	keyPrefix: string;
+	retentionPeriodInDays: number;
+	filters: LLMAuditLogExportFilters;
+}
+
 // Auth and file scanner providers
 
 export interface ProviderParameter {

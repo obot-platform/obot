@@ -6,7 +6,9 @@
 	import {
 		AdminService,
 		type ScheduledAuditLogExportInput,
-		type ScheduledAuditLogExport
+		type ScheduledAuditLogExport,
+		type ScheduledLLMAuditLogExport,
+		type ScheduledLLMAuditLogExportInput
 	} from '$lib/services';
 	import type { Schedule } from '$lib/services/user/types';
 	import { formatTimeAgo } from '$lib/time';
@@ -17,20 +19,25 @@
 	interface Props {
 		query?: string;
 		readonly?: boolean;
+		logType?: 'mcp' | 'llm';
 	}
 
-	let { query, readonly }: Props = $props();
+	let { query, readonly, logType = 'mcp' }: Props = $props();
 
 	let loading = $state(false);
-	let scheduledExports = $state<ScheduledAuditLogExport[]>([]);
+	let scheduledExports = $state<(ScheduledAuditLogExport | ScheduledLLMAuditLogExport)[]>([]);
 	let deleting = $state(false);
 	let toggleAction = $state<{ id: string; action: 'pause' | 'resume' } | undefined>();
 	let showDeleteConfirm = $state<
-		| { type: 'single'; export: ScheduledAuditLogExport; onsuccess: () => void }
+		| {
+				type: 'single';
+				export: ScheduledAuditLogExport | ScheduledLLMAuditLogExport;
+				onsuccess: () => void;
+		  }
 		| { type: 'multi' }
 		| undefined
 	>();
-	let selected = $state<Record<string, ScheduledAuditLogExport>>({});
+	let selected = $state<Record<string, ScheduledAuditLogExport | ScheduledLLMAuditLogExport>>({});
 
 	let tableRef = $state<ReturnType<typeof Table>>();
 
@@ -65,7 +72,10 @@
 
 	async function loadScheduledExports() {
 		try {
-			const response = await AdminService.getScheduledAuditLogExports();
+			const response =
+				logType === 'llm'
+					? await AdminService.getScheduledLLMAuditLogExports()
+					: await AdminService.getScheduledAuditLogExports();
 			return response.items ?? [];
 		} catch (error) {
 			console.error('Failed to load scheduled exports:', error);
@@ -92,13 +102,23 @@
 
 	async function handleUpdateScheduledExport(
 		id: string,
-		request: Partial<ScheduledAuditLogExportInput>
+		request: Partial<ScheduledAuditLogExportInput | ScheduledLLMAuditLogExportInput>
 	) {
 		try {
 			// Set toggle action state for loading indicator
 			toggleAction = { id, action: request.enabled ? 'resume' : 'pause' };
 
-			await AdminService.updateScheduledAuditLogExport(id, request);
+			if (logType === 'llm') {
+				await AdminService.updateScheduledLLMAuditLogExport(
+					id,
+					request as Partial<ScheduledLLMAuditLogExportInput>
+				);
+			} else {
+				await AdminService.updateScheduledAuditLogExport(
+					id,
+					request as Partial<ScheduledAuditLogExportInput>
+				);
+			}
 			await reload(); // Refresh the list
 		} catch (error) {
 			console.error('Failed to update scheduled export:', error);
@@ -107,9 +127,13 @@
 		}
 	}
 
-	async function handleSingleDelete(exp: ScheduledAuditLogExport) {
+	async function handleSingleDelete(exp: ScheduledAuditLogExport | ScheduledLLMAuditLogExport) {
 		try {
-			await AdminService.deleteScheduledAuditLogExport(exp.id);
+			if (logType === 'llm') {
+				await AdminService.deleteScheduledLLMAuditLogExport(exp.id);
+			} else {
+				await AdminService.deleteScheduledAuditLogExport(exp.id);
+			}
 			await reload(); // Refresh the list
 		} catch (error) {
 			console.error('Failed to delete scheduled export:', error);
@@ -152,7 +176,9 @@
 		selected = {};
 	}
 
-	function getBulkActionState(currentSelected: Record<string, ScheduledAuditLogExport>) {
+	function getBulkActionState(
+		currentSelected: Record<string, ScheduledAuditLogExport | ScheduledLLMAuditLogExport>
+	) {
 		const selectedArray = Object.values(currentSelected);
 		if (selectedArray.length === 0) return null;
 
@@ -164,8 +190,12 @@
 		return null; // Mixed state
 	}
 
-	function handleRowClick(scheduledExport: ScheduledAuditLogExport) {
-		goto(`/admin/audit-logs/exports/scheduled/${scheduledExport.id}/edit`);
+	function handleRowClick(scheduledExport: ScheduledAuditLogExport | ScheduledLLMAuditLogExport) {
+		goto(
+			logType === 'llm'
+				? `/admin/llm-audit-logs/exports/scheduled/${scheduledExport.id}/edit`
+				: `/admin/audit-logs/exports/scheduled/${scheduledExport.id}/edit`
+		);
 	}
 </script>
 

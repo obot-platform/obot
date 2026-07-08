@@ -5,7 +5,7 @@
 	import { formatFileSize } from '$lib/format';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService } from '$lib/services';
-	import type { AuditLogExport } from '$lib/services/admin/types';
+	import type { AuditLogExport, LLMAuditLogExport } from '$lib/services/admin/types';
 	import { formatTimeAgo } from '$lib/time';
 	import { goto } from '$lib/url';
 	import { FileArchive, CircleAlert } from '@lucide/svelte';
@@ -13,21 +13,27 @@
 
 	interface Props {
 		query?: string;
+		logType?: 'mcp' | 'llm';
 	}
 
-	let { query }: Props = $props();
+	let { query, logType = 'mcp' }: Props = $props();
 
 	let loading = $state(false);
-	let exports = $state<AuditLogExport[]>([]);
+	let exports = $state<(AuditLogExport | LLMAuditLogExport)[]>([]);
 	let deleting = $state(false);
 	let showDeleteConfirm = $state<
-		{ type: 'single'; export: AuditLogExport } | { type: 'multi' } | undefined
+		{ type: 'single'; export: AuditLogExport | LLMAuditLogExport } | { type: 'multi' } | undefined
 	>();
-	let selected = $state<Record<string, AuditLogExport>>({});
+	let selected = $state<Record<string, AuditLogExport | LLMAuditLogExport>>({});
 
 	let tableRef = $state<ReturnType<typeof Table>>();
 
-	let tableData = $derived.by(() => {
+	type ExportTableRow = (AuditLogExport | LLMAuditLogExport) & {
+		created: string;
+		sizeDisplay: string;
+	};
+
+	let tableData = $derived.by((): ExportTableRow[] => {
 		const transformedData = exports.map((exp) => ({
 			...exp,
 			id: exp.id || '',
@@ -65,7 +71,10 @@
 
 	async function loadExports() {
 		try {
-			const response = await AdminService.getAuditLogExports();
+			const response =
+				logType === 'llm'
+					? await AdminService.getLLMAuditLogExports()
+					: await AdminService.getAuditLogExports();
 			return response.items ?? [];
 		} catch (error) {
 			console.error('Failed to load exports:', error);
@@ -88,9 +97,13 @@
 		}
 	}
 
-	async function handleSingleDelete(exp: AuditLogExport) {
+	async function handleSingleDelete(exp: AuditLogExport | LLMAuditLogExport) {
 		try {
-			await AdminService.deleteAuditLogExport(exp.id);
+			if (logType === 'llm') {
+				await AdminService.deleteLLMAuditLogExport(exp.id);
+			} else {
+				await AdminService.deleteAuditLogExport(exp.id);
+			}
 			await loadExports(); // Refresh the list
 		} catch (error) {
 			console.error('Failed to delete export:', error);
@@ -118,8 +131,12 @@
 		return provider;
 	}
 
-	function handleRowClick(exportItem: AuditLogExport) {
-		goto(`/admin/audit-logs/exports/${exportItem.id}/view`);
+	function handleRowClick(exportItem: AuditLogExport | LLMAuditLogExport) {
+		goto(
+			logType === 'llm'
+				? `/admin/llm-audit-logs/exports/${exportItem.id}/view`
+				: `/admin/audit-logs/exports/${exportItem.id}/view`
+		);
 	}
 </script>
 
