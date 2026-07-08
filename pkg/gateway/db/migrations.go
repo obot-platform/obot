@@ -276,6 +276,47 @@ func dropMCPOAuthTokenStateColumns(tx *gorm.DB) error {
 	return nil
 }
 
+// dropLegacyLocalAgentAuditLogColumns removes columns left behind by the local-agent audit log
+// schema rework, which renamed or removed a number of columns on mcp_audit_logs. AutoMigrate adds
+// the new columns but never drops or renames the old ones, so they are dropped explicitly here. This
+// change was made while local agent audit logs were still under development,
+// before any such logs actually existed, so no data migration is needed,
+// and the columns are simply deleted.
+func dropLegacyLocalAgentAuditLogColumns(tx *gorm.DB) error {
+	migrator := tx.Migrator()
+	if !migrator.HasTable(&types.MCPAuditLog{}) {
+		return nil
+	}
+	for _, col := range []string{
+		// Renamed local-agent columns.
+		"observed_at",      // -> occurred_at
+		"status",           // -> outcome_status
+		"tool_name",        // -> action_name
+		"tool_kind",        // -> action_kind
+		"arch",             // -> architecture
+		"git_repo_root",    // -> git_root
+		"git_remote_urls",  // -> git_remotes
+		"git_commit_sha",   // -> git_commit
+		"tool_input",       // -> local_agent_request_body
+		"tool_output",      // -> local_agent_response_body
+		"raw_hook_payload", // -> local_agent_raw_event
+		// Removed columns (no replacement).
+		"failure_type",
+		"mcp_server_hint",
+		"mcp_tool_name",
+		"identity_status",
+		"obot_audit_correlation_id",
+	} {
+		if migrator.HasColumn(&types.MCPAuditLog{}, col) {
+			if err := migrator.DropColumn(&types.MCPAuditLog{}, col); err != nil {
+				return fmt.Errorf("failed to drop column %s from mcp_audit_logs: %w", col, err)
+			}
+		}
+	}
+
+	return nil
+}
+
 func dropRunThreadAndRunStatesTables(tx *gorm.DB) error {
 	migrator := tx.Migrator()
 	for _, table := range []string{"run_states", "run", "thread", "runstate"} {

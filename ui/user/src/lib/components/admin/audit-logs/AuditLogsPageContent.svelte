@@ -6,16 +6,16 @@
 	import { type DateRange } from '$lib/components/Calendar.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Search from '$lib/components/Search.svelte';
-	import McpAuditLogDetails from '$lib/components/admin/audit-logs/McpAuditLogDetails.svelte';
+	import AuditLogEventDetails from '$lib/components/admin/audit-logs/AuditLogEventDetails.svelte';
 	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
 	import { setVirtualPageData } from '$lib/components/ui/virtual-page/context';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { localState } from '$lib/runes/localState.svelte';
 	import {
 		type OrgUser,
-		type McpAuditLogURLFilters,
+		type AuditLogURLFilters,
 		AdminService,
-		type McpAuditLog,
+		type AuditLogEvent,
 		Group,
 		UserService
 	} from '$lib/services';
@@ -28,11 +28,11 @@
 	import AuditLogCalendar from './AuditLogCalendar.svelte';
 	import AuditLogFilterPills from './AuditLogFilterPills.svelte';
 	import AuditLogTableSkeleton from './AuditLogTableSkeleton.svelte';
-	import McpAuditLogsTable from './McpAuditLogsTable.svelte';
+	import AuditLogsTable from './AuditLogsTable.svelte';
 	import {
-		aggregateMcpAuditLogsByBucket,
-		toMcpAuditLogTimelineChartRow,
-		type McpAuditLogTimelineChartRow
+		aggregateAuditLogsByBucket,
+		toAuditLogTimelineChartRow,
+		type AuditLogTimelineChartRow
 	} from './timelineUtils';
 	import { ChevronLeft, ChevronRight, Funnel, Captions, Plus, Settings } from '@lucide/svelte';
 	import { set, endOfDay, isBefore, subDays } from 'date-fns';
@@ -59,7 +59,7 @@
 		entity = 'catalog'
 	}: Props = $props();
 
-	let auditLogsResponse = $state<PaginatedResponse<McpAuditLog>>();
+	let auditLogsResponse = $state<PaginatedResponse<AuditLogEvent>>();
 	const auditLogsTotalItems = $derived(auditLogsResponse?.total ?? 0);
 
 	let pageIndexLocal = localState('@obot/auditlogs/page-index', 0, {
@@ -71,22 +71,22 @@
 	const numberOfPages = $derived(Math.ceil(auditLogsTotalItems / pageLimit));
 	const pageOffset = $derived(pageIndex * pageLimit);
 
-	const remoteMcpAuditLogs = $derived(auditLogsResponse?.items ?? []);
+	const remoteAuditLogs = $derived(auditLogsResponse?.items ?? []);
 
 	/** When there are more than this many results, defer timeline aggregation and table data to keep UI responsive. */
 	const DEFER_THRESHOLD = 500;
-	let displayTimelineData = $state<McpAuditLogTimelineChartRow[]>([]);
-	let displayTableData = $state<McpAuditLog[]>([]);
+	let displayTimelineData = $state<AuditLogTimelineChartRow[]>([]);
+	let displayTableData = $state<AuditLogEvent[]>([]);
 
 	$effect(() => {
-		const items = remoteMcpAuditLogs;
+		const items = remoteAuditLogs;
 		const start = timeRangeFilters.startTime;
 		const end = timeRangeFilters.endTime;
 		const threshold = DEFER_THRESHOLD;
 
 		if (items.length <= threshold) {
 			displayTableData = items;
-			displayTimelineData = items.map(toMcpAuditLogTimelineChartRow);
+			displayTimelineData = items.map(toAuditLogTimelineChartRow);
 			return;
 		}
 
@@ -96,7 +96,7 @@
 			const id = requestIdleCallback(
 				() => {
 					displayTableData = items;
-					displayTimelineData = aggregateMcpAuditLogsByBucket(items, start, end);
+					displayTimelineData = aggregateAuditLogsByBucket(items, start, end);
 				},
 				{ timeout: 200 }
 			);
@@ -104,7 +104,7 @@
 		}
 		const id = setTimeout(() => {
 			displayTableData = items;
-			displayTimelineData = aggregateMcpAuditLogsByBucket(items, start, end);
+			displayTimelineData = aggregateAuditLogsByBucket(items, start, end);
 		}, 0);
 		return () => clearTimeout(id);
 	});
@@ -122,7 +122,7 @@
 
 	let showLoadingSpinner = $state(true);
 	let showFilters = $state(false);
-	let selectedMcpAuditLog = $state<McpAuditLog & { user: string }>();
+	let selectedAuditLog = $state<AuditLogEvent & { user: string }>();
 	let rightSidebar = $state<HTMLDivElement>();
 	let showFilterConfirmDialog = $state(false);
 	let pendingExportType = $state<'export' | 'scheduled' | null>(null);
@@ -137,12 +137,28 @@
 
 	const enforcedFiltersKeys = $derived(new Set(Object.keys(enforcedFilters)));
 
+	// Local-agent tool-call audit logs are visible only to admins and auditors, and only in the
+	// unified (non server-scoped) audit view.
+	const canViewLocalAgent = $derived(
+		(profile?.current?.hasAdminAccess?.() || profile.current.groups.includes(Group.AUDITOR)) &&
+			!mcpId &&
+			!mcpServerCatalogEntryName &&
+			!mcpServerDisplayName
+	);
+
 	// Supported filters for the audit logs
 	// These filters are used to filter the audit logs based on the URL parameters
 	// Ignore other params
-	type SupportedFilter = keyof McpAuditLogURLFilters;
-	const supportedFilters: SupportedFilter[] = [
+	type SupportedFilter = keyof AuditLogURLFilters;
+	const commonSupportedFilters: SupportedFilter[] = [
+		'event_type',
 		'user_id',
+		'session_id',
+		'client_ip',
+		'start_time',
+		'end_time'
+	];
+	const mcpSupportedFilters: SupportedFilter[] = [
 		'mcp_id',
 		'mcp_server_display_name',
 		'mcp_server_catalog_entry_name',
@@ -150,24 +166,58 @@
 		'call_identifier',
 		'client_name',
 		'client_version',
-		'client_ip',
-		'response_status',
-		'session_id',
-		'start_time',
-		'end_time'
+		'response_status'
 	];
+	const localAgentSupportedFilters: SupportedFilter[] = [
+		'agent_provider',
+		'status',
+		'tool_name',
+		'tool_kind',
+		'device_id'
+	];
+	const defaultEventTypes = $derived(
+		canViewLocalAgent ? 'mcp_call,local_agent_tool_call' : 'mcp_call'
+	);
+	const selectedEventTypes = $derived(page.url.searchParams.get('event_type') ?? defaultEventTypes);
 
-	const defaultSearchParams: Partial<McpAuditLogURLFilters> = {
-		call_type: ['resources/read', 'tools/call', 'prompts/get'].join(',')
-	};
+	// event_type may be a comma-separated list (the default for admins/auditors is
+	// "mcp_call,local_agent_tool_call"). Parse a value into the set of selected event types,
+	// falling back to the default when empty.
+	function parseEventTypes(value: string | number | null | undefined): Set<string> {
+		const raw = (value ?? '').toString().trim() || defaultEventTypes;
+		return new Set(
+			raw
+				.split(',')
+				.map((t) => t.trim())
+				.filter(Boolean)
+		);
+	}
+
+	// Source-specific filters narrow the query to a single source, so the backend rejects them for
+	// mixed-source queries. Only offer/apply them when exactly one event type is selected.
+	function getSupportedFilters(eventTypes: Set<string>): SupportedFilter[] {
+		const single = eventTypes.size === 1;
+		return [
+			...commonSupportedFilters,
+			...(single && eventTypes.has('mcp_call') ? mcpSupportedFilters : []),
+			...(single && eventTypes.has('local_agent_tool_call') ? localAgentSupportedFilters : [])
+		];
+	}
+
+	const selectedEventTypesSet = $derived(parseEventTypes(selectedEventTypes));
+	const supportedFilters = $derived(getSupportedFilters(selectedEventTypesSet));
+
+	const defaultSearchParams: Partial<AuditLogURLFilters> = $derived({
+		event_type: defaultEventTypes
+	});
 
 	const searchParamsAsArray: [SupportedFilter, string | undefined | null][] = $derived(
-		buildSearchParamFiltersArray<McpAuditLogURLFilters>(supportedFilters, defaultSearchParams)
+		buildSearchParamFiltersArray<AuditLogURLFilters>(supportedFilters, defaultSearchParams)
 	);
 
-	// Extract search supported params from the URL and convert them to McpAuditLogURLFilters
+	// Extract supported search params from the URL and convert them to AuditLogURLFilters.
 	// This is used to filter the audit logs based on the URL parameters
-	const searchParamFilters = $derived.by<McpAuditLogURLFilters>(() => {
+	const searchParamFilters = $derived.by<AuditLogURLFilters>(() => {
 		return searchParamsAsArray.reduce(
 			(acc, [key, value]) => {
 				acc[key!] = value;
@@ -196,7 +246,7 @@
 
 	// Keep only filters with defined values
 	const pillsSearchParamFilters = $derived(
-		buildPillSearchParamFilters<McpAuditLogURLFilters>(
+		buildPillSearchParamFilters<AuditLogURLFilters>(
 			searchParamsAsArray,
 			{ ...propsFilters, ...enforcedFilters },
 			propsFiltersKeys
@@ -215,7 +265,7 @@
 		const clone = { ...searchParamFilters };
 
 		for (const key of ['start_time', 'end_time']) {
-			delete clone[key as keyof McpAuditLogURLFilters];
+			delete clone[key as keyof AuditLogURLFilters];
 		}
 
 		return { ...clone, ...propsFilters, ...enforcedFilters };
@@ -277,7 +327,7 @@
 		if (!pageIndexLocal.isReady) return;
 
 		showLoadingSpinner = true;
-		fetchMcpAuditLogs({ ...allFilters }).then((res) => {
+		fetchAuditLogs({ ...allFilters }).then((res) => {
 			// Reset page and page fragment indexes when the total results are less than the current page offset
 			if (!res || pageOffset > (res?.total ?? 0)) {
 				pageIndexLocal.current = 0;
@@ -301,28 +351,24 @@
 		replaceState(page.url, { query: value });
 	}, 100);
 
-	async function nextPage() {
+	// The fetch $effect below reacts to pageIndex (via allFilters.offset), so updating the page
+	// index is enough to reload the current page — no direct fetch call is needed here.
+	function nextPage() {
 		if (isReachedMax) return;
-
-		pageIndexLocal.current = Math.min(numberOfPages, pageIndex + 1);
-
-		fetchMcpAuditLogs({ ...allFilters });
+		pageIndexLocal.current = Math.max(0, Math.min(numberOfPages - 1, pageIndex + 1));
 	}
 
-	async function prevPage() {
+	function prevPage() {
 		if (isReachedMin) return;
-
 		pageIndexLocal.current = Math.max(0, pageIndex - 1);
-
-		fetchMcpAuditLogs({ ...allFilters });
 	}
 
-	async function fetchMcpAuditLogs(filters: typeof searchParamFilters) {
-		return (auditLogsResponse = await UserService.listMcpAuditLogs(filters));
+	async function fetchAuditLogs(filters: typeof searchParamFilters) {
+		return (auditLogsResponse = await UserService.listAuditLogs(filters));
 	}
 
 	function getFilterDisplayLabel(key: string) {
-		const _key = key as keyof McpAuditLogURLFilters;
+		const _key = key as keyof AuditLogURLFilters;
 
 		if (_key === 'mcp_server_display_name') return 'Server';
 		if (_key === 'mcp_server_catalog_entry_name') return 'Server Catalog Entry Name';
@@ -330,13 +376,18 @@
 		if (_key === 'start_time') return 'Start Time';
 		if (_key === 'end_time') return 'End Time';
 		if (_key === 'user_id') return 'User';
+		if (_key === 'event_type') return 'Event Type';
 		if (_key === 'client_name') return 'Client Name';
 		if (_key === 'client_version') return 'Client Version';
 		if (_key === 'call_type') return 'Call Type';
 		if (_key === 'session_id') return 'Session ID';
 		if (_key === 'response_status') return 'Response Status';
 		if (_key === 'client_ip') return 'Client IP';
-
+		if (_key === 'agent_provider') return 'Agent';
+		if (_key === 'status') return 'Status';
+		if (_key === 'tool_name') return 'Tool Name';
+		if (_key === 'tool_kind') return 'Tool Kind';
+		if (_key === 'device_id') return 'Device';
 		return key.replace(/_(\w)/g, ' $1');
 	}
 
@@ -354,7 +405,7 @@
 		return value + '';
 	}
 
-	function getFilterValue(label: keyof McpAuditLogURLFilters, value: string | number) {
+	function getFilterValue(label: keyof AuditLogURLFilters, value: string | number) {
 		if (label === 'start_time' || label === 'end_time') {
 			return new Date(value).toLocaleString(undefined, {
 				year: 'numeric',
@@ -378,7 +429,7 @@
 	function handleRightSidebarClose() {
 		rightSidebar?.hidePopover();
 		showFilters = false;
-		selectedMcpAuditLog = undefined;
+		selectedAuditLog = undefined;
 	}
 
 	function handleDateChange({ start, end }: DateRange) {
@@ -422,6 +473,8 @@
 			const url = new URL(window.location.origin + `/admin/audit-logs/exports`);
 			url.searchParams.set('form', formType);
 
+			url.searchParams.set('event_type', selectedEventTypes);
+
 			if (includeFilters) {
 				// Add current time range
 				url.searchParams.set('startTime', timeRangeFilters.startTime.toISOString());
@@ -452,6 +505,8 @@
 			const url = new URL(window.location.origin + `/admin/audit-logs/exports`);
 			url.searchParams.set('form', 'storage');
 			url.searchParams.set('next', formType);
+
+			url.searchParams.set('event_type', selectedEventTypes);
 
 			if (includeFilters) {
 				// Still add filters for when storage config is completed
@@ -501,7 +556,7 @@
 					class="btn btn-neutral h-12.5"
 					onclick={() => {
 						showFilters = true;
-						selectedMcpAuditLog = undefined;
+						selectedAuditLog = undefined;
 						rightSidebar?.showPopover();
 					}}
 				>
@@ -573,8 +628,8 @@
 						start={timeRangeFilters.startTime}
 						end={timeRangeFilters.endTime}
 						data={displayTimelineData}
-						categoryKey="callType"
-						dateKey="createdAt"
+						categoryKey="eventType"
+						dateKey="timestamp"
 						primaryValueKey={isTimelineAggregated ? 'count' : undefined}
 						secondaryValueKey={isTimelineAggregated ? '_secondary' : undefined}
 					/>
@@ -591,7 +646,7 @@
 		<hr class="dark:border-base-400 my-4 border" />
 		<div class="flex items-center justify-between gap-2 px-4 pb-4 text-xs text-gray-600">
 			<div class="flex gap-4">
-				<div>{Intl.NumberFormat().format(remoteMcpAuditLogs.length)} results</div>
+				<div>{Intl.NumberFormat().format(remoteAuditLogs.length)} results</div>
 
 				<div class="flex items-center">
 					{#if numberOfPages > 1}
@@ -626,26 +681,28 @@
 		</div>
 	</div>
 	{#if displayTableData.length > 0}
-		<McpAuditLogsTable
+		<AuditLogsTable
 			data={displayTableData}
-			onSelectRow={async (d: McpAuditLog & { user: string }) => {
+			onSelectRow={async (d: AuditLogEvent) => {
 				showFilters = false;
 				rightSidebar?.showPopover();
+				const user =
+					d.actor.actorType === 'user' && d.actor.id ? getUserDisplayName(users, d.actor.id) : '';
 				// Fetch full audit log details with request/response bodies
 				try {
-					const fullDetails = await UserService.getMcpAuditLog(d.id);
-					selectedMcpAuditLog = { ...fullDetails, user: d.user };
+					const fullDetails = await UserService.getAuditLog(d.id);
+					selectedAuditLog = { ...fullDetails, user };
 				} catch (error) {
 					console.error('Failed to fetch audit log details:', error);
 					// Fallback to the cached data if fetch fails
-					selectedMcpAuditLog = d;
+					selectedAuditLog = { ...d, user };
 				}
 			}}
 			getUserDisplayName={(userId: string, hasConflict?: () => boolean) =>
 				getUserDisplayName(users, userId, hasConflict)}
 			{emptyContent}
 		/>
-	{:else if remoteMcpAuditLogs.length > 0}
+	{:else if remoteAuditLogs.length > 0}
 		<div class="text-muted-content flex items-center justify-center gap-2 py-12 text-sm font-light">
 			<Loading class="size-5 animate-spin" />
 			<span>Preparing results…</span>
@@ -665,14 +722,11 @@
 <div
 	bind:this={rightSidebar}
 	popover
-	class={twMerge(
-		'drawer-legacy',
-		selectedMcpAuditLog ? 'max-w-[85vw] min-w-lg' : 'md:w-lg lg:w-xl'
-	)}
-	style={selectedMcpAuditLog ? 'width: 32rem' : ''}
+	class={twMerge('drawer-legacy', selectedAuditLog ? 'max-w-[85vw] min-w-lg' : 'md:w-lg lg:w-xl')}
+	style={selectedAuditLog ? 'width: 32rem' : ''}
 	id="mcp-audit-logs-details-sidebar"
 >
-	{#if selectedMcpAuditLog}
+	{#if selectedAuditLog}
 		{#if !responsive.isMobile && rightSidebar}
 			<div
 				role="none"
@@ -680,13 +734,18 @@
 				use:columnResize={{ column: rightSidebar, direction: 'right' }}
 			></div>
 		{/if}
-		<McpAuditLogDetails onClose={handleRightSidebarClose} auditLog={selectedMcpAuditLog} />
+		<AuditLogEventDetails onClose={handleRightSidebarClose} auditLog={selectedAuditLog} />
 	{/if}
 
 	{#if showFilters}
 		<FiltersDrawer
 			onClose={handleRightSidebarClose}
 			filters={{ ...auditLogsSlideoverFilters }}
+			resetOnChangeKeys={['event_type']}
+			getVisibleFilterKeys={(filters) =>
+				getSupportedFilters(parseEventTypes(filters.event_type)).filter(
+					(key) => key !== 'start_time' && key !== 'end_time'
+				)}
 			isFilterDisabled={(filterId) =>
 				propsFiltersKeys.has(filterId) || enforcedFiltersKeys.has(filterId)}
 			isFilterClearable={(filterId) =>
@@ -697,17 +756,20 @@
 			endpoint={async (filterId: string, opts = {}) => {
 				const timeFilters = {
 					start_time: timeRangeFilters.startTime.toISOString(),
-					end_time: timeRangeFilters.endTime?.toISOString()
+					end_time: timeRangeFilters.endTime?.toISOString(),
+					// Prefer the event type(s) currently selected in the drawer (passed via opts) so
+					// option lists update live as the user switches event types; fall back to the URL.
+					event_type: String(opts.event_type ?? '') || selectedEventTypes
 				};
 				if (filterId !== 'mcp_id') {
-					return await UserService.listMcpAuditLogFilterOptions(filterId, {
+					return await UserService.listAuditLogFilterOptions(filterId, {
 						...opts,
 						...timeFilters
 					});
 				}
 
 				if (mcpId) {
-					const response = await UserService.listMcpAuditLogFilterOptions(filterId, {
+					const response = await UserService.listAuditLogFilterOptions(filterId, {
 						...opts,
 						...timeFilters
 					});
@@ -716,7 +778,7 @@
 				}
 
 				if (!id || !mcpServerCatalogEntryName) {
-					return await UserService.listMcpAuditLogFilterOptions(filterId, {
+					return await UserService.listAuditLogFilterOptions(filterId, {
 						...opts,
 						...timeFilters
 					});
@@ -758,7 +820,7 @@
 			<!-- Show current filters -->
 			{#if Object.entries(pillsSearchParamFilters).length > 0 || query}
 				{@const entries = Object.entries(pillsSearchParamFilters) as [
-					keyof McpAuditLogURLFilters,
+					keyof AuditLogURLFilters,
 					string
 				][]}
 				<div class="mb-4 rounded-md bg-gray-50 p-3 dark:bg-gray-800">

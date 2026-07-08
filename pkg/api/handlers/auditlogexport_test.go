@@ -169,3 +169,65 @@ func TestConvertLLMExportToAPI(t *testing.T) {
 		t.Fatalf("unexpected timestamps: started=%s completed=%s", got.StartedAt, got.CompletedAt)
 	}
 }
+
+func TestValidateAuditLogExportFilters(t *testing.T) {
+	tests := []struct {
+		name    string
+		filters types.AuditLogExportFilters
+		wantErr bool
+	}{
+		{
+			name:    "invalid source",
+			filters: types.AuditLogExportFilters{SourceTypes: []types.AuditLogSourceType{"future"}},
+			wantErr: true,
+		},
+		{
+			name: "MCP filter without MCP source",
+			filters: types.AuditLogExportFilters{
+				SourceTypes: []types.AuditLogSourceType{types.AuditLogSourceTypeLocalAgentToolCall},
+				MCPIDs:      []string{"mcp-1"},
+			},
+			wantErr: true,
+		},
+		{
+			name: "local filter without local source",
+			filters: types.AuditLogExportFilters{
+				SourceTypes:    []types.AuditLogSourceType{types.AuditLogSourceTypeMCP},
+				AgentProviders: []string{"codex"},
+			},
+			wantErr: true,
+		},
+		{
+			name: "mixed source-specific groups",
+			filters: types.AuditLogExportFilters{
+				SourceTypes:    []types.AuditLogSourceType{types.AuditLogSourceTypeMCP, types.AuditLogSourceTypeLocalAgentToolCall},
+				MCPIDs:         []string{"mcp-1"},
+				AgentProviders: []string{"codex"},
+			},
+			wantErr: true,
+		},
+		{
+			name: "valid mixed common filters",
+			filters: types.AuditLogExportFilters{
+				SourceTypes: []types.AuditLogSourceType{types.AuditLogSourceTypeMCP, types.AuditLogSourceTypeLocalAgentToolCall},
+				UserIDs:     []string{"user-1"},
+			},
+		},
+		{
+			name: "valid local-agent filters",
+			filters: types.AuditLogExportFilters{
+				SourceTypes:    []types.AuditLogSourceType{types.AuditLogSourceTypeLocalAgentToolCall},
+				AgentProviders: []string{"codex"},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := validateAuditLogExportFilters(&test.filters)
+			if (err != nil) != test.wantErr {
+				t.Fatalf("error = %v, wantErr = %v", err, test.wantErr)
+			}
+		})
+	}
+}

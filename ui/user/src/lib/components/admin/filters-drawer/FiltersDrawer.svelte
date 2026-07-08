@@ -8,6 +8,7 @@
 	import AuditFilter, { type FilterInput, type FilterOption } from './FilterField.svelte';
 	import { X } from '@lucide/svelte';
 	import { untrack } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	type FilterKey = Extract<
 		Exclude<
@@ -41,6 +42,13 @@
 		getFilterDisplayLabel?: (key: string) => string;
 		getFilterOptionLabel?: (key: string, value: string) => string;
 		getDefaultValue?: <K extends FilterKey>(filter: K) => T[K] | undefined;
+		// Derives which filter fields to show from the current (live) filter selections. Lets the set
+		// of visible filters react to a controlling filter (e.g. event_type) without reopening the
+		// drawer. Defaults to the keys present in `filters`.
+		getVisibleFilterKeys?: (filters: Partial<T>) => string[];
+		// Filter keys whose value change should wipe the other (clearable) selections. Used so that
+		// switching event types clears filters that no longer apply to the new selection.
+		resetOnChangeKeys?: FilterKey[];
 		endpoint?: FilterOptionsEndpoint;
 		booleanFilters?: BooleanFilter[];
 	}
@@ -54,19 +62,46 @@
 		getFilterDisplayLabel,
 		getFilterOptionLabel,
 		getDefaultValue,
+		getVisibleFilterKeys,
+		resetOnChangeKeys,
 		filterOptions,
 		booleanFilters: externalBooleanFilters = [],
-		endpoint = UserService.listMcpAuditLogFilterOptions as FilterOptionsEndpoint
+		endpoint = UserService.listAuditLogFilterOptions as FilterOptionsEndpoint
 	}: Props = $props();
 
 	let filters = $derived({ ...(externFilters ?? {}) } as Partial<T>);
+
+	// The filter fields to render. When `getVisibleFilterKeys` is provided this reacts to the current
+	// selections (e.g. showing source-specific filters once a single event type is chosen); otherwise
+	// it falls back to whatever keys were passed in.
+	let visibleFilterKeys = $derived(
+		(getVisibleFilterKeys?.(filters) ?? (Object.keys(filters ?? {}) as FilterKey[])) as FilterKey[]
+	);
+
+	// Every filter key that has been visible/present while this drawer has been open. Used on apply to
+	// clear params that no longer apply (e.g. a source-specific filter left over after switching event
+	// types) so they don't linger in the URL.
+	const seenFilterKeys = new SvelteSet<FilterKey>();
+	$effect(() => {
+		for (const key of Object.keys(filters ?? {}) as FilterKey[]) seenFilterKeys.add(key);
+		for (const key of visibleFilterKeys) seenFilterKeys.add(key);
+	});
+
+	// Reset the other clearable selections when a controlling filter changes value.
+	function wipeOtherFilters(exceptKey: FilterKey) {
+		for (const key of Object.keys(filters ?? {}) as FilterKey[]) {
+			if (key === exceptKey || resetOnChangeKeys?.includes(key)) continue;
+			if (isFilterClearable && !isFilterClearable(key)) continue;
+			(filters as Partial<T>)[key] = null as T[FilterKey];
+		}
+	}
 
 	type FilterOptions = Record<FilterKey, FilterOption[]>;
 	let filtersOptions: FilterOptions = $state({} as FilterOptions);
 
 	type FilterInputs = Record<FilterKey, FilterInput>;
 	let filterInputs = $derived(
-		(Object.keys(filters ?? {}) as FilterKey[]).reduce((acc, filterId) => {
+		visibleFilterKeys.reduce((acc, filterId) => {
 			acc[filterId] = {
 				property: filterId,
 				label: getFilterDisplayLabel?.(filterId) ?? filterId.replace(/_(\w)/, ' $1'),
@@ -80,7 +115,11 @@
 					return filters?.[filterId] as string | number | null | undefined;
 				},
 				set selected(v) {
+					const changed =
+						resetOnChangeKeys?.includes(filterId) && (filters as Partial<T>)[filterId] !== v;
 					(filters as Partial<T>)[filterId] = v as T[typeof filterId];
+					// Switching a controlling filter (e.g. event_type) invalidates the other selections.
+					if (changed) wipeOtherFilters(filterId);
 					// Force Component to react
 					filters = { ...filters } as Partial<T>;
 				},
@@ -144,6 +183,16 @@
 
 	async function handleApplyFilters() {
 		const url = new URL(page.url);
+
+		// Drop params for filters that are no longer visible (e.g. source-specific filters left over
+		// after switching event types) so they don't linger in the URL and reappear later.
+		const visible = new Set(filterInputsAsArray.map((filterInput) => filterInput.property));
+		for (const key of seenFilterKeys) {
+			if (!visible.has(key)) {
+				url.searchParams.delete(key);
+			}
+		}
+
 		for (const filterInput of filterInputsAsArray) {
 			if (filterInput.selected) {
 				url.searchParams.set(filterInput.property, filterInput.selected.toString());

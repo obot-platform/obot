@@ -47,7 +47,6 @@ type MCPAuditLogFields struct {
 	ProcessingTimeMs          int64                                 `json:"processingTimeMs" gorm:"index"`
 	SessionID                 string                                `json:"sessionID,omitempty" gorm:"index"`
 	WebhookStatuses           datatypes.JSONSlice[MCPWebhookStatus] `json:"webhookStatuses,omitempty"`
-	ObotAuditCorrelationID    string                                `json:"obotAuditCorrelationID,omitempty" gorm:"column:obot_audit_correlation_id;index"`
 	ResponseReceived          bool                                  `json:"responseReceived"`
 
 	// Additional metadata
@@ -58,17 +57,26 @@ type MCPAuditLogFields struct {
 }
 
 type LocalAgentToolCallAuditLogFields struct {
-	AgentProvider string `json:"agentProvider" gorm:"index"`
-	AgentVersion  string `json:"agentVersion,omitempty" gorm:"index"`
-	CLIName       string `json:"cliName,omitempty"`
-	CLIVersion    string `json:"cliVersion" gorm:"index"`
+	OccurredAt time.Time  `json:"occurredAt" gorm:"index"`
+	StartedAt  *time.Time `json:"startedAt,omitempty" gorm:"index"`
 
-	Status      string     `json:"status" gorm:"index"`
-	FailureType string     `json:"failureType,omitempty" gorm:"index"`
-	ObservedAt  time.Time  `json:"observedAt" gorm:"index"`
-	StartedAt   *time.Time `json:"startedAt,omitempty" gorm:"index"`
-	DurationMs  int64      `json:"durationMs,omitempty" gorm:"index"`
-	Error       string     `json:"error,omitempty" gorm:"column:local_agent_error"`
+	// ActorType and ActorID are stamped from authenticated request context. They are never copied
+	// from the client-reported event.
+	ActorType types2.AuditLogActorType `json:"actorType" gorm:"index"`
+	ActorID   string                   `json:"actorID,omitempty" gorm:"index"`
+
+	ActionName string `json:"actionName" gorm:"index"`
+	ActionKind string `json:"actionKind,omitempty" gorm:"index"`
+
+	TargetType       types2.AuditLogTargetType `json:"targetType" gorm:"index"`
+	TargetName       string                    `json:"targetName" gorm:"index"`
+	TargetParentType types2.AuditLogTargetType `json:"targetParentType,omitempty" gorm:"index"`
+	TargetParentName string                    `json:"targetParentName,omitempty" gorm:"index"`
+
+	OutcomeStatus types2.AuditLogOutcomeStatus `json:"outcomeStatus" gorm:"index"`
+	OutcomeReason string                       `json:"outcomeReason,omitempty" gorm:"index"`
+	OutcomeError  string                       `json:"outcomeError,omitempty" gorm:"column:local_agent_error"`
+	DurationMs    int64                        `json:"durationMs,omitempty" gorm:"index"`
 
 	// IdempotencyKey deduplicates repeated submissions of the same completed audit entry.
 	IdempotencyKey string `json:"idempotencyKey" gorm:"uniqueIndex"`
@@ -78,42 +86,35 @@ type LocalAgentToolCallAuditLogFields struct {
 	// TurnID identifies the conversation turn that produced this tool call.
 	TurnID string `json:"turnID,omitempty" gorm:"index"`
 
-	ToolName string `json:"toolName" gorm:"index"`
-	ToolKind string `json:"toolKind,omitempty" gorm:"index"`
-	// MCPServerHint is the agent-reported server name before Obot resolves it.
-	MCPServerHint string `json:"mcpServerHint,omitempty" gorm:"index"`
-	// MCPToolName is the MCP tool name after parsing or resolving the local tool call.
-	MCPToolName string `json:"mcpToolName,omitempty" gorm:"index"`
+	AgentProvider  types2.LocalAgentProvider `json:"agentProvider" gorm:"index"`
+	AgentVersion   string                    `json:"agentVersion,omitempty" gorm:"index"`
+	CLIName        string                    `json:"cliName,omitempty"`
+	CLIVersion     string                    `json:"cliVersion" gorm:"index"`
+	Model          string                    `json:"model,omitempty" gorm:"index"`
+	ModelID        string                    `json:"modelID,omitempty" gorm:"index"`
+	PermissionMode string                    `json:"permissionMode,omitempty" gorm:"index"`
 
-	// ObotAuditCorrelationID is the client-provided key used to correlate with MCP audit logs.
-	ObotAuditCorrelationID string `json:"obotAuditCorrelationID,omitempty" gorm:"column:obot_audit_correlation_id;index"`
+	DeviceID           string `json:"deviceID,omitempty" gorm:"index"`
+	DeviceDeploymentID uint   `json:"deviceDeploymentID,omitempty" gorm:"index"`
+	Hostname           string `json:"hostname,omitempty"`
+	OS                 string `json:"os,omitempty" gorm:"index"`
+	Architecture       string `json:"architecture,omitempty" gorm:"index"`
+	LocalUsername      string `json:"localUsername,omitempty"`
 
-	Model          string `json:"model,omitempty" gorm:"index"`
-	ModelID        string `json:"modelID,omitempty" gorm:"index"`
-	PermissionMode string `json:"permissionMode,omitempty" gorm:"index"`
-
-	DeviceID          string `json:"deviceID,omitempty" gorm:"index"`
-	Hostname          string `json:"hostname,omitempty"`
-	OS                string `json:"os,omitempty" gorm:"index"`
-	Arch              string `json:"arch,omitempty" gorm:"index"`
-	LocalUsername     string `json:"localUsername,omitempty"`
-	ReportedUserEmail string `json:"reportedUserEmail,omitempty"`
-	// IdentityStatus records whether the reported user was authenticated, anonymous, or unresolved.
-	IdentityStatus string `json:"identityStatus" gorm:"index"`
-
-	CWD           string                      `json:"cwd,omitempty"`
-	GitRepoRoot   string                      `json:"gitRepoRoot,omitempty"`
-	GitRemoteURLs datatypes.JSONSlice[string] `json:"gitRemoteURLs,omitempty"`
-	GitBranch     string                      `json:"gitBranch,omitempty"`
-	GitCommitSHA  string                      `json:"gitCommitSHA,omitempty" gorm:"index"`
+	CWD               string                      `json:"cwd,omitempty"`
+	GitRoot           string                      `json:"gitRoot,omitempty"`
+	GitRemotes        datatypes.JSONSlice[string] `json:"gitRemotes,omitempty"`
+	GitBranch         string                      `json:"gitBranch,omitempty"`
+	GitCommit         string                      `json:"gitCommit,omitempty" gorm:"index"`
+	ReportedUserEmail string                      `json:"reportedUserEmail,omitempty"`
 
 	// TranscriptPath is the local path to the agent transcript, if the client reported one.
 	TranscriptPath string `json:"transcriptPath,omitempty"`
 
-	ToolInput  json.RawMessage `json:"toolInput,omitempty"`
-	ToolOutput json.RawMessage `json:"toolOutput,omitempty"`
-	// RawHookPayload preserves the original hook payload for debugging and future parsers.
-	RawHookPayload json.RawMessage `json:"rawHookPayload,omitempty"`
+	RequestBody  json.RawMessage `json:"requestBody,omitempty" gorm:"column:local_agent_request_body"`
+	ResponseBody json.RawMessage `json:"responseBody,omitempty" gorm:"column:local_agent_response_body"`
+	// RawEvent preserves the original hook payload for debugging and future parsers.
+	RawEvent json.RawMessage `json:"rawEvent,omitempty" gorm:"column:local_agent_raw_event"`
 }
 
 func (a *MCPAuditLog) NormalizeMCPFields() {
@@ -172,6 +173,10 @@ func (a *MCPAuditLog) ValidateSourceFields() error {
 	return nil
 }
 
+// maxOccurredAtFutureSkew is the largest amount a local-agent audit log's client-reported
+// occurredAt may exceed the server's current time before the submission is rejected.
+const maxOccurredAtFutureSkew = time.Hour
+
 func (a *MCPAuditLog) validateLocalAgentToolCallFields() error {
 	local := a.LocalAgentToolCallFields
 	if local == nil {
@@ -182,51 +187,89 @@ func (a *MCPAuditLog) validateLocalAgentToolCallFields() error {
 	if local.AgentProvider == "" {
 		missing = append(missing, "agentProvider")
 	}
-	if local.ObservedAt.IsZero() {
-		missing = append(missing, "observedAt")
+	if local.OccurredAt.IsZero() {
+		missing = append(missing, "occurredAt")
 	}
-	if local.ToolName == "" {
-		missing = append(missing, "toolName")
+	if local.ActionName == "" {
+		missing = append(missing, "action.name")
 	}
-	if isMissingRequiredJSONPayload(local.ToolInput) {
-		missing = append(missing, "toolInput")
+	if local.TargetName == "" {
+		missing = append(missing, "target.name")
 	}
-	if isMissingRequiredJSONPayload(local.ToolOutput) {
-		missing = append(missing, "toolOutput")
+	if isMissingRequiredJSONPayload(local.RequestBody) {
+		missing = append(missing, "details.request.body")
 	}
-	if local.Status == "" {
-		missing = append(missing, "status")
+	if isMissingRequiredJSONPayload(local.ResponseBody) {
+		missing = append(missing, "details.response.body")
+	}
+	if local.OutcomeStatus == "" {
+		missing = append(missing, "outcome.status")
 	}
 	if local.IdempotencyKey == "" {
 		missing = append(missing, "idempotencyKey")
 	}
-	if isMissingRequiredJSONPayload(local.RawHookPayload) {
-		missing = append(missing, "rawHookPayload")
+	if isMissingRequiredJSONPayload(local.RawEvent) {
+		missing = append(missing, "details.rawEvent")
 	}
 	if local.CLIVersion == "" {
 		missing = append(missing, "cliVersion")
 	}
-	if local.IdentityStatus == "" {
-		missing = append(missing, "identityStatus")
+	if local.ActorType == "" {
+		missing = append(missing, "actorType")
 	}
 
 	if len(missing) > 0 {
 		return errors.New("local agent audit fields missing required field(s): " + strings.Join(missing, ", "))
 	}
-	switch types2.LocalAgentAuditLogStatus(local.Status) {
-	case types2.LocalAgentAuditLogStatusSucceeded,
-		types2.LocalAgentAuditLogStatusFailed,
-		types2.LocalAgentAuditLogStatusDenied,
-		types2.LocalAgentAuditLogStatusTimeout:
-	default:
-		return errors.New("local agent audit status must be one of: succeeded, failed, denied, timeout")
+	// Client-reported occurredAt is used for ordering and filtering, so a far-future value
+	// could push real events out of typical time windows and undermine audit-log integrity.
+	// Allow a small amount of clock skew, but reject timestamps beyond it. Comparison is done
+	// in UTC so client and server time zones don't affect the result.
+	if local.OccurredAt.UTC().After(time.Now().UTC().Add(maxOccurredAtFutureSkew)) {
+		return errors.New("local agent audit occurredAt cannot be more than an hour in the future")
 	}
-	switch types2.LocalAgentIdentityStatus(local.IdentityStatus) {
-	case types2.LocalAgentIdentityStatusAuthenticatedUser,
-		types2.LocalAgentIdentityStatusAnonymousDevice,
-		types2.LocalAgentIdentityStatusUnresolved:
+	switch local.AgentProvider {
+	case types2.LocalAgentProviderClaudeCode,
+		types2.LocalAgentProviderCodex,
+		types2.LocalAgentProviderVSCode,
+		types2.LocalAgentProviderCursor:
 	default:
-		return errors.New("local agent identity status must be one of: authenticated_user, anonymous_device, unresolved")
+		return errors.New("local agent audit provider must be one of: claude_code, codex, vscode, cursor")
+	}
+	switch local.OutcomeStatus {
+	case types2.AuditLogOutcomeStatusSuccess,
+		types2.AuditLogOutcomeStatusFailure,
+		types2.AuditLogOutcomeStatusDenied,
+		types2.AuditLogOutcomeStatusTimeout:
+	default:
+		return errors.New("local agent audit outcome status must be one of: success, failure, denied, timeout")
+	}
+	switch local.ActorType {
+	case types2.AuditLogActorTypeUser, types2.AuditLogActorTypeDevice:
+		if local.ActorID == "" {
+			return errors.New("local agent audit actor ID is required for a user or device actor")
+		}
+	case types2.AuditLogActorTypeUnknown:
+		if local.ActorID != "" {
+			return errors.New("local agent audit actor ID must be empty for an unknown actor")
+		}
+	default:
+		return errors.New("local agent audit actor type must be one of: user, device, unknown")
+	}
+	switch local.TargetType {
+	case types2.AuditLogTargetTypeLocalTool:
+		if local.TargetParentType != "" || local.TargetParentName != "" {
+			return errors.New("local tool targets cannot have a parent")
+		}
+	case types2.AuditLogTargetTypeMCPTool:
+		if local.TargetParentType != "" && local.TargetParentType != types2.AuditLogTargetTypeMCPServer {
+			return errors.New("local agent MCP tool target parent must be an MCP server")
+		}
+		if (local.TargetParentType == "") != (local.TargetParentName == "") {
+			return errors.New("local agent MCP tool target parent type and name must be supplied together")
+		}
+	default:
+		return errors.New("local agent audit target type must be one of: local_tool, mcp_tool")
 	}
 	return nil
 }
@@ -239,8 +282,12 @@ func isZeroLocalAgentToolCallAuditLogFields(local *LocalAgentToolCallAuditLogFie
 	return local == nil || reflect.ValueOf(*local).IsZero()
 }
 
+// isMissingRequiredJSONPayload reports whether a required JSON payload field
+// was omitted. An explicit JSON null counts as present: terminal failure,
+// denial, timeout, and other no-output paths are expected to submit an explicit
+// empty or null value rather than omitting the field, so null must be accepted.
 func isMissingRequiredJSONPayload(payload json.RawMessage) bool {
-	return len(payload) == 0 || bytes.Equal(bytes.TrimSpace(payload), []byte("null"))
+	return len(bytes.TrimSpace(payload)) == 0
 }
 
 type MCPWebhookStatus struct {
@@ -299,137 +346,24 @@ type MCPPromptReadStats struct {
 	ReadCount  int64  `json:"readCount"`
 }
 
-// ConvertMCPAuditLog converts internal MCPAuditLog to API type
-func ConvertMCPAuditLog(a MCPAuditLog) types2.MCPAuditLog {
-	var (
-		mcpFields        *types2.MCPAuditLogFields
-		localAgentFields *types2.LocalAgentToolCallAuditLogFields
-	)
-
-	switch a.SourceType {
-	case types2.AuditLogSourceTypeMCP:
-		mcpFields = convertMCPAuditLogFields(a.MCP())
-	case types2.AuditLogSourceTypeLocalAgentToolCall:
-		localAgentFields = convertLocalAgentToolCallAuditLogFields(a.LocalAgentToolCallFields)
-	}
-
-	return types2.MCPAuditLog{
-		ID:                       a.ID,
-		CreatedAt:                *types2.NewTime(a.CreatedAt),
-		SourceType:               a.SourceType,
-		UserID:                   a.UserID,
-		ClientIP:                 a.ClientIP,
-		MCPFields:                mcpFields,
-		LocalAgentToolCallFields: localAgentFields,
-	}
-}
-
-func convertMCPAuditLogFields(mcp *MCPAuditLogFields) *types2.MCPAuditLogFields {
-	if mcp == nil {
-		return nil
-	}
-	webhookStatus := make([]types2.WebhookStatus, len(mcp.WebhookStatuses))
-	for i, ws := range mcp.WebhookStatuses {
-		webhookStatus[i] = types2.WebhookStatus{
-			Type:    ws.Type,
-			Method:  ws.Method,
-			URL:     ws.URL,
-			Name:    ws.Name,
-			Tool:    ws.Tool,
-			Status:  ws.Status,
-			Message: ws.Message,
-		}
-	}
-	return &types2.MCPAuditLogFields{
-		APIKey:                    mcp.APIKey,
-		MCPID:                     mcp.MCPID,
-		PowerUserWorkspaceID:      mcp.PowerUserWorkspaceID,
-		MCPServerDisplayName:      mcp.MCPServerDisplayName,
-		MCPServerCatalogEntryName: mcp.MCPServerCatalogEntryName,
-		ClientInfo: types2.ClientInfo{
-			Name:    mcp.ClientName,
-			Version: mcp.ClientVersion,
-		},
-		CallType:               mcp.CallType,
-		CallIdentifier:         mcp.CallIdentifier,
-		RequestMutated:         mcp.RequestMutated,
-		RequestBody:            mcp.RequestBody,
-		MutatedRequestBody:     mcp.MutatedRequestBody,
-		ResponseMutated:        mcp.ResponseMutated,
-		ResponseBody:           mcp.ResponseBody,
-		OriginalResponseBody:   mcp.OriginalResponseBody,
-		ResponseStatus:         mcp.ResponseStatus,
-		WebhookStatuses:        webhookStatus,
-		Error:                  mcp.Error,
-		ProcessingTimeMs:       mcp.ProcessingTimeMs,
-		SessionID:              mcp.SessionID,
-		ObotAuditCorrelationID: mcp.ObotAuditCorrelationID,
-		RequestID:              mcp.RequestID,
-		UserAgent:              mcp.UserAgent,
-		RequestHeaders:         mcp.RequestHeaders,
-		ResponseHeaders:        mcp.ResponseHeaders,
-	}
-}
-
-func convertLocalAgentToolCallAuditLogFields(local *LocalAgentToolCallAuditLogFields) *types2.LocalAgentToolCallAuditLogFields {
-	if local == nil {
-		return nil
-	}
-
-	var startedAt *types2.Time
-	if local.StartedAt != nil {
-		startedAt = types2.NewTime(*local.StartedAt)
-	}
-
-	return &types2.LocalAgentToolCallAuditLogFields{
-		LocalAgentToolCallAuditLogManifest: types2.LocalAgentToolCallAuditLogManifest{
-			AgentProvider:          types2.LocalAgentProvider(local.AgentProvider),
-			AgentVersion:           local.AgentVersion,
-			CLIName:                local.CLIName,
-			CLIVersion:             local.CLIVersion,
-			Status:                 types2.LocalAgentAuditLogStatus(local.Status),
-			FailureType:            local.FailureType,
-			ObservedAt:             *types2.NewTime(local.ObservedAt),
-			StartedAt:              startedAt,
-			DurationMs:             local.DurationMs,
-			Error:                  local.Error,
-			IdempotencyKey:         local.IdempotencyKey,
-			ToolUseID:              local.ToolUseID,
-			SessionID:              local.SessionID,
-			TurnID:                 local.TurnID,
-			ToolName:               local.ToolName,
-			ToolKind:               local.ToolKind,
-			MCPServerHint:          local.MCPServerHint,
-			MCPToolName:            local.MCPToolName,
-			ObotAuditCorrelationID: local.ObotAuditCorrelationID,
-			Model:                  local.Model,
-			ModelID:                local.ModelID,
-			PermissionMode:         local.PermissionMode,
-			DeviceID:               local.DeviceID,
-			Hostname:               local.Hostname,
-			OS:                     local.OS,
-			Arch:                   local.Arch,
-			LocalUsername:          local.LocalUsername,
-			ReportedUserEmail:      local.ReportedUserEmail,
-			CWD:                    local.CWD,
-			GitRepoRoot:            local.GitRepoRoot,
-			GitRemoteURLs:          []string(local.GitRemoteURLs),
-			GitBranch:              local.GitBranch,
-			GitCommitSHA:           local.GitCommitSHA,
-			TranscriptPath:         local.TranscriptPath,
-			ToolInput:              local.ToolInput,
-			ToolOutput:             local.ToolOutput,
-			RawHookPayload:         local.RawHookPayload,
-		},
-		IdentityStatus: types2.LocalAgentIdentityStatus(local.IdentityStatus),
-	}
-}
-
-func NewLocalAgentToolCallAuditLogFromManifest(manifest types2.LocalAgentToolCallAuditLogManifest, userID, clientIP string, identityStatus types2.LocalAgentIdentityStatus, createdAt time.Time) MCPAuditLog {
+func NewLocalAgentToolCallAuditLogFromInput(input types2.LocalAgentToolCallAuditLogInput, actorType types2.AuditLogActorType, actorID, clientIP string, deviceDeploymentID uint, createdAt time.Time) MCPAuditLog {
 	var startedAt *time.Time
-	if manifest.StartedAt != nil && !manifest.StartedAt.IsZero() {
-		t := manifest.StartedAt.GetTime()
+	if input.Details.StartedAt != nil && !input.Details.StartedAt.IsZero() {
+		t := input.Details.StartedAt.GetTime()
 		startedAt = &t
+	}
+	var targetParentType types2.AuditLogTargetType
+	var targetParentName string
+	if input.Target.Parent != nil {
+		targetParentType = input.Target.Parent.TargetType
+		targetParentName = input.Target.Parent.Name
+	}
+	var userID, deviceID string
+	if actorType == types2.AuditLogActorTypeUser {
+		userID = actorID
+	}
+	if actorType == types2.AuditLogActorTypeDevice {
+		deviceID = actorID
 	}
 
 	return MCPAuditLog{
@@ -438,44 +372,47 @@ func NewLocalAgentToolCallAuditLogFromManifest(manifest types2.LocalAgentToolCal
 		UserID:     userID,
 		ClientIP:   clientIP,
 		LocalAgentToolCallFields: &LocalAgentToolCallAuditLogFields{
-			AgentProvider:          string(manifest.AgentProvider),
-			AgentVersion:           manifest.AgentVersion,
-			CLIName:                manifest.CLIName,
-			CLIVersion:             manifest.CLIVersion,
-			Status:                 string(manifest.Status),
-			FailureType:            manifest.FailureType,
-			ObservedAt:             manifest.ObservedAt.GetTime(),
-			StartedAt:              startedAt,
-			DurationMs:             manifest.DurationMs,
-			Error:                  manifest.Error,
-			IdempotencyKey:         manifest.IdempotencyKey,
-			ToolUseID:              manifest.ToolUseID,
-			SessionID:              manifest.SessionID,
-			TurnID:                 manifest.TurnID,
-			ToolName:               manifest.ToolName,
-			ToolKind:               manifest.ToolKind,
-			MCPServerHint:          manifest.MCPServerHint,
-			MCPToolName:            manifest.MCPToolName,
-			ObotAuditCorrelationID: manifest.ObotAuditCorrelationID,
-			Model:                  manifest.Model,
-			ModelID:                manifest.ModelID,
-			PermissionMode:         manifest.PermissionMode,
-			DeviceID:               manifest.DeviceID,
-			Hostname:               manifest.Hostname,
-			OS:                     manifest.OS,
-			Arch:                   manifest.Arch,
-			LocalUsername:          manifest.LocalUsername,
-			ReportedUserEmail:      manifest.ReportedUserEmail,
-			IdentityStatus:         string(identityStatus),
-			CWD:                    manifest.CWD,
-			GitRepoRoot:            manifest.GitRepoRoot,
-			GitRemoteURLs:          datatypes.JSONSlice[string](manifest.GitRemoteURLs),
-			GitBranch:              manifest.GitBranch,
-			GitCommitSHA:           manifest.GitCommitSHA,
-			TranscriptPath:         manifest.TranscriptPath,
-			ToolInput:              manifest.ToolInput,
-			ToolOutput:             manifest.ToolOutput,
-			RawHookPayload:         manifest.RawHookPayload,
+			OccurredAt:         input.OccurredAt.GetTime(),
+			StartedAt:          startedAt,
+			ActorType:          actorType,
+			ActorID:            actorID,
+			ActionName:         input.Action.Name,
+			ActionKind:         input.Action.Kind,
+			TargetType:         input.Target.TargetType,
+			TargetName:         input.Target.Name,
+			TargetParentType:   targetParentType,
+			TargetParentName:   targetParentName,
+			OutcomeStatus:      input.Outcome.Status,
+			OutcomeReason:      input.Outcome.Reason,
+			OutcomeError:       input.Outcome.Error,
+			DurationMs:         input.Outcome.DurationMs,
+			IdempotencyKey:     input.Details.Trace.IdempotencyKey,
+			ToolUseID:          input.Details.Trace.ToolUseID,
+			SessionID:          input.Details.Trace.SessionID,
+			TurnID:             input.Details.Trace.TurnID,
+			AgentProvider:      input.Details.Agent.Provider,
+			AgentVersion:       input.Details.Agent.Version,
+			CLIName:            input.Details.Agent.CLIName,
+			CLIVersion:         input.Details.Agent.CLIVersion,
+			Model:              input.Details.Agent.Model,
+			ModelID:            input.Details.Agent.ModelID,
+			PermissionMode:     input.Details.Agent.PermissionMode,
+			DeviceID:           deviceID,
+			DeviceDeploymentID: deviceDeploymentID,
+			Hostname:           input.Details.Device.Hostname,
+			OS:                 input.Details.Device.OS,
+			Architecture:       input.Details.Device.Architecture,
+			LocalUsername:      input.Details.Device.LocalUsername,
+			CWD:                input.Details.Environment.CWD,
+			GitRoot:            input.Details.Environment.GitRoot,
+			GitRemotes:         datatypes.JSONSlice[string](input.Details.Environment.GitRemotes),
+			GitBranch:          input.Details.Environment.GitBranch,
+			GitCommit:          input.Details.Environment.GitCommit,
+			ReportedUserEmail:  input.Details.Environment.ReportedUserEmail,
+			TranscriptPath:     input.Details.Environment.TranscriptPath,
+			RequestBody:        input.Details.Request.Body,
+			ResponseBody:       input.Details.Response.Body,
+			RawEvent:           input.Details.RawEvent,
 		},
 	}
 }

@@ -6,7 +6,7 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		UserService,
-		type McpAuditLogURLFilters,
+		type AuditLogURLFilters,
 		type McpAuditLogUsageStats,
 		type OrgUser,
 		type UsageStatsFilters
@@ -58,7 +58,7 @@
 		'end_time'
 	];
 
-	const proxy = new Map<SupportedStateFilter, keyof McpAuditLogURLFilters>([
+	const proxy = new Map<SupportedStateFilter, keyof AuditLogURLFilters>([
 		['user_ids', 'user_id'],
 		['mcp_id', 'mcp_id'],
 		['mcp_server_display_names', 'mcp_server_display_name'],
@@ -698,7 +698,7 @@
 				!propsFiltersKeys.has(filterId) && !enforcedFiltersKeys.has(filterId)}
 			endpoint={async (filterId: string, ...args) => {
 				const proxyFilterId = proxy.get(filterId as SupportedStateFilter) ?? filterId;
-				return UserService.listMcpAuditLogFilterOptions(proxyFilterId, ...args);
+				return UserService.listAuditLogFilterOptions(proxyFilterId, ...args);
 			}}
 		/>
 	{/if}

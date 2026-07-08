@@ -7,9 +7,9 @@ import (
 )
 
 // SubmitLocalAgentAuditLogs posts completed local-agent tool-call audit logs.
-func (c *Client) SubmitLocalAgentAuditLogs(ctx context.Context, logs []types.LocalAgentToolCallAuditLogManifest) error {
+func (c *Client) SubmitLocalAgentAuditLogs(ctx context.Context, events []types.LocalAgentToolCallAuditLogInput) error {
 	_, resp, err := c.postJSON(ctx, "/local-agent-audit-logs", types.LocalAgentToolCallAuditLogSubmitRequest{
-		Logs: logs,
+		Events: events,
 	})
 	if err != nil {
 		return err

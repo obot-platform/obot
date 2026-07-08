@@ -1,13 +1,21 @@
 <script lang="ts">
 	import { VirtualPageTable } from '$lib/components/ui';
+	import type { AuditLogEvent } from '$lib/services';
 	import { mcpServersAndEntries, userDeviceSettings } from '$lib/stores';
 	import { formatLogTimestamp } from '$lib/time';
 	import { throttle } from '$lib/utils';
 	import { GripVertical } from '@lucide/svelte';
-	import { tick } from 'svelte';
+	import { tick, type Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
-	let { data = [], onSelectRow, emptyContent, getUserDisplayName } = $props();
+	interface Props {
+		data?: AuditLogEvent[];
+		onSelectRow?: (auditLog: AuditLogEvent) => void;
+		emptyContent?: Snippet;
+		getUserDisplayName: (userId: string, hasConflict?: () => boolean) => string;
+	}
+
+	let { data = [], onSelectRow, emptyContent, getUserDisplayName }: Props = $props();
 
 	let startX = 0;
 	let startWidth = 0;
@@ -42,6 +50,20 @@
 			].map((server) => [server.id, server.alias])
 		)
 	);
+
+	function actorLabel(actor: (typeof data)[number]['actor']) {
+		if (actor.actorType === 'user' && actor.id) return getUserDisplayName(actor.id);
+		return actor.id || (actor.actorType === 'unknown' ? 'Unknown' : actor.actorType);
+	}
+
+	function targetLabel(target: (typeof data)[number]['target']) {
+		// Only resolve an alias for server-level targets (which carry the server id in target.id).
+		// For MCP tool/resource/prompt events target.id is empty and target.parent.id is the server,
+		// so falling back to the parent id here would wrongly show the server alias instead of the
+		// tool/resource/prompt name (target.name).
+		const alias = target.id ? serverAliases.get(target.id) : undefined;
+		return alias || target.name || target.id || 'Unknown';
+	}
 </script>
 
 {#snippet thResizeHandler()}
@@ -135,25 +157,36 @@
 	</td>
 {/snippet}
 
-{#snippet mutationIndicators(requestMutated: boolean = false, responseMutated: boolean = false)}
+{#snippet twoLine(primary: string | number | undefined, secondary?: string | number)}
 	<td class="text-sm whitespace-nowrap">
 		<div class="box-content flex h-full px-6">
-			<div class="flex flex-1 items-center gap-1 py-4">
-				{#if requestMutated}
-					<span
-						class="rounded-full bg-orange-500/15 px-2 py-0.5 text-[11px] font-medium text-orange-600 dark:text-orange-400"
-						title="Request was mutated"
-					>
-						Req
-					</span>
+			<div class="flex min-w-0 flex-1 flex-col justify-center py-2 leading-tight">
+				<div class="truncate">{primary ?? '—'}</div>
+				{#if secondary !== undefined && secondary !== ''}
+					<div class="text-muted-content mt-1 truncate text-xs">{secondary}</div>
 				{/if}
-				{#if responseMutated}
-					<span
-						class="rounded-full bg-orange-500/15 px-2 py-0.5 text-[11px] font-medium text-orange-600 dark:text-orange-400"
-						title="Response was mutated"
-					>
-						Res
-					</span>
+			</div>
+			{@render tdResizeHandler()}
+		</div>
+	</td>
+{/snippet}
+
+{#snippet outcomeCell(outcome: (typeof data)[number]['outcome'])}
+	<td class="text-sm whitespace-nowrap">
+		<div class="box-content flex h-full px-6">
+			<div class="flex min-w-0 flex-1 flex-col justify-center py-2 leading-tight">
+				<span
+					class={twMerge(
+						'w-fit rounded-full px-2 py-0.5 text-xs font-medium capitalize',
+						outcome.status === 'success' && 'bg-success/15 text-success',
+						['failure', 'denied', 'timeout'].includes(outcome.status) && 'bg-error/15 text-error',
+						outcome.status === 'unknown' && 'bg-base-400 text-muted-content'
+					)}>{outcome.status}</span
+				>
+				{#if outcome.httpStatus || outcome.reason}
+					<div class="text-muted-content mt-1 truncate text-xs">
+						{outcome.httpStatus || outcome.reason}
+					</div>
 				{/if}
 			</div>
 			{@render tdResizeHandler()}
@@ -179,24 +212,12 @@
 						</th>
 
 						{@render th('Timestamp', { class: 'w-[34ch]', minWidth: '34ch' })}
-
-						{@render th('User', { class: 'w-[30ch]', minWidth: '30ch' })}
-
-						{@render th('Server', { class: 'w-[24ch]', minWidth: '24ch' })}
-
-						{@render th('Type', { class: 'w-[30ch]', minWidth: '30ch' })}
-
-						{@render th('Identifier', { class: 'w-[24ch]', minWidth: '24ch' })}
-
-						{@render th('Response Code', { class: 'w-[22ch]', minWidth: '22ch' })}
-
-						{@render th('Response Time (ms)', { class: 'w-[26ch]', minWidth: '26ch' })}
-
-						{@render th('Mutated', { class: 'w-[16ch]', minWidth: '16ch' })}
-
-						{@render th('Client', { class: 'w-[19ch]', minWidth: '19ch' })}
-
-						{@render th('IP Address', { class: 'w-[24ch]', minWidth: '24ch' })}
+						{@render th('Event Type', { class: 'w-[24ch]', minWidth: '24ch' })}
+						{@render th('Actor', { class: 'w-[28ch]', minWidth: '28ch' })}
+						{@render th('Action', { class: 'w-[30ch]', minWidth: '30ch' })}
+						{@render th('Target', { class: 'w-[30ch]', minWidth: '30ch' })}
+						{@render th('Outcome', { class: 'w-[18ch]', minWidth: '18ch' })}
+						{@render th('Duration (ms)', { class: 'w-[20ch]', minWidth: '20ch' })}
 					</tr>
 				</thead>
 			{/snippet}
@@ -204,7 +225,6 @@
 			{#snippet children({ items }: { items: { index: number; data: (typeof data)[0] }[] })}
 				{#each items as item (item.data.id)}
 					{@const d = item.data}
-					{@const mcp = d.mcpFields}
 
 					<tr
 						id={`mcp-audit-log-${item.index}`}
@@ -217,20 +237,18 @@
 						<td class="px-6 py-3">
 							{item.index + 1}
 						</td>
-						{@render td(formatLogTimestamp(d.createdAt, userDeviceSettings.timeFormat))}
-						{@render td(getUserDisplayName(d.userID))}
-						{@render td(
-							mcp?.mcpID
-								? serverAliases.get(mcp.mcpID) || mcp.mcpServerDisplayName
-								: mcp?.mcpServerDisplayName
+						{@render td(formatLogTimestamp(d.timestamp.occurredAt, userDeviceSettings.timeFormat))}
+						{@render td(d.eventType === 'mcp_call' ? 'MCP Call' : 'Local Agent Tool Call')}
+						{@render twoLine(actorLabel(d.actor), d.actor.actorType)}
+						{@render twoLine(
+							d.action.name || d.action.operation,
+							d.action.name
+								? [d.action.operation, d.action.kind].filter(Boolean).join(' · ')
+								: d.action.kind
 						)}
-						{@render td(mcp?.callType)}
-						{@render td(mcp?.callIdentifier)}
-						{@render td(mcp?.responseStatus)}
-						{@render td(mcp?.processingTimeMs)}
-						{@render mutationIndicators(mcp?.requestMutated, mcp?.responseMutated)}
-						{@render td(mcp?.client?.name)}
-						{@render td(d.clientIP)}
+						{@render twoLine(targetLabel(d.target), d.target.parent?.name || d.target.targetType)}
+						{@render outcomeCell(d.outcome)}
+						{@render td(d.outcome.durationMs)}
 					</tr>
 				{/each}
 			{/snippet}

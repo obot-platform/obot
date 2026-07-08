@@ -11,6 +11,7 @@ import (
 
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/auditlog"
 	"github.com/obot-platform/obot/pkg/auditlogexport"
 	client "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
@@ -20,11 +21,14 @@ import (
 
 const batchSize = 10_000
 
+// Handler reconciles AuditLogExport resources and streams normalized JSONL events to the
+// configured object-storage provider.
 type Handler struct {
 	gatewayClient *client.Client
 	credProvider  *auditlogexport.CredentialProvider
 }
 
+// NewHandler constructs an audit-log export controller handler backed by gatewayClient.
 func NewHandler(gatewayClient *client.Client) *Handler {
 	return &Handler{
 		gatewayClient: gatewayClient,
@@ -32,6 +36,8 @@ func NewHandler(gatewayClient *client.Client) *Handler {
 	}
 }
 
+// ExportAuditLogs reconciles one AuditLogExport resource. It marks pending exports as running,
+// streams their selected events, and records either the completed result or terminal failure.
 func (h *Handler) ExportAuditLogs(req router.Request, _ router.Response) error {
 	export := req.Object.(*v1.AuditLogExport)
 
@@ -49,7 +55,13 @@ func (h *Handler) ExportAuditLogs(req router.Request, _ router.Response) error {
 	var err error
 	switch export.Spec.EffectiveType() {
 	case types.AuditLogTypeMCP:
-		err = performExport(req.Ctx, h.credProvider, export, "mcp-audit-logs", h.fetchMCPAuditLogs, gatewaytypes.ConvertMCPAuditLog)
+		presentOptions := auditlog.PresentOptions{
+			IncludeDetails:  true,
+			PayloadRedacted: !export.Spec.WithRequestAndResponse,
+		}
+		err = performExport(req.Ctx, h.credProvider, export, "mcp-audit-logs", h.fetchMCPAuditLogs, func(log gatewaytypes.MCPAuditLog) types.AuditLogEvent {
+			return auditlog.Present(log, presentOptions)
+		})
 	case types.AuditLogTypeLLM:
 		err = performExport(req.Ctx, h.credProvider, export, "llm-audit-logs", h.fetchLLMAuditLogs, gatewaytypes.ConvertLLMAuditLog)
 	default:
@@ -89,6 +101,7 @@ func mcpAuditLogOptionsFromExport(export *v1.AuditLogExport, limit, offset int) 
 	return client.MCPAuditLogOptions{
 		StartTime:                 export.Spec.StartTime.Time,
 		EndTime:                   export.Spec.EndTime.Time,
+		SourceTypes:               auditlog.NormalizeSourceTypes(filters.SourceTypes),
 		UserID:                    filters.UserIDs,
 		MCPID:                     filters.MCPIDs,
 		MCPServerDisplayName:      filters.MCPServerDisplayNames,
@@ -100,6 +113,11 @@ func mcpAuditLogOptionsFromExport(export *v1.AuditLogExport, limit, offset int) 
 		ClientVersion:             filters.ClientVersions,
 		ResponseStatus:            filters.ResponseStatuses,
 		ClientIP:                  filters.ClientIPs,
+		AgentProvider:             filters.AgentProviders,
+		Status:                    filters.Statuses,
+		ToolName:                  filters.ToolNames,
+		ToolKind:                  filters.ToolKinds,
+		DeviceID:                  filters.DeviceIDs,
 		Query:                     filters.Query,
 		Limit:                     limit,
 		Offset:                    offset,

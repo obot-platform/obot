@@ -320,6 +320,9 @@ var (
 			// Clamp list results to SubmittedBy == req.User.GetUID()
 			"POST /api/devices/scans",
 			"GET /api/devices/scans",
+
+			// Credentials that can submit scans can also submit local agent tool call audit logs.
+			"POST /api/local-agent-audit-logs",
 		},
 
 		types.GroupDeviceEnroll: {

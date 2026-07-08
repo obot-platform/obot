@@ -3,6 +3,7 @@ package mcpgateway
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/url"
 	"slices"
@@ -16,6 +17,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/auditlog"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/mcp"
@@ -28,10 +30,13 @@ import (
 
 var log = logger.Package()
 
+// AuditLogHandler serves audit-log ingestion, normalized reads, filter options, and MCP usage
+// statistics. Read authorization is applied before rows are presented through pkg/auditlog.
 type AuditLogHandler struct {
 	gatewayClient *gateway.Client
 }
 
+// NewAuditLogHandler constructs an AuditLogHandler backed by gatewayClient.
 func NewAuditLogHandler(gatewayClient *gateway.Client) *AuditLogHandler {
 	return &AuditLogHandler{
 		gatewayClient: gatewayClient,
@@ -146,6 +151,11 @@ func parseAuditLogOpts(query url.Values) gateway.MCPAuditLogOptions {
 		ClientVersion:             parseMultiValueParam(query, "client_version"),
 		ResponseStatus:            parseMultiValueParam(query, "response_status"),
 		ClientIP:                  parseMultiValueParam(query, "client_ip"),
+		AgentProvider:             parseMultiValueParam(query, "agent_provider"),
+		Status:                    parseMultiValueParam(query, "status"),
+		ToolName:                  parseMultiValueParam(query, "tool_name"),
+		ToolKind:                  parseMultiValueParam(query, "tool_kind"),
+		DeviceID:                  parseMultiValueParam(query, "device_id"),
 		SortBy:                    query.Get("sort_by"),
 		SortOrder:                 query.Get("sort_order"),
 		Query:                     strings.TrimSpace(query.Get("query")),
@@ -188,6 +198,27 @@ func parseAuditLogOpts(query url.Values) gateway.MCPAuditLogOptions {
 	}
 
 	return opts
+}
+
+func parseAuditLogEventTypes(query url.Values) ([]types.AuditLogSourceType, error) {
+	if _, exists := query["source_type"]; exists {
+		return nil, types.NewErrBadRequest("source_type is not supported; use event_type")
+	}
+	requested := parseMultiValueParam(query, "event_type")
+	sources := make([]types.AuditLogSourceType, 0, len(requested))
+	for _, eventType := range requested {
+		var source types.AuditLogSourceType
+		switch types.AuditLogEventType(eventType) {
+		case types.AuditLogEventTypeMCPCall:
+			source = types.AuditLogSourceTypeMCP
+		case types.AuditLogEventTypeLocalAgentToolCall:
+			source = types.AuditLogSourceTypeLocalAgentToolCall
+		default:
+			return nil, types.NewErrBadRequest("invalid event_type: %s", eventType)
+		}
+		sources = append(sources, source)
+	}
+	return auditlog.NormalizeSourceTypes(sources), nil
 }
 
 // SubmitAuditLogs handles POST /api/mcp-audit-logs
@@ -271,6 +302,20 @@ func (h *AuditLogHandler) SubmitAuditLogs(req api.Context) error {
 	return nil
 }
 
+func authorizeAuditLogSources(req api.Context, sources []types.AuditLogSourceType) error {
+	if slices.Contains(sources, types.AuditLogSourceTypeLocalAgentToolCall) && !req.UserIsAdmin() && !req.UserIsAuditor() {
+		return types.NewErrForbidden("you do not have access to local agent tool call audit logs")
+	}
+	return nil
+}
+
+func validateAuditLogOptions(opts gateway.MCPAuditLogOptions) error {
+	if err := gateway.ValidateAuditLogOptions(opts, opts.SourceTypes); err != nil {
+		return types.NewErrBadRequest("invalid audit log filters: %v", err)
+	}
+	return nil
+}
+
 // ListAuditLogs handles GET /api/mcp-audit-logs and /api/mcp-audit-logs/{mcp_id}
 func (h *AuditLogHandler) ListAuditLogs(req api.Context) error {
 	query := req.URL.Query()
@@ -278,6 +323,14 @@ func (h *AuditLogHandler) ListAuditLogs(req api.Context) error {
 	// Any filters parsed here need to be available in the "filter options" API.
 	// In order for that to be the case, the map in the GetAuditLogFilterOptions method should be updated.
 	opts := parseAuditLogOpts(query)
+	sources, err := parseAuditLogEventTypes(query)
+	if err != nil {
+		return err
+	}
+	if err := authorizeAuditLogSources(req, sources); err != nil {
+		return err
+	}
+	opts.SourceTypes = sources
 	// Always exclude request/response bodies from list responses for performance.
 	opts.WithRequestAndResponse = false
 	// Default limit is 100; overridden by the parsed value if present.
@@ -285,7 +338,8 @@ func (h *AuditLogHandler) ListAuditLogs(req api.Context) error {
 		opts.Limit = 100
 	}
 
-	// Apply scope filtering based on user role
+	// Apply scope filtering based on user role. Non-privileged callers are limited to MCP logs
+	// for their own servers; local-agent visibility is restricted to admins and auditors above.
 	if !req.UserIsAdmin() && !req.UserIsAuditor() {
 		ownServerMCPIDs, err := getOwnServerMCPIDs(req)
 		if err != nil {
@@ -301,11 +355,11 @@ func (h *AuditLogHandler) ListAuditLogs(req api.Context) error {
 
 		// Return empty if no access scope
 		if len(opts.OwnServerMCPIDs) == 0 && len(opts.PowerUserWorkspaceID) == 0 {
-			return req.Write(types.MCPAuditLogResponse{
-				MCPAuditLogList: types.MCPAuditLogList{Items: []types.MCPAuditLog{}},
-				Total:           0,
-				Limit:           opts.Limit,
-				Offset:          opts.Offset,
+			return req.Write(types.AuditLogEventResponse{
+				AuditLogEventList: types.AuditLogEventList{Items: []types.AuditLogEvent{}},
+				Total:             0,
+				Limit:             opts.Limit,
+				Offset:            opts.Offset,
 			})
 		}
 	}
@@ -313,6 +367,9 @@ func (h *AuditLogHandler) ListAuditLogs(req api.Context) error {
 	// Handle path parameter for mcp_id (takes precedence over query parameter)
 	if pathMcpID := req.PathValue("mcp_id"); pathMcpID != "" {
 		opts.MCPID = []string{pathMcpID}
+	}
+	if err := validateAuditLogOptions(opts); err != nil {
+		return err
 	}
 
 	// Get audit logs
@@ -322,13 +379,13 @@ func (h *AuditLogHandler) ListAuditLogs(req api.Context) error {
 	}
 
 	// Convert to API types
-	result := make([]types.MCPAuditLog, 0, len(logs))
+	result := make([]types.AuditLogEvent, 0, len(logs))
 	for _, log := range logs {
-		result = append(result, gatewaytypes.ConvertMCPAuditLog(log))
+		result = append(result, auditlog.Present(log, auditlog.PresentOptions{}))
 	}
 
-	return req.Write(types.MCPAuditLogResponse{
-		MCPAuditLogList: types.MCPAuditLogList{
+	return req.Write(types.AuditLogEventResponse{
+		AuditLogEventList: types.AuditLogEventList{
 			Items: result,
 		},
 		Total:  total,
@@ -357,30 +414,41 @@ func (h *AuditLogHandler) GetAuditLog(req api.Context) error {
 		return err
 	}
 
-	canAccessFullPayload := req.UserIsAuditor()
-	if !req.UserIsAuditor() {
-		mcp := log.MCP()
-		ownServerMCPIDs, err := getOwnServerMCPIDs(req)
-		if err != nil {
-			return fmt.Errorf("failed to get own server MCPIDs: %w", err)
-		}
-
-		isOwnServer := mcp != nil && slices.Contains(ownServerMCPIDs, mcp.MCPID)
-
-		isInWorkspace := false
-		if req.UserIsPowerUser() && mcp != nil {
-			workspaceID := system.GetPowerUserWorkspaceID(req.User.GetUID())
-			isInWorkspace = mcp.PowerUserWorkspaceID == workspaceID
-		}
-
-		// Admins can see all logs.
-		// For non-admins, it needs to be in the workspace or be their own server to be viewable.
-		if !req.UserIsAdmin() && !isOwnServer && !isInWorkspace {
+	var canAccessFullPayload bool
+	if log.SourceType == types.AuditLogSourceTypeLocalAgentToolCall {
+		// Local-agent logs are visible only to admins and auditors. The MCP own-server/workspace
+		// scoping does not apply, so normal users (including power users) cannot view them.
+		if !req.UserIsAdmin() && !req.UserIsAuditor() {
 			return types.NewErrForbidden("you do not have access to this audit log")
 		}
+		// Only auditors may see the encrypted payload fields.
+		canAccessFullPayload = req.UserIsAuditor()
+	} else {
+		canAccessFullPayload = req.UserIsAuditor()
+		if !req.UserIsAuditor() {
+			mcp := log.MCP()
+			ownServerMCPIDs, err := getOwnServerMCPIDs(req)
+			if err != nil {
+				return fmt.Errorf("failed to get own server MCPIDs: %w", err)
+			}
 
-		// Full payload only for OWN servers (not workspace servers or catalog entry workspace servers)
-		canAccessFullPayload = isOwnServer
+			isOwnServer := mcp != nil && slices.Contains(ownServerMCPIDs, mcp.MCPID)
+
+			isInWorkspace := false
+			if req.UserIsPowerUser() && mcp != nil {
+				workspaceID := system.GetPowerUserWorkspaceID(req.User.GetUID())
+				isInWorkspace = mcp.PowerUserWorkspaceID == workspaceID
+			}
+
+			// Admins can see all logs.
+			// For non-admins, it needs to be in the workspace or be their own server to be viewable.
+			if !req.UserIsAdmin() && !isOwnServer && !isInWorkspace {
+				return types.NewErrForbidden("you do not have access to this audit log")
+			}
+
+			// Full payload only for OWN servers (not workspace servers or catalog entry workspace servers)
+			canAccessFullPayload = isOwnServer
+		}
 	}
 
 	// Re-fetch with full payload if authorized
@@ -392,12 +460,15 @@ func (h *AuditLogHandler) GetAuditLog(req api.Context) error {
 	}
 
 	// Convert to API type
-	result := gatewaytypes.ConvertMCPAuditLog(*log)
+	result := auditlog.Present(*log, auditlog.PresentOptions{
+		IncludeDetails:  true,
+		PayloadRedacted: !canAccessFullPayload,
+	})
 
 	return req.Write(result)
 }
 
-// filterOptions represent the values that a user can use to filter audit logs.
+// filterOptions represent the values that a user can use to filter MCP audit logs.
 // The values of this map represent the "zero" values that are excluded when looking for options in the database.
 // For example, "" for strings and 0 for numbers.
 var filterOptions = map[string]any{
@@ -414,6 +485,19 @@ var filterOptions = map[string]any{
 	"client_ip":                     "",
 }
 
+// localAgentFilterOptions are the filter columns available for local-agent tool-call audit logs.
+// As with filterOptions, values are the "zero" values excluded when scanning for options.
+var localAgentFilterOptions = map[string]any{
+	"user_id":        "",
+	"client_ip":      "",
+	"session_id":     "",
+	"agent_provider": "",
+	"status":         "",
+	"tool_name":      "",
+	"tool_kind":      "",
+	"device_id":      "",
+}
+
 // defaultFilterOptions will always be present of the given filter, regardless of what is in the database.
 var defaultFilterOptions = map[string][]string{
 	"call_type": {"prompts/list", "resources/read", "tools/list", "tools/call", "prompts/get", "resources/list"},
@@ -427,6 +511,22 @@ func (h *AuditLogHandler) ListAuditLogFilterOptions(req api.Context) error {
 
 	query := req.URL.Query()
 	opts := parseAuditLogOpts(query)
+	sources, err := parseAuditLogEventTypes(query)
+	if err != nil {
+		return err
+	}
+	if err := authorizeAuditLogSources(req, sources); err != nil {
+		return err
+	}
+	opts.SourceTypes = sources
+
+	if filter == "event_type" {
+		options := []string{string(types.AuditLogEventTypeMCPCall)}
+		if req.UserIsAdmin() || req.UserIsAuditor() {
+			options = append(options, string(types.AuditLogEventTypeLocalAgentToolCall))
+		}
+		return req.Write(map[string]any{"options": options})
+	}
 
 	// Apply scope filtering based on user role
 	if !req.UserIsAdmin() && !req.UserIsAuditor() {
@@ -450,9 +550,19 @@ func (h *AuditLogHandler) ListAuditLogFilterOptions(req api.Context) error {
 		}
 	}
 
-	exclude, ok := filterOptions[filter]
+	availableOptions := make(map[string]any, len(filterOptions)+len(localAgentFilterOptions))
+	if slices.Contains(sources, types.AuditLogSourceTypeMCP) {
+		maps.Copy(availableOptions, filterOptions)
+	}
+	if slices.Contains(sources, types.AuditLogSourceTypeLocalAgentToolCall) {
+		maps.Copy(availableOptions, localAgentFilterOptions)
+	}
+	exclude, ok := availableOptions[filter]
 	if !ok {
 		return types.NewErrBadRequest("invalid option: %s", filter)
+	}
+	if err := validateAuditLogOptions(opts); err != nil {
+		return err
 	}
 
 	options, err := req.GatewayClient.GetAuditLogFilterOptions(req.Context(), filter, opts, exclude)
@@ -622,4 +732,6 @@ func convertMCPAuditLog(auditLog *auditLogInput) {
 	}
 }
 
+// Close releases resources owned by the handler. AuditLogHandler currently owns no independent
+// resources, so Close is a no-op and exists to satisfy the surrounding handler lifecycle.
 func (h *AuditLogHandler) Close() {}

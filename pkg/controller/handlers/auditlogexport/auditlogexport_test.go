@@ -2,6 +2,7 @@ package auditlogexport
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"reflect"
@@ -10,8 +11,12 @@ import (
 	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/auditlog"
+	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	sservices "github.com/obot-platform/obot/pkg/storage/services"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -303,4 +308,238 @@ func TestGenerateExportPath(t *testing.T) {
 	if !strings.HasPrefix(withPrefix, "custom/prefix/daily-") || !strings.HasSuffix(withPrefix, ".jsonl") {
 		t.Fatalf("unexpected custom export path: %q", withPrefix)
 	}
+}
+
+func newExportTestGatewayClient(t *testing.T) *gatewayclient.Client {
+	t.Helper()
+
+	storageServices, err := sservices.New(sservices.Config{DSN: "sqlite://:memory:"})
+	if err != nil {
+		t.Fatalf("failed to create storage services: %v", err)
+	}
+
+	db, err := gatewaydb.New(storageServices.DB.DB, storageServices.DB.SQLDB, true)
+	if err != nil {
+		t.Fatalf("failed to create gateway db: %v", err)
+	}
+	if err := db.AutoMigrate(); err != nil {
+		t.Fatalf("failed to migrate gateway db: %v", err)
+	}
+
+	// Use a short persistence interval so LogMCPAuditEntry rows flush to the DB quickly.
+	c := gatewayclient.New(t.Context(), db, nil, nil, nil, nil, nil, 10*time.Millisecond, 10, 90, 90, true)
+	t.Cleanup(func() { _ = c.Close() })
+	return c
+}
+
+func exportWithFilters(filters types.AuditLogExportFilters, withPayload bool) *v1.AuditLogExport {
+	return &v1.AuditLogExport{
+		Spec: v1.AuditLogExportSpec{
+			StartTime:              metav1.NewTime(time.Now().Add(-24 * time.Hour)),
+			EndTime:                metav1.NewTime(time.Now().Add(24 * time.Hour)),
+			Filters:                &filters,
+			WithRequestAndResponse: withPayload,
+		},
+	}
+}
+
+func validLocalAgentManifest(occurredAt time.Time, idempotencyKey string) gatewaytypes.LocalAgentToolCallAuditLogFields {
+	return gatewaytypes.LocalAgentToolCallAuditLogFields{
+		OccurredAt:     occurredAt,
+		ActorType:      types.AuditLogActorTypeDevice,
+		ActorID:        "device-1",
+		ActionName:     "mcp__server__tool",
+		ActionKind:     "mcp",
+		TargetType:     types.AuditLogTargetTypeMCPTool,
+		TargetName:     "tool",
+		OutcomeStatus:  types.AuditLogOutcomeStatusSuccess,
+		AgentProvider:  types.LocalAgentProviderCodex,
+		CLIVersion:     "1.2.3",
+		IdempotencyKey: idempotencyKey,
+		DeviceID:       "device-1",
+		CWD:            "/Users/alice/project",
+		RequestBody:    json.RawMessage(`{"arg":true}`),
+		ResponseBody:   json.RawMessage(`{"ok":true}`),
+		RawEvent:       json.RawMessage(`{"native":true}`),
+	}
+}
+
+func formatPresentedAuditLogs(logs []gatewaytypes.MCPAuditLog, opts auditlog.PresentOptions) ([]byte, error) {
+	return formatLogs(logs, func(log gatewaytypes.MCPAuditLog) types.AuditLogEvent {
+		return auditlog.Present(log, opts)
+	})
+}
+
+// TestAuditLogOptionsDefaultsToMCPOnly proves an export with no SourceTypes filter keeps the
+// historical MCP-only default and does not opt into local-agent logs.
+func TestAuditLogOptionsDefaultsToMCPOnly(t *testing.T) {
+	opts := mcpAuditLogOptionsFromExport(exportWithFilters(types.AuditLogExportFilters{}, false), 100, 0)
+	if len(opts.SourceTypes) != 1 || opts.SourceTypes[0] != types.AuditLogSourceTypeMCP {
+		t.Fatalf("expected MCP source type, got %v", opts.SourceTypes)
+	}
+	if opts.WithRequestAndResponse {
+		t.Fatal("expected WithRequestAndResponse to be false for non-auditor export")
+	}
+}
+
+// TestAuditLogOptionsMapsLocalAgentFilters proves local-agent source type and filters are passed
+// through to the gateway query when a caller explicitly opts in.
+func TestAuditLogOptionsMapsLocalAgentFilters(t *testing.T) {
+	opts := mcpAuditLogOptionsFromExport(exportWithFilters(types.AuditLogExportFilters{
+		SourceTypes:    []types.AuditLogSourceType{types.AuditLogSourceTypeLocalAgentToolCall},
+		AgentProviders: []string{string(types.LocalAgentProviderClaudeCode)},
+		Statuses:       []string{string(types.AuditLogOutcomeStatusFailure)},
+		ToolNames:      []string{"mcp__server__tool"},
+		ToolKinds:      []string{"mcp"},
+		DeviceIDs:      []string{"device-1"},
+	}, true), 100, 0)
+
+	if len(opts.SourceTypes) != 1 || opts.SourceTypes[0] != types.AuditLogSourceTypeLocalAgentToolCall {
+		t.Fatalf("expected local-agent source type, got %v", opts.SourceTypes)
+	}
+	if len(opts.AgentProvider) != 1 || opts.AgentProvider[0] != string(types.LocalAgentProviderClaudeCode) {
+		t.Fatalf("expected agent provider filter to pass through, got %v", opts.AgentProvider)
+	}
+	if len(opts.Status) != 1 || len(opts.ToolName) != 1 || len(opts.ToolKind) != 1 || len(opts.DeviceID) != 1 {
+		t.Fatalf("expected local-agent filters to pass through, got %#v", opts)
+	}
+	if !opts.WithRequestAndResponse {
+		t.Fatal("expected WithRequestAndResponse to be true for auditor export")
+	}
+}
+
+// TestFormatLogsExportPayloadRequiresAuditor proves that only Auditor-role exports
+// (WithRequestAndResponse=true) include decrypted payload fields; otherwise sensitive fields are
+// blanked.
+func TestFormatLogsExportPayloadRequiresAuditor(t *testing.T) {
+	c := newExportTestGatewayClient(t)
+	ctx := t.Context()
+	now := time.Now().UTC()
+
+	local := validLocalAgentManifest(now, "payload-entry")
+	if err := c.InsertLocalAgentAuditLogs(ctx, []gatewaytypes.MCPAuditLog{{
+		CreatedAt:                now,
+		SourceType:               types.AuditLogSourceTypeLocalAgentToolCall,
+		UserID:                   "user-1",
+		LocalAgentToolCallFields: &local,
+	}}); err != nil {
+		t.Fatalf("insert local-agent audit log: %v", err)
+	}
+
+	assertPayload := func(withPayload bool, wantPayload bool) {
+		logs, _, err := c.GetMCPAuditLogs(ctx, mcpAuditLogOptionsFromExport(exportWithFilters(types.AuditLogExportFilters{
+			SourceTypes: []types.AuditLogSourceType{types.AuditLogSourceTypeLocalAgentToolCall},
+		}, withPayload), 100, 0))
+		if err != nil {
+			t.Fatalf("get local-agent audit logs (withPayload=%v): %v", withPayload, err)
+		}
+		data, err := formatPresentedAuditLogs(logs, auditlog.PresentOptions{
+			IncludeDetails:  true,
+			PayloadRedacted: !withPayload,
+		})
+		if err != nil {
+			t.Fatalf("format logs (withPayload=%v): %v", withPayload, err)
+		}
+		hasPayload := strings.Contains(string(data), `"arg":true`) &&
+			strings.Contains(string(data), `/Users/alice/project`)
+		if hasPayload != wantPayload {
+			t.Fatalf("withPayload=%v: expected hasPayload=%v, got %v (%s)", withPayload, wantPayload, hasPayload, data)
+		}
+	}
+
+	assertPayload(false, false)
+	assertPayload(true, true)
+}
+
+func TestExportAllSourcesIncludesBothMCPAndLocal(t *testing.T) {
+	c := newExportTestGatewayClient(t)
+	ctx := t.Context()
+	now := time.Now().UTC()
+
+	c.LogMCPAuditEntry(gatewaytypes.MCPAuditLog{
+		CreatedAt:  now,
+		SourceType: types.AuditLogSourceTypeMCP,
+		UserID:     "user-1",
+		MCPFields: &gatewaytypes.MCPAuditLogFields{
+			MCPID:    "mcp-1",
+			CallType: "tools/call",
+		},
+	})
+	waitForMCPAuditLog(t, c)
+
+	local := validLocalAgentManifest(now, "local-entry")
+	if err := c.InsertLocalAgentAuditLogs(ctx, []gatewaytypes.MCPAuditLog{{
+		CreatedAt:                now,
+		SourceType:               types.AuditLogSourceTypeLocalAgentToolCall,
+		UserID:                   "user-1",
+		LocalAgentToolCallFields: &local,
+	}}); err != nil {
+		t.Fatalf("insert local-agent audit log: %v", err)
+	}
+
+	export := exportWithFilters(types.AuditLogExportFilters{SourceTypes: []types.AuditLogSourceType{
+		types.AuditLogSourceTypeMCP,
+		types.AuditLogSourceTypeLocalAgentToolCall,
+	}}, true)
+
+	var (
+		mcpRows   int
+		localRows int
+	)
+	logs, _, err := c.GetMCPAuditLogs(ctx, mcpAuditLogOptionsFromExport(export, 100, 0))
+	if err != nil {
+		t.Fatalf("get mixed audit logs: %v", err)
+	}
+	data, err := formatPresentedAuditLogs(logs, auditlog.PresentOptions{IncludeDetails: true})
+	if err != nil {
+		t.Fatalf("format mixed logs: %v", err)
+	}
+	if strings.Contains(string(data), "mcpFields") || strings.Contains(string(data), "localAgentToolCallFields") {
+		t.Fatalf("legacy keys found in normalized export: %s", data)
+	}
+	for _, line := range splitNonEmptyLines(string(data)) {
+		var row types.AuditLogEvent
+		if err := json.Unmarshal([]byte(line), &row); err != nil {
+			t.Fatalf("unmarshal exported line: %v", err)
+		}
+		switch row.EventType {
+		case types.AuditLogEventTypeMCPCall:
+			mcpRows++
+		case types.AuditLogEventTypeLocalAgentToolCall:
+			localRows++
+		}
+	}
+
+	if mcpRows != 1 || localRows != 1 {
+		t.Fatalf("expected 1 MCP row and 1 local row in an all-sources export, got mcp=%d local=%d", mcpRows, localRows)
+	}
+}
+
+func splitNonEmptyLines(s string) []string {
+	var out []string
+	for line := range strings.SplitSeq(strings.TrimSpace(s), "\n") {
+		if strings.TrimSpace(line) != "" {
+			out = append(out, line)
+		}
+	}
+	return out
+}
+
+func waitForMCPAuditLog(t *testing.T, c *gatewayclient.Client) {
+	t.Helper()
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		logs, total, err := c.GetMCPAuditLogs(context.Background(), gatewayclient.MCPAuditLogOptions{
+			SourceTypes: []types.AuditLogSourceType{types.AuditLogSourceTypeMCP},
+			Limit:       1,
+		})
+		if err != nil {
+			t.Fatalf("list MCP audit logs: %v", err)
+		}
+		if total > 0 && len(logs) > 0 {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("timed out waiting for MCP audit log to persist")
 }

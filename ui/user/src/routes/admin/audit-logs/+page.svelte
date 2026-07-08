@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Layout from '$lib/components/Layout.svelte';
-	import McpAuditLogsPageContent from '$lib/components/admin/audit-logs/McpAuditLogsPageContent.svelte';
+	import AuditLogsPageContent from '$lib/components/admin/audit-logs/AuditLogsPageContent.svelte';
 	import VirtualPageRoot from '$lib/components/ui/virtual-page/virtual-page-viewport.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import type { Component } from 'svelte';
@@ -20,7 +20,7 @@
 >
 	<div class="flex-1" in:fade={{ duration }} out:fade={{ duration }}>
 		<div class="flex min-h-full flex-col gap-8 pb-8">
-			<McpAuditLogsPageContent />
+			<AuditLogsPageContent />
 		</div>
 	</div>
 </Layout>

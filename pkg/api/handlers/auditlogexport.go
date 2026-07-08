@@ -3,9 +3,11 @@ package handlers
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/auditlog"
 	"github.com/obot-platform/obot/pkg/auditlogexport"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -14,10 +16,13 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// AuditLogExportHandler manages immediate and scheduled audit-log export resources and validates
+// their source/filter combinations before they are persisted.
 type AuditLogExportHandler struct {
 	credProvider *auditlogexport.CredentialProvider
 }
 
+// NewAuditLogExportHandler constructs an AuditLogExportHandler backed by gatewayClient.
 func NewAuditLogExportHandler(gatewayClient *gateway.Client) *AuditLogExportHandler {
 	return &AuditLogExportHandler{
 		credProvider: auditlogexport.NewCredentialProvider(gatewayClient),
@@ -275,6 +280,9 @@ func (h *AuditLogExportHandler) UpdateScheduledAuditLogExport(req api.Context) e
 	if updateReq.Name != nil {
 		scheduledExport.Spec.Name = *updateReq.Name
 	}
+	if err := validateAuditLogExportFilters(scheduledExport.Spec.Filters); err != nil {
+		return types.NewErrBadRequest("validation failed: %v", err)
+	}
 
 	if err := req.Storage.Update(req.Context(), &scheduledExport); err != nil {
 		return err
@@ -438,13 +446,16 @@ func (h *AuditLogExportHandler) validateExportRequest(req *types.AuditLogExportC
 	if req.StartTime.GetTime().After(req.EndTime.GetTime()) {
 		return fmt.Errorf("start time must be before end time")
 	}
-	if exportType == types.AuditLogTypeLLM && req.Filters != nil {
-		return fmt.Errorf("filters can only be set for MCP audit log exports")
+	if exportType == types.AuditLogTypeLLM {
+		if req.Filters != nil {
+			return fmt.Errorf("filters can only be set for MCP audit log exports")
+		}
+		return nil
 	}
-	if exportType == types.AuditLogTypeMCP && req.LLMFilters != nil {
+	if req.LLMFilters != nil {
 		return fmt.Errorf("llmFilters can only be set for LLM audit log exports")
 	}
-	return nil
+	return validateAuditLogExportFilters(req.Filters)
 }
 
 func (h *AuditLogExportHandler) validateScheduledExportRequest(req *types.ScheduledAuditLogExportCreateRequest) error {
@@ -459,11 +470,50 @@ func (h *AuditLogExportHandler) validateScheduledExportRequest(req *types.Schedu
 	if req.Bucket == "" {
 		return fmt.Errorf("bucket is required")
 	}
-	if exportType == types.AuditLogTypeLLM && req.Filters != nil {
-		return fmt.Errorf("filters can only be set for MCP audit log exports")
+	if exportType == types.AuditLogTypeLLM {
+		if req.Filters != nil {
+			return fmt.Errorf("filters can only be set for MCP audit log exports")
+		}
+		return nil
 	}
-	if exportType == types.AuditLogTypeMCP && req.LLMFilters != nil {
+	if req.LLMFilters != nil {
 		return fmt.Errorf("llmFilters can only be set for LLM audit log exports")
+	}
+	return validateAuditLogExportFilters(req.Filters)
+}
+
+func validateAuditLogExportFilters(filters *types.AuditLogExportFilters) error {
+	if filters == nil {
+		return nil
+	}
+
+	sources := auditlog.NormalizeSourceTypes(filters.SourceTypes)
+	for _, source := range sources {
+		if source != types.AuditLogSourceTypeMCP && source != types.AuditLogSourceTypeLocalAgentToolCall {
+			return fmt.Errorf("invalid source type %q", source)
+		}
+	}
+	hasMCPFilters := len(filters.MCPIDs) > 0 || len(filters.MCPServerDisplayNames) > 0 ||
+		len(filters.MCPServerCatalogEntryNames) > 0 || len(filters.CallTypes) > 0 ||
+		len(filters.CallIdentifiers) > 0 || len(filters.ClientNames) > 0 ||
+		len(filters.ClientVersions) > 0 || len(filters.ResponseStatuses) > 0
+	hasLocalFilters := len(filters.AgentProviders) > 0 || len(filters.Statuses) > 0 ||
+		len(filters.ToolNames) > 0 || len(filters.ToolKinds) > 0 || len(filters.DeviceIDs) > 0
+	if hasMCPFilters && hasLocalFilters {
+		return fmt.Errorf("MCP and local-agent-specific filters cannot be combined")
+	}
+	// Source-specific filters narrow the query to a single source, so combining them with a
+	// multi-source selection would silently drop the other source's rows at execution time.
+	// The gateway query layer rejects this, so reject it here too rather than letting the
+	// export validate now and fail later when it runs.
+	if (hasMCPFilters || hasLocalFilters) && len(sources) > 1 {
+		return fmt.Errorf("source-specific filters require selecting a single audit log source")
+	}
+	if hasMCPFilters && !slices.Contains(sources, types.AuditLogSourceTypeMCP) {
+		return fmt.Errorf("MCP-specific filters require source type %q", types.AuditLogSourceTypeMCP)
+	}
+	if hasLocalFilters && !slices.Contains(sources, types.AuditLogSourceTypeLocalAgentToolCall) {
+		return fmt.Errorf("local-agent-specific filters require source type %q", types.AuditLogSourceTypeLocalAgentToolCall)
 	}
 	return nil
 }
