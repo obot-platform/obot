@@ -356,7 +356,12 @@
 	}
 
 	function split(value: string | null | undefined): string[] {
-		return value ? value.split(',').map((s) => s.trim()) : [];
+		return value
+			? value
+					.split(',')
+					.map((s) => s.trim())
+					.filter((s) => s.length > 0)
+			: [];
 	}
 
 	function splitNumbers(value: string | null | undefined): number[] {

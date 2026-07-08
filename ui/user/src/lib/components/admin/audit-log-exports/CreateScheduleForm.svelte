@@ -407,7 +407,12 @@
 			}
 
 			const split = (value: string | null | undefined): string[] =>
-				value ? value.split(',').map((s) => s.trim()) : [];
+				value
+					? value
+							.split(',')
+							.map((s) => s.trim())
+							.filter((s) => s.length > 0)
+					: [];
 			const splitNumbers = (value: string | null | undefined): number[] =>
 				split(value)
 					.map((s) => Number(s))
