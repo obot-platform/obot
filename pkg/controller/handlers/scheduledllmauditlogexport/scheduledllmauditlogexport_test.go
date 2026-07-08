@@ -55,18 +55,3 @@ func TestCreateExportFromSchedule(t *testing.T) {
 		t.Fatalf("unexpected sensitive/filter/count fields: export=%#v scheduled=%#v", got.Spec, scheduled.Status)
 	}
 }
-
-func TestCalculateNextRunTimeWithNilLastRunAt(t *testing.T) {
-	scheduled := &v1.ScheduledLLMAuditLogExport{
-		ObjectMeta: metav1.ObjectMeta{
-			CreationTimestamp: metav1.NewTime(time.Date(2026, 7, 1, 10, 0, 0, 0, time.UTC)),
-		},
-		Spec: v1.ScheduledLLMAuditLogExportSpec{
-			Schedule: v1.Schedule{Interval: "hourly", Minute: 30, TimeZone: "UTC"},
-		},
-	}
-
-	if _, err := calculateNextRunTime(scheduled); err != nil {
-		t.Fatal(err)
-	}
-}

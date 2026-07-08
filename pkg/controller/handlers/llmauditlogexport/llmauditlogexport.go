@@ -2,15 +2,14 @@ package llmauditlogexport
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
-	"strings"
 	"time"
 
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/auditlogexport"
+	"github.com/obot-platform/obot/pkg/controller/handlers/auditlogexportcommon"
 	client "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -63,15 +62,16 @@ func (h *Handler) performExport(ctx context.Context, export *v1.LLMAuditLogExpor
 	}
 
 	var provider types.StorageProviderType
-	if storageConfig.S3Config != nil {
+	switch {
+	case storageConfig.S3Config != nil:
 		provider = types.StorageProviderS3
-	} else if storageConfig.GCSConfig != nil {
+	case storageConfig.GCSConfig != nil:
 		provider = types.StorageProviderGCS
-	} else if storageConfig.AzureConfig != nil {
+	case storageConfig.AzureConfig != nil:
 		provider = types.StorageProviderAzureBlob
-	} else if storageConfig.CustomS3Config != nil {
+	case storageConfig.CustomS3Config != nil:
 		provider = types.StorageProviderCustomS3
-	} else {
+	default:
 		return fmt.Errorf("invalid storage config, no storage provider found")
 	}
 
@@ -81,7 +81,7 @@ func (h *Handler) performExport(ctx context.Context, export *v1.LLMAuditLogExpor
 	}
 
 	export.Status.StorageProvider = provider
-	exportPath := generateExportPath(export)
+	exportPath := auditlogexportcommon.GenerateExportPath(export.Spec.Name, export.Spec.KeyPrefix, "llm-audit-logs")
 	exportSize, err := h.streamingExport(ctx, export, storageProvider, exportPath)
 	if err != nil {
 		return fmt.Errorf("failed to perform streaming export: %w", err)
@@ -130,7 +130,7 @@ func (h *Handler) streamingExport(ctx context.Context, export *v1.LLMAuditLogExp
 			break
 		}
 
-		batchData, err := formatLogs(logs)
+		batchData, err := auditlogexportcommon.FormatLogs(logs, gatewaytypes.ConvertLLMAuditLog)
 		if err != nil {
 			return 0, fmt.Errorf("failed to format logs batch %d: %w", batchNumber, err)
 		}
@@ -171,33 +171,4 @@ func llmAuditLogOptionsFromExport(export *v1.LLMAuditLogExport, limit, offset in
 		SortBy:              "created_at",
 		SortOrder:           "asc",
 	}
-}
-
-func formatLogs(logs []gatewaytypes.LLMAuditLog) ([]byte, error) {
-	lines := make([]string, 0, len(logs))
-	for _, log := range logs {
-		jsonBytes, err := json.Marshal(gatewaytypes.ConvertLLMAuditLog(log))
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal log entry: %w", err)
-		}
-		lines = append(lines, string(jsonBytes))
-	}
-	result := strings.Join(lines, "\n")
-	if len(lines) > 0 {
-		result += "\n"
-	}
-	return []byte(result), nil
-}
-
-func generateExportPath(export *v1.LLMAuditLogExport) string {
-	now := time.Now()
-	filename := fmt.Sprintf("%s-%s.jsonl", export.Spec.Name, now.Format(time.RFC3339))
-	keyPrefix := export.Spec.KeyPrefix
-	if keyPrefix == "" {
-		keyPrefix = fmt.Sprintf("llm-audit-logs/%04d/%02d/%02d", now.Year(), now.Month(), now.Day())
-	}
-	if keyPrefix != "" && !strings.HasSuffix(keyPrefix, "/") {
-		keyPrefix += "/"
-	}
-	return keyPrefix + filename
 }

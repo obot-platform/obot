@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/adhocore/gronx"
 	"github.com/obot-platform/nah/pkg/router"
+	"github.com/obot-platform/obot/pkg/controller/handlers/auditlogexportcommon"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -23,7 +23,7 @@ func (h *Handler) ScheduleExports(req router.Request, resp router.Response) erro
 		return nil
 	}
 
-	next, err := calculateNextRunTime(scheduledExport)
+	next, err := auditlogexportcommon.CalculateNextRunTime(scheduledExport.Spec.Schedule, scheduledExport.Status.LastRunAt, scheduledExport.CreationTimestamp)
 	if err != nil {
 		return fmt.Errorf("failed to calculate next run time: %w", err)
 	}
@@ -69,50 +69,4 @@ func (h *Handler) createExportFromSchedule(req router.Request, scheduledExport *
 	}
 	scheduledExport.Status.TotalExportsCreated++
 	return nil
-}
-
-func getScheduleAndTimezone(scheduledExport *v1.ScheduledLLMAuditLogExport) (string, string) {
-	schedule := ""
-	switch scheduledExport.Spec.Schedule.Interval {
-	case "hourly":
-		schedule = fmt.Sprintf("%d * * * *", scheduledExport.Spec.Schedule.Minute)
-	case "daily":
-		schedule = fmt.Sprintf("%d %d * * *", scheduledExport.Spec.Schedule.Minute, scheduledExport.Spec.Schedule.Hour)
-	case "weekly":
-		schedule = fmt.Sprintf("%d %d * * %d", scheduledExport.Spec.Schedule.Minute, scheduledExport.Spec.Schedule.Hour, scheduledExport.Spec.Schedule.Weekday)
-	case "monthly":
-		if scheduledExport.Spec.Schedule.Day < 0 {
-			schedule = fmt.Sprintf("%d %d L * *", scheduledExport.Spec.Schedule.Minute, scheduledExport.Spec.Schedule.Hour)
-		} else if scheduledExport.Spec.Schedule.Day == 0 {
-			schedule = fmt.Sprintf("%d %d 1 * *", scheduledExport.Spec.Schedule.Minute, scheduledExport.Spec.Schedule.Hour)
-		} else {
-			schedule = fmt.Sprintf("%d %d %d * *", scheduledExport.Spec.Schedule.Minute, scheduledExport.Spec.Schedule.Hour, scheduledExport.Spec.Schedule.Day)
-		}
-	}
-	return schedule, scheduledExport.Spec.Schedule.TimeZone
-}
-
-func calculateNextRunTime(scheduledExport *v1.ScheduledLLMAuditLogExport) (time.Time, error) {
-	lastRun := scheduledExport.Status.LastRunAt
-	if lastRun.IsZero() {
-		lastRun = &metav1.Time{Time: scheduledExport.CreationTimestamp.Time}
-	}
-
-	schedule, timezone := getScheduleAndTimezone(scheduledExport)
-	var location *time.Location
-	if timezone != "" {
-		loc, err := time.LoadLocation(timezone)
-		if err == nil {
-			location = loc
-		}
-	}
-	if location != nil {
-		lastRun = &metav1.Time{Time: lastRun.In(location)}
-	}
-
-	next, err := gronx.NextTickAfter(schedule, lastRun.Time, false)
-	if err != nil {
-		return time.Time{}, fmt.Errorf("failed to parse schedule: %w", err)
-	}
-	return next, nil
 }

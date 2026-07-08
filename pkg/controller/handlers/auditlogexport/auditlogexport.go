@@ -2,15 +2,14 @@ package auditlogexport
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
-	"strings"
 	"time"
 
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/auditlogexport"
+	"github.com/obot-platform/obot/pkg/controller/handlers/auditlogexportcommon"
 	client "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -87,8 +86,7 @@ func (h *Handler) performExport(ctx context.Context, export *v1.AuditLogExport) 
 
 	export.Status.StorageProvider = provider
 
-	// Generate export path
-	exportPath := h.generateExportPath(export)
+	exportPath := auditlogexportcommon.GenerateExportPath(export.Spec.Name, export.Spec.KeyPrefix, "mcp-audit-logs")
 
 	// Use streaming export with batching
 	exportSize, err := h.streamingExport(ctx, export, storageProvider, exportPath)
@@ -165,7 +163,7 @@ func (h *Handler) streamingExport(ctx context.Context, export *v1.AuditLogExport
 		}
 
 		// Convert logs to the desired format
-		batchData, err := h.formatLogs(logs)
+		batchData, err := auditlogexportcommon.FormatLogs(logs, gatewaytypes.ConvertMCPAuditLog)
 		if err != nil {
 			return 0, fmt.Errorf("failed to format logs batch %d: %w", batchNumber, err)
 		}
@@ -190,46 +188,4 @@ func (h *Handler) streamingExport(ctx context.Context, export *v1.AuditLogExport
 	}
 
 	return totalSize, nil
-}
-
-func (h *Handler) formatLogs(logs []gatewaytypes.MCPAuditLog) ([]byte, error) {
-	lines := make([]string, 0, len(logs))
-
-	// Convert each log to a JSON line
-	for _, log := range logs {
-		apiLog := gatewaytypes.ConvertMCPAuditLog(log)
-		jsonBytes, err := json.Marshal(apiLog)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal log entry: %w", err)
-		}
-		lines = append(lines, string(jsonBytes))
-	}
-
-	// Join with newlines and add a final newline
-	result := strings.Join(lines, "\n")
-	if len(lines) > 0 {
-		result += "\n"
-	}
-
-	return []byte(result), nil
-}
-
-func (h *Handler) generateExportPath(export *v1.AuditLogExport) string {
-	now := time.Now()
-	timestamp := now.Format(time.RFC3339)
-	filename := fmt.Sprintf("%s-%s.jsonl", export.Spec.Name, timestamp)
-
-	// Use keyPrefix if provided, otherwise use default date-based prefix
-	keyPrefix := export.Spec.KeyPrefix
-	if keyPrefix == "" {
-		// Generate default prefix with year/month/day
-		keyPrefix = fmt.Sprintf("mcp-audit-logs/%04d/%02d/%02d", now.Year(), now.Month(), now.Day())
-	}
-
-	// Ensure keyPrefix ends with / if it's not empty
-	if keyPrefix != "" && !strings.HasSuffix(keyPrefix, "/") {
-		keyPrefix += "/"
-	}
-
-	return keyPrefix + filename
 }

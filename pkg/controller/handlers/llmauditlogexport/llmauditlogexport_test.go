@@ -2,7 +2,6 @@ package llmauditlogexport
 
 import (
 	"reflect"
-	"strings"
 	"testing"
 	"time"
 
@@ -11,32 +10,6 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-func TestFormatLogsWritesJSONLines(t *testing.T) {
-	data, err := formatLogs([]gatewaytypes.LLMAuditLog{
-		{
-			ID:             "log-1",
-			CreatedAt:      time.Date(2026, 7, 2, 1, 2, 3, 0, time.UTC),
-			UserID:         "user-1",
-			TargetModel:    "gpt-4o",
-			ResponseStatus: 200,
-			Outcome:        gatewaytypes.LLMAuditOutcomeSuccess,
-		},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	line := string(data)
-	if !strings.HasSuffix(line, "\n") {
-		t.Fatalf("expected trailing newline, got %q", line)
-	}
-	for _, want := range []string{`"id":"log-1"`, `"userID":"user-1"`, `"targetModel":"gpt-4o"`, `"responseStatus":200`} {
-		if !strings.Contains(line, want) {
-			t.Fatalf("expected %q in %s", want, line)
-		}
-	}
-}
 
 func TestLLMAuditLogOptionsFromExport(t *testing.T) {
 	start := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
