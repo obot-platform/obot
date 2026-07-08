@@ -1054,13 +1054,13 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 		l.lock.Unlock()
 	}
 
+	if handled, err := l.backend.proxyModelsList(req, l, modelProvider, nil); handled || err != nil {
+		return err
+	}
+
 	credEnv, err := dispatcher.CredentialEnvForModelProvider(req.Context(), req.GatewayClient, *modelProvider)
 	if err != nil {
 		return fmt.Errorf("failed to get credential environment for model provider: %w", err)
-	}
-
-	if handled, err := l.backend.proxyModelsList(req, l, modelProvider, credEnv); handled || err != nil {
-		return err
 	}
 
 	body, err := copyBody(&req.Request.Body)

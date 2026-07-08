@@ -214,6 +214,59 @@ func TestGetUserAllowedTargetModels(t *testing.T) {
 	}
 }
 
+func TestGetUserAccessibleProviderModels(t *testing.T) {
+	const (
+		provider = "amazon-bedrock-model-provider"
+		userID   = "u1"
+	)
+
+	userPolicy := func(modelIDs ...string) *v1.ModelAccessPolicy {
+		models := make([]types2.ModelResource, 0, len(modelIDs))
+		for _, id := range modelIDs {
+			models = append(models, types2.ModelResource{ID: id})
+		}
+		return &v1.ModelAccessPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: "p-user", Namespace: "default"},
+			Spec: v1.ModelAccessPolicySpec{Manifest: types2.ModelAccessPolicyManifest{
+				Subjects: []types2.Subject{{Type: types2.SubjectTypeUser, ID: userID}},
+				Models:   models,
+			}},
+		}
+	}
+
+	wildcardPolicy := &v1.ModelAccessPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "p-wildcard", Namespace: "default"},
+		Spec: v1.ModelAccessPolicySpec{Manifest: types2.ModelAccessPolicyManifest{
+			Subjects: []types2.Subject{{Type: types2.SubjectTypeSelector, ID: "*"}},
+			Models:   []types2.ModelResource{{ID: "*"}},
+		}},
+	}
+
+	models := []*v1.Model{
+		newModel("m1-openai", provider, "openai.gpt-5.5", true),
+		newModel("m1-anthropic", provider, "anthropic.claude-sonnet-4-6", true),
+		newModel("m1-inactive", provider, "google.gemini-2.5-pro", false),
+		newModel("m1-other-provider", "other-provider", "openai.gpt-5.5", true),
+	}
+
+	t.Run("filters to models user can access", func(t *testing.T) {
+		h := newModelHelper(t, models, userPolicy("m1-openai"))
+		got, err := h.GetUserAccessibleProviderModels(&kuser.DefaultInfo{Name: userID, UID: userID}, provider)
+		require.NoError(t, err)
+		require.Len(t, got, 1)
+		assert.Equal(t, "openai.gpt-5.5", got[0].Spec.Manifest.TargetModel)
+	})
+
+	t.Run("wildcard returns all active provider models sorted by target", func(t *testing.T) {
+		h := newModelHelper(t, models, wildcardPolicy)
+		got, err := h.GetUserAccessibleProviderModels(&kuser.DefaultInfo{Name: userID, UID: userID}, provider)
+		require.NoError(t, err)
+		require.Len(t, got, 2)
+		assert.Equal(t, "anthropic.claude-sonnet-4-6", got[0].Spec.Manifest.TargetModel)
+		assert.Equal(t, "openai.gpt-5.5", got[1].Spec.Manifest.TargetModel)
+	})
+}
+
 func TestUserHasAccessToModelWithWildcardSuffix(t *testing.T) {
 	const userID = "u1"
 

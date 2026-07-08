@@ -392,7 +392,7 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 type resolvedLLMModel struct {
 	Name            string               // Kubernetes Model resource name
 	ModelProvider   string               // e.g. "openai-model-provider", "anthropic-model-provider"
-	ProviderDialect nanobottypes.Dialect // from ProviderMeta.Dialect; empty if not declared
+	ProviderDialect nanobottypes.Dialect // from resolved model manifest dialect or ProviderMeta.Dialect; empty if not declared
 }
 
 // nanobotLLMProvider describes how a single LLM provider should be configured in nanobot's YAML.
@@ -427,12 +427,20 @@ func (h *Handler) parseModelProvider(model resolvedLLMModel) (nanobotLLMProvider
 		}
 	}
 
-	var baseURL string
+	baseURL := h.serverURL + "/api/llm-proxy"
+
+	switch model.ModelProvider {
+	case system.AmazonBedrockModelProvider:
+		baseURL += "/aws-bedrock"
+	case system.AmazonBedrockAPIKeyModelProvider:
+		baseURL += "/aws-bedrock-api-key"
+	}
+
 	switch dialect {
 	case nanobottypes.DialectAnthropicMessages:
-		baseURL = h.serverURL + "/api/llm-proxy/anthropic"
+		baseURL += "/anthropic/v1"
 	case nanobottypes.DialectOpenAIResponses:
-		baseURL = h.serverURL + "/api/llm-proxy/openai"
+		baseURL += "/openai/v1"
 	case nanobottypes.DialectBifrostRequest:
 		fallthrough // same as default
 	default:

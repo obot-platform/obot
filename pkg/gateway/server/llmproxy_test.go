@@ -639,21 +639,6 @@ func TestIsBedrockModelsListRequest(t *testing.T) {
 	}
 }
 
-func TestBedrockModelsListTransformRequest(t *testing.T) {
-	director := bedrockModelsListTransformRequest("us-east-1")
-	for _, path := range []string{"v1/models", "anthropic/v1/models", "openai/v1/models"} {
-		t.Run(path, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodGet, "http://gateway.local/", nil)
-			req.SetPathValue("path", path)
-			director(req)
-
-			if got := req.URL.String(); got != "https://bedrock-mantle.us-east-1.api.aws/v1/models" {
-				t.Fatalf("URL = %q, want Bedrock models URL", got)
-			}
-		})
-	}
-}
-
 func TestBedrockStaticAuthFromCredential(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -747,10 +732,13 @@ func TestBedrockSignGetRequest(t *testing.T) {
 }
 
 func TestBedrockMantleTransformAndSign(t *testing.T) {
-	base := bedrockBaseURL("us-east-1", "us.anthropic.claude-sonnet-4-6")
+	base, err := bedrockBaseURL("us-east-1", "anthropic.claude-sonnet-4-6")
+	if err != nil {
+		t.Fatal(err)
+	}
 	director := llmTransformRequest(base)
 
-	req := httptest.NewRequest(http.MethodPost, "http://gateway.local/", strings.NewReader(`{"model":"us.anthropic.claude-sonnet-4-6"}`))
+	req := httptest.NewRequest(http.MethodPost, "http://gateway.local/", strings.NewReader(`{"model":"anthropic.claude-sonnet-4-6"}`))
 	req.SetPathValue("path", "v1/messages")
 	req.Header.Set("Authorization", "Bearer client-token")
 	req.Header.Set("X-Forwarded-For", "::1")
@@ -759,12 +747,22 @@ func TestBedrockMantleTransformAndSign(t *testing.T) {
 	if got := req.URL.String(); got != "https://bedrock-mantle.us-east-1.api.aws/anthropic/v1/messages" {
 		t.Fatalf("URL = %q, want Bedrock Mantle messages URL", got)
 	}
-	openAIBase := bedrockBaseURL("us-east-1", "openai.gpt-5.5")
+	openAIBase, err := bedrockBaseURL("us-east-1", "openai.gpt-5.5")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if got := openAIBase.String(); got != "https://bedrock-mantle.us-east-1.api.aws/openai/v1" {
 		t.Fatalf("OpenAI URL = %q, want Bedrock OpenAI URL", got)
 	}
+	googleBase, err := bedrockBaseURL("us-east-1", "google.gemini-2.5-pro")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := googleBase.String(); got != "https://bedrock-mantle.us-east-1.api.aws/openai/v1" {
+		t.Fatalf("Google URL = %q, want Bedrock OpenAI-compatible URL", got)
+	}
 
-	err := signBedrockRequest(req, bedrockStaticAuth{
+	err = signBedrockRequest(req, bedrockStaticAuth{
 		region:          "us-east-1",
 		accessKeyID:     "AKIDEXAMPLE",
 		secretAccessKey: "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY",

@@ -515,6 +515,7 @@ func BackPopulateModels(ctx context.Context, client kclient.Client, dispatcher *
 		if displayName == "" {
 			displayName = model.ID
 		}
+		dialect := modelDialect(model.Metadata, modelProvider.Spec.Dialect)
 		models = append(models, &v1.Model{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: modelProvider.Namespace,
@@ -531,7 +532,7 @@ func BackPopulateModels(ctx context.Context, client kclient.Client, dispatcher *
 					ModelProvider: modelProvider.Name,
 					Active:        true,
 					Usage:         types.ModelUsage(model.Metadata["usage"]),
-					Dialect:       modelProvider.Spec.Dialect,
+					Dialect:       dialect,
 				},
 			},
 		})
@@ -543,6 +544,13 @@ func BackPopulateModels(ctx context.Context, client kclient.Client, dispatcher *
 	log.Infof("Back-populated models for model provider: provider=%s models=%d", modelProvider.Name, len(models))
 
 	return nil
+}
+
+func modelDialect(metadata map[string]string, fallback string) string {
+	if dialect := metadata["dialect"]; dialect != "" {
+		return dialect
+	}
+	return fallback
 }
 
 func removeModelsForProvider(ctx context.Context, c kclient.Client, namespace, name string) error {

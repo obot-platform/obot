@@ -118,8 +118,8 @@ func TestNanobotParseModelProviderDeclaredDialectDrivesURL(t *testing.T) {
 		dialect     nanobottypes.Dialect
 		wantBaseURL string
 	}{
-		{nanobottypes.DialectAnthropicMessages, "https://obot.example.com/api/llm-proxy/anthropic"},
-		{nanobottypes.DialectOpenAIResponses, "https://obot.example.com/api/llm-proxy/openai"},
+		{nanobottypes.DialectAnthropicMessages, "https://obot.example.com/api/llm-proxy/anthropic/v1"},
+		{nanobottypes.DialectOpenAIResponses, "https://obot.example.com/api/llm-proxy/openai/v1"},
 		{nanobottypes.DialectOpenAIChatCompletions, "https://obot.example.com/api/llm-proxy"},
 		{nanobottypes.DialectOpenResponses, "https://obot.example.com/api/llm-proxy"},
 		{nanobottypes.DialectBifrostRequest, "https://obot.example.com/api/llm-proxy"},
@@ -147,8 +147,8 @@ func TestNanobotParseModelProviderBuiltinFallbacks(t *testing.T) {
 		wantDialect   nanobottypes.Dialect
 		wantBaseURL   string
 	}{
-		{system.OpenAIModelProvider, nanobottypes.DialectOpenAIResponses, "https://obot.example.com/api/llm-proxy/openai"},
-		{system.AnthropicModelProvider, nanobottypes.DialectAnthropicMessages, "https://obot.example.com/api/llm-proxy/anthropic"},
+		{system.OpenAIModelProvider, nanobottypes.DialectOpenAIResponses, "https://obot.example.com/api/llm-proxy/openai/v1"},
+		{system.AnthropicModelProvider, nanobottypes.DialectAnthropicMessages, "https://obot.example.com/api/llm-proxy/anthropic/v1"},
 		{"unknown-model-provider", nanobottypes.DialectOpenResponses, "https://obot.example.com/api/llm-proxy"},
 	} {
 		model := resolvedLLMModel{Name: "my-model", ModelProvider: tc.modelProvider}
@@ -166,12 +166,67 @@ func TestNanobotParseModelProviderBuiltinFallbacks(t *testing.T) {
 	}
 }
 
+func TestNanobotParseModelProviderBedrockRoutes(t *testing.T) {
+	h := &Handler{serverURL: "https://obot.example.com"}
+
+	for _, tc := range []struct {
+		name          string
+		modelProvider string
+		dialect       nanobottypes.Dialect
+		wantBaseURL   string
+	}{
+		{
+			name:          "static bedrock anthropic",
+			modelProvider: "amazon-bedrock-model-provider",
+			dialect:       nanobottypes.DialectAnthropicMessages,
+			wantBaseURL:   "https://obot.example.com/api/llm-proxy/aws-bedrock/anthropic/v1",
+		},
+		{
+			name:          "static bedrock openai",
+			modelProvider: "amazon-bedrock-model-provider",
+			dialect:       nanobottypes.DialectOpenAIResponses,
+			wantBaseURL:   "https://obot.example.com/api/llm-proxy/aws-bedrock/openai/v1",
+		},
+		{
+			name:          "api key bedrock anthropic",
+			modelProvider: "amazon-bedrock-api-key-model-provider",
+			dialect:       nanobottypes.DialectAnthropicMessages,
+			wantBaseURL:   "https://obot.example.com/api/llm-proxy/aws-bedrock-api-key/anthropic/v1",
+		},
+		{
+			name:          "api key bedrock openai",
+			modelProvider: "amazon-bedrock-api-key-model-provider",
+			dialect:       nanobottypes.DialectOpenAIResponses,
+			wantBaseURL:   "https://obot.example.com/api/llm-proxy/aws-bedrock-api-key/openai/v1",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			model := resolvedLLMModel{
+				Name:            "m1-bedrock-model",
+				ModelProvider:   tc.modelProvider,
+				ProviderDialect: tc.dialect,
+			}
+			p, qualifiedName := h.parseModelProvider(model)
+			if p.BaseURL != tc.wantBaseURL {
+				t.Fatalf("BaseURL = %q, want %q", p.BaseURL, tc.wantBaseURL)
+			}
+			if p.Dialect != tc.dialect {
+				t.Fatalf("Dialect = %q, want %q", p.Dialect, tc.dialect)
+			}
+			wantQualifiedName := tc.modelProvider + "/m1-bedrock-model"
+			if qualifiedName != wantQualifiedName {
+				t.Fatalf("qualifiedName = %q, want %q", qualifiedName, wantQualifiedName)
+			}
+		})
+	}
+}
+
 func TestBuildNanobotProviderConfigYAMLSingleProvider(t *testing.T) {
 	p := nanobotLLMProvider{
 		Name:    "openai-model-provider",
 		Dialect: nanobottypes.DialectOpenAIResponses,
 		APIKey:  "${OPENAI_MODEL_PROVIDER_API_KEY}",
-		BaseURL: "https://obot.example.com/api/llm-proxy/openai",
+		BaseURL: "https://obot.example.com/api/llm-proxy/openai/v1",
 	}
 
 	yaml, err := buildNanobotProviderConfigYAML(p)
@@ -201,13 +256,13 @@ func TestBuildNanobotProviderConfigYAMLMultipleProviders(t *testing.T) {
 		Name:    "openai-model-provider",
 		Dialect: nanobottypes.DialectOpenAIResponses,
 		APIKey:  "${OPENAI_MODEL_PROVIDER_API_KEY}",
-		BaseURL: "https://obot.example.com/api/llm-proxy/openai",
+		BaseURL: "https://obot.example.com/api/llm-proxy/openai/v1",
 	}
 	anthropic := nanobotLLMProvider{
 		Name:    "anthropic-model-provider",
 		Dialect: nanobottypes.DialectAnthropicMessages,
 		APIKey:  "${ANTHROPIC_MODEL_PROVIDER_API_KEY}",
-		BaseURL: "https://obot.example.com/api/llm-proxy/anthropic",
+		BaseURL: "https://obot.example.com/api/llm-proxy/anthropic/v1",
 	}
 
 	yaml, err := buildNanobotProviderConfigYAML(openai, anthropic)
@@ -236,7 +291,7 @@ func TestBuildNanobotProviderConfigYAMLDeduplicates(t *testing.T) {
 		Name:    "openai-model-provider",
 		Dialect: nanobottypes.DialectOpenAIResponses,
 		APIKey:  "${OPENAI_MODEL_PROVIDER_API_KEY}",
-		BaseURL: "https://obot.example.com/api/llm-proxy/openai",
+		BaseURL: "https://obot.example.com/api/llm-proxy/openai/v1",
 	}
 
 	yaml, err := buildNanobotProviderConfigYAML(p, p) // same provider twice

@@ -1,40 +1,27 @@
 package server
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/http/httputil"
 	"net/url"
-	"slices"
 	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	v4signer "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
-	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
-	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	kuser "k8s.io/apiserver/pkg/authentication/user"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
 	amazonBedrockModelProvider       = "amazon-bedrock-model-provider"
 	amazonBedrockAPIKeyModelProvider = "amazon-bedrock-api-key-model-provider"
 )
-
-var bedrockOpenAIModels = map[string]bool{
-	"openai.gpt-5.4": true,
-	"openai.gpt-5.5": true,
-}
 
 const (
 	bedrockAccessKeyIDEnv     = "OBOT_AMAZON_BEDROCK_MODEL_PROVIDER_ACCESS_KEY_ID"
@@ -85,30 +72,24 @@ func (b bedrockMantleProviderBackend) prepare(req api.Context, l *llmProviderPro
 		return nil, fmt.Errorf("missing model in body")
 	}
 
-	var err error
-	model := &v1.Model{}
-	if isBedrockOpenAIModel(modelStr) {
-		model.Name = modelStr
-		model.Spec.Manifest.ModelProvider = modelProvider.Name
-		model.Spec.Manifest.TargetModel = modelStr
-		model.Spec.Manifest.Dialect = string(nanobottypes.DialectOpenAIResponses)
-	} else {
-		model, err = getBedrockModelFromReference(req.Context(), req.Storage, req.Namespace(), modelProvider.Name, modelStr)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get model: %w", err)
-		}
-		if model.Spec.Manifest.ModelProvider != modelProvider.Name {
-			return nil, types2.NewErrBadRequest("requested model does not use provider %q", modelProvider.Name)
-		}
-		hasAccess, err := l.mapHelper.UserHasAccessToModel(req.User, model.Name)
-		if err != nil {
-			return nil, fmt.Errorf("failed to check model permission: %w", err)
-		}
-		if !hasAccess {
-			return nil, types2.NewErrForbidden("user does not have permission to use model %q", modelStr)
-		}
+	model, err := getModelFromReference(req.Context(), req.Storage, modelProvider.Namespace, modelStr)
+	if apierrors.IsNotFound(err) {
+		model, err = l.mapHelper.ResolveTargetModel(modelProvider.Name, modelStr)
 	}
-	targetModel := bedrockMantleModelName(model.Spec.Manifest.TargetModel)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get model: %w", err)
+	}
+	if model.Spec.Manifest.ModelProvider != modelProvider.Name {
+		return nil, types2.NewErrBadRequest("requested model does not use provider %q", modelProvider.Name)
+	}
+	hasAccess, err := l.mapHelper.UserHasAccessToModel(req.User, model.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check model permission: %w", err)
+	}
+	if !hasAccess {
+		return nil, types2.NewErrForbidden("user does not have permission to use model %q", modelStr)
+	}
+	targetModel := model.Spec.Manifest.TargetModel
 
 	bodyMap["model"] = targetModel
 	body, err = json.Marshal(bodyMap)
@@ -125,13 +106,13 @@ func (b bedrockMantleProviderBackend) prepare(req api.Context, l *llmProviderPro
 
 func (b bedrockMantleProviderBackend) upstreamURL(prepared *preparedLLMProxyRequest, credEnv map[string]string) (url.URL, error) {
 	if b.apiKey {
-		return bedrockBaseURL(bedrockAPIKeyRegionFromCredential(credEnv), prepared.model), nil
+		return bedrockBaseURL(bedrockAPIKeyRegionFromCredential(credEnv), prepared.model)
 	}
 	auth, err := bedrockStaticAuthFromCredential(credEnv)
 	if err != nil {
 		return url.URL{}, err
 	}
-	return bedrockBaseURL(auth.region, prepared.model), nil
+	return bedrockBaseURL(auth.region, prepared.model)
 }
 
 func (b bedrockMantleProviderBackend) transport(_ v1.ModelProvider, credEnv map[string]string) (http.RoundTripper, error) {
@@ -149,103 +130,28 @@ func (b bedrockMantleProviderBackend) transport(_ v1.ModelProvider, credEnv map[
 	return bedrockSigV4Transport{auth: auth, next: http.DefaultTransport}, nil
 }
 
-func (b bedrockMantleProviderBackend) proxyModelsList(req api.Context, l *llmProviderProxy, _ *v1.ModelProvider, credEnv map[string]string) (bool, error) {
+func (b bedrockMantleProviderBackend) proxyModelsList(req api.Context, l *llmProviderProxy, _ *v1.ModelProvider, _ map[string]string) (bool, error) {
 	if !isBedrockModelsListRequest(req.Request) {
 		return false, nil
 	}
-	var transport http.RoundTripper
-	region := bedrockAPIKeyRegionFromCredential(credEnv)
-	if b.apiKey {
-		key := credEnv[bedrockAPIKeyEnv]
-		if key == "" {
-			return true, fmt.Errorf("missing %s for Amazon Bedrock API key model provider", bedrockAPIKeyEnv)
-		}
-		transport = bedrockAPIKeyTransport{key: key, next: http.DefaultTransport}
-	} else {
-		auth, err := bedrockStaticAuthFromCredential(credEnv)
-		if err != nil {
-			return true, err
-		}
-		region = auth.region
-		transport = bedrockSigV4Transport{auth: auth, next: http.DefaultTransport}
-	}
-	(&httputil.ReverseProxy{
-		Director:  bedrockModelsListTransformRequest(region),
-		Transport: transport,
-		ModifyResponse: func(resp *http.Response) error {
-			return filterBedrockModelListResponse(resp, l.mapHelper, req.User, b.modelProviderName())
-		},
-	}).ServeHTTP(req.ResponseWriter, req.Request)
-	return true, nil
-}
 
-func getBedrockModelFromReference(ctx context.Context, client kclient.Client, namespace, providerName, modelReference string) (*v1.Model, error) {
-	m, err := getModelFromReference(ctx, client, namespace, modelReference)
-	if err == nil || !apierrors.IsNotFound(err) {
-		return m, err
+	models, err := l.mapHelper.GetUserAccessibleProviderModels(req.User, b.modelProviderName())
+	if err != nil {
+		return true, fmt.Errorf("failed to determine accessible models: %w", err)
 	}
 
-	var models v1.ModelList
-	if err := client.List(ctx, &models, &kclient.ListOptions{Namespace: namespace}); err != nil {
-		return nil, fmt.Errorf("failed to list models: %w", err)
-	}
-	for _, model := range models.Items {
-		if model.Spec.Manifest.ModelProvider == providerName && model.Spec.Manifest.Active && slices.Contains(bedrockModelNames(model.Spec.Manifest.TargetModel), modelReference) {
-			return &model, nil
-		}
+	data := make([]map[string]string, 0, len(models))
+	for _, model := range models {
+		data = append(data, map[string]string{
+			"id":     model.Spec.Manifest.TargetModel,
+			"object": "model",
+		})
 	}
 
-	return nil, apierrors.NewNotFound(schema.GroupResource{Group: v1.SchemeGroupVersion.Group, Resource: "model"}, modelReference)
-}
-
-func bedrockModelNames(model string) []string {
-	seen := map[string]bool{model: true}
-	if isBedrockOpenAIModel(model) {
-		return []string{model}
-	}
-	if mantleName := bedrockMantleModelName(model); strings.HasPrefix(mantleName, "anthropic.") {
-		seen[mantleName] = true
-		for _, prefix := range []string{"us.", "eu.", "apac.", "us-gov."} {
-			seen[prefix+mantleName] = true
-		}
-	}
-	names := make([]string, 0, len(seen))
-	for name := range seen {
-		names = append(names, name)
-	}
-	return names
-}
-
-func bedrockMantleModelName(model string) string {
-	if isBedrockOpenAIModel(model) {
-		return model
-	}
-	model = strings.TrimPrefix(model, "us.")
-	model = strings.TrimPrefix(model, "eu.")
-	model = strings.TrimPrefix(model, "apac.")
-	model = strings.TrimPrefix(model, "us-gov.")
-	if i := strings.LastIndex(model, "-"); i > 0 && strings.HasSuffix(model, ":0") {
-		version := model[i+1:]
-		if strings.HasPrefix(version, "v") {
-			model = model[:i]
-		}
-	}
-	if i := strings.LastIndex(model, "-"); i > 0 && isYYYYMMDD(model[i+1:]) {
-		model = model[:i]
-	}
-	return model
-}
-
-func isYYYYMMDD(s string) bool {
-	if len(s) != 8 {
-		return false
-	}
-	for _, r := range s {
-		if r < '0' || r > '9' {
-			return false
-		}
-	}
-	return true
+	return true, req.Write(map[string]any{
+		"object": "list",
+		"data":   data,
+	})
 }
 
 type bedrockStaticAuth struct {
@@ -301,60 +207,21 @@ func (b bedrockAPIKeyTransport) RoundTrip(req *http.Request) (*http.Response, er
 	return next.RoundTrip(req)
 }
 
-func bedrockBaseURL(region, model string) url.URL {
-	api := "anthropic"
-	if isBedrockOpenAIModel(model) {
+func bedrockBaseURL(region, model string) (url.URL, error) {
+	api := ""
+	switch {
+	case strings.HasPrefix(model, "anthropic."):
+		api = "anthropic"
+	case strings.HasPrefix(model, "openai."), strings.HasPrefix(model, "google."):
 		api = "openai"
+	default:
+		return url.URL{}, types2.NewErrBadRequest("unsupported Bedrock model %q", model)
 	}
 	return url.URL{
 		Scheme: "https",
 		Host:   fmt.Sprintf("bedrock-mantle.%s.api.aws", region),
 		Path:   fmt.Sprintf("/%s/v1", api),
-	}
-}
-
-func bedrockModelsListTransformRequest(region string) func(req *http.Request) {
-	u := url.URL{
-		Scheme: "https",
-		Host:   fmt.Sprintf("bedrock-mantle.%s.api.aws", region),
-		Path:   "/v1/models",
-	}
-	return func(req *http.Request) {
-		reqURL := u
-		req.URL = &reqURL
-		req.Host = reqURL.Host
-		req.Header.Del("Accept-Encoding")
-		req.Header.Del(internalRequestTypeHeader)
-	}
-}
-
-func isBedrockOpenAIModel(model string) bool {
-	return bedrockOpenAIModels[model]
-}
-
-func filterBedrockModelListResponse(resp *http.Response, mapHelper *modelaccesspolicy.Helper, user kuser.Info, providerName string) error {
-	if resp.StatusCode >= http.StatusBadRequest {
-		return nil
-	}
-
-	allowedTargetModels, allowAllModels, err := mapHelper.GetUserAllowedTargetModels(user, providerName)
-	if err != nil {
-		return fmt.Errorf("failed to determine accessible models: %w", err)
-	}
-	if allowAllModels {
-		return nil
-	}
-
-	allowed := make(map[string]bool, len(allowedTargetModels)*3)
-	for model := range allowedTargetModels {
-		for _, name := range bedrockModelNames(model) {
-			allowed[name] = true
-		}
-	}
-	for model := range bedrockOpenAIModels {
-		allowed[model] = true
-	}
-	return filterModelListResponse(resp, allowed, false)
+	}, nil
 }
 
 type bedrockSigV4Transport struct {
