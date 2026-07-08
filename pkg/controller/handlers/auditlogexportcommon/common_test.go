@@ -1,13 +1,37 @@
 package auditlogexportcommon
 
 import (
+	"context"
+	"io"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+type testStorageProvider struct {
+	bucket string
+	key    string
+	data   string
+}
+
+func (t *testStorageProvider) Test(context.Context, types.StorageConfig) error {
+	return nil
+}
+
+func (t *testStorageProvider) Upload(_ context.Context, _ types.StorageConfig, bucket, key string, data io.Reader) error {
+	b, err := io.ReadAll(data)
+	if err != nil {
+		return err
+	}
+	t.bucket = bucket
+	t.key = key
+	t.data = string(b)
+	return nil
+}
 
 func TestFormatLogsWritesJSONLines(t *testing.T) {
 	type logEntry struct {
@@ -15,7 +39,7 @@ func TestFormatLogsWritesJSONLines(t *testing.T) {
 		Status int
 	}
 
-	data, err := FormatLogs([]logEntry{{ID: "log-1", Status: 200}}, func(log logEntry) map[string]any {
+	data, err := formatLogs([]logEntry{{ID: "log-1", Status: 200}}, func(log logEntry) map[string]any {
 		return map[string]any{
 			"id":     log.ID,
 			"status": log.Status,
@@ -36,13 +60,52 @@ func TestFormatLogsWritesJSONLines(t *testing.T) {
 	}
 }
 
+func TestStreamingExportFetchesFormatsAndUploadsBatches(t *testing.T) {
+	storage := &testStorageProvider{}
+	var calls []int
+
+	size, err := streamingExport(t.Context(), types.StorageConfig{}, storage, "bucket", "prefix/export.jsonl", func(limit, offset int) ([]int, error) {
+		if limit != batchSize {
+			t.Fatalf("expected batch size %d, got %d", batchSize, limit)
+		}
+		calls = append(calls, offset)
+		switch offset {
+		case 0:
+			return []int{1, 2}, nil
+		case 2:
+			return []int{3}, nil
+		case 3:
+			return nil, nil
+		default:
+			t.Fatalf("unexpected offset %d", offset)
+			return nil, nil
+		}
+	}, func(v int) map[string]int {
+		return map[string]int{"value": v}
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	wantData := "{\"value\":1}\n{\"value\":2}\n{\"value\":3}\n"
+	if storage.bucket != "bucket" || storage.key != "prefix/export.jsonl" || storage.data != wantData {
+		t.Fatalf("unexpected upload: bucket=%q key=%q data=%q", storage.bucket, storage.key, storage.data)
+	}
+	if size != int64(len(wantData)) {
+		t.Fatalf("expected size %d, got %d", len(wantData), size)
+	}
+	if len(calls) != 3 || calls[0] != 0 || calls[1] != 2 || calls[2] != 3 {
+		t.Fatalf("unexpected offsets: %v", calls)
+	}
+}
+
 func TestGenerateExportPath(t *testing.T) {
-	withDefault := GenerateExportPath("daily", "", "llm-audit-logs")
+	withDefault := generateExportPath("daily", "", "llm-audit-logs")
 	if !strings.HasPrefix(withDefault, "llm-audit-logs/") || !strings.HasSuffix(withDefault, ".jsonl") || !strings.Contains(withDefault, "/daily-") {
 		t.Fatalf("unexpected default export path: %q", withDefault)
 	}
 
-	withPrefix := GenerateExportPath("daily", "custom/prefix", "llm-audit-logs")
+	withPrefix := generateExportPath("daily", "custom/prefix", "llm-audit-logs")
 	if !strings.HasPrefix(withPrefix, "custom/prefix/daily-") || !strings.HasSuffix(withPrefix, ".jsonl") {
 		t.Fatalf("unexpected custom export path: %q", withPrefix)
 	}
@@ -65,7 +128,7 @@ func TestGetScheduleAndTimezone(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.in.TimeZone = "UTC"
-			got, timezone := GetScheduleAndTimezone(tt.in)
+			got, timezone := getScheduleAndTimezone(tt.in)
 			if got != tt.want || timezone != "UTC" {
 				t.Fatalf("expected %q/UTC, got %q/%q", tt.want, got, timezone)
 			}
@@ -74,10 +137,12 @@ func TestGetScheduleAndTimezone(t *testing.T) {
 }
 
 func TestCalculateNextRunTimeWithNilLastRunAt(t *testing.T) {
-	createdAt := metav1.NewTime(time.Date(2026, 7, 1, 10, 0, 0, 0, time.UTC))
-	schedule := v1.Schedule{Interval: "hourly", Minute: 30, TimeZone: "UTC"}
+	scheduledExport := &v1.ScheduledAuditLogExport{
+		ObjectMeta: metav1.ObjectMeta{CreationTimestamp: metav1.NewTime(time.Date(2026, 7, 1, 10, 0, 0, 0, time.UTC))},
+		Spec:       v1.ScheduledAuditLogExportSpec{Schedule: v1.Schedule{Interval: "hourly", Minute: 30, TimeZone: "UTC"}},
+	}
 
-	next, err := CalculateNextRunTime(schedule, nil, createdAt)
+	next, err := calculateNextRunTime(scheduledExport)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -36,7 +36,7 @@ func TestConvertLLMExportToAPI(t *testing.T) {
 			EndTime:   metav1.NewTime(time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)),
 			Filters:   types.LLMAuditLogExportFilters{UserIDs: []string{"user-1"}},
 		},
-		Status: v1.LLMAuditLogExportStatus{
+		Status: v1.AuditLogExportStatus{
 			State:           types.AuditLogExportStateCompleted,
 			ExportSize:      123,
 			ExportPath:      "prefix/daily.jsonl",

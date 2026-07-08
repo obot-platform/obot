@@ -311,7 +311,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1.LLMAuditLogExport{}.OpenAPIModelName():                                               schema_storage_apis_obotobotai_v1_LLMAuditLogExport(ref),
 		v1.LLMAuditLogExportList{}.OpenAPIModelName():                                           schema_storage_apis_obotobotai_v1_LLMAuditLogExportList(ref),
 		v1.LLMAuditLogExportSpec{}.OpenAPIModelName():                                           schema_storage_apis_obotobotai_v1_LLMAuditLogExportSpec(ref),
-		v1.LLMAuditLogExportStatus{}.OpenAPIModelName():                                         schema_storage_apis_obotobotai_v1_LLMAuditLogExportStatus(ref),
 		v1.MCPCatalog{}.OpenAPIModelName():                                                      schema_storage_apis_obotobotai_v1_MCPCatalog(ref),
 		v1.MCPCatalogList{}.OpenAPIModelName():                                                  schema_storage_apis_obotobotai_v1_MCPCatalogList(ref),
 		v1.MCPCatalogSpec{}.OpenAPIModelName():                                                  schema_storage_apis_obotobotai_v1_MCPCatalogSpec(ref),
@@ -15663,14 +15662,14 @@ func schema_storage_apis_obotobotai_v1_LLMAuditLogExport(ref common.ReferenceCal
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref(v1.LLMAuditLogExportStatus{}.OpenAPIModelName()),
+							Ref:     ref(v1.AuditLogExportStatus{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			v1.LLMAuditLogExportSpec{}.OpenAPIModelName(), v1.LLMAuditLogExportStatus{}.OpenAPIModelName(), metav1.ObjectMeta{}.OpenAPIModelName()},
+			v1.AuditLogExportStatus{}.OpenAPIModelName(), v1.LLMAuditLogExportSpec{}.OpenAPIModelName(), metav1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -15775,62 +15774,6 @@ func schema_storage_apis_obotobotai_v1_LLMAuditLogExportSpec(ref common.Referenc
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters", metav1.Time{}.OpenAPIModelName()},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_LLMAuditLogExportStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"state": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"error": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"exportSize": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int64",
-						},
-					},
-					"exportPath": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"startedAt": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref(metav1.Time{}.OpenAPIModelName()),
-						},
-					},
-					"completedAt": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref(metav1.Time{}.OpenAPIModelName()),
-						},
-					},
-					"storageProvider": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-				},
-				Required: []string{"state"},
-			},
-		},
-		Dependencies: []string{
-			metav1.Time{}.OpenAPIModelName()},
 	}
 }
 

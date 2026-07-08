@@ -22,6 +22,22 @@ type AuditLogExport struct {
 	Status AuditLogExportStatus `json:"status,omitempty"`
 }
 
+func (a *AuditLogExport) Bucket() string {
+	return a.Spec.Bucket
+}
+
+func (a *AuditLogExport) KeyPrefix() string {
+	return a.Spec.KeyPrefix
+}
+
+func (a *AuditLogExport) GetName() string {
+	return a.Spec.Name
+}
+
+func (a *AuditLogExport) ExportStatus() *AuditLogExportStatus {
+	return &a.Status
+}
+
 func (a *AuditLogExport) Has(field string) (exists bool) {
 	return slices.Contains(a.FieldNames(), field)
 }

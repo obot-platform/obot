@@ -22,6 +22,22 @@ type ScheduledAuditLogExport struct {
 	Status ScheduledAuditLogExportStatus `json:"status,omitempty"`
 }
 
+func (s *ScheduledAuditLogExport) Enabled() bool {
+	return s.Spec.Enabled
+}
+
+func (s *ScheduledAuditLogExport) GetSchedule() Schedule {
+	return s.Spec.Schedule
+}
+
+func (s *ScheduledAuditLogExport) LastRunAt() *metav1.Time {
+	return s.Status.LastRunAt
+}
+
+func (s *ScheduledAuditLogExport) SetLastRunAt(t metav1.Time) {
+	s.Status.LastRunAt = &t
+}
+
 func (s *ScheduledAuditLogExport) Has(field string) (exists bool) {
 	return slices.Contains(s.FieldNames(), field)
 }

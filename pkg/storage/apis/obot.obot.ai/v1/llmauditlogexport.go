@@ -18,8 +18,24 @@ type LLMAuditLogExport struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   LLMAuditLogExportSpec   `json:"spec,omitempty"`
-	Status LLMAuditLogExportStatus `json:"status,omitempty"`
+	Spec   LLMAuditLogExportSpec `json:"spec,omitempty"`
+	Status AuditLogExportStatus  `json:"status,omitempty"`
+}
+
+func (l *LLMAuditLogExport) Bucket() string {
+	return l.Spec.Bucket
+}
+
+func (l *LLMAuditLogExport) KeyPrefix() string {
+	return l.Spec.KeyPrefix
+}
+
+func (l *LLMAuditLogExport) GetName() string {
+	return l.Spec.Name
+}
+
+func (l *LLMAuditLogExport) ExportStatus() *AuditLogExportStatus {
+	return &l.Status
 }
 
 func (l *LLMAuditLogExport) Has(field string) (exists bool) {
@@ -56,16 +72,6 @@ type LLMAuditLogExportSpec struct {
 	EndTime             metav1.Time                    `json:"endTime"`
 	Filters             types.LLMAuditLogExportFilters `json:"filters,omitempty"`
 	WithSensitiveFields bool                           `json:"withSensitiveFields,omitempty"`
-}
-
-type LLMAuditLogExportStatus struct {
-	State           types.AuditLogExportState `json:"state"`
-	Error           string                    `json:"error,omitempty"`
-	ExportSize      int64                     `json:"exportSize,omitempty"`
-	ExportPath      string                    `json:"exportPath,omitempty"`
-	StartedAt       *metav1.Time              `json:"startedAt,omitempty"`
-	CompletedAt     *metav1.Time              `json:"completedAt,omitempty"`
-	StorageProvider types.StorageProviderType `json:"storageProvider,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

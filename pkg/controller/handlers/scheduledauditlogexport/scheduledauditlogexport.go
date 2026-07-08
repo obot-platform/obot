@@ -18,31 +18,7 @@ func NewHandler() *Handler {
 }
 
 func (*Handler) ScheduleExports(req router.Request, resp router.Response) error {
-	scheduledExport := req.Object.(*v1.ScheduledAuditLogExport)
-
-	if !scheduledExport.Spec.Enabled {
-		return nil
-	}
-
-	next, err := auditlogexportcommon.CalculateNextRunTime(scheduledExport.Spec.Schedule, scheduledExport.Status.LastRunAt, scheduledExport.CreationTimestamp)
-	if err != nil {
-		return fmt.Errorf("failed to calculate next run time: %w", err)
-	}
-
-	if until := time.Until(next); until > 0 {
-		if until < 10*time.Hour {
-			resp.RetryAfter(until)
-		}
-		return nil
-	}
-
-	if err := createExportFromSchedule(req, scheduledExport, next); err != nil {
-		return err
-	}
-
-	scheduledExport.Status.LastRunAt = new(metav1.Now())
-
-	return req.Client.Update(req.Ctx, scheduledExport)
+	return auditlogexportcommon.ScheduleExports(req, resp, createExportFromSchedule)
 }
 
 func createExportFromSchedule(req router.Request, scheduledExport *v1.ScheduledAuditLogExport, nextRunAt time.Time) error {
