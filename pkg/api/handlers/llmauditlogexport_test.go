@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -12,14 +13,63 @@ import (
 func TestValidateLLMExportRequest(t *testing.T) {
 	now := time.Now()
 
-	if err := validateLLMExportRequest(&types.LLMAuditLogExportCreateRequest{Name: "export", StartTime: types.Time{Time: now}, EndTime: types.Time{Time: now.Add(time.Hour)}}); err != nil {
-		t.Fatalf("expected valid request: %v", err)
+	tests := []struct {
+		name    string
+		req     types.LLMAuditLogExportCreateRequest
+		wantErr string
+	}{
+		{
+			name: "valid",
+			req: types.LLMAuditLogExportCreateRequest{
+				Name:      "export",
+				Bucket:    "bucket",
+				StartTime: types.Time{Time: now},
+				EndTime:   types.Time{Time: now.Add(time.Hour)},
+			},
+		},
+		{
+			name:    "missing name",
+			req:     types.LLMAuditLogExportCreateRequest{},
+			wantErr: "name is required",
+		},
+		{
+			name: "missing bucket",
+			req: types.LLMAuditLogExportCreateRequest{
+				Name:      "export",
+				StartTime: types.Time{Time: now},
+				EndTime:   types.Time{Time: now.Add(time.Hour)},
+			},
+			wantErr: "bucket is required",
+		},
+		{
+			name: "inverted time range",
+			req: types.LLMAuditLogExportCreateRequest{
+				Name:      "export",
+				Bucket:    "bucket",
+				StartTime: types.Time{Time: now.Add(time.Hour)},
+				EndTime:   types.Time{Time: now},
+			},
+			wantErr: "start time must be before end time",
+		},
 	}
-	if err := validateLLMExportRequest(&types.LLMAuditLogExportCreateRequest{}); err == nil {
-		t.Fatal("expected missing name to fail")
-	}
-	if err := validateLLMExportRequest(&types.LLMAuditLogExportCreateRequest{Name: "export", StartTime: types.Time{Time: now.Add(time.Hour)}, EndTime: types.Time{Time: now}}); err == nil {
-		t.Fatal("expected inverted time range to fail")
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateLLMExportRequest(&tt.req)
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Fatalf("expected valid request: %v", err)
+				}
+				return
+			}
+
+			if err == nil {
+				t.Fatalf("expected error %q", tt.wantErr)
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("expected error containing %q, got %q", tt.wantErr, err.Error())
+			}
+		})
 	}
 }
 

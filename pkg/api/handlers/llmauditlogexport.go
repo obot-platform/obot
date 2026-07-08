@@ -104,6 +104,9 @@ func (h *AuditLogExportHandler) CreateScheduledLLMAuditLogExport(req api.Context
 	if createReq.Name == "" {
 		return types.NewErrBadRequest("validation failed: name is required")
 	}
+	if createReq.Bucket == "" {
+		return types.NewErrBadRequest("validation failed: bucket is required")
+	}
 
 	scheduledExport := &v1.ScheduledLLMAuditLogExport{
 		ObjectMeta: metav1.ObjectMeta{
@@ -234,6 +237,9 @@ func requireLLMAuditExportAccess(req api.Context) error {
 func validateLLMExportRequest(req *types.LLMAuditLogExportCreateRequest) error {
 	if req.Name == "" {
 		return fmt.Errorf("name is required")
+	}
+	if req.Bucket == "" {
+		return fmt.Errorf("bucket is required")
 	}
 	if req.StartTime.GetTime().After(req.EndTime.GetTime()) {
 		return fmt.Errorf("start time must be before end time")
