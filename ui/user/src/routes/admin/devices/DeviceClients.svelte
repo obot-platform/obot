@@ -13,7 +13,7 @@
 	} from '$lib/services';
 	import { getTableUrlParamsSort, replaceState } from '$lib/url';
 	import { getSortParams, openUrl } from '$lib/utils';
-	import { defaultSort, sortFields } from './constants';
+	import { defaultClientSort, deviceClientSortFields } from './constants';
 	import { MonitorCheck } from '@lucide/svelte';
 	import { onMount, untrack } from 'svelte';
 
@@ -24,32 +24,6 @@
 		});
 		reload(0);
 	});
-	/**
-     * 
-     * 
-export const load: PageLoad = async ({ fetch, url }) => {
-	const limit = parseInt(url.searchParams.get('pageSize') ?? '50', 10) || 50;
-	const offset = parseInt(url.searchParams.get('offset') ?? '0', 10) || 0;
-	const name = url.searchParams.get('name') ?? '';
-	const sortProperty = url.searchParams.get('sort');
-	const hasValidSortProperty = sortProperty != null && Object.hasOwn(sortFields, sortProperty);
-	const sortBy = getSortBy(sortProperty);
-	const sortOrder = hasValidSortProperty
-		? getSortOrder(url.searchParams.get('sortDirection'))
-		: DEFAULT_SORT_ORDER;
-	let clients: DeviceClientFleetSummaryResponse;
-	let users: OrgUser[];
-	try {
-		[clients, users] = await Promise.all([
-			AdminService.listDeviceClients({ limit, offset, name, sortBy, sortOrder }, { fetch }),
-			UserService.listUsers({ fetch })
-		]);
-		return { clients, users };
-	} catch (err) {
-		handleRouteError(err, '/admin/device-clients', profile.current);
-	}
-};
-     */
 
 	let clientsData = $state<DeviceClientFleetSummaryResponse>({
 		items: [],
@@ -61,13 +35,15 @@ export const load: PageLoad = async ({ fetch, url }) => {
 	let total = $derived(clientsData.total ?? 0);
 	let userMap = $derived(new Map(users?.map((u) => [u.id, u]) ?? []));
 
-	function isSortProperty(property: string | undefined): property is keyof typeof sortFields {
-		return property != null && Object.hasOwn(sortFields, property);
+	function isSortProperty(
+		property: string | undefined
+	): property is keyof typeof deviceClientSortFields {
+		return property != null && Object.hasOwn(deviceClientSortFields, property);
 	}
 
 	let initSort = $derived.by(() => {
-		const sort = getTableUrlParamsSort(defaultSort);
-		return isSortProperty(sort?.property) ? sort : defaultSort;
+		const sort = getTableUrlParamsSort(defaultClientSort);
+		return isSortProperty(sort?.property) ? sort : defaultClientSort;
 	});
 	let rows = $derived(
 		clients.map((c) => ({
@@ -111,7 +87,7 @@ export const load: PageLoad = async ({ fetch, url }) => {
 				limit: pageSize,
 				offset: idx * pageSize,
 				name: nameFilter,
-				...getSortParams(sort, sortFields, defaultSort)
+				...getSortParams(sort, deviceClientSortFields, defaultClientSort)
 			});
 		} finally {
 			loading = false;
@@ -143,7 +119,14 @@ export const load: PageLoad = async ({ fetch, url }) => {
 	placeholder="Search by client name..."
 />
 
-{#if clients.length === 0}
+{#if loading}
+	<div class="flex flex-col gap-0.5">
+		<div class="skeleton h-9 w-full rounded-none"></div>
+		{#each Array.from({ length: 4 }) as _, i (i)}
+			<div class="skeleton h-14 w-full rounded-none"></div>
+		{/each}
+	</div>
+{:else if clients.length === 0}
 	<div class="mx-auto mt-12 flex w-md flex-col items-center gap-4 text-center">
 		<MonitorCheck class="text-muted-content size-24 opacity-50" />
 		<h4 class="text-muted-content text-lg font-semibold">No clients observed yet</h4>

@@ -3,10 +3,12 @@
 	import { page } from '$app/state';
 	import Layout from '$lib/components/Layout.svelte';
 	import ObotCliBanner from '$lib/components/ObotCliBanner.svelte';
+	import OverflowContainer from '$lib/components/OverflowContainer.svelte';
 	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
 	import DeviceScanDonutCard from '$lib/components/admin/device-scan/DeviceScanDonutCard.svelte';
 	import DeviceScanTimelineCard from '$lib/components/admin/device-scan/DeviceScanTimelineCard.svelte';
 	import { buildDeviceScanTopBuckets } from '$lib/components/admin/device-scan/deviceScanTopBuckets';
+	import Devices from '$lib/components/admin/devices/Devices.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import {
 		AdminService,
@@ -18,8 +20,11 @@
 	import { clearUrlParams, goto, replaceState } from '$lib/url';
 	import { openUrl } from '$lib/utils';
 	import DeviceClients from './DeviceClients.svelte';
+	import DeviceMcpServers from './DeviceMcpServers.svelte';
+	import DeviceSkills from './DeviceSkills.svelte';
 	import { DEFAULT_WINDOW_MS } from './constants';
 	import {
+		ChevronLeft,
 		ChevronRight,
 		Laptop,
 		MonitorCheck,
@@ -34,38 +39,30 @@
 
 	let { data } = $props();
 
-	let view = $derived<
-		'overview' | 'devices' | 'device-clients' | 'device-mcp-servers' | 'device-skills'
-	>(
-		(page.url.searchParams.get('view') ?? 'overview') as
-			| 'overview'
-			| 'devices'
-			| 'device-clients'
-			| 'device-mcp-servers'
-			| 'device-skills'
-	);
-	let views = [
+	type View = 'overview' | 'devices' | 'device-clients' | 'device-mcp-servers' | 'device-skills';
+	const views: { label: string; value: View }[] = [
 		{
 			label: 'Overview',
-			value: 'overview'
+			value: 'overview' as const
 		},
 		{
 			label: 'Devices',
-			value: 'devices'
+			value: 'devices' as const
 		},
 		{
 			label: 'Device Clients',
-			value: 'device-clients'
+			value: 'device-clients' as const
 		},
 		{
 			label: 'Device MCP Servers',
-			value: 'device-mcp-servers'
+			value: 'device-mcp-servers' as const
 		},
 		{
 			label: 'Device Skills',
-			value: 'device-skills'
+			value: 'device-skills' as const
 		}
 	];
+
 	let stats = $state<DeviceScanStats | null>(untrack(() => data?.stats ?? null));
 	let range = $state<{ start: string; end: string }>(
 		untrack(
@@ -77,6 +74,8 @@
 		)
 	);
 	let loading = $state(false);
+
+	let view = $derived<View>((page.url.searchParams.get('view') ?? 'overview') as View);
 
 	let clientBuckets = $derived(
 		buildDeviceScanTopBuckets<DeviceClientStat>(
@@ -205,10 +204,10 @@
 </script>
 
 <svelte:head>
-	<title>Obot | Device Dashboard</title>
+	<title>Obot | Devices</title>
 </svelte:head>
 
-<Layout title="Dashboard">
+<Layout title="Devices">
 	<div
 		class="flex h-full w-full flex-col gap-4"
 		in:fly={{ x: 100, duration, delay: duration }}
@@ -216,41 +215,69 @@
 	>
 		<ObotCliBanner description="Gain insight into the AI tooling used in your organization." />
 
-		<!-- add overflow container -->
 		<div class="w-full">
-			<div class="relative z-10 flex shrink-0 items-center justify-between">
-				<div class="flex shrink-0">
-					{#each views as viewOption (viewOption.value)}
+			<OverflowContainer
+				class="scrollbar-none flex shrink-0 min-h-12 w-full items-center gap-2 overflow-x-auto"
+				style="scroll-behavior: smooth;"
+			>
+				{#snippet children({ x, hasMoreLeft, hasMoreRight, scrollLeft, scrollRight })}
+					{#if x}
 						<button
-							class={twMerge(
-								'border-b-2 border-transparent px-8 py-2 transition-colors duration-400',
-								view === viewOption.value
-									? 'border-primary'
-									: 'hover:border-primary/25 text-muted-content hover:text-base-content'
-							)}
-							onclick={() => {
-								clearUrlParams();
-								goto(`/admin/devices?view=${viewOption.value}`);
-							}}
+							disabled={!hasMoreLeft}
+							onclick={scrollLeft}
+							class="shrink-0 z-20 bg-base-200 dark:bg-base-100 sticky left-0 flex aspect-square h-full items-center justify-center rounded-l-md p-2.5 opacity-100 transition-all duration-200 disabled:opacity-30"
 						>
-							{viewOption.label}
+							<ChevronLeft class="size-full" />
 						</button>
-					{/each}
-				</div>
-			</div>
-			<div class="bg-base-400 h-0.5 w-full shrink-0 -translate-y-0.5"></div>
+					{/if}
+
+					<div class="flex flex-1 flex-col">
+						<div class="flex flex-1 relative z-10">
+							{#each views as viewOption (viewOption.value)}
+								<button
+									class={twMerge(
+										'border-b-2 text-nowrap border-transparent px-8 py-2 transition-colors duration-400',
+										view === viewOption.value
+											? 'border-primary'
+											: 'hover:border-primary/25 text-muted-content hover:text-base-content'
+									)}
+									onclick={() => {
+										clearUrlParams(
+											Array.from(page.url.searchParams.keys()).filter((key) => key !== 'view')
+										);
+										goto(`/admin/devices?view=${viewOption.value}`);
+									}}
+								>
+									{viewOption.label}
+								</button>
+							{/each}
+						</div>
+						<div class="bg-base-400 h-0.5 w-full shrink-0 -translate-y-0.5"></div>
+					</div>
+
+					{#if x}
+						<button
+							disabled={!hasMoreRight}
+							onclick={scrollRight}
+							class="shrink-0 z-20 bg-base-200 dark:bg-base-100 sticky right-0 flex aspect-square h-full items-center justify-center rounded-r-md p-2.5 opacity-100 transition-all duration-200 disabled:opacity-30"
+						>
+							<ChevronRight class="size-full" />
+						</button>
+					{/if}
+				{/snippet}
+			</OverflowContainer>
 		</div>
 
 		{#if view === 'overview'}
 			{@render overview()}
 		{:else if view === 'devices'}
-			{@render devices()}
+			<Devices />
 		{:else if view === 'device-clients'}
-			{@render deviceClients()}
+			<DeviceClients />
 		{:else if view === 'device-mcp-servers'}
-			{@render deviceMCPServers()}
+			<DeviceMcpServers />
 		{:else if view === 'device-skills'}
-			{@render deviceSkills()}
+			<DeviceSkills />
 		{/if}
 	</div>
 </Layout>
@@ -362,26 +389,4 @@
 			/>
 		</div>
 	{/if}
-{/snippet}
-
-{#snippet devices()}
-	<div>
-		<h1>Devices</h1>
-	</div>
-{/snippet}
-
-{#snippet deviceClients()}
-	<DeviceClients />
-{/snippet}
-
-{#snippet deviceMCPServers()}
-	<div>
-		<h1>Device MCP Servers</h1>
-	</div>
-{/snippet}
-
-{#snippet deviceSkills()}
-	<div>
-		<h1>Device Skills</h1>
-	</div>
 {/snippet}

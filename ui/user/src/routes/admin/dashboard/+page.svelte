@@ -243,7 +243,7 @@
 			loading: loadingDeviceScanStats,
 			value: deviceScanStats?.deviceCount ?? 0,
 			icon: Laptop,
-			seeMore: '/admin/devices'
+			seeMore: '/admin/devices?view=devices'
 		},
 		{
 			id: 'device-users',
@@ -258,7 +258,7 @@
 			loading: loadingDeviceScanStats,
 			value: deviceScanStats?.clients?.length ?? 0,
 			icon: MonitorCheck,
-			seeMore: '/admin/device-clients'
+			seeMore: '/admin/devices?view=device-clients'
 		},
 		{
 			id: 'device-mcps',
@@ -266,7 +266,7 @@
 			loading: loadingDeviceScanStats,
 			value: deviceScanStats?.mcpServers?.length ?? 0,
 			icon: Server,
-			seeMore: '/admin/device-mcp-servers'
+			seeMore: '/admin/devices?view=device-mcp-servers'
 		},
 		{
 			id: 'device-skills',
@@ -274,7 +274,7 @@
 			loading: loadingDeviceScanStats,
 			value: deviceScanStats?.skills?.length ?? 0,
 			icon: PencilRuler,
-			seeMore: '/admin/device-skills'
+			seeMore: '/admin/devices?view=device-skills'
 		}
 	]);
 </script>
