@@ -1009,15 +1009,16 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 			return types2.NewErrForbidden("user does not have permission to use model %q", targetModel)
 		}
 
+		prepared.tokenUsageTracker = newTokenUsageTracker(*model)
 		prepared.model = model.Spec.Manifest.TargetModel
+		audit.setModel(modelProvider.Name, model.Name, prepared.model)
+
 		prepared.body, err = rewriteModelInBody(body, prepared.model)
 		if err != nil {
 			return fmt.Errorf("failed to rewrite model in request body: %w", err)
 		}
-		prepared.tokenUsageTracker = newTokenUsageTracker(*model)
+		audit.setRequestBody(prepared.body)
 	}
-	audit.setModel(modelProvider.Name, prepared.model, prepared.model)
-	audit.setRequestBody(prepared.body)
 
 	var (
 		messagePolicyHelper    = l.messagePolicyHelper
