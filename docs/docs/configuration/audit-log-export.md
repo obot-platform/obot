@@ -1,6 +1,6 @@
-# MCP Audit Log Exports
+# Audit Log Exports
 
-Obot can export audit logs to various cloud storage providers for long-term retention. This feature supports both one-time exports and scheduled recurring exports.
+Obot can export MCP and LLM gateway audit logs to various cloud storage providers for long-term retention. This feature supports both one-time exports and scheduled recurring exports.
 
 ## Overview
 
@@ -10,6 +10,8 @@ The audit log export feature enables you to:
 - Create one-time exports for specific date ranges and filters
 - Schedule recurring exports (hourly, daily, weekly, monthly)
 - Apply filters to export only relevant logs
+
+MCP audit log exports and LLM audit log exports use the same storage credentials.
 
 ## Supported Storage Providers
 
@@ -115,7 +117,8 @@ Support for S3-compatible storage providers like MinIO, DigitalOcean Spaces, Was
 
 1. **Navigate to Audit Log Exports**:
 
-   - Go to Admin → Audit Logs → Manage Exports
+   - For MCP audit logs, go to MCP Management → Audit Logs → Manage Exports
+   - For LLM audit logs, go to LLM Gateway → Audit Logs → Manage Exports
    - Click "Configure Storage"
 
 2. **Select Provider**:
@@ -156,12 +159,13 @@ Use the identity associated with your Obot deployment. This method is more secur
 
 ### One-Time Exports
 
-One-time exports allow you to export audit logs for a specific time range with optional filters.
+One-time exports allow you to export MCP or LLM audit logs for a specific time range with optional filters.
 
 1. **Navigate to Audit Logs**:
 
-   - Go to Admin → Audit Logs
-   - Apply any desired filters (user, MCP server, call type, etc.)
+   - For MCP audit logs, go to MCP Management → Audit Logs
+   - For LLM audit logs, go to LLM Gateway → Audit Logs
+   - Apply any desired filters
 
 2. **Create Export**:
 
@@ -172,7 +176,7 @@ One-time exports allow you to export audit logs for a specific time range with o
 
    - **Name**: Descriptive name for the export
    - **Bucket**: Storage bucket name where exports will be saved
-   - **Key Prefix**: Path prefix within the bucket. If empty, defaults to "mcp-audit-logs/YYYY/MM/DD/" format based on current date.
+   - **Key Prefix**: Path prefix within the bucket. If empty, defaults to `mcp-audit-logs/YYYY/MM/DD/` for MCP exports and `llm-audit-logs/YYYY/MM/DD/` for LLM exports, based on the current date.
    - **Time Range**: Start and end dates/times
    - **Filters**: Additional filters to apply
 
@@ -195,7 +199,7 @@ Scheduled exports run automatically at specified intervals.
    - **Time**: Specific time to run (for daily/weekly/monthly)
    - **Day**: Day of week (weekly) or month (monthly)
    - **Bucket**: Storage bucket name where exports will be saved
-   - **Key Prefix**: Path prefix within the bucket. If empty, defaults to "mcp-audit-logs/YYYY/MM/DD/" format based on current date.
+   - **Key Prefix**: Path prefix within the bucket. If empty, defaults to `mcp-audit-logs/YYYY/MM/DD/` for MCP exports and `llm-audit-logs/YYYY/MM/DD/` for LLM exports, based on the current date.
 
 3. **Manage Schedules**:
    - View and manage schedules in the "Export Schedules" tab
@@ -208,12 +212,33 @@ Scheduled exports run automatically at specified intervals.
 
 All audit logs are exported in JSON Lines format, where each line contains a complete JSON object representing one audit log entry.
 
-**Example:**
+MCP exports include MCP gateway activity such as server, operation, and response status metadata. LLM exports include LLM gateway activity such as provider, model, request path, token usage, client, and outcome metadata.
+
+**MCP example:**
 
 ```jsonl
 {"timestamp":"2024-01-15T10:30:00Z","user_id":"user123","mcp_server":"github","call_type":"tools/call","response_status":"success"}
 {"timestamp":"2024-01-15T10:31:00Z","user_id":"user456","mcp_server":"slack","call_type":"resources/read","response_status":"success"}
 ```
+
+**LLM example:**
+
+```jsonl
+{"id":"log-1","createdAt":"2024-01-15T10:30:00Z","userID":"user123","modelProvider":"openai","targetModel":"gpt-5.5","requestPath":"/v1/responses","responseStatus":200,"outcome":"success","inputTokens":128,"outputTokens":512,"client":"codex"}
+{"id":"log-2","createdAt":"2024-01-15T10:31:00Z","userID":"user456","modelProvider":"anthropic","targetModel":"claude-opus-4.8","requestPath":"/v1/messages","responseStatus":200,"outcome":"success","inputTokens":256,"outputTokens":1024,"client":"claude-code"}
+```
+
+:::info Sensitive fields
+Users with the Auditor role can export sensitive request and response fields. Admins and Owners without the Auditor role export metadata only.
+:::
+
+## Filters
+
+Filters applied in the audit log UI can be carried into a one-time or scheduled export.
+
+MCP audit log exports support filters such as user, MCP server, call type, call identifier, session, client, response status, client IP, and search query.
+
+LLM audit log exports support filters such as user, model provider, target model, request path, response status, outcome, client, client session, and search query.
 
 ### File Structure
 
@@ -221,6 +246,10 @@ Exported files are organized with the following structure by default:
 
 ```
 mcp-audit-logs/
+├── <year>/<month>/<day>/
+│   │   └── <export-name>-<timestamp>.jsonl
+
+llm-audit-logs/
 ├── <year>/<month>/<day>/
 │   │   └── <export-name>-<timestamp>.jsonl
 ```
