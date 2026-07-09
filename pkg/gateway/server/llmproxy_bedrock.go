@@ -18,6 +18,8 @@ import (
 const (
 	amazonBedrockModelProvider       = "amazon-bedrock-model-provider"
 	amazonBedrockAPIKeyModelProvider = "amazon-bedrock-api-key-model-provider"
+
+	amazonBedrockModelProviderDefaultRegion = "us-east-1"
 )
 
 const (
@@ -105,7 +107,7 @@ func bedrockStaticAuthFromCredential(cred map[string]string) (bedrockStaticAuth,
 		sessionToken:    cred[bedrockSessionTokenEnv],
 	}
 	if auth.region == "" {
-		auth.region = "us-east-1"
+		auth.region = amazonBedrockModelProviderDefaultRegion
 	}
 	if auth.signingService == "" {
 		auth.signingService = "bedrock"
@@ -123,7 +125,7 @@ func bedrockAPIKeyRegionFromCredential(cred map[string]string) string {
 	if region := cred[bedrockAPIKeyRegionEnv]; region != "" {
 		return region
 	}
-	return "us-east-1"
+	return amazonBedrockModelProviderDefaultRegion
 }
 
 type bedrockAPIKeyTransport struct {
