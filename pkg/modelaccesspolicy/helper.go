@@ -1,7 +1,6 @@
 package modelaccesspolicy
 
 import (
-	"cmp"
 	"context"
 	"fmt"
 	"slices"
@@ -219,41 +218,6 @@ func (h *Helper) GetUserAllowedTargetModels(user kuser.Info, provider string) (a
 	}
 
 	return allowed, false, nil
-}
-
-// GetUserAccessibleProviderModels returns active models for provider that user
-// can access. The returned models are sorted by target model for stable model
-// list responses.
-func (h *Helper) GetUserAccessibleProviderModels(user kuser.Info, provider string) ([]v1.Model, error) {
-	allowedModels, allowAll, err := h.GetUserAllowedModels(user)
-	if err != nil {
-		return nil, err
-	}
-
-	objs, err := h.modelIndexer.ByIndex(modelProviderIndex, provider)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get models for provider %q: %w", provider, err)
-	}
-
-	models := make([]v1.Model, 0, len(objs))
-	for _, obj := range objs {
-		m, ok := obj.(*v1.Model)
-		if !ok {
-			continue
-		}
-		if allowAll || allowedModels[m.Name] {
-			models = append(models, *m)
-		}
-	}
-
-	slices.SortFunc(models, func(a, b v1.Model) int {
-		return cmp.Or(
-			cmp.Compare(a.Spec.Manifest.TargetModel, b.Spec.Manifest.TargetModel),
-			cmp.Compare(a.Name, b.Name),
-		)
-	})
-
-	return models, nil
 }
 
 // ResolveTargetModel returns the active Model served by provider whose
