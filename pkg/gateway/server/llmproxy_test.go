@@ -561,37 +561,19 @@ func TestLLMTransformRequest_UpstreamPath(t *testing.T) {
 			want:    "/v1/models",
 		},
 		{
-			name:    "Claude Code Mantle → /api/llm-proxy/aws-bedrock",
-			baseURL: "https://bedrock-mantle.us-east-1.api.aws/anthropic/v1",
-			reqPath: "anthropic/v1/messages",
-			want:    "/anthropic/v1/messages",
-		},
-		{
-			name:    "Claude Code Mantle v1 path → /api/llm-proxy/aws-bedrock",
+			name:    "Claude Code Mantle → /api/llm-proxy/aws-bedrock/anthropic",
 			baseURL: "https://bedrock-mantle.us-east-1.api.aws/anthropic/v1",
 			reqPath: "v1/messages",
 			want:    "/anthropic/v1/messages",
 		},
 		{
-			name:    "Claude Code Mantle models → /api/llm-proxy/aws-bedrock",
+			name:    "Claude Code Mantle models → /api/llm-proxy/aws-bedrock/anthropic",
 			baseURL: "https://bedrock-mantle.us-east-1.api.aws/anthropic/v1",
 			reqPath: "v1/models",
 			want:    "/anthropic/v1/models",
 		},
 		{
-			name:    "Claude Code Mantle full models path → /api/llm-proxy/aws-bedrock",
-			baseURL: "https://bedrock-mantle.us-east-1.api.aws/anthropic/v1",
-			reqPath: "anthropic/v1/models",
-			want:    "/anthropic/v1/models",
-		},
-		{
 			name:    "OpenAI Bedrock Responses → /api/llm-proxy/aws-bedrock/openai/v1",
-			baseURL: "https://bedrock-mantle.us-east-1.api.aws/openai/v1",
-			reqPath: "openai/v1/responses",
-			want:    "/openai/v1/responses",
-		},
-		{
-			name:    "OpenAI Bedrock Responses v1 path → /api/llm-proxy/aws-bedrock",
 			baseURL: "https://bedrock-mantle.us-east-1.api.aws/openai/v1",
 			reqPath: "v1/responses",
 			want:    "/openai/v1/responses",
@@ -599,7 +581,7 @@ func TestLLMTransformRequest_UpstreamPath(t *testing.T) {
 		{
 			name:    "OpenAI Bedrock models → /api/llm-proxy/aws-bedrock/openai/v1",
 			baseURL: "https://bedrock-mantle.us-east-1.api.aws/openai/v1",
-			reqPath: "openai/v1/models",
+			reqPath: "v1/models",
 			want:    "/openai/v1/models",
 		},
 	}
@@ -622,7 +604,7 @@ func TestLLMTransformRequest_UpstreamPath(t *testing.T) {
 }
 
 func TestIsBedrockModelsListRequest(t *testing.T) {
-	for _, path := range []string{"models", "v1/models", "anthropic/v1/models", "openai/v1/models"} {
+	for _, path := range []string{"models", "v1/models"} {
 		t.Run(path, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, "http://gateway.local/", nil)
 			req.SetPathValue("path", path)
@@ -636,6 +618,31 @@ func TestIsBedrockModelsListRequest(t *testing.T) {
 	req.SetPathValue("path", "v1/models")
 	if isBedrockModelsListRequest(req) {
 		t.Fatal("POST /v1/models should not be a models list request")
+	}
+}
+
+func TestBedrockModelDialect(t *testing.T) {
+	tests := []struct {
+		model       string
+		wantDialect string
+		wantErr     bool
+	}{
+		{model: "anthropic.claude-sonnet-4-6", wantDialect: "anthropic"},
+		{model: "openai.gpt-5.5", wantDialect: "openai"},
+		{model: "google.gemini-2.5-pro", wantDialect: "openai"},
+		{model: "meta.llama3-3-70b", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.model, func(t *testing.T) {
+			got, err := bedrockModelDialect(tt.model)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("bedrockModelDialect(%q) error = %v, wantErr %v", tt.model, err, tt.wantErr)
+			}
+			if got != tt.wantDialect {
+				t.Fatalf("bedrockModelDialect(%q) = %q, want %q", tt.model, got, tt.wantDialect)
+			}
+		})
 	}
 }
 

@@ -873,15 +873,8 @@ func llmTransformRequest(u url.URL) func(req *http.Request) {
 				urlCopy.Path = "/v1"
 			}
 		case strings.HasSuffix(urlCopy.Path, "/v1"):
-			basePath := strings.TrimPrefix(urlCopy.Path, "/")
-			if reqPath == basePath {
-				reqPath = ""
-			} else {
-				reqPath = strings.TrimPrefix(reqPath, basePath+"/")
-			}
-			// Upstream base already ends in /v1 (the openai/anthropic
-			// passthrough routes). Strip a leading v1/ from the client-supplied
-			// path so we don't produce /v1/v1/...
+			// The upstream base already ends in /v1. Strip the same prefix from
+			// the client path so we don't produce /v1/v1/...
 			reqPath = strings.TrimPrefix(reqPath, "v1/")
 			if reqPath == "v1" {
 				reqPath = ""

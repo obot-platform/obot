@@ -33,21 +33,21 @@ const (
 	bedrockAPIKeyRegionEnv    = "OBOT_AMAZON_BEDROCK_API_KEY_MODEL_PROVIDER_REGION"
 )
 
-func (s *Server) newAWSBedrockLLMProviderProxy() *llmProviderProxy {
+func (s *Server) newAWSBedrockLLMProviderProxy(dialect string) *llmProviderProxy {
 	return &llmProviderProxy{
 		dailyUserInputTokenLimit:  s.dailyUserInputTokenLimit,
 		dailyUserOutputTokenLimit: s.dailyUserOutputTokenLimit,
-		backend:                   bedrockMantleProviderBackend{providerName: amazonBedrockModelProvider},
+		backend:                   bedrockMantleProviderBackend{providerName: amazonBedrockModelProvider, dialect: dialect},
 		mapHelper:                 s.mapHelper,
 		messagePolicyHelper:       s.messagePolicyHelper,
 	}
 }
 
-func (s *Server) newAWSBedrockAPIKeyLLMProviderProxy() *llmProviderProxy {
+func (s *Server) newAWSBedrockAPIKeyLLMProviderProxy(dialect string) *llmProviderProxy {
 	return &llmProviderProxy{
 		dailyUserInputTokenLimit:  s.dailyUserInputTokenLimit,
 		dailyUserOutputTokenLimit: s.dailyUserOutputTokenLimit,
-		backend:                   bedrockMantleProviderBackend{providerName: amazonBedrockAPIKeyModelProvider, apiKey: true},
+		backend:                   bedrockMantleProviderBackend{providerName: amazonBedrockAPIKeyModelProvider, dialect: dialect, apiKey: true},
 		mapHelper:                 s.mapHelper,
 		messagePolicyHelper:       s.messagePolicyHelper,
 	}
@@ -55,6 +55,7 @@ func (s *Server) newAWSBedrockAPIKeyLLMProviderProxy() *llmProviderProxy {
 
 type bedrockMantleProviderBackend struct {
 	providerName string
+	dialect      string
 	apiKey       bool
 }
 
@@ -90,6 +91,13 @@ func (b bedrockMantleProviderBackend) prepare(req api.Context, l *llmProviderPro
 		return nil, types2.NewErrForbidden("user does not have permission to use model %q", modelStr)
 	}
 	targetModel := model.Spec.Manifest.TargetModel
+	dialect, err := bedrockModelDialect(targetModel)
+	if err != nil {
+		return nil, err
+	}
+	if dialect != b.dialect {
+		return nil, types2.NewErrBadRequest("model %q is not compatible with Bedrock %s route", targetModel, b.dialect)
+	}
 
 	bodyMap["model"] = targetModel
 	body, err = json.Marshal(bodyMap)
@@ -142,6 +150,10 @@ func (b bedrockMantleProviderBackend) proxyModelsList(req api.Context, l *llmPro
 
 	data := make([]map[string]string, 0, len(models))
 	for _, model := range models {
+		dialect, err := bedrockModelDialect(model.Spec.Manifest.TargetModel)
+		if err != nil || dialect != b.dialect {
+			continue
+		}
 		data = append(data, map[string]string{
 			"id":     model.Spec.Manifest.TargetModel,
 			"object": "model",
@@ -208,20 +220,26 @@ func (b bedrockAPIKeyTransport) RoundTrip(req *http.Request) (*http.Response, er
 }
 
 func bedrockBaseURL(region, model string) (url.URL, error) {
-	api := ""
-	switch {
-	case strings.HasPrefix(model, "anthropic."):
-		api = "anthropic"
-	case strings.HasPrefix(model, "openai."), strings.HasPrefix(model, "google."):
-		api = "openai"
-	default:
-		return url.URL{}, types2.NewErrBadRequest("unsupported Bedrock model %q", model)
+	dialect, err := bedrockModelDialect(model)
+	if err != nil {
+		return url.URL{}, err
 	}
 	return url.URL{
 		Scheme: "https",
 		Host:   fmt.Sprintf("bedrock-mantle.%s.api.aws", region),
-		Path:   fmt.Sprintf("/%s/v1", api),
+		Path:   fmt.Sprintf("/%s/v1", dialect),
 	}, nil
+}
+
+func bedrockModelDialect(model string) (string, error) {
+	switch {
+	case strings.HasPrefix(model, "anthropic."):
+		return "anthropic", nil
+	case strings.HasPrefix(model, "openai."), strings.HasPrefix(model, "google."):
+		return "openai", nil
+	default:
+		return "", types2.NewErrBadRequest("unsupported Bedrock model %q", model)
+	}
 }
 
 type bedrockSigV4Transport struct {
@@ -272,8 +290,6 @@ func isBedrockModelsListRequest(req *http.Request) bool {
 		return false
 	}
 	reqPath := req.PathValue("path")
-	reqPath = strings.TrimPrefix(reqPath, "anthropic/v1/")
-	reqPath = strings.TrimPrefix(reqPath, "openai/v1/")
 	reqPath = strings.TrimPrefix(reqPath, "v1/")
 	return reqPath == "models"
 }
