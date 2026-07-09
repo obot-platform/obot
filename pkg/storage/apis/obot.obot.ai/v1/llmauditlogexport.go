@@ -30,7 +30,7 @@ func (l *LLMAuditLogExport) KeyPrefix() string {
 	return l.Spec.KeyPrefix
 }
 
-func (l *LLMAuditLogExport) GetName() string {
+func (l *LLMAuditLogExport) SpecName() string {
 	return l.Spec.Name
 }
 

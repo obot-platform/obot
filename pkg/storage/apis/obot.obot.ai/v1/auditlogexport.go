@@ -30,7 +30,7 @@ func (a *AuditLogExport) KeyPrefix() string {
 	return a.Spec.KeyPrefix
 }
 
-func (a *AuditLogExport) GetName() string {
+func (a *AuditLogExport) SpecName() string {
 	return a.Spec.Name
 }
 

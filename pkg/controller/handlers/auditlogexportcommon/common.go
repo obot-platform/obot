@@ -24,7 +24,7 @@ const batchSize = 10_000
 // Export is the small common surface shared by MCP and LLM audit log export resources.
 type Export interface {
 	Bucket() string
-	GetName() string
+	SpecName() string
 	KeyPrefix() string
 	ExportStatus() *v1.AuditLogExportStatus
 }
@@ -78,7 +78,7 @@ func PerformExport[T any, U any](
 	status := export.ExportStatus()
 	status.StorageProvider = provider
 
-	exportPath := generateExportPath(export.GetName(), export.KeyPrefix(), defaultPrefix)
+	exportPath := generateExportPath(export.SpecName(), export.KeyPrefix(), defaultPrefix)
 	exportSize, err := streamingExport(ctx, *storageConfig, storageProvider, export.Bucket(), exportPath, fetch, convert)
 	if err != nil {
 		return fmt.Errorf("failed to perform streaming export: %w", err)
