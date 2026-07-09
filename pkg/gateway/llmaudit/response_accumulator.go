@@ -161,7 +161,6 @@ func (a *ResponseAccumulator) processJSON(body []byte) {
 		}
 		return
 	}
-
 }
 
 type openAIResponseAccumulator struct {
