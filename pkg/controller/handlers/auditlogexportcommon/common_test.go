@@ -2,6 +2,7 @@ package auditlogexportcommon
 
 import (
 	"context"
+	"errors"
 	"io"
 	"strings"
 	"testing"
@@ -16,6 +17,7 @@ type testStorageProvider struct {
 	bucket string
 	key    string
 	data   string
+	err    error
 }
 
 func (t *testStorageProvider) Test(context.Context, types.StorageConfig) error {
@@ -24,12 +26,53 @@ func (t *testStorageProvider) Test(context.Context, types.StorageConfig) error {
 
 func (t *testStorageProvider) Upload(_ context.Context, _ types.StorageConfig, bucket, key string, data io.Reader) error {
 	b, err := io.ReadAll(data)
+	t.err = err
 	if err != nil {
 		return err
 	}
 	t.bucket = bucket
 	t.key = key
 	t.data = string(b)
+	return nil
+}
+
+type failingStorageProvider struct {
+	err error
+}
+
+func (f failingStorageProvider) Test(context.Context, types.StorageConfig) error {
+	return nil
+}
+
+func (f failingStorageProvider) Upload(context.Context, types.StorageConfig, string, string, io.Reader) error {
+	return f.err
+}
+
+type failingAfterReadStorageProvider struct {
+	data string
+	err  error
+}
+
+func (f *failingAfterReadStorageProvider) Test(context.Context, types.StorageConfig) error {
+	return nil
+}
+
+func (f *failingAfterReadStorageProvider) Upload(_ context.Context, _ types.StorageConfig, _, _ string, data io.Reader) error {
+	b, err := io.ReadAll(data)
+	if err != nil {
+		return err
+	}
+	f.data = string(b)
+	return f.err
+}
+
+type successWithoutReadStorageProvider struct{}
+
+func (s successWithoutReadStorageProvider) Test(context.Context, types.StorageConfig) error {
+	return nil
+}
+
+func (s successWithoutReadStorageProvider) Upload(context.Context, types.StorageConfig, string, string, io.Reader) error {
 	return nil
 }
 
@@ -96,6 +139,108 @@ func TestStreamingExportFetchesFormatsAndUploadsBatches(t *testing.T) {
 	}
 	if len(calls) != 3 || calls[0] != 0 || calls[1] != 2 || calls[2] != 3 {
 		t.Fatalf("unexpected offsets: %v", calls)
+	}
+}
+
+func TestStreamingExportClosesPipeWithFetchError(t *testing.T) {
+	storage := &testStorageProvider{}
+	fetchErr := errors.New("fetch failed")
+
+	_, err := streamingExport(t.Context(), types.StorageConfig{}, storage, "bucket", "prefix/export.jsonl", func(_ int, offset int) ([]int, error) {
+		switch offset {
+		case 0:
+			return []int{1}, nil
+		case 1:
+			return nil, fetchErr
+		default:
+			t.Fatalf("unexpected offset %d", offset)
+			return nil, nil
+		}
+	}, func(v int) map[string]int {
+		return map[string]int{"value": v}
+	})
+	if err == nil || !strings.Contains(err.Error(), "failed to get audit logs batch 1") {
+		t.Fatalf("expected fetch error, got %v", err)
+	}
+	if !errors.Is(storage.err, fetchErr) {
+		t.Fatalf("expected upload reader to receive fetch error, got %v", storage.err)
+	}
+}
+
+func TestStreamingExportClosesPipeWithFormatError(t *testing.T) {
+	storage := &testStorageProvider{}
+
+	_, err := streamingExport(t.Context(), types.StorageConfig{}, storage, "bucket", "prefix/export.jsonl", func(_ int, offset int) ([]int, error) {
+		if offset > 0 {
+			return nil, nil
+		}
+		return []int{1}, nil
+	}, func(int) any {
+		return func() {}
+	})
+	if err == nil || !strings.Contains(err.Error(), "failed to format logs batch 0") {
+		t.Fatalf("expected format error, got %v", err)
+	}
+	if storage.err == nil || !strings.Contains(storage.err.Error(), "unsupported type: func()") {
+		t.Fatalf("expected upload reader to receive format error, got %v", storage.err)
+	}
+}
+
+func TestStreamingExportUnblocksOnUploadError(t *testing.T) {
+	uploadErr := errors.New("upload failed")
+
+	_, err := streamingExport(t.Context(), types.StorageConfig{}, failingStorageProvider{err: uploadErr}, "bucket", "prefix/export.jsonl", func(_ int, offset int) ([]int, error) {
+		if offset > 0 {
+			return nil, nil
+		}
+		return []int{1}, nil
+	}, func(v int) map[string]int {
+		return map[string]int{"value": v}
+	})
+	if err == nil || !strings.Contains(err.Error(), "failed to write to pipe") {
+		t.Fatalf("expected write error after upload failure, got %v", err)
+	}
+}
+
+func TestStreamingExportUnblocksWhenUploadReturnsWithoutReading(t *testing.T) {
+	_, err := streamingExport(t.Context(), types.StorageConfig{}, successWithoutReadStorageProvider{}, "bucket", "prefix/export.jsonl", func(_ int, offset int) ([]int, error) {
+		if offset > 0 {
+			return nil, nil
+		}
+		return []int{1}, nil
+	}, func(v int) map[string]int {
+		return map[string]int{"value": v}
+	})
+	if err == nil || !strings.Contains(err.Error(), "failed to write to pipe") {
+		t.Fatalf("expected write error after upload returned early, got %v", err)
+	}
+}
+
+func TestStreamingExportReturnsUploadErrorAfterDataWritten(t *testing.T) {
+	uploadErr := errors.New("upload failed")
+	storage := &failingAfterReadStorageProvider{err: uploadErr}
+
+	size, err := streamingExport(t.Context(), types.StorageConfig{}, storage, "bucket", "prefix/export.jsonl", func(_ int, offset int) ([]int, error) {
+		switch offset {
+		case 0:
+			return []int{1}, nil
+		case 1:
+			return nil, nil
+		default:
+			t.Fatalf("unexpected offset %d", offset)
+			return nil, nil
+		}
+	}, func(v int) map[string]int {
+		return map[string]int{"value": v}
+	})
+	if !errors.Is(err, uploadErr) {
+		t.Fatalf("expected upload error, got %v", err)
+	}
+	if storage.data != "{\"value\":1}\n" {
+		t.Fatalf("unexpected uploaded data: %q", storage.data)
+	}
+	if size != int64(len(storage.data)) {
+		t.Fatalf("expected size %d, got %d", len(storage.data), size)
 	}
 }
 

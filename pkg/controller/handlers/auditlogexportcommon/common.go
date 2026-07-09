@@ -143,23 +143,29 @@ func formatLogs[T any, U any](logs []T, convert func(T) U) ([]byte, error) {
 }
 
 // streamingExport pipes formatted batches directly to storage so large exports do not need to buffer in memory.
-func streamingExport[T any, U any](ctx context.Context, storageConfig types.StorageConfig, storageProvider auditlogexport.StorageProvider, bucket, exportPath string, fetch func(limit, offset int) ([]T, error), convert func(T) U) (int64, error) {
-	var totalSize int64
+func streamingExport[T any, U any](ctx context.Context, storageConfig types.StorageConfig, storageProvider auditlogexport.StorageProvider, bucket, exportPath string, fetch func(limit, offset int) ([]T, error), convert func(T) U) (totalSize int64, err error) {
 	offset := 0
 	batchNumber := 0
 
 	pr, pw := io.Pipe()
 	defer pr.Close()
-	defer pw.Close()
 
 	uploadErrCh := make(chan error, 1)
 	go func() {
 		defer close(uploadErrCh)
 		err := storageProvider.Upload(ctx, storageConfig, bucket, exportPath, pr)
-		if err != nil {
-			_ = pr.CloseWithError(err)
-		}
+		_ = pr.CloseWithError(err)
 		uploadErrCh <- err
+	}()
+
+	var writerClosed bool
+	defer func() {
+		if err != nil {
+			if !writerClosed {
+				_ = pw.CloseWithError(err)
+			}
+			<-uploadErrCh
+		}
 	}()
 
 	for {
@@ -184,6 +190,7 @@ func streamingExport[T any, U any](ctx context.Context, storageConfig types.Stor
 		batchNumber++
 	}
 
+	writerClosed = true
 	if err := pw.Close(); err != nil {
 		return totalSize, fmt.Errorf("failed to close pipe: %w", err)
 	}
