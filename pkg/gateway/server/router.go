@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/obot-platform/nah/pkg/router"
+	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/server"
 	"github.com/obot-platform/obot/pkg/system"
@@ -64,10 +65,10 @@ func (s *Server) AddRoutes(mux *server.Server) {
 	// LLM proxy
 	mux.HandleFunc("/api/llm-proxy/openai/{path...}", s.newLLMProviderProxy(mustParseURL(openAIBaseURL), system.OpenAIModelProvider).proxy)
 	mux.HandleFunc("/api/llm-proxy/anthropic/{path...}", s.newLLMProviderProxy(mustParseURL(anthropicBaseURL), system.AnthropicModelProvider).proxy)
-	mux.HandleFunc("/api/llm-proxy/aws-bedrock/anthropic/{path...}", s.newAWSBedrockLLMProviderProxy("anthropic").proxy)
-	mux.HandleFunc("/api/llm-proxy/aws-bedrock/openai/{path...}", s.newAWSBedrockLLMProviderProxy("openai").proxy)
-	mux.HandleFunc("/api/llm-proxy/aws-bedrock-api-key/anthropic/{path...}", s.newAWSBedrockAPIKeyLLMProviderProxy("anthropic").proxy)
-	mux.HandleFunc("/api/llm-proxy/aws-bedrock-api-key/openai/{path...}", s.newAWSBedrockAPIKeyLLMProviderProxy("openai").proxy)
+	mux.HandleFunc("/api/llm-proxy/aws-bedrock/anthropic/{path...}", s.newAWSBedrockLLMProviderProxy(nanobottypes.DialectAnthropicMessages).proxy)
+	mux.HandleFunc("/api/llm-proxy/aws-bedrock/openai/{path...}", s.newAWSBedrockLLMProviderProxy(nanobottypes.DialectOpenAIResponses).proxy)
+	mux.HandleFunc("/api/llm-proxy/aws-bedrock-api-key/anthropic/{path...}", s.newAWSBedrockAPIKeyLLMProviderProxy(nanobottypes.DialectAnthropicMessages).proxy)
+	mux.HandleFunc("/api/llm-proxy/aws-bedrock-api-key/openai/{path...}", s.newAWSBedrockAPIKeyLLMProviderProxy(nanobottypes.DialectOpenAIResponses).proxy)
 	mux.HandleFunc("/api/llm-proxy/{path...}", s.dispatchLLMProxy)
 
 	// API Keys for MCP server access - user's own keys

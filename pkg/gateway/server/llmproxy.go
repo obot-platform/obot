@@ -996,22 +996,16 @@ func extractContentString(content any) string {
 }
 
 type preparedLLMProxyRequest struct {
-	body                   []byte
-	model                  string
-	modelProvider          string
-	tokenUsageTracker      *threadSafeTokenUsageTracker
-	messagePolicyHelper    *messagepolicy.Helper
-	outputPolicies         []messagepolicy.ApplicablePolicy
-	conversationHistory    []messagepolicy.ConversationMessage
-	inputPolicyReplacement string
+	body              []byte
+	model             string
+	tokenUsageTracker *threadSafeTokenUsageTracker
 }
 
 type llmProviderProxyBackend interface {
 	modelProviderName() string
-	prepare(api.Context, *llmProviderProxy, *v1.ModelProvider, []byte) (*preparedLLMProxyRequest, error)
-	upstreamURL(*preparedLLMProxyRequest, map[string]string) (url.URL, error)
-	transport(v1.ModelProvider, map[string]string) (http.RoundTripper, error)
-	proxyModelsList(api.Context, *llmProviderProxy, *v1.ModelProvider, map[string]string) (bool, error)
+	upstreamURL(credEnv map[string]string) (url.URL, error)
+	transport(provider v1.ModelProvider, credEnv map[string]string) (http.RoundTripper, error)
+	proxyModelsList(req api.Context, proxy *llmProviderProxy, provider *v1.ModelProvider, credEnv map[string]string) (bool, error)
 }
 
 type llmProviderProxy struct {
@@ -1076,27 +1070,56 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 	audit.setClientSessionID(l.backend.modelProviderName(), body)
 	audit.setReasoningEffort(l.backend.modelProviderName(), body)
 
-	prepared, err := l.backend.prepare(req, l, modelProvider, body)
-	if err != nil {
-		return err
+	prepared := &preparedLLMProxyRequest{body: body}
+	targetModel := extractModelFromBody(body)
+	if targetModel != "" {
+		model, err := getModelFromReference(req.Context(), req.Storage, modelProvider.Namespace, targetModel)
+		if apierrors.IsNotFound(err) {
+			model, err = l.mapHelper.ResolveTargetModel(modelProvider.Name, targetModel)
+		}
+		if err != nil {
+			return fmt.Errorf("failed to get model: %w", err)
+		}
+		if model.Spec.Manifest.ModelProvider != modelProvider.Name {
+			return types2.NewErrBadRequest("requested model does not match configured provider %q", targetModel)
+		}
+		hasAccess, err := l.mapHelper.UserHasAccessToModel(req.User, model.Name)
+		if err != nil {
+			return fmt.Errorf("failed to check user access to model %q: %w", model.Name, err)
+		}
+		if !hasAccess {
+			return types2.NewErrForbidden("user does not have permission to use model %q", targetModel)
+		}
+
+		prepared.model = model.Spec.Manifest.TargetModel
+		prepared.body, err = rewriteModelInBody(body, prepared.model)
+		if err != nil {
+			return fmt.Errorf("failed to rewrite model in request body: %w", err)
+		}
+		prepared.tokenUsageTracker = newTokenUsageTracker(*model)
 	}
-	audit.setModel(prepared.modelProvider, prepared.model, prepared.model)
+	audit.setModel(modelProvider.Name, prepared.model, prepared.model)
 	audit.setRequestBody(prepared.body)
 
-	messagePolicyHelper := l.messagePolicyHelper
+	var (
+		messagePolicyHelper    = l.messagePolicyHelper
+		outputPolicies         []messagepolicy.ApplicablePolicy
+		conversationHistory    []messagepolicy.ConversationMessage
+		inputPolicyReplacement string
+	)
 	if shouldSkipMessagePolicyEnforcement(req.Request) {
 		messagePolicyHelper = nil
 	}
 	if messagePolicyHelper != nil && req.User.GetUID() != "" {
 		var bodyMap map[string]any
 		if err := json.Unmarshal(prepared.body, &bodyMap); err == nil {
-			prepared.outputPolicies, prepared.conversationHistory, prepared.inputPolicyReplacement, err = applyMessagePolicies(
+			outputPolicies, conversationHistory, inputPolicyReplacement, err = applyMessagePolicies(
 				req.Context(), messagePolicyHelper, req.User, req.GatewayClient, bodyMap, "", "",
 			)
 			if err != nil {
 				return err
 			}
-			if prepared.inputPolicyReplacement != "" {
+			if inputPolicyReplacement != "" {
 				b, err := json.Marshal(bodyMap)
 				if err != nil {
 					return fmt.Errorf("failed to marshal modified body: %w", err)
@@ -1106,7 +1129,6 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 			}
 		}
 	}
-	prepared.messagePolicyHelper = messagePolicyHelper
 	req.Request.Body = io.NopCloser(bytes.NewReader(prepared.body))
 	req.ContentLength = int64(len(prepared.body))
 
@@ -1122,7 +1144,7 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 		return types2.NewErrHTTP(http.StatusTooManyRequests, fmt.Sprintf("no tokens remaining (input tokens remaining: %d, output tokens remaining: %d)", remainingUsage.InputTokens, remainingUsage.OutputTokens))
 	}
 
-	u, err := l.backend.upstreamURL(prepared, credEnv)
+	u, err := l.backend.upstreamURL(credEnv)
 	if err != nil {
 		return err
 	}
@@ -1134,14 +1156,14 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 	modifier := &responseModifier{
 		user:                   req.User,
 		model:                  prepared.model,
-		modelProvider:          prepared.modelProvider,
+		modelProvider:          modelProvider.Name,
 		client:                 req.GatewayClient,
 		tokenUsageTracker:      prepared.tokenUsageTracker,
 		mapHelper:              l.mapHelper,
-		inputPolicyReplacement: prepared.inputPolicyReplacement,
-		messagePolicyHelper:    prepared.messagePolicyHelper,
-		outputPolicies:         prepared.outputPolicies,
-		conversationHistory:    prepared.conversationHistory,
+		inputPolicyReplacement: inputPolicyReplacement,
+		messagePolicyHelper:    messagePolicyHelper,
+		outputPolicies:         outputPolicies,
+		conversationHistory:    conversationHistory,
 		audit:                  audit,
 	}
 

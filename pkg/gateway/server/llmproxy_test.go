@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/messagepolicy"
 	"github.com/obot-platform/obot/pkg/system"
@@ -221,6 +222,32 @@ func TestResponseModifierCapturesAuditResponseBody(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	if got := recorder.responseStream.String(); got != body {
+		t.Fatalf("captured response body = %q, want %q", got, body)
+	}
+}
+
+func TestResponseModifierPreservesUpstreamErrorBody(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/openai/v1/responses", nil)
+	recorder := newLLMAuditRecorder(req, nil, 5<<20)
+	body := `{"error":{"code":"validation_error","message":"model does not support this API"}}`
+	resp := &http.Response{
+		StatusCode: http.StatusBadRequest,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(body)),
+		Request:    req,
+	}
+
+	if err := (&responseModifier{audit: recorder}).modifyResponse(resp); err != nil {
+		t.Fatal(err)
+	}
+	got, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != body {
+		t.Fatalf("response body = %q, want %q", got, body)
+	}
 	if got := recorder.responseStream.String(); got != body {
 		t.Fatalf("captured response body = %q, want %q", got, body)
 	}
@@ -603,44 +630,58 @@ func TestLLMTransformRequest_UpstreamPath(t *testing.T) {
 	}
 }
 
-func TestIsBedrockModelsListRequest(t *testing.T) {
-	for _, path := range []string{"models", "v1/models"} {
-		t.Run(path, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodGet, "http://gateway.local/", nil)
-			req.SetPathValue("path", path)
-			if !isBedrockModelsListRequest(req) {
-				t.Fatalf("isBedrockModelsListRequest(%q) = false, want true", path)
-			}
-		})
-	}
-
-	req := httptest.NewRequest(http.MethodPost, "http://gateway.local/", nil)
-	req.SetPathValue("path", "v1/models")
-	if isBedrockModelsListRequest(req) {
-		t.Fatal("POST /v1/models should not be a models list request")
-	}
-}
-
-func TestBedrockModelDialect(t *testing.T) {
+func TestBedrockRouteDialect(t *testing.T) {
 	tests := []struct {
-		model       string
+		dialect     nanobottypes.Dialect
 		wantDialect string
 		wantErr     bool
 	}{
-		{model: "anthropic.claude-sonnet-4-6", wantDialect: "anthropic"},
-		{model: "openai.gpt-5.5", wantDialect: "openai"},
-		{model: "google.gemini-2.5-pro", wantDialect: "openai"},
-		{model: "meta.llama3-3-70b", wantErr: true},
+		{dialect: nanobottypes.DialectAnthropicMessages, wantDialect: "anthropic"},
+		{dialect: nanobottypes.DialectOpenAIResponses, wantDialect: "openai"},
+		{dialect: nanobottypes.DialectOpenAIChatCompletions, wantErr: true},
+		{dialect: "", wantErr: true},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.model, func(t *testing.T) {
-			got, err := bedrockModelDialect(tt.model)
+		t.Run(string(tt.dialect), func(t *testing.T) {
+			got, err := bedrockRouteDialect(tt.dialect)
 			if (err != nil) != tt.wantErr {
-				t.Fatalf("bedrockModelDialect(%q) error = %v, wantErr %v", tt.model, err, tt.wantErr)
+				t.Fatalf("bedrockRouteDialect(%q) error = %v, wantErr %v", tt.dialect, err, tt.wantErr)
 			}
 			if got != tt.wantDialect {
-				t.Fatalf("bedrockModelDialect(%q) = %q, want %q", tt.model, got, tt.wantDialect)
+				t.Fatalf("bedrockRouteDialect(%q) = %q, want %q", tt.dialect, got, tt.wantDialect)
+			}
+		})
+	}
+}
+
+func TestBedrockUpstreamURLUsesRouteDialect(t *testing.T) {
+	tests := []struct {
+		name         string
+		routeDialect nanobottypes.Dialect
+		want         string
+	}{
+		{
+			name:         "OpenAI route",
+			routeDialect: nanobottypes.DialectOpenAIResponses,
+			want:         "https://bedrock-mantle.us-east-1.api.aws/openai/v1",
+		},
+		{
+			name:         "Anthropic route",
+			routeDialect: nanobottypes.DialectAnthropicMessages,
+			want:         "https://bedrock-mantle.us-east-1.api.aws/anthropic/v1",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			backend := bedrockMantleProviderBackend{dialect: tt.routeDialect, apiKey: true}
+			got, err := backend.upstreamURL(map[string]string{bedrockAPIKeyRegionEnv: "us-east-1"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got.String() != tt.want {
+				t.Fatalf("upstream URL = %q, want %q", got.String(), tt.want)
 			}
 		})
 	}
@@ -739,7 +780,7 @@ func TestBedrockSignGetRequest(t *testing.T) {
 }
 
 func TestBedrockMantleTransformAndSign(t *testing.T) {
-	base, err := bedrockBaseURL("us-east-1", "anthropic.claude-sonnet-4-6")
+	base, err := bedrockBaseURL("us-east-1", nanobottypes.DialectAnthropicMessages)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -754,21 +795,13 @@ func TestBedrockMantleTransformAndSign(t *testing.T) {
 	if got := req.URL.String(); got != "https://bedrock-mantle.us-east-1.api.aws/anthropic/v1/messages" {
 		t.Fatalf("URL = %q, want Bedrock Mantle messages URL", got)
 	}
-	openAIBase, err := bedrockBaseURL("us-east-1", "openai.gpt-5.5")
+	openAIBase, err := bedrockBaseURL("us-east-1", nanobottypes.DialectOpenAIResponses)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got := openAIBase.String(); got != "https://bedrock-mantle.us-east-1.api.aws/openai/v1" {
 		t.Fatalf("OpenAI URL = %q, want Bedrock OpenAI URL", got)
 	}
-	googleBase, err := bedrockBaseURL("us-east-1", "google.gemini-2.5-pro")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := googleBase.String(); got != "https://bedrock-mantle.us-east-1.api.aws/openai/v1" {
-		t.Fatalf("Google URL = %q, want Bedrock OpenAI-compatible URL", got)
-	}
-
 	err = signBedrockRequest(req, bedrockStaticAuth{
 		region:          "us-east-1",
 		accessKeyID:     "AKIDEXAMPLE",

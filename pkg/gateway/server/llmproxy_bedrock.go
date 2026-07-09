@@ -3,19 +3,17 @@ package server
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	v4signer "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
+	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 const (
@@ -33,7 +31,7 @@ const (
 	bedrockAPIKeyRegionEnv    = "OBOT_AMAZON_BEDROCK_API_KEY_MODEL_PROVIDER_REGION"
 )
 
-func (s *Server) newAWSBedrockLLMProviderProxy(dialect string) *llmProviderProxy {
+func (s *Server) newAWSBedrockLLMProviderProxy(dialect nanobottypes.Dialect) *llmProviderProxy {
 	return &llmProviderProxy{
 		dailyUserInputTokenLimit:  s.dailyUserInputTokenLimit,
 		dailyUserOutputTokenLimit: s.dailyUserOutputTokenLimit,
@@ -43,7 +41,7 @@ func (s *Server) newAWSBedrockLLMProviderProxy(dialect string) *llmProviderProxy
 	}
 }
 
-func (s *Server) newAWSBedrockAPIKeyLLMProviderProxy(dialect string) *llmProviderProxy {
+func (s *Server) newAWSBedrockAPIKeyLLMProviderProxy(dialect nanobottypes.Dialect) *llmProviderProxy {
 	return &llmProviderProxy{
 		dailyUserInputTokenLimit:  s.dailyUserInputTokenLimit,
 		dailyUserOutputTokenLimit: s.dailyUserOutputTokenLimit,
@@ -55,7 +53,7 @@ func (s *Server) newAWSBedrockAPIKeyLLMProviderProxy(dialect string) *llmProvide
 
 type bedrockMantleProviderBackend struct {
 	providerName string
-	dialect      string
+	dialect      nanobottypes.Dialect
 	apiKey       bool
 }
 
@@ -63,64 +61,15 @@ func (b bedrockMantleProviderBackend) modelProviderName() string {
 	return b.providerName
 }
 
-func (b bedrockMantleProviderBackend) prepare(req api.Context, l *llmProviderProxy, modelProvider *v1.ModelProvider, body []byte) (*preparedLLMProxyRequest, error) {
-	var bodyMap map[string]any
-	if err := json.Unmarshal(body, &bodyMap); err != nil {
-		return nil, fmt.Errorf("failed to read body: %w", err)
-	}
-	modelStr, ok := bodyMap["model"].(string)
-	if !ok {
-		return nil, fmt.Errorf("missing model in body")
-	}
-
-	model, err := getModelFromReference(req.Context(), req.Storage, modelProvider.Namespace, modelStr)
-	if apierrors.IsNotFound(err) {
-		model, err = l.mapHelper.ResolveTargetModel(modelProvider.Name, modelStr)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to get model: %w", err)
-	}
-	if model.Spec.Manifest.ModelProvider != modelProvider.Name {
-		return nil, types2.NewErrBadRequest("requested model does not use provider %q", modelProvider.Name)
-	}
-	hasAccess, err := l.mapHelper.UserHasAccessToModel(req.User, model.Name)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check model permission: %w", err)
-	}
-	if !hasAccess {
-		return nil, types2.NewErrForbidden("user does not have permission to use model %q", modelStr)
-	}
-	targetModel := model.Spec.Manifest.TargetModel
-	dialect, err := bedrockModelDialect(targetModel)
-	if err != nil {
-		return nil, err
-	}
-	if dialect != b.dialect {
-		return nil, types2.NewErrBadRequest("model %q is not compatible with Bedrock %s route", targetModel, b.dialect)
-	}
-
-	bodyMap["model"] = targetModel
-	body, err = json.Marshal(bodyMap)
-	if err != nil {
-		return nil, err
-	}
-	return &preparedLLMProxyRequest{
-		body:              body,
-		model:             targetModel,
-		modelProvider:     modelProvider.Name,
-		tokenUsageTracker: newTokenUsageTracker(*model),
-	}, nil
-}
-
-func (b bedrockMantleProviderBackend) upstreamURL(prepared *preparedLLMProxyRequest, credEnv map[string]string) (url.URL, error) {
+func (b bedrockMantleProviderBackend) upstreamURL(credEnv map[string]string) (url.URL, error) {
 	if b.apiKey {
-		return bedrockBaseURL(bedrockAPIKeyRegionFromCredential(credEnv), prepared.model)
+		return bedrockBaseURL(bedrockAPIKeyRegionFromCredential(credEnv), b.dialect)
 	}
 	auth, err := bedrockStaticAuthFromCredential(credEnv)
 	if err != nil {
 		return url.URL{}, err
 	}
-	return bedrockBaseURL(auth.region, prepared.model)
+	return bedrockBaseURL(auth.region, b.dialect)
 }
 
 func (b bedrockMantleProviderBackend) transport(_ v1.ModelProvider, credEnv map[string]string) (http.RoundTripper, error) {
@@ -139,7 +88,7 @@ func (b bedrockMantleProviderBackend) transport(_ v1.ModelProvider, credEnv map[
 }
 
 func (b bedrockMantleProviderBackend) proxyModelsList(req api.Context, l *llmProviderProxy, _ *v1.ModelProvider, _ map[string]string) (bool, error) {
-	if !isBedrockModelsListRequest(req.Request) {
+	if req.Method != http.MethodGet || req.PathValue("path") != "v1/models" {
 		return false, nil
 	}
 
@@ -150,8 +99,7 @@ func (b bedrockMantleProviderBackend) proxyModelsList(req api.Context, l *llmPro
 
 	data := make([]map[string]string, 0, len(models))
 	for _, model := range models {
-		dialect, err := bedrockModelDialect(model.Spec.Manifest.TargetModel)
-		if err != nil || dialect != b.dialect {
+		if nanobottypes.Dialect(model.Spec.Manifest.Dialect) != b.dialect {
 			continue
 		}
 		data = append(data, map[string]string{
@@ -219,8 +167,8 @@ func (b bedrockAPIKeyTransport) RoundTrip(req *http.Request) (*http.Response, er
 	return next.RoundTrip(req)
 }
 
-func bedrockBaseURL(region, model string) (url.URL, error) {
-	dialect, err := bedrockModelDialect(model)
+func bedrockBaseURL(region string, modelDialect nanobottypes.Dialect) (url.URL, error) {
+	dialect, err := bedrockRouteDialect(modelDialect)
 	if err != nil {
 		return url.URL{}, err
 	}
@@ -231,14 +179,14 @@ func bedrockBaseURL(region, model string) (url.URL, error) {
 	}, nil
 }
 
-func bedrockModelDialect(model string) (string, error) {
-	switch {
-	case strings.HasPrefix(model, "anthropic."):
+func bedrockRouteDialect(dialect nanobottypes.Dialect) (string, error) {
+	switch dialect {
+	case nanobottypes.DialectAnthropicMessages:
 		return "anthropic", nil
-	case strings.HasPrefix(model, "openai."), strings.HasPrefix(model, "google."):
+	case nanobottypes.DialectOpenAIResponses:
 		return "openai", nil
 	default:
-		return "", types2.NewErrBadRequest("unsupported Bedrock model %q", model)
+		return "", types2.NewErrBadRequest("unsupported Bedrock model dialect %q", dialect)
 	}
 }
 
@@ -283,13 +231,4 @@ func signBedrockRequest(req *http.Request, auth bedrockStaticAuth, signingTime t
 		SecretAccessKey: auth.secretAccessKey,
 		SessionToken:    auth.sessionToken,
 	}, req, payloadHash, auth.signingService, auth.region, signingTime)
-}
-
-func isBedrockModelsListRequest(req *http.Request) bool {
-	if req.Method != http.MethodGet {
-		return false
-	}
-	reqPath := req.PathValue("path")
-	reqPath = strings.TrimPrefix(reqPath, "v1/")
-	return reqPath == "models"
 }
