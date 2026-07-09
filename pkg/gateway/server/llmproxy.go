@@ -1080,8 +1080,8 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 	audit.setReasoningEffort(l.backend.modelProviderName(), body)
 
 	prepared := &preparedLLMProxyRequest{body: body}
-	targetModel := extractModelFromBody(body)
-	if targetModel != "" {
+
+	if targetModel := extractModelFromBody(body); targetModel != "" {
 		model, err := getModelFromReference(req.Context(), req.Storage, modelProvider.Namespace, targetModel)
 		if apierrors.IsNotFound(err) {
 			model, err = l.mapHelper.ResolveTargetModel(modelProvider.Name, targetModel)
