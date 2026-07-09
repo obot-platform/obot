@@ -267,13 +267,6 @@ func signBedrockRequest(req *http.Request, auth bedrockStaticAuth, signingTime t
 	}, req, payloadHash, auth.signingService, auth.region, signingTime)
 }
 
-func accessKeySuffix(accessKeyID string) string {
-	if len(accessKeyID) <= 4 {
-		return accessKeyID
-	}
-	return accessKeyID[len(accessKeyID)-4:]
-}
-
 func isBedrockModelsListRequest(req *http.Request) bool {
 	if req.Method != http.MethodGet {
 		return false
