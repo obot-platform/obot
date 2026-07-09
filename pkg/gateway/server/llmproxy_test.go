@@ -687,6 +687,33 @@ func TestBedrockUpstreamURLUsesRouteDialect(t *testing.T) {
 	}
 }
 
+func TestBedrockModelsListUsesRootUpstreamPath(t *testing.T) {
+	for _, dialect := range []nanobottypes.Dialect{
+		nanobottypes.DialectAnthropicMessages,
+		nanobottypes.DialectOpenAIResponses,
+	} {
+		t.Run(string(dialect), func(t *testing.T) {
+			proxy := llmProviderProxy{
+				routeDialect: dialect,
+				backend: bedrockMantleProviderBackend{
+					dialect: dialect,
+					apiKey:  true,
+				},
+			}
+			req := httptest.NewRequest(http.MethodGet, "http://gateway.local/", nil)
+			req.SetPathValue("path", "v1/models")
+
+			u, err := proxy.upstreamURL(req, map[string]string{bedrockAPIKeyRegionEnv: "us-east-1"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := u.String(); got != "https://bedrock-mantle.us-east-1.api.aws/v1" {
+				t.Fatalf("upstream URL = %q, want root /v1", got)
+			}
+		})
+	}
+}
+
 func TestBedrockStaticAuthFromCredential(t *testing.T) {
 	tests := []struct {
 		name    string

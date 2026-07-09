@@ -12,7 +12,6 @@ import (
 	v4signer "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
 	types2 "github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/api"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
@@ -37,6 +36,7 @@ func (s *Server) newAWSBedrockLLMProviderProxy(dialect nanobottypes.Dialect) *ll
 	return &llmProviderProxy{
 		dailyUserInputTokenLimit:  s.dailyUserInputTokenLimit,
 		dailyUserOutputTokenLimit: s.dailyUserOutputTokenLimit,
+		routeDialect:              dialect,
 		backend:                   bedrockMantleProviderBackend{providerName: amazonBedrockModelProvider, dialect: dialect},
 		mapHelper:                 s.mapHelper,
 		messagePolicyHelper:       s.messagePolicyHelper,
@@ -47,6 +47,7 @@ func (s *Server) newAWSBedrockAPIKeyLLMProviderProxy(dialect nanobottypes.Dialec
 	return &llmProviderProxy{
 		dailyUserInputTokenLimit:  s.dailyUserInputTokenLimit,
 		dailyUserOutputTokenLimit: s.dailyUserOutputTokenLimit,
+		routeDialect:              dialect,
 		backend:                   bedrockMantleProviderBackend{providerName: amazonBedrockAPIKeyModelProvider, dialect: dialect, apiKey: true},
 		mapHelper:                 s.mapHelper,
 		messagePolicyHelper:       s.messagePolicyHelper,
@@ -87,33 +88,6 @@ func (b bedrockMantleProviderBackend) transport(_ v1.ModelProvider, credEnv map[
 		return nil, err
 	}
 	return bedrockSigV4Transport{auth: auth, next: http.DefaultTransport}, nil
-}
-
-func (b bedrockMantleProviderBackend) proxyModelsList(req api.Context, l *llmProviderProxy, _ *v1.ModelProvider, _ map[string]string) (bool, error) {
-	if req.Method != http.MethodGet || req.PathValue("path") != "v1/models" {
-		return false, nil
-	}
-
-	models, err := l.mapHelper.GetUserAccessibleProviderModels(req.User, b.modelProviderName())
-	if err != nil {
-		return true, fmt.Errorf("failed to determine accessible models: %w", err)
-	}
-
-	data := make([]map[string]string, 0, len(models))
-	for _, model := range models {
-		if nanobottypes.Dialect(model.Spec.Manifest.Dialect) != b.dialect {
-			continue
-		}
-		data = append(data, map[string]string{
-			"id":     model.Spec.Manifest.TargetModel,
-			"object": "model",
-		})
-	}
-
-	return true, req.Write(map[string]any{
-		"object": "list",
-		"data":   data,
-	})
 }
 
 type bedrockStaticAuth struct {

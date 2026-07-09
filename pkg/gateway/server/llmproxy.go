@@ -19,6 +19,7 @@ import (
 	"sync"
 	"time"
 
+	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/alias"
@@ -1005,12 +1006,12 @@ type llmProviderProxyBackend interface {
 	modelProviderName() string
 	upstreamURL(credEnv map[string]string) (url.URL, error)
 	transport(provider v1.ModelProvider, credEnv map[string]string) (http.RoundTripper, error)
-	proxyModelsList(req api.Context, proxy *llmProviderProxy, provider *v1.ModelProvider, credEnv map[string]string) (bool, error)
 }
 
 type llmProviderProxy struct {
 	dailyUserInputTokenLimit  int
 	dailyUserOutputTokenLimit int
+	routeDialect              nanobottypes.Dialect
 	backend                   llmProviderProxyBackend
 	modelProvider             *v1.ModelProvider
 	mapHelper                 *modelaccesspolicy.Helper
@@ -1026,6 +1027,18 @@ func (s *Server) newLLMProviderProxy(u *url.URL, modelProviderName string) *llmP
 		mapHelper:                 s.mapHelper,
 		messagePolicyHelper:       s.messagePolicyHelper,
 	}
+}
+
+func (l *llmProviderProxy) upstreamURL(req *http.Request, credEnv map[string]string) (url.URL, error) {
+	u, err := l.backend.upstreamURL(credEnv)
+	if err != nil {
+		return url.URL{}, err
+	}
+	if l.routeDialect != "" && isModelsListRequest(req) {
+		u.Path = "/v1"
+		u.RawPath = ""
+	}
+	return u, nil
 }
 
 func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
@@ -1051,10 +1064,6 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 		l.lock.Lock()
 		l.modelProvider = modelProvider
 		l.lock.Unlock()
-	}
-
-	if handled, err := l.backend.proxyModelsList(req, l, modelProvider, nil); handled || err != nil {
-		return err
 	}
 
 	credEnv, err := dispatcher.CredentialEnvForModelProvider(req.Context(), req.GatewayClient, *modelProvider)
@@ -1145,7 +1154,7 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 		return types2.NewErrHTTP(http.StatusTooManyRequests, fmt.Sprintf("no tokens remaining (input tokens remaining: %d, output tokens remaining: %d)", remainingUsage.InputTokens, remainingUsage.OutputTokens))
 	}
 
-	u, err := l.backend.upstreamURL(credEnv)
+	u, err := l.upstreamURL(req.Request, credEnv)
 	if err != nil {
 		return err
 	}
