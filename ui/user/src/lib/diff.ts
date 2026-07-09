@@ -9,6 +9,7 @@ type ManifestDiff = MCPCatalogEntryServerManifest | MCPServer;
  * configuration drift. These are either informational metadata or fields that
  * differ structurally between catalog entry and runtime manifest types.
  *
+ * - `entryKey`: identifies an entry within its catalog source, not server configuration
  * - `repoURL`: tracks the source repository, not server configuration
  * - `serverUserType`: exists only on catalog entry manifests
  * - `remoteConfig.fixedURL`: catalog-only field translated to `url` at deploy time
@@ -33,6 +34,7 @@ export function stripManifestMetadata<T>(
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const stripFields = (m: any) => {
 		if (!m || typeof m !== 'object') return;
+		delete m.entryKey;
 		delete m.repoURL;
 		delete m.serverUserType;
 		if (m.remoteConfig) {
