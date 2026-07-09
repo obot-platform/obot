@@ -2,6 +2,7 @@ package server
 
 import (
 	"bufio"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -685,22 +686,65 @@ func TestBedrockUpstreamURLUsesRouteDialect(t *testing.T) {
 	}
 }
 
-func TestModelListDataFiltersByActiveRouteDialect(t *testing.T) {
+func TestModelListResponse(t *testing.T) {
 	models := []v1.Model{
-		{Spec: v1.ModelSpec{Manifest: types2.ModelManifest{TargetModel: "openai.gpt-5.5", Active: true, Dialect: string(nanobottypes.DialectOpenAIResponses)}}},
-		{Spec: v1.ModelSpec{Manifest: types2.ModelManifest{TargetModel: "anthropic.claude-haiku-4-5", Active: true, Dialect: string(nanobottypes.DialectAnthropicMessages)}}},
+		{Spec: v1.ModelSpec{Manifest: types2.ModelManifest{TargetModel: "openai.gpt-5.5", ModelProvider: "amazon-bedrock-model-provider", Active: true, Dialect: string(nanobottypes.DialectOpenAIResponses)}}},
+		{Spec: v1.ModelSpec{Manifest: types2.ModelManifest{TargetModel: "anthropic.claude-haiku-4-5", DisplayName: "Claude Haiku 4.5", Active: true, Dialect: string(nanobottypes.DialectAnthropicMessages)}}},
 		{Spec: v1.ModelSpec{Manifest: types2.ModelManifest{TargetModel: "openai.inactive", Active: false, Dialect: string(nanobottypes.DialectOpenAIResponses)}}},
 	}
 
-	data := modelListData(models, nanobottypes.DialectOpenAIResponses)
-	if len(data) != 1 {
-		t.Fatalf("models = %v, want one active OpenAI-compatible model", data)
+	t.Run("OpenAI", func(t *testing.T) {
+		response, err := modelListResponse(models, nanobottypes.DialectOpenAIResponses)
+		if err != nil {
+			t.Fatal(err)
+		}
+		list := response.(openAIModelListResponse)
+		if list.Object != "list" || len(list.Data) != 1 {
+			t.Fatalf("response = %#v, want one OpenAI model", list)
+		}
+		model := list.Data[0]
+		if model.ID != "openai.gpt-5.5" || model.Object != "model" || model.Created != 0 || model.OwnedBy != "amazon-bedrock-model-provider" {
+			t.Fatalf("model = %#v, want complete OpenAI model fields", model)
+		}
+		assertJSONFields(t, list, "object", "data", "created", "owned_by")
+	})
+
+	t.Run("Anthropic", func(t *testing.T) {
+		response, err := modelListResponse(models, nanobottypes.DialectAnthropicMessages)
+		if err != nil {
+			t.Fatal(err)
+		}
+		list := response.(anthropicModelListResponse)
+		if len(list.Data) != 1 || list.HasMore {
+			t.Fatalf("response = %#v, want one terminal Anthropic page", list)
+		}
+		if list.FirstID != "anthropic.claude-haiku-4-5" || list.LastID != list.FirstID {
+			t.Fatalf("cursors = %q/%q, want model ID", list.FirstID, list.LastID)
+		}
+		model := list.Data[0]
+		if model.ID != list.FirstID || model.Type != "model" || model.DisplayName != "Claude Haiku 4.5" || model.CreatedAt != "1970-01-01T00:00:00Z" {
+			t.Fatalf("model = %#v, want complete Anthropic model fields", model)
+		}
+		assertJSONFields(t, list, "type", "display_name", "created_at", "capabilities", "max_input_tokens", "max_tokens", "first_id", "has_more", "last_id")
+	})
+
+	t.Run("unsupported dialect", func(t *testing.T) {
+		if _, err := modelListResponse(models, nanobottypes.DialectOpenAIChatCompletions); err == nil {
+			t.Fatal("expected unsupported dialect error")
+		}
+	})
+}
+
+func assertJSONFields(t *testing.T, value any, fields ...string) {
+	t.Helper()
+	b, err := json.Marshal(value)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if got := data[0]["id"]; got != "openai.gpt-5.5" {
-		t.Fatalf("model id = %q, want openai.gpt-5.5", got)
-	}
-	if got := data[0]["object"]; got != "model" {
-		t.Fatalf("object = %q, want model", got)
+	for _, field := range fields {
+		if !strings.Contains(string(b), `"`+field+`"`) {
+			t.Errorf("JSON %s does not contain field %q", b, field)
+		}
 	}
 }
 
