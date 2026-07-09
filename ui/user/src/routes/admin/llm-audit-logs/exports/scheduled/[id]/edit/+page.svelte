@@ -17,14 +17,18 @@
 	let scheduleData = $state<ScheduledLLMAuditLogExport | null>(null);
 
 	onMount(async () => {
-		if (scheduleId) {
-			try {
-				scheduleData = await AdminService.getScheduledLLMAuditLogExport(scheduleId);
-			} catch (err) {
-				error = err instanceof Error ? err.message : 'Failed to load scheduled export';
-			} finally {
-				loading = false;
-			}
+		if (!scheduleId) {
+			error = 'Scheduled export ID is required';
+			loading = false;
+			return;
+		}
+
+		try {
+			scheduleData = await AdminService.getScheduledLLMAuditLogExport(scheduleId);
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Failed to load scheduled export';
+		} finally {
+			loading = false;
 		}
 	});
 

@@ -16,7 +16,11 @@
 	let exportData = $state<LLMAuditLogExport>();
 
 	onMount(async () => {
-		if (!exportId) return;
+		if (!exportId) {
+			error = 'Export ID is required';
+			loading = false;
+			return;
+		}
 		try {
 			exportData = await AdminService.getLLMAuditLogExport(exportId);
 		} catch (err) {
