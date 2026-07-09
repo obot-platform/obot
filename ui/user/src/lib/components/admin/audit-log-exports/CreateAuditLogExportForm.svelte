@@ -303,8 +303,8 @@
 			const params = page.url.searchParams;
 
 			// Set time range if provided
-			const startTime = params.get('startTime');
-			const endTime = params.get('endTime');
+			const startTime = params.get('startTime') ?? params.get('start_time');
+			const endTime = params.get('endTime') ?? params.get('end_time');
 			if (startTime) {
 				form.startTime = new Date(startTime);
 			}
@@ -323,6 +323,11 @@
 					hasFilters = true;
 				}
 			});
+			const query = params.get('query');
+			if (query) {
+				form.filters.query = query;
+				hasFilters = true;
+			}
 
 			// Show advanced options if there are filters from the URL
 			if (hasFilters) {

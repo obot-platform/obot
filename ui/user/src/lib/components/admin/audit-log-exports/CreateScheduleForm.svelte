@@ -152,7 +152,8 @@
 							outcome: 'outcome',
 							request_path: 'request_path',
 							response_status: 'response_status',
-							target_model: 'target_model'
+							target_model: 'target_model',
+							query: 'query'
 						} satisfies Record<string, keyof LLMAuditLogURLFilters>)
 					: ({
 							user_ids: 'user_id',
