@@ -227,10 +227,10 @@ model = "openai.gpt-5.4"
 # model = "google.gemma-4-31b"
 
 [model_providers.obot_openai]
-base_url = "https://obot.example.com/api/llm-proxy/aws-bedrock/openai/v1"
+base_url = "https://obot.example.com/api/llm-proxy/aws-bedrock/openai"
 ```
 
-For a local Obot server, use `base_url = "http://localhost:8080/api/llm-proxy/aws-bedrock/openai/v1"`.
+For a local Obot server, use `base_url = "http://localhost:8080/api/llm-proxy/aws-bedrock/openai"`.
 
 Use `/api/llm-proxy/aws-bedrock-api-key/openai/v1` when your administrator configured the **Amazon Bedrock (API Key)** provider.
 
