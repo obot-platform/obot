@@ -82,7 +82,8 @@
 				{@const catalogEntryServerId =
 					componentServer.catalogEntryID && serversMap.get(componentServer.catalogEntryID)?.id}
 				{@const multiUserServerId = componentServer.mcpServerID}
-				{@const componentExists = !!(catalogEntryServerId || multiUserServerId)}
+				{@const componentServerId = catalogEntryServerId || multiUserServerId}
+				{@const componentExists = !!componentServerId}
 				{@const deprecated = isDeprecatedMCPServer(componentServer)}
 
 				{#if componentExists}
@@ -123,8 +124,8 @@
 							</div>
 							<p class="text-sm">{componentServer.manifest?.name}</p>
 							<McpDeprecatedNotice {deprecated} child />
-							{#if catalogEntryServerId}
-								<span class="text-muted-content text-sm">({catalogEntryServerId})</span>
+							{#if componentServerId}
+								<span class="text-muted-content text-sm">({componentServerId})</span>
 							{/if}
 						</div>
 						<IconButton>
@@ -169,6 +170,9 @@
 								</span>
 							{/if}
 						</div>
+						<IconButton class="invisible" disabled tabindex={-1} aria-hidden="true">
+							<ChevronRight class="size-6" />
+						</IconButton>
 					</div>
 				{/if}
 			{/each}
