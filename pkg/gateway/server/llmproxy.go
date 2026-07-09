@@ -264,6 +264,7 @@ type responseModifier struct {
 	user                kuser.Info
 	model               string
 	modelProvider       string
+	routeDialect        nanobottypes.Dialect
 	projectID, threadID string
 	client              *client.Client
 	b                   *bufio.Reader
@@ -288,7 +289,7 @@ type responseModifier struct {
 
 func (r *responseModifier) modifyResponse(resp *http.Response) error {
 	if isModelsListRequest(resp.Request) {
-		allowedTargetModels, allowAllModels, err := r.mapHelper.GetUserAllowedTargetModels(r.user, r.modelProvider)
+		allowedTargetModels, allowAllModels, err := r.mapHelper.GetUserAllowedTargetModels(r.user, r.modelProvider, string(r.routeDialect))
 		if err != nil {
 			return fmt.Errorf("failed to determine accessible models: %w", err)
 		}
@@ -1167,6 +1168,7 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 		user:                   req.User,
 		model:                  prepared.model,
 		modelProvider:          modelProvider.Name,
+		routeDialect:           l.routeDialect,
 		client:                 req.GatewayClient,
 		tokenUsageTracker:      prepared.tokenUsageTracker,
 		mapHelper:              l.mapHelper,
