@@ -63,8 +63,8 @@ func (s *Server) AddRoutes(mux *server.Server) {
 	mux.HandleFunc("/api/oauth/redirect/{namespace}/{name}", wrap(s.redirect))
 
 	// LLM proxy
-	mux.HandleFunc("/api/llm-proxy/openai/{path...}", s.newLLMProviderProxy(mustParseURL(openAIBaseURL), system.OpenAIModelProvider, nanobottypes.DialectOpenAIResponses).proxy)
-	mux.HandleFunc("/api/llm-proxy/anthropic/{path...}", s.newLLMProviderProxy(mustParseURL(anthropicBaseURL), system.AnthropicModelProvider, nanobottypes.DialectAnthropicMessages).proxy)
+	mux.HandleFunc("/api/llm-proxy/openai/{path...}", s.newLLMProviderProxy(mustParseURL(openAIBaseURL), system.OpenAIModelProvider).proxy)
+	mux.HandleFunc("/api/llm-proxy/anthropic/{path...}", s.newLLMProviderProxy(mustParseURL(anthropicBaseURL), system.AnthropicModelProvider).proxy)
 	mux.HandleFunc("/api/llm-proxy/aws-bedrock/anthropic/{path...}", s.newAWSBedrockLLMProviderProxy(nanobottypes.DialectAnthropicMessages).proxy)
 	mux.HandleFunc("/api/llm-proxy/aws-bedrock/openai/{path...}", s.newAWSBedrockLLMProviderProxy(nanobottypes.DialectOpenAIResponses).proxy)
 	mux.HandleFunc("/api/llm-proxy/aws-bedrock-api-key/anthropic/{path...}", s.newAWSBedrockAPIKeyLLMProviderProxy(nanobottypes.DialectAnthropicMessages).proxy)

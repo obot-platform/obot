@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/obot-platform/obot/pkg/api"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 )
@@ -56,4 +57,8 @@ func (a apiKeyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		next = http.DefaultTransport
 	}
 	return next.RoundTrip(req)
+}
+
+func (a apiKeyLLMProviderBackend) proxyModelsList(api.Context, *llmProviderProxy, *v1.ModelProvider, map[string]string) (bool, error) {
+	return false, nil
 }

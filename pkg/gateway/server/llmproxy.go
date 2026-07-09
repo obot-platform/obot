@@ -14,11 +14,11 @@ import (
 	"os"
 	"path"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/alias"
@@ -30,6 +30,7 @@ import (
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
@@ -146,8 +147,10 @@ func (s *Server) dispatchLLMProxy(req api.Context) error {
 		ModifyResponse: (&responseModifier{
 			user:                   req.User,
 			model:                  model,
+			modelProvider:          modelProvider,
 			client:                 req.GatewayClient,
 			tokenUsageTracker:      newTokenUsageTracker(*m),
+			mapHelper:              s.mapHelper,
 			inputPolicyReplacement: inputPolicyReplacement,
 			messagePolicyHelper:    messagePolicyHelper,
 			outputPolicies:         outputPolicies,
@@ -259,6 +262,7 @@ func copyBody(body *io.ReadCloser) ([]byte, error) {
 type responseModifier struct {
 	user                kuser.Info
 	model               string
+	modelProvider       string
 	projectID, threadID string
 	client              *client.Client
 	b                   *bufio.Reader
@@ -266,8 +270,9 @@ type responseModifier struct {
 	stream              bool
 	leftover            []byte
 
-	// Token usage tracking
+	// Token usage and model access gating
 	tokenUsageTracker *threadSafeTokenUsageTracker
+	mapHelper         *modelaccesspolicy.Helper
 
 	// Input policy violation: replacement text to send back via response header.
 	inputPolicyReplacement string
@@ -281,6 +286,19 @@ type responseModifier struct {
 }
 
 func (r *responseModifier) modifyResponse(resp *http.Response) error {
+	if isModelsListRequest(resp.Request) {
+		allowedTargetModels, allowAllModels, err := r.mapHelper.GetUserAllowedTargetModels(r.user, r.modelProvider)
+		if err != nil {
+			return fmt.Errorf("failed to determine accessible models: %w", err)
+		}
+		if err := filterModelListResponse(resp, allowedTargetModels, allowAllModels); err != nil {
+			return err
+		}
+		r.audit.recordResponse(resp)
+		wrapAuditOnlyResponse(resp, r.audit, r.client)
+		return nil
+	}
+
 	if r.inputPolicyReplacement != "" {
 		resp.Header.Set("X-Obot-Message-Policy-Replacement", r.inputPolicyReplacement)
 	}
@@ -317,6 +335,101 @@ func shouldWrapLLMResponse(resp *http.Response) bool {
 	default:
 		return false
 	}
+}
+
+// filterModelListResponse rewrites a provider models-list response, dropping any
+// model whose id is not in allowedTargetModels (the set the user may use). Both
+// the Anthropic and OpenAI list endpoints return a top-level
+// {"data": [{"id": ...}, ...]} envelope, so the same filtering applies to both
+// passthroughs. Surviving entries are kept as their exact upstream bytes — no
+// map[string]any round-trip that would reorder object keys or reformat numbers.
+// The body is copied up front and restored, so any failure (or an unrecognized
+// payload) just forwards the original response untouched.
+func filterModelListResponse(resp *http.Response, allowedTargetModels map[string]bool, allowAllModels bool) error {
+	if resp.StatusCode != http.StatusOK || allowAllModels {
+		return nil
+	}
+
+	// copyBody restores resp.Body, so every early return below forwards the
+	// original response unchanged; we only swap in the filtered body once it's
+	// fully built.
+	body, err := copyBody(&resp.Body)
+	if err != nil {
+		return err
+	}
+
+	// Only rewrite a recognized {"data": [...]} list envelope.
+	data := gjson.GetBytes(body, "data")
+	if !data.IsArray() {
+		return nil
+	}
+
+	// Keep each allowed entry exactly as the provider encoded it (its raw bytes).
+	var kept []string
+	data.ForEach(func(_, entry gjson.Result) bool {
+		if allowedTargetModels[entry.Get("id").String()] {
+			kept = append(kept, entry.Raw)
+		}
+		return true
+	})
+
+	out, err := sjson.SetRawBytes(body, "data", []byte("["+strings.Join(kept, ",")+"]"))
+	if err != nil {
+		return nil
+	}
+	out, err = rewriteAnthropicListCursors(out)
+	if err != nil {
+		return nil
+	}
+
+	resp.Body = io.NopCloser(bytes.NewReader(out))
+	resp.ContentLength = int64(len(out))
+	resp.Header.Set("Content-Length", strconv.Itoa(len(out)))
+	resp.Header.Del("Content-Encoding")
+
+	return nil
+}
+
+// rewriteAnthropicListCursors repoints first_id/last_id at the (already filtered)
+// data array so the Anthropic pagination cursors never reference a model the user
+// can't see (the SDK paginates off last_id). OpenAI lists carry no such fields
+// and are returned unchanged. On an empty page the cursors are removed rather
+// than nulled, except last_id is kept when more pages remain so the client can
+// still advance.
+func rewriteAnthropicListCursors(body []byte) ([]byte, error) {
+	hasFirst := gjson.GetBytes(body, "first_id").Exists()
+	hasLast := gjson.GetBytes(body, "last_id").Exists()
+	if !hasFirst && !hasLast {
+		return body, nil
+	}
+
+	var err error
+	if ids := gjson.GetBytes(body, "data.#.id").Array(); len(ids) > 0 {
+		if hasFirst {
+			if body, err = sjson.SetBytes(body, "first_id", ids[0].String()); err != nil {
+				return nil, err
+			}
+		}
+		if hasLast {
+			if body, err = sjson.SetBytes(body, "last_id", ids[len(ids)-1].String()); err != nil {
+				return nil, err
+			}
+		}
+		return body, nil
+	}
+
+	// Empty page.
+	if hasFirst {
+		if body, err = sjson.DeleteBytes(body, "first_id"); err != nil {
+			return nil, err
+		}
+	}
+	if hasLast && !gjson.GetBytes(body, "has_more").Bool() {
+		if body, err = sjson.DeleteBytes(body, "last_id"); err != nil {
+			return nil, err
+		}
+	}
+	return body, nil
 }
 
 func (r *responseModifier) Read(p []byte) (int, error) {
@@ -892,12 +1005,12 @@ type llmProviderProxyBackend interface {
 	modelProviderName() string
 	upstreamURL(credEnv map[string]string) (url.URL, error)
 	transport(provider v1.ModelProvider, credEnv map[string]string) (http.RoundTripper, error)
+	proxyModelsList(req api.Context, proxy *llmProviderProxy, provider *v1.ModelProvider, credEnv map[string]string) (bool, error)
 }
 
 type llmProviderProxy struct {
 	dailyUserInputTokenLimit  int
 	dailyUserOutputTokenLimit int
-	routeDialect              nanobottypes.Dialect
 	backend                   llmProviderProxyBackend
 	modelProvider             *v1.ModelProvider
 	mapHelper                 *modelaccesspolicy.Helper
@@ -905,11 +1018,10 @@ type llmProviderProxy struct {
 	lock                      sync.RWMutex
 }
 
-func (s *Server) newLLMProviderProxy(u *url.URL, modelProviderName string, routeDialect nanobottypes.Dialect) *llmProviderProxy {
+func (s *Server) newLLMProviderProxy(u *url.URL, modelProviderName string) *llmProviderProxy {
 	return &llmProviderProxy{
 		dailyUserInputTokenLimit:  s.dailyUserInputTokenLimit,
 		dailyUserOutputTokenLimit: s.dailyUserOutputTokenLimit,
-		routeDialect:              routeDialect,
 		backend:                   apiKeyLLMProviderBackend{u: *u, providerName: modelProviderName},
 		mapHelper:                 s.mapHelper,
 		messagePolicyHelper:       s.messagePolicyHelper,
@@ -941,7 +1053,7 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 		l.lock.Unlock()
 	}
 
-	if handled, err := l.serveModelsList(req, modelProvider.Name); handled || err != nil {
+	if handled, err := l.backend.proxyModelsList(req, l, modelProvider, nil); handled || err != nil {
 		return err
 	}
 
@@ -1045,8 +1157,10 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 	modifier := &responseModifier{
 		user:                   req.User,
 		model:                  prepared.model,
+		modelProvider:          modelProvider.Name,
 		client:                 req.GatewayClient,
 		tokenUsageTracker:      prepared.tokenUsageTracker,
+		mapHelper:              l.mapHelper,
 		inputPolicyReplacement: inputPolicyReplacement,
 		messagePolicyHelper:    messagePolicyHelper,
 		outputPolicies:         outputPolicies,
@@ -1071,6 +1185,16 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 	}
 
 	return nil
+}
+
+// isModelsListRequest reports whether req targets the provider models-list
+// endpoint (GET .../v1/models) on the passthrough routes.
+func isModelsListRequest(req *http.Request) bool {
+	if req.Method != http.MethodGet {
+		return false
+	}
+	// The {path...} route value holds the client path, e.g. "v1/models".
+	return strings.TrimPrefix(req.PathValue("path"), "v1/") == "models"
 }
 
 // applyMessagePolicies evaluates input and output message policies against body, modifying
