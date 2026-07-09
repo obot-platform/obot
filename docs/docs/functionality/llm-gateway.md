@@ -232,7 +232,7 @@ base_url = "https://obot.example.com/api/llm-proxy/aws-bedrock/openai"
 
 For a local Obot server, use `base_url = "http://localhost:8080/api/llm-proxy/aws-bedrock/openai"`.
 
-Use `/api/llm-proxy/aws-bedrock-api-key/openai/v1` when your administrator configured the **Amazon Bedrock (API Key)** provider.
+Use `/api/llm-proxy/aws-bedrock-api-key/openai` when your administrator configured the **Amazon Bedrock (API Key)** provider.
 
 See the Codex documentation for details:
 
