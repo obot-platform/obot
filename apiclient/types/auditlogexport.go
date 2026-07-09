@@ -41,7 +41,7 @@ type LLMAuditLogExportCreateRequest struct {
 	StartTime Time                     `json:"startTime"`
 	EndTime   Time                     `json:"endTime"`
 	Filters   LLMAuditLogExportFilters `json:"filters,omitempty"`
-	Bucket    string                   `json:"bucket,omitempty"`
+	Bucket    string                   `json:"bucket"`
 	KeyPrefix string                   `json:"keyPrefix,omitempty"`
 }
 
@@ -123,7 +123,7 @@ type ScheduledAuditLogExportListResponse struct {
 // ScheduledLLMAuditLogExportCreateRequest represents a request to create a scheduled LLM audit log export
 type ScheduledLLMAuditLogExportCreateRequest struct {
 	Name                  string                   `json:"name"`
-	Bucket                string                   `json:"bucket,omitempty"`
+	Bucket                string                   `json:"bucket"`
 	KeyPrefix             string                   `json:"keyPrefix,omitempty"`
 	Schedule              Schedule                 `json:"schedule"`
 	RetentionPeriodInDays int                      `json:"retentionPeriodInDays,omitempty"`

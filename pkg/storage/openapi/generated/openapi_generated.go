@@ -4832,8 +4832,9 @@ func schema_obot_platform_obot_apiclient_types_LLMAuditLogExportCreateRequest(re
 					},
 					"bucket": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
 						},
 					},
 					"keyPrefix": {
@@ -4843,7 +4844,7 @@ func schema_obot_platform_obot_apiclient_types_LLMAuditLogExportCreateRequest(re
 						},
 					},
 				},
-				Required: []string{"name", "startTime", "endTime"},
+				Required: []string{"name", "startTime", "endTime", "bucket"},
 			},
 		},
 		Dependencies: []string{
@@ -11842,8 +11843,9 @@ func schema_obot_platform_obot_apiclient_types_ScheduledLLMAuditLogExportCreateR
 					},
 					"bucket": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
 						},
 					},
 					"keyPrefix": {
@@ -11871,7 +11873,7 @@ func schema_obot_platform_obot_apiclient_types_ScheduledLLMAuditLogExportCreateR
 						},
 					},
 				},
-				Required: []string{"name", "schedule"},
+				Required: []string{"name", "bucket", "schedule"},
 			},
 		},
 		Dependencies: []string{
