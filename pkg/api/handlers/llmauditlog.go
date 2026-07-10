@@ -47,9 +47,6 @@ func (h *LLMAuditLogHandler) List(req api.Context) error {
 
 func (h *LLMAuditLogHandler) Get(req api.Context) error {
 	id := req.PathValue("audit_log_id")
-	if id == "" {
-		return types.NewErrBadRequest("missing audit log id")
-	}
 
 	log, err := req.GatewayClient.GetLLMAuditLog(req.Context(), id, req.UserIsAuditor())
 	if err != nil {
@@ -75,9 +72,6 @@ var llmAuditLogFilterOptions = map[string]any{
 
 func (h *LLMAuditLogHandler) ListFilterOptions(req api.Context) error {
 	filter := req.PathValue("filter")
-	if filter == "" {
-		return types.NewErrBadRequest("missing filter")
-	}
 
 	exclude, ok := llmAuditLogFilterOptions[filter]
 	if !ok {
