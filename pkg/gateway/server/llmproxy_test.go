@@ -14,6 +14,7 @@ import (
 
 	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
 	types2 "github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/gateway/bedrock"
 	"github.com/obot-platform/obot/pkg/messagepolicy"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/tidwall/gjson"
@@ -644,12 +645,12 @@ func TestBedrockRouteDialect(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(string(tt.dialect), func(t *testing.T) {
-			got, err := bedrockRouteDialect(tt.dialect)
+			got, err := bedrock.RouteDialect(tt.dialect)
 			if (err != nil) != tt.wantErr {
-				t.Fatalf("bedrockRouteDialect(%q) error = %v, wantErr %v", tt.dialect, err, tt.wantErr)
+				t.Fatalf("bedrock.RouteDialect(%q) error = %v, wantErr %v", tt.dialect, err, tt.wantErr)
 			}
 			if got != tt.wantDialect {
-				t.Fatalf("bedrockRouteDialect(%q) = %q, want %q", tt.dialect, got, tt.wantDialect)
+				t.Fatalf("bedrock.RouteDialect(%q) = %q, want %q", tt.dialect, got, tt.wantDialect)
 			}
 		})
 	}
@@ -676,7 +677,7 @@ func TestBedrockUpstreamURLUsesRouteDialect(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			backend := bedrockMantleProviderBackend{dialect: tt.routeDialect, apiKey: true}
-			got, err := backend.upstreamURL(map[string]string{bedrockAPIKeyRegionEnv: "us-east-1"})
+			got, err := backend.upstreamURL(map[string]string{bedrock.APIKeyRegionEnv: "us-east-1"})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -703,7 +704,7 @@ func TestBedrockModelsListUsesRootUpstreamPath(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, "http://gateway.local/", nil)
 			req.SetPathValue("path", "v1/models")
 
-			u, err := proxy.upstreamURL(req, map[string]string{bedrockAPIKeyRegionEnv: "us-east-1"})
+			u, err := proxy.upstreamURL(req, map[string]string{bedrock.APIKeyRegionEnv: "us-east-1"})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -718,42 +719,42 @@ func TestBedrockStaticAuthFromCredential(t *testing.T) {
 	tests := []struct {
 		name    string
 		cred    map[string]string
-		want    bedrockStaticAuth
+		want    bedrock.StaticAuth
 		wantErr string
 	}{
 		{
 			name: "required credentials with default region",
 			cred: map[string]string{
-				bedrockAccessKeyIDEnv:     "akid",
-				bedrockSecretAccessKeyEnv: "secret",
+				bedrock.AccessKeyIDEnv:     "akid",
+				bedrock.SecretAccessKeyEnv: "secret",
 			},
-			want: bedrockStaticAuth{region: "us-east-1", signingService: "bedrock", accessKeyID: "akid", secretAccessKey: "secret"},
+			want: bedrock.StaticAuth{Region: "us-east-1", SigningService: "bedrock", AccessKeyID: "akid", SecretAccessKey: "secret"},
 		},
 		{
 			name: "all credentials",
 			cred: map[string]string{
-				bedrockAccessKeyIDEnv:     "akid",
-				bedrockSecretAccessKeyEnv: "secret",
-				bedrockSessionTokenEnv:    "session",
-				bedrockRegionEnv:          "us-west-2",
+				bedrock.AccessKeyIDEnv:     "akid",
+				bedrock.SecretAccessKeyEnv: "secret",
+				bedrock.SessionTokenEnv:    "session",
+				bedrock.RegionEnv:          "us-west-2",
 			},
-			want: bedrockStaticAuth{region: "us-west-2", signingService: "bedrock", accessKeyID: "akid", secretAccessKey: "secret", sessionToken: "session"},
+			want: bedrock.StaticAuth{Region: "us-west-2", SigningService: "bedrock", AccessKeyID: "akid", SecretAccessKey: "secret", SessionToken: "session"},
 		},
 		{
 			name:    "missing access key",
-			cred:    map[string]string{bedrockSecretAccessKeyEnv: "secret"},
-			wantErr: bedrockAccessKeyIDEnv,
+			cred:    map[string]string{bedrock.SecretAccessKeyEnv: "secret"},
+			wantErr: bedrock.AccessKeyIDEnv,
 		},
 		{
 			name:    "missing secret key",
-			cred:    map[string]string{bedrockAccessKeyIDEnv: "akid"},
-			wantErr: bedrockSecretAccessKeyEnv,
+			cred:    map[string]string{bedrock.AccessKeyIDEnv: "akid"},
+			wantErr: bedrock.SecretAccessKeyEnv,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := bedrockStaticAuthFromCredential(tt.cred)
+			got, err := bedrock.StaticAuthFromCredential(tt.cred)
 			if tt.wantErr != "" {
 				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
 					t.Fatalf("error = %v, want containing %q", err, tt.wantErr)
@@ -772,7 +773,7 @@ func TestBedrockStaticAuthFromCredential(t *testing.T) {
 
 func TestBedrockAPIKeyTransportSetsBearer(t *testing.T) {
 	capture := &captureRoundTripper{}
-	transport := bedrockAPIKeyTransport{key: "bedrock-key", next: capture}
+	transport := bedrock.APIKeyTransport{Key: "bedrock-key", Next: capture}
 	req := httptest.NewRequest(http.MethodPost, "https://bedrock-mantle.us-east-1.api.aws/openai/v1/responses", nil)
 	req.Header.Set("Authorization", "Bearer client-token")
 	req.Header.Set("X-Api-Key", "client-key")
@@ -790,10 +791,11 @@ func TestBedrockAPIKeyTransportSetsBearer(t *testing.T) {
 
 func TestBedrockSignGetRequest(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "https://bedrock-mantle.us-east-1.api.aws/anthropic/v1/models", nil)
-	err := signBedrockRequest(req, bedrockStaticAuth{
-		region:          "us-east-1",
-		accessKeyID:     "AKIDEXAMPLE",
-		secretAccessKey: "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY",
+	err := bedrock.SignRequest(req, bedrock.StaticAuth{
+		Region:          "us-east-1",
+		SigningService:  "bedrock",
+		AccessKeyID:     "AKIDEXAMPLE",
+		SecretAccessKey: "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY",
 	}, time.Date(2026, 7, 6, 12, 0, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatal(err)
@@ -807,7 +809,9 @@ func TestBedrockSignGetRequest(t *testing.T) {
 }
 
 func TestBedrockMantleTransformAndSign(t *testing.T) {
-	base, err := bedrockBaseURL("us-east-1", nanobottypes.DialectAnthropicMessages)
+	base, err := bedrock.BaseURL(system.AmazonBedrockAPIKeyModelProvider, map[string]string{
+		bedrock.APIKeyRegionEnv: "us-east-1",
+	}, nanobottypes.DialectAnthropicMessages)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -822,18 +826,21 @@ func TestBedrockMantleTransformAndSign(t *testing.T) {
 	if got := req.URL.String(); got != "https://bedrock-mantle.us-east-1.api.aws/anthropic/v1/messages" {
 		t.Fatalf("URL = %q, want Bedrock Mantle messages URL", got)
 	}
-	openAIBase, err := bedrockBaseURL("us-east-1", nanobottypes.DialectOpenAIResponses)
+	openAIBase, err := bedrock.BaseURL(system.AmazonBedrockAPIKeyModelProvider, map[string]string{
+		bedrock.APIKeyRegionEnv: "us-east-1",
+	}, nanobottypes.DialectOpenAIResponses)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got := openAIBase.String(); got != "https://bedrock-mantle.us-east-1.api.aws/openai/v1" {
 		t.Fatalf("OpenAI URL = %q, want Bedrock OpenAI URL", got)
 	}
-	err = signBedrockRequest(req, bedrockStaticAuth{
-		region:          "us-east-1",
-		accessKeyID:     "AKIDEXAMPLE",
-		secretAccessKey: "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY",
-		sessionToken:    "session-token",
+	err = bedrock.SignRequest(req, bedrock.StaticAuth{
+		Region:          "us-east-1",
+		SigningService:  "bedrock",
+		AccessKeyID:     "AKIDEXAMPLE",
+		SecretAccessKey: "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY",
+		SessionToken:    "session-token",
 	}, time.Date(2026, 7, 6, 12, 0, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatal(err)

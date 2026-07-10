@@ -14,6 +14,7 @@ import (
 	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/alias"
+	"github.com/obot-platform/obot/pkg/gateway/bedrock"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -46,10 +47,12 @@ type MessagePolicyViolation struct {
 
 // resolvedModel holds pre-resolved model provider information to avoid redundant lookups.
 type resolvedModel struct {
-	targetModel string
-	providerURL string
-	credHeaders map[string]string
-	dialect     string
+	targetModel  string
+	providerName string
+	providerURL  string
+	credHeaders  map[string]string
+	dialect      string
+	httpClient   *http.Client
 }
 
 // EvaluateMessage runs all applicable policies against a message in parallel.
@@ -168,11 +171,6 @@ func (h *Helper) resolveModelByAlias(ctx context.Context, aliasType types.Defaul
 		return nil, fmt.Errorf("model %q is not active", model.Spec.Manifest.Name)
 	}
 
-	providerURL, err := h.dispatcher.URLForModelProvider(ctx, system.DefaultNamespace, model.Spec.Manifest.ModelProvider)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get model provider URL: %w", err)
-	}
-
 	var modelProvider v1.ModelProvider
 	if err := h.client.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: model.Spec.Manifest.ModelProvider}, &modelProvider); err != nil {
 		return nil, fmt.Errorf("failed to get model provider: %w", err)
@@ -183,21 +181,45 @@ func (h *Helper) resolveModelByAlias(ctx context.Context, aliasType types.Defaul
 		return nil, fmt.Errorf("failed to get model provider credentials: %w", err)
 	}
 
-	credHeaders := make(map[string]string, len(credEnv))
-	for k, v := range credEnv {
-		credHeaders[fmt.Sprintf("X-Obot-%s", k)] = v
-	}
-
-	// only add /v1 if the URL has no path.
-	if providerURL.Path == "" || providerURL.Path == "/" {
-		providerURL.Path = "/v1"
+	var (
+		providerURL string
+		credHeaders map[string]string
+		httpClient  *http.Client
+	)
+	if bedrock.IsProvider(modelProvider.Name) {
+		u, err := bedrock.BaseURL(modelProvider.Name, credEnv, nanobottypes.Dialect(model.Spec.Manifest.Dialect))
+		if err != nil {
+			return nil, fmt.Errorf("failed to get Bedrock model provider URL: %w", err)
+		}
+		transport, err := bedrock.Transport(modelProvider.Name, credEnv, http.DefaultTransport)
+		if err != nil {
+			return nil, fmt.Errorf("failed to configure Bedrock model provider transport: %w", err)
+		}
+		providerURL = u.String()
+		httpClient = &http.Client{Transport: transport}
+	} else {
+		u, err := h.dispatcher.URLForModelProvider(ctx, system.DefaultNamespace, model.Spec.Manifest.ModelProvider)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get model provider URL: %w", err)
+		}
+		credHeaders = make(map[string]string, len(credEnv))
+		for k, v := range credEnv {
+			credHeaders[fmt.Sprintf("X-Obot-%s", k)] = v
+		}
+		// Only add /v1 if the URL has no path.
+		if u.Path == "" || u.Path == "/" {
+			u.Path = "/v1"
+		}
+		providerURL = u.String()
 	}
 
 	return &resolvedModel{
-		targetModel: model.Spec.Manifest.TargetModel,
-		providerURL: providerURL.String(),
-		credHeaders: credHeaders,
-		dialect:     model.Spec.Manifest.Dialect,
+		targetModel:  model.Spec.Manifest.TargetModel,
+		providerName: modelProvider.Name,
+		providerURL:  providerURL,
+		credHeaders:  credHeaders,
+		dialect:      model.Spec.Manifest.Dialect,
+		httpClient:   httpClient,
 	}, nil
 }
 
@@ -232,13 +254,117 @@ type bifrostParams struct {
 	Instructions string `json:"instructions,omitempty"`
 }
 
+type anthropicMessagesRequest struct {
+	Model            string        `json:"model"`
+	AnthropicVersion string        `json:"anthropic_version"`
+	System           string        `json:"system,omitempty"`
+	Messages         []chatMessage `json:"messages"`
+	MaxTokens        int           `json:"max_tokens"`
+	Stream           bool          `json:"stream"`
+}
+
+type openAIResponsesRequest struct {
+	Model        string        `json:"model"`
+	Instructions string        `json:"instructions,omitempty"`
+	Input        []chatMessage `json:"input"`
+	Stream       bool          `json:"stream"`
+}
+
 // callLLM makes a streaming LLM call to the resolved model provider, using the
 // appropriate API format for the provider's dialect.
 func (h *Helper) callLLM(ctx context.Context, resolved *resolvedModel, messages []chatMessage) (string, error) {
+	if bedrock.IsProvider(resolved.providerName) {
+		switch nanobottypes.Dialect(resolved.dialect) {
+		case nanobottypes.DialectAnthropicMessages:
+			return h.callLLMAnthropicMessages(ctx, resolved, messages)
+		case nanobottypes.DialectOpenAIResponses:
+			return h.callLLMOpenAIResponses(ctx, resolved, messages)
+		default:
+			return "", fmt.Errorf("unsupported Bedrock model dialect %q", resolved.dialect)
+		}
+	}
 	if resolved.dialect == string(nanobottypes.DialectBifrostRequest) {
 		return h.callLLMBifrost(ctx, resolved, messages)
 	}
 	return h.callLLMChatCompletions(ctx, resolved, messages)
+}
+
+func (h *Helper) callLLMAnthropicMessages(ctx context.Context, resolved *resolvedModel, messages []chatMessage) (string, error) {
+	systemPrompt, input := splitSystemMessages(messages)
+	return h.callStreamingLLM(ctx, resolved, "/messages", anthropicMessagesRequest{
+		Model:            resolved.targetModel,
+		AnthropicVersion: "bedrock-2023-05-31",
+		System:           systemPrompt,
+		Messages:         input,
+		MaxTokens:        1024,
+		Stream:           true,
+	}, func(data string) gjson.Result {
+		return gjson.Get(data, "delta.text")
+	})
+}
+
+func (h *Helper) callLLMOpenAIResponses(ctx context.Context, resolved *resolvedModel, messages []chatMessage) (string, error) {
+	systemPrompt, input := splitSystemMessages(messages)
+	return h.callStreamingLLM(ctx, resolved, "/responses", openAIResponsesRequest{
+		Model:        resolved.targetModel,
+		Instructions: systemPrompt,
+		Input:        input,
+		Stream:       true,
+	}, func(data string) gjson.Result {
+		if gjson.Get(data, "type").String() == "response.output_text.delta" {
+			return gjson.Get(data, "delta")
+		}
+		return gjson.Result{}
+	})
+}
+
+func splitSystemMessages(messages []chatMessage) (string, []chatMessage) {
+	var (
+		systemPrompts []string
+		input         []chatMessage
+	)
+	for _, message := range messages {
+		if message.Role == "system" {
+			systemPrompts = append(systemPrompts, message.Content)
+		} else {
+			input = append(input, message)
+		}
+	}
+	return strings.Join(systemPrompts, "\n\n"), input
+}
+
+func (h *Helper) callStreamingLLM(ctx context.Context, resolved *resolvedModel, endpoint string, reqBody any, extractDelta func(string) gjson.Result) (string, error) {
+	body, err := json.Marshal(reqBody)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	reqURL := strings.TrimSuffix(resolved.providerURL, "/") + endpoint
+	log.Debugf("Making LLM call to model=%s url=%s", resolved.targetModel, reqURL)
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewReader(body))
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	client := resolved.httpClient
+	if client == nil {
+		client = http.DefaultClient
+	}
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		log.Errorf("LLM call to model=%s failed: %v", resolved.targetModel, err)
+		return "", fmt.Errorf("LLM call failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		log.Errorf("LLM call to model=%s returned status %d: %s", resolved.targetModel, resp.StatusCode, string(respBody))
+		return "", fmt.Errorf("LLM call returned status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	return readStreamingResponse(resp.Body, extractDelta)
 }
 
 // callLLMChatCompletions calls the provider using the OpenAI chat completions format.
