@@ -23,7 +23,7 @@ func (a apiKeyLLMProviderBackend) upstreamURL(*http.Request, map[string]string) 
 	return a.u, "", nil
 }
 
-func (a apiKeyLLMProviderBackend) transport(modelProvider v1.ModelProvider, credEnv map[string]string) (http.RoundTripper, error) {
+func (a apiKeyLLMProviderBackend) transport(modelProvider v1.ModelProvider, credEnv map[string]string, _ nanobottypes.Dialect) (http.RoundTripper, error) {
 	credEnvKey, err := envVarForModelProvider(modelProvider)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get credential environment key for model provider: %w", err)

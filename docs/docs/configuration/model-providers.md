@@ -73,7 +73,7 @@ Use the **Azure** provider for API key-based authentication.
 
 In the Azure portal, find your API key and endpoint URL after setting up at least one deployment — both are required.
 
-You must also specify deployment names. The format is a comma-separated list of deployment names, optionally as `model:deployment` pairs (e.g. `gpt-4o,gpt-4o-mini` or `gpt-4o:my-gpt4o,gpt-4o-mini:my-mini`).
+You must also specify deployment names as a comma-separated list using `deployment[:usage[:dialect]]`. Usage defaults to `llm`. Dialect defaults to `openai`; specify `anthropic` for Claude deployments. For example: `my-gpt-deployment,my-claude-deployment:llm:anthropic`.
 
 You can also optionally specify the API version (defaults to `2025-01-01-preview`).
 
@@ -85,7 +85,7 @@ Use the **Azure (Entra ID)** provider for service principal authentication via M
 
 ```bash
 az ad sp create-for-rbac --name "<sp-name>" \
-  --role "Cognitive Services OpenAI User" \
+  --role "Cognitive Services User" \
   --scopes /subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.CognitiveServices/accounts/<resource-name>
 ```
 
@@ -113,9 +113,26 @@ Obot requires:
 
 You can also optionally specify the API version (defaults to `2025-01-01-preview`).
 
-The service principal requires at minimum the `Cognitive Services OpenAI User` or `Cognitive Services User` role on the account to read deployments. Deployments are discovered automatically — each deployment's base model name becomes the model ID exposed to Obot.
+The service principal requires the **Cognitive Services User** role on the specific Foundry resource for inference. **Foundry User** (formerly Azure AI User) also includes the permissions required to invoke Claude models. The narrower **Cognitive Services OpenAI User** role can allow OpenAI requests while Anthropic requests fail with `Principal does not have access to API/Operation`.
 
-See the [Microsoft docs](https://learn.microsoft.com/en-us/azure/foundry/foundry-models/how-to/configure-entra-id) for more details.
+To assign the role in the Azure portal:
+
+1. Open the Foundry resource and select **Access control (IAM)**.
+2. Select **Add** → **Add role assignment**.
+3. Select **Cognitive Services User**.
+4. Under **Members**, select **User, group, or service principal**, then select the service principal whose application/client ID is configured in Obot.
+5. Complete **Review + assign**. Role assignments can take up to five minutes to propagate.
+
+If **Add role assignment** is disabled, your Azure account cannot create role assignments at that scope. Ask an administrator with **Owner**, **Role Based Access Control Administrator**, or **User Access Administrator** access to assign the role. The role must be assigned to the service principal on the same resource identified by **Azure Endpoint** and **Resource Name**.
+
+Deployments are discovered automatically. Obot uses the Azure deployment name as the target model and derives the request dialect from the deployment's model metadata.
+
+Official references:
+
+- [Configure keyless authentication with Microsoft Entra ID](https://learn.microsoft.com/en-us/azure/foundry/foundry-models/how-to/configure-entra-id) — required inference role and resource scope
+- [Claude in Microsoft Foundry](https://platform.claude.com/docs/en/build-with-claude/claude-in-microsoft-foundry) — Claude authentication and RBAC requirements
+- [Claude Code on Microsoft Foundry](https://code.claude.com/docs/en/microsoft-foundry#azure-rbac-configuration) — Claude Code RBAC requirements
+- [Assign Azure roles using the Azure portal](https://learn.microsoft.com/en-us/azure/role-based-access-control/role-assignments-portal) — portal instructions and role-assignment permissions
 
 #### Amazon Bedrock (Enterprise only)
 

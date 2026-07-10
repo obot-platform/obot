@@ -28,6 +28,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"go.yaml.in/yaml/v3"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -516,7 +517,7 @@ func BackPopulateModels(ctx context.Context, client kclient.Client, dispatcher *
 			displayName = model.ID
 		}
 		dialect := modelDialect(model.Metadata, modelProvider.Spec.Dialect)
-		models = append(models, &v1.Model{
+		discovered := &v1.Model{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: modelProvider.Namespace,
 				Name:      modelName(modelProvider.Name, model.ID),
@@ -535,7 +536,20 @@ func BackPopulateModels(ctx context.Context, client kclient.Client, dispatcher *
 					Dialect:       dialect,
 				},
 			},
-		})
+		}
+
+		var existing v1.Model
+		if err := client.Get(ctx, kclient.ObjectKeyFromObject(discovered), &existing); err == nil {
+			if refreshDiscoveredModel(&existing, discovered.Spec.Manifest) {
+				if err := client.Update(ctx, &existing); err != nil {
+					return fmt.Errorf("failed to refresh discovered model %q: %w", existing.Name, err)
+				}
+			}
+		} else if !apierrors.IsNotFound(err) {
+			return fmt.Errorf("failed to get discovered model %q: %w", discovered.Name, err)
+		}
+
+		models = append(models, discovered)
 	}
 
 	if err = apply.New(client).Apply(ctx, modelProvider, models...); err != nil {
@@ -544,6 +558,23 @@ func BackPopulateModels(ctx context.Context, client kclient.Client, dispatcher *
 	log.Infof("Back-populated models for model provider: provider=%s models=%d", modelProvider.Name, len(models))
 
 	return nil
+}
+
+func refreshDiscoveredModel(existing *v1.Model, discovered types.ModelManifest) bool {
+	manifest := &existing.Spec.Manifest
+	changed := manifest.TargetModel != discovered.TargetModel ||
+		manifest.ModelProvider != discovered.ModelProvider ||
+		manifest.Usage != discovered.Usage ||
+		manifest.Dialect != discovered.Dialect
+	if !changed {
+		return false
+	}
+
+	manifest.TargetModel = discovered.TargetModel
+	manifest.ModelProvider = discovered.ModelProvider
+	manifest.Usage = discovered.Usage
+	manifest.Dialect = discovered.Dialect
+	return true
 }
 
 func modelDialect(metadata map[string]string, fallback string) string {

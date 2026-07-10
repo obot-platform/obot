@@ -14,6 +14,7 @@ import (
 	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/alias"
+	"github.com/obot-platform/obot/pkg/gateway/azure"
 	"github.com/obot-platform/obot/pkg/gateway/bedrock"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -186,14 +187,26 @@ func (h *Helper) resolveModelByAlias(ctx context.Context, aliasType types.Defaul
 		credHeaders map[string]string
 		httpClient  *http.Client
 	)
+	dialect := nanobottypes.Dialect(model.Spec.Manifest.Dialect)
 	if bedrock.IsProvider(modelProvider.Name) {
-		u, err := bedrock.BaseURL(modelProvider.Name, credEnv, nanobottypes.Dialect(model.Spec.Manifest.Dialect))
+		u, err := bedrock.BaseURL(modelProvider.Name, credEnv, dialect)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get Bedrock model provider URL: %w", err)
 		}
 		transport, err := bedrock.Transport(modelProvider.Name, credEnv, http.DefaultTransport)
 		if err != nil {
 			return nil, fmt.Errorf("failed to configure Bedrock model provider transport: %w", err)
+		}
+		providerURL = u.String()
+		httpClient = &http.Client{Transport: transport}
+	} else if azure.IsProvider(modelProvider.Name) {
+		u, err := azure.BaseURL(modelProvider.Name, credEnv, dialect)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get Azure model provider URL: %w", err)
+		}
+		transport, err := azure.Transport(modelProvider.Name, credEnv, dialect, http.DefaultTransport)
+		if err != nil {
+			return nil, fmt.Errorf("failed to configure Azure model provider transport: %w", err)
 		}
 		providerURL = u.String()
 		httpClient = &http.Client{Transport: transport}
@@ -256,7 +269,7 @@ type bifrostParams struct {
 
 type anthropicMessagesRequest struct {
 	Model            string        `json:"model"`
-	AnthropicVersion string        `json:"anthropic_version"`
+	AnthropicVersion string        `json:"anthropic_version,omitempty"`
 	System           string        `json:"system,omitempty"`
 	Messages         []chatMessage `json:"messages"`
 	MaxTokens        int           `json:"max_tokens"`
@@ -273,14 +286,14 @@ type openAIResponsesRequest struct {
 // callLLM makes a streaming LLM call to the resolved model provider, using the
 // appropriate API format for the provider's dialect.
 func (h *Helper) callLLM(ctx context.Context, resolved *resolvedModel, messages []chatMessage) (string, error) {
-	if bedrock.IsProvider(resolved.providerName) {
+	if bedrock.IsProvider(resolved.providerName) || azure.IsProvider(resolved.providerName) {
 		switch nanobottypes.Dialect(resolved.dialect) {
 		case nanobottypes.DialectAnthropicMessages:
 			return h.callLLMAnthropicMessages(ctx, resolved, messages)
 		case nanobottypes.DialectOpenAIResponses, nanobottypes.DialectOpenResponses:
 			return h.callLLMOpenAIResponses(ctx, resolved, messages)
 		default:
-			return "", fmt.Errorf("unsupported Bedrock model dialect %q", resolved.dialect)
+			return "", fmt.Errorf("unsupported dedicated model provider dialect %q", resolved.dialect)
 		}
 	}
 	if resolved.dialect == string(nanobottypes.DialectBifrostRequest) {
@@ -294,9 +307,13 @@ func (h *Helper) callLLM(ctx context.Context, resolved *resolvedModel, messages 
 
 func (h *Helper) callLLMAnthropicMessages(ctx context.Context, resolved *resolvedModel, messages []chatMessage) (string, error) {
 	systemPrompt, input := splitSystemMessages(messages)
+	anthropicVersion := ""
+	if bedrock.IsProvider(resolved.providerName) {
+		anthropicVersion = "bedrock-2023-05-31"
+	}
 	return h.callStreamingLLM(ctx, resolved, "/messages", anthropicMessagesRequest{
 		Model:            resolved.targetModel,
-		AnthropicVersion: "bedrock-2023-05-31",
+		AnthropicVersion: anthropicVersion,
 		System:           systemPrompt,
 		Messages:         input,
 		MaxTokens:        1024,

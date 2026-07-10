@@ -517,7 +517,7 @@ func TestAPIKeyBackendTransportRequiresCredentialValue(t *testing.T) {
 		{name: "configured key", credEnv: map[string]string{apiKeyEnv: "provider-key"}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := (apiKeyLLMProviderBackend{}).transport(provider, tt.credEnv)
+			_, err := (apiKeyLLMProviderBackend{}).transport(provider, tt.credEnv, "")
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("transport() error = %v, wantErr %v", err, tt.wantErr)
 			}

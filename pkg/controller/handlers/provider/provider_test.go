@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	types "github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
@@ -110,5 +111,42 @@ func TestModelDialectPrefersMetadataDialect(t *testing.T) {
 				t.Fatalf("modelDialect() = %q, want %q", got, tc.want)
 			}
 		})
+	}
+}
+
+func TestRefreshDiscoveredModelUpdatesProviderFieldsAndPreservesUserSettings(t *testing.T) {
+	overrideCost := &types.ModelCost{TokenUsageCost: types.TokenUsageCost{Input: 1}}
+	existing := &v1.Model{Spec: v1.ModelSpec{Manifest: types.ModelManifest{
+		Name:          "custom-name",
+		DisplayName:   "Custom display name",
+		TargetModel:   "old-deployment",
+		ModelProvider: "azure-model-provider",
+		Alias:         "custom-alias",
+		Active:        false,
+		Usage:         types.ModelUsageLLM,
+		Dialect:       "BifrostRequest",
+		OverrideCost:  overrideCost,
+	}}}
+	discovered := types.ModelManifest{
+		Name:          "new-provider-name",
+		DisplayName:   "Provider display name",
+		TargetModel:   "current-deployment",
+		ModelProvider: "azure-model-provider",
+		Active:        true,
+		Usage:         types.ModelUsageLLM,
+		Dialect:       "OpenAIResponses",
+	}
+
+	if !refreshDiscoveredModel(existing, discovered) {
+		t.Fatal("expected provider-owned fields to change")
+	}
+	if existing.Spec.Manifest.TargetModel != "current-deployment" || existing.Spec.Manifest.Dialect != "OpenAIResponses" {
+		t.Fatalf("provider fields were not refreshed: %#v", existing.Spec.Manifest)
+	}
+	if existing.Spec.Manifest.Name != "custom-name" || existing.Spec.Manifest.DisplayName != "Custom display name" || existing.Spec.Manifest.Active || existing.Spec.Manifest.Alias != "custom-alias" || existing.Spec.Manifest.OverrideCost != overrideCost {
+		t.Fatalf("user settings were overwritten: %#v", existing.Spec.Manifest)
+	}
+	if refreshDiscoveredModel(existing, discovered) {
+		t.Fatal("expected an already-current model to remain unchanged")
 	}
 }
