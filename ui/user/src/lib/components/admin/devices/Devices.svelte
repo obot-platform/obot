@@ -46,6 +46,8 @@
 	let query = $state(untrack(() => page.url.searchParams.get('query') ?? ''));
 	let filters = $derived.by(() => {
 		const f = getTableUrlParamsFilters();
+		delete f.start;
+		delete f.end;
 		delete f.offset;
 		return f;
 	});
@@ -107,7 +109,7 @@
 
 	onMount(async () => {
 		if (!devices) {
-			fetchPage(0);
+			fetchPage(pageIndex);
 		}
 
 		if (!users) {

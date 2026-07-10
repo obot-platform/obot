@@ -65,7 +65,8 @@
 		UserService.listUsers().then((response) => {
 			users = response;
 		});
-		reload(0);
+		const offset = parseInt(page.url.searchParams.get('offset') ?? '0', 10) || 0;
+		reload(Math.floor(offset / pageSize));
 	});
 
 	function syncUrl(nextPageIndex: number, sort = initSort) {

@@ -20,7 +20,9 @@
 		limit: PAGE_SIZE,
 		offset: 0
 	});
-	let pageIndex = $state(untrack(() => Math.floor((skillsResp.offset ?? 0) / PAGE_SIZE)));
+	let pageIndex = $state(
+		untrack(() => Math.floor(Number(page.url.searchParams.get('offset') ?? 0) / PAGE_SIZE))
+	);
 	let loading = $state(true);
 	let nameFilter = $state(untrack(() => page.url.searchParams.get('name') ?? ''));
 

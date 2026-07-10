@@ -21,7 +21,13 @@
 	type Row = DeviceMCPServerStat & { id: string };
 
 	let nameFilter = $state(untrack(() => page.url.searchParams.get('query') ?? ''));
-	let urlFilters = $derived(getTableUrlParamsFilters());
+	let urlFilters = $derived.by(() => {
+		const f = getTableUrlParamsFilters();
+		delete f.start;
+		delete f.end;
+		delete f.offset;
+		return f;
+	});
 	let initSort = $derived(getTableUrlParamsSort({ property: 'deviceCount', order: 'desc' }));
 	let timeFilter = $derived({
 		start: page.url.searchParams.get('start') ?? undefined,
@@ -62,8 +68,6 @@
 		else next.searchParams.delete('query');
 		replaceState(next, {});
 	}
-
-	$effect(() => {});
 </script>
 
 <Search
@@ -102,7 +106,7 @@
 		{initSort}
 		onSort={setSortUrlParams}
 		onFilter={setFilterUrlParams}
-		onClearAllFilters={clearUrlParams}
+		onClearAllFilters={() => clearUrlParams(['name', 'transport'])}
 		onClickRow={(d, isCtrlClick) => {
 			openUrl(
 				resolve(`/admin/device-mcp-servers/${encodeURIComponent(d.configHash)}`),
