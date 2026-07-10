@@ -32,19 +32,13 @@ import (
 
 type fakeSkillRepositoryCredentialClient struct {
 	credential gatewaytypes.Credential
-	deleted    bool
 }
 
 func (f *fakeSkillRepositoryCredentialClient) RevealCredential(context.Context, []string, string) (gatewaytypes.Credential, error) {
 	return f.credential, nil
 }
 
-func (f *fakeSkillRepositoryCredentialClient) DeleteCredential(context.Context, string, string) (bool, error) {
-	f.deleted = true
-	return true, nil
-}
-
-func TestSkillRepositoryCredentialHelpers(t *testing.T) {
+func TestRevealSkillRepositoryToken(t *testing.T) {
 	skill := &v1.Skill{Spec: v1.SkillSpec{
 		RepoID:  "repo-1",
 		RepoURL: "https://git.example.com/org/repo.git",
@@ -56,9 +50,6 @@ func TestSkillRepositoryCredentialHelpers(t *testing.T) {
 	token, err := revealSkillRepositoryToken(context.Background(), client, skill)
 	require.NoError(t, err)
 	assert.Equal(t, "private-token", token)
-
-	require.NoError(t, deleteSkillRepositoryCredential(context.Background(), client, skill.Spec.RepoID))
-	assert.True(t, client.deleted)
 
 	_, err = revealSkillRepositoryToken(context.Background(), credentialNotFoundClient{}, skill)
 	require.NoError(t, err)

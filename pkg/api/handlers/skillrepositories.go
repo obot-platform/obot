@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -122,21 +121,7 @@ func (*SkillRepositoryHandler) Delete(req api.Context) error {
 	}); err != nil {
 		return err
 	}
-	if req.GatewayClient == nil {
-		return nil
-	}
-	return deleteSkillRepositoryCredential(req.Context(), req.GatewayClient, repoName)
-}
-
-type skillRepositoryCredentialDeleter interface {
-	DeleteCredential(context.Context, string, string) (bool, error)
-}
-
-func deleteSkillRepositoryCredential(ctx context.Context, client skillRepositoryCredentialDeleter, repoName string) error {
-	if client == nil {
-		return nil
-	}
-	if _, err := client.DeleteCredential(ctx, repoName, skillrepo.SkillRepositoryCredentialToolName); err != nil {
+	if _, err := req.GatewayClient.DeleteCredential(req.Context(), repoName, skillrepo.SkillRepositoryCredentialToolName); err != nil {
 		return fmt.Errorf("failed to delete repository credentials: %w", err)
 	}
 	return nil
