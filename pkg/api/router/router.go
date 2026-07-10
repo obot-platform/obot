@@ -85,7 +85,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	messagePolicies := handlers.NewMessagePolicyHandler()
 	policyViolations := handlers.NewMessagePolicyViolationHandler()
 	deviceScans := handlers.NewDeviceScansHandler()
-	mdmDeployments := handlers.NewMDMDeploymentsHandler()
+	mdmConfigurations := handlers.NewMDMConfigurationsHandler()
 	deviceEnroll := handlers.NewDeviceEnrollHandler()
 	authProviders := handlers.NewAuthProviderHandler(services.ProviderDispatcher, services.PostgresDSN, services.LicenseProvider)
 	defaultModelAliases := handlers.NewDefaultModelAliasHandler()
@@ -543,18 +543,18 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/devices/clients", deviceScans.ListClients)
 	mux.HandleFunc("GET /api/devices/clients/{name}", deviceScans.GetClient)
 
-	// Device Deployments + enrollment keys (admin). A deployment can have
+	// MDM configurations + enrollment keys (admin). A configuration can have
 	// multiple keys; deleting one only stops it from enrolling new devices.
-	mux.HandleFunc("POST /api/mdm/deployments", mdmDeployments.Create)
-	mux.HandleFunc("GET /api/mdm/deployments", mdmDeployments.List)
-	mux.HandleFunc("GET /api/mdm/deployments/{id}", mdmDeployments.Get)
-	mux.HandleFunc("DELETE /api/mdm/deployments/{id}", mdmDeployments.Delete)
-	mux.HandleFunc("GET /api/mdm/deployments/{id}/enrollment-keys", mdmDeployments.ListEnrollmentKeys)
-	mux.HandleFunc("POST /api/mdm/deployments/{id}/enrollment-keys", mdmDeployments.CreateEnrollmentKey)
-	mux.HandleFunc("DELETE /api/mdm/deployments/{id}/enrollment-keys/{key_id}", mdmDeployments.DeleteEnrollmentKey)
-	mux.HandleFunc("GET /api/mdm/deployments/{id}/devices", mdmDeployments.ListDevices)
+	mux.HandleFunc("POST /api/mdm/configurations", mdmConfigurations.Create)
+	mux.HandleFunc("GET /api/mdm/configurations", mdmConfigurations.List)
+	mux.HandleFunc("GET /api/mdm/configurations/{id}", mdmConfigurations.Get)
+	mux.HandleFunc("DELETE /api/mdm/configurations/{id}", mdmConfigurations.Delete)
+	mux.HandleFunc("GET /api/mdm/configurations/{id}/enrollment-keys", mdmConfigurations.ListEnrollmentKeys)
+	mux.HandleFunc("POST /api/mdm/configurations/{id}/enrollment-keys", mdmConfigurations.CreateEnrollmentKey)
+	mux.HandleFunc("DELETE /api/mdm/configurations/{id}/enrollment-keys/{key_id}", mdmConfigurations.DeleteEnrollmentKey)
+	mux.HandleFunc("GET /api/mdm/configurations/{id}/devices", mdmConfigurations.ListDevices)
 
-	// Device enrollment (authenticated by an enrollment token -> MDMDeployment principal)
+	// Device enrollment (authenticated by an enrollment token -> MDMConfiguration principal)
 	mux.HandleFunc("POST /api/mdm/enroll", deviceEnroll.Enroll)
 
 	// Available Models
