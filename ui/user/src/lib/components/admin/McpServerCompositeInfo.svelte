@@ -170,9 +170,7 @@
 								</span>
 							{/if}
 						</div>
-						<IconButton class="invisible" disabled tabindex={-1} aria-hidden="true">
-							<ChevronRight class="size-6" />
-						</IconButton>
+						<div class="size-10 shrink-0"></div>
 					</div>
 				{/if}
 			{/each}
