@@ -61,21 +61,23 @@ func (credentialNotFoundClient) RevealCredential(_ context.Context, contexts []s
 	return gatewaytypes.Credential{}, gclient.CredentialNotFoundError{Contexts: contexts, Name: name}
 }
 
-func TestReadAndValidateSkillRepositoryManifest(t *testing.T) {
-	req := httptest.NewRequest(http.MethodPost, "/api/skill-repositories", strings.NewReader(`{"displayName":"Repo","repoURL":"https://github.com/example/repo","ref":" main "}`))
+func TestParseSkillRepositoryRequest(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/api/skill-repositories", strings.NewReader(`{"displayName":"Repo","repoURL":"https://github.com/example/repo","ref":" main ","sourceURLCredentials":{"https://github.com/example/repo":"secret"}}`))
 	rec := httptest.NewRecorder()
 
-	manifest, err := readAndValidateSkillRepositoryManifest(api.Context{
+	manifest, credentials, err := parseSkillRepositoryRequest(api.Context{
 		ResponseWriter: rec,
 		Request:        req,
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "https://github.com/example/repo", manifest.RepoURL)
 	assert.Equal(t, "main", manifest.Ref)
+	assert.Nil(t, manifest.SourceURLCredentials)
+	assert.Equal(t, map[string]string{"https://github.com/example/repo": "secret"}, credentials)
 
 	req = httptest.NewRequest(http.MethodPost, "/api/skill-repositories", strings.NewReader(`{"displayName":"Repo","repoURL":"http://github.com/example/repo"}`))
 	rec = httptest.NewRecorder()
-	_, err = readAndValidateSkillRepositoryManifest(api.Context{
+	_, _, err = parseSkillRepositoryRequest(api.Context{
 		ResponseWriter: rec,
 		Request:        req,
 	})
@@ -84,7 +86,7 @@ func TestReadAndValidateSkillRepositoryManifest(t *testing.T) {
 
 	req = httptest.NewRequest(http.MethodPost, "/api/skill-repositories", strings.NewReader(`{"displayName":"Repo","repoURL":"https://github.com/example/repo","ref":"   "}`))
 	rec = httptest.NewRecorder()
-	_, err = readAndValidateSkillRepositoryManifest(api.Context{
+	_, _, err = parseSkillRepositoryRequest(api.Context{
 		ResponseWriter: rec,
 		Request:        req,
 	})

@@ -54,7 +54,7 @@ func (*SkillRepositoryHandler) Get(req api.Context) error {
 }
 
 func (*SkillRepositoryHandler) Create(req api.Context) error {
-	manifest, err := readAndValidateSkillRepositoryManifest(req)
+	manifest, sourceURLCredentials, err := parseSkillRepositoryRequest(req)
 	if err != nil {
 		return err
 	}
@@ -73,7 +73,7 @@ func (*SkillRepositoryHandler) Create(req api.Context) error {
 		return fmt.Errorf("failed to create skill repository: %w", err)
 	}
 
-	newTokens := mergeCatalogTokens([]string{manifest.RepoURL}, manifest.SourceURLCredentials, nil)
+	newTokens := mergeCatalogTokens([]string{manifest.RepoURL}, sourceURLCredentials, nil)
 	if err := storeRepositoryTokens(req, repo.Name, newTokens, nil); err != nil {
 		return err
 	}
@@ -82,7 +82,7 @@ func (*SkillRepositoryHandler) Create(req api.Context) error {
 }
 
 func (*SkillRepositoryHandler) Update(req api.Context) error {
-	manifest, err := readAndValidateSkillRepositoryManifest(req)
+	manifest, sourceURLCredentials, err := parseSkillRepositoryRequest(req)
 	if err != nil {
 		return err
 	}
@@ -97,7 +97,7 @@ func (*SkillRepositoryHandler) Update(req api.Context) error {
 		return err
 	}
 
-	newTokens := mergeCatalogTokens([]string{manifest.RepoURL}, manifest.SourceURLCredentials, existingCred)
+	newTokens := mergeCatalogTokens([]string{manifest.RepoURL}, sourceURLCredentials, existingCred)
 
 	repo.Spec.SkillRepositoryManifest = *manifest
 	if err := req.Update(&repo); err != nil {
@@ -146,11 +146,13 @@ func (*SkillRepositoryHandler) Refresh(req api.Context) error {
 	return nil
 }
 
-func readAndValidateSkillRepositoryManifest(req api.Context) (*types.SkillRepositoryManifest, error) {
+func parseSkillRepositoryRequest(req api.Context) (*types.SkillRepositoryManifest, map[string]string, error) {
 	var manifest types.SkillRepositoryManifest
 	if err := req.Read(&manifest); err != nil {
-		return nil, types.NewErrBadRequest("failed to read skill repository manifest: %v", err)
+		return nil, nil, types.NewErrBadRequest("failed to read skill repository manifest: %v", err)
 	}
+	sourceURLCredentials := manifest.SourceURLCredentials
+	manifest.SourceURLCredentials = nil
 
 	untrimmedRef := manifest.Ref
 	manifest.DisplayName = strings.TrimSpace(manifest.DisplayName)
@@ -158,19 +160,19 @@ func readAndValidateSkillRepositoryManifest(req api.Context) (*types.SkillReposi
 	manifest.Ref = strings.TrimSpace(manifest.Ref)
 
 	if manifest.DisplayName == "" {
-		return nil, types.NewErrBadRequest("displayName is required")
+		return nil, nil, types.NewErrBadRequest("displayName is required")
 	}
 	if manifest.RepoURL == "" {
-		return nil, types.NewErrBadRequest("repoURL is required")
+		return nil, nil, types.NewErrBadRequest("repoURL is required")
 	}
 	if err := skillrepo.ValidateRepositoryURL(manifest.RepoURL); err != nil {
-		return nil, types.NewErrBadRequest("invalid repoURL: %v", err)
+		return nil, nil, types.NewErrBadRequest("invalid repoURL: %v", err)
 	}
 	if untrimmedRef != "" && manifest.Ref == "" {
-		return nil, types.NewErrBadRequest("ref must not be empty when provided")
+		return nil, nil, types.NewErrBadRequest("ref must not be empty when provided")
 	}
 
-	return &manifest, nil
+	return &manifest, sourceURLCredentials, nil
 }
 
 func storeRepositoryTokens(req api.Context, repoName string, tokens, existing map[string]string) error {
