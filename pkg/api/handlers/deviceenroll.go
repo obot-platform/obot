@@ -22,11 +22,11 @@ func NewDeviceEnrollHandler() *DeviceEnrollHandler {
 }
 
 // Enroll handles POST /api/mdm/enroll. The caller is authenticated by an
-// enrollment credential (the DeviceEnroll principal carries the deployment id
+// enrollment credential (the DeviceEnroll principal carries the configuration id
 // in Extra). It registers the device's identity key (trust-on-first-use; a
 // different key for an existing device is rejected).
 func (*DeviceEnrollHandler) Enroll(req api.Context) error {
-	deploymentID, ok := uintFromExtra(req.User.GetExtra(), "mdm_deployment_id")
+	configurationID, ok := uintFromExtra(req.User.GetExtra(), "mdm_configuration_id")
 	if !ok {
 		return types.NewErrBadRequest("enrollment requires a device enrollment credential")
 	}
@@ -60,12 +60,12 @@ func (*DeviceEnrollHandler) Enroll(req api.Context) error {
 	}
 
 	device, err := req.GatewayClient.EnrollDevice(req.Context(), gateway.DeviceEnrollment{
-		DeviceID:        in.DeviceID,
-		MDMDeploymentID: deploymentID,
-		PublicKey:       in.PublicKey,
-		Hostname:        in.Hostname,
-		OS:              in.OS,
-		OSVersion:       in.OSVersion,
+		DeviceID:           in.DeviceID,
+		MDMConfigurationID: configurationID,
+		PublicKey:          in.PublicKey,
+		Hostname:           in.Hostname,
+		OS:                 in.OS,
+		OSVersion:          in.OSVersion,
 	})
 	if err != nil {
 		return types.NewErrBadRequest("%v", err)

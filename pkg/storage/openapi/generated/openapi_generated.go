@@ -2945,7 +2945,7 @@ func schema_obot_platform_obot_apiclient_types_Device(ref common.ReferenceCallba
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "Device is an enrolled machine belonging to a MDM deployment. It is the API representation of a gateway device record (the registered public key is not exposed).",
+				Description: "Device is an enrolled machine belonging to a MDM configuration. It is the API representation of a gateway device record (the registered public key is not exposed).",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"id": {
@@ -2962,7 +2962,7 @@ func schema_obot_platform_obot_apiclient_types_Device(ref common.ReferenceCallba
 							Format:  "",
 						},
 					},
-					"mdmDeploymentID": {
+					"mdmConfigurationID": {
 						SchemaProps: spec.SchemaProps{
 							Default: 0,
 							Type:    []string{"integer"},
@@ -2998,7 +2998,7 @@ func schema_obot_platform_obot_apiclient_types_Device(ref common.ReferenceCallba
 						},
 					},
 				},
-				Required: []string{"id", "deviceID", "mdmDeploymentID", "enrolledAt"},
+				Required: []string{"id", "deviceID", "mdmConfigurationID", "enrolledAt"},
 			},
 		},
 		Dependencies: []string{
