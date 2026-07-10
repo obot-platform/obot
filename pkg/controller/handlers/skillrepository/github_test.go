@@ -20,6 +20,10 @@ func TestValidateRepositoryURL(t *testing.T) {
 			url:  "https://github.com/owner/repo",
 		},
 		{
+			name: "valid GitHub URL without scheme",
+			url:  "github.com/owner/repo",
+		},
+		{
 			name: "valid GitLab HTTPS URL",
 			url:  "https://gitlab.com/owner/repo",
 		},

@@ -62,7 +62,7 @@ func (credentialNotFoundClient) RevealCredential(_ context.Context, contexts []s
 }
 
 func TestParseSkillRepositoryRequest(t *testing.T) {
-	req := httptest.NewRequest(http.MethodPost, "/api/skill-repositories", strings.NewReader(`{"displayName":"Repo","repoURL":"https://github.com/example/repo","ref":" main ","sourceURLCredentials":{"https://github.com/example/repo":"secret"}}`))
+	req := httptest.NewRequest(http.MethodPost, "/api/skill-repositories", strings.NewReader(`{"displayName":"Repo","repoURL":"github.com/example/repo","ref":" main ","sourceURLCredentials":{"github.com/example/repo":"secret"}}`))
 	rec := httptest.NewRecorder()
 
 	manifest, credentials, err := parseSkillRepositoryRequest(api.Context{

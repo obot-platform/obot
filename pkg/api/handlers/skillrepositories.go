@@ -155,18 +155,26 @@ func parseSkillRepositoryRequest(req api.Context) (*types.SkillRepositoryManifes
 	manifest.SourceURLCredentials = nil
 
 	untrimmedRef := manifest.Ref
+	originalRepoURL := strings.TrimSpace(manifest.RepoURL)
 	manifest.DisplayName = strings.TrimSpace(manifest.DisplayName)
-	manifest.RepoURL = strings.TrimSpace(manifest.RepoURL)
 	manifest.Ref = strings.TrimSpace(manifest.Ref)
 
 	if manifest.DisplayName == "" {
 		return nil, nil, types.NewErrBadRequest("displayName is required")
 	}
-	if manifest.RepoURL == "" {
+	if originalRepoURL == "" {
 		return nil, nil, types.NewErrBadRequest("repoURL is required")
 	}
-	if err := skillrepo.ValidateRepositoryURL(manifest.RepoURL); err != nil {
+	var err error
+	manifest.RepoURL, err = skillrepo.NormalizeRepositoryURL(originalRepoURL)
+	if err != nil {
 		return nil, nil, types.NewErrBadRequest("invalid repoURL: %v", err)
+	}
+	if originalRepoURL != manifest.RepoURL {
+		if token, ok := sourceURLCredentials[originalRepoURL]; ok {
+			delete(sourceURLCredentials, originalRepoURL)
+			sourceURLCredentials[manifest.RepoURL] = token
+		}
 	}
 	if untrimmedRef != "" && manifest.Ref == "" {
 		return nil, nil, types.NewErrBadRequest("ref must not be empty when provided")

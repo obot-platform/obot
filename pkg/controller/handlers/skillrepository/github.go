@@ -22,35 +22,45 @@ func (f *fetchedRepository) Cleanup() {
 	}
 }
 
-// ValidateRepositoryURL returns an error if repoURL is not a valid HTTPS git repository URL.
-func ValidateRepositoryURL(repoURL string) error {
+// NormalizeRepositoryURL validates a git repository URL and adds the HTTPS scheme when omitted.
+func NormalizeRepositoryURL(repoURL string) (string, error) {
+	repoURL = strings.TrimSpace(repoURL)
+	if repoURL != "" && !strings.Contains(repoURL, "://") {
+		repoURL = "https://" + repoURL
+	}
 	u, err := url.Parse(repoURL)
 	if err != nil {
-		return fmt.Errorf("invalid repository URL: %w", err)
+		return "", fmt.Errorf("invalid repository URL: %w", err)
 	}
 	if u.Scheme != "https" {
-		return fmt.Errorf("repository URL must use HTTPS")
+		return "", fmt.Errorf("repository URL must use HTTPS")
 	}
 	if u.User != nil {
-		return fmt.Errorf("repository URL must not include credentials")
+		return "", fmt.Errorf("repository URL must not include credentials")
 	}
 	if !gitpkg.IsGitRepoURL(repoURL) {
-		return fmt.Errorf("repository URL does not appear to be a git repository")
+		return "", fmt.Errorf("repository URL does not appear to be a git repository")
 	}
 
 	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
 	switch u.Host {
 	case "github.com", "gitlab.com":
 		if len(parts) < 2 || parts[0] == "" || parts[1] == "" {
-			return fmt.Errorf("repository URL must include an owner and repository")
+			return "", fmt.Errorf("repository URL must include an owner and repository")
 		}
 	default:
 		path := strings.TrimSuffix(u.Path, "/")
 		if !strings.HasSuffix(path, ".git") && !strings.Contains(path, ".git/") {
-			return fmt.Errorf("repository URL path must include a .git repository boundary")
+			return "", fmt.Errorf("repository URL path must include a .git repository boundary")
 		}
 	}
-	return nil
+	return repoURL, nil
+}
+
+// ValidateRepositoryURL returns an error if repoURL is not a valid HTTPS git repository URL.
+func ValidateRepositoryURL(repoURL string) error {
+	_, err := NormalizeRepositoryURL(repoURL)
+	return err
 }
 
 func safeJoinWithin(baseDir, relPath string) (string, error) {
