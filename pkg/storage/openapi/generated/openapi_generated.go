@@ -4666,31 +4666,31 @@ func schema_obot_platform_obot_apiclient_types_LLMAuditLog(ref common.ReferenceC
 					"requestHeaders": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
-							Format: "",
+							Format: "byte",
 						},
 					},
 					"requestBody": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
-							Format: "",
+							Format: "byte",
 						},
 					},
 					"redactedRequestBody": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
-							Format: "",
+							Format: "byte",
 						},
 					},
 					"responseHeaders": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
-							Format: "",
+							Format: "byte",
 						},
 					},
 					"responseBody": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
-							Format: "",
+							Format: "byte",
 						},
 					},
 					"responseID": {

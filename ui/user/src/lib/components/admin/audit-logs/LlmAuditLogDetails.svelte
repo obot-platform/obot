@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { isAbortError } from '$lib/errors';
 	import { AdminService, type LLMAuditLog } from '$lib/services';
-	import { parseJSON } from '$lib/services/nanobot/utils';
 	import AuditLogDetails from './AuditLogDetails.svelte';
 	import { CircleAlert } from '@lucide/svelte';
 
@@ -28,11 +27,7 @@
 				if (controller.signal.aborted) return;
 				additData = {
 					...response,
-					responseHeaders: parseJSON(response.responseHeaders) ?? undefined,
-					requestHeaders: parseJSON(response.requestHeaders) ?? undefined,
-					requestBody:
-						parseJSON(response.requestBody) ?? parseJSON(response.redactedRequestBody) ?? undefined,
-					responseBody: parseJSON(response.responseBody) ?? undefined
+					requestBody: response.requestBody ?? response.redactedRequestBody
 				};
 			})
 			.catch((err) => {

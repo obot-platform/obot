@@ -2,7 +2,6 @@ package client
 
 import (
 	"context"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"strconv"
@@ -151,11 +150,11 @@ func (c *Client) prepareLLMAuditLog(ctx context.Context, log *types.LLMAuditLog,
 		}
 		return nil
 	}
-	log.RequestHeaders = ""
-	log.RequestBody = ""
-	log.RedactedRequestBody = ""
-	log.ResponseHeaders = ""
-	log.ResponseBody = ""
+	log.RequestHeaders = nil
+	log.RequestBody = nil
+	log.RedactedRequestBody = nil
+	log.ResponseHeaders = nil
+	log.ResponseBody = nil
 	return nil
 }
 
@@ -410,25 +409,14 @@ func (c *Client) encryptLLMAuditLog(ctx context.Context, log *types.LLMAuditLog)
 		return nil
 	}
 
-	var errs []error
 	dataCtx := llmAuditLogDataCtx(log)
-	encrypt := func(field string) string {
-		if field == "" {
-			return ""
-		}
-		b, err := transformer.TransformToStorage(ctx, []byte(field), dataCtx)
-		if err != nil {
-			errs = append(errs, err)
-			return field
-		}
-		return base64.StdEncoding.EncodeToString(b)
+	errs := []error{
+		encryptRawMessageField(ctx, transformer, dataCtx, &log.RequestHeaders),
+		encryptRawMessageField(ctx, transformer, dataCtx, &log.RequestBody),
+		encryptRawMessageField(ctx, transformer, dataCtx, &log.RedactedRequestBody),
+		encryptRawMessageField(ctx, transformer, dataCtx, &log.ResponseHeaders),
+		encryptRawMessageField(ctx, transformer, dataCtx, &log.ResponseBody),
 	}
-
-	log.RequestHeaders = encrypt(log.RequestHeaders)
-	log.RequestBody = encrypt(log.RequestBody)
-	log.RedactedRequestBody = encrypt(log.RedactedRequestBody)
-	log.ResponseHeaders = encrypt(log.ResponseHeaders)
-	log.ResponseBody = encrypt(log.ResponseBody)
 	log.Encrypted = true
 
 	return errors.Join(errs...)
@@ -444,30 +432,14 @@ func (c *Client) decryptLLMAuditLog(ctx context.Context, log *types.LLMAuditLog)
 		return nil
 	}
 
-	var errs []error
 	dataCtx := llmAuditLogDataCtx(log)
-	decrypt := func(field string) string {
-		if field == "" {
-			return ""
-		}
-		decoded, err := base64.StdEncoding.DecodeString(field)
-		if err != nil {
-			errs = append(errs, err)
-			return field
-		}
-		out, _, err := transformer.TransformFromStorage(ctx, decoded, dataCtx)
-		if err != nil {
-			errs = append(errs, err)
-			return field
-		}
-		return string(out)
+	errs := []error{
+		decryptRawMessageField(ctx, transformer, dataCtx, &log.RequestHeaders),
+		decryptRawMessageField(ctx, transformer, dataCtx, &log.RequestBody),
+		decryptRawMessageField(ctx, transformer, dataCtx, &log.RedactedRequestBody),
+		decryptRawMessageField(ctx, transformer, dataCtx, &log.ResponseHeaders),
+		decryptRawMessageField(ctx, transformer, dataCtx, &log.ResponseBody),
 	}
-
-	log.RequestHeaders = decrypt(log.RequestHeaders)
-	log.RequestBody = decrypt(log.RequestBody)
-	log.RedactedRequestBody = decrypt(log.RedactedRequestBody)
-	log.ResponseHeaders = decrypt(log.ResponseHeaders)
-	log.ResponseBody = decrypt(log.ResponseBody)
 
 	return errors.Join(errs...)
 }
