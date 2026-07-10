@@ -100,18 +100,18 @@ type AuditLogExportFilters struct {
 	// SourceTypes selects which audit-log source(s) to export. An empty slice preserves the
 	// historical MCP-only default; callers pass multiple values (e.g. both mcp and
 	// local_agent_tool_call) to export more than one source in the same export.
-	SourceTypes                []AuditLogSourceType    `json:"sourceTypes,omitempty"`
-	UserIDs                    []string                `json:"userIDs,omitempty"`
-	MCPIDs                     []string                `json:"mcpIDs,omitempty"`
-	MCPServerDisplayNames      []string                `json:"mcpServerDisplayNames,omitempty"`
-	MCPServerCatalogEntryNames []string                `json:"mcpServerCatalogEntryNames,omitempty"`
-	CallTypes                  []string                `json:"callTypes,omitempty"`
-	CallIdentifiers            []string                `json:"callIdentifiers,omitempty"`
-	SessionIDs                 []string                `json:"sessionIDs,omitempty"`
-	ClientNames                []string                `json:"clientNames,omitempty"`
-	ClientVersions             []string                `json:"clientVersions,omitempty"`
-	ResponseStatuses           []string                `json:"responseStatuses,omitempty"`
-	ClientIPs                  []string                `json:"clientIPs,omitempty"`
+	SourceTypes                []AuditLogSourceType `json:"sourceTypes,omitempty"`
+	UserIDs                    []string             `json:"userIDs,omitempty"`
+	MCPIDs                     []string             `json:"mcpIDs,omitempty"`
+	MCPServerDisplayNames      []string             `json:"mcpServerDisplayNames,omitempty"`
+	MCPServerCatalogEntryNames []string             `json:"mcpServerCatalogEntryNames,omitempty"`
+	CallTypes                  []string             `json:"callTypes,omitempty"`
+	CallIdentifiers            []string             `json:"callIdentifiers,omitempty"`
+	SessionIDs                 []string             `json:"sessionIDs,omitempty"`
+	ClientNames                []string             `json:"clientNames,omitempty"`
+	ClientVersions             []string             `json:"clientVersions,omitempty"`
+	ResponseStatuses           []string             `json:"responseStatuses,omitempty"`
+	ClientIPs                  []string             `json:"clientIPs,omitempty"`
 
 	// Local-agent tool-call filters. Only applied when SourceTypes includes local_agent_tool_call.
 	AgentProviders []string `json:"agentProviders,omitempty"`

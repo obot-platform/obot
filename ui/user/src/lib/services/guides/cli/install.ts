@@ -103,13 +103,13 @@ export const steps: GuideStep[] = [
 	{
 		content: [
 			'Great! Use your AI client to call the skill. Or go ahead and install other skills you now have access to!',
-			"And that's it! You've completed the install Obot/OboCop CLI guide."
+			"And that's it! You've completed the install Obot/Obot Sentry CLI guide."
 		]
 	}
 ];
 
 export default {
 	steps,
-	title: 'Install Obot/OboCop CLI',
+	title: 'Install Obot/Obot Sentry CLI',
 	id: 'cli-install-guide'
 };

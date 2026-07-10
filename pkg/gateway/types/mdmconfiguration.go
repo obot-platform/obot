@@ -26,6 +26,21 @@ type MDMConfiguration struct {
 	Description string    `json:"description,omitempty"`
 	CreatedBy   uint      `json:"createdBy"`
 	CreatedAt   time.Time `json:"createdAt"`
+
+	// The optional MDM asset selection and JSON-encoded template values. The
+	// digest, platform, and OS are either all set or all blank.
+	AssetDigest string `json:"-" gorm:"size:64;index"`
+	Platform    string `json:"platform,omitempty"`
+	OS          string `json:"os,omitempty"`
+	Values      string `json:"-"`
+}
+
+// MDMAssetBundle is one immutable, validated MDM asset snapshot. Digest is the
+// lowercase SHA-256 of Content and is also the stable identity configurations
+// pin. Content is a canonical ZIP consumed directly by mdmassets.OpenArchive.
+type MDMAssetBundle struct {
+	Digest  string `json:"digest" gorm:"primaryKey;size:64"`
+	Content []byte `json:"-" gorm:"not null"`
 }
 
 // DeviceEnrollmentKey is one credential that authorizes enrolling a device into

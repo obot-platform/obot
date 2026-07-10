@@ -17,6 +17,7 @@ const (
 	MCPCatalogSyncAnnotation                  = "obot.ai/mcp-catalog-sync"
 	SystemMCPCatalogSyncAnnotation            = "obot.ai/system-mcp-catalog-sync"
 	SkillRepositorySyncAnnotation             = "obot.ai/skill-repository-sync"
+	MDMAssetSourceSyncAnnotation              = "obot.ai/mdm-asset-source-sync"
 	MCPServerCatalogEntrySyncAnnotation       = "obot.ai/mcp-server-catalog-entry-sync"
 	SystemMCPServerCatalogEntrySyncAnnotation = "obot.ai/system-mcp-server-catalog-entry-sync"
 	ModelInfoSourceSyncAnnotation             = "obot.ai/model-info-source-sync"

@@ -131,6 +131,7 @@ func (db *DB) AutoMigrate() (err error) {
 		types.DeviceScanPlugin{},
 		types.DeviceScanFile{},
 		types.DeviceScanClient{},
+		types.MDMAssetBundle{},
 		types.MDMConfiguration{},
 		types.DeviceEnrollmentKey{},
 		types.Device{},

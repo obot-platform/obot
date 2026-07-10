@@ -7,6 +7,7 @@ import {
 	doGet,
 	doPatch,
 	doPost,
+	doPostForResponse,
 	doPut,
 	handleResponse,
 	type Fetcher,
@@ -101,7 +102,15 @@ import type {
 	License,
 	LicenseManifest,
 	LLMAuditLog,
-	LLMAuditLogURLFilters
+	LLMAuditLogURLFilters,
+	MDMAsset,
+	MDMAssetList,
+	MDMAssetSource,
+	MDMConfiguration,
+	MDMConfigurationCreateResponse,
+	MDMDevice,
+	MDMEnrollmentKey,
+	MDMEnrollmentKeyCreateResponse
 } from './types';
 import { MCPCompositeDeletionDependencyError } from './types';
 
@@ -2017,4 +2026,135 @@ export async function updateLicense(
 	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
 ): Promise<License> {
 	return (await doPut('/license', manifest, opts)) as License;
+}
+
+// MDM configurations
+
+export async function listMDMConfigurations(opts?: {
+	fetch?: Fetcher;
+}): Promise<MDMConfiguration[]> {
+	const response = (await doGet('/mdm/configurations', opts)) as {
+		items: MDMConfiguration[] | null;
+	};
+	return response.items ?? [];
+}
+
+export async function createMDMConfiguration(
+	input: Omit<MDMConfiguration, 'id' | 'createdAt' | 'instructions' | 'error'>
+): Promise<MDMConfigurationCreateResponse> {
+	return (await doPost('/mdm/configurations', input, {
+		dontLogErrors: true
+	})) as MDMConfigurationCreateResponse;
+}
+
+export async function updateMDMConfiguration(input: MDMConfiguration): Promise<MDMConfiguration> {
+	return (await doPut(`/mdm/configurations/${input.id}`, input, {
+		dontLogErrors: true
+	})) as MDMConfiguration;
+}
+
+export async function deleteMDMConfiguration(id: number): Promise<void> {
+	await doDelete(`/mdm/configurations/${id}`);
+}
+
+export async function listMDMEnrollmentKeys(
+	configurationId: number,
+	opts?: { fetch?: Fetcher }
+): Promise<MDMEnrollmentKey[]> {
+	const response = (await doGet(
+		`/mdm/configurations/${configurationId}/enrollment-keys`,
+		opts
+	)) as {
+		items: MDMEnrollmentKey[] | null;
+	};
+	return response.items ?? [];
+}
+
+export async function createMDMEnrollmentKey(
+	configurationId: number,
+	input: { name?: string; expiresAt?: string }
+): Promise<MDMEnrollmentKeyCreateResponse> {
+	return (await doPost(
+		`/mdm/configurations/${configurationId}/enrollment-keys`,
+		input
+	)) as MDMEnrollmentKeyCreateResponse;
+}
+
+export async function deleteMDMEnrollmentKey(
+	configurationId: number,
+	keyId: number
+): Promise<void> {
+	await doDelete(`/mdm/configurations/${configurationId}/enrollment-keys/${keyId}`);
+}
+
+export async function listMDMDevices(
+	configurationId: number,
+	opts?: { fetch?: Fetcher }
+): Promise<MDMDevice[]> {
+	const response = (await doGet(`/mdm/configurations/${configurationId}/devices`, opts)) as {
+		items: MDMDevice[] | null;
+	};
+	return response.items ?? [];
+}
+
+export async function getMDMConfiguration(
+	id: number | string,
+	opts?: { fetch?: Fetcher }
+): Promise<MDMConfiguration> {
+	return (await doGet(`/mdm/configurations/${id}`, opts)) as MDMConfiguration;
+}
+
+// parseContentDispositionFilename pulls the download filename out of a
+// Content-Disposition header, preferring the RFC 5987 filename* form.
+function parseContentDispositionFilename(header: string | null): string | undefined {
+	if (!header) return undefined;
+	const encoded = header.match(/filename\*=(?:UTF-8'')?([^;]+)/i);
+	if (encoded) {
+		try {
+			return decodeURIComponent(encoded[1].trim().replace(/^"|"$/g, ''));
+		} catch {
+			// Fall back to the plain filename form below.
+		}
+	}
+	const plain = header.match(/filename="?([^";]+)"?/i);
+	return plain ? plain[1].trim() : undefined;
+}
+
+export async function getMDMAssetSource(opts?: { fetch?: Fetcher }): Promise<MDMAssetSource> {
+	return (await doGet('/mdm/asset-source', {
+		...opts,
+		dontLogErrors: true
+	})) as MDMAssetSource;
+}
+
+export async function refreshMDMAssetSource(opts?: { fetch?: Fetcher }): Promise<void> {
+	await doPost('/mdm/asset-source/refresh', {}, opts);
+}
+
+export async function listMDMAssets(opts?: { fetch?: Fetcher }): Promise<MDMAsset[]> {
+	const response = (await doGet('/mdm/assets', {
+		...opts,
+		dontLogErrors: true
+	})) as MDMAssetList;
+	return response.items ?? [];
+}
+
+// downloadMDMConfig requests the deployable bundle for a configuration's
+// saved target. The bundle carries no credentials — the admin pastes
+// an enrollment key into the MDM per the bundled instructions. Returns
+// the zip bytes and the filename from Content-Disposition.
+export async function downloadMDMConfig(
+	configurationId: number,
+	reqOpts?: RequestOptions
+): Promise<{ blob: Blob; filename: string }> {
+	const resp = await doPostForResponse(
+		`/mdm/configurations/${configurationId}/config`,
+		{},
+		reqOpts
+	);
+	const blob = await resp.blob();
+	const filename =
+		parseContentDispositionFilename(resp.headers.get('content-disposition')) ??
+		`obot-sentry-config-${configurationId}.zip`;
+	return { blob, filename };
 }

@@ -215,6 +215,57 @@ export async function doPost(
 	return await doWithBody('POST', path, input, opts);
 }
 
+// doPostForResponse POSTs a body and returns the raw Response so the caller can
+// read the body itself (e.g. as a Blob) along with headers such as
+// Content-Disposition. On a non-ok status it throws like the other helpers.
+export async function doPostForResponse(
+	path: string,
+	input: string | object | Blob,
+	opts?: {
+		dontLogErrors?: boolean;
+		fetch?: typeof fetch;
+		headers?: Record<string, string>;
+		signal?: AbortSignal;
+	}
+): Promise<Response> {
+	let headers: Record<string, string> | undefined;
+	let body: BodyInit | undefined;
+
+	if (input instanceof Blob) {
+		body = input;
+		headers = { 'Content-Type': 'application/octet-stream' };
+	} else if (typeof input === 'object' && input !== null) {
+		body = JSON.stringify(input);
+		headers = { 'Content-Type': 'application/json' };
+	} else if (typeof input === 'string') {
+		body = input;
+		headers = { 'Content-Type': 'text/plain' };
+	}
+
+	const f = opts?.fetch || fetch;
+	const resp = await f(baseURL + path, {
+		method: 'POST',
+		headers: { ...getAuthHeaders(), ...headers, ...opts?.headers },
+		body,
+		signal: opts?.signal
+	});
+
+	if (!resp.ok) {
+		if (resp.status === 401) {
+			handle401Redirect();
+		}
+		const errBody = await resp.text();
+		const e = createHttpError(resp.status, path, errBody);
+		if (opts?.dontLogErrors) {
+			throw e;
+		}
+		errors.items.push(e);
+		throw e;
+	}
+
+	return resp;
+}
+
 export async function doPatch(
 	path: string,
 	input?: string | object | Blob,

@@ -24,25 +24,28 @@ const (
 )
 
 // CreateMDMConfiguration creates a configuration and mints its first enrollment
-// key. The plaintext credential is returned exactly once.
-func (c *Client) CreateMDMConfiguration(ctx context.Context, createdBy uint, name, description string) (*types.MDMConfiguration, *types.DeviceEnrollmentKeyCreateResponse, error) {
-	var (
-		configuration types.MDMConfiguration
-		key           *types.DeviceEnrollmentKeyCreateResponse
-	)
+// key in the same transaction. configuration may contain an optional, already
+// validated asset selection. The plaintext credential is
+// returned exactly once.
+func (c *Client) CreateMDMConfiguration(ctx context.Context, createdBy uint, configuration types.MDMConfiguration) (*types.MDMConfiguration, *types.DeviceEnrollmentKeyCreateResponse, error) {
+	if err := normalizeMDMConfiguration(&configuration); err != nil {
+		return nil, nil, err
+	}
+
+	var key *types.DeviceEnrollmentKeyCreateResponse
 	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		configuration = types.MDMConfiguration{
-			Name:        name,
-			Description: description,
-			CreatedBy:   createdBy,
-			CreatedAt:   time.Now(),
-		}
+		configuration.ID = 0
+		configuration.CreatedBy = createdBy
+		configuration.CreatedAt = time.Now()
 		if err := tx.Create(&configuration).Error; err != nil {
 			return fmt.Errorf("failed to create MDM configuration: %w", err)
 		}
-		var err error
-		key, err = createDeviceEnrollmentKey(tx, configuration.ID, createdBy, "", nil)
-		return err
+		createdKey, err := createDeviceEnrollmentKey(tx, configuration.ID, createdBy, "", nil)
+		if err != nil {
+			return err
+		}
+		key = createdKey
+		return nil
 	}); err != nil {
 		return nil, nil, err
 	}
@@ -56,6 +59,46 @@ func (c *Client) GetMDMConfiguration(ctx context.Context, id uint) (*types.MDMCo
 		return nil, err
 	}
 	return &configuration, nil
+}
+
+// UpdateMDMConfiguration updates a configuration and its optional asset
+// selection. The digest, platform, and OS are either all specified or all
+// blank; a blank selection clears any saved values.
+func (c *Client) UpdateMDMConfiguration(ctx context.Context, configuration types.MDMConfiguration) error {
+	if configuration.ID == 0 {
+		return fmt.Errorf("MDM configuration id is required")
+	}
+	if err := normalizeMDMConfiguration(&configuration); err != nil {
+		return err
+	}
+	result := c.db.WithContext(ctx).Model(&types.MDMConfiguration{}).Where("id = ?", configuration.ID).Updates(map[string]any{
+		"name":         configuration.Name,
+		"description":  configuration.Description,
+		"platform":     configuration.Platform,
+		"os":           configuration.OS,
+		"asset_digest": configuration.AssetDigest,
+		"values":       configuration.Values,
+	})
+	if result.Error != nil {
+		return fmt.Errorf("failed to update MDM configuration: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func normalizeMDMConfiguration(configuration *types.MDMConfiguration) error {
+	hasDigest := configuration.AssetDigest != ""
+	hasPlatform := configuration.Platform != ""
+	hasOS := configuration.OS != ""
+	if hasDigest != hasPlatform || hasDigest != hasOS {
+		return fmt.Errorf("MDM asset digest, platform, and OS must all be set or all be blank")
+	}
+	if !hasDigest {
+		configuration.Values = ""
+	}
+	return nil
 }
 
 // ListMDMConfigurations returns all configurations, newest first.

@@ -3,7 +3,6 @@ package handlers
 import (
 	"errors"
 	"strconv"
-	"strings"
 	"time"
 
 	types "github.com/obot-platform/obot/apiclient/types"
@@ -12,89 +11,100 @@ import (
 	"gorm.io/gorm"
 )
 
-// MDMConfigurationsHandler serves the admin API for MDM configurations — the
-// fleet principals that devices enroll into — and their enrollment keys.
-type MDMConfigurationsHandler struct{}
-
-func NewMDMConfigurationsHandler() *MDMConfigurationsHandler {
-	return nil
+// MDMConfigurationsHandler serves the admin API for MDM configurations and
+// their enrollment keys.
+type MDMConfigurationsHandler struct {
+	serverURL string
 }
 
-type mdmConfigurationCreateRequest struct {
-	Name        string `json:"name"`
-	Description string `json:"description,omitempty"`
+func NewMDMConfigurationsHandler(serverURL string) *MDMConfigurationsHandler {
+	return &MDMConfigurationsHandler{serverURL: serverURL}
 }
 
-// mdmConfigurationCreateResponse returns a new configuration together with the
-// enrollment credential of its first key. The plaintext credential is only
-// visible here.
-type mdmConfigurationCreateResponse struct {
-	Configuration        gtypes.MDMConfiguration `json:"configuration"`
-	EnrollmentCredential string                  `json:"enrollmentCredential"`
-}
-
-type mdmConfigurationListResponse struct {
-	Items []gtypes.MDMConfiguration `json:"items"`
-}
-
-type enrollmentKeyListResponse struct {
-	Items []gtypes.DeviceEnrollmentKey `json:"items"`
-}
-
-type enrollmentKeyCreateRequest struct {
-	Name      string     `json:"name,omitempty"`
-	ExpiresAt *time.Time `json:"expiresAt,omitempty"`
-}
-
-// Create handles POST /api/mdm/configurations. Creating a configuration mints its
-// first enrollment key; the plaintext credential is returned once.
-func (*MDMConfigurationsHandler) Create(req api.Context) error {
-	var in mdmConfigurationCreateRequest
+// Create handles POST /api/mdm/configurations. The optional asset selection and
+// first enrollment key are committed with the configuration.
+func (h *MDMConfigurationsHandler) Create(req api.Context) error {
+	var in types.MDMConfiguration
 	if err := req.Read(&in); err != nil {
 		return err
 	}
-	in.Name = strings.TrimSpace(in.Name)
-	if in.Name == "" {
-		return types.NewErrBadRequest("name is required")
-	}
-
-	configuration, key, err := req.GatewayClient.CreateMDMConfiguration(req.Context(), req.UserID(), in.Name, in.Description)
+	configuration, err := h.mdmConfigurationForSave(req, in, nil)
 	if err != nil {
 		return err
 	}
-	return req.WriteCreated(mdmConfigurationCreateResponse{
-		Configuration:        *configuration,
+
+	created, key, err := req.GatewayClient.CreateMDMConfiguration(req.Context(), req.UserID(), configuration)
+	if err != nil {
+		return err
+	}
+	return req.WriteCreated(types.MDMConfigurationCreateResponse{
+		MDMConfiguration:     h.mdmConfigurationFromGateway(req, *created, true),
 		EnrollmentCredential: key.EnrollmentCredential,
 	})
 }
 
 // List handles GET /api/mdm/configurations.
-func (*MDMConfigurationsHandler) List(req api.Context) error {
+func (h *MDMConfigurationsHandler) List(req api.Context) error {
 	configurations, err := req.GatewayClient.ListMDMConfigurations(req.Context())
 	if err != nil {
 		return err
 	}
-	return req.Write(mdmConfigurationListResponse{Items: configurations})
+	items := make([]types.MDMConfiguration, 0, len(configurations))
+	for _, configuration := range configurations {
+		items = append(items, h.mdmConfigurationFromGateway(req, configuration, false))
+	}
+	return req.Write(types.MDMConfigurationList{Items: items})
 }
 
 // Get handles GET /api/mdm/configurations/{id}.
-func (*MDMConfigurationsHandler) Get(req api.Context) error {
+func (h *MDMConfigurationsHandler) Get(req api.Context) error {
 	id, err := configurationIDFromPath(req)
 	if err != nil {
 		return err
 	}
 	configuration, err := req.GatewayClient.GetMDMConfiguration(req.Context(), id)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return types.NewErrNotFound("MDM configuration %d not found", id)
+	}
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return types.NewErrNotFound("MDM configuration %d not found", id)
-		}
 		return err
 	}
-	return req.Write(configuration)
+	return req.Write(h.mdmConfigurationFromGateway(req, *configuration, true))
 }
 
-// Delete handles DELETE /api/mdm/configurations/{id}. Removes the configuration and
-// its enrollment keys; devices enrolled into it are preserved.
+// Update handles PUT /api/mdm/configurations/{id}. Supplying a blank asset
+// digest, platform, and OS clears the optional asset selection.
+func (h *MDMConfigurationsHandler) Update(req api.Context) error {
+	id, err := configurationIDFromPath(req)
+	if err != nil {
+		return err
+	}
+	current, err := h.getConfiguration(req, id)
+	if err != nil {
+		return err
+	}
+	var in types.MDMConfiguration
+	if err := req.Read(&in); err != nil {
+		return err
+	}
+	configuration, err := h.mdmConfigurationForSave(req, in, current)
+	if err != nil {
+		return err
+	}
+	configuration.ID = id
+	if err := req.GatewayClient.UpdateMDMConfiguration(req.Context(), configuration); errors.Is(err, gorm.ErrRecordNotFound) {
+		return types.NewErrNotFound("MDM configuration %d not found", id)
+	} else if err != nil {
+		return err
+	}
+	updated, err := req.GatewayClient.GetMDMConfiguration(req.Context(), id)
+	if err != nil {
+		return err
+	}
+	return req.Write(h.mdmConfigurationFromGateway(req, *updated, true))
+}
+
+// Delete removes the configuration and its keys. Enrolled devices remain.
 func (*MDMConfigurationsHandler) Delete(req api.Context) error {
 	id, err := configurationIDFromPath(req)
 	if err != nil {
@@ -103,7 +113,6 @@ func (*MDMConfigurationsHandler) Delete(req api.Context) error {
 	return req.GatewayClient.DeleteMDMConfiguration(req.Context(), id)
 }
 
-// ListEnrollmentKeys handles GET /api/mdm/configurations/{id}/enrollment-keys.
 func (*MDMConfigurationsHandler) ListEnrollmentKeys(req api.Context) error {
 	id, err := configurationIDFromPath(req)
 	if err != nil {
@@ -113,34 +122,40 @@ func (*MDMConfigurationsHandler) ListEnrollmentKeys(req api.Context) error {
 	if err != nil {
 		return err
 	}
-	return req.Write(enrollmentKeyListResponse{Items: keys})
+	items := make([]types.MDMEnrollmentKey, 0, len(keys))
+	for _, key := range keys {
+		items = append(items, mdmEnrollmentKeyFromGateway(key))
+	}
+	return req.Write(types.MDMEnrollmentKeyList{Items: items})
 }
 
-// CreateEnrollmentKey handles POST /api/mdm/configurations/{id}/enrollment-keys.
-// It attaches an additional key without disturbing existing keys or enrolled
-// devices. The plaintext credential is returned once.
 func (*MDMConfigurationsHandler) CreateEnrollmentKey(req api.Context) error {
 	id, err := configurationIDFromPath(req)
 	if err != nil {
 		return err
 	}
-	var in enrollmentKeyCreateRequest
+	var in types.MDMEnrollmentKeyCreateRequest
 	if err := req.Read(&in); err != nil {
 		return err
 	}
-	key, err := req.GatewayClient.CreateDeviceEnrollmentKey(req.Context(), id, req.UserID(), in.Name, in.ExpiresAt)
+	var expiresAt *time.Time
+	if in.ExpiresAt != nil {
+		value := in.ExpiresAt.GetTime()
+		expiresAt = &value
+	}
+	key, err := req.GatewayClient.CreateDeviceEnrollmentKey(req.Context(), id, req.UserID(), in.Name, expiresAt)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return types.NewErrNotFound("MDM configuration %d not found", id)
+	}
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return types.NewErrNotFound("MDM configuration %d not found", id)
-		}
 		return err
 	}
-	return req.WriteCreated(key)
+	return req.WriteCreated(types.MDMEnrollmentKeyCreateResponse{
+		MDMEnrollmentKey:     mdmEnrollmentKeyFromGateway(key.DeviceEnrollmentKey),
+		EnrollmentCredential: key.EnrollmentCredential,
+	})
 }
 
-// DeleteEnrollmentKey handles DELETE /api/mdm/configurations/{id}/enrollment-keys/{key_id}.
-// It only stops that key from enrolling new devices; enrolled devices are
-// unaffected. Deletion is scoped to the configuration in the path and idempotent.
 func (*MDMConfigurationsHandler) DeleteEnrollmentKey(req api.Context) error {
 	configurationID, err := configurationIDFromPath(req)
 	if err != nil {
@@ -153,7 +168,6 @@ func (*MDMConfigurationsHandler) DeleteEnrollmentKey(req api.Context) error {
 	return req.GatewayClient.DeleteDeviceEnrollmentKey(req.Context(), configurationID, keyID)
 }
 
-// ListDevices handles GET /api/mdm/configurations/{id}/devices.
 func (*MDMConfigurationsHandler) ListDevices(req api.Context) error {
 	id, err := configurationIDFromPath(req)
 	if err != nil {
@@ -164,10 +178,27 @@ func (*MDMConfigurationsHandler) ListDevices(req api.Context) error {
 		return err
 	}
 	items := make([]types.Device, 0, len(devices))
-	for _, d := range devices {
-		items = append(items, gtypes.ConvertDevice(d))
+	for _, device := range devices {
+		items = append(items, gtypes.ConvertDevice(device))
 	}
 	return req.Write(types.DeviceList{Items: items})
+}
+
+func mdmEnrollmentKeyFromGateway(key gtypes.DeviceEnrollmentKey) types.MDMEnrollmentKey {
+	return types.MDMEnrollmentKey{
+		ID:         key.ID,
+		Name:       key.Name,
+		CreatedAt:  *types.NewTime(key.CreatedAt),
+		LastUsedAt: optionalAPITime(key.LastUsedAt),
+		ExpiresAt:  optionalAPITime(key.ExpiresAt),
+	}
+}
+
+func optionalAPITime(value *time.Time) *types.Time {
+	if value == nil {
+		return nil
+	}
+	return types.NewTime(*value)
 }
 
 func configurationIDFromPath(req api.Context) (uint, error) {

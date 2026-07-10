@@ -11,6 +11,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/adminworkspace"
 	"github.com/obot-platform/obot/pkg/controller/handlers/deployment"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpcatalog"
+	"github.com/obot-platform/obot/pkg/controller/handlers/mdmassetsource"
 	"github.com/obot-platform/obot/pkg/controller/handlers/modelinfosource"
 	"github.com/obot-platform/obot/pkg/controller/handlers/provider"
 	"github.com/obot-platform/obot/pkg/controller/handlers/secret"
@@ -36,6 +37,7 @@ type Controller struct {
 	services               *services.Services
 	providerHandler        *provider.Handler
 	mcpCatalogHandler      *mcpcatalog.Handler
+	mdmAssetSourceHandler  *mdmassetsource.Handler
 	modelInfoSourceHandler *modelinfosource.Handler
 	adminWorkspaceHandler  *adminworkspace.Handler
 	providerInstaller      networkPolicyProviderInstaller
@@ -254,6 +256,9 @@ func (c *Controller) PostStart(ctx context.Context, client kclient.Client) {
 
 	if err := c.modelInfoSourceHandler.SetUpDefaultModelInfoSource(ctx, client); err != nil {
 		panic(fmt.Errorf("failed to set up default model info source: %w", err))
+	}
+	if err := c.mdmAssetSourceHandler.SetUpDefaultMDMAssetSource(ctx, client); err != nil {
+		panic(fmt.Errorf("failed to set up default MDM asset source: %w", err))
 	}
 
 	if err := c.mcpCatalogHandler.SetUpDefaultMCPCatalog(ctx, client); err != nil {

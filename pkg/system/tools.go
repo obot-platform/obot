@@ -16,6 +16,7 @@ const (
 	DefaultCatalog         = "default"
 	DefaultSkillRepository = "default"
 	DefaultModelInfoSource = "default"
+	DefaultMDMAssetSource  = "default"
 	DefaultRoleSettingName = "user-default-role-setting"
 	K8sSettingsName        = "k8s-settings"
 	AppPreferencesName     = "app-preferences"
