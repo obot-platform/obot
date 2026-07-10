@@ -17,7 +17,7 @@ import (
 type MDMDeploymentsHandler struct{}
 
 func NewMDMDeploymentsHandler() *MDMDeploymentsHandler {
-	return &MDMDeploymentsHandler{}
+	return nil
 }
 
 type mdmDeploymentCreateRequest struct {

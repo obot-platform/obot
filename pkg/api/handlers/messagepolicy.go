@@ -13,7 +13,7 @@ import (
 type MessagePolicyHandler struct{}
 
 func NewMessagePolicyHandler() *MessagePolicyHandler {
-	return &MessagePolicyHandler{}
+	return nil
 }
 
 // List returns all message policies.

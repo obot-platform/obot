@@ -11,14 +11,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type Handler struct {
-}
+type Handler struct{}
 
 func NewHandler() *Handler {
-	return &Handler{}
+	return nil
 }
 
-func (h *Handler) ScheduleExports(req router.Request, resp router.Response) error {
+func (*Handler) ScheduleExports(req router.Request, resp router.Response) error {
 	scheduledExport := req.Object.(*v1.ScheduledAuditLogExport)
 
 	if !scheduledExport.Spec.Enabled {
@@ -37,7 +36,7 @@ func (h *Handler) ScheduleExports(req router.Request, resp router.Response) erro
 		return nil
 	}
 
-	if err := h.createExportFromSchedule(req, scheduledExport, next); err != nil {
+	if err := createExportFromSchedule(req, scheduledExport, next); err != nil {
 		return err
 	}
 
@@ -46,7 +45,7 @@ func (h *Handler) ScheduleExports(req router.Request, resp router.Response) erro
 	return req.Client.Update(req.Ctx, scheduledExport)
 }
 
-func (h *Handler) createExportFromSchedule(req router.Request, scheduledExport *v1.ScheduledAuditLogExport, nextRunAt time.Time) error {
+func createExportFromSchedule(req router.Request, scheduledExport *v1.ScheduledAuditLogExport, nextRunAt time.Time) error {
 	var startTime time.Time
 	if scheduledExport.Spec.RetentionPeriodInDays < 0 {
 		startTime = time.Time{}

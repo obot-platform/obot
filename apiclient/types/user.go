@@ -39,6 +39,7 @@ const (
 	GroupBasic              = "basic"
 	GroupAuthenticated      = "authenticated"
 	GroupMCP                = "mcp"
+	GroupCompositeMCP       = "composite-mcp"
 	GroupSkills             = "skills"
 	GroupPublishedArtifacts = "published-artifacts"
 	GroupAPI                = "api"

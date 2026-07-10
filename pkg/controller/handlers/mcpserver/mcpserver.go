@@ -1033,7 +1033,7 @@ func (h *Handler) SyncOAuthMetadata(req router.Request, _ router.Response) error
 		return fmt.Errorf("failed to reveal credential: %w", err)
 	}
 
-	serverConfig, missingConfig, err := mcp.ServerToServerConfig(*server, server.ValidConnectURLs(h.baseURL), h.baseURL, server.Spec.UserID, server.Name, server.Status.MCPCatalogID, cred.Secrets, nil)
+	serverConfig, missingConfig, err := mcp.ServerToServerConfig(*server, server.ValidConnectURLs(h.baseURL), server.Spec.UserID, server.Name, server.Status.MCPCatalogID, cred.Secrets, nil)
 	if err != nil {
 		return fmt.Errorf("failed to convert MCP server to server config: %w", err)
 	} else if len(missingConfig) > 0 {

@@ -18,7 +18,7 @@ import (
 type DeviceEnrollHandler struct{}
 
 func NewDeviceEnrollHandler() *DeviceEnrollHandler {
-	return &DeviceEnrollHandler{}
+	return nil
 }
 
 // Enroll handles POST /api/mdm/enroll. The caller is authenticated by an

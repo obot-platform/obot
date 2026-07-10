@@ -70,7 +70,6 @@ func TestSkillAccessRuleHandlerReadAndValidateManifest(t *testing.T) {
 		},
 	)
 
-	handler := NewSkillAccessRuleHandler()
 	req := httptest.NewRequest(http.MethodPost, "/api/skill-access-rules", strings.NewReader(`{
 		"subjects":[{"type":"user","id":"123"}],
 		"resources":[
@@ -80,7 +79,7 @@ func TestSkillAccessRuleHandlerReadAndValidateManifest(t *testing.T) {
 	}`))
 	rec := httptest.NewRecorder()
 
-	manifest, err := handler.readAndValidateManifest(api.Context{
+	manifest, err := readAndValidateManifest(api.Context{
 		ResponseWriter: rec,
 		Request:        req,
 		Storage:        storage,
@@ -93,7 +92,7 @@ func TestSkillAccessRuleHandlerReadAndValidateManifest(t *testing.T) {
 		"resources":[{"type":"skill","id":"missing"}]
 	}`))
 	rec = httptest.NewRecorder()
-	_, err = handler.readAndValidateManifest(api.Context{
+	_, err = readAndValidateManifest(api.Context{
 		ResponseWriter: rec,
 		Request:        req,
 		Storage:        storage,

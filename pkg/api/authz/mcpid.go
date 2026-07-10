@@ -16,7 +16,7 @@ import (
 )
 
 func (a *Authorizer) checkMCPID(req *http.Request, resources *Resources, user User) (bool, error) {
-	if resources.MCPID == "" || user.GetName() == "anonymous" && strings.HasPrefix(req.URL.Path, "/mcp-connect/") {
+	if resources.MCPID == "" || user.GetName() == "anonymous" && strings.HasPrefix(req.URL.Path, "/mcp-connect") {
 		// If this is an MCP connect URL and the user is anonymous, then allow access.
 		// The handler will catch this and support the WWW-Authenticate header to trigger the login flow.
 		return true, nil
@@ -106,7 +106,7 @@ func MCPIDIsAuthorized(ctx context.Context, client kclient.Client, authorizedMCP
 			return false, err
 		}
 
-		return mcpServer.Spec.CompositeName != "" && slices.Contains(authorizedMCPServers, mcpServer.Spec.CompositeName), nil
+		return slices.Contains(authorizedMCPServers, mcpServer.Name) || mcpServer.Spec.CompositeName != "" && slices.Contains(authorizedMCPServers, mcpServer.Spec.CompositeName), nil
 	default:
 		// Check for MCP servers associated with a catalog entry with this ID.
 		if err := client.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: mcpID}, &v1.MCPServerCatalogEntry{}); apierrors.IsNotFound(err) {

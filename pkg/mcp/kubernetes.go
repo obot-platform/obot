@@ -50,20 +50,19 @@ var (
 const maxDeploymentWatchRetries = 5
 
 type kubernetesBackend struct {
-	clientset          *kubernetes.Clientset
-	client             kclient.WithWatch
-	cachedClient       kclient.WithWatch
-	baseImage          string
-	compositeBaseImage string
-	mcpNamespace       string
-	mcpClusterDomain   string
-	serviceFQDN        string
-	imagePullSecrets   []string
-	authEnabled        bool
-	obotClient         kclient.Client
-	resourceMaximums   ResourceMaximums
-	deploymentCacheMu  sync.RWMutex
-	deploymentCache    map[string]*kubernetesDeploymentCacheEntry
+	clientset         *kubernetes.Clientset
+	client            kclient.WithWatch
+	cachedClient      kclient.WithWatch
+	baseImage         string
+	mcpNamespace      string
+	mcpClusterDomain  string
+	serviceFQDN       string
+	imagePullSecrets  []string
+	authEnabled       bool
+	obotClient        kclient.Client
+	resourceMaximums  ResourceMaximums
+	deploymentCacheMu sync.RWMutex
+	deploymentCache   map[string]*kubernetesDeploymentCacheEntry
 }
 
 type kubernetesDeploymentCacheEntry struct {
@@ -78,19 +77,18 @@ func newKubernetesBackend(authEnabled bool, clientset *kubernetes.Clientset, cli
 	}
 
 	return &kubernetesBackend{
-		clientset:          clientset,
-		client:             client,
-		cachedClient:       cachedClient,
-		baseImage:          opts.MCPBaseImage,
-		compositeBaseImage: opts.MCPRemoteShimBaseImage,
-		mcpNamespace:       opts.MCPNamespace,
-		mcpClusterDomain:   opts.MCPClusterDomain,
-		serviceFQDN:        serviceFQDN,
-		authEnabled:        authEnabled,
-		imagePullSecrets:   opts.MCPImagePullSecrets,
-		obotClient:         obotClient,
-		resourceMaximums:   resourceMaximums,
-		deploymentCache:    map[string]*kubernetesDeploymentCacheEntry{},
+		clientset:        clientset,
+		client:           client,
+		cachedClient:     cachedClient,
+		baseImage:        opts.MCPBaseImage,
+		mcpNamespace:     opts.MCPNamespace,
+		mcpClusterDomain: opts.MCPClusterDomain,
+		serviceFQDN:      serviceFQDN,
+		authEnabled:      authEnabled,
+		imagePullSecrets: opts.MCPImagePullSecrets,
+		obotClient:       obotClient,
+		resourceMaximums: resourceMaximums,
+		deploymentCache:  map[string]*kubernetesDeploymentCacheEntry{},
 	}
 }
 
@@ -380,12 +378,11 @@ func (k *kubernetesBackend) shutdownServer(ctx context.Context, id string, hardS
 }
 
 func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig) ([]kclient.Object, error) {
-	if server.Runtime == types.RuntimeRemote {
+	if server.Runtime == types.RuntimeRemote || server.Runtime == types.RuntimeComposite {
 		return nil, nil
 	}
 
 	if !k.authEnabled {
-		server.Issuer = ""
 		server.Audiences = nil
 		server.TokenExchangeClientID = ""
 		server.TokenExchangeClientSecret = ""
@@ -415,8 +412,6 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig)
 	)
 
 	switch server.Runtime {
-	case types.RuntimeComposite:
-		image = k.compositeBaseImage
 	case types.RuntimeContainerized:
 		port = server.ContainerPort
 	}
@@ -473,23 +468,6 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig)
 
 	// Tell nanobot to expose the healthz endpoint
 	secretEnvData["NANOBOT_RUN_HEALTHZ_PATH"] = []byte("/healthz")
-	if server.Runtime == types.RuntimeComposite {
-		secretEnvData["NANOBOT_DISABLE_HEALTH_CHECKER"] = []byte("true")
-		secretEnvData["NANOBOT_RUN_TRUSTED_ISSUER"] = []byte(server.Issuer)
-		secretEnvData["NANOBOT_RUN_TRUSTED_AUDIENCES"] = []byte(strings.Join(server.Audiences, ","))
-		secretEnvData["NANOBOT_RUN_OAUTH_JWKSURL"] = []byte(k.transformObotHostname(server.JWKSEndpoint))
-		secretEnvData["NANOBOT_RUN_OAUTH_AUTHORIZE_URL"] = []byte(k.transformObotHostname(server.AuthorizeEndpoint))
-		secretEnvData["NANOBOT_RUN_OAUTH_TOKEN_URL"] = []byte(k.transformObotHostname(server.TokenExchangeEndpoint))
-		secretEnvData["NANOBOT_RUN_OAUTH_CLIENT_ID"] = []byte(server.TokenExchangeClientID)
-		secretEnvData["NANOBOT_RUN_OAUTH_CLIENT_SECRET"] = []byte(server.TokenExchangeClientSecret)
-		secretEnvData["NANOBOT_RUN_OAUTH_SCOPES"] = []byte("profile")
-		secretEnvData["NANOBOT_RUN_MCPSERVER_ID"] = []byte(strings.TrimSuffix(server.MCPServerName, "-shim"))
-		secretEnvData["NANOBOT_RUN_BLOCK_LINK_LOCAL"] = []byte("true")
-		secretEnvData["OBOT_KUBERNETES_MODE"] = []byte("true")
-		if server.Issuer != "" {
-			secretEnvData["NANOBOT_RUN_APIKEY_AUTH_WEBHOOK_URL"] = []byte(k.transformObotHostname(server.Issuer + "/api/api-keys/auth"))
-		}
-	}
 
 	if server.IsNanobotAgentServer() {
 		maps.Copy(secretEnvData, OTELEnv("nanobot-agent", ""))

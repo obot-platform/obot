@@ -4,14 +4,11 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/oasdiff/yaml"
-	nconfig "github.com/obot-platform/nanobot/pkg/config"
 	ntypes "github.com/obot-platform/nanobot/pkg/types"
 	"github.com/obot-platform/obot/apiclient/types"
 )
@@ -115,28 +112,6 @@ func TestConstructMCPServerNanobotYAMLForCompositeIncludesOnlyEnabledTools(t *te
 	}
 	if _, ok := server.ToolOverrides["ping"]; ok {
 		t.Fatalf("expected ping to be omitted, got %#v", server.ToolOverrides)
-	}
-}
-
-func TestConstructMCPServerNanobotYAMLForCompositeOmitsAuthBlock(t *testing.T) {
-	data, err := constructMCPServerNanobotYAMLForComposite(ServerConfig{
-		TokenExchangeClientID:     "client-id",
-		TokenExchangeClientSecret: "client-secret",
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if strings.Contains(string(data), "auth:") {
-		t.Fatalf("expected composite OAuth configuration to be supplied through environment variables, got YAML:\n%s", data)
-	}
-
-	path := filepath.Join(t.TempDir(), "nanobot.yaml")
-	if err := os.WriteFile(path, data, 0o600); err != nil {
-		t.Fatalf("failed to write generated composite config: %v", err)
-	}
-	if _, _, err := nconfig.Load(t.Context(), path, false); err != nil {
-		t.Fatalf("generated composite config failed Nanobot schema validation: %v\n%s", err, data)
 	}
 }
 

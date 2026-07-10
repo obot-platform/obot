@@ -611,6 +611,8 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	// The first pattern handles the root path, the second handles all sub-paths.
 	mux.HandleFunc("/mcp-connect/{mcp_id}", mcpGateway.Proxy)
 	mux.HandleFunc("/mcp-connect/{mcp_id}/{rest...}", mcpGateway.Proxy)
+	// This is a special path for internal MCP composite requests.
+	mux.HandleFunc("/mcp-connect-composite/{mcp_id}", mcpGateway.Proxy)
 
 	// Gateway APIs
 	services.GatewayServer.AddRoutes(services.APIServer)

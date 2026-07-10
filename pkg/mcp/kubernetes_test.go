@@ -377,86 +377,25 @@ func TestK8sObjects_DoesNotCreateShimContainer(t *testing.T) {
 	}
 }
 
-func TestK8sObjects_RemoteCreatesNoObjects(t *testing.T) {
-	k := newTestKubernetesBackend(t)
+func TestK8sObjects_RemoteAndCompositeCreateNoObjects(t *testing.T) {
+	for _, runtime := range []types.Runtime{types.RuntimeRemote, types.RuntimeComposite} {
+		t.Run(string(runtime), func(t *testing.T) {
+			k := newTestKubernetesBackend(t)
 
-	objs, err := k.k8sObjects(t.Context(), ServerConfig{
-		Runtime:              types.RuntimeRemote,
-		MCPServerName:        "test-server",
-		MCPServerDisplayName: "Test Server",
-		UserID:               "user-1",
-		OwnerUserID:          "user-2",
-	})
-	if err != nil {
-		t.Fatalf("k8sObjects() error = %v", err)
-	}
-	if len(objs) != 0 {
-		t.Fatalf("object count = %d, want 0", len(objs))
-	}
-}
-
-func TestK8sObjects_CompositeCreatesNanobotDeployment(t *testing.T) {
-	k := newTestKubernetesBackend(t)
-	k.serviceFQDN = "obot.obot-system.svc.cluster.local"
-	k.authEnabled = true
-
-	objs, err := k.k8sObjects(t.Context(), ServerConfig{
-		Runtime:                   types.RuntimeComposite,
-		MCPServerName:             "test-server",
-		MCPServerDisplayName:      "Test Server",
-		UserID:                    "user-1",
-		OwnerUserID:               "user-2",
-		Issuer:                    "https://obot.example.com",
-		Audiences:                 []string{"https://obot.example.com/mcp-connect/test-server"},
-		AuthorizeEndpoint:         "https://obot.example.com/oauth/authorize",
-		TokenExchangeEndpoint:     "https://obot.example.com/oauth/token",
-		JWKSEndpoint:              "https://obot.example.com/oauth/jwks.json",
-		TokenExchangeClientID:     "client-id",
-		TokenExchangeClientSecret: "client-secret",
-		Components: []ComponentServer{
-			{Name: "component", URL: "https://example.com/mcp"},
-		},
-	})
-	if err != nil {
-		t.Fatalf("k8sObjects() error = %v", err)
-	}
-
-	dep := findDeployment(t, objs, "test-server")
-	if len(dep.Spec.Template.Spec.Containers) != 1 {
-		t.Fatalf("container count = %d, want 1", len(dep.Spec.Template.Spec.Containers))
-	}
-	container := dep.Spec.Template.Spec.Containers[0]
-	if container.Name != "mcp" {
-		t.Fatalf("container name = %q, want mcp", container.Name)
-	}
-	if container.Image != "ghcr.io/obot-platform/nanobot:main" {
-		t.Fatalf("container image = %q, want composite image", container.Image)
-	}
-	if container.ReadinessProbe == nil {
-		t.Fatal("expected composite container readiness probe")
-	}
-
-	configSecret := findSecret(t, objs, name.SafeConcatName("test-server", "mcp", "config"))
-	if got := string(configSecret.Data["NANOBOT_DISABLE_HEALTH_CHECKER"]); got != "true" {
-		t.Fatalf("NANOBOT_DISABLE_HEALTH_CHECKER = %q, want true", got)
-	}
-	if got := string(configSecret.Data["NANOBOT_RUN_OAUTH_TOKEN_URL"]); got != "http://obot.obot-system.svc.cluster.local/oauth/token" {
-		t.Fatalf("NANOBOT_RUN_OAUTH_TOKEN_URL = %q, want token exchange endpoint", got)
-	}
-	if got := string(configSecret.Data["NANOBOT_RUN_OAUTH_AUTHORIZE_URL"]); got != "http://obot.obot-system.svc.cluster.local/oauth/authorize" {
-		t.Fatalf("NANOBOT_RUN_OAUTH_AUTHORIZE_URL = %q, want authorize endpoint", got)
-	}
-	if got := string(configSecret.Data["NANOBOT_RUN_OAUTH_JWKSURL"]); got != "http://obot.obot-system.svc.cluster.local/oauth/jwks.json" {
-		t.Fatalf("NANOBOT_RUN_OAUTH_JWKSURL = %q, want JWKS endpoint", got)
-	}
-	if got := string(configSecret.Data["NANOBOT_RUN_OAUTH_CLIENT_ID"]); got != "client-id" {
-		t.Fatalf("NANOBOT_RUN_OAUTH_CLIENT_ID = %q, want client-id", got)
-	}
-	if got := string(configSecret.Data["NANOBOT_RUN_OAUTH_CLIENT_SECRET"]); got != "client-secret" {
-		t.Fatalf("NANOBOT_RUN_OAUTH_CLIENT_SECRET = %q, want client-secret", got)
-	}
-	if got := string(configSecret.Data["NANOBOT_RUN_TRUSTED_ISSUER"]); got != "https://obot.example.com" {
-		t.Fatalf("NANOBOT_RUN_TRUSTED_ISSUER = %q, want issuer", got)
+			objs, err := k.k8sObjects(t.Context(), ServerConfig{
+				Runtime:              runtime,
+				MCPServerName:        "test-server",
+				MCPServerDisplayName: "Test Server",
+				UserID:               "user-1",
+				OwnerUserID:          "user-2",
+			})
+			if err != nil {
+				t.Fatalf("k8sObjects() error = %v", err)
+			}
+			if len(objs) != 0 {
+				t.Fatalf("object count = %d, want 0", len(objs))
+			}
+		})
 	}
 }
 
@@ -1262,10 +1201,9 @@ func newTestKubernetesBackend(t *testing.T, objs ...client.Object) *kubernetesBa
 	}
 
 	return &kubernetesBackend{
-		baseImage:          "ghcr.io/obot-platform/mcp-images/stdio-wrapper:main",
-		compositeBaseImage: "ghcr.io/obot-platform/nanobot:main",
-		mcpNamespace:       "obot-mcp",
-		obotClient:         clientBuilder.Build(),
+		baseImage:    "ghcr.io/obot-platform/mcp-images/stdio-wrapper:main",
+		mcpNamespace: "obot-mcp",
+		obotClient:   clientBuilder.Build(),
 	}
 }
 

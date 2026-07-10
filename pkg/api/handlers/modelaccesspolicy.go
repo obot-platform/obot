@@ -13,7 +13,7 @@ import (
 type ModelAccessPolicyHandler struct{}
 
 func NewModelAccessPolicyHandler() *ModelAccessPolicyHandler {
-	return &ModelAccessPolicyHandler{}
+	return nil
 }
 
 // List returns all model access policies.
@@ -46,7 +46,7 @@ func (*ModelAccessPolicyHandler) Get(req api.Context) error {
 }
 
 // Create creates a new model access policy.
-func (h *ModelAccessPolicyHandler) Create(req api.Context) error {
+func (*ModelAccessPolicyHandler) Create(req api.Context) error {
 	var manifest types.ModelAccessPolicyManifest
 	if err := req.Read(&manifest); err != nil {
 		return types.NewErrBadRequest("failed to read model access policy manifest: %v", err)
@@ -74,7 +74,7 @@ func (h *ModelAccessPolicyHandler) Create(req api.Context) error {
 }
 
 // Update updates an existing model access policy.
-func (h *ModelAccessPolicyHandler) Update(req api.Context) error {
+func (*ModelAccessPolicyHandler) Update(req api.Context) error {
 	policyID := req.PathValue("id")
 
 	var manifest types.ModelAccessPolicyManifest

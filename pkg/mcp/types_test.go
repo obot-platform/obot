@@ -8,6 +8,7 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
@@ -87,7 +88,7 @@ func TestServerToServerConfig_ContainerizedHealthzPath(t *testing.T) {
 	}
 	mcpServer.Name = "test-server"
 
-	config, missing, err := ServerToServerConfig(mcpServer, mcpServer.ValidConnectURLs(baseURL), baseURL, "test-user-id", "test-scope", "test-catalog", nil, nil)
+	config, missing, err := ServerToServerConfig(mcpServer, mcpServer.ValidConnectURLs(baseURL), "test-user-id", "test-scope", "test-catalog", nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -116,7 +117,7 @@ func TestServerToServerConfig_StartupTimeoutFromRuntimeConfig(t *testing.T) {
 	}
 	mcpServer.Name = "test-server"
 
-	config, missing, err := ServerToServerConfig(mcpServer, mcpServer.ValidConnectURLs(baseURL), baseURL, "test-user-id", "test-scope", "test-catalog", nil, nil)
+	config, missing, err := ServerToServerConfig(mcpServer, mcpServer.ValidConnectURLs(baseURL), "test-user-id", "test-scope", "test-catalog", nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -166,7 +167,7 @@ func TestServerToServerConfig_MultiUserPassthroughHeaders(t *testing.T) {
 			}
 			mcpServer.Name = "test-server"
 
-			config, missing, err := ServerToServerConfig(mcpServer, mcpServer.ValidConnectURLs(baseURL), baseURL, "test-user-id", "test-scope", "test-catalog", nil, nil)
+			config, missing, err := ServerToServerConfig(mcpServer, mcpServer.ValidConnectURLs(baseURL), "test-user-id", "test-scope", "test-catalog", nil, nil)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -248,18 +249,6 @@ func TestCompositeServerToServerConfig_TokenExchangeConfig(t *testing.T) {
 	if len(missing) > 0 {
 		t.Fatalf("expected no missing config, got %v", missing)
 	}
-	if config.TokenExchangeEndpoint != baseURL+"/oauth/token" {
-		t.Fatalf("token exchange endpoint = %q, want %q", config.TokenExchangeEndpoint, baseURL+"/oauth/token")
-	}
-	if config.AuthorizeEndpoint != baseURL+"/oauth/authorize" {
-		t.Fatalf("authorize endpoint = %q, want %q", config.AuthorizeEndpoint, baseURL+"/oauth/authorize")
-	}
-	if config.JWKSEndpoint != baseURL+"/oauth/jwks.json" {
-		t.Fatalf("JWKS endpoint = %q, want %q", config.JWKSEndpoint, baseURL+"/oauth/jwks.json")
-	}
-	if config.Issuer != baseURL {
-		t.Fatalf("issuer = %q, want %q", config.Issuer, baseURL)
-	}
 	if config.TokenExchangeClientID != "client-id" {
 		t.Fatalf("token exchange client ID = %q, want client-id", config.TokenExchangeClientID)
 	}
@@ -301,6 +290,37 @@ func TestCompositeServerToServerConfig_AllDisabledToolOverridesSetNoTools(t *tes
 	}
 	if !config.Components[0].noTools {
 		t.Fatal("expected all disabled tool overrides to disable tools")
+	}
+}
+
+func TestCompositeServerToServerConfig_ConnectCompositeURL(t *testing.T) {
+	baseURL := "http://localhost:8080"
+	mcpServer := v1.MCPServer{
+		Spec: v1.MCPServerSpec{
+			Manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeRuntimeConfig{ComponentServers: []types.ComponentServer{
+					{CatalogEntryID: "search"},
+				}},
+			},
+		},
+	}
+	mcpServer.Name = "composite"
+	component := v1.MCPServer{Spec: v1.MCPServerSpec{MCPServerCatalogEntryName: "search"}}
+	component.Name = "search-server"
+
+	config, missing, err := CompositeServerToServerConfig(mcpServer, []v1.MCPServer{component}, nil, mcpServer.ValidConnectURLs(baseURL), baseURL, "test-user-id", "test-scope", "test-catalog", nil, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(missing) > 0 {
+		t.Fatalf("expected no missing config, got %v", missing)
+	}
+	if len(config.Components) != 1 {
+		t.Fatalf("expected one component, got %d", len(config.Components))
+	}
+	if config.URL != system.MCPConnectCompositeURL(baseURL, mcpServer.Name) {
+		t.Fatalf("expected URL %s, got %s", system.MCPConnectCompositeURL(baseURL, mcpServer.Name), config.URL)
 	}
 }
 
@@ -405,7 +425,7 @@ func TestServerToServerConfig_StaticHeaders_Remote(t *testing.T) {
 			}
 			mcpServer.Name = "test-server"
 
-			config, missing, err := ServerToServerConfig(mcpServer, mcpServer.ValidConnectURLs(baseURL), baseURL, "test-user-id", "test-scope", "test-catalog", tt.credEnv, nil)
+			config, missing, err := ServerToServerConfig(mcpServer, mcpServer.ValidConnectURLs(baseURL), "test-user-id", "test-scope", "test-catalog", tt.credEnv, nil)
 
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -588,7 +608,7 @@ func TestServerToServerConfig_WithPrefix(t *testing.T) {
 			}
 			mcpServer.Name = "test-server"
 
-			config, missing, err := ServerToServerConfig(mcpServer, mcpServer.ValidConnectURLs(baseURL), baseURL, "test-user-id", "test-scope", "test-catalog", tt.credEnv, nil)
+			config, missing, err := ServerToServerConfig(mcpServer, mcpServer.ValidConnectURLs(baseURL), "test-user-id", "test-scope", "test-catalog", tt.credEnv, nil)
 
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -676,7 +696,7 @@ func TestServerToServerConfig_StaticHeaders_EdgeCases(t *testing.T) {
 			}
 			mcpServer.Name = "test-server"
 
-			config, missing, err := ServerToServerConfig(mcpServer, mcpServer.ValidConnectURLs(baseURL), baseURL, "test-user-id", "test-scope", "test-catalog", tt.credEnv, nil)
+			config, missing, err := ServerToServerConfig(mcpServer, mcpServer.ValidConnectURLs(baseURL), "test-user-id", "test-scope", "test-catalog", tt.credEnv, nil)
 
 			if tt.expectError {
 				if err == nil {

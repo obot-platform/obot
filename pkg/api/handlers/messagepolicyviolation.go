@@ -15,7 +15,7 @@ import (
 type MessagePolicyViolationHandler struct{}
 
 func NewMessagePolicyViolationHandler() *MessagePolicyViolationHandler {
-	return &MessagePolicyViolationHandler{}
+	return nil
 }
 
 // ListMessagePolicyViolations handles GET /api/message-policy-violations

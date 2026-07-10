@@ -21,14 +21,14 @@ const maxUploadSize = 2 * 1024 * 1024 // 2MB
 type ImageHandler struct{}
 
 func NewImageHandler() *ImageHandler {
-	return &ImageHandler{}
+	return nil
 }
 
 type imageResponse struct {
 	ImageURL string `json:"imageUrl"`
 }
 
-func (h *ImageHandler) UploadImage(req api.Context) error {
+func (*ImageHandler) UploadImage(req api.Context) error {
 	file, header, err := req.FormFile("image")
 	if err != nil {
 		return apierrors.NewBadRequest("failed to retrieve image file")
@@ -63,7 +63,7 @@ func (h *ImageHandler) UploadImage(req api.Context) error {
 	})
 }
 
-func (h *ImageHandler) GetImage(req api.Context) error {
+func (*ImageHandler) GetImage(req api.Context) error {
 	id := req.PathValue("id")
 	if id == "" {
 		return apierrors.NewBadRequest("id is required")
