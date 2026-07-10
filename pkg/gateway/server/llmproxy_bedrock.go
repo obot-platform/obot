@@ -13,13 +13,7 @@ import (
 	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-)
-
-const (
-	amazonBedrockModelProvider       = "amazon-bedrock-model-provider"
-	amazonBedrockAPIKeyModelProvider = "amazon-bedrock-api-key-model-provider"
-
-	amazonBedrockModelProviderDefaultRegion = "us-east-1"
+	"github.com/obot-platform/obot/pkg/system"
 )
 
 const (
@@ -30,6 +24,8 @@ const (
 	bedrockSigningServiceEnv  = "OBOT_AMAZON_BEDROCK_MODEL_PROVIDER_SIGNING_SERVICE"
 	bedrockAPIKeyEnv          = "OBOT_AMAZON_BEDROCK_API_KEY_MODEL_PROVIDER_API_KEY"
 	bedrockAPIKeyRegionEnv    = "OBOT_AMAZON_BEDROCK_API_KEY_MODEL_PROVIDER_REGION"
+
+	amazonBedrockModelProviderDefaultRegion = "us-east-1"
 )
 
 func (s *Server) newAWSBedrockLLMProviderProxy(dialect nanobottypes.Dialect) *llmProviderProxy {
@@ -37,7 +33,7 @@ func (s *Server) newAWSBedrockLLMProviderProxy(dialect nanobottypes.Dialect) *ll
 		dailyUserInputTokenLimit:  s.dailyUserInputTokenLimit,
 		dailyUserOutputTokenLimit: s.dailyUserOutputTokenLimit,
 		routeDialect:              dialect,
-		backend:                   bedrockMantleProviderBackend{providerName: amazonBedrockModelProvider, dialect: dialect},
+		backend:                   bedrockMantleProviderBackend{providerName: system.AmazonBedrockModelProvider, dialect: dialect},
 		mapHelper:                 s.mapHelper,
 		messagePolicyHelper:       s.messagePolicyHelper,
 	}
@@ -48,7 +44,7 @@ func (s *Server) newAWSBedrockAPIKeyLLMProviderProxy(dialect nanobottypes.Dialec
 		dailyUserInputTokenLimit:  s.dailyUserInputTokenLimit,
 		dailyUserOutputTokenLimit: s.dailyUserOutputTokenLimit,
 		routeDialect:              dialect,
-		backend:                   bedrockMantleProviderBackend{providerName: amazonBedrockAPIKeyModelProvider, dialect: dialect, apiKey: true},
+		backend:                   bedrockMantleProviderBackend{providerName: system.AmazonBedrockAPIKeyModelProvider, dialect: dialect, apiKey: true},
 		mapHelper:                 s.mapHelper,
 		messagePolicyHelper:       s.messagePolicyHelper,
 	}

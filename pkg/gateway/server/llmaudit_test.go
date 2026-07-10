@@ -217,7 +217,7 @@ func TestLLMResponseAccumulatorOpenAITerminalResponseWins(t *testing.T) {
 }
 
 func TestLLMResponseAccumulatorBedrockOpenAI(t *testing.T) {
-	a := gatewayllmaudit.NewResponseAccumulator(amazonBedrockAPIKeyModelProvider, "/api/llm-proxy/aws-bedrock-api-key/openai/v1/responses")
+	a := gatewayllmaudit.NewResponseAccumulator(system.AmazonBedrockAPIKeyModelProvider, "/api/llm-proxy/aws-bedrock-api-key/openai/v1/responses")
 	a.Write([]byte(strings.Join([]string{
 		`data: {"type":"response.created","response":{"id":"resp_bedrock","model":"openai.gpt-5.5","output":[]}}`,
 		`data: {"type":"response.output_text.delta","output_index":0,"content_index":0,"delta":"hello"}`,
@@ -289,7 +289,7 @@ func TestLLMResponseAccumulatorAnthropicMessage(t *testing.T) {
 }
 
 func TestLLMResponseAccumulatorBedrockAnthropic(t *testing.T) {
-	a := gatewayllmaudit.NewResponseAccumulator(amazonBedrockModelProvider, "/api/llm-proxy/aws-bedrock/anthropic/v1/messages")
+	a := gatewayllmaudit.NewResponseAccumulator(system.AmazonBedrockModelProvider, "/api/llm-proxy/aws-bedrock/anthropic/v1/messages")
 	a.Write([]byte(strings.Join([]string{
 		`data: {"type":"message_start","message":{"id":"msg_bedrock","type":"message","role":"assistant","model":"claude","content":[]}}`,
 		`data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}`,
