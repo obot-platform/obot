@@ -84,14 +84,14 @@ func (r *llmAuditRecorder) setRequestBody(body []byte) {
 	if r == nil {
 		return
 	}
-	r.log.RequestBody = bytes.Clone(body)
+	r.log.RequestBody = body
 }
 
 func (r *llmAuditRecorder) setRedactedRequestBody(body []byte) {
 	if r == nil {
 		return
 	}
-	r.log.RedactedRequestBody = bytes.Clone(body)
+	r.log.RedactedRequestBody = body
 }
 
 func (r *llmAuditRecorder) setClientSessionID(modelProvider string, body []byte) {
