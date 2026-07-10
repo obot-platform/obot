@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"errors"
-	"net/http"
 	"net/url"
 	"sort"
 	"strconv"
@@ -23,10 +22,6 @@ func NewLLMAuditLogHandler() *LLMAuditLogHandler {
 }
 
 func (h *LLMAuditLogHandler) List(req api.Context) error {
-	if !req.UserIsAdmin() && !req.UserIsAuditor() {
-		return types.NewErrHTTP(http.StatusNotFound, "not found")
-	}
-
 	opts := parseLLMAuditLogOpts(req.URL.Query())
 	if opts.Limit == 0 {
 		opts.Limit = 100
@@ -51,10 +46,6 @@ func (h *LLMAuditLogHandler) List(req api.Context) error {
 }
 
 func (h *LLMAuditLogHandler) Get(req api.Context) error {
-	if !req.UserIsAdmin() && !req.UserIsAuditor() {
-		return types.NewErrHTTP(http.StatusNotFound, "not found")
-	}
-
 	id := req.PathValue("audit_log_id")
 	if id == "" {
 		return types.NewErrBadRequest("missing audit log id")
@@ -83,10 +74,6 @@ var llmAuditLogFilterOptions = map[string]any{
 }
 
 func (h *LLMAuditLogHandler) ListFilterOptions(req api.Context) error {
-	if !req.UserIsAdmin() && !req.UserIsAuditor() {
-		return types.NewErrHTTP(http.StatusNotFound, "not found")
-	}
-
 	filter := req.PathValue("filter")
 	if filter == "" {
 		return types.NewErrBadRequest("missing filter")
