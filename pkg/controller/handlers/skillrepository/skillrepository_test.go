@@ -593,7 +593,7 @@ func TestMaterializeSkillSource(t *testing.T) {
 				RelativePath: "my-skill",
 			},
 		}
-		_, _, err := materializeSkillSource(ctx, &mockFetcher{}, skill)
+		_, _, err := materializeSkillSource(ctx, &mockFetcher{}, skill, "")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "missing repoURL")
 	})
@@ -606,7 +606,7 @@ func TestMaterializeSkillSource(t *testing.T) {
 				RelativePath: "my-skill",
 			},
 		}
-		_, _, err := materializeSkillSource(ctx, &mockFetcher{}, skill)
+		_, _, err := materializeSkillSource(ctx, &mockFetcher{}, skill, "")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "missing commitSHA")
 	})
@@ -619,7 +619,7 @@ func TestMaterializeSkillSource(t *testing.T) {
 				CommitSHA: "abc123",
 			},
 		}
-		_, _, err := materializeSkillSource(ctx, &mockFetcher{}, skill)
+		_, _, err := materializeSkillSource(ctx, &mockFetcher{}, skill, "")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "missing relativePath")
 	})
@@ -630,8 +630,10 @@ func TestMaterializeSkillSource(t *testing.T) {
 		require.NoError(t, os.MkdirAll(skillDir, 0o755))
 
 		var gotRef string
+		var gotToken string
 		fetcher := &mockFetcher{
-			fetchFn: func(_ context.Context, _, _, ref string) (*fetchedRepository, error) {
+			fetchFn: func(_ context.Context, _, token, ref string) (*fetchedRepository, error) {
+				gotToken = token
 				gotRef = ref
 				return &fetchedRepository{
 					RepoRoot:  root,
@@ -651,13 +653,14 @@ func TestMaterializeSkillSource(t *testing.T) {
 			},
 		}
 
-		fetched, path, err := materializeSkillSource(ctx, fetcher, skill)
+		fetched, path, err := materializeSkillSource(ctx, fetcher, skill, "private-token")
 		require.NoError(t, err)
 		defer fetched.Cleanup()
 		assert.DirExists(t, path)
 		absSkillDir, _ := filepath.Abs(skillDir)
 		assert.Equal(t, absSkillDir, path)
 		assert.Equal(t, "abc123", gotRef)
+		assert.Equal(t, "private-token", gotToken)
 	})
 
 	t.Run("relativePath is file not dir", func(t *testing.T) {
@@ -683,7 +686,7 @@ func TestMaterializeSkillSource(t *testing.T) {
 			},
 		}
 
-		_, _, err := materializeSkillSource(ctx, fetcher, skill)
+		_, _, err := materializeSkillSource(ctx, fetcher, skill, "")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "not a directory")
 	})
@@ -710,7 +713,7 @@ func TestMaterializeSkillSource(t *testing.T) {
 			},
 		}
 
-		_, _, err := materializeSkillSource(ctx, fetcher, skill)
+		_, _, err := materializeSkillSource(ctx, fetcher, skill, "")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "escapes")
 	})
@@ -747,7 +750,7 @@ func TestMaterializeSkillSource(t *testing.T) {
 		// absolute but does not resolve symlinks. materializeSkillSource calls
 		// os.Lstat on the joined path, so the symlink itself is inspected and
 		// should be reported with ModeSymlink, causing this test to fail as expected.
-		_, _, err := materializeSkillSource(ctx, fetcher, skill)
+		_, _, err := materializeSkillSource(ctx, fetcher, skill, "")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "symbolic link")
 	})

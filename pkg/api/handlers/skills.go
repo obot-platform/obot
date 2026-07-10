@@ -3,6 +3,7 @@ package handlers
 import (
 	"archive/zip"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -17,6 +18,8 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/controller/handlers/skillrepository"
+	gclient "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/skillaccessrule"
 	"github.com/obot-platform/obot/pkg/skillformat"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -31,14 +34,49 @@ const (
 
 type SkillHandler struct {
 	skillAccessRuleHelper  *skillaccessrule.Helper
-	materializeSkillSource func(ctx context.Context, skill *v1.Skill) (func(), string, error)
+	gatewayClient          skillRepositoryCredentialRevealer
+	materializeSkillSource func(ctx context.Context, skill *v1.Skill, token string) (func(), string, error)
 }
 
-func NewSkillHandler(skillAccessRuleHelper *skillaccessrule.Helper) *SkillHandler {
-	return &SkillHandler{
+func NewSkillHandler(skillAccessRuleHelper *skillaccessrule.Helper, gatewayClient *gclient.Client) *SkillHandler {
+	h := &SkillHandler{
 		skillAccessRuleHelper:  skillAccessRuleHelper,
 		materializeSkillSource: skillrepository.MaterializeSkillSource,
 	}
+	if gatewayClient != nil {
+		h.gatewayClient = gatewayClient
+	}
+	return h
+}
+
+type skillRepositoryCredentialRevealer interface {
+	RevealCredential(context.Context, []string, string) (gatewaytypes.Credential, error)
+}
+
+func revealSkillRepositoryToken(ctx context.Context, client skillRepositoryCredentialRevealer, skill *v1.Skill) (string, error) {
+	if client == nil || skill.Spec.RepoID == "" {
+		return "", nil
+	}
+	cred, err := client.RevealCredential(ctx, []string{skill.Spec.RepoID}, skillrepository.SkillRepositoryCredentialToolName)
+	if err != nil {
+		if errors.As(err, &gclient.CredentialNotFoundError{}) {
+			return "", nil
+		}
+		return "", fmt.Errorf("failed to reveal credential for skill repository %s: %w", skill.Spec.RepoID, err)
+	}
+	return cred.Secrets[skill.Spec.RepoURL], nil
+}
+
+func (h *SkillHandler) materialize(req api.Context, skill *v1.Skill) (func(), string, error) {
+	var token string
+	if h.gatewayClient != nil {
+		var err error
+		token, err = revealSkillRepositoryToken(req.Context(), h.gatewayClient, skill)
+		if err != nil {
+			return nil, "", err
+		}
+	}
+	return h.materializeSkillSource(req.Context(), skill, token)
 }
 
 func (h *SkillHandler) List(req api.Context) error {
@@ -96,7 +134,7 @@ func (h *SkillHandler) Preview(req api.Context) error {
 		return err
 	}
 
-	cleanup, skillDir, err := h.materializeSkillSource(req.Context(), skill)
+	cleanup, skillDir, err := h.materialize(req, skill)
 	if err != nil {
 		return fmt.Errorf("failed to materialize skill source: %w", err)
 	}
@@ -132,7 +170,7 @@ func (h *SkillHandler) Download(req api.Context) error {
 		return err
 	}
 
-	cleanup, skillDir, err := h.materializeSkillSource(req.Context(), skill)
+	cleanup, skillDir, err := h.materialize(req, skill)
 	if err != nil {
 		return fmt.Errorf("failed to materialize skill source: %w", err)
 	}

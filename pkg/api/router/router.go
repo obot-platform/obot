@@ -87,7 +87,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	accessControlRules := handlers.NewAccessControlRuleHandler()
 	skillRepositories := handlers.NewSkillRepositoryHandler()
 	skillAccessRules := handlers.NewSkillAccessRuleHandler()
-	skills := handlers.NewSkillHandler(services.SkillAccessRuleHelper)
+	skills := handlers.NewSkillHandler(services.SkillAccessRuleHelper, services.GatewayClient)
 	powerUserWorkspaces := handlers.NewPowerUserWorkspaceHandler(services.ServerURL, services.AccessControlRuleHelper, services.MCPSecretBindingAllowedLabel)
 	mcpWebhookValidations := handlers.NewMCPWebhookValidationHandler(services.MCPSessionManager)
 	availableModels := handlers.NewAvailableModelsHandler(services.ProviderDispatcher, services.LicenseProvider)

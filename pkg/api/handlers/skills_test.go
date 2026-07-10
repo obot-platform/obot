@@ -15,6 +15,8 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	gclient "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/skillaccessrule"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
@@ -27,6 +29,46 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
+
+type fakeSkillRepositoryCredentialClient struct {
+	credential gatewaytypes.Credential
+	deleted    bool
+}
+
+func (f *fakeSkillRepositoryCredentialClient) RevealCredential(context.Context, []string, string) (gatewaytypes.Credential, error) {
+	return f.credential, nil
+}
+
+func (f *fakeSkillRepositoryCredentialClient) DeleteCredential(context.Context, string, string) (bool, error) {
+	f.deleted = true
+	return true, nil
+}
+
+func TestSkillRepositoryCredentialHelpers(t *testing.T) {
+	skill := &v1.Skill{Spec: v1.SkillSpec{
+		RepoID:  "repo-1",
+		RepoURL: "https://git.example.com/org/repo.git",
+	}}
+	client := &fakeSkillRepositoryCredentialClient{credential: gatewaytypes.Credential{
+		Secrets: map[string]string{skill.Spec.RepoURL: "private-token"},
+	}}
+
+	token, err := revealSkillRepositoryToken(context.Background(), client, skill)
+	require.NoError(t, err)
+	assert.Equal(t, "private-token", token)
+
+	require.NoError(t, deleteSkillRepositoryCredential(context.Background(), client, skill.Spec.RepoID))
+	assert.True(t, client.deleted)
+
+	_, err = revealSkillRepositoryToken(context.Background(), credentialNotFoundClient{}, skill)
+	require.NoError(t, err)
+}
+
+type credentialNotFoundClient struct{}
+
+func (credentialNotFoundClient) RevealCredential(_ context.Context, contexts []string, name string) (gatewaytypes.Credential, error) {
+	return gatewaytypes.Credential{}, gclient.CredentialNotFoundError{Contexts: contexts, Name: name}
+}
 
 func TestReadAndValidateSkillRepositoryManifest(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/skill-repositories", strings.NewReader(`{"displayName":"Repo","repoURL":"https://github.com/example/repo","ref":" main "}`))
@@ -182,7 +224,7 @@ func TestSkillHandlerListFiltersByAccessAndValidity(t *testing.T) {
 	handler := NewSkillHandler(newSkillAccessRuleHelper(t,
 		newSkillRule("rule-repo", []types.Subject{{Type: types.SubjectTypeUser, ID: "user1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkillRepository, ID: "repo-1"}}),
 		newSkillRule("rule-skill", []types.Subject{{Type: types.SubjectTypeUser, ID: "user1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkill, ID: "sk-direct"}}),
-	))
+	), nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/skills?q=helper&limit=10", nil)
 	rec := httptest.NewRecorder()
@@ -239,7 +281,7 @@ func TestSkillHandlerListAllTrueScopeBypass(t *testing.T) {
 	// user1 has access only to repo-1 via skill access rules
 	handler := NewSkillHandler(newSkillAccessRuleHelper(t,
 		newSkillRule("rule-repo", []types.Subject{{Type: types.SubjectTypeUser, ID: "user1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkillRepository, ID: "repo-1"}}),
-	))
+	), nil)
 
 	listSkills := func(t *testing.T, user kuser.Info, query string) []string {
 		t.Helper()
@@ -305,6 +347,7 @@ func TestSkillHandlerDownloadPackagesMaterializedSkill(t *testing.T) {
 		Spec: v1.SkillSpec{
 			SkillManifest: types.SkillManifest{Name: "postgres-helper"},
 			RepoID:        "repo-1",
+			RepoURL:       "https://git.example.com/org/repo.git",
 			CommitSHA:     "abc123",
 			RelativePath:  "skills/postgres-helper",
 		},
@@ -319,10 +362,14 @@ func TestSkillHandlerDownloadPackagesMaterializedSkill(t *testing.T) {
 
 	handler := NewSkillHandler(newSkillAccessRuleHelper(t,
 		newSkillRule("rule1", []types.Subject{{Type: types.SubjectTypeUser, ID: "user1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkillRepository, ID: "repo-1"}}),
-	))
-	handler.materializeSkillSource = func(_ context.Context, got *v1.Skill) (func(), string, error) {
+	), nil)
+	handler.gatewayClient = &fakeSkillRepositoryCredentialClient{credential: gatewaytypes.Credential{
+		Secrets: map[string]string{skill.Spec.RepoURL: "private-token"},
+	}}
+	handler.materializeSkillSource = func(_ context.Context, got *v1.Skill, token string) (func(), string, error) {
 		assert.Equal(t, "abc123", got.Spec.CommitSHA)
 		assert.Equal(t, "skills/postgres-helper", got.Spec.RelativePath)
+		assert.Equal(t, "private-token", token)
 		return func() {}, tempDir, nil
 	}
 
@@ -371,9 +418,10 @@ func TestSkillHandlerPreviewReturnsSkillMD(t *testing.T) {
 
 	handler := NewSkillHandler(newSkillAccessRuleHelper(t,
 		newSkillRule("rule1", []types.Subject{{Type: types.SubjectTypeUser, ID: "user1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkillRepository, ID: "repo-1"}}),
-	))
-	handler.materializeSkillSource = func(_ context.Context, got *v1.Skill) (func(), string, error) {
+	), nil)
+	handler.materializeSkillSource = func(_ context.Context, got *v1.Skill, token string) (func(), string, error) {
 		assert.Equal(t, "abc123", got.Spec.CommitSHA)
+		assert.Empty(t, token)
 		return func() {}, tempDir, nil
 	}
 

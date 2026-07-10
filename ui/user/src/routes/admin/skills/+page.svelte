@@ -5,9 +5,9 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import ObotCliBanner from '$lib/components/ObotCliBanner.svelte';
-	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Search from '$lib/components/Search.svelte';
+	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { HttpError } from '$lib/errors.js';
@@ -607,13 +607,14 @@
 
 						try {
 							const repoURL = editingSource.value.trim();
+							const token = editingSource.token.trim();
 							const manifest: Parameters<typeof AdminService.createSkillRepository>[0] = {
 								displayName: editingSource.name,
 								repoURL,
 								ref: editingSource.ref
 							};
-							if (editingSource.token) {
-								manifest.sourceURLCredentials = { [repoURL]: editingSource.token };
+							if (token) {
+								manifest.sourceURLCredentials = { [repoURL]: token };
 							}
 							const response = await AdminService.createSkillRepository(manifest);
 							skillRepositories = [...skillRepositories, response];

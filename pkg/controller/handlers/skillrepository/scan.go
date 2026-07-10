@@ -53,6 +53,9 @@ func discoverSkillDirectories(repoRoot string) ([]string, error) {
 		if walkErr != nil {
 			return walkErr
 		}
+		if entry.IsDir() && entry.Name() == ".git" {
+			return filepath.SkipDir
+		}
 		if entry.Type()&os.ModeSymlink != 0 {
 			if entry.IsDir() {
 				return filepath.SkipDir

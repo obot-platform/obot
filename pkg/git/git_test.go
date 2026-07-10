@@ -1,10 +1,20 @@
 package git
 
 import (
+	"context"
+	"io"
+	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
 
 func TestIsGitRepoURL(t *testing.T) {
 	tests := []struct {
@@ -202,5 +212,36 @@ func TestCloneRefAttempts(t *testing.T) {
 		assert.Equal(t, []cloneRefAttempt{
 			{name: "commit", checkoutHash: sha},
 		}, cloneRefAttempts(sha, true))
+	})
+}
+
+func TestRepositorySizeChecksReturnSentinel(t *testing.T) {
+	originalTransport := http.DefaultTransport
+	t.Cleanup(func() { http.DefaultTransport = originalTransport })
+
+	t.Run("GitHub", func(t *testing.T) {
+		http.DefaultTransport = roundTripFunc(func(*http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(`{"size": 204800}`)),
+				Header:     make(http.Header),
+			}, nil
+		})
+
+		err := checkGitHubRepoSize(context.Background(), "example", "repo", 100, "")
+		assert.ErrorIs(t, err, errRepoTooLarge)
+	})
+
+	t.Run("GitLab", func(t *testing.T) {
+		http.DefaultTransport = roundTripFunc(func(*http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(`{"statistics":{"repository_size":209715200}}`)),
+				Header:     make(http.Header),
+			}, nil
+		})
+
+		err := checkGitLabRepoSize(context.Background(), "gitlab.com", "example/repo", 100, "token")
+		assert.ErrorIs(t, err, errRepoTooLarge)
 	})
 }

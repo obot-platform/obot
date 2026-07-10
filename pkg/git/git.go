@@ -178,6 +178,7 @@ func Clone(ctx context.Context, repoURL, token, ref string) (dir string, commitS
 			clonedRepo, cloneErr := gogit.CloneContext(ctx, storer, limitedFS, cloneOptions)
 			if cloneErr != nil {
 				attemptErrs = append(attemptErrs, fmt.Errorf("%s %s: %w", attempt.name, refAttempt.name, cloneErr))
+				_ = os.RemoveAll(tempDir)
 				if errors.Is(cloneErr, errRepoTooLarge) {
 					cleanupFn()
 					return "", "", nil, fmt.Errorf("repository is too large (limit: %d MB)", maxRepoSizeMB)
@@ -197,6 +198,7 @@ func Clone(ctx context.Context, repoURL, token, ref string) (dir string, commitS
 				}
 				if err := worktree.Checkout(&gogit.CheckoutOptions{Hash: plumbing.NewHash(refAttempt.checkoutHash)}); err != nil {
 					attemptErrs = append(attemptErrs, fmt.Errorf("%s %s: %w", attempt.name, refAttempt.name, err))
+					_ = os.RemoveAll(tempDir)
 					continue
 				}
 			}
@@ -327,8 +329,8 @@ func isContextError(err error) bool {
 	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 }
 
-// GitHubRepoInfo represents repository information from the GitHub API.
-type GitHubRepoInfo struct {
+// githubRepoInfo represents repository information from the GitHub API.
+type githubRepoInfo struct {
 	Size int `json:"size"` // Size in KB
 }
 
@@ -363,14 +365,14 @@ func checkGitHubRepoSize(ctx context.Context, org, repo string, maxSizeMB int, t
 		return fmt.Errorf("GitHub API returned status %d for %s/%s", resp.StatusCode, org, repo)
 	}
 
-	var repoInfo GitHubRepoInfo
+	var repoInfo githubRepoInfo
 	if err := json.NewDecoder(resp.Body).Decode(&repoInfo); err != nil {
 		return fmt.Errorf("failed to parse repository info: %w", err)
 	}
 
 	sizeMB := repoInfo.Size / 1024
 	if sizeMB > maxSizeMB {
-		return fmt.Errorf("repository %s/%s is too large: %d MB (limit: %d MB)", org, repo, sizeMB, maxSizeMB)
+		return fmt.Errorf("%w: repository %s/%s is %d MB (limit: %d MB)", errRepoTooLarge, org, repo, sizeMB, maxSizeMB)
 	}
 	return nil
 }
@@ -418,7 +420,7 @@ func checkGitLabRepoSize(ctx context.Context, host, projectPath string, maxSizeM
 	}
 
 	if sizeMB := info.Statistics.RepositorySize / (1024 * 1024); sizeMB > int64(maxSizeMB) {
-		return fmt.Errorf("repository %s is too large: %d MB (limit: %d MB)", projectPath, sizeMB, maxSizeMB)
+		return fmt.Errorf("%w: repository %s is %d MB (limit: %d MB)", errRepoTooLarge, projectPath, sizeMB, maxSizeMB)
 	}
 	return nil
 }

@@ -236,7 +236,7 @@ func clearSyncAnnotation(ctx context.Context, c client.Client, namespace, name s
 	return c.Update(ctx, &repo)
 }
 
-func materializeSkillSource(ctx context.Context, fetcher repositoryFetcher, skill *v1.Skill) (*fetchedRepository, string, error) {
+func materializeSkillSource(ctx context.Context, fetcher repositoryFetcher, skill *v1.Skill, token string) (*fetchedRepository, string, error) {
 	if skill.Spec.RepoURL == "" {
 		return nil, "", fmt.Errorf("skill %s is missing repoURL", skill.Name)
 	}
@@ -247,7 +247,7 @@ func materializeSkillSource(ctx context.Context, fetcher repositoryFetcher, skil
 		return nil, "", fmt.Errorf("skill %s is missing relativePath", skill.Name)
 	}
 
-	fetched, err := fetcher.Fetch(ctx, skill.Spec.RepoURL, "", skill.Spec.CommitSHA)
+	fetched, err := fetcher.Fetch(ctx, skill.Spec.RepoURL, token, skill.Spec.CommitSHA)
 	if err != nil {
 		return nil, "", err
 	}
@@ -275,8 +275,8 @@ func materializeSkillSource(ctx context.Context, fetcher repositoryFetcher, skil
 	return fetched, skillDir, nil
 }
 
-func MaterializeSkillSource(ctx context.Context, skill *v1.Skill) (func(), string, error) {
-	fetched, skillDir, err := materializeSkillSource(ctx, newGitRepositoryFetcher(), skill)
+func MaterializeSkillSource(ctx context.Context, skill *v1.Skill, token string) (func(), string, error) {
+	fetched, skillDir, err := materializeSkillSource(ctx, newGitRepositoryFetcher(), skill, token)
 	if err != nil {
 		return nil, "", err
 	}
