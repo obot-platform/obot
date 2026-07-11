@@ -435,3 +435,16 @@ affinity: {}
 #             values:
 #             - obot
 #         topologyKey: kubernetes.io/hostname
+
+# podDisruptionBudget -- PodDisruptionBudget configuration for Obot pods.
+# Only enable this with replicaCount >= 2. With a single replica, minAvailable: 1
+# permanently blocks node drains, since the one pod can never be evicted.
+podDisruptionBudget:
+  # podDisruptionBudget.enabled -- Enables creation of a PodDisruptionBudget. Disabled by default.
+  enabled: false
+  # podDisruptionBudget.minAvailable -- Minimum number of Obot pods that must remain available during voluntary disruptions. Ignored when maxUnavailable is set.
+  minAvailable: 1
+  # podDisruptionBudget.maxUnavailable -- Maximum number of Obot pods that may be unavailable during voluntary disruptions. Set this instead of minAvailable.
+  maxUnavailable: ""
+  # podDisruptionBudget.annotations -- Annotations to add to the PodDisruptionBudget.
+  annotations: {}
