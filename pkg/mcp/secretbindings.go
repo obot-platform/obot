@@ -4,10 +4,14 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"sort"
+	"strings"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -38,6 +42,9 @@ import (
 // and the returned map omits them — the downstream missing-required gate
 // then fires for required bindings.
 //
+// Secrets must have the configured secret-binding allow label. A Secret without
+// that label is treated as unavailable, the same as a missing Secret/key.
+//
 // Lookups are cached per-call by Secret name so a manifest with N bindings
 // against the same Secret performs one Get. Reads hit nah's watch cache, so
 // calling this from API request paths is cheap.
@@ -48,6 +55,7 @@ func MergeBoundCreds(
 	envs []types.MCPEnv,
 	remoteConfig *types.RemoteRuntimeConfig,
 	credEnv map[string]string,
+	allowedLabel string,
 ) (map[string]string, error) {
 	// Fast path: no bindings → nothing to merge, return credEnv as-is.
 	if !hasAnyBinding(envs, remoteConfig) {
@@ -78,8 +86,8 @@ func MergeBoundCreds(
 		return merged, nil
 	}
 
-	// secretCache[name] is nil when the Secret was confirmed missing,
-	// non-nil (possibly empty) when it exists.
+	// secretCache[name] is nil when the Secret was confirmed unavailable,
+	// non-nil (possibly empty) when it exists and is allowed.
 	secretCache := map[string]map[string][]byte{}
 
 	lookup := func(b *types.MCPSecretBinding) (string, bool, error) {
@@ -96,6 +104,10 @@ func MergeBoundCreds(
 				return "", false, nil
 			case getErr != nil:
 				return "", false, fmt.Errorf("get secret %s/%s: %w", obotNamespace, b.Name, getErr)
+			}
+			if _, ok := s.Labels[allowedLabel]; !ok {
+				secretCache[b.Name] = nil
+				return "", false, nil
 			}
 			secretCache[b.Name] = s.Data
 			data = s.Data
@@ -152,6 +164,79 @@ func MergeBoundCreds(
 	return merged, nil
 }
 
+type MissingSecretBinding struct {
+	Kind    string
+	Header  types.MCPHeader
+	Binding *types.MCPSecretBinding
+}
+
+func MissingSecretBindings(ctx context.Context, c kclient.Client, obotNamespace string, envs []types.MCPEnv, remoteConfig *types.RemoteRuntimeConfig, allowedLabel string) ([]MissingSecretBinding, error) {
+	hasBinding := false
+	for _, env := range envs {
+		if env.SecretBinding != nil {
+			hasBinding = true
+			break
+		}
+	}
+	if !hasBinding && remoteConfig != nil {
+		for _, header := range remoteConfig.Headers {
+			if header.SecretBinding != nil {
+				hasBinding = true
+				break
+			}
+		}
+	}
+	if !hasBinding {
+		return nil, nil
+	}
+	if c == nil {
+		return nil, fmt.Errorf("secret bindings require a Kubernetes client")
+	}
+
+	resolved, err := MergeBoundCreds(ctx, c, obotNamespace, envs, remoteConfig, nil, allowedLabel)
+	if err != nil {
+		return nil, err
+	}
+
+	var missing []MissingSecretBinding
+	for _, env := range envs {
+		if env.SecretBinding == nil {
+			continue
+		}
+		if _, ok := resolved[env.Key]; !ok {
+			missing = append(missing, MissingSecretBinding{Kind: "env", Header: env.MCPHeader, Binding: env.SecretBinding})
+		}
+	}
+	if remoteConfig != nil {
+		for _, header := range remoteConfig.Headers {
+			if header.SecretBinding == nil {
+				continue
+			}
+			if _, ok := resolved[header.Key]; !ok {
+				missing = append(missing, MissingSecretBinding{Kind: "header", Header: header, Binding: header.SecretBinding})
+			}
+		}
+	}
+	return missing, nil
+}
+
+// ValidateSecretBindingsAvailable verifies secret-bound config can be resolved
+// before creating/updating/launching a server that users cannot fix.
+func ValidateSecretBindingsAvailable(ctx context.Context, c kclient.Client, obotNamespace string, envs []types.MCPEnv, remoteConfig *types.RemoteRuntimeConfig, allowedLabel string) error {
+	missing, err := MissingSecretBindings(ctx, c, obotNamespace, envs, remoteConfig, allowedLabel)
+	if err != nil {
+		return err
+	}
+	if len(missing) > 0 {
+		fields := make([]string, 0, len(missing))
+		for _, field := range missing {
+			fields = append(fields, fmt.Sprintf("%s %q references %s/%s", field.Kind, field.Header.Key, obotNamespace, field.Binding.Name))
+		}
+		return fmt.Errorf("secret bindings reference unavailable Kubernetes Secrets: %s", strings.Join(fields, ", "))
+	}
+	return nil
+}
+
 func hasAnyBinding(envs []types.MCPEnv, remoteConfig *types.RemoteRuntimeConfig) bool {
 	for _, e := range envs {
 		if e.SecretBinding != nil {
@@ -166,4 +251,42 @@ func hasAnyBinding(envs []types.MCPEnv, remoteConfig *types.RemoteRuntimeConfig)
 		}
 	}
 	return false
+}
+
+// ListAllowedSecretBindingTargets returns labeled Kubernetes Secrets and data keys that admins may select for MCP secret bindings.
+func ListAllowedSecretBindingTargets(ctx context.Context, c kclient.Client, obotNamespace, allowedLabel string) ([]types.MCPAllowedSecretBindingTarget, error) {
+	if c == nil {
+		return nil, nil
+	}
+
+	requirement, err := labels.NewRequirement(allowedLabel, selection.Exists, nil)
+	if err != nil || requirement == nil {
+		return nil, fmt.Errorf("create allowed secret binding label selector: %w", err)
+	}
+	selector := labels.NewSelector().Add(*requirement)
+	var secrets corev1.SecretList
+	if err := c.List(ctx, &secrets, kclient.InNamespace(obotNamespace), kclient.MatchingLabelsSelector{Selector: selector}); err != nil {
+		return nil, fmt.Errorf("list allowed secret bindings: %w", err)
+	}
+
+	targets := make([]types.MCPAllowedSecretBindingTarget, 0, len(secrets.Items))
+	for _, secret := range secrets.Items {
+		keys := make([]string, 0, len(secret.Data))
+		for key := range secret.Data {
+			keys = append(keys, key)
+		}
+		if len(keys) == 0 {
+			continue
+		}
+		sort.Strings(keys)
+		targets = append(targets, types.MCPAllowedSecretBindingTarget{
+			Name: secret.Name,
+			Keys: keys,
+		})
+	}
+
+	sort.Slice(targets, func(i, j int) bool {
+		return targets[i].Name < targets[j].Name
+	})
+	return targets, nil
 }

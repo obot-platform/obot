@@ -9,6 +9,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var log = logger.Package()
@@ -41,4 +42,24 @@ func (h *Handler) Cleanup(req router.Request, _ router.Response) error {
 		return req.Delete(model)
 	}
 	return err
+}
+
+// EnsureModelInfo projects ModelInfo onto the respective Model's status.
+func (*Handler) EnsureModelInfo(req router.Request, _ router.Response) error {
+	model := req.Object.(*v1.Model)
+	if model.Spec.Manifest.ModelProvider == "" || model.Spec.Manifest.TargetModel == "" {
+		return nil
+	}
+
+	var (
+		infoName  = v1.ModelInfoName(model.Spec.Manifest.ModelProvider, model.Spec.Manifest.TargetModel)
+		modelInfo v1.ModelInfo
+	)
+	if err := kclient.IgnoreNotFound(req.Get(&modelInfo, model.Namespace, infoName)); err != nil {
+		return err
+	}
+
+	model.Status.Cost = modelInfo.Spec.Cost
+
+	return nil
 }

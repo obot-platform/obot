@@ -62,6 +62,7 @@
 		hoveredPart?: 'primary' | 'secondary';
 		primaryColor?: string;
 		secondaryColor?: string;
+		details?: Record<string, number>;
 	};
 
 	interface Props<T> {
@@ -72,6 +73,7 @@
 		dateKey: keyof T;
 		primaryValueKey?: keyof T;
 		secondaryValueKey?: keyof T;
+		tooltipValueKeys?: (keyof T)[];
 		tooltipContent?: Snippet<[TooltipItem]>;
 		legend?: {
 			primaryLabel?: string;
@@ -97,6 +99,7 @@
 		dateKey,
 		primaryValueKey,
 		secondaryValueKey,
+		tooltipValueKeys,
 		legend,
 		tooltipContent,
 		class: klass = '',
@@ -420,12 +423,17 @@
 		const groupMap = new SvelteMap<string, Map<string, number>>();
 		const primKey = primaryValueKey;
 		const secKey = secondaryValueKey;
+		const detailKeys = tooltipValueKeys ?? [];
 		let primarySecondary: Record<
 			string,
 			Record<string, { primary: number; secondary: number }>
 		> | null = null;
+		let details: Record<string, Record<string, Record<string, number>>> | null = null;
 		if (primKey != null) {
 			primarySecondary = {};
+		}
+		if (detailKeys.length > 0) {
+			details = {};
 		}
 		for (const row of snapshot) {
 			const r = row as T;
@@ -445,12 +453,22 @@
 				primarySecondary[bucket][cat].primary += Number(r[primKey]) || 0;
 				primarySecondary[bucket][cat].secondary += secKey != null ? Number(r[secKey]) || 0 : 0;
 			}
+			if (details) {
+				if (!details[bucket]) details[bucket] = {};
+				if (!details[bucket][cat]) details[bucket][cat] = {};
+				for (const key of detailKeys) {
+					const detailKey = String(key);
+					details[bucket][cat][detailKey] =
+						(details[bucket][cat][detailKey] ?? 0) + (Number(r[key]) || 0);
+				}
+			}
 		}
-		return { group: groupMap, bucketPrimarySecondary: primarySecondary };
+		return { group: groupMap, bucketPrimarySecondary: primarySecondary, bucketDetails: details };
 	});
 
 	const group = $derived(aggregated.group);
 	const bucketPrimarySecondary = $derived(aggregated.bucketPrimarySecondary);
+	const bucketDetails = $derived(aggregated.bucketDetails);
 
 	const stackInput = $derived.by((): Iterable<[string, Map<string, number>]> => {
 		if (!bucketPrimarySecondary) return group as Iterable<[string, Map<string, number>]>;
@@ -904,6 +922,7 @@
 										typeof d.seg.data[0] === 'string' ? d.seg.data[0] : String(d.seg.data[0] ?? '');
 									const baseColor = colorScale(d.category);
 									const ps = bucketPrimarySecondary?.[bucketKey]?.[d.category];
+									const details = bucketDetails?.[bucketKey]?.[d.category];
 									const count = (group.get(bucketKey)?.get(d.category) ?? 0) as number;
 									currentItem = {
 										key: d.category,
@@ -917,7 +936,8 @@
 										}),
 										...(d.part !== 'full' && { hoveredPart: d.part }),
 										primaryColor: baseColor,
-										secondaryColor: lightenHex(baseColor, 0.5)
+										secondaryColor: lightenHex(baseColor, 0.5),
+										...(details && { details })
 									};
 									select(this).attr('stroke', 'currentColor').attr('stroke-width', 2);
 								})

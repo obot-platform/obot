@@ -552,10 +552,12 @@ export interface MCPCatalogEntryServerManifest {
 	env?: MCPCatalogEntryFieldManifest[];
 	repoURL?: string;
 	name?: string;
+	shortDescription?: string;
 	description?: string;
 	toolPreview?: MCPServerTool[];
 	metadata?: {
 		categories?: string;
+		deprecated?: string;
 		'allow-multiple'?: string;
 	};
 
@@ -604,9 +606,11 @@ export type MCPCatalogEntryFormData = Omit<MCPCatalogEntryServerManifest, 'metad
 export interface RuntimeFormData {
 	// Common fields
 	name: string;
+	shortDescription?: string;
 	description: string;
 	icon: string;
 	categories: string[];
+	metadata?: MCPCatalogEntryServerManifest['metadata'];
 	serverUserType: 'singleUser' | 'multiUser';
 	env: MCPCatalogEntryFieldManifest[];
 
@@ -1093,13 +1097,20 @@ export interface RestartNanobotAgentDeploymentsResult {
 // Token usage
 
 export interface TokenUsage {
-	userID?: string;
-	runName?: string;
-	model?: string;
-	promptTokens: number;
-	completionTokens: number;
-	totalTokens: number;
 	date: string;
+	userID?: string;
+	model?: string;
+	inputTokens: number;
+	cacheReadTokens: number;
+	cacheWriteTokens: number;
+	outputTokens: number;
+	thinkingTokens: number;
+	totalTokens: number;
+	inputSpend: number;
+	cacheReadSpend: number;
+	cacheWriteSpend: number;
+	outputSpend: number;
+	totalSpend: number;
 }
 export type TokenUsageWithCategory = TokenUsage & { category: string };
 export interface TokenUsageTimeRange {
@@ -1107,10 +1118,17 @@ export interface TokenUsageTimeRange {
 	end: Date | string;
 }
 export interface TotalTokenUsage {
-	promptTokens: number;
-	completionTokens: number;
 	totalTokens: number;
-	personalToken?: boolean;
+	inputTokens?: number;
+	cacheReadTokens?: number;
+	cacheWriteTokens?: number;
+	outputTokens?: number;
+	thinkingTokens?: number;
+	inputSpend?: number;
+	cacheReadSpend?: number;
+	cacheWriteSpend?: number;
+	outputSpend?: number;
+	totalSpend?: number;
 }
 export interface TotalTokenUsageByUser extends TotalTokenUsage {
 	userID: string;

@@ -10,6 +10,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 func TestValidateServerManifestForCatalog_MultiUserConfig(t *testing.T) {
@@ -40,17 +41,17 @@ func TestValidateCatalogEntryManifest_MultiUserConfig(t *testing.T) {
 		},
 	}
 
-	require.NoError(t, ValidateCatalogEntryManifest(t.Context(), manifest, Options{}))
+	require.NoError(t, ValidateCatalogEntryManifest(t.Context(), manifest, false, Options{}))
 
 	manifest.MultiUserConfig = &types.MultiUserConfig{}
 	require.Equal(t, types.RuntimeValidationError{
 		Runtime: types.RuntimeNPX,
 		Field:   "multiUserConfig",
 		Message: "multiUserConfig may only be set for multi-user catalog entries",
-	}, ValidateCatalogEntryManifest(t.Context(), manifest, Options{}))
+	}, ValidateCatalogEntryManifest(t.Context(), manifest, false, Options{}))
 
 	manifest.ServerUserType = types.ServerUserTypeMultiUser
-	require.NoError(t, ValidateCatalogEntryManifest(t.Context(), manifest, Options{}))
+	require.NoError(t, ValidateCatalogEntryManifest(t.Context(), manifest, false, Options{}))
 }
 
 func TestRemoteValidator_validateRemoteCatalogConfig(t *testing.T) {
@@ -937,7 +938,7 @@ func TestValidateRemoteManifestURLWithOptions(t *testing.T) {
 			RemoteConfig: &types.RemoteCatalogConfig{
 				FixedURL: rawURL,
 			},
-		}, options)
+		}, false, options)
 	}
 
 	validateSystemManifest := func(ctx context.Context, rawURL string, options Options) error {
@@ -1927,7 +1928,7 @@ func TestValidateManifestStartupTimeoutNonNegative(t *testing.T) {
 				Package:               "test-package",
 				StartupTimeoutSeconds: -1,
 			},
-		}, Options{})
+		}, false, Options{})
 
 		require.Equal(t, types.RuntimeValidationError{
 			Runtime: types.RuntimeUVX,
@@ -1964,7 +1965,7 @@ func TestValidateManifestStartupTimeoutNonNegative(t *testing.T) {
 				Package:               "test-package",
 				StartupTimeoutSeconds: maxStartupTimeoutSeconds + 1,
 			},
-		}, Options{})
+		}, false, Options{})
 
 		require.Equal(t, types.RuntimeValidationError{
 			Runtime: types.RuntimeNPX,
@@ -2001,7 +2002,7 @@ func TestValidateMCPResourceRequirements(t *testing.T) {
 			Runtime:        types.RuntimeUVX,
 			UVXConfig:      &types.UVXRuntimeConfig{Package: "test-package"},
 			Resources:      validResources,
-		}, Options{})
+		}, false, Options{})
 		require.NoError(t, err)
 	})
 
@@ -2100,7 +2101,7 @@ func TestValidateMCPResourceRequirements(t *testing.T) {
 				Runtime:        types.RuntimeUVX,
 				UVXConfig:      &types.UVXRuntimeConfig{Package: "test-package"},
 				Resources:      tt.resources,
-			}, Options{})
+			}, false, Options{})
 
 			var validationErr types.RuntimeValidationError
 			require.ErrorAs(t, err, &validationErr)
@@ -2111,15 +2112,126 @@ func TestValidateMCPResourceRequirements(t *testing.T) {
 	}
 }
 
+func TestValidateMCPResourceMaximums(t *testing.T) {
+	maxCPURequest := resource.MustParse("100m")
+	options := Options{
+		ResourceMaximums: mcp.ResourceMaximums{
+			CPURequest: &maxCPURequest,
+		},
+	}
+
+	t.Run("server manifest rejects resources above maximum", func(t *testing.T) {
+		err := ValidateServerManifest(t.Context(), types.MCPServerManifest{
+			Runtime:   types.RuntimeNPX,
+			NPXConfig: &types.NPXRuntimeConfig{Package: "test-package"},
+			Resources: &types.MCPResourceRequirements{
+				Requests: types.MCPResourceRequests{
+					CPU: "250m",
+				},
+			},
+		}, false, options)
+		require.ErrorContains(t, err, "resources.requests.cpu 250m exceeds configured maximum 100m")
+	})
+
+	t.Run("server manifest accepts resources below maximum", func(t *testing.T) {
+		err := ValidateServerManifest(t.Context(), types.MCPServerManifest{
+			Runtime:   types.RuntimeNPX,
+			NPXConfig: &types.NPXRuntimeConfig{Package: "test-package"},
+			Resources: &types.MCPResourceRequirements{
+				Requests: types.MCPResourceRequests{
+					CPU: "50m",
+				},
+			},
+		}, false, options)
+		require.NoError(t, err)
+	})
+
+	t.Run("server manifest skips empty maximums", func(t *testing.T) {
+		err := ValidateServerManifest(t.Context(), types.MCPServerManifest{
+			Runtime:   types.RuntimeNPX,
+			NPXConfig: &types.NPXRuntimeConfig{Package: "test-package"},
+			Resources: &types.MCPResourceRequirements{
+				Requests: types.MCPResourceRequests{
+					CPU: "250m",
+				},
+			},
+		}, false, Options{})
+		require.NoError(t, err)
+	})
+
+	t.Run("catalog manifest rejects resources above maximum", func(t *testing.T) {
+		err := ValidateCatalogEntryManifest(t.Context(), types.MCPServerCatalogEntryManifest{
+			ServerUserType: types.ServerUserTypeSingleUser,
+			Runtime:        types.RuntimeUVX,
+			UVXConfig:      &types.UVXRuntimeConfig{Package: "test-package"},
+			Resources: &types.MCPResourceRequirements{
+				Requests: types.MCPResourceRequests{
+					CPU: "250m",
+				},
+			},
+		}, false, options)
+		require.ErrorContains(t, err, "resources.requests.cpu 250m exceeds configured maximum 100m")
+	})
+
+	t.Run("composite server manifest rejects component resources above maximum", func(t *testing.T) {
+		err := ValidateServerManifest(t.Context(), types.MCPServerManifest{
+			Runtime: types.RuntimeComposite,
+			CompositeConfig: &types.CompositeRuntimeConfig{
+				ComponentServers: []types.ComponentServer{
+					{
+						CatalogEntryID: "component",
+						Manifest: types.MCPServerManifest{
+							Runtime:   types.RuntimeNPX,
+							NPXConfig: &types.NPXRuntimeConfig{Package: "test-package"},
+							Resources: &types.MCPResourceRequirements{
+								Requests: types.MCPResourceRequests{
+									CPU: "250m",
+								},
+							},
+						},
+					},
+				},
+			},
+		}, false, options)
+		require.ErrorContains(t, err, "resources.requests.cpu 250m exceeds configured maximum 100m")
+	})
+
+	t.Run("composite catalog manifest rejects component resources above maximum", func(t *testing.T) {
+		err := ValidateCatalogEntryManifest(t.Context(), types.MCPServerCatalogEntryManifest{
+			ServerUserType: types.ServerUserTypeSingleUser,
+			Runtime:        types.RuntimeComposite,
+			CompositeConfig: &types.CompositeCatalogConfig{
+				ComponentServers: []types.CatalogComponentServer{
+					{
+						CatalogEntryID: "component",
+						Manifest: types.MCPServerCatalogEntryManifest{
+							ServerUserType: types.ServerUserTypeSingleUser,
+							Runtime:        types.RuntimeNPX,
+							NPXConfig:      &types.NPXRuntimeConfig{Package: "test-package"},
+							Resources: &types.MCPResourceRequirements{
+								Requests: types.MCPResourceRequests{
+									CPU: "250m",
+								},
+							},
+						},
+					},
+				},
+			},
+		}, false, options)
+		require.ErrorContains(t, err, "resources.requests.cpu 250m exceeds configured maximum 100m")
+	})
+}
+
 func TestValidateSecretBindings(t *testing.T) {
 	binding := &types.MCPSecretBinding{Name: "datadog-prod", Key: "api-key"}
 
 	tests := []struct {
-		name       string
-		manifest   types.MCPServerManifest
-		gitManaged bool
-		backend    string
-		wantErr    string // substring; "" = expect no error
+		name         string
+		manifest     types.MCPServerManifest
+		gitManaged   bool
+		adminManaged bool
+		backend      string
+		wantErr      string // substring; "" = expect no error
 	}{
 		{
 			name: "no bindings is allowed regardless",
@@ -2154,6 +2266,27 @@ func TestValidateSecretBindings(t *testing.T) {
 			},
 			gitManaged: true,
 			backend:    "kubernetes",
+		},
+		{
+			name: "bound env accepted for admin-managed multi-user server",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeContainerized,
+				Env:     []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "DD_API_KEY", SecretBinding: binding}}},
+			},
+			adminManaged: true,
+			backend:      "kubernetes",
+		},
+		{
+			name: "bound multi-user header is rejected",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeContainerized,
+				MultiUserConfig: &types.MultiUserConfig{UserDefinedHeaders: []types.MCPHeader{{
+					Key: "X-API-Key", SecretBinding: binding,
+				}}},
+			},
+			adminManaged: true,
+			backend:      "kubernetes",
+			wantErr:      "secretBinding is not supported for user-defined headers",
 		},
 		{
 			name: "bound header rejected on non-kubernetes backend",
@@ -2249,7 +2382,7 @@ func TestValidateSecretBindings(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateSecretBindings(tt.manifest, tt.gitManaged, tt.backend)
+			err := ValidateSecretBindings(tt.manifest, tt.gitManaged, tt.adminManaged, tt.backend)
 			if tt.wantErr == "" {
 				require.NoError(t, err)
 				return
@@ -2306,7 +2439,7 @@ func TestValidateSecretBindingsCatalogEntry_URLTemplate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateSecretBindingsCatalogEntry(tt.manifest, true, "kubernetes")
+			err := ValidateSecretBindingsCatalogEntry(tt.manifest, true, false, "kubernetes")
 			if tt.wantErr == "" {
 				require.NoError(t, err)
 				return
@@ -2315,6 +2448,145 @@ func TestValidateSecretBindingsCatalogEntry_URLTemplate(t *testing.T) {
 			require.Contains(t, err.Error(), tt.wantErr)
 		})
 	}
+}
+
+func TestValidateSecretBindingsCatalogEntryMultiUser(t *testing.T) {
+	binding := &types.MCPSecretBinding{Name: "my-secret", Key: "token"}
+
+	tests := []struct {
+		name         string
+		manifest     types.MCPServerCatalogEntryManifest
+		adminManaged bool
+		wantErr      string
+	}{
+		{
+			name: "admin-managed non-git multi-user catalog entry allows env binding",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime:        types.RuntimeNPX,
+				ServerUserType: types.ServerUserTypeMultiUser,
+				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+					Key: "TOKEN", SecretBinding: binding,
+				}}},
+			},
+			adminManaged: true,
+		},
+		{
+			name: "non-admin non-git multi-user catalog entry rejects env binding",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime:        types.RuntimeNPX,
+				ServerUserType: types.ServerUserTypeMultiUser,
+				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+					Key: "TOKEN", SecretBinding: binding,
+				}}},
+			},
+			wantErr: "multi-user catalog entries",
+		},
+		{
+			name: "admin-managed non-git single-user catalog entry rejects env binding",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime:        types.RuntimeNPX,
+				ServerUserType: types.ServerUserTypeSingleUser,
+				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+					Key: "TOKEN", SecretBinding: binding,
+				}}},
+			},
+			adminManaged: true,
+			wantErr:      "multi-user catalog entries",
+		},
+		{
+			name: "admin-managed non-git multi-user remote catalog entry allows header binding",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime:        types.RuntimeRemote,
+				ServerUserType: types.ServerUserTypeMultiUser,
+				RemoteConfig: &types.RemoteCatalogConfig{Headers: []types.MCPHeader{{
+					Key: "Authorization", SecretBinding: binding,
+				}}},
+			},
+			adminManaged: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateSecretBindingsCatalogEntry(tt.manifest, false, tt.adminManaged, "kubernetes")
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tt.wantErr)
+		})
+	}
+}
+
+func TestValidateSecretBindingsCatalogEntryRejectsAdminAdded(t *testing.T) {
+	binding := &types.MCPSecretBinding{Name: "my-secret", Key: "token", AdminAdded: true}
+
+	tests := []struct {
+		name     string
+		manifest types.MCPServerCatalogEntryManifest
+		wantErr  string
+	}{
+		{
+			name: "env adminAdded rejected",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeNPX,
+				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+					Key: "TOKEN", SecretBinding: binding,
+				}}},
+			},
+			wantErr: "secretBinding.adminAdded is not valid for catalog entry",
+		},
+		{
+			name: "header adminAdded rejected",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteCatalogConfig{Headers: []types.MCPHeader{{
+					Key: "Authorization", SecretBinding: binding,
+				}}},
+			},
+			wantErr: "secretBinding.adminAdded is not valid for catalog entry",
+		},
+		{
+			name: "composite component adminAdded rejected",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeCatalogConfig{ComponentServers: []types.CatalogComponentServer{{
+					Manifest: types.MCPServerCatalogEntryManifest{
+						Runtime: types.RuntimeNPX,
+						Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+							Key: "TOKEN", SecretBinding: binding,
+						}}},
+					},
+				}}},
+			},
+			wantErr: "secretBinding.adminAdded is not valid for catalog entry",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateSecretBindingsCatalogEntry(tt.manifest, true, false, "kubernetes")
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tt.wantErr)
+		})
+	}
+}
+
+func TestValidateSecretBindingsCatalogEntryRejectsMultiUserHeaderBinding(t *testing.T) {
+	binding := &types.MCPSecretBinding{Name: "my-secret", Key: "token"}
+	manifest := types.MCPServerCatalogEntryManifest{
+		Runtime:        types.RuntimeContainerized,
+		ServerUserType: types.ServerUserTypeMultiUser,
+		MultiUserConfig: &types.MultiUserConfig{UserDefinedHeaders: []types.MCPHeader{{
+			Key:           "X-API-Key",
+			SecretBinding: binding,
+		}}},
+	}
+
+	err := ValidateSecretBindingsCatalogEntry(manifest, true, false, "kubernetes")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "secretBinding is not supported for user-defined headers")
 }
 
 func TestValidateTemplateReferences_Server(t *testing.T) {
@@ -2642,10 +2914,10 @@ func TestValidateCatalogEntryManifest_ServerUserType(t *testing.T) {
 			expectError:    false,
 		},
 		{
-			name:           "multiUser with remote runtime is valid",
+			name:           "multiUser with remote runtime is rejected",
 			manifest:       remoteManifest,
 			serverUserType: types.ServerUserTypeMultiUser,
-			expectError:    false,
+			expectError:    true,
 		},
 		{
 			name:           "multiUser with composite runtime is rejected",
@@ -2665,7 +2937,7 @@ func TestValidateCatalogEntryManifest_ServerUserType(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			manifest := tt.manifest
 			manifest.ServerUserType = tt.serverUserType
-			err := ValidateCatalogEntryManifest(t.Context(), manifest, Options{})
+			err := ValidateCatalogEntryManifest(t.Context(), manifest, false, Options{})
 			if tt.expectError && err == nil {
 				t.Errorf("expected error for serverUserType=%q, got nil", tt.serverUserType)
 			} else if !tt.expectError && err != nil {
@@ -2673,4 +2945,26 @@ func TestValidateCatalogEntryManifest_ServerUserType(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestValidateCatalogEntryManifestGitManagedRequiresOverrideDescription(t *testing.T) {
+	manifest := types.MCPServerCatalogEntryManifest{
+		Name:           "Composite",
+		ServerUserType: types.ServerUserTypeSingleUser,
+		Runtime:        types.RuntimeComposite,
+		CompositeConfig: &types.CompositeCatalogConfig{ComponentServers: []types.CatalogComponentServer{
+			{CatalogEntryID: "target", ToolOverrides: []types.ToolOverride{
+				{Name: "tool", Description: "old description", Enabled: true},
+			}},
+		}},
+	}
+
+	require.NoError(t, ValidateCatalogEntryManifest(t.Context(), manifest, false, Options{}))
+
+	err := ValidateCatalogEntryManifest(t.Context(), manifest, true, Options{})
+	require.ErrorContains(t, err, "compositeConfig.componentServers[0].toolOverrides[0].description: cannot be set in Git-managed catalogs; use overrideDescription instead")
+
+	manifest.CompositeConfig.ComponentServers[0].ToolOverrides[0].Description = ""
+	manifest.CompositeConfig.ComponentServers[0].ToolOverrides[0].OverrideDescription = "new description"
+	require.NoError(t, ValidateCatalogEntryManifest(t.Context(), manifest, true, Options{}))
 }

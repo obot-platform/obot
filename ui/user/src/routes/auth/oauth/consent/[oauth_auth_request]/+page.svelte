@@ -4,13 +4,17 @@
 		type CompositeLaunchFormData,
 		type LaunchFormData
 	} from '$lib/components/mcp/CatalogConfigureForm.svelte';
+	import McpDeprecatedNotice from '$lib/components/mcp/McpDeprecatedNotice.svelte';
 	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
 	import { HttpError } from '$lib/errors';
 	import { UserService, type OAuthConsent } from '$lib/services';
 	import {
 		convertCompositeInfoToLaunchFormData,
 		convertCompositeLaunchFormDataToPayload,
-		convertEnvHeadersToRecord
+		convertEnvHeadersToRecord,
+		hasEditableConfiguration,
+		hasSecretBinding,
+		isDeprecatedMCPServer
 	} from '$lib/services/user/mcp';
 	import { ExternalLink, SettingsIcon, ShieldAlertIcon } from '@lucide/svelte';
 	import { onMount, tick, untrack } from 'svelte';
@@ -33,6 +37,18 @@
 	const consent = $derived(currentConsent);
 	const scopes = $derived(consent.scope?.split(' ').filter(Boolean) ?? []);
 	const showMCPAuthNotice = $derived(consent.mcpAuthRequired || consent.userHasSecondLevelOAuthed);
+	const deprecated = $derived(isDeprecatedMCPServer(consent.mcpServer));
+	const hasConfigurableMCPConfiguration = $derived.by(() => {
+		if (consent.mcpServer) {
+			return hasEditableConfiguration(consent.mcpServer);
+		}
+		if (consent.mcpServerInstance) {
+			return (consent.mcpServerInstance.multiUserConfig?.userDefinedHeaders ?? []).some(
+				(header) => !hasSecretBinding(header)
+			);
+		}
+		return false;
+	});
 	const clientCredentialSourceLabel = $derived(
 		clientCredentialSourceLabelFor(consent.clientCredentialSource)
 	);
@@ -277,6 +293,8 @@
 
 		{#if consent.mcpConfigRequired}
 			<section class="flex flex-col gap-5 p-4 py-0">
+				<McpDeprecatedNotice {deprecated} variant="notification" />
+
 				<div class="notification-info flex items-center gap-3 p-3">
 					<SettingsIcon class="size-5 shrink-0" />
 					<p class="min-w-0 text-sm">
@@ -291,6 +309,8 @@
 			</section>
 		{:else}
 			<section class="flex flex-col gap-5 p-4 pt-0">
+				<McpDeprecatedNotice {deprecated} variant="notification" />
+
 				{#if showMCPAuthNotice}
 					<div class="notification-info flex items-center gap-3 p-3">
 						<ShieldAlertIcon class="size-5 shrink-0" />
@@ -305,6 +325,35 @@
 							{/if}
 						</p>
 					</div>
+				{/if}
+
+				{#if hasConfigurableMCPConfiguration}
+					<div
+						class="border-base-300 bg-base-100 dark:bg-base-200 flex items-center gap-3 rounded-md border p-3"
+					>
+						<SettingsIcon class="text-muted-content size-4 shrink-0" />
+						<div
+							class="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+						>
+							<p class="text-muted-content min-w-0 text-xs">
+								You can update the configuration for
+								<b class="font-semibold">{consent.mcpServerName || 'this MCP server'}</b>
+							</p>
+							<button
+								class="btn btn-text btn-sm flex shrink-0 items-center gap-2"
+								type="button"
+								onclick={openMCPConfiguration}
+								disabled={loadingConfig || savingConfig}
+							>
+								<SettingsIcon class="size-3.5" />
+								{loadingConfig ? 'Loading...' : 'Configure'}
+							</button>
+						</div>
+					</div>
+				{/if}
+
+				{#if configError}
+					<p class="text-error text-sm">{configError}</p>
 				{/if}
 
 				<p class="text-sm">
@@ -388,8 +437,9 @@
 	onCancel={() => configDialog?.close()}
 	loading={savingConfig}
 	error={configError}
+	{deprecated}
 	cancelText="Close"
 	submitText="Save"
-	configurationTitle="Required Configuration"
+	configurationTitle="MCP Server Configuration"
 	disableOutsideClick
 />

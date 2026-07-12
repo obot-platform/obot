@@ -33,7 +33,7 @@ import (
 	"github.com/tidwall/sjson"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apiserver/pkg/authentication/user"
+	kuser "k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -60,11 +60,6 @@ func init() {
 }
 
 func (s *Server) dispatchLLMProxy(req api.Context) error {
-	var (
-		credEnv       map[string]string
-		personalToken bool
-	)
-
 	body, err := readBody(req.Request)
 	if err != nil {
 		return fmt.Errorf("failed to read body: %w", err)
@@ -76,12 +71,16 @@ func (s *Server) dispatchLLMProxy(req api.Context) error {
 	}
 
 	userID := req.User.GetUID()
-
-	remainingUsage, err := req.GatewayClient.RemainingTokenUsageForUser(req.Context(), userID, tokenUsageTimePeriod, s.dailyUserTokenPromptTokenLimit, s.dailyUserTokenCompletionTokenLimit)
-	if err != nil {
+	if remainingUsage, err := req.GatewayClient.RemainingTokenUsageForUser(
+		req.Context(),
+		userID,
+		tokenUsageTimePeriod,
+		s.dailyUserInputTokenLimit,
+		s.dailyUserOutputTokenLimit,
+	); err != nil {
 		return err
-	} else if !remainingUsage.UnlimitedPromptTokens && remainingUsage.PromptTokens <= 0 || !remainingUsage.UnlimitedCompletionTokens && remainingUsage.CompletionTokens <= 0 {
-		return types2.NewErrHTTP(http.StatusTooManyRequests, fmt.Sprintf("no tokens remaining (prompt tokens remaining: %d, completion tokens remaining: %d)", remainingUsage.PromptTokens, remainingUsage.CompletionTokens))
+	} else if remainingUsage.IsDepleted() {
+		return types2.NewErrHTTP(http.StatusTooManyRequests, fmt.Sprintf("no tokens remaining (input tokens remaining: %d, output tokens remaining: %d)", remainingUsage.InputTokens, remainingUsage.OutputTokens))
 	}
 
 	m, err := getModelFromReference(req.Context(), req.Storage, req.Namespace(), modelStr)
@@ -93,24 +92,8 @@ func (s *Server) dispatchLLMProxy(req api.Context) error {
 	modelProvider := m.Spec.Manifest.ModelProvider
 	model := m.Spec.Manifest.TargetModel
 
-	// Fetch auth provider groups once for all checks that need them.
-	userIDInt, err := strconv.ParseUint(userID, 10, 64)
-	if err != nil {
-		return fmt.Errorf("failed to parse user ID: %w", err)
-	}
-	authProviderGroups, err := req.GatewayClient.ListGroupIDsForUser(req.Context(), uint(userIDInt))
-	if err != nil {
-		return fmt.Errorf("failed to get user groups: %w", err)
-	}
-
 	// Check if the user has permission to use this model
-	hasAccess, err := s.mapHelper.UserHasAccessToModel(&user.DefaultInfo{
-		UID:    userID,
-		Groups: req.User.GetGroups(),
-		Extra: map[string][]string{
-			"auth_provider_groups": authProviderGroups,
-		},
-	}, modelID)
+	hasAccess, err := s.mapHelper.UserHasAccessToModel(req.User, modelID)
 	if err != nil {
 		return fmt.Errorf("failed to check model permission: %w", err)
 	}
@@ -131,15 +114,8 @@ func (s *Server) dispatchLLMProxy(req api.Context) error {
 		messagePolicyHelper = nil
 	}
 	if messagePolicyHelper != nil {
-		userInfo := &user.DefaultInfo{
-			UID:    userID,
-			Groups: req.User.GetGroups(),
-			Extra: map[string][]string{
-				"auth_provider_groups": authProviderGroups,
-			},
-		}
 		outputPolicies, conversationHistory, inputPolicyReplacement, err = applyMessagePolicies(
-			req.Context(), messagePolicyHelper, userInfo, req.GatewayClient, body, "", "",
+			req.Context(), messagePolicyHelper, req.User, req.GatewayClient, body, "", "",
 		)
 		if err != nil {
 			return err
@@ -167,12 +143,14 @@ func (s *Server) dispatchLLMProxy(req api.Context) error {
 	}
 
 	(&httputil.ReverseProxy{
-		Director: llmTransformRequest(u, credEnv),
+		Director: llmTransformRequest(u),
 		ModifyResponse: (&responseModifier{
-			userID:                 userID,
+			user:                   req.User,
 			model:                  model,
+			modelProvider:          modelProvider,
 			client:                 req.GatewayClient,
-			personalToken:          personalToken,
+			tokenUsageTracker:      newTokenUsageTracker(*m),
+			mapHelper:              s.mapHelper,
 			inputPolicyReplacement: inputPolicyReplacement,
 			messagePolicyHelper:    messagePolicyHelper,
 			outputPolicies:         outputPolicies,
@@ -282,16 +260,19 @@ func copyBody(body *io.ReadCloser) ([]byte, error) {
 }
 
 type responseModifier struct {
-	userID, model                               string
-	projectID, threadID                         string
-	personalToken                               bool
-	client                                      *client.Client
-	lock                                        sync.Mutex
-	promptTokens, completionTokens, totalTokens int
-	b                                           *bufio.Reader
-	c                                           io.Closer
-	stream                                      bool
-	leftover                                    []byte
+	user                kuser.Info
+	model               string
+	modelProvider       string
+	projectID, threadID string
+	client              *client.Client
+	b                   *bufio.Reader
+	c                   io.Closer
+	stream              bool
+	leftover            []byte
+
+	// Token usage and model access gating
+	tokenUsageTracker *threadSafeTokenUsageTracker
+	mapHelper         *modelaccesspolicy.Helper
 
 	// Input policy violation: replacement text to send back via response header.
 	inputPolicyReplacement string
@@ -301,26 +282,30 @@ type responseModifier struct {
 	outputPolicies      []messagepolicy.ApplicablePolicy
 	conversationHistory []messagepolicy.ConversationMessage
 	pipeReader          *io.PipeReader // set when output policies are active; Read() reads from this
-
-	// allowedTargetModels restricts a GET /v1/models response to the
-	// provider-native target model ids in this set (the models the user may
-	// use). It is ignored when allowAllModels is true.
-	allowedTargetModels map[string]bool
-	// allowAllModels reports that the user may use every model, so a GET
-	// /v1/models response is passed through unfiltered.
-	allowAllModels bool
+	audit               *llmAuditRecorder
 }
 
 func (r *responseModifier) modifyResponse(resp *http.Response) error {
-	if resp.Request.URL.Path == "/v1/models" {
-		return r.filterModelListResponse(resp)
+	if isModelsListRequest(resp.Request) {
+		allowedTargetModels, allowAllModels, err := r.mapHelper.GetUserAllowedTargetModels(r.user, r.modelProvider)
+		if err != nil {
+			return fmt.Errorf("failed to determine accessible models: %w", err)
+		}
+		if err := filterModelListResponse(resp, allowedTargetModels, allowAllModels); err != nil {
+			return err
+		}
+		r.audit.recordResponse(resp)
+		wrapAuditOnlyResponse(resp, r.audit, r.client)
+		return nil
 	}
 
 	if r.inputPolicyReplacement != "" {
 		resp.Header.Set("X-Obot-Message-Policy-Replacement", r.inputPolicyReplacement)
 	}
+	r.audit.recordResponse(resp)
 
 	if resp.StatusCode != http.StatusOK || (resp.Request.URL.Path != "/v1/messages" && resp.Request.URL.Path != "/v1/responses") {
+		wrapAuditOnlyResponse(resp, r.audit, r.client)
 		return nil
 	}
 
@@ -341,15 +326,15 @@ func (r *responseModifier) modifyResponse(resp *http.Response) error {
 }
 
 // filterModelListResponse rewrites a provider models-list response, dropping any
-// model whose id is not in r.allowedTargetModels (the set the user may use). Both
+// model whose id is not in allowedTargetModels (the set the user may use). Both
 // the Anthropic and OpenAI list endpoints return a top-level
 // {"data": [{"id": ...}, ...]} envelope, so the same filtering applies to both
 // passthroughs. Surviving entries are kept as their exact upstream bytes — no
 // map[string]any round-trip that would reorder object keys or reformat numbers.
 // The body is copied up front and restored, so any failure (or an unrecognized
 // payload) just forwards the original response untouched.
-func (r *responseModifier) filterModelListResponse(resp *http.Response) error {
-	if resp.StatusCode != http.StatusOK || r.allowAllModels {
+func filterModelListResponse(resp *http.Response, allowedTargetModels map[string]bool, allowAllModels bool) error {
+	if resp.StatusCode != http.StatusOK || allowAllModels {
 		return nil
 	}
 
@@ -370,7 +355,7 @@ func (r *responseModifier) filterModelListResponse(resp *http.Response) error {
 	// Keep each allowed entry exactly as the provider encoded it (its raw bytes).
 	var kept []string
 	data.ForEach(func(_, entry gjson.Result) bool {
-		if r.allowedTargetModels[entry.Get("id").String()] {
+		if allowedTargetModels[entry.Get("id").String()] {
 			kept = append(kept, entry.Raw)
 		}
 		return true
@@ -438,12 +423,17 @@ func rewriteAnthropicListCursors(body []byte) ([]byte, error) {
 func (r *responseModifier) Read(p []byte) (int, error) {
 	// When output policies are active, the goroutine handles everything via the pipe.
 	if r.pipeReader != nil {
-		return r.pipeReader.Read(p)
+		n, err := r.pipeReader.Read(p)
+		if n > 0 {
+			r.audit.captureResponseChunk(p[:n])
+		}
+		return n, err
 	}
 
 	if len(r.leftover) > 0 {
 		n := copy(p, r.leftover)
 		r.leftover = r.leftover[n:]
+		r.audit.captureResponseChunk(p[:n])
 		return n, nil
 	}
 
@@ -453,7 +443,9 @@ func (r *responseModifier) Read(p []byte) (int, error) {
 		err = nil
 	}
 	if err != nil {
-		return copy(p, line), err
+		n := copy(p, line)
+		r.audit.captureResponseChunk(p[:n])
+		return n, err
 	}
 
 	var prefix []byte
@@ -462,17 +454,20 @@ func (r *responseModifier) Read(p []byte) (int, error) {
 		rest, ok := bytes.CutPrefix(line, prefix)
 		if !ok {
 			// This isn't a data line, so send it through.
-			return copy(p, line), nil
+			n := copy(p, line)
+			r.audit.captureResponseChunk(p[:n])
+			return n, nil
 		}
 		line = rest
 	}
 
-	r.extractTokenUsage(line)
+	r.tokenUsageTracker.addTokenUsage(line)
 
 	n := copy(p, prefix)
 	if n < len(prefix) {
 		// We couldn't copy the entire prefix, so save the leftover for the next read and return.
 		r.leftover = append(prefix[n:], line...)
+		r.audit.captureResponseChunk(p[:n])
 		return n, nil
 	}
 
@@ -481,41 +476,8 @@ func (r *responseModifier) Read(p []byte) (int, error) {
 	// If we didn't copy the entire line, then save the leftover for the next read.
 	r.leftover = line[n-len(prefix):]
 
+	r.audit.captureResponseChunk(p[:n])
 	return n, nil
-}
-
-// extractTokenUsage extracts token counts from a JSON line (with data: prefix already stripped).
-func (r *responseModifier) extractTokenUsage(line []byte) {
-	// Extract token usage from all known locations.
-	// Providers nest usage differently:
-	//   - Anthropic message_start: "message.usage"
-	//   - Anthropic message_delta: top-level "usage" (cumulative)
-	//   - OpenAI Responses API:    "response.usage"
-	// Use max to handle cumulative token counts (e.g. Anthropic's message_delta
-	// reports cumulative output_tokens, not incremental).
-	usage := gjson.GetBytes(line, "usage")
-	promptTokens := max(usage.Get("prompt_tokens").Int(), usage.Get("input_tokens").Int())
-	completionTokens := max(usage.Get("completion_tokens").Int(), usage.Get("output_tokens").Int())
-	totalTokens := usage.Get("total_tokens").Int()
-
-	if msgUsage := gjson.GetBytes(line, "message.usage"); msgUsage.Exists() {
-		promptTokens = max(promptTokens, msgUsage.Get("input_tokens").Int())
-		completionTokens = max(completionTokens, msgUsage.Get("output_tokens").Int())
-	}
-
-	if respUsage := gjson.GetBytes(line, "response.usage"); respUsage.Exists() {
-		promptTokens = max(promptTokens, respUsage.Get("input_tokens").Int())
-		completionTokens = max(completionTokens, respUsage.Get("output_tokens").Int())
-		totalTokens = max(totalTokens, respUsage.Get("total_tokens").Int())
-	}
-
-	if promptTokens > 0 || completionTokens > 0 || totalTokens > 0 {
-		r.lock.Lock()
-		r.promptTokens = max(r.promptTokens, int(promptTokens))
-		r.completionTokens = max(r.completionTokens, int(completionTokens))
-		r.totalTokens = max(r.totalTokens, int(totalTokens))
-		r.lock.Unlock()
-	}
 }
 
 // streamAndEvaluateToolCalls reads the upstream response, streams text through immediately,
@@ -559,7 +521,7 @@ func (r *responseModifier) streamAndEvaluateToolCallsSSE(ctx context.Context, pw
 
 			rest, isData := bytes.CutPrefix(line, []byte("data: "))
 			if isData {
-				r.extractTokenUsage(rest)
+				r.tokenUsageTracker.addTokenUsage(rest)
 
 				// Anthropic format: content_block_start/content_block_delta
 				accumulateAnthropicToolCallInfo(rest, &toolCalls, anthropicBlockToTool)
@@ -582,7 +544,7 @@ func (r *responseModifier) streamAndEvaluateToolCallsSSE(ctx context.Context, pw
 			continue
 		}
 
-		r.extractTokenUsage(rest)
+		r.tokenUsageTracker.addTokenUsage(rest)
 
 		if isAnthropicToolCallEvent(rest) {
 			// Anthropic-format tool calls (content_block_start with type "tool_use").
@@ -627,7 +589,7 @@ func (r *responseModifier) streamAndEvaluateToolCallsSSE(ctx context.Context, pw
 	// Log each violation.
 	blockedContent, _ := json.Marshal(toolCalls)
 	for _, v := range violations {
-		logViolation(context.Background(), r.client, v, r.userID, string(types2.PolicyDirectionToolCalls), blockedContent, r.projectID, r.threadID)
+		logViolation(context.Background(), r.client, v, r.user.GetUID(), string(types2.PolicyDirectionToolCalls), blockedContent, r.projectID, r.threadID)
 	}
 
 	// Violation — forward tool calls (to keep conversation history valid)
@@ -675,7 +637,7 @@ func (r *responseModifier) streamAndEvaluateToolCallsJSON(ctx context.Context, p
 	_, _ = io.Copy(&buf, r.b)
 	body := buf.Bytes()
 
-	r.extractTokenUsage(body)
+	r.tokenUsageTracker.addTokenUsage(body)
 
 	// Anthropic format: content array with type "tool_use"
 	anthropicContent := gjson.GetBytes(body, "content")
@@ -725,7 +687,7 @@ func (r *responseModifier) streamAndEvaluateToolCallsJSON(ctx context.Context, p
 	// Log each violation.
 	blockedContent, _ := json.Marshal(toolCalls)
 	for _, v := range violations {
-		logViolation(context.Background(), r.client, v, r.userID, string(types2.PolicyDirectionToolCalls), blockedContent, r.projectID, r.threadID)
+		logViolation(context.Background(), r.client, v, r.user.GetUID(), string(types2.PolicyDirectionToolCalls), blockedContent, r.projectID, r.threadID)
 	}
 
 	// Violation — keep tool calls but add violation marker to the JSON.
@@ -847,24 +809,34 @@ func buildToolCallTargetMessage(toolCalls []messagepolicy.ToolCallInfo) string {
 }
 
 func (r *responseModifier) Close() error {
-	r.lock.Lock()
-	totalTokens := r.totalTokens
-	if totalTokens == 0 {
-		totalTokens = r.promptTokens + r.completionTokens
+	if r.tokenUsageTracker != nil {
+		usage := r.tokenUsageTracker.getTokenUsage()
+		r.audit.setTokenUsage(usage)
+		activity := &types.RunTokenActivity{
+			UserID: r.user.GetUID(),
+			Model:  r.model,
+			Usage:  usage,
+		}
+		if err := r.client.InsertTokenUsage(context.Background(), activity); err != nil {
+			log.Warnf("failed to save token usage for user %s: %v", r.user.GetUID(), err)
+		}
 	}
-	activity := &types.RunTokenActivity{
-		UserID:           r.userID,
-		Model:            r.model,
-		PromptTokens:     r.promptTokens,
-		CompletionTokens: r.completionTokens,
-		TotalTokens:      totalTokens,
-		PersonalToken:    r.personalToken,
+	// ReverseProxy does not return body-copy errors to the handler, so Close is
+	// the terminal point for proxied responses. The handler defer is a fallback.
+	err := r.c.Close()
+	r.audit.finish(r.client, err)
+	return err
+}
+
+func wrapAuditOnlyResponse(resp *http.Response, audit *llmAuditRecorder, client *client.Client) {
+	if audit == nil || resp == nil || resp.Body == nil {
+		return
 	}
-	r.lock.Unlock()
-	if err := r.client.InsertTokenUsage(context.Background(), activity); err != nil {
-		log.Warnf("failed to save token usage for user %s: %v", r.userID, err)
+	resp.Body = &llmAuditResponseBody{
+		body:   resp.Body,
+		audit:  audit,
+		client: client,
 	}
-	return r.c.Close()
 }
 
 func mustParseURL(s string) *url.URL {
@@ -875,7 +847,7 @@ func mustParseURL(s string) *url.URL {
 	return u
 }
 
-func llmTransformRequest(u url.URL, credEnv map[string]string) func(req *http.Request) {
+func llmTransformRequest(u url.URL) func(req *http.Request) {
 	urlCopy := u // avoid mutating the original url.URL across requests
 	return func(req *http.Request) {
 		reqPath := req.PathValue("path")
@@ -901,18 +873,11 @@ func llmTransformRequest(u url.URL, credEnv map[string]string) func(req *http.Re
 		req.URL = &urlCopy
 		req.Host = urlCopy.Host
 
-		addCredHeaders(req, credEnv)
 		// Ensure the upstream transport can transparently decode compressed responses.
 		// If we forward Accept-Encoding from the client, net/http transport will not
 		// auto-decompress and token usage parsing can see compressed bytes.
 		req.Header.Del("Accept-Encoding")
 		req.Header.Del(internalRequestTypeHeader)
-	}
-}
-
-func addCredHeaders(r *http.Request, credEnv map[string]string) {
-	for k, v := range credEnv {
-		r.Header.Set(fmt.Sprintf("X-Obot-%s", k), v)
 	}
 }
 
@@ -1020,28 +985,37 @@ func extractContentString(content any) string {
 }
 
 type llmProviderProxy struct {
-	dailyUserTokenPromptTokenLimit     int
-	dailyUserTokenCompletionTokenLimit int
-	u                                  *url.URL
-	modelProviderName                  string
-	modelProvider                      *v1.ModelProvider
-	mapHelper                          *modelaccesspolicy.Helper
-	messagePolicyHelper                *messagepolicy.Helper
-	lock                               sync.RWMutex
+	dailyUserInputTokenLimit  int
+	dailyUserOutputTokenLimit int
+	u                         *url.URL
+	modelProviderName         string
+	modelProvider             *v1.ModelProvider
+	mapHelper                 *modelaccesspolicy.Helper
+	messagePolicyHelper       *messagepolicy.Helper
+	lock                      sync.RWMutex
 }
 
 func (s *Server) newLLMProviderProxy(u *url.URL, modelProviderName string) *llmProviderProxy {
 	return &llmProviderProxy{
-		dailyUserTokenPromptTokenLimit:     s.dailyUserTokenPromptTokenLimit,
-		dailyUserTokenCompletionTokenLimit: s.dailyUserTokenCompletionTokenLimit,
-		u:                                  u,
-		modelProviderName:                  modelProviderName,
-		mapHelper:                          s.mapHelper,
-		messagePolicyHelper:                s.messagePolicyHelper,
+		dailyUserInputTokenLimit:  s.dailyUserInputTokenLimit,
+		dailyUserOutputTokenLimit: s.dailyUserOutputTokenLimit,
+		u:                         u,
+		modelProviderName:         modelProviderName,
+		mapHelper:                 s.mapHelper,
+		messagePolicyHelper:       s.messagePolicyHelper,
 	}
 }
 
-func (l *llmProviderProxy) proxy(req api.Context) error {
+func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
+	var audit *llmAuditRecorder
+	if req.GatewayClient.LLMAuditLogEnabled() {
+		audit = newLLMAuditRecorder(req.Request, req.User, defaultLLMAuditLogResponseCaptureLimit)
+		defer func() {
+			audit.finish(req.GatewayClient, retErr)
+		}()
+	}
+	audit.setModel(l.modelProviderName, "", "")
+
 	l.lock.RLock()
 	modelProvider := l.modelProvider
 	l.lock.RUnlock()
@@ -1062,7 +1036,11 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to copy body: %w", err)
 	}
+	audit.setRequestBody(body)
+	audit.setClientSessionID(l.modelProviderName, body)
+	audit.setReasoningEffort(l.modelProviderName, body)
 
+	var tokenUsageTracker *threadSafeTokenUsageTracker
 	targetModel := extractModelFromBody(body)
 	if targetModel != "" {
 		model, err := getModelFromReference(req.Context(), req.Storage, modelProvider.Namespace, targetModel)
@@ -1084,7 +1062,9 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 			return types2.NewErrForbidden("user does not have permission to use model %q", targetModel)
 		}
 
+		tokenUsageTracker = newTokenUsageTracker(*model)
 		targetModel = model.Spec.Manifest.TargetModel
+		audit.setModel(l.modelProviderName, model.Name, targetModel)
 
 		// Replace the model resource name with the actual provider model name
 		body, err = rewriteModelInBody(body, targetModel)
@@ -1093,6 +1073,7 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 		}
 		req.Request.Body = io.NopCloser(bytes.NewReader(body))
 		req.ContentLength = int64(len(body))
+		audit.setRequestBody(body)
 	}
 
 	// Evaluate message policies if the helper is available and we have a user.
@@ -1121,15 +1102,21 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 				}
 				req.Request.Body = io.NopCloser(bytes.NewReader(b))
 				req.ContentLength = int64(len(b))
+				audit.setRedactedRequestBody(b)
 			}
 		}
 	}
 
-	remainingUsage, err := req.GatewayClient.RemainingTokenUsageForUser(req.Context(), req.User.GetUID(), tokenUsageTimePeriod, l.dailyUserTokenPromptTokenLimit, l.dailyUserTokenCompletionTokenLimit)
-	if err != nil {
+	if remainingUsage, err := req.GatewayClient.RemainingTokenUsageForUser(
+		req.Context(),
+		req.User.GetUID(),
+		tokenUsageTimePeriod,
+		l.dailyUserInputTokenLimit,
+		l.dailyUserOutputTokenLimit,
+	); err != nil {
 		return err
-	} else if !remainingUsage.UnlimitedPromptTokens && remainingUsage.PromptTokens <= 0 || !remainingUsage.UnlimitedCompletionTokens && remainingUsage.CompletionTokens <= 0 {
-		return types2.NewErrHTTP(http.StatusTooManyRequests, fmt.Sprintf("no tokens remaining (prompt tokens remaining: %d, completion tokens remaining: %d)", remainingUsage.PromptTokens, remainingUsage.CompletionTokens))
+	} else if remainingUsage.IsDepleted() {
+		return types2.NewErrHTTP(http.StatusTooManyRequests, fmt.Sprintf("no tokens remaining (input tokens remaining: %d, output tokens remaining: %d)", remainingUsage.InputTokens, remainingUsage.OutputTokens))
 	}
 
 	credEnv, err := dispatcher.CredentialEnvForModelProvider(req.Context(), req.GatewayClient, *modelProvider)
@@ -1148,34 +1135,32 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 		req.Request.Header.Set("X-Api-Key", credEnv[credEnvKey])
 	}
 
-	// For the models-list endpoint, compute the set of provider-native target
-	// model ids the user may use so the response modifier can strip inaccessible
-	// models.
-	var (
-		allowedTargetModels map[string]bool
-		allowAllModels      bool
-	)
-	if isModelsListRequest(req.Request) {
-		allowedTargetModels, allowAllModels, err = l.mapHelper.GetUserAllowedTargetModels(req.User, l.modelProviderName)
-		if err != nil {
-			return fmt.Errorf("failed to determine accessible models: %w", err)
-		}
-	}
-
+	var proxyErr error
 	(&httputil.ReverseProxy{
-		Director: llmTransformRequest(*l.u, nil),
+		Director: llmTransformRequest(*l.u),
+		ErrorHandler: func(w http.ResponseWriter, _ *http.Request, err error) {
+			proxyErr = err
+			audit.finish(req.GatewayClient, err)
+			log.Warnf("LLM provider proxy error: %v", err)
+			http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
+		},
 		ModifyResponse: (&responseModifier{
-			userID:                 req.User.GetUID(),
+			user:                   req.User,
 			model:                  targetModel,
+			modelProvider:          l.modelProviderName,
 			client:                 req.GatewayClient,
+			tokenUsageTracker:      tokenUsageTracker,
+			mapHelper:              l.mapHelper,
 			inputPolicyReplacement: inputPolicyReplacement,
 			messagePolicyHelper:    messagePolicyHelper,
 			outputPolicies:         outputPolicies,
 			conversationHistory:    conversationHistory,
-			allowedTargetModels:    allowedTargetModels,
-			allowAllModels:         allowAllModels,
+			audit:                  audit,
 		}).modifyResponse,
 	}).ServeHTTP(req.ResponseWriter, req.Request)
+	if proxyErr != nil {
+		return nil
+	}
 
 	return nil
 }
@@ -1198,7 +1183,7 @@ func isModelsListRequest(req *http.Request) bool {
 func applyMessagePolicies(
 	ctx context.Context,
 	helper *messagepolicy.Helper,
-	userInfo user.Info,
+	userInfo kuser.Info,
 	gatewayClient *client.Client,
 	body map[string]any,
 	projectID, threadID string,

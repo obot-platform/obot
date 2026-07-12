@@ -8,8 +8,10 @@
 		type MCPCatalogServer,
 		type OrgUser
 	} from '$lib/services';
+	import { isDeprecatedMCPServer } from '$lib/services/user/mcp';
 	import { profile } from '$lib/stores';
 	import { openUrl } from '$lib/utils';
+	import McpDeprecatedNotice from '../mcp/McpDeprecatedNotice.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
 	import Table from '../table/Table.svelte';
 	import { CircleAlert, ChevronRight, Server } from '@lucide/svelte';
@@ -34,20 +36,33 @@
 		$props();
 	let isAdminUrl = $derived(page.url.pathname.includes('/admin'));
 	let servers = $state<MCPCatalogServer[]>([]);
+	let loadingServers = $state(true);
+	let failedToLoadServers = $state(false);
 	let serversMap = $derived(new Map(servers.map((s) => [s.catalogEntryID || s.id, s])));
 
 	onMount(async () => {
-		if (!mcpServerId || !catalogEntry?.id || !entityId) return;
+		if (!mcpServerId || !catalogEntry?.id || !entityId) {
+			loadingServers = false;
+			return;
+		}
 
-		const deployedCatalogEntryServers =
-			await AdminService.listAllCatalogDeployedSingleRemoteServers(DEFAULT_MCP_CATALOG_ID);
-		const deployedWorkspaceCatalogEntryServers =
-			await AdminService.listAllWorkspaceDeployedSingleRemoteServers();
+		try {
+			const [deployedCatalogEntryServers, deployedWorkspaceCatalogEntryServers] = await Promise.all(
+				[
+					AdminService.listAllCatalogDeployedSingleRemoteServers(DEFAULT_MCP_CATALOG_ID),
+					AdminService.listAllWorkspaceDeployedSingleRemoteServers()
+				]
+			);
 
-		servers = [
-			...deployedCatalogEntryServers.filter((s) => s.compositeName === mcpServerId),
-			...deployedWorkspaceCatalogEntryServers.filter((s) => s.compositeName === mcpServerId)
-		];
+			servers = [
+				...deployedCatalogEntryServers.filter((s) => s.compositeName === mcpServerId),
+				...deployedWorkspaceCatalogEntryServers.filter((s) => s.compositeName === mcpServerId)
+			];
+		} catch {
+			failedToLoadServers = true;
+		} finally {
+			loadingServers = false;
+		}
 	});
 </script>
 
@@ -66,9 +81,10 @@
 			{#each catalogEntry.manifest.compositeConfig.componentServers as componentServer (componentServer.catalogEntryID || componentServer.mcpServerID)}
 				{@const catalogEntryServerId =
 					componentServer.catalogEntryID && serversMap.get(componentServer.catalogEntryID)?.id}
-				{@const mcpServerId =
-					componentServer.mcpServerID && serversMap.get(componentServer.mcpServerID)?.id}
-				{@const componentExists = !!(catalogEntryServerId || mcpServerId)}
+				{@const multiUserServerId = componentServer.mcpServerID}
+				{@const componentServerId = catalogEntryServerId || multiUserServerId}
+				{@const componentExists = !!componentServerId}
+				{@const deprecated = isDeprecatedMCPServer(componentServer)}
 
 				{#if componentExists}
 					<button
@@ -107,8 +123,9 @@
 								{/if}
 							</div>
 							<p class="text-sm">{componentServer.manifest?.name}</p>
-							{#if catalogEntryServerId}
-								<span class="text-muted-content text-sm">({catalogEntryServerId})</span>
+							<McpDeprecatedNotice {deprecated} child />
+							{#if componentServerId}
+								<span class="text-muted-content text-sm">({componentServerId})</span>
 							{/if}
 						</div>
 						<IconButton>
@@ -132,14 +149,28 @@
 								{/if}
 							</div>
 							<p class="text-sm">{componentServer.manifest?.name}</p>
-							<span
-								class="text-muted-content flex items-center gap-1 text-xs"
-								title="This component server no longer exists"
-							>
-								<CircleAlert class="size-4" />
-								<span>Deleted</span>
-							</span>
+							<McpDeprecatedNotice {deprecated} child />
+							{#if loadingServers}
+								<span class="text-muted-content text-xs">Loading...</span>
+							{:else if failedToLoadServers}
+								<span
+									class="text-muted-content flex items-center gap-1 text-xs"
+									title="Unable to determine whether this component server still exists"
+								>
+									<CircleAlert class="size-4" />
+									<span>Unavailable</span>
+								</span>
+							{:else}
+								<span
+									class="text-muted-content flex items-center gap-1 text-xs"
+									title="This component server no longer exists"
+								>
+									<CircleAlert class="size-4" />
+									<span>Deleted</span>
+								</span>
+							{/if}
 						</div>
+						<div class="size-10 shrink-0"></div>
 					</div>
 				{/if}
 			{/each}

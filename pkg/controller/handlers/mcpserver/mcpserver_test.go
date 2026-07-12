@@ -384,6 +384,215 @@ func TestConfigurationHasDrifted(t *testing.T) {
 			expectedError: false,
 		},
 		{
+			name: "drift - env secret binding name changes",
+			serverManifest: types.MCPServerManifest{
+				Name:      "test-server",
+				Runtime:   types.RuntimeUVX,
+				UVXConfig: &types.UVXRuntimeConfig{Package: "test-package"},
+				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+					Key:           "API_KEY",
+					SecretBinding: &types.MCPSecretBinding{Name: "old-secret", Key: "api-key"},
+				}}},
+			},
+			entryManifest: types.MCPServerCatalogEntryManifest{
+				Name:      "test-server",
+				Runtime:   types.RuntimeUVX,
+				UVXConfig: &types.UVXRuntimeConfig{Package: "test-package"},
+				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+					Key:           "API_KEY",
+					SecretBinding: &types.MCPSecretBinding{Name: "new-secret", Key: "api-key"},
+				}}},
+			},
+			expectedDrift: true,
+			expectedError: false,
+		},
+		{
+			name: "drift - env secret binding key changes",
+			serverManifest: types.MCPServerManifest{
+				Name:      "test-server",
+				Runtime:   types.RuntimeUVX,
+				UVXConfig: &types.UVXRuntimeConfig{Package: "test-package"},
+				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+					Key:           "API_KEY",
+					SecretBinding: &types.MCPSecretBinding{Name: "bound-secret", Key: "old-key"},
+				}}},
+			},
+			entryManifest: types.MCPServerCatalogEntryManifest{
+				Name:      "test-server",
+				Runtime:   types.RuntimeUVX,
+				UVXConfig: &types.UVXRuntimeConfig{Package: "test-package"},
+				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+					Key:           "API_KEY",
+					SecretBinding: &types.MCPSecretBinding{Name: "bound-secret", Key: "new-key"},
+				}}},
+			},
+			expectedDrift: true,
+			expectedError: false,
+		},
+		{
+			name: "no drift - admin-added deployed env secret binding is ignored",
+			serverManifest: types.MCPServerManifest{
+				Name:      "test-server",
+				Runtime:   types.RuntimeUVX,
+				UVXConfig: &types.UVXRuntimeConfig{Package: "test-package"},
+				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+					Key:           "API_KEY",
+					Name:          "API Key",
+					Required:      true,
+					Sensitive:     true,
+					SecretBinding: &types.MCPSecretBinding{Name: "bound-secret", Key: "api-key", AdminAdded: true},
+				}}},
+			},
+			entryManifest: types.MCPServerCatalogEntryManifest{
+				Name:      "test-server",
+				Runtime:   types.RuntimeUVX,
+				UVXConfig: &types.UVXRuntimeConfig{Package: "test-package"},
+				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+					Key:       "API_KEY",
+					Name:      "API Key",
+					Required:  true,
+					Sensitive: true,
+				}}},
+			},
+			expectedDrift: false,
+			expectedError: false,
+		},
+		{
+			name: "no drift - admin-added deployed extra env secret binding is ignored",
+			serverManifest: types.MCPServerManifest{
+				Name:      "test-server",
+				Runtime:   types.RuntimeUVX,
+				UVXConfig: &types.UVXRuntimeConfig{Package: "test-package"},
+				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+					Key:           "ADMIN_API_KEY",
+					Name:          "Admin API Key",
+					Required:      true,
+					Sensitive:     true,
+					SecretBinding: &types.MCPSecretBinding{Name: "bound-secret", Key: "api-key", AdminAdded: true},
+				}}},
+			},
+			entryManifest: types.MCPServerCatalogEntryManifest{
+				Name:      "test-server",
+				Runtime:   types.RuntimeUVX,
+				UVXConfig: &types.UVXRuntimeConfig{Package: "test-package"},
+			},
+			expectedDrift: false,
+			expectedError: false,
+		},
+		{
+			name: "drift - catalog entry adds env secret binding over admin-added binding",
+			serverManifest: types.MCPServerManifest{
+				Name:      "test-server",
+				Runtime:   types.RuntimeUVX,
+				UVXConfig: &types.UVXRuntimeConfig{Package: "test-package"},
+				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+					Key:           "API_KEY",
+					Name:          "API Key",
+					Required:      true,
+					Sensitive:     true,
+					SecretBinding: &types.MCPSecretBinding{Name: "admin-secret", Key: "api-key", AdminAdded: true},
+				}}},
+			},
+			entryManifest: types.MCPServerCatalogEntryManifest{
+				Name:      "test-server",
+				Runtime:   types.RuntimeUVX,
+				UVXConfig: &types.UVXRuntimeConfig{Package: "test-package"},
+				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+					Key:           "API_KEY",
+					Name:          "API Key",
+					Required:      true,
+					Sensitive:     true,
+					SecretBinding: &types.MCPSecretBinding{Name: "catalog-secret", Key: "api-key"},
+				}}},
+			},
+			expectedDrift: true,
+			expectedError: false,
+		},
+		{
+			name: "no drift - admin-added env secret binding ignored on snapshot side",
+			serverManifest: types.MCPServerManifest{
+				Name:      "test-server",
+				Runtime:   types.RuntimeUVX,
+				UVXConfig: &types.UVXRuntimeConfig{Package: "test-package"},
+				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+					Key:       "API_KEY",
+					Name:      "API Key",
+					Required:  true,
+					Sensitive: true,
+				}}},
+			},
+			entryManifest: types.MCPServerCatalogEntryManifest{
+				Name:      "test-server",
+				Runtime:   types.RuntimeUVX,
+				UVXConfig: &types.UVXRuntimeConfig{Package: "test-package"},
+				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+					Key:           "API_KEY",
+					Name:          "API Key",
+					Required:      true,
+					Sensitive:     true,
+					SecretBinding: &types.MCPSecretBinding{Name: "admin-secret", Key: "api-key", AdminAdded: true},
+				}}},
+			},
+			expectedDrift: false,
+			expectedError: false,
+		},
+		{
+			name: "drift - catalog entry adds env secret binding",
+			serverManifest: types.MCPServerManifest{
+				Name:      "test-server",
+				Runtime:   types.RuntimeUVX,
+				UVXConfig: &types.UVXRuntimeConfig{Package: "test-package"},
+				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+					Key:       "API_KEY",
+					Name:      "API Key",
+					Required:  true,
+					Sensitive: true,
+				}}},
+			},
+			entryManifest: types.MCPServerCatalogEntryManifest{
+				Name:      "test-server",
+				Runtime:   types.RuntimeUVX,
+				UVXConfig: &types.UVXRuntimeConfig{Package: "test-package"},
+				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+					Key:           "API_KEY",
+					Name:          "API Key",
+					Required:      true,
+					Sensitive:     true,
+					SecretBinding: &types.MCPSecretBinding{Name: "catalog-secret", Key: "api-key"},
+				}}},
+			},
+			expectedDrift: true,
+			expectedError: false,
+		},
+		{
+			name: "drift - catalog entry removes env secret binding",
+			serverManifest: types.MCPServerManifest{
+				Name:      "test-server",
+				Runtime:   types.RuntimeUVX,
+				UVXConfig: &types.UVXRuntimeConfig{Package: "test-package"},
+				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+					Key:           "API_KEY",
+					Name:          "API Key",
+					Required:      true,
+					Sensitive:     true,
+					SecretBinding: &types.MCPSecretBinding{Name: "catalog-secret", Key: "api-key"},
+				}}},
+			},
+			entryManifest: types.MCPServerCatalogEntryManifest{
+				Name:      "test-server",
+				Runtime:   types.RuntimeUVX,
+				UVXConfig: &types.UVXRuntimeConfig{Package: "test-package"},
+				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+					Key:       "API_KEY",
+					Name:      "API Key",
+					Required:  true,
+					Sensitive: true,
+				}}},
+			},
+			expectedDrift: true,
+			expectedError: false,
+		},
+		{
 			name: "no drift - remote header secret bindings compare by value",
 			serverManifest: types.MCPServerManifest{
 				Name:    "test-server",
@@ -408,6 +617,156 @@ func TestConfigurationHasDrifted(t *testing.T) {
 				},
 			},
 			expectedDrift: false,
+			expectedError: false,
+		},
+		{
+			name: "drift - remote header secret binding name changes",
+			serverManifest: types.MCPServerManifest{
+				Name:    "test-server",
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					URL: "https://api.example.com/mcp",
+					Headers: []types.MCPHeader{{
+						Key:           "Authorization",
+						SecretBinding: &types.MCPSecretBinding{Name: "old-secret", Key: "token"},
+					}},
+				},
+			},
+			entryManifest: types.MCPServerCatalogEntryManifest{
+				Name:    "test-server",
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteCatalogConfig{
+					FixedURL: "https://api.example.com/mcp",
+					Headers: []types.MCPHeader{{
+						Key:           "Authorization",
+						SecretBinding: &types.MCPSecretBinding{Name: "new-secret", Key: "token"},
+					}},
+				},
+			},
+			expectedDrift: true,
+			expectedError: false,
+		},
+		{
+			name: "drift - remote header secret binding key changes",
+			serverManifest: types.MCPServerManifest{
+				Name:    "test-server",
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					URL: "https://api.example.com/mcp",
+					Headers: []types.MCPHeader{{
+						Key:           "Authorization",
+						SecretBinding: &types.MCPSecretBinding{Name: "bound-secret", Key: "old-token"},
+					}},
+				},
+			},
+			entryManifest: types.MCPServerCatalogEntryManifest{
+				Name:    "test-server",
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteCatalogConfig{
+					FixedURL: "https://api.example.com/mcp",
+					Headers: []types.MCPHeader{{
+						Key:           "Authorization",
+						SecretBinding: &types.MCPSecretBinding{Name: "bound-secret", Key: "new-token"},
+					}},
+				},
+			},
+			expectedDrift: true,
+			expectedError: false,
+		},
+		{
+			name: "no drift - admin-added deployed remote header secret binding is ignored",
+			serverManifest: types.MCPServerManifest{
+				Name:    "test-server",
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					URL: "https://api.example.com/mcp",
+					Headers: []types.MCPHeader{{
+						Key:           "Authorization",
+						Name:          "Authorization",
+						Required:      true,
+						Sensitive:     true,
+						SecretBinding: &types.MCPSecretBinding{Name: "bound-secret", Key: "token", AdminAdded: true},
+					}},
+				},
+			},
+			entryManifest: types.MCPServerCatalogEntryManifest{
+				Name:    "test-server",
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteCatalogConfig{
+					FixedURL: "https://api.example.com/mcp",
+					Headers: []types.MCPHeader{{
+						Key:       "Authorization",
+						Name:      "Authorization",
+						Required:  true,
+						Sensitive: true,
+					}},
+				},
+			},
+			expectedDrift: false,
+			expectedError: false,
+		},
+		{
+			name: "drift - catalog entry adds remote header secret binding",
+			serverManifest: types.MCPServerManifest{
+				Name:    "test-server",
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					URL: "https://api.example.com/mcp",
+					Headers: []types.MCPHeader{{
+						Key:       "Authorization",
+						Name:      "Authorization",
+						Required:  true,
+						Sensitive: true,
+					}},
+				},
+			},
+			entryManifest: types.MCPServerCatalogEntryManifest{
+				Name:    "test-server",
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteCatalogConfig{
+					FixedURL: "https://api.example.com/mcp",
+					Headers: []types.MCPHeader{{
+						Key:           "Authorization",
+						Name:          "Authorization",
+						Required:      true,
+						Sensitive:     true,
+						SecretBinding: &types.MCPSecretBinding{Name: "catalog-secret", Key: "token"},
+					}},
+				},
+			},
+			expectedDrift: true,
+			expectedError: false,
+		},
+		{
+			name: "drift - catalog entry removes remote header secret binding",
+			serverManifest: types.MCPServerManifest{
+				Name:    "test-server",
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					URL: "https://api.example.com/mcp",
+					Headers: []types.MCPHeader{{
+						Key:           "Authorization",
+						Name:          "Authorization",
+						Required:      true,
+						Sensitive:     true,
+						SecretBinding: &types.MCPSecretBinding{Name: "catalog-secret", Key: "token"},
+					}},
+				},
+			},
+			entryManifest: types.MCPServerCatalogEntryManifest{
+				Name:    "test-server",
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteCatalogConfig{
+					FixedURL: "https://api.example.com/mcp",
+					Headers: []types.MCPHeader{{
+						Key:       "Authorization",
+						Name:      "Authorization",
+						Required:  true,
+						Sensitive: true,
+					}},
+				},
+			},
+			expectedDrift: true,
 			expectedError: false,
 		},
 		{
@@ -988,6 +1347,59 @@ func TestDetectDriftClearsMultiUserCatalogEntryDeploymentWhenConfigurationMatche
 			Port:  8080,
 			Path:  "/mcp",
 		},
+	}
+	server.Status.NeedsUpdate = true
+
+	client := newFakeClient(t, entry, server)
+	err := (&Handler{}).DetectDrift(router.Request{
+		Client:    client,
+		Ctx:       context.Background(),
+		Object:    server,
+		Namespace: server.Namespace,
+		Name:      server.Name,
+	}, &router.ResponseWrapper{})
+	require.NoError(t, err)
+
+	var updated v1.MCPServer
+	require.NoError(t, client.Get(context.Background(), router.Key(server.Namespace, server.Name), &updated))
+	assert.False(t, updated.Status.NeedsUpdate)
+}
+
+func TestDetectDriftClearsMultiUserCatalogEntryDeploymentWithAdminAddedEnvBinding(t *testing.T) {
+	entry := newMCPServerCatalogEntry("template-entry", types.MCPServerCatalogEntryManifest{
+		Name:           "Shared Template",
+		Runtime:        types.RuntimeContainerized,
+		ServerUserType: types.ServerUserTypeMultiUser,
+		ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+			Image: "example/mcp:1.0.0",
+			Port:  8080,
+			Path:  "/mcp",
+		},
+		Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+			Key:       "API_KEY",
+			Name:      "API Key",
+			Required:  true,
+			Sensitive: true,
+		}}},
+	})
+	server := newMCPServer("shared-server")
+	server.Spec.MCPCatalogID = "default"
+	server.Spec.MCPServerCatalogEntryName = entry.Name
+	server.Spec.Manifest = types.MCPServerManifest{
+		Name:    "Shared Template",
+		Runtime: types.RuntimeContainerized,
+		ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+			Image: "example/mcp:1.0.0",
+			Port:  8080,
+			Path:  "/mcp",
+		},
+		Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+			Key:           "API_KEY",
+			Name:          "API Key",
+			Required:      true,
+			Sensitive:     true,
+			SecretBinding: &types.MCPSecretBinding{Name: "bound-secret", Key: "api-key", AdminAdded: true},
+		}}},
 	}
 	server.Status.NeedsUpdate = true
 

@@ -1,7 +1,12 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { compileAvailableMcpServers, getMCPDisplayName } from '$lib/services/user/mcp';
+	import {
+		compileAvailableMcpServers,
+		getMCPDisplayName,
+		isDeprecatedMCPServer
+	} from '$lib/services/user/mcp';
 	import { mcpServersAndEntries } from '$lib/stores';
+	import McpDeprecatedNotice from '../mcp/McpDeprecatedNotice.svelte';
 	import { TriangleAlert } from '@lucide/svelte';
 
 	interface Props {
@@ -29,15 +34,27 @@
 		return mcpServerIds
 			.map((id) => {
 				const server = serverMap.get(id);
-				return getMCPDisplayName(server, '');
+				return server
+					? {
+							name: getMCPDisplayName(server, ''),
+							deprecated: isDeprecatedMCPServer(server)
+						}
+					: undefined;
 			})
-			.filter((name): name is string => name !== '');
+			.filter(
+				(server): server is { name: string; deprecated: boolean } =>
+					server !== undefined && server.name !== ''
+			);
 	});
 
-	type DisplayItem = { name: string; deleted: boolean };
+	type DisplayItem = { name: string; deleted: boolean; deprecated?: boolean };
 	let displayItems = $derived.by((): DisplayItem[] => {
 		if (isAllServers) return [];
-		const items: DisplayItem[] = resolvedServers.map((name) => ({ name, deleted: false }));
+		const items: DisplayItem[] = resolvedServers.map((server) => ({
+			name: server.name,
+			deleted: false,
+			deprecated: server.deprecated
+		}));
 		for (let i = 0; i < deletedServersCount; i++) {
 			items.push({ name: 'Deleted', deleted: true });
 		}
@@ -46,8 +63,10 @@
 </script>
 
 {#snippet serverName(item: DisplayItem)}
-	{#if item.deleted}<i class="text-muted-content font-light italic">({item.name})</i
-		>{:else}{item.name}{/if}
+	{#if item.deleted}<i class="text-muted-content font-light italic">({item.name})</i>{:else}<span
+			class="inline-flex items-center gap-1"
+			>{item.name}<McpDeprecatedNotice deprecated={item.deprecated} /></span
+		>{/if}
 {/snippet}
 
 <div class="">

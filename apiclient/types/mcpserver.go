@@ -176,6 +176,7 @@ type MCPResourceRequirements struct {
 
 type MCPServerCatalogEntryManifest struct {
 	Metadata         map[string]string `json:"metadata,omitempty"`
+	EntryKey         string            `json:"entryKey,omitempty"`
 	Name             string            `json:"name"`
 	ShortDescription string            `json:"shortDescription"`
 	Description      string            `json:"description"`
@@ -245,11 +246,23 @@ type MCPHeader struct {
 }
 
 // MCPSecretBinding references a single key in a pre-existing Kubernetes Secret
-// in the Obot namespace (the namespace where the Obot server runs)
+// in the Obot namespace (the namespace where the Obot server runs).
 type MCPSecretBinding struct {
 	Name string `json:"name"`
 	Key  string `json:"key"`
+	// AdminAdded marks bindings selected on a deployed multi-user server by an admin.
+	// Catalog YAML must not set this; drift/diff logic uses it to ignore local admin config.
+	AdminAdded bool `json:"adminAdded,omitempty"`
 }
+
+// MCPAllowedSecretBindingTarget describes a Kubernetes Secret that admins can select for MCP secret bindings.
+type MCPAllowedSecretBindingTarget struct {
+	Name string   `json:"name"`
+	Keys []string `json:"keys"`
+}
+
+// MCPAllowedSecretBindingTargetList is a list of Kubernetes Secrets allowed for MCP secret bindings.
+type MCPAllowedSecretBindingTargetList List[MCPAllowedSecretBindingTarget]
 
 type MCPEnv struct {
 	MCPHeader `json:",inline"`
@@ -478,6 +491,57 @@ func (m MCPServerManifest) RuntimeStartupTimeoutSeconds() int {
 
 func (m SystemMCPServerManifest) RuntimeStartupTimeoutSeconds() int {
 	return startupTimeoutSeconds(m.Runtime, m.UVXConfig, m.NPXConfig, m.ContainerizedConfig)
+}
+
+// ConvertToCatalogEntry converts an MCPServerManifest to an MCPServerCatalogEntryManifest.
+func (m MCPServerManifest) ConvertToCatalogEntry() MCPServerCatalogEntryManifest {
+	catalogManifest := MCPServerCatalogEntryManifest{
+		Metadata:         m.Metadata,
+		Name:             m.Name,
+		ShortDescription: m.ShortDescription,
+		Description:      m.Description,
+		Icon:             m.Icon,
+		Runtime:          m.Runtime,
+		Env:              m.Env,
+		ToolPreview:      m.ToolPreview,
+		MultiUserConfig:  m.MultiUserConfig,
+		Resources:        m.Resources,
+	}
+
+	switch m.Runtime {
+	case RuntimeUVX:
+		catalogManifest.UVXConfig = m.UVXConfig
+	case RuntimeNPX:
+		catalogManifest.NPXConfig = m.NPXConfig
+	case RuntimeContainerized:
+		catalogManifest.ContainerizedConfig = m.ContainerizedConfig
+	case RuntimeRemote:
+		if m.RemoteConfig != nil {
+			catalogManifest.RemoteConfig = &RemoteCatalogConfig{
+				FixedURL:            m.RemoteConfig.URL,
+				URLTemplate:         m.RemoteConfig.URLTemplate,
+				Hostname:            m.RemoteConfig.Hostname,
+				Headers:             m.RemoteConfig.Headers,
+				StaticOAuthRequired: m.RemoteConfig.StaticOAuthRequired,
+			}
+		}
+	case RuntimeComposite:
+		if m.CompositeConfig != nil {
+			componentServers := make([]CatalogComponentServer, len(m.CompositeConfig.ComponentServers))
+			for i, comp := range m.CompositeConfig.ComponentServers {
+				componentServers[i] = CatalogComponentServer{
+					CatalogEntryID: comp.CatalogEntryID,
+					MCPServerID:    comp.MCPServerID,
+					Manifest:       comp.Manifest.ConvertToCatalogEntry(),
+					ToolOverrides:  comp.ToolOverrides,
+					ToolPrefix:     comp.ToolPrefix,
+				}
+			}
+			catalogManifest.CompositeConfig = &CompositeCatalogConfig{ComponentServers: componentServers}
+		}
+	}
+
+	return catalogManifest
 }
 
 // MapCatalogEntryToServer converts an MCPServerCatalogEntryManifest to an MCPServerManifest

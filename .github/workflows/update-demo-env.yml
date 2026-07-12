@@ -28,4 +28,4 @@ jobs:
 
       - name: Copy to demo tag
         run: |
-          crane tag ghcr.io/${{ github.repository }}-enterprise:main demo
+          crane tag ghcr.io/${{ github.repository }}:main demo

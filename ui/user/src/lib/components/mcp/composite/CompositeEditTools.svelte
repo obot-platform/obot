@@ -7,11 +7,13 @@
 		conflictIssue,
 		duplicateToolNames,
 		effectiveToolName,
+		isDeprecatedMCPServer,
 		MAX_TOOL_PREFIX_LENGTH,
 		TOOL_NAME_CHARSET_REGEX,
 		TOOL_NAME_SPECIAL_CHAR_WARNING,
 		toolNameIssue
 	} from '$lib/services/user/mcp';
+	import McpDeprecatedNotice from '../McpDeprecatedNotice.svelte';
 	import ToolNameIssueIcon from '../ToolNameIssueIcon.svelte';
 	import { TriangleAlert } from '@lucide/svelte';
 
@@ -97,6 +99,7 @@
 	let initialConfigState = $state<string>('');
 
 	let allToolsEnabled = $derived(tools.every((tool) => tool.enabled));
+	let configuringEntryDeprecated = $derived(isDeprecatedMCPServer(configuringEntry));
 
 	let visibleTools = $derived(
 		tools.filter(
@@ -157,6 +160,12 @@
 	classes={{ content: 'p-0', header: 'p-4 pb-0' }}
 	onClickOutside={handleClose}
 >
+	<McpDeprecatedNotice
+		deprecated={configuringEntryDeprecated}
+		variant="notification"
+		child
+		class="mx-4 mb-3"
+	/>
 	<p class="text-muted-content px-4 text-xs font-light">
 		Toggle what tools are available to users of this composite server. Or modify the name or
 		description of a tool; this will override the default name or description provided by the

@@ -2,7 +2,12 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { stripMarkdownToText } from '$lib/markdown';
 	import type { MCPCatalogServer, MCPCatalogEntry } from '$lib/services';
-	import { getMCPDisplayName, parseCategories } from '$lib/services/user/mcp';
+	import {
+		getMCPDisplayName,
+		isDeprecatedMCPServer,
+		parseCategories
+	} from '$lib/services/user/mcp';
+	import McpDeprecatedNotice from './McpDeprecatedNotice.svelte';
 	import { Server, TriangleAlert } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -21,6 +26,7 @@
 	let description = $derived(parent?.manifest?.description ?? data?.manifest?.description);
 	let categories = $derived(parent?.categories ?? data.categories! ?? parseCategories(data));
 	let needsUpdate = $derived(!('isCatalogEntry' in data) ? !data.configured : false);
+	let deprecated = $derived(isDeprecatedMCPServer(parent) || isDeprecatedMCPServer(data));
 </script>
 
 <div class="relative flex flex-col">
@@ -41,9 +47,10 @@
 					<Server />
 				{/if}
 			</div>
-			<div class="flex max-w-[calc(100%-2rem)]">
-				<p class="text-sm font-semibold">{name}</p>
+			<div class="flex min-w-0 max-w-[calc(100%-2rem)]">
+				<p class="truncate text-sm font-semibold">{name}</p>
 			</div>
+			<McpDeprecatedNotice {deprecated} />
 		</div>
 		<span
 			class={twMerge(

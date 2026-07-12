@@ -5,6 +5,8 @@
 		UserService,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
+		type MCPAllowedSecretBindingTarget,
+		type MCPSubField,
 		type MCPServerInstance
 	} from '$lib/services';
 	import { EventStreamService } from '$lib/services/admin/eventstream.svelte';
@@ -15,11 +17,15 @@
 		isMultiUserServer,
 		isKubernetesRuntimeBackend,
 		hasEditableConfiguration,
-		getMCPDisplayName
+		getMCPDisplayName,
+		hasSecretBinding,
+		isDeprecatedMCPServer
 	} from '$lib/services/user/mcp';
-	import { version } from '$lib/stores';
+	import { errors, mcpServersAndEntries, profile, version } from '$lib/stores';
+	import { goto } from '$lib/url';
 	import Confirm from '../Confirm.svelte';
 	import CopyField from '../CopyField.svelte';
+	import DotDotDot from '../DotDotDot.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
 	import CatalogConfigureForm, {
@@ -27,13 +33,13 @@
 		type LaunchFormData
 	} from './CatalogConfigureForm.svelte';
 	import HowToConnect from './HowToConnect.svelte';
+	import McpDeprecatedNotice from './McpDeprecatedNotice.svelte';
 	import { Server, X, CircleAlert } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
-		userConfiguredServers: MCPCatalogServer[];
 		catalogID?: string;
 		workspaceID?: string;
 		onConnect?: ({
@@ -54,25 +60,37 @@
 			entry?: MCPCatalogEntry;
 			server?: MCPCatalogServer;
 		}) => string;
+		introTitle?: string;
 	}
 
 	let {
-		userConfiguredServers,
 		catalogID,
 		workspaceID,
 		onConnect,
 		onClose,
 		skipConnectDialog,
-		renderIntroText
+		renderIntroText,
+		introTitle
 	}: Props = $props();
 
 	let server = $state<MCPCatalogServer>();
 	let entry = $state<MCPCatalogEntry>();
 	let instance = $state<MCPServerInstance>();
+	let userConfiguredServers = $derived(mcpServersAndEntries.current.userConfiguredServers);
+
 	let manifest = $derived(server?.manifest || entry?.manifest);
+	let deprecated = $derived(isDeprecatedMCPServer(entry) || isDeprecatedMCPServer(server));
 	let isConfigured = $derived(Boolean((entry && server) || (server && instance)));
 	let isDeployingMultiUserCatalogEntry = $derived(
 		Boolean(entry && !server && isMultiUserCatalogEntry(entry))
+	);
+	let canBindSecretsForCatalogEntry = $derived(
+		Boolean(
+			isDeployingMultiUserCatalogEntry &&
+			catalogID &&
+			!workspaceID &&
+			isKubernetesRuntimeBackend(version.current.engine)
+		)
 	);
 	let secretBindingEngineError = $derived(
 		isKubernetesRuntimeBackend(version.current.engine)
@@ -87,6 +105,9 @@
 	let configureForm = $state<LaunchFormData | CompositeLaunchFormData>();
 	let configureFormTitle = $state<string>();
 	let configureInstance = $state(false);
+	let secretBindingTargets = $state<MCPAllowedSecretBindingTarget[]>([]);
+	let secretBindingTargetsLoaded = $state(false);
+	let loadingSecretBindingTargets = $state(false);
 
 	let launchError = $state<string>();
 	let launchProgress = $state<number>(0);
@@ -101,6 +122,32 @@
 		isDeployingMultiUserCatalogEntry ||
 			(isConfigured && !isMultiUserServer(server) && launchState !== 'relaunching')
 	);
+
+	let canModifyCatalogEntry = $derived(
+		profile.current.isAdmin?.() || (entry && entry.powerUserID === profile.current.id)
+	);
+
+	async function loadSecretBindingTargets() {
+		if (
+			!canBindSecretsForCatalogEntry ||
+			loadingSecretBindingTargets ||
+			secretBindingTargetsLoaded
+		) {
+			return;
+		}
+		loadingSecretBindingTargets = true;
+		try {
+			secretBindingTargets = await AdminService.listMCPSecretBindingTargets({
+				dontLogErrors: true
+			});
+		} catch (err) {
+			errors.append(`Failed to load Kubernetes Secrets for binding: ${err}`);
+			secretBindingTargets = [];
+		} finally {
+			secretBindingTargetsLoaded = true;
+			loadingSecretBindingTargets = false;
+		}
+	}
 
 	let oauthDialog = $state<HTMLDialogElement>();
 	let oauthURL = $state<string>('');
@@ -173,17 +220,64 @@
 			envs: item.manifest?.env?.map((env) => ({
 				...env,
 				value: '',
-				isStatic: env.value !== ''
+				isStatic: env.value !== '',
+				secretBindingReadonly: hasSecretBinding(env)
 			})),
 			headers: item.manifest?.remoteConfig?.headers?.map((header) => ({
 				...header,
 				value: '',
-				isStatic: header.value !== ''
+				isStatic: header.value !== '',
+				secretBindingReadonly: hasSecretBinding(header)
 			})),
 			...(item.manifest?.remoteConfig?.hostname
 				? { hostname: item.manifest.remoteConfig?.hostname, url: '' }
 				: {})
 		};
+	}
+
+	function secretBoundFields(fields?: MCPSubField[]) {
+		// Whitelist the API manifest properties so UI-only runtime fields
+		// (e.g. isStatic, secretBindingReadonly) don't leak into the request payload.
+		return (fields ?? [])
+			.filter((field) => hasSecretBinding(field))
+			.map((field) => ({
+				key: field.key,
+				name: field.name,
+				description: field.description,
+				required: field.required,
+				sensitive: field.sensitive,
+				file: field.file,
+				prefix: field.prefix,
+				secretBinding: field.secretBinding,
+				value: ''
+			}));
+	}
+
+	type TemplateDeployManifest = {
+		env?: MCPSubField[];
+		remoteConfig?: {
+			url?: string;
+			headers?: MCPSubField[];
+		};
+	};
+
+	function buildTemplateSecretBindingManifest(
+		form?: LaunchFormData
+	): TemplateDeployManifest | undefined {
+		const env = secretBoundFields(form?.envs);
+		const headers = secretBoundFields(form?.headers);
+		const url = form?.url?.trim();
+		const manifest: TemplateDeployManifest = {};
+		if (env.length > 0) {
+			manifest.env = env;
+		}
+		if (url || headers.length > 0) {
+			manifest.remoteConfig = {
+				...(url ? { url } : {}),
+				...(headers.length > 0 ? { headers } : {})
+			};
+		}
+		return Object.keys(manifest).length > 0 ? manifest : undefined;
 	}
 
 	async function initMultiUserInstanceForm(
@@ -229,6 +323,7 @@
 				{
 					name?: string;
 					icon?: string;
+					deprecated?: boolean;
 					hostname?: string;
 					url?: string;
 					disabled?: boolean;
@@ -245,6 +340,7 @@
 				componentConfigs[id] = {
 					name: m.name,
 					icon: m.icon,
+					deprecated: isDeprecatedMCPServer({ manifest: m }),
 					hostname: isMultiUser ? undefined : m.remoteConfig?.hostname,
 					url: isMultiUser ? undefined : (m.remoteConfig?.fixedURL ?? ''),
 					disabled: false,
@@ -600,10 +696,14 @@
 		const { timeout1, timeout2, timeout3 } = initUpdatingOrLaunchProgress();
 		try {
 			const lf = configureForm as LaunchFormData | undefined;
-			const url = lf?.url?.trim();
 			const aliasToUse = lf?.name?.trim() || getUniqueAlias(entry.manifest.name || '');
+			const manifest = canBindSecretsForCatalogEntry
+				? buildTemplateSecretBindingManifest(lf)
+				: lf?.url?.trim()
+					? { remoteConfig: { url: lf.url.trim() } }
+					: undefined;
 			const serverPayload = {
-				manifest: url ? { remoteConfig: { url } } : {},
+				...(manifest ? { manifest } : {}),
 				alias: aliasToUse
 			};
 			if (workspaceID) {
@@ -642,6 +742,8 @@
 			configDialog?.close();
 			onConnect?.({ server, entry });
 		} catch (err) {
+			launchError = err instanceof Error ? err.message : 'An unknown error occurred';
+			launchMissingSecretBinding = launchError.includes('secret binding');
 			if (created && !launchHandedOff) {
 				try {
 					if (workspaceID) {
@@ -655,7 +757,6 @@
 					console.error('Failed to clean up partially-created multi-user server', cleanupErr);
 				}
 			}
-			error = err instanceof Error ? err.message : 'An unknown error occurred';
 		} finally {
 			clearTimeout(timeout1);
 			clearTimeout(timeout2);
@@ -816,21 +917,25 @@
 		}
 	}
 
-	function initCatalogEntry() {
+	async function initCatalogEntry() {
 		if (!entry) return;
 		error = secretBindingEngineError;
 		if (secretBindingEngineError && entry.manifest?.runtime === 'composite') {
+			await loadSecretBindingTargets();
 			initCompositeForm(entry);
 			return;
 		}
 		if (secretBindingEngineError) {
+			await loadSecretBindingTargets();
 			initConfigureForm(entry);
 			configDialog?.open();
 			return;
 		}
-		if (entry.manifest?.runtime === 'composite') {
+		if (hasEditableConfiguration(entry) && entry.manifest?.runtime === 'composite') {
+			await loadSecretBindingTargets();
 			initCompositeForm(entry);
 		} else if (hasEditableConfiguration(entry) || isMultiUserCatalogEntry(entry)) {
+			await loadSecretBindingTargets();
 			initConfigureForm(entry);
 			configDialog?.open();
 		} else {
@@ -843,7 +948,7 @@
 		entry = initEntry;
 		server = undefined;
 		instance = undefined;
-		initCatalogEntry();
+		showIntroDialog = true;
 	}
 
 	function handleLaunchOrConfigure() {
@@ -896,7 +1001,7 @@
 			(entry && server) ||
 			(server && instance)
 		) {
-			handleConnect(true);
+			connectDialog?.open();
 		} else {
 			showIntroDialog = true;
 		}
@@ -913,6 +1018,15 @@
 			.toLowerCase()
 			.replace(/ /g, '-')
 			.replace(/[^a-z0-9-_]/g, '');
+	}
+
+	function isEditableCatalogEntry(entry?: MCPCatalogEntry) {
+		return Boolean(
+			entry &&
+			'isCatalogEntry' in entry &&
+			hasEditableConfiguration(entry) &&
+			!launchMissingSecretBinding
+		);
 	}
 
 	onMount(() => {
@@ -942,12 +1056,15 @@
 <ResponsiveDialog bind:this={connectDialog} animate="slide" onClose={handleOnClose}>
 	{#snippet titleContent()}
 		{@render dialogTitle(server || entry)}
+		<McpDeprecatedNotice {deprecated} />
 	{/snippet}
 
 	{#if entry?.connectURL || server?.connectURL || instance?.connectURL}
 		{@const url = instance?.connectURL || server?.connectURL || entry?.connectURL}
+		{@const displayName = getMCPDisplayName(server, entry?.manifest?.name ?? '')}
 		{#if url}
-			<div class="flex flex-col gap-1 md:p-0 pb-0 p-4">
+			<div class="flex flex-col gap-3 md:p-0 pb-0 p-4">
+				<McpDeprecatedNotice {deprecated} variant="notification" />
 				<CopyField
 					bind:this={connectionUrlField}
 					value={url}
@@ -958,7 +1075,8 @@
 			<HowToConnect
 				bind:this={howToConnect}
 				{url}
-				id={generateIdFromName(getMCPDisplayName(server, entry?.manifest?.name ?? ''))}
+				id={generateIdFromName(displayName)}
+				{displayName}
 			/>
 		{/if}
 	{/if}
@@ -969,16 +1087,22 @@
 	onsuccess={handleLaunchOrConfigure}
 	submitText="Continue"
 	type="info"
-	title={isMultiUserCatalogEntry(entry) ? 'Launch Server' : 'Connect To Server'}
+	title={introTitle ?? (isMultiUserCatalogEntry(entry) ? 'Launch Server' : 'Connect To Server')}
 	oncancel={() => (showIntroDialog = false)}
 	hideCancelButton
 >
 	{#snippet msgContent()}
 		<div class="flex items-center gap-2 text-lg font-semibold mb-2">
 			{@render dialogTitle(entry || server)}
+			<McpDeprecatedNotice {deprecated} />
 		</div>
 	{/snippet}
 	{#snippet note()}
+		{#if deprecated}
+			<div class="mb-3">
+				<McpDeprecatedNotice {deprecated} variant="notification" />
+			</div>
+		{/if}
 		<p>
 			{#if renderIntroText}
 				{renderIntroText({ entry, server })}
@@ -1013,14 +1137,37 @@
 	isNew={!isConfigured}
 	showAlias={shouldShowAlias}
 	configurationTitle={configureFormTitle}
+	secretBindingTargets={canBindSecretsForCatalogEntry ? secretBindingTargets : undefined}
+	disableEnvSecretBindings={manifest?.runtime === 'remote'}
+	{deprecated}
 >
 	{#snippet loadingContent()}
 		<div in:fade class="h-full w-full flex items-center justify-center">
 			{#if launchError}
-				<div class="flex flex-col gap-1 mb-4 w-full h-full" in:fade>
-					<div class="notification-error flex items-center gap-2">
-						<CircleAlert class="size-6 text-error" />
-						<h4 class="text-md font-medium">MCP Server Launch Failed</h4>
+				<div class="flex flex-col gap-2 w-full h-full" in:fade>
+					<div class="notification-error">
+						<div class="flex items-center gap-2">
+							<CircleAlert class="size-5 text-error" />
+							<h4 class="text-md font-medium">MCP Server Launch Failed</h4>
+						</div>
+
+						<div class="text-xs mt-2">
+							There was an issue launching the MCP server. Launch logs, if available, will be
+							provided below.
+
+							<ul class="list-disc px-4 py-1 space-y-1">
+								{#if isEditableCatalogEntry(entry)}
+									<li>Verify your configurations provided at launch are correct and try again.</li>
+								{/if}
+								{#if canModifyCatalogEntry}
+									<li>
+										Verify your catalog entry configurations consist of all necessary information to
+										properly configure the server.
+									</li>
+								{/if}
+								<li>If the issue persists, please contact support.</li>
+							</ul>
+						</div>
 					</div>
 					{#if launchLogs.length > 0}
 						<div
@@ -1033,31 +1180,102 @@
 							{/each}
 						</div>
 					{:else}
-						<p class="text-sm self-start">An issue occurred while launching the MCP server.</p>
+						<p class="text-sm self-start">{launchError}</p>
 					{/if}
-
-					<div class="flex w-full flex-col items-center gap-2 md:flex-row mt-2">
-						{#if entry && hasEditableConfiguration(entry) && !launchMissingSecretBinding}
-							<button
-								class="btn btn-primary w-full md:w-1/2 md:flex-1"
-								onclick={() => {
-									launchState = 'relaunching';
-									launchError = undefined;
-									launchProgress = 0;
-									launchLogs = [];
-									saving = false;
-								}}
+					{#if canModifyCatalogEntry}
+						<div class="flex w-full items-center gap-0.5">
+							{#if server}
+								<button
+									onclick={handleCancelLaunch}
+									class="flex grow items-center justify-center btn btn-secondary rounded-r-none!"
+								>
+									Cancel and Delete Server
+								</button>
+							{:else}
+								<button
+									class="flex grow items-center justify-center btn btn-secondary rounded-r-none!"
+									onclick={() => {
+										launchState = undefined;
+										launchError = undefined;
+										launchMissingSecretBinding = false;
+										configDialog?.close();
+									}}
+								>
+									Close
+								</button>
+							{/if}
+							<DotDotDot
+								class="btn btn-secondary btn-block w-14 rounded-l-none! p-0!"
+								disablePortal
 							>
-								Update Configuration and Try Again
-							</button>
-						{/if}
-						<button
-							class="btn btn-secondary w-full md:w-1/2 md:flex-1"
-							onclick={handleCancelLaunch}
-						>
-							Cancel and Delete Server
-						</button>
-					</div>
+								{#snippet children({ toggle })}
+									<button
+										class="menu-button"
+										onclick={() => {
+											launchState = 'relaunching';
+											launchError = undefined;
+											launchProgress = 0;
+											launchLogs = [];
+											saving = false;
+											toggle(false);
+										}}
+									>
+										Update Configuration and Try Again
+									</button>
+									<button
+										class="menu-button"
+										onclick={async () => {
+											await deleteCatalogEntryServer();
+											const url = profile.current.isAdmin?.()
+												? `/admin/mcp-catalog/c/${entry?.id}`
+												: `/mcp-catalog/c/${entry?.id}`;
+											goto(url);
+											toggle(false);
+										}}
+									>
+										Go to Catalog Entry
+									</button>
+								{/snippet}
+							</DotDotDot>
+						</div>
+					{:else}
+						<div class="flex w-full flex-col items-center gap-2 md:flex-row mt-2">
+							{#if isEditableCatalogEntry(entry)}
+								<button
+									class="btn btn-primary w-full md:w-1/2 md:flex-1"
+									onclick={() => {
+										launchState = 'relaunching';
+										launchError = undefined;
+										launchProgress = 0;
+										launchLogs = [];
+										saving = false;
+									}}
+								>
+									Update Configuration and Try Again
+								</button>
+							{/if}
+							{#if server}
+								<button
+									class="btn btn-secondary w-full md:w-1/2 md:flex-1"
+									onclick={handleCancelLaunch}
+								>
+									Cancel and Delete Server
+								</button>
+							{:else}
+								<button
+									class="btn btn-secondary w-full md:w-1/2 md:flex-1"
+									onclick={() => {
+										launchState = undefined;
+										launchError = undefined;
+										launchMissingSecretBinding = false;
+										configDialog?.close();
+									}}
+								>
+									Close
+								</button>
+							{/if}
+						</div>
+					{/if}
 				</div>
 			{:else}
 				<div class="flex flex-col gap-1 mb-4">

@@ -9,8 +9,8 @@ import (
 func TestRenderAgentSkillsForClaudeCode(t *testing.T) {
 	rendered := renderAgentSkillsForTest(t, ClaudeCodeTemplateData())
 
-	if len(rendered) != 5 {
-		t.Fatalf("expected 5 rendered assets, got %d", len(rendered))
+	if len(rendered) != 4 {
+		t.Fatalf("expected 4 rendered assets, got %d", len(rendered))
 	}
 
 	install := renderedByName(t, rendered, "obot-install-skill")
@@ -26,9 +26,6 @@ func TestRenderAgentSkillsForClaudeCode(t *testing.T) {
 	assertContains(t, string(mcpSearch.Content), "obot mcp search --non-interactive \"<query>\"")
 	assertContains(t, string(mcpSearch.Content), "obot mcp search --non-interactive\n")
 	assertContains(t, string(mcpSearch.Content), "configuration required")
-
-	scan := renderedByName(t, rendered, "obot-scan")
-	assertContains(t, string(scan.Content), "obot scan")
 
 	bootstrap := renderedByName(t, rendered, "obot")
 	assertContains(t, string(bootstrap.Content), "rendered for `claude-code`")
@@ -59,7 +56,6 @@ func TestRenderedAssetsHaveDeterministicRelativePaths(t *testing.T) {
 
 	want := []string{
 		"obot-install-skill/SKILL.md",
-		"obot-scan/SKILL.md",
 		"obot-search-mcp-servers/SKILL.md",
 		"obot-search-skills/SKILL.md",
 		"obot/SKILL.md",

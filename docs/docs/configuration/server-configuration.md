@@ -14,8 +14,8 @@ The Obot server is configured via environment variables. The following configura
 | `GITHUB_AUTH_TOKEN` | Obot makes heavy use of repositories hosted on GitHub. Care is taken to cache these and only re-check when necessary. However, rate-limiting can happen. Setting a read-only token here can alleviate many of these issues. No grants are required for either a 'classic' or 'fine-grained' token to access public repos (read-only). If you want to give the token access to private repos, you will need to give it `repo` (for a 'classic' token) or `contents (read-only)` and `metadata (read-only)`. |
 | `OBOT_SERVER_DSN` | Obot uses a database backend. By default, it will use a sqlite3 local database when running the plan Obot binary. The Obot container will use an internal PostgreSQL database (not recommended for production). This environment variable allows you to specify another database option. For example, you can use a postgres database with something like `OBOT_SERVER_DSN=postgres://user:password@host/database`. | - |
 | `OBOT_SERVER_HOSTNAME` | Tell Obot what its server URL is so that things like OAuth, LLM proxying, and invoke URLs are handled correctly. | - |
-| `OBOT_SERVER_DAILY_USER_PROMPT_TOKEN_LIMIT` | The maximum number of prompt/input tokens allowed per user per day. Set to a value less than or equal to 0 to disable this limit. | `10000000` |
-| `OBOT_SERVER_DAILY_USER_COMPLETION_TOKEN_LIMIT` | The maximum number of completion/output tokens allowed per user per day. Set to a value less than or equal to 0 to disable this limit. | `100000` |
+| `OBOT_SERVER_DAILY_USER_INPUT_TOKEN_LIMIT` | The maximum number of prompt/input tokens allowed per user per day. Set to a negative value to disable this limit. | `10000000` |
+| `OBOT_SERVER_DAILY_USER_OUTPUT_TOKEN_LIMIT` | The maximum number of completion/output tokens allowed per user per day. Set to a negative value to disable this limit. | `100000` |
 | `OBOT_SERVER_IDLE_AGENT_SHUTDOWN_HOURS` | The interval in hours to check for idle agents and shut them down. Set to `-1` to disable idle shutdown. | `72` (3 days) |
 | `OBOT_SERVER_SINGLE_USER_IDLE_SERVER_SHUTDOWN_HOURS` | The interval in hours to check for idle single-user MCP servers and shut them down. Set to `-1` to disable idle shutdown. | `24` (1 day) |
 | `OBOT_SERVER_MULTI_USER_IDLE_SERVER_SHUTDOWN_HOURS` | The interval in hours to check for idle multi-user MCP servers and shut them down. Set to `-1` to disable idle shutdown. | `168` (7 days) |
@@ -42,8 +42,9 @@ The Obot server is configured via environment variables. The following configura
 | `OBOT_SERVER_AUDIT_LOGS_STORE_USE_PATH_STYLE` | Whether to use path style for S3 object names | - |
 | `OBOT_SERVER_MCPBASE_IMAGE` | Deploy MCP servers in the kubernetes cluster or using docker with this base image. | `ghcr.io/obot-platform/mcp-images/stdio-wrapper:v0.24.0` |
 | `OBOT_SERVER_MCPIMAGE_PULL_SECRETS` | Comma-separated Kubernetes secret names to use as static image pull secrets for every MCP server Deployment. When set, managed image pull secrets are disabled. See [Image Pull Secrets](./image-pull-secrets.md). | - |
-| `OBOT_SERVER_MCPREMOTE_SHIM_BASE_IMAGE` | Deploy MCP remote shim servers in the cluster using this base image. | `ghcr.io/obot-platform/nanobot:v0.0.86` |
-| `OBOT_SERVER_NANOBOT_AGENT_IMAGE` | Deploy the Nanobot agent in the cluster using this image. | `ghcr.io/obot-platform/nanobot-agent:v0.0.86` |
+| `OBOT_SERVER_MCPSECRET_BINDING_ALLOWED_LABEL` | Kubernetes Secret label key required before a Secret can be selected or resolved by MCP secret bindings. Only label presence is checked; the label value is ignored. Secrets without this label are not shown as bindable targets in the admin UI and are treated as unavailable when Obot resolves a secret binding at runtime. | `obot.obot.ai/allow-secret-binding` |
+| `OBOT_SERVER_MCPREMOTE_SHIM_BASE_IMAGE` | Deploy MCP remote shim servers in the cluster using this base image. | `ghcr.io/obot-platform/nanobot:v0.0.88` |
+| `OBOT_SERVER_NANOBOT_AGENT_IMAGE` | Deploy the Nanobot agent in the cluster using this image. | `ghcr.io/obot-platform/nanobot-agent:v0.0.88` |
 | `OBOT_SERVER_MCPHTTPWEBHOOK_BASE_IMAGE` | Deploy MCP HTTP webhook servers in the cluster using this base image. | `ghcr.io/obot-platform/mcp-images/http-webhook-mcp-converter:v0.24.0` |
 | `OBOT_SERVER_MCPRUNTIME_BACKEND` | The runtime backend to use for running MCP servers: docker or kubernetes. | `kubernetes` in the helm chart, `docker` otherwise |
 | `OBOT_SERVER_MCPCLUSTER_DOMAIN` | The cluster domain to use for MCP services. Only matters if `OBOT_SERVER_MCPBASE_IMAGE` is set. | `cluster.local` |
@@ -66,6 +67,7 @@ The Obot server is configured via environment variables. The following configura
 | `OBOT_SERVER_MCPPOD_SECURITY_WARN` | Pod Security Standards level to warn about for MCP namespace (privileged, baseline, or restricted). Only applies when using kubernetes backend. | `restricted` |
 | `OBOT_SERVER_MCPPOD_SECURITY_WARN_VERSION` | Kubernetes version for the PSA warn policy. Only applies when using kubernetes backend. | `latest` |
 | `OBOT_SERVER_DISABLE_UPDATE_CHECK` | Disable the Obot server update check. | `false` |
+| `OBOT_SERVER_HIDE_K8S_DETAILS` | Hide Kubernetes configuration details such as the Server Scheduling page from the UI. | `false` |
 | `OBOT_SERVER_MCPOAUTH_CLIENT_EXPIRATION` | The expiration time for dynamically registered MCP OAuth clients. Must be a valid duration string and may include days, hours, or minutes. | `30d` |
 | `OBOT_SERVER_ENABLE_MESSAGE_POLICIES` | Enable Message Policies for LLM proxy content enforcement. When enabled, Obot exposes the Message Policies and Message Policy Violations admin views and evaluates configured policies on user messages and tool calls. | `false` |
 | `OBOT_SERVER_LICENSE_KEY` | A license key for Obot Enterprise. If set via configuration, the license key cannot be updated in the UI. | - |

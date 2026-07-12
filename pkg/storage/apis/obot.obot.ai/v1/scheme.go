@@ -101,6 +101,10 @@ func AddToSchemeWithGV(scheme *runtime.Scheme, schemeGroupVersion schema.GroupVe
 		&AuthProviderList{},
 		&ModelProvider{},
 		&ModelProviderList{},
+		&ModelInfoSource{},
+		&ModelInfoSourceList{},
+		&ModelInfo{},
+		&ModelInfoList{},
 	); err != nil {
 		return err
 	}

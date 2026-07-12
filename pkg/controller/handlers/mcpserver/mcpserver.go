@@ -27,6 +27,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/util/retry"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -246,7 +247,8 @@ func (h *Handler) DetectK8sSettingsDrift(req router.Request, _ router.Response) 
 		return fmt.Errorf("failed to compute core resource requirements: %w", err)
 	}
 
-	currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec, resources, server.Spec.Manifest.Runtime, server.Spec.NanobotAgentID != "", imagePullSecretNames)
+	resourceMaximums := h.mcpSessionManager.KubernetesResourceMaximums()
+	currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec, resources, server.Spec.Manifest.Runtime, server.Spec.NanobotAgentID != "", resourceMaximums, imagePullSecretNames)
 	shouldSetNeedsK8sUpdate := server.Status.K8sSettingsHash != currentHash && !server.Status.NeedsK8sUpdate
 
 	if shouldSetNeedsK8sUpdate {
@@ -297,8 +299,11 @@ func ConfigurationHasDrifted(serverManifest types.MCPServerManifest, entryManife
 		return true, nil
 	}
 
-	// Check environment
-	if !slicesEqualIgnoreOrderDeep(serverManifest.Env, entryManifest.Env) {
+	// Check environment. Secret binding selections are deployment configuration,
+	// not source catalog drift.
+	serverEnv := withoutAdminManagedSecretBoundEnvFields(serverManifest.Env, entryManifest.Env)
+	entryEnv := withoutAdminManagedSecretBoundEnvFields(entryManifest.Env, serverManifest.Env)
+	if fieldSlicesHaveDrifted(serverEnv, entryEnv, mcpEnvMatchesCatalog) {
 		return true, nil
 	}
 
@@ -322,7 +327,7 @@ func multiUserConfigHasDrifted(serverConfig, entryConfig *types.MultiUserConfig)
 	if serverConfig == nil || entryConfig == nil {
 		return true
 	}
-	return !slicesEqualIgnoreOrderDeep(serverConfig.UserDefinedHeaders, entryConfig.UserDefinedHeaders)
+	return fieldSlicesHaveDrifted(serverConfig.UserDefinedHeaders, entryConfig.UserDefinedHeaders, mcpHeaderMatchesCatalog)
 }
 
 // uvxConfigHasDrifted checks if UVX configuration has drifted
@@ -400,19 +405,63 @@ func remoteConfigHasDrifted(serverConfig *types.RemoteRuntimeConfig, entryConfig
 	}
 
 	// Check if headers have drifted
-	return !slicesEqualIgnoreOrderDeep(serverConfig.Headers, entryConfig.Headers)
+	serverHeaders := withoutAdminManagedSecretBoundHeaderFields(serverConfig.Headers, entryConfig.Headers)
+	entryHeaders := withoutAdminManagedSecretBoundHeaderFields(entryConfig.Headers, serverConfig.Headers)
+	return fieldSlicesHaveDrifted(serverHeaders, entryHeaders, mcpHeaderMatchesCatalog)
 }
 
-func slicesEqualIgnoreOrderDeep[T any](a, b []T) bool {
-	if len(a) != len(b) {
-		return false
+// withoutAdminManagedSecretBoundEnvFields removes env fields that exist only on
+// serverFields because an admin selected a deployment-level secret binding.
+// Catalog-owned fields are kept so pinned catalog bindings still participate in
+// drift detection.
+func withoutAdminManagedSecretBoundEnvFields(serverFields, entryFields []types.MCPEnv) []types.MCPEnv {
+	entryKeys := make(map[string]struct{}, len(entryFields))
+	for _, field := range entryFields {
+		entryKeys[field.Key] = struct{}{}
 	}
 
-	used := make([]bool, len(b))
-	for _, left := range a {
+	result := make([]types.MCPEnv, 0, len(serverFields))
+	for _, field := range serverFields {
+		_, entryHasField := entryKeys[field.Key]
+		if !entryHasField && adminAddedSecretBinding(field.SecretBinding) {
+			continue
+		}
+		result = append(result, field)
+	}
+	return result
+}
+
+// withoutAdminManagedSecretBoundHeaderFields removes header fields that exist
+// only on serverFields because an admin selected a deployment-level secret
+// binding. Catalog-owned fields are kept so pinned catalog bindings still
+// participate in drift detection.
+func withoutAdminManagedSecretBoundHeaderFields(serverFields, entryFields []types.MCPHeader) []types.MCPHeader {
+	entryKeys := make(map[string]struct{}, len(entryFields))
+	for _, field := range entryFields {
+		entryKeys[field.Key] = struct{}{}
+	}
+
+	result := make([]types.MCPHeader, 0, len(serverFields))
+	for _, field := range serverFields {
+		_, entryHasField := entryKeys[field.Key]
+		if !entryHasField && adminAddedSecretBinding(field.SecretBinding) {
+			continue
+		}
+		result = append(result, field)
+	}
+	return result
+}
+
+func fieldSlicesHaveDrifted[T any](serverFields, entryFields []T, matches func(T, T) bool) bool {
+	if len(serverFields) != len(entryFields) {
+		return true
+	}
+
+	used := make([]bool, len(entryFields))
+	for _, serverField := range serverFields {
 		found := false
-		for i, right := range b {
-			if used[i] || !reflect.DeepEqual(left, right) {
+		for i, entryField := range entryFields {
+			if used[i] || !matches(serverField, entryField) {
 				continue
 			}
 			used[i] = true
@@ -420,11 +469,45 @@ func slicesEqualIgnoreOrderDeep[T any](a, b []T) bool {
 			break
 		}
 		if !found {
-			return false
+			return true
 		}
 	}
 
-	return true
+	return false
+}
+
+func mcpEnvMatchesCatalog(serverField, entryField types.MCPEnv) bool {
+	if oneSidedAdminAddedSecretBinding(serverField.SecretBinding, entryField.SecretBinding) {
+		serverField.SecretBinding = nil
+		serverField.Value = entryField.Value
+	}
+	if oneSidedAdminAddedSecretBinding(entryField.SecretBinding, serverField.SecretBinding) {
+		entryField.SecretBinding = nil
+		entryField.Value = serverField.Value
+	}
+	return reflect.DeepEqual(serverField, entryField)
+}
+
+func mcpHeaderMatchesCatalog(serverField, entryField types.MCPHeader) bool {
+	if oneSidedAdminAddedSecretBinding(serverField.SecretBinding, entryField.SecretBinding) {
+		serverField.SecretBinding = nil
+		serverField.Value = entryField.Value
+	}
+	if oneSidedAdminAddedSecretBinding(entryField.SecretBinding, serverField.SecretBinding) {
+		entryField.SecretBinding = nil
+		entryField.Value = serverField.Value
+	}
+	return reflect.DeepEqual(serverField, entryField)
+}
+
+func oneSidedAdminAddedSecretBinding(left, right *types.MCPSecretBinding) bool {
+	// AdminAdded is derived metadata. Ignore it when it appears on only one side;
+	// any real binding difference on the other side remains for DeepEqual below.
+	return adminAddedSecretBinding(left) && !adminAddedSecretBinding(right)
+}
+
+func adminAddedSecretBinding(binding *types.MCPSecretBinding) bool {
+	return binding != nil && binding.AdminAdded
 }
 
 // compositeConfigHasDrifted checks if the composite configuration has drifted
@@ -925,7 +1008,9 @@ func (h *Handler) SyncOAuthMetadata(req router.Request, _ router.Response) error
 		return setOAuthMetadata(req, server, new(v1.OAuthMetadata), nil)
 	}
 
-	if err := mcp.ValidateRemoteMCPURL(req.Ctx, server.Spec.Manifest.RemoteConfig.URL, h.mcpSessionManager.RemoteMCPURLValidationConfig()); err != nil {
+	blockingConfig := h.mcpSessionManager.RemoteMCPURLValidationConfig()
+
+	if err := mcp.ValidateRemoteMCPURL(req.Ctx, server.Spec.Manifest.RemoteConfig.URL, blockingConfig); err != nil {
 		// If the URL doesn't pass validation, then don't do anything so that we sync as soon as the configuration is updated.
 		log.Infof("Remote MCP URL validation failed, not checking OAuth metadata: server=%s error=%v", server.Name, err)
 		return nil
@@ -955,10 +1040,12 @@ func (h *Handler) SyncOAuthMetadata(req router.Request, _ router.Response) error
 		return nil
 	}
 
-	metadata, err := nmcp.GetOAuthMetadata(req.Ctx, nmcp.Server{
+	metadata, err := nmcp.GetOAuthMetadataWithBlockingConfig(req.Ctx, nmcp.Server{
 		BaseURL: serverConfig.URL,
 		Headers: serverConfigHeaders(serverConfig),
-	}, "Obot Test MCP OAuth Client", system.MCPOAuthCallbackURL(h.baseURL))
+	}, "Obot Test MCP OAuth Client", system.MCPOAuthCallbackURL(h.baseURL),
+		!blockingConfig.AllowLocalhostMCP, !blockingConfig.AllowPrivateIPMCP, !blockingConfig.AllowLinkLocalMCP,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to get OAuth metadata: %w", err)
 	}
@@ -966,9 +1053,9 @@ func (h *Handler) SyncOAuthMetadata(req router.Request, _ router.Response) error
 	statusMetadata := &v1.OAuthMetadata{
 		ProtectedResourceURL:              metadata.ProtectedResourceMetadataURL,
 		AuthorizationServerURL:            metadata.AuthorizationServerMetadataURL,
-		ProtectedResourceMetadata:         metadata.ProtectedResourceMetadata,
-		AuthorizationServerMetadata:       metadata.AuthorizationServerMetadata,
-		ClientRegistration:                metadata.ClientRegistration,
+		ProtectedResourceMetadata:         runtime.RawExtension{Raw: metadata.ProtectedResourceMetadata},
+		AuthorizationServerMetadata:       runtime.RawExtension{Raw: metadata.AuthorizationServerMetadata},
+		ClientRegistration:                runtime.RawExtension{Raw: metadata.ClientRegistration},
 		DynamicClientRegistration:         metadata.DynamicClientRegistration,
 		ClientIDMetadataDocumentSupported: metadata.ClientIDMetadataDocumentSupported,
 	}

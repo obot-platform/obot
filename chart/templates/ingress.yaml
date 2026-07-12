@@ -1,4 +1,7 @@
 {{- if .Values.ingress.enabled -}}
+{{- if not .Values.ingress.hosts -}}
+{{- fail "ingress.hosts must contain at least one host when ingress.enabled=true" -}}
+{{- end -}}
 {{- $fullName := include "obot.fullname" . -}}
 {{- $ingressPaths := .Values.ingress.paths -}}
 {{- $extraPaths := .Values.ingress.extraPaths -}}

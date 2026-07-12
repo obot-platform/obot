@@ -631,13 +631,11 @@
 			<div class="flex grow flex-col gap-2">
 				<div class="flex items-center gap-2">
 					<TriangleAlert class="size-6 shrink-0 self-start text-warning" />
-					<p class="my-0.5 flex flex-col text-sm font-semibold">
-						User Configuration Update Required
-					</p>
+					<p class="my-0.5 flex flex-col text-sm font-semibold">User Configuration Required</p>
 				</div>
 				<span class="text-sm font-light break-all">
-					The server was recently updated and requires the user to update their configuration.
-					Server details and logs are temporarily unavailable as a result.
+					Required user configuration is missing, either from initial setup or a catalog entry
+					update. Server details and logs are temporarily unavailable as a result.
 				</span>
 			</div>
 		</div>
@@ -656,7 +654,7 @@
 							: missingSecretBindings.length > 0
 								? 'Missing Kubernetes Secret'
 								: needsUpdate
-									? 'Update Required'
+									? 'Configuration Required'
 									: 'Error'}
 					</p>
 				</div>

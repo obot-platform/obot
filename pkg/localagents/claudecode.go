@@ -3,9 +3,10 @@ package localagents
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/exec"
 	"path/filepath"
 
-	"github.com/obot-platform/obot/pkg/devicescan"
 	"github.com/obot-platform/obot/pkg/localagents/assets"
 )
 
@@ -47,21 +48,20 @@ func (c ClaudeCode) Detect(ctx context.Context) DetectionResult {
 		return result
 	}
 
-	presence := devicescan.DetectClaudeCodePresence(home)
-	switch {
-	case presence.BinaryPath != "":
+	if binary, err := exec.LookPath("claude"); err == nil && binary != "" {
 		result.State = DetectionPresent
-		result.Reason = "found claude binary at " + presence.BinaryPath
-	case presence.ConfigPath != "":
-		result.State = DetectionPresent
-		result.Reason = "found Claude Code config at " + presence.ConfigPath
-	case presence.InstallPath != "":
-		result.State = DetectionPresent
-		result.Reason = "found Claude Code install at " + presence.InstallPath
-	default:
-		result.Reason = "Claude Code was not detected"
+		result.Reason = "found claude binary at " + binary
+		return result
 	}
 
+	configPath := filepath.Join(home, ".claude")
+	if fi, err := os.Stat(configPath); err == nil && fi.IsDir() {
+		result.State = DetectionPresent
+		result.Reason = "found Claude Code config at " + configPath
+		return result
+	}
+
+	result.Reason = "Claude Code was not detected"
 	return result
 }
 

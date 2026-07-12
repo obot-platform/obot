@@ -22,14 +22,15 @@
 		getMcpServerDeploymentStatus,
 		getServerTypeLabel,
 		getServerUrl,
+		hasMissingSecretBindingConfig,
 		isMultiUserServer
 	} from '$lib/services/user/mcp';
 	import { profile, mcpServersAndEntries, version } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { getUserDisplayName, openUrl } from '$lib/utils';
 	import CapacityBanner from './CapacityBanner.svelte';
-	import ConnectToServer from './ConnectToServer.svelte';
 	import EditExistingDeployment from './EditExistingDeployment.svelte';
+	import McpDeprecatedNotice from './McpDeprecatedNotice.svelte';
 	import {
 		Captions,
 		CircleAlert,
@@ -212,7 +213,12 @@
 						(powerUserID === profile.current.id && powerUserWorkspaceID === id),
 					updateStatus,
 					updatesAvailable,
-					updateStatusTooltip
+					updateStatusTooltip,
+					missingKubernetesSecret: hasMissingSecretBindingConfig(
+						deployment.manifest,
+						deployment.missingRequiredEnvVars,
+						deployment.missingRequiredHeader
+					)
 				};
 			})
 			.filter((d) => !d.disabled && (onlyMyServers ? d.isMyServer : true));
@@ -222,7 +228,6 @@
 			: transformedData;
 	});
 
-	let connectToServerDialog = $state<ReturnType<typeof ConnectToServer>>();
 	let editExistingDialog = $state<ReturnType<typeof EditExistingDeployment>>();
 	let capacityBanner = $state<ReturnType<typeof CapacityBanner>>();
 
@@ -279,10 +284,6 @@
 		if (isInitialLoad) {
 			loading = false;
 		}
-	}
-
-	function hasInstanceConfiguration(server: MCPCatalogServer) {
-		return (server.manifest.multiUserConfig?.userDefinedHeaders?.length ?? 0) > 0;
 	}
 
 	function canTriggerUpdate(server: MCPCatalogServer) {
@@ -456,6 +457,8 @@
 				mcpServersAndEntries.current.servers = mcpServersAndEntries.current.servers.filter(
 					(s) => s.id !== server.id
 				);
+				mcpServersAndEntries.current.userConfiguredServers =
+					mcpServersAndEntries.current.userConfiguredServers.filter((s) => s.id !== server.id);
 			} catch (error) {
 				if (error instanceof MCPCompositeDeletionDependencyError) {
 					deleteConflictError = error;
@@ -648,6 +651,7 @@
 									</span>
 								{/if}
 							</p>
+							<McpDeprecatedNotice item={d} />
 							{#if 'missingKubernetesSecret' in d && d.missingKubernetesSecret}
 								<div
 									class="text-warning"
@@ -694,7 +698,6 @@
 				{#snippet actions(d)}
 					{@const isComposite = !!d.compositeName}
 					{@const auditLogsUrl = getAuditLogsUrl(d)}
-					{@const instance = instancesMap.get(d.id)}
 					<DotDotDot class="hover:dark:bg-base-100/50" classes={{ menu: 'p-0 gap-0' }}>
 						{#snippet icon()}
 							<Ellipsis class="size-4" />
@@ -722,15 +725,14 @@
 										{/if}
 									</span>
 								</a>
-								{#if instance && hasInstanceConfiguration(d)}
+								{#if d.isMyServer || (hasAdminAccess && !readonly)}
 									<button
 										class="menu-button"
 										onclick={(e) => {
 											e.stopPropagation();
-											connectToServerDialog?.open({
+											editExistingDialog?.edit({
 												server: d,
-												instance,
-												configureInstance: true
+												entry: d.catalogEntryID ? entriesMap[d.catalogEntryID] : undefined
 											});
 											toggle(false);
 										}}
@@ -1100,14 +1102,6 @@
 	error={deleteConflictError}
 	onClose={() => {
 		deleteConflictError = undefined;
-	}}
-/>
-
-<ConnectToServer
-	bind:this={connectToServerDialog}
-	userConfiguredServers={mcpServersAndEntries.current.userConfiguredServers}
-	onConnect={async () => {
-		await reload();
 	}}
 />
 

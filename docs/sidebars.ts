@@ -85,6 +85,11 @@ const sidebars = {
 						"configuration/encryption-providers/custom-provider",
 					],
 				},
+				{
+					type: "category",
+					label: "Tutorials",
+					items: ["configuration/tutorials/slack-mcp-server"],
+				},
 			],
 		},
 		"enterprise/overview",

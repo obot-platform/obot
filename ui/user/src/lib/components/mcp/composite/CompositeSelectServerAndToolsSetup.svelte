@@ -16,10 +16,12 @@
 		deriveToolPrefix,
 		getSecretBindingEngineError,
 		isKubernetesRuntimeBackend,
-		hasEditableConfiguration
+		hasEditableConfiguration,
+		isDeprecatedMCPServer
 	} from '$lib/services/user/mcp';
 	import { mcpServersAndEntries, version } from '$lib/stores';
 	import CatalogConfigureForm, { type LaunchFormData } from '../CatalogConfigureForm.svelte';
+	import McpDeprecatedNotice from '../McpDeprecatedNotice.svelte';
 	import CompositeEditTools from './CompositeEditTools.svelte';
 
 	interface Props {
@@ -81,6 +83,7 @@
 			? undefined
 			: getSecretBindingEngineError(configuringEntry?.manifest)
 	);
+	let configuringEntryDeprecated = $derived(isDeprecatedMCPServer(configuringEntry));
 
 	function handleVisibilityChange() {
 		if (!componentConfig) return;
@@ -366,6 +369,12 @@
 	title={`Configure ${configuringEntry?.manifest?.name ?? 'MCP Server'} Tools`}
 	class="bg-base-200 md:w-md"
 >
+	<McpDeprecatedNotice
+		deprecated={configuringEntryDeprecated}
+		variant="notification"
+		child
+		class="mb-4"
+	/>
 	<p class="text-muted-content text-sm font-light">
 		All <i>{configuringEntry?.manifest?.name ?? 'MCP Server'}</i> tools are enabled by default. Would
 		you like to modify the available tools?
@@ -421,6 +430,12 @@
 				</div>
 			{:else}
 				<div class="mb-6 h-full text-left">
+					<McpDeprecatedNotice
+						deprecated={configuringEntryDeprecated}
+						variant="notification"
+						child
+						class="mb-4"
+					/>
 					{#if 'isCatalogEntry' in configuringEntry && hasEditableConfiguration(configuringEntry)}
 						<p>
 							In order to request tools from the server, you'll need to pass some configuration
@@ -535,6 +550,7 @@
 	icon={configuringEntry?.manifest?.icon}
 	submitText="Continue"
 	cancelText="Cancel"
+	deprecated={configuringEntryDeprecated}
 	onSave={async () => {
 		if (!configuringEntry) return;
 		const configValues = convertEnvHeadersToRecord(configureForm?.envs, configureForm?.headers);

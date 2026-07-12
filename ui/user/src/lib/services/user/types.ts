@@ -109,20 +109,55 @@ export type AuditLogClient = {
 	name: string;
 	version: string;
 };
-export interface AuditLog {
-	id: string;
-	createdAt: string;
+export type AuditLogSourceType = 'mcp' | 'local_agent_tool_call';
+export type LocalAgentToolCallAuditLogFields = {
+	agentProvider: 'claude_code' | 'codex' | 'vscode' | 'cursor' | string;
+	agentVersion?: string;
+	cliName?: string;
+	cliVersion: string;
+	status: 'denied' | 'succeeded' | 'failed' | 'timeout' | string;
+	failureType?: string;
+	observedAt: string;
+	startedAt?: string;
+	idempotencyKey: string;
+	toolUseID?: string;
+	sessionID?: string;
+	turnID?: string;
+	toolName: string;
+	toolKind?: string;
+	mcpServerHint?: string;
+	mcpToolName?: string;
+	obotAuditCorrelationID?: string;
+	model?: string;
+	modelID?: string;
+	permissionMode?: string;
+	durationMs?: number;
+	error?: string;
+	deviceID?: string;
+	hostname?: string;
+	os?: string;
+	arch?: string;
+	localUsername?: string;
+	reportedUserEmail?: string;
+	identityStatus: 'authenticated_user' | 'anonymous_device' | 'unresolved' | string;
+	cwd?: string;
+	gitRepoRoot?: string;
+	gitRemoteURLs?: string[];
+	gitBranch?: string;
+	gitCommitSHA?: string;
+	transcriptPath?: string;
+	toolInput: unknown;
+	toolOutput: unknown;
+	rawHookPayload: unknown;
+};
+export type MCPAuditLogFields = {
 	apiKey?: string;
-	userID: string;
 	userAgent?: string;
-	mcpServerInstanceName: string;
-	mcpServerName: string;
 	mcpServerDisplayName: string;
 	mcpServerCatalogEntryName?: string;
 	mcpID?: string;
 	powerUserWorkspaceID?: string;
 	client: AuditLogClient;
-	clientIP: string;
 	callType: string;
 	callIdentifier?: string;
 	responseStatus: number;
@@ -147,6 +182,15 @@ export interface AuditLog {
 	error?: string;
 	sessionID?: string;
 	requestID?: string;
+};
+export interface AuditLog {
+	id: string;
+	createdAt: string;
+	sourceType?: AuditLogSourceType;
+	userID: string;
+	clientIP: string;
+	mcpFields?: MCPAuditLogFields;
+	localAgentToolCallFields?: LocalAgentToolCallAuditLogFields;
 }
 export interface AuditLogToolCallStatItem {
 	createdAt: string;
@@ -459,6 +503,11 @@ export interface MCPSubField {
 export interface MCPSecretBinding {
 	name: string;
 	key: string;
+	adminAdded?: boolean;
+}
+export interface MCPAllowedSecretBindingTarget {
+	name: string;
+	keys: string[];
 }
 export interface UVXRuntimeConfig {
 	package: string;
@@ -551,12 +600,14 @@ export interface ToolOverride {
 
 export interface MCPServer {
 	description?: string;
+	shortDescription?: string;
 	icon?: string;
 	name?: string;
 	env?: MCPSubField[];
 	toolPreview?: MCPServerTool[];
 	metadata?: {
 		categories?: string;
+		deprecated?: string;
 	};
 
 	runtime: Runtime;
@@ -782,6 +833,7 @@ export interface Version {
 	mcpDefaultDenyAllEgress?: boolean;
 	messagePoliciesEnabled?: boolean;
 	agentsEnabled?: boolean;
+	hideK8sDetails?: boolean;
 	disableLegacyChat?: boolean;
 }
 

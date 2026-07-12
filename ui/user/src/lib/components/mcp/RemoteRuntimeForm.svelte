@@ -1,13 +1,16 @@
 <script lang="ts">
+	import type { MCPAllowedSecretBindingTarget } from '$lib/services';
 	import type {
 		RemoteCatalogConfigAdmin,
 		RemoteRuntimeConfigAdmin
 	} from '$lib/services/admin/types';
 	import { hasSecretBinding } from '$lib/services/user/mcp';
+	import { version } from '$lib/stores';
 	import InfoTooltip from '../InfoTooltip.svelte';
 	import Select from '../Select.svelte';
 	import Toggle from '../Toggle.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
+	import SecretBindingPicker from './SecretBindingPicker.svelte';
 	import { Plus, Trash2, Info, Settings } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
@@ -23,6 +26,7 @@
 		onConfigureOAuth?: () => void;
 		disableStaticOAuth?: boolean;
 		disableHostnameOption?: boolean;
+		secretBindingTargets?: MCPAllowedSecretBindingTarget[];
 		children?: Snippet;
 		afterHeaders?: Snippet;
 	}
@@ -36,6 +40,7 @@
 		onConfigureOAuth,
 		disableStaticOAuth,
 		disableHostnameOption,
+		secretBindingTargets,
 		children,
 		afterHeaders
 	}: Props = $props();
@@ -60,6 +65,13 @@
 				? 'hostname'
 				: 'fixedURL'
 	);
+
+	function usesSecretBindingSource(field: {
+		secretBinding?: unknown;
+		secretBindingSource?: string;
+	}) {
+		return Boolean(field.secretBinding) || field.secretBindingSource === 'secret';
+	}
 </script>
 
 {#snippet remoteHeaders(showUrlTemplateHelp: boolean)}
@@ -81,7 +93,7 @@
 			</p>
 			{#if config.headers}
 				{#each config.headers as header, i (i)}
-					{#if !hasSecretBinding(header)}
+					{#if secretBindingTargets !== undefined || !hasSecretBinding(header)}
 						<div
 							class="dark:border-base-400 bg-base-300 flex w-full items-center gap-4 rounded-lg border border-transparent p-4"
 						>
@@ -177,18 +189,28 @@
 										}}
 									/>
 								{:else}
-									<div class="flex flex-col gap-2">
-										{#if variant === 'server'}
-											<label for={`header-description-${i}`} class="text-sm font-light">Value</label
-											>
-										{/if}
-										<input
-											id={`header-description-${i}`}
-											class="text-input-filled bg-base-100 w-full shadow-none"
-											bind:value={config.headers[i].value}
-											disabled={readonly}
+									{#if secretBindingTargets && !version.current.hideK8sDetails}
+										<SecretBindingPicker
+											bind:field={config.headers[i]}
+											targets={secretBindingTargets}
+											{readonly}
 										/>
-									</div>
+									{/if}
+									{#if !usesSecretBindingSource(config.headers[i])}
+										<div class="flex flex-col gap-2">
+											{#if variant === 'server'}
+												<label for={`header-description-${i}`} class="text-sm font-light"
+													>Value</label
+												>
+											{/if}
+											<input
+												id={`header-description-${i}`}
+												class="text-input-filled bg-base-100 w-full shadow-none"
+												bind:value={config.headers[i].value}
+												disabled={readonly}
+											/>
+										</div>
+									{/if}
 								{/if}
 							</div>
 

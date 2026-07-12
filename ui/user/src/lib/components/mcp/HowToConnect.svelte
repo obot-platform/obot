@@ -12,13 +12,14 @@
 
 	interface Props {
 		id: string;
+		displayName: string;
 		url: string;
 	}
 
-	let { url, id }: Props = $props();
+	let { id, displayName, url }: Props = $props();
 
 	let aiClientsMap = $derived(new Map(COMMON_AI_CLIENTS.map((client) => [client.id, client])));
-	let magicLinks = $derived(generateMcpLinks(id, url));
+	let magicLinks = $derived(generateMcpLinks(displayName, url));
 	let commands = $derived(generateAiClientCommands(id, url));
 
 	let copyFields = $state<ReturnType<typeof CopyField>[]>([]);
@@ -50,13 +51,13 @@
 		}
 	];
 
-	function generateMcpLinks(id: string, connectUrl: string) {
+	function generateMcpLinks(displayName: string, connectUrl: string) {
 		const prefs = userDeviceSettings.aiClientPreference ?? [];
 		const preferred = prefs.length ? new Set(prefs) : new Set(MAGIC_LINK_SUPPORTED_AI_CLIENTS);
 		return MAGIC_LINK_SUPPORTED_AI_CLIENTS.filter((client) => preferred.has(client)).map(
 			(client) => ({
 				client,
-				link: getAiClientMagicLink(client, id, connectUrl)
+				link: getAiClientMagicLink(client, displayName, connectUrl)
 			})
 		);
 	}

@@ -95,7 +95,7 @@ func newCatalogGatewayClient(t *testing.T, storageClient kclient.WithWatch) *gat
 	require.NoError(t, db.AutoMigrate())
 
 	ctx, cancel := context.WithCancel(context.Background())
-	client := gatewayclient.New(ctx, db, storageClient, nil, nil, nil, time.Hour, 100, 1)
+	client := gatewayclient.New(ctx, db, storageClient, nil, nil, nil, time.Hour, 100, 1, 1, true)
 	t.Cleanup(func() {
 		cancel()
 		require.NoError(t, client.Close())
@@ -118,11 +118,11 @@ func writeCatalogEntry(t *testing.T, dir, filename, name string) {
 	t.Helper()
 
 	content := `name: ` + name + `
-description: ` + name + ` remote MCP
-runtime: remote
+description: ` + name + ` MCP
+runtime: npx
 serverUserType: multiUser
-remoteConfig:
-  fixedURL: https://example.com/mcp
+npxConfig:
+  package: test-server
 `
 	require.NoError(t, os.WriteFile(filepath.Join(dir, filename), []byte(content), 0o600))
 }

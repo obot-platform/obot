@@ -41,7 +41,7 @@ func (s *Server) totalUsageForUser(apiContext api.Context) error {
 		return err
 	}
 
-	activity, err := apiContext.GatewayClient.TotalTokenUsageForUser(apiContext.Context(), userID, start, end, apiContext.Request.URL.Query().Get("include-personal-token") == "true")
+	activity, err := apiContext.GatewayClient.TotalTokenUsageForUser(apiContext.Context(), userID, start, end)
 	if err != nil {
 		return err
 	}
@@ -54,7 +54,7 @@ func (s *Server) totalUsageForUser(apiContext api.Context) error {
 
 func (s *Server) remainingUsageForUser(apiContext api.Context) error {
 	userID := apiContext.PathValue("user_id")
-	remainingUsage, err := apiContext.GatewayClient.RemainingTokenUsageForUser(apiContext.Context(), userID, tokenUsageTimePeriod, s.dailyUserTokenPromptTokenLimit, s.dailyUserTokenCompletionTokenLimit)
+	remainingUsage, err := apiContext.GatewayClient.RemainingTokenUsageForUser(apiContext.Context(), userID, tokenUsageTimePeriod, s.dailyUserInputTokenLimit, s.dailyUserOutputTokenLimit)
 	if err != nil {
 		return err
 	}
@@ -93,16 +93,24 @@ func (s *Server) totalSystemTokenUsage(apiContext api.Context) error {
 		return err
 	}
 
-	activities, err := apiContext.GatewayClient.TokenUsageByUser(apiContext.Context(), start, end, apiContext.Request.URL.Query().Get("include-personal-token") == "true")
+	activities, err := apiContext.GatewayClient.TokenUsageByUser(apiContext.Context(), start, end)
 	if err != nil {
 		return err
 	}
 
 	var activity types.RunTokenActivity
 	for _, a := range activities {
-		activity.PromptTokens += a.PromptTokens
-		activity.CompletionTokens += a.CompletionTokens
-		activity.TotalTokens += a.TotalTokens
+		activity.Usage.InputTokens += a.Usage.InputTokens
+		activity.Usage.CacheReadTokens += a.Usage.CacheReadTokens
+		activity.Usage.CacheWriteTokens += a.Usage.CacheWriteTokens
+		activity.Usage.OutputTokens += a.Usage.OutputTokens
+		activity.Usage.ThinkingTokens += a.Usage.ThinkingTokens
+		activity.Usage.TotalTokens += a.Usage.TotalTokens
+		activity.Usage.InputSpend += a.Usage.InputSpend
+		activity.Usage.CacheReadSpend += a.Usage.CacheReadSpend
+		activity.Usage.CacheWriteSpend += a.Usage.CacheWriteSpend
+		activity.Usage.OutputSpend += a.Usage.OutputSpend
+		activity.Usage.TotalSpend += a.Usage.TotalSpend
 	}
 
 	return apiContext.Write(types.ConvertTokenActivity(activity))

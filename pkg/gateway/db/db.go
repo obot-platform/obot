@@ -64,6 +64,18 @@ func (db *DB) AutoMigrate() (err error) {
 		return fmt.Errorf("failed to migrate mcp_audit_log client info: %w", err)
 	}
 
+	if err = migrateRunTokenActivityInputOutput(tx); err != nil {
+		return fmt.Errorf("failed to rename run_token_activities token columns: %w", err)
+	}
+
+	if err = dropRunTokenActivityPersonalToken(tx); err != nil {
+		return fmt.Errorf("failed to drop run_token_activities personal_token column: %w", err)
+	}
+
+	if err = migrateUserDailyTokenLimits(tx); err != nil {
+		return fmt.Errorf("failed to rename users daily token limit columns: %w", err)
+	}
+
 	if err = migrateIfEntryNotFoundInMigrationsTable(tx, "drop_session_cookies", dropSessionCookiesTable); err != nil {
 		return fmt.Errorf("failed to drop session_cookies table: %w", err)
 	}
@@ -91,6 +103,7 @@ func (db *DB) AutoMigrate() (err error) {
 	if err := tx.AutoMigrate(
 		types.AuthToken{},
 		types.TokenRequest{},
+		types.LLMAuditLog{},
 		types.LLMProxyActivity{},
 		types.User{},
 		types.Identity{},
@@ -114,9 +127,16 @@ func (db *DB) AutoMigrate() (err error) {
 		types.DeviceScanPlugin{},
 		types.DeviceScanFile{},
 		types.DeviceScanClient{},
+		types.MDMDeployment{},
+		types.DeviceEnrollmentKey{},
+		types.Device{},
 		types.Credential{},
 	); err != nil {
 		return fmt.Errorf("failed to auto migrate gateway types: %w", err)
+	}
+
+	if err = migrateIfEntryNotFoundInMigrationsTable(tx, "mcp_audit_log_source_type_backfill", migrateMCPAuditLogSourceType); err != nil {
+		return fmt.Errorf("failed to migrate mcp_audit_log source type: %w", err)
 	}
 
 	// MIGRATION: replace mcp_server_instance with mcp_id as the new primary key.

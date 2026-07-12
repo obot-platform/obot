@@ -22,16 +22,18 @@ import (
 )
 
 type ServerInstancesHandler struct {
-	acrHelper       *accesscontrolrule.Helper
-	mcpOAuthChecker MCPOAuthChecker
-	serverURL       string
+	acrHelper                 *accesscontrolrule.Helper
+	mcpOAuthChecker           MCPOAuthChecker
+	serverURL                 string
+	secretBindingAllowedLabel string
 }
 
-func NewServerInstancesHandler(acrHelper *accesscontrolrule.Helper, mcpOAuthChecker MCPOAuthChecker, serverURL string) *ServerInstancesHandler {
+func NewServerInstancesHandler(acrHelper *accesscontrolrule.Helper, mcpOAuthChecker MCPOAuthChecker, serverURL, secretBindingAllowedLabel string) *ServerInstancesHandler {
 	return &ServerInstancesHandler{
-		acrHelper:       acrHelper,
-		mcpOAuthChecker: mcpOAuthChecker,
-		serverURL:       serverURL,
+		acrHelper:                 acrHelper,
+		mcpOAuthChecker:           mcpOAuthChecker,
+		serverURL:                 serverURL,
+		secretBindingAllowedLabel: secretBindingAllowedLabel,
 	}
 }
 
@@ -231,7 +233,7 @@ func (h *ServerInstancesHandler) oauthURLForInstance(req api.Context) (string, e
 	// fully configured (e.g. required headers unset) so the probe never 500s on
 	// a half-set-up instance. For remote catalog servers (NeedsURL=false) this
 	// is identical to the strict path.
-	server, serverConfig, _, err := serverFromMCPServerInstance(req, instance, true)
+	server, serverConfig, _, err := serverFromMCPServerInstance(req, instance, h.secretBindingAllowedLabel, true)
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve MCP server instance: %w", err)
 	}

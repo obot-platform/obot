@@ -143,6 +143,7 @@ type RuntimeValidators map[types.Runtime]RuntimeValidator
 // Options configures runtime validation behavior.
 type Options struct {
 	RemoteMCPURLValidationConfig mcp.RemoteMCPURLValidationConfig
+	ResourceMaximums             mcp.ResourceMaximums
 }
 
 // UVXValidator implements RuntimeValidator for UVX runtime
@@ -1001,7 +1002,7 @@ func getRuntimeValidators(options Options) RuntimeValidators {
 		types.RuntimeUVX:           UVXValidator{},
 		types.RuntimeNPX:           NPXValidator{},
 		types.RuntimeContainerized: ContainerizedValidator{},
-		types.RuntimeRemote:        RemoteValidator(options),
+		types.RuntimeRemote:        RemoteValidator{RemoteMCPURLValidationConfig: options.RemoteMCPURLValidationConfig},
 		types.RuntimeComposite:     CompositeValidator{},
 	}
 }
@@ -1068,8 +1069,57 @@ func validateMCPResourceRequirements(runtime types.Runtime, resources *types.MCP
 	return nil
 }
 
+func validateMCPResourceMaximums(resources *types.MCPResourceRequirements, maximums mcp.ResourceMaximums) error {
+	if maximums.Empty() || resources == nil {
+		return nil
+	}
+
+	coreResources, err := mcp.CoreResourceRequirements(resources)
+	if err != nil {
+		return err
+	}
+	if coreResources == nil {
+		return nil
+	}
+
+	return maximums.Validate(*coreResources)
+}
+
+// validateCompositeServerResourceMaximums validates the resource maximums for a composite server.
+// No-op if the server is not a composite server.
+func validateCompositeServerResourceMaximums(manifest types.MCPServerManifest, maximums mcp.ResourceMaximums) error {
+	if maximums.Empty() || manifest.CompositeConfig == nil {
+		return nil
+	}
+
+	for _, component := range manifest.CompositeConfig.ComponentServers {
+		if err := validateMCPResourceMaximums(component.Manifest.Resources, maximums); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// validateCompositeCatalogEntryResourceMaximums validates the resource maximums for a composite catalog entry.
+// No-op if the catalog entry is not a composite entry.
+func validateCompositeCatalogEntryResourceMaximums(manifest types.MCPServerCatalogEntryManifest, maximums mcp.ResourceMaximums) error {
+	if maximums.Empty() || manifest.CompositeConfig == nil {
+		return nil
+	}
+
+	for _, component := range manifest.CompositeConfig.ComponentServers {
+		if err := validateMCPResourceMaximums(component.Manifest.Resources, maximums); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func ValidateServerManifest(ctx context.Context, manifest types.MCPServerManifest, isMultiUser bool, options Options) error {
 	if err := validateMCPResourceRequirements(manifest.Runtime, manifest.Resources); err != nil {
+		return err
+	}
+	if err := validateMCPResourceMaximums(manifest.Resources, options.ResourceMaximums); err != nil {
 		return err
 	}
 
@@ -1081,6 +1131,10 @@ func ValidateServerManifest(ctx context.Context, manifest types.MCPServerManifes
 		}
 	}
 	if err := validateRuntimeStartupTimeout(manifest.Runtime, manifest.RuntimeStartupTimeoutSeconds()); err != nil {
+		return err
+	}
+
+	if err := validateCompositeServerResourceMaximums(manifest, options.ResourceMaximums); err != nil {
 		return err
 	}
 
@@ -1116,7 +1170,7 @@ func ValidateCatalogEntryForRoute(manifest types.MCPServerCatalogEntryManifest, 
 	return nil
 }
 
-func ValidateCatalogEntryManifest(ctx context.Context, manifest types.MCPServerCatalogEntryManifest, options Options) error {
+func ValidateCatalogEntryManifest(ctx context.Context, manifest types.MCPServerCatalogEntryManifest, gitManaged bool, options Options) error {
 	switch manifest.ServerUserType {
 	case types.ServerUserTypeSingleUser, types.ServerUserTypeMultiUser:
 	default:
@@ -1131,16 +1185,30 @@ func ValidateCatalogEntryManifest(ctx context.Context, manifest types.MCPServerC
 		}
 	}
 
-	if !manifest.ServerUserType.IsSingleUser() && manifest.Runtime == types.RuntimeComposite {
-		return fmt.Errorf("multiUser catalog entries do not support composite runtime")
+	if !manifest.ServerUserType.IsSingleUser() &&
+		(manifest.Runtime == types.RuntimeComposite || manifest.Runtime == types.RuntimeRemote) {
+		return fmt.Errorf("multiUser catalog entries do not support %s runtime", manifest.Runtime)
 	}
 
 	if err := validateMCPResourceRequirements(manifest.Runtime, manifest.Resources); err != nil {
 		return err
 	}
+	if err := validateMCPResourceMaximums(manifest.Resources, options.ResourceMaximums); err != nil {
+		return err
+	}
 
 	if err := validateRuntimeStartupTimeout(manifest.Runtime, manifest.RuntimeStartupTimeoutSeconds()); err != nil {
 		return err
+	}
+
+	if err := validateCompositeCatalogEntryResourceMaximums(manifest, options.ResourceMaximums); err != nil {
+		return err
+	}
+
+	if gitManaged {
+		if err := validateGitManagedCatalogEntryManifest(manifest); err != nil {
+			return err
+		}
 	}
 
 	if validator, ok := getRuntimeValidators(options)[manifest.Runtime]; ok {
@@ -1152,6 +1220,26 @@ func ValidateCatalogEntryManifest(ctx context.Context, manifest types.MCPServerC
 		Field:   "runtime",
 		Message: "unsupported runtime",
 	}
+}
+
+func validateGitManagedCatalogEntryManifest(manifest types.MCPServerCatalogEntryManifest) error {
+	if manifest.Runtime != types.RuntimeComposite || manifest.CompositeConfig == nil {
+		return nil
+	}
+
+	for i, component := range manifest.CompositeConfig.ComponentServers {
+		for j, override := range component.ToolOverrides {
+			if override.Description != "" {
+				return types.RuntimeValidationError{
+					Runtime: types.RuntimeComposite,
+					Field:   fmt.Sprintf("compositeConfig.componentServers[%d].toolOverrides[%d].description", i, j),
+					Message: "cannot be set in Git-managed catalogs; use overrideDescription instead",
+				}
+			}
+		}
+	}
+
+	return nil
 }
 
 func ValidateSystemMCPServerCatalogEntryManifest(ctx context.Context, manifest types.SystemMCPServerCatalogEntryManifest, options Options) error {
@@ -1188,7 +1276,7 @@ func ValidateSystemMCPServerCatalogEntryManifest(ctx context.Context, manifest t
 		ServerUserType:      manifest.ServerUserType,
 		Env:                 manifest.Env,
 		Resources:           manifest.Resources,
-	}, options)
+	}, false, options)
 }
 
 func ValidateSystemMCPServerManifest(ctx context.Context, manifest types.SystemMCPServerManifest, options Options) error {
@@ -1262,12 +1350,12 @@ func validateStartupTimeout(runtime types.Runtime, field string, startupTimeoutS
 }
 
 // ValidateSecretBindings enforces the rules for secretBinding references on
-// env vars and headers. Bindings are GitOps-only: they may only appear on
-// catalog entries synced from git (gitManaged=true). They also require the
-// kubernetes MCP runtime backend, are mutually exclusive with a static value,
-// require non-empty name/key, and are rejected in unsupported combinations
-// (env bindings under remote runtime).
-func ValidateSecretBindings(manifest types.MCPServerManifest, gitManaged bool, mcpBackend string) error {
+// env vars and headers. Bindings may appear on git-managed catalog entries,
+// multi-user catalog entries, or admin-managed multi-user servers. They require the kubernetes MCP runtime
+// backend, are mutually exclusive with a static value, require non-empty
+// name/key, and are rejected in unsupported combinations (env bindings under
+// remote runtime).
+func ValidateSecretBindings(manifest types.MCPServerManifest, gitManaged, adminManaged bool, mcpBackend string) error {
 	check := func(kind, key string, h types.MCPHeader) error {
 		if h.SecretBinding == nil {
 			return nil
@@ -1275,8 +1363,8 @@ func ValidateSecretBindings(manifest types.MCPServerManifest, gitManaged bool, m
 		if !mcp.IsKubernetesBackend(mcpBackend) {
 			return fmt.Errorf("%s %q: secretBinding requires the kubernetes MCP runtime backend", kind, key)
 		}
-		if !gitManaged {
-			return fmt.Errorf("%s %q: secretBinding is only allowed on git-synced catalog entries", kind, key)
+		if !gitManaged && !adminManaged {
+			return fmt.Errorf("%s %q: secretBinding is only allowed on git-synced catalog entries, multi-user catalog entries, or admin-managed multi-user servers", kind, key)
 		}
 		if h.Value != "" {
 			return fmt.Errorf("%s %q: secretBinding and value are mutually exclusive", kind, key)
@@ -1304,6 +1392,13 @@ func ValidateSecretBindings(manifest types.MCPServerManifest, gitManaged bool, m
 			}
 		}
 	}
+	if manifest.MultiUserConfig != nil {
+		for _, h := range manifest.MultiUserConfig.UserDefinedHeaders {
+			if h.SecretBinding != nil {
+				return fmt.Errorf("multi-user header %q: secretBinding is not supported for user-defined headers", h.Key)
+			}
+		}
+	}
 	return nil
 }
 
@@ -1312,7 +1407,11 @@ func ValidateSecretBindings(manifest types.MCPServerManifest, gitManaged bool, m
 // carry the runtime/env shape of MCPServerManifest directly) by extracting
 // the fields that matter for binding validation. The catalog-entry manifest
 // uses the same MCPEnv/MCPHeader types, so we reuse the core logic.
-func ValidateSecretBindingsCatalogEntry(manifest types.MCPServerCatalogEntryManifest, gitManaged bool, mcpBackend string) error {
+func ValidateSecretBindingsCatalogEntry(manifest types.MCPServerCatalogEntryManifest, gitManaged, userIsAdmin bool, mcpBackend string) error {
+	if err := validateNoAdminAddedCatalogBindings(manifest); err != nil {
+		return err
+	}
+
 	// Reject URL templates that reference secret-bound env vars. Remote
 	// secretBinding support is limited to headers; URL templates are not a
 	// supported binding target.
@@ -1332,11 +1431,35 @@ func ValidateSecretBindingsCatalogEntry(manifest types.MCPServerCatalogEntryMani
 
 	// Synthesize a minimal MCPServerManifest so we can reuse the core check.
 	synthetic := types.MCPServerManifest{
-		Runtime:      manifest.Runtime,
-		Env:          manifest.Env,
-		RemoteConfig: remoteCatalogToRuntime(manifest.RemoteConfig),
+		Runtime:         manifest.Runtime,
+		Env:             manifest.Env,
+		RemoteConfig:    remoteCatalogToRuntime(manifest.RemoteConfig),
+		MultiUserConfig: manifest.MultiUserConfig,
 	}
-	return ValidateSecretBindings(synthetic, gitManaged, mcpBackend)
+	return ValidateSecretBindings(synthetic, gitManaged, userIsAdmin && manifest.ServerUserType == types.ServerUserTypeMultiUser, mcpBackend)
+}
+
+func validateNoAdminAddedCatalogBindings(manifest types.MCPServerCatalogEntryManifest) error {
+	for _, env := range manifest.Env {
+		if env.SecretBinding != nil && env.SecretBinding.AdminAdded {
+			return fmt.Errorf("env %q: secretBinding.adminAdded is not valid for catalog entry", env.Key)
+		}
+	}
+	if manifest.RemoteConfig != nil {
+		for _, h := range manifest.RemoteConfig.Headers {
+			if h.SecretBinding != nil && h.SecretBinding.AdminAdded {
+				return fmt.Errorf("header %q: secretBinding.adminAdded is not valid for catalog entry", h.Key)
+			}
+		}
+	}
+	if manifest.CompositeConfig != nil {
+		for _, component := range manifest.CompositeConfig.ComponentServers {
+			if err := validateNoAdminAddedCatalogBindings(component.Manifest); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func remoteCatalogToRuntime(c *types.RemoteCatalogConfig) *types.RemoteRuntimeConfig {

@@ -45,3 +45,8 @@ export const groupRoleOptions = [
 ];
 
 export const OBOT_PLATFORM_REPO = 'https://github.com/obot-platform/';
+
+export const MCP_MULTI_TENANT_LAUNCH_TEXT =
+	'You are about to launch a new server for a multi-tenant catalog entry.';
+export const MCP_SINGLE_TENANT_LAUNCH_TEXT =
+	'You are about to launch a personal server for a single-tenant catalog entry. This will only be accessible to you.';

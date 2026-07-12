@@ -25,6 +25,7 @@ import (
 type ErrorCode string
 
 const (
+	ErrInvalidClient           ErrorCode = "invalid_client"
 	ErrInvalidRequest          ErrorCode = "invalid_request"
 	ErrUnauthorizedClient      ErrorCode = "unauthorized_client"
 	ErrAccessDenied            ErrorCode = "access_denied"
@@ -48,6 +49,17 @@ func (e Error) Error() string {
 		return string(e.Code) + ": " + e.Description
 	}
 	return string(b)
+}
+
+func newOAuthErrHTTP(statusCode int, oauthErr Error) *types.ErrHTTP {
+	return types.NewErrHTTP(statusCode, oauthErr.Error())
+}
+
+func newInvalidClientErr(statusCode int, description string) *types.ErrHTTP {
+	return newOAuthErrHTTP(statusCode, Error{
+		Code:        ErrInvalidClient,
+		Description: description,
+	})
 }
 
 func (e Error) toQuery() url.Values {
@@ -123,7 +135,7 @@ func (h *handler) authorize(req api.Context) error {
 
 	if !isRedirectURIAllowed(oauthClient.Spec.Manifest, redirectURI) {
 		return types.NewErrBadRequest("%v", Error{
-			Code:        ErrInvalidRequest,
+			Code:        ErrInvalidClient,
 			Description: "redirect_uri is invalid for this client",
 			State:       state,
 		})
@@ -247,7 +259,7 @@ func (h *handler) callback(req api.Context) error {
 
 	mcpID := oauthAppAuthRequest.Spec.MCPID
 	if mcpID != "" {
-		serverOrInstanceID, audience, err := handlers.MCPIDAndAudienceFromConnectURL(req, mcpID)
+		serverOrInstanceID, audience, err := handlers.MCPIDAndAudienceFromConnectURL(req, mcpID, h.oauthChecker.secretBindingAllowedLabel, handlers.ValidationOptionsWithResourceMaximums(h.oauthChecker.mcpSessionManager))
 		if err != nil {
 			if errHTTP := (*types.ErrHTTP)(nil); errors.As(err, &errHTTP) {
 				redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
@@ -315,7 +327,7 @@ func (h *handler) prepareOAuthConsent(req api.Context, oauthAppAuthRequest *v1.O
 	}
 
 	// Check whether the MCP server needs authentication.
-	mcpID, mcpServer, mcpServerConfig, missingConfig, err := handlers.ServerForActionWithConnectIDAllowMissingConfig(req, oauthAppAuthRequest.Spec.MCPID)
+	mcpID, mcpServer, mcpServerConfig, missingConfig, err := handlers.ServerForActionWithConnectIDAllowMissingConfig(req, oauthAppAuthRequest.Spec.MCPID, h.oauthChecker.secretBindingAllowedLabel, handlers.ValidationOptionsWithResourceMaximums(h.oauthChecker.mcpSessionManager))
 	if err != nil {
 		return err
 	}
@@ -387,6 +399,11 @@ func (h *handler) consent(req api.Context) error {
 
 	oauthClient, err := h.resolveOAuthClient(req.Context(), req.Storage, clientID)
 	if err != nil {
+		if oauthErr, ok := errors.AsType[Error](err); ok {
+			oauthErr.State = oauthAppAuthRequest.Spec.State
+			redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, oauthErr)
+			return nil
+		}
 		redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
 			Code:        ErrServerError,
 			Description: fmt.Sprintf("failed to get OAuth client: %v", err),
@@ -400,9 +417,9 @@ func (h *handler) consent(req api.Context) error {
 		mcpServer         *types.MCPServer
 		mcpServerInstance *types.MCPServerInstance
 	)
-	if oauthAppAuthRequest.Spec.ConsentMCPConfigRequired {
-		mcpServer, mcpServerInstance, err = handlers.ConfigurationTargetForConnectID(req, oauthAppAuthRequest.Spec.MCPID, h.baseURL)
-		if err != nil {
+	mcpServer, mcpServerInstance, err = handlers.ConfigurationTargetForConnectID(req, oauthAppAuthRequest.Spec.MCPID, h.baseURL, h.oauthChecker.secretBindingAllowedLabel, handlers.ValidationOptionsWithResourceMaximums(h.oauthChecker.mcpSessionManager))
+	if err != nil {
+		if oauthAppAuthRequest.Spec.ConsentMCPConfigRequired {
 			redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
 				Code:        ErrServerError,
 				Description: err.Error(),
@@ -410,6 +427,7 @@ func (h *handler) consent(req api.Context) error {
 			})
 			return nil
 		}
+		log.Warnf("Failed to load optional MCP configuration target for OAuth consent: authRequest=%s mcpID=%s error=%v", oauthAppAuthRequest.Name, oauthAppAuthRequest.Spec.MCPID, err)
 	}
 
 	return req.Write(oauthConsentPageData(oauthAppAuthRequest, oauthClient, continueURL, cancelURL, mcpServer, mcpServerInstance))
@@ -532,7 +550,7 @@ func (h *handler) oauthComplete(req api.Context) error {
 }
 
 func (h *handler) ensureMCPAuthComplete(req api.Context, oauthAppAuthRequest v1.OAuthAuthRequest) error {
-	mcpID, mcpServer, mcpServerConfig, err := handlers.ServerForActionWithConnectID(req, oauthAppAuthRequest.Spec.MCPID)
+	mcpID, mcpServer, mcpServerConfig, err := handlers.ServerForActionWithConnectID(req, oauthAppAuthRequest.Spec.MCPID, h.oauthChecker.secretBindingAllowedLabel, handlers.ValidationOptionsWithResourceMaximums(h.oauthChecker.mcpSessionManager))
 	if err != nil {
 		return err
 	}

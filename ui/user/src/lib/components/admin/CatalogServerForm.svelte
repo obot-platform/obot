@@ -8,6 +8,7 @@
 		type LaunchServerType,
 		type MCPCatalogEntry,
 		type MCPResourceRequirements,
+		type MCPAllowedSecretBindingTarget,
 		type RuntimeFormData,
 		type MCPCatalogEntryServerManifest,
 		type Runtime,
@@ -17,11 +18,12 @@
 		convertCategoriesToMetadata,
 		convertServerRuntimeFormDataToManifest,
 		hasSecretBinding,
+		isKubernetesRuntimeBackend,
 		sanitizeEgressDomains,
 		sanitizeResourceRuntimeConfig,
 		validateRuntimeForm
 	} from '$lib/services/user/mcp';
-	import { profile, version } from '$lib/stores';
+	import { errors, profile, version } from '$lib/stores';
 	import MarkdownInput from '../MarkdownInput.svelte';
 	import Select from '../Select.svelte';
 	import CompositeRuntimeForm from '../mcp/CompositeRuntimeForm.svelte';
@@ -85,13 +87,28 @@
 	let loading = $state(false);
 	let compositeHasToolNameErrors = $state(false);
 	let mcpResourceDefaults = $state<MCPResourceRequirements>();
+	let secretBindingTargets = $state<MCPAllowedSecretBindingTarget[]>();
 
 	let formData = $state<RuntimeFormData>(untrack(() => convertToFormData(entry)));
 
 	const isAtLeastPowerUserPlus = $derived(profile.current?.groups.includes(Group.POWERUSER_PLUS));
 	const showEgressDomains = $derived(!!version.current.mcpNetworkPolicyEnabled);
 	const secretBoundHeaders = $derived(
-		(formData.remoteConfig?.headers ?? []).filter((h) => hasSecretBinding(h))
+		(type === 'multi'
+			? (formData.remoteServerConfig?.headers ?? [])
+			: (formData.remoteConfig?.headers ?? [])
+		).filter((h) => hasSecretBinding(h))
+	);
+	const secretBindingsSupported = $derived(isKubernetesRuntimeBackend(version.current.engine));
+	const canEditSecretBindings = $derived(
+		secretBindingsSupported &&
+			entity === 'catalog' &&
+			profile.current?.isAdmin?.() &&
+			!readonly &&
+			(type === 'multi' || (type === 'hosted' && formData.serverUserType === 'multiUser'))
+	);
+	const editableSecretBindingTargets = $derived(
+		canEditSecretBindings ? secretBindingTargets : undefined
 	);
 	const defaultDenyAllEgress = $derived(!!version.current.mcpDefaultDenyAllEgress);
 
@@ -147,11 +164,13 @@
 			const isHostedType = type === 'hosted';
 			return {
 				categories: [''],
+				metadata: undefined,
 				name: '',
+				shortDescription: '',
 				description: '',
 				env: [],
 				icon: '',
-				serverUserType: isHostedType ? 'multiUser' : 'singleUser',
+				serverUserType: isHostedType && entity === 'catalog' ? 'multiUser' : 'singleUser',
 				runtime: 'npx' as Runtime,
 				resources:
 					type !== 'remote' && type !== 'composite' ? defaultResourceRuntimeConfig() : undefined,
@@ -173,8 +192,10 @@
 
 			const formData: RuntimeFormData = {
 				categories: manifest.metadata?.categories?.split(',').filter((c) => c.trim()) ?? [''],
+				metadata: manifest.metadata,
 				icon: manifest.icon ?? '',
 				name: manifest.name ?? '',
+				shortDescription: manifest.shortDescription ?? '',
 				description: manifest.description ?? '',
 				serverUserType: 'multiUser',
 				env: manifest.env?.map((env) => ({ ...env, value: '' })) ?? [],
@@ -222,8 +243,10 @@
 
 			const formData: RuntimeFormData = {
 				categories: manifest.metadata?.categories?.split(',').filter((c) => c.trim()) ?? [''],
+				metadata: manifest.metadata,
 				name: manifest.name ?? '',
 				icon: manifest.icon ?? '',
+				shortDescription: manifest.shortDescription ?? '',
 				env: manifest.env?.map((env) => ({ ...env, value: env.value ?? '' })) ?? [],
 				description: manifest.description ?? '',
 				serverUserType: manifest.serverUserType,
@@ -341,13 +364,35 @@
 				formData.containerizedConfig = defaultContainerizedConfig();
 				break;
 			case 'remote':
-				// For remote servers (catalog entries), use remoteConfig
-				formData.remoteConfig = { fixedURL: '', headers: [] };
+				if (type === 'multi') {
+					formData.remoteServerConfig = { url: '', headers: [] };
+				} else {
+					formData.remoteConfig = { fixedURL: '', headers: [] };
+				}
 				break;
 			case 'composite':
 				formData.compositeConfig = { componentServers: [] };
 				break;
 		}
+	}
+
+	function loadSecretBindingTargets() {
+		AdminService.listMCPSecretBindingTargets({ dontLogErrors: true })
+			.then((targets) => {
+				secretBindingTargets = targets;
+			})
+			.catch((err) => {
+				secretBindingTargets = [];
+				errors.append(`Failed to load Kubernetes Secrets for binding: ${err}`);
+			});
+	}
+
+	function stripSecretBindingSource<T extends object>(field: T) {
+		const rest = { ...field } as T & {
+			secretBindingSource?: string;
+		};
+		delete rest.secretBindingSource;
+		return rest;
 	}
 
 	onMount(() => {
@@ -363,10 +408,13 @@
 					console.error('Failed to load Kubernetes resource defaults:', err);
 				});
 		}
+		if (canEditSecretBindings) {
+			loadSecretBindingTargets();
+		}
 	});
 
 	function convertToEntryManifest(formData: RuntimeFormData): MCPCatalogEntryServerManifest {
-		const { categories, ...baseData } = formData;
+		const { categories, metadata, ...baseData } = formData;
 		const startupTimeoutSeconds = baseData.startupTimeoutSeconds;
 		const startupTimeoutConfig =
 			typeof startupTimeoutSeconds === 'number' &&
@@ -384,14 +432,17 @@
 		const manifest: MCPCatalogEntryServerManifest = {
 			name: baseData.name,
 			description: baseData.description,
+			...(baseData.shortDescription !== undefined
+				? { shortDescription: baseData.shortDescription }
+				: {}),
 			icon: baseData.icon,
-			env: baseData.env,
+			env: baseData.env?.map(stripSecretBindingSource),
 			runtime: baseData.runtime,
 			serverUserType: baseData.serverUserType,
 			multiUserConfig:
 				baseData.serverUserType === 'multiUser' ? baseData.multiUserConfig : undefined,
 			...(resources ? { resources } : {}),
-			...convertCategoriesToMetadata(categories)
+			...convertCategoriesToMetadata(categories, metadata)
 		};
 
 		// Add runtime-specific config based on the runtime type
@@ -440,7 +491,7 @@
 						fixedURL: baseData.remoteConfig.fixedURL?.trim() || undefined,
 						hostname: baseData.remoteConfig.hostname?.trim() || undefined,
 						urlTemplate: baseData.remoteConfig.urlTemplate?.trim() || undefined,
-						headers: baseData.remoteConfig.headers || [],
+						headers: baseData.remoteConfig.headers?.map(stripSecretBindingSource) || [],
 						staticOAuthRequired: baseData.remoteConfig.staticOAuthRequired
 					};
 				}
@@ -659,6 +710,18 @@
 		</div>
 
 		<div class="flex flex-col gap-1">
+			<label for="shortDescription" class="text-sm font-light capitalize">Short Description</label>
+			<input
+				type="text"
+				id="shortDescription"
+				bind:value={formData.shortDescription}
+				class="text-input-filled dark:bg-base-100"
+				disabled={readonly}
+				placeholder="Provide a brief summary that will be shown in catalog listings."
+			/>
+		</div>
+
+		<div class="flex flex-col gap-1">
 			<label for="icon" class="text-sm font-light capitalize">Icon URL</label>
 			<input
 				type="text"
@@ -675,17 +738,19 @@
 	<div class="paper p-4">
 		<h4 class="text-sm font-semibold">Server Tenancy</h4>
 
-		<div class="notification-info">
-			<div class="flex items-center gap-2">
-				<Info class="size-4" />
-				<div>
-					<p class="text-xs font-light">
-						Once the server tenancy has been set, it cannot be changed. In order to change the
-						configuration, you must delete the server and create a new one.
-					</p>
+		{#if entity === 'catalog'}
+			<div class="notification-info">
+				<div class="flex items-center gap-2">
+					<Info class="size-4" />
+					<div>
+						<p class="text-xs font-light">
+							Once the server tenancy has been set, it cannot be changed. In order to change the
+							configuration, you must delete the server and create a new one.
+						</p>
+					</div>
 				</div>
 			</div>
-		</div>
+		{/if}
 
 		<div class="flex items-center gap-4">
 			<label for="server-configuration-selector" class="text-sm font-light">Type</label>
@@ -702,16 +767,29 @@
 						formData.serverUserType = option.id as 'singleUser' | 'multiUser';
 						formData.multiUserConfig =
 							option.id === 'multiUser' ? { userDefinedHeaders: [] } : undefined;
+						if (
+							secretBindingsSupported &&
+							entity === 'catalog' &&
+							profile.current?.isAdmin?.() &&
+							option.id === 'multiUser' &&
+							secretBindingTargets === undefined
+						) {
+							loadSecretBindingTargets();
+						}
 					}}
-					disabled={readonly || !!entry?.id}
+					disabled={readonly || !!entry?.id || entity !== 'catalog'}
 				/>
 			</div>
 		</div>
 
 		<p class="text-muted-content text-xs">
-			Set tenancy to <i>Single-tenant</i> if each user should connect to their own private instance
-			of the server. <br />
-			<i>Multi-tenancy</i> has all users connect to the same server instance.
+			{#if entity === 'catalog'}
+				Set tenancy to <i>Single-tenant</i> if each user should connect to their own private
+				instance of the server. <br />
+				<i>Multi-tenancy</i> has all users connect to the same server instance.
+			{:else}
+				<i>Single-tenant</i> requires each user to connect to their own private instance of the server.
+			{/if}
 		</p>
 	</div>
 {/if}
@@ -755,6 +833,28 @@
 		{showRequired}
 		onFieldChange={updateRequired}
 	/>
+{:else if formData.runtime === 'remote' && type === 'multi' && formData.remoteServerConfig}
+	<RemoteRuntimeForm
+		bind:config={formData.remoteServerConfig}
+		variant="server"
+		{readonly}
+		{showRequired}
+		onFieldChange={updateRequired}
+		isNewEntry={!entry}
+		{onConfigureOAuth}
+		secretBindingTargets={editableSecretBindingTargets}
+	>
+		{#snippet afterHeaders()}
+			{#if secretBoundHeaders.length > 0}
+				<CustomConfigurationForm
+					bind:config={formData.env}
+					{readonly}
+					serverUserType={formData.serverUserType}
+					{secretBoundHeaders}
+				/>
+			{/if}
+		{/snippet}
+	</RemoteRuntimeForm>
 {:else if formData.runtime === 'remote' && formData.remoteConfig}
 	<RemoteRuntimeForm
 		bind:config={formData.remoteConfig}
@@ -800,6 +900,7 @@
 		{readonly}
 		serverUserType={formData.serverUserType}
 		{secretBoundHeaders}
+		secretBindingTargets={editableSecretBindingTargets}
 	/>
 {/if}
 

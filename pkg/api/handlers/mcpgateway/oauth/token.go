@@ -17,6 +17,8 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/api/authz"
+	"github.com/obot-platform/obot/pkg/auth"
 	gwtypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -61,27 +63,24 @@ func (h *handler) token(req api.Context) error {
 			c, err := base64.StdEncoding.DecodeString(creds)
 			if err != nil {
 				log.Infof("Denied OAuth token request due to invalid basic auth encoding")
-				return types.NewErrHTTP(http.StatusUnauthorized, "Invalid client credentials")
+				return newInvalidClientErr(http.StatusUnauthorized, "invalid client credentials")
 			}
 
 			idx := bytes.LastIndex(c, []byte{':'})
 			if idx == -1 {
 				log.Infof("Denied OAuth token request due to malformed basic auth credentials")
-				return types.NewErrHTTP(http.StatusUnauthorized, "Invalid client credentials")
+				return newInvalidClientErr(http.StatusUnauthorized, "invalid client credentials")
 			}
 
 			clientID, clientSecret = string(c[:idx]), string(c[idx+1:])
 			if clientID == "" {
-				return types.NewErrBadRequest("%v", Error{
-					Code:        ErrInvalidRequest,
-					Description: "client_id is required",
-				})
+				return newInvalidClientErr(http.StatusUnauthorized, "client_id is required")
 			}
 
 			clientID, err = url.QueryUnescape(clientID)
 			if err != nil {
-				return types.NewErrBadRequest("%v", Error{
-					Code:        ErrInvalidRequest,
+				return newOAuthErrHTTP(http.StatusBadRequest, Error{
+					Code:        ErrInvalidClient,
 					Description: "client_id is invalid",
 				})
 			}
@@ -94,22 +93,22 @@ func (h *handler) token(req api.Context) error {
 		var err error
 		clientID, err = clientIDFromClientAssertion(req.Form)
 		if err != nil {
-			return types.NewErrBadRequest("%v", Error{
-				Code:        ErrInvalidRequest,
-				Description: err.Error(),
-			})
+			return newInvalidClientErr(http.StatusUnauthorized, err.Error())
 		}
 	}
 
 	if clientID == "" {
 		log.Infof("Denied OAuth token request due to missing client credentials")
-		return types.NewErrHTTP(http.StatusUnauthorized, "Invalid client credentials")
+		return newInvalidClientErr(http.StatusUnauthorized, "invalid client credentials")
 	}
 
 	client, err := h.resolveOAuthClient(req.Context(), req.Storage, clientID)
 	if err != nil {
 		if oauthErr, ok := errors.AsType[Error](err); ok {
-			return types.NewErrBadRequest("%v", oauthErr)
+			if oauthErr.Code == ErrInvalidClient {
+				return newOAuthErrHTTP(http.StatusUnauthorized, oauthErr)
+			}
+			return newOAuthErrHTTP(http.StatusBadRequest, oauthErr)
 		}
 		return err
 	}
@@ -118,7 +117,12 @@ func (h *handler) token(req api.Context) error {
 	case "client_secret_basic", "client_secret_post":
 		if bcrypt.CompareHashAndPassword(client.Spec.ClientSecretHash, []byte(clientSecret)) != nil {
 			log.Infof("Denied OAuth token request due to invalid client secret: client=%s/%s", client.Namespace, client.Name)
-			return types.NewErrHTTP(http.StatusUnauthorized, "Invalid client credentials")
+			return newInvalidClientErr(http.StatusUnauthorized, "invalid client credentials")
+		}
+	case "private_key_jwt":
+		if err := h.validatePrivateKeyJWT(req.Context(), req.Form, client, clientID); err != nil {
+			log.Infof("Denied OAuth token request due to invalid private_key_jwt client assertion: client=%s/%s error=%v", client.Namespace, client.Name, err)
+			return newInvalidClientErr(http.StatusUnauthorized, err.Error())
 		}
 	}
 
@@ -132,7 +136,7 @@ func (h *handler) token(req api.Context) error {
 
 	if len(client.Spec.Manifest.GrantTypes) > 0 && !slices.Contains(client.Spec.Manifest.GrantTypes, grantType) || len(client.Spec.Manifest.GrantTypes) == 0 && grantType != "authorization_code" {
 		return types.NewErrBadRequest("%v", Error{
-			Code:        ErrInvalidRequest,
+			Code:        ErrInvalidClient,
 			Description: "client is not allowed to use authorization_code grant type",
 		})
 	}
@@ -303,8 +307,7 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 		return fmt.Errorf("failed to refresh oauth token: %w", err)
 	}
 
-	userID := fmt.Sprintf("%d", oauthToken.Spec.UserID)
-	user, err := req.GatewayClient.UserByID(req.Context(), userID)
+	user, err := req.GatewayClient.UserInfoByID(req.Context(), oauthToken.Spec.UserID)
 	if err != nil {
 		return types.NewErrBadRequest("%v", Error{
 			Code:        ErrInvalidRequest,
@@ -312,18 +315,23 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 		})
 	}
 
-	// If this is an MCP server instance and the resource isn't the MCP server, then update it to the MCP server.
-	if system.IsMCPServerInstanceID(oauthToken.Spec.MCPID) && strings.HasSuffix(oauthToken.Spec.Resource, "/"+oauthToken.Spec.MCPID) {
-		// If this is an MCP server instance ID, we need to get the MCP server ID
-		var mcpServerInstance v1.MCPServerInstance
-		if err := req.Storage.Get(req.Context(), kclient.ObjectKey{Namespace: oauthClient.Namespace, Name: oauthToken.Spec.MCPID}, &mcpServerInstance); err != nil {
-			return types.NewErrBadRequest("%v", Error{
-				Code:        ErrInvalidRequest,
-				Description: "invalid MCP server",
-			})
+	allowed, err := authz.CheckMCPIDAccess(req.Context(), req.Storage, h.acrHelper, user, oauthToken.Spec.MCPID)
+	if apierrors.IsNotFound(err) {
+		return types.NewErrBadRequest("%v", Error{
+			Code:        ErrInvalidRequest,
+			Description: "invalid MCP server",
+		})
+	} else if err != nil {
+		return Error{
+			Code:        ErrServerError,
+			Description: fmt.Sprintf("failed to check access to MCP server: %v", err),
 		}
-
-		oauthToken.Spec.Resource = fmt.Sprintf("%s/mcp-connect/%s", h.baseURL, mcpServerInstance.Spec.MCPServerName)
+	}
+	if !allowed {
+		return types.NewErrBadRequest("%v", Error{
+			Code:        ErrInvalidRequest,
+			Description: "invalid MCP server",
+		})
 	}
 
 	now := time.Now()
@@ -332,10 +340,9 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 		Audience:              oauthToken.Spec.Resource,
 		IssuedAt:              now,
 		ExpiresAt:             now.Add(tokenExpiration),
-		UserID:                userID,
-		UserName:              user.Username,
-		UserEmail:             user.Email,
-		Picture:               user.IconURL,
+		UserID:                user.GetUID(),
+		UserName:              user.GetName(),
+		UserEmail:             auth.FirstExtraValue(user.GetExtra(), "email"),
 		UserGroups:            []string{types.GroupMCP, types.GroupAuthenticated},
 		AuthProviderName:      oauthToken.Spec.AuthProviderName,
 		AuthProviderNamespace: oauthToken.Spec.AuthProviderNamespace,

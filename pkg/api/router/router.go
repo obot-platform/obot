@@ -61,21 +61,23 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 		DisableUpdateCheck:      services.DisableUpdateCheck,
 		MessagePoliciesEnabled:  services.MessagePoliciesEnabled,
 		AgentsEnabled:           agentsEnabled,
+		HideK8sDetails:          services.HideK8sDetails,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	oauthChecker := oauth.NewMCPOAuthHandlerFactory(services.ServerURL, services.MCPSessionManager, services.StorageClient, services.GatewayClient, services.MCPOAuthTokenStorage)
+	oauthChecker := oauth.NewMCPOAuthHandlerFactory(services.ServerURL, services.MCPSessionManager, services.StorageClient, services.GatewayClient, services.MCPOAuthTokenStorage, services.MCPSecretBindingAllowedLabel)
 
 	models := handlers.NewModelHandler(services.ModelAccessPolicyHelper)
-	mcpCatalogs := handlers.NewMCPCatalogHandler(services.DefaultMCPCatalogPath, services.ServerURL, services.MCPRuntimeBackend, services.MCPSessionManager, oauthChecker, services.GatewayClient, services.AccessControlRuleHelper)
+	mcpCatalogs := handlers.NewMCPCatalogHandler(services.DefaultMCPCatalogPath, services.ServerURL, services.MCPRuntimeBackend, services.MCPSessionManager, oauthChecker, services.GatewayClient, services.AccessControlRuleHelper, services.MCPSecretBindingAllowedLabel)
+	modelInfoSources := handlers.NewModelInfoSourceHandler()
 	systemMCPCatalogs := handlers.NewSystemMCPCatalogHandler(services.DefaultSystemMCPCatalogPath, services.MCPSessionManager)
 	accessControlRules := handlers.NewAccessControlRuleHandler()
 	skillRepositories := handlers.NewSkillRepositoryHandler()
 	skillAccessRules := handlers.NewSkillAccessRuleHandler()
 	skills := handlers.NewSkillHandler(services.SkillAccessRuleHelper)
-	powerUserWorkspaces := handlers.NewPowerUserWorkspaceHandler(services.ServerURL, services.AccessControlRuleHelper)
+	powerUserWorkspaces := handlers.NewPowerUserWorkspaceHandler(services.ServerURL, services.AccessControlRuleHelper, services.MCPSecretBindingAllowedLabel)
 	mcpWebhookValidations := handlers.NewMCPWebhookValidationHandler(services.MCPSessionManager)
 	availableModels := handlers.NewAvailableModelsHandler(services.ProviderDispatcher, services.LicenseProvider)
 	modelProviders := handlers.NewModelProviderHandler(services.ProviderDispatcher, services.LicenseProvider)
@@ -83,18 +85,22 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	messagePolicies := handlers.NewMessagePolicyHandler()
 	policyViolations := handlers.NewMessagePolicyViolationHandler()
 	deviceScans := handlers.NewDeviceScansHandler()
+	mdmDeployments := handlers.NewMDMDeploymentsHandler()
+	deviceEnroll := handlers.NewDeviceEnrollHandler()
 	authProviders := handlers.NewAuthProviderHandler(services.ProviderDispatcher, services.PostgresDSN, services.LicenseProvider)
 	defaultModelAliases := handlers.NewDefaultModelAliasHandler()
 	images := handlers.NewImageHandler()
-	mcp := handlers.NewMCPHandler(services.MCPSessionManager, services.AccessControlRuleHelper, oauthChecker, services.Router.Backend(), services.MCPImagePullSecrets, services.ServerURL)
-	mcpGateway := mcpgateway.NewHandler(services.MCPSessionManager)
+	mcp := handlers.NewMCPHandler(services.MCPSessionManager, services.AccessControlRuleHelper, oauthChecker, services.Router.Backend(), services.MCPImagePullSecrets, services.ServerURL, services.MCPSecretBindingAllowedLabel)
+	mcpSecretBindings := handlers.NewMCPSecretBindingHandler(services.MCPRuntimeBackend, services.LocalK8sClient, services.ObotNamespace, services.MCPSecretBindingAllowedLabel)
+	mcpGateway := mcpgateway.NewHandler(services.MCPSessionManager, services.MCPSecretBindingAllowedLabel)
 	mcpAuditLogs := mcpgateway.NewAuditLogHandler()
+	localAgentAuditLogs := mcpgateway.NewLocalAgentAuditLogHandler()
 	auditLogExports := handlers.NewAuditLogExportHandler(services.GatewayClient)
-	serverInstances := handlers.NewServerInstancesHandler(services.AccessControlRuleHelper, oauthChecker, services.ServerURL)
-	systemMCPServers := handlers.NewSystemMCPServerHandler(services.MCPSessionManager)
+	serverInstances := handlers.NewServerInstancesHandler(services.AccessControlRuleHelper, oauthChecker, services.ServerURL, services.MCPSecretBindingAllowedLabel)
+	systemMCPServers := handlers.NewSystemMCPServerHandler(services.MCPSessionManager, services.MCPSecretBindingAllowedLabel)
 	userDefaultRoleSettings := handlers.NewUserDefaultRoleSettingHandler()
 	setupHandler := setup.NewHandler(services.ServerURL, services.Bootstrapper)
-	registryHandler := registry.NewHandler(services.AccessControlRuleHelper, services.ServerURL, services.RegistryNoAuth)
+	registryHandler := registry.NewHandler(services.AccessControlRuleHelper, services.ServerURL, services.RegistryNoAuth, services.MCPSecretBindingAllowedLabel)
 	oauthClients := handlers.NewOAuthClientsHandler(services.OAuthServerConfig, services.ServerURL)
 	publishedArtifacts := handlers.NewPublishedArtifactHandler(services.ArtifactBlobStore, services.ArtifactBlobBucket)
 	imagePullSecretsHandler := handlers.NewImagePullSecretHandler(services.MCPRuntimeBackend, services.MCPImagePullSecrets, services.MCPServerNamespace, services.ServiceNamespace, services.ServiceAccountName, services.LocalK8sClient, services.ServiceAccountIssuerURL, services.ServiceAccountIssuerError)
@@ -124,6 +130,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 
 	// User-Deployed MCP Servers (single-user, remote, and composite)
 	mux.HandleFunc("GET /api/mcp-servers", mcp.ListServer)
+	mux.HandleFunc("GET /api/mcp-server-binding-secrets", mcpSecretBindings.ListAllowedSecrets)
 	mux.HandleFunc("GET /api/mcp-servers/{mcp_server_id}", mcp.GetServer)
 	mux.HandleFunc("POST /api/mcp-servers", mcp.CreateServer)
 	mux.HandleFunc("PUT /api/mcp-servers/{mcp_server_id}", mcp.UpdateServer)
@@ -168,6 +175,10 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/categories", mcpCatalogs.ListCategoriesForCatalog)
 	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/refresh", mcpCatalogs.Refresh)
 	mux.HandleFunc("PUT /api/mcp-catalogs/{catalog_id}", mcpCatalogs.Update)
+
+	// ModelInfoSource (admin only)
+	mux.HandleFunc("GET /api/model-info-source", modelInfoSources.Get)
+	mux.HandleFunc("POST /api/model-info-source/refresh", modelInfoSources.Refresh)
 
 	// MCPServerCatalogEntries (admin only, for single-user and remote MCP servers)
 	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/entries", mcpCatalogs.ListEntries)
@@ -348,6 +359,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/mcp-audit-logs/{mcp_id}", mcpAuditLogs.ListAuditLogs)
 	mux.HandleFunc("GET /api/mcp-stats", mcpAuditLogs.GetUsageStats)
 	mux.HandleFunc("GET /api/mcp-stats/{mcp_id}", mcpAuditLogs.GetUsageStats)
+	mux.HandleFunc("POST /api/local-agent-audit-logs", localAgentAuditLogs.Submit)
 
 	// Audit Log Exports
 	mux.HandleFunc("POST /api/audit-log-exports", auditLogExports.CreateAuditLogExport)
@@ -411,7 +423,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("POST /api/user-default-role-settings", userDefaultRoleSettings.Set)
 
 	// K8s Settings
-	k8sSettingsHandler := handlers.NewK8sSettingsHandler()
+	k8sSettingsHandler := handlers.NewK8sSettingsHandler(services.MCPSessionManager)
 	mux.HandleFunc("GET /api/default-k8s-settings", k8sSettingsHandler.Defaults)
 	mux.HandleFunc("GET /api/k8s-settings", k8sSettingsHandler.Get)
 	mux.HandleFunc("PUT /api/k8s-settings", k8sSettingsHandler.Update)
@@ -533,6 +545,20 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/devices/clients", deviceScans.ListClients)
 	mux.HandleFunc("GET /api/devices/clients/{name}", deviceScans.GetClient)
 
+	// Device Deployments + enrollment keys (admin). A deployment can have
+	// multiple keys; deleting one only stops it from enrolling new devices.
+	mux.HandleFunc("POST /api/mdm/deployments", mdmDeployments.Create)
+	mux.HandleFunc("GET /api/mdm/deployments", mdmDeployments.List)
+	mux.HandleFunc("GET /api/mdm/deployments/{id}", mdmDeployments.Get)
+	mux.HandleFunc("DELETE /api/mdm/deployments/{id}", mdmDeployments.Delete)
+	mux.HandleFunc("GET /api/mdm/deployments/{id}/enrollment-keys", mdmDeployments.ListEnrollmentKeys)
+	mux.HandleFunc("POST /api/mdm/deployments/{id}/enrollment-keys", mdmDeployments.CreateEnrollmentKey)
+	mux.HandleFunc("DELETE /api/mdm/deployments/{id}/enrollment-keys/{key_id}", mdmDeployments.DeleteEnrollmentKey)
+	mux.HandleFunc("GET /api/mdm/deployments/{id}/devices", mdmDeployments.ListDevices)
+
+	// Device enrollment (authenticated by an enrollment token -> MDMDeployment principal)
+	mux.HandleFunc("POST /api/mdm/enroll", deviceEnroll.Enroll)
+
 	// Available Models
 	mux.HandleFunc("GET /api/available-models", availableModels.List)
 	mux.HandleFunc("GET /api/available-models/{model_provider_id}", availableModels.ListForModelProvider)
@@ -557,7 +583,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("DELETE /api/projects/{project_id}", projects.Delete)
 
 	// NanobotAgents
-	nanobotAgents := handlers.NewNanobotAgentHandler(services.MCPSessionManager, services.ServerURL, agentsEnabled)
+	nanobotAgents := handlers.NewNanobotAgentHandler(services.MCPSessionManager, services.ServerURL, agentsEnabled, services.MCPSecretBindingAllowedLabel)
 	mux.HandleFunc("GET /api/nanobot-agents", nanobotAgents.ListAll)
 	mux.HandleFunc("POST /api/projects/{project_id}/agents", nanobotAgents.Create)
 	mux.HandleFunc("GET /api/projects/{project_id}/agents", nanobotAgents.List)
@@ -576,7 +602,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	wellknown.SetupHandlers(services.ServerURL, services.OAuthServerConfig, services.RegistryNoAuth, mux)
 
 	// Obot OAuth
-	oauth.SetupHandlers(oauthChecker, services.MCPOAuthTokenStorage, services.PersistentTokenServer, services.OAuthServerConfig, services.ServerURL, services.MCPOAuthClientSecretExpiration, mux)
+	oauth.SetupHandlers(oauthChecker, services.MCPOAuthTokenStorage, services.PersistentTokenServer, services.OAuthServerConfig, services.MCPSessionManager, services.AccessControlRuleHelper, services.ServerURL, services.MCPOAuthClientSecretExpiration, mux)
 
 	// Gateway APIs
 	services.GatewayServer.AddRoutes(services.APIServer)

@@ -2,10 +2,12 @@
 	import { page } from '$app/state';
 	import Layout from '$lib/components/Layout.svelte';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
+	import McpDeprecatedNotice from '$lib/components/mcp/McpDeprecatedNotice.svelte';
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { UserService } from '$lib/services';
+	import { isDeprecatedMCPServer } from '$lib/services/user/mcp';
 	import { mcpServersAndEntries } from '$lib/stores';
 	import { type Component } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -31,6 +33,7 @@
 			: []
 	);
 	let promptOAuthConfig = $derived(page.url.searchParams.get('configure-oauth') === 'true');
+	let deprecated = $derived(isDeprecatedMCPServer(catalogEntry));
 </script>
 
 <Layout
@@ -55,6 +58,8 @@
 		/>
 	{/snippet}
 	<div class="flex h-full flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
+		<McpDeprecatedNotice {deprecated} variant="notification" />
+
 		{#if catalogEntry}
 			<McpServerEntryForm
 				entry={catalogEntry}

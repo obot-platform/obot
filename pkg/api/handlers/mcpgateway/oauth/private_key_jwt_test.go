@@ -5,6 +5,8 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/json"
+	"errors"
+	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
@@ -19,6 +21,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
+	"golang.org/x/crypto/bcrypt"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -58,6 +61,7 @@ func TestValidatePrivateKeyJWT(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: clientID},
 		Spec: v1.OAuthClientSpec{
 			Manifest: types.OAuthClientManifest{
+				RedirectURIs:            []string{"http://127.0.0.1/callback"},
 				TokenEndpointAuthMethod: "private_key_jwt",
 				JWKS:                    string(jwks),
 			},
@@ -70,12 +74,12 @@ func TestValidatePrivateKeyJWT(t *testing.T) {
 		"client_assertion":      {assertion},
 	}
 
-	if err := h.validatePrivateKeyJWT(context.Background(), form, client); err != nil {
+	if err := h.validatePrivateKeyJWT(context.Background(), form, client, clientID); err != nil {
 		t.Fatalf("validate private_key_jwt: %v", err)
 	}
 
 	form.Set("client_assertion", signClientAssertion(t, key, "test-key", clientID, "https://other.example/oauth/token"))
-	if err := h.validatePrivateKeyJWT(context.Background(), form, client); err == nil {
+	if err := h.validatePrivateKeyJWT(context.Background(), form, client, clientID); err == nil {
 		t.Fatal("expected invalid audience to fail")
 	}
 }
@@ -109,6 +113,17 @@ func TestTokenExtractsClientIDFromClientAssertion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("generate rsa key: %v", err)
 	}
+	jwks, err := json.Marshal(jose.JSONWebKeySet{
+		Keys: []jose.JSONWebKey{{
+			Key:       &key.PublicKey,
+			KeyID:     "test-key",
+			Algorithm: "RS256",
+			Use:       "sig",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("marshal jwks: %v", err)
+	}
 
 	const clientName = "test-client"
 	clientID := system.DefaultNamespace + ":" + clientName
@@ -119,7 +134,9 @@ func TestTokenExtractsClientIDFromClientAssertion(t *testing.T) {
 		},
 		Spec: v1.OAuthClientSpec{
 			Manifest: types.OAuthClientManifest{
+				RedirectURIs:            []string{"http://127.0.0.1/callback"},
 				TokenEndpointAuthMethod: "private_key_jwt",
+				JWKS:                    string(jwks),
 			},
 		},
 	}).Build()
@@ -134,7 +151,16 @@ func TestTokenExtractsClientIDFromClientAssertion(t *testing.T) {
 
 	err = (&handler{
 		oauthConfig: handlers.OAuthAuthorizationServerConfig{
-			GrantTypesSupported: []string{"authorization_code"},
+			TokenEndpoint:          "https://obot.example/oauth/token",
+			GrantTypesSupported:    []string{"authorization_code"},
+			ScopesSupported:        []string{"profile"},
+			ResponseTypesSupported: []string{"code"},
+			TokenEndpointAuthMethodsSupported: []string{
+				"client_secret_basic",
+				"client_secret_post",
+				"private_key_jwt",
+				"none",
+			},
 		},
 	}).token(api.Context{
 		ResponseWriter: httptest.NewRecorder(),
@@ -146,6 +172,106 @@ func TestTokenExtractsClientIDFromClientAssertion(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "grant_type") {
 		t.Fatalf("expected request to reach grant type validation, got %v", err)
+	}
+}
+
+func TestTokenInvalidClientErrors(t *testing.T) {
+	t.Parallel()
+
+	t.Run("missing credentials", func(t *testing.T) {
+		t.Parallel()
+
+		req := httptest.NewRequest("POST", "/oauth/token", strings.NewReader("grant_type=authorization_code"))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+		err := (&handler{}).token(api.Context{
+			ResponseWriter: httptest.NewRecorder(),
+			Request:        req,
+		})
+		assertInvalidClientErr(t, err)
+	})
+
+	t.Run("unknown client", func(t *testing.T) {
+		t.Parallel()
+
+		form := url.Values{
+			"grant_type": {"authorization_code"},
+			"client_id":  {system.DefaultNamespace + ":missing-client"},
+		}
+		req := httptest.NewRequest("POST", "/oauth/token", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+		err := (&handler{
+			oauthConfig: handlers.OAuthAuthorizationServerConfig{
+				ScopesSupported:                   []string{"profile"},
+				ResponseTypesSupported:            []string{"code"},
+				TokenEndpointAuthMethodsSupported: []string{"client_secret_basic", "client_secret_post", "private_key_jwt", "none"},
+			},
+		}).token(api.Context{
+			ResponseWriter: httptest.NewRecorder(),
+			Request:        req,
+			Storage:        clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).Build(),
+		})
+		assertInvalidClientErr(t, err)
+	})
+
+	t.Run("invalid client secret", func(t *testing.T) {
+		t.Parallel()
+
+		secretHash, err := bcrypt.GenerateFromPassword([]byte("correct-secret"), bcrypt.DefaultCost)
+		if err != nil {
+			t.Fatalf("hash secret: %v", err)
+		}
+		const clientName = "test-client"
+		storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(&v1.OAuthClient{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.DefaultNamespace,
+				Name:      clientName,
+			},
+			Spec: v1.OAuthClientSpec{
+				ClientSecretHash: secretHash,
+				Manifest: types.OAuthClientManifest{
+					RedirectURIs:            []string{"http://127.0.0.1/callback"},
+					TokenEndpointAuthMethod: "client_secret_post",
+				},
+			},
+		}).Build()
+
+		form := url.Values{
+			"grant_type":    {"authorization_code"},
+			"client_id":     {system.DefaultNamespace + ":" + clientName},
+			"client_secret": {"wrong-secret"},
+		}
+		req := httptest.NewRequest("POST", "/oauth/token", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+		err = (&handler{
+			oauthConfig: handlers.OAuthAuthorizationServerConfig{
+				ScopesSupported:                   []string{"profile"},
+				ResponseTypesSupported:            []string{"code"},
+				TokenEndpointAuthMethodsSupported: []string{"client_secret_basic", "client_secret_post", "private_key_jwt", "none"},
+			},
+		}).token(api.Context{
+			ResponseWriter: httptest.NewRecorder(),
+			Request:        req,
+			Storage:        storage,
+		})
+		assertInvalidClientErr(t, err)
+	})
+}
+
+func assertInvalidClientErr(t *testing.T, err error) {
+	t.Helper()
+
+	var errHTTP *types.ErrHTTP
+	if !errors.As(err, &errHTTP) {
+		t.Fatalf("expected ErrHTTP, got %T: %v", err, err)
+	}
+	if errHTTP.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, errHTTP.Code)
+	}
+	if !strings.Contains(errHTTP.Message, `"error":"invalid_client"`) {
+		t.Fatalf("expected invalid_client error, got %s", errHTTP.Message)
 	}
 }
 

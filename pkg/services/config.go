@@ -60,6 +60,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kvalidation "k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apiserver/pkg/authentication/request/union"
 	"k8s.io/apiserver/pkg/server/options/encryptionconfig"
 	k8sscheme "k8s.io/client-go/kubernetes/scheme"
@@ -107,13 +108,17 @@ type Config struct {
 	DefaultSystemMCPCatalogPath          string `usage:"The path to the default System MCP catalog" default:""`
 	DefaultSkillRepoURL                  string `usage:"The default skill repository URL (must be HTTPS GitHub URL)" default:"https://github.com/obot-platform/skills" env:"OBOT_DEFAULT_SKILL_REPO_URL"`
 	DefaultSkillRepoRef                  string `usage:"The ref (branch/tag) for the default skill repository" default:"" env:"OBOT_DEFAULT_SKILL_REPO_REF"`
+	ModelInfoSourceURL                   string `usage:"Authoritative URL for the model info (pricing) source synced into model costs; changes take effect on restart, empty disables it" default:"https://models.dev/api.json"`
 	DisableUpdateCheck                   bool   `usage:"Disable Obot server update checks"`
+	HideK8sDetails                       bool   `usage:"Hide Kubernetes configuration details such as the Server Scheduling page from the UI" default:"false"`
 	EnableRegistryAuth                   bool   `usage:"Enable authentication for the MCP registry API" default:"false" env:"OBOT_SERVER_ENABLE_REGISTRY_AUTH"`
 	EnableMessagePolicies                bool   `usage:"Enable message policies for LLM proxy content enforcement" default:"false"`
+	LLMAuditLogRetentionDays             int    `usage:"Number of days to retain LLM audit logs (0 to disable cleanup)." default:"90"`
+	DisableLLMAuditLog                   bool   `usage:"Disable LLM gateway audit logging" default:"false"`
 	EnableAgents                         *bool  `usage:"Enable Obot Agent features. When unset, agents are disabled for new deployments but grandfathered in for deployments that already have agents. Explicitly set to true to force-enable, or false to force-disable, regardless of grandfathering." env:"OBOT_ENABLE_AGENTS"`
 	MCPOAuthClientExpiration             string `usage:"The expiration time in dynamically registered MCP OAuth clients, must be a valid duration string and may include days, hours, or minutes" default:"30d"`
 	MCPServerSearchImage                 string `usage:"Container image for the obot MCP server" default:"ghcr.io/obot-platform/obot-mcp-server:v0.2.0"`
-	NanobotAgentImage                    string `usage:"Container image for the Nanobot agent MCP server" default:"ghcr.io/obot-platform/nanobot-agent:v0.0.86"`
+	NanobotAgentImage                    string `usage:"Container image for the Nanobot agent MCP server" default:"ghcr.io/obot-platform/nanobot-agent:v0.0.88"`
 	MCPNetworkPolicyProviderChartRepo    string `usage:"Helm repository URL for the network policy provider chart"`
 	MCPNetworkPolicyProviderChartName    string `usage:"Helm chart name for the network policy provider chart"`
 	MCPNetworkPolicyProviderChartVersion string `usage:"Helm chart version for the network policy provider chart"`
@@ -168,6 +173,7 @@ type Services struct {
 	DefaultSystemMCPCatalogPath string
 	DefaultSkillRepoURL         string
 	DefaultSkillRepoRef         string
+	ModelInfoSourceURL          string
 
 	Otel        *Otel
 	AuditLogger audit.Logger
@@ -222,7 +228,9 @@ type Services struct {
 	PSASettingsFromHelm *v1.PodSecurityAdmissionSettings
 
 	DisableUpdateCheck                   bool
+	HideK8sDetails                       bool
 	MCPRuntimeBackend                    string
+	MCPSecretBindingAllowedLabel         string
 	MCPImagePullSecrets                  []string
 	MCPRemoteShimBaseImage               string
 	MCPHTTPWebhookBaseImage              string
@@ -489,6 +497,8 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		time.Duration(config.MCPAuditLogPersistIntervalSeconds)*time.Second,
 		config.MCPAuditLogsPersistBatchSize,
 		config.MCPAuditLogRetentionDays,
+		config.LLMAuditLogRetentionDays,
+		!config.DisableLLMAuditLog,
 	)
 
 	if err := migrateGPTScriptCredentials(ctx, gatewayClient, gatewayDB, config.DSN); err != nil {
@@ -854,6 +864,10 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		// API Key authentication (for MCP server access) - restricted to GroupAPIKey only
 		// Must come after UserDecorator since it handles its own user lookup
 		authenticators = union.New(authenticators, gserver.NewAPIKeyAuthenticator(gatewayClient))
+		// Device enrollment tokens (ode1-) and device access JWTs. Both yield
+		// non-user principals, so they must come after the UserDecorator.
+		authenticators = union.New(authenticators, gserver.NewDeviceEnrollmentAuthenticator(gatewayClient))
+		authenticators = union.New(authenticators, gserver.NewDeviceAuthenticator(gatewayClient))
 		// Persistent Token Auth
 		authenticators = union.New(authenticators, persistentTokenServer)
 		// Add bootstrap auth
@@ -914,6 +928,10 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	// Derive registryNoAuth flag from config
 	// When EnableRegistryAuth is false (default), registry is in no-auth mode
 	registryNoAuth := !config.EnableRegistryAuth
+	secretBindingAllowedLabel := strings.TrimSpace(config.MCPSecretBindingAllowedLabel)
+	if errs := kvalidation.IsQualifiedName(secretBindingAllowedLabel); len(errs) > 0 {
+		return nil, fmt.Errorf("invalid MCP secret binding allowed label %q: %s", secretBindingAllowedLabel, strings.Join(errs, "; "))
+	}
 
 	oauthServerConfig := handlers.OAuthAuthorizationServerConfig{
 		Issuer:                            config.Hostname,
@@ -974,6 +992,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		DefaultSystemMCPCatalogPath:    config.DefaultSystemMCPCatalogPath,
 		DefaultSkillRepoURL:            config.DefaultSkillRepoURL,
 		DefaultSkillRepoRef:            config.DefaultSkillRepoRef,
+		ModelInfoSourceURL:             config.ModelInfoSourceURL,
 		MCPSessionManager:              mcpSessionManager,
 		MCPOAuthTokenStorage:           mcpOAuthTokenStorage,
 		MCPOAuthClientSecretExpiration: oauthClientExpiration,
@@ -997,7 +1016,9 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		PodSchedulingSettingsFromHelm:        podSchedulingSettings,
 		PSASettingsFromHelm:                  psaSettings,
 		DisableUpdateCheck:                   config.DisableUpdateCheck,
+		HideK8sDetails:                       config.HideK8sDetails,
 		MCPRuntimeBackend:                    config.MCPRuntimeBackend,
+		MCPSecretBindingAllowedLabel:         secretBindingAllowedLabel,
 		MCPImagePullSecrets:                  config.MCPImagePullSecrets,
 		MCPRemoteShimBaseImage:               config.MCPRemoteShimBaseImage,
 		MCPHTTPWebhookBaseImage:              config.MCPHTTPWebhookBaseImage,

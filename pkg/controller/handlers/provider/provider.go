@@ -273,7 +273,7 @@ func (h *Handler) PollRegistries(ctx context.Context, c kclient.Client) {
 		if err := h.ReadFromRegistry(ctx, c); err != nil {
 			log.Errorf("Failed to read from registries: %v", err)
 		} else {
-			log.Infof("Completed periodic tool registry refresh")
+			log.Infof("Completed periodic provider registry refresh")
 		}
 
 		select {

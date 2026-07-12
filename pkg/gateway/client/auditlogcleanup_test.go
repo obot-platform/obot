@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	sservices "github.com/obot-platform/obot/pkg/storage/services"
@@ -30,6 +31,9 @@ func newTestClient(t *testing.T) *Client {
 
 	return &Client{
 		db:                      db,
+		llmAuditEntries:         make(chan llmAuditEntry, 6),
+		llmAuditBatchSize:       3,
+		llmAuditEnabled:         true,
 		auditLogCleanupInterval: 50 * time.Millisecond,
 		auditLogDeleteBatchSize: 3,
 	}
@@ -52,6 +56,23 @@ func countAuditLogs(t *testing.T, c *Client) int64 {
 	return count
 }
 
+func insertLLMAuditLog(t *testing.T, c *Client, createdAt time.Time) {
+	t.Helper()
+	entry := types.LLMAuditLog{ID: uuid.NewString(), CreatedAt: createdAt}
+	if err := c.db.WithContext(t.Context()).Create(&entry).Error; err != nil {
+		t.Fatalf("failed to insert LLM audit log: %v", err)
+	}
+}
+
+func countLLMAuditLogs(t *testing.T, c *Client) int64 {
+	t.Helper()
+	var count int64
+	if err := c.db.WithContext(t.Context()).Model(&types.LLMAuditLog{}).Count(&count).Error; err != nil {
+		t.Fatalf("failed to count LLM audit logs: %v", err)
+	}
+	return count
+}
+
 func TestDeleteOldAuditLogs(t *testing.T) {
 	c := newTestClient(t)
 	ctx := context.Background()
@@ -69,7 +90,7 @@ func TestDeleteOldAuditLogs(t *testing.T) {
 	insertAuditLog(t, c, now.AddDate(0, 0, -1))    // recent - should be kept
 	insertAuditLog(t, c, now)                      // recent - should be kept
 
-	if err := c.deleteOldAuditLogs(ctx, now, 90); err != nil {
+	if err := c.deleteOldMCPAuditLogs(ctx, now, 90); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -87,7 +108,7 @@ func TestDeleteOldAuditLogsDisabled(t *testing.T) {
 	insertAuditLog(t, c, now.AddDate(0, 0, -100))
 
 	// retentionDays=0 should be a no-op
-	if err := c.deleteOldAuditLogs(ctx, now, 0); err != nil {
+	if err := c.deleteOldMCPAuditLogs(ctx, now, 0); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -108,7 +129,7 @@ func TestDeleteOldAuditLogsBatching(t *testing.T) {
 	insertAuditLog(t, c, now.AddDate(0, 0, -1))
 	insertAuditLog(t, c, now)
 
-	if err := c.deleteOldAuditLogs(ctx, now, 90); err != nil {
+	if err := c.deleteOldMCPAuditLogs(ctx, now, 90); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -127,7 +148,7 @@ func TestRunAuditLogCleanup(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	go c.runAuditLogCleanup(ctx, 90)
+	go c.runMCPAuditLogCleanup(ctx, 90)
 
 	// Wait until the cleanup has deleted old logs, or time out.
 	deadline := time.Now().Add(2 * time.Second)
@@ -159,9 +180,67 @@ func TestRunAuditLogCleanupDisabled(t *testing.T) {
 
 	// retentionDays=0 means the function returns immediately without cleanup.
 	// Call synchronously — if it ever blocks, the test timeout will catch it.
-	c.runAuditLogCleanup(t.Context(), 0)
+	c.runMCPAuditLogCleanup(t.Context(), 0)
 
 	if got := countAuditLogs(t, c); got != 2 {
 		t.Errorf("expected 2 audit logs (cleanup disabled), got %d", got)
+	}
+}
+
+func TestDeleteOldLLMAuditLogs(t *testing.T) {
+	c := newTestClient(t)
+	ctx := t.Context()
+
+	now := time.Now().UTC()
+	today := now.Truncate(24 * time.Hour)
+	cutoff := today.AddDate(0, 0, -30)
+
+	insertLLMAuditLog(t, c, now.AddDate(0, 0, -40))
+	insertLLMAuditLog(t, c, cutoff.Add(-time.Second))
+	insertLLMAuditLog(t, c, cutoff)
+	insertLLMAuditLog(t, c, now.AddDate(0, 0, -1))
+
+	if err := c.deleteOldLLMAuditLogs(ctx, now, 30); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if got := countLLMAuditLogs(t, c); got != 2 {
+		t.Errorf("expected 2 LLM audit logs after cleanup, got %d", got)
+	}
+}
+
+func TestDeleteOldLLMAuditLogsDisabled(t *testing.T) {
+	c := newTestClient(t)
+	ctx := t.Context()
+
+	now := time.Now().UTC()
+	insertLLMAuditLog(t, c, now.AddDate(0, 0, -40))
+	insertLLMAuditLog(t, c, now)
+
+	if err := c.deleteOldLLMAuditLogs(ctx, now, 0); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if got := countLLMAuditLogs(t, c); got != 2 {
+		t.Errorf("expected 2 LLM audit logs (cleanup disabled), got %d", got)
+	}
+}
+
+func TestDeleteOldLLMAuditLogsBatching(t *testing.T) {
+	c := newTestClient(t)
+	ctx := t.Context()
+
+	now := time.Now().UTC()
+	for range 7 {
+		insertLLMAuditLog(t, c, now.AddDate(0, 0, -40))
+	}
+	insertLLMAuditLog(t, c, now)
+
+	if err := c.deleteOldLLMAuditLogs(ctx, now, 30); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if got := countLLMAuditLogs(t, c); got != 1 {
+		t.Errorf("expected 1 LLM audit log after batched cleanup, got %d", got)
 	}
 }

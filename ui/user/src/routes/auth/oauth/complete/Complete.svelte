@@ -49,8 +49,10 @@
 		<h1 class="text-base-content mb-4 text-5xl font-bold">Authentication Complete</h1>
 
 		<p class="text-muted-content text-base">
-			{#if redirecting || !redirectURL}
+			{#if !redirectURL}
 				You can now close this window.
+			{:else if redirecting}
+				Redirecting...
 			{:else}
 				You will be redirected in {secondsRemaining}
 				{secondsRemaining === 1 ? 'second' : 'seconds'},

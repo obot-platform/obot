@@ -1,6 +1,6 @@
 ARG PROVIDERS_IMAGE=ghcr.io/obot-platform/providers:latest
+ARG ENTERPRISE_PROVIDERS_IMAGE=ghcr.io/obot-platform/enterprise-providers:latest
 ARG ENCRYPTION_BINS_IMAGE=ghcr.io/obot-platform/providers/encryption-bins:latest
-ARG ENTERPRISE_IMAGE=ghcr.io/obot-platform/enterprise-providers:latest
 ARG BASE_IMAGE=cgr.dev/chainguard/wolfi-base
 
 FROM ${BASE_IMAGE} AS base
@@ -43,9 +43,9 @@ RUN git clone --branch v0.8.1 https://github.com/pgvector/pgvector.git && \
   rm -rf pgvector
 
 FROM ${PROVIDERS_IMAGE} AS providers
-FROM ${ENCRYPTION_BINS_IMAGE} AS encryption-bins
-FROM ${ENTERPRISE_IMAGE} AS enterprise-providers
+FROM ${ENTERPRISE_PROVIDERS_IMAGE} AS enterprise-providers
 RUN mkdir -p /obot-providers
+FROM ${ENCRYPTION_BINS_IMAGE} AS encryption-bins
 
 FROM final-base AS final
 ENV POSTGRES_USER=obot

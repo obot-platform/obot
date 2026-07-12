@@ -3,6 +3,7 @@
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import ConnectToServer from '$lib/components/mcp/ConnectToServer.svelte';
 	import McpConfirmDelete from '$lib/components/mcp/McpConfirmDelete.svelte';
+	import McpDeprecatedNotice from '$lib/components/mcp/McpDeprecatedNotice.svelte';
 	import McpMultiDeleteBlockedDialog from '$lib/components/mcp/McpMultiDeleteBlockedDialog.svelte';
 	import StaticOAuthConfigureModal from '$lib/components/mcp/StaticOAuthConfigureModal.svelte';
 	import Table, { type InitSort, type InitSortFn } from '$lib/components/table/Table.svelte';
@@ -17,13 +18,18 @@
 		type MCPServerInstance,
 		type MCPServerOAuthCredentialStatus
 	} from '$lib/services';
-	import { OBOT_PLATFORM_REPO } from '$lib/services/admin/constants';
+	import {
+		MCP_MULTI_TENANT_LAUNCH_TEXT,
+		MCP_SINGLE_TENANT_LAUNCH_TEXT,
+		OBOT_PLATFORM_REPO
+	} from '$lib/services/admin/constants';
 	import {
 		convertEntriesToTableData,
 		deleteMcpServerDeployment,
 		isMultiUserCatalogEntry,
 		getMCPDisplayName,
-		hasEditableConfiguration
+		hasEditableConfiguration,
+		isDeprecatedMCPServer
 	} from '$lib/services/user/mcp';
 	import { mcpServersAndEntries, profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
@@ -35,6 +41,7 @@
 		Ellipsis,
 		GitBranch,
 		Link2Icon,
+		RocketIcon,
 		Server,
 		Settings,
 		Trash2,
@@ -92,6 +99,8 @@
 	let oauthConfigModal = $state<ReturnType<typeof StaticOAuthConfigureModal>>();
 	let oauthConfigEntry = $state<MCPCatalogEntry>();
 	let oauthStatus = $state<MCPServerOAuthCredentialStatus>();
+
+	let setupType = $state<'launch' | 'connect'>('launch');
 
 	let tableData = $derived(
 		convertEntriesToTableData(
@@ -163,12 +172,24 @@
 		}
 
 		if (server?.connectURL) {
-			connectUrlDialog?.open(entry, server.connectURL);
+			connectUrlDialog?.open(entry, server.connectURL, server);
 		}
 	}
 
 	function getMultiUserCatalogEntryServers(entry: MCPCatalogEntry) {
 		return mcpServersAndEntries.current.servers.filter((s) => s.catalogEntryID === entry.id);
+	}
+
+	function renderIntroText({ entry }: { entry?: MCPCatalogEntry }) {
+		if (isMultiUserCatalogEntry(entry)) {
+			return getMultiUserCatalogEntryServers(entry!).length > 0 || setupType === 'launch'
+				? MCP_MULTI_TENANT_LAUNCH_TEXT
+				: 'In order to receive a connect URL, a new server must be launched.';
+		}
+
+		return setupType === 'launch'
+			? MCP_SINGLE_TENANT_LAUNCH_TEXT
+			: 'In order to receive a connect URL, the initial setup process for this server must be completed.';
 	}
 
 	async function handleConfigureOAuth(entry: MCPCatalogEntry) {
@@ -279,6 +300,7 @@
 						(d.data.needsUpdate &&
 							!('missingKubernetesSecret' in d && d.missingKubernetesSecret)) ||
 						deploymentsNeedingAttentionByCatalogEntry.has(d.data.id)}
+					{@const deprecated = isDeprecatedMCPServer(d.data)}
 					{#if property === 'name'}
 						<div class="flex shrink-0 items-center gap-2">
 							<div class="icon">
@@ -296,7 +318,7 @@
 											classes: ['border-primary', 'bg-primary/10', 'dark:bg-primary/50'],
 											text: deploymentsNeedingAttentionByCatalogEntry.has(d.data.id)
 												? 'One or multiple deployments require your attention'
-												: 'An update requires your attention'
+												: 'Configuration requires your attention'
 										}}
 									>
 										<CircleFadingArrowUp class="text-primary size-4" />
@@ -317,6 +339,7 @@
 								{#if d.status.toLowerCase() === 'deployed'}
 									<span class="badge badge-xs badge-secondary">Deployed</span>
 								{/if}
+								<McpDeprecatedNotice {deprecated} />
 							</p>
 						</div>
 					{:else if property === 'type'}
@@ -408,11 +431,24 @@
 										class="menu-button"
 										onclick={(e) => {
 											e.stopPropagation();
+											setupType = 'connect';
 											connectUrlDialog?.open(catalogEntry);
 											toggle(false);
 										}}
 									>
 										<Link2Icon class="size-4" /> Get Connect URL
+									</button>
+									<button
+										class="menu-button"
+										onclick={(e) => {
+											e.stopPropagation();
+											setupType = 'launch';
+											connectToServerDialog?.setupNewInstance(catalogEntry);
+											toggle(false);
+										}}
+									>
+										<RocketIcon class="size-4" />
+										Launch Server
 									</button>
 								{/if}
 								{#if canDelete}
@@ -465,7 +501,7 @@
 <McpConnectUrlDialog
 	bind:this={connectUrlDialog}
 	onLaunchCatalogEntry={(entry) => {
-		connectToServerDialog?.open({ entry });
+		connectToServerDialog?.setupNewInstance(entry);
 	}}
 />
 
@@ -535,24 +571,17 @@
 
 <ConnectToServer
 	bind:this={connectToServerDialog}
-	userConfiguredServers={mcpServersAndEntries.current.userConfiguredServers}
 	catalogID={catalog?.id}
 	workspaceID={entity === 'workspace' ? id : undefined}
 	onConnect={handleConnectToServer}
 	skipConnectDialog
-	renderIntroText={({ entry }) => {
-		if (isMultiUserCatalogEntry(entry)) {
-			return getMultiUserCatalogEntryServers(entry!).length > 0
-				? 'You are about to launch a new server.'
-				: 'In order to receive a connect URL, a new server must be launched.';
-		}
-		return 'In order to receive a connect URL, the initial setup process for this server must be completed.';
-	}}
+	{renderIntroText}
 />
 
 <StaticOAuthConfigureModal
 	bind:this={oauthConfigModal}
 	{oauthStatus}
+	deprecated={isDeprecatedMCPServer(oauthConfigEntry)}
 	onSave={handleSaveOAuth}
 	onDelete={handleDeleteOAuth}
 />

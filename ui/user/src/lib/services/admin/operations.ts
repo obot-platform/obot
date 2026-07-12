@@ -25,7 +25,9 @@ import type {
 	AppNotification,
 	AccessControlRule,
 	AccessControlRuleManifest,
-	K8sServerDetail
+	K8sServerDetail,
+	MCPAllowedSecretBindingTarget,
+	MCPSubField
 } from '../user/types';
 import type {
 	MCPCatalog,
@@ -101,6 +103,16 @@ import { MCPCompositeDeletionDependencyError } from './types';
 
 type ItemsResponse<T> = { items: T[] | null };
 type RequestOptions = { fetch?: Fetcher; dontLogErrors?: boolean; signal?: AbortSignal };
+
+export async function listMCPSecretBindingTargets(
+	opts?: RequestOptions
+): Promise<MCPAllowedSecretBindingTarget[]> {
+	const response = (await doGet(
+		'/mcp-server-binding-secrets',
+		opts
+	)) as ItemsResponse<MCPAllowedSecretBindingTarget>;
+	return response.items ?? [];
+}
 
 // Access control rules
 
@@ -777,14 +789,14 @@ export async function generateMcpCatalogEntryToolPreviews(
 		url?: string;
 	},
 	opts?: { fetch?: Fetcher; dryRun?: boolean }
-): Promise<MCPCatalogEntry | void> {
+): Promise<MCPCatalogEntry> {
 	const path = `/mcp-catalogs/${catalogID}/entries/${entryID}/generate-tool-previews`;
 	const url = opts?.dryRun ? `${path}?dryRun=true` : path;
 	const resp = await doPost(url, body ?? {}, {
 		...opts,
 		dontLogErrors: true
 	});
-	return opts?.dryRun ? (resp as MCPCatalogEntry) : undefined;
+	return resp as MCPCatalogEntry;
 }
 
 export async function generateMcpCompositeComponentToolPreviews(
@@ -796,14 +808,14 @@ export async function generateMcpCompositeComponentToolPreviews(
 		url?: string;
 	},
 	opts?: { fetch?: Fetcher; dryRun?: boolean }
-): Promise<MCPCatalogEntry | void> {
+): Promise<MCPCatalogEntry> {
 	const path = `/mcp-catalogs/${catalogID}/entries/${compositeEntryID}/${componentID}/generate-tool-previews`;
 	const url = opts?.dryRun ? `${path}?dryRun=true` : path;
 	const resp = await doPost(url, body ?? {}, {
 		...opts,
 		dontLogErrors: true
 	});
-	return opts?.dryRun ? (resp as MCPCatalogEntry) : undefined;
+	return resp as MCPCatalogEntry;
 }
 
 export async function getMcpCatalogToolPreviewsOauth(
@@ -925,7 +937,10 @@ export async function createMCPCatalogServer(
 export async function deployMultiUserCatalogEntry(
 	catalogID: string,
 	catalogEntryID: string,
-	server?: { manifest?: { remoteConfig?: { url?: string } }; alias?: string },
+	server?: {
+		manifest?: { env?: MCPSubField[]; remoteConfig?: { url?: string; headers?: MCPSubField[] } };
+		alias?: string;
+	},
 	opts?: { fetch?: Fetcher }
 ): Promise<MCPCatalogServer> {
 	const response = (await doPost(
@@ -1825,7 +1840,7 @@ function tokenUsageQueryString(timeRange: TokenUsageTimeRange): string {
 	return parts.join('&');
 }
 
-/** Returns token usage for all users in the time range as a flat list. Does not include personal token. */
+/** Returns token usage for all users in the time range as a flat list. */
 
 function unwrapTokenUsageList(response: unknown): TokenUsage[] {
 	if (Array.isArray(response)) return response;

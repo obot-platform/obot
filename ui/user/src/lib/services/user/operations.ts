@@ -53,7 +53,8 @@ import {
 	type Workspace,
 	type AccessControlRule,
 	type AccessControlRuleManifest,
-	type K8sServerDetail
+	type K8sServerDetail,
+	type MCPSubField
 } from './types';
 
 type ItemsResponse<T> = { items: T[] | null };
@@ -109,6 +110,12 @@ export async function listMcpCatalogServerTools(
 		})) as MCPServerTool[];
 	} catch (error) {
 		if (error instanceof Error && error.message.startsWith('424')) {
+			return [];
+		}
+		if (
+			error instanceof Error &&
+			error.message.includes('oauth callback server is not configured')
+		) {
 			return [];
 		}
 		throw error;
@@ -860,14 +867,14 @@ export async function generateWorkspaceMCPCatalogEntryToolPreviews(
 		url?: string;
 	},
 	opts?: { fetch?: Fetcher; dryRun?: boolean }
-): Promise<MCPCatalogEntry | void> {
+): Promise<MCPCatalogEntry> {
 	const path = `/workspaces/${workspaceID}/entries/${entryID}/generate-tool-previews`;
 	const url = opts?.dryRun ? `${path}?dryRun=true` : path;
 	const resp = await doPost(url, body ?? {}, {
 		...opts,
 		dontLogErrors: true
 	});
-	return opts?.dryRun ? (resp as MCPCatalogEntry) : undefined;
+	return resp as MCPCatalogEntry;
 }
 
 export async function getWorkspaceMCPCatalogEntryToolPreviewsOauth(
@@ -1098,7 +1105,10 @@ export async function createWorkspaceMCPCatalogServer(
 export async function deployWorkspaceMultiUserCatalogEntry(
 	workspaceID: string,
 	catalogEntryID: string,
-	server?: { manifest?: { remoteConfig?: { url?: string } }; alias?: string },
+	server?: {
+		manifest?: { env?: MCPSubField[]; remoteConfig?: { url?: string; headers?: MCPSubField[] } };
+		alias?: string;
+	},
 	opts?: { fetch?: Fetcher }
 ): Promise<MCPCatalogServer> {
 	const response = (await doPost(

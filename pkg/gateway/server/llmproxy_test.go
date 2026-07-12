@@ -61,7 +61,7 @@ func TestShouldSkipMessagePolicyEnforcement(t *testing.T) {
 	}
 }
 
-func TestModifyResponse_PathFiltering(t *testing.T) {
+func TestModifyResponse_WrapGate(t *testing.T) {
 	tests := []struct {
 		name        string
 		path        string
@@ -106,9 +106,10 @@ func TestResponseModifier_AnthropicMessages(t *testing.T) {
 		"data: {\"type\":\"message_delta\",\"usage\":{\"output_tokens\":15}}\n"
 
 	r := &responseModifier{
-		stream: true,
-		b:      bufio.NewReader(strings.NewReader(stream)),
-		c:      io.NopCloser(strings.NewReader("")),
+		stream:            true,
+		tokenUsageTracker: &threadSafeTokenUsageTracker{inner: &messageTokenUsageTracker{}},
+		b:                 bufio.NewReader(strings.NewReader(stream)),
+		c:                 io.NopCloser(strings.NewReader("")),
 	}
 
 	buf := make([]byte, 4096)
@@ -121,13 +122,14 @@ func TestResponseModifier_AnthropicMessages(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if r.promptTokens != 25 {
-		t.Errorf("promptTokens = %d, want 25", r.promptTokens)
+	got := r.tokenUsageTracker.getTokenUsage()
+	if got.InputTokens != 25 {
+		t.Errorf("InputTokens = %d, want 25", got.InputTokens)
 	}
 	// message_delta output_tokens is cumulative (15 total), not incremental,
 	// so it supersedes the initial output_tokens (1) from message_start.
-	if r.completionTokens != 15 {
-		t.Errorf("completionTokens = %d, want 15 (cumulative from message_delta)", r.completionTokens)
+	if got.OutputTokens != 15 {
+		t.Errorf("OutputTokens = %d, want 15 (cumulative from message_delta)", got.OutputTokens)
 	}
 }
 
@@ -136,9 +138,10 @@ func TestResponseModifier_OpenAIResponsesAPI(t *testing.T) {
 	stream := "data: {\"type\":\"response.completed\",\"response\":{\"model\":\"gpt-4o\",\"usage\":{\"input_tokens\":50,\"output_tokens\":100,\"total_tokens\":150}}}\n"
 
 	r := &responseModifier{
-		stream: true,
-		b:      bufio.NewReader(strings.NewReader(stream)),
-		c:      io.NopCloser(strings.NewReader("")),
+		stream:            true,
+		tokenUsageTracker: &threadSafeTokenUsageTracker{inner: &responseTokenUsageTracker{}},
+		b:                 bufio.NewReader(strings.NewReader(stream)),
+		c:                 io.NopCloser(strings.NewReader("")),
 	}
 
 	buf := make([]byte, 4096)
@@ -146,25 +149,26 @@ func TestResponseModifier_OpenAIResponsesAPI(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if r.promptTokens != 50 {
-		t.Errorf("promptTokens = %d, want 50", r.promptTokens)
+	got := r.tokenUsageTracker.getTokenUsage()
+	if got.InputTokens != 50 {
+		t.Errorf("InputTokens = %d, want 50", got.InputTokens)
 	}
-	if r.completionTokens != 100 {
-		t.Errorf("completionTokens = %d, want 100", r.completionTokens)
+	if got.OutputTokens != 100 {
+		t.Errorf("OutputTokens = %d, want 100", got.OutputTokens)
 	}
-	if r.totalTokens != 150 {
-		t.Errorf("totalTokens = %d, want 150", r.totalTokens)
+	if total := got.TotalTokens; total != 150 {
+		t.Errorf("totalTokens() = %d, want 150", total)
 	}
 }
 
 func TestResponseModifier_NonStreamingResponse(t *testing.T) {
-	// Non-streaming: plain JSON body with top-level usage
-	body := "{\"model\":\"gpt-4o\",\"usage\":{\"prompt_tokens\":5,\"completion_tokens\":10,\"total_tokens\":15}}\n"
+	body := "{\"model\":\"gpt-4o\",\"usage\":{\"input_tokens\":5,\"output_tokens\":10,\"total_tokens\":15}}\n"
 
 	r := &responseModifier{
-		stream: false,
-		b:      bufio.NewReader(strings.NewReader(body)),
-		c:      io.NopCloser(strings.NewReader("")),
+		stream:            false,
+		tokenUsageTracker: &threadSafeTokenUsageTracker{inner: &responseTokenUsageTracker{}},
+		b:                 bufio.NewReader(strings.NewReader(body)),
+		c:                 io.NopCloser(strings.NewReader("")),
 	}
 
 	buf := make([]byte, 4096)
@@ -172,14 +176,15 @@ func TestResponseModifier_NonStreamingResponse(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if r.promptTokens != 5 {
-		t.Errorf("promptTokens = %d, want 5", r.promptTokens)
+	got := r.tokenUsageTracker.getTokenUsage()
+	if got.InputTokens != 5 {
+		t.Errorf("InputTokens = %d, want 5", got.InputTokens)
 	}
-	if r.completionTokens != 10 {
-		t.Errorf("completionTokens = %d, want 10", r.completionTokens)
+	if got.OutputTokens != 10 {
+		t.Errorf("OutputTokens = %d, want 10", got.OutputTokens)
 	}
-	if r.totalTokens != 15 {
-		t.Errorf("totalTokens = %d, want 15", r.totalTokens)
+	if total := got.TotalTokens; total != 15 {
+		t.Errorf("totalTokens() = %d, want 15", total)
 	}
 }
 
@@ -211,9 +216,10 @@ func TestResponseModifier_AnthropicCumulativeTokens(t *testing.T) {
 		"data: {\"type\":\"message_delta\",\"usage\":{\"input_tokens\":10682,\"output_tokens\":510}}\n"
 
 	r := &responseModifier{
-		stream: true,
-		b:      bufio.NewReader(strings.NewReader(stream)),
-		c:      io.NopCloser(strings.NewReader("")),
+		stream:            true,
+		tokenUsageTracker: &threadSafeTokenUsageTracker{inner: &messageTokenUsageTracker{}},
+		b:                 bufio.NewReader(strings.NewReader(stream)),
+		c:                 io.NopCloser(strings.NewReader("")),
 	}
 
 	buf := make([]byte, 4096)
@@ -224,29 +230,27 @@ func TestResponseModifier_AnthropicCumulativeTokens(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if r.promptTokens != 10682 {
-		t.Errorf("promptTokens = %d, want 10682 (cumulative from message_delta)", r.promptTokens)
+	got := r.tokenUsageTracker.getTokenUsage()
+	if got.InputTokens != 10682 {
+		t.Errorf("InputTokens = %d, want 10682 (cumulative from message_delta)", got.InputTokens)
 	}
-	if r.completionTokens != 510 {
-		t.Errorf("completionTokens = %d, want 510 (cumulative from message_delta)", r.completionTokens)
+	if got.OutputTokens != 510 {
+		t.Errorf("OutputTokens = %d, want 510 (cumulative from message_delta)", got.OutputTokens)
 	}
-	// totalTokens should be 0 since Anthropic doesn't provide it explicitly;
-	// it gets derived in Close().
-	if r.totalTokens != 0 {
-		t.Errorf("totalTokens = %d, want 0 (derived at Close time)", r.totalTokens)
+	if total := got.TotalTokens; total != 10682+510 {
+		t.Errorf("totalTokens() = %d, want %d (derived)", total, 10682+510)
 	}
 }
 
 func TestResponseModifier_TotalTokensDerivedAtClose(t *testing.T) {
-	// When no explicit total_tokens is provided (e.g. Anthropic), it should
-	// be derived from prompt + completion at Close time.
 	stream := "data: {\"type\":\"message_start\",\"message\":{\"model\":\"claude-sonnet-4-20250514\",\"usage\":{\"input_tokens\":25,\"output_tokens\":1}}}\n" +
 		"data: {\"type\":\"message_delta\",\"usage\":{\"output_tokens\":15}}\n"
 
 	r := &responseModifier{
-		stream: true,
-		b:      bufio.NewReader(strings.NewReader(stream)),
-		c:      io.NopCloser(strings.NewReader("")),
+		stream:            true,
+		tokenUsageTracker: &threadSafeTokenUsageTracker{inner: &messageTokenUsageTracker{}},
+		b:                 bufio.NewReader(strings.NewReader(stream)),
+		c:                 io.NopCloser(strings.NewReader("")),
 	}
 
 	buf := make([]byte, 4096)
@@ -258,12 +262,8 @@ func TestResponseModifier_TotalTokensDerivedAtClose(t *testing.T) {
 	}
 
 	// Simulate Close() logic without needing a real DB client.
-	totalTokens := r.totalTokens
-	if totalTokens == 0 {
-		totalTokens = r.promptTokens + r.completionTokens
-	}
-	if totalTokens != 40 {
-		t.Errorf("derived totalTokens = %d, want 40 (25 prompt + 15 completion)", totalTokens)
+	if total := r.tokenUsageTracker.getTokenUsage().TotalTokens; total != 40 {
+		t.Errorf("derived totalTokens = %d, want 40 (25 input + 15 output)", total)
 	}
 }
 
@@ -272,9 +272,10 @@ func TestResponseModifier_StreamNonDataLinesPassThrough(t *testing.T) {
 	stream := "event: message_start\n"
 
 	r := &responseModifier{
-		stream: true,
-		b:      bufio.NewReader(strings.NewReader(stream)),
-		c:      io.NopCloser(strings.NewReader("")),
+		stream:            true,
+		tokenUsageTracker: &threadSafeTokenUsageTracker{inner: &messageTokenUsageTracker{}},
+		b:                 bufio.NewReader(strings.NewReader(stream)),
+		c:                 io.NopCloser(strings.NewReader("")),
 	}
 
 	buf := make([]byte, 4096)
@@ -286,7 +287,7 @@ func TestResponseModifier_StreamNonDataLinesPassThrough(t *testing.T) {
 	if string(buf[:n]) != "event: message_start\n" {
 		t.Errorf("got %q, want %q", string(buf[:n]), "event: message_start\n")
 	}
-	if r.promptTokens != 0 || r.completionTokens != 0 {
+	if got := r.tokenUsageTracker.getTokenUsage(); got.InputTokens != 0 || got.OutputTokens != 0 {
 		t.Error("non-data lines should not affect token counts")
 	}
 }
@@ -354,7 +355,7 @@ func TestRewriteModelInBody(t *testing.T) {
 
 func TestLLMTransformRequest_RemovesAcceptEncoding(t *testing.T) {
 	u := mustParseURL("https://api.example.com/v1")
-	director := llmTransformRequest(*u, nil)
+	director := llmTransformRequest(*u)
 
 	req := httptest.NewRequest(http.MethodPost, "http://gateway.local/v1/responses", nil)
 	req.SetPathValue("path", "responses")
@@ -369,7 +370,7 @@ func TestLLMTransformRequest_RemovesAcceptEncoding(t *testing.T) {
 
 func TestLLMTransformRequest_RemovesInternalRequestTypeHeader(t *testing.T) {
 	u := mustParseURL("https://api.example.com/v1")
-	director := llmTransformRequest(*u, nil)
+	director := llmTransformRequest(*u)
 
 	req := httptest.NewRequest(http.MethodPost, "http://gateway.local/v1/responses", nil)
 	req.SetPathValue("path", "responses")
@@ -481,7 +482,7 @@ func TestLLMTransformRequest_UpstreamPath(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			u := mustParseURL(tt.baseURL)
-			director := llmTransformRequest(*u, nil)
+			director := llmTransformRequest(*u)
 
 			req := httptest.NewRequest(http.MethodPost, "http://gateway.local/", nil)
 			req.SetPathValue("path", tt.reqPath)
@@ -1328,16 +1329,11 @@ func TestParseMessagesFromBody_ConversationHistoryForPolicyEval(t *testing.T) {
 }
 
 // runModelListFilter builds a GET /v1/models response carrying body and runs it
-// through modifyResponse exactly as the passthrough proxy would, returning the
-// (possibly rewritten) response and its body.
+// through filterModelListResponse exactly as the passthrough proxy would,
+// returning the (possibly rewritten) response and its body.
 func runModelListFilter(t *testing.T, statusCode int, allowAll bool, allowed map[string]bool, body string) (*http.Response, string) {
 	t.Helper()
 
-	r := &responseModifier{
-		userID:              "u1",
-		allowAllModels:      allowAll,
-		allowedTargetModels: allowed,
-	}
 	resp := &http.Response{
 		StatusCode: statusCode,
 		Header: http.Header{
@@ -1348,8 +1344,8 @@ func runModelListFilter(t *testing.T, statusCode int, allowAll bool, allowed map
 		Request: &http.Request{URL: &url.URL{Path: "/v1/models"}},
 	}
 
-	if err := r.modifyResponse(resp); err != nil {
-		t.Fatalf("modifyResponse() error = %v", err)
+	if err := filterModelListResponse(resp, allowed, allowAll); err != nil {
+		t.Fatalf("filterModelListResponse() error = %v", err)
 	}
 
 	out, err := io.ReadAll(resp.Body)

@@ -62,12 +62,19 @@ Create the name of the service account to use
 {{/*
 Set name of secret to use for credentials
 */}}
-{{- define "obot.config.secretName" -}}
-{{- if .Values.config.existingSecret -}}
-{{- .Values.config.existingSecret -}}
+{{- define "obot.secret.secretName" -}}
+{{- if .Values.secret.existingSecret -}}
+{{- .Values.secret.existingSecret -}}
 {{- else -}}
 {{ .Release.Name }}-config
 {{- end -}}
+{{- end -}}
+
+{{/*
+Set name of configmap to use for non-sensitive config
+*/}}
+{{- define "obot.config.configMapName" -}}
+{{ .Release.Name }}-internal-config
 {{- end -}}
 
 {{/*
@@ -138,26 +145,4 @@ defaults to "main" tag instead.
 {{- $tag = "main" -}}
 {{- end -}}
 {{- $tag -}}
-{{- end -}}
-
-{{/*
-Get the MCP base image with tag. If the configured image doesn't contain a tag (no colon after the last slash),
-appends the chart's appVersion as the tag. If appVersion looks like a development version (0.0.0-dev),
-defaults to "main" tag instead.
-*/}}
-{{- define "obot.config.mcpBaseImage" -}}
-{{- $image := .Values.config.OBOT_SERVER_MCPBASE_IMAGE -}}
-{{- if $image -}}
-{{- $parts := splitList "/" $image -}}
-{{- $lastPart := last $parts -}}
-{{- if contains ":" $lastPart -}}
-{{- $image -}}
-{{- else -}}
-{{- $tag := .Chart.AppVersion -}}
-{{- if hasPrefix "0.0.0" $tag -}}
-{{- $tag = "main" -}}
-{{- end -}}
-{{- printf "%s:%s" $image $tag -}}
-{{- end -}}
-{{- end -}}
 {{- end -}}

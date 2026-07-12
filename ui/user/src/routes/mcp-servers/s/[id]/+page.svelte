@@ -1,11 +1,12 @@
 <script lang="ts">
 	import Layout from '$lib/components/Layout.svelte';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
+	import McpDeprecatedNotice from '$lib/components/mcp/McpDeprecatedNotice.svelte';
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { UserService } from '$lib/services';
-	import { getMCPDisplayName } from '$lib/services/user/mcp';
+	import { getMCPDisplayName, isDeprecatedMCPServer } from '$lib/services/user/mcp';
 	import { profile } from '$lib/stores';
 	import { type Component } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -27,6 +28,9 @@
 		(serverWorkspaceId && workspaceId === serverWorkspaceId) || profile.current.hasAdminAccess?.()
 			? ['overview', 'tools', 'server-instances']
 			: ['overview', 'tools']
+	);
+	let deprecated = $derived(
+		isDeprecatedMCPServer(catalogEntry) || isDeprecatedMCPServer(mcpServer)
 	);
 </script>
 
@@ -54,6 +58,8 @@
 		/>
 	{/snippet}
 	<div class="flex h-full flex-col gap-6 pb-8" in:fly={{ x: 100, delay: duration, duration }}>
+		<McpDeprecatedNotice {deprecated} variant="notification" />
+
 		{#if mcpServer}
 			<McpServerEntryForm
 				entry={mcpServer}

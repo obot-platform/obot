@@ -1108,7 +1108,7 @@
 		padding: 0.5rem 0.75rem;
 		border-bottom: 2px solid transparent;
 		font-size: 0.875rem;
-		color: var(--on-surface1, #6b7280);
+		color: var(--color-muted-content, #6b7280);
 		transition:
 			color 200ms,
 			border-color 200ms;

@@ -64,7 +64,7 @@ func (h *handler) checkCompositeAuth(req api.Context) error {
 			continue
 		}
 
-		_, serverConfig, err := handlers.ServerForAction(req, componentServer.Name)
+		_, serverConfig, err := handlers.ServerForAction(req, componentServer.Name, h.oauthChecker.secretBindingAllowedLabel)
 		if err != nil {
 			return fmt.Errorf("failed to get server config: %w", err)
 		}

@@ -26,6 +26,9 @@ var (
 	adminAndOwnerRules = []string{
 		"/api/mcp-catalogs",
 		"/api/mcp-catalogs/",
+		"/api/model-info-source",
+		"/api/model-info-source/",
+		"GET /api/mcp-server-binding-secrets",
 		"/api/mcp-servers",
 		"/api/mcp-servers/",
 		"/api/all-mcps",
@@ -68,6 +71,8 @@ var (
 		"/api/devices/skills/",
 		"/api/devices/clients",
 		"/api/devices/clients/",
+		"/api/mdm/deployments",
+		"/api/mdm/deployments/",
 		"/api/available-models",
 		"/api/available-models/",
 		"/api/default-model-aliases",
@@ -224,6 +229,7 @@ var (
 		},
 
 		types.GroupAPI: {
+			"POST /api/local-agent-audit-logs",
 			"GET /api/models",
 			"GET /api/model-providers",
 			"GET /api/users",
@@ -306,6 +312,12 @@ var (
 			// Clamp list results to SubmittedBy == req.User.GetUID()
 			"POST /api/devices/scans",
 			"GET /api/devices/scans",
+		},
+
+		types.GroupDeviceEnroll: {
+			// A device enrollment token authenticates as its deployment and may
+			// only enroll a device — nothing else.
+			"POST /api/mdm/enroll",
 		},
 
 		MetricsGroup: {

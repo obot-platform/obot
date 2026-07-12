@@ -8,9 +8,11 @@
 		type MCPCatalogServer,
 		type OrgUser
 	} from '$lib/services';
+	import { isDeprecatedMCPServer } from '$lib/services/user/mcp';
 	import { getUserDisplayName } from '$lib/utils';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import Search from '../Search.svelte';
+	import McpDeprecatedNotice from '../mcp/McpDeprecatedNotice.svelte';
 	import { Check, Server } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -39,6 +41,7 @@
 		id: string;
 		type: 'mcpcatalogentry' | 'mcpserver' | 'all' | 'mcpCatalog';
 		registry?: string;
+		deprecated?: boolean;
 	};
 
 	let {
@@ -100,6 +103,7 @@
 					description: entry.manifest?.description,
 					id: entry.id,
 					type: 'mcpcatalogentry' as const,
+					deprecated: isDeprecatedMCPServer(entry),
 					registry:
 						entry.powerUserID && isAdminView
 							? `${getUserDisplayName(usersMap, entry.powerUserID)}'s Registry`
@@ -123,6 +127,7 @@
 					description: server.manifest.description,
 					id: server.id,
 					type: 'mcpserver' as const,
+					deprecated: isDeprecatedMCPServer(server),
 					registry:
 						server.userID && server.powerUserWorkspaceID && isAdminView
 							? `${getUserDisplayName(usersMap, server.userID)}'s Registry`
@@ -235,6 +240,7 @@
 												{item.registry}
 											</div>
 										{/if}
+										<McpDeprecatedNotice deprecated={item.deprecated} />
 									</div>
 									<span class="text-muted-content line-clamp-2 text-xs">
 										{stripMarkdownToText(item.description ?? '')}

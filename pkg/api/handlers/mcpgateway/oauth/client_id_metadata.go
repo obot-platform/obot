@@ -51,7 +51,7 @@ func (h *handler) resolveOAuthClient(ctx context.Context, c kclient.Client, clie
 	clientNamespace, clientName, ok := strings.Cut(clientID, ":")
 	if !ok {
 		return v1.OAuthClient{}, Error{
-			Code:        ErrInvalidRequest,
+			Code:        ErrInvalidClient,
 			Description: "client_id is invalid",
 		}
 	}
@@ -59,7 +59,7 @@ func (h *handler) resolveOAuthClient(ctx context.Context, c kclient.Client, clie
 	var oauthClient v1.OAuthClient
 	if err := c.Get(ctx, kclient.ObjectKey{Namespace: clientNamespace, Name: clientName}, &oauthClient); apierrors.IsNotFound(err) {
 		return v1.OAuthClient{}, Error{
-			Code:        ErrInvalidRequest,
+			Code:        ErrInvalidClient,
 			Description: fmt.Sprintf("client_id does not exist: %s", clientID),
 		}
 	} else if err != nil {
@@ -75,7 +75,7 @@ func (h *handler) resolveOAuthClient(ctx context.Context, c kclient.Client, clie
 func (h *handler) resolveClientIDMetadataDocument(ctx context.Context, clientID string) (v1.OAuthClient, error) {
 	if err := validateClientIDMetadataDocumentURL(clientID); err != nil {
 		return v1.OAuthClient{}, Error{
-			Code:        ErrInvalidClientMetadata,
+			Code:        ErrInvalidClient,
 			Description: err.Error(),
 		}
 	}
@@ -87,7 +87,7 @@ func (h *handler) resolveClientIDMetadataDocument(ctx context.Context, clientID 
 	doc, expiresAt, err := h.fetchClientIDMetadataDocument(ctx, clientID)
 	if err != nil {
 		return v1.OAuthClient{}, Error{
-			Code:        ErrInvalidClientMetadata,
+			Code:        ErrInvalidClient,
 			Description: err.Error(),
 		}
 	}
@@ -95,7 +95,7 @@ func (h *handler) resolveClientIDMetadataDocument(ctx context.Context, clientID 
 	client, err := h.oauthClientFromMetadataDocument(clientID, doc)
 	if err != nil {
 		return v1.OAuthClient{}, Error{
-			Code:        ErrInvalidClientMetadata,
+			Code:        ErrInvalidClient,
 			Description: err.Error(),
 		}
 	}
@@ -148,7 +148,7 @@ func (h *handler) fetchClientIDMetadataDocument(ctx context.Context, clientID st
 	}
 	httpReq.Header.Set("Accept", "application/json")
 
-	resp, err := h.clientMetadataClient().Do(httpReq)
+	resp, err := h.clientMetadataHTTPClient.Do(httpReq)
 	if err != nil {
 		return clientIDMetadataDocument{}, time.Time{}, fmt.Errorf("failed to fetch client metadata document: %w", err)
 	}
@@ -247,13 +247,6 @@ func (h *handler) oauthClientFromMetadataDocument(clientID string, doc clientIDM
 
 func isSharedSecretAuthMethod(method string) bool {
 	return strings.Contains(method, "client_secret")
-}
-
-func (h *handler) clientMetadataClient() *http.Client {
-	if h.clientMetadataHTTPClient != nil {
-		return h.clientMetadataHTTPClient
-	}
-	return &http.Client{Timeout: clientMetadataFetchTimeout}
 }
 
 func (h *handler) getCachedClientMetadata(clientID string) (v1.OAuthClient, bool) {

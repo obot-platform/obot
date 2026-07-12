@@ -148,7 +148,7 @@ func newGatewayTestClient(t *testing.T) *gatewayclient.Client {
 			Role: apitypes.RoleBasic,
 		},
 	}).Build()
-	return gatewayclient.New(context.Background(), db, storageClient, nil, nil, nil, time.Hour, 100, 1)
+	return gatewayclient.New(context.Background(), db, storageClient, nil, nil, nil, time.Hour, 100, 1, 1, true)
 }
 
 func contains(values []string, target string) bool {
