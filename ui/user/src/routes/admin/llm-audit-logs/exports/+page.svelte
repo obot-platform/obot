@@ -133,7 +133,7 @@
 		showForm = null;
 		await goto(basePath, { replaceState: false });
 
-		if (item) {
+		if (createdExport) {
 			const id = setTimeout(() => {
 				reloadAndCheckExportStatus();
 			}, 1000);

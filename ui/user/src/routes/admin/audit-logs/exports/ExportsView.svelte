@@ -104,7 +104,7 @@
 			} else {
 				await AdminService.deleteAuditLogExport(exp.id);
 			}
-			await loadExports(); // Refresh the list
+			exports = await loadExports();
 		} catch (error) {
 			console.error('Failed to delete export:', error);
 		}

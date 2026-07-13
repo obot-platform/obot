@@ -151,7 +151,7 @@
 
 		await goto('/admin/audit-logs/exports', { replaceState: false });
 
-		if (item) {
+		if (createdExport) {
 			const id = setTimeout(() => {
 				reloadAndCheckExportStatus();
 			}, 1000);
