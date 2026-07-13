@@ -53,7 +53,6 @@ COPY --from=bin /app/bin/obot /bin/
 
 ENV OBOT_SERVER_DEFAULT_MCPCATALOG_PATH=https://github.com/obot-platform/mcp-catalog
 ENV OBOT_SERVER_DEFAULT_SYSTEM_MCPCATALOG_PATH=https://github.com/obot-platform/system-mcp-catalog
-ENV OBOT_CONTAINER_ENV=true
 
 ENV POSTGRES_USER=obot
 ENV POSTGRES_PASSWORD=obot

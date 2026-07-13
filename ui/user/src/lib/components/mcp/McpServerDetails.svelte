@@ -4,7 +4,7 @@
 	import OAuthMetadataDebug from '$lib/components/mcp/OAuthMetadataDebug.svelte';
 	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 	import type { MCPCatalogEntry, MCPCatalogServer } from '$lib/services';
-	import { getMCPDisplayName } from '$lib/services/user/mcp';
+	import { getMCPDisplayName, supportsMCPBackendDetails } from '$lib/services/user/mcp';
 	import { Info } from '@lucide/svelte';
 
 	interface Props {
@@ -14,6 +14,7 @@
 
 	let { catalogEntry, server }: Props = $props();
 	let title = $derived(getMCPDisplayName(server, catalogEntry?.manifest.name));
+	let supportsDetails = $derived(supportsMCPBackendDetails(server));
 </script>
 
 {#if server}
@@ -27,7 +28,7 @@
 				{catalogEntry}
 				connectedUsers={[]}
 			/>
-		{:else}
+		{:else if supportsDetails}
 			<McpServerK8sInfo
 				mcpServerId={server.id}
 				name={title}

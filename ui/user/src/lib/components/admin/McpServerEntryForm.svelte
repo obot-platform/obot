@@ -24,7 +24,8 @@
 		getSource,
 		isMultiUserCatalogEntry,
 		isDeprecatedMCPServer,
-		isMultiUserServer
+		isMultiUserServer,
+		supportsMCPBackendDetails
 	} from '$lib/services/user/mcp';
 	import { profile } from '$lib/stores';
 	import { success } from '$lib/stores/success';
@@ -232,6 +233,7 @@
 	let previewToolsOverride = $state<MCPCatalogEntryServerManifest['toolPreview']>();
 
 	const tabs = $derived.by(() => {
+		const supportsDetails = supportsMCPBackendDetails(server ?? entry);
 		const availableTabs =
 			entry && !server
 				? [
@@ -240,7 +242,9 @@
 						(!isCatalogEntryDeployedMultiUserServer(entry) || allowMultiUserServerConfigurationEdit)
 							? [{ label: 'Configuration', view: 'configuration' }]
 							: []),
-						...(belongsToUser ? [{ label: 'Server Details', view: 'server-instances' }] : []),
+						...(belongsToUser && supportsDetails
+							? [{ label: 'Server Details', view: 'server-instances' }]
+							: []),
 						{ label: 'Tools', view: 'tools' },
 						// Basic users who just connected don't see Configuration.
 						// Catalog entry-deployed multi-user servers also hide it: the configuration is
@@ -263,8 +267,13 @@
 					]
 				: [
 						{ label: 'Overview', view: 'overview' },
-						...(belongsToUser ? [{ label: 'Server Details', view: 'server-instances' }] : []),
-						{ label: 'Tools', view: 'tools' }
+						...(belongsToUser && supportsDetails
+							? [{ label: 'Server Details', view: 'server-instances' }]
+							: []),
+						{ label: 'Tools', view: 'tools' },
+						...(profile.current?.hasAdminAccess?.() && entry?.manifest?.runtime === 'remote'
+							? [{ label: 'Troubleshooting', view: 'troubleshooting' }]
+							: [])
 					];
 		return limitViews
 			? availableTabs.filter((tab) => limitViews.includes(tab.view))

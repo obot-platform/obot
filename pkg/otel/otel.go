@@ -1,4 +1,4 @@
-package services
+package otel
 
 import (
 	"context"
@@ -30,12 +30,12 @@ func (s *Otel) Shutdown(ctx context.Context) error {
 	return err
 }
 
-// newOtel bootstraps the OpenTelemetry pipeline using the autoexport package.
+// NewOtel bootstraps the OpenTelemetry pipeline using the autoexport package.
 // All configuration is driven by standard OTEL environment variables
 // (e.g. OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_EXPORTER_OTLP_PROTOCOL,
 // OTEL_TRACES_SAMPLER, OTEL_TRACES_SAMPLER_ARG, etc.).
 // If it does not return an error, make sure to call Shutdown for proper cleanup.
-func newOtel(ctx context.Context) (o *Otel, err error) {
+func New(ctx context.Context) (o *Otel, err error) {
 	resource, err := resource.New(ctx, resource.WithAttributes(
 		attribute.Key("service.name").String("obot"),
 		attribute.Key("service.version").String(version.Get().String()),

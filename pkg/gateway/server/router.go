@@ -77,7 +77,7 @@ func (s *Server) AddRoutes(mux *server.Server) {
 	mux.HandleFunc("GET /api/admin-api-keys/{id}", wrap(s.getAnyAPIKey))
 	mux.HandleFunc("DELETE /api/admin-api-keys/{id}", wrap(s.deleteAnyAPIKey))
 
-	// API Key authentication webhook (called by nanobot shim)
+	// API Key authentication webhook (called by nanobot shim and the CLI)
 	// This endpoint is unauthenticated - it validates the API key passed in the header
 	mux.HandleFunc("POST /api/api-keys/auth", wrap(s.authenticateAPIKey))
 }

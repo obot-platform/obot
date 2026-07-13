@@ -42,24 +42,68 @@ func TestMCPGroupAllowsMCPAndAnyGroupRoutes(t *testing.T) {
 			path:   "/oauth/userinfo",
 		},
 		{
-			name:   "anyGroup static route",
-			method: http.MethodGet,
-			path:   "/api/healthz",
-		},
-		{
-			name:   "anyGroup OAuth token route",
+			name:   "proxy anyGroup OAuth token route",
 			method: http.MethodPost,
 			path:   "/oauth/token",
-		},
-		{
-			name:   "MCP registry route",
-			method: http.MethodGet,
-			path:   "/v0.1/servers",
 		},
 		{
 			name:   "MCP connect route",
 			method: http.MethodGet,
 			path:   "/mcp-connect/msi1test",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(tt.method, tt.path, nil)
+			if allowed := authorizer.Authorize(req, mcpUser); !allowed {
+				t.Fatalf("Authorize() = false, want true")
+			}
+		})
+	}
+}
+
+func TestDefaultAuthorizerAllowsMCPProxyRoutes(t *testing.T) {
+	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(&v1.MCPServer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "ms1test",
+			Namespace: system.DefaultNamespace,
+		},
+		Spec: v1.MCPServerSpec{
+			UserID: "mcp-user-uid",
+		},
+	}).Build()
+	authorizer := NewAuthorizer(nil, storage, storage, false, nil, nil, false)
+	mcpUser := &user.DefaultInfo{
+		Name:   "mcp-user",
+		UID:    "mcp-user-uid",
+		Groups: []string{types.GroupMCP, types.GroupAuthenticated},
+	}
+
+	tests := []struct {
+		name   string
+		method string
+		path   string
+	}{
+		{
+			name:   "MCP connect route",
+			method: http.MethodGet,
+			path:   "/mcp-connect/ms1test",
+		},
+		{
+			name:   "MCP OAuth route",
+			method: http.MethodPost,
+			path:   "/oauth/token",
+		},
+		{
+			name:   "well-known route",
+			method: http.MethodGet,
+			path:   "/.well-known/oauth-protected-resource",
+		},
+		{
+			name:   "MCP OAuth userinfo route",
+			method: http.MethodGet,
+			path:   "/oauth/userinfo",
 		},
 	}
 

@@ -25,7 +25,6 @@ import (
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	"github.com/obot-platform/obot/pkg/validation"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -72,7 +71,7 @@ type Handler struct {
 	httpClient                *http.Client
 	gatewayClient             *gclient.Client
 	accessControlRuleHelper   *accesscontrolrule.Helper
-	remoteURLValidationConfig validation.Options
+	remoteURLValidationConfig mcp.ValidationOptions
 	mcpBackend                string
 }
 
@@ -95,7 +94,7 @@ func (h *Handler) revealCatalogCredential(ctx context.Context, catalogName, sour
 
 func New(defaultCatalogPath, defaultSystemCatalogPath string, gatewayClient *gclient.Client, accessControlRuleHelper *accesscontrolrule.Helper, mcpSessionManager *mcp.SessionManager) *Handler {
 	remoteURLValidationConfig := mcpSessionManager.RemoteMCPURLValidationConfig()
-	validationOptions := validation.Options{
+	validationOptions := mcp.ValidationOptions{
 		RemoteMCPURLValidationConfig: remoteURLValidationConfig,
 	}
 	validationOptions.ResourceMaximums = mcpSessionManager.KubernetesResourceMaximums()
@@ -220,7 +219,7 @@ func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, c client.Clien
 		}
 		entriesByName[entry.Name] = entry
 		if entry.Spec.SourceURL != "" && entry.Spec.Manifest.EntryKey != "" {
-			refs[sourceRef(validation.SourceIDForURL(entry.Spec.SourceURL), entry.Spec.Manifest.EntryKey)] = entry
+			refs[sourceRef(mcp.SourceIDForURL(entry.Spec.SourceURL), entry.Spec.Manifest.EntryKey)] = entry
 		}
 	}
 
@@ -260,7 +259,7 @@ func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, c client.Clien
 				continue
 			}
 
-			target, err := resolveComponentSourceRef(refs, validation.SourceIDForURL(entry.Spec.SourceURL), component.CatalogEntryID)
+			target, err := resolveComponentSourceRef(refs, mcp.SourceIDForURL(entry.Spec.SourceURL), component.CatalogEntryID)
 			if err != nil {
 				errs = append(errs, err)
 				continue
@@ -296,15 +295,15 @@ func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, c client.Clien
 		}
 
 		if changed {
-			if err := validation.ValidateCatalogEntryManifest(ctx, entry.Spec.Manifest, entry.IsGitManaged(), h.remoteURLValidationConfig); err != nil {
+			if err := mcp.ValidateCatalogEntryManifest(ctx, entry.Spec.Manifest, entry.IsGitManaged(), h.remoteURLValidationConfig); err != nil {
 				addSyncError(errsBySourceURL, entry.Spec.SourceURL, fmt.Sprintf("failed to validate resolved composite catalog entry %q: %v", entry.Name, err))
 				continue
 			}
-			if err := validation.ValidateSecretBindingsCatalogEntry(entry.Spec.Manifest, entry.IsGitManaged(), false, h.mcpBackend); err != nil {
+			if err := mcp.ValidateSecretBindingsCatalogEntry(entry.Spec.Manifest, entry.IsGitManaged(), false, h.mcpBackend); err != nil {
 				addSyncError(errsBySourceURL, entry.Spec.SourceURL, fmt.Sprintf("failed to validate resolved composite catalog entry %q: %v", entry.Name, err))
 				continue
 			}
-			if err := validation.ValidateTemplateReferencesCatalogEntry(entry.Spec.Manifest); err != nil {
+			if err := mcp.ValidateTemplateReferencesCatalogEntry(entry.Spec.Manifest); err != nil {
 				addSyncError(errsBySourceURL, entry.Spec.SourceURL, fmt.Sprintf("failed to validate resolved composite catalog entry %q: %v", entry.Name, err))
 				continue
 			}
@@ -452,7 +451,7 @@ func (h *Handler) readSystemMCPCatalog(ctx context.Context, catalogName, sourceU
 		mcpManifest := systemCatalogEntryManifestToMCP(entry)
 		sanitizeCatalogEntryManifest(&mcpManifest)
 		entry = mcpCatalogEntryManifestToSystem(mcpManifest, entry.SystemMCPServerType, entry.FilterConfig)
-		if err := validation.ValidateSystemMCPServerCatalogEntryManifest(ctx, entry, validation.Options{}); err != nil {
+		if err := mcp.ValidateSystemMCPServerCatalogEntryManifest(ctx, entry, mcp.ValidationOptions{}); err != nil {
 			errs = append(errs, fmt.Errorf("failed to validate system catalog entry %s: %w", entry.Name, err))
 			continue
 		}
@@ -627,16 +626,16 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 		}
 
 		sanitizeCatalogEntryManifest(&entry)
-		if err := validation.ValidateCatalogEntryManifest(ctx, entry, true, h.remoteURLValidationConfig); err != nil {
+		if err := mcp.ValidateCatalogEntryManifest(ctx, entry, true, h.remoteURLValidationConfig); err != nil {
 			errs = append(errs, fmt.Errorf("failed to validate catalog entry %s: %w", entry.Name, err))
 			continue
 		}
 		// secretBinding references are only allowed for git-managed entries.
-		if err := validation.ValidateSecretBindingsCatalogEntry(entry, catalogEntry.IsGitManaged(), false, h.mcpBackend); err != nil {
+		if err := mcp.ValidateSecretBindingsCatalogEntry(entry, catalogEntry.IsGitManaged(), false, h.mcpBackend); err != nil {
 			errs = append(errs, fmt.Errorf("failed to validate catalog entry %s: %w", entry.Name, err))
 			continue
 		}
-		if err := validation.ValidateTemplateReferencesCatalogEntry(entry); err != nil {
+		if err := mcp.ValidateTemplateReferencesCatalogEntry(entry); err != nil {
 			errs = append(errs, fmt.Errorf("failed to validate catalog entry %s: %w", entry.Name, err))
 			continue
 		}

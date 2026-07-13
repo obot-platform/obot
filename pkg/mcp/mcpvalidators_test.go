@@ -1,4 +1,4 @@
-package validation
+package mcp
 
 import (
 	"context"
@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
@@ -21,15 +20,15 @@ func TestValidateServerManifestForCatalog_MultiUserConfig(t *testing.T) {
 		},
 	}
 
-	require.NoError(t, ValidateServerManifest(t.Context(), manifest, true, Options{}))
+	require.NoError(t, ValidateServerManifest(t.Context(), manifest, true, ValidationOptions{}))
 
 	manifest.MultiUserConfig = &types.MultiUserConfig{}
 	require.Equal(t, types.RuntimeValidationError{
 		Runtime: types.RuntimeNPX,
 		Field:   "multiUserConfig",
 		Message: "multiUserConfig may only be set for multi-user servers",
-	}, ValidateServerManifest(t.Context(), manifest, false, Options{}))
-	require.NoError(t, ValidateServerManifest(t.Context(), manifest, true, Options{}))
+	}, ValidateServerManifest(t.Context(), manifest, false, ValidationOptions{}))
+	require.NoError(t, ValidateServerManifest(t.Context(), manifest, true, ValidationOptions{}))
 }
 
 func TestValidateCatalogEntryManifest_MultiUserConfig(t *testing.T) {
@@ -41,17 +40,17 @@ func TestValidateCatalogEntryManifest_MultiUserConfig(t *testing.T) {
 		},
 	}
 
-	require.NoError(t, ValidateCatalogEntryManifest(t.Context(), manifest, false, Options{}))
+	require.NoError(t, ValidateCatalogEntryManifest(t.Context(), manifest, false, ValidationOptions{}))
 
 	manifest.MultiUserConfig = &types.MultiUserConfig{}
 	require.Equal(t, types.RuntimeValidationError{
 		Runtime: types.RuntimeNPX,
 		Field:   "multiUserConfig",
 		Message: "multiUserConfig may only be set for multi-user catalog entries",
-	}, ValidateCatalogEntryManifest(t.Context(), manifest, false, Options{}))
+	}, ValidateCatalogEntryManifest(t.Context(), manifest, false, ValidationOptions{}))
 
 	manifest.ServerUserType = types.ServerUserTypeMultiUser
-	require.NoError(t, ValidateCatalogEntryManifest(t.Context(), manifest, false, Options{}))
+	require.NoError(t, ValidateCatalogEntryManifest(t.Context(), manifest, false, ValidationOptions{}))
 }
 
 func TestRemoteValidator_validateRemoteCatalogConfig(t *testing.T) {
@@ -830,7 +829,7 @@ func TestValidateRemoteManifestURLWithOptions(t *testing.T) {
 	tests := []struct {
 		name    string
 		rawURL  string
-		options Options
+		options ValidationOptions
 		wantErr string
 	}{
 		{
@@ -841,8 +840,8 @@ func TestValidateRemoteManifestURLWithOptions(t *testing.T) {
 		{
 			name:   "localhost allowed",
 			rawURL: "http://localhost:8080/mcp",
-			options: Options{
-				RemoteMCPURLValidationConfig: mcp.RemoteMCPURLValidationConfig{
+			options: ValidationOptions{
+				RemoteMCPURLValidationConfig: RemoteMCPURLValidationConfig{
 					AllowLocalhostMCP: true,
 				},
 			},
@@ -855,8 +854,8 @@ func TestValidateRemoteManifestURLWithOptions(t *testing.T) {
 		{
 			name:   "loopback IP allowed by localhost option",
 			rawURL: "http://127.0.0.1:8080/mcp",
-			options: Options{
-				RemoteMCPURLValidationConfig: mcp.RemoteMCPURLValidationConfig{
+			options: ValidationOptions{
+				RemoteMCPURLValidationConfig: RemoteMCPURLValidationConfig{
 					AllowLocalhostMCP: true,
 				},
 			},
@@ -869,8 +868,8 @@ func TestValidateRemoteManifestURLWithOptions(t *testing.T) {
 		{
 			name:   "private IP allowed",
 			rawURL: "http://10.0.0.1:8080/mcp",
-			options: Options{
-				RemoteMCPURLValidationConfig: mcp.RemoteMCPURLValidationConfig{
+			options: ValidationOptions{
+				RemoteMCPURLValidationConfig: RemoteMCPURLValidationConfig{
 					AllowPrivateIPMCP: true,
 				},
 			},
@@ -883,8 +882,8 @@ func TestValidateRemoteManifestURLWithOptions(t *testing.T) {
 		{
 			name:   "link-local IP allowed",
 			rawURL: "http://169.254.169.254/latest/meta-data",
-			options: Options{
-				RemoteMCPURLValidationConfig: mcp.RemoteMCPURLValidationConfig{
+			options: ValidationOptions{
+				RemoteMCPURLValidationConfig: RemoteMCPURLValidationConfig{
 					AllowLinkLocalMCP: true,
 				},
 			},
@@ -893,8 +892,8 @@ func TestValidateRemoteManifestURLWithOptions(t *testing.T) {
 			name:    "private option does not allow link-local IP",
 			rawURL:  "http://169.254.169.254/latest/meta-data",
 			wantErr: "link-local address",
-			options: Options{
-				RemoteMCPURLValidationConfig: mcp.RemoteMCPURLValidationConfig{
+			options: ValidationOptions{
+				RemoteMCPURLValidationConfig: RemoteMCPURLValidationConfig{
 					AllowPrivateIPMCP: true,
 				},
 			},
@@ -903,8 +902,8 @@ func TestValidateRemoteManifestURLWithOptions(t *testing.T) {
 			name:    "link-local option does not allow private IP",
 			rawURL:  "http://10.0.0.1:8080/mcp",
 			wantErr: "private IP address",
-			options: Options{
-				RemoteMCPURLValidationConfig: mcp.RemoteMCPURLValidationConfig{
+			options: ValidationOptions{
+				RemoteMCPURLValidationConfig: RemoteMCPURLValidationConfig{
 					AllowLinkLocalMCP: true,
 				},
 			},
@@ -912,8 +911,8 @@ func TestValidateRemoteManifestURLWithOptions(t *testing.T) {
 		{
 			name:   "all URL validation blocks allowed",
 			rawURL: "http://10.0.0.1:8080/mcp",
-			options: Options{
-				RemoteMCPURLValidationConfig: mcp.RemoteMCPURLValidationConfig{
+			options: ValidationOptions{
+				RemoteMCPURLValidationConfig: RemoteMCPURLValidationConfig{
 					AllowLocalhostMCP: true,
 					AllowPrivateIPMCP: true,
 					AllowLinkLocalMCP: true,
@@ -922,7 +921,7 @@ func TestValidateRemoteManifestURLWithOptions(t *testing.T) {
 		},
 	}
 
-	validateServerManifest := func(ctx context.Context, rawURL string, options Options) error {
+	validateServerManifest := func(ctx context.Context, rawURL string, options ValidationOptions) error {
 		return ValidateServerManifest(ctx, types.MCPServerManifest{
 			Runtime: types.RuntimeRemote,
 			RemoteConfig: &types.RemoteRuntimeConfig{
@@ -931,7 +930,7 @@ func TestValidateRemoteManifestURLWithOptions(t *testing.T) {
 		}, false, options)
 	}
 
-	validateCatalogEntryManifest := func(ctx context.Context, rawURL string, options Options) error {
+	validateCatalogEntryManifest := func(ctx context.Context, rawURL string, options ValidationOptions) error {
 		return ValidateCatalogEntryManifest(ctx, types.MCPServerCatalogEntryManifest{
 			Runtime:        types.RuntimeRemote,
 			ServerUserType: types.ServerUserTypeSingleUser,
@@ -941,7 +940,7 @@ func TestValidateRemoteManifestURLWithOptions(t *testing.T) {
 		}, false, options)
 	}
 
-	validateSystemManifest := func(ctx context.Context, rawURL string, options Options) error {
+	validateSystemManifest := func(ctx context.Context, rawURL string, options ValidationOptions) error {
 		return ValidateSystemMCPServerManifest(ctx, types.SystemMCPServerManifest{
 			Runtime: types.RuntimeRemote,
 			RemoteConfig: &types.RemoteRuntimeConfig{
@@ -954,7 +953,7 @@ func TestValidateRemoteManifestURLWithOptions(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			for _, validator := range []struct {
 				name string
-				fn   func(context.Context, string, Options) error
+				fn   func(context.Context, string, ValidationOptions) error
 			}{
 				{name: "server", fn: validateServerManifest},
 				{name: "catalog entry", fn: validateCatalogEntryManifest},
@@ -1911,7 +1910,7 @@ func TestValidateManifestStartupTimeoutNonNegative(t *testing.T) {
 				Package:               "test-package",
 				StartupTimeoutSeconds: -1,
 			},
-		}, false, Options{})
+		}, false, ValidationOptions{})
 
 		require.Equal(t, types.RuntimeValidationError{
 			Runtime: types.RuntimeNPX,
@@ -1928,7 +1927,7 @@ func TestValidateManifestStartupTimeoutNonNegative(t *testing.T) {
 				Package:               "test-package",
 				StartupTimeoutSeconds: -1,
 			},
-		}, false, Options{})
+		}, false, ValidationOptions{})
 
 		require.Equal(t, types.RuntimeValidationError{
 			Runtime: types.RuntimeUVX,
@@ -1938,7 +1937,7 @@ func TestValidateManifestStartupTimeoutNonNegative(t *testing.T) {
 	})
 
 	t.Run("server manifest rejects startup timeout above maximum", func(t *testing.T) {
-		maxStartupTimeoutSeconds := int(mcp.MaxMCPServerStartupTimeout.Seconds())
+		maxStartupTimeoutSeconds := int(MaxMCPServerStartupTimeout.Seconds())
 		err := ValidateServerManifest(t.Context(), types.MCPServerManifest{
 			Runtime: types.RuntimeContainerized,
 			ContainerizedConfig: &types.ContainerizedRuntimeConfig{
@@ -1947,7 +1946,7 @@ func TestValidateManifestStartupTimeoutNonNegative(t *testing.T) {
 				Path:                  "/mcp",
 				StartupTimeoutSeconds: maxStartupTimeoutSeconds + 1,
 			},
-		}, false, Options{})
+		}, false, ValidationOptions{})
 
 		require.Equal(t, types.RuntimeValidationError{
 			Runtime: types.RuntimeContainerized,
@@ -1957,7 +1956,7 @@ func TestValidateManifestStartupTimeoutNonNegative(t *testing.T) {
 	})
 
 	t.Run("catalog manifest rejects startup timeout above maximum", func(t *testing.T) {
-		maxStartupTimeoutSeconds := int(mcp.MaxMCPServerStartupTimeout.Seconds())
+		maxStartupTimeoutSeconds := int(MaxMCPServerStartupTimeout.Seconds())
 		err := ValidateCatalogEntryManifest(t.Context(), types.MCPServerCatalogEntryManifest{
 			ServerUserType: types.ServerUserTypeSingleUser,
 			Runtime:        types.RuntimeNPX,
@@ -1965,7 +1964,7 @@ func TestValidateManifestStartupTimeoutNonNegative(t *testing.T) {
 				Package:               "test-package",
 				StartupTimeoutSeconds: maxStartupTimeoutSeconds + 1,
 			},
-		}, false, Options{})
+		}, false, ValidationOptions{})
 
 		require.Equal(t, types.RuntimeValidationError{
 			Runtime: types.RuntimeNPX,
@@ -1992,7 +1991,7 @@ func TestValidateMCPResourceRequirements(t *testing.T) {
 			Runtime:   types.RuntimeNPX,
 			NPXConfig: &types.NPXRuntimeConfig{Package: "test-package"},
 			Resources: validResources,
-		}, false, Options{})
+		}, false, ValidationOptions{})
 		require.NoError(t, err)
 	})
 
@@ -2002,7 +2001,7 @@ func TestValidateMCPResourceRequirements(t *testing.T) {
 			Runtime:        types.RuntimeUVX,
 			UVXConfig:      &types.UVXRuntimeConfig{Package: "test-package"},
 			Resources:      validResources,
-		}, false, Options{})
+		}, false, ValidationOptions{})
 		require.NoError(t, err)
 	})
 
@@ -2086,7 +2085,7 @@ func TestValidateMCPResourceRequirements(t *testing.T) {
 				Runtime:   types.RuntimeNPX,
 				NPXConfig: &types.NPXRuntimeConfig{Package: "test-package"},
 				Resources: tt.resources,
-			}, false, Options{})
+			}, false, ValidationOptions{})
 
 			var validationErr types.RuntimeValidationError
 			require.ErrorAs(t, err, &validationErr)
@@ -2101,7 +2100,7 @@ func TestValidateMCPResourceRequirements(t *testing.T) {
 				Runtime:        types.RuntimeUVX,
 				UVXConfig:      &types.UVXRuntimeConfig{Package: "test-package"},
 				Resources:      tt.resources,
-			}, false, Options{})
+			}, false, ValidationOptions{})
 
 			var validationErr types.RuntimeValidationError
 			require.ErrorAs(t, err, &validationErr)
@@ -2114,8 +2113,8 @@ func TestValidateMCPResourceRequirements(t *testing.T) {
 
 func TestValidateMCPResourceMaximums(t *testing.T) {
 	maxCPURequest := resource.MustParse("100m")
-	options := Options{
-		ResourceMaximums: mcp.ResourceMaximums{
+	options := ValidationOptions{
+		ResourceMaximums: ResourceMaximums{
 			CPURequest: &maxCPURequest,
 		},
 	}
@@ -2155,7 +2154,7 @@ func TestValidateMCPResourceMaximums(t *testing.T) {
 					CPU: "250m",
 				},
 			},
-		}, false, Options{})
+		}, false, ValidationOptions{})
 		require.NoError(t, err)
 	})
 
@@ -2937,7 +2936,7 @@ func TestValidateCatalogEntryManifest_ServerUserType(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			manifest := tt.manifest
 			manifest.ServerUserType = tt.serverUserType
-			err := ValidateCatalogEntryManifest(t.Context(), manifest, false, Options{})
+			err := ValidateCatalogEntryManifest(t.Context(), manifest, false, ValidationOptions{})
 			if tt.expectError && err == nil {
 				t.Errorf("expected error for serverUserType=%q, got nil", tt.serverUserType)
 			} else if !tt.expectError && err != nil {
@@ -2959,12 +2958,12 @@ func TestValidateCatalogEntryManifestGitManagedRequiresOverrideDescription(t *te
 		}},
 	}
 
-	require.NoError(t, ValidateCatalogEntryManifest(t.Context(), manifest, false, Options{}))
+	require.NoError(t, ValidateCatalogEntryManifest(t.Context(), manifest, false, ValidationOptions{}))
 
-	err := ValidateCatalogEntryManifest(t.Context(), manifest, true, Options{})
+	err := ValidateCatalogEntryManifest(t.Context(), manifest, true, ValidationOptions{})
 	require.ErrorContains(t, err, "compositeConfig.componentServers[0].toolOverrides[0].description: cannot be set in Git-managed catalogs; use overrideDescription instead")
 
 	manifest.CompositeConfig.ComponentServers[0].ToolOverrides[0].Description = ""
 	manifest.CompositeConfig.ComponentServers[0].ToolOverrides[0].OverrideDescription = "new description"
-	require.NoError(t, ValidateCatalogEntryManifest(t.Context(), manifest, true, Options{}))
+	require.NoError(t, ValidateCatalogEntryManifest(t.Context(), manifest, true, ValidationOptions{}))
 }

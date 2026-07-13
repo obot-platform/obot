@@ -214,7 +214,7 @@ func (h *NanobotAgentHandler) Launch(req api.Context) error {
 	// "missing required config: NANOBOT_ENV_FILE" error before the credential exists.
 	var serverConfig mcp.ServerConfig
 	for {
-		serverConfig, _, err = serverConfigForAction(req, *server, h.secretBindingAllowedLabel, false)
+		_, serverConfig, err = h.sessionManager.ServerForAction(req.Context(), server.Name, req.User.GetUID())
 		if err == nil {
 			break
 		}
@@ -232,10 +232,10 @@ func (h *NanobotAgentHandler) Launch(req api.Context) error {
 
 	if _, err = h.sessionManager.LaunchServer(req.Context(), serverConfig); err != nil {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
-			return types.NewErrHTTP(http.StatusServiceUnavailable, fmt.Sprintf("MCP server for agent %s is not healthy, check configuration for errors", agent.Name))
+			return types.NewErrHTTP(http.StatusServiceUnavailable, fmt.Sprintf("MCP server for agent %s is not healthy, check configuration for errors: %v", agent.Name, err))
 		}
 		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
-			return types.NewErrHTTP(http.StatusServiceUnavailable, fmt.Sprintf("No response from MCP server for agent %s, check configuration for errors", agent.Name))
+			return types.NewErrHTTP(http.StatusServiceUnavailable, fmt.Sprintf("No response from MCP server for agent %s, check configuration for errors: %v", agent.Name, err))
 		}
 		if errors.Is(err, mcp.ErrInsufficientCapacity) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "Insufficient capacity to deploy MCP server for agent. Please contact your administrator.")

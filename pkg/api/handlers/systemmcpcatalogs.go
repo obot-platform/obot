@@ -15,7 +15,6 @@ import (
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	"github.com/obot-platform/obot/pkg/validation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -183,7 +182,7 @@ func (h *SystemMCPCatalogHandler) CreateEntry(req api.Context) error {
 	if err := req.Read(&manifest); err != nil {
 		return types.NewErrBadRequest("failed to read entry manifest: %v", err)
 	}
-	if err := validation.ValidateSystemMCPServerCatalogEntryManifest(req.Context(), manifest, validationOptions(h.sessionManager.RemoteMCPURLValidationConfig())); err != nil {
+	if err := mcp.ValidateSystemMCPServerCatalogEntryManifest(req.Context(), manifest, validationOptions(h.sessionManager.RemoteMCPURLValidationConfig())); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
 
@@ -217,7 +216,7 @@ func (h *SystemMCPCatalogHandler) UpdateEntry(req api.Context) error {
 	if err := req.Read(&manifest); err != nil {
 		return types.NewErrBadRequest("failed to read entry manifest: %v", err)
 	}
-	if err := validation.ValidateSystemMCPServerCatalogEntryManifest(req.Context(), manifest, validationOptions(h.sessionManager.RemoteMCPURLValidationConfig())); err != nil {
+	if err := mcp.ValidateSystemMCPServerCatalogEntryManifest(req.Context(), manifest, validationOptions(h.sessionManager.RemoteMCPURLValidationConfig())); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
 	manifest.ToolPreview = entry.Spec.Manifest.ToolPreview
@@ -285,7 +284,7 @@ func normalizeAndValidateCatalogSourceURLs(sourceURLs []string, localPath string
 		if urlStr == "" {
 			continue
 		}
-		sourceID := validation.SourceIDForURL(urlStr)
+		sourceID := mcp.SourceIDForURL(urlStr)
 		if sourceID == "" {
 			return types.NewErrBadRequest("invalid catalog source URL %q", urlStr)
 		}

@@ -206,15 +206,15 @@ var (
 			"GET /api/auth-providers",
 			"GET /api/auth-providers/{id}",
 
-			"GET /.well-known/",
+			"GET  /.well-known/",
 			"POST /oauth/register/{mcp_id}",
 			"POST /oauth/register",
-			"GET /oauth/authorize/{mcp_id}",
-			"GET /oauth/authorize",
+			"GET  /oauth/authorize/{mcp_id}",
+			"GET  /oauth/authorize",
 			"POST /oauth/token/{mcp_id}",
 			"POST /oauth/token",
-			"GET /oauth/jwks.json",
-			"GET /oauth/client-metadata.json",
+			"GET  /oauth/jwks.json",
+			"GET  /oauth/client-metadata.json",
 
 			// Allow any user to read stored images.
 			// This allows the UI to display custom images to unauthenticated users.
@@ -396,25 +396,9 @@ type rule struct {
 
 func defaultRules(devMode bool, registryNoAuth bool) []rule {
 	var (
-		rules []rule
 		f     = (*fake)(nil)
+		rules = rulesFromStatic(staticRules)
 	)
-
-	for group := range staticRules {
-		rule := rule{
-			group: group,
-			mux:   http.NewServeMux(),
-		}
-		seen := map[string]struct{}{}
-		for _, url := range staticRules[group] {
-			if _, ok := seen[url]; ok {
-				continue
-			}
-			seen[url] = struct{}{}
-			rule.mux.Handle(url, f)
-		}
-		rules = append(rules, rule)
-	}
 
 	var registryRuleBasic, registryRuleMCPOAuth rule
 	if registryNoAuth {
@@ -455,6 +439,29 @@ func defaultRules(devMode bool, registryNoAuth bool) []rule {
 		}
 	}
 
+	return rules
+}
+
+func rulesFromStatic(static map[string][]string) []rule {
+	var (
+		f     = (*fake)(nil)
+		rules []rule
+	)
+	for group := range static {
+		rule := rule{
+			group: group,
+			mux:   http.NewServeMux(),
+		}
+		seen := map[string]struct{}{}
+		for _, url := range static[group] {
+			if _, ok := seen[url]; ok {
+				continue
+			}
+			seen[url] = struct{}{}
+			rule.mux.Handle(url, f)
+		}
+		rules = append(rules, rule)
+	}
 	return rules
 }
 

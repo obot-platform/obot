@@ -1,3 +1,4 @@
+import { handleRouteError } from '$lib/errors';
 import { NanobotService } from '$lib/services';
 import type { ProjectV2Agent } from '$lib/services/nanobot/types';
 import type { LayoutLoad } from './$types';
@@ -23,8 +24,15 @@ export const load: LayoutLoad = async ({ fetch, url, parent }) => {
 	}
 
 	if (targetProjectId) {
-		const project = await NanobotService.getProject(targetProjectId, { fetch });
-		const agents = await NanobotService.listProjectAgents(targetProjectId, { fetch });
+		let project;
+		let agents;
+		try {
+			project = await NanobotService.getProject(targetProjectId, { fetch });
+			agents = await NanobotService.listProjectAgents(targetProjectId, { fetch });
+		} catch (err) {
+			handleRouteError(err, url.pathname, profile);
+		}
+
 		let agent: ProjectV2Agent;
 		if (targetAgentId) {
 			agent = agents.find((a) => a.id === targetAgentId) || agents[0];
@@ -40,24 +48,29 @@ export const load: LayoutLoad = async ({ fetch, url, parent }) => {
 	}
 
 	// Default: load or create the current user's project and agent.
-	let projects = await NanobotService.listProjects({ fetch });
-	if (projects.length === 0) {
-		const project = await NanobotService.createProject({ displayName: 'New Project' }, { fetch });
-		projects = [project];
-	}
-
+	let projects;
 	let agent: ProjectV2Agent;
 	let isNewAgent = false;
-	const agents = await NanobotService.listProjectAgents(projects[0].id, { fetch });
-	if (agents.length === 0) {
-		agent = await NanobotService.createProjectAgent(
-			projects[0].id,
-			{ displayName: 'New Agent' },
-			{ fetch }
-		);
-		isNewAgent = true;
-	} else {
-		agent = agents[0];
+	try {
+		projects = await NanobotService.listProjects({ fetch });
+		if (projects.length === 0) {
+			const project = await NanobotService.createProject({ displayName: 'New Project' }, { fetch });
+			projects = [project];
+		}
+
+		const agents = await NanobotService.listProjectAgents(projects[0].id, { fetch });
+		if (agents.length === 0) {
+			agent = await NanobotService.createProjectAgent(
+				projects[0].id,
+				{ displayName: 'New Agent' },
+				{ fetch }
+			);
+			isNewAgent = true;
+		} else {
+			agent = agents[0];
+		}
+	} catch (err) {
+		handleRouteError(err, url.pathname, profile);
 	}
 
 	return { projects, agent, isNewAgent };

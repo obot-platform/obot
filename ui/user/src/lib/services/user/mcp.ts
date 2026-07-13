@@ -36,6 +36,11 @@ export function getMCPDisplayName(
 	return (item && 'alias' in item && item?.alias) || item?.manifest.name || fallback;
 }
 
+export function supportsMCPBackendDetails(item?: { manifest?: { runtime?: string } }): boolean {
+	const runtime = item?.manifest?.runtime;
+	return runtime !== 'remote' && runtime !== 'composite';
+}
+
 export function isValidMcpConfig(mcpConfig: MCPServerInfo): boolean {
 	return (
 		(mcpConfig.env ?? []).every((env) => hasSecretBinding(env) || !env.required || env.value) &&
@@ -602,10 +607,20 @@ export function getServerUrl(d: MCPCatalogServer) {
 	// The single-user instance page fetches via /mcp-catalog/{id}, which only
 	// resolves servers that are not scoped to a catalog or workspace.
 	const isMulti = isMultiUserServer(d);
+	const supportsDetails = supportsMCPBackendDetails(d);
+	const nonDetailsUrl = isMulti
+		? `/mcp-catalog/s/${d.id}`
+		: d.catalogEntryID
+			? `/mcp-catalog/c/${d.catalogEntryID}/instance/${d.id}`
+			: `/mcp-catalog/s/${d.id}`;
 
 	let url: string;
 	if (profile.current.hasAdminAccess?.()) {
-		if (isMulti && d.catalogEntryID) {
+		if (!supportsDetails) {
+			url = belongsToWorkspace
+				? `/admin${nonDetailsUrl}?wid=${encodeURIComponent(d.powerUserWorkspaceID!)}`
+				: `/admin${nonDetailsUrl}`;
+		} else if (isMulti && d.catalogEntryID) {
 			url =
 				belongsToWorkspace && d.powerUserWorkspaceID
 					? `/admin/mcp-catalog/s/${d.id}/details?wid=${encodeURIComponent(d.powerUserWorkspaceID)}`
@@ -622,9 +637,11 @@ export function getServerUrl(d: MCPCatalogServer) {
 					: `/admin/mcp-catalog/c/${d.catalogEntryID}/instance/${d.id}/details`;
 		}
 	} else {
-		url = isMulti
-			? `/mcp-catalog/s/${d.id}/details`
-			: `/mcp-catalog/c/${d.catalogEntryID}/instance/${d.id}/details`;
+		url = !supportsDetails
+			? nonDetailsUrl
+			: isMulti
+				? `/mcp-catalog/s/${d.id}/details`
+				: `/mcp-catalog/c/${d.catalogEntryID}/instance/${d.id}/details`;
 	}
 	return url;
 }
@@ -1020,6 +1037,10 @@ export async function restartMcpServer(
 	server: MCPCatalogServer,
 	catalogID?: string
 ): Promise<void> {
+	if (!supportsMCPBackendDetails(server)) {
+		throw new Error('This MCP server runtime does not support restart.');
+	}
+
 	if (isMultiUserServer(server)) {
 		if (server.powerUserWorkspaceID) {
 			await UserService.restartWorkspaceK8sServerDeployment(server.powerUserWorkspaceID, server.id);

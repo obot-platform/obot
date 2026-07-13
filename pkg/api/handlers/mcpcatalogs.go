@@ -20,7 +20,6 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
-	"github.com/obot-platform/obot/pkg/validation"
 	"golang.org/x/crypto/bcrypt"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -317,15 +316,15 @@ func (h *MCPCatalogHandler) CreateEntry(req api.Context) error {
 			return err
 		}
 	}
-	if err := validation.ValidateCatalogEntryManifest(req.Context(), manifest, false, ValidationOptionsWithResourceMaximums(h.sessionManager)); err != nil {
+	if err := mcp.ValidateCatalogEntryManifest(req.Context(), manifest, false, ValidationOptionsWithResourceMaximums(h.sessionManager)); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
 	// UI-created catalog entries are never git-managed, but multi-user catalog
 	// entries may still define secretBinding as part of their shared template.
-	if err := validation.ValidateSecretBindingsCatalogEntry(manifest, false, req.UserIsAdmin(), h.mcpBackend); err != nil {
+	if err := mcp.ValidateSecretBindingsCatalogEntry(manifest, false, req.UserIsAdmin(), h.mcpBackend); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
-	if err := validation.ValidateTemplateReferencesCatalogEntry(manifest); err != nil {
+	if err := mcp.ValidateTemplateReferencesCatalogEntry(manifest); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
 
@@ -396,17 +395,17 @@ func (h *MCPCatalogHandler) UpdateEntry(req api.Context) error {
 	if manifest.ServerUserType == "" {
 		manifest.ServerUserType = types.ServerUserTypeSingleUser
 	}
-	if err := validation.ValidateCatalogEntryManifest(req.Context(), manifest, false, ValidationOptionsWithResourceMaximums(h.sessionManager)); err != nil {
+	if err := mcp.ValidateCatalogEntryManifest(req.Context(), manifest, false, ValidationOptionsWithResourceMaximums(h.sessionManager)); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
 	// UI-updated catalog entries are never git-managed at this call site. The
 	// git-sync controller reconciles git-managed entries through a separate path.
 	// Multi-user catalog entries may still define secretBinding as part of their
 	// shared template.
-	if err := validation.ValidateSecretBindingsCatalogEntry(manifest, false, req.UserIsAdmin(), h.mcpBackend); err != nil {
+	if err := mcp.ValidateSecretBindingsCatalogEntry(manifest, false, req.UserIsAdmin(), h.mcpBackend); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
-	if err := validation.ValidateTemplateReferencesCatalogEntry(manifest); err != nil {
+	if err := mcp.ValidateTemplateReferencesCatalogEntry(manifest); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
 
@@ -908,7 +907,7 @@ func (h *MCPCatalogHandler) generateCompositeToolPreviews(req api.Context, entry
 				return fmt.Errorf("failed to get MCP server %q: %w", componentEntry.MCPServerID, err)
 			}
 
-			serverConfig, _, err := serverConfigForAction(req, mcpServer, h.secretBindingAllowedLabel, false)
+			_, serverConfig, err := h.sessionManager.ServerForAction(req.Context(), mcpServer.Name, req.User.GetUID())
 			if err != nil {
 				return fmt.Errorf("failed to build server configuration for MCP server %q: %w", mcpServer.Name, err)
 			}
@@ -1690,14 +1689,14 @@ func (h *MCPCatalogHandler) RefreshCompositeComponents(req api.Context) error {
 
 	// Validate the refreshed manifest to ensure it's still valid
 	entryGitManaged := entry.IsGitManaged()
-	if err := validation.ValidateCatalogEntryManifest(req.Context(), entry.Spec.Manifest, entryGitManaged, ValidationOptionsWithResourceMaximums(h.sessionManager)); err != nil {
+	if err := mcp.ValidateCatalogEntryManifest(req.Context(), entry.Spec.Manifest, entryGitManaged, ValidationOptionsWithResourceMaximums(h.sessionManager)); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
 	// Preserve the git-managed status of the original entry when re-validating.
-	if err := validation.ValidateSecretBindingsCatalogEntry(entry.Spec.Manifest, entryGitManaged, req.UserIsAdmin(), h.mcpBackend); err != nil {
+	if err := mcp.ValidateSecretBindingsCatalogEntry(entry.Spec.Manifest, entryGitManaged, req.UserIsAdmin(), h.mcpBackend); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
-	if err := validation.ValidateTemplateReferencesCatalogEntry(entry.Spec.Manifest); err != nil {
+	if err := mcp.ValidateTemplateReferencesCatalogEntry(entry.Spec.Manifest); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
 

@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"net"
 	"net/url"
-	"slices"
 	"strings"
 	"sync"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
+	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
@@ -23,9 +23,9 @@ import (
 var log = logger.Package()
 
 type Options struct {
-	MCPBaseImage                      string   `usage:"The base image to use for MCP containers" default:"ghcr.io/obot-platform/mcp-images/stdio-wrapper:v0.24.0"`
-	MCPHTTPWebhookBaseImage           string   `usage:"The base image to use for HTTP-based MCP webhook containers" default:"ghcr.io/obot-platform/mcp-images/http-webhook-mcp-converter:v0.24.0"`
-	MCPRemoteShimBaseImage            string   `usage:"The base image to use for MCP remote shim containers" default:"ghcr.io/obot-platform/nanobot:v0.0.88"`
+	MCPBaseImage                      string   `usage:"The base image to use for MCP containers" default:"ghcr.io/obot-platform/mcp-images/stdio-wrapper:v0.24.1"`
+	MCPRemoteShimBaseImage            string   `usage:"The base image to use for composite MCP containers" default:"ghcr.io/obot-platform/nanobot:v0.0.89"`
+	MCPHTTPWebhookBaseImage           string   `usage:"The base image to use for HTTP-based MCP webhook containers" default:"ghcr.io/obot-platform/mcp-images/http-webhook-mcp-converter:v0.24.1"`
 	MCPNamespace                      string   `usage:"The namespace to use for MCP containers" default:"obot-mcp"`
 	MCPClusterDomain                  string   `usage:"The cluster domain to use for MCP containers" default:"cluster.local"`
 	DisallowLocalhostMCP              bool     `usage:"Disallow MCP containers from connecting to localhost" default:"true"`
@@ -84,6 +84,11 @@ type SessionManager struct {
 	baseURL                   string
 	remoteURLValidationConfig RemoteMCPURLValidationConfig
 	resourceMaximums          ResourceMaximums
+	storageClient             kclient.WithWatch
+	gatewayClient             *gateway.Client
+	localK8sClient            kclient.Client
+	obotNamespace             string
+	secretBindingAllowedLabel string
 
 	webhookHelper *WebhookHelper
 }
@@ -108,7 +113,7 @@ const streamableHTTPHealthcheckBody string = `{
     }
 }`
 
-func NewSessionManager(ctx context.Context, authEnabled bool, tokenService TokenService, baseURL string, httpListenPort int, opts Options, webhookHelper *WebhookHelper, localK8sConfig *rest.Config, client, cachedClient, obotStorageClient kclient.WithWatch) (*SessionManager, error) {
+func NewSessionManager(ctx context.Context, authEnabled bool, tokenService TokenService, baseURL string, httpListenPort int, opts Options, webhookHelper *WebhookHelper, localK8sConfig *rest.Config, client, cachedClient, obotStorageClient kclient.WithWatch, gatewayClient *gateway.Client, obotNamespace string) (*SessionManager, error) {
 	var backend backend
 	resourceMaximums, err := ParseResourceMaximums(opts)
 	if err != nil {
@@ -162,12 +167,17 @@ func NewSessionManager(ctx context.Context, authEnabled bool, tokenService Token
 	}
 
 	return &SessionManager{
-		webhookHelper:    webhookHelper,
-		tokenService:     tokenService,
-		backend:          backend,
-		runtimeBackend:   opts.MCPRuntimeBackend,
-		baseURL:          baseURL,
-		resourceMaximums: resourceMaximums,
+		webhookHelper:             webhookHelper,
+		tokenService:              tokenService,
+		backend:                   backend,
+		runtimeBackend:            opts.MCPRuntimeBackend,
+		baseURL:                   baseURL,
+		resourceMaximums:          resourceMaximums,
+		storageClient:             obotStorageClient,
+		gatewayClient:             gatewayClient,
+		localK8sClient:            client,
+		obotNamespace:             obotNamespace,
+		secretBindingAllowedLabel: strings.TrimSpace(opts.MCPSecretBindingAllowedLabel),
 		remoteURLValidationConfig: RemoteMCPURLValidationConfig{
 			AllowLocalhostMCP: !opts.DisallowLocalhostMCP,
 			AllowPrivateIPMCP: !opts.DisallowPrivateIPMCP,
@@ -202,6 +212,10 @@ func (sm *SessionManager) TransformObotHostname(hostname string) string {
 	return sm.backend.transformObotHostname(hostname)
 }
 
+func (sm *SessionManager) RemoteConfigForBackend() (RemoteMCPURLValidationConfig, []string) {
+	return sm.backend.remoteConfig(sm.remoteURLValidationConfig)
+}
+
 // Close does nothing with the deployments and services. It just closes the local session.
 func (sm *SessionManager) Close() {
 	sm.contextLock.Lock()
@@ -232,17 +246,7 @@ func (sm *SessionManager) Close() {
 }
 
 // CloseClient will close the client for this MCP server, but leave the deployment running.
-func (sm *SessionManager) CloseClient(ctx context.Context, server ServerConfig, clientScope string) error {
-	serverConfig, err := sm.backend.transformConfig(ctx, server)
-	if err != nil {
-		return fmt.Errorf("failed to transform MCP server config: %w", err)
-	} else if serverConfig != nil {
-		sm.closeClient(*serverConfig, clientScope)
-	}
-	return nil
-}
-
-func (sm *SessionManager) closeClient(server ServerConfig, clientScope string) {
+func (sm *SessionManager) CloseClient(server ServerConfig, clientScope string) {
 	sm.contextLock.Lock()
 	if sm.sessionCtx == nil {
 		sm.contextLock.Unlock()
@@ -272,9 +276,8 @@ func (sm *SessionManager) closeClient(server ServerConfig, clientScope string) {
 }
 
 // LaunchServer will ensure that the server is deployed
-func (sm *SessionManager) LaunchServer(ctx context.Context, serverConfig ServerConfig) (string, error) {
-	c, err := sm.ensureDeployment(ctx, serverConfig, true)
-	return c.URL, err
+func (sm *SessionManager) LaunchServer(ctx context.Context, serverConfig ServerConfig) (ServerConfig, error) {
+	return sm.ensureDeployment(ctx, serverConfig)
 }
 
 // ShutdownServer will close the connections to the MCP server and remove all of the resources.
@@ -326,27 +329,7 @@ func (sm *SessionManager) RestartServerDeployment(ctx context.Context, server Se
 	return sm.backend.restartServer(ctx, server)
 }
 
-func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerConfig, transformRemote bool) (ServerConfig, error) {
-	var webhooks []Webhook
-	if (server.Runtime != types.RuntimeRemote || transformRemote) && !server.ComponentMCPServer && !server.SystemMCPServer {
-		// Don't get webhooks for servers that are components of composite servers.
-		// The webhooks would be called at the composite level.
-		var err error
-		webhooks, err = sm.webhookHelper.GetWebhooksForMCPServer(server)
-		if err != nil {
-			return ServerConfig{}, err
-		}
-
-		slices.SortFunc(webhooks, func(a, b Webhook) int {
-			if a.Name < b.Name {
-				return -1
-			} else if a.Name > b.Name {
-				return 1
-			}
-			return 0
-		})
-	}
-
+func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerConfig) (ServerConfig, error) {
 	if server.Runtime == types.RuntimeRemote {
 		if server.URL == "" {
 			return ServerConfig{}, fmt.Errorf("MCP server %s needs to update its URL", server.MCPServerDisplayName)
@@ -355,17 +338,12 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerCon
 		if err := ValidateRemoteMCPURL(ctx, server.URL, sm.RemoteMCPURLValidationConfig()); err != nil {
 			return ServerConfig{}, err
 		}
-
-		if !transformRemote {
-			// If we aren't transforming the remote MCP server, then return it as is.
-			return server, nil
-		}
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, server.StartupTimeout)
 	defer cancel()
 
-	return sm.backend.ensureServerDeployment(ctx, server, webhooks)
+	return sm.backend.ensureServerDeployment(ctx, server)
 }
 
 // ValidateRemoteMCPURL rejects remote MCP URLs that resolve to blocked local address ranges.
@@ -418,6 +396,8 @@ func serverID(server ServerConfig) string {
 	server.UserID = ""
 	// Neither are the passthrough header values since they are per-user.
 	server.PassthroughHeaderValues = nil
+	// The Webhooks are handled dynamically and are not part of the server ID.
+	server.Webhooks = nil
 
 	// File values are dynamic and can be updated in place.
 	// Keep file env keys, but clear file contents before hashing.

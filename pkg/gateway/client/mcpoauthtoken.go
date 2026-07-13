@@ -107,7 +107,7 @@ func (c *Client) DeleteMCPOAuthTokenForAllUsers(ctx context.Context, mcpID strin
 }
 
 func (c *Client) triggerMCPOAuthTokenChange(ctx context.Context, mcpID string) error {
-	if mcpID == "" {
+	if mcpID == "" || c.mcpOAuthTokenTrigger == nil {
 		return nil
 	}
 	return c.mcpOAuthTokenTrigger(ctx, mcpID)

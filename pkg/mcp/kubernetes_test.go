@@ -323,10 +323,8 @@ func TestK8sObjects_NanobotAgentExcludesAuditLogConfig(t *testing.T) {
 		Command:              "nanobot",
 		Args:                 []string{"run"},
 		NanobotAgentName:     "agent-1",
-		AuditLogToken:        "audit-token",
-		AuditLogEndpoint:     "https://obot.example.com/api/mcp-audit-logs",
-		AuditLogMetadata:     "mcpID=server-1",
-	}, nil)
+		AuditLogMetadata:     map[string]string{"mcpID": "server-1"},
+	})
 	if err != nil {
 		t.Fatalf("k8sObjects() error = %v", err)
 	}
@@ -335,33 +333,7 @@ func TestK8sObjects_NanobotAgentExcludesAuditLogConfig(t *testing.T) {
 	assertNoAuditLogEnv(t, configSecret.Data)
 }
 
-func TestK8sObjects_NonAgentShimKeepsAuditLogConfig(t *testing.T) {
-	k := newTestKubernetesBackend(t)
-
-	objs, err := k.k8sObjects(t.Context(), ServerConfig{
-		Runtime:              types.RuntimeContainerized,
-		MCPServerName:        "standard-server",
-		MCPServerDisplayName: "Standard Server",
-		UserID:               "user-1",
-		OwnerUserID:          "user-2",
-		ContainerImage:       "ghcr.io/obot-platform/mcp-images/stdio-wrapper:main",
-		ContainerPort:        8080,
-		ContainerPath:        "/mcp",
-		Command:              "server",
-		Args:                 []string{"run"},
-		AuditLogToken:        "audit-token",
-		AuditLogEndpoint:     "https://obot.example.com/api/mcp-audit-logs",
-		AuditLogMetadata:     "mcpID=server-1",
-	}, nil)
-	if err != nil {
-		t.Fatalf("k8sObjects() error = %v", err)
-	}
-
-	shimConfigSecret := findSecret(t, objs, name.SafeConcatName("standard-server", "mcp", "config", "shim"))
-	assertHasAuditLogEnv(t, shimConfigSecret.Data)
-}
-
-func TestK8sObjects_NanobotShimUsesFixedResourceRequests(t *testing.T) {
+func TestK8sObjects_DoesNotCreateShimContainer(t *testing.T) {
 	k := newTestKubernetesBackend(t, &v1.K8sSettings{
 		ObjectMeta: metav1.ObjectMeta{Name: system.K8sSettingsName, Namespace: system.DefaultNamespace},
 		Spec: v1.K8sSettingsSpec{
@@ -391,22 +363,129 @@ func TestK8sObjects_NanobotShimUsesFixedResourceRequests(t *testing.T) {
 				corev1.ResourceMemory: resource.MustParse("1Gi"),
 			},
 		},
-	}, nil)
+	})
 	if err != nil {
 		t.Fatalf("k8sObjects() error = %v", err)
 	}
 
-	shimContainer := findContainer(t, findDeployment(t, objs, "standard-server"), "standard-server-shim")
-	cpuRequest := shimContainer.Resources.Requests[corev1.ResourceCPU]
-	if cpuRequest.String() != "5m" {
-		t.Fatalf("shim CPU request = %q, want %q", cpuRequest.String(), "5m")
+	dep := findDeployment(t, objs, "standard-server")
+	if len(dep.Spec.Template.Spec.Containers) != 1 {
+		t.Fatalf("container count = %d, want 1", len(dep.Spec.Template.Spec.Containers))
 	}
-	memoryRequest := shimContainer.Resources.Requests[corev1.ResourceMemory]
-	if memoryRequest.String() != "64Mi" {
-		t.Fatalf("shim memory request = %q, want %q", memoryRequest.String(), "64Mi")
+	if dep.Spec.Template.Spec.Containers[0].Name != "mcp" {
+		t.Fatalf("container name = %q, want mcp", dep.Spec.Template.Spec.Containers[0].Name)
 	}
-	if len(shimContainer.Resources.Limits) > 0 {
-		t.Fatalf("shim resource limits = %v, want none", shimContainer.Resources.Limits)
+}
+
+func TestK8sObjects_RemoteCreatesNoObjects(t *testing.T) {
+	k := newTestKubernetesBackend(t)
+
+	objs, err := k.k8sObjects(t.Context(), ServerConfig{
+		Runtime:              types.RuntimeRemote,
+		MCPServerName:        "test-server",
+		MCPServerDisplayName: "Test Server",
+		UserID:               "user-1",
+		OwnerUserID:          "user-2",
+	})
+	if err != nil {
+		t.Fatalf("k8sObjects() error = %v", err)
+	}
+	if len(objs) != 0 {
+		t.Fatalf("object count = %d, want 0", len(objs))
+	}
+}
+
+func TestK8sObjects_CompositeCreatesNanobotDeployment(t *testing.T) {
+	k := newTestKubernetesBackend(t)
+	k.serviceFQDN = "obot.obot-system.svc.cluster.local"
+	k.authEnabled = true
+
+	objs, err := k.k8sObjects(t.Context(), ServerConfig{
+		Runtime:                   types.RuntimeComposite,
+		MCPServerName:             "test-server",
+		MCPServerDisplayName:      "Test Server",
+		UserID:                    "user-1",
+		OwnerUserID:               "user-2",
+		Issuer:                    "https://obot.example.com",
+		Audiences:                 []string{"https://obot.example.com/mcp-connect/test-server"},
+		AuthorizeEndpoint:         "https://obot.example.com/oauth/authorize",
+		TokenExchangeEndpoint:     "https://obot.example.com/oauth/token",
+		JWKSEndpoint:              "https://obot.example.com/oauth/jwks.json",
+		TokenExchangeClientID:     "client-id",
+		TokenExchangeClientSecret: "client-secret",
+		Components: []ComponentServer{
+			{Name: "component", URL: "https://example.com/mcp"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("k8sObjects() error = %v", err)
+	}
+
+	dep := findDeployment(t, objs, "test-server")
+	if len(dep.Spec.Template.Spec.Containers) != 1 {
+		t.Fatalf("container count = %d, want 1", len(dep.Spec.Template.Spec.Containers))
+	}
+	container := dep.Spec.Template.Spec.Containers[0]
+	if container.Name != "mcp" {
+		t.Fatalf("container name = %q, want mcp", container.Name)
+	}
+	if container.Image != "ghcr.io/obot-platform/nanobot:main" {
+		t.Fatalf("container image = %q, want composite image", container.Image)
+	}
+	if container.ReadinessProbe == nil {
+		t.Fatal("expected composite container readiness probe")
+	}
+
+	configSecret := findSecret(t, objs, name.SafeConcatName("test-server", "mcp", "config"))
+	if got := string(configSecret.Data["NANOBOT_DISABLE_HEALTH_CHECKER"]); got != "true" {
+		t.Fatalf("NANOBOT_DISABLE_HEALTH_CHECKER = %q, want true", got)
+	}
+	if got := string(configSecret.Data["NANOBOT_RUN_OAUTH_TOKEN_URL"]); got != "http://obot.obot-system.svc.cluster.local/oauth/token" {
+		t.Fatalf("NANOBOT_RUN_OAUTH_TOKEN_URL = %q, want token exchange endpoint", got)
+	}
+	if got := string(configSecret.Data["NANOBOT_RUN_OAUTH_AUTHORIZE_URL"]); got != "http://obot.obot-system.svc.cluster.local/oauth/authorize" {
+		t.Fatalf("NANOBOT_RUN_OAUTH_AUTHORIZE_URL = %q, want authorize endpoint", got)
+	}
+	if got := string(configSecret.Data["NANOBOT_RUN_OAUTH_JWKSURL"]); got != "http://obot.obot-system.svc.cluster.local/oauth/jwks.json" {
+		t.Fatalf("NANOBOT_RUN_OAUTH_JWKSURL = %q, want JWKS endpoint", got)
+	}
+	if got := string(configSecret.Data["NANOBOT_RUN_OAUTH_CLIENT_ID"]); got != "client-id" {
+		t.Fatalf("NANOBOT_RUN_OAUTH_CLIENT_ID = %q, want client-id", got)
+	}
+	if got := string(configSecret.Data["NANOBOT_RUN_OAUTH_CLIENT_SECRET"]); got != "client-secret" {
+		t.Fatalf("NANOBOT_RUN_OAUTH_CLIENT_SECRET = %q, want client-secret", got)
+	}
+	if got := string(configSecret.Data["NANOBOT_RUN_TRUSTED_ISSUER"]); got != "https://obot.example.com" {
+		t.Fatalf("NANOBOT_RUN_TRUSTED_ISSUER = %q, want issuer", got)
+	}
+}
+
+func TestK8sObjects_UVXAndNPXPassNanobotHealthEnv(t *testing.T) {
+	for _, runtime := range []types.Runtime{types.RuntimeUVX, types.RuntimeNPX} {
+		t.Run(string(runtime), func(t *testing.T) {
+			k := newTestKubernetesBackend(t)
+
+			objs, err := k.k8sObjects(t.Context(), ServerConfig{
+				Runtime:              runtime,
+				MCPServerName:        "test-server",
+				MCPServerDisplayName: "Test Server",
+				UserID:               "user-1",
+				OwnerUserID:          "user-2",
+				Command:              strings.ToLower(string(runtime)),
+				Args:                 []string{"example"},
+			})
+			if err != nil {
+				t.Fatalf("k8sObjects() error = %v", err)
+			}
+
+			configSecret := findSecret(t, objs, name.SafeConcatName("test-server", "mcp", "config"))
+			if got := string(configSecret.Data["NANOBOT_RUN_HEALTHZ_PATH"]); got != "/healthz" {
+				t.Fatalf("NANOBOT_RUN_HEALTHZ_PATH = %q, want /healthz", got)
+			}
+			if got := string(configSecret.Data["NANOBOT_RUN_FORCE_FETCH_TOOL_LIST"]); got != "true" {
+				t.Fatalf("NANOBOT_RUN_FORCE_FETCH_TOOL_LIST = %q, want true", got)
+			}
+		})
 	}
 }
 
@@ -418,8 +497,8 @@ func TestK8sObjects_ServicePorts(t *testing.T) {
 		expectedStrategy       appsv1.DeploymentStrategyType
 	}{
 		{
-			name:                   "standard containerized server routes http service port to shim",
-			expectedHTTPPortTarget: intstr.FromString("http"),
+			name:                   "standard containerized server routes http service port to mcp container",
+			expectedHTTPPortTarget: intstr.FromString("mcp"),
 		},
 		{
 			name:                   "nanobot agent routes http service port to mcp container",
@@ -444,7 +523,7 @@ func TestK8sObjects_ServicePorts(t *testing.T) {
 				Command:              "server",
 				Args:                 []string{"run"},
 				NanobotAgentName:     tt.nanobotAgentName,
-			}, nil)
+			})
 			if err != nil {
 				t.Fatalf("k8sObjects() error = %v", err)
 			}
@@ -533,36 +612,11 @@ func TestK8sObjects_MCPContainerResources(t *testing.T) {
 			wantMemoryLimit:   "1Gi",
 		},
 		{
-			name: "remote runtime hard-codes 100Mi memory request",
+			name: "uvx runtime uses standard MCP resources",
 			server: ServerConfig{
-				Runtime: types.RuntimeRemote,
+				Runtime: types.RuntimeUVX,
 			},
-			settings: &v1.K8sSettings{
-				ObjectMeta: metav1.ObjectMeta{Name: system.K8sSettingsName, Namespace: system.DefaultNamespace},
-				Spec: v1.K8sSettingsSpec{
-					Resources: &corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("250Mi")},
-						Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("1Gi")},
-					},
-				},
-			},
-			wantMemoryRequest: "100Mi",
-		},
-		{
-			name: "composite runtime hard-codes 100Mi memory request",
-			server: ServerConfig{
-				Runtime: types.RuntimeComposite,
-			},
-			settings: &v1.K8sSettings{
-				ObjectMeta: metav1.ObjectMeta{Name: system.K8sSettingsName, Namespace: system.DefaultNamespace},
-				Spec: v1.K8sSettingsSpec{
-					Resources: &corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("250Mi")},
-						Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("1Gi")},
-					},
-				},
-			},
-			wantMemoryRequest: "100Mi",
+			wantMemoryRequest: "200Mi",
 		},
 	}
 
@@ -589,7 +643,7 @@ func TestK8sObjects_MCPContainerResources(t *testing.T) {
 			server.Command = "server"
 			server.Args = []string{"run"}
 
-			objs, err := k.k8sObjects(t.Context(), server, nil)
+			objs, err := k.k8sObjects(t.Context(), server)
 			if err != nil {
 				t.Fatalf("k8sObjects() error = %v", err)
 			}
@@ -630,7 +684,7 @@ func TestK8sObjectsAllowsSystemServerResourcesAboveMaximum(t *testing.T) {
 		},
 	}
 
-	if _, err := k.k8sObjects(t.Context(), server, nil); err != nil {
+	if _, err := k.k8sObjects(t.Context(), server); err != nil {
 		t.Fatalf("expected system MCP server resources to bypass maximums: %v", err)
 	}
 }
@@ -988,7 +1042,7 @@ func TestK8sObjects_ManagedImagePullSecrets(t *testing.T) {
 		ContainerPath:        "/mcp",
 		Command:              "server",
 		Args:                 []string{"run"},
-	}, nil)
+	})
 	if err != nil {
 		t.Fatalf("k8sObjects() error = %v", err)
 	}
@@ -1022,7 +1076,7 @@ func TestK8sObjects_StaticImagePullSecretsOverrideManaged(t *testing.T) {
 		ContainerPath:        "/mcp",
 		Command:              "server",
 		Args:                 []string{"run"},
-	}, nil)
+	})
 	if err != nil {
 		t.Fatalf("k8sObjects() error = %v", err)
 	}
@@ -1051,7 +1105,7 @@ func TestRestartServerAddsManagedImagePullSecretsToFreshDeployment(t *testing.T)
 		Args:                 []string{"run"},
 	}
 
-	objs, err := k.k8sObjects(t.Context(), server, nil)
+	objs, err := k.k8sObjects(t.Context(), server)
 	if err != nil {
 		t.Fatalf("k8sObjects() error = %v", err)
 	}
@@ -1208,10 +1262,10 @@ func newTestKubernetesBackend(t *testing.T, objs ...client.Object) *kubernetesBa
 	}
 
 	return &kubernetesBackend{
-		baseImage:           "ghcr.io/obot-platform/mcp-images/stdio-wrapper:main",
-		remoteShimBaseImage: "ghcr.io/obot-platform/remote-shim:main",
-		mcpNamespace:        "obot-mcp",
-		obotClient:          clientBuilder.Build(),
+		baseImage:          "ghcr.io/obot-platform/mcp-images/stdio-wrapper:main",
+		compositeBaseImage: "ghcr.io/obot-platform/nanobot:main",
+		mcpNamespace:       "obot-mcp",
+		obotClient:         clientBuilder.Build(),
 	}
 }
 
@@ -1322,24 +1376,6 @@ func assertNoAuditLogEnv(t *testing.T, env map[string][]byte) {
 	for key := range env {
 		if strings.HasPrefix(key, "NANOBOT_RUN_AUDIT_LOG_") {
 			t.Fatalf("unexpected audit log env %q present", key)
-		}
-	}
-}
-
-func assertHasAuditLogEnv(t *testing.T, env map[string][]byte) {
-	t.Helper()
-
-	expected := []string{
-		"NANOBOT_RUN_AUDIT_LOG_TOKEN",
-		"NANOBOT_RUN_AUDIT_LOG_SEND_URL",
-		"NANOBOT_RUN_AUDIT_LOG_BATCH_SIZE",
-		"NANOBOT_RUN_AUDIT_LOG_FLUSH_INTERVAL_SECONDS",
-		"NANOBOT_RUN_AUDIT_LOG_METADATA",
-	}
-
-	for _, key := range expected {
-		if _, ok := env[key]; !ok {
-			t.Fatalf("expected audit log env %q to be present", key)
 		}
 	}
 }

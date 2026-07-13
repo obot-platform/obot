@@ -14,15 +14,13 @@ type Credentials struct {
 	gatewayClient     *gateway.Client
 	mcpSessionManager *mcp.SessionManager
 	serverURL         string
-	internalServerURL string
 }
 
-func NewCredentials(mcpSessionManager *mcp.SessionManager, gatewayClient *gateway.Client, serverURL, internalServerURL string) *Credentials {
+func NewCredentials(mcpSessionManager *mcp.SessionManager, gatewayClient *gateway.Client, serverURL string) *Credentials {
 	return &Credentials{
 		gatewayClient:     gatewayClient,
 		mcpSessionManager: mcpSessionManager,
 		serverURL:         serverURL,
-		internalServerURL: internalServerURL,
 	}
 }
 

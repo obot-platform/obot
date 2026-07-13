@@ -17,7 +17,6 @@ import (
 	"github.com/obot-platform/obot/pkg/storage"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	"github.com/obot-platform/obot/pkg/validation"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -195,7 +194,7 @@ func TestMCPServerOrInstanceFromConnectURLRejectsCatalogEntryResourcesAboveMaxim
 		Request:        httptest.NewRequest(http.MethodGet, "/mcp-connect/entry", nil),
 		Storage:        storage,
 		User:           testUser("user"),
-	}, "entry", "", validation.Options{
+	}, "entry", "", mcp.ValidationOptions{
 		ResourceMaximums: mcp.ResourceMaximums{
 			CPURequest: new(resource.MustParse("100m")),
 		},

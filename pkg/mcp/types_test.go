@@ -215,6 +215,59 @@ func TestCompositeServerToServerConfig_OmittedToolOverridesRemainNil(t *testing.
 	}
 }
 
+func TestCompositeServerToServerConfig_TokenExchangeConfig(t *testing.T) {
+	const baseURL = "https://obot.example.com"
+	mcpServer := v1.MCPServer{
+		Spec: v1.MCPServerSpec{
+			Manifest: types.MCPServerManifest{
+				Runtime:         types.RuntimeComposite,
+				CompositeConfig: &types.CompositeRuntimeConfig{},
+			},
+		},
+	}
+	mcpServer.Name = "composite"
+
+	config, missing, err := CompositeServerToServerConfig(
+		mcpServer,
+		nil,
+		nil,
+		mcpServer.ValidConnectURLs(baseURL),
+		baseURL,
+		"test-user-id",
+		"test-scope",
+		"test-catalog",
+		nil,
+		map[string]string{
+			"TOKEN_EXCHANGE_CLIENT_ID":     "client-id",
+			"TOKEN_EXCHANGE_CLIENT_SECRET": "client-secret",
+		},
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(missing) > 0 {
+		t.Fatalf("expected no missing config, got %v", missing)
+	}
+	if config.TokenExchangeEndpoint != baseURL+"/oauth/token" {
+		t.Fatalf("token exchange endpoint = %q, want %q", config.TokenExchangeEndpoint, baseURL+"/oauth/token")
+	}
+	if config.AuthorizeEndpoint != baseURL+"/oauth/authorize" {
+		t.Fatalf("authorize endpoint = %q, want %q", config.AuthorizeEndpoint, baseURL+"/oauth/authorize")
+	}
+	if config.JWKSEndpoint != baseURL+"/oauth/jwks.json" {
+		t.Fatalf("JWKS endpoint = %q, want %q", config.JWKSEndpoint, baseURL+"/oauth/jwks.json")
+	}
+	if config.Issuer != baseURL {
+		t.Fatalf("issuer = %q, want %q", config.Issuer, baseURL)
+	}
+	if config.TokenExchangeClientID != "client-id" {
+		t.Fatalf("token exchange client ID = %q, want client-id", config.TokenExchangeClientID)
+	}
+	if config.TokenExchangeClientSecret != "client-secret" {
+		t.Fatalf("token exchange client secret = %q, want client-secret", config.TokenExchangeClientSecret)
+	}
+}
+
 func TestCompositeServerToServerConfig_AllDisabledToolOverridesSetNoTools(t *testing.T) {
 	baseURL := "http://localhost:8080"
 	mcpServer := v1.MCPServer{
@@ -388,10 +441,6 @@ func TestServerToServerConfig_StaticHeaders_Remote(t *testing.T) {
 			// Verify the runtime was set correctly
 			if config.Runtime != types.RuntimeRemote {
 				t.Errorf("expected runtime %v, got %v", types.RuntimeRemote, config.Runtime)
-			}
-
-			if config.Issuer != baseURL {
-				t.Errorf("expected issuer %s, got %s", baseURL, config.Issuer)
 			}
 
 			// Verify the audiences were set correctly

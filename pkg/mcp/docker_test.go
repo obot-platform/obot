@@ -1,9 +1,11 @@
 package mcp
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/moby/moby/api/types/container"
+	otypes "github.com/obot-platform/obot/apiclient/types"
 )
 
 func TestDockerTransformObotHostnameAlwaysRewritesHost(t *testing.T) {
@@ -22,6 +24,140 @@ func TestDockerTransformObotHostnameAlwaysRewritesHost(t *testing.T) {
 		if result := d.transformObotHostname(input); result != expected {
 			t.Fatalf("transformObotHostname(%q) = %q, want %q", input, result, expected)
 		}
+	}
+}
+
+func TestDockerDeploymentImage(t *testing.T) {
+	d := &dockerBackend{
+		containerizedBaseImage: "stdio-wrapper",
+		compositeBaseImage:     "nanobot",
+	}
+
+	if got := d.deploymentImage(ServerConfig{Runtime: otypes.RuntimeComposite}); got != "nanobot" {
+		t.Fatalf("composite deployment image = %q, want nanobot", got)
+	}
+	if got := d.deploymentImage(ServerConfig{Runtime: otypes.RuntimeRemote}); got != "" {
+		t.Fatalf("remote deployment image = %q, want empty", got)
+	}
+}
+
+func TestDockerCompositeRuntimeConfigMatchesLegacyComposite(t *testing.T) {
+	d := &dockerBackend{hostBaseURLWithPort: "http://172.17.0.1:8080"}
+	server := d.transformServerConfig(ServerConfig{
+		Runtime:                   otypes.RuntimeComposite,
+		MCPServerName:             "composite-server",
+		Issuer:                    "https://obot.example.com",
+		Audiences:                 []string{"https://obot.example.com/mcp-connect/composite-server"},
+		AuthorizeEndpoint:         "https://obot.example.com/oauth/authorize",
+		TokenExchangeEndpoint:     "https://obot.example.com/oauth/token",
+		JWKSEndpoint:              "https://obot.example.com/oauth/jwks.json",
+		TokenExchangeClientID:     "client-id",
+		TokenExchangeClientSecret: "client-secret",
+	})
+
+	env := keyValueSliceToMap(d.compositeRuntimeEnv(server))
+	want := map[string]string{
+		"NANOBOT_RUN_TRUSTED_ISSUER":          "https://obot.example.com",
+		"NANOBOT_RUN_TRUSTED_AUDIENCES":       "https://obot.example.com/mcp-connect/composite-server",
+		"NANOBOT_RUN_OAUTH_JWKSURL":           "http://172.17.0.1:8080/oauth/jwks.json",
+		"NANOBOT_RUN_OAUTH_AUTHORIZE_URL":     "http://172.17.0.1:8080/oauth/authorize",
+		"NANOBOT_RUN_OAUTH_TOKEN_URL":         "http://172.17.0.1:8080/oauth/token",
+		"NANOBOT_RUN_OAUTH_CLIENT_ID":         "client-id",
+		"NANOBOT_RUN_OAUTH_CLIENT_SECRET":     "client-secret",
+		"NANOBOT_RUN_OAUTH_SCOPES":            "profile",
+		"NANOBOT_RUN_APIKEY_AUTH_WEBHOOK_URL": "http://172.17.0.1:8080/api/api-keys/auth",
+		"NANOBOT_RUN_MCPSERVER_ID":            "composite-server",
+		"NANOBOT_RUN_FORCE_FETCH_TOOL_LIST":   "true",
+		"NANOBOT_DISABLE_HEALTH_CHECKER":      "true",
+	}
+	for key, expected := range want {
+		if got := env[key]; got != expected {
+			t.Fatalf("%s = %q, want %q", key, got, expected)
+		}
+	}
+}
+
+func TestDockerBackendNetworkConfigUsesDetectedContainerNetwork(t *testing.T) {
+	localCalled := false
+
+	containerEnv, network, host, err := dockerBackendNetworkConfig(
+		func() (string, string, error) {
+			return "obot_default", "172.18.0.4", nil
+		},
+		func() (string, error) {
+			localCalled = true
+			return "192.168.1.4", nil
+		},
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !containerEnv {
+		t.Fatalf("expected containerEnv")
+	}
+	if network != "obot_default" {
+		t.Fatalf("expected detected network, got %q", network)
+	}
+	if host != "172.18.0.4" {
+		t.Fatalf("expected detected host, got %q", host)
+	}
+	if localCalled {
+		t.Fatalf("did not expect local IP detection to be called")
+	}
+}
+
+func TestDockerBackendNetworkConfigFallsBackToLocalIP(t *testing.T) {
+	tests := map[string]func() (string, string, error){
+		"container detection errors": func() (string, string, error) {
+			return "", "", errors.New("inspect failed")
+		},
+		"container detection has no IP": func() (string, string, error) {
+			return "obot_default", "", nil
+		},
+	}
+
+	for name, detectContainer := range tests {
+		t.Run(name, func(t *testing.T) {
+			containerEnv, network, host, err := dockerBackendNetworkConfig(
+				detectContainer,
+				func() (string, error) {
+					return "192.168.1.4", nil
+				},
+			)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if containerEnv {
+				t.Fatalf("did not expect containerEnv")
+			}
+			if network != "bridge" {
+				t.Fatalf("expected default network, got %q", network)
+			}
+			if host != "192.168.1.4" {
+				t.Fatalf("expected local host, got %q", host)
+			}
+		})
+	}
+}
+
+func TestDockerBackendNetworkConfigReturnsLocalIPError(t *testing.T) {
+	routeErr := errors.New("route failed")
+
+	_, _, _, err := dockerBackendNetworkConfig(
+		func() (string, string, error) {
+			return "", "", errors.New("inspect failed")
+		},
+		func() (string, error) {
+			return "", routeErr
+		},
+	)
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if !errors.Is(err, routeErr) {
+		t.Fatalf("expected wrapped route error, got %v", err)
 	}
 }
 
