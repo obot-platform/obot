@@ -114,7 +114,7 @@ func TestModelDialectPrefersMetadataDialect(t *testing.T) {
 	}
 }
 
-func TestRefreshDiscoveredModelUpdatesProviderFieldsAndPreservesUserSettings(t *testing.T) {
+func TestSyncProviderOwnedModelFieldsUpdatesProviderFieldsAndPreservesUserSettings(t *testing.T) {
 	overrideCost := &types.ModelCost{TokenUsageCost: types.TokenUsageCost{Input: 1}}
 	existing := &v1.Model{Spec: v1.ModelSpec{Manifest: types.ModelManifest{
 		Name:          "custom-name",
@@ -137,7 +137,7 @@ func TestRefreshDiscoveredModelUpdatesProviderFieldsAndPreservesUserSettings(t *
 		Dialect:       "OpenAIResponses",
 	}
 
-	if !refreshDiscoveredModel(existing, discovered) {
+	if !syncProviderOwnedModelFields(existing, discovered) {
 		t.Fatal("expected provider-owned fields to change")
 	}
 	if existing.Spec.Manifest.TargetModel != "current-deployment" || existing.Spec.Manifest.Dialect != "OpenAIResponses" {
@@ -146,7 +146,7 @@ func TestRefreshDiscoveredModelUpdatesProviderFieldsAndPreservesUserSettings(t *
 	if existing.Spec.Manifest.Name != "custom-name" || existing.Spec.Manifest.DisplayName != "Custom display name" || existing.Spec.Manifest.Active || existing.Spec.Manifest.Alias != "custom-alias" || existing.Spec.Manifest.OverrideCost != overrideCost {
 		t.Fatalf("user settings were overwritten: %#v", existing.Spec.Manifest)
 	}
-	if refreshDiscoveredModel(existing, discovered) {
+	if syncProviderOwnedModelFields(existing, discovered) {
 		t.Fatal("expected an already-current model to remain unchanged")
 	}
 }

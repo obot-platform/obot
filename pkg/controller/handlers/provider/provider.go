@@ -540,8 +540,9 @@ func BackPopulateModels(ctx context.Context, client kclient.Client, dispatcher *
 
 		var existing v1.Model
 		if err := client.Get(ctx, kclient.ObjectKeyFromObject(discovered), &existing); err == nil {
-			if refreshDiscoveredModel(&existing, discovered.Spec.Manifest) {
-				if err := client.Update(ctx, &existing); err != nil {
+			before := existing.DeepCopy()
+			if syncProviderOwnedModelFields(&existing, discovered.Spec.Manifest) {
+				if err := client.Patch(ctx, &existing, kclient.MergeFrom(before)); err != nil {
 					return fmt.Errorf("failed to refresh discovered model %q: %w", existing.Name, err)
 				}
 			}
@@ -560,7 +561,7 @@ func BackPopulateModels(ctx context.Context, client kclient.Client, dispatcher *
 	return nil
 }
 
-func refreshDiscoveredModel(existing *v1.Model, discovered types.ModelManifest) bool {
+func syncProviderOwnedModelFields(existing *v1.Model, discovered types.ModelManifest) bool {
 	manifest := &existing.Spec.Manifest
 	changed := manifest.TargetModel != discovered.TargetModel ||
 		manifest.ModelProvider != discovered.ModelProvider ||
