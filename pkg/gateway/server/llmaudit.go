@@ -207,6 +207,9 @@ func redactedHeaders(headers http.Header) json.RawMessage {
 
 func shouldRedactHeader(key string) bool {
 	k := strings.ToLower(key)
+	if k == "x-ratelimit-limit-tokens" || k == "x-ratelimit-remaining-tokens" || k == "x-ratelimit-reset-tokens" {
+		return false
+	}
 	if k == "authorization" || k == "cookie" || k == "set-cookie" || k == "x-api-key" {
 		return true
 	}

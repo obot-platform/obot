@@ -17,9 +17,12 @@ import (
 
 func TestRedactedHeaders(t *testing.T) {
 	headers := http.Header{
-		"Authorization": []string{"Bearer secret"},
-		"X-Api-Key":     []string{"secret"},
-		"Content-Type":  []string{"application/json"},
+		"Authorization":                []string{"Bearer secret"},
+		"X-Api-Key":                    []string{"secret"},
+		"Content-Type":                 []string{"application/json"},
+		"X-Ratelimit-Limit-Tokens":     []string{"10000"},
+		"X-Ratelimit-Remaining-Tokens": []string{"5000"},
+		"X-Ratelimit-Reset-Tokens":     []string{"1s"},
 	}
 
 	got := redactedHeaders(headers)
@@ -28,6 +31,11 @@ func TestRedactedHeaders(t *testing.T) {
 	}
 	if !strings.Contains(string(got), "application/json") {
 		t.Fatalf("expected non-sensitive header to remain, got %s", got)
+	}
+	for _, value := range []string{"10000", "5000", "1s"} {
+		if !strings.Contains(string(got), value) {
+			t.Fatalf("expected rate-limit header value %q to remain, got %s", value, got)
+		}
 	}
 }
 
