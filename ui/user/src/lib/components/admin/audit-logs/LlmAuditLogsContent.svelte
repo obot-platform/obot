@@ -33,6 +33,7 @@
 		'user_id',
 		'client',
 		'client_session_id',
+		'message_policy_triggered',
 		'model_provider',
 		'outcome',
 		'request_path',
@@ -210,6 +211,7 @@
 		if (_key === 'response_status') return 'Status';
 		if (_key === 'user_id') return 'User';
 		if (_key === 'client_session_id') return 'Client Session ID';
+		if (_key === 'message_policy_triggered') return 'Message Policy Action';
 
 		return key.replace(/_(\w)/g, ' $1');
 	}
@@ -217,6 +219,9 @@
 	function getFilterValue(label: keyof LLMAuditLogURLFilters, value: string | number) {
 		if (label === 'user_id') {
 			return getUserDisplayName(usersMap, value + '');
+		}
+		if (label === 'message_policy_triggered') {
+			return value === 'true' ? 'Triggered' : 'Not triggered';
 		}
 
 		return value + '';
@@ -355,6 +360,12 @@
 			isFilterClearable={() => true}
 			getUserDisplayName={(...args) => getUserDisplayName(usersMap, ...args)}
 			{getFilterDisplayLabel}
+			getFilterOptionLabel={(key, value) =>
+				key === 'message_policy_triggered'
+					? value === 'true'
+						? 'Triggered'
+						: 'Not triggered'
+					: value}
 			endpoint={async (filterId, opts) => {
 				const response = await AdminService.listLLMAuditLogFilterOptions(filterId, {
 					...opts,

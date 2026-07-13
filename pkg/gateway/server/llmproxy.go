@@ -1102,7 +1102,7 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 				}
 				req.Request.Body = io.NopCloser(bytes.NewReader(b))
 				req.ContentLength = int64(len(b))
-				audit.setRedactedRequestBody(b)
+				audit.setPolicyModifiedRequestBody(b)
 			}
 		}
 	}

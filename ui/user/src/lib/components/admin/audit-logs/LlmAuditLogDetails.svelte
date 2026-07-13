@@ -25,10 +25,7 @@
 		AdminService.getLLMAuditLog(id, { signal: controller.signal })
 			.then((response) => {
 				if (controller.signal.aborted) return;
-				additData = {
-					...response,
-					requestBody: response.requestBody ?? response.redactedRequestBody
-				};
+				additData = response;
 			})
 			.catch((err) => {
 				if (isAbortError(err) || controller.signal.aborted) return;

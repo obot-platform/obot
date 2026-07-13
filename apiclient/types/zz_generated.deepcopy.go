@@ -1639,8 +1639,8 @@ func (in *LLMAuditLog) DeepCopyInto(out *LLMAuditLog) {
 		*out = make(json.RawMessage, len(*in))
 		copy(*out, *in)
 	}
-	if in.RedactedRequestBody != nil {
-		in, out := &in.RedactedRequestBody, &out.RedactedRequestBody
+	if in.PolicyModifiedRequestBody != nil {
+		in, out := &in.PolicyModifiedRequestBody, &out.PolicyModifiedRequestBody
 		*out = make(json.RawMessage, len(*in))
 		copy(*out, *in)
 	}

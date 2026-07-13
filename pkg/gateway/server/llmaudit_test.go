@@ -43,6 +43,22 @@ func TestNewLLMAuditRecorderCapturesRequest(t *testing.T) {
 	}
 }
 
+func TestLLMAuditRecorderCapturesOriginalAndPolicyModifiedRequestBodies(t *testing.T) {
+	recorder := &llmAuditRecorder{}
+	recorder.setRequestBody([]byte(`{"prompt":"original"}`))
+	recorder.setPolicyModifiedRequestBody([]byte(`{"prompt":"blocked"}`))
+
+	if got := string(recorder.log.RequestBody); got != `{"prompt":"original"}` {
+		t.Fatalf("expected original request body, got %q", got)
+	}
+	if got := string(recorder.log.PolicyModifiedRequestBody); got != `{"prompt":"blocked"}` {
+		t.Fatalf("expected policy-modified request body, got %q", got)
+	}
+	if !recorder.log.MessagePolicyTriggered {
+		t.Fatal("expected input policy trigger metadata")
+	}
+}
+
 func TestLLMAuditRecorderSetOutcome(t *testing.T) {
 	for _, tt := range []struct {
 		name    string

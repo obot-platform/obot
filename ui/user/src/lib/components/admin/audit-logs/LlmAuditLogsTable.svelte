@@ -1,10 +1,11 @@
 <script lang="ts">
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { VirtualPageTable } from '$lib/components/ui';
 	import { type LLMAuditLog } from '$lib/services';
 	import { userDeviceSettings } from '$lib/stores';
 	import { formatLogTimestamp } from '$lib/time';
 	import { throttle } from '$lib/utils';
-	import { GripVertical } from '@lucide/svelte';
+	import { GripVertical, ShieldAlert } from '@lucide/svelte';
 	import { tick } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -176,7 +177,20 @@
 						onclick={() => onSelectRow?.(d)}
 					>
 						<td class="px-6 py-3">
-							{item.index + 1}
+							<div class="flex items-center gap-2">
+								{item.index + 1}
+								{#if d.messagePolicyTriggered}
+									<span
+										class="text-warning inline-flex"
+										aria-label="Message policy triggered"
+										use:tooltip={{
+											text: 'An input message policy violation modified this request'
+										}}
+									>
+										<ShieldAlert class="size-4" />
+									</span>
+								{/if}
+							</div>
 						</td>
 						{@render td(formatLogTimestamp(d.createdAt, userDeviceSettings.timeFormat))}
 						{@render td(getUserDisplayName(d.userID))}

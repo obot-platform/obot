@@ -30,6 +30,7 @@
 		onClose: () => void;
 		getUserDisplayName: (userId: string, hasConflict?: () => boolean) => string;
 		getFilterDisplayLabel?: (key: string) => string;
+		getFilterOptionLabel?: (key: string, value: string) => string;
 		getDefaultValue?: <K extends FilterKey>(filter: K) => T[K] | undefined;
 		endpoint?: FilterOptionsEndpoint;
 	}
@@ -41,6 +42,7 @@
 		onClose,
 		getUserDisplayName,
 		getFilterDisplayLabel,
+		getFilterOptionLabel,
 		getDefaultValue,
 		filterOptions,
 		endpoint = UserService.listMcpAuditLogFilterOptions as FilterOptionsEndpoint
@@ -113,7 +115,7 @@
 					?.filter((d) => filterOptions?.(d, filterId) ?? true)
 					?.map((d) => ({
 						id: d,
-						label: d
+						label: getFilterOptionLabel?.(filterId, d) ?? d
 					})) ?? []
 			);
 		};

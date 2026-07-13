@@ -27,15 +27,15 @@ func TestInsertLLMAuditLogEncryptsSensitiveFields(t *testing.T) {
 	}
 
 	entry := types.LLMAuditLog{
-		ID:                  uuid.NewString(),
-		CreatedAt:           time.Now().UTC(),
-		UserID:              "user-1",
-		RequestHeaders:      json.RawMessage(`{"Authorization":["[REDACTED]"]}`),
-		RequestBody:         json.RawMessage(`{"prompt":"secret"}`),
-		RedactedRequestBody: json.RawMessage(`{"prompt":"redacted"}`),
-		ResponseHeaders:     json.RawMessage(`{"Content-Type":["application/json"]}`),
-		ResponseBody:        json.RawMessage(`{"id":"resp-1"}`),
-		ClientSessionID:     "session-1",
+		ID:                        uuid.NewString(),
+		CreatedAt:                 time.Now().UTC(),
+		UserID:                    "user-1",
+		RequestHeaders:            json.RawMessage(`{"Authorization":["[REDACTED]"]}`),
+		RequestBody:               json.RawMessage(`{"prompt":"secret"}`),
+		PolicyModifiedRequestBody: json.RawMessage(`{"prompt":"policy modified"}`),
+		ResponseHeaders:           json.RawMessage(`{"Content-Type":["application/json"]}`),
+		ResponseBody:              json.RawMessage(`{"id":"resp-1"}`),
+		ClientSessionID:           "session-1",
 	}
 	want := entry
 
@@ -55,11 +55,11 @@ func TestInsertLLMAuditLogEncryptsSensitiveFields(t *testing.T) {
 		t.Fatalf("expected query fields to remain plaintext, got user=%q session=%q", stored.UserID, stored.ClientSessionID)
 	}
 	for name, value := range map[string]json.RawMessage{
-		"request headers":       stored.RequestHeaders,
-		"request body":          stored.RequestBody,
-		"redacted request body": stored.RedactedRequestBody,
-		"response headers":      stored.ResponseHeaders,
-		"response body":         stored.ResponseBody,
+		"request headers":              stored.RequestHeaders,
+		"request body":                 stored.RequestBody,
+		"policy-modified request body": stored.PolicyModifiedRequestBody,
+		"response headers":             stored.ResponseHeaders,
+		"response body":                stored.ResponseBody,
 	} {
 		decoded, err := base64.StdEncoding.DecodeString(string(value))
 		if err != nil {
@@ -79,8 +79,8 @@ func TestInsertLLMAuditLogEncryptsSensitiveFields(t *testing.T) {
 	if !bytes.Equal(stored.RequestBody, want.RequestBody) {
 		t.Fatalf("expected decrypted request body %q, got %q", want.RequestBody, stored.RequestBody)
 	}
-	if !bytes.Equal(stored.RedactedRequestBody, want.RedactedRequestBody) {
-		t.Fatalf("expected decrypted redacted request body %q, got %q", want.RedactedRequestBody, stored.RedactedRequestBody)
+	if !bytes.Equal(stored.PolicyModifiedRequestBody, want.PolicyModifiedRequestBody) {
+		t.Fatalf("expected decrypted policy-modified request body %q, got %q", want.PolicyModifiedRequestBody, stored.PolicyModifiedRequestBody)
 	}
 	if !bytes.Equal(stored.ResponseHeaders, want.ResponseHeaders) {
 		t.Fatalf("expected decrypted response headers %q, got %q", want.ResponseHeaders, stored.ResponseHeaders)
@@ -129,15 +129,15 @@ func TestGetLLMAuditLogStripsSensitiveFields(t *testing.T) {
 		},
 	}
 	entry := types.LLMAuditLog{
-		ID:                  uuid.NewString(),
-		CreatedAt:           time.Now().UTC(),
-		UserID:              "user-1",
-		RequestHeaders:      json.RawMessage(`{"Authorization":["[REDACTED]"]}`),
-		RequestBody:         json.RawMessage(`{"prompt":"secret"}`),
-		RedactedRequestBody: json.RawMessage(`{"prompt":"redacted"}`),
-		ResponseHeaders:     json.RawMessage(`{"Content-Type":["application/json"]}`),
-		ResponseBody:        json.RawMessage(`{"id":"resp-1"}`),
-		ClientSessionID:     "session-1",
+		ID:                        uuid.NewString(),
+		CreatedAt:                 time.Now().UTC(),
+		UserID:                    "user-1",
+		RequestHeaders:            json.RawMessage(`{"Authorization":["[REDACTED]"]}`),
+		RequestBody:               json.RawMessage(`{"prompt":"secret"}`),
+		PolicyModifiedRequestBody: json.RawMessage(`{"prompt":"policy modified"}`),
+		ResponseHeaders:           json.RawMessage(`{"Content-Type":["application/json"]}`),
+		ResponseBody:              json.RawMessage(`{"id":"resp-1"}`),
+		ClientSessionID:           "session-1",
 	}
 	if err := c.InsertLLMAuditLog(t.Context(), &entry); err != nil {
 		t.Fatalf("failed to insert LLM audit log: %v", err)
@@ -150,7 +150,10 @@ func TestGetLLMAuditLogStripsSensitiveFields(t *testing.T) {
 	if got.UserID != entry.UserID || got.ClientSessionID != entry.ClientSessionID {
 		t.Fatalf("expected metadata to remain, got user=%q session=%q", got.UserID, got.ClientSessionID)
 	}
-	if len(got.RequestHeaders) != 0 || len(got.RequestBody) != 0 || len(got.RedactedRequestBody) != 0 || len(got.ResponseHeaders) != 0 || len(got.ResponseBody) != 0 {
+	if !got.MessagePolicyTriggered {
+		t.Fatal("expected input policy trigger metadata to remain")
+	}
+	if len(got.RequestHeaders) != 0 || len(got.RequestBody) != 0 || len(got.PolicyModifiedRequestBody) != 0 || len(got.ResponseHeaders) != 0 || len(got.ResponseBody) != 0 {
 		t.Fatalf("expected sensitive fields to be stripped, got %#v", got)
 	}
 }
@@ -163,13 +166,13 @@ func TestGetLLMAuditLogDecryptsSensitiveFields(t *testing.T) {
 		},
 	}
 	entry := types.LLMAuditLog{
-		ID:                  uuid.NewString(),
-		CreatedAt:           time.Now().UTC(),
-		RequestHeaders:      json.RawMessage(`{"Authorization":["[REDACTED]"]}`),
-		RequestBody:         json.RawMessage(`{"prompt":"secret"}`),
-		RedactedRequestBody: json.RawMessage(`{"prompt":"redacted"}`),
-		ResponseHeaders:     json.RawMessage(`{"Content-Type":["application/json"]}`),
-		ResponseBody:        json.RawMessage(`{"id":"resp-1"}`),
+		ID:                        uuid.NewString(),
+		CreatedAt:                 time.Now().UTC(),
+		RequestHeaders:            json.RawMessage(`{"Authorization":["[REDACTED]"]}`),
+		RequestBody:               json.RawMessage(`{"prompt":"secret"}`),
+		PolicyModifiedRequestBody: json.RawMessage(`{"prompt":"policy modified"}`),
+		ResponseHeaders:           json.RawMessage(`{"Content-Type":["application/json"]}`),
+		ResponseBody:              json.RawMessage(`{"id":"resp-1"}`),
 	}
 	if err := c.InsertLLMAuditLog(t.Context(), &entry); err != nil {
 		t.Fatalf("failed to insert LLM audit log: %v", err)
@@ -179,15 +182,18 @@ func TestGetLLMAuditLogDecryptsSensitiveFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get LLM audit log: %v", err)
 	}
-	if !bytes.Equal(got.RequestHeaders, entry.RequestHeaders) || !bytes.Equal(got.RequestBody, entry.RequestBody) || !bytes.Equal(got.RedactedRequestBody, entry.RedactedRequestBody) || !bytes.Equal(got.ResponseHeaders, entry.ResponseHeaders) || !bytes.Equal(got.ResponseBody, entry.ResponseBody) {
+	if !bytes.Equal(got.RequestHeaders, entry.RequestHeaders) || !bytes.Equal(got.RequestBody, entry.RequestBody) || !bytes.Equal(got.PolicyModifiedRequestBody, entry.PolicyModifiedRequestBody) || !bytes.Equal(got.ResponseHeaders, entry.ResponseHeaders) || !bytes.Equal(got.ResponseBody, entry.ResponseBody) {
 		t.Fatalf("expected decrypted sensitive fields, got %#v", got)
+	}
+	if !got.MessagePolicyTriggered {
+		t.Fatal("expected input policy trigger metadata")
 	}
 }
 
 func TestGetLLMAuditLogsFiltersAndStripsSensitiveFields(t *testing.T) {
 	c := newTestClient(t)
 	for _, entry := range []types.LLMAuditLog{
-		{ID: uuid.NewString(), CreatedAt: time.Now().UTC(), UserID: "user-1", ModelProvider: system.OpenAIModelProvider, RequestBody: json.RawMessage(`{"prompt":"secret"}`)},
+		{ID: uuid.NewString(), CreatedAt: time.Now().UTC(), UserID: "user-1", ModelProvider: system.OpenAIModelProvider, RequestBody: json.RawMessage(`{"prompt":"secret"}`), PolicyModifiedRequestBody: json.RawMessage(`{"prompt":"blocked"}`)},
 		{ID: uuid.NewString(), CreatedAt: time.Now().UTC(), UserID: "user-2", ModelProvider: system.AnthropicModelProvider, RequestBody: json.RawMessage(`{"prompt":"secret"}`)},
 	} {
 		if err := c.InsertLLMAuditLog(t.Context(), &entry); err != nil {
@@ -205,13 +211,19 @@ func TestGetLLMAuditLogsFiltersAndStripsSensitiveFields(t *testing.T) {
 	if logs[0].ModelProvider != system.OpenAIModelProvider || len(logs[0].RequestBody) != 0 {
 		t.Fatalf("expected filtered metadata without sensitive fields, got %#v", logs[0])
 	}
+	if !logs[0].MessagePolicyTriggered || len(logs[0].PolicyModifiedRequestBody) != 0 {
+		t.Fatalf("expected policy trigger metadata without policy-modified body, got %#v", logs[0])
+	}
 }
 
 func TestGetLLMAuditLogFilterOptions(t *testing.T) {
 	c := newTestClient(t)
+	if !c.db.WithContext(t.Context()).Migrator().HasIndex(&types.LLMAuditLog{}, "idx_llm_audit_message_policy_triggered_created") {
+		t.Fatal("expected input policy trigger index")
+	}
 	now := time.Date(2026, 7, 7, 12, 0, 0, 0, time.UTC)
 	for _, entry := range []types.LLMAuditLog{
-		{ID: uuid.NewString(), CreatedAt: now, ModelProvider: system.OpenAIModelProvider, TargetModel: "model-a", ResponseStatus: 200, Client: "open-webui"},
+		{ID: uuid.NewString(), CreatedAt: now, ModelProvider: system.OpenAIModelProvider, TargetModel: "model-a", ResponseStatus: 200, Client: "open-webui", PolicyModifiedRequestBody: json.RawMessage(`{"prompt":"blocked"}`)},
 		{ID: uuid.NewString(), CreatedAt: now.Add(time.Minute), ModelProvider: system.OpenAIModelProvider, TargetModel: "model-c", ResponseStatus: 500, Client: "obot"},
 		{ID: uuid.NewString(), CreatedAt: now, ModelProvider: system.OpenAIModelProvider, TargetModel: "", ResponseStatus: 0, Client: ""},
 		{ID: uuid.NewString(), CreatedAt: now, ModelProvider: system.AnthropicModelProvider, TargetModel: "model-b", ResponseStatus: 200, Client: "claude"},
@@ -245,6 +257,22 @@ func TestGetLLMAuditLogFilterOptions(t *testing.T) {
 	slices.Sort(statuses)
 	if !slices.Equal(statuses, []string{"200", "500"}) {
 		t.Fatalf("expected response status options, got %v", statuses)
+	}
+
+	triggeredLogs, total, err := c.GetLLMAuditLogs(t.Context(), LLMAuditLogOptions{MessagePolicyTriggered: []bool{true}})
+	if err != nil {
+		t.Fatalf("failed to filter input policy triggered logs: %v", err)
+	}
+	if total != 1 || len(triggeredLogs) != 1 || !triggeredLogs[0].MessagePolicyTriggered {
+		t.Fatalf("expected one input policy triggered log, got total=%d logs=%#v", total, triggeredLogs)
+	}
+
+	notTriggeredLogs, total, err := c.GetLLMAuditLogs(t.Context(), LLMAuditLogOptions{MessagePolicyTriggered: []bool{false}})
+	if err != nil {
+		t.Fatalf("failed to filter non-triggered input policy logs: %v", err)
+	}
+	if total != 3 || len(notTriggeredLogs) != 3 {
+		t.Fatalf("expected three non-triggered input policy logs, got total=%d logs=%#v", total, notTriggeredLogs)
 	}
 }
 
