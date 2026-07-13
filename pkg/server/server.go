@@ -25,6 +25,20 @@ func Run(ctx context.Context, c services.Config) error {
 		return err
 	}
 
+	// Router construction migrates the Nanobot session schema. Finish it before
+	// controller initialization writes to the same SQLite database to avoid schema locks.
+	handler, err := router.Router(ctx, svcs)
+	if err != nil {
+		return err
+	}
+
+	if c.StaticDir != "" {
+		handler, err = static.Wrap(handler, c.StaticDir)
+		if err != nil {
+			return err
+		}
+	}
+
 	go func() {
 		ctrl, err := controller.New(svcs)
 		if err != nil {
@@ -37,18 +51,6 @@ func Run(ctx context.Context, c services.Config) error {
 			log.Fatalf("Failed to start controller: %v", err)
 		}
 	}()
-
-	handler, err := router.Router(ctx, svcs)
-	if err != nil {
-		return err
-	}
-
-	if c.StaticDir != "" {
-		handler, err = static.Wrap(handler, c.StaticDir)
-		if err != nil {
-			return err
-		}
-	}
 
 	if c.AllowedOrigin == "" {
 		c.AllowedOrigin = "*"
