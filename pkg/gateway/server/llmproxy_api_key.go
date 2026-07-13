@@ -27,7 +27,11 @@ func (a apiKeyLLMProviderBackend) transport(modelProvider v1.ModelProvider, cred
 	if err != nil {
 		return nil, fmt.Errorf("failed to get credential environment key for model provider: %w", err)
 	}
-	return apiKeyTransport{providerName: modelProvider.Name, key: credEnv[credEnvKey], next: http.DefaultTransport}, nil
+	key := credEnv[credEnvKey]
+	if key == "" {
+		return nil, fmt.Errorf("credential %q for model provider %q is missing or empty", credEnvKey, modelProvider.Name)
+	}
+	return apiKeyTransport{providerName: modelProvider.Name, key: key, next: http.DefaultTransport}, nil
 }
 
 type apiKeyTransport struct {

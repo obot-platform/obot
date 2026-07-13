@@ -224,7 +224,7 @@ func TestLLMResponseAccumulatorBedrockOpenAI(t *testing.T) {
 	}, "\n") + "\n"))
 
 	got := a.JSON()
-	if gjson.Get(got, "output.0.content.0.text").String() != "hello" {
+	if gjson.GetBytes(got, "output.0.content.0.text").String() != "hello" {
 		t.Fatalf("expected Bedrock OpenAI text, got %s", got)
 	}
 	if a.ResponseID() != "resp_bedrock" {
@@ -297,7 +297,7 @@ func TestLLMResponseAccumulatorBedrockAnthropic(t *testing.T) {
 	}, "\n") + "\n"))
 
 	got := a.JSON()
-	if gjson.Get(got, "content.0.text").String() != "hello" {
+	if gjson.GetBytes(got, "content.0.text").String() != "hello" {
 		t.Fatalf("expected Bedrock Anthropic text, got %s", got)
 	}
 	if a.ResponseID() != "msg_bedrock" {

@@ -16,8 +16,10 @@ import (
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/bedrock"
 	"github.com/obot-platform/obot/pkg/messagepolicy"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/tidwall/gjson"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type captureRoundTripper struct {
@@ -489,6 +491,38 @@ func TestAPIKeyTransportHeaders(t *testing.T) {
 			}
 			if got := capture.req.Header.Get("X-Api-Key"); got != tt.wantAPIKey {
 				t.Fatalf("X-Api-Key = %q, want %q", got, tt.wantAPIKey)
+			}
+		})
+	}
+}
+
+func TestAPIKeyBackendTransportRequiresCredentialValue(t *testing.T) {
+	const apiKeyEnv = "OPENAI_MODEL_PROVIDER_API_KEY"
+	provider := v1.ModelProvider{
+		ObjectMeta: metav1.ObjectMeta{Name: system.OpenAIModelProvider},
+		Spec: v1.ModelProviderSpec{ModelProviderManifest: types2.ModelProviderManifest{
+			CommonProviderMetadata: types2.CommonProviderMetadata{
+				RequiredConfigurationParameters: []types2.ProviderConfigurationParameter{{Name: apiKeyEnv}},
+			},
+		}},
+	}
+
+	for _, tt := range []struct {
+		name    string
+		credEnv map[string]string
+		wantErr bool
+	}{
+		{name: "missing key", credEnv: map[string]string{}, wantErr: true},
+		{name: "empty key", credEnv: map[string]string{apiKeyEnv: ""}, wantErr: true},
+		{name: "configured key", credEnv: map[string]string{apiKeyEnv: "provider-key"}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := (apiKeyLLMProviderBackend{}).transport(provider, tt.credEnv)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("transport() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if err != nil && (!strings.Contains(err.Error(), apiKeyEnv) || !strings.Contains(err.Error(), provider.Name)) {
+				t.Fatalf("transport() error = %q, want credential and provider names", err)
 			}
 		})
 	}
