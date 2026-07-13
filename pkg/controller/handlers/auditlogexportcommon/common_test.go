@@ -107,7 +107,7 @@ func TestStreamingExportFetchesFormatsAndUploadsBatches(t *testing.T) {
 	storage := &testStorageProvider{}
 	var calls []int
 
-	size, err := streamingExport(t.Context(), types.StorageConfig{}, storage, "bucket", "prefix/export.jsonl", func(limit, offset int) ([]int, error) {
+	size, err := streamingExport(t.Context(), types.StorageConfig{}, storage, struct{}{}, "bucket", "prefix/export.jsonl", func(_ context.Context, _ struct{}, limit, offset int) ([]int, error) {
 		if limit != batchSize {
 			t.Fatalf("expected batch size %d, got %d", batchSize, limit)
 		}
@@ -146,7 +146,7 @@ func TestStreamingExportClosesPipeWithFetchError(t *testing.T) {
 	storage := &testStorageProvider{}
 	fetchErr := errors.New("fetch failed")
 
-	_, err := streamingExport(t.Context(), types.StorageConfig{}, storage, "bucket", "prefix/export.jsonl", func(_ int, offset int) ([]int, error) {
+	_, err := streamingExport(t.Context(), types.StorageConfig{}, storage, struct{}{}, "bucket", "prefix/export.jsonl", func(_ context.Context, _ struct{}, _ int, offset int) ([]int, error) {
 		switch offset {
 		case 0:
 			return []int{1}, nil
@@ -170,7 +170,7 @@ func TestStreamingExportClosesPipeWithFetchError(t *testing.T) {
 func TestStreamingExportClosesPipeWithFormatError(t *testing.T) {
 	storage := &testStorageProvider{}
 
-	_, err := streamingExport(t.Context(), types.StorageConfig{}, storage, "bucket", "prefix/export.jsonl", func(_ int, offset int) ([]int, error) {
+	_, err := streamingExport(t.Context(), types.StorageConfig{}, storage, struct{}{}, "bucket", "prefix/export.jsonl", func(_ context.Context, _ struct{}, _ int, offset int) ([]int, error) {
 		if offset > 0 {
 			return nil, nil
 		}
@@ -189,7 +189,7 @@ func TestStreamingExportClosesPipeWithFormatError(t *testing.T) {
 func TestStreamingExportUnblocksOnUploadError(t *testing.T) {
 	uploadErr := errors.New("upload failed")
 
-	_, err := streamingExport(t.Context(), types.StorageConfig{}, failingStorageProvider{err: uploadErr}, "bucket", "prefix/export.jsonl", func(_ int, offset int) ([]int, error) {
+	_, err := streamingExport(t.Context(), types.StorageConfig{}, failingStorageProvider{err: uploadErr}, struct{}{}, "bucket", "prefix/export.jsonl", func(_ context.Context, _ struct{}, _ int, offset int) ([]int, error) {
 		if offset > 0 {
 			return nil, nil
 		}
@@ -203,7 +203,7 @@ func TestStreamingExportUnblocksOnUploadError(t *testing.T) {
 }
 
 func TestStreamingExportUnblocksWhenUploadReturnsWithoutReading(t *testing.T) {
-	_, err := streamingExport(t.Context(), types.StorageConfig{}, successWithoutReadStorageProvider{}, "bucket", "prefix/export.jsonl", func(_ int, offset int) ([]int, error) {
+	_, err := streamingExport(t.Context(), types.StorageConfig{}, successWithoutReadStorageProvider{}, struct{}{}, "bucket", "prefix/export.jsonl", func(_ context.Context, _ struct{}, _ int, offset int) ([]int, error) {
 		if offset > 0 {
 			return nil, nil
 		}
@@ -220,7 +220,7 @@ func TestStreamingExportReturnsUploadErrorAfterDataWritten(t *testing.T) {
 	uploadErr := errors.New("upload failed")
 	storage := &failingAfterReadStorageProvider{err: uploadErr}
 
-	size, err := streamingExport(t.Context(), types.StorageConfig{}, storage, "bucket", "prefix/export.jsonl", func(_ int, offset int) ([]int, error) {
+	size, err := streamingExport(t.Context(), types.StorageConfig{}, storage, struct{}{}, "bucket", "prefix/export.jsonl", func(_ context.Context, _ struct{}, _ int, offset int) ([]int, error) {
 		switch offset {
 		case 0:
 			return []int{1}, nil

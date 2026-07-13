@@ -1,6 +1,7 @@
 package auditlogexport
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -40,11 +41,7 @@ func (h *Handler) ExportAuditLogs(req router.Request, _ router.Response) error {
 		return fmt.Errorf("failed to update export status: %w", err)
 	}
 
-	err := auditlogexportcommon.PerformExport(req.Ctx, h.credProvider, export, "mcp-audit-logs", func(limit, offset int) ([]gatewaytypes.MCPAuditLog, error) {
-		opts := mcpAuditLogOptionsFromExport(export, limit, offset)
-		logs, _, err := h.gatewayClient.GetMCPAuditLogs(req.Ctx, opts)
-		return logs, err
-	}, gatewaytypes.ConvertMCPAuditLog)
+	err := auditlogexportcommon.PerformExport(req.Ctx, h.credProvider, export, "mcp-audit-logs", h.fetchAuditLogs, gatewaytypes.ConvertMCPAuditLog)
 	if err != nil {
 		export.Status.State = types.AuditLogExportStateFailed
 		export.Status.Error = err.Error()
@@ -57,6 +54,12 @@ func (h *Handler) ExportAuditLogs(req router.Request, _ router.Response) error {
 	}
 
 	return req.Client.Status().Update(req.Ctx, export)
+}
+
+func (h *Handler) fetchAuditLogs(ctx context.Context, export *v1.AuditLogExport, limit, offset int) ([]gatewaytypes.MCPAuditLog, error) {
+	opts := mcpAuditLogOptionsFromExport(export, limit, offset)
+	logs, _, err := h.gatewayClient.GetMCPAuditLogs(ctx, opts)
+	return logs, err
 }
 
 func mcpAuditLogOptionsFromExport(export *v1.AuditLogExport, limit, offset int) client.MCPAuditLogOptions {

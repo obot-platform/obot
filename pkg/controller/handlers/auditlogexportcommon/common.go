@@ -40,12 +40,12 @@ type ScheduledExport interface {
 
 // PerformExport streams audit logs to configured object storage and marks the export completed.
 // The fetch function provides resource-specific audit log batches; convert maps each record to its JSONL export shape.
-func PerformExport[T any, U any](
+func PerformExport[E Export, T any, U any](
 	ctx context.Context,
 	credProvider *auditlogexport.CredentialProvider,
-	export Export,
+	export E,
 	defaultPrefix string,
-	fetch func(limit, offset int) ([]T, error),
+	fetch func(context.Context, E, int, int) ([]T, error),
 	convert func(T) U,
 ) error {
 	storageConfig, err := credProvider.GetStorageConfig(ctx)
@@ -79,7 +79,7 @@ func PerformExport[T any, U any](
 	status.StorageProvider = provider
 
 	exportPath := generateExportPath(export.SpecName(), export.KeyPrefix(), defaultPrefix)
-	exportSize, err := streamingExport(ctx, *storageConfig, storageProvider, export.Bucket(), exportPath, fetch, convert)
+	exportSize, err := streamingExport(ctx, *storageConfig, storageProvider, export, export.Bucket(), exportPath, fetch, convert)
 	if err != nil {
 		return fmt.Errorf("failed to perform streaming export: %w", err)
 	}
@@ -143,7 +143,15 @@ func formatLogs[T any, U any](logs []T, convert func(T) U) ([]byte, error) {
 }
 
 // streamingExport pipes formatted batches directly to storage so large exports do not need to buffer in memory.
-func streamingExport[T any, U any](ctx context.Context, storageConfig types.StorageConfig, storageProvider auditlogexport.StorageProvider, bucket, exportPath string, fetch func(limit, offset int) ([]T, error), convert func(T) U) (totalSize int64, err error) {
+func streamingExport[E any, T any, U any](
+	ctx context.Context,
+	storageConfig types.StorageConfig,
+	storageProvider auditlogexport.StorageProvider,
+	export E,
+	bucket, exportPath string,
+	fetch func(context.Context, E, int, int) ([]T, error),
+	convert func(T) U,
+) (totalSize int64, err error) {
 	offset := 0
 	batchNumber := 0
 
@@ -169,7 +177,7 @@ func streamingExport[T any, U any](ctx context.Context, storageConfig types.Stor
 	}()
 
 	for {
-		logs, err := fetch(batchSize, offset)
+		logs, err := fetch(ctx, export, batchSize, offset)
 		if err != nil {
 			return 0, fmt.Errorf("failed to get audit logs batch %d: %w", batchNumber, err)
 		}
