@@ -14,6 +14,7 @@
 		type Runtime,
 		Group
 	} from '$lib/services';
+	import { MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH } from '$lib/services/user/constants';
 	import {
 		convertCategoriesToMetadata,
 		convertServerRuntimeFormDataToManifest,
@@ -84,6 +85,7 @@
 	let savedEntry = $state<MCPCatalogEntry | MCPCatalogServer>();
 	let selectRulesDialog = $state<ReturnType<typeof SelectMcpAccessControlRules>>();
 	let showRequired = $state<Record<string, boolean>>({});
+	let showInvalid = $state<Record<string, boolean>>({});
 	let loading = $state(false);
 	let compositeHasToolNameErrors = $state(false);
 	let mcpResourceDefaults = $state<MCPResourceRequirements>();
@@ -710,15 +712,36 @@
 		</div>
 
 		<div class="flex flex-col gap-1">
-			<label for="shortDescription" class="text-sm font-light capitalize">Short Description</label>
+			<label for="shortDescription" class="text-sm font-light capitalize">
+				Short Description
+				<span class="text-muted-content text-xs">
+					(max {MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH} characters)
+				</span>
+			</label>
 			<input
 				type="text"
 				id="shortDescription"
 				bind:value={formData.shortDescription}
-				class="text-input-filled dark:bg-base-100"
+				class={twMerge(
+					'text-input-filled dark:bg-base-100',
+					showInvalid['shortDescription'] && 'error'
+				)}
 				disabled={readonly}
 				placeholder="Provide a brief summary that will be shown in catalog listings."
+				maxlength={MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH}
 			/>
+			<div class="flex justify-end">
+				<span
+					class={twMerge(
+						'pl-0.5 text-xs text-muted-content flex justify-end',
+						formData.shortDescription &&
+							formData.shortDescription.length > MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH &&
+							'text-error'
+					)}
+				>
+					{formData.shortDescription?.length ?? 0} / {MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH}
+				</span>
+			</div>
 		</div>
 
 		<div class="flex flex-col gap-1">
