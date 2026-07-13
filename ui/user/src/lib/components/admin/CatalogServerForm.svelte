@@ -38,7 +38,7 @@
 	import UvxRuntimeForm from '../mcp/UvxRuntimeForm.svelte';
 	import SelectMcpAccessControlRules from './SelectMcpAccessControlRules.svelte';
 	import { Info } from '@lucide/svelte';
-	import { onMount, untrack, type Snippet } from 'svelte';
+	import { onMount, tick, untrack, type Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -92,6 +92,25 @@
 	let secretBindingTargets = $state<MCPAllowedSecretBindingTarget[]>();
 
 	let formData = $state<RuntimeFormData>(untrack(() => convertToFormData(entry)));
+
+	const fieldIds = {
+		name: 'catalog-server-name',
+		description: 'catalog-server-description-label',
+		descriptionHint: 'catalog-server-description-hint',
+		shortDescription: 'catalog-server-short-description',
+		shortDescriptionHint: 'catalog-server-short-description-hint',
+		shortDescriptionCount: 'catalog-server-short-description-count',
+		icon: 'catalog-server-icon',
+		serverType: 'catalog-server-tenancy-type-label',
+		serverTypeHint: 'catalog-server-tenancy-hint',
+		nameError: 'catalog-server-name-error',
+		formError: 'catalog-server-form-error'
+	};
+
+	const shortDescriptionOverLimit = $derived(
+		!!formData.shortDescription &&
+			formData.shortDescription.length > MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH
+	);
 
 	const isAtLeastPowerUserPlus = $derived(profile.current?.groups.includes(Group.POWERUSER_PLUS));
 	const showEgressDomains = $derived(!!version.current.mcpNetworkPolicyEnabled);
@@ -618,6 +637,13 @@
 		const missingRequiredFields = validateRuntimeForm(formData, type);
 		if (Object.keys(missingRequiredFields).length > 0) {
 			showRequired = missingRequiredFields;
+			await tick();
+			const firstInvalid = document.getElementById(fieldIds.name);
+			if (showRequired.name && firstInvalid instanceof HTMLElement) {
+				firstInvalid.focus();
+			} else {
+				document.getElementById(fieldIds.formError)?.focus();
+			}
 			return;
 		}
 
@@ -665,299 +691,353 @@
 	function updateRequired(field: string) {
 		delete showRequired[field];
 	}
+
+	function handleFormSubmit(e: Event) {
+		e.preventDefault();
+		handleSubmit();
+	}
 </script>
 
-<div
-	class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-8 rounded-lg border border-transparent p-4 shadow-sm"
+<form
+	class="flex flex-col gap-8"
+	novalidate
+	onsubmit={handleFormSubmit}
+	aria-describedby={Object.keys(showRequired).length > 0 ? fieldIds.formError : undefined}
 >
-	<div class="flex flex-col gap-8">
-		{#if readonly && readonlyMessage}
-			<div class="notification-info p-3 text-sm font-light">
-				<div class="flex items-center gap-3">
-					<Info class="size-6" />
-					<div>
-						{@render readonlyMessage()}
-					</div>
-				</div>
-			</div>
-		{/if}
-
-		<div class="flex flex-col gap-1">
-			<label
-				for="name"
-				class={twMerge('text-sm font-light capitalize', showRequired.name && 'error')}>Name</label
-			>
-			<input
-				type="text"
-				id="name"
-				bind:value={formData.name}
-				class={twMerge('text-input-filled dark:bg-base-100', showRequired.name && 'error')}
-				disabled={readonly}
-				oninput={() => {
-					updateRequired('name');
-				}}
-			/>
-		</div>
-
-		<div class="flex flex-col gap-1">
-			<label for="name" class="text-sm font-light capitalize"
-				>Description <span class="text-muted-content text-xs">(Markdown syntax supported)</span
-				></label
-			>
-			<MarkdownInput
-				bind:value={formData.description}
-				disabled={readonly}
-				placeholder="Provide details about the MCP catalog entry."
-			/>
-		</div>
-
-		<div class="flex flex-col gap-1">
-			<label for="shortDescription" class="text-sm font-light capitalize">
-				Short Description
-				<span class="text-muted-content text-xs">
-					(max {MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH} characters)
-				</span>
-			</label>
-			<input
-				type="text"
-				id="shortDescription"
-				bind:value={formData.shortDescription}
-				class={twMerge(
-					'text-input-filled dark:bg-base-100',
-					showInvalid['shortDescription'] && 'error'
-				)}
-				disabled={readonly}
-				placeholder="Provide a brief summary that will be shown in catalog listings."
-				maxlength={MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH}
-			/>
-			<div class="flex justify-end">
-				<span
-					class={twMerge(
-						'pl-0.5 text-xs text-muted-content flex justify-end',
-						formData.shortDescription &&
-							formData.shortDescription.length > MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH &&
-							'text-error'
-					)}
-				>
-					{formData.shortDescription?.length ?? 0} / {MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH}
-				</span>
-			</div>
-		</div>
-
-		<div class="flex flex-col gap-1">
-			<label for="icon" class="text-sm font-light capitalize">Icon URL</label>
-			<input
-				type="text"
-				id="icon"
-				bind:value={formData.icon}
-				class="text-input-filled dark:bg-base-100"
-				disabled={readonly}
-			/>
-		</div>
-	</div>
-</div>
-
-{#if type === 'hosted'}
-	<div class="paper p-4">
-		<h4 class="text-sm font-semibold">Server Tenancy</h4>
-
-		{#if entity === 'catalog'}
-			<div class="notification-info">
-				<div class="flex items-center gap-2">
-					<Info class="size-4" />
-					<div>
-						<p class="text-xs font-light">
-							Once the server tenancy has been set, it cannot be changed. In order to change the
-							configuration, you must delete the server and create a new one.
-						</p>
-					</div>
-				</div>
-			</div>
-		{/if}
-
-		<div class="flex items-center gap-4">
-			<label for="server-configuration-selector" class="text-sm font-light">Type</label>
-			<div class="w-full">
-				<Select
-					id="server-configuration-selector"
-					class="bg-base-200 dark:bg-base-100 dark:border-base-400 flex-1 border border-transparent shadow-none"
-					options={[
-						{ id: 'multiUser', label: 'Multi-tenant' },
-						{ id: 'singleUser', label: 'Single-tenant' }
-					]}
-					selected={formData.serverUserType}
-					onSelect={(option) => {
-						formData.serverUserType = option.id as 'singleUser' | 'multiUser';
-						formData.multiUserConfig =
-							option.id === 'multiUser' ? { userDefinedHeaders: [] } : undefined;
-						if (
-							secretBindingsSupported &&
-							entity === 'catalog' &&
-							profile.current?.isAdmin?.() &&
-							option.id === 'multiUser' &&
-							secretBindingTargets === undefined
-						) {
-							loadSecretBindingTargets();
-						}
-					}}
-					disabled={readonly || !!entry?.id || entity !== 'catalog'}
-				/>
-			</div>
-		</div>
-
-		<p class="text-muted-content text-xs">
-			{#if entity === 'catalog'}
-				Set tenancy to <i>Single-tenant</i> if each user should connect to their own private
-				instance of the server. <br />
-				<i>Multi-tenancy</i> has all users connect to the same server instance.
-			{:else}
-				<i>Single-tenant</i> requires each user to connect to their own private instance of the server.
-			{/if}
-		</p>
-	</div>
-{/if}
-
-<!-- Runtime Selection -->
-<RuntimeSelector
-	bind:runtime={formData.runtime}
-	serverType={type}
-	{readonly}
-	onRuntimeChange={handleRuntimeChange}
-/>
-
-<!-- Runtime-specific Forms -->
-{#if formData.runtime === 'npx' && formData.npxConfig}
-	<NpxRuntimeForm
-		bind:config={formData.npxConfig}
-		{showEgressDomains}
-		{defaultDenyAllEgress}
-		bind:startupTimeoutSeconds={formData.startupTimeoutSeconds}
-		{readonly}
-		{showRequired}
-		onFieldChange={updateRequired}
-	/>
-{:else if formData.runtime === 'uvx' && formData.uvxConfig}
-	<UvxRuntimeForm
-		bind:config={formData.uvxConfig}
-		{showEgressDomains}
-		{defaultDenyAllEgress}
-		bind:startupTimeoutSeconds={formData.startupTimeoutSeconds}
-		{readonly}
-		{showRequired}
-		onFieldChange={updateRequired}
-	/>
-{:else if formData.runtime === 'containerized' && formData.containerizedConfig}
-	<ContainerizedRuntimeForm
-		bind:config={formData.containerizedConfig}
-		{showEgressDomains}
-		{defaultDenyAllEgress}
-		bind:startupTimeoutSeconds={formData.startupTimeoutSeconds}
-		{readonly}
-		{showRequired}
-		onFieldChange={updateRequired}
-	/>
-{:else if formData.runtime === 'remote' && type === 'multi' && formData.remoteServerConfig}
-	<RemoteRuntimeForm
-		bind:config={formData.remoteServerConfig}
-		variant="server"
-		{readonly}
-		{showRequired}
-		onFieldChange={updateRequired}
-		isNewEntry={!entry}
-		{onConfigureOAuth}
-		secretBindingTargets={editableSecretBindingTargets}
-	>
-		{#snippet afterHeaders()}
-			{#if secretBoundHeaders.length > 0}
-				<CustomConfigurationForm
-					bind:config={formData.env}
-					{readonly}
-					serverUserType={formData.serverUserType}
-					{secretBoundHeaders}
-				/>
-			{/if}
-		{/snippet}
-	</RemoteRuntimeForm>
-{:else if formData.runtime === 'remote' && formData.remoteConfig}
-	<RemoteRuntimeForm
-		bind:config={formData.remoteConfig}
-		{readonly}
-		{showRequired}
-		onFieldChange={updateRequired}
-		isNewEntry={!entry}
-		{onConfigureOAuth}
-	>
-		{#snippet afterHeaders()}
-			{#if secretBoundHeaders.length > 0}
-				<CustomConfigurationForm
-					bind:config={formData.env}
-					{readonly}
-					serverUserType={formData.serverUserType}
-					{secretBoundHeaders}
-				/>
-			{/if}
-		{/snippet}
-	</RemoteRuntimeForm>
-{:else if formData.runtime === 'composite' && formData.compositeConfig}
-	<CompositeRuntimeForm
-		bind:config={formData.compositeConfig}
-		bind:hasToolNameErrors={compositeHasToolNameErrors}
-		{readonly}
-		catalogId={id}
-		id={entry?.id}
-	/>
-{/if}
-
-{#if version.current.engine === 'kubernetes' && !['remote', 'composite'].includes(formData.runtime) && formData.resources}
-	<ResourceRuntimeForm
-		bind:config={formData.resources}
-		{readonly}
-		defaultResources={mcpResourceDefaults}
-	/>
-{/if}
-
-<!-- Environment Variables Section -->
-{#if !['remote', 'composite'].includes(formData.runtime)}
-	<CustomConfigurationForm
-		bind:config={formData.env}
-		{readonly}
-		serverUserType={formData.serverUserType}
-		{secretBoundHeaders}
-		secretBindingTargets={editableSecretBindingTargets}
-	/>
-{/if}
-
-{#if formData.serverUserType === 'multiUser' && formData.multiUserConfig}
-	<MultiUserHeadersForm bind:headers={formData.multiUserConfig.userDefinedHeaders} {readonly} />
-{/if}
-
-{#if !readonly}
 	<div
-		class="bg-base-200 dark:bg-base-100 sticky bottom-0 left-0 flex w-[calc(100%+2em)] -translate-x-4 items-center justify-end gap-4 p-4 md:w-[calc(100%+4em)] md:-translate-x-8 md:px-8"
+		class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-8 rounded-lg border border-transparent p-4 shadow-sm"
 	>
-		{#if Object.keys(showRequired).length > 0}
-			<span class="text-sm font-medium text-error">Fill out all required fields</span>
-		{/if}
-		<button class="btn btn-secondary flex items-center gap-1" onclick={() => onCancel?.()}>
-			Cancel
-		</button>
-		<button
-			class="btn btn-primary flex items-center gap-1"
-			onclick={handleSubmit}
-			disabled={loading ||
-				(formData.runtime === 'composite' &&
-					(!formData.compositeConfig?.componentServers ||
-						formData.compositeConfig.componentServers.length === 0 ||
-						compositeHasToolNameErrors))}
-		>
-			{#if loading}
-				<Loading class="size-4" />
-			{:else}
-				{entry ? 'Update' : 'Save'}
+		<div class="flex flex-col gap-8">
+			{#if readonly && readonlyMessage}
+				<div class="notification-info p-3 text-sm font-light" role="status">
+					<div class="flex items-center gap-3">
+						<Info class="size-6" aria-hidden="true" />
+						<div>
+							{@render readonlyMessage()}
+						</div>
+					</div>
+				</div>
 			{/if}
-		</button>
+
+			<div class="flex flex-col gap-1">
+				<label
+					for={fieldIds.name}
+					class={twMerge('text-sm font-light capitalize', showRequired.name && 'error')}
+				>
+					Name
+					{#if !readonly}
+						<span class="text-error" aria-hidden="true">*</span>
+						<span class="sr-only">(required)</span>
+					{/if}
+				</label>
+				<input
+					type="text"
+					id={fieldIds.name}
+					name="name"
+					bind:value={formData.name}
+					class={twMerge('text-input-filled dark:bg-base-100', showRequired.name && 'error')}
+					disabled={readonly}
+					aria-required={!readonly ? 'true' : undefined}
+					aria-invalid={showRequired.name ? 'true' : undefined}
+					aria-describedby={showRequired.name ? fieldIds.nameError : undefined}
+					oninput={() => {
+						updateRequired('name');
+					}}
+				/>
+				{#if showRequired.name}
+					<p id={fieldIds.nameError} class="text-xs text-error" role="alert">Name is required</p>
+				{/if}
+			</div>
+
+			<div class="flex flex-col gap-1">
+				<span id={fieldIds.description} class="text-sm font-light capitalize">
+					Description
+					<span id={fieldIds.descriptionHint} class="text-muted-content text-xs">
+						(Markdown syntax supported)
+					</span>
+				</span>
+				<MarkdownInput
+					bind:value={formData.description}
+					disabled={readonly}
+					placeholder="Provide details about the MCP catalog entry."
+					labelledBy={fieldIds.description}
+					describedBy={fieldIds.descriptionHint}
+				/>
+			</div>
+
+			<div class="flex flex-col gap-1">
+				<label for={fieldIds.shortDescription} class="text-sm font-light capitalize">
+					Short Description
+					<span id={fieldIds.shortDescriptionHint} class="text-muted-content text-xs">
+						(max {MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH} characters)
+					</span>
+				</label>
+				<input
+					type="text"
+					id={fieldIds.shortDescription}
+					name="shortDescription"
+					bind:value={formData.shortDescription}
+					class={twMerge(
+						'text-input-filled dark:bg-base-100',
+						(showInvalid['shortDescription'] || shortDescriptionOverLimit) && 'error'
+					)}
+					disabled={readonly}
+					placeholder="Provide a brief summary that will be shown in catalog listings."
+					maxlength={MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH}
+					aria-invalid={showInvalid['shortDescription'] || shortDescriptionOverLimit
+						? 'true'
+						: undefined}
+					aria-describedby={`${fieldIds.shortDescriptionHint} ${fieldIds.shortDescriptionCount}`}
+				/>
+				<div class="flex justify-end">
+					<span
+						id={fieldIds.shortDescriptionCount}
+						class={twMerge(
+							'pl-0.5 text-xs text-muted-content flex justify-end',
+							shortDescriptionOverLimit && 'text-error'
+						)}
+						aria-live="polite"
+					>
+						{formData.shortDescription?.length ?? 0} / {MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH}
+					</span>
+				</div>
+			</div>
+
+			<div class="flex flex-col gap-1">
+				<label for={fieldIds.icon} class="text-sm font-light capitalize">Icon URL</label>
+				<input
+					type="text"
+					id={fieldIds.icon}
+					name="icon"
+					bind:value={formData.icon}
+					class="text-input-filled dark:bg-base-100"
+					disabled={readonly}
+					inputmode="url"
+					autocomplete="off"
+				/>
+			</div>
+		</div>
 	</div>
-{/if}
+
+	{#if type === 'hosted'}
+		<section class="paper p-4" aria-labelledby="catalog-server-tenancy-heading">
+			<h4 id="catalog-server-tenancy-heading" class="text-sm font-semibold">Server Tenancy</h4>
+
+			{#if entity === 'catalog'}
+				<div class="notification-info" role="status">
+					<div class="flex items-center gap-2">
+						<Info class="size-4" aria-hidden="true" />
+						<div>
+							<p class="text-xs font-light">
+								Once the server tenancy has been set, it cannot be changed. In order to change the
+								configuration, you must delete the server and create a new one.
+							</p>
+						</div>
+					</div>
+				</div>
+			{/if}
+
+			<div class="flex items-center gap-4">
+				<span id={fieldIds.serverType} class="text-sm font-light">Type</span>
+				<div class="w-full">
+					<Select
+						id="server-configuration-selector"
+						class="bg-base-200 dark:bg-base-100 dark:border-base-400 flex-1 border border-transparent shadow-none"
+						options={[
+							{ id: 'multiUser', label: 'Multi-tenant' },
+							{ id: 'singleUser', label: 'Single-tenant' }
+						]}
+						selected={formData.serverUserType}
+						ariaLabelledby={fieldIds.serverType}
+						ariaDescribedby={fieldIds.serverTypeHint}
+						onSelect={(option) => {
+							formData.serverUserType = option.id as 'singleUser' | 'multiUser';
+							formData.multiUserConfig =
+								option.id === 'multiUser' ? { userDefinedHeaders: [] } : undefined;
+							if (
+								secretBindingsSupported &&
+								entity === 'catalog' &&
+								profile.current?.isAdmin?.() &&
+								option.id === 'multiUser' &&
+								secretBindingTargets === undefined
+							) {
+								loadSecretBindingTargets();
+							}
+						}}
+						disabled={readonly || !!entry?.id || entity !== 'catalog'}
+					/>
+				</div>
+			</div>
+
+			<p id={fieldIds.serverTypeHint} class="text-muted-content text-xs">
+				{#if entity === 'catalog'}
+					Set tenancy to <i>Single-tenant</i> if each user should connect to their own private
+					instance of the server. <br />
+					<i>Multi-tenancy</i> has all users connect to the same server instance.
+				{:else}
+					<i>Single-tenant</i> requires each user to connect to their own private instance of the server.
+				{/if}
+			</p>
+		</section>
+	{/if}
+
+	<!-- Runtime Selection -->
+	<RuntimeSelector
+		bind:runtime={formData.runtime}
+		serverType={type}
+		{readonly}
+		onRuntimeChange={handleRuntimeChange}
+	/>
+
+	<!-- Runtime-specific Forms -->
+	{#if formData.runtime === 'npx' && formData.npxConfig}
+		<NpxRuntimeForm
+			bind:config={formData.npxConfig}
+			{showEgressDomains}
+			{defaultDenyAllEgress}
+			bind:startupTimeoutSeconds={formData.startupTimeoutSeconds}
+			{readonly}
+			{showRequired}
+			onFieldChange={updateRequired}
+		/>
+	{:else if formData.runtime === 'uvx' && formData.uvxConfig}
+		<UvxRuntimeForm
+			bind:config={formData.uvxConfig}
+			{showEgressDomains}
+			{defaultDenyAllEgress}
+			bind:startupTimeoutSeconds={formData.startupTimeoutSeconds}
+			{readonly}
+			{showRequired}
+			onFieldChange={updateRequired}
+		/>
+	{:else if formData.runtime === 'containerized' && formData.containerizedConfig}
+		<ContainerizedRuntimeForm
+			bind:config={formData.containerizedConfig}
+			{showEgressDomains}
+			{defaultDenyAllEgress}
+			bind:startupTimeoutSeconds={formData.startupTimeoutSeconds}
+			{readonly}
+			{showRequired}
+			onFieldChange={updateRequired}
+		/>
+	{:else if formData.runtime === 'remote' && type === 'multi' && formData.remoteServerConfig}
+		<RemoteRuntimeForm
+			bind:config={formData.remoteServerConfig}
+			variant="server"
+			{readonly}
+			{showRequired}
+			onFieldChange={updateRequired}
+			isNewEntry={!entry}
+			{onConfigureOAuth}
+			secretBindingTargets={editableSecretBindingTargets}
+		>
+			{#snippet afterHeaders()}
+				{#if secretBoundHeaders.length > 0}
+					<CustomConfigurationForm
+						bind:config={formData.env}
+						{readonly}
+						serverUserType={formData.serverUserType}
+						{secretBoundHeaders}
+					/>
+				{/if}
+			{/snippet}
+		</RemoteRuntimeForm>
+	{:else if formData.runtime === 'remote' && formData.remoteConfig}
+		<RemoteRuntimeForm
+			bind:config={formData.remoteConfig}
+			{readonly}
+			{showRequired}
+			onFieldChange={updateRequired}
+			isNewEntry={!entry}
+			{onConfigureOAuth}
+		>
+			{#snippet afterHeaders()}
+				{#if secretBoundHeaders.length > 0}
+					<CustomConfigurationForm
+						bind:config={formData.env}
+						{readonly}
+						serverUserType={formData.serverUserType}
+						{secretBoundHeaders}
+					/>
+				{/if}
+			{/snippet}
+		</RemoteRuntimeForm>
+	{:else if formData.runtime === 'composite' && formData.compositeConfig}
+		<CompositeRuntimeForm
+			bind:config={formData.compositeConfig}
+			bind:hasToolNameErrors={compositeHasToolNameErrors}
+			{readonly}
+			catalogId={id}
+			id={entry?.id}
+		/>
+	{/if}
+
+	{#if version.current.engine === 'kubernetes' && !['remote', 'composite'].includes(formData.runtime) && formData.resources}
+		<ResourceRuntimeForm
+			bind:config={formData.resources}
+			{readonly}
+			defaultResources={mcpResourceDefaults}
+		/>
+	{/if}
+
+	<!-- Environment Variables Section -->
+	{#if !['remote', 'composite'].includes(formData.runtime)}
+		<CustomConfigurationForm
+			bind:config={formData.env}
+			{readonly}
+			serverUserType={formData.serverUserType}
+			{secretBoundHeaders}
+			secretBindingTargets={editableSecretBindingTargets}
+		/>
+	{/if}
+
+	{#if formData.serverUserType === 'multiUser' && formData.multiUserConfig}
+		<MultiUserHeadersForm bind:headers={formData.multiUserConfig.userDefinedHeaders} {readonly} />
+	{/if}
+
+	{#if !readonly}
+		<div
+			class="bg-base-200 dark:bg-base-100 sticky bottom-0 left-0 flex w-[calc(100%+2em)] -translate-x-4 items-center justify-end gap-4 p-4 md:w-[calc(100%+4em)] md:-translate-x-8 md:px-8"
+		>
+			{#if Object.keys(showRequired).length > 0}
+				<span
+					id={fieldIds.formError}
+					class="text-sm font-medium text-error"
+					role="alert"
+					tabindex="-1"
+				>
+					Fill out all required fields
+				</span>
+			{/if}
+			<button
+				type="button"
+				class="btn btn-secondary flex items-center gap-1"
+				onclick={() => onCancel?.()}
+			>
+				Cancel
+			</button>
+			<button
+				type="submit"
+				class="btn btn-primary flex items-center gap-1"
+				disabled={loading ||
+					(formData.runtime === 'composite' &&
+						(!formData.compositeConfig?.componentServers ||
+							formData.compositeConfig.componentServers.length === 0 ||
+							compositeHasToolNameErrors))}
+				aria-busy={loading}
+			>
+				{#if loading}
+					<span aria-hidden="true">
+						<Loading class="size-4" />
+					</span>
+					<span class="sr-only">Saving</span>
+				{:else}
+					{entry ? 'Update' : 'Save'}
+				{/if}
+			</button>
+		</div>
+	{/if}
+</form>
 
 <SelectMcpAccessControlRules
 	bind:this={selectRulesDialog}

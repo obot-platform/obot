@@ -46,6 +46,8 @@
 		disabled?: boolean;
 		placeholder?: string;
 		disablePreview?: boolean;
+		labelledBy?: string;
+		describedBy?: string;
 	}
 
 	let {
@@ -54,7 +56,9 @@
 		classes,
 		disabled,
 		placeholder,
-		disablePreview
+		disablePreview,
+		labelledBy,
+		describedBy
 	}: Props = $props();
 
 	let lastSetValue = '';
@@ -155,6 +159,13 @@
 		});
 
 		reload = () => {
+			const contentAttrs: Record<string, string> = {
+				'aria-multiline': 'true'
+			};
+			if (labelledBy) contentAttrs['aria-labelledby'] = labelledBy;
+			if (describedBy) contentAttrs['aria-describedby'] = describedBy;
+			if (disabled) contentAttrs['aria-readonly'] = 'true';
+
 			const newState = CMEditorState.create({
 				doc: state.doc,
 				extensions: [
@@ -162,6 +173,7 @@
 					darkMode.isDark ? githubDark : githubLight,
 					updater,
 					markdown(),
+					EditorView.contentAttributes.of(contentAttrs),
 					// Add placeholder if provided
 					...(placeholder ? [cmPlaceholder(placeholder)] : []),
 					// Make editor read-only when disabled
@@ -194,8 +206,13 @@
 	{#if !disablePreview}
 		<div
 			class="dark:border-base-400 dark:bg-base-300 text-muted-content flex items-center border-b text-sm font-light"
+			role="tablist"
+			aria-label="Description editor mode"
 		>
 			<button
+				type="button"
+				role="tab"
+				aria-selected={!showPreview}
 				class={twMerge(
 					'px-4 py-2',
 					!showPreview &&
@@ -212,6 +229,9 @@
 				}}>Write</button
 			>
 			<button
+				type="button"
+				role="tab"
+				aria-selected={showPreview}
 				class={twMerge(
 					'px-4 py-2',
 					showPreview &&

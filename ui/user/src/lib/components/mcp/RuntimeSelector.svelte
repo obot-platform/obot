@@ -67,17 +67,22 @@
 		'paper p-4',
 		serverType === 'remote' || serverType === 'composite' ? 'hidden' : ''
 	)}
+	aria-labelledby="runtime-selector-heading"
 >
-	<h4 class="text-sm font-semibold">Runtime</h4>
+	<h4 id="runtime-selector-heading" class="text-sm font-semibold">Runtime</h4>
 
 	<div class="flex items-center gap-4">
-		<label for="runtime-selector" class="text-sm font-light">Type</label>
+		<span id="runtime-selector-label" class="text-sm font-light">Type</span>
 		<div class="w-full">
 			<Select
 				id="runtime-selector"
 				class="bg-base-200 dark:bg-base-100 dark:border-base-400 flex-1 border border-transparent shadow-none"
 				options={runtimeOptions}
 				selected={runtime}
+				ariaLabelledby="runtime-selector-label"
+				ariaDescribedby={!readonly && serverType !== 'remote'
+					? 'runtime-selector-hint'
+					: undefined}
 				onSelect={handleRuntimeChange}
 				disabled={readonly || serverType === 'remote'}
 			/>
@@ -85,7 +90,7 @@
 	</div>
 
 	{#if !readonly && serverType !== 'remote'}
-		<p class="text-muted-content text-xs">
+		<p id="runtime-selector-hint" class="text-muted-content text-xs">
 			Choose the runtime environment for your MCP catalog entry.
 		</p>
 	{/if}
