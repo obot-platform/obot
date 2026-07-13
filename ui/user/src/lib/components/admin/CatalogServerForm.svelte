@@ -85,7 +85,6 @@
 	let savedEntry = $state<MCPCatalogEntry | MCPCatalogServer>();
 	let selectRulesDialog = $state<ReturnType<typeof SelectMcpAccessControlRules>>();
 	let showRequired = $state<Record<string, boolean>>({});
-	let showInvalid = $state<Record<string, boolean>>({});
 	let loading = $state(false);
 	let compositeHasToolNameErrors = $state(false);
 	let mcpResourceDefaults = $state<MCPResourceRequirements>();
@@ -777,16 +776,10 @@
 					id={fieldIds.shortDescription}
 					name="shortDescription"
 					bind:value={formData.shortDescription}
-					class={twMerge(
-						'text-input-filled dark:bg-base-100',
-						(showInvalid['shortDescription'] || shortDescriptionOverLimit) && 'error'
-					)}
+					class="text-input-filled dark:bg-base-100"
 					disabled={readonly}
 					placeholder="Provide a brief summary that will be shown in catalog listings."
 					maxlength={MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH}
-					aria-invalid={showInvalid['shortDescription'] || shortDescriptionOverLimit
-						? 'true'
-						: undefined}
 					aria-describedby={`${fieldIds.shortDescriptionHint} ${fieldIds.shortDescriptionCount}`}
 				/>
 				<div class="flex justify-end">

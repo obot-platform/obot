@@ -1173,8 +1173,8 @@ func ValidateCatalogEntryForRoute(manifest types.MCPServerCatalogEntryManifest, 
 }
 
 func ValidateCatalogEntryManifest(ctx context.Context, manifest types.MCPServerCatalogEntryManifest, gitManaged bool, options ValidationOptions) error {
-	if len(manifest.ShortDescription) > maxShortDescriptionLength {
-		return fmt.Errorf("The short description must be less than or equal to %d characters.", maxShortDescriptionLength)
+	if len([]rune(manifest.ShortDescription)) > maxShortDescriptionLength {
+		return fmt.Errorf("short description must be less than or equal to %d characters.", maxShortDescriptionLength)
 	}
 
 	switch manifest.ServerUserType {

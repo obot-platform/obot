@@ -206,13 +206,11 @@
 	{#if !disablePreview}
 		<div
 			class="dark:border-base-400 dark:bg-base-300 text-muted-content flex items-center border-b text-sm font-light"
-			role="tablist"
 			aria-label="Description editor mode"
 		>
 			<button
 				type="button"
-				role="tab"
-				aria-selected={!showPreview}
+				aria-pressed={!showPreview}
 				class={twMerge(
 					'px-4 py-2',
 					!showPreview &&
@@ -230,8 +228,7 @@
 			>
 			<button
 				type="button"
-				role="tab"
-				aria-selected={showPreview}
+				aria-pressed={showPreview}
 				class={twMerge(
 					'px-4 py-2',
 					showPreview &&

@@ -80,9 +80,7 @@
 				options={runtimeOptions}
 				selected={runtime}
 				ariaLabelledby="runtime-selector-label"
-				ariaDescribedby={!readonly && serverType !== 'remote'
-					? 'runtime-selector-hint'
-					: undefined}
+				ariaDescribedby={!readonly && serverType !== 'remote' ? 'runtime-selector-hint' : undefined}
 				onSelect={handleRuntimeChange}
 				disabled={readonly || serverType === 'remote'}
 			/>

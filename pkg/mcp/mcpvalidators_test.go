@@ -2960,7 +2960,7 @@ func TestValidateCatalogEntryManifest_ShortDescriptionMaxLength(t *testing.T) {
 
 	base.ShortDescription = strings.Repeat("a", maxShortDescriptionLength+1)
 	err := ValidateCatalogEntryManifest(t.Context(), base, false, ValidationOptions{})
-	require.ErrorContains(t, err, "The short description must be less than or equal to 160 characters.")
+	require.ErrorContains(t, err, "short description must be less than or equal to 160 characters.")
 }
 
 func TestValidateCatalogEntryManifestGitManagedRequiresOverrideDescription(t *testing.T) {
