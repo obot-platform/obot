@@ -1,7 +1,6 @@
 package auditlogexport
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -41,7 +40,12 @@ func (h *Handler) ExportAuditLogs(req router.Request, _ router.Response) error {
 		return fmt.Errorf("failed to update export status: %w", err)
 	}
 
-	if err := h.performExport(req.Ctx, export); err != nil {
+	err := auditlogexportcommon.PerformExport(req.Ctx, h.credProvider, export, "mcp-audit-logs", func(limit, offset int) ([]gatewaytypes.MCPAuditLog, error) {
+		opts := mcpAuditLogOptionsFromExport(export, limit, offset)
+		logs, _, err := h.gatewayClient.GetMCPAuditLogs(req.Ctx, opts)
+		return logs, err
+	}, gatewaytypes.ConvertMCPAuditLog)
+	if err != nil {
 		export.Status.State = types.AuditLogExportStateFailed
 		export.Status.Error = err.Error()
 
@@ -55,28 +59,24 @@ func (h *Handler) ExportAuditLogs(req router.Request, _ router.Response) error {
 	return req.Client.Status().Update(req.Ctx, export)
 }
 
-func (h *Handler) performExport(ctx context.Context, export *v1.AuditLogExport) error {
-	return auditlogexportcommon.PerformExport(ctx, h.credProvider, export, "mcp-audit-logs", func(limit, offset int) ([]gatewaytypes.MCPAuditLog, error) {
-		opts := client.MCPAuditLogOptions{
-			StartTime:                 export.Spec.StartTime.Time,
-			EndTime:                   export.Spec.EndTime.Time,
-			UserID:                    export.Spec.Filters.UserIDs,
-			MCPID:                     export.Spec.Filters.MCPIDs,
-			MCPServerDisplayName:      export.Spec.Filters.MCPServerDisplayNames,
-			MCPServerCatalogEntryName: export.Spec.Filters.MCPServerCatalogEntryNames,
-			CallType:                  export.Spec.Filters.CallTypes,
-			CallIdentifier:            export.Spec.Filters.CallIdentifiers,
-			SessionID:                 export.Spec.Filters.SessionIDs,
-			ClientName:                export.Spec.Filters.ClientNames,
-			ClientVersion:             export.Spec.Filters.ClientVersions,
-			ResponseStatus:            export.Spec.Filters.ResponseStatuses,
-			ClientIP:                  export.Spec.Filters.ClientIPs,
-			Query:                     export.Spec.Filters.Query,
-			Limit:                     limit,
-			Offset:                    offset,
-			WithRequestAndResponse:    export.Spec.WithRequestAndResponse,
-		}
-		logs, _, err := h.gatewayClient.GetMCPAuditLogs(ctx, opts)
-		return logs, err
-	}, gatewaytypes.ConvertMCPAuditLog)
+func mcpAuditLogOptionsFromExport(export *v1.AuditLogExport, limit, offset int) client.MCPAuditLogOptions {
+	return client.MCPAuditLogOptions{
+		StartTime:                 export.Spec.StartTime.Time,
+		EndTime:                   export.Spec.EndTime.Time,
+		UserID:                    export.Spec.Filters.UserIDs,
+		MCPID:                     export.Spec.Filters.MCPIDs,
+		MCPServerDisplayName:      export.Spec.Filters.MCPServerDisplayNames,
+		MCPServerCatalogEntryName: export.Spec.Filters.MCPServerCatalogEntryNames,
+		CallType:                  export.Spec.Filters.CallTypes,
+		CallIdentifier:            export.Spec.Filters.CallIdentifiers,
+		SessionID:                 export.Spec.Filters.SessionIDs,
+		ClientName:                export.Spec.Filters.ClientNames,
+		ClientVersion:             export.Spec.Filters.ClientVersions,
+		ResponseStatus:            export.Spec.Filters.ResponseStatuses,
+		ClientIP:                  export.Spec.Filters.ClientIPs,
+		Query:                     export.Spec.Filters.Query,
+		Limit:                     limit,
+		Offset:                    offset,
+		WithRequestAndResponse:    export.Spec.WithRequestAndResponse,
+	}
 }

@@ -1,7 +1,6 @@
 package llmauditlogexport
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -39,7 +38,12 @@ func (h *Handler) ExportAuditLogs(req router.Request, _ router.Response) error {
 		return fmt.Errorf("failed to update export status: %w", err)
 	}
 
-	if err := h.performExport(req.Ctx, export); err != nil {
+	err := auditlogexportcommon.PerformExport(req.Ctx, h.credProvider, export, "llm-audit-logs", func(limit, offset int) ([]gatewaytypes.LLMAuditLog, error) {
+		opts := llmAuditLogOptionsFromExport(export, limit, offset)
+		logs, _, err := h.gatewayClient.GetLLMAuditLogs(req.Ctx, opts)
+		return logs, err
+	}, gatewaytypes.ConvertLLMAuditLog)
+	if err != nil {
 		export.Status.State = types.AuditLogExportStateFailed
 		export.Status.Error = err.Error()
 		if statusErr := req.Client.Status().Update(req.Ctx, export); statusErr != nil {
@@ -49,14 +53,6 @@ func (h *Handler) ExportAuditLogs(req router.Request, _ router.Response) error {
 	}
 
 	return req.Client.Status().Update(req.Ctx, export)
-}
-
-func (h *Handler) performExport(ctx context.Context, export *v1.LLMAuditLogExport) error {
-	return auditlogexportcommon.PerformExport(ctx, h.credProvider, export, "llm-audit-logs", func(limit, offset int) ([]gatewaytypes.LLMAuditLog, error) {
-		opts := llmAuditLogOptionsFromExport(export, limit, offset)
-		logs, _, err := h.gatewayClient.GetLLMAuditLogs(ctx, opts)
-		return logs, err
-	}, gatewaytypes.ConvertLLMAuditLog)
 }
 
 func llmAuditLogOptionsFromExport(export *v1.LLMAuditLogExport, limit, offset int) client.LLMAuditLogOptions {
