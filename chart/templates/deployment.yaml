@@ -88,7 +88,7 @@ spec:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ include "obot.imageTag" . }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          {{- if or .Values.persistence.enabled .Values.extraVolumeMounts (eq (lower (toString .Values.config.OBOT_SERVER_ENCRYPTION_PROVIDER)) "custom") }}
+          {{- if or .Values.persistence.enabled .Values.extraVolumeMounts (eq (lower (toString .Values.config.OBOT_SERVER_ENCRYPTION_PROVIDER)) "custom") (include "obot.mcpCACertificate.secretName" .) }}
           volumeMounts:
             {{- if eq (lower (toString .Values.config.OBOT_SERVER_ENCRYPTION_PROVIDER)) "custom" }}
             - name: config
@@ -97,6 +97,11 @@ spec:
             {{- if .Values.persistence.enabled }}
             - name: data
               mountPath: {{ .Values.persistence.path }}
+            {{- end }}
+            {{- if include "obot.mcpCACertificate.secretName" . }}
+            - name: mcp-ca-bundle
+              mountPath: /etc/ssl/certs/obot-ca-bundle
+              readOnly: true
             {{- end }}
             {{- if .Values.extraVolumeMounts }}
             {{- toYaml .Values.extraVolumeMounts | nindent 12 }}
@@ -129,6 +134,15 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.serviceAccountName
+            {{- if include "obot.mcpCACertificate.secretName" . }}
+            {{- $certPath := printf "/etc/ssl/certs/obot-ca-bundle/%s" .Values.mcpCACertificate.secretKey }}
+            - name: SSL_CERT_FILE
+              value: {{ $certPath | quote }}
+            - name: REQUESTS_CA_BUNDLE
+              value: {{ $certPath | quote }}
+            - name: NODE_EXTRA_CA_CERTS
+              value: {{ $certPath | quote }}
+            {{- end }}
           envFrom:
             - configMapRef:
                 name: {{ include "obot.config.configMapName" . }}
@@ -148,7 +162,7 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- if or .Values.persistence.enabled .Values.extraVolumes (eq (lower (toString .Values.config.OBOT_SERVER_ENCRYPTION_PROVIDER)) "custom") }}
+      {{- if or .Values.persistence.enabled .Values.extraVolumes (eq (lower (toString .Values.config.OBOT_SERVER_ENCRYPTION_PROVIDER)) "custom") (include "obot.mcpCACertificate.secretName" .) }}
       volumes:
       {{- if eq (lower (toString .Values.config.OBOT_SERVER_ENCRYPTION_PROVIDER)) "custom" }}
         - name: config
@@ -159,6 +173,11 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: {{ ternary .Values.persistence.existingClaim (print .Release.Name "-pvc") (ne .Values.persistence.existingClaim "") }}
+      {{- end }}
+      {{- if include "obot.mcpCACertificate.secretName" . }}
+        - name: mcp-ca-bundle
+          secret:
+            secretName: {{ include "obot.mcpCACertificate.secretName" . }}
       {{- end }}
       {{- if .Values.extraVolumes }}
         {{- toYaml .Values.extraVolumes | nindent 8 }}

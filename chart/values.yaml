@@ -179,6 +179,8 @@ config:
   OBOT_SERVER_DISALLOW_LINK_LOCAL_MCP: ""
   # config.OBOT_SERVER_MCPRUNTIME_BACKEND -- The runtime backend to use for MCP servers. Can be 'docker' or 'kubernetes'. Defaults to 'docker'. Setting this to 'kubernetes' will also create the necessary service account, role and rolebinding.
   OBOT_SERVER_MCPRUNTIME_BACKEND: "kubernetes"
+  # config.OBOT_SERVER_MCPCACERT_FILE -- Path to a PEM CA certificate file to mount into MCP containers for custom TLS trust. Only applies to the Docker runtime backend. For the Kubernetes backend, use the top-level `mcpCACertificate` section instead.
+  OBOT_SERVER_MCPCACERT_FILE: ""
   # config.OBOT_SERVER_MCPSECRET_BINDING_ALLOWED_LABEL -- Kubernetes Secret label key required for admin UI secret-binding lookup and runtime secret-binding resolution. Empty uses the server default: obot.obot.ai/allow-secret-binding.
   OBOT_SERVER_MCPSECRET_BINDING_ALLOWED_LABEL: ""
 
@@ -396,6 +398,17 @@ mcpServerDefaults:
 
   # mcpServerDefaults.maxMemoryLimit -- Maximum memory limit allowed for MCP server pods
   maxMemoryLimit: ""
+
+# mcpCACertificate -- Mount a custom PEM CA bundle into the Obot pod and every MCP server pod so they trust TLS certificates issued by an internal CA (airgapped / enterprise deployments).
+# When set, the bundle is always mounted on the Obot pod. It is additionally mounted on MCP server pods only when config.OBOT_SERVER_MCPRUNTIME_BACKEND is "kubernetes". For the Docker runtime backend, use config.OBOT_SERVER_MCPCACERT_FILE for the MCP containers.
+# The bundle replaces the default trust store for Go (SSL_CERT_FILE) and Python (REQUESTS_CA_BUNDLE); if public-internet TLS must also work, concatenate your CA with the system bundle before supplying it.
+mcpCACertificate:
+  # mcpCACertificate.content -- Inline PEM content. When set, the chart creates a Secret in both the Obot release namespace and the MCP namespace.
+  content: ""
+  # mcpCACertificate.existingSecret -- Name of a pre-existing Secret. Must exist in BOTH the Obot release namespace (for the Obot pod) and the MCP namespace (for MCP pods). Mutually exclusive with `content`.
+  existingSecret: ""
+  # mcpCACertificate.secretKey -- Key within the Secret that holds the PEM bundle. Also used as the filename inside the mounted directory.
+  secretKey: "ca-bundle.crt"
 
 # nodeSelector -- Configure node selector for pod assignment
 nodeSelector: {}

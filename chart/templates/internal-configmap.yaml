@@ -20,6 +20,10 @@ data:
   OBOT_SERVER_MCPNAMESPACE: {{ include "obot.config.mcpNamespace" . | quote }}
   OBOT_SERVER_SERVICE_NAME: {{ include "obot.fullname" . | quote }}
   OBOT_SERVER_SERVICE_NAMESPACE: {{ .Release.Namespace | quote }}
+  {{- if include "obot.mcpCACertificate.secretName" . }}
+  OBOT_SERVER_MCPCACERT_SECRET_NAME: {{ include "obot.mcpCACertificate.secretName" . | quote }}
+  OBOT_SERVER_MCPCACERT_SECRET_KEY: {{ .Values.mcpCACertificate.secretKey | quote }}
+  {{- end }}
   {{- end }}
   {{- if .Values.mcpServerDefaults.affinity }}
   OBOT_SERVER_MCPK8S_SETTINGS_AFFINITY: {{ .Values.mcpServerDefaults.affinity | toJson | quote }}

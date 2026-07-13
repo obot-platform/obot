@@ -1,0 +1,29 @@
+{{- if .Values.mcpCACertificate.content -}}
+{{- $secretName := include "obot.mcpCACertificate.secretName" . -}}
+{{- $secretKey := .Values.mcpCACertificate.secretKey -}}
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: {{ $secretName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "obot.labels" . | nindent 4 }}
+data:
+  {{ $secretKey }}: {{ .Values.mcpCACertificate.content | b64enc | quote }}
+{{- if eq .Values.config.OBOT_SERVER_MCPRUNTIME_BACKEND "kubernetes" }}
+{{- if ne (include "obot.config.mcpNamespace" .) .Release.Namespace }}
+---
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: {{ $secretName }}
+  namespace: {{ include "obot.config.mcpNamespace" . }}
+  labels:
+    {{- include "obot.labels" . | nindent 4 }}
+data:
+  {{ $secretKey }}: {{ .Values.mcpCACertificate.content | b64enc | quote }}
+{{- end }}
+{{- end }}
+{{- end }}

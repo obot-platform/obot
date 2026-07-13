@@ -63,12 +63,19 @@ type kubernetesBackend struct {
 	imagePullSecrets              []string
 	auditLogsBatchSize            int
 	auditLogsFlushIntervalSeconds int
+	caCertSecretName              string
+	caCertSecretKey               string
 	authEnabled                   bool
 	obotClient                    kclient.Client
 	resourceMaximums              ResourceMaximums
 	deploymentCacheMu             sync.RWMutex
 	deploymentCache               map[string]*kubernetesDeploymentCacheEntry
 }
+
+const (
+	mcpCACertVolumeName = "mcp-ca-bundle"
+	mcpCACertMountDir   = "/etc/ssl/certs/obot-ca-bundle"
+)
 
 type kubernetesDeploymentCacheEntry struct {
 	hash    string
@@ -79,6 +86,11 @@ func newKubernetesBackend(authEnabled bool, clientset *kubernetes.Clientset, cli
 	var serviceFQDN string
 	if opts.ServiceName != "" && opts.ServiceNamespace != "" {
 		serviceFQDN = fmt.Sprintf("%s.%s.svc.%s", opts.ServiceName, opts.ServiceNamespace, opts.MCPClusterDomain)
+	}
+
+	caCertSecretKey := opts.MCPCACertSecretKey
+	if opts.MCPCACertSecretName != "" && caCertSecretKey == "" {
+		caCertSecretKey = "ca-bundle.crt"
 	}
 
 	return &kubernetesBackend{
@@ -94,6 +106,8 @@ func newKubernetesBackend(authEnabled bool, clientset *kubernetes.Clientset, cli
 		imagePullSecrets:              opts.MCPImagePullSecrets,
 		auditLogsBatchSize:            opts.MCPAuditLogsPersistBatchSize,
 		auditLogsFlushIntervalSeconds: opts.MCPAuditLogPersistIntervalSeconds,
+		caCertSecretName:              opts.MCPCACertSecretName,
+		caCertSecretKey:               caCertSecretKey,
 		obotClient:                    obotClient,
 		resourceMaximums:              resourceMaximums,
 		deploymentCache:               map[string]*kubernetesDeploymentCacheEntry{},
@@ -922,7 +936,49 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 		},
 	})
 
+	k.applyCACertVolume(dep)
+
 	return objs, nil
+}
+
+// applyCACertVolume mounts the configured CA bundle secret on every container in
+// the deployment and sets SSL_CERT_FILE / REQUESTS_CA_BUNDLE / NODE_EXTRA_CA_CERTS
+// so Go, Python, and Node.js runtimes all trust it. No-op when no secret is configured.
+func (k *kubernetesBackend) applyCACertVolume(dep *appsv1.Deployment) {
+	if k.caCertSecretName == "" {
+		return
+	}
+
+	certFilePath := mcpCACertMountDir + "/" + k.caCertSecretKey
+
+	dep.Spec.Template.Spec.Volumes = append(dep.Spec.Template.Spec.Volumes, corev1.Volume{
+		Name: mcpCACertVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: k.caCertSecretName,
+				// Project only the configured key so a misconfigured secretKey
+				// fails fast at mount time instead of silently pointing
+				// SSL_CERT_FILE et al. at a non-existent path.
+				Items: []corev1.KeyToPath{
+					{Key: k.caCertSecretKey, Path: k.caCertSecretKey},
+				},
+			},
+		},
+	})
+
+	for i := range dep.Spec.Template.Spec.Containers {
+		c := &dep.Spec.Template.Spec.Containers[i]
+		c.VolumeMounts = append(c.VolumeMounts, corev1.VolumeMount{
+			Name:      mcpCACertVolumeName,
+			MountPath: mcpCACertMountDir,
+			ReadOnly:  true,
+		})
+		c.Env = append(c.Env,
+			corev1.EnvVar{Name: "SSL_CERT_FILE", Value: certFilePath},
+			corev1.EnvVar{Name: "REQUESTS_CA_BUNDLE", Value: certFilePath},
+			corev1.EnvVar{Name: "NODE_EXTRA_CA_CERTS", Value: certFilePath},
+		)
+	}
 }
 
 // getNewestPod finds and returns the most recently created pod from the list.

@@ -45,6 +45,7 @@ type dockerBackend struct {
 	remoteShimBaseImage           string
 	auditLogsBatchSize            int
 	auditLogsFlushIntervalSeconds int
+	caCertFile                    string
 	authEnabled                   bool
 	deploymentCacheMu             sync.RWMutex
 	deploymentCache               map[string]*dockerDeploymentCacheEntry
@@ -93,9 +94,25 @@ func newDockerBackend(ctx context.Context, authEnabled bool, exposedPort int, op
 		remoteShimBaseImage:           opts.MCPRemoteShimBaseImage,
 		auditLogsBatchSize:            opts.MCPAuditLogsPersistBatchSize,
 		auditLogsFlushIntervalSeconds: opts.MCPAuditLogPersistIntervalSeconds,
+		caCertFile:                    opts.MCPCACertFile,
 		authEnabled:                   authEnabled,
 		deploymentCache:               map[string]*dockerDeploymentCacheEntry{},
 		syncedFilesHash:               map[string]string{},
+	}
+	if d.caCertFile != "" {
+		fi, err := os.Stat(d.caCertFile)
+		if err != nil {
+			return nil, fmt.Errorf("MCP CA cert file %q not accessible: %w", d.caCertFile, err)
+		}
+		if !fi.Mode().IsRegular() {
+			return nil, fmt.Errorf("MCP CA cert file %q is not a regular file", d.caCertFile)
+		}
+		// Confirm it's readable now, rather than failing later at container start.
+		f, err := os.Open(d.caCertFile)
+		if err != nil {
+			return nil, fmt.Errorf("MCP CA cert file %q is not readable: %w", d.caCertFile, err)
+		}
+		_ = f.Close()
 	}
 
 	if err = d.cleanupDeprecatedContainers(ctx); err != nil {
@@ -1089,6 +1106,22 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 		env = append(env, "NANOBOT_RUN_HEALTHZ_PATH=/healthz", "OBOT_KUBERNETES_MODE=true")
 	default:
 		return "", 0, fmt.Errorf("unsupported runtime: %s", server.Runtime)
+	}
+
+	// Mount custom CA certificate if configured
+	if d.caCertFile != "" {
+		const caCertTarget = "/etc/ssl/certs/obot-ca-bundle.crt"
+		volumeMounts = append(volumeMounts, mount.Mount{
+			Type:     mount.TypeBind,
+			Source:   d.caCertFile,
+			Target:   caCertTarget,
+			ReadOnly: true,
+		})
+		env = append(env,
+			"SSL_CERT_FILE="+caCertTarget,
+			"REQUESTS_CA_BUNDLE="+caCertTarget,
+			"NODE_EXTRA_CA_CERTS="+caCertTarget,
+		)
 	}
 
 	// Prepare port binding

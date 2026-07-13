@@ -89,6 +89,18 @@ Set name of namespace to use for mcp servers
 {{- end -}}
 
 {{/*
+Effective Secret name for the MCP CA certificate bundle.
+Returns empty when neither `mcpCACertificate.content` nor `mcpCACertificate.existingSecret` is set.
+*/}}
+{{- define "obot.mcpCACertificate.secretName" -}}
+{{- if .Values.mcpCACertificate.existingSecret -}}
+{{- .Values.mcpCACertificate.existingSecret -}}
+{{- else if .Values.mcpCACertificate.content -}}
+{{ .Release.Name }}-mcp-ca-cert
+{{- end -}}
+{{- end -}}
+
+{{/*
 Generate comma-separated list of MCP image pull secret names
 */}}
 {{- define "obot.config.mcpImagePullSecrets" -}}
