@@ -26,6 +26,8 @@
 		buttonReadOnly?: boolean;
 		buttonTitle?: string;
 		displayCount?: boolean;
+		ariaLabelledby?: string;
+		ariaDescribedby?: string;
 	}
 </script>
 
@@ -57,7 +59,9 @@
 		searchInDropdown,
 		buttonReadOnly,
 		buttonTitle,
-		displayCount
+		displayCount,
+		ariaLabelledby,
+		ariaDescribedby
 	}: SelectProps<T> = $props();
 
 	const selectedValues = $derived.by(() => {
@@ -176,7 +180,9 @@
 					toggle();
 				}
 			}}
-			aria-label={placeholder}
+			aria-labelledby={ariaLabelledby}
+			aria-describedby={ariaDescribedby}
+			aria-label={ariaLabelledby ? undefined : placeholder}
 		>
 			{#if buttonReadOnly}
 				{#if buttonStartContent}

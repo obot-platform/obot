@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -33,6 +34,9 @@ const (
 
 	// maxToolPrefixLength is the max length of a composite component tool prefix.
 	maxToolPrefixLength = 64
+
+	// maxShortDescriptionLength is the max length of a catalog entry shortDescription.
+	maxShortDescriptionLength = 160
 )
 
 func validateEgressDomains(runtime types.Runtime, domains []string, denyAllEgress *bool) error {
@@ -1170,6 +1174,10 @@ func ValidateCatalogEntryForRoute(manifest types.MCPServerCatalogEntryManifest, 
 }
 
 func ValidateCatalogEntryManifest(ctx context.Context, manifest types.MCPServerCatalogEntryManifest, gitManaged bool, options ValidationOptions) error {
+	if utf8.RuneCountInString(manifest.ShortDescription) > maxShortDescriptionLength {
+		return fmt.Errorf("short description must be less than or equal to %d characters", maxShortDescriptionLength)
+	}
+
 	switch manifest.ServerUserType {
 	case types.ServerUserTypeSingleUser, types.ServerUserTypeMultiUser:
 	default:

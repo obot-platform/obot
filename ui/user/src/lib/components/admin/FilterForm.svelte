@@ -431,13 +431,9 @@
 
 		if (runtimeFormData) {
 			showRuntimeRequired = {}; // reset
-			const missingRequiredFields = validateRuntimeForm(
-				runtimeFormData as RuntimeFormData,
-				'multi',
-				true
-			);
-			if (Object.keys(missingRequiredFields).length > 0) {
-				showRuntimeRequired = missingRequiredFields;
+			const { required } = validateRuntimeForm(runtimeFormData as RuntimeFormData, 'multi', true);
+			if (Object.keys(required).length > 0) {
+				showRuntimeRequired = required;
 				return;
 			}
 		}
