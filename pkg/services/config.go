@@ -433,13 +433,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 	pkgLog.Infof("Successfully connected to database: dsn=%s", sanitizedDSN)
 
-	var electionConfig *leader.ElectionConfig
-	if config.ElectionFile != "" {
-		electionConfig = leader.NewFileElectionConfig(config.ElectionFile)
-	} else {
-		electionConfig = leader.NewDefaultElectionConfig("", "obot-controller", restConfig)
-	}
-
 	// For now, always auto-migrate.
 	pkgLog.Infof("Initializing gateway database connection")
 	gatewayDB, err := db.New(dbAccess.DB, dbAccess.SQLDB, true)
@@ -479,6 +472,12 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		config.UIHostname = "https://" + config.UIHostname
 	}
 
+	var electionConfig *leader.ElectionConfig
+	if config.ElectionFile != "" {
+		electionConfig = leader.NewFileElectionConfig(config.ElectionFile)
+	} else {
+		electionConfig = leader.NewDefaultElectionConfig("", "obot-controller", restConfig)
+	}
 	r, err := nah.NewRouter("obot-controller", &nah.Options{
 		RESTConfig:     restConfig,
 		Scheme:         scheme.Scheme,
@@ -645,8 +644,8 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			// The router is scoped to the MCP namespace, but the managed provider token
 			// secret lives in Obot's runtime namespace.
 			ByObject:       localK8sCacheByObject(config.MCPNamespace, config.ServiceNamespace),
-			ElectionConfig: nil, // No leader election for local router
-			HealthzPort:    -1,  // Disable healthz port
+			ElectionConfig: leader.NewDefaultElectionConfig(config.MCPNamespace, "obot-local-controller", localK8sConfig),
+			HealthzPort:    -1, // Disable healthz port
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create local Kubernetes router: %w", err)
