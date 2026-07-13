@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"fmt"
-	"net/http"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
@@ -13,10 +12,6 @@ import (
 )
 
 func (h *AuditLogExportHandler) CreateLLMAuditLogExport(req api.Context) error {
-	if err := requireLLMAuditExportAccess(req); err != nil {
-		return err
-	}
-
 	var createReq types.LLMAuditLogExportCreateRequest
 	if err := req.Read(&createReq); err != nil {
 		return types.NewErrBadRequest("invalid request body: %v", err)
@@ -47,10 +42,6 @@ func (h *AuditLogExportHandler) CreateLLMAuditLogExport(req api.Context) error {
 }
 
 func (h *AuditLogExportHandler) ListLLMAuditLogExports(req api.Context) error {
-	if err := requireLLMAuditExportAccess(req); err != nil {
-		return err
-	}
-
 	var exports v1.LLMAuditLogExportList
 	if err := req.Storage.List(req.Context(), &exports, &kclient.ListOptions{Namespace: req.Namespace()}); err != nil {
 		return err
@@ -64,14 +55,7 @@ func (h *AuditLogExportHandler) ListLLMAuditLogExports(req api.Context) error {
 }
 
 func (h *AuditLogExportHandler) GetLLMAuditLogExport(req api.Context) error {
-	if err := requireLLMAuditExportAccess(req); err != nil {
-		return err
-	}
-
 	exportName := req.PathValue("id")
-	if exportName == "" {
-		return types.NewErrBadRequest("export ID is required")
-	}
 
 	var export v1.LLMAuditLogExport
 	if err := req.Storage.Get(req.Context(), kclient.ObjectKey{Name: exportName, Namespace: req.Namespace()}, &export); err != nil {
@@ -81,22 +65,11 @@ func (h *AuditLogExportHandler) GetLLMAuditLogExport(req api.Context) error {
 }
 
 func (h *AuditLogExportHandler) DeleteLLMAuditLogExport(req api.Context) error {
-	if err := requireLLMAuditExportAccess(req); err != nil {
-		return err
-	}
-
 	exportName := req.PathValue("id")
-	if exportName == "" {
-		return types.NewErrBadRequest("export ID is required")
-	}
 	return req.Storage.Delete(req.Context(), &v1.LLMAuditLogExport{ObjectMeta: metav1.ObjectMeta{Name: exportName, Namespace: req.Namespace()}})
 }
 
 func (h *AuditLogExportHandler) CreateScheduledLLMAuditLogExport(req api.Context) error {
-	if err := requireLLMAuditExportAccess(req); err != nil {
-		return err
-	}
-
 	var createReq types.ScheduledLLMAuditLogExportCreateRequest
 	if err := req.Read(&createReq); err != nil {
 		return types.NewErrBadRequest("invalid request body: %v", err)
@@ -131,10 +104,6 @@ func (h *AuditLogExportHandler) CreateScheduledLLMAuditLogExport(req api.Context
 }
 
 func (h *AuditLogExportHandler) ListScheduledLLMAuditLogExports(req api.Context) error {
-	if err := requireLLMAuditExportAccess(req); err != nil {
-		return err
-	}
-
 	var scheduledExports v1.ScheduledLLMAuditLogExportList
 	if err := req.Storage.List(req.Context(), &scheduledExports, &kclient.ListOptions{Namespace: req.Namespace()}); err != nil {
 		return err
@@ -148,14 +117,7 @@ func (h *AuditLogExportHandler) ListScheduledLLMAuditLogExports(req api.Context)
 }
 
 func (h *AuditLogExportHandler) GetScheduledLLMAuditLogExport(req api.Context) error {
-	if err := requireLLMAuditExportAccess(req); err != nil {
-		return err
-	}
-
 	exportName := req.PathValue("id")
-	if exportName == "" {
-		return types.NewErrBadRequest("scheduled export ID is required")
-	}
 
 	var scheduledExport v1.ScheduledLLMAuditLogExport
 	if err := req.Storage.Get(req.Context(), kclient.ObjectKey{Name: exportName, Namespace: req.Namespace()}, &scheduledExport); err != nil {
@@ -165,14 +127,7 @@ func (h *AuditLogExportHandler) GetScheduledLLMAuditLogExport(req api.Context) e
 }
 
 func (h *AuditLogExportHandler) UpdateScheduledLLMAuditLogExport(req api.Context) error {
-	if err := requireLLMAuditExportAccess(req); err != nil {
-		return err
-	}
-
 	exportName := req.PathValue("id")
-	if exportName == "" {
-		return types.NewErrBadRequest("scheduled export ID is required")
-	}
 
 	var updateReq types.ScheduledLLMAuditLogExportUpdateRequest
 	if err := req.Read(&updateReq); err != nil {
@@ -216,22 +171,8 @@ func (h *AuditLogExportHandler) UpdateScheduledLLMAuditLogExport(req api.Context
 }
 
 func (h *AuditLogExportHandler) DeleteScheduledLLMAuditLogExport(req api.Context) error {
-	if err := requireLLMAuditExportAccess(req); err != nil {
-		return err
-	}
-
 	exportName := req.PathValue("id")
-	if exportName == "" {
-		return types.NewErrBadRequest("scheduled export ID is required")
-	}
 	return req.Storage.Delete(req.Context(), &v1.ScheduledLLMAuditLogExport{ObjectMeta: metav1.ObjectMeta{Name: exportName, Namespace: req.Namespace()}})
-}
-
-func requireLLMAuditExportAccess(req api.Context) error {
-	if !req.UserIsAdmin() && !req.UserIsAuditor() {
-		return types.NewErrHTTP(http.StatusNotFound, "not found")
-	}
-	return nil
 }
 
 func validateLLMExportRequest(req *types.LLMAuditLogExportCreateRequest) error {
