@@ -33,6 +33,9 @@ const (
 
 	// maxToolPrefixLength is the max length of a composite component tool prefix.
 	maxToolPrefixLength = 64
+
+	// maxShortDescriptionLength is the max length of a catalog entry shortDescription.
+	maxShortDescriptionLength = 160
 )
 
 func validateEgressDomains(runtime types.Runtime, domains []string, denyAllEgress *bool) error {
@@ -1170,6 +1173,10 @@ func ValidateCatalogEntryForRoute(manifest types.MCPServerCatalogEntryManifest, 
 }
 
 func ValidateCatalogEntryManifest(ctx context.Context, manifest types.MCPServerCatalogEntryManifest, gitManaged bool, options ValidationOptions) error {
+	if len(manifest.ShortDescription) > maxShortDescriptionLength {
+		return fmt.Errorf("The short description must be less than or equal to %d characters.", maxShortDescriptionLength)
+	}
+
 	switch manifest.ServerUserType {
 	case types.ServerUserTypeSingleUser, types.ServerUserTypeMultiUser:
 	default:

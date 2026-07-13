@@ -2946,6 +2946,23 @@ func TestValidateCatalogEntryManifest_ServerUserType(t *testing.T) {
 	}
 }
 
+func TestValidateCatalogEntryManifest_ShortDescriptionMaxLength(t *testing.T) {
+	base := types.MCPServerCatalogEntryManifest{
+		ServerUserType: types.ServerUserTypeSingleUser,
+		Runtime:        types.RuntimeNPX,
+		NPXConfig: &types.NPXRuntimeConfig{
+			Package: "test-server",
+		},
+	}
+
+	base.ShortDescription = strings.Repeat("a", maxShortDescriptionLength)
+	require.NoError(t, ValidateCatalogEntryManifest(t.Context(), base, false, ValidationOptions{}))
+
+	base.ShortDescription = strings.Repeat("a", maxShortDescriptionLength+1)
+	err := ValidateCatalogEntryManifest(t.Context(), base, false, ValidationOptions{})
+	require.ErrorContains(t, err, "The short description must be less than or equal to 160 characters.")
+}
+
 func TestValidateCatalogEntryManifestGitManagedRequiresOverrideDescription(t *testing.T) {
 	manifest := types.MCPServerCatalogEntryManifest{
 		Name:           "Composite",
