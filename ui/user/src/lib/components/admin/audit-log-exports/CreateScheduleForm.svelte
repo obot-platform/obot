@@ -8,7 +8,7 @@
 		AdminService,
 		Group,
 		UserService,
-		type AuditLogURLFilters
+		type McpAuditLogURLFilters
 	} from '$lib/services';
 	import { profile } from '$lib/stores';
 	import { TriangleAlert, GlobeIcon, ChevronDown, ChevronUp } from '@lucide/svelte';
@@ -58,7 +58,7 @@
 			response_status: '',
 			session_id: '',
 			query: ''
-		} as Partial<AuditLogURLFilters>
+		} as Partial<McpAuditLogURLFilters>
 	});
 
 	let creating = $state(false);
@@ -136,7 +136,7 @@
 				client_names: 'client_name',
 				client_versions: 'client_version',
 				client_ips: 'client_ip'
-			} satisfies Record<string, keyof AuditLogURLFilters>;
+			} satisfies Record<string, keyof McpAuditLogURLFilters>;
 
 			let hasFilters = false;
 			for (const [key, value] of Object.entries(mappedField)) {
@@ -180,7 +180,7 @@
 
 	$effect(() => {
 		filtersIds.forEach((id) => {
-			UserService.listAuditLogFilterOptions(id).then((res) => {
+			UserService.listMcpAuditLogFilterOptions(id).then((res) => {
 				filtersOptions[id] = res.options ?? [];
 			});
 		});

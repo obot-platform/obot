@@ -2,19 +2,20 @@
 	import { afterNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	import { columnResize } from '$lib/actions/resize';
+	import { buildPillSearchParamFilters, buildSearchParamFiltersArray } from '$lib/auditlogs';
 	import { type DateRange } from '$lib/components/Calendar.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Search from '$lib/components/Search.svelte';
-	import AuditLogDetails from '$lib/components/admin/audit-logs/AuditLogDetails.svelte';
+	import McpAuditLogDetails from '$lib/components/admin/audit-logs/McpAuditLogDetails.svelte';
 	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
 	import { setVirtualPageData } from '$lib/components/ui/virtual-page/context';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { localState } from '$lib/runes/localState.svelte';
 	import {
 		type OrgUser,
-		type AuditLogURLFilters,
+		type McpAuditLogURLFilters,
 		AdminService,
-		type AuditLog,
+		type McpAuditLog,
 		Group,
 		UserService
 	} from '$lib/services';
@@ -25,19 +26,20 @@
 	import { getUserDisplayName, isBasicUser } from '$lib/utils';
 	import FiltersDrawer from '../filters-drawer/FiltersDrawer.svelte';
 	import AuditLogCalendar from './AuditLogCalendar.svelte';
-	import AuditLogsTable from './AuditLogs.svelte';
+	import AuditLogFilterPills from './AuditLogFilterPills.svelte';
+	import AuditLogTableSkeleton from './AuditLogTableSkeleton.svelte';
+	import McpAuditLogsTable from './McpAuditLogsTable.svelte';
 	import {
-		aggregateAuditLogsByBucket,
-		toAuditLogTimelineChartRow,
-		type AuditLogTimelineChartRow
+		aggregateMcpAuditLogsByBucket,
+		toMcpAuditLogTimelineChartRow,
+		type McpAuditLogTimelineChartRow
 	} from './timelineUtils';
-	import { X, ChevronLeft, ChevronRight, Funnel, Captions, Plus, Settings } from '@lucide/svelte';
+	import { ChevronLeft, ChevronRight, Funnel, Captions, Plus, Settings } from '@lucide/svelte';
 	import { set, endOfDay, isBefore, subDays } from 'date-fns';
 	import { debounce } from 'es-toolkit';
 	import type { Snippet } from 'svelte';
-	import { flip } from 'svelte/animate';
 	import { SvelteMap } from 'svelte/reactivity';
-	import { fade, slide } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		mcpId?: string | null;
@@ -57,7 +59,7 @@
 		entity = 'catalog'
 	}: Props = $props();
 
-	let auditLogsResponse = $state<PaginatedResponse<AuditLog>>();
+	let auditLogsResponse = $state<PaginatedResponse<McpAuditLog>>();
 	const auditLogsTotalItems = $derived(auditLogsResponse?.total ?? 0);
 
 	let pageIndexLocal = localState('@obot/auditlogs/page-index', 0, {
@@ -69,22 +71,22 @@
 	const numberOfPages = $derived(Math.ceil(auditLogsTotalItems / pageLimit));
 	const pageOffset = $derived(pageIndex * pageLimit);
 
-	const remoteAuditLogs = $derived(auditLogsResponse?.items ?? []);
+	const remoteMcpAuditLogs = $derived(auditLogsResponse?.items ?? []);
 
 	/** When there are more than this many results, defer timeline aggregation and table data to keep UI responsive. */
 	const DEFER_THRESHOLD = 500;
-	let displayTimelineData = $state<AuditLogTimelineChartRow[]>([]);
-	let displayTableData = $state<AuditLog[]>([]);
+	let displayTimelineData = $state<McpAuditLogTimelineChartRow[]>([]);
+	let displayTableData = $state<McpAuditLog[]>([]);
 
 	$effect(() => {
-		const items = remoteAuditLogs;
+		const items = remoteMcpAuditLogs;
 		const start = timeRangeFilters.startTime;
 		const end = timeRangeFilters.endTime;
 		const threshold = DEFER_THRESHOLD;
 
 		if (items.length <= threshold) {
 			displayTableData = items;
-			displayTimelineData = items.map(toAuditLogTimelineChartRow);
+			displayTimelineData = items.map(toMcpAuditLogTimelineChartRow);
 			return;
 		}
 
@@ -94,7 +96,7 @@
 			const id = requestIdleCallback(
 				() => {
 					displayTableData = items;
-					displayTimelineData = aggregateAuditLogsByBucket(items, start, end);
+					displayTimelineData = aggregateMcpAuditLogsByBucket(items, start, end);
 				},
 				{ timeout: 200 }
 			);
@@ -102,7 +104,7 @@
 		}
 		const id = setTimeout(() => {
 			displayTableData = items;
-			displayTimelineData = aggregateAuditLogsByBucket(items, start, end);
+			displayTimelineData = aggregateMcpAuditLogsByBucket(items, start, end);
 		}, 0);
 		return () => clearTimeout(id);
 	});
@@ -120,7 +122,7 @@
 
 	let showLoadingSpinner = $state(true);
 	let showFilters = $state(false);
-	let selectedAuditLog = $state<AuditLog & { user: string }>();
+	let selectedMcpAuditLog = $state<McpAuditLog & { user: string }>();
 	let rightSidebar = $state<HTMLDivElement>();
 	let showFilterConfirmDialog = $state(false);
 	let pendingExportType = $state<'export' | 'scheduled' | null>(null);
@@ -138,7 +140,7 @@
 	// Supported filters for the audit logs
 	// These filters are used to filter the audit logs based on the URL parameters
 	// Ignore other params
-	type SupportedFilter = keyof AuditLogURLFilters;
+	type SupportedFilter = keyof McpAuditLogURLFilters;
 	const supportedFilters: SupportedFilter[] = [
 		'user_id',
 		'mcp_id',
@@ -155,34 +157,17 @@
 		'end_time'
 	];
 
-	const defaultSearchParams: Partial<AuditLogURLFilters> = {
+	const defaultSearchParams: Partial<McpAuditLogURLFilters> = {
 		call_type: ['resources/read', 'tools/call', 'prompts/get'].join(',')
 	};
 
 	const searchParamsAsArray: [SupportedFilter, string | undefined | null][] = $derived(
-		supportedFilters.map((d) => {
-			const hasSearchParam = page.url.searchParams.has(d);
-
-			const value = page.url.searchParams.get(d);
-			const isValueDefined = isSafe(value);
-
-			return [
-				d,
-				isValueDefined
-					? // Value is defined then decode and use it
-						decodeURIComponent(value)
-					: hasSearchParam
-						? // Value is not defined but has a search param then override with empty string
-							''
-						: // No search params return default value if exist otherwise return undefined
-							(defaultSearchParams[d]?.toString() ?? null)
-			];
-		})
+		buildSearchParamFiltersArray<McpAuditLogURLFilters>(supportedFilters, defaultSearchParams)
 	);
 
-	// Extract search supported params from the URL and convert them to AuditLogURLFilters
+	// Extract search supported params from the URL and convert them to McpAuditLogURLFilters
 	// This is used to filter the audit logs based on the URL parameters
-	const searchParamFilters = $derived.by<AuditLogURLFilters>(() => {
+	const searchParamFilters = $derived.by<McpAuditLogURLFilters>(() => {
 		return searchParamsAsArray.reduce(
 			(acc, [key, value]) => {
 				acc[key!] = value;
@@ -210,50 +195,13 @@
 	const propsFiltersKeys = $derived(new Set(Object.keys(propsFilters)));
 
 	// Keep only filters with defined values
-	const pillsSearchParamFilters = $derived.by(() => {
-		const base = searchParamsAsArray
-			// exclude start_time and end_time from pills filters
-			.filter(([key, value]) => !(key === 'start_time' || key === 'end_time') && isSafe(value))
-			.reduce(
-				(acc, [key, value]) => {
-					acc[key] = value as string | number;
-					return acc;
-				},
-				{} as Record<string, string | number>
-			) as Record<keyof AuditLogURLFilters, string>;
-
-		return (
-			Object.entries({ ...propsFilters, ...base, ...enforcedFilters })
-				.filter(([, value]) => !!value)
-				// Sort to prioritize props filter keys first, then alphabetically
-				.sort((a, b) => {
-					// If both keys are in propsFiltersKeys, sort alphabetically
-					if (propsFiltersKeys.has(a[0]) && propsFiltersKeys.has(b[0])) {
-						return a[0].localeCompare(b[0]);
-					}
-
-					// If only a is in propsFiltersKeys, it comes first
-					if (propsFiltersKeys.has(a[0])) {
-						return -1;
-					}
-
-					// If only b is in propsFiltersKeys, it comes first
-					if (propsFiltersKeys.has(b[0])) {
-						return 1;
-					}
-
-					// If neither are in propsFiltersKeys, sort alphabetically
-					return a[0].localeCompare(b[0]);
-				})
-				.reduce(
-					(acc, val) => {
-						acc[val[0] as keyof AuditLogURLFilters] = val[1] as string;
-						return acc;
-					},
-					{} as Record<string, string | number>
-				) as Record<keyof AuditLogURLFilters, string>
-		);
-	});
+	const pillsSearchParamFilters = $derived(
+		buildPillSearchParamFilters<McpAuditLogURLFilters>(
+			searchParamsAsArray,
+			{ ...propsFilters, ...enforcedFilters },
+			propsFiltersKeys
+		)
+	);
 
 	const hasFilterPills = $derived(Object.keys(pillsSearchParamFilters).length > 0);
 
@@ -267,7 +215,7 @@
 		const clone = { ...searchParamFilters };
 
 		for (const key of ['start_time', 'end_time']) {
-			delete clone[key as keyof AuditLogURLFilters];
+			delete clone[key as keyof McpAuditLogURLFilters];
 		}
 
 		return { ...clone, ...propsFilters, ...enforcedFilters };
@@ -329,7 +277,7 @@
 		if (!pageIndexLocal.isReady) return;
 
 		showLoadingSpinner = true;
-		fetchAuditLogs({ ...allFilters }).then((res) => {
+		fetchMcpAuditLogs({ ...allFilters }).then((res) => {
 			// Reset page and page fragment indexes when the total results are less than the current page offset
 			if (!res || pageOffset > (res?.total ?? 0)) {
 				pageIndexLocal.current = 0;
@@ -353,16 +301,12 @@
 		replaceState(page.url, { query: value });
 	}, 100);
 
-	function isSafe<T = unknown>(value: T) {
-		return value !== undefined && value !== null;
-	}
-
 	async function nextPage() {
 		if (isReachedMax) return;
 
 		pageIndexLocal.current = Math.min(numberOfPages, pageIndex + 1);
 
-		fetchAuditLogs({ ...allFilters });
+		fetchMcpAuditLogs({ ...allFilters });
 	}
 
 	async function prevPage() {
@@ -370,15 +314,15 @@
 
 		pageIndexLocal.current = Math.max(0, pageIndex - 1);
 
-		fetchAuditLogs({ ...allFilters });
+		fetchMcpAuditLogs({ ...allFilters });
 	}
 
-	async function fetchAuditLogs(filters: typeof searchParamFilters) {
-		return (auditLogsResponse = await UserService.listAuditLogs(filters));
+	async function fetchMcpAuditLogs(filters: typeof searchParamFilters) {
+		return (auditLogsResponse = await UserService.listMcpAuditLogs(filters));
 	}
 
 	function getFilterDisplayLabel(key: string) {
-		const _key = key as keyof AuditLogURLFilters;
+		const _key = key as keyof McpAuditLogURLFilters;
 
 		if (_key === 'mcp_server_display_name') return 'Server';
 		if (_key === 'mcp_server_catalog_entry_name') return 'Server Catalog Entry Name';
@@ -410,7 +354,7 @@
 		return value + '';
 	}
 
-	function getFilterValue(label: keyof AuditLogURLFilters, value: string | number) {
+	function getFilterValue(label: keyof McpAuditLogURLFilters, value: string | number) {
 		if (label === 'start_time' || label === 'end_time') {
 			return new Date(value).toLocaleString(undefined, {
 				year: 'numeric',
@@ -434,7 +378,7 @@
 	function handleRightSidebarClose() {
 		rightSidebar?.hidePopover();
 		showFilters = false;
-		selectedAuditLog = undefined;
+		selectedMcpAuditLog = undefined;
 	}
 
 	function handleDateChange({ start, end }: DateRange) {
@@ -536,21 +480,6 @@
 	}
 </script>
 
-{#if showLoadingSpinner}
-	<div
-		class="absolute inset-0 z-20 flex items-center justify-center"
-		in:fade={{ duration: 100 }}
-		out:fade|global={{ duration: 300, delay: 500 }}
-	>
-		<div
-			class="bg-base-400/50 border-base-400 text-primary dark:text-primary flex flex-col items-center gap-4 rounded-2xl border px-16 py-8 shadow-md backdrop-blur-[1px]"
-		>
-			<Loading class="size-32 stroke-1" />
-			<div class="text-2xl font-semibold">Loading logs...</div>
-		</div>
-	</div>
-{/if}
-
 <div class="flex flex-col justify-end gap-2 @container">
 	<div class="flex flex-col gap-4 @min-[768px]:flex-row">
 		<Search
@@ -572,7 +501,7 @@
 					class="btn btn-neutral h-12.5"
 					onclick={() => {
 						showFilters = true;
-						selectedAuditLog = undefined;
+						selectedMcpAuditLog = undefined;
 						rightSidebar?.showPopover();
 					}}
 				>
@@ -625,7 +554,10 @@
 	{/if}
 </div>
 
-{#if auditLogsTotalItems > 0}
+{#if showLoadingSpinner}
+	<div class="skeleton rounded-md h-71 mb-4"></div>
+	<AuditLogTableSkeleton />
+{:else if auditLogsTotalItems > 0}
 	<!-- Timeline Graph (Placeholder) -->
 	<div
 		class="dark:bg-base-300 dark:border-base-400 bg-base-100 text-muted-content rounded-lg border border-transparent shadow-sm"
@@ -656,7 +588,7 @@
 		<hr class="dark:border-base-400 my-4 border" />
 		<div class="flex items-center justify-between gap-2 px-4 pb-4 text-xs text-gray-600">
 			<div class="flex gap-4">
-				<div>{Intl.NumberFormat().format(remoteAuditLogs.length)} results</div>
+				<div>{Intl.NumberFormat().format(remoteMcpAuditLogs.length)} results</div>
 
 				<div class="flex items-center">
 					{#if numberOfPages > 1}
@@ -691,26 +623,26 @@
 		</div>
 	</div>
 	{#if displayTableData.length > 0}
-		<AuditLogsTable
+		<McpAuditLogsTable
 			data={displayTableData}
-			onSelectRow={async (d: AuditLog & { user: string }) => {
+			onSelectRow={async (d: McpAuditLog & { user: string }) => {
 				showFilters = false;
 				rightSidebar?.showPopover();
 				// Fetch full audit log details with request/response bodies
 				try {
-					const fullDetails = await UserService.getAuditLog(d.id);
-					selectedAuditLog = { ...fullDetails, user: d.user };
+					const fullDetails = await UserService.getMcpAuditLog(d.id);
+					selectedMcpAuditLog = { ...fullDetails, user: d.user };
 				} catch (error) {
 					console.error('Failed to fetch audit log details:', error);
 					// Fallback to the cached data if fetch fails
-					selectedAuditLog = d;
+					selectedMcpAuditLog = d;
 				}
 			}}
 			getUserDisplayName={(userId: string, hasConflict?: () => boolean) =>
 				getUserDisplayName(users, userId, hasConflict)}
 			{emptyContent}
-		></AuditLogsTable>
-	{:else if remoteAuditLogs.length > 0}
+		/>
+	{:else if remoteMcpAuditLogs.length > 0}
 		<div class="text-muted-content flex items-center justify-center gap-2 py-12 text-sm font-light">
 			<Loading class="size-5 animate-spin" />
 			<span>Preparing results…</span>
@@ -730,10 +662,13 @@
 <div
 	bind:this={rightSidebar}
 	popover
-	class="drawer-legacy {selectedAuditLog ? 'max-w-[85vw] min-w-lg' : 'md:w-lg lg:w-xl'}"
-	style={selectedAuditLog ? 'width: 32rem' : ''}
+	class={twMerge(
+		'drawer-legacy',
+		selectedMcpAuditLog ? 'max-w-[85vw] min-w-lg' : 'md:w-lg lg:w-xl'
+	)}
+	style={selectedMcpAuditLog ? 'width: 32rem' : ''}
 >
-	{#if selectedAuditLog}
+	{#if selectedMcpAuditLog}
 		{#if !responsive.isMobile && rightSidebar}
 			<div
 				role="none"
@@ -741,7 +676,7 @@
 				use:columnResize={{ column: rightSidebar, direction: 'right' }}
 			></div>
 		{/if}
-		<AuditLogDetails onClose={handleRightSidebarClose} auditLog={selectedAuditLog} />
+		<McpAuditLogDetails onClose={handleRightSidebarClose} auditLog={selectedMcpAuditLog} />
 	{/if}
 
 	{#if showFilters}
@@ -761,14 +696,14 @@
 					end_time: timeRangeFilters.endTime?.toISOString()
 				};
 				if (filterId !== 'mcp_id') {
-					return await UserService.listAuditLogFilterOptions(filterId, {
+					return await UserService.listMcpAuditLogFilterOptions(filterId, {
 						...opts,
 						...timeFilters
 					});
 				}
 
 				if (mcpId) {
-					const response = await UserService.listAuditLogFilterOptions(filterId, {
+					const response = await UserService.listMcpAuditLogFilterOptions(filterId, {
 						...opts,
 						...timeFilters
 					});
@@ -777,7 +712,7 @@
 				}
 
 				if (!id || !mcpServerCatalogEntryName) {
-					return await UserService.listAuditLogFilterOptions(filterId, {
+					return await UserService.listMcpAuditLogFilterOptions(filterId, {
 						...opts,
 						...timeFilters
 					});
@@ -797,56 +732,13 @@
 </div>
 
 {#snippet filters()}
-	{@const entries = Object.entries(pillsSearchParamFilters) as [keyof AuditLogURLFilters, string][]}
-	{@const hasFilters = !!entries.length}
-
-	{#if hasFilters}
-		<div
-			class="flex flex-wrap items-center gap-2"
-			in:slide={{ duration: 100 }}
-			out:slide={{ duration: 50 }}
-		>
-			{#each entries as [filterKey, filterValues] (filterKey)}
-				{@const displayLabel = getFilterDisplayLabel(filterKey)}
-				{@const values = filterValues?.toString().split(',').filter(Boolean) ?? []}
-				{@const isClearable =
-					!propsFiltersKeys.has(filterKey) && !enforcedFiltersKeys.has(filterKey)}
-
-				<div class="filter-primary" animate:flip={{ duration: 100 }}>
-					<div class="text-xs font-semibold">
-						<span>{displayLabel}</span>
-						<span>:</span>
-						{#each values as value (value)}
-							{@const isMultiple = values.length > 1}
-
-							{#if isMultiple}
-								<span class="font-light">
-									<span>{getFilterValue(filterKey, value)}</span>
-								</span>
-
-								<span class="mx-1 font-bold last:hidden">OR</span>
-							{:else}
-								<span class="font-light">{getFilterValue(filterKey, value)}</span>
-							{/if}
-						{/each}
-					</div>
-
-					{#if isClearable}
-						<button
-							onclick={() => {
-								const url = page.url;
-								url.searchParams.set(filterKey, '');
-
-								goto(url, { noScroll: true });
-							}}
-						>
-							<X class="size-3" />
-						</button>
-					{/if}
-				</div>
-			{/each}
-		</div>
-	{/if}
+	<AuditLogFilterPills
+		{pillsSearchParamFilters}
+		{getFilterDisplayLabel}
+		{getFilterValue}
+		isFilterClearable={(filterKey) =>
+			!propsFiltersKeys.has(filterKey) && !enforcedFiltersKeys.has(filterKey)}
+	/>
 {/snippet}
 
 <!-- Filter Confirmation Dialog -->
@@ -862,7 +754,7 @@
 			<!-- Show current filters -->
 			{#if Object.entries(pillsSearchParamFilters).length > 0 || query}
 				{@const entries = Object.entries(pillsSearchParamFilters) as [
-					keyof AuditLogURLFilters,
+					keyof McpAuditLogURLFilters,
 					string
 				][]}
 				<div class="mb-4 rounded-md bg-gray-50 p-3 dark:bg-gray-800">

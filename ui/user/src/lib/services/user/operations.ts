@@ -24,13 +24,14 @@ import {
 	type Fetcher,
 	type PaginatedResponse
 } from '../http';
+import { AUDIT_LOG_FILTER_OPTIONS_LIMIT } from './constants';
 import {
 	type AppNotification,
 	type AppPreferences,
-	type AuditLog,
-	type AuditLogURLFilters,
-	type AuditLogUsageFilters,
-	type AuditLogUsageStats,
+	type McpAuditLog,
+	type McpAuditLogURLFilters,
+	type McpAuditLogUsageFilters,
+	type McpAuditLogUsageStats,
 	type BootstrapStatus,
 	type DefaultModelAlias,
 	type DeviceScan,
@@ -48,7 +49,7 @@ import {
 	type OrgGroup,
 	type OrgUser,
 	type Profile,
-	type ServerOrInstanceAuditLogStatsFilters,
+	type McpServerOrInstanceAuditLogStatsFilters,
 	type Version,
 	type Workspace,
 	type AccessControlRule,
@@ -165,23 +166,26 @@ export async function listAppPreferences(opts?: { fetch?: Fetcher }) {
 
 // Audit logs
 
-export async function listAuditLogs(filters?: AuditLogURLFilters, opts?: { fetch?: Fetcher }) {
+export async function listMcpAuditLogs(
+	filters?: McpAuditLogURLFilters,
+	opts?: { fetch?: Fetcher }
+) {
 	const queryString = buildQueryString(filters ?? {});
 	const response = (await doGet(
 		`/mcp-audit-logs${queryString ? `?${queryString}` : ''}`,
 		opts
-	)) as PaginatedResponse<AuditLog>;
+	)) as PaginatedResponse<McpAuditLog>;
 	return response;
 }
 
-export async function getAuditLog(id: string | number, opts?: { fetch?: Fetcher }) {
-	const response = (await doGet(`/mcp-audit-logs/detail/${id}`, opts)) as AuditLog;
+export async function getMcpAuditLog(id: string | number, opts?: { fetch?: Fetcher }) {
+	const response = (await doGet(`/mcp-audit-logs/detail/${id}`, opts)) as McpAuditLog;
 	return response;
 }
 
-export async function listAuditLogFilterOptions(
+export async function listMcpAuditLogFilterOptions(
 	filterId: string,
-	opts?: { fetch?: Fetcher } & Partial<AuditLogURLFilters>
+	opts?: { fetch?: Fetcher } & Partial<McpAuditLogURLFilters>
 ) {
 	const { fetch: fetchFn, ...filters } = opts ?? {};
 	const queryString = buildQueryString({ ...filters, limit: AUDIT_LOG_FILTER_OPTIONS_LIMIT });
@@ -194,43 +198,41 @@ export async function listAuditLogFilterOptions(
 	return response;
 }
 
-export async function listAuditLogUsageStats(
-	filters?: Partial<AuditLogUsageFilters>,
+export async function listMcpAuditLogUsageStats(
+	filters?: Partial<McpAuditLogUsageFilters>,
 	opts?: { fetch?: Fetcher }
 ) {
 	const queryString = buildQueryString(filters ?? {});
 	const response = (await doGet(
 		`/mcp-stats${queryString ? `?${queryString}` : ''}`,
 		opts
-	)) as AuditLogUsageStats;
+	)) as McpAuditLogUsageStats;
 	return response;
 }
 
-export const AUDIT_LOG_FILTER_OPTIONS_LIMIT = 1000;
-
-export async function listServerOrInstanceAuditLogs(
+export async function listMcpServerOrInstanceAuditLogs(
 	mcpId: string, // can either by server instance or mcp server id ex. ms- or msi-
-	filters?: AuditLogURLFilters,
+	filters?: McpAuditLogURLFilters,
 	opts?: { fetch?: Fetcher }
 ) {
 	const queryString = buildQueryString(filters ?? {});
 	const response = (await doGet(
 		`/mcp-audit-logs/${mcpId}${queryString ? `?${queryString}` : ''}`,
 		opts
-	)) as PaginatedResponse<AuditLog>;
+	)) as PaginatedResponse<McpAuditLog>;
 	return response;
 }
 
-export async function listServerOrInstanceAuditLogStats(
+export async function listMcpServerOrInstanceAuditLogStats(
 	mcpId: string, // can either by server instance or mcp server id ex. ms- or msi-
-	filters?: ServerOrInstanceAuditLogStatsFilters,
+	filters?: McpServerOrInstanceAuditLogStatsFilters,
 	opts?: { fetch?: Fetcher }
 ) {
 	const queryString = buildQueryString(filters ?? {});
 	const response = (await doGet(
 		`/mcp-stats/${mcpId}${queryString ? `?${queryString}` : ''}`,
 		opts
-	)) as AuditLogUsageStats;
+	)) as McpAuditLogUsageStats;
 	return response;
 }
 

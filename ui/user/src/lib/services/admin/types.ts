@@ -485,6 +485,55 @@ export interface LicenseManifest {
 	licenseKey: string;
 }
 
+// LLM audit logs
+
+export interface LLMAuditLog {
+	client: string;
+	clientIP: string;
+	clientSessionID: string;
+	clientVersion: string;
+	createdAt: string;
+	duration: number;
+	error?: string;
+	id: string;
+	inputTokens: number;
+	modelID: string;
+	modelProvider: string;
+	outcome: string;
+	outputTokens: number;
+	reasoningEffort: string;
+	redactedRequestBody?: unknown;
+	requestBody?: unknown;
+	requestHeaders?: Record<string, string | string[]>;
+	requestID: string;
+	requestMethod: string;
+	requestPath: string;
+	responseBody?: unknown;
+	responseHeaders?: Record<string, string | string[]>;
+	responseID: string;
+	responseStatus: number;
+	targetModel: string;
+	userID: string;
+}
+
+export type LLMAuditLogURLFilters = {
+	client?: string | null;
+	client_session_id?: string | null;
+	end_time?: string | null;
+	limit?: number | null;
+	model_provider?: string | null;
+	offset?: number | null;
+	outcome?: string | null;
+	query?: string | null;
+	request_path?: string | null;
+	response_status?: string | null;
+	sort_by?: string | null;
+	sort_order?: string | null;
+	start_time?: string | null;
+	target_model?: string | null;
+	user_id?: string | null;
+};
+
 // MCP capacity
 
 export type CapacitySource = 'resourceQuota' | 'deployments';

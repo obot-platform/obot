@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"net/http"
@@ -191,7 +192,7 @@ func TestLLMResponseAccumulatorOpenAITerminalResponseWins(t *testing.T) {
 	}, "\n") + "\n"))
 
 	got := a.JSON()
-	if gjson.Get(got, "output.0.content.0.text").String() != "final" {
+	if gjson.GetBytes(got, "output.0.content.0.text").String() != "final" {
 		t.Fatalf("expected terminal response text, got %s", got)
 	}
 	if a.ResponseID() != "resp_123" {
@@ -206,7 +207,7 @@ func TestLLMResponseAccumulatorOpenAIPartialTextAndSplitLine(t *testing.T) {
 	a.Write([]byte(`lo"}` + "\n"))
 
 	got := a.JSON()
-	if gjson.Get(got, "output.0.content.0.text").String() != "hello" {
+	if gjson.GetBytes(got, "output.0.content.0.text").String() != "hello" {
 		t.Fatalf("expected accumulated text, got %s", got)
 	}
 }
@@ -222,10 +223,10 @@ func TestLLMResponseAccumulatorOpenAIFunctionAndReasoning(t *testing.T) {
 	}, "\n") + "\n"))
 
 	got := a.JSON()
-	if gjson.Get(got, "output.0.arguments").String() != `{"q":"hi"}` {
+	if gjson.GetBytes(got, "output.0.arguments").String() != `{"q":"hi"}` {
 		t.Fatalf("expected function arguments, got %s", got)
 	}
-	if gjson.Get(got, "output.1.encrypted_content").String() != "secret" {
+	if gjson.GetBytes(got, "output.1.encrypted_content").String() != "secret" {
 		t.Fatalf("expected reasoning encrypted content, got %s", got)
 	}
 }
@@ -244,10 +245,10 @@ func TestLLMResponseAccumulatorAnthropicMessage(t *testing.T) {
 	}, "\n") + "\n"))
 
 	got := a.JSON()
-	if gjson.Get(got, "content.0.text").String() != "hello" {
+	if gjson.GetBytes(got, "content.0.text").String() != "hello" {
 		t.Fatalf("expected anthropic text, got %s", got)
 	}
-	if gjson.Get(got, "usage.output_tokens").Int() != 5 {
+	if gjson.GetBytes(got, "usage.output_tokens").Int() != 5 {
 		t.Fatalf("expected usage, got %s", got)
 	}
 	if a.ResponseID() != "msg_123" {
@@ -269,10 +270,10 @@ func TestLLMResponseAccumulatorAnthropicToolAndThinking(t *testing.T) {
 	}, "\n") + "\n"))
 
 	got := a.JSON()
-	if gjson.Get(got, "content.0.input.q").String() != "hi" {
+	if gjson.GetBytes(got, "content.0.input.q").String() != "hi" {
 		t.Fatalf("expected tool input, got %s", got)
 	}
-	if gjson.Get(got, "content.1.thinking").String() != "ponder" || gjson.Get(got, "content.1.signature").String() != "sig" {
+	if gjson.GetBytes(got, "content.1.thinking").String() != "ponder" || gjson.GetBytes(got, "content.1.signature").String() != "sig" {
 		t.Fatalf("expected thinking/signature, got %s", got)
 	}
 }
@@ -280,12 +281,12 @@ func TestLLMResponseAccumulatorAnthropicToolAndThinking(t *testing.T) {
 func TestLLMResponseAccumulatorNonStreamAndEmpty(t *testing.T) {
 	a := gatewayllmaudit.NewResponseAccumulator(system.OpenAIModelProvider)
 	a.Write([]byte(`{"id":"resp_plain","status":"completed"}`))
-	if got := a.JSON(); gjson.Get(got, "id").String() != "resp_plain" {
+	if got := a.JSON(); gjson.GetBytes(got, "id").String() != "resp_plain" {
 		t.Fatalf("expected plain JSON response, got %s", got)
 	}
 
 	empty := gatewayllmaudit.NewResponseAccumulator(system.OpenAIModelProvider)
-	if got := empty.JSON(); got != "{}" {
+	if got := empty.JSON(); !bytes.Equal(got, []byte(`{}`)) {
 		t.Fatalf("expected empty object, got %s", got)
 	}
 }
@@ -300,7 +301,7 @@ func TestLLMAuditRecorderStoresAggregatedResponseBody(t *testing.T) {
 	accumulator.Write(recorder.responseStream.Bytes())
 	recorder.log.ResponseBody = accumulator.JSON()
 
-	if gjson.Get(recorder.log.ResponseBody, "id").String() != "resp_rec" {
+	if gjson.GetBytes(recorder.log.ResponseBody, "id").String() != "resp_rec" {
 		t.Fatalf("expected aggregated response body, got %s", recorder.log.ResponseBody)
 	}
 }

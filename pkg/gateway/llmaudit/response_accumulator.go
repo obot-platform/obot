@@ -5,16 +5,15 @@ import (
 	"encoding/json"
 	"maps"
 	"strconv"
-	"strings"
 
 	"github.com/obot-platform/obot/pkg/system"
 )
 
 type ResponseAccumulator struct {
 	modelProvider string
-	pending       string
+	pending       []byte
 	sawSSE        bool
-	rawJSON       strings.Builder
+	rawJSON       bytes.Buffer
 	responseID    string
 
 	openAI    openAIResponseAccumulator
@@ -30,40 +29,40 @@ func (a *ResponseAccumulator) Write(p []byte) {
 		return
 	}
 
-	s := a.pending + string(p)
-	a.pending = ""
+	data := append(a.pending, p...)
+	a.pending = nil
 	for {
-		line, rest, ok := strings.Cut(s, "\n")
+		line, rest, ok := bytes.Cut(data, []byte("\n"))
 		if !ok {
-			a.pending = s
+			a.pending = data
 			return
 		}
-		a.processLine(strings.TrimSuffix(line, "\r"))
-		s = rest
+		a.processLine(bytes.TrimSuffix(line, []byte("\r")))
+		data = rest
 	}
 }
 
-func (a *ResponseAccumulator) JSON() string {
+func (a *ResponseAccumulator) JSON() json.RawMessage {
 	if a == nil {
-		return "{}"
+		return json.RawMessage(`{}`)
 	}
-	if a.pending != "" {
-		a.processLine(strings.TrimSuffix(a.pending, "\r"))
-		a.pending = ""
+	if len(a.pending) > 0 {
+		a.processLine(bytes.TrimSuffix(a.pending, []byte("\r")))
+		a.pending = nil
 	}
 	if !a.sawSSE && a.rawJSON.Len() > 0 {
-		return compactJSONObject(a.rawJSON.String())
+		return compactJSONObject(a.rawJSON.Bytes())
 	}
 
-	var raw string
+	var raw json.RawMessage
 	switch a.modelProvider {
 	case system.OpenAIModelProvider:
 		raw = a.openAI.JSON()
 	case system.AnthropicModelProvider:
 		raw = a.anthropic.JSON()
 	}
-	if raw == "" {
-		return "{}"
+	if len(raw) == 0 {
+		return json.RawMessage(`{}`)
 	}
 	return compactJSONObject(raw)
 }
@@ -85,29 +84,29 @@ func (a *ResponseAccumulator) ResponseID() string {
 	}
 }
 
-func (a *ResponseAccumulator) processLine(line string) {
-	trimmed := strings.TrimSpace(line)
-	if trimmed == "" {
+func (a *ResponseAccumulator) processLine(line []byte) {
+	trimmed := bytes.TrimSpace(line)
+	if len(trimmed) == 0 {
 		return
 	}
 
-	data, ok := strings.CutPrefix(trimmed, "data:")
+	data, ok := bytes.CutPrefix(trimmed, []byte("data:"))
 	if ok {
 		a.sawSSE = true
-		body := strings.TrimSpace(data)
-		if body == "" || body == "[DONE]" || !json.Valid([]byte(body)) {
+		body := bytes.TrimSpace(data)
+		if len(body) == 0 || bytes.Equal(body, []byte("[DONE]")) || !json.Valid(body) {
 			return
 		}
 		a.processJSON(body)
 		return
 	}
 
-	if !a.sawSSE && (a.rawJSON.Len() > 0 || strings.HasPrefix(trimmed, "{") || strings.HasPrefix(trimmed, "[")) {
-		a.rawJSON.WriteString(line)
+	if !a.sawSSE && (a.rawJSON.Len() > 0 || trimmed[0] == '{' || trimmed[0] == '[') {
+		_, _ = a.rawJSON.Write(line)
 	}
 }
 
-func (a *ResponseAccumulator) processJSON(body string) {
+func (a *ResponseAccumulator) processJSON(body []byte) {
 	if a.modelProvider == system.OpenAIModelProvider {
 		a.openAI.Process(body)
 		if a.responseID == "" {
@@ -125,12 +124,12 @@ func (a *ResponseAccumulator) processJSON(body string) {
 
 type openAIResponseAccumulator struct {
 	response map[string]any
-	finalRaw string
+	finalRaw json.RawMessage
 }
 
-func (a *openAIResponseAccumulator) Process(body string) {
+func (a *openAIResponseAccumulator) Process(body []byte) {
 	var event map[string]any
-	if err := json.Unmarshal([]byte(body), &event); err != nil {
+	if err := json.Unmarshal(body, &event); err != nil {
 		return
 	}
 
@@ -138,7 +137,7 @@ func (a *openAIResponseAccumulator) Process(body string) {
 	if typ == "response.completed" || typ == "response.failed" || typ == "response.incomplete" {
 		if response, ok := event["response"].(map[string]any); ok {
 			a.response = cloneMap(response)
-			a.finalRaw = mustMarshalString(response)
+			a.finalRaw = mustMarshal(response)
 		}
 		return
 	}
@@ -183,11 +182,11 @@ func (a *openAIResponseAccumulator) Process(body string) {
 	}
 }
 
-func (a *openAIResponseAccumulator) JSON() string {
-	if a.finalRaw != "" {
+func (a *openAIResponseAccumulator) JSON() json.RawMessage {
+	if len(a.finalRaw) > 0 {
 		return a.finalRaw
 	}
-	return mustMarshalString(a.response)
+	return mustMarshal(a.response)
 }
 
 func (a *openAIResponseAccumulator) ResponseID() string {
@@ -237,12 +236,12 @@ func (a *openAIResponseAccumulator) ensureOutputItem(index int) map[string]any {
 
 type anthropicResponseAccumulator struct {
 	message       map[string]any
-	partialInputs map[int]*strings.Builder
+	partialInputs map[int]*bytes.Buffer
 }
 
-func (a *anthropicResponseAccumulator) Process(body string) {
+func (a *anthropicResponseAccumulator) Process(body []byte) {
 	var event map[string]any
-	if err := json.Unmarshal([]byte(body), &event); err != nil {
+	if err := json.Unmarshal(body, &event); err != nil {
 		return
 	}
 
@@ -271,11 +270,11 @@ func (a *anthropicResponseAccumulator) Process(body string) {
 	}
 }
 
-func (a *anthropicResponseAccumulator) JSON() string {
+func (a *anthropicResponseAccumulator) JSON() json.RawMessage {
 	for index := range a.partialInputs {
 		a.finalizeInput(index)
 	}
-	return mustMarshalString(a.message)
+	return mustMarshal(a.message)
 }
 
 func (a *anthropicResponseAccumulator) ResponseID() string {
@@ -334,11 +333,11 @@ func (a *anthropicResponseAccumulator) applyContentDelta(index int, raw any) {
 		block["text"] = stringValue(block["text"]) + stringValue(delta["text"])
 	case "input_json_delta":
 		if a.partialInputs == nil {
-			a.partialInputs = map[int]*strings.Builder{}
+			a.partialInputs = map[int]*bytes.Buffer{}
 		}
 		b := a.partialInputs[index]
 		if b == nil {
-			b = new(strings.Builder)
+			b = new(bytes.Buffer)
 			a.partialInputs[index] = b
 		}
 		b.WriteString(stringValue(delta["partial_json"]))
@@ -353,13 +352,13 @@ func (a *anthropicResponseAccumulator) finalizeInput(index int) {
 	if a.partialInputs == nil || a.partialInputs[index] == nil {
 		return
 	}
-	partial := a.partialInputs[index].String()
+	partial := a.partialInputs[index].Bytes()
 	block := a.contentBlock(index)
 	var input any
-	if err := json.Unmarshal([]byte(partial), &input); err == nil {
+	if err := json.Unmarshal(partial, &input); err == nil {
 		block["input"] = input
-	} else if partial != "" {
-		block["input_partial_json"] = partial
+	} else if len(partial) > 0 {
+		block["input_partial_json"] = string(partial)
 	}
 	delete(a.partialInputs, index)
 }
@@ -382,33 +381,27 @@ func cloneMap(m map[string]any) map[string]any {
 	return out
 }
 
-func mustMarshalString(v any) string {
+func mustMarshal(v any) json.RawMessage {
 	if v == nil {
-		return ""
+		return nil
 	}
 	b, err := json.Marshal(v)
 	if err != nil {
-		return ""
+		return nil
 	}
-	return string(b)
+	return b
 }
 
-func compactJSONObject(raw string) string {
-	if !json.Valid([]byte(raw)) {
-		return "{}"
-	}
-	var v any
-	if err := json.Unmarshal([]byte(raw), &v); err != nil {
-		return "{}"
-	}
-	if _, ok := v.(map[string]any); !ok {
-		return "{}"
+func compactJSONObject(raw []byte) json.RawMessage {
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) == 0 || trimmed[0] != '{' || !json.Valid(trimmed) {
+		return json.RawMessage(`{}`)
 	}
 	var buf bytes.Buffer
-	if err := json.Compact(&buf, []byte(raw)); err != nil {
-		return "{}"
+	if err := json.Compact(&buf, trimmed); err != nil {
+		return json.RawMessage(`{}`)
 	}
-	return buf.String()
+	return buf.Bytes()
 }
 
 func intValue(v any) int {

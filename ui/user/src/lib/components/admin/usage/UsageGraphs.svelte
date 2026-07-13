@@ -6,8 +6,8 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		UserService,
-		type AuditLogURLFilters,
-		type AuditLogUsageStats,
+		type McpAuditLogURLFilters,
+		type McpAuditLogUsageStats,
 		type OrgUser,
 		type UsageStatsFilters
 	} from '$lib/services';
@@ -44,7 +44,7 @@
 		tooltip: string;
 		formatXLabel?: (x: string | number) => string;
 		formatTooltipText?: (data: Record<string, string | number>) => string;
-		transform: (stats?: AuditLogUsageStats) => Array<Record<string, string | number>>;
+		transform: (stats?: McpAuditLogUsageStats) => Array<Record<string, string | number>>;
 	};
 
 	let { mcpId, mcpServerCatalogEntryName, mcpServerDisplayName }: Props = $props();
@@ -58,7 +58,7 @@
 		'end_time'
 	];
 
-	const proxy = new Map<SupportedStateFilter, keyof AuditLogURLFilters>([
+	const proxy = new Map<SupportedStateFilter, keyof McpAuditLogURLFilters>([
 		['user_ids', 'user_id'],
 		['mcp_id', 'mcp_id'],
 		['mcp_server_display_names', 'mcp_server_display_name'],
@@ -216,7 +216,7 @@
 	});
 
 	let showLoadingSpinner = $state(true);
-	let listUsageStats = $state<Promise<AuditLogUsageStats>>();
+	let listUsageStats = $state<Promise<McpAuditLogUsageStats>>();
 	let graphPageSize = $state(10);
 	let graphPages = $state<Record<string, number>>({});
 	let graphData = $derived<Record<string, Record<string, string | number>[]>>({});
@@ -437,11 +437,11 @@
 
 	async function reload() {
 		listUsageStats = mcpId
-			? UserService.listServerOrInstanceAuditLogStats(mcpId, {
+			? UserService.listMcpServerOrInstanceAuditLogStats(mcpId, {
 					start_time: filters.start_time,
 					end_time: filters.end_time
 				})
-			: UserService.listAuditLogUsageStats({
+			: UserService.listMcpAuditLogUsageStats({
 					...filters
 				});
 	}
@@ -698,7 +698,7 @@
 				!propsFiltersKeys.has(filterId) && !enforcedFiltersKeys.has(filterId)}
 			endpoint={async (filterId: string, ...args) => {
 				const proxyFilterId = proxy.get(filterId as SupportedStateFilter) ?? filterId;
-				return UserService.listAuditLogFilterOptions(proxyFilterId, ...args);
+				return UserService.listMcpAuditLogFilterOptions(proxyFilterId, ...args);
 			}}
 		/>
 	{/if}

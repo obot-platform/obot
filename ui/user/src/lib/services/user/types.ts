@@ -105,12 +105,12 @@ export interface AppPreferences {
 
 // Audit logs
 
-export type AuditLogClient = {
+export type McpAuditLogClient = {
 	name: string;
 	version: string;
 };
-export type AuditLogSourceType = 'mcp' | 'local_agent_tool_call';
-export type LocalAgentToolCallAuditLogFields = {
+export type McpAuditLogSourceType = 'mcp' | 'local_agent_tool_call';
+export type McpLocalAgentToolCallAuditLogFields = {
 	agentProvider: 'claude_code' | 'codex' | 'vscode' | 'cursor' | string;
 	agentVersion?: string;
 	cliName?: string;
@@ -150,14 +150,14 @@ export type LocalAgentToolCallAuditLogFields = {
 	toolOutput: unknown;
 	rawHookPayload: unknown;
 };
-export type MCPAuditLogFields = {
+export type McpAuditLogFields = {
 	apiKey?: string;
 	userAgent?: string;
 	mcpServerDisplayName: string;
 	mcpServerCatalogEntryName?: string;
 	mcpID?: string;
 	powerUserWorkspaceID?: string;
-	client: AuditLogClient;
+	client: McpAuditLogClient;
 	callType: string;
 	callIdentifier?: string;
 	responseStatus: number;
@@ -183,52 +183,52 @@ export type MCPAuditLogFields = {
 	sessionID?: string;
 	requestID?: string;
 };
-export interface AuditLog {
+export interface McpAuditLog {
 	id: string;
 	createdAt: string;
-	sourceType?: AuditLogSourceType;
+	sourceType?: McpAuditLogSourceType;
 	userID: string;
 	clientIP: string;
-	mcpFields?: MCPAuditLogFields;
-	localAgentToolCallFields?: LocalAgentToolCallAuditLogFields;
+	mcpFields?: McpAuditLogFields;
+	localAgentToolCallFields?: McpLocalAgentToolCallAuditLogFields;
 }
-export interface AuditLogToolCallStatItem {
+export interface McpAuditLogToolCallStatItem {
 	createdAt: string;
 	userID: string;
 	processingTimeMs: number;
 	responseStatus: number;
 	error: string;
 }
-export interface AuditLogToolCallStat {
+export interface McpAuditLogToolCallStat {
 	toolName: string;
 	callCount: number;
-	items?: AuditLogToolCallStatItem[];
+	items?: McpAuditLogToolCallStatItem[];
 }
-export interface AuditLogResourceReadStat {
+export interface McpAuditLogResourceReadStat {
 	resourceUri: string;
 	readCount: number;
 }
-export interface AuditLogPromptReadStat {
+export interface McpAuditLogPromptReadStat {
 	promptName: string;
 	readCount: number;
 }
-export interface AuthLogUsageStatItem {
+export interface McpAuthLogUsageStatItem {
 	mcpID: string;
 	mcpServerInstanceName: string;
 	mcpServerName: string;
 	mcpServerDisplayName: string;
-	toolCalls?: AuditLogToolCallStat[];
-	resourceReads?: AuditLogResourceReadStat[];
-	promptReads?: AuditLogPromptReadStat[];
+	toolCalls?: McpAuditLogToolCallStat[];
+	resourceReads?: McpAuditLogResourceReadStat[];
+	promptReads?: McpAuditLogPromptReadStat[];
 }
-export interface AuditLogUsageStats {
-	items: AuthLogUsageStatItem[];
+export interface McpAuditLogUsageStats {
+	items: McpAuthLogUsageStatItem[];
 	timeStart: string;
 	timeEnd: string;
 	totalCalls: number;
 	uniqueUsers: number;
 }
-export type AuditLogURLFilters = {
+export type McpAuditLogURLFilters = {
 	user_id?: string | null;
 	mcp_server_catalog_entry_name?: string | null;
 	mcp_server_display_name?: string | null;
@@ -246,7 +246,8 @@ export type AuditLogURLFilters = {
 	query?: string | null;
 	response_status?: string | null;
 };
-export type AuditLogFilters = {
+
+export type McpAuditLogFilters = {
 	userId?: string | null;
 	mcpServerCatalogEntryName?: string | null;
 	mcpServerDisplayName?: string | null;
@@ -260,7 +261,7 @@ export type AuditLogFilters = {
 	sortBy?: string | null; // Field to sort by (e.g., "created_at", "user_id", "call_type")
 	sortOrder?: string | null; // Sort order: "asc" or "desc"
 };
-export type AuditLogUsageFilters = {
+export type McpAuditLogUsageFilters = {
 	mcp_id?: string;
 	mcp_server_catalog_entry_names?: string;
 	mcp_server_display_names?: string;
@@ -268,7 +269,7 @@ export type AuditLogUsageFilters = {
 	start_time?: string | null;
 	end_time?: string | null;
 };
-export type ServerOrInstanceAuditLogStatsFilters = {
+export type McpServerOrInstanceAuditLogStatsFilters = {
 	start_time?: string;
 	end_time?: string;
 };

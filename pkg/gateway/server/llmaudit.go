@@ -84,14 +84,14 @@ func (r *llmAuditRecorder) setRequestBody(body []byte) {
 	if r == nil {
 		return
 	}
-	r.log.RequestBody = string(body)
+	r.log.RequestBody = body
 }
 
 func (r *llmAuditRecorder) setRedactedRequestBody(body []byte) {
 	if r == nil {
 		return
 	}
-	r.log.RedactedRequestBody = string(body)
+	r.log.RedactedRequestBody = body
 }
 
 func (r *llmAuditRecorder) setClientSessionID(modelProvider string, body []byte) {
@@ -191,7 +191,7 @@ func (r *llmAuditResponseBody) Close() error {
 	return err
 }
 
-func redactedHeaders(headers http.Header) string {
+func redactedHeaders(headers http.Header) json.RawMessage {
 	out := make(http.Header, len(headers))
 	for k, values := range headers {
 		if shouldRedactHeader(k) {
@@ -201,7 +201,7 @@ func redactedHeaders(headers http.Header) string {
 		out[k] = append([]string(nil), values...)
 	}
 	b, _ := json.Marshal(out)
-	return string(b)
+	return b
 }
 
 func shouldRedactHeader(key string) bool {

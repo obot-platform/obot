@@ -12,6 +12,7 @@ import {
 	type Fetcher,
 	type PaginatedResponse
 } from '../http';
+import { AUDIT_LOG_FILTER_OPTIONS_LIMIT } from '../user/constants';
 import type {
 	ModelProvider,
 	MCPCatalogServer,
@@ -97,7 +98,9 @@ import type {
 	AppPreferencesManifest,
 	AppNotificationManifest,
 	License,
-	LicenseManifest
+	LicenseManifest,
+	LLMAuditLog,
+	LLMAuditLogURLFilters
 } from './types';
 import { MCPCompositeDeletionDependencyError } from './types';
 
@@ -238,6 +241,38 @@ export async function updateScheduledAuditLogExport(
 
 export async function deleteScheduledAuditLogExport(name: string, opts?: { signal?: AbortSignal }) {
 	await doDelete(`/scheduled-audit-log-exports/${name}`, { signal: opts?.signal });
+}
+
+// LLM audit logs
+
+export async function getLLMAuditLog(id: string, opts?: { fetch?: Fetcher; signal?: AbortSignal }) {
+	const response = (await doGet(`/llm-audit-logs/detail/${id}`, opts)) as LLMAuditLog;
+	return response;
+}
+
+export async function listLLMAuditLogs(
+	filters?: LLMAuditLogURLFilters,
+	opts?: { fetch?: Fetcher; signal?: AbortSignal }
+) {
+	const queryString = buildQueryString(filters ?? {});
+	const response = (await doGet(
+		`/llm-audit-logs${queryString ? `?${queryString}` : ''}`,
+		opts
+	)) as PaginatedResponse<LLMAuditLog>;
+	return response;
+}
+
+export async function listLLMAuditLogFilterOptions(
+	filter: string,
+	opts?: { fetch?: Fetcher; signal?: AbortSignal } & Partial<LLMAuditLogURLFilters>
+) {
+	const { fetch: fetchFn, signal, ...filters } = opts ?? {};
+	const queryString = buildQueryString({ ...filters, limit: AUDIT_LOG_FILTER_OPTIONS_LIMIT });
+	const response = (await doGet(
+		`/llm-audit-logs/filter-options/${filter}${queryString ? `?${queryString}` : ''}`,
+		{ fetch: fetchFn, signal }
+	)) as { options: string[] };
+	return response;
 }
 
 // Auth providers

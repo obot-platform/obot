@@ -1,7 +1,10 @@
 package types
 
 import (
+	"encoding/json"
 	"time"
+
+	types2 "github.com/obot-platform/obot/apiclient/types"
 )
 
 const (
@@ -21,11 +24,11 @@ type LLMAuditLog struct {
 	ReasoningEffort     string `gorm:"type:text"`
 	RequestPath         string `gorm:"type:text;index:idx_llm_audit_request_path_created,priority:1"`
 	RequestMethod       string `gorm:"type:text"`
-	RequestHeaders      string `gorm:"type:text"`
-	RequestBody         string `gorm:"type:text"`
-	RedactedRequestBody string `gorm:"type:text"`
-	ResponseHeaders     string `gorm:"type:text"`
-	ResponseBody        string `gorm:"type:text"`
+	RequestHeaders      json.RawMessage
+	RequestBody         json.RawMessage
+	RedactedRequestBody json.RawMessage
+	ResponseHeaders     json.RawMessage
+	ResponseBody        json.RawMessage
 	ResponseID          string `gorm:"type:text;index:idx_llm_audit_response_created,priority:1"`
 	ResponseStatus      int    `gorm:"index:idx_llm_audit_response_status_created,priority:1"`
 	Outcome             string `gorm:"type:text;index:idx_llm_audit_outcome_created,priority:1"`
@@ -42,4 +45,35 @@ type LLMAuditLog struct {
 
 func (LLMAuditLog) TableName() string {
 	return "llm_audit_logs"
+}
+
+func ConvertLLMAuditLog(a LLMAuditLog) types2.LLMAuditLog {
+	return types2.LLMAuditLog{
+		ID:                  a.ID,
+		CreatedAt:           *types2.NewTime(a.CreatedAt),
+		Duration:            a.Duration,
+		UserID:              a.UserID,
+		ModelProvider:       a.ModelProvider,
+		ModelID:             a.ModelID,
+		TargetModel:         a.TargetModel,
+		ReasoningEffort:     a.ReasoningEffort,
+		RequestPath:         a.RequestPath,
+		RequestMethod:       a.RequestMethod,
+		RequestHeaders:      a.RequestHeaders,
+		RequestBody:         a.RequestBody,
+		RedactedRequestBody: a.RedactedRequestBody,
+		ResponseHeaders:     a.ResponseHeaders,
+		ResponseBody:        a.ResponseBody,
+		ResponseID:          a.ResponseID,
+		ResponseStatus:      a.ResponseStatus,
+		Outcome:             a.Outcome,
+		Error:               a.Error,
+		InputTokens:         a.InputTokens,
+		OutputTokens:        a.OutputTokens,
+		RequestID:           a.RequestID,
+		Client:              a.Client,
+		ClientVersion:       a.ClientVersion,
+		ClientSessionID:     a.ClientSessionID,
+		ClientIP:            a.ClientIP,
+	}
 }

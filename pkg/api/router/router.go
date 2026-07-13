@@ -105,6 +105,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mcpSecretBindings := handlers.NewMCPSecretBindingHandler(services.MCPRuntimeBackend, services.LocalK8sClient, services.ObotNamespace, services.MCPSecretBindingAllowedLabel)
 	mcpAuditLogs := mcpgateway.NewAuditLogHandler(services.GatewayClient)
 	localAgentAuditLogs := mcpgateway.NewLocalAgentAuditLogHandler()
+	llmAuditLogs := handlers.NewLLMAuditLogHandler()
 	auditLogExports := handlers.NewAuditLogExportHandler(services.GatewayClient)
 	serverInstances := handlers.NewServerInstancesHandler(services.AccessControlRuleHelper, services.ServerURL)
 	systemMCPServers := handlers.NewSystemMCPServerHandler(services.MCPSessionManager, services.MCPSecretBindingAllowedLabel)
@@ -363,6 +364,11 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/mcp-stats", mcpAuditLogs.GetUsageStats)
 	mux.HandleFunc("GET /api/mcp-stats/{mcp_id}", mcpAuditLogs.GetUsageStats)
 	mux.HandleFunc("POST /api/local-agent-audit-logs", localAgentAuditLogs.Submit)
+
+	// LLM Audit Logs
+	mux.HandleFunc("GET /api/llm-audit-logs", llmAuditLogs.List)
+	mux.HandleFunc("GET /api/llm-audit-logs/filter-options/{filter}", llmAuditLogs.ListFilterOptions)
+	mux.HandleFunc("GET /api/llm-audit-logs/detail/{audit_log_id}", llmAuditLogs.Get)
 
 	// Audit Log Exports
 	mux.HandleFunc("POST /api/audit-log-exports", auditLogExports.CreateAuditLogExport)

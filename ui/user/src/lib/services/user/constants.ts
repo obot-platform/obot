@@ -75,3 +75,5 @@ export const COMMON_AI_CLIENTS = [
 
 export const MAGIC_LINK_SUPPORTED_AI_CLIENTS = [AiClient.Cursor, AiClient.VSCode];
 export const COMMAND_SUPPORTED_AI_CLIENTS = [AiClient.Claude, AiClient.Codex];
+
+export const AUDIT_LOG_FILTER_OPTIONS_LIMIT = 1000;

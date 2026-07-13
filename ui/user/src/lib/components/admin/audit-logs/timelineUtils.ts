@@ -85,45 +85,45 @@ function getBucketStart(date: Date, kind: BucketKind): Date {
 }
 
 /** One row per bucket per category for StackedTimeline with primaryValueKey="count", secondaryValueKey="_secondary". */
-export type AuditLogTimelineBucketRow = {
+export type McpAuditLogTimelineBucketRow = {
 	createdAt: string;
 	callType: string;
 	count: number;
 	_secondary: 0;
 };
 
-export type AuditLogTimelineSourceRow = {
+export type McpAuditLogTimelineSourceRow = {
 	createdAt: string;
 	// Raw audit log API rows keep MCP-specific values under mcpFields.
 	mcpFields?: { callType?: string };
 };
 
-export type AuditLogTimelineChartRow = {
+export type McpAuditLogTimelineChartRow = {
 	createdAt: string;
 	callType: string;
 	count?: number;
 	_secondary?: 0;
 };
 
-function getAuditLogTimelineCallType(row: AuditLogTimelineSourceRow): string {
+function getMcpAuditLogTimelineCallType(row: McpAuditLogTimelineSourceRow): string {
 	return row.mcpFields?.callType || 'unknown';
 }
 
-export function toAuditLogTimelineChartRow(
-	row: AuditLogTimelineSourceRow
-): AuditLogTimelineChartRow {
+export function toMcpAuditLogTimelineChartRow(
+	row: McpAuditLogTimelineSourceRow
+): McpAuditLogTimelineChartRow {
 	// StackedTimeline reads a flat category key, so raw API rows are normalized before charting.
 	return {
 		createdAt: row.createdAt,
-		callType: getAuditLogTimelineCallType(row)
+		callType: getMcpAuditLogTimelineCallType(row)
 	};
 }
 
-export function aggregateAuditLogsByBucket(
-	logs: AuditLogTimelineSourceRow[],
+export function aggregateMcpAuditLogsByBucket(
+	logs: McpAuditLogTimelineSourceRow[],
 	rangeStart: Date,
 	rangeEnd: Date
-): AuditLogTimelineBucketRow[] {
+): McpAuditLogTimelineBucketRow[] {
 	if (logs.length === 0) return [];
 	const kind = getBucketKind(rangeStart, rangeEnd);
 	const bucketToCategoryToCount = new Map<string, Map<string, number>>();
@@ -134,10 +134,10 @@ export function aggregateAuditLogsByBucket(
 			byCat = new Map();
 			bucketToCategoryToCount.set(bucketKey, byCat);
 		}
-		const cat = getAuditLogTimelineCallType(row);
+		const cat = getMcpAuditLogTimelineCallType(row);
 		byCat.set(cat, (byCat.get(cat) ?? 0) + 1);
 	}
-	const result: AuditLogTimelineBucketRow[] = [];
+	const result: McpAuditLogTimelineBucketRow[] = [];
 	for (const [bucketKey, byCat] of bucketToCategoryToCount) {
 		for (const [callType, count] of byCat) {
 			result.push({

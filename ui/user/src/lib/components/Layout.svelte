@@ -171,6 +171,7 @@
 		rightMenu?: Snippet;
 		leftMenu?: Snippet;
 		title?: string;
+		subtitle?: string;
 		showBackButton?: boolean;
 		onBackButtonClick?: () => void;
 		leftSidebar?: Snippet;
@@ -192,6 +193,7 @@
 		main,
 		rightNavActions,
 		title,
+		subtitle,
 		showBackButton,
 		onBackButtonClick,
 		leftSidebar,
@@ -513,6 +515,13 @@
 								id: 'tokens',
 								href: '/admin/token-usage',
 								label: 'Token Usage',
+								disabled: isBootStrapUser,
+								collapsible: false
+							},
+							{
+								id: 'llm-audit-logs',
+								href: '/admin/llm-audit-logs',
+								label: 'Audit Logs',
 								disabled: isBootStrapUser,
 								collapsible: false
 							},
@@ -928,14 +937,14 @@
 		</IconButton>
 	{/if}
 	{#if title}
-		<h1
-			class={twMerge(
-				'text-xl font-semibold md:w-full',
-				!layout.sidebarOpen && classes?.noSidebarTitle
-			)}
-		>
-			{title}
-		</h1>
+		<div class="flex flex-col md:w-full">
+			{#if subtitle}
+				<span class="text-xs font-light text-muted-content">{subtitle}</span>
+			{/if}
+			<h1 class={twMerge('text-xl font-semibold', !layout.sidebarOpen && classes?.noSidebarTitle)}>
+				{title}
+			</h1>
+		</div>
 	{/if}
 {/snippet}
 

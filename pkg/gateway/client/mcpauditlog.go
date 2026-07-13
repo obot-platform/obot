@@ -759,7 +759,7 @@ func encryptRawMessageField(ctx context.Context, transformer value.Transformer, 
 	if err != nil {
 		return err
 	}
-	*field = json.RawMessage(base64.StdEncoding.EncodeToString(b))
+	*field = base64.StdEncoding.AppendEncode(nil, b)
 	return nil
 }
 
@@ -776,7 +776,7 @@ func decryptRawMessageField(ctx context.Context, transformer value.Transformer, 
 	if err != nil {
 		return err
 	}
-	*field = json.RawMessage(out)
+	*field = out
 	return nil
 }
 

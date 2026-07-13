@@ -103,7 +103,7 @@
 	let isBootStrapUser = $derived(profile.current.isBootstrapUser?.() ?? false);
 
 	onMount(async () => {
-		UserService.listAuditLogUsageStats({
+		UserService.listMcpAuditLogUsageStats({
 			start_time: start.toISOString(),
 			end_time: end.toISOString()
 		})
