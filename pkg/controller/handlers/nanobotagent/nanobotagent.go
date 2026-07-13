@@ -406,10 +406,12 @@ type nanobotLLMProvider struct {
 // parseModelProvider returns the nanobot provider config and the fully-qualified
 // model name (provider/model) for a resolved model.
 //
-// If the provider has declared a dialect via ProviderMeta.Dialect, that dialect
-// is used and the base URL is derived from it. Otherwise the known built-in
-// providers (openai, anthropic) supply both; everything else falls back to
-// OpenResponses via the generic /api/llm-proxy dispatch.
+// If the model declares a dialect (resolvedLLMModel.ProviderDialect, populated
+// from the model manifest's Dialect field), that dialect is used and the base
+// URL is derived from it. Otherwise the known built-in providers (openai,
+// anthropic) supply both; everything else falls back to OpenAI Chat Completions
+// via the generic /api/llm-proxy dispatch, since most "OpenAI compatible"
+// services only implement /v1/chat/completions.
 func (h *Handler) parseModelProvider(model resolvedLLMModel) (nanobotLLMProvider, string) {
 	name := model.ModelProvider
 	envVarName := strings.ToUpper(strings.ReplaceAll(name, "-", "_")) + "_API_KEY"
@@ -423,7 +425,7 @@ func (h *Handler) parseModelProvider(model resolvedLLMModel) (nanobotLLMProvider
 		case system.OpenAIModelProvider:
 			dialect = nanobottypes.DialectOpenAIResponses
 		default:
-			dialect = nanobottypes.DialectOpenResponses
+			dialect = nanobottypes.DialectOpenAIChatCompletions
 		}
 	}
 
