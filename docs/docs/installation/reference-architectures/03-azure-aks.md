@@ -4,7 +4,7 @@ Deploying Obot to Azure Kubernetes Service follows the standard Helm workflow. A
 
 * Azure subscription
 * Virtual Network with subnets
-* Azure Database for PostgreSQL running PostgreSQL 17+ with the pgvector extension enabled
+* Azure Database for PostgreSQL running PostgreSQL 17+
 * Network Security Groups configured to allow connectivity between your AKS cluster and PostgreSQL instance
 * Private Azure Storage Account with Blob Storage container for workspace data
 * (Optional) Azure Key Vault key for encrypting sensitive information
