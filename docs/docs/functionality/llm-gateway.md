@@ -22,9 +22,9 @@ For each provider you have access to, the page shows:
   - OpenAI: `https://<your-obot-host>/api/llm-proxy/openai`
   - Anthropic: `https://<your-obot-host>/api/llm-proxy/anthropic`
   - Amazon Bedrock:
-    - Static credentials auth: `/api/llm-proxy/aws-bedrock/{anthropic|openai}`
-    - API key auth: `/api/llm-proxy/aws-bedrock-api-key/{anthropic|openai}`
-    - Use `anthropic` for Bedrock `anthropic.*` models and `openai` for Bedrock `openai.*` or `google.*` models.
+    - Static credentials auth: `/api/llm-proxy/aws-bedrock`
+    - API key auth: `/api/llm-proxy/aws-bedrock-api-key`
+    - The gateway detects the API request format from the requested `/messages` or `/responses` endpoint. Bedrock-aware clients may also include an `anthropic/` or `openai/` path prefix.
 - **Example request** — a ready-to-run `curl` command, pre-filled with one of your available models and with the API key wired to `obot login --scope llm --print-token`.
 - **Available models** — a searchable list of the models you can call. Each entry has a copy button for the exact model name to send in your requests.
 
@@ -93,20 +93,20 @@ curl $OPENAI_BASE_URL/v1/responses \
 
 ### Amazon Bedrock
 
-Amazon Bedrock gateway routes proxy directly to Bedrock Mantle. Use the Anthropic-compatible route for Bedrock `anthropic.*` models and the OpenAI-compatible route for Bedrock `openai.*` and `google.*` models.
+Amazon Bedrock gateway routes proxy directly to Bedrock Mantle. You must use the `/messages` API with `anthropic.*` models and the `/responses` API with `openai.*` and `google.*` models. The gateway uses the requested endpoint to select the corresponding Bedrock API. Vendor-specific tools such as Claude Code and Codex choose the correct request path automatically.
 
 ```bash
 export OBOT_API_KEY="$(obot login --url https://obot.example.com --scope llm --print-token)"
 
 # Anthropic-compatible Bedrock model
-curl https://obot.example.com/api/llm-proxy/aws-bedrock/anthropic/v1/messages \
+curl https://obot.example.com/api/llm-proxy/aws-bedrock/v1/messages \
   -H "Authorization: Bearer $OBOT_API_KEY" \
   -H "anthropic-version: 2023-06-01" \
   -H "content-type: application/json" \
   -d '{"model":"anthropic.claude-haiku-4-5","max_tokens":1024,"messages":[{"role":"user","content":"hi"}]}'
 
 # OpenAI-compatible Bedrock model
-curl https://obot.example.com/api/llm-proxy/aws-bedrock/openai/v1/responses \
+curl https://obot.example.com/api/llm-proxy/aws-bedrock/v1/responses \
   -H "Authorization: Bearer $OBOT_API_KEY" \
   -H "content-type: application/json" \
   -d '{"model":"openai.gpt-5.4","input":[{"role":"user","content":"hi"}]}'
@@ -117,7 +117,7 @@ Use `/api/llm-proxy/aws-bedrock-api-key/...` instead of `/api/llm-proxy/aws-bedr
 To list the Bedrock models Obot knows you can access:
 
 ```bash
-curl https://obot.example.com/api/llm-proxy/aws-bedrock/anthropic/v1/models \
+curl https://obot.example.com/api/llm-proxy/aws-bedrock/v1/models \
   -H "Authorization: Bearer $OBOT_API_KEY"
 ```
 
@@ -151,7 +151,7 @@ Inside Claude Code:
 Claude Code can also route Bedrock Mantle traffic through Obot. Use this mode for Bedrock `anthropic.*` models.
 
 ```bash
-export ANTHROPIC_BEDROCK_MANTLE_BASE_URL="https://obot.example.com/api/llm-proxy/aws-bedrock/anthropic"
+export ANTHROPIC_BEDROCK_MANTLE_BASE_URL="https://obot.example.com/api/llm-proxy/aws-bedrock"
 export ANTHROPIC_AUTH_TOKEN="$(obot login --url https://obot.example.com --scope llm --print-token)"
 export CLAUDE_CODE_SKIP_MANTLE_AUTH=1
 export CLAUDE_CODE_USE_MANTLE=1
@@ -159,7 +159,7 @@ export CLAUDE_CODE_USE_MANTLE=1
 claude --model anthropic.claude-haiku-4-5
 ```
 
-For a local Obot server, use `ANTHROPIC_BEDROCK_MANTLE_BASE_URL="http://localhost:8080/api/llm-proxy/aws-bedrock/anthropic"`.
+For a local Obot server, use `ANTHROPIC_BEDROCK_MANTLE_BASE_URL="http://localhost:8080/api/llm-proxy/aws-bedrock"`.
 
 `--model` is optional, but it is useful since Claude Code does not support model discovery with AWS Bedrock. The default models presented by Claude Code's model selector should be compatible with our Bedrock provider as long as the corresponding Bedrock model ID is enabled in Obot.
 
@@ -227,12 +227,12 @@ model = "openai.gpt-5.4"
 # model = "google.gemma-4-31b"
 
 [model_providers.obot_openai]
-base_url = "https://obot.example.com/api/llm-proxy/aws-bedrock/openai"
+base_url = "https://obot.example.com/api/llm-proxy/aws-bedrock"
 ```
 
-For a local Obot server, use `base_url = "http://localhost:8080/api/llm-proxy/aws-bedrock/openai"`.
+For a local Obot server, use `base_url = "http://localhost:8080/api/llm-proxy/aws-bedrock"`.
 
-Use `/api/llm-proxy/aws-bedrock-api-key/openai` when your administrator configured the **Amazon Bedrock (API Key)** provider.
+Use `/api/llm-proxy/aws-bedrock-api-key` when your administrator configured the **Amazon Bedrock (API Key)** provider.
 
 See the Codex documentation for details:
 
@@ -243,7 +243,7 @@ See the Codex documentation for details:
 
 - **Supported gateway providers.** External LLM Gateway clients can use OpenAI, Anthropic, Amazon Bedrock, and Amazon Bedrock API key providers. Other configured providers (Azure, Google Vertex, the Generic Responses Compatible provider, etc.) are not exposed through provider-specific gateway routes yet.
 - **Access is policy-bound.** You can only call models an administrator has granted you through a [Model Access Policy](/functionality/model-access-policies/), and `/v1/models` returns only those models. A request for a model you don't have access to is rejected.
-- **Send the exact model name.** Use the model name as shown on the [Models page](#the-models-page). If the requested model doesn't match the provider route (for example, an Anthropic model on the OpenAI route, or an `openai.*` Bedrock model on the Bedrock Anthropic route), the request is rejected.
+- **Send the exact model name.** Use the model name shown on the [Models page](#the-models-page) exactly as displayed.
 - **Claude Code model discovery caveats.** Gateway model discovery is off by default and requires Claude Code v2.1.129 or later for the standard Anthropic gateway path. Claude Code's Bedrock Mantle mode may not populate the `/model` picker from Obot, so pass `--model` or select an enabled Mantle model manually.
 - **OpenAI-compatible routes use the Responses API.** The OpenAI and Bedrock OpenAI-compatible routes support the Responses API (`/v1/responses`); the Chat Completions endpoint is not currently supported. Codex uses the Responses API by default.
 - **Usage and policies still apply.** Requests count toward Obot [token usage](/functionality/audit-logs-and-usage/) and, where configured, are subject to [Message Policies](/functionality/message-policies/).

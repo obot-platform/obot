@@ -1005,14 +1005,13 @@ type preparedLLMProxyRequest struct {
 
 type llmProviderProxyBackend interface {
 	modelProviderName() string
-	upstreamURL(credEnv map[string]string) (url.URL, error)
+	upstreamURL(req *http.Request, credEnv map[string]string) (url.URL, nanobottypes.Dialect, error)
 	transport(provider v1.ModelProvider, credEnv map[string]string) (http.RoundTripper, error)
 }
 
 type llmProviderProxy struct {
 	dailyUserInputTokenLimit  int
 	dailyUserOutputTokenLimit int
-	routeDialect              nanobottypes.Dialect
 	backend                   llmProviderProxyBackend
 	modelProvider             *v1.ModelProvider
 	mapHelper                 *modelaccesspolicy.Helper
@@ -1028,18 +1027,6 @@ func (s *Server) newLLMProviderProxy(u *url.URL, modelProviderName string) *llmP
 		mapHelper:                 s.mapHelper,
 		messagePolicyHelper:       s.messagePolicyHelper,
 	}
-}
-
-func (l *llmProviderProxy) upstreamURL(req *http.Request, credEnv map[string]string) (url.URL, error) {
-	u, err := l.backend.upstreamURL(credEnv)
-	if err != nil {
-		return url.URL{}, err
-	}
-	if l.routeDialect != "" && isModelsListRequest(req) {
-		u.Path = "/v1"
-		u.RawPath = ""
-	}
-	return u, nil
 }
 
 func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
@@ -1071,6 +1058,10 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 	if err != nil {
 		return fmt.Errorf("failed to get credential environment for model provider: %w", err)
 	}
+	u, routeDialect, err := l.backend.upstreamURL(req.Request, credEnv)
+	if err != nil {
+		return err
+	}
 
 	body, err := copyBody(&req.Request.Body)
 	if err != nil {
@@ -1092,6 +1083,9 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 		}
 		if model.Spec.Manifest.ModelProvider != modelProvider.Name {
 			return types2.NewErrBadRequest("requested model does not match configured provider %q", targetModel)
+		}
+		if routeDialect != "" && model.Spec.Manifest.Dialect != "" && model.Spec.Manifest.Dialect != string(routeDialect) {
+			return types2.NewErrBadRequest("requested model %q uses dialect %q, but request path uses dialect %q", targetModel, model.Spec.Manifest.Dialect, routeDialect)
 		}
 		hasAccess, err := l.mapHelper.UserHasAccessToModel(req.User, model.Name)
 		if err != nil {
@@ -1155,10 +1149,6 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 		return types2.NewErrHTTP(http.StatusTooManyRequests, fmt.Sprintf("no tokens remaining (input tokens remaining: %d, output tokens remaining: %d)", remainingUsage.InputTokens, remainingUsage.OutputTokens))
 	}
 
-	u, err := l.upstreamURL(req.Request, credEnv)
-	if err != nil {
-		return err
-	}
 	transport, err := l.backend.transport(*modelProvider, credEnv)
 	if err != nil {
 		return err
@@ -1168,7 +1158,7 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 		user:                   req.User,
 		model:                  prepared.model,
 		modelProvider:          modelProvider.Name,
-		routeDialect:           l.routeDialect,
+		routeDialect:           routeDialect,
 		client:                 req.GatewayClient,
 		tokenUsageTracker:      prepared.tokenUsageTracker,
 		mapHelper:              l.mapHelper,

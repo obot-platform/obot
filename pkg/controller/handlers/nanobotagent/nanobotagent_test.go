@@ -179,25 +179,25 @@ func TestNanobotParseModelProviderBedrockRoutes(t *testing.T) {
 			name:          "static bedrock anthropic",
 			modelProvider: "amazon-bedrock-model-provider",
 			dialect:       nanobottypes.DialectAnthropicMessages,
-			wantBaseURL:   "https://obot.example.com/api/llm-proxy/aws-bedrock/anthropic/v1",
+			wantBaseURL:   "https://obot.example.com/api/llm-proxy/aws-bedrock/v1",
 		},
 		{
 			name:          "static bedrock openai",
 			modelProvider: "amazon-bedrock-model-provider",
 			dialect:       nanobottypes.DialectOpenAIResponses,
-			wantBaseURL:   "https://obot.example.com/api/llm-proxy/aws-bedrock/openai/v1",
+			wantBaseURL:   "https://obot.example.com/api/llm-proxy/aws-bedrock/v1",
 		},
 		{
 			name:          "api key bedrock anthropic",
 			modelProvider: "amazon-bedrock-api-key-model-provider",
 			dialect:       nanobottypes.DialectAnthropicMessages,
-			wantBaseURL:   "https://obot.example.com/api/llm-proxy/aws-bedrock-api-key/anthropic/v1",
+			wantBaseURL:   "https://obot.example.com/api/llm-proxy/aws-bedrock-api-key/v1",
 		},
 		{
 			name:          "api key bedrock openai",
 			modelProvider: "amazon-bedrock-api-key-model-provider",
 			dialect:       nanobottypes.DialectOpenAIResponses,
-			wantBaseURL:   "https://obot.example.com/api/llm-proxy/aws-bedrock-api-key/openai/v1",
+			wantBaseURL:   "https://obot.example.com/api/llm-proxy/aws-bedrock-api-key/v1",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

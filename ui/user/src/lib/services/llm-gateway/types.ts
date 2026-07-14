@@ -32,25 +32,25 @@ export const PROVIDER_CONNECTIONS: Record<ProviderShortKey, ProviderConnection> 
 		id: CommonModelProviderIds.AMAZON_BEDROCK,
 		shortKey: 'aws-bedrock-anthropic',
 		displayName: 'Amazon Bedrock (Anthropic-compatible)',
-		routePath: 'aws-bedrock/anthropic'
+		routePath: 'aws-bedrock'
 	},
 	'aws-bedrock-openai': {
 		id: CommonModelProviderIds.AMAZON_BEDROCK,
 		shortKey: 'aws-bedrock-openai',
 		displayName: 'Amazon Bedrock (OpenAI-compatible)',
-		routePath: 'aws-bedrock/openai'
+		routePath: 'aws-bedrock'
 	},
 	'aws-bedrock-api-key-anthropic': {
 		id: CommonModelProviderIds.AMAZON_BEDROCK_API_KEY,
 		shortKey: 'aws-bedrock-api-key-anthropic',
 		displayName: 'Amazon Bedrock API Key (Anthropic-compatible)',
-		routePath: 'aws-bedrock-api-key/anthropic'
+		routePath: 'aws-bedrock-api-key'
 	},
 	'aws-bedrock-api-key-openai': {
 		id: CommonModelProviderIds.AMAZON_BEDROCK_API_KEY,
 		shortKey: 'aws-bedrock-api-key-openai',
 		displayName: 'Amazon Bedrock API Key (OpenAI-compatible)',
-		routePath: 'aws-bedrock-api-key/openai'
+		routePath: 'aws-bedrock-api-key'
 	}
 };
 

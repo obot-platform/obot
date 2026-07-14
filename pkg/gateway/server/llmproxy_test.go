@@ -690,60 +690,161 @@ func TestBedrockRouteDialect(t *testing.T) {
 	}
 }
 
+func TestResolveBedrockRouteDialect(t *testing.T) {
+	tests := []struct {
+		name        string
+		path        string
+		wantPath    string
+		wantDialect nanobottypes.Dialect
+		wantErr     bool
+	}{
+		{name: "messages without version", path: "messages", wantPath: "messages", wantDialect: nanobottypes.DialectAnthropicMessages},
+		{name: "unprefixed messages", path: "v1/messages", wantPath: "v1/messages", wantDialect: nanobottypes.DialectAnthropicMessages},
+		{name: "prefixed messages", path: "anthropic/v1/messages", wantPath: "v1/messages", wantDialect: nanobottypes.DialectAnthropicMessages},
+		{name: "responses without version", path: "responses", wantPath: "responses", wantDialect: nanobottypes.DialectOpenAIResponses},
+		{name: "unprefixed responses", path: "v1/responses", wantPath: "v1/responses", wantDialect: nanobottypes.DialectOpenAIResponses},
+		{name: "prefixed responses", path: "openai/v1/responses", wantPath: "v1/responses", wantDialect: nanobottypes.DialectOpenAIResponses},
+		{name: "unprefixed models", path: "v1/models", wantPath: "v1/models"},
+		{name: "anthropic models", path: "anthropic/v1/models", wantPath: "v1/models", wantDialect: nanobottypes.DialectAnthropicMessages},
+		{name: "openai models", path: "openai/v1/models", wantPath: "v1/models", wantDialect: nanobottypes.DialectOpenAIResponses},
+		{name: "conflicting prefix", path: "openai/v1/messages", wantPath: "v1/messages", wantErr: true},
+		{name: "unsupported path", path: "v1/chat/completions", wantPath: "v1/chat/completions", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "http://gateway.local/", nil)
+			req.SetPathValue("path", tt.path)
+
+			got, err := resolveBedrockRouteDialect(req)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("resolveBedrockRouteDialect() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if got != tt.wantDialect {
+				t.Fatalf("dialect = %q, want %q", got, tt.wantDialect)
+			}
+			if gotPath := req.PathValue("path"); gotPath != tt.wantPath {
+				t.Fatalf("normalized path = %q, want %q", gotPath, tt.wantPath)
+			}
+		})
+	}
+}
+
 func TestBedrockUpstreamURLUsesRouteDialect(t *testing.T) {
 	tests := []struct {
-		name         string
-		routeDialect nanobottypes.Dialect
-		want         string
+		name        string
+		path        string
+		wantURL     string
+		wantDialect nanobottypes.Dialect
 	}{
 		{
-			name:         "OpenAI route",
-			routeDialect: nanobottypes.DialectOpenAIResponses,
-			want:         "https://bedrock-mantle.us-east-1.api.aws/openai/v1",
+			name:        "OpenAI route",
+			path:        "v1/responses",
+			wantURL:     "https://bedrock-mantle.us-east-1.api.aws/openai/v1",
+			wantDialect: nanobottypes.DialectOpenAIResponses,
 		},
 		{
-			name:         "Anthropic route",
-			routeDialect: nanobottypes.DialectAnthropicMessages,
-			want:         "https://bedrock-mantle.us-east-1.api.aws/anthropic/v1",
+			name:        "Anthropic route",
+			path:        "v1/messages",
+			wantURL:     "https://bedrock-mantle.us-east-1.api.aws/anthropic/v1",
+			wantDialect: nanobottypes.DialectAnthropicMessages,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			backend := bedrockMantleProviderBackend{dialect: tt.routeDialect, apiKey: true}
-			got, err := backend.upstreamURL(map[string]string{bedrock.APIKeyRegionEnv: "us-east-1"})
+			req := httptest.NewRequest(http.MethodPost, "http://gateway.local/", nil)
+			req.SetPathValue("path", tt.path)
+			backend := bedrockMantleProviderBackend{apiKey: true}
+			got, dialect, err := backend.upstreamURL(req, map[string]string{bedrock.APIKeyRegionEnv: "us-east-1"})
 			if err != nil {
 				t.Fatal(err)
 			}
-			if got.String() != tt.want {
-				t.Fatalf("upstream URL = %q, want %q", got.String(), tt.want)
+			if got.String() != tt.wantURL {
+				t.Fatalf("upstream URL = %q, want %q", got.String(), tt.wantURL)
+			}
+			if dialect != tt.wantDialect {
+				t.Fatalf("dialect = %q, want %q", dialect, tt.wantDialect)
 			}
 		})
 	}
 }
 
 func TestBedrockModelsListUsesRootUpstreamPath(t *testing.T) {
-	for _, dialect := range []nanobottypes.Dialect{
-		nanobottypes.DialectAnthropicMessages,
-		nanobottypes.DialectOpenAIResponses,
+	for _, tt := range []struct {
+		path    string
+		dialect nanobottypes.Dialect
+	}{
+		{path: "anthropic/v1/models", dialect: nanobottypes.DialectAnthropicMessages},
+		{path: "openai/v1/models", dialect: nanobottypes.DialectOpenAIResponses},
 	} {
-		t.Run(string(dialect), func(t *testing.T) {
-			proxy := llmProviderProxy{
-				routeDialect: dialect,
-				backend: bedrockMantleProviderBackend{
-					dialect: dialect,
-					apiKey:  true,
-				},
-			}
+		t.Run(string(tt.dialect), func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, "http://gateway.local/", nil)
-			req.SetPathValue("path", "v1/models")
+			req.SetPathValue("path", tt.path)
 
-			u, err := proxy.upstreamURL(req, map[string]string{bedrock.APIKeyRegionEnv: "us-east-1"})
+			backend := bedrockMantleProviderBackend{apiKey: true}
+			u, dialect, err := backend.upstreamURL(req, map[string]string{bedrock.APIKeyRegionEnv: "us-east-1"})
 			if err != nil {
 				t.Fatal(err)
 			}
 			if got := u.String(); got != "https://bedrock-mantle.us-east-1.api.aws/v1" {
 				t.Fatalf("upstream URL = %q, want root /v1", got)
+			}
+			if dialect != tt.dialect {
+				t.Fatalf("dialect = %q, want %q", dialect, tt.dialect)
+			}
+		})
+	}
+}
+
+func TestBedrockUnprefixedModelsListUsesRootUpstreamPath(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "http://gateway.local/", nil)
+	req.SetPathValue("path", "v1/models")
+
+	backend := bedrockMantleProviderBackend{apiKey: true}
+	u, dialect, err := backend.upstreamURL(req, map[string]string{bedrock.APIKeyRegionEnv: "us-east-1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := u.String(); got != "https://bedrock-mantle.us-east-1.api.aws/v1" {
+		t.Fatalf("upstream URL = %q, want root /v1", got)
+	}
+	if dialect != "" {
+		t.Fatalf("dialect = %q, want empty", dialect)
+	}
+}
+
+func TestBedrockRequestUpstreamPath(t *testing.T) {
+	tests := []struct {
+		name string
+		path string
+		want string
+	}{
+		{name: "messages without version", path: "messages", want: "/anthropic/v1/messages"},
+		{name: "unprefixed messages", path: "v1/messages", want: "/anthropic/v1/messages"},
+		{name: "Bedrock-aware messages", path: "anthropic/v1/messages", want: "/anthropic/v1/messages"},
+		{name: "Codex responses without version", path: "responses", want: "/openai/v1/responses"},
+		{name: "unprefixed responses", path: "v1/responses", want: "/openai/v1/responses"},
+		{name: "Bedrock-aware responses", path: "openai/v1/responses", want: "/openai/v1/responses"},
+		{name: "unprefixed models", path: "v1/models", want: "/v1/models"},
+		{name: "Anthropic-prefixed models", path: "anthropic/v1/models", want: "/v1/models"},
+		{name: "OpenAI-prefixed models", path: "openai/v1/models", want: "/v1/models"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "http://gateway.local/", nil)
+			req.SetPathValue("path", tt.path)
+
+			backend := bedrockMantleProviderBackend{apiKey: true}
+			u, _, err := backend.upstreamURL(req, map[string]string{bedrock.APIKeyRegionEnv: "us-east-1"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			llmTransformRequest(u)(req)
+
+			if got := req.URL.Path; got != tt.want {
+				t.Fatalf("upstream path = %q, want %q", got, tt.want)
 			}
 		})
 	}

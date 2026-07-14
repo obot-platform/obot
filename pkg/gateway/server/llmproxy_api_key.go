@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 
+	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 )
@@ -18,8 +19,8 @@ func (a apiKeyLLMProviderBackend) modelProviderName() string {
 	return a.providerName
 }
 
-func (a apiKeyLLMProviderBackend) upstreamURL(map[string]string) (url.URL, error) {
-	return a.u, nil
+func (a apiKeyLLMProviderBackend) upstreamURL(*http.Request, map[string]string) (url.URL, nanobottypes.Dialect, error) {
+	return a.u, "", nil
 }
 
 func (a apiKeyLLMProviderBackend) transport(modelProvider v1.ModelProvider, credEnv map[string]string) (http.RoundTripper, error) {

@@ -431,20 +431,20 @@ func (h *Handler) parseModelProvider(model resolvedLLMModel) (nanobotLLMProvider
 
 	switch model.ModelProvider {
 	case system.AmazonBedrockModelProvider:
-		baseURL += "/aws-bedrock"
+		baseURL += "/aws-bedrock/v1"
 	case system.AmazonBedrockAPIKeyModelProvider:
-		baseURL += "/aws-bedrock-api-key"
-	}
-
-	switch dialect {
-	case nanobottypes.DialectAnthropicMessages:
-		baseURL += "/anthropic/v1"
-	case nanobottypes.DialectOpenAIResponses:
-		baseURL += "/openai/v1"
-	case nanobottypes.DialectBifrostRequest:
-		fallthrough // same as default
+		baseURL += "/aws-bedrock-api-key/v1"
 	default:
-		baseURL = h.serverURL + "/api/llm-proxy"
+		switch dialect {
+		case nanobottypes.DialectAnthropicMessages:
+			baseURL += "/anthropic/v1"
+		case nanobottypes.DialectOpenAIResponses:
+			baseURL += "/openai/v1"
+		case nanobottypes.DialectBifrostRequest:
+			fallthrough // same as default
+		default:
+			baseURL = h.serverURL + "/api/llm-proxy"
+		}
 	}
 
 	p := nanobotLLMProvider{

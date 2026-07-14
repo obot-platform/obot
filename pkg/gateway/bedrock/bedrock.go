@@ -41,6 +41,19 @@ func IsProvider(providerName string) bool {
 }
 
 func BaseURL(providerName string, credentials map[string]string, dialect nanobottypes.Dialect) (url.URL, error) {
+	u, err := RootURL(providerName, credentials)
+	if err != nil {
+		return url.URL{}, err
+	}
+	routeDialect, err := RouteDialect(dialect)
+	if err != nil {
+		return url.URL{}, err
+	}
+	u.Path = fmt.Sprintf("/%s/v1", routeDialect)
+	return u, nil
+}
+
+func RootURL(providerName string, credentials map[string]string) (url.URL, error) {
 	var region string
 	switch providerName {
 	case system.AmazonBedrockModelProvider:
@@ -55,14 +68,10 @@ func BaseURL(providerName string, credentials map[string]string, dialect nanobot
 		return url.URL{}, fmt.Errorf("unsupported Bedrock model provider %q", providerName)
 	}
 
-	routeDialect, err := RouteDialect(dialect)
-	if err != nil {
-		return url.URL{}, err
-	}
 	return url.URL{
 		Scheme: "https",
 		Host:   fmt.Sprintf("bedrock-mantle.%s.api.aws", region),
-		Path:   fmt.Sprintf("/%s/v1", routeDialect),
+		Path:   "/v1",
 	}, nil
 }
 
