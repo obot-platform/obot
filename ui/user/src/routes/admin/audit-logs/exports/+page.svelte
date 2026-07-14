@@ -8,6 +8,8 @@
 	import Search from '$lib/components/Search.svelte';
 	import CreateAuditLogExportForm from '$lib/components/admin/audit-log-exports/CreateAuditLogExportForm.svelte';
 	import CreateScheduledExportForm from '$lib/components/admin/audit-log-exports/CreateScheduleForm.svelte';
+	import ExportsView from '$lib/components/admin/audit-log-exports/ExportsView.svelte';
+	import ScheduledExportsView from '$lib/components/admin/audit-log-exports/ScheduledExportsView.svelte';
 	import StorageCredentialsForm from '$lib/components/admin/audit-log-exports/StorageCredentialsForm.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import {
@@ -19,8 +21,6 @@
 	} from '$lib/services';
 	import { profile } from '$lib/stores';
 	import { replaceState, goto } from '$lib/url';
-	import ExportsView from './ExportsView.svelte';
-	import ScheduledExportsView from './ScheduledExportsView.svelte';
 	import { Plus, Settings } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { fade, fly } from 'svelte/transition';

@@ -32,11 +32,7 @@
 		}
 	});
 
-	function handleCancel() {
-		goto('/admin/llm-audit-logs/exports');
-	}
-
-	function handleSave() {
+	function handleNavigate() {
 		goto('/admin/llm-audit-logs/exports');
 	}
 
@@ -66,8 +62,8 @@
 				<CreateScheduleForm
 					mode="edit"
 					initialData={scheduleData}
-					onCancel={handleCancel}
-					onSubmit={handleSave}
+					onCancel={handleNavigate}
+					onSubmit={handleNavigate}
 					logType="llm"
 				/>
 			</div>
