@@ -11,6 +11,7 @@
 		type MCPCatalogEntry,
 		type MCPResourceRequirements,
 		type MCPAllowedSecretBindingTarget,
+		type MCPTunnel,
 		type RuntimeFormData,
 		type MCPCatalogEntryServerManifest,
 		type Runtime,
@@ -90,11 +91,15 @@
 	let loading = $state(false);
 	let compositeHasToolNameErrors = $state(false);
 	let mcpResourceDefaults = $state<MCPResourceRequirements>();
+	let mcpTunnels = $state<MCPTunnel[]>();
 	let secretBindingTargets = $state<MCPAllowedSecretBindingTarget[]>();
 
 	let formData = $state<RuntimeFormData>(untrack(() => convertToFormData(entry)));
 
 	const isAtLeastPowerUserPlus = $derived(profile.current?.groups.includes(Group.POWERUSER_PLUS));
+	const canConfigureTunnels = $derived(
+		entity === 'catalog' && type === 'remote' && Boolean(profile.current.isAdmin?.())
+	);
 	const showEgressDomains = $derived(!!version.current.mcpNetworkPolicyEnabled);
 	const secretBoundHeaders = $derived(
 		(type === 'multi'
@@ -240,7 +245,8 @@
 					formData.remoteServerConfig = manifest.remoteConfig
 						? {
 								url: manifest.remoteConfig.url,
-								headers: manifest.remoteConfig.headers?.map((h) => ({ ...h, value: '' })) ?? []
+								headers: manifest.remoteConfig.headers?.map((h) => ({ ...h, value: '' })) ?? [],
+								tunnelName: manifest.remoteConfig.tunnelName
 							}
 						: { url: '', headers: [] };
 					break;
@@ -422,6 +428,16 @@
 		if (canEditSecretBindings) {
 			loadSecretBindingTargets();
 		}
+		if (canConfigureTunnels) {
+			AdminService.listMCPTunnels()
+				.then((tunnels) => {
+					mcpTunnels = tunnels;
+				})
+				.catch((err) => {
+					mcpTunnels = [];
+					console.error('Failed to load MCP tunnels:', err);
+				});
+		}
 	});
 
 	function convertToEntryManifest(formData: RuntimeFormData): MCPCatalogEntryServerManifest {
@@ -503,7 +519,8 @@
 						hostname: baseData.remoteConfig.hostname?.trim() || undefined,
 						urlTemplate: baseData.remoteConfig.urlTemplate?.trim() || undefined,
 						headers: baseData.remoteConfig.headers?.map(stripSecretBindingSource) || [],
-						staticOAuthRequired: baseData.remoteConfig.staticOAuthRequired
+						staticOAuthRequired: baseData.remoteConfig.staticOAuthRequired,
+						tunnelName: baseData.remoteConfig.tunnelName?.trim() || undefined
 					};
 				}
 				break;
@@ -982,6 +999,8 @@
 		{:else if formData.runtime === 'remote' && formData.remoteConfig}
 			<RemoteRuntimeForm
 				bind:config={formData.remoteConfig}
+				tunnels={canConfigureTunnels ? mcpTunnels : undefined}
+				tunnelsLoading={canConfigureTunnels && mcpTunnels === undefined}
 				{readonly}
 				{showRequired}
 				onFieldChange={updateRequired}

@@ -20,6 +20,7 @@ import (
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/obot-platform/obot/pkg/tunnel"
 	"github.com/obot-platform/obot/pkg/utils"
 	"golang.org/x/crypto/bcrypt"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -328,6 +329,9 @@ func (h *MCPCatalogHandler) CreateEntry(req api.Context) error {
 	if err := mcp.ValidateCatalogEntryManifest(req.Context(), manifest, false, ValidationOptionsWithResourceMaximums(h.sessionManager)); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
+	if err := tunnel.ValidateCatalogEntryTunnelReferences(req.Context(), req.Storage, manifest); err != nil {
+		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
+	}
 	// UI-created catalog entries are never git-managed, but multi-user catalog
 	// entries may still define secretBinding as part of their shared template.
 	if err := mcp.ValidateSecretBindingsCatalogEntry(manifest, false, req.UserIsAdmin(), h.mcpBackend); err != nil {
@@ -405,6 +409,9 @@ func (h *MCPCatalogHandler) UpdateEntry(req api.Context) error {
 		manifest.ServerUserType = types.ServerUserTypeSingleUser
 	}
 	if err := mcp.ValidateCatalogEntryManifest(req.Context(), manifest, false, ValidationOptionsWithResourceMaximums(h.sessionManager)); err != nil {
+		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
+	}
+	if err := tunnel.ValidateCatalogEntryTunnelReferences(req.Context(), req.Storage, manifest); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
 	// UI-updated catalog entries are never git-managed at this call site. The
@@ -1700,6 +1707,9 @@ func (h *MCPCatalogHandler) RefreshCompositeComponents(req api.Context) error {
 	// Validate the refreshed manifest to ensure it's still valid
 	entryGitManaged := entry.IsGitManaged()
 	if err := mcp.ValidateCatalogEntryManifest(req.Context(), entry.Spec.Manifest, entryGitManaged, ValidationOptionsWithResourceMaximums(h.sessionManager)); err != nil {
+		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
+	}
+	if err := tunnel.ValidateCatalogEntryTunnelReferences(req.Context(), req.Storage, entry.Spec.Manifest); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
 	// Preserve the git-managed status of the original entry when re-validating.

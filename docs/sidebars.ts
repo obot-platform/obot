@@ -21,6 +21,7 @@ const sidebars = {
 			items: [
 				"functionality/overview",
 				"functionality/mcp-servers",
+				"functionality/mcp-tunnels",
 				"functionality/mcp-access-policies",
 				"functionality/mcp-registry-api",
 				"functionality/audit-logs-and-usage",

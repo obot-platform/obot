@@ -1437,7 +1437,8 @@ func TestSyncConnectServerRemoteConfigFromCatalogEntryHostname(t *testing.T) {
 			Manifest: types.MCPServerCatalogEntryManifest{
 				Runtime: types.RuntimeRemote,
 				RemoteConfig: &types.RemoteCatalogConfig{
-					Hostname: "api.example.com",
+					Hostname:   "api.example.com",
+					TunnelName: "mcptunnel-office",
 				},
 			},
 		},
@@ -1450,6 +1451,7 @@ func TestSyncConnectServerRemoteConfigFromCatalogEntryHostname(t *testing.T) {
 	assert.Equal(t, "https://old.example.com/mcp", server.Spec.PreviousURL)
 	assert.Empty(t, server.Spec.Manifest.RemoteConfig.URL)
 	assert.Equal(t, "api.example.com", server.Spec.Manifest.RemoteConfig.Hostname)
+	assert.Equal(t, "mcptunnel-office", server.Spec.Manifest.RemoteConfig.TunnelName)
 }
 
 func TestEntryMissingAdminConfig(t *testing.T) {
@@ -1650,4 +1652,62 @@ func TestUpdateServerFromCatalogEntryCopiesResources(t *testing.T) {
 
 	updateServerFromCatalogEntry(&server, entry)
 	assert.Equal(t, resources, server.Spec.Manifest.Resources)
+}
+
+func TestUpdateServerFromCatalogEntryCopiesTunnelName(t *testing.T) {
+	server := v1.MCPServer{
+		Spec: v1.MCPServerSpec{
+			Manifest: types.MCPServerManifest{
+				Runtime:      types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{URL: "https://old.example.com/mcp"},
+			},
+		},
+	}
+	entry := v1.MCPServerCatalogEntry{
+		Spec: v1.MCPServerCatalogEntrySpec{
+			Manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteCatalogConfig{
+					FixedURL:   "https://api.example.com/mcp",
+					TunnelName: "mcptunnel-office",
+				},
+			},
+		},
+	}
+
+	updateServerFromCatalogEntry(&server, entry)
+	require.NotNil(t, server.Spec.Manifest.RemoteConfig)
+	assert.Equal(t, "https://api.example.com/mcp", server.Spec.Manifest.RemoteConfig.URL)
+	assert.Equal(t, "mcptunnel-office", server.Spec.Manifest.RemoteConfig.TunnelName)
+}
+
+func TestUpdateServerFromCatalogEntryPreservesValidHostnameURL(t *testing.T) {
+	server := v1.MCPServer{
+		Spec: v1.MCPServerSpec{
+			Manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					URL: "https://api.example.com/mcp",
+				},
+			},
+		},
+	}
+	entry := v1.MCPServerCatalogEntry{
+		Spec: v1.MCPServerCatalogEntrySpec{
+			Manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteCatalogConfig{
+					Hostname:   "api.example.com",
+					TunnelName: "mcptunnel-office",
+				},
+			},
+		},
+	}
+
+	updateServerFromCatalogEntry(&server, entry)
+	require.NotNil(t, server.Spec.Manifest.RemoteConfig)
+	assert.Equal(t, "https://api.example.com/mcp", server.Spec.Manifest.RemoteConfig.URL)
+	assert.Equal(t, "mcptunnel-office", server.Spec.Manifest.RemoteConfig.TunnelName)
+	assert.False(t, server.Spec.NeedsURL)
+	assert.Empty(t, server.Spec.PreviousURL)
 }

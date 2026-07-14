@@ -60,6 +60,9 @@ import type {
 	GitCredential,
 	GitCredentialManifest,
 	MCPCompositeDeletionDependency,
+	MCPTunnel,
+	MCPTunnelManifest,
+	TunnelConnection,
 	GroupRoleAssignment,
 	GroupRoleAssignmentList,
 	MCPCapacityInfo,
@@ -1354,6 +1357,45 @@ export async function exchangeMCPServerOAuthDebuggerToken(
 	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
 ): Promise<OAuthToken> {
 	return (await doPost(`/mcp-servers/${serverID}/oauth-debugger/token`, body, opts)) as OAuthToken;
+}
+
+// MCP tunnels
+
+export async function createMCPTunnel(
+	input: MCPTunnelManifest,
+	opts?: RequestOptions
+): Promise<MCPTunnel> {
+	return (await doPost('/mcp-tunnels', input, opts)) as MCPTunnel;
+}
+
+export async function deleteMCPTunnel(id: string, opts?: RequestOptions): Promise<void> {
+	await doDelete(`/mcp-tunnels/${id}`, opts);
+}
+
+export async function getMCPTunnel(id: string, opts?: RequestOptions): Promise<MCPTunnel> {
+	return (await doGet(`/mcp-tunnels/${id}`, opts)) as MCPTunnel;
+}
+
+export async function listMCPTunnels(opts?: RequestOptions): Promise<MCPTunnel[]> {
+	const response = (await doGet('/mcp-tunnels', opts)) as ItemsResponse<MCPTunnel>;
+	return response.items ?? [];
+}
+
+export async function listTunnelConnections(opts?: RequestOptions): Promise<TunnelConnection[]> {
+	const response = (await doGet('/tunnels', opts)) as ItemsResponse<TunnelConnection>;
+	return response.items ?? [];
+}
+
+export async function rotateMCPTunnelSecret(id: string, opts?: RequestOptions): Promise<MCPTunnel> {
+	return (await doPost(`/mcp-tunnels/${id}/rotate-secret`, {}, opts)) as MCPTunnel;
+}
+
+export async function updateMCPTunnel(
+	id: string,
+	input: MCPTunnelManifest,
+	opts?: RequestOptions
+): Promise<MCPTunnel> {
+	return (await doPut(`/mcp-tunnels/${id}`, input, opts)) as MCPTunnel;
 }
 
 // Message policies

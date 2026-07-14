@@ -1249,6 +1249,18 @@ func TestRuntimeSpecificDriftFunctions(t *testing.T) {
 				expectedDrift: false,
 			},
 			{
+				name:          "tunnel name match",
+				serverConfig:  &types.RemoteRuntimeConfig{URL: "https://api.example.com", TunnelName: "mcptunnel-office"},
+				entryConfig:   &types.RemoteCatalogConfig{FixedURL: "https://api.example.com", TunnelName: "mcptunnel-office"},
+				expectedDrift: false,
+			},
+			{
+				name:          "tunnel name mismatch",
+				serverConfig:  &types.RemoteRuntimeConfig{URL: "https://api.example.com", TunnelName: "mcptunnel-office"},
+				entryConfig:   &types.RemoteCatalogConfig{FixedURL: "https://api.example.com", TunnelName: "mcptunnel-home"},
+				expectedDrift: true,
+			},
+			{
 				name: "headers match despite order",
 				serverConfig: &types.RemoteRuntimeConfig{Headers: []types.MCPHeader{
 					{Key: "X-Second", Value: "second"},

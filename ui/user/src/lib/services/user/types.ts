@@ -593,18 +593,20 @@ export interface MCPResourceRequirements {
 	limits?: MCPResourceRequests;
 }
 export interface RemoteRuntimeConfig {
-	url: string;
-	headers?: MCPSubField[];
 	fixedURL?: string;
+	headers?: MCPSubField[];
 	hostname?: string;
 	isTemplate?: boolean;
+	tunnelName?: string;
+	url: string;
 	urlTemplate?: string;
 }
 export interface RemoteCatalogConfig {
 	fixedURL?: string;
-	hostname?: string;
-	urlTemplate?: string;
 	headers?: MCPSubField[];
+	hostname?: string;
+	tunnelName?: string;
+	urlTemplate?: string;
 }
 export type ResourceRuntimeConfig = MCPResourceRequirements;
 export interface MultiUserConfig {

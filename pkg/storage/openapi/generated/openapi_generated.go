@@ -178,6 +178,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.MCPServersNeedingK8sUpdateList":            schema_obot_platform_obot_apiclient_types_MCPServersNeedingK8sUpdateList(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPToolCallStats":                          schema_obot_platform_obot_apiclient_types_MCPToolCallStats(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPToolCallStatsItem":                      schema_obot_platform_obot_apiclient_types_MCPToolCallStatsItem(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPTunnel":                                 schema_obot_platform_obot_apiclient_types_MCPTunnel(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPTunnelList":                             schema_obot_platform_obot_apiclient_types_MCPTunnelList(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPTunnelManifest":                         schema_obot_platform_obot_apiclient_types_MCPTunnelManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPUsageStatItem":                          schema_obot_platform_obot_apiclient_types_MCPUsageStatItem(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPUsageStats":                             schema_obot_platform_obot_apiclient_types_MCPUsageStats(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPUsageStatsList":                         schema_obot_platform_obot_apiclient_types_MCPUsageStatsList(ref),
@@ -309,6 +312,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.TokenUsageCost":                            schema_obot_platform_obot_apiclient_types_TokenUsageCost(ref),
 		"github.com/obot-platform/obot/apiclient/types.TokenUsageList":                            schema_obot_platform_obot_apiclient_types_TokenUsageList(ref),
 		"github.com/obot-platform/obot/apiclient/types.ToolOverride":                              schema_obot_platform_obot_apiclient_types_ToolOverride(ref),
+		"github.com/obot-platform/obot/apiclient/types.TunnelConnection":                          schema_obot_platform_obot_apiclient_types_TunnelConnection(ref),
+		"github.com/obot-platform/obot/apiclient/types.TunnelConnectionList":                      schema_obot_platform_obot_apiclient_types_TunnelConnectionList(ref),
 		"github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig":                          schema_obot_platform_obot_apiclient_types_UVXRuntimeConfig(ref),
 		"github.com/obot-platform/obot/apiclient/types.User":                                      schema_obot_platform_obot_apiclient_types_User(ref),
 		"github.com/obot-platform/obot/apiclient/types.UserDefaultRoleSetting":                    schema_obot_platform_obot_apiclient_types_UserDefaultRoleSetting(ref),
@@ -378,6 +383,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1.MCPServerList{}.OpenAPIModelName():                                                     schema_storage_apis_obotobotai_v1_MCPServerList(ref),
 		v1.MCPServerSpec{}.OpenAPIModelName():                                                     schema_storage_apis_obotobotai_v1_MCPServerSpec(ref),
 		v1.MCPServerStatus{}.OpenAPIModelName():                                                   schema_storage_apis_obotobotai_v1_MCPServerStatus(ref),
+		v1.MCPTunnel{}.OpenAPIModelName():                                                         schema_storage_apis_obotobotai_v1_MCPTunnel(ref),
+		v1.MCPTunnelList{}.OpenAPIModelName():                                                     schema_storage_apis_obotobotai_v1_MCPTunnelList(ref),
+		v1.MCPTunnelSpec{}.OpenAPIModelName():                                                     schema_storage_apis_obotobotai_v1_MCPTunnelSpec(ref),
 		v1.MCPWebhookValidation{}.OpenAPIModelName():                                              schema_storage_apis_obotobotai_v1_MCPWebhookValidation(ref),
 		v1.MCPWebhookValidationList{}.OpenAPIModelName():                                          schema_storage_apis_obotobotai_v1_MCPWebhookValidationList(ref),
 		v1.MCPWebhookValidationSpec{}.OpenAPIModelName():                                          schema_storage_apis_obotobotai_v1_MCPWebhookValidationSpec(ref),
@@ -8953,6 +8961,107 @@ func schema_obot_platform_obot_apiclient_types_MCPToolCallStatsItem(ref common.R
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_MCPTunnel(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MCPTunnel is an admin-managed tunnel configuration.\n\nToken contains the complete bearer token only when the tunnel is created or its token is rotated. Other responses contain a non-secret preview.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"Metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
+						},
+					},
+					"manifest": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPTunnelManifest"),
+						},
+					},
+					"token": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"Metadata", "manifest", "token"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MCPTunnelManifest", "github.com/obot-platform/obot/apiclient/types.Metadata"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MCPTunnelList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.MCPTunnel"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MCPTunnel"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MCPTunnelManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"displayName": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"allowedURLs": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"displayName"},
+			},
+		},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_MCPUsageStatItem(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -13023,9 +13132,16 @@ func schema_obot_platform_obot_apiclient_types_RemoteCatalogConfig(ref common.Re
 							Format: "",
 						},
 					},
-					"urlTemplate": {
+					"tunnelName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Fixed URL for all instances",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"urlTemplate": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Optional: MCPTunnel used to reach the remote MCP server",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -13079,9 +13195,16 @@ func schema_obot_platform_obot_apiclient_types_RemoteRuntimeConfig(ref common.Re
 							Format:  "",
 						},
 					},
-					"isTemplate": {
+					"tunnelName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Required: Full URL to remote MCP server",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"isTemplate": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Optional: MCPTunnel used to reach the remote MCP server",
 							Default:     false,
 							Type:        []string{"boolean"},
 							Format:      "",
@@ -15224,6 +15347,54 @@ func schema_obot_platform_obot_apiclient_types_ToolOverride(ref common.Reference
 				Required: []string{"name"},
 			},
 		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_TunnelConnection(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "TunnelConnection describes a tunnel that is currently connected to this Obot installation.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"name"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_TunnelConnectionList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.TunnelConnection"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.TunnelConnection"},
 	}
 }
 
@@ -18412,6 +18583,128 @@ func schema_storage_apis_obotobotai_v1_MCPServerStatus(ref common.ReferenceCallb
 		},
 		Dependencies: []string{
 			v1.DeploymentCondition{}.OpenAPIModelName(), v1.OAuthMetadata{}.OpenAPIModelName(), metav1.Time{}.OpenAPIModelName()},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_MCPTunnel(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(metav1.ObjectMeta{}.OpenAPIModelName()),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1.MCPTunnelSpec{}.OpenAPIModelName()),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			v1.MCPTunnelSpec{}.OpenAPIModelName(), metav1.ObjectMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_MCPTunnelList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(metav1.ListMeta{}.OpenAPIModelName()),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref(v1.MCPTunnel{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			v1.MCPTunnel{}.OpenAPIModelName(), metav1.ListMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_MCPTunnelSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"manifest": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPTunnelManifest"),
+						},
+					},
+					"credential": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"credentialID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"manifest", "credential", "credentialID"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MCPTunnelManifest"},
 	}
 }
 

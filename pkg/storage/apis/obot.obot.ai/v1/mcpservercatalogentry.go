@@ -43,6 +43,11 @@ func (in *MCPServerCatalogEntry) Get(field string) string {
 		return in.Spec.PowerUserWorkspaceID
 	case "spec.manifest.runtime":
 		return string(in.Spec.Manifest.Runtime)
+	case "spec.manifest.remoteConfig.tunnelName":
+		if in.Spec.Manifest.RemoteConfig != nil {
+			return in.Spec.Manifest.RemoteConfig.TunnelName
+		}
+		return ""
 	}
 	return ""
 }
@@ -52,6 +57,7 @@ func (in *MCPServerCatalogEntry) FieldNames() []string {
 		"spec.mcpCatalogName",
 		"spec.powerUserWorkspaceID",
 		"spec.manifest.runtime",
+		"spec.manifest.remoteConfig.tunnelName",
 	}
 }
 

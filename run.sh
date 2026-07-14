@@ -1,6 +1,10 @@
 #!/bin/bash
 set -e
 
+if [ "${1:-}" = "tunnel" ]; then
+  exec tini -- obot "$@"
+fi
+
 check_postgres_active() {
   for i in {1..30}; do
     if pg_isready -q; then

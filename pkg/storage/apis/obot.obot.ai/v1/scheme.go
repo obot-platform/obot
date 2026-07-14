@@ -25,6 +25,8 @@ func AddToSchemeWithGV(scheme *runtime.Scheme, schemeGroupVersion schema.GroupVe
 		&AliasList{},
 		&MCPServer{},
 		&MCPServerList{},
+		&MCPTunnel{},
+		&MCPTunnelList{},
 		&MCPNetworkPolicy{},
 		&MCPNetworkPolicyList{},
 		&MCPServerInstance{},

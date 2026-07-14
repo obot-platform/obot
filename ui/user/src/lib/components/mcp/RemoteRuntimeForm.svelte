@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { CATALOG_SERVER_FIELD_IDS } from '$lib/constants';
-	import type { MCPAllowedSecretBindingTarget } from '$lib/services';
+	import Loading from '$lib/icons/Loading.svelte';
+	import type { MCPAllowedSecretBindingTarget, MCPTunnel } from '$lib/services';
 	import type {
 		RemoteCatalogConfigAdmin,
 		RemoteRuntimeConfigAdmin
@@ -13,7 +14,7 @@
 	import IconButton from '../primitives/IconButton.svelte';
 	import SecretBindingPicker from './SecretBindingPicker.svelte';
 	import { Plus, Trash2, Info, Settings } from '@lucide/svelte';
-	import type { Snippet } from 'svelte';
+	import { untrack, type Snippet } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
@@ -28,6 +29,8 @@
 		disableStaticOAuth?: boolean;
 		disableHostnameOption?: boolean;
 		secretBindingTargets?: MCPAllowedSecretBindingTarget[];
+		tunnels?: MCPTunnel[];
+		tunnelsLoading?: boolean;
 		children?: Snippet;
 		afterHeaders?: Snippet;
 	}
@@ -42,6 +45,8 @@
 		disableStaticOAuth,
 		disableHostnameOption,
 		secretBindingTargets,
+		tunnels,
+		tunnelsLoading = false,
 		children,
 		afterHeaders
 	}: Props = $props();
@@ -49,11 +54,15 @@
 	// For catalog entries, we show advanced config if hostname, urlTemplate, or headers exist
 	// For servers, we always show the URL field (no advanced toggle needed)
 	let showAdvanced = $state(
-		Boolean(
-			(config as RemoteCatalogConfigAdmin).hostname ||
-			(config as RemoteCatalogConfigAdmin).urlTemplate ||
-			(config.headers && config.headers.length > 0) ||
-			(config as RemoteCatalogConfigAdmin).staticOAuthRequired
+		untrack(() =>
+			Boolean(
+				(config as RemoteCatalogConfigAdmin).hostname ||
+				(config as RemoteCatalogConfigAdmin).urlTemplate ||
+				((tunnels !== undefined || tunnelsLoading) &&
+					(config as RemoteCatalogConfigAdmin).tunnelName) ||
+				(config.headers && config.headers.length > 0) ||
+				(config as RemoteCatalogConfigAdmin).staticOAuthRequired
+			)
 		)
 	);
 
@@ -66,6 +75,20 @@
 				? 'hostname'
 				: 'fixedURL'
 	);
+
+	let tunnelOptions = $derived.by(() => {
+		const options = (tunnels ?? []).map((tunnel) => ({
+			id: tunnel.id,
+			label: tunnel.manifest.displayName?.trim() || tunnel.id
+		}));
+		const selectedTunnel = (config as RemoteCatalogConfigAdmin).tunnelName;
+
+		if (selectedTunnel && !options.some((option) => option.id === selectedTunnel)) {
+			options.push({ id: selectedTunnel, label: selectedTunnel });
+		}
+
+		return options;
+	});
 
 	function usesSecretBindingSource(field: {
 		secretBinding?: unknown;
@@ -352,6 +375,7 @@
 						} else if (option.id === 'urlTemplate') {
 							catalogConfig.fixedURL = undefined;
 							catalogConfig.hostname = undefined;
+							catalogConfig.tunnelName = undefined;
 							catalogConfig.urlTemplate = '';
 							selectedType = 'urlTemplate';
 						}
@@ -456,6 +480,44 @@
 				</div>
 			{/if}
 
+			{#if tunnels !== undefined || tunnelsLoading}
+				{@const remoteConfig = config as RemoteCatalogConfigAdmin}
+				<div class="flex flex-col gap-2" aria-busy={tunnelsLoading}>
+					<label for="remote-tunnel" class="text-sm font-light">Tunnel</label>
+					<Select
+						id="remote-tunnel"
+						class="bg-base-100 dark:border-base-400 border border-transparent shadow-inner"
+						options={tunnelOptions}
+						selected={remoteConfig.tunnelName}
+						placeholder={tunnelsLoading ? 'Loading tunnels...' : 'No tunnel'}
+						disabled={readonly || tunnelsLoading || selectedType === 'urlTemplate'}
+						searchInDropdown={tunnelOptions.length > 8}
+						onSelect={(option) => {
+							remoteConfig.tunnelName = String(option.id);
+						}}
+						onClear={!readonly && !tunnelsLoading && selectedType !== 'urlTemplate'
+							? () => {
+									remoteConfig.tunnelName = undefined;
+								}
+							: undefined}
+					/>
+					<p class="text-muted-content text-xs font-light">
+						{#if tunnelsLoading}
+							<span class="flex items-center gap-1.5" role="status">
+								<Loading class="size-3.5" />
+								Loading MCP tunnels...
+							</span>
+						{:else if selectedType === 'urlTemplate'}
+							Tunnels are not supported with URL templates.
+						{:else if tunnelOptions.length === 0}
+							No MCP tunnels have been created.
+						{:else}
+							Route requests to this remote MCP server through the selected tunnel.
+						{/if}
+					</p>
+				</div>
+			{/if}
+
 			{@render children?.()}
 		</div>
 	</div>
@@ -545,6 +607,7 @@
 			if (!showAdvanced) {
 				const catalogConfig = config as RemoteCatalogConfigAdmin;
 				catalogConfig.hostname = undefined;
+				catalogConfig.tunnelName = undefined;
 				catalogConfig.urlTemplate = undefined;
 				catalogConfig.fixedURL = catalogConfig.fixedURL ?? '';
 			}

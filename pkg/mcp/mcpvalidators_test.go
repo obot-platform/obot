@@ -210,6 +210,26 @@ func TestRemoteValidator_validateRemoteCatalogConfig(t *testing.T) {
 			expectError: false,
 		},
 		{
+			name: "tunnel with urlTemplate is invalid",
+			config: types.RemoteCatalogConfig{
+				TunnelName:  "mcptunnel-office",
+				URLTemplate: "https://${API_HOST}/mcp/endpoint",
+			},
+			expectError: true,
+			errorField:  "remoteConfig",
+			errorMsg:    "tunnelName cannot be used with urlTemplate",
+		},
+		{
+			name: "tunnel with templated fixedURL is invalid",
+			config: types.RemoteCatalogConfig{
+				TunnelName: "mcptunnel-office",
+				FixedURL:   "https://${API_HOST}/mcp/endpoint",
+			},
+			expectError: true,
+			errorField:  "remoteConfig",
+			errorMsg:    "tunnelName cannot be used with a URL template",
+		},
+		{
 			name: "valid urlTemplate with multiple variables",
 			config: types.RemoteCatalogConfig{
 				URLTemplate: "https://${DATABRICKS_WORKSPACE_URL}/api/2.0/mcp/genie/${DATABRICKS_GENIE_SPACE_ID}",
@@ -702,6 +722,33 @@ func TestRemoteValidator_ValidateConfig_HeaderValidation(t *testing.T) {
 			expectError: false,
 		},
 		{
+			name: "tunnel with URL template is invalid",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					TunnelName:  "mcptunnel-office",
+					IsTemplate:  true,
+					URLTemplate: "https://${API_HOST}/mcp",
+				},
+			},
+			expectError: true,
+			errorField:  "remoteConfig",
+			errorMsg:    "tunnelName cannot be used with a URL template",
+		},
+		{
+			name: "tunnel with templated URL is invalid",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					URL:        "https://${API_HOST}/mcp",
+					TunnelName: "mcptunnel-office",
+				},
+			},
+			expectError: true,
+			errorField:  "remoteConfig",
+			errorMsg:    "tunnelName cannot be used with a URL template",
+		},
+		{
 			name: "empty header key should fail",
 			manifest: types.MCPServerManifest{
 				Runtime: types.RuntimeRemote,
@@ -827,10 +874,11 @@ func TestRemoteValidator_ValidateConfig_HeaderValidation(t *testing.T) {
 
 func TestValidateRemoteManifestURLWithOptions(t *testing.T) {
 	tests := []struct {
-		name    string
-		rawURL  string
-		options ValidationOptions
-		wantErr string
+		name       string
+		rawURL     string
+		tunnelName string
+		options    ValidationOptions
+		wantErr    string
 	}{
 		{
 			name:    "default rejects localhost",
@@ -919,32 +967,57 @@ func TestValidateRemoteManifestURLWithOptions(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:       "tunnel permits ordinary private target URL",
+			rawURL:     "https://10.0.0.1:8443/mcp",
+			tunnelName: "mcptunnel-office",
+		},
+		{
+			name:       "tunnel requires target hostname",
+			rawURL:     "https:///mcp",
+			tunnelName: "mcptunnel-office",
+			wantErr:    "URL hostname is required",
+		},
+		{
+			name:       "tunnel rejects target user information",
+			rawURL:     "https://user@example.com/mcp",
+			tunnelName: "mcptunnel-office",
+			wantErr:    "URL must not include user information",
+		},
+		{
+			name:    "legacy tunnel URL scheme is rejected",
+			rawURL:  "https+tunnel://office:secret@10.0.0.1/mcp",
+			wantErr: "URL scheme must be either https or http",
+		},
 	}
 
-	validateServerManifest := func(ctx context.Context, rawURL string, options ValidationOptions) error {
+	validateServerManifest := func(ctx context.Context, rawURL, tunnelName string, options ValidationOptions) error {
 		return ValidateServerManifest(ctx, types.MCPServerManifest{
 			Runtime: types.RuntimeRemote,
 			RemoteConfig: &types.RemoteRuntimeConfig{
-				URL: rawURL,
+				URL:        rawURL,
+				TunnelName: tunnelName,
 			},
 		}, false, options)
 	}
 
-	validateCatalogEntryManifest := func(ctx context.Context, rawURL string, options ValidationOptions) error {
+	validateCatalogEntryManifest := func(ctx context.Context, rawURL, tunnelName string, options ValidationOptions) error {
 		return ValidateCatalogEntryManifest(ctx, types.MCPServerCatalogEntryManifest{
 			Runtime:        types.RuntimeRemote,
 			ServerUserType: types.ServerUserTypeSingleUser,
 			RemoteConfig: &types.RemoteCatalogConfig{
-				FixedURL: rawURL,
+				FixedURL:   rawURL,
+				TunnelName: tunnelName,
 			},
 		}, false, options)
 	}
 
-	validateSystemManifest := func(ctx context.Context, rawURL string, options ValidationOptions) error {
+	validateSystemManifest := func(ctx context.Context, rawURL, tunnelName string, options ValidationOptions) error {
 		return ValidateSystemMCPServerManifest(ctx, types.SystemMCPServerManifest{
 			Runtime: types.RuntimeRemote,
 			RemoteConfig: &types.RemoteRuntimeConfig{
-				URL: rawURL,
+				URL:        rawURL,
+				TunnelName: tunnelName,
 			},
 		}, options)
 	}
@@ -953,14 +1026,18 @@ func TestValidateRemoteManifestURLWithOptions(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			for _, validator := range []struct {
 				name string
-				fn   func(context.Context, string, ValidationOptions) error
+				fn   func(context.Context, string, string, ValidationOptions) error
 			}{
 				{name: "server", fn: validateServerManifest},
 				{name: "catalog entry", fn: validateCatalogEntryManifest},
 				{name: "system server", fn: validateSystemManifest},
 			} {
 				t.Run(validator.name, func(t *testing.T) {
-					err := validator.fn(t.Context(), tt.rawURL, tt.options)
+					err := validator.fn(t.Context(), tt.rawURL, tt.tunnelName, tt.options)
+					if validator.name == "system server" && tt.tunnelName != "" {
+						require.ErrorContains(t, err, "tunnels are not supported for system MCP servers")
+						return
+					}
 					if tt.wantErr == "" {
 						require.NoError(t, err)
 						return
@@ -1039,6 +1116,18 @@ func TestValidateRemoteManifestAllowMissingURL(t *testing.T) {
 			require.ErrorContains(t, err, tt.wantErr)
 		})
 	}
+}
+
+func TestValidateSystemCatalogEntryRejectsTunnel(t *testing.T) {
+	err := ValidateSystemMCPServerCatalogEntryManifest(t.Context(), types.SystemMCPServerCatalogEntryManifest{
+		Runtime:        types.RuntimeRemote,
+		ServerUserType: types.ServerUserTypeSingleUser,
+		RemoteConfig: &types.RemoteCatalogConfig{
+			FixedURL:   "https://example.com/mcp",
+			TunnelName: "mt1office",
+		},
+	}, ValidationOptions{})
+	require.ErrorContains(t, err, "tunnels are not supported for system MCP servers")
 }
 
 func TestRemoteValidator_ValidateCatalogConfig_HeaderValidation(t *testing.T) {
@@ -3052,4 +3141,42 @@ func TestValidateCatalogEntryManifestGitManagedRequiresOverrideDescription(t *te
 	manifest.CompositeConfig.ComponentServers[0].ToolOverrides[0].Description = ""
 	manifest.CompositeConfig.ComponentServers[0].ToolOverrides[0].OverrideDescription = "new description"
 	require.NoError(t, ValidateCatalogEntryManifest(t.Context(), manifest, true, ValidationOptions{}))
+}
+
+func TestValidateCatalogEntryManifestCatalogSyncedRejectsTunnelName(t *testing.T) {
+	manifest := types.MCPServerCatalogEntryManifest{
+		Name:           "Remote",
+		ServerUserType: types.ServerUserTypeSingleUser,
+		Runtime:        types.RuntimeRemote,
+		RemoteConfig: &types.RemoteCatalogConfig{
+			FixedURL:   "https://example.com/mcp",
+			TunnelName: "mt1office",
+		},
+	}
+
+	require.NoError(t, ValidateCatalogEntryManifest(t.Context(), manifest, false, ValidationOptions{}))
+	require.Equal(t, types.RuntimeValidationError{
+		Runtime: types.RuntimeRemote,
+		Field:   "remoteConfig.tunnelName",
+		Message: "cannot be set on catalog-synced entries",
+	}, ValidateCatalogEntryManifest(t.Context(), manifest, true, ValidationOptions{}))
+
+	composite := types.MCPServerCatalogEntryManifest{
+		Name:           "Composite",
+		ServerUserType: types.ServerUserTypeSingleUser,
+		Runtime:        types.RuntimeComposite,
+		CompositeConfig: &types.CompositeCatalogConfig{
+			ComponentServers: []types.CatalogComponentServer{{
+				CatalogEntryID: "remote",
+				Manifest:       manifest,
+			}},
+		},
+	}
+
+	require.NoError(t, ValidateCatalogEntryManifest(t.Context(), composite, false, ValidationOptions{}))
+	require.Equal(t, types.RuntimeValidationError{
+		Runtime: types.RuntimeRemote,
+		Field:   "compositeConfig.componentServers[0].manifest.remoteConfig.tunnelName",
+		Message: "cannot be set on catalog-synced entries",
+	}, ValidateCatalogEntryManifest(t.Context(), composite, true, ValidationOptions{}))
 }

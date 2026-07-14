@@ -122,7 +122,23 @@ func (sm *SessionManager) loadSession(ctx context.Context, server ServerConfig, 
 	}
 
 	url := server.URL
-	if !isOAuthCheck && server.UserID != "system" {
+	if isOAuthCheck || server.UserID == "system" {
+		if server.TunnelName != "" {
+			if sm.tunnelManager == nil {
+				return nil, fmt.Errorf("tunnel manager is not configured")
+			}
+
+			var err error
+			url, err = sm.tunnelManager.BridgeURL(server.TunnelName, url)
+			if err != nil {
+				return nil, fmt.Errorf("failed to prepare tunneled MCP server URL: %w", err)
+			}
+
+			bridgeAuthorizationName, bridgeAuthorizationValue := sm.tunnelManager.BridgeAuthorization()
+			headers.Set(bridgeAuthorizationName, bridgeAuthorizationValue)
+			clientOpts.AllowedHosts = append(clientOpts.AllowedHosts, sm.tunnelManager.BridgeHost())
+		}
+	} else {
 		url = sm.TransformObotHostname(system.MCPConnectURL(sm.baseURL, server.MCPServerName))
 	}
 

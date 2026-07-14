@@ -25,6 +25,7 @@ import (
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/obot-platform/obot/pkg/tunnel"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -35,11 +36,12 @@ type Handler struct {
 	transport                 http.RoundTripper
 	nanobot                   http.Handler
 	secretBindingAllowedLabel string
+	tunnelManager             *tunnel.Manager
 }
 
 var errMCPServerRequiresConfiguration = errors.New("mcp server requires configuration")
 
-func NewHandler(ctx context.Context, mcpSessionManager *mcp.SessionManager, auditLogCollector auditlogs.Collector, serverURL, dsn, secretBindingAllowedLabel string) (*Handler, error) {
+func NewHandler(ctx context.Context, mcpSessionManager *mcp.SessionManager, auditLogCollector auditlogs.Collector, serverURL, dsn, secretBindingAllowedLabel string, tunnelManager *tunnel.Manager) (*Handler, error) {
 	sessionStore, err := session.NewStoreFromDSN(dsn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create session store: %w", err)
@@ -48,6 +50,9 @@ func NewHandler(ctx context.Context, mcpSessionManager *mcp.SessionManager, audi
 	// TODO(thedadams): do we want to make this gcPeriod configurable?
 	sessionManager := session.NewManager(ctx, sessionStore, 24*7*time.Hour)
 	remoteValidationConfig, allowedHosts := mcpSessionManager.RemoteConfigForBackend()
+	if tunnelManager != nil {
+		allowedHosts = append(allowedHosts, tunnelManager.BridgeHost())
+	}
 
 	runtime, err := runtime.NewRuntime(ctx, llm.Config{}, runtime.Options{
 		TokenExchangeEndpoint: mcpSessionManager.TransformObotHostname(fmt.Sprintf("%s/oauth/token", serverURL)),
@@ -89,6 +94,7 @@ func NewHandler(ctx context.Context, mcpSessionManager *mcp.SessionManager, audi
 		transport:                 otelhttp.NewTransport(http.DefaultTransport),
 		nanobot:                   nanobotHTTPServer,
 		secretBindingAllowedLabel: secretBindingAllowedLabel,
+		tunnelManager:             tunnelManager,
 	}, nil
 }
 
@@ -106,6 +112,19 @@ func (h *Handler) Proxy(req api.Context) error {
 		return fmt.Errorf("failed to ensure server is deployed: %v", err)
 	}
 
+	var bridgeAuthorizationName, bridgeAuthorizationValue string
+	if serverConfig.TunnelName != "" {
+		if h.tunnelManager == nil {
+			return fmt.Errorf("tunnel manager is not configured")
+		}
+		serverConfig.URL, err = h.tunnelManager.BridgeURL(serverConfig.TunnelName, serverConfig.URL)
+		if err != nil {
+			return fmt.Errorf("failed to prepare tunneled MCP server URL: %w", err)
+		}
+		bridgeAuthorizationName, bridgeAuthorizationValue = h.tunnelManager.BridgeAuthorization()
+		serverConfig.Headers = append(serverConfig.Headers, fmt.Sprintf("%s=%s", bridgeAuthorizationName, bridgeAuthorizationValue))
+	}
+
 	if serverConfig.NanobotAgentName != "" {
 		// We need to just reverse-proxy to the nanobot agent because the UI will make non-MCP requests
 		u, err := url.Parse(serverConfig.URL)
@@ -117,6 +136,9 @@ func (h *Handler) Proxy(req api.Context) error {
 		(&httputil.ReverseProxy{
 			Transport: h.transport,
 			Director: func(r *http.Request) {
+				if bridgeAuthorizationName != "" {
+					r.Header.Set(bridgeAuthorizationName, bridgeAuthorizationValue)
+				}
 				r.Header.Set("X-Forwarded-Host", r.Host)
 				scheme := "https"
 				if strings.HasPrefix(r.Host, "localhost") || strings.HasPrefix(r.Host, "127.0.0.1") {

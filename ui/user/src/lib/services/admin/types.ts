@@ -674,15 +674,17 @@ export interface MCPCatalogEntryFieldManifest {
 	secretBinding?: MCPSecretBinding;
 }
 export interface RemoteRuntimeConfigAdmin {
-	url: string;
 	headers?: MCPCatalogEntryFieldManifest[];
+	tunnelName?: string;
+	url: string;
 }
 export interface RemoteCatalogConfigAdmin {
 	fixedURL?: string;
-	urlTemplate?: string;
-	hostname?: string;
 	headers?: MCPCatalogEntryFieldManifest[];
+	hostname?: string;
 	staticOAuthRequired?: boolean;
+	tunnelName?: string;
+	urlTemplate?: string;
 }
 export interface CompositeCatalogConfig {
 	componentServers: CatalogComponentServer[];
@@ -917,6 +919,27 @@ export interface OAuthToken {
 	refresh_token: string;
 	expires_in: number;
 	token_type: string;
+}
+
+// MCP tunnels
+
+export interface MCPTunnel {
+	created: string;
+	deleted?: string;
+	id: string;
+	links?: Record<string, string>;
+	manifest: MCPTunnelManifest;
+	metadata?: Record<string, string>;
+	token: string;
+	type?: string;
+}
+export interface MCPTunnelManifest {
+	allowedURLs?: string[];
+	description?: string;
+	displayName: string;
+}
+export interface TunnelConnection {
+	name: string;
 }
 
 // Message policies

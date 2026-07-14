@@ -77,6 +77,25 @@ npxConfig:
 	assert.Empty(t, objs)
 }
 
+func TestReadMCPCatalogRejectsTunnelName(t *testing.T) {
+	dir := t.TempDir()
+	assert.NoError(t, os.WriteFile(filepath.Join(dir, "entry.yaml"), []byte(`name: Private MCP
+shortDescription: Private MCP
+description: Private MCP
+runtime: remote
+remoteConfig:
+  fixedURL: https://mcp.internal.example/mcp
+  tunnelName: mt1office
+`), 0o600))
+
+	h := &Handler{}
+	objs, err := h.readMCPCatalog(t.Context(), "default", dir, "")
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "remoteConfig.tunnelName: cannot be set on catalog-synced entries")
+	assert.Empty(t, objs)
+}
+
 func TestParseSourceRef(t *testing.T) {
 	const currentSourceID = "current-source"
 

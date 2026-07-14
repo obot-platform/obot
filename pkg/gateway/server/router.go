@@ -9,7 +9,7 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 )
 
-func (s *Server) AddRoutes(mux *server.Server) {
+func (s *Server) AddRoutes(mux *server.Server, tunnelBridge http.Handler) {
 	wrap := func(h api.HandlerFunc) api.HandlerFunc {
 		return apply(h, addRequestID, addLogger, logRequest, contentType("application/json"))
 	}
@@ -24,6 +24,9 @@ func (s *Server) AddRoutes(mux *server.Server) {
 			_, _ = w.Write([]byte("ok"))
 		}
 	}))
+	if tunnelBridge != nil {
+		mux.HTTPHandle("/tunnel/bridge/{target}", tunnelBridge)
+	}
 	// All the routes served by the API will start with `/api`
 	mux.HandleFunc("GET /api/me", wrap(s.getCurrentUser))
 	mux.HandleFunc("DELETE /api/me", wrap(s.deleteUser))

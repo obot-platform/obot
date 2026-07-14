@@ -251,6 +251,10 @@ type headersResponseWriter struct {
 	wroteHeader bool
 }
 
+func (w *headersResponseWriter) Unwrap() http.ResponseWriter {
+	return w.ResponseWriter
+}
+
 func (w *headersResponseWriter) ensureHeaders(status int) {
 	// Always set nosniff; harmless for non-browser clients.
 	w.Header().Set("X-Content-Type-Options", "nosniff")

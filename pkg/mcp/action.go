@@ -669,6 +669,7 @@ func syncConnectServerRemoteConfigFromCatalogEntry(server *v1.MCPServer, entry v
 
 	serverRemote.Headers = entryRemote.Headers
 	serverRemote.StaticOAuthRequired = entryRemote.StaticOAuthRequired
+	serverRemote.TunnelName = entryRemote.TunnelName
 	switch {
 	case entryRemote.Hostname != "":
 		serverRemote.Hostname = entryRemote.Hostname

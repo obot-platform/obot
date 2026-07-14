@@ -30,6 +30,7 @@ func TestMCPServerManifestConvertToCatalogEntryPreservesRemoteFields(t *testing.
 		Runtime: RuntimeRemote,
 		RemoteConfig: &RemoteRuntimeConfig{
 			URL:                 "https://api.example.com/mcp",
+			TunnelName:          "mcptunnel-office",
 			URLTemplate:         "https://${WORKSPACE}.example.com/mcp",
 			Hostname:            "*.example.com",
 			Headers:             []MCPHeader{{Key: "Authorization", Name: "Authorization"}},
@@ -44,6 +45,9 @@ func TestMCPServerManifestConvertToCatalogEntryPreservesRemoteFields(t *testing.
 	}
 	if result.RemoteConfig.FixedURL != manifest.RemoteConfig.URL {
 		t.Errorf("Expected fixedURL %q, got %q", manifest.RemoteConfig.URL, result.RemoteConfig.FixedURL)
+	}
+	if result.RemoteConfig.TunnelName != manifest.RemoteConfig.TunnelName {
+		t.Errorf("Expected tunnelName %q, got %q", manifest.RemoteConfig.TunnelName, result.RemoteConfig.TunnelName)
 	}
 	if result.RemoteConfig.URLTemplate != manifest.RemoteConfig.URLTemplate {
 		t.Errorf("Expected urlTemplate %q, got %q", manifest.RemoteConfig.URLTemplate, result.RemoteConfig.URLTemplate)
@@ -296,7 +300,8 @@ func TestMapCatalogEntryToServer_RemoteFixedURL(t *testing.T) {
 		Description: "Test remote server description",
 		Runtime:     RuntimeRemote,
 		RemoteConfig: &RemoteCatalogConfig{
-			FixedURL: "https://api.example.com/mcp",
+			FixedURL:   "https://api.example.com/mcp",
+			TunnelName: "mcptunnel-office",
 		},
 	}
 
@@ -316,6 +321,9 @@ func TestMapCatalogEntryToServer_RemoteFixedURL(t *testing.T) {
 	if result.RemoteConfig.URL != "https://api.example.com/mcp" {
 		t.Errorf("Expected URL 'https://api.example.com/mcp', got '%s'", result.RemoteConfig.URL)
 	}
+	if result.RemoteConfig.TunnelName != "mcptunnel-office" {
+		t.Errorf("Expected tunnel name 'mcptunnel-office', got %q", result.RemoteConfig.TunnelName)
+	}
 }
 
 func TestMapCatalogEntryToServer_RemoteHostname(t *testing.T) {
@@ -324,7 +332,8 @@ func TestMapCatalogEntryToServer_RemoteHostname(t *testing.T) {
 		Description: "Test remote server description",
 		Runtime:     RuntimeRemote,
 		RemoteConfig: &RemoteCatalogConfig{
-			Hostname: "api.example.com",
+			Hostname:   "api.example.com",
+			TunnelName: "mcptunnel-office",
 		},
 	}
 
@@ -344,6 +353,9 @@ func TestMapCatalogEntryToServer_RemoteHostname(t *testing.T) {
 
 	if result.RemoteConfig.URL != userURL {
 		t.Errorf("Expected URL '%s', got '%s'", userURL, result.RemoteConfig.URL)
+	}
+	if result.RemoteConfig.TunnelName != "mcptunnel-office" {
+		t.Errorf("Expected tunnel name 'mcptunnel-office', got %q", result.RemoteConfig.TunnelName)
 	}
 }
 
@@ -510,7 +522,6 @@ func TestValidateURLMatchesHostname(t *testing.T) {
 			hostname:    "localhost",
 			expectError: false,
 		},
-
 		// Valid cases - wildcard matches
 		{
 			name:        "wildcard match with single subdomain",
@@ -554,6 +565,18 @@ func TestValidateURLMatchesHostname(t *testing.T) {
 			name:        "exact hostname mismatch case sensitive",
 			url:         "https://Example.com/path",
 			hostname:    "example.com",
+			expectError: true,
+		},
+		{
+			name:        "legacy tunnel URL scheme is rejected",
+			url:         "https+tunnel://office@api.example.com/mcp",
+			hostname:    "different.example.com",
+			expectError: true,
+		},
+		{
+			name:        "legacy tunnel URL scheme is rejected even with matching hostname",
+			url:         "https+tunnel://bad_name@api.example.com/mcp",
+			hostname:    "api.example.com",
 			expectError: true,
 		},
 

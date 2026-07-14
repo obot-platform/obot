@@ -78,6 +78,8 @@ Remote MCP servers that conform to the MCP spec authentication schema will work 
 
 **Configuration**: Specify the remote URL endpoint. Additional options include connection restrictions for unconventional configurations, custom HTTP headers, and configuration values to send to the remote server.
 
+If Obot cannot directly reach a remote server, use an [MCP Tunnel](./mcp-tunnels.md) to route requests through a machine on the server's network. Keep the remote server's real HTTP or HTTPS URL and select the tunnel separately in **Advanced Configuration**.
+
 ### Composite server
 
 Composite servers let administrators combine one or more single-user, multi-user, and remote servers into a single virtual MCP server. It also allows admins to control the names, descriptions, and availability of the tool set exposed to end-users.
