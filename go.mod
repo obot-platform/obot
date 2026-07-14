@@ -42,7 +42,7 @@ require (
 	github.com/obot-platform/cmd v0.0.0-20260707150346-5103d461ab67
 	github.com/obot-platform/kinm v0.0.0-20260714141330-7c64312d9627
 	github.com/obot-platform/nah v0.0.0-20260707163210-8bdf0035e79f
-	github.com/obot-platform/nanobot v0.0.89
+	github.com/obot-platform/nanobot v0.0.90
 	github.com/obot-platform/obot/apiclient v0.0.0-20250813183905-ade719c1e8bf
 	github.com/obot-platform/obot/logger v0.0.0-20241217130503-4004a5c69f32
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
