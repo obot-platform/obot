@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
-	"strconv"
 	"testing"
 	"time"
 
@@ -267,26 +266,15 @@ func TestGetLLMAuditLogFilterOptions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get message policy triggered filter options: %v", err)
 	}
-	triggerValues := map[bool]bool{}
-	for _, option := range policyTriggered {
-		value, err := strconv.ParseBool(option)
-		if err != nil {
-			t.Fatalf("invalid message policy triggered option %q: %v", option, err)
-		}
-		triggerValues[value] = true
-	}
-	if len(policyTriggered) != 2 || !triggerValues[false] || !triggerValues[true] {
+	slices.Sort(policyTriggered)
+	if !slices.Equal(policyTriggered, []string{"false", "true"}) {
 		t.Fatalf("expected message policy triggered options, got %v", policyTriggered)
 	}
 	policyTriggered, err = c.GetLLMAuditLogFilterOptions(t.Context(), "message_policy_triggered", LLMAuditLogOptions{ModelProvider: []string{system.AnthropicModelProvider}})
 	if err != nil {
 		t.Fatalf("failed to get filtered message policy triggered options: %v", err)
 	}
-	if len(policyTriggered) != 1 {
-		t.Fatalf("expected filtered message policy triggered options, got %v", policyTriggered)
-	}
-	value, err := strconv.ParseBool(policyTriggered[0])
-	if err != nil || value {
+	if !slices.Equal(policyTriggered, []string{"false"}) {
 		t.Fatalf("expected filtered message policy triggered options, got %v", policyTriggered)
 	}
 

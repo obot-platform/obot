@@ -27,7 +27,7 @@ type LLMAuditLog struct {
 	RequestHeaders            json.RawMessage
 	RequestBody               json.RawMessage
 	PolicyModifiedRequestBody json.RawMessage
-	MessagePolicyTriggered    bool `gorm:"index:idx_llm_audit_message_policy_triggered_created,priority:1"`
+	MessagePolicyTriggered    bool `gorm:"not null;default:false;index:idx_llm_audit_message_policy_triggered_created,priority:1"`
 	ResponseHeaders           json.RawMessage
 	ResponseBody              json.RawMessage
 	ResponseID                string `gorm:"type:text;index:idx_llm_audit_response_created,priority:1"`

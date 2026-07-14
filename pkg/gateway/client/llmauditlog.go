@@ -138,6 +138,19 @@ func (c *Client) GetLLMAuditLogFilterOptions(ctx context.Context, option string,
 		db = db.Order(option).Limit(opts.Limit)
 	}
 
+	if option == "message_policy_triggered" {
+		var values []bool
+		if err := db.Select(option).Scan(&values).Error; err != nil {
+			return nil, err
+		}
+
+		result := make([]string, 0, len(values))
+		for _, value := range values {
+			result = append(result, strconv.FormatBool(value))
+		}
+		return result, nil
+	}
+
 	var result []string
 	return result, db.Select(option).Scan(&result).Error
 }
