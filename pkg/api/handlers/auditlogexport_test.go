@@ -34,6 +34,7 @@ func TestValidateAuditLogExportRequest(t *testing.T) {
 			name: "missing type defaults to MCP",
 			req: types.AuditLogExportCreateRequest{
 				Name:      "export",
+				Bucket:    "bucket",
 				StartTime: types.Time{Time: now},
 				EndTime:   types.Time{Time: now.Add(time.Hour)},
 			},
@@ -45,10 +46,19 @@ func TestValidateAuditLogExportRequest(t *testing.T) {
 			wantErr: "name is required",
 		},
 		{
-			name: "missing bucket",
+			name: "LLM missing bucket",
 			req: types.AuditLogExportCreateRequest{
 				Name:      "export",
 				Type:      types.AuditLogTypeLLM,
+				StartTime: types.Time{Time: now},
+				EndTime:   types.Time{Time: now.Add(time.Hour)},
+			},
+			wantErr: "bucket is required",
+		},
+		{
+			name: "MCP missing bucket",
+			req: types.AuditLogExportCreateRequest{
+				Name:      "export",
 				StartTime: types.Time{Time: now},
 				EndTime:   types.Time{Time: now.Add(time.Hour)},
 			},
@@ -70,6 +80,7 @@ func TestValidateAuditLogExportRequest(t *testing.T) {
 			req: types.AuditLogExportCreateRequest{
 				Name:      "export",
 				Type:      "other",
+				Bucket:    "bucket",
 				StartTime: types.Time{Time: now},
 				EndTime:   types.Time{Time: now.Add(time.Hour)},
 			},
@@ -91,6 +102,7 @@ func TestValidateAuditLogExportRequest(t *testing.T) {
 			name: "MCP rejects LLM filters",
 			req: types.AuditLogExportCreateRequest{
 				Name:       "export",
+				Bucket:     "bucket",
 				StartTime:  types.Time{Time: now},
 				EndTime:    types.Time{Time: now.Add(time.Hour)},
 				LLMFilters: types.LLMAuditLogExportFilters{UserIDs: []string{"user-1"}},

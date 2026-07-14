@@ -831,8 +831,9 @@ func schema_obot_platform_obot_apiclient_types_AuditLogExportCreateRequest(ref c
 					},
 					"bucket": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
 						},
 					},
 					"keyPrefix": {
@@ -842,7 +843,7 @@ func schema_obot_platform_obot_apiclient_types_AuditLogExportCreateRequest(ref c
 						},
 					},
 				},
-				Required: []string{"name", "startTime", "endTime"},
+				Required: []string{"name", "startTime", "endTime", "bucket"},
 			},
 		},
 		Dependencies: []string{
@@ -11451,8 +11452,9 @@ func schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportCreateRequ
 					},
 					"bucket": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
 						},
 					},
 					"keyPrefix": {
@@ -11486,7 +11488,7 @@ func schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportCreateRequ
 						},
 					},
 				},
-				Required: []string{"name", "schedule"},
+				Required: []string{"name", "bucket", "schedule"},
 			},
 		},
 		Dependencies: []string{

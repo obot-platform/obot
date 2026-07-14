@@ -8,7 +8,7 @@ type AuditLogExportCreateRequest struct {
 	EndTime    Time                     `json:"endTime"`
 	Filters    AuditLogExportFilters    `json:"filters,omitempty"`
 	LLMFilters LLMAuditLogExportFilters `json:"llmFilters,omitempty"`
-	Bucket     string                   `json:"bucket,omitempty"`
+	Bucket     string                   `json:"bucket"`
 	KeyPrefix  string                   `json:"keyPrefix,omitempty"`
 }
 
@@ -43,7 +43,7 @@ type AuditLogExportListResponse struct {
 type ScheduledAuditLogExportCreateRequest struct {
 	Name                  string                   `json:"name"`
 	Type                  AuditLogType             `json:"type,omitempty"`
-	Bucket                string                   `json:"bucket,omitempty"`
+	Bucket                string                   `json:"bucket"`
 	KeyPrefix             string                   `json:"keyPrefix,omitempty"`
 	Schedule              Schedule                 `json:"schedule"`
 	RetentionPeriodInDays int                      `json:"retentionPeriodInDays,omitempty"`

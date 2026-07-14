@@ -432,17 +432,16 @@ func (h *AuditLogExportHandler) validateExportRequest(req *types.AuditLogExportC
 	if req.Name == "" {
 		return fmt.Errorf("name is required")
 	}
+	if req.Bucket == "" {
+		return fmt.Errorf("bucket is required")
+	}
 	if req.StartTime.GetTime().After(req.EndTime.GetTime()) {
 		return fmt.Errorf("start time must be before end time")
 	}
-	if exportType == types.AuditLogTypeLLM {
-		if req.Bucket == "" {
-			return fmt.Errorf("bucket is required")
-		}
-		if !auditLogExportFiltersEmpty(req.Filters) {
-			return fmt.Errorf("filters can only be set for MCP audit log exports")
-		}
-	} else if !llmAuditLogExportFiltersEmpty(req.LLMFilters) {
+	if exportType == types.AuditLogTypeLLM && !auditLogExportFiltersEmpty(req.Filters) {
+		return fmt.Errorf("filters can only be set for MCP audit log exports")
+	}
+	if exportType == types.AuditLogTypeMCP && !llmAuditLogExportFiltersEmpty(req.LLMFilters) {
 		return fmt.Errorf("llmFilters can only be set for LLM audit log exports")
 	}
 	return nil
@@ -457,14 +456,13 @@ func (h *AuditLogExportHandler) validateScheduledExportRequest(req *types.Schedu
 	if req.Name == "" {
 		return fmt.Errorf("name is required")
 	}
-	if exportType == types.AuditLogTypeLLM {
-		if req.Bucket == "" {
-			return fmt.Errorf("bucket is required")
-		}
-		if !auditLogExportFiltersEmpty(req.Filters) {
-			return fmt.Errorf("filters can only be set for MCP audit log exports")
-		}
-	} else if !llmAuditLogExportFiltersEmpty(req.LLMFilters) {
+	if req.Bucket == "" {
+		return fmt.Errorf("bucket is required")
+	}
+	if exportType == types.AuditLogTypeLLM && !auditLogExportFiltersEmpty(req.Filters) {
+		return fmt.Errorf("filters can only be set for MCP audit log exports")
+	}
+	if exportType == types.AuditLogTypeMCP && !llmAuditLogExportFiltersEmpty(req.LLMFilters) {
 		return fmt.Errorf("llmFilters can only be set for LLM audit log exports")
 	}
 	return nil
