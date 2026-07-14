@@ -23,10 +23,11 @@
 	) => Promise<{ options: string[] } | undefined>;
 
 	type BooleanFilter = {
-		property: string;
+		property: FilterKey;
 		label: string;
 		selected: boolean;
 		default?: boolean;
+		onChange: (selected: boolean) => void;
 	};
 
 	interface Props {
@@ -59,9 +60,6 @@
 	}: Props = $props();
 
 	let filters = $derived({ ...(externFilters ?? {}) } as Partial<T>);
-	let booleanFilters = $state(
-		untrack(() => externalBooleanFilters.map((filter) => ({ ...filter })))
-	);
 
 	type FilterOptions = Record<FilterKey, FilterOption[]>;
 	let filtersOptions: FilterOptions = $state({} as FilterOptions);
@@ -159,7 +157,7 @@
 				}
 			}
 		}
-		for (const filter of booleanFilters) {
+		for (const filter of externalBooleanFilters) {
 			if (filter.selected === (filter.default ?? false)) {
 				url.searchParams.delete(filter.property);
 			} else {
@@ -180,8 +178,8 @@
 			.forEach((filterInput) => {
 				filterInput.selected = '';
 			});
-		booleanFilters.forEach((filter) => {
-			filter.selected = filter.default ?? false;
+		externalBooleanFilters.forEach((filter) => {
+			filter.onChange(filter.default ?? false);
 		});
 	}
 </script>
@@ -198,14 +196,10 @@
 	<div
 		class="default-scrollbar-thin flex h-[calc(100%-60px)] w-full flex-col gap-4 overflow-y-auto p-4 pt-0"
 	>
-		{#each booleanFilters as filter (filter.property)}
+		{#each externalBooleanFilters as filter (filter.property)}
 			<div class="border-base-300 flex items-center justify-between gap-4 rounded-lg border p-4">
 				<span class="text-sm font-medium">{filter.label}</span>
-				<Toggle
-					label={filter.label}
-					checked={filter.selected}
-					onChange={(checked) => (filter.selected = checked)}
-				/>
+				<Toggle label={filter.label} checked={filter.selected} onChange={filter.onChange} />
 			</div>
 		{/each}
 		{#each filterInputsAsArray as filterInput, index (filterInput.property)}

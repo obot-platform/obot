@@ -60,6 +60,10 @@
 	let includeModelsRequests = $derived(
 		page.url.searchParams.get('include_models_requests') === 'true'
 	);
+	let includeModelsRequestsDraft = $state(false);
+	$effect(() => {
+		includeModelsRequestsDraft = includeModelsRequests;
+	});
 	let usersMap = $derived(new Map(users.map((user) => [user.id, user])));
 
 	const DEFER_THRESHOLD = 500;
@@ -256,6 +260,7 @@
 			<button
 				class="btn btn-neutral h-12.5"
 				onclick={() => {
+					includeModelsRequestsDraft = includeModelsRequests;
 					showFilters = true;
 					selectedAuditLog = undefined;
 					rightSidebar?.showPopover();
@@ -367,7 +372,8 @@
 				{
 					property: 'include_models_requests',
 					label: 'Show model discovery requests',
-					selected: includeModelsRequests
+					selected: includeModelsRequestsDraft,
+					onChange: (selected) => (includeModelsRequestsDraft = selected)
 				}
 			]}
 			getUserDisplayName={(...args) => getUserDisplayName(usersMap, ...args)}
