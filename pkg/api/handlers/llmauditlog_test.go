@@ -42,3 +42,27 @@ func TestParseLLMAuditLogOptsParsesFilterFields(t *testing.T) {
 		t.Fatalf("expected input policy trigger values [true false], got %v", got)
 	}
 }
+
+func TestParseLLMAuditLogOptsIncludeModelsRequests(t *testing.T) {
+	for _, tt := range []struct {
+		name  string
+		value string
+		want  bool
+	}{
+		{name: "absent defaults false"},
+		{name: "false", value: "false"},
+		{name: "invalid", value: "invalid"},
+		{name: "true", value: "true", want: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			query := url.Values{}
+			if tt.value != "" {
+				query.Set("include_models_requests", tt.value)
+			}
+
+			if got := parseLLMAuditLogOpts(query).IncludeModelsRequests; got != tt.want {
+				t.Fatalf("expected IncludeModelsRequests=%t, got %t", tt.want, got)
+			}
+		})
+	}
+}

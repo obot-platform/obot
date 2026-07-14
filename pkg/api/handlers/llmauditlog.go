@@ -90,17 +90,18 @@ func (h *LLMAuditLogHandler) ListFilterOptions(req api.Context) error {
 
 func parseLLMAuditLogOpts(query url.Values) gateway.LLMAuditLogOptions {
 	opts := gateway.LLMAuditLogOptions{
-		UserID:          parseStringList(query, "user_id"),
-		ModelProvider:   parseStringList(query, "model_provider"),
-		TargetModel:     parseStringList(query, "target_model"),
-		RequestPath:     parseStringList(query, "request_path"),
-		Outcome:         parseStringList(query, "outcome"),
-		Client:          parseStringList(query, "client"),
-		ClientSessionID: parseStringList(query, "client_session_id"),
-		Query:           strings.TrimSpace(query.Get("query")),
-		SortBy:          query.Get("sort_by"),
-		SortOrder:       query.Get("sort_order"),
-		StartTime:       time.Now().UTC().AddDate(0, 0, -30),
+		IncludeModelsRequests: query.Get("include_models_requests") == "true",
+		UserID:                parseStringList(query, "user_id"),
+		ModelProvider:         parseStringList(query, "model_provider"),
+		TargetModel:           parseStringList(query, "target_model"),
+		RequestPath:           parseStringList(query, "request_path"),
+		Outcome:               parseStringList(query, "outcome"),
+		Client:                parseStringList(query, "client"),
+		ClientSessionID:       parseStringList(query, "client_session_id"),
+		Query:                 strings.TrimSpace(query.Get("query")),
+		SortBy:                query.Get("sort_by"),
+		SortOrder:             query.Get("sort_order"),
+		StartTime:             time.Now().UTC().AddDate(0, 0, -30),
 	}
 	for _, value := range parseStringList(query, "message_policy_triggered") {
 		if triggered, err := strconv.ParseBool(value); err == nil {

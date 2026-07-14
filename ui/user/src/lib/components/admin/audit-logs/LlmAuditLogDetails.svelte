@@ -82,4 +82,10 @@
 			{/each}
 		</div>
 	{/snippet}
+
+	{#snippet additRequestContent(data)}
+		{#if data.requestPath}
+			<p class="break-all"><span class="font-medium">Request Path</span>: {data.requestPath}</p>
+		{/if}
+	{/snippet}
 </AuditLogDetails>

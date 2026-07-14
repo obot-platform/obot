@@ -219,6 +219,56 @@ func TestGetLLMAuditLogsFiltersAndStripsSensitiveFields(t *testing.T) {
 	}
 }
 
+func TestGetLLMAuditLogsExcludesModelsRequestsByDefault(t *testing.T) {
+	c := newTestClient(t)
+	now := time.Now().UTC()
+	for _, path := range []string{
+		"/api/llm-proxy/openai/v1/responses",
+		"/api/llm-proxy/openai/models",
+		"/api/llm-proxy/openai/v1/models",
+		"/api/llm-proxy/anthropic/models/",
+		"/api/llm-proxy/openai/models/model-1",
+	} {
+		entry := types.LLMAuditLog{ID: uuid.NewString(), CreatedAt: now, RequestPath: path}
+		if err := c.InsertLLMAuditLog(t.Context(), &entry); err != nil {
+			t.Fatalf("failed to insert LLM audit log for %q: %v", path, err)
+		}
+	}
+
+	logs, total, err := c.GetLLMAuditLogs(t.Context(), LLMAuditLogOptions{})
+	if err != nil {
+		t.Fatalf("failed to list LLM audit logs: %v", err)
+	}
+	if total != 2 || len(logs) != 2 {
+		t.Fatalf("expected two non-models requests, got total=%d len=%d", total, len(logs))
+	}
+	paths := []string{logs[0].RequestPath, logs[1].RequestPath}
+	slices.Sort(paths)
+	if !slices.Equal(paths, []string{
+		"/api/llm-proxy/openai/models/model-1",
+		"/api/llm-proxy/openai/v1/responses",
+	}) {
+		t.Fatalf("expected non-models request paths, got %v", paths)
+	}
+
+	logs, total, err = c.GetLLMAuditLogs(t.Context(), LLMAuditLogOptions{IncludeModelsRequests: true})
+	if err != nil {
+		t.Fatalf("failed to list all LLM audit logs: %v", err)
+	}
+	if total != 5 || len(logs) != 5 {
+		t.Fatalf("expected all requests, got total=%d len=%d", total, len(logs))
+	}
+
+	options, err := c.GetLLMAuditLogFilterOptions(t.Context(), "request_path", LLMAuditLogOptions{}, "")
+	if err != nil {
+		t.Fatalf("failed to list request path options: %v", err)
+	}
+	slices.Sort(options)
+	if !slices.Equal(options, paths) {
+		t.Fatalf("expected filtered request path options %v, got %v", paths, options)
+	}
+}
+
 func TestGetLLMAuditLogFilterOptions(t *testing.T) {
 	c := newTestClient(t)
 	if !c.db.WithContext(t.Context()).Migrator().HasIndex(&types.LLMAuditLog{}, "idx_llm_audit_message_policy_triggered_created") {
