@@ -21,23 +21,23 @@ Device management helps administrators:
 Device management is inventory and visibility. It does not install clients, change local client configuration, start MCP servers, or grant access to Obot resources.
 :::
 
-## Device Management views
+## Devices
 
-The Obot admin UI includes a Device Management section with these views:
+Under Device Management in the Obot Administration section, Devices contains the following views:
 
 | View | What it shows |
 |------|---------------|
-| Dashboard | Organization-level scan coverage, top observed clients, MCP servers, and skills, and scan submission activity over time. |
+| Overview | Organization-level scan coverage, top observed clients, MCP servers, and skills, and scan submission activity over time. |
 | Devices | Workstations that have submitted scans, with high-level inventory counts and links to device history. |
 | Device Skills | Skills observed across scanned devices, with drilldowns into where each skill appears. |
 | Device MCP Servers | MCP servers observed across scanned devices, with drilldowns into affected devices and client configurations. |
 | Device Clients | AI clients observed across scanned devices, with drilldowns into associated users, MCP servers, and skills. |
 
-The Dashboard supports a date range filter. The device, skill, MCP server, and client list views support search, sorting, and filtering where available.
+The Overview dashboard supports a date range filter. The device, skill, MCP server, and client list views support search, sorting, and filtering where available.
 
-## Device dashboard
+## Overview
 
-The Dashboard summarizes submitted scans for the selected time range.
+The Overview is a dashboard that summarizes the submitted scans for the selected time range.
 
 It helps administrators answer questions like:
 
@@ -47,7 +47,7 @@ It helps administrators answer questions like:
 - Which MCP servers and skills appear most often?
 - Is scan submission activity increasing or dropping off?
 
-Dashboard inventory totals use the latest scan for each device in the selected window. The scan submission timeline counts every scan submitted in the window.
+Its inventory totals use the latest scan for each device in the selected window. The scan submission timeline counts every scan submitted in the window.
 
 ## Devices
 

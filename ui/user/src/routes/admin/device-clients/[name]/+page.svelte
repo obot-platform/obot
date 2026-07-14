@@ -46,7 +46,7 @@
 		if (typeof window !== 'undefined' && window.history.length > 1) {
 			window.history.back();
 		} else {
-			goto(resolve('/admin/device-clients'));
+			goto(resolve('/admin/devices?view=device-clients'));
 		}
 	}}
 >

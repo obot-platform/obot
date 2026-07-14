@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import Skeleton from '$lib/components/Skeleton.svelte';
 	import ConnectToServer from '$lib/components/mcp/ConnectToServer.svelte';
 	import McpDeprecatedNotice from '$lib/components/mcp/McpDeprecatedNotice.svelte';
 	import McpSelectServerDeployment from '$lib/components/mcp/McpSelectServerDeployment.svelte';
@@ -250,9 +251,7 @@
 
 <div class="flex flex-col gap-1 @container">
 	{#if mcpServersAndEntries.current.loading}
-		{#each Array.from({ length: 4 }) as _, i (i)}
-			<div class="skeleton h-23 w-full"></div>
-		{/each}
+		<Skeleton type="table" count={3} class="w-full" classes={{ header: 'h-23', body: 'h-23' }} />
 	{:else if tableData.length === 0 && noDataContent}
 		{@render noDataContent?.()}
 	{:else}

@@ -15,6 +15,6 @@ export const load: PageLoad = async ({ url, fetch }) => {
 		stats = await AdminService.getDeviceScanStats({ start, end }, { fetch });
 		return { stats, range: { start, end } };
 	} catch (err) {
-		handleRouteError(err, '/admin/device-overview', profile.current);
+		handleRouteError(err, '/admin/devices', profile.current);
 	}
 };

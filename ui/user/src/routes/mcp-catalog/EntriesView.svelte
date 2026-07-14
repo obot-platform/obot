@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
+	import Skeleton from '$lib/components/Skeleton.svelte';
 	import ConnectToServer from '$lib/components/mcp/ConnectToServer.svelte';
 	import McpConfirmDelete from '$lib/components/mcp/McpConfirmDelete.svelte';
 	import McpDeprecatedNotice from '$lib/components/mcp/McpDeprecatedNotice.svelte';
@@ -247,11 +248,11 @@
 </script>
 
 {#if mcpServersAndEntries.current.loading && tableData.length === 0}
-	<div class="flex flex-col gap-0.5">
-		{#each Array.from({ length: 10 }) as _, i (i)}
-			<div class="skeleton h-14 w-full rounded-none"></div>
-		{/each}
-	</div>
+	<Skeleton
+		type="table"
+		count={10}
+		classes={{ header: 'h-14 rounded-none', body: 'rounded-none' }}
+	/>
 {/if}
 {#if mcpServersAndEntries.current.isInitialized}
 	<div class="flex flex-col gap-px">

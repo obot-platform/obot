@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import Layout from '$lib/components/Layout.svelte';
+	import Skeleton from '$lib/components/Skeleton.svelte';
 	import TweenedMetric from '$lib/components/TweenedMetric.svelte';
 	import DeviceScanDonutCard from '$lib/components/admin/device-scan/DeviceScanDonutCard.svelte';
 	import DeviceScanTimelineCard from '$lib/components/admin/device-scan/DeviceScanTimelineCard.svelte';
@@ -243,7 +244,7 @@
 			loading: loadingDeviceScanStats,
 			value: deviceScanStats?.deviceCount ?? 0,
 			icon: Laptop,
-			seeMore: '/admin/devices'
+			seeMore: '/admin/devices?view=devices'
 		},
 		{
 			id: 'device-users',
@@ -258,7 +259,7 @@
 			loading: loadingDeviceScanStats,
 			value: deviceScanStats?.clients?.length ?? 0,
 			icon: MonitorCheck,
-			seeMore: '/admin/device-clients'
+			seeMore: '/admin/devices?view=device-clients'
 		},
 		{
 			id: 'device-mcps',
@@ -266,7 +267,7 @@
 			loading: loadingDeviceScanStats,
 			value: deviceScanStats?.mcpServers?.length ?? 0,
 			icon: Server,
-			seeMore: '/admin/device-mcp-servers'
+			seeMore: '/admin/devices?view=device-mcp-servers'
 		},
 		{
 			id: 'device-skills',
@@ -274,7 +275,7 @@
 			loading: loadingDeviceScanStats,
 			value: deviceScanStats?.skills?.length ?? 0,
 			icon: PencilRuler,
-			seeMore: '/admin/device-skills'
+			seeMore: '/admin/devices?view=device-skills'
 		}
 	]);
 </script>
@@ -332,7 +333,7 @@
 			{/if}
 
 			{#if loadingToolUsage}
-				<div class={twMerge('skeleton rounded-md', hasDeviceScans ? 'h-81' : 'h-[400px]')}></div>
+				<Skeleton type="card" class={hasDeviceScans ? 'h-81' : 'h-[400px]'} />
 			{:else}
 				<div in:fade={{ duration: 150 }} class="paper gap-1 w-full min-h-72">
 					<div class="flex flex-wrap items-center justify-between gap-4">
@@ -374,10 +375,10 @@
 				in:fly={{ x: 100, duration: 150 }}
 			>
 				{#if loadingDeviceScanStats}
+					<Skeleton type="card" class="min-h-96.5 w-full" />
 					<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-						{#each Array.from({ length: 4 }) as _, i (i)}
-							<div class="min-h-72 skeleton rounded-md"></div>
-						{/each}
+						<Skeleton type="card" class="min-h-72" />
+						<Skeleton type="card" class="min-h-72" />
 					</div>
 				{:else}
 					<DeviceScanDonutCard
@@ -434,20 +435,10 @@
 
 {#snippet serverActivityGraph()}
 	{#if serverAndEntries.loading || loading}
-		<div class={twMerge('skeleton rounded-md', 'h-[530px]')}></div>
+		<Skeleton type="card" class="h-[530px]" />
 		<div class="paper gap-1 flex grow">
 			<h4 class="flex items-center gap-2 font-semibold">Most Popular Servers</h4>
-			<div class="pt-2 flex flex-col gap-4">
-				{#each Array.from({ length: 5 }) as _, i (i)}
-					<div class="flex gap-2 items-center w-full">
-						<div class="size-8 rounded-md skeleton shrink-0"></div>
-						<div class="flex flex-col gap-2 flex-1">
-							<div class="h-4 w-full rounded-md skeleton"></div>
-							<div class="h-3 w-full rounded-md skeleton"></div>
-						</div>
-					</div>
-				{/each}
-			</div>
+			<Skeleton type="list" />
 		</div>
 	{:else}
 		<div
@@ -532,17 +523,7 @@
 	<div in:fade={{ duration: 150 }} class="paper gap-1 flex grow">
 		<h4 class="flex items-center gap-2 font-semibold">Most Deployed Servers</h4>
 		{#if mcpServersAndEntries.current.loading || loading}
-			<div class="pt-2 flex flex-col gap-4">
-				{#each Array.from({ length: 5 }) as _, i (i)}
-					<div class="flex gap-2 items-center w-full">
-						<div class="size-8 rounded-md skeleton shrink-0"></div>
-						<div class="flex flex-col gap-2 flex-1">
-							<div class="h-4 w-full rounded-md skeleton"></div>
-							<div class="h-3 w-full rounded-md skeleton"></div>
-						</div>
-					</div>
-				{/each}
-			</div>
+			<Skeleton type="list" />
 		{:else if popularServers.length > 0}
 			<div class="pt-2 flex flex-col gap-2 -ml-2 w-[calc(100%+1rem)]">
 				{#each popularServers as info (info.id)}
@@ -685,17 +666,7 @@
 			<span class="text-muted-content text-xs font-light">(Last 30 Days)</span>
 		</h4>
 		{#if loadingToolUsage}
-			<div class="pt-2 flex flex-col gap-4 w-full">
-				{#each Array.from({ length: maxToolsToShow }) as _, i (i)}
-					<div class="flex gap-2 items-center w-full">
-						<div class="size-8 rounded-md skeleton shrink-0"></div>
-						<div class="flex flex-col gap-2 flex-1">
-							<div class="h-4 w-full rounded-md skeleton"></div>
-							<div class="h-3 w-full rounded-md skeleton"></div>
-						</div>
-					</div>
-				{/each}
-			</div>
+			<Skeleton type="list" class="w-full" count={maxToolsToShow} />
 		{:else if topToolCalls.length === 0}
 			<p
 				class="text-xs text-muted-content pt-2 font-light grow flex items-center justify-center h-full text-center"
@@ -749,16 +720,7 @@
 			<span class="text-muted-content text-xs font-light">(Last 30 Days)</span>
 		</h4>
 		{#if loadingToolUsage}
-			<div class="pt-2 flex flex-col gap-4 w-full">
-				{#each Array.from({ length: maxToolsToShow }) as _, i (i)}
-					<div class="flex gap-2 items-center w-full">
-						<div class="flex flex-col gap-2 flex-1">
-							<div class="h-4 w-full rounded-md skeleton"></div>
-							<div class="h-3 w-full rounded-md skeleton"></div>
-						</div>
-					</div>
-				{/each}
-			</div>
+			<Skeleton type="list" class="w-full" count={maxToolsToShow} />
 		{:else if avgToolCallResponseTime.length === 0}
 			<p
 				class="text-xs text-muted-content pt-2 font-light grow flex items-center justify-center h-full text-center"
@@ -803,16 +765,3 @@
 <svelte:head>
 	<title>Obot | Dashboard</title>
 </svelte:head>
-
-<style lang="postcss">
-	.skeleton-list-item .skeleton {
-		:global(.dark) & {
-			background-image: linear-gradient(
-				105deg,
-				var(--color-base-300) 0% 40%,
-				var(--color-base-400) 50%,
-				var(--color-base-300) 60% 100%
-			);
-		}
-	}
-</style>

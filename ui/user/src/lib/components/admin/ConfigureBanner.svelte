@@ -30,9 +30,12 @@
 	);
 
 	const loading = $derived(storeData.loading);
+	const showModelConfiguration = $derived(
+		version.current.agentsEnabled !== false && !isModelProviderConfigured
+	);
 </script>
 
-{#if !loading && (!isModelProviderConfigured || !isAuthProviderConfigured) && profile.current?.isAdmin?.()}
+{#if !loading && (showModelConfiguration || !isAuthProviderConfigured) && profile.current?.isAdmin?.()}
 	<div
 		class="dark:bg-base-300 bg-base-100 mb-4 flex min-h-44 justify-center overflow-hidden rounded-xl py-4"
 	>
@@ -44,7 +47,7 @@
 			</div>
 			<div class="relative z-10 flex flex-col gap-2 md:ml-64">
 				<h4 class="text-lg font-semibold">Wait! You've still got some setup to do!</h4>
-				{#if !isModelProviderConfigured}
+				{#if showModelConfiguration}
 					<p class="text-sm font-light">
 						<b class="font-semibold">Model Provider:</b> To use the Obot Chat feature, configure a Model
 						Provider.
@@ -56,7 +59,7 @@
 					</p>
 				{/if}
 				<div class="flex flex-row flex-wrap gap-2">
-					{#if !isModelProviderConfigured}
+					{#if showModelConfiguration}
 						<a href={resolve('/admin/model-providers')} class="btn btn-warning">
 							Configure Model Provider
 						</a>

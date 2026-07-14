@@ -76,7 +76,7 @@
 		if (typeof window !== 'undefined' && window.history.length > 1) {
 			window.history.back();
 		} else {
-			goto('/admin/device-mcp-servers');
+			goto(resolve('/admin/devices?view=device-mcp-servers'));
 		}
 	}}
 >

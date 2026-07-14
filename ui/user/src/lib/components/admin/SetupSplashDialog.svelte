@@ -13,11 +13,18 @@
 
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let loading = $state(false);
+
+	const authProviderPath = '/admin/auth-providers';
+	const modelProviderPath = '/admin/model-providers';
+
 	const storeData = $derived($adminConfigStore);
 	const isAuthProviderConfigured = $derived(
 		version.current.authEnabled ? storeData.authProviderConfigured : true
 	);
-	const isOnAuthProvidersPage = $derived(page.url.pathname === '/admin/auth-providers');
+	const requiresModelProviderConfiguration = $derived(
+		version.current.agentsEnabled !== false && !storeData.modelProviderConfigured
+	);
+	const isOnAuthProvidersPage = $derived(page.url.pathname === authProviderPath);
 	const isBootstrapUser = $derived(profile.current.isBootstrapUser?.() ?? false);
 
 	$effect(() => {
@@ -37,7 +44,7 @@
 			if (
 				!firstTimeViewed &&
 				(isBootstrapUser || isOwner) &&
-				(!isAuthProviderConfigured || !storeData.modelProviderConfigured || !storeData.eulaAccepted)
+				(!isAuthProviderConfigured || requiresModelProviderConfiguration || !storeData.eulaAccepted)
 			) {
 				dialog?.open();
 			}
@@ -62,7 +69,7 @@
 	<h2 class="mb-8 text-center text-2xl font-semibold">Welcome to Obot!</h2>
 
 	<div class="w-fit self-center">
-		{#if !isAuthProviderConfigured || !storeData.modelProviderConfigured}
+		{#if !isAuthProviderConfigured || requiresModelProviderConfiguration}
 			{#if isBootstrapUser}
 				<p>Before using Obot, you'll need to:</p>
 			{:else}
@@ -77,7 +84,9 @@
 					isAuthProviderConfigured,
 					authDisabledNote
 				)}
-				{@render renderChecklistItem('Setup a Model Provider', storeData.modelProviderConfigured)}
+				{#if version.current.agentsEnabled !== false}
+					{@render renderChecklistItem('Setup a Model Provider', storeData.modelProviderConfigured)}
+				{/if}
 			</ul>
 		{/if}
 
@@ -105,9 +114,9 @@
 				}
 
 				if (!isAuthProviderConfigured) {
-					goto('/admin/auth-providers');
-				} else {
-					goto('/admin/model-providers');
+					goto(authProviderPath);
+				} else if (requiresModelProviderConfiguration) {
+					goto(modelProviderPath);
 				}
 				dialog?.close();
 			}}
@@ -124,11 +133,10 @@
 			onclick={() => {
 				handleAcceptEula();
 				localStorage.setItem('seenSplashDialog', new Date().toISOString());
-				if (storeData.modelProviderConfigured) {
-					dialog?.close();
-				} else {
-					goto('/admin/model-providers');
+				if (requiresModelProviderConfiguration && page.url.pathname !== modelProviderPath) {
+					goto(modelProviderPath);
 				}
+				dialog?.close();
 			}}
 		>
 			Continue
