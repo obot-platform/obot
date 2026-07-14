@@ -4,7 +4,7 @@ Deploying Obot to Amazon Elastic Kubernetes Service follows the standard Helm wo
 
 * AWS account
 * VPC with subnets
-* Amazon RDS instance running PostgreSQL 17+ with the pgvector extension enabled
+* Amazon RDS instance running PostgreSQL 17+
 * VPC Security Groups configured to allow connectivity between your EKS cluster and RDS instance
 * (Optional) AWS KMS key for encrypting sensitive information
 * (Optional) IAM role and policy for service account (IRSA) if you're using AWS services like KMS for encryption
