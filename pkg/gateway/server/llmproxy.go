@@ -1084,9 +1084,6 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 		if model.Spec.Manifest.ModelProvider != modelProvider.Name {
 			return types2.NewErrBadRequest("requested model does not match configured provider %q", targetModel)
 		}
-		if routeDialect != "" && model.Spec.Manifest.Dialect != "" && model.Spec.Manifest.Dialect != string(routeDialect) {
-			return types2.NewErrBadRequest("requested model %q uses dialect %q, but request path uses dialect %q", targetModel, model.Spec.Manifest.Dialect, routeDialect)
-		}
 		hasAccess, err := l.mapHelper.UserHasAccessToModel(req.User, model.Name)
 		if err != nil {
 			return fmt.Errorf("failed to check user access to model %q: %w", model.Name, err)

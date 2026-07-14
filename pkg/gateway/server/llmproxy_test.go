@@ -707,7 +707,7 @@ func TestResolveBedrockRouteDialect(t *testing.T) {
 		{name: "unprefixed models", path: "v1/models", wantPath: "v1/models"},
 		{name: "anthropic models", path: "anthropic/v1/models", wantPath: "v1/models", wantDialect: nanobottypes.DialectAnthropicMessages},
 		{name: "openai models", path: "openai/v1/models", wantPath: "v1/models", wantDialect: nanobottypes.DialectOpenAIResponses},
-		{name: "conflicting prefix", path: "openai/v1/messages", wantPath: "v1/messages", wantErr: true},
+		{name: "prefix determines dialect", path: "openai/v1/messages", wantPath: "v1/messages", wantDialect: nanobottypes.DialectOpenAIResponses},
 		{name: "unsupported path", path: "v1/chat/completions", wantPath: "v1/chat/completions", wantErr: true},
 	}
 
@@ -826,6 +826,7 @@ func TestBedrockRequestUpstreamPath(t *testing.T) {
 		{name: "Codex responses without version", path: "responses", want: "/openai/v1/responses"},
 		{name: "unprefixed responses", path: "v1/responses", want: "/openai/v1/responses"},
 		{name: "Bedrock-aware responses", path: "openai/v1/responses", want: "/openai/v1/responses"},
+		{name: "prefix and endpoint mismatch", path: "openai/v1/messages", want: "/openai/v1/messages"},
 		{name: "unprefixed models", path: "v1/models", want: "/v1/models"},
 		{name: "Anthropic-prefixed models", path: "anthropic/v1/models", want: "/v1/models"},
 		{name: "OpenAI-prefixed models", path: "openai/v1/models", want: "/v1/models"},

@@ -85,11 +85,14 @@ func resolveBedrockRouteDialect(req *http.Request) (nanobottypes.Dialect, error)
 		req.SetPathValue("path", reqPath)
 	}
 
+	if explicit != "" {
+		return explicit, nil
+	}
 	endpoint := strings.TrimPrefix(reqPath, "v1/")
 	var inferred nanobottypes.Dialect
 	switch {
 	case endpoint == "models":
-		return explicit, nil
+		return "", nil
 	case endpoint == "messages" || strings.HasPrefix(endpoint, "messages/"):
 		inferred = nanobottypes.DialectAnthropicMessages
 	case endpoint == "responses" || strings.HasPrefix(endpoint, "responses/"):
@@ -98,8 +101,5 @@ func resolveBedrockRouteDialect(req *http.Request) (nanobottypes.Dialect, error)
 		return "", fmt.Errorf("unsupported Bedrock Mantle path %q", reqPath)
 	}
 
-	if explicit != "" && explicit != inferred {
-		return "", fmt.Errorf("Bedrock Mantle path prefix conflicts with endpoint %q", reqPath)
-	}
 	return inferred, nil
 }
