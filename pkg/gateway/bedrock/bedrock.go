@@ -76,19 +76,22 @@ func RootURL(providerName string, credentials map[string]string) (url.URL, error
 }
 
 func Transport(providerName string, credentials map[string]string, next http.RoundTripper) (http.RoundTripper, error) {
+	if next == nil {
+		next = http.DefaultTransport
+	}
 	switch providerName {
 	case system.AmazonBedrockModelProvider:
 		auth, err := StaticAuthFromCredential(credentials)
 		if err != nil {
 			return nil, err
 		}
-		return SigV4Transport{Auth: auth, Next: next}, nil
+		return sigV4Transport{auth: auth, next: next}, nil
 	case system.AmazonBedrockAPIKeyModelProvider:
 		key := credentials[APIKeyEnv]
 		if key == "" {
 			return nil, fmt.Errorf("missing %s for Amazon Bedrock API key model provider", APIKeyEnv)
 		}
-		return APIKeyTransport{Key: key, Next: next}, nil
+		return apiKeyTransport{key: key, next: next}, nil
 	default:
 		return nil, fmt.Errorf("unsupported Bedrock model provider %q", providerName)
 	}
@@ -135,35 +138,27 @@ func RouteDialect(dialect nanobottypes.Dialect) (string, error) {
 	}
 }
 
-type APIKeyTransport struct {
-	Key  string
-	Next http.RoundTripper
+type apiKeyTransport struct {
+	key  string
+	next http.RoundTripper
 }
 
-func (b APIKeyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+func (b apiKeyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	req.Header.Del("X-Api-Key")
-	req.Header.Set("Authorization", "Bearer "+b.Key)
-	next := b.Next
-	if next == nil {
-		next = http.DefaultTransport
-	}
-	return next.RoundTrip(req)
+	req.Header.Set("Authorization", "Bearer "+b.key)
+	return b.next.RoundTrip(req)
 }
 
-type SigV4Transport struct {
-	Auth StaticAuth
-	Next http.RoundTripper
+type sigV4Transport struct {
+	auth StaticAuth
+	next http.RoundTripper
 }
 
-func (b SigV4Transport) RoundTrip(req *http.Request) (*http.Response, error) {
-	if err := SignRequest(req, b.Auth, time.Now()); err != nil {
+func (b sigV4Transport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if err := SignRequest(req, b.auth, time.Now()); err != nil {
 		return nil, err
 	}
-	next := b.Next
-	if next == nil {
-		next = http.DefaultTransport
-	}
-	return next.RoundTrip(req)
+	return b.next.RoundTrip(req)
 }
 
 func SignRequest(req *http.Request, auth StaticAuth, signingTime time.Time) error {

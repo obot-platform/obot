@@ -56,9 +56,5 @@ func (a apiKeyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 			req.Header.Set("X-Api-Key", a.key)
 		}
 	}
-	next := a.next
-	if next == nil {
-		next = http.DefaultTransport
-	}
-	return next.RoundTrip(req)
+	return a.next.RoundTrip(req)
 }

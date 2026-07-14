@@ -908,7 +908,12 @@ func TestBedrockStaticAuthFromCredential(t *testing.T) {
 
 func TestBedrockAPIKeyTransportSetsBearer(t *testing.T) {
 	capture := &captureRoundTripper{}
-	transport := bedrock.APIKeyTransport{Key: "bedrock-key", Next: capture}
+	transport, err := bedrock.Transport(system.AmazonBedrockAPIKeyModelProvider, map[string]string{
+		bedrock.APIKeyEnv: "bedrock-key",
+	}, capture)
+	if err != nil {
+		t.Fatal(err)
+	}
 	req := httptest.NewRequest(http.MethodPost, "https://bedrock-mantle.us-east-1.api.aws/openai/v1/responses", nil)
 	req.Header.Set("Authorization", "Bearer client-token")
 	req.Header.Set("X-Api-Key", "client-key")
