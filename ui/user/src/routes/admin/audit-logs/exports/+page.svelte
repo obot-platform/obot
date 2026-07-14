@@ -49,12 +49,7 @@
 
 	afterNavigate(({ to }) => {
 		if (browser && to?.url) {
-			const formType = to.url.searchParams.get('form') as FormType;
-			if (!formType && showForm) {
-				showForm = null;
-			} else if (formType && !showForm) {
-				showForm = formType;
-			}
+			showForm = (to.url.searchParams.get('form') as FormType) || null;
 		}
 	});
 
