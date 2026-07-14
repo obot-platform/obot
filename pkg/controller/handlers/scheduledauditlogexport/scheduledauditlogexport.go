@@ -36,11 +36,13 @@ func createExportFromSchedule(req router.Request, scheduledExport *v1.ScheduledA
 		},
 		Spec: v1.AuditLogExportSpec{
 			Name:                   fmt.Sprintf("%s-%d", scheduledExport.Spec.Name, scheduledExport.Status.TotalExportsCreated+1),
+			Type:                   scheduledExport.Spec.EffectiveType(),
 			Bucket:                 scheduledExport.Spec.Bucket,
 			KeyPrefix:              scheduledExport.Spec.KeyPrefix,
 			StartTime:              metav1.NewTime(startTime),
 			EndTime:                metav1.NewTime(nextRunAt),
 			Filters:                scheduledExport.Spec.Filters,
+			LLMFilters:             scheduledExport.Spec.LLMFilters,
 			WithRequestAndResponse: scheduledExport.Spec.WithRequestAndResponse,
 		},
 	}

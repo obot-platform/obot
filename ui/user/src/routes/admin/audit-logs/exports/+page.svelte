@@ -12,13 +12,7 @@
 	import ScheduledExportsView from '$lib/components/admin/audit-log-exports/ScheduledExportsView.svelte';
 	import StorageCredentialsForm from '$lib/components/admin/audit-log-exports/StorageCredentialsForm.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import {
-		AdminService,
-		type AuditLogExport,
-		type LLMAuditLogExport,
-		type ScheduledAuditLogExport,
-		type ScheduledLLMAuditLogExport
-	} from '$lib/services';
+	import { AdminService, type AuditLogExport, type ScheduledAuditLogExport } from '$lib/services';
 	import { profile } from '$lib/stores';
 	import { replaceState, goto } from '$lib/url';
 	import { Plus, Settings } from '@lucide/svelte';
@@ -41,7 +35,7 @@
 
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 
-	let createdExport = $state<AuditLogExport | LLMAuditLogExport | null>(null);
+	let createdExport = $state<AuditLogExport | null>(null);
 
 	let setTimeoutIds: ReturnType<typeof setTimeout>[] = [];
 
@@ -142,9 +136,7 @@
 		goto('/admin/audit-logs/exports', { replaceState: false });
 	}
 
-	async function handleFormSuccess(
-		item?: AuditLogExport | LLMAuditLogExport | ScheduledAuditLogExport | ScheduledLLMAuditLogExport
-	) {
+	async function handleFormSuccess(item?: AuditLogExport | ScheduledAuditLogExport) {
 		createdExport = item && 'startTime' in item ? { ...item } : null;
 
 		showForm = null;

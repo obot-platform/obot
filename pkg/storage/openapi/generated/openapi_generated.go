@@ -100,10 +100,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.K8sSettings":                             schema_obot_platform_obot_apiclient_types_K8sSettings(ref),
 		"github.com/obot-platform/obot/apiclient/types.K8sSettingsStatus":                       schema_obot_platform_obot_apiclient_types_K8sSettingsStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.LLMAuditLog":                             schema_obot_platform_obot_apiclient_types_LLMAuditLog(ref),
-		"github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportCreateRequest":          schema_obot_platform_obot_apiclient_types_LLMAuditLogExportCreateRequest(ref),
 		"github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters":                schema_obot_platform_obot_apiclient_types_LLMAuditLogExportFilters(ref),
-		"github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportListResponse":           schema_obot_platform_obot_apiclient_types_LLMAuditLogExportListResponse(ref),
-		"github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportResponse":               schema_obot_platform_obot_apiclient_types_LLMAuditLogExportResponse(ref),
 		"github.com/obot-platform/obot/apiclient/types.LLMAuditLogList":                         schema_obot_platform_obot_apiclient_types_LLMAuditLogList(ref),
 		"github.com/obot-platform/obot/apiclient/types.LLMAuditLogResponse":                     schema_obot_platform_obot_apiclient_types_LLMAuditLogResponse(ref),
 		"github.com/obot-platform/obot/apiclient/types.LocalAgentToolCallAuditLogFields":        schema_obot_platform_obot_apiclient_types_LocalAgentToolCallAuditLogFields(ref),
@@ -229,10 +226,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.ScheduledAuditLogExportListResponse":     schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportListResponse(ref),
 		"github.com/obot-platform/obot/apiclient/types.ScheduledAuditLogExportResponse":         schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportResponse(ref),
 		"github.com/obot-platform/obot/apiclient/types.ScheduledAuditLogExportUpdateRequest":    schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportUpdateRequest(ref),
-		"github.com/obot-platform/obot/apiclient/types.ScheduledLLMAuditLogExportCreateRequest": schema_obot_platform_obot_apiclient_types_ScheduledLLMAuditLogExportCreateRequest(ref),
-		"github.com/obot-platform/obot/apiclient/types.ScheduledLLMAuditLogExportListResponse":  schema_obot_platform_obot_apiclient_types_ScheduledLLMAuditLogExportListResponse(ref),
-		"github.com/obot-platform/obot/apiclient/types.ScheduledLLMAuditLogExportResponse":      schema_obot_platform_obot_apiclient_types_ScheduledLLMAuditLogExportResponse(ref),
-		"github.com/obot-platform/obot/apiclient/types.ScheduledLLMAuditLogExportUpdateRequest": schema_obot_platform_obot_apiclient_types_ScheduledLLMAuditLogExportUpdateRequest(ref),
 		"github.com/obot-platform/obot/apiclient/types.Skill":                                   schema_obot_platform_obot_apiclient_types_Skill(ref),
 		"github.com/obot-platform/obot/apiclient/types.SkillAccessRule":                         schema_obot_platform_obot_apiclient_types_SkillAccessRule(ref),
 		"github.com/obot-platform/obot/apiclient/types.SkillAccessRuleList":                     schema_obot_platform_obot_apiclient_types_SkillAccessRuleList(ref),
@@ -308,9 +301,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1.K8sSettingsList{}.OpenAPIModelName():                                                 schema_storage_apis_obotobotai_v1_K8sSettingsList(ref),
 		v1.K8sSettingsSpec{}.OpenAPIModelName():                                                 schema_storage_apis_obotobotai_v1_K8sSettingsSpec(ref),
 		v1.K8sSettingsStatus{}.OpenAPIModelName():                                               schema_storage_apis_obotobotai_v1_K8sSettingsStatus(ref),
-		v1.LLMAuditLogExport{}.OpenAPIModelName():                                               schema_storage_apis_obotobotai_v1_LLMAuditLogExport(ref),
-		v1.LLMAuditLogExportList{}.OpenAPIModelName():                                           schema_storage_apis_obotobotai_v1_LLMAuditLogExportList(ref),
-		v1.LLMAuditLogExportSpec{}.OpenAPIModelName():                                           schema_storage_apis_obotobotai_v1_LLMAuditLogExportSpec(ref),
 		v1.MCPCatalog{}.OpenAPIModelName():                                                      schema_storage_apis_obotobotai_v1_MCPCatalog(ref),
 		v1.MCPCatalogList{}.OpenAPIModelName():                                                  schema_storage_apis_obotobotai_v1_MCPCatalogList(ref),
 		v1.MCPCatalogSpec{}.OpenAPIModelName():                                                  schema_storage_apis_obotobotai_v1_MCPCatalogSpec(ref),
@@ -396,10 +386,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1.ScheduledAuditLogExportList{}.OpenAPIModelName():                                     schema_storage_apis_obotobotai_v1_ScheduledAuditLogExportList(ref),
 		v1.ScheduledAuditLogExportSpec{}.OpenAPIModelName():                                     schema_storage_apis_obotobotai_v1_ScheduledAuditLogExportSpec(ref),
 		v1.ScheduledAuditLogExportStatus{}.OpenAPIModelName():                                   schema_storage_apis_obotobotai_v1_ScheduledAuditLogExportStatus(ref),
-		v1.ScheduledLLMAuditLogExport{}.OpenAPIModelName():                                      schema_storage_apis_obotobotai_v1_ScheduledLLMAuditLogExport(ref),
-		v1.ScheduledLLMAuditLogExportList{}.OpenAPIModelName():                                  schema_storage_apis_obotobotai_v1_ScheduledLLMAuditLogExportList(ref),
-		v1.ScheduledLLMAuditLogExportSpec{}.OpenAPIModelName():                                  schema_storage_apis_obotobotai_v1_ScheduledLLMAuditLogExportSpec(ref),
-		v1.ScheduledLLMAuditLogExportStatus{}.OpenAPIModelName():                                schema_storage_apis_obotobotai_v1_ScheduledLLMAuditLogExportStatus(ref),
 		v1.Skill{}.OpenAPIModelName():                                                           schema_storage_apis_obotobotai_v1_Skill(ref),
 		v1.SkillAccessRule{}.OpenAPIModelName():                                                 schema_storage_apis_obotobotai_v1_SkillAccessRule(ref),
 		v1.SkillAccessRuleList{}.OpenAPIModelName():                                             schema_storage_apis_obotobotai_v1_SkillAccessRuleList(ref),
@@ -815,6 +801,12 @@ func schema_obot_platform_obot_apiclient_types_AuditLogExportCreateRequest(ref c
 							Format:  "",
 						},
 					},
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"startTime": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
@@ -829,6 +821,12 @@ func schema_obot_platform_obot_apiclient_types_AuditLogExportCreateRequest(ref c
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters"),
+						},
+					},
+					"llmFilters": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters"),
 						},
 					},
 					"bucket": {
@@ -848,7 +846,7 @@ func schema_obot_platform_obot_apiclient_types_AuditLogExportCreateRequest(ref c
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.Time"},
+			"github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
@@ -1070,6 +1068,13 @@ func schema_obot_platform_obot_apiclient_types_AuditLogExportResponse(ref common
 							Format:  "",
 						},
 					},
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 					"storageProvider": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
@@ -1103,6 +1108,12 @@ func schema_obot_platform_obot_apiclient_types_AuditLogExportResponse(ref common
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters"),
+						},
+					},
+					"llmFilters": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters"),
 						},
 					},
 					"state": {
@@ -1146,11 +1157,11 @@ func schema_obot_platform_obot_apiclient_types_AuditLogExportResponse(ref common
 						},
 					},
 				},
-				Required: []string{"id", "name", "storageProvider", "startTime", "endTime", "state", "createdAt"},
+				Required: []string{"id", "name", "type", "storageProvider", "startTime", "endTime", "state", "createdAt"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.Time"},
+			"github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
@@ -4800,58 +4811,6 @@ func schema_obot_platform_obot_apiclient_types_LLMAuditLog(ref common.ReferenceC
 	}
 }
 
-func schema_obot_platform_obot_apiclient_types_LLMAuditLogExportCreateRequest(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "LLMAuditLogExportCreateRequest represents a request to create an LLM audit log export",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"name": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"startTime": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
-						},
-					},
-					"endTime": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
-						},
-					},
-					"filters": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters"),
-						},
-					},
-					"bucket": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"keyPrefix": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-				},
-				Required: []string{"name", "startTime", "endTime", "bucket"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.Time"},
-	}
-}
-
 func schema_obot_platform_obot_apiclient_types_LLMAuditLogExportFilters(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -4972,146 +4931,6 @@ func schema_obot_platform_obot_apiclient_types_LLMAuditLogExportFilters(ref comm
 				},
 			},
 		},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_LLMAuditLogExportListResponse(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "LLMAuditLogExportListResponse represents a list of LLM audit log exports",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"items": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportResponse"),
-									},
-								},
-							},
-						},
-					},
-					"total": {
-						SchemaProps: spec.SchemaProps{
-							Default: 0,
-							Type:    []string{"integer"},
-							Format:  "int64",
-						},
-					},
-				},
-				Required: []string{"items", "total"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportResponse"},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_LLMAuditLogExportResponse(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "LLMAuditLogExportResponse represents an LLM audit log export",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"id": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"name": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"storageProvider": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"bucket": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"keyPrefix": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"startTime": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
-						},
-					},
-					"endTime": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
-						},
-					},
-					"filters": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters"),
-						},
-					},
-					"state": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"error": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"exportSize": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int64",
-						},
-					},
-					"exportPath": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"startedAt": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
-						},
-					},
-					"completedAt": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
-						},
-					},
-					"createdAt": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
-						},
-					},
-				},
-				Required: []string{"id", "name", "storageProvider", "startTime", "endTime", "state", "createdAt"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
@@ -11624,6 +11443,12 @@ func schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportCreateRequ
 							Format:  "",
 						},
 					},
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"bucket": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -11654,12 +11479,18 @@ func schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportCreateRequ
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters"),
 						},
 					},
+					"llmFilters": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters"),
+						},
+					},
 				},
 				Required: []string{"name", "schedule"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.Schedule"},
+			"github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.Schedule"},
 	}
 }
 
@@ -11712,6 +11543,13 @@ func schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportResponse(r
 							Format:  "",
 						},
 					},
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 					"bucket": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
@@ -11758,17 +11596,23 @@ func schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportResponse(r
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters"),
 						},
 					},
+					"llmFilters": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters"),
+						},
+					},
 					"lastRunAt": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
 						},
 					},
 				},
-				Required: []string{"id", "bucket", "keyPrefix", "name", "enabled", "schedule"},
+				Required: []string{"id", "type", "bucket", "keyPrefix", "name", "enabled", "schedule"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.Schedule", "github.com/obot-platform/obot/apiclient/types.Time"},
+			"github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.Schedule", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
@@ -11780,6 +11624,12 @@ func schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportUpdateRequ
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"name": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"type": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -11807,220 +11657,7 @@ func schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportUpdateRequ
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters"),
 						},
 					},
-					"bucket": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"keyPrefix": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.Schedule"},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_ScheduledLLMAuditLogExportCreateRequest(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "ScheduledLLMAuditLogExportCreateRequest represents a request to create a scheduled LLM audit log export",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"name": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"bucket": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"keyPrefix": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"schedule": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Schedule"),
-						},
-					},
-					"retentionPeriodInDays": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int32",
-						},
-					},
-					"filters": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters"),
-						},
-					},
-				},
-				Required: []string{"name", "bucket", "schedule"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.Schedule"},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_ScheduledLLMAuditLogExportListResponse(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "ScheduledLLMAuditLogExportListResponse represents a list of scheduled LLM audit log exports",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"items": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/obot-platform/obot/apiclient/types.ScheduledLLMAuditLogExportResponse"),
-									},
-								},
-							},
-						},
-					},
-					"total": {
-						SchemaProps: spec.SchemaProps{
-							Default: 0,
-							Type:    []string{"integer"},
-							Format:  "int64",
-						},
-					},
-				},
-				Required: []string{"items", "total"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.ScheduledLLMAuditLogExportResponse"},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_ScheduledLLMAuditLogExportResponse(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "ScheduledLLMAuditLogExportResponse represents a scheduled LLM audit log export",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"id": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"bucket": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"keyPrefix": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"name": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"enabled": {
-						SchemaProps: spec.SchemaProps{
-							Default: false,
-							Type:    []string{"boolean"},
-							Format:  "",
-						},
-					},
-					"schedule": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Schedule"),
-						},
-					},
-					"retentionPeriodInDays": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int32",
-						},
-					},
-					"filters": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters"),
-						},
-					},
-					"lastRunAt": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
-						},
-					},
-				},
-				Required: []string{"id", "bucket", "keyPrefix", "name", "enabled", "schedule"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.Schedule", "github.com/obot-platform/obot/apiclient/types.Time"},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_ScheduledLLMAuditLogExportUpdateRequest(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "ScheduledLLMAuditLogExportUpdateRequest represents a request to update a scheduled LLM audit log export",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"name": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"enabled": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
-						},
-					},
-					"schedule": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/obot-platform/obot/apiclient/types.Schedule"),
-						},
-					},
-					"retentionPeriodInDays": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int32",
-						},
-					},
-					"filters": {
+					"llmFilters": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters"),
 						},
@@ -12041,7 +11678,7 @@ func schema_obot_platform_obot_apiclient_types_ScheduledLLMAuditLogExportUpdateR
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.Schedule"},
+			"github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.Schedule"},
 	}
 }
 
@@ -14631,6 +14268,12 @@ func schema_storage_apis_obotobotai_v1_AuditLogExportSpec(ref common.ReferenceCa
 							Format:  "",
 						},
 					},
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"bucket": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
@@ -14660,10 +14303,17 @@ func schema_storage_apis_obotobotai_v1_AuditLogExportSpec(ref common.ReferenceCa
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters"),
 						},
 					},
+					"llmFilters": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters"),
+						},
+					},
 					"withRequestAndResponse": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
+							Description: "WithRequestAndResponse includes source-specific sensitive request and response fields.",
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 				},
@@ -14671,7 +14321,7 @@ func schema_storage_apis_obotobotai_v1_AuditLogExportSpec(ref common.ReferenceCa
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", metav1.Time{}.OpenAPIModelName()},
+			"github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters", metav1.Time{}.OpenAPIModelName()},
 	}
 }
 
@@ -15626,156 +15276,6 @@ func schema_storage_apis_obotobotai_v1_K8sSettingsStatus(ref common.ReferenceCal
 				Type: []string{"object"},
 			},
 		},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_LLMAuditLogExport(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(metav1.ObjectMeta{}.OpenAPIModelName()),
-						},
-					},
-					"spec": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(v1.LLMAuditLogExportSpec{}.OpenAPIModelName()),
-						},
-					},
-					"status": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(v1.AuditLogExportStatus{}.OpenAPIModelName()),
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			v1.AuditLogExportStatus{}.OpenAPIModelName(), v1.LLMAuditLogExportSpec{}.OpenAPIModelName(), metav1.ObjectMeta{}.OpenAPIModelName()},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_LLMAuditLogExportList(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(metav1.ListMeta{}.OpenAPIModelName()),
-						},
-					},
-					"items": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Ref: ref(v1.LLMAuditLogExport{}.OpenAPIModelName()),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"items"},
-			},
-		},
-		Dependencies: []string{
-			v1.LLMAuditLogExport{}.OpenAPIModelName(), metav1.ListMeta{}.OpenAPIModelName()},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_LLMAuditLogExportSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"name": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"bucket": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"keyPrefix": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"startTime": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref(metav1.Time{}.OpenAPIModelName()),
-						},
-					},
-					"endTime": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref(metav1.Time{}.OpenAPIModelName()),
-						},
-					},
-					"filters": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters"),
-						},
-					},
-					"withSensitiveFields": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
-						},
-					},
-				},
-				Required: []string{"name", "bucket", "startTime", "endTime"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters", metav1.Time{}.OpenAPIModelName()},
 	}
 }
 
@@ -19658,6 +19158,12 @@ func schema_storage_apis_obotobotai_v1_ScheduledAuditLogExportSpec(ref common.Re
 							Format:  "",
 						},
 					},
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"bucket": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
@@ -19696,205 +19202,17 @@ func schema_storage_apis_obotobotai_v1_ScheduledAuditLogExportSpec(ref common.Re
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters"),
 						},
 					},
-					"withRequestAndResponse": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
-						},
-					},
-				},
-				Required: []string{"name", "bucket", "enabled", "schedule"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", v1.Schedule{}.OpenAPIModelName()},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_ScheduledAuditLogExportStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"totalExportsCreated": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int64",
-						},
-					},
-					"error": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"lastRunAt": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref(metav1.Time{}.OpenAPIModelName()),
-						},
-					},
-					"nextRunAt": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref(metav1.Time{}.OpenAPIModelName()),
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			metav1.Time{}.OpenAPIModelName()},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_ScheduledLLMAuditLogExport(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(metav1.ObjectMeta{}.OpenAPIModelName()),
-						},
-					},
-					"spec": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(v1.ScheduledLLMAuditLogExportSpec{}.OpenAPIModelName()),
-						},
-					},
-					"status": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(v1.ScheduledLLMAuditLogExportStatus{}.OpenAPIModelName()),
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			v1.ScheduledLLMAuditLogExportSpec{}.OpenAPIModelName(), v1.ScheduledLLMAuditLogExportStatus{}.OpenAPIModelName(), metav1.ObjectMeta{}.OpenAPIModelName()},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_ScheduledLLMAuditLogExportList(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(metav1.ListMeta{}.OpenAPIModelName()),
-						},
-					},
-					"items": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Ref: ref(v1.ScheduledLLMAuditLogExport{}.OpenAPIModelName()),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"items"},
-			},
-		},
-		Dependencies: []string{
-			v1.ScheduledLLMAuditLogExport{}.OpenAPIModelName(), metav1.ListMeta{}.OpenAPIModelName()},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_ScheduledLLMAuditLogExportSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"name": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"bucket": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"keyPrefix": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"enabled": {
-						SchemaProps: spec.SchemaProps{
-							Default: false,
-							Type:    []string{"boolean"},
-							Format:  "",
-						},
-					},
-					"schedule": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(v1.Schedule{}.OpenAPIModelName()),
-						},
-					},
-					"retentionPeriodInDays": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int32",
-						},
-					},
-					"filters": {
+					"llmFilters": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters"),
 						},
 					},
-					"withSensitiveFields": {
+					"withRequestAndResponse": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
+							Description: "WithRequestAndResponse includes source-specific sensitive request and response fields.",
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 				},
@@ -19902,11 +19220,11 @@ func schema_storage_apis_obotobotai_v1_ScheduledLLMAuditLogExportSpec(ref common
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters", v1.Schedule{}.OpenAPIModelName()},
+			"github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters", v1.Schedule{}.OpenAPIModelName()},
 	}
 }
 
-func schema_storage_apis_obotobotai_v1_ScheduledLLMAuditLogExportStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_storage_apis_obotobotai_v1_ScheduledAuditLogExportStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{

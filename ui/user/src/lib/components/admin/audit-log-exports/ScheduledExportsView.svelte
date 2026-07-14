@@ -6,9 +6,7 @@
 	import {
 		AdminService,
 		type ScheduledAuditLogExportInput,
-		type ScheduledAuditLogExport,
-		type ScheduledLLMAuditLogExport,
-		type ScheduledLLMAuditLogExportInput
+		type ScheduledAuditLogExport
 	} from '$lib/services';
 	import type { Schedule } from '$lib/services/user/types';
 	import { formatTimeAgo } from '$lib/time';
@@ -25,19 +23,19 @@
 	let { query, readonly, logType = 'mcp' }: Props = $props();
 
 	let loading = $state(false);
-	let scheduledExports = $state<(ScheduledAuditLogExport | ScheduledLLMAuditLogExport)[]>([]);
+	let scheduledExports = $state<ScheduledAuditLogExport[]>([]);
 	let deleting = $state(false);
 	let toggleAction = $state<{ id: string; action: 'pause' | 'resume' } | undefined>();
 	let showDeleteConfirm = $state<
 		| {
 				type: 'single';
-				export: ScheduledAuditLogExport | ScheduledLLMAuditLogExport;
+				export: ScheduledAuditLogExport;
 				onsuccess: () => void;
 		  }
 		| { type: 'multi' }
 		| undefined
 	>();
-	let selected = $state<Record<string, ScheduledAuditLogExport | ScheduledLLMAuditLogExport>>({});
+	let selected = $state<Record<string, ScheduledAuditLogExport>>({});
 
 	let tableRef = $state<ReturnType<typeof Table>>();
 
@@ -72,10 +70,7 @@
 
 	async function loadScheduledExports() {
 		try {
-			const response =
-				logType === 'llm'
-					? await AdminService.getScheduledLLMAuditLogExports()
-					: await AdminService.getScheduledAuditLogExports();
+			const response = await AdminService.getScheduledAuditLogExports(logType);
 			return response.items ?? [];
 		} catch (error) {
 			console.error('Failed to load scheduled exports:', error);
@@ -102,23 +97,13 @@
 
 	async function handleUpdateScheduledExport(
 		id: string,
-		request: Partial<ScheduledAuditLogExportInput | ScheduledLLMAuditLogExportInput>
+		request: Partial<ScheduledAuditLogExportInput>
 	) {
 		try {
 			// Set toggle action state for loading indicator
 			toggleAction = { id, action: request.enabled ? 'resume' : 'pause' };
 
-			if (logType === 'llm') {
-				await AdminService.updateScheduledLLMAuditLogExport(
-					id,
-					request as Partial<ScheduledLLMAuditLogExportInput>
-				);
-			} else {
-				await AdminService.updateScheduledAuditLogExport(
-					id,
-					request as Partial<ScheduledAuditLogExportInput>
-				);
-			}
+			await AdminService.updateScheduledAuditLogExport(id, request);
 			await reload(); // Refresh the list
 		} catch (error) {
 			console.error('Failed to update scheduled export:', error);
@@ -127,13 +112,9 @@
 		}
 	}
 
-	async function handleSingleDelete(exp: ScheduledAuditLogExport | ScheduledLLMAuditLogExport) {
+	async function handleSingleDelete(exp: ScheduledAuditLogExport) {
 		try {
-			if (logType === 'llm') {
-				await AdminService.deleteScheduledLLMAuditLogExport(exp.id);
-			} else {
-				await AdminService.deleteScheduledAuditLogExport(exp.id);
-			}
+			await AdminService.deleteScheduledAuditLogExport(exp.id);
 			await reload(); // Refresh the list
 		} catch (error) {
 			console.error('Failed to delete scheduled export:', error);
@@ -176,9 +157,7 @@
 		selected = {};
 	}
 
-	function getBulkActionState(
-		currentSelected: Record<string, ScheduledAuditLogExport | ScheduledLLMAuditLogExport>
-	) {
+	function getBulkActionState(currentSelected: Record<string, ScheduledAuditLogExport>) {
 		const selectedArray = Object.values(currentSelected);
 		if (selectedArray.length === 0) return null;
 
@@ -190,7 +169,7 @@
 		return null; // Mixed state
 	}
 
-	function handleRowClick(scheduledExport: ScheduledAuditLogExport | ScheduledLLMAuditLogExport) {
+	function handleRowClick(scheduledExport: ScheduledAuditLogExport) {
 		goto(
 			logType === 'llm'
 				? `/admin/llm-audit-logs/exports/scheduled/${scheduledExport.id}/edit`

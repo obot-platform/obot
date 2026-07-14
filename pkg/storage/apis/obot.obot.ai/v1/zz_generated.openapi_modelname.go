@@ -201,21 +201,6 @@ func (in K8sSettingsStatus) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
-func (in LLMAuditLogExport) OpenAPIModelName() string {
-	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.LLMAuditLogExport"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in LLMAuditLogExportList) OpenAPIModelName() string {
-	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.LLMAuditLogExportList"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in LLMAuditLogExportSpec) OpenAPIModelName() string {
-	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.LLMAuditLogExportSpec"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in MCPCatalog) OpenAPIModelName() string {
 	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MCPCatalog"
 }
@@ -638,26 +623,6 @@ func (in ScheduledAuditLogExportSpec) OpenAPIModelName() string {
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ScheduledAuditLogExportStatus) OpenAPIModelName() string {
 	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.ScheduledAuditLogExportStatus"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in ScheduledLLMAuditLogExport) OpenAPIModelName() string {
-	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.ScheduledLLMAuditLogExport"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in ScheduledLLMAuditLogExportList) OpenAPIModelName() string {
-	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.ScheduledLLMAuditLogExportList"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in ScheduledLLMAuditLogExportSpec) OpenAPIModelName() string {
-	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.ScheduledLLMAuditLogExportSpec"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in ScheduledLLMAuditLogExportStatus) OpenAPIModelName() string {
-	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.ScheduledLLMAuditLogExportStatus"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.

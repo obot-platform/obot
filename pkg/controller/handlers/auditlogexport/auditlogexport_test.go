@@ -1,4 +1,4 @@
-package llmauditlogexport
+package auditlogexport
 
 import (
 	"reflect"
@@ -14,11 +14,12 @@ import (
 func TestLLMAuditLogOptionsFromExport(t *testing.T) {
 	start := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
-	export := &v1.LLMAuditLogExport{Spec: v1.LLMAuditLogExportSpec{
-		StartTime:           metav1.NewTime(start),
-		EndTime:             metav1.NewTime(end),
-		WithSensitiveFields: true,
-		Filters: types.LLMAuditLogExportFilters{
+	export := &v1.AuditLogExport{Spec: v1.AuditLogExportSpec{
+		Type:                   types.AuditLogTypeLLM,
+		StartTime:              metav1.NewTime(start),
+		EndTime:                metav1.NewTime(end),
+		WithRequestAndResponse: true,
+		LLMFilters: types.LLMAuditLogExportFilters{
 			UserIDs:          []string{"user-1"},
 			ModelProviders:   []string{"openai"},
 			TargetModels:     []string{"gpt-4o"},
@@ -38,7 +39,7 @@ func TestLLMAuditLogOptionsFromExport(t *testing.T) {
 	if got.SortBy != "created_at" || got.SortOrder != "asc" {
 		t.Fatalf("unexpected sort: %#v", got)
 	}
-	if !reflect.DeepEqual(got.UserID, export.Spec.Filters.UserIDs) || !reflect.DeepEqual(got.ResponseStatus, export.Spec.Filters.ResponseStatuses) || got.Query != "needle" {
+	if !reflect.DeepEqual(got.UserID, export.Spec.LLMFilters.UserIDs) || !reflect.DeepEqual(got.ResponseStatus, export.Spec.LLMFilters.ResponseStatuses) || got.Query != "needle" {
 		t.Fatalf("filters were not mapped: %#v", got)
 	}
 }

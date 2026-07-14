@@ -9,7 +9,6 @@
 		Group,
 		UserService,
 		type AuditLogExport,
-		type LLMAuditLogExport,
 		type LLMAuditLogURLFilters,
 		type OrgUser,
 		type McpAuditLogURLFilters
@@ -177,9 +176,9 @@
 
 	interface Props {
 		onCancel: () => void;
-		onSubmit: (result?: AuditLogExport | LLMAuditLogExport) => void;
+		onSubmit: (result?: AuditLogExport) => void;
 		mode?: 'create' | 'view' | 'edit';
-		initialData?: AuditLogExport | LLMAuditLogExport;
+		initialData?: AuditLogExport;
 		logType?: 'mcp' | 'llm';
 	}
 
@@ -263,25 +262,25 @@
 			form.startTime = initialData.startTime ? new Date(initialData.startTime) : form.startTime;
 			form.endTime = initialData.endTime ? new Date(initialData.endTime) : form.endTime;
 
-			if (initialData.filters) {
-				if (logType === 'llm') {
-					const filters = initialData.filters as LLMAuditLogExport['filters'];
-					form.filters = {
-						user_id: join(filters.userIDs),
-						model_provider: join(filters.modelProviders),
-						target_model: join(filters.targetModels),
-						request_path: join(filters.requestPaths),
-						response_status: join(filters.responseStatuses?.map(String)),
-						outcome: join(filters.outcomes),
-						client: join(filters.clients),
-						client_session_id: join(filters.clientSessionIDs),
-						query: filters.query ?? ''
-					};
-					showAdvancedOptions = true;
-					return;
-				}
+			if (logType === 'llm' && initialData.llmFilters) {
+				const filters = initialData.llmFilters;
+				form.filters = {
+					user_id: join(filters.userIDs),
+					model_provider: join(filters.modelProviders),
+					target_model: join(filters.targetModels),
+					request_path: join(filters.requestPaths),
+					response_status: join(filters.responseStatuses?.map(String)),
+					outcome: join(filters.outcomes),
+					client: join(filters.clients),
+					client_session_id: join(filters.clientSessionIDs),
+					query: filters.query ?? ''
+				};
+				showAdvancedOptions = true;
+				return;
+			}
 
-				const filters = initialData.filters as AuditLogExport['filters'];
+			if (initialData.filters) {
+				const filters = initialData.filters;
 				form.filters = {
 					user_id: join(filters.userIDs),
 					mcp_id: join(filters.mcpIDs),
@@ -391,11 +390,12 @@
 			if (logType === 'llm') {
 				const request = {
 					name: form.name,
+					type: 'llm' as const,
 					bucket: form.bucket,
 					keyPrefix: form.keyPrefix,
 					startTime: form.startTime.toISOString(),
 					endTime: form.endTime.toISOString(),
-					filters: {
+					llmFilters: {
 						userIDs: split(form.filters.user_id),
 						modelProviders: split(form.filters.model_provider),
 						targetModels: split(form.filters.target_model),
@@ -408,7 +408,7 @@
 					}
 				};
 
-				const result = (await AdminService.createLLMAuditLogExport(request)) as LLMAuditLogExport;
+				const result = (await AdminService.createAuditLogExport(request)) as AuditLogExport;
 				onSubmit(result);
 				return;
 			}
@@ -416,6 +416,7 @@
 			// Prepare the request
 			const request = {
 				name: form.name,
+				type: 'mcp' as const,
 				bucket: form.bucket,
 				keyPrefix: form.keyPrefix,
 				startTime: form.startTime.toISOString(),

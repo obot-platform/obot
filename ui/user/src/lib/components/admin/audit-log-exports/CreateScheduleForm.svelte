@@ -6,7 +6,6 @@
 		type LLMAuditLogURLFilters,
 		type OrgUser,
 		type ScheduledAuditLogExport,
-		type ScheduledLLMAuditLogExport,
 		AdminService,
 		Group,
 		UserService,
@@ -21,9 +20,9 @@
 
 	interface Props {
 		onCancel: () => void;
-		onSubmit: (result?: ScheduledAuditLogExport | ScheduledLLMAuditLogExport) => void;
+		onSubmit: (result?: ScheduledAuditLogExport) => void;
 		mode?: 'create' | 'view' | 'edit';
-		initialData?: ScheduledAuditLogExport | ScheduledLLMAuditLogExport;
+		initialData?: ScheduledAuditLogExport;
 		logType?: 'mcp' | 'llm';
 	}
 
@@ -99,25 +98,25 @@
 			}
 
 			// Populate filters if they exist
-			if (initialData.filters) {
-				if (logType === 'llm') {
-					const filters = initialData.filters as ScheduledLLMAuditLogExport['filters'];
-					form.filters = {
-						user_id: filters.userIDs ? filters.userIDs.join(',') : '',
-						model_provider: filters.modelProviders ? filters.modelProviders.join(',') : '',
-						target_model: filters.targetModels ? filters.targetModels.join(',') : '',
-						request_path: filters.requestPaths ? filters.requestPaths.join(',') : '',
-						response_status: filters.responseStatuses ? filters.responseStatuses.join(',') : '',
-						outcome: filters.outcomes ? filters.outcomes.join(',') : '',
-						client: filters.clients ? filters.clients.join(',') : '',
-						client_session_id: filters.clientSessionIDs ? filters.clientSessionIDs.join(',') : '',
-						query: filters.query ?? ''
-					};
-					showAdvancedOptions = true;
-					return;
-				}
+			if (logType === 'llm' && initialData.llmFilters) {
+				const filters = initialData.llmFilters;
+				form.filters = {
+					user_id: filters.userIDs ? filters.userIDs.join(',') : '',
+					model_provider: filters.modelProviders ? filters.modelProviders.join(',') : '',
+					target_model: filters.targetModels ? filters.targetModels.join(',') : '',
+					request_path: filters.requestPaths ? filters.requestPaths.join(',') : '',
+					response_status: filters.responseStatuses ? filters.responseStatuses.join(',') : '',
+					outcome: filters.outcomes ? filters.outcomes.join(',') : '',
+					client: filters.clients ? filters.clients.join(',') : '',
+					client_session_id: filters.clientSessionIDs ? filters.clientSessionIDs.join(',') : '',
+					query: filters.query ?? ''
+				};
+				showAdvancedOptions = true;
+				return;
+			}
 
-				const filters = initialData.filters as ScheduledAuditLogExport['filters'];
+			if (initialData.filters) {
+				const filters = initialData.filters;
 				form.filters = {
 					user_id: filters.userIDs ? filters.userIDs.join(',') : '',
 					mcp_id: filters.mcpIDs ? filters.mcpIDs.join(',') : '',
@@ -422,12 +421,13 @@
 			if (logType === 'llm') {
 				const request = {
 					name: form.name,
+					type: 'llm' as const,
 					bucket: form.bucket,
 					keyPrefix: form.keyPrefix,
 					enabled: form.enabled,
 					schedule: form.schedule,
 					retentionPeriodInDays: form.retentionPeriodInDays,
-					filters: {
+					llmFilters: {
 						userIDs: split(form.filters.user_id),
 						modelProviders: split(form.filters.model_provider),
 						targetModels: split(form.filters.target_model),
@@ -440,15 +440,15 @@
 					}
 				};
 
-				let result: ScheduledLLMAuditLogExport | undefined = undefined;
+				let result: ScheduledAuditLogExport | undefined = undefined;
 				if (mode === 'edit' && initialData?.id) {
-					result = (await AdminService.updateScheduledLLMAuditLogExport(initialData.id, request, {
+					result = (await AdminService.updateScheduledAuditLogExport(initialData.id, request, {
 						dontLogErrors: true
-					})) as ScheduledLLMAuditLogExport;
+					})) as ScheduledAuditLogExport;
 				} else {
-					result = (await AdminService.createScheduledLLMAuditLogExport(request, {
+					result = (await AdminService.createScheduledAuditLogExport(request, {
 						dontLogErrors: true
-					})) as ScheduledLLMAuditLogExport;
+					})) as ScheduledAuditLogExport;
 				}
 				onSubmit(result);
 				return;
@@ -457,6 +457,7 @@
 			// Prepare the request
 			const request = {
 				name: form.name,
+				type: 'mcp' as const,
 				bucket: form.bucket,
 				keyPrefix: form.keyPrefix,
 				enabled: form.enabled,
@@ -506,7 +507,7 @@
 				// Create new scheduled export
 				result = (await AdminService.createScheduledAuditLogExport(request, {
 					dontLogErrors: true
-				})) as typeof result;
+				})) as ScheduledAuditLogExport;
 			}
 			onSubmit(result);
 		} catch (err) {

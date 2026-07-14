@@ -67,14 +67,25 @@ func (*ScheduledAuditLogExport) GetColumns() [][]string {
 }
 
 type ScheduledAuditLogExportSpec struct {
-	Name                   string                      `json:"name"`
-	Bucket                 string                      `json:"bucket"`
-	KeyPrefix              string                      `json:"keyPrefix,omitempty"`
-	Enabled                bool                        `json:"enabled"`
-	Schedule               Schedule                    `json:"schedule"`
-	RetentionPeriodInDays  int                         `json:"retentionPeriodInDays,omitempty"`
-	Filters                types.AuditLogExportFilters `json:"filters,omitempty"`
-	WithRequestAndResponse bool                        `json:"withRequestAndResponse,omitempty"`
+	Name                  string                         `json:"name"`
+	Type                  types.AuditLogType             `json:"type,omitempty"`
+	Bucket                string                         `json:"bucket"`
+	KeyPrefix             string                         `json:"keyPrefix,omitempty"`
+	Enabled               bool                           `json:"enabled"`
+	Schedule              Schedule                       `json:"schedule"`
+	RetentionPeriodInDays int                            `json:"retentionPeriodInDays,omitempty"`
+	Filters               types.AuditLogExportFilters    `json:"filters,omitempty"`
+	LLMFilters            types.LLMAuditLogExportFilters `json:"llmFilters,omitempty"`
+	// WithRequestAndResponse includes source-specific sensitive request and response fields.
+	WithRequestAndResponse bool `json:"withRequestAndResponse,omitempty"`
+}
+
+// EffectiveType treats resources created before the type discriminator as MCP exports.
+func (s ScheduledAuditLogExportSpec) EffectiveType() types.AuditLogType {
+	if s.Type == "" {
+		return types.AuditLogTypeMCP
+	}
+	return s.Type
 }
 
 type Schedule struct {

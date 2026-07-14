@@ -43,13 +43,10 @@ import type {
 	MCPFilterManifest,
 	TempUser,
 	ScheduledAuditLogExport,
-	ScheduledLLMAuditLogExport,
-	ScheduledLLMAuditLogExportInput,
 	StorageCredentials,
 	AuditLogExport,
 	AuditLogExportInput,
-	LLMAuditLogExport,
-	LLMAuditLogExportInput,
+	AuditLogType,
 	ScheduledAuditLogExportInput,
 	K8sSettings,
 	ServerK8sSettings,
@@ -188,13 +185,16 @@ export async function updateAppNotification(
 
 // Audit log exports
 
-export async function getAuditLogExports(opts?: { fetch?: Fetcher }) {
-	const response = (await doGet('/audit-log-exports', opts)) as PaginatedResponse<AuditLogExport>;
+export async function getAuditLogExports(type: AuditLogType = 'mcp', opts?: { fetch?: Fetcher }) {
+	const response = (await doGet(
+		`/audit-log-exports?type=${type}`,
+		opts
+	)) as PaginatedResponse<AuditLogExport>;
 	return response;
 }
 
 export async function getAuditLogExport(name: string, opts?: { fetch?: Fetcher }) {
-	const response = await doGet(`/audit-log-exports/${name}`, opts);
+	const response = (await doGet(`/audit-log-exports/${name}`, opts)) as AuditLogExport;
 	return response;
 }
 
@@ -202,7 +202,7 @@ export async function createAuditLogExport(
 	request: AuditLogExportInput,
 	opts?: { fetch?: Fetcher }
 ) {
-	const response = await doPost('/audit-log-exports', request, opts);
+	const response = (await doPost('/audit-log-exports', request, opts)) as AuditLogExport;
 	return response;
 }
 
@@ -210,9 +210,12 @@ export async function deleteAuditLogExport(name: string, opts?: { signal?: Abort
 	await doDelete(`/audit-log-exports/${name}`, { signal: opts?.signal });
 }
 
-export async function getScheduledAuditLogExports(opts?: { fetch?: Fetcher }) {
+export async function getScheduledAuditLogExports(
+	type: AuditLogType = 'mcp',
+	opts?: { fetch?: Fetcher }
+) {
 	const response = (await doGet(
-		'/scheduled-audit-log-exports',
+		`/scheduled-audit-log-exports?type=${type}`,
 		opts
 	)) as PaginatedResponse<ScheduledAuditLogExport>;
 	return response;
@@ -230,7 +233,11 @@ export async function createScheduledAuditLogExport(
 	request: ScheduledAuditLogExportInput,
 	opts?: { dontLogErrors?: boolean }
 ) {
-	const response = await doPost('/scheduled-audit-log-exports', request, opts);
+	const response = (await doPost(
+		'/scheduled-audit-log-exports',
+		request,
+		opts
+	)) as ScheduledAuditLogExport;
 	return response;
 }
 
@@ -239,77 +246,16 @@ export async function updateScheduledAuditLogExport(
 	request: Partial<ScheduledAuditLogExportInput>,
 	opts?: { dontLogErrors?: boolean }
 ) {
-	const response = await doPatch(`/scheduled-audit-log-exports/${id}`, request, opts);
+	const response = (await doPatch(
+		`/scheduled-audit-log-exports/${id}`,
+		request,
+		opts
+	)) as ScheduledAuditLogExport;
 	return response;
 }
 
 export async function deleteScheduledAuditLogExport(name: string, opts?: { signal?: AbortSignal }) {
 	await doDelete(`/scheduled-audit-log-exports/${name}`, { signal: opts?.signal });
-}
-
-export async function getLLMAuditLogExports(opts?: { fetch?: Fetcher }) {
-	const response = (await doGet(
-		'/llm-audit-log-exports',
-		opts
-	)) as PaginatedResponse<LLMAuditLogExport>;
-	return response;
-}
-
-export async function getLLMAuditLogExport(name: string, opts?: { fetch?: Fetcher }) {
-	const response = (await doGet(`/llm-audit-log-exports/${name}`, opts)) as LLMAuditLogExport;
-	return response;
-}
-
-export async function createLLMAuditLogExport(
-	request: LLMAuditLogExportInput,
-	opts?: { fetch?: Fetcher }
-) {
-	const response = await doPost('/llm-audit-log-exports', request, opts);
-	return response;
-}
-
-export async function deleteLLMAuditLogExport(name: string, opts?: { signal?: AbortSignal }) {
-	await doDelete(`/llm-audit-log-exports/${name}`, { signal: opts?.signal });
-}
-
-export async function getScheduledLLMAuditLogExports(opts?: { fetch?: Fetcher }) {
-	const response = (await doGet(
-		'/scheduled-llm-audit-log-exports',
-		opts
-	)) as PaginatedResponse<ScheduledLLMAuditLogExport>;
-	return response;
-}
-
-export async function getScheduledLLMAuditLogExport(
-	name: string,
-	opts?: { fetch?: Fetcher }
-): Promise<ScheduledLLMAuditLogExport> {
-	const response = await doGet(`/scheduled-llm-audit-log-exports/${name}`, opts);
-	return response as ScheduledLLMAuditLogExport;
-}
-
-export async function createScheduledLLMAuditLogExport(
-	request: ScheduledLLMAuditLogExportInput,
-	opts?: { dontLogErrors?: boolean }
-) {
-	const response = await doPost('/scheduled-llm-audit-log-exports', request, opts);
-	return response;
-}
-
-export async function updateScheduledLLMAuditLogExport(
-	id: string,
-	request: Partial<ScheduledLLMAuditLogExportInput>,
-	opts?: { dontLogErrors?: boolean }
-) {
-	const response = await doPatch(`/scheduled-llm-audit-log-exports/${id}`, request, opts);
-	return response;
-}
-
-export async function deleteScheduledLLMAuditLogExport(
-	name: string,
-	opts?: { signal?: AbortSignal }
-) {
-	await doDelete(`/scheduled-llm-audit-log-exports/${name}`, { signal: opts?.signal });
 }
 
 // LLM audit logs

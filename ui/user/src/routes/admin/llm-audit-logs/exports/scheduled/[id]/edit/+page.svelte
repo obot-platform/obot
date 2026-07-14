@@ -5,7 +5,7 @@
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService } from '$lib/services';
-	import type { ScheduledLLMAuditLogExport } from '$lib/services/admin/types';
+	import type { ScheduledAuditLogExport } from '$lib/services/admin/types';
 	import { goto } from '$lib/url';
 	import { TriangleAlert } from '@lucide/svelte';
 	import { onMount } from 'svelte';
@@ -14,7 +14,7 @@
 	const scheduleId = page.params.id;
 	let loading = $state(true);
 	let error = $state('');
-	let scheduleData = $state<ScheduledLLMAuditLogExport | null>(null);
+	let scheduleData = $state<ScheduledAuditLogExport | null>(null);
 
 	onMount(async () => {
 		if (!scheduleId) {
@@ -24,7 +24,7 @@
 		}
 
 		try {
-			scheduleData = await AdminService.getScheduledLLMAuditLogExport(scheduleId);
+			scheduleData = await AdminService.getScheduledAuditLogExport(scheduleId);
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to load scheduled export';
 		} finally {

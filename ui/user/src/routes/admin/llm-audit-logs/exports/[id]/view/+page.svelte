@@ -5,7 +5,7 @@
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService } from '$lib/services';
-	import type { LLMAuditLogExport } from '$lib/services/admin/types';
+	import type { AuditLogExport } from '$lib/services/admin/types';
 	import { TriangleAlert } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
@@ -13,7 +13,7 @@
 	const exportId = page.params.id;
 	let loading = $state(true);
 	let error = $state('');
-	let exportData = $state<LLMAuditLogExport>();
+	let exportData = $state<AuditLogExport>();
 
 	onMount(async () => {
 		if (!exportId) {
@@ -22,7 +22,7 @@
 			return;
 		}
 		try {
-			exportData = await AdminService.getLLMAuditLogExport(exportId);
+			exportData = await AdminService.getAuditLogExport(exportId);
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to load export';
 		} finally {

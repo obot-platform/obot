@@ -1,4 +1,4 @@
-package scheduledllmauditlogexport
+package scheduledauditlogexport
 
 import (
 	"testing"
@@ -20,24 +20,25 @@ func TestCreateExportFromSchedule(t *testing.T) {
 	}
 	c := fake.NewClientBuilder().WithScheme(scheme).Build()
 	next := time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC)
-	scheduled := &v1.ScheduledLLMAuditLogExport{
+	scheduled := &v1.ScheduledAuditLogExport{
 		ObjectMeta: metav1.ObjectMeta{Name: "scheduled", Namespace: "default"},
-		Spec: v1.ScheduledLLMAuditLogExportSpec{
-			Name:                  "weekly",
-			Bucket:                "bucket",
-			KeyPrefix:             "prefix",
-			RetentionPeriodInDays: 7,
-			WithSensitiveFields:   true,
-			Filters:               types.LLMAuditLogExportFilters{ModelProviders: []string{"openai"}},
+		Spec: v1.ScheduledAuditLogExportSpec{
+			Name:                   "weekly",
+			Type:                   types.AuditLogTypeLLM,
+			Bucket:                 "bucket",
+			KeyPrefix:              "prefix",
+			RetentionPeriodInDays:  7,
+			WithRequestAndResponse: true,
+			LLMFilters:             types.LLMAuditLogExportFilters{ModelProviders: []string{"openai"}},
 		},
-		Status: v1.ScheduledLLMAuditLogExportStatus{TotalExportsCreated: 2},
+		Status: v1.ScheduledAuditLogExportStatus{TotalExportsCreated: 2},
 	}
 
 	if err := (&Handler{}).createExportFromSchedule(router.Request{Ctx: t.Context(), Client: c}, scheduled, next); err != nil {
 		t.Fatal(err)
 	}
 
-	var exports v1.LLMAuditLogExportList
+	var exports v1.AuditLogExportList
 	if err := c.List(t.Context(), &exports, client.InNamespace("default")); err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +52,7 @@ func TestCreateExportFromSchedule(t *testing.T) {
 	if !got.Spec.StartTime.Time.Equal(next.Add(-7*24*time.Hour)) || !got.Spec.EndTime.Time.Equal(next) {
 		t.Fatalf("unexpected export range: %s - %s", got.Spec.StartTime.Time, got.Spec.EndTime.Time)
 	}
-	if !got.Spec.WithSensitiveFields || got.Spec.Filters.ModelProviders[0] != "openai" || scheduled.Status.TotalExportsCreated != 3 {
+	if got.Spec.Type != types.AuditLogTypeLLM || !got.Spec.WithRequestAndResponse || got.Spec.LLMFilters.ModelProviders[0] != "openai" || scheduled.Status.TotalExportsCreated != 3 {
 		t.Fatalf("unexpected sensitive/filter/count fields: export=%#v scheduled=%#v", got.Spec, scheduled.Status)
 	}
 }

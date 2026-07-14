@@ -41,7 +41,15 @@ func (h *Handler) ExportAuditLogs(req router.Request, _ router.Response) error {
 		return fmt.Errorf("failed to update export status: %w", err)
 	}
 
-	err := auditlogexportcommon.PerformExport(req.Ctx, h.credProvider, export, "mcp-audit-logs", h.fetchAuditLogs, gatewaytypes.ConvertMCPAuditLog)
+	var err error
+	switch export.Spec.EffectiveType() {
+	case types.AuditLogTypeMCP:
+		err = auditlogexportcommon.PerformExport(req.Ctx, h.credProvider, export, "mcp-audit-logs", h.fetchMCPAuditLogs, gatewaytypes.ConvertMCPAuditLog)
+	case types.AuditLogTypeLLM:
+		err = auditlogexportcommon.PerformExport(req.Ctx, h.credProvider, export, "llm-audit-logs", h.fetchLLMAuditLogs, gatewaytypes.ConvertLLMAuditLog)
+	default:
+		err = fmt.Errorf("unsupported audit log export type %q", export.Spec.Type)
+	}
 	if err != nil {
 		export.Status.State = types.AuditLogExportStateFailed
 		export.Status.Error = err.Error()
@@ -56,9 +64,15 @@ func (h *Handler) ExportAuditLogs(req router.Request, _ router.Response) error {
 	return req.Client.Status().Update(req.Ctx, export)
 }
 
-func (h *Handler) fetchAuditLogs(ctx context.Context, export *v1.AuditLogExport, limit, offset int) ([]gatewaytypes.MCPAuditLog, error) {
+func (h *Handler) fetchMCPAuditLogs(ctx context.Context, export *v1.AuditLogExport, limit, offset int) ([]gatewaytypes.MCPAuditLog, error) {
 	opts := mcpAuditLogOptionsFromExport(export, limit, offset)
 	logs, _, err := h.gatewayClient.GetMCPAuditLogs(ctx, opts)
+	return logs, err
+}
+
+func (h *Handler) fetchLLMAuditLogs(ctx context.Context, export *v1.AuditLogExport, limit, offset int) ([]gatewaytypes.LLMAuditLog, error) {
+	opts := llmAuditLogOptionsFromExport(export, limit, offset)
+	logs, _, err := h.gatewayClient.GetLLMAuditLogs(ctx, opts)
 	return logs, err
 }
 
@@ -81,5 +95,26 @@ func mcpAuditLogOptionsFromExport(export *v1.AuditLogExport, limit, offset int) 
 		Limit:                     limit,
 		Offset:                    offset,
 		WithRequestAndResponse:    export.Spec.WithRequestAndResponse,
+	}
+}
+
+func llmAuditLogOptionsFromExport(export *v1.AuditLogExport, limit, offset int) client.LLMAuditLogOptions {
+	return client.LLMAuditLogOptions{
+		StartTime:           export.Spec.StartTime.Time,
+		EndTime:             export.Spec.EndTime.Time,
+		UserID:              export.Spec.LLMFilters.UserIDs,
+		ModelProvider:       export.Spec.LLMFilters.ModelProviders,
+		TargetModel:         export.Spec.LLMFilters.TargetModels,
+		RequestPath:         export.Spec.LLMFilters.RequestPaths,
+		ResponseStatus:      export.Spec.LLMFilters.ResponseStatuses,
+		Outcome:             export.Spec.LLMFilters.Outcomes,
+		Client:              export.Spec.LLMFilters.Clients,
+		ClientSessionID:     export.Spec.LLMFilters.ClientSessionIDs,
+		Query:               export.Spec.LLMFilters.Query,
+		Limit:               limit,
+		Offset:              offset,
+		WithSensitiveFields: export.Spec.WithRequestAndResponse,
+		SortBy:              "created_at",
+		SortOrder:           "asc",
 	}
 }
