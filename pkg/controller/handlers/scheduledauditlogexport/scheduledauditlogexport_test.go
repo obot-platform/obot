@@ -56,3 +56,45 @@ func TestCreateExportFromSchedule(t *testing.T) {
 		t.Fatalf("unexpected sensitive/filter/count fields: export=%#v scheduled=%#v", got.Spec, scheduled.Status)
 	}
 }
+
+func TestGetScheduleAndTimezone(t *testing.T) {
+	tests := []struct {
+		name string
+		in   v1.Schedule
+		want string
+	}{
+		{name: "hourly", in: v1.Schedule{Interval: "hourly", Minute: 15}, want: "15 * * * *"},
+		{name: "daily", in: v1.Schedule{Interval: "daily", Hour: 2, Minute: 30}, want: "30 2 * * *"},
+		{name: "weekly", in: v1.Schedule{Interval: "weekly", Hour: 3, Minute: 45, Weekday: 1}, want: "45 3 * * 1"},
+		{name: "monthly first day", in: v1.Schedule{Interval: "monthly", Hour: 4, Minute: 5, Day: 0}, want: "5 4 1 * *"},
+		{name: "monthly last day", in: v1.Schedule{Interval: "monthly", Hour: 4, Minute: 5, Day: -1}, want: "5 4 L * *"},
+		{name: "monthly specific day", in: v1.Schedule{Interval: "monthly", Hour: 4, Minute: 5, Day: 12}, want: "5 4 12 * *"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.in.TimeZone = "UTC"
+			got, timezone := getScheduleAndTimezone(tt.in)
+			if got != tt.want || timezone != "UTC" {
+				t.Fatalf("expected %q/UTC, got %q/%q", tt.want, got, timezone)
+			}
+		})
+	}
+}
+
+func TestCalculateNextRunTimeWithNilLastRunAt(t *testing.T) {
+	scheduledExport := &v1.ScheduledAuditLogExport{
+		ObjectMeta: metav1.ObjectMeta{CreationTimestamp: metav1.NewTime(time.Date(2026, 7, 1, 10, 0, 0, 0, time.UTC))},
+		Spec:       v1.ScheduledAuditLogExportSpec{Schedule: v1.Schedule{Interval: "hourly", Minute: 30, TimeZone: "UTC"}},
+	}
+
+	next, err := calculateNextRunTime(scheduledExport)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := time.Date(2026, 7, 1, 10, 30, 0, 0, time.UTC)
+	if !next.Equal(want) {
+		t.Fatalf("expected %s, got %s", want, next)
+	}
+}

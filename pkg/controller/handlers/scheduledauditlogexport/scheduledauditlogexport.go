@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adhocore/gronx"
 	"github.com/obot-platform/nah/pkg/router"
-	"github.com/obot-platform/obot/pkg/controller/handlers/auditlogexportcommon"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,7 +18,35 @@ func NewHandler() *Handler {
 }
 
 func (*Handler) ScheduleExports(req router.Request, resp router.Response) error {
-	return auditlogexportcommon.ScheduleExports(req, resp, createExportFromSchedule)
+	scheduledExport, ok := req.Object.(*v1.ScheduledAuditLogExport)
+	if !ok {
+		return fmt.Errorf("unexpected scheduled audit log export type %T", req.Object)
+	}
+
+	if !scheduledExport.Spec.Enabled {
+		return nil
+	}
+
+	next, err := calculateNextRunTime(scheduledExport)
+	if err != nil {
+		return fmt.Errorf("failed to calculate next run time: %w", err)
+	}
+
+	if until := time.Until(next); until > 0 {
+		if until < 10*time.Hour {
+			resp.RetryAfter(until)
+		}
+		return nil
+	}
+
+	if err := createExportFromSchedule(req, scheduledExport, next); err != nil {
+		return err
+	}
+
+	now := metav1.Now()
+	scheduledExport.Status.LastRunAt = &now
+
+	return req.Client.Update(req.Ctx, scheduledExport)
 }
 
 func createExportFromSchedule(req router.Request, scheduledExport *v1.ScheduledAuditLogExport, nextRunAt time.Time) error {
@@ -54,4 +82,48 @@ func createExportFromSchedule(req router.Request, scheduledExport *v1.ScheduledA
 	scheduledExport.Status.TotalExportsCreated++
 
 	return nil
+}
+
+func getScheduleAndTimezone(schedule v1.Schedule) (string, string) {
+	cron := ""
+	switch schedule.Interval {
+	case "hourly":
+		cron = fmt.Sprintf("%d * * * *", schedule.Minute)
+	case "daily":
+		cron = fmt.Sprintf("%d %d * * *", schedule.Minute, schedule.Hour)
+	case "weekly":
+		cron = fmt.Sprintf("%d %d * * %d", schedule.Minute, schedule.Hour, schedule.Weekday)
+	case "monthly":
+		if schedule.Day < 0 {
+			// The day being -1 means the last day of the month. The cron parser uses L for this.
+			cron = fmt.Sprintf("%d %d L * *", schedule.Minute, schedule.Hour)
+		} else if schedule.Day == 0 {
+			cron = fmt.Sprintf("%d %d 1 * *", schedule.Minute, schedule.Hour)
+		} else {
+			cron = fmt.Sprintf("%d %d %d * *", schedule.Minute, schedule.Hour, schedule.Day)
+		}
+	}
+
+	return cron, schedule.TimeZone
+}
+
+func calculateNextRunTime(scheduledExport *v1.ScheduledAuditLogExport) (time.Time, error) {
+	lastRun := scheduledExport.Status.LastRunAt
+	if lastRun == nil || lastRun.IsZero() {
+		lastRun = &metav1.Time{Time: scheduledExport.CreationTimestamp.Time}
+	}
+
+	cron, timezone := getScheduleAndTimezone(scheduledExport.Spec.Schedule)
+	if timezone != "" {
+		if location, err := time.LoadLocation(timezone); err == nil {
+			lastRun = &metav1.Time{Time: lastRun.In(location)}
+		}
+	}
+
+	next, err := gronx.NextTickAfter(cron, lastRun.Time, false)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("failed to parse schedule: %w", err)
+	}
+
+	return next, nil
 }
