@@ -204,7 +204,7 @@ func (h *Helper) resolveModelByAlias(ctx context.Context, aliasType types.Defaul
 		if err != nil {
 			return nil, fmt.Errorf("failed to get Azure model provider URL: %w", err)
 		}
-		transport, err := azure.Transport(modelProvider.Name, credEnv, dialect, http.DefaultTransport)
+		transport, err := azure.Transport(modelProvider.Name, credEnv, dialect)
 		if err != nil {
 			return nil, fmt.Errorf("failed to configure Azure model provider transport: %w", err)
 		}

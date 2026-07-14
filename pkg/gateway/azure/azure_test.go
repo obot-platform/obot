@@ -102,7 +102,7 @@ func TestTransportMissingCredentials(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := Transport(tt.provider, tt.creds, nanobottypes.DialectOpenAIResponses, nil)
+			_, err := Transport(tt.provider, tt.creds, nanobottypes.DialectOpenAIResponses)
 			if err == nil || !strings.Contains(err.Error(), tt.want) {
 				t.Fatalf("error = %v, want containing %q", err, tt.want)
 			}
@@ -117,7 +117,7 @@ func TestAPIKeyTransportHeaders(t *testing.T) {
 	req.Header.Set("X-Api-Key", "incoming-key")
 	req.Header.Set("X-Forwarded-For", "192.0.2.1")
 
-	_, err := (APIKeyTransport{Key: "azure-key", Dialect: nanobottypes.DialectAnthropicMessages, Next: capture}).RoundTrip(req)
+	_, err := (apiKeyTransport{key: "azure-key", dialect: nanobottypes.DialectAnthropicMessages, next: capture}).RoundTrip(req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,7 +142,7 @@ func TestAnthropicVersionIsPreserved(t *testing.T) {
 	capture := &captureTransport{}
 	req := httptest.NewRequest(http.MethodPost, "https://example.com/messages", nil)
 	req.Header.Set("anthropic-version", "custom")
-	_, err := (APIKeyTransport{Key: "key", Dialect: nanobottypes.DialectAnthropicMessages, Next: capture}).RoundTrip(req)
+	_, err := (apiKeyTransport{key: "key", dialect: nanobottypes.DialectAnthropicMessages, next: capture}).RoundTrip(req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -159,7 +159,7 @@ func TestEntraTransportToken(t *testing.T) {
 	req.Header.Set("api-key", "incoming-key")
 	req.Header.Set("X-Api-Key", "incoming-x-key")
 
-	_, err := (EntraTransport{Credential: credential, Dialect: nanobottypes.DialectOpenAIResponses, Next: capture}).RoundTrip(req)
+	_, err := (entraTransport{credential: credential, dialect: nanobottypes.DialectOpenAIResponses, next: capture}).RoundTrip(req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,7 +179,7 @@ func TestEntraTransportToken(t *testing.T) {
 
 func TestEntraTransportTokenError(t *testing.T) {
 	want := errors.New("token failed")
-	_, err := (EntraTransport{Credential: &tokenCredential{err: want}, Next: &captureTransport{}}).RoundTrip(httptest.NewRequest(http.MethodPost, "https://example.com", nil))
+	_, err := (entraTransport{credential: &tokenCredential{err: want}, next: &captureTransport{}}).RoundTrip(httptest.NewRequest(http.MethodPost, "https://example.com", nil))
 	if !errors.Is(err, want) {
 		t.Fatalf("error = %v, want wrapping %v", err, want)
 	}

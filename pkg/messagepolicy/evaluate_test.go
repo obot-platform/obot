@@ -125,15 +125,18 @@ func TestCallLLMAzureAnthropicMessagesUsesHeaderVersion(t *testing.T) {
 	}))
 	defer server.Close()
 
+	transport, err := azure.Transport(system.AzureModelProvider, map[string]string{
+		azure.APIKeyEnv: "azure-key",
+	}, nanobottypes.DialectAnthropicMessages)
+	if err != nil {
+		t.Fatal(err)
+	}
 	result, err := (&Helper{}).callLLM(context.Background(), &resolvedModel{
 		targetModel:  "claude-sonnet",
 		providerName: system.AzureModelProvider,
 		providerURL:  server.URL + "/anthropic/v1",
 		dialect:      string(nanobottypes.DialectAnthropicMessages),
-		httpClient: &http.Client{Transport: azure.APIKeyTransport{
-			Key:     "azure-key",
-			Dialect: nanobottypes.DialectAnthropicMessages,
-		}},
+		httpClient:   &http.Client{Transport: transport},
 	}, []chatMessage{{Role: "system", Content: "Check policy"}, {Role: "user", Content: "Hello"}})
 	if err != nil {
 		t.Fatal(err)

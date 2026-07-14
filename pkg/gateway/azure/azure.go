@@ -71,14 +71,14 @@ func BaseURL(providerName string, credentials map[string]string, dialect nanobot
 	return *u, nil
 }
 
-func Transport(providerName string, credentials map[string]string, dialect nanobottypes.Dialect, next http.RoundTripper) (http.RoundTripper, error) {
+func Transport(providerName string, credentials map[string]string, dialect nanobottypes.Dialect) (http.RoundTripper, error) {
 	switch providerName {
 	case system.AzureModelProvider:
 		key := credentials[APIKeyEnv]
 		if key == "" {
 			return nil, fmt.Errorf("missing %s for Azure model provider", APIKeyEnv)
 		}
-		return APIKeyTransport{Key: key, Dialect: dialect, Next: next}, nil
+		return apiKeyTransport{key: key, dialect: dialect, next: http.DefaultTransport}, nil
 	case system.AzureEntraModelProvider:
 		for _, name := range []string{TenantIDEnv, ClientIDEnv, ClientSecretEnv} {
 			if credentials[name] == "" {
@@ -89,35 +89,35 @@ func Transport(providerName string, credentials map[string]string, dialect nanob
 		if err != nil {
 			return nil, fmt.Errorf("create Azure Entra credential: %w", err)
 		}
-		return EntraTransport{Credential: credential, Dialect: dialect, Next: next}, nil
+		return entraTransport{credential: credential, dialect: dialect, next: http.DefaultTransport}, nil
 	default:
 		return nil, fmt.Errorf("unsupported Azure model provider %q", providerName)
 	}
 }
 
-type APIKeyTransport struct {
-	Key     string
-	Dialect nanobottypes.Dialect
-	Next    http.RoundTripper
+type apiKeyTransport struct {
+	key     string
+	dialect nanobottypes.Dialect
+	next    http.RoundTripper
 }
 
-func (t APIKeyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+func (t apiKeyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	stripProxyHeaders(req.Header)
 	req.Header.Del("Authorization")
 	req.Header.Del("X-Api-Key")
-	req.Header.Set("api-key", t.Key)
-	setAnthropicVersion(req, t.Dialect)
-	return next(t.Next).RoundTrip(req)
+	req.Header.Set("api-key", t.key)
+	setAnthropicVersion(req, t.dialect)
+	return t.next.RoundTrip(req)
 }
 
-type EntraTransport struct {
-	Credential azcore.TokenCredential
-	Dialect    nanobottypes.Dialect
-	Next       http.RoundTripper
+type entraTransport struct {
+	credential azcore.TokenCredential
+	dialect    nanobottypes.Dialect
+	next       http.RoundTripper
 }
 
-func (t EntraTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	token, err := t.Credential.GetToken(req.Context(), policy.TokenRequestOptions{Scopes: []string{EntraScope}})
+func (t entraTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	token, err := t.credential.GetToken(req.Context(), policy.TokenRequestOptions{Scopes: []string{EntraScope}})
 	if err != nil {
 		return nil, fmt.Errorf("get Azure Entra token: %w", err)
 	}
@@ -125,8 +125,8 @@ func (t EntraTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	req.Header.Del("api-key")
 	req.Header.Del("X-Api-Key")
 	req.Header.Set("Authorization", "Bearer "+token.Token)
-	setAnthropicVersion(req, t.Dialect)
-	return next(t.Next).RoundTrip(req)
+	setAnthropicVersion(req, t.dialect)
+	return t.next.RoundTrip(req)
 }
 
 func validateEndpoint(u *url.URL) error {
@@ -158,11 +158,4 @@ func setAnthropicVersion(req *http.Request, dialect nanobottypes.Dialect) {
 	if dialect == nanobottypes.DialectAnthropicMessages && req.Header.Get("anthropic-version") == "" {
 		req.Header.Set("anthropic-version", AnthropicVersion)
 	}
-}
-
-func next(transport http.RoundTripper) http.RoundTripper {
-	if transport == nil {
-		return http.DefaultTransport
-	}
-	return transport
 }
