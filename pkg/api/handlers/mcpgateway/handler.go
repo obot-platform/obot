@@ -40,7 +40,7 @@ type Handler struct {
 var errMCPServerRequiresConfiguration = errors.New("mcp server requires configuration")
 
 func NewHandler(ctx context.Context, mcpSessionManager *mcp.SessionManager, auditLogCollector auditlogs.Collector, serverURL, dsn, secretBindingAllowedLabel string) (*Handler, error) {
-	sessionStore, err := session.NewStoreFromDSN(nanobotSessionStoreDSN(dsn))
+	sessionStore, err := session.NewStoreFromDSN(dsn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create session store: %w", err)
 	}
@@ -90,13 +90,6 @@ func NewHandler(ctx context.Context, mcpSessionManager *mcp.SessionManager, audi
 		nanobot:                   nanobotHTTPServer,
 		secretBindingAllowedLabel: secretBindingAllowedLabel,
 	}, nil
-}
-
-func nanobotSessionStoreDSN(dsn string) string {
-	if sqliteDSN, ok := strings.CutPrefix(dsn, "sqlite://"); ok {
-		return "sqlite:" + sqliteDSN
-	}
-	return dsn
 }
 
 func (h *Handler) Proxy(req api.Context) error {
