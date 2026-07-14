@@ -165,7 +165,8 @@
 							session_ids: 'session_id',
 							client_names: 'client_name',
 							client_versions: 'client_version',
-							client_ips: 'client_ip'
+							client_ips: 'client_ip',
+							query: 'query'
 						} satisfies Record<string, keyof McpAuditLogURLFilters>);
 
 			let hasFilters = false;
@@ -492,7 +493,8 @@
 						: [],
 					clientIPs: form.filters.client_ip
 						? form.filters.client_ip.split(',').map((s) => s.trim())
-						: []
+						: [],
+					query: form.filters.query ?? ''
 				}
 			};
 

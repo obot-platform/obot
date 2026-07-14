@@ -432,7 +432,8 @@
 					sessionIDs: split(form.filters.session_id),
 					clientNames: split(form.filters.client_name),
 					clientVersions: split(form.filters.client_version),
-					clientIPs: split(form.filters.client_ip)
+					clientIPs: split(form.filters.client_ip),
+					query: form.filters.query ?? ''
 				}
 			};
 
