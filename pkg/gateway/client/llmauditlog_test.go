@@ -33,6 +33,7 @@ func TestInsertLLMAuditLogEncryptsSensitiveFields(t *testing.T) {
 		RequestHeaders:            json.RawMessage(`{"Authorization":["[REDACTED]"]}`),
 		RequestBody:               json.RawMessage(`{"prompt":"secret"}`),
 		PolicyModifiedRequestBody: json.RawMessage(`{"prompt":"policy modified"}`),
+		MessagePolicyTriggered:    true,
 		ResponseHeaders:           json.RawMessage(`{"Content-Type":["application/json"]}`),
 		ResponseBody:              json.RawMessage(`{"id":"resp-1"}`),
 		ClientSessionID:           "session-1",
@@ -135,6 +136,7 @@ func TestGetLLMAuditLogStripsSensitiveFields(t *testing.T) {
 		RequestHeaders:            json.RawMessage(`{"Authorization":["[REDACTED]"]}`),
 		RequestBody:               json.RawMessage(`{"prompt":"secret"}`),
 		PolicyModifiedRequestBody: json.RawMessage(`{"prompt":"policy modified"}`),
+		MessagePolicyTriggered:    true,
 		ResponseHeaders:           json.RawMessage(`{"Content-Type":["application/json"]}`),
 		ResponseBody:              json.RawMessage(`{"id":"resp-1"}`),
 		ClientSessionID:           "session-1",
@@ -171,6 +173,7 @@ func TestGetLLMAuditLogDecryptsSensitiveFields(t *testing.T) {
 		RequestHeaders:            json.RawMessage(`{"Authorization":["[REDACTED]"]}`),
 		RequestBody:               json.RawMessage(`{"prompt":"secret"}`),
 		PolicyModifiedRequestBody: json.RawMessage(`{"prompt":"policy modified"}`),
+		MessagePolicyTriggered:    true,
 		ResponseHeaders:           json.RawMessage(`{"Content-Type":["application/json"]}`),
 		ResponseBody:              json.RawMessage(`{"id":"resp-1"}`),
 	}
@@ -193,7 +196,7 @@ func TestGetLLMAuditLogDecryptsSensitiveFields(t *testing.T) {
 func TestGetLLMAuditLogsFiltersAndStripsSensitiveFields(t *testing.T) {
 	c := newTestClient(t)
 	for _, entry := range []types.LLMAuditLog{
-		{ID: uuid.NewString(), CreatedAt: time.Now().UTC(), UserID: "user-1", ModelProvider: system.OpenAIModelProvider, RequestBody: json.RawMessage(`{"prompt":"secret"}`), PolicyModifiedRequestBody: json.RawMessage(`{"prompt":"blocked"}`)},
+		{ID: uuid.NewString(), CreatedAt: time.Now().UTC(), UserID: "user-1", ModelProvider: system.OpenAIModelProvider, RequestBody: json.RawMessage(`{"prompt":"secret"}`), PolicyModifiedRequestBody: json.RawMessage(`{"prompt":"blocked"}`), MessagePolicyTriggered: true},
 		{ID: uuid.NewString(), CreatedAt: time.Now().UTC(), UserID: "user-2", ModelProvider: system.AnthropicModelProvider, RequestBody: json.RawMessage(`{"prompt":"secret"}`)},
 	} {
 		if err := c.InsertLLMAuditLog(t.Context(), &entry); err != nil {
@@ -223,7 +226,7 @@ func TestGetLLMAuditLogFilterOptions(t *testing.T) {
 	}
 	now := time.Date(2026, 7, 7, 12, 0, 0, 0, time.UTC)
 	for _, entry := range []types.LLMAuditLog{
-		{ID: uuid.NewString(), CreatedAt: now, ModelProvider: system.OpenAIModelProvider, TargetModel: "model-a", ResponseStatus: 200, Client: "open-webui", PolicyModifiedRequestBody: json.RawMessage(`{"prompt":"blocked"}`)},
+		{ID: uuid.NewString(), CreatedAt: now, ModelProvider: system.OpenAIModelProvider, TargetModel: "model-a", ResponseStatus: 200, Client: "open-webui", PolicyModifiedRequestBody: json.RawMessage(`{"prompt":"blocked"}`), MessagePolicyTriggered: true},
 		{ID: uuid.NewString(), CreatedAt: now.Add(time.Minute), ModelProvider: system.OpenAIModelProvider, TargetModel: "model-c", ResponseStatus: 500, Client: "obot"},
 		{ID: uuid.NewString(), CreatedAt: now, ModelProvider: system.OpenAIModelProvider, TargetModel: "", ResponseStatus: 0, Client: ""},
 		{ID: uuid.NewString(), CreatedAt: now, ModelProvider: system.AnthropicModelProvider, TargetModel: "model-b", ResponseStatus: 200, Client: "claude"},

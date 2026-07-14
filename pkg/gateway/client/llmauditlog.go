@@ -333,9 +333,6 @@ func (c *Client) insertLLMAuditLogs(ctx context.Context, logs []types.LLMAuditLo
 	if len(logs) == 0 {
 		return nil
 	}
-	for i := range logs {
-		logs[i].MessagePolicyTriggered = logs[i].MessagePolicyTriggered || len(logs[i].PolicyModifiedRequestBody) > 0
-	}
 	if c.encryptionConfig != nil && c.encryptionConfig.Transformers[llmAuditLogGroupResource] != nil {
 		for i := range logs {
 			if err := c.encryptLLMAuditLog(ctx, &logs[i]); err != nil {
