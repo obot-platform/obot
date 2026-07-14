@@ -533,8 +533,8 @@ github.com/obot-platform/chat-completion-client v0.0.0-20260529163740-88dd50945c
 github.com/obot-platform/chat-completion-client v0.0.0-20260529163740-88dd50945c18/go.mod h1:YslCtQ/xUKpZUmiW8AFp2hBefikf4KcbEk57Jso1JAU=
 github.com/obot-platform/cmd v0.0.0-20260707150346-5103d461ab67 h1:QGhIjCb7NuBsI7g+gvVqYjyZ56uHgjteM0khJtR7+a4=
 github.com/obot-platform/cmd v0.0.0-20260707150346-5103d461ab67/go.mod h1:zj/4glDORtg3DKkLvTN2RUpm1gZnRU3dlbr3dZ4Pc2Q=
-github.com/obot-platform/kinm v0.0.0-20260707163114-cfbe22091ffd h1:3lpPV0moY29gOhZcV5FduAAAqGm8I/fLGSTh3yadEVA=
-github.com/obot-platform/kinm v0.0.0-20260707163114-cfbe22091ffd/go.mod h1:mJ2Mx/FzMK2WmfxamD2V9N7TeakulKdmGHw4qvMjzUs=
+github.com/obot-platform/kinm v0.0.0-20260714141330-7c64312d9627 h1:Z0gqfIwmXTJSmRSZicFIFDWf8hoiCvQnrFZVchroZOU=
+github.com/obot-platform/kinm v0.0.0-20260714141330-7c64312d9627/go.mod h1:mJ2Mx/FzMK2WmfxamD2V9N7TeakulKdmGHw4qvMjzUs=
 github.com/obot-platform/mcp-oauth-proxy v0.0.3-0.20260526141817-32b8278fcf00 h1:IzmiE4JJMEsceK7K5f/iYLG4f3YIFUHiSn6zWonypFc=
 github.com/obot-platform/mcp-oauth-proxy v0.0.3-0.20260526141817-32b8278fcf00/go.mod h1:IBdiWaE+aSlf5TpqKhtDkpGwxPetHtjaScewJ/UoSGQ=
 github.com/obot-platform/nah v0.0.0-20260707163210-8bdf0035e79f h1:yoMKu8I8gFlsBOSPs+guQdsSWscaipIjDIBIIl2a7ho=
