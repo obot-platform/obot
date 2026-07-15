@@ -469,6 +469,23 @@ export interface ECRImagePullSecretConfig {
 export interface ImagePullSecretTestRequest {
 	image?: string;
 }
+
+// Git credentials
+
+export interface GitCredential {
+	id: string;
+	created?: string;
+	deleted?: string;
+	displayName: string;
+	host: string;
+	tokenConfigured: boolean;
+}
+
+export interface GitCredentialManifest {
+	displayName: string;
+	host: string;
+	token?: string;
+}
 export interface ImagePullSecretTestResponse {
 	success: boolean;
 	message?: string;
@@ -594,6 +611,7 @@ export interface MCPCatalogManifest {
 	sourceURLs: string[];
 	allowedUserIDs: string[];
 	sourceURLCredentials?: Record<string, string>;
+	sourceURLGitCredentialIDs?: Record<string, string>;
 }
 export interface MCPCatalog extends MCPCatalogManifest {
 	id: string;
@@ -1025,12 +1043,14 @@ export interface SkillRepository {
 	resolvedCommitSHA?: string;
 	discoveredSkillCount: number;
 	sourceURLCredentials?: Record<string, string>;
+	gitCredentialID?: string;
 }
 export interface SkillRepositoryManifest {
 	displayName: string;
 	repoURL: string;
 	ref: string;
 	sourceURLCredentials?: Record<string, string>;
+	gitCredentialID?: string;
 }
 export interface SkillAccessPolicyResource {
 	type: 'skill' | 'skillRepository' | 'selector';
@@ -1084,6 +1104,7 @@ export interface SystemMCPCatalogManifest {
 	displayName: string;
 	sourceURLs: string[];
 	sourceURLCredentials?: Record<string, string>;
+	sourceURLGitCredentialIDs?: Record<string, string>;
 }
 export interface SystemMCPCatalog extends SystemMCPCatalogManifest {
 	id: string;

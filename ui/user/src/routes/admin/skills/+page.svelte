@@ -7,13 +7,14 @@
 	import ObotCliBanner from '$lib/components/ObotCliBanner.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Search from '$lib/components/Search.svelte';
+	import Select from '$lib/components/Select.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { HttpError } from '$lib/errors.js';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService } from '$lib/services';
-	import type { SkillRepository } from '$lib/services/admin/types';
+	import type { GitCredential, SkillRepository } from '$lib/services/admin/types';
 	import type { Skill } from '$lib/services/nanobot/types';
 	import { errors, profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
@@ -29,8 +30,10 @@
 		TriangleAlert,
 		Info,
 		PencilRuler,
+		Pencil,
 		Plus,
 		RefreshCcw,
+		Settings,
 		Trash2,
 		X,
 		GitBranch
@@ -56,6 +59,7 @@
 
 	let skills = $state<Skill[]>(untrack(() => data?.skills ?? []));
 	let skillRepositories = $state<SkillRepository[]>(untrack(() => data.skillRepositories));
+	let gitCredentials = $state<GitCredential[]>(untrack(() => data.gitCredentials ?? []));
 	let showLicenseError = $state(untrack(() => data?.showLicenseError ?? false));
 
 	$effect(() => {
@@ -101,11 +105,52 @@
 	let syncInterval = new SvelteMap<string, ReturnType<typeof setInterval>>();
 
 	let editingSource = $state<
-		{ index: number; value: string; name: string; ref: string; token: string } | undefined
+		| {
+				index: number;
+				value: string;
+				name: string;
+				ref: string;
+				token: string;
+				gitCredentialID: string;
+				repositoryID?: string;
+		  }
+		| undefined
 	>(undefined);
 	let sourceError = $state<string | undefined>(undefined);
 	let saving = $state(false);
 	let urlFilters = $state(getTableUrlParamsFilters());
+	let gitCredentialOptions = $derived(
+		gitCredentials.map((credential) => ({
+			id: credential.id,
+			label: `${credential.displayName} (${credential.host})`,
+			disabled:
+				!credential.tokenConfigured ||
+				Boolean(
+					editingSource?.value && sourceHost(editingSource.value) !== credential.host.toLowerCase()
+				)
+		}))
+	);
+
+	function sourceHost(value: string): string {
+		try {
+			return new URL(value.includes('://') ? value : `https://${value}`).host.toLowerCase();
+		} catch {
+			return '';
+		}
+	}
+
+	function handleSkillSourceURLInput() {
+		if (!editingSource?.gitCredentialID) return;
+		const selectedCredential = gitCredentials.find(
+			(credential) => credential.id === editingSource?.gitCredentialID
+		);
+		if (
+			selectedCredential &&
+			sourceHost(editingSource.value) !== selectedCredential.host.toLowerCase()
+		) {
+			editingSource.gitCredentialID = '';
+		}
+	}
 
 	function switchView(newView: 'skills' | 'urls', filterByRepository: string = '') {
 		goto(
@@ -249,15 +294,33 @@
 	</div>
 	{#snippet rightNavActions()}
 		{#if !isAdminReadonly}
-			<button
-				class="btn btn-primary flex items-center gap-1 text-sm"
-				onclick={() => {
-					editingSource = { index: -1, value: '', name: '', ref: 'main', token: '' };
-					sourceDialog?.showModal();
-				}}
-			>
-				<Plus class="size-4" /> Add Source URL
-			</button>
+			<div class="flex items-center gap-2">
+				{#if view === 'urls'}
+					<button
+						class="btn btn-neutral flex items-center gap-1 rounded-4xl text-sm"
+						onclick={() => goto('/admin/git-credentials')}
+					>
+						<Settings class="size-4" />
+						Manage Credentials
+					</button>
+				{/if}
+				<button
+					class="btn btn-primary flex items-center gap-1 text-sm"
+					onclick={() => {
+						editingSource = {
+							index: -1,
+							value: '',
+							name: '',
+							ref: 'main',
+							token: '',
+							gitCredentialID: ''
+						};
+						sourceDialog?.showModal();
+					}}
+				>
+					<Plus class="size-4" /> Add Source URL
+				</button>
+			</div>
 		{/if}
 	{/snippet}
 </Layout>
@@ -386,6 +449,23 @@
 			>
 				{#snippet actions(d)}
 					{#if !isAdminReadonly}
+						<IconButton
+							onclick={(e) => {
+								e.stopPropagation();
+								editingSource = {
+									index: skillRepositories.findIndex((repository) => repository.id === d.id),
+									value: d.repoURL,
+									name: d.displayName,
+									ref: d.ref,
+									token: '',
+									gitCredentialID: d.gitCredentialID ?? '',
+									repositoryID: d.id
+								};
+								sourceDialog?.showModal();
+							}}
+						>
+							<Pencil class="size-4" />
+						</IconButton>
 						<IconButton
 							variant="danger"
 							onclick={(e) => {
@@ -556,6 +636,7 @@
 					<input
 						id="catalog-source-url"
 						bind:value={editingSource.value}
+						oninput={handleSkillSourceURLInput}
 						class="text-input-filled"
 					/>
 				</div>
@@ -569,22 +650,50 @@
 					>
 				</div>
 				<div class="flex flex-col gap-1">
-					<label for="skill-source-token" class="flex items-center gap-1 text-sm font-light">
-						Personal access token (optional)
+					<label for="skill-source-git-credential" class="text-sm font-light">
+						Shared Git credential (optional)
 					</label>
-					<SensitiveInput
-						name="skill-source-token"
-						placeholder="Required for private repositories"
-						bind:value={editingSource.token}
+					<Select
+						id="skill-source-git-credential"
+						options={gitCredentialOptions}
+						selected={editingSource.gitCredentialID}
+						placeholder={gitCredentials.length
+							? 'Use a one-off token or public access'
+							: 'No shared credentials'}
+						searchInDropdown
+						onSelect={(option) => {
+							if (editingSource) {
+								editingSource.gitCredentialID = String(option.id);
+								editingSource.token = '';
+							}
+						}}
+						onClear={() => {
+							if (editingSource) editingSource.gitCredentialID = '';
+						}}
 					/>
+					<span class="text-muted-content text-xs">
+						Only credentials matching the repository host can be selected.
+					</span>
 				</div>
+				{#if !editingSource.gitCredentialID}
+					<div class="flex flex-col gap-1">
+						<label for="skill-source-token" class="flex items-center gap-1 text-sm font-light">
+							Personal access token (optional)
+						</label>
+						<SensitiveInput
+							name="skill-source-token"
+							placeholder="Required for private repositories"
+							bind:value={editingSource.token}
+						/>
+					</div>
+				{/if}
 			</div>
 
 			{#if sourceError}
 				<div class="mb-4 flex flex-col gap-2 text-error">
 					<div class="flex items-center gap-2">
 						<TriangleAlert class="size-6 shrink-0 self-start" />
-						<p class="my-0.5 flex flex-col text-sm font-semibold">Error adding source URL:</p>
+						<p class="my-0.5 flex flex-col text-sm font-semibold">Error saving source URL:</p>
 					</div>
 					<span class="font-sm font-light break-all">{sourceError}</span>
 				</div>
@@ -613,11 +722,19 @@
 								repoURL,
 								ref: editingSource.ref
 							};
-							if (token) {
+							if (editingSource.gitCredentialID) {
+								manifest.gitCredentialID = editingSource.gitCredentialID;
+							} else if (token) {
 								manifest.sourceURLCredentials = { [repoURL]: token };
 							}
-							const response = await AdminService.createSkillRepository(manifest);
-							skillRepositories = [...skillRepositories, response];
+							const response = editingSource.repositoryID
+								? await AdminService.updateSkillRepository(editingSource.repositoryID, manifest)
+								: await AdminService.createSkillRepository(manifest);
+							skillRepositories = editingSource.repositoryID
+								? skillRepositories.map((repository) =>
+										repository.id === response.id ? response : repository
+									)
+								: [...skillRepositories, response];
 							sync(response.id);
 							closeSourceDialog();
 						} catch (error) {
@@ -627,7 +744,7 @@
 						}
 					}}
 				>
-					Add
+					{editingSource.repositoryID ? 'Save' : 'Add'}
 				</button>
 			</div>
 		{/if}

@@ -30,7 +30,7 @@
 	} from '$lib/url';
 	import EntriesView from './EntriesView.svelte';
 	import SourceUrlsView from './SourceUrlsView.svelte';
-	import { Info, Plus, RefreshCcw, Server, TriangleAlert } from '@lucide/svelte';
+	import { Info, Plus, RefreshCcw, Server, Settings, TriangleAlert } from '@lucide/svelte';
 	import { onDestroy, onMount } from 'svelte';
 	import { fade, fly, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -41,7 +41,7 @@
 	const defaultCatalogId = DEFAULT_MCP_CATALOG_ID;
 
 	const { data } = $props();
-	const { workspaceId } = $derived(data);
+	const { workspaceId, gitCredentials } = $derived(data);
 	const query = $derived(page.url.searchParams.get('query') || '');
 
 	let users = $state<OrgUser[]>([]);
@@ -193,6 +193,14 @@
 					<RefreshCcw class="size-4" />
 					Sync
 				{/if}
+			</button>
+			<button
+				in:fade={{ duration }}
+				class="btn btn-neutral flex items-center gap-1 rounded-4xl text-sm"
+				onclick={() => goto('/admin/git-credentials')}
+			>
+				<Settings class="size-4" />
+				Manage Credentials
 			</button>
 		{/if}
 		{#if canCreateEntry}
@@ -368,7 +376,7 @@
 	{/if}
 {/snippet}
 
-<McpServerGitSync bind:this={sourceDialog} {defaultCatalog} onSync={sync} />
+<McpServerGitSync bind:this={sourceDialog} {defaultCatalog} {gitCredentials} onSync={sync} />
 <SelectServerType bind:this={selectServerTypeDialog} onSelectServerType={selectServerType} />
 
 <svelte:head>

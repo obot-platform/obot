@@ -1,7 +1,13 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import Select from '$lib/components/Select.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
-	import { AdminService, type MCPCatalog, type MCPCatalogManifest } from '$lib/services';
+	import {
+		AdminService,
+		type GitCredential,
+		type MCPCatalog,
+		type MCPCatalogManifest
+	} from '$lib/services';
 	import IconButton from '../primitives/IconButton.svelte';
 	import { Info, TriangleAlert, X } from '@lucide/svelte';
 	import { slide } from 'svelte/transition';
@@ -10,9 +16,10 @@
 		defaultCatalog?: MCPCatalog;
 		defaultCatalogId?: string;
 		onSync?: () => void;
+		gitCredentials?: GitCredential[];
 	}
 
-	let { defaultCatalog, onSync, defaultCatalogId }: Props = $props();
+	let { defaultCatalog, onSync, defaultCatalogId, gitCredentials = [] }: Props = $props();
 
 	let saving = $state(false);
 	let sourceError = $state<string>();
@@ -20,6 +27,7 @@
 		index: number;
 		value: string;
 		token: string;
+		gitCredentialID: string;
 		clearToken?: boolean;
 	}>();
 	let sourceDialog = $state<HTMLDialogElement>();
@@ -33,7 +41,8 @@
 		editingSource = {
 			index: -1,
 			value: '',
-			token: ''
+			token: '',
+			gitCredentialID: ''
 		};
 		sourceDialog?.showModal();
 	}
@@ -45,7 +54,8 @@
 		editingSource = {
 			index,
 			value: url,
-			token: ''
+			token: '',
+			gitCredentialID: defaultCatalog?.sourceURLGitCredentialIDs?.[url] ?? ''
 		};
 		sourceDialog?.showModal();
 	}
@@ -82,9 +92,42 @@
 			!editingSource.token
 		)
 	);
+	const gitCredentialOptions = $derived(
+		gitCredentials.map((credential) => ({
+			id: credential.id,
+			label: `${credential.displayName} (${credential.host})`,
+			disabled:
+				!credential.tokenConfigured ||
+				Boolean(
+					editingSource?.value && sourceHost(editingSource.value) !== credential.host.toLowerCase()
+				)
+		}))
+	);
+
+	function sourceHost(value: string): string {
+		try {
+			return new URL(value.includes('://') ? value : `https://${value}`).host.toLowerCase();
+		} catch {
+			return '';
+		}
+	}
 
 	function handleSourceURLInput() {
-		if (!editingSource || editingSource.index < 0 || !editingSourceURL) {
+		if (!editingSource) {
+			return;
+		}
+
+		const selectedCredentialID = editingSource.gitCredentialID;
+		const selectedCredential = gitCredentials.find(
+			(credential) => credential.id === selectedCredentialID
+		);
+		if (
+			selectedCredential &&
+			sourceHost(editingSource.value) !== selectedCredential.host.toLowerCase()
+		) {
+			editingSource.gitCredentialID = '';
+		}
+		if (editingSource.index < 0 || !editingSourceURL) {
 			return;
 		}
 
@@ -137,55 +180,85 @@
 			</div>
 
 			<div class="mb-4 flex flex-col gap-1">
-				<div class="flex items-center justify-between">
-					<label for="catalog-source-token" class="flex items-center gap-1 text-sm font-light">
-						Personal access token (optional)
-						<span
-							use:tooltip={{
-								text: 'Required scopes:\n• GitHub: repo\n• GitLab: read_repository + read_api\n\nIf no token is set, Obot falls back to the GITHUB_AUTH_TOKEN environment variable.',
-								classes: ['max-w-md', 'whitespace-pre-line'],
-								disablePortal: true
-							}}
-						>
-							<Info class="text-muted-content size-3.5" />
-						</span>
-					</label>
-					{#if editingSource.index >= 0 && hasSourceURLCredential(defaultCatalog?.sourceURLs?.[editingSource.index]) && !editingSource.clearToken}
-						<button
-							class="text-xs text-error hover:underline"
-							onclick={() => {
-								if (editingSource) {
-									editingSource.clearToken = true;
-									tokenExplicitlyCleared = true;
-								}
-							}}
-						>
-							Clear token
-						</button>
+				<label for="catalog-source-git-credential" class="text-sm font-light">
+					Shared Git credential (optional)
+				</label>
+				<Select
+					id="catalog-source-git-credential"
+					options={gitCredentialOptions}
+					selected={editingSource.gitCredentialID}
+					placeholder={gitCredentials.length
+						? 'Use a one-off token or public access'
+						: 'No shared credentials'}
+					searchInDropdown
+					onSelect={(option) => {
+						if (editingSource) {
+							editingSource.gitCredentialID = String(option.id);
+							editingSource.token = '';
+							editingSource.clearToken = false;
+						}
+					}}
+					onClear={() => {
+						if (editingSource) editingSource.gitCredentialID = '';
+					}}
+				/>
+				<span class="text-muted-content text-xs">
+					Only credentials matching the source host can be selected.
+				</span>
+			</div>
+
+			{#if !editingSource.gitCredentialID}
+				<div class="mb-4 flex flex-col gap-1">
+					<div class="flex items-center justify-between">
+						<label for="catalog-source-token" class="flex items-center gap-1 text-sm font-light">
+							Personal access token (optional)
+							<span
+								use:tooltip={{
+									text: 'Required scopes:\n• GitHub: repo\n• GitLab: read_repository + read_api\n\nIf no token is set, Obot falls back to the GITHUB_AUTH_TOKEN environment variable.',
+									classes: ['max-w-md', 'whitespace-pre-line'],
+									disablePortal: true
+								}}
+							>
+								<Info class="text-muted-content size-3.5" />
+							</span>
+						</label>
+						{#if editingSource.index >= 0 && hasSourceURLCredential(defaultCatalog?.sourceURLs?.[editingSource.index]) && !editingSource.clearToken}
+							<button
+								class="text-xs text-error hover:underline"
+								onclick={() => {
+									if (editingSource) {
+										editingSource.clearToken = true;
+										tokenExplicitlyCleared = true;
+									}
+								}}
+							>
+								Clear token
+							</button>
+						{/if}
+					</div>
+					{#if !editingSource.clearToken && editingSource.index >= 0 && hasSourceURLCredential(defaultCatalog?.sourceURLs?.[editingSource.index])}
+						<input
+							id="catalog-source-token"
+							type="text"
+							readonly
+							aria-readonly="true"
+							data-1p-ignore
+							value={defaultCatalog?.sourceURLCredentials?.[
+								defaultCatalog?.sourceURLs?.[editingSource.index]
+							] ?? ''}
+							class="text-sm text-muted-content w-full border-none bg-transparent p-0 outline-none focus:ring-0"
+						/>
+					{:else}
+						<SensitiveInput
+							name="catalog-source-token"
+							placeholder={editingSource.clearToken
+								? 'Enter a new value or leave empty to clear'
+								: ''}
+							bind:value={editingSource.token}
+						/>
 					{/if}
 				</div>
-				{#if !editingSource.clearToken && editingSource.index >= 0 && hasSourceURLCredential(defaultCatalog?.sourceURLs?.[editingSource.index])}
-					<input
-						id="catalog-source-token"
-						type="text"
-						readonly
-						aria-readonly="true"
-						data-1p-ignore
-						value={defaultCatalog?.sourceURLCredentials?.[
-							defaultCatalog?.sourceURLs?.[editingSource.index]
-						] ?? ''}
-						class="text-sm text-muted-content w-full border-none bg-transparent p-0 outline-none focus:ring-0"
-					/>
-				{:else}
-					<SensitiveInput
-						name="catalog-source-token"
-						placeholder={editingSource.clearToken
-							? 'Enter a new value or leave empty to clear'
-							: ''}
-						bind:value={editingSource.token}
-					/>
-				{/if}
-			</div>
+			{/if}
 
 			{#if sourceError}
 				<div class="mb-4 flex flex-col gap-2 text-error">
@@ -265,6 +338,19 @@
 							if (Object.keys(sourceURLCredentials).length > 0) {
 								updatingCatalog.sourceURLCredentials = sourceURLCredentials;
 							}
+
+							const sourceURLGitCredentialIDs = {
+								...(catalogToUse.sourceURLGitCredentialIDs ?? {})
+							};
+							if (oldURL && oldURL !== newURL) {
+								delete sourceURLGitCredentialIDs[oldURL];
+							}
+							if (editingSource.gitCredentialID) {
+								sourceURLGitCredentialIDs[newURL] = editingSource.gitCredentialID;
+							} else {
+								delete sourceURLGitCredentialIDs[newURL];
+							}
+							updatingCatalog.sourceURLGitCredentialIDs = sourceURLGitCredentialIDs;
 
 							const response = await AdminService.updateMCPCatalog(
 								catalogToUse.id,
