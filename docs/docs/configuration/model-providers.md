@@ -111,16 +111,6 @@ Obot requires:
 
 The service principal requires the **Cognitive Services User** role on the specific Foundry resource for inference. **Foundry User** (formerly Azure AI User) also includes the permissions required to invoke Claude models. The narrower **Cognitive Services OpenAI User** role can allow OpenAI requests while Anthropic requests fail with `Principal does not have access to API/Operation`.
 
-To assign the role in the Azure portal:
-
-1. Open the Foundry resource and select **Access control (IAM)**.
-2. Select **Add** → **Add role assignment**.
-3. Select **Cognitive Services User**.
-4. Under **Members**, select **User, group, or service principal**, then select the service principal whose application/client ID is configured in Obot.
-5. Complete **Review + assign**. Role assignments can take up to five minutes to propagate.
-
-If **Add role assignment** is disabled, your Azure account cannot create role assignments at that scope. Ask an administrator with **Owner**, **Role Based Access Control Administrator**, or **User Access Administrator** access to assign the role. The role must be assigned to the service principal on the same resource identified by **Azure Endpoint** and **Resource Name**.
-
 Deployments are discovered automatically. Obot uses the Azure deployment name as the target model and derives the request dialect from the deployment's model metadata.
 
 Official references:
