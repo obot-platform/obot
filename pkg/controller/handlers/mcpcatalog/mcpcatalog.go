@@ -23,6 +23,7 @@ import (
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/git"
+	"github.com/obot-platform/obot/pkg/gitcredential"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -93,6 +94,13 @@ func (h *Handler) revealCatalogCredential(ctx context.Context, catalogName, sour
 	return cred.Secrets[sourceURL]
 }
 
+func (h *Handler) resolveCatalogCredential(ctx context.Context, storageClient client.Client, namespace, catalogName, sourceURL, credentialID string) (string, error) {
+	if credentialID != "" {
+		return gitcredential.Resolve(ctx, storageClient, h.gatewayClient, namespace, credentialID, sourceURL)
+	}
+	return h.revealCatalogCredential(ctx, catalogName, sourceURL), nil
+}
+
 func New(defaultCatalogPath, defaultSystemCatalogPath string, gatewayClient *gclient.Client, accessControlRuleHelper *accesscontrolrule.Helper, mcpSessionManager *mcp.SessionManager) *Handler {
 	remoteURLValidationConfig := mcpSessionManager.RemoteMCPURLValidationConfig()
 	validationOptions := mcp.ValidationOptions{
@@ -146,7 +154,12 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	mcpCatalog.Status.SyncErrors = make(map[string]string)
 
 	for _, sourceURL := range mcpCatalog.Spec.SourceURLs {
-		token := h.revealCatalogCredential(req.Ctx, mcpCatalog.Name, sourceURL)
+		token, err := h.resolveCatalogCredential(req.Ctx, req.Client, mcpCatalog.Namespace, mcpCatalog.Name, sourceURL, mcpCatalog.Spec.SourceURLGitCredentialIDs[sourceURL])
+		if err != nil {
+			log.Errorf("failed to resolve credential for catalog %s source %s: %v", mcpCatalog.Name, sourceURL, err)
+			mcpCatalog.Status.SyncErrors[sourceURL] = err.Error()
+			continue
+		}
 		objs, err := h.readMCPCatalog(req.Ctx, mcpCatalog.Name, sourceURL, token)
 		if err != nil {
 			log.Errorf("failed to read catalog %s: %v", sourceURL, err)
@@ -387,7 +400,12 @@ func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {
 	systemCatalog.Status.SyncErrors = make(map[string]string)
 
 	for _, sourceURL := range systemCatalog.Spec.SourceURLs {
-		token := h.revealCatalogCredential(req.Ctx, systemCatalog.Name, sourceURL)
+		token, err := h.resolveCatalogCredential(req.Ctx, req.Client, systemCatalog.Namespace, systemCatalog.Name, sourceURL, systemCatalog.Spec.SourceURLGitCredentialIDs[sourceURL])
+		if err != nil {
+			log.Errorf("failed to resolve credential for system catalog %s source %s: %v", systemCatalog.Name, sourceURL, err)
+			systemCatalog.Status.SyncErrors[sourceURL] = err.Error()
+			continue
+		}
 		objs, err := h.readSystemMCPCatalog(req.Ctx, systemCatalog.Name, sourceURL, token)
 		if err != nil {
 			log.Errorf("failed to read system catalog %s: %v", sourceURL, err)

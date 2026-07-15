@@ -11,6 +11,7 @@ const (
 	SystemMCPServerFinalizer       = "obot.obot.ai/system-mcp-server"
 	NanobotAgentFinalizer          = "obot.obot.ai/nanobot-agent"
 	ImagePullSecretFinalizer       = "obot.obot.ai/image-pull-secret"
+	GitCredentialFinalizer         = "obot.obot.ai/git-credential"
 
 	ModelProviderSyncAnnotation               = "obot.ai/model-provider-sync"
 	AuthProviderSyncAnnotation                = "obot.ai/auth-provider-sync"

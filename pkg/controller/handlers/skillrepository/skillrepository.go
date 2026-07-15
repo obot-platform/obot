@@ -10,6 +10,7 @@ import (
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/logger"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/gitcredential"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -57,6 +58,13 @@ func (h *Handler) revealRepositoryCredential(ctx context.Context, repoName, repo
 	return cred.Secrets[repoURL]
 }
 
+func (h *Handler) resolveRepositoryCredential(ctx context.Context, storageClient client.Client, repo *v1.SkillRepository) (string, error) {
+	if repo.Spec.GitCredentialID != "" {
+		return gitcredential.Resolve(ctx, storageClient, h.gatewayClient, repo.Namespace, repo.Spec.GitCredentialID, repo.Spec.RepoURL)
+	}
+	return h.revealRepositoryCredential(ctx, repo.Name, repo.Spec.RepoURL), nil
+}
+
 func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	repo := req.Object.(*v1.SkillRepository)
 	namespace := repo.Namespace
@@ -77,7 +85,14 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 
 	defer h.clearIsSyncing(req.Ctx, req.Client, namespace, repo.Name)
 
-	token := h.revealRepositoryCredential(req.Ctx, repo.Name, repo.Spec.RepoURL)
+	token, err := h.resolveRepositoryCredential(req.Ctx, req.Client, repo)
+	if err != nil {
+		if statusErr := h.recordFailure(req.Ctx, req.Client, namespace, repo.Name, err); statusErr != nil {
+			return statusErr
+		}
+		resp.RetryAfter(syncInterval)
+		return nil
+	}
 	fetched, err := h.fetcher.Fetch(req.Ctx, repo.Spec.RepoURL, token, repo.Spec.Ref)
 	if err != nil {
 		if statusErr := h.recordFailure(req.Ctx, req.Client, namespace, repo.Name, err); statusErr != nil {

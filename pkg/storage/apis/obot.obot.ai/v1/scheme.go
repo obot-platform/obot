@@ -77,6 +77,8 @@ func AddToSchemeWithGV(scheme *runtime.Scheme, schemeGroupVersion schema.GroupVe
 		&K8sSettingsList{},
 		&ImagePullSecret{},
 		&ImagePullSecretList{},
+		&GitCredential{},
+		&GitCredentialList{},
 		&AppPreferences{},
 		&AppPreferencesList{},
 		&AppNotification{},

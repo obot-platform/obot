@@ -4,7 +4,6 @@ import (
 	"slices"
 
 	"github.com/obot-platform/nah/pkg/fields"
-	"github.com/obot-platform/obot/apiclient/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -51,7 +50,10 @@ func (in *SkillRepository) GetColumns() [][]string {
 }
 
 type SkillRepositorySpec struct {
-	types.SkillRepositoryManifest `json:",inline"`
+	DisplayName     string `json:"displayName,omitempty"`
+	RepoURL         string `json:"repoURL,omitempty"`
+	Ref             string `json:"ref,omitempty"`
+	GitCredentialID string `json:"gitCredentialID,omitempty"`
 }
 
 type SkillRepositoryStatus struct {

@@ -60,11 +60,9 @@ func newSkillRepository(name, namespace string) *v1.SkillRepository {
 			Namespace: namespace,
 		},
 		Spec: v1.SkillRepositorySpec{
-			SkillRepositoryManifest: types.SkillRepositoryManifest{
-				RepoURL:     "https://github.com/owner/repo",
-				Ref:         "main",
-				DisplayName: "Test Repo",
-			},
+			RepoURL:     "https://github.com/owner/repo",
+			Ref:         "main",
+			DisplayName: "Test Repo",
 		},
 	}
 }

@@ -20,6 +20,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/skillrepository"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/gitcredential"
 	"github.com/obot-platform/obot/pkg/skillaccessrule"
 	"github.com/obot-platform/obot/pkg/skillformat"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -63,9 +64,20 @@ func revealSkillRepositoryToken(ctx context.Context, client skillRepositoryCrede
 }
 
 func (h *SkillHandler) materialize(req api.Context, skill *v1.Skill) (func(), string, error) {
-	token, err := revealSkillRepositoryToken(req.Context(), req.GatewayClient, skill)
-	if err != nil {
-		return nil, "", err
+	var token string
+	if req.GatewayClient != nil {
+		var repository v1.SkillRepository
+		err := req.Get(&repository, skill.Spec.RepoID)
+		if err == nil && repository.Spec.GitCredentialID != "" {
+			token, err = gitcredential.Resolve(req.Context(), req.Storage, req.GatewayClient, req.Namespace(), repository.Spec.GitCredentialID, skill.Spec.RepoURL)
+		} else if err == nil || apierrors.IsNotFound(err) {
+			token, err = revealSkillRepositoryToken(req.Context(), req.GatewayClient, skill)
+		} else {
+			err = fmt.Errorf("failed to get skill repository %s: %w", skill.Spec.RepoID, err)
+		}
+		if err != nil {
+			return nil, "", err
+		}
 	}
 	return h.materializeSkillSource(req.Context(), skill, token)
 }

@@ -146,6 +146,21 @@ func (in EmptyStatus) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in GitCredential) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.GitCredential"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in GitCredentialList) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.GitCredentialList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in GitCredentialSpec) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.GitCredentialSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in GroupRoleChange) OpenAPIModelName() string {
 	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.GroupRoleChange"
 }

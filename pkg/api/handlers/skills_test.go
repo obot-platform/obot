@@ -63,7 +63,7 @@ func (credentialNotFoundClient) RevealCredential(_ context.Context, contexts []s
 }
 
 func TestParseSkillRepositoryRequest(t *testing.T) {
-	req := httptest.NewRequest(http.MethodPost, "/api/skill-repositories", strings.NewReader(`{"displayName":"Repo","repoURL":"github.com/example/repo","ref":" main ","sourceURLCredentials":{"github.com/example/repo":"secret"}}`))
+	req := httptest.NewRequest(http.MethodPost, "/api/skill-repositories", strings.NewReader(`{"displayName":"Repo","repoURL":"github.com/example/repo","ref":" main ","gitCredentialID":" gc1-test ","sourceURLCredentials":{"github.com/example/repo":"secret"}}`))
 	rec := httptest.NewRecorder()
 
 	manifest, credentials, err := parseSkillRepositoryRequest(api.Context{
@@ -73,6 +73,7 @@ func TestParseSkillRepositoryRequest(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "https://github.com/example/repo", manifest.RepoURL)
 	assert.Equal(t, "main", manifest.Ref)
+	assert.Equal(t, "gc1-test", manifest.GitCredentialID)
 	assert.Nil(t, manifest.SourceURLCredentials)
 	assert.Equal(t, map[string]string{"https://github.com/example/repo": "secret"}, credentials)
 
@@ -144,9 +145,7 @@ func TestSkillRepositoryHandlerRefresh(t *testing.T) {
 			Namespace: system.DefaultNamespace,
 		},
 		Spec: v1.SkillRepositorySpec{
-			SkillRepositoryManifest: types.SkillRepositoryManifest{
-				RepoURL: "https://github.com/example/repo",
-			},
+			RepoURL: "https://github.com/example/repo",
 		},
 	})
 

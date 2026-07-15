@@ -66,7 +66,13 @@ func (h *SystemMCPCatalogHandler) Create(req api.Context) error {
 	if err := req.Read(&manifest); err != nil {
 		return fmt.Errorf("failed to read system catalog manifest: %w", err)
 	}
+	originalSourceURLs := append([]string(nil), manifest.SourceURLs...)
 	if err := validateSystemCatalogManifest(&manifest, h.defaultCatalogPath); err != nil {
+		return err
+	}
+	remapCatalogSourceValues(originalSourceURLs, manifest.SourceURLs, manifest.SourceURLCredentials)
+	remapCatalogSourceValues(originalSourceURLs, manifest.SourceURLs, manifest.SourceURLGitCredentialIDs)
+	if err := validateCatalogGitCredentials(req, manifest.SourceURLs, manifest.SourceURLGitCredentialIDs); err != nil {
 		return err
 	}
 
@@ -76,14 +82,16 @@ func (h *SystemMCPCatalogHandler) Create(req api.Context) error {
 			Namespace:    req.Namespace(),
 		},
 		Spec: v1.SystemMCPCatalogSpec{
-			DisplayName: manifest.DisplayName,
-			SourceURLs:  manifest.SourceURLs,
+			DisplayName:               manifest.DisplayName,
+			SourceURLs:                manifest.SourceURLs,
+			SourceURLGitCredentialIDs: manifest.SourceURLGitCredentialIDs,
 		},
 	}
 	if err := req.Create(&catalog); err != nil {
 		return fmt.Errorf("failed to create system catalog: %w", err)
 	}
 	newTokens := mergeCatalogTokens(manifest.SourceURLs, manifest.SourceURLCredentials, nil)
+	removeSharedCredentialTokens(newTokens, manifest.SourceURLGitCredentialIDs)
 	if err := storeCatalogTokens(req, catalog.Name, newTokens, nil); err != nil {
 		return err
 	}
@@ -96,7 +104,13 @@ func (h *SystemMCPCatalogHandler) Update(req api.Context) error {
 	if err := req.Read(&manifest); err != nil {
 		return fmt.Errorf("failed to read system catalog manifest: %w", err)
 	}
+	originalSourceURLs := append([]string(nil), manifest.SourceURLs...)
 	if err := validateSystemCatalogManifest(&manifest, h.defaultCatalogPath); err != nil {
+		return err
+	}
+	remapCatalogSourceValues(originalSourceURLs, manifest.SourceURLs, manifest.SourceURLCredentials)
+	remapCatalogSourceValues(originalSourceURLs, manifest.SourceURLs, manifest.SourceURLGitCredentialIDs)
+	if err := validateCatalogGitCredentials(req, manifest.SourceURLs, manifest.SourceURLGitCredentialIDs); err != nil {
 		return err
 	}
 
@@ -111,8 +125,10 @@ func (h *SystemMCPCatalogHandler) Update(req api.Context) error {
 	}
 
 	newTokens := mergeCatalogTokens(manifest.SourceURLs, manifest.SourceURLCredentials, existingCred.Secrets)
+	removeSharedCredentialTokens(newTokens, manifest.SourceURLGitCredentialIDs)
 	catalog.Spec.DisplayName = manifest.DisplayName
 	catalog.Spec.SourceURLs = manifest.SourceURLs
+	catalog.Spec.SourceURLGitCredentialIDs = manifest.SourceURLGitCredentialIDs
 	if err := req.Update(&catalog); err != nil {
 		return fmt.Errorf("failed to update system catalog: %w", err)
 	}
@@ -387,9 +403,10 @@ func convertSystemMCPCatalog(catalog v1.SystemMCPCatalog, tokenEnv map[string]st
 	return types.SystemMCPCatalog{
 		Metadata: MetadataFrom(&catalog),
 		SystemMCPCatalogManifest: types.SystemMCPCatalogManifest{
-			DisplayName:          catalog.Spec.DisplayName,
-			SourceURLs:           catalog.Spec.SourceURLs,
-			SourceURLCredentials: maskCatalogCredentials(catalog.Spec.SourceURLs, tokenEnv),
+			DisplayName:               catalog.Spec.DisplayName,
+			SourceURLs:                catalog.Spec.SourceURLs,
+			SourceURLCredentials:      maskCatalogCredentials(catalog.Spec.SourceURLs, tokenEnv),
+			SourceURLGitCredentialIDs: catalog.Spec.SourceURLGitCredentialIDs,
 		},
 		LastSynced: *types.NewTime(catalog.Status.LastSyncTime.Time),
 		SyncErrors: catalog.Status.SyncErrors,
