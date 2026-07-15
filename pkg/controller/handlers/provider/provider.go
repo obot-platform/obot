@@ -28,7 +28,6 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"go.yaml.in/yaml/v3"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -510,6 +509,20 @@ func BackPopulateModels(ctx context.Context, client kclient.Client, dispatcher *
 		return nil
 	}
 
+	var existingModels v1.ModelList
+	if err := client.List(ctx, &existingModels, &kclient.ListOptions{
+		Namespace: modelProvider.Namespace,
+		FieldSelector: fields.SelectorFromSet(fields.Set{
+			"spec.manifest.modelProvider": modelProvider.Name,
+		}),
+	}); err != nil {
+		return fmt.Errorf("failed to list models for model provider %q: %w", modelProvider.Name, err)
+	}
+	existingByName := make(map[string]*v1.Model, len(existingModels.Items))
+	for i := range existingModels.Items {
+		existingByName[existingModels.Items[i].Name] = &existingModels.Items[i]
+	}
+
 	models := make([]kclient.Object, 0, len(availableModels.Models))
 	for _, model := range availableModels.Models {
 		displayName := model.Metadata["displayName"]
@@ -538,16 +551,13 @@ func BackPopulateModels(ctx context.Context, client kclient.Client, dispatcher *
 			},
 		}
 
-		var existing v1.Model
-		if err := client.Get(ctx, kclient.ObjectKeyFromObject(discovered), &existing); err == nil {
+		if existing := existingByName[discovered.Name]; existing != nil {
 			before := existing.DeepCopy()
-			if syncProviderOwnedModelFields(&existing, discovered.Spec.Manifest) {
-				if err := client.Patch(ctx, &existing, kclient.MergeFrom(before)); err != nil {
+			if syncProviderOwnedModelFields(existing, discovered.Spec.Manifest) {
+				if err := client.Patch(ctx, existing, kclient.MergeFrom(before)); err != nil {
 					return fmt.Errorf("failed to refresh discovered model %q: %w", existing.Name, err)
 				}
 			}
-		} else if !apierrors.IsNotFound(err) {
-			return fmt.Errorf("failed to get discovered model %q: %w", discovered.Name, err)
 		}
 
 		models = append(models, discovered)
