@@ -1,11 +1,13 @@
 package server
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
+	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/azure"
 	"github.com/obot-platform/obot/pkg/system"
 )
@@ -58,6 +60,20 @@ func TestAzureProviderBackend(t *testing.T) {
 				t.Fatalf("URL = %q, want %q", got, tt.wantURL)
 			}
 		})
+	}
+}
+
+func TestAzureProviderBackendRejectsUnsupportedPathAsBadRequest(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "http://gateway.local", nil)
+	req.SetPathValue("path", "v1/models")
+
+	_, _, err := (&azureProviderBackend{}).upstreamURL(req, nil)
+	var httpErr *types2.ErrHTTP
+	if !errors.As(err, &httpErr) {
+		t.Fatalf("error = %T %v, want *types.ErrHTTP", err, err)
+	}
+	if httpErr.Code != http.StatusBadRequest {
+		t.Fatalf("status code = %d, want %d", httpErr.Code, http.StatusBadRequest)
 	}
 }
 

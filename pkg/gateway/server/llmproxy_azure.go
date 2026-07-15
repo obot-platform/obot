@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
+	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/azure"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
@@ -33,7 +34,7 @@ func (b *azureProviderBackend) modelProviderName() string {
 func (b *azureProviderBackend) upstreamURL(req *http.Request, credEnv map[string]string) (url.URL, nanobottypes.Dialect, error) {
 	dialect, err := resolveAzureRouteDialect(req)
 	if err != nil {
-		return url.URL{}, "", err
+		return url.URL{}, "", types2.NewErrBadRequest("failed to determine Azure dialect: %v", err)
 	}
 	u, err := azure.BaseURL(b.providerName, credEnv, dialect)
 	return u, dialect, err

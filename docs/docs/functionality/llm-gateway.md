@@ -249,7 +249,7 @@ For Azure Entra through a local Obot server:
 ANTHROPIC_FOUNDRY_BASE_URL='http://localhost:8080/api/llm-proxy/azure-entra' \
 ANTHROPIC_FOUNDRY_API_KEY="$(obot login --url http://localhost:8080 --scope llm --print-token)" \
 CLAUDE_CODE_USE_FOUNDRY=1 \
-claude --model claude-haiku-4-5
+claude --model my-claude-deployment
 ```
 
 Use `/api/llm-proxy/azure-entra` for the Azure Entra provider. `ANTHROPIC_FOUNDRY_API_KEY` contains an Obot gateway token in this setup, not an Azure API key; Obot replaces it with the configured Azure credential before forwarding the request. The value passed to `--model` must be the exact Azure deployment name listed in the Anthropic-compatible Azure section on the Models page.
