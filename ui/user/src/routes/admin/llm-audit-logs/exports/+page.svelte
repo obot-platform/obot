@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import { beforeNavigate } from '$app/navigation';
-	import { afterNavigate } from '$app/navigation';
+	import { afterNavigate, beforeNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
@@ -14,7 +13,7 @@
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { AdminService, type AuditLogExport, type ScheduledAuditLogExport } from '$lib/services';
 	import { profile } from '$lib/stores';
-	import { replaceState, goto } from '$lib/url';
+	import { goto, replaceState } from '$lib/url';
 	import { Plus, Settings } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
@@ -23,24 +22,21 @@
 	type View = 'exports' | 'scheduled';
 	type FormType = 'export' | 'scheduled' | 'storage';
 
-	const RELOAD_DURATION_MS = 10 * 1000; // 10 seconds
+	const RELOAD_DURATION_MS = 10 * 1000;
+	const basePath = '/admin/llm-audit-logs/exports';
 
 	let view = $state<View>((page.url.searchParams.get('view') as View) || 'exports');
 	let query = $state('');
 	let showForm = $state<FormType | null>(null);
 
-	// View component references for refreshing data
 	let exportsViewRef = $state<ExportsView>();
 	let scheduledExportsViewRef = $state<ScheduledExportsView>();
 
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
-
 	let createdExport = $state<AuditLogExport | null>(null);
-
 	let setTimeoutIds: ReturnType<typeof setTimeout>[] = [];
 
 	onMount(async () => {
-		// Check URL parameters for form state
 		const formType = page.url.searchParams.get('form') as FormType;
 		if (formType) {
 			showForm = formType;
@@ -76,7 +72,6 @@
 
 	async function reloadAndCheckExportStatus() {
 		const exports = (await reload()) ?? [];
-
 		const exp = exports.find((d) => d.id === createdExport?.id);
 
 		if (
@@ -86,87 +81,71 @@
 			(exp.state === createdExport.state || exp.state === 'running')
 		) {
 			cleanup();
-
 			const id = setTimeout(() => {
 				reloadAndCheckExportStatus();
 			}, RELOAD_DURATION_MS);
-
 			setTimeoutIds.push(id);
 		}
 	}
 
 	async function openForm(formType: FormType) {
-		// If trying to open export or scheduled form, check if storage credentials are configured first
 		if (formType === 'export' || formType === 'scheduled') {
 			try {
 				const response = await AdminService.getStorageCredentials();
 				if (response.provider) {
-					// Storage is configured, proceed to the form
 					showForm = formType;
-					goto(`/admin/audit-logs/exports?form=${formType}`, { replaceState: false });
+					goto(`${basePath}?form=${formType}`, { replaceState: false });
 				} else {
-					// No storage provider configured, redirect to storage form first
 					showForm = 'storage';
-					goto(`/admin/audit-logs/exports?form=storage&next=${formType}`, {
-						replaceState: false
-					});
+					goto(`${basePath}?form=storage&next=${formType}`, { replaceState: false });
 				}
 			} catch (error) {
-				// Error getting storage credentials, assume not configured and redirect to storage form
 				console.error('Failed to get storage credentials:', error);
 				showForm = 'storage';
-				goto(`/admin/audit-logs/exports?form=storage&next=${formType}`, {
-					replaceState: false
-				});
+				goto(`${basePath}?form=storage&next=${formType}`, { replaceState: false });
 			}
 		} else {
-			// For storage form, proceed directly
 			showForm = formType;
-			goto(`/admin/audit-logs/exports?form=${formType}`, { replaceState: false });
+			goto(`${basePath}?form=${formType}`, { replaceState: false });
 		}
 	}
 
 	function closeForm() {
 		showForm = null;
-		goto('/admin/audit-logs/exports', { replaceState: false });
+		goto(basePath, { replaceState: false });
 	}
 
 	async function handleFormSuccess(item?: AuditLogExport | ScheduledAuditLogExport) {
 		createdExport = item && 'startTime' in item ? { ...item } : null;
-
 		showForm = null;
-
-		await goto('/admin/audit-logs/exports', { replaceState: false });
+		await goto(basePath, { replaceState: false });
 
 		if (createdExport) {
 			const id = setTimeout(() => {
 				reloadAndCheckExportStatus();
 			}, 1000);
-
 			setTimeoutIds.push(id);
 		}
 	}
 
 	function handleStorageSuccess() {
-		// Check if there's a next form to show after storage configuration
 		const nextForm = page.url.searchParams.get('next') as FormType;
 		if (nextForm) {
 			showForm = nextForm;
-			// Preserve all URL parameters when redirecting to the next form
 			const url = new URL(page.url);
 			url.searchParams.set('form', nextForm);
 			url.searchParams.delete('next');
 			goto(url, { replaceState: false });
 		} else {
 			showForm = null;
-			goto('/admin/audit-logs/exports', { replaceState: false });
+			goto(basePath, { replaceState: false });
 		}
 	}
 
 	const duration = PAGE_TRANSITION_DURATION;
 </script>
 
-<Layout classes={{ navbar: 'bg-base-200' }} showBackButton title="Audit Log Exports">
+<Layout classes={{ navbar: 'bg-base-200' }} showBackButton title="LLM Audit Log Exports">
 	<div class="flex min-h-full flex-col gap-8" in:fade>
 		{#if showForm}
 			{@render formScreen()}
@@ -186,7 +165,7 @@
 			class="mb-4 flex flex-col items-center justify-start md:mb-8 md:flex-row md:justify-between"
 		>
 			<div class="flex items-center gap-2">
-				<h1 class="text-2xl font-semibold">Audit Log Exports</h1>
+				<h1 class="text-2xl font-semibold">LLM Audit Log Exports</h1>
 			</div>
 
 			<div class="mt-4 w-full shrink-0 md:mt-0 md:w-fit">
@@ -232,12 +211,13 @@
 			</div>
 
 			{#if view === 'exports'}
-				<ExportsView bind:this={exportsViewRef} {query} />
+				<ExportsView bind:this={exportsViewRef} {query} logType="llm" />
 			{:else if view === 'scheduled'}
 				<ScheduledExportsView
 					bind:this={scheduledExportsViewRef}
 					{query}
 					readonly={isAdminReadonly}
+					logType="llm"
 				/>
 			{/if}
 		</div>
@@ -247,9 +227,9 @@
 {#snippet formScreen()}
 	<div class="flex flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
 		{#if showForm === 'export'}
-			<CreateAuditLogExportForm onCancel={closeForm} onSubmit={handleFormSuccess} />
+			<CreateAuditLogExportForm onCancel={closeForm} onSubmit={handleFormSuccess} logType="llm" />
 		{:else if showForm === 'scheduled'}
-			<CreateScheduledExportForm onCancel={closeForm} onSubmit={handleFormSuccess} />
+			<CreateScheduledExportForm onCancel={closeForm} onSubmit={handleFormSuccess} logType="llm" />
 		{:else if showForm === 'storage'}
 			<StorageCredentialsForm onCancel={closeForm} onSubmit={handleStorageSuccess} />
 		{/if}
@@ -271,5 +251,5 @@
 {/snippet}
 
 <svelte:head>
-	<title>Obot | Audit Log Exports</title>
+	<title>Obot | LLM Audit Log Exports</title>
 </svelte:head>

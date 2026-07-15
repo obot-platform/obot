@@ -13,9 +13,10 @@
 
 	interface Props {
 		query?: string;
+		logType?: 'mcp' | 'llm';
 	}
 
-	let { query }: Props = $props();
+	let { query, logType = 'mcp' }: Props = $props();
 
 	let loading = $state(false);
 	let exports = $state<AuditLogExport[]>([]);
@@ -27,7 +28,12 @@
 
 	let tableRef = $state<ReturnType<typeof Table>>();
 
-	let tableData = $derived.by(() => {
+	type ExportTableRow = AuditLogExport & {
+		created: string;
+		sizeDisplay: string;
+	};
+
+	let tableData = $derived.by((): ExportTableRow[] => {
 		const transformedData = exports.map((exp) => ({
 			...exp,
 			id: exp.id || '',
@@ -65,7 +71,7 @@
 
 	async function loadExports() {
 		try {
-			const response = await AdminService.getAuditLogExports();
+			const response = await AdminService.getAuditLogExports(logType);
 			return response.items ?? [];
 		} catch (error) {
 			console.error('Failed to load exports:', error);
@@ -91,7 +97,7 @@
 	async function handleSingleDelete(exp: AuditLogExport) {
 		try {
 			await AdminService.deleteAuditLogExport(exp.id);
-			await loadExports(); // Refresh the list
+			exports = await loadExports();
 		} catch (error) {
 			console.error('Failed to delete export:', error);
 		}
@@ -119,7 +125,11 @@
 	}
 
 	function handleRowClick(exportItem: AuditLogExport) {
-		goto(`/admin/audit-logs/exports/${exportItem.id}/view`);
+		goto(
+			logType === 'llm'
+				? `/admin/llm-audit-logs/exports/${exportItem.id}/view`
+				: `/admin/audit-logs/exports/${exportItem.id}/view`
+		);
 	}
 </script>
 

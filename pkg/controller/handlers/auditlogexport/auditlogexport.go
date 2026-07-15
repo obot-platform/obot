@@ -1,6 +1,7 @@
 package auditlogexport
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -16,6 +17,8 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+const batchSize = 10_000
 
 type Handler struct {
 	gatewayClient *client.Client
@@ -43,7 +46,16 @@ func (h *Handler) ExportAuditLogs(req router.Request, _ router.Response) error {
 		return fmt.Errorf("failed to update export status: %w", err)
 	}
 
-	if err := h.performExport(req.Ctx, export); err != nil {
+	var err error
+	switch export.Spec.EffectiveType() {
+	case types.AuditLogTypeMCP:
+		err = performExport(req.Ctx, h.credProvider, export, "mcp-audit-logs", h.fetchMCPAuditLogs, gatewaytypes.ConvertMCPAuditLog)
+	case types.AuditLogTypeLLM:
+		err = performExport(req.Ctx, h.credProvider, export, "llm-audit-logs", h.fetchLLMAuditLogs, gatewaytypes.ConvertLLMAuditLog)
+	default:
+		err = fmt.Errorf("unsupported audit log export type %q", export.Spec.Type)
+	}
+	if err != nil {
 		export.Status.State = types.AuditLogExportStateFailed
 		export.Status.Error = err.Error()
 
@@ -57,8 +69,80 @@ func (h *Handler) ExportAuditLogs(req router.Request, _ router.Response) error {
 	return req.Client.Status().Update(req.Ctx, export)
 }
 
-func (h *Handler) performExport(ctx context.Context, export *v1.AuditLogExport) error {
-	storageConfig, err := h.credProvider.GetStorageConfig(ctx)
+func (h *Handler) fetchMCPAuditLogs(ctx context.Context, export *v1.AuditLogExport, limit, offset int) ([]gatewaytypes.MCPAuditLog, error) {
+	opts := mcpAuditLogOptionsFromExport(export, limit, offset)
+	logs, _, err := h.gatewayClient.GetMCPAuditLogs(ctx, opts)
+	return logs, err
+}
+
+func (h *Handler) fetchLLMAuditLogs(ctx context.Context, export *v1.AuditLogExport, limit, offset int) ([]gatewaytypes.LLMAuditLog, error) {
+	opts := llmAuditLogOptionsFromExport(export, limit, offset)
+	logs, _, err := h.gatewayClient.GetLLMAuditLogs(ctx, opts)
+	return logs, err
+}
+
+func mcpAuditLogOptionsFromExport(export *v1.AuditLogExport, limit, offset int) client.MCPAuditLogOptions {
+	filters := export.Spec.Filters
+	if filters == nil {
+		filters = &types.AuditLogExportFilters{}
+	}
+	return client.MCPAuditLogOptions{
+		StartTime:                 export.Spec.StartTime.Time,
+		EndTime:                   export.Spec.EndTime.Time,
+		UserID:                    filters.UserIDs,
+		MCPID:                     filters.MCPIDs,
+		MCPServerDisplayName:      filters.MCPServerDisplayNames,
+		MCPServerCatalogEntryName: filters.MCPServerCatalogEntryNames,
+		CallType:                  filters.CallTypes,
+		CallIdentifier:            filters.CallIdentifiers,
+		SessionID:                 filters.SessionIDs,
+		ClientName:                filters.ClientNames,
+		ClientVersion:             filters.ClientVersions,
+		ResponseStatus:            filters.ResponseStatuses,
+		ClientIP:                  filters.ClientIPs,
+		Query:                     filters.Query,
+		Limit:                     limit,
+		Offset:                    offset,
+		WithRequestAndResponse:    export.Spec.WithRequestAndResponse,
+	}
+}
+
+func llmAuditLogOptionsFromExport(export *v1.AuditLogExport, limit, offset int) client.LLMAuditLogOptions {
+	filters := export.Spec.LLMFilters
+	if filters == nil {
+		filters = &types.LLMAuditLogExportFilters{}
+	}
+	return client.LLMAuditLogOptions{
+		StartTime:           export.Spec.StartTime.Time,
+		EndTime:             export.Spec.EndTime.Time,
+		UserID:              filters.UserIDs,
+		ModelProvider:       filters.ModelProviders,
+		TargetModel:         filters.TargetModels,
+		RequestPath:         filters.RequestPaths,
+		ResponseStatus:      filters.ResponseStatuses,
+		Outcome:             filters.Outcomes,
+		Client:              filters.Clients,
+		ClientSessionID:     filters.ClientSessionIDs,
+		Query:               filters.Query,
+		Limit:               limit,
+		Offset:              offset,
+		WithSensitiveFields: export.Spec.WithRequestAndResponse,
+		SortBy:              "created_at",
+		SortOrder:           "asc",
+	}
+}
+
+// performExport streams audit logs to configured object storage and marks the export completed.
+// The fetch function provides source-specific audit log batches; convert maps each record to its JSONL export shape.
+func performExport[T any, U any](
+	ctx context.Context,
+	credProvider *auditlogexport.CredentialProvider,
+	export *v1.AuditLogExport,
+	defaultPrefix string,
+	fetch func(context.Context, *v1.AuditLogExport, int, int) ([]T, error),
+	convert func(T) U,
+) error {
+	storageConfig, err := credProvider.GetStorageConfig(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get storage config: %w", err)
 	}
@@ -67,19 +151,19 @@ func (h *Handler) performExport(ctx context.Context, export *v1.AuditLogExport) 
 	}
 
 	var provider types.StorageProviderType
-	if storageConfig.S3Config != nil {
+	switch {
+	case storageConfig.S3Config != nil:
 		provider = types.StorageProviderS3
-	} else if storageConfig.GCSConfig != nil {
+	case storageConfig.GCSConfig != nil:
 		provider = types.StorageProviderGCS
-	} else if storageConfig.AzureConfig != nil {
+	case storageConfig.AzureConfig != nil:
 		provider = types.StorageProviderAzureBlob
-	} else if storageConfig.CustomS3Config != nil {
+	case storageConfig.CustomS3Config != nil:
 		provider = types.StorageProviderCustomS3
-	} else {
+	default:
 		return fmt.Errorf("invalid storage config, no storage provider found")
 	}
 
-	// Create storage provider
 	storageProvider, err := auditlogexport.NewStorageProvider(provider)
 	if err != nil {
 		return fmt.Errorf("failed to create storage provider: %w", err)
@@ -87,16 +171,12 @@ func (h *Handler) performExport(ctx context.Context, export *v1.AuditLogExport) 
 
 	export.Status.StorageProvider = provider
 
-	// Generate export path
-	exportPath := h.generateExportPath(export)
-
-	// Use streaming export with batching
-	exportSize, err := h.streamingExport(ctx, export, storageProvider, exportPath)
+	exportPath := generateExportPath(export.Spec.Name, export.Spec.KeyPrefix, defaultPrefix)
+	exportSize, err := streamingExport(ctx, *storageConfig, storageProvider, export, export.Spec.Bucket, exportPath, fetch, convert)
 	if err != nil {
 		return fmt.Errorf("failed to perform streaming export: %w", err)
 	}
 
-	// Update export status with results
 	export.Status.ExportSize = exportSize
 	export.Status.ExportPath = exportPath
 	export.Status.State = types.AuditLogExportStateCompleted
@@ -105,70 +185,67 @@ func (h *Handler) performExport(ctx context.Context, export *v1.AuditLogExport) 
 	return nil
 }
 
-func (h *Handler) streamingExport(ctx context.Context, export *v1.AuditLogExport, storageProvider auditlogexport.StorageProvider, exportPath string) (int64, error) {
-	storageConfig, err := h.credProvider.GetStorageConfig(ctx)
-	if err != nil {
-		return 0, fmt.Errorf("failed to get storage config: %w", err)
+func formatLogs[T any, U any](logs []T, convert func(T) U) ([]byte, error) {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+
+	for _, log := range logs {
+		if err := enc.Encode(convert(log)); err != nil {
+			return nil, fmt.Errorf("failed to marshal log entry: %w", err)
+		}
 	}
 
-	const batchSize = 10000 // Process 10,000 records per batch
+	return buf.Bytes(), nil
+}
 
-	var totalSize int64
+// streamingExport pipes formatted batches directly to storage so large exports do not need to buffer in memory.
+func streamingExport[T any, U any](
+	ctx context.Context,
+	storageConfig types.StorageConfig,
+	storageProvider auditlogexport.StorageProvider,
+	export *v1.AuditLogExport,
+	bucket, exportPath string,
+	fetch func(context.Context, *v1.AuditLogExport, int, int) ([]T, error),
+	convert func(T) U,
+) (totalSize int64, err error) {
 	offset := 0
 	batchNumber := 0
 
 	pr, pw := io.Pipe()
 	defer pr.Close()
-	defer pw.Close()
 
 	uploadErrCh := make(chan error, 1)
 	go func() {
 		defer close(uploadErrCh)
-		err := storageProvider.Upload(ctx, *storageConfig, export.Spec.Bucket, exportPath, pr)
+		err := storageProvider.Upload(ctx, storageConfig, bucket, exportPath, pr)
+		_ = pr.CloseWithError(err)
 		uploadErrCh <- err
 	}()
 
-	for {
-		// Prepare batch options
-		opts := client.MCPAuditLogOptions{
-			StartTime:                 export.Spec.StartTime.Time,
-			EndTime:                   export.Spec.EndTime.Time,
-			UserID:                    export.Spec.Filters.UserIDs,
-			MCPID:                     export.Spec.Filters.MCPIDs,
-			MCPServerDisplayName:      export.Spec.Filters.MCPServerDisplayNames,
-			MCPServerCatalogEntryName: export.Spec.Filters.MCPServerCatalogEntryNames,
-			CallType:                  export.Spec.Filters.CallTypes,
-			CallIdentifier:            export.Spec.Filters.CallIdentifiers,
-			SessionID:                 export.Spec.Filters.SessionIDs,
-			ClientName:                export.Spec.Filters.ClientNames,
-			ClientVersion:             export.Spec.Filters.ClientVersions,
-			ResponseStatus:            export.Spec.Filters.ResponseStatuses,
-			ClientIP:                  export.Spec.Filters.ClientIPs,
-			Query:                     export.Spec.Filters.Query,
-			Limit:                     batchSize,
-			Offset:                    offset,
-			WithRequestAndResponse:    export.Spec.WithRequestAndResponse,
+	var writerClosed bool
+	defer func() {
+		if err != nil {
+			if !writerClosed {
+				_ = pw.CloseWithError(err)
+			}
+			<-uploadErrCh
 		}
+	}()
 
-		// Get batch of logs from gateway
-		logs, _, err := h.gatewayClient.GetMCPAuditLogs(ctx, opts)
+	for {
+		logs, err := fetch(ctx, export, batchSize, offset)
 		if err != nil {
 			return 0, fmt.Errorf("failed to get audit logs batch %d: %w", batchNumber, err)
 		}
-
-		// If no logs in this batch, we're done
 		if len(logs) == 0 {
 			break
 		}
 
-		// Convert logs to the desired format
-		batchData, err := h.formatLogs(logs)
+		batchData, err := formatLogs(logs, convert)
 		if err != nil {
 			return 0, fmt.Errorf("failed to format logs batch %d: %w", batchNumber, err)
 		}
-
-		_, err = pw.Write(batchData)
-		if err != nil {
+		if _, err := pw.Write(batchData); err != nil {
 			return 0, fmt.Errorf("failed to write to pipe: %w", err)
 		}
 
@@ -177,11 +254,10 @@ func (h *Handler) streamingExport(ctx context.Context, export *v1.AuditLogExport
 		batchNumber++
 	}
 
+	writerClosed = true
 	if err := pw.Close(); err != nil {
 		return totalSize, fmt.Errorf("failed to close pipe: %w", err)
 	}
-
-	// Wait for upload to complete
 	if err := <-uploadErrCh; err != nil {
 		return totalSize, fmt.Errorf("upload failed: %w", err)
 	}
@@ -189,41 +265,13 @@ func (h *Handler) streamingExport(ctx context.Context, export *v1.AuditLogExport
 	return totalSize, nil
 }
 
-func (h *Handler) formatLogs(logs []gatewaytypes.MCPAuditLog) ([]byte, error) {
-	lines := make([]string, 0, len(logs))
-
-	// Convert each log to a JSON line
-	for _, log := range logs {
-		apiLog := gatewaytypes.ConvertMCPAuditLog(log)
-		jsonBytes, err := json.Marshal(apiLog)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal log entry: %w", err)
-		}
-		lines = append(lines, string(jsonBytes))
-	}
-
-	// Join with newlines and add a final newline
-	result := strings.Join(lines, "\n")
-	if len(lines) > 0 {
-		result += "\n"
-	}
-
-	return []byte(result), nil
-}
-
-func (h *Handler) generateExportPath(export *v1.AuditLogExport) string {
+func generateExportPath(name, keyPrefix, defaultPrefix string) string {
 	now := time.Now()
-	timestamp := now.Format(time.RFC3339)
-	filename := fmt.Sprintf("%s-%s.jsonl", export.Spec.Name, timestamp)
+	filename := fmt.Sprintf("%s-%s.jsonl", name, now.Format(time.RFC3339))
 
-	// Use keyPrefix if provided, otherwise use default date-based prefix
-	keyPrefix := export.Spec.KeyPrefix
 	if keyPrefix == "" {
-		// Generate default prefix with year/month/day
-		keyPrefix = fmt.Sprintf("mcp-audit-logs/%04d/%02d/%02d", now.Year(), now.Month(), now.Day())
+		keyPrefix = fmt.Sprintf("%s/%04d/%02d/%02d", defaultPrefix, now.Year(), now.Month(), now.Day())
 	}
-
-	// Ensure keyPrefix ends with / if it's not empty
 	if keyPrefix != "" && !strings.HasSuffix(keyPrefix, "/") {
 		keyPrefix += "/"
 	}

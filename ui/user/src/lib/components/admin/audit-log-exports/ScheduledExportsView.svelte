@@ -17,16 +17,21 @@
 	interface Props {
 		query?: string;
 		readonly?: boolean;
+		logType?: 'mcp' | 'llm';
 	}
 
-	let { query, readonly }: Props = $props();
+	let { query, readonly, logType = 'mcp' }: Props = $props();
 
 	let loading = $state(false);
 	let scheduledExports = $state<ScheduledAuditLogExport[]>([]);
 	let deleting = $state(false);
 	let toggleAction = $state<{ id: string; action: 'pause' | 'resume' } | undefined>();
 	let showDeleteConfirm = $state<
-		| { type: 'single'; export: ScheduledAuditLogExport; onsuccess: () => void }
+		| {
+				type: 'single';
+				export: ScheduledAuditLogExport;
+				onsuccess: () => void;
+		  }
 		| { type: 'multi' }
 		| undefined
 	>();
@@ -65,7 +70,7 @@
 
 	async function loadScheduledExports() {
 		try {
-			const response = await AdminService.getScheduledAuditLogExports();
+			const response = await AdminService.getScheduledAuditLogExports(logType);
 			return response.items ?? [];
 		} catch (error) {
 			console.error('Failed to load scheduled exports:', error);
@@ -165,7 +170,11 @@
 	}
 
 	function handleRowClick(scheduledExport: ScheduledAuditLogExport) {
-		goto(`/admin/audit-logs/exports/scheduled/${scheduledExport.id}/edit`);
+		goto(
+			logType === 'llm'
+				? `/admin/llm-audit-logs/exports/scheduled/${scheduledExport.id}/edit`
+				: `/admin/audit-logs/exports/scheduled/${scheduledExport.id}/edit`
+		);
 	}
 </script>
 

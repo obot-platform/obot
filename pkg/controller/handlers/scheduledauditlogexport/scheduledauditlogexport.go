@@ -40,7 +40,8 @@ func (*Handler) ScheduleExports(req router.Request, resp router.Response) error 
 		return err
 	}
 
-	scheduledExport.Status.LastRunAt = new(metav1.Now())
+	now := metav1.Now()
+	scheduledExport.Status.LastRunAt = &now
 
 	return req.Client.Update(req.Ctx, scheduledExport)
 }
@@ -60,11 +61,13 @@ func createExportFromSchedule(req router.Request, scheduledExport *v1.ScheduledA
 		},
 		Spec: v1.AuditLogExportSpec{
 			Name:                   fmt.Sprintf("%s-%d", scheduledExport.Spec.Name, scheduledExport.Status.TotalExportsCreated+1),
+			Type:                   scheduledExport.Spec.EffectiveType(),
 			Bucket:                 scheduledExport.Spec.Bucket,
 			KeyPrefix:              scheduledExport.Spec.KeyPrefix,
 			StartTime:              metav1.NewTime(startTime),
 			EndTime:                metav1.NewTime(nextRunAt),
 			Filters:                scheduledExport.Spec.Filters,
+			LLMFilters:             scheduledExport.Spec.LLMFilters,
 			WithRequestAndResponse: scheduledExport.Spec.WithRequestAndResponse,
 		},
 	}
@@ -78,26 +81,27 @@ func createExportFromSchedule(req router.Request, scheduledExport *v1.ScheduledA
 	return nil
 }
 
-func GetScheduleAndTimezone(scheduledExport *v1.ScheduledAuditLogExport) (string, string) {
-	schedule := ""
-	switch scheduledExport.Spec.Schedule.Interval {
+func getScheduleAndTimezone(schedule v1.Schedule) (string, string) {
+	cron := ""
+	switch schedule.Interval {
 	case "hourly":
-		schedule = fmt.Sprintf("%d * * * *", scheduledExport.Spec.Schedule.Minute)
+		cron = fmt.Sprintf("%d * * * *", schedule.Minute)
 	case "daily":
-		schedule = fmt.Sprintf("%d %d * * *", scheduledExport.Spec.Schedule.Minute, scheduledExport.Spec.Schedule.Hour)
+		cron = fmt.Sprintf("%d %d * * *", schedule.Minute, schedule.Hour)
 	case "weekly":
-		schedule = fmt.Sprintf("%d %d * * %d", scheduledExport.Spec.Schedule.Minute, scheduledExport.Spec.Schedule.Hour, scheduledExport.Spec.Schedule.Weekday)
+		cron = fmt.Sprintf("%d %d * * %d", schedule.Minute, schedule.Hour, schedule.Weekday)
 	case "monthly":
-		if scheduledExport.Spec.Schedule.Day < 0 {
-			// The day being -1 means the last day of the month. The cron parsing package we use uses `L` for this.
-			schedule = fmt.Sprintf("%d %d L * *", scheduledExport.Spec.Schedule.Minute, scheduledExport.Spec.Schedule.Hour)
-		} else if scheduledExport.Spec.Schedule.Day == 0 {
-			schedule = fmt.Sprintf("%d %d 1 * *", scheduledExport.Spec.Schedule.Minute, scheduledExport.Spec.Schedule.Hour)
+		if schedule.Day < 0 {
+			// The day being -1 means the last day of the month. The cron parser uses L for this.
+			cron = fmt.Sprintf("%d %d L * *", schedule.Minute, schedule.Hour)
+		} else if schedule.Day == 0 {
+			cron = fmt.Sprintf("%d %d 1 * *", schedule.Minute, schedule.Hour)
 		} else {
-			schedule = fmt.Sprintf("%d %d %d * *", scheduledExport.Spec.Schedule.Minute, scheduledExport.Spec.Schedule.Hour, scheduledExport.Spec.Schedule.Day)
+			cron = fmt.Sprintf("%d %d %d * *", schedule.Minute, schedule.Hour, schedule.Day)
 		}
 	}
-	return schedule, scheduledExport.Spec.Schedule.TimeZone
+
+	return cron, schedule.TimeZone
 }
 
 func calculateNextRunTime(scheduledExport *v1.ScheduledAuditLogExport) (time.Time, error) {
@@ -106,19 +110,14 @@ func calculateNextRunTime(scheduledExport *v1.ScheduledAuditLogExport) (time.Tim
 		lastRun = &metav1.Time{Time: scheduledExport.CreationTimestamp.Time}
 	}
 
-	schedule, timezone := GetScheduleAndTimezone(scheduledExport)
-	var location *time.Location
+	cron, timezone := getScheduleAndTimezone(scheduledExport.Spec.Schedule)
 	if timezone != "" {
-		loc, err := time.LoadLocation(timezone)
-		if err == nil {
-			location = loc
+		if location, err := time.LoadLocation(timezone); err == nil {
+			lastRun = &metav1.Time{Time: lastRun.In(location)}
 		}
 	}
-	if location != nil {
-		lastRun = &metav1.Time{Time: lastRun.In(location)}
-	}
 
-	next, err := gronx.NextTickAfter(schedule, lastRun.Time, false)
+	next, err := gronx.NextTickAfter(cron, lastRun.Time, false)
 	if err != nil {
 		return time.Time{}, fmt.Errorf("failed to parse schedule: %w", err)
 	}

@@ -46,6 +46,7 @@ import type {
 	StorageCredentials,
 	AuditLogExport,
 	AuditLogExportInput,
+	AuditLogType,
 	ScheduledAuditLogExportInput,
 	K8sSettings,
 	ServerK8sSettings,
@@ -184,13 +185,16 @@ export async function updateAppNotification(
 
 // Audit log exports
 
-export async function getAuditLogExports(opts?: { fetch?: Fetcher }) {
-	const response = (await doGet('/audit-log-exports', opts)) as PaginatedResponse<AuditLogExport>;
+export async function getAuditLogExports(type: AuditLogType = 'mcp', opts?: { fetch?: Fetcher }) {
+	const response = (await doGet(
+		`/audit-log-exports?type=${type}`,
+		opts
+	)) as PaginatedResponse<AuditLogExport>;
 	return response;
 }
 
 export async function getAuditLogExport(name: string, opts?: { fetch?: Fetcher }) {
-	const response = await doGet(`/audit-log-exports/${name}`, opts);
+	const response = (await doGet(`/audit-log-exports/${name}`, opts)) as AuditLogExport;
 	return response;
 }
 
@@ -198,7 +202,7 @@ export async function createAuditLogExport(
 	request: AuditLogExportInput,
 	opts?: { fetch?: Fetcher }
 ) {
-	const response = await doPost('/audit-log-exports', request, opts);
+	const response = (await doPost('/audit-log-exports', request, opts)) as AuditLogExport;
 	return response;
 }
 
@@ -206,9 +210,12 @@ export async function deleteAuditLogExport(name: string, opts?: { signal?: Abort
 	await doDelete(`/audit-log-exports/${name}`, { signal: opts?.signal });
 }
 
-export async function getScheduledAuditLogExports(opts?: { fetch?: Fetcher }) {
+export async function getScheduledAuditLogExports(
+	type: AuditLogType = 'mcp',
+	opts?: { fetch?: Fetcher }
+) {
 	const response = (await doGet(
-		'/scheduled-audit-log-exports',
+		`/scheduled-audit-log-exports?type=${type}`,
 		opts
 	)) as PaginatedResponse<ScheduledAuditLogExport>;
 	return response;
@@ -226,7 +233,11 @@ export async function createScheduledAuditLogExport(
 	request: ScheduledAuditLogExportInput,
 	opts?: { dontLogErrors?: boolean }
 ) {
-	const response = await doPost('/scheduled-audit-log-exports', request, opts);
+	const response = (await doPost(
+		'/scheduled-audit-log-exports',
+		request,
+		opts
+	)) as ScheduledAuditLogExport;
 	return response;
 }
 
@@ -235,7 +246,11 @@ export async function updateScheduledAuditLogExport(
 	request: Partial<ScheduledAuditLogExportInput>,
 	opts?: { dontLogErrors?: boolean }
 ) {
-	const response = await doPatch(`/scheduled-audit-log-exports/${id}`, request, opts);
+	const response = (await doPatch(
+		`/scheduled-audit-log-exports/${id}`,
+		request,
+		opts
+	)) as ScheduledAuditLogExport;
 	return response;
 }
 

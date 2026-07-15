@@ -4,13 +4,13 @@ title: Audit Logs & Usage
 
 # Audit Logs & Usage
 
-The MCP Platform provides visibility into MCP activity through audit logs and usage tracking. These features help with monitoring, compliance, and understanding how MCP servers are being used.
+The MCP Platform provides visibility into MCP and LLM gateway activity through audit logs and usage tracking. These features help with monitoring, compliance, and understanding how MCP servers and LLM gateway models are being used.
 
 :::info Auditor Role
 Sensitive data (MCP request/response bodies, conversations, and workflow runs) can **only** be viewed by users with the Auditor role. All other roles, including Owner and Admin, see only metadata for these resources. The Auditor role is an add-on permission that can be combined with any other role, granting read-only access to sensitive data across the platform. See [User Roles](/configuration/user-roles/#auditor) for details.
 :::
 
-## Audit Logs
+## MCP Audit Logs
 
 Audit logs capture all MCP interactions that flow through the gateway.
 
@@ -55,7 +55,45 @@ Audit logs are automatically deleted after **90 days** by default. To preserve l
 
 ### Exporting Audit Logs
 
-Audit logs can be exported for external analysis, compliance requirements, or long-term retention. See [Audit Log Export](/configuration/audit-log-export/) for configuration options.
+MCP audit logs can be exported for external analysis, compliance requirements, or long-term retention. See [Audit Log Export](/configuration/audit-log-export/) for configuration options.
+
+## LLM Gateway Audit Logs
+
+LLM gateway audit logs capture requests that flow through Obot's OpenAI and Anthropic-compatible gateway routes.
+
+### What's Logged
+
+- **Model information**: Provider, requested model, and target model
+- **Request information**: Request path, method, response status, and outcome
+- **Token usage**: Input and output token counts
+- **Client information**: Client name, version, session ID, and IP address
+- **User information**: Who made the request
+- **Timestamps and duration**: When the request occurred and how long it took
+
+### Viewing LLM Audit Logs
+
+Navigate to **LLM Gateway > Audit Logs**.
+
+The LLM audit log view shows request metadata, token usage, model information, and outcomes. Users with the Auditor role can view sensitive request and response fields when available.
+
+### Filtering LLM Audit Logs
+
+Filter LLM logs by:
+
+- Date range
+- User
+- Model provider
+- Target model
+- Request path
+- Response status
+- Outcome
+- Client
+- Client session
+- Search query
+
+### Exporting LLM Audit Logs
+
+LLM audit logs can be exported as one-time or scheduled JSONL exports using the same storage configuration as MCP audit log exports. See [Audit Log Export](/configuration/audit-log-export/) for configuration options.
 
 ## Usage
 
@@ -88,7 +126,7 @@ Navigate to **MCP Management > Usage** in the MCP Platform.
 
 **Admin / Owner**
 - View audit logs and usage for all users
-- Export audit logs
+- Export MCP and LLM audit logs
 - Metadata only (no request/response content)
 
 **Auditor (add-on)**
@@ -98,7 +136,7 @@ Navigate to **MCP Management > Usage** in the MCP Platform.
 
 ## Privacy Considerations
 
-Audit logs may contain sensitive information from MCP requests and responses. Consider:
+Audit logs may contain sensitive information from MCP requests/responses and LLM gateway requests/responses. Consider:
 
 - **Data retention**: Configure how long logs are kept (see [Retention](#retention))
 - **Access control**: Limit who can view detailed logs

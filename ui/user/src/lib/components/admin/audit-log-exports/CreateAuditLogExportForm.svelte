@@ -9,6 +9,7 @@
 		Group,
 		UserService,
 		type AuditLogExport,
+		type LLMAuditLogURLFilters,
 		type OrgUser,
 		type McpAuditLogURLFilters
 	} from '$lib/services';
@@ -32,93 +33,156 @@
 		| 'client_ip'
 		| 'response_status'
 		| 'session_id';
+	type LLMAuditLogExportMultiSelectFilterKey =
+		| 'user_id'
+		| 'client'
+		| 'client_session_id'
+		| 'model_provider'
+		| 'outcome'
+		| 'request_path'
+		| 'response_status'
+		| 'target_model';
 
-	type AuditLogExportFilterFieldConfig = {
-		filterKey: AuditLogExportMultiSelectFilterKey;
+	type AuditLogExportFilterFieldConfig<T extends string = string> = {
+		filterKey: T;
 		title: string;
 		description: string;
 		placeholder: string;
 		useUserDisplayNames?: boolean;
 	};
 
-	const AUDIT_LOG_EXPORT_FILTER_FIELDS: AuditLogExportFilterFieldConfig[] = [
-		{
-			filterKey: 'user_id',
-			title: 'Users',
-			description: 'List of users',
-			placeholder: 'user1,user2',
-			useUserDisplayNames: true
-		},
-		{
-			filterKey: 'mcp_id',
-			title: 'Server IDs',
-			description: 'List of server IDs',
-			placeholder: 'server1,server2'
-		},
-		{
-			filterKey: 'mcp_server_display_name',
-			title: 'Server Names',
-			description: 'List of server display names',
-			placeholder: 'server-name-1,server-name-2'
-		},
-		{
-			filterKey: 'call_type',
-			title: 'Call Types',
-			description: 'List of call types',
-			placeholder: 'tools/call,resources/read'
-		},
-		{
-			filterKey: 'client_name',
-			title: 'Client Names',
-			description: 'List of client names',
-			placeholder: 'client1,client2'
-		},
-		{
-			filterKey: 'response_status',
-			title: 'Response Status',
-			description: 'List of HTTP status codes',
-			placeholder: '200,400,500'
-		},
-		{
-			filterKey: 'session_id',
-			title: 'Session IDs',
-			description: 'List of session IDs',
-			placeholder: 'session1,session2'
-		},
-		{
-			filterKey: 'client_ip',
-			title: 'Client IPs',
-			description: 'List of IP addresses',
-			placeholder: '192.168.1.1,10.0.0.1'
-		},
-		{
-			filterKey: 'call_identifier',
-			title: 'Call Identifier',
-			description: 'List of call identifiers',
-			placeholder: 'call-identifier-1,call-identifier-2'
-		},
-		{
-			filterKey: 'client_version',
-			title: 'Client Versions',
-			description: 'List of client versions',
-			placeholder: 'client-version-1,client-version-2'
-		},
-		{
-			filterKey: 'mcp_server_catalog_entry_name',
-			title: 'Catalog Entry Names',
-			description: 'List of catalog entry names',
-			placeholder: 'workspace-id-1,workspace-id-2'
-		}
-	];
+	const AUDIT_LOG_EXPORT_FILTER_FIELDS: AuditLogExportFilterFieldConfig<AuditLogExportMultiSelectFilterKey>[] =
+		[
+			{
+				filterKey: 'user_id',
+				title: 'Users',
+				description: 'List of users',
+				placeholder: 'user1,user2',
+				useUserDisplayNames: true
+			},
+			{
+				filterKey: 'mcp_id',
+				title: 'Server IDs',
+				description: 'List of server IDs',
+				placeholder: 'server1,server2'
+			},
+			{
+				filterKey: 'mcp_server_display_name',
+				title: 'Server Names',
+				description: 'List of server display names',
+				placeholder: 'server-name-1,server-name-2'
+			},
+			{
+				filterKey: 'call_type',
+				title: 'Call Types',
+				description: 'List of call types',
+				placeholder: 'tools/call,resources/read'
+			},
+			{
+				filterKey: 'client_name',
+				title: 'Client Names',
+				description: 'List of client names',
+				placeholder: 'client1,client2'
+			},
+			{
+				filterKey: 'response_status',
+				title: 'Response Status',
+				description: 'List of HTTP status codes',
+				placeholder: '200,400,500'
+			},
+			{
+				filterKey: 'session_id',
+				title: 'Session IDs',
+				description: 'List of session IDs',
+				placeholder: 'session1,session2'
+			},
+			{
+				filterKey: 'client_ip',
+				title: 'Client IPs',
+				description: 'List of IP addresses',
+				placeholder: '192.168.1.1,10.0.0.1'
+			},
+			{
+				filterKey: 'call_identifier',
+				title: 'Call Identifier',
+				description: 'List of call identifiers',
+				placeholder: 'call-identifier-1,call-identifier-2'
+			},
+			{
+				filterKey: 'client_version',
+				title: 'Client Versions',
+				description: 'List of client versions',
+				placeholder: 'client-version-1,client-version-2'
+			},
+			{
+				filterKey: 'mcp_server_catalog_entry_name',
+				title: 'Catalog Entry Names',
+				description: 'List of catalog entry names',
+				placeholder: 'workspace-id-1,workspace-id-2'
+			}
+		];
+	const LLM_AUDIT_LOG_EXPORT_FILTER_FIELDS: AuditLogExportFilterFieldConfig<LLMAuditLogExportMultiSelectFilterKey>[] =
+		[
+			{
+				filterKey: 'user_id',
+				title: 'Users',
+				description: 'List of users',
+				placeholder: 'user1,user2',
+				useUserDisplayNames: true
+			},
+			{
+				filterKey: 'model_provider',
+				title: 'Model Providers',
+				description: 'List of model providers',
+				placeholder: 'openai,anthropic'
+			},
+			{
+				filterKey: 'target_model',
+				title: 'Target Models',
+				description: 'List of target models',
+				placeholder: 'gpt-4,claude-sonnet'
+			},
+			{
+				filterKey: 'request_path',
+				title: 'Request Paths',
+				description: 'List of request paths',
+				placeholder: '/v1/chat/completions'
+			},
+			{
+				filterKey: 'response_status',
+				title: 'Response Status',
+				description: 'List of HTTP status codes',
+				placeholder: '200,400,500'
+			},
+			{
+				filterKey: 'outcome',
+				title: 'Outcomes',
+				description: 'List of outcomes',
+				placeholder: 'success,error'
+			},
+			{
+				filterKey: 'client',
+				title: 'Clients',
+				description: 'List of clients',
+				placeholder: 'client1,client2'
+			},
+			{
+				filterKey: 'client_session_id',
+				title: 'Client Session IDs',
+				description: 'List of client session IDs',
+				placeholder: 'session1,session2'
+			}
+		];
 
 	interface Props {
 		onCancel: () => void;
 		onSubmit: (result?: AuditLogExport) => void;
 		mode?: 'create' | 'view' | 'edit';
 		initialData?: AuditLogExport;
+		logType?: 'mcp' | 'llm';
 	}
 
-	let { onCancel, onSubmit, mode = 'create', initialData }: Props = $props();
+	let { onCancel, onSubmit, mode = 'create', initialData, logType = 'mcp' }: Props = $props();
 
 	let showAdvancedOptions = $state(false);
 	let isViewMode = $derived(mode === 'view');
@@ -144,14 +208,20 @@
 			client_ip: '',
 			response_status: '',
 			session_id: '',
+			client: '',
+			client_session_id: '',
+			model_provider: '',
+			outcome: '',
+			request_path: '',
+			target_model: '',
 			query: ''
-		} as Partial<McpAuditLogURLFilters>
+		} as Partial<McpAuditLogURLFilters & LLMAuditLogURLFilters>
 	});
 
 	let creating = $state(false);
 	let error = $state('');
 
-	let filtersIds = [
+	let mcpFiltersIds = [
 		'mcp_id',
 		'user_id',
 		'mcp_server_catalog_entry_name',
@@ -164,6 +234,22 @@
 		'session_id',
 		'response_status'
 	];
+	let llmFiltersIds = [
+		'user_id',
+		'client',
+		'client_session_id',
+		'model_provider',
+		'outcome',
+		'request_path',
+		'response_status',
+		'target_model'
+	];
+	let filtersIds = $derived(logType === 'llm' ? llmFiltersIds : mcpFiltersIds);
+	let filterFields = $derived<
+		AuditLogExportFilterFieldConfig<
+			AuditLogExportMultiSelectFilterKey | LLMAuditLogExportMultiSelectFilterKey
+		>[]
+	>(logType === 'llm' ? LLM_AUDIT_LOG_EXPORT_FILTER_FIELDS : AUDIT_LOG_EXPORT_FILTER_FIELDS);
 
 	let usersMap = new SvelteMap<string, OrgUser>();
 	let filtersOptions: Record<string, string[]> = $state({});
@@ -176,19 +262,38 @@
 			form.startTime = initialData.startTime ? new Date(initialData.startTime) : form.startTime;
 			form.endTime = initialData.endTime ? new Date(initialData.endTime) : form.endTime;
 
-			if (initialData.filters) {
+			if (logType === 'llm' && initialData.llmFilters) {
+				const filters = initialData.llmFilters;
 				form.filters = {
-					user_id: join(initialData.filters.userIDs),
-					mcp_id: join(initialData.filters.mcpIDs),
-					mcp_server_display_name: join(initialData.filters.mcpServerDisplayNames),
-					mcp_server_catalog_entry_name: join(initialData.filters.mcpServerCatalogEntryNames),
-					call_type: join(initialData.filters.callTypes),
-					call_identifier: join(initialData.filters.callIdentifiers),
-					response_status: join(initialData.filters.responseStatuses),
-					session_id: join(initialData.filters.sessionIDs),
-					client_name: join(initialData.filters.clientNames),
-					client_version: join(initialData.filters.clientVersions),
-					client_ip: join(initialData.filters.clientIPs)
+					user_id: join(filters.userIDs),
+					model_provider: join(filters.modelProviders),
+					target_model: join(filters.targetModels),
+					request_path: join(filters.requestPaths),
+					response_status: join(filters.responseStatuses?.map(String)),
+					outcome: join(filters.outcomes),
+					client: join(filters.clients),
+					client_session_id: join(filters.clientSessionIDs),
+					query: filters.query ?? ''
+				};
+				showAdvancedOptions = true;
+				return;
+			}
+
+			if (initialData.filters) {
+				const filters = initialData.filters;
+				form.filters = {
+					user_id: join(filters.userIDs),
+					mcp_id: join(filters.mcpIDs),
+					mcp_server_display_name: join(filters.mcpServerDisplayNames),
+					mcp_server_catalog_entry_name: join(filters.mcpServerCatalogEntryNames),
+					call_type: join(filters.callTypes),
+					call_identifier: join(filters.callIdentifiers),
+					response_status: join(filters.responseStatuses),
+					session_id: join(filters.sessionIDs),
+					client_name: join(filters.clientNames),
+					client_version: join(filters.clientVersions),
+					client_ip: join(filters.clientIPs),
+					query: filters.query ?? ''
 				};
 				showAdvancedOptions = true;
 			}
@@ -197,8 +302,8 @@
 			const params = page.url.searchParams;
 
 			// Set time range if provided
-			const startTime = params.get('startTime');
-			const endTime = params.get('endTime');
+			const startTime = params.get('startTime') ?? params.get('start_time');
+			const endTime = params.get('endTime') ?? params.get('end_time');
 			if (startTime) {
 				form.startTime = new Date(startTime);
 			}
@@ -207,19 +312,7 @@
 			}
 
 			// Set filters if provided
-			const filterKeys = [
-				'user_id',
-				'mcp_id',
-				'mcp_server_display_name',
-				'mcp_server_catalog_entry_name',
-				'call_type',
-				'call_identifier',
-				'client_name',
-				'client_version',
-				'client_ip',
-				'response_status',
-				'session_id'
-			];
+			const filterKeys = logType === 'llm' ? llmFiltersIds : mcpFiltersIds;
 
 			let hasFilters = false;
 			filterKeys.forEach((key) => {
@@ -229,6 +322,11 @@
 					hasFilters = true;
 				}
 			});
+			const query = params.get('query');
+			if (query) {
+				form.filters.query = query;
+				hasFilters = true;
+			}
 
 			// Show advanced options if there are filters from the URL
 			if (hasFilters) {
@@ -247,7 +345,11 @@
 
 	$effect(() => {
 		filtersIds.forEach((id) => {
-			UserService.listMcpAuditLogFilterOptions(id).then((res) => {
+			const request =
+				logType === 'llm'
+					? AdminService.listLLMAuditLogFilterOptions(id)
+					: UserService.listMcpAuditLogFilterOptions(id);
+			request.then((res) => {
 				filtersOptions[id] = res.options ?? [];
 			});
 		});
@@ -258,7 +360,18 @@
 	}
 
 	function split(value: string | null | undefined): string[] {
-		return value ? value.split(',').map((s) => s.trim()) : [];
+		return value
+			? value
+					.split(',')
+					.map((s) => s.trim())
+					.filter((s) => s.length > 0)
+			: [];
+	}
+
+	function splitNumbers(value: string | null | undefined): number[] {
+		return split(value)
+			.map((s) => Number(s))
+			.filter((n) => !Number.isNaN(n));
 	}
 
 	async function handleSubmit() {
@@ -274,9 +387,36 @@
 				throw new Error('Bucket name is required');
 			}
 
+			if (logType === 'llm') {
+				const request = {
+					name: form.name,
+					type: 'llm' as const,
+					bucket: form.bucket,
+					keyPrefix: form.keyPrefix,
+					startTime: form.startTime.toISOString(),
+					endTime: form.endTime.toISOString(),
+					llmFilters: {
+						userIDs: split(form.filters.user_id),
+						modelProviders: split(form.filters.model_provider),
+						targetModels: split(form.filters.target_model),
+						requestPaths: split(form.filters.request_path),
+						responseStatuses: splitNumbers(form.filters.response_status),
+						outcomes: split(form.filters.outcome),
+						clients: split(form.filters.client),
+						clientSessionIDs: split(form.filters.client_session_id),
+						query: form.filters.query ?? ''
+					}
+				};
+
+				const result = (await AdminService.createAuditLogExport(request)) as AuditLogExport;
+				onSubmit(result);
+				return;
+			}
+
 			// Prepare the request
 			const request = {
 				name: form.name,
+				type: 'mcp' as const,
 				bucket: form.bucket,
 				keyPrefix: form.keyPrefix,
 				startTime: form.startTime.toISOString(),
@@ -292,7 +432,8 @@
 					sessionIDs: split(form.filters.session_id),
 					clientNames: split(form.filters.client_name),
 					clientVersions: split(form.filters.client_version),
-					clientIPs: split(form.filters.client_ip)
+					clientIPs: split(form.filters.client_ip),
+					query: form.filters.query ?? ''
 				}
 			};
 
@@ -452,7 +593,7 @@
 					</p>
 
 					{#snippet auditLogExportFilterSelect(
-						filterKey: AuditLogExportMultiSelectFilterKey,
+						filterKey: AuditLogExportMultiSelectFilterKey | LLMAuditLogExportMultiSelectFilterKey,
 						title: string,
 						description: string,
 						placeholder: string,
@@ -486,7 +627,7 @@
 					{/snippet}
 
 					<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-						{#each AUDIT_LOG_EXPORT_FILTER_FIELDS as field (field.filterKey)}
+						{#each filterFields as field (field.filterKey)}
 							{@render auditLogExportFilterSelect(
 								field.filterKey,
 								field.title,

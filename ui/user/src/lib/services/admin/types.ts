@@ -98,16 +98,22 @@ export interface AppPreferencesManifest {
 
 // Audit log exports
 
+export type AuditLogType = 'mcp' | 'llm';
+
 export interface AuditLogExportInput {
 	name: string;
+	type?: AuditLogType;
 	bucket: string;
+	keyPrefix?: string;
 	startTime: string;
 	endTime: string;
-	filters: AuditLogExportFilters;
+	filters?: AuditLogExportFilters;
+	llmFilters?: LLMAuditLogExportFilters;
 }
 export interface AuditLogExport {
 	id: string;
 	name: string;
+	type: AuditLogType;
 	bucket: string;
 	keyPrefix?: string;
 	storageProvider: string;
@@ -119,7 +125,8 @@ export interface AuditLogExport {
 	exportSize?: number;
 	createdAt: string;
 	completedAt?: string;
-	filters: AuditLogExportFilterResponse;
+	filters?: AuditLogExportFilterResponse;
+	llmFilters?: LLMAuditLogExportFilters;
 }
 export interface AuditLogExportFilterResponse {
 	userIDs?: string[];
@@ -151,15 +158,19 @@ export type AuditLogExportFilters = {
 };
 export interface ScheduledAuditLogExportInput {
 	name: string;
+	type?: AuditLogType;
 	enabled: boolean;
 	schedule: Schedule;
 	bucket: string;
+	keyPrefix?: string;
 	retentionPeriodInDays: number;
-	filters: AuditLogExportFilters;
+	filters?: AuditLogExportFilters;
+	llmFilters?: LLMAuditLogExportFilters;
 }
 export interface ScheduledAuditLogExport {
 	id: string;
 	name: string;
+	type: AuditLogType;
 	enabled: boolean;
 	schedule: Schedule;
 	storageProvider: string;
@@ -170,8 +181,21 @@ export interface ScheduledAuditLogExport {
 	bucket: string;
 	keyPrefix: string;
 	retentionPeriodInDays: number;
-	filters: AuditLogExportFilterResponse;
+	filters?: AuditLogExportFilterResponse;
+	llmFilters?: LLMAuditLogExportFilters;
 }
+
+export type LLMAuditLogExportFilters = {
+	userIDs?: string[];
+	modelProviders?: string[];
+	targetModels?: string[];
+	requestPaths?: string[];
+	responseStatuses?: number[];
+	outcomes?: string[];
+	clients?: string[];
+	clientSessionIDs?: string[];
+	query?: string;
+};
 
 // Auth and file scanner providers
 

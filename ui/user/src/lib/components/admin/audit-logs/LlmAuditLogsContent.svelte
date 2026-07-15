@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import { columnResize } from '$lib/actions/resize';
 	import { buildPillSearchParamFilters, buildSearchParamFiltersArray } from '$lib/auditlogs';
+	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
 	import LlmAuditLogsTable from '$lib/components/admin/audit-logs/LlmAuditLogsTable.svelte';
@@ -16,14 +17,22 @@
 		type OrgUser
 	} from '$lib/services';
 	import type { PaginatedResponse } from '$lib/services/http';
-	import { responsive } from '$lib/stores';
+	import { profile, responsive } from '$lib/stores';
 	import { goto, replaceState } from '$lib/url';
 	import { getUserDisplayName } from '$lib/utils';
 	import FiltersDrawer from '../filters-drawer/FiltersDrawer.svelte';
 	import AuditLogFilterPills from './AuditLogFilterPills.svelte';
 	import AuditLogTableSkeleton from './AuditLogTableSkeleton.svelte';
 	import LlmAuditLogDetails, { type LlmAuditLogDetail } from './LlmAuditLogDetails.svelte';
-	import { Captions, ChevronLeft, ChevronRight, CircleAlert, Funnel } from '@lucide/svelte';
+	import {
+		Captions,
+		ChevronLeft,
+		ChevronRight,
+		CircleAlert,
+		Funnel,
+		Plus,
+		Settings
+	} from '@lucide/svelte';
 	import { endOfDay, set, subDays } from 'date-fns';
 	import { debounce } from 'es-toolkit';
 	import { twMerge } from 'tailwind-merge';
@@ -50,6 +59,7 @@
 	let showFilters = $state(false);
 	let rightSidebar = $state<HTMLDivElement>();
 	let selectedAuditLog = $state<LlmAuditLogDetail>();
+	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 
 	const total = $derived(response?.total ?? 0);
 	const numberOfPages = $derived(Math.ceil(total / pageLimit));
@@ -241,6 +251,35 @@
 		selectedAuditLog = undefined;
 		showFilters = false;
 	}
+
+	function buildExportURL(
+		formType: 'export' | 'scheduled' | 'storage',
+		next?: 'export' | 'scheduled'
+	) {
+		const url = new URL('/admin/llm-audit-logs/exports', page.url.origin);
+		page.url.searchParams.forEach((value, key) => {
+			url.searchParams.set(key, value);
+		});
+		url.searchParams.set('form', formType);
+		if (next) {
+			url.searchParams.set('next', next);
+		}
+		return url;
+	}
+
+	async function openExportForm(formType: 'export' | 'scheduled') {
+		try {
+			const response = await AdminService.getStorageCredentials();
+			if (response.provider) {
+				goto(buildExportURL(formType), { replaceState: false });
+			} else {
+				goto(buildExportURL('storage', formType), { replaceState: false });
+			}
+		} catch (error) {
+			console.error('Failed to get storage credentials:', error);
+			goto(buildExportURL('storage', formType), { replaceState: false });
+		}
+	}
 </script>
 
 <div class="flex flex-col gap-4 @container">
@@ -272,9 +311,45 @@
 		</div>
 	</div>
 
-	{#if hasFilterPills}
-		<div class="min-w-0 grow">
-			<AuditLogFilterPills {pillsSearchParamFilters} {getFilterDisplayLabel} {getFilterValue} />
+	{#if hasFilterPills || !isAdminReadonly}
+		<div class="flex flex-col flex-nowrap gap-4 @min-[768px]:flex-row">
+			<div class="min-w-0 grow hidden @min-[768px]:block">
+				{#if hasFilterPills}
+					<AuditLogFilterPills {pillsSearchParamFilters} {getFilterDisplayLabel} {getFilterValue} />
+				{/if}
+			</div>
+			{#if !isAdminReadonly}
+				<div class="@min-[768px]:ml-auto flex shrink-0 gap-4">
+					<DotDotDot class="btn btn-block btn-primary w-fit text-sm" placement="bottom">
+						{#snippet icon()}
+							<span class="flex items-center justify-center gap-1">
+								<Plus class="size-4" /> Create Export
+							</span>
+						{/snippet}
+						<button class="menu-button" onclick={() => openExportForm('export')}>
+							Create One-time Export
+						</button>
+						<button class="menu-button" onclick={() => openExportForm('scheduled')}>
+							Create Export Schedule
+						</button>
+					</DotDotDot>
+
+					<button
+						class="btn btn-neutral rounded-4xl"
+						onclick={() => {
+							goto('/admin/llm-audit-logs/exports');
+						}}
+					>
+						<Settings class="size-4" />
+						Manage Exports
+					</button>
+				</div>
+			{/if}
+			<div class="min-w-0 grow block @min-[768px]:hidden">
+				{#if hasFilterPills}
+					<AuditLogFilterPills {pillsSearchParamFilters} {getFilterDisplayLabel} {getFilterValue} />
+				{/if}
+			</div>
 		</div>
 	{/if}
 </div>

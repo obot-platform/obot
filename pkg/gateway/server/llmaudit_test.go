@@ -17,9 +17,25 @@ import (
 
 func TestRedactedHeaders(t *testing.T) {
 	headers := http.Header{
-		"Authorization": []string{"Bearer secret"},
-		"X-Api-Key":     []string{"secret"},
-		"Content-Type":  []string{"application/json"},
+		"Authorization":                               []string{"Bearer secret"},
+		"X-Api-Key":                                   []string{"secret"},
+		"Content-Type":                                []string{"application/json"},
+		"X-Ratelimit-Limit-Tokens":                    []string{"x-limit"},
+		"X-Ratelimit-Remaining-Tokens":                []string{"x-remaining"},
+		"X-Ratelimit-Reset-Tokens":                    []string{"x-reset"},
+		"Anthropic-Ratelimit-Input-Tokens-Limit":      []string{"input-limit"},
+		"Anthropic-Ratelimit-Input-Tokens-Remaining":  []string{"input-remaining"},
+		"Anthropic-Ratelimit-Input-Tokens-Reset":      []string{"input-reset"},
+		"Anthropic-Ratelimit-Output-Tokens-Limit":     []string{"output-limit"},
+		"Anthropic-Ratelimit-Output-Tokens-Remaining": []string{"output-remaining"},
+		"Anthropic-Ratelimit-Output-Tokens-Reset":     []string{"output-reset"},
+		"Anthropic-Ratelimit-Requests-Limit":          []string{"requests-limit"},
+		"Anthropic-Ratelimit-Requests-Remaining":      []string{"requests-remaining"},
+		"Anthropic-Ratelimit-Requests-Reset":          []string{"requests-reset"},
+		"Anthropic-Ratelimit-Tokens-Limit":            []string{"tokens-limit"},
+		"Anthropic-Ratelimit-Tokens-Remaining":        []string{"tokens-remaining"},
+		"Anthropic-Ratelimit-Tokens-Reset":            []string{"tokens-reset"},
+		"Anthropic-Ratelimit-Api-Key":                 []string{"sensitive-lookalike"},
 	}
 
 	got := redactedHeaders(headers)
@@ -28,6 +44,23 @@ func TestRedactedHeaders(t *testing.T) {
 	}
 	if !strings.Contains(string(got), "application/json") {
 		t.Fatalf("expected non-sensitive header to remain, got %s", got)
+	}
+	for _, value := range []string{
+		"x-limit", "x-remaining", "x-reset",
+		"input-limit", "input-remaining", "input-reset",
+		"output-limit", "output-remaining", "output-reset",
+		"requests-limit", "requests-remaining", "requests-reset",
+		"tokens-limit", "tokens-remaining", "tokens-reset",
+	} {
+		if !strings.Contains(string(got), value) {
+			t.Fatalf("expected rate-limit header value %q to remain, got %s", value, got)
+		}
+	}
+	if strings.Contains(string(got), "sensitive-lookalike") {
+		t.Fatalf("expected sensitive rate-limit lookalike to be redacted, got %s", got)
+	}
+	if shouldRedactHeader("ANTHROPIC-RATELIMIT-TOKENS-LIMIT") {
+		t.Fatal("expected rate-limit header matching to be case-insensitive")
 	}
 }
 
