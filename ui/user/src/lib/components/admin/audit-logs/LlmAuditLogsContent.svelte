@@ -57,6 +57,13 @@
 	const isReachedMax = $derived(pageIndex >= numberOfPages - 1);
 
 	let query = $derived(page.url.searchParams.get('query') ?? '');
+	let includeModelsRequests = $derived(
+		page.url.searchParams.get('include_models_requests') === 'true'
+	);
+	let includeModelsRequestsDraft = $state(false);
+	$effect(() => {
+		includeModelsRequestsDraft = includeModelsRequests;
+	});
 	let usersMap = $derived(new Map(users.map((user) => [user.id, user])));
 
 	const DEFER_THRESHOLD = 500;
@@ -127,6 +134,7 @@
 		end_time: timeRangeFilters.endTime.toISOString(),
 		limit: pageLimit,
 		offset: pageOffset,
+		include_models_requests: includeModelsRequests.toString(),
 		query
 	});
 
@@ -134,6 +142,7 @@
 		JSON.stringify({
 			...pillsSearchParamFilters,
 			query,
+			include_models_requests: includeModelsRequests,
 			start_time: timeRangeFilters.startTime.toISOString(),
 			end_time: timeRangeFilters.endTime.toISOString()
 		})
@@ -251,6 +260,7 @@
 			<button
 				class="btn btn-neutral h-12.5"
 				onclick={() => {
+					includeModelsRequestsDraft = includeModelsRequests;
 					showFilters = true;
 					selectedAuditLog = undefined;
 					rightSidebar?.showPopover();
@@ -358,6 +368,14 @@
 			filters={{ ...searchParamFilters }}
 			isFilterDisabled={() => false}
 			isFilterClearable={() => true}
+			booleanFilters={[
+				{
+					property: 'include_models_requests',
+					label: 'Show model discovery requests',
+					selected: includeModelsRequestsDraft,
+					onChange: (selected) => (includeModelsRequestsDraft = selected)
+				}
+			]}
 			getUserDisplayName={(...args) => getUserDisplayName(usersMap, ...args)}
 			{getFilterDisplayLabel}
 			getFilterOptionLabel={(key, value) =>
@@ -369,6 +387,7 @@
 			endpoint={async (filterId, opts) => {
 				const response = await AdminService.listLLMAuditLogFilterOptions(filterId, {
 					...opts,
+					include_models_requests: includeModelsRequests.toString(),
 					start_time: timeRangeFilters.startTime.toISOString(),
 					end_time: timeRangeFilters.endTime.toISOString()
 				});

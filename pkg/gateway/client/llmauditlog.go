@@ -213,6 +213,9 @@ func (c *Client) runLLMAuditPersistenceLoop(ctx context.Context, batchSize int, 
 }
 
 func applyLLMAuditLogOptions(db *gorm.DB, opts LLMAuditLogOptions) *gorm.DB {
+	if !opts.IncludeModelsRequests {
+		db = db.Where("request_path NOT LIKE ? AND request_path NOT LIKE ?", "%/models", "%/models/")
+	}
 	if opts.Query != "" {
 		searchTerm := "%" + opts.Query + "%"
 		like := "LIKE"
@@ -465,6 +468,7 @@ func llmAuditLogDataCtx(log *types.LLMAuditLog) value.Context {
 
 type LLMAuditLogOptions struct {
 	WithSensitiveFields    bool
+	IncludeModelsRequests  bool
 	UserID                 []string
 	ModelProvider          []string
 	TargetModel            []string

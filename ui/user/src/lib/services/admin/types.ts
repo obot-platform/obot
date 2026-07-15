@@ -521,8 +521,9 @@ export type LLMAuditLogURLFilters = {
 	client?: string | null;
 	client_session_id?: string | null;
 	end_time?: string | null;
-	message_policy_triggered?: string | null;
+	include_models_requests?: string | null;
 	limit?: number | null;
+	message_policy_triggered?: string | null;
 	model_provider?: string | null;
 	offset?: number | null;
 	outcome?: string | null;

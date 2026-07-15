@@ -1,5 +1,6 @@
 <script lang="ts" generics="T extends Record<string, string | number | null | undefined>">
 	import { page } from '$app/state';
+	import Toggle from '$lib/components/Toggle.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import { UserService } from '$lib/services';
 	import { AUDIT_LOG_FILTER_OPTIONS_LIMIT } from '$lib/services/user/constants';
@@ -21,6 +22,14 @@
 		filters?: Partial<T>
 	) => Promise<{ options: string[] } | undefined>;
 
+	type BooleanFilter = {
+		property: FilterKey;
+		label: string;
+		selected: boolean;
+		default?: boolean;
+		onChange: (selected: boolean) => void;
+	};
+
 	interface Props {
 		filters?: Partial<T>;
 		isFilterDisabled?: (key: FilterKey) => boolean;
@@ -33,6 +42,7 @@
 		getFilterOptionLabel?: (key: string, value: string) => string;
 		getDefaultValue?: <K extends FilterKey>(filter: K) => T[K] | undefined;
 		endpoint?: FilterOptionsEndpoint;
+		booleanFilters?: BooleanFilter[];
 	}
 
 	let {
@@ -45,6 +55,7 @@
 		getFilterOptionLabel,
 		getDefaultValue,
 		filterOptions,
+		booleanFilters: externalBooleanFilters = [],
 		endpoint = UserService.listMcpAuditLogFilterOptions as FilterOptionsEndpoint
 	}: Props = $props();
 
@@ -146,6 +157,13 @@
 				}
 			}
 		}
+		for (const filter of externalBooleanFilters) {
+			if (filter.selected === (filter.default ?? false)) {
+				url.searchParams.delete(filter.property);
+			} else {
+				url.searchParams.set(filter.property, filter.selected.toString());
+			}
+		}
 
 		await goto(url, { noScroll: true });
 
@@ -160,6 +178,9 @@
 			.forEach((filterInput) => {
 				filterInput.selected = '';
 			});
+		externalBooleanFilters.forEach((filter) => {
+			filter.onChange(filter.default ?? false);
+		});
 	}
 </script>
 
@@ -175,6 +196,12 @@
 	<div
 		class="default-scrollbar-thin flex h-[calc(100%-60px)] w-full flex-col gap-4 overflow-y-auto p-4 pt-0"
 	>
+		{#each externalBooleanFilters as filter (filter.property)}
+			<div class="border-base-300 flex items-center justify-between gap-4 rounded-lg border p-4">
+				<span class="text-sm font-medium">{filter.label}</span>
+				<Toggle label={filter.label} checked={filter.selected} onChange={filter.onChange} />
+			</div>
+		{/each}
 		{#each filterInputsAsArray as filterInput, index (filterInput.property)}
 			<AuditFilter
 				filter={filterInput}

@@ -82,4 +82,11 @@
 			{/each}
 		</div>
 	{/snippet}
+
+	{#snippet additRequestContent(data)}
+		{@const requestURL = [data.requestMethod, data.requestPath].filter(Boolean).join(' ')}
+		{#if requestURL}
+			<p class="break-all"><span class="font-medium">Request URL</span>: {requestURL}</p>
+		{/if}
+	{/snippet}
 </AuditLogDetails>
