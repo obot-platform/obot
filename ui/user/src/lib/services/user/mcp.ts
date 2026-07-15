@@ -20,7 +20,7 @@ import {
 	type RuntimeFormData,
 	type SystemMCPServerCatalogEntry
 } from '..';
-import { AiClient } from './constants';
+import { AiClient, MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH } from './constants';
 
 export interface MCPServerInfo extends MCPServer {
 	id?: string;
@@ -714,13 +714,21 @@ export const validateRuntimeForm = (
 	formData: RuntimeFormData,
 	type: LaunchServerType,
 	nameNotRequired: boolean = false
-): Record<string, boolean> => {
+): { required: Record<string, boolean>; invalid: Record<string, boolean> } => {
 	const missingFields: Record<string, boolean> = {};
+	const invalid: Record<string, boolean> = {};
 	if (
 		formData.startupTimeoutSeconds !== undefined &&
 		(!Number.isInteger(formData.startupTimeoutSeconds) || formData.startupTimeoutSeconds <= 0)
 	) {
 		missingFields.startupTimeoutSeconds = true;
+	}
+
+	if (
+		formData.shortDescription &&
+		Array.from(formData.shortDescription ?? '').length > MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH
+	) {
+		invalid.shortDescription = true;
 	}
 
 	// Basic validation - name is required
@@ -775,7 +783,7 @@ export const validateRuntimeForm = (
 			break;
 	}
 
-	return missingFields;
+	return { required: missingFields, invalid };
 };
 
 export const convertCategoriesToMetadata = (

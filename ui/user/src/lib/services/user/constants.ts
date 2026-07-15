@@ -77,3 +77,5 @@ export const MAGIC_LINK_SUPPORTED_AI_CLIENTS = [AiClient.Cursor, AiClient.VSCode
 export const COMMAND_SUPPORTED_AI_CLIENTS = [AiClient.Claude, AiClient.Codex];
 
 export const AUDIT_LOG_FILTER_OPTIONS_LIMIT = 1000;
+
+export const MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH = 160;
