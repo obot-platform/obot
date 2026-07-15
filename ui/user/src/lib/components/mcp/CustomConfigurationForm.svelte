@@ -260,6 +260,7 @@
 			<div class="flex justify-end">
 				<button
 					class="btn btn-secondary btn-sm flex items-center gap-1 text-xs"
+					type="button"
 					onclick={() => {
 						if (config) {
 							config.push({

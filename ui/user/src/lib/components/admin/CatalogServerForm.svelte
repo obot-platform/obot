@@ -691,8 +691,14 @@
 		delete showInvalid[field];
 	}
 
-	function handleFormSubmit(e: Event) {
+	function handleFormSubmit(e: SubmitEvent) {
 		e.preventDefault();
+		if (
+			e.submitter instanceof HTMLElement &&
+			e.submitter.getAttribute('data-form-action') !== 'save'
+		) {
+			return;
+		}
 		handleSubmit();
 	}
 </script>
@@ -1028,6 +1034,7 @@
 			</button>
 			<button
 				type="submit"
+				data-form-action="save"
 				class="btn btn-primary flex items-center gap-1"
 				disabled={loading ||
 					(formData.runtime === 'composite' &&
