@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
@@ -71,7 +72,15 @@ func BaseURL(providerName string, credentials map[string]string, dialect nanobot
 	return *u, nil
 }
 
-func Transport(providerName string, credentials map[string]string, dialect nanobottypes.Dialect) (http.RoundTripper, error) {
+type EntraCredentialCache struct {
+	mu           sync.Mutex
+	tenantID     string
+	clientID     string
+	clientSecret string
+	credential   azcore.TokenCredential
+}
+
+func Transport(providerName string, credentials map[string]string, dialect nanobottypes.Dialect, entraCredentials *EntraCredentialCache) (http.RoundTripper, error) {
 	switch providerName {
 	case system.AzureModelProvider:
 		key := credentials[APIKeyEnv]
@@ -85,7 +94,10 @@ func Transport(providerName string, credentials map[string]string, dialect nanob
 				return nil, fmt.Errorf("missing %s for Azure Entra model provider", name)
 			}
 		}
-		credential, err := azidentity.NewClientSecretCredential(credentials[TenantIDEnv], credentials[ClientIDEnv], credentials[ClientSecretEnv], nil)
+		if entraCredentials == nil {
+			return nil, fmt.Errorf("Azure Entra credential cache is required")
+		}
+		credential, err := entraCredentials.get(credentials)
 		if err != nil {
 			return nil, fmt.Errorf("create Azure Entra credential: %w", err)
 		}
@@ -93,6 +105,27 @@ func Transport(providerName string, credentials map[string]string, dialect nanob
 	default:
 		return nil, fmt.Errorf("unsupported Azure model provider %q", providerName)
 	}
+}
+
+func (c *EntraCredentialCache) get(credentials map[string]string) (azcore.TokenCredential, error) {
+	tenantID := credentials[TenantIDEnv]
+	clientID := credentials[ClientIDEnv]
+	clientSecret := credentials[ClientSecretEnv]
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.credential != nil && c.tenantID == tenantID && c.clientID == clientID && c.clientSecret == clientSecret {
+		return c.credential, nil
+	}
+
+	credential, err := azidentity.NewClientSecretCredential(tenantID, clientID, clientSecret, nil)
+	if err != nil {
+		return nil, err
+	}
+	c.tenantID = tenantID
+	c.clientID = clientID
+	c.clientSecret = clientSecret
+	c.credential = credential
+	return credential, nil
 }
 
 type apiKeyTransport struct {

@@ -127,7 +127,7 @@ func TestCallLLMAzureAnthropicMessagesUsesHeaderVersion(t *testing.T) {
 
 	transport, err := azure.Transport(system.AzureModelProvider, map[string]string{
 		azure.APIKeyEnv: "azure-key",
-	}, nanobottypes.DialectAnthropicMessages)
+	}, nanobottypes.DialectAnthropicMessages, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,7 +145,8 @@ func TestCallLLMAzureAnthropicMessagesUsesHeaderVersion(t *testing.T) {
 	assert.Equal(t, "yes", result)
 	assert.Equal(t, "/anthropic/v1/messages", gotPath)
 	assert.Equal(t, azure.AnthropicVersion, gotHeaders.Get("anthropic-version"))
-	assert.Equal(t, "azure-key", gotHeaders.Get("api-key"))
+	assert.Equal(t, "Bearer azure-key", gotHeaders.Get("Authorization"))
+	assert.Empty(t, gotHeaders.Get("api-key"))
 	assert.NotContains(t, gotBody, "anthropic_version")
 }
 

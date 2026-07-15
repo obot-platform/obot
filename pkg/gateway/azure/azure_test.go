@@ -102,11 +102,60 @@ func TestTransportMissingCredentials(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := Transport(tt.provider, tt.creds, nanobottypes.DialectOpenAIResponses)
+			_, err := Transport(tt.provider, tt.creds, nanobottypes.DialectOpenAIResponses, new(EntraCredentialCache))
 			if err == nil || !strings.Contains(err.Error(), tt.want) {
 				t.Fatalf("error = %v, want containing %q", err, tt.want)
 			}
 		})
+	}
+}
+
+func TestTransportReusesEntraCredential(t *testing.T) {
+	cache := new(EntraCredentialCache)
+	credentials := map[string]string{
+		TenantIDEnv:     "tenant",
+		ClientIDEnv:     "client",
+		ClientSecretEnv: "secret",
+	}
+
+	firstCredential, err := cache.get(credentials)
+	if err != nil {
+		t.Fatal(err)
+	}
+	secondCredential, err := cache.get(credentials)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if secondCredential != firstCredential {
+		t.Fatal("expected the Azure Entra credential to be reused")
+	}
+
+	credentials[ClientSecretEnv] = "rotated-secret"
+	thirdCredential, err := cache.get(credentials)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if thirdCredential == firstCredential {
+		t.Fatal("expected credential rotation to replace the cached Azure Entra credential")
+	}
+
+	otherCredential, err := new(EntraCredentialCache).get(credentials)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if otherCredential == thirdCredential {
+		t.Fatal("expected separate caches not to share Azure Entra credentials")
+	}
+}
+
+func TestTransportRequiresEntraCredentialCache(t *testing.T) {
+	_, err := Transport(system.AzureEntraModelProvider, map[string]string{
+		TenantIDEnv:     "tenant",
+		ClientIDEnv:     "client",
+		ClientSecretEnv: "secret",
+	}, nanobottypes.DialectOpenAIResponses, nil)
+	if err == nil || !strings.Contains(err.Error(), "credential cache is required") {
+		t.Fatalf("error = %v, want missing cache error", err)
 	}
 }
 
