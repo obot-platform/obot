@@ -95,7 +95,7 @@ func Transport(providerName string, credentials map[string]string, dialect nanob
 			}
 		}
 		if entraCredentials == nil {
-			return nil, fmt.Errorf("Azure Entra credential cache is required")
+			return nil, fmt.Errorf("credential cache is required")
 		}
 		credential, err := entraCredentials.get(credentials)
 		if err != nil {
