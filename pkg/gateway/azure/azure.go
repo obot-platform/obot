@@ -103,9 +103,14 @@ type apiKeyTransport struct {
 
 func (t apiKeyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	stripProxyHeaders(req.Header)
-	req.Header.Del("Authorization")
 	req.Header.Del("X-Api-Key")
-	req.Header.Set("api-key", t.key)
+	if t.dialect == nanobottypes.DialectAnthropicMessages {
+		req.Header.Del("api-key")
+		req.Header.Set("Authorization", "Bearer "+t.key)
+	} else {
+		req.Header.Del("Authorization")
+		req.Header.Set("api-key", t.key)
+	}
 	setAnthropicVersion(req, t.dialect)
 	return t.next.RoundTrip(req)
 }

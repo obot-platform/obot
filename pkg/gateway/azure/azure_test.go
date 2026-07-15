@@ -111,30 +111,55 @@ func TestTransportMissingCredentials(t *testing.T) {
 }
 
 func TestAPIKeyTransportHeaders(t *testing.T) {
-	capture := &captureTransport{}
-	req := httptest.NewRequest(http.MethodPost, "https://example.com/messages", nil)
-	req.Header.Set("Authorization", "Bearer incoming")
-	req.Header.Set("X-Api-Key", "incoming-key")
-	req.Header.Set("X-Forwarded-For", "192.0.2.1")
+	tests := []struct {
+		name        string
+		dialect     nanobottypes.Dialect
+		wantAuth    string
+		wantAPIKey  string
+		wantVersion string
+	}{
+		{
+			name:        "Anthropic uses bearer auth",
+			dialect:     nanobottypes.DialectAnthropicMessages,
+			wantAuth:    "Bearer azure-key",
+			wantVersion: AnthropicVersion,
+		},
+		{
+			name:       "OpenAI uses API key header",
+			dialect:    nanobottypes.DialectOpenAIResponses,
+			wantAPIKey: "azure-key",
+		},
+	}
 
-	_, err := (apiKeyTransport{key: "azure-key", dialect: nanobottypes.DialectAnthropicMessages, next: capture}).RoundTrip(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := capture.req.Header.Get("api-key"); got != "azure-key" {
-		t.Fatalf("api-key = %q, want azure-key", got)
-	}
-	if got := capture.req.Header.Get("Authorization"); got != "" {
-		t.Fatalf("Authorization = %q, want empty", got)
-	}
-	if got := capture.req.Header.Get("X-Api-Key"); got != "" {
-		t.Fatalf("X-Api-Key = %q, want empty", got)
-	}
-	if got := capture.req.Header.Get("X-Forwarded-For"); got != "" {
-		t.Fatalf("X-Forwarded-For = %q, want empty", got)
-	}
-	if got := capture.req.Header.Get("anthropic-version"); got != AnthropicVersion {
-		t.Fatalf("anthropic-version = %q, want %q", got, AnthropicVersion)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			capture := &captureTransport{}
+			req := httptest.NewRequest(http.MethodPost, "https://example.com", nil)
+			req.Header.Set("Authorization", "Bearer incoming")
+			req.Header.Set("api-key", "incoming-key")
+			req.Header.Set("X-Api-Key", "incoming-x-key")
+			req.Header.Set("X-Forwarded-For", "192.0.2.1")
+
+			_, err := (apiKeyTransport{key: "azure-key", dialect: tt.dialect, next: capture}).RoundTrip(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := capture.req.Header.Get("Authorization"); got != tt.wantAuth {
+				t.Fatalf("Authorization = %q, want %q", got, tt.wantAuth)
+			}
+			if got := capture.req.Header.Get("api-key"); got != tt.wantAPIKey {
+				t.Fatalf("api-key = %q, want %q", got, tt.wantAPIKey)
+			}
+			if got := capture.req.Header.Get("X-Api-Key"); got != "" {
+				t.Fatalf("X-Api-Key = %q, want empty", got)
+			}
+			if got := capture.req.Header.Get("X-Forwarded-For"); got != "" {
+				t.Fatalf("X-Forwarded-For = %q, want empty", got)
+			}
+			if got := capture.req.Header.Get("anthropic-version"); got != tt.wantVersion {
+				t.Fatalf("anthropic-version = %q, want %q", got, tt.wantVersion)
+			}
+		})
 	}
 }
 
