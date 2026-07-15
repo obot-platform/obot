@@ -34,7 +34,7 @@ func TestCreateExportFromSchedule(t *testing.T) {
 		Status: v1.ScheduledAuditLogExportStatus{TotalExportsCreated: 2},
 	}
 
-	if err := (&Handler{}).createExportFromSchedule(router.Request{Ctx: t.Context(), Client: c}, scheduled, next); err != nil {
+	if err := createExportFromSchedule(router.Request{Ctx: t.Context(), Client: c}, scheduled, next); err != nil {
 		t.Fatal(err)
 	}
 
