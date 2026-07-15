@@ -207,7 +207,22 @@ func redactedHeaders(headers http.Header) json.RawMessage {
 
 func shouldRedactHeader(key string) bool {
 	k := strings.ToLower(key)
-	if k == "x-ratelimit-limit-tokens" || k == "x-ratelimit-remaining-tokens" || k == "x-ratelimit-reset-tokens" {
+	switch k {
+	case "x-ratelimit-limit-tokens",
+		"x-ratelimit-remaining-tokens",
+		"x-ratelimit-reset-tokens",
+		"anthropic-ratelimit-input-tokens-limit",
+		"anthropic-ratelimit-input-tokens-remaining",
+		"anthropic-ratelimit-input-tokens-reset",
+		"anthropic-ratelimit-output-tokens-limit",
+		"anthropic-ratelimit-output-tokens-remaining",
+		"anthropic-ratelimit-output-tokens-reset",
+		"anthropic-ratelimit-requests-limit",
+		"anthropic-ratelimit-requests-remaining",
+		"anthropic-ratelimit-requests-reset",
+		"anthropic-ratelimit-tokens-limit",
+		"anthropic-ratelimit-tokens-remaining",
+		"anthropic-ratelimit-tokens-reset":
 		return false
 	}
 	if k == "authorization" || k == "cookie" || k == "set-cookie" || k == "x-api-key" {
