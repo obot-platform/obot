@@ -1,5 +1,5 @@
+import { getExpandAdvancedPaneAction } from '../actions';
 import type { GuideHighlight, GuideListener, GuideStep } from '../types';
-import { getExpandAdvancedPaneAction } from '../utils';
 
 const SIDEBAR_MCP_SERVERS_LINK = 'sidebar-link-mcp-servers';
 const SIDEBAR_MCP_AUDIT_LOGS_LINK = 'sidebar-link-audit-logs';

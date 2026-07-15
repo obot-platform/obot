@@ -69,7 +69,7 @@ function getAiClientPreference(): AiClient[] {
 
 function getShowAllGuides(): boolean {
 	if (!browser) {
-		return false;
+		return true;
 	}
 	const showAllGuides = localStorage.getItem(OBOT_GUIDE_KEYS.SHOW_ALL_GUIDES);
 	return showAllGuides ? showAllGuides === 'true' : true;

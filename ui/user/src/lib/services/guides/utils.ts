@@ -2,15 +2,10 @@ import { browser } from '$app/environment';
 import { OBOT_GUIDE_KEYS } from '$lib/constants';
 import { Group } from '$lib/services/admin/types';
 import { profile } from '$lib/stores';
-import {
-	McpConnectGuide,
-	McpCreateCustomGuide,
-	CliInstallGuide,
-	type GuideListener,
-	type GuideAction,
-	type GuideHighlight,
-	McpCreateWithAccessPolicyCustomGuide
-} from '.';
+import CliInstallGuide from './cli/install';
+import McpConnectGuide from './mcp/connect';
+import McpCreateCustomGuide from './mcp/customMcp';
+import McpCreateWithAccessPolicyCustomGuide from './mcp/customMcpAndAccessPolicy';
 import { isValid } from 'date-fns';
 
 export function generateLessonItems(lessonsCompleted: Record<string, boolean>) {
@@ -112,37 +107,4 @@ export function resetGuide() {
 
 	localStorage.removeItem(seenGuideKey);
 	localStorage.removeItem(completedGuidesKey);
-}
-
-export function getExpandAdvancedPaneAction({
-	elementMissing,
-	highlight,
-	listener,
-	title,
-	description
-}: {
-	elementMissing: string;
-	highlight?: GuideHighlight;
-	listener?: GuideListener;
-	title?: string;
-	description?: string;
-}): GuideAction {
-	return {
-		elementExists: 'sidebar-collapse-mcp-server-management',
-		elementMissing,
-		highlight: {
-			selector: {
-				id: 'sidebar-collapse-mcp-server-management'
-			},
-			title: title || 'Expand MCP Management',
-			description: description || 'MCP Management is collapsed. Click here to expand it.'
-		},
-		listener: {
-			id: 'sidebar-collapse-mcp-server-management',
-			action: {
-				highlight: highlight,
-				listener: listener
-			}
-		}
-	};
 }

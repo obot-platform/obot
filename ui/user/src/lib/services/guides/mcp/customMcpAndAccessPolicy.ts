@@ -1,5 +1,5 @@
+import { getExpandAdvancedPaneAction } from '../actions';
 import type { GuideStep } from '../types';
-import { getExpandAdvancedPaneAction } from '../utils';
 import {
 	highlightMcpAccessPoliciesLink,
 	highlightMcpCatalogLink,
