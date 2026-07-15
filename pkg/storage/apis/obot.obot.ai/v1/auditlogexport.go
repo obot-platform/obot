@@ -49,14 +49,14 @@ func (*AuditLogExport) GetColumns() [][]string {
 }
 
 type AuditLogExportSpec struct {
-	Name       string                         `json:"name"`
-	Type       types.AuditLogType             `json:"type,omitempty"`
-	Bucket     string                         `json:"bucket"`
-	KeyPrefix  string                         `json:"keyPrefix,omitempty"`
-	StartTime  metav1.Time                    `json:"startTime"`
-	EndTime    metav1.Time                    `json:"endTime"`
-	Filters    types.AuditLogExportFilters    `json:"filters,omitempty"`
-	LLMFilters types.LLMAuditLogExportFilters `json:"llmFilters,omitempty"`
+	Name       string                          `json:"name"`
+	Type       types.AuditLogType              `json:"type,omitempty"`
+	Bucket     string                          `json:"bucket"`
+	KeyPrefix  string                          `json:"keyPrefix,omitempty"`
+	StartTime  metav1.Time                     `json:"startTime"`
+	EndTime    metav1.Time                     `json:"endTime"`
+	Filters    *types.AuditLogExportFilters    `json:"filters,omitempty"`
+	LLMFilters *types.LLMAuditLogExportFilters `json:"llmFilters,omitempty"`
 	// WithRequestAndResponse includes source-specific sensitive request and response fields.
 	WithRequestAndResponse bool `json:"withRequestAndResponse,omitempty"`
 }

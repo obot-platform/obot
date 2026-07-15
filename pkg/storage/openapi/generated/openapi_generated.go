@@ -819,14 +819,12 @@ func schema_obot_platform_obot_apiclient_types_AuditLogExportCreateRequest(ref c
 					},
 					"filters": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters"),
 						},
 					},
 					"llmFilters": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters"),
 						},
 					},
 					"bucket": {
@@ -1107,14 +1105,12 @@ func schema_obot_platform_obot_apiclient_types_AuditLogExportResponse(ref common
 					},
 					"filters": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters"),
 						},
 					},
 					"llmFilters": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters"),
 						},
 					},
 					"state": {
@@ -11477,14 +11473,12 @@ func schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportCreateRequ
 					},
 					"filters": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters"),
 						},
 					},
 					"llmFilters": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters"),
 						},
 					},
 				},
@@ -11594,14 +11588,12 @@ func schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportResponse(r
 					},
 					"filters": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters"),
 						},
 					},
 					"llmFilters": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters"),
 						},
 					},
 					"lastRunAt": {
@@ -14301,14 +14293,12 @@ func schema_storage_apis_obotobotai_v1_AuditLogExportSpec(ref common.ReferenceCa
 					},
 					"filters": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters"),
 						},
 					},
 					"llmFilters": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters"),
 						},
 					},
 					"withRequestAndResponse": {
@@ -19200,14 +19190,12 @@ func schema_storage_apis_obotobotai_v1_ScheduledAuditLogExportSpec(ref common.Re
 					},
 					"filters": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters"),
 						},
 					},
 					"llmFilters": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters"),
 						},
 					},
 					"withRequestAndResponse": {

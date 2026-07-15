@@ -82,21 +82,25 @@ func (h *Handler) fetchLLMAuditLogs(ctx context.Context, export *v1.AuditLogExpo
 }
 
 func mcpAuditLogOptionsFromExport(export *v1.AuditLogExport, limit, offset int) client.MCPAuditLogOptions {
+	filters := export.Spec.Filters
+	if filters == nil {
+		filters = &types.AuditLogExportFilters{}
+	}
 	return client.MCPAuditLogOptions{
 		StartTime:                 export.Spec.StartTime.Time,
 		EndTime:                   export.Spec.EndTime.Time,
-		UserID:                    export.Spec.Filters.UserIDs,
-		MCPID:                     export.Spec.Filters.MCPIDs,
-		MCPServerDisplayName:      export.Spec.Filters.MCPServerDisplayNames,
-		MCPServerCatalogEntryName: export.Spec.Filters.MCPServerCatalogEntryNames,
-		CallType:                  export.Spec.Filters.CallTypes,
-		CallIdentifier:            export.Spec.Filters.CallIdentifiers,
-		SessionID:                 export.Spec.Filters.SessionIDs,
-		ClientName:                export.Spec.Filters.ClientNames,
-		ClientVersion:             export.Spec.Filters.ClientVersions,
-		ResponseStatus:            export.Spec.Filters.ResponseStatuses,
-		ClientIP:                  export.Spec.Filters.ClientIPs,
-		Query:                     export.Spec.Filters.Query,
+		UserID:                    filters.UserIDs,
+		MCPID:                     filters.MCPIDs,
+		MCPServerDisplayName:      filters.MCPServerDisplayNames,
+		MCPServerCatalogEntryName: filters.MCPServerCatalogEntryNames,
+		CallType:                  filters.CallTypes,
+		CallIdentifier:            filters.CallIdentifiers,
+		SessionID:                 filters.SessionIDs,
+		ClientName:                filters.ClientNames,
+		ClientVersion:             filters.ClientVersions,
+		ResponseStatus:            filters.ResponseStatuses,
+		ClientIP:                  filters.ClientIPs,
+		Query:                     filters.Query,
 		Limit:                     limit,
 		Offset:                    offset,
 		WithRequestAndResponse:    export.Spec.WithRequestAndResponse,
@@ -104,18 +108,22 @@ func mcpAuditLogOptionsFromExport(export *v1.AuditLogExport, limit, offset int) 
 }
 
 func llmAuditLogOptionsFromExport(export *v1.AuditLogExport, limit, offset int) client.LLMAuditLogOptions {
+	filters := export.Spec.LLMFilters
+	if filters == nil {
+		filters = &types.LLMAuditLogExportFilters{}
+	}
 	return client.LLMAuditLogOptions{
 		StartTime:           export.Spec.StartTime.Time,
 		EndTime:             export.Spec.EndTime.Time,
-		UserID:              export.Spec.LLMFilters.UserIDs,
-		ModelProvider:       export.Spec.LLMFilters.ModelProviders,
-		TargetModel:         export.Spec.LLMFilters.TargetModels,
-		RequestPath:         export.Spec.LLMFilters.RequestPaths,
-		ResponseStatus:      export.Spec.LLMFilters.ResponseStatuses,
-		Outcome:             export.Spec.LLMFilters.Outcomes,
-		Client:              export.Spec.LLMFilters.Clients,
-		ClientSessionID:     export.Spec.LLMFilters.ClientSessionIDs,
-		Query:               export.Spec.LLMFilters.Query,
+		UserID:              filters.UserIDs,
+		ModelProvider:       filters.ModelProviders,
+		TargetModel:         filters.TargetModels,
+		RequestPath:         filters.RequestPaths,
+		ResponseStatus:      filters.ResponseStatuses,
+		Outcome:             filters.Outcomes,
+		Client:              filters.Clients,
+		ClientSessionID:     filters.ClientSessionIDs,
+		Query:               filters.Query,
 		Limit:               limit,
 		Offset:              offset,
 		WithSensitiveFields: export.Spec.WithRequestAndResponse,

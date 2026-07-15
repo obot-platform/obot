@@ -29,7 +29,7 @@ func TestCreateExportFromSchedule(t *testing.T) {
 			KeyPrefix:              "prefix",
 			RetentionPeriodInDays:  7,
 			WithRequestAndResponse: true,
-			LLMFilters:             types.LLMAuditLogExportFilters{ModelProviders: []string{"openai"}},
+			LLMFilters:             &types.LLMAuditLogExportFilters{ModelProviders: []string{"openai"}},
 		},
 		Status: v1.ScheduledAuditLogExportStatus{TotalExportsCreated: 2},
 	}
@@ -52,7 +52,7 @@ func TestCreateExportFromSchedule(t *testing.T) {
 	if !got.Spec.StartTime.Time.Equal(next.Add(-7*24*time.Hour)) || !got.Spec.EndTime.Time.Equal(next) {
 		t.Fatalf("unexpected export range: %s - %s", got.Spec.StartTime.Time, got.Spec.EndTime.Time)
 	}
-	if got.Spec.Type != types.AuditLogTypeLLM || !got.Spec.WithRequestAndResponse || got.Spec.LLMFilters.ModelProviders[0] != "openai" || scheduled.Status.TotalExportsCreated != 3 {
+	if got.Spec.Type != types.AuditLogTypeLLM || !got.Spec.WithRequestAndResponse || got.Spec.LLMFilters == nil || got.Spec.LLMFilters.ModelProviders[0] != "openai" || scheduled.Status.TotalExportsCreated != 3 {
 		t.Fatalf("unexpected sensitive/filter/count fields: export=%#v scheduled=%#v", got.Spec, scheduled.Status)
 	}
 }

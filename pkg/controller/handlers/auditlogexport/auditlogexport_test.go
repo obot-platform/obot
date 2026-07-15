@@ -23,7 +23,7 @@ func TestLLMAuditLogOptionsFromExport(t *testing.T) {
 		StartTime:              metav1.NewTime(start),
 		EndTime:                metav1.NewTime(end),
 		WithRequestAndResponse: true,
-		LLMFilters: types.LLMAuditLogExportFilters{
+		LLMFilters: &types.LLMAuditLogExportFilters{
 			UserIDs:          []string{"user-1"},
 			ModelProviders:   []string{"openai"},
 			TargetModels:     []string{"gpt-4o"},
@@ -45,6 +45,20 @@ func TestLLMAuditLogOptionsFromExport(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got.UserID, export.Spec.LLMFilters.UserIDs) || !reflect.DeepEqual(got.ResponseStatus, export.Spec.LLMFilters.ResponseStatuses) || got.Query != "needle" {
 		t.Fatalf("filters were not mapped: %#v", got)
+	}
+}
+
+func TestAuditLogOptionsFromExportWithoutFilters(t *testing.T) {
+	export := &v1.AuditLogExport{}
+
+	mcpOptions := mcpAuditLogOptionsFromExport(export, 100, 200)
+	if mcpOptions.Limit != 100 || mcpOptions.Offset != 200 {
+		t.Fatalf("unexpected MCP options: %#v", mcpOptions)
+	}
+
+	llmOptions := llmAuditLogOptionsFromExport(export, 100, 200)
+	if llmOptions.Limit != 100 || llmOptions.Offset != 200 {
+		t.Fatalf("unexpected LLM options: %#v", llmOptions)
 	}
 }
 

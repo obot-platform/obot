@@ -258,13 +258,13 @@ func (h *AuditLogExportHandler) UpdateScheduledAuditLogExport(req api.Context) e
 		if scheduledExport.Spec.EffectiveType() != types.AuditLogTypeMCP {
 			return types.NewErrBadRequest("filters can only be set for MCP audit log exports")
 		}
-		scheduledExport.Spec.Filters = *updateReq.Filters
+		scheduledExport.Spec.Filters = updateReq.Filters
 	}
 	if updateReq.LLMFilters != nil {
 		if scheduledExport.Spec.EffectiveType() != types.AuditLogTypeLLM {
 			return types.NewErrBadRequest("llmFilters can only be set for LLM audit log exports")
 		}
-		scheduledExport.Spec.LLMFilters = *updateReq.LLMFilters
+		scheduledExport.Spec.LLMFilters = updateReq.LLMFilters
 	}
 	if updateReq.Bucket != nil {
 		scheduledExport.Spec.Bucket = *updateReq.Bucket
@@ -438,10 +438,10 @@ func (h *AuditLogExportHandler) validateExportRequest(req *types.AuditLogExportC
 	if req.StartTime.GetTime().After(req.EndTime.GetTime()) {
 		return fmt.Errorf("start time must be before end time")
 	}
-	if exportType == types.AuditLogTypeLLM && !auditLogExportFiltersEmpty(req.Filters) {
+	if exportType == types.AuditLogTypeLLM && req.Filters != nil {
 		return fmt.Errorf("filters can only be set for MCP audit log exports")
 	}
-	if exportType == types.AuditLogTypeMCP && !llmAuditLogExportFiltersEmpty(req.LLMFilters) {
+	if exportType == types.AuditLogTypeMCP && req.LLMFilters != nil {
 		return fmt.Errorf("llmFilters can only be set for LLM audit log exports")
 	}
 	return nil
@@ -459,10 +459,10 @@ func (h *AuditLogExportHandler) validateScheduledExportRequest(req *types.Schedu
 	if req.Bucket == "" {
 		return fmt.Errorf("bucket is required")
 	}
-	if exportType == types.AuditLogTypeLLM && !auditLogExportFiltersEmpty(req.Filters) {
+	if exportType == types.AuditLogTypeLLM && req.Filters != nil {
 		return fmt.Errorf("filters can only be set for MCP audit log exports")
 	}
-	if exportType == types.AuditLogTypeMCP && !llmAuditLogExportFiltersEmpty(req.LLMFilters) {
+	if exportType == types.AuditLogTypeMCP && req.LLMFilters != nil {
 		return fmt.Errorf("llmFilters can only be set for LLM audit log exports")
 	}
 	return nil
@@ -535,22 +535,6 @@ func normalizeAuditLogType(exportType types.AuditLogType) (types.AuditLogType, e
 		return "", fmt.Errorf("must be %q or %q", types.AuditLogTypeMCP, types.AuditLogTypeLLM)
 	}
 	return exportType, nil
-}
-
-func auditLogExportFiltersEmpty(filters types.AuditLogExportFilters) bool {
-	return len(filters.UserIDs) == 0 && len(filters.MCPIDs) == 0 &&
-		len(filters.MCPServerDisplayNames) == 0 && len(filters.MCPServerCatalogEntryNames) == 0 &&
-		len(filters.CallTypes) == 0 && len(filters.CallIdentifiers) == 0 &&
-		len(filters.SessionIDs) == 0 && len(filters.ClientNames) == 0 &&
-		len(filters.ClientVersions) == 0 && len(filters.ResponseStatuses) == 0 &&
-		len(filters.ClientIPs) == 0 && filters.Query == ""
-}
-
-func llmAuditLogExportFiltersEmpty(filters types.LLMAuditLogExportFilters) bool {
-	return len(filters.UserIDs) == 0 && len(filters.ModelProviders) == 0 &&
-		len(filters.TargetModels) == 0 && len(filters.RequestPaths) == 0 &&
-		len(filters.ResponseStatuses) == 0 && len(filters.Outcomes) == 0 &&
-		len(filters.Clients) == 0 && len(filters.ClientSessionIDs) == 0 && filters.Query == ""
 }
 
 func (h *AuditLogExportHandler) convertScheduleToAPI(schedule v1.Schedule) types.Schedule {

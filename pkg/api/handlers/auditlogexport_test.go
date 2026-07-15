@@ -94,7 +94,7 @@ func TestValidateAuditLogExportRequest(t *testing.T) {
 				Bucket:    "bucket",
 				StartTime: types.Time{Time: now},
 				EndTime:   types.Time{Time: now.Add(time.Hour)},
-				Filters:   types.AuditLogExportFilters{UserIDs: []string{"user-1"}},
+				Filters:   &types.AuditLogExportFilters{UserIDs: []string{"user-1"}},
 			},
 			wantErr: "filters can only be set for MCP",
 		},
@@ -105,7 +105,7 @@ func TestValidateAuditLogExportRequest(t *testing.T) {
 				Bucket:     "bucket",
 				StartTime:  types.Time{Time: now},
 				EndTime:    types.Time{Time: now.Add(time.Hour)},
-				LLMFilters: types.LLMAuditLogExportFilters{UserIDs: []string{"user-1"}},
+				LLMFilters: &types.LLMAuditLogExportFilters{UserIDs: []string{"user-1"}},
 			},
 			wantErr: "llmFilters can only be set for LLM",
 		},
@@ -146,7 +146,7 @@ func TestConvertLLMExportToAPI(t *testing.T) {
 			KeyPrefix:  "prefix",
 			StartTime:  metav1.NewTime(time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)),
 			EndTime:    metav1.NewTime(time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)),
-			LLMFilters: types.LLMAuditLogExportFilters{UserIDs: []string{"user-1"}},
+			LLMFilters: &types.LLMAuditLogExportFilters{UserIDs: []string{"user-1"}},
 		},
 		Status: v1.AuditLogExportStatus{
 			State:           types.AuditLogExportStateCompleted,
@@ -162,7 +162,7 @@ func TestConvertLLMExportToAPI(t *testing.T) {
 	if got.ID != export.Name || got.Name != export.Spec.Name || got.Bucket != "bucket" || got.ExportSize != 123 {
 		t.Fatalf("unexpected response: %#v", got)
 	}
-	if got.Type != types.AuditLogTypeLLM || got.LLMFilters.UserIDs[0] != "user-1" || got.State != string(types.AuditLogExportStateCompleted) || got.StorageProvider != types.StorageProviderS3 {
+	if got.Type != types.AuditLogTypeLLM || got.LLMFilters == nil || got.LLMFilters.UserIDs[0] != "user-1" || got.State != string(types.AuditLogExportStateCompleted) || got.StorageProvider != types.StorageProviderS3 {
 		t.Fatalf("unexpected status/filter fields: %#v", got)
 	}
 	if !got.StartedAt.Time.Equal(started.Time) || !got.CompletedAt.Time.Equal(completed.Time) {

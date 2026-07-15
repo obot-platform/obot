@@ -18,10 +18,7 @@ func NewHandler() *Handler {
 }
 
 func (*Handler) ScheduleExports(req router.Request, resp router.Response) error {
-	scheduledExport, ok := req.Object.(*v1.ScheduledAuditLogExport)
-	if !ok {
-		return fmt.Errorf("unexpected scheduled audit log export type %T", req.Object)
-	}
+	scheduledExport := req.Object.(*v1.ScheduledAuditLogExport)
 
 	if !scheduledExport.Spec.Enabled {
 		return nil
@@ -109,7 +106,7 @@ func getScheduleAndTimezone(schedule v1.Schedule) (string, string) {
 
 func calculateNextRunTime(scheduledExport *v1.ScheduledAuditLogExport) (time.Time, error) {
 	lastRun := scheduledExport.Status.LastRunAt
-	if lastRun == nil || lastRun.IsZero() {
+	if lastRun.IsZero() {
 		lastRun = &metav1.Time{Time: scheduledExport.CreationTimestamp.Time}
 	}
 
