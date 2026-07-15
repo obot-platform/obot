@@ -34,19 +34,14 @@ const (
 
 type SkillHandler struct {
 	skillAccessRuleHelper  *skillaccessrule.Helper
-	gatewayClient          skillRepositoryCredentialRevealer
 	materializeSkillSource func(ctx context.Context, skill *v1.Skill, token string) (func(), string, error)
 }
 
-func NewSkillHandler(skillAccessRuleHelper *skillaccessrule.Helper, gatewayClient *gclient.Client) *SkillHandler {
-	h := &SkillHandler{
+func NewSkillHandler(skillAccessRuleHelper *skillaccessrule.Helper) *SkillHandler {
+	return &SkillHandler{
 		skillAccessRuleHelper:  skillAccessRuleHelper,
 		materializeSkillSource: skillrepository.MaterializeSkillSource,
 	}
-	if gatewayClient != nil {
-		h.gatewayClient = gatewayClient
-	}
-	return h
 }
 
 type skillRepositoryCredentialRevealer interface {
@@ -68,13 +63,9 @@ func revealSkillRepositoryToken(ctx context.Context, client skillRepositoryCrede
 }
 
 func (h *SkillHandler) materialize(req api.Context, skill *v1.Skill) (func(), string, error) {
-	var token string
-	if h.gatewayClient != nil {
-		var err error
-		token, err = revealSkillRepositoryToken(req.Context(), h.gatewayClient, skill)
-		if err != nil {
-			return nil, "", err
-		}
+	token, err := revealSkillRepositoryToken(req.Context(), req.GatewayClient, skill)
+	if err != nil {
+		return nil, "", err
 	}
 	return h.materializeSkillSource(req.Context(), skill, token)
 }

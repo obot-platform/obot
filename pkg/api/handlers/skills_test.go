@@ -217,7 +217,7 @@ func TestSkillHandlerListFiltersByAccessAndValidity(t *testing.T) {
 	handler := NewSkillHandler(newSkillAccessRuleHelper(t,
 		newSkillRule("rule-repo", []types.Subject{{Type: types.SubjectTypeUser, ID: "user1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkillRepository, ID: "repo-1"}}),
 		newSkillRule("rule-skill", []types.Subject{{Type: types.SubjectTypeUser, ID: "user1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkill, ID: "sk-direct"}}),
-	), nil)
+	))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/skills?q=helper&limit=10", nil)
 	rec := httptest.NewRecorder()
@@ -274,7 +274,7 @@ func TestSkillHandlerListAllTrueScopeBypass(t *testing.T) {
 	// user1 has access only to repo-1 via skill access rules
 	handler := NewSkillHandler(newSkillAccessRuleHelper(t,
 		newSkillRule("rule-repo", []types.Subject{{Type: types.SubjectTypeUser, ID: "user1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkillRepository, ID: "repo-1"}}),
-	), nil)
+	))
 
 	listSkills := func(t *testing.T, user kuser.Info, query string) []string {
 		t.Helper()
@@ -355,14 +355,11 @@ func TestSkillHandlerDownloadPackagesMaterializedSkill(t *testing.T) {
 
 	handler := NewSkillHandler(newSkillAccessRuleHelper(t,
 		newSkillRule("rule1", []types.Subject{{Type: types.SubjectTypeUser, ID: "user1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkillRepository, ID: "repo-1"}}),
-	), nil)
-	handler.gatewayClient = &fakeSkillRepositoryCredentialClient{credential: gatewaytypes.Credential{
-		Secrets: map[string]string{skill.Spec.RepoURL: "private-token"},
-	}}
+	))
 	handler.materializeSkillSource = func(_ context.Context, got *v1.Skill, token string) (func(), string, error) {
 		assert.Equal(t, "abc123", got.Spec.CommitSHA)
 		assert.Equal(t, "skills/postgres-helper", got.Spec.RelativePath)
-		assert.Equal(t, "private-token", token)
+		assert.Empty(t, token)
 		return func() {}, tempDir, nil
 	}
 
@@ -411,7 +408,7 @@ func TestSkillHandlerPreviewReturnsSkillMD(t *testing.T) {
 
 	handler := NewSkillHandler(newSkillAccessRuleHelper(t,
 		newSkillRule("rule1", []types.Subject{{Type: types.SubjectTypeUser, ID: "user1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkillRepository, ID: "repo-1"}}),
-	), nil)
+	))
 	handler.materializeSkillSource = func(_ context.Context, got *v1.Skill, token string) (func(), string, error) {
 		assert.Equal(t, "abc123", got.Spec.CommitSHA)
 		assert.Empty(t, token)
