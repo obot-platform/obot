@@ -12,6 +12,7 @@
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
+		id?: string;
 		class?: string;
 		classes?: {
 			header?: string;
@@ -32,6 +33,7 @@
 	}
 
 	let {
+		id,
 		onClickOutside,
 		onClose,
 		onOpen,
@@ -66,6 +68,7 @@
 		// Handle native dialog close (e.g., Escape key)
 		onClose?.();
 	}}
+	{id}
 >
 	<div
 		class={twMerge(

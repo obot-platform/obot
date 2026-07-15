@@ -320,6 +320,7 @@
 							? MCP_CONNECTION_INVALID_LICENSE_MESSAGE
 							: undefined
 					}}
+					id={`btn-connect-to-server-${d.id}`}
 				>
 					<button
 						class="btn btn-sm btn-primary border-none"

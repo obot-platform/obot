@@ -36,8 +36,8 @@
 	<tbody bind:this={context.elements.content}>
 		<!-- Top spacer row -->
 		{#if top > 0}
-			<tr style="height: {top}px;">
-				<!-- <td colspan="100" style="padding: 0; border: none;"></td> -->
+			<tr aria-hidden="true" class="pointer-events-none">
+				<td colspan="100" style="height: {top}px; padding: 0; border: none; line-height: 0;"></td>
 			</tr>
 		{/if}
 
@@ -45,8 +45,9 @@
 
 		<!-- Bottom spacer row -->
 		{#if bottom > 0}
-			<tr style="height: {bottom}px;">
-				<!-- <td colspan="100" style="padding: 0; border: none;"></td> -->
+			<tr aria-hidden="true" class="pointer-events-none">
+				<td colspan="100" style="height: {bottom}px; padding: 0; border: none; line-height: 0;"
+				></td>
 			</tr>
 		{/if}
 	</tbody>

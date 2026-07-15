@@ -587,6 +587,18 @@
 		}
 	}
 
+	/* While the guide panel is open, center app dialogs in the remaining viewport */
+	:root:has(.guide-panel-popover:popover-open) .dialog {
+		width: auto;
+		right: var(--guide-panel-width, 0px);
+	}
+
+	/* Dialogs launched from the guide itself keep full-viewport centering */
+	.guide-panel-popover .dialog {
+		width: 100%;
+		right: 0;
+	}
+
 	.dialog-title {
 		display: flex;
 		justify-content: space-between;
@@ -717,6 +729,97 @@
 	}
 	.dropdown-link:hover {
 		background-color: var(--color-base-400);
+	}
+
+	.driver-active .guide-panel-popover > :not(dialog),
+	.driver-active .guide-panel-popover > :not(dialog) * {
+		pointer-events: auto;
+	}
+
+	.driver-popover * {
+		font-family: var(--theme-font-family) !important;
+	}
+
+	.driver-popover-title {
+		font-size: var(--text-sm) !important;
+	}
+	.driver-popover-description {
+		font-size: var(--text-xs) !important;
+	}
+
+	.guide-panel-popover {
+		position: fixed;
+		top: 0;
+		right: 0;
+		bottom: 0;
+		left: auto;
+		margin: 0;
+		padding: 0;
+		border: none;
+		height: 100dvh;
+		width: auto;
+		max-height: none;
+		max-width: none;
+		overflow: visible;
+		background: transparent;
+		color: inherit;
+		outline: none;
+		pointer-events: none;
+	}
+
+	.guide-panel-popover:popover-open {
+		display: flex;
+	}
+
+	.guide-panel-popover > :not(dialog) {
+		pointer-events: auto;
+	}
+
+	.guide-panel-popover .dialog:not([open]) {
+		display: none;
+	}
+
+	.guide-highlight-obot {
+		position: absolute;
+		top: 0;
+		pointer-events: none;
+		z-index: 1;
+	}
+
+	.guide-highlight-ring {
+		position: fixed;
+		z-index: 1000000001;
+		pointer-events: none;
+		border-radius: 0.5rem;
+		border: 0px solid transparent;
+		box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-primary) 55%, transparent);
+		animation: guide-highlight-pulse 1.6s ease-out infinite;
+	}
+
+	/* Keep guide highlights above dialog content when reparented into <dialog> */
+	.dialog > .driver-overlay,
+	.dialog > .driver-popover,
+	.dialog > .guide-highlight-ring {
+		z-index: 1000000001;
+	}
+
+	@keyframes guide-highlight-pulse {
+		0% {
+			box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-primary) 55%, transparent);
+		}
+		70% {
+			box-shadow: 0 0 0 12px color-mix(in oklab, var(--color-primary) 0%, transparent);
+		}
+		100% {
+			box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-primary) 0%, transparent);
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.guide-highlight-ring {
+			animation: none;
+			box-shadow: none;
+		}
 	}
 
 	.drawer-legacy[popover] {

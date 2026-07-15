@@ -350,12 +350,14 @@
 			{#if view === 'entries'}
 				<button
 					class="btn btn-primary btn-block w-full text-sm md:w-52"
+					id="add-catalog-entry-button"
 					onclick={() => selectServerTypeDialog?.open()}
 				>
 					<Plus class="size-4" /> Add Catalog Entry
 				</button>
 			{:else if view === 'urls'}
 				<button
+					id="add-catalog-source-button"
 					class="btn btn-primary btn-block w-full text-sm md:w-52"
 					onclick={() => sourceDialog?.open()}
 				>
