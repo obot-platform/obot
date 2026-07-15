@@ -561,5 +561,5 @@ func systemServerToServerConfig(req api.Context, server v1.SystemMCPServer) (mcp
 	baseURL := strings.TrimSuffix(req.APIBaseURL, "/api")
 	audiences := server.ValidConnectURLs(baseURL)
 
-	return mcp.SystemServerToServerConfig(server, audiences, baseURL, req.User.GetUID(), credEnv, secretsCred)
+	return mcp.SystemServerToServerConfig(server, audiences, req.User.GetUID(), credEnv, secretsCred)
 }

@@ -13,11 +13,11 @@ const eulaAcceptedKey = "eula_accepted"
 type EulaHandler struct{}
 
 func NewEulaHandler() *EulaHandler {
-	return &EulaHandler{}
+	return nil
 }
 
 // Get retrieves the EULA acceptance status for the installation
-func (h *EulaHandler) Get(req api.Context) error {
+func (*EulaHandler) Get(req api.Context) error {
 	// EULA is global for the entire installation, not per-user
 	key := eulaAcceptedKey
 	property, err := req.GatewayClient.GetProperty(req.Context(), key)
@@ -37,7 +37,7 @@ func (h *EulaHandler) Get(req api.Context) error {
 }
 
 // Update records the EULA acceptance or decline for the installation
-func (h *EulaHandler) Update(req api.Context) error {
+func (*EulaHandler) Update(req api.Context) error {
 	var input types.EulaStatus
 	if err := req.Read(&input); err != nil {
 		return err

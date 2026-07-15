@@ -12,7 +12,7 @@ import (
 type LocalAgentAuditLogHandler struct{}
 
 func NewLocalAgentAuditLogHandler() *LocalAgentAuditLogHandler {
-	return &LocalAgentAuditLogHandler{}
+	return nil
 }
 
 // Submit handles POST /api/local-agent-audit-logs for completed local-agent tool calls.

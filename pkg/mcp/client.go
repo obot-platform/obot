@@ -10,6 +10,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
 )
@@ -104,13 +105,13 @@ func (sm *SessionManager) loadSession(ctx context.Context, server ServerConfig, 
 		)
 
 		now := time.Now().Add(-time.Second)
-		// TODO(thedadams): This needs to be fixed before user information headers can be passed to the MCP server.
-		jwtToken, token, err = sm.tokenService.NewTokenWithClaims(ctx, jwt.MapClaims{
-			"aud":   utils.FirstSet(server.Audiences...),
-			"exp":   float64(now.Add(time.Hour + 15*time.Minute).Unix()),
-			"iat":   float64(now.Unix()),
-			"sub":   server.UserID,
-			"MCPID": server.MCPServerName,
+		jwtToken, token, err = sm.tokenService.NewToken(ctx, persistent.TokenContext{
+			Audience:   utils.FirstSet(server.Audiences...),
+			ExpiresAt:  persistent.NewTime(now.Add(time.Hour + 15*time.Minute)),
+			IssuedAt:   persistent.NewTime(now),
+			UserID:     server.UserID,
+			MCPID:      server.MCPServerName,
+			UserGroups: []string{types.GroupMCP, types.GroupAuthenticated},
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create JWT token for client: %w", err)
@@ -120,7 +121,7 @@ func (sm *SessionManager) loadSession(ctx context.Context, server ServerConfig, 
 	}
 
 	url := server.URL
-	if !isOAuthCheck || server.Runtime != types.RuntimeRemote {
+	if !isOAuthCheck {
 		url = sm.TransformObotHostname(system.MCPConnectURL(sm.baseURL, server.MCPServerName))
 	}
 

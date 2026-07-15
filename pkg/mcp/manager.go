@@ -11,6 +11,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
@@ -24,7 +25,6 @@ var log = logger.Package()
 
 type Options struct {
 	MCPBaseImage                      string   `usage:"The base image to use for MCP containers" default:"ghcr.io/obot-platform/mcp-images/stdio-wrapper:v0.24.1"`
-	MCPRemoteShimBaseImage            string   `usage:"The base image to use for composite MCP containers" default:"ghcr.io/obot-platform/nanobot:v0.0.89"`
 	MCPHTTPWebhookBaseImage           string   `usage:"The base image to use for HTTP-based MCP webhook containers" default:"ghcr.io/obot-platform/mcp-images/http-webhook-mcp-converter:v0.24.1"`
 	MCPNamespace                      string   `usage:"The namespace to use for MCP containers" default:"obot-mcp"`
 	MCPClusterDomain                  string   `usage:"The cluster domain to use for MCP containers" default:"cluster.local"`
@@ -80,7 +80,7 @@ type SessionManager struct {
 	sessionCtx                context.Context
 	cancel                    func()
 	sessions                  sync.Map
-	tokenService              TokenService
+	tokenService              *persistent.TokenService
 	baseURL                   string
 	remoteURLValidationConfig RemoteMCPURLValidationConfig
 	resourceMaximums          ResourceMaximums
@@ -113,7 +113,7 @@ const streamableHTTPHealthcheckBody string = `{
     }
 }`
 
-func NewSessionManager(ctx context.Context, authEnabled bool, tokenService TokenService, baseURL string, httpListenPort int, opts Options, webhookHelper *WebhookHelper, localK8sConfig *rest.Config, client, cachedClient, obotStorageClient kclient.WithWatch, gatewayClient *gateway.Client, obotNamespace string) (*SessionManager, error) {
+func NewSessionManager(ctx context.Context, authEnabled bool, tokenService *persistent.TokenService, baseURL string, httpListenPort int, opts Options, webhookHelper *WebhookHelper, localK8sConfig *rest.Config, client, cachedClient, obotStorageClient kclient.WithWatch, gatewayClient *gateway.Client, obotNamespace string) (*SessionManager, error) {
 	var backend backend
 	resourceMaximums, err := ParseResourceMaximums(opts)
 	if err != nil {

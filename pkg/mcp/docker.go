@@ -41,7 +41,6 @@ type dockerBackend struct {
 	hostBaseURL                 string
 	hostBaseURLWithPort         string
 	containerizedBaseImage      string
-	compositeBaseImage          string
 	authEnabled                 bool
 	deploymentCacheMu           sync.RWMutex
 	deploymentCache             map[string]*dockerDeploymentCacheEntry
@@ -75,7 +74,6 @@ func newDockerBackend(ctx context.Context, authEnabled bool, exposedPort int, op
 		hostBaseURL:            "http://" + host,
 		hostBaseURLWithPort:    "http://" + fmt.Sprintf("%s:%d", host, exposedPort),
 		containerizedBaseImage: opts.MCPBaseImage,
-		compositeBaseImage:     opts.MCPRemoteShimBaseImage,
 		authEnabled:            authEnabled,
 		deploymentCache:        map[string]*dockerDeploymentCacheEntry{},
 		syncedFilesHash:        map[string]string{},
@@ -215,10 +213,9 @@ func (d *dockerBackend) cleanupDeprecatedContainers(ctx context.Context) error {
 // deployServer will deploy the underlying container for the server.
 // This is only to give users the opportunity to view logs and debug the server they are trying to deploy.
 func (d *dockerBackend) deployServer(ctx context.Context, server ServerConfig) error {
-	if server.Runtime == otypes.RuntimeRemote {
+	if server.Runtime == otypes.RuntimeRemote || server.Runtime == otypes.RuntimeComposite {
 		return nil
 	}
-	server = d.transformServerConfig(server)
 
 	configHash := serverID(server)
 	// Check if container already exists
@@ -233,9 +230,17 @@ func (d *dockerBackend) deployServer(ctx context.Context, server ServerConfig) e
 }
 
 func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server ServerConfig) (ServerConfig, error) {
-	server = d.transformServerConfig(server)
+	for i, component := range server.Components {
+		component.URL = d.transformObotHostname(component.URL)
+		server.Components[i] = component
+	}
 
-	if server.Runtime == otypes.RuntimeRemote {
+	for i, webhook := range server.Webhooks {
+		webhook.URL = d.transformObotHostname(webhook.URL)
+		server.Webhooks[i] = webhook
+	}
+
+	if server.Runtime == otypes.RuntimeRemote || server.Runtime == otypes.RuntimeComposite {
 		return server, nil
 	}
 
@@ -253,24 +258,6 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 		return ServerConfig{}, err
 	}
 	return result.(ServerConfig), nil
-}
-
-func (d *dockerBackend) transformServerConfig(server ServerConfig) ServerConfig {
-	server.AuthorizeEndpoint = d.transformObotHostname(server.AuthorizeEndpoint)
-	server.TokenExchangeEndpoint = d.transformObotHostname(server.TokenExchangeEndpoint)
-	server.JWKSEndpoint = d.transformObotHostname(server.JWKSEndpoint)
-
-	for i, component := range server.Components {
-		component.URL = d.transformObotHostname(component.URL)
-		server.Components[i] = component
-	}
-
-	for i, webhook := range server.Webhooks {
-		webhook.URL = d.transformObotHostname(webhook.URL)
-		server.Webhooks[i] = webhook
-	}
-
-	return server
 }
 
 func (d *dockerBackend) ensureServerDeploymentSlow(ctx context.Context, server ServerConfig, serverConfigHash string) (ServerConfig, error) {
@@ -299,7 +286,6 @@ func (d *dockerBackend) ensureServerDeploymentSlow(ctx context.Context, server S
 
 func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfig, mcpServerName string, containerEnv bool) (ServerConfig, error) {
 	if !d.authEnabled {
-		server.Issuer = ""
 		server.Audiences = nil
 		server.TokenExchangeClientID = ""
 		server.TokenExchangeClientSecret = ""
@@ -387,8 +373,6 @@ func (d *dockerBackend) deploymentImage(server ServerConfig) string {
 	switch server.Runtime {
 	case otypes.RuntimeUVX, otypes.RuntimeNPX:
 		return d.containerizedBaseImage
-	case otypes.RuntimeComposite:
-		return d.compositeBaseImage
 	default:
 		return ""
 	}
@@ -964,12 +948,9 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 
 	// Configure based on runtime
 	switch server.Runtime {
-	case otypes.RuntimeUVX, otypes.RuntimeNPX, otypes.RuntimeComposite:
+	case otypes.RuntimeUVX, otypes.RuntimeNPX:
 		// Use base image with nanobot
 		image = d.containerizedBaseImage
-		if server.Runtime == otypes.RuntimeComposite {
-			image = d.compositeBaseImage
-		}
 
 		containerPort = defaultContainerPort
 
@@ -989,9 +970,6 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 
 		// Set nanobot environment variables
 		env = append(env, "NANOBOT_RUN_HEALTHZ_PATH=/healthz", "OBOT_KUBERNETES_MODE=true")
-		if server.Runtime == otypes.RuntimeComposite {
-			env = append(env, d.compositeRuntimeEnv(server)...)
-		}
 
 	case otypes.RuntimeContainerized:
 		// Use specified container image or base image
@@ -1116,28 +1094,6 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 	}
 
 	return containerID, containerPort, nil
-}
-
-func (d *dockerBackend) compositeRuntimeEnv(server ServerConfig) []string {
-	var authWebhookURL string
-	if server.Issuer != "" {
-		authWebhookURL = d.transformObotHostname(server.Issuer + "/api/api-keys/auth")
-	}
-
-	return []string{
-		"NANOBOT_RUN_TRUSTED_ISSUER=" + server.Issuer,
-		"NANOBOT_RUN_TRUSTED_AUDIENCES=" + strings.Join(server.Audiences, ","),
-		"NANOBOT_RUN_OAUTH_JWKSURL=" + server.JWKSEndpoint,
-		"NANOBOT_RUN_OAUTH_AUTHORIZE_URL=" + server.AuthorizeEndpoint,
-		"NANOBOT_RUN_OAUTH_TOKEN_URL=" + server.TokenExchangeEndpoint,
-		"NANOBOT_RUN_OAUTH_CLIENT_ID=" + server.TokenExchangeClientID,
-		"NANOBOT_RUN_OAUTH_CLIENT_SECRET=" + server.TokenExchangeClientSecret,
-		"NANOBOT_RUN_OAUTH_SCOPES=profile",
-		"NANOBOT_RUN_APIKEY_AUTH_WEBHOOK_URL=" + authWebhookURL,
-		"NANOBOT_RUN_MCPSERVER_ID=" + strings.TrimSuffix(server.MCPServerName, "-shim"),
-		"NANOBOT_RUN_FORCE_FETCH_TOOL_LIST=true",
-		"NANOBOT_DISABLE_HEALTH_CHECKER=true",
-	}
 }
 
 func (d *dockerBackend) waitForContainer(ctx context.Context, containerID string) error {
@@ -1467,7 +1423,7 @@ func (d *dockerBackend) pullImage(ctx context.Context, imageName string, ifNotEx
 }
 
 // prepareMCPServerNanobotConfig creates a volume containing the nanobot.yaml that configures
-// how nanobot proxies to the underlying MCP server (used for UVX/NPX/composite runtimes).
+// how nanobot proxies to the underlying MCP server (used for UVX/NPX/remote/composite runtimes).
 func (d *dockerBackend) prepareMCPServerNanobotConfig(ctx context.Context, server ServerConfig, envVars map[string]string) (string, error) {
 	// Create all environment variables map
 	allEnvVars := make(map[string][]byte, len(server.Env)+len(envVars))

@@ -11,10 +11,10 @@ import (
 type UserDefaultRoleSettingHandler struct{}
 
 func NewUserDefaultRoleSettingHandler() *UserDefaultRoleSettingHandler {
-	return &UserDefaultRoleSettingHandler{}
+	return nil
 }
 
-func (h *UserDefaultRoleSettingHandler) Get(req api.Context) error {
+func (*UserDefaultRoleSettingHandler) Get(req api.Context) error {
 	var setting v1.UserDefaultRoleSetting
 	if err := req.Storage.Get(req.Context(), client.ObjectKey{Namespace: req.Namespace(), Name: system.DefaultRoleSettingName}, &setting); err != nil {
 		return err
@@ -22,7 +22,7 @@ func (h *UserDefaultRoleSettingHandler) Get(req api.Context) error {
 	return req.Write(convertUserDefaultRoleSetting(setting))
 }
 
-func (h *UserDefaultRoleSettingHandler) Set(req api.Context) error {
+func (*UserDefaultRoleSettingHandler) Set(req api.Context) error {
 	var input types.UserDefaultRoleSetting
 	if err := req.Read(&input); err != nil {
 		return err

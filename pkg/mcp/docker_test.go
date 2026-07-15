@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/moby/moby/api/types/container"
-	otypes "github.com/obot-platform/obot/apiclient/types"
 )
 
 func TestDockerTransformObotHostnameAlwaysRewritesHost(t *testing.T) {
@@ -23,56 +22,6 @@ func TestDockerTransformObotHostnameAlwaysRewritesHost(t *testing.T) {
 	for input, expected := range tests {
 		if result := d.transformObotHostname(input); result != expected {
 			t.Fatalf("transformObotHostname(%q) = %q, want %q", input, result, expected)
-		}
-	}
-}
-
-func TestDockerDeploymentImage(t *testing.T) {
-	d := &dockerBackend{
-		containerizedBaseImage: "stdio-wrapper",
-		compositeBaseImage:     "nanobot",
-	}
-
-	if got := d.deploymentImage(ServerConfig{Runtime: otypes.RuntimeComposite}); got != "nanobot" {
-		t.Fatalf("composite deployment image = %q, want nanobot", got)
-	}
-	if got := d.deploymentImage(ServerConfig{Runtime: otypes.RuntimeRemote}); got != "" {
-		t.Fatalf("remote deployment image = %q, want empty", got)
-	}
-}
-
-func TestDockerCompositeRuntimeConfigMatchesLegacyComposite(t *testing.T) {
-	d := &dockerBackend{hostBaseURLWithPort: "http://172.17.0.1:8080"}
-	server := d.transformServerConfig(ServerConfig{
-		Runtime:                   otypes.RuntimeComposite,
-		MCPServerName:             "composite-server",
-		Issuer:                    "https://obot.example.com",
-		Audiences:                 []string{"https://obot.example.com/mcp-connect/composite-server"},
-		AuthorizeEndpoint:         "https://obot.example.com/oauth/authorize",
-		TokenExchangeEndpoint:     "https://obot.example.com/oauth/token",
-		JWKSEndpoint:              "https://obot.example.com/oauth/jwks.json",
-		TokenExchangeClientID:     "client-id",
-		TokenExchangeClientSecret: "client-secret",
-	})
-
-	env := keyValueSliceToMap(d.compositeRuntimeEnv(server))
-	want := map[string]string{
-		"NANOBOT_RUN_TRUSTED_ISSUER":          "https://obot.example.com",
-		"NANOBOT_RUN_TRUSTED_AUDIENCES":       "https://obot.example.com/mcp-connect/composite-server",
-		"NANOBOT_RUN_OAUTH_JWKSURL":           "http://172.17.0.1:8080/oauth/jwks.json",
-		"NANOBOT_RUN_OAUTH_AUTHORIZE_URL":     "http://172.17.0.1:8080/oauth/authorize",
-		"NANOBOT_RUN_OAUTH_TOKEN_URL":         "http://172.17.0.1:8080/oauth/token",
-		"NANOBOT_RUN_OAUTH_CLIENT_ID":         "client-id",
-		"NANOBOT_RUN_OAUTH_CLIENT_SECRET":     "client-secret",
-		"NANOBOT_RUN_OAUTH_SCOPES":            "profile",
-		"NANOBOT_RUN_APIKEY_AUTH_WEBHOOK_URL": "http://172.17.0.1:8080/api/api-keys/auth",
-		"NANOBOT_RUN_MCPSERVER_ID":            "composite-server",
-		"NANOBOT_RUN_FORCE_FETCH_TOOL_LIST":   "true",
-		"NANOBOT_DISABLE_HEALTH_CHECKER":      "true",
-	}
-	for key, expected := range want {
-		if got := env[key]; got != expected {
-			t.Fatalf("%s = %q, want %q", key, got, expected)
 		}
 	}
 }

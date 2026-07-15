@@ -16,7 +16,7 @@ import (
 type SkillRepositoryHandler struct{}
 
 func NewSkillRepositoryHandler() *SkillRepositoryHandler {
-	return &SkillRepositoryHandler{}
+	return nil
 }
 
 func (*SkillRepositoryHandler) List(req api.Context) error {

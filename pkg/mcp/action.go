@@ -267,7 +267,7 @@ func (sm *SessionManager) serverFromMCPServerInstance(ctx context.Context, insta
 		return server, ServerConfig{}, nil, fmt.Errorf("failed to resolve secret bindings: %w", err)
 	}
 
-	serverConfig, missingConfig, err := ServerToServerConfig(server, instance.ValidConnectURLs(sm.baseURL), sm.baseURL, userID, scope, catalogName, mergedEnv, tokenExchangeCred.Secrets)
+	serverConfig, missingConfig, err := ServerToServerConfig(server, instance.ValidConnectURLs(sm.baseURL), userID, scope, catalogName, mergedEnv, tokenExchangeCred.Secrets)
 	if err != nil {
 		return server, ServerConfig{}, nil, err
 	}
@@ -382,7 +382,7 @@ func (sm *SessionManager) serverConfigForAction(ctx context.Context, server v1.M
 		}
 		missingConfig = append(missingConfig, componentMissingConfig...)
 	} else {
-		serverConfig, missingConfig, err = ServerToServerConfig(server, server.ValidConnectURLs(sm.baseURL), sm.baseURL, userID, scope, catalogName, mergedEnv, tokenExchangeCred.Secrets)
+		serverConfig, missingConfig, err = ServerToServerConfig(server, server.ValidConnectURLs(sm.baseURL), userID, scope, catalogName, mergedEnv, tokenExchangeCred.Secrets)
 	}
 	if err != nil {
 		return ServerConfig{}, nil, err

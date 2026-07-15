@@ -22,7 +22,7 @@ const dashboardWindowDefault = 60 * 24 * time.Hour
 type DeviceScansHandler struct{}
 
 func NewDeviceScansHandler() *DeviceScansHandler {
-	return &DeviceScansHandler{}
+	return nil
 }
 
 // userIsDeviceScanReader reports whether the caller is

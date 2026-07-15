@@ -94,7 +94,7 @@ func NewHandler(ctx context.Context, mcpSessionManager *mcp.SessionManager, audi
 
 func (h *Handler) Proxy(req api.Context) error {
 	if !req.UserIsAuthenticated() {
-		writeMCPAuthRequired(req)
+		writeMCPAuthRequired(req, false)
 		return nil
 	}
 
@@ -161,15 +161,21 @@ func (h *Handler) Proxy(req api.Context) error {
 		}
 	}
 
+	isCompositeLoopback := strings.HasSuffix(req.URL.Path, "/mcp-connect-composite/"+req.PathValue("mcp_id"))
 	nanobotCtx := ntypes.Context{
 		Config: func(context.Context, string) (ntypes.Config, error) {
-			return mcp.ServerNanobotConfig(serverConfig), nil
+			return mcp.ServerNanobotConfig(serverConfig, isCompositeLoopback), nil
 		},
 	}
 
 	ctx := req.Context()
 	ctx = ntypes.WithNanobotContext(ctx, nanobotCtx)
-	ctx = nmcp.WithAuditLogMetadata(ctx, serverConfig.AuditLogMetadata)
+	if isCompositeLoopback {
+		// Don't audit log composite loopback requests, they are internal to the MCP gateway
+		ctx = nmcp.WithAuditLogMetadata(ctx, map[string]string{mcp.AuditLogIgnore: "true"})
+	} else {
+		ctx = nmcp.WithAuditLogMetadata(ctx, serverConfig.AuditLogMetadata)
+	}
 	ctx = nmcp.WithToken(ctx, strings.TrimPrefix(req.Request.Header.Get("Authorization"), "Bearer "))
 
 	h.nanobot.ServeHTTP(req.ResponseWriter, req.WithContext(ctx))
@@ -191,7 +197,7 @@ func (h *Handler) ensureServerIsDeployed(req api.Context) (mcp.ServerConfig, err
 		return mcp.ServerConfig{}, apierrors.NewNotFound(schema.GroupResource{Group: "obot.obot.ai", Resource: "mcpserver"}, mcpID)
 	}
 	if len(missingConfig) > 0 {
-		writeMCPAuthRequired(req)
+		writeMCPAuthRequired(req, true)
 		return mcp.ServerConfig{}, errMCPServerRequiresConfiguration
 	}
 
@@ -214,10 +220,19 @@ func (h *Handler) ensureServerIsDeployed(req api.Context) (mcp.ServerConfig, err
 	return mcpServerConfig, nil
 }
 
-func writeMCPAuthRequired(req api.Context) {
+func writeMCPAuthRequired(req api.Context, requiresConfig bool) {
 	baseURL := strings.TrimSuffix(req.APIBaseURL, "/api")
-	req.ResponseWriter.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="Obot MCP Gateway", resource_metadata="%s/.well-known/oauth-protected-resource/mcp-connect/%s"`, baseURL, req.PathValue("mcp_id")))
-	http.Error(req.ResponseWriter, "MCP server requires configuration", http.StatusUnauthorized)
+	connectPath := "mcp-connect"
+	if strings.HasPrefix(req.URL.Path, "/mcp-connect-composite/") {
+		connectPath = "mcp-connect-composite"
+	}
+
+	req.ResponseWriter.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="Obot MCP Gateway", resource_metadata="%s/.well-known/oauth-protected-resource/%s/%s"`, baseURL, connectPath, req.PathValue("mcp_id")))
+	if requiresConfig {
+		http.Error(req.ResponseWriter, "MCP server requires configuration", http.StatusUnauthorized)
+	} else {
+		http.Error(req.ResponseWriter, "MCP server requires authentication", http.StatusUnauthorized)
+	}
 }
 
 func (h *Handler) ensureSystemServerIsDeployed(req api.Context, mcpID string) (mcp.ServerConfig, error) {
@@ -280,7 +295,7 @@ func (h *Handler) ensureSystemServerIsDeployed(req api.Context, mcpID string) (m
 	baseURL := strings.TrimSuffix(req.APIBaseURL, "/api")
 	audiences := systemServer.ValidConnectURLs(baseURL)
 
-	serverConfig, _, err := mcp.SystemServerToServerConfig(systemServer, audiences, baseURL, req.User.GetUID(), credEnv, secretsCred)
+	serverConfig, _, err := mcp.SystemServerToServerConfig(systemServer, audiences, req.User.GetUID(), credEnv, secretsCred)
 	if err != nil {
 		return mcp.ServerConfig{}, fmt.Errorf("failed to convert system server to config: %w", err)
 	}

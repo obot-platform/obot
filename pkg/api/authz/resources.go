@@ -124,6 +124,11 @@ var apiResources = map[string][]string{
 		"POST   /mcp-connect/{mcp_id}/",
 		"DELETE /mcp-connect/{mcp_id}/",
 	},
+	types.GroupCompositeMCP: {
+		"GET    /mcp-connect-composite/{mcp_id}",
+		"POST   /mcp-connect-composite/{mcp_id}",
+		"DELETE /mcp-connect-composite/{mcp_id}",
+	},
 	types.GroupSkills: {
 		"GET /api/skills/{skill_id}",
 		"GET /api/skills/{skill_id}/download",

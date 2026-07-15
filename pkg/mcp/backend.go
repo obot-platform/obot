@@ -274,8 +274,13 @@ func constructMCPServerNanobotYAMLForComposite(server ServerConfig) ([]byte, err
 	return data, nil
 }
 
-func ServerNanobotConfig(server ServerConfig) ntypes.Config {
-	config := serverNanobotConfig(server, nil)
+func ServerNanobotConfig(server ServerConfig, isComposite bool) ntypes.Config {
+	var config ntypes.Config
+	if isComposite {
+		config = compositeMCPServerNanobotConfig(server)
+	} else {
+		config = serverNanobotConfig(server, nil)
+	}
 
 	config.Auth = &ntypes.Auth{
 		OAuthClientID:     server.TokenExchangeClientID,

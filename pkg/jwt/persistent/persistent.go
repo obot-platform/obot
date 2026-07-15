@@ -129,15 +129,16 @@ func (t *TokenService) ReplaceJWK(req api.Context) error {
 }
 
 type TokenContext struct {
-	Audience              string
-	IssuedAt              time.Time
-	ExpiresAt             time.Time
-	UserID                string
-	UserName              string
-	UserEmail             string
-	OAuthScope            string
-	UserGroups            []string
-	Picture               string
+	Issuer                string `json:"iss"`
+	Audience              string `json:"aud"`
+	IssuedAt              Time   `json:"iat"`
+	ExpiresAt             Time   `json:"exp"`
+	UserID                string `json:"sub"`
+	UserName              string `json:"name"`
+	UserEmail             string `json:"email"`
+	OAuthScope            string `json:"scope"`
+	Picture               string `json:"picture"`
+	UserGroups            StringSlice
 	AuthProviderName      string
 	AuthProviderNamespace string
 	AuthProviderUserID    string
@@ -148,7 +149,38 @@ type TokenContext struct {
 	Namespace     string
 	ModelProvider string
 	Model         string
-	Scope         string
+}
+
+func (t TokenContext) GetAudience() (jwt.ClaimStrings, error) {
+	if t.Audience == "" {
+		return nil, nil
+	}
+	return jwt.ClaimStrings([]string{t.Audience}), nil
+}
+
+// GetExpirationTime implements the Claims interface.
+func (t TokenContext) GetExpirationTime() (*jwt.NumericDate, error) {
+	return &jwt.NumericDate{Time: t.ExpiresAt.Time}, nil
+}
+
+// GetNotBefore implements the Claims interface.
+func (t TokenContext) GetNotBefore() (*jwt.NumericDate, error) {
+	return nil, nil
+}
+
+// GetIssuedAt implements the Claims interface.
+func (t TokenContext) GetIssuedAt() (*jwt.NumericDate, error) {
+	return &jwt.NumericDate{Time: t.IssuedAt.Time}, nil
+}
+
+// GetIssuer implements the Claims interface.
+func (t TokenContext) GetIssuer() (string, error) {
+	return t.Issuer, nil
+}
+
+// GetSubject implements the Claims interface.
+func (t TokenContext) GetSubject() (string, error) {
+	return t.UserID, nil
 }
 
 func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
@@ -178,6 +210,11 @@ func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Re
 	}
 	if mcpID, ok := strings.CutPrefix(tokenContext.Audience, t.serverURL+"/mcp-connect/"); ok {
 		// Ensure we only get the MCP ID
+		mcpID, _, _ := strings.Cut(mcpID, "/")
+		if mcpID != tokenContext.MCPID {
+			extra["authorized_mcp_ids"] = append(extra["authorized_mcp_ids"], mcpID)
+		}
+	} else if mcpID, ok := strings.CutPrefix(tokenContext.Audience, t.serverURL+"/mcp-connect-composite/"); ok {
 		mcpID, _, _ := strings.Cut(mcpID, "/")
 		if mcpID != tokenContext.MCPID {
 			extra["authorized_mcp_ids"] = append(extra["authorized_mcp_ids"], mcpID)
@@ -251,18 +288,14 @@ func (t *TokenService) DecodeToken(ctx context.Context, token string) (*TokenCon
 		return nil, err
 	}
 
-	var groups []string
-	if len(audiences) == 0 {
+	if len(audiences) == 0 || audiences[0] == "" {
 		return nil, fmt.Errorf("no audience")
-	} else if audiences[0] == t.serverURL {
-		// In this case, the token was meant for API access, use the UserGroups claim
-		if userGroups, ok := claims["UserGroups"].(string); ok {
-			groups = strings.Split(userGroups, ",")
-			groups = slices.DeleteFunc(groups, func(s string) bool { return s == "" })
-		}
-	} else if strings.HasPrefix(audiences[0], t.serverURL+"/mcp-connect/") {
-		// In this case, the token was meant for MCP access, just give it the MCP group.
-		groups = []string{types.GroupMCP, types.GroupAuthenticated}
+	}
+
+	var groups []string
+	if userGroups, ok := claims["UserGroups"].(string); ok {
+		groups = strings.Split(userGroups, ",")
+		groups = slices.DeleteFunc(groups, func(s string) bool { return s == "" })
 	}
 
 	var issuedAt, expiresAt time.Time
@@ -283,8 +316,8 @@ func (t *TokenService) DecodeToken(ctx context.Context, token string) (*TokenCon
 	}
 
 	return &TokenContext{
-		IssuedAt:              issuedAt,
-		ExpiresAt:             expiresAt,
+		IssuedAt:              NewTime(issuedAt),
+		ExpiresAt:             NewTime(expiresAt),
 		UserGroups:            groups,
 		Audience:              getStringClaim("aud"),
 		UserID:                getStringClaim("sub"),
@@ -297,45 +330,24 @@ func (t *TokenService) DecodeToken(ctx context.Context, token string) (*TokenCon
 		Namespace:             getStringClaim("Namespace"),
 		ModelProvider:         getStringClaim("ModelProvider"),
 		Model:                 getStringClaim("Model"),
-		Scope:                 getStringClaim("Scope"),
-		// These two fields were the latter names and changed the former.
+		// These fields were the latter names and changed the former.
 		// This makes this backwards compatible with older tokens.
 		UserName:  getStringClaim("name", "UserName"),
 		UserEmail: getStringClaim("email", "UserEmail"),
 	}, nil
 }
 
-func (t *TokenService) NewToken(ctx context.Context, context TokenContext) (string, error) {
-	var picture string
-	if !strings.HasPrefix(context.Picture, "data:") {
+func (t *TokenService) NewToken(ctx context.Context, context TokenContext) (*jwt.Token, string, error) {
+	if context.Audience == "" {
+		return nil, "", fmt.Errorf("audience is required")
+	}
+
+	if strings.HasPrefix(context.Picture, "data:") {
 		// Don't store the picture in the token if it is a base64 encoded image
-		picture = context.Picture
+		context.Picture = ""
 	}
-	claims := jwt.MapClaims{
-		"aud":                   context.Audience,
-		"exp":                   float64(context.ExpiresAt.Unix()),
-		"iat":                   float64(context.IssuedAt.Unix()),
-		"sub":                   context.UserID,
-		"name":                  context.UserName,
-		"email":                 context.UserEmail,
-		"scope":                 context.OAuthScope,
-		"picture":               picture,
-		"UserGroups":            strings.Join(context.UserGroups, ","),
-		"AuthProviderName":      context.AuthProviderName,
-		"AuthProviderNamespace": context.AuthProviderNamespace,
-		"AuthProviderUserID":    context.AuthProviderUserID,
-		"MCPID":                 context.MCPID,
-		"Namespace":             context.Namespace,
-		"ModelProvider":         context.ModelProvider,
-		"Model":                 context.Model,
-		"Scope":                 context.Scope,
-	}
+	context.Issuer = t.serverURL
 
-	_, s, err := t.NewTokenWithClaims(ctx, claims)
-	return s, err
-}
-
-func (t *TokenService) NewTokenWithClaims(ctx context.Context, claims jwt.MapClaims) (*jwt.Token, string, error) {
 	t.lock.RLock()
 	privateKey := t.privateKey
 	t.lock.RUnlock()
@@ -350,12 +362,7 @@ func (t *TokenService) NewTokenWithClaims(ctx context.Context, claims jwt.MapCla
 		t.lock.RUnlock()
 	}
 
-	claims["iss"] = t.serverURL
-	if claims["aud"] == "" {
-		claims["aud"] = t.serverURL
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodEdDSA, claims)
+	token := jwt.NewWithClaims(jwt.SigningMethodEdDSA, context)
 	s, err := token.SignedString(privateKey)
 	return token, s, err
 }

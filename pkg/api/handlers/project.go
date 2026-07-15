@@ -12,10 +12,10 @@ import (
 type ProjectHandler struct{}
 
 func NewProjectHandler() *ProjectHandler {
-	return &ProjectHandler{}
+	return nil
 }
 
-func (h *ProjectHandler) List(req api.Context) error {
+func (*ProjectHandler) List(req api.Context) error {
 	var (
 		projectList v1.ProjectList
 		fields      = kclient.MatchingFields{}
@@ -38,7 +38,7 @@ func (h *ProjectHandler) List(req api.Context) error {
 	return req.Write(types.ProjectList{Items: items})
 }
 
-func (h *ProjectHandler) Create(req api.Context) error {
+func (*ProjectHandler) Create(req api.Context) error {
 	var manifest types.ProjectManifest
 	if err := req.Read(&manifest); err != nil {
 		return err
@@ -62,7 +62,7 @@ func (h *ProjectHandler) Create(req api.Context) error {
 	return req.WriteCreated(convertProject(project))
 }
 
-func (h *ProjectHandler) ByID(req api.Context) error {
+func (*ProjectHandler) ByID(req api.Context) error {
 	var project v1.Project
 	if err := req.Get(&project, req.PathValue("project_id")); err != nil {
 		return err
@@ -71,7 +71,7 @@ func (h *ProjectHandler) ByID(req api.Context) error {
 	return req.Write(convertProject(project))
 }
 
-func (h *ProjectHandler) Update(req api.Context) error {
+func (*ProjectHandler) Update(req api.Context) error {
 	var (
 		id      = req.PathValue("project_id")
 		project v1.Project
@@ -94,7 +94,7 @@ func (h *ProjectHandler) Update(req api.Context) error {
 	return req.Write(convertProject(project))
 }
 
-func (h *ProjectHandler) Delete(req api.Context) error {
+func (*ProjectHandler) Delete(req api.Context) error {
 	var id = req.PathValue("project_id")
 
 	return req.Delete(&v1.Project{
