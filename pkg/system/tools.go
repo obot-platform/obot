@@ -1,8 +1,11 @@
 package system
 
+import nanobottypes "github.com/obot-platform/nanobot/pkg/types"
+
 const (
 	OpenAIModelProvider              = "openai-model-provider"
 	AnthropicModelProvider           = "anthropic-model-provider"
+	GenericResponsesModelProvider    = "generic-responses-model-provider"
 	AmazonBedrockModelProvider       = "amazon-bedrock-model-provider"
 	AmazonBedrockAPIKeyModelProvider = "amazon-bedrock-api-key-model-provider"
 
@@ -27,3 +30,8 @@ const (
 
 	JWKCredentialContext = "jwk"
 )
+
+// IsResponsesDialect reports whether dialect uses the Responses API format.
+func IsResponsesDialect(dialect string) bool {
+	return dialect == string(nanobottypes.DialectOpenAIResponses) || dialect == string(nanobottypes.DialectOpenResponses)
+}

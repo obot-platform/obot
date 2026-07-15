@@ -528,6 +528,68 @@ func TestAPIKeyBackendTransportRequiresCredentialValue(t *testing.T) {
 	}
 }
 
+func TestGenericResponsesBackendUpstreamURL(t *testing.T) {
+	backend := genericResponsesProviderBackend{}
+
+	for _, tt := range []struct {
+		name    string
+		baseURL string
+		wantURL string
+		wantErr bool
+	}{
+		{name: "configured", baseURL: "https://models.example/v1/", wantURL: "https://models.example/v1"},
+		{name: "local HTTP", baseURL: "http://localhost:11434/v1", wantURL: "http://localhost:11434/v1"},
+		{name: "missing", wantErr: true},
+		{name: "relative", baseURL: "localhost:11434/v1", wantErr: true},
+		{name: "unsupported scheme", baseURL: "ftp://models.example/v1", wantErr: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			u, dialect, err := backend.upstreamURL(nil, map[string]string{genericResponsesBaseURLEnv: tt.baseURL})
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("upstreamURL() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if err != nil {
+				return
+			}
+			if got := u.String(); got != tt.wantURL {
+				t.Fatalf("upstreamURL() = %q, want %q", got, tt.wantURL)
+			}
+			if dialect != nanobottypes.DialectOpenResponses {
+				t.Fatalf("dialect = %q, want %q", dialect, nanobottypes.DialectOpenResponses)
+			}
+		})
+	}
+}
+
+func TestGenericResponsesTransportHeaders(t *testing.T) {
+	for _, tt := range []struct {
+		name     string
+		key      string
+		wantAuth string
+	}{
+		{name: "configured key", key: "provider-key", wantAuth: "Bearer provider-key"},
+		{name: "no key"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			capture := &captureRoundTripper{}
+			transport := genericResponsesTransport{key: tt.key, next: capture}
+			req := httptest.NewRequest(http.MethodPost, "https://provider.example/v1/responses", nil)
+			req.Header.Set("Authorization", "Bearer obot-key")
+			req.Header.Set("X-Api-Key", "obot-key")
+
+			if _, err := transport.RoundTrip(req); err != nil {
+				t.Fatal(err)
+			}
+			if got := capture.req.Header.Get("Authorization"); got != tt.wantAuth {
+				t.Fatalf("Authorization = %q, want %q", got, tt.wantAuth)
+			}
+			if got := capture.req.Header.Get("X-Api-Key"); got != "" {
+				t.Fatalf("X-Api-Key = %q, want empty", got)
+			}
+		})
+	}
+}
+
 // TestLLMTransformRequest_UpstreamPath asserts the upstream URL.Path produced
 // by llmTransformRequest for every (base URL, reqPath) combination the proxy
 // should support. Every reqPath is grounded in real source — either nanobot
@@ -605,6 +667,12 @@ func TestLLMTransformRequest_UpstreamPath(t *testing.T) {
 		{
 			name:    "OpenAI SDK (Responses API) → /api/llm-proxy/openai/v1",
 			baseURL: "https://api.openai.com/v1",
+			reqPath: "v1/responses",
+			want:    "/v1/responses",
+		},
+		{
+			name:    "OpenAI SDK (Responses API) → /api/llm-proxy/generic-responses/v1",
+			baseURL: "https://models.example/v1",
 			reqPath: "v1/responses",
 			want:    "/v1/responses",
 		},

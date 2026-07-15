@@ -23,6 +23,10 @@
 	let anthropicModels = $derived(
 		data.models.filter((m) => m.modelProvider === CommonModelProviderIds.ANTHROPIC)
 	);
+	let genericResponsesModels = $derived(
+		data.models.filter((m) => m.modelProvider === CommonModelProviderIds.GENERIC_RESPONSES)
+	);
+	let genericResponsesDisplayModels = $derived(toCallableModelNames(genericResponsesModels));
 	let bedrockModels = $derived(
 		data.models.filter((m) => m.modelProvider === CommonModelProviderIds.AMAZON_BEDROCK)
 	);
@@ -74,6 +78,7 @@
 
 	let openaiCtx = $derived(buildCtx('openai', openaiModels));
 	let anthropicCtx = $derived(buildCtx('anthropic', anthropicModels));
+	let genericResponsesCtx = $derived(buildCtx('generic-responses', genericResponsesDisplayModels));
 	let bedrockAnthropicCtx = $derived(
 		buildCtx('aws-bedrock-anthropic', bedrockAnthropicDisplayModels)
 	);
@@ -97,8 +102,9 @@
 		out:fly={{ x: -100, duration }}
 	>
 		<p class="text-muted-content max-w-3xl text-sm">
-			Use the Obot LLM Gateway to call OpenAI, Anthropic, and Amazon Bedrock models with your Obot
-			credentials. Configure your client below, then pick from the models you have access to.
+			Use the Obot LLM Gateway to call OpenAI, Anthropic, Generic Responses, and Amazon Bedrock
+			models with your Obot credentials. Configure your client below, then pick from the models you
+			have access to.
 		</p>
 
 		{#if ready}
@@ -108,6 +114,12 @@
 				{/if}
 				{#if openaiModels.length > 0}
 					<LLMGatewayProviderSection ctx={openaiCtx} models={openaiModels} />
+				{/if}
+				{#if genericResponsesModels.length > 0}
+					<LLMGatewayProviderSection
+						ctx={genericResponsesCtx}
+						models={genericResponsesDisplayModels}
+					/>
 				{/if}
 				{#if bedrockAnthropicModels.length > 0}
 					<LLMGatewayProviderSection

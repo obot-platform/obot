@@ -3,6 +3,7 @@ import { CommonModelProviderIds } from '$lib/constants';
 export type ProviderShortKey =
 	| 'openai'
 	| 'anthropic'
+	| 'generic-responses'
 	| 'aws-bedrock-anthropic'
 	| 'aws-bedrock-openai'
 	| 'aws-bedrock-api-key-anthropic'
@@ -27,6 +28,12 @@ export const PROVIDER_CONNECTIONS: Record<ProviderShortKey, ProviderConnection> 
 		shortKey: 'anthropic',
 		displayName: 'Anthropic',
 		routePath: 'anthropic'
+	},
+	'generic-responses': {
+		id: CommonModelProviderIds.GENERIC_RESPONSES,
+		shortKey: 'generic-responses',
+		displayName: 'Generic Responses Compatible',
+		routePath: 'generic-responses'
 	},
 	'aws-bedrock-anthropic': {
 		id: CommonModelProviderIds.AMAZON_BEDROCK,
@@ -57,6 +64,7 @@ export const PROVIDER_CONNECTIONS: Record<ProviderShortKey, ProviderConnection> 
 export const SUPPORTED_PROVIDER_IDS = new Set<string>([
 	CommonModelProviderIds.OPENAI,
 	CommonModelProviderIds.ANTHROPIC,
+	CommonModelProviderIds.GENERIC_RESPONSES,
 	CommonModelProviderIds.AMAZON_BEDROCK,
 	CommonModelProviderIds.AMAZON_BEDROCK_API_KEY
 ]);
