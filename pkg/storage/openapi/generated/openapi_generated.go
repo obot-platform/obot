@@ -4675,10 +4675,17 @@ func schema_obot_platform_obot_apiclient_types_LLMAuditLog(ref common.ReferenceC
 							Format: "byte",
 						},
 					},
-					"redactedRequestBody": {
+					"policyModifiedRequestBody": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "byte",
+						},
+					},
+					"messagePolicyTriggered": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
 						},
 					},
 					"responseHeaders": {
@@ -4770,7 +4777,7 @@ func schema_obot_platform_obot_apiclient_types_LLMAuditLog(ref common.ReferenceC
 						},
 					},
 				},
-				Required: []string{"id", "createdAt", "duration", "userID", "modelProvider", "modelID", "targetModel", "reasoningEffort", "requestPath", "requestMethod", "responseID", "responseStatus", "outcome", "inputTokens", "outputTokens", "requestID", "client", "clientVersion", "clientSessionID", "clientIP"},
+				Required: []string{"id", "createdAt", "duration", "userID", "modelProvider", "modelID", "targetModel", "reasoningEffort", "requestPath", "requestMethod", "messagePolicyTriggered", "responseID", "responseStatus", "outcome", "inputTokens", "outputTokens", "requestID", "client", "clientVersion", "clientSessionID", "clientIP"},
 			},
 		},
 		Dependencies: []string{

@@ -27,8 +27,9 @@ func TestParseLLMAuditLogOptsUsesProvidedStartTime(t *testing.T) {
 
 func TestParseLLMAuditLogOptsParsesFilterFields(t *testing.T) {
 	opts := parseLLMAuditLogOpts(url.Values{
-		"target_model":      {"model-a,model-b"},
-		"client_session_id": {"session-1"},
+		"target_model":             {"model-a,model-b"},
+		"client_session_id":        {"session-1"},
+		"message_policy_triggered": {"true,false"},
 	})
 
 	if got, want := opts.TargetModel, []string{"model-a", "model-b"}; len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
@@ -36,5 +37,8 @@ func TestParseLLMAuditLogOptsParsesFilterFields(t *testing.T) {
 	}
 	if got := opts.ClientSessionID; len(got) != 1 || got[0] != "session-1" {
 		t.Fatalf("expected client session ID, got %v", got)
+	}
+	if got := opts.MessagePolicyTriggered; len(got) != 2 || !got[0] || got[1] {
+		t.Fatalf("expected input policy trigger values [true false], got %v", got)
 	}
 }

@@ -496,13 +496,14 @@ export interface LLMAuditLog {
 	duration: number;
 	error?: string;
 	id: string;
+	messagePolicyTriggered: boolean;
 	inputTokens: number;
 	modelID: string;
 	modelProvider: string;
 	outcome: string;
 	outputTokens: number;
 	reasoningEffort: string;
-	redactedRequestBody?: unknown;
+	policyModifiedRequestBody?: unknown;
 	requestBody?: unknown;
 	requestHeaders?: Record<string, string | string[]>;
 	requestID: string;
@@ -520,6 +521,7 @@ export type LLMAuditLogURLFilters = {
 	client?: string | null;
 	client_session_id?: string | null;
 	end_time?: string | null;
+	message_policy_triggered?: string | null;
 	limit?: number | null;
 	model_provider?: string | null;
 	offset?: number | null;

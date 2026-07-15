@@ -59,15 +59,16 @@ func (h *LLMAuditLogHandler) Get(req api.Context) error {
 	return req.Write(gatewaytypes.ConvertLLMAuditLog(*log))
 }
 
-var llmAuditLogFilterOptions = map[string]any{
-	"user_id":           "",
-	"model_provider":    "",
-	"target_model":      "",
-	"request_path":      "",
-	"response_status":   0,
-	"outcome":           "",
-	"client":            "",
-	"client_session_id": "",
+var llmAuditLogFilterOptions = map[string][]any{
+	"user_id":                  {""},
+	"model_provider":           {""},
+	"target_model":             {""},
+	"request_path":             {""},
+	"response_status":          {0},
+	"outcome":                  {""},
+	"client":                   {""},
+	"client_session_id":        {""},
+	"message_policy_triggered": nil,
 }
 
 func (h *LLMAuditLogHandler) ListFilterOptions(req api.Context) error {
@@ -78,7 +79,7 @@ func (h *LLMAuditLogHandler) ListFilterOptions(req api.Context) error {
 		return types.NewErrBadRequest("invalid filter: %s", filter)
 	}
 
-	options, err := req.GatewayClient.GetLLMAuditLogFilterOptions(req.Context(), filter, parseLLMAuditLogOpts(req.URL.Query()), exclude)
+	options, err := req.GatewayClient.GetLLMAuditLogFilterOptions(req.Context(), filter, parseLLMAuditLogOpts(req.URL.Query()), exclude...)
 	if err != nil {
 		return err
 	}
@@ -100,6 +101,11 @@ func parseLLMAuditLogOpts(query url.Values) gateway.LLMAuditLogOptions {
 		SortBy:          query.Get("sort_by"),
 		SortOrder:       query.Get("sort_order"),
 		StartTime:       time.Now().UTC().AddDate(0, 0, -30),
+	}
+	for _, value := range parseStringList(query, "message_policy_triggered") {
+		if triggered, err := strconv.ParseBool(value); err == nil {
+			opts.MessagePolicyTriggered = append(opts.MessagePolicyTriggered, triggered)
+		}
 	}
 
 	for _, value := range parseStringList(query, "response_status") {

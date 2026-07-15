@@ -100,7 +100,6 @@ func (c *Client) GetLLMAuditLogs(ctx context.Context, opts LLMAuditLogOptions) (
 		sortOrder = "ASC"
 	}
 	db = db.Order(sortBy + " " + sortOrder)
-
 	if err := db.Find(&logs).Error; err != nil {
 		return nil, 0, err
 	}
@@ -139,6 +138,19 @@ func (c *Client) GetLLMAuditLogFilterOptions(ctx context.Context, option string,
 		db = db.Order(option).Limit(opts.Limit)
 	}
 
+	if option == "message_policy_triggered" {
+		var values []bool
+		if err := db.Select(option).Scan(&values).Error; err != nil {
+			return nil, err
+		}
+
+		result := make([]string, 0, len(values))
+		for _, value := range values {
+			result = append(result, strconv.FormatBool(value))
+		}
+		return result, nil
+	}
+
 	var result []string
 	return result, db.Select(option).Scan(&result).Error
 }
@@ -152,14 +164,14 @@ func (c *Client) prepareLLMAuditLog(ctx context.Context, log *types.LLMAuditLog,
 	}
 	log.RequestHeaders = nil
 	log.RequestBody = nil
-	log.RedactedRequestBody = nil
+	log.PolicyModifiedRequestBody = nil
 	log.ResponseHeaders = nil
 	log.ResponseBody = nil
 	return nil
 }
 
 func omitLLMAuditLogSensitiveFields(db *gorm.DB) *gorm.DB {
-	return db.Omit("request_headers", "request_body", "redacted_request_body", "response_headers", "response_body")
+	return db.Omit("request_headers", "request_body", "policy_modified_request_body", "response_headers", "response_body")
 }
 
 func (c *Client) runLLMAuditPersistenceLoop(ctx context.Context, batchSize int, flushInterval time.Duration) {
@@ -241,6 +253,9 @@ func applyLLMAuditLogOptions(db *gorm.DB, opts LLMAuditLogOptions) *gorm.DB {
 	}
 	if len(opts.ClientSessionID) > 0 {
 		db = db.Where("client_session_id IN (?)", opts.ClientSessionID)
+	}
+	if len(opts.MessagePolicyTriggered) > 0 {
+		db = db.Where("message_policy_triggered IN (?)", opts.MessagePolicyTriggered)
 	}
 	if !opts.StartTime.IsZero() {
 		db = db.Where("created_at >= ?", opts.StartTime.UTC())
@@ -413,7 +428,7 @@ func (c *Client) encryptLLMAuditLog(ctx context.Context, log *types.LLMAuditLog)
 	errs := []error{
 		encryptRawMessageField(ctx, transformer, dataCtx, &log.RequestHeaders),
 		encryptRawMessageField(ctx, transformer, dataCtx, &log.RequestBody),
-		encryptRawMessageField(ctx, transformer, dataCtx, &log.RedactedRequestBody),
+		encryptRawMessageField(ctx, transformer, dataCtx, &log.PolicyModifiedRequestBody),
 		encryptRawMessageField(ctx, transformer, dataCtx, &log.ResponseHeaders),
 		encryptRawMessageField(ctx, transformer, dataCtx, &log.ResponseBody),
 	}
@@ -436,7 +451,7 @@ func (c *Client) decryptLLMAuditLog(ctx context.Context, log *types.LLMAuditLog)
 	errs := []error{
 		decryptRawMessageField(ctx, transformer, dataCtx, &log.RequestHeaders),
 		decryptRawMessageField(ctx, transformer, dataCtx, &log.RequestBody),
-		decryptRawMessageField(ctx, transformer, dataCtx, &log.RedactedRequestBody),
+		decryptRawMessageField(ctx, transformer, dataCtx, &log.PolicyModifiedRequestBody),
 		decryptRawMessageField(ctx, transformer, dataCtx, &log.ResponseHeaders),
 		decryptRawMessageField(ctx, transformer, dataCtx, &log.ResponseBody),
 	}
@@ -449,20 +464,21 @@ func llmAuditLogDataCtx(log *types.LLMAuditLog) value.Context {
 }
 
 type LLMAuditLogOptions struct {
-	WithSensitiveFields bool
-	UserID              []string
-	ModelProvider       []string
-	TargetModel         []string
-	RequestPath         []string
-	ResponseStatus      []int
-	Outcome             []string
-	Client              []string
-	ClientSessionID     []string
-	Query               string
-	StartTime           time.Time
-	EndTime             time.Time
-	Limit               int
-	Offset              int
-	SortBy              string
-	SortOrder           string
+	WithSensitiveFields    bool
+	UserID                 []string
+	ModelProvider          []string
+	TargetModel            []string
+	RequestPath            []string
+	ResponseStatus         []int
+	Outcome                []string
+	Client                 []string
+	ClientSessionID        []string
+	MessagePolicyTriggered []bool
+	Query                  string
+	StartTime              time.Time
+	EndTime                time.Time
+	Limit                  int
+	Offset                 int
+	SortBy                 string
+	SortOrder              string
 }
