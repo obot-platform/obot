@@ -1009,10 +1009,6 @@ type llmProviderProxyBackend interface {
 	transport(provider v1.ModelProvider, credEnv map[string]string, dialect nanobottypes.Dialect) (http.RoundTripper, error)
 }
 
-type rootModelListBackend interface {
-	usesRootModelList() bool
-}
-
 type llmProviderProxy struct {
 	dailyUserInputTokenLimit  int
 	dailyUserOutputTokenLimit int

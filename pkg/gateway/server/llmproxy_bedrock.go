@@ -59,10 +59,6 @@ func (b bedrockMantleProviderBackend) transport(_ v1.ModelProvider, credEnv map[
 	return bedrock.Transport(b.resolvedProviderName(), credEnv, http.DefaultTransport)
 }
 
-func (b bedrockMantleProviderBackend) usesRootModelList() bool {
-	return true
-}
-
 func (b bedrockMantleProviderBackend) resolvedProviderName() string {
 	if b.providerName != "" {
 		return b.providerName
