@@ -232,6 +232,7 @@
 			{#if !readonly}
 				<div class="flex justify-end">
 					<button
+						type="button"
 						class="btn btn-secondary btn-sm flex items-center gap-1"
 						onclick={() => {
 							if (!config.headers) {
@@ -530,6 +531,7 @@
 
 {#if variant === 'catalog'}
 	<button
+		type="button"
 		class="btn btn-text pl-0"
 		onclick={() => {
 			showAdvanced = !showAdvanced;
