@@ -539,8 +539,8 @@ github.com/obot-platform/mcp-oauth-proxy v0.0.3-0.20260526141817-32b8278fcf00 h1
 github.com/obot-platform/mcp-oauth-proxy v0.0.3-0.20260526141817-32b8278fcf00/go.mod h1:IBdiWaE+aSlf5TpqKhtDkpGwxPetHtjaScewJ/UoSGQ=
 github.com/obot-platform/nah v0.0.0-20260707163210-8bdf0035e79f h1:yoMKu8I8gFlsBOSPs+guQdsSWscaipIjDIBIIl2a7ho=
 github.com/obot-platform/nah v0.0.0-20260707163210-8bdf0035e79f/go.mod h1:m3e3C4G/Y/ZYRc6CdMj9n8JfVRCzIc7N8FUvjemsVtY=
-github.com/obot-platform/nanobot v0.0.90 h1:Yu0H+M8mb9venHViiVvOkW+qF3fQmoW6uaBi2mmcf5I=
-github.com/obot-platform/nanobot v0.0.90/go.mod h1:ZFecRkCv2RcMjatKKmWVdq1yuRwQa2yXXE83gdM3VNA=
+github.com/obot-platform/nanobot v0.0.91-0.20260715195038-4dbde5629c2a h1:WOPdxr1jL6ArdFMhKQEmXDw/td2AGz/DULAV5N1dkx8=
+github.com/obot-platform/nanobot v0.0.91-0.20260715195038-4dbde5629c2a/go.mod h1:ZFecRkCv2RcMjatKKmWVdq1yuRwQa2yXXE83gdM3VNA=
 github.com/onsi/ginkgo v1.6.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=
 github.com/onsi/ginkgo v1.12.0/go.mod h1:oUhWkIvk5aDxtKvDDuw8gItl8pKl42LzjC9KZE0HfGg=
 github.com/onsi/ginkgo v1.16.5 h1:8xi0RTUf59SOSfEtZMvwTvXYMzG4gV23XVHOZiXNtnE=
