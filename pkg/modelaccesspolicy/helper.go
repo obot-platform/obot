@@ -181,22 +181,23 @@ func (h *Helper) GetUserAllowedModels(user kuser.Info) (map[string]bool, bool, e
 
 // GetUserAllowedTargetModels returns the set of provider-native target model
 // ids (v1.Model.Spec.Manifest.TargetModel) for provider that the user is
-// allowed to use. A target is included iff a configured, active model maps to
-// it and the user is allowed that model. This mirrors the access check enforced
-// by the LLM passthrough: a target appears here iff a request for it would
-// succeed.
+// allowed to use. When dialect is non-empty, only models using that dialect are
+// returned. A target is included iff a configured, active model maps to it and
+// the user is allowed that model. This mirrors the access check enforced by the
+// LLM passthrough: a target appears here iff a request for it would succeed.
 //
 // allowAll reports that the user may use every model (admin/owner or a wildcard
-// model selector). In that case there's nothing to enumerate, so the returned
-// map is nil and callers should skip filtering entirely rather than treat the
-// nil map as "allow nothing".
-func (h *Helper) GetUserAllowedTargetModels(user kuser.Info, provider string) (allowed map[string]bool, allowAll bool, _ error) {
+// model selector). When dialect is empty, there is nothing to enumerate, so the
+// returned map is nil and callers should skip filtering entirely rather than
+// treat the nil map as "allow nothing". A dialect filter always returns an
+// enumerated target set and allowAll=false.
+func (h *Helper) GetUserAllowedTargetModels(user kuser.Info, provider, dialect string) (allowed map[string]bool, allowAll bool, _ error) {
 	allowedModels, allowAll, err := h.GetUserAllowedModels(user)
 	if err != nil {
 		return nil, false, err
 	}
 
-	if allowAll {
+	if allowAll && dialect == "" {
 		// The user may use any model, so there's nothing to filter; skip the
 		// provider lookup entirely.
 		return nil, true, nil
@@ -212,7 +213,10 @@ func (h *Helper) GetUserAllowedTargetModels(user kuser.Info, provider string) (a
 	allowed = make(map[string]bool, len(objs))
 	for _, obj := range objs {
 		m, ok := obj.(*v1.Model)
-		if ok && allowedModels[m.Name] {
+		if !ok || (dialect != "" && m.Spec.Manifest.Dialect != dialect) {
+			continue
+		}
+		if allowAll || allowedModels[m.Name] {
 			allowed[m.Spec.Manifest.TargetModel] = true
 		}
 	}

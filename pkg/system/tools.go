@@ -1,8 +1,10 @@
 package system
 
 const (
-	OpenAIModelProvider    = "openai-model-provider"
-	AnthropicModelProvider = "anthropic-model-provider"
+	OpenAIModelProvider              = "openai-model-provider"
+	AnthropicModelProvider           = "anthropic-model-provider"
+	AmazonBedrockModelProvider       = "amazon-bedrock-model-provider"
+	AmazonBedrockAPIKeyModelProvider = "amazon-bedrock-api-key-model-provider"
 
 	OpenAIAPIKeyEnvVar    = "OPENAI_API_KEY"
 	AnthropicAPIKeyEnvVar = "ANTHROPIC_API_KEY"

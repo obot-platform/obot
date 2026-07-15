@@ -19,6 +19,7 @@ import (
 	"sync"
 	"time"
 
+	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/alias"
@@ -263,6 +264,7 @@ type responseModifier struct {
 	user                kuser.Info
 	model               string
 	modelProvider       string
+	routeDialect        nanobottypes.Dialect
 	projectID, threadID string
 	client              *client.Client
 	b                   *bufio.Reader
@@ -287,7 +289,7 @@ type responseModifier struct {
 
 func (r *responseModifier) modifyResponse(resp *http.Response) error {
 	if isModelsListRequest(resp.Request) {
-		allowedTargetModels, allowAllModels, err := r.mapHelper.GetUserAllowedTargetModels(r.user, r.modelProvider)
+		allowedTargetModels, allowAllModels, err := r.mapHelper.GetUserAllowedTargetModels(r.user, r.modelProvider, string(r.routeDialect))
 		if err != nil {
 			return fmt.Errorf("failed to determine accessible models: %w", err)
 		}
@@ -304,7 +306,7 @@ func (r *responseModifier) modifyResponse(resp *http.Response) error {
 	}
 	r.audit.recordResponse(resp)
 
-	if resp.StatusCode != http.StatusOK || (resp.Request.URL.Path != "/v1/messages" && resp.Request.URL.Path != "/v1/responses") {
+	if !shouldWrapLLMResponse(resp) {
 		wrapAuditOnlyResponse(resp, r.audit, r.client)
 		return nil
 	}
@@ -323,6 +325,18 @@ func (r *responseModifier) modifyResponse(resp *http.Response) error {
 	}
 
 	return nil
+}
+
+func shouldWrapLLMResponse(resp *http.Response) bool {
+	if resp.StatusCode != http.StatusOK {
+		return false
+	}
+	switch resp.Request.URL.Path {
+	case "/v1/messages", "/anthropic/v1/messages", "/v1/responses", "/openai/v1/responses":
+		return true
+	default:
+		return false
+	}
 }
 
 // filterModelListResponse rewrites a provider models-list response, dropping any
@@ -861,9 +875,8 @@ func llmTransformRequest(u url.URL) func(req *http.Request) {
 				urlCopy.Path = "/v1"
 			}
 		case strings.HasSuffix(urlCopy.Path, "/v1"):
-			// Upstream base already ends in /v1 (the openai/anthropic
-			// passthrough routes). Strip a leading v1/ from the client-supplied
-			// path so we don't produce /v1/v1/...
+			// The upstream base already ends in /v1. Strip the same prefix from
+			// the client path so we don't produce /v1/v1/...
 			reqPath = strings.TrimPrefix(reqPath, "v1/")
 			if reqPath == "v1" {
 				reqPath = ""
@@ -984,11 +997,22 @@ func extractContentString(content any) string {
 	}
 }
 
+type preparedLLMProxyRequest struct {
+	body              []byte
+	model             string
+	tokenUsageTracker *threadSafeTokenUsageTracker
+}
+
+type llmProviderProxyBackend interface {
+	modelProviderName() string
+	upstreamURL(req *http.Request, credEnv map[string]string) (url.URL, nanobottypes.Dialect, error)
+	transport(provider v1.ModelProvider, credEnv map[string]string) (http.RoundTripper, error)
+}
+
 type llmProviderProxy struct {
 	dailyUserInputTokenLimit  int
 	dailyUserOutputTokenLimit int
-	u                         *url.URL
-	modelProviderName         string
+	backend                   llmProviderProxyBackend
 	modelProvider             *v1.ModelProvider
 	mapHelper                 *modelaccesspolicy.Helper
 	messagePolicyHelper       *messagepolicy.Helper
@@ -999,8 +1023,7 @@ func (s *Server) newLLMProviderProxy(u *url.URL, modelProviderName string) *llmP
 	return &llmProviderProxy{
 		dailyUserInputTokenLimit:  s.dailyUserInputTokenLimit,
 		dailyUserOutputTokenLimit: s.dailyUserOutputTokenLimit,
-		u:                         u,
-		modelProviderName:         modelProviderName,
+		backend:                   apiKeyLLMProviderBackend{u: *u, providerName: modelProviderName},
 		mapHelper:                 s.mapHelper,
 		messagePolicyHelper:       s.messagePolicyHelper,
 	}
@@ -1014,7 +1037,7 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 			audit.finish(req.GatewayClient, retErr)
 		}()
 	}
-	audit.setModel(l.modelProviderName, "", "")
+	audit.setModel(l.backend.modelProviderName(), "", "")
 
 	l.lock.RLock()
 	modelProvider := l.modelProvider
@@ -1022,8 +1045,8 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 
 	if modelProvider == nil {
 		modelProvider = new(v1.ModelProvider)
-		if err := req.Get(modelProvider, l.modelProviderName); err != nil {
-			return fmt.Errorf("model provider %s not found: %w", l.modelProviderName, err)
+		if err := req.Get(modelProvider, l.backend.modelProviderName()); err != nil {
+			return fmt.Errorf("model provider %s not found: %w", l.backend.modelProviderName(), err)
 		}
 
 		l.lock.Lock()
@@ -1031,18 +1054,26 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 		l.lock.Unlock()
 	}
 
-	// Attempt to get the target model
+	credEnv, err := dispatcher.CredentialEnvForModelProvider(req.Context(), req.GatewayClient, *modelProvider)
+	if err != nil {
+		return fmt.Errorf("failed to get credential environment for model provider: %w", err)
+	}
+	u, routeDialect, err := l.backend.upstreamURL(req.Request, credEnv)
+	if err != nil {
+		return err
+	}
+
 	body, err := copyBody(&req.Request.Body)
 	if err != nil {
 		return fmt.Errorf("failed to copy body: %w", err)
 	}
 	audit.setRequestBody(body)
-	audit.setClientSessionID(l.modelProviderName, body)
-	audit.setReasoningEffort(l.modelProviderName, body)
+	audit.setClientSessionID(l.backend.modelProviderName(), body)
+	audit.setReasoningEffort(l.backend.modelProviderName(), body)
 
-	var tokenUsageTracker *threadSafeTokenUsageTracker
-	targetModel := extractModelFromBody(body)
-	if targetModel != "" {
+	prepared := &preparedLLMProxyRequest{body: body}
+
+	if targetModel := extractModelFromBody(body); targetModel != "" {
 		model, err := getModelFromReference(req.Context(), req.Storage, modelProvider.Namespace, targetModel)
 		if apierrors.IsNotFound(err) {
 			model, err = l.mapHelper.ResolveTargetModel(modelProvider.Name, targetModel)
@@ -1053,7 +1084,6 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 		if model.Spec.Manifest.ModelProvider != modelProvider.Name {
 			return types2.NewErrBadRequest("requested model does not match configured provider %q", targetModel)
 		}
-
 		hasAccess, err := l.mapHelper.UserHasAccessToModel(req.User, model.Name)
 		if err != nil {
 			return fmt.Errorf("failed to check user access to model %q: %w", model.Name, err)
@@ -1062,21 +1092,17 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 			return types2.NewErrForbidden("user does not have permission to use model %q", targetModel)
 		}
 
-		tokenUsageTracker = newTokenUsageTracker(*model)
-		targetModel = model.Spec.Manifest.TargetModel
-		audit.setModel(l.modelProviderName, model.Name, targetModel)
+		prepared.tokenUsageTracker = newTokenUsageTracker(*model)
+		prepared.model = model.Spec.Manifest.TargetModel
+		audit.setModel(modelProvider.Name, model.Name, prepared.model)
 
-		// Replace the model resource name with the actual provider model name
-		body, err = rewriteModelInBody(body, targetModel)
+		prepared.body, err = rewriteModelInBody(body, prepared.model)
 		if err != nil {
 			return fmt.Errorf("failed to rewrite model in request body: %w", err)
 		}
-		req.Request.Body = io.NopCloser(bytes.NewReader(body))
-		req.ContentLength = int64(len(body))
-		audit.setRequestBody(body)
+		audit.setRequestBody(prepared.body)
 	}
 
-	// Evaluate message policies if the helper is available and we have a user.
 	var (
 		messagePolicyHelper    = l.messagePolicyHelper
 		outputPolicies         []messagepolicy.ApplicablePolicy
@@ -1088,7 +1114,7 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 	}
 	if messagePolicyHelper != nil && req.User.GetUID() != "" {
 		var bodyMap map[string]any
-		if err := json.Unmarshal(body, &bodyMap); err == nil {
+		if err := json.Unmarshal(prepared.body, &bodyMap); err == nil {
 			outputPolicies, conversationHistory, inputPolicyReplacement, err = applyMessagePolicies(
 				req.Context(), messagePolicyHelper, req.User, req.GatewayClient, bodyMap, "", "",
 			)
@@ -1100,12 +1126,13 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 				if err != nil {
 					return fmt.Errorf("failed to marshal modified body: %w", err)
 				}
-				req.Request.Body = io.NopCloser(bytes.NewReader(b))
-				req.ContentLength = int64(len(b))
 				audit.setPolicyModifiedRequestBody(b)
+				prepared.body = b
 			}
 		}
 	}
+	req.Request.Body = io.NopCloser(bytes.NewReader(prepared.body))
+	req.ContentLength = int64(len(prepared.body))
 
 	if remainingUsage, err := req.GatewayClient.RemainingTokenUsageForUser(
 		req.Context(),
@@ -1119,44 +1146,37 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 		return types2.NewErrHTTP(http.StatusTooManyRequests, fmt.Sprintf("no tokens remaining (input tokens remaining: %d, output tokens remaining: %d)", remainingUsage.InputTokens, remainingUsage.OutputTokens))
 	}
 
-	credEnv, err := dispatcher.CredentialEnvForModelProvider(req.Context(), req.GatewayClient, *modelProvider)
+	transport, err := l.backend.transport(*modelProvider, credEnv)
 	if err != nil {
-		return fmt.Errorf("failed to get credential environment for model provider: %w", err)
+		return err
 	}
 
-	credEnvKey, err := envVarForModelProvider(*modelProvider)
-	if err != nil {
-		return fmt.Errorf("failed to get credential environment key for model provider: %w", err)
-	}
-
-	if bearer := req.Request.Header.Get("Authorization"); bearer != "" {
-		req.Request.Header.Set("Authorization", fmt.Sprintf("Bearer %s", credEnv[credEnvKey]))
-	} else if token := req.Request.Header.Get("X-Api-Key"); token != "" {
-		req.Request.Header.Set("X-Api-Key", credEnv[credEnvKey])
+	modifier := &responseModifier{
+		user:                   req.User,
+		model:                  prepared.model,
+		modelProvider:          modelProvider.Name,
+		routeDialect:           routeDialect,
+		client:                 req.GatewayClient,
+		tokenUsageTracker:      prepared.tokenUsageTracker,
+		mapHelper:              l.mapHelper,
+		inputPolicyReplacement: inputPolicyReplacement,
+		messagePolicyHelper:    messagePolicyHelper,
+		outputPolicies:         outputPolicies,
+		conversationHistory:    conversationHistory,
+		audit:                  audit,
 	}
 
 	var proxyErr error
 	(&httputil.ReverseProxy{
-		Director: llmTransformRequest(*l.u),
+		Director:  llmTransformRequest(u),
+		Transport: transport,
 		ErrorHandler: func(w http.ResponseWriter, _ *http.Request, err error) {
 			proxyErr = err
 			audit.finish(req.GatewayClient, err)
 			log.Warnf("LLM provider proxy error: %v", err)
 			http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
 		},
-		ModifyResponse: (&responseModifier{
-			user:                   req.User,
-			model:                  targetModel,
-			modelProvider:          l.modelProviderName,
-			client:                 req.GatewayClient,
-			tokenUsageTracker:      tokenUsageTracker,
-			mapHelper:              l.mapHelper,
-			inputPolicyReplacement: inputPolicyReplacement,
-			messagePolicyHelper:    messagePolicyHelper,
-			outputPolicies:         outputPolicies,
-			conversationHistory:    conversationHistory,
-			audit:                  audit,
-		}).modifyResponse,
+		ModifyResponse: modifier.modifyResponse,
 	}).ServeHTTP(req.ResponseWriter, req.Request)
 	if proxyErr != nil {
 		return nil

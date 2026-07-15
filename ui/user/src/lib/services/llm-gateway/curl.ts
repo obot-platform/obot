@@ -8,7 +8,11 @@ function loginSubstitution(obotURL: string): string {
 export function renderCurlExample(ctx: RenderContext): SnippetBlock {
 	const model = ctx.exampleModel ?? '<model-name>';
 
-	if (ctx.provider.shortKey === 'anthropic') {
+	if (
+		ctx.provider.shortKey === 'anthropic' ||
+		ctx.provider.shortKey === 'aws-bedrock-anthropic' ||
+		ctx.provider.shortKey === 'aws-bedrock-api-key-anthropic'
+	) {
 		const body = JSON.stringify(
 			{
 				model,
@@ -18,12 +22,19 @@ export function renderCurlExample(ctx: RenderContext): SnippetBlock {
 			null,
 			2
 		);
+		const apiKeyName = ctx.provider.shortKey === 'anthropic' ? 'ANTHROPIC_API_KEY' : 'OBOT_API_KEY';
+		const baseURLName =
+			ctx.provider.shortKey === 'anthropic' ? 'ANTHROPIC_BASE_URL' : 'OBOT_BASE_URL';
+		const authHeader =
+			ctx.provider.shortKey === 'anthropic'
+				? `x-api-key: $${apiKeyName}`
+				: `Authorization: Bearer $${apiKeyName}`;
 		const code = [
-			`export ANTHROPIC_BASE_URL="${ctx.baseURL}"`,
-			`export ANTHROPIC_API_KEY="${loginSubstitution(ctx.obotURL)}"`,
+			`export ${baseURLName}="${ctx.baseURL}"`,
+			`export ${apiKeyName}="${loginSubstitution(ctx.obotURL)}"`,
 			'',
-			'curl $ANTHROPIC_BASE_URL/v1/messages \\',
-			'  -H "x-api-key: $ANTHROPIC_API_KEY" \\',
+			`curl $${baseURLName}/v1/messages \\`,
+			`  -H "${authHeader}" \\`,
 			'  -H "anthropic-version: 2023-06-01" \\',
 			'  -H "content-type: application/json" \\',
 			`  -d '${body}'`
@@ -31,7 +42,7 @@ export function renderCurlExample(ctx: RenderContext): SnippetBlock {
 		return { language: 'bash', code };
 	}
 
-	// OpenAI (Responses API)
+	// OpenAI-compatible Responses API
 	const body = JSON.stringify(
 		{
 			model,

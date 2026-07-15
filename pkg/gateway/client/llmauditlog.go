@@ -337,7 +337,7 @@ func aggregateLLMAuditResponse(log *types.LLMAuditLog, responseStream []byte) {
 	if log == nil || len(responseStream) == 0 {
 		return
 	}
-	accumulator := gatewayllmaudit.NewResponseAccumulator(log.ModelProvider)
+	accumulator := gatewayllmaudit.NewResponseAccumulator(log.ModelProvider, log.RequestPath)
 	accumulator.Write(responseStream)
 	log.ResponseBody = accumulator.JSON()
 	if log.ResponseID == "" {

@@ -10,11 +10,26 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
+	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
 	types2 "github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/gateway/bedrock"
 	"github.com/obot-platform/obot/pkg/messagepolicy"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
 	"github.com/tidwall/gjson"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+type captureRoundTripper struct {
+	req *http.Request
+}
+
+func (c *captureRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	c.req = req
+	return &http.Response{StatusCode: http.StatusOK, Body: http.NoBody, Request: req}, nil
+}
 
 func TestShouldSkipMessagePolicyEnforcement(t *testing.T) {
 	tests := []struct {
@@ -185,6 +200,59 @@ func TestResponseModifier_NonStreamingResponse(t *testing.T) {
 	}
 	if total := got.TotalTokens; total != 15 {
 		t.Errorf("totalTokens() = %d, want 15", total)
+	}
+}
+
+func TestResponseModifierCapturesAuditResponseBody(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+	recorder := newLLMAuditRecorder(req, nil, 5<<20)
+	body := "{\"id\":\"resp_1\",\"usage\":{\"input_tokens\":1,\"output_tokens\":2}}\n"
+	r := &responseModifier{
+		tokenUsageTracker: &threadSafeTokenUsageTracker{inner: &responseTokenUsageTracker{}},
+		audit:             recorder,
+	}
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     make(http.Header),
+		Body:       io.NopCloser(strings.NewReader(body)),
+		Request:    req,
+	}
+
+	if err := r.modifyResponse(resp); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := io.ReadAll(resp.Body); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := recorder.responseStream.String(); got != body {
+		t.Fatalf("captured response body = %q, want %q", got, body)
+	}
+}
+
+func TestResponseModifierPreservesUpstreamErrorBody(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/openai/v1/responses", nil)
+	recorder := newLLMAuditRecorder(req, nil, 5<<20)
+	body := `{"error":{"code":"validation_error","message":"model does not support this API"}}`
+	resp := &http.Response{
+		StatusCode: http.StatusBadRequest,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(body)),
+		Request:    req,
+	}
+
+	if err := (&responseModifier{audit: recorder}).modifyResponse(resp); err != nil {
+		t.Fatal(err)
+	}
+	got, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != body {
+		t.Fatalf("response body = %q, want %q", got, body)
+	}
+	if got := recorder.responseStream.String(); got != body {
+		t.Fatalf("captured response body = %q, want %q", got, body)
 	}
 }
 
@@ -383,6 +451,83 @@ func TestLLMTransformRequest_RemovesInternalRequestTypeHeader(t *testing.T) {
 	}
 }
 
+func TestAPIKeyTransportHeaders(t *testing.T) {
+	tests := []struct {
+		name              string
+		providerName      string
+		clientHeaderName  string
+		clientHeaderValue string
+		wantAuth          string
+		wantAPIKey        string
+	}{
+		{
+			name:              "anthropic converts bearer auth to api key",
+			providerName:      system.AnthropicModelProvider,
+			clientHeaderName:  "Authorization",
+			clientHeaderValue: "Bearer client-token",
+			wantAPIKey:        "provider-key",
+		},
+		{
+			name:              "openai converts api key to bearer auth",
+			providerName:      system.OpenAIModelProvider,
+			clientHeaderName:  "X-Api-Key",
+			clientHeaderValue: "client-token",
+			wantAuth:          "Bearer provider-key",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			capture := &captureRoundTripper{}
+			transport := apiKeyTransport{providerName: tt.providerName, key: "provider-key", next: capture}
+			req := httptest.NewRequest(http.MethodPost, "https://provider.example/v1/messages", nil)
+			req.Header.Set(tt.clientHeaderName, tt.clientHeaderValue)
+
+			if _, err := transport.RoundTrip(req); err != nil {
+				t.Fatal(err)
+			}
+			if got := capture.req.Header.Get("Authorization"); got != tt.wantAuth {
+				t.Fatalf("Authorization = %q, want %q", got, tt.wantAuth)
+			}
+			if got := capture.req.Header.Get("X-Api-Key"); got != tt.wantAPIKey {
+				t.Fatalf("X-Api-Key = %q, want %q", got, tt.wantAPIKey)
+			}
+		})
+	}
+}
+
+func TestAPIKeyBackendTransportRequiresCredentialValue(t *testing.T) {
+	const apiKeyEnv = "OPENAI_MODEL_PROVIDER_API_KEY"
+	provider := v1.ModelProvider{
+		ObjectMeta: metav1.ObjectMeta{Name: system.OpenAIModelProvider},
+		Spec: v1.ModelProviderSpec{ModelProviderManifest: types2.ModelProviderManifest{
+			CommonProviderMetadata: types2.CommonProviderMetadata{
+				RequiredConfigurationParameters: []types2.ProviderConfigurationParameter{{Name: apiKeyEnv}},
+			},
+		}},
+	}
+
+	for _, tt := range []struct {
+		name    string
+		credEnv map[string]string
+		wantErr bool
+	}{
+		{name: "missing key", credEnv: map[string]string{}, wantErr: true},
+		{name: "empty key", credEnv: map[string]string{apiKeyEnv: ""}, wantErr: true},
+		{name: "configured key", credEnv: map[string]string{apiKeyEnv: "provider-key"}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := (apiKeyLLMProviderBackend{}).transport(provider, tt.credEnv)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("transport() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if err != nil && (!strings.Contains(err.Error(), apiKeyEnv) || !strings.Contains(err.Error(), provider.Name)) {
+				t.Fatalf("transport() error = %q, want credential and provider names", err)
+			}
+		})
+	}
+}
+
 // TestLLMTransformRequest_UpstreamPath asserts the upstream URL.Path produced
 // by llmTransformRequest for every (base URL, reqPath) combination the proxy
 // should support. Every reqPath is grounded in real source — either nanobot
@@ -477,6 +622,30 @@ func TestLLMTransformRequest_UpstreamPath(t *testing.T) {
 			reqPath: "v1/models",
 			want:    "/v1/models",
 		},
+		{
+			name:    "Claude Code Mantle → /api/llm-proxy/aws-bedrock/anthropic",
+			baseURL: "https://bedrock-mantle.us-east-1.api.aws/anthropic/v1",
+			reqPath: "v1/messages",
+			want:    "/anthropic/v1/messages",
+		},
+		{
+			name:    "Claude Code Mantle models → /api/llm-proxy/aws-bedrock/anthropic",
+			baseURL: "https://bedrock-mantle.us-east-1.api.aws/anthropic/v1",
+			reqPath: "v1/models",
+			want:    "/anthropic/v1/models",
+		},
+		{
+			name:    "OpenAI Bedrock Responses → /api/llm-proxy/aws-bedrock/openai/v1",
+			baseURL: "https://bedrock-mantle.us-east-1.api.aws/openai/v1",
+			reqPath: "v1/responses",
+			want:    "/openai/v1/responses",
+		},
+		{
+			name:    "OpenAI Bedrock models → /api/llm-proxy/aws-bedrock/openai/v1",
+			baseURL: "https://bedrock-mantle.us-east-1.api.aws/openai/v1",
+			reqPath: "v1/models",
+			want:    "/openai/v1/models",
+		},
 	}
 
 	for _, tt := range tests {
@@ -493,6 +662,345 @@ func TestLLMTransformRequest_UpstreamPath(t *testing.T) {
 				t.Fatalf("URL.Path = %q, want %q", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestBedrockRouteDialect(t *testing.T) {
+	tests := []struct {
+		dialect     nanobottypes.Dialect
+		wantDialect string
+		wantErr     bool
+	}{
+		{dialect: nanobottypes.DialectAnthropicMessages, wantDialect: "anthropic"},
+		{dialect: nanobottypes.DialectOpenAIResponses, wantDialect: "openai"},
+		{dialect: nanobottypes.DialectOpenAIChatCompletions, wantErr: true},
+		{dialect: "", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(tt.dialect), func(t *testing.T) {
+			got, err := bedrock.RouteDialect(tt.dialect)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("bedrock.RouteDialect(%q) error = %v, wantErr %v", tt.dialect, err, tt.wantErr)
+			}
+			if got != tt.wantDialect {
+				t.Fatalf("bedrock.RouteDialect(%q) = %q, want %q", tt.dialect, got, tt.wantDialect)
+			}
+		})
+	}
+}
+
+func TestResolveBedrockRouteDialect(t *testing.T) {
+	tests := []struct {
+		name        string
+		path        string
+		wantPath    string
+		wantDialect nanobottypes.Dialect
+		wantErr     bool
+	}{
+		{name: "messages without version", path: "messages", wantPath: "messages", wantDialect: nanobottypes.DialectAnthropicMessages},
+		{name: "unprefixed messages", path: "v1/messages", wantPath: "v1/messages", wantDialect: nanobottypes.DialectAnthropicMessages},
+		{name: "prefixed messages", path: "anthropic/v1/messages", wantPath: "v1/messages", wantDialect: nanobottypes.DialectAnthropicMessages},
+		{name: "responses without version", path: "responses", wantPath: "responses", wantDialect: nanobottypes.DialectOpenAIResponses},
+		{name: "unprefixed responses", path: "v1/responses", wantPath: "v1/responses", wantDialect: nanobottypes.DialectOpenAIResponses},
+		{name: "prefixed responses", path: "openai/v1/responses", wantPath: "v1/responses", wantDialect: nanobottypes.DialectOpenAIResponses},
+		{name: "unprefixed models", path: "v1/models", wantPath: "v1/models"},
+		{name: "anthropic models", path: "anthropic/v1/models", wantPath: "v1/models", wantDialect: nanobottypes.DialectAnthropicMessages},
+		{name: "openai models", path: "openai/v1/models", wantPath: "v1/models", wantDialect: nanobottypes.DialectOpenAIResponses},
+		{name: "prefix determines dialect", path: "openai/v1/messages", wantPath: "v1/messages", wantDialect: nanobottypes.DialectOpenAIResponses},
+		{name: "unsupported path", path: "v1/chat/completions", wantPath: "v1/chat/completions", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "http://gateway.local/", nil)
+			req.SetPathValue("path", tt.path)
+
+			got, err := resolveBedrockRouteDialect(req)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("resolveBedrockRouteDialect() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if got != tt.wantDialect {
+				t.Fatalf("dialect = %q, want %q", got, tt.wantDialect)
+			}
+			if gotPath := req.PathValue("path"); gotPath != tt.wantPath {
+				t.Fatalf("normalized path = %q, want %q", gotPath, tt.wantPath)
+			}
+		})
+	}
+}
+
+func TestBedrockUpstreamURLUsesRouteDialect(t *testing.T) {
+	tests := []struct {
+		name        string
+		path        string
+		wantURL     string
+		wantDialect nanobottypes.Dialect
+	}{
+		{
+			name:        "OpenAI route",
+			path:        "v1/responses",
+			wantURL:     "https://bedrock-mantle.us-east-1.api.aws/openai/v1",
+			wantDialect: nanobottypes.DialectOpenAIResponses,
+		},
+		{
+			name:        "Anthropic route",
+			path:        "v1/messages",
+			wantURL:     "https://bedrock-mantle.us-east-1.api.aws/anthropic/v1",
+			wantDialect: nanobottypes.DialectAnthropicMessages,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "http://gateway.local/", nil)
+			req.SetPathValue("path", tt.path)
+			backend := bedrockMantleProviderBackend{apiKey: true}
+			got, dialect, err := backend.upstreamURL(req, map[string]string{bedrock.APIKeyRegionEnv: "us-east-1"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got.String() != tt.wantURL {
+				t.Fatalf("upstream URL = %q, want %q", got.String(), tt.wantURL)
+			}
+			if dialect != tt.wantDialect {
+				t.Fatalf("dialect = %q, want %q", dialect, tt.wantDialect)
+			}
+		})
+	}
+}
+
+func TestBedrockModelsListUsesRootUpstreamPath(t *testing.T) {
+	for _, tt := range []struct {
+		path    string
+		dialect nanobottypes.Dialect
+	}{
+		{path: "anthropic/v1/models", dialect: nanobottypes.DialectAnthropicMessages},
+		{path: "openai/v1/models", dialect: nanobottypes.DialectOpenAIResponses},
+	} {
+		t.Run(string(tt.dialect), func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "http://gateway.local/", nil)
+			req.SetPathValue("path", tt.path)
+
+			backend := bedrockMantleProviderBackend{apiKey: true}
+			u, dialect, err := backend.upstreamURL(req, map[string]string{bedrock.APIKeyRegionEnv: "us-east-1"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := u.String(); got != "https://bedrock-mantle.us-east-1.api.aws/v1" {
+				t.Fatalf("upstream URL = %q, want root /v1", got)
+			}
+			if dialect != tt.dialect {
+				t.Fatalf("dialect = %q, want %q", dialect, tt.dialect)
+			}
+		})
+	}
+}
+
+func TestBedrockUnprefixedModelsListUsesRootUpstreamPath(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "http://gateway.local/", nil)
+	req.SetPathValue("path", "v1/models")
+
+	backend := bedrockMantleProviderBackend{apiKey: true}
+	u, dialect, err := backend.upstreamURL(req, map[string]string{bedrock.APIKeyRegionEnv: "us-east-1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := u.String(); got != "https://bedrock-mantle.us-east-1.api.aws/v1" {
+		t.Fatalf("upstream URL = %q, want root /v1", got)
+	}
+	if dialect != "" {
+		t.Fatalf("dialect = %q, want empty", dialect)
+	}
+}
+
+func TestBedrockRequestUpstreamPath(t *testing.T) {
+	tests := []struct {
+		name string
+		path string
+		want string
+	}{
+		{name: "messages without version", path: "messages", want: "/anthropic/v1/messages"},
+		{name: "unprefixed messages", path: "v1/messages", want: "/anthropic/v1/messages"},
+		{name: "Bedrock-aware messages", path: "anthropic/v1/messages", want: "/anthropic/v1/messages"},
+		{name: "Codex responses without version", path: "responses", want: "/openai/v1/responses"},
+		{name: "unprefixed responses", path: "v1/responses", want: "/openai/v1/responses"},
+		{name: "Bedrock-aware responses", path: "openai/v1/responses", want: "/openai/v1/responses"},
+		{name: "prefix and endpoint mismatch", path: "openai/v1/messages", want: "/openai/v1/messages"},
+		{name: "unprefixed models", path: "v1/models", want: "/v1/models"},
+		{name: "Anthropic-prefixed models", path: "anthropic/v1/models", want: "/v1/models"},
+		{name: "OpenAI-prefixed models", path: "openai/v1/models", want: "/v1/models"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "http://gateway.local/", nil)
+			req.SetPathValue("path", tt.path)
+
+			backend := bedrockMantleProviderBackend{apiKey: true}
+			u, _, err := backend.upstreamURL(req, map[string]string{bedrock.APIKeyRegionEnv: "us-east-1"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			llmTransformRequest(u)(req)
+
+			if got := req.URL.Path; got != tt.want {
+				t.Fatalf("upstream path = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestBedrockStaticAuthFromCredential(t *testing.T) {
+	tests := []struct {
+		name    string
+		cred    map[string]string
+		want    bedrock.StaticAuth
+		wantErr string
+	}{
+		{
+			name: "required credentials with default region",
+			cred: map[string]string{
+				bedrock.AccessKeyIDEnv:     "akid",
+				bedrock.SecretAccessKeyEnv: "secret",
+			},
+			want: bedrock.StaticAuth{Region: "us-east-1", SigningService: "bedrock", AccessKeyID: "akid", SecretAccessKey: "secret"},
+		},
+		{
+			name: "all credentials",
+			cred: map[string]string{
+				bedrock.AccessKeyIDEnv:     "akid",
+				bedrock.SecretAccessKeyEnv: "secret",
+				bedrock.SessionTokenEnv:    "session",
+				bedrock.RegionEnv:          "us-west-2",
+			},
+			want: bedrock.StaticAuth{Region: "us-west-2", SigningService: "bedrock", AccessKeyID: "akid", SecretAccessKey: "secret", SessionToken: "session"},
+		},
+		{
+			name:    "missing access key",
+			cred:    map[string]string{bedrock.SecretAccessKeyEnv: "secret"},
+			wantErr: bedrock.AccessKeyIDEnv,
+		},
+		{
+			name:    "missing secret key",
+			cred:    map[string]string{bedrock.AccessKeyIDEnv: "akid"},
+			wantErr: bedrock.SecretAccessKeyEnv,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := bedrock.StaticAuthFromCredential(tt.cred)
+			if tt.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("error = %v, want containing %q", err, tt.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != tt.want {
+				t.Fatalf("auth = %#v, want %#v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestBedrockAPIKeyTransportSetsBearer(t *testing.T) {
+	capture := &captureRoundTripper{}
+	transport, err := bedrock.Transport(system.AmazonBedrockAPIKeyModelProvider, map[string]string{
+		bedrock.APIKeyEnv: "bedrock-key",
+	}, capture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "https://bedrock-mantle.us-east-1.api.aws/openai/v1/responses", nil)
+	req.Header.Set("Authorization", "Bearer client-token")
+	req.Header.Set("X-Api-Key", "client-key")
+
+	if _, err := transport.RoundTrip(req); err != nil {
+		t.Fatal(err)
+	}
+	if got := capture.req.Header.Get("Authorization"); got != "Bearer bedrock-key" {
+		t.Fatalf("Authorization = %q, want Bedrock API key bearer", got)
+	}
+	if got := capture.req.Header.Get("X-Api-Key"); got != "" {
+		t.Fatalf("X-Api-Key = %q, want empty", got)
+	}
+}
+
+func TestBedrockSignGetRequest(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "https://bedrock-mantle.us-east-1.api.aws/anthropic/v1/models", nil)
+	err := bedrock.SignRequest(req, bedrock.StaticAuth{
+		Region:          "us-east-1",
+		SigningService:  "bedrock",
+		AccessKeyID:     "AKIDEXAMPLE",
+		SecretAccessKey: "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY",
+	}, time.Date(2026, 7, 6, 12, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := req.Header.Get("Authorization"); !strings.Contains(got, "AWS4-HMAC-SHA256") {
+		t.Fatalf("Authorization = %q, want SigV4", got)
+	}
+	if got := req.Header.Get("X-Amz-Content-Sha256"); got != "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" {
+		t.Fatalf("X-Amz-Content-Sha256 = %q, want empty payload hash", got)
+	}
+}
+
+func TestBedrockMantleTransformAndSign(t *testing.T) {
+	base, err := bedrock.BaseURL(system.AmazonBedrockAPIKeyModelProvider, map[string]string{
+		bedrock.APIKeyRegionEnv: "us-east-1",
+	}, nanobottypes.DialectAnthropicMessages)
+	if err != nil {
+		t.Fatal(err)
+	}
+	director := llmTransformRequest(base)
+
+	req := httptest.NewRequest(http.MethodPost, "http://gateway.local/", strings.NewReader(`{"model":"anthropic.claude-sonnet-4-6"}`))
+	req.SetPathValue("path", "v1/messages")
+	req.Header.Set("Authorization", "Bearer client-token")
+	req.Header.Set("X-Forwarded-For", "::1")
+	director(req)
+
+	if got := req.URL.String(); got != "https://bedrock-mantle.us-east-1.api.aws/anthropic/v1/messages" {
+		t.Fatalf("URL = %q, want Bedrock Mantle messages URL", got)
+	}
+	openAIBase, err := bedrock.BaseURL(system.AmazonBedrockAPIKeyModelProvider, map[string]string{
+		bedrock.APIKeyRegionEnv: "us-east-1",
+	}, nanobottypes.DialectOpenAIResponses)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := openAIBase.String(); got != "https://bedrock-mantle.us-east-1.api.aws/openai/v1" {
+		t.Fatalf("OpenAI URL = %q, want Bedrock OpenAI URL", got)
+	}
+	err = bedrock.SignRequest(req, bedrock.StaticAuth{
+		Region:          "us-east-1",
+		SigningService:  "bedrock",
+		AccessKeyID:     "AKIDEXAMPLE",
+		SecretAccessKey: "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY",
+		SessionToken:    "session-token",
+	}, time.Date(2026, 7, 6, 12, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got := req.Header.Get("Authorization"); !strings.Contains(got, "AWS4-HMAC-SHA256") || !strings.Contains(got, "Credential=AKIDEXAMPLE/") {
+		t.Fatalf("Authorization = %q, want SigV4 credential", got)
+	}
+	if got := req.Header.Get("X-Amz-Date"); got != "20260706T120000Z" {
+		t.Fatalf("X-Amz-Date = %q, want fixed signing time", got)
+	}
+	if got := req.Header.Get("X-Amz-Security-Token"); got != "session-token" {
+		t.Fatalf("X-Amz-Security-Token = %q, want session token", got)
+	}
+	if got := req.Header.Get("X-Api-Key"); got != "" {
+		t.Fatalf("X-Api-Key = %q, want empty", got)
+	}
+	if got := req.Header.Get("X-Forwarded-For"); got != "" {
+		t.Fatalf("X-Forwarded-For = %q, want empty", got)
 	}
 }
 

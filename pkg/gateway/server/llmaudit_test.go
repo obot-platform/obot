@@ -216,6 +216,22 @@ func TestLLMResponseAccumulatorOpenAITerminalResponseWins(t *testing.T) {
 	}
 }
 
+func TestLLMResponseAccumulatorBedrockOpenAI(t *testing.T) {
+	a := gatewayllmaudit.NewResponseAccumulator(system.AmazonBedrockAPIKeyModelProvider, "/api/llm-proxy/aws-bedrock-api-key/openai/v1/responses")
+	a.Write([]byte(strings.Join([]string{
+		`data: {"type":"response.created","response":{"id":"resp_bedrock","model":"openai.gpt-5.5","output":[]}}`,
+		`data: {"type":"response.output_text.delta","output_index":0,"content_index":0,"delta":"hello"}`,
+	}, "\n") + "\n"))
+
+	got := a.JSON()
+	if gjson.GetBytes(got, "output.0.content.0.text").String() != "hello" {
+		t.Fatalf("expected Bedrock OpenAI text, got %s", got)
+	}
+	if a.ResponseID() != "resp_bedrock" {
+		t.Fatalf("expected response ID, got %q", a.ResponseID())
+	}
+}
+
 func TestLLMResponseAccumulatorOpenAIPartialTextAndSplitLine(t *testing.T) {
 	a := gatewayllmaudit.NewResponseAccumulator(system.OpenAIModelProvider)
 	a.Write([]byte(`data: {"type":"response.created","response":{"id":"resp_partial","model":"gpt-5","output":null}}` + "\n"))
@@ -272,6 +288,23 @@ func TestLLMResponseAccumulatorAnthropicMessage(t *testing.T) {
 	}
 }
 
+func TestLLMResponseAccumulatorBedrockAnthropic(t *testing.T) {
+	a := gatewayllmaudit.NewResponseAccumulator(system.AmazonBedrockModelProvider, "/api/llm-proxy/aws-bedrock/anthropic/v1/messages")
+	a.Write([]byte(strings.Join([]string{
+		`data: {"type":"message_start","message":{"id":"msg_bedrock","type":"message","role":"assistant","model":"claude","content":[]}}`,
+		`data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}`,
+		`data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"hello"}}`,
+	}, "\n") + "\n"))
+
+	got := a.JSON()
+	if gjson.GetBytes(got, "content.0.text").String() != "hello" {
+		t.Fatalf("expected Bedrock Anthropic text, got %s", got)
+	}
+	if a.ResponseID() != "msg_bedrock" {
+		t.Fatalf("expected message ID, got %q", a.ResponseID())
+	}
+}
+
 func TestLLMResponseAccumulatorAnthropicToolAndThinking(t *testing.T) {
 	a := gatewayllmaudit.NewResponseAccumulator(system.AnthropicModelProvider)
 	a.Write([]byte(strings.Join([]string{
@@ -313,7 +346,7 @@ func TestLLMAuditRecorderStoresAggregatedResponseBody(t *testing.T) {
 	recorder.setModel(system.OpenAIModelProvider, "", "")
 	chunk := []byte(`data: {"type":"response.created","response":{"id":"resp_rec","output":[]}}` + "\n")
 	recorder.captureResponseChunk(chunk)
-	accumulator := gatewayllmaudit.NewResponseAccumulator(recorder.log.ModelProvider)
+	accumulator := gatewayllmaudit.NewResponseAccumulator(recorder.log.ModelProvider, recorder.log.RequestPath)
 	accumulator.Write(recorder.responseStream.Bytes())
 	recorder.log.ResponseBody = accumulator.JSON()
 

@@ -114,6 +114,7 @@ func TestGetUserAllowedTargetModels(t *testing.T) {
 		name         string
 		models       []*v1.Model
 		policies     []*v1.ModelAccessPolicy
+		dialect      string
 		want         map[string]bool
 		wantAllowAll bool
 	}{
@@ -147,6 +148,26 @@ func TestGetUserAllowedTargetModels(t *testing.T) {
 			policies:     []*v1.ModelAccessPolicy{wildcardPolicy},
 			want:         nil,
 			wantAllowAll: true,
+		},
+		{
+			name: "filters allowed models by dialect",
+			models: []*v1.Model{
+				newModel("m1-openai", provider, "openai.gpt-5.5", true, withDialect("OpenAIResponses")),
+				newModel("m1-anthropic", provider, "anthropic.claude-haiku-4-5", true, withDialect("AnthropicMessages")),
+			},
+			policies: []*v1.ModelAccessPolicy{userPolicy("m1-openai", "m1-anthropic")},
+			dialect:  "AnthropicMessages",
+			want:     map[string]bool{"anthropic.claude-haiku-4-5": true},
+		},
+		{
+			name: "wildcard policy enumerates models when filtering by dialect",
+			models: []*v1.Model{
+				newModel("m1-openai", provider, "openai.gpt-5.5", true, withDialect("OpenAIResponses")),
+				newModel("m1-anthropic", provider, "anthropic.claude-haiku-4-5", true, withDialect("AnthropicMessages")),
+			},
+			policies: []*v1.ModelAccessPolicy{wildcardPolicy},
+			dialect:  "OpenAIResponses",
+			want:     map[string]bool{"openai.gpt-5.5": true},
 		},
 		{
 			name: "empty when user is allowed nothing",
@@ -206,7 +227,7 @@ func TestGetUserAllowedTargetModels(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			h := newModelHelper(t, tt.models, tt.policies...)
 
-			got, allowAll, err := h.GetUserAllowedTargetModels(&kuser.DefaultInfo{Name: userID, UID: userID}, provider)
+			got, allowAll, err := h.GetUserAllowedTargetModels(&kuser.DefaultInfo{Name: userID, UID: userID}, provider, tt.dialect)
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantAllowAll, allowAll)
 			assert.Equal(t, tt.want, got)
@@ -279,6 +300,12 @@ type modelOpt func(*v1.Model)
 func withCreated(ts time.Time) modelOpt {
 	return func(m *v1.Model) {
 		m.CreationTimestamp = metav1.NewTime(ts)
+	}
+}
+
+func withDialect(dialect string) modelOpt {
+	return func(m *v1.Model) {
+		m.Spec.Manifest.Dialect = dialect
 	}
 }
 
