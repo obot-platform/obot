@@ -724,6 +724,45 @@ func inspectResponseToSummary(name string, inspect container.InspectResponse) *c
 				})
 			}
 		}
+
+		hostIPRank := func(hostIP string) int {
+			switch hostIP {
+			case "127.0.0.1":
+				return 0
+			case "":
+				return 1
+			case "::1":
+				return 2
+			}
+
+			ip := net.ParseIP(hostIP)
+			if ip != nil && ip.To4() != nil {
+				return 1
+			}
+			if ip != nil {
+				return 3
+			}
+			return 4
+		}
+		sort.Slice(summary.Ports, func(i, j int) bool {
+			left, right := summary.Ports[i], summary.Ports[j]
+			if left.PrivatePort != right.PrivatePort {
+				return left.PrivatePort < right.PrivatePort
+			}
+			if left.Type != right.Type {
+				return left.Type < right.Type
+			}
+			if (left.PublicPort != 0) != (right.PublicPort != 0) {
+				return left.PublicPort != 0
+			}
+			if leftRank, rightRank := hostIPRank(left.IP), hostIPRank(right.IP); leftRank != rightRank {
+				return leftRank < rightRank
+			}
+			if left.IP != right.IP {
+				return left.IP < right.IP
+			}
+			return left.PublicPort < right.PublicPort
+		})
 	}
 
 	return summary

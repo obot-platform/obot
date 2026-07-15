@@ -439,6 +439,39 @@ func TestInspectResponseToSummaryPreservesDeploymentFields(t *testing.T) {
 	require.Equal(t, "172.17.0.2", summary.NetworkSettings.Networks["bridge"].IPAddress)
 }
 
+func TestInspectResponseToSummaryOrdersPublishedPorts(t *testing.T) {
+	summary := inspectResponseToSummary("system-mcp-server", container.InspectResponse{
+		ContainerJSONBase: &container.ContainerJSONBase{Name: "/system-mcp-server"},
+		NetworkSettings: &container.NetworkSettings{
+			NetworkSettingsBase: container.NetworkSettingsBase{
+				Ports: nat.PortMap{
+					nat.Port("9090/tcp"): {{HostIP: "::1", HostPort: "49090"}},
+					nat.Port("8080/udp"): nil,
+					nat.Port("8080/tcp"): {
+						{HostIP: "::1", HostPort: "49153"},
+						{HostIP: "192.0.2.10", HostPort: "49154"},
+						{HostIP: "0.0.0.0", HostPort: "49155"},
+						{HostIP: "127.0.0.1", HostPort: "49152"},
+					},
+				},
+			},
+		},
+	})
+
+	require.Equal(t, []container.Port{
+		{IP: "127.0.0.1", PrivatePort: 8080, PublicPort: 49152, Type: "tcp"},
+		{IP: "0.0.0.0", PrivatePort: 8080, PublicPort: 49155, Type: "tcp"},
+		{IP: "192.0.2.10", PrivatePort: 8080, PublicPort: 49154, Type: "tcp"},
+		{IP: "::1", PrivatePort: 8080, PublicPort: 49153, Type: "tcp"},
+		{PrivatePort: 8080, Type: "udp"},
+		{IP: "::1", PrivatePort: 9090, PublicPort: 49090, Type: "tcp"},
+	}, summary.Ports)
+
+	hostPort, err := (&dockerBackend{}).getHostPort(summary, 8080)
+	require.NoError(t, err)
+	require.Equal(t, 49152, hostPort)
+}
+
 func TestInspectResponseToSummaryKeepsLabelsWritable(t *testing.T) {
 	summary := inspectResponseToSummary("system-mcp-server", container.InspectResponse{
 		ContainerJSONBase: &container.ContainerJSONBase{Name: "/system-mcp-server"},
