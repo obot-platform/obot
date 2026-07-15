@@ -75,8 +75,6 @@ In the Azure portal, find your API key and endpoint URL after setting up at leas
 
 You must also specify deployment names as a comma-separated list using `deployment[:usage[:dialect]]`. Usage defaults to `llm`. Dialect defaults to `openai`; specify `anthropic` for Claude deployments. For example: `my-gpt-deployment,my-claude-deployment:llm:anthropic`.
 
-You can also optionally specify the API version (defaults to `2025-01-01-preview`).
-
 ##### Microsoft Entra ID Authentication
 
 Use the **Azure (Entra ID)** provider for service principal authentication via Microsoft Entra ID. Deployments are discovered automatically from the Azure Management API.
@@ -110,8 +108,6 @@ Obot requires:
 - **Subscription ID** — the Azure subscription ID containing the Cognitive Services account
 - **Resource Group** — the resource group containing the Cognitive Services account
 - **Resource Name** — the Cognitive Services resource name
-
-You can also optionally specify the API version (defaults to `2025-01-01-preview`).
 
 The service principal requires the **Cognitive Services User** role on the specific Foundry resource for inference. **Foundry User** (formerly Azure AI User) also includes the permissions required to invoke Claude models. The narrower **Cognitive Services OpenAI User** role can allow OpenAI requests while Anthropic requests fail with `Principal does not have access to API/Operation`.
 
