@@ -170,6 +170,7 @@
 			highlighter?.highlight({
 				selector: { id: 'btn-navbar-profile' },
 				title: 'Access Guides Again',
+				side: 'left',
 				description:
 					'If at a later point in time you want to access the guides again, you can do so by clicking the profile button here and go to My Account.'
 			});

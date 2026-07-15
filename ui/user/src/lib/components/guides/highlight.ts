@@ -219,14 +219,13 @@ export function createGuideHighlighter(options: GuideHighlighterOptions = {}): G
 
 					if (side === 'left' || side === 'right') {
 						options.onObotVisibilityChange?.(false);
-						const paddingSide = side === 'left' ? 'paddingRight' : 'paddingLeft';
-						popover.title.style[paddingSide] = '81px';
-						popover.description.style[paddingSide] = '81px';
+						popover.title.style['paddingLeft'] = '82px';
+						popover.description.style['paddingLeft'] = '82px';
 
 						const container = document.createElement('div');
 						container.className = 'guide-highlight-obot';
-						container.style.right = side === 'left' ? '4px' : 'auto';
-						container.style.left = side === 'left' ? 'auto' : '4px';
+						container.style.right = 'auto';
+						container.style.left = '4px';
 						container.style.top = '6px';
 						popover.wrapper.appendChild(container);
 						highlightObotContainer = container;

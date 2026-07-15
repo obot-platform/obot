@@ -63,7 +63,8 @@ export const steps: GuideStep[] = [
 						id: 'add-catalog-entry-button'
 					},
 					title: 'Add Catalog Entry',
-					description: 'Click here to add a new catalog entry.'
+					description: 'Click here to add a new catalog entry.',
+					side: 'left'
 				},
 				listener: {
 					id: 'add-catalog-entry-button',
