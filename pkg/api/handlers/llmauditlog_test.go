@@ -53,6 +53,9 @@ func TestParseLLMAuditLogOptsIncludeModelsRequests(t *testing.T) {
 		{name: "false", value: "false"},
 		{name: "invalid", value: "invalid"},
 		{name: "true", value: "true", want: true},
+		{name: "uppercase true", value: "TRUE", want: true},
+		{name: "one", value: "1", want: true},
+		{name: "short true", value: "t", want: true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			query := url.Values{}

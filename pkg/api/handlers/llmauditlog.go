@@ -89,8 +89,9 @@ func (h *LLMAuditLogHandler) ListFilterOptions(req api.Context) error {
 }
 
 func parseLLMAuditLogOpts(query url.Values) gateway.LLMAuditLogOptions {
+	includeModelsRequests, _ := strconv.ParseBool(query.Get("include_models_requests"))
 	opts := gateway.LLMAuditLogOptions{
-		IncludeModelsRequests: query.Get("include_models_requests") == "true",
+		IncludeModelsRequests: includeModelsRequests,
 		UserID:                parseStringList(query, "user_id"),
 		ModelProvider:         parseStringList(query, "model_provider"),
 		TargetModel:           parseStringList(query, "target_model"),
