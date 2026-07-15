@@ -133,6 +133,7 @@ export const steps: GuideStep[] = [
 					listener: listenMcpAuditLogsLink
 				}),
 				{
+					elementExists: 'advanced-pane-btn',
 					highlight: {
 						selector: {
 							id: 'advanced-pane-btn'
