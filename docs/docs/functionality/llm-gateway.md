@@ -26,9 +26,10 @@ For each provider you have access to, the page shows:
     - Static credentials auth: `/api/llm-proxy/aws-bedrock`
     - API key auth: `/api/llm-proxy/aws-bedrock-api-key`
     - The gateway detects the API request format from the requested `/messages` or `/responses` endpoint. Bedrock-aware clients may also include an `anthropic/` or `openai/` path prefix.
-  - Azure API key auth: `/api/llm-proxy/azure`
-  - Azure Entra auth: `/api/llm-proxy/azure-entra`
-  - For Azure, the gateway detects the API request format from the requested `/messages` or `/responses` endpoint. The deployment name does not determine the format.
+  - Azure:
+    - API key auth: `/api/llm-proxy/azure`
+    - Entra auth: `/api/llm-proxy/azure-entra`
+    - The gateway detects the API request format from the requested `/messages` or `/responses` endpoint. The deployment name does not determine the format.
 - **Example request** — a ready-to-run `curl` command, pre-filled with one of your available models and with the API key wired to `obot login --scope llm --print-token`.
 - **Available models** — a searchable list of the models you can call. Each entry has a copy button for the exact model name to send in your requests.
 
@@ -346,10 +347,6 @@ See the Codex documentation for details:
 - **Access is policy-bound.** You can only call models an administrator has granted you through a [Model Access Policy](/functionality/model-access-policies/), and `/v1/models` returns only those models. A request for a model you don't have access to is rejected.
 - **Send the exact model name.** Use the model name shown on the [Models page](#the-models-page) exactly as displayed.
 - **Claude Code model discovery caveats.** Gateway model discovery is off by default and requires Claude Code v2.1.129 or later for the standard Anthropic gateway path. Claude Code's Bedrock Mantle mode may not populate the `/model` picker from Obot, so pass `--model` or select an enabled Mantle model manually.
-- **Azure deployments are explicit.** Azure requests must use the configured deployment name, not the underlying Azure model ID. Obot does not infer dialect from that name.
-- **Only two Azure dialects are exposed.** Azure gateway routes support `AnthropicMessages` through `/v1/messages` and `OpenAIResponses` through `/v1/responses`. Other Azure model dialects are not exposed by these routes.
-- **Azure Anthropic model discovery is unavailable.** Microsoft Foundry does not expose the Anthropic Models API. Pass the deployment name explicitly when using Claude Code or another Anthropic client.
-- **Azure Entra permission errors.** If OpenAI works but Anthropic returns `Principal does not have access to API/Operation`, verify that the Obot service principal has **Cognitive Services User** or **Foundry User** on the same Foundry resource used by the configured endpoint. Role assignments can take up to five minutes to propagate. If **Add role assignment** is disabled in Azure, an administrator with role-assignment permissions must grant it.
 - **OpenAI-compatible routes use the Responses API.** The OpenAI, Generic Responses Compatible, Bedrock, and Azure OpenAI-compatible routes support the Responses API (`/v1/responses`); the Chat Completions endpoint is not currently supported. Codex uses the Responses API by default.
 - **Usage and policies still apply.** Requests count toward Obot [token usage](/functionality/audit-logs-and-usage/) and, where configured, are subject to [Message Policies](/functionality/message-policies/).
 - **Audit logs can be exported.** Administrators can create one-time or scheduled exports for LLM gateway audit logs. See [Audit Log Export](/configuration/audit-log-export/).
