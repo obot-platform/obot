@@ -1006,7 +1006,7 @@ type preparedLLMProxyRequest struct {
 type llmProviderProxyBackend interface {
 	modelProviderName() string
 	upstreamURL(req *http.Request, credEnv map[string]string) (url.URL, nanobottypes.Dialect, error)
-	transport(provider v1.ModelProvider, credEnv map[string]string, dialect nanobottypes.Dialect) (http.RoundTripper, error)
+	transport(provider v1.ModelProvider, credEnv map[string]string) (http.RoundTripper, error)
 }
 
 type llmProviderProxy struct {
@@ -1146,7 +1146,7 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 		return types2.NewErrHTTP(http.StatusTooManyRequests, fmt.Sprintf("no tokens remaining (input tokens remaining: %d, output tokens remaining: %d)", remainingUsage.InputTokens, remainingUsage.OutputTokens))
 	}
 
-	transport, err := l.backend.transport(*modelProvider, credEnv, routeDialect)
+	transport, err := l.backend.transport(*modelProvider, credEnv)
 	if err != nil {
 		return err
 	}

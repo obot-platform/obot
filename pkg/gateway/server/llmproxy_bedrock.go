@@ -55,7 +55,7 @@ func (b bedrockMantleProviderBackend) upstreamURL(req *http.Request, credEnv map
 	return u, dialect, err
 }
 
-func (b bedrockMantleProviderBackend) transport(_ v1.ModelProvider, credEnv map[string]string, _ nanobottypes.Dialect) (http.RoundTripper, error) {
+func (b bedrockMantleProviderBackend) transport(_ v1.ModelProvider, credEnv map[string]string) (http.RoundTripper, error) {
 	return bedrock.Transport(b.resolvedProviderName(), credEnv, http.DefaultTransport)
 }
 

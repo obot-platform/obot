@@ -102,7 +102,7 @@ func TestTransportMissingCredentials(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := Transport(tt.provider, tt.creds, nanobottypes.DialectOpenAIResponses, new(EntraCredentialCache))
+			_, err := Transport(tt.provider, tt.creds, new(EntraCredentialCache))
 			if err == nil || !strings.Contains(err.Error(), tt.want) {
 				t.Fatalf("error = %v, want containing %q", err, tt.want)
 			}
@@ -153,75 +153,35 @@ func TestTransportRequiresEntraCredentialCache(t *testing.T) {
 		TenantIDEnv:     "tenant",
 		ClientIDEnv:     "client",
 		ClientSecretEnv: "secret",
-	}, nanobottypes.DialectOpenAIResponses, nil)
+	}, nil)
 	if err == nil || !strings.Contains(err.Error(), "credential cache is required") {
 		t.Fatalf("error = %v, want missing cache error", err)
 	}
 }
 
 func TestAPIKeyTransportHeaders(t *testing.T) {
-	tests := []struct {
-		name        string
-		dialect     nanobottypes.Dialect
-		wantAuth    string
-		wantAPIKey  string
-		wantVersion string
-	}{
-		{
-			name:        "Anthropic uses bearer auth",
-			dialect:     nanobottypes.DialectAnthropicMessages,
-			wantAuth:    "Bearer azure-key",
-			wantVersion: AnthropicVersion,
-		},
-		{
-			name:       "OpenAI uses API key header",
-			dialect:    nanobottypes.DialectOpenAIResponses,
-			wantAPIKey: "azure-key",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			capture := &captureTransport{}
-			req := httptest.NewRequest(http.MethodPost, "https://example.com", nil)
-			req.Header.Set("Authorization", "Bearer incoming")
-			req.Header.Set("api-key", "incoming-key")
-			req.Header.Set("X-Api-Key", "incoming-x-key")
-			req.Header.Set("X-Forwarded-For", "192.0.2.1")
-
-			_, err := (apiKeyTransport{key: "azure-key", dialect: tt.dialect, next: capture}).RoundTrip(req)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if got := capture.req.Header.Get("Authorization"); got != tt.wantAuth {
-				t.Fatalf("Authorization = %q, want %q", got, tt.wantAuth)
-			}
-			if got := capture.req.Header.Get("api-key"); got != tt.wantAPIKey {
-				t.Fatalf("api-key = %q, want %q", got, tt.wantAPIKey)
-			}
-			if got := capture.req.Header.Get("X-Api-Key"); got != "" {
-				t.Fatalf("X-Api-Key = %q, want empty", got)
-			}
-			if got := capture.req.Header.Get("X-Forwarded-For"); got != "" {
-				t.Fatalf("X-Forwarded-For = %q, want empty", got)
-			}
-			if got := capture.req.Header.Get("anthropic-version"); got != tt.wantVersion {
-				t.Fatalf("anthropic-version = %q, want %q", got, tt.wantVersion)
-			}
-		})
-	}
-}
-
-func TestAnthropicVersionIsPreserved(t *testing.T) {
 	capture := &captureTransport{}
-	req := httptest.NewRequest(http.MethodPost, "https://example.com/messages", nil)
-	req.Header.Set("anthropic-version", "custom")
-	_, err := (apiKeyTransport{key: "key", dialect: nanobottypes.DialectAnthropicMessages, next: capture}).RoundTrip(req)
+	req := httptest.NewRequest(http.MethodPost, "https://example.com", nil)
+	req.Header.Set("Authorization", "Bearer incoming")
+	req.Header.Set("api-key", "incoming-key")
+	req.Header.Set("X-Api-Key", "incoming-x-key")
+	req.Header.Set("X-Forwarded-For", "192.0.2.1")
+
+	_, err := (apiKeyTransport{key: "azure-key", next: capture}).RoundTrip(req)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := capture.req.Header.Get("anthropic-version"); got != "custom" {
-		t.Fatalf("anthropic-version = %q, want custom", got)
+	if got := capture.req.Header.Get("Authorization"); got != "Bearer azure-key" {
+		t.Fatalf("Authorization = %q, want bearer token", got)
+	}
+	if got := capture.req.Header.Get("api-key"); got != "" {
+		t.Fatalf("api-key = %q, want empty", got)
+	}
+	if got := capture.req.Header.Get("X-Api-Key"); got != "" {
+		t.Fatalf("X-Api-Key = %q, want empty", got)
+	}
+	if got := capture.req.Header.Get("X-Forwarded-For"); got != "" {
+		t.Fatalf("X-Forwarded-For = %q, want empty", got)
 	}
 }
 
@@ -233,7 +193,7 @@ func TestEntraTransportToken(t *testing.T) {
 	req.Header.Set("api-key", "incoming-key")
 	req.Header.Set("X-Api-Key", "incoming-x-key")
 
-	_, err := (entraTransport{credential: credential, dialect: nanobottypes.DialectOpenAIResponses, next: capture}).RoundTrip(req)
+	_, err := (entraTransport{credential: credential, next: capture}).RoundTrip(req)
 	if err != nil {
 		t.Fatal(err)
 	}

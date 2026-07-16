@@ -40,8 +40,8 @@ func (b *azureProviderBackend) upstreamURL(req *http.Request, credEnv map[string
 	return u, dialect, err
 }
 
-func (b *azureProviderBackend) transport(_ v1.ModelProvider, credEnv map[string]string, dialect nanobottypes.Dialect) (http.RoundTripper, error) {
-	return azure.Transport(b.providerName, credEnv, dialect, &b.entraCredential)
+func (b *azureProviderBackend) transport(_ v1.ModelProvider, credEnv map[string]string) (http.RoundTripper, error) {
+	return azure.Transport(b.providerName, credEnv, &b.entraCredential)
 }
 
 func resolveAzureRouteDialect(req *http.Request) (nanobottypes.Dialect, error) {

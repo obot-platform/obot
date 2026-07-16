@@ -22,8 +22,7 @@ const (
 	ClientSecretEnv  = "OBOT_AZURE_ENTRA_MODEL_PROVIDER_CLIENT_SECRET"
 	TenantIDEnv      = "OBOT_AZURE_ENTRA_MODEL_PROVIDER_TENANT_ID"
 
-	AnthropicVersion = "2023-06-01"
-	EntraScope       = "https://ai.azure.com/.default"
+	EntraScope = "https://ai.azure.com/.default"
 )
 
 var endpointHostSuffixes = []string{
@@ -88,14 +87,14 @@ type EntraCredentialCache struct {
 	credential   azcore.TokenCredential
 }
 
-func Transport(providerName string, credentials map[string]string, dialect nanobottypes.Dialect, entraCredentials *EntraCredentialCache) (http.RoundTripper, error) {
+func Transport(providerName string, credentials map[string]string, entraCredentials *EntraCredentialCache) (http.RoundTripper, error) {
 	switch providerName {
 	case system.AzureModelProvider:
 		key := credentials[APIKeyEnv]
 		if key == "" {
 			return nil, fmt.Errorf("missing %s for Azure model provider", APIKeyEnv)
 		}
-		return apiKeyTransport{key: key, dialect: dialect, next: http.DefaultTransport}, nil
+		return apiKeyTransport{key: key, next: http.DefaultTransport}, nil
 	case system.AzureEntraModelProvider:
 		for _, name := range []string{TenantIDEnv, ClientIDEnv, ClientSecretEnv} {
 			if credentials[name] == "" {
@@ -109,7 +108,7 @@ func Transport(providerName string, credentials map[string]string, dialect nanob
 		if err != nil {
 			return nil, fmt.Errorf("create Azure Entra credential: %w", err)
 		}
-		return entraTransport{credential: credential, dialect: dialect, next: http.DefaultTransport}, nil
+		return entraTransport{credential: credential, next: http.DefaultTransport}, nil
 	default:
 		return nil, fmt.Errorf("unsupported Azure model provider %q", providerName)
 	}
@@ -137,28 +136,16 @@ func (c *EntraCredentialCache) get(credentials map[string]string) (azcore.TokenC
 }
 
 type apiKeyTransport struct {
-	key     string
-	dialect nanobottypes.Dialect
-	next    http.RoundTripper
+	key  string
+	next http.RoundTripper
 }
 
 func (t apiKeyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	stripProxyHeaders(req.Header)
-	req.Header.Del("X-Api-Key")
-	if t.dialect == nanobottypes.DialectAnthropicMessages {
-		req.Header.Del("api-key")
-		req.Header.Set("Authorization", "Bearer "+t.key)
-	} else {
-		req.Header.Del("Authorization")
-		req.Header.Set("api-key", t.key)
-	}
-	setAnthropicVersion(req, t.dialect)
-	return t.next.RoundTrip(req)
+	return roundTripWithBearerToken(req, t.key, t.next)
 }
 
 type entraTransport struct {
 	credential azcore.TokenCredential
-	dialect    nanobottypes.Dialect
 	next       http.RoundTripper
 }
 
@@ -167,12 +154,15 @@ func (t entraTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if err != nil {
 		return nil, fmt.Errorf("get Azure Entra token: %w", err)
 	}
+	return roundTripWithBearerToken(req, token.Token, t.next)
+}
+
+func roundTripWithBearerToken(req *http.Request, token string, next http.RoundTripper) (*http.Response, error) {
 	stripProxyHeaders(req.Header)
-	req.Header.Del("api-key")
 	req.Header.Del("X-Api-Key")
-	req.Header.Set("Authorization", "Bearer "+token.Token)
-	setAnthropicVersion(req, t.dialect)
-	return t.next.RoundTrip(req)
+	req.Header.Del("api-key")
+	req.Header.Set("Authorization", "Bearer "+token)
+	return next.RoundTrip(req)
 }
 
 func validateEndpoint(u *url.URL) error {
@@ -197,11 +187,5 @@ func validateEndpoint(u *url.URL) error {
 func stripProxyHeaders(header http.Header) {
 	for _, name := range []string{"Forwarded", "X-Forwarded-For", "X-Forwarded-Host", "X-Forwarded-Proto", "X-Real-Ip"} {
 		header.Del(name)
-	}
-}
-
-func setAnthropicVersion(req *http.Request, dialect nanobottypes.Dialect) {
-	if dialect == nanobottypes.DialectAnthropicMessages && req.Header.Get("anthropic-version") == "" {
-		req.Header.Set("anthropic-version", AnthropicVersion)
 	}
 }
