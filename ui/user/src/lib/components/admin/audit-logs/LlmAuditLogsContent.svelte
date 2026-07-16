@@ -42,6 +42,7 @@
 		'user_id',
 		'client',
 		'client_session_id',
+		'include_models_requests',
 		'message_policy_triggered',
 		'model_provider',
 		'outcome',
@@ -70,10 +71,6 @@
 	let includeModelsRequests = $derived(
 		page.url.searchParams.get('include_models_requests') === 'true'
 	);
-	let includeModelsRequestsDraft = $state(false);
-	$effect(() => {
-		includeModelsRequestsDraft = includeModelsRequests;
-	});
 	let usersMap = $derived(new Map(users.map((user) => [user.id, user])));
 
 	const DEFER_THRESHOLD = 500;
@@ -113,13 +110,15 @@
 		buildSearchParamFiltersArray<LLMAuditLogURLFilters>(supportedFilters)
 	);
 	const searchParamFilters = $derived.by<LLMAuditLogURLFilters>(() => {
-		return searchParamFiltersAsArray.reduce(
+		const result = searchParamFiltersAsArray.reduce(
 			(acc, [key, value]) => {
 				acc[key!] = value;
 				return acc;
 			},
 			{} as Record<string, unknown>
 		);
+		result.include_models_requests = includeModelsRequests.toString();
+		return result;
 	});
 
 	const pillsSearchParamFilters = $derived(
@@ -307,7 +306,6 @@
 			<button
 				class="btn btn-neutral h-12.5"
 				onclick={() => {
-					includeModelsRequestsDraft = includeModelsRequests;
 					showFilters = true;
 					selectedAuditLog = undefined;
 					rightSidebar?.showPopover();
@@ -460,27 +458,27 @@
 			onClose={handleRightSidebarClose}
 			filters={{ ...searchParamFilters }}
 			isFilterDisabled={() => false}
-			isFilterClearable={() => true}
-			booleanFilters={[
-				{
-					property: 'include_models_requests',
-					label: 'Show model discovery requests',
-					selected: includeModelsRequestsDraft,
-					onChange: (selected) => (includeModelsRequestsDraft = selected)
-				}
-			]}
+			{isFilterClearable}
+			isFilterMultiSelect={(filterId) => filterId !== 'include_models_requests'}
+			getDefaultValue={(filterId) => (filterId === 'include_models_requests' ? 'false' : undefined)}
 			getUserDisplayName={(...args) => getUserDisplayName(usersMap, ...args)}
 			{getFilterDisplayLabel}
 			getFilterOptionLabel={(key, value) =>
-				key === 'message_policy_triggered'
+				key === 'include_models_requests'
 					? value === 'true'
-						? 'Triggered'
-						: 'Not triggered'
-					: value}
+						? 'Shown'
+						: 'Hidden'
+					: key === 'message_policy_triggered'
+						? value === 'true'
+							? 'Triggered'
+							: 'Not triggered'
+						: value}
 			endpoint={async (filterId, opts) => {
+				if (filterId === 'include_models_requests') {
+					return { options: ['true', 'false'] };
+				}
 				const response = await AdminService.listLLMAuditLogFilterOptions(filterId, {
 					...opts,
-					include_models_requests: includeModelsRequestsDraft.toString(),
 					start_time: timeRangeFilters.startTime.toISOString(),
 					end_time: timeRangeFilters.endTime.toISOString()
 				});
