@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"regexp"
 	"testing"
 	"time"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/server/options/encryptionconfig"
 	"k8s.io/apiserver/pkg/storage/value"
@@ -786,4 +788,63 @@ func (testTransformer) TransformToStorage(_ context.Context, data []byte, _ valu
 
 func (testTransformer) TransformFromStorage(_ context.Context, data []byte, _ value.Context) ([]byte, bool, error) {
 	return bytes.TrimPrefix(data, []byte("encrypted:")), false, nil
+}
+
+var selectedColumnRE = regexp.MustCompile("`mcp_audit_logs`\\.`([a-z_0-9]+)`")
+
+// TestOmitMCPAuditLogSensitiveFieldsExcludesExactlyThePayloadColumns proves that the query used
+// when payloads aren't requested actually stops reading the large/sensitive columns (rather than
+// reading them and relying solely on the blanking safety net). It compares the columns physically
+// present on the table against the columns the Omit'd query selects; the difference must be exactly
+// the intended set. A typo in omitMCPAuditLogSensitiveFields would leave the real column selected,
+// so it would not appear in the difference and this test would fail.
+func TestOmitMCPAuditLogSensitiveFieldsExcludesExactlyThePayloadColumns(t *testing.T) {
+	c := newTestClient(t)
+	g := c.db.WithContext(t.Context())
+
+	want := map[string]struct{}{
+		// MCP fields.
+		"request_body": {}, "mutated_request_body": {}, "response_body": {},
+		"original_response_body": {}, "request_headers": {}, "response_headers": {},
+		// Local-agent fields.
+		"local_agent_error": {}, "hostname": {}, "local_username": {}, "reported_user_email": {},
+		"cwd": {}, "git_root": {}, "git_remotes": {}, "git_branch": {}, "transcript_path": {},
+		"local_agent_request_body": {}, "local_agent_response_body": {}, "local_agent_raw_event": {},
+	}
+
+	columnTypes, err := g.Migrator().ColumnTypes(&types.MCPAuditLog{})
+	if err != nil {
+		t.Fatalf("column types: %v", err)
+	}
+
+	sql := g.ToSQL(func(tx *gorm.DB) *gorm.DB {
+		var logs []types.MCPAuditLog
+		return omitMCPAuditLogSensitiveFields(tx.Model(&types.MCPAuditLog{})).Find(&logs)
+	})
+	selected := make(map[string]struct{})
+	for _, m := range selectedColumnRE.FindAllStringSubmatch(sql, -1) {
+		selected[m[1]] = struct{}{}
+	}
+	if len(selected) == 0 {
+		t.Fatalf("failed to parse selected columns from SQL: %s", sql)
+	}
+
+	// Columns present on the table but excluded from the SELECT are exactly what the helper omits.
+	omitted := make(map[string]struct{}, len(columnTypes)-len(selected))
+	for _, ct := range columnTypes {
+		if _, ok := selected[ct.Name()]; !ok {
+			omitted[ct.Name()] = struct{}{}
+		}
+	}
+
+	for col := range want {
+		if _, ok := omitted[col]; !ok {
+			t.Errorf("expected column %q to be omitted from the query, but it is still selected (typo in helper?)", col)
+		}
+	}
+	for col := range omitted {
+		if _, ok := want[col]; !ok {
+			t.Errorf("column %q is omitted from the query but not expected; keep the helper and test in sync", col)
+		}
+	}
 }

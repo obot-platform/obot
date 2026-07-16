@@ -259,6 +259,12 @@ func (c *Client) GetMCPAuditLogs(ctx context.Context, opts MCPAuditLogOptions) (
 		db = applyLocalAgentAuditLogFilters(db.Where("source_type = ?", types2.AuditLogSourceTypeLocalAgentToolCall), opts)
 	}
 
+	// When payloads aren't requested, avoid reading/transferring the large sensitive columns that
+	// prepareAuditLogPayload would blank anyway.
+	if !opts.WithRequestAndResponse {
+		db = omitMCPAuditLogSensitiveFields(db)
+	}
+
 	var total int64
 	if err := db.Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -494,6 +500,22 @@ func blankLocalAgentSensitiveFields(local *types.LocalAgentToolCallAuditLogField
 	local.RequestBody = nil
 	local.ResponseBody = nil
 	local.RawEvent = nil
+}
+
+// omitMCPAuditLogSensitiveFields excludes the large/sensitive payload columns from the SELECT so
+// they are never read from or transferred by the DB when payloads are not requested. It mirrors the
+// fields that prepareAuditLogPayload blanks; that blanking is retained as a safety net. Columns for
+// both source types are listed because a single list query spans both.
+func omitMCPAuditLogSensitiveFields(db *gorm.DB) *gorm.DB {
+	return db.Omit(
+		// MCP fields
+		"request_body", "mutated_request_body", "response_body", "original_response_body",
+		"request_headers", "response_headers",
+		// Local-agent fields
+		"local_agent_error", "hostname", "local_username", "reported_user_email", "cwd",
+		"git_root", "git_remotes", "git_branch", "transcript_path",
+		"local_agent_request_body", "local_agent_response_body", "local_agent_raw_event",
+	)
 }
 
 // GetMCPAuditLog retrieves a single MCP audit log by ID
