@@ -166,6 +166,7 @@ func TestAPIKeyTransportHeaders(t *testing.T) {
 	req.Header.Set("api-key", "incoming-key")
 	req.Header.Set("X-Api-Key", "incoming-x-key")
 	req.Header.Set("X-Forwarded-For", "192.0.2.1")
+	req.Header.Set("anthropic-version", "client-version")
 
 	_, err := (apiKeyTransport{key: "azure-key", next: capture}).RoundTrip(req)
 	if err != nil {
@@ -182,6 +183,9 @@ func TestAPIKeyTransportHeaders(t *testing.T) {
 	}
 	if got := capture.req.Header.Get("X-Forwarded-For"); got != "" {
 		t.Fatalf("X-Forwarded-For = %q, want empty", got)
+	}
+	if got := capture.req.Header.Get("anthropic-version"); got != "client-version" {
+		t.Fatalf("anthropic-version = %q, want client-version", got)
 	}
 }
 

@@ -16,11 +16,13 @@ import (
 
 func TestCallLLMBedrockAnthropicMessages(t *testing.T) {
 	var (
-		gotPath string
-		gotBody map[string]any
+		gotPath    string
+		gotBody    map[string]any
+		gotHeaders http.Header
 	)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
+		gotHeaders = r.Header.Clone()
 		_ = json.NewDecoder(r.Body).Decode(&gotBody)
 		w.Header().Set("Content-Type", "text/event-stream")
 		_, _ = io.WriteString(w, "data: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\"yes\"}}\n\n")
@@ -40,7 +42,8 @@ func TestCallLLMBedrockAnthropicMessages(t *testing.T) {
 	assert.Equal(t, "yes", result)
 	assert.Equal(t, "/anthropic/v1/messages", gotPath)
 	assert.Equal(t, "anthropic.claude-haiku-4-5", gotBody["model"])
-	assert.Equal(t, "bedrock-2023-05-31", gotBody["anthropic_version"])
+	assert.Equal(t, "2023-06-01", gotHeaders.Get("anthropic-version"))
+	assert.NotContains(t, gotBody, "anthropic_version")
 	assert.Equal(t, "Check policy", gotBody["system"])
 	assert.Equal(t, true, gotBody["stream"])
 	assert.Equal(t, []any{map[string]any{"role": "user", "content": "Hello"}}, gotBody["messages"])
@@ -144,7 +147,7 @@ func TestCallLLMAzureAnthropicMessages(t *testing.T) {
 
 	assert.Equal(t, "yes", result)
 	assert.Equal(t, "/anthropic/v1/messages", gotPath)
-	assert.Empty(t, gotHeaders.Get("anthropic-version"))
+	assert.Equal(t, "2023-06-01", gotHeaders.Get("anthropic-version"))
 	assert.Equal(t, "Bearer azure-key", gotHeaders.Get("Authorization"))
 	assert.Empty(t, gotHeaders.Get("api-key"))
 	assert.NotContains(t, gotBody, "anthropic_version")

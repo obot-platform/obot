@@ -23,6 +23,8 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const anthropicVersion = "2023-06-01"
+
 // ConversationMessage represents a message in conversation history for policy evaluation.
 type ConversationMessage struct {
 	Role       string // "user", "assistant", "tool", "system"
@@ -268,12 +270,11 @@ type bifrostParams struct {
 }
 
 type anthropicMessagesRequest struct {
-	Model            string        `json:"model"`
-	AnthropicVersion string        `json:"anthropic_version,omitempty"`
-	System           string        `json:"system,omitempty"`
-	Messages         []chatMessage `json:"messages"`
-	MaxTokens        int           `json:"max_tokens"`
-	Stream           bool          `json:"stream"`
+	Model     string        `json:"model"`
+	System    string        `json:"system,omitempty"`
+	Messages  []chatMessage `json:"messages"`
+	MaxTokens int           `json:"max_tokens"`
+	Stream    bool          `json:"stream"`
 }
 
 type openAIResponsesRequest struct {
@@ -307,17 +308,12 @@ func (h *Helper) callLLM(ctx context.Context, resolved *resolvedModel, messages 
 
 func (h *Helper) callLLMAnthropicMessages(ctx context.Context, resolved *resolvedModel, messages []chatMessage) (string, error) {
 	systemPrompt, input := splitSystemMessages(messages)
-	anthropicVersion := ""
-	if bedrock.IsProvider(resolved.providerName) {
-		anthropicVersion = "bedrock-2023-05-31"
-	}
 	return h.callStreamingLLM(ctx, resolved, "/messages", anthropicMessagesRequest{
-		Model:            resolved.targetModel,
-		AnthropicVersion: anthropicVersion,
-		System:           systemPrompt,
-		Messages:         input,
-		MaxTokens:        1024,
-		Stream:           true,
+		Model:     resolved.targetModel,
+		System:    systemPrompt,
+		Messages:  input,
+		MaxTokens: 1024,
+		Stream:    true,
 	}, func(data string) gjson.Result {
 		return gjson.Get(data, "delta.text")
 	})
@@ -366,6 +362,9 @@ func (h *Helper) callStreamingLLM(ctx context.Context, resolved *resolvedModel, 
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
+	if endpoint == "/messages" {
+		httpReq.Header.Set("anthropic-version", anthropicVersion)
+	}
 
 	client := resolved.httpClient
 	if client == nil {
