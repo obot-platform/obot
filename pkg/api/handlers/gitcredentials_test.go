@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/obot-platform/obot/pkg/api"
@@ -31,6 +32,19 @@ func TestConvertGitCredentialDoesNotExposeToken(t *testing.T) {
 	response, err := json.Marshal(converted)
 	require.NoError(t, err)
 	assert.NotContains(t, string(response), `"token":`)
+}
+
+func TestReadGitCredentialManifestTrimsToken(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/api/git-credentials", strings.NewReader(`{"displayName":"Shared GitHub","host":"github.com","token":"  shared-token  "}`))
+	manifest, host, err := readGitCredentialManifest(api.Context{Request: req})
+	require.NoError(t, err)
+	assert.Equal(t, "github.com", host)
+	assert.Equal(t, "shared-token", manifest.Token)
+
+	req = httptest.NewRequest(http.MethodPost, "/api/git-credentials", strings.NewReader(`{"displayName":"Shared GitHub","host":"github.com","token":"   "}`))
+	manifest, _, err = readGitCredentialManifest(api.Context{Request: req})
+	require.NoError(t, err)
+	assert.Empty(t, manifest.Token)
 }
 
 func TestGitCredentialReferences(t *testing.T) {

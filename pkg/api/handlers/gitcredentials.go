@@ -138,6 +138,7 @@ func readGitCredentialManifest(req api.Context) (types.GitCredentialManifest, st
 		return manifest, "", types.NewErrBadRequest("failed to read Git credential manifest: %v", err)
 	}
 	manifest.DisplayName = strings.TrimSpace(manifest.DisplayName)
+	manifest.Token = strings.TrimSpace(manifest.Token)
 	if manifest.DisplayName == "" {
 		return manifest, "", types.NewErrBadRequest("displayName is required")
 	}
