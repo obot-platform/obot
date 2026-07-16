@@ -2,6 +2,9 @@
 title: LLM Gateway
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 ## Overview
 
 The Obot LLM Gateway lets you call OpenAI, Anthropic, Generic Responses Compatible, Amazon Bedrock, and Azure models through Obot using an **Obot API key** instead of provider credentials. Point an OpenAI-, Anthropic-, or Bedrock Mantle-compatible client — such as [Claude Code](#using-with-claude-code) or [Codex](#using-with-codex) — at the gateway, authenticate with an API key that has LLM proxy access, and call models by their provider model names. For Azure, use the deployment name configured on the model.
@@ -155,12 +158,12 @@ For Anthropic models on Bedrock, model availability depends on AWS region and ac
 
 Azure has separate gateway routes for API key and Entra authentication. The gateway uses the request endpoint to select the model dialect:
 
-| Provider    | Base URL                            |
-| ----------- | ----------------------------------- |
-| Azure       | `/api/llm-proxy/azure`              |
-| Azure Entra | `/api/llm-proxy/azure-entra`        |
-
 Use `/v1/messages` for an `AnthropicMessages` deployment and `/v1/responses` for an `OpenAIResponses` deployment. Use the deployment name shown on the Models page as `model`; it is not used to select the request format.
+
+Select the authentication method configured by your administrator. The selection is synchronized with the other Azure examples on this page.
+
+<Tabs groupId="azure-auth">
+  <TabItem value="api-key" label="API key" default>
 
 ```bash
 export OBOT_API_KEY="$(obot login --url https://obot.example.com --scope llm --print-token)"
@@ -177,9 +180,40 @@ curl https://obot.example.com/api/llm-proxy/azure/v1/responses \
   -H "Authorization: Bearer $OBOT_API_KEY" \
   -H "content-type: application/json" \
   -d '{"model":"my-gpt-deployment","input":[{"role":"user","content":"hi"}]}'
+
+# List available Azure models
+curl https://obot.example.com/api/llm-proxy/azure/v1/models \
+  -H "Authorization: Bearer $OBOT_API_KEY"
 ```
 
-Replace `/azure/` with `/azure-entra/` when the administrator configured the **Azure Entra** provider. Client requests always authenticate to Obot with the Obot API key; Obot supplies the Azure API key or obtains the Entra token upstream.
+  </TabItem>
+  <TabItem value="entra-id" label="Entra ID">
+
+```bash
+export OBOT_API_KEY="$(obot login --url https://obot.example.com --scope llm --print-token)"
+
+# AnthropicMessages deployment
+curl https://obot.example.com/api/llm-proxy/azure-entra/v1/messages \
+  -H "Authorization: Bearer $OBOT_API_KEY" \
+  -H "anthropic-version: 2023-06-01" \
+  -H "content-type: application/json" \
+  -d '{"model":"my-claude-deployment","max_tokens":1024,"messages":[{"role":"user","content":"hi"}]}'
+
+# OpenAIResponses deployment
+curl https://obot.example.com/api/llm-proxy/azure-entra/v1/responses \
+  -H "Authorization: Bearer $OBOT_API_KEY" \
+  -H "content-type: application/json" \
+  -d '{"model":"my-gpt-deployment","input":[{"role":"user","content":"hi"}]}'
+
+# List available Azure models
+curl https://obot.example.com/api/llm-proxy/azure-entra/v1/models \
+  -H "Authorization: Bearer $OBOT_API_KEY"
+```
+
+  </TabItem>
+</Tabs>
+
+Client requests always authenticate to Obot with the Obot API key. Obot supplies the Azure API key or obtains the Entra token upstream.
 
 #### Provider setup
 
@@ -236,6 +270,9 @@ For more details, see Claude Code's [Route Mantle through a gateway](https://cod
 
 Claude Code can use an Azure deployment whose model dialect is `AnthropicMessages`:
 
+<Tabs groupId="azure-auth">
+  <TabItem value="api-key" label="API key" default>
+
 ```bash
 ANTHROPIC_FOUNDRY_BASE_URL='https://obot.example.com/api/llm-proxy/azure' \
 ANTHROPIC_FOUNDRY_API_KEY="$(obot login --url https://obot.example.com --scope llm --print-token)" \
@@ -243,16 +280,22 @@ CLAUDE_CODE_USE_FOUNDRY=1 \
 claude --model my-claude-deployment
 ```
 
-For Azure Entra through a local Obot server:
+  </TabItem>
+  <TabItem value="entra-id" label="Entra ID">
 
 ```bash
-ANTHROPIC_FOUNDRY_BASE_URL='http://localhost:8080/api/llm-proxy/azure-entra' \
-ANTHROPIC_FOUNDRY_API_KEY="$(obot login --url http://localhost:8080 --scope llm --print-token)" \
+ANTHROPIC_FOUNDRY_BASE_URL='https://obot.example.com/api/llm-proxy/azure-entra' \
+ANTHROPIC_FOUNDRY_API_KEY="$(obot login --url https://obot.example.com --scope llm --print-token)" \
 CLAUDE_CODE_USE_FOUNDRY=1 \
 claude --model my-claude-deployment
 ```
 
-Use `/api/llm-proxy/azure-entra` for the Azure Entra provider. `ANTHROPIC_FOUNDRY_API_KEY` contains an Obot gateway token in this setup, not an Azure API key; Obot replaces it with the configured Azure credential before forwarding the request. The value passed to `--model` must be the exact Azure deployment name listed in the Anthropic-compatible Azure section on the Models page.
+  </TabItem>
+</Tabs>
+
+For a local Obot server, replace `https://obot.example.com` with `http://localhost:8080` in both the selected base URL and the `obot login` command.
+
+`ANTHROPIC_FOUNDRY_API_KEY` contains an Obot gateway token in this setup, not an Azure API key; Obot replaces it with the configured Azure credential before forwarding the request. The value passed to `--model` must be the exact Azure deployment name listed in the Anthropic-compatible Azure section on the Models page.
 
 :::note Model discovery
 Microsoft Foundry does not implement the Anthropic Models API. Do not enable `CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY`; pass the Azure deployment name with `--model` or configure Claude Code's default Foundry model variables.
@@ -324,6 +367,9 @@ Use `/api/llm-proxy/aws-bedrock-api-key` when your administrator configured the 
 
 Codex can use an Azure deployment whose model dialect is `OpenAIResponses`. Adapt the OpenAI configuration with the Azure deployment name and route:
 
+<Tabs groupId="azure-auth">
+  <TabItem value="api-key" label="API key" default>
+
 ```toml
 model = "my-gpt-deployment"
 
@@ -334,7 +380,23 @@ env_key = "OBOT_API_KEY"
 supports_websockets = false
 ```
 
-Use `/api/llm-proxy/azure-entra` for the Azure Entra provider.
+  </TabItem>
+  <TabItem value="entra-id" label="Entra ID">
+
+```toml
+model = "my-gpt-deployment"
+
+[model_providers.obot_openai]
+name = "Azure via Obot LLM Gateway"
+base_url = "https://obot.example.com/api/llm-proxy/azure-entra"
+env_key = "OBOT_API_KEY"
+supports_websockets = false
+```
+
+  </TabItem>
+</Tabs>
+
+For a local Obot server, replace `https://obot.example.com` with `http://localhost:8080` in the selected base URL.
 
 See the Codex documentation for details:
 
