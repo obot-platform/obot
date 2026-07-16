@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -26,7 +27,10 @@ func TestConvertGitCredentialDoesNotExposeToken(t *testing.T) {
 	assert.Equal(t, "Shared GitHub", converted.DisplayName)
 	assert.Equal(t, "github.com", converted.Host)
 	assert.True(t, converted.TokenConfigured)
-	assert.Empty(t, converted.Token)
+
+	response, err := json.Marshal(converted)
+	require.NoError(t, err)
+	assert.NotContains(t, string(response), `"token":`)
 }
 
 func TestGitCredentialReferences(t *testing.T) {

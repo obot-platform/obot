@@ -5038,10 +5038,16 @@ func schema_obot_platform_obot_apiclient_types_GitCredential(ref common.Referenc
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
 						},
 					},
-					"GitCredentialManifest": {
+					"displayName": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.GitCredentialManifest"),
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"host": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 					"tokenConfigured": {
@@ -5051,11 +5057,11 @@ func schema_obot_platform_obot_apiclient_types_GitCredential(ref common.Referenc
 						},
 					},
 				},
-				Required: []string{"Metadata", "GitCredentialManifest"},
+				Required: []string{"Metadata"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.GitCredentialManifest", "github.com/obot-platform/obot/apiclient/types.Metadata"},
+			"github.com/obot-platform/obot/apiclient/types.Metadata"},
 	}
 }
 
@@ -5090,7 +5096,8 @@ func schema_obot_platform_obot_apiclient_types_GitCredentialManifest(ref common.
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
+				Description: "GitCredentialManifest is accepted when creating or updating a Git credential.",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"displayName": {
 						SchemaProps: spec.SchemaProps{

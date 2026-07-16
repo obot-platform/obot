@@ -3,10 +3,12 @@ package types
 // GitCredential represents an admin-managed credential for HTTPS Git repositories.
 type GitCredential struct {
 	Metadata
-	GitCredentialManifest
-	TokenConfigured bool `json:"tokenConfigured,omitempty"`
+	DisplayName     string `json:"displayName,omitempty"`
+	Host            string `json:"host,omitempty"`
+	TokenConfigured bool   `json:"tokenConfigured,omitempty"`
 }
 
+// GitCredentialManifest is accepted when creating or updating a Git credential.
 type GitCredentialManifest struct {
 	DisplayName string `json:"displayName,omitempty"`
 	Host        string `json:"host,omitempty"`

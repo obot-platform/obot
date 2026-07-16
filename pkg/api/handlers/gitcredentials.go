@@ -154,11 +154,9 @@ func gitCredentialReferences(req api.Context, credentialID string) ([]string, er
 
 func convertGitCredential(credential v1.GitCredential, configured bool) types.GitCredential {
 	return types.GitCredential{
-		Metadata: MetadataFrom(&credential),
-		GitCredentialManifest: types.GitCredentialManifest{
-			DisplayName: credential.Spec.DisplayName,
-			Host:        credential.Spec.Host,
-		},
+		Metadata:        MetadataFrom(&credential),
+		DisplayName:     credential.Spec.DisplayName,
+		Host:            credential.Spec.Host,
 		TokenConfigured: configured,
 	}
 }
