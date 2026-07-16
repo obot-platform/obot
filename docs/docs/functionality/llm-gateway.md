@@ -291,7 +291,7 @@ Codex uses the OpenAI Responses API by default, which is what the gateway serves
 
 Codex can use Bedrock `openai.*` and `google.*` models through Obot's OpenAI-compatible Bedrock route.
 
-To adapt the OpenAI configuration above for Bedrock, change the model and provider base URL:
+Add one of the following configurations to `~/.codex/config.toml`:
 
 <Tabs groupId="bedrock-auth">
   <TabItem value="static-credentials" label="Static credentials" default>
@@ -300,9 +300,14 @@ To adapt the OpenAI configuration above for Bedrock, change the model and provid
 model = "openai.gpt-5.4"
 # Bedrock's google.* models are also compatible
 # model = "google.gemma-4-31b"
+model_provider = "obot_bedrock"
 
-[model_providers.obot_openai]
+[model_providers.obot_bedrock]
+name = "Amazon Bedrock Obot LLM Gateway"
 base_url = "https://obot.example.com/api/llm-proxy/aws-bedrock"
+env_key = "OBOT_API_KEY"
+env_key_instructions = "Set OBOT_API_KEY and restart to authenticate with the Obot LLM Gateway"
+supports_websockets = false
 ```
 
   </TabItem>
@@ -312,9 +317,14 @@ base_url = "https://obot.example.com/api/llm-proxy/aws-bedrock"
 model = "openai.gpt-5.4"
 # Bedrock's google.* models are also compatible
 # model = "google.gemma-4-31b"
+model_provider = "obot_bedrock"
 
-[model_providers.obot_openai]
+[model_providers.obot_bedrock]
+name = "Amazon Bedrock Obot LLM Gateway"
 base_url = "https://obot.example.com/api/llm-proxy/aws-bedrock-api-key"
+env_key = "OBOT_API_KEY"
+env_key_instructions = "Set OBOT_API_KEY and restart to authenticate with the Obot LLM Gateway"
+supports_websockets = false
 ```
 
   </TabItem>
