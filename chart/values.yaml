@@ -114,8 +114,22 @@ config:
 
   # config.NAH_THREADINESS -- Advanced - sets the number of concurrent threads that can run in the Obot controller
   NAH_THREADINESS: "10000"
-  # config.KINM_DB_CONNECTIONS -- Advanced - the number of connections in the database pool for kinm
+  # config.KINM_DB_CONNECTIONS -- Advanced - the number of connections in the database pool for kinm, both open and idle connections
   KINM_DB_CONNECTIONS: "5"
+  # config.KINM_DB_MAX_IDLE_CONNECTIONS -- Advanced - the number of idle connections in the database pool for kinm, overrides KINM_DB_CONNECTIONS
+  KINM_DB_MAX_IDLE_CONNECTIONS: "2"
+  # config.KINM_DB_MAX_CONNECTIONS -- Advanced - the number of open connections in the database pool for kinm, overrides KINM_DB_CONNECTIONS
+  KINM_DB_MAX_CONNECTIONS: "5"
+  # config.KINM_DB_MAX_CONNECTION_LIFETIME_SECONDS -- Advanced - the maximum lifetime of a connection in the database pool for kinm in seconds
+  KINM_DB_MAX_CONNECTION_LIFETIME_SECONDS: "180"
+  # config.OBOT_AUTH_PROVIDER_POSTGRES_MAX_IDLE_CONNECTIONS -- Advanced - the maximum number of idle connections in the database pool for the auth provider
+  OBOT_AUTH_PROVIDER_POSTGRES_MAX_IDLE_CONNECTIONS: "2"
+  # config.OBOT_AUTH_PROVIDER_POSTGRES_MAX_CONNECTIONS -- Advanced - the maximum number of connections in the database pool for the auth provider
+  OBOT_AUTH_PROVIDER_POSTGRES_MAX_CONNECTIONS: "5"
+  # config.OBOT_AUTH_PROVIDER_POSTGRES_CONNECTION_LIFETIME_SECONDS -- Advanced - the maximum lifetime of a connection in the database pool for the auth provider in seconds
+  OBOT_AUTH_PROVIDER_POSTGRES_CONNECTION_LIFETIME_SECONDS: "180"
+
+
 
   # config.OBOT_SERVER_ENABLE_AUTHENTICATION -- Enables authentication for Obot
   OBOT_SERVER_ENABLE_AUTHENTICATION: false

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"net/url"
+	"os"
 	"strings"
 
 	"github.com/obot-platform/obot/logger"
@@ -17,7 +18,12 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const PostgresConnectionEnvVar = "OBOT_AUTH_PROVIDER_POSTGRES_CONNECTION_DSN"
+const (
+	postgresConnectionEnvVar      = "OBOT_AUTH_PROVIDER_POSTGRES_CONNECTION_DSN"
+	postgresMaxIdleConnsEnvVar    = "OBOT_AUTH_PROVIDER_POSTGRES_MAX_IDLE_CONNECTIONS"
+	postgresMaxOpenConnsEnvVar    = "OBOT_AUTH_PROVIDER_POSTGRES_MAX_CONNECTIONS"
+	postgresConnMaxLifetimeEnvVar = "OBOT_AUTH_PROVIDER_POSTGRES_CONNECTION_LIFETIME_SECONDS"
+)
 
 type Dispatcher struct {
 	sessionManager       *mcp.SessionManager
@@ -42,7 +48,12 @@ func New(sessionManager *mcp.SessionManager, c kclient.Client, gatewayClient *cl
 	}
 
 	if postgresDSN != "" {
-		d.authProviderExtraEnv = map[string]string{PostgresConnectionEnvVar: postgresDSN}
+		d.authProviderExtraEnv = map[string]string{
+			postgresConnectionEnvVar:      postgresDSN,
+			postgresMaxIdleConnsEnvVar:    os.Getenv(postgresMaxIdleConnsEnvVar),
+			postgresMaxOpenConnsEnvVar:    os.Getenv(postgresMaxOpenConnsEnvVar),
+			postgresConnMaxLifetimeEnvVar: os.Getenv(postgresConnMaxLifetimeEnvVar),
+		}
 	}
 
 	return d

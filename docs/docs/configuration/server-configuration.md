@@ -20,7 +20,13 @@ The Obot server is configured via environment variables. The following configura
 | `OBOT_SERVER_SINGLE_USER_IDLE_SERVER_SHUTDOWN_HOURS` | The interval in hours to check for idle single-user MCP servers and shut them down. Set to `-1` to disable idle shutdown. | `24` (1 day) |
 | `OBOT_SERVER_MULTI_USER_IDLE_SERVER_SHUTDOWN_HOURS` | The interval in hours to check for idle multi-user MCP servers and shut them down. Set to `-1` to disable idle shutdown. | `168` (7 days) |
 | `NAH_THREADINESS` | Sets the number of concurrent threads that can run in the Obot controller. | `10` |
-| `KINM_DB_CONNECTIONS` | The number of connections in the database pool for kinm | `5` |
+| `KINM_DB_CONNECTIONS` | Sets both the maximum open and idle connection counts in the Kinm database pool. `KINM_DB_MAX_CONNECTIONS` and `KINM_DB_MAX_IDLE_CONNECTIONS` override the corresponding values. | `5` |
+| `KINM_DB_MAX_IDLE_CONNECTIONS` | The maximum number of idle connections in the Kinm database pool. Overrides the idle connection count set by `KINM_DB_CONNECTIONS`. | `2` |
+| `KINM_DB_MAX_CONNECTIONS` | The maximum number of open connections in the Kinm database pool. Overrides the open connection count set by `KINM_DB_CONNECTIONS`. | `5` |
+| `KINM_DB_MAX_CONNECTION_LIFETIME_SECONDS` | The maximum lifetime of a connection in the Kinm database pool, in seconds. | `180` |
+| `OBOT_AUTH_PROVIDER_POSTGRES_MAX_IDLE_CONNECTIONS` | The maximum number of idle connections in the PostgreSQL database pool used by authentication providers. | `2` |
+| `OBOT_AUTH_PROVIDER_POSTGRES_MAX_CONNECTIONS` | The maximum number of open connections in the PostgreSQL database pool used by authentication providers. | `5` |
+| `OBOT_AUTH_PROVIDER_POSTGRES_CONNECTION_LIFETIME_SECONDS` | The maximum lifetime of a connection in the PostgreSQL database pool used by authentication providers, in seconds. | `180` |
 | `OBOT_SERVER_ENABLE_AUTHENTICATION` | Enables authentication for Obot | `false` |
 | `OBOT_SERVER_UNAUTHENTICATED_RATE_LIMIT` | Rate limit for unauthenticated requests (requests per second). Unauthenticated requests are tracked by source IP address. | `100` |
 | `OBOT_SERVER_AUTHENTICATED_RATE_LIMIT` | Rate limit for authenticated non-admin requests (requests per second). Authenticated requests are tracked by user ID. Admin users are exempt from rate limiting. | `200` |
