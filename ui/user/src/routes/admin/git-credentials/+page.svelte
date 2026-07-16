@@ -22,6 +22,7 @@
 	let saving = $state(false);
 	let dialog = $state<HTMLDialogElement>();
 	let isReadonly = $derived(profile.current.isAdminReadonly?.());
+	let tokenRequired = $derived(!editingCredential?.tokenConfigured);
 
 	let tableData = $derived(
 		gitCredentials.map((credential) => ({
@@ -54,7 +55,7 @@
 	}
 
 	async function saveCredential() {
-		if (isReadonly || !displayName.trim() || !host.trim() || (!editingCredential && !token)) {
+		if (isReadonly || !displayName.trim() || !host.trim() || (tokenRequired && !token)) {
 			return;
 		}
 
@@ -179,7 +180,9 @@
 			</div>
 			<div class="flex flex-col gap-1">
 				<label for="git-credential-token" class="text-sm font-light">
-					Personal access token {editingCredential ? '(leave blank to keep current)' : ''}
+					Personal access token {editingCredential?.tokenConfigured
+						? '(leave blank to keep current)'
+						: ''}
 				</label>
 				<SensitiveInput name="git-credential-token" bind:value={token} disabled={isReadonly} />
 			</div>
@@ -200,7 +203,7 @@
 					saving ||
 					!displayName.trim() ||
 					!host.trim() ||
-					(!editingCredential && !token)}
+					(tokenRequired && !token)}
 				onclick={saveCredential}
 			>
 				{saving ? 'Saving...' : editingCredential ? 'Save' : 'Create'}
