@@ -52,6 +52,7 @@ var (
 const (
 	maxDeploymentWatchRetries    = 5
 	nanobotPodHealthPollInterval = 250 * time.Millisecond
+	mcpServerRevisionAnnotation  = "obot.ai/mcp-server-revision"
 )
 
 type kubernetesBackend struct {
@@ -388,6 +389,11 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig)
 		return nil, nil
 	}
 
+	// Capture the revision before rendering mutates its copy of server. The
+	// readiness path hashes the original ServerConfig and uses this annotation
+	// to distinguish the desired rollout from stale ReplicaSet pods.
+	serverRevision := utils.Digest(server)
+
 	if !k.authEnabled {
 		server.Audiences = nil
 		server.TokenExchangeClientID = ""
@@ -403,9 +409,10 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig)
 		portName = "mcp"
 
 		annotations = map[string]string{
-			"mcp-server-display-name": server.MCPServerDisplayName,
-			"mcp-server-scope":        server.MCPServerName,
-			"mcp-user-id":             server.OwnerUserID,
+			"mcp-server-display-name":   server.MCPServerDisplayName,
+			"mcp-server-scope":          server.MCPServerName,
+			"mcp-user-id":               server.OwnerUserID,
+			mcpServerRevisionAnnotation: serverRevision,
 		}
 
 		fileMapping        = make(map[string]string, len(server.Files))
@@ -770,6 +777,24 @@ func getNewestPod(pods []corev1.Pod) (*corev1.Pod, error) {
 	return newest, nil
 }
 
+// getNewestActivePodForRevision returns the newest non-terminating pod from
+// the desired rollout. During a rolling update, pods from the previous
+// ReplicaSet can remain alive while the replacement starts.
+func getNewestActivePodForRevision(pods []corev1.Pod, revision string) (*corev1.Pod, error) {
+	matchingPods := make([]corev1.Pod, 0, len(pods))
+	for i := range pods {
+		if !pods[i].DeletionTimestamp.IsZero() {
+			continue
+		}
+		if revision != "" && pods[i].Annotations[mcpServerRevisionAnnotation] != revision {
+			continue
+		}
+		matchingPods = append(matchingPods, pods[i])
+	}
+
+	return getNewestPod(matchingPods)
+}
+
 // analyzePodStatus examines a pod's status to determine if we should retry waiting for it
 // or if we should fail immediately. Returns (shouldRetry, error).
 func analyzePodStatus(pod *corev1.Pod, isAgent bool) (bool, error) {
@@ -871,7 +896,7 @@ func (k *kubernetesBackend) checkNanobotPodHealth(ctx context.Context, pod *core
 	return fmt.Errorf("%w: internal server error: %s", ErrHealthCheckFailed, strings.TrimSpace(string(body)))
 }
 
-func (k *kubernetesBackend) pollNanobotPodHealth(ctx context.Context, id string) error {
+func (k *kubernetesBackend) pollNanobotPodHealth(ctx context.Context, id, revision string) error {
 	ticker := time.NewTicker(nanobotPodHealthPollInterval)
 	defer ticker.Stop()
 
@@ -883,7 +908,7 @@ func (k *kubernetesBackend) pollNanobotPodHealth(ctx context.Context, id string)
 				"app": id,
 			}),
 		}); err == nil && len(pods.Items) > 0 {
-			newestPod, err := getNewestPod(pods.Items)
+			newestPod, err := getNewestActivePodForRevision(pods.Items, revision)
 			if err == nil {
 				if err := k.checkNanobotPodHealth(ctx, newestPod); err != nil {
 					return err
@@ -902,9 +927,13 @@ func (k *kubernetesBackend) pollNanobotPodHealth(ctx context.Context, id string)
 func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id string, server ServerConfig, previousPodName string) (string, error) {
 	// Wait for the deployment to be ready, checking pod status on each update to fail fast on permanent errors.
 	var (
-		err     error
-		lastErr error
+		err             error
+		lastErr         error
+		desiredRevision string
 	)
+	if server.Runtime == types.RuntimeNPX || server.Runtime == types.RuntimeUVX {
+		desiredRevision = utils.Digest(server)
+	}
 	for attempt := range maxDeploymentWatchRetries {
 		waitCtx, cancelWait := context.WithCancel(ctx)
 		var healthErrCh <-chan error
@@ -913,7 +942,7 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 			healthErrCh = ch
 			go func() {
 				defer close(ch)
-				if healthErr := k.pollNanobotPodHealth(waitCtx, id); healthErr != nil {
+				if healthErr := k.pollNanobotPodHealth(waitCtx, id, desiredRevision); healthErr != nil {
 					ch <- healthErr
 					cancelWait()
 				}
@@ -922,6 +951,10 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 
 		_, err := wait.For(waitCtx, k.cachedClient, &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: id, Namespace: k.mcpNamespace}},
 			func(dep *appsv1.Deployment) (bool, error) {
+				if desiredRevision != "" && dep.Spec.Template.Annotations[mcpServerRevisionAnnotation] != desiredRevision {
+					return false, nil
+				}
+
 				if dep.Generation == dep.Status.ObservedGeneration && dep.Status.UpdatedReplicas == 1 && dep.Status.ReadyReplicas == 1 && dep.Status.AvailableReplicas == 1 {
 					return true, nil
 				}
@@ -942,7 +975,7 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 					return false, nil // No pods yet, keep waiting
 				}
 
-				newestPod, err := getNewestPod(pods.Items)
+				newestPod, err := getNewestActivePodForRevision(pods.Items, desiredRevision)
 				if err != nil {
 					return false, nil // Keep waiting
 				}
@@ -993,7 +1026,9 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 		pods    corev1.PodList
 		podName string
 	)
-	if err = k.cachedClient.List(ctx, &pods, &kclient.ListOptions{
+	// Read directly from the API after the cached Deployment reports ready.
+	// Pod and Deployment informer caches can observe a rollout at different times.
+	if err = k.client.List(ctx, &pods, &kclient.ListOptions{
 		Namespace: k.mcpNamespace,
 		LabelSelector: labels.SelectorFromSet(map[string]string{
 			"app": id,
@@ -1004,7 +1039,10 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 
 	var newestCreatedTime metav1.Time
 	for _, p := range pods.Items {
-		if p.DeletionTimestamp.IsZero() && p.CreationTimestamp.After(newestCreatedTime.Time) && p.Status.Phase == corev1.PodRunning {
+		if p.DeletionTimestamp.IsZero() &&
+			(desiredRevision == "" || p.Annotations[mcpServerRevisionAnnotation] == desiredRevision) &&
+			p.CreationTimestamp.After(newestCreatedTime.Time) &&
+			p.Status.Phase == corev1.PodRunning {
 			podName = p.Name
 			newestCreatedTime = p.CreationTimestamp
 		}

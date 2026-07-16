@@ -14,6 +14,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/obot-platform/obot/pkg/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -786,6 +787,7 @@ func TestAnalyzePodStatus(t *testing.T) {
 type fakeWithWatch struct {
 	client.Client // controller-runtime fake for Get/List/Create etc.
 	watcher       *watch.FakeWatcher
+	watchStarted  chan struct{}
 }
 
 type roundTripFunc func(*http.Request) (*http.Response, error)
@@ -795,6 +797,12 @@ func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func (f *fakeWithWatch) Watch(ctx context.Context, _ client.ObjectList, _ ...client.ListOption) (watch.Interface, error) {
+	if f.watchStarted != nil {
+		select {
+		case f.watchStarted <- struct{}{}:
+		default:
+		}
+	}
 	go func() {
 		<-ctx.Done()
 		f.watcher.Stop()
@@ -811,8 +819,16 @@ func TestUpdatedMCPPodName_FailsFastOnNanobotHealthError(t *testing.T) {
 		t.Fatalf("AddToScheme(corev1) error = %v", err)
 	}
 
+	server := ServerConfig{
+		Runtime:        types.RuntimeNPX,
+		StartupTimeout: 5 * time.Minute,
+	}
+	revision := utils.Digest(server)
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-server", Namespace: "obot-mcp"},
+		Spec: appsv1.DeploymentSpec{Template: corev1.PodTemplateSpec{ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{mcpServerRevisionAnnotation: revision},
+		}}},
 		Status: appsv1.DeploymentStatus{
 			ObservedGeneration: 1,
 			UpdatedReplicas:    1,
@@ -824,6 +840,7 @@ func TestUpdatedMCPPodName_FailsFastOnNanobotHealthError(t *testing.T) {
 			Namespace:         "obot-mcp",
 			CreationTimestamp: metav1.Now(),
 			Labels:            map[string]string{"app": "test-server"},
+			Annotations:       map[string]string{mcpServerRevisionAnnotation: revision},
 		},
 		Status: corev1.PodStatus{
 			Phase: corev1.PodRunning,
@@ -872,15 +889,196 @@ func TestUpdatedMCPPodName_FailsFastOnNanobotHealthError(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 	defer cancel()
 
-	_, err := k.updatedMCPPodName(ctx, "http://mcp.example.com", "test-server", ServerConfig{
-		Runtime:        types.RuntimeNPX,
-		StartupTimeout: 5 * time.Minute,
-	}, "")
+	_, err := k.updatedMCPPodName(ctx, "http://mcp.example.com", "test-server", server, "")
 	if !errors.Is(err, ErrHealthCheckFailed) {
 		t.Fatalf("updatedMCPPodName() error = %v, want %v", err, ErrHealthCheckFailed)
 	}
 	if !strings.Contains(err.Error(), "npm error 404 Not Found") {
 		t.Fatalf("updatedMCPPodName() error = %q, want npm failure", err)
+	}
+}
+
+func TestUpdatedMCPPodName_IgnoresPodsOutsideDesiredRollout(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := appsv1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme(appsv1) error = %v", err)
+	}
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme(corev1) error = %v", err)
+	}
+
+	server := ServerConfig{Runtime: types.RuntimeNPX, StartupTimeout: 5 * time.Minute}
+	revision := utils.Digest(server)
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-server", Namespace: "obot-mcp"},
+		Spec: appsv1.DeploymentSpec{Template: corev1.PodTemplateSpec{ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{mcpServerRevisionAnnotation: revision},
+		}}},
+		Status: appsv1.DeploymentStatus{ObservedGeneration: 1, UpdatedReplicas: 1},
+	}
+	oldPod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "test-server-old",
+			Namespace:         "obot-mcp",
+			CreationTimestamp: metav1.Now(),
+			Labels:            map[string]string{"app": "test-server"},
+			Annotations:       map[string]string{mcpServerRevisionAnnotation: "old-revision"},
+		},
+		Status: corev1.PodStatus{Phase: corev1.PodRunning, PodIP: "10.0.0.1"},
+	}
+	terminatingPod := oldPod.DeepCopy()
+	terminatingPod.Name = "test-server-terminating"
+	terminatingPod.Status.PodIP = "10.0.0.2"
+	terminatingPod.Annotations[mcpServerRevisionAnnotation] = revision
+	terminatingPod.DeletionTimestamp = &metav1.Time{Time: time.Now()}
+	terminatingPod.Finalizers = []string{"test-finalizer"}
+
+	watcher := watch.NewFake()
+	client := &fakeWithWatch{
+		Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(
+			deployment, oldPod, terminatingPod,
+		).Build(),
+		watcher: watcher,
+	}
+	healthCalls := make(chan string, 1)
+	k := &kubernetesBackend{
+		client:       client,
+		cachedClient: client,
+		mcpNamespace: "obot-mcp",
+		healthCheckClient: &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			healthCalls <- req.URL.Hostname()
+			return &http.Response{
+				StatusCode: http.StatusInternalServerError,
+				Body:       io.NopCloser(strings.NewReader("desired rollout failure")),
+				Header:     make(http.Header),
+			}, nil
+		})},
+	}
+
+	createErr := make(chan error, 1)
+	go func() {
+		timer := time.NewTimer(100 * time.Millisecond)
+		defer timer.Stop()
+		<-timer.C
+		createErr <- client.Create(t.Context(), &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:              "test-server-new",
+				Namespace:         "obot-mcp",
+				CreationTimestamp: metav1.Now(),
+				Labels:            map[string]string{"app": "test-server"},
+				Annotations:       map[string]string{mcpServerRevisionAnnotation: revision},
+			},
+			Status: corev1.PodStatus{Phase: corev1.PodRunning, PodIP: "10.0.0.3"},
+		})
+	}()
+
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+	_, err := k.updatedMCPPodName(ctx, "http://mcp.example.com", "test-server", server, "")
+	if createErr := <-createErr; createErr != nil {
+		t.Fatalf("Create() error = %v", createErr)
+	}
+	if !errors.Is(err, ErrHealthCheckFailed) || !strings.Contains(err.Error(), "desired rollout failure") {
+		t.Fatalf("updatedMCPPodName() error = %v, want desired rollout health failure", err)
+	}
+	if got := <-healthCalls; got != "10.0.0.3" {
+		t.Fatalf("health check pod IP = %q, want desired active pod IP", got)
+	}
+}
+
+func TestUpdatedMCPPodName_WaitsForDesiredDeploymentRevision(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := appsv1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme(appsv1) error = %v", err)
+	}
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme(corev1) error = %v", err)
+	}
+
+	server := ServerConfig{Runtime: types.RuntimeNPX, StartupTimeout: time.Second}
+	revision := utils.Digest(server)
+	oldDeployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "test-server",
+			Namespace:  "obot-mcp",
+			Generation: 1,
+		},
+		Spec: appsv1.DeploymentSpec{Template: corev1.PodTemplateSpec{ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{mcpServerRevisionAnnotation: "old-revision"},
+		}}},
+		Status: appsv1.DeploymentStatus{
+			ObservedGeneration: 1,
+			UpdatedReplicas:    1,
+			ReadyReplicas:      1,
+			AvailableReplicas:  1,
+		},
+	}
+	oldPod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "test-server-old",
+			Namespace:         "obot-mcp",
+			CreationTimestamp: metav1.Now(),
+			Labels:            map[string]string{"app": "test-server"},
+			Annotations:       map[string]string{mcpServerRevisionAnnotation: "old-revision"},
+		},
+		Status: corev1.PodStatus{Phase: corev1.PodRunning},
+	}
+
+	watcher := watch.NewFake()
+	watchStarted := make(chan struct{}, 1)
+	client := &fakeWithWatch{
+		Client:       fake.NewClientBuilder().WithScheme(scheme).WithObjects(oldDeployment, oldPod).Build(),
+		watcher:      watcher,
+		watchStarted: watchStarted,
+	}
+	k := &kubernetesBackend{
+		client:       client,
+		cachedClient: client,
+		mcpNamespace: "obot-mcp",
+	}
+
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+	defer cancel()
+	asyncErr := make(chan error, 1)
+	go func() {
+		select {
+		case <-watchStarted:
+		case <-ctx.Done():
+			return
+		}
+
+		newPod := &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:              "test-server-new",
+				Namespace:         "obot-mcp",
+				CreationTimestamp: metav1.Now(),
+				Labels:            map[string]string{"app": "test-server"},
+				Annotations:       map[string]string{mcpServerRevisionAnnotation: revision},
+			},
+			Status: corev1.PodStatus{Phase: corev1.PodRunning},
+		}
+		if err := client.Create(ctx, newPod); err != nil {
+			asyncErr <- err
+			return
+		}
+
+		desiredDeployment := oldDeployment.DeepCopy()
+		desiredDeployment.Generation = 2
+		desiredDeployment.Spec.Template.Annotations[mcpServerRevisionAnnotation] = revision
+		desiredDeployment.Status.ObservedGeneration = 2
+		watcher.Modify(desiredDeployment)
+		asyncErr <- nil
+	}()
+
+	podName, err := k.updatedMCPPodName(ctx, "http://mcp.example.com", "test-server", server, "test-server-new")
+	if err != nil {
+		t.Fatalf("updatedMCPPodName() error = %v", err)
+	}
+	if err := <-asyncErr; err != nil {
+		t.Fatalf("creating desired rollout pod: %v", err)
+	}
+	if podName != "test-server-new" {
+		t.Fatalf("updatedMCPPodName() pod = %q, want desired rollout pod", podName)
 	}
 }
 
