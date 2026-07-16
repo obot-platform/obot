@@ -2,6 +2,7 @@
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
+	import LocalAuthConfigure from '$lib/components/admin/LocalAuthConfigure.svelte';
 	import ProviderCard from '$lib/components/admin/ProviderCard.svelte';
 	import ProviderConfigure from '$lib/components/admin/ProviderConfigure.svelte';
 	import ProviderDeconfigureConfirm from '$lib/components/admin/ProviderDeconfigureConfirm.svelte';
@@ -66,11 +67,20 @@
 	let deconfigureAuthProviderDialog = $state<ReturnType<typeof ProviderDeconfigureConfirm>>();
 	let confirmDeconfigureAuthProvider = $state<AuthProvider>();
 
+	let localAuthConfigure = $state<ReturnType<typeof LocalAuthConfigure>>();
+	// True while the local auth configure/users modal is open, so the bootstrap owner-setup prompt
+	// doesn't fire on top of it (it fires once the modal closes with at least one user).
+	let localAuthConfigureOpen = $state(false);
+
 	let isBootstrapUser = $derived(profile.current.isBootstrapUser?.());
 
 	const duration = PAGE_TRANSITION_DURATION;
 
 	const prepareOwnerSetup = async () => {
+		// Don't prompt for owner login while the local auth modal is open — the admin may still be
+		// configuring it or adding the first user.
+		if (localAuthConfigureOpen) return;
+
 		const configuredAuthProvider = authProviders.find(
 			(provider) => provider.configured && (provider.missingEntitlements || []).length === 0
 		);
@@ -78,6 +88,12 @@
 
 		const bootstrapStatus = await UserService.getBootstrapStatus();
 		if (!bootstrapStatus.setupEnabled) return;
+
+		// Local auth has nobody to log in as until at least one user exists.
+		if (configuredAuthProvider.id === CommonAuthProviderIds.LOCAL) {
+			const localUsers = await AdminService.listLocalAuthUsers();
+			if (localUsers.length === 0) return;
+		}
 
 		if (!setupLoading && !setupTempLoginUrl) {
 			configuringAuthProvider = configuredAuthProvider;
@@ -163,6 +179,7 @@
 				authProviders = await AdminService.listAuthProviders();
 				adminConfigStore.updateAuthProviders(authProviders);
 				providerConfigure?.close();
+
 				if (isBootstrapUser) {
 					await handleOwnerSetup();
 				}
@@ -179,6 +196,28 @@
 			} finally {
 				loading = false;
 			}
+		}
+	}
+
+	// Saves the local auth provider's email-domain config. Returns an error message to show inside
+	// the local auth modal, or undefined on success. The local provider manages its own users, so
+	// unlike the OAuth providers it doesn't hand off to the owner-setup flow here — that happens
+	// when the modal closes with at least one user.
+	async function handleLocalAuthConfigure(
+		form: Record<string, string>
+	): Promise<string | undefined> {
+		try {
+			await AdminService.configureAuthProvider(CommonAuthProviderIds.LOCAL, form);
+			authProviders = await AdminService.listAuthProviders();
+			adminConfigStore.updateAuthProviders(authProviders);
+			return undefined;
+		} catch (err) {
+			if (err instanceof Error) {
+				const match = err.message.match(/{"error":\s*"(.*?)"}/);
+				if (match) return JSON.parse(match[0]).error;
+				return err.message;
+			}
+			return 'Failed to configure auth provider';
 		}
 	}
 
@@ -250,7 +289,14 @@
 								};
 							}
 						}
-						providerConfigure?.open();
+
+						// Local auth has its own configure/manage-users modal.
+						if (authProvider.id === CommonAuthProviderIds.LOCAL) {
+							localAuthConfigureOpen = true;
+							localAuthConfigure?.open();
+						} else {
+							providerConfigure?.open();
+						}
 					}}
 					onDeconfigure={async () => {
 						confirmDeconfigureAuthProvider = authProvider;
@@ -305,6 +351,20 @@
 		{/if}
 	{/snippet}
 </ProviderConfigure>
+
+<LocalAuthConfigure
+	bind:this={localAuthConfigure}
+	provider={configuringAuthProvider}
+	values={configuringAuthProviderValues}
+	readonly={profile.current.isAdminReadonly?.()}
+	onConfigure={handleLocalAuthConfigure}
+	onClose={async (userCount) => {
+		localAuthConfigureOpen = false;
+		if (isBootstrapUser && userCount > 0) {
+			await prepareOwnerSetup();
+		}
+	}}
+/>
 
 <ProviderDeconfigureConfirm
 	bind:this={deconfigureAuthProviderDialog}
