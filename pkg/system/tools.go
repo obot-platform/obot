@@ -11,6 +11,10 @@ const (
 	AzureModelProvider               = "azure-model-provider"
 	AzureEntraModelProvider          = "azure-entra-model-provider"
 
+	// LocalAuthProvider is the built-in username/password auth provider, implemented in
+	// pkg/localauth. It runs in-process instead of as a daemon from the provider registry.
+	LocalAuthProvider = "local-auth-provider"
+
 	OpenAIAPIKeyEnvVar    = "OPENAI_API_KEY"
 	AnthropicAPIKeyEnvVar = "ANTHROPIC_API_KEY"
 

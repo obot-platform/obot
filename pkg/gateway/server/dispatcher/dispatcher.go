@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/gateway/client"
@@ -35,17 +36,21 @@ type Dispatcher struct {
 	internalServerURL    string
 	authProviderExtraEnv map[string]string
 	ports                *ports
+
+	builtinLock         sync.RWMutex
+	builtinAuthProvider map[string]url.URL
 }
 
 func New(sessionManager *mcp.SessionManager, c kclient.Client, gatewayClient *client.Client, licenseProvider *license.Provider, serverURL, internalServerURL, postgresDSN string) *Dispatcher {
 	d := &Dispatcher{
-		sessionManager:    sessionManager,
-		client:            c,
-		gatewayClient:     gatewayClient,
-		licenseProvider:   licenseProvider,
-		serverURL:         serverURL,
-		internalServerURL: internalServerURL,
-		ports:             newPorts(),
+		sessionManager:      sessionManager,
+		client:              c,
+		gatewayClient:       gatewayClient,
+		licenseProvider:     licenseProvider,
+		serverURL:           serverURL,
+		internalServerURL:   internalServerURL,
+		ports:               newPorts(),
+		builtinAuthProvider: map[string]url.URL{},
 	}
 
 	if postgresDSN != "" {
@@ -64,8 +69,29 @@ func (d *Dispatcher) Close() {
 	d.closeDaemons()
 }
 
+// RegisterBuiltinAuthProvider registers an auth provider that runs inside the Obot process,
+// rather than as a daemon launched from the provider registry.
+func (d *Dispatcher) RegisterBuiltinAuthProvider(namespace, authProviderName string, u url.URL) {
+	d.builtinLock.Lock()
+	defer d.builtinLock.Unlock()
+
+	d.builtinAuthProvider[providerKeyForAuthProvider(namespace, authProviderName)] = u
+}
+
+func (d *Dispatcher) builtinAuthProviderURL(key string) (url.URL, bool) {
+	d.builtinLock.RLock()
+	defer d.builtinLock.RUnlock()
+
+	u, ok := d.builtinAuthProvider[key]
+	return u, ok
+}
+
 func (d *Dispatcher) URLForAuthProvider(ctx context.Context, namespace, authProviderName string) (url.URL, error) {
 	key := providerKeyForAuthProvider(namespace, authProviderName)
+
+	if u, ok := d.builtinAuthProviderURL(key); ok {
+		return u, nil
+	}
 
 	d.ports.daemonLock.RLock()
 	if port := d.ports.daemonPorts[key]; port != 0 {

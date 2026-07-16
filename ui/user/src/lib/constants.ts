@@ -1,7 +1,15 @@
 export const ABORTED_THREAD_MESSAGE = 'thread was aborted, cancelling run';
 export const ABORTED_BY_USER_MESSAGE = 'aborted by user';
 
-export const UNAUTHORIZED_PATHS = new Set(['/', '/privacy-policy', '/terms-of-service', '/admin']);
+export const UNAUTHORIZED_PATHS = new Set([
+	'/',
+	'/privacy-policy',
+	'/terms-of-service',
+	'/admin',
+	// The local auth provider's login form: anonymous by definition, so a 401 from the layout's
+	// profile fetch must not bounce the user back to the provider list.
+	'/login/local'
+]);
 
 export const PAGE_TRANSITION_DURATION = 200;
 export const PAGE_SIZE = 50;
@@ -44,8 +52,12 @@ export const CommonAuthProviderIds = {
 	OKTA: 'okta-auth-provider',
 	ENTRA: 'entra-auth-provider',
 	AUTH0: 'auth0-auth-provider',
-	JUMPCLOUD: 'jumpcloud-auth-provider'
+	JUMPCLOUD: 'jumpcloud-auth-provider',
+	LOCAL: 'local-auth-provider'
 } as const;
+
+/** Matches localauth.MinPasswordLength on the server. */
+export const LOCAL_AUTH_MIN_PASSWORD_LENGTH = 12;
 
 export const BOOTSTRAP_USER_ID = 'bootstrap';
 

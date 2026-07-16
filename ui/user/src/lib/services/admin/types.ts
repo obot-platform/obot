@@ -241,6 +241,13 @@ export interface AuthProvider extends BaseProvider {
 	type: 'authprovider';
 }
 
+// A user of the built-in local auth provider. Passwords are never returned by the API.
+export interface LocalAuthUser {
+	id: string;
+	email: string;
+	created: string;
+}
+
 // Devices
 export interface DeviceMCPServerStat {
 	configHash: string;

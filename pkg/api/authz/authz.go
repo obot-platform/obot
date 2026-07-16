@@ -56,6 +56,8 @@ var (
 		"DELETE /api/license",
 		"/api/auth-providers",
 		"/api/auth-providers/",
+		"/api/local-auth/users",
+		"/api/local-auth/users/",
 		"/api/model-providers",
 		"/api/model-providers/",
 		"GET /api/bookstrap",

@@ -63,7 +63,25 @@ You can:
 
 ## Available Auth Providers
 
-Obot currently supports the following authentication providers (using OAuth2). Before getting started you will need to follow the instructions in the auth provider for setting up a new app. You can get the callback URL from the Obot Admin -> Auth Providers -> \<Auth Provider> -> Configure page. The configuration form will also have fields for the data required.
+Obot supports the built-in [Local](#local) provider, as well as the following providers that authenticate against an external identity provider using OAuth2. For the OAuth2 providers, you will need to follow the instructions in the auth provider for setting up a new app before getting started. You can get the callback URL from the Obot Admin -> Auth Providers -> \<Auth Provider> -> Configure page. The configuration form will also have fields for the data required.
+
+### Local
+
+The Local provider authenticates users with an email address and password stored in Obot's own database. It requires no external identity provider, which makes it a good fit for evaluations, air-gapped installations, and small deployments.
+
+Passwords are hashed with [argon2id](https://en.wikipedia.org/wiki/Argon2) and are never stored, logged, or returned by the API.
+
+To set it up:
+
+1. Go to Admin -> Auth Providers and configure the **Local** provider, setting the email domains that local users are allowed to have (`*` allows any domain).
+2. Click the **Manage Users** button on the Local provider card, and create a user. Share the password with them over a secure channel.
+3. Local users sign in from the Obot login page by choosing **Local**, then entering their email and password.
+
+:::note
+Local users cannot change their own password. An administrator resets a password from the same Manage Users dialog, which also signs the user out of all of their existing sessions.
+:::
+
+Deleting a local user prevents them from signing in again, but it does not delete the Obot user account they created by signing in. Delete that from the Users page, as you would for any other user.
 
 ### GitHub
 
