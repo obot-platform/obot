@@ -20,6 +20,11 @@
 		if (typeof body === 'object' && !Array.isArray(body)) return Object.keys(body).length > 0;
 		return true;
 	}
+
+	function formatHeaderValue(value: string | string[]) {
+		const values = Array.isArray(value) ? value : [value];
+		return values.map((v) => `"${v}"`).join(', ');
+	}
 </script>
 
 <div class="bg-base-200 text-base-content flex h-full w-[inherit] min-w-[inherit] flex-col">
@@ -157,7 +162,7 @@
 					{/if}
 
 					{#if hasBody(details.request?.headers)}
-						{@render jsonBody('Request Headers', details.request?.headers)}
+						{@render headersBody('Request Headers', details.request?.headers)}
 					{/if}
 					{#if hasBody(details.request?.body)}
 						{@render jsonBody('Request / Tool Input', details.request?.body)}
@@ -166,7 +171,7 @@
 						{@render jsonBody('Mutated Request Body', details.request?.mutatedBody)}
 					{/if}
 					{#if hasBody(details.response?.headers)}
-						{@render jsonBody('Response Headers', details.response?.headers)}
+						{@render headersBody('Response Headers', details.response?.headers)}
 					{/if}
 					{#if hasBody(details.response?.originalBody)}
 						{@render jsonBody('Original Response Body', details.response?.originalBody)}
@@ -200,6 +205,26 @@
 	{#if value !== undefined && value !== null && value !== ''}
 		<p><span class="font-medium">{label}</span>: {value}</p>
 	{/if}
+{/snippet}
+
+{#snippet headersBody(
+	name: string,
+	headers: Record<string, string | string[]> | string | undefined
+)}
+	{@const text =
+		typeof headers === 'string'
+			? headers
+			: Object.entries(headers ?? {})
+					.map(([key, value]) => `${key}: ${formatHeaderValue(value)}`)
+					.join('\n')}
+	<p class="translate-y-2 pt-4 text-base font-semibold">{name}</p>
+	<div class="relative text-white">
+		<pre class="default-scrollbar-thin max-h-96 overflow-y-auto p-4">{text}</pre>
+		<CopyButton
+			classes={{ button: 'absolute right-4 top-4 flex flex-col items-end text-current' }}
+			{text}
+		/>
+	</div>
 {/snippet}
 
 {#snippet jsonBody(name: string, value: unknown)}
