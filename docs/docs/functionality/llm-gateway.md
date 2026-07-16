@@ -367,18 +367,20 @@ Use `/api/llm-proxy/aws-bedrock-api-key` when your administrator configured the 
 
 ### Codex with Azure
 
-Codex can use an Azure deployment whose model dialect is `OpenAIResponses`. Adapt the OpenAI configuration with the Azure deployment name and route:
+Codex can use an Azure deployment whose model dialect is `OpenAIResponses`. Add the configuration for your Azure authentication method to `~/.codex/config.toml`, replacing the example deployment name and Obot URL:
 
 <Tabs groupId="azure-auth">
   <TabItem value="api-key" label="API key" default>
 
 ```toml
 model = "my-gpt-deployment"
+model_provider = "obot_azure"
 
-[model_providers.obot_openai]
+[model_providers.obot_azure]
 name = "Azure via Obot LLM Gateway"
 base_url = "https://obot.example.com/api/llm-proxy/azure"
 env_key = "OBOT_API_KEY"
+env_key_instructions = "Set OBOT_API_KEY and restart to authenticate with the Obot LLM Gateway"
 supports_websockets = false
 ```
 
@@ -387,11 +389,13 @@ supports_websockets = false
 
 ```toml
 model = "my-gpt-deployment"
+model_provider = "obot_azure"
 
-[model_providers.obot_openai]
+[model_providers.obot_azure]
 name = "Azure via Obot LLM Gateway"
 base_url = "https://obot.example.com/api/llm-proxy/azure-entra"
 env_key = "OBOT_API_KEY"
+env_key_instructions = "Set OBOT_API_KEY and restart to authenticate with the Obot LLM Gateway"
 supports_websockets = false
 ```
 
