@@ -58,7 +58,7 @@
 		return options;
 	});
 	const selectClasses =
-		'bg-base-200 dark:bg-base-300 border border-base-300 dark:border-base-400 w-full shadow-inner';
+		'bg-base-200 dark:bg-base-100 border border-base-300 dark:border-base-400 w-full shadow-inner';
 
 	function setValueSource(source: ValueSource) {
 		valueSource = source;
