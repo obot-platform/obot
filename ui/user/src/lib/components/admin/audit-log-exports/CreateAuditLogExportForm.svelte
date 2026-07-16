@@ -2,6 +2,7 @@
 	import { page } from '$app/state';
 	import type { DateRange } from '$lib/components/Calendar.svelte';
 	import Select from '$lib/components/Select.svelte';
+	import { filterVisibleExportFields } from '$lib/components/admin/audit-log-exports/filterFields';
 	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
@@ -239,7 +240,7 @@
 		keyPrefix: '',
 		startTime: subDays(new Date(), 7),
 		endTime: set(new Date(), { milliseconds: 0, seconds: 59 }),
-		sourceTypes: ['mcp'] as string[],
+		sourceTypes: ['mcp'],
 		filters: {
 			user_id: '',
 			mcp_id: '',
@@ -452,23 +453,7 @@
 		'device_id'
 	]);
 	const visibleAuditLogExportFields = $derived(
-		AUDIT_LOG_EXPORT_FILTER_FIELDS.filter((field) => {
-			const hasMCPFilters = [...mcpFilterKeys].some((key) => form.filters[key]);
-			const hasLocalFilters = [...localFilterKeys].some((key) => form.filters[key]);
-			// Source-specific filters require exactly one selected source (the backend rejects them for
-			// mixed-source exports). Keep a group visible if it still holds values so the user can
-			// clear a stale selection after switching sources, instead of both groups hiding at once.
-			const onlyMCP = form.sourceTypes.length === 1 && form.sourceTypes.includes('mcp');
-			const onlyLocal =
-				form.sourceTypes.length === 1 && form.sourceTypes.includes('local_agent_tool_call');
-			if (mcpFilterKeys.has(field.filterKey)) {
-				return hasMCPFilters || onlyMCP;
-			}
-			if (localFilterKeys.has(field.filterKey)) {
-				return hasLocalFilters || onlyLocal;
-			}
-			return true;
-		})
+		filterVisibleExportFields(form, AUDIT_LOG_EXPORT_FILTER_FIELDS, mcpFilterKeys, localFilterKeys)
 	);
 
 	function join(array: string[] | undefined): string {
