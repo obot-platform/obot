@@ -7,7 +7,9 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 
+	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
@@ -81,6 +83,7 @@ type SessionManager struct {
 	cancel                    func()
 	sessions                  sync.Map
 	tokenService              *persistent.TokenService
+	globalTokenStore          GlobalTokenStore
 	baseURL                   string
 	remoteURLValidationConfig RemoteMCPURLValidationConfig
 	resourceMaximums          ResourceMaximums
@@ -113,7 +116,7 @@ const streamableHTTPHealthcheckBody string = `{
     }
 }`
 
-func NewSessionManager(ctx context.Context, authEnabled bool, tokenService *persistent.TokenService, baseURL string, httpListenPort int, opts Options, webhookHelper *WebhookHelper, localK8sConfig *rest.Config, client, cachedClient, obotStorageClient kclient.WithWatch, gatewayClient *gateway.Client, obotNamespace string) (*SessionManager, error) {
+func NewSessionManager(ctx context.Context, authEnabled bool, globalTokenStore GlobalTokenStore, tokenService *persistent.TokenService, baseURL string, httpListenPort int, opts Options, webhookHelper *WebhookHelper, localK8sConfig *rest.Config, client, cachedClient, obotStorageClient kclient.WithWatch, gatewayClient *gateway.Client, obotNamespace string) (*SessionManager, error) {
 	var backend backend
 	resourceMaximums, err := ParseResourceMaximums(opts)
 	if err != nil {
@@ -169,6 +172,7 @@ func NewSessionManager(ctx context.Context, authEnabled bool, tokenService *pers
 	return &SessionManager{
 		webhookHelper:             webhookHelper,
 		tokenService:              tokenService,
+		globalTokenStore:          globalTokenStore,
 		backend:                   backend,
 		runtimeBackend:            opts.MCPRuntimeBackend,
 		baseURL:                   baseURL,
@@ -425,16 +429,28 @@ func clientID(server ServerConfig, clientScope string) string {
 func (sm *SessionManager) GenerateToolPreviews(ctx context.Context, tempMCPServer v1.MCPServer, serverConfig ServerConfig) ([]types.MCPServerTool, error) {
 	// Ensure cleanup happens regardless of success or failure
 	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
 		if cleanupErr := sm.ShutdownServer(ctx, serverConfig.MCPServerName); cleanupErr != nil {
 			log.Errorf("failed to clean up temporary instance %s: %v", tempMCPServer.Name, cleanupErr)
 		}
 	}()
 
+	serverConfig, err := sm.LaunchServer(ctx, serverConfig)
+	if err != nil {
+		return nil, err
+	}
+
 	// Use "system" for the user ID to identify non-user MCP servers.
 	serverConfig.UserID = "system"
 
 	// Create MCP client and list tools
-	client, err := sm.clientForServer(ctx, serverConfig)
+	client, err := sm.clientForServerWithOptions(ctx, "default", serverConfig, nmcp.ClientOption{
+		ClientName: "Obot Tool Preview",
+		HTTPClientOptions: nmcp.HTTPClientOptions{
+			TokenStorage: sm.globalTokenStore.ForUserAndMCP(serverConfig.UserID, serverConfig.MCPServerName),
+		},
+	})
 	if err != nil {
 		return nil, err
 	}

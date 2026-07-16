@@ -98,7 +98,8 @@ func (sm *SessionManager) loadSession(ctx context.Context, server ServerConfig, 
 	var jwtToken *jwt.Token
 	// If the token storage is not set, then this is a client we use in our API.
 	// This needs authentication for it to work.
-	if clientOpts.TokenStorage == nil {
+	// If this is a system client, we don't need to authenticate because we are talking directly to the MCP server.
+	if clientOpts.TokenStorage == nil && server.UserID != "system" {
 		var (
 			token string
 			err   error
@@ -121,7 +122,7 @@ func (sm *SessionManager) loadSession(ctx context.Context, server ServerConfig, 
 	}
 
 	url := server.URL
-	if !isOAuthCheck {
+	if !isOAuthCheck && server.UserID != "system" {
 		url = sm.TransformObotHostname(system.MCPConnectURL(sm.baseURL, server.MCPServerName))
 	}
 
