@@ -38,7 +38,7 @@ func (p *Provider) CreateUser(ctx context.Context, email, password string) (*typ
 	if err != nil {
 		return nil, err
 	} else if !allowed {
-		return nil, InvalidUserError{message: fmt.Sprintf("email domain of %q is not in the provider's allowed email domains", email)}
+		return nil, InvalidUserError{message: fmt.Sprintf("email %q is not in the provider's allowed email domains", email)}
 	}
 
 	passwordHash, err := hashUserPassword(password)
