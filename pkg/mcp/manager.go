@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
@@ -80,7 +81,10 @@ type SessionManager struct {
 	sessionCtx                context.Context
 	cancel                    func()
 	sessions                  sync.Map
-	tokenService              *persistent.TokenService
+	retiredClientsLock        sync.Mutex
+	retiredClients            map[string]*retiredClient
+	clientRetirementDelay     time.Duration
+	tokenService              clientTokenService
 	baseURL                   string
 	remoteURLValidationConfig RemoteMCPURLValidationConfig
 	resourceMaximums          ResourceMaximums
@@ -92,6 +96,16 @@ type SessionManager struct {
 
 	webhookHelper *WebhookHelper
 }
+
+type retiredClient struct {
+	client *Client
+	timer  *time.Timer
+}
+
+// Keep the most recently replaced client alive briefly for in-flight requests.
+// Older replaced clients are retired immediately, so reconnect bursts cannot
+// grow the number of remote sessions without bound.
+const defaultClientRetirementDelay = 15 * time.Second
 
 type RemoteMCPURLValidationConfig struct {
 	AllowLocalhostMCP bool
@@ -178,6 +192,7 @@ func NewSessionManager(ctx context.Context, authEnabled bool, tokenService *pers
 		localK8sClient:            client,
 		obotNamespace:             obotNamespace,
 		secretBindingAllowedLabel: strings.TrimSpace(opts.MCPSecretBindingAllowedLabel),
+		clientRetirementDelay:     defaultClientRetirementDelay,
 		remoteURLValidationConfig: RemoteMCPURLValidationConfig{
 			AllowLocalhostMCP: !opts.DisallowLocalhostMCP,
 			AllowPrivateIPMCP: !opts.DisallowPrivateIPMCP,
@@ -218,6 +233,8 @@ func (sm *SessionManager) RemoteConfigForBackend() (RemoteMCPURLValidationConfig
 
 // Close does nothing with the deployments and services. It just closes the local session.
 func (sm *SessionManager) Close() {
+	sm.flushRetiredClients("", "")
+
 	sm.contextLock.Lock()
 	if sm.sessionCtx == nil {
 		sm.contextLock.Unlock()
@@ -247,6 +264,9 @@ func (sm *SessionManager) Close() {
 
 // CloseClient will close the client for this MCP server, but leave the deployment running.
 func (sm *SessionManager) CloseClient(server ServerConfig, clientScope string) {
+	clientScope = clientID(server, clientScope)
+	sm.flushRetiredClients(server.MCPServerName, clientScope)
+
 	sm.contextLock.Lock()
 	if sm.sessionCtx == nil {
 		sm.contextLock.Unlock()
@@ -264,13 +284,13 @@ func (sm *SessionManager) CloseClient(server ServerConfig, clientScope string) {
 		return
 	}
 
-	sess, ok := clientSessions.LoadAndDelete(clientID(server, clientScope))
+	sess, ok := clientSessions.LoadAndDelete(clientScope)
 	if !ok || sess == nil {
 		return
 	}
 
 	if s, ok := sess.(*Client); ok && s.Client != nil {
-		s.Close(false)
+		s.retire()
 		s.Session.Wait()
 	}
 }
@@ -297,6 +317,8 @@ func (sm *SessionManager) shutdownServer(ctx context.Context, serverName string,
 }
 
 func (sm *SessionManager) closeClients(serverName string) {
+	sm.flushRetiredClients(serverName, "")
+
 	sm.contextLock.Lock()
 	if sm.sessionCtx == nil {
 		sm.contextLock.Unlock()
@@ -316,7 +338,7 @@ func (sm *SessionManager) closeClients(serverName string) {
 
 	clientSessions.Range(func(_, session any) bool {
 		if s, ok := session.(*Client); ok && s.Client != nil {
-			s.Close(true)
+			s.retire()
 			s.Session.Wait()
 		}
 		return true

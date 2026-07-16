@@ -17,10 +17,23 @@ import (
 
 const oauthCheckClientScope = "Obot OAuth Check"
 
+type clientTokenService interface {
+	NewToken(context.Context, persistent.TokenContext) (*jwt.Token, string, error)
+}
+
 type Client struct {
 	*nmcp.Client
 
-	jwt *jwt.Token
+	jwt        *jwt.Token
+	serverName string
+	cacheID    string
+	retireOnce sync.Once
+}
+
+func (c *Client) retire() {
+	c.retireOnce.Do(func() {
+		c.Client.Close(true)
+	})
 }
 
 func (c *Client) hasValidToken() bool {
@@ -78,11 +91,9 @@ func (sm *SessionManager) loadSession(ctx context.Context, server ServerConfig, 
 			return c, nil
 		}
 
-		clientSessions.Delete(clientScope)
-		go func() {
-			time.Sleep(time.Minute)
-			c.Close(false)
-		}()
+		if clientSessions.CompareAndDelete(clientScope, c) {
+			sm.deferClientRetirement(c)
+		}
 	}
 
 	sm.contextLock.Lock()
@@ -134,27 +145,95 @@ func (sm *SessionManager) loadSession(ctx context.Context, server ServerConfig, 
 	}
 
 	result := &Client{
-		Client: c,
-		jwt:    jwtToken,
+		Client:     c,
+		jwt:        jwtToken,
+		serverName: server.MCPServerName,
+		cacheID:    clientScope,
 	}
 
-	res, ok := clientSessions.LoadOrStore(clientScope, result)
-	if ok {
+	for {
+		res, loaded := clientSessions.LoadOrStore(clientScope, result)
+		if !loaded {
+			return result, nil
+		}
+
 		existing := res.(*Client)
 		if existing.hasValidToken() {
-			result.Close(false)
+			result.retire()
 			return existing, nil
 		}
 
-		// Swap the existing client with the new one and close the old one.
-		clientSessions.Swap(clientScope, result)
-		go func() {
-			time.Sleep(time.Minute)
-			existing.Close(false)
-		}()
+		// Replace only the client we observed. A concurrent caller may have already
+		// installed a newer client, in which case retry against the current value.
+		if clientSessions.CompareAndSwap(clientScope, existing, result) {
+			sm.deferClientRetirement(existing)
+			return result, nil
+		}
+	}
+}
+
+func (sm *SessionManager) deferClientRetirement(client *Client) {
+	if sm.clientRetirementDelay <= 0 {
+		client.retire()
+		return
 	}
 
-	return result, nil
+	entry := &retiredClient{client: client}
+
+	sm.retiredClientsLock.Lock()
+	if sm.retiredClients == nil {
+		sm.retiredClients = map[string]*retiredClient{}
+	}
+
+	previous := sm.retiredClients[client.serverName]
+	sm.retiredClients[client.serverName] = entry
+	entry.timer = time.AfterFunc(sm.clientRetirementDelay, func() {
+		sm.expireRetiredClient(client.serverName, entry)
+	})
+	sm.retiredClientsLock.Unlock()
+
+	// Keep at most one client in the grace period for each MCP server. This
+	// bounds the remote process fan-out to the current session plus one retiring
+	// session even during a reconnect burst.
+	if previous != nil {
+		previous.timer.Stop()
+		previous.client.retire()
+	}
+}
+
+func (sm *SessionManager) expireRetiredClient(serverName string, target *retiredClient) {
+	sm.retiredClientsLock.Lock()
+	if sm.retiredClients[serverName] != target {
+		sm.retiredClientsLock.Unlock()
+		return
+	}
+	delete(sm.retiredClients, serverName)
+	sm.retiredClientsLock.Unlock()
+
+	target.client.retire()
+}
+
+func (sm *SessionManager) flushRetiredClients(serverName, cacheID string) {
+	var retiredClients []*retiredClient
+
+	sm.retiredClientsLock.Lock()
+	for name, retired := range sm.retiredClients {
+		if serverName != "" && name != serverName {
+			continue
+		}
+		if cacheID != "" && retired.client.cacheID != cacheID {
+			continue
+		}
+
+		retiredClients = append(retiredClients, retired)
+		delete(sm.retiredClients, name)
+	}
+	sm.retiredClientsLock.Unlock()
+
+	for _, retired := range retiredClients {
+		retired.timer.Stop()
+		retired.client.retire()
+	}
 }
 
 func copyListIntoMap(m map[string]string, list []string) {
