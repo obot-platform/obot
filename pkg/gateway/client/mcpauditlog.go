@@ -260,9 +260,9 @@ func (c *Client) GetMCPAuditLogs(ctx context.Context, opts MCPAuditLogOptions) (
 	}
 
 	// When payloads aren't requested, avoid reading/transferring the large sensitive columns that
-	// prepareAuditLogPayload would blank anyway.
+	// prepareAuditLogPayload would blank anyway. The list view drops headers too.
 	if !opts.WithRequestAndResponse {
-		db = omitMCPAuditLogSensitiveFields(db)
+		db = omitMCPAuditLogSensitiveFields(db, false)
 	}
 
 	var total int64
@@ -502,20 +502,34 @@ func blankLocalAgentSensitiveFields(local *types.LocalAgentToolCallAuditLogField
 	local.RawEvent = nil
 }
 
+// mcpAuditLogSensitiveColumns are the large/sensitive columns dropped when payloads are not
+// requested: request/response bodies, the raw local-agent event, and the encrypted local-agent
+// metadata that blankLocalAgentSensitiveFields clears. Columns for both source types are listed
+// because a single query can span both.
+var mcpAuditLogSensitiveColumns = []string{
+	// MCP fields
+	"request_body", "mutated_request_body", "response_body", "original_response_body",
+	// Local-agent fields
+	"local_agent_error", "hostname", "local_username", "reported_user_email", "cwd",
+	"git_root", "git_remotes", "git_branch", "transcript_path",
+	"local_agent_request_body", "local_agent_response_body", "local_agent_raw_event",
+}
+
+// mcpAuditLogHeaderColumns hold MCP request/response headers. The list view drops them, but the
+// single-log detail view keeps them (their sensitive values are redacted at write time).
+var mcpAuditLogHeaderColumns = []string{"request_headers", "response_headers"}
+
 // omitMCPAuditLogSensitiveFields excludes the large/sensitive payload columns from the SELECT so
 // they are never read from or transferred by the DB when payloads are not requested. It mirrors the
-// fields that prepareAuditLogPayload blanks; that blanking is retained as a safety net. Columns for
-// both source types are listed because a single list query spans both.
-func omitMCPAuditLogSensitiveFields(db *gorm.DB) *gorm.DB {
-	return db.Omit(
-		// MCP fields
-		"request_body", "mutated_request_body", "response_body", "original_response_body",
-		"request_headers", "response_headers",
-		// Local-agent fields
-		"local_agent_error", "hostname", "local_username", "reported_user_email", "cwd",
-		"git_root", "git_remotes", "git_branch", "transcript_path",
-		"local_agent_request_body", "local_agent_response_body", "local_agent_raw_event",
-	)
+// fields that prepareAuditLogPayload and blankLocalAgentSensitiveFields blank; that blanking is
+// retained as a safety net. keepHeaders leaves the MCP header columns selected, matching
+// GetMCPAuditLog's detail view which returns redacted headers.
+func omitMCPAuditLogSensitiveFields(db *gorm.DB, keepHeaders bool) *gorm.DB {
+	columns := mcpAuditLogSensitiveColumns
+	if !keepHeaders {
+		columns = append(slices.Clone(mcpAuditLogSensitiveColumns), mcpAuditLogHeaderColumns...)
+	}
+	return db.Omit(columns...)
 }
 
 // GetMCPAuditLog retrieves a single MCP audit log by ID
@@ -523,6 +537,11 @@ func (c *Client) GetMCPAuditLog(ctx context.Context, id uint, withRequestAndResp
 	var log types.MCPAuditLog
 
 	db := c.db.WithContext(ctx).Model(&types.MCPAuditLog{})
+	if !withRequestAndResponse {
+		// Avoid reading/transferring the large sensitive columns that get blanked below. Headers are
+		// kept: the detail view returns them with sensitive values redacted.
+		db = omitMCPAuditLogSensitiveFields(db, true)
+	}
 
 	if err := db.Where("id = ?", id).First(&log).Error; err != nil {
 		return nil, err
