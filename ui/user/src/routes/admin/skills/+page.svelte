@@ -119,15 +119,14 @@
 	let sourceError = $state<string | undefined>(undefined);
 	let saving = $state(false);
 	let urlFilters = $state(getTableUrlParamsFilters());
+	let editingSourceHost = $derived(sourceHost(editingSource?.value ?? ''));
 	let gitCredentialOptions = $derived(
 		gitCredentials.map((credential) => ({
 			id: credential.id,
 			label: `${credential.displayName} (${credential.host})`,
 			disabled:
 				!credential.tokenConfigured ||
-				Boolean(
-					editingSource?.value && sourceHost(editingSource.value) !== credential.host.toLowerCase()
-				)
+				Boolean(editingSourceHost && editingSourceHost !== credential.host.toLowerCase())
 		}))
 	);
 
@@ -144,10 +143,8 @@
 		const selectedCredential = gitCredentials.find(
 			(credential) => credential.id === editingSource?.gitCredentialID
 		);
-		if (
-			selectedCredential &&
-			sourceHost(editingSource.value) !== selectedCredential.host.toLowerCase()
-		) {
+		const host = sourceHost(editingSource.value);
+		if (selectedCredential && host && host !== selectedCredential.host.toLowerCase()) {
 			editingSource.gitCredentialID = '';
 		}
 	}
