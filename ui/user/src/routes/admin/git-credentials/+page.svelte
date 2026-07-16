@@ -55,7 +55,8 @@
 	}
 
 	async function saveCredential() {
-		if (isReadonly || !displayName.trim() || !host.trim() || (tokenRequired && !token)) {
+		const normalizedToken = token.trim();
+		if (isReadonly || !displayName.trim() || !host.trim() || (tokenRequired && !normalizedToken)) {
 			return;
 		}
 
@@ -66,7 +67,7 @@
 				displayName: displayName.trim(),
 				host: host.trim()
 			};
-			if (token) input.token = token;
+			if (normalizedToken) input.token = normalizedToken;
 
 			const saved = editingCredential
 				? await AdminService.updateGitCredential(editingCredential.id, input, {
@@ -203,7 +204,7 @@
 					saving ||
 					!displayName.trim() ||
 					!host.trim() ||
-					(tokenRequired && !token)}
+					(tokenRequired && !token.trim())}
 				onclick={saveCredential}
 			>
 				{saving ? 'Saving...' : editingCredential ? 'Save' : 'Create'}
