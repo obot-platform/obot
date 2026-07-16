@@ -45,11 +45,19 @@ func (b *azureProviderBackend) transport(_ v1.ModelProvider, credEnv map[string]
 }
 
 func resolveAzureRouteDialect(req *http.Request) (nanobottypes.Dialect, error) {
-	endpoint := strings.TrimPrefix(strings.Trim(req.PathValue("path"), "/"), "v1/")
+	reqPath := strings.Trim(req.PathValue("path"), "/")
+	if reqPath == "openai/v1/models" {
+		req.SetPathValue("path", "v1/models")
+		return nanobottypes.DialectOpenAIResponses, nil
+	}
+
+	endpoint := strings.TrimPrefix(reqPath, "v1/")
 	switch {
 	case endpoint == "messages" || strings.HasPrefix(endpoint, "messages/"):
 		return nanobottypes.DialectAnthropicMessages, nil
 	case endpoint == "responses" || strings.HasPrefix(endpoint, "responses/"):
+		return nanobottypes.DialectOpenAIResponses, nil
+	case endpoint == "models":
 		return nanobottypes.DialectOpenAIResponses, nil
 	default:
 		return "", fmt.Errorf("unsupported Azure model path %q", req.PathValue("path"))

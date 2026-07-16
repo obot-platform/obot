@@ -181,7 +181,7 @@ curl https://obot.example.com/api/llm-proxy/azure/v1/responses \
   -H "content-type: application/json" \
   -d '{"model":"my-gpt-deployment","input":[{"role":"user","content":"hi"}]}'
 
-# List available Azure models
+# List available OpenAI-compatible Azure models
 curl https://obot.example.com/api/llm-proxy/azure/v1/models \
   -H "Authorization: Bearer $OBOT_API_KEY"
 ```
@@ -205,7 +205,7 @@ curl https://obot.example.com/api/llm-proxy/azure-entra/v1/responses \
   -H "content-type: application/json" \
   -d '{"model":"my-gpt-deployment","input":[{"role":"user","content":"hi"}]}'
 
-# List available Azure models
+# List available OpenAI-compatible Azure models
 curl https://obot.example.com/api/llm-proxy/azure-entra/v1/models \
   -H "Authorization: Bearer $OBOT_API_KEY"
 ```
@@ -214,6 +214,8 @@ curl https://obot.example.com/api/llm-proxy/azure-entra/v1/models \
 </Tabs>
 
 Client requests always authenticate to Obot with the Obot API key. Obot supplies the Azure API key or obtains the Entra token upstream.
+
+The Azure models endpoint uses Azure's OpenAI-compatible Models API and returns only accessible deployments configured for OpenAI Responses API. Clients may request either `/v1/models` or `/openai/v1/models`. Microsoft Foundry does not implement an Anthropic Models API, so Anthropic deployments are available on Obot's Models page but are not returned by this endpoint.
 
 #### Provider setup
 
@@ -408,6 +410,7 @@ See the Codex documentation for details:
 - **Supported gateway providers.** External LLM Gateway clients can use OpenAI, Anthropic, Generic Responses Compatible, Amazon Bedrock, Amazon Bedrock API key, Azure, and Azure Entra providers. Other configured providers such as Google Vertex are not exposed through provider-specific gateway routes yet.
 - **Access is policy-bound.** You can only call models an administrator has granted you through a [Model Access Policy](/functionality/model-access-policies/), and `/v1/models` returns only those models. A request for a model you don't have access to is rejected.
 - **Send the exact model name.** Use the model name shown on the [Models page](#the-models-page) exactly as displayed.
+- **Azure model discovery is OpenAI-only.** The Azure `/v1/models` and `/openai/v1/models` routes return accessible `OpenAIResponses` deployments. Microsoft Foundry does not expose an Anthropic Models API, so pass `AnthropicMessages` deployment names explicitly.
 - **Claude Code model discovery caveats.** Gateway model discovery is off by default and requires Claude Code v2.1.129 or later for the standard Anthropic gateway path. Claude Code's Bedrock Mantle mode may not populate the `/model` picker from Obot, so pass `--model` or select an enabled Mantle model manually.
 - **OpenAI-compatible routes use the Responses API.** The OpenAI, Generic Responses Compatible, Bedrock, and Azure OpenAI-compatible routes support the Responses API (`/v1/responses`); the Chat Completions endpoint is not currently supported. Codex uses the Responses API by default.
 - **Usage and policies still apply.** Requests count toward Obot [token usage](/functionality/audit-logs-and-usage/) and, where configured, are subject to [Message Policies](/functionality/message-policies/).

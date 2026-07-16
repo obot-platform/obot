@@ -15,6 +15,8 @@ import (
 func TestAzureProviderBackend(t *testing.T) {
 	tests := []struct {
 		name     string
+		method   string
+		path     string
 		provider string
 		dialect  nanobottypes.Dialect
 		creds    map[string]string
@@ -22,6 +24,8 @@ func TestAzureProviderBackend(t *testing.T) {
 	}{
 		{
 			name:     "API key OpenAI",
+			method:   http.MethodPost,
+			path:     "v1/responses",
 			provider: system.AzureModelProvider,
 			dialect:  nanobottypes.DialectOpenAIResponses,
 			creds:    map[string]string{azure.EndpointEnv: "https://resource.openai.azure.com", azure.APIKeyEnv: "key"},
@@ -29,10 +33,30 @@ func TestAzureProviderBackend(t *testing.T) {
 		},
 		{
 			name:     "Entra Anthropic",
+			method:   http.MethodPost,
+			path:     "v1/messages",
 			provider: system.AzureEntraModelProvider,
 			dialect:  nanobottypes.DialectAnthropicMessages,
 			creds:    map[string]string{azure.EntraEndpointEnv: "https://resource.services.ai.azure.com"},
 			wantURL:  "https://resource.services.ai.azure.com/anthropic/v1/messages",
+		},
+		{
+			name:     "Entra models",
+			method:   http.MethodGet,
+			path:     "v1/models",
+			provider: system.AzureEntraModelProvider,
+			dialect:  nanobottypes.DialectOpenAIResponses,
+			creds:    map[string]string{azure.EntraEndpointEnv: "https://resource.services.ai.azure.com"},
+			wantURL:  "https://resource.services.ai.azure.com/openai/v1/models",
+		},
+		{
+			name:     "Entra prefixed models",
+			method:   http.MethodGet,
+			path:     "openai/v1/models",
+			provider: system.AzureEntraModelProvider,
+			dialect:  nanobottypes.DialectOpenAIResponses,
+			creds:    map[string]string{azure.EntraEndpointEnv: "https://resource.services.ai.azure.com"},
+			wantURL:  "https://resource.services.ai.azure.com/openai/v1/models",
 		},
 	}
 
@@ -42,12 +66,8 @@ func TestAzureProviderBackend(t *testing.T) {
 			if got := backend.modelProviderName(); got != tt.provider {
 				t.Fatalf("provider = %q, want %q", got, tt.provider)
 			}
-			req := httptest.NewRequest(http.MethodPost, "http://gateway.local", nil)
-			if tt.dialect == nanobottypes.DialectOpenAIResponses {
-				req.SetPathValue("path", "v1/responses")
-			} else {
-				req.SetPathValue("path", "v1/messages")
-			}
+			req := httptest.NewRequest(tt.method, "http://gateway.local", nil)
+			req.SetPathValue("path", tt.path)
 			base, dialect, err := backend.upstreamURL(req, tt.creds)
 			if err != nil {
 				t.Fatal(err)
@@ -65,7 +85,7 @@ func TestAzureProviderBackend(t *testing.T) {
 
 func TestAzureProviderBackendRejectsUnsupportedPathAsBadRequest(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "http://gateway.local", nil)
-	req.SetPathValue("path", "v1/models")
+	req.SetPathValue("path", "v1/chat/completions")
 
 	_, _, err := (&azureProviderBackend{}).upstreamURL(req, nil)
 	var httpErr *types2.ErrHTTP
@@ -95,7 +115,8 @@ func TestResolveAzureRouteDialect(t *testing.T) {
 		{path: "v1/messages", want: nanobottypes.DialectAnthropicMessages},
 		{path: "responses", want: nanobottypes.DialectOpenAIResponses},
 		{path: "v1/responses/response-id", want: nanobottypes.DialectOpenAIResponses},
-		{path: "v1/models", wantErr: true},
+		{path: "v1/models", want: nanobottypes.DialectOpenAIResponses},
+		{path: "openai/v1/models", want: nanobottypes.DialectOpenAIResponses},
 		{path: "openai/v1/responses", wantErr: true},
 	}
 	for _, tt := range tests {
