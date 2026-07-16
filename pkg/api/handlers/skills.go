@@ -64,20 +64,22 @@ func revealSkillRepositoryToken(ctx context.Context, client skillRepositoryCrede
 }
 
 func (h *SkillHandler) materialize(req api.Context, skill *v1.Skill) (func(), string, error) {
+	if skill.Spec.RepoID == "" {
+		return h.materializeSkillSource(req.Context(), skill, "")
+	}
+
 	var token string
-	if req.GatewayClient != nil {
-		var repository v1.SkillRepository
-		err := req.Get(&repository, skill.Spec.RepoID)
-		if err == nil && repository.Spec.GitCredentialID != "" {
-			token, err = gitcredential.Resolve(req.Context(), req.Storage, req.GatewayClient, req.Namespace(), repository.Spec.GitCredentialID, skill.Spec.RepoURL)
-		} else if err == nil || apierrors.IsNotFound(err) {
-			token, err = revealSkillRepositoryToken(req.Context(), req.GatewayClient, skill)
-		} else {
-			err = fmt.Errorf("failed to get skill repository %s: %w", skill.Spec.RepoID, err)
-		}
-		if err != nil {
-			return nil, "", err
-		}
+	var repository v1.SkillRepository
+	err := req.Get(&repository, skill.Spec.RepoID)
+	if err == nil && repository.Spec.GitCredentialID != "" {
+		token, err = gitcredential.Resolve(req.Context(), req.Storage, req.GatewayClient, req.Namespace(), repository.Spec.GitCredentialID, skill.Spec.RepoURL)
+	} else if err == nil || apierrors.IsNotFound(err) {
+		token, err = revealSkillRepositoryToken(req.Context(), req.GatewayClient, skill)
+	} else {
+		err = fmt.Errorf("failed to get skill repository %s: %w", skill.Spec.RepoID, err)
+	}
+	if err != nil {
+		return nil, "", err
 	}
 	return h.materializeSkillSource(req.Context(), skill, token)
 }

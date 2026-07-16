@@ -56,6 +56,22 @@ func TestRevealSkillRepositoryToken(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestMaterializeSkillWithoutRepository(t *testing.T) {
+	handler := NewSkillHandler(nil)
+	handler.materializeSkillSource = func(_ context.Context, _ *v1.Skill, token string) (func(), string, error) {
+		assert.Empty(t, token)
+		return func() {}, "/tmp/materialized-skill", nil
+	}
+
+	cleanup, skillDir, err := handler.materialize(api.Context{
+		Request:       httptest.NewRequest(http.MethodGet, "/api/skills/sk1/preview", nil),
+		GatewayClient: newTestGitCredentialGatewayClient(t),
+	}, &v1.Skill{})
+	require.NoError(t, err)
+	require.NotNil(t, cleanup)
+	assert.Equal(t, "/tmp/materialized-skill", skillDir)
+}
+
 type credentialNotFoundClient struct{}
 
 func (credentialNotFoundClient) RevealCredential(_ context.Context, contexts []string, name string) (gatewaytypes.Credential, error) {
