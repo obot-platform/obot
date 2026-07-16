@@ -2,6 +2,7 @@
 	import { page } from '$app/state';
 	import type { DateRange } from '$lib/components/Calendar.svelte';
 	import Select from '$lib/components/Select.svelte';
+	import { filterVisibleExportFields } from '$lib/components/admin/audit-log-exports/filterFields';
 	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
@@ -11,7 +12,7 @@
 		type AuditLogExport,
 		type LLMAuditLogURLFilters,
 		type OrgUser,
-		type McpAuditLogURLFilters
+		type AuditLogURLFilters
 	} from '$lib/services';
 	import { profile } from '$lib/stores';
 	import { TriangleAlert, ChevronDown, ChevronUp } from '@lucide/svelte';
@@ -32,7 +33,12 @@
 		| 'client_version'
 		| 'client_ip'
 		| 'response_status'
-		| 'session_id';
+		| 'session_id'
+		| 'agent_provider'
+		| 'status'
+		| 'tool_name'
+		| 'tool_kind'
+		| 'device_id';
 	type LLMAuditLogExportMultiSelectFilterKey =
 		| 'user_id'
 		| 'client'
@@ -119,6 +125,36 @@
 				title: 'Catalog Entry Names',
 				description: 'List of catalog entry names',
 				placeholder: 'workspace-id-1,workspace-id-2'
+			},
+			{
+				filterKey: 'agent_provider',
+				title: 'Agent Providers',
+				description: 'List of local-agent providers',
+				placeholder: 'codex,claude_code'
+			},
+			{
+				filterKey: 'status',
+				title: 'Reported Statuses',
+				description: 'List of local-agent statuses',
+				placeholder: 'succeeded,failed'
+			},
+			{
+				filterKey: 'tool_name',
+				title: 'Tool Names',
+				description: 'List of local tool names',
+				placeholder: 'mcp__github__search'
+			},
+			{
+				filterKey: 'tool_kind',
+				title: 'Tool Kinds',
+				description: 'List of local tool kinds',
+				placeholder: 'mcp'
+			},
+			{
+				filterKey: 'device_id',
+				title: 'Device IDs',
+				description: 'List of enrolled device IDs',
+				placeholder: 'device-1'
 			}
 		];
 	const LLM_AUDIT_LOG_EXPORT_FILTER_FIELDS: AuditLogExportFilterFieldConfig<LLMAuditLogExportMultiSelectFilterKey>[] =
@@ -189,6 +225,14 @@
 
 	const hasAuditorPermissions = $derived(profile.current.groups.includes(Group.AUDITOR));
 
+	// The concrete audit-log sources to export. The API carries an explicit list of source types;
+	// selecting more than one exports each source in the same export.
+	const ALL_SOURCE_TYPES = ['mcp', 'local_agent_tool_call'] as const;
+	const sourceTypeLabels: Record<string, string> = {
+		mcp: 'MCP',
+		local_agent_tool_call: 'Local Agent Tool Calls'
+	};
+
 	// Form state
 	let form = $state({
 		name: '',
@@ -196,6 +240,7 @@
 		keyPrefix: '',
 		startTime: subDays(new Date(), 7),
 		endTime: set(new Date(), { milliseconds: 0, seconds: 59 }),
+		sourceTypes: ['mcp'],
 		filters: {
 			user_id: '',
 			mcp_id: '',
@@ -214,8 +259,13 @@
 			outcome: '',
 			request_path: '',
 			target_model: '',
+			agent_provider: '',
+			status: '',
+			tool_name: '',
+			tool_kind: '',
+			device_id: '',
 			query: ''
-		} as Partial<McpAuditLogURLFilters & LLMAuditLogURLFilters>
+		} as Partial<AuditLogURLFilters & LLMAuditLogURLFilters>
 	});
 
 	let creating = $state(false);
@@ -232,7 +282,12 @@
 		'client_ip',
 		'call_type',
 		'session_id',
-		'response_status'
+		'response_status',
+		'agent_provider',
+		'status',
+		'tool_name',
+		'tool_kind',
+		'device_id'
 	];
 	let llmFiltersIds = [
 		'user_id',
@@ -245,11 +300,6 @@
 		'target_model'
 	];
 	let filtersIds = $derived(logType === 'llm' ? llmFiltersIds : mcpFiltersIds);
-	let filterFields = $derived<
-		AuditLogExportFilterFieldConfig<
-			AuditLogExportMultiSelectFilterKey | LLMAuditLogExportMultiSelectFilterKey
-		>[]
-	>(logType === 'llm' ? LLM_AUDIT_LOG_EXPORT_FILTER_FIELDS : AUDIT_LOG_EXPORT_FILTER_FIELDS);
 
 	let usersMap = new SvelteMap<string, OrgUser>();
 	let filtersOptions: Record<string, string[]> = $state({});
@@ -281,6 +331,7 @@
 
 			if (initialData.filters) {
 				const filters = initialData.filters;
+				form.sourceTypes = normalizeSourceTypes(filters.sourceTypes);
 				form.filters = {
 					user_id: join(filters.userIDs),
 					mcp_id: join(filters.mcpIDs),
@@ -293,6 +344,11 @@
 					client_name: join(filters.clientNames),
 					client_version: join(filters.clientVersions),
 					client_ip: join(filters.clientIPs),
+					agent_provider: join(filters.agentProviders),
+					status: join(filters.statuses),
+					tool_name: join(filters.toolNames),
+					tool_kind: join(filters.toolKinds),
+					device_id: join(filters.deviceIDs),
 					query: filters.query ?? ''
 				};
 				showAdvancedOptions = true;
@@ -309,6 +365,15 @@
 			}
 			if (endTime) {
 				form.endTime = new Date(endTime);
+			}
+
+			if (logType === 'mcp') {
+				const eventTypes = params.get('event_type')?.split(',') ?? [];
+				form.sourceTypes = normalizeSourceTypes(
+					eventTypes.map((eventType) =>
+						eventType === 'local_agent_tool_call' ? 'local_agent_tool_call' : 'mcp'
+					)
+				);
 			}
 
 			// Set filters if provided
@@ -344,16 +409,52 @@
 	});
 
 	$effect(() => {
+		const event_type = form.sourceTypes
+			.map((source) => (source === 'mcp' ? 'mcp_call' : 'local_agent_tool_call'))
+			.join(',');
 		filtersIds.forEach((id) => {
-			const request =
-				logType === 'llm'
-					? AdminService.listLLMAuditLogFilterOptions(id)
-					: UserService.listMcpAuditLogFilterOptions(id);
-			request.then((res) => {
+			if (logType === 'llm') {
+				AdminService.listLLMAuditLogFilterOptions(id).then((res) => {
+					filtersOptions[id] = res.options ?? [];
+				});
+				return;
+			}
+			if (
+				localFilterKeys.has(id as AuditLogExportMultiSelectFilterKey) &&
+				!form.sourceTypes.includes('local_agent_tool_call')
+			)
+				return;
+			if (
+				mcpFilterKeys.has(id as AuditLogExportMultiSelectFilterKey) &&
+				!form.sourceTypes.includes('mcp')
+			)
+				return;
+			UserService.listAuditLogFilterOptions(id, { event_type }).then((res) => {
 				filtersOptions[id] = res.options ?? [];
 			});
 		});
 	});
+
+	const mcpFilterKeys = new Set<AuditLogExportMultiSelectFilterKey>([
+		'mcp_id',
+		'mcp_server_display_name',
+		'mcp_server_catalog_entry_name',
+		'call_type',
+		'call_identifier',
+		'client_name',
+		'client_version',
+		'response_status'
+	]);
+	const localFilterKeys = new Set<AuditLogExportMultiSelectFilterKey>([
+		'agent_provider',
+		'status',
+		'tool_name',
+		'tool_kind',
+		'device_id'
+	]);
+	const visibleAuditLogExportFields = $derived(
+		filterVisibleExportFields(form, AUDIT_LOG_EXPORT_FILTER_FIELDS, mcpFilterKeys, localFilterKeys)
+	);
 
 	function join(array: string[] | undefined): string {
 		return array ? array.join(',') : '';
@@ -372,6 +473,21 @@
 		return split(value)
 			.map((s) => Number(s))
 			.filter((n) => !Number.isNaN(n));
+	}
+
+	// Keep only known source types, preserving their canonical order, and fall back to the
+	// historical MCP-only default when nothing valid is selected.
+	function normalizeSourceTypes(sourceTypes: string[] | undefined): string[] {
+		const selected = ALL_SOURCE_TYPES.filter((st) => sourceTypes?.includes(st));
+		return selected.length > 0 ? [...selected] : ['mcp'];
+	}
+
+	function toggleSourceType(sourceType: string, checked: boolean) {
+		// normalizeSourceTypes de-duplicates, so appending on check is safe.
+		const next = checked
+			? [...form.sourceTypes, sourceType]
+			: form.sourceTypes.filter((st) => st !== sourceType);
+		form.sourceTypes = normalizeSourceTypes(next);
 	}
 
 	async function handleSubmit() {
@@ -422,6 +538,7 @@
 				startTime: form.startTime.toISOString(),
 				endTime: form.endTime.toISOString(),
 				filters: {
+					sourceTypes: normalizeSourceTypes(form.sourceTypes),
 					userIDs: split(form.filters.user_id),
 					mcpIDs: split(form.filters.mcp_id),
 					mcpServerDisplayNames: split(form.filters.mcp_server_display_name),
@@ -433,6 +550,11 @@
 					clientNames: split(form.filters.client_name),
 					clientVersions: split(form.filters.client_version),
 					clientIPs: split(form.filters.client_ip),
+					agentProviders: split(form.filters.agent_provider),
+					statuses: split(form.filters.status),
+					toolNames: split(form.filters.tool_name),
+					toolKinds: split(form.filters.tool_kind),
+					deviceIDs: split(form.filters.device_id),
 					query: form.filters.query ?? ''
 				}
 			};
@@ -567,6 +689,31 @@
 					disabled={isViewMode}
 				/>
 			</div>
+
+			{#if logType === 'mcp'}
+				<div class="flex flex-col gap-1">
+					<span class="text-sm font-medium">Log Sources</span>
+					<div class="flex flex-col gap-2 py-1">
+						{#each ALL_SOURCE_TYPES as sourceType (sourceType)}
+							<label class="flex items-center gap-2 text-sm">
+								<input
+									type="checkbox"
+									checked={form.sourceTypes.includes(sourceType)}
+									disabled={isViewMode}
+									onchange={(e) => toggleSourceType(sourceType, e.currentTarget.checked)}
+								/>
+								{sourceTypeLabels[sourceType]}
+							</label>
+						{/each}
+					</div>
+					{#if !isViewMode}
+						<p class="text-muted-content text-xs">
+							Which audit-log source(s) to export. Select both to include MCP and local-agent
+							tool-call logs in the same export.
+						</p>
+					{/if}
+				</div>
+			{/if}
 		</div>
 
 		<!-- Advanced Options -->
@@ -591,6 +738,24 @@
 					<p class="text-sm text-gray-600">
 						Leave filters empty to export all logs in the selected time range
 					</p>
+
+					<div class="flex flex-col gap-1">
+						<label class="text-sm font-medium" for="query">Search Query</label>
+						<input
+							id="query"
+							class={twMerge(
+								'text-input-filled',
+								isViewMode && 'text-[currentColor] disabled:opacity-100'
+							)}
+							bind:value={form.filters.query}
+							placeholder="Search audit logs"
+							readonly={isViewMode}
+							disabled={isViewMode}
+						/>
+						<p class="text-muted-content text-xs">
+							Free-text search to apply to the exported audit logs
+						</p>
+					</div>
 
 					{#snippet auditLogExportFilterSelect(
 						filterKey: AuditLogExportMultiSelectFilterKey | LLMAuditLogExportMultiSelectFilterKey,
@@ -627,7 +792,7 @@
 					{/snippet}
 
 					<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-						{#each filterFields as field (field.filterKey)}
+						{#each logType === 'llm' ? LLM_AUDIT_LOG_EXPORT_FILTER_FIELDS : visibleAuditLogExportFields as field (field.filterKey)}
 							{@render auditLogExportFilterSelect(
 								field.filterKey,
 								field.title,

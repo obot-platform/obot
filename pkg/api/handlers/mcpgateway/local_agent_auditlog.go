@@ -1,6 +1,7 @@
 package mcpgateway
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -21,15 +22,20 @@ func (*LocalAgentAuditLogHandler) Submit(req api.Context) error {
 	if err := req.Read(&input); err != nil {
 		return types.NewErrBadRequest("failed to read input: %v", err)
 	}
+	if len(input.Events) == 0 {
+		return types.NewErrBadRequest("at least one local agent audit event is required")
+	}
 
-	logs := make([]gatewaytypes.MCPAuditLog, 0, len(input.Logs))
+	logs := make([]gatewaytypes.MCPAuditLog, 0, len(input.Events))
 	createdAt := time.Now().UTC()
-	for i, manifest := range input.Logs {
-		log := gatewaytypes.NewLocalAgentToolCallAuditLogFromManifest(
-			manifest,
-			req.User.GetUID(),
+	actorType, actorID, deviceDeploymentID := localAgentSubmitterAttribution(req)
+	for i, event := range input.Events {
+		log := gatewaytypes.NewLocalAgentToolCallAuditLogFromInput(
+			event,
+			actorType,
+			actorID,
 			requestinfo.GetSourceIP(req.Request),
-			types.LocalAgentIdentityStatusAuthenticatedUser,
+			deviceDeploymentID,
 			createdAt,
 		)
 		if err := log.ValidateSourceFields(); err != nil {
@@ -43,4 +49,28 @@ func (*LocalAgentAuditLogHandler) Submit(req api.Context) error {
 	}
 
 	return nil
+}
+
+func localAgentSubmitterAttribution(req api.Context) (actorType types.AuditLogActorType, actorID string, deviceDeploymentID uint) {
+	extra := req.User.GetExtra()
+	if deviceID := firstExtra(extra, "device_id"); deviceID != "" {
+		if deployment := firstExtra(extra, "mdm_deployment_id"); deployment != "" {
+			if parsed, err := strconv.ParseUint(deployment, 10, 64); err == nil {
+				deviceDeploymentID = uint(parsed)
+			}
+		}
+		return types.AuditLogActorTypeDevice, deviceID, deviceDeploymentID
+	}
+	if userID := req.User.GetUID(); userID != "" {
+		return types.AuditLogActorTypeUser, userID, 0
+	}
+	return types.AuditLogActorTypeUnknown, "", 0
+}
+
+func firstExtra(extra map[string][]string, key string) string {
+	values := extra[key]
+	if len(values) == 0 {
+		return ""
+	}
+	return values[0]
 }

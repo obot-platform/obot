@@ -51,7 +51,7 @@
 	import CatalogServerForm from './CatalogServerForm.svelte';
 	import McpServerEntryTroubleshooting from './McpServerEntryTroubleshooting.svelte';
 	import McpServerInstances from './McpServerInstances.svelte';
-	import McpAuditLogsPageContent from './audit-logs/McpAuditLogsPageContent.svelte';
+	import AuditLogsPageContent from './audit-logs/AuditLogsPageContent.svelte';
 	import UsageGraphs from './usage/UsageGraphs.svelte';
 	import {
 		CircleAlert,
@@ -1085,7 +1085,7 @@
 					: null}
 		<div class="mt-4 flex flex-1 flex-col gap-8 pb-8">
 			<!-- temporary filter mcp server by name and catalog entry id-->
-			<McpAuditLogsPageContent
+			<AuditLogsPageContent
 				mcpId={isMultiUserServer ? entryId : server ? server.id : null}
 				{mcpServerCatalogEntryName}
 				{mcpServerDisplayName}
@@ -1112,7 +1112,7 @@
 						{/if}
 					</div>
 				{/snippet}
-			</McpAuditLogsPageContent>
+			</AuditLogsPageContent>
 		</div>
 	{/if}
 {/snippet}

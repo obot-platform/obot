@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import Select from '$lib/components/Select.svelte';
+	import { filterVisibleExportFields } from '$lib/components/admin/audit-log-exports/filterFields';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		type LLMAuditLogURLFilters,
@@ -9,7 +10,7 @@
 		AdminService,
 		Group,
 		UserService,
-		type McpAuditLogURLFilters
+		type AuditLogURLFilters
 	} from '$lib/services';
 	import { profile } from '$lib/stores';
 	import { TriangleAlert, GlobeIcon, ChevronDown, ChevronUp } from '@lucide/svelte';
@@ -31,6 +32,8 @@
 	let defaultTimezone = $state(Intl.DateTimeFormat().resolvedOptions().timeZone);
 	let showAdvancedOptions = $state(false);
 	let isViewMode = $derived(mode === 'view');
+	const ALL_SOURCE_TYPES = ['mcp', 'local_agent_tool_call'] as const;
+	const sourceTypeLabels = { mcp: 'MCP', local_agent_tool_call: 'Local Agent Tool Calls' };
 
 	// Form state
 	let form = $state({
@@ -47,6 +50,7 @@
 			timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
 		},
 		retentionPeriodInDays: 30,
+		sourceTypes: ['mcp'],
 		filters: {
 			user_id: '',
 			mcp_id: '',
@@ -65,8 +69,13 @@
 			outcome: '',
 			request_path: '',
 			target_model: '',
+			agent_provider: '',
+			status: '',
+			tool_name: '',
+			tool_kind: '',
+			device_id: '',
 			query: ''
-		} as Partial<McpAuditLogURLFilters & LLMAuditLogURLFilters>
+		} as Partial<AuditLogURLFilters & LLMAuditLogURLFilters>
 	});
 
 	let creating = $state(false);
@@ -83,6 +92,7 @@
 			form.bucket = initialData.bucket || '';
 			form.keyPrefix = initialData.keyPrefix || '';
 			form.retentionPeriodInDays = initialData.retentionPeriodInDays || 30;
+			form.sourceTypes = normalizeSourceTypes(initialData.filters?.sourceTypes);
 
 			// Populate schedule if it exists
 			if (initialData.schedule) {
@@ -133,6 +143,11 @@
 					client_name: filters.clientNames ? filters.clientNames.join(',') : '',
 					client_version: filters.clientVersions ? filters.clientVersions.join(',') : '',
 					client_ip: filters.clientIPs ? filters.clientIPs.join(',') : '',
+					agent_provider: filters.agentProviders?.join(',') ?? '',
+					status: filters.statuses?.join(',') ?? '',
+					tool_name: filters.toolNames?.join(',') ?? '',
+					tool_kind: filters.toolKinds?.join(',') ?? '',
+					device_id: filters.deviceIDs?.join(',') ?? '',
 					query: filters.query ?? ''
 				};
 				showAdvancedOptions = true;
@@ -140,6 +155,14 @@
 		} else if (mode === 'create') {
 			// Populate from URL parameters for create mode
 			const params = page.url.searchParams;
+			if (logType === 'mcp') {
+				const eventTypes = params.get('event_type')?.split(',') ?? [];
+				form.sourceTypes = normalizeSourceTypes(
+					eventTypes.map((eventType) =>
+						eventType === 'local_agent_tool_call' ? 'local_agent_tool_call' : 'mcp'
+					)
+				);
+			}
 
 			const mappedField =
 				logType === 'llm'
@@ -155,19 +178,24 @@
 							query: 'query'
 						} satisfies Record<string, keyof LLMAuditLogURLFilters>)
 					: ({
-							user_ids: 'user_id',
-							mcp_ids: 'mcp_id',
-							mcp_server_display_names: 'mcp_server_display_name',
-							mcp_server_catalog_entry_names: 'mcp_server_catalog_entry_name',
-							call_types: 'call_type',
-							call_identifiers: 'call_identifier',
-							response_statuses: 'response_status',
-							session_ids: 'session_id',
-							client_names: 'client_name',
-							client_versions: 'client_version',
-							client_ips: 'client_ip',
+							user_id: 'user_id',
+							mcp_id: 'mcp_id',
+							mcp_server_display_name: 'mcp_server_display_name',
+							mcp_server_catalog_entry_name: 'mcp_server_catalog_entry_name',
+							call_type: 'call_type',
+							call_identifier: 'call_identifier',
+							response_status: 'response_status',
+							session_id: 'session_id',
+							client_name: 'client_name',
+							client_version: 'client_version',
+							client_ip: 'client_ip',
+							agent_provider: 'agent_provider',
+							status: 'status',
+							tool_name: 'tool_name',
+							tool_kind: 'tool_kind',
+							device_id: 'device_id',
 							query: 'query'
-						} satisfies Record<string, keyof McpAuditLogURLFilters>);
+						} satisfies Record<string, keyof AuditLogURLFilters>);
 
 			let hasFilters = false;
 			for (const [key, value] of Object.entries(mappedField)) {
@@ -196,7 +224,12 @@
 		'client_ip',
 		'call_type',
 		'session_id',
-		'response_status'
+		'response_status',
+		'agent_provider',
+		'status',
+		'tool_name',
+		'tool_kind',
+		'device_id'
 	];
 	let llmFiltersIds = [
 		'user_id',
@@ -222,12 +255,20 @@
 	});
 
 	$effect(() => {
+		const event_type = form.sourceTypes
+			.map((source) => (source === 'mcp' ? 'mcp_call' : 'local_agent_tool_call'))
+			.join(',');
 		filtersIds.forEach((id) => {
-			const request =
-				logType === 'llm'
-					? AdminService.listLLMAuditLogFilterOptions(id)
-					: UserService.listMcpAuditLogFilterOptions(id);
-			request.then((res) => {
+			if (logType === 'llm') {
+				AdminService.listLLMAuditLogFilterOptions(id).then((res) => {
+					filtersOptions[id] = res.options ?? [];
+				});
+				return;
+			}
+			if (localScheduleFilterKeys.has(id) && !form.sourceTypes.includes('local_agent_tool_call'))
+				return;
+			if (mcpScheduleFilterKeys.has(id) && !form.sourceTypes.includes('mcp')) return;
+			UserService.listAuditLogFilterOptions(id, { event_type }).then((res) => {
 				filtersOptions[id] = res.options ?? [];
 			});
 		});
@@ -250,7 +291,12 @@
 			| 'model_provider'
 			| 'outcome'
 			| 'request_path'
-			| 'target_model';
+			| 'target_model'
+			| 'agent_provider'
+			| 'status'
+			| 'tool_name'
+			| 'tool_kind'
+			| 'device_id';
 		label: string;
 		description: string;
 		options: { id: string; label: string }[];
@@ -324,6 +370,41 @@
 		}
 
 		return [
+			{
+				fieldId: 'agent_provider',
+				filterKey: 'agent_provider',
+				label: 'Agent Providers',
+				description: 'Local-agent providers',
+				options: filtersOptions['agent_provider']?.map?.(sameLabel) ?? []
+			},
+			{
+				fieldId: 'status',
+				filterKey: 'status',
+				label: 'Reported Statuses',
+				description: 'Local-agent statuses',
+				options: filtersOptions['status']?.map?.(sameLabel) ?? []
+			},
+			{
+				fieldId: 'tool_name',
+				filterKey: 'tool_name',
+				label: 'Tool Names',
+				description: 'Local tool names',
+				options: filtersOptions['tool_name']?.map?.(sameLabel) ?? []
+			},
+			{
+				fieldId: 'tool_kind',
+				filterKey: 'tool_kind',
+				label: 'Tool Kinds',
+				description: 'Local tool kinds',
+				options: filtersOptions['tool_kind']?.map?.(sameLabel) ?? []
+			},
+			{
+				fieldId: 'device_id',
+				filterKey: 'device_id',
+				label: 'Device IDs',
+				description: 'Enrolled device IDs',
+				options: filtersOptions['device_id']?.map?.(sameLabel) ?? []
+			},
 			{
 				fieldId: 'user_id',
 				filterKey: 'user_id',
@@ -465,6 +546,7 @@
 				schedule: form.schedule,
 				retentionPeriodInDays: form.retentionPeriodInDays,
 				filters: {
+					sourceTypes: normalizeSourceTypes(form.sourceTypes),
 					userIDs: form.filters.user_id ? form.filters.user_id.split(',').map((s) => s.trim()) : [],
 					mcpIDs: form.filters.mcp_id ? form.filters.mcp_id.split(',').map((s) => s.trim()) : [],
 					mcpServerDisplayNames: form.filters.mcp_server_display_name
@@ -494,6 +576,11 @@
 					clientIPs: form.filters.client_ip
 						? form.filters.client_ip.split(',').map((s) => s.trim())
 						: [],
+					agentProviders: split(form.filters.agent_provider),
+					statuses: split(form.filters.status),
+					toolNames: split(form.filters.tool_name),
+					toolKinds: split(form.filters.tool_kind),
+					deviceIDs: split(form.filters.device_id),
 					query: form.filters.query ?? ''
 				}
 			};
@@ -524,6 +611,44 @@
 
 	const selectClasses = 'text-input-filled bg-base-200 dark:bg-base-100';
 	const selectRootClass = 'w-full md:max-w-xs';
+	const mcpScheduleFilterKeys = new Set([
+		'mcp_id',
+		'mcp_server_display_name',
+		'mcp_server_catalog_entry_name',
+		'call_type',
+		'call_identifier',
+		'client_name',
+		'client_version',
+		'response_status'
+	]);
+	const localScheduleFilterKeys = new Set([
+		'agent_provider',
+		'status',
+		'tool_name',
+		'tool_kind',
+		'device_id'
+	]);
+	const visibleScheduleFilterRows = $derived(
+		filterVisibleExportFields(
+			form,
+			auditScheduleAdvancedFilterRows,
+			mcpScheduleFilterKeys,
+			localScheduleFilterKeys
+		)
+	);
+
+	function normalizeSourceTypes(sourceTypes: string[] | undefined): string[] {
+		const selected = ALL_SOURCE_TYPES.filter((sourceType) => sourceTypes?.includes(sourceType));
+		return selected.length ? [...selected] : ['mcp'];
+	}
+
+	function toggleSourceType(sourceType: string, checked: boolean) {
+		form.sourceTypes = normalizeSourceTypes(
+			checked
+				? [...form.sourceTypes, sourceType]
+				: form.sourceTypes.filter((value) => value !== sourceType)
+		);
+	}
 </script>
 
 <div class="paper">
@@ -597,6 +722,25 @@
 					based on current date.
 				</p>
 			</div>
+
+			{#if logType === 'mcp'}
+				<div class="flex flex-col gap-1">
+					<span class="text-sm font-medium">Log Sources</span>
+					<div class="flex flex-col gap-2 py-1">
+						{#each ALL_SOURCE_TYPES as sourceType (sourceType)}
+							<label class="flex items-center gap-2 text-sm">
+								<input
+									type="checkbox"
+									checked={form.sourceTypes.includes(sourceType)}
+									disabled={isViewMode}
+									onchange={(event) => toggleSourceType(sourceType, event.currentTarget.checked)}
+								/>
+								{sourceTypeLabels[sourceType]}
+							</label>
+						{/each}
+					</div>
+				</div>
+			{/if}
 		</div>
 
 		<!-- Schedule Configuration -->
@@ -814,6 +958,21 @@
 						Leave filters empty to export all logs in each scheduled period
 					</p>
 
+					<div class="flex flex-col gap-1">
+						<label class="text-sm font-medium" for="query">Search Query</label>
+						<input
+							id="query"
+							class={selectClasses}
+							bind:value={form.filters.query}
+							placeholder="Search audit logs"
+							readonly={isViewMode}
+							disabled={isViewMode}
+						/>
+						<p class="text-muted-content text-xs">
+							Free-text search to apply to each exported audit-log period
+						</p>
+					</div>
+
 					{#snippet auditScheduleAdvancedFilterField(row: AuditScheduleAdvancedFilterRow)}
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for={row.fieldId}>{row.label}</label>
@@ -839,7 +998,7 @@
 					{/snippet}
 
 					<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-						{#each auditScheduleAdvancedFilterRows as row (row.fieldId)}
+						{#each visibleScheduleFilterRows as row (row.fieldId)}
 							{@render auditScheduleAdvancedFilterField(row)}
 						{/each}
 					</div>

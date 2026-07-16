@@ -129,6 +129,7 @@ export interface AuditLogExport {
 	llmFilters?: LLMAuditLogExportFilters;
 }
 export interface AuditLogExportFilterResponse {
+	sourceTypes?: string[];
 	userIDs?: string[];
 	mcpIDs?: string[];
 	mcpServerDisplayNames?: string[];
@@ -140,9 +141,15 @@ export interface AuditLogExportFilterResponse {
 	clientNames?: string[];
 	clientVersions?: string[];
 	clientIPs?: string[];
+	agentProviders?: string[];
+	statuses?: string[];
+	toolNames?: string[];
+	toolKinds?: string[];
+	deviceIDs?: string[];
 	query?: string;
 }
 export type AuditLogExportFilters = {
+	sourceTypes?: string[];
 	userIDs?: string[];
 	mcpIDs?: string[];
 	mcpServerDisplayNames?: string[];
@@ -154,6 +161,11 @@ export type AuditLogExportFilters = {
 	clientNames?: string[];
 	clientVersions?: string[];
 	clientIPs?: string[];
+	agentProviders?: string[];
+	statuses?: string[];
+	toolNames?: string[];
+	toolKinds?: string[];
+	deviceIDs?: string[];
 	query?: string;
 };
 export interface ScheduledAuditLogExportInput {

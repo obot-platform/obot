@@ -28,8 +28,8 @@ import { AUDIT_LOG_FILTER_OPTIONS_LIMIT } from './constants';
 import {
 	type AppNotification,
 	type AppPreferences,
-	type McpAuditLog,
-	type McpAuditLogURLFilters,
+	type AuditLogEvent,
+	type AuditLogURLFilters,
 	type McpAuditLogUsageFilters,
 	type McpAuditLogUsageStats,
 	type BootstrapStatus,
@@ -166,26 +166,23 @@ export async function listAppPreferences(opts?: { fetch?: Fetcher }) {
 
 // Audit logs
 
-export async function listMcpAuditLogs(
-	filters?: McpAuditLogURLFilters,
-	opts?: { fetch?: Fetcher }
-) {
+export async function listAuditLogs(filters?: AuditLogURLFilters, opts?: { fetch?: Fetcher }) {
 	const queryString = buildQueryString(filters ?? {});
 	const response = (await doGet(
 		`/mcp-audit-logs${queryString ? `?${queryString}` : ''}`,
 		opts
-	)) as PaginatedResponse<McpAuditLog>;
+	)) as PaginatedResponse<AuditLogEvent>;
 	return response;
 }
 
-export async function getMcpAuditLog(id: string | number, opts?: { fetch?: Fetcher }) {
-	const response = (await doGet(`/mcp-audit-logs/detail/${id}`, opts)) as McpAuditLog;
+export async function getAuditLog(id: string | number, opts?: { fetch?: Fetcher }) {
+	const response = (await doGet(`/mcp-audit-logs/detail/${id}`, opts)) as AuditLogEvent;
 	return response;
 }
 
-export async function listMcpAuditLogFilterOptions(
+export async function listAuditLogFilterOptions(
 	filterId: string,
-	opts?: { fetch?: Fetcher } & Partial<McpAuditLogURLFilters>
+	opts?: { fetch?: Fetcher } & Partial<AuditLogURLFilters>
 ) {
 	const { fetch: fetchFn, ...filters } = opts ?? {};
 	const queryString = buildQueryString({ ...filters, limit: AUDIT_LOG_FILTER_OPTIONS_LIMIT });
@@ -212,14 +209,14 @@ export async function listMcpAuditLogUsageStats(
 
 export async function listMcpServerOrInstanceAuditLogs(
 	mcpId: string, // can either by server instance or mcp server id ex. ms- or msi-
-	filters?: McpAuditLogURLFilters,
+	filters?: AuditLogURLFilters,
 	opts?: { fetch?: Fetcher }
 ) {
 	const queryString = buildQueryString(filters ?? {});
 	const response = (await doGet(
 		`/mcp-audit-logs/${mcpId}${queryString ? `?${queryString}` : ''}`,
 		opts
-	)) as PaginatedResponse<McpAuditLog>;
+	)) as PaginatedResponse<AuditLogEvent>;
 	return response;
 }
 

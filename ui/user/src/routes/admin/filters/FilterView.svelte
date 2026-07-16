@@ -3,7 +3,7 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import FilterForm from '$lib/components/admin/FilterForm.svelte';
 	import McpServerK8sInfo from '$lib/components/admin/McpServerK8sInfo.svelte';
-	import McpAuditLogsPageContent from '$lib/components/admin/audit-logs/McpAuditLogsPageContent.svelte';
+	import AuditLogsPageContent from '$lib/components/admin/audit-logs/AuditLogsPageContent.svelte';
 	import UsageGraphs from '$lib/components/admin/usage/UsageGraphs.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
@@ -118,7 +118,7 @@
 				</div>
 			{:else if selected === 'audit-logs'}
 				<div class="mt-4 flex flex-1 flex-col gap-8 pb-8">
-					<McpAuditLogsPageContent mcpId={mcpServerId} mcpServerDisplayName={filter.name}>
+					<AuditLogsPageContent mcpId={mcpServerId} mcpServerDisplayName={filter.name}>
 						{#snippet emptyContent()}
 							<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 								<BookOpenText class="text-muted-content size-24 opacity-50" />
@@ -128,7 +128,7 @@
 								</p>
 							</div>
 						{/snippet}
-					</McpAuditLogsPageContent>
+					</AuditLogsPageContent>
 				</div>
 			{:else if selected === 'usage'}
 				<div class="mt-4 flex min-h-full flex-col gap-8 pb-8">
