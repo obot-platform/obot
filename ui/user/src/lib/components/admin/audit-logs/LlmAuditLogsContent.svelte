@@ -462,7 +462,7 @@
 			endpoint={async (filterId, opts) => {
 				const response = await AdminService.listLLMAuditLogFilterOptions(filterId, {
 					...opts,
-					include_models_requests: includeModelsRequests.toString(),
+					include_models_requests: includeModelsRequestsDraft.toString(),
 					start_time: timeRangeFilters.startTime.toISOString(),
 					end_time: timeRangeFilters.endTime.toISOString()
 				});
