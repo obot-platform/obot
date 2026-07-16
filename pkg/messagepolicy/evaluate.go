@@ -277,7 +277,7 @@ func (h *Helper) callLLM(ctx context.Context, resolved *resolvedModel, messages 
 		switch nanobottypes.Dialect(resolved.dialect) {
 		case nanobottypes.DialectAnthropicMessages:
 			return h.callLLMAnthropicMessages(ctx, resolved, messages)
-		case nanobottypes.DialectOpenAIResponses:
+		case nanobottypes.DialectOpenAIResponses, nanobottypes.DialectOpenResponses:
 			return h.callLLMOpenAIResponses(ctx, resolved, messages)
 		default:
 			return "", fmt.Errorf("unsupported Bedrock model dialect %q", resolved.dialect)
@@ -285,6 +285,9 @@ func (h *Helper) callLLM(ctx context.Context, resolved *resolvedModel, messages 
 	}
 	if resolved.dialect == string(nanobottypes.DialectBifrostRequest) {
 		return h.callLLMBifrost(ctx, resolved, messages)
+	}
+	if system.IsResponsesDialect(resolved.dialect) {
+		return h.callLLMOpenAIResponses(ctx, resolved, messages)
 	}
 	return h.callLLMChatCompletions(ctx, resolved, messages)
 }
