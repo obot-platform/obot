@@ -1100,7 +1100,7 @@ func TestCreateServerRejectsMultiUserHeaderSecretBinding(t *testing.T) {
 			Path:  "/mcp",
 		},
 		MultiUserConfig: &types.MultiUserConfig{UserDefinedHeaders: []types.MCPHeader{{
-			Key:           "X-API-Key",
+			Key:           "X-Service-Key",
 			SecretBinding: &types.MCPSecretBinding{Name: "source-secret", Key: "token"},
 		}}},
 	}
@@ -1125,7 +1125,7 @@ func TestCreateCatalogEntryRejectsMultiUserHeaderSecretBinding(t *testing.T) {
 			Path:  "/mcp",
 		},
 		MultiUserConfig: &types.MultiUserConfig{UserDefinedHeaders: []types.MCPHeader{{
-			Key:           "X-API-Key",
+			Key:           "X-Service-Key",
 			SecretBinding: &types.MCPSecretBinding{Name: "source-secret", Key: "token"},
 		}}},
 	}

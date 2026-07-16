@@ -53,6 +53,48 @@ func TestValidateCatalogEntryManifest_MultiUserConfig(t *testing.T) {
 	require.NoError(t, ValidateCatalogEntryManifest(t.Context(), manifest, false, ValidationOptions{}))
 }
 
+func TestValidateMultiUserConfigRejectsGatewayAuthenticationHeaders(t *testing.T) {
+	validConfig := &types.MultiUserConfig{
+		UserDefinedHeaders: []types.MCPHeader{{Key: "X-Auth-Token", Required: true, Sensitive: true}},
+	}
+	require.NoError(t, ValidateServerManifest(t.Context(), types.MCPServerManifest{
+		Runtime:         types.RuntimeNPX,
+		NPXConfig:       &types.NPXRuntimeConfig{Package: "test-server"},
+		MultiUserConfig: validConfig,
+	}, true, ValidationOptions{}))
+	require.NoError(t, ValidateCatalogEntryManifest(t.Context(), types.MCPServerCatalogEntryManifest{
+		ServerUserType:  types.ServerUserTypeMultiUser,
+		Runtime:         types.RuntimeNPX,
+		NPXConfig:       &types.NPXRuntimeConfig{Package: "test-server"},
+		MultiUserConfig: validConfig,
+	}, false, ValidationOptions{}))
+
+	for _, key := range []string{"Authorization", " authorization ", "X-Api-Key", "x-api-key"} {
+		t.Run(key, func(t *testing.T) {
+			config := &types.MultiUserConfig{
+				UserDefinedHeaders: []types.MCPHeader{{Key: key, Required: true, Sensitive: true}},
+			}
+
+			serverErr := ValidateServerManifest(t.Context(), types.MCPServerManifest{
+				Runtime:         types.RuntimeNPX,
+				NPXConfig:       &types.NPXRuntimeConfig{Package: "test-server"},
+				MultiUserConfig: config,
+			}, true, ValidationOptions{})
+			require.ErrorContains(t, serverErr, "reserved by Obot gateway authentication")
+			require.ErrorContains(t, serverErr, "multiUserConfig.userDefinedHeaders[0].key")
+
+			catalogErr := ValidateCatalogEntryManifest(t.Context(), types.MCPServerCatalogEntryManifest{
+				ServerUserType:  types.ServerUserTypeMultiUser,
+				Runtime:         types.RuntimeNPX,
+				NPXConfig:       &types.NPXRuntimeConfig{Package: "test-server"},
+				MultiUserConfig: config,
+			}, false, ValidationOptions{})
+			require.ErrorContains(t, catalogErr, "reserved by Obot gateway authentication")
+			require.ErrorContains(t, catalogErr, "multiUserConfig.userDefinedHeaders[0].key")
+		})
+	}
+}
+
 func TestRemoteValidator_validateRemoteCatalogConfig(t *testing.T) {
 	validator := RemoteValidator{}
 

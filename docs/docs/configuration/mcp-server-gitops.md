@@ -246,6 +246,10 @@ multiUserConfig:
       description: Personal token used by the upstream service for this user.
 ```
 
+`Authorization` and `X-API-Key` are reserved by Obot gateway authentication and
+cannot be used as multi-user per-user headers. Choose a service-specific header
+such as `X-User-Token` instead. Header-name matching is case-insensitive.
+
 ### Resource Requirements
 
 Catalog entries can optionally define CPU and memory requests and limits for hosted MCP server deployments. These values are useful when a specific server needs more or fewer resources than the platform defaults.

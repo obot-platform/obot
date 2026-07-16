@@ -1118,6 +1118,28 @@ func validateCompositeCatalogEntryResourceMaximums(manifest types.MCPServerCatal
 	return nil
 }
 
+func validateMultiUserDefinedHeaders(runtime types.Runtime, config *types.MultiUserConfig) error {
+	if config == nil {
+		return nil
+	}
+
+	for i, header := range config.UserDefinedHeaders {
+		switch strings.ToLower(strings.TrimSpace(header.Key)) {
+		case "authorization", "x-api-key":
+			return types.RuntimeValidationError{
+				Runtime: runtime,
+				Field:   fmt.Sprintf("multiUserConfig.userDefinedHeaders[%d].key", i),
+				Message: fmt.Sprintf(
+					"header %q is reserved by Obot gateway authentication; choose a different per-user header",
+					header.Key,
+				),
+			}
+		}
+	}
+
+	return nil
+}
+
 func ValidateServerManifest(ctx context.Context, manifest types.MCPServerManifest, isMultiUser bool, options ValidationOptions) error {
 	if err := validateMCPResourceRequirements(manifest.Runtime, manifest.Resources); err != nil {
 		return err
@@ -1132,6 +1154,9 @@ func ValidateServerManifest(ctx context.Context, manifest types.MCPServerManifes
 			Field:   "multiUserConfig",
 			Message: "multiUserConfig may only be set for multi-user servers",
 		}
+	}
+	if err := validateMultiUserDefinedHeaders(manifest.Runtime, manifest.MultiUserConfig); err != nil {
+		return err
 	}
 	if err := validateRuntimeStartupTimeout(manifest.Runtime, manifest.RuntimeStartupTimeoutSeconds()); err != nil {
 		return err
@@ -1190,6 +1215,9 @@ func ValidateCatalogEntryManifest(ctx context.Context, manifest types.MCPServerC
 			Field:   "multiUserConfig",
 			Message: "multiUserConfig may only be set for multi-user catalog entries",
 		}
+	}
+	if err := validateMultiUserDefinedHeaders(manifest.Runtime, manifest.MultiUserConfig); err != nil {
+		return err
 	}
 
 	if !manifest.ServerUserType.IsSingleUser() &&
