@@ -72,6 +72,14 @@ func BaseURL(providerName string, credentials map[string]string, dialect nanobot
 	return *u, nil
 }
 
+// EntraCredentialCache preserves the Azure SDK credential between requests so
+// its internal access-token cache can be reused instead of fetching a new token
+// for every transport created by the gateway.
+//
+// The cache holds the most recently used Entra configuration. If any value
+// changes (for example, when a client secret is rotated), get replaces the SDK
+// credential. The mutex makes that comparison and replacement atomic when
+// transports are created concurrently.
 type EntraCredentialCache struct {
 	mu           sync.Mutex
 	tenantID     string
