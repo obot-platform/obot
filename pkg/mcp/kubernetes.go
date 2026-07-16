@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"net"
+	"net/http"
 	"reflect"
 	"slices"
 	"sort"
@@ -47,7 +49,10 @@ var (
 	defaultCPURequest         = resource.MustParse("10m")
 )
 
-const maxDeploymentWatchRetries = 5
+const (
+	maxDeploymentWatchRetries    = 5
+	nanobotPodHealthPollInterval = 250 * time.Millisecond
+)
 
 type kubernetesBackend struct {
 	clientset         *kubernetes.Clientset
@@ -61,6 +66,7 @@ type kubernetesBackend struct {
 	authEnabled       bool
 	obotClient        kclient.Client
 	resourceMaximums  ResourceMaximums
+	healthCheckClient *http.Client
 	deploymentCacheMu sync.RWMutex
 	deploymentCache   map[string]*kubernetesDeploymentCacheEntry
 }
@@ -835,6 +841,64 @@ func analyzePodStatus(pod *corev1.Pod, isAgent bool) (bool, error) {
 	return true, fmt.Errorf("pod in phase %s, waiting for containers to be ready", pod.Status.Phase)
 }
 
+func (k *kubernetesBackend) checkNanobotPodHealth(ctx context.Context, pod *corev1.Pod) error {
+	if pod.Status.Phase != corev1.PodRunning || pod.Status.PodIP == "" {
+		return nil
+	}
+
+	client := k.healthCheckClient
+	if client == nil {
+		client = &http.Client{Timeout: 5 * time.Second}
+	}
+
+	healthURL := "http://" + net.JoinHostPort(pod.Status.PodIP, strconv.Itoa(defaultContainerPort)) + "/healthz"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, healthURL, http.NoBody)
+	if err != nil {
+		return fmt.Errorf("failed to create pod health check request: %w", err)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil // The pod may not be accepting connections yet.
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusInternalServerError {
+		return nil
+	}
+
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
+	return fmt.Errorf("%w: internal server error: %s", ErrHealthCheckFailed, strings.TrimSpace(string(body)))
+}
+
+func (k *kubernetesBackend) pollNanobotPodHealth(ctx context.Context, id string) error {
+	ticker := time.NewTicker(nanobotPodHealthPollInterval)
+	defer ticker.Stop()
+
+	for {
+		var pods corev1.PodList
+		if err := k.cachedClient.List(ctx, &pods, &kclient.ListOptions{
+			Namespace: k.mcpNamespace,
+			LabelSelector: labels.SelectorFromSet(map[string]string{
+				"app": id,
+			}),
+		}); err == nil && len(pods.Items) > 0 {
+			newestPod, err := getNewestPod(pods.Items)
+			if err == nil {
+				if err := k.checkNanobotPodHealth(ctx, newestPod); err != nil {
+					return err
+				}
+			}
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticker.C:
+		}
+	}
+}
+
 func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id string, server ServerConfig, previousPodName string) (string, error) {
 	// Wait for the deployment to be ready, checking pod status on each update to fail fast on permanent errors.
 	var (
@@ -842,7 +906,21 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 		lastErr error
 	)
 	for attempt := range maxDeploymentWatchRetries {
-		_, err := wait.For(ctx, k.cachedClient, &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: id, Namespace: k.mcpNamespace}},
+		waitCtx, cancelWait := context.WithCancel(ctx)
+		var healthErrCh <-chan error
+		if server.Runtime == types.RuntimeNPX || server.Runtime == types.RuntimeUVX {
+			ch := make(chan error, 1)
+			healthErrCh = ch
+			go func() {
+				defer close(ch)
+				if healthErr := k.pollNanobotPodHealth(waitCtx, id); healthErr != nil {
+					ch <- healthErr
+					cancelWait()
+				}
+			}()
+		}
+
+		_, err := wait.For(waitCtx, k.cachedClient, &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: id, Namespace: k.mcpNamespace}},
 			func(dep *appsv1.Deployment) (bool, error) {
 				if dep.Generation == dep.Status.ObservedGeneration && dep.Status.UpdatedReplicas == 1 && dep.Status.ReadyReplicas == 1 && dep.Status.AvailableReplicas == 1 {
 					return true, nil
@@ -850,7 +928,7 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 
 				// Deployment not ready yet - check pod status for early failure detection.
 				var pods corev1.PodList
-				if listErr := k.cachedClient.List(ctx, &pods, &kclient.ListOptions{
+				if listErr := k.cachedClient.List(waitCtx, &pods, &kclient.ListOptions{
 					Namespace: k.mcpNamespace,
 					LabelSelector: labels.SelectorFromSet(map[string]string{
 						"app": id,
@@ -875,11 +953,16 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 					olog.Debugf("pod in non-retryable state: id=%s error=%v attempt=%d", id, podErr, attempt+1)
 					return false, podErr
 				}
-
 				return false, nil // Keep waiting.
 			},
 			wait.Option{Timeout: server.StartupTimeout},
 		)
+		cancelWait()
+		if healthErrCh != nil {
+			if healthErr := <-healthErrCh; healthErr != nil {
+				return "", healthErr
+			}
+		}
 		if err == nil {
 			break
 		}
@@ -889,6 +972,7 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 			return "", fmt.Errorf("%w: timeout waiting for deployment readiness", ErrHealthCheckTimeout)
 		}
 		if errors.Is(err, ErrHealthCheckTimeout) ||
+			errors.Is(err, ErrHealthCheckFailed) ||
 			errors.Is(err, ErrPodCrashLoopBackOff) ||
 			errors.Is(err, ErrImagePullFailed) ||
 			errors.Is(err, ErrPodSchedulingFailed) ||

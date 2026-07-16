@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -786,8 +788,100 @@ type fakeWithWatch struct {
 	watcher       *watch.FakeWatcher
 }
 
-func (f *fakeWithWatch) Watch(_ context.Context, _ client.ObjectList, _ ...client.ListOption) (watch.Interface, error) {
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
+func (f *fakeWithWatch) Watch(ctx context.Context, _ client.ObjectList, _ ...client.ListOption) (watch.Interface, error) {
+	go func() {
+		<-ctx.Done()
+		f.watcher.Stop()
+	}()
 	return f.watcher, nil
+}
+
+func TestUpdatedMCPPodName_FailsFastOnNanobotHealthError(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := appsv1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme(appsv1) error = %v", err)
+	}
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme(corev1) error = %v", err)
+	}
+
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-server", Namespace: "obot-mcp"},
+		Status: appsv1.DeploymentStatus{
+			ObservedGeneration: 1,
+			UpdatedReplicas:    1,
+		},
+	}
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "test-server-pod",
+			Namespace:         "obot-mcp",
+			CreationTimestamp: metav1.Now(),
+			Labels:            map[string]string{"app": "test-server"},
+		},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodRunning,
+			PodIP: "10.0.0.1",
+			ContainerStatuses: []corev1.ContainerStatus{{
+				Name:  "mcp",
+				State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{}},
+			}},
+		},
+	}
+
+	watcher := watch.NewFake()
+
+	client := &fakeWithWatch{
+		Client:  fake.NewClientBuilder().WithScheme(scheme).WithObjects(deployment, pod).Build(),
+		watcher: watcher,
+	}
+	healthCalls := 0
+	k := &kubernetesBackend{
+		client:       client,
+		cachedClient: client,
+		mcpNamespace: "obot-mcp",
+		healthCheckClient: &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			if req.URL.String() != "http://10.0.0.1:8099/healthz" {
+				t.Fatalf("health check URL = %q, want pod health URL", req.URL)
+			}
+			if err := req.Context().Err(); err != nil {
+				return nil, err
+			}
+			healthCalls++
+			if healthCalls == 1 {
+				return &http.Response{
+					StatusCode: http.StatusTooEarly,
+					Body:       io.NopCloser(strings.NewReader("waiting for startup")),
+					Header:     make(http.Header),
+				}, nil
+			}
+			return &http.Response{
+				StatusCode: http.StatusInternalServerError,
+				Body:       io.NopCloser(strings.NewReader("npm error 404 Not Found")),
+				Header:     make(http.Header),
+			}, nil
+		})},
+	}
+
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+
+	_, err := k.updatedMCPPodName(ctx, "http://mcp.example.com", "test-server", ServerConfig{
+		Runtime:        types.RuntimeNPX,
+		StartupTimeout: 5 * time.Minute,
+	}, "")
+	if !errors.Is(err, ErrHealthCheckFailed) {
+		t.Fatalf("updatedMCPPodName() error = %v, want %v", err, ErrHealthCheckFailed)
+	}
+	if !strings.Contains(err.Error(), "npm error 404 Not Found") {
+		t.Fatalf("updatedMCPPodName() error = %q, want npm failure", err)
+	}
 }
 
 func TestUpdatedMCPPodName_SucceededPodAgentRetryBehavior(t *testing.T) {
@@ -842,8 +936,9 @@ func TestUpdatedMCPPodName_SucceededPodAgentRetryBehavior(t *testing.T) {
 			}
 
 			watcher := watch.NewFake()
+			eventDeployment := deployment.DeepCopy()
 			go func() {
-				watcher.Add(deployment.DeepCopy())
+				watcher.Add(eventDeployment)
 				watcher.Stop()
 			}()
 
