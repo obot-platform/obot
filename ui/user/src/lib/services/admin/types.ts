@@ -206,6 +206,7 @@ export type LLMAuditLogExportFilters = {
 	outcomes?: string[];
 	clients?: string[];
 	clientSessionIDs?: string[];
+	messagePolicyTriggered?: boolean[];
 	query?: string;
 };
 

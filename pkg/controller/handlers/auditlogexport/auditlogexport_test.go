@@ -29,15 +29,16 @@ func TestLLMAuditLogOptionsFromExport(t *testing.T) {
 		EndTime:                metav1.NewTime(end),
 		WithRequestAndResponse: true,
 		LLMFilters: &types.LLMAuditLogExportFilters{
-			UserIDs:          []string{"user-1"},
-			ModelProviders:   []string{"openai"},
-			TargetModels:     []string{"gpt-4o"},
-			RequestPaths:     []string{"/v1/chat/completions"},
-			ResponseStatuses: []int{200, 429},
-			Outcomes:         []string{gatewaytypes.LLMAuditOutcomeSuccess},
-			Clients:          []string{"obot"},
-			ClientSessionIDs: []string{"session-1"},
-			Query:            "needle",
+			UserIDs:                []string{"user-1"},
+			ModelProviders:         []string{"openai"},
+			TargetModels:           []string{"gpt-4o"},
+			RequestPaths:           []string{"/v1/chat/completions"},
+			ResponseStatuses:       []int{200, 429},
+			Outcomes:               []string{gatewaytypes.LLMAuditOutcomeSuccess},
+			Clients:                []string{"obot"},
+			ClientSessionIDs:       []string{"session-1"},
+			MessagePolicyTriggered: []bool{true, false},
+			Query:                  "needle",
 		},
 	}}
 
@@ -50,6 +51,9 @@ func TestLLMAuditLogOptionsFromExport(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got.UserID, export.Spec.LLMFilters.UserIDs) || !reflect.DeepEqual(got.ResponseStatus, export.Spec.LLMFilters.ResponseStatuses) || got.Query != "needle" {
 		t.Fatalf("filters were not mapped: %#v", got)
+	}
+	if !reflect.DeepEqual(got.MessagePolicyTriggered, export.Spec.LLMFilters.MessagePolicyTriggered) {
+		t.Fatalf("message policy filter was not mapped: %#v", got)
 	}
 }
 

@@ -125,15 +125,16 @@ type AuditLogExportFilters struct {
 
 // LLMAuditLogExportFilters represents filters for LLM audit log export
 type LLMAuditLogExportFilters struct {
-	UserIDs          []string `json:"userIDs,omitempty"`
-	ModelProviders   []string `json:"modelProviders,omitempty"`
-	TargetModels     []string `json:"targetModels,omitempty"`
-	RequestPaths     []string `json:"requestPaths,omitempty"`
-	ResponseStatuses []int    `json:"responseStatuses,omitempty"`
-	Outcomes         []string `json:"outcomes,omitempty"`
-	Clients          []string `json:"clients,omitempty"`
-	ClientSessionIDs []string `json:"clientSessionIDs,omitempty"`
-	Query            string   `json:"query,omitempty"`
+	UserIDs                []string `json:"userIDs,omitempty"`
+	ModelProviders         []string `json:"modelProviders,omitempty"`
+	TargetModels           []string `json:"targetModels,omitempty"`
+	RequestPaths           []string `json:"requestPaths,omitempty"`
+	ResponseStatuses       []int    `json:"responseStatuses,omitempty"`
+	Outcomes               []string `json:"outcomes,omitempty"`
+	Clients                []string `json:"clients,omitempty"`
+	ClientSessionIDs       []string `json:"clientSessionIDs,omitempty"`
+	MessagePolicyTriggered []bool   `json:"messagePolicyTriggered,omitempty"`
+	Query                  string   `json:"query,omitempty"`
 }
 
 // AuditLogType identifies the source of logs exported by a unified audit log export resource.

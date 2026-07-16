@@ -32,6 +32,7 @@
 	let defaultTimezone = $state(Intl.DateTimeFormat().resolvedOptions().timeZone);
 	let showAdvancedOptions = $state(false);
 	let isViewMode = $derived(mode === 'view');
+	let defaultKeyPrefix = $derived(logType === 'llm' ? 'llm-audit-logs' : 'mcp-audit-logs');
 	const ALL_SOURCE_TYPES = ['mcp', 'local_agent_tool_call'] as const;
 	const sourceTypeLabels = { mcp: 'MCP', local_agent_tool_call: 'Local Agent Tool Calls' };
 
@@ -65,6 +66,7 @@
 			session_id: '',
 			client: '',
 			client_session_id: '',
+			message_policy_triggered: '',
 			model_provider: '',
 			outcome: '',
 			request_path: '',
@@ -119,6 +121,7 @@
 					outcome: filters.outcomes ? filters.outcomes.join(',') : '',
 					client: filters.clients ? filters.clients.join(',') : '',
 					client_session_id: filters.clientSessionIDs ? filters.clientSessionIDs.join(',') : '',
+					message_policy_triggered: filters.messagePolicyTriggered?.map(String).join(',') ?? '',
 					query: filters.query ?? ''
 				};
 				showAdvancedOptions = true;
@@ -170,6 +173,7 @@
 							user_id: 'user_id',
 							client: 'client',
 							client_session_id: 'client_session_id',
+							message_policy_triggered: 'message_policy_triggered',
 							model_provider: 'model_provider',
 							outcome: 'outcome',
 							request_path: 'request_path',
@@ -235,6 +239,7 @@
 		'user_id',
 		'client',
 		'client_session_id',
+		'message_policy_triggered',
 		'model_provider',
 		'outcome',
 		'request_path',
@@ -288,6 +293,7 @@
 			| 'mcp_server_catalog_entry_name'
 			| 'client'
 			| 'client_session_id'
+			| 'message_policy_triggered'
 			| 'model_provider'
 			| 'outcome'
 			| 'request_path'
@@ -365,6 +371,17 @@
 					label: 'Client Session IDs',
 					description: 'Comma-separated client session IDs',
 					options: filtersOptions['client_session_id']?.map?.(sameLabel) ?? []
+				},
+				{
+					fieldId: 'message_policy_triggered',
+					filterKey: 'message_policy_triggered',
+					label: 'Message Policy Action',
+					description: 'Filter by whether a message policy was triggered',
+					options:
+						filtersOptions['message_policy_triggered']?.map?.((value) => ({
+							id: value,
+							label: value === 'true' ? 'Triggered' : 'Not triggered'
+						})) ?? []
 				}
 			];
 		}
@@ -499,6 +516,10 @@
 				split(value)
 					.map((s) => Number(s))
 					.filter((n) => !Number.isNaN(n));
+			const splitBooleans = (value: string | null | undefined): boolean[] =>
+				split(value).flatMap((item) =>
+					item === 'true' ? [true] : item === 'false' ? [false] : []
+				);
 
 			if (logType === 'llm') {
 				const request = {
@@ -518,6 +539,7 @@
 						outcomes: split(form.filters.outcome),
 						clients: split(form.filters.client),
 						clientSessionIDs: split(form.filters.client_session_id),
+						messagePolicyTriggered: splitBooleans(form.filters.message_policy_triggered),
 						query: form.filters.query ?? ''
 					}
 				};
@@ -714,12 +736,12 @@
 					class="text-input-filled"
 					id="keyPrefix"
 					bind:value={form.keyPrefix}
-					placeholder="Leave empty for default: mcp-audit-logs/YYYY/MM/DD/"
+					placeholder={`Leave empty for default: ${defaultKeyPrefix}/YYYY/MM/DD/`}
 					readonly={mode === 'view'}
 				/>
 				<p class="text-muted-content text-xs">
-					Path prefix within the bucket. If empty, defaults to "mcp-audit-logs/YYYY/MM/DD/" format
-					based on current date.
+					Path prefix within the bucket. If empty, defaults to "{defaultKeyPrefix}/YYYY/MM/DD/"
+					format based on current date.
 				</p>
 			</div>
 

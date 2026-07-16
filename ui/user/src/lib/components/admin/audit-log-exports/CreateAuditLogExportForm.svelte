@@ -43,6 +43,7 @@
 		| 'user_id'
 		| 'client'
 		| 'client_session_id'
+		| 'message_policy_triggered'
 		| 'model_provider'
 		| 'outcome'
 		| 'request_path'
@@ -53,7 +54,7 @@
 		filterKey: T;
 		title: string;
 		description: string;
-		placeholder: string;
+		getOptionLabel?: (value: string) => string;
 		useUserDisplayNames?: boolean;
 	};
 
@@ -63,98 +64,82 @@
 				filterKey: 'user_id',
 				title: 'Users',
 				description: 'List of users',
-				placeholder: 'user1,user2',
 				useUserDisplayNames: true
 			},
 			{
 				filterKey: 'mcp_id',
 				title: 'Server IDs',
-				description: 'List of server IDs',
-				placeholder: 'server1,server2'
+				description: 'List of server IDs'
 			},
 			{
 				filterKey: 'mcp_server_display_name',
 				title: 'Server Names',
-				description: 'List of server display names',
-				placeholder: 'server-name-1,server-name-2'
+				description: 'List of server display names'
 			},
 			{
 				filterKey: 'call_type',
 				title: 'Call Types',
-				description: 'List of call types',
-				placeholder: 'tools/call,resources/read'
+				description: 'List of call types'
 			},
 			{
 				filterKey: 'client_name',
 				title: 'Client Names',
-				description: 'List of client names',
-				placeholder: 'client1,client2'
+				description: 'List of client names'
 			},
 			{
 				filterKey: 'response_status',
 				title: 'Response Status',
-				description: 'List of HTTP status codes',
-				placeholder: '200,400,500'
+				description: 'List of HTTP status codes'
 			},
 			{
 				filterKey: 'session_id',
 				title: 'Session IDs',
-				description: 'List of session IDs',
-				placeholder: 'session1,session2'
+				description: 'List of session IDs'
 			},
 			{
 				filterKey: 'client_ip',
 				title: 'Client IPs',
-				description: 'List of IP addresses',
-				placeholder: '192.168.1.1,10.0.0.1'
+				description: 'List of IP addresses'
 			},
 			{
 				filterKey: 'call_identifier',
 				title: 'Call Identifier',
-				description: 'List of call identifiers',
-				placeholder: 'call-identifier-1,call-identifier-2'
+				description: 'List of call identifiers'
 			},
 			{
 				filterKey: 'client_version',
 				title: 'Client Versions',
-				description: 'List of client versions',
-				placeholder: 'client-version-1,client-version-2'
+				description: 'List of client versions'
 			},
 			{
 				filterKey: 'mcp_server_catalog_entry_name',
 				title: 'Catalog Entry Names',
-				description: 'List of catalog entry names',
-				placeholder: 'workspace-id-1,workspace-id-2'
+				description: 'List of catalog entry names'
 			},
 			{
 				filterKey: 'agent_provider',
 				title: 'Agent Providers',
-				description: 'List of local-agent providers',
-				placeholder: 'codex,claude_code'
+				description: 'List of local-agent providers'
 			},
 			{
 				filterKey: 'status',
 				title: 'Reported Statuses',
-				description: 'List of local-agent statuses',
-				placeholder: 'succeeded,failed'
+				description: 'List of local-agent statuses'
 			},
 			{
 				filterKey: 'tool_name',
 				title: 'Tool Names',
-				description: 'List of local tool names',
-				placeholder: 'mcp__github__search'
+				description: 'List of local tool names'
 			},
 			{
 				filterKey: 'tool_kind',
 				title: 'Tool Kinds',
-				description: 'List of local tool kinds',
-				placeholder: 'mcp'
+				description: 'List of local tool kinds'
 			},
 			{
 				filterKey: 'device_id',
 				title: 'Device IDs',
-				description: 'List of enrolled device IDs',
-				placeholder: 'device-1'
+				description: 'List of enrolled device IDs'
 			}
 		];
 	const LLM_AUDIT_LOG_EXPORT_FILTER_FIELDS: AuditLogExportFilterFieldConfig<LLMAuditLogExportMultiSelectFilterKey>[] =
@@ -163,50 +148,48 @@
 				filterKey: 'user_id',
 				title: 'Users',
 				description: 'List of users',
-				placeholder: 'user1,user2',
 				useUserDisplayNames: true
 			},
 			{
 				filterKey: 'model_provider',
 				title: 'Model Providers',
-				description: 'List of model providers',
-				placeholder: 'openai,anthropic'
+				description: 'List of model providers'
 			},
 			{
 				filterKey: 'target_model',
 				title: 'Target Models',
-				description: 'List of target models',
-				placeholder: 'gpt-4,claude-sonnet'
+				description: 'List of target models'
 			},
 			{
 				filterKey: 'request_path',
 				title: 'Request Paths',
-				description: 'List of request paths',
-				placeholder: '/v1/chat/completions'
+				description: 'List of request paths'
 			},
 			{
 				filterKey: 'response_status',
 				title: 'Response Status',
-				description: 'List of HTTP status codes',
-				placeholder: '200,400,500'
+				description: 'List of HTTP status codes'
 			},
 			{
 				filterKey: 'outcome',
 				title: 'Outcomes',
-				description: 'List of outcomes',
-				placeholder: 'success,error'
+				description: 'List of outcomes'
 			},
 			{
 				filterKey: 'client',
 				title: 'Clients',
-				description: 'List of clients',
-				placeholder: 'client1,client2'
+				description: 'List of clients'
 			},
 			{
 				filterKey: 'client_session_id',
 				title: 'Client Session IDs',
-				description: 'List of client session IDs',
-				placeholder: 'session1,session2'
+				description: 'List of client session IDs'
+			},
+			{
+				filterKey: 'message_policy_triggered',
+				title: 'Message Policy Action',
+				description: 'Filter by whether a message policy was triggered',
+				getOptionLabel: (value) => (value === 'true' ? 'Triggered' : 'Not triggered')
 			}
 		];
 
@@ -222,6 +205,7 @@
 
 	let showAdvancedOptions = $state(false);
 	let isViewMode = $derived(mode === 'view');
+	let defaultKeyPrefix = $derived(logType === 'llm' ? 'llm-audit-logs' : 'mcp-audit-logs');
 
 	const hasAuditorPermissions = $derived(profile.current.groups.includes(Group.AUDITOR));
 
@@ -255,6 +239,7 @@
 			session_id: '',
 			client: '',
 			client_session_id: '',
+			message_policy_triggered: '',
 			model_provider: '',
 			outcome: '',
 			request_path: '',
@@ -293,6 +278,7 @@
 		'user_id',
 		'client',
 		'client_session_id',
+		'message_policy_triggered',
 		'model_provider',
 		'outcome',
 		'request_path',
@@ -323,6 +309,7 @@
 					outcome: join(filters.outcomes),
 					client: join(filters.clients),
 					client_session_id: join(filters.clientSessionIDs),
+					message_policy_triggered: join(filters.messagePolicyTriggered?.map(String)),
 					query: filters.query ?? ''
 				};
 				showAdvancedOptions = true;
@@ -490,6 +477,12 @@
 		form.sourceTypes = normalizeSourceTypes(next);
 	}
 
+	function splitBooleans(value: string | null | undefined): boolean[] {
+		return split(value).flatMap((item) =>
+			item === 'true' ? [true] : item === 'false' ? [false] : []
+		);
+	}
+
 	async function handleSubmit() {
 		try {
 			creating = true;
@@ -520,6 +513,7 @@
 						outcomes: split(form.filters.outcome),
 						clients: split(form.filters.client),
 						clientSessionIDs: split(form.filters.client_session_id),
+						messagePolicyTriggered: splitBooleans(form.filters.message_policy_triggered),
 						query: form.filters.query ?? ''
 					}
 				};
@@ -586,7 +580,7 @@
 		if (field.useUserDisplayNames) {
 			return opts.map((d) => ({ id: d, label: usersMap.get(d)?.displayName ?? d }));
 		}
-		return opts.map((d) => ({ id: d, label: d }));
+		return opts.map((d) => ({ id: d, label: field.getOptionLabel?.(d) ?? d }));
 	}
 </script>
 
@@ -668,14 +662,14 @@
 					)}
 					id="keyPrefix"
 					bind:value={form.keyPrefix}
-					placeholder="Leave empty for default: mcp-audit-logs/YYYY/MM/DD/"
+					placeholder={`Leave empty for default: ${defaultKeyPrefix}/YYYY/MM/DD/`}
 					readonly={isViewMode}
 					disabled={isViewMode}
 				/>
 				{#if (isViewMode && form.keyPrefix) || !isViewMode}
 					<p class="text-muted-content text-xs">
-						Path prefix within the bucket. If empty, defaults to "mcp-audit-logs/YYYY/MM/DD/" format
-						based on current date.
+						Path prefix within the bucket. If empty, defaults to "{defaultKeyPrefix}/YYYY/MM/DD/"
+						format based on current date.
 					</p>
 				{/if}
 			</div>
@@ -761,7 +755,6 @@
 						filterKey: AuditLogExportMultiSelectFilterKey | LLMAuditLogExportMultiSelectFilterKey,
 						title: string,
 						description: string,
-						placeholder: string,
 						selectOptions: { id: string; label: string }[]
 					)}
 						<div class="flex flex-col gap-1">
@@ -780,7 +773,6 @@
 								bind:selected={
 									() => form.filters[filterKey] ?? '', (v) => (form.filters[filterKey] = v ?? '')
 								}
-								{placeholder}
 								disabled={isViewMode}
 								readonly={isViewMode}
 								multiple
@@ -797,7 +789,6 @@
 								field.filterKey,
 								field.title,
 								field.description,
-								field.placeholder,
 								selectOptionsForField(field)
 							)}
 						{/each}
