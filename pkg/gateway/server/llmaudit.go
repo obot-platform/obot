@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
 	"github.com/obot-platform/obot/pkg/api/server/requestinfo"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaycontext "github.com/obot-platform/obot/pkg/gateway/context"
@@ -23,12 +24,14 @@ import (
 
 const (
 	defaultLLMAuditLogResponseCaptureLimit = 5 << 20 // 5MiB
+	claudeCodeSessionIDHeader              = "X-Claude-Code-Session-Id"
 
 	llmAuditClientClaudeCode = "claude-code"
 	llmAuditClientCodex      = "codex"
 
 	llmAuditUserAgentClaudeCode = "claude-code"
 	llmAuditUserAgentClaudeCLI  = "claude-cli"
+	llmAuditUserAgentClaudeGRI  = "gRi"
 	llmAuditUserAgentCodexCLI   = "codex_cli_rs"
 	llmAuditUserAgentCodexTUI   = "codex-tui"
 )
@@ -95,11 +98,11 @@ func (r *llmAuditRecorder) setPolicyModifiedRequestBody(body []byte) {
 	r.log.MessagePolicyTriggered = len(body) > 0
 }
 
-func (r *llmAuditRecorder) setClientSessionID(modelProvider string, body []byte) {
+func (r *llmAuditRecorder) setClientSessionID(dialect nanobottypes.Dialect, headers http.Header, body []byte) {
 	if r == nil {
 		return
 	}
-	r.log.ClientSessionID = extractLLMClientSessionID(modelProvider, body)
+	r.log.ClientSessionID = extractLLMClientSessionID(dialect, headers, body)
 }
 
 func (r *llmAuditRecorder) setReasoningEffort(modelProvider string, body []byte) {
@@ -245,17 +248,24 @@ func parseLLMClientUserAgent(userAgent string) (string, string) {
 	switch name {
 	case llmAuditUserAgentClaudeCode, llmAuditUserAgentClaudeCLI:
 		name = llmAuditClientClaudeCode
+	case llmAuditUserAgentClaudeGRI:
+		name = llmAuditClientClaudeCode
+		version = ""
 	case llmAuditUserAgentCodexCLI, llmAuditUserAgentCodexTUI:
 		name = llmAuditClientCodex
 	}
 	return name, version
 }
 
-func extractLLMClientSessionID(modelProvider string, body []byte) string {
-	switch modelProvider {
-	case system.OpenAIModelProvider:
+func extractLLMClientSessionID(dialect nanobottypes.Dialect, headers http.Header, body []byte) string {
+	if sessionID := headers.Get(claudeCodeSessionIDHeader); sessionID != "" {
+		return sessionID
+	}
+
+	switch dialect {
+	case nanobottypes.DialectOpenAIResponses:
 		return gjson.GetBytes(body, "client_metadata.session_id").String()
-	case system.AnthropicModelProvider:
+	case nanobottypes.DialectAnthropicMessages:
 		userID := gjson.GetBytes(body, "metadata.user_id").String()
 		if !gjson.Valid(userID) {
 			return ""
