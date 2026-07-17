@@ -19,23 +19,26 @@ func Handler(devPort, userOnlyPort int) http.Handler {
 	server := &uiServer{}
 
 	if userOnlyPort != 0 {
-		server.rp = &httputil.ReverseProxy{
-			Director: func(r *http.Request) {
-				r.URL.Scheme = "http"
-				r.URL.Host = fmt.Sprintf("localhost:%d", userOnlyPort)
-			},
-		}
+		server.rp = newUIProxy(userOnlyPort)
 		server.userOnly = true
 	} else if devPort != 0 {
-		server.rp = &httputil.ReverseProxy{
-			Director: func(r *http.Request) {
-				r.URL.Scheme = "http"
-				r.URL.Host = fmt.Sprintf("localhost:%d", devPort)
-			},
-		}
+		server.rp = newUIProxy(devPort)
 	}
 
 	return server
+}
+
+// newUIProxy proxies to a UI server on localhost. SetXForwarded keeps the
+// X-Forwarded-For behavior that ReverseProxy used to apply automatically under
+// the deprecated Director.
+func newUIProxy(port int) *httputil.ReverseProxy {
+	return &httputil.ReverseProxy{
+		Rewrite: func(r *httputil.ProxyRequest) {
+			r.SetXForwarded()
+			r.Out.URL.Scheme = "http"
+			r.Out.URL.Host = fmt.Sprintf("localhost:%d", port)
+		},
+	}
 }
 
 type uiServer struct {
