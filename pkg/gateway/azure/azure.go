@@ -158,9 +158,7 @@ func (t entraTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func roundTripWithBearerToken(req *http.Request, token string, next http.RoundTripper) (*http.Response, error) {
-	stripProxyHeaders(req.Header)
-	req.Header.Del("X-Api-Key")
-	req.Header.Del("api-key")
+	stripProxyAndAPIKeyHeaders(req.Header)
 	req.Header.Set("Authorization", "Bearer "+token)
 	return next.RoundTrip(req)
 }
@@ -184,8 +182,8 @@ func validateEndpoint(u *url.URL) error {
 	return fmt.Errorf("host %q is not a recognized Azure endpoint", host)
 }
 
-func stripProxyHeaders(header http.Header) {
-	for _, name := range []string{"Forwarded", "X-Forwarded-For", "X-Forwarded-Host", "X-Forwarded-Proto", "X-Real-Ip"} {
+func stripProxyAndAPIKeyHeaders(header http.Header) {
+	for _, name := range []string{"Forwarded", "X-Forwarded-For", "X-Forwarded-Host", "X-Forwarded-Proto", "X-Real-Ip", "X-Api-Key", "api-key"} {
 		header.Del(name)
 	}
 }
