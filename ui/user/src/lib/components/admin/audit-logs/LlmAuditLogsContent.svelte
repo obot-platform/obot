@@ -110,15 +110,15 @@
 		buildSearchParamFiltersArray<LLMAuditLogURLFilters>(supportedFilters)
 	);
 	const searchParamFilters = $derived.by<LLMAuditLogURLFilters>(() => {
-		const result = searchParamFiltersAsArray.reduce(
+		return searchParamFiltersAsArray.reduce(
 			(acc, [key, value]) => {
 				acc[key!] = value;
 				return acc;
 			},
-			{} as Record<string, unknown>
+			{
+				include_models_requests: includeModelsRequests.toString()
+			} as Record<string, unknown>
 		);
-		result.include_models_requests = includeModelsRequests.toString();
-		return result;
 	});
 
 	const pillsSearchParamFilters = $derived(
