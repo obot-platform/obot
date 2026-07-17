@@ -72,6 +72,7 @@
 		if (!firstTarget || !firstKey) return;
 		field.value = '';
 		field.secretBinding = { name: firstTarget.name, key: firstKey };
+		field.sensitive = true;
 	}
 
 	function clearSecretBinding() {
@@ -86,6 +87,7 @@
 		if (!target || !key) return;
 		field.value = '';
 		field.secretBinding = { name: target.name, key };
+		field.sensitive = true;
 	}
 
 	function selectKey(key: string | number) {
@@ -93,6 +95,7 @@
 		if (!field.secretBinding) return;
 		field.value = '';
 		field.secretBinding = { ...field.secretBinding, key: String(key) };
+		field.sensitive = true;
 	}
 </script>
 

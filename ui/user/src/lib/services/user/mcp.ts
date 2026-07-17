@@ -714,10 +714,14 @@ function validateEnvs(type: LaunchServerType | 'filter', envs: MCPServerInfo['en
 	if (!envs || type === 'composite') return true;
 
 	if (type === 'remote') {
-		return envs.every((env) => env.key);
+		return envs.every((env) => Boolean(env.key.trim()));
 	}
 
-	return envs.every((env) => env.key && (env.value || env.secretBinding || env.name));
+	return envs.every(
+		(env) =>
+			Boolean(env.key.trim()) &&
+			(Boolean(env.value?.trim()) || hasSecretBinding(env) || Boolean(env.name.trim()))
+	);
 }
 
 export const validateRuntimeForm = (
@@ -735,11 +739,10 @@ export const validateRuntimeForm = (
 	}
 
 	if (type !== 'filter') {
-		if (!formData.shortDescription) {
+		const shortDescription = formData.shortDescription?.trim();
+		if (!shortDescription) {
 			missingFields.shortDescription = true;
-		} else if (
-			Array.from(formData.shortDescription).length > MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH
-		) {
+		} else if (Array.from(shortDescription).length > MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH) {
 			invalid.shortDescription = true;
 		}
 	}

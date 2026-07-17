@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { MCPAllowedSecretBindingTarget, MCPCatalogEntryFieldManifest } from '$lib/services';
+	import type { MCPAllowedSecretBindingTarget, MCPSubField } from '$lib/services';
 	import { version } from '$lib/stores';
 	import Select from '../Select.svelte';
 	import Toggle from '../Toggle.svelte';
@@ -8,7 +8,7 @@
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
-		data: MCPCatalogEntryFieldManifest;
+		data: MCPSubField & { secretBindingSource?: string };
 		id: string;
 		serverUserType?: 'singleUser' | 'multiUser';
 		readonly?: boolean;
@@ -40,9 +40,19 @@
 
 	let selectedType = $state(
 		untrack(() =>
-			data.value.length > 0 || usesSecretBindingSource(data) ? 'static' : 'user_supplied'
+			(data.value?.length ?? 0) > 0 || usesSecretBindingSource(data) ? 'static' : 'user_supplied'
 		)
 	);
+
+	let missingKey = $derived(showRequired && !data.key.trim());
+	let missingName = $derived(showRequired && !data.name.trim());
+	let missingValue = $derived(showRequired && !data.value?.trim());
+
+	$effect(() => {
+		if (data && usesSecretBindingSource(data)) {
+			data.sensitive = true;
+		}
+	});
 </script>
 
 {#if serverUserType === 'singleUser'}
@@ -90,13 +100,19 @@
 				if (!data) return;
 				selectedType = option.id;
 
-				data.required = option.id === 'static' ? true : false;
-				// do overall reset except for key
+				// Reset state when switching between static and user-supplied modes.
+				data.required = option.id === 'static';
 				data.name = '';
 				data.value = '';
 				data.description = '';
 				data.sensitive = false;
+
+				if (option.id === 'user_supplied') {
+					data.secretBinding = undefined;
+					data.secretBindingSource = 'value';
+				}
 			}}
+			readonly={readonly || isPrebuiltEntry}
 			id={`env-value-type-${id}`}
 		/>
 	</div>
@@ -110,12 +126,12 @@
 		{/if}
 		{#if !usesSecretBindingSource(data)}
 			<div class="flex w-full flex-col gap-1">
-				<label for={`env-value-${id}`} class="hidden" aria-hidden="true">Static Value</label>
+				<label for={`env-value-${id}`} class="sr-only">Static Value</label>
 				{#if data.file}
 					<textarea
 						id={`env-value-${id}`}
 						class="text-input-filled bg-base-100 min-h-24 w-full resize-y shadow-none"
-						class:error={showRequired && !data.value}
+						class:error={missingValue}
 						bind:value={data.value}
 						disabled={readonly}
 						rows={(data.value ?? '').split('\n').length + 1}
@@ -124,7 +140,7 @@
 					<input
 						id={`env-value-${id}`}
 						class="text-input-filled bg-base-100 w-full shadow-none"
-						class:error={showRequired && !data.value}
+						class:error={missingValue}
 						bind:value={data.value}
 						placeholder="e.g. 123abcdef456"
 						disabled={readonly}
@@ -181,11 +197,11 @@
 
 {#snippet keyInput()}
 	<div class="flex w-full flex-col gap-1">
-		{@render label('Key', `env-key-${id}`, true, showRequired && !data.key)}
+		{@render label('Key', `env-key-${id}`, true, missingKey)}
 		<input
 			id={`env-key-${id}`}
 			class={classes?.input}
-			class:error={showRequired && !data.key}
+			class:error={missingKey}
 			bind:value={data.key}
 			placeholder="e.g. CUSTOM_API_KEY"
 			disabled={readonly || isPrebuiltEntry}
@@ -195,11 +211,11 @@
 
 {#snippet nameAndDescriptionInputs()}
 	<div class="flex w-full flex-col gap-1">
-		{@render label('Name', `env-name-${id}`, true, showRequired && !data.name)}
+		{@render label('Name', `env-name-${id}`, true, missingName)}
 		<input
 			id={`env-name-${id}`}
 			class={classes?.input}
-			class:error={showRequired && !data.name}
+			class:error={missingName}
 			bind:value={data.name}
 			disabled={readonly || isPrebuiltEntry}
 		/>
