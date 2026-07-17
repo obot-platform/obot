@@ -2,7 +2,7 @@
 	import { VirtualPageTable } from '$lib/components/ui';
 	import type { AuditLogEvent } from '$lib/services';
 	import { mcpServersAndEntries, userDeviceSettings } from '$lib/stores';
-	import { formatLogTimestamp } from '$lib/time';
+	import { formatAuditLogTableTimestamp } from '$lib/time';
 	import { throttle } from '$lib/utils';
 	import { GripVertical } from '@lucide/svelte';
 	import { tick, type Snippet } from 'svelte';
@@ -205,13 +205,7 @@
 			{#snippet header()}
 				<thead>
 					<tr bind:this={headerRowElement}>
-						<th
-							class="bg-base-300 dark:bg-base-200 text-muted-content sticky top-0 box-content w-[4ch] px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
-						>
-							<div>#</div>
-						</th>
-
-						{@render th('Timestamp', { class: 'w-[34ch]', minWidth: '34ch' })}
+						{@render th('Timestamp', { class: 'w-[28ch]', minWidth: '28ch' })}
 						{@render th('Event Type', { class: 'w-[24ch]', minWidth: '24ch' })}
 						{@render th('Actor', { class: 'w-[28ch]', minWidth: '28ch' })}
 						{@render th('Action', { class: 'w-[30ch]', minWidth: '30ch' })}
@@ -234,10 +228,9 @@
 						)}
 						onclick={() => onSelectRow?.(d)}
 					>
-						<td class="px-6 py-3">
-							{item.index + 1}
-						</td>
-						{@render td(formatLogTimestamp(d.timestamp.occurredAt, userDeviceSettings.timeFormat))}
+						{@render td(
+							formatAuditLogTableTimestamp(d.timestamp.occurredAt, userDeviceSettings.timeFormat)
+						)}
 						{@render td(d.eventType === 'mcp_call' ? 'MCP Call' : 'Local Agent Tool Call')}
 						{@render twoLine(actorLabel(d.actor), d.actor.actorType)}
 						{@render twoLine(
