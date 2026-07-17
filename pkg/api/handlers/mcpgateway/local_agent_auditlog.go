@@ -54,7 +54,7 @@ func (*LocalAgentAuditLogHandler) Submit(req api.Context) error {
 func localAgentSubmitterAttribution(req api.Context) (actorType types.AuditLogActorType, actorID string, deviceDeploymentID uint) {
 	extra := req.User.GetExtra()
 	if deviceID := firstExtra(extra, "device_id"); deviceID != "" {
-		if deployment := firstExtra(extra, "mdm_deployment_id"); deployment != "" {
+		if deployment := firstExtra(extra, "mdm_configuration_id"); deployment != "" {
 			if parsed, err := strconv.ParseUint(deployment, 10, 64); err == nil {
 				deviceDeploymentID = uint(parsed)
 			}
