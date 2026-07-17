@@ -8,16 +8,16 @@ import (
 	"time"
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/system"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
 const (
 	deviceEnrollSecretLength = 32 // 32 bytes = 256 bits of entropy
-	deviceEnrollPrefix       = "ode1"
 	// deviceEnrollCredentialFormat lays out an enrollment credential
 	// (ode1-<configuration_id>-<key_id>-<secret>) for both minting and parsing.
-	// The width in %4s must equal len(deviceEnrollPrefix): Sscanf reads exactly
+	// The width in %4s must equal len(system.DeviceEnrollmentPrefix): Sscanf reads exactly
 	// that many characters, while Sprintf treats it as a minimum and would not
 	// flag a longer prefix.
 	deviceEnrollCredentialFormat = "%4s-%d-%d-%s"
@@ -165,7 +165,7 @@ func createDeviceEnrollmentKey(tx *gorm.DB, configurationID, createdBy uint, nam
 		return nil, fmt.Errorf("failed to create device enrollment key: %w", err)
 	}
 
-	credential := fmt.Sprintf(deviceEnrollCredentialFormat, deviceEnrollPrefix, configurationID, key.ID, secret)
+	credential := fmt.Sprintf(deviceEnrollCredentialFormat, system.DeviceEnrollmentPrefix, configurationID, key.ID, secret)
 	return &types.DeviceEnrollmentKeyCreateResponse{
 		DeviceEnrollmentKey:  key,
 		EnrollmentCredential: credential,
@@ -227,7 +227,7 @@ func (c *Client) ValidateDeviceEnrollmentCredential(ctx context.Context, credent
 	// Best-effort last-used update.
 	now := time.Now().UTC()
 	if key.LastUsedAt == nil || now.Sub(*key.LastUsedAt) > time.Minute {
-		_ = c.db.WithContext(ctx).Model(&types.DeviceEnrollmentKey{}).Where("id = ?", key.ID).Update("last_used_at", now).Error
+		c.db.WithContext(ctx).Model(&types.DeviceEnrollmentKey{}).Where("id = ?", key.ID).Update("last_used_at", now)
 		key.LastUsedAt = &now
 	}
 
@@ -242,7 +242,7 @@ func ParseDeviceEnrollmentCredential(credential string) (configurationID, keyID 
 	if err != nil || n != 4 {
 		return 0, 0, "", fmt.Errorf("invalid device enrollment credential format")
 	}
-	if prefix != deviceEnrollPrefix {
+	if prefix != system.DeviceEnrollmentPrefix {
 		return 0, 0, "", fmt.Errorf("invalid device enrollment credential prefix")
 	}
 	return configurationID, keyID, secret, nil

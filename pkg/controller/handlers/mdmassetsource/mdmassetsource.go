@@ -3,8 +3,8 @@ package mdmassetsource
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/obot-platform/nah/pkg/router"
@@ -21,14 +21,15 @@ import (
 
 var log = logger.Package()
 
-const retryInterval = time.Minute
+// Failed imports retry hourly, matching the SkillRepository controller. A
+// successful source is only reconciled again when an admin requests a refresh
+// or the startup source changes.
+const retryInterval = time.Hour
 
 type Handler struct {
 	defaultSource string
 	gatewayClient *gatewayclient.Client
 	now           func() time.Time
-	pruneLock     sync.Mutex
-	pruned        bool
 }
 
 func New(defaultSource string, gatewayClient *gatewayclient.Client) *Handler {
@@ -40,12 +41,10 @@ func New(defaultSource string, gatewayClient *gatewayclient.Client) *Handler {
 }
 
 // Sync imports a source on creation, explicit refresh, startup source change,
-// or retry after failure. Healthy sources are not polled.
+// or retry after failure. Healthy sources are not polled. Status changes are
+// persisted by the router after the handler returns.
 func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	source := req.Object.(*v1.MDMAssetSource)
-	if source.Namespace != system.DefaultNamespace || source.Name != system.DefaultMDMAssetSource {
-		return nil
-	}
 	if source.Spec.Source != h.defaultSource {
 		source.Spec.Source = h.defaultSource
 		if source.Annotations == nil {
@@ -56,47 +55,43 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	}
 
 	refreshRequested := source.Annotations[v1.MDMAssetSourceSyncAnnotation] == "true"
-	if !refreshRequested && !source.Status.LastSyncTime.IsZero() && source.Status.SyncError != "" {
+	if !refreshRequested && !source.Status.LastSyncTime.IsZero() {
+		if source.Status.SyncError == "" {
+			return h.pruneUnused(req.Ctx, req.Client)
+		}
 		if elapsed := h.now().Sub(source.Status.LastSyncTime.Time); elapsed < retryInterval {
-			if err := h.pruneOnce(req.Ctx, req.Client); err != nil {
-				return err
-			}
 			resp.RetryAfter(retryInterval - elapsed)
 			return nil
 		}
 	}
-	if !refreshRequested && !source.Status.LastSyncTime.IsZero() && source.Status.SyncError == "" {
-		return h.pruneOnce(req.Ctx, req.Client)
-	}
 
 	digest, err := h.sync(req.Ctx, req.Client, source)
-	if err != nil {
-		message := sanitizedError(err, source.Spec.Source)
-		if statusErr := h.recordFailure(req.Ctx, req.Client, source.Namespace, source.Name, message); statusErr != nil {
-			return fmt.Errorf("%s; failed to record MDM asset source error: %w", message, statusErr)
-		}
-		if refreshRequested {
-			if err := clearSyncAnnotation(req.Ctx, req.Client, source.Namespace, source.Name); err != nil {
-				return err
-			}
-		}
-		log.Errorf("Failed to sync MDM asset source %s: %s", source.Name, message)
-		if err := h.pruneOnce(req.Ctx, req.Client); err != nil {
+	if refreshRequested {
+		// The refresh is consumed whether or not it succeeded. This update also
+		// refreshes source in place, so the router's trailing status update
+		// writes against the current resource version.
+		delete(source.Annotations, v1.MDMAssetSourceSyncAnnotation)
+		if err := req.Client.Update(req.Ctx, source); err != nil {
 			return err
 		}
+	}
+	if err != nil {
+		message := sanitizedError(err, source.Spec.Source)
+		log.Errorf("Failed to sync MDM asset source %s: %s", source.Name, message)
+		source.Status.LastSyncTime = metav1.NewTime(h.now())
+		source.Status.SyncError = message
 		resp.RetryAfter(retryInterval)
 		return nil
 	}
 
-	if err := h.recordSuccess(req.Ctx, req.Client, source.Namespace, source.Name, digest); err != nil {
-		return err
+	if digest == "" {
+		source.Status = v1.MDMAssetSourceStatus{}
+	} else {
+		source.Status.LastSyncTime = metav1.NewTime(h.now())
+		source.Status.SyncError = ""
+		source.Status.LatestDigest = digest
 	}
-	if refreshRequested {
-		if err := clearSyncAnnotation(req.Ctx, req.Client, source.Namespace, source.Name); err != nil {
-			return err
-		}
-	}
-	return h.pruneOnce(req.Ctx, req.Client)
+	return h.pruneUnused(req.Ctx, req.Client, digest)
 }
 
 func (h *Handler) sync(ctx context.Context, c kclient.Client, source *v1.MDMAssetSource) (string, error) {
@@ -148,53 +143,55 @@ func (h *Handler) sync(ctx context.Context, c kclient.Client, source *v1.MDMAsse
 	return digest, nil
 }
 
-func (h *Handler) recordFailure(ctx context.Context, c kclient.Client, namespace, name, message string) error {
+// pruneUnused removes asset metadata and private bundle blobs that are neither
+// the latest digest, pinned by an MDM configuration, nor explicitly retained
+// by the caller. The persisted latest is read fresh and retained alongside any
+// caller-supplied digest: after a sync, the new latest is not saved until the
+// handler returns, and the previous one may still win if that save fails, so
+// neither may be collected yet. The reconciliation triggered by the save
+// collects the loser once nothing pins it.
+func (h *Handler) pruneUnused(ctx context.Context, c kclient.Client, retainDigests ...string) error {
 	var source v1.MDMAssetSource
-	if err := c.Get(ctx, router.Key(namespace, name), &source); err != nil {
-		return fmt.Errorf("failed to reload MDM asset source: %w", err)
+	err := c.Get(ctx, router.Key(system.DefaultNamespace, system.DefaultMDMAssetSource), &source)
+	if err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("failed to get MDM asset source for pruning: %w", err)
 	}
-	source.Status.LastSyncTime = metav1.NewTime(h.now())
-	source.Status.SyncError = message
-	return c.Status().Update(ctx, &source)
-}
+	retained := make([]string, 0, len(retainDigests)+1)
+	for _, digest := range append(retainDigests, source.Status.LatestDigest) {
+		if digest != "" && !slices.Contains(retained, digest) {
+			retained = append(retained, digest)
+		}
+	}
 
-func (h *Handler) recordSuccess(ctx context.Context, c kclient.Client, namespace, name, digest string) error {
-	var source v1.MDMAssetSource
-	if err := c.Get(ctx, router.Key(namespace, name), &source); err != nil {
-		return fmt.Errorf("failed to reload MDM asset source: %w", err)
-	}
-	source.Status.LastSyncTime = metav1.NewTime(h.now())
-	source.Status.SyncError = ""
-	source.Status.LatestDigest = digest
-	return c.Status().Update(ctx, &source)
-}
-
-func clearSyncAnnotation(ctx context.Context, c kclient.Client, namespace, name string) error {
-	var source v1.MDMAssetSource
-	if err := c.Get(ctx, router.Key(namespace, name), &source); err != nil {
-		return fmt.Errorf("failed to reload MDM asset source for annotation cleanup: %w", err)
-	}
-	if source.Annotations == nil {
-		return nil
-	}
-	if _, ok := source.Annotations[v1.MDMAssetSourceSyncAnnotation]; !ok {
-		return nil
-	}
-	delete(source.Annotations, v1.MDMAssetSourceSyncAnnotation)
-	return c.Update(ctx, &source)
-}
-
-func (h *Handler) pruneOnce(ctx context.Context, c kclient.Client) error {
-	h.pruneLock.Lock()
-	defer h.pruneLock.Unlock()
-	if h.pruned {
-		return nil
-	}
-	if err := h.PruneUnused(ctx, c); err != nil {
+	configurations, err := h.gatewayClient.ListMDMConfigurations(ctx)
+	if err != nil {
 		return err
 	}
-	h.pruned = true
-	return nil
+	referenced := make(map[string]struct{}, len(configurations)+len(retained))
+	for _, digest := range retained {
+		referenced[digest] = struct{}{}
+	}
+	for _, configuration := range configurations {
+		if configuration.AssetDigest != "" {
+			referenced[configuration.AssetDigest] = struct{}{}
+		}
+	}
+
+	var assets v1.MDMAssetList
+	if err := c.List(ctx, &assets, kclient.InNamespace(system.DefaultNamespace)); err != nil {
+		return fmt.Errorf("failed to list MDM assets for pruning: %w", err)
+	}
+	for i := range assets.Items {
+		asset := &assets.Items[i]
+		if _, ok := referenced[asset.Spec.Digest]; ok {
+			continue
+		}
+		if err := c.Delete(ctx, asset); err != nil && !apierrors.IsNotFound(err) {
+			return fmt.Errorf("failed to prune MDM asset %s: %w", shortDigest(asset.Spec.Digest), err)
+		}
+	}
+
+	return h.gatewayClient.PruneUnusedMDMAssetBundles(ctx, retained...)
 }
 
 // SetUpDefaultMDMAssetSource creates the singleton and makes startup
@@ -234,47 +231,6 @@ func (h *Handler) SetUpDefaultMDMAssetSource(ctx context.Context, c kclient.Clie
 		return fmt.Errorf("failed to update default MDM asset source: %w", err)
 	}
 	return nil
-}
-
-// PruneUnused removes unreferenced asset metadata and private blobs once at
-// startup. Runtime refreshes never prune historical pins.
-func (h *Handler) PruneUnused(ctx context.Context, c kclient.Client) error {
-	var source v1.MDMAssetSource
-	err := c.Get(ctx, router.Key(system.DefaultNamespace, system.DefaultMDMAssetSource), &source)
-	if err != nil && !apierrors.IsNotFound(err) {
-		return fmt.Errorf("failed to get MDM asset source for pruning: %w", err)
-	}
-	latestDigest := source.Status.LatestDigest
-
-	configurations, err := h.gatewayClient.ListMDMConfigurations(ctx)
-	if err != nil {
-		return err
-	}
-	referenced := make(map[string]struct{}, len(configurations)+1)
-	if latestDigest != "" {
-		referenced[latestDigest] = struct{}{}
-	}
-	for _, configuration := range configurations {
-		if configuration.AssetDigest != "" {
-			referenced[configuration.AssetDigest] = struct{}{}
-		}
-	}
-
-	var assets v1.MDMAssetList
-	if err := c.List(ctx, &assets, kclient.InNamespace(system.DefaultNamespace)); err != nil {
-		return fmt.Errorf("failed to list MDM assets for pruning: %w", err)
-	}
-	for i := range assets.Items {
-		asset := &assets.Items[i]
-		if _, ok := referenced[asset.Spec.Digest]; ok {
-			continue
-		}
-		if err := c.Delete(ctx, asset); err != nil && !apierrors.IsNotFound(err) {
-			return fmt.Errorf("failed to prune MDM asset %s: %w", shortDigest(asset.Spec.Digest), err)
-		}
-	}
-
-	return h.gatewayClient.PruneUnusedMDMAssetBundles(ctx, latestDigest)
 }
 
 func sanitizedError(err error, source string) string {

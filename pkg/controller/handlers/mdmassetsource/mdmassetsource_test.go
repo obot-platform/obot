@@ -73,9 +73,8 @@ func TestSyncImportsMetadataAndRecordsLatest(t *testing.T) {
 	c := newTestStorageClient(t, source)
 	h := New(sourcePath, gateway)
 	h.now = func() time.Time { return fixedTime }
-	resp := &router.ResponseWrapper{}
 
-	require.NoError(t, h.Sync(newTestRequest(ctx, c, source), resp))
+	resp := runSync(ctx, t, h, c, source)
 	assert.Zero(t, resp.Delay, "a healthy source must not be periodically polled")
 
 	var updated v1.MDMAssetSource
@@ -120,9 +119,8 @@ func TestSyncFailurePreservesLatestAndSchedulesRetry(t *testing.T) {
 	c := newTestStorageClient(t, source)
 	h := New(missingSource, gateway)
 	h.now = func() time.Time { return fixedTime }
-	resp := &router.ResponseWrapper{}
 
-	require.NoError(t, h.Sync(newTestRequest(ctx, c, source), resp))
+	resp := runSync(ctx, t, h, c, source)
 	assert.Equal(t, retryInterval, resp.Delay)
 
 	var failed v1.MDMAssetSource
@@ -135,9 +133,8 @@ func TestSyncFailurePreservesLatestAndSchedulesRetry(t *testing.T) {
 
 	// Controller events during the backoff window must not hammer the source.
 	h.now = func() time.Time { return fixedTime.Add(30 * time.Second) }
-	retryResp := &router.ResponseWrapper{}
-	require.NoError(t, h.Sync(newTestRequest(ctx, c, &failed), retryResp))
-	assert.Equal(t, 30*time.Second, retryResp.Delay)
+	retryResp := runSync(ctx, t, h, c, &failed)
+	assert.Equal(t, retryInterval-30*time.Second, retryResp.Delay)
 
 	var throttled v1.MDMAssetSource
 	require.NoError(t, c.Get(ctx, router.Key(source.Namespace, source.Name), &throttled))
@@ -146,7 +143,35 @@ func TestSyncFailurePreservesLatestAndSchedulesRetry(t *testing.T) {
 	assert.Equal(t, failed.Status.SyncError, throttled.Status.SyncError)
 }
 
-func TestSyncPrunesOnceAfterPublishingInitialLatest(t *testing.T) {
+func TestSyncEmptySourceClearsStatusWithoutRecordingRefresh(t *testing.T) {
+	ctx := t.Context()
+	source := newTestMDMAssetSource("")
+	source.Annotations = map[string]string{v1.MDMAssetSourceSyncAnnotation: "true"}
+	source.Status = v1.MDMAssetSourceStatus{
+		LastSyncTime: metav1.Now(),
+		SyncError:    "previous failure",
+		LatestDigest: "previous-latest",
+	}
+	c := newTestStorageClient(t, source)
+	h := New("", newTestGatewayClient(t))
+
+	runSync(ctx, t, h, c, source)
+
+	var updated v1.MDMAssetSource
+	require.NoError(t, c.Get(ctx, router.Key(source.Namespace, source.Name), &updated))
+	assert.True(t, updated.Status.LastSyncTime.IsZero())
+	assert.Empty(t, updated.Status.SyncError)
+	assert.Empty(t, updated.Status.LatestDigest)
+	_, refreshRequested := updated.Annotations[v1.MDMAssetSourceSyncAnnotation]
+	assert.False(t, refreshRequested)
+
+	resourceVersion := updated.ResourceVersion
+	runSync(ctx, t, h, c, &updated)
+	require.NoError(t, c.Get(ctx, router.Key(source.Namespace, source.Name), &updated))
+	assert.Equal(t, resourceVersion, updated.ResourceVersion, "an already-empty status must not cause another reconciliation")
+}
+
+func TestSyncPrunesUnreferencedAssetsAfterSync(t *testing.T) {
 	ctx := t.Context()
 	gateway := newTestGatewayClient(t)
 	oldDigest, err := gateway.StoreMDMAssetBundle(ctx, []byte("old"))
@@ -158,28 +183,37 @@ func TestSyncPrunesOnceAfterPublishingInitialLatest(t *testing.T) {
 	c := newTestStorageClient(t, source, newTestMDMAsset(oldDigest))
 	h := New(sourcePath, gateway)
 
-	require.NoError(t, h.Sync(newTestRequest(ctx, c, source), &router.ResponseWrapper{}))
+	// The refresh records a new latest, but the outgoing latest is retained
+	// while the persisted status still names it.
+	runSync(ctx, t, h, c, source)
 	var updated v1.MDMAssetSource
 	require.NoError(t, c.Get(ctx, router.Key(source.Namespace, source.Name), &updated))
 	assert.NotEqual(t, oldDigest, updated.Status.LatestDigest)
 	var oldAsset v1.MDMAsset
-	assert.True(t, apierrors.IsNotFound(c.Get(ctx, router.Key(source.Namespace, v1.MDMAssetName(oldDigest)), &oldAsset)))
+	require.NoError(t, c.Get(ctx, router.Key(source.Namespace, v1.MDMAssetName(oldDigest)), &oldAsset))
+	_, err = gateway.GetMDMAssetBundle(ctx, oldDigest)
+	require.NoError(t, err)
+
+	// The reconciliation that follows the status update collects it.
+	runSync(ctx, t, h, c, &updated)
+	err = c.Get(ctx, router.Key(source.Namespace, v1.MDMAssetName(oldDigest)), &oldAsset)
+	assert.True(t, apierrors.IsNotFound(err), "old metadata error = %v", err)
 	_, err = gateway.GetMDMAssetBundle(ctx, oldDigest)
 	assert.True(t, errors.Is(err, gorm.ErrRecordNotFound), "old blob error = %v", err)
 
-	// Refreshes after startup do not prune. A new orphan is retained until the
-	// next controller start.
+	// Runtime refreshes prune too: an orphan does not wait for a restart.
 	orphanDigest, err := gateway.StoreMDMAssetBundle(ctx, []byte("runtime orphan"))
 	require.NoError(t, err)
 	require.NoError(t, c.Create(ctx, newTestMDMAsset(orphanDigest)))
 	require.NoError(t, c.Get(ctx, router.Key(source.Namespace, source.Name), &updated))
 	updated.Annotations = map[string]string{v1.MDMAssetSourceSyncAnnotation: "true"}
 	require.NoError(t, c.Update(ctx, &updated))
-	require.NoError(t, h.Sync(newTestRequest(ctx, c, &updated), &router.ResponseWrapper{}))
+	runSync(ctx, t, h, c, &updated)
 	var orphan v1.MDMAsset
-	require.NoError(t, c.Get(ctx, router.Key(source.Namespace, v1.MDMAssetName(orphanDigest)), &orphan))
+	err = c.Get(ctx, router.Key(source.Namespace, v1.MDMAssetName(orphanDigest)), &orphan)
+	assert.True(t, apierrors.IsNotFound(err), "orphan metadata error = %v", err)
 	_, err = gateway.GetMDMAssetBundle(ctx, orphanDigest)
-	require.NoError(t, err)
+	assert.True(t, errors.Is(err, gorm.ErrRecordNotFound), "orphan blob error = %v", err)
 }
 
 func TestPruneUnusedRetainsLatestAndConfigurationPins(t *testing.T) {
@@ -209,7 +243,7 @@ func TestPruneUnusedRetainsLatestAndConfigurationPins(t *testing.T) {
 	c := newTestStorageClient(t, source, latest, pinned, orphan)
 	h := New(source.Spec.Source, gateway)
 
-	require.NoError(t, h.PruneUnused(ctx, c))
+	require.NoError(t, h.pruneUnused(ctx, c))
 
 	for _, asset := range []*v1.MDMAsset{latest, pinned} {
 		var stored v1.MDMAsset
@@ -269,6 +303,19 @@ func newTestMDMAsset(digest string) *v1.MDMAsset {
 		},
 		Spec: v1.MDMAssetSpec{Digest: digest},
 	}
+}
+
+// runSync invokes Sync the way the router does: the handler mutates
+// req.Object, and any status change is persisted after it returns.
+func runSync(ctx context.Context, t *testing.T, h *Handler, c kclient.WithWatch, source *v1.MDMAssetSource) *router.ResponseWrapper {
+	t.Helper()
+	resp := &router.ResponseWrapper{}
+	unmodified := source.DeepCopy()
+	require.NoError(t, h.Sync(newTestRequest(ctx, c, source), resp))
+	if router.StatusChanged(unmodified, source) {
+		require.NoError(t, c.Status().Update(ctx, source))
+	}
+	return resp
 }
 
 func newTestRequest(ctx context.Context, c kclient.WithWatch, source *v1.MDMAssetSource) router.Request {

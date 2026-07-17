@@ -97,6 +97,7 @@ func TestMDMConfigurationCreateGetAndDownloadUsePinnedAsset(t *testing.T) {
 	require.NoError(t, env.handler.DownloadConfig(env.configurationContext(http.MethodGet, created.ID, "/download", nil, downloadRecorder)))
 	assert.Equal(t, http.StatusOK, downloadRecorder.Code)
 	assert.Equal(t, "application/zip", downloadRecorder.Header().Get("Content-Type"))
+	assert.Empty(t, downloadRecorder.Header().Get("Content-Length"))
 	assert.Contains(t, downloadRecorder.Header().Get("Content-Disposition"), "obot-sentry-intune-windows-configured-fleet.zip")
 	assert.Equal(t, "pinned-package", downloadedHandlerTestFile(t, downloadRecorder.Body.Bytes(), "package.bin"))
 }

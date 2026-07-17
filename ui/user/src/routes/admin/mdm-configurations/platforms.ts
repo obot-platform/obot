@@ -9,8 +9,11 @@ export function saveBlob(blob: Blob, filename: string): void {
 	const a = document.createElement('a');
 	a.href = url;
 	a.download = filename;
+	a.style.display = 'none';
+	document.body.append(a);
 	a.click();
-	URL.revokeObjectURL(url);
+	a.remove();
+	setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 export function mdmTargetLabel(asset: MDMAsset, target: MDMAssetConfiguration): string {

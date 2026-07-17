@@ -28,6 +28,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/skillrepository"
 	"github.com/obot-platform/obot/pkg/controller/handlers/systemmcpserver"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
 )
 
 func (c *Controller) setupRoutes() {
@@ -86,7 +87,7 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.ModelInfo{}).HandlerFunc(cleanup.Cleanup)
 
 	// MDMAssetSource
-	root.Type(&v1.MDMAssetSource{}).HandlerFunc(mdmAssetSource.Sync)
+	root.Type(&v1.MDMAssetSource{}).Namespace(system.DefaultNamespace).Name(system.DefaultMDMAssetSource).HandlerFunc(mdmAssetSource.Sync)
 
 	// MCPCatalog
 	root.Type(&v1.MCPCatalog{}).HandlerFunc(mcpCatalog.Sync)

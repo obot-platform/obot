@@ -39,16 +39,23 @@ func (c *Client) GetMDMAssetBundle(ctx context.Context, digest string) (*types.M
 	return &bundle, nil
 }
 
-// PruneUnusedMDMAssetBundles removes private blobs that are neither the
-// source's latest digest nor referenced by an MDM configuration. The
-// controller calls this once at startup after pruning matching metadata.
-func (c *Client) PruneUnusedMDMAssetBundles(ctx context.Context, latestDigest string) error {
+// PruneUnusedMDMAssetBundles removes private blobs that are neither in
+// retainDigests nor referenced by an MDM configuration. Pins are re-checked by
+// the DELETE statement itself, so a pin committed after the caller listed
+// configurations is still honored.
+func (c *Client) PruneUnusedMDMAssetBundles(ctx context.Context, retainDigests ...string) error {
 	referenced := c.db.WithContext(ctx).Model(&types.MDMConfiguration{}).
 		Select("asset_digest").
 		Where("asset_digest IS NOT NULL AND asset_digest <> ?", "")
 	query := c.db.WithContext(ctx).Where("digest NOT IN (?)", referenced)
-	if latestDigest != "" {
-		query = query.Where("digest <> ?", latestDigest)
+	retained := make([]string, 0, len(retainDigests))
+	for _, digest := range retainDigests {
+		if digest != "" {
+			retained = append(retained, digest)
+		}
+	}
+	if len(retained) > 0 {
+		query = query.Where("digest NOT IN ?", retained)
 	}
 	if err := query.Delete(&types.MDMAssetBundle{}).Error; err != nil && err != gorm.ErrRecordNotFound {
 		return fmt.Errorf("failed to prune unused MDM asset bundles: %w", err)

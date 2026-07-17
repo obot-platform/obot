@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -151,17 +150,11 @@ func (h *MDMConfigurationsHandler) DownloadConfig(req api.Context) error {
 		return err
 	}
 
-	var buf bytes.Buffer
-	if err := loader.Zip(&buf, assetConfiguration, values); err != nil {
-		return err
-	}
 	filename := fmt.Sprintf("obot-sentry-%s-%s-%s.zip", assetConfiguration.Platform, assetConfiguration.OS, slugify(configuration.Name))
 	req.ResponseWriter.Header().Set("Content-Type", "application/zip")
 	req.ResponseWriter.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
-	req.ResponseWriter.Header().Set("Content-Length", fmt.Sprintf("%d", buf.Len()))
 	req.WriteHeader(http.StatusOK)
-	_, err = req.ResponseWriter.Write(buf.Bytes())
-	return err
+	return loader.Zip(req.ResponseWriter, assetConfiguration, values)
 }
 
 func (h *MDMConfigurationsHandler) validateMDMConfiguration(req api.Context, in types.MDMConfiguration) (types.MDMAssetConfiguration, string, error) {
@@ -192,7 +185,7 @@ func (h *MDMConfigurationsHandler) validateMDMConfiguration(req api.Context, in 
 }
 
 func (h *MDMConfigurationsHandler) completeAndRender(loader *mdmassets.Loader, assetConfiguration types.MDMAssetConfiguration, adminValues map[string]any) (map[string]any, string, error) {
-	values := map[string]any{}
+	values := make(map[string]any, len(adminValues)+1)
 	for name, value := range adminValues {
 		values[name] = value
 	}
@@ -211,13 +204,10 @@ func (h *MDMConfigurationsHandler) completeAndRender(loader *mdmassets.Loader, a
 }
 
 func decodeMDMInputValues(raw json.RawMessage) (map[string]any, error) {
-	values := map[string]any{}
+	values := make(map[string]any)
 	if len(raw) != 0 && string(raw) != "null" {
 		if err := json.Unmarshal(raw, &values); err != nil {
 			return nil, types.NewErrBadRequest("values must be a JSON object: %v", err)
-		}
-		if values == nil {
-			values = map[string]any{}
 		}
 	}
 	delete(values, "serverURL")

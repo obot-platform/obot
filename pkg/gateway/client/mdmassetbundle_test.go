@@ -123,7 +123,7 @@ func TestPruneUnusedMDMAssetBundlesWithNoLatestRetainsOnlyPinned(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := client.PruneUnusedMDMAssetBundles(t.Context(), ""); err != nil {
+	if err := client.PruneUnusedMDMAssetBundles(t.Context()); err != nil {
 		t.Fatal(err)
 	}
 

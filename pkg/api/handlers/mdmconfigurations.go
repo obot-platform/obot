@@ -140,8 +140,7 @@ func (*MDMConfigurationsHandler) CreateEnrollmentKey(req api.Context) error {
 	}
 	var expiresAt *time.Time
 	if in.ExpiresAt != nil {
-		value := in.ExpiresAt.GetTime()
-		expiresAt = &value
+		expiresAt = new(in.ExpiresAt.GetTime())
 	}
 	key, err := req.GatewayClient.CreateDeviceEnrollmentKey(req.Context(), id, req.UserID(), in.Name, expiresAt)
 	if errors.Is(err, gorm.ErrRecordNotFound) {

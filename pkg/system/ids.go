@@ -14,6 +14,7 @@ const (
 	ModelPrefix                   = "m1"
 	AliasPrefix                   = "al1"
 	DefaultModelAliasPrefix       = "dma1"
+	DeviceEnrollmentPrefix        = "ode1"
 	ProjectPrefix                 = "p1"
 	UserDeletePrefix              = "ud1"
 	UserRoleChangePrefix          = "urc1"

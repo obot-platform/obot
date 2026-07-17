@@ -67,6 +67,9 @@ func RedactSource(source string) string {
 func newHTTPClient() *http.Client {
 	return &http.Client{
 		Timeout: 2 * time.Minute,
+		// Redirect targets are controlled by the remote source. Bound the chain
+		// and keep it on credential-free HTTP(S) URLs to prevent redirect loops,
+		// unsupported schemes, and URL credentials leaking through requests or errors.
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if len(via) >= maxRedirects {
 				return fmt.Errorf("stopped after %d redirects", maxRedirects)

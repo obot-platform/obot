@@ -8,11 +8,10 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	gtypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
-
-const deviceEnrollAuthPrefix = "ode1-"
 
 // DeviceEnrollmentAuthenticator authenticates device-enrollment credentials
 // (ode1-<configuration_id>-<key_id>-<secret>).
@@ -40,7 +39,7 @@ func (a *DeviceEnrollmentAuthenticator) AuthenticateRequest(req *http.Request) (
 	// Only handle Bearer device-enrollment credentials; let other
 	// authenticators try the rest.
 	credential, ok := strings.CutPrefix(req.Header.Get("Authorization"), "Bearer ")
-	if !ok || !strings.HasPrefix(credential, deviceEnrollAuthPrefix) {
+	if !ok || !strings.HasPrefix(credential, system.DeviceEnrollmentPrefix+"-") {
 		return nil, false, nil
 	}
 
