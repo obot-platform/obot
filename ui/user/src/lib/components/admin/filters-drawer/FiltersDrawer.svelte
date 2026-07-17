@@ -1,6 +1,5 @@
 <script lang="ts" generics="T extends Record<string, string | number | null | undefined>">
 	import { page } from '$app/state';
-	import Toggle from '$lib/components/Toggle.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import { UserService } from '$lib/services';
 	import { AUDIT_LOG_FILTER_OPTIONS_LIMIT } from '$lib/services/user/constants';
@@ -23,18 +22,11 @@
 		filters?: Partial<T>
 	) => Promise<{ options: string[] } | undefined>;
 
-	type BooleanFilter = {
-		property: FilterKey;
-		label: string;
-		selected: boolean;
-		default?: boolean;
-		onChange: (selected: boolean) => void;
-	};
-
 	interface Props {
 		filters?: Partial<T>;
 		isFilterDisabled?: (key: FilterKey) => boolean;
 		isFilterClearable?: (key: FilterKey) => boolean;
+		isFilterMultiSelect?: (key: FilterKey) => boolean;
 		// Used to filter server ids when selecting a multi instance server
 		filterOptions?: (option: string, filterId?: FilterKey) => boolean;
 		onClose: () => void;
@@ -50,13 +42,13 @@
 		// switching event types clears filters that no longer apply to the new selection.
 		resetOnChangeKeys?: FilterKey[];
 		endpoint?: FilterOptionsEndpoint;
-		booleanFilters?: BooleanFilter[];
 	}
 
 	let {
 		filters: externFilters,
 		isFilterDisabled,
 		isFilterClearable,
+		isFilterMultiSelect,
 		onClose,
 		getUserDisplayName,
 		getFilterDisplayLabel,
@@ -65,7 +57,6 @@
 		getVisibleFilterKeys,
 		resetOnChangeKeys,
 		filterOptions,
-		booleanFilters: externalBooleanFilters = [],
 		endpoint = UserService.listAuditLogFilterOptions as FilterOptionsEndpoint
 	}: Props = $props();
 
@@ -103,8 +94,10 @@
 	let filterInputs = $derived(
 		visibleFilterKeys.reduce((acc, filterId) => {
 			acc[filterId] = {
+				clearable: isFilterClearable?.(filterId) ?? true,
 				property: filterId,
 				label: getFilterDisplayLabel?.(filterId) ?? filterId.replace(/_(\w)/, ' $1'),
+				multiple: isFilterMultiSelect?.(filterId) ?? true,
 				get tooltip() {
 					const count = filtersOptions[filterId]?.length ?? 0;
 					return count >= AUDIT_LOG_FILTER_OPTIONS_LIMIT
@@ -206,29 +199,18 @@
 				}
 			}
 		}
-		for (const filter of externalBooleanFilters) {
-			if (filter.selected === (filter.default ?? false)) {
-				url.searchParams.delete(filter.property);
-			} else {
-				url.searchParams.set(filter.property, filter.selected.toString());
-			}
-		}
-
 		await goto(url, { noScroll: true });
 
 		onClose?.();
 	}
 
 	function handleClearAllFilters() {
-		filterInputsAsArray
-			.filter((filter) =>
-				isFilterClearable ? isFilterClearable?.(filter.property as FilterKey) : true
-			)
-			.forEach((filterInput) => {
+		filterInputsAsArray.forEach((filterInput) => {
+			if (filterInput.clearable) {
 				filterInput.selected = '';
-			});
-		externalBooleanFilters.forEach((filter) => {
-			filter.onChange(filter.default ?? false);
+			} else if (filterInput.default !== undefined) {
+				filterInput.selected = filterInput.default;
+			}
 		});
 	}
 </script>
@@ -245,12 +227,6 @@
 	<div
 		class="default-scrollbar-thin flex h-[calc(100%-60px)] w-full flex-col gap-4 overflow-y-auto p-4 pt-0"
 	>
-		{#each externalBooleanFilters as filter (filter.property)}
-			<div class="border-base-300 flex items-center justify-between gap-4 rounded-lg border p-4">
-				<span class="text-sm font-medium">{filter.label}</span>
-				<Toggle label={filter.label} checked={filter.selected} onChange={filter.onChange} />
-			</div>
-		{/each}
 		{#each filterInputsAsArray as filterInput, index (filterInput.property)}
 			<AuditFilter
 				filter={filterInput}

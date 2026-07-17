@@ -5,7 +5,9 @@
 	};
 
 	export type FilterInput = {
+		clearable?: boolean;
 		label: string;
+		multiple?: boolean;
 		tooltip?: string;
 		property: string;
 		selected?: string | number | null;
@@ -49,7 +51,7 @@
 	const shouldShowResetButton = $derived(
 		hasDefaultValue && filter.selected !== null && filter.default !== filter.selected
 	);
-	const shouldShowClearButton = $derived(!!value);
+	const shouldShowClearButton = $derived((filter.clearable ?? true) && !!value);
 
 	const actions = $derived(
 		[
@@ -125,7 +127,7 @@
 				filter.selected = v;
 			}
 		}
-		multiple
+		multiple={filter.multiple ?? true}
 		{onSelect}
 		position="top"
 	/>
