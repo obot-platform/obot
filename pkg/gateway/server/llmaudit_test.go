@@ -10,10 +10,13 @@ import (
 	"testing"
 
 	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
+	apitypes "github.com/obot-platform/obot/apiclient/types"
 	gatewayllmaudit "github.com/obot-platform/obot/pkg/gateway/llmaudit"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/tidwall/gjson"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func TestRedactedHeaders(t *testing.T) {
@@ -95,36 +98,79 @@ func TestLLMAuditRecorderCapturesOriginalAndPolicyModifiedRequestBodies(t *testi
 
 func TestLLMAuditRecorderSetOutcome(t *testing.T) {
 	for _, tt := range []struct {
-		name    string
-		err     error
-		outcome string
-		wantErr string
+		name           string
+		err            error
+		responseStatus int
+		outcome        string
+		wantErr        string
+		wantStatus     int
 	}{
 		{
 			name:    "success even if request context is canceled after response",
 			outcome: types.LLMAuditOutcomeSuccess,
 		},
 		{
-			name:    "actual context cancellation error",
-			err:     context.Canceled,
-			outcome: types.LLMAuditOutcomeCanceled,
-			wantErr: context.Canceled.Error(),
+			name:           "HTTP error response",
+			responseStatus: http.StatusForbidden,
+			outcome:        types.LLMAuditOutcomeError,
+			wantStatus:     http.StatusForbidden,
 		},
 		{
-			name:    "actual proxy error",
-			err:     errors.New("proxy failed"),
-			outcome: types.LLMAuditOutcomeError,
-			wantErr: "proxy failed",
+			name:       "actual context cancellation error",
+			err:        context.Canceled,
+			outcome:    types.LLMAuditOutcomeCanceled,
+			wantErr:    context.Canceled.Error(),
+			wantStatus: http.StatusInternalServerError,
+		},
+		{
+			name:       "actual proxy error",
+			err:        errors.New("proxy failed"),
+			outcome:    types.LLMAuditOutcomeError,
+			wantErr:    "proxy failed",
+			wantStatus: http.StatusInternalServerError,
+		},
+		{
+			name:       "application HTTP error",
+			err:        apitypes.NewErrForbidden("model is not allowed"),
+			outcome:    types.LLMAuditOutcomeError,
+			wantErr:    "error code 403 (Forbidden): model is not allowed",
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name:       "wrapped application HTTP error",
+			err:        errors.Join(errors.New("request rejected"), apitypes.NewErrBadRequest("invalid model")),
+			outcome:    types.LLMAuditOutcomeError,
+			wantErr:    "request rejected\nerror code 400 (Bad Request): invalid model",
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "Kubernetes status error",
+			err:        apierrors.NewNotFound(schema.GroupResource{Group: "obot.obot.ai", Resource: "models"}, "missing"),
+			outcome:    types.LLMAuditOutcomeError,
+			wantErr:    `models.obot.obot.ai "missing" not found`,
+			wantStatus: http.StatusNotFound,
+		},
+		{
+			name:           "recorded response status is preserved",
+			err:            errors.New("response body failed"),
+			responseStatus: http.StatusTooManyRequests,
+			outcome:        types.LLMAuditOutcomeError,
+			wantErr:        "response body failed",
+			wantStatus:     http.StatusTooManyRequests,
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			recorder := &llmAuditRecorder{}
-			recorder.setOutcome(tt.err)
+			recorder.recordResponseStatus(tt.responseStatus)
+			recorder.setOutcomeAndResponseStatus(tt.err)
 			if recorder.log.Outcome != tt.outcome {
 				t.Fatalf("expected outcome %q, got %q", tt.outcome, recorder.log.Outcome)
 			}
 			if recorder.log.Error != tt.wantErr {
 				t.Fatalf("expected error %q, got %q", tt.wantErr, recorder.log.Error)
+			}
+			if recorder.log.ResponseStatus != tt.wantStatus {
+				t.Fatalf("expected response status %d, got %d", tt.wantStatus, recorder.log.ResponseStatus)
 			}
 		})
 	}
