@@ -593,6 +593,14 @@
 		right: var(--guide-panel-width, 0px);
 	}
 
+	/*
+	 * Modal dialog ::backdrop always spans the full viewport (even when .dialog is inset
+	 * for the guide). Keep it from stealing hits over the panel; dimming uses .dialog-backdrop.
+	 */
+	:root:has(.guide-panel-popover:popover-open) .dialog::backdrop {
+		pointer-events: none;
+	}
+
 	/* Dialogs launched from the guide itself keep full-viewport centering */
 	.guide-panel-popover .dialog {
 		width: 100%;
@@ -731,11 +739,6 @@
 		background-color: var(--color-base-400);
 	}
 
-	.driver-active .guide-panel-popover > :not(dialog),
-	.driver-active .guide-panel-popover > :not(dialog) * {
-		pointer-events: auto;
-	}
-
 	.driver-popover * {
 		font-family: var(--theme-font-family) !important;
 	}
@@ -779,6 +782,10 @@
 		display: none;
 	}
 
+	:root {
+		--guide-highlight-z-index: 1000000001;
+	}
+
 	.guide-highlight-obot {
 		position: absolute;
 		top: 0;
@@ -788,7 +795,7 @@
 
 	.guide-highlight-ring {
 		position: fixed;
-		z-index: 1000000001;
+		z-index: var(--guide-highlight-z-index);
 		pointer-events: none;
 		border-radius: 0.5rem;
 		border: 0px solid transparent;
@@ -800,7 +807,11 @@
 	.dialog > .driver-overlay,
 	.dialog > .driver-popover,
 	.dialog > .guide-highlight-ring {
-		z-index: 1000000001;
+		z-index: var(--guide-highlight-z-index);
+	}
+
+	.guide-panel-popover > .driver-popover {
+		z-index: var(--guide-highlight-z-index);
 	}
 
 	@keyframes guide-highlight-pulse {
@@ -1225,6 +1236,31 @@
 		border-bottom-color: var(--primary);
 		font-weight: 500;
 	}
+}
+
+/*
+ * Unlayered: must beat driver.js's unlayered `.driver-active * { pointer-events: none }`.
+ * Rules inside @layer components lose to unlayered styles regardless of specificity.
+ */
+.driver-active .guide-panel-popover > :not(dialog),
+.driver-active .guide-panel-popover > :not(dialog) * {
+	pointer-events: auto;
+}
+
+.driver-active dialog[open],
+.driver-active dialog[open] * {
+	pointer-events: auto;
+}
+
+/*
+ * Beat the dialog/guide-panel overrides above. Overlay (SVG) and ring must not capture
+ * hits — otherwise they block the highlighted dialog content underneath.
+ */
+.driver-active dialog[open] > .driver-overlay,
+.driver-active dialog[open] > .driver-overlay *,
+.driver-active dialog[open] > .guide-highlight-ring,
+.driver-active .guide-panel-popover > .guide-highlight-ring {
+	pointer-events: none;
 }
 
 @layer utilities {

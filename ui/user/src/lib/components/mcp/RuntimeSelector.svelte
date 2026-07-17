@@ -68,6 +68,7 @@
 		serverType === 'remote' || serverType === 'composite' ? 'hidden' : ''
 	)}
 	aria-labelledby="runtime-selector-heading"
+	id="runtime-selector"
 >
 	<h4 id="runtime-selector-heading" class="text-sm font-semibold">Runtime</h4>
 

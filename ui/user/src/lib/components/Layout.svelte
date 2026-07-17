@@ -44,7 +44,6 @@
 		type Layout as LayoutState
 	} from '$lib/context/layout.svelte';
 	import Bots from '$lib/icons/Bots.svelte';
-	import LogoIcon from '$lib/icons/LogoIcon.svelte';
 	import { localState } from '$lib/runes/localState.svelte';
 	import { Group } from '$lib/services';
 	import {
@@ -266,19 +265,6 @@
 					}
 				]
 			: []),
-		{
-			id: 'devices',
-			icon: Laptop,
-			label: 'Devices',
-			href: '/devices'
-		},
-		{
-			id: 'install-cli',
-			href: '/install-cli',
-			icon: LogoIcon,
-			label: 'Obot CLI',
-			collapsible: false
-		},
 		...(agentsFeatureEnabled
 			? [
 					{
@@ -562,53 +548,55 @@
 						]
 					}
 				]
-			: [
-					{
-						id: 'mcp-server-management',
-						icon: RadioTower,
-						label: 'MCP Management',
-						collapsible: true,
-						disabled: false,
-						items: [
-							...(isAtLeastPowerUser
-								? [
-										{
-											id: 'mcp-catalog',
-											href: '/mcp-catalog',
-											label: 'MCP Catalog',
-											disabled: false,
-											collapsible: false
-										},
-										...(isAtLeastPowerUserPlus
-											? [
-													{
-														id: 'mcp-access-policies',
-														href: '/mcp-access-policies',
-														label: 'MCP Access Policies',
-														disabled: false,
-														collapsible: false
-													}
-												]
-											: [])
-									]
-								: []),
-							{
-								id: 'audit-logs',
-								href: '/audit-logs',
-								label: 'Audit Logs',
-								disabled: false,
-								collapsible: false
-							},
-							{
-								id: 'usage',
-								href: '/usage',
-								label: 'Usage',
-								disabled: false,
-								collapsible: false
-							}
-						]
-					}
-				]
+			: isAtLeastPowerUser
+				? [
+						{
+							id: 'mcp-server-management',
+							icon: RadioTower,
+							label: 'MCP Management',
+							collapsible: true,
+							disabled: false,
+							items: [
+								...(isAtLeastPowerUser
+									? [
+											{
+												id: 'mcp-catalog',
+												href: '/mcp-catalog',
+												label: 'MCP Catalog',
+												disabled: false,
+												collapsible: false
+											},
+											...(isAtLeastPowerUserPlus
+												? [
+														{
+															id: 'mcp-access-policies',
+															href: '/mcp-access-policies',
+															label: 'MCP Access Policies',
+															disabled: false,
+															collapsible: false
+														}
+													]
+												: [])
+										]
+									: []),
+								{
+									id: 'audit-logs',
+									href: '/audit-logs',
+									label: 'Audit Logs',
+									disabled: false,
+									collapsible: false
+								},
+								{
+									id: 'usage',
+									href: '/usage',
+									label: 'Usage',
+									disabled: false,
+									collapsible: false
+								}
+							]
+						}
+					]
+				: []
 	);
 
 	$effect(() => {
@@ -900,7 +888,7 @@
 		</div>
 	{/if}
 
-	{#if !isBootStrapUser}
+	{#if !isBootStrapUser && !responsive.isMobile}
 		<GuidePanel />
 		<Guide />
 	{/if}

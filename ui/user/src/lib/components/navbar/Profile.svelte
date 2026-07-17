@@ -6,13 +6,27 @@
 	import ProfileIcon from '$lib/components/profile/ProfileIcon.svelte';
 	import { ADMIN_AGENT_DISABLED_MESSAGE, USER_AGENT_DISABLED_MESSAGE } from '$lib/constants';
 	import { AdminService, NanobotService, UserService } from '$lib/services';
-	import { profile, responsive, darkMode, errors, defaultModelAliases } from '$lib/stores';
+	import {
+		AiClient,
+		COMMAND_SUPPORTED_AI_CLIENTS,
+		COMMON_AI_CLIENTS,
+		MAGIC_LINK_SUPPORTED_AI_CLIENTS
+	} from '$lib/services/user/constants';
+	import {
+		profile,
+		responsive,
+		darkMode,
+		errors,
+		defaultModelAliases,
+		userDeviceSettings
+	} from '$lib/stores';
 	import { version } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import { getUserRoleLabel, isAgentEnabled } from '$lib/utils';
 	import Confirm from '../Confirm.svelte';
 	import InfoTooltip from '../InfoTooltip.svelte';
 	import PageLoading from '../PageLoading.svelte';
+	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
 	import MyAccount from '../profile/MyAccount.svelte';
 	import {
@@ -28,7 +42,8 @@
 		BotMessageSquare,
 		Power,
 		LockOpen,
-		HatGlasses
+		HatGlasses,
+		Terminal
 	} from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -72,6 +87,20 @@
 				: false
 			: version.current.upgradeAvailable
 	);
+
+	let setPreferredClientsDialog = $state<ReturnType<typeof ResponsiveDialog>>();
+	let selectedClients = $state<AiClient[]>([]);
+
+	const clientsMap = $derived(new Map(COMMON_AI_CLIENTS.map((client) => [client.id, client])));
+	const clients = $derived.by(() => {
+		const selectedSet = new Set(selectedClients);
+		return [...MAGIC_LINK_SUPPORTED_AI_CLIENTS, ...COMMAND_SUPPORTED_AI_CLIENTS]
+			.sort((a, b) => a.localeCompare(b))
+			.map((clientId) => ({
+				...(clientsMap.get(clientId) ?? { id: clientId, icon: '', iconDark: '', alt: '' }),
+				selected: selectedSet.has(clientId)
+			}));
+	});
 
 	function getLink(key: string, value: string | boolean) {
 		if (typeof value !== 'string') return;
@@ -225,6 +254,16 @@
 						><KeyRound class="size-4" />My API Keys</a
 					>
 				{/if}
+				<button
+					class="dropdown-link"
+					onclick={() => {
+						selectedClients = userDeviceSettings.aiClientPreference ?? [];
+						setPreferredClientsDialog?.open();
+					}}
+				>
+					<Terminal class="size-4" /> Client Preference
+				</button>
+
 				{#if profile.current.isBootstrapUser?.()}
 					<button class="dropdown-link" onclick={handleBootstrapLogout}>
 						<LogOut class="size-4" /> Log out
@@ -355,6 +394,81 @@
 		>
 	</form>
 </dialog>
+
+<ResponsiveDialog bind:this={setPreferredClientsDialog} title="Client Preference" class="md:w-sm">
+	<fieldset class="flex flex-col gap-2">
+		<label
+			class={twMerge(
+				'flex items-center justify-between gap-4',
+				selectedClients.length === 0 ? 'btn btn-primary rounded-md!' : 'btn rounded-md! px-5!'
+			)}
+		>
+			<div class="flex items-center gap-2">
+				<span>No Preference</span>
+			</div>
+			<div class="flex items-center gap-2">
+				<input
+					id="no-preference"
+					type="checkbox"
+					class="checkbox text-primary-content border-0 bg-transparent disabled:opacity-100"
+					checked={selectedClients.length === 0}
+					disabled={selectedClients.length === 0}
+					onchange={(e) => {
+						e.preventDefault();
+						selectedClients = [];
+					}}
+				/>
+			</div>
+		</label>
+		{#each clients as client (client.id)}
+			<label
+				class={twMerge(
+					'cursor-pointer flex items-center justify-between gap-4',
+					client.selected ? 'btn btn-primary rounded-md!' : 'btn rounded-md! px-5!'
+				)}
+			>
+				<div class="flex items-center gap-2">
+					<img
+						src={client?.iconDark ?? client?.icon}
+						alt={client?.alt}
+						class="size-4 dark:block hidden"
+					/>
+					<img src={client?.icon} alt={client?.alt} class="size-4 block dark:hidden" />
+					<span>{client?.alt}</span>
+				</div>
+				<div class="flex items-center gap-2">
+					<input
+						id={`preferred-client-${client.id}`}
+						type="checkbox"
+						class="checkbox text-primary-content border-0 bg-transparent"
+						checked={client.selected}
+						onchange={(e) => {
+							e.preventDefault();
+							selectedClients = client.selected
+								? selectedClients.filter((id) => id !== client.id)
+								: [...selectedClients, client.id];
+						}}
+					/>
+				</div>
+			</label>
+		{/each}
+	</fieldset>
+	<div class="flex justify-end pt-4 gap-2">
+		<button class="btn btn-secondary btn-sm" onclick={() => setPreferredClientsDialog?.close()}>
+			Cancel
+		</button>
+		<button
+			class="btn btn-primary btn-sm"
+			onclick={() => {
+				userDeviceSettings.setAiClientPreference(selectedClients);
+				setPreferredClientsDialog?.close();
+				selectedClients = [];
+			}}
+		>
+			Apply
+		</button>
+	</div>
+</ResponsiveDialog>
 
 <Confirm
 	show={showRestartAgentConfirm}

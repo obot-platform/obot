@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { openDialog } from '$lib/actions/openDialog';
 	import Loading from '$lib/icons/Loading.svelte';
 	import IconButton from './primitives/IconButton.svelte';
 	import { CircleAlert, X } from '@lucide/svelte';
@@ -52,11 +53,26 @@
 
 	$effect(() => {
 		if (show) {
-			dialog?.showModal();
+			if (dialog) openDialog(dialog);
 			dialog?.focus();
 		} else {
 			dialog?.close();
 		}
+	});
+
+	// Non-modal opens (guide-aware) do not get native Escape dismissal.
+	$effect(() => {
+		const node = dialog;
+		if (!node) return;
+
+		const onKeyDown = (e: KeyboardEvent) => {
+			if (e.key !== 'Escape' || !node.open || node.matches(':modal')) return;
+			e.preventDefault();
+			oncancel();
+		};
+
+		window.addEventListener('keydown', onKeyDown);
+		return () => window.removeEventListener('keydown', onKeyDown);
 	});
 </script>
 

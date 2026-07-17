@@ -45,7 +45,7 @@
 	const setupCommand = $derived(`obot setup --url ${page.url.origin}`);
 </script>
 
-<Layout title="Obot CLI">
+<Layout title="Obot CLI" showBackButton>
 	<div class="w-full max-w-7xl mx-auto h-full @container/cli my-6">
 		<div class="paper">
 			<div class="flex flex-col @2xl/cli:flex-row items-center justify-center gap-8">

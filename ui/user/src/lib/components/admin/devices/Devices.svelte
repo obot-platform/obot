@@ -195,8 +195,7 @@
 		sortable={['short_device_id', 'os_arch', 'username', 'scannedAt']}
 		{filterable}
 		onClickRow={(d, isCtrlClick) => {
-			const prefix = hasAdminAccess ? '/admin' : '';
-			openUrl(resolve(`${prefix}/devices/${d.deviceID}`), isCtrlClick);
+			openUrl(resolve(`/admin/devices/${d.deviceID}`), isCtrlClick);
 		}}
 		{initSort}
 		onFilter={setFilterUrlParams}

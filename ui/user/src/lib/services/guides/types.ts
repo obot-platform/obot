@@ -1,5 +1,6 @@
 export interface GuideStep {
 	content: string[];
+	action?: GuideAction | GuideAction[];
 	button?: {
 		text: string;
 		action: GuideAction | GuideAction[];
@@ -45,6 +46,7 @@ export interface GuideAction {
 	dialog?: GuideDialog;
 	setPreferredClient?: boolean;
 	success?: boolean;
+	closeExistingElement?: boolean;
 }
 
 export interface GuideListener extends GuideSelector {

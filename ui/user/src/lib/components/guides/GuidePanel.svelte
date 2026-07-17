@@ -2,24 +2,21 @@
 	import { page } from '$app/state';
 	import { columnResize } from '$lib/actions/resize';
 	import { type GuideAction, type GuideListener, type GuideDialog } from '$lib/services/guides';
-	import {
-		generateLessonItems,
-		getLessonsCompleted,
-		setLessonCompleted
-	} from '$lib/services/guides/utils';
-	import { darkMode, errors, guide, userDeviceSettings } from '$lib/stores';
+	import { darkMode, errors, guide, mcpServersAndEntries, userDeviceSettings } from '$lib/stores';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
 	import Obot from './Obot.svelte';
 	import PreferredClient from './PreferredClient.svelte';
 	import { createGuideHighlighter, type GuideHighlighter } from './highlight';
-	import { ChevronRight, GripVertical, X } from '@lucide/svelte';
+	import { GripVertical, X } from '@lucide/svelte';
 	import { noop } from 'es-toolkit';
 	import { onDestroy, onMount, tick } from 'svelte';
 	import { fade, fly, slide } from 'svelte/transition';
 
 	const CONTENT_FADE_MS = 500;
+	// Short poll after clicks (nav expand). Highlight waits separately for post-nav targets.
 	const ACTION_RESOLVE_ATTEMPTS = 10;
+	const ACTION_RESOLVE_INTERVAL_MS = 50;
 
 	function youtubeEmbedUrl(url: string): string | undefined {
 		try {
@@ -45,6 +42,7 @@
 	}
 	let highlighter: GuideHighlighter | undefined = undefined;
 	let actionGeneration = 0;
+	let guideSessionGeneration = 0;
 
 	let panel = $state<HTMLDivElement>();
 	let popoverRoot = $state<HTMLDivElement>();
@@ -65,14 +63,9 @@
 	let ignoreScrollTimeout: ReturnType<typeof setTimeout> | undefined;
 
 	let listenerHandler: ((e: MouseEvent) => void) | undefined = undefined;
-	let lessonsCompleted = $state(getLessonsCompleted());
-	let lessonItems = $derived(generateLessonItems(lessonsCompleted));
-	let nextLessonsReady = $state(false);
-	let availableLessons = $derived(
-		lessonItems.filter(
-			(lesson) => !lesson.completed && lesson.guide?.id !== guide.selectedGuide?.id
-		)
-	);
+	let activeListener = $state<GuideListener | undefined>(undefined);
+	let guideCompleted = $state(false);
+	let wasMcpServersLoading = false;
 
 	onMount(() => {
 		highlighter = createGuideHighlighter({
@@ -85,8 +78,35 @@
 	});
 
 	$effect(() => {
+		const loading = mcpServersAndEntries.current.loading;
+		// include making sure entries have loaded before proceeding with action/rerendering highlight
+		if (loading) {
+			wasMcpServersLoading = true;
+			return;
+		}
+		if (!wasMcpServersLoading || !guide.selectedGuide) return;
+		wasMcpServersLoading = false;
+
+		const sessionGeneration = guideSessionGeneration;
+		const step = guide.selectedGuide.steps[guide.currentStep];
+		if (!step?.action) {
+			highlighter?.refresh();
+			return;
+		}
+
+		void (async () => {
+			await tick();
+			await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+			if (!isCurrentGuideSession(sessionGeneration) || !step.action) return;
+			void handleStepAction(step.action);
+		})();
+	});
+
+	$effect(() => {
 		const el = popoverRoot;
 		if (!el || !guide.selectedGuide) return;
+
+		let bumpRaf = 0;
 
 		const show = () => {
 			if (!el.isConnected) return;
@@ -95,14 +115,28 @@
 			}
 		};
 
+		/**
+		 * Modal <dialog>s and popovers share the top layer (LIFO). If something still opens
+		 * a true modal while the guide is up, re-enter the top layer so the panel stays above it.
+		 * (App dialogs normally open non-modally via openDialog / dialogAnimation.)
+		 */
 		const bumpAboveDialogs = () => {
 			if (!el.isConnected || !guide.selectedGuide) return;
-			if (!document.querySelector('dialog[open]')) return;
-			if (el.matches(':popover-open')) {
-				el.hidePopover();
-			}
-			el.showPopover();
-			highlighter?.refresh();
+			const blockingModal = Array.from(document.querySelectorAll('dialog[open]')).find(
+				(d) => d instanceof HTMLDialogElement && d.matches(':modal') && !el.contains(d)
+			);
+			if (!blockingModal) return;
+
+			cancelAnimationFrame(bumpRaf);
+			bumpRaf = requestAnimationFrame(() => {
+				if (!el.isConnected || !guide.selectedGuide) return;
+				if (!document.querySelector('dialog[open]:modal')) return;
+				if (el.matches(':popover-open')) {
+					el.hidePopover();
+				}
+				el.showPopover();
+				highlighter?.refresh();
+			});
 		};
 
 		queueMicrotask(show);
@@ -130,6 +164,7 @@
 		}
 
 		return () => {
+			cancelAnimationFrame(bumpRaf);
 			observer.disconnect();
 			if (el.matches(':popover-open')) {
 				el.hidePopover();
@@ -163,6 +198,8 @@
 	$effect(() => {
 		const selected = guide.selectedGuide;
 		if (selected && selected.id !== guide.previousGuide?.id) {
+			guideSessionGeneration += 1;
+			actionGeneration += 1;
 			cleanupListener();
 			guide.previousGuide = selected;
 			revealGeneration += 1;
@@ -170,7 +207,7 @@
 			guide.currentStep = 0;
 			guide.revealed = [];
 			disabledAutoScroll = false;
-			nextLessonsReady = false;
+			guideCompleted = false;
 			if (guide.stream.length) {
 				void animateStepReveal(0);
 			}
@@ -182,16 +219,88 @@
 			window.removeEventListener('click', listenerHandler, true);
 			listenerHandler = undefined;
 		}
+		activeListener = undefined;
 	}
 
 	function sleep(ms: number) {
 		return new Promise<void>((resolve) => setTimeout(resolve, ms));
 	}
 
+	function isCurrentGuideSession(generation: number) {
+		return generation === guideSessionGeneration && Boolean(guide.selectedGuide);
+	}
+
+	function findListenerTarget(listener: GuideListener): HTMLElement | undefined {
+		if (listener.id) {
+			const el = document.getElementById(listener.id);
+			if (el instanceof HTMLElement) return el;
+		}
+		if (listener.beginsWith) {
+			for (const prefix of listener.beginsWith) {
+				const el = document.querySelector(`[id^="${CSS.escape(prefix)}"]`);
+				if (el instanceof HTMLElement) return el;
+			}
+		}
+		const active = highlighter?.getDriver().getActiveElement();
+		return active instanceof HTMLElement ? active : undefined;
+	}
+
+	function clickGuideTarget(el: HTMLElement) {
+		const interactive = el.matches('a, button, [role="button"], input, select, textarea')
+			? el
+			: el.querySelector<HTMLElement>('a, button, [role="button"]');
+		(interactive ?? el).click();
+	}
+
+	async function handlePrimaryNext() {
+		const sessionGeneration = guideSessionGeneration;
+		if (!isCurrentGuideSession(sessionGeneration)) return;
+
+		if (guideCompleted) {
+			closeGuide();
+			return;
+		}
+
+		if (activeListener) {
+			const listener = activeListener;
+			let target = findListenerTarget(listener);
+			if (!target) {
+				for (let i = 0; i < ACTION_RESOLVE_ATTEMPTS && !target; i++) {
+					await tick();
+					await sleep(ACTION_RESOLVE_INTERVAL_MS);
+					if (!isCurrentGuideSession(sessionGeneration)) return;
+					target = findListenerTarget(listener);
+				}
+			}
+			if (target && isCurrentGuideSession(sessionGeneration)) {
+				clickGuideTarget(target);
+				return;
+			}
+		}
+
+		const step = guide.selectedGuide?.steps[guide.currentStep];
+		if (step?.button?.action) {
+			const action = await resolveAction(step.button.action);
+			if (!isCurrentGuideSession(sessionGeneration)) return;
+			if (action) {
+				await handleStepAction(action);
+				return;
+			}
+		}
+
+		if (isCurrentGuideSession(sessionGeneration)) {
+			handleNextStep();
+		}
+	}
+
 	async function animateStepReveal(stepIndex: number) {
 		const generation = revealGeneration;
 		const step = guide.stream[stepIndex];
 		if (!step) return;
+
+		if (step.action) {
+			void handleStepAction(step.action);
+		}
 
 		const next = guide.revealed.slice(0, stepIndex);
 		next[stepIndex] = { contentCount: 0, showButton: false };
@@ -216,9 +325,7 @@
 		if (generation !== revealGeneration) return;
 		const total = guide.selectedGuide?.steps.length ?? 0;
 		if (stepIndex === total - 1) {
-			setLessonCompleted(guide.selectedGuide?.id);
-			lessonsCompleted = getLessonsCompleted();
-			nextLessonsReady = true;
+			guideCompleted = true;
 		}
 	}
 
@@ -240,7 +347,7 @@
 	}
 
 	function canAppearLater(action: GuideAction): boolean {
-		// Route won't change while waiting; element presence may after a click expands UI.
+		// After a click (nav expand, route change), element presence may change.
 		return Boolean(action.elementExists || action.elementMissing);
 	}
 
@@ -259,21 +366,38 @@
 
 			if (i < attempts - 1) {
 				await tick();
-				await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+				await sleep(ACTION_RESOLVE_INTERVAL_MS);
 			}
 		}
 
 		return action.find((a) => !hasActionGuard(a) && actionMatches(a));
 	}
 
+	function closeGuideElement(action: GuideAction) {
+		if (!action.closeExistingElement || !action.elementExists) return;
+		const el = document.getElementById(action.elementExists);
+		if (el instanceof HTMLDialogElement) {
+			if (el.open) el.close();
+			return;
+		}
+		const closeBtn = el?.querySelector<HTMLElement>('.dialog-close-btn, [data-guide-close]');
+		closeBtn?.click();
+	}
+
 	async function handleStepAction(
 		action: GuideAction | GuideAction[],
 		options?: { wait?: boolean }
 	) {
+		const sessionGeneration = guideSessionGeneration;
 		cleanupListener();
 		const generation = ++actionGeneration;
 		const resolved = await resolveAction(action, options);
-		if (generation !== actionGeneration || !resolved) return;
+		if (generation !== actionGeneration || !isCurrentGuideSession(sessionGeneration) || !resolved)
+			return;
+
+		if (resolved.closeExistingElement) {
+			closeGuideElement(resolved);
+		}
 
 		if (resolved.highlight) {
 			void highlighter?.highlight(resolved.highlight);
@@ -297,22 +421,26 @@
 		}
 	}
 
+	function eventMatchesListener(e: MouseEvent, listener: GuideListener): boolean {
+		const path = e.composedPath();
+		for (const node of path) {
+			if (!(node instanceof Element)) continue;
+			if (listener.id && node.id === listener.id) return true;
+			if (listener.beginsWith?.some((prefix) => node.id.startsWith(prefix))) return true;
+		}
+
+		// Fallback: click landed on the currently highlighted element (id may be on a wrapper).
+		const active = highlighter?.getDriver().getActiveElement();
+		const target = e.target;
+		return Boolean(active instanceof Element && target instanceof Node && active.contains(target));
+	}
+
 	function registerGuideListener(listener: GuideListener) {
+		activeListener = listener;
 		listenerHandler = (e: MouseEvent) => {
-			let el: Element | null = e.target instanceof Element ? e.target : null;
-			while (el) {
-				const matchesId = Boolean(listener.id && el.id === listener.id);
-				const matchesPrefix = Boolean(
-					listener.beginsWith?.some((prefix) => el!.id.startsWith(prefix))
-				);
-				if (matchesId || matchesPrefix) {
-					highlighter?.destroy();
-					// Wait for DOM updates from the click (e.g. expanding a nav section).
-					void handleStepAction(listener.action, { wait: true });
-					return;
-				}
-				el = el.parentElement;
-			}
+			if (!eventMatchesListener(e, listener)) return;
+			highlighter?.destroy();
+			void handleStepAction(listener.action, { wait: true });
 		};
 		// Capture phase so target stopPropagation (e.g. Connect button) still reaches us
 		window.addEventListener('click', listenerHandler, true);
@@ -324,9 +452,7 @@
 			guide.stream = [...guide.stream, guide.selectedGuide.steps[guide.currentStep]];
 			void animateStepReveal(guide.currentStep);
 		} else if (guide.selectedGuide && guide.currentStep >= guide.selectedGuide.steps.length) {
-			setLessonCompleted(guide.selectedGuide?.id);
-			lessonsCompleted = getLessonsCompleted();
-			nextLessonsReady = true;
+			guideCompleted = true;
 		}
 	}
 
@@ -361,24 +487,31 @@
 	}
 
 	function closeGuide() {
+		guideSessionGeneration += 1;
+		actionGeneration += 1;
+		revealGeneration += 1;
 		guide.selectedGuide = undefined;
 		guide.stream = [];
 		guide.revealed = [];
 		guide.currentStep = 0;
 		guide.previousGuide = undefined;
-		nextLessonsReady = false;
+		guideCompleted = false;
 
 		cleanupListener();
 		highlighter?.destroy();
 	}
 
 	async function handleStepDialogClose() {
+		const sessionGeneration = guideSessionGeneration;
+		if (!isCurrentGuideSession(sessionGeneration)) return;
+
 		stepDialogOpen = false;
 		if (stepDialogContent?.next) {
 			await new Promise((resolve) => setTimeout(resolve, 500));
+			if (!isCurrentGuideSession(sessionGeneration)) return;
 			stepDialogContent = stepDialogContent.next;
 			stepDialog?.open();
-		} else {
+		} else if (isCurrentGuideSession(sessionGeneration)) {
 			handleNextStep();
 		}
 	}
@@ -387,8 +520,7 @@
 	$effect(() => {
 		if (!scrollContainer) return;
 		void guide.stream.length;
-		void nextLessonsReady;
-		void availableLessons.length;
+		void guideCompleted;
 		for (const r of guide.revealed) {
 			void r?.contentCount;
 			void r?.showButton;
@@ -419,6 +551,9 @@
 	});
 
 	onDestroy(() => {
+		guideSessionGeneration += 1;
+		actionGeneration += 1;
+		revealGeneration += 1;
 		cleanupListener();
 		highlighter?.destroy();
 		if (ignoreScrollTimeout) clearTimeout(ignoreScrollTimeout);
@@ -501,36 +636,32 @@
 							</button>
 						{/if}
 					{/each}
-					{#if nextLessonsReady && availableLessons.length > 0}
-						<div class="divider my-2"></div>
-						<div in:fade={{ duration: CONTENT_FADE_MS }} class="flex flex-col gap-2">
-							<p class="text-xs font-semibold uppercase tracking-wide text-muted-content">
-								Continue learning
-							</p>
-							{#each availableLessons as lesson (lesson.label)}
-								<button
-									class="btn btn-primary gap-2 items-center text-start h-fit rounded-md! p-2! pr-1!"
-									onclick={() => {
-										if (!lesson.guide) return;
-										guide.selectedGuide = lesson.guide;
-									}}
-								>
-									<div>
-										<p class="text-sm font-semibold">{lesson.label}</p>
-										<p class="text-xs font-light text-primary-content/50">{lesson.description}</p>
-									</div>
-									<ChevronRight class="size-5 shrink-0" />
-								</button>
-							{/each}
+
+					{#if guideCompleted}
+						<div
+							in:fade={{ duration: CONTENT_FADE_MS }}
+							class="bg-primary/10 rounded-md p-3 text-xs font-light text-primary"
+						>
+							Congratulations! You've completed the guide. <br />
+							You can close this guide now.
 						</div>
 					{/if}
 				</div>
 			</div>
-			{#if guide.showObotInPanel}
-				<Obot animation={['enter', 'idle']} class="absolute bottom-0 bg-base-100 left-1" />
-			{/if}
-			<div class="p-4">
-				<div class="divider"></div>
+			<div class="flex items-center justify-end gap-2 p-3 border-t border-base-300 relative">
+				{#if guide.showObotInPanel}
+					<Obot animation={['enter', 'idle']} class="absolute bottom-0 left-2.5" />
+				{/if}
+				<div class="flex gap-2">
+					{#if !guideCompleted}
+						<button class="btn btn-secondary btn-sm min-w-24" onclick={() => closeGuide()}
+							>Skip All</button
+						>
+					{/if}
+					<button class="btn btn-sm btn-primary min-w-24" onclick={() => void handlePrimaryNext()}>
+						{guideCompleted ? 'Close' : 'Next'}
+					</button>
+				</div>
 			</div>
 		</div>
 

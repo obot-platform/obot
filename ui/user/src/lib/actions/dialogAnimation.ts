@@ -1,9 +1,15 @@
+import { shouldOpenDialogNonModal } from './openDialog.js';
 import type { Action } from 'svelte/action';
 
 type AnimationType = 'slide' | 'fade' | 'drawer';
 
 interface DialogAnimationParams {
 	type?: AnimationType | null;
+}
+
+function getTopmostOpenNonModalDialog(): HTMLDialogElement | undefined {
+	const openDialogs = Array.from(document.querySelectorAll<HTMLDialogElement>('dialog[open]'));
+	return openDialogs.findLast((dialog) => !dialog.matches(':modal'));
 }
 
 // for <dialog> elements
@@ -71,10 +77,17 @@ export const dialogAnimation: Action<HTMLDialogElement, DialogAnimationParams> =
 	};
 
 	const originalShowModal = node.showModal;
+	const originalShow = node.show;
 	const originalClose = node.close;
 
 	node.showModal = function () {
-		originalShowModal.call(node);
+		// Keep the guide panel interactive: modal dialogs inert the document and their
+		// ::backdrop covers the full viewport in the top layer.
+		if (shouldOpenDialogNonModal(node)) {
+			originalShow.call(node);
+		} else {
+			originalShowModal.call(node);
+		}
 
 		const backdrop = getBackdropElement();
 		if (!backdrop) return;
@@ -86,6 +99,17 @@ export const dialogAnimation: Action<HTMLDialogElement, DialogAnimationParams> =
 			backdrop.style.removeProperty('opacity');
 		}
 	};
+
+	const onNonModalEscape = (e: KeyboardEvent) => {
+		if (e.key !== 'Escape' || !node.open || node.matches(':modal')) return;
+		// Let the browser dismiss a modal dialog before considering any non-modal dialog
+		// underneath it. Among non-modal dialogs, only the topmost one handles Escape.
+		if (document.querySelector('dialog[open]:modal')) return;
+		if (getTopmostOpenNonModalDialog() !== node) return;
+		e.preventDefault();
+		node.close();
+	};
+	window.addEventListener('keydown', onNonModalEscape);
 
 	// Override the dialog.close method
 	node.close = function () {
@@ -215,6 +239,7 @@ export const dialogAnimation: Action<HTMLDialogElement, DialogAnimationParams> =
 		},
 		destroy() {
 			observer.disconnect();
+			window.removeEventListener('keydown', onNonModalEscape);
 			node.showModal = originalShowModal;
 			node.close = originalClose;
 			node.removeAttribute('data-dialog-animated');

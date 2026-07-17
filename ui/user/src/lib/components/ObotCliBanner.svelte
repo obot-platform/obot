@@ -45,7 +45,7 @@
 				onmouseleave={() => setHovered(false)}
 				class="btn btn-primary md:w-fit w-full"
 			>
-				Get Started
+				Go to Download Page
 			</a>
 		</div>
 	</div>

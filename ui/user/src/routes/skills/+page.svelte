@@ -32,9 +32,9 @@
 	}
 </script>
 
-<Layout classes={{ navbar: 'bg-base-200' }} title="Skills">
+<Layout classes={{ navbar: 'bg-base-200', container: 'pt-0' }} title="Skills">
 	<div class="flex min-h-full flex-col gap-2">
-		<ObotCliBanner description="Easily discover and install skills." />
+		<ObotCliBanner description="Download the Obot CLI to install skills." />
 		<div class="flex min-h-full flex-col">
 			<div class="bg-base-200 dark:bg-base-100 sticky top-16 left-0 z-20 w-full py-1">
 				<div class="mb-2">

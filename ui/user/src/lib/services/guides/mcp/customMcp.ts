@@ -9,78 +9,72 @@ import {
 export const steps: GuideStep[] = [
 	{
 		content: ["To begin, let's head to the MCP Catalog page!"],
-		button: {
-			text: 'Where is MCP Catalog?',
-			action: [
-				{
-					elementExists: SIDEBAR_MCP_CATALOG_LINK,
-					highlight: highlightMcpCatalogLink,
-					listener: listenMcpCatalogLink
-				},
-				getExpandAdvancedPaneAction({
-					elementMissing: SIDEBAR_MCP_CATALOG_LINK,
-					highlight: highlightMcpCatalogLink,
-					listener: listenMcpCatalogLink
-				}),
-				{
-					highlight: {
-						selector: {
-							id: 'advanced-pane-btn'
-						},
-						title: 'Advanced Pane',
-						description:
-							'Click here to open the advanced pane; this section contains more advanced settings and management capabilities such as audit logs.'
+		action: [
+			{
+				elementExists: SIDEBAR_MCP_CATALOG_LINK,
+				highlight: highlightMcpCatalogLink,
+				listener: listenMcpCatalogLink
+			},
+			getExpandAdvancedPaneAction({
+				elementMissing: SIDEBAR_MCP_CATALOG_LINK,
+				highlight: highlightMcpCatalogLink,
+				listener: listenMcpCatalogLink
+			}),
+			{
+				highlight: {
+					selector: {
+						id: 'advanced-pane-btn'
 					},
-					listener: {
-						id: 'advanced-pane-btn',
-						action: [
-							{
-								elementExists: SIDEBAR_MCP_CATALOG_LINK,
-								highlight: highlightMcpCatalogLink,
-								listener: listenMcpCatalogLink
-							},
-							getExpandAdvancedPaneAction({
-								elementMissing: SIDEBAR_MCP_CATALOG_LINK,
-								highlight: highlightMcpCatalogLink,
-								listener: listenMcpCatalogLink
-							})
-						]
-					}
+					title: 'Advanced Pane',
+					description:
+						'Click here to open the advanced pane; this section contains more advanced settings and management capabilities such as audit logs.'
+				},
+				listener: {
+					id: 'advanced-pane-btn',
+					action: [
+						{
+							elementExists: SIDEBAR_MCP_CATALOG_LINK,
+							highlight: highlightMcpCatalogLink,
+							listener: listenMcpCatalogLink
+						},
+						getExpandAdvancedPaneAction({
+							elementMissing: SIDEBAR_MCP_CATALOG_LINK,
+							highlight: highlightMcpCatalogLink,
+							listener: listenMcpCatalogLink
+						})
+					]
 				}
-			]
-		}
+			}
+		]
 	},
 	{
 		content: [
 			'Click the Add Catalog Entry button to start creating a new entry.',
-			'For the purpose of this guide, let us create a hosted server entry.'
+			'For the purpose of this guide, what type of entry are you interested in creating?'
 		],
-		button: {
-			text: 'Where do I go?',
-			action: {
-				highlight: {
-					selector: {
-						id: 'add-catalog-entry-button'
-					},
-					title: 'Add Catalog Entry',
-					description: 'Click here to add a new catalog entry.',
-					side: 'left'
+		action: {
+			highlight: {
+				selector: {
+					id: 'add-catalog-entry-button'
 				},
-				listener: {
-					id: 'add-catalog-entry-button',
-					action: {
-						highlight: {
-							selector: {
-								id: 'add-hosted-server-button'
-							},
-							title: 'Add Hosted Server',
-							description: 'Click here to add a hosted server entry.'
+				title: 'Add Catalog Entry',
+				description: 'Click here to add a new catalog entry.',
+				side: 'left'
+			},
+			listener: {
+				id: 'add-catalog-entry-button',
+				action: {
+					highlight: {
+						selector: {
+							id: 'add-hosted-server-button'
 						},
-						listener: {
-							id: 'add-hosted-server-button',
-							action: {
-								success: true
-							}
+						title: 'Add Hosted Server',
+						description: 'Click here to add a hosted server entry.'
+					},
+					listener: {
+						id: 'add-hosted-server-button',
+						action: {
+							success: true
 						}
 					}
 				}
