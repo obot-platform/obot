@@ -1,5 +1,7 @@
 export type TimeDisplayFormat = '12h' | '24h';
 
+const auditLogTableTimestampFormatters = new Map<TimeDisplayFormat, Intl.DateTimeFormat>();
+
 export function formatTime(time: Date | string, format: TimeDisplayFormat) {
 	const now = new Date();
 	if (typeof time === 'string') {
@@ -305,16 +307,21 @@ export function formatLogTimestamp(time: Date | string, format: TimeDisplayForma
 }
 
 export function formatAuditLogTableTimestamp(time: Date | string, format: TimeDisplayFormat) {
-	const parts = new Intl.DateTimeFormat('en-US', {
-		year: 'numeric',
-		month: '2-digit',
-		day: '2-digit',
-		hour: '2-digit',
-		minute: '2-digit',
-		second: '2-digit',
-		hourCycle: format === '12h' ? 'h12' : 'h23',
-		timeZoneName: 'short'
-	}).formatToParts(new Date(time));
+	let formatter = auditLogTableTimestampFormatters.get(format);
+	if (!formatter) {
+		formatter = new Intl.DateTimeFormat('en-US', {
+			year: 'numeric',
+			month: '2-digit',
+			day: '2-digit',
+			hour: '2-digit',
+			minute: '2-digit',
+			second: '2-digit',
+			hourCycle: format === '12h' ? 'h12' : 'h23',
+			timeZoneName: 'short'
+		});
+		auditLogTableTimestampFormatters.set(format, formatter);
+	}
+	const parts = formatter.formatToParts(new Date(time));
 	const value = (type: Intl.DateTimeFormatPartTypes) =>
 		parts.find((part) => part.type === type)?.value ?? '';
 	const dayPeriod = value('dayPeriod');
