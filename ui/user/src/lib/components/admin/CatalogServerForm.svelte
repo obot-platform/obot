@@ -128,7 +128,14 @@
 		canEditSecretBindings ? secretBindingTargets : undefined
 	);
 	const defaultDenyAllEgress = $derived(!!version.current.mcpDefaultDenyAllEgress);
-	const shortDescriptionError = `Must be less than or equal to ${MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH} characters`;
+	const shortDescriptionError = $derived(
+		showRequired.shortDescription
+			? 'Short description is required'
+			: `Must be less than or equal to ${MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH} characters`
+	);
+	const hasShortDescriptionError = $derived(
+		showRequired.shortDescription ?? showInvalid.shortDescription
+	);
 
 	function defaultNpxConfig() {
 		return { package: '', args: [], egressDomains: [], denyAllEgress: undefined };
@@ -731,7 +738,7 @@
 				>
 					Name
 					{#if !readonly}
-						<span class="text-error" aria-hidden="true">*</span>
+						<span class={showRequired.name ? 'text-error' : ''} aria-hidden="true">*</span>
 						<span class="sr-only">(required)</span>
 					{/if}
 				</label>
@@ -771,8 +778,15 @@
 			</div>
 
 			<div class="flex flex-col gap-1">
-				<label for={fieldIds.shortDescription} class="text-sm font-light capitalize">
+				<label
+					for={fieldIds.shortDescription}
+					class={twMerge('text-sm font-light capitalize', hasShortDescriptionError && 'error')}
+				>
 					Short Description
+					{#if !readonly}
+						<span class={hasShortDescriptionError ? 'text-error' : ''} aria-hidden="true">*</span>
+						<span class="sr-only">(required)</span>
+					{/if}
 					<span id={fieldIds.shortDescriptionHint} class="text-muted-content text-xs">
 						(max {MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH} characters)
 					</span>
@@ -782,24 +796,21 @@
 					id={fieldIds.shortDescription}
 					name="shortDescription"
 					bind:value={formData.shortDescription}
-					class={twMerge(
-						'text-input-filled dark:bg-base-100',
-						showInvalid.shortDescription && 'error'
-					)}
+					class={twMerge('text-input-filled dark:bg-base-100', hasShortDescriptionError && 'error')}
 					disabled={readonly}
 					placeholder="Provide a brief summary that will be shown in catalog listings."
 					maxlength={MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH}
+					aria-required={!readonly ? 'true' : undefined}
 					aria-describedby={`${fieldIds.shortDescriptionHint} ${fieldIds.shortDescriptionCount}`}
-					aria-invalid={showInvalid.shortDescription ? 'true' : undefined}
-					aria-errormessage={showInvalid.shortDescription
-						? fieldIds.shortDescriptionError
-						: undefined}
+					aria-invalid={hasShortDescriptionError ? 'true' : undefined}
+					aria-errormessage={hasShortDescriptionError ? fieldIds.shortDescriptionError : undefined}
 					oninput={() => {
 						updateInvalid('shortDescription');
+						updateRequired('shortDescription');
 					}}
 				/>
 				<div class="flex justify-between gap-4">
-					{#if showInvalid.shortDescription}
+					{#if hasShortDescriptionError}
 						<p id={fieldIds.shortDescriptionError} class="text-xs text-error" role="alert">
 							{shortDescriptionError}
 						</p>
@@ -954,6 +965,7 @@
 						{readonly}
 						serverUserType={formData.serverUserType}
 						{secretBoundHeaders}
+						showRequired={showRequired.env}
 					/>
 				{/if}
 			{/snippet}
@@ -974,6 +986,7 @@
 						{readonly}
 						serverUserType={formData.serverUserType}
 						{secretBoundHeaders}
+						showRequired={showRequired.env}
 					/>
 				{/if}
 			{/snippet}
@@ -1004,6 +1017,7 @@
 			serverUserType={formData.serverUserType}
 			{secretBoundHeaders}
 			secretBindingTargets={editableSecretBindingTargets}
+			showRequired={showRequired.env}
 		/>
 	{/if}
 

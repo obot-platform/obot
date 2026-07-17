@@ -710,9 +710,23 @@ export const getMcpServerDeploymentStatus = (
 	return { updateStatus, updatesAvailable, updateStatusTooltip };
 };
 
+function validateEnvs(type: LaunchServerType | 'filter', envs: MCPServerInfo['env']) {
+	if (!envs || type === 'composite') return true;
+
+	if (type === 'remote') {
+		return envs.every((env) => Boolean(env.key.trim()));
+	}
+
+	return envs.every(
+		(env) =>
+			Boolean(env.key.trim()) &&
+			(Boolean(env.value?.trim()) || hasSecretBinding(env) || Boolean(env.name.trim()))
+	);
+}
+
 export const validateRuntimeForm = (
 	formData: RuntimeFormData,
-	type: LaunchServerType,
+	type: LaunchServerType | 'filter',
 	nameNotRequired: boolean = false
 ): { required: Record<string, boolean>; invalid: Record<string, boolean> } => {
 	const missingFields: Record<string, boolean> = {};
@@ -724,16 +738,22 @@ export const validateRuntimeForm = (
 		missingFields.startupTimeoutSeconds = true;
 	}
 
-	if (
-		formData.shortDescription &&
-		Array.from(formData.shortDescription ?? '').length > MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH
-	) {
-		invalid.shortDescription = true;
+	if (type !== 'filter') {
+		const shortDescription = formData.shortDescription?.trim();
+		if (!shortDescription) {
+			missingFields.shortDescription = true;
+		} else if (Array.from(shortDescription).length > MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH) {
+			invalid.shortDescription = true;
+		}
 	}
 
 	// Basic validation - name is required
 	if (!nameNotRequired && !formData.name.trim()) {
 		missingFields.name = true;
+	}
+
+	if (!validateEnvs(type, formData.env)) {
+		missingFields.env = true;
 	}
 
 	// Runtime-specific validation

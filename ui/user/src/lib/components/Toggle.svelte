@@ -35,7 +35,7 @@
 		{@render input()}
 	</label>
 {:else}
-	<label class={twMerge('text-muted-content flex items-center gap-1 text-xs', classes?.label)}>
+	<label class={twMerge('text-muted-content flex items-center gap-2 text-xs', classes?.label)}>
 		<span>{label}</span>
 		<div class="relative flex h-4.5 w-8.25">
 			{@render input()}
