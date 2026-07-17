@@ -114,10 +114,7 @@ func NewFS(files fs.FS) (*Loader, error) {
 			if err := validateFile(files, rel); err != nil {
 				return nil, fmt.Errorf("MDM assets manifest configuration %s references a missing file: %w", unit, err)
 			}
-			outputName := path.Base(rel)
-			if strings.HasSuffix(outputName, ".tmpl") {
-				outputName = strings.TrimSuffix(outputName, ".tmpl")
-			}
+			outputName := strings.TrimSuffix(path.Base(rel), ".tmpl")
 			if prior, exists := outputNames[outputName]; exists {
 				return nil, fmt.Errorf("MDM assets manifest configuration %s assets %q and %q both produce ZIP file %q", unit, prior, rel, outputName)
 			}

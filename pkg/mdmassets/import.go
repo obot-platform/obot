@@ -321,7 +321,7 @@ func readTarWithDecodedLimit(ctx context.Context, content []byte, maxDecodedByte
 		if header.Typeflag == tar.TypeDir {
 			continue
 		}
-		if header.Typeflag != tar.TypeReg && header.Typeflag != tar.TypeRegA {
+		if header.Typeflag != tar.TypeReg {
 			return nil, fmt.Errorf("MDM asset archive contains unsupported entry %q", name)
 		}
 		if err := validateImportPath(name); err != nil {
