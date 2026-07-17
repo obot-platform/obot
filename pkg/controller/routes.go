@@ -64,6 +64,7 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.ModelProvider{}).FinalizeFunc(v1.ModelProviderFinalizer, providers.CleanupModelProvider)
 
 	// Models
+	root.Type(&v1.Model{}).HandlerFunc(modelHandler.RemoveApplyUpdateAnnotation)
 	root.Type(&v1.Model{}).HandlerFunc(modelHandler.Cleanup)
 	root.Type(&v1.Model{}).HandlerFunc(modelHandler.EnsureModelInfo)
 	root.Type(&v1.Model{}).HandlerFunc(alias.AssignAlias)

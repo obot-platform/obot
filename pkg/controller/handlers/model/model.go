@@ -3,6 +3,7 @@ package model
 import (
 	"errors"
 
+	"github.com/obot-platform/nah/pkg/apply"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/gateway/client"
@@ -22,6 +23,16 @@ func NewHandler(gatewayClient *client.Client) *Handler {
 	return &Handler{
 		gatewayClient: gatewayClient,
 	}
+}
+
+func (*Handler) RemoveApplyUpdateAnnotation(req router.Request, _ router.Response) error {
+	model := req.Object.(*v1.Model)
+	if _, ok := model.Annotations[apply.AnnotationUpdate]; !ok {
+		return nil
+	}
+
+	delete(model.Annotations, apply.AnnotationUpdate)
+	return req.Client.Update(req.Ctx, model)
 }
 
 func (h *Handler) Cleanup(req router.Request, _ router.Response) error {

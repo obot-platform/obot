@@ -509,20 +509,6 @@ func BackPopulateModels(ctx context.Context, client kclient.Client, dispatcher *
 		return nil
 	}
 
-	var existingModels v1.ModelList
-	if err := client.List(ctx, &existingModels, &kclient.ListOptions{
-		Namespace: modelProvider.Namespace,
-		FieldSelector: fields.SelectorFromSet(fields.Set{
-			"spec.manifest.modelProvider": modelProvider.Name,
-		}),
-	}); err != nil {
-		return fmt.Errorf("failed to list models for model provider %q: %w", modelProvider.Name, err)
-	}
-	existingByName := make(map[string]*v1.Model, len(existingModels.Items))
-	for i := range existingModels.Items {
-		existingByName[existingModels.Items[i].Name] = &existingModels.Items[i]
-	}
-
 	models := make([]kclient.Object, 0, len(availableModels.Models))
 	for _, model := range availableModels.Models {
 		displayName := model.Metadata["displayName"]
@@ -534,9 +520,6 @@ func BackPopulateModels(ctx context.Context, client kclient.Client, dispatcher *
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: modelProvider.Namespace,
 				Name:      modelName(modelProvider.Name, model.ID),
-				Annotations: map[string]string{
-					apply.AnnotationUpdate: "false",
-				},
 			},
 			Spec: v1.ModelSpec{
 				Manifest: types.ModelManifest{
@@ -551,15 +534,6 @@ func BackPopulateModels(ctx context.Context, client kclient.Client, dispatcher *
 			},
 		}
 
-		if existing := existingByName[discovered.Name]; existing != nil {
-			before := existing.DeepCopy()
-			if syncProviderOwnedModelFields(existing, discovered.Spec.Manifest) {
-				if err := client.Patch(ctx, existing, kclient.MergeFrom(before)); err != nil {
-					return fmt.Errorf("failed to refresh discovered model %q: %w", existing.Name, err)
-				}
-			}
-		}
-
 		models = append(models, discovered)
 	}
 
@@ -569,23 +543,6 @@ func BackPopulateModels(ctx context.Context, client kclient.Client, dispatcher *
 	log.Infof("Back-populated models for model provider: provider=%s models=%d", modelProvider.Name, len(models))
 
 	return nil
-}
-
-func syncProviderOwnedModelFields(existing *v1.Model, discovered types.ModelManifest) bool {
-	manifest := &existing.Spec.Manifest
-	changed := manifest.TargetModel != discovered.TargetModel ||
-		manifest.ModelProvider != discovered.ModelProvider ||
-		manifest.Usage != discovered.Usage ||
-		manifest.Dialect != discovered.Dialect
-	if !changed {
-		return false
-	}
-
-	manifest.TargetModel = discovered.TargetModel
-	manifest.ModelProvider = discovered.ModelProvider
-	manifest.Usage = discovered.Usage
-	manifest.Dialect = discovered.Dialect
-	return true
 }
 
 func modelDialect(metadata map[string]string, fallback string) string {
