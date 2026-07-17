@@ -85,6 +85,7 @@ type SessionManager struct {
 	tokenService              *persistent.TokenService
 	globalTokenStore          GlobalTokenStore
 	baseURL                   string
+	httpListenPort            int
 	remoteURLValidationConfig RemoteMCPURLValidationConfig
 	resourceMaximums          ResourceMaximums
 	storageClient             kclient.WithWatch
@@ -164,7 +165,7 @@ func NewSessionManager(ctx context.Context, authEnabled bool, globalTokenStore G
 			return nil, err
 		}
 
-		backend = newKubernetesBackend(authEnabled, clientset, client, cachedClient, obotStorageClient, opts, resourceMaximums)
+		backend = newKubernetesBackend(httpListenPort, authEnabled, clientset, client, cachedClient, obotStorageClient, opts, resourceMaximums)
 	default:
 		return nil, fmt.Errorf("unknown runtime backend: %s", opts.MCPRuntimeBackend)
 	}
@@ -176,6 +177,7 @@ func NewSessionManager(ctx context.Context, authEnabled bool, globalTokenStore G
 		backend:                   backend,
 		runtimeBackend:            opts.MCPRuntimeBackend,
 		baseURL:                   baseURL,
+		httpListenPort:            httpListenPort,
 		resourceMaximums:          resourceMaximums,
 		storageClient:             obotStorageClient,
 		gatewayClient:             gatewayClient,

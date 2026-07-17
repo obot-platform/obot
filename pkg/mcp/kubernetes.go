@@ -53,6 +53,7 @@ type kubernetesBackend struct {
 	clientset         *kubernetes.Clientset
 	client            kclient.WithWatch
 	cachedClient      kclient.WithWatch
+	httpListenPort    int
 	baseImage         string
 	mcpNamespace      string
 	mcpClusterDomain  string
@@ -70,7 +71,7 @@ type kubernetesDeploymentCacheEntry struct {
 	podName string
 }
 
-func newKubernetesBackend(authEnabled bool, clientset *kubernetes.Clientset, client, cachedClient, obotClient kclient.WithWatch, opts Options, resourceMaximums ResourceMaximums) backend {
+func newKubernetesBackend(httpListenPort int, authEnabled bool, clientset *kubernetes.Clientset, client, cachedClient, obotClient kclient.WithWatch, opts Options, resourceMaximums ResourceMaximums) backend {
 	var serviceFQDN string
 	if opts.ServiceName != "" && opts.ServiceNamespace != "" {
 		serviceFQDN = fmt.Sprintf("%s.%s.svc.%s", opts.ServiceName, opts.ServiceNamespace, opts.MCPClusterDomain)
@@ -80,6 +81,7 @@ func newKubernetesBackend(authEnabled bool, clientset *kubernetes.Clientset, cli
 		clientset:        clientset,
 		client:           client,
 		cachedClient:     cachedClient,
+		httpListenPort:   httpListenPort,
 		baseImage:        opts.MCPBaseImage,
 		mcpNamespace:     opts.MCPNamespace,
 		mcpClusterDomain: opts.MCPClusterDomain,
@@ -136,8 +138,8 @@ func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server S
 		server.Webhooks[i] = webhook
 	}
 
-	if server.Runtime == types.RuntimeRemote {
-		// Remove any existing deployment for remote servers
+	if server.Runtime == types.RuntimeRemote || server.Runtime == types.RuntimeComposite {
+		// Remove any existing deployment for remote and composite servers
 		return server, k.deployServerObjects(ctx, server, nil)
 	}
 
@@ -338,7 +340,10 @@ func (k *kubernetesBackend) streamServerLogs(ctx context.Context, id string) (io
 }
 
 func (k *kubernetesBackend) remoteConfig(globalConfig RemoteMCPURLValidationConfig) (RemoteMCPURLValidationConfig, []string) {
-	return globalConfig, []string{strings.TrimPrefix(k.serviceFQDN, "http://"), fmt.Sprintf("*.%s.svc.%s", k.mcpNamespace, k.mcpClusterDomain)}
+	return globalConfig, []string{
+		fmt.Sprintf("localhost:%d", k.httpListenPort),
+		strings.TrimPrefix(k.serviceFQDN, "http://"), fmt.Sprintf("*.%s.svc.%s", k.mcpNamespace, k.mcpClusterDomain),
+	}
 }
 
 // transformObotHostname replaces the host and port in a URL with the internal service FQDN.
