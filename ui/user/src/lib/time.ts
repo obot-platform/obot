@@ -309,7 +309,7 @@ export function formatLogTimestamp(time: Date | string, format: TimeDisplayForma
 export function formatAuditLogTableTimestamp(time: Date | string, format: TimeDisplayFormat) {
 	let formatter = auditLogTableTimestampFormatters.get(format);
 	if (!formatter) {
-		formatter = new Intl.DateTimeFormat('en-US', {
+		formatter = new Intl.DateTimeFormat(undefined, {
 			year: 'numeric',
 			month: '2-digit',
 			day: '2-digit',
