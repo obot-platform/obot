@@ -20,9 +20,18 @@ func TestIsProvider(t *testing.T) {
 		name string
 		want bool
 	}{
-		{system.AzureModelProvider, true},
-		{system.AzureEntraModelProvider, true},
-		{system.OpenAIModelProvider, false},
+		{
+			name: system.AzureModelProvider,
+			want: true,
+		},
+		{
+			name: system.AzureEntraModelProvider,
+			want: true,
+		},
+		{
+			name: system.OpenAIModelProvider,
+			want: false,
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := IsProvider(tt.name); got != tt.want {
@@ -62,11 +71,40 @@ func TestBaseURL(t *testing.T) {
 			dialect:  nanobottypes.DialectAnthropicMessages,
 			want:     "https://resource.openai.azure.com/anthropic/v1",
 		},
-		{name: "missing endpoint", provider: system.AzureModelProvider, dialect: nanobottypes.DialectOpenAIResponses, wantErr: EndpointEnv},
-		{name: "invalid endpoint", provider: system.AzureModelProvider, creds: map[string]string{EndpointEnv: "not-a-url"}, dialect: nanobottypes.DialectOpenAIResponses, wantErr: "invalid Azure endpoint"},
-		{name: "insecure endpoint", provider: system.AzureModelProvider, creds: map[string]string{EndpointEnv: "http://resource.openai.azure.com"}, dialect: nanobottypes.DialectOpenAIResponses, wantErr: "HTTPS"},
-		{name: "non-Azure endpoint", provider: system.AzureModelProvider, creds: map[string]string{EndpointEnv: "https://example.com"}, dialect: nanobottypes.DialectOpenAIResponses, wantErr: "not a recognized Azure endpoint"},
-		{name: "unsupported dialect", provider: system.AzureModelProvider, creds: map[string]string{EndpointEnv: "https://resource.openai.azure.com"}, dialect: nanobottypes.DialectOpenAIChatCompletions, wantErr: "unsupported Azure model dialect"},
+		{
+			name:     "missing endpoint",
+			provider: system.AzureModelProvider,
+			dialect:  nanobottypes.DialectOpenAIResponses,
+			wantErr:  EndpointEnv,
+		},
+		{
+			name:     "invalid endpoint",
+			provider: system.AzureModelProvider,
+			creds:    map[string]string{EndpointEnv: "not-a-url"},
+			dialect:  nanobottypes.DialectOpenAIResponses,
+			wantErr:  "invalid Azure endpoint",
+		},
+		{
+			name:     "insecure endpoint",
+			provider: system.AzureModelProvider,
+			creds:    map[string]string{EndpointEnv: "http://resource.openai.azure.com"},
+			dialect:  nanobottypes.DialectOpenAIResponses,
+			wantErr:  "HTTPS",
+		},
+		{
+			name:     "non-Azure endpoint",
+			provider: system.AzureModelProvider,
+			creds:    map[string]string{EndpointEnv: "https://example.com"},
+			dialect:  nanobottypes.DialectOpenAIResponses,
+			wantErr:  "not a recognized Azure endpoint",
+		},
+		{
+			name:     "unsupported dialect",
+			provider: system.AzureModelProvider,
+			creds:    map[string]string{EndpointEnv: "https://resource.openai.azure.com"},
+			dialect:  nanobottypes.DialectOpenAIChatCompletions,
+			wantErr:  "unsupported Azure model dialect",
+		},
 	}
 
 	for _, tt := range tests {

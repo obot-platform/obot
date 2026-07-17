@@ -230,10 +230,30 @@ func TestNanobotParseModelProviderAzureRoutes(t *testing.T) {
 		dialect       nanobottypes.Dialect
 		wantBaseURL   string
 	}{
-		{"API key Anthropic", system.AzureModelProvider, nanobottypes.DialectAnthropicMessages, "https://obot.example.com/api/llm-proxy/azure/v1"},
-		{"API key OpenAI", system.AzureModelProvider, nanobottypes.DialectOpenAIResponses, "https://obot.example.com/api/llm-proxy/azure/v1"},
-		{"Entra Anthropic", system.AzureEntraModelProvider, nanobottypes.DialectAnthropicMessages, "https://obot.example.com/api/llm-proxy/azure-entra/v1"},
-		{"Entra OpenAI", system.AzureEntraModelProvider, nanobottypes.DialectOpenAIResponses, "https://obot.example.com/api/llm-proxy/azure-entra/v1"},
+		{
+			name:          "API key Anthropic",
+			modelProvider: system.AzureModelProvider,
+			dialect:       nanobottypes.DialectAnthropicMessages,
+			wantBaseURL:   "https://obot.example.com/api/llm-proxy/azure/v1",
+		},
+		{
+			name:          "API key OpenAI",
+			modelProvider: system.AzureModelProvider,
+			dialect:       nanobottypes.DialectOpenAIResponses,
+			wantBaseURL:   "https://obot.example.com/api/llm-proxy/azure/v1",
+		},
+		{
+			name:          "Entra Anthropic",
+			modelProvider: system.AzureEntraModelProvider,
+			dialect:       nanobottypes.DialectAnthropicMessages,
+			wantBaseURL:   "https://obot.example.com/api/llm-proxy/azure-entra/v1",
+		},
+		{
+			name:          "Entra OpenAI",
+			modelProvider: system.AzureEntraModelProvider,
+			dialect:       nanobottypes.DialectOpenAIResponses,
+			wantBaseURL:   "https://obot.example.com/api/llm-proxy/azure-entra/v1",
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			p, _ := h.parseModelProvider(resolvedLLMModel{
