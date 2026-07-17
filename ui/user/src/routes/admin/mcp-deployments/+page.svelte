@@ -91,6 +91,7 @@
 				onClearAllFilters={handleClearAllFilters}
 				onSort={setSortUrlParams}
 				{initSort}
+				serverPrefixPath="/mcp-deployments"
 			>
 				{#snippet noDataContent()}{@render displayNoData()}{/snippet}
 			</DeploymentsView>

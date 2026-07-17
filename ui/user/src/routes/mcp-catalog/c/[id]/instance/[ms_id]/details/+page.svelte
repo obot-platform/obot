@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Layout from '$lib/components/Layout.svelte';
 	import McpServerCompositeInfo from '$lib/components/admin/McpServerCompositeInfo.svelte';
-	import McpServerK8sInfo from '$lib/components/admin/McpServerK8sInfo.svelte';
+	import McpServerDetails from '$lib/components/mcp/McpServerDetails.svelte';
 	import OAuthMetadataDebug from '$lib/components/mcp/OAuthMetadataDebug.svelte';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { UserService, type MCPCatalogServer, type OrgUser } from '$lib/services/index.js';
@@ -56,18 +56,20 @@
 					{catalogEntry}
 				/>
 			{:else if supportsDetails}
-				<McpServerK8sInfo
-					{mcpServerId}
-					name={title}
+				<McpServerDetails
+					serverId={mcpServerId}
 					{connectedUsers}
 					readonly={profile.current.isAdminReadonly?.()}
 					{catalogEntry}
-					{mcpServer}
+					server={mcpServer}
 					{compositeParentName}
+					k8sOverrides={{
+						title
+					}}
 				/>
-				{#if mcpServer?.manifest.runtime === 'remote'}
-					<OAuthMetadataDebug metadata={mcpServer.oauthMetadata} />
-				{/if}
+			{/if}
+			{#if mcpServer?.manifest.runtime === 'remote'}
+				<OAuthMetadataDebug metadata={mcpServer.oauthMetadata} />
 			{/if}
 		{:else}
 			<div class="notification-info p-3 text-sm font-light">

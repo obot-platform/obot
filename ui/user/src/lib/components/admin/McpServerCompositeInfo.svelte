@@ -8,7 +8,7 @@
 		type MCPCatalogServer,
 		type OrgUser
 	} from '$lib/services';
-	import { isDeprecatedMCPServer, supportsMCPBackendDetails } from '$lib/services/user/mcp';
+	import { isDeprecatedMCPServer } from '$lib/services/user/mcp';
 	import { profile } from '$lib/stores';
 	import { openUrl } from '$lib/utils';
 	import McpDeprecatedNotice from '../mcp/McpDeprecatedNotice.svelte';
@@ -89,11 +89,13 @@
 				{#if componentExists}
 					<button
 						onclick={(e) => {
+							const prefix = page.url.pathname.startsWith('/admin/mcp-deployments')
+								? 'mcp-deployments'
+								: 'mcp-catalog';
 							const isCtrlClick = e.metaKey || e.ctrlKey;
-							const supportsDetails = supportsMCPBackendDetails(componentServer);
 							const url = componentServer.catalogEntryID
-								? `/admin/mcp-catalog/c/${componentServer.catalogEntryID}/instance/${catalogEntryServerId}${supportsDetails ? '/details' : ''}`
-								: `/admin/mcp-catalog/s/${componentServer.mcpServerID}${supportsDetails ? '/details' : ''}`;
+								? `/admin/${prefix}/c/${componentServer.catalogEntryID}/instance/${catalogEntryServerId}/details`
+								: `/admin/${prefix}/s/${componentServer.mcpServerID}/details`;
 
 							sessionStorage.setItem(
 								ADMIN_SESSION_STORAGE.LAST_VISITED_MCP_SERVER,

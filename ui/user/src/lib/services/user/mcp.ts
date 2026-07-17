@@ -598,7 +598,9 @@ export async function convertCompositeInfoToLaunchFormData(
 	return { componentConfigs } as CompositeLaunchFormData;
 }
 
-export function getServerUrl(d: MCPCatalogServer) {
+export function getServerUrl(d: MCPCatalogServer, prefixPath?: string) {
+	const prefix = prefixPath ?? '/mcp-catalog';
+	const adminPrefix = `/admin${prefix}`;
 	const belongsToWorkspace = d.powerUserWorkspaceID ? true : false;
 	// Route by the server's actual user type, not by the presence of a catalog
 	// entry. Multi-user servers deployed from a catalog entry carry a
@@ -607,41 +609,28 @@ export function getServerUrl(d: MCPCatalogServer) {
 	// The single-user instance page fetches via /mcp-catalog/{id}, which only
 	// resolves servers that are not scoped to a catalog or workspace.
 	const isMulti = isMultiUserServer(d);
-	const supportsDetails = supportsMCPBackendDetails(d);
-	const nonDetailsUrl = isMulti
-		? `/mcp-catalog/s/${d.id}`
-		: d.catalogEntryID
-			? `/mcp-catalog/c/${d.catalogEntryID}/instance/${d.id}`
-			: `/mcp-catalog/s/${d.id}`;
-
 	let url: string;
 	if (profile.current.hasAdminAccess?.()) {
-		if (!supportsDetails) {
-			url = belongsToWorkspace
-				? `/admin${nonDetailsUrl}?wid=${encodeURIComponent(d.powerUserWorkspaceID!)}`
-				: `/admin${nonDetailsUrl}`;
-		} else if (isMulti && d.catalogEntryID) {
+		if (isMulti && d.catalogEntryID) {
 			url =
 				belongsToWorkspace && d.powerUserWorkspaceID
-					? `/admin/mcp-catalog/s/${d.id}/details?wid=${encodeURIComponent(d.powerUserWorkspaceID)}`
-					: `/admin/mcp-catalog/s/${d.id}/details`;
+					? `${adminPrefix}/s/${d.id}/details?wid=${encodeURIComponent(d.powerUserWorkspaceID)}`
+					: `${adminPrefix}/s/${d.id}/details`;
 		} else if (isMulti) {
 			url =
 				belongsToWorkspace && d.powerUserWorkspaceID
-					? `/admin/mcp-catalog/s/${d.id}?wid=${encodeURIComponent(d.powerUserWorkspaceID)}`
-					: `/admin/mcp-catalog/s/${d.id}`;
+					? `${adminPrefix}/s/${d.id}?wid=${encodeURIComponent(d.powerUserWorkspaceID)}`
+					: `${adminPrefix}/s/${d.id}`;
 		} else {
 			url =
 				belongsToWorkspace && d.powerUserWorkspaceID
-					? `/admin/mcp-catalog/c/${d.catalogEntryID}/instance/${d.id}/details?wid=${encodeURIComponent(d.powerUserWorkspaceID)}`
-					: `/admin/mcp-catalog/c/${d.catalogEntryID}/instance/${d.id}/details`;
+					? `${adminPrefix}/c/${d.catalogEntryID}/instance/${d.id}/details?wid=${encodeURIComponent(d.powerUserWorkspaceID)}`
+					: `${adminPrefix}/c/${d.catalogEntryID}/instance/${d.id}/details`;
 		}
 	} else {
-		url = !supportsDetails
-			? nonDetailsUrl
-			: isMulti
-				? `/mcp-catalog/s/${d.id}/details`
-				: `/mcp-catalog/c/${d.catalogEntryID}/instance/${d.id}/details`;
+		url = isMulti
+			? `${prefix}/s/${d.id}/details`
+			: `${prefix}/c/${d.catalogEntryID}/instance/${d.id}/details`;
 	}
 	return url;
 }

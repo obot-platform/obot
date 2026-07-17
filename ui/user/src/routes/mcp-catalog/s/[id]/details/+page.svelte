@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Layout from '$lib/components/Layout.svelte';
-	import McpServerK8sInfo from '$lib/components/admin/McpServerK8sInfo.svelte';
+	import McpServerDetails from '$lib/components/mcp/McpServerDetails.svelte';
 	import OAuthMetadataDebug from '$lib/components/mcp/OAuthMetadataDebug.svelte';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
@@ -44,12 +44,10 @@
 			<div class="flex flex-col gap-6">
 				{#if mcpServer}
 					{#if supportsDetails}
-						<McpServerK8sInfo
-							id={serverScopeID}
+						<McpServerDetails
+							entityId={serverScopeID}
 							entity={serverScopeEntity}
-							mcpServerId={mcpServer.id}
-							{mcpServer}
-							name={mcpServer.manifest.name || ''}
+							serverId={mcpServer.id}
 							connectedUsers={(instances ?? []).map((instance) => {
 								const user = usersMap.get(instance.userID)!;
 								return {
@@ -58,8 +56,12 @@
 									mcpInstanceConfigured: instance.configured
 								};
 							})}
-							title={mcpServer.manifest.name}
 							readonly={profile.current.isAdminReadonly?.()}
+							server={mcpServer}
+							compositeParentName={mcpServer.compositeName}
+							k8sOverrides={{
+								title: mcpServer.manifest.name
+							}}
 						/>
 					{:else}
 						<div class="notification-info p-3 text-sm font-light">

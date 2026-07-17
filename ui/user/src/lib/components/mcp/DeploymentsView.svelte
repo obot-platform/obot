@@ -68,6 +68,7 @@
 		onlyMyServers?: boolean;
 		servers?: MCPCatalogServer[];
 		skipLoadOnMount?: boolean;
+		serverPrefixPath?: string;
 	}
 
 	let {
@@ -86,7 +87,8 @@
 		noDataContent,
 		onlyMyServers,
 		servers: initialServers,
-		skipLoadOnMount
+		skipLoadOnMount,
+		serverPrefixPath
 	}: Props = $props();
 
 	const doesSupportK8sUpdates = $derived(version.current.engine === 'kubernetes');
@@ -558,6 +560,10 @@
 		// Global multi-user server
 		return `/admin/mcp-catalog/s/${d.id}`;
 	}
+
+	function isRestartableServer(d: MCPCatalogServer) {
+		return d.manifest.runtime !== 'remote' && d.manifest.runtime !== 'composite';
+	}
 </script>
 
 <div class="flex flex-col gap-0.5">
@@ -608,7 +614,7 @@
 				onClickRow={(d, isCtrlClick) => {
 					setLastVisitedMcpServer(d);
 
-					const url = getServerUrl(d);
+					const url = getServerUrl(d, serverPrefixPath);
 					openUrl(url, isCtrlClick);
 				}}
 				{onFilter}
@@ -815,7 +821,7 @@
 									</button>
 								{/if}
 
-								{#if d.isMyServer || (hasAdminAccess && !readonly)}
+								{#if isRestartableServer(d) && (d.isMyServer || (hasAdminAccess && !readonly))}
 									<button
 										class="menu-button"
 										disabled={restarting}

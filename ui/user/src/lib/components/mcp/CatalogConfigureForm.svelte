@@ -396,6 +396,9 @@
 	class={isCompositeForm(form) ? 'bg-base-200 dark:bg-base-100' : ''}
 	disableClickOutside={loading}
 	hideClose={loading}
+	classes={{
+		header: 'mb-0'
+	}}
 >
 	{#snippet titleContent()}
 		<div class="flex items-center gap-2">
@@ -443,7 +446,7 @@
 				<McpDeprecatedNotice {deprecated} variant="notification" />
 
 				{#if showAlias}
-					<div class="flex flex-col gap-1">
+					<div class={twMerge('flex flex-col gap-1', isCompositeForm(form) && 'paper p-2')}>
 						<span class="flex items-center gap-2">
 							<label for="name"> Server Alias </label>
 							<span class="text-muted-content">(optional)</span>
