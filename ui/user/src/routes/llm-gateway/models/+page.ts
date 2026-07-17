@@ -5,25 +5,15 @@ import accessibleModels, { filterAccessibleModels } from '$lib/stores/accessible
 import type { PageLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 
-// Distinguishes the first client run (SSR hydration) from later client-side navigations.
-let hasHydrated = false;
-
 export const load: PageLoad = async ({ fetch, parent }) => {
 	const { profile, models: initialModels } = await parent();
 	let models: Model[] = [];
 
 	try {
-		let response: Model[] | undefined;
-
-		if (import.meta.env.SSR && initialModels) {
-			response = initialModels;
-		} else if (!hasHydrated && initialModels) {
-			hasHydrated = true;
-			response = initialModels;
-		} else {
-			hasHydrated = true;
-			response = await UserService.listModels({ fetch });
-		}
+		const response =
+			import.meta.env.SSR && initialModels
+				? initialModels
+				: await UserService.listModels({ fetch });
 
 		models = filterAccessibleModels(response ?? []);
 
