@@ -152,7 +152,6 @@
 						{@render th('User', { class: 'w-[24ch]', minWidth: '24ch' })}
 						{@render th('Provider', { class: 'w-[18ch]', minWidth: '18ch' })}
 						{@render th('Model', { class: 'w-[28ch]', minWidth: '28ch' })}
-						{@render th('Target Model', { class: 'w-[28ch]', minWidth: '28ch' })}
 						{@render th('Path', { class: 'w-[26ch]', minWidth: '26ch' })}
 						{@render th('Status', { class: 'w-[16ch]', minWidth: '16ch' })}
 						{@render th('Outcome', { class: 'w-[18ch]', minWidth: '18ch' })}
@@ -195,7 +194,6 @@
 						{@render td(formatLogTimestamp(d.createdAt, userDeviceSettings.timeFormat))}
 						{@render td(getUserDisplayName(d.userID))}
 						{@render td(d.modelProvider)}
-						{@render td(d.modelID)}
 						{@render td(d.targetModel)}
 						{@render td(d.requestPath)}
 						{@render td(d.responseStatus || '')}
