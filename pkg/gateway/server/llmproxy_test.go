@@ -528,6 +528,27 @@ func TestAPIKeyBackendTransportRequiresCredentialValue(t *testing.T) {
 	}
 }
 
+func TestAPIKeyBackendUpstreamURLDialect(t *testing.T) {
+	for _, tt := range []struct {
+		provider string
+		want     nanobottypes.Dialect
+	}{
+		{provider: system.AnthropicModelProvider, want: nanobottypes.DialectAnthropicMessages},
+		{provider: system.OpenAIModelProvider, want: nanobottypes.DialectOpenAIResponses},
+		{provider: "other"},
+	} {
+		t.Run(tt.provider, func(t *testing.T) {
+			_, got, err := (apiKeyLLMProviderBackend{providerName: tt.provider}).upstreamURL(nil, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != tt.want {
+				t.Fatalf("dialect = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestGenericResponsesBackendUpstreamURL(t *testing.T) {
 	backend := genericResponsesProviderBackend{}
 

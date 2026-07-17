@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
 	gatewayllmaudit "github.com/obot-platform/obot/pkg/gateway/llmaudit"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/system"
@@ -137,6 +138,7 @@ func TestParseLLMClientUserAgent(t *testing.T) {
 	}{
 		{userAgent: "claude-code/2.1.176", client: llmAuditClientClaudeCode, version: "2.1.176"},
 		{userAgent: "claude-cli/2.1.176 (external, cli)", client: llmAuditClientClaudeCode, version: "2.1.176"},
+		{userAgent: "gRi/JS 0.94.0", client: llmAuditClientClaudeCode, version: ""},
 		{userAgent: "codex_cli_rs/0.142.4 (Mac OS 26.5.1; arm64) ghostty/1.3.1", client: llmAuditClientCodex, version: "0.142.4"},
 		{userAgent: "codex-tui/0.142.4 (Mac OS 26.5.1; arm64) ghostty/1.3.1 (codex-tui; 0.142.4)", client: llmAuditClientCodex, version: "0.142.4"},
 		{userAgent: "other-client/1.2.3", client: "other-client", version: "1.2.3"},
@@ -153,41 +155,48 @@ func TestParseLLMClientUserAgent(t *testing.T) {
 
 func TestExtractLLMClientSessionID(t *testing.T) {
 	for _, tt := range []struct {
-		name          string
-		modelProvider string
-		body          string
-		want          string
+		name    string
+		dialect nanobottypes.Dialect
+		headers http.Header
+		body    string
+		want    string
 	}{
 		{
-			name:          "openai client metadata session id",
-			modelProvider: system.OpenAIModelProvider,
-			body:          `{"client_metadata":{"session_id":"openai-session"}}`,
-			want:          "openai-session",
+			name:    "Claude Code session header preferred over body",
+			dialect: nanobottypes.DialectAnthropicMessages,
+			headers: http.Header{claudeCodeSessionIDHeader: []string{"header-session"}},
+			body:    `{"metadata":{"user_id":"{\"session_id\":\"body-session\"}"}}`,
+			want:    "header-session",
 		},
 		{
-			name:          "openai ignores codex metadata fallback",
-			modelProvider: system.OpenAIModelProvider,
-			body:          `{"client_metadata":{"x-codex-turn-metadata":"{\"session_id\":\"ignored\"}"}}`,
+			name:    "OpenAI dialect client metadata session id",
+			dialect: nanobottypes.DialectOpenAIResponses,
+			body:    `{"client_metadata":{"session_id":"openai-session"}}`,
+			want:    "openai-session",
 		},
 		{
-			name:          "anthropic metadata user id session id",
-			modelProvider: system.AnthropicModelProvider,
-			body:          `{"metadata":{"user_id":"{\"session_id\":\"claude-session\"}"}}`,
-			want:          "claude-session",
+			name:    "OpenAI dialect ignores Codex metadata fallback",
+			dialect: nanobottypes.DialectOpenAIResponses,
+			body:    `{"client_metadata":{"x-codex-turn-metadata":"{\"session_id\":\"ignored\"}"}}`,
 		},
 		{
-			name:          "anthropic malformed metadata user id",
-			modelProvider: system.AnthropicModelProvider,
-			body:          `{"metadata":{"user_id":"not-json"}}`,
+			name:    "Anthropic dialect metadata user id session id",
+			dialect: nanobottypes.DialectAnthropicMessages,
+			body:    `{"metadata":{"user_id":"{\"session_id\":\"claude-session\"}"}}`,
+			want:    "claude-session",
 		},
 		{
-			name:          "wrong provider",
-			modelProvider: "other",
-			body:          `{"client_metadata":{"session_id":"ignored"}}`,
+			name:    "Anthropic dialect malformed metadata user id",
+			dialect: nanobottypes.DialectAnthropicMessages,
+			body:    `{"metadata":{"user_id":"not-json"}}`,
+		},
+		{
+			name: "unknown dialect",
+			body: `{"client_metadata":{"session_id":"ignored"}}`,
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := extractLLMClientSessionID(tt.modelProvider, []byte(tt.body)); got != tt.want {
+			if got := extractLLMClientSessionID(tt.dialect, tt.headers, []byte(tt.body)); got != tt.want {
 				t.Fatalf("expected %q, got %q", tt.want, got)
 			}
 		})

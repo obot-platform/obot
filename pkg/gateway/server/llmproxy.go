@@ -1072,7 +1072,7 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 		return fmt.Errorf("failed to copy body: %w", err)
 	}
 	audit.setRequestBody(body)
-	audit.setClientSessionID(l.backend.modelProviderName(), body)
+	audit.setClientSessionID(routeDialect, req.Request.Header, body)
 	audit.setReasoningEffort(l.backend.modelProviderName(), body)
 
 	prepared := &preparedLLMProxyRequest{body: body}

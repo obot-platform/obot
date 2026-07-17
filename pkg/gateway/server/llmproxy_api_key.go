@@ -20,7 +20,14 @@ func (a apiKeyLLMProviderBackend) modelProviderName() string {
 }
 
 func (a apiKeyLLMProviderBackend) upstreamURL(*http.Request, map[string]string) (url.URL, nanobottypes.Dialect, error) {
-	return a.u, "", nil
+	switch a.providerName {
+	case system.AnthropicModelProvider:
+		return a.u, nanobottypes.DialectAnthropicMessages, nil
+	case system.OpenAIModelProvider:
+		return a.u, nanobottypes.DialectOpenAIResponses, nil
+	default:
+		return a.u, "", nil
+	}
 }
 
 func (a apiKeyLLMProviderBackend) transport(modelProvider v1.ModelProvider, credEnv map[string]string) (http.RoundTripper, error) {
