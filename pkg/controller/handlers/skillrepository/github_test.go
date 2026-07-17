@@ -18,9 +18,11 @@ import (
 )
 
 func TestParseGitHubRepository(t *testing.T) {
+	t.Setenv("OBOT_GITHUB_ENTERPRISE_HOSTS", "github.enterprise.com")
 	tests := []struct {
 		name      string
 		url       string
+		wantHost  string
 		wantOwner string
 		wantRepo  string
 		wantErr   string
@@ -28,18 +30,35 @@ func TestParseGitHubRepository(t *testing.T) {
 		{
 			name:      "valid HTTPS URL",
 			url:       "https://github.com/owner/repo",
+			wantHost:  "github.com",
 			wantOwner: "owner",
 			wantRepo:  "repo",
 		},
 		{
 			name:      "valid with .git suffix",
 			url:       "https://github.com/owner/repo.git",
+			wantHost:  "github.com",
 			wantOwner: "owner",
 			wantRepo:  "repo",
 		},
 		{
 			name:      "valid with trailing slash",
 			url:       "https://github.com/owner/repo/",
+			wantHost:  "github.com",
+			wantOwner: "owner",
+			wantRepo:  "repo",
+		},
+		{
+			name:      "valid GitHub Enterprise host",
+			url:       "https://github.enterprise.com/owner/repo",
+			wantHost:  "github.enterprise.com",
+			wantOwner: "owner",
+			wantRepo:  "repo",
+		},
+		{
+			name:      "valid GitHub Enterprise with .git suffix",
+			url:       "https://github.enterprise.com/owner/repo.git",
+			wantHost:  "github.enterprise.com",
 			wantOwner: "owner",
 			wantRepo:  "repo",
 		},
@@ -56,6 +75,11 @@ func TestParseGitHubRepository(t *testing.T) {
 		{
 			name:    "non-github host",
 			url:     "https://gitlab.com/owner/repo",
+			wantErr: "github.com",
+		},
+		{
+			name:    "github-substring host not in allowlist rejected",
+			url:     "https://notgithub.example.com/owner/repo",
 			wantErr: "github.com",
 		},
 		{
@@ -104,6 +128,7 @@ func TestParseGitHubRepository(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
+			assert.Equal(t, tt.wantHost, got.Host)
 			assert.Equal(t, tt.wantOwner, got.Owner)
 			assert.Equal(t, tt.wantRepo, got.Repo)
 		})
@@ -111,8 +136,31 @@ func TestParseGitHubRepository(t *testing.T) {
 }
 
 func TestValidateRepositoryURL(t *testing.T) {
+	t.Setenv("OBOT_GITHUB_ENTERPRISE_HOSTS", "github.enterprise.com")
 	assert.NoError(t, ValidateRepositoryURL("https://github.com/owner/repo"))
+	assert.NoError(t, ValidateRepositoryURL("https://github.enterprise.com/owner/repo"))
 	assert.Error(t, ValidateRepositoryURL("http://github.com/owner/repo"))
+	assert.Error(t, ValidateRepositoryURL("https://gitlab.com/owner/repo"))
+}
+
+func TestGitHubRepositoryFetcher_RoutesByHost(t *testing.T) {
+	t.Run("github.com uses configured apiBaseURL", func(t *testing.T) {
+		f := &githubRepositoryFetcher{apiBaseURL: "https://override.example/api"}
+		got := f.apiBaseFor(githubRepository{Host: "github.com", Owner: "o", Repo: "r"})
+		assert.Equal(t, "https://override.example/api", got)
+	})
+
+	t.Run("GHE host derives /api/v3 base", func(t *testing.T) {
+		f := &githubRepositoryFetcher{apiBaseURL: "https://api.github.com"}
+		got := f.apiBaseFor(githubRepository{Host: "github.enterprise.com", Owner: "o", Repo: "r"})
+		assert.Equal(t, "https://github.enterprise.com/api/v3", got)
+	})
+
+	t.Run("token sent to both github.com and GHE hosts", func(t *testing.T) {
+		f := &githubRepositoryFetcher{token: "secret"}
+		assert.Equal(t, "secret", f.tokenFor(githubRepository{Host: "github.com"}))
+		assert.Equal(t, "secret", f.tokenFor(githubRepository{Host: "github.enterprise.com"}))
+	})
 }
 
 // zipEntry describes a single entry in a test ZIP archive.

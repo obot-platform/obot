@@ -48,8 +48,44 @@ func (f *fetchedRepository) Cleanup() {
 }
 
 type githubRepository struct {
+	Host  string
 	Owner string
 	Repo  string
+}
+
+// isGitHubHost returns true for github.com or a GitHub Enterprise Server host
+// explicitly allowlisted via the OBOT_GITHUB_ENTERPRISE_HOSTS environment
+// variable (a comma-separated list of exact hostnames), matching the rule used
+// by the MCP catalog handler.
+func isGitHubHost(host string) bool {
+	if strings.EqualFold(host, "github.com") {
+		return true
+	}
+	for _, h := range strings.Split(os.Getenv("OBOT_GITHUB_ENTERPRISE_HOSTS"), ",") {
+		if h = strings.TrimSpace(h); h != "" && strings.EqualFold(h, host) {
+			return true
+		}
+	}
+	return false
+}
+
+// apiBaseFor returns the GitHub REST API base for the given repository host.
+// For github.com it returns the configured apiBaseURL (so tests can inject an
+// httptest URL). For GitHub Enterprise Server it derives https://<host>/api/v3.
+func (f *githubRepositoryFetcher) apiBaseFor(repo githubRepository) string {
+	if strings.EqualFold(repo.Host, "github.com") {
+		return f.apiBaseURL
+	}
+	return fmt.Sprintf("https://%s/api/v3", repo.Host)
+}
+
+// tokenFor returns the auth token to send for a request to the given
+// repository. GITHUB_AUTH_TOKEN is treated as the credential for whichever
+// GitHub host is in use, since deployments typically configure it for either
+// github.com or their GitHub Enterprise instance — not both. parseGitHubRepository
+// already restricts the host to github.com or a GHE-style host.
+func (f *githubRepositoryFetcher) tokenFor(_ githubRepository) string {
+	return f.token
 }
 
 type githubRepositoryMetadata struct {
@@ -139,8 +175,8 @@ func parseGitHubRepository(repoURL string) (githubRepository, error) {
 	if u.Scheme != "https" {
 		return githubRepository{}, fmt.Errorf("repository URL must use HTTPS")
 	}
-	if u.Host != "github.com" {
-		return githubRepository{}, fmt.Errorf("repository host must be github.com")
+	if !isGitHubHost(u.Host) {
+		return githubRepository{}, fmt.Errorf("repository host must be github.com or a GitHub Enterprise Server instance")
 	}
 	if u.User != nil {
 		return githubRepository{}, fmt.Errorf("repository URL must not include credentials")
@@ -149,10 +185,11 @@ func parseGitHubRepository(repoURL string) (githubRepository, error) {
 	trimmed := strings.Trim(strings.TrimSuffix(u.Path, ".git"), "/")
 	parts := strings.Split(trimmed, "/")
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return githubRepository{}, fmt.Errorf("repository URL must be of the form https://github.com/{owner}/{repo}")
+		return githubRepository{}, fmt.Errorf("repository URL must be of the form https://%s/{owner}/{repo}", u.Host)
 	}
 
 	return githubRepository{
+		Host:  u.Host,
 		Owner: parts[0],
 		Repo:  parts[1],
 	}, nil
@@ -160,7 +197,7 @@ func parseGitHubRepository(repoURL string) (githubRepository, error) {
 
 func (f *githubRepositoryFetcher) getRepositoryMetadata(ctx context.Context, repo githubRepository) (githubRepositoryMetadata, error) {
 	var metadata githubRepositoryMetadata
-	if err := f.getJSON(ctx, fmt.Sprintf("%s/repos/%s/%s", strings.TrimRight(f.apiBaseURL, "/"), repo.Owner, repo.Repo), &metadata); err != nil {
+	if err := f.getJSON(ctx, fmt.Sprintf("%s/repos/%s/%s", strings.TrimRight(f.apiBaseFor(repo), "/"), repo.Owner, repo.Repo), f.tokenFor(repo), &metadata); err != nil {
 		return githubRepositoryMetadata{}, err
 	}
 	return metadata, nil
@@ -168,7 +205,7 @@ func (f *githubRepositoryFetcher) getRepositoryMetadata(ctx context.Context, rep
 
 func (f *githubRepositoryFetcher) resolveCommitSHA(ctx context.Context, repo githubRepository, ref string) (string, error) {
 	var commit githubCommit
-	if err := f.getJSON(ctx, fmt.Sprintf("%s/repos/%s/%s/commits/%s", strings.TrimRight(f.apiBaseURL, "/"), repo.Owner, repo.Repo, url.PathEscape(ref)), &commit); err != nil {
+	if err := f.getJSON(ctx, fmt.Sprintf("%s/repos/%s/%s/commits/%s", strings.TrimRight(f.apiBaseFor(repo), "/"), repo.Owner, repo.Repo, url.PathEscape(ref)), f.tokenFor(repo), &commit); err != nil {
 		return "", err
 	}
 	if commit.SHA == "" {
@@ -179,7 +216,7 @@ func (f *githubRepositoryFetcher) resolveCommitSHA(ctx context.Context, repo git
 
 func (f *githubRepositoryFetcher) countRepositoryEntries(ctx context.Context, repo githubRepository, commitSHA string) (int, error) {
 	var tree githubTree
-	if err := f.getJSON(ctx, fmt.Sprintf("%s/repos/%s/%s/git/trees/%s?recursive=1", strings.TrimRight(f.apiBaseURL, "/"), repo.Owner, repo.Repo, url.PathEscape(commitSHA)), &tree); err != nil {
+	if err := f.getJSON(ctx, fmt.Sprintf("%s/repos/%s/%s/git/trees/%s?recursive=1", strings.TrimRight(f.apiBaseFor(repo), "/"), repo.Owner, repo.Repo, url.PathEscape(commitSHA)), f.tokenFor(repo), &tree); err != nil {
 		return 0, err
 	}
 	if tree.Truncated {
@@ -206,13 +243,13 @@ func (f *githubRepositoryFetcher) downloadArchive(ctx context.Context, repo gith
 		_ = os.RemoveAll(workspace)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/repos/%s/%s/zipball/%s", strings.TrimRight(f.apiBaseURL, "/"), repo.Owner, repo.Repo, url.PathEscape(ref)), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/repos/%s/%s/zipball/%s", strings.TrimRight(f.apiBaseFor(repo), "/"), repo.Owner, repo.Repo, url.PathEscape(ref)), nil)
 	if err != nil {
 		cleanup()
 		return nil, fmt.Errorf("failed to create archive request: %w", err)
 	}
-	if f.token != "" {
-		req.Header.Set("Authorization", "Bearer "+f.token)
+	if token := f.tokenFor(repo); token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
 	}
 
 	resp, err := f.client.Do(req)
@@ -256,13 +293,13 @@ func (f *githubRepositoryFetcher) downloadArchive(ctx context.Context, repo gith
 	}, nil
 }
 
-func (f *githubRepositoryFetcher) getJSON(ctx context.Context, endpoint string, target any) error {
+func (f *githubRepositoryFetcher) getJSON(ctx context.Context, endpoint, token string, target any) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create GitHub API request: %w", err)
 	}
-	if f.token != "" {
-		req.Header.Set("Authorization", "Bearer "+f.token)
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
 	}
 
 	resp, err := f.client.Do(req)
