@@ -8,6 +8,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/hostedagentaccessrule"
 	"github.com/obot-platform/obot/pkg/skillaccessrule"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -115,6 +116,12 @@ var (
 		"/api/skill-repositories/",
 		"/api/skill-access-rules",
 		"/api/skill-access-rules/",
+		"/api/agent-sources",
+		"/api/agent-sources/",
+		"/api/hosted-agents",
+		"/api/hosted-agents/",
+		"/api/hosted-agent-access-rules",
+		"/api/hosted-agent-access-rules/",
 		"GET /api/eula",
 		"PUT /api/eula",
 		"PUT /api/app-preferences",
@@ -179,6 +186,12 @@ var (
 			"GET /api/skill-repositories/",
 			"GET /api/skill-access-rules",
 			"GET /api/skill-access-rules/",
+			"GET /api/agent-sources",
+			"GET /api/agent-sources/",
+			"GET /api/hosted-agents",
+			"GET /api/hosted-agents/",
+			"GET /api/hosted-agent-access-rules",
+			"GET /api/hosted-agent-access-rules/",
 			"GET /api/message-policy-violations",
 			"GET /api/message-policy-violations/",
 			"GET /api/message-policy-violation-stats",
@@ -354,33 +367,35 @@ var (
 )
 
 type Authorizer struct {
-	rules          []rule
-	cache          kclient.Client
-	uncached       kclient.Client
-	gatewayClient  *client.Client
-	apiResources   map[string]*pathMatcher
-	uiResources    *pathMatcher
-	acrHelper      *accesscontrolrule.Helper
-	skillHelper    *skillaccessrule.Helper
-	registryNoAuth bool
+	rules             []rule
+	cache             kclient.Client
+	uncached          kclient.Client
+	gatewayClient     *client.Client
+	apiResources      map[string]*pathMatcher
+	uiResources       *pathMatcher
+	acrHelper         *accesscontrolrule.Helper
+	skillHelper       *skillaccessrule.Helper
+	hostedAgentHelper *hostedagentaccessrule.Helper
+	registryNoAuth    bool
 }
 
-func NewAuthorizer(gatewayClient *client.Client, cache, uncached kclient.Client, devMode bool, acrHelper *accesscontrolrule.Helper, skillHelper *skillaccessrule.Helper, registryNoAuth bool) *Authorizer {
+func NewAuthorizer(gatewayClient *client.Client, cache, uncached kclient.Client, devMode bool, acrHelper *accesscontrolrule.Helper, skillHelper *skillaccessrule.Helper, hostedAgentHelper *hostedagentaccessrule.Helper, registryNoAuth bool) *Authorizer {
 	apiBasedResources := make(map[string]*pathMatcher, len(apiResources))
 	for group, resources := range apiResources {
 		apiBasedResources[group] = newPathMatcher(resources...)
 	}
 
 	return &Authorizer{
-		rules:          defaultRules(devMode, registryNoAuth),
-		cache:          cache,
-		uncached:       uncached,
-		gatewayClient:  gatewayClient,
-		apiResources:   apiBasedResources,
-		uiResources:    newPathMatcher(uiResources...),
-		acrHelper:      acrHelper,
-		skillHelper:    skillHelper,
-		registryNoAuth: registryNoAuth,
+		rules:             defaultRules(devMode, registryNoAuth),
+		cache:             cache,
+		uncached:          uncached,
+		gatewayClient:     gatewayClient,
+		apiResources:      apiBasedResources,
+		uiResources:       newPathMatcher(uiResources...),
+		acrHelper:         acrHelper,
+		skillHelper:       skillHelper,
+		hostedAgentHelper: hostedAgentHelper,
+		registryNoAuth:    registryNoAuth,
 	}
 }
 

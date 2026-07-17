@@ -36,6 +36,7 @@ import (
 	otime "github.com/obot-platform/obot/pkg/gateway/time"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/hash"
+	"github.com/obot-platform/obot/pkg/hostedagentaccessrule"
 	"github.com/obot-platform/obot/pkg/imagepullsecrets"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	"github.com/obot-platform/obot/pkg/license"
@@ -193,6 +194,9 @@ type Services struct {
 
 	// Used for indexed lookups of skill access rules.
 	SkillAccessRuleHelper *skillaccessrule.Helper
+
+	// Used for indexed lookups of hosted agent access rules.
+	HostedAgentAccessRuleHelper *hostedagentaccessrule.Helper
 
 	MCPOAuthClientSecretExpiration time.Duration
 
@@ -799,6 +803,73 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 	skillAccessRuleHelper := skillaccessrule.NewHelper(skillAccessRuleInformer.GetIndexer())
 
+	hostedAgentAccessRuleGVK, err := r.Backend().GroupVersionKindFor(&v1.HostedAgentAccessRule{})
+	if err != nil {
+		return nil, err
+	}
+
+	hostedAgentAccessRuleInformer, err := r.Backend().GetInformerForKind(ctx, hostedAgentAccessRuleGVK)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = hostedAgentAccessRuleInformer.AddIndexers(map[string]gocache.IndexFunc{
+		hostedagentaccessrule.HostedAgentIDIndex: func(obj any) ([]string, error) {
+			rule := obj.(*v1.HostedAgentAccessRule)
+			var results []string
+			for _, resource := range rule.Spec.Manifest.Resources {
+				if resource.Type == apiclienttypes.HostedAgentResourceTypeHostedAgent {
+					results = append(results, resource.ID)
+				}
+			}
+			return results, nil
+		},
+		hostedagentaccessrule.ResourceSelectorIndex: func(obj any) ([]string, error) {
+			rule := obj.(*v1.HostedAgentAccessRule)
+			var results []string
+			for _, resource := range rule.Spec.Manifest.Resources {
+				if resource.Type == apiclienttypes.HostedAgentResourceTypeSelector {
+					results = append(results, resource.ID)
+				}
+			}
+			return results, nil
+		},
+		hostedagentaccessrule.UserIDIndex: func(obj any) ([]string, error) {
+			rule := obj.(*v1.HostedAgentAccessRule)
+			var results []string
+			for _, subject := range rule.Spec.Manifest.Subjects {
+				if subject.Type == apiclienttypes.SubjectTypeUser {
+					results = append(results, subject.ID)
+				}
+			}
+			return results, nil
+		},
+		hostedagentaccessrule.GroupIDIndex: func(obj any) ([]string, error) {
+			rule := obj.(*v1.HostedAgentAccessRule)
+			var results []string
+			for _, subject := range rule.Spec.Manifest.Subjects {
+				if subject.Type == apiclienttypes.SubjectTypeGroup {
+					results = append(results, subject.ID)
+				}
+			}
+			return results, nil
+		},
+		hostedagentaccessrule.SubjectSelectorIndex: func(obj any) ([]string, error) {
+			rule := obj.(*v1.HostedAgentAccessRule)
+			var results []string
+			for _, subject := range rule.Spec.Manifest.Subjects {
+				if subject.Type == apiclienttypes.SubjectTypeSelector {
+					results = append(results, subject.ID)
+				}
+			}
+			return results, nil
+		},
+	}); err != nil {
+		return nil, err
+	}
+
+	hostedAgentAccessRuleHelper := hostedagentaccessrule.NewHelper(hostedAgentAccessRuleInformer.GetIndexer())
+
 	mapHelper, err := modelaccesspolicy.NewHelper(ctx, r.Backend())
 	if err != nil {
 		return nil, err
@@ -944,7 +1015,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		ClientIDMetadataDocumentSupported: true,
 	}
 
-	authorizer := authz.NewAuthorizer(gatewayClient, r.Backend(), storageClient, config.DevMode, acrHelper, skillAccessRuleHelper, registryNoAuth)
+	authorizer := authz.NewAuthorizer(gatewayClient, r.Backend(), storageClient, config.DevMode, acrHelper, skillAccessRuleHelper, hostedAgentAccessRuleHelper, registryNoAuth)
 	// For now, always auto-migrate the gateway database
 	svcs := &Services{
 		EncryptionConfig:      encryptionConfig,
@@ -999,6 +1070,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		ModelAccessPolicyHelper:        mapHelper,
 
 		SkillAccessRuleHelper:                skillAccessRuleHelper,
+		HostedAgentAccessRuleHelper:          hostedAgentAccessRuleHelper,
 		LocalK8sClient:                       apiLocalK8sClient,
 		LocalRouter:                          localRouter,
 		MCPServerNamespace:                   config.MCPNamespace,

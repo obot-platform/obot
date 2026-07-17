@@ -70,6 +70,14 @@ import type {
 	SkillRepositoryManifest,
 	SkillAccessPolicy,
 	SkillAccessPolicyManifest,
+	AgentSource,
+	AgentSourceManifest,
+	HostedAgent,
+	HostedAgentManifest,
+	HostedAgentInstance,
+	HostedAgentInstanceManifest,
+	HostedAgentAccessPolicy,
+	HostedAgentAccessPolicyManifest,
 	MessagePolicy,
 	MessagePolicyManifest,
 	MessagePolicyViolation,
@@ -1681,6 +1689,183 @@ export async function deleteSkillAccessPolicy(
 	opts?: { signal?: AbortSignal }
 ): Promise<void> {
 	await doDelete(`/skill-access-rules/${id}`, opts);
+}
+
+// Agent sources
+
+export async function listAgentSources(opts?: { fetch?: Fetcher }): Promise<AgentSource[]> {
+	const response = (await doGet('/agent-sources', opts)) as ItemsResponse<AgentSource>;
+	return response.items ?? [];
+}
+
+export async function getAgentSource(id: string, opts?: { fetch?: Fetcher }): Promise<AgentSource> {
+	return (await doGet(`/agent-sources/${id}`, opts)) as AgentSource;
+}
+
+export async function createAgentSource(
+	request: AgentSourceManifest,
+	opts?: { fetch?: Fetcher }
+): Promise<AgentSource> {
+	return (await doPost('/agent-sources', request, opts)) as AgentSource;
+}
+
+export async function updateAgentSource(
+	id: string,
+	request: AgentSourceManifest,
+	opts?: { fetch?: Fetcher }
+): Promise<AgentSource> {
+	return (await doPut(`/agent-sources/${id}`, request, opts)) as AgentSource;
+}
+
+export async function deleteAgentSource(
+	id: string,
+	opts?: { signal?: AbortSignal }
+): Promise<void> {
+	await doDelete(`/agent-sources/${id}`, opts);
+}
+
+// refreshAgentSource asks the controller to sync now; poll getAgentSource until
+// isSyncing clears to see the result.
+export async function refreshAgentSource(id: string, opts?: { fetch?: Fetcher }): Promise<void> {
+	await doPost(`/agent-sources/${id}/refresh`, {}, opts);
+}
+
+// Hosted agents
+
+// Pass all: true as an admin to bypass access-policy filtering.
+export async function listHostedAgents(opts?: {
+	fetch?: Fetcher;
+	all?: boolean;
+}): Promise<HostedAgent[]> {
+	const url = opts?.all ? '/hosted-agents?all=true' : '/hosted-agents';
+	const response = (await doGet(url, opts)) as ItemsResponse<HostedAgent>;
+	return response.items ?? [];
+}
+
+export async function getHostedAgent(id: string, opts?: { fetch?: Fetcher }): Promise<HostedAgent> {
+	return (await doGet(`/hosted-agents/${id}`, opts)) as HostedAgent;
+}
+
+export async function createHostedAgent(
+	request: HostedAgentManifest,
+	opts?: { fetch?: Fetcher }
+): Promise<HostedAgent> {
+	return (await doPost('/hosted-agents', request, opts)) as HostedAgent;
+}
+
+export async function updateHostedAgent(
+	id: string,
+	request: HostedAgentManifest,
+	opts?: { fetch?: Fetcher }
+): Promise<HostedAgent> {
+	return (await doPut(`/hosted-agents/${id}`, request, opts)) as HostedAgent;
+}
+
+export async function deleteHostedAgent(
+	id: string,
+	opts?: { signal?: AbortSignal }
+): Promise<void> {
+	await doDelete(`/hosted-agents/${id}`, opts);
+}
+
+// revealHostedAgent returns the values of env vars marked sensitive, which are
+// never included in the agent itself.
+export async function revealHostedAgent(
+	id: string,
+	opts?: { fetch?: Fetcher }
+): Promise<Record<string, string>> {
+	return (await doPost(`/hosted-agents/${id}/reveal`, {}, opts)) as Record<string, string>;
+}
+
+// Hosted agent instances
+
+export async function listHostedAgentInstances(
+	hostedAgentID?: string,
+	opts?: { fetch?: Fetcher }
+): Promise<HostedAgentInstance[]> {
+	const queryString = hostedAgentID ? buildQueryString({ hosted_agent_id: hostedAgentID }) : '';
+	const response = (await doGet(
+		`/hosted-agent-instances${queryString ? `?${queryString}` : ''}`,
+		opts
+	)) as ItemsResponse<HostedAgentInstance>;
+	return response.items ?? [];
+}
+
+export async function getHostedAgentInstance(
+	id: string,
+	opts?: { fetch?: Fetcher }
+): Promise<HostedAgentInstance> {
+	return (await doGet(`/hosted-agent-instances/${id}`, opts)) as HostedAgentInstance;
+}
+
+export async function createHostedAgentInstance(
+	request: HostedAgentInstanceManifest & { hostedAgentID: string },
+	opts?: { fetch?: Fetcher }
+): Promise<HostedAgentInstance> {
+	return (await doPost('/hosted-agent-instances', request, opts)) as HostedAgentInstance;
+}
+
+export async function updateHostedAgentInstance(
+	id: string,
+	request: HostedAgentInstanceManifest,
+	opts?: { fetch?: Fetcher }
+): Promise<HostedAgentInstance> {
+	return (await doPut(`/hosted-agent-instances/${id}`, request, opts)) as HostedAgentInstance;
+}
+
+export async function deleteHostedAgentInstance(
+	id: string,
+	opts?: { signal?: AbortSignal }
+): Promise<void> {
+	await doDelete(`/hosted-agent-instances/${id}`, opts);
+}
+
+// Hosted agent access policies
+//
+// The UI calls these "Access Policies"; the API resource is
+// hosted-agent-access-rules. This mirrors the skill access policy naming.
+
+export async function listHostedAgentAccessPolicies(opts?: {
+	fetch?: Fetcher;
+}): Promise<HostedAgentAccessPolicy[]> {
+	const response = (await doGet(
+		'/hosted-agent-access-rules',
+		opts
+	)) as ItemsResponse<HostedAgentAccessPolicy>;
+	return response.items ?? [];
+}
+
+export async function getHostedAgentAccessPolicy(
+	id: string,
+	opts?: { fetch?: Fetcher }
+): Promise<HostedAgentAccessPolicy> {
+	return (await doGet(`/hosted-agent-access-rules/${id}`, opts)) as HostedAgentAccessPolicy;
+}
+
+export async function createHostedAgentAccessPolicy(
+	request: HostedAgentAccessPolicyManifest,
+	opts?: { fetch?: Fetcher }
+): Promise<HostedAgentAccessPolicy> {
+	return (await doPost('/hosted-agent-access-rules', request, opts)) as HostedAgentAccessPolicy;
+}
+
+export async function updateHostedAgentAccessPolicy(
+	id: string,
+	request: HostedAgentAccessPolicyManifest,
+	opts?: { fetch?: Fetcher }
+): Promise<HostedAgentAccessPolicy> {
+	return (await doPut(
+		`/hosted-agent-access-rules/${id}`,
+		request,
+		opts
+	)) as HostedAgentAccessPolicy;
+}
+
+export async function deleteHostedAgentAccessPolicy(
+	id: string,
+	opts?: { signal?: AbortSignal }
+): Promise<void> {
+	await doDelete(`/hosted-agent-access-rules/${id}`, opts);
 }
 
 // Storage credentials

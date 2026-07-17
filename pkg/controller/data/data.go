@@ -25,6 +25,9 @@ var everythingAccessControlRuleData []byte
 //go:embed everything-skill-access-rule.yaml
 var everythingSkillAccessRuleData []byte
 
+//go:embed everything-hosted-agent-access-rule.yaml
+var everythingHostedAgentAccessRuleData []byte
+
 func Data(ctx context.Context, c kclient.Client, defaultSkillRepoURL, defaultSkillRepoRef string) error {
 	var defaultModelAliases v1.DefaultModelAliasList
 	if err := yaml.Unmarshal(defaultModelAliasesData, &defaultModelAliases); err != nil {
@@ -95,6 +98,15 @@ func Data(ctx context.Context, c kclient.Client, defaultSkillRepoURL, defaultSki
 		}
 
 		if err := kclient.IgnoreAlreadyExists(c.Create(ctx, &everythingSkillAccessRule)); err != nil {
+			return err
+		}
+
+		var everythingHostedAgentAccessRule v1.HostedAgentAccessRule
+		if err := yaml.Unmarshal(everythingHostedAgentAccessRuleData, &everythingHostedAgentAccessRule); err != nil {
+			return fmt.Errorf("failed to unmarshal everything hosted agent access rule: %w", err)
+		}
+
+		if err := kclient.IgnoreAlreadyExists(c.Create(ctx, &everythingHostedAgentAccessRule)); err != nil {
 			return err
 		}
 

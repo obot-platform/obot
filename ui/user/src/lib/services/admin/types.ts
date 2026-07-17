@@ -1056,6 +1056,129 @@ export interface SkillAccessPolicyManifest {
 	resources: SkillAccessPolicyResource[];
 }
 
+// Agent sources
+
+export interface AgentSourceManifest {
+	displayName: string;
+	repoURL: string;
+	ref?: string;
+}
+
+export interface AgentSource extends AgentSourceManifest {
+	id: string;
+	created: string;
+	deleted?: string;
+	lastSyncTime?: string;
+	isSyncing?: boolean;
+	syncError?: string;
+	resolvedCommitSHA?: string;
+	discoveredAgentCount: number;
+}
+
+// Hosted agents
+
+export type HostedAgentState = 'pending' | 'ready' | 'error';
+
+export interface HostedAgentStatus {
+	state?: HostedAgentState;
+	url?: string;
+	error?: string;
+}
+
+export interface HostedAgentEnv {
+	name?: string;
+	description?: string;
+	key: string;
+	value?: string;
+	sensitive?: boolean;
+	required?: boolean;
+}
+
+export type HostedAgentQuestionType = 'string' | 'number' | 'boolean' | 'select' | 'schedule';
+
+export interface HostedAgentQuestion {
+	key: string;
+	name?: string;
+	description?: string;
+	type?: HostedAgentQuestionType;
+	required?: boolean;
+	sensitive?: boolean;
+	default?: string;
+	// Only valid for type 'select'.
+	options?: string[];
+}
+
+export interface HostedAgentManifest {
+	name: string;
+	description?: string;
+	icon?: string;
+	iconDark?: string;
+	image: string;
+	modelProviders?: string[];
+	// Model IDs, obot://<alias> references, or wildcard prefixes.
+	models?: string[];
+	// MCP gateway IDs — the same handles used by /mcp-connect/{mcp_id}.
+	mcpServers?: string[];
+	skills?: string[];
+	env?: HostedAgentEnv[];
+	questions?: HostedAgentQuestion[];
+	allowUserMCPServers?: boolean;
+	allowUserSkills?: boolean;
+	allowUserModels?: boolean;
+	perUser?: boolean;
+	maxInstancesPerUser?: number;
+}
+
+export interface HostedAgent extends HostedAgentManifest {
+	id: string;
+	created: string;
+	deleted?: string;
+	status?: HostedAgentStatus;
+}
+
+export interface HostedAgentInstanceManifest {
+	name: string;
+	description?: string;
+	icon?: string;
+	// Answers to the agent's questions, keyed by question key. Values are strings
+	// regardless of the question's type.
+	answers?: Record<string, string>;
+	// Resources the user attached themselves; only accepted when the agent's
+	// corresponding allowUser* flag is set.
+	mcpServers?: string[];
+	skills?: string[];
+	models?: string[];
+}
+
+export interface HostedAgentInstance extends HostedAgentInstanceManifest {
+	id: string;
+	created: string;
+	deleted?: string;
+	hostedAgentID: string;
+	userID?: string;
+	status?: HostedAgentStatus;
+}
+
+// The UI calls these "Access Policies"; the API resource is
+// hosted-agent-access-rules. See operations.ts for the rename shim.
+export interface HostedAgentAccessPolicyResource {
+	type: 'hostedAgent' | 'selector';
+	id: string;
+}
+export interface HostedAgentAccessPolicy {
+	id: string;
+	created: string;
+	deleted?: string;
+	displayName: string;
+	subjects: AccessControlRuleSubject[];
+	resources: HostedAgentAccessPolicyResource[];
+}
+export interface HostedAgentAccessPolicyManifest {
+	displayName: string;
+	subjects: AccessControlRuleSubject[];
+	resources: HostedAgentAccessPolicyResource[];
+}
+
 // Storage credentials
 
 export interface StorageCredentials {

@@ -319,7 +319,7 @@ func newSkillRouteTestAuthorizer(t *testing.T) *Authorizer {
 		},
 	})
 
-	return NewAuthorizer(nil, storage, storage, false, nil, skillaccessrule.NewHelper(indexer), false)
+	return NewAuthorizer(nil, storage, storage, false, nil, skillaccessrule.NewHelper(indexer), nil, false)
 }
 
 func newSkillAccessRuleTestAuthorizer(t *testing.T, skill *v1.Skill, rules ...*v1.SkillAccessRule) *Authorizer {
@@ -364,7 +364,7 @@ func newSkillAccessRuleTestAuthorizer(t *testing.T, skill *v1.Skill, rules ...*v
 		}
 	}
 
-	return NewAuthorizer(nil, storage, storage, false, nil, skillaccessrule.NewHelper(indexer), false)
+	return NewAuthorizer(nil, storage, storage, false, nil, skillaccessrule.NewHelper(indexer), nil, false)
 }
 
 func skillUser(uid string) user.Info {
