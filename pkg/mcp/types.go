@@ -265,13 +265,13 @@ func configureCompositeRuntime(serverConfig ServerConfig) (ServerConfig, []strin
 	return serverConfig, nil, nil
 }
 
-func CompositeServerToServerConfig(mcpServer v1.MCPServer, components []v1.MCPServer, instances []v1.MCPServerInstance, audiences []string, serverURL, userID, scope, mcpCatalogName string, credEnv, tokenExchangeCredEnv map[string]string) (ServerConfig, []string, error) {
+func CompositeServerToServerConfig(mcpServer v1.MCPServer, components []v1.MCPServer, instances []v1.MCPServerInstance, audiences []string, httpListenPort int, userID, scope, mcpCatalogName string, credEnv, tokenExchangeCredEnv map[string]string) (ServerConfig, []string, error) {
 	config, missing, err := ServerToServerConfig(mcpServer, audiences, userID, scope, mcpCatalogName, credEnv, tokenExchangeCredEnv)
 	if err != nil {
 		return config, missing, err
 	}
 
-	config.URL = system.MCPConnectCompositeURL(serverURL, config.MCPServerName)
+	config.URL = system.MCPConnectCompositeURL(config.MCPServerName, httpListenPort)
 
 	overrides := make(map[string]types.ComponentServer, len(mcpServer.Spec.Manifest.CompositeConfig.ComponentServers))
 	for _, component := range mcpServer.Spec.Manifest.CompositeConfig.ComponentServers {
@@ -308,7 +308,7 @@ func CompositeServerToServerConfig(mcpServer v1.MCPServer, components []v1.MCPSe
 
 		config.Components = append(config.Components, ComponentServer{
 			Name:       name,
-			URL:        system.MCPConnectURL(serverURL, component.Name),
+			URL:        system.LocalMCPConnectURL(component.Name, httpListenPort),
 			Tools:      tools,
 			noTools:    len(override.ToolOverrides) > 0 && len(tools) == 0,
 			ToolPrefix: override.ToolPrefix,
@@ -335,7 +335,7 @@ func CompositeServerToServerConfig(mcpServer v1.MCPServer, components []v1.MCPSe
 
 		config.Components = append(config.Components, ComponentServer{
 			Name:       instance.Name,
-			URL:        system.MCPConnectURL(serverURL, instance.Name),
+			URL:        system.LocalMCPConnectURL(instance.Name, httpListenPort),
 			Tools:      tools,
 			noTools:    len(override.ToolOverrides) > 0 && len(tools) == 0,
 			ToolPrefix: override.ToolPrefix,

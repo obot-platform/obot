@@ -198,7 +198,7 @@ func TestCompositeServerToServerConfig_OmittedToolOverridesRemainNil(t *testing.
 	component := v1.MCPServer{Spec: v1.MCPServerSpec{MCPServerCatalogEntryName: "search"}}
 	component.Name = "search-server"
 
-	config, missing, err := CompositeServerToServerConfig(mcpServer, []v1.MCPServer{component}, nil, mcpServer.ValidConnectURLs(baseURL), baseURL, "test-user-id", "test-scope", "test-catalog", nil, nil)
+	config, missing, err := CompositeServerToServerConfig(mcpServer, []v1.MCPServer{component}, nil, mcpServer.ValidConnectURLs(baseURL), 8080, "test-user-id", "test-scope", "test-catalog", nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -233,7 +233,7 @@ func TestCompositeServerToServerConfig_TokenExchangeConfig(t *testing.T) {
 		nil,
 		nil,
 		mcpServer.ValidConnectURLs(baseURL),
-		baseURL,
+		8080,
 		"test-user-id",
 		"test-scope",
 		"test-catalog",
@@ -275,7 +275,7 @@ func TestCompositeServerToServerConfig_AllDisabledToolOverridesSetNoTools(t *tes
 	component := v1.MCPServer{Spec: v1.MCPServerSpec{MCPServerCatalogEntryName: "search"}}
 	component.Name = "search-server"
 
-	config, missing, err := CompositeServerToServerConfig(mcpServer, []v1.MCPServer{component}, nil, mcpServer.ValidConnectURLs(baseURL), baseURL, "test-user-id", "test-scope", "test-catalog", nil, nil)
+	config, missing, err := CompositeServerToServerConfig(mcpServer, []v1.MCPServer{component}, nil, mcpServer.ValidConnectURLs(baseURL), 8080, "test-user-id", "test-scope", "test-catalog", nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -309,7 +309,7 @@ func TestCompositeServerToServerConfig_ConnectCompositeURL(t *testing.T) {
 	component := v1.MCPServer{Spec: v1.MCPServerSpec{MCPServerCatalogEntryName: "search"}}
 	component.Name = "search-server"
 
-	config, missing, err := CompositeServerToServerConfig(mcpServer, []v1.MCPServer{component}, nil, mcpServer.ValidConnectURLs(baseURL), baseURL, "test-user-id", "test-scope", "test-catalog", nil, nil)
+	config, missing, err := CompositeServerToServerConfig(mcpServer, []v1.MCPServer{component}, nil, mcpServer.ValidConnectURLs(baseURL), 8080, "test-user-id", "test-scope", "test-catalog", nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -319,8 +319,8 @@ func TestCompositeServerToServerConfig_ConnectCompositeURL(t *testing.T) {
 	if len(config.Components) != 1 {
 		t.Fatalf("expected one component, got %d", len(config.Components))
 	}
-	if config.URL != system.MCPConnectCompositeURL(baseURL, mcpServer.Name) {
-		t.Fatalf("expected URL %s, got %s", system.MCPConnectCompositeURL(baseURL, mcpServer.Name), config.URL)
+	if config.URL != system.MCPConnectCompositeURL(mcpServer.Name, 8080) {
+		t.Fatalf("expected URL %s, got %s", system.MCPConnectCompositeURL(mcpServer.Name, 8080), config.URL)
 	}
 }
 

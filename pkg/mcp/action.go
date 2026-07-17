@@ -375,7 +375,7 @@ func (sm *SessionManager) serverConfigForAction(ctx context.Context, server v1.M
 			return ServerConfig{}, nil, fmt.Errorf("failed to list component servers instances: %w", err)
 		}
 
-		serverConfig, missingConfig, err = CompositeServerToServerConfig(server, componentServers.Items, componentInstances.Items, server.ValidConnectURLs(sm.baseURL), sm.baseURL, userID, scope, catalogName, mergedEnv, tokenExchangeCred.Secrets)
+		serverConfig, missingConfig, err = CompositeServerToServerConfig(server, componentServers.Items, componentInstances.Items, server.ValidConnectURLs(sm.baseURL), sm.httpListenPort, userID, scope, catalogName, mergedEnv, tokenExchangeCred.Secrets)
 		componentMissingConfig, componentErr := sm.compositeComponentsMissingConfig(ctx, userID, componentServers.Items, componentInstances.Items)
 		if componentErr != nil {
 			return ServerConfig{}, nil, componentErr

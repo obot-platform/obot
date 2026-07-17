@@ -38,6 +38,7 @@ type dockerBackend struct {
 	client                      *client.Client
 	containerEnv                bool
 	network                     string
+	httpListenPort              int
 	hostBaseURL                 string
 	hostBaseURLWithPort         string
 	containerizedBaseImage      string
@@ -71,6 +72,7 @@ func newDockerBackend(ctx context.Context, authEnabled bool, exposedPort int, op
 		client:                 cli,
 		containerEnv:           containerEnv,
 		network:                network,
+		httpListenPort:         exposedPort,
 		hostBaseURL:            "http://" + host,
 		hostBaseURLWithPort:    "http://" + fmt.Sprintf("%s:%d", host, exposedPort),
 		containerizedBaseImage: opts.MCPBaseImage,
@@ -157,7 +159,7 @@ func (d *dockerBackend) remoteConfig(globalConfig RemoteMCPURLValidationConfig) 
 		// If Obot is not running in a container, then Obot communicates with the MCP containers via localhost.
 		globalConfig.AllowLocalhostMCP = true
 	}
-	return globalConfig, []string{strings.TrimPrefix(d.hostBaseURLWithPort, "http://")}
+	return globalConfig, []string{fmt.Sprintf("localhost:%d", d.httpListenPort), strings.TrimPrefix(d.hostBaseURLWithPort, "http://")}
 }
 
 func (d *dockerBackend) transformObotHostname(rawURL string) string {
