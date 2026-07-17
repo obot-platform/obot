@@ -221,6 +221,56 @@ func TestNanobotParseModelProviderBedrockRoutes(t *testing.T) {
 	}
 }
 
+func TestNanobotParseModelProviderAzureRoutes(t *testing.T) {
+	h := &Handler{serverURL: "https://obot.example.com"}
+
+	for _, tc := range []struct {
+		name          string
+		modelProvider string
+		dialect       nanobottypes.Dialect
+		wantBaseURL   string
+	}{
+		{
+			name:          "API key Anthropic",
+			modelProvider: system.AzureModelProvider,
+			dialect:       nanobottypes.DialectAnthropicMessages,
+			wantBaseURL:   "https://obot.example.com/api/llm-proxy/azure/v1",
+		},
+		{
+			name:          "API key OpenAI",
+			modelProvider: system.AzureModelProvider,
+			dialect:       nanobottypes.DialectOpenAIResponses,
+			wantBaseURL:   "https://obot.example.com/api/llm-proxy/azure/v1",
+		},
+		{
+			name:          "Entra Anthropic",
+			modelProvider: system.AzureEntraModelProvider,
+			dialect:       nanobottypes.DialectAnthropicMessages,
+			wantBaseURL:   "https://obot.example.com/api/llm-proxy/azure-entra/v1",
+		},
+		{
+			name:          "Entra OpenAI",
+			modelProvider: system.AzureEntraModelProvider,
+			dialect:       nanobottypes.DialectOpenAIResponses,
+			wantBaseURL:   "https://obot.example.com/api/llm-proxy/azure-entra/v1",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			p, _ := h.parseModelProvider(resolvedLLMModel{
+				Name:            "azure-model",
+				ModelProvider:   tc.modelProvider,
+				ProviderDialect: tc.dialect,
+			})
+			if p.BaseURL != tc.wantBaseURL {
+				t.Fatalf("BaseURL = %q, want %q", p.BaseURL, tc.wantBaseURL)
+			}
+			if p.Dialect != tc.dialect {
+				t.Fatalf("Dialect = %q, want %q", p.Dialect, tc.dialect)
+			}
+		})
+	}
+}
+
 func TestBuildNanobotProviderConfigYAMLSingleProvider(t *testing.T) {
 	p := nanobotLLMProvider{
 		Name:    "openai-model-provider",

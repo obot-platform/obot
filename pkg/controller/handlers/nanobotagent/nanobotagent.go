@@ -434,6 +434,10 @@ func (h *Handler) parseModelProvider(model resolvedLLMModel) (nanobotLLMProvider
 		baseURL += "/aws-bedrock/v1"
 	case system.AmazonBedrockAPIKeyModelProvider:
 		baseURL += "/aws-bedrock-api-key/v1"
+	case system.AzureModelProvider:
+		baseURL += "/azure/v1"
+	case system.AzureEntraModelProvider:
+		baseURL += "/azure-entra/v1"
 	default:
 		switch dialect {
 		case nanobottypes.DialectAnthropicMessages:

@@ -11,7 +11,9 @@ export function renderCurlExample(ctx: RenderContext): SnippetBlock {
 	if (
 		ctx.provider.shortKey === 'anthropic' ||
 		ctx.provider.shortKey === 'aws-bedrock-anthropic' ||
-		ctx.provider.shortKey === 'aws-bedrock-api-key-anthropic'
+		ctx.provider.shortKey === 'aws-bedrock-api-key-anthropic' ||
+		ctx.provider.shortKey === 'azure-anthropic' ||
+		ctx.provider.shortKey === 'azure-entra-anthropic'
 	) {
 		const body = JSON.stringify(
 			{

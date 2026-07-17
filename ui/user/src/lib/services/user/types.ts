@@ -729,6 +729,7 @@ export interface Model {
 	name: string;
 	displayName: string;
 	targetModel: string;
+	dialect?: string;
 	usage: string;
 	icon?: string;
 	iconDark?: string;

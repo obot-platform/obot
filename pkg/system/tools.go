@@ -8,6 +8,8 @@ const (
 	GenericResponsesModelProvider    = "generic-responses-model-provider"
 	AmazonBedrockModelProvider       = "amazon-bedrock-model-provider"
 	AmazonBedrockAPIKeyModelProvider = "amazon-bedrock-api-key-model-provider"
+	AzureModelProvider               = "azure-model-provider"
+	AzureEntraModelProvider          = "azure-entra-model-provider"
 
 	OpenAIAPIKeyEnvVar    = "OPENAI_API_KEY"
 	AnthropicAPIKeyEnvVar = "ANTHROPIC_API_KEY"

@@ -516,13 +516,10 @@ func BackPopulateModels(ctx context.Context, client kclient.Client, dispatcher *
 			displayName = model.ID
 		}
 		dialect := modelDialect(model.Metadata, modelProvider.Spec.Dialect)
-		models = append(models, &v1.Model{
+		discovered := &v1.Model{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: modelProvider.Namespace,
 				Name:      modelName(modelProvider.Name, model.ID),
-				Annotations: map[string]string{
-					apply.AnnotationUpdate: "false",
-				},
 			},
 			Spec: v1.ModelSpec{
 				Manifest: types.ModelManifest{
@@ -535,7 +532,9 @@ func BackPopulateModels(ctx context.Context, client kclient.Client, dispatcher *
 					Dialect:       dialect,
 				},
 			},
-		})
+		}
+
+		models = append(models, discovered)
 	}
 
 	if err = apply.New(client).Apply(ctx, modelProvider, models...); err != nil {

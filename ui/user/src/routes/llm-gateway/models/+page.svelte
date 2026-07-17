@@ -45,6 +45,20 @@
 		toCallableModelNames(bedrockAPIKeyAnthropicModels)
 	);
 	let bedrockAPIKeyOpenAIDisplayModels = $derived(toCallableModelNames(bedrockAPIKeyOpenAIModels));
+	let azureModels = $derived(
+		data.models.filter((m) => m.modelProvider === CommonModelProviderIds.AZURE)
+	);
+	let azureEntraModels = $derived(
+		data.models.filter((m) => m.modelProvider === CommonModelProviderIds.AZURE_ENTRA)
+	);
+	let azureAnthropicModels = $derived(azureModels.filter(isAnthropicDialect));
+	let azureOpenAIModels = $derived(azureModels.filter(isOpenAIDialect));
+	let azureEntraAnthropicModels = $derived(azureEntraModels.filter(isAnthropicDialect));
+	let azureEntraOpenAIModels = $derived(azureEntraModels.filter(isOpenAIDialect));
+	let azureAnthropicDisplayModels = $derived(toCallableModelNames(azureAnthropicModels));
+	let azureOpenAIDisplayModels = $derived(toCallableModelNames(azureOpenAIModels));
+	let azureEntraAnthropicDisplayModels = $derived(toCallableModelNames(azureEntraAnthropicModels));
+	let azureEntraOpenAIDisplayModels = $derived(toCallableModelNames(azureEntraOpenAIModels));
 
 	function modelID(model: (typeof data.models)[number]) {
 		return model.targetModel || model.name;
@@ -57,6 +71,14 @@
 	function isBedrockOpenAICompatibleModel(model: (typeof data.models)[number]) {
 		const id = modelID(model);
 		return id.startsWith('openai.') || id.startsWith('google.');
+	}
+
+	function isAnthropicDialect(model: (typeof data.models)[number]) {
+		return model.dialect === 'AnthropicMessages';
+	}
+
+	function isOpenAIDialect(model: (typeof data.models)[number]) {
+		return model.dialect === 'OpenAIResponses';
 	}
 
 	function toCallableModelNames(models: typeof data.models): typeof data.models {
@@ -89,6 +111,12 @@
 	let bedrockAPIKeyOpenAICtx = $derived(
 		buildCtx('aws-bedrock-api-key-openai', bedrockAPIKeyOpenAIDisplayModels)
 	);
+	let azureAnthropicCtx = $derived(buildCtx('azure-anthropic', azureAnthropicDisplayModels));
+	let azureOpenAICtx = $derived(buildCtx('azure-openai', azureOpenAIDisplayModels));
+	let azureEntraAnthropicCtx = $derived(
+		buildCtx('azure-entra-anthropic', azureEntraAnthropicDisplayModels)
+	);
+	let azureEntraOpenAICtx = $derived(buildCtx('azure-entra-openai', azureEntraOpenAIDisplayModels));
 
 	let ready = $derived(obotURL !== '');
 
@@ -102,9 +130,9 @@
 		out:fly={{ x: -100, duration }}
 	>
 		<p class="text-muted-content max-w-3xl text-sm">
-			Use the Obot LLM Gateway to call OpenAI, Anthropic, Generic Responses, and Amazon Bedrock
-			models with your Obot credentials. Configure your client below, then pick from the models you
-			have access to.
+			Use the Obot LLM Gateway to call OpenAI, Anthropic, Generic Responses, Amazon Bedrock, and
+			Azure models with your Obot credentials. Configure your client below, then pick from the
+			models you have access to.
 		</p>
 
 		{#if ready}
@@ -140,6 +168,24 @@
 					<LLMGatewayProviderSection
 						ctx={bedrockAPIKeyOpenAICtx}
 						models={bedrockAPIKeyOpenAIDisplayModels}
+					/>
+				{/if}
+				{#if azureAnthropicModels.length > 0}
+					<LLMGatewayProviderSection ctx={azureAnthropicCtx} models={azureAnthropicDisplayModels} />
+				{/if}
+				{#if azureOpenAIModels.length > 0}
+					<LLMGatewayProviderSection ctx={azureOpenAICtx} models={azureOpenAIDisplayModels} />
+				{/if}
+				{#if azureEntraAnthropicModels.length > 0}
+					<LLMGatewayProviderSection
+						ctx={azureEntraAnthropicCtx}
+						models={azureEntraAnthropicDisplayModels}
+					/>
+				{/if}
+				{#if azureEntraOpenAIModels.length > 0}
+					<LLMGatewayProviderSection
+						ctx={azureEntraOpenAICtx}
+						models={azureEntraOpenAIDisplayModels}
 					/>
 				{/if}
 			</div>
