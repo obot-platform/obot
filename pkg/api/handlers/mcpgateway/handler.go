@@ -116,36 +116,44 @@ func (h *Handler) Proxy(req api.Context) error {
 
 		(&httputil.ReverseProxy{
 			Transport: h.transport,
-			Director: func(r *http.Request) {
-				r.Header.Set("X-Forwarded-Host", r.Host)
+			Rewrite: func(r *httputil.ProxyRequest) {
+				// SetXForwarded preserves the X-Forwarded-For handling that
+				// ReverseProxy applied automatically under the deprecated Director.
+				// It also writes X-Forwarded-Host and X-Forwarded-Proto, so the
+				// values this handler cares about are re-applied afterwards: the
+				// scheme is derived from the inbound host rather than from whether
+				// this hop happens to be TLS.
+				r.SetXForwarded()
+
+				r.Out.Header.Set("X-Forwarded-Host", r.In.Host)
 				scheme := "https"
-				if strings.HasPrefix(r.Host, "localhost") || strings.HasPrefix(r.Host, "127.0.0.1") {
+				if strings.HasPrefix(r.In.Host, "localhost") || strings.HasPrefix(r.In.Host, "127.0.0.1") {
 					scheme = "http"
 				}
-				r.Header.Set("X-Forwarded-Proto", scheme)
+				r.Out.Header.Set("X-Forwarded-Proto", scheme)
 
-				r.Host = u.Host
-				r.URL.Scheme = u.Scheme
-				r.URL.Host = u.Host
-				r.URL.Path = u.Path
-				if rest := r.PathValue("rest"); rest != "" {
+				r.Out.Host = u.Host
+				r.Out.URL.Scheme = u.Scheme
+				r.Out.URL.Host = u.Host
+				r.Out.URL.Path = u.Path
+				if rest := r.In.PathValue("rest"); rest != "" {
 					if strings.HasPrefix(rest, "/") {
-						r.URL.Path = rest
+						r.Out.URL.Path = rest
 					} else {
-						r.URL.Path = "/" + rest
+						r.Out.URL.Path = "/" + rest
 					}
 				}
 
 				// Merge query parameters from the incoming request and the upstream URL.
 				// Preserve all values; if a key exists in both, both values will be present.
 				upstreamQuery := u.Query()
-				origQuery := r.URL.Query()
+				origQuery := r.In.URL.Query()
 				for k, vs := range origQuery {
 					for _, v := range vs {
 						upstreamQuery.Add(k, v)
 					}
 				}
-				r.URL.RawQuery = upstreamQuery.Encode()
+				r.Out.URL.RawQuery = upstreamQuery.Encode()
 			},
 			ErrorHandler: func(w http.ResponseWriter, _ *http.Request, err error) {
 				http.Error(w, fmt.Sprintf("failed to proxy request to Nanobot agent %s: %v", serverConfig.NanobotAgentName, err), http.StatusBadGateway)
