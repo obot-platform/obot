@@ -1030,15 +1030,6 @@ func (s *Server) newLLMProviderProxy(u *url.URL, modelProviderName string) *llmP
 }
 
 func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
-	var audit *llmAuditRecorder
-	if req.GatewayClient.LLMAuditLogEnabled() {
-		audit = newLLMAuditRecorder(req.Request, req.User, defaultLLMAuditLogResponseCaptureLimit)
-		defer func() {
-			audit.finish(req.GatewayClient, retErr)
-		}()
-	}
-	audit.setModel(l.backend.modelProviderName(), "", "")
-
 	l.lock.RLock()
 	modelProvider := l.modelProvider
 	l.lock.RUnlock()
@@ -1056,8 +1047,21 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 
 	credEnv, err := dispatcher.CredentialEnvForModelProvider(req.Context(), req.GatewayClient, *modelProvider)
 	if err != nil {
+		if errors.As(err, &client.CredentialNotFoundError{}) {
+			return types2.NewErrBadRequest("model provider %q is not configured; verify that the LLM gateway endpoint matches the configured provider", modelProvider.Name)
+		}
 		return fmt.Errorf("failed to get credential environment for model provider: %w", err)
 	}
+
+	var audit *llmAuditRecorder
+	if req.GatewayClient.LLMAuditLogEnabled() {
+		audit = newLLMAuditRecorder(req.Request, req.User, defaultLLMAuditLogResponseCaptureLimit)
+		defer func() {
+			audit.finish(req.GatewayClient, retErr)
+		}()
+	}
+	audit.setModel(l.backend.modelProviderName(), "", "")
+
 	u, routeDialect, err := l.backend.upstreamURL(req.Request, credEnv)
 	if err != nil {
 		return err

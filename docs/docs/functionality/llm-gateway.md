@@ -2,6 +2,9 @@
 title: LLM Gateway
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 ## Overview
 
 The Obot LLM Gateway lets you call OpenAI, Anthropic, Generic Responses Compatible, and Amazon Bedrock models through Obot using an **Obot API key** instead of a provider API key. Point an OpenAI-, Anthropic-, or Bedrock Mantle-compatible client — such as [Claude Code](#using-with-claude-code) or [Codex](#using-with-codex) — at the gateway, authenticate with an API key that has LLM proxy access, and call models by their provider model names (for example `claude-opus-4.8`, `gpt-5.5`, or `anthropic.claude-haiku-4-5`).
@@ -119,6 +122,11 @@ curl $OPENAI_BASE_URL/v1/models \
 
 Amazon Bedrock gateway routes proxy directly to Bedrock Mantle. You must use the `/messages` API with `anthropic.*` models and the `/responses` API with `openai.*` and `google.*` models. The gateway uses the requested endpoint to select the corresponding Bedrock API. Vendor-specific tools such as Claude Code and Codex choose the correct request path automatically.
 
+Select the authentication method configured by your administrator. The selection is synchronized with the other Bedrock examples on this page.
+
+<Tabs groupId="bedrock-auth">
+  <TabItem value="static-credentials" label="Static credentials" default>
+
 ```bash
 export OBOT_API_KEY="$(obot login --url https://obot.example.com --scope llm --print-token)"
 
@@ -134,16 +142,38 @@ curl https://obot.example.com/api/llm-proxy/aws-bedrock/v1/responses \
   -H "Authorization: Bearer $OBOT_API_KEY" \
   -H "content-type: application/json" \
   -d '{"model":"openai.gpt-5.4","input":[{"role":"user","content":"hi"}]}'
-```
 
-Use `/api/llm-proxy/aws-bedrock-api-key/...` instead of `/api/llm-proxy/aws-bedrock/...` when your administrator configured the **Amazon Bedrock (API Key)** provider.
-
-To list the Bedrock models Obot knows you can access:
-
-```bash
+# List available Bedrock models
 curl https://obot.example.com/api/llm-proxy/aws-bedrock/v1/models \
   -H "Authorization: Bearer $OBOT_API_KEY"
 ```
+
+  </TabItem>
+  <TabItem value="api-key" label="API key">
+
+```bash
+export OBOT_API_KEY="$(obot login --url https://obot.example.com --scope llm --print-token)"
+
+# Anthropic-compatible Bedrock model
+curl https://obot.example.com/api/llm-proxy/aws-bedrock-api-key/v1/messages \
+  -H "Authorization: Bearer $OBOT_API_KEY" \
+  -H "anthropic-version: 2023-06-01" \
+  -H "content-type: application/json" \
+  -d '{"model":"anthropic.claude-haiku-4-5","max_tokens":1024,"messages":[{"role":"user","content":"hi"}]}'
+
+# OpenAI-compatible Bedrock model
+curl https://obot.example.com/api/llm-proxy/aws-bedrock-api-key/v1/responses \
+  -H "Authorization: Bearer $OBOT_API_KEY" \
+  -H "content-type: application/json" \
+  -d '{"model":"openai.gpt-5.4","input":[{"role":"user","content":"hi"}]}'
+
+# List available Bedrock models
+curl https://obot.example.com/api/llm-proxy/aws-bedrock-api-key/v1/models \
+  -H "Authorization: Bearer $OBOT_API_KEY"
+```
+
+  </TabItem>
+</Tabs>
 
 For Anthropic models on Bedrock, model availability depends on AWS region and account access. See the [AWS Bedrock Anthropic model cards](https://docs.aws.amazon.com/bedrock/latest/userguide/model-cards-anthropic.html) for region availability.
 
@@ -174,6 +204,9 @@ Inside Claude Code:
 
 Claude Code can also route Bedrock Mantle traffic through Obot. Use this mode for Bedrock `anthropic.*` models.
 
+<Tabs groupId="bedrock-auth">
+  <TabItem value="static-credentials" label="Static credentials" default>
+
 ```bash
 export ANTHROPIC_BEDROCK_MANTLE_BASE_URL="https://obot.example.com/api/llm-proxy/aws-bedrock"
 export ANTHROPIC_AUTH_TOKEN="$(obot login --url https://obot.example.com --scope llm --print-token)"
@@ -183,7 +216,22 @@ export CLAUDE_CODE_USE_MANTLE=1
 claude --model anthropic.claude-haiku-4-5
 ```
 
-For a local Obot server, use `ANTHROPIC_BEDROCK_MANTLE_BASE_URL="http://localhost:8080/api/llm-proxy/aws-bedrock"`.
+  </TabItem>
+  <TabItem value="api-key" label="API key">
+
+```bash
+export ANTHROPIC_BEDROCK_MANTLE_BASE_URL="https://obot.example.com/api/llm-proxy/aws-bedrock-api-key"
+export ANTHROPIC_AUTH_TOKEN="$(obot login --url https://obot.example.com --scope llm --print-token)"
+export CLAUDE_CODE_SKIP_MANTLE_AUTH=1
+export CLAUDE_CODE_USE_MANTLE=1
+
+claude --model anthropic.claude-haiku-4-5
+```
+
+  </TabItem>
+</Tabs>
+
+For a local Obot server, replace `https://obot.example.com` with `http://localhost:8080` in the selected base URL.
 
 `--model` is optional, but it is useful since Claude Code does not support model discovery with AWS Bedrock. The default models presented by Claude Code's model selector should be compatible with our Bedrock provider as long as the corresponding Bedrock model ID is enabled in Obot.
 
@@ -243,20 +291,46 @@ Codex uses the OpenAI Responses API by default, which is what the gateway serves
 
 Codex can use Bedrock `openai.*` and `google.*` models through Obot's OpenAI-compatible Bedrock route.
 
-To adapt the OpenAI configuration above for Bedrock, change the model and provider base URL:
+Add one of the following configurations to `~/.codex/config.toml`:
+
+<Tabs groupId="bedrock-auth">
+  <TabItem value="static-credentials" label="Static credentials" default>
 
 ```toml
 model = "openai.gpt-5.4"
 # Bedrock's google.* models are also compatible
 # model = "google.gemma-4-31b"
+model_provider = "obot_bedrock"
 
-[model_providers.obot_openai]
+[model_providers.obot_bedrock]
+name = "Amazon Bedrock Obot LLM Gateway"
 base_url = "https://obot.example.com/api/llm-proxy/aws-bedrock"
+env_key = "OBOT_API_KEY"
+env_key_instructions = "Set OBOT_API_KEY and restart to authenticate with the Obot LLM Gateway"
+supports_websockets = false
 ```
 
-For a local Obot server, use `base_url = "http://localhost:8080/api/llm-proxy/aws-bedrock"`.
+  </TabItem>
+  <TabItem value="api-key" label="API key">
 
-Use `/api/llm-proxy/aws-bedrock-api-key` when your administrator configured the **Amazon Bedrock (API Key)** provider.
+```toml
+model = "openai.gpt-5.4"
+# Bedrock's google.* models are also compatible
+# model = "google.gemma-4-31b"
+model_provider = "obot_bedrock"
+
+[model_providers.obot_bedrock]
+name = "Amazon Bedrock Obot LLM Gateway"
+base_url = "https://obot.example.com/api/llm-proxy/aws-bedrock-api-key"
+env_key = "OBOT_API_KEY"
+env_key_instructions = "Set OBOT_API_KEY and restart to authenticate with the Obot LLM Gateway"
+supports_websockets = false
+```
+
+  </TabItem>
+</Tabs>
+
+For a local Obot server, replace `https://obot.example.com` with `http://localhost:8080` in the selected base URL.
 
 See the Codex documentation for details:
 
