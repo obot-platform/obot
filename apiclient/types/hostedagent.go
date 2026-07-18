@@ -11,7 +11,6 @@ import (
 type HostedAgent struct {
 	Metadata            `json:",inline"`
 	HostedAgentManifest `json:",inline"`
-	Status              HostedAgentStatus `json:"status,omitempty"`
 }
 
 type HostedAgentManifest struct {
@@ -19,7 +18,12 @@ type HostedAgentManifest struct {
 	Description string `json:"description,omitempty"`
 	Icon        string `json:"icon,omitempty"`
 	IconDark    string `json:"iconDark,omitempty"`
-	Image       string `json:"image,omitempty"`
+
+	// HarnessID names the Harness this agent runs on. The harness supplies the
+	// docker image; the agent supplies configuration.
+	HarnessID string `json:"harnessID,omitempty"`
+	// GitRepo is an optional git repository made available to the agent.
+	GitRepo string `json:"gitRepo,omitempty"`
 
 	// ModelProviders, Models, MCPServers, and Skills are the IDs of configured
 	// services made available to the agent at runtime. MCPServers holds MCP
@@ -33,20 +37,19 @@ type HostedAgentManifest struct {
 
 	Env []HostedAgentEnv `json:"env,omitempty"`
 
-	// Questions are asked of the user when they create an instance. Only
-	// meaningful when PerUser is set.
+	// Questions are asked of the user when they create an instance.
 	Questions []HostedAgentQuestion `json:"questions,omitempty"`
 
 	// AllowUser* let a user attach their own resources to an instance, on top of
-	// the ones configured above. Only meaningful when PerUser is set.
+	// the ones configured above.
 	AllowUserMCPServers bool `json:"allowUserMCPServers,omitempty"`
 	AllowUserSkills     bool `json:"allowUserSkills,omitempty"`
 	AllowUserModels     bool `json:"allowUserModels,omitempty"`
+	// AllowUserGitRepo lets a user set their own git repository on an instance,
+	// overriding the agent's GitRepo if one is configured.
+	AllowUserGitRepo bool `json:"allowUserGitRepo,omitempty"`
 
-	// PerUser indicates users create their own instances of this agent rather
-	// than sharing a single multi-tenant one.
-	PerUser bool `json:"perUser,omitempty"`
-	// MaxInstancesPerUser caps instances per user when PerUser is set. Zero means unlimited.
+	// MaxInstancesPerUser caps instances per user. Zero means unlimited.
 	MaxInstancesPerUser int `json:"maxInstancesPerUser,omitempty"`
 }
 
@@ -88,12 +91,8 @@ type HostedAgentEnv struct {
 	Required    bool   `json:"required,omitempty"`
 }
 
-type HostedAgentStatus struct {
-	State HostedAgentState `json:"state,omitempty"`
-	URL   string           `json:"url,omitempty"`
-	Error string           `json:"error,omitempty"`
-}
-
+// HostedAgentState describes the orchestration state of an instance. Agents
+// themselves are templates and carry no state; only instances run.
 type HostedAgentState string
 
 const (
@@ -106,22 +105,16 @@ func (m HostedAgentManifest) Validate() error {
 	if m.Name == "" {
 		return fmt.Errorf("name is required")
 	}
-	if m.Image == "" {
-		return fmt.Errorf("image is required")
+	if m.HarnessID == "" {
+		return fmt.Errorf("harnessID is required")
+	}
+	if m.GitRepo != "" {
+		if err := ValidateGitRepoURL(m.GitRepo); err != nil {
+			return err
+		}
 	}
 	if m.MaxInstancesPerUser < 0 {
 		return fmt.Errorf("maxInstancesPerUser must be greater than or equal to 0")
-	}
-	if !m.PerUser && m.MaxInstancesPerUser != 0 {
-		return fmt.Errorf("maxInstancesPerUser is only valid when perUser is set")
-	}
-	if !m.PerUser {
-		if len(m.Questions) > 0 {
-			return fmt.Errorf("questions are only valid when perUser is set")
-		}
-		if m.AllowUserMCPServers || m.AllowUserSkills || m.AllowUserModels {
-			return fmt.Errorf("user-defined resources are only valid when perUser is set")
-		}
 	}
 
 	keys := make(map[string]struct{}, len(m.Env))

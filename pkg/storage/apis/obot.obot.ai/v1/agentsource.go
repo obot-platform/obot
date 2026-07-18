@@ -46,6 +46,7 @@ func (in *AgentSource) GetColumns() [][]string {
 		{"Repo URL", "Spec.RepoURL"},
 		{"Ref", "Spec.Ref"},
 		{"Discovered Agents", "Status.DiscoveredAgentCount"},
+		{"Discovered Harnesses", "Status.DiscoveredHarnessCount"},
 		{"Last Synced", "{{ago .Status.LastSyncTime}}"},
 	}
 }
@@ -55,11 +56,12 @@ type AgentSourceSpec struct {
 }
 
 type AgentSourceStatus struct {
-	LastSyncTime         metav1.Time `json:"lastSyncTime,omitzero"`
-	IsSyncing            bool        `json:"isSyncing,omitempty"`
-	SyncError            string      `json:"syncError,omitempty"`
-	ResolvedCommitSHA    string      `json:"resolvedCommitSHA,omitempty"`
-	DiscoveredAgentCount int         `json:"discoveredAgentCount"`
+	LastSyncTime           metav1.Time `json:"lastSyncTime,omitzero"`
+	IsSyncing              bool        `json:"isSyncing,omitempty"`
+	SyncError              string      `json:"syncError,omitempty"`
+	ResolvedCommitSHA      string      `json:"resolvedCommitSHA,omitempty"`
+	DiscoveredAgentCount   int         `json:"discoveredAgentCount"`
+	DiscoveredHarnessCount int         `json:"discoveredHarnessCount"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

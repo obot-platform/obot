@@ -109,6 +109,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.GCSConfig":                                 schema_obot_platform_obot_apiclient_types_GCSConfig(ref),
 		"github.com/obot-platform/obot/apiclient/types.GroupRoleAssignment":                       schema_obot_platform_obot_apiclient_types_GroupRoleAssignment(ref),
 		"github.com/obot-platform/obot/apiclient/types.GroupRoleAssignmentList":                   schema_obot_platform_obot_apiclient_types_GroupRoleAssignmentList(ref),
+		"github.com/obot-platform/obot/apiclient/types.Harness":                                   schema_obot_platform_obot_apiclient_types_Harness(ref),
+		"github.com/obot-platform/obot/apiclient/types.HarnessList":                               schema_obot_platform_obot_apiclient_types_HarnessList(ref),
+		"github.com/obot-platform/obot/apiclient/types.HarnessManifest":                           schema_obot_platform_obot_apiclient_types_HarnessManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.HostedAgent":                               schema_obot_platform_obot_apiclient_types_HostedAgent(ref),
 		"github.com/obot-platform/obot/apiclient/types.HostedAgentAccessRule":                     schema_obot_platform_obot_apiclient_types_HostedAgentAccessRule(ref),
 		"github.com/obot-platform/obot/apiclient/types.HostedAgentAccessRuleList":                 schema_obot_platform_obot_apiclient_types_HostedAgentAccessRuleList(ref),
@@ -122,7 +125,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.HostedAgentManifest":                       schema_obot_platform_obot_apiclient_types_HostedAgentManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.HostedAgentQuestion":                       schema_obot_platform_obot_apiclient_types_HostedAgentQuestion(ref),
 		"github.com/obot-platform/obot/apiclient/types.HostedAgentResource":                       schema_obot_platform_obot_apiclient_types_HostedAgentResource(ref),
-		"github.com/obot-platform/obot/apiclient/types.HostedAgentStatus":                         schema_obot_platform_obot_apiclient_types_HostedAgentStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.ImagePullSecret":                           schema_obot_platform_obot_apiclient_types_ImagePullSecret(ref),
 		"github.com/obot-platform/obot/apiclient/types.ImagePullSecretCapability":                 schema_obot_platform_obot_apiclient_types_ImagePullSecretCapability(ref),
 		"github.com/obot-platform/obot/apiclient/types.ImagePullSecretList":                       schema_obot_platform_obot_apiclient_types_ImagePullSecretList(ref),
@@ -350,6 +352,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1.GroupRoleChange{}.OpenAPIModelName():                                                   schema_storage_apis_obotobotai_v1_GroupRoleChange(ref),
 		v1.GroupRoleChangeList{}.OpenAPIModelName():                                               schema_storage_apis_obotobotai_v1_GroupRoleChangeList(ref),
 		v1.GroupRoleChangeSpec{}.OpenAPIModelName():                                               schema_storage_apis_obotobotai_v1_GroupRoleChangeSpec(ref),
+		v1.Harness{}.OpenAPIModelName():                                                           schema_storage_apis_obotobotai_v1_Harness(ref),
+		v1.HarnessList{}.OpenAPIModelName():                                                       schema_storage_apis_obotobotai_v1_HarnessList(ref),
+		v1.HarnessSpec{}.OpenAPIModelName():                                                       schema_storage_apis_obotobotai_v1_HarnessSpec(ref),
+		v1.HarnessStatus{}.OpenAPIModelName():                                                     schema_storage_apis_obotobotai_v1_HarnessStatus(ref),
 		v1.HostedAgent{}.OpenAPIModelName():                                                       schema_storage_apis_obotobotai_v1_HostedAgent(ref),
 		v1.HostedAgentAccessRule{}.OpenAPIModelName():                                             schema_storage_apis_obotobotai_v1_HostedAgentAccessRule(ref),
 		v1.HostedAgentAccessRuleList{}.OpenAPIModelName():                                         schema_storage_apis_obotobotai_v1_HostedAgentAccessRuleList(ref),
@@ -807,7 +813,7 @@ func schema_obot_platform_obot_apiclient_types_AgentSource(ref common.ReferenceC
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "AgentSource is a git repository that hosted agents are discovered from, mirroring SkillRepository for skills.",
+				Description: "AgentSource is a git repository that hosted agents and harnesses are discovered from, mirroring SkillRepository for skills.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"id": {
@@ -908,8 +914,15 @@ func schema_obot_platform_obot_apiclient_types_AgentSource(ref common.ReferenceC
 							Format:  "int32",
 						},
 					},
+					"discoveredHarnessCount": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
 				},
-				Required: []string{"created", "lastSyncTime", "discoveredAgentCount"},
+				Required: []string{"created", "lastSyncTime", "discoveredAgentCount", "discoveredHarnessCount"},
 			},
 		},
 		Dependencies: []string{
@@ -5287,11 +5300,12 @@ func schema_obot_platform_obot_apiclient_types_GroupRoleAssignmentList(ref commo
 	}
 }
 
-func schema_obot_platform_obot_apiclient_types_HostedAgent(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_Harness(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
+				Description: "Harness is the runtime a hosted agent is built on (for example \"Claude Code\", \"Codex\", or a custom Python/Node image). The harness supplies the docker image; the agent supplies configuration.",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"id": {
 						SchemaProps: spec.SchemaProps{
@@ -5373,6 +5387,178 @@ func schema_obot_platform_obot_apiclient_types_HostedAgent(ref common.ReferenceC
 							Format: "",
 						},
 					},
+				},
+				Required: []string{"created"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_HarnessList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.Harness"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Harness"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_HarnessManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"icon": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"iconDark": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"image": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_HostedAgent(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"created": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"deleted": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"links": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"icon": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"iconDark": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"harnessID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "HarnessID names the Harness this agent runs on. The harness supplies the docker image; the agent supplies configuration.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"gitRepo": {
+						SchemaProps: spec.SchemaProps{
+							Description: "GitRepo is an optional git repository made available to the agent.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"modelProviders": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ModelProviders, Models, MCPServers, and Skills are the IDs of configured services made available to the agent at runtime. MCPServers holds MCP gateway IDs, the same handles used by /mcp-connect/{mcp_id}, so an entry may name a catalog entry or a server. Models may also hold obot://<alias> references to default model aliases.",
@@ -5440,7 +5626,7 @@ func schema_obot_platform_obot_apiclient_types_HostedAgent(ref common.ReferenceC
 					},
 					"questions": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Questions are asked of the user when they create an instance. Only meaningful when PerUser is set.",
+							Description: "Questions are asked of the user when they create an instance.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -5453,7 +5639,7 @@ func schema_obot_platform_obot_apiclient_types_HostedAgent(ref common.ReferenceC
 					},
 					"allowUserMCPServers": {
 						SchemaProps: spec.SchemaProps{
-							Description: "AllowUser* let a user attach their own resources to an instance, on top of the ones configured above. Only meaningful when PerUser is set.",
+							Description: "AllowUser* let a user attach their own resources to an instance, on top of the ones configured above.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -5470,24 +5656,18 @@ func schema_obot_platform_obot_apiclient_types_HostedAgent(ref common.ReferenceC
 							Format: "",
 						},
 					},
-					"perUser": {
+					"allowUserGitRepo": {
 						SchemaProps: spec.SchemaProps{
-							Description: "PerUser indicates users create their own instances of this agent rather than sharing a single multi-tenant one.",
+							Description: "AllowUserGitRepo lets a user set their own git repository on an instance, overriding the agent's GitRepo if one is configured.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
 					},
 					"maxInstancesPerUser": {
 						SchemaProps: spec.SchemaProps{
-							Description: "MaxInstancesPerUser caps instances per user when PerUser is set. Zero means unlimited.",
+							Description: "MaxInstancesPerUser caps instances per user. Zero means unlimited.",
 							Type:        []string{"integer"},
 							Format:      "int32",
-						},
-					},
-					"status": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.HostedAgentStatus"),
 						},
 					},
 				},
@@ -5495,7 +5675,7 @@ func schema_obot_platform_obot_apiclient_types_HostedAgent(ref common.ReferenceC
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.HostedAgentEnv", "github.com/obot-platform/obot/apiclient/types.HostedAgentQuestion", "github.com/obot-platform/obot/apiclient/types.HostedAgentStatus", "github.com/obot-platform/obot/apiclient/types.Time"},
+			"github.com/obot-platform/obot/apiclient/types.HostedAgentEnv", "github.com/obot-platform/obot/apiclient/types.HostedAgentQuestion", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
@@ -5805,6 +5985,13 @@ func schema_obot_platform_obot_apiclient_types_HostedAgentInstance(ref common.Re
 							},
 						},
 					},
+					"gitRepo": {
+						SchemaProps: spec.SchemaProps{
+							Description: "GitRepo is a git repository the user supplied for this instance. Only accepted when the agent sets AllowUserGitRepo; it overrides the agent's GitRepo if one is configured.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"mcpServers": {
 						SchemaProps: spec.SchemaProps{
 							Description: "MCPServers, Skills, and Models are resources the user attached themselves. They are only accepted when the agent allows the corresponding kind, and only when the user has access to each one; the server checks both on create and update. MCPServers holds MCP gateway IDs, and Models may hold obot://<alias> references.",
@@ -5936,6 +6123,13 @@ func schema_obot_platform_obot_apiclient_types_HostedAgentInstanceManifest(ref c
 									},
 								},
 							},
+						},
+					},
+					"gitRepo": {
+						SchemaProps: spec.SchemaProps{
+							Description: "GitRepo is a git repository the user supplied for this instance. Only accepted when the agent sets AllowUserGitRepo; it overrides the agent's GitRepo if one is configured.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"mcpServers": {
@@ -6071,10 +6265,18 @@ func schema_obot_platform_obot_apiclient_types_HostedAgentManifest(ref common.Re
 							Format: "",
 						},
 					},
-					"image": {
+					"harnessID": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "HarnessID names the Harness this agent runs on. The harness supplies the docker image; the agent supplies configuration.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"gitRepo": {
+						SchemaProps: spec.SchemaProps{
+							Description: "GitRepo is an optional git repository made available to the agent.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"modelProviders": {
@@ -6144,7 +6346,7 @@ func schema_obot_platform_obot_apiclient_types_HostedAgentManifest(ref common.Re
 					},
 					"questions": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Questions are asked of the user when they create an instance. Only meaningful when PerUser is set.",
+							Description: "Questions are asked of the user when they create an instance.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -6157,7 +6359,7 @@ func schema_obot_platform_obot_apiclient_types_HostedAgentManifest(ref common.Re
 					},
 					"allowUserMCPServers": {
 						SchemaProps: spec.SchemaProps{
-							Description: "AllowUser* let a user attach their own resources to an instance, on top of the ones configured above. Only meaningful when PerUser is set.",
+							Description: "AllowUser* let a user attach their own resources to an instance, on top of the ones configured above.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -6174,16 +6376,16 @@ func schema_obot_platform_obot_apiclient_types_HostedAgentManifest(ref common.Re
 							Format: "",
 						},
 					},
-					"perUser": {
+					"allowUserGitRepo": {
 						SchemaProps: spec.SchemaProps{
-							Description: "PerUser indicates users create their own instances of this agent rather than sharing a single multi-tenant one.",
+							Description: "AllowUserGitRepo lets a user set their own git repository on an instance, overriding the agent's GitRepo if one is configured.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
 					},
 					"maxInstancesPerUser": {
 						SchemaProps: spec.SchemaProps{
-							Description: "MaxInstancesPerUser caps instances per user when PerUser is set. Zero means unlimited.",
+							Description: "MaxInstancesPerUser caps instances per user. Zero means unlimited.",
 							Type:        []string{"integer"},
 							Format:      "int32",
 						},
@@ -6289,36 +6491,6 @@ func schema_obot_platform_obot_apiclient_types_HostedAgentResource(ref common.Re
 					},
 				},
 				Required: []string{"type", "id"},
-			},
-		},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_HostedAgentStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"state": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"url": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"error": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-				},
 			},
 		},
 	}
@@ -16250,8 +16422,15 @@ func schema_storage_apis_obotobotai_v1_AgentSourceStatus(ref common.ReferenceCal
 							Format:  "int32",
 						},
 					},
+					"discoveredHarnessCount": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
 				},
-				Required: []string{"lastSyncTime", "discoveredAgentCount"},
+				Required: []string{"lastSyncTime", "discoveredAgentCount", "discoveredHarnessCount"},
 			},
 		},
 		Dependencies: []string{
@@ -17416,6 +17595,151 @@ func schema_storage_apis_obotobotai_v1_GroupRoleChangeSpec(ref common.ReferenceC
 	}
 }
 
+func schema_storage_apis_obotobotai_v1_Harness(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(metav1.ObjectMeta{}.OpenAPIModelName()),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1.HarnessSpec{}.OpenAPIModelName()),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1.HarnessStatus{}.OpenAPIModelName()),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			v1.HarnessSpec{}.OpenAPIModelName(), v1.HarnessStatus{}.OpenAPIModelName(), metav1.ObjectMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_HarnessList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(metav1.ListMeta{}.OpenAPIModelName()),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref(v1.Harness{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			v1.Harness{}.OpenAPIModelName(), metav1.ListMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_HarnessSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"manifest": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.HarnessManifest"),
+						},
+					},
+					"sourceID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SourceID names the AgentSource this harness was discovered from. Empty for harnesses an admin registered by hand, which the sync never touches.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"relativePath": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RelativePath is where the harness was found within the source repository. Agents from the same source reference the harness by this path.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"commitSHA": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CommitSHA is the source commit this harness was built from.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.HarnessManifest"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_HarnessStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "HarnessStatus is empty: a harness is configuration only.",
+				Type:        []string{"object"},
+			},
+		},
+	}
+}
+
 func schema_storage_apis_obotobotai_v1_HostedAgent(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -17824,27 +18148,8 @@ func schema_storage_apis_obotobotai_v1_HostedAgentStatus(ref common.ReferenceCal
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"state": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"url": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"error": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-				},
+				Description: "HostedAgentStatus is empty: an agent is a template, and orchestration state lives on its instances.",
+				Type:        []string{"object"},
 			},
 		},
 	}

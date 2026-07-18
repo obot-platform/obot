@@ -8,12 +8,12 @@
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import Loading from '$lib/icons/Loading.svelte';
-	import { type AgentSource, type HostedAgent } from '$lib/services/admin/types';
+	import { type AgentSource, type Harness, type HostedAgent } from '$lib/services/admin/types';
 	import { AdminService } from '$lib/services/index.js';
 	import { errors, profile } from '$lib/stores/index.js';
 	import { clearUrlParams, goto } from '$lib/url';
 	import { openUrl } from '$lib/utils.js';
-	import { Bot, GitBranch, Pencil, Plus, RefreshCcw, Trash2 } from '@lucide/svelte';
+	import { Bot, Cpu, GitBranch, Pencil, Plus, RefreshCcw, Trash2 } from '@lucide/svelte';
 	import { onDestroy, untrack } from 'svelte';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import { fly } from 'svelte/transition';
@@ -22,13 +22,19 @@
 	let { data } = $props();
 	let hostedAgents = $state(untrack(() => data.hostedAgents));
 	let agentSources = $state(untrack(() => data.agentSources));
+	let harnesses = $state(untrack(() => data.harnesses));
 	let agentToDelete = $state<HostedAgent>();
 	let sourceToDelete = $state<AgentSource>();
+	let harnessToDelete = $state<Harness>();
 
 	let isReadonly = $derived(profile.current.isAdminReadonly?.());
 	let showCreateNew = $derived(page.url.searchParams.has('new'));
-	let view = $derived<'agents' | 'sources'>(
-		page.url.searchParams.get('view') === 'sources' ? 'sources' : 'agents'
+	let view = $derived<'agents' | 'sources' | 'harnesses'>(
+		page.url.searchParams.get('view') === 'sources'
+			? 'sources'
+			: page.url.searchParams.get('view') === 'harnesses'
+				? 'harnesses'
+				: 'agents'
 	);
 
 	// Source form
@@ -63,6 +69,7 @@
 						clearSyncInterval(id);
 						agentSources = await AdminService.listAgentSources();
 						hostedAgents = await AdminService.listHostedAgents({ all: true });
+						harnesses = await AdminService.listHarnesses();
 						syncing.delete(id);
 					}
 				} catch (err) {
@@ -85,8 +92,8 @@
 		}
 	}
 
-	function switchView(newView: 'agents' | 'sources') {
-		goto(newView === 'sources' ? '/admin/hosted-agents?view=sources' : '/admin/hosted-agents');
+	function switchView(newView: 'agents' | 'sources' | 'harnesses') {
+		goto(newView === 'agents' ? '/admin/hosted-agents' : `/admin/hosted-agents?view=${newView}`);
 	}
 
 	async function navigateToCreated(agent: HostedAgent) {
@@ -98,15 +105,22 @@
 
 	let title = $derived(showCreateNew ? 'Create Agent' : 'Agents');
 
+	let harnessesById = $derived(new Map(harnesses.map((h) => [h.id, h])));
+
 	let tableData = $derived(
 		hostedAgents.map((agent) => ({
 			id: agent.id,
 			name: agent.name,
-			image: agent.image,
-			instancing: agent.perUser ? 'Per-user' : 'Shared',
-			// Per-user agents are served by their instances, so the agent itself never
-			// gets a state of its own — showing "pending" there would look stuck.
-			state: agent.perUser ? '' : (agent.status?.state ?? 'pending')
+			harness: harnessesById.get(agent.harnessID)?.name ?? agent.harnessID
+		}))
+	);
+
+	let harnessTableData = $derived(
+		harnesses.map((harness) => ({
+			id: harness.id,
+			name: harness.name,
+			description: harness.description ?? '',
+			image: harness.image
 		}))
 	);
 
@@ -117,6 +131,7 @@
 			repoURL: source.repoURL,
 			ref: source.ref || '(default branch)',
 			discoveredAgentCount: source.discoveredAgentCount ?? 0,
+			discoveredHarnessCount: source.discoveredHarnessCount ?? 0,
 			syncError: source.syncError ?? '',
 			isSyncing: syncing.has(source.id) || Boolean(source.isSyncing)
 		}))
@@ -161,6 +176,56 @@
 	}
 
 	let canSaveSource = $derived(Boolean(sourceForm.displayName && sourceForm.repoURL));
+
+	// Harness form
+	let harnessDialog = $state<ReturnType<typeof ResponsiveDialog>>();
+	let editingHarness = $state<Harness | undefined>();
+	let savingHarness = $state(false);
+	let harnessForm = $state({ name: '', description: '', icon: '', iconDark: '', image: '' });
+
+	function openCreateHarness() {
+		editingHarness = undefined;
+		harnessForm = { name: '', description: '', icon: '', iconDark: '', image: '' };
+		harnessDialog?.open();
+	}
+
+	function openEditHarness(harness: Harness) {
+		editingHarness = harness;
+		harnessForm = {
+			name: harness.name,
+			description: harness.description ?? '',
+			icon: harness.icon ?? '',
+			iconDark: harness.iconDark ?? '',
+			image: harness.image
+		};
+		harnessDialog?.open();
+	}
+
+	async function saveHarness() {
+		savingHarness = true;
+		try {
+			const manifest = {
+				name: harnessForm.name,
+				description: harnessForm.description,
+				icon: harnessForm.icon,
+				iconDark: harnessForm.iconDark,
+				image: harnessForm.image
+			};
+			if (editingHarness) {
+				await AdminService.updateHarness(editingHarness.id, manifest);
+			} else {
+				await AdminService.createHarness(manifest);
+			}
+			harnesses = await AdminService.listHarnesses();
+			harnessDialog?.close();
+		} catch (err) {
+			errors.append(`Failed to save harness: ${err}`);
+		} finally {
+			savingHarness = false;
+		}
+	}
+
+	let canSaveHarness = $derived(Boolean(harnessForm.name && harnessForm.image));
 </script>
 
 <Layout {title} showBackButton={showCreateNew}>
@@ -190,6 +255,12 @@
 					>
 						Sources
 					</button>
+					<button
+						class={twMerge('page-tab max-w-1/2', view === 'harnesses' && 'page-tab-active')}
+						onclick={() => switchView('harnesses')}
+					>
+						Harnesses
+					</button>
 				</div>
 
 				{#if view === 'agents'}
@@ -208,20 +279,36 @@
 					{:else}
 						{@render agentTable()}
 					{/if}
-				{:else if agentSources.length === 0}
+				{:else if view === 'sources'}
+					{#if agentSources.length === 0}
+						<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
+							<GitBranch class="text-muted-content size-24 opacity-25" />
+							<h4 class="text-muted-content text-lg font-semibold">No agent sources</h4>
+							<p class="text-muted-content text-sm font-light">
+								Add a Git repository to discover agents from it. <br />
+								{#if !isReadonly}
+									Click the button below to get started.
+								{/if}
+							</p>
+							{@render addSourceButton()}
+						</div>
+					{:else}
+						{@render sourceTable()}
+					{/if}
+				{:else if harnesses.length === 0}
 					<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-						<GitBranch class="text-muted-content size-24 opacity-25" />
-						<h4 class="text-muted-content text-lg font-semibold">No agent sources</h4>
+						<Cpu class="text-muted-content size-24 opacity-25" />
+						<h4 class="text-muted-content text-lg font-semibold">No harnesses</h4>
 						<p class="text-muted-content text-sm font-light">
-							Add a Git repository to discover agents from it. <br />
+							Harnesses are the runtimes agents are built on, such as Claude Code or Codex. <br />
 							{#if !isReadonly}
-								Click the button below to get started.
+								Add one before registering agents.
 							{/if}
 						</p>
-						{@render addSourceButton()}
+						{@render addHarnessButton()}
 					</div>
 				{:else}
-					{@render sourceTable()}
+					{@render harnessTable()}
 				{/if}
 			</div>
 		{/if}
@@ -232,8 +319,10 @@
 			<div class="relative flex items-center gap-4">
 				{#if view === 'agents'}
 					{@render addAgentButton()}
-				{:else}
+				{:else if view === 'sources'}
 					{@render addSourceButton()}
+				{:else}
+					{@render addHarnessButton()}
 				{/if}
 			</div>
 		{/if}
@@ -243,37 +332,16 @@
 {#snippet agentTable()}
 	<Table
 		data={tableData}
-		fields={['name', 'image', 'instancing', 'state']}
+		fields={['name', 'harness']}
 		headers={[
 			{ property: 'name', title: 'Name' },
-			{ property: 'image', title: 'Image' },
-			{ property: 'instancing', title: 'Instancing' },
-			{ property: 'state', title: 'State' }
+			{ property: 'harness', title: 'Harness' }
 		]}
 		onClickRow={(d, isCtrlClick) => {
 			openUrl(`/admin/hosted-agents/${d.id}`, isCtrlClick);
 		}}
-		sortable={['name', 'instancing', 'state']}
+		sortable={['name', 'harness']}
 	>
-		{#snippet onRenderColumn(property, d)}
-			{#if property === 'state'}
-				{#if d.state}
-					<span
-						class="badge badge-sm {d.state === 'ready'
-							? 'badge-success'
-							: d.state === 'error'
-								? 'badge-error'
-								: 'badge-secondary'}"
-					>
-						{d.state}
-					</span>
-				{:else}
-					<span class="text-muted-content">-</span>
-				{/if}
-			{:else}
-				{d[property as keyof typeof d]}
-			{/if}
-		{/snippet}
 		{#snippet actions(d)}
 			{#if !isReadonly}
 				<IconButton
@@ -294,12 +362,13 @@
 {#snippet sourceTable()}
 	<Table
 		data={sourceTableData}
-		fields={['displayName', 'repoURL', 'ref', 'discoveredAgentCount']}
+		fields={['displayName', 'repoURL', 'ref', 'discoveredAgentCount', 'discoveredHarnessCount']}
 		headers={[
 			{ property: 'displayName', title: 'Name' },
 			{ property: 'repoURL', title: 'Repository' },
 			{ property: 'ref', title: 'Ref' },
-			{ property: 'discoveredAgentCount', title: 'Agents' }
+			{ property: 'discoveredAgentCount', title: 'Agents' },
+			{ property: 'discoveredHarnessCount', title: 'Harnesses' }
 		]}
 		sortable={['displayName', 'repoURL']}
 		noDataMessage="No sources added."
@@ -355,6 +424,45 @@
 	</Table>
 {/snippet}
 
+{#snippet harnessTable()}
+	<Table
+		data={harnessTableData}
+		fields={['name', 'description', 'image']}
+		headers={[
+			{ property: 'name', title: 'Name' },
+			{ property: 'description', title: 'Description' },
+			{ property: 'image', title: 'Image' }
+		]}
+		sortable={['name', 'image']}
+		noDataMessage="No harnesses added."
+	>
+		{#snippet actions(d)}
+			{#if !isReadonly}
+				<IconButton
+					onclick={(e) => {
+						e.stopPropagation();
+						const harness = harnesses.find((h) => h.id === d.id);
+						if (harness) openEditHarness(harness);
+					}}
+					tooltip={{ text: 'Edit Harness' }}
+				>
+					<Pencil class="size-4" />
+				</IconButton>
+				<IconButton
+					variant="danger"
+					onclick={(e) => {
+						e.stopPropagation();
+						harnessToDelete = harnesses.find((h) => h.id === d.id);
+					}}
+					tooltip={{ text: 'Delete Harness' }}
+				>
+					<Trash2 class="size-4" />
+				</IconButton>
+			{/if}
+		{/snippet}
+	</Table>
+{/snippet}
+
 {#snippet addAgentButton()}
 	{#if !isReadonly}
 		<button
@@ -370,6 +478,14 @@
 	{#if !isReadonly}
 		<button class="btn btn-primary flex items-center gap-1 text-sm" onclick={openCreateSource}>
 			<Plus class="size-4" /> Add Source
+		</button>
+	{/if}
+{/snippet}
+
+{#snippet addHarnessButton()}
+	{#if !isReadonly}
+		<button class="btn btn-primary flex items-center gap-1 text-sm" onclick={openCreateHarness}>
+			<Plus class="size-4" /> Add Harness
 		</button>
 	{/if}
 {/snippet}
@@ -433,6 +549,93 @@
 	</div>
 </ResponsiveDialog>
 
+<ResponsiveDialog
+	bind:this={harnessDialog}
+	title={editingHarness ? 'Edit Harness' : 'Add Harness'}
+	class="md:max-w-md"
+>
+	<div class="flex flex-col gap-4">
+		<div class="flex flex-col gap-2">
+			<label for="harness-name" class="text-sm font-light">Name</label>
+			<input
+				id="harness-name"
+				bind:value={harnessForm.name}
+				class="text-input-filled"
+				placeholder="Claude Code"
+			/>
+		</div>
+		<div class="flex flex-col gap-2">
+			<label for="harness-description" class="text-sm font-light">Description</label>
+			<textarea
+				id="harness-description"
+				bind:value={harnessForm.description}
+				class="text-input-filled"
+				rows="2"
+			></textarea>
+		</div>
+		<div class="flex flex-col gap-2">
+			<label for="harness-image" class="text-sm font-light">Docker Image</label>
+			<input
+				id="harness-image"
+				bind:value={harnessForm.image}
+				class="text-input-filled"
+				placeholder="ghcr.io/example/claude-code:latest"
+				autocomplete="off"
+			/>
+		</div>
+		<div class="flex flex-col gap-2">
+			<label for="harness-icon" class="text-sm font-light">Icon URL</label>
+			<div class="flex items-center gap-3">
+				{#if harnessForm.icon}
+					<img src={harnessForm.icon} alt="" class="size-10 shrink-0 rounded-md object-contain" />
+				{/if}
+				<input
+					type="text"
+					id="harness-icon"
+					bind:value={harnessForm.icon}
+					class="text-input-filled grow"
+					inputmode="url"
+					autocomplete="off"
+				/>
+			</div>
+		</div>
+		<div class="flex flex-col gap-2">
+			<label for="harness-icon-dark" class="text-sm font-light">Icon URL (Dark)</label>
+			<div class="flex items-center gap-3">
+				{#if harnessForm.iconDark}
+					<img
+						src={harnessForm.iconDark}
+						alt=""
+						class="bg-base-300 size-10 shrink-0 rounded-md object-contain"
+					/>
+				{/if}
+				<input
+					type="text"
+					id="harness-icon-dark"
+					bind:value={harnessForm.iconDark}
+					class="text-input-filled grow"
+					inputmode="url"
+					autocomplete="off"
+				/>
+			</div>
+		</div>
+	</div>
+	<div class="flex justify-end gap-2 pt-4">
+		<button class="btn btn-secondary text-sm" onclick={() => harnessDialog?.close()}>Cancel</button>
+		<button
+			class="btn btn-primary text-sm"
+			disabled={!canSaveHarness || savingHarness}
+			onclick={saveHarness}
+		>
+			{#if savingHarness}
+				<Loading class="size-4" />
+			{:else}
+				{editingHarness ? 'Update' : 'Add'}
+			{/if}
+		</button>
+	</div>
+</ResponsiveDialog>
+
 <Confirm
 	msg={`Delete ${agentToDelete?.name || 'this agent'}?`}
 	show={Boolean(agentToDelete)}
@@ -447,16 +650,34 @@
 
 <Confirm
 	msg={`Delete ${sourceToDelete?.displayName || 'this source'}?`}
-	note="Agents discovered from this source will be removed."
+	note="Agents and harnesses discovered from this source will be removed."
 	show={Boolean(sourceToDelete)}
 	onsuccess={async () => {
 		if (!sourceToDelete) return;
 		await AdminService.deleteAgentSource(sourceToDelete.id);
 		agentSources = await AdminService.listAgentSources();
 		hostedAgents = await AdminService.listHostedAgents({ all: true });
+		harnesses = await AdminService.listHarnesses();
 		sourceToDelete = undefined;
 	}}
 	oncancel={() => (sourceToDelete = undefined)}
+/>
+
+<Confirm
+	msg={`Delete ${harnessToDelete?.name || 'this harness'}?`}
+	note="A harness that agents still run on cannot be deleted."
+	show={Boolean(harnessToDelete)}
+	onsuccess={async () => {
+		if (!harnessToDelete) return;
+		try {
+			await AdminService.deleteHarness(harnessToDelete.id);
+			harnesses = await AdminService.listHarnesses();
+		} catch (err) {
+			errors.append(`Failed to delete harness: ${err}`);
+		}
+		harnessToDelete = undefined;
+	}}
+	oncancel={() => (harnessToDelete = undefined)}
 />
 
 <svelte:head>

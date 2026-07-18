@@ -26,6 +26,7 @@
 		description: '',
 		icon: '',
 		answers: {} as Record<string, string>,
+		gitRepo: '',
 		mcpServers: [] as string[],
 		skills: [] as string[],
 		models: [] as string[]
@@ -116,6 +117,7 @@
 			description: '',
 			icon: '',
 			answers: defaultAnswers(),
+			gitRepo: '',
 			mcpServers: [],
 			skills: [],
 			models: []
@@ -130,6 +132,7 @@
 			description: instance.description ?? '',
 			icon: instance.icon ?? '',
 			answers: { ...defaultAnswers(), ...(instance.answers ?? {}) },
+			gitRepo: instance.gitRepo ?? '',
 			mcpServers: [...(instance.mcpServers ?? [])],
 			skills: [...(instance.skills ?? [])],
 			models: [...(instance.models ?? [])]
@@ -146,6 +149,7 @@
 				description: form.description,
 				icon: form.icon,
 				answers: form.answers,
+				gitRepo: form.gitRepo,
 				mcpServers: form.mcpServers,
 				skills: form.skills,
 				models: form.models
@@ -274,6 +278,7 @@
 			bind:description={form.description}
 			bind:icon={form.icon}
 			bind:answers={form.answers}
+			bind:gitRepo={form.gitRepo}
 			bind:mcpServers={form.mcpServers}
 			bind:skills={form.skills}
 			bind:models={form.models}

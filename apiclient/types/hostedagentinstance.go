@@ -20,6 +20,11 @@ type HostedAgentInstanceManifest struct {
 	// manifest is the schema they are validated against.
 	Answers map[string]string `json:"answers,omitempty"`
 
+	// GitRepo is a git repository the user supplied for this instance. Only
+	// accepted when the agent sets AllowUserGitRepo; it overrides the agent's
+	// GitRepo if one is configured.
+	GitRepo string `json:"gitRepo,omitempty"`
+
 	// MCPServers, Skills, and Models are resources the user attached themselves.
 	// They are only accepted when the agent allows the corresponding kind, and
 	// only when the user has access to each one; the server checks both on create
@@ -40,6 +45,11 @@ func (m HostedAgentInstanceManifest) Validate() error {
 	if m.Name == "" {
 		return fmt.Errorf("name is required")
 	}
+	if m.GitRepo != "" {
+		if err := ValidateGitRepoURL(m.GitRepo); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -51,6 +61,9 @@ func (m HostedAgentInstanceManifest) ValidateAgainstAgent(agent HostedAgentManif
 		return err
 	}
 
+	if m.GitRepo != "" && !agent.AllowUserGitRepo {
+		return fmt.Errorf("this agent does not allow a user-defined git repository")
+	}
 	if len(m.MCPServers) > 0 && !agent.AllowUserMCPServers {
 		return fmt.Errorf("this agent does not allow user-defined MCP servers")
 	}

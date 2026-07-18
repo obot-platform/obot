@@ -72,6 +72,8 @@ import type {
 	SkillAccessPolicyManifest,
 	AgentSource,
 	AgentSourceManifest,
+	Harness,
+	HarnessManifest,
 	HostedAgent,
 	HostedAgentManifest,
 	HostedAgentInstance,
@@ -1728,6 +1730,36 @@ export async function deleteAgentSource(
 // isSyncing clears to see the result.
 export async function refreshAgentSource(id: string, opts?: { fetch?: Fetcher }): Promise<void> {
 	await doPost(`/agent-sources/${id}/refresh`, {}, opts);
+}
+
+// Harnesses
+
+export async function listHarnesses(opts?: { fetch?: Fetcher }): Promise<Harness[]> {
+	const response = (await doGet('/harnesses', opts)) as ItemsResponse<Harness>;
+	return response.items ?? [];
+}
+
+export async function getHarness(id: string, opts?: { fetch?: Fetcher }): Promise<Harness> {
+	return (await doGet(`/harnesses/${id}`, opts)) as Harness;
+}
+
+export async function createHarness(
+	request: HarnessManifest,
+	opts?: { fetch?: Fetcher }
+): Promise<Harness> {
+	return (await doPost('/harnesses', request, opts)) as Harness;
+}
+
+export async function updateHarness(
+	id: string,
+	request: HarnessManifest,
+	opts?: { fetch?: Fetcher }
+): Promise<Harness> {
+	return (await doPut(`/harnesses/${id}`, request, opts)) as Harness;
+}
+
+export async function deleteHarness(id: string, opts?: { signal?: AbortSignal }): Promise<void> {
+	await doDelete(`/harnesses/${id}`, opts);
 }
 
 // Hosted agents

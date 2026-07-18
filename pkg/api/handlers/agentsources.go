@@ -132,12 +132,13 @@ func readAndValidateAgentSourceManifest(req api.Context) (*types.AgentSourceMani
 
 func convertAgentSource(source v1.AgentSource) types.AgentSource {
 	return types.AgentSource{
-		Metadata:             MetadataFrom(&source),
-		AgentSourceManifest:  source.Spec.AgentSourceManifest,
-		LastSyncTime:         *types.NewTime(source.Status.LastSyncTime.Time),
-		IsSyncing:            source.Status.IsSyncing,
-		SyncError:            source.Status.SyncError,
-		ResolvedCommitSHA:    source.Status.ResolvedCommitSHA,
-		DiscoveredAgentCount: source.Status.DiscoveredAgentCount,
+		Metadata:               MetadataFrom(&source),
+		AgentSourceManifest:    source.Spec.AgentSourceManifest,
+		LastSyncTime:           *types.NewTime(source.Status.LastSyncTime.Time),
+		IsSyncing:              source.Status.IsSyncing,
+		SyncError:              source.Status.SyncError,
+		ResolvedCommitSHA:      source.Status.ResolvedCommitSHA,
+		DiscoveredAgentCount:   source.Status.DiscoveredAgentCount,
+		DiscoveredHarnessCount: source.Status.DiscoveredHarnessCount,
 	}
 }

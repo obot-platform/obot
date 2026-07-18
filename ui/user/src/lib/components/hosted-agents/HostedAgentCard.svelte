@@ -1,15 +1,13 @@
 <script lang="ts">
 	import type { HostedAgent } from '$lib/services/admin/types';
 	import { goto } from '$lib/url';
-	import { Bot, ExternalLink } from '@lucide/svelte';
+	import { Bot } from '@lucide/svelte';
 
 	interface Props {
 		agent: HostedAgent;
 	}
 
 	let { agent }: Props = $props();
-
-	let ready = $derived(agent.status?.state === 'ready' && Boolean(agent.status?.url));
 </script>
 
 <div
@@ -37,9 +35,6 @@
 		{/if}
 		<div class="flex min-w-0 flex-col">
 			<h3 class="truncate font-semibold">{agent.name}</h3>
-			<span class="text-muted-content truncate text-xs">
-				{agent.perUser ? 'Per-user instances' : 'Shared'}
-			</span>
 		</div>
 	</div>
 
@@ -48,26 +43,11 @@
 	{/if}
 
 	<div class="mt-auto flex items-center justify-between gap-2 pt-2">
-		{#if agent.perUser}
-			<button
-				class="btn btn-primary w-full text-sm"
-				onclick={() => goto(`/hosted-agents/${agent.id}`)}
-			>
-				Manage Instances
-			</button>
-		{:else}
-			<a
-				class="btn btn-primary w-full text-sm {ready ? '' : 'btn-disabled'}"
-				href={ready ? agent.status?.url : undefined}
-				target="_blank"
-				rel="external noopener noreferrer"
-			>
-				{#if ready}
-					<ExternalLink class="size-4" /> Launch
-				{:else}
-					{agent.status?.state === 'error' ? 'Unavailable' : 'Starting...'}
-				{/if}
-			</a>
-		{/if}
+		<button
+			class="btn btn-primary w-full text-sm"
+			onclick={() => goto(`/hosted-agents/${agent.id}`)}
+		>
+			Manage Instances
+		</button>
 	</div>
 </div>

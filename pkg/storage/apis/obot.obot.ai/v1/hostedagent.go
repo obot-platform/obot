@@ -2,7 +2,6 @@ package v1
 
 import (
 	"slices"
-	"strconv"
 
 	"github.com/obot-platform/nah/pkg/fields"
 	"github.com/obot-platform/obot/apiclient/types"
@@ -30,16 +29,16 @@ func (in *HostedAgent) Has(field string) bool {
 
 func (in *HostedAgent) Get(field string) string {
 	switch field {
-	case "spec.perUser":
-		return strconv.FormatBool(in.Spec.Manifest.PerUser)
 	case "spec.sourceID":
 		return in.Spec.SourceID
+	case "spec.harnessID":
+		return in.Spec.Manifest.HarnessID
 	}
 	return ""
 }
 
 func (in *HostedAgent) FieldNames() []string {
-	return []string{"spec.perUser", "spec.sourceID"}
+	return []string{"spec.sourceID", "spec.harnessID"}
 }
 
 // DeleteRefs makes agents discovered from a source disappear with it. Agents
@@ -55,9 +54,7 @@ func (in *HostedAgent) GetColumns() [][]string {
 	return [][]string{
 		{"Name", "Name"},
 		{"Display Name", "Spec.Manifest.Name"},
-		{"Image", "Spec.Manifest.Image"},
-		{"Per User", "Spec.Manifest.PerUser"},
-		{"State", "Status.State"},
+		{"Harness", "Spec.Manifest.HarnessID"},
 		{"Created", "{{ago .CreationTimestamp}}"},
 	}
 }
@@ -76,9 +73,9 @@ type HostedAgentSpec struct {
 	CommitSHA string `json:"commitSHA,omitempty"`
 }
 
-type HostedAgentStatus struct {
-	types.HostedAgentStatus `json:",inline"`
-}
+// HostedAgentStatus is empty: an agent is a template, and orchestration state
+// lives on its instances.
+type HostedAgentStatus struct{}
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 

@@ -3,6 +3,7 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
+		type Harness,
 		type HostedAgent,
 		type HostedAgentManifest,
 		type MCPCatalogEntry,
@@ -44,7 +45,8 @@
 			description: '',
 			icon: '',
 			iconDark: '',
-			image: '',
+			harnessID: '',
+			gitRepo: '',
 			modelProviders: [],
 			models: [],
 			mcpServers: [],
@@ -54,7 +56,7 @@
 			allowUserMCPServers: false,
 			allowUserSkills: false,
 			allowUserModels: false,
-			perUser: false,
+			allowUserGitRepo: false,
 			maxInstancesPerUser: 0
 		};
 	}
@@ -64,6 +66,7 @@
 	let saving = $state(false);
 	let deleting = $state(false);
 	let loadingServices = $state(true);
+	let harnesses = $state<Harness[]>([]);
 	let modelProviders = $state<ModelProvider[]>([]);
 	let mcpEntries = $state<MCPCatalogEntry[]>([]);
 	let mcpCatalogServers = $state<MCPCatalogServer[]>([]);
@@ -118,14 +121,17 @@
 
 	onMount(async () => {
 		try {
-			const [providers, entries, servers, modelList, skillList, repos] = await Promise.all([
-				AdminService.listModelProviders(),
-				AdminService.listMCPCatalogEntries(DEFAULT_MCP_CATALOG_ID, { all: true }),
-				AdminService.listMCPCatalogServers(DEFAULT_MCP_CATALOG_ID, { all: true }),
-				AdminService.listModels({ all: true }),
-				AdminService.listAllSkills(),
-				AdminService.listSkillRepositories()
-			]);
+			const [harnessList, providers, entries, servers, modelList, skillList, repos] =
+				await Promise.all([
+					AdminService.listHarnesses(),
+					AdminService.listModelProviders(),
+					AdminService.listMCPCatalogEntries(DEFAULT_MCP_CATALOG_ID, { all: true }),
+					AdminService.listMCPCatalogServers(DEFAULT_MCP_CATALOG_ID, { all: true }),
+					AdminService.listModels({ all: true }),
+					AdminService.listAllSkills(),
+					AdminService.listSkillRepositories()
+				]);
+			harnesses = harnessList;
 			modelProviders = providers.filter((p) => p.configured);
 			mcpEntries = entries;
 			mcpCatalogServers = servers;
@@ -157,34 +163,31 @@
 			description: a.description,
 			icon: a.icon,
 			iconDark: a.iconDark,
-			image: a.image,
+			harnessID: a.harnessID,
+			gitRepo: a.gitRepo,
 			modelProviders: a.modelProviders,
 			models: a.models,
 			mcpServers: a.mcpServers,
 			skills: a.skills,
 			env: a.env,
-			// The API rejects questions and user-defined resources on shared agents.
-			questions: a.perUser ? a.questions : [],
-			allowUserMCPServers: a.perUser ? a.allowUserMCPServers : false,
-			allowUserSkills: a.perUser ? a.allowUserSkills : false,
-			allowUserModels: a.perUser ? a.allowUserModels : false,
-			perUser: a.perUser,
-			maxInstancesPerUser: a.perUser ? a.maxInstancesPerUser : 0
+			questions: a.questions,
+			allowUserMCPServers: a.allowUserMCPServers,
+			allowUserSkills: a.allowUserSkills,
+			allowUserModels: a.allowUserModels,
+			allowUserGitRepo: a.allowUserGitRepo,
+			maxInstancesPerUser: a.maxInstancesPerUser
 		};
 	}
 
 	function validate(a: typeof agent) {
-		if (!a.name || !a.image) return false;
+		if (!a.name || !a.harnessID) return false;
 		if ((a.env ?? []).some((e) => !e.key)) return false;
-		if (a.perUser && (a.maxInstancesPerUser ?? 0) < 0) return false;
-		if (a.perUser) {
-			const questions = a.questions ?? [];
-			if (questions.some((q) => !q.key)) return false;
-			if (questions.some((q) => q.type === 'select' && (q.options ?? []).length === 0))
-				return false;
-			const keys = questions.map((q) => q.key);
-			if (new Set(keys).size !== keys.length) return false;
-		}
+		if ((a.maxInstancesPerUser ?? 0) < 0) return false;
+		const questions = a.questions ?? [];
+		if (questions.some((q) => !q.key)) return false;
+		if (questions.some((q) => q.type === 'select' && (q.options ?? []).length === 0)) return false;
+		const keys = questions.map((q) => q.key);
+		if (new Set(keys).size !== keys.length) return false;
 		return true;
 	}
 
@@ -240,13 +243,35 @@
 			</div>
 
 			<div class="flex flex-col gap-2">
-				<label for="hosted-agent-image" class="text-sm font-light">Docker Image</label>
-				<input
-					id="hosted-agent-image"
-					bind:value={agent.image}
+				<label for="hosted-agent-harness" class="text-sm font-light">Harness</label>
+				<select
+					id="hosted-agent-harness"
+					bind:value={agent.harnessID}
 					class="text-input-filled"
-					placeholder="ghcr.io/example/agent:latest"
+					disabled={readonly || loadingServices}
+				>
+					<option value="" disabled>Select a harness...</option>
+					{#each harnesses as harness (harness.id)}
+						<option value={harness.id}>{harness.name}</option>
+					{/each}
+				</select>
+				{#if !loadingServices && harnesses.length === 0}
+					<span class="text-muted-content text-xs">
+						No harnesses configured. Add one in the Harnesses tab first.
+					</span>
+				{/if}
+			</div>
+
+			<div class="flex flex-col gap-2">
+				<label for="hosted-agent-git-repo" class="text-sm font-light">Git Repository</label>
+				<input
+					id="hosted-agent-git-repo"
+					bind:value={agent.gitRepo}
+					class="text-input-filled"
+					placeholder="https://github.com/example/repo (optional)"
 					disabled={readonly}
+					inputmode="url"
+					autocomplete="off"
 				/>
 			</div>
 
@@ -451,95 +476,79 @@
 
 		<div class="flex flex-col gap-2">
 			<div class="mb-2 flex flex-col">
-				<h2 class="text-lg font-semibold">Instancing</h2>
+				<h2 class="text-lg font-semibold">Instances</h2>
 				<span class="text-muted-content text-xs">
-					Shared agents run once for everyone. Per-user agents let each user create their own.
+					Each user creates their own instances of this agent.
 				</span>
 			</div>
 			<div
 				class="dark:bg-base-400 dark:border-base-400 bg-base-100 flex flex-col gap-4 rounded-lg border border-transparent p-4"
 			>
-				<label class="flex items-center gap-2 text-sm font-light">
+				<div class="flex flex-col gap-2">
+					<label for="hosted-agent-max-instances" class="text-sm font-light">
+						Max instances per user
+					</label>
 					<input
-						type="radio"
-						class="radio radio-sm"
-						checked={!agent.perUser}
-						onchange={() => (agent.perUser = false)}
+						id="hosted-agent-max-instances"
+						type="number"
+						min="0"
+						bind:value={agent.maxInstancesPerUser}
+						class="text-input-filled w-40"
 						disabled={readonly}
 					/>
-					Shared (multi-tenant)
-				</label>
-				<label class="flex items-center gap-2 text-sm font-light">
-					<input
-						type="radio"
-						class="radio radio-sm"
-						checked={agent.perUser}
-						onchange={() => (agent.perUser = true)}
-						disabled={readonly}
-					/>
-					Per-user instances
-				</label>
+					<span class="text-muted-content text-xs">0 means unlimited.</span>
+				</div>
 
-				{#if agent.perUser}
-					<div class="flex flex-col gap-2">
-						<label for="hosted-agent-max-instances" class="text-sm font-light">
-							Max instances per user
-						</label>
+				<div class="flex flex-col gap-2 pt-2">
+					<span class="text-sm font-light">User-defined resources</span>
+					<span class="text-muted-content text-xs">
+						Let users attach their own resources to an instance, on top of the ones configured
+						above. Users can only pick from what they already have access to.
+					</span>
+					<label class="flex items-center gap-2 pt-1 text-sm font-light">
 						<input
-							id="hosted-agent-max-instances"
-							type="number"
-							min="0"
-							bind:value={agent.maxInstancesPerUser}
-							class="text-input-filled w-40"
+							type="checkbox"
+							class="checkbox checkbox-sm"
+							bind:checked={agent.allowUserMCPServers}
 							disabled={readonly}
 						/>
-						<span class="text-muted-content text-xs">0 means unlimited.</span>
-					</div>
-
-					<div class="flex flex-col gap-2 pt-2">
-						<span class="text-sm font-light">User-defined resources</span>
-						<span class="text-muted-content text-xs">
-							Let users attach their own resources to an instance, on top of the ones configured
-							above. Users can only pick from what they already have access to.
-						</span>
-						<label class="flex items-center gap-2 pt-1 text-sm font-light">
-							<input
-								type="checkbox"
-								class="checkbox checkbox-sm"
-								bind:checked={agent.allowUserMCPServers}
-								disabled={readonly}
-							/>
-							Allow user-defined MCP servers
-						</label>
-						<label class="flex items-center gap-2 text-sm font-light">
-							<input
-								type="checkbox"
-								class="checkbox checkbox-sm"
-								bind:checked={agent.allowUserSkills}
-								disabled={readonly}
-							/>
-							Allow user-defined skills
-						</label>
-						<label class="flex items-center gap-2 text-sm font-light">
-							<input
-								type="checkbox"
-								class="checkbox checkbox-sm"
-								bind:checked={agent.allowUserModels}
-								disabled={readonly}
-							/>
-							Allow user-defined models
-						</label>
-					</div>
-				{/if}
+						Allow user-defined MCP servers
+					</label>
+					<label class="flex items-center gap-2 text-sm font-light">
+						<input
+							type="checkbox"
+							class="checkbox checkbox-sm"
+							bind:checked={agent.allowUserSkills}
+							disabled={readonly}
+						/>
+						Allow user-defined skills
+					</label>
+					<label class="flex items-center gap-2 text-sm font-light">
+						<input
+							type="checkbox"
+							class="checkbox checkbox-sm"
+							bind:checked={agent.allowUserModels}
+							disabled={readonly}
+						/>
+						Allow user-defined models
+					</label>
+					<label class="flex items-center gap-2 text-sm font-light">
+						<input
+							type="checkbox"
+							class="checkbox checkbox-sm"
+							bind:checked={agent.allowUserGitRepo}
+							disabled={readonly}
+						/>
+						Allow user-specified git repository
+					</label>
+				</div>
 			</div>
 		</div>
 
-		{#if agent.perUser}
-			<HostedAgentQuestionsEditor
-				bind:questions={agent.questions as NonNullable<typeof agent.questions>}
-				{readonly}
-			/>
-		{/if}
+		<HostedAgentQuestionsEditor
+			bind:questions={agent.questions as NonNullable<typeof agent.questions>}
+			{readonly}
+		/>
 	</div>
 
 	{#if !readonly}

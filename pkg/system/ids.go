@@ -30,6 +30,7 @@ const (
 	SkillPrefix                   = "sk1"
 	SkillAccessRulePrefix         = "sar1"
 	AgentSourcePrefix             = "as1"
+	HarnessPrefix                 = "hrn1"
 	HostedAgentPrefix             = "ha1"
 	HostedAgentInstancePrefix     = "hai1"
 	HostedAgentAccessRulePrefix   = "haar1"

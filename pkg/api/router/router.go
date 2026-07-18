@@ -88,6 +88,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	skillRepositories := handlers.NewSkillRepositoryHandler()
 	skillAccessRules := handlers.NewSkillAccessRuleHandler()
 	agentSources := handlers.NewAgentSourceHandler()
+	harnesses := handlers.NewHarnessHandler()
 	hostedAgents := handlers.NewHostedAgentHandler(services.HostedAgentAccessRuleHelper)
 	hostedAgentInstances := handlers.NewHostedAgentInstanceHandler(
 		services.HostedAgentAccessRuleHelper,
@@ -438,6 +439,13 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("PUT /api/agent-sources/{agent_source_id}", agentSources.Update)
 	mux.HandleFunc("DELETE /api/agent-sources/{agent_source_id}", agentSources.Delete)
 	mux.HandleFunc("POST /api/agent-sources/{agent_source_id}/refresh", agentSources.Refresh)
+
+	// Harnesses (admin only) — the runtimes hosted agents are built on
+	mux.HandleFunc("GET /api/harnesses", harnesses.List)
+	mux.HandleFunc("POST /api/harnesses", harnesses.Create)
+	mux.HandleFunc("GET /api/harnesses/{harness_id}", harnesses.Get)
+	mux.HandleFunc("PUT /api/harnesses/{harness_id}", harnesses.Update)
+	mux.HandleFunc("DELETE /api/harnesses/{harness_id}", harnesses.Delete)
 
 	// Hosted agents (admin manages; users get an access-rule-filtered read-only view)
 	mux.HandleFunc("GET /api/hosted-agents", hostedAgents.List)

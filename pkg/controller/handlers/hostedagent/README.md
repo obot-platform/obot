@@ -8,14 +8,16 @@ The items below are known and deliberate, not oversights.
 
 `hostedagent.go` is a real reconciler — it is registered in
 `pkg/controller/routes.go` and runs on every create/update/watch event for
-`HostedAgent` and `HostedAgentInstance` — but it performs no deployment. It
-marks the object ready and assigns a synthetic
-`{serverURL}/hosted/{name}-{random}` URL so the rest of the feature can be
-exercised end to end.
+`HostedAgentInstance` — but it performs no deployment. It marks the instance
+ready and assigns a synthetic `{serverURL}/hosted/{name}-{random}` URL so the
+rest of the feature can be exercised end to end.
 
-Replacing it means rewriting the two handler bodies. Nothing else in the feature
-depends on the URL being fake. Note the early-return guards: without them each
-`Status().Update` retriggers the handler and mints a new URL forever.
+Agents themselves are templates and are not reconciled: every agent is used
+through per-user instances, and only instances carry orchestration status.
+
+Replacing the placeholder means rewriting the one handler body. Nothing else in
+the feature depends on the URL being fake. Note the early-return guard: without
+it each `Status().Update` retriggers the handler and mints a new URL forever.
 
 ## 2. User-attached resources (done — how it works)
 
@@ -54,7 +56,10 @@ yet. That staleness is accepted everywhere those helpers are used.
 `HostedAgent.Spec.Manifest`'s `ModelProviders`, `Models`, `MCPServers`, and
 `Skills` are set by an admin, so access is not a concern in the same way, but
 they are also not validated for existence. A deleted MCP server or skill leaves a
-dangling ID on the agent. `AccessControlRule` solves the equivalent problem with
+dangling ID on the agent. The one exception is `HarnessID`: the API checks it
+against a real harness on create/update, and harness deletion refuses while any
+agent references it — though neither check runs on the controller sync path,
+where a discovered agent may name an external harness by `hrn1` ID unchecked. `AccessControlRule` solves the equivalent problem with
 a `PruneDeletedResources` controller handler
 (`pkg/controller/handlers/accesscontrolrule/`) — the same approach would work
 here.

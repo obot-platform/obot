@@ -12,6 +12,7 @@ import (
 	"github.com/obot-platform/obot/pkg/hostedagentaccessrule"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -68,7 +69,7 @@ func (h *HostedAgentHandler) Create(req api.Context) error {
 		return types.NewErrBadRequest("failed to read hosted agent manifest: %v", err)
 	}
 
-	if err := validateHostedAgentManifest(manifest); err != nil {
+	if err := validateHostedAgentManifest(req, manifest); err != nil {
 		return err
 	}
 
@@ -107,7 +108,7 @@ func (h *HostedAgentHandler) Update(req api.Context) error {
 		return types.NewErrBadRequest("failed to read hosted agent manifest: %v", err)
 	}
 
-	if err := validateHostedAgentManifest(manifest); err != nil {
+	if err := validateHostedAgentManifest(req, manifest); err != nil {
 		return err
 	}
 
@@ -196,11 +197,19 @@ func (h *HostedAgentHandler) Reveal(req api.Context) error {
 }
 
 // validateHostedAgentManifest runs the shared manifest validation, plus the
-// cron parsing that apiclient/types deliberately leaves out. A question's
-// default is an answer like any other, so it gets the same treatment.
-func validateHostedAgentManifest(manifest types.HostedAgentManifest) error {
+// checks that apiclient/types deliberately leaves out: cron parsing (a
+// question's default is an answer like any other, so it gets the same
+// treatment) and that the referenced harness actually exists.
+func validateHostedAgentManifest(req api.Context, manifest types.HostedAgentManifest) error {
 	if err := manifest.Validate(); err != nil {
 		return types.NewErrBadRequest("invalid hosted agent manifest: %v", err)
+	}
+
+	var harness v1.Harness
+	if err := req.Get(&harness, manifest.HarnessID); apierrors.IsNotFound(err) {
+		return types.NewErrBadRequest("harness %s not found", manifest.HarnessID)
+	} else if err != nil {
+		return fmt.Errorf("failed to get harness %s: %w", manifest.HarnessID, err)
 	}
 
 	for _, question := range manifest.Questions {
@@ -249,6 +258,5 @@ func convertHostedAgent(agent v1.HostedAgent) types.HostedAgent {
 	return types.HostedAgent{
 		Metadata:            MetadataFrom(&agent),
 		HostedAgentManifest: agent.Spec.Manifest,
-		Status:              agent.Status.HostedAgentStatus,
 	}
 }

@@ -108,10 +108,6 @@ func (h *HostedAgentInstanceHandler) Create(req api.Context) error {
 		return types.NewErrNotFound("hosted agent %s not found", body.HostedAgentID)
 	}
 
-	if !agent.Spec.Manifest.PerUser {
-		return types.NewErrBadRequest("hosted agent %s is shared and does not support instances", agent.Name)
-	}
-
 	var existing v1.HostedAgentInstanceList
 	if err := req.List(&existing, kclient.MatchingFields{
 		"spec.userID":          req.User.GetUID(),

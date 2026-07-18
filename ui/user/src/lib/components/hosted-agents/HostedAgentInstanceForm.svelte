@@ -21,6 +21,7 @@
 		description: string;
 		icon: string;
 		answers: Record<string, string>;
+		gitRepo: string;
 		mcpServers: string[];
 		skills: string[];
 		models: string[];
@@ -32,6 +33,7 @@
 		description = $bindable(''),
 		icon = $bindable(''),
 		answers = $bindable({}),
+		gitRepo = $bindable(''),
 		mcpServers = $bindable([]),
 		skills = $bindable([]),
 		models = $bindable([])
@@ -121,6 +123,25 @@
 			/>
 		</div>
 	</div>
+
+	{#if agent.allowUserGitRepo}
+		<div class="flex flex-col gap-2">
+			<label for="instance-git-repo" class="text-sm font-light">Git Repository</label>
+			<input
+				id="instance-git-repo"
+				bind:value={gitRepo}
+				class="text-input-filled"
+				placeholder={agent.gitRepo || 'https://github.com/example/repo (optional)'}
+				inputmode="url"
+				autocomplete="off"
+			/>
+			{#if agent.gitRepo}
+				<span class="text-muted-content text-xs">
+					Leave blank to use the agent's default repository.
+				</span>
+			{/if}
+		</div>
+	{/if}
 
 	{#if questions.length > 0}
 		<div class="border-surface3 flex flex-col gap-4 border-t pt-4">

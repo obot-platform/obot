@@ -115,7 +115,7 @@
 							<div class="flex flex-col">
 								<p class="font-medium">{agent.name}</p>
 								<span class="text-muted-content line-clamp-1 text-xs">
-									{agent.description || agent.image}
+									{agent.description || agent.id}
 								</span>
 							</div>
 						</div>

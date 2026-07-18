@@ -125,9 +125,8 @@ func TestHostedAgentQuestionValidateAnswer(t *testing.T) {
 
 func TestHostedAgentManifestValidateAnswers(t *testing.T) {
 	manifest := HostedAgentManifest{
-		Name:    "a",
-		Image:   "i",
-		PerUser: true,
+		Name:      "a",
+		HarnessID: "hrn1x",
 		Questions: []HostedAgentQuestion{
 			{Key: "required_one", Required: true},
 			{Key: "optional_one"},
@@ -160,7 +159,7 @@ func TestHostedAgentManifestValidateAnswers(t *testing.T) {
 	})
 
 	t.Run("no questions rejects any answer", func(t *testing.T) {
-		empty := HostedAgentManifest{Name: "a", Image: "i"}
+		empty := HostedAgentManifest{Name: "a", HarnessID: "hrn1x"}
 		err := empty.ValidateAnswers(map[string]string{"anything": "x"})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "unknown answer: anything")
@@ -184,23 +183,16 @@ func TestHostedAgentManifestApplyAnswerDefaults(t *testing.T) {
 }
 
 func TestHostedAgentManifestValidate(t *testing.T) {
-	t.Run("questions require perUser", func(t *testing.T) {
-		m := HostedAgentManifest{Name: "a", Image: "i", Questions: []HostedAgentQuestion{{Key: "k"}}}
+	t.Run("negative max instances rejected", func(t *testing.T) {
+		m := HostedAgentManifest{Name: "a", HarnessID: "hrn1x", MaxInstancesPerUser: -1}
 		err := m.Validate()
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "questions are only valid when perUser is set")
-	})
-
-	t.Run("user resources require perUser", func(t *testing.T) {
-		m := HostedAgentManifest{Name: "a", Image: "i", AllowUserSkills: true}
-		err := m.Validate()
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "user-defined resources are only valid when perUser is set")
+		assert.Contains(t, err.Error(), "maxInstancesPerUser must be greater than or equal to 0")
 	})
 
 	t.Run("duplicate question keys", func(t *testing.T) {
 		m := HostedAgentManifest{
-			Name: "a", Image: "i", PerUser: true,
+			Name: "a", HarnessID: "hrn1x",
 			Questions: []HostedAgentQuestion{{Key: "k"}, {Key: "k"}},
 		}
 		err := m.Validate()
@@ -208,9 +200,9 @@ func TestHostedAgentManifestValidate(t *testing.T) {
 		assert.Contains(t, err.Error(), "duplicate question key: k")
 	})
 
-	t.Run("valid per-user agent", func(t *testing.T) {
+	t.Run("valid agent", func(t *testing.T) {
 		m := HostedAgentManifest{
-			Name: "a", Image: "i", PerUser: true, MaxInstancesPerUser: 2,
+			Name: "a", HarnessID: "hrn1x", MaxInstancesPerUser: 2,
 			Questions:       []HostedAgentQuestion{{Key: "schedule", Type: HostedAgentQuestionTypeSchedule, Default: "0 3 * * *"}},
 			AllowUserSkills: true,
 		}
@@ -220,7 +212,7 @@ func TestHostedAgentManifestValidate(t *testing.T) {
 
 func TestHostedAgentInstanceManifestValidateAgainstAgent(t *testing.T) {
 	agent := HostedAgentManifest{
-		Name: "a", Image: "i", PerUser: true,
+		Name: "a", HarnessID: "hrn1x",
 		Questions: []HostedAgentQuestion{{Key: "k", Required: true}},
 	}
 

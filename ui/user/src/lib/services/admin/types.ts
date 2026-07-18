@@ -1073,13 +1073,33 @@ export interface AgentSource extends AgentSourceManifest {
 	syncError?: string;
 	resolvedCommitSHA?: string;
 	discoveredAgentCount: number;
+	discoveredHarnessCount: number;
+}
+
+// Harnesses — the runtimes hosted agents are built on (e.g. "Claude Code",
+// "Codex", "Custom Python"). The harness supplies the docker image; the agent
+// supplies configuration.
+
+export interface HarnessManifest {
+	name: string;
+	description?: string;
+	icon?: string;
+	iconDark?: string;
+	image: string;
+}
+
+export interface Harness extends HarnessManifest {
+	id: string;
+	created: string;
+	deleted?: string;
 }
 
 // Hosted agents
 
 export type HostedAgentState = 'pending' | 'ready' | 'error';
 
-export interface HostedAgentStatus {
+// Agents are templates and carry no status; only instances run.
+export interface HostedAgentInstanceStatus {
 	state?: HostedAgentState;
 	url?: string;
 	error?: string;
@@ -1113,7 +1133,10 @@ export interface HostedAgentManifest {
 	description?: string;
 	icon?: string;
 	iconDark?: string;
-	image: string;
+	// The Harness this agent runs on; the harness supplies the docker image.
+	harnessID: string;
+	// Optional git repository made available to the agent.
+	gitRepo?: string;
 	modelProviders?: string[];
 	// Model IDs, obot://<alias> references, or wildcard prefixes.
 	models?: string[];
@@ -1125,7 +1148,9 @@ export interface HostedAgentManifest {
 	allowUserMCPServers?: boolean;
 	allowUserSkills?: boolean;
 	allowUserModels?: boolean;
-	perUser?: boolean;
+	// Lets a user set their own git repository on an instance, overriding the
+	// agent's gitRepo if one is configured.
+	allowUserGitRepo?: boolean;
 	maxInstancesPerUser?: number;
 }
 
@@ -1133,7 +1158,6 @@ export interface HostedAgent extends HostedAgentManifest {
 	id: string;
 	created: string;
 	deleted?: string;
-	status?: HostedAgentStatus;
 }
 
 export interface HostedAgentInstanceManifest {
@@ -1143,6 +1167,9 @@ export interface HostedAgentInstanceManifest {
 	// Answers to the agent's questions, keyed by question key. Values are strings
 	// regardless of the question's type.
 	answers?: Record<string, string>;
+	// Git repository the user supplied; only accepted when the agent sets
+	// allowUserGitRepo.
+	gitRepo?: string;
 	// Resources the user attached themselves; only accepted when the agent's
 	// corresponding allowUser* flag is set.
 	mcpServers?: string[];
@@ -1156,7 +1183,7 @@ export interface HostedAgentInstance extends HostedAgentInstanceManifest {
 	deleted?: string;
 	hostedAgentID: string;
 	userID?: string;
-	status?: HostedAgentStatus;
+	status?: HostedAgentInstanceStatus;
 }
 
 // The UI calls these "Access Policies"; the API resource is

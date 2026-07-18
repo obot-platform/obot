@@ -12,16 +12,28 @@ This file is the map; that file is the detail on the placeholder orchestrator.
 
 ## 1. What this feature is
 
-An admin registers an **agent**: name, description, light/dark icon URLs, and a
-docker image. The agent references configured services (model providers, models,
-MCP servers, skills), carries env vars where some are sensitive, and is either:
+An admin first registers **harnesses** — the runtimes agents are built on
+(e.g. "Claude Code", "Codex", "Custom Python", "Custom Node"), each just
+name/description/icons plus a docker image. They are managed in a third tab
+next to Agents | Sources.
 
-- **shared** — one multi-tenant instance for everyone, launched from a URL; or
-- **per-user** — each user creates their own named instances, capped by
-  `maxInstancesPerUser`.
+An admin then registers an **agent**: name, description, light/dark icon URLs,
+a required **harness**, and an optional **git repo** (https URL, same
+validation as agent sources). The agent references configured services (model
+providers, models, MCP servers, skills) and carries env vars where some are
+sensitive. The docker image lives on the harness, not the agent; a harness
+that agents still reference cannot be deleted (the API returns 400, checked
+via the `spec.harnessID` field selector).
 
-Per-user agents can additionally ask the user **questions** at instance-creation
-time, and can let users attach **their own** MCP servers, skills, and models.
+Agents are always **instance-based**: each user creates their own named
+instances, capped by `maxInstancesPerUser`. (An earlier iteration also had
+"shared" multi-tenant agents; that concept was removed — the agent resource is
+purely a template and carries no orchestration status of its own.)
+
+Agents can ask the user **questions** at instance-creation time, and can let
+users attach **their own** MCP servers, skills, and models — and, via
+`allowUserGitRepo`, supply their own git repo on an instance (overriding the
+agent's, validated with the same URL rule).
 
 Access is gated by **Agent Access Policies**.
 
@@ -79,7 +91,8 @@ Verified: the literal secret appears in zero `hostedagent` rows.
 
 | Type | Prefix | Notes |
 |---|---|---|
-| `HostedAgent` | `ha1` | `Spec.Manifest` + `SourceID`/`RelativePath`/`CommitSHA`. Field selectors `spec.perUser`, `spec.sourceID`. `DeleteRefs` → `AgentSource`. |
+| `HostedAgent` | `ha1` | `Spec.Manifest` + `SourceID`/`RelativePath`/`CommitSHA`. Field selectors `spec.sourceID`, `spec.harnessID`. Empty status — agents are templates. `DeleteRefs` → `AgentSource`. |
+| `Harness` | `hrn1` | `Spec.Manifest` = `{name, description, icon, iconDark, image}` + `SourceID`/`RelativePath`/`CommitSHA` (discoverable from sources, like agents). Field selector `spec.sourceID`. Empty status. Referenced by `HostedAgent.Spec.Manifest.HarnessID`; existence-checked on agent create/update (API path only). `DeleteRefs` → `AgentSource`. |
 | `HostedAgentInstance` | `hai1` | `Spec{UserID, HostedAgentName, Manifest}`. Field selectors `spec.userID`, `spec.hostedAgentName`. `DeleteRefs` → `HostedAgent`. |
 | `HostedAgentAccessRule` | `haar1` | Clone of `SkillAccessRule`. Resource enum: `hostedAgent | selector`. |
 | `AgentSource` | `as1` | Clone of `SkillRepository`. `{displayName, repoURL, ref}` + sync status. |
@@ -90,6 +103,7 @@ reflection, so nothing in `pkg/storage/registry/` needed touching.
 ### API — `pkg/api/handlers/`
 
 ```
+/api/harnesses                     CRUD                          (admin; delete refuses while in use)
 /api/hosted-agents                 CRUD + POST {id}/reveal      (admin; GET is policy-filtered for users)
 /api/hosted-agent-instances        CRUD                          (per-user)
 /api/hosted-agent-access-rules     CRUD                          (admin)
@@ -162,29 +176,43 @@ renaming the tag to `metadataValues`.
 
 ### 5.1 Real orchestration (required — the feature does nothing without it)
 
-`pkg/controller/handlers/hostedagent/hostedagent.go` marks agents/instances
-ready and assigns a synthetic `{serverURL}/hosted/{name}-{random}` URL. It
-deploys nothing.
+`pkg/controller/handlers/hostedagent/hostedagent.go` marks instances ready and
+assigns a synthetic `{serverURL}/hosted/{name}-{random}` URL. It deploys
+nothing. Agents themselves are not reconciled at all — they are templates with
+an empty status; only instances carry state.
 
-Replace the two handler bodies. Nothing else depends on the URL being fake.
-**Keep the early-return guards** — without them each `Status().Update`
-retriggers the handler and mints a new URL forever.
+Replace the one handler body. Nothing else depends on the URL being fake.
+**Keep the early-return guard** — without it each `Status().Update` retriggers
+the handler and mints a new URL forever.
 
-Note the deliberate split: shared agents carry `Status.URL`; per-user agents
-carry no status at all (their instances do). The admin list renders `-` rather
-than `pending` for per-user agents because of this.
+### 5.2 Real discovery (required for Agent Sources)
 
-### 5.2 Real agent discovery (required for Agent Sources)
+`pkg/controller/handlers/agentsource/agentsource.go`: `buildFromSource` returns
+nothing and `placeholderFetcher.Fetch` checks nothing out. Everything around it
+is real — including harness discovery: a source yields **both harnesses and
+agents** (`discovered{Harnesses, Agents}`), and the sync upserts, prunes, and
+counts both (`DiscoveredHarnessCount` on the source status).
 
-`pkg/controller/handlers/agentsource/agentsource.go`: `buildAgentsFromSource`
-returns `nil, nil` and `placeholderFetcher.Fetch` checks nothing out. Everything
-around it is real.
+Model the fetcher on `pkg/controller/handlers/skillrepository/` — note that
+**it does not clone git**: it uses the GitHub REST API + zipball (`github.go`)
+and discovers by convention (any directory containing `SKILL.md`). Decide the
+agent and harness equivalents of `SKILL.md`. Populate
+`SourceID`/`RelativePath`/`CommitSHA` on each discovered object and name it
+with `agentObjectName`/`harnessObjectName`.
 
-Model it on `pkg/controller/handlers/skillrepository/` — note that **it does not
-clone git**: it uses the GitHub REST API + zipball (`github.go`) and discovers
-by convention (any directory containing `SKILL.md`). Decide the agent equivalent
-of `SKILL.md`. Populate `SourceID`/`RelativePath`/`CommitSHA` on each discovered
-`HostedAgent`; the `spec.sourceID` field index and the prune loop already work.
+**ID alignment (already implemented, tested):** a repository cannot know the
+generated resource names its harnesses will get, so a discovered agent
+references its harness by the harness's **relative path within the same
+source**; `resolveHarnessReferences` rewrites that to the harness's
+deterministic object name before anything is stored, and fails the sync on an
+unknown reference. A reference already carrying the `hrn1` prefix passes
+through untouched (it names a harness registered outside the source — its
+existence is *not* checked on this path, unlike the API path). Sync ordering
+keeps references intact: harnesses are created before agents, stale agents are
+deleted before stale harnesses, and a stale harness still referenced by an
+agent outside the source is kept (and retried next sync) rather than dangling
+that agent. Deleting the whole source cascades both kinds via `DeleteRefs`,
+which does **not** consult the in-use check.
 
 Also unimplemented: `ValidateAgentSourceURL` only checks https + host + path,
 whereas skills hard-require a GitHub URL. Tighten if the fetcher is
@@ -224,8 +252,6 @@ rather than trust the stored list.
 - **Structured schedule input.** A cron text field is unfriendly. If a picker is
   wanted, `ui/user/src/lib/components/nanobot/taskSchedule.ts` has the closest
   extractable helpers.
-- **Questions are per-agent only.** They are rejected on shared agents, since
-  there is no per-user creation step to ask at.
 - **`HostedAgentInstance` has no `reveal`.** Sensitive *question answers* are
   stored in the instance manifest in plain text, unlike agent env vars, which go
   to the credential store. If sensitive answers must be protected, route them
@@ -284,7 +310,7 @@ Then `Authorization: Bearer token` as the admin. **Use a fresh DB** or
 
 Behaviors worth re-checking after any change, each of which caught a real bug:
 
-1. **URL stability** — poll a shared agent for ~12s. A changing URL means the
+1. **URL stability** — poll an instance for ~12s. A changing URL means the
    idempotency guard broke and the reconciler is looping.
 2. **Secret isolation** — create an agent with a sensitive env var; the literal
    value must appear in zero `hostedagent` rows, and `POST {id}/reveal` must

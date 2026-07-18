@@ -181,6 +181,26 @@ func (in GroupRoleChangeSpec) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in Harness) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.Harness"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in HarnessList) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.HarnessList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in HarnessSpec) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.HarnessSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in HarnessStatus) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.HarnessStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in HostedAgent) OpenAPIModelName() string {
 	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.HostedAgent"
 }

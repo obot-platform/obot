@@ -115,7 +115,6 @@ func (c *Controller) setupRoutes() {
 	// cleanup.Cleanup honors DeleteRefs, which removes agents whose AgentSource
 	// is gone. Hand-registered agents have no SourceID and are left alone.
 	root.Type(&v1.HostedAgent{}).HandlerFunc(cleanup.Cleanup)
-	root.Type(&v1.HostedAgent{}).HandlerFunc(hostedAgentHandler.Orchestrate)
 
 	// HostedAgentInstance
 	root.Type(&v1.HostedAgentInstance{}).HandlerFunc(cleanup.Cleanup)

@@ -15,19 +15,6 @@
 
 <Layout {title} showBackButton>
 	<div class="h-full w-full" in:fly={{ x: 100, duration }} out:fly={{ x: -100, duration }}>
-		{#if hostedAgent?.status?.url}
-			<div class="mb-4 flex items-center gap-2 text-sm">
-				<span class="text-muted-content font-light">URL:</span>
-				<a
-					href={hostedAgent.status.url}
-					target="_blank"
-					rel="external noopener noreferrer"
-					class="link"
-				>
-					{hostedAgent.status.url}
-				</a>
-			</div>
-		{/if}
 		<HostedAgentForm
 			{hostedAgent}
 			onUpdate={() => {

@@ -1,9 +1,13 @@
-// Package hostedagent contains placeholder orchestration for hosted agents.
+// Package hostedagent contains placeholder orchestration for hosted agent
+// instances.
 //
-// Nothing here deploys anything. The handlers mark agents and instances ready
-// and hand back a synthetic URL so that the surrounding feature — access rules,
-// the API, and the UI — can be exercised end to end. Real orchestration is
-// expected to replace these handlers wholesale.
+// Nothing here deploys anything. The handler marks instances ready and hands
+// back a synthetic URL so that the surrounding feature — access rules, the
+// API, and the UI — can be exercised end to end. Real orchestration is
+// expected to replace this handler wholesale.
+//
+// Agents themselves are templates and are not reconciled at all; every agent
+// is used through per-user instances, and only instances carry state.
 package hostedagent
 
 import (
@@ -40,45 +44,12 @@ func (h *Handler) fakeURL(name string) (string, error) {
 	return fmt.Sprintf("%s/hosted/%s-%s", h.serverURL, name, slug), nil
 }
 
-// Orchestrate assigns a URL to shared agents. Per-user agents are served by
-// their instances instead, so the agent itself never carries a URL.
-func (h *Handler) Orchestrate(req router.Request, _ router.Response) error {
-	agent := req.Object.(*v1.HostedAgent)
-
-	if agent.Spec.Manifest.PerUser {
-		if agent.Status.State == "" && agent.Status.URL == "" && agent.Status.Error == "" {
-			return nil
-		}
-
-		// The agent was switched from shared to per-user; drop the stale URL.
-		agent.Status.State = ""
-		agent.Status.URL = ""
-		agent.Status.Error = ""
-		return req.Client.Status().Update(req.Ctx, agent)
-	}
-
-	// Without this guard every status update would retrigger this handler and
-	// mint a new URL forever.
-	if agent.Status.State == types.HostedAgentStateReady && agent.Status.URL != "" {
-		return nil
-	}
-
-	url, err := h.fakeURL(agent.Name)
-	if err != nil {
-		return err
-	}
-
-	agent.Status.State = types.HostedAgentStateReady
-	agent.Status.URL = url
-	agent.Status.Error = ""
-
-	return req.Client.Status().Update(req.Ctx, agent)
-}
-
-// OrchestrateInstance assigns a URL to a per-user instance.
+// OrchestrateInstance assigns a URL to an instance.
 func (h *Handler) OrchestrateInstance(req router.Request, _ router.Response) error {
 	instance := req.Object.(*v1.HostedAgentInstance)
 
+	// Without this guard every status update would retrigger this handler and
+	// mint a new URL forever.
 	if instance.Status.State == types.HostedAgentStateReady && instance.Status.URL != "" {
 		return nil
 	}
