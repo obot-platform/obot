@@ -263,7 +263,10 @@ func (p *Proxy) authenticateRequest(req *http.Request) (*authenticator.Response,
 		return nil, false, err
 	}
 
-	stateRequest, err := http.NewRequest(http.MethodPost, p.url+"/obot-get-state", strings.NewReader(string(srJSON)))
+	ctx, cancel := context.WithTimeout(req.Context(), 15*time.Second)
+	defer cancel()
+
+	stateRequest, err := http.NewRequestWithContext(ctx, http.MethodPost, p.url+"/obot-get-state", strings.NewReader(string(srJSON)))
 	if err != nil {
 		return nil, false, err
 	}

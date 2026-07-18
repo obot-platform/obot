@@ -15,6 +15,7 @@ import (
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -165,6 +166,21 @@ func (d *Dispatcher) stopProvider(providerType, namespace, providerName string) 
 
 func (d *Dispatcher) GetConfiguredAuthProvider(ctx context.Context) (string, error) {
 	var authProviders v1.AuthProviderList
+	// First check for an auth provider whose status field is configured.
+	if err := d.client.List(ctx, &authProviders, &kclient.ListOptions{
+		Namespace:     system.DefaultNamespace,
+		FieldSelector: fields.SelectorFromSet(map[string]string{"status.configured": "true"}),
+	}); err != nil {
+		return "", fmt.Errorf("failed to list auth providers: %w", err)
+	}
+
+	for _, authProvider := range authProviders.Items {
+		if d.isAuthProviderConfigured(ctx, authProvider) {
+			return authProvider.Name, nil
+		}
+	}
+
+	// If no auth provider is configured, then check all of them in case the controller hasn't updated yet.
 	if err := d.client.List(ctx, &authProviders, &kclient.ListOptions{
 		Namespace: system.DefaultNamespace,
 	}); err != nil {
