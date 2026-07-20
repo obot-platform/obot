@@ -119,6 +119,16 @@ func TestDiscoverSkillDirectories(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, dirs, 2)
 	})
+
+	t.Run("git metadata skipped", func(t *testing.T) {
+		root := t.TempDir()
+		visible := createSkillDir(t, root, "visible", "visible", "visible")
+		createSkillDir(t, filepath.Join(root, ".git"), "hidden", "hidden", "hidden")
+
+		dirs, err := discoverSkillDirectories(root)
+		require.NoError(t, err)
+		assert.Equal(t, []string{visible}, dirs)
+	})
 }
 
 func testRepo(name, namespace string) *v1.SkillRepository {

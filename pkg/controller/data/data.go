@@ -114,7 +114,9 @@ func createDefaultSkillRepository(ctx context.Context, c kclient.Client, repoURL
 		return nil
 	}
 
-	if err := skillrepository.ValidateRepositoryURL(repoURL); err != nil {
+	var err error
+	repoURL, err = skillrepository.NormalizeRepositoryURL(repoURL)
+	if err != nil {
 		return fmt.Errorf("invalid default skill repository URL: %w", err)
 	}
 

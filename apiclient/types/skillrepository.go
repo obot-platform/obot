@@ -11,9 +11,10 @@ type SkillRepository struct {
 }
 
 type SkillRepositoryManifest struct {
-	DisplayName string `json:"displayName,omitempty"`
-	RepoURL     string `json:"repoURL,omitempty"`
-	Ref         string `json:"ref,omitempty"`
+	DisplayName          string            `json:"displayName,omitempty"`
+	RepoURL              string            `json:"repoURL,omitempty"`
+	Ref                  string            `json:"ref,omitempty"`
+	SourceURLCredentials map[string]string `json:"sourceURLCredentials,omitempty"`
 }
 
 type SkillRepositoryList List[SkillRepository]

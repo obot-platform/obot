@@ -1024,11 +1024,13 @@ export interface SkillRepository {
 	syncError?: string;
 	resolvedCommitSHA?: string;
 	discoveredSkillCount: number;
+	sourceURLCredentials?: Record<string, string>;
 }
 export interface SkillRepositoryManifest {
 	displayName: string;
 	repoURL: string;
 	ref: string;
+	sourceURLCredentials?: Record<string, string>;
 }
 export interface SkillAccessPolicyResource {
 	type: 'skill' | 'skillRepository' | 'selector';

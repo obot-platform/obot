@@ -2,12 +2,14 @@ package skillrepository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"time"
 
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/logger"
+	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,21 +20,41 @@ var log = logger.Package()
 
 const syncInterval = time.Hour
 
+const SkillRepositoryCredentialToolName = "skill-repository-source-token"
+
 type repositoryFetcher interface {
-	Fetch(ctx context.Context, repoURL, ref string) (*fetchedRepository, error)
-	MaterializeCommit(ctx context.Context, repoURL, commitSHA string) (*fetchedRepository, error)
+	Fetch(ctx context.Context, repoURL, token, ref string) (*fetchedRepository, error)
 }
 
 type Handler struct {
-	fetcher repositoryFetcher
-	now     func() time.Time
+	fetcher       repositoryFetcher
+	now           func() time.Time
+	gatewayClient *gclient.Client
 }
 
-func New() *Handler {
+func New(gatewayClient *gclient.Client) *Handler {
 	return &Handler{
-		fetcher: newGitHubRepositoryFetcher(),
-		now:     time.Now,
+		fetcher:       newGitRepositoryFetcher(),
+		now:           time.Now,
+		gatewayClient: gatewayClient,
 	}
+}
+
+func (h *Handler) revealRepositoryCredential(ctx context.Context, repoName, repoURL string) string {
+	if h.gatewayClient == nil {
+		return ""
+	}
+	cred, err := h.gatewayClient.RevealCredential(ctx,
+		[]string{repoName},
+		SkillRepositoryCredentialToolName,
+	)
+	if err != nil {
+		if !errors.As(err, &gclient.CredentialNotFoundError{}) {
+			log.Errorf("failed to retrieve credential for repository %s source %s: %v", repoName, repoURL, err)
+		}
+		return ""
+	}
+	return cred.Secrets[repoURL]
 }
 
 func (h *Handler) Sync(req router.Request, resp router.Response) error {
@@ -55,7 +77,8 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 
 	defer h.clearIsSyncing(req.Ctx, req.Client, namespace, repo.Name)
 
-	fetched, err := h.fetcher.Fetch(req.Ctx, repo.Spec.RepoURL, repo.Spec.Ref)
+	token := h.revealRepositoryCredential(req.Ctx, repo.Name, repo.Spec.RepoURL)
+	fetched, err := h.fetcher.Fetch(req.Ctx, repo.Spec.RepoURL, token, repo.Spec.Ref)
 	if err != nil {
 		if statusErr := h.recordFailure(req.Ctx, req.Client, namespace, repo.Name, err); statusErr != nil {
 			return statusErr
@@ -213,7 +236,7 @@ func clearSyncAnnotation(ctx context.Context, c client.Client, namespace, name s
 	return c.Update(ctx, &repo)
 }
 
-func materializeSkillSource(ctx context.Context, fetcher repositoryFetcher, skill *v1.Skill) (*fetchedRepository, string, error) {
+func materializeSkillSource(ctx context.Context, fetcher repositoryFetcher, skill *v1.Skill, token string) (*fetchedRepository, string, error) {
 	if skill.Spec.RepoURL == "" {
 		return nil, "", fmt.Errorf("skill %s is missing repoURL", skill.Name)
 	}
@@ -224,7 +247,7 @@ func materializeSkillSource(ctx context.Context, fetcher repositoryFetcher, skil
 		return nil, "", fmt.Errorf("skill %s is missing relativePath", skill.Name)
 	}
 
-	fetched, err := fetcher.MaterializeCommit(ctx, skill.Spec.RepoURL, skill.Spec.CommitSHA)
+	fetched, err := fetcher.Fetch(ctx, skill.Spec.RepoURL, token, skill.Spec.CommitSHA)
 	if err != nil {
 		return nil, "", err
 	}
@@ -252,8 +275,8 @@ func materializeSkillSource(ctx context.Context, fetcher repositoryFetcher, skil
 	return fetched, skillDir, nil
 }
 
-func MaterializeSkillSource(ctx context.Context, skill *v1.Skill) (func(), string, error) {
-	fetched, skillDir, err := materializeSkillSource(ctx, newGitHubRepositoryFetcher(), skill)
+func MaterializeSkillSource(ctx context.Context, skill *v1.Skill, token string) (func(), string, error) {
+	fetched, skillDir, err := materializeSkillSource(ctx, newGitRepositoryFetcher(), skill, token)
 	if err != nil {
 		return nil, "", err
 	}
