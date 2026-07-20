@@ -2,6 +2,10 @@
 title: API Keys
 ---
 
+import ObotUrlExamples from '@site/src/components/ObotUrlExamples';
+
+<ObotUrlExamples>
+
 # API Keys
 
 API Keys provide programmatic access to Obot from scripts, automation tools, external MCP clients, and compatible LLM clients. Instead of using interactive browser-based OAuth authentication, you can create API keys with only the capabilities each integration needs.
@@ -208,6 +212,8 @@ MCP server access is independent from the optional capabilities. For example, yo
 
 ## Creating API Keys with the CLI
 
+The examples in this section use the URL configured under **Set Obot URL** in the navigation bar.
+
 The `obot login` command creates and stores an API key through the browser-based login flow. By default, it requests API access:
 
 ```bash
@@ -262,3 +268,5 @@ Administrators can delete any user's API key:
 - **Never share keys**: Each integration should have its own API key
 - **Delete unused keys**: Remove keys that are no longer needed
 - **Store securely**: Treat API keys like passwords - never commit them to version control or share them in plain text
+
+</ObotUrlExamples>
