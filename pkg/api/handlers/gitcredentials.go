@@ -106,13 +106,8 @@ func (*GitCredentialHandler) Update(req api.Context) error {
 	if manifest.Token == "" && !configured {
 		return types.NewErrBadRequest("token is required")
 	}
-	references, err := gitCredentialReferences(req, credential.Name)
-	if err != nil {
-		return err
-	}
 
 	credential.Spec.DisplayName = manifest.DisplayName
-	credential.Spec.Host = host
 	if err := req.Update(&credential); err != nil {
 		return fmt.Errorf("failed to update Git credential: %w", err)
 	}
@@ -122,6 +117,7 @@ func (*GitCredentialHandler) Update(req api.Context) error {
 		}
 		configured = true
 	}
+	references, _ := gitCredentialReferences(req, credential.Name)
 	return req.Write(convertGitCredential(credential, configured, len(references) > 0))
 }
 
