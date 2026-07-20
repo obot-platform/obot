@@ -68,7 +68,6 @@
 				{@render field('Action Kind', auditLog.action.kind)}
 				{@render field('Target', auditLog.target.name || auditLog.target.id)}
 				{@render field('Parent Target', auditLog.target.parent?.name || auditLog.target.parent?.id)}
-				{@render field('Resolved', auditLog.target.resolved ? 'Yes' : 'No')}
 				{@render field('HTTP Status', auditLog.outcome.httpStatus)}
 				{@render field('Reason', auditLog.outcome.reason)}
 				{@render field('Duration (ms)', auditLog.outcome.durationMs)}

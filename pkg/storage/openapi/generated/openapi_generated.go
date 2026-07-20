@@ -1899,7 +1899,7 @@ func schema_obot_platform_obot_apiclient_types_AuditLogTarget(ref common.Referen
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "AuditLogTarget describes the direct object of an action. Parent expresses containment, such as an MCP tool belonging to an MCP server. Resolved is true only when Obot correlated the target to a server-side object; client-reported names and hints remain unresolved.",
+				Description: "AuditLogTarget describes the direct object of an action. Parent expresses containment, such as an MCP tool belonging to an MCP server.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"targetType": {
@@ -1926,15 +1926,8 @@ func schema_obot_platform_obot_apiclient_types_AuditLogTarget(ref common.Referen
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.AuditLogTargetRef"),
 						},
 					},
-					"resolved": {
-						SchemaProps: spec.SchemaProps{
-							Default: false,
-							Type:    []string{"boolean"},
-							Format:  "",
-						},
-					},
 				},
-				Required: []string{"targetType", "resolved"},
+				Required: []string{"targetType"},
 			},
 		},
 		Dependencies: []string{

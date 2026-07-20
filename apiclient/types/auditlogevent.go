@@ -127,12 +127,10 @@ type AuditLogTargetRef struct {
 }
 
 // AuditLogTarget describes the direct object of an action. Parent expresses containment, such as
-// an MCP tool belonging to an MCP server. Resolved is true only when Obot correlated the target to
-// a server-side object; client-reported names and hints remain unresolved.
+// an MCP tool belonging to an MCP server.
 type AuditLogTarget struct {
 	AuditLogTargetRef `json:",inline"`
 	Parent            *AuditLogTargetRef `json:"parent,omitempty"`
-	Resolved          bool               `json:"resolved"`
 }
 
 // AuditLogOutcome contains the normalized result plus source-specific evidence. Reason is a stable

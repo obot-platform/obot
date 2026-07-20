@@ -151,7 +151,6 @@ func mcpTarget(mcp *gatewaytypes.MCPAuditLogFields) api.AuditLogTarget {
 	}
 	target := api.AuditLogTarget{
 		AuditLogTargetRef: server,
-		Resolved:          true,
 	}
 	if mcp.CallIdentifier == "" {
 		return target
@@ -200,7 +199,6 @@ func presentLocalAgent(event *api.AuditLogEvent, log gatewaytypes.MCPAuditLog, o
 			TargetType: local.TargetType,
 			Name:       local.TargetName,
 		},
-		Resolved: false,
 	}
 	if local.TargetParentType != "" {
 		event.Target.Parent = &api.AuditLogTargetRef{
