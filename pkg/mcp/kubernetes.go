@@ -48,8 +48,6 @@ var (
 	defaultCPURequest         = resource.MustParse("10m")
 )
 
-const maxDeploymentWatchRetries = 5
-
 type kubernetesBackend struct {
 	clientset         *kubernetes.Clientset
 	client            kclient.WithWatch
@@ -855,10 +853,15 @@ func analyzePodStatusWithClient(ctx context.Context, pod *corev1.Pod, server Ser
 func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id string, server ServerConfig, previousPodName string) (string, error) {
 	// Wait for the deployment to be ready, checking pod status on each update to fail fast on permanent errors.
 	var (
-		err     error
-		lastErr error
+		totalWatchDur time.Duration
+		watchAttempt  int
+		err           error
+		lastErr       error
 	)
-	for attempt := range maxDeploymentWatchRetries {
+
+	const watchTimeout = 5 * time.Second
+	start := time.Now()
+	for ; totalWatchDur < server.StartupTimeout; totalWatchDur, watchAttempt = time.Since(start), watchAttempt+1 {
 		_, err := wait.For(ctx, k.cachedClient, &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: id, Namespace: k.mcpNamespace}},
 			func(dep *appsv1.Deployment) (bool, error) {
 				if dep.Generation == dep.Status.ObservedGeneration && dep.Status.UpdatedReplicas == 1 && dep.Status.ReadyReplicas == 1 && dep.Status.AvailableReplicas == 1 {
@@ -889,13 +892,13 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 				shouldRetry, podErr := analyzePodStatus(ctx, newestPod, server)
 				if !shouldRetry {
 					// Permanent failure - return the error with the appropriate type already wrapped
-					olog.Debugf("pod in non-retryable state: id=%s error=%v attempt=%d", id, podErr, attempt+1)
+					olog.Debugf("pod in non-retryable state: id=%s error=%v attempt=%d", id, podErr, watchAttempt+1)
 					return false, podErr
 				}
 
 				return false, nil // Keep waiting.
 			},
-			wait.Option{Timeout: server.StartupTimeout},
+			wait.Option{Timeout: min(watchTimeout, max(server.StartupTimeout-totalWatchDur, time.Second))},
 		)
 		if err == nil {
 			break
@@ -916,10 +919,10 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 		}
 
 		lastErr = err
-		olog.Debugf("retrying MCP deployment watch after error: id=%s attempt=%d maxAttempts=%d error=%v", id, attempt+1, maxDeploymentWatchRetries, err)
-		if attempt == maxDeploymentWatchRetries-1 {
-			return "", fmt.Errorf("%w after %d watch retries: %v", ErrHealthCheckTimeout, maxDeploymentWatchRetries, lastErr)
-		}
+		olog.Debugf("retrying MCP deployment watch after error: id=%s attempt=%d error=%v", id, watchAttempt+1, err)
+	}
+	if totalWatchDur >= server.StartupTimeout {
+		return "", fmt.Errorf("%w after %d watch retries: %v", ErrHealthCheckTimeout, watchAttempt, lastErr)
 	}
 
 	// Deployment is ready. Get the pod name that is currently running.

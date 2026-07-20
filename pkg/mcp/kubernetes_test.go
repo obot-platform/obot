@@ -1046,9 +1046,6 @@ func TestUpdatedMCPPodName_ContainerStartupDeadlineExceeded(t *testing.T) {
 	if !errors.Is(err, ErrHealthCheckTimeout) {
 		t.Fatalf("updatedMCPPodName() error = %v, want %v", err, ErrHealthCheckTimeout)
 	}
-	if err.Error() != "timed out waiting for MCP server to be ready after 5 watch retries: timeout waiting for Deployment test-server to meet condition" {
-		t.Fatalf("updatedMCPPodName() error = %q, want deployment timeout message", err)
-	}
 }
 
 func TestK8sObjects_ManagedImagePullSecrets(t *testing.T) {
