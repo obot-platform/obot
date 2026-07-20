@@ -15,6 +15,7 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/controller/handlers/skillrepository"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/skillaccessrule"
@@ -347,6 +348,12 @@ func TestSkillHandlerDownloadPackagesMaterializedSkill(t *testing.T) {
 		Status: v1.SkillStatus{Valid: true},
 	}
 	storage := newFakeStorage(t, skill)
+	gatewayClient := newHandlerTestGateway(t)
+	require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: skill.Spec.RepoID,
+		Name:    skillrepository.SkillRepositoryCredentialToolName,
+		Secrets: map[string]string{skill.Spec.RepoURL: "private-token"},
+	}))
 
 	tempDir := t.TempDir()
 	require.NoError(t, os.WriteFile(tempDir+"/SKILL.md", []byte("---\nname: postgres-helper\ndescription: Test\n---\n"), 0o644))
@@ -359,7 +366,7 @@ func TestSkillHandlerDownloadPackagesMaterializedSkill(t *testing.T) {
 	handler.materializeSkillSource = func(_ context.Context, got *v1.Skill, token string) (func(), string, error) {
 		assert.Equal(t, "abc123", got.Spec.CommitSHA)
 		assert.Equal(t, "skills/postgres-helper", got.Spec.RelativePath)
-		assert.Empty(t, token)
+		assert.Equal(t, "private-token", token)
 		return func() {}, tempDir, nil
 	}
 
@@ -371,6 +378,7 @@ func TestSkillHandlerDownloadPackagesMaterializedSkill(t *testing.T) {
 		ResponseWriter: rec,
 		Request:        req,
 		Storage:        storage,
+		GatewayClient:  gatewayClient,
 		User:           testUser("user1"),
 	})
 	require.NoError(t, err)
@@ -402,6 +410,7 @@ func TestSkillHandlerPreviewReturnsSkillMD(t *testing.T) {
 		Status: v1.SkillStatus{Valid: true},
 	}
 	storage := newFakeStorage(t, skill)
+	gatewayClient := newHandlerTestGateway(t)
 
 	tempDir := t.TempDir()
 	require.NoError(t, os.WriteFile(tempDir+"/SKILL.md", want, 0o644))
@@ -423,6 +432,7 @@ func TestSkillHandlerPreviewReturnsSkillMD(t *testing.T) {
 		ResponseWriter: rec,
 		Request:        req,
 		Storage:        storage,
+		GatewayClient:  gatewayClient,
 		User:           testUser("user1"),
 	})
 	require.NoError(t, err)
