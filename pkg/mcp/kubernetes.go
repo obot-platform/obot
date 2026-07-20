@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"net/http"
 	"reflect"
 	"slices"
 	"sort"
@@ -771,7 +772,11 @@ func getNewestPod(pods []corev1.Pod) (*corev1.Pod, error) {
 
 // analyzePodStatus examines a pod's status to determine if we should retry waiting for it
 // or if we should fail immediately. Returns (shouldRetry, error).
-func analyzePodStatus(pod *corev1.Pod, isAgent bool) (bool, error) {
+func analyzePodStatus(ctx context.Context, pod *corev1.Pod, server ServerConfig) (bool, error) {
+	return analyzePodStatusWithClient(ctx, pod, server, &http.Client{Timeout: time.Second})
+}
+
+func analyzePodStatusWithClient(ctx context.Context, pod *corev1.Pod, server ServerConfig, healthCheckClient *http.Client) (bool, error) {
 	// Check pod phase first
 	switch pod.Status.Phase {
 	case corev1.PodFailed:
@@ -779,7 +784,7 @@ func analyzePodStatus(pod *corev1.Pod, isAgent bool) (bool, error) {
 	case corev1.PodSucceeded:
 		// This shouldn't happen for a long-running deployment, but if it does, it's an error
 		// Except for agents. We use "recreate" update strategy for agents, so it's possible that the old pod exited while the new one is initializing.
-		return isAgent, fmt.Errorf("%w: pod succeeded and exited", ErrHealthCheckTimeout)
+		return server.NanobotAgentName != "", fmt.Errorf("%w: pod succeeded and exited", ErrHealthCheckTimeout)
 	case corev1.PodUnknown:
 		return false, fmt.Errorf("%w: pod is in Unknown phase", ErrHealthCheckTimeout)
 	}
@@ -836,6 +841,13 @@ func analyzePodStatus(pod *corev1.Pod, isAgent bool) (bool, error) {
 		return false, fmt.Errorf("%w: pod was evicted: %s", ErrPodSchedulingFailed, pod.Status.Message)
 	}
 
+	// If this is a command-based MCP server, then check for a 500 from the health check.
+	if pod.Status.PodIP != "" && (server.Runtime == types.RuntimeNPX || server.Runtime == types.RuntimeUVX) {
+		if err := ensureHTTPGetOK(ctx, healthCheckClient, fmt.Sprintf("http://%s:%d%s", pod.Status.PodIP, defaultContainerPort, server.HealthzPath)); err != nil {
+			return false, err
+		}
+	}
+
 	// Default: pod is in Pending or Running but not ready yet - should retry
 	return true, fmt.Errorf("pod in phase %s, waiting for containers to be ready", pod.Status.Phase)
 }
@@ -874,7 +886,7 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 					return false, nil // Keep waiting
 				}
 
-				shouldRetry, podErr := analyzePodStatus(newestPod, server.NanobotAgentName != "")
+				shouldRetry, podErr := analyzePodStatus(ctx, newestPod, server)
 				if !shouldRetry {
 					// Permanent failure - return the error with the appropriate type already wrapped
 					olog.Debugf("pod in non-retryable state: id=%s error=%v attempt=%d", id, podErr, attempt+1)
@@ -898,6 +910,7 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 			errors.Is(err, ErrImagePullFailed) ||
 			errors.Is(err, ErrPodSchedulingFailed) ||
 			errors.Is(err, ErrPodConfigurationFailed) ||
+			errors.Is(err, ErrHealthCheckFailed) ||
 			errors.Is(err, context.Canceled) {
 			return "", err
 		}
@@ -937,13 +950,6 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 
 	if podName == previousPodName {
 		return podName, nil
-	}
-
-	// For containerized runtimes, ensure that the real MCP server is healthy.
-	if server.Runtime == types.RuntimeContainerized {
-		if err = ensureServerReady(ctx, fmt.Sprintf("%s:%d", url, 8080), server); err != nil {
-			return "", fmt.Errorf("failed to ensure MCP server is ready: %w", err)
-		}
 	}
 
 	if err = ensureServerReady(ctx, url, server); err != nil {
