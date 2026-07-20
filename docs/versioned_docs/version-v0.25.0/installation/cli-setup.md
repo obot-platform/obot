@@ -2,6 +2,10 @@
 title: Obot CLI Setup
 ---
 
+import ObotUrlExamples from '@site/src/components/ObotUrlExamples';
+
+<ObotUrlExamples>
+
 The `obot setup` command prepares your local workstation to use an Obot server from the command line and from supported local AI clients.
 
 Use it after an Obot server is running and reachable from your machine.
@@ -33,16 +37,10 @@ If Obot authentication is enabled but no provider is configured yet, finish serv
 
 ## Basic usage
 
-Run setup with your Obot app URL:
+Run setup with your Obot app URL. The examples on this page use the URL configured under **Set Obot URL** in the navigation bar.
 
 ```bash
 obot setup --url https://obot.example.com
-```
-
-For a local Docker deployment using the default port:
-
-```bash
-obot setup --url http://localhost:8080
 ```
 
 If authentication is required, the CLI opens a browser to complete login. After login succeeds, setup saves the default URL and asks where to install local bootstrap skills.
@@ -146,3 +144,5 @@ Pass `--clients agents`, `--clients claude-code`, `--clients agents,claude-code`
 ### Existing URL mismatch
 
 If setup reports that another Obot URL is already configured, pass `--yes` to replace the stored default URL.
+
+</ObotUrlExamples>
