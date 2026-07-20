@@ -66,14 +66,18 @@
 		if (compositeParentName || entity === 'agent') return null;
 
 		if (isAdminUrl) {
+			const adminPrefix = page.url.pathname.startsWith('/admin/mcp-deployments')
+				? '/admin/mcp-deployments'
+				: '/admin/mcp-catalog';
+
 			if (!hasAdminAccess) return null;
 			return entity === 'workspace'
 				? catalogEntry?.id
-					? `/admin/mcp-catalog/w/${entityId}/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
-					: `/admin/mcp-catalog/w/${entityId}/s/${encodeURIComponent(id ?? '')}?view=audit-logs&user_id=${d.id}`
+					? `${adminPrefix}/w/${entityId}/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
+					: `${adminPrefix}/w/${entityId}/s/${encodeURIComponent(id ?? '')}?view=audit-logs&user_id=${d.id}`
 				: catalogEntry?.id
-					? `/admin/mcp-catalog/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
-					: `/admin/mcp-catalog/s/${encodeURIComponent(id ?? '')}?view=audit-logs&user_id=${d.id}`;
+					? `${adminPrefix}/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
+					: `${adminPrefix}/s/${encodeURIComponent(id ?? '')}?view=audit-logs&user_id=${d.id}`;
 		}
 
 		// Basic users can access audit logs for their own single-user servers
@@ -89,7 +93,7 @@
 	<div class="flex flex-col gap-6">
 		{#if catalogEntry?.manifest.runtime === 'composite'}
 			<McpServerCompositeInfo
-				mcpServerId={server?.id}
+				{mcpServerId}
 				name={title}
 				entity="catalog"
 				entityId={DEFAULT_MCP_CATALOG_ID}
