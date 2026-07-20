@@ -682,7 +682,7 @@
 							<div class="rounded-box bg-base-200 flex flex-col gap-2 p-4">
 								{#each step.content.slice(0, stepReveal.contentCount) as content, j (j)}
 									<div in:fade={{ duration: CONTENT_FADE_MS }}>
-										{@render renderStepContent(content, j)}
+										{@render renderStepContent(content, `${i}-${j}`)}
 									</div>
 								{/each}
 							</div>
@@ -754,7 +754,7 @@
 		>
 			{#if stepDialogContent && stepDialogOpen}
 				{#each stepDialogContent.content as content, i (i)}
-					{@render renderStepContent(content, i)}
+					{@render renderStepContent(content, `guide-dialog-content-${i}`)}
 				{/each}
 
 				<div class="flex justify-end pt-4 mt-4 border-t border-base-300">
@@ -767,7 +767,7 @@
 	</div>
 {/if}
 
-{#snippet renderStepContent(content: GuideContent, index: number)}
+{#snippet renderStepContent(content: GuideContent, index: string | number)}
 	{#if typeof content === 'string'}
 		<p class="text-sm">{content}</p>
 	{:else if 'text' in content && content.type === 'code'}

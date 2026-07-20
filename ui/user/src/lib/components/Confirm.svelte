@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { openDialog } from '$lib/actions/openDialog';
+	import { openDialog, shouldDismissNonModalDialogOnEscape } from '$lib/actions/openDialog';
 	import Loading from '$lib/icons/Loading.svelte';
 	import IconButton from './primitives/IconButton.svelte';
 	import { CircleAlert, X } from '@lucide/svelte';
@@ -66,7 +66,7 @@
 		if (!node) return;
 
 		const onKeyDown = (e: KeyboardEvent) => {
-			if (e.key !== 'Escape' || !node.open || node.matches(':modal')) return;
+			if (e.key !== 'Escape' || !shouldDismissNonModalDialogOnEscape(node)) return;
 			e.preventDefault();
 			oncancel();
 		};

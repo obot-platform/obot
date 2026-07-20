@@ -20,6 +20,16 @@ export function shouldOpenDialogNonModal(dialog: HTMLDialogElement) {
 	return Boolean(guidePanel?.matches(':popover-open') && !guidePanel.contains(dialog));
 }
 
+/** True when Escape should dismiss this non-modal dialog and no dialog is above it. */
+export function shouldDismissNonModalDialogOnEscape(dialog: HTMLDialogElement): boolean {
+	if (!dialog.open || dialog.matches(':modal')) return false;
+	// Native modal dismissal takes precedence over non-modal dialogs underneath it.
+	if (document.querySelector('dialog[open]:modal')) return false;
+
+	const openDialogs = Array.from(document.querySelectorAll<HTMLDialogElement>('dialog[open]'));
+	return openDialogs.findLast((candidate) => !candidate.matches(':modal')) === dialog;
+}
+
 /**
  * Opens a dialog, preferring non-modal `show()` when the Quick Start guide panel is open.
  *

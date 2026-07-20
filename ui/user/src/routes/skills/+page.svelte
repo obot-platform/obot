@@ -42,6 +42,8 @@
 		try {
 			const blob = await UserService.downloadSkill(skill.id);
 			saveBlob(blob, `${skill.name ?? skill.id}.zip`);
+		} catch (err) {
+			console.error('Failed to download skill', err);
 		} finally {
 			downloadingSkillIds.delete(skill.id);
 		}

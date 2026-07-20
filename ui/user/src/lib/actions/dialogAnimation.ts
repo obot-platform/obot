@@ -1,15 +1,10 @@
-import { shouldOpenDialogNonModal } from './openDialog.js';
+import { shouldDismissNonModalDialogOnEscape, shouldOpenDialogNonModal } from './openDialog.js';
 import type { Action } from 'svelte/action';
 
 type AnimationType = 'slide' | 'fade' | 'drawer';
 
 interface DialogAnimationParams {
 	type?: AnimationType | null;
-}
-
-function getTopmostOpenNonModalDialog(): HTMLDialogElement | undefined {
-	const openDialogs = Array.from(document.querySelectorAll<HTMLDialogElement>('dialog[open]'));
-	return openDialogs.findLast((dialog) => !dialog.matches(':modal'));
 }
 
 // for <dialog> elements
@@ -101,11 +96,7 @@ export const dialogAnimation: Action<HTMLDialogElement, DialogAnimationParams> =
 	};
 
 	const onNonModalEscape = (e: KeyboardEvent) => {
-		if (e.key !== 'Escape' || !node.open || node.matches(':modal')) return;
-		// Let the browser dismiss a modal dialog before considering any non-modal dialog
-		// underneath it. Among non-modal dialogs, only the topmost one handles Escape.
-		if (document.querySelector('dialog[open]:modal')) return;
-		if (getTopmostOpenNonModalDialog() !== node) return;
+		if (e.key !== 'Escape' || !shouldDismissNonModalDialogOnEscape(node)) return;
 		e.preventDefault();
 		node.close();
 	};
