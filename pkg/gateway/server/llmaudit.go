@@ -31,7 +31,6 @@ const (
 
 	llmAuditUserAgentClaudeCode = "claude-code"
 	llmAuditUserAgentClaudeCLI  = "claude-cli"
-	llmAuditUserAgentClaudeGRI  = "gRi"
 	llmAuditUserAgentCodexCLI   = "codex_cli_rs"
 	llmAuditUserAgentCodexTUI   = "codex-tui"
 )
@@ -55,7 +54,7 @@ func newLLMAuditRecorder(req *http.Request, user user.Info, responseCaptureLimit
 	if user != nil {
 		userID = user.GetUID()
 	}
-	clientName, clientVersion := parseLLMClientUserAgent(req.UserAgent())
+	clientName, clientVersion := detectLLMClient(req)
 
 	return &llmAuditRecorder{
 		responseCaptureLimit: responseCaptureLimit,
@@ -248,11 +247,19 @@ func parseLLMClientUserAgent(userAgent string) (string, string) {
 	switch name {
 	case llmAuditUserAgentClaudeCode, llmAuditUserAgentClaudeCLI:
 		name = llmAuditClientClaudeCode
-	case llmAuditUserAgentClaudeGRI:
-		name = llmAuditClientClaudeCode
-		version = ""
 	case llmAuditUserAgentCodexCLI, llmAuditUserAgentCodexTUI:
 		name = llmAuditClientCodex
+	}
+	return name, version
+}
+
+func detectLLMClient(req *http.Request) (string, string) {
+	name, version := parseLLMClientUserAgent(req.UserAgent())
+	if name == llmAuditClientClaudeCode || name == llmAuditClientCodex {
+		return name, version
+	}
+	if req.Header.Get(claudeCodeSessionIDHeader) != "" {
+		return llmAuditClientClaudeCode, ""
 	}
 	return name, version
 }
