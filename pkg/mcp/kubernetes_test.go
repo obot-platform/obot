@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -632,7 +634,7 @@ func TestAnalyzePodStatus(t *testing.T) {
 	tests := []struct {
 		name            string
 		pod             corev1.Pod
-		isAgent         bool
+		server          ServerConfig
 		wantRetryable   bool
 		wantErr         error
 		wantErrContains string
@@ -725,7 +727,7 @@ func TestAnalyzePodStatus(t *testing.T) {
 					Phase: corev1.PodSucceeded,
 				},
 			},
-			isAgent:         true,
+			server:          ServerConfig{NanobotAgentName: "agent-1"},
 			wantRetryable:   true,
 			wantErr:         ErrHealthCheckTimeout,
 			wantErrContains: "pod succeeded and exited",
@@ -763,7 +765,7 @@ func TestAnalyzePodStatus(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			retryable, err := analyzePodStatus(&tt.pod, tt.isAgent)
+			retryable, err := analyzePodStatus(t.Context(), &tt.pod, tt.server)
 			if tt.wantErr != nil {
 				if !errors.Is(err, tt.wantErr) {
 					t.Fatalf("analyzePodStatus() error = %v, want %v", err, tt.wantErr)
@@ -779,6 +781,107 @@ func TestAnalyzePodStatus(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestAnalyzePodStatusCommandRuntimeHealthCheck(t *testing.T) {
+	tests := []struct {
+		name              string
+		runtime           types.Runtime
+		podIP             string
+		statusCode        int
+		wantCalls         int
+		wantRetryable     bool
+		wantHealthFailure bool
+	}{
+		{
+			name:              "NPX fails immediately on health check 500",
+			runtime:           types.RuntimeNPX,
+			podIP:             "10.0.0.7",
+			statusCode:        http.StatusInternalServerError,
+			wantCalls:         1,
+			wantHealthFailure: true,
+		},
+		{
+			name:              "UVX fails immediately on health check 500",
+			runtime:           types.RuntimeUVX,
+			podIP:             "10.0.0.7",
+			statusCode:        http.StatusInternalServerError,
+			wantCalls:         1,
+			wantHealthFailure: true,
+		},
+		{
+			name:          "successful command health check remains retryable",
+			runtime:       types.RuntimeNPX,
+			podIP:         "10.0.0.7",
+			statusCode:    http.StatusOK,
+			wantCalls:     1,
+			wantRetryable: true,
+		},
+		{
+			name:          "containerized runtime skips pod health check",
+			runtime:       types.RuntimeContainerized,
+			podIP:         "10.0.0.7",
+			statusCode:    http.StatusInternalServerError,
+			wantRetryable: true,
+		},
+		{
+			name:          "command runtime without pod IP skips health check",
+			runtime:       types.RuntimeNPX,
+			statusCode:    http.StatusInternalServerError,
+			wantRetryable: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var (
+				calls  int
+				gotURL string
+			)
+			client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				calls++
+				gotURL = req.URL.String()
+				return &http.Response{
+					StatusCode: tt.statusCode,
+					Body:       io.NopCloser(strings.NewReader("tool discovery failed")),
+					Header:     make(http.Header),
+					Request:    req,
+				}, nil
+			})}
+
+			retryable, err := analyzePodStatusWithClient(t.Context(), &corev1.Pod{
+				Status: corev1.PodStatus{
+					Phase: corev1.PodRunning,
+					PodIP: tt.podIP,
+				},
+			}, ServerConfig{
+				Runtime:     tt.runtime,
+				HealthzPath: "/healthz",
+			}, client)
+
+			if retryable != tt.wantRetryable {
+				t.Fatalf("analyzePodStatusWithClient() retryable = %v, want %v", retryable, tt.wantRetryable)
+			}
+			if errors.Is(err, ErrHealthCheckFailed) != tt.wantHealthFailure {
+				t.Fatalf("analyzePodStatusWithClient() error = %v, want health failure %v", err, tt.wantHealthFailure)
+			}
+			if tt.wantHealthFailure && !strings.Contains(err.Error(), "tool discovery failed") {
+				t.Fatalf("analyzePodStatusWithClient() error = %q, want response body", err)
+			}
+			if calls != tt.wantCalls {
+				t.Fatalf("health check calls = %d, want %d", calls, tt.wantCalls)
+			}
+			if tt.wantCalls > 0 && gotURL != "http://10.0.0.7:8099/healthz" {
+				t.Fatalf("health check URL = %q, want %q", gotURL, "http://10.0.0.7:8099/healthz")
+			}
+		})
+	}
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
 }
 
 type fakeWithWatch struct {
