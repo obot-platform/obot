@@ -1,20 +1,6 @@
-// Generic MDM form and download helpers. Field and target metadata comes from
+// Generic MDM form helpers. Field and target metadata comes from
 // the selected MDM asset; nothing platform-specific lives in the UI.
 import type { MDMAsset, MDMAssetConfiguration, MDMAssetField, MDMAssetFields } from '$lib/services';
-
-// saveBlob prompts a browser download of a blob under the given filename.
-// Browser-only (uses document / URL); call from event handlers.
-export function saveBlob(blob: Blob, filename: string): void {
-	const url = URL.createObjectURL(blob);
-	const a = document.createElement('a');
-	a.href = url;
-	a.download = filename;
-	a.style.display = 'none';
-	document.body.append(a);
-	a.click();
-	a.remove();
-	setTimeout(() => URL.revokeObjectURL(url), 0);
-}
 
 export function mdmTargetLabel(asset: MDMAsset, target: MDMAssetConfiguration): string {
 	const platform = asset.platforms.find((candidate) => candidate.id === target.platform);

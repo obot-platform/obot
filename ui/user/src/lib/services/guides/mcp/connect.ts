@@ -98,5 +98,6 @@ export const steps: GuideStep[] = [
 export default {
 	steps,
 	title: 'Connecting to MCP Servers',
+	description: 'Set up your AI client with an MCP server and begin using it.',
 	id: 'mcp-connect-guide'
 };

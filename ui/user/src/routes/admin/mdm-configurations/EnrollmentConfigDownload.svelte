@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { saveBlob } from '$lib/download';
 	import { parseErrorContent } from '$lib/errors';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
@@ -16,7 +17,6 @@
 		editableMDMValues,
 		mdmFieldProblem,
 		mdmTargetLabel,
-		saveBlob,
 		submittedMDMValues
 	} from './platforms';
 	import { Download, RefreshCw, Save, Trash2, TriangleAlert } from '@lucide/svelte';

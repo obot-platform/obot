@@ -4,16 +4,21 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import ObotCliBanner from '$lib/components/ObotCliBanner.svelte';
 	import Search from '$lib/components/Search.svelte';
+	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
+	import { saveBlob } from '$lib/download';
+	import { UserService } from '$lib/services';
 	import type { Skill } from '$lib/services/nanobot/types';
 	import { MCP_CONNECTION_INVALID_LICENSE_MESSAGE } from '$lib/services/user/constants.js';
 	import { formatTimeAgo } from '$lib/time';
 	import { setUrlParamAndUpdateUrl } from '$lib/url.js';
-	import { TriangleAlert, PencilRuler } from '@lucide/svelte';
+	import { TriangleAlert, PencilRuler, Download } from '@lucide/svelte';
 	import { untrack } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	let { data } = $props();
 	let query = $derived(page.url.searchParams.get('query') ?? '');
+	let downloadingSkillIds = new SvelteSet<string>();
 
 	let skills = $state<Skill[]>(untrack(() => data?.skills ?? []));
 	let skillsTableData = $derived(
@@ -29,6 +34,17 @@
 
 	function updateSearchQuery(value: string) {
 		setUrlParamAndUpdateUrl(page.url, 'query', value);
+	}
+
+	async function handleDownloadSkill(skill: Skill) {
+		if (downloadingSkillIds.has(skill.id)) return;
+		downloadingSkillIds.add(skill.id);
+		try {
+			const blob = await UserService.downloadSkill(skill.id);
+			saveBlob(blob, `${skill.name ?? skill.id}.zip`);
+		} finally {
+			downloadingSkillIds.delete(skill.id);
+		}
 	}
 </script>
 
@@ -99,12 +115,23 @@
 						</span>
 					{:else if property === 'created'}
 						{formatTimeAgo(d.created).relativeTime}
+					{:else if property === 'description'}
+						<span class="line-clamp-2">{d.description ?? '—'}</span>
 					{:else}
 						{d[property as keyof typeof d]}
 					{/if}
 				{/snippet}
-				{#snippet actions(_d)}
-					<div></div>
+				{#snippet actions(d)}
+					<IconButton
+						id={`download-skill-${d.id}`}
+						tooltip={{
+							text: 'Download'
+						}}
+						disabled={downloadingSkillIds.has(d.id)}
+						onclick={() => handleDownloadSkill(d)}
+					>
+						<Download class="size-5" />
+					</IconButton>
 				{/snippet}
 			</Table>
 		{:else}

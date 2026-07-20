@@ -311,7 +311,7 @@
 					{:else if property === 'repository'}
 						<span class="block min-w-0 truncate">{d.repository}</span>
 					{:else if property === 'description'}
-						<span class="line-clamp-2 text-xs">{d.description ?? '—'}</span>
+						<span class="line-clamp-2 text-sm">{d.description ?? '—'}</span>
 					{:else}
 						{d[property as keyof typeof d]}
 					{/if}

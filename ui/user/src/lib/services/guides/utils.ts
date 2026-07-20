@@ -3,8 +3,7 @@ import { page } from '$app/state';
 import { OBOT_GUIDE_KEYS } from '$lib/constants';
 import { Group } from '$lib/services/admin/types';
 import { profile } from '$lib/stores';
-import McpConnectGuide from './mcp/connect';
-import McpCreateCustomGuide from './mcp/customMcp';
+import { SkillsInstallGuide, McpConnectGuide, McpCreateCustomGuide } from '.';
 import { isValid } from 'date-fns';
 
 export function generateLessonItems() {
@@ -16,16 +15,21 @@ export function generateLessonItems() {
 	return isAdvancedRoute && isAtLeastPoweruser
 		? [
 				{
-					label: 'Add custom MCP Server to the catalog',
-					description: 'Create a custom MCP server.',
+					label: McpCreateCustomGuide.title,
+					description: McpCreateCustomGuide.description,
 					guide: McpCreateCustomGuide
 				}
 			]
 		: [
 				{
-					label: 'Connect to an MCP Server',
-					description: 'Set up your AI client with an MCP server and begin using it.',
+					label: McpConnectGuide.title,
+					description: McpConnectGuide.description,
 					guide: McpConnectGuide
+				},
+				{
+					label: SkillsInstallGuide.title,
+					description: SkillsInstallGuide.description,
+					guide: SkillsInstallGuide
 				}
 			];
 }

@@ -739,15 +739,69 @@
 		background-color: var(--color-base-400);
 	}
 
+	.driver-popover {
+		background-color: var(--color-base-100) !important;
+		color: var(--color-base-content) !important;
+
+		.dark & {
+			background-color: var(--color-base-300) !important;
+		}
+	}
+
 	.driver-popover * {
 		font-family: var(--theme-font-family) !important;
 	}
 
 	.driver-popover-title {
 		font-size: var(--text-sm) !important;
+		color: var(--color-base-content) !important;
 	}
+
 	.driver-popover-description {
 		font-size: var(--text-xs) !important;
+		color: var(--color-base-content) !important;
+	}
+
+	.driver-popover-close-btn {
+		color: var(--color-muted-content) !important;
+
+		&:hover,
+		&:focus {
+			color: var(--color-base-content) !important;
+		}
+	}
+
+	/* Arrow is a CSS triangle via border; only the facing side keeps the fill color. */
+	.driver-popover-arrow-side-left {
+		border-left-color: var(--color-base-100) !important;
+
+		.dark & {
+			border-left-color: var(--color-base-300) !important;
+		}
+	}
+
+	.driver-popover-arrow-side-right {
+		border-right-color: var(--color-base-100) !important;
+
+		.dark & {
+			border-right-color: var(--color-base-300) !important;
+		}
+	}
+
+	.driver-popover-arrow-side-top {
+		border-top-color: var(--color-base-100) !important;
+
+		.dark & {
+			border-top-color: var(--color-base-300) !important;
+		}
+	}
+
+	.driver-popover-arrow-side-bottom {
+		border-bottom-color: var(--color-base-100) !important;
+
+		.dark & {
+			border-bottom-color: var(--color-base-300) !important;
+		}
 	}
 
 	.guide-panel-popover {

@@ -1,8 +1,15 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { columnResize } from '$lib/actions/resize';
-	import { type GuideAction, type GuideListener, type GuideDialog } from '$lib/services/guides';
+	import {
+		type GuideAction,
+		type GuideButton,
+		type GuideContent,
+		type GuideDialog,
+		type GuideListener
+	} from '$lib/services/guides';
 	import { darkMode, errors, guide, mcpServersAndEntries, userDeviceSettings } from '$lib/stores';
+	import CopyField from '../CopyField.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
 	import Obot from './Obot.svelte';
@@ -11,7 +18,7 @@
 	import { GripVertical, X } from '@lucide/svelte';
 	import { noop } from 'es-toolkit';
 	import { onDestroy, onMount, tick } from 'svelte';
-	import { fade, fly, slide } from 'svelte/transition';
+	import { fade, fly } from 'svelte/transition';
 
 	const CONTENT_FADE_MS = 500;
 	// Short poll after clicks (nav expand). Highlight waits separately for post-nav targets.
@@ -65,6 +72,7 @@
 	let listenerHandler: ((e: MouseEvent) => void) | undefined = undefined;
 	let activeListener = $state<GuideListener | undefined>(undefined);
 	let guideCompleted = $state(false);
+	let initializedGuideId: string | undefined;
 	let wasMcpServersLoading = false;
 
 	onMount(() => {
@@ -88,7 +96,7 @@
 		wasMcpServersLoading = false;
 
 		const sessionGeneration = guideSessionGeneration;
-		const step = guide.selectedGuide.steps[guide.currentStep];
+		const step = guide.stream[guide.currentStep];
 		if (!step?.action) {
 			highlighter?.refresh();
 			return;
@@ -197,19 +205,51 @@
 
 	$effect(() => {
 		const selected = guide.selectedGuide;
-		if (selected && selected.id !== guide.previousGuide?.id) {
-			guideSessionGeneration += 1;
-			actionGeneration += 1;
-			cleanupListener();
+		if (!selected) {
+			initializedGuideId = undefined;
+			return;
+		}
+		if (initializedGuideId === selected.id) return;
+		initializedGuideId = selected.id;
+
+		guideSessionGeneration += 1;
+		actionGeneration += 1;
+		cleanupListener();
+		disabledAutoScroll = false;
+		guideCompleted = false;
+
+		if (selected.id !== guide.previousGuide?.id) {
 			guide.previousGuide = selected;
 			revealGeneration += 1;
-			guide.stream = selected.steps[0] ? [selected.steps[0]] : [];
+			guide.activeSteps = [...selected.steps];
+			guide.stream = guide.activeSteps[0] ? [guide.activeSteps[0]] : [];
 			guide.currentStep = 0;
 			guide.revealed = [];
-			disabledAutoScroll = false;
-			guideCompleted = false;
 			if (guide.stream.length) {
 				void animateStepReveal(0);
+			}
+			return;
+		}
+
+		// Route navigation replaces Layout (and this component) while guide state remains in
+		// the shared store. Resume an interrupted reveal and restore the current step action.
+		if (!guide.activeSteps.length) {
+			guide.activeSteps = [...selected.steps];
+		}
+		const step = guide.stream[guide.currentStep];
+		if (!step) return;
+
+		const reveal = guide.revealed[guide.currentStep];
+		const hasButtons = Boolean(step.button || step.buttons?.length);
+		const revealIncomplete =
+			!reveal || reveal.contentCount < step.content.length || (hasButtons && !reveal.showButton);
+		if (revealIncomplete) {
+			revealGeneration += 1;
+			void animateStepReveal(guide.currentStep);
+		} else {
+			if (step.action) void handleStepAction(step.action);
+			if (guide.currentStep === guide.activeSteps.length - 1 && !step.buttons?.length) {
+				guideCompleted = true;
 			}
 		}
 	});
@@ -272,13 +312,14 @@
 					target = findListenerTarget(listener);
 				}
 			}
-			if (target && isCurrentGuideSession(sessionGeneration)) {
+			if (target && isCurrentGuideSession(sessionGeneration) && !listener.skipClickOnNext) {
 				clickGuideTarget(target);
 				return;
 			}
 		}
 
-		const step = guide.selectedGuide?.steps[guide.currentStep];
+		const step = guide.stream[guide.currentStep];
+		if (step?.buttons?.length) return;
 		if (step?.button?.action) {
 			const action = await resolveAction(step.button.action);
 			if (!isCurrentGuideSession(sessionGeneration)) return;
@@ -314,7 +355,7 @@
 			);
 		}
 
-		if (step.button) {
+		if (step.button || step.buttons?.length) {
 			await sleep(CONTENT_FADE_MS);
 			if (generation !== revealGeneration) return;
 			guide.revealed = guide.revealed.map((r, idx) =>
@@ -323,9 +364,38 @@
 		}
 
 		if (generation !== revealGeneration) return;
-		const total = guide.selectedGuide?.steps.length ?? 0;
-		if (stepIndex === total - 1) {
+		if (stepIndex === guide.activeSteps.length - 1 && !step.buttons?.length) {
 			guideCompleted = true;
+		}
+	}
+
+	async function handleGuideButton(button: GuideButton, stepIndex: number) {
+		const sessionGeneration = guideSessionGeneration;
+		if (!isCurrentGuideSession(sessionGeneration) || guide.currentStep !== stepIndex) return;
+
+		if (button.steps) {
+			guide.activeSteps = [...guide.activeSteps.slice(0, stepIndex + 1), ...button.steps];
+			guideCompleted = false;
+		}
+
+		if (button.action) {
+			const action = await resolveAction(button.action);
+			if (!isCurrentGuideSession(sessionGeneration)) return;
+			if (!action) {
+				errors.append(
+					`Failed to resolve guide action (guide=${guide.selectedGuide?.id ?? 'unknown'}, step=${stepIndex})`
+				);
+				return;
+			}
+			await handleStepAction(action);
+		}
+
+		if (
+			button.steps &&
+			guide.currentStep === stepIndex &&
+			isCurrentGuideSession(sessionGeneration)
+		) {
+			handleNextStep();
 		}
 	}
 
@@ -448,10 +518,10 @@
 
 	function handleNextStep() {
 		guide.currentStep += 1;
-		if (guide.selectedGuide?.steps[guide.currentStep]) {
-			guide.stream = [...guide.stream, guide.selectedGuide.steps[guide.currentStep]];
+		if (guide.activeSteps[guide.currentStep]) {
+			guide.stream = [...guide.stream, guide.activeSteps[guide.currentStep]];
 			void animateStepReveal(guide.currentStep);
-		} else if (guide.selectedGuide && guide.currentStep >= guide.selectedGuide.steps.length) {
+		} else if (guide.selectedGuide && guide.currentStep >= guide.activeSteps.length) {
 			guideCompleted = true;
 		}
 	}
@@ -495,6 +565,7 @@
 		guide.revealed = [];
 		guide.currentStep = 0;
 		guide.previousGuide = undefined;
+		guide.activeSteps = [];
 		guideCompleted = false;
 
 		cleanupListener();
@@ -606,34 +677,29 @@
 				<div bind:this={scrollContent} class="flex flex-col gap-4 p-4">
 					{#each guide.stream as step, i (`${guide.selectedGuide.id}-${i}`)}
 						{@const stepReveal = guide.revealed[i]}
+						{@const stepButtons = step.buttons ?? (step.button ? [step.button] : [])}
 						{#if stepReveal && stepReveal.contentCount > 0}
 							<div class="rounded-box bg-base-200 flex flex-col gap-2 p-4">
 								{#each step.content.slice(0, stepReveal.contentCount) as content, j (j)}
-									<p class="text-sm" in:slide={{ axis: 'y', duration: CONTENT_FADE_MS }}>
-										{content}
-									</p>
+									<div in:fade={{ duration: CONTENT_FADE_MS }}>
+										{@render renderStepContent(content, j)}
+									</div>
 								{/each}
 							</div>
 						{/if}
 
-						{#if step.button && stepReveal?.showButton}
-							<button
-								class="btn btn-sm btn-primary w-full"
-								in:fade={{ duration: CONTENT_FADE_MS }}
-								onclick={async () => {
-									const action = await resolveAction(step?.button?.action);
-									if (action) {
-										await handleStepAction(action);
-									} else {
-										errors.append(
-											`Failed to resolve guide action (guide=${guide.selectedGuide?.id ?? 'unknown'}, step=${i})`
-										);
-									}
-								}}
-								disabled={guide.currentStep !== i}
-							>
-								{step.button.text}
-							</button>
+						{#if stepButtons.length && stepReveal?.showButton}
+							<div class="flex flex-col gap-2" in:fade={{ duration: CONTENT_FADE_MS }}>
+								{#each stepButtons as button, buttonIndex (`${i}-${buttonIndex}`)}
+									<button
+										class="btn btn-sm btn-primary w-full"
+										onclick={() => void handleGuideButton(button, i)}
+										disabled={guide.currentStep !== i}
+									>
+										{button.text}
+									</button>
+								{/each}
+							</div>
 						{/if}
 					{/each}
 
@@ -658,7 +724,11 @@
 							>Skip All</button
 						>
 					{/if}
-					<button class="btn btn-sm btn-primary min-w-24" onclick={() => void handlePrimaryNext()}>
+					<button
+						class="btn btn-sm btn-primary min-w-24"
+						onclick={() => void handlePrimaryNext()}
+						disabled={Boolean(guide.stream[guide.currentStep]?.buttons?.length)}
+					>
 						{guideCompleted ? 'Close' : 'Next'}
 					</button>
 				</div>
@@ -682,37 +752,9 @@
 			onClose={handleStepDialogClose}
 			class="w-[75dvw] max-w-[95dvw] max-h-[calc(95dvh)]"
 		>
-			{#if stepDialogContent}
+			{#if stepDialogContent && stepDialogOpen}
 				{#each stepDialogContent.content as content, i (i)}
-					{#if 'text' in content}
-						<p class="text-sm">{content.text}</p>
-					{/if}
-					{#if 'imageUrl' in content}
-						{#if stepDialogOpen}
-							<img src={content.imageUrl} alt={content.alt} class="w-full h-auto" loading="lazy" />
-						{:else}
-							<div class="bg-base-200 aspect-video w-full rounded-md" aria-hidden="true"></div>
-						{/if}
-					{/if}
-					{#if 'videoUrl' in content}
-						{#if stepDialogOpen}
-							{@const embedUrl = youtubeEmbedUrl(content.videoUrl)}
-							{#if embedUrl}
-								<div class="aspect-video w-full overflow-hidden rounded-md">
-									<iframe
-										src={embedUrl}
-										title={content.title}
-										class="h-full w-full border-0"
-										allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-										allowfullscreen
-										loading="lazy"
-									></iframe>
-								</div>
-							{/if}
-						{:else}
-							<div class="bg-base-200 aspect-video w-full rounded-md" aria-hidden="true"></div>
-						{/if}
-					{/if}
+					{@render renderStepContent(content, i)}
 				{/each}
 
 				<div class="flex justify-end pt-4 mt-4 border-t border-base-300">
@@ -724,3 +766,34 @@
 		</ResponsiveDialog>
 	</div>
 {/if}
+
+{#snippet renderStepContent(content: GuideContent, index: number)}
+	{#if typeof content === 'string'}
+		<p class="text-sm">{content}</p>
+	{:else if 'text' in content && content.type === 'code'}
+		<CopyField
+			id={`code-snippet-${index}`}
+			value={content.text}
+			variant="code"
+			class="bg-base-300"
+		/>
+	{:else if 'text' in content}
+		<p class="text-sm">{content.text}</p>
+	{:else if 'imageUrl' in content}
+		<img src={content.imageUrl} alt={content.alt} class="w-full h-auto rounded-md" loading="lazy" />
+	{:else if 'videoUrl' in content}
+		{@const embedUrl = youtubeEmbedUrl(content.videoUrl)}
+		{#if embedUrl}
+			<div class="aspect-video w-full overflow-hidden rounded-md">
+				<iframe
+					src={embedUrl}
+					title={content.title}
+					class="h-full w-full border-0"
+					allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+					allowfullscreen
+					loading="lazy"
+				></iframe>
+			</div>
+		{/if}
+	{/if}
+{/snippet}

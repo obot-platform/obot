@@ -105,6 +105,7 @@ export const steps: GuideStep[] = [
 
 export default {
 	steps,
-	title: 'Create Custom MCP Server',
+	title: 'Create MCP Server',
+	description: 'Add a custom MCP server to the catalog.',
 	id: 'mcp-create-custom-guide'
 };
