@@ -1,37 +1,46 @@
 <script lang="ts">
+	import { afterNavigate } from '$app/navigation';
 	import Layout from '$lib/components/Layout.svelte';
 	import LLMGatewayProviderSection from '$lib/components/llm-gateway/LLMGatewayProviderSection.svelte';
 	import { CommonModelProviderIds, PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import type { Model } from '$lib/services';
 	import {
 		PROVIDER_CONNECTIONS,
 		type ProviderShortKey,
 		type RenderContext
 	} from '$lib/services/llm-gateway/types';
+	import accessibleModels from '$lib/stores/accessibleModels.svelte';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 
 	let obotURL = $state('');
-	let { data } = $props();
+	let models = $derived(accessibleModels.current);
 
 	onMount(() => {
 		obotURL = window.location.origin;
 	});
 
+	afterNavigate(({ type }) => {
+		if (type !== 'enter') {
+			void accessibleModels.refresh();
+		}
+	});
+
 	let openaiModels = $derived(
-		data.models.filter((m) => m.modelProvider === CommonModelProviderIds.OPENAI)
+		models.filter((m) => m.modelProvider === CommonModelProviderIds.OPENAI)
 	);
 	let anthropicModels = $derived(
-		data.models.filter((m) => m.modelProvider === CommonModelProviderIds.ANTHROPIC)
+		models.filter((m) => m.modelProvider === CommonModelProviderIds.ANTHROPIC)
 	);
 	let genericResponsesModels = $derived(
-		data.models.filter((m) => m.modelProvider === CommonModelProviderIds.GENERIC_RESPONSES)
+		models.filter((m) => m.modelProvider === CommonModelProviderIds.GENERIC_RESPONSES)
 	);
 	let genericResponsesDisplayModels = $derived(toCallableModelNames(genericResponsesModels));
 	let bedrockModels = $derived(
-		data.models.filter((m) => m.modelProvider === CommonModelProviderIds.AMAZON_BEDROCK)
+		models.filter((m) => m.modelProvider === CommonModelProviderIds.AMAZON_BEDROCK)
 	);
 	let bedrockAPIKeyModels = $derived(
-		data.models.filter((m) => m.modelProvider === CommonModelProviderIds.AMAZON_BEDROCK_API_KEY)
+		models.filter((m) => m.modelProvider === CommonModelProviderIds.AMAZON_BEDROCK_API_KEY)
 	);
 	let bedrockAnthropicModels = $derived(bedrockModels.filter(isBedrockAnthropicModel));
 	let bedrockOpenAIModels = $derived(bedrockModels.filter(isBedrockOpenAICompatibleModel));
@@ -46,10 +55,10 @@
 	);
 	let bedrockAPIKeyOpenAIDisplayModels = $derived(toCallableModelNames(bedrockAPIKeyOpenAIModels));
 	let azureModels = $derived(
-		data.models.filter((m) => m.modelProvider === CommonModelProviderIds.AZURE)
+		models.filter((m) => m.modelProvider === CommonModelProviderIds.AZURE)
 	);
 	let azureEntraModels = $derived(
-		data.models.filter((m) => m.modelProvider === CommonModelProviderIds.AZURE_ENTRA)
+		models.filter((m) => m.modelProvider === CommonModelProviderIds.AZURE_ENTRA)
 	);
 	let azureAnthropicModels = $derived(azureModels.filter(isAnthropicDialect));
 	let azureOpenAIModels = $derived(azureModels.filter(isOpenAIDialect));
@@ -60,35 +69,35 @@
 	let azureEntraAnthropicDisplayModels = $derived(toCallableModelNames(azureEntraAnthropicModels));
 	let azureEntraOpenAIDisplayModels = $derived(toCallableModelNames(azureEntraOpenAIModels));
 
-	function modelID(model: (typeof data.models)[number]) {
+	function modelID(model: Model) {
 		return model.targetModel || model.name;
 	}
 
-	function isBedrockAnthropicModel(model: (typeof data.models)[number]) {
+	function isBedrockAnthropicModel(model: Model) {
 		return modelID(model).startsWith('anthropic.');
 	}
 
-	function isBedrockOpenAICompatibleModel(model: (typeof data.models)[number]) {
+	function isBedrockOpenAICompatibleModel(model: Model) {
 		const id = modelID(model);
 		return id.startsWith('openai.') || id.startsWith('google.');
 	}
 
-	function isAnthropicDialect(model: (typeof data.models)[number]) {
+	function isAnthropicDialect(model: Model) {
 		return model.dialect === 'AnthropicMessages';
 	}
 
-	function isOpenAIDialect(model: (typeof data.models)[number]) {
+	function isOpenAIDialect(model: Model) {
 		return model.dialect === 'OpenAIResponses';
 	}
 
-	function toCallableModelNames(models: typeof data.models): typeof data.models {
+	function toCallableModelNames(models: Model[]): Model[] {
 		return models.map((model) => ({
 			...model,
 			name: modelID(model)
 		}));
 	}
 
-	function buildCtx(shortKey: ProviderShortKey, models: typeof data.models): RenderContext {
+	function buildCtx(shortKey: ProviderShortKey, models: Model[]): RenderContext {
 		const provider = PROVIDER_CONNECTIONS[shortKey];
 		return {
 			provider,

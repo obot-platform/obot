@@ -11,9 +11,9 @@ export const load: PageLoad = async ({ fetch, parent }) => {
 
 	try {
 		const response =
-			import.meta.env.SSR && initialModels
-				? initialModels
-				: await UserService.listModels({ fetch });
+			browser && accessibleModels.initialized && accessibleModels.current.length > 0
+				? accessibleModels.current
+				: (initialModels ?? (await UserService.listModels({ fetch })));
 
 		models = filterAccessibleModels(response ?? []);
 
