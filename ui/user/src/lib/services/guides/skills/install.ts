@@ -47,70 +47,85 @@ export const steps: GuideStep[] = [
 		]
 	},
 	{
-		content: ['Have you installed the Obot CLI?'],
-		buttons: [
-			{
-				text: 'Yes, I have installed the Obot CLI',
-				steps: [
-					{
-						content: [
-							'Great! You can install skills using the Obot CLI.',
-							'Use the following to list skills you have access to:',
-							{ text: 'obot skills list', type: 'code' },
-							"Let's use the Algorithmic Art skill as an example. Run the following command to install it:",
-							{ text: 'obot skills install sk1-default-skills-algorithmic-art', type: 'code' },
-							'Once the command completes, you can use the Algorithmic Art skill in your client.'
-						]
-					}
-				]
+		content: ["For the purpose of this guide, let's install the Algorithmic Art skill."],
+		action: {
+			highlight: {
+				selector: {
+					beginsWith: ['download-skill-sk1-default-skills-algorithmic-art']
+				},
+				title: 'Install Algorithmic Art Skill',
+				description: 'Click here to begin installing the Algorithmic Art skill.',
+				side: 'left',
+				align: 'end'
 			},
-			{
-				text: 'No, I have not installed the Obot CLI',
-				steps: [
-					{
-						content: ['Download the Algorithmic Art skill to continue.'],
+			listener: {
+				beginsWith: ['download-skill-sk1-default-skills-algorithmic-art'],
+				action: {
+					success: true
+				}
+			}
+		}
+	},
+	{
+		content: [
+			'To install the Algorithmic Art skill, follow the instructions on the install dialog.'
+		],
+		action: {
+			highlight: {
+				selector: {
+					id: 'download-skill-container'
+				},
+				title: 'Download the Zip File',
+				description: "To install the skill, you'll first need to download the zip file."
+			},
+			listener: {
+				id: 'download-skill-container',
+				skipClickTargetOnNext: true,
+				action: {
+					highlight: {
+						selector: {
+							id: 'install-skill-os-selector'
+						},
+						title: 'Select Your Operating System',
+						description:
+							'Select your operating system to see the appropriate CLI commands for installing the skill.'
+					},
+					listener: {
+						id: 'install-skill-os-selector',
+						skipClickTargetOnNext: true,
 						action: {
 							highlight: {
 								selector: {
-									beginsWith: ['download-skill-sk1-default-skills-algorithmic-art']
+									id: 'unzip-skill-commands-container'
 								},
-								title: 'Download Algorithmic Art',
-								description: 'Click here to download the Algorithmic Art skill.',
-								side: 'left'
+								title: 'Copy & Paste the Unzip Command',
+								description:
+									'After installing, run the appropriate command for your operating system to unzip it to the appropriate directory.'
 							},
 							listener: {
-								beginsWith: ['download-skill-sk1-default-skills-algorithmic-art'],
-								skipClickOnNext: true,
+								id: 'unzip-skill-commands-container',
 								action: {
-									success: true
+									highlight: {
+										selector: {
+											id: 'install-skill-dialog-content'
+										},
+										title: 'Install the Skill',
+										description: 'Try using the appropriate CLI command here to install the skill!'
+									},
+									next: {
+										action: {
+											success: true,
+											elementExists: 'install-skill-dialog',
+											closeExistingElement: true
+										}
+									}
 								}
 							}
 						}
-					},
-					{
-						content: [
-							'After downloading the skill archive, extract it into the skills directory used by your client:',
-							'Claude:',
-							{ text: 'unzip ~/[path]/algorithmic-art.zip -d ~/.claude/skills', type: 'code' },
-							'Cursor:',
-							{ text: 'unzip ~/[path]/algorithmic-art.zip -d ~/.cursor/skills', type: 'code' },
-							'Codex:',
-							{ text: 'unzip ~/[path]/algorithmic-art.zip -d ~/.codex/skills', type: 'code' },
-							'Global/Other:',
-							{ text: 'unzip ~/[path]/algorithmic-art.zip -d ~/.agents/skills', type: 'code' },
-							'Or if you are using Claude Desktop, install the skill by dragging & dropping into "Upload a Skill"',
-							{
-								imageUrl: '/user/images/guides/claude-upload-skill.webp',
-								alt: 'Upload a Skill in Claude Desktop'
-							},
-							'1. Click the + in chat box',
-							'2. Go to Skills > Manage Skills > Add > Upload a Skill',
-							'3. Drag the downloaded zip file in this dialog that appears'
-						]
 					}
-				]
+				}
 			}
-		]
+		}
 	}
 ];
 

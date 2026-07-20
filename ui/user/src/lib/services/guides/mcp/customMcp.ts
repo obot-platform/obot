@@ -87,12 +87,14 @@ export const steps: GuideStep[] = [
 			"For 'Package', use the following: @modelcontextprotocol/server-everything",
 			'Go ahead and click Save.'
 		],
-		button: {
-			text: "I'm done, what next?",
-			action: {
-				success: true
+		buttons: [
+			{
+				text: "I'm done, what next?",
+				action: {
+					success: true
+				}
 			}
-		}
+		]
 	},
 	{
 		content: [

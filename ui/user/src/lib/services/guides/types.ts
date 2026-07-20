@@ -1,7 +1,6 @@
 export interface GuideStep {
 	content: GuideContent[];
 	action?: GuideAction | GuideAction[];
-	button?: GuideButton;
 	buttons?: GuideButton[];
 }
 
@@ -49,13 +48,14 @@ export interface GuideAction {
 	elementMissing?: string;
 	highlight?: GuideHighlight;
 	listener?: GuideListener;
+	next?: { action: GuideAction | GuideAction[] };
 	routeContains?: string;
 	setPreferredClient?: boolean;
-	skipClickOnNext?: boolean;
+	skipClickTargetOnNext?: boolean;
 	success?: boolean;
 }
 
 export interface GuideListener extends GuideSelector {
 	action: GuideAction | GuideAction[];
-	skipClickOnNext?: boolean;
+	skipClickTargetOnNext?: boolean;
 }

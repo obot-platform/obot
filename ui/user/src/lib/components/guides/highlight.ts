@@ -321,7 +321,7 @@ export function createGuideHighlighter(options: GuideHighlighterOptions = {}): G
 			highlightGeneration++;
 			restoreHighlightLayerToBody();
 			guideDriver.destroy();
-			// driver may skip onDestroyed if it never highlighted — always clear our effects.
+			// Driver may skip onDestroyed if it never highlighted — always clear our effects.
 			destroyHighlightEffects();
 		},
 		setOverlayColor: (color: string) => {

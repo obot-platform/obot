@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { columnResize } from '$lib/actions/resize';
+	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
 	import {
 		type GuideAction,
 		type GuideButton,
@@ -8,12 +9,11 @@
 		type GuideDialog,
 		type GuideListener
 	} from '$lib/services/guides';
-	import { darkMode, errors, guide, mcpServersAndEntries, userDeviceSettings } from '$lib/stores';
+	import { darkMode, errors, guide, mcpServersAndEntries } from '$lib/stores';
 	import CopyField from '../CopyField.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
 	import Obot from './Obot.svelte';
-	import PreferredClient from './PreferredClient.svelte';
 	import { createGuideHighlighter, type GuideHighlighter } from './highlight';
 	import { GripVertical, X } from '@lucide/svelte';
 	import { noop } from 'es-toolkit';
@@ -56,7 +56,7 @@
 	let spacerWidth = $state(384); // 24rem — matches default panel width
 	let revealGeneration = 0;
 
-	let preferredClientDialog = $state<ReturnType<typeof PreferredClient>>();
+	let guideSuccessDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let stepDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let stepDialogContent = $state<GuideDialog>();
 	let stepDialogOpen = $state(false);
@@ -71,6 +71,7 @@
 
 	let listenerHandler: ((e: MouseEvent) => void) | undefined = undefined;
 	let activeListener = $state<GuideListener | undefined>(undefined);
+	let pendingNext = $state<{ action: GuideAction | GuideAction[] } | undefined>(undefined);
 	let guideCompleted = $state(false);
 	let initializedGuideId: string | undefined;
 	let wasMcpServersLoading = false;
@@ -240,7 +241,7 @@
 		if (!step) return;
 
 		const reveal = guide.revealed[guide.currentStep];
-		const hasButtons = Boolean(step.button || step.buttons?.length);
+		const hasButtons = Boolean(step.buttons?.length);
 		const revealIncomplete =
 			!reveal || reveal.contentCount < step.content.length || (hasButtons && !reveal.showButton);
 		if (revealIncomplete) {
@@ -248,11 +249,55 @@
 			void animateStepReveal(guide.currentStep);
 		} else {
 			if (step.action) void handleStepAction(step.action);
-			if (guide.currentStep === guide.activeSteps.length - 1 && !step.buttons?.length) {
+			if (isLastStepComplete(guide.currentStep, step)) {
 				guideCompleted = true;
 			}
 		}
 	});
+
+	/** True when a step/action still has listener, next (Next-button chain), or dialog work. */
+	function actionHasPendingChain(action: GuideAction | GuideAction[] | undefined): boolean {
+		if (!action) return false;
+		for (const a of Array.isArray(action) ? action : [action]) {
+			if (a.dialog) return true;
+			if (a.listener) {
+				// Listener requires progression; nested actions under it are also pending.
+				return true;
+			}
+			if (a.next) return true;
+		}
+		return false;
+	}
+
+	function isLastStepComplete(
+		stepIndex: number,
+		step: { action?: GuideAction | GuideAction[]; buttons?: GuideButton[] }
+	) {
+		return (
+			stepIndex === guide.activeSteps.length - 1 &&
+			!step.buttons?.length &&
+			!actionHasPendingChain(step.action) &&
+			!activeListener &&
+			!pendingNext
+		);
+	}
+
+	function maybeCompleteGuideAfterAction(resolved: GuideAction) {
+		if (resolved.success) {
+			handleNextStep();
+			return;
+		}
+		// Nested listener/next chain ended on the last step without success — mark complete.
+		if (
+			!resolved.listener &&
+			!resolved.next &&
+			!resolved.dialog &&
+			guide.currentStep === guide.activeSteps.length - 1 &&
+			!guide.stream[guide.currentStep]?.buttons?.length
+		) {
+			guideCompleted = true;
+		}
+	}
 
 	function cleanupListener() {
 		if (listenerHandler) {
@@ -260,6 +305,7 @@
 			listenerHandler = undefined;
 		}
 		activeListener = undefined;
+		pendingNext = undefined;
 	}
 
 	function sleep(ms: number) {
@@ -292,17 +338,27 @@
 		(interactive ?? el).click();
 	}
 
+	function handleCompleteGuide() {
+		guideCompleted = true;
+		guide.selectedGuide = undefined;
+		requestAnimationFrame(() => {
+			guideSuccessDialog?.open();
+		});
+	}
+
 	async function handlePrimaryNext() {
 		const sessionGeneration = guideSessionGeneration;
 		if (!isCurrentGuideSession(sessionGeneration)) return;
 
-		if (guideCompleted) {
-			closeGuide();
-			return;
-		}
-
 		if (activeListener) {
 			const listener = activeListener;
+
+			if (listener.skipClickTargetOnNext) {
+				highlighter?.destroy();
+				void handleStepAction(listener.action, { wait: true });
+				return;
+			}
+
 			let target = findListenerTarget(listener);
 			if (!target) {
 				for (let i = 0; i < ACTION_RESOLVE_ATTEMPTS && !target; i++) {
@@ -312,22 +368,21 @@
 					target = findListenerTarget(listener);
 				}
 			}
-			if (target && isCurrentGuideSession(sessionGeneration) && !listener.skipClickOnNext) {
+			if (target && isCurrentGuideSession(sessionGeneration)) {
 				clickGuideTarget(target);
 				return;
 			}
 		}
 
+		if (pendingNext) {
+			const nextAction = pendingNext.action;
+			highlighter?.destroy();
+			void handleStepAction(nextAction, { wait: true });
+			return;
+		}
+
 		const step = guide.stream[guide.currentStep];
 		if (step?.buttons?.length) return;
-		if (step?.button?.action) {
-			const action = await resolveAction(step.button.action);
-			if (!isCurrentGuideSession(sessionGeneration)) return;
-			if (action) {
-				await handleStepAction(action);
-				return;
-			}
-		}
 
 		if (isCurrentGuideSession(sessionGeneration)) {
 			handleNextStep();
@@ -355,7 +410,7 @@
 			);
 		}
 
-		if (step.button || step.buttons?.length) {
+		if (step.buttons?.length) {
 			await sleep(CONTENT_FADE_MS);
 			if (generation !== revealGeneration) return;
 			guide.revealed = guide.revealed.map((r, idx) =>
@@ -364,8 +419,10 @@
 		}
 
 		if (generation !== revealGeneration) return;
-		if (stepIndex === guide.activeSteps.length - 1 && !step.buttons?.length) {
-			guideCompleted = true;
+		if (isLastStepComplete(stepIndex, step)) {
+			handleCompleteGuide();
+		} else if (!step.action && !step.buttons?.length) {
+			handleNextStep();
 		}
 	}
 
@@ -477,18 +534,16 @@
 			registerGuideListener(resolved.listener);
 		}
 
+		if (resolved.next) {
+			pendingNext = resolved.next;
+		}
+
 		if (resolved.dialog) {
 			stepDialogContent = resolved.dialog;
 			stepDialog?.open();
 		}
 
-		if (resolved.setPreferredClient) {
-			preferredClientDialog?.open();
-		}
-
-		if (resolved.success) {
-			handleNextStep();
-		}
+		maybeCompleteGuideAfterAction(resolved);
 	}
 
 	function eventMatchesListener(e: MouseEvent, listener: GuideListener): boolean {
@@ -522,7 +577,7 @@
 			guide.stream = [...guide.stream, guide.activeSteps[guide.currentStep]];
 			void animateStepReveal(guide.currentStep);
 		} else if (guide.selectedGuide && guide.currentStep >= guide.activeSteps.length) {
-			guideCompleted = true;
+			handleCompleteGuide();
 		}
 	}
 
@@ -599,7 +654,6 @@
 		if (disabledAutoScroll) return;
 
 		const raf = requestAnimationFrame(() => scrollToBottom('smooth'));
-		// Follow slide/fade height growth after the transition
 		const timeout = setTimeout(() => scrollToBottom('smooth'), CONTENT_FADE_MS);
 		return () => {
 			cancelAnimationFrame(raf);
@@ -677,9 +731,9 @@
 				<div bind:this={scrollContent} class="flex flex-col gap-4 p-4">
 					{#each guide.stream as step, i (`${guide.selectedGuide.id}-${i}`)}
 						{@const stepReveal = guide.revealed[i]}
-						{@const stepButtons = step.buttons ?? (step.button ? [step.button] : [])}
+						{@const stepButtons = step.buttons ?? []}
 						{#if stepReveal && stepReveal.contentCount > 0}
-							<div class="rounded-box bg-base-200 flex flex-col gap-2 p-4">
+							<div class="rounded-box bg-base-200 flex flex-col gap-2 p-4 text-sm">
 								{#each step.content.slice(0, stepReveal.contentCount) as content, j (j)}
 									<div in:fade={{ duration: CONTENT_FADE_MS }}>
 										{@render renderStepContent(content, `${i}-${j}`)}
@@ -729,19 +783,11 @@
 						onclick={() => void handlePrimaryNext()}
 						disabled={Boolean(guide.stream[guide.currentStep]?.buttons?.length)}
 					>
-						{guideCompleted ? 'Close' : 'Next'}
+						Next
 					</button>
 				</div>
 			</div>
 		</div>
-
-		<PreferredClient
-			bind:this={preferredClientDialog}
-			onSelect={(selected) => {
-				userDeviceSettings.setAiClientPreference(selected);
-				handleNextStep();
-			}}
-		/>
 
 		<ResponsiveDialog
 			bind:this={stepDialog}
@@ -767,9 +813,38 @@
 	</div>
 {/if}
 
+{#if guideCompleted}
+	<ResponsiveDialog
+		class="max-w-xs"
+		animate="slide"
+		bind:this={guideSuccessDialog}
+		onClose={() => {
+			closeGuide();
+		}}
+		title="Guide Completed"
+	>
+		<Obot animation={['enter', 'idle']} class="mx-auto" size={96} />
+		<h4 class="font-semibold text-center text-lg mb-2">And You're Done!</h4>
+		<p class="font-base text-center">You've completed this guide.</p>
+		<p class="font-base text-center mb-6 px-8">
+			Close this guide and continue exploring the platform.
+		</p>
+		<button
+			class="btn btn-sm btn-primary w-full"
+			onclick={() => {
+				guideSuccessDialog?.close();
+				closeGuide();
+			}}
+		>
+			Close
+		</button>
+	</ResponsiveDialog>
+{/if}
+
 {#snippet renderStepContent(content: GuideContent, index: string | number)}
 	{#if typeof content === 'string'}
-		<p class="text-sm">{content}</p>
+		<!-- eslint-disable-next-line svelte/no-at-html-tags -- sanitized by toHTMLFromMarkdownWithNewTabLinks -->
+		{@html toHTMLFromMarkdownWithNewTabLinks(content)}
 	{:else if 'text' in content && content.type === 'code'}
 		<CopyField
 			id={`code-snippet-${index}`}

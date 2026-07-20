@@ -1293,9 +1293,13 @@
 }
 
 /*
- * Unlayered: must beat driver.js's unlayered `.driver-active * { pointer-events: none }`.
+ * Unlayered: must beat driver.js's unlayered styles.
  * Rules inside @layer components lose to unlayered styles regardless of specificity.
  */
+.driver-active :not(body):has(> .driver-active-element) {
+	overflow: visible !important;
+}
+
 .driver-active .guide-panel-popover > :not(dialog),
 .driver-active .guide-panel-popover > :not(dialog) * {
 	pointer-events: auto;

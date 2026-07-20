@@ -73,6 +73,10 @@ export const COMMON_AI_CLIENTS = [
 	}
 ];
 
+export const COMMON_AI_CLIENTS_MAP = new Map(
+	COMMON_AI_CLIENTS.map((client) => [client.id, client])
+);
+
 export const MAGIC_LINK_SUPPORTED_AI_CLIENTS = [AiClient.Cursor, AiClient.VSCode];
 export const COMMAND_SUPPORTED_AI_CLIENTS = [AiClient.Claude, AiClient.Codex];
 

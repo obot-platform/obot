@@ -15,7 +15,7 @@
 	}
 </script>
 
-<div class="bg-base-100 group">
+<div class="bg-base-100 group @container">
 	<div
 		class={twMerge(
 			'bg-primary/25 dark:bg-primary/50 relative overflow-hidden rounded-lg transition-colors duration-200',
@@ -25,13 +25,13 @@
 		<div class="absolute top-1/2 -translate-y-1/2">
 			<Logo
 				class={twMerge(
-					'md:size-36 size-24 -translate-x-1/2 translate-y-0.5 transition-transform duration-200',
+					'@md:size-36 size-24 -translate-x-1/2 translate-y-0.5 transition-transform duration-200',
 					isHovered && 'scale-110 rotate-2'
 				)}
 			/>
 		</div>
 		<div
-			class="pl-15 md:pl-22 pr-4 py-2 flex flex-col md:flex-row md:justify-between md:items-center gap-1 md:gap-4"
+			class="pl-15 @md:pl-22 pr-4 py-2 flex flex-col @md:flex-row @md:justify-between @md:items-center gap-1 @md:gap-4"
 		>
 			<div>
 				<p class="font-semibold uppercase">Get Started with Obot CLI</p>

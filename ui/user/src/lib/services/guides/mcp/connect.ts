@@ -68,30 +68,67 @@ export const steps: GuideStep[] = [
 	},
 	{
 		content: [
-			'Great! To connect your AI client to the MCP server, follow the instructions on the connect dialog.',
-			'Close the connect window once you have set up your MCP server with your AI client or feel free to click below to continue.'
+			'To connect your AI client to the MCP server, follow the instructions on the connect dialog.'
 		],
 		action: {
 			highlight: {
 				selector: {
-					id: 'connect-to-server-dialog-content'
+					id: 'connection-url-container'
 				},
-				title: 'Add the MCP Server to your AI Client',
+				title: 'Install via Connection URL',
 				description:
-					'To connect to your client, use the appropriate option; add via connection URL, install via quick link, or copy & paste the CLI commands listed here.'
+					'Copy & paste the connection URL into your AI client to connect to the MCP server.'
 			},
 			listener: {
-				id: 'connect-to-server-dialog-content',
+				id: 'connection-url-container',
+				skipClickTargetOnNext: true,
 				action: {
-					success: true,
-					elementExists: 'connect-to-server-dialog',
-					closeExistingElement: true
+					highlight: {
+						selector: {
+							id: 'magic-links-container'
+						},
+						title: 'Install via Quick Install Link',
+						description:
+							'Click the quick install link to install the MCP server into your AI client.'
+					},
+					listener: {
+						id: 'magic-links-container',
+						skipClickTargetOnNext: true,
+						action: {
+							highlight: {
+								selector: {
+									id: 'cli-commands-container'
+								},
+								title: 'Install via CLI Commands',
+								description:
+									'Copy & paste the CLI commands into your terminal to install the MCP server into your AI client.'
+							},
+							listener: {
+								id: 'cli-commands-container',
+								skipClickTargetOnNext: true,
+								action: {
+									highlight: {
+										selector: {
+											id: 'connect-to-server-dialog-content'
+										},
+										title: 'Connect to the MCP Server',
+										description:
+											'Try using one of the options here to connect the MCP server to your AI client.'
+									},
+									next: {
+										action: {
+											success: true,
+											elementExists: 'connect-to-server-dialog',
+											closeExistingElement: true
+										}
+									}
+								}
+							}
+						}
+					}
 				}
 			}
 		}
-	},
-	{
-		content: ['Once you’ve connected, you can begin using the MCP server on your AI Client!']
 	}
 ];
 
