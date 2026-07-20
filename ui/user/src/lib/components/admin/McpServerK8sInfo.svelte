@@ -1,24 +1,19 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
-	import { page } from '$app/state';
 	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
 		UserService,
-		Group,
 		type K8sServerDetail,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
 		type MCPSecretBinding,
-		type OrgUser,
 		type ServerK8sSettings
 	} from '$lib/services';
 	import { EventStreamService } from '$lib/services/admin/eventstream.svelte';
 	import { supportsMCPBackendDetails } from '$lib/services/user/mcp';
 	import { profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
-	import { isOwnSingleUserServer } from '$lib/utils';
 	import Confirm from '../Confirm.svelte';
 	import SensitiveInput from '../SensitiveInput.svelte';
 	import Table from '../table/Table.svelte';
@@ -30,10 +25,9 @@
 	interface Props {
 		id?: string;
 		entity?: 'workspace' | 'catalog' | 'agent' | 'webhook-validation';
-		mcpServerId: string;
 		name: string;
+		mcpServerId?: string;
 		mcpServerInstanceId?: string;
-		connectedUsers: (OrgUser & { mcpInstanceId?: string; mcpInstanceConfigured?: boolean })[];
 		title?: string;
 		classes?: {
 			title?: string;
@@ -47,15 +41,13 @@
 
 	const {
 		id: entityId,
-		mcpServerId,
+		mcpServerId: overrideMcpServerId,
 		mcpServerInstanceId,
 		name,
-		connectedUsers,
 		title,
 		classes,
 		catalogEntry,
 		mcpServer,
-		compositeParentName,
 		entity = 'catalog',
 		readonly,
 		hideTitle
@@ -72,10 +64,11 @@
 	let refreshingLogs = $state(false);
 	let showUpdateK8sSettingsConfirm = $state(false);
 	let updatingK8sSettings = $state(false);
-	let isAdminUrl = $derived(page.url.pathname.includes('/admin'));
 	let supportsDetails = $derived(supportsMCPBackendDetails(mcpServer ?? catalogEntry));
+	let mcpServerId = $derived(overrideMcpServerId ?? mcpServer?.id ?? mcpServerInstanceId);
 
 	let logsUrl = $derived.by(() => {
+		if (!mcpServerId) return null;
 		if (entity === 'workspace') {
 			return catalogEntry?.id
 				? `/api/workspaces/${entityId}/entries/${catalogEntry.id}/servers/${mcpServerId}/logs`
@@ -101,7 +94,7 @@
 	}
 
 	function getK8sInfo() {
-		if (!hasAdminAccess || !supportsDetails)
+		if (!hasAdminAccess || !supportsDetails || !mcpServerId)
 			return Promise.resolve<K8sServerDetail | undefined>(undefined);
 		return entity === 'workspace' && entityId
 			? catalogEntry?.id
@@ -120,7 +113,7 @@
 	}
 
 	function getK8sSettingsStatus() {
-		if (!hasAdminAccess || !supportsDetails || entity === 'webhook-validation')
+		if (!hasAdminAccess || !supportsDetails || entity === 'webhook-validation' || !mcpServerId)
 			return Promise.resolve<ServerK8sSettings | undefined>(undefined);
 		return entity === 'workspace' && entityId
 			? catalogEntry?.id
@@ -145,6 +138,7 @@
 	}
 
 	onMount(() => {
+		if (!mcpServerId) return;
 		// Only load sensitive server values and k8s info if the user has admin access
 		revealServerValues =
 			supportsDetails && profile.current.isAdmin?.()
@@ -193,7 +187,7 @@
 	});
 
 	async function handleRestart() {
-		if (!supportsRestart) return;
+		if (!supportsRestart || !mcpServerId) return;
 
 		restarting = true;
 		try {
@@ -288,6 +282,7 @@
 	}
 
 	async function handleRedeployWithK8sSettings() {
+		if (!mcpServerId) return;
 		updatingK8sSettings = true;
 		try {
 			await (entity === 'workspace' && entityId
@@ -442,31 +437,6 @@
 			}
 		}
 		return results;
-	}
-
-	function getAuditLogUrl(d: (typeof connectedUsers)[number]) {
-		const id = mcpServerId || mcpServerInstanceId;
-
-		// can agents have audit logs?
-		if (compositeParentName || entity === 'agent') return null;
-
-		if (isAdminUrl) {
-			if (!hasAdminAccess) return null;
-			return entity === 'workspace'
-				? catalogEntry?.id
-					? `/admin/mcp-catalog/w/${entityId}/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
-					: `/admin/mcp-catalog/w/${entityId}/s/${encodeURIComponent(id ?? '')}?view=audit-logs&user_id=${d.id}`
-				: catalogEntry?.id
-					? `/admin/mcp-catalog/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
-					: `/admin/mcp-catalog/s/${encodeURIComponent(id ?? '')}?view=audit-logs&user_id=${d.id}`;
-		}
-
-		// Basic users can access audit logs for their own single-user servers
-		let isOwnServer = mcpServer && isOwnSingleUserServer(mcpServer, profile.current?.id);
-		if (!isOwnServer && !profile.current?.groups.includes(Group.POWERUSER)) return null;
-		return catalogEntry?.id
-			? `/mcp-catalog/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
-			: `/mcp-catalog/s/${encodeURIComponent(id ?? '')}?view=audit-logs&user_id=${d.id}`;
 	}
 </script>
 
@@ -680,34 +650,6 @@
 	onRefresh={handleRefreshLogs}
 	onClear={() => (messages = [])}
 />
-
-{#if hasAdminAccess && entity !== 'webhook-validation' && connectedUsers.length > 0}
-	<div>
-		<h2 class="mb-2 text-lg font-semibold">Connected Users</h2>
-		<Table
-			data={connectedUsers ?? []}
-			fields={['name', 'updateStatus']}
-			headers={[{ title: 'Config Status', property: 'updateStatus' }]}
-		>
-			{#snippet onRenderColumn(property, d)}
-				{#if property === 'name'}
-					{d.email || d.username || 'Unknown'}
-				{:else if property === 'updateStatus'}
-					{d.mcpInstanceConfigured === false ? 'Not Configured' : 'Up to date'}
-				{:else}
-					{d[property as keyof typeof d]}
-				{/if}
-			{/snippet}
-
-			{#snippet actions(d)}
-				{@const auditLogsUrl = getAuditLogUrl(d)}
-				{#if auditLogsUrl}
-					<a href={resolve(auditLogsUrl as `/${string}`)} class="btn btn-link"> View Audit Logs </a>
-				{/if}
-			{/snippet}
-		</Table>
-	</div>
-{/if}
 
 {#snippet detailRow(label: string, value: string, id: string)}
 	<div

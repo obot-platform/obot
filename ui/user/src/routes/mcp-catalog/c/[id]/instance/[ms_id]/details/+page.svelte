@@ -1,11 +1,10 @@
 <script lang="ts">
 	import Layout from '$lib/components/Layout.svelte';
 	import McpServerCompositeInfo from '$lib/components/admin/McpServerCompositeInfo.svelte';
-	import McpServerK8sInfo from '$lib/components/admin/McpServerK8sInfo.svelte';
-	import OAuthMetadataDebug from '$lib/components/mcp/OAuthMetadataDebug.svelte';
+	import McpServerDetails from '$lib/components/mcp/McpServerDetails.svelte';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { UserService, type MCPCatalogServer, type OrgUser } from '$lib/services/index.js';
-	import { getMCPDisplayName, supportsMCPBackendDetails } from '$lib/services/user/mcp.js';
+	import { getMCPDisplayName } from '$lib/services/user/mcp.js';
 	import { profile } from '$lib/stores/index.js';
 	import { Info } from '@lucide/svelte';
 	import { fly } from 'svelte/transition';
@@ -20,7 +19,6 @@
 	let compositeParentName = $state<string | undefined>();
 	let mcpServer = $state<MCPCatalogServer>();
 	let catalogEntryName = $derived(catalogEntry?.manifest?.name ?? 'Unknown');
-	let supportsDetails = $derived(supportsMCPBackendDetails(mcpServer ?? catalogEntry));
 
 	async function fetchUserInfo() {
 		mcpServer = await UserService.getSingleOrRemoteMcpServer(mcpServerId);
@@ -55,19 +53,18 @@
 					entityId={DEFAULT_MCP_CATALOG_ID}
 					{catalogEntry}
 				/>
-			{:else if supportsDetails}
-				<McpServerK8sInfo
-					{mcpServerId}
-					name={title}
+			{:else}
+				<McpServerDetails
+					serverId={mcpServerId}
 					{connectedUsers}
 					readonly={profile.current.isAdminReadonly?.()}
 					{catalogEntry}
-					{mcpServer}
+					server={mcpServer}
 					{compositeParentName}
+					k8sOverrides={{
+						title
+					}}
 				/>
-				{#if mcpServer?.manifest.runtime === 'remote'}
-					<OAuthMetadataDebug metadata={mcpServer.oauthMetadata} />
-				{/if}
 			{/if}
 		{:else}
 			<div class="notification-info p-3 text-sm font-light">

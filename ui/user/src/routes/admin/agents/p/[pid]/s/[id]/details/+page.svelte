@@ -2,7 +2,7 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte.js';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
-	import McpServerK8sInfo from '$lib/components/admin/McpServerK8sInfo.svelte';
+	import McpServerDetails from '$lib/components/mcp/McpServerDetails.svelte';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { NanobotService, UserService, type OrgUser } from '$lib/services';
@@ -70,14 +70,18 @@
 		{:else}
 			<div class="flex flex-col gap-6">
 				{#if mcpServer}
-					<McpServerK8sInfo
-						id={DEFAULT_MCP_CATALOG_ID}
+					<McpServerDetails
 						entity="agent"
-						mcpServerId={mcpServer.id}
-						name={mcpServer.manifest.name || ''}
-						{title}
-						readonly={profile.current.isAdminReadonly?.()}
+						entityId={DEFAULT_MCP_CATALOG_ID}
+						server={mcpServer}
 						connectedUsers={user ? [user] : []}
+						readonly={profile.current.isAdminReadonly?.()}
+						k8sOverrides={{
+							title: 'Details',
+							classes: {
+								title: 'text-lg font-semibold'
+							}
+						}}
 					/>
 				{/if}
 			</div>

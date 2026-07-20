@@ -10,7 +10,7 @@
 	import { hasMissingSecretBindingConfig } from '$lib/services/user/mcp';
 	import { profile } from '$lib/stores';
 	import DeploymentsView from '../mcp/DeploymentsView.svelte';
-	import McpServerK8sInfo from './McpServerK8sInfo.svelte';
+	import McpServerDetails from '../mcp/McpServerDetails.svelte';
 	import { CircleFadingArrowUp, Router } from '@lucide/svelte';
 
 	interface Props {
@@ -30,7 +30,6 @@
 		id,
 		entity = 'catalog',
 		entry,
-		catalogEntry,
 		users = [],
 		type,
 		configuredInstances = [],
@@ -40,10 +39,6 @@
 	}: Props = $props();
 
 	let usersMap = $derived(new Map(users.map((u) => [u.id, u])));
-	let detailsCatalogEntry = $derived(
-		catalogEntry ?? (entry && 'isCatalogEntry' in entry ? entry : undefined)
-	);
-	let detailsMcpServer = $derived(entry && !('isCatalogEntry' in entry) ? entry : undefined);
 	let readonly = $derived(profile.current.isAdminReadonly?.());
 
 	function isMissingKubernetesSecret(server: MCPCatalogServer) {
@@ -61,29 +56,26 @@
 	</div>
 {:else if entry && !('isCatalogEntry' in entry) && id}
 	{#if entry && (type === 'multi' || configuredInstances.length > 0)}
-		<div class="flex flex-col gap-6">
-			<McpServerK8sInfo
-				{id}
-				{entity}
-				mcpServerId={entry.id}
-				name={'manifest' in entry ? entry.manifest.name || '' : ''}
-				catalogEntry={detailsCatalogEntry}
-				mcpServer={detailsMcpServer}
-				connectedUsers={configuredInstances.map((instance) => {
-					const user = usersMap.get(instance.userID)!;
-					return {
-						...user,
-						mcpInstanceId: instance.id,
-						mcpInstanceConfigured: instance.configured
-					};
-				})}
-				title="Details"
-				classes={{
+		<McpServerDetails
+			{entity}
+			entityId={id}
+			server={entry}
+			connectedUsers={configuredInstances.map((instance) => {
+				const user = usersMap.get(instance.userID)!;
+				return {
+					...user,
+					mcpInstanceId: instance.id,
+					mcpInstanceConfigured: instance.configured
+				};
+			})}
+			k8sOverrides={{
+				title: 'Details',
+				classes: {
 					title: 'text-lg font-semibold'
-				}}
-				{readonly}
-			/>
-		</div>
+				}
+			}}
+			{readonly}
+		/>
 	{:else}
 		{@render emptyInstancesContent()}
 	{/if}
@@ -126,6 +118,6 @@
 	<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 		<Router class="text-muted-content size-24 opacity-50" />
 		<h4 class="text-muted-content text-lg font-semibold">No server details</h4>
-		<p class="text-muted-content text-sm font-light">No details available yet for this server.</p>
+		<p class="text-muted-content text-sm font-light">No details available yet for this entry.</p>
 	</div>
 {/snippet}
