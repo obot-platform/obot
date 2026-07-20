@@ -261,7 +261,8 @@ func shouldRedactHeader(key string) bool {
 }
 
 func parseLLMClientUserAgent(userAgent string) (string, string) {
-	token, _, _ := strings.Cut(strings.TrimSpace(userAgent), " ")
+	userAgent = strings.TrimSpace(userAgent)
+	token, _, _ := strings.Cut(userAgent, " ")
 	if token == "" {
 		return "", ""
 	}
@@ -277,7 +278,21 @@ func parseLLMClientUserAgent(userAgent string) (string, string) {
 	case llmAuditUserAgentCodexCLI, llmAuditUserAgentCodexTUI:
 		name = llmAuditClientCodex
 	}
+	if isMalformedAnthropicUserAgent(userAgent) {
+		return "", ""
+	}
 	return name, version
+}
+
+// isMalformedAnthropicUserAgent detects the inconsistent UserAgent header that we frequently see from Claude Code.
+// Example: "PDi/JS 0.94.0"
+func isMalformedAnthropicUserAgent(userAgent string) bool {
+	fields := strings.Fields(userAgent)
+	if len(fields) != 2 || len(fields[0]) != len("abc/JS") || !strings.HasSuffix(fields[0], "/JS") {
+		return false
+	}
+
+	return len(strings.Split(fields[1], ".")) == 3
 }
 
 func detectLLMClient(req *http.Request) (string, string) {

@@ -197,9 +197,35 @@ func TestDetectLLMClient(t *testing.T) {
 			version:   "2.1.176",
 		},
 		{
-			name:      "gRi user agent without Claude session header",
+			name:      "minified Anthropic SDK user agent without Claude session header",
 			userAgent: "gRi/JS 0.94.0",
-			client:    "gRi",
+		},
+		{
+			name:      "different minified Anthropic SDK user agent",
+			userAgent: "PDi/JS 0.94.0",
+		},
+		{
+			name:      "three-character non-JS user agent",
+			userAgent: "SDK/Go 1.2.3",
+			client:    "SDK",
+			version:   "Go",
+		},
+		{
+			name:      "longer JS user agent",
+			userAgent: "other-client/JS 0.94.0",
+			client:    "other-client",
+			version:   "JS",
+		},
+		{
+			name:      "three-character JS user agent without version",
+			userAgent: "PDi/JS",
+			client:    "PDi",
+			version:   "JS",
+		},
+		{
+			name:      "three-character JS user agent with invalid version",
+			userAgent: "PDi/JS unknown",
+			client:    "PDi",
 			version:   "JS",
 		},
 		{
