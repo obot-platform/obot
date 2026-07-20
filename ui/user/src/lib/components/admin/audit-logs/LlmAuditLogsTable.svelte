@@ -2,7 +2,6 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { VirtualPageTable } from '$lib/components/ui';
 	import { type LLMAuditLog } from '$lib/services';
-	import { userDeviceSettings } from '$lib/stores';
 	import { formatAuditLogTableTimestamp } from '$lib/time';
 	import { throttle } from '$lib/utils';
 	import { GripVertical, ShieldAlert } from '@lucide/svelte';
@@ -191,7 +190,7 @@
 						onclick={() => onSelectRow?.(d)}
 					>
 						{@render timestampCell(
-							formatAuditLogTableTimestamp(d.createdAt, userDeviceSettings.timeFormat),
+							formatAuditLogTableTimestamp(d.createdAt),
 							d.messagePolicyTriggered
 						)}
 						{@render td(getUserDisplayName(d.userID))}

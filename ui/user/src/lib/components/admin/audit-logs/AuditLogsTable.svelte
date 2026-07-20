@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { VirtualPageTable } from '$lib/components/ui';
 	import type { AuditLogEvent } from '$lib/services';
-	import { mcpServersAndEntries, userDeviceSettings } from '$lib/stores';
+	import { mcpServersAndEntries } from '$lib/stores';
 	import { formatAuditLogTableTimestamp } from '$lib/time';
 	import { throttle } from '$lib/utils';
 	import { GripVertical } from '@lucide/svelte';
@@ -228,9 +228,7 @@
 						)}
 						onclick={() => onSelectRow?.(d)}
 					>
-						{@render td(
-							formatAuditLogTableTimestamp(d.timestamp.occurredAt, userDeviceSettings.timeFormat)
-						)}
+						{@render td(formatAuditLogTableTimestamp(d.timestamp.occurredAt))}
 						{@render td(d.eventType === 'mcp_call' ? 'MCP Call' : 'Local Agent Tool Call')}
 						{@render twoLine(actorLabel(d.actor), d.actor.actorType)}
 						{@render twoLine(
