@@ -24,6 +24,10 @@ func (*GitCredentialHandler) List(req api.Context) error {
 	if err := req.List(&list); err != nil {
 		return fmt.Errorf("failed to list Git credentials: %w", err)
 	}
+	references, err := gitcredential.ReferencesByCredential(req.Context(), req.Storage, req.Namespace())
+	if err != nil {
+		return fmt.Errorf("failed to check Git credential references: %w", err)
+	}
 
 	items := make([]types.GitCredential, 0, len(list.Items))
 	for _, credential := range list.Items {
@@ -31,7 +35,7 @@ func (*GitCredentialHandler) List(req api.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to check Git credential %q: %w", credential.Name, err)
 		}
-		items = append(items, convertGitCredential(credential, configured))
+		items = append(items, convertGitCredential(credential, configured, len(references[credential.Name]) > 0))
 	}
 	return req.Write(types.GitCredentialList{Items: items})
 }
@@ -45,7 +49,11 @@ func (*GitCredentialHandler) Get(req api.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to check Git credential %q: %w", credential.Name, err)
 	}
-	return req.Write(convertGitCredential(credential, configured))
+	references, err := gitCredentialReferences(req, credential.Name)
+	if err != nil {
+		return err
+	}
+	return req.Write(convertGitCredential(credential, configured, len(references) > 0))
 }
 
 func (*GitCredentialHandler) Create(req api.Context) error {
@@ -75,7 +83,7 @@ func (*GitCredentialHandler) Create(req api.Context) error {
 		_ = req.Delete(&credential)
 		return fmt.Errorf("failed to store Git credential token: %w", err)
 	}
-	return req.WriteCreated(convertGitCredential(credential, true))
+	return req.WriteCreated(convertGitCredential(credential, true, false))
 }
 
 func (*GitCredentialHandler) Update(req api.Context) error {
@@ -98,6 +106,10 @@ func (*GitCredentialHandler) Update(req api.Context) error {
 	if manifest.Token == "" && !configured {
 		return types.NewErrBadRequest("token is required")
 	}
+	references, err := gitCredentialReferences(req, credential.Name)
+	if err != nil {
+		return err
+	}
 
 	credential.Spec.DisplayName = manifest.DisplayName
 	credential.Spec.Host = host
@@ -110,7 +122,7 @@ func (*GitCredentialHandler) Update(req api.Context) error {
 		}
 		configured = true
 	}
-	return req.Write(convertGitCredential(credential, configured))
+	return req.Write(convertGitCredential(credential, configured, len(references) > 0))
 }
 
 func (*GitCredentialHandler) Delete(req api.Context) error {
@@ -153,12 +165,13 @@ func gitCredentialReferences(req api.Context, credentialID string) ([]string, er
 	return gitcredential.References(req.Context(), req.Storage, req.Namespace(), credentialID)
 }
 
-func convertGitCredential(credential v1.GitCredential, configured bool) types.GitCredential {
+func convertGitCredential(credential v1.GitCredential, configured, inUse bool) types.GitCredential {
 	return types.GitCredential{
 		Metadata:        MetadataFrom(&credential),
 		DisplayName:     credential.Spec.DisplayName,
 		Host:            credential.Spec.Host,
 		TokenConfigured: configured,
+		InUse:           inUse,
 	}
 }
 

@@ -479,6 +479,7 @@ export interface GitCredential {
 	displayName: string;
 	host: string;
 	tokenConfigured: boolean;
+	inUse: boolean;
 }
 
 export interface GitCredentialManifest {

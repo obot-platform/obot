@@ -126,16 +126,16 @@ func Resolve(ctx context.Context, storageClient client.Client, gatewayClient *gc
 	return token, nil
 }
 
-// References lists resources in the namespace that use the identified Git credential.
-func References(ctx context.Context, storageClient client.Client, namespace, credentialID string) ([]string, error) {
-	var references []string
+// ReferencesByCredential lists resources in the namespace that use Git credentials, keyed by credential ID.
+func ReferencesByCredential(ctx context.Context, storageClient client.Client, namespace string) (map[string][]string, error) {
+	references := map[string][]string{}
 	var repositories v1.SkillRepositoryList
 	if err := storageClient.List(ctx, &repositories, client.InNamespace(namespace)); err != nil {
 		return nil, fmt.Errorf("failed to list skill repositories: %w", err)
 	}
 	for _, repository := range repositories.Items {
-		if repository.Spec.GitCredentialID == credentialID {
-			references = append(references, "skill repository "+repository.Name)
+		if credentialID := repository.Spec.GitCredentialID; credentialID != "" {
+			references[credentialID] = append(references[credentialID], "skill repository "+repository.Name)
 		}
 	}
 
@@ -144,11 +144,14 @@ func References(ctx context.Context, storageClient client.Client, namespace, cre
 		return nil, fmt.Errorf("failed to list MCP catalogs: %w", err)
 	}
 	for _, catalog := range catalogs.Items {
+		credentialIDs := map[string]struct{}{}
 		for _, id := range catalog.Spec.SourceURLGitCredentialIDs {
-			if id == credentialID {
-				references = append(references, "MCP catalog "+catalog.Name)
-				break
+			if id != "" {
+				credentialIDs[id] = struct{}{}
 			}
+		}
+		for credentialID := range credentialIDs {
+			references[credentialID] = append(references[credentialID], "MCP catalog "+catalog.Name)
 		}
 	}
 
@@ -157,12 +160,24 @@ func References(ctx context.Context, storageClient client.Client, namespace, cre
 		return nil, fmt.Errorf("failed to list system MCP catalogs: %w", err)
 	}
 	for _, catalog := range systemCatalogs.Items {
+		credentialIDs := map[string]struct{}{}
 		for _, id := range catalog.Spec.SourceURLGitCredentialIDs {
-			if id == credentialID {
-				references = append(references, "system MCP catalog "+catalog.Name)
-				break
+			if id != "" {
+				credentialIDs[id] = struct{}{}
 			}
+		}
+		for credentialID := range credentialIDs {
+			references[credentialID] = append(references[credentialID], "system MCP catalog "+catalog.Name)
 		}
 	}
 	return references, nil
+}
+
+// References lists resources in the namespace that use the identified Git credential.
+func References(ctx context.Context, storageClient client.Client, namespace, credentialID string) ([]string, error) {
+	references, err := ReferencesByCredential(ctx, storageClient, namespace)
+	if err != nil {
+		return nil, err
+	}
+	return references[credentialID], nil
 }

@@ -27,16 +27,23 @@ func TestConvertGitCredentialDoesNotExposeToken(t *testing.T) {
 			DisplayName: "Shared GitHub",
 			Host:        "github.com",
 		},
-	}, true)
+	}, true, true)
 
 	assert.Equal(t, "gc1-test", converted.ID)
 	assert.Equal(t, "Shared GitHub", converted.DisplayName)
 	assert.Equal(t, "github.com", converted.Host)
 	assert.True(t, converted.TokenConfigured)
+	assert.True(t, converted.InUse)
 
 	response, err := json.Marshal(converted)
 	require.NoError(t, err)
 	assert.NotContains(t, string(response), `"token":`)
+	assert.Contains(t, string(response), `"inUse":true`)
+
+	converted.InUse = false
+	response, err = json.Marshal(converted)
+	require.NoError(t, err)
+	assert.Contains(t, string(response), `"inUse":false`)
 }
 
 func TestReadGitCredentialManifestTrimsToken(t *testing.T) {
@@ -62,16 +69,25 @@ func TestGitCredentialReferences(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: "catalog", Namespace: system.DefaultNamespace},
 			Spec: v1.MCPCatalogSpec{SourceURLGitCredentialIDs: map[string]string{
 				"https://github.com/org/catalog": "gc1-test",
+				"https://github.com/org/other":   "gc1-test",
 			}},
 		},
 		&v1.SystemMCPCatalog{
 			ObjectMeta: metav1.ObjectMeta{Name: "system-catalog", Namespace: system.DefaultNamespace},
 			Spec: v1.SystemMCPCatalogSpec{SourceURLGitCredentialIDs: map[string]string{
 				"https://github.com/org/system-catalog": "gc1-test",
+				"https://github.com/org/system-other":   "gc1-test",
 			}},
 		},
 	)
 	req := httptest.NewRequest(http.MethodDelete, "/api/git-credentials/gc1-test", nil)
+	referencesByCredential, err := gitcredential.ReferencesByCredential(req.Context(), storage, system.DefaultNamespace)
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{
+		"skill repository skills",
+		"MCP catalog catalog",
+		"system MCP catalog system-catalog",
+	}, referencesByCredential["gc1-test"])
 
 	references, err := gitCredentialReferences(api.Context{Request: req, Storage: storage}, "gc1-test")
 	require.NoError(t, err)

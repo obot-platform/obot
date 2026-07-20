@@ -5056,8 +5056,15 @@ func schema_obot_platform_obot_apiclient_types_GitCredential(ref common.Referenc
 							Format: "",
 						},
 					},
+					"inUse": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
 				},
-				Required: []string{"Metadata"},
+				Required: []string{"Metadata", "inUse"},
 			},
 		},
 		Dependencies: []string{

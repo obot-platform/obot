@@ -1,10 +1,12 @@
 <script lang="ts">
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
+	import { HttpError } from '$lib/errors';
 	import { AdminService, type GitCredential, type GitCredentialManifest } from '$lib/services';
 	import { profile } from '$lib/stores';
 	import { KeyRound, Pencil, Plus, Trash2, TriangleAlert, X } from '@lucide/svelte';
@@ -109,6 +111,18 @@
 			filterable={['displayName', 'host']}
 			onClickRow={(row) => openEdit(row)}
 		>
+			{#snippet onRenderColumn(field, credential)}
+				{#if field === 'displayName'}
+					<span class="flex items-center gap-2">
+						{credential.displayName}
+						{#if credential.inUse}
+							<span class="pill-warning">In use</span>
+						{/if}
+					</span>
+				{:else if field === 'host'}
+					{credential.host}
+				{/if}
+			{/snippet}
 			{#snippet actions(credential)}
 				<DotDotDot ariaLabel={`Actions for ${credential.displayName}`}>
 					{#snippet children({ toggle })}
@@ -126,7 +140,13 @@
 						</button>
 						<button
 							class="menu-button-destructive"
-							disabled={isReadonly}
+							disabled={isReadonly || credential.inUse}
+							use:tooltip={credential.inUse
+								? {
+										text: 'This credential is in use and cannot be deleted.',
+										classes: ['z-50']
+									}
+								: undefined}
 							onclick={(event) => {
 								event.stopPropagation();
 								deletingCredential = credential;
@@ -233,6 +253,13 @@
 				(credential) => credential.id !== deletingCredential?.id
 			);
 			deletingCredential = undefined;
+		} catch (error) {
+			if (error instanceof HttpError && error.statusCode === 409) {
+				gitCredentials = gitCredentials.map((credential) =>
+					credential.id === deletingCredential?.id ? { ...credential, inUse: true } : credential
+				);
+				deletingCredential = undefined;
+			}
 		} finally {
 			saving = false;
 		}
