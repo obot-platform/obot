@@ -339,6 +339,52 @@ func TestListAuditLogsAdminGetsOneMixedPage(t *testing.T) {
 	}
 }
 
+// TestListAuditLogsDefaultsToAllAuthorizedSources verifies that when no event_type is specified an
+// admin sees every source they are authorized for (both MCP and local-agent).
+func TestListAuditLogsDefaultsToAllAuthorizedSources(t *testing.T) {
+	gatewayClient := newLocalAgentAuditLogTestGatewayClient(t)
+	seedLocalAgentAuditLog(t, gatewayClient, "entry-1")
+	gatewayClient.LogMCPAuditEntry(gatewaytypes.MCPAuditLog{
+		CreatedAt:  time.Now().UTC().Add(time.Second),
+		SourceType: types.AuditLogSourceTypeMCP,
+		MCPFields: &gatewaytypes.MCPAuditLogFields{
+			MCPID: "mcp-1", CallType: "tools/call", CallIdentifier: "search",
+			RequestBody: json.RawMessage(`{}`), ResponseReceived: true, ResponseStatus: 200,
+		},
+	})
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		_, total, err := gatewayClient.GetMCPAuditLogs(t.Context(), gatewayclient.MCPAuditLogOptions{
+			SourceTypes: []types.AuditLogSourceType{
+				types.AuditLogSourceTypeMCP, types.AuditLogSourceTypeLocalAgentToolCall,
+			},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if total == 2 {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	rec := httptest.NewRecorder()
+	// No event_type in the query string: the handler must default to all authorized sources.
+	ctx := newAuditLogListContextWithRecorder(t, gatewayClient, "", &user.DefaultInfo{
+		UID: "1", Groups: []string{types.GroupAuthenticated, types.GroupAdmin},
+	}, rec)
+	if err := NewAuditLogHandler(gatewayClient).ListAuditLogs(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var response types.AuditLogEventResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+	if response.Total != 2 || len(response.Items) != 2 {
+		t.Fatalf("expected both sources by default, got total=%d items=%#v", response.Total, response.Items)
+	}
+}
+
 func TestListAuditLogsScopesBasicAndPowerUserPlus(t *testing.T) {
 	tests := []struct {
 		name      string

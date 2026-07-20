@@ -43,21 +43,13 @@
 
 	interface Props {
 		mcpId?: string | null;
-		id?: string | null;
 		mcpServerDisplayName?: string | null;
 		mcpServerCatalogEntryName?: string | null;
 		emptyContent?: Snippet;
 		entity?: 'workspace' | 'catalog';
 	}
 
-	let {
-		mcpServerDisplayName,
-		mcpServerCatalogEntryName,
-		mcpId,
-		id,
-		emptyContent,
-		entity = 'catalog'
-	}: Props = $props();
+	let { mcpServerDisplayName, mcpServerCatalogEntryName, mcpId, emptyContent }: Props = $props();
 
 	let auditLogsResponse = $state<PaginatedResponse<AuditLogEvent>>();
 	const auditLogsTotalItems = $derived(auditLogsResponse?.total ?? 0);
@@ -127,92 +119,98 @@
 	let showFilterConfirmDialog = $state(false);
 	let pendingExportType = $state<'export' | 'scheduled' | null>(null);
 
-	// Enforced filters for Basic users - they can only see their own audit logs
+	// Enforced filters for Basic users - they can only see their own audit logs. The unified `actor`
+	// filter matches user_id (or device_id), so pinning it to the user's own id restricts them to
+	// their own activity.
 	const enforcedFilters = $derived.by(() => {
 		if (isBasicUser(profile.current.groups) && profile.current?.id) {
-			return { user_id: profile.current.id };
+			return { actor: profile.current.id };
 		}
 		return {};
 	});
 
 	const enforcedFiltersKeys = $derived(new Set(Object.keys(enforcedFilters)));
 
-	// Local-agent tool-call audit logs are visible only to admins and auditors, and only in the
-	// unified (non server-scoped) audit view.
-	const canViewLocalAgent = $derived(
-		(profile?.current?.hasAdminAccess?.() || profile.current.groups.includes(Group.AUDITOR)) &&
-			!mcpId &&
-			!mcpServerCatalogEntryName &&
-			!mcpServerDisplayName
-	);
-
-	// Supported filters for the audit logs
-	// These filters are used to filter the audit logs based on the URL parameters
-	// Ignore other params
 	type SupportedFilter = keyof AuditLogURLFilters;
-	const commonSupportedFilters: SupportedFilter[] = [
+	const unifiedFilters: SupportedFilter[] = [
 		'event_type',
-		'user_id',
-		'session_id',
-		'client_ip',
-		'start_time',
-		'end_time'
+		'actor',
+		'operation',
+		'mcp_server',
+		'tool',
+		'outcome',
+		'client',
+		'duration'
 	];
-	const mcpSupportedFilters: SupportedFilter[] = [
-		'mcp_id',
-		'mcp_server_display_name',
-		'mcp_server_catalog_entry_name',
-		'call_type',
-		'call_identifier',
-		'client_name',
-		'client_version',
-		'response_status'
-	];
-	const localAgentSupportedFilters: SupportedFilter[] = [
-		'agent_provider',
-		'status',
-		'tool_name',
-		'tool_kind',
-		'device_id'
-	];
-	const defaultEventTypes = $derived(
-		canViewLocalAgent ? 'mcp_call,local_agent_tool_call' : 'mcp_call'
+	// When no Source (event_type) is selected, the backend returns every source the caller is
+	// authorized to read — both MCP and local-agent for admins/auditors, MCP only otherwise. The UI
+	// intentionally does not force a default so "no Source filter" means "all sources I can see".
+	const selectedEventTypes = $derived(page.url.searchParams.get('event_type') ?? '');
+
+	// In a server-scoped embedded view the MCP server is fixed, so the MCP Server filter is redundant.
+	const isServerScoped = $derived(
+		Boolean(mcpId || mcpServerDisplayName || mcpServerCatalogEntryName)
 	);
-	const selectedEventTypes = $derived(page.url.searchParams.get('event_type') ?? defaultEventTypes);
 
-	// event_type may be a comma-separated list (the default for admins/auditors is
-	// "mcp_call,local_agent_tool_call"). Parse a value into the set of selected event types,
-	// falling back to the default when empty.
-	function parseEventTypes(value: string | number | null | undefined): Set<string> {
-		const raw = (value ?? '').toString().trim() || defaultEventTypes;
-		return new Set(
-			raw
-				.split(',')
-				.map((t) => t.trim())
-				.filter(Boolean)
-		);
+	const forcedEventType = $derived(isServerScoped ? 'mcp_call' : '');
+	const visibleFilterKeys = $derived(
+		unifiedFilters.filter(
+			(key) => !(isServerScoped && (key === 'mcp_server' || key === 'event_type'))
+		)
+	);
+
+	// supportedFilters also carries the time-range params so they are read from the URL; the drawer
+	// itself only renders unifiedFilters (time is handled by the calendar).
+	const supportedFilters: SupportedFilter[] = [...unifiedFilters, 'start_time', 'end_time'];
+
+	// Duration filter presets (client-side). Each value encodes a millisecond range "min-max"; an
+	// empty bound is unbounded. Translated to processing_time_min/max before querying the backend.
+	const DURATION_BUCKETS: { value: string; label: string }[] = [
+		{ value: '0-1000', label: '< 1s' },
+		{ value: '1000-5000', label: '1–5s' },
+		{ value: '5000-30000', label: '5–30s' },
+		{ value: '30000-', label: '> 30s' }
+	];
+	function durationBucketLabel(value: string): string {
+		return DURATION_BUCKETS.find((bucket) => bucket.value === value)?.label ?? value;
+	}
+	function durationToProcessingParams(value: string): Partial<AuditLogURLFilters> {
+		const [minRaw, maxRaw] = String(value).split('-');
+		const params: Partial<AuditLogURLFilters> = {};
+		const min = Number(minRaw);
+		const max = Number(maxRaw);
+		if (minRaw && !Number.isNaN(min) && min > 0) params.processing_time_min = min;
+		if (maxRaw && !Number.isNaN(max) && max > 0) params.processing_time_max = max;
+		return params;
 	}
 
-	// Source-specific filters narrow the query to a single source, so the backend rejects them for
-	// mixed-source queries. Only offer/apply them when exactly one event type is selected.
-	function getSupportedFilters(eventTypes: Set<string>): SupportedFilter[] {
-		const single = eventTypes.size === 1;
-		return [
-			...commonSupportedFilters,
-			...(single && eventTypes.has('mcp_call') ? mcpSupportedFilters : []),
-			...(single && eventTypes.has('local_agent_tool_call') ? localAgentSupportedFilters : [])
-		];
+	// Resolve an actor id to a display name when it is a known Obot user; device ids (and other
+	// non-user actors) are shown verbatim rather than as "Unknown User".
+	function actorDisplay(actorId: string): string {
+		return users.has(actorId) ? getUserDisplayName(users, actorId) : actorId;
 	}
 
-	const selectedEventTypesSet = $derived(parseEventTypes(selectedEventTypes));
-	const supportedFilters = $derived(getSupportedFilters(selectedEventTypesSet));
+	function formatSingleFilterValue(key: string, value: string): string {
+		if (key === 'actor') return actorDisplay(value);
+		if (key === 'duration') return durationBucketLabel(value);
+		if (key === 'outcome' && value) return value.charAt(0).toUpperCase() + value.slice(1);
+		if (key === 'event_type') {
+			if (value === 'mcp_call') return 'Obot Gateway';
+			if (value === 'local_agent_tool_call') return 'Local Agent Hook';
+		}
+		return value;
+	}
 
-	const defaultSearchParams: Partial<AuditLogURLFilters> = $derived({
-		event_type: defaultEventTypes
-	});
+	// Default Operation filter applied on first load: focus on the operations that carry a meaningful
+	// payload (actual calls/reads/gets) rather than the list/discovery operations. This is only used
+	// when the `operation` param is absent from the URL. Clearing the filter sets the param to an
+	// empty string (isSafe('') is true), so the default is not re-applied once the user clears it.
+	const DEFAULT_OPERATION_FILTER = 'tools/call,resources/read,prompts/get';
 
 	const searchParamsAsArray: [SupportedFilter, string | undefined | null][] = $derived(
-		buildSearchParamFiltersArray<AuditLogURLFilters>(supportedFilters, defaultSearchParams)
+		buildSearchParamFiltersArray<AuditLogURLFilters>(supportedFilters, {
+			operation: DEFAULT_OPERATION_FILTER
+		})
 	);
 
 	// Extract supported search params from the URL and convert them to AuditLogURLFilters.
@@ -256,19 +254,20 @@
 	const hasFilterPills = $derived(Object.keys(pillsSearchParamFilters).length > 0);
 
 	const showAuditExportActions = $derived(
-		profile.current.groups.includes(Group.ADMIN) || profile.current.groups.includes(Group.OWNER)
+		!isServerScoped &&
+			(profile.current.groups.includes(Group.ADMIN) || profile.current.groups.includes(Group.OWNER))
 	);
 
 	// Filters to be used in the audit logs slideover
 	// Exclude filters that are set via props and not undefined
-	const auditLogsSlideoverFilters = $derived.by(() => {
+	const auditLogsSlideoverFilters = $derived.by<Partial<AuditLogURLFilters>>(() => {
 		const clone = { ...searchParamFilters };
 
 		for (const key of ['start_time', 'end_time']) {
 			delete clone[key as keyof AuditLogURLFilters];
 		}
 
-		return { ...clone, ...propsFilters, ...enforcedFilters };
+		return { ...clone, ...propsFilters, ...enforcedFilters } as Partial<AuditLogURLFilters>;
 	});
 
 	let timeRangeFilters = $derived.by(() => {
@@ -304,14 +303,21 @@
 	let query = $derived(page.url.searchParams.get('query') ?? '');
 
 	// Base filters with time filters and query and pagination
-	const allFilters = $derived({
-		...pillsSearchParamFilters,
-		...propsFilters,
-		start_time: timeRangeFilters.startTime.toISOString(),
-		end_time: timeRangeFilters.endTime?.toISOString(),
-		limit: pageLimit,
-		offset: pageOffset,
-		query: query
+	const allFilters = $derived.by(() => {
+		// `duration` is a UI-only preset; translate it to the processing_time_min/max params the
+		// backend understands and drop the synthetic key before sending the request.
+		const { duration, ...rest } = pillsSearchParamFilters as Partial<AuditLogURLFilters>;
+		return {
+			...rest,
+			...propsFilters,
+			...(forcedEventType ? { event_type: forcedEventType } : {}),
+			...(duration ? durationToProcessingParams(String(duration)) : {}),
+			start_time: timeRangeFilters.startTime.toISOString(),
+			end_time: timeRangeFilters.endTime?.toISOString(),
+			limit: pageLimit,
+			offset: pageOffset,
+			query: query
+		};
 	});
 
 	afterNavigate(() => {
@@ -370,39 +376,28 @@
 	function getFilterDisplayLabel(key: string) {
 		const _key = key as keyof AuditLogURLFilters;
 
-		if (_key === 'mcp_server_display_name') return 'Server';
-		if (_key === 'mcp_server_catalog_entry_name') return 'Server Catalog Entry Name';
-		if (_key === 'mcp_id') return 'Server ID';
+		if (_key === 'event_type') return 'Source';
+		if (_key === 'actor') return 'Actor';
+		if (_key === 'operation') return 'Operation';
+		if (_key === 'mcp_server') return 'Identifier – MCP Server';
+		if (_key === 'tool') return 'Identifier – Tool';
+		if (_key === 'outcome') return 'Status';
+		if (_key === 'client') return 'Client';
+		if (_key === 'duration') return 'Duration';
 		if (_key === 'start_time') return 'Start Time';
 		if (_key === 'end_time') return 'End Time';
-		if (_key === 'user_id') return 'User';
-		if (_key === 'event_type') return 'Event Type';
-		if (_key === 'client_name') return 'Client Name';
-		if (_key === 'client_version') return 'Client Version';
-		if (_key === 'call_type') return 'Call Type';
-		if (_key === 'session_id') return 'Session ID';
-		if (_key === 'response_status') return 'Response Status';
-		if (_key === 'client_ip') return 'Client IP';
-		if (_key === 'agent_provider') return 'Agent';
-		if (_key === 'status') return 'Status';
-		if (_key === 'tool_name') return 'Tool Name';
-		if (_key === 'tool_kind') return 'Tool Kind';
-		if (_key === 'device_id') return 'Device';
 		return key.replace(/_(\w)/g, ' $1');
 	}
 
+	// getFilterDisplayValue renders a full (possibly comma-joined) filter value; used by the export
+	// confirmation dialog. Pills call getFilterValue per single value instead.
 	function getFilterDisplayValue(key: string, value: string | number) {
-		if (key === 'user_id') {
-			if (typeof value === 'string') {
-				const array = value.split(',').map((v) => v.trim());
-
-				return array.map((v) => getUserDisplayName(users, v)).join(', ');
-			}
-
-			return getUserDisplayName(users, value + '');
-		}
-
-		return value + '';
+		return String(value)
+			.split(',')
+			.map((part) => part.trim())
+			.filter(Boolean)
+			.map((part) => formatSingleFilterValue(key, part))
+			.join(', ');
 	}
 
 	function getFilterValue(label: keyof AuditLogURLFilters, value: string | number) {
@@ -419,11 +414,7 @@
 			});
 		}
 
-		if (label === 'user_id') {
-			return getUserDisplayName(users, value + '');
-		}
-
-		return value + '';
+		return formatSingleFilterValue(label, String(value));
 	}
 
 	function handleRightSidebarClose() {
@@ -473,7 +464,9 @@
 			const url = new URL(window.location.origin + `/admin/audit-logs/exports`);
 			url.searchParams.set('form', formType);
 
-			url.searchParams.set('event_type', selectedEventTypes);
+			if (selectedEventTypes) {
+				url.searchParams.set('event_type', selectedEventTypes);
+			}
 
 			if (includeFilters) {
 				// Add current time range
@@ -506,7 +499,9 @@
 			url.searchParams.set('form', 'storage');
 			url.searchParams.set('next', formType);
 
-			url.searchParams.set('event_type', selectedEventTypes);
+			if (selectedEventTypes) {
+				url.searchParams.set('event_type', selectedEventTypes);
+			}
 
 			if (includeFilters) {
 				// Still add filters for when storage config is completed
@@ -613,7 +608,6 @@
 	<div class="skeleton rounded-md h-71 mb-4"></div>
 	<AuditLogTableSkeleton />
 {:else if auditLogsTotalItems > 0}
-	<!-- Timeline Graph (Placeholder) -->
 	<div
 		class="dark:bg-base-300 dark:border-base-400 bg-base-100 text-muted-content rounded-lg border border-transparent shadow-sm"
 	>
@@ -740,58 +734,35 @@
 	{#if showFilters}
 		<FiltersDrawer
 			onClose={handleRightSidebarClose}
-			filters={{ ...auditLogsSlideoverFilters }}
-			resetOnChangeKeys={['event_type']}
-			getVisibleFilterKeys={(filters) =>
-				getSupportedFilters(parseEventTypes(filters.event_type)).filter(
-					(key) => key !== 'start_time' && key !== 'end_time'
-				)}
+			filters={auditLogsSlideoverFilters}
+			getVisibleFilterKeys={() => visibleFilterKeys}
+			isFilterMultiSelect={(filterId) => filterId !== 'duration'}
 			isFilterDisabled={(filterId) =>
 				propsFiltersKeys.has(filterId) || enforcedFiltersKeys.has(filterId)}
 			isFilterClearable={(filterId) =>
 				!propsFiltersKeys.has(filterId) && !enforcedFiltersKeys.has(filterId)}
 			getUserDisplayName={(...args) => getUserDisplayName(users, ...args)}
 			{getFilterDisplayLabel}
-			getDefaultValue={(filter) => defaultSearchParams[filter]}
+			getFilterOptionLabel={(key, value) => formatSingleFilterValue(key, value)}
 			endpoint={async (filterId: string, opts = {}) => {
-				const timeFilters = {
+				// Duration is a fixed set of client-side presets, not a distinct-value column.
+				if (filterId === 'duration') {
+					return { options: DURATION_BUCKETS.map((bucket) => bucket.value) };
+				}
+
+				// A `duration` selection among the other active filters must also narrow the option
+				// list, so translate it to the processing_time_min/max params the backend understands.
+				const { duration, ...rest } = opts as Partial<AuditLogURLFilters>;
+				return await UserService.listAuditLogFilterOptions(filterId, {
+					...rest,
+					...(duration ? durationToProcessingParams(String(duration)) : {}),
 					start_time: timeRangeFilters.startTime.toISOString(),
 					end_time: timeRangeFilters.endTime?.toISOString(),
-					// Prefer the event type(s) currently selected in the drawer (passed via opts) so
-					// option lists update live as the user switches event types; fall back to the URL.
-					event_type: String(opts.event_type ?? '') || selectedEventTypes
-				};
-				if (filterId !== 'mcp_id') {
-					return await UserService.listAuditLogFilterOptions(filterId, {
-						...opts,
-						...timeFilters
-					});
-				}
-
-				if (mcpId) {
-					const response = await UserService.listAuditLogFilterOptions(filterId, {
-						...opts,
-						...timeFilters
-					});
-
-					return { options: response?.options.filter((option) => option.endsWith(mcpId)) ?? [] };
-				}
-
-				if (!id || !mcpServerCatalogEntryName) {
-					return await UserService.listAuditLogFilterOptions(filterId, {
-						...opts,
-						...timeFilters
-					});
-				}
-
-				const items =
-					entity === 'catalog'
-						? await AdminService.listMCPServersForEntry(id, mcpServerCatalogEntryName)
-						: await UserService.listWorkspaceMCPServersForEntry(id, mcpServerCatalogEntryName);
-
-				const options = items?.map?.((item) => item.id) ?? [];
-
-				return { options };
+					// In a server-scoped view the source is pinned to MCP; otherwise prefer the event
+					// type(s) currently selected in the drawer (passed via opts) so option lists update
+					// live as the user switches Source, falling back to the URL.
+					event_type: forcedEventType || String(opts.event_type ?? '') || selectedEventTypes
+				});
 			}}
 		/>
 	{/if}

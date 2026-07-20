@@ -1083,7 +1083,6 @@
 				mcpId={isMultiUserServer ? entryId : server ? server.id : null}
 				{mcpServerCatalogEntryName}
 				{mcpServerDisplayName}
-				{id}
 				{entity}
 			>
 				{#snippet emptyContent()}

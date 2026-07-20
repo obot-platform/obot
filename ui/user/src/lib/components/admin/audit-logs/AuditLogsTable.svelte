@@ -56,13 +56,39 @@
 		return actor.id || (actor.actorType === 'unknown' ? 'Unknown' : actor.actorType);
 	}
 
-	function targetLabel(target: (typeof data)[number]['target']) {
-		// Only resolve an alias for server-level targets (which carry the server id in target.id).
-		// For MCP tool/resource/prompt events target.id is empty and target.parent.id is the server,
-		// so falling back to the parent id here would wrongly show the server alias instead of the
-		// tool/resource/prompt name (target.name).
-		const alias = target.id ? serverAliases.get(target.id) : undefined;
-		return alias || target.name || target.id || 'Unknown';
+	function resolveServerName(ref?: { id?: string; name?: string }) {
+		if (!ref) return undefined;
+		const alias = ref.id ? serverAliases.get(ref.id) : undefined;
+		return alias || ref.name || ref.id || undefined;
+	}
+
+	// identifierParts splits a target into the combined Identifier cell: the MCP server on the primary
+	// line and the tool as a muted "› tool" subline. For MCP tool/resource/prompt events the server is
+	// the parent and the tool is target.name; for server-level events there is no tool; for local tool
+	// calls with no MCP server the tool is shown on the primary line.
+	function identifierParts(target: (typeof data)[number]['target']) {
+		if (target.parent) {
+			const server = resolveServerName(target.parent);
+			const tool = target.name || target.id;
+			return {
+				primary: server || tool || 'Unknown',
+				secondary: server && tool ? `› ${tool}` : undefined
+			};
+		}
+		if (target.targetType === 'mcp_server') {
+			return { primary: resolveServerName(target) || 'Unknown', secondary: undefined };
+		}
+		return { primary: target.name || target.id || 'Unknown', secondary: undefined };
+	}
+
+	function eventTypeLabel(eventType: (typeof data)[number]['eventType']) {
+		return eventType === 'mcp_call' ? 'Obot Gateway' : 'Local Agent Hook';
+	}
+
+	function formatDuration(ms?: number) {
+		if (ms === undefined || ms === null) return '—';
+		if (ms < 1000) return `${ms} ms`;
+		return `${(ms / 1000).toFixed(ms < 10000 ? 2 : 1)} s`;
 	}
 </script>
 
@@ -205,13 +231,14 @@
 			{#snippet header()}
 				<thead>
 					<tr bind:this={headerRowElement}>
-						{@render th('Timestamp', { class: 'w-[28ch]', minWidth: '28ch' })}
-						{@render th('Event Type', { class: 'w-[24ch]', minWidth: '24ch' })}
-						{@render th('Actor', { class: 'w-[28ch]', minWidth: '28ch' })}
-						{@render th('Action', { class: 'w-[30ch]', minWidth: '30ch' })}
-						{@render th('Target', { class: 'w-[30ch]', minWidth: '30ch' })}
-						{@render th('Outcome', { class: 'w-[18ch]', minWidth: '18ch' })}
-						{@render th('Duration (ms)', { class: 'w-[20ch]', minWidth: '20ch' })}
+						{@render th('Time', { class: 'w-[28ch]', minWidth: '24ch' })}
+						{@render th('Source', { class: 'w-[20ch]', minWidth: '18ch' })}
+						{@render th('Actor', { class: 'w-[26ch]', minWidth: '22ch' })}
+						{@render th('Operation', { class: 'w-[20ch]', minWidth: '18ch' })}
+						{@render th('Identifier', { class: 'w-[32ch]', minWidth: '26ch' })}
+						{@render th('Status', { class: 'w-[18ch]', minWidth: '16ch' })}
+						{@render th('Client', { class: 'w-[22ch]', minWidth: '18ch' })}
+						{@render th('Duration', { class: 'w-[16ch]', minWidth: '14ch' })}
 					</tr>
 				</thead>
 			{/snippet}
@@ -219,6 +246,7 @@
 			{#snippet children({ items }: { items: { index: number; data: (typeof data)[0] }[] })}
 				{#each items as item (item.data.id)}
 					{@const d = item.data}
+					{@const identifier = identifierParts(d.target)}
 
 					<tr
 						id={`mcp-audit-log-${item.index}`}
@@ -229,17 +257,13 @@
 						onclick={() => onSelectRow?.(d)}
 					>
 						{@render td(formatAuditLogTableTimestamp(d.timestamp.occurredAt))}
-						{@render td(d.eventType === 'mcp_call' ? 'MCP Call' : 'Local Agent Tool Call')}
+						{@render td(eventTypeLabel(d.eventType))}
 						{@render twoLine(actorLabel(d.actor), d.actor.actorType)}
-						{@render twoLine(
-							d.action.name || d.action.operation,
-							d.action.name
-								? [d.action.operation, d.action.kind].filter(Boolean).join(' · ')
-								: d.action.kind
-						)}
-						{@render twoLine(targetLabel(d.target), d.target.parent?.name || d.target.targetType)}
+						{@render td(d.action.operation)}
+						{@render twoLine(identifier.primary, identifier.secondary)}
 						{@render outcomeCell(d.outcome)}
-						{@render td(d.outcome.durationMs)}
+						{@render td(d.client || '—')}
+						{@render td(formatDuration(d.outcome.durationMs))}
 					</tr>
 				{/each}
 			{/snippet}

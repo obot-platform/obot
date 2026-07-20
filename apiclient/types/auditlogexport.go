@@ -97,21 +97,40 @@ type ScheduledAuditLogExportListResponse struct {
 
 // AuditLogExportFilters represents filters for audit log export
 type AuditLogExportFilters struct {
-	// SourceTypes selects which audit-log source(s) to export. An empty slice preserves the
-	// historical MCP-only default; callers pass multiple values (e.g. both mcp and
-	// local_agent_tool_call) to export more than one source in the same export.
-	SourceTypes                []AuditLogSourceType `json:"sourceTypes,omitempty"`
-	UserIDs                    []string             `json:"userIDs,omitempty"`
-	MCPIDs                     []string             `json:"mcpIDs,omitempty"`
-	MCPServerDisplayNames      []string             `json:"mcpServerDisplayNames,omitempty"`
-	MCPServerCatalogEntryNames []string             `json:"mcpServerCatalogEntryNames,omitempty"`
-	CallTypes                  []string             `json:"callTypes,omitempty"`
-	CallIdentifiers            []string             `json:"callIdentifiers,omitempty"`
-	SessionIDs                 []string             `json:"sessionIDs,omitempty"`
-	ClientNames                []string             `json:"clientNames,omitempty"`
-	ClientVersions             []string             `json:"clientVersions,omitempty"`
-	ResponseStatuses           []string             `json:"responseStatuses,omitempty"`
-	ClientIPs                  []string             `json:"clientIPs,omitempty"`
+	// SourceTypes selects which audit-log source(s) to export and is required: the API rejects an
+	// empty list. Pass multiple values (e.g. both mcp and local_agent_tool_call) to export more than
+	// one source in the same export. Legacy stored exports predating this field are normalized to the
+	// MCP-only default at execution time.
+	SourceTypes []AuditLogSourceType `json:"sourceTypes,omitempty"`
+
+	// Common cross-source filters. These resolve to the appropriate column per source and are the
+	// only filters allowed when more than one source is selected.
+
+	// Actors matches an Obot user ID or an enrolled device ID.
+	Actors []string `json:"actors,omitempty"`
+	// Operations is the MCP call type; local-agent tool calls are implicitly tools/call.
+	Operations []string `json:"operations,omitempty"`
+	// MCPServers is the MCP server (id/display name) or a local-agent row's MCP parent.
+	MCPServers []string `json:"mcpServers,omitempty"`
+	// Tools is the MCP call identifier or local-agent action name.
+	Tools []string `json:"tools,omitempty"`
+	// Outcomes is the normalized status: success/failure/denied/timeout/unknown.
+	Outcomes []string `json:"outcomes,omitempty"`
+	// Clients is the MCP client name or local-agent provider.
+	Clients []string `json:"clients,omitempty"`
+
+	// Single-source filters.
+	UserIDs                    []string `json:"userIDs,omitempty"`
+	MCPIDs                     []string `json:"mcpIDs,omitempty"`
+	MCPServerDisplayNames      []string `json:"mcpServerDisplayNames,omitempty"`
+	MCPServerCatalogEntryNames []string `json:"mcpServerCatalogEntryNames,omitempty"`
+	CallTypes                  []string `json:"callTypes,omitempty"`
+	CallIdentifiers            []string `json:"callIdentifiers,omitempty"`
+	SessionIDs                 []string `json:"sessionIDs,omitempty"`
+	ClientNames                []string `json:"clientNames,omitempty"`
+	ClientVersions             []string `json:"clientVersions,omitempty"`
+	ResponseStatuses           []string `json:"responseStatuses,omitempty"`
+	ClientIPs                  []string `json:"clientIPs,omitempty"`
 
 	// Local-agent tool-call filters. Only applied when SourceTypes includes local_agent_tool_call.
 	AgentProviders []string `json:"agentProviders,omitempty"`

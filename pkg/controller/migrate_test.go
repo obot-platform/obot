@@ -129,6 +129,63 @@ func TestMigratePublishedArtifactVisibility(t *testing.T) {
 	})
 }
 
+func TestMigrateAuditLogExportSourceTypes(t *testing.T) {
+	ctx := t.Context()
+	client := newFakeClient(t,
+		&v1.ScheduledAuditLogExport{
+			ObjectMeta: metav1.ObjectMeta{Name: "legacy-with-filters", Namespace: system.DefaultNamespace},
+			Spec: v1.ScheduledAuditLogExportSpec{
+				Filters: &types.AuditLogExportFilters{MCPIDs: []string{"mcp-1"}},
+			},
+		},
+		&v1.ScheduledAuditLogExport{
+			ObjectMeta: metav1.ObjectMeta{Name: "legacy-without-filters", Namespace: system.DefaultNamespace},
+		},
+		&v1.ScheduledAuditLogExport{
+			ObjectMeta: metav1.ObjectMeta{Name: "already-explicit", Namespace: system.DefaultNamespace},
+			Spec: v1.ScheduledAuditLogExportSpec{
+				Filters: &types.AuditLogExportFilters{SourceTypes: []types.AuditLogSourceType{types.AuditLogSourceTypeMCP}},
+			},
+		},
+		&v1.ScheduledAuditLogExport{
+			ObjectMeta: metav1.ObjectMeta{Name: "local-agent", Namespace: system.DefaultNamespace},
+			Spec: v1.ScheduledAuditLogExportSpec{
+				Type:    types.AuditLogTypeMCP,
+				Filters: &types.AuditLogExportFilters{SourceTypes: []types.AuditLogSourceType{types.AuditLogSourceTypeLocalAgentToolCall}},
+			},
+		},
+		&v1.ScheduledAuditLogExport{
+			ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: system.DefaultNamespace},
+			Spec:       v1.ScheduledAuditLogExportSpec{Type: types.AuditLogTypeLLM},
+		},
+	)
+
+	require.NoError(t, migrateAuditLogExportSourceTypes(ctx, client))
+
+	var migrated v1.ScheduledAuditLogExport
+	require.NoError(t, client.Get(ctx, kclient.ObjectKey{Name: "legacy-with-filters", Namespace: system.DefaultNamespace}, &migrated))
+	require.NotNil(t, migrated.Spec.Filters)
+	assert.Equal(t, []types.AuditLogSourceType{types.AuditLogSourceTypeMCP}, migrated.Spec.Filters.SourceTypes)
+	assert.Equal(t, []string{"mcp-1"}, migrated.Spec.Filters.MCPIDs)
+
+	require.NoError(t, client.Get(ctx, kclient.ObjectKey{Name: "legacy-without-filters", Namespace: system.DefaultNamespace}, &migrated))
+	require.NotNil(t, migrated.Spec.Filters)
+	assert.Equal(t, []types.AuditLogSourceType{types.AuditLogSourceTypeMCP}, migrated.Spec.Filters.SourceTypes)
+
+	for _, name := range []string{"already-explicit", "local-agent", "llm"} {
+		var unchanged v1.ScheduledAuditLogExport
+		require.NoError(t, client.Get(ctx, kclient.ObjectKey{Name: name, Namespace: system.DefaultNamespace}, &unchanged))
+		switch name {
+		case "already-explicit":
+			assert.Equal(t, []types.AuditLogSourceType{types.AuditLogSourceTypeMCP}, unchanged.Spec.Filters.SourceTypes)
+		case "local-agent":
+			assert.Equal(t, []types.AuditLogSourceType{types.AuditLogSourceTypeLocalAgentToolCall}, unchanged.Spec.Filters.SourceTypes)
+		default:
+			assert.Nil(t, unchanged.Spec.Filters)
+		}
+	}
+}
+
 func TestDeleteToolReferenceOwnedModels(t *testing.T) {
 	ctx := context.Background()
 	client := newFakeClient(t,

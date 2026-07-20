@@ -1236,6 +1236,12 @@ func schema_obot_platform_obot_apiclient_types_AuditLogEvent(ref common.Referenc
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.AuditLogOutcome"),
 						},
 					},
+					"client": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"details": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.AuditLogDetails"),
@@ -1398,7 +1404,91 @@ func schema_obot_platform_obot_apiclient_types_AuditLogExportFilters(ref common.
 				Properties: map[string]spec.Schema{
 					"sourceTypes": {
 						SchemaProps: spec.SchemaProps{
-							Description: "SourceTypes selects which audit-log source(s) to export. An empty slice preserves the historical MCP-only default; callers pass multiple values (e.g. both mcp and local_agent_tool_call) to export more than one source in the same export.",
+							Description: "SourceTypes selects which audit-log source(s) to export and is required: the API rejects an empty list. Pass multiple values (e.g. both mcp and local_agent_tool_call) to export more than one source in the same export. Legacy stored exports predating this field are normalized to the MCP-only default at execution time.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"actors": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Actors matches an Obot user ID or an enrolled device ID.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"operations": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Operations is the MCP call type; local-agent tool calls are implicitly tools/call.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"mcpServers": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MCPServers is the MCP server (id/display name) or a local-agent row's MCP parent.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"tools": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Tools is the MCP call identifier or local-agent action name.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"outcomes": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Outcomes is the normalized status: success/failure/denied/timeout/unknown.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"clients": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Clients is the MCP client name or local-agent provider.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -1412,7 +1502,8 @@ func schema_obot_platform_obot_apiclient_types_AuditLogExportFilters(ref common.
 					},
 					"userIDs": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
+							Description: "Single-source filters.",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{

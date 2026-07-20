@@ -84,6 +84,10 @@ func (c *Controller) PreStart(ctx context.Context) error {
 		return fmt.Errorf("failed to migrate published artifact visibility: %w", err)
 	}
 
+	if err := migrateAuditLogExportSourceTypes(ctx, c.services.StorageClient); err != nil {
+		return fmt.Errorf("failed to migrate audit-log export source types: %w", err)
+	}
+
 	if err := deleteToolReferenceOwnedModels(ctx, c.services.StorageClient); err != nil {
 		return fmt.Errorf("failed to delete ToolReference-owned models: %w", err)
 	}

@@ -31,14 +31,14 @@ func TestValidateAuditLogExportRequest(t *testing.T) {
 			wantType: types.AuditLogTypeLLM,
 		},
 		{
-			name: "missing type defaults to MCP",
+			name: "MCP requires source types",
 			req: types.AuditLogExportCreateRequest{
 				Name:      "export",
 				Bucket:    "bucket",
 				StartTime: types.Time{Time: now},
 				EndTime:   types.Time{Time: now.Add(time.Hour)},
 			},
-			wantType: types.AuditLogTypeMCP,
+			wantErr: "sourceTypes must include at least one",
 		},
 		{
 			name:    "missing name",
@@ -207,10 +207,45 @@ func TestValidateAuditLogExportFilters(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "valid mixed common filters",
+			name: "multi-source rejects shared-column filters",
 			filters: types.AuditLogExportFilters{
 				SourceTypes: []types.AuditLogSourceType{types.AuditLogSourceTypeMCP, types.AuditLogSourceTypeLocalAgentToolCall},
 				UserIDs:     []string{"user-1"},
+			},
+			wantErr: true,
+		},
+		{
+			name: "common filter requires multiple sources",
+			filters: types.AuditLogExportFilters{
+				SourceTypes: []types.AuditLogSourceType{types.AuditLogSourceTypeMCP},
+				Actors:      []string{"user-1"},
+			},
+			wantErr: true,
+		},
+		{
+			name: "common filters cannot combine with source-specific",
+			filters: types.AuditLogExportFilters{
+				SourceTypes: []types.AuditLogSourceType{types.AuditLogSourceTypeMCP, types.AuditLogSourceTypeLocalAgentToolCall},
+				Actors:      []string{"user-1"},
+				MCPIDs:      []string{"mcp-1"},
+			},
+			wantErr: true,
+		},
+		{
+			name: "valid multi-source common filters",
+			filters: types.AuditLogExportFilters{
+				SourceTypes: []types.AuditLogSourceType{types.AuditLogSourceTypeMCP, types.AuditLogSourceTypeLocalAgentToolCall},
+				Actors:      []string{"user-1"},
+				Tools:       []string{"Bash"},
+				Outcomes:    []string{"denied"},
+			},
+		},
+		{
+			name: "valid single-source shared-column filters",
+			filters: types.AuditLogExportFilters{
+				SourceTypes: []types.AuditLogSourceType{types.AuditLogSourceTypeMCP},
+				UserIDs:     []string{"user-1"},
+				SessionIDs:  []string{"session-1"},
 			},
 		},
 		{
@@ -229,5 +264,35 @@ func TestValidateAuditLogExportFilters(t *testing.T) {
 				t.Fatalf("error = %v, wantErr = %v", err, test.wantErr)
 			}
 		})
+	}
+}
+
+func TestValidateAuditLogExportFiltersRequiresSourceTypes(t *testing.T) {
+	for _, filters := range []*types.AuditLogExportFilters{
+		nil,
+		{},
+		{SourceTypes: []types.AuditLogSourceType{}},
+	} {
+		if err := validateAuditLogExportFilters(filters); err == nil {
+			t.Fatalf("expected empty sourceTypes to be rejected for filters %#v", filters)
+		}
+	}
+}
+
+func TestValidateScheduledMCPAuditLogExportRequiresSourceTypes(t *testing.T) {
+	req := types.ScheduledAuditLogExportCreateRequest{
+		Name:   "schedule",
+		Bucket: "bucket",
+		Schedule: types.Schedule{
+			Interval: "daily",
+		},
+	}
+	if err := (&AuditLogExportHandler{}).validateScheduledExportRequest(&req); err == nil {
+		t.Fatal("expected an MCP schedule without sourceTypes to be rejected")
+	}
+
+	req.Filters = &types.AuditLogExportFilters{SourceTypes: []types.AuditLogSourceType{types.AuditLogSourceTypeMCP}}
+	if err := (&AuditLogExportHandler{}).validateScheduledExportRequest(&req); err != nil {
+		t.Fatalf("expected an MCP schedule with sourceTypes to be valid: %v", err)
 	}
 }

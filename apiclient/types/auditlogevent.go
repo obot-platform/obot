@@ -87,6 +87,7 @@ type AuditLogEvent struct {
 	Action    AuditLogAction    `json:"action"`
 	Target    AuditLogTarget    `json:"target"`
 	Outcome   AuditLogOutcome   `json:"outcome"`
+	Client    string            `json:"client,omitempty"`
 	Details   *AuditLogDetails  `json:"details,omitempty"`
 }
 

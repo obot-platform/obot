@@ -33,6 +33,36 @@ func addCatalogIDToAccessControlRules(ctx context.Context, client kclient.Client
 	return nil
 }
 
+// migrateAuditLogExportSourceTypes makes the implicit MCP source selection on legacy
+// scheduled MCP audit-log exports explicit. The export UI needs an explicit source selection
+// when editing a schedule, while old schedules predate sourceTypes entirely.
+func migrateAuditLogExportSourceTypes(ctx context.Context, client kclient.Client) error {
+	var schedules v1.ScheduledAuditLogExportList
+	if err := client.List(ctx, &schedules); err != nil {
+		return err
+	}
+
+	for i := range schedules.Items {
+		schedule := &schedules.Items[i]
+		if schedule.Spec.EffectiveType() != types.AuditLogTypeMCP {
+			continue
+		}
+		if schedule.Spec.Filters != nil && len(schedule.Spec.Filters.SourceTypes) > 0 {
+			continue
+		}
+
+		if schedule.Spec.Filters == nil {
+			schedule.Spec.Filters = &types.AuditLogExportFilters{}
+		}
+		schedule.Spec.Filters.SourceTypes = []types.AuditLogSourceType{types.AuditLogSourceTypeMCP}
+		if err := client.Update(ctx, schedule); err != nil {
+			return fmt.Errorf("failed to migrate scheduled audit-log export %s: %w", schedule.Name, err)
+		}
+	}
+
+	return nil
+}
+
 func migratePublishedArtifactVisibility(ctx context.Context, client kclient.Client) error {
 	var artifacts v1.PublishedArtifactList
 	if err := client.List(ctx, &artifacts); err != nil {
