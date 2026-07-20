@@ -7,7 +7,7 @@
 	import Table from '$lib/components/table/Table.svelte';
 	import { AdminService, type GitCredential, type GitCredentialManifest } from '$lib/services';
 	import { profile } from '$lib/stores';
-	import { KeyRound, Plus, Trash2, TriangleAlert, X } from '@lucide/svelte';
+	import { KeyRound, Pencil, Plus, Trash2, TriangleAlert, X } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 
 	const { data }: { data: { gitCredentials: GitCredential[] } } = $props();
@@ -23,13 +23,6 @@
 	let dialog = $state<HTMLDialogElement>();
 	let isReadonly = $derived(profile.current.isAdminReadonly?.());
 	let tokenRequired = $derived(!editingCredential?.tokenConfigured);
-
-	let tableData = $derived(
-		gitCredentials.map((credential) => ({
-			...credential,
-			status: credential.tokenConfigured ? 'Configured' : 'Missing token'
-		}))
-	);
 
 	function openCreate() {
 		editingCredential = undefined;
@@ -106,21 +99,31 @@
 		</div>
 	{:else}
 		<Table
-			data={tableData}
-			fields={['displayName', 'host', 'status', 'id']}
+			data={gitCredentials}
+			fields={['displayName', 'host']}
 			headers={[
 				{ title: 'Name', property: 'displayName' },
-				{ title: 'Host', property: 'host' },
-				{ title: 'Token', property: 'status' },
-				{ title: 'Credential', property: 'id' }
+				{ title: 'Host', property: 'host' }
 			]}
-			sortable={['displayName', 'host', 'status']}
+			sortable={['displayName', 'host']}
 			filterable={['displayName', 'host']}
 			onClickRow={(row) => openEdit(row)}
 		>
 			{#snippet actions(credential)}
 				<DotDotDot ariaLabel={`Actions for ${credential.displayName}`}>
 					{#snippet children({ toggle })}
+						<button
+							class="menu-button"
+							disabled={isReadonly}
+							onclick={(event) => {
+								event.stopPropagation();
+								openEdit(credential);
+								toggle(false);
+							}}
+						>
+							<Pencil class="size-4" />
+							Edit
+						</button>
 						<button
 							class="menu-button-destructive"
 							disabled={isReadonly}

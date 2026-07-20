@@ -64,10 +64,6 @@ func revealSkillRepositoryToken(ctx context.Context, client skillRepositoryCrede
 }
 
 func (h *SkillHandler) materialize(req api.Context, skill *v1.Skill) (func(), string, error) {
-	if skill.Spec.RepoID == "" {
-		return h.materializeSkillSource(req.Context(), skill, "")
-	}
-
 	var token string
 	var repository v1.SkillRepository
 	err := req.Get(&repository, skill.Spec.RepoID)

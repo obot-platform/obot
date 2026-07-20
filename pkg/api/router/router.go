@@ -452,7 +452,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/git-credentials", gitCredentials.List)
 	mux.HandleFunc("POST /api/git-credentials", gitCredentials.Create)
 	mux.HandleFunc("GET /api/git-credentials/{id}", gitCredentials.Get)
-	mux.HandleFunc("PUT /api/git-credentials/{id}", gitCredentials.Update)
+	mux.HandleFunc("PATCH /api/git-credentials/{id}", gitCredentials.Update)
 	mux.HandleFunc("DELETE /api/git-credentials/{id}", gitCredentials.Delete)
 
 	// MCP Capacity (admin only)

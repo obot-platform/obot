@@ -580,7 +580,7 @@ export async function updateGitCredential(
 	input: GitCredentialManifest,
 	opts?: RequestOptions
 ): Promise<GitCredential> {
-	return (await doPut(`/git-credentials/${id}`, input, opts)) as GitCredential;
+	return (await doPatch(`/git-credentials/${id}`, input, opts)) as GitCredential;
 }
 
 export async function deleteGitCredential(id: string, opts?: RequestOptions): Promise<void> {
