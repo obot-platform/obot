@@ -13,7 +13,9 @@ export const load: PageLoad = async ({ fetch, parent }) => {
 
 	let gitCredentials: GitCredential[] = [];
 	if (profile.hasAdminAccess?.()) {
-		gitCredentials = await AdminService.listGitCredentials({ fetch });
+		gitCredentials = await AdminService.listGitCredentials({ fetch, dontLogErrors: true }).catch(
+			() => []
+		);
 	}
 
 	try {
