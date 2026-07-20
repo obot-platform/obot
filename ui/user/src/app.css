@@ -1480,9 +1480,10 @@
 		font-weight: 500;
 		color: var(--color-muted-content);
 
+		/* No color override in dark: base-400 is a surface tone there,
+		   unreadable on the base-300 chip; muted-content adapts. */
 		.dark & {
 			background-color: var(--color-base-300);
-			color: var(--color-base-400);
 		}
 	}
 
@@ -1624,9 +1625,10 @@
 		font-weight: 500;
 		color: var(--color-muted-content);
 
+		/* No color override in dark: base-400 is a surface tone there,
+		   unreadable on the base-300 chip; muted-content adapts. */
 		.dark & {
 			background-color: var(--color-base-300);
-			color: var(--color-base-400);
 		}
 	}
 

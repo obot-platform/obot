@@ -420,6 +420,13 @@
 						collapsible: true,
 						items: [
 							{
+								id: 'mdm-configurations',
+								href: '/admin/mdm-configurations',
+								label: 'MDM Configurations',
+								disabled: isBootStrapUser,
+								collapsible: false
+							},
+							{
 								id: 'devices',
 								href: '/admin/devices',
 								label: 'Devices',

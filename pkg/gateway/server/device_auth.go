@@ -87,8 +87,8 @@ func (a *DeviceAuthenticator) AuthenticateRequest(req *http.Request) (*authentic
 			// (see authz staticRules).
 			Groups: []string{types.GroupDeviceScans, types.GroupAuthenticated},
 			Extra: map[string][]string{
-				"device_id":         {device.DeviceID},
-				"mdm_deployment_id": {fmt.Sprintf("%d", device.MDMDeploymentID)},
+				"device_id":            {device.DeviceID},
+				"mdm_configuration_id": {fmt.Sprintf("%d", device.MDMConfigurationID)},
 			},
 		},
 	}, true, nil

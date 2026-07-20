@@ -1222,3 +1222,106 @@ export interface TotalTokenUsage {
 export interface TotalTokenUsageByUser extends TotalTokenUsage {
 	userID: string;
 }
+
+// MDM configurations — fleets that unattended devices enroll into. Creating a
+// configuration (or an additional enrollment key) returns the plaintext
+// enrollment credential exactly once.
+export interface MDMConfiguration {
+	assetDigest?: string;
+	createdAt: string;
+	description?: string;
+	error?: string;
+	id: number;
+	instructions?: string;
+	name: string;
+	os?: string;
+	platform?: string;
+	values?: Record<string, unknown>;
+}
+
+export interface MDMEnrollmentKey {
+	createdAt: string;
+	expiresAt?: string;
+	id: number;
+	lastUsedAt?: string;
+	name?: string;
+}
+
+export interface MDMConfigurationCreateResponse extends MDMConfiguration {
+	enrollmentCredential: string;
+}
+
+export interface MDMEnrollmentKeyCreateResponse extends MDMEnrollmentKey {
+	enrollmentCredential: string;
+}
+
+export interface MDMDevice {
+	deviceID: string;
+	enrolledAt: string;
+	hostname?: string;
+	id: number;
+	lastSeenAt?: string;
+	mdmConfigurationID: number;
+	os?: string;
+	osVersion?: string;
+}
+
+// MDMAssetField is one property of the assets manifest's fields JSON
+// Schema. readOnly properties are supplied server-side and hidden ones
+// must not appear in forms; both annotations come from the manifest.
+export interface MDMAssetField {
+	default?: unknown;
+	description?: string;
+	enum?: (string | number)[];
+	hidden?: boolean;
+	maximum?: number;
+	minimum?: number;
+	readOnly?: boolean;
+	title?: string;
+	type?: string;
+}
+
+export interface MDMAssetPlatform {
+	id: string;
+	label: string;
+	icon?: string;
+}
+
+// MDMAssetConfiguration is one platform/OS target offered by a bundle.
+export interface MDMAssetConfiguration {
+	assets: string[];
+	description: string;
+	instructions: string;
+	os: string;
+	osLabel: string;
+	platform: string;
+	suggestedName: string;
+}
+
+export interface MDMAssetFields {
+	properties?: Record<string, MDMAssetField>;
+	required?: string[];
+}
+
+export interface MDMAssetSource {
+	id: string;
+	source?: string;
+	lastSyncTime?: string;
+	isSyncing: boolean;
+	syncError?: string;
+	latestDigest?: string;
+}
+
+export interface MDMAsset {
+	id: string;
+	digest: string;
+	schemaVersion: string;
+	obotSentryVersion: string;
+	configurations: MDMAssetConfiguration[];
+	fields: MDMAssetFields;
+	platforms: MDMAssetPlatform[];
+}
+
+export interface MDMAssetList {
+	items: MDMAsset[] | null;
+}

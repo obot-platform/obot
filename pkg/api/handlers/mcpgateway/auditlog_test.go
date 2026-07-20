@@ -132,8 +132,8 @@ func TestLocalAgentAuditLogSubmitDeviceJWTStampsDeviceAttribution(t *testing.T) 
 		Name:   "device:server-device",
 		Groups: []string{types.GroupAuthenticated, types.GroupDeviceScans},
 		Extra: map[string][]string{
-			"device_id":         {"server-device"},
-			"mdm_deployment_id": {"123"},
+			"device_id":            {"server-device"},
+			"mdm_configuration_id": {"123"},
 		},
 	}))
 	if err != nil {

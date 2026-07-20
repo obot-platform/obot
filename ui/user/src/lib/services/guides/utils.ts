@@ -37,7 +37,7 @@ export function generateLessonItems(lessonsCompleted: Record<string, boolean>) {
 			: []),
 		{
 			completed: lessonsCompleted[CliInstallGuide.id],
-			label: 'Use Obot/OboCop CLI',
+			label: 'Use Obot/Obot Sentry CLI',
 			description:
 				"Install the CLI to assist in installing MCP servers & skills or perform scans to provide visibility into your userbase's devices.",
 			guide: CliInstallGuide

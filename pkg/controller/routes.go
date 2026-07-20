@@ -14,6 +14,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpservercatalogentry"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpserverinstance"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpwebhookvalidation"
+	"github.com/obot-platform/obot/pkg/controller/handlers/mdmassetsource"
 	"github.com/obot-platform/obot/pkg/controller/handlers/model"
 	"github.com/obot-platform/obot/pkg/controller/handlers/modelaccesspolicy"
 	"github.com/obot-platform/obot/pkg/controller/handlers/modelinfosource"
@@ -27,6 +28,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/skillrepository"
 	"github.com/obot-platform/obot/pkg/controller/handlers/systemmcpserver"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
 )
 
 func (c *Controller) setupRoutes() {
@@ -37,6 +39,7 @@ func (c *Controller) setupRoutes() {
 	userCleanup := cleanup.NewUserCleanup(c.services.GatewayClient, c.services.AccessControlRuleHelper)
 	mcpCatalog := mcpcatalog.New(c.services.DefaultMCPCatalogPath, c.services.DefaultSystemMCPCatalogPath, c.services.GatewayClient, c.services.AccessControlRuleHelper, c.services.MCPSessionManager)
 	modelInfoSource := modelinfosource.New(c.services.ModelInfoSourceURL, c.services.MCPSessionManager.RemoteMCPURLValidationConfig())
+	mdmAssetSource := mdmassetsource.New(c.services.MDMAssetSource, c.services.GatewayClient)
 	skillRepository := skillrepository.New()
 	mcpserver := mcpserver.New(c.services.GatewayClient, c.services.MCPSessionManager, c.services.MCPOAuthTokenStorage, c.services.MCPNetworkPolicyEnabled, c.services.MCPDefaultDenyAllEgress, c.services.SingleUserIdleServerShutdownInterval, c.services.MultiUserIdleServerShutdownInterval, c.services.AgentIdleServerShutdownInterval, c.services.ServerURL, c.services.MCPRuntimeBackend, c.services.MCPImagePullSecrets)
 	mcpserverinstance := mcpserverinstance.New(c.services.GatewayClient)
@@ -83,6 +86,9 @@ func (c *Controller) setupRoutes() {
 	// ModelInfoSource
 	root.Type(&v1.ModelInfoSource{}).HandlerFunc(modelInfoSource.Sync)
 	root.Type(&v1.ModelInfo{}).HandlerFunc(cleanup.Cleanup)
+
+	// MDMAssetSource
+	root.Type(&v1.MDMAssetSource{}).Namespace(system.DefaultNamespace).Name(system.DefaultMDMAssetSource).HandlerFunc(mdmAssetSource.Sync)
 
 	// MCPCatalog
 	root.Type(&v1.MCPCatalog{}).HandlerFunc(mcpCatalog.Sync)
@@ -215,6 +221,7 @@ func (c *Controller) setupRoutes() {
 
 	c.providerHandler = providers
 	c.mcpCatalogHandler = mcpCatalog
+	c.mdmAssetSourceHandler = mdmAssetSource
 	c.modelInfoSourceHandler = modelInfoSource
 	c.adminWorkspaceHandler = adminWorkspaceHandler
 }

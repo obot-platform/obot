@@ -330,6 +330,31 @@ func dropRunThreadAndRunStatesTables(tx *gorm.DB) error {
 	return nil
 }
 
+// dropPreRenameMDMDeploymentTables drops the MDM tables that still use the
+// pre-release deployment naming so AutoMigrate can recreate them.
+func dropPreRenameMDMDeploymentTables(tx *gorm.DB) error {
+	migrator := tx.Migrator()
+	if migrator.HasTable("mdm_deployments") {
+		if err := migrator.DropTable("mdm_deployments"); err != nil {
+			return err
+		}
+	}
+
+	if migrator.HasTable(&types.DeviceEnrollmentKey{}) && migrator.HasColumn(&types.DeviceEnrollmentKey{}, "mdm_deployment_id") {
+		if err := migrator.DropTable(&types.DeviceEnrollmentKey{}); err != nil {
+			return err
+		}
+	}
+
+	if migrator.HasTable(&types.Device{}) && migrator.HasColumn(&types.Device{}, "mdm_deployment_id") {
+		if err := migrator.DropTable(&types.Device{}); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // migrateIfEntryNotFoundInMigrationsTable runs f only when the named migration
 // has not already been recorded in the migrations table.
 func migrateIfEntryNotFoundInMigrationsTable(tx *gorm.DB, name string, f func(*gorm.DB) error) error {

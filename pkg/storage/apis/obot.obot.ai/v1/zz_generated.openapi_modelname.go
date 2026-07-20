@@ -316,6 +316,41 @@ func (in MCPWebhookValidationStatus) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MDMAsset) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MDMAsset"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MDMAssetList) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MDMAssetList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MDMAssetSource) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MDMAssetSource"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MDMAssetSourceList) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MDMAssetSourceList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MDMAssetSourceSpec) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MDMAssetSourceSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MDMAssetSourceStatus) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MDMAssetSourceStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MDMAssetSpec) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MDMAssetSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in MessagePolicy) OpenAPIModelName() string {
 	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MessagePolicy"
 }
