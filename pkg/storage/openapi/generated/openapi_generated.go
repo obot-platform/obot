@@ -5647,14 +5647,7 @@ func schema_obot_platform_obot_apiclient_types_LLMAuditLog(ref common.ReferenceC
 							Format:  "",
 						},
 					},
-					"client": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"clientVersion": {
+					"userAgent": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
 							Type:    []string{"string"},
@@ -5676,7 +5669,7 @@ func schema_obot_platform_obot_apiclient_types_LLMAuditLog(ref common.ReferenceC
 						},
 					},
 				},
-				Required: []string{"id", "createdAt", "duration", "userID", "modelProvider", "modelID", "targetModel", "reasoningEffort", "requestPath", "requestMethod", "messagePolicyTriggered", "responseID", "responseStatus", "outcome", "inputTokens", "outputTokens", "requestID", "client", "clientVersion", "clientSessionID", "clientIP"},
+				Required: []string{"id", "createdAt", "duration", "userID", "modelProvider", "modelID", "targetModel", "reasoningEffort", "requestPath", "requestMethod", "messagePolicyTriggered", "responseID", "responseStatus", "outcome", "inputTokens", "outputTokens", "requestID", "userAgent", "clientSessionID", "clientIP"},
 			},
 		},
 		Dependencies: []string{
@@ -5769,7 +5762,7 @@ func schema_obot_platform_obot_apiclient_types_LLMAuditLogExportFilters(ref comm
 							},
 						},
 					},
-					"clients": {
+					"userAgents": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{

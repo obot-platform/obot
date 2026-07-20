@@ -276,10 +276,10 @@ func TestGetLLMAuditLogFilterOptions(t *testing.T) {
 	}
 	now := time.Date(2026, 7, 7, 12, 0, 0, 0, time.UTC)
 	for _, entry := range []types.LLMAuditLog{
-		{ID: uuid.NewString(), CreatedAt: now, ModelProvider: system.OpenAIModelProvider, TargetModel: "model-a", ResponseStatus: 200, Client: "open-webui", PolicyModifiedRequestBody: json.RawMessage(`{"prompt":"blocked"}`), MessagePolicyTriggered: true},
-		{ID: uuid.NewString(), CreatedAt: now.Add(time.Minute), ModelProvider: system.OpenAIModelProvider, TargetModel: "model-c", ResponseStatus: 500, Client: "obot"},
-		{ID: uuid.NewString(), CreatedAt: now, ModelProvider: system.OpenAIModelProvider, TargetModel: "", ResponseStatus: 0, Client: ""},
-		{ID: uuid.NewString(), CreatedAt: now, ModelProvider: system.AnthropicModelProvider, TargetModel: "model-b", ResponseStatus: 200, Client: "claude"},
+		{ID: uuid.NewString(), CreatedAt: now, ModelProvider: system.OpenAIModelProvider, TargetModel: "model-a", ResponseStatus: 200, UserAgent: "open-webui/1.0", PolicyModifiedRequestBody: json.RawMessage(`{"prompt":"blocked"}`), MessagePolicyTriggered: true},
+		{ID: uuid.NewString(), CreatedAt: now.Add(time.Minute), ModelProvider: system.OpenAIModelProvider, TargetModel: "model-c", ResponseStatus: 500, UserAgent: "obot/1.0"},
+		{ID: uuid.NewString(), CreatedAt: now, ModelProvider: system.OpenAIModelProvider, TargetModel: "", ResponseStatus: 0, UserAgent: ""},
+		{ID: uuid.NewString(), CreatedAt: now, ModelProvider: system.AnthropicModelProvider, TargetModel: "model-b", ResponseStatus: 200, UserAgent: "claude/1.0"},
 	} {
 		if err := c.InsertLLMAuditLog(t.Context(), &entry); err != nil {
 			t.Fatalf("failed to insert LLM audit log: %v", err)
@@ -295,12 +295,20 @@ func TestGetLLMAuditLogFilterOptions(t *testing.T) {
 		t.Fatalf("expected target model options, got %v", options)
 	}
 
-	limited, err := c.GetLLMAuditLogFilterOptions(t.Context(), "client", LLMAuditLogOptions{ModelProvider: []string{system.OpenAIModelProvider}, Limit: 1}, "")
+	limited, err := c.GetLLMAuditLogFilterOptions(t.Context(), "user_agent", LLMAuditLogOptions{ModelProvider: []string{system.OpenAIModelProvider}, Limit: 1}, "")
 	if err != nil {
-		t.Fatalf("failed to get limited client options: %v", err)
+		t.Fatalf("failed to get limited user agent options: %v", err)
 	}
-	if !slices.Equal(limited, []string{"obot"}) {
+	if !slices.Equal(limited, []string{"obot/1.0"}) {
 		t.Fatalf("expected deterministic limited options, got %v", limited)
+	}
+
+	filtered, total, err := c.GetLLMAuditLogs(t.Context(), LLMAuditLogOptions{UserAgent: []string{"obot/1.0"}})
+	if err != nil {
+		t.Fatalf("failed to filter by user agent: %v", err)
+	}
+	if total != 1 || len(filtered) != 1 || filtered[0].UserAgent != "obot/1.0" {
+		t.Fatalf("expected one user agent match, got total=%d logs=%#v", total, filtered)
 	}
 
 	statuses, err := c.GetLLMAuditLogFilterOptions(t.Context(), "response_status", LLMAuditLogOptions{ModelProvider: []string{system.OpenAIModelProvider}}, 0)

@@ -70,6 +70,7 @@ func TestRedactedHeaders(t *testing.T) {
 
 func TestNewLLMAuditRecorderCapturesRequest(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/llm-provider/openai/v1/responses?stream=true", nil)
+	req.Header.Set("User-Agent", "PDi/JS 0.94.0")
 	recorder := newLLMAuditRecorder(req, nil, 5<<20)
 
 	if recorder.log.RequestPath != "/api/llm-provider/openai/v1/responses" {
@@ -77,6 +78,9 @@ func TestNewLLMAuditRecorderCapturesRequest(t *testing.T) {
 	}
 	if recorder.log.RequestMethod != http.MethodPost {
 		t.Fatalf("expected request method, got %q", recorder.log.RequestMethod)
+	}
+	if recorder.log.UserAgent != "PDi/JS 0.94.0" {
+		t.Fatalf("expected raw user agent, got %q", recorder.log.UserAgent)
 	}
 }
 
@@ -171,131 +175,6 @@ func TestLLMAuditRecorderSetOutcome(t *testing.T) {
 			}
 			if recorder.log.ResponseStatus != tt.wantStatus {
 				t.Fatalf("expected response status %d, got %d", tt.wantStatus, recorder.log.ResponseStatus)
-			}
-		})
-	}
-}
-
-func TestDetectLLMClient(t *testing.T) {
-	for _, tt := range []struct {
-		name      string
-		userAgent string
-		headers   http.Header
-		client    string
-		version   string
-	}{
-		{
-			name:      "Claude Code user agent",
-			userAgent: "claude-code/2.1.176",
-			client:    llmAuditClientClaudeCode,
-			version:   "2.1.176",
-		},
-		{
-			name:      "Claude CLI user agent",
-			userAgent: "claude-cli/2.1.176 (external, cli)",
-			client:    llmAuditClientClaudeCode,
-			version:   "2.1.176",
-		},
-		{
-			name:      "minified Anthropic SDK user agent without Claude session header",
-			userAgent: "gRi/JS 0.94.0",
-		},
-		{
-			name:      "different minified Anthropic SDK user agent",
-			userAgent: "PDi/JS 0.94.0",
-		},
-		{
-			name:      "three-character non-JS user agent",
-			userAgent: "SDK/Go 1.2.3",
-			client:    "SDK",
-			version:   "Go",
-		},
-		{
-			name:      "longer JS user agent",
-			userAgent: "other-client/JS 0.94.0",
-			client:    "other-client",
-			version:   "JS",
-		},
-		{
-			name:      "three-character JS user agent without version",
-			userAgent: "PDi/JS",
-			client:    "PDi",
-			version:   "JS",
-		},
-		{
-			name:      "three-character JS user agent with invalid version",
-			userAgent: "PDi/JS unknown",
-			client:    "PDi",
-			version:   "JS",
-		},
-		{
-			name:      "Codex CLI user agent",
-			userAgent: "codex_cli_rs/0.142.4 (Mac OS 26.5.1; arm64) ghostty/1.3.1",
-			client:    llmAuditClientCodex,
-			version:   "0.142.4",
-		},
-		{
-			name:      "Codex TUI user agent",
-			userAgent: "codex-tui/0.142.4 (Mac OS 26.5.1; arm64) ghostty/1.3.1 (codex-tui; 0.142.4)",
-			client:    llmAuditClientCodex,
-			version:   "0.142.4",
-		},
-		{
-			name:      "other client user agent",
-			userAgent: "other-client/1.2.3",
-			client:    "other-client",
-			version:   "1.2.3",
-		},
-		{
-			name:      "user agent with multiple slashes",
-			userAgent: "opencode/brew/1.2.3",
-			client:    "opencode",
-			version:   "brew/1.2.3",
-		},
-		{
-			name: "missing user agent",
-		},
-		{
-			name:      "user agent without version",
-			userAgent: "unknown-client",
-			client:    "unknown-client",
-		},
-		{
-			name:      "Claude session header identifies unrecognized user agent",
-			userAgent: "gRi/JS 0.94.0",
-			headers:   http.Header{claudeCodeSessionIDHeader: []string{"session-id"}},
-			client:    llmAuditClientClaudeCode,
-		},
-		{
-			name:    "Claude session header identifies missing user agent",
-			headers: http.Header{claudeCodeSessionIDHeader: []string{"session-id"}},
-			client:  llmAuditClientClaudeCode,
-		},
-		{
-			name:      "recognized Claude user agent keeps version",
-			userAgent: "claude-code/2.1.176",
-			headers:   http.Header{claudeCodeSessionIDHeader: []string{"session-id"}},
-			client:    llmAuditClientClaudeCode,
-			version:   "2.1.176",
-		},
-		{
-			name:      "recognized Codex user agent takes precedence",
-			userAgent: "codex_cli_rs/0.142.4",
-			headers:   http.Header{claudeCodeSessionIDHeader: []string{"session-id"}},
-			client:    llmAuditClientCodex,
-			version:   "0.142.4",
-		},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodPost, "/", nil)
-			if tt.headers != nil {
-				req.Header = tt.headers.Clone()
-			}
-			req.Header.Set("User-Agent", tt.userAgent)
-
-			client, version := detectLLMClient(req)
-			if client != tt.client || version != tt.version {
-				t.Fatalf("detectLLMClient() = %q/%q, want %q/%q", client, version, tt.client, tt.version)
 			}
 		})
 	}

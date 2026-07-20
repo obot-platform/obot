@@ -131,7 +131,7 @@ type LLMAuditLogExportFilters struct {
 	RequestPaths           []string `json:"requestPaths,omitempty"`
 	ResponseStatuses       []int    `json:"responseStatuses,omitempty"`
 	Outcomes               []string `json:"outcomes,omitempty"`
-	Clients                []string `json:"clients,omitempty"`
+	UserAgents             []string `json:"userAgents,omitempty"`
 	ClientSessionIDs       []string `json:"clientSessionIDs,omitempty"`
 	MessagePolicyTriggered []bool   `json:"messagePolicyTriggered,omitempty"`
 	Query                  string   `json:"query,omitempty"`

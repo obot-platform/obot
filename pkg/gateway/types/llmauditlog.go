@@ -15,7 +15,7 @@ const (
 
 type LLMAuditLog struct {
 	ID                        string    `gorm:"primaryKey;type:text"`
-	CreatedAt                 time.Time `gorm:"index;index:idx_llm_audit_user_created,priority:2;index:idx_llm_audit_provider_created,priority:2;index:idx_llm_audit_client_session_created,priority:2;index:idx_llm_audit_response_created,priority:2;index:idx_llm_audit_target_model_created,priority:2;index:idx_llm_audit_request_path_created,priority:2;index:idx_llm_audit_response_status_created,priority:2;index:idx_llm_audit_outcome_created,priority:2;index:idx_llm_audit_client_created,priority:2;index:idx_llm_audit_message_policy_triggered_created,priority:2"`
+	CreatedAt                 time.Time `gorm:"index;index:idx_llm_audit_user_created,priority:2;index:idx_llm_audit_provider_created,priority:2;index:idx_llm_audit_client_session_created,priority:2;index:idx_llm_audit_response_created,priority:2;index:idx_llm_audit_target_model_created,priority:2;index:idx_llm_audit_request_path_created,priority:2;index:idx_llm_audit_response_status_created,priority:2;index:idx_llm_audit_outcome_created,priority:2;index:idx_llm_audit_user_agent_created,priority:2;index:idx_llm_audit_message_policy_triggered_created,priority:2"`
 	Duration                  int64
 	UserID                    string `gorm:"type:text;index:idx_llm_audit_user_created,priority:1"`
 	ModelProvider             string `gorm:"type:text;index:idx_llm_audit_provider_created,priority:1"`
@@ -37,8 +37,7 @@ type LLMAuditLog struct {
 	InputTokens               int
 	OutputTokens              int
 	RequestID                 string `gorm:"type:text"`
-	Client                    string `gorm:"type:text;index:idx_llm_audit_client_created,priority:1"`
-	ClientVersion             string `gorm:"type:text"`
+	UserAgent                 string `gorm:"type:text;index:idx_llm_audit_user_agent_created,priority:1"`
 	ClientSessionID           string `gorm:"type:text;index:idx_llm_audit_client_session_created,priority:1"`
 	ClientIP                  string `gorm:"type:text"`
 	Encrypted                 bool
@@ -73,8 +72,7 @@ func ConvertLLMAuditLog(a LLMAuditLog) types2.LLMAuditLog {
 		InputTokens:               a.InputTokens,
 		OutputTokens:              a.OutputTokens,
 		RequestID:                 a.RequestID,
-		Client:                    a.Client,
-		ClientVersion:             a.ClientVersion,
+		UserAgent:                 a.UserAgent,
 		ClientSessionID:           a.ClientSessionID,
 		ClientIP:                  a.ClientIP,
 	}

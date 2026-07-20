@@ -41,7 +41,7 @@
 		| 'device_id';
 	type LLMAuditLogExportMultiSelectFilterKey =
 		| 'user_id'
-		| 'client'
+		| 'user_agent'
 		| 'client_session_id'
 		| 'message_policy_triggered'
 		| 'model_provider'
@@ -176,9 +176,9 @@
 				description: 'List of outcomes'
 			},
 			{
-				filterKey: 'client',
-				title: 'Clients',
-				description: 'List of clients'
+				filterKey: 'user_agent',
+				title: 'User Agents',
+				description: 'List of user agents'
 			},
 			{
 				filterKey: 'client_session_id',
@@ -237,7 +237,7 @@
 			client_ip: '',
 			response_status: '',
 			session_id: '',
-			client: '',
+			user_agent: '',
 			client_session_id: '',
 			message_policy_triggered: '',
 			model_provider: '',
@@ -276,7 +276,7 @@
 	];
 	let llmFiltersIds = [
 		'user_id',
-		'client',
+		'user_agent',
 		'client_session_id',
 		'message_policy_triggered',
 		'model_provider',
@@ -307,7 +307,7 @@
 					request_path: join(filters.requestPaths),
 					response_status: join(filters.responseStatuses?.map(String)),
 					outcome: join(filters.outcomes),
-					client: join(filters.clients),
+					user_agent: join(filters.userAgents),
 					client_session_id: join(filters.clientSessionIDs),
 					message_policy_triggered: join(filters.messagePolicyTriggered?.map(String)),
 					query: filters.query ?? ''
@@ -511,7 +511,7 @@
 						requestPaths: split(form.filters.request_path),
 						responseStatuses: splitNumbers(form.filters.response_status),
 						outcomes: split(form.filters.outcome),
-						clients: split(form.filters.client),
+						userAgents: split(form.filters.user_agent),
 						clientSessionIDs: split(form.filters.client_session_id),
 						messagePolicyTriggered: splitBooleans(form.filters.message_policy_triggered),
 						query: form.filters.query ?? ''

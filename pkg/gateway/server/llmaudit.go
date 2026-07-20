@@ -27,14 +27,6 @@ import (
 const (
 	defaultLLMAuditLogResponseCaptureLimit = 5 << 20 // 5MiB
 	claudeCodeSessionIDHeader              = "X-Claude-Code-Session-Id"
-
-	llmAuditClientClaudeCode = "claude-code"
-	llmAuditClientCodex      = "codex"
-
-	llmAuditUserAgentClaudeCode = "claude-code"
-	llmAuditUserAgentClaudeCLI  = "claude-cli"
-	llmAuditUserAgentCodexCLI   = "codex_cli_rs"
-	llmAuditUserAgentCodexTUI   = "codex-tui"
 )
 
 type llmAuditRecorder struct {
@@ -56,8 +48,6 @@ func newLLMAuditRecorder(req *http.Request, user user.Info, responseCaptureLimit
 	if user != nil {
 		userID = user.GetUID()
 	}
-	clientName, clientVersion := detectLLMClient(req)
-
 	return &llmAuditRecorder{
 		responseCaptureLimit: responseCaptureLimit,
 		log: types.LLMAuditLog{
@@ -68,8 +58,7 @@ func newLLMAuditRecorder(req *http.Request, user user.Info, responseCaptureLimit
 			RequestMethod:  req.Method,
 			RequestHeaders: redactedHeaders(req.Header),
 			RequestID:      requestID,
-			Client:         clientName,
-			ClientVersion:  clientVersion,
+			UserAgent:      req.UserAgent(),
 			ClientIP:       requestinfo.GetSourceIP(req),
 		},
 	}
@@ -258,52 +247,6 @@ func shouldRedactHeader(key string) bool {
 		return true
 	}
 	return strings.Contains(k, "token") || strings.Contains(k, "secret") || strings.Contains(k, "key") || strings.Contains(k, "credential")
-}
-
-func parseLLMClientUserAgent(userAgent string) (string, string) {
-	userAgent = strings.TrimSpace(userAgent)
-	token, _, _ := strings.Cut(userAgent, " ")
-	if token == "" {
-		return "", ""
-	}
-	name, version, ok := strings.Cut(token, "/")
-	if !ok {
-		name = token
-		version = ""
-	}
-
-	switch name {
-	case llmAuditUserAgentClaudeCode, llmAuditUserAgentClaudeCLI:
-		name = llmAuditClientClaudeCode
-	case llmAuditUserAgentCodexCLI, llmAuditUserAgentCodexTUI:
-		name = llmAuditClientCodex
-	}
-	if isMalformedAnthropicUserAgent(userAgent) {
-		return "", ""
-	}
-	return name, version
-}
-
-// isMalformedAnthropicUserAgent detects the inconsistent UserAgent header that we frequently see from Claude Code.
-// Example: "PDi/JS 0.94.0"
-func isMalformedAnthropicUserAgent(userAgent string) bool {
-	fields := strings.Fields(userAgent)
-	if len(fields) != 2 || len(fields[0]) != len("abc/JS") || !strings.HasSuffix(fields[0], "/JS") {
-		return false
-	}
-
-	return len(strings.Split(fields[1], ".")) == 3
-}
-
-func detectLLMClient(req *http.Request) (string, string) {
-	name, version := parseLLMClientUserAgent(req.UserAgent())
-	if name == llmAuditClientClaudeCode || name == llmAuditClientCodex {
-		return name, version
-	}
-	if req.Header.Get(claudeCodeSessionIDHeader) != "" {
-		return llmAuditClientClaudeCode, ""
-	}
-	return name, version
 }
 
 func extractLLMClientSessionID(dialect nanobottypes.Dialect, headers http.Header, body []byte) string {

@@ -2112,8 +2112,8 @@ func (in *LLMAuditLogExportFilters) DeepCopyInto(out *LLMAuditLogExportFilters) 
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
-	if in.Clients != nil {
-		in, out := &in.Clients, &out.Clients
+	if in.UserAgents != nil {
+		in, out := &in.UserAgents, &out.UserAgents
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}

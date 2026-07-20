@@ -27,8 +27,7 @@ type LLMAuditLog struct {
 	InputTokens               int             `json:"inputTokens"`
 	OutputTokens              int             `json:"outputTokens"`
 	RequestID                 string          `json:"requestID"`
-	Client                    string          `json:"client"`
-	ClientVersion             string          `json:"clientVersion"`
+	UserAgent                 string          `json:"userAgent"`
 	ClientSessionID           string          `json:"clientSessionID"`
 	ClientIP                  string          `json:"clientIP"`
 }

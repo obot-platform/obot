@@ -89,7 +89,7 @@ func (c *Client) GetLLMAuditLogs(ctx context.Context, opts LLMAuditLogOptions) (
 		"request_path":      {},
 		"response_status":   {},
 		"outcome":           {},
-		"client":            {},
+		"user_agent":        {},
 		"client_session_id": {},
 	}
 	if _, ok := validSortFields[sortBy]; !ok {
@@ -222,7 +222,7 @@ func applyLLMAuditLogOptions(db *gorm.DB, opts LLMAuditLogOptions) *gorm.DB {
 		if db.Name() == "postgres" {
 			like = "ILIKE"
 		}
-		query := `user_id %[1]s ? OR model_provider %[1]s ? OR model_id %[1]s ? OR target_model %[1]s ? OR request_path %[1]s ? OR response_id %[1]s ? OR outcome %[1]s ? OR error %[1]s ? OR request_id %[1]s ? OR client %[1]s ? OR client_version %[1]s ? OR client_session_id %[1]s ? OR client_ip %[1]s ?`
+		query := `user_id %[1]s ? OR model_provider %[1]s ? OR model_id %[1]s ? OR target_model %[1]s ? OR request_path %[1]s ? OR response_id %[1]s ? OR outcome %[1]s ? OR error %[1]s ? OR request_id %[1]s ? OR user_agent %[1]s ? OR client_session_id %[1]s ? OR client_ip %[1]s ?`
 		args := make([]any, strings.Count(query, "%[1]s ?"))
 		for i := range args {
 			args[i] = searchTerm
@@ -251,8 +251,8 @@ func applyLLMAuditLogOptions(db *gorm.DB, opts LLMAuditLogOptions) *gorm.DB {
 	if len(opts.Outcome) > 0 {
 		db = db.Where("outcome IN (?)", opts.Outcome)
 	}
-	if len(opts.Client) > 0 {
-		db = db.Where("client IN (?)", opts.Client)
+	if len(opts.UserAgent) > 0 {
+		db = db.Where("user_agent IN (?)", opts.UserAgent)
 	}
 	if len(opts.ClientSessionID) > 0 {
 		db = db.Where("client_session_id IN (?)", opts.ClientSessionID)
@@ -475,7 +475,7 @@ type LLMAuditLogOptions struct {
 	RequestPath            []string
 	ResponseStatus         []int
 	Outcome                []string
-	Client                 []string
+	UserAgent              []string
 	ClientSessionID        []string
 	MessagePolicyTriggered []bool
 	Query                  string
