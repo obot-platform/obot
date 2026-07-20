@@ -3,7 +3,7 @@
 	import { VirtualPageTable } from '$lib/components/ui';
 	import { type LLMAuditLog } from '$lib/services';
 	import { userDeviceSettings } from '$lib/stores';
-	import { formatLogTimestamp } from '$lib/time';
+	import { formatAuditLogTableTimestamp } from '$lib/time';
 	import { throttle } from '$lib/utils';
 	import { GripVertical, ShieldAlert } from '@lucide/svelte';
 	import { tick } from 'svelte';
@@ -134,6 +134,28 @@
 	</td>
 {/snippet}
 
+{#snippet timestampCell(timestamp: string, messagePolicyTriggered: boolean)}
+	<td class="text-sm whitespace-nowrap">
+		<div class="box-content flex h-full px-6">
+			<div class="flex min-w-0 flex-1 items-center gap-2 py-4">
+				<span class="truncate">{timestamp}</span>
+				{#if messagePolicyTriggered}
+					<span
+						class="text-warning inline-flex shrink-0"
+						aria-label="Message policy triggered"
+						use:tooltip={{
+							text: 'An input message policy violation modified this request'
+						}}
+					>
+						<ShieldAlert class="size-4" />
+					</span>
+				{/if}
+			</div>
+			{@render tdResizeHandler()}
+		</div>
+	</td>
+{/snippet}
+
 <!-- Data Table -->
 <div>
 	<div
@@ -143,24 +165,16 @@
 			{#snippet header()}
 				<thead>
 					<tr bind:this={headerRowElement}>
-						<th
-							class="bg-base-300 dark:bg-base-200 text-muted-content sticky top-0 box-content w-[4ch] px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
-						>
-							<div>#</div>
-						</th>
-						{@render th('Timestamp', { class: 'w-[32ch]', minWidth: '32ch' })}
+						{@render th('Timestamp', { class: 'w-[28ch]', minWidth: '28ch' })}
 						{@render th('User', { class: 'w-[24ch]', minWidth: '24ch' })}
 						{@render th('Provider', { class: 'w-[18ch]', minWidth: '18ch' })}
 						{@render th('Model', { class: 'w-[28ch]', minWidth: '28ch' })}
-						{@render th('Target Model', { class: 'w-[28ch]', minWidth: '28ch' })}
-						{@render th('Path', { class: 'w-[26ch]', minWidth: '26ch' })}
 						{@render th('Status', { class: 'w-[16ch]', minWidth: '16ch' })}
-						{@render th('Outcome', { class: 'w-[18ch]', minWidth: '18ch' })}
-						{@render th('Duration (ms)', { class: 'w-[22ch]', minWidth: '18ch' })}
 						{@render th('Input', { class: 'w-[18ch]', minWidth: '18ch' })}
 						{@render th('Output', { class: 'w-[18ch]', minWidth: '18ch' })}
 						{@render th('Client', { class: 'w-[22ch]', minWidth: '22ch' })}
 						{@render th('Session', { class: 'w-[28ch]', minWidth: '28ch' })}
+						{@render th('Duration (ms)', { class: 'w-[22ch]', minWidth: '18ch' })}
 						{@render th('IP Address', { class: 'w-[22ch]', minWidth: '22ch' })}
 					</tr>
 				</thead>
@@ -176,35 +190,19 @@
 						)}
 						onclick={() => onSelectRow?.(d)}
 					>
-						<td class="px-6 py-3">
-							<div class="flex items-center gap-2">
-								{item.index + 1}
-								{#if d.messagePolicyTriggered}
-									<span
-										class="text-warning inline-flex"
-										aria-label="Message policy triggered"
-										use:tooltip={{
-											text: 'An input message policy violation modified this request'
-										}}
-									>
-										<ShieldAlert class="size-4" />
-									</span>
-								{/if}
-							</div>
-						</td>
-						{@render td(formatLogTimestamp(d.createdAt, userDeviceSettings.timeFormat))}
+						{@render timestampCell(
+							formatAuditLogTableTimestamp(d.createdAt, userDeviceSettings.timeFormat),
+							d.messagePolicyTriggered
+						)}
 						{@render td(getUserDisplayName(d.userID))}
 						{@render td(d.modelProvider)}
-						{@render td(d.modelID)}
 						{@render td(d.targetModel)}
-						{@render td(d.requestPath)}
 						{@render td(d.responseStatus || '')}
-						{@render td(d.outcome)}
-						{@render td(formatDuration(d.duration))}
 						{@render td(formatNumber(d.inputTokens))}
 						{@render td(formatNumber(d.outputTokens))}
 						{@render td(d.client)}
 						{@render td(d.clientSessionID)}
+						{@render td(formatDuration(d.duration))}
 						{@render td(d.clientIP)}
 					</tr>
 				{/each}
