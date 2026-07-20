@@ -6,7 +6,7 @@
 	import Search from '$lib/components/Search.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
-	import { saveBlob } from '$lib/download';
+	import { sanitizeFilenameSegment, saveBlob } from '$lib/download';
 	import { UserService } from '$lib/services';
 	import type { Skill } from '$lib/services/nanobot/types';
 	import { MCP_CONNECTION_INVALID_LICENSE_MESSAGE } from '$lib/services/user/constants.js';
@@ -41,7 +41,8 @@
 		downloadingSkillIds.add(skill.id);
 		try {
 			const blob = await UserService.downloadSkill(skill.id);
-			saveBlob(blob, `${skill.name ?? skill.id}.zip`);
+			const filename = `${sanitizeFilenameSegment(skill.name ?? skill.id)}.zip`;
+			saveBlob(blob, filename);
 		} catch (err) {
 			console.error('Failed to download skill', err);
 		} finally {
