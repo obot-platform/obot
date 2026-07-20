@@ -200,7 +200,7 @@ export interface AuditLogEvent {
 		credentialID?: string;
 	};
 	action: { operation: string; name?: string; kind?: string };
-	target: AuditLogTargetRef & { parent?: AuditLogTargetRef; resolved: boolean };
+	target: AuditLogTargetRef & { parent?: AuditLogTargetRef };
 	outcome: {
 		status: AuditLogOutcomeStatus;
 		httpStatus?: number;

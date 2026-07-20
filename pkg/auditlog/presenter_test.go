@@ -53,7 +53,7 @@ func TestPresentMCPNormalizesSummaryAndDetails(t *testing.T) {
 	if summary.Actor.ActorType != api.AuditLogActorTypeUser || summary.Actor.ID != "user-1" || summary.Actor.CredentialID != "credential-1" {
 		t.Fatalf("unexpected actor: %#v", summary.Actor)
 	}
-	if summary.Target.TargetType != api.AuditLogTargetTypeMCPTool || summary.Target.Parent == nil || !summary.Target.Resolved {
+	if summary.Target.TargetType != api.AuditLogTargetTypeMCPTool || summary.Target.Parent == nil {
 		t.Fatalf("unexpected target: %#v", summary.Target)
 	}
 	if summary.Outcome.Status != api.AuditLogOutcomeStatusSuccess || summary.Timestamp.Source != api.AuditLogTimestampSourceServer {
@@ -94,7 +94,7 @@ func TestPresentLocalAgentIdentityTargetAndTimestamp(t *testing.T) {
 	if event.Actor.ActorType != api.AuditLogActorTypeDevice || event.Actor.ID != "device-1" {
 		t.Fatalf("unexpected actor: %#v", event.Actor)
 	}
-	if event.Target.TargetType != api.AuditLogTargetTypeMCPTool || event.Target.Parent == nil || event.Target.Parent.Name != "github" || event.Target.Resolved {
+	if event.Target.TargetType != api.AuditLogTargetTypeMCPTool || event.Target.Parent == nil || event.Target.Parent.Name != "github" {
 		t.Fatalf("unexpected target: %#v", event.Target)
 	}
 	if event.Outcome.Status != api.AuditLogOutcomeStatusDenied || event.Outcome.Reason != "policy" {
