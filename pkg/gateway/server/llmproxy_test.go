@@ -254,6 +254,9 @@ func TestResponseModifierPreservesUpstreamErrorBody(t *testing.T) {
 	if got := recorder.responseStream.String(); got != body {
 		t.Fatalf("captured response body = %q, want %q", got, body)
 	}
+	if got := recorder.log.ResponseStatus; got != http.StatusBadRequest {
+		t.Fatalf("response status = %d, want %d", got, http.StatusBadRequest)
+	}
 }
 
 func TestResponseModifier_ModelFromRequestPreserved(t *testing.T) {

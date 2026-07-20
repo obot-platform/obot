@@ -1078,6 +1078,8 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 	prepared := &preparedLLMProxyRequest{body: body}
 
 	if targetModel := extractModelFromBody(body); targetModel != "" {
+		audit.setModel(modelProvider.Name, "", targetModel)
+
 		model, err := getModelFromReference(req.Context(), req.Storage, modelProvider.Namespace, targetModel)
 		if apierrors.IsNotFound(err) {
 			model, err = l.mapHelper.ResolveTargetModel(modelProvider.Name, targetModel)
@@ -1088,6 +1090,9 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 		if model.Spec.Manifest.ModelProvider != modelProvider.Name {
 			return types2.NewErrBadRequest("requested model does not match configured provider %q", targetModel)
 		}
+		prepared.model = model.Spec.Manifest.TargetModel
+		audit.setModel(modelProvider.Name, model.Name, prepared.model)
+
 		hasAccess, err := l.mapHelper.UserHasAccessToModel(req.User, model.Name)
 		if err != nil {
 			return fmt.Errorf("failed to check user access to model %q: %w", model.Name, err)
@@ -1097,8 +1102,6 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 		}
 
 		prepared.tokenUsageTracker = newTokenUsageTracker(*model)
-		prepared.model = model.Spec.Manifest.TargetModel
-		audit.setModel(modelProvider.Name, model.Name, prepared.model)
 
 		prepared.body, err = rewriteModelInBody(body, prepared.model)
 		if err != nil {
@@ -1176,6 +1179,7 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 		Transport: transport,
 		ErrorHandler: func(w http.ResponseWriter, _ *http.Request, err error) {
 			proxyErr = err
+			audit.recordResponseStatus(http.StatusBadGateway)
 			audit.finish(req.GatewayClient, err)
 			log.Warnf("LLM provider proxy error: %v", err)
 			http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)

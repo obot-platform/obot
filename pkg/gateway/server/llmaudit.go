@@ -13,12 +13,14 @@ import (
 
 	"github.com/google/uuid"
 	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
+	apitypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api/server/requestinfo"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaycontext "github.com/obot-platform/obot/pkg/gateway/context"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/tidwall/gjson"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
@@ -119,6 +121,13 @@ func (r *llmAuditRecorder) recordResponse(resp *http.Response) {
 	r.log.ResponseHeaders = redactedHeaders(resp.Header)
 }
 
+func (r *llmAuditRecorder) recordResponseStatus(status int) {
+	if r == nil {
+		return
+	}
+	r.log.ResponseStatus = status
+}
+
 func (r *llmAuditRecorder) captureResponseChunk(p []byte) {
 	if r == nil || len(p) == 0 {
 		return
@@ -152,26 +161,44 @@ func (r *llmAuditRecorder) finish(c *client.Client, err error) {
 	}
 	r.once.Do(func() {
 		r.log.Duration = time.Since(r.log.CreatedAt).Milliseconds()
-		r.setOutcome(err)
+		r.setOutcomeAndResponseStatus(err)
 		c.LogLLMAuditEntry(r.log, r.responseStream.Bytes())
 	})
 }
 
-func (r *llmAuditRecorder) setOutcome(err error) {
+func (r *llmAuditRecorder) setOutcomeAndResponseStatus(err error) {
 	if r == nil {
 		return
 	}
 	r.log.Outcome = types.LLMAuditOutcomeSuccess
 	r.log.Error = ""
+
+	if r.log.ResponseStatus >= http.StatusBadRequest {
+		r.log.Outcome = types.LLMAuditOutcomeError
+	}
+
 	if err == nil {
 		return
 	}
 	r.log.Error = err.Error()
+	r.log.Outcome = types.LLMAuditOutcomeError
 	if errors.Is(err, context.Canceled) {
 		r.log.Outcome = types.LLMAuditOutcomeCanceled
-		return
 	}
-	r.log.Outcome = types.LLMAuditOutcomeError
+
+	if r.log.ResponseStatus == 0 {
+		if errHTTP := (*apitypes.ErrHTTP)(nil); errors.As(err, &errHTTP) {
+			r.log.ResponseStatus = errHTTP.Code
+		} else if errStatus := (*apierrors.StatusError)(nil); errors.As(err, &errStatus) {
+			r.log.ResponseStatus = int(errStatus.ErrStatus.Code)
+		} else {
+			r.log.ResponseStatus = http.StatusInternalServerError
+		}
+
+		if r.log.ResponseStatus >= http.StatusBadRequest && r.log.Outcome != types.LLMAuditOutcomeCanceled {
+			r.log.Outcome = types.LLMAuditOutcomeError
+		}
+	}
 }
 
 type llmAuditResponseBody struct {
