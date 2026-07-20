@@ -5,7 +5,6 @@
 	};
 
 	export type FilterInput = {
-		clearable?: boolean;
 		label: string;
 		multiple?: boolean;
 		tooltip?: string;
@@ -42,16 +41,20 @@
 
 	let options = $derived([...(filter?.options ?? [])].sort(optionsSort));
 
-	const value = $derived(
-		filter.selected === null ? (filter.default ?? '') : (filter.selected ?? '')
+	// Other active filters can make the configured default invalid, so only offer Reset when it is selectable.
+	const hasValidDefault = $derived(
+		filter.default !== undefined &&
+			filter.default !== null &&
+			options.some((option) => option.id === filter.default?.toString())
 	);
-
-	const hasDefaultValue = $derived(!!filter.default);
+	const value = $derived(
+		filter.selected === null && hasValidDefault ? (filter.default ?? '') : (filter.selected ?? '')
+	);
 
 	const shouldShowResetButton = $derived(
-		hasDefaultValue && filter.selected !== null && filter.default !== filter.selected
+		hasValidDefault && filter.selected !== null && filter.default !== filter.selected
 	);
-	const shouldShowClearButton = $derived((filter.clearable ?? true) && !!value);
+	const shouldShowClearButton = $derived(!!value);
 
 	const actions = $derived(
 		[

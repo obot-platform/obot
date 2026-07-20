@@ -73,13 +73,17 @@ var llmAuditLogFilterOptions = map[string][]any{
 
 func (h *LLMAuditLogHandler) ListFilterOptions(req api.Context) error {
 	filter := req.PathValue("filter")
+	opts := parseLLMAuditLogOpts(req.URL.Query())
+	if filter == "hide_models_requests" {
+		return req.Write(map[string]any{"options": hideModelsRequestsFilterOptions(opts.RequestPath)})
+	}
 
 	exclude, ok := llmAuditLogFilterOptions[filter]
 	if !ok {
 		return types.NewErrBadRequest("invalid filter: %s", filter)
 	}
 
-	options, err := req.GatewayClient.GetLLMAuditLogFilterOptions(req.Context(), filter, parseLLMAuditLogOpts(req.URL.Query()), exclude...)
+	options, err := req.GatewayClient.GetLLMAuditLogFilterOptions(req.Context(), filter, opts, exclude...)
 	if err != nil {
 		return err
 	}
@@ -88,21 +92,30 @@ func (h *LLMAuditLogHandler) ListFilterOptions(req api.Context) error {
 	return req.Write(map[string]any{"options": options})
 }
 
+func hideModelsRequestsFilterOptions(requestPaths []string) []string {
+	for _, path := range requestPaths {
+		if strings.HasSuffix(path, "/models") || strings.HasSuffix(path, "/models/") {
+			return []string{"false"}
+		}
+	}
+	return []string{"false", "true"}
+}
+
 func parseLLMAuditLogOpts(query url.Values) gateway.LLMAuditLogOptions {
-	includeModelsRequests, _ := strconv.ParseBool(query.Get("include_models_requests"))
+	hideModelsRequests, _ := strconv.ParseBool(query.Get("hide_models_requests"))
 	opts := gateway.LLMAuditLogOptions{
-		IncludeModelsRequests: includeModelsRequests,
-		UserID:                parseStringList(query, "user_id"),
-		ModelProvider:         parseStringList(query, "model_provider"),
-		TargetModel:           parseStringList(query, "target_model"),
-		RequestPath:           parseStringList(query, "request_path"),
-		Outcome:               parseStringList(query, "outcome"),
-		UserAgent:             parseStringList(query, "user_agent"),
-		ClientSessionID:       parseStringList(query, "client_session_id"),
-		Query:                 strings.TrimSpace(query.Get("query")),
-		SortBy:                query.Get("sort_by"),
-		SortOrder:             query.Get("sort_order"),
-		StartTime:             time.Now().UTC().AddDate(0, 0, -30),
+		HideModelsRequests: hideModelsRequests,
+		UserID:             parseStringList(query, "user_id"),
+		ModelProvider:      parseStringList(query, "model_provider"),
+		TargetModel:        parseStringList(query, "target_model"),
+		RequestPath:        parseStringList(query, "request_path"),
+		Outcome:            parseStringList(query, "outcome"),
+		UserAgent:          parseStringList(query, "user_agent"),
+		ClientSessionID:    parseStringList(query, "client_session_id"),
+		Query:              strings.TrimSpace(query.Get("query")),
+		SortBy:             query.Get("sort_by"),
+		SortOrder:          query.Get("sort_order"),
+		StartTime:          time.Now().UTC().AddDate(0, 0, -30),
 	}
 	for _, value := range parseStringList(query, "message_policy_triggered") {
 		if triggered, err := strconv.ParseBool(value); err == nil {

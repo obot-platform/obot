@@ -47,7 +47,7 @@ func TestParseLLMAuditLogOptsParsesFilterFields(t *testing.T) {
 	}
 }
 
-func TestParseLLMAuditLogOptsIncludeModelsRequests(t *testing.T) {
+func TestParseLLMAuditLogOptsHideModelsRequests(t *testing.T) {
 	for _, tt := range []struct {
 		name  string
 		value string
@@ -64,11 +64,39 @@ func TestParseLLMAuditLogOptsIncludeModelsRequests(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			query := url.Values{}
 			if tt.value != "" {
-				query.Set("include_models_requests", tt.value)
+				query.Set("hide_models_requests", tt.value)
 			}
 
-			if got := parseLLMAuditLogOpts(query).IncludeModelsRequests; got != tt.want {
-				t.Fatalf("expected IncludeModelsRequests=%t, got %t", tt.want, got)
+			if got := parseLLMAuditLogOpts(query).HideModelsRequests; got != tt.want {
+				t.Fatalf("expected HideModelsRequests=%t, got %t", tt.want, got)
+			}
+		})
+	}
+}
+
+func TestHideModelsRequestsFilterOptions(t *testing.T) {
+	for _, tt := range []struct {
+		name  string
+		paths []string
+		want  []string
+	}{
+		{name: "no path", want: []string{"false", "true"}},
+		{name: "non-models path", paths: []string{"/api/llm-proxy/openai/v1/responses"}, want: []string{"false", "true"}},
+		{name: "models path", paths: []string{"/api/llm-proxy/openai/models"}, want: []string{"false"}},
+		{name: "models path with trailing slash", paths: []string{"/api/llm-proxy/openai/models/"}, want: []string{"false"}},
+		{name: "nested models path", paths: []string{"/api/llm-proxy/openai/v1/models"}, want: []string{"false"}},
+		{name: "specific model path", paths: []string{"/api/llm-proxy/openai/models/model-1"}, want: []string{"false", "true"}},
+		{name: "mixed paths", paths: []string{"/api/llm-proxy/openai/v1/responses", "/api/llm-proxy/openai/models"}, want: []string{"false"}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			got := hideModelsRequestsFilterOptions(tt.paths)
+			if len(got) != len(tt.want) {
+				t.Fatalf("expected options %v, got %v", tt.want, got)
+			}
+			for i := range tt.want {
+				if got[i] != tt.want[i] {
+					t.Fatalf("expected options %v, got %v", tt.want, got)
+				}
 			}
 		})
 	}

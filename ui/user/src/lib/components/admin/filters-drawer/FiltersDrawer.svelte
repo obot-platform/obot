@@ -94,7 +94,6 @@
 	let filterInputs = $derived(
 		visibleFilterKeys.reduce((acc, filterId) => {
 			acc[filterId] = {
-				clearable: isFilterClearable?.(filterId) ?? true,
 				property: filterId,
 				label: getFilterDisplayLabel?.(filterId) ?? filterId.replace(/_(\w)/, ' $1'),
 				multiple: isFilterMultiSelect?.(filterId) ?? true,
@@ -205,13 +204,11 @@
 	}
 
 	function handleClearAllFilters() {
-		filterInputsAsArray.forEach((filterInput) => {
-			if (filterInput.clearable) {
+		filterInputsAsArray
+			.filter((filterInput) => isFilterClearable?.(filterInput.property as FilterKey) ?? true)
+			.forEach((filterInput) => {
 				filterInput.selected = '';
-			} else if (filterInput.default !== undefined) {
-				filterInput.selected = filterInput.default;
-			}
-		});
+			});
 	}
 </script>
 
