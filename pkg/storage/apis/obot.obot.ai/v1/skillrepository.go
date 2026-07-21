@@ -29,13 +29,15 @@ func (in *SkillRepository) Get(field string) (value string) {
 		return in.Spec.RepoURL
 	case "spec.ref":
 		return in.Spec.Ref
+	case "spec.gitCredentialID":
+		return in.Spec.GitCredentialID
 	}
 
 	return ""
 }
 
 func (in *SkillRepository) FieldNames() []string {
-	return []string{"spec.repoURL", "spec.ref"}
+	return []string{"spec.repoURL", "spec.ref", "spec.gitCredentialID"}
 }
 
 func (in *SkillRepository) GetColumns() [][]string {

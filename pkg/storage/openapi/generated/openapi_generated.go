@@ -16080,11 +16080,17 @@ func schema_storage_apis_obotobotai_v1_GitCredential(ref common.ReferenceCallbac
 							Ref:     ref(v1.GitCredentialSpec{}.OpenAPIModelName()),
 						},
 					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1.EmptyStatus{}.OpenAPIModelName()),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			v1.GitCredentialSpec{}.OpenAPIModelName(), metav1.ObjectMeta{}.OpenAPIModelName()},
+			v1.EmptyStatus{}.OpenAPIModelName(), v1.GitCredentialSpec{}.OpenAPIModelName(), metav1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 

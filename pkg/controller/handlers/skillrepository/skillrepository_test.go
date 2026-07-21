@@ -10,8 +10,11 @@ import (
 
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
+	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
+	storageservices "github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -255,6 +258,7 @@ func TestListSkillsForRepo(t *testing.T) {
 
 func TestSync(t *testing.T) {
 	fixedTime := time.Date(2026, 3, 11, 12, 0, 0, 0, time.UTC)
+	gatewayClient := newTestGatewayClient(t)
 
 	t.Run("happy path", func(t *testing.T) {
 		repo := newSkillRepository("repo1", "default")
@@ -266,6 +270,7 @@ func TestSync(t *testing.T) {
 		})
 
 		h := &Handler{
+			gatewayClient: gatewayClient,
 			fetcher: &mockFetcher{
 				fetchFn: func(_ context.Context, _, _, _ string) (*fetchedRepository, error) {
 					return fetched, nil
@@ -311,6 +316,7 @@ func TestSync(t *testing.T) {
 
 		fetchCalled := false
 		h := &Handler{
+			gatewayClient: gatewayClient,
 			fetcher: &mockFetcher{
 				fetchFn: func(_ context.Context, _, _, _ string) (*fetchedRepository, error) {
 					fetchCalled = true
@@ -351,6 +357,7 @@ func TestSync(t *testing.T) {
 		})
 		fetchCalled := false
 		h := &Handler{
+			gatewayClient: gatewayClient,
 			fetcher: &mockFetcher{
 				fetchFn: func(_ context.Context, _, _, _ string) (*fetchedRepository, error) {
 					fetchCalled = true
@@ -386,6 +393,7 @@ func TestSync(t *testing.T) {
 		c := newFakeClient(t, repo)
 
 		h := &Handler{
+			gatewayClient: gatewayClient,
 			fetcher: &mockFetcher{
 				fetchFn: func(_ context.Context, _, _, _ string) (*fetchedRepository, error) {
 					return nil, fmt.Errorf("network timeout")
@@ -427,6 +435,7 @@ func TestSync(t *testing.T) {
 		require.NoError(t, os.Chmod(skillFile, 0o000))
 
 		h := &Handler{
+			gatewayClient: gatewayClient,
 			fetcher: &mockFetcher{
 				fetchFn: func(_ context.Context, _, _, _ string) (*fetchedRepository, error) {
 					return &fetchedRepository{
@@ -457,6 +466,18 @@ func TestSync(t *testing.T) {
 		assert.NotEmpty(t, updated.Status.SyncError)
 		assert.False(t, updated.Status.IsSyncing)
 	})
+}
+
+func newTestGatewayClient(t *testing.T) *gatewayclient.Client {
+	t.Helper()
+	storageServices, err := storageservices.New(storageservices.Config{DSN: "sqlite://:memory:"})
+	require.NoError(t, err)
+	database, err := gatewaydb.New(storageServices.DB.DB, storageServices.DB.SQLDB, true)
+	require.NoError(t, err)
+	require.NoError(t, database.AutoMigrate())
+	gatewayClient := gatewayclient.New(t.Context(), database, nil, nil, nil, nil, nil, time.Hour, 10, 90, 90, true)
+	t.Cleanup(func() { _ = gatewayClient.Close() })
+	return gatewayClient
 }
 
 func TestClearIsSyncing(t *testing.T) {

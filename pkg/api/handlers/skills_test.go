@@ -446,6 +446,9 @@ func newFakeStorage(t *testing.T, objects ...kclient.Object) kclient.WithWatch {
 	builder := fake.NewClientBuilder().
 		WithScheme(storagescheme.Scheme).
 		WithObjects(objects...).
+		WithIndex(&v1.SkillRepository{}, "spec.gitCredentialID", func(obj kclient.Object) []string {
+			return []string{obj.(*v1.SkillRepository).Spec.GitCredentialID}
+		}).
 		WithIndex(&v1.MCPServer{}, "spec.userID", func(obj kclient.Object) []string {
 			return []string{obj.(*v1.MCPServer).Spec.UserID}
 		}).

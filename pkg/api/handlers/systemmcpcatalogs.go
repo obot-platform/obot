@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"slices"
 	"strings"
 
 	"github.com/obot-platform/nah/pkg/name"
@@ -66,7 +67,7 @@ func (h *SystemMCPCatalogHandler) Create(req api.Context) error {
 	if err := req.Read(&manifest); err != nil {
 		return fmt.Errorf("failed to read system catalog manifest: %w", err)
 	}
-	originalSourceURLs := append([]string(nil), manifest.SourceURLs...)
+	originalSourceURLs := slices.Clone(manifest.SourceURLs)
 	if err := validateSystemCatalogManifest(&manifest, h.defaultCatalogPath); err != nil {
 		return err
 	}
@@ -104,7 +105,7 @@ func (h *SystemMCPCatalogHandler) Update(req api.Context) error {
 	if err := req.Read(&manifest); err != nil {
 		return fmt.Errorf("failed to read system catalog manifest: %w", err)
 	}
-	originalSourceURLs := append([]string(nil), manifest.SourceURLs...)
+	originalSourceURLs := slices.Clone(manifest.SourceURLs)
 	if err := validateSystemCatalogManifest(&manifest, h.defaultCatalogPath); err != nil {
 		return err
 	}

@@ -77,30 +77,6 @@ type Handler struct {
 	mcpBackend                string
 }
 
-// revealCatalogCredential retrieves a stored PAT for the given source URL.
-// Returns an empty string if no credential is configured (not-found). Any other
-// error is logged so credential-store failures are visible in the sync status.
-func (h *Handler) revealCatalogCredential(ctx context.Context, catalogName, sourceURL string) string {
-	cred, err := h.gatewayClient.RevealCredential(ctx,
-		[]string{catalogName},
-		CatalogCredentialToolName,
-	)
-	if err != nil {
-		if !errors.As(err, &gclient.CredentialNotFoundError{}) {
-			log.Errorf("failed to retrieve credential for catalog %s source %s: %v", catalogName, sourceURL, err)
-		}
-		return ""
-	}
-	return cred.Secrets[sourceURL]
-}
-
-func (h *Handler) resolveCatalogCredential(ctx context.Context, storageClient client.Client, namespace, catalogName, sourceURL, credentialID string) (string, error) {
-	if credentialID != "" {
-		return gitcredential.Resolve(ctx, storageClient, h.gatewayClient, namespace, credentialID, sourceURL)
-	}
-	return h.revealCatalogCredential(ctx, catalogName, sourceURL), nil
-}
-
 func New(defaultCatalogPath, defaultSystemCatalogPath string, gatewayClient *gclient.Client, accessControlRuleHelper *accesscontrolrule.Helper, mcpSessionManager *mcp.SessionManager) *Handler {
 	remoteURLValidationConfig := mcpSessionManager.RemoteMCPURLValidationConfig()
 	validationOptions := mcp.ValidationOptions{
@@ -154,7 +130,11 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	mcpCatalog.Status.SyncErrors = make(map[string]string)
 
 	for _, sourceURL := range mcpCatalog.Spec.SourceURLs {
-		token, err := h.resolveCatalogCredential(req.Ctx, req.Client, mcpCatalog.Namespace, mcpCatalog.Name, sourceURL, mcpCatalog.Spec.SourceURLGitCredentialIDs[sourceURL])
+		credentialID := mcpCatalog.Spec.SourceURLGitCredentialIDs[sourceURL]
+		token, err := gitcredential.ResolveOrReveal(req.Ctx, req.Client, h.gatewayClient, mcpCatalog.Namespace, credentialID, sourceURL, mcpCatalog.Name, CatalogCredentialToolName)
+		if err != nil && credentialID == "" {
+			err = fmt.Errorf("failed to retrieve credential for catalog %s source %s: %w", mcpCatalog.Name, sourceURL, err)
+		}
 		if err != nil {
 			log.Errorf("failed to resolve credential for catalog %s source %s: %v", mcpCatalog.Name, sourceURL, err)
 			mcpCatalog.Status.SyncErrors[sourceURL] = err.Error()
@@ -400,7 +380,11 @@ func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {
 	systemCatalog.Status.SyncErrors = make(map[string]string)
 
 	for _, sourceURL := range systemCatalog.Spec.SourceURLs {
-		token, err := h.resolveCatalogCredential(req.Ctx, req.Client, systemCatalog.Namespace, systemCatalog.Name, sourceURL, systemCatalog.Spec.SourceURLGitCredentialIDs[sourceURL])
+		credentialID := systemCatalog.Spec.SourceURLGitCredentialIDs[sourceURL]
+		token, err := gitcredential.ResolveOrReveal(req.Ctx, req.Client, h.gatewayClient, systemCatalog.Namespace, credentialID, sourceURL, systemCatalog.Name, CatalogCredentialToolName)
+		if err != nil && credentialID == "" {
+			err = fmt.Errorf("failed to retrieve credential for catalog %s source %s: %w", systemCatalog.Name, sourceURL, err)
+		}
 		if err != nil {
 			log.Errorf("failed to resolve credential for system catalog %s source %s: %v", systemCatalog.Name, sourceURL, err)
 			systemCatalog.Status.SyncErrors[sourceURL] = err.Error()

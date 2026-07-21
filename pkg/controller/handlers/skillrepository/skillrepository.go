@@ -2,7 +2,6 @@ package skillrepository
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -41,30 +40,6 @@ func New(gatewayClient *gclient.Client) *Handler {
 	}
 }
 
-func (h *Handler) revealRepositoryCredential(ctx context.Context, repoName, repoURL string) string {
-	if h.gatewayClient == nil {
-		return ""
-	}
-	cred, err := h.gatewayClient.RevealCredential(ctx,
-		[]string{repoName},
-		SkillRepositoryCredentialToolName,
-	)
-	if err != nil {
-		if !errors.As(err, &gclient.CredentialNotFoundError{}) {
-			log.Errorf("failed to retrieve credential for repository %s source %s: %v", repoName, repoURL, err)
-		}
-		return ""
-	}
-	return cred.Secrets[repoURL]
-}
-
-func (h *Handler) resolveRepositoryCredential(ctx context.Context, storageClient client.Client, repo *v1.SkillRepository) (string, error) {
-	if repo.Spec.GitCredentialID != "" {
-		return gitcredential.Resolve(ctx, storageClient, h.gatewayClient, repo.Namespace, repo.Spec.GitCredentialID, repo.Spec.RepoURL)
-	}
-	return h.revealRepositoryCredential(ctx, repo.Name, repo.Spec.RepoURL), nil
-}
-
 func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	repo := req.Object.(*v1.SkillRepository)
 	namespace := repo.Namespace
@@ -85,7 +60,10 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 
 	defer h.clearIsSyncing(req.Ctx, req.Client, namespace, repo.Name)
 
-	token, err := h.resolveRepositoryCredential(req.Ctx, req.Client, repo)
+	token, err := gitcredential.ResolveOrReveal(req.Ctx, req.Client, h.gatewayClient, repo.Namespace, repo.Spec.GitCredentialID, repo.Spec.RepoURL, repo.Name, SkillRepositoryCredentialToolName)
+	if err != nil && repo.Spec.GitCredentialID == "" {
+		err = fmt.Errorf("failed to retrieve credential for repository %s source %s: %w", repo.Name, repo.Spec.RepoURL, err)
+	}
 	if err != nil {
 		if statusErr := h.recordFailure(req.Ctx, req.Client, namespace, repo.Name, err); statusErr != nil {
 			return statusErr

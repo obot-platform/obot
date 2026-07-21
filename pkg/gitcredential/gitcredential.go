@@ -90,6 +90,21 @@ func Configured(ctx context.Context, gatewayClient *gclient.Client, credentialID
 	return credential.Secrets[tokenKey] != "", nil
 }
 
+// ResolveOrReveal resolves a shared Git credential or falls back to a legacy source-specific token.
+func ResolveOrReveal(ctx context.Context, storageClient client.Client, gatewayClient *gclient.Client, namespace, credentialID, sourceURL, legacyCredentialContext, legacyToolName string) (string, error) {
+	if credentialID != "" {
+		return Resolve(ctx, storageClient, gatewayClient, namespace, credentialID, sourceURL)
+	}
+	credential, err := gatewayClient.RevealCredential(ctx, []string{legacyCredentialContext}, legacyToolName)
+	if errors.As(err, &gclient.CredentialNotFoundError{}) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return credential.Secrets[sourceURL], nil
+}
+
 // Delete removes the stored token for the identified Git credential.
 func Delete(ctx context.Context, gatewayClient *gclient.Client, credentialID string) error {
 	_, err := gatewayClient.DeleteCredential(ctx, credentialContext, credentialID)
@@ -175,9 +190,39 @@ func ReferencesByCredential(ctx context.Context, storageClient client.Client, na
 
 // References lists resources in the namespace that use the identified Git credential.
 func References(ctx context.Context, storageClient client.Client, namespace, credentialID string) ([]string, error) {
-	references, err := ReferencesByCredential(ctx, storageClient, namespace)
-	if err != nil {
-		return nil, err
+	var references []string
+	var repositories v1.SkillRepositoryList
+	if err := storageClient.List(ctx, &repositories, client.InNamespace(namespace), client.MatchingFields{"spec.gitCredentialID": credentialID}); err != nil {
+		return nil, fmt.Errorf("failed to list skill repositories: %w", err)
 	}
-	return references[credentialID], nil
+	for _, repository := range repositories.Items {
+		references = append(references, "skill repository "+repository.Name)
+	}
+
+	var catalogs v1.MCPCatalogList
+	if err := storageClient.List(ctx, &catalogs, client.InNamespace(namespace)); err != nil {
+		return nil, fmt.Errorf("failed to list MCP catalogs: %w", err)
+	}
+	for _, catalog := range catalogs.Items {
+		for _, id := range catalog.Spec.SourceURLGitCredentialIDs {
+			if id == credentialID {
+				references = append(references, "MCP catalog "+catalog.Name)
+				break
+			}
+		}
+	}
+
+	var systemCatalogs v1.SystemMCPCatalogList
+	if err := storageClient.List(ctx, &systemCatalogs, client.InNamespace(namespace)); err != nil {
+		return nil, fmt.Errorf("failed to list system MCP catalogs: %w", err)
+	}
+	for _, catalog := range systemCatalogs.Items {
+		for _, id := range catalog.Spec.SourceURLGitCredentialIDs {
+			if id == credentialID {
+				references = append(references, "system MCP catalog "+catalog.Name)
+				break
+			}
+		}
+	}
+	return references, nil
 }

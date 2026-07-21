@@ -16,7 +16,7 @@ import (
 type GitCredentialHandler struct{}
 
 func NewGitCredentialHandler() *GitCredentialHandler {
-	return &GitCredentialHandler{}
+	return nil
 }
 
 func (*GitCredentialHandler) List(req api.Context) error {
@@ -117,6 +117,8 @@ func (*GitCredentialHandler) Update(req api.Context) error {
 		}
 		configured = true
 	}
+	// this error is intentionally ignore because the outcome is not critical. We already completed the Update
+	// and credential changes so we want to return a successful response
 	references, _ := gitCredentialReferences(req, credential.Name)
 	return req.Write(convertGitCredential(credential, configured, len(references) > 0))
 }

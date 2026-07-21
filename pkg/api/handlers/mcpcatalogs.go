@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
@@ -145,7 +146,7 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 		return fmt.Errorf("failed to get catalog: %w", err)
 	}
 
-	originalSourceURLs := append([]string(nil), manifest.SourceURLs...)
+	originalSourceURLs := slices.Clone(manifest.SourceURLs)
 	if err := normalizeAndValidateCatalogSourceURLs(manifest.SourceURLs, h.defaultCatalogPath); err != nil {
 		return err
 	}

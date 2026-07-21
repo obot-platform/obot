@@ -8,7 +8,8 @@ type GitCredential struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec GitCredentialSpec `json:"spec,omitempty"`
+	Spec   GitCredentialSpec `json:"spec,omitempty"`
+	Status EmptyStatus       `json:"status,omitempty"`
 }
 
 type GitCredentialSpec struct {
