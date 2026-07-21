@@ -2,13 +2,9 @@ package controller
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"maps"
 
 	"github.com/obot-platform/obot/apiclient/types"
-	gateway "github.com/obot-platform/obot/pkg/gateway/client"
-	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -120,50 +116,6 @@ func deleteToolReferenceOwnedModels(ctx context.Context, client kclient.Client) 
 				return fmt.Errorf("failed to delete ToolReference-owned model %s/%s: %w", model.Namespace, model.Name, err)
 			}
 			break
-		}
-	}
-
-	return nil
-}
-
-func migrateMultiUserMCPServerManifestValuesToCredentials(ctx context.Context, client kclient.Client, gatewayClient *gateway.Client) error {
-	var servers v1.MCPServerList
-	if err := client.List(ctx, &servers); err != nil {
-		return err
-	}
-
-	for i := range servers.Items {
-		server := &servers.Items[i]
-		credCtx := mcpServerCredentialContext(*server)
-		if credCtx == "" {
-			continue
-		}
-
-		configValues, changed := extractAndClearMCPServerConfigValues(&server.Spec.Manifest)
-		if !changed {
-			continue
-		}
-
-		if len(configValues) > 0 {
-			if existingCred, err := gatewayClient.RevealCredential(ctx, []string{credCtx}, server.Name); err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
-				return fmt.Errorf("failed to find credential for MCP server %s: %w", server.Name, err)
-			} else if err == nil {
-				// Copy the new config values into the existing credential values so we don't lose any existing values that aren't in the manifest.
-				maps.Copy(existingCred.Secrets, configValues)
-				configValues = existingCred.Secrets
-			}
-
-			if err := gatewayClient.UpsertCredential(ctx, gatewaytypes.Credential{
-				Context: credCtx,
-				Name:    server.Name,
-				Secrets: configValues,
-			}); err != nil {
-				return fmt.Errorf("failed to create credential for MCP server %s: %w", server.Name, err)
-			}
-		}
-
-		if err := client.Update(ctx, server); err != nil {
-			return fmt.Errorf("failed to clear manifest config values for MCP server %s: %w", server.Name, err)
 		}
 	}
 

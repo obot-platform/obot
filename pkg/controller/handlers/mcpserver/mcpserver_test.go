@@ -1,7 +1,6 @@
 package mcpserver
 
 import (
-	"context"
 	"strings"
 	"testing"
 	"time"
@@ -1416,6 +1415,23 @@ func TestDetectDriftClearsMultiUserCatalogEntryDeploymentWithAdminAddedEnvBindin
 	var updated v1.MCPServer
 	require.NoError(t, client.Get(context.Background(), router.Key(server.Namespace, server.Name), &updated))
 	assert.False(t, updated.Status.NeedsUpdate)
+}
+
+func TestDetectDriftReturnsConfigurationComparisonError(t *testing.T) {
+	entry := newMCPServerCatalogEntry("template-entry", types.MCPServerCatalogEntryManifest{Runtime: types.Runtime("invalid")})
+	server := newMCPServer("shared-server")
+	server.Spec.MCPServerCatalogEntryName = entry.Name
+	server.Spec.Manifest.Runtime = types.Runtime("invalid")
+	storageClient := newFakeClient(t, entry, server)
+
+	err := (&Handler{}).DetectDrift(router.Request{
+		Client:    storageClient,
+		Ctx:       t.Context(),
+		Object:    server,
+		Namespace: server.Namespace,
+		Name:      server.Name,
+	}, &router.ResponseWrapper{})
+	require.EqualError(t, err, "unknown runtime type: invalid")
 }
 
 func newMCPServerCatalogEntry(name string, manifest types.MCPServerCatalogEntryManifest) *v1.MCPServerCatalogEntry {
