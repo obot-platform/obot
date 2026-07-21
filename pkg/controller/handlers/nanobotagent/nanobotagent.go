@@ -408,15 +408,13 @@ type nanobotLLMProvider struct {
 //
 // If the provider has declared a dialect via ProviderMeta.Dialect, that dialect
 // is used and the base URL is derived from it. Otherwise the known built-in
-// providers (openai, anthropic) supply both; everything else falls back to
-// OpenResponses via the generic /api/llm-proxy dispatch.
+// providers supply both; everything else falls back to OpenResponses.
 func (h *Handler) parseModelProvider(model resolvedLLMModel) (nanobotLLMProvider, string) {
 	name := model.ModelProvider
 	envVarName := strings.ToUpper(strings.ReplaceAll(name, "-", "_")) + "_API_KEY"
 
 	dialect := model.ProviderDialect
 	if dialect == "" {
-		// No declared dialect — fall back to per-provider defaults.
 		switch model.ModelProvider {
 		case system.AnthropicModelProvider:
 			dialect = nanobottypes.DialectAnthropicMessages
@@ -428,8 +426,9 @@ func (h *Handler) parseModelProvider(model resolvedLLMModel) (nanobotLLMProvider
 	}
 
 	baseURL := h.serverURL + "/api/llm-proxy"
-
 	switch model.ModelProvider {
+	case system.GenericResponsesModelProvider:
+		baseURL += "/generic-responses/v1"
 	case system.AmazonBedrockModelProvider:
 		baseURL += "/aws-bedrock/v1"
 	case system.AmazonBedrockAPIKeyModelProvider:
@@ -444,10 +443,6 @@ func (h *Handler) parseModelProvider(model resolvedLLMModel) (nanobotLLMProvider
 			baseURL += "/anthropic/v1"
 		case nanobottypes.DialectOpenAIResponses:
 			baseURL += "/openai/v1"
-		case nanobottypes.DialectBifrostRequest:
-			fallthrough // same as default
-		default:
-			baseURL = h.serverURL + "/api/llm-proxy"
 		}
 	}
 

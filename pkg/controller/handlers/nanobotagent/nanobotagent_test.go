@@ -111,22 +111,21 @@ func TestChooseModelPrefersSuggestedOrder(t *testing.T) {
 	}
 }
 
-func TestNanobotParseModelProviderDeclaredDialectDrivesURL(t *testing.T) {
+func TestNanobotParseModelProviderNamedRoutes(t *testing.T) {
 	h := &Handler{serverURL: "https://obot.example.com"}
 
 	for _, tc := range []struct {
+		provider    string
 		dialect     nanobottypes.Dialect
 		wantBaseURL string
 	}{
-		{nanobottypes.DialectAnthropicMessages, "https://obot.example.com/api/llm-proxy/anthropic/v1"},
-		{nanobottypes.DialectOpenAIResponses, "https://obot.example.com/api/llm-proxy/openai/v1"},
-		{nanobottypes.DialectOpenAIChatCompletions, "https://obot.example.com/api/llm-proxy"},
-		{nanobottypes.DialectOpenResponses, "https://obot.example.com/api/llm-proxy"},
-		{nanobottypes.DialectBifrostRequest, "https://obot.example.com/api/llm-proxy"},
+		{system.AnthropicModelProvider, nanobottypes.DialectAnthropicMessages, "https://obot.example.com/api/llm-proxy/anthropic/v1"},
+		{system.OpenAIModelProvider, nanobottypes.DialectOpenAIResponses, "https://obot.example.com/api/llm-proxy/openai/v1"},
+		{system.GenericResponsesModelProvider, nanobottypes.DialectOpenResponses, "https://obot.example.com/api/llm-proxy/generic-responses/v1"},
 	} {
 		model := resolvedLLMModel{
 			Name:            "some-model",
-			ModelProvider:   "custom-model-provider",
+			ModelProvider:   tc.provider,
 			ProviderDialect: tc.dialect,
 		}
 		p, _ := h.parseModelProvider(model)
@@ -149,6 +148,7 @@ func TestNanobotParseModelProviderBuiltinFallbacks(t *testing.T) {
 	}{
 		{system.OpenAIModelProvider, nanobottypes.DialectOpenAIResponses, "https://obot.example.com/api/llm-proxy/openai/v1"},
 		{system.AnthropicModelProvider, nanobottypes.DialectAnthropicMessages, "https://obot.example.com/api/llm-proxy/anthropic/v1"},
+		{system.GenericResponsesModelProvider, nanobottypes.DialectOpenResponses, "https://obot.example.com/api/llm-proxy/generic-responses/v1"},
 		{"unknown-model-provider", nanobottypes.DialectOpenResponses, "https://obot.example.com/api/llm-proxy"},
 	} {
 		model := resolvedLLMModel{Name: "my-model", ModelProvider: tc.modelProvider}

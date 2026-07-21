@@ -252,23 +252,6 @@ type chatCompletionRequest struct {
 	Stream   bool          `json:"stream"`
 }
 
-// bifrostLLMRequest is a minimal Bifrost-compatible /v1/responses request body.
-// The daemon overrides the Provider field internally, so it does not need to be set.
-type bifrostLLMRequest struct {
-	Model  string           `json:"model"`
-	Input  []bifrostMessage `json:"input"`
-	Params *bifrostParams   `json:"params,omitempty"`
-}
-
-type bifrostMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
-}
-
-type bifrostParams struct {
-	Instructions string `json:"instructions,omitempty"`
-}
-
 type anthropicMessagesRequest struct {
 	Model     string        `json:"model"`
 	System    string        `json:"system,omitempty"`
@@ -297,13 +280,14 @@ func (h *Helper) callLLM(ctx context.Context, resolved *resolvedModel, messages 
 			return "", fmt.Errorf("unsupported dedicated model provider dialect %q", resolved.dialect)
 		}
 	}
-	if resolved.dialect == string(nanobottypes.DialectBifrostRequest) {
-		return h.callLLMBifrost(ctx, resolved, messages)
-	}
-	if system.IsResponsesDialect(resolved.dialect) {
+	switch nanobottypes.Dialect(resolved.dialect) {
+	case nanobottypes.DialectOpenAIResponses, nanobottypes.DialectOpenResponses:
 		return h.callLLMOpenAIResponses(ctx, resolved, messages)
+	case "", nanobottypes.DialectAnthropicMessages, nanobottypes.DialectOpenAIChatCompletions:
+		return h.callLLMChatCompletions(ctx, resolved, messages)
+	default:
+		return "", fmt.Errorf("unsupported model provider dialect %q", resolved.dialect)
 	}
-	return h.callLLMChatCompletions(ctx, resolved, messages)
 }
 
 func (h *Helper) callLLMAnthropicMessages(ctx context.Context, resolved *resolvedModel, messages []chatMessage) (string, error) {
@@ -427,73 +411,6 @@ func (h *Helper) callLLMChatCompletions(ctx context.Context, resolved *resolvedM
 
 	return readStreamingResponse(resp.Body, func(data string) gjson.Result {
 		return gjson.Get(data, "choices.0.delta.content")
-	})
-}
-
-// callLLMBifrost calls a Bifrost-dialect provider using the /v1/responses endpoint.
-// The Bifrost daemon overrides the Provider field from its own configuration, so
-// the client does not need to specify it.
-func (h *Helper) callLLMBifrost(ctx context.Context, resolved *resolvedModel, messages []chatMessage) (string, error) {
-	var (
-		systemPrompt string
-		input        []bifrostMessage
-	)
-	for _, m := range messages {
-		if m.Role == "system" {
-			systemPrompt = m.Content
-		} else {
-			input = append(input, bifrostMessage(m))
-		}
-	}
-
-	reqBody := bifrostLLMRequest{
-		Model: resolved.targetModel,
-		Input: input,
-	}
-	if systemPrompt != "" {
-		reqBody.Params = &bifrostParams{Instructions: systemPrompt}
-	}
-
-	body, err := json.Marshal(reqBody)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal bifrost request: %w", err)
-	}
-
-	reqURL := strings.TrimSuffix(resolved.providerURL, "/")
-	if !strings.HasSuffix(reqURL, "/v1") {
-		reqURL += "/v1"
-	}
-	reqURL = reqURL + "/responses"
-	log.Debugf("Making LLM call to model=%s url=%s (bifrost)", resolved.targetModel, reqURL)
-
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewReader(body))
-	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
-	}
-
-	httpReq.Header.Set("Content-Type", "application/json")
-	for k, v := range resolved.credHeaders {
-		httpReq.Header.Set(k, v)
-	}
-
-	resp, err := http.DefaultClient.Do(httpReq)
-	if err != nil {
-		log.Errorf("LLM call to model=%s failed: %v", resolved.targetModel, err)
-		return "", fmt.Errorf("LLM call failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		respBody, _ := io.ReadAll(resp.Body)
-		log.Errorf("LLM call to model=%s returned status %d: %s", resolved.targetModel, resp.StatusCode, string(respBody))
-		return "", fmt.Errorf("LLM call returned status %d: %s", resp.StatusCode, string(respBody))
-	}
-
-	return readStreamingResponse(resp.Body, func(data string) gjson.Result {
-		if gjson.Get(data, "type").String() == "response.output_text.delta" {
-			return gjson.Get(data, "delta")
-		}
-		return gjson.Result{}
 	})
 }
 

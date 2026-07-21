@@ -32,7 +32,7 @@ func newTokenUsageTracker(model v1.Model) *threadSafeTokenUsageTracker {
 	switch nanobottypes.Dialect(model.Spec.Manifest.Dialect) {
 	case nanobottypes.DialectAnthropicMessages:
 		inner = &messageTokenUsageTracker{cost: cost}
-	case nanobottypes.DialectOpenAIResponses, nanobottypes.DialectOpenResponses, nanobottypes.DialectBifrostRequest:
+	case nanobottypes.DialectOpenAIResponses, nanobottypes.DialectOpenResponses:
 		inner = &responseTokenUsageTracker{cost: cost}
 	default:
 		return nil
