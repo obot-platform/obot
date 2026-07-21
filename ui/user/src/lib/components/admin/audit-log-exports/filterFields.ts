@@ -56,11 +56,29 @@ export const COMMON_FILTER_KEYS = [
 	'client'
 ] as const;
 
-// Decide which filter fields/rows should be visible for the currently selected source(s). The
-// backend enforces the same split, so the form only ever shows filters it will accept:
+// Decide whether a single filter is usable for the currently selected source(s). The backend
+// enforces the same split, so the forms only ever show (and fetch options for) filters it accepts:
 //   - common filters        -> only when more than one source is selected
 //   - source-specific       -> only when that single source is the sole selection
 //   - shared columns        -> user_id/session_id/client_ip; only for a single source of either kind
+export function isExportFilterKeyVisible(
+	sourceTypes: readonly string[],
+	filterKey: string,
+	commonFilterKeys: ReadonlySet<string>,
+	mcpFilterKeys: ReadonlySet<string>,
+	localFilterKeys: ReadonlySet<string>
+): boolean {
+	const singleSource = sourceTypes.length === 1;
+
+	if (commonFilterKeys.has(filterKey)) return sourceTypes.length > 1;
+	if (mcpFilterKeys.has(filterKey)) return singleSource && sourceTypes.includes('mcp');
+	if (localFilterKeys.has(filterKey))
+		return singleSource && sourceTypes.includes('local_agent_tool_call');
+	// Shared columns (user_id, session_id, client_ip) are valid for a single source of either kind.
+	return singleSource;
+}
+
+// Filter the fields/rows the form renders down to the ones visible for the selected source(s).
 export function filterVisibleExportFields<TField extends { filterKey: string }>(
 	form: { sourceTypes: readonly string[] },
 	fields: readonly TField[],
@@ -68,22 +86,13 @@ export function filterVisibleExportFields<TField extends { filterKey: string }>(
 	mcpFilterKeys: ReadonlySet<string>,
 	localFilterKeys: ReadonlySet<string>
 ): TField[] {
-	const singleSource = form.sourceTypes.length === 1;
-	const onlyMCP = singleSource && form.sourceTypes.includes('mcp');
-	const onlyLocal = singleSource && form.sourceTypes.includes('local_agent_tool_call');
-	const multiSource = form.sourceTypes.length > 1;
-
-	return fields.filter((field) => {
-		if (commonFilterKeys.has(field.filterKey)) {
-			return multiSource;
-		}
-		if (mcpFilterKeys.has(field.filterKey)) {
-			return onlyMCP;
-		}
-		if (localFilterKeys.has(field.filterKey)) {
-			return onlyLocal;
-		}
-		// Shared columns (user_id, session_id, client_ip) are valid for a single source of either kind.
-		return singleSource;
-	});
+	return fields.filter((field) =>
+		isExportFilterKeyVisible(
+			form.sourceTypes,
+			field.filterKey,
+			commonFilterKeys,
+			mcpFilterKeys,
+			localFilterKeys
+		)
+	);
 }

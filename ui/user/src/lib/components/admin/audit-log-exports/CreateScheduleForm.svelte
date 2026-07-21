@@ -7,6 +7,7 @@
 		COMMON_FILTER_KEYS,
 		eventTypeParamFromSourceTypes,
 		filterVisibleExportFields,
+		isExportFilterKeyVisible,
 		normalizeSourceTypes,
 		sourceTypeLabels,
 		sourceTypesFromEventTypeParam
@@ -292,8 +293,6 @@
 
 	$effect(() => {
 		const event_type = eventTypeParamFromSourceTypes(form.sourceTypes);
-		const multiSource = form.sourceTypes.length > 1;
-		const singleSource = form.sourceTypes.length === 1;
 		filtersIds.forEach((id) => {
 			if (logType === 'llm') {
 				AdminService.listLLMAuditLogFilterOptions(id).then((res) => {
@@ -301,18 +300,17 @@
 				});
 				return;
 			}
-			// Match visibleScheduleFilterRows: common filters for multi-source, source-specific for the
-			// matching single source, and shared columns for any single source.
-			if (commonScheduleFilterKeys.has(id)) {
-				if (!multiSource) return;
-			} else if (localScheduleFilterKeys.has(id)) {
-				if (!(singleSource && form.sourceTypes.includes('local_agent_tool_call'))) return;
-			} else if (mcpScheduleFilterKeys.has(id)) {
-				if (!(singleSource && form.sourceTypes.includes('mcp'))) return;
-			} else if (!singleSource) {
-				// Shared columns (user_id, session_id, client_ip).
+			// Only fetch options for the filters actually visible in the current source selection.
+			if (
+				!isExportFilterKeyVisible(
+					form.sourceTypes,
+					id,
+					commonScheduleFilterKeys,
+					mcpScheduleFilterKeys,
+					localScheduleFilterKeys
+				)
+			)
 				return;
-			}
 			UserService.listAuditLogFilterOptions(id, { event_type }).then((res) => {
 				filtersOptions[id] = res.options ?? [];
 			});
