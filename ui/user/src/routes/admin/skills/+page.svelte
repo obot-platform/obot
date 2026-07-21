@@ -337,7 +337,7 @@
 				<p class="text-muted-content text-sm font-light">
 					An issue occurred with fetching skills due to licensing. Please resolve outstanding
 					licensing issues or contact support at
-					<a href="mailto:licensing@obot.ai" class="text-link">licensing@obot.ai</a>.
+					<a href="mailto:info@obot.ai" class="text-link">info@obot.ai</a>.
 				</p>
 			</div>
 		{:else}

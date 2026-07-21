@@ -47,11 +47,11 @@
 			<p>
 				{#if provider?.configured}
 					Your license for or access to {provider.name} is invalid. Please contact support at
-					<a href="mailto:licensing@obot.ai" class="text-link">licensing@obot.ai</a> to renew your license.
+					<a href="mailto:info@obot.ai" class="text-link">info@obot.ai</a> to renew your license.
 				{:else}
 					A valid license is required to use {provider.name}. Please contact support at
-					<a href="mailto:licensing@obot.ai" class="text-link">licensing@obot.ai</a> for more information
-					or to purchase a license.
+					<a href="mailto:info@obot.ai" class="text-link">info@obot.ai</a> for more information or to
+					purchase a license.
 				{/if}
 			</p>
 		{/if}
