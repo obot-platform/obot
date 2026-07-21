@@ -141,6 +141,7 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.EnsureMCPServerSecretInfo)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.EnsureCompositeComponents)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.ShutdownIdleServers)
+	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.SetNonDeployServerStatus)
 	root.Type(&v1.MCPServer{}).FinalizeFunc(v1.MCPServerFinalizer, credentialCleanup.RemoveMCPCredentials)
 
 	// MCPNetworkPolicy

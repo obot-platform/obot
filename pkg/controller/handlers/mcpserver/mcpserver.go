@@ -1186,6 +1186,20 @@ func (h *Handler) ShutdownIdleServers(req router.Request, resp router.Response) 
 	return nil
 }
 
+// SetNonDeployServerStatus sets the deployment status for servers that don't have a corresponding deployment.
+func (h *Handler) SetNonDeployServerStatus(req router.Request, _ router.Response) error {
+	mcpServer := req.Object.(*v1.MCPServer)
+	if mcpServer.Spec.Manifest.Runtime == types.RuntimeRemote || mcpServer.Spec.Manifest.Runtime == types.RuntimeComposite {
+		mcpServer.Status.DeploymentStatus = "Available"
+		mcpServer.Status.DeploymentAvailableReplicas = nil
+		mcpServer.Status.DeploymentReadyReplicas = nil
+		mcpServer.Status.DeploymentReplicas = nil
+		mcpServer.Status.DeploymentConditions = nil
+	}
+
+	return nil
+}
+
 // clearOAuthStatusIfSet clears the OAuthCredentialConfigured status if it is currently set.
 func clearOAuthStatusIfSet(req router.Request, server *v1.MCPServer) error {
 	if server.Status.OAuthCredentialConfigured {
