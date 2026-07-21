@@ -18,6 +18,7 @@
 	} from '$lib/services';
 	import { clearUrlParams, goto, replaceState } from '$lib/url';
 	import { openUrl } from '$lib/utils';
+	import Configuration from './Configuration.svelte';
 	import DeviceClients from './DeviceClients.svelte';
 	import DeviceMcpServers from './DeviceMcpServers.svelte';
 	import DeviceSkills from './DeviceSkills.svelte';
@@ -38,8 +39,18 @@
 
 	let { data } = $props();
 
-	type View = 'overview' | 'devices' | 'device-clients' | 'device-mcp-servers' | 'device-skills';
+	type View =
+		| 'configuration'
+		| 'overview'
+		| 'devices'
+		| 'device-clients'
+		| 'device-mcp-servers'
+		| 'device-skills';
 	const views: { label: string; value: View }[] = [
+		{
+			label: 'Configuration',
+			value: 'configuration' as const
+		},
 		{
 			label: 'Overview',
 			value: 'overview' as const
@@ -74,7 +85,13 @@
 	);
 	let loading = $state(false);
 
-	let view = $derived<View>((page.url.searchParams.get('view') ?? 'overview') as View);
+	const defaultView: View = untrack(() => (data.configuration ? 'overview' : 'configuration'));
+	let view = $derived.by<View>(() => {
+		const requested = page.url.searchParams.get('view') as View | null;
+		return requested && views.some((candidate) => candidate.value === requested)
+			? requested
+			: defaultView;
+	});
 
 	let clientBuckets = $derived(
 		buildDeviceScanTopBuckets<DeviceClientStat>(
@@ -206,7 +223,7 @@
 	<title>Obot | Devices</title>
 </svelte:head>
 
-<Layout title="Devices">
+<Layout title="Devices" classes={{ container: 'justify-start' }}>
 	<div
 		class="flex h-full w-full flex-col gap-4"
 		in:fly={{ x: 100, duration, delay: duration }}
@@ -265,7 +282,15 @@
 			</OverflowContainer>
 		</div>
 
-		{#if view === 'overview'}
+		{#if view === 'configuration'}
+			<Configuration
+				configuration={data.configuration}
+				enrollmentKeys={data.enrollmentKeys}
+				assetSource={data.assetSource}
+				assets={data.assets}
+				assetLoadError={data.assetLoadError}
+			/>
+		{:else if view === 'overview'}
 			{@render overview()}
 		{:else if view === 'devices'}
 			<Devices />

@@ -311,6 +311,57 @@ func TestRenderInstructions(t *testing.T) {
 	}
 }
 
+func TestRenderAllProducesEveryTarget(t *testing.T) {
+	l, err := NewFS(os.DirFS(writeAssets(t, SchemaVersion)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	artifacts, err := l.RenderAll(map[string]any{
+		"serverURL":           "https://obot.example.com",
+		"scanIntervalMinutes": 30,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(artifacts) != len(l.Manifest().Configurations) {
+		t.Fatalf("rendered %d artifacts, want %d", len(artifacts), len(l.Manifest().Configurations))
+	}
+	for i, artifact := range artifacts {
+		target := l.Manifest().Configurations[i]
+		if artifact.Platform != target.Platform || artifact.OS != target.OS {
+			t.Fatalf("artifact %d target = %s/%s, want %s/%s", i, artifact.Platform, artifact.OS, target.Platform, target.OS)
+		}
+		if len(artifact.Content) == 0 {
+			t.Fatalf("artifact %d has no ZIP content", i)
+		}
+	}
+	if !strings.Contains(artifacts[0].Instructions, "interval=30") {
+		t.Fatalf("instructions were not rendered with shared values: %q", artifacts[0].Instructions)
+	}
+}
+
+func TestRenderAllReturnsNoPartialArtifacts(t *testing.T) {
+	dir := writeAssets(t, SchemaVersion)
+	mustWrite(t, filepath.Join(dir, "macos", "INSTRUCTIONS.md.tmpl"), "oops={{.unknownField}}\n")
+	l, err := NewFS(os.DirFS(dir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	artifacts, err := l.RenderAll(map[string]any{"serverURL": "https://obot.example.com"})
+	if err == nil {
+		t.Fatal("broken final target rendered successfully")
+	}
+	if artifacts != nil {
+		t.Fatalf("partial artifacts escaped: %#v", artifacts)
+	}
+}
+
+func TestArtifactSlug(t *testing.T) {
+	if got := ArtifactSlug("Microsoft Intune", "Windows 11"); got != "microsoft-intune-windows-11" {
+		t.Fatalf("ArtifactSlug = %q", got)
+	}
+}
+
 // TestZip pins the download contents: the installer verbatim and the
 // template rendered with the values, both under base names with the
 // .tmpl suffix stripped.

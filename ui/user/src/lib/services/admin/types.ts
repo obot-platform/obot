@@ -1280,19 +1280,28 @@ export interface TotalTokenUsageByUser extends TotalTokenUsage {
 	userID: string;
 }
 
-// MDM configurations — fleets that unattended devices enroll into. Creating a
-// configuration (or an additional enrollment key) returns the plaintext
-// enrollment credential exactly once.
+// MDM configurations — fleets that unattended devices enroll into. Saving
+// values renders one downloadable artifact for every platform/OS target.
+export interface MDMConfigurationArtifact {
+	instructions: string;
+	os: string;
+	platform: string;
+	slug: string;
+}
+
 export interface MDMConfiguration {
 	assetDigest?: string;
+	artifacts: MDMConfigurationArtifact[];
 	createdAt: string;
-	description?: string;
-	error?: string;
 	id: number;
-	instructions?: string;
-	name: string;
-	os?: string;
-	platform?: string;
+	isDefault: boolean;
+	// Version of the source bundle the saved artifacts were rendered from.
+	obotSentryVersion?: string;
+	values?: Record<string, unknown>;
+}
+
+export interface MDMConfigurationInput {
+	assetDigest?: string;
 	values?: Record<string, unknown>;
 }
 
@@ -1302,10 +1311,6 @@ export interface MDMEnrollmentKey {
 	id: number;
 	lastUsedAt?: string;
 	name?: string;
-}
-
-export interface MDMConfigurationCreateResponse extends MDMConfiguration {
-	enrollmentCredential: string;
 }
 
 export interface MDMEnrollmentKeyCreateResponse extends MDMEnrollmentKey {

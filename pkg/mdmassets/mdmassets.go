@@ -21,7 +21,9 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"maps"
 	"path"
+	"regexp"
 	"slices"
 	"strings"
 	"text/template"
@@ -34,6 +36,8 @@ import (
 // assets tree declaring anything else is rejected so a newer format
 // can't be misread by an older server.
 const SchemaVersion = "v1"
+
+var artifactSlugNonAlnum = regexp.MustCompile(`[^a-z0-9]+`)
 
 // Loader validates and renders files from one immutable MDM asset bundle.
 type Loader struct {
@@ -88,6 +92,7 @@ func NewFS(files fs.FS) (*Loader, error) {
 		}
 	}
 	units := map[string]bool{}
+	slugs := map[string]string{}
 	for _, c := range m.Configurations {
 		if strings.TrimSpace(c.Platform) == "" || strings.TrimSpace(c.OS) == "" ||
 			strings.TrimSpace(c.Platform) != c.Platform || strings.TrimSpace(c.OS) != c.OS {
@@ -101,6 +106,11 @@ func NewFS(files fs.FS) (*Loader, error) {
 			return nil, fmt.Errorf("MDM assets manifest declares configuration %s twice", unit)
 		}
 		units[unit] = true
+		slug := ArtifactSlug(c.Platform, c.OS)
+		if prior, ok := slugs[slug]; ok {
+			return nil, fmt.Errorf("MDM assets manifest configurations %s and %s produce the same download slug %q", prior, unit, slug)
+		}
+		slugs[slug] = unit
 		if !slices.Contains(c.Assets, c.Instructions) {
 			return nil, fmt.Errorf("MDM assets manifest configuration %s does not list its instructions template in assets", unit)
 		}
@@ -127,6 +137,17 @@ func NewFS(files fs.FS) (*Loader, error) {
 		}
 	}
 	return &Loader{files: files, manifest: m, fields: fields}, nil
+}
+
+// ArtifactSlug returns the stable URL segment for a platform/OS artifact.
+// NewFS rejects manifests whose targets collide after normalization.
+func ArtifactSlug(platform, osName string) string {
+	slug := artifactSlugNonAlnum.ReplaceAllString(strings.ToLower(platform+"-"+osName), "-")
+	slug = strings.Trim(slug, "-")
+	if slug == "" {
+		return "configuration"
+	}
+	return slug
 }
 
 func validateFile(files fs.FS, name string) error {
@@ -206,9 +227,7 @@ func (l *Loader) CompleteValues(values map[string]any) error {
 // rejects unknown value keys.
 func (l *Loader) renderContext(values map[string]any) map[string]any {
 	context := make(map[string]any, len(values)+1)
-	for name, value := range values {
-		context[name] = value
-	}
+	maps.Copy(context, values)
 	context["obotSentryVersion"] = l.manifest.ObotSentryVersion
 	return context
 }
@@ -237,6 +256,44 @@ func (l *Loader) ValidateTemplates(c types.MDMAssetConfiguration, values map[str
 		}
 	}
 	return nil
+}
+
+// RenderedArtifact contains one fully rendered platform/OS download. Callers
+// persist Content privately and expose only the platform, OS, and instructions.
+type RenderedArtifact struct {
+	Platform     string
+	OS           string
+	Instructions string
+	Content      []byte
+}
+
+// RenderAll completes and validates values once, then renders every target in
+// the immutable bundle. It returns no partial result if any target fails.
+func (l *Loader) RenderAll(values map[string]any) ([]RenderedArtifact, error) {
+	completed := make(map[string]any, len(values))
+	maps.Copy(completed, values)
+	if err := l.CompleteValues(completed); err != nil {
+		return nil, fmt.Errorf("invalid configuration values: %w", err)
+	}
+
+	artifacts := make([]RenderedArtifact, 0, len(l.manifest.Configurations))
+	for _, configuration := range l.manifest.Configurations {
+		instructions, err := l.RenderInstructions(configuration, completed)
+		if err != nil {
+			return nil, err
+		}
+		var content bytes.Buffer
+		if err := l.Zip(&content, configuration, completed); err != nil {
+			return nil, err
+		}
+		artifacts = append(artifacts, RenderedArtifact{
+			Platform:     configuration.Platform,
+			OS:           configuration.OS,
+			Instructions: instructions,
+			Content:      content.Bytes(),
+		})
+	}
+	return artifacts, nil
 }
 
 // Zip writes the configuration's download to w: assets ending in .tmpl

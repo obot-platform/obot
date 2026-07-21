@@ -585,7 +585,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("POST /api/mdm/configurations/{id}/enrollment-keys", mdmConfigurations.CreateEnrollmentKey)
 	mux.HandleFunc("DELETE /api/mdm/configurations/{id}/enrollment-keys/{key_id}", mdmConfigurations.DeleteEnrollmentKey)
 	mux.HandleFunc("GET /api/mdm/configurations/{id}/devices", mdmConfigurations.ListDevices)
-	mux.HandleFunc("POST /api/mdm/configurations/{id}/config", mdmConfigurations.DownloadConfig)
+	mux.HandleFunc("GET /api/mdm/configurations/{id}/download/{slug}", mdmConfigurations.DownloadArtifact)
 
 	// Device enrollment (authenticated by an enrollment token -> MDMConfiguration principal)
 	mux.HandleFunc("POST /api/mdm/enroll", deviceEnroll.Enroll)

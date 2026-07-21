@@ -5,9 +5,9 @@ import { buildQueryString } from '$lib/url';
 import {
 	doDelete,
 	doGet,
+	doGetForResponse,
 	doPatch,
 	doPost,
-	doPostForResponse,
 	doPut,
 	handleResponse,
 	type Fetcher,
@@ -109,7 +109,7 @@ import type {
 	MDMAssetList,
 	MDMAssetSource,
 	MDMConfiguration,
-	MDMConfigurationCreateResponse,
+	MDMConfigurationInput,
 	MDMDevice,
 	MDMEnrollmentKey,
 	MDMEnrollmentKeyCreateResponse,
@@ -2100,15 +2100,18 @@ export async function listMDMConfigurations(opts?: {
 }
 
 export async function createMDMConfiguration(
-	input: Omit<MDMConfiguration, 'id' | 'createdAt' | 'instructions' | 'error'>
-): Promise<MDMConfigurationCreateResponse> {
+	input: MDMConfigurationInput
+): Promise<MDMConfiguration> {
 	return (await doPost('/mdm/configurations', input, {
 		dontLogErrors: true
-	})) as MDMConfigurationCreateResponse;
+	})) as MDMConfiguration;
 }
 
-export async function updateMDMConfiguration(input: MDMConfiguration): Promise<MDMConfiguration> {
-	return (await doPut(`/mdm/configurations/${input.id}`, input, {
+export async function updateMDMConfiguration(
+	id: number,
+	input: MDMConfigurationInput
+): Promise<MDMConfiguration> {
+	return (await doPut(`/mdm/configurations/${id}`, input, {
 		dontLogErrors: true
 	})) as MDMConfiguration;
 }
@@ -2199,17 +2202,15 @@ export async function listMDMAssets(opts?: { fetch?: Fetcher }): Promise<MDMAsse
 	return response.items ?? [];
 }
 
-// downloadMDMConfig requests the deployable bundle for a configuration's
-// saved target. The bundle carries no credentials — the admin pastes
-// an enrollment key into the MDM per the bundled instructions. Returns
-// the zip bytes and the filename from Content-Disposition.
+// Downloads one already-rendered artifact. The bundle carries no credentials;
+// an administrator supplies an enrollment key according to its instructions.
 export async function downloadMDMConfig(
 	configurationId: number,
+	slug: string,
 	reqOpts?: RequestOptions
 ): Promise<{ blob: Blob; filename: string }> {
-	const resp = await doPostForResponse(
-		`/mdm/configurations/${configurationId}/config`,
-		{},
+	const resp = await doGetForResponse(
+		`/mdm/configurations/${configurationId}/download/${encodeURIComponent(slug)}`,
 		reqOpts
 	);
 	const blob = await resp.blob();
