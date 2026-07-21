@@ -146,12 +146,14 @@ func TestResolveOrReveal(t *testing.T) {
 		assert.Empty(t, token)
 	})
 
-	t.Run("legacy backend failure falls back without authentication", func(t *testing.T) {
+	t.Run("legacy backend failure returns matchable error", func(t *testing.T) {
 		gatewayClient := newTestGatewayClient(t)
 		require.NoError(t, gatewayClient.Close())
 
 		token, err := ResolveOrReveal(ctx, storageClient, gatewayClient, system.DefaultNamespace, "", sourceURL, "repo1", "legacy-tool")
-		require.NoError(t, err)
+		var legacyErr *LegacyCredentialError
+		require.ErrorAs(t, err, &legacyErr)
+		require.ErrorIs(t, err, legacyErr.err)
 		assert.Empty(t, token)
 	})
 

@@ -2,6 +2,7 @@ package skillrepository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -61,6 +62,10 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	defer h.clearIsSyncing(req.Ctx, req.Client, namespace, repo.Name)
 
 	token, err := gitcredential.ResolveOrReveal(req.Ctx, req.Client, h.gatewayClient, repo.Namespace, repo.Spec.GitCredentialID, repo.Spec.RepoURL, repo.Name, SkillRepositoryCredentialToolName)
+	if legacyErr, ok := errors.AsType[*gitcredential.LegacyCredentialError](err); ok {
+		log.Errorf("failed to retrieve legacy credential for repository %s source %s, continuing without authentication: %v", repo.Name, repo.Spec.RepoURL, legacyErr)
+		err = nil
+	}
 	if err != nil {
 		if statusErr := h.recordFailure(req.Ctx, req.Client, namespace, repo.Name, err); statusErr != nil {
 			return statusErr

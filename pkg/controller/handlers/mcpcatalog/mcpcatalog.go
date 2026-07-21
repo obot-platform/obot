@@ -132,6 +132,10 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	for _, sourceURL := range mcpCatalog.Spec.SourceURLs {
 		credentialID := mcpCatalog.Spec.SourceURLGitCredentialIDs[sourceURL]
 		token, err := gitcredential.ResolveOrReveal(req.Ctx, req.Client, h.gatewayClient, mcpCatalog.Namespace, credentialID, sourceURL, mcpCatalog.Name, CatalogCredentialToolName)
+		if legacyErr, ok := errors.AsType[*gitcredential.LegacyCredentialError](err); ok {
+			log.Errorf("failed to retrieve legacy credential for catalog %s source %s, continuing without authentication: %v", mcpCatalog.Name, sourceURL, legacyErr)
+			err = nil
+		}
 		if err != nil {
 			log.Errorf("failed to resolve credential for catalog %s source %s: %v", mcpCatalog.Name, sourceURL, err)
 			mcpCatalog.Status.SyncErrors[sourceURL] = err.Error()
@@ -379,6 +383,10 @@ func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {
 	for _, sourceURL := range systemCatalog.Spec.SourceURLs {
 		credentialID := systemCatalog.Spec.SourceURLGitCredentialIDs[sourceURL]
 		token, err := gitcredential.ResolveOrReveal(req.Ctx, req.Client, h.gatewayClient, systemCatalog.Namespace, credentialID, sourceURL, systemCatalog.Name, CatalogCredentialToolName)
+		if legacyErr, ok := errors.AsType[*gitcredential.LegacyCredentialError](err); ok {
+			log.Errorf("failed to retrieve legacy credential for system catalog %s source %s, continuing without authentication: %v", systemCatalog.Name, sourceURL, legacyErr)
+			err = nil
+		}
 		if err != nil {
 			log.Errorf("failed to resolve credential for system catalog %s source %s: %v", systemCatalog.Name, sourceURL, err)
 			systemCatalog.Status.SyncErrors[sourceURL] = err.Error()
