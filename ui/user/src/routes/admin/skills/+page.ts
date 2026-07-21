@@ -17,7 +17,7 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 	try {
 		[skillRepositories, gitCredentials] = await Promise.all([
 			AdminService.listSkillRepositories({ fetch, dontLogErrors: true }),
-			AdminService.listGitCredentials({ fetch, dontLogErrors: true })
+			AdminService.listGitCredentials({ fetch, dontLogErrors: true }).catch(() => [])
 		]);
 	} catch (err) {
 		handleRouteError(err, '/admin/skills', profile);
