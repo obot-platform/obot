@@ -442,8 +442,9 @@
 	}
 
 	async function handleExportRequest(formType: 'export' | 'scheduled') {
-		// Check if there are any active filters
-		const hasActiveFilters = Object.keys(pillsSearchParamFilters).length > 0 || query;
+		// Check if there are any active filters. Intentionally skip carrying event_type over.
+		const hasActiveFilters =
+			Object.keys(pillsSearchParamFilters).some((key) => key !== 'event_type') || Boolean(query);
 		if (hasActiveFilters) {
 			// Show confirmation dialog
 			pendingExportType = formType;
@@ -464,18 +465,15 @@
 			const url = new URL(window.location.origin + `/admin/audit-logs/exports`);
 			url.searchParams.set('form', formType);
 
-			if (selectedEventTypes) {
-				url.searchParams.set('event_type', selectedEventTypes);
-			}
-
 			if (includeFilters) {
 				// Add current time range
 				url.searchParams.set('startTime', timeRangeFilters.startTime.toISOString());
 				url.searchParams.set('endTime', timeRangeFilters.endTime.toISOString());
 
-				// Add current filters (excluding time filters as they're handled separately)
+				// Add current filters (excluding time filters as they're handled separately, and
+				// event_type which is not carried over to the export view)
 				Object.entries(pillsSearchParamFilters).forEach(([key, value]) => {
-					if (key !== 'start_time' && key !== 'end_time' && value) {
+					if (key !== 'start_time' && key !== 'end_time' && key !== 'event_type' && value) {
 						url.searchParams.set(key, value.toString());
 					}
 				});
@@ -499,16 +497,13 @@
 			url.searchParams.set('form', 'storage');
 			url.searchParams.set('next', formType);
 
-			if (selectedEventTypes) {
-				url.searchParams.set('event_type', selectedEventTypes);
-			}
-
 			if (includeFilters) {
-				// Still add filters for when storage config is completed
+				// Still add filters for when storage config is completed (excluding event_type, which
+				// is not carried over to the export view)
 				url.searchParams.set('startTime', timeRangeFilters.startTime.toISOString());
 				url.searchParams.set('endTime', timeRangeFilters.endTime.toISOString());
 				Object.entries(pillsSearchParamFilters).forEach(([key, value]) => {
-					if (key !== 'start_time' && key !== 'end_time' && value) {
+					if (key !== 'start_time' && key !== 'end_time' && key !== 'event_type' && value) {
 						url.searchParams.set(key, value.toString());
 					}
 				});
@@ -788,12 +783,12 @@
 				in the export?
 			</p>
 
-			<!-- Show current filters -->
-			{#if Object.entries(pillsSearchParamFilters).length > 0 || query}
-				{@const entries = Object.entries(pillsSearchParamFilters) as [
-					keyof AuditLogURLFilters,
-					string
-				][]}
+			<!-- Show current filters. `event_type` (Source) is excluded since it is not carried over to
+			the export view. -->
+			{#if Object.keys(pillsSearchParamFilters).some((key) => key !== 'event_type') || query}
+				{@const entries = (
+					Object.entries(pillsSearchParamFilters) as [keyof AuditLogURLFilters, string][]
+				).filter(([key]) => key !== 'event_type')}
 				<div class="mb-4 rounded-md bg-gray-50 p-3 dark:bg-gray-800">
 					<h4 class="mb-2 text-xs font-medium text-muted-content">Active Filters:</h4>
 					<div class="text-muted-content space-y-1 text-xs">
