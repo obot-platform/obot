@@ -65,6 +65,7 @@
 			operation: '',
 			mcp_server: '',
 			tool: '',
+			client: '',
 			user_id: '',
 			mcp_id: '',
 			mcp_server_display_name: '',
