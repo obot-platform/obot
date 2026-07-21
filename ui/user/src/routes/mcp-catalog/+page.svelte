@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import Layout from '$lib/components/Layout.svelte';
 	import Search from '$lib/components/Search.svelte';
@@ -194,14 +195,14 @@
 					Sync
 				{/if}
 			</button>
-			<button
+			<a
 				in:fade={{ duration }}
+				href={resolve('/admin/git-credentials')}
 				class="btn btn-neutral flex items-center gap-1 rounded-4xl text-sm"
-				onclick={() => goto('/admin/git-credentials')}
 			>
 				<Settings class="size-4" />
 				Manage Credentials
-			</button>
+			</a>
 		{/if}
 		{#if canCreateEntry}
 			{@render addButton()}
