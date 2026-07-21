@@ -130,6 +130,14 @@ export interface AuditLogExport {
 }
 export interface AuditLogExportFilterResponse {
 	sourceTypes?: string[];
+	// Common cross-source filters (used when more than one source is selected).
+	actors?: string[];
+	operations?: string[];
+	mcpServers?: string[];
+	tools?: string[];
+	outcomes?: string[];
+	clients?: string[];
+	// Single-source filters.
 	userIDs?: string[];
 	mcpIDs?: string[];
 	mcpServerDisplayNames?: string[];
@@ -150,6 +158,14 @@ export interface AuditLogExportFilterResponse {
 }
 export type AuditLogExportFilters = {
 	sourceTypes?: string[];
+	// Common cross-source filters (used when more than one source is selected).
+	actors?: string[];
+	operations?: string[];
+	mcpServers?: string[];
+	tools?: string[];
+	outcomes?: string[];
+	clients?: string[];
+	// Single-source filters.
 	userIDs?: string[];
 	mcpIDs?: string[];
 	mcpServerDisplayNames?: string[];

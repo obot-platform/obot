@@ -76,6 +76,7 @@ func presentMCP(event *api.AuditLogEvent, log gatewaytypes.MCPAuditLog, opts Pre
 		Error:      mcp.Error,
 		DurationMs: mcp.ProcessingTimeMs,
 	}
+	event.Client = mcp.ClientName
 
 	if !opts.IncludeDetails {
 		return
@@ -212,6 +213,7 @@ func presentLocalAgent(event *api.AuditLogEvent, log gatewaytypes.MCPAuditLog, o
 		Error:      local.OutcomeError,
 		DurationMs: local.DurationMs,
 	}
+	event.Client = string(local.AgentProvider)
 
 	if !opts.IncludeDetails {
 		return

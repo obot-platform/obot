@@ -280,8 +280,10 @@ func (h *AuditLogExportHandler) UpdateScheduledAuditLogExport(req api.Context) e
 	if updateReq.Name != nil {
 		scheduledExport.Spec.Name = *updateReq.Name
 	}
-	if err := validateAuditLogExportFilters(scheduledExport.Spec.Filters); err != nil {
-		return types.NewErrBadRequest("validation failed: %v", err)
+	if scheduledExport.Spec.EffectiveType() == types.AuditLogTypeMCP {
+		if err := validateAuditLogExportFilters(scheduledExport.Spec.Filters); err != nil {
+			return types.NewErrBadRequest("validation failed: %v", err)
+		}
 	}
 
 	if err := req.Storage.Update(req.Context(), &scheduledExport); err != nil {
@@ -483,8 +485,8 @@ func (h *AuditLogExportHandler) validateScheduledExportRequest(req *types.Schedu
 }
 
 func validateAuditLogExportFilters(filters *types.AuditLogExportFilters) error {
-	if filters == nil {
-		return nil
+	if filters == nil || len(filters.SourceTypes) == 0 {
+		return fmt.Errorf("sourceTypes must include at least one audit log source")
 	}
 
 	sources := auditlog.NormalizeSourceTypes(filters.SourceTypes)
@@ -493,21 +495,46 @@ func validateAuditLogExportFilters(filters *types.AuditLogExportFilters) error {
 			return fmt.Errorf("invalid source type %q", source)
 		}
 	}
+	multiSource := len(sources) > 1
+
+	// Common cross-source filters resolve to the right column per source and are the only filters
+	// offered when more than one source is selected.
+	hasCommonFilters := len(filters.Actors) > 0 || len(filters.Operations) > 0 ||
+		len(filters.MCPServers) > 0 || len(filters.Tools) > 0 ||
+		len(filters.Outcomes) > 0 || len(filters.Clients) > 0
 	hasMCPFilters := len(filters.MCPIDs) > 0 || len(filters.MCPServerDisplayNames) > 0 ||
 		len(filters.MCPServerCatalogEntryNames) > 0 || len(filters.CallTypes) > 0 ||
 		len(filters.CallIdentifiers) > 0 || len(filters.ClientNames) > 0 ||
 		len(filters.ClientVersions) > 0 || len(filters.ResponseStatuses) > 0
 	hasLocalFilters := len(filters.AgentProviders) > 0 || len(filters.Statuses) > 0 ||
 		len(filters.ToolNames) > 0 || len(filters.ToolKinds) > 0 || len(filters.DeviceIDs) > 0
+	// user_id, session_id, and client_ip live on both sources' rows but are drill-down filters, so
+	// like the source-specific fields they are only offered for a single-source selection; a
+	// multi-source export uses the common Actors filter (user OR device) instead.
+	hasSharedColumnFilters := len(filters.UserIDs) > 0 || len(filters.SessionIDs) > 0 || len(filters.ClientIPs) > 0
+
+	// Common cross-source filters and single-source filters are two distinct vocabularies keyed off
+	// the source selection; they can never be combined regardless of how many sources are selected.
+	if hasCommonFilters && (hasMCPFilters || hasLocalFilters || hasSharedColumnFilters) {
+		return fmt.Errorf("common filters cannot be combined with source-specific filters")
+	}
+
+	if multiSource {
+		// Selecting more than one source narrows the available filters to the common cross-source
+		// set; the single-source filters would silently drop the other source's rows at execution.
+		if hasMCPFilters || hasLocalFilters || hasSharedColumnFilters {
+			return fmt.Errorf("only common filters are allowed when exporting more than one audit log source")
+		}
+		return nil
+	}
+
+	// A single source is selected: the common cross-source filters don't apply here; only that
+	// source's filters are valid.
+	if hasCommonFilters {
+		return fmt.Errorf("common filters require selecting more than one audit log source")
+	}
 	if hasMCPFilters && hasLocalFilters {
 		return fmt.Errorf("MCP and local-agent-specific filters cannot be combined")
-	}
-	// Source-specific filters narrow the query to a single source, so combining them with a
-	// multi-source selection would silently drop the other source's rows at execution time.
-	// The gateway query layer rejects this, so reject it here too rather than letting the
-	// export validate now and fail later when it runs.
-	if (hasMCPFilters || hasLocalFilters) && len(sources) > 1 {
-		return fmt.Errorf("source-specific filters require selecting a single audit log source")
 	}
 	if hasMCPFilters && !slices.Contains(sources, types.AuditLogSourceTypeMCP) {
 		return fmt.Errorf("MCP-specific filters require source type %q", types.AuditLogSourceTypeMCP)

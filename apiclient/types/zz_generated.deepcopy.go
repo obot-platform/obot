@@ -415,6 +415,36 @@ func (in *AuditLogExportFilters) DeepCopyInto(out *AuditLogExportFilters) {
 		*out = make([]AuditLogSourceType, len(*in))
 		copy(*out, *in)
 	}
+	if in.Actors != nil {
+		in, out := &in.Actors, &out.Actors
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
+	if in.Operations != nil {
+		in, out := &in.Operations, &out.Operations
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
+	if in.MCPServers != nil {
+		in, out := &in.MCPServers, &out.MCPServers
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
+	if in.Tools != nil {
+		in, out := &in.Tools, &out.Tools
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
+	if in.Outcomes != nil {
+		in, out := &in.Outcomes, &out.Outcomes
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
+	if in.Clients != nil {
+		in, out := &in.Clients, &out.Clients
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.UserIDs != nil {
 		in, out := &in.UserIDs, &out.UserIDs
 		*out = make([]string, len(*in))

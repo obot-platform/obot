@@ -208,6 +208,11 @@ export interface AuditLogEvent {
 		error?: string;
 		durationMs?: number;
 	};
+	/**
+	 * Source-independent short client label: the MCP client name or the local-agent provider.
+	 * Present in list responses so the table can render the Client column without fetching details.
+	 */
+	client?: string;
 	details?: AuditLogDetails;
 }
 export interface McpAuditLogToolCallStatItem {
@@ -248,6 +253,23 @@ export interface McpAuditLogUsageStats {
 }
 export type AuditLogURLFilters = {
 	event_type?: string | null;
+
+	// Unified, source-agnostic filters used by the audit log UI. These map to the correct
+	// underlying column per source in the backend and can be combined across sources.
+	actor?: string | null; // matches an Obot user id or an enrolled device id
+	operation?: string | null; // MCP call type; local-agent tool calls are implicitly tools/call
+	mcp_server?: string | null; // MCP server (id/display name) or a local-agent row's MCP parent
+	tool?: string | null; // MCP call identifier or local-agent action name
+	outcome?: string | null; // normalized status: success/failure/denied/timeout/unknown
+	client?: string | null; // MCP client name or local-agent provider
+	// Duration is a client-side preset bucket ("minMs-maxMs"); the page translates it to the
+	// processing_time_min/max params below before querying the backend.
+	duration?: string | null;
+	processing_time_min?: number | null; // duration filter, milliseconds
+	processing_time_max?: number | null;
+
+	// Legacy source-specific filters. Used for audit log exports.
+	// MCP filters:
 	user_id?: string | null;
 	mcp_server_catalog_entry_name?: string | null;
 	mcp_server_display_name?: string | null;
@@ -264,6 +286,7 @@ export type AuditLogURLFilters = {
 	tool_name?: string | null;
 	tool_kind?: string | null;
 	device_id?: string | null;
+
 	start_time?: string | null; // RFC3339 format (e.g., "2024-01-01T00:00:00Z"
 	end_time?: string | null;
 	limit?: number | null;

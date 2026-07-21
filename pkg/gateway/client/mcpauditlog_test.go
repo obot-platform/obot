@@ -735,6 +735,130 @@ func TestValidateAuditLogOptionsRejectsSourceSpecificFiltersWithMultipleSources(
 	}
 }
 
+// TestGetMCPAuditLogsUnifiedFilters exercises the source-agnostic UI filters against a mixed-source
+// dataset. Each unified filter must resolve to the correct column per source and be combinable across
+// both sources in a single query (which the source-specific filters cannot do).
+func TestGetMCPAuditLogsUnifiedFilters(t *testing.T) {
+	c := newTestClient(t)
+	ctx := t.Context()
+	base := time.Date(2026, 7, 14, 10, 0, 0, 0, time.UTC)
+
+	insertMCP := func(name string, status int, mcpID, callType, callIdentifier, clientName, userID string) {
+		t.Helper()
+		if err := c.insertMCPAuditLogs(ctx, []types.MCPAuditLog{{
+			CreatedAt: base, SourceType: types2.AuditLogSourceTypeMCP, UserID: userID,
+			MCPFields: &types.MCPAuditLogFields{
+				MCPID: mcpID, MCPServerDisplayName: "GitHub", CallType: callType,
+				CallIdentifier: callIdentifier, ClientName: clientName,
+				ResponseReceived: true, ResponseStatus: status,
+			},
+		}}); err != nil {
+			t.Fatalf("insert MCP log %q: %v", name, err)
+		}
+	}
+
+	insertMCP("mcp-success", 200, "mcp-1", "tools/call", "search_issues", "cursor", "user-mcp")
+	insertMCP("mcp-denied", 403, "mcp-2", "resources/read", "channel", "vscode", "user-mcp2")
+	insertMCP("mcp-failure", 500, "mcp-1", "tools/call", "delete_repo", "cursor", "user-mcp")
+	insertMCP("mcp-timeout", 504, "mcp-1", "tools/call", "slow_tool", "cursor", "user-mcp")
+
+	// validLocalAgentAuditLog defaults: device-1 / user-1 / codex / action mcp__server__tool / parent "server".
+	localSuccess := validLocalAgentAuditLog(base, "local-success", types2.AuditLogOutcomeStatusSuccess)
+	localFailure := validLocalAgentAuditLog(base, "local-failure", types2.AuditLogOutcomeStatusFailure)
+	localFailure.LocalAgentToolCallFields.AgentProvider = types2.LocalAgentProviderClaudeCode
+	localFailure.LocalAgentToolCallFields.ActionName = "bash"
+	if err := c.InsertLocalAgentAuditLogs(ctx, []types.MCPAuditLog{localSuccess, localFailure}); err != nil {
+		t.Fatalf("insert local logs: %v", err)
+	}
+
+	both := []types2.AuditLogSourceType{
+		types2.AuditLogSourceTypeMCP,
+		types2.AuditLogSourceTypeLocalAgentToolCall,
+	}
+
+	count := func(t *testing.T, opts MCPAuditLogOptions) int {
+		t.Helper()
+		opts.SourceTypes = both
+		_, total, err := c.GetMCPAuditLogs(ctx, opts)
+		if err != nil {
+			t.Fatalf("list: %v", err)
+		}
+		return int(total)
+	}
+
+	t.Run("actor spans users and devices", func(t *testing.T) {
+		// user-mcp matches 3 MCP rows; device-1 matches both local rows.
+		if got := count(t, MCPAuditLogOptions{Actor: []string{"user-mcp", "device-1"}}); got != 5 {
+			t.Fatalf("actor: want 5, got %d", got)
+		}
+	})
+	t.Run("operation across sources", func(t *testing.T) {
+		// tools/call: 3 MCP rows + both local rows (implicit tools/call).
+		if got := count(t, MCPAuditLogOptions{Operation: []string{"tools/call"}}); got != 5 {
+			t.Fatalf("operation tools/call: want 5, got %d", got)
+		}
+		// resources/read: only the MCP denied row; local rows are not tools/call.
+		if got := count(t, MCPAuditLogOptions{Operation: []string{"resources/read"}}); got != 1 {
+			t.Fatalf("operation resources/read: want 1, got %d", got)
+		}
+	})
+	t.Run("tool identifier across sources", func(t *testing.T) {
+		// call_identifier search_issues (MCP) + action_name mcp__server__tool (local success).
+		if got := count(t, MCPAuditLogOptions{Tool: []string{"search_issues", "mcp__server__tool"}}); got != 2 {
+			t.Fatalf("tool: want 2, got %d", got)
+		}
+	})
+	t.Run("client spans client name and agent provider", func(t *testing.T) {
+		// client_name cursor (3 MCP rows) + agent_provider claude_code (1 local row).
+		if got := count(t, MCPAuditLogOptions{
+			Client: []string{"cursor", string(types2.LocalAgentProviderClaudeCode)},
+		}); got != 4 {
+			t.Fatalf("client: want 4, got %d", got)
+		}
+	})
+	t.Run("mcp server identifier across sources", func(t *testing.T) {
+		// mcp_id mcp-1 (3 MCP rows) + local rows whose MCP parent target is "server" (2).
+		if got := count(t, MCPAuditLogOptions{MCPServer: []string{"mcp-1", "server"}}); got != 5 {
+			t.Fatalf("mcp_server: want 5, got %d", got)
+		}
+	})
+	t.Run("outcome normalized across sources", func(t *testing.T) {
+		cases := []struct {
+			outcome string
+			want    int
+		}{
+			{"success", 2}, // MCP 200 + local success
+			{"denied", 1},  // MCP 403
+			{"timeout", 1}, // MCP 504
+			{"failure", 2}, // MCP 500 + local failure
+			{"unknown", 0}, // none recorded
+		}
+		for _, tc := range cases {
+			if got := count(t, MCPAuditLogOptions{Outcome: []string{tc.outcome}}); got != tc.want {
+				t.Fatalf("outcome %s: want %d, got %d", tc.outcome, tc.want, got)
+			}
+		}
+	})
+	t.Run("client filter options union across sources", func(t *testing.T) {
+		options, err := c.GetAuditLogFilterOptions(ctx, "client", MCPAuditLogOptions{SourceTypes: both})
+		if err != nil {
+			t.Fatalf("client options: %v", err)
+		}
+		got := make(map[string]bool, len(options))
+		for _, o := range options {
+			got[o] = true
+		}
+		for _, want := range []string{
+			"cursor", "vscode",
+			string(types2.LocalAgentProviderCodex), string(types2.LocalAgentProviderClaudeCode),
+		} {
+			if !got[want] {
+				t.Fatalf("client options missing %q, got %v", want, options)
+			}
+		}
+	})
+}
+
 func validLocalAgentAuditLog(occurredAt time.Time, idempotencyKey string, status types2.AuditLogOutcomeStatus) types.MCPAuditLog {
 	return types.MCPAuditLog{
 		CreatedAt:  occurredAt,

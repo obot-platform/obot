@@ -2,7 +2,17 @@
 	import { page } from '$app/state';
 	import type { DateRange } from '$lib/components/Calendar.svelte';
 	import Select from '$lib/components/Select.svelte';
-	import { filterVisibleExportFields } from '$lib/components/admin/audit-log-exports/filterFields';
+	import {
+		ALL_SOURCE_TYPES,
+		clearSourceScopedFilters,
+		COMMON_FILTER_KEYS,
+		eventTypeParamFromSourceTypes,
+		filterVisibleExportFields,
+		isExportFilterKeyVisible,
+		normalizeSourceTypes,
+		sourceTypeLabels,
+		sourceTypesFromEventTypeParam
+	} from '$lib/components/admin/audit-log-exports/filterFields';
 	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
@@ -23,6 +33,12 @@
 	import { twMerge } from 'tailwind-merge';
 
 	type AuditLogExportMultiSelectFilterKey =
+		| 'actor'
+		| 'operation'
+		| 'mcp_server'
+		| 'tool'
+		| 'outcome'
+		| 'client'
 		| 'user_id'
 		| 'mcp_id'
 		| 'mcp_server_display_name'
@@ -60,6 +76,39 @@
 
 	const AUDIT_LOG_EXPORT_FILTER_FIELDS: AuditLogExportFilterFieldConfig<AuditLogExportMultiSelectFilterKey>[] =
 		[
+			// Common cross-source filters. Shown only when more than one log source is selected.
+			{
+				filterKey: 'actor',
+				title: 'Actors',
+				description: 'Users and enrolled devices',
+				useUserDisplayNames: true
+			},
+			{
+				filterKey: 'tool',
+				title: 'Tools',
+				description: 'Tools called (MCP call identifiers and local tool names)'
+			},
+			{
+				filterKey: 'mcp_server',
+				title: 'MCP Servers',
+				description: 'MCP servers (and the parent server of local tool calls)'
+			},
+			{
+				filterKey: 'operation',
+				title: 'Operations',
+				description: 'MCP operations; local tool calls are all tools/call'
+			},
+			{
+				filterKey: 'outcome',
+				title: 'Outcomes',
+				description: 'success, failure, denied, timeout, or unknown'
+			},
+			{
+				filterKey: 'client',
+				title: 'Clients',
+				description: 'MCP clients and local-agent providers'
+			},
+			// Single-source filters. Shown only when exactly one log source is selected.
 			{
 				filterKey: 'user_id',
 				title: 'Users',
@@ -209,23 +258,21 @@
 
 	const hasAuditorPermissions = $derived(profile.current.groups.includes(Group.AUDITOR));
 
-	// The concrete audit-log sources to export. The API carries an explicit list of source types;
-	// selecting more than one exports each source in the same export.
-	const ALL_SOURCE_TYPES = ['mcp', 'local_agent_tool_call'] as const;
-	const sourceTypeLabels: Record<string, string> = {
-		mcp: 'MCP',
-		local_agent_tool_call: 'Local Agent Tool Calls'
-	};
-
-	// Form state
+	// Form state. Every log source starts selected so a new export covers everything by default;
+	// the user narrows it by unchecking.
 	let form = $state({
 		name: '',
 		bucket: '',
 		keyPrefix: '',
 		startTime: subDays(new Date(), 7),
 		endTime: set(new Date(), { milliseconds: 0, seconds: 59 }),
-		sourceTypes: ['mcp'],
+		sourceTypes: [...ALL_SOURCE_TYPES] as string[],
 		filters: {
+			actor: '',
+			operation: '',
+			mcp_server: '',
+			tool: '',
+			client: '',
 			user_id: '',
 			mcp_id: '',
 			mcp_server_display_name: '',
@@ -257,6 +304,12 @@
 	let error = $state('');
 
 	let mcpFiltersIds = [
+		'actor',
+		'operation',
+		'mcp_server',
+		'tool',
+		'outcome',
+		'client',
 		'mcp_id',
 		'user_id',
 		'mcp_server_catalog_entry_name',
@@ -320,6 +373,12 @@
 				const filters = initialData.filters;
 				form.sourceTypes = normalizeSourceTypes(filters.sourceTypes);
 				form.filters = {
+					actor: join(filters.actors),
+					operation: join(filters.operations),
+					mcp_server: join(filters.mcpServers),
+					tool: join(filters.tools),
+					outcome: join(filters.outcomes),
+					client: join(filters.clients),
 					user_id: join(filters.userIDs),
 					mcp_id: join(filters.mcpIDs),
 					mcp_server_display_name: join(filters.mcpServerDisplayNames),
@@ -355,12 +414,12 @@
 			}
 
 			if (logType === 'mcp') {
-				const eventTypes = params.get('event_type')?.split(',') ?? [];
-				form.sourceTypes = normalizeSourceTypes(
-					eventTypes.map((eventType) =>
-						eventType === 'local_agent_tool_call' ? 'local_agent_tool_call' : 'mcp'
-					)
-				);
+				// The audit-logs page omits event_type when no Source filter is applied; in that case
+				// the all-sources default stands.
+				const sourceTypes = sourceTypesFromEventTypeParam(params.get('event_type'));
+				if (sourceTypes) {
+					form.sourceTypes = sourceTypes;
+				}
 			}
 
 			// Set filters if provided
@@ -396,9 +455,7 @@
 	});
 
 	$effect(() => {
-		const event_type = form.sourceTypes
-			.map((source) => (source === 'mcp' ? 'mcp_call' : 'local_agent_tool_call'))
-			.join(',');
+		const event_type = eventTypeParamFromSourceTypes(form.sourceTypes);
 		filtersIds.forEach((id) => {
 			if (logType === 'llm') {
 				AdminService.listLLMAuditLogFilterOptions(id).then((res) => {
@@ -406,14 +463,15 @@
 				});
 				return;
 			}
+			// Only fetch options for the filters actually visible in the current source selection.
 			if (
-				localFilterKeys.has(id as AuditLogExportMultiSelectFilterKey) &&
-				!form.sourceTypes.includes('local_agent_tool_call')
-			)
-				return;
-			if (
-				mcpFilterKeys.has(id as AuditLogExportMultiSelectFilterKey) &&
-				!form.sourceTypes.includes('mcp')
+				!isExportFilterKeyVisible(
+					form.sourceTypes,
+					id,
+					commonFilterKeys,
+					mcpFilterKeys,
+					localFilterKeys
+				)
 			)
 				return;
 			UserService.listAuditLogFilterOptions(id, { event_type }).then((res) => {
@@ -422,6 +480,7 @@
 		});
 	});
 
+	const commonFilterKeys = new Set<AuditLogExportMultiSelectFilterKey>(COMMON_FILTER_KEYS);
 	const mcpFilterKeys = new Set<AuditLogExportMultiSelectFilterKey>([
 		'mcp_id',
 		'mcp_server_display_name',
@@ -440,7 +499,13 @@
 		'device_id'
 	]);
 	const visibleAuditLogExportFields = $derived(
-		filterVisibleExportFields(form, AUDIT_LOG_EXPORT_FILTER_FIELDS, mcpFilterKeys, localFilterKeys)
+		filterVisibleExportFields(
+			form,
+			AUDIT_LOG_EXPORT_FILTER_FIELDS,
+			commonFilterKeys,
+			mcpFilterKeys,
+			localFilterKeys
+		)
 	);
 
 	function join(array: string[] | undefined): string {
@@ -462,19 +527,13 @@
 			.filter((n) => !Number.isNaN(n));
 	}
 
-	// Keep only known source types, preserving their canonical order, and fall back to the
-	// historical MCP-only default when nothing valid is selected.
-	function normalizeSourceTypes(sourceTypes: string[] | undefined): string[] {
-		const selected = ALL_SOURCE_TYPES.filter((st) => sourceTypes?.includes(st));
-		return selected.length > 0 ? [...selected] : ['mcp'];
-	}
-
 	function toggleSourceType(sourceType: string, checked: boolean) {
 		// normalizeSourceTypes de-duplicates, so appending on check is safe.
 		const next = checked
 			? [...form.sourceTypes, sourceType]
 			: form.sourceTypes.filter((st) => st !== sourceType);
 		form.sourceTypes = normalizeSourceTypes(next);
+		clearSourceScopedFilters(form.filters);
 	}
 
 	function splitBooleans(value: string | null | undefined): boolean[] {
@@ -523,6 +582,10 @@
 				return;
 			}
 
+			if (form.sourceTypes.length === 0) {
+				throw new Error('At least one log source must be selected');
+			}
+
 			// Prepare the request
 			const request = {
 				name: form.name,
@@ -533,6 +596,12 @@
 				endTime: form.endTime.toISOString(),
 				filters: {
 					sourceTypes: normalizeSourceTypes(form.sourceTypes),
+					actors: split(form.filters.actor),
+					operations: split(form.filters.operation),
+					mcpServers: split(form.filters.mcp_server),
+					tools: split(form.filters.tool),
+					outcomes: split(form.filters.outcome),
+					clients: split(form.filters.client),
 					userIDs: split(form.filters.user_id),
 					mcpIDs: split(form.filters.mcp_id),
 					mcpServerDisplayNames: split(form.filters.mcp_server_display_name),
@@ -703,7 +772,7 @@
 					{#if !isViewMode}
 						<p class="text-muted-content text-xs">
 							Which audit-log source(s) to export. Select both to include MCP and local-agent
-							tool-call logs in the same export.
+							tool-call logs in the same export. At least one source is required.
 						</p>
 					{/if}
 				</div>

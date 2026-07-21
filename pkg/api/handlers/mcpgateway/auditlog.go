@@ -156,9 +156,21 @@ func parseAuditLogOpts(query url.Values) gateway.MCPAuditLogOptions {
 		ToolName:                  parseMultiValueParam(query, "tool_name"),
 		ToolKind:                  parseMultiValueParam(query, "tool_kind"),
 		DeviceID:                  parseMultiValueParam(query, "device_id"),
-		SortBy:                    query.Get("sort_by"),
-		SortOrder:                 query.Get("sort_order"),
-		Query:                     strings.TrimSpace(query.Get("query")),
+
+		// Unified, source-agnostic filters used by the reworked audit-log UI. These map to the correct
+		// column per source in the gateway client and are additive to the source-specific filters above
+		// (which the export path still uses). "outcome" is deliberately distinct from the export form's
+		// "status" param so the two filter vocabularies never collide.
+		Actor:     parseMultiValueParam(query, "actor"),
+		Operation: parseMultiValueParam(query, "operation"),
+		MCPServer: parseMultiValueParam(query, "mcp_server"),
+		Tool:      parseMultiValueParam(query, "tool"),
+		Outcome:   parseMultiValueParam(query, "outcome"),
+		Client:    parseMultiValueParam(query, "client"),
+
+		SortBy:    query.Get("sort_by"),
+		SortOrder: query.Get("sort_order"),
+		Query:     strings.TrimSpace(query.Get("query")),
 	}
 
 	if startTime := query.Get("start_time"); startTime != "" {
@@ -218,7 +230,24 @@ func parseAuditLogEventTypes(query url.Values) ([]types.AuditLogSourceType, erro
 		}
 		sources = append(sources, source)
 	}
+
+	if len(sources) == 0 {
+		return nil, nil
+	}
 	return auditlog.NormalizeSourceTypes(sources), nil
+}
+
+// defaultAuditLogSources returns the source selection to use when the caller did not specify an
+// event_type: every source the caller is authorized to read. Admins and auditors may read both MCP
+// and local-agent logs; everyone else is limited to MCP logs.
+func defaultAuditLogSources(req api.Context) []types.AuditLogSourceType {
+	if req.UserIsAdmin() || req.UserIsAuditor() {
+		return []types.AuditLogSourceType{
+			types.AuditLogSourceTypeMCP,
+			types.AuditLogSourceTypeLocalAgentToolCall,
+		}
+	}
+	return []types.AuditLogSourceType{types.AuditLogSourceTypeMCP}
 }
 
 // SubmitAuditLogs handles POST /api/mcp-audit-logs
@@ -326,6 +355,9 @@ func (h *AuditLogHandler) ListAuditLogs(req api.Context) error {
 	sources, err := parseAuditLogEventTypes(query)
 	if err != nil {
 		return err
+	}
+	if len(sources) == 0 {
+		sources = defaultAuditLogSources(req)
 	}
 	if err := authorizeAuditLogSources(req, sources); err != nil {
 		return err
@@ -501,6 +533,21 @@ var localAgentFilterOptions = map[string]any{
 // defaultFilterOptions will always be present of the given filter, regardless of what is in the database.
 var defaultFilterOptions = map[string][]string{
 	"call_type": {"prompts/list", "resources/read", "tools/list", "tools/call", "prompts/get", "resources/list"},
+	// Unified UI filters.
+	"operation": {"prompts/list", "resources/read", "tools/list", "tools/call", "prompts/get", "resources/list"},
+	"outcome":   {"success", "failure", "denied", "timeout", "unknown"},
+}
+
+// unifiedFilterOptions are the source-agnostic filter keys used by the reworked audit-log UI. They
+// are available regardless of the selected source(s). "outcome" is served entirely from
+// defaultFilterOptions (a fixed enum); the rest resolve to distinct values across both sources.
+var unifiedFilterOptions = map[string]struct{}{
+	"actor":      {},
+	"operation":  {},
+	"mcp_server": {},
+	"tool":       {},
+	"outcome":    {},
+	"client":     {},
 }
 
 func (h *AuditLogHandler) ListAuditLogFilterOptions(req api.Context) error {
@@ -515,6 +562,9 @@ func (h *AuditLogHandler) ListAuditLogFilterOptions(req api.Context) error {
 	if err != nil {
 		return err
 	}
+	if len(sources) == 0 {
+		sources = defaultAuditLogSources(req)
+	}
 	if err := authorizeAuditLogSources(req, sources); err != nil {
 		return err
 	}
@@ -526,6 +576,11 @@ func (h *AuditLogHandler) ListAuditLogFilterOptions(req api.Context) error {
 			options = append(options, string(types.AuditLogEventTypeLocalAgentToolCall))
 		}
 		return req.Write(map[string]any{"options": options})
+	}
+
+	// The unified "outcome" (normalized status) filter is a fixed enum independent of the data.
+	if filter == "outcome" {
+		return req.Write(map[string]any{"options": defaultFilterOptions["outcome"]})
 	}
 
 	// Apply scope filtering based on user role
@@ -557,15 +612,19 @@ func (h *AuditLogHandler) ListAuditLogFilterOptions(req api.Context) error {
 	if slices.Contains(sources, types.AuditLogSourceTypeLocalAgentToolCall) {
 		maps.Copy(availableOptions, localAgentFilterOptions)
 	}
-	exclude, ok := availableOptions[filter]
-	if !ok {
+
+	var excludeArgs []any
+	if zeroValue, ok := availableOptions[filter]; ok {
+		// Legacy per-source filter column: exclude its zero value from the returned options.
+		excludeArgs = []any{zeroValue}
+	} else if _, ok := unifiedFilterOptions[filter]; !ok {
 		return types.NewErrBadRequest("invalid option: %s", filter)
 	}
 	if err := validateAuditLogOptions(opts); err != nil {
 		return err
 	}
 
-	options, err := req.GatewayClient.GetAuditLogFilterOptions(req.Context(), filter, opts, exclude)
+	options, err := req.GatewayClient.GetAuditLogFilterOptions(req.Context(), filter, opts, excludeArgs...)
 	if err != nil {
 		return err
 	}

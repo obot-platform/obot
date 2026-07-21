@@ -259,6 +259,8 @@ func (c *Client) GetMCPAuditLogs(ctx context.Context, opts MCPAuditLogOptions) (
 		db = applyLocalAgentAuditLogFilters(db.Where("source_type = ?", types2.AuditLogSourceTypeLocalAgentToolCall), opts)
 	}
 
+	db = applyUnifiedAuditLogFilters(db, opts)
+
 	// When payloads aren't requested, avoid reading/transferring the large sensitive columns that
 	// prepareAuditLogPayload would blank anyway. The list view drops headers too.
 	if !opts.WithRequestAndResponse {
@@ -389,6 +391,96 @@ func applyLocalAgentAuditLogFilters(db *gorm.DB, opts MCPAuditLogOptions) *gorm.
 		}
 	}
 	return db
+}
+
+// applyUnifiedAuditLogFilters applies the source-agnostic filters used by the audit logs UI.
+// Each predicate is guarded by source_type so a single filter value resolves to the correct column
+// for MCP rows and for local-agent rows, making the filters safe on mixed-source queries. These are
+// additive to the source-specific filters; the export path uses the source-specific fields instead.
+func applyUnifiedAuditLogFilters(db *gorm.DB, opts MCPAuditLogOptions) *gorm.DB {
+	// Actor: an Obot user (user_id, both sources) or an enrolled device (device_id, local-agent).
+	if len(opts.Actor) > 0 {
+		db = db.Where("(user_id IN ? OR device_id IN ?)", opts.Actor, opts.Actor)
+	}
+	// Operation: MCP call_type; local-agent tool calls have the implicit operation "tools/call".
+	if len(opts.Operation) > 0 {
+		conditions := []string{"(source_type = ? AND call_type IN ?)"}
+		args := []any{types2.AuditLogSourceTypeMCP, opts.Operation}
+		if slices.Contains(opts.Operation, "tools/call") {
+			conditions = append(conditions, "source_type = ?")
+			args = append(args, types2.AuditLogSourceTypeLocalAgentToolCall)
+		}
+		db = db.Where("("+strings.Join(conditions, " OR ")+")", args...)
+	}
+	// MCP server identifier: the server for MCP rows, or a local-agent row's MCP parent target.
+	if len(opts.MCPServer) > 0 {
+		db = db.Where("((source_type = ? AND (mcp_id IN ? OR mcp_server_display_name IN ?)) OR (source_type = ? AND target_parent_name IN ?))",
+			types2.AuditLogSourceTypeMCP, opts.MCPServer, opts.MCPServer,
+			types2.AuditLogSourceTypeLocalAgentToolCall, opts.MCPServer)
+	}
+	// Tool identifier: MCP call_identifier or local-agent action_name.
+	if len(opts.Tool) > 0 {
+		db = db.Where("((source_type = ? AND call_identifier IN ?) OR (source_type = ? AND action_name IN ?))",
+			types2.AuditLogSourceTypeMCP, opts.Tool,
+			types2.AuditLogSourceTypeLocalAgentToolCall, opts.Tool)
+	}
+	// Client: MCP client name or local-agent runtime provider.
+	if len(opts.Client) > 0 {
+		db = db.Where("((source_type = ? AND client_name IN ?) OR (source_type = ? AND agent_provider IN ?))",
+			types2.AuditLogSourceTypeMCP, opts.Client,
+			types2.AuditLogSourceTypeLocalAgentToolCall, opts.Client)
+	}
+	// Outcome: normalized status. Local-agent rows store it directly; MCP rows are classified from
+	// their HTTP status/error the same way ClassifyMCPOutcome (pkg/auditlog) does.
+	if len(opts.Outcome) > 0 {
+		db = applyOutcomeAuditLogFilter(db, opts.Outcome)
+	}
+	return db
+}
+
+// mcpOutcomeStatusPredicate returns the SQL predicate selecting MCP rows whose classified outcome
+// equals status, mirroring ClassifyMCPOutcome. It returns "" for an unrecognized status so callers
+// can skip it. Ranges are kept in sync with pkg/auditlog.ClassifyMCPOutcome.
+func mcpOutcomeStatusPredicate(status string) string {
+	switch types2.AuditLogOutcomeStatus(status) {
+	case types2.AuditLogOutcomeStatusSuccess:
+		return "response_status BETWEEN 1 AND 399"
+	case types2.AuditLogOutcomeStatusDenied:
+		return "response_status IN (401, 403)"
+	case types2.AuditLogOutcomeStatusTimeout:
+		return "response_status IN (408, 504)"
+	case types2.AuditLogOutcomeStatusFailure:
+		return "((error <> '' OR response_status >= 400) AND response_status NOT IN (401, 403, 408, 504))"
+	case types2.AuditLogOutcomeStatusUnknown:
+		return "(response_status <= 0 AND (error IS NULL OR error = ''))"
+	default:
+		return ""
+	}
+}
+
+// applyOutcomeAuditLogFilter filters by normalized outcome across both sources: local-agent rows by
+// their stored outcome_status, MCP rows by classifying response_status/error.
+func applyOutcomeAuditLogFilter(db *gorm.DB, outcomes []string) *gorm.DB {
+	var (
+		parts []string
+		args  []any
+	)
+
+	var mcpPredicates []string
+	for _, outcome := range outcomes {
+		if predicate := mcpOutcomeStatusPredicate(outcome); predicate != "" {
+			mcpPredicates = append(mcpPredicates, predicate)
+		}
+	}
+	if len(mcpPredicates) > 0 {
+		parts = append(parts, "(source_type = ? AND ("+strings.Join(mcpPredicates, " OR ")+"))")
+		args = append(args, types2.AuditLogSourceTypeMCP)
+	}
+
+	parts = append(parts, "(source_type = ? AND outcome_status IN ?)")
+	args = append(args, types2.AuditLogSourceTypeLocalAgentToolCall, outcomes)
+
+	return db.Where("("+strings.Join(parts, " OR ")+")", args...)
 }
 
 func (c *Client) applyAuditLogSearch(ctx context.Context, db *gorm.DB, queryValue string) (*gorm.DB, error) {
@@ -574,6 +666,78 @@ func (c *Client) GetMCPAuditLog(ctx context.Context, id uint, withRequestAndResp
 	return &log, nil
 }
 
+// auditLogUnifiedFilterOptionExpr maps a source-agnostic UI filter key to the SQL expression that
+// yields its per-row value, so distinct options can be gathered across both sources in one query.
+var auditLogUnifiedFilterOptionExpr = map[string]string{
+	"actor":      "CASE WHEN COALESCE(device_id, '') <> '' THEN device_id ELSE user_id END",
+	"operation":  "CASE WHEN source_type = 'local_agent_tool_call' THEN 'tools/call' ELSE call_type END",
+	"mcp_server": "CASE WHEN source_type = 'local_agent_tool_call' THEN target_parent_name ELSE mcp_server_display_name END",
+	"tool":       "CASE WHEN source_type = 'local_agent_tool_call' THEN action_name ELSE call_identifier END",
+	"client":     "CASE WHEN source_type = 'local_agent_tool_call' THEN agent_provider ELSE client_name END",
+}
+
+// isUnifiedFilterOption reports whether option is one of the reworked UI's source-agnostic filters.
+func isUnifiedFilterOption(option string) bool {
+	_, ok := auditLogUnifiedFilterOptionExpr[option]
+	return ok
+}
+
+// getUnifiedAuditLogFilterOptions returns the distinct values for a source-agnostic UI filter,
+// computed per row from the appropriate source column via a CASE expression and unioned across
+// sources. It applies the same scope, time, and (other) unified filters as the list query.
+func (c *Client) getUnifiedAuditLogFilterOptions(ctx context.Context, option string, opts MCPAuditLogOptions) ([]string, error) {
+	expr := auditLogUnifiedFilterOptionExpr[option]
+	sources := auditlog.NormalizeSourceTypes(opts.SourceTypes)
+
+	db := c.db.WithContext(ctx).Model(&types.MCPAuditLog{}).Where("source_type IN ?", sources)
+	if opts.Query != "" {
+		var err error
+		if db, err = c.applyAuditLogSearch(ctx, db, opts.Query); err != nil {
+			return nil, err
+		}
+	}
+
+	eventTime := auditLogEventTimeExpression(sources)
+	if !opts.StartTime.IsZero() {
+		db = db.Where(eventTime+" >= ?", opts.StartTime.UTC())
+	}
+	if !opts.EndTime.IsZero() {
+		db = db.Where(eventTime+" < ?", opts.EndTime.UTC())
+	}
+	if opts.ProcessingTimeMin > 0 {
+		db = db.Where("CASE WHEN source_type = ? THEN duration_ms ELSE processing_time_ms END >= ?",
+			types2.AuditLogSourceTypeLocalAgentToolCall, opts.ProcessingTimeMin)
+	}
+	if opts.ProcessingTimeMax > 0 {
+		db = db.Where("CASE WHEN source_type = ? THEN duration_ms ELSE processing_time_ms END <= ?",
+			types2.AuditLogSourceTypeLocalAgentToolCall, opts.ProcessingTimeMax)
+	}
+
+	// Authorized scope (role-based own-server / workspace, and embedded-view server props). Reusing
+	// applyMCPAuditLogFilters with a scope-only options value keeps the scope predicates identical to
+	// the list query; the source-specific filter columns are empty here so they add nothing.
+	db = applyMCPAuditLogFilters(db, MCPAuditLogOptions{
+		PowerUserWorkspaceID:      opts.PowerUserWorkspaceID,
+		OwnServerMCPIDs:           opts.OwnServerMCPIDs,
+		MCPID:                     opts.MCPID,
+		MCPServerDisplayName:      opts.MCPServerDisplayName,
+		MCPServerCatalogEntryName: opts.MCPServerCatalogEntryName,
+	})
+
+	// Other active unified filters narrow the options; the caller removes the current filter's own key.
+	db = applyUnifiedAuditLogFilters(db, opts)
+
+	db = db.Where(expr+" <> ?", "")
+
+	q := db.Distinct().Select(expr + " AS value").Order(expr)
+	if opts.Limit > 0 {
+		q = q.Limit(opts.Limit)
+	}
+
+	var result []string
+	return result, q.Scan(&result).Error
+}
+
 // GetAuditLogFilterOptions returns distinct values for an allowed audit-log filter column under
 // the same source, scope, common-filter, and time constraints used by the list query. The caller
 // must validate option against its public allowlist before calling this method.
@@ -581,6 +745,9 @@ func (c *Client) GetAuditLogFilterOptions(ctx context.Context, option string, op
 	sources := auditlog.NormalizeSourceTypes(opts.SourceTypes)
 	if err := ValidateAuditLogOptions(opts, sources); err != nil {
 		return nil, err
+	}
+	if isUnifiedFilterOption(option) {
+		return c.getUnifiedAuditLogFilterOptions(ctx, option, opts)
 	}
 	if len(sources) > 1 && !hasMCPAuditLogFilters(opts) && !hasLocalAgentAuditLogFilters(opts) &&
 		(option == "user_id" || option == "session_id" || option == "client_ip") {
@@ -934,6 +1101,22 @@ type MCPAuditLogOptions struct {
 	ToolName      []string
 	ToolKind      []string
 	DeviceID      []string
+
+	// Unified, source-agnostic filters used by the audit log UI.
+	//
+	//   Actor     matches user_id OR device_id (users and enrolled devices).
+	//   Operation matches MCP call_type; local-agent rows have the implicit operation tools/call.
+	//   MCPServer matches MCP mcp_id/mcp_server_display_name, or a local-agent row's MCP parent.
+	//   Tool      matches MCP call_identifier or a local-agent action_name.
+	//   Outcome   matches the normalized outcome (success/failure/denied/timeout/unknown); MCP rows
+	//             are classified from response_status/error the same way ClassifyMCPOutcome does.
+	//   Client    matches MCP client_name or local-agent agent_provider.
+	Actor     []string
+	Operation []string
+	MCPServer []string
+	Tool      []string
+	Outcome   []string
+	Client    []string
 
 	// Query searches the non-sensitive text columns of every selected source and matching user
 	// display names.
