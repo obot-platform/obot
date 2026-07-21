@@ -1,0 +1,25 @@
+{
+  "prompts": [
+    "Connect to the Databricks Vector Search MCP server.",
+    "List all available tools under Databricks Vector Search.",
+    "Fetch data from Databricks using the vector model without specifying parameters.",
+    "Search for documents related to 'machine learning models'.",
+    "Perform semantic search using the vector embedding for the phrase 'neural networks in deep learning'.",
+    "Find similar items to the embedding for the phrase 'cloud computing infrastructure'.",
+    "Search for articles about 'distributed systems' and return results that are more relevant to 'data replication in databases'.",
+    "Find similar items to a non-existent or irrelevant embedding.",
+    "List all available vector search indexes in the system.",
+    "Create a new vector search index for the dataset 'customer reviews'.",
+    "Modify the index 'product_reviews' by adding a new field for 'review_rating'.",
+    "Delete the 'outdated_documents' index from the search database.",
+    "Create an index without specifying a dataset.",
+    "Use serverless compute to run a semantic search over the 'tech_education' dataset.",
+    "Check if the serverless compute is being utilized for this search operation.",
+    "Perform a search on a very large dataset that may result in a timeout.",
+    "Run the same semantic search query twice: 'data analytics tools for 2024'.",
+    "Search for content related to 'AWS EC2' from documents published after 2020.",
+    "Fetch results for 'cloud services' and include 'cloud_security' tag.",
+    "Perform a semantic search on the entire AWS documentation with a high query volume."
+  ],
+  "tools": []
+}

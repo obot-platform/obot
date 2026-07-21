@@ -1,0 +1,10 @@
+{
+  "prompts": [
+    "Is AWS API tool connected?",
+    "Call the AWS EC2 API to list all running instances in the us-west-2 region",
+    "Suggest AWS CLI commands to create a new S3 bucket with versioning enabled in the us-east-1 region."
+  ],
+  "tools" : [
+  "call_aws", "suggest_aws_commands"
+  ]
+}

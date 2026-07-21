@@ -1,0 +1,15 @@
+{
+    "prompts": [
+        "Is Tavily Search tool connected?",
+        "Search for the latest advancements in AI using tavily_search.",
+        "Extract the main content from https://obot.ai/ using tavily_extract and summarize the result.",
+        "Crawl the first 3 pages of https://docs.python.org/3/ using tavily_crawl and summarize the topics.",
+        "Map the structure of https://developer.mozilla.org/ using tavily_map to list main documentation sections."
+    ],
+    "tools": [
+        "tavily_search",
+        "tavily_extract",
+        "tavily_crawl",
+        "tavily_map"
+    ]
+}
