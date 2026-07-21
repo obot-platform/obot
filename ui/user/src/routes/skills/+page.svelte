@@ -38,7 +38,7 @@
 		const command = (clientSkillsDirectory: string) => {
 			if (selectedTab === 'windows') {
 				const windowsSkillsDirectory = clientSkillsDirectory.replaceAll('/', '\\');
-				return `tar -xf "%USERPROFILE%\\Downloads\\${skillName}.zip" -C "%USERPROFILE%\\${windowsSkillsDirectory}\\${skillName}"`;
+				return `mkdir "%USERPROFILE%\\${windowsSkillsDirectory}\\${skillName}" 2>NUL & tar -xf "%USERPROFILE%\\Downloads\\${skillName}.zip" -C "%USERPROFILE%\\${windowsSkillsDirectory}\\${skillName}"`;
 			}
 
 			return `unzip "$HOME/Downloads/${skillName}.zip" -d "$HOME/${clientSkillsDirectory}/${skillName}"`;
