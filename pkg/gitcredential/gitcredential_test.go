@@ -151,9 +151,7 @@ func TestResolveOrReveal(t *testing.T) {
 		require.NoError(t, gatewayClient.Close())
 
 		token, err := ResolveOrReveal(ctx, storageClient, gatewayClient, system.DefaultNamespace, "", sourceURL, "repo1", "legacy-tool")
-		var legacyErr *LegacyCredentialError
-		require.ErrorAs(t, err, &legacyErr)
-		require.ErrorIs(t, err, legacyErr.err)
+		require.ErrorIs(t, err, ErrLegacyCredential)
 		assert.Empty(t, token)
 	})
 

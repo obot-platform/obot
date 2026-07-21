@@ -62,8 +62,8 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	defer h.clearIsSyncing(req.Ctx, req.Client, namespace, repo.Name)
 
 	token, err := gitcredential.ResolveOrReveal(req.Ctx, req.Client, h.gatewayClient, repo.Namespace, repo.Spec.GitCredentialID, repo.Spec.RepoURL, repo.Name, SkillRepositoryCredentialToolName)
-	if legacyErr, ok := errors.AsType[*gitcredential.LegacyCredentialError](err); ok {
-		log.Errorf("failed to retrieve legacy credential for repository %s source %s, continuing without authentication: %v", repo.Name, repo.Spec.RepoURL, legacyErr)
+	if errors.Is(err, gitcredential.ErrLegacyCredential) {
+		log.Errorf("failed to retrieve legacy credential for repository %s source %s, continuing without authentication: %v", repo.Name, repo.Spec.RepoURL, err)
 		err = nil
 	}
 	if err != nil {

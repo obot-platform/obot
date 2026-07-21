@@ -22,17 +22,7 @@ const (
 	tokenKey          = "token"
 )
 
-type LegacyCredentialError struct {
-	err error
-}
-
-func (e *LegacyCredentialError) Error() string {
-	return fmt.Sprintf("failed to reveal legacy Git credential: %v", e.err)
-}
-
-func (e *LegacyCredentialError) Unwrap() error {
-	return e.err
-}
+var ErrLegacyCredential = errors.New("failed to reveal legacy Git credential")
 
 // NormalizeHost validates and canonicalizes a Git credential host.
 func NormalizeHost(value string) (string, error) {
@@ -113,7 +103,7 @@ func ResolveOrReveal(ctx context.Context, storageClient client.Client, gatewayCl
 		return "", nil
 	}
 	if err != nil {
-		return "", &LegacyCredentialError{err: err}
+		return "", fmt.Errorf("%w: %w", ErrLegacyCredential, err)
 	}
 	return credential.Secrets[sourceURL], nil
 }
