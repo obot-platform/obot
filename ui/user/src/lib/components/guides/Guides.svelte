@@ -4,7 +4,6 @@
 	import {
 		generateLessonItems,
 		getGuideSeen,
-		getLessonsCompleted,
 		resetGuide,
 		setGuideSeen
 	} from '$lib/services/guides/utils';
@@ -13,22 +12,31 @@
 	import IconButton from '../primitives/IconButton.svelte';
 	import Obot from './Obot.svelte';
 	import { createGuideHighlighter, type GuideHighlighter } from './highlight';
-	import { ChevronRight, Circle, CircleCheck, Info, X } from '@lucide/svelte';
+	import { ChevronRight, Info, X } from '@lucide/svelte';
 	import { isAfter } from 'date-fns';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
-	let lessonsCompleted = $state(getLessonsCompleted());
-	let showLessons = $state(false);
-	let hasSeenGuides = $state(false);
-
-	const lessonItems = $derived(generateLessonItems(lessonsCompleted));
-	const isAdminRoute = $derived(page.url.pathname.startsWith('/admin'));
-
 	let highlighter: GuideHighlighter | undefined;
 	let listenerHandler: ((e: MouseEvent) => void) | undefined;
 	let rafId: number | undefined;
+
+	let showLessons = $state(false);
+	let hasSeenGuides = $state(false);
+	let viewportHeight = $state(typeof window !== 'undefined' ? window.innerHeight : 900);
+
+	const lessonItems = $derived(generateLessonItems());
+	const isAdminRoute = $derived(page.url.pathname.startsWith('/admin'));
+
+	const visibleLessonItems = $derived.by(() => {
+		// bottom-4 + pill + gap-4 + panel header/padding + Obot overhang + top margin
+		const reserved = 210;
+		const available = Math.max(0, viewportHeight - reserved);
+		const itemHeight = 84;
+		const maxVisible = Math.max(1, Math.floor(available / itemHeight));
+		return lessonItems.slice(0, Math.min(maxVisible, lessonItems.length));
+	});
 
 	const canShowGuide = $derived.by(() => {
 		if (!userDeviceSettings.showAllGuides) return false;
@@ -55,8 +63,6 @@
 	});
 
 	function initGuide() {
-		lessonsCompleted = getLessonsCompleted();
-
 		const seenGuideDate = getGuideSeen();
 		if (
 			seenGuideDate &&
@@ -71,6 +77,12 @@
 
 	onMount(() => {
 		initGuide();
+		const onResize = () => {
+			viewportHeight = window.innerHeight;
+		};
+		onResize();
+		window.addEventListener('resize', onResize);
+		return () => window.removeEventListener('resize', onResize);
 	});
 
 	afterNavigate(() => {
@@ -183,38 +195,36 @@
 </script>
 
 {#if !guide.selectedGuide && canShowGuide}
-	{@const incompleteLessonsCount = lessonItems.filter((lesson) => !lesson.completed).length}
 	<div class="fixed bottom-4 right-4 z-50 flex flex-col gap-4 items-end">
 		{#if showLessons}
 			<div
-				class="max-w-lg relative"
+				class="max-w-full md:max-w-md relative"
 				in:fly={{ y: 100, duration: 150 }}
 				out:fly={{ y: 100, duration: 150 }}
 			>
 				{#if guide.showObotInGuide}
-					<Obot animation={['enter', 'idle']} class="absolute -top-23.5 left-0" />
+					<Obot animation={['enter', 'idle']} class="absolute -top-15.5 left-0" />
 				{/if}
 				<IconButton
 					onclick={() => {
 						showLessons = false;
 					}}
-					class="btn-sm btn-primary absolute top-4 right-4 z-10"
+					class="btn-sm btn-primary absolute top-2 right-2 z-10"
 				>
 					<X class="size-5 text-primary-content" />
 				</IconButton>
-				{@render lessons(true)}
+				{@render lessons()}
 			</div>
 		{/if}
-		<div class="flex bg-primary rounded-full text-primary-content text-sm items-center gap-2">
+		<div
+			id="btn-get-started-guide"
+			class="flex bg-primary rounded-full text-primary-content text-sm items-center gap-2 shadow-md"
+		>
 			<button
 				class="shrink-0 flex items-center gap-2 w-fit py-3 pl-4"
 				onclick={() => (showLessons = !showLessons)}
-				id="btn-get-started-guide"
 			>
 				<Info class="size-5" /> <span class="font-medium">Get Started</span>
-				{#if incompleteLessonsCount > 0}
-					<div class="badge badge-xs">{incompleteLessonsCount}</div>
-				{/if}
 			</button>
 			<IconButton
 				tooltip={{ text: 'Close guides' }}
@@ -227,61 +237,39 @@
 	</div>
 {/if}
 
-{#snippet lessons(altTheme?: boolean)}
-	<div class={twMerge('paper gap-0', altTheme ? 'bg-primary text-primary-content' : '')}>
-		<h4
-			class={twMerge(
-				'font-semibold border-b-2 pb-3 mb-3',
-				altTheme ? 'border-b-primary-content' : 'border-b-primary'
-			)}
-		>
+{#snippet lessons()}
+	<div class="paper gap-0 p-3 bg-primary text-primary-content">
+		<h4 class="font-semibold border-b-2 pb-3 mb-3 text-sm border-b-primary-content">
 			Quick Start Guides
 		</h4>
-		<div class="timeline timeline-compact timeline-vertical text-primary-content">
-			{#each lessonItems as lessonItem, i (lessonItem.label)}
-				<li>
-					{#if i > 0}
-						<hr class="bg-primary-content" />
-					{/if}
-					<div class="timeline-middle">
-						{#if lessonItem.completed}
-							<CircleCheck class={altTheme ? 'text-primary-content' : 'text-primary'} />
-						{:else}
-							<Circle class="text-primary-content" />
-						{/if}
+		<div class="flex flex-col gap-2">
+			{#each visibleLessonItems as lessonItem (lessonItem.label)}
+				{@const isUnderConstruction = lessonItem.guide === undefined}
+				<button
+					class={twMerge(
+						'flex items-center justify-between gap-4 pl-3 pr-1 py-2 text-left rounded-md w-full transition-colors',
+						isUnderConstruction ? 'opacity-50 cursor-default' : 'hover:bg-primary-content/10'
+					)}
+					onclick={() => {
+						guide.selectedGuide = lessonItem.guide;
+						showLessons = false;
+					}}
+					disabled={isUnderConstruction}
+					aria-disabled={isUnderConstruction}
+				>
+					<div class="flex flex-col gap-0.5 grow">
+						<p class="text-sm font-semibold flex items-center gap-2">
+							{lessonItem.label}
+							{#if isUnderConstruction}
+								<span class="shrink-0 font-light badge badge-xs badge-outline"> Coming soon</span>
+							{/if}
+						</p>
+						<p class="text-xs font-light text-primary-content/50">
+							{lessonItem.description}
+						</p>
 					</div>
-					<button
-						class={twMerge(
-							'translate-x-2 timeline-end flex items-center justify-between gap-4 pl-3 pr-1 py-2 text-left rounded-md',
-							altTheme ? 'hover:bg-primary-content/10' : 'hover:bg-base-200'
-						)}
-						onclick={() => {
-							guide.selectedGuide = lessonItem.guide;
-							showLessons = false;
-						}}
-					>
-						<div class="flex flex-col gap-1 grow">
-							<p class="text-sm font-semibold">{lessonItem.label}</p>
-							<p
-								class={twMerge(
-									'text-xs font-light',
-									altTheme ? 'text-primary-content/50' : 'text-muted-content'
-								)}
-							>
-								{lessonItem.description}
-							</p>
-						</div>
-						<ChevronRight
-							class={twMerge(
-								'size-4 shrink-0',
-								altTheme ? 'text-primary-content' : 'text-muted-content'
-							)}
-						/>
-					</button>
-					{#if i < lessonItems.length - 1}
-						<hr class="bg-primary-content" />
-					{/if}
-				</li>
+					<ChevronRight class="size-4 shrink-0 text-primary-content" />
+				</button>
 			{/each}
 		</div>
 	</div>

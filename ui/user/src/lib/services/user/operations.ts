@@ -1281,3 +1281,15 @@ export async function fetchWorkspaceIDForProfile(
 export async function getLicense(opts?: { fetch?: Fetcher }): Promise<License> {
 	return (await doGet('/license', opts)) as License;
 }
+
+// Skills
+
+export async function downloadSkill(
+	id: string,
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
+): Promise<Blob> {
+	return (await doGet(`/skills/${encodeURIComponent(id)}/download`, {
+		...opts,
+		blob: true
+	})) as Blob;
+}

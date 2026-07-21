@@ -84,6 +84,7 @@
 				(!responsive.isMobile || disableMobileStyles) && 'p-4',
 				classes?.content ?? 'max-h-dvh min-h-fit'
 			)}
+			id={id ? `${id}-content` : undefined}
 		>
 			{#if titleContent || title}
 				<div class="flex flex-col gap-4">

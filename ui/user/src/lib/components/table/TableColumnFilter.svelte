@@ -52,7 +52,7 @@
 
 <button
 	use:ref
-	class="flex grow items-center px-2 py-3"
+	class="flex items-center p-3"
 	use:tooltip={{ disablePortal, text: 'Filter columns', classes: ['z-60'] }}
 	onclick={() => toggle()}
 >

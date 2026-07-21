@@ -1071,7 +1071,7 @@
 		{@const url = instance?.connectURL || server?.connectURL || entry?.connectURL}
 		{@const displayName = getMCPDisplayName(server, entry?.manifest?.name ?? '')}
 		{#if url}
-			<div class="flex flex-col gap-3 md:p-0 pb-0 p-4">
+			<div id="connection-url-container" class="flex flex-col gap-3 md:p-0 pb-0 p-4">
 				<McpDeprecatedNotice {deprecated} variant="notification" />
 				<CopyField
 					bind:this={connectionUrlField}

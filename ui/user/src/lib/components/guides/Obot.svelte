@@ -48,7 +48,7 @@
 		class?: string;
 	}
 
-	let { animation = 'idle', size = 96, class: klass = '' }: Props = $props();
+	let { animation = 'idle', size = 64, class: klass = '' }: Props = $props();
 
 	function normalizeSequence(value: ObotAnimation | ObotAnimation[]): ObotAnimation[] {
 		const sequence = Array.isArray(value) ? value : [value];

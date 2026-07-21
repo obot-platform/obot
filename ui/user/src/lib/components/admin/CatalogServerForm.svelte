@@ -716,9 +716,7 @@
 	onsubmit={handleFormSubmit}
 	aria-describedby={Object.keys(showRequired).length > 0 ? fieldIds.formError : undefined}
 >
-	<div
-		class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-8 rounded-lg border border-transparent p-4 shadow-sm"
-	>
+	<section class="paper p-4" id="catalog-server-form-details">
 		<div class="flex flex-col gap-8">
 			{#if readonly && readonlyMessage}
 				<div class="notification-info p-3 text-sm font-light" role="status">
@@ -844,10 +842,14 @@
 				/>
 			</div>
 		</div>
-	</div>
+	</section>
 
 	{#if type === 'hosted'}
-		<section class="paper p-4" aria-labelledby="catalog-server-tenancy-heading">
+		<section
+			class="paper p-4"
+			aria-labelledby="catalog-server-tenancy-heading"
+			id="catalog-server-tenancy"
+		>
 			<h4 id="catalog-server-tenancy-heading" class="text-sm font-semibold">Server Tenancy</h4>
 
 			{#if entity === 'catalog'}
@@ -1043,6 +1045,7 @@
 				type="button"
 				class="btn btn-secondary flex items-center gap-1"
 				onclick={() => onCancel?.()}
+				id="catalog-server-form-cancel"
 			>
 				Cancel
 			</button>
@@ -1056,6 +1059,7 @@
 							formData.compositeConfig.componentServers.length === 0 ||
 							compositeHasToolNameErrors))}
 				aria-busy={loading}
+				id="catalog-server-form-submit"
 			>
 				{#if loading}
 					<span aria-hidden="true">

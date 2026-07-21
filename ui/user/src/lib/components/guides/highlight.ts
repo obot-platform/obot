@@ -5,7 +5,9 @@ import { type Config, type Driver, driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
 import { mount, tick, unmount } from 'svelte';
 
-const ELEMENT_FIND_ATTEMPTS = 10;
+// Route navigations need wall-clock waits; rAF-only polling finishes before the next page mounts.
+const ELEMENT_FIND_ATTEMPTS = 50;
+const ELEMENT_FIND_INTERVAL_MS = 100;
 const ELEMENT_STABLE_ATTEMPTS = 60;
 
 export interface GuideHighlighterOptions {
@@ -56,7 +58,7 @@ async function waitForExistingElement(
 		}
 
 		await tick();
-		await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+		await new Promise<void>((resolve) => setTimeout(resolve, ELEMENT_FIND_INTERVAL_MS));
 	}
 	return undefined;
 }
@@ -99,17 +101,58 @@ function getHighlightLayerNodes(ring?: HTMLElement | null): Element[] {
 	].filter((node): node is Element => node != null);
 }
 
-/** Modal <dialog> lives in the top layer; body-level nodes render underneath it. */
-function getHighlightLayerHost(element: Element): HTMLElement {
+function getOpenGuidePanel(): HTMLElement | undefined {
+	return document.querySelector<HTMLElement>('.guide-panel-popover:popover-open') ?? undefined;
+}
+
+function getOpenDialogHost(element: Element): HTMLDialogElement | undefined {
 	const dialog = element.closest('dialog');
 	if (dialog instanceof HTMLDialogElement && dialog.open) {
 		return dialog;
 	}
-	return document.body;
+	return undefined;
+}
+
+/**
+ * Overlay stays in the dialog/body so the guide panel (top layer) remains interactive.
+ * Popover may need the guide panel itself — see getHighlightPopoverHost.
+ */
+function getHighlightOverlayHost(element: Element): HTMLElement {
+	return getOpenDialogHost(element) ?? document.body;
+}
+
+/**
+ * When the guide panel is open, app dialogs use non-modal `show()` so they are not in the
+ * top layer. Reparenting the tip into that dialog both clips it (`overflow: clip` + inset
+ * for the panel) and leaves it under the panel's top-layer popover. Host the tip in the
+ * open guide panel instead so it paints above it without covering its controls.
+ */
+function getHighlightPopoverHost(element: Element): HTMLElement {
+	const dialog = getOpenDialogHost(element);
+	const guidePanel = getOpenGuidePanel();
+	if (guidePanel && dialog && !dialog.matches(':modal') && !guidePanel.contains(dialog)) {
+		return guidePanel;
+	}
+	return dialog ?? document.body;
 }
 
 function moveHighlightLayer(nodes: Element[], host: HTMLElement) {
 	for (const node of nodes) {
+		if (node.parentElement !== host) {
+			host.appendChild(node);
+		}
+	}
+}
+
+function moveHighlightLayerSplit(
+	nodes: Element[],
+	overlayHost: HTMLElement,
+	popoverHost: HTMLElement
+) {
+	for (const node of nodes) {
+		// Only the tip needs the guide-panel top layer. Overlay/ring stay with the dialog so
+		// they cannot sit above it and steal clicks from the highlighted content.
+		const host = node.classList.contains('driver-popover') ? popoverHost : overlayHost;
 		if (node.parentElement !== host) {
 			host.appendChild(node);
 		}
@@ -122,6 +165,7 @@ export function createGuideHighlighter(options: GuideHighlighterOptions = {}): G
 	let highlightRing: HTMLElement | undefined;
 	let highlightRingTarget: Element | undefined;
 	let highlightRingRaf = 0;
+	let highlightGeneration = 0;
 
 	function destroyHighlightObot() {
 		if (highlightObot) {
@@ -177,7 +221,11 @@ export function createGuideHighlighter(options: GuideHighlighterOptions = {}): G
 	}
 
 	function promoteHighlightLayer(element: Element) {
-		moveHighlightLayer(getHighlightLayerNodes(highlightRing), getHighlightLayerHost(element));
+		moveHighlightLayerSplit(
+			getHighlightLayerNodes(highlightRing),
+			getHighlightOverlayHost(element),
+			getHighlightPopoverHost(element)
+		);
 	}
 
 	const guideDriver = driver({
@@ -197,11 +245,13 @@ export function createGuideHighlighter(options: GuideHighlighterOptions = {}): G
 	});
 
 	async function highlight(highlightConfig: GuideHighlight) {
+		const generation = ++highlightGeneration;
 		const element = await waitForExistingElement(highlightConfig);
-		if (!element) return;
+		if (generation !== highlightGeneration || !element) return;
 
-		const stable = await waitForStableElement(element);
-		if (!stable) return;
+		await waitForStableElement(element);
+		if (generation !== highlightGeneration) return;
+		// Layout may keep shifting (guide panel resize); still highlight after the wait.
 
 		const side = highlightConfig.side ?? 'right';
 
@@ -215,6 +265,7 @@ export function createGuideHighlighter(options: GuideHighlighterOptions = {}): G
 				align: highlightConfig.align ?? 'start',
 				popoverClass: 'max-w-md! w-md! min-h-24!',
 				onPopoverRender: (popover) => {
+					if (generation !== highlightGeneration) return;
 					destroyHighlightObot();
 
 					if (side === 'left' || side === 'right') {
@@ -242,10 +293,21 @@ export function createGuideHighlighter(options: GuideHighlighterOptions = {}): G
 				}
 			}
 		});
+
+		// Click may have destroyed the tour while we awaited; roll back if superseded.
+		if (generation !== highlightGeneration) {
+			guideDriver.destroy();
+			destroyHighlightEffects();
+			return;
+		}
+
 		showHighlightRing(element);
 		promoteHighlightLayer(element);
 		// Overlay is created on the next animation frame when animate is false.
-		requestAnimationFrame(() => promoteHighlightLayer(element));
+		requestAnimationFrame(() => {
+			if (generation !== highlightGeneration) return;
+			promoteHighlightLayer(element);
+		});
 	}
 
 	return {
@@ -256,8 +318,11 @@ export function createGuideHighlighter(options: GuideHighlighterOptions = {}): G
 			if (active) promoteHighlightLayer(active);
 		},
 		destroy: () => {
+			highlightGeneration++;
 			restoreHighlightLayerToBody();
 			guideDriver.destroy();
+			// Driver may skip onDestroyed if it never highlighted — always clear our effects.
+			destroyHighlightEffects();
 		},
 		setOverlayColor: (color: string) => {
 			guideDriver.setConfig({

@@ -1,9 +1,13 @@
 export interface GuideStep {
-	content: string[];
-	button?: {
-		text: string;
-		action: GuideAction | GuideAction[];
-	};
+	content: GuideContent[];
+	action?: GuideAction | GuideAction[];
+	buttons?: GuideButton[];
+}
+
+export interface GuideButton {
+	text: string;
+	action?: GuideAction | GuideAction[];
+	steps?: GuideStep[];
 }
 
 export interface GuideSelector {
@@ -17,14 +21,15 @@ export interface Guide {
 	steps: GuideStep[];
 }
 
-export type GuideDialogContent =
-	| { text: string }
+export type GuideContent =
+	| string
+	| { text: string; type: 'text' | 'code' }
 	| { videoUrl: string; title: string }
 	| { imageUrl: string; alt: string };
 
 export interface GuideDialog {
 	title: string;
-	content: GuideDialogContent[];
+	content: GuideContent[];
 	next?: GuideDialog;
 }
 
@@ -37,16 +42,20 @@ export interface GuideHighlight {
 }
 
 export interface GuideAction {
-	routeContains?: string;
+	closeExistingElement?: boolean;
+	dialog?: GuideDialog;
 	elementExists?: string;
 	elementMissing?: string;
 	highlight?: GuideHighlight;
 	listener?: GuideListener;
-	dialog?: GuideDialog;
+	next?: { action: GuideAction | GuideAction[] };
+	routeContains?: string;
 	setPreferredClient?: boolean;
+	skipClickTargetOnNext?: boolean;
 	success?: boolean;
 }
 
 export interface GuideListener extends GuideSelector {
 	action: GuideAction | GuideAction[];
+	skipClickTargetOnNext?: boolean;
 }

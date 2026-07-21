@@ -117,7 +117,7 @@
 	<p class="text-muted-content text-xs">Only STDIO entries are supported.</p>
 
 	<!-- Package field (required) -->
-	<div class="flex items-center gap-4">
+	<div class="flex items-center gap-4" id="npx-package-field">
 		<label
 			for="npx-package"
 			class={twMerge('text-sm font-light min-w-[76px]', showRequired?.package && 'error')}

@@ -81,7 +81,10 @@
 <div class="w-full @container md:px-0 px-4">
 	{#if magicLinks.length > 0}
 		<div class="divider">Quick Install</div>
-		<div class={twMerge('flex gap-2 flex-col', commands.length > 0 ? 'mb-8' : '')}>
+		<div
+			id="magic-links-container"
+			class={twMerge('flex gap-2 flex-col', commands.length > 0 ? 'mb-8' : '')}
+		>
 			{#each magicLinks as magicLink (magicLink.client)}
 				{@const client = aiClientsMap.get(magicLink.client as AiClient)}
 				{#if client && magicLink.link}
@@ -132,7 +135,7 @@
 
 	{#if commands.length > 0}
 		<div class="divider">Install via CLI</div>
-		<div class="flex gap-2 flex-col">
+		<div id="cli-commands-container" class="flex gap-2 flex-col">
 			{#each commands as aiClientCommand, index (aiClientCommand.client)}
 				{@const client = aiClientsMap.get(aiClientCommand.client as AiClient)}
 				{#if client && aiClientCommand.command}
