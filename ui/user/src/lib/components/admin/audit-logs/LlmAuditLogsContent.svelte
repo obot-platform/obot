@@ -40,7 +40,6 @@
 	type SupportedFilter = keyof LLMAuditLogURLFilters;
 	const supportedFilters: SupportedFilter[] = [
 		'user_id',
-		'client',
 		'client_session_id',
 		'include_models_requests',
 		'message_policy_triggered',
@@ -48,7 +47,8 @@
 		'outcome',
 		'request_path',
 		'response_status',
-		'target_model'
+		'target_model',
+		'user_agent'
 	];
 	const pageLimit = 1000;
 
@@ -230,6 +230,7 @@
 		if (_key === 'request_path') return 'Path';
 		if (_key === 'response_status') return 'Status';
 		if (_key === 'user_id') return 'User';
+		if (_key === 'user_agent') return 'User Agent';
 		if (_key === 'client_session_id') return 'Client Session ID';
 		if (_key === 'include_models_requests') return 'Model discovery requests';
 		if (_key === 'message_policy_triggered') return 'Message Policy Action';

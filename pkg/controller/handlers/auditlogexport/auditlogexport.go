@@ -139,7 +139,7 @@ func llmAuditLogOptionsFromExport(export *v1.AuditLogExport, limit, offset int) 
 		RequestPath:            filters.RequestPaths,
 		ResponseStatus:         filters.ResponseStatuses,
 		Outcome:                filters.Outcomes,
-		Client:                 filters.Clients,
+		UserAgent:              filters.UserAgents,
 		ClientSessionID:        filters.ClientSessionIDs,
 		MessagePolicyTriggered: filters.MessagePolicyTriggered,
 		Query:                  filters.Query,

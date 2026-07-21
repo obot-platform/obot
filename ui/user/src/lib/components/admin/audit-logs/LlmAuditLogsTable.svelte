@@ -171,7 +171,7 @@
 						{@render th('Status', { class: 'w-[16ch]', minWidth: '16ch' })}
 						{@render th('Input', { class: 'w-[18ch]', minWidth: '18ch' })}
 						{@render th('Output', { class: 'w-[18ch]', minWidth: '18ch' })}
-						{@render th('Client', { class: 'w-[22ch]', minWidth: '22ch' })}
+						{@render th('User Agent', { class: 'w-[28ch]', minWidth: '28ch' })}
 						{@render th('Session', { class: 'w-[28ch]', minWidth: '28ch' })}
 						{@render th('Duration (ms)', { class: 'w-[22ch]', minWidth: '18ch' })}
 						{@render th('IP Address', { class: 'w-[22ch]', minWidth: '22ch' })}
@@ -199,7 +199,7 @@
 						{@render td(d.responseStatus || '')}
 						{@render td(formatNumber(d.inputTokens))}
 						{@render td(formatNumber(d.outputTokens))}
-						{@render td(d.client)}
+						{@render td(d.userAgent)}
 						{@render td(d.clientSessionID)}
 						{@render td(formatDuration(d.duration))}
 						{@render td(d.clientIP)}

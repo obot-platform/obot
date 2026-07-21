@@ -28,6 +28,7 @@ func TestParseLLMAuditLogOptsUsesProvidedStartTime(t *testing.T) {
 func TestParseLLMAuditLogOptsParsesFilterFields(t *testing.T) {
 	opts := parseLLMAuditLogOpts(url.Values{
 		"target_model":             {"model-a,model-b"},
+		"user_agent":               {"claude-code/2.1.211"},
 		"client_session_id":        {"session-1"},
 		"message_policy_triggered": {"true,false"},
 	})
@@ -37,6 +38,9 @@ func TestParseLLMAuditLogOptsParsesFilterFields(t *testing.T) {
 	}
 	if got := opts.ClientSessionID; len(got) != 1 || got[0] != "session-1" {
 		t.Fatalf("expected client session ID, got %v", got)
+	}
+	if got := opts.UserAgent; len(got) != 1 || got[0] != "claude-code/2.1.211" {
+		t.Fatalf("expected user agent, got %v", got)
 	}
 	if got := opts.MessagePolicyTriggered; len(got) != 2 || !got[0] || got[1] {
 		t.Fatalf("expected input policy trigger values [true false], got %v", got)

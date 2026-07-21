@@ -204,7 +204,7 @@ export type LLMAuditLogExportFilters = {
 	requestPaths?: string[];
 	responseStatuses?: number[];
 	outcomes?: string[];
-	clients?: string[];
+	userAgents?: string[];
 	clientSessionIDs?: string[];
 	messagePolicyTriggered?: boolean[];
 	query?: string;
@@ -525,10 +525,9 @@ export interface LicenseManifest {
 // LLM audit logs
 
 export interface LLMAuditLog {
-	client: string;
 	clientIP: string;
 	clientSessionID: string;
-	clientVersion: string;
+	userAgent: string;
 	createdAt: string;
 	duration: number;
 	error?: string;
@@ -555,7 +554,6 @@ export interface LLMAuditLog {
 }
 
 export type LLMAuditLogURLFilters = {
-	client?: string | null;
 	client_session_id?: string | null;
 	end_time?: string | null;
 	include_models_requests?: string | null;
@@ -571,6 +569,7 @@ export type LLMAuditLogURLFilters = {
 	sort_order?: string | null;
 	start_time?: string | null;
 	target_model?: string | null;
+	user_agent?: string | null;
 	user_id?: string | null;
 };
 

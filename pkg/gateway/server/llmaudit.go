@@ -27,14 +27,6 @@ import (
 const (
 	defaultLLMAuditLogResponseCaptureLimit = 5 << 20 // 5MiB
 	claudeCodeSessionIDHeader              = "X-Claude-Code-Session-Id"
-
-	llmAuditClientClaudeCode = "claude-code"
-	llmAuditClientCodex      = "codex"
-
-	llmAuditUserAgentClaudeCode = "claude-code"
-	llmAuditUserAgentClaudeCLI  = "claude-cli"
-	llmAuditUserAgentCodexCLI   = "codex_cli_rs"
-	llmAuditUserAgentCodexTUI   = "codex-tui"
 )
 
 type llmAuditRecorder struct {
@@ -56,8 +48,6 @@ func newLLMAuditRecorder(req *http.Request, user user.Info, responseCaptureLimit
 	if user != nil {
 		userID = user.GetUID()
 	}
-	clientName, clientVersion := detectLLMClient(req)
-
 	return &llmAuditRecorder{
 		responseCaptureLimit: responseCaptureLimit,
 		log: types.LLMAuditLog{
@@ -68,8 +58,7 @@ func newLLMAuditRecorder(req *http.Request, user user.Info, responseCaptureLimit
 			RequestMethod:  req.Method,
 			RequestHeaders: redactedHeaders(req.Header),
 			RequestID:      requestID,
-			Client:         clientName,
-			ClientVersion:  clientVersion,
+			UserAgent:      req.UserAgent(),
 			ClientIP:       requestinfo.GetSourceIP(req),
 		},
 	}
@@ -258,37 +247,6 @@ func shouldRedactHeader(key string) bool {
 		return true
 	}
 	return strings.Contains(k, "token") || strings.Contains(k, "secret") || strings.Contains(k, "key") || strings.Contains(k, "credential")
-}
-
-func parseLLMClientUserAgent(userAgent string) (string, string) {
-	token, _, _ := strings.Cut(strings.TrimSpace(userAgent), " ")
-	if token == "" {
-		return "", ""
-	}
-	name, version, ok := strings.Cut(token, "/")
-	if !ok {
-		name = token
-		version = ""
-	}
-
-	switch name {
-	case llmAuditUserAgentClaudeCode, llmAuditUserAgentClaudeCLI:
-		name = llmAuditClientClaudeCode
-	case llmAuditUserAgentCodexCLI, llmAuditUserAgentCodexTUI:
-		name = llmAuditClientCodex
-	}
-	return name, version
-}
-
-func detectLLMClient(req *http.Request) (string, string) {
-	name, version := parseLLMClientUserAgent(req.UserAgent())
-	if name == llmAuditClientClaudeCode || name == llmAuditClientCodex {
-		return name, version
-	}
-	if req.Header.Get(claudeCodeSessionIDHeader) != "" {
-		return llmAuditClientClaudeCode, ""
-	}
-	return name, version
 }
 
 func extractLLMClientSessionID(dialect nanobottypes.Dialect, headers http.Header, body []byte) string {

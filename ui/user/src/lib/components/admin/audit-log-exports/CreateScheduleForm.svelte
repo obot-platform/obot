@@ -64,7 +64,7 @@
 			client_ip: '',
 			response_status: '',
 			session_id: '',
-			client: '',
+			user_agent: '',
 			client_session_id: '',
 			message_policy_triggered: '',
 			model_provider: '',
@@ -119,7 +119,7 @@
 					request_path: filters.requestPaths ? filters.requestPaths.join(',') : '',
 					response_status: filters.responseStatuses ? filters.responseStatuses.join(',') : '',
 					outcome: filters.outcomes ? filters.outcomes.join(',') : '',
-					client: filters.clients ? filters.clients.join(',') : '',
+					user_agent: filters.userAgents ? filters.userAgents.join(',') : '',
 					client_session_id: filters.clientSessionIDs ? filters.clientSessionIDs.join(',') : '',
 					message_policy_triggered: filters.messagePolicyTriggered?.map(String).join(',') ?? '',
 					query: filters.query ?? ''
@@ -171,7 +171,7 @@
 				logType === 'llm'
 					? ({
 							user_id: 'user_id',
-							client: 'client',
+							user_agent: 'user_agent',
 							client_session_id: 'client_session_id',
 							message_policy_triggered: 'message_policy_triggered',
 							model_provider: 'model_provider',
@@ -237,7 +237,7 @@
 	];
 	let llmFiltersIds = [
 		'user_id',
-		'client',
+		'user_agent',
 		'client_session_id',
 		'message_policy_triggered',
 		'model_provider',
@@ -291,7 +291,7 @@
 			| 'session_id'
 			| 'client_ip'
 			| 'mcp_server_catalog_entry_name'
-			| 'client'
+			| 'user_agent'
 			| 'client_session_id'
 			| 'message_policy_triggered'
 			| 'model_provider'
@@ -359,11 +359,11 @@
 					options: filtersOptions['outcome']?.map?.(sameLabel) ?? []
 				},
 				{
-					fieldId: 'client',
-					filterKey: 'client',
-					label: 'Clients',
-					description: 'Comma-separated clients',
-					options: filtersOptions['client']?.map?.(sameLabel) ?? []
+					fieldId: 'user_agent',
+					filterKey: 'user_agent',
+					label: 'User Agents',
+					description: 'Comma-separated user agents',
+					options: filtersOptions['user_agent']?.map?.(sameLabel) ?? []
 				},
 				{
 					fieldId: 'client_session_id',
@@ -537,7 +537,7 @@
 						requestPaths: split(form.filters.request_path),
 						responseStatuses: splitNumbers(form.filters.response_status),
 						outcomes: split(form.filters.outcome),
-						clients: split(form.filters.client),
+						userAgents: split(form.filters.user_agent),
 						clientSessionIDs: split(form.filters.client_session_id),
 						messagePolicyTriggered: splitBooleans(form.filters.message_policy_triggered),
 						query: form.filters.query ?? ''

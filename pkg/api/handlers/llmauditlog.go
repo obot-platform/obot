@@ -66,7 +66,7 @@ var llmAuditLogFilterOptions = map[string][]any{
 	"request_path":             {""},
 	"response_status":          {0},
 	"outcome":                  {""},
-	"client":                   {""},
+	"user_agent":               {""},
 	"client_session_id":        {""},
 	"message_policy_triggered": nil,
 }
@@ -97,7 +97,7 @@ func parseLLMAuditLogOpts(query url.Values) gateway.LLMAuditLogOptions {
 		TargetModel:           parseStringList(query, "target_model"),
 		RequestPath:           parseStringList(query, "request_path"),
 		Outcome:               parseStringList(query, "outcome"),
-		Client:                parseStringList(query, "client"),
+		UserAgent:             parseStringList(query, "user_agent"),
 		ClientSessionID:       parseStringList(query, "client_session_id"),
 		Query:                 strings.TrimSpace(query.Get("query")),
 		SortBy:                query.Get("sort_by"),

@@ -88,5 +88,8 @@
 		{#if requestURL}
 			<p class="break-all"><span class="font-medium">Request URL</span>: {requestURL}</p>
 		{/if}
+		{#if data.userAgent}
+			<p class="break-all"><span class="font-medium">User Agent</span>: {data.userAgent}</p>
+		{/if}
 	{/snippet}
 </AuditLogDetails>

@@ -35,7 +35,7 @@ func TestLLMAuditLogOptionsFromExport(t *testing.T) {
 			RequestPaths:           []string{"/v1/chat/completions"},
 			ResponseStatuses:       []int{200, 429},
 			Outcomes:               []string{gatewaytypes.LLMAuditOutcomeSuccess},
-			Clients:                []string{"obot"},
+			UserAgents:             []string{"obot/1.0"},
 			ClientSessionIDs:       []string{"session-1"},
 			MessagePolicyTriggered: []bool{true, false},
 			Query:                  "needle",
@@ -54,6 +54,9 @@ func TestLLMAuditLogOptionsFromExport(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got.MessagePolicyTriggered, export.Spec.LLMFilters.MessagePolicyTriggered) {
 		t.Fatalf("message policy filter was not mapped: %#v", got)
+	}
+	if !reflect.DeepEqual(got.UserAgent, export.Spec.LLMFilters.UserAgents) {
+		t.Fatalf("user agent filter was not mapped: %#v", got)
 	}
 }
 
