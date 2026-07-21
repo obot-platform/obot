@@ -7,7 +7,7 @@
 	import Table from '$lib/components/table/Table.svelte';
 	import { HttpError } from '$lib/errors';
 	import { AdminService, type GitCredential, type GitCredentialManifest } from '$lib/services';
-	import { profile } from '$lib/stores';
+	import { errors, profile } from '$lib/stores';
 	import { KeyRound, Pencil, Plus, Trash2, TriangleAlert, X } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 
@@ -318,7 +318,7 @@
 		if (!deletingCredential) return;
 		saving = true;
 		try {
-			await AdminService.deleteGitCredential(deletingCredential.id);
+			await AdminService.deleteGitCredential(deletingCredential.id, { dontLogErrors: true });
 			gitCredentials = gitCredentials.filter(
 				(credential) => credential.id !== deletingCredential?.id
 			);
@@ -338,6 +338,8 @@
 						: credential
 				);
 				deletingCredential = undefined;
+			} else {
+				errors.append(`Failed to delete Git credential: ${error}`);
 			}
 		} finally {
 			saving = false;
