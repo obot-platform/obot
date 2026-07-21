@@ -6,7 +6,7 @@
 	import AccessControlRuleForm from '$lib/components/admin/AccessControlRuleForm.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { MCP_ACCESS_POLICY_FIELD_IDS, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { AdminService, UserService, type OrgUser, type AccessControlRule } from '$lib/services';
 	import { mcpServersAndEntries, profile } from '$lib/stores';
 	import { goto, clearUrlParams } from '$lib/url';
@@ -123,7 +123,7 @@
 							{/if}
 						</p>
 
-						{@render addRuleButton()}
+						{@render addRuleButton(MCP_ACCESS_POLICY_FIELD_IDS.addPolicyEmptyBtn)}
 					</div>
 				{:else}
 					<div class="flex flex-col gap-2">
@@ -143,7 +143,7 @@
 	{#snippet rightNavActions()}
 		{#if !showCreateRule}
 			<div class="relative flex items-center gap-4">
-				{@render addRuleButton()}
+				{@render addRuleButton(MCP_ACCESS_POLICY_FIELD_IDS.addPolicyBtn)}
 			</div>
 		{/if}
 	{/snippet}
@@ -199,9 +199,10 @@
 	</Table>
 {/snippet}
 
-{#snippet addRuleButton()}
+{#snippet addRuleButton(id: string)}
 	{#if !profile.current.isAdminReadonly?.()}
 		<button
+			{id}
 			class="btn btn-primary flex items-center gap-1 text-sm"
 			onclick={() => {
 				goto(`/admin/mcp-access-policies?new=true`);

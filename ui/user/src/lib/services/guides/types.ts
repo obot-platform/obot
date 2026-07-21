@@ -53,6 +53,7 @@ export interface GuideAction {
 	setPreferredClient?: boolean;
 	skipClickTargetOnNext?: boolean;
 	success?: boolean;
+	waitFor?: string;
 }
 
 export interface GuideListener extends GuideSelector {

@@ -2,6 +2,7 @@
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
+	import { CATALOG_SERVER_FIELD_IDS } from '$lib/constants';
 	import type { CompositeServerToolRow, MCPCatalogEntry, MCPCatalogServer } from '$lib/services';
 	import {
 		conflictIssue,
@@ -153,6 +154,7 @@
 </script>
 
 <ResponsiveDialog
+	id={CATALOG_SERVER_FIELD_IDS.compositeEntryEditToolsDialog}
 	bind:this={dialog}
 	animate="slide"
 	title={`Configure ${configuringEntry?.manifest?.name ?? 'MCP Server'} Tools`}
@@ -206,7 +208,10 @@
 				</p>
 			{/if}
 		</div>
-		<div class="flex w-full justify-end">
+		<div
+			class="flex w-full justify-end"
+			id={CATALOG_SERVER_FIELD_IDS.compositeEntryConfigureToolsToggleAll}
+		>
 			<Toggle
 				checked={allToolsEnabled}
 				onChange={(checked) => {
@@ -240,6 +245,7 @@
 			{@const conflict = tool.enabled ? conflictIssue(effectiveName, conflictSet) : undefined}
 			<div
 				class="dark:bg-base-300 dark:border-base-400 bg-base-100 flex items-start gap-2 rounded border border-transparent p-2 shadow-sm"
+				id={`edit-tool-${tool.id}`}
 			>
 				<div class="flex min-w-0 grow flex-col gap-2">
 					<div class="flex items-start justify-between gap-2">
@@ -336,6 +342,7 @@
 	<div class="bg-base-200 sticky bottom-0 left-0 mt-4 flex w-full justify-end gap-2 p-4">
 		<button class="btn btn-secondary" onclick={handleCancel}>Cancel</button>
 		<button
+			id={CATALOG_SERVER_FIELD_IDS.compositeEntryConfigureToolsConfirmBtn}
 			class="btn btn-primary"
 			disabled={hasBlockingToolNameErrors || prefixIssue?.severity === 'error'}
 			onclick={() => {

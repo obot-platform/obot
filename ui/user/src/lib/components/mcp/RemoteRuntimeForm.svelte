@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { CATALOG_SERVER_FIELD_IDS } from '$lib/constants';
 	import type { MCPAllowedSecretBindingTarget } from '$lib/services';
 	import type {
 		RemoteCatalogConfigAdmin,
@@ -75,7 +76,7 @@
 </script>
 
 {#snippet remoteHeaders(showUrlTemplateHelp: boolean)}
-	<div class="flex w-full flex-col gap-8" in:slide>
+	<div id={CATALOG_SERVER_FIELD_IDS.remoteHeaders} class="flex w-full flex-col gap-8" in:slide>
 		<div
 			class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
 		>
@@ -261,6 +262,7 @@
 {#if variant === 'server'}
 	{@const serverConfig = config as RemoteRuntimeConfigAdmin}
 	<div
+		id={CATALOG_SERVER_FIELD_IDS.remoteURL}
 		class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-6 rounded-lg border border-transparent p-4 shadow-sm"
 		in:fade={{ duration: 200 }}
 	>
@@ -293,6 +295,7 @@
 	{@const remoteConfig = config as RemoteCatalogConfigAdmin}
 	<!-- For catalog entries, show simple fixed URL when not in advanced mode -->
 	<div
+		id={CATALOG_SERVER_FIELD_IDS.remoteURL}
 		class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-6 rounded-lg border border-transparent p-4 shadow-sm"
 		in:fade={{ duration: 200 }}
 	>
@@ -317,6 +320,7 @@
 {:else if showAdvanced}
 	<div class="flex w-full flex-col gap-8" in:slide>
 		<div
+			id={CATALOG_SERVER_FIELD_IDS.remoteConnection}
 			class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
 		>
 			<div class="flex items-center gap-4 {readonly ? 'hidden' : ''}">
@@ -461,6 +465,7 @@
 	{#if config && !disableStaticOAuth}
 		{@const remoteConfig = config as RemoteCatalogConfigAdmin}
 		<div
+			id={CATALOG_SERVER_FIELD_IDS.remoteStaticOAuth}
 			class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
 		>
 			<div class="flex justify-between">
@@ -531,6 +536,7 @@
 
 {#if variant === 'catalog'}
 	<button
+		id={CATALOG_SERVER_FIELD_IDS.remoteAdvancedBtn}
 		type="button"
 		class="btn btn-text pl-0"
 		onclick={() => {

@@ -3,7 +3,14 @@ import { page } from '$app/state';
 import { OBOT_GUIDE_KEYS } from '$lib/constants';
 import { Group } from '$lib/services/admin/types';
 import { profile } from '$lib/stores';
-import { SkillsInstallGuide, McpConnectGuide, McpCreateCustomGuide } from '.';
+import {
+	SkillsInstallGuide,
+	McpConnectGuide,
+	McpCustomHostedGuide,
+	McpCustomRemoteGuide,
+	McpCustomCompositeGuide,
+	McpAccessPolicyCreateGuide
+} from '.';
 import { isValid } from 'date-fns';
 
 export function generateLessonItems() {
@@ -12,13 +19,37 @@ export function generateLessonItems() {
 		page.url.pathname.includes('mcp-catalog') ||
 		page.url.pathname.includes('access-policies');
 	const isAtLeastPoweruser = profile.current.groups.includes(Group.POWERUSER);
+	const isAtLeastPowerUserPlus = profile.current.groups.includes(Group.POWERUSER_PLUS);
 	return isAdvancedRoute && isAtLeastPoweruser
 		? [
 				{
-					label: McpCreateCustomGuide.title,
-					description: McpCreateCustomGuide.description,
-					guide: McpCreateCustomGuide
-				}
+					label: McpCustomHostedGuide.title,
+					description: McpCustomHostedGuide.description,
+					guide: McpCustomHostedGuide
+				},
+				{
+					label: McpCustomRemoteGuide.title,
+					description: McpCustomRemoteGuide.description,
+					guide: McpCustomRemoteGuide
+				},
+				...(profile.current.isAdmin?.()
+					? [
+							{
+								label: McpCustomCompositeGuide.title,
+								description: McpCustomCompositeGuide.description,
+								guide: McpCustomCompositeGuide
+							}
+						]
+					: []),
+				...(isAtLeastPowerUserPlus
+					? [
+							{
+								label: McpAccessPolicyCreateGuide.title,
+								description: McpAccessPolicyCreateGuide.description,
+								guide: McpAccessPolicyCreateGuide
+							}
+						]
+					: [])
 			]
 		: [
 				{

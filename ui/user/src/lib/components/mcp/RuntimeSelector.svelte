@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { CATALOG_SERVER_FIELD_IDS } from '$lib/constants';
 	import type { LaunchServerType, Runtime } from '$lib/services/user/types';
 	import Select from '../Select.svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -67,10 +68,10 @@
 		'paper p-4',
 		serverType === 'remote' || serverType === 'composite' ? 'hidden' : ''
 	)}
-	aria-labelledby="runtime-selector-heading"
-	id="runtime-selector"
+	aria-labelledby={`${CATALOG_SERVER_FIELD_IDS.runtime}-heading`}
+	id={CATALOG_SERVER_FIELD_IDS.runtime}
 >
-	<h4 id="runtime-selector-heading" class="text-sm font-semibold">Runtime</h4>
+	<h4 id={`${CATALOG_SERVER_FIELD_IDS.runtime}-heading`} class="text-sm font-semibold">Runtime</h4>
 
 	<div class="flex items-center gap-4">
 		<span id="runtime-selector-label" class="text-sm font-light">Type</span>

@@ -90,6 +90,7 @@
 
 	let setPreferredClientsDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let selectedClients = $state<AiClient[]>([]);
+	let menu = $state<ReturnType<typeof Menu>>();
 
 	const clientsMap = $derived(new Map(COMMON_AI_CLIENTS.map((client) => [client.id, client])));
 	const clients = $derived.by(() => {
@@ -168,6 +169,7 @@
 </script>
 
 <Menu
+	bind:this={menu}
 	title={profile.current.displayName || 'Anonymous'}
 	slide={responsive.isMobile ? 'left' : undefined}
 	fixed={responsive.isMobile}
@@ -247,7 +249,7 @@
 			{/if}
 			{#if !impersonating}
 				{#if profile.current.email && !page.url.pathname.startsWith('/profile')}
-					<MyAccount />
+					<MyAccount onClose={() => menu?.toggle(false)} />
 				{/if}
 				{#if showApiKeysLink}
 					<a href={resolve('/keys')} role="menuitem" class="dropdown-link"
@@ -259,6 +261,7 @@
 					onclick={() => {
 						selectedClients = userDeviceSettings.aiClientPreference ?? [];
 						setPreferredClientsDialog?.open();
+						menu?.toggle(false);
 					}}
 				>
 					<Terminal class="size-4" /> Client Preference

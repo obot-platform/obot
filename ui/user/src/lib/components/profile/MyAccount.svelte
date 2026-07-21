@@ -10,6 +10,12 @@
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { User } from '@lucide/svelte';
 
+	interface Props {
+		onClose?: () => void;
+	}
+
+	let { onClose }: Props = $props();
+
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let toDelete = $state(false);
 	let toRevoke = $state(false);
@@ -53,7 +59,12 @@
 	}
 </script>
 
-<button class="dropdown-link" onclick={() => dialog?.open()}>
+<button
+	class="dropdown-link"
+	onclick={() => {
+		dialog?.open();
+	}}
+>
 	<User class="size-4" /> My Account
 </button>
 
@@ -62,6 +73,7 @@
 	title="My Account"
 	class="w-full max-w-lg"
 	classes={{ content: 'p-6' }}
+	{onClose}
 >
 	<img
 		src={profile.current.iconURL}

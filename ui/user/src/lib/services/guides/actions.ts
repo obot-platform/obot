@@ -1,5 +1,6 @@
 import type { GuideAction, GuideHighlight, GuideListener } from './types';
 
+// shared action that can be used in multiple guides
 export function getExpandAdvancedPaneAction({
 	elementMissing,
 	highlight,

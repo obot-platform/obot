@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ADMIN_ALL_OPTION } from '$lib/constants';
+	import { ADMIN_ALL_OPTION, MCP_ACCESS_POLICY_FIELD_IDS } from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { stripMarkdownToText } from '$lib/markdown';
 	import {
@@ -175,10 +175,11 @@
 </script>
 
 <ResponsiveDialog
+	id="search-mcp-servers-dialog"
 	bind:this={addMcpServerDialog}
 	{onClose}
 	{title}
-	class="h-full w-full overflow-visible md:h-[500px] md:max-w-md"
+	class="h-full w-full overflow-visible md:h-125 md:max-w-md"
 	classes={{ header: 'p-4 md:pb-0', content: 'min-h-inherit p-0' }}
 >
 	<div class="default-scrollbar-thin flex grow flex-col gap-4 overflow-y-auto pt-1">
@@ -200,6 +201,9 @@
 				<div class="flex flex-col">
 					{#each filteredData as item (item.id)}
 						<button
+							id={item.id === '*'
+								? MCP_ACCESS_POLICY_FIELD_IDS.everythingOption
+								: `search-mcp-server-${item.id}`}
 							class={twMerge(
 								'dark:hover:bg-base-200 hover:bg-base-300 flex w-full items-center gap-2 px-4 py-2 text-left',
 								selectedMap.has(item.id) && 'bg-base-200/50'
@@ -268,12 +272,21 @@
 			</div>
 			<div class="flex items-center gap-2">
 				<button
+					id="search-mcp-servers-cancel-btn"
 					class="btn btn-secondary w-full md:w-fit"
 					onclick={() => addMcpServerDialog?.close()}
 				>
 					Cancel
 				</button>
-				<button class="btn btn-primary w-full md:w-fit" onclick={handleAdd}> Confirm </button>
+				<button
+					id={type === 'acr'
+						? MCP_ACCESS_POLICY_FIELD_IDS.serverConfirmBtn
+						: 'search-mcp-servers-confirm-btn'}
+					class="btn btn-primary w-full md:w-fit"
+					onclick={handleAdd}
+				>
+					Confirm
+				</button>
 			</div>
 		{/if}
 	</div>

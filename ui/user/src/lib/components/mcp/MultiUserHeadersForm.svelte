@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { CATALOG_SERVER_FIELD_IDS } from '$lib/constants';
 	import type { MCPSubField } from '$lib/services';
 	import InfoTooltip from '../InfoTooltip.svelte';
 	import Toggle from '../Toggle.svelte';
@@ -15,6 +16,7 @@
 
 <div
 	class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
+	id={CATALOG_SERVER_FIELD_IDS.headers}
 >
 	<div class="flex flex-col gap-1">
 		<h4 class="text-sm font-semibold">User-Defined Headers</h4>
