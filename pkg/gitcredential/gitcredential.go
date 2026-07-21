@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/obot-platform/obot/logger"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	obotgit "github.com/obot-platform/obot/pkg/git"
@@ -16,6 +17,8 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+var log = logger.Package()
 
 const (
 	credentialContext = "git-credentials"
@@ -92,6 +95,7 @@ func Configured(ctx context.Context, gatewayClient *gclient.Client, credentialID
 }
 
 // ResolveOrReveal resolves a shared Git credential or falls back to a legacy source-specific token.
+// Legacy lookup failures are logged and treated as missing so public sources can sync unauthenticated.
 func ResolveOrReveal(ctx context.Context, storageClient client.Client, gatewayClient *gclient.Client, namespace, credentialID, sourceURL, legacyCredentialContext, legacyToolName string) (string, error) {
 	if credentialID != "" {
 		return Resolve(ctx, storageClient, gatewayClient, namespace, credentialID, sourceURL)
@@ -101,7 +105,8 @@ func ResolveOrReveal(ctx context.Context, storageClient client.Client, gatewayCl
 		return "", nil
 	}
 	if err != nil {
-		return "", err
+		log.Errorf("failed to reveal legacy Git credential for source %s: %v", sourceURL, err)
+		return "", nil
 	}
 	return credential.Secrets[sourceURL], nil
 }

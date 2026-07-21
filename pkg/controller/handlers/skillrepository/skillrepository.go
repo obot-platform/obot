@@ -61,9 +61,6 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	defer h.clearIsSyncing(req.Ctx, req.Client, namespace, repo.Name)
 
 	token, err := gitcredential.ResolveOrReveal(req.Ctx, req.Client, h.gatewayClient, repo.Namespace, repo.Spec.GitCredentialID, repo.Spec.RepoURL, repo.Name, SkillRepositoryCredentialToolName)
-	if err != nil && repo.Spec.GitCredentialID == "" {
-		err = fmt.Errorf("failed to retrieve credential for repository %s source %s: %w", repo.Name, repo.Spec.RepoURL, err)
-	}
 	if err != nil {
 		if statusErr := h.recordFailure(req.Ctx, req.Client, namespace, repo.Name, err); statusErr != nil {
 			return statusErr

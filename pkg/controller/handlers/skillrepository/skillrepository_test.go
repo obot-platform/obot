@@ -422,6 +422,40 @@ func TestSync(t *testing.T) {
 		assert.Equal(t, syncInterval, resp.Delay)
 	})
 
+	t.Run("legacy credential failure falls back to unauthenticated fetch", func(t *testing.T) {
+		repo := newSkillRepository("repo1", "default")
+		c := newFakeClient(t, repo)
+		failedGatewayClient := newTestGatewayClient(t)
+		require.NoError(t, failedGatewayClient.Close())
+
+		fetched := createFetchedRepo(t, map[string]string{"skill-a": "Skill A"})
+		fetchCalled := false
+		h := &Handler{
+			gatewayClient: failedGatewayClient,
+			fetcher: &mockFetcher{fetchFn: func(_ context.Context, _ string, token string, _ string) (*fetchedRepository, error) {
+				fetchCalled = true
+				assert.Empty(t, token)
+				return fetched, nil
+			}},
+			now: func() time.Time { return fixedTime },
+		}
+
+		err := h.Sync(router.Request{
+			Client:    c,
+			Object:    repo,
+			Ctx:       t.Context(),
+			Namespace: repo.Namespace,
+			Name:      repo.Name,
+			Key:       repo.Namespace + "/" + repo.Name,
+		}, &router.ResponseWrapper{})
+		require.NoError(t, err)
+		assert.True(t, fetchCalled)
+
+		var updated v1.SkillRepository
+		require.NoError(t, c.Get(t.Context(), kclient.ObjectKey{Namespace: repo.Namespace, Name: repo.Name}, &updated))
+		assert.Empty(t, updated.Status.SyncError)
+	})
+
 	t.Run("build failure records error", func(t *testing.T) {
 		repo := newSkillRepository("repo1", "default")
 		c := newFakeClient(t, repo)

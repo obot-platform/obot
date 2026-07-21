@@ -119,6 +119,51 @@ func TestResolveRejectsCredentialWithoutToken(t *testing.T) {
 	require.ErrorContains(t, err, "no token configured")
 }
 
+func TestResolveOrReveal(t *testing.T) {
+	ctx := t.Context()
+	storageClient := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(&v1.GitCredential{
+		ObjectMeta: metav1.ObjectMeta{Name: "gc1-test", Namespace: system.DefaultNamespace},
+		Spec:       v1.GitCredentialSpec{DisplayName: "Shared GitHub", Host: "github.com"},
+	}).Build()
+	const sourceURL = "https://github.com/obot-platform/skills"
+
+	t.Run("returns legacy token", func(t *testing.T) {
+		gatewayClient := newTestGatewayClient(t)
+		require.NoError(t, gatewayClient.UpsertCredential(ctx, gatewaytypes.Credential{
+			Context: "repo1",
+			Name:    "legacy-tool",
+			Secrets: map[string]string{sourceURL: "legacy-token"},
+		}))
+
+		token, err := ResolveOrReveal(ctx, storageClient, gatewayClient, system.DefaultNamespace, "", sourceURL, "repo1", "legacy-tool")
+		require.NoError(t, err)
+		assert.Equal(t, "legacy-token", token)
+	})
+
+	t.Run("missing legacy token falls back without authentication", func(t *testing.T) {
+		token, err := ResolveOrReveal(ctx, storageClient, newTestGatewayClient(t), system.DefaultNamespace, "", sourceURL, "repo1", "legacy-tool")
+		require.NoError(t, err)
+		assert.Empty(t, token)
+	})
+
+	t.Run("legacy backend failure falls back without authentication", func(t *testing.T) {
+		gatewayClient := newTestGatewayClient(t)
+		require.NoError(t, gatewayClient.Close())
+
+		token, err := ResolveOrReveal(ctx, storageClient, gatewayClient, system.DefaultNamespace, "", sourceURL, "repo1", "legacy-tool")
+		require.NoError(t, err)
+		assert.Empty(t, token)
+	})
+
+	t.Run("shared credential backend failure remains fatal", func(t *testing.T) {
+		gatewayClient := newTestGatewayClient(t)
+		require.NoError(t, gatewayClient.Close())
+
+		_, err := ResolveOrReveal(ctx, storageClient, gatewayClient, system.DefaultNamespace, "gc1-test", sourceURL, "repo1", "legacy-tool")
+		require.Error(t, err)
+	})
+}
+
 func newTestGatewayClient(t *testing.T) *gatewayclient.Client {
 	t.Helper()
 	storageServices, err := sservices.New(sservices.Config{DSN: "sqlite://:memory:"})
