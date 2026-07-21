@@ -172,7 +172,13 @@ func (c *Client) GetUserGroupMemberships(ctx context.Context, userIDs []uint) (m
 }
 
 // ensureGroups ensures the groups that the identity is a member of exist and are up to date.
-func (c *Client) ensureGroups(ctx context.Context, tx *gorm.DB, identity *types.Identity) error {
+//
+// It MUST be called outside of any open database transaction: the group fetch it performs is an
+// HTTP call to the auth provider, and holding a pooled DB connection across that round-trip can
+// deadlock in-process auth providers that share the single SQLite connection. The HTTP fetch and
+// the database persistence are therefore separated into distinct phases below, with the
+// persistence happening in its own short-lived transaction.
+func (c *Client) ensureGroups(ctx context.Context, identity *types.Identity) error {
 	if identity.AuthProviderName == "" || identity.AuthProviderNamespace == "" {
 		// No auth provider info, so we can't fetch groups from the provider
 		return nil
@@ -184,7 +190,8 @@ func (c *Client) ensureGroups(ctx context.Context, tx *gorm.DB, identity *types.
 		nextGroupCheck = identity.AuthProviderGroupsLastChecked.Add(groupCheckPeriod)
 	)
 
-	// Run one-time Okta group ID migration if this is an Okta auth provider
+	// Run one-time Okta group ID migration if this is an Okta auth provider.
+	// This manages its own transactions internally and makes its own HTTP calls.
 	if providerURL != "" && identity.AuthProviderName == "okta-auth-provider" {
 		if err := c.runOktaGroupIDMigrationOnce(ctx, providerURL, identity.AuthProviderNamespace, identity.AuthProviderName); err != nil {
 			log.Warnf("Okta group ID migration failed (will retry): %v", err)
@@ -192,7 +199,8 @@ func (c *Client) ensureGroups(ctx context.Context, tx *gorm.DB, identity *types.
 	}
 
 	if nextGroupCheck.After(now) || providerURL == "" {
-		groups, err := c.listUserGroups(ctx, tx, identity)
+		// Throttled (or no provider URL): just read the cached groups from the database.
+		groups, err := c.listUserGroups(ctx, c.db.WithContext(ctx), identity)
 		if err != nil {
 			return fmt.Errorf("failed to list user groups: %w", err)
 		}
@@ -201,6 +209,7 @@ func (c *Client) ensureGroups(ctx context.Context, tx *gorm.DB, identity *types.
 		return nil
 	}
 
+	// Fetch phase: call the auth provider over HTTP with no open transaction.
 	groupLookupID := identity.GroupLookupID()
 	providerGroups, err := c.fetchGroups(ctx, providerURL, identity.AuthProviderNamespace, identity.AuthProviderName, groupLookupID)
 	if err != nil {
@@ -210,40 +219,56 @@ func (c *Client) ensureGroups(ctx context.Context, tx *gorm.DB, identity *types.
 	identity.AuthProviderGroups = providerGroups
 	identity.AuthProviderGroupsLastChecked = now
 
-	// Get the groups from the database
-	var groups []types.Group
-	if err := tx.WithContext(ctx).Where("auth_provider_name = ? AND auth_provider_namespace = ?", identity.AuthProviderName, identity.AuthProviderNamespace).Find(&groups).Error; err != nil {
-		return fmt.Errorf("failed to list auth provider groups: %w", err)
-	}
+	// Persist phase: upsert groups and reconcile memberships in a short-lived transaction.
+	return c.persistGroups(ctx, identity)
+}
 
-	existingGroups := make(map[string]types.Group, len(groups))
-	for _, group := range groups {
-		existingGroups[group.ID] = group
-	}
-
-	var toUpsert []types.Group
-	for _, group := range identity.AuthProviderGroups {
-		if existing, ok := existingGroups[group.ID]; ok && existing.Name == group.Name && existing.IconURL == group.IconURL {
-			// The group already exists and is up to date, skip
-			continue
+// persistGroups persists the identity's freshly fetched AuthProviderGroups to the database and
+// reconciles the group memberships. It opens its own transaction and must be called outside of any
+// other open transaction. After the transaction commits, it emits any reconciliation events.
+func (c *Client) persistGroups(ctx context.Context, identity *types.Identity) error {
+	var membershipsChanged, groupsLost bool
+	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Get the groups from the database
+		var groups []types.Group
+		if err := tx.WithContext(ctx).Where("auth_provider_name = ? AND auth_provider_namespace = ?", identity.AuthProviderName, identity.AuthProviderNamespace).Find(&groups).Error; err != nil {
+			return fmt.Errorf("failed to list auth provider groups: %w", err)
 		}
-		toUpsert = append(toUpsert, group)
-	}
 
-	if len(toUpsert) > 0 {
-		if err := tx.WithContext(ctx).Clauses(clause.OnConflict{
-			Columns: []clause.Column{
-				{Name: "id"},
-			},
-			DoUpdates: clause.AssignmentColumns([]string{"name", "icon_url"}),
-		}).Create(&toUpsert).Error; err != nil {
-			return fmt.Errorf("failed to upsert groups: %w", err)
+		existingGroups := make(map[string]types.Group, len(groups))
+		for _, group := range groups {
+			existingGroups[group.ID] = group
 		}
-	}
 
-	membershipsChanged, groupsLost, err := c.ensureGroupMemberships(ctx, tx, identity)
-	if err != nil {
-		return fmt.Errorf("failed to update group memberships for identity: %w", err)
+		var toUpsert []types.Group
+		for _, group := range identity.AuthProviderGroups {
+			if existing, ok := existingGroups[group.ID]; ok && existing.Name == group.Name && existing.IconURL == group.IconURL {
+				// The group already exists and is up to date, skip
+				continue
+			}
+			toUpsert = append(toUpsert, group)
+		}
+
+		if len(toUpsert) > 0 {
+			if err := tx.WithContext(ctx).Clauses(clause.OnConflict{
+				Columns: []clause.Column{
+					{Name: "id"},
+				},
+				DoUpdates: clause.AssignmentColumns([]string{"name", "icon_url"}),
+			}).Create(&toUpsert).Error; err != nil {
+				return fmt.Errorf("failed to upsert groups: %w", err)
+			}
+		}
+
+		var err error
+		membershipsChanged, groupsLost, err = c.ensureGroupMemberships(ctx, tx, identity)
+		if err != nil {
+			return fmt.Errorf("failed to update group memberships for identity: %w", err)
+		}
+
+		return nil
+	}); err != nil {
+		return err
 	}
 
 	// If memberships changed, trigger reconciliation for this user
