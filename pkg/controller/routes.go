@@ -111,6 +111,7 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.ImagePullSecret{}).HandlerFunc(imagePullSecretHandler.Reconcile)
 
 	// GitCredential
+	root.Type(&v1.GitCredential{}).HandlerFunc(gitCredentialHandler.SyncReferences)
 	root.Type(&v1.GitCredential{}).FinalizeFunc(v1.GitCredentialFinalizer, gitCredentialHandler.Cleanup)
 
 	// MCPServerCatalogEntry

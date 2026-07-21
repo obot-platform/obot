@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -141,88 +142,62 @@ func Resolve(ctx context.Context, storageClient client.Client, gatewayClient *gc
 	return token, nil
 }
 
-// ReferencesByCredential lists resources in the namespace that use Git credentials, keyed by credential ID.
-func ReferencesByCredential(ctx context.Context, storageClient client.Client, namespace string) (map[string][]string, error) {
-	references := map[string][]string{}
+// References lists resources in the namespace that use the identified Git credential.
+func References(ctx context.Context, storageClient client.Client, namespace, credentialID string) (v1.GitCredentialReferences, error) {
+	var references v1.GitCredentialReferences
 	var repositories v1.SkillRepositoryList
 	if err := storageClient.List(ctx, &repositories, client.InNamespace(namespace)); err != nil {
-		return nil, fmt.Errorf("failed to list skill repositories: %w", err)
+		return references, fmt.Errorf("failed to list skill repositories: %w", err)
 	}
 	for _, repository := range repositories.Items {
-		if credentialID := repository.Spec.GitCredentialID; credentialID != "" {
-			references[credentialID] = append(references[credentialID], "skill repository "+repository.Name)
+		if repository.Spec.GitCredentialID == credentialID {
+			references.SkillRepositories = append(references.SkillRepositories, v1.GitCredentialReference{
+				ID:          repository.Name,
+				DisplayName: repository.Spec.DisplayName,
+			})
 		}
 	}
 
 	var catalogs v1.MCPCatalogList
 	if err := storageClient.List(ctx, &catalogs, client.InNamespace(namespace)); err != nil {
-		return nil, fmt.Errorf("failed to list MCP catalogs: %w", err)
+		return references, fmt.Errorf("failed to list MCP catalogs: %w", err)
 	}
 	for _, catalog := range catalogs.Items {
-		credentialIDs := map[string]struct{}{}
-		for _, id := range catalog.Spec.SourceURLGitCredentialIDs {
-			if id != "" {
-				credentialIDs[id] = struct{}{}
-			}
-		}
-		for credentialID := range credentialIDs {
-			references[credentialID] = append(references[credentialID], "MCP catalog "+catalog.Name)
-		}
-	}
-
-	var systemCatalogs v1.SystemMCPCatalogList
-	if err := storageClient.List(ctx, &systemCatalogs, client.InNamespace(namespace)); err != nil {
-		return nil, fmt.Errorf("failed to list system MCP catalogs: %w", err)
-	}
-	for _, catalog := range systemCatalogs.Items {
-		credentialIDs := map[string]struct{}{}
-		for _, id := range catalog.Spec.SourceURLGitCredentialIDs {
-			if id != "" {
-				credentialIDs[id] = struct{}{}
-			}
-		}
-		for credentialID := range credentialIDs {
-			references[credentialID] = append(references[credentialID], "system MCP catalog "+catalog.Name)
-		}
-	}
-	return references, nil
-}
-
-// References lists resources in the namespace that use the identified Git credential.
-func References(ctx context.Context, storageClient client.Client, namespace, credentialID string) ([]string, error) {
-	var references []string
-	var repositories v1.SkillRepositoryList
-	if err := storageClient.List(ctx, &repositories, client.InNamespace(namespace), client.MatchingFields{"spec.gitCredentialID": credentialID}); err != nil {
-		return nil, fmt.Errorf("failed to list skill repositories: %w", err)
-	}
-	for _, repository := range repositories.Items {
-		references = append(references, "skill repository "+repository.Name)
-	}
-
-	var catalogs v1.MCPCatalogList
-	if err := storageClient.List(ctx, &catalogs, client.InNamespace(namespace)); err != nil {
-		return nil, fmt.Errorf("failed to list MCP catalogs: %w", err)
-	}
-	for _, catalog := range catalogs.Items {
-		for _, id := range catalog.Spec.SourceURLGitCredentialIDs {
+		for sourceURL, id := range catalog.Spec.SourceURLGitCredentialIDs {
 			if id == credentialID {
-				references = append(references, "MCP catalog "+catalog.Name)
-				break
+				references.MCPCatalogs = append(references.MCPCatalogs, v1.GitCredentialReference{
+					ID:          catalog.Name,
+					DisplayName: sourceURL,
+				})
 			}
 		}
 	}
 
 	var systemCatalogs v1.SystemMCPCatalogList
 	if err := storageClient.List(ctx, &systemCatalogs, client.InNamespace(namespace)); err != nil {
-		return nil, fmt.Errorf("failed to list system MCP catalogs: %w", err)
+		return references, fmt.Errorf("failed to list system MCP catalogs: %w", err)
 	}
 	for _, catalog := range systemCatalogs.Items {
-		for _, id := range catalog.Spec.SourceURLGitCredentialIDs {
+		for sourceURL, id := range catalog.Spec.SourceURLGitCredentialIDs {
 			if id == credentialID {
-				references = append(references, "system MCP catalog "+catalog.Name)
-				break
+				references.SystemMCPCatalogs = append(references.SystemMCPCatalogs, v1.GitCredentialReference{
+					ID:          catalog.Name,
+					DisplayName: sourceURL,
+				})
 			}
 		}
 	}
+	// Catalog references come from maps, so sort every group to keep status updates deterministic.
+	sortReferences := func(references []v1.GitCredentialReference) {
+		sort.Slice(references, func(i, j int) bool {
+			if references[i].DisplayName == references[j].DisplayName {
+				return references[i].ID < references[j].ID
+			}
+			return references[i].DisplayName < references[j].DisplayName
+		})
+	}
+	sortReferences(references.SkillRepositories)
+	sortReferences(references.MCPCatalogs)
+	sortReferences(references.SystemMCPCatalogs)
 	return references, nil
 }

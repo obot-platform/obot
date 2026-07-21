@@ -8,13 +8,32 @@ type GitCredential struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   GitCredentialSpec `json:"spec,omitempty"`
-	Status EmptyStatus       `json:"status,omitempty"`
+	Spec   GitCredentialSpec   `json:"spec,omitempty"`
+	Status GitCredentialStatus `json:"status,omitempty"`
 }
 
 type GitCredentialSpec struct {
 	DisplayName string `json:"displayName,omitempty"`
 	Host        string `json:"host,omitempty"`
+}
+
+type GitCredentialStatus struct {
+	References GitCredentialReferences `json:"references,omitempty"`
+}
+
+type GitCredentialReferences struct {
+	SkillRepositories []GitCredentialReference `json:"skillRepositories,omitempty"`
+	MCPCatalogs       []GitCredentialReference `json:"mcpCatalogs,omitempty"`
+	SystemMCPCatalogs []GitCredentialReference `json:"systemMcpCatalogs,omitempty"`
+}
+
+func (r GitCredentialReferences) Len() int {
+	return len(r.SkillRepositories) + len(r.MCPCatalogs) + len(r.SystemMCPCatalogs)
+}
+
+type GitCredentialReference struct {
+	ID          string `json:"id"`
+	DisplayName string `json:"displayName,omitempty"`
 }
 
 func (in *GitCredential) GetColumns() [][]string {

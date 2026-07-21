@@ -2,7 +2,6 @@ package gitcredential
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/obot-platform/nah/pkg/router"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
@@ -18,14 +17,24 @@ func New(gatewayClient *gclient.Client) *Handler {
 	return &Handler{gatewayClient: gatewayClient}
 }
 
+func (*Handler) SyncReferences(req router.Request, _ router.Response) error {
+	credential := req.Object.(*v1.GitCredential)
+	references, err := credentialstore.References(req.Ctx, req.Client, credential.Namespace, credential.Name)
+	if err != nil {
+		return err
+	}
+	credential.Status.References = references
+	return nil
+}
+
 func (h *Handler) Cleanup(req router.Request, _ router.Response) error {
 	credential := req.Object.(*v1.GitCredential)
 	references, err := credentialstore.References(req.Ctx, req.Client, credential.Namespace, credential.Name)
 	if err != nil {
 		return err
 	}
-	if len(references) > 0 {
-		return fmt.Errorf("git credential is still used by %s", strings.Join(references, ", "))
+	if references.Len() > 0 {
+		return fmt.Errorf("git credential is still used by %d resources", references.Len())
 	}
 	return credentialstore.Delete(req.Ctx, h.gatewayClient, credential.Name)
 }

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
@@ -27,23 +28,34 @@ func TestConvertGitCredentialDoesNotExposeToken(t *testing.T) {
 			DisplayName: "Shared GitHub",
 			Host:        "github.com",
 		},
-	}, true, true)
+		Status: v1.GitCredentialStatus{References: v1.GitCredentialReferences{
+			SkillRepositories: []v1.GitCredentialReference{{
+				ID:          "skills",
+				DisplayName: "Team Skills",
+			}},
+		}},
+	}, true)
 
 	assert.Equal(t, "gc1-test", converted.ID)
 	assert.Equal(t, "Shared GitHub", converted.DisplayName)
 	assert.Equal(t, "github.com", converted.Host)
 	assert.True(t, converted.TokenConfigured)
-	assert.True(t, converted.InUse)
+	assert.Equal(t, types.GitCredentialUses{
+		SkillRepositories: []types.GitCredentialUse{{ID: "skills", DisplayName: "Team Skills"}},
+		MCPCatalogs:       []types.GitCredentialUse{},
+		SystemMCPCatalogs: []types.GitCredentialUse{},
+	}, converted.Uses)
 
 	response, err := json.Marshal(converted)
 	require.NoError(t, err)
 	assert.NotContains(t, string(response), `"token":`)
-	assert.Contains(t, string(response), `"inUse":true`)
+	assert.Contains(t, string(response), `"uses":{"skillRepositories":[{"id":"skills","displayName":"Team Skills"}],"mcpCatalogs":[],"systemMcpCatalogs":[]}`)
+	assert.NotContains(t, string(response), `"inUse"`)
 
-	converted.InUse = false
+	converted = convertGitCredential(v1.GitCredential{}, false)
 	response, err = json.Marshal(converted)
 	require.NoError(t, err)
-	assert.Contains(t, string(response), `"inUse":false`)
+	assert.Contains(t, string(response), `"uses":{"skillRepositories":[],"mcpCatalogs":[],"systemMcpCatalogs":[]}`)
 }
 
 func TestReadGitCredentialManifestTrimsToken(t *testing.T) {
@@ -63,7 +75,10 @@ func TestGitCredentialReferences(t *testing.T) {
 	storage := newFakeStorage(t,
 		&v1.SkillRepository{
 			ObjectMeta: metav1.ObjectMeta{Name: "skills", Namespace: system.DefaultNamespace},
-			Spec:       v1.SkillRepositorySpec{GitCredentialID: "gc1-test"},
+			Spec: v1.SkillRepositorySpec{
+				DisplayName:     "Team Skills",
+				GitCredentialID: "gc1-test",
+			},
 		},
 		&v1.MCPCatalog{
 			ObjectMeta: metav1.ObjectMeta{Name: "catalog", Namespace: system.DefaultNamespace},
@@ -81,20 +96,18 @@ func TestGitCredentialReferences(t *testing.T) {
 		},
 	)
 	req := httptest.NewRequest(http.MethodDelete, "/api/git-credentials/gc1-test", nil)
-	referencesByCredential, err := gitcredential.ReferencesByCredential(req.Context(), storage, system.DefaultNamespace)
-	require.NoError(t, err)
-	assert.ElementsMatch(t, []string{
-		"skill repository skills",
-		"MCP catalog catalog",
-		"system MCP catalog system-catalog",
-	}, referencesByCredential["gc1-test"])
-
 	references, err := gitCredentialReferences(api.Context{Request: req, Storage: storage}, "gc1-test")
 	require.NoError(t, err)
-	assert.ElementsMatch(t, []string{
-		"skill repository skills",
-		"MCP catalog catalog",
-		"system MCP catalog system-catalog",
+	assert.Equal(t, v1.GitCredentialReferences{
+		SkillRepositories: []v1.GitCredentialReference{{ID: "skills", DisplayName: "Team Skills"}},
+		MCPCatalogs: []v1.GitCredentialReference{
+			{ID: "catalog", DisplayName: "https://github.com/org/catalog"},
+			{ID: "catalog", DisplayName: "https://github.com/org/other"},
+		},
+		SystemMCPCatalogs: []v1.GitCredentialReference{
+			{ID: "system-catalog", DisplayName: "https://github.com/org/system-catalog"},
+			{ID: "system-catalog", DisplayName: "https://github.com/org/system-other"},
+		},
 	}, references)
 }
 

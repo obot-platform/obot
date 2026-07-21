@@ -24,10 +24,6 @@ func (*GitCredentialHandler) List(req api.Context) error {
 	if err := req.List(&list); err != nil {
 		return fmt.Errorf("failed to list Git credentials: %w", err)
 	}
-	references, err := gitcredential.ReferencesByCredential(req.Context(), req.Storage, req.Namespace())
-	if err != nil {
-		return fmt.Errorf("failed to check Git credential references: %w", err)
-	}
 
 	items := make([]types.GitCredential, 0, len(list.Items))
 	for _, credential := range list.Items {
@@ -35,7 +31,7 @@ func (*GitCredentialHandler) List(req api.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to check Git credential %q: %w", credential.Name, err)
 		}
-		items = append(items, convertGitCredential(credential, configured, len(references[credential.Name]) > 0))
+		items = append(items, convertGitCredential(credential, configured))
 	}
 	return req.Write(types.GitCredentialList{Items: items})
 }
@@ -49,11 +45,7 @@ func (*GitCredentialHandler) Get(req api.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to check Git credential %q: %w", credential.Name, err)
 	}
-	references, err := gitCredentialReferences(req, credential.Name)
-	if err != nil {
-		return err
-	}
-	return req.Write(convertGitCredential(credential, configured, len(references) > 0))
+	return req.Write(convertGitCredential(credential, configured))
 }
 
 func (*GitCredentialHandler) Create(req api.Context) error {
@@ -83,7 +75,7 @@ func (*GitCredentialHandler) Create(req api.Context) error {
 		_ = req.Delete(&credential)
 		return fmt.Errorf("failed to store Git credential token: %w", err)
 	}
-	return req.WriteCreated(convertGitCredential(credential, true, false))
+	return req.WriteCreated(convertGitCredential(credential, true))
 }
 
 func (*GitCredentialHandler) Update(req api.Context) error {
@@ -117,10 +109,7 @@ func (*GitCredentialHandler) Update(req api.Context) error {
 		}
 		configured = true
 	}
-	// this error is intentionally ignore because the outcome is not critical. We already completed the Update
-	// and credential changes so we want to return a successful response
-	references, _ := gitCredentialReferences(req, credential.Name)
-	return req.Write(convertGitCredential(credential, configured, len(references) > 0))
+	return req.Write(convertGitCredential(credential, configured))
 }
 
 func (*GitCredentialHandler) Delete(req api.Context) error {
@@ -132,8 +121,8 @@ func (*GitCredentialHandler) Delete(req api.Context) error {
 	if err != nil {
 		return err
 	}
-	if len(references) > 0 {
-		return types.NewErrHTTP(http.StatusConflict, fmt.Sprintf("Git credential is used by %s", strings.Join(references, ", ")))
+	if references.Len() > 0 {
+		return types.NewErrHTTP(http.StatusConflict, fmt.Sprintf("Git credential is still used by %d resources", references.Len()))
 	}
 	if err := req.Delete(&credential); err != nil {
 		return fmt.Errorf("failed to delete Git credential: %w", err)
@@ -159,17 +148,31 @@ func readGitCredentialManifest(req api.Context) (types.GitCredentialManifest, st
 	return manifest, host, nil
 }
 
-func gitCredentialReferences(req api.Context, credentialID string) ([]string, error) {
+func gitCredentialReferences(req api.Context, credentialID string) (v1.GitCredentialReferences, error) {
 	return gitcredential.References(req.Context(), req.Storage, req.Namespace(), credentialID)
 }
 
-func convertGitCredential(credential v1.GitCredential, configured, inUse bool) types.GitCredential {
+func convertGitCredential(credential v1.GitCredential, configured bool) types.GitCredential {
+	convertUses := func(references []v1.GitCredentialReference) []types.GitCredentialUse {
+		uses := make([]types.GitCredentialUse, 0, len(references))
+		for _, reference := range references {
+			uses = append(uses, types.GitCredentialUse{
+				ID:          reference.ID,
+				DisplayName: reference.DisplayName,
+			})
+		}
+		return uses
+	}
 	return types.GitCredential{
 		Metadata:        MetadataFrom(&credential),
 		DisplayName:     credential.Spec.DisplayName,
 		Host:            credential.Spec.Host,
 		TokenConfigured: configured,
-		InUse:           inUse,
+		Uses: types.GitCredentialUses{
+			SkillRepositories: convertUses(credential.Status.References.SkillRepositories),
+			MCPCatalogs:       convertUses(credential.Status.References.MCPCatalogs),
+			SystemMCPCatalogs: convertUses(credential.Status.References.SystemMCPCatalogs),
+		},
 	}
 }
 

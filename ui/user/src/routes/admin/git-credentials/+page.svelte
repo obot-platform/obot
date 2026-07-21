@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
@@ -17,6 +16,7 @@
 	let gitCredentials = $state<GitCredential[]>(untrack(() => data.gitCredentials));
 	let editingCredential = $state<GitCredential>();
 	let deletingCredential = $state<GitCredential>();
+	let viewingCredential = $state<GitCredential>();
 	let displayName = $state('');
 	let host = $state('');
 	let token = $state('');
@@ -25,6 +25,18 @@
 	let dialog = $state<HTMLDialogElement>();
 	let isReadonly = $derived(profile.current.isAdminReadonly?.());
 	let tokenRequired = $derived(!editingCredential?.tokenConfigured);
+
+	function useGroups(credential?: GitCredential) {
+		return [
+			{ label: 'Skill Repositories', uses: credential?.uses.skillRepositories ?? [] },
+			{ label: 'MCP Catalogs', uses: credential?.uses.mcpCatalogs ?? [] },
+			{ label: 'System MCP Catalogs', uses: credential?.uses.systemMcpCatalogs ?? [] }
+		].filter((group) => group.uses.length > 0);
+	}
+
+	function hasUses(credential?: GitCredential) {
+		return useGroups(credential).length > 0;
+	}
 
 	function openCreate() {
 		editingCredential = undefined;
@@ -42,6 +54,14 @@
 		token = '';
 		formError = '';
 		dialog?.showModal();
+	}
+
+	function openDelete(credential: GitCredential) {
+		deletingCredential = credential;
+	}
+
+	function openUses(credential: GitCredential) {
+		viewingCredential = credential;
 	}
 
 	function closeDialog() {
@@ -115,8 +135,17 @@
 				{#if field === 'displayName'}
 					<span class="flex items-center gap-2">
 						{credential.displayName}
-						{#if credential.inUse}
-							<span class="pill-warning">In use</span>
+						{#if hasUses(credential)}
+							<button
+								type="button"
+								class="pill-warning border-warning/30 hover:border-warning/60 hover:bg-warning/20 focus-visible:ring-warning/40 cursor-pointer border transition-colors focus-visible:ring-2 focus-visible:outline-none"
+								onclick={(event) => {
+									event.stopPropagation();
+									openUses(credential);
+								}}
+							>
+								In use
+							</button>
 						{/if}
 					</span>
 				{:else if field === 'host'}
@@ -140,17 +169,11 @@
 						</button>
 						<button
 							class="menu-button-destructive"
-							disabled={isReadonly || credential.inUse}
-							use:tooltip={credential.inUse
-								? {
-										text: 'This credential is in use and cannot be deleted.',
-										classes: ['z-50']
-									}
-								: undefined}
+							disabled={isReadonly}
 							onclick={(event) => {
 								event.stopPropagation();
-								deletingCredential = credential;
 								toggle(false);
+								openDelete(credential);
 							}}
 						>
 							<Trash2 class="size-4" />
@@ -239,11 +262,54 @@
 	</form>
 </dialog>
 
+{#snippet useSections(credential: GitCredential)}
+	{#each useGroups(credential) as group (group.label)}
+		<section class="flex flex-col gap-1">
+			<h4 class="text-xs font-semibold">{group.label}</h4>
+			<ul class="bg-surface-1 divide-border divide-y rounded-md border">
+				{#each group.uses as use (`${use.id}:${use.displayName ?? ''}`)}
+					<li class="px-3 py-2 text-sm break-all">{use.displayName || use.id}</li>
+				{/each}
+			</ul>
+		</section>
+	{/each}
+{/snippet}
+
+{#snippet deleteNote()}
+	{#if hasUses(deletingCredential)}
+		<div class="flex w-full flex-col gap-2 text-left">
+			<p>This credential cannot be deleted because it is used by:</p>
+			{@render useSections(deletingCredential!)}
+		</div>
+	{:else}
+		<p>This action is permanent and cannot be undone.</p>
+	{/if}
+{/snippet}
+
+{#snippet usesNote()}
+	{#if viewingCredential}
+		<div class="flex w-full flex-col gap-2 text-left">
+			{@render useSections(viewingCredential)}
+		</div>
+	{/if}
+{/snippet}
+
+<Confirm
+	title="Credential Uses"
+	msg={`${viewingCredential?.displayName ?? 'This credential'} is used by:`}
+	note={usesNote}
+	type="info"
+	show={Boolean(viewingCredential)}
+	cancelText="Close"
+	oncancel={() => (viewingCredential = undefined)}
+/>
+
 <Confirm
 	msg={`Delete ${deletingCredential?.displayName ?? 'this Git credential'}?`}
-	note="Credentials in use by a skill repository or MCP catalog cannot be deleted."
+	note={deleteNote}
 	show={Boolean(deletingCredential)}
 	loading={saving}
+	disabled={hasUses(deletingCredential)}
 	onsuccess={async () => {
 		if (!deletingCredential) return;
 		saving = true;
@@ -256,7 +322,16 @@
 		} catch (error) {
 			if (error instanceof HttpError && error.statusCode === 409) {
 				gitCredentials = gitCredentials.map((credential) =>
-					credential.id === deletingCredential?.id ? { ...credential, inUse: true } : credential
+					credential.id === deletingCredential?.id
+						? {
+								...credential,
+								uses: {
+									skillRepositories: [{ id: 'resource', displayName: 'Unknown resource' }],
+									mcpCatalogs: [],
+									systemMcpCatalogs: []
+								}
+							}
+						: credential
 				);
 				deletingCredential = undefined;
 			}

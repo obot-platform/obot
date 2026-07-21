@@ -479,7 +479,18 @@ export interface GitCredential {
 	displayName: string;
 	host: string;
 	tokenConfigured: boolean;
-	inUse: boolean;
+	uses: GitCredentialUses;
+}
+
+export interface GitCredentialUses {
+	skillRepositories: GitCredentialUse[];
+	mcpCatalogs: GitCredentialUse[];
+	systemMcpCatalogs: GitCredentialUse[];
+}
+
+export interface GitCredentialUse {
+	id: string;
+	displayName?: string;
 }
 
 export interface GitCredentialManifest {

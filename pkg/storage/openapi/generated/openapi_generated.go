@@ -107,6 +107,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.GitCredential":                             schema_obot_platform_obot_apiclient_types_GitCredential(ref),
 		"github.com/obot-platform/obot/apiclient/types.GitCredentialList":                         schema_obot_platform_obot_apiclient_types_GitCredentialList(ref),
 		"github.com/obot-platform/obot/apiclient/types.GitCredentialManifest":                     schema_obot_platform_obot_apiclient_types_GitCredentialManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.GitCredentialUse":                          schema_obot_platform_obot_apiclient_types_GitCredentialUse(ref),
+		"github.com/obot-platform/obot/apiclient/types.GitCredentialUses":                         schema_obot_platform_obot_apiclient_types_GitCredentialUses(ref),
 		"github.com/obot-platform/obot/apiclient/types.GroupRoleAssignment":                       schema_obot_platform_obot_apiclient_types_GroupRoleAssignment(ref),
 		"github.com/obot-platform/obot/apiclient/types.GroupRoleAssignmentList":                   schema_obot_platform_obot_apiclient_types_GroupRoleAssignmentList(ref),
 		"github.com/obot-platform/obot/apiclient/types.ImagePullSecret":                           schema_obot_platform_obot_apiclient_types_ImagePullSecret(ref),
@@ -331,7 +333,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1.EmptyStatus{}.OpenAPIModelName():                                                       schema_storage_apis_obotobotai_v1_EmptyStatus(ref),
 		v1.GitCredential{}.OpenAPIModelName():                                                     schema_storage_apis_obotobotai_v1_GitCredential(ref),
 		v1.GitCredentialList{}.OpenAPIModelName():                                                 schema_storage_apis_obotobotai_v1_GitCredentialList(ref),
+		v1.GitCredentialReference{}.OpenAPIModelName():                                            schema_storage_apis_obotobotai_v1_GitCredentialReference(ref),
+		v1.GitCredentialReferences{}.OpenAPIModelName():                                           schema_storage_apis_obotobotai_v1_GitCredentialReferences(ref),
 		v1.GitCredentialSpec{}.OpenAPIModelName():                                                 schema_storage_apis_obotobotai_v1_GitCredentialSpec(ref),
+		v1.GitCredentialStatus{}.OpenAPIModelName():                                               schema_storage_apis_obotobotai_v1_GitCredentialStatus(ref),
 		v1.GroupRoleChange{}.OpenAPIModelName():                                                   schema_storage_apis_obotobotai_v1_GroupRoleChange(ref),
 		v1.GroupRoleChangeList{}.OpenAPIModelName():                                               schema_storage_apis_obotobotai_v1_GroupRoleChangeList(ref),
 		v1.GroupRoleChangeSpec{}.OpenAPIModelName():                                               schema_storage_apis_obotobotai_v1_GroupRoleChangeSpec(ref),
@@ -5056,19 +5061,18 @@ func schema_obot_platform_obot_apiclient_types_GitCredential(ref common.Referenc
 							Format: "",
 						},
 					},
-					"inUse": {
+					"uses": {
 						SchemaProps: spec.SchemaProps{
-							Default: false,
-							Type:    []string{"boolean"},
-							Format:  "",
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.GitCredentialUses"),
 						},
 					},
 				},
-				Required: []string{"Metadata", "inUse"},
+				Required: []string{"Metadata", "uses"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Metadata"},
+			"github.com/obot-platform/obot/apiclient/types.GitCredentialUses", "github.com/obot-platform/obot/apiclient/types.Metadata"},
 	}
 }
 
@@ -5127,6 +5131,83 @@ func schema_obot_platform_obot_apiclient_types_GitCredentialManifest(ref common.
 				},
 			},
 		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_GitCredentialUse(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"displayName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"id"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_GitCredentialUses(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"skillRepositories": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.GitCredentialUse"),
+									},
+								},
+							},
+						},
+					},
+					"mcpCatalogs": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.GitCredentialUse"),
+									},
+								},
+							},
+						},
+					},
+					"systemMcpCatalogs": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.GitCredentialUse"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"skillRepositories", "mcpCatalogs", "systemMcpCatalogs"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.GitCredentialUse"},
 	}
 }
 
@@ -16083,14 +16164,14 @@ func schema_storage_apis_obotobotai_v1_GitCredential(ref common.ReferenceCallbac
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref(v1.EmptyStatus{}.OpenAPIModelName()),
+							Ref:     ref(v1.GitCredentialStatus{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			v1.EmptyStatus{}.OpenAPIModelName(), v1.GitCredentialSpec{}.OpenAPIModelName(), metav1.ObjectMeta{}.OpenAPIModelName()},
+			v1.GitCredentialSpec{}.OpenAPIModelName(), v1.GitCredentialStatus{}.OpenAPIModelName(), metav1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -16141,6 +16222,82 @@ func schema_storage_apis_obotobotai_v1_GitCredentialList(ref common.ReferenceCal
 	}
 }
 
+func schema_storage_apis_obotobotai_v1_GitCredentialReference(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"displayName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"id"},
+			},
+		},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_GitCredentialReferences(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"skillRepositories": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref(v1.GitCredentialReference{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+					"mcpCatalogs": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref(v1.GitCredentialReference{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+					"systemMcpCatalogs": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref(v1.GitCredentialReference{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			v1.GitCredentialReference{}.OpenAPIModelName()},
+	}
+}
+
 func schema_storage_apis_obotobotai_v1_GitCredentialSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -16162,6 +16319,26 @@ func schema_storage_apis_obotobotai_v1_GitCredentialSpec(ref common.ReferenceCal
 				},
 			},
 		},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_GitCredentialStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"references": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1.GitCredentialReferences{}.OpenAPIModelName()),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			v1.GitCredentialReferences{}.OpenAPIModelName()},
 	}
 }
 
