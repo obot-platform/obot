@@ -66,6 +66,10 @@
 
 	function closeDialog() {
 		dialog?.close();
+	}
+
+	function handleDialogClose() {
+		token = '';
 		formError = '';
 	}
 
@@ -195,7 +199,7 @@
 	{/snippet}
 </Layout>
 
-<dialog bind:this={dialog} class="dialog">
+<dialog bind:this={dialog} class="dialog" onclose={handleDialogClose}>
 	<div class="dialog-container w-full max-w-md p-4">
 		<h3 class="dialog-title">
 			{editingCredential ? 'Edit Git Credential' : 'Create Git Credential'}
