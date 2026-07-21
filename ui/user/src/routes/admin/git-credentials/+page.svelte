@@ -324,6 +324,7 @@
 			);
 			deletingCredential = undefined;
 		} catch (error) {
+			errors.append(`Failed to delete Git credential: ${error}`);
 			if (error instanceof HttpError && error.statusCode === 409) {
 				gitCredentials = gitCredentials.map((credential) =>
 					credential.id === deletingCredential?.id
@@ -338,8 +339,6 @@
 						: credential
 				);
 				deletingCredential = undefined;
-			} else {
-				errors.append(`Failed to delete Git credential: ${error}`);
 			}
 		} finally {
 			saving = false;
