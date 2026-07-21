@@ -169,7 +169,6 @@
 		<div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
 			{#each sortedModelProviders as modelProvider (modelProvider.id)}
 				<ProviderCard
-					experimental={modelProvider.id === CommonModelProviderIds.GENERIC_RESPONSES}
 					provider={modelProvider}
 					deprecated={modelProvider.id === CommonModelProviderIds.ANTHROPIC_BEDROCK}
 					onConfigure={async () => {
