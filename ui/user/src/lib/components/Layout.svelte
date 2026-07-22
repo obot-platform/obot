@@ -1,4 +1,19 @@
 <script lang="ts" module>
+	import { type Component, type Snippet } from 'svelte';
+
+	type NavLink = {
+		id: string;
+		href?: string;
+		icon?: Component;
+		label: string;
+		disabled?: boolean;
+		collapsible?: boolean;
+		items?: NavLink[];
+		noteIcon?: Component;
+		note?: Snippet;
+		beta?: boolean;
+	};
+
 	const NAV_COLLAPSED_KEY = '@obot/layout/nav-collapsed';
 
 	const defaultNavCollapsed: Record<string, boolean> = {
@@ -78,7 +93,6 @@
 		BotMessageSquare,
 		PencilRuler,
 		LockOpen,
-		CircleQuestionMark,
 		Bot,
 		LayoutDashboard,
 		Notebook,
@@ -89,7 +103,7 @@
 		Brain,
 		LayoutGrid
 	} from '@lucide/svelte';
-	import { type Component, type Snippet, tick, untrack } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import { fade, slide, type TransitionConfig } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
@@ -136,19 +150,6 @@
 	type LayoutContext = {
 		initLayout: () => void;
 		getLayout: () => LayoutState;
-	};
-
-	type NavLink = {
-		id: string;
-		href?: string;
-		icon?: Component | typeof Server;
-		label: string;
-		disabled?: boolean;
-		collapsible?: boolean;
-		items?: NavLink[];
-		noteIcon?: Component | typeof CircleQuestionMark;
-		note?: Snippet;
-		beta?: boolean;
 	};
 
 	interface Props {
@@ -952,10 +953,7 @@
 		<div class="flex w-full items-center" id={link.id}>
 			{#if link.disabled}
 				<div class="sidebar-link disabled">
-					{#if link.icon}
-						<link.icon class="size-5" />
-					{/if}
-					{link.label}
+					{@render linkContent(link)}
 				</div>
 			{:else if link.href}
 				<a
@@ -964,20 +962,11 @@
 					class={twMerge('sidebar-link', isActive && 'bg-base-300')}
 					onclick={saveSidebarScroll}
 				>
-					{#if link.icon}
-						<link.icon class="size-5" />
-					{/if}
-					{link.label}
-					{#if link.beta}
-						<span class="badge badge-primary badge-xs">Beta</span>
-					{/if}
+					{@render linkContent(link)}
 				</a>
 			{:else}
 				<div class="sidebar-link no-link">
-					{#if link.icon}
-						<link.icon class="size-5" />
-					{/if}
-					{link.label}
+					{@render linkContent(link)}
 				</div>
 			{/if}
 
@@ -1025,12 +1014,7 @@
 							></div>
 							{#if item.disabled}
 								<div class="sidebar-link disabled">
-									<div class="flex items-center gap-1 opacity-50">
-										{#if item.icon}
-											<item.icon class="size-4" />
-										{/if}
-										{item.label}
-									</div>
+									{@render linkContent(item)}
 								</div>
 							{:else if item.href}
 								<a
@@ -1039,17 +1023,11 @@
 									class={twMerge('sidebar-link', isActive && 'bg-base-300')}
 									onclick={saveSidebarScroll}
 								>
-									{#if item.icon}
-										<item.icon class="size-4" />
-									{/if}
-									{item.label}
+									{@render linkContent(item)}
 								</a>
 							{:else}
 								<div class="sidebar-link disabled">
-									{#if item.icon}
-										<item.icon class="size-4" />
-									{/if}
-									{item.label}
+									{@render linkContent(item)}
 								</div>
 							{/if}
 							{#if item.noteIcon && item.note}
@@ -1062,6 +1040,16 @@
 				</div>
 			{/if}
 		</div>
+	{/if}
+{/snippet}
+
+{#snippet linkContent(link: NavLink)}
+	{#if link.icon}
+		<link.icon class="size-5" />
+	{/if}
+	{link.label}
+	{#if link.beta}
+		<span class="badge badge-primary badge-xs">Beta</span>
 	{/if}
 {/snippet}
 
