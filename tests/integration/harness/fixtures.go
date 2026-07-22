@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"testing"
 	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -18,82 +19,82 @@ import (
 // Requires the caller to be admin or to supply a CatalogEntryID — see the
 // CreateServer handler in pkg/api/handlers/mcp.go for the rules. In dev mode
 // with EnableAuthentication=false, the no-auth user is admin.
-func (h *Harness) CreateMCPServer(ctx context.Context, server types.MCPServer) types.MCPServer {
-	h.T.Helper()
+func (h *Harness) CreateMCPServer(t *testing.T, server types.MCPServer) types.MCPServer {
+	t.Helper()
 	var created types.MCPServer
-	h.Post(ctx, "/api/mcp-servers", server, &created)
+	h.Post(t, "/api/mcp-servers", server, &created)
 	h.AddCleanup(func() {
 		// Best-effort: ignore failures on shutdown, but never let cleanup hang.
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		_ = h.Status(ctx, http.MethodDelete, "/api/mcp-servers/"+created.ID)
+		_, _ = h.status(ctx, http.MethodDelete, "/api/mcp-servers/"+created.ID)
 	})
 	return created
 }
 
 // GetMCPServer fetches the current state of an MCP server by ID.
-func (h *Harness) GetMCPServer(ctx context.Context, id string) types.MCPServer {
-	h.T.Helper()
+func (h *Harness) GetMCPServer(t *testing.T, id string) types.MCPServer {
+	t.Helper()
 	var s types.MCPServer
-	h.Get(ctx, "/api/mcp-servers/"+id, &s)
+	h.Get(t, "/api/mcp-servers/"+id, &s)
 	return s
 }
 
 // ConfigureMCPServer applies environment-variable configuration to an MCP
 // server. Empty env is allowed — the act of POSTing flips the Configured flag
 // to true when no required env vars are missing.
-func (h *Harness) ConfigureMCPServer(ctx context.Context, id string, env map[string]string) {
-	h.T.Helper()
+func (h *Harness) ConfigureMCPServer(t *testing.T, id string, env map[string]string) {
+	t.Helper()
 	if env == nil {
 		env = map[string]string{}
 	}
-	h.Post(ctx, "/api/mcp-servers/"+id+"/configure", env, nil)
+	h.Post(t, "/api/mcp-servers/"+id+"/configure", env, nil)
 }
 
 // LaunchMCPServer asks obot to deploy the MCP server (Docker container,
 // remote connection, etc.).
-func (h *Harness) LaunchMCPServer(ctx context.Context, id string) {
-	h.T.Helper()
-	h.Post(ctx, "/api/mcp-servers/"+id+"/launch", map[string]any{}, nil)
+func (h *Harness) LaunchMCPServer(t *testing.T, id string) {
+	t.Helper()
+	h.Post(t, "/api/mcp-servers/"+id+"/launch", map[string]any{}, nil)
 }
 
 // RestartMCPServer replaces the running MCP server deployment and waits for
 // the backend to report that the replacement is ready.
-func (h *Harness) RestartMCPServer(ctx context.Context, id string) {
-	h.T.Helper()
-	h.Post(ctx, "/api/mcp-servers/"+id+"/restart", map[string]any{}, nil)
+func (h *Harness) RestartMCPServer(t *testing.T, id string) {
+	t.Helper()
+	h.Post(t, "/api/mcp-servers/"+id+"/restart", map[string]any{}, nil)
 }
 
 // WaitForMCPServerAvailable polls backend-neutral deployment details until the
 // server is available or the timeout elapses.
-func (h *Harness) WaitForMCPServerAvailable(ctx context.Context, id string, timeout time.Duration) types.MCPServerDetails {
-	h.T.Helper()
+func (h *Harness) WaitForMCPServerAvailable(t *testing.T, id string, timeout time.Duration) types.MCPServerDetails {
+	t.Helper()
 	deadline := time.Now().Add(timeout)
 	var last types.MCPServerDetails
 	for time.Now().Before(deadline) {
-		h.Get(ctx, "/api/mcp-servers/"+id+"/details", &last)
+		h.Get(t, "/api/mcp-servers/"+id+"/details", &last)
 		if last.IsAvailable {
 			return last
 		}
 		time.Sleep(1 * time.Second)
 	}
-	h.T.Fatalf("MCP server %s did not become available within %s (last details=%+v)", id, timeout, last)
+	t.Fatalf("MCP server %s did not become available within %s (last details=%+v)", id, timeout, last)
 	return last
 }
 
 // WaitForMCPServerDeleted waits for the server's finalizers to finish and the
 // API object to disappear.
-func (h *Harness) WaitForMCPServerDeleted(ctx context.Context, id string, timeout time.Duration) {
-	h.T.Helper()
+func (h *Harness) WaitForMCPServerDeleted(t *testing.T, id string, timeout time.Duration) {
+	t.Helper()
 	path := "/api/mcp-servers/" + id
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
-		if h.Status(ctx, http.MethodGet, path) == http.StatusNotFound {
+		if h.Status(t, http.MethodGet, path) == http.StatusNotFound {
 			return
 		}
 		time.Sleep(250 * time.Millisecond)
 	}
-	h.T.Fatalf("MCP server %s was not deleted within %s", id, timeout)
+	t.Fatalf("MCP server %s was not deleted within %s", id, timeout)
 }
 
 // MCPServerName returns a name unique to this run, suitable for use in

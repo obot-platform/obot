@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"net/http"
 	"os"
+	"slices"
 	"testing"
 )
 
@@ -16,7 +17,6 @@ import (
 // the obot server under test, an HTTP client, and a per-test run ID that is
 // used to namespace created resources so concurrent runs do not collide.
 type Harness struct {
-	T       *testing.T
 	BaseURL string
 	RunID   string
 	HTTP    *http.Client
@@ -34,7 +34,6 @@ func New(t *testing.T) *Harness {
 	}
 
 	h := &Harness{
-		T:       t,
 		BaseURL: url,
 		RunID:   newRunID(),
 		// No client-wide timeout: callers pass a context whose deadline governs
@@ -54,8 +53,8 @@ func (h *Harness) AddCleanup(fn func()) {
 }
 
 func (h *Harness) runCleanups() {
-	for i := len(h.cleanups) - 1; i >= 0; i-- {
-		h.cleanups[i]()
+	for _, v := range slices.Backward(h.cleanups) {
+		v()
 	}
 }
 
