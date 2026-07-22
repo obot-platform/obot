@@ -4,7 +4,6 @@ package integration
 
 import (
 	"bytes"
-	"context"
 	"os/exec"
 	"strings"
 	"testing"
@@ -44,84 +43,99 @@ const (
 //     runtime backend and builds the MCP fixture image locally.
 func TestMCPServerLifecycle_Containerized(t *testing.T) {
 	h := harness.New(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
 
-	manifest := types.MCPServerManifest{
-		Name:        h.MCPServerName("lifecycle"),
-		Description: "integration test server",
-		Runtime:     types.RuntimeContainerized,
-		ContainerizedConfig: &types.ContainerizedRuntimeConfig{
-			Image: integrationMCPImage,
-			Port:  3001,
-			Path:  "/mcp",
-		},
-		Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
-			Name:     "Echo Prefix",
-			Key:      "ECHO_PREFIX",
-			Required: true,
-		}}},
-	}
+	var (
+		created              types.MCPServer
+		initialContainerID   string
+		restartedContainerID string
+	)
 
-	created := h.CreateMCPServer(ctx, types.MCPServer{MCPServerManifest: manifest})
-	if created.ID == "" {
-		t.Fatalf("create returned empty ID: %+v", created)
-	}
-	t.Logf("created MCP server id=%s", created.ID)
+	t.Run("create_and_configure", func(t *testing.T) {
+		manifest := types.MCPServerManifest{
+			Name:        h.MCPServerName("lifecycle"),
+			Description: "integration test server",
+			Runtime:     types.RuntimeContainerized,
+			ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+				Image: integrationMCPImage,
+				Port:  3001,
+				Path:  "/mcp",
+			},
+			Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+				Name:     "Echo Prefix",
+				Key:      "ECHO_PREFIX",
+				Required: true,
+			}}},
+		}
 
-	h.ConfigureMCPServer(ctx, created.ID, map[string]string{"ECHO_PREFIX": echoPrefix})
-	configured := h.GetMCPServer(ctx, created.ID)
-	if !configured.Configured {
-		t.Fatalf("expected server to report Configured=true after configure, got %+v", configured)
-	}
+		created = h.CreateMCPServer(t, types.MCPServer{MCPServerManifest: manifest})
+		if created.ID == "" {
+			t.Fatalf("create returned empty ID: %+v", created)
+		}
+		t.Logf("created MCP server id=%s", created.ID)
 
-	h.LaunchMCPServer(ctx, created.ID)
+		h.ConfigureMCPServer(t, created.ID, map[string]string{"ECHO_PREFIX": echoPrefix})
+		configured := h.GetMCPServer(t, created.ID)
+		if !configured.Configured {
+			t.Fatalf("expected server to report Configured=true after configure, got %+v", configured)
+		}
+	})
 
-	details := h.WaitForMCPServerAvailable(ctx, created.ID, 30*time.Second)
-	if details.DeploymentName == "" || details.ReadyReplicas != 1 {
-		t.Fatalf("expected one ready deployment, got %+v", details)
-	}
-	t.Logf("details: deployment=%s ready=%d/%d available=%v events=%d",
-		details.DeploymentName, details.ReadyReplicas, details.Replicas, details.IsAvailable, len(details.Events))
-	initialContainerID := requireSingleDockerDeployment(ctx, t, created.ID)
+	t.Run("launch", func(t *testing.T) {
+		h.LaunchMCPServer(t, created.ID)
+		details := h.WaitForMCPServerAvailable(t, created.ID, 30*time.Second)
+		if details.DeploymentName == "" || details.ReadyReplicas != 1 {
+			t.Fatalf("expected one ready deployment, got %+v", details)
+		}
+		t.Logf("details: deployment=%s ready=%d/%d available=%v events=%d",
+			details.DeploymentName, details.ReadyReplicas, details.Replicas, details.IsAvailable, len(details.Events))
+		initialContainerID = requireSingleDockerDeployment(t, created.ID)
+	})
 
-	var tools []types.MCPServerTool
-	h.Get(ctx, "/api/mcp-servers/"+created.ID+"/tools", &tools)
-	if len(tools) == 0 {
-		t.Fatalf("expected at least one tool on a running MCP server, got none")
-	}
-	t.Logf("listed %d tools from server", len(tools))
-	assertEchoToolCall(ctx, t, h.BaseURL, created.ID, echoPrefix, "before restart")
-	assertMCPServerStartupLog(ctx, t, h, created.ID)
+	t.Run("invoke_tool", func(t *testing.T) {
+		var tools []types.MCPServerTool
+		h.Get(t, "/api/mcp-servers/"+created.ID+"/tools", &tools)
+		if len(tools) == 0 {
+			t.Fatalf("expected at least one tool on a running MCP server, got none")
+		}
+		t.Logf("listed %d tools from server", len(tools))
+		assertEchoToolCall(t, h.BaseURL, created.ID, echoPrefix, "before restart")
+		assertMCPServerStartupLog(t, h, created.ID)
+	})
 
-	h.RestartMCPServer(ctx, created.ID)
-	restartedContainerID := waitForDockerDeploymentReplaced(ctx, t, created.ID, initialContainerID, 30*time.Second)
-	if restartedContainerID == initialContainerID {
-		t.Fatalf("restart kept the original Docker container %s", initialContainerID)
-	}
-	h.WaitForMCPServerAvailable(ctx, created.ID, 30*time.Second)
-	assertEchoToolCall(ctx, t, h.BaseURL, created.ID, echoPrefix, "after restart")
-	assertMCPServerStartupLog(ctx, t, h, created.ID)
+	t.Run("restart", func(t *testing.T) {
+		h.RestartMCPServer(t, created.ID)
+		restartedContainerID = waitForDockerDeploymentReplaced(t, created.ID, initialContainerID, 30*time.Second)
+		if restartedContainerID == initialContainerID {
+			t.Fatalf("restart kept the original Docker container %s", initialContainerID)
+		}
+		h.WaitForMCPServerAvailable(t, created.ID, 30*time.Second)
+		assertEchoToolCall(t, h.BaseURL, created.ID, echoPrefix, "after restart")
+		assertMCPServerStartupLog(t, h, created.ID)
+	})
 
-	h.ConfigureMCPServer(ctx, created.ID, map[string]string{"ECHO_PREFIX": updatedEchoPrefix})
-	waitForDockerDeploymentRemoved(ctx, t, created.ID, 30*time.Second)
-	configured = h.GetMCPServer(ctx, created.ID)
-	if !configured.Configured {
-		t.Fatalf("expected server to remain configured after updating ECHO_PREFIX, got %+v", configured)
-	}
-	h.LaunchMCPServer(ctx, created.ID)
-	waitForDockerDeploymentReplaced(ctx, t, created.ID, restartedContainerID, 30*time.Second)
-	h.WaitForMCPServerAvailable(ctx, created.ID, 30*time.Second)
-	assertEchoToolCall(ctx, t, h.BaseURL, created.ID, updatedEchoPrefix, "after reconfigure")
+	t.Run("reconfigure", func(t *testing.T) {
+		h.ConfigureMCPServer(t, created.ID, map[string]string{"ECHO_PREFIX": updatedEchoPrefix})
+		waitForDockerDeploymentRemoved(t, created.ID, 30*time.Second)
+		configured := h.GetMCPServer(t, created.ID)
+		if !configured.Configured {
+			t.Fatalf("expected server to remain configured after updating ECHO_PREFIX, got %+v", configured)
+		}
+		h.LaunchMCPServer(t, created.ID)
+		waitForDockerDeploymentReplaced(t, created.ID, restartedContainerID, 30*time.Second)
+		h.WaitForMCPServerAvailable(t, created.ID, 30*time.Second)
+		assertEchoToolCall(t, h.BaseURL, created.ID, updatedEchoPrefix, "after reconfigure")
+	})
 
-	h.Delete(ctx, "/api/mcp-servers/"+created.ID)
-	h.WaitForMCPServerDeleted(ctx, created.ID, 30*time.Second)
-	waitForDockerDeploymentRemoved(ctx, t, created.ID, 30*time.Second)
+	t.Run("delete", func(t *testing.T) {
+		h.Delete(t, "/api/mcp-servers/"+created.ID)
+		h.WaitForMCPServerDeleted(t, created.ID, 30*time.Second)
+		waitForDockerDeploymentRemoved(t, created.ID, 30*time.Second)
+	})
 }
 
-func assertEchoToolCall(ctx context.Context, t *testing.T, baseURL, id, prefix, message string) {
+func assertEchoToolCall(t *testing.T, baseURL, id, prefix, message string) {
 	t.Helper()
-	client, err := nmcp.NewClient(ctx, "integration-test", nmcp.Server{
+	client, err := nmcp.NewClient(t.Context(), "integration-test", nmcp.Server{
 		BaseURL: baseURL + "/mcp-connect/" + id,
 	})
 	if err != nil {
@@ -129,7 +143,7 @@ func assertEchoToolCall(ctx context.Context, t *testing.T, baseURL, id, prefix, 
 	}
 	defer client.Close(false)
 
-	result, err := client.Call(ctx, "echo", map[string]any{"message": message})
+	result, err := client.Call(t.Context(), "echo", map[string]any{"message": message})
 	if err != nil {
 		t.Fatalf("call echo tool: %v", err)
 	}
@@ -139,30 +153,30 @@ func assertEchoToolCall(ctx context.Context, t *testing.T, baseURL, id, prefix, 
 	}
 }
 
-func assertMCPServerStartupLog(ctx context.Context, t *testing.T, h *harness.Harness, id string) {
+func assertMCPServerStartupLog(t *testing.T, h *harness.Harness, id string) {
 	t.Helper()
 	const marker = "integration MCP server listening on ports 3001 and 8080"
-	logs := h.ReadStreamUntil(ctx, "/api/mcp-servers/"+id+"/logs", []byte(marker), 5*time.Second, 4096)
+	logs := h.ReadStreamUntil(t, "/api/mcp-servers/"+id+"/logs", []byte(marker), 5*time.Second, 4096)
 	if !bytes.Contains(logs, []byte(marker)) {
 		t.Fatalf("MCP server logs did not contain %q: %s", marker, logs)
 	}
 }
 
-func requireSingleDockerDeployment(ctx context.Context, t *testing.T, id string) string {
+func requireSingleDockerDeployment(t *testing.T, id string) string {
 	t.Helper()
-	containers := dockerContainersForDeployment(ctx, t, id)
+	containers := dockerContainersForDeployment(t, id)
 	if len(containers) != 1 {
 		t.Fatalf("expected one Docker container for MCP deployment %s, got %v", id, containers)
 	}
 	return containers[0]
 }
 
-func waitForDockerDeploymentReplaced(ctx context.Context, t *testing.T, id, previousID string, timeout time.Duration) string {
+func waitForDockerDeploymentReplaced(t *testing.T, id, previousID string, timeout time.Duration) string {
 	t.Helper()
 	deadline := time.Now().Add(timeout)
 	var containers []string
 	for time.Now().Before(deadline) {
-		containers = dockerContainersForDeployment(ctx, t, id)
+		containers = dockerContainersForDeployment(t, id)
 		if len(containers) == 1 && containers[0] != previousID {
 			return containers[0]
 		}
@@ -172,12 +186,12 @@ func waitForDockerDeploymentReplaced(ctx context.Context, t *testing.T, id, prev
 	return ""
 }
 
-func waitForDockerDeploymentRemoved(ctx context.Context, t *testing.T, id string, timeout time.Duration) {
+func waitForDockerDeploymentRemoved(t *testing.T, id string, timeout time.Duration) {
 	t.Helper()
 	deadline := time.Now().Add(timeout)
 	var remaining []string
 	for time.Now().Before(deadline) {
-		remaining = dockerContainersForDeployment(ctx, t, id)
+		remaining = dockerContainersForDeployment(t, id)
 		if len(remaining) == 0 {
 			return
 		}
@@ -186,9 +200,9 @@ func waitForDockerDeploymentRemoved(ctx context.Context, t *testing.T, id string
 	t.Fatalf("Docker containers for MCP deployment %s were not removed within %s: %v", id, timeout, remaining)
 }
 
-func dockerContainersForDeployment(ctx context.Context, t *testing.T, id string) []string {
+func dockerContainersForDeployment(t *testing.T, id string) []string {
 	t.Helper()
-	output, err := exec.CommandContext(ctx, "docker", "ps", "--all", "--quiet", "--filter", "label=mcp.deployment.id="+id).CombinedOutput()
+	output, err := exec.CommandContext(t.Context(), "docker", "ps", "--all", "--quiet", "--filter", "label=mcp.deployment.id="+id).CombinedOutput()
 	if err != nil {
 		t.Fatalf("list Docker containers for MCP deployment %s: %v\n%s", id, err, output)
 	}
