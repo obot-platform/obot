@@ -116,7 +116,9 @@
 		{/if}
 		{#if hasAdminAccess && entity !== 'webhook-validation' && connectedUsers && connectedUsers.length > 0}
 			<div>
-				<h2 class="mb-2 text-lg font-semibold">Connected Users</h2>
+				<h2 class="mb-2 text-lg font-semibold">
+					{server?.serverUserType === 'multiUser' ? 'Connected Users' : 'Associated User'}
+				</h2>
 				<Table
 					data={connectedUsers ?? []}
 					fields={['name', 'updateStatus']}

@@ -1,5 +1,6 @@
 <script lang="ts" generics="T extends object">
 	import CopyButton from '$lib/components/CopyButton.svelte';
+	import JsonPreview from '$lib/components/JsonPreview.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { Group } from '$lib/services';
@@ -61,10 +62,6 @@
 		if (typeof headers === 'string') return headers.length > 0;
 		return Object.keys(headers).length > 0;
 	}
-
-	function formatHeaderValue(value: string | string[]) {
-		return Array.isArray(value) ? value.join(', ') : value;
-	}
 </script>
 
 <div
@@ -99,44 +96,7 @@
 			{@render preRequestContent(auditLog)}
 		{/if}
 
-		<div class="p-4 pl-5">
-			<h4 class="text-lg font-semibold">HTTP Request</h4>
-			{#if auditLog.user || additRequestContent}
-				<div class="flex flex-col gap-1 px-4 py-2 text-sm font-light">
-					{#if auditLog.user}
-						<p><span class="font-medium">User</span>: {auditLog.user}</p>
-					{/if}
-					{#if additRequestContent}
-						{@render additRequestContent(auditLog)}
-					{/if}
-				</div>
-			{/if}
-
-			{#if shouldShowPayload}
-				{#if hasHeaders(auditLog.requestHeaders)}
-					<p class="my-2 text-base font-semibold">Request Headers</p>
-
-					<div
-						class="dark:bg-base-300 bg-base-100 relative flex flex-col gap-2 overflow-hidden rounded-md p-4 pl-5"
-					>
-						<div class="bg-primary/50 absolute top-0 left-0 h-full w-1"></div>
-						{#if typeof auditLog.requestHeaders === 'string'}
-							<pre class="whitespace-pre-wrap break-all">{auditLog.requestHeaders}</pre>
-						{:else}
-							<div class="flex flex-col gap-1">
-								{#each Object.entries(auditLog.requestHeaders ?? {}) as [key, value] (key)}
-									<p>
-										<span class="font-medium">{key}</span>: {formatHeaderValue(value)}
-									</p>
-								{/each}
-							</div>
-						{/if}
-					</div>
-				{:else if !hasAuditorAccess}
-					{@render noAuditorAccessInfo('Request Headers')}
-				{/if}
-			{/if}
-
+		<div class="px-5 flex flex-col gap-4">
 			{#if shouldShowPayload}
 				{#if loading?.request}
 					<Loading />
@@ -144,7 +104,7 @@
 					{#if hasBody(auditLog?.requestBody)}
 						{@render jsonBody('Request Body', auditLog?.requestBody)}
 					{:else if !hasAuditorAccess}
-						{@render noAuditorAccessInfo('Request Body')}
+						{@render noAuditorAccessInfo()}
 					{/if}
 
 					{#if hasBody(auditLog?.policyModifiedRequestBody)}
@@ -155,55 +115,6 @@
 						{@render jsonBody('Mutated Request Body', auditLog?.mutatedRequestBody)}
 					{/if}
 				{/if}
-			{/if}
-		</div>
-
-		<div class="p-4 pl-5">
-			<div class="flex items-center gap-2">
-				<h4 class="text-lg font-semibold">HTTP Response</h4>
-				{#if loading?.response}
-					<div class="skeleton h-4 w-8 rounded-full"></div>
-				{:else if auditLog?.responseStatus}
-					<p
-						class={twMerge(
-							'w-fit rounded-full px-3 py-1 text-xs font-semibold text-white',
-							auditLog.responseStatus >= 400 ? 'bg-error' : 'bg-primary'
-						)}
-					>
-						{auditLog.responseStatus}
-					</p>
-				{/if}
-			</div>
-
-			{#if shouldShowPayload}
-				{#if hasHeaders(auditLog.responseHeaders)}
-					<p class="mt-4 mb-2 text-base font-semibold">Response Headers</p>
-					<div
-						class="dark:bg-base-300 bg-base-100 relative flex flex-col gap-2 overflow-hidden rounded-md p-4 pl-5"
-					>
-						<div class="bg-primary/50 absolute top-0 left-0 h-full w-1"></div>
-						{#if typeof auditLog.responseHeaders === 'string'}
-							<pre class="whitespace-pre-wrap break-all">{auditLog.responseHeaders}</pre>
-						{:else}
-							<div class="flex flex-col gap-1">
-								{#each Object.entries(auditLog.responseHeaders ?? {}) as [key, value] (key)}
-									<p>
-										<span class="font-medium">{key}</span>: {formatHeaderValue(value)}
-									</p>
-								{/each}
-							</div>
-						{/if}
-					</div>
-				{:else if !hasAuditorAccess}
-					{@render noAuditorAccessInfo('Response Headers')}
-				{/if}
-			{/if}
-
-			{#if auditLog?.error}
-				<div class="mt-4 flex flex-col">
-					<div class="mb-2 text-base font-semibold">Response Error</div>
-					<p class="text-error">{auditLog.error}</p>
-				</div>
 			{/if}
 
 			{#if shouldShowPayload}
@@ -217,51 +128,99 @@
 					{#if hasBody(auditLog?.responseBody)}
 						{@render jsonBody('Response Body', auditLog?.responseBody)}
 					{:else if !hasAuditorAccess}
-						{@render noAuditorAccessInfo('Response Body')}
+						{@render noAuditorAccessInfo()}
 					{/if}
 				{/if}
 			{/if}
 
+			<div class="divider text-xs uppercase my-0">Additional Information</div>
+			{#if hasHeaders(auditLog.requestHeaders)}
+				{@render jsonBody('Request Headers', auditLog.requestHeaders)}
+			{/if}
+
+			{#if hasHeaders(auditLog.responseHeaders)}
+				{@render jsonBody('Response Headers', auditLog.responseHeaders)}
+			{/if}
+
+			{#if !hasAuditorAccess}
+				{@render noAuditorAccessInfo()}
+			{/if}
+
+			{#if shouldShowPayload}
+				<div class="divider my-0"></div>
+				<div class="flex flex-col gap-0.5">
+					{@render title('HTTP Request')}
+					{#if auditLog.user || additRequestContent}
+						<div class="flex flex-col gap-1 px-4 py-2 text-sm font-light">
+							{#if auditLog.user}
+								<p class="grid grid-cols-2 gap-2">
+									<span class="font-medium">User:</span>
+									{auditLog.user}
+								</p>
+							{/if}
+							{#if additRequestContent}
+								{@render additRequestContent(auditLog)}
+							{/if}
+						</div>
+					{/if}
+				</div>
+
+				<div class="divider my-0"></div>
+
+				<div class="flex items-center gap-2">
+					<p class="text-base font-semibold">HTTP Response</p>
+					{#if loading?.response}
+						<div class="skeleton h-4 w-8 rounded-full"></div>
+					{:else if auditLog?.responseStatus}
+						<p
+							class={twMerge(
+								'w-fit rounded-full px-3 py-1 text-xs font-semibold text-white',
+								auditLog.responseStatus >= 400 ? 'bg-error' : 'bg-primary'
+							)}
+						>
+							{auditLog.responseStatus}
+						</p>
+					{/if}
+				</div>
+			{/if}
+
+			{#if auditLog?.error}
+				<div class="divider my-0"></div>
+				<div class="flex flex-col gap-0.5">
+					{@render title('Response Error')}
+					<p class="text-error text-sm">{auditLog.error}</p>
+				</div>
+			{/if}
+
 			{#if shouldShowPayload}
 				{#if auditLog?.webhookStatuses && auditLog.webhookStatuses.length > 0}
-					{@const statuses = JSON.stringify(auditLog.webhookStatuses, null, 2)}
-
-					<p class="translate-y-2 pt-4 text-base font-semibold">Webhook Statuses</p>
-					<div class="relative text-white">
-						<pre class="default-scrollbar-thin max-h-96 overflow-y-auto p-4"><code
-								class="language-json">{statuses}</code
-							></pre>
-
-						<CopyButton
-							classes={{ button: 'absolute right-4 top-4 flex flex-col items-end text-current' }}
-							text={statuses}
-						/>
-					</div>
+					<div class="divider my-0"></div>
+					{@render jsonBody('Webhook Statuses', auditLog.webhookStatuses)}
 				{/if}
 			{/if}
 		</div>
 	</div>
 </div>
 
+{#snippet title(label: string)}
+	<p class="text-base font-semibold mb-2">{label}</p>
+{/snippet}
+
 {#snippet jsonBody(name: string, value: unknown)}
 	{@const body = JSON.stringify(value, null, 2)}
-
-	<p class="translate-y-2 pt-4 text-base font-semibold">{name}</p>
-	<div class="relative text-white">
-		<pre class="default-scrollbar-thin max-h-96 overflow-y-auto p-4"><code class="language-json"
-				>{body}</code
-			></pre>
-
-		<CopyButton
-			classes={{ button: 'absolute right-4 top-4 flex flex-col items-end text-current' }}
-			text={body}
-		/>
+	<div class="flex flex-col gap-0.5">
+		<p class="text-base font-semibold flex items-center gap-2">
+			{name}
+			<CopyButton text={body} classes={{ button: 'text-xs font-normal flex items-center gap-1' }} />
+		</p>
+		<div class="relative mt-2">
+			<JsonPreview {value} ariaLabel={`${name} JSON`} maximizable />
+		</div>
 	</div>
 {/snippet}
 
-{#snippet noAuditorAccessInfo(name: string)}
-	<p class="mt-4 mb-2 text-base font-semibold">{name}</p>
-	<div class="text-muted-content text-xs">
-		<i>Details are hidden; auditor role is required to access this information.</i>
+{#snippet noAuditorAccessInfo()}
+	<div class="bg-base-300 text-muted-content rounded-md p-3 text-xs italic">
+		Additional payload and sensitive environment details are hidden for your access level.
 	</div>
 {/snippet}

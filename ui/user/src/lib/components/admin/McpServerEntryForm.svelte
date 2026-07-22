@@ -548,6 +548,9 @@
 
 			if (result && entry) {
 				previewToolsOverride = result.manifest?.toolPreview;
+				oauthURLs = undefined;
+				oauthURL = undefined;
+				oauthDialog?.close();
 			}
 		} catch (err) {
 			const errMessage = err instanceof Error ? err.message : 'An unknown error occurred';
