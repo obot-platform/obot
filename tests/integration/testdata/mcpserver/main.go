@@ -60,7 +60,7 @@ func handleMCP(w http.ResponseWriter, r *http.Request) {
 	case "initialize":
 		w.Header().Set("Mcp-Session-Id", "integration-test")
 		result = map[string]any{
-			"protocolVersion": "2025-03-26",
+			"protocolVersion": "2025-06-18",
 			"capabilities": map[string]any{
 				"tools": map[string]any{},
 			},
