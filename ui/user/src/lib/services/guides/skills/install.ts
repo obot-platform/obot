@@ -47,19 +47,19 @@ export const steps: GuideStep[] = [
 		]
 	},
 	{
-		content: ["For the purpose of this guide, let's install the Algorithmic Art skill."],
+		content: ["For the purpose of this guide, let's install a skill."],
 		action: {
 			highlight: {
 				selector: {
-					beginsWith: ['download-skill-sk1-default-skills-algorithmic-art']
+					beginsWith: ['install-skill-btn-container']
 				},
-				title: 'Install Algorithmic Art Skill',
-				description: 'Click here to begin installing the Algorithmic Art skill.',
+				title: 'Install Skill',
+				description: 'Click here to begin installing the skill.',
 				side: 'left',
 				align: 'end'
 			},
 			listener: {
-				beginsWith: ['download-skill-sk1-default-skills-algorithmic-art'],
+				beginsWith: ['install-skill-btn-container'],
 				action: {
 					success: true
 				}
@@ -67,9 +67,7 @@ export const steps: GuideStep[] = [
 		}
 	},
 	{
-		content: [
-			'To install the Algorithmic Art skill, follow the instructions on the install dialog.'
-		],
+		content: ['To install the skill, follow the instructions on the install dialog.'],
 		action: {
 			highlight: {
 				selector: {
@@ -109,7 +107,7 @@ export const steps: GuideStep[] = [
 										selector: {
 											id: 'install-skill-dialog-content'
 										},
-										title: 'Install the Skill',
+										title: 'Try it Out!',
 										description: 'Try using the appropriate CLI command here to install the skill!'
 									},
 									next: {
