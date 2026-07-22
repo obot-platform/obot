@@ -62,14 +62,24 @@
 		return alias || ref.name || ref.id || undefined;
 	}
 
-	// identifierParts splits a target into the combined Identifier cell: the MCP server on the primary
+	// identifierParts splits an event into the combined Identifier cell: the MCP server on the primary
 	// line and the tool as a muted "› tool" subline. For MCP tool/resource/prompt events the server is
 	// the parent and the tool is target.name; for server-level events there is no tool; for local tool
 	// calls with no MCP server the tool is shown on the primary line.
-	function identifierParts(target: (typeof data)[number]['target']) {
+	//
+	// Local agent tool calls report the full namespaced name the agent actually invoked (for example
+	// "mcp_ddg-search_search") on the action, while target.name holds only the bare tool name the
+	// client parsed out of it. Use the action name so the cell matches both what the agent saw and the
+	// Identifier – Tool filter, which is keyed on the action name for these events.
+	function identifierParts(event: (typeof data)[number]) {
+		const target = event.target;
+		const tool =
+			event.eventType === 'local_agent_tool_call'
+				? event.action.name || target.name || target.id
+				: target.name || target.id;
+
 		if (target.parent) {
 			const server = resolveServerName(target.parent);
-			const tool = target.name || target.id;
 			return {
 				primary: server || tool || 'Unknown',
 				secondary: server && tool ? `› ${tool}` : undefined
@@ -78,7 +88,7 @@
 		if (target.targetType === 'mcp_server') {
 			return { primary: resolveServerName(target) || 'Unknown', secondary: undefined };
 		}
-		return { primary: target.name || target.id || 'Unknown', secondary: undefined };
+		return { primary: tool || 'Unknown', secondary: undefined };
 	}
 
 	function eventTypeLabel(eventType: (typeof data)[number]['eventType']) {
@@ -246,7 +256,7 @@
 			{#snippet children({ items }: { items: { index: number; data: (typeof data)[0] }[] })}
 				{#each items as item (item.data.id)}
 					{@const d = item.data}
-					{@const identifier = identifierParts(d.target)}
+					{@const identifier = identifierParts(d)}
 
 					<tr
 						id={`mcp-audit-log-${item.index}`}
