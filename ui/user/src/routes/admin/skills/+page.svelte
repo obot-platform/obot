@@ -707,16 +707,12 @@
 				</div>
 				{#if editingSource.credentialType === 'shared'}
 					<div class="flex flex-col gap-1">
-						<label for="skill-source-git-credential" class="text-sm font-light">
-							Saved Git credential
-						</label>
 						<Select
 							id="skill-source-git-credential"
 							options={gitCredentialOptions}
 							selected={editingSource.gitCredentialID}
-							placeholder={gitCredentials.length
-								? 'Select a saved credential'
-								: 'No saved credentials'}
+							placeholder={gitCredentials.length ? 'Select a credential' : 'No credentials'}
+							searchPlaceholder=""
 							searchInDropdown
 							onSelect={(option) => {
 								if (editingSource) {
@@ -737,10 +733,11 @@
 				{/if}
 				{#if editingSource.credentialType === 'token'}
 					<div class="flex flex-col gap-1">
-						<label for="skill-source-token" class="flex items-center gap-1 text-sm font-light">
-							Personal Access Token
-						</label>
-						<SensitiveInput name="skill-source-token" bind:value={editingSource.token} />
+						<SensitiveInput
+							name="skill-source-token"
+							placeholder="Personal Access Token"
+							bind:value={editingSource.token}
+						/>
 					</div>
 				{/if}
 			</div>

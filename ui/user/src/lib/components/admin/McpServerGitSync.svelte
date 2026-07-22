@@ -170,6 +170,19 @@
 	}
 </script>
 
+{#snippet tokenScopesTooltip()}
+	<div class="text-left">
+		<p>Required scopes:</p>
+		<ul class="list-disc pl-4">
+			<li>GitHub: repo</li>
+			<li>GitLab: read_repository + read_api</li>
+		</ul>
+		<p class="mt-2">
+			If no token is set, Obot falls back to the GITHUB_AUTH_TOKEN environment variable.
+		</p>
+	</div>
+{/snippet}
+
 <dialog bind:this={sourceDialog} class="dialog">
 	<div class="dialog-container w-full max-w-md p-4">
 		{#if editingSource}
@@ -234,16 +247,12 @@
 
 			{#if editingSource.credentialType === 'shared'}
 				<div class="mb-4 flex flex-col gap-1">
-					<label for="catalog-source-git-credential" class="text-sm font-light">
-						Saved Git credential
-					</label>
 					<Select
 						id="catalog-source-git-credential"
 						options={gitCredentialOptions}
 						selected={editingSource.gitCredentialID}
-						placeholder={gitCredentials.length
-							? 'Select a saved credential'
-							: 'No saved credentials'}
+						placeholder={gitCredentials.length ? 'Select a credential' : 'No credentials'}
+						searchPlaceholder=""
 						searchInDropdown
 						onSelect={(option) => {
 							if (editingSource) {
@@ -266,20 +275,8 @@
 
 			{#if editingSource.credentialType === 'token'}
 				<div class="mb-4 flex flex-col gap-1">
-					<div class="flex items-center justify-between">
-						<label for="catalog-source-token" class="flex items-center gap-1 text-sm font-light">
-							Personal Access Token
-							<span
-								use:tooltip={{
-									text: 'Required scopes:\n• GitHub: repo\n• GitLab: read_repository + read_api\n\nIf no token is set, Obot falls back to the GITHUB_AUTH_TOKEN environment variable.',
-									classes: ['max-w-md', 'whitespace-pre-line'],
-									disablePortal: true
-								}}
-							>
-								<Info class="text-muted-content size-3.5" />
-							</span>
-						</label>
-						{#if editingSource.index >= 0 && hasSourceURLCredential(defaultCatalog?.sourceURLs?.[editingSource.index]) && !editingSource.clearToken}
+					{#if editingSource.index >= 0 && hasSourceURLCredential(defaultCatalog?.sourceURLs?.[editingSource.index]) && !editingSource.clearToken}
+						<div class="flex justify-end">
 							<button
 								class="text-xs text-error hover:underline"
 								onclick={() => {
@@ -291,29 +288,38 @@
 							>
 								Clear token
 							</button>
-						{/if}
-					</div>
-					{#if !editingSource.clearToken && editingSource.index >= 0 && hasSourceURLCredential(defaultCatalog?.sourceURLs?.[editingSource.index])}
-						<input
-							id="catalog-source-token"
-							type="text"
-							readonly
-							aria-readonly="true"
-							data-1p-ignore
-							value={defaultCatalog?.sourceURLCredentials?.[
-								defaultCatalog?.sourceURLs?.[editingSource.index]
-							] ?? ''}
-							class="text-sm text-muted-content w-full border-none bg-transparent p-0 outline-none focus:ring-0"
-						/>
-					{:else}
-						<SensitiveInput
-							name="catalog-source-token"
-							placeholder={editingSource.clearToken
-								? 'Enter a new value or leave empty to clear'
-								: ''}
-							bind:value={editingSource.token}
-						/>
+						</div>
 					{/if}
+					<div class="flex items-center gap-2">
+						{#if !editingSource.clearToken && editingSource.index >= 0 && hasSourceURLCredential(defaultCatalog?.sourceURLs?.[editingSource.index])}
+							<input
+								id="catalog-source-token"
+								type="text"
+								readonly
+								aria-readonly="true"
+								data-1p-ignore
+								value={defaultCatalog?.sourceURLCredentials?.[
+									defaultCatalog?.sourceURLs?.[editingSource.index]
+								] ?? ''}
+								class="text-sm text-muted-content w-full border-none bg-transparent p-0 outline-none focus:ring-0"
+							/>
+						{:else}
+							<SensitiveInput
+								name="catalog-source-token"
+								placeholder="Personal Access Token"
+								bind:value={editingSource.token}
+							/>
+						{/if}
+						<span
+							use:tooltip={{
+								snippet: tokenScopesTooltip,
+								classes: ['max-w-md'],
+								disablePortal: true
+							}}
+						>
+							<Info class="text-muted-content size-3.5" />
+						</span>
+					</div>
 				</div>
 			{/if}
 
