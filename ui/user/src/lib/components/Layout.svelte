@@ -183,6 +183,7 @@
 		disableResize?: boolean;
 		hideProfileButton?: boolean;
 		alwaysShowHeaderTitle?: boolean;
+		beta?: boolean;
 	}
 
 	const {
@@ -206,7 +207,8 @@
 		layoutContext,
 		disableResize,
 		hideProfileButton,
-		alwaysShowHeaderTitle
+		alwaysShowHeaderTitle,
+		beta
 	}: Props = $props();
 	let nav = $state<HTMLDivElement>();
 	let sidebarScroll = $state<HTMLDivElement>();
@@ -405,6 +407,7 @@
 						icon: Laptop,
 						label: 'Device Management',
 						collapsible: true,
+						beta: true,
 						items: [
 							{
 								id: 'mdm-configurations',
@@ -919,8 +922,16 @@
 			{#if subtitle}
 				<span class="text-xs font-light text-muted-content">{subtitle}</span>
 			{/if}
-			<h1 class={twMerge('text-xl font-semibold', !layout.sidebarOpen && classes?.noSidebarTitle)}>
+			<h1
+				class={twMerge(
+					'text-xl font-semibold flex items-center gap-2',
+					!layout.sidebarOpen && classes?.noSidebarTitle
+				)}
+			>
 				{title}
+				{#if beta}
+					<span class="badge badge-primary badge-xs">Beta</span>
+				{/if}
 			</h1>
 		</div>
 	{/if}
