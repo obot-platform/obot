@@ -19,6 +19,13 @@
 		gitCredentials?: GitCredential[];
 	}
 
+	type RepositoryCredentialType = '' | 'shared' | 'token';
+
+	const repositoryCredentialOptions = [
+		{ id: 'shared', label: 'Shared Git Credential' },
+		{ id: 'token', label: 'Personal Access Token' }
+	];
+
 	let { defaultCatalog, onSync, defaultCatalogId, gitCredentials = [] }: Props = $props();
 
 	let saving = $state(false);
@@ -28,6 +35,7 @@
 		value: string;
 		token: string;
 		gitCredentialID: string;
+		credentialType: RepositoryCredentialType;
 		clearToken?: boolean;
 	}>();
 	let sourceDialog = $state<HTMLDialogElement>();
@@ -42,7 +50,8 @@
 			index: -1,
 			value: '',
 			token: '',
-			gitCredentialID: ''
+			gitCredentialID: '',
+			credentialType: ''
 		};
 		sourceDialog?.showModal();
 	}
@@ -55,7 +64,12 @@
 			index,
 			value: url,
 			token: '',
-			gitCredentialID: defaultCatalog?.sourceURLGitCredentialIDs?.[url] ?? ''
+			gitCredentialID: defaultCatalog?.sourceURLGitCredentialIDs?.[url] ?? '',
+			credentialType: defaultCatalog?.sourceURLGitCredentialIDs?.[url]
+				? 'shared'
+				: hasSourceURLCredential(url)
+					? 'token'
+					: ''
 		};
 		sourceDialog?.showModal();
 	}
@@ -90,6 +104,17 @@
 			editingSource.value !== editingSourceURL &&
 			hasSourceURLCredential(editingSourceURL, defaultCatalog) &&
 			!editingSource.token
+		)
+	);
+	const credentialSelectionIncomplete = $derived(
+		Boolean(
+			editingSource &&
+			((editingSource.credentialType === 'shared' && !editingSource.gitCredentialID) ||
+				(editingSource.credentialType === 'token' &&
+					!editingSource.token.trim() &&
+					(editingSource.clearToken ||
+						editingSource.value !== editingSourceURL ||
+						!hasSourceURLCredential(editingSourceURL))))
 		)
 	);
 	const editingSourceHost = $derived(sourceHost(editingSource?.value ?? ''));
@@ -177,38 +202,73 @@
 			</div>
 
 			<div class="mb-4 flex flex-col gap-1">
-				<label for="catalog-source-git-credential" class="text-sm font-light">
-					Shared Git credential (optional)
-				</label>
 				<Select
-					id="catalog-source-git-credential"
-					options={gitCredentialOptions}
-					selected={editingSource.gitCredentialID}
-					placeholder={gitCredentials.length
-						? 'Use a one-off token or public access'
-						: 'No shared credentials'}
-					searchInDropdown
+					id="catalog-source-credential-type"
+					options={repositoryCredentialOptions}
+					selected={editingSource.credentialType}
+					placeholder="Repository Credential (optional)"
+					class={!editingSource.credentialType ? 'text-muted-content' : undefined}
 					onSelect={(option) => {
-						if (editingSource) {
-							editingSource.gitCredentialID = String(option.id);
+						if (!editingSource) return;
+						editingSource.credentialType = option.id as RepositoryCredentialType;
+						if (option.id === 'shared') {
 							editingSource.token = '';
-							editingSource.clearToken = false;
+						} else {
+							editingSource.gitCredentialID = '';
 						}
 					}}
-					onClear={() => {
-						if (editingSource) editingSource.gitCredentialID = '';
-					}}
+					onClear={editingSource.credentialType
+						? () => {
+								if (!editingSource) return;
+								editingSource.credentialType = '';
+								editingSource.gitCredentialID = '';
+								editingSource.token = '';
+								if (hasSourceURLCredential(editingSourceURL)) {
+									editingSource.clearToken = true;
+									tokenExplicitlyCleared = true;
+								}
+							}
+						: undefined}
 				/>
-				<span class="text-muted-content text-xs">
-					Only credentials matching the source host can be selected.
-				</span>
 			</div>
 
-			{#if !editingSource.gitCredentialID}
+			{#if editingSource.credentialType === 'shared'}
+				<div class="mb-4 flex flex-col gap-1">
+					<label for="catalog-source-git-credential" class="text-sm font-light">
+						Shared Git credential
+					</label>
+					<Select
+						id="catalog-source-git-credential"
+						options={gitCredentialOptions}
+						selected={editingSource.gitCredentialID}
+						placeholder={gitCredentials.length
+							? 'Select a shared credential'
+							: 'No shared credentials'}
+						searchInDropdown
+						onSelect={(option) => {
+							if (editingSource) {
+								editingSource.gitCredentialID = String(option.id);
+								editingSource.token = '';
+								editingSource.clearToken = false;
+							}
+						}}
+						onClear={editingSource.gitCredentialID
+							? () => {
+									if (editingSource) editingSource.gitCredentialID = '';
+								}
+							: undefined}
+					/>
+					<span class="text-muted-content text-xs">
+						Only credentials matching the source host can be selected.
+					</span>
+				</div>
+			{/if}
+
+			{#if editingSource.credentialType === 'token'}
 				<div class="mb-4 flex flex-col gap-1">
 					<div class="flex items-center justify-between">
 						<label for="catalog-source-token" class="flex items-center gap-1 text-sm font-light">
-							Personal access token (optional)
+							Personal access token
 							<span
 								use:tooltip={{
 									text: 'Required scopes:\n• GitHub: repo\n• GitLab: read_repository + read_api\n\nIf no token is set, Obot falls back to the GITHUB_AUTH_TOKEN environment variable.',
@@ -278,7 +338,7 @@
 				>
 				<button
 					class="btn btn-primary"
-					disabled={saving}
+					disabled={saving || credentialSelectionIncomplete}
 					onclick={async () => {
 						if (!editingSource || (!defaultCatalog && !defaultCatalogId)) {
 							return;
@@ -326,7 +386,12 @@
 								sourceURLCredentials[oldURL] = '';
 							}
 
-							if (editingSource.clearToken && !editingSource.token) {
+							if (
+								!editingSource.token &&
+								(editingSource.clearToken ||
+									(editingSource.credentialType !== 'token' &&
+										hasSourceURLCredential(oldURL, catalogToUse)))
+							) {
 								sourceURLCredentials[newURL] = '';
 							} else if (editingSource.token) {
 								sourceURLCredentials[newURL] = editingSource.token;
