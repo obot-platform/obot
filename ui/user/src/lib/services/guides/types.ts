@@ -39,6 +39,7 @@ export interface GuideHighlight {
 	description?: string;
 	side?: 'top' | 'right' | 'bottom' | 'left';
 	align?: 'start' | 'center' | 'end';
+	noDescendantInteraction?: boolean;
 }
 
 export interface GuideAction {

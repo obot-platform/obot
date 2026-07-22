@@ -166,6 +166,13 @@ export function createGuideHighlighter(options: GuideHighlighterOptions = {}): G
 	let highlightRingTarget: Element | undefined;
 	let highlightRingRaf = 0;
 	let highlightGeneration = 0;
+	let noDescendantInteractionActive = false;
+
+	function clearNoDescendantInteractionClass() {
+		document.querySelectorAll('.guide-no-descendant-events').forEach((el) => {
+			el.classList.remove('guide-no-descendant-events');
+		});
+	}
 
 	function destroyHighlightObot() {
 		if (highlightObot) {
@@ -189,6 +196,8 @@ export function createGuideHighlighter(options: GuideHighlighterOptions = {}): G
 	function destroyHighlightEffects() {
 		destroyHighlightObot();
 		destroyHighlightRing();
+		clearNoDescendantInteractionClass();
+		noDescendantInteractionActive = false;
 		options.onObotVisibilityChange?.(true);
 		options.onDestroyed?.();
 	}
@@ -240,7 +249,11 @@ export function createGuideHighlighter(options: GuideHighlighterOptions = {}): G
 		onDestroyed: destroyHighlightEffects,
 		onCloseClick: options.onCloseClick,
 		onHighlighted: (element) => {
-			if (element) promoteHighlightLayer(element);
+			if (!element) return;
+			promoteHighlightLayer(element);
+			if (noDescendantInteractionActive) {
+				element.classList.add('guide-no-descendant-events');
+			}
 		}
 	});
 
@@ -256,6 +269,8 @@ export function createGuideHighlighter(options: GuideHighlighterOptions = {}): G
 		const side = highlightConfig.side ?? 'right';
 
 		restoreHighlightLayerToBody();
+		clearNoDescendantInteractionClass();
+		noDescendantInteractionActive = highlightConfig.noDescendantInteraction === true;
 		guideDriver.highlight({
 			element,
 			popover: {

@@ -14,7 +14,8 @@ function getCustomConfigurationAction(): GuideAction[] {
 		},
 		side: 'top' as const,
 		align: 'center' as const,
-		title: 'Custom Configuration'
+		title: 'Custom Configuration',
+		noDescendantInteraction: true
 	};
 
 	const configurationListener = {
@@ -56,7 +57,8 @@ function getHostedFieldsListener(): GuideListener {
 				side: 'top',
 				align: 'center',
 				title: 'Runtime',
-				description: 'This is where you choose the runtime configuration for your MCP server.'
+				description: 'This is where you choose the runtime configuration for your MCP server.',
+				noDescendantInteraction: true
 			},
 			listener: {
 				id: CATALOG_SERVER_FIELD_IDS.runtime,
@@ -69,7 +71,8 @@ function getHostedFieldsListener(): GuideListener {
 						align: 'center',
 						title: 'Runtime Configuration',
 						description:
-							'Depending on which runtime you choose, you will see the appropriate form for that runtime form here to fill out.'
+							'Depending on which runtime you choose, you will see the appropriate form for that runtime here to fill out.',
+						noDescendantInteraction: true
 					},
 					listener: {
 						id: CATALOG_SERVER_FIELD_IDS.runtimeConfiguration,
@@ -92,8 +95,9 @@ function getHostedFieldsActions(admin: boolean): GuideAction {
 			align: 'center',
 			title: 'Server Tenancy',
 			description: admin
-				? 'This is where you choose the tenancy type of your MCP server. If each user should have their own deployment, Single-tenant is recommended.'
-				: 'For any catalog entry you create, a user will deploy their own instance of the MCP server.'
+				? 'This is where you choose the tenancy type for your MCP server. The default is multi-tenant, which allows multiple users to access the same MCP server. If your MCP server is intended for a single user or isolated deployment, select single-tenant instead.'
+				: 'For any catalog entry you create, a user will deploy their own instance of the MCP server.',
+			noDescendantInteraction: true
 		},
 		listener: getHostedFieldsListener()
 	};
@@ -121,7 +125,7 @@ function getSubmitAction(): GuideAction {
 
 export const steps: GuideStep[] = [
 	{
-		content: ['What is a hosted catalog entry?', addCatalogEntryDescriptions.hosted]
+		content: ['**What is a hosted catalog entry?**', addCatalogEntryDescriptions.hosted]
 	},
 	getNavigateToMCPCatalogStep(),
 	getHighlightAddCatalogEntryStep('hosted'),
@@ -150,7 +154,8 @@ export const steps: GuideStep[] = [
 					side: 'top',
 					align: 'center',
 					title: 'Headers',
-					description: 'Add any headers that the MCP server requires.'
+					description: 'Add any headers that the MCP server requires.',
+					noDescendantInteraction: true
 				},
 				listener: {
 					id: CATALOG_SERVER_FIELD_IDS.headers,

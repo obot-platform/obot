@@ -9,7 +9,7 @@ import {
 export const steps: GuideStep[] = [
 	{
 		content: [
-			'What is a remote catalog entry?',
+			'**What is a remote catalog entry?**',
 			'A remote catalog entry is great for allowing users to connect to MCP servers that are already elsewhere. When they deploy from Obot, the MCP server will go through the gateway.'
 		]
 	},
@@ -24,8 +24,7 @@ export const steps: GuideStep[] = [
 				side: 'top',
 				align: 'center',
 				title: 'Remote Server URL',
-				description:
-					'Enter the complete MCP endpoint when every user should connect to the same exact URL.'
+				description: 'Enter the full URL of the remote MCP Server.'
 			},
 			listener: {
 				id: CATALOG_SERVER_FIELD_IDS.remoteURL,
@@ -35,7 +34,7 @@ export const steps: GuideStep[] = [
 						side: 'top',
 						title: 'Advanced Configuration',
 						description:
-							"Open this section when the connection needs a hostname or URL template, custom headers, or static OAuth. Let's go ahead and open it."
+							"Open this section if your remote MCP Server requires a hostname or URL template, custom headers, or only supports static OAuth. Let's go ahead and open it."
 					},
 					listener: {
 						id: CATALOG_SERVER_FIELD_IDS.remoteAdvancedBtn,
@@ -47,7 +46,8 @@ export const steps: GuideStep[] = [
 								align: 'center',
 								title: 'Connection Restriction',
 								description:
-									'Choose an exact URL, allow a user-configured URL on one hostname, or build a URL from a template. Template variables come from user-supplied header values.'
+									'Choose an exact URL, allow a user-configured URL on one hostname, or build a URL from a template. Template variables come from user-supplied header values.',
+								noDescendantInteraction: true
 							},
 							listener: {
 								id: CATALOG_SERVER_FIELD_IDS.remoteConnection,
@@ -58,7 +58,8 @@ export const steps: GuideStep[] = [
 										align: 'center',
 										title: 'Request Headers',
 										description:
-											'Add HTTP headers required by the upstream server. Values can be fixed for everyone or requested from each user during setup; keep secrets in headers instead of URLs.'
+											'Add HTTP headers required by the upstream server. Values can be fixed for everyone or requested from each user during setup; keep secrets in headers instead of URLs.',
+										noDescendantInteraction: true
 									},
 									listener: {
 										id: CATALOG_SERVER_FIELD_IDS.remoteHeaders,
