@@ -83,6 +83,11 @@ test:
 	cd apiclient && go test -v -cover ./... && cd ..
 	cd logger && go test -v -cover ./... && cd ..
 
+# Integration tests start an isolated obot server automatically. See
+# tests/integration/README.md for prerequisites and supported overrides.
+test-integration:
+	go test -count=1 -v -tags=integration -timeout=10m ./tests/integration/...
+
 # Runs Go linters and validates that all generated code is committed.
 validate-go-code: tidy generate lint-go no-changes
 
@@ -114,4 +119,4 @@ remove-docs-version:
 	jq 'del(.[] | select(. == "${version}"))' ./docs/versions.json > tmp.json && mv tmp.json ./docs/versions.json
 	grep -v '"${version}": {label: "${version}", banner: "none", path: "${version}"},' ./docs/docusaurus.config.ts  > tmp.config.ts && mv tmp.config.ts ./docs/docusaurus.config.ts
 
-.PHONY: ui ui-user build all clean dev dev-open otel-jaeger-up otel-jaeger-down otel-jaeger-logs telepresence-setup lint lint-admin lint-api no-changes fmt tidy gen-docs-release deprecate-docs-release remove-docs-version
+.PHONY: ui ui-user build all clean dev dev-open otel-jaeger-up otel-jaeger-down otel-jaeger-logs telepresence-setup lint lint-admin lint-api test-integration no-changes fmt tidy gen-docs-release deprecate-docs-release remove-docs-version
