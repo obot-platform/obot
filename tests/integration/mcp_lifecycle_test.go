@@ -3,12 +3,14 @@
 package integration
 
 import (
+	"bytes"
 	"context"
 	"os/exec"
 	"strings"
 	"testing"
 	"time"
 
+	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/tests/integration/harness"
 )
@@ -22,7 +24,9 @@ import (
 //  4. Wait for the deployment to become available
 //  5. List tools — GET /api/mcp-servers/{id}/tools (proves the gateway can
 //     reach the container and speak MCP)
-//  6. Delete  — DELETE /api/mcp-servers/{id}, then verify the API object and
+//  6. Invoke the echo tool through the public MCP gateway
+//  7. Restart and verify the Docker container is replaced and remains usable
+//  8. Delete  — DELETE /api/mcp-servers/{id}, then verify the API object and
 //     Docker deployment are gone
 //
 // This is the project's first integration test. It is intentionally a single
@@ -68,9 +72,7 @@ func TestMCPServerLifecycle_Containerized(t *testing.T) {
 	}
 	t.Logf("details: deployment=%s ready=%d/%d available=%v events=%d",
 		details.DeploymentName, details.ReadyReplicas, details.Replicas, details.IsAvailable, len(details.Events))
-	if containers := dockerContainersForDeployment(ctx, t, created.ID); len(containers) == 0 {
-		t.Fatalf("expected a Docker container for MCP deployment %s", created.ID)
-	}
+	initialContainerID := requireSingleDockerDeployment(ctx, t, created.ID)
 
 	var tools []types.MCPServerTool
 	h.Get(ctx, "/api/mcp-servers/"+created.ID+"/tools", &tools)
@@ -78,16 +80,73 @@ func TestMCPServerLifecycle_Containerized(t *testing.T) {
 		t.Fatalf("expected at least one tool on a running MCP server, got none")
 	}
 	t.Logf("listed %d tools from server", len(tools))
+	assertEchoToolCall(ctx, t, h.BaseURL, created.ID, "before restart")
+	assertMCPServerStartupLog(ctx, t, h, created.ID)
 
-	logBytes := h.ReadStream(ctx, "/api/mcp-servers/"+created.ID+"/logs", 5*time.Second, 4096)
-	if len(logBytes) == 0 {
-		t.Fatalf("expected non-empty log stream")
+	h.RestartMCPServer(ctx, created.ID)
+	restartedContainerID := waitForDockerDeploymentReplaced(ctx, t, created.ID, initialContainerID, 30*time.Second)
+	if restartedContainerID == initialContainerID {
+		t.Fatalf("restart kept the original Docker container %s", initialContainerID)
 	}
-	t.Logf("read %d bytes from logs stream", len(logBytes))
+	h.WaitForMCPServerAvailable(ctx, created.ID, 30*time.Second)
+	assertEchoToolCall(ctx, t, h.BaseURL, created.ID, "after restart")
+	assertMCPServerStartupLog(ctx, t, h, created.ID)
 
 	h.Delete(ctx, "/api/mcp-servers/"+created.ID)
 	h.WaitForMCPServerDeleted(ctx, created.ID, 30*time.Second)
 	waitForDockerDeploymentRemoved(ctx, t, created.ID, 30*time.Second)
+}
+
+func assertEchoToolCall(ctx context.Context, t *testing.T, baseURL, id, message string) {
+	t.Helper()
+	client, err := nmcp.NewClient(ctx, "integration-test", nmcp.Server{
+		BaseURL: baseURL + "/mcp-connect/" + id,
+	})
+	if err != nil {
+		t.Fatalf("create MCP client: %v", err)
+	}
+	defer client.Close(false)
+
+	result, err := client.Call(ctx, "echo", map[string]any{"message": message})
+	if err != nil {
+		t.Fatalf("call echo tool: %v", err)
+	}
+	if result.IsError || len(result.Content) != 1 || result.Content[0].Type != "text" || result.Content[0].Text != message {
+		t.Fatalf("unexpected echo tool result: %+v", result)
+	}
+}
+
+func assertMCPServerStartupLog(ctx context.Context, t *testing.T, h *harness.Harness, id string) {
+	t.Helper()
+	const marker = "integration MCP server listening on ports 3001 and 8080"
+	logs := h.ReadStreamUntil(ctx, "/api/mcp-servers/"+id+"/logs", []byte(marker), 5*time.Second, 4096)
+	if !bytes.Contains(logs, []byte(marker)) {
+		t.Fatalf("MCP server logs did not contain %q: %s", marker, logs)
+	}
+}
+
+func requireSingleDockerDeployment(ctx context.Context, t *testing.T, id string) string {
+	t.Helper()
+	containers := dockerContainersForDeployment(ctx, t, id)
+	if len(containers) != 1 {
+		t.Fatalf("expected one Docker container for MCP deployment %s, got %v", id, containers)
+	}
+	return containers[0]
+}
+
+func waitForDockerDeploymentReplaced(ctx context.Context, t *testing.T, id, previousID string, timeout time.Duration) string {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	var containers []string
+	for time.Now().Before(deadline) {
+		containers = dockerContainersForDeployment(ctx, t, id)
+		if len(containers) == 1 && containers[0] != previousID {
+			return containers[0]
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+	t.Fatalf("Docker deployment %s was not replaced within %s (previous=%s, current=%v)", id, timeout, previousID, containers)
+	return ""
 }
 
 func waitForDockerDeploymentRemoved(ctx context.Context, t *testing.T, id string, timeout time.Duration) {
