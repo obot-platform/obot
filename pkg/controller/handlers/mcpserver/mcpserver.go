@@ -2,6 +2,7 @@ package mcpserver
 
 import (
 	"cmp"
+	"context"
 	"crypto/rand"
 	"errors"
 	"fmt"
@@ -87,64 +88,7 @@ func (h *Handler) DetectDrift(req router.Request, _ router.Response) error {
 		return err
 	}
 
-	staticEnvKeys := make(map[string]struct{})
-	for _, env := range entry.Spec.Manifest.Env {
-		if env.Value != "" {
-			staticEnvKeys[env.Key] = struct{}{}
-		}
-	}
-	if entry.Spec.Manifest.RemoteConfig != nil {
-		for _, hdr := range entry.Spec.Manifest.RemoteConfig.Headers {
-			if hdr.Value != "" {
-				staticEnvKeys[hdr.Key] = struct{}{}
-			}
-		}
-	}
-
-	if len(staticEnvKeys) > 0 {
-		var (
-			cred gatewaytypes.Credential
-			err  error
-		)
-		if server.Spec.MCPCatalogID != "" {
-			cred, err = h.gatewayClient.RevealCredential(req.Ctx, []string{fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name)}, server.Name)
-		} else if server.Spec.PowerUserWorkspaceID != "" {
-			cred, err = h.gatewayClient.RevealCredential(req.Ctx, []string{fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name)}, server.Name)
-		} else {
-			cred, err = h.gatewayClient.RevealCredential(req.Ctx, []string{fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name)}, server.Name)
-		}
-		if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
-			return err
-		}
-
-		originalEnv := slices.Clone(server.Spec.Manifest.Env)
-		defer func() {
-			// Ensure we revert to the original values after processing
-			server.Spec.Manifest.Env = originalEnv
-		}()
-
-		for i, env := range server.Spec.Manifest.Env {
-			if _, ok := staticEnvKeys[env.Key]; ok && env.Value == "" {
-				server.Spec.Manifest.Env[i].Value = cred.Secrets[env.Key]
-			}
-		}
-
-		if server.Spec.Manifest.RemoteConfig != nil {
-			originalHeaders := slices.Clone(server.Spec.Manifest.RemoteConfig.Headers)
-			defer func() {
-				// Ensure we revert to the original values after processing
-				server.Spec.Manifest.RemoteConfig.Headers = originalHeaders
-			}()
-
-			for i, hdr := range server.Spec.Manifest.RemoteConfig.Headers {
-				if _, ok := staticEnvKeys[hdr.Key]; ok && hdr.Value == "" {
-					server.Spec.Manifest.RemoteConfig.Headers[i].Value = cred.Secrets[hdr.Key]
-				}
-			}
-		}
-	}
-
-	drifted, err := ConfigurationHasDrifted(server.Spec.Manifest, entry.Spec.Manifest, h.defaultDenyAllEgress)
+	drifted, err := ConfigurationHasDrifted(req.Ctx, h.gatewayClient, server, entry.Spec.Manifest, h.defaultDenyAllEgress)
 	if err != nil {
 		return err
 	}
@@ -318,9 +262,63 @@ func (h *Handler) DetectK8sSettingsDrift(req router.Request, _ router.Response) 
 }
 
 // ConfigurationHasDrifted compares runtime config, env, resources, and multi-user config between a server
-// manifest and a catalog entry manifest. It handles the type difference between MCPServerManifest
-// and MCPServerCatalogEntryManifest by comparing only the fields common to both.
-func ConfigurationHasDrifted(serverManifest types.MCPServerManifest, entryManifest types.MCPServerCatalogEntryManifest, defaultDenyAllEgress bool) (bool, error) {
+// and a catalog entry manifest. Static values omitted from the persisted server manifest are restored from
+// its gateway credential before comparison.
+func ConfigurationHasDrifted(ctx context.Context, gatewayClient *gateway.Client, server *v1.MCPServer, entryManifest types.MCPServerCatalogEntryManifest, defaultDenyAllEgress bool) (bool, error) {
+	staticKeys := make(map[string]struct{})
+	for _, env := range entryManifest.Env {
+		if env.Value != "" {
+			staticKeys[env.Key] = struct{}{}
+		}
+	}
+	if entryManifest.RemoteConfig != nil {
+		for _, header := range entryManifest.RemoteConfig.Headers {
+			if header.Value != "" {
+				staticKeys[header.Key] = struct{}{}
+			}
+		}
+	}
+
+	serverManifest := server.Spec.Manifest
+	if len(staticKeys) > 0 {
+		credentialContext := server.Spec.UserID
+		if server.Spec.MCPCatalogID != "" {
+			credentialContext = server.Spec.MCPCatalogID
+		} else if server.Spec.PowerUserWorkspaceID != "" {
+			credentialContext = server.Spec.PowerUserWorkspaceID
+		}
+
+		credential, err := gatewayClient.RevealCredential(ctx, []string{fmt.Sprintf("%s-%s", credentialContext, server.Name)}, server.Name)
+		if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
+			return false, err
+		}
+
+		serverManifest.Env = slices.Clone(serverManifest.Env)
+		for i, env := range serverManifest.Env {
+			if _, ok := staticKeys[env.Key]; ok && env.Value == "" {
+				serverManifest.Env[i].Value = credential.Secrets[env.Key]
+			}
+		}
+
+		if serverManifest.RemoteConfig != nil {
+			remoteConfig := *serverManifest.RemoteConfig
+			remoteConfig.Headers = slices.Clone(remoteConfig.Headers)
+			serverManifest.RemoteConfig = &remoteConfig
+			for i, header := range serverManifest.RemoteConfig.Headers {
+				if _, ok := staticKeys[header.Key]; ok && header.Value == "" {
+					serverManifest.RemoteConfig.Headers[i].Value = credential.Secrets[header.Key]
+				}
+			}
+		}
+	}
+
+	return configurationHasDrifted(serverManifest, entryManifest, defaultDenyAllEgress)
+}
+
+// configurationHasDrifted compares only the fields common to MCPServerManifest and
+// MCPServerCatalogEntryManifest. It is also used for nested composite components,
+// which do not have their own MCPServer object or credential context.
+func configurationHasDrifted(serverManifest types.MCPServerManifest, entryManifest types.MCPServerCatalogEntryManifest, defaultDenyAllEgress bool) (bool, error) {
 	// Check if runtime types differ
 	if serverManifest.Runtime != entryManifest.Runtime {
 		return true, nil
@@ -606,7 +604,7 @@ func compositeConfigHasDrifted(serverConfig *types.CompositeRuntimeConfig, entry
 		}
 
 		// Compare manifests
-		drifted, err := ConfigurationHasDrifted(serverComponent.Manifest, entryComponent.Manifest, defaultDenyAllEgress)
+		drifted, err := configurationHasDrifted(serverComponent.Manifest, entryComponent.Manifest, defaultDenyAllEgress)
 		if err != nil || drifted {
 			return drifted, err
 		}
