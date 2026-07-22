@@ -41,7 +41,7 @@
 	const supportedFilters: SupportedFilter[] = [
 		'user_id',
 		'client_session_id',
-		'include_models_requests',
+		'hide_models_requests',
 		'message_policy_triggered',
 		'model_provider',
 		'outcome',
@@ -68,9 +68,6 @@
 	const isReachedMax = $derived(pageIndex >= numberOfPages - 1);
 
 	let query = $derived(page.url.searchParams.get('query') ?? '');
-	let includeModelsRequests = $derived(
-		page.url.searchParams.get('include_models_requests') === 'true'
-	);
 	let usersMap = $derived(new Map(users.map((user) => [user.id, user])));
 
 	const DEFER_THRESHOLD = 500;
@@ -107,7 +104,9 @@
 	const pageOffset = $derived(pageIndex * pageLimit);
 
 	const searchParamFiltersAsArray = $derived(
-		buildSearchParamFiltersArray<LLMAuditLogURLFilters>(supportedFilters)
+		buildSearchParamFiltersArray<LLMAuditLogURLFilters>(supportedFilters, {
+			hide_models_requests: 'true'
+		})
 	);
 	const searchParamFilters = $derived.by<LLMAuditLogURLFilters>(() => {
 		return searchParamFiltersAsArray.reduce(
@@ -115,16 +114,12 @@
 				acc[key!] = value;
 				return acc;
 			},
-			{
-				include_models_requests: includeModelsRequests.toString()
-			} as Record<string, unknown>
+			{} as Record<string, unknown>
 		);
 	});
 
 	const pillsSearchParamFilters = $derived(
-		buildPillSearchParamFilters<LLMAuditLogURLFilters>(searchParamFiltersAsArray, {
-			include_models_requests: includeModelsRequests.toString()
-		})
+		buildPillSearchParamFilters<LLMAuditLogURLFilters>(searchParamFiltersAsArray)
 	);
 	const hasFilterPills = $derived(Object.keys(pillsSearchParamFilters).length > 0);
 
@@ -145,7 +140,6 @@
 		end_time: timeRangeFilters.endTime.toISOString(),
 		limit: pageLimit,
 		offset: pageOffset,
-		include_models_requests: includeModelsRequests.toString(),
 		query
 	});
 
@@ -153,7 +147,6 @@
 		JSON.stringify({
 			...pillsSearchParamFilters,
 			query,
-			include_models_requests: includeModelsRequests,
 			start_time: timeRangeFilters.startTime.toISOString(),
 			end_time: timeRangeFilters.endTime.toISOString()
 		})
@@ -232,7 +225,7 @@
 		if (_key === 'user_id') return 'User';
 		if (_key === 'user_agent') return 'User Agent';
 		if (_key === 'client_session_id') return 'Client Session ID';
-		if (_key === 'include_models_requests') return 'Model discovery requests';
+		if (_key === 'hide_models_requests') return 'Model discovery requests';
 		if (_key === 'message_policy_triggered') return 'Message Policy Action';
 
 		return key.replace(/_(\w)/g, ' $1');
@@ -245,13 +238,9 @@
 		if (label === 'message_policy_triggered') {
 			return value === 'true' ? 'Triggered' : 'Not triggered';
 		}
-		if (label === 'include_models_requests') return value === 'true' ? 'Shown' : 'Hidden';
+		if (label === 'hide_models_requests') return value === 'true' ? 'Hidden' : 'Shown';
 
 		return value + '';
-	}
-
-	function isFilterClearable(filterKey: keyof LLMAuditLogURLFilters): boolean {
-		return filterKey !== 'include_models_requests';
 	}
 
 	function handleRightSidebarClose() {
@@ -268,6 +257,9 @@
 		page.url.searchParams.forEach((value, key) => {
 			url.searchParams.set(key, value);
 		});
+		if (pillsSearchParamFilters.hide_models_requests === 'true') {
+			url.searchParams.set('hide_models_requests', 'true');
+		}
 		url.searchParams.set('form', formType);
 		if (next) {
 			url.searchParams.set('next', next);
@@ -322,12 +314,7 @@
 		<div class="flex flex-col flex-nowrap gap-4 @min-[768px]:flex-row">
 			<div class="min-w-0 grow hidden @min-[768px]:block">
 				{#if hasFilterPills}
-					<AuditLogFilterPills
-						{pillsSearchParamFilters}
-						{getFilterDisplayLabel}
-						{getFilterValue}
-						{isFilterClearable}
-					/>
+					<AuditLogFilterPills {pillsSearchParamFilters} {getFilterDisplayLabel} {getFilterValue} />
 				{/if}
 			</div>
 			{#if !isAdminReadonly}
@@ -359,12 +346,7 @@
 			{/if}
 			<div class="min-w-0 grow block @min-[768px]:hidden">
 				{#if hasFilterPills}
-					<AuditLogFilterPills
-						{pillsSearchParamFilters}
-						{getFilterDisplayLabel}
-						{getFilterValue}
-						{isFilterClearable}
-					/>
+					<AuditLogFilterPills {pillsSearchParamFilters} {getFilterDisplayLabel} {getFilterValue} />
 				{/if}
 			</div>
 		</div>
@@ -459,25 +441,21 @@
 			onClose={handleRightSidebarClose}
 			filters={{ ...searchParamFilters }}
 			isFilterDisabled={() => false}
-			{isFilterClearable}
-			isFilterMultiSelect={(filterId) => filterId !== 'include_models_requests'}
-			getDefaultValue={(filterId) => (filterId === 'include_models_requests' ? 'false' : undefined)}
+			isFilterMultiSelect={(filterId) => filterId !== 'hide_models_requests'}
+			getDefaultValue={(filterId) => (filterId === 'hide_models_requests' ? 'true' : undefined)}
 			getUserDisplayName={(...args) => getUserDisplayName(usersMap, ...args)}
 			{getFilterDisplayLabel}
 			getFilterOptionLabel={(key, value) =>
-				key === 'include_models_requests'
+				key === 'hide_models_requests'
 					? value === 'true'
-						? 'Shown'
-						: 'Hidden'
+						? 'Hidden'
+						: 'Shown'
 					: key === 'message_policy_triggered'
 						? value === 'true'
 							? 'Triggered'
 							: 'Not triggered'
 						: value}
 			endpoint={async (filterId, opts) => {
-				if (filterId === 'include_models_requests') {
-					return { options: ['true', 'false'] };
-				}
 				const response = await AdminService.listLLMAuditLogFilterOptions(filterId, {
 					...opts,
 					start_time: timeRangeFilters.startTime.toISOString(),

@@ -219,7 +219,7 @@ func TestGetLLMAuditLogsFiltersAndStripsSensitiveFields(t *testing.T) {
 	}
 }
 
-func TestGetLLMAuditLogsExcludesModelsRequestsByDefault(t *testing.T) {
+func TestGetLLMAuditLogsCanHideModelsRequests(t *testing.T) {
 	c := newTestClient(t)
 	now := time.Now().UTC()
 	for _, path := range []string{
@@ -235,7 +235,7 @@ func TestGetLLMAuditLogsExcludesModelsRequestsByDefault(t *testing.T) {
 		}
 	}
 
-	logs, total, err := c.GetLLMAuditLogs(t.Context(), LLMAuditLogOptions{})
+	logs, total, err := c.GetLLMAuditLogs(t.Context(), LLMAuditLogOptions{HideModelsRequests: true})
 	if err != nil {
 		t.Fatalf("failed to list LLM audit logs: %v", err)
 	}
@@ -251,7 +251,7 @@ func TestGetLLMAuditLogsExcludesModelsRequestsByDefault(t *testing.T) {
 		t.Fatalf("expected non-models request paths, got %v", paths)
 	}
 
-	logs, total, err = c.GetLLMAuditLogs(t.Context(), LLMAuditLogOptions{IncludeModelsRequests: true})
+	logs, total, err = c.GetLLMAuditLogs(t.Context(), LLMAuditLogOptions{})
 	if err != nil {
 		t.Fatalf("failed to list all LLM audit logs: %v", err)
 	}
@@ -259,7 +259,7 @@ func TestGetLLMAuditLogsExcludesModelsRequestsByDefault(t *testing.T) {
 		t.Fatalf("expected all requests, got total=%d len=%d", total, len(logs))
 	}
 
-	options, err := c.GetLLMAuditLogFilterOptions(t.Context(), "request_path", LLMAuditLogOptions{}, "")
+	options, err := c.GetLLMAuditLogFilterOptions(t.Context(), "request_path", LLMAuditLogOptions{HideModelsRequests: true}, "")
 	if err != nil {
 		t.Fatalf("failed to list request path options: %v", err)
 	}
