@@ -44,7 +44,7 @@ export const addCatalogEntryDescriptions = {
 
 export const obotCatalogEntryDescriptions = {
 	hosted:
-		'A hosted catalog entry provides a simple way to deploy and host an MCP server on the Obot platform, where Obot manages its operation and lifecycle.  Click here to get started.',
+		'A hosted catalog entry provides a simple way to deploy and host an MCP server on the Obot platform, where Obot manages its operation and lifecycle. Click here to get started.',
 	remote:
 		"A remote catalog entry lets you proxy all traffic to a remote MCP server through Obot, enabling you to take advantage of Obot's access policies and audit logging. Click here to get started.",
 	composite:
