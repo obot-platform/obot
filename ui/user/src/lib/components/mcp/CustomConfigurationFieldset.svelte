@@ -122,7 +122,12 @@
 	{/if}
 	{#if selectedType === 'static'}
 		{#if secretBindingTargets && !version.current.hideK8sDetails}
-			<SecretBindingPicker bind:field={data} targets={secretBindingTargets} {readonly} />
+			<SecretBindingPicker
+				bind:field={data}
+				targets={secretBindingTargets}
+				{readonly}
+				{showRequired}
+			/>
 		{/if}
 		{#if !usesSecretBindingSource(data)}
 			<div class="flex w-full flex-col gap-1">
