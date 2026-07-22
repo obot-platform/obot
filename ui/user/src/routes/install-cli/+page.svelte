@@ -165,7 +165,8 @@
 				<ul class="list-disc font-light flex flex-col gap-2 @lg/cli:px-8 px-4 text-sm">
 					<li>
 						<p class="mb-2">
-							Directly install MCP servers to your AI clients using the following skills:
+							Search Obot for installable MCP servers from your AI client using the following
+							skill::
 						</p>
 						<div class="mb-2">
 							{@render slashCommandPreview(
