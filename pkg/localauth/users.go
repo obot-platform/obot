@@ -85,8 +85,8 @@ func (p *Provider) DeleteUser(ctx context.Context, id uint) error {
 }
 
 func hashUserPassword(password string) (string, error) {
-	if len(password) < MinPasswordLength {
-		return "", InvalidUserError{message: fmt.Sprintf("password must be at least %d characters", MinPasswordLength)}
+	if len(password) < minPasswordLength {
+		return "", InvalidUserError{message: fmt.Sprintf("password must be at least %d characters", minPasswordLength)}
 	}
 
 	return HashPassword(password)

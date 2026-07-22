@@ -328,13 +328,13 @@ func (p *Provider) emailDomainAllowed(ctx context.Context, email string) (bool, 
 
 func emailDomainAllowed(domains, email string) bool {
 	_, domain, ok := strings.Cut(email, "@")
-	if !ok {
+	if !ok || domain == "" {
 		return false
 	}
 
-	for _, allowed := range strings.Split(domains, ",") {
+	for allowed := range strings.SplitSeq(domains, ",") {
 		allowed = strings.ToLower(strings.TrimSpace(strings.TrimPrefix(allowed, "@")))
-		if allowed == "*" || (allowed != "" && allowed == domain) {
+		if allowed == "*" || allowed == domain {
 			return true
 		}
 	}

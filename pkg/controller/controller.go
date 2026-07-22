@@ -617,14 +617,7 @@ func (c *Controller) ensureAuthProvidersAndModelProviders(ctx context.Context) e
 	// shutting down properly, which caused a significant delay in startup when upgrading from
 	// v0.22.1. The built-in local auth provider doesn't come from the registry, so it doesn't
 	// count towards this check.
-	registryProviders := 0
-	for _, authProvider := range authProviders.Items {
-		if authProvider.Name != localauth.ProviderName {
-			registryProviders++
-		}
-	}
-
-	if registryProviders == 0 {
+	if len(authProviders.Items) <= 1 {
 		if err := c.providerHandler.ReadFromRegistry(ctx, c.services.StorageClient); err != nil {
 			return fmt.Errorf("failed to read from registry: %w", err)
 		}

@@ -46,7 +46,7 @@ func TestHashPasswordIsSalted(t *testing.T) {
 }
 
 func TestHashPasswordRejectsShortPasswords(t *testing.T) {
-	if _, err := HashPassword(strings.Repeat("a", MinPasswordLength-1)); err == nil {
+	if _, err := HashPassword(strings.Repeat("a", minPasswordLength-1)); err == nil {
 		t.Fatal("expected an error for a password below the minimum length")
 	}
 }

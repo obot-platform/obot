@@ -124,8 +124,7 @@ func (h *LocalAuthHandler) Delete(req api.Context) error {
 		return err
 	}
 
-	err = h.provider.DeleteUser(req.Context(), id)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if err = h.provider.DeleteUser(req.Context(), id); errors.Is(err, gorm.ErrRecordNotFound) {
 		return types.NewErrNotFound("local auth user not found")
 	} else if err != nil {
 		return fmt.Errorf("failed to delete local auth user: %w", err)

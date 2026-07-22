@@ -12,7 +12,7 @@
 		PAGE_TRANSITION_DURATION,
 		RecommendedModelProviders
 	} from '$lib/constants';
-	import { HttpError } from '$lib/errors.js';
+	import { HttpError, parseErrorContent } from '$lib/errors.js';
 	import { AdminService, UserService } from '$lib/services';
 	import type { AuthProvider } from '$lib/services/admin/types.js';
 	import { errors, license, profile } from '$lib/stores';
@@ -184,15 +184,7 @@
 					await handleOwnerSetup();
 				}
 			} catch (err: unknown) {
-				if (err instanceof Error) {
-					const errorMessageMatch = err.message.match(/{"error":\s*"(.*?)"}/);
-					if (errorMessageMatch) {
-						const errorMessage = JSON.parse(errorMessageMatch[0]).error;
-						configureError = errorMessage;
-					}
-				} else {
-					configureError = 'Failed to configure auth provider';
-				}
+				configureError = parseErrorContent(err).message;
 			} finally {
 				loading = false;
 			}
@@ -212,12 +204,7 @@
 			adminConfigStore.updateAuthProviders(authProviders);
 			return undefined;
 		} catch (err) {
-			if (err instanceof Error) {
-				const match = err.message.match(/{"error":\s*"(.*?)"}/);
-				if (match) return JSON.parse(match[0]).error;
-				return err.message;
-			}
-			return 'Failed to configure auth provider';
+			return parseErrorContent(err).message;
 		}
 	}
 

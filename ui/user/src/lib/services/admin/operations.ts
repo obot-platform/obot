@@ -360,8 +360,8 @@ export async function setLocalAuthUserPassword(
 	await doPost(`/local-auth/users/${id}/password`, { password }, opts);
 }
 
-export async function deleteLocalAuthUser(id: string): Promise<void> {
-	await doDelete(`/local-auth/users/${id}`);
+export async function deleteLocalAuthUser(id: string, opts?: { fetch?: Fetcher }): Promise<void> {
+	await doDelete(`/local-auth/users/${id}`, opts);
 }
 
 // Bootstrap

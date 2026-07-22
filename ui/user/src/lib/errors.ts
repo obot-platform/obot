@@ -33,7 +33,25 @@ function toAppError(e: Error): App.Error {
 function parseHttpErrorMessage(message: string): string {
 	// Match format i.e. "400 /path/to/resource: message"
 	const errorMatch = message.match(/^\d+\s+\/[^:]+:\s+(.*)/s);
-	return errorMatch?.[1] || message || defaultErrorMessage;
+	return parseResponseError(errorMatch?.[1] || message || defaultErrorMessage);
+}
+
+function parseResponseError(message: string): string {
+	try {
+		const body = JSON.parse(message) as unknown;
+		if (
+			typeof body === 'object' &&
+			body !== null &&
+			'error' in body &&
+			typeof body.error === 'string'
+		) {
+			return body.error;
+		}
+	} catch {
+		// The response wasn't JSON, so use it as-is.
+	}
+
+	return message;
 }
 
 export function handleRouteError(e: unknown, path: string, profile?: Profile): never {
@@ -81,13 +99,16 @@ export function parseErrorContent(e: unknown) {
 
 	// Match format i.e. "400 /path/to/resource: message"
 	const errorMatch = e.message.match(/^(\d+)(?:\s+\/[^:]+)?:\s+(.*)/);
+	if (!errorMatch) {
+		return { status: 500, message: parseResponseError(e.message || defaultErrorMessage) };
+	}
 
-	const [, legacyStatusCode, messageContent] = errorMatch || [];
+	const [, legacyStatusCode, messageContent] = errorMatch;
 	const status = parseInt(legacyStatusCode);
 
 	return {
 		status: Number.isInteger(status) ? status : 500,
-		message: messageContent || 'Unknown error occurred'
+		message: parseResponseError(messageContent || defaultErrorMessage)
 	};
 }
 

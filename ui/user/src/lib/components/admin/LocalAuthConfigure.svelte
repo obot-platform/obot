@@ -3,6 +3,7 @@
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import { MultiValueInput } from '$lib/components/ui/multi-value-input';
 	import { LOCAL_AUTH_MIN_PASSWORD_LENGTH } from '$lib/constants';
+	import { parseErrorContent } from '$lib/errors';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService, type AuthProvider, type LocalAuthUser } from '$lib/services';
 	import { darkMode } from '$lib/stores';
@@ -143,8 +144,7 @@
 	// The API returns errors as {"error": "..."}; surface the message rather than the raw body.
 	function errorMessage(err: unknown, fallback: string) {
 		if (!(err instanceof Error)) return fallback;
-		const match = err.message.match(/{"error":\s*"(.*?)"}/);
-		return match ? (JSON.parse(match[0]).error as string) : err.message || fallback;
+		return parseErrorContent(err).message || fallback;
 	}
 </script>
 

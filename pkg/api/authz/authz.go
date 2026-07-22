@@ -168,6 +168,8 @@ var (
 			"GET /api/image-pull-secrets",
 			"GET /api/image-pull-secrets/",
 			"POST /api/auth-providers/",
+			"GET /api/local-auth/users",
+			"GET /api/local-auth/users/",
 			"GET /api/workspaces/",
 			"/api/audit-log-exports",
 			"/api/audit-log-exports/",

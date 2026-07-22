@@ -101,11 +101,13 @@ export async function doDelete(
 	opts?: {
 		signal?: AbortSignal;
 		dontLogErrors?: boolean;
+		fetch?: typeof fetch;
 		responseHandler?: ResponseHandler;
 		keepalive?: boolean;
 	}
 ): Promise<unknown> {
-	const resp = await fetch(baseURL + path, {
+	const f = opts?.fetch || fetch;
+	const resp = await f(baseURL + path, {
 		method: 'DELETE',
 		headers: getAuthHeaders(),
 		...(opts?.keepalive ? { keepalive: true } : { signal: opts?.signal })
