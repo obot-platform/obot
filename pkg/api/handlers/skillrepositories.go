@@ -58,6 +58,9 @@ func (*SkillRepositoryHandler) Create(req api.Context) error {
 	if err != nil {
 		return err
 	}
+	if err := validateSharedGitCredential(req, manifest.GitCredentialID, manifest.RepoURL); err != nil {
+		return err
+	}
 
 	repo := v1.SkillRepository{
 		ObjectMeta: metav1.ObjectMeta{
@@ -65,7 +68,10 @@ func (*SkillRepositoryHandler) Create(req api.Context) error {
 			Namespace:    req.Namespace(),
 		},
 		Spec: v1.SkillRepositorySpec{
-			SkillRepositoryManifest: *manifest,
+			DisplayName:     manifest.DisplayName,
+			RepoURL:         manifest.RepoURL,
+			Ref:             manifest.Ref,
+			GitCredentialID: manifest.GitCredentialID,
 		},
 	}
 
@@ -74,6 +80,9 @@ func (*SkillRepositoryHandler) Create(req api.Context) error {
 	}
 
 	newTokens := mergeCatalogTokens([]string{manifest.RepoURL}, sourceURLCredentials, nil)
+	if manifest.GitCredentialID != "" {
+		delete(newTokens, manifest.RepoURL)
+	}
 	if err := storeRepositoryTokens(req, repo.Name, newTokens, nil); err != nil {
 		return err
 	}
@@ -84,6 +93,9 @@ func (*SkillRepositoryHandler) Create(req api.Context) error {
 func (*SkillRepositoryHandler) Update(req api.Context) error {
 	manifest, sourceURLCredentials, err := parseSkillRepositoryRequest(req)
 	if err != nil {
+		return err
+	}
+	if err := validateSharedGitCredential(req, manifest.GitCredentialID, manifest.RepoURL); err != nil {
 		return err
 	}
 
@@ -98,8 +110,16 @@ func (*SkillRepositoryHandler) Update(req api.Context) error {
 	}
 
 	newTokens := mergeCatalogTokens([]string{manifest.RepoURL}, sourceURLCredentials, existingCred)
+	if manifest.GitCredentialID != "" {
+		delete(newTokens, manifest.RepoURL)
+	}
 
-	repo.Spec.SkillRepositoryManifest = *manifest
+	repo.Spec = v1.SkillRepositorySpec{
+		DisplayName:     manifest.DisplayName,
+		RepoURL:         manifest.RepoURL,
+		Ref:             manifest.Ref,
+		GitCredentialID: manifest.GitCredentialID,
+	}
 	if err := req.Update(&repo); err != nil {
 		return fmt.Errorf("failed to update skill repository: %w", err)
 	}
@@ -158,6 +178,7 @@ func parseSkillRepositoryRequest(req api.Context) (*types.SkillRepositoryManifes
 	originalRepoURL := strings.TrimSpace(manifest.RepoURL)
 	manifest.DisplayName = strings.TrimSpace(manifest.DisplayName)
 	manifest.Ref = strings.TrimSpace(manifest.Ref)
+	manifest.GitCredentialID = strings.TrimSpace(manifest.GitCredentialID)
 
 	if manifest.DisplayName == "" {
 		return nil, nil, types.NewErrBadRequest("displayName is required")
@@ -212,7 +233,12 @@ func revealRepositoryTokens(req api.Context, repoName string) (map[string]string
 }
 
 func convertSkillRepository(repo v1.SkillRepository, tokenEnv map[string]string) types.SkillRepository {
-	manifest := repo.Spec.SkillRepositoryManifest
+	manifest := types.SkillRepositoryManifest{
+		DisplayName:     repo.Spec.DisplayName,
+		RepoURL:         repo.Spec.RepoURL,
+		Ref:             repo.Spec.Ref,
+		GitCredentialID: repo.Spec.GitCredentialID,
+	}
 	manifest.SourceURLCredentials = maskCatalogCredentials([]string{repo.Spec.RepoURL}, tokenEnv)
 	return types.SkillRepository{
 		Metadata:                MetadataFrom(&repo),

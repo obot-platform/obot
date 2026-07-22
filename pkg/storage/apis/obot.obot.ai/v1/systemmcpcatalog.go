@@ -13,8 +13,9 @@ type SystemMCPCatalog struct {
 }
 
 type SystemMCPCatalogSpec struct {
-	DisplayName string   `json:"displayName,omitempty"`
-	SourceURLs  []string `json:"sourceURLs,omitempty"`
+	DisplayName               string            `json:"displayName,omitempty"`
+	SourceURLs                []string          `json:"sourceURLs,omitempty"`
+	SourceURLGitCredentialIDs map[string]string `json:"sourceURLGitCredentialIDs,omitempty"`
 }
 
 type SystemMCPCatalogStatus struct {

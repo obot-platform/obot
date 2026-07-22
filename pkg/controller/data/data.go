@@ -126,11 +126,9 @@ func createDefaultSkillRepository(ctx context.Context, c kclient.Client, repoURL
 			Namespace: system.DefaultNamespace,
 		},
 		Spec: v1.SkillRepositorySpec{
-			SkillRepositoryManifest: types.SkillRepositoryManifest{
-				DisplayName: "Default",
-				RepoURL:     repoURL,
-				Ref:         ref,
-			},
+			DisplayName: "Default",
+			RepoURL:     repoURL,
+			Ref:         ref,
 		},
 	}))
 }

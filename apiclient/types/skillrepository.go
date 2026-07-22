@@ -15,6 +15,7 @@ type SkillRepositoryManifest struct {
 	RepoURL              string            `json:"repoURL,omitempty"`
 	Ref                  string            `json:"ref,omitempty"`
 	SourceURLCredentials map[string]string `json:"sourceURLCredentials,omitempty"`
+	GitCredentialID      string            `json:"gitCredentialID,omitempty"`
 }
 
 type SkillRepositoryList List[SkillRepository]

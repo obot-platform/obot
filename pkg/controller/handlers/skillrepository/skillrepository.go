@@ -10,6 +10,7 @@ import (
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/logger"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/gitcredential"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,23 +41,6 @@ func New(gatewayClient *gclient.Client) *Handler {
 	}
 }
 
-func (h *Handler) revealRepositoryCredential(ctx context.Context, repoName, repoURL string) string {
-	if h.gatewayClient == nil {
-		return ""
-	}
-	cred, err := h.gatewayClient.RevealCredential(ctx,
-		[]string{repoName},
-		SkillRepositoryCredentialToolName,
-	)
-	if err != nil {
-		if !errors.As(err, &gclient.CredentialNotFoundError{}) {
-			log.Errorf("failed to retrieve credential for repository %s source %s: %v", repoName, repoURL, err)
-		}
-		return ""
-	}
-	return cred.Secrets[repoURL]
-}
-
 func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	repo := req.Object.(*v1.SkillRepository)
 	namespace := repo.Namespace
@@ -77,7 +61,16 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 
 	defer h.clearIsSyncing(req.Ctx, req.Client, namespace, repo.Name)
 
-	token := h.revealRepositoryCredential(req.Ctx, repo.Name, repo.Spec.RepoURL)
+	token, err := gitcredential.ResolveOrReveal(req.Ctx, req.Client, h.gatewayClient, repo.Namespace, repo.Spec.GitCredentialID, repo.Spec.RepoURL, repo.Name, SkillRepositoryCredentialToolName)
+	if errors.Is(err, gitcredential.ErrLegacyCredential) {
+		log.Errorf("failed to retrieve legacy credential for repository %s source %s, continuing without authentication: %v", repo.Name, repo.Spec.RepoURL, err)
+	} else if err != nil {
+		if statusErr := h.recordFailure(req.Ctx, req.Client, namespace, repo.Name, err); statusErr != nil {
+			return statusErr
+		}
+		resp.RetryAfter(syncInterval)
+		return nil
+	}
 	fetched, err := h.fetcher.Fetch(req.Ctx, repo.Spec.RepoURL, token, repo.Spec.Ref)
 	if err != nil {
 		if statusErr := h.recordFailure(req.Ctx, req.Client, namespace, repo.Name, err); statusErr != nil {

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
@@ -145,7 +146,13 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 		return fmt.Errorf("failed to get catalog: %w", err)
 	}
 
+	originalSourceURLs := slices.Clone(manifest.SourceURLs)
 	if err := normalizeAndValidateCatalogSourceURLs(manifest.SourceURLs, h.defaultCatalogPath); err != nil {
+		return err
+	}
+	remapCatalogSourceValues(originalSourceURLs, manifest.SourceURLs, manifest.SourceURLCredentials)
+	remapCatalogSourceValues(originalSourceURLs, manifest.SourceURLs, manifest.SourceURLGitCredentialIDs)
+	if err := validateCatalogGitCredentials(req, manifest.SourceURLs, manifest.SourceURLGitCredentialIDs); err != nil {
 		return err
 	}
 
@@ -156,8 +163,10 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 	}
 
 	newTokens := mergeCatalogTokens(manifest.SourceURLs, manifest.SourceURLCredentials, existingCred.Secrets)
+	removeSharedCredentialTokens(newTokens, manifest.SourceURLGitCredentialIDs)
 
 	catalog.Spec.SourceURLs = manifest.SourceURLs
+	catalog.Spec.SourceURLGitCredentialIDs = manifest.SourceURLGitCredentialIDs
 
 	if err := req.Update(&catalog); err != nil {
 		return fmt.Errorf("failed to update catalog: %w", err)
@@ -1529,9 +1538,10 @@ func convertMCPCatalog(catalog v1.MCPCatalog, tokenEnv map[string]string) types.
 	return types.MCPCatalog{
 		Metadata: MetadataFrom(&catalog),
 		MCPCatalogManifest: types.MCPCatalogManifest{
-			DisplayName:          catalog.Spec.DisplayName,
-			SourceURLs:           catalog.Spec.SourceURLs,
-			SourceURLCredentials: maskCatalogCredentials(catalog.Spec.SourceURLs, tokenEnv),
+			DisplayName:               catalog.Spec.DisplayName,
+			SourceURLs:                catalog.Spec.SourceURLs,
+			SourceURLCredentials:      maskCatalogCredentials(catalog.Spec.SourceURLs, tokenEnv),
+			SourceURLGitCredentialIDs: catalog.Spec.SourceURLGitCredentialIDs,
 		},
 		LastSynced: *types.NewTime(catalog.Status.LastSyncTime.Time),
 		SyncErrors: catalog.Status.SyncErrors,

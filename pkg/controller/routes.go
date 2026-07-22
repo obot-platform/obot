@@ -8,6 +8,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/alias"
 	"github.com/obot-platform/obot/pkg/controller/handlers/auditlogexport"
 	"github.com/obot-platform/obot/pkg/controller/handlers/cleanup"
+	gitcredentialhandler "github.com/obot-platform/obot/pkg/controller/handlers/gitcredential"
 	"github.com/obot-platform/obot/pkg/controller/handlers/imagepullsecret"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpcatalog"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpserver"
@@ -56,6 +57,7 @@ func (c *Controller) setupRoutes() {
 	oktaGroupMigrationHandler := oktagroupmigration.New()
 	projectHandler := project.New(c.services.GatewayClient)
 	imagePullSecretHandler := imagepullsecret.New(c.services.GatewayClient, c.services.LocalK8sClient, c.services.MCPRuntimeBackend, c.services.MCPServerNamespace, c.services.ServiceNamespace, c.services.ServiceAccountName, c.services.MCPImagePullSecrets, c.services.ServiceAccountIssuerURL)
+	gitCredentialHandler := gitcredentialhandler.New(c.services.GatewayClient)
 	modelHandler := model.NewHandler(c.services.GatewayClient)
 
 	// AuthProviders
@@ -107,6 +109,10 @@ func (c *Controller) setupRoutes() {
 	// ImagePullSecret
 	root.Type(&v1.ImagePullSecret{}).FinalizeFunc(v1.ImagePullSecretFinalizer, imagePullSecretHandler.Cleanup)
 	root.Type(&v1.ImagePullSecret{}).HandlerFunc(imagePullSecretHandler.Reconcile)
+
+	// GitCredential
+	root.Type(&v1.GitCredential{}).HandlerFunc(gitCredentialHandler.SyncReferences)
+	root.Type(&v1.GitCredential{}).FinalizeFunc(v1.GitCredentialFinalizer, gitCredentialHandler.Cleanup)
 
 	// MCPServerCatalogEntry
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(cleanup.Cleanup)

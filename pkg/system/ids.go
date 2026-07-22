@@ -24,6 +24,7 @@ const (
 	MCPNetworkPolicyPrefix        = "mnp1"
 	MCPServerInstancePrefix       = "msi1"
 	ImagePullSecretPrefix         = "ips1"
+	GitCredentialPrefix           = "gc1"
 	CatalogPrefix                 = "mcat1"
 	SystemCatalogPrefix           = "smcat1"
 	SkillRepositoryPrefix         = "skr1"

@@ -23,6 +23,7 @@ import (
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/git"
+	"github.com/obot-platform/obot/pkg/gitcredential"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -74,23 +75,6 @@ type Handler struct {
 	accessControlRuleHelper   *accesscontrolrule.Helper
 	remoteURLValidationConfig mcp.ValidationOptions
 	mcpBackend                string
-}
-
-// revealCatalogCredential retrieves a stored PAT for the given source URL.
-// Returns an empty string if no credential is configured (not-found). Any other
-// error is logged so credential-store failures are visible in the sync status.
-func (h *Handler) revealCatalogCredential(ctx context.Context, catalogName, sourceURL string) string {
-	cred, err := h.gatewayClient.RevealCredential(ctx,
-		[]string{catalogName},
-		CatalogCredentialToolName,
-	)
-	if err != nil {
-		if !errors.As(err, &gclient.CredentialNotFoundError{}) {
-			log.Errorf("failed to retrieve credential for catalog %s source %s: %v", catalogName, sourceURL, err)
-		}
-		return ""
-	}
-	return cred.Secrets[sourceURL]
 }
 
 func New(defaultCatalogPath, defaultSystemCatalogPath string, gatewayClient *gclient.Client, accessControlRuleHelper *accesscontrolrule.Helper, mcpSessionManager *mcp.SessionManager) *Handler {
@@ -146,7 +130,16 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	mcpCatalog.Status.SyncErrors = make(map[string]string)
 
 	for _, sourceURL := range mcpCatalog.Spec.SourceURLs {
-		token := h.revealCatalogCredential(req.Ctx, mcpCatalog.Name, sourceURL)
+		credentialID := mcpCatalog.Spec.SourceURLGitCredentialIDs[sourceURL]
+		token, err := gitcredential.ResolveOrReveal(req.Ctx, req.Client, h.gatewayClient, mcpCatalog.Namespace, credentialID, sourceURL, mcpCatalog.Name, CatalogCredentialToolName)
+		if errors.Is(err, gitcredential.ErrLegacyCredential) {
+			log.Errorf("failed to retrieve legacy credential for catalog %s source %s, continuing without authentication: %v", mcpCatalog.Name, sourceURL, err)
+			err = nil
+		} else if err != nil {
+			log.Errorf("failed to resolve credential for catalog %s source %s: %v", mcpCatalog.Name, sourceURL, err)
+			mcpCatalog.Status.SyncErrors[sourceURL] = err.Error()
+			continue
+		}
 		objs, err := h.readMCPCatalog(req.Ctx, mcpCatalog.Name, sourceURL, token)
 		if err != nil {
 			log.Errorf("failed to read catalog %s: %v", sourceURL, err)
@@ -387,7 +380,16 @@ func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {
 	systemCatalog.Status.SyncErrors = make(map[string]string)
 
 	for _, sourceURL := range systemCatalog.Spec.SourceURLs {
-		token := h.revealCatalogCredential(req.Ctx, systemCatalog.Name, sourceURL)
+		credentialID := systemCatalog.Spec.SourceURLGitCredentialIDs[sourceURL]
+		token, err := gitcredential.ResolveOrReveal(req.Ctx, req.Client, h.gatewayClient, systemCatalog.Namespace, credentialID, sourceURL, systemCatalog.Name, CatalogCredentialToolName)
+		if errors.Is(err, gitcredential.ErrLegacyCredential) {
+			log.Errorf("failed to retrieve legacy credential for system catalog %s source %s, continuing without authentication: %v", systemCatalog.Name, sourceURL, err)
+			err = nil
+		} else if err != nil {
+			log.Errorf("failed to resolve credential for system catalog %s source %s: %v", systemCatalog.Name, sourceURL, err)
+			systemCatalog.Status.SyncErrors[sourceURL] = err.Error()
+			continue
+		}
 		objs, err := h.readSystemMCPCatalog(req.Ctx, systemCatalog.Name, sourceURL, token)
 		if err != nil {
 			log.Errorf("failed to read system catalog %s: %v", sourceURL, err)

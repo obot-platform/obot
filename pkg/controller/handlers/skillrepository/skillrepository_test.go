@@ -10,8 +10,11 @@ import (
 
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
+	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
+	storageservices "github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -60,11 +63,9 @@ func newSkillRepository(name, namespace string) *v1.SkillRepository {
 			Namespace: namespace,
 		},
 		Spec: v1.SkillRepositorySpec{
-			SkillRepositoryManifest: types.SkillRepositoryManifest{
-				RepoURL:     "https://github.com/owner/repo",
-				Ref:         "main",
-				DisplayName: "Test Repo",
-			},
+			RepoURL:     "https://github.com/owner/repo",
+			Ref:         "main",
+			DisplayName: "Test Repo",
 		},
 	}
 }
@@ -257,6 +258,7 @@ func TestListSkillsForRepo(t *testing.T) {
 
 func TestSync(t *testing.T) {
 	fixedTime := time.Date(2026, 3, 11, 12, 0, 0, 0, time.UTC)
+	gatewayClient := newTestGatewayClient(t)
 
 	t.Run("happy path", func(t *testing.T) {
 		repo := newSkillRepository("repo1", "default")
@@ -268,6 +270,7 @@ func TestSync(t *testing.T) {
 		})
 
 		h := &Handler{
+			gatewayClient: gatewayClient,
 			fetcher: &mockFetcher{
 				fetchFn: func(_ context.Context, _, _, _ string) (*fetchedRepository, error) {
 					return fetched, nil
@@ -313,6 +316,7 @@ func TestSync(t *testing.T) {
 
 		fetchCalled := false
 		h := &Handler{
+			gatewayClient: gatewayClient,
 			fetcher: &mockFetcher{
 				fetchFn: func(_ context.Context, _, _, _ string) (*fetchedRepository, error) {
 					fetchCalled = true
@@ -353,6 +357,7 @@ func TestSync(t *testing.T) {
 		})
 		fetchCalled := false
 		h := &Handler{
+			gatewayClient: gatewayClient,
 			fetcher: &mockFetcher{
 				fetchFn: func(_ context.Context, _, _, _ string) (*fetchedRepository, error) {
 					fetchCalled = true
@@ -388,6 +393,7 @@ func TestSync(t *testing.T) {
 		c := newFakeClient(t, repo)
 
 		h := &Handler{
+			gatewayClient: gatewayClient,
 			fetcher: &mockFetcher{
 				fetchFn: func(_ context.Context, _, _, _ string) (*fetchedRepository, error) {
 					return nil, fmt.Errorf("network timeout")
@@ -416,6 +422,40 @@ func TestSync(t *testing.T) {
 		assert.Equal(t, syncInterval, resp.Delay)
 	})
 
+	t.Run("legacy credential failure falls back to unauthenticated fetch", func(t *testing.T) {
+		repo := newSkillRepository("repo1", "default")
+		c := newFakeClient(t, repo)
+		failedGatewayClient := newTestGatewayClient(t)
+		require.NoError(t, failedGatewayClient.Close())
+
+		fetched := createFetchedRepo(t, map[string]string{"skill-a": "Skill A"})
+		fetchCalled := false
+		h := &Handler{
+			gatewayClient: failedGatewayClient,
+			fetcher: &mockFetcher{fetchFn: func(_ context.Context, _ string, token string, _ string) (*fetchedRepository, error) {
+				fetchCalled = true
+				assert.Empty(t, token)
+				return fetched, nil
+			}},
+			now: func() time.Time { return fixedTime },
+		}
+
+		err := h.Sync(router.Request{
+			Client:    c,
+			Object:    repo,
+			Ctx:       t.Context(),
+			Namespace: repo.Namespace,
+			Name:      repo.Name,
+			Key:       repo.Namespace + "/" + repo.Name,
+		}, &router.ResponseWrapper{})
+		require.NoError(t, err)
+		assert.True(t, fetchCalled)
+
+		var updated v1.SkillRepository
+		require.NoError(t, c.Get(t.Context(), kclient.ObjectKey{Namespace: repo.Namespace, Name: repo.Name}, &updated))
+		assert.Empty(t, updated.Status.SyncError)
+	})
+
 	t.Run("build failure records error", func(t *testing.T) {
 		repo := newSkillRepository("repo1", "default")
 		c := newFakeClient(t, repo)
@@ -429,6 +469,7 @@ func TestSync(t *testing.T) {
 		require.NoError(t, os.Chmod(skillFile, 0o000))
 
 		h := &Handler{
+			gatewayClient: gatewayClient,
 			fetcher: &mockFetcher{
 				fetchFn: func(_ context.Context, _, _, _ string) (*fetchedRepository, error) {
 					return &fetchedRepository{
@@ -459,6 +500,18 @@ func TestSync(t *testing.T) {
 		assert.NotEmpty(t, updated.Status.SyncError)
 		assert.False(t, updated.Status.IsSyncing)
 	})
+}
+
+func newTestGatewayClient(t *testing.T) *gatewayclient.Client {
+	t.Helper()
+	storageServices, err := storageservices.New(storageservices.Config{DSN: "sqlite://:memory:"})
+	require.NoError(t, err)
+	database, err := gatewaydb.New(storageServices.DB.DB, storageServices.DB.SQLDB, true)
+	require.NoError(t, err)
+	require.NoError(t, database.AutoMigrate())
+	gatewayClient := gatewayclient.New(t.Context(), database, nil, nil, nil, nil, nil, time.Hour, 10, 90, 90, true)
+	t.Cleanup(func() { _ = gatewayClient.Close() })
+	return gatewayClient
 }
 
 func TestClearIsSyncing(t *testing.T) {

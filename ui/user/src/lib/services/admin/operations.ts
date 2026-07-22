@@ -57,6 +57,8 @@ import type {
 	ImagePullSecretRefreshResponse,
 	ImagePullSecretTestRequest,
 	ImagePullSecretTestResponse,
+	GitCredential,
+	GitCredentialManifest,
 	MCPCompositeDeletionDependency,
 	GroupRoleAssignment,
 	GroupRoleAssignmentList,
@@ -553,6 +555,36 @@ export async function updateImagePullSecret(
 
 export async function deleteImagePullSecret(id: string, opts?: RequestOptions): Promise<void> {
 	await doDelete(`/image-pull-secrets/${id}`, opts);
+}
+
+// Git credentials
+
+export async function listGitCredentials(opts?: RequestOptions): Promise<GitCredential[]> {
+	const response = (await doGet('/git-credentials', opts)) as ItemsResponse<GitCredential>;
+	return response.items ?? [];
+}
+
+export async function getGitCredential(id: string, opts?: RequestOptions): Promise<GitCredential> {
+	return (await doGet(`/git-credentials/${id}`, opts)) as GitCredential;
+}
+
+export async function createGitCredential(
+	input: GitCredentialManifest,
+	opts?: RequestOptions
+): Promise<GitCredential> {
+	return (await doPost('/git-credentials', input, opts)) as GitCredential;
+}
+
+export async function updateGitCredential(
+	id: string,
+	input: GitCredentialManifest,
+	opts?: RequestOptions
+): Promise<GitCredential> {
+	return (await doPatch(`/git-credentials/${id}`, input, opts)) as GitCredential;
+}
+
+export async function deleteGitCredential(id: string, opts?: RequestOptions): Promise<void> {
+	await doDelete(`/git-credentials/${id}`, opts);
 }
 
 export async function testImagePullSecret(
