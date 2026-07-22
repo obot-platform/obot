@@ -29,7 +29,7 @@
 
 <Layout classes={{ navbar: 'bg-base-200', container: 'pt-0' }} {title}>
 	{#snippet rightNavActions()}
-		<a class="btn btn-primary" href={resolve('/install-/cli')}>Get Obot CLI</a>
+		<a class="btn btn-primary" href={resolve('/install-cli')}>Get Obot CLI</a>
 	{/snippet}
 	<div class="flex min-h-full flex-col gap-2" in:fade>
 		{@render mainContent()}
