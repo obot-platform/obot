@@ -405,15 +405,13 @@
 						icon: Laptop,
 						label: 'Device Management',
 						collapsible: true,
-						beta: true,
 						items: [
 							{
 								id: 'mdm-configurations',
 								href: '/admin/mdm-configurations',
 								label: 'MDM Configurations',
 								disabled: isBootStrapUser,
-								collapsible: false,
-								beta: true
+								collapsible: false
 							},
 							{
 								id: 'devices',
