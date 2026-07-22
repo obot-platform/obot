@@ -1,7 +1,6 @@
 package mcpservercatalogentry
 
 import (
-	"context"
 	"testing"
 
 	"github.com/obot-platform/nah/pkg/router"
@@ -325,7 +324,7 @@ func TestEnsureUserCountSingleUserEntryCountsUniqueServerUsers(t *testing.T) {
 	client := newFakeClient(entry, server1, server2, server3)
 	err := (&Handler{}).EnsureUserCount(router.Request{
 		Client:    client,
-		Ctx:       context.Background(),
+		Ctx:       t.Context(),
 		Object:    entry,
 		Namespace: entry.Namespace,
 		Name:      entry.Name,

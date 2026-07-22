@@ -42,7 +42,7 @@ func newTestClient(t *testing.T) *Client {
 func insertAuditLog(t *testing.T, c *Client, createdAt time.Time) {
 	t.Helper()
 	entry := types.MCPAuditLog{CreatedAt: createdAt}
-	if err := c.db.WithContext(context.Background()).Create(&entry).Error; err != nil {
+	if err := c.db.WithContext(t.Context()).Create(&entry).Error; err != nil {
 		t.Fatalf("failed to insert audit log: %v", err)
 	}
 }
@@ -50,7 +50,7 @@ func insertAuditLog(t *testing.T, c *Client, createdAt time.Time) {
 func countAuditLogs(t *testing.T, c *Client) int64 {
 	t.Helper()
 	var count int64
-	if err := c.db.WithContext(context.Background()).Model(&types.MCPAuditLog{}).Count(&count).Error; err != nil {
+	if err := c.db.WithContext(t.Context()).Model(&types.MCPAuditLog{}).Count(&count).Error; err != nil {
 		t.Fatalf("failed to count audit logs: %v", err)
 	}
 	return count
@@ -75,7 +75,7 @@ func countLLMAuditLogs(t *testing.T, c *Client) int64 {
 
 func TestDeleteOldAuditLogs(t *testing.T) {
 	c := newTestClient(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	now := time.Now().UTC()
 	today := now.Truncate(24 * time.Hour)
@@ -101,7 +101,7 @@ func TestDeleteOldAuditLogs(t *testing.T) {
 
 func TestDeleteOldAuditLogsDisabled(t *testing.T) {
 	c := newTestClient(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	now := time.Now().UTC()
 	insertAuditLog(t, c, now.AddDate(0, 0, -200))
@@ -119,7 +119,7 @@ func TestDeleteOldAuditLogsDisabled(t *testing.T) {
 
 func TestDeleteOldAuditLogsBatching(t *testing.T) {
 	c := newTestClient(t) // auditLogDeleteBatchSize = 3
-	ctx := context.Background()
+	ctx := t.Context()
 
 	now := time.Now().UTC()
 	// Insert 7 old logs (requires 3 batches: 3+3+1) and 2 recent ones.
@@ -145,7 +145,7 @@ func TestRunAuditLogCleanup(t *testing.T) {
 	insertAuditLog(t, c, now.AddDate(0, 0, -100)) // old
 	insertAuditLog(t, c, now.AddDate(0, 0, -1))   // recent
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	go c.runMCPAuditLogCleanup(ctx, 90)

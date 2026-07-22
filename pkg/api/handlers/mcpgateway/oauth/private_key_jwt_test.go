@@ -1,7 +1,6 @@
 package oauth
 
 import (
-	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/json"
@@ -74,12 +73,12 @@ func TestValidatePrivateKeyJWT(t *testing.T) {
 		"client_assertion":      {assertion},
 	}
 
-	if err := h.validatePrivateKeyJWT(context.Background(), form, client, clientID); err != nil {
+	if err := h.validatePrivateKeyJWT(t.Context(), form, client, clientID); err != nil {
 		t.Fatalf("validate private_key_jwt: %v", err)
 	}
 
 	form.Set("client_assertion", signClientAssertion(t, key, "test-key", clientID, "https://other.example/oauth/token"))
-	if err := h.validatePrivateKeyJWT(context.Background(), form, client, clientID); err == nil {
+	if err := h.validatePrivateKeyJWT(t.Context(), form, client, clientID); err == nil {
 		t.Fatal("expected invalid audience to fail")
 	}
 }

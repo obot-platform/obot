@@ -1,7 +1,6 @@
 package nanobotagent
 
 import (
-	"context"
 	"testing"
 
 	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
@@ -40,7 +39,7 @@ func TestChooseModelPrefersKnownNames(t *testing.T) {
 		},
 	}
 
-	model, err := chooseModel(context.Background(), nil, "", models, types.DefaultModelAliasTypeLLM)
+	model, err := chooseModel(t.Context(), nil, "", models, types.DefaultModelAliasTypeLLM)
 	if err != nil {
 		t.Fatalf("expected model, got error: %v", err)
 	}
@@ -65,7 +64,7 @@ func TestChooseModelFallsBackToFirstActiveModel(t *testing.T) {
 		},
 	}
 
-	model, err := chooseModel(context.Background(), nil, "", models, types.DefaultModelAliasTypeLLM)
+	model, err := chooseModel(t.Context(), nil, "", models, types.DefaultModelAliasTypeLLM)
 	if err != nil {
 		t.Fatalf("expected model, got error: %v", err)
 	}
@@ -101,7 +100,7 @@ func TestChooseModelPrefersSuggestedOrder(t *testing.T) {
 		},
 	}
 
-	model, err := chooseModel(context.Background(), nil, "", models, types.DefaultModelAliasTypeLLM)
+	model, err := chooseModel(t.Context(), nil, "", models, types.DefaultModelAliasTypeLLM)
 	if err != nil {
 		t.Fatalf("expected model, got error: %v", err)
 	}
@@ -386,7 +385,7 @@ func TestResolveModelCarriesProviderAndDialect(t *testing.T) {
 			},
 		).Build()
 
-	model, err := resolveModel(context.Background(), c, "", types.DefaultModelAliasTypeLLM)
+	model, err := resolveModel(t.Context(), c, "", types.DefaultModelAliasTypeLLM)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -500,7 +499,7 @@ func TestChooseModelMiniFallsBackToResolvedLLM(t *testing.T) {
 		},
 	}
 
-	model, err := chooseModel(context.Background(), client, "", models, types.DefaultModelAliasTypeLLMMini)
+	model, err := chooseModel(t.Context(), client, "", models, types.DefaultModelAliasTypeLLMMini)
 	if err != nil {
 		t.Fatalf("expected model, got error: %v", err)
 	}

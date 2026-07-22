@@ -1,7 +1,6 @@
 package authz
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -490,7 +489,7 @@ func TestMCPIDIsAuthorized(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			storage := newMCPIDIsAuthorizedTestStorage(tt.objects...)
 
-			got, err := MCPIDIsAuthorized(context.Background(), storage, tt.authorized, tt.userID, tt.mcpID)
+			got, err := MCPIDIsAuthorized(t.Context(), storage, tt.authorized, tt.userID, tt.mcpID)
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("MCPIDIsAuthorized() error = %v, wantErr %v", err, tt.wantErr)
 			}

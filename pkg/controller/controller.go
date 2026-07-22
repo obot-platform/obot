@@ -92,10 +92,6 @@ func (c *Controller) PreStart(ctx context.Context) error {
 		return fmt.Errorf("failed to delete ToolReference-owned models: %w", err)
 	}
 
-	if err := migrateMultiUserMCPServerManifestValuesToCredentials(ctx, c.services.StorageClient, c.services.GatewayClient); err != nil {
-		return fmt.Errorf("failed to migrate MCP server manifest values to credentials: %w", err)
-	}
-
 	// Ensure PowerUserWorkspaces exist for all admin users on startup
 	if err := c.adminWorkspaceHandler.EnsureAllAdminAndOwnerWorkspaces(ctx, c.services.StorageClient, system.DefaultNamespace); err != nil {
 		return fmt.Errorf("failed to ensure admin workspaces: %w", err)

@@ -1,7 +1,6 @@
 package messagepolicy
 
 import (
-	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -29,7 +28,7 @@ func TestCallLLMBedrockAnthropicMessages(t *testing.T) {
 	}))
 	defer server.Close()
 
-	result, err := (&Helper{}).callLLM(context.Background(), &resolvedModel{
+	result, err := (&Helper{}).callLLM(t.Context(), &resolvedModel{
 		targetModel:  "anthropic.claude-haiku-4-5",
 		providerName: system.AmazonBedrockModelProvider,
 		providerURL:  server.URL + "/anthropic/v1",
@@ -63,7 +62,7 @@ func TestCallLLMBedrockOpenAIResponses(t *testing.T) {
 	defer server.Close()
 
 	for _, dialect := range []nanobottypes.Dialect{nanobottypes.DialectOpenAIResponses, nanobottypes.DialectOpenResponses} {
-		result, err := (&Helper{}).callLLM(context.Background(), &resolvedModel{
+		result, err := (&Helper{}).callLLM(t.Context(), &resolvedModel{
 			targetModel:  "openai.gpt-oss-120b-1:0",
 			providerName: system.AmazonBedrockAPIKeyModelProvider,
 			providerURL:  server.URL + "/openai/v1",
@@ -95,7 +94,7 @@ func TestCallLLMGenericResponses(t *testing.T) {
 	}))
 	defer server.Close()
 
-	result, err := (&Helper{}).callLLM(context.Background(), &resolvedModel{
+	result, err := (&Helper{}).callLLM(t.Context(), &resolvedModel{
 		targetModel:  "open-model",
 		providerName: system.GenericResponsesModelProvider,
 		providerURL:  server.URL + "/v1",
@@ -134,7 +133,7 @@ func TestCallLLMAzureAnthropicMessages(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := (&Helper{}).callLLM(context.Background(), &resolvedModel{
+	result, err := (&Helper{}).callLLM(t.Context(), &resolvedModel{
 		targetModel:  "claude-sonnet",
 		providerName: system.AzureModelProvider,
 		providerURL:  server.URL + "/anthropic/v1",
@@ -162,7 +161,7 @@ func TestCallLLMAzureOpenAIResponses(t *testing.T) {
 	}))
 	defer server.Close()
 
-	result, err := (&Helper{}).callLLM(context.Background(), &resolvedModel{
+	result, err := (&Helper{}).callLLM(t.Context(), &resolvedModel{
 		targetModel:  "gpt-5",
 		providerName: system.AzureEntraModelProvider,
 		providerURL:  server.URL + "/openai/v1",
@@ -185,7 +184,7 @@ func TestCallLLMNonBedrockAnthropicUsesChatCompletions(t *testing.T) {
 	}))
 	defer server.Close()
 
-	result, err := (&Helper{}).callLLM(context.Background(), &resolvedModel{
+	result, err := (&Helper{}).callLLM(t.Context(), &resolvedModel{
 		targetModel:  "claude-haiku-4-5",
 		providerName: system.AnthropicModelProvider,
 		providerURL:  server.URL + "/v1",

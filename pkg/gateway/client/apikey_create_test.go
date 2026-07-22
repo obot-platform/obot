@@ -1,7 +1,6 @@
 package client
 
 import (
-	"context"
 	"strings"
 	"testing"
 	"time"
@@ -11,7 +10,7 @@ import (
 
 func TestCreateAPIKeyFromTokenRequestCopiesScopesAndUpdatesRequest(t *testing.T) {
 	c := newTestClient(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	tr := &types.TokenRequest{
 		ID:          "token-request-1",
@@ -75,7 +74,7 @@ func TestCreateAPIKeyFromTokenRequestCopiesScopesAndUpdatesRequest(t *testing.T)
 
 func TestCreateAPIKeyFromTokenRequestNoExpiration(t *testing.T) {
 	c := newTestClient(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	tr := &types.TokenRequest{
 		ID:           "token-request-1",

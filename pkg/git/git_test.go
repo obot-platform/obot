@@ -1,7 +1,6 @@
 package git
 
 import (
-	"context"
 	"io"
 	"net/http"
 	"strings"
@@ -228,7 +227,7 @@ func TestRepositorySizeChecksReturnSentinel(t *testing.T) {
 			}, nil
 		})
 
-		err := checkGitHubRepoSize(context.Background(), "example", "repo", 100, "")
+		err := checkGitHubRepoSize(t.Context(), "example", "repo", 100, "")
 		assert.ErrorIs(t, err, errRepoTooLarge)
 	})
 
@@ -241,7 +240,7 @@ func TestRepositorySizeChecksReturnSentinel(t *testing.T) {
 			}, nil
 		})
 
-		err := checkGitLabRepoSize(context.Background(), "gitlab.com", "example/repo", 100, "token")
+		err := checkGitLabRepoSize(t.Context(), "gitlab.com", "example/repo", 100, "token")
 		assert.ErrorIs(t, err, errRepoTooLarge)
 	})
 }

@@ -1,7 +1,6 @@
 package client
 
 import (
-	"context"
 	"testing"
 
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
@@ -9,7 +8,7 @@ import (
 
 func TestMigrateToolReferenceCredentialContexts(t *testing.T) {
 	c := newTestClient(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	db := c.db.WithContext(ctx)
 
 	if err := db.Exec("CREATE TABLE toolreference (uid text)").Error; err != nil {

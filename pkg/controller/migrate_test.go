@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"context"
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -26,7 +25,7 @@ func newFakeClient(t *testing.T, objects ...kclient.Object) kclient.Client {
 }
 
 func TestMigratePublishedArtifactVisibility(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("migrates public and private artifacts", func(t *testing.T) {
 		client := newFakeClient(t,
@@ -187,7 +186,7 @@ func TestMigrateAuditLogExportSourceTypes(t *testing.T) {
 }
 
 func TestDeleteToolReferenceOwnedModels(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	client := newFakeClient(t,
 		&v1.Model{
 			TypeMeta: metav1.TypeMeta{

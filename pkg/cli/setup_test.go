@@ -38,7 +38,7 @@ func TestSetupNonInteractiveExplicitInstallsClaudeCode(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	cmd := setupTestCommand(nil, &stdout, &stderr)
+	cmd := setupTestCommand(t, nil, &stdout, &stderr)
 	if err := setup.Run(cmd, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +87,7 @@ func TestSetupExplicitSharedAgents(t *testing.T) {
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	cmd := setupTestCommand(nil, &stdout, &stderr)
+	cmd := setupTestCommand(t, nil, &stdout, &stderr)
 	if err := setup.Run(cmd, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +120,7 @@ func TestSetupExplicitInstallsMultipleTargets(t *testing.T) {
 		root:    root,
 	}
 
-	if err := setup.Run(setupTestCommand(nil, nil, nil), nil); err != nil {
+	if err := setup.Run(setupTestCommand(t, nil, nil, nil), nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -145,7 +145,7 @@ func TestSetupNonInteractiveMissingURLFailsWithoutPrompt(t *testing.T) {
 	}
 
 	var stdout bytes.Buffer
-	cmd := setupTestCommand(strings.NewReader("https://obot.example.com\n"), &stdout, nil)
+	cmd := setupTestCommand(t, strings.NewReader("https://obot.example.com\n"), &stdout, nil)
 	err := setup.Run(cmd, nil)
 	if err == nil {
 		t.Fatal("expected error")
@@ -180,7 +180,7 @@ func TestSetupClientsNoneSkipsLocalClientInstall(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	cmd := setupTestCommand(nil, &stdout, &stderr)
+	cmd := setupTestCommand(t, nil, &stdout, &stderr)
 	if err := setup.Run(cmd, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -219,7 +219,7 @@ func TestSetupJSONProgressSuccessfulSequence(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	cmd := setupTestCommand(nil, &stdout, &stderr)
+	cmd := setupTestCommand(t, nil, &stdout, &stderr)
 	if err := setup.Run(cmd, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -268,7 +268,7 @@ func TestSetupJSONProgressStructuredError(t *testing.T) {
 	}
 
 	var stdout bytes.Buffer
-	cmd := setupTestCommand(strings.NewReader("https://obot.example.com\n"), &stdout, nil)
+	cmd := setupTestCommand(t, strings.NewReader("https://obot.example.com\n"), &stdout, nil)
 	err := setup.Run(cmd, nil)
 	if err == nil {
 		t.Fatal("expected error")
@@ -304,7 +304,7 @@ func TestSetupRefusesToReplaceConfiguredURLWithoutYes(t *testing.T) {
 		Clients: "agents",
 		root:    setupTestRoot(nil),
 	}
-	err := setup.Run(setupTestCommand(nil, nil, nil), nil)
+	err := setup.Run(setupTestCommand(t, nil, nil, nil), nil)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -328,7 +328,7 @@ func TestSetupJSONConfiguredURLMismatchErrorCode(t *testing.T) {
 	}
 
 	var stdout bytes.Buffer
-	err := setup.Run(setupTestCommand(nil, &stdout, nil), nil)
+	err := setup.Run(setupTestCommand(t, nil, &stdout, nil), nil)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -373,7 +373,7 @@ func TestSetupInteractiveUsesConfiguredURL(t *testing.T) {
 	}
 
 	var stdout bytes.Buffer
-	cmd := setupTestCommand(strings.NewReader("y\n"), &stdout, nil)
+	cmd := setupTestCommand(t, strings.NewReader("y\n"), &stdout, nil)
 	if err := setup.Run(cmd, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -400,7 +400,7 @@ func TestSetupPromptsForClientsWhenOmittedWithoutClaudeCode(t *testing.T) {
 	}
 
 	var stdout bytes.Buffer
-	cmd := setupTestCommand(strings.NewReader("agents\n"), &stdout, nil)
+	cmd := setupTestCommand(t, strings.NewReader("agents\n"), &stdout, nil)
 	if err := setup.Run(cmd, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -432,7 +432,7 @@ func TestSetupPromptsForClientsWhenOmittedWithClaudeCode(t *testing.T) {
 	}
 
 	var stdout bytes.Buffer
-	cmd := setupTestCommand(strings.NewReader("claude-code,agents\n"), &stdout, nil)
+	cmd := setupTestCommand(t, strings.NewReader("claude-code,agents\n"), &stdout, nil)
 	if err := setup.Run(cmd, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -459,7 +459,7 @@ func TestSetupPromptEmptySelectionSkipsLocalClientInstall(t *testing.T) {
 	}
 
 	var stdout bytes.Buffer
-	cmd := setupTestCommand(strings.NewReader("\n"), &stdout, nil)
+	cmd := setupTestCommand(t, strings.NewReader("\n"), &stdout, nil)
 	if err := setup.Run(cmd, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -487,7 +487,7 @@ func TestSetupYesDefaultsToSharedAgentsWhenClientsOmitted(t *testing.T) {
 	}
 
 	var stdout bytes.Buffer
-	cmd := setupTestCommand(strings.NewReader(""), &stdout, nil)
+	cmd := setupTestCommand(t, strings.NewReader(""), &stdout, nil)
 	if err := setup.Run(cmd, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -514,7 +514,7 @@ func TestSetupNonInteractiveRequiresClientsWhenOmitted(t *testing.T) {
 		root: root,
 	}
 
-	err := setup.Run(setupTestCommand(nil, nil, nil), nil)
+	err := setup.Run(setupTestCommand(t, nil, nil, nil), nil)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -566,7 +566,7 @@ func TestSetupStatusJSONNoConfig(t *testing.T) {
 	}
 
 	var stdout bytes.Buffer
-	if err := status.Run(setupTestCommand(nil, &stdout, nil), nil); err != nil {
+	if err := status.Run(setupTestCommand(t, nil, &stdout, nil), nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -620,7 +620,7 @@ func TestSetupStatusSetupCompleteRequiresConfiguredURLAndValidToken(t *testing.T
 			}
 
 			var stdout bytes.Buffer
-			if err := status.Run(setupTestCommand(nil, &stdout, nil), nil); err != nil {
+			if err := status.Run(setupTestCommand(t, nil, &stdout, nil), nil); err != nil {
 				t.Fatal(err)
 			}
 
@@ -651,7 +651,7 @@ func TestSetupDetectClientsJSON(t *testing.T) {
 
 	var stdout bytes.Buffer
 	detect := &SetupDetectClients{JSON: true}
-	if err := detect.Run(setupTestCommand(nil, &stdout, nil), nil); err != nil {
+	if err := detect.Run(setupTestCommand(t, nil, &stdout, nil), nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -684,8 +684,10 @@ func setupTestRoot(fetcher func(context.Context, string, apiclient.TokenFetchOpt
 	return &Obot{Client: client}
 }
 
-func setupTestCommand(stdin *strings.Reader, stdout, stderr *bytes.Buffer) *cobra.Command {
+func setupTestCommand(t *testing.T, stdin *strings.Reader, stdout, stderr *bytes.Buffer) *cobra.Command {
+	t.Helper()
 	cmd := &cobra.Command{}
+	cmd.SetContext(t.Context())
 	if stdin != nil {
 		cmd.SetIn(stdin)
 	}

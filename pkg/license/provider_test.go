@@ -53,7 +53,7 @@ func TestRequireEntitlement(t *testing.T) {
 	}))
 	defer server.Close()
 	keygen.APIURL = server.URL
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	provider, err := NewProvider(ctx, nil, Config{
@@ -94,7 +94,7 @@ func TestRequireEntitlementMissing(t *testing.T) {
 	}))
 	defer server.Close()
 	keygen.APIURL = server.URL
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	provider, err := NewProvider(ctx, nil, Config{
@@ -115,7 +115,7 @@ func TestRequireEntitlementMissing(t *testing.T) {
 func TestNewProviderNotConfigured(t *testing.T) {
 	resetKeygen(t)
 
-	provider, err := NewProvider(context.Background(), nil, Config{})
+	provider, err := NewProvider(t.Context(), nil, Config{})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -159,7 +159,7 @@ func TestNewProviderActivatesLicenseOnNoMachine(t *testing.T) {
 	}))
 	defer server.Close()
 	keygen.APIURL = server.URL
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	provider, err := NewProvider(ctx, nil, Config{
@@ -203,7 +203,7 @@ func TestUpdateRefreshesEntitlements(t *testing.T) {
 	}))
 	defer server.Close()
 	keygen.APIURL = server.URL
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	provider, err := NewProvider(ctx, nil, Config{
@@ -251,7 +251,7 @@ func TestUpdateClearsEntitlementsWhenLicenseInvalid(t *testing.T) {
 	}))
 	defer server.Close()
 	keygen.APIURL = server.URL
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	provider, err := NewProvider(ctx, nil, Config{

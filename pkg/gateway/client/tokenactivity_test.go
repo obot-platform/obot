@@ -1,7 +1,6 @@
 package client
 
 import (
-	"context"
 	"math"
 	"testing"
 	"time"
@@ -12,7 +11,7 @@ import (
 // TestTokenActivityRoundTrip verifies TokenUsage persistence and aggregation.
 func TestTokenActivityRoundTrip(t *testing.T) {
 	c := newTestClient(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	now := time.Now()
 
 	rows := []types.RunTokenActivity{

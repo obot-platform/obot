@@ -58,7 +58,7 @@ func TestInsertMCPAuditLogsAllowsMultipleMCPRowsWithLocalAgentIndexes(t *testing
 
 func TestInsertMCPAuditLogsMergesResponseOnlyRowWithGroupedFields(t *testing.T) {
 	c := newTestClient(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	now := time.Now().UTC()
 
 	request := types.MCPAuditLog{

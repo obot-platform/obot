@@ -87,6 +87,63 @@ func (h *Handler) DetectDrift(req router.Request, _ router.Response) error {
 		return err
 	}
 
+	staticEnvKeys := make(map[string]struct{})
+	for _, env := range entry.Spec.Manifest.Env {
+		if env.Value != "" {
+			staticEnvKeys[env.Key] = struct{}{}
+		}
+	}
+	if entry.Spec.Manifest.RemoteConfig != nil {
+		for _, hdr := range entry.Spec.Manifest.RemoteConfig.Headers {
+			if hdr.Value != "" {
+				staticEnvKeys[hdr.Key] = struct{}{}
+			}
+		}
+	}
+
+	if len(staticEnvKeys) > 0 {
+		var (
+			cred gatewaytypes.Credential
+			err  error
+		)
+		if server.Spec.MCPCatalogID != "" {
+			cred, err = h.gatewayClient.RevealCredential(req.Ctx, []string{fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name)}, server.Name)
+		} else if server.Spec.PowerUserWorkspaceID != "" {
+			cred, err = h.gatewayClient.RevealCredential(req.Ctx, []string{fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name)}, server.Name)
+		} else {
+			cred, err = h.gatewayClient.RevealCredential(req.Ctx, []string{fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name)}, server.Name)
+		}
+		if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
+			return err
+		}
+
+		originalEnv := slices.Clone(server.Spec.Manifest.Env)
+		defer func() {
+			// Ensure we revert to the original values after processing
+			server.Spec.Manifest.Env = originalEnv
+		}()
+
+		for i, env := range server.Spec.Manifest.Env {
+			if _, ok := staticEnvKeys[env.Key]; ok && env.Value == "" {
+				server.Spec.Manifest.Env[i].Value = cred.Secrets[env.Key]
+			}
+		}
+
+		if server.Spec.Manifest.RemoteConfig != nil {
+			originalHeaders := slices.Clone(server.Spec.Manifest.RemoteConfig.Headers)
+			defer func() {
+				// Ensure we revert to the original values after processing
+				server.Spec.Manifest.RemoteConfig.Headers = originalHeaders
+			}()
+
+			for i, hdr := range server.Spec.Manifest.RemoteConfig.Headers {
+				if _, ok := staticEnvKeys[hdr.Key]; ok && hdr.Value == "" {
+					server.Spec.Manifest.RemoteConfig.Headers[i].Value = cred.Secrets[hdr.Key]
+				}
+			}
+		}
+	}
+
 	drifted, err := ConfigurationHasDrifted(server.Spec.Manifest, entry.Spec.Manifest, h.defaultDenyAllEgress)
 	if err != nil {
 		return err
@@ -485,6 +542,7 @@ func mcpEnvMatchesCatalog(serverField, entryField types.MCPEnv) bool {
 		entryField.SecretBinding = nil
 		entryField.Value = serverField.Value
 	}
+
 	return reflect.DeepEqual(serverField, entryField)
 }
 

@@ -32,7 +32,7 @@ func TestEnsureServerReadyUsesHealthzPath(t *testing.T) {
 	}))
 	defer server.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 	defer cancel()
 
 	if err := ensureServerReady(ctx, server.URL, ServerConfig{
@@ -66,7 +66,7 @@ func TestEnsureServerReadyHealthzPathWaitsForOK(t *testing.T) {
 	}))
 	defer server.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 	defer cancel()
 
 	if err := ensureServerReady(ctx, server.URL+"/", ServerConfig{HealthzPath: "healthz"}); err != nil {
