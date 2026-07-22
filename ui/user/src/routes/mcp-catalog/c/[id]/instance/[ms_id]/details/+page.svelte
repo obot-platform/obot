@@ -53,7 +53,7 @@
 					entityId={DEFAULT_MCP_CATALOG_ID}
 					{catalogEntry}
 				/>
-			{:else}
+			{:else if mcpServer && mcpServerId}
 				<McpServerDetails
 					serverId={mcpServerId}
 					{connectedUsers}

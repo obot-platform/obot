@@ -86,10 +86,16 @@
 	{#snippet additRequestContent(data)}
 		{@const requestURL = [data.requestMethod, data.requestPath].filter(Boolean).join(' ')}
 		{#if requestURL}
-			<p class="break-all"><span class="font-medium">Request URL</span>: {requestURL}</p>
+			<p class="break-all grid grid-cols-2 gap-2">
+				<span class="font-medium">Request URL:</span>
+				{requestURL}
+			</p>
 		{/if}
 		{#if data.userAgent}
-			<p class="break-all"><span class="font-medium">User Agent</span>: {data.userAgent}</p>
+			<p class="break-all grid grid-cols-2 gap-2">
+				<span class="font-medium">User Agent:</span>
+				{data.userAgent}
+			</p>
 		{/if}
 	{/snippet}
 </AuditLogDetails>
