@@ -117,7 +117,7 @@ func (h *Harness) ReadStreamUntil(t *testing.T, path string, expected []byte, bu
 		if err == nil {
 			continue
 		}
-		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, io.EOF) {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, io.EOF) {
 			return result
 		}
 		t.Fatalf("read stream %s: %v", path, err)
