@@ -6,6 +6,7 @@
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { MCP_PUBLISHER_ALL_OPTION, PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { MCP_ACCESS_POLICY_FIELD_IDS } from '$lib/constants';
 	import {
 		fetchMcpServerAndEntries,
 		getPoweruserWorkspace,
@@ -74,7 +75,7 @@
 							Click the button below to get started.
 						</p>
 
-						{@render addRuleButton()}
+						{@render addRuleButton(MCP_ACCESS_POLICY_FIELD_IDS.addPolicyEmptyBtn)}
 					</div>
 				{:else}
 					<Table
@@ -125,8 +126,9 @@
 	</div>
 </Layout>
 
-{#snippet addRuleButton()}
+{#snippet addRuleButton(id: string = MCP_ACCESS_POLICY_FIELD_IDS.addPolicyBtn)}
 	<button
+		{id}
 		class="btn btn-primary flex items-center gap-1 text-sm"
 		onclick={() => {
 			goto(`/mcp-access-policies?new=true`);

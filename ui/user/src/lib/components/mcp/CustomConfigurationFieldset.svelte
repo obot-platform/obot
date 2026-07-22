@@ -84,7 +84,7 @@
 		{/if}
 	</div>
 
-	<div class="flex w-full flex-col gap-1">
+	<div class="flex w-full flex-col gap-1" id={`${id}-value-type-container`}>
 		{@render label('Value', `env-value-type-${id}`)}
 		<Select
 			class="bg-base-100 dark:border-base-400 border border-transparent shadow-none"
@@ -196,7 +196,7 @@
 {/snippet}
 
 {#snippet keyInput()}
-	<div class="flex w-full flex-col gap-1">
+	<div class="flex w-full flex-col gap-1" id={`${id}-key-container`}>
 		{@render label('Key', `env-key-${id}`, true, missingKey)}
 		<input
 			id={`env-key-${id}`}
@@ -210,7 +210,7 @@
 {/snippet}
 
 {#snippet nameAndDescriptionInputs()}
-	<div class="flex w-full flex-col gap-1">
+	<div class="flex w-full flex-col gap-1" id={`${id}-name-container`}>
 		{@render label('Name', `env-name-${id}`, true, missingName)}
 		<input
 			id={`env-name-${id}`}
@@ -220,7 +220,7 @@
 			disabled={readonly || isPrebuiltEntry}
 		/>
 	</div>
-	<div class="flex w-full flex-col gap-1">
+	<div class="flex w-full flex-col gap-1" id={`${id}-description-container`}>
 		{@render label('Description', `env-description-${id}`, false)}
 		<input
 			id={`env-description-${id}`}

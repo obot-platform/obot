@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { CATALOG_SERVER_FIELD_IDS } from '$lib/constants';
 	import { HttpError } from '$lib/errors';
 	import { highlightFirstAvailableField } from '$lib/form';
 	import Loading from '$lib/icons/Loading.svelte';
@@ -55,6 +56,17 @@
 		onConfigureOAuth?: () => void;
 	}
 
+	let {
+		id,
+		entity = 'catalog',
+		entry,
+		readonly,
+		type: newType = 'hosted',
+		onCancel,
+		onSubmit,
+		readonlyMessage,
+		onConfigureOAuth
+	}: Props = $props();
 	function getType(entry?: MCPCatalogEntry | MCPCatalogServer) {
 		if (!entry) return undefined;
 		if (entry.type === 'mcpserver') {
@@ -70,19 +82,7 @@
 		}
 	}
 
-	let {
-		id,
-		entity = 'catalog',
-		entry,
-		readonly,
-		type: newType = 'hosted',
-		onCancel,
-		onSubmit,
-		readonlyMessage,
-		onConfigureOAuth
-	}: Props = $props();
 	let type = $derived(getType(entry) ?? newType);
-
 	let savedEntry = $state<MCPCatalogEntry | MCPCatalogServer>();
 	let selectRulesDialog = $state<ReturnType<typeof SelectMcpAccessControlRules>>();
 	let showRequired = $state<Record<string, boolean>>({});
@@ -93,20 +93,6 @@
 	let secretBindingTargets = $state<MCPAllowedSecretBindingTarget[]>();
 
 	let formData = $state<RuntimeFormData>(untrack(() => convertToFormData(entry)));
-	const fieldIds = {
-		name: 'catalog-server-name',
-		description: 'catalog-server-description-label',
-		descriptionHint: 'catalog-server-description-hint',
-		shortDescription: 'catalog-server-short-description',
-		shortDescriptionHint: 'catalog-server-short-description-hint',
-		shortDescriptionCount: 'catalog-server-short-description-count',
-		shortDescriptionError: 'catalog-server-short-description-error',
-		icon: 'catalog-server-icon',
-		serverType: 'catalog-server-tenancy-type-label',
-		serverTypeHint: 'catalog-server-tenancy-hint',
-		nameError: 'catalog-server-name-error',
-		formError: 'catalog-server-form-error'
-	};
 
 	const isAtLeastPowerUserPlus = $derived(profile.current?.groups.includes(Group.POWERUSER_PLUS));
 	const showEgressDomains = $derived(!!version.current.mcpNetworkPolicyEnabled);
@@ -645,7 +631,7 @@
 		if (Object.keys(required).length > 0 || Object.keys(invalid).length > 0) {
 			showRequired = required;
 			showInvalid = invalid;
-			highlightFirstAvailableField({ ...required, ...invalid }, fieldIds);
+			highlightFirstAvailableField({ ...required, ...invalid }, CATALOG_SERVER_FIELD_IDS);
 			return;
 		}
 
@@ -714,9 +700,11 @@
 	class="flex flex-col gap-8"
 	novalidate
 	onsubmit={handleFormSubmit}
-	aria-describedby={Object.keys(showRequired).length > 0 ? fieldIds.formError : undefined}
+	aria-describedby={Object.keys(showRequired).length > 0
+		? CATALOG_SERVER_FIELD_IDS.formError
+		: undefined}
 >
-	<section class="paper p-4" id="catalog-server-form-details">
+	<section class="paper p-4" id={CATALOG_SERVER_FIELD_IDS.serverFormDetails}>
 		<div class="flex flex-col gap-8">
 			{#if readonly && readonlyMessage}
 				<div class="notification-info p-3 text-sm font-light" role="status">
@@ -729,9 +717,9 @@
 				</div>
 			{/if}
 
-			<div class="flex flex-col gap-1">
+			<div class="flex flex-col gap-1" id={`${CATALOG_SERVER_FIELD_IDS.name}-container`}>
 				<label
-					for={fieldIds.name}
+					for={CATALOG_SERVER_FIELD_IDS.name}
 					class={twMerge('text-sm font-light capitalize', showRequired.name && 'error')}
 				>
 					Name
@@ -742,27 +730,29 @@
 				</label>
 				<input
 					type="text"
-					id={fieldIds.name}
+					id={CATALOG_SERVER_FIELD_IDS.name}
 					name="name"
 					bind:value={formData.name}
 					class={twMerge('text-input-filled dark:bg-base-100', showRequired.name && 'error')}
 					disabled={readonly}
 					aria-required={!readonly ? 'true' : undefined}
 					aria-invalid={showRequired.name ? 'true' : undefined}
-					aria-describedby={showRequired.name ? fieldIds.nameError : undefined}
+					aria-describedby={showRequired.name ? CATALOG_SERVER_FIELD_IDS.nameError : undefined}
 					oninput={() => {
 						updateRequired('name');
 					}}
 				/>
 				{#if showRequired.name}
-					<p id={fieldIds.nameError} class="text-xs text-error" role="alert">Name is required</p>
+					<p id={CATALOG_SERVER_FIELD_IDS.nameError} class="text-xs text-error" role="alert">
+						Name is required
+					</p>
 				{/if}
 			</div>
 
-			<div class="flex flex-col gap-1">
-				<span id={fieldIds.description} class="text-sm font-light capitalize">
+			<div class="flex flex-col gap-1" id={`${CATALOG_SERVER_FIELD_IDS.description}-container`}>
+				<span id={CATALOG_SERVER_FIELD_IDS.description} class="text-sm font-light capitalize">
 					Description
-					<span id={fieldIds.descriptionHint} class="text-muted-content text-xs">
+					<span id={CATALOG_SERVER_FIELD_IDS.descriptionHint} class="text-muted-content text-xs">
 						(Markdown syntax supported)
 					</span>
 				</span>
@@ -770,14 +760,17 @@
 					bind:value={formData.description}
 					disabled={readonly}
 					placeholder="Provide details about the MCP catalog entry."
-					labelledBy={fieldIds.description}
-					describedBy={fieldIds.descriptionHint}
+					labelledBy={CATALOG_SERVER_FIELD_IDS.description}
+					describedBy={CATALOG_SERVER_FIELD_IDS.descriptionHint}
 				/>
 			</div>
 
-			<div class="flex flex-col gap-1">
+			<div
+				class="flex flex-col gap-1"
+				id={`${CATALOG_SERVER_FIELD_IDS.shortDescription}-container`}
+			>
 				<label
-					for={fieldIds.shortDescription}
+					for={CATALOG_SERVER_FIELD_IDS.shortDescription}
 					class={twMerge('text-sm font-light capitalize', hasShortDescriptionError && 'error')}
 				>
 					Short Description
@@ -785,13 +778,16 @@
 						<span class={hasShortDescriptionError ? 'text-error' : ''} aria-hidden="true">*</span>
 						<span class="sr-only">(required)</span>
 					{/if}
-					<span id={fieldIds.shortDescriptionHint} class="text-muted-content text-xs">
+					<span
+						id={CATALOG_SERVER_FIELD_IDS.shortDescriptionHint}
+						class="text-muted-content text-xs"
+					>
 						(max {MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH} characters)
 					</span>
 				</label>
 				<input
 					type="text"
-					id={fieldIds.shortDescription}
+					id={CATALOG_SERVER_FIELD_IDS.shortDescription}
 					name="shortDescription"
 					bind:value={formData.shortDescription}
 					class={twMerge('text-input-filled dark:bg-base-100', hasShortDescriptionError && 'error')}
@@ -799,9 +795,11 @@
 					placeholder="Provide a brief summary that will be shown in catalog listings."
 					maxlength={MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH}
 					aria-required={!readonly ? 'true' : undefined}
-					aria-describedby={`${fieldIds.shortDescriptionHint} ${fieldIds.shortDescriptionCount}`}
+					aria-describedby={`${CATALOG_SERVER_FIELD_IDS.shortDescriptionHint} ${CATALOG_SERVER_FIELD_IDS.shortDescriptionCount}`}
 					aria-invalid={hasShortDescriptionError ? 'true' : undefined}
-					aria-errormessage={hasShortDescriptionError ? fieldIds.shortDescriptionError : undefined}
+					aria-errormessage={hasShortDescriptionError
+						? CATALOG_SERVER_FIELD_IDS.shortDescriptionError
+						: undefined}
 					oninput={() => {
 						updateInvalid('shortDescription');
 						updateRequired('shortDescription');
@@ -809,14 +807,18 @@
 				/>
 				<div class="flex justify-between gap-4">
 					{#if hasShortDescriptionError}
-						<p id={fieldIds.shortDescriptionError} class="text-xs text-error" role="alert">
+						<p
+							id={CATALOG_SERVER_FIELD_IDS.shortDescriptionError}
+							class="text-xs text-error"
+							role="alert"
+						>
 							{shortDescriptionError}
 						</p>
 					{:else}
 						<p></p>
 					{/if}
 					<span
-						id={fieldIds.shortDescriptionCount}
+						id={CATALOG_SERVER_FIELD_IDS.shortDescriptionCount}
 						class={twMerge(
 							'pl-0.5 text-xs text-muted-content flex justify-end',
 							showInvalid.shortDescription && 'text-error'
@@ -828,11 +830,13 @@
 				</div>
 			</div>
 
-			<div class="flex flex-col gap-1">
-				<label for={fieldIds.icon} class="text-sm font-light capitalize">Icon URL</label>
+			<div class="flex flex-col gap-1" id={`${CATALOG_SERVER_FIELD_IDS.icon}-container`}>
+				<label for={CATALOG_SERVER_FIELD_IDS.icon} class="text-sm font-light capitalize"
+					>Icon URL</label
+				>
 				<input
 					type="text"
-					id={fieldIds.icon}
+					id={CATALOG_SERVER_FIELD_IDS.icon}
 					name="icon"
 					bind:value={formData.icon}
 					class="text-input-filled dark:bg-base-100"
@@ -847,10 +851,12 @@
 	{#if type === 'hosted'}
 		<section
 			class="paper p-4"
-			aria-labelledby="catalog-server-tenancy-heading"
-			id="catalog-server-tenancy"
+			aria-labelledby={`${CATALOG_SERVER_FIELD_IDS.tenancy}-heading`}
+			id={CATALOG_SERVER_FIELD_IDS.tenancy}
 		>
-			<h4 id="catalog-server-tenancy-heading" class="text-sm font-semibold">Server Tenancy</h4>
+			<h4 id={`${CATALOG_SERVER_FIELD_IDS.tenancy}-heading`} class="text-sm font-semibold">
+				Server Tenancy
+			</h4>
 
 			{#if entity === 'catalog'}
 				<div class="notification-info" role="status">
@@ -867,7 +873,7 @@
 			{/if}
 
 			<div class="flex items-center gap-4">
-				<span id={fieldIds.serverType} class="text-sm font-light">Type</span>
+				<span id={CATALOG_SERVER_FIELD_IDS.serverType} class="text-sm font-light">Type</span>
 				<div class="w-full">
 					<Select
 						id="server-configuration-selector"
@@ -877,8 +883,8 @@
 							{ id: 'singleUser', label: 'Single-tenant' }
 						]}
 						selected={formData.serverUserType}
-						ariaLabelledby={fieldIds.serverType}
-						ariaDescribedby={fieldIds.serverTypeHint}
+						ariaLabelledby={CATALOG_SERVER_FIELD_IDS.serverType}
+						ariaDescribedby={CATALOG_SERVER_FIELD_IDS.serverTypeHint}
 						onSelect={(option) => {
 							formData.serverUserType = option.id as 'singleUser' | 'multiUser';
 							formData.multiUserConfig =
@@ -898,7 +904,7 @@
 				</div>
 			</div>
 
-			<p id={fieldIds.serverTypeHint} class="text-muted-content text-xs">
+			<p id={CATALOG_SERVER_FIELD_IDS.serverTypeHint} class="text-muted-content text-xs">
 				{#if entity === 'catalog'}
 					Set tenancy to <i>Single-tenant</i> if each user should connect to their own private
 					instance of the server. <br />
@@ -919,89 +925,91 @@
 	/>
 
 	<!-- Runtime-specific Forms -->
-	{#if formData.runtime === 'npx' && formData.npxConfig}
-		<NpxRuntimeForm
-			bind:config={formData.npxConfig}
-			{showEgressDomains}
-			{defaultDenyAllEgress}
-			bind:startupTimeoutSeconds={formData.startupTimeoutSeconds}
-			{readonly}
-			{showRequired}
-			onFieldChange={updateRequired}
-		/>
-	{:else if formData.runtime === 'uvx' && formData.uvxConfig}
-		<UvxRuntimeForm
-			bind:config={formData.uvxConfig}
-			{showEgressDomains}
-			{defaultDenyAllEgress}
-			bind:startupTimeoutSeconds={formData.startupTimeoutSeconds}
-			{readonly}
-			{showRequired}
-			onFieldChange={updateRequired}
-		/>
-	{:else if formData.runtime === 'containerized' && formData.containerizedConfig}
-		<ContainerizedRuntimeForm
-			bind:config={formData.containerizedConfig}
-			{showEgressDomains}
-			{defaultDenyAllEgress}
-			bind:startupTimeoutSeconds={formData.startupTimeoutSeconds}
-			{readonly}
-			{showRequired}
-			onFieldChange={updateRequired}
-		/>
-	{:else if formData.runtime === 'remote' && type === 'multi' && formData.remoteServerConfig}
-		<RemoteRuntimeForm
-			bind:config={formData.remoteServerConfig}
-			variant="server"
-			{readonly}
-			{showRequired}
-			onFieldChange={updateRequired}
-			isNewEntry={!entry}
-			{onConfigureOAuth}
-			secretBindingTargets={editableSecretBindingTargets}
-		>
-			{#snippet afterHeaders()}
-				{#if secretBoundHeaders.length > 0}
-					<CustomConfigurationForm
-						bind:config={formData.env}
-						{readonly}
-						serverUserType={formData.serverUserType}
-						{secretBoundHeaders}
-						showRequired={showRequired.env}
-					/>
-				{/if}
-			{/snippet}
-		</RemoteRuntimeForm>
-	{:else if formData.runtime === 'remote' && formData.remoteConfig}
-		<RemoteRuntimeForm
-			bind:config={formData.remoteConfig}
-			{readonly}
-			{showRequired}
-			onFieldChange={updateRequired}
-			isNewEntry={!entry}
-			{onConfigureOAuth}
-		>
-			{#snippet afterHeaders()}
-				{#if secretBoundHeaders.length > 0}
-					<CustomConfigurationForm
-						bind:config={formData.env}
-						{readonly}
-						serverUserType={formData.serverUserType}
-						{secretBoundHeaders}
-						showRequired={showRequired.env}
-					/>
-				{/if}
-			{/snippet}
-		</RemoteRuntimeForm>
-	{:else if formData.runtime === 'composite' && formData.compositeConfig}
-		<CompositeRuntimeForm
-			bind:config={formData.compositeConfig}
-			bind:hasToolNameErrors={compositeHasToolNameErrors}
-			{readonly}
-			catalogId={id}
-			id={entry?.id}
-		/>
-	{/if}
+	<div class="flex flex-col gap-8" id={`${CATALOG_SERVER_FIELD_IDS.runtimeConfiguration}`}>
+		{#if formData.runtime === 'npx' && formData.npxConfig}
+			<NpxRuntimeForm
+				bind:config={formData.npxConfig}
+				{showEgressDomains}
+				{defaultDenyAllEgress}
+				bind:startupTimeoutSeconds={formData.startupTimeoutSeconds}
+				{readonly}
+				{showRequired}
+				onFieldChange={updateRequired}
+			/>
+		{:else if formData.runtime === 'uvx' && formData.uvxConfig}
+			<UvxRuntimeForm
+				bind:config={formData.uvxConfig}
+				{showEgressDomains}
+				{defaultDenyAllEgress}
+				bind:startupTimeoutSeconds={formData.startupTimeoutSeconds}
+				{readonly}
+				{showRequired}
+				onFieldChange={updateRequired}
+			/>
+		{:else if formData.runtime === 'containerized' && formData.containerizedConfig}
+			<ContainerizedRuntimeForm
+				bind:config={formData.containerizedConfig}
+				{showEgressDomains}
+				{defaultDenyAllEgress}
+				bind:startupTimeoutSeconds={formData.startupTimeoutSeconds}
+				{readonly}
+				{showRequired}
+				onFieldChange={updateRequired}
+			/>
+		{:else if formData.runtime === 'remote' && type === 'multi' && formData.remoteServerConfig}
+			<RemoteRuntimeForm
+				bind:config={formData.remoteServerConfig}
+				variant="server"
+				{readonly}
+				{showRequired}
+				onFieldChange={updateRequired}
+				isNewEntry={!entry}
+				{onConfigureOAuth}
+				secretBindingTargets={editableSecretBindingTargets}
+			>
+				{#snippet afterHeaders()}
+					{#if secretBoundHeaders.length > 0}
+						<CustomConfigurationForm
+							bind:config={formData.env}
+							{readonly}
+							serverUserType={formData.serverUserType}
+							{secretBoundHeaders}
+							showRequired={showRequired.env}
+						/>
+					{/if}
+				{/snippet}
+			</RemoteRuntimeForm>
+		{:else if formData.runtime === 'remote' && formData.remoteConfig}
+			<RemoteRuntimeForm
+				bind:config={formData.remoteConfig}
+				{readonly}
+				{showRequired}
+				onFieldChange={updateRequired}
+				isNewEntry={!entry}
+				{onConfigureOAuth}
+			>
+				{#snippet afterHeaders()}
+					{#if secretBoundHeaders.length > 0}
+						<CustomConfigurationForm
+							bind:config={formData.env}
+							{readonly}
+							serverUserType={formData.serverUserType}
+							{secretBoundHeaders}
+							showRequired={showRequired.env}
+						/>
+					{/if}
+				{/snippet}
+			</RemoteRuntimeForm>
+		{:else if formData.runtime === 'composite' && formData.compositeConfig}
+			<CompositeRuntimeForm
+				bind:config={formData.compositeConfig}
+				bind:hasToolNameErrors={compositeHasToolNameErrors}
+				{readonly}
+				catalogId={id}
+				id={entry?.id}
+			/>
+		{/if}
+	</div>
 
 	{#if version.current.engine === 'kubernetes' && !['remote', 'composite'].includes(formData.runtime) && formData.resources}
 		<ResourceRuntimeForm
@@ -1033,7 +1041,7 @@
 		>
 			{#if Object.keys(showRequired).length > 0}
 				<span
-					id={fieldIds.formError}
+					id={CATALOG_SERVER_FIELD_IDS.formError}
 					class="text-sm font-medium text-error"
 					role="alert"
 					tabindex="-1"
@@ -1045,7 +1053,7 @@
 				type="button"
 				class="btn btn-secondary flex items-center gap-1"
 				onclick={() => onCancel?.()}
-				id="catalog-server-form-cancel"
+				id={CATALOG_SERVER_FIELD_IDS.cancelBtn}
 			>
 				Cancel
 			</button>
@@ -1059,7 +1067,7 @@
 							formData.compositeConfig.componentServers.length === 0 ||
 							compositeHasToolNameErrors))}
 				aria-busy={loading}
-				id="catalog-server-form-submit"
+				id={CATALOG_SERVER_FIELD_IDS.submitBtn}
 			>
 				{#if loading}
 					<span aria-hidden="true">

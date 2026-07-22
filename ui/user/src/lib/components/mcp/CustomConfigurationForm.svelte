@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { CATALOG_SERVER_FIELD_IDS } from '$lib/constants';
 	import type { MCPAllowedSecretBindingTarget, MCPCatalogEntryFieldManifest } from '$lib/services';
 	import { hasSecretBinding } from '$lib/services/user/mcp';
 	import Select from '../Select.svelte';
@@ -54,6 +55,7 @@
 {#if !readonly || (readonly && userConfig.length > 0)}
 	<div
 		class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
+		id={CATALOG_SERVER_FIELD_IDS.configuration}
 	>
 		<h4 class="text-sm font-semibold">
 			{serverUserType === 'singleUser' ? 'User Supplied Configuration' : 'Configuration'}
@@ -108,7 +110,7 @@
 						</p>
 
 						<CustomConfigurationFieldset
-							id={`env-${i}`}
+							id={`${CATALOG_SERVER_FIELD_IDS.env}-${i}`}
 							bind:data={config![i]}
 							{serverUserType}
 							{readonly}
@@ -122,6 +124,7 @@
 					</div>
 					{#if !readonly && !isPrebuiltEntry}
 						<IconButton
+							id={`${CATALOG_SERVER_FIELD_IDS.removeConfigurationBtn}-${i}`}
 							variant="danger"
 							onclick={() => {
 								config!.splice(i, 1);
@@ -138,6 +141,7 @@
 		{#if !readonly && !isPrebuiltEntry}
 			<div class="flex justify-end">
 				<button
+					id={CATALOG_SERVER_FIELD_IDS.addConfigurationBtn}
 					class="btn btn-secondary btn-sm flex items-center gap-1 text-xs"
 					type="button"
 					onclick={() => {

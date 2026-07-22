@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import SearchMcpServers from '$lib/components/admin/SearchMcpServers.svelte';
+	import { CATALOG_SERVER_FIELD_IDS } from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
@@ -364,6 +365,7 @@
 />
 
 <ResponsiveDialog
+	id={CATALOG_SERVER_FIELD_IDS.compositeEntryChoice}
 	bind:this={choiceDialog}
 	animate="slide"
 	title={`Configure ${configuringEntry?.manifest?.name ?? 'MCP Server'} Tools`}
@@ -386,6 +388,7 @@
 	<div class="flex w-full flex-col gap-2">
 		<button
 			class="button"
+			id={CATALOG_SERVER_FIELD_IDS.compositeEntrySkipBtn}
 			onclick={() => {
 				if (!componentConfig || !configuringEntry) return;
 				onSuccess?.(componentConfig, configuringEntry);
@@ -396,6 +399,7 @@
 		</button>
 		<button
 			class="btn btn-primary"
+			id={CATALOG_SERVER_FIELD_IDS.compositeEntryConfigureToolsBtn}
 			onclick={() => {
 				if (!configuringEntry) return;
 				ready = false;
@@ -409,6 +413,7 @@
 </ResponsiveDialog>
 
 <ResponsiveDialog
+	id={CATALOG_SERVER_FIELD_IDS.compositeConfigureEntryToolsDialog}
 	bind:this={initConfigureToolsDialog}
 	animate="slide"
 	title={`Configure ${configuringEntry?.manifest?.name ?? 'MCP Server'} Tools`}
@@ -476,6 +481,7 @@
 					<!-- eslint-enable svelte/no-navigation-without-resolve -->
 				{:else}
 					<button
+						id={CATALOG_SERVER_FIELD_IDS.compositeEntryConfigureToolsGetStartedBtn}
 						class="btn btn-primary flex w-full justify-center"
 						disabled={loading || !!secretBindingEngineError}
 						onclick={handleConfigureToolsInit}

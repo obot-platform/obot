@@ -3,7 +3,8 @@
 		PAGE_TRANSITION_DURATION,
 		ADMIN_SESSION_STORAGE,
 		DEFAULT_MCP_CATALOG_ID,
-		ADMIN_ALL_OPTION
+		ADMIN_ALL_OPTION,
+		MCP_ACCESS_POLICY_FIELD_IDS
 	} from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
@@ -320,11 +321,14 @@
 			>
 				<div class="flex flex-col gap-6">
 					<div class="flex flex-col gap-2">
-						<label for="mcp-catalog-name" class="flex-1 text-sm font-light capitalize">
+						<label
+							for={MCP_ACCESS_POLICY_FIELD_IDS.name}
+							class="flex-1 text-sm font-light capitalize"
+						>
 							Name
 						</label>
 						<input
-							id="mcp-catalog-name"
+							id={MCP_ACCESS_POLICY_FIELD_IDS.name}
 							bind:value={accessControlRule.displayName}
 							class="text-input-filled mt-0.5"
 							disabled={readonly}
@@ -334,17 +338,22 @@
 			</div>
 		{/if}
 
-		<div class="flex flex-col gap-2">
+		<div id={MCP_ACCESS_POLICY_FIELD_IDS.usersGroupsSection} class="flex flex-col gap-2">
 			<div class="mb-2 flex items-center justify-between">
 				<h2 class="text-lg font-semibold">User & Groups</h2>
 				{#if !readonly}
 					<div class="relative flex items-center gap-4">
 						{#if loadingUsersAndGroups}
-							<button class="btn btn-primary flex items-center gap-1 text-sm" disabled>
+							<button
+								id={MCP_ACCESS_POLICY_FIELD_IDS.addUserGroupBtn}
+								class="btn btn-primary flex items-center gap-1 text-sm"
+								disabled
+							>
 								<Plus class="size-4" /> Add User/Group
 							</button>
 						{:else}
 							<button
+								id={MCP_ACCESS_POLICY_FIELD_IDS.addUserGroupBtn}
 								class="btn btn-primary flex items-center gap-1 text-sm"
 								onclick={() => {
 									addUserGroupDialog?.open();
@@ -391,12 +400,13 @@
 			{/if}
 		</div>
 
-		<div class="flex flex-col gap-2">
+		<div id={MCP_ACCESS_POLICY_FIELD_IDS.serversSection} class="flex flex-col gap-2">
 			<div class="mb-2 flex items-center justify-between">
 				<h2 class="text-lg font-semibold">Servers</h2>
 				{#if !readonly}
 					<div class="relative flex items-center gap-4">
 						<button
+							id={MCP_ACCESS_POLICY_FIELD_IDS.addServerBtn}
 							class="btn btn-primary flex items-center gap-1 text-sm"
 							onclick={() => {
 								addMcpServerDialog?.open();
@@ -435,10 +445,10 @@
 			out:fly={{ x: -100, duration }}
 			in:fly={{ x: -100 }}
 		>
-			<div class="flex w-full justify-end gap-2">
+			<div class="flex w-full justify-end gap-4">
 				{#if !accessControlRule.id}
 					<button
-						class="btn btn-secondary btn-sm"
+						class="btn btn-secondary"
 						onclick={() => {
 							if (redirect) {
 								goto(redirect);
@@ -452,7 +462,8 @@
 						Cancel
 					</button>
 					<button
-						class="btn btn-primary btn-sm"
+						id={MCP_ACCESS_POLICY_FIELD_IDS.saveBtn}
+						class="btn btn-primary"
 						disabled={!validate(accessControlRule) || saving}
 						onclick={async () => {
 							if (!id) return;

@@ -218,7 +218,7 @@
 		{/if}
 		<div
 			id="btn-get-started-guide"
-			class="flex bg-primary rounded-full text-primary-content text-sm items-center gap-2 shadow-md"
+			class="flex items-center gap-2 rounded-full bg-primary text-primary-content text-sm shadow-lg shadow-black/40 outline-2 outline-offset-0 outline-base-100/80 dark:outline-base-300/80"
 		>
 			<button
 				class="shrink-0 flex items-center gap-2 w-fit py-3 pl-4"
@@ -242,7 +242,7 @@
 		<h4 class="font-semibold border-b-2 pb-3 mb-3 text-sm border-b-primary-content">
 			Quick Start Guides
 		</h4>
-		<div class="flex flex-col gap-2">
+		<div class="flex flex-col">
 			{#each visibleLessonItems as lessonItem (lessonItem.label)}
 				{@const isUnderConstruction = lessonItem.guide === undefined}
 				<button

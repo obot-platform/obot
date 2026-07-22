@@ -1,13 +1,16 @@
+import { CATALOG_SERVER_FIELD_IDS } from '$lib/constants';
 import { getExpandAdvancedPaneAction } from '../actions';
 import type { GuideStep } from '../types';
 import {
 	highlightMcpCatalogLink,
 	listenMcpCatalogLink,
-	SIDEBAR_MCP_CATALOG_LINK
+	SIDEBAR_MCP_CATALOG_LINK,
+	addCatalogEntryDescriptions
 } from './constants';
 
-export const steps: GuideStep[] = [
-	{
+// shared steps that are used in mcp specific guides
+export function getNavigateToMCPCatalogStep(): GuideStep {
+	return {
 		content: ["To begin, let's head to the MCP Catalog page!"],
 		action: [
 			{
@@ -46,11 +49,18 @@ export const steps: GuideStep[] = [
 				}
 			}
 		]
-	},
-	{
+	};
+}
+
+export function getHighlightAddCatalogEntryStep(
+	type: 'hosted' | 'remote' | 'composite'
+): GuideStep {
+	const SECTION_ID = `add-${type}-server-button`;
+	const toCapitalize = (str: string) => str.charAt(0).toUpperCase() + str.slice(1);
+
+	return {
 		content: [
-			'Click the Add Catalog Entry button to start creating a new entry.',
-			'For the purpose of this guide, what type of entry are you interested in creating?'
+			'Create and manage your MCP catalog entries here. To start creating a custom entry, click the "Add Catalog Entry" button.'
 		],
 		action: {
 			highlight: {
@@ -58,7 +68,7 @@ export const steps: GuideStep[] = [
 					id: 'add-catalog-entry-button'
 				},
 				title: 'Add Catalog Entry',
-				description: 'Click here to add a new catalog entry.',
+				description: 'Click here to start adding a new catalog entry.',
 				side: 'left'
 			},
 			listener: {
@@ -66,13 +76,13 @@ export const steps: GuideStep[] = [
 				action: {
 					highlight: {
 						selector: {
-							id: 'add-hosted-server-button'
+							id: SECTION_ID
 						},
-						title: 'Add Hosted Server',
-						description: 'Click here to add a hosted server entry.'
+						title: `Add ${toCapitalize(type)} Server`,
+						description: `${addCatalogEntryDescriptions[type]} Click here and let's go through creating one now.`
 					},
 					listener: {
-						id: 'add-hosted-server-button',
+						id: SECTION_ID,
 						action: {
 							success: true
 						}
@@ -80,34 +90,29 @@ export const steps: GuideStep[] = [
 				}
 			}
 		}
-	},
-	{
-		content: [
-			"We're going to use the Everything server as an example. Name and package are required, but feel free to fill out the rest of the form.",
-			"For 'Package', use the following: @modelcontextprotocol/server-everything",
-			'Go ahead and click Save.'
-		],
-		buttons: [
-			{
-				text: "I'm done, what next?",
+	};
+}
+
+export function getNavigateBasicCatalogEntryFieldsStep(): GuideStep {
+	return {
+		content: ['These are the standard fields for a catalog entry.'],
+		action: {
+			highlight: {
+				selector: {
+					id: `${CATALOG_SERVER_FIELD_IDS.serverFormDetails}`
+				},
+				side: 'top',
+				align: 'center',
+				title: 'Describe Your MCP',
+				description:
+					'This is where you provide user friendly details about your MCP server; the information here is displayed to users when previewing the catalog entry.'
+			},
+			listener: {
+				id: `${CATALOG_SERVER_FIELD_IDS.serverFormDetails}`,
 				action: {
 					success: true
 				}
 			}
-		]
-	},
-	{
-		content: [
-			'Great! You should see more options available to you now. If your server is deployed, check out the deployment details in Server Details.',
-			'For single-tenant catalog entries, it is recommended to populate the tools with an example set for users to see. This can be done in Tools.',
-			"And that's it! You've completed the guide on creating a custom MCP server."
-		]
-	}
-];
-
-export default {
-	steps,
-	title: 'Create MCP Server',
-	description: 'Add a custom MCP server to the catalog.',
-	id: 'mcp-create-custom-guide'
-};
+		}
+	};
+}

@@ -817,6 +817,7 @@
 				</button>
 			{/if}
 			<button
+				id="mcp-catalog-configure-submit-btn"
 				class="btn btn-primary"
 				type="submit"
 				form="mcp-catalog-configure-form"

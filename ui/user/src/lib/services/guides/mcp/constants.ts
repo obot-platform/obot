@@ -32,3 +32,12 @@ export const listenMcpAccessPoliciesLink: GuideListener = {
 		success: true
 	}
 };
+
+export const addCatalogEntryDescriptions = {
+	hosted:
+		'A hosted catalog entry is great for setting up an MCP server hosted under the Obot platform.',
+	remote:
+		'A remote catalog entry is great for allowing users to connect to MCP servers that are already elsewhere. When they deploy from Obot, the MCP server will go through the gateway.',
+	composite:
+		'A composite catalog entry is great for combining tools from multiple existing MCP servers into single deployment. You can also configure which tools to expose and customize their names or descriptions.'
+};

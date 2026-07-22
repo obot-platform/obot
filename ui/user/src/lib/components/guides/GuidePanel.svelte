@@ -21,9 +21,10 @@
 	import { fade, fly } from 'svelte/transition';
 
 	const CONTENT_FADE_MS = 500;
-	// Short poll after clicks (nav expand). Highlight waits separately for post-nav targets.
 	const ACTION_RESOLVE_ATTEMPTS = 10;
 	const ACTION_RESOLVE_INTERVAL_MS = 50;
+	const WAIT_FOR_TIMEOUT_MS = 5 * 60 * 1000;
+	const WAIT_FOR_INTERVAL_MS = 500;
 
 	function youtubeEmbedUrl(url: string): string | undefined {
 		try {
@@ -255,11 +256,12 @@
 		}
 	});
 
-	/** True when a step/action still has listener, next (Next-button chain), or dialog work. */
+	/** True when a step/action still has listener, next (Next-button chain), dialog, or waitFor work. */
 	function actionHasPendingChain(action: GuideAction | GuideAction[] | undefined): boolean {
 		if (!action) return false;
 		for (const a of Array.isArray(action) ? action : [action]) {
 			if (a.dialog) return true;
+			if (a.waitFor) return true;
 			if (a.listener) {
 				// Listener requires progression; nested actions under it are also pending.
 				return true;
@@ -314,6 +316,37 @@
 
 	function isCurrentGuideSession(generation: number) {
 		return generation === guideSessionGeneration && Boolean(guide.selectedGuide);
+	}
+
+	function isOpenDialog(id: string): boolean {
+		const el = document.getElementById(id);
+		return el instanceof HTMLDialogElement && el.open;
+	}
+
+	async function waitForOpenDialog(
+		id: string,
+		sessionGeneration: number,
+		generation: number
+	): Promise<boolean> {
+		const stepAtStart = guide.currentStep;
+		const start = Date.now();
+		while (Date.now() - start < WAIT_FOR_TIMEOUT_MS) {
+			if (
+				generation !== actionGeneration ||
+				!isCurrentGuideSession(sessionGeneration) ||
+				guide.currentStep !== stepAtStart
+			) {
+				return false;
+			}
+			if (isOpenDialog(id)) return true;
+			await sleep(WAIT_FOR_INTERVAL_MS);
+		}
+		return (
+			generation === actionGeneration &&
+			isCurrentGuideSession(sessionGeneration) &&
+			guide.currentStep === stepAtStart &&
+			isOpenDialog(id)
+		);
 	}
 
 	function findListenerTarget(listener: GuideListener): HTMLElement | undefined {
@@ -524,6 +557,21 @@
 
 		if (resolved.closeExistingElement) {
 			closeGuideElement(resolved);
+		}
+
+		if (resolved.waitFor) {
+			const stepAtStart = guide.currentStep;
+			const opened = await waitForOpenDialog(resolved.waitFor, sessionGeneration, generation);
+			if (
+				!opened ||
+				generation !== actionGeneration ||
+				!isCurrentGuideSession(sessionGeneration) ||
+				guide.currentStep !== stepAtStart
+			) {
+				return;
+			}
+			handleNextStep();
+			return;
 		}
 
 		if (resolved.highlight) {
