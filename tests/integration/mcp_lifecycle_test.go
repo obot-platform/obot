@@ -50,7 +50,7 @@ func TestMCPServerLifecycle_Containerized(t *testing.T) {
 		restartedContainerID string
 	)
 
-	t.Run("create_and_configure", func(t *testing.T) {
+	if !t.Run("create_and_configure", func(t *testing.T) {
 		manifest := types.MCPServerManifest{
 			Name:        h.MCPServerName("lifecycle"),
 			Description: "integration test server",
@@ -78,9 +78,11 @@ func TestMCPServerLifecycle_Containerized(t *testing.T) {
 		if !configured.Configured {
 			t.Fatalf("expected server to report Configured=true after configure, got %+v", configured)
 		}
-	})
+	}) {
+		return
+	}
 
-	t.Run("launch", func(t *testing.T) {
+	if !t.Run("launch", func(t *testing.T) {
 		h.LaunchMCPServer(t, created.ID)
 		details := h.WaitForMCPServerAvailable(t, created.ID, 30*time.Second)
 		if details.DeploymentName == "" || details.ReadyReplicas != 1 {
@@ -89,9 +91,11 @@ func TestMCPServerLifecycle_Containerized(t *testing.T) {
 		t.Logf("details: deployment=%s ready=%d/%d available=%v events=%d",
 			details.DeploymentName, details.ReadyReplicas, details.Replicas, details.IsAvailable, len(details.Events))
 		initialContainerID = requireSingleDockerDeployment(t, created.ID)
-	})
+	}) {
+		return
+	}
 
-	t.Run("invoke_tool", func(t *testing.T) {
+	if !t.Run("invoke_tool", func(t *testing.T) {
 		var tools []types.MCPServerTool
 		h.Get(t, "/api/mcp-servers/"+created.ID+"/tools", &tools)
 		if len(tools) == 0 {
@@ -100,9 +104,11 @@ func TestMCPServerLifecycle_Containerized(t *testing.T) {
 		t.Logf("listed %d tools from server", len(tools))
 		assertEchoToolCall(t, h.BaseURL, created.ID, echoPrefix, "before restart")
 		assertMCPServerStartupLog(t, h, created.ID)
-	})
+	}) {
+		return
+	}
 
-	t.Run("restart", func(t *testing.T) {
+	if !t.Run("restart", func(t *testing.T) {
 		h.RestartMCPServer(t, created.ID)
 		restartedContainerID = waitForDockerDeploymentReplaced(t, created.ID, initialContainerID, 30*time.Second)
 		if restartedContainerID == initialContainerID {
@@ -111,9 +117,11 @@ func TestMCPServerLifecycle_Containerized(t *testing.T) {
 		h.WaitForMCPServerAvailable(t, created.ID, 30*time.Second)
 		assertEchoToolCall(t, h.BaseURL, created.ID, echoPrefix, "after restart")
 		assertMCPServerStartupLog(t, h, created.ID)
-	})
+	}) {
+		return
+	}
 
-	t.Run("reconfigure", func(t *testing.T) {
+	if !t.Run("reconfigure", func(t *testing.T) {
 		h.ConfigureMCPServer(t, created.ID, map[string]string{"ECHO_PREFIX": updatedEchoPrefix})
 		waitForDockerDeploymentRemoved(t, created.ID, 30*time.Second)
 		configured := h.GetMCPServer(t, created.ID)
@@ -124,7 +132,9 @@ func TestMCPServerLifecycle_Containerized(t *testing.T) {
 		waitForDockerDeploymentReplaced(t, created.ID, restartedContainerID, 30*time.Second)
 		h.WaitForMCPServerAvailable(t, created.ID, 30*time.Second)
 		assertEchoToolCall(t, h.BaseURL, created.ID, updatedEchoPrefix, "after reconfigure")
-	})
+	}) {
+		return
+	}
 
 	t.Run("delete", func(t *testing.T) {
 		h.Delete(t, "/api/mcp-servers/"+created.ID)
