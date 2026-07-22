@@ -536,7 +536,7 @@ func waitForMCPAuditLog(t *testing.T, c *gatewayclient.Client) {
 	t.Helper()
 	deadline := time.Now().Add(3 * time.Second)
 	for time.Now().Before(deadline) {
-		logs, total, err := c.GetMCPAuditLogs(context.Background(), gatewayclient.MCPAuditLogOptions{
+		logs, total, err := c.GetMCPAuditLogs(t.Context(), gatewayclient.MCPAuditLogOptions{
 			SourceTypes: []types.AuditLogSourceType{types.AuditLogSourceTypeMCP},
 			Limit:       1,
 		})

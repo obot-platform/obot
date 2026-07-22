@@ -48,11 +48,11 @@ func TestRevealSkillRepositoryToken(t *testing.T) {
 		Secrets: map[string]string{skill.Spec.RepoURL: "private-token"},
 	}}
 
-	token, err := revealSkillRepositoryToken(context.Background(), client, skill)
+	token, err := revealSkillRepositoryToken(t.Context(), client, skill)
 	require.NoError(t, err)
 	assert.Equal(t, "private-token", token)
 
-	_, err = revealSkillRepositoryToken(context.Background(), credentialNotFoundClient{}, skill)
+	_, err = revealSkillRepositoryToken(t.Context(), credentialNotFoundClient{}, skill)
 	require.NoError(t, err)
 }
 
@@ -163,7 +163,7 @@ func TestSkillRepositoryHandlerRefresh(t *testing.T) {
 	assert.Equal(t, http.StatusNoContent, rec.Code)
 
 	var repo v1.SkillRepository
-	require.NoError(t, storage.Get(context.Background(), kclient.ObjectKey{Name: "skr1", Namespace: system.DefaultNamespace}, &repo))
+	require.NoError(t, storage.Get(t.Context(), kclient.ObjectKey{Name: "skr1", Namespace: system.DefaultNamespace}, &repo))
 	assert.Equal(t, "true", repo.Annotations[v1.SkillRepositorySyncAnnotation])
 }
 

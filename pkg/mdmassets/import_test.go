@@ -19,11 +19,11 @@ import (
 
 func TestImportDirectoryProducesImmutableDatabaseBundle(t *testing.T) {
 	dir := writeAssets(t, SchemaVersion)
-	first, err := Import(context.Background(), dir)
+	first, err := Import(t.Context(), dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	second, err := Import(context.Background(), dir)
+	second, err := Import(t.Context(), dir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,12 +57,12 @@ func TestImportDirectoryProducesImmutableDatabaseBundle(t *testing.T) {
 
 func TestImportPersistsOnlyManifestClosure(t *testing.T) {
 	dir := writeAssets(t, SchemaVersion)
-	before, err := Import(context.Background(), dir)
+	before, err := Import(t.Context(), dir)
 	if err != nil {
 		t.Fatal(err)
 	}
 	mustWrite(t, filepath.Join(dir, "unrelated-secret.txt"), "must-not-enter-database")
-	after, err := Import(context.Background(), dir)
+	after, err := Import(t.Context(), dir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +76,7 @@ func TestImportPersistsOnlyManifestClosure(t *testing.T) {
 
 func TestImportRemoteTarStripsCommonRoot(t *testing.T) {
 	dir := writeAssets(t, SchemaVersion)
-	want, err := Import(context.Background(), dir)
+	want, err := Import(t.Context(), dir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,7 +89,7 @@ func TestImportRemoteTarStripsCommonRoot(t *testing.T) {
 			Body:       io.NopCloser(bytes.NewReader(archive)),
 		}, nil
 	})}
-	got, err := importSource(context.Background(), "https://example.test/release.tar", client)
+	got, err := importSource(t.Context(), "https://example.test/release.tar", client)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,7 +123,7 @@ func TestImportRejectsUnsafeArchiveEntries(t *testing.T) {
 			if err := tw.Close(); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := readTar(context.Background(), buf.Bytes()); err == nil {
+			if _, err := readTar(t.Context(), buf.Bytes()); err == nil {
 				t.Fatalf("unsafe tar entry %q was accepted", header.Name)
 			}
 		})
@@ -142,7 +142,7 @@ func TestImportRejectsOverflowingTarSize(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := readTar(context.Background(), buf.Bytes()); err == nil || !strings.Contains(err.Error(), "maximum extracted size") {
+	if _, err := readTar(t.Context(), buf.Bytes()); err == nil || !strings.Contains(err.Error(), "maximum extracted size") {
 		t.Fatalf("overflowing tar entry should be rejected by the size limit, got %v", err)
 	}
 }
@@ -163,7 +163,7 @@ func TestImportRejectsDirectoryHeaderBomb(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err := readTar(context.Background(), buf.Bytes())
+	_, err := readTar(t.Context(), buf.Bytes())
 	if err == nil || !strings.Contains(err.Error(), "maximum entry count") {
 		t.Fatalf("directory header bomb should be rejected by the entry limit, got %v", err)
 	}
@@ -201,14 +201,14 @@ func TestImportRejectsDecodedGzipExpansion(t *testing.T) {
 		t.Fatalf("test archive did not compress below decoded limit: %d bytes", compressed.Len())
 	}
 
-	_, err := readTarWithDecodedLimit(context.Background(), compressed.Bytes(), decodedLimit)
+	_, err := readTarWithDecodedLimit(t.Context(), compressed.Bytes(), decodedLimit)
 	if err == nil || !strings.Contains(err.Error(), "maximum decoded size") {
 		t.Fatalf("gzip expansion should be rejected by the decoded-size limit, got %v", err)
 	}
 }
 
 func TestImportTarScanHonorsCancellation(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
 	_, err := readTar(ctx, nil)
@@ -221,7 +221,7 @@ func TestRemoteImportErrorDoesNotLeakSignedURL(t *testing.T) {
 	client := &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
 		return nil, &url.Error{URL: "https://redirect.example/assets.tar?token=redirect-secret", Err: errors.New("failed")}
 	})}
-	_, err := importSource(context.Background(), "https://example.test/assets.tar?token=source-secret", client)
+	_, err := importSource(t.Context(), "https://example.test/assets.tar?token=source-secret", client)
 	if err == nil {
 		t.Fatal("expected download error")
 	}
@@ -242,7 +242,7 @@ func TestImportRejectsLocalSymlink(t *testing.T) {
 	if err := os.Symlink(filepath.Join(dir, "manifest.json"), filepath.Join(dir, "manifest-link.json")); err != nil {
 		t.Skipf("symlinks unavailable: %v", err)
 	}
-	if _, err := Import(context.Background(), dir); err == nil || !strings.Contains(err.Error(), "symbolic link") {
+	if _, err := Import(t.Context(), dir); err == nil || !strings.Contains(err.Error(), "symbolic link") {
 		t.Fatalf("symlink should be rejected, got %v", err)
 	}
 }

@@ -65,9 +65,6 @@ func (s *Setup) Run(cmd *cobra.Command, _ []string) error {
 
 func (s *Setup) run(cmd *cobra.Command, progress setupProgressWriter) error {
 	ctx := cmd.Context()
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	if progress.json {
 		if s.NonInteractive {
 			ctx = cliinternal.WithOutputWriter(ctx, io.Discard)
@@ -175,9 +172,6 @@ func (s *Setup) resolveClientSelection(cmd *cobra.Command) (setupClientSelection
 	}
 
 	ctx := cmd.Context()
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	claudeDetected := false
 	for _, agent := range localagents.DetectedAgents() {
 		if agent.ID() == localagents.ClaudeCodeAgentID && agent.Detect(ctx).State == localagents.DetectionPresent {

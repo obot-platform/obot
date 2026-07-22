@@ -1,7 +1,6 @@
 package registry
 
 import (
-	"context"
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -14,7 +13,7 @@ func TestConvertMCPServerCatalogEntryToRegistryRemoteFixedURLHasRemote(t *testin
 		FixedURL: "https://api.example.com/mcp",
 	})
 
-	got, err := ConvertMCPServerCatalogEntryToRegistry(context.Background(), entry, "https://obot.example.com", "com.example.obot", newMimeFetcher())
+	got, err := ConvertMCPServerCatalogEntryToRegistry(t.Context(), entry, "https://obot.example.com", "com.example.obot", newMimeFetcher())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,7 +34,7 @@ func TestConvertMCPServerCatalogEntryToRegistryRemoteHostnameRequiresConfigurati
 		Hostname: "api.example.com",
 	})
 
-	got, err := ConvertMCPServerCatalogEntryToRegistry(context.Background(), entry, "https://obot.example.com", "com.example.obot", newMimeFetcher())
+	got, err := ConvertMCPServerCatalogEntryToRegistry(t.Context(), entry, "https://obot.example.com", "com.example.obot", newMimeFetcher())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +52,7 @@ func TestConvertMCPServerCatalogEntryToRegistryRemoteURLTemplateRequiresConfigur
 		URLTemplate: "https://${WORKSPACE}.example.com/mcp",
 	})
 
-	got, err := ConvertMCPServerCatalogEntryToRegistry(context.Background(), entry, "https://obot.example.com", "com.example.obot", newMimeFetcher())
+	got, err := ConvertMCPServerCatalogEntryToRegistry(t.Context(), entry, "https://obot.example.com", "com.example.obot", newMimeFetcher())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +71,7 @@ func TestConvertMCPServerCatalogEntryToRegistryRemoteStaticOAuthRequiresConfigur
 		StaticOAuthRequired: true,
 	})
 
-	got, err := ConvertMCPServerCatalogEntryToRegistry(context.Background(), entry, "https://obot.example.com", "com.example.obot", newMimeFetcher())
+	got, err := ConvertMCPServerCatalogEntryToRegistry(t.Context(), entry, "https://obot.example.com", "com.example.obot", newMimeFetcher())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +84,7 @@ func TestConvertMCPServerCatalogEntryToRegistryRemoteStaticOAuthRequiresConfigur
 	}
 
 	entry.Status.OAuthCredentialConfigured = true
-	got, err = ConvertMCPServerCatalogEntryToRegistry(context.Background(), entry, "https://obot.example.com", "com.example.obot", newMimeFetcher())
+	got, err = ConvertMCPServerCatalogEntryToRegistry(t.Context(), entry, "https://obot.example.com", "com.example.obot", newMimeFetcher())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -116,7 +115,7 @@ func TestConvertMCPServerToRegistryNeedsURLRequiresConfiguration(t *testing.T) {
 		},
 	}
 
-	got, err := ConvertMCPServerToRegistry(context.Background(), server, nil, "https://obot.example.com", server.Name, "com.example.obot", "user-1", newMimeFetcher())
+	got, err := ConvertMCPServerToRegistry(t.Context(), server, nil, "https://obot.example.com", server.Name, "com.example.obot", "user-1", newMimeFetcher())
 	if err != nil {
 		t.Fatal(err)
 	}

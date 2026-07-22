@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"context"
 	"fmt"
 	"os"
 
@@ -66,9 +65,6 @@ type PromptConfig struct {
 
 func (p PromptConfig) Pre(cmd *cobra.Command, _ []string) error {
 	ctx := cmd.Context()
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	if p.NonInteractive {
 		ctx = internal.WithNonInteractive(ctx)
 	}

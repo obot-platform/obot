@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -89,7 +88,7 @@ func TestMDMAssetSourceHandlerRefreshOnlyRequestsReconciliation(t *testing.T) {
 	assert.Equal(t, http.StatusNoContent, recorder.Code)
 
 	var source v1.MDMAssetSource
-	require.NoError(t, storage.Get(context.Background(), kclient.ObjectKey{
+	require.NoError(t, storage.Get(t.Context(), kclient.ObjectKey{
 		Name:      system.DefaultMDMAssetSource,
 		Namespace: system.DefaultNamespace,
 	}, &source))

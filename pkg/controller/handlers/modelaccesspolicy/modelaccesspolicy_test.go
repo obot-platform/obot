@@ -1,7 +1,6 @@
 package modelaccesspolicy
 
 import (
-	"context"
 	"testing"
 
 	"github.com/obot-platform/nah/pkg/router"
@@ -93,12 +92,12 @@ func TestPruneModels(t *testing.T) {
 			// Fetch the stored policy so the handler updates it with a valid resource version
 			var policy v1.ModelAccessPolicy
 			key := kclient.ObjectKey{Namespace: "default", Name: "test-policy"}
-			require.NoError(t, client.Get(context.Background(), key, &policy))
+			require.NoError(t, client.Get(t.Context(), key, &policy))
 
 			initialVersion := policy.ResourceVersion
 			err := PruneModels(router.Request{
 				Client:    client,
-				Ctx:       context.Background(),
+				Ctx:       t.Context(),
 				Object:    &policy,
 				Namespace: policy.Namespace,
 				Name:      policy.Name,
@@ -106,7 +105,7 @@ func TestPruneModels(t *testing.T) {
 			require.NoError(t, err)
 
 			var updated v1.ModelAccessPolicy
-			require.NoError(t, client.Get(context.Background(), key, &updated))
+			require.NoError(t, client.Get(t.Context(), key, &updated))
 
 			gotIDs := make([]string, 0, len(updated.Spec.Manifest.Models))
 			for _, m := range updated.Spec.Manifest.Models {

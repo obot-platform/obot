@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -45,7 +44,7 @@ func newRuntimeSecretClient() kclient.Client {
 }
 
 func TestReconcileServiceAccountKeyBootstrapsSecret(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	gatewayClient := newTestGatewayClient(t)
 	base := time.Now().UTC().Add(-time.Hour)
 	controller := &Controller{
@@ -100,7 +99,7 @@ func TestReconcileServiceAccountKeyBootstrapsSecret(t *testing.T) {
 }
 
 func TestReconcileServiceAccountKeyRotatesWithOverlap(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	gatewayClient := newTestGatewayClient(t)
 	base := time.Now().UTC().Add(-11 * time.Hour)
 	controller := &Controller{
@@ -175,7 +174,7 @@ func TestReconcileServiceAccountKeyRotatesWithOverlap(t *testing.T) {
 }
 
 func TestReconcileServiceAccountSecretChangeRecreatesDeletedSecret(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	gatewayClient := newTestGatewayClient(t)
 	base := time.Now().UTC().Add(-time.Hour)
 	controller := &Controller{
@@ -302,7 +301,7 @@ func TestReconcileServiceAccountKeyRecreatesMissingFreshSecret(t *testing.T) {
 }
 
 func TestReconcileServiceAccountKeyDeletesExpiredOverlapKeys(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	gatewayClient := newTestGatewayClient(t)
 	base := time.Now().UTC().Add(-11 * time.Hour)
 	controller := &Controller{
@@ -340,7 +339,7 @@ func TestReconcileServiceAccountKeyDeletesExpiredOverlapKeys(t *testing.T) {
 }
 
 func TestReconcileServiceAccountKeysSkipsWhenBackendNotKubernetes(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	gatewayClient := newTestGatewayClient(t)
 	base := time.Now().UTC()
 	controller := &Controller{
@@ -371,7 +370,7 @@ func TestReconcileServiceAccountKeysSkipsWhenBackendNotKubernetes(t *testing.T) 
 }
 
 func TestReconcileServiceAccountKeysSkipsWhenNetworkPolicyProviderDisabled(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	gatewayClient := newTestGatewayClient(t)
 	base := time.Now().UTC()
 	controller := &Controller{
@@ -402,7 +401,7 @@ func TestReconcileServiceAccountKeysSkipsWhenNetworkPolicyProviderDisabled(t *te
 }
 
 func TestReconcileServiceAccountKeysCleansUpWhenBackendDisabled(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	gatewayClient := newTestGatewayClient(t)
 	base := time.Now().UTC()
 	account, _ := serviceaccounts.Get(serviceaccounts.NetworkPolicyProvider)
@@ -455,7 +454,7 @@ func TestReconcileServiceAccountKeysCleansUpWhenBackendDisabled(t *testing.T) {
 }
 
 func TestReconcileServiceAccountKeysCleansUpWhenNetworkPolicyProviderDisabled(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	gatewayClient := newTestGatewayClient(t)
 	base := time.Now().UTC()
 	account, _ := serviceaccounts.Get(serviceaccounts.NetworkPolicyProvider)

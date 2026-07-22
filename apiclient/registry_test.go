@@ -1,7 +1,6 @@
 package apiclient
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -36,7 +35,7 @@ func TestListRegistryServersUsesAppBaseURLAndAuth(t *testing.T) {
 	result, err := (&Client{
 		BaseURL: server.URL + "/api/",
 		Token:   "test-token",
-	}).ListRegistryServers(context.Background(), ListRegistryServersOptions{
+	}).ListRegistryServers(t.Context(), ListRegistryServersOptions{
 		Search: "github issues",
 		Cursor: "next",
 		Limit:  100,
@@ -56,7 +55,7 @@ func TestListRegistryServersOmitsEmptyParameters(t *testing.T) {
 	}))
 	defer server.Close()
 
-	result, err := (&Client{BaseURL: server.URL + "/api"}).ListRegistryServers(context.Background(), ListRegistryServersOptions{})
+	result, err := (&Client{BaseURL: server.URL + "/api"}).ListRegistryServers(t.Context(), ListRegistryServersOptions{})
 	require.NoError(t, err)
 	require.Empty(t, result.Servers)
 }

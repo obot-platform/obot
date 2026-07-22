@@ -1,7 +1,6 @@
 package client
 
 import (
-	"context"
 	"errors"
 	"testing"
 	"time"
@@ -13,7 +12,7 @@ import (
 
 func insertScan(t *testing.T, c *Client, scan types.DeviceScan) types.DeviceScan {
 	t.Helper()
-	if err := c.db.WithContext(context.Background()).Create(&scan).Error; err != nil {
+	if err := c.db.WithContext(t.Context()).Create(&scan).Error; err != nil {
 		t.Fatalf("failed to insert scan: %v", err)
 	}
 	return scan
@@ -24,7 +23,7 @@ func insertScan(t *testing.T, c *Client, scan types.DeviceScan) types.DeviceScan
 // for clients/skills, and time-window bounding.
 func TestGetDeviceScanStats(t *testing.T) {
 	c := newTestClient(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	now := time.Now().UTC()
 	old := now.Add(-180 * 24 * time.Hour)
@@ -151,7 +150,7 @@ func TestGetDeviceScanStats(t *testing.T) {
 // drops a previously-seen entity removes that device's contribution.
 func TestGetDeviceScanStats_LatestScanWins(t *testing.T) {
 	c := newTestClient(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	now := time.Now().UTC()
 	hash := "hash-changing"
@@ -200,7 +199,7 @@ func TestGetDeviceScanStats_LatestScanWins(t *testing.T) {
 // EnvKeys / HeaderKeys are unioned across observations.
 func TestGetMCPServerDetail(t *testing.T) {
 	c := newTestClient(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	now := time.Now().UTC()
 	hash := "h"
@@ -248,7 +247,7 @@ func TestGetMCPServerDetail(t *testing.T) {
 
 func TestDeviceClientFleetSummaries(t *testing.T) {
 	c := newTestClient(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	now := time.Now().UTC()
 	h1 := "hash-one"

@@ -36,9 +36,6 @@ func (s *SetupStatus) Customize(cmd *cobra.Command) {
 
 func (s *SetupStatus) Run(cmd *cobra.Command, _ []string) error {
 	ctx := cmd.Context()
-	if ctx == nil {
-		ctx = context.Background()
-	}
 
 	status, err := s.status(ctx)
 	if err != nil {
@@ -103,10 +100,6 @@ func (s *SetupDetectClients) Customize(cmd *cobra.Command) {
 
 func (s *SetupDetectClients) Run(cmd *cobra.Command, _ []string) error {
 	ctx := cmd.Context()
-	if ctx == nil {
-		ctx = context.Background()
-	}
-
 	result := detectSetupClients(ctx)
 	if s.JSON {
 		return writeJSON(cmd, result)

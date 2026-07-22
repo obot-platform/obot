@@ -111,7 +111,7 @@ func createFetchedRepo(t *testing.T, skills map[string]string) *fetchedRepositor
 }
 
 func TestUpsertSkills(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("create from scratch", func(t *testing.T) {
 		c := newFakeClient(t)
@@ -221,7 +221,7 @@ func TestUpsertSkills(t *testing.T) {
 }
 
 func TestListSkillsForRepo(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("filters by repoID", func(t *testing.T) {
 		skills := []kclient.Object{
@@ -279,7 +279,7 @@ func TestSync(t *testing.T) {
 		req := router.Request{
 			Client:    c,
 			Object:    repo,
-			Ctx:       context.Background(),
+			Ctx:       t.Context(),
 			Namespace: repo.Namespace,
 			Name:      repo.Name,
 			Key:       repo.Namespace + "/" + repo.Name,
@@ -291,7 +291,7 @@ func TestSync(t *testing.T) {
 
 		// Verify status
 		var updated v1.SkillRepository
-		require.NoError(t, c.Get(context.Background(), kclient.ObjectKey{Namespace: "default", Name: "repo1"}, &updated))
+		require.NoError(t, c.Get(t.Context(), kclient.ObjectKey{Namespace: "default", Name: "repo1"}, &updated))
 		assert.Empty(t, updated.Status.SyncError)
 		assert.Equal(t, "abc123def456", updated.Status.ResolvedCommitSHA)
 		assert.Equal(t, 2, updated.Status.DiscoveredSkillCount)
@@ -299,7 +299,7 @@ func TestSync(t *testing.T) {
 
 		// Verify skills created
 		var skills v1.SkillList
-		require.NoError(t, c.List(context.Background(), &skills, kclient.InNamespace("default")))
+		require.NoError(t, c.List(t.Context(), &skills, kclient.InNamespace("default")))
 		assert.Len(t, skills.Items, 2)
 
 		// Verify retry
@@ -325,7 +325,7 @@ func TestSync(t *testing.T) {
 		req := router.Request{
 			Client:    c,
 			Object:    repo,
-			Ctx:       context.Background(),
+			Ctx:       t.Context(),
 			Namespace: repo.Namespace,
 			Name:      repo.Name,
 			Key:       repo.Namespace + "/" + repo.Name,
@@ -365,7 +365,7 @@ func TestSync(t *testing.T) {
 		req := router.Request{
 			Client:    c,
 			Object:    repo,
-			Ctx:       context.Background(),
+			Ctx:       t.Context(),
 			Namespace: repo.Namespace,
 			Name:      repo.Name,
 			Key:       repo.Namespace + "/" + repo.Name,
@@ -378,7 +378,7 @@ func TestSync(t *testing.T) {
 
 		// Verify annotation was cleared
 		var updated v1.SkillRepository
-		require.NoError(t, c.Get(context.Background(), kclient.ObjectKey{Namespace: "default", Name: "repo1"}, &updated))
+		require.NoError(t, c.Get(t.Context(), kclient.ObjectKey{Namespace: "default", Name: "repo1"}, &updated))
 		_, hasAnnotation := updated.Annotations[v1.SkillRepositorySyncAnnotation]
 		assert.False(t, hasAnnotation, "sync annotation should be cleared after successful force sync")
 	})
@@ -399,7 +399,7 @@ func TestSync(t *testing.T) {
 		req := router.Request{
 			Client:    c,
 			Object:    repo,
-			Ctx:       context.Background(),
+			Ctx:       t.Context(),
 			Namespace: repo.Namespace,
 			Name:      repo.Name,
 			Key:       repo.Namespace + "/" + repo.Name,
@@ -410,7 +410,7 @@ func TestSync(t *testing.T) {
 		require.NoError(t, err) // handler returns nil, records error in status
 
 		var updated v1.SkillRepository
-		require.NoError(t, c.Get(context.Background(), kclient.ObjectKey{Namespace: "default", Name: "repo1"}, &updated))
+		require.NoError(t, c.Get(t.Context(), kclient.ObjectKey{Namespace: "default", Name: "repo1"}, &updated))
 		assert.Contains(t, updated.Status.SyncError, "network timeout")
 		assert.False(t, updated.Status.IsSyncing)
 		assert.Equal(t, syncInterval, resp.Delay)
@@ -444,7 +444,7 @@ func TestSync(t *testing.T) {
 		req := router.Request{
 			Client:    c,
 			Object:    repo,
-			Ctx:       context.Background(),
+			Ctx:       t.Context(),
 			Namespace: repo.Namespace,
 			Name:      repo.Name,
 			Key:       repo.Namespace + "/" + repo.Name,
@@ -455,7 +455,7 @@ func TestSync(t *testing.T) {
 		require.NoError(t, err)
 
 		var updated v1.SkillRepository
-		require.NoError(t, c.Get(context.Background(), kclient.ObjectKey{Namespace: "default", Name: "repo1"}, &updated))
+		require.NoError(t, c.Get(t.Context(), kclient.ObjectKey{Namespace: "default", Name: "repo1"}, &updated))
 		assert.NotEmpty(t, updated.Status.SyncError)
 		assert.False(t, updated.Status.IsSyncing)
 	})
@@ -464,7 +464,7 @@ func TestSync(t *testing.T) {
 func TestClearIsSyncing(t *testing.T) {
 	fixedTime := time.Date(2026, 3, 11, 12, 0, 0, 0, time.UTC)
 	h := &Handler{now: func() time.Time { return fixedTime }}
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("clears when true", func(t *testing.T) {
 		repo := newSkillRepository("repo1", "default")
@@ -502,7 +502,7 @@ func TestClearIsSyncing(t *testing.T) {
 }
 
 func TestClearSyncAnnotation(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("removes annotation", func(t *testing.T) {
 		repo := newSkillRepository("repo1", "default")
@@ -544,7 +544,7 @@ func TestClearSyncAnnotation(t *testing.T) {
 func TestRecordFailure(t *testing.T) {
 	fixedTime := time.Date(2026, 3, 11, 12, 0, 0, 0, time.UTC)
 	h := &Handler{now: func() time.Time { return fixedTime }}
-	ctx := context.Background()
+	ctx := t.Context()
 
 	repo := newSkillRepository("repo1", "default")
 	c := newFakeClient(t, repo)
@@ -562,7 +562,7 @@ func TestRecordFailure(t *testing.T) {
 func TestRecordSuccess(t *testing.T) {
 	fixedTime := time.Date(2026, 3, 11, 12, 0, 0, 0, time.UTC)
 	h := &Handler{now: func() time.Time { return fixedTime }}
-	ctx := context.Background()
+	ctx := t.Context()
 
 	repo := newSkillRepository("repo1", "default")
 	repo.Status.SyncError = "previous error"
@@ -583,7 +583,7 @@ func TestRecordSuccess(t *testing.T) {
 }
 
 func TestMaterializeSkillSource(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("missing repoURL", func(t *testing.T) {
 		skill := &v1.Skill{
