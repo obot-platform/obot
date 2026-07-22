@@ -175,10 +175,10 @@
 					{/if}
 				{/snippet}
 				{#snippet actions(d)}
-					<div id={`download-skill-container-${d.id}`}>
+					<div id={`install-skill-btn-container-${d.id}`}>
 						<button
 							class="btn btn-primary btn-sm"
-							id={`download-skill-${d.id}`}
+							id={`install-skill-btn-${d.id}`}
 							onclick={() => {
 								selectedSkillToInstall = d;
 								installSkillDialog?.open();
