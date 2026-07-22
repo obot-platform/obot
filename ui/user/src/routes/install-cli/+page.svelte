@@ -262,7 +262,7 @@
 				><CheckIcon class="text-success size-4 inline" /> Connected Cursor and Claude Code</code
 			></pre>
 		<pre></pre>
-		<pre data-prefix="$"><code>obot mcp</code></pre>
+		<pre data-prefix="$"><code>obot mcp search</code></pre>
 		<pre data-prefix=">"><code
 				><CheckIcon class="text-success size-4 inline" /> 24 MCP servers available</code
 			></pre>
