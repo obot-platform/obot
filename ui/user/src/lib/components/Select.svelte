@@ -17,6 +17,7 @@
 		};
 		position?: 'top' | 'bottom';
 		placeholder?: string;
+		searchPlaceholder?: string;
 		clearAllLabel?: string;
 		onClear?: (option?: T, value?: string | number) => void;
 		onClearAll?: () => void;
@@ -51,6 +52,7 @@
 		classes,
 		position = 'bottom',
 		placeholder,
+		searchPlaceholder,
 		clearAllLabel,
 		onClear,
 		onClearAll,
@@ -370,7 +372,7 @@
 			'min-w-0 flex-1 bg-inherit focus:ring-0 focus:outline-none',
 			!multiple && 'px-2 py-4'
 		)}
-		{placeholder}
+		placeholder={searchInDropdown ? (searchPlaceholder ?? placeholder) : placeholder}
 		bind:this={input}
 		bind:value={query}
 		{disabled}
