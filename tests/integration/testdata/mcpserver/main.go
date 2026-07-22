@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"os"
 )
 
 type jsonRPCRequest struct {
@@ -99,7 +100,7 @@ func handleMCP(w http.ResponseWriter, r *http.Request) {
 		result = map[string]any{
 			"content": []map[string]any{{
 				"type": "text",
-				"text": message,
+				"text": os.Getenv("ECHO_PREFIX") + message,
 			}},
 			"isError": false,
 		}

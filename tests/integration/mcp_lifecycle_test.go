@@ -15,6 +15,11 @@ import (
 	"github.com/obot-platform/obot/tests/integration/harness"
 )
 
+const (
+	echoPrefix        = "configured: "
+	updatedEchoPrefix = "reconfigured: "
+)
+
 // TestMCPServerLifecycle_Containerized exercises the full lifecycle of a
 // single-user containerized MCP server against a running obot instance:
 //
@@ -26,7 +31,8 @@ import (
 //     reach the container and speak MCP)
 //  6. Invoke the echo tool through the public MCP gateway
 //  7. Restart and verify the Docker container is replaced and remains usable
-//  8. Delete  — DELETE /api/mcp-servers/{id}, then verify the API object and
+//  8. Reconfigure and verify the new value reaches a replacement deployment
+//  9. Delete  — DELETE /api/mcp-servers/{id}, then verify the API object and
 //     Docker deployment are gone
 //
 // This is the project's first integration test. It is intentionally a single
@@ -50,6 +56,11 @@ func TestMCPServerLifecycle_Containerized(t *testing.T) {
 			Port:  3001,
 			Path:  "/mcp",
 		},
+		Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+			Name:     "Echo Prefix",
+			Key:      "ECHO_PREFIX",
+			Required: true,
+		}}},
 	}
 
 	created := h.CreateMCPServer(ctx, types.MCPServer{MCPServerManifest: manifest})
@@ -58,7 +69,7 @@ func TestMCPServerLifecycle_Containerized(t *testing.T) {
 	}
 	t.Logf("created MCP server id=%s", created.ID)
 
-	h.ConfigureMCPServer(ctx, created.ID, nil)
+	h.ConfigureMCPServer(ctx, created.ID, map[string]string{"ECHO_PREFIX": echoPrefix})
 	configured := h.GetMCPServer(ctx, created.ID)
 	if !configured.Configured {
 		t.Fatalf("expected server to report Configured=true after configure, got %+v", configured)
@@ -80,7 +91,7 @@ func TestMCPServerLifecycle_Containerized(t *testing.T) {
 		t.Fatalf("expected at least one tool on a running MCP server, got none")
 	}
 	t.Logf("listed %d tools from server", len(tools))
-	assertEchoToolCall(ctx, t, h.BaseURL, created.ID, "before restart")
+	assertEchoToolCall(ctx, t, h.BaseURL, created.ID, echoPrefix, "before restart")
 	assertMCPServerStartupLog(ctx, t, h, created.ID)
 
 	h.RestartMCPServer(ctx, created.ID)
@@ -89,15 +100,26 @@ func TestMCPServerLifecycle_Containerized(t *testing.T) {
 		t.Fatalf("restart kept the original Docker container %s", initialContainerID)
 	}
 	h.WaitForMCPServerAvailable(ctx, created.ID, 30*time.Second)
-	assertEchoToolCall(ctx, t, h.BaseURL, created.ID, "after restart")
+	assertEchoToolCall(ctx, t, h.BaseURL, created.ID, echoPrefix, "after restart")
 	assertMCPServerStartupLog(ctx, t, h, created.ID)
+
+	h.ConfigureMCPServer(ctx, created.ID, map[string]string{"ECHO_PREFIX": updatedEchoPrefix})
+	waitForDockerDeploymentRemoved(ctx, t, created.ID, 30*time.Second)
+	configured = h.GetMCPServer(ctx, created.ID)
+	if !configured.Configured {
+		t.Fatalf("expected server to remain configured after updating ECHO_PREFIX, got %+v", configured)
+	}
+	h.LaunchMCPServer(ctx, created.ID)
+	waitForDockerDeploymentReplaced(ctx, t, created.ID, restartedContainerID, 30*time.Second)
+	h.WaitForMCPServerAvailable(ctx, created.ID, 30*time.Second)
+	assertEchoToolCall(ctx, t, h.BaseURL, created.ID, updatedEchoPrefix, "after reconfigure")
 
 	h.Delete(ctx, "/api/mcp-servers/"+created.ID)
 	h.WaitForMCPServerDeleted(ctx, created.ID, 30*time.Second)
 	waitForDockerDeploymentRemoved(ctx, t, created.ID, 30*time.Second)
 }
 
-func assertEchoToolCall(ctx context.Context, t *testing.T, baseURL, id, message string) {
+func assertEchoToolCall(ctx context.Context, t *testing.T, baseURL, id, prefix, message string) {
 	t.Helper()
 	client, err := nmcp.NewClient(ctx, "integration-test", nmcp.Server{
 		BaseURL: baseURL + "/mcp-connect/" + id,
@@ -111,7 +133,8 @@ func assertEchoToolCall(ctx context.Context, t *testing.T, baseURL, id, message 
 	if err != nil {
 		t.Fatalf("call echo tool: %v", err)
 	}
-	if result.IsError || len(result.Content) != 1 || result.Content[0].Type != "text" || result.Content[0].Text != message {
+	expected := prefix + message
+	if result.IsError || len(result.Content) != 1 || result.Content[0].Type != "text" || result.Content[0].Text != expected {
 		t.Fatalf("unexpected echo tool result: %+v", result)
 	}
 }
