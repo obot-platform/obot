@@ -121,7 +121,7 @@
 									return;
 								}
 								openUrl(
-									resolve(`/admin/device-mcp-servers/${encodeURIComponent(d.configHash)}`),
+									resolve(`/admin/devices/mcp-servers/${encodeURIComponent(d.configHash)}`),
 									isCtrlClick
 								);
 							}}
@@ -149,7 +149,10 @@
 								{ title: 'Has Scripts', property: 'hasScripts' }
 							]}
 							onClickRow={(d, isCtrlClick) => {
-								openUrl(resolve(`/admin/device-skills/${encodeURIComponent(d.name)}`), isCtrlClick);
+								openUrl(
+									resolve(`/admin/devices/skills/${encodeURIComponent(d.name)}`),
+									isCtrlClick
+								);
 							}}
 						>
 							{#snippet onRenderColumn(property, d)}

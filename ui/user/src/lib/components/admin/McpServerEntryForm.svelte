@@ -551,6 +551,7 @@
 				oauthURLs = undefined;
 				oauthURL = undefined;
 				oauthDialog?.close();
+				configDialog?.close();
 			}
 		} catch (err) {
 			const errMessage = err instanceof Error ? err.message : 'An unknown error occurred';

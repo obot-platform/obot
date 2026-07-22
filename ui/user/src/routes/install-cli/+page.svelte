@@ -153,6 +153,30 @@
 				</p>
 			</div>
 
+			<div class="paper" id="obot-cli-command-mcp">
+				{@render commandPreview('obot mcp')}
+				<p class="mb-2">
+					Use <code class="inline-code">obot mcp</code> to install and manage MCP servers. We
+					support Claude, Codex, and all clients that support
+					<code class="inline-code">~/.agents</code>, including:
+				</p>
+				{@render supportedClients('size-6')}
+
+				<ul class="list-disc font-light flex flex-col gap-2 @lg/cli:px-8 px-4 text-sm">
+					<li>
+						<p class="mb-2">
+							Search Obot for installable MCP servers from your AI client using the following skill:
+						</p>
+						<div class="mb-2">
+							{@render slashCommandPreview(
+								'/obot-search-mcp-servers',
+								'Search Obot for installable MCP servers. (user)'
+							)}
+						</div>
+					</li>
+				</ul>
+			</div>
+
 			<div class="paper" id="obot-cli-command-skills">
 				{@render commandPreview('obot skills')}
 				<p>
@@ -179,39 +203,6 @@
 						)}
 					</li>
 				</ul>
-			</div>
-
-			<div class="paper" id="obot-cli-command-scan">
-				{@render commandPreview('obot scan')}
-				<div>
-					<p class="mb-2">
-						Use <code class="inline-code">obot scan</code> to inventory your AI clients, skills, MCP servers,
-						and more.
-					</p>
-					<ul class="list-disc font-light flex flex-col gap-2 @lg/cli:px-8 px-4 text-sm">
-						<li>Crawls your home directory for MCP servers, skills, and plugins</li>
-						<li>Stable device identity for ongoing visibility</li>
-						<li>
-							<p class="mb-1">Supported AI Clients:</p>
-							{@render supportedClients('size-6')}
-						</li>
-						<li>
-							<p class="mb-2">After reviewing your scan results, submit via:</p>
-							<div class="command-preview">
-								<pre data-prefix="$" class="m-0"><code>obot scan --submit</code></pre>
-							</div>
-						</li>
-						<li>
-							<p class="mb-2">
-								Kick off a scan directly from your AI clients using the following skill:
-							</p>
-							{@render slashCommandPreview(
-								'/obot-scan',
-								'Scan local AI client configuration and submit it to Obot. (user)'
-							)}
-						</li>
-					</ul>
-				</div>
 			</div>
 		</div>
 	</div>
@@ -271,8 +262,10 @@
 				><CheckIcon class="text-success size-4 inline" /> Connected Cursor and Claude Code</code
 			></pre>
 		<pre></pre>
-		<pre data-prefix="$"><code>obot scan</code></pre>
-		<pre data-prefix=">"><code>27 MCP servers and 14 skills discovered</code></pre>
+		<pre data-prefix="$"><code>obot mcp</code></pre>
+		<pre data-prefix=">"><code
+				><CheckIcon class="text-success size-4 inline" /> 24 MCP servers available</code
+			></pre>
 		<pre></pre>
 		<pre data-prefix="$"><code>obot skills search</code></pre>
 		<pre data-prefix=">"><code

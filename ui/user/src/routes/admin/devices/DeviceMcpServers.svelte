@@ -109,7 +109,7 @@
 		onClearAllFilters={() => clearUrlParams(['name', 'transport'])}
 		onClickRow={(d, isCtrlClick) => {
 			openUrl(
-				resolve(`/admin/device-mcp-servers/${encodeURIComponent(d.configHash)}`),
+				resolve(`/admin/devices/mcp-servers/${encodeURIComponent(d.configHash)}`),
 				isCtrlClick
 			);
 		}}

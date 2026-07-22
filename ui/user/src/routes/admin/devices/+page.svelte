@@ -2,7 +2,6 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import Layout from '$lib/components/Layout.svelte';
-	import ObotCliBanner from '$lib/components/ObotCliBanner.svelte';
 	import OverflowContainer from '$lib/components/OverflowContainer.svelte';
 	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
 	import DeviceScanDonutCard from '$lib/components/admin/device-scan/DeviceScanDonutCard.svelte';
@@ -213,8 +212,6 @@
 		in:fly={{ x: 100, duration, delay: duration }}
 		out:fly={{ x: -100, duration }}
 	>
-		<ObotCliBanner description="Gain insight into the AI tooling used in your organization." />
-
 		<div class="w-full">
 			<OverflowContainer
 				class="scrollbar-none flex shrink-0 min-h-12 w-full items-center gap-2 overflow-x-auto"
@@ -296,10 +293,10 @@
 		</a>
 	{:else if tile.seeMore === 'mcps'}
 		<a
-			href={resolve('/admin/device-mcp-servers')}
+			href={resolve('/admin/devices/mcp-servers')}
 			onclick={(e) => {
 				e.preventDefault();
-				openUrl(resolve('/admin/device-mcp-servers'), e.ctrlKey || e.metaKey);
+				openUrl(resolve('/admin/devices/mcp-servers'), e.ctrlKey || e.metaKey);
 			}}
 			class="hover:bg-base-300/50 group flex items-center justify-between gap-3 p-4 transition-colors"
 		>
@@ -307,10 +304,10 @@
 		</a>
 	{:else if tile.seeMore === 'skills'}
 		<a
-			href={resolve('/admin/device-skills')}
+			href={resolve('/admin/devices/skills')}
 			onclick={(e) => {
 				e.preventDefault();
-				openUrl(resolve('/admin/device-skills'), e.ctrlKey || e.metaKey);
+				openUrl(resolve('/admin/devices/skills'), e.ctrlKey || e.metaKey);
 			}}
 			class="hover:bg-base-300/50 group flex items-center justify-between gap-3 p-4 transition-colors"
 		>

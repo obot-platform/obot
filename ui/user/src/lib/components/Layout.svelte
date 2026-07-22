@@ -418,7 +418,8 @@
 								href: '/admin/devices',
 								label: 'Devices',
 								disabled: isBootStrapUser,
-								collapsible: false
+								collapsible: false,
+								beta: true
 							}
 						]
 					},
@@ -600,6 +601,18 @@
 				: []
 	);
 
+	function collectBetaHrefs(links: NavLink[]): string[] {
+		return links.flatMap((link) => [
+			...(link.beta && link.href ? [link.href] : []),
+			...(link.items ? collectBetaHrefs(link.items) : [])
+		]);
+	}
+
+	let betaRoutes = $derived(collectBetaHrefs([...defaultLinks, ...managementLinks]));
+	let isBetaRoute = $derived(
+		betaRoutes.some((href) => pathname === href || pathname.startsWith(`${href}/`))
+	);
+
 	$effect(() => {
 		if (responsive.isMobile) {
 			layout.sidebarOpen = false;
@@ -705,7 +718,7 @@
 		{:else if layout.sidebarOpen && !hideSidebar}
 			<div
 				class={twMerge(
-					'bg-base-100 dark:bg-base-200 flex max-h-dvh w-full min-w-dvw shrink-0 flex-col md:w-1/6 md:max-w-xl md:min-w-[310px]',
+					'bg-base-100 dark:bg-base-200 flex max-h-dvh w-full min-w-dvw shrink-0 flex-col md:w-1/6 md:max-w-xl md:min-w-80.5',
 					classes?.sidebarRoot
 				)}
 				transition:slide={{ axis: 'x' }}
@@ -919,8 +932,16 @@
 			{#if subtitle}
 				<span class="text-xs font-light text-muted-content">{subtitle}</span>
 			{/if}
-			<h1 class={twMerge('text-xl font-semibold', !layout.sidebarOpen && classes?.noSidebarTitle)}>
+			<h1
+				class={twMerge(
+					'text-xl font-semibold flex items-center gap-2',
+					!layout.sidebarOpen && classes?.noSidebarTitle
+				)}
+			>
 				{title}
+				{#if isBetaRoute}
+					<span class="badge badge-primary badge-sm font-medium uppercase">Beta</span>
+				{/if}
 			</h1>
 		</div>
 	{/if}
@@ -1049,7 +1070,7 @@
 	{/if}
 	{link.label}
 	{#if link.beta}
-		<span class="badge badge-primary badge-xs">Beta</span>
+		<span class="badge badge-primary badge-xs font-medium uppercase">Beta</span>
 	{/if}
 {/snippet}
 

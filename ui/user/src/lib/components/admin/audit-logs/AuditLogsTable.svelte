@@ -82,7 +82,7 @@
 			const server = resolveServerName(target.parent);
 			return {
 				primary: server || tool || 'Unknown',
-				secondary: server && tool ? `› ${tool}` : undefined
+				secondary: server && tool ? `${tool}` : undefined
 			};
 		}
 		if (target.targetType === 'mcp_server') {
