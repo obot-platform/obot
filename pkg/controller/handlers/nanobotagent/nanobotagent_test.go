@@ -121,6 +121,7 @@ func TestNanobotParseModelProviderNamedRoutes(t *testing.T) {
 	}{
 		{system.AnthropicModelProvider, nanobottypes.DialectAnthropicMessages, "https://obot.example.com/api/llm-proxy/anthropic/v1"},
 		{system.OpenAIModelProvider, nanobottypes.DialectOpenAIResponses, "https://obot.example.com/api/llm-proxy/openai/v1"},
+		{system.OpenAIModelProvider, nanobottypes.DialectOpenAIChatCompletions, "https://obot.example.com/api/llm-proxy/openai/v1"},
 		{system.GenericResponsesModelProvider, nanobottypes.DialectOpenResponses, "https://obot.example.com/api/llm-proxy/generic-responses/v1"},
 	} {
 		model := resolvedLLMModel{
@@ -128,7 +129,10 @@ func TestNanobotParseModelProviderNamedRoutes(t *testing.T) {
 			ModelProvider:   tc.provider,
 			ProviderDialect: tc.dialect,
 		}
-		p, _ := h.parseModelProvider(model)
+		p, _, err := h.parseModelProvider(model)
+		if err != nil {
+			t.Fatalf("parseModelProvider: %v", err)
+		}
 		if p.BaseURL != tc.wantBaseURL {
 			t.Errorf("dialect %s: baseURL = %q, want %q", tc.dialect, p.BaseURL, tc.wantBaseURL)
 		}
@@ -149,10 +153,12 @@ func TestNanobotParseModelProviderBuiltinFallbacks(t *testing.T) {
 		{system.OpenAIModelProvider, nanobottypes.DialectOpenAIResponses, "https://obot.example.com/api/llm-proxy/openai/v1"},
 		{system.AnthropicModelProvider, nanobottypes.DialectAnthropicMessages, "https://obot.example.com/api/llm-proxy/anthropic/v1"},
 		{system.GenericResponsesModelProvider, nanobottypes.DialectOpenResponses, "https://obot.example.com/api/llm-proxy/generic-responses/v1"},
-		{"unknown-model-provider", nanobottypes.DialectOpenResponses, "https://obot.example.com/api/llm-proxy"},
 	} {
 		model := resolvedLLMModel{Name: "my-model", ModelProvider: tc.modelProvider}
-		p, qualifiedName := h.parseModelProvider(model)
+		p, qualifiedName, err := h.parseModelProvider(model)
+		if err != nil {
+			t.Fatalf("parseModelProvider: %v", err)
+		}
 		if p.Dialect != tc.wantDialect {
 			t.Errorf("%s: dialect = %q, want %q", tc.modelProvider, p.Dialect, tc.wantDialect)
 		}
@@ -163,6 +169,19 @@ func TestNanobotParseModelProviderBuiltinFallbacks(t *testing.T) {
 		if qualifiedName != wantName {
 			t.Errorf("%s: qualified name = %q, want %q", tc.modelProvider, qualifiedName, wantName)
 		}
+	}
+}
+
+func TestNanobotParseModelProviderRejectsUnsupportedProvider(t *testing.T) {
+	h := &Handler{serverURL: "https://obot.example.com"}
+
+	_, _, err := h.parseModelProvider(resolvedLLMModel{
+		Name:            "my-model",
+		ModelProvider:   "unknown-model-provider",
+		ProviderDialect: nanobottypes.DialectOpenResponses,
+	})
+	if err == nil {
+		t.Fatal("expected unsupported provider error")
 	}
 }
 
@@ -206,7 +225,10 @@ func TestNanobotParseModelProviderBedrockRoutes(t *testing.T) {
 				ModelProvider:   tc.modelProvider,
 				ProviderDialect: tc.dialect,
 			}
-			p, qualifiedName := h.parseModelProvider(model)
+			p, qualifiedName, err := h.parseModelProvider(model)
+			if err != nil {
+				t.Fatalf("parseModelProvider: %v", err)
+			}
 			if p.BaseURL != tc.wantBaseURL {
 				t.Fatalf("BaseURL = %q, want %q", p.BaseURL, tc.wantBaseURL)
 			}
@@ -256,11 +278,14 @@ func TestNanobotParseModelProviderAzureRoutes(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			p, _ := h.parseModelProvider(resolvedLLMModel{
+			p, _, err := h.parseModelProvider(resolvedLLMModel{
 				Name:            "azure-model",
 				ModelProvider:   tc.modelProvider,
 				ProviderDialect: tc.dialect,
 			})
+			if err != nil {
+				t.Fatalf("parseModelProvider: %v", err)
+			}
 			if p.BaseURL != tc.wantBaseURL {
 				t.Fatalf("BaseURL = %q, want %q", p.BaseURL, tc.wantBaseURL)
 			}
@@ -416,8 +441,14 @@ func TestMultipleProvidersWhenLLMAndMiniDiffer(t *testing.T) {
 		ModelProvider: system.OpenAIModelProvider,
 	}
 
-	llmProvider, llmDefault := h.parseModelProvider(llmModel)
-	miniProvider, miniDefault := h.parseModelProvider(miniModel)
+	llmProvider, llmDefault, err := h.parseModelProvider(llmModel)
+	if err != nil {
+		t.Fatalf("parseModelProvider LLM: %v", err)
+	}
+	miniProvider, miniDefault, err := h.parseModelProvider(miniModel)
+	if err != nil {
+		t.Fatalf("parseModelProvider mini LLM: %v", err)
+	}
 
 	if llmDefault != system.AnthropicModelProvider+"/anthropic-claude-sonnet-4-6" {
 		t.Errorf("llmDefault = %q, want %s/anthropic-claude-sonnet-4-6", llmDefault, system.AnthropicModelProvider)

@@ -231,13 +231,19 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 	if err != nil {
 		return err
 	}
-	llmProvider, llmDefault := h.parseModelProvider(llmModel)
+	llmProvider, llmDefault, err := h.parseModelProvider(llmModel)
+	if err != nil {
+		return fmt.Errorf("failed to configure LLM model: %w", err)
+	}
 
 	miniModel, err := resolveModel(ctx, req.Client, req.Namespace, types.DefaultModelAliasTypeLLMMini)
 	if err != nil {
 		return err
 	}
-	miniProvider, miniDefault := h.parseModelProvider(miniModel)
+	miniProvider, miniDefault, err := h.parseModelProvider(miniModel)
+	if err != nil {
+		return fmt.Errorf("failed to configure mini LLM model: %w", err)
+	}
 
 	providerYAML, err := buildNanobotProviderConfigYAML(llmProvider, miniProvider)
 	if err != nil {
@@ -407,9 +413,8 @@ type nanobotLLMProvider struct {
 // model name (provider/model) for a resolved model.
 //
 // If the provider has declared a dialect via ProviderMeta.Dialect, that dialect
-// is used and the base URL is derived from it. Otherwise the known built-in
-// providers supply both; everything else falls back to OpenResponses.
-func (h *Handler) parseModelProvider(model resolvedLLMModel) (nanobotLLMProvider, string) {
+// is used. Otherwise the known built-in providers supply a default dialect.
+func (h *Handler) parseModelProvider(model resolvedLLMModel) (nanobotLLMProvider, string, error) {
 	name := model.ModelProvider
 	envVarName := strings.ToUpper(strings.ReplaceAll(name, "-", "_")) + "_API_KEY"
 
@@ -427,6 +432,10 @@ func (h *Handler) parseModelProvider(model resolvedLLMModel) (nanobotLLMProvider
 
 	baseURL := h.serverURL + "/api/llm-proxy"
 	switch model.ModelProvider {
+	case system.OpenAIModelProvider:
+		baseURL += "/openai/v1"
+	case system.AnthropicModelProvider:
+		baseURL += "/anthropic/v1"
 	case system.GenericResponsesModelProvider:
 		baseURL += "/generic-responses/v1"
 	case system.AmazonBedrockModelProvider:
@@ -438,12 +447,7 @@ func (h *Handler) parseModelProvider(model resolvedLLMModel) (nanobotLLMProvider
 	case system.AzureEntraModelProvider:
 		baseURL += "/azure-entra/v1"
 	default:
-		switch dialect {
-		case nanobottypes.DialectAnthropicMessages:
-			baseURL += "/anthropic/v1"
-		case nanobottypes.DialectOpenAIResponses:
-			baseURL += "/openai/v1"
-		}
+		return nanobotLLMProvider{}, "", fmt.Errorf("unsupported model provider %q", model.ModelProvider)
 	}
 
 	p := nanobotLLMProvider{
@@ -452,7 +456,7 @@ func (h *Handler) parseModelProvider(model resolvedLLMModel) (nanobotLLMProvider
 		APIKey:  fmt.Sprintf("${%s}", envVarName),
 		BaseURL: baseURL,
 	}
-	return p, fmt.Sprintf("%s/%s", p.Name, model.Name)
+	return p, fmt.Sprintf("%s/%s", p.Name, model.Name), nil
 }
 
 // buildNanobotProviderConfigYAML generates a nanobot Config YAML containing only the
