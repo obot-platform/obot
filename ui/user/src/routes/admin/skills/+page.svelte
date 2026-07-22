@@ -4,7 +4,6 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
-	import ObotCliBanner from '$lib/components/ObotCliBanner.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
@@ -200,7 +199,6 @@
 
 <Layout classes={{ navbar: 'bg-base-200' }} title="Skills">
 	<div class="flex min-h-full flex-col gap-2">
-		<ObotCliBanner description="Give users easy installation & access to their curated skills." />
 		<div class="flex min-h-full flex-col">
 			<div class="bg-base-200 dark:bg-base-100 sticky top-16 left-0 z-20 w-full py-1">
 				<div class="mb-2">

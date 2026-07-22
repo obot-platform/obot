@@ -2,7 +2,6 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import Layout from '$lib/components/Layout.svelte';
-	import ObotCliBanner from '$lib/components/ObotCliBanner.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { Group } from '$lib/services';
@@ -29,8 +28,10 @@
 </script>
 
 <Layout classes={{ navbar: 'bg-base-200', container: 'pt-0' }} {title}>
+	{#snippet rightNavActions()}
+		<a class="btn btn-primary" href={resolve('/install-/cli')}>Get Obot CLI</a>
+	{/snippet}
 	<div class="flex min-h-full flex-col gap-2" in:fade>
-		<ObotCliBanner description="Get access to MCP servers via the Obot CLI." />
 		{@render mainContent()}
 	</div>
 </Layout>

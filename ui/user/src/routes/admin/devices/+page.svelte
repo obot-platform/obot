@@ -2,7 +2,6 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import Layout from '$lib/components/Layout.svelte';
-	import ObotCliBanner from '$lib/components/ObotCliBanner.svelte';
 	import OverflowContainer from '$lib/components/OverflowContainer.svelte';
 	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
 	import DeviceScanDonutCard from '$lib/components/admin/device-scan/DeviceScanDonutCard.svelte';
@@ -213,8 +212,6 @@
 		in:fly={{ x: 100, duration, delay: duration }}
 		out:fly={{ x: -100, duration }}
 	>
-		<ObotCliBanner description="Gain insight into the AI tooling used in your organization." />
-
 		<div class="w-full">
 			<OverflowContainer
 				class="scrollbar-none flex shrink-0 min-h-12 w-full items-center gap-2 overflow-x-auto"

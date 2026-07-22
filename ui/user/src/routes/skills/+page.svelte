@@ -1,9 +1,9 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import CopyField from '$lib/components/CopyField.svelte';
 	import Layout from '$lib/components/Layout.svelte';
-	import ObotCliBanner from '$lib/components/ObotCliBanner.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import Table from '$lib/components/table/Table.svelte';
@@ -102,8 +102,10 @@
 </script>
 
 <Layout classes={{ navbar: 'bg-base-200', container: 'pt-0' }} title="Skills">
+	{#snippet rightNavActions()}
+		<a class="btn btn-primary" href={resolve('/install-cli')}>Get Obot CLI</a>
+	{/snippet}
 	<div class="flex min-h-full flex-col gap-2">
-		<ObotCliBanner description="Download the Obot CLI to install skills." />
 		<div class="flex min-h-full flex-col">
 			<div class="bg-base-200 dark:bg-base-100 sticky top-16 left-0 z-20 w-full py-1">
 				<div class="mb-2">
