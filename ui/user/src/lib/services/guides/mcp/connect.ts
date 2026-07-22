@@ -89,7 +89,8 @@ export const steps: GuideStep[] = [
 						},
 						title: 'Install via Quick Install Link',
 						description:
-							'Click the quick install link to install the MCP server into your AI client.'
+							'Click the quick install link to install the MCP server into your AI client.',
+						noDescendantInteraction: true
 					},
 					listener: {
 						id: 'magic-links-container',

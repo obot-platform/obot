@@ -5,7 +5,7 @@ import {
 	highlightMcpCatalogLink,
 	listenMcpCatalogLink,
 	SIDEBAR_MCP_CATALOG_LINK,
-	addCatalogEntryDescriptions
+	obotCatalogEntryDescriptions
 } from './constants';
 
 // shared steps that are used in mcp specific guides
@@ -60,7 +60,7 @@ export function getHighlightAddCatalogEntryStep(
 
 	return {
 		content: [
-			'Create and manage your MCP catalog entries here. To start creating a custom entry, click the "Add Catalog Entry" button.'
+			'Create and manage your MCP catalog entries here. To start, click the "Add Catalog Entry" button.'
 		],
 		action: {
 			highlight: {
@@ -79,7 +79,7 @@ export function getHighlightAddCatalogEntryStep(
 							id: SECTION_ID
 						},
 						title: `Add ${toCapitalize(type)} Server`,
-						description: `${addCatalogEntryDescriptions[type]} Click here and let's go through creating one now.`
+						description: obotCatalogEntryDescriptions[type]
 					},
 					listener: {
 						id: SECTION_ID,

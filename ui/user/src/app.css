@@ -1321,6 +1321,14 @@
 	pointer-events: none;
 }
 
+/*
+ * highlight.noDescendantInteraction — descendants are inert; the active element itself stays
+ * clickable so guide listeners can still advance the step.
+ */
+.driver-active .driver-active-element.guide-no-descendant-events * {
+	pointer-events: none !important;
+}
+
 @layer utilities {
 	.toggle {
 		border-color: transparent;
