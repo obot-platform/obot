@@ -45,7 +45,7 @@
 	type RepositoryCredentialType = '' | 'shared' | 'token';
 
 	const repositoryCredentialOptions = [
-		{ id: 'shared', label: 'Shared Git Credential' },
+		{ id: 'shared', label: 'Saved Git Credential' },
 		{ id: 'token', label: 'Personal Access Token' }
 	];
 
@@ -708,15 +708,15 @@
 				{#if editingSource.credentialType === 'shared'}
 					<div class="flex flex-col gap-1">
 						<label for="skill-source-git-credential" class="text-sm font-light">
-							Shared Git credential
+							Saved Git credential
 						</label>
 						<Select
 							id="skill-source-git-credential"
 							options={gitCredentialOptions}
 							selected={editingSource.gitCredentialID}
 							placeholder={gitCredentials.length
-								? 'Select a shared credential'
-								: 'No shared credentials'}
+								? 'Select a saved credential'
+								: 'No saved credentials'}
 							searchInDropdown
 							onSelect={(option) => {
 								if (editingSource) {
