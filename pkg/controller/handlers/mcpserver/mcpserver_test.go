@@ -7,8 +7,12 @@ import (
 
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
+	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
+	storageservices "github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -17,6 +21,7 @@ import (
 )
 
 func TestConfigurationHasDrifted(t *testing.T) {
+	gatewayClient := newTestGatewayClient(t)
 	tests := []struct {
 		name           string
 		serverManifest types.MCPServerManifest
@@ -1004,7 +1009,14 @@ func TestConfigurationHasDrifted(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			drifted, err := ConfigurationHasDrifted(tt.serverManifest, tt.entryManifest, false)
+			server := &v1.MCPServer{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-server"},
+				Spec: v1.MCPServerSpec{
+					UserID:   "test-user",
+					Manifest: tt.serverManifest,
+				},
+			}
+			drifted, err := ConfigurationHasDrifted(t.Context(), gatewayClient, server, tt.entryManifest, false)
 
 			if tt.expectedError {
 				if err == nil {
@@ -1021,6 +1033,58 @@ func TestConfigurationHasDrifted(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestConfigurationHasDriftedRestoresStaticValuesWithoutMutatingServer(t *testing.T) {
+	gatewayClient := newTestGatewayClient(t)
+	referenceManifest := types.MCPServerCatalogEntryManifest{
+		Runtime: types.RuntimeRemote,
+		Env: []types.MCPEnv{
+			{MCPHeader: types.MCPHeader{Key: "STATIC_ENV", Value: "stored-env"}},
+			{MCPHeader: types.MCPHeader{Key: "DYNAMIC_ENV"}},
+		},
+		RemoteConfig: &types.RemoteCatalogConfig{
+			FixedURL: "https://api.example.com/mcp",
+			Headers: []types.MCPHeader{
+				{Key: "STATIC_HEADER", Value: "stored-header"},
+				{Key: "EXISTING_HEADER", Value: "configured"},
+			},
+		},
+	}
+	server := &v1.MCPServer{
+		ObjectMeta: metav1.ObjectMeta{Name: "shared-server"},
+		Spec: v1.MCPServerSpec{
+			MCPCatalogID: "default",
+			Manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeRemote,
+				Env: []types.MCPEnv{
+					{MCPHeader: types.MCPHeader{Key: "STATIC_ENV"}},
+					{MCPHeader: types.MCPHeader{Key: "DYNAMIC_ENV"}},
+				},
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					URL: "https://api.example.com/mcp",
+					Headers: []types.MCPHeader{
+						{Key: "STATIC_HEADER"},
+						{Key: "EXISTING_HEADER", Value: "configured"},
+					},
+				},
+			},
+		},
+	}
+	require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: "default-shared-server",
+		Name:    server.Name,
+		Secrets: map[string]string{
+			"STATIC_ENV":    "stored-env",
+			"STATIC_HEADER": "stored-header",
+		},
+	}))
+
+	drifted, err := ConfigurationHasDrifted(t.Context(), gatewayClient, server, referenceManifest, false)
+	require.NoError(t, err)
+	assert.False(t, drifted)
+	assert.Empty(t, server.Spec.Manifest.Env[0].Value)
+	assert.Empty(t, server.Spec.Manifest.RemoteConfig.Headers[0].Value)
 }
 
 func TestRuntimeSpecificDriftFunctions(t *testing.T) {
@@ -1448,6 +1512,18 @@ func newMCPServerCatalogEntry(name string, manifest types.MCPServerCatalogEntryM
 			Manifest: manifest,
 		},
 	}
+}
+
+func newTestGatewayClient(t *testing.T) *gatewayclient.Client {
+	t.Helper()
+	storageServices, err := storageservices.New(storageservices.Config{DSN: "sqlite://:memory:"})
+	require.NoError(t, err)
+	database, err := gatewaydb.New(storageServices.DB.DB, storageServices.DB.SQLDB, true)
+	require.NoError(t, err)
+	require.NoError(t, database.AutoMigrate())
+	gatewayClient := gatewayclient.New(t.Context(), database, nil, nil, nil, nil, nil, time.Hour, 10, 90, 90, true)
+	t.Cleanup(func() { _ = gatewayClient.Close() })
+	return gatewayClient
 }
 
 func TestShouldSyncOAuthMetadata(t *testing.T) {
