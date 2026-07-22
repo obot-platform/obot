@@ -293,10 +293,10 @@
 		</a>
 	{:else if tile.seeMore === 'mcps'}
 		<a
-			href={resolve('/admin/device-mcp-servers')}
+			href={resolve('/admin/devices/mcp-servers')}
 			onclick={(e) => {
 				e.preventDefault();
-				openUrl(resolve('/admin/device-mcp-servers'), e.ctrlKey || e.metaKey);
+				openUrl(resolve('/admin/devices/mcp-servers'), e.ctrlKey || e.metaKey);
 			}}
 			class="hover:bg-base-300/50 group flex items-center justify-between gap-3 p-4 transition-colors"
 		>
@@ -304,10 +304,10 @@
 		</a>
 	{:else if tile.seeMore === 'skills'}
 		<a
-			href={resolve('/admin/device-skills')}
+			href={resolve('/admin/devices/skills')}
 			onclick={(e) => {
 				e.preventDefault();
-				openUrl(resolve('/admin/device-skills'), e.ctrlKey || e.metaKey);
+				openUrl(resolve('/admin/devices/skills'), e.ctrlKey || e.metaKey);
 			}}
 			class="hover:bg-base-300/50 group flex items-center justify-between gap-3 p-4 transition-colors"
 		>

@@ -1,37 +1,6 @@
-import { handleRouteError } from '$lib/errors';
-import { AdminService } from '$lib/services';
-import type {
-	DeviceMCPServerOccurrenceResponse,
-	DeviceMCPServerDetail
-} from '$lib/services/admin/types';
-import { profile } from '$lib/stores';
 import type { PageLoad } from './$types';
+import { redirect } from '@sveltejs/kit';
 
-const PAGE_SIZE = 50;
-
-export const load: PageLoad = async ({
-	params,
-	url,
-	fetch
-}: {
-	params: { hash: string };
-	url: URL;
-	fetch: typeof globalThis.fetch;
-}) => {
-	const offset = parseInt(url.searchParams.get('offset') ?? '0', 10) || 0;
-	let detail: DeviceMCPServerDetail | null;
-	let occurrences: DeviceMCPServerOccurrenceResponse;
-	try {
-		[detail, occurrences] = await Promise.all([
-			AdminService.getDeviceMCPServerDetail(params.hash, { fetch }),
-			AdminService.listDeviceMCPServerOccurrences(
-				params.hash,
-				{ limit: PAGE_SIZE, offset },
-				{ fetch }
-			)
-		]);
-		return { detail, occurrences, pageSize: PAGE_SIZE };
-	} catch (err) {
-		handleRouteError(err, `/admin/device-mcp-servers/${params.hash}`, profile.current);
-	}
+export const load: PageLoad = ({ params, url }) => {
+	throw redirect(301, `/admin/devices/mcp-servers/${encodeURIComponent(params.hash)}${url.search}`);
 };

@@ -363,7 +363,7 @@
 													const isCtrlClick = e.ctrlKey || e.metaKey;
 													openUrl(
 														resolve(
-															`${urlPrefix}/device-mcp-servers/${encodeURIComponent(d.configHash)}`
+															`${urlPrefix}/devices/mcp-servers/${encodeURIComponent(d.configHash)}`
 														),
 														isCtrlClick
 													);
@@ -427,7 +427,7 @@
 												onclick={(e) => {
 													const isCtrlClick = e.ctrlKey || e.metaKey;
 													openUrl(
-														resolve(`${urlPrefix}/device-skills/${encodeURIComponent(d.name)}`),
+														resolve(`${urlPrefix}/devices/skills/${encodeURIComponent(d.name)}`),
 														isCtrlClick
 													);
 													toggle();
@@ -573,7 +573,7 @@
 	{#if client && client.trim() !== 'multi' && client !== AGENTS_HOME_CLIENT_LABEL && hasAdminAccess}
 		<a
 			class="btn-link text-blue-500"
-			href={resolve(`${urlPrefix}/device-clients/${encodeURIComponent(client)}`)}
+			href={resolve(`${urlPrefix}/devices/clients/${encodeURIComponent(client)}`)}
 			onclick={(e) => e.stopPropagation()}
 		>
 			{client}

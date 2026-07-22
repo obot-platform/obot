@@ -1,23 +1,6 @@
-import { handleRouteError } from '$lib/errors';
-import {
-	AdminService,
-	UserService,
-	type DeviceClientFleetSummary,
-	type OrgUser
-} from '$lib/services';
-import { profile } from '$lib/stores';
 import type { PageLoad } from './$types';
+import { redirect } from '@sveltejs/kit';
 
-export const load: PageLoad = async ({ params, fetch }) => {
-	let client: DeviceClientFleetSummary;
-	let users: OrgUser[];
-	try {
-		[client, users] = await Promise.all([
-			AdminService.getDeviceClient(params.name, { fetch }),
-			UserService.listUsers({ fetch }).catch(() => [] as OrgUser[])
-		]);
-		return { client, users };
-	} catch (err) {
-		handleRouteError(err, `/admin/device-clients/${params.name}`, profile.current);
-	}
+export const load: PageLoad = ({ params, url }) => {
+	throw redirect(301, `/admin/devices/clients/${encodeURIComponent(params.name)}${url.search}`);
 };

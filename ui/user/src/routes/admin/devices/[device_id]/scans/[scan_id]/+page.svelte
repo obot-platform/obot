@@ -461,7 +461,7 @@
 								? (d, isCtrlClick) => {
 										if (d.name.trim() === 'multi') return;
 										openUrl(
-											resolve(`${urlPrefix}/device-clients/${encodeURIComponent(d.name)}`),
+											resolve(`${urlPrefix}/devices/clients/${encodeURIComponent(d.name)}`),
 											isCtrlClick
 										);
 									}
@@ -498,7 +498,7 @@
 	{#if client && client.trim() !== 'multi' && client !== AGENTS_HOME_CLIENT_LABEL && hasAdminAccess}
 		<a
 			class="btn-link text-blue-500"
-			href={resolve(`${urlPrefix}/device-clients/${encodeURIComponent(client)}`)}
+			href={resolve(`${urlPrefix}/devices/clients/${encodeURIComponent(client)}`)}
 			onclick={(e) => e.stopPropagation()}
 		>
 			{client}
