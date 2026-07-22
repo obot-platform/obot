@@ -275,6 +275,7 @@
 
 			{#if editingSource.credentialType === 'token'}
 				<div class="mb-4 flex flex-col gap-1">
+					<label for="catalog-source-token" class="sr-only">Personal Access Token</label>
 					{#if editingSource.index >= 0 && hasSourceURLCredential(defaultCatalog?.sourceURLs?.[editingSource.index]) && !editingSource.clearToken}
 						<div class="flex justify-end">
 							<button

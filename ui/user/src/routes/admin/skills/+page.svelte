@@ -733,6 +733,7 @@
 				{/if}
 				{#if editingSource.credentialType === 'token'}
 					<div class="flex flex-col gap-1">
+						<label for="skill-source-token" class="sr-only">Personal Access Token</label>
 						<SensitiveInput
 							name="skill-source-token"
 							placeholder="Personal Access Token"
