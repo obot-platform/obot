@@ -207,11 +207,13 @@
 {/snippet}
 
 {#snippet jsonBody(name: string, value: unknown)}
-	{@const body = JSON.stringify(value, null, 2)}
 	<div class="flex flex-col gap-0.5">
 		<p class="text-base font-semibold flex items-center gap-2">
 			{name}
-			<CopyButton text={body} classes={{ button: 'text-xs font-normal flex items-center gap-1' }} />
+			<CopyButton
+				text={typeof value === 'string' ? value : JSON.stringify(value, null, 2)}
+				classes={{ button: 'text-xs font-normal flex items-center gap-1' }}
+			/>
 		</p>
 		<div class="relative mt-2">
 			<JsonPreview {value} ariaLabel={`${name} JSON`} maximizable />
