@@ -135,8 +135,7 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 		if errors.Is(err, gitcredential.ErrLegacyCredential) {
 			log.Errorf("failed to retrieve legacy credential for catalog %s source %s, continuing without authentication: %v", mcpCatalog.Name, sourceURL, err)
 			err = nil
-		}
-		if err != nil {
+		} else if err != nil {
 			log.Errorf("failed to resolve credential for catalog %s source %s: %v", mcpCatalog.Name, sourceURL, err)
 			mcpCatalog.Status.SyncErrors[sourceURL] = err.Error()
 			continue
@@ -386,8 +385,7 @@ func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {
 		if errors.Is(err, gitcredential.ErrLegacyCredential) {
 			log.Errorf("failed to retrieve legacy credential for system catalog %s source %s, continuing without authentication: %v", systemCatalog.Name, sourceURL, err)
 			err = nil
-		}
-		if err != nil {
+		} else if err != nil {
 			log.Errorf("failed to resolve credential for system catalog %s source %s: %v", systemCatalog.Name, sourceURL, err)
 			systemCatalog.Status.SyncErrors[sourceURL] = err.Error()
 			continue
