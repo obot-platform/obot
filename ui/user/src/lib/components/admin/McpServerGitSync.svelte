@@ -268,7 +268,7 @@
 				<div class="mb-4 flex flex-col gap-1">
 					<div class="flex items-center justify-between">
 						<label for="catalog-source-token" class="flex items-center gap-1 text-sm font-light">
-							Personal access token
+							Personal Access Token
 							<span
 								use:tooltip={{
 									text: 'Required scopes:\n• GitHub: repo\n• GitLab: read_repository + read_api\n\nIf no token is set, Obot falls back to the GITHUB_AUTH_TOKEN environment variable.',

@@ -738,13 +738,9 @@
 				{#if editingSource.credentialType === 'token'}
 					<div class="flex flex-col gap-1">
 						<label for="skill-source-token" class="flex items-center gap-1 text-sm font-light">
-							Personal access token
+							Personal Access Token
 						</label>
-						<SensitiveInput
-							name="skill-source-token"
-							placeholder="Required for private repositories"
-							bind:value={editingSource.token}
-						/>
+						<SensitiveInput name="skill-source-token" bind:value={editingSource.token} />
 					</div>
 				{/if}
 			</div>
