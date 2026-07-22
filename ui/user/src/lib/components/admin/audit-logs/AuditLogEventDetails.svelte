@@ -243,7 +243,10 @@
 
 {#snippet field(label: string, value: string | number | undefined | null)}
 	{#if value !== undefined && value !== null && value !== ''}
-		<p class="grid grid-cols-2 gap-2"><span class="font-medium">{label}:</span> {value}</p>
+		<p class="grid grid-cols-2 gap-2 break-all">
+			<span class="font-medium">{label}:</span>
+			{value}
+		</p>
 	{/if}
 {/snippet}
 

@@ -153,7 +153,7 @@
 					{#if auditLog.user || additRequestContent}
 						<div class="flex flex-col gap-1 px-4 py-2 text-sm font-light">
 							{#if auditLog.user}
-								<p class="grid grid-cols-2 gap-2">
+								<p class="grid grid-cols-2 gap-2 break-all">
 									<span class="font-medium">User:</span>
 									{auditLog.user}
 								</p>
