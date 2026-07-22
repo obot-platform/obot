@@ -9,6 +9,13 @@ import (
 
 var apiResources = map[string][]string{
 	types.GroupAPI: {
+		"GET    /api/hosted-agents",
+		"GET    /api/hosted-agents/{hosted_agent_id}",
+		"GET    /api/hosted-agent-instances",
+		"POST   /api/hosted-agent-instances",
+		"GET    /api/hosted-agent-instances/{hosted_agent_instance_id}",
+		"PUT    /api/hosted-agent-instances/{hosted_agent_instance_id}",
+		"DELETE /api/hosted-agent-instances/{hosted_agent_instance_id}",
 		"GET    /api/all-mcps/servers/{mcpserver_id}",
 		"GET    /api/all-mcps/servers/{mcpserver_id}/tools",
 		"GET    /api/all-mcps/servers/{mcpserver_id}/resources",
@@ -156,16 +163,18 @@ type Resources struct {
 	MCPServerInstanceID     string
 	MCPServerCatalogEntryID string
 	// MCPID can be the ID of an MCPServer, an MCPServerInstance, or MCPServerCatalogEntry. It is used for interaction with the MCP gateway.
-	MCPID               string
-	WorkspaceID         string
-	NanobotAgentID      string
-	ProjectID           string
-	PublishedArtifactID string
-	ArtifactVersion     string
-	SkillID             string
-	DeviceScanID        string
-	OAuthAuthRequestID  string
-	Authorizated        ResourcesAuthorized
+	MCPID                 string
+	WorkspaceID           string
+	NanobotAgentID        string
+	ProjectID             string
+	PublishedArtifactID   string
+	ArtifactVersion       string
+	SkillID               string
+	DeviceScanID          string
+	OAuthAuthRequestID    string
+	HostedAgentID         string
+	HostedAgentInstanceID string
+	Authorizated          ResourcesAuthorized
 }
 
 type ResourcesAuthorized struct {
@@ -177,6 +186,8 @@ type ResourcesAuthorized struct {
 	Project               *v1.Project
 	PublishedArtifact     *v1.PublishedArtifact
 	Skill                 *v1.Skill
+	HostedAgent           *v1.HostedAgent
+	HostedAgentInstance   *v1.HostedAgentInstance
 }
 
 func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user User) (bool, error) {
@@ -193,6 +204,8 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user User
 		SkillID:                 vars("skill_id"),
 		DeviceScanID:            vars("scan_id"),
 		OAuthAuthRequestID:      vars("oauth_request_id"),
+		HostedAgentID:           vars("hosted_agent_id"),
+		HostedAgentInstanceID:   vars("hosted_agent_instance_id"),
 	}
 
 	if !a.checkUser(user, vars("user_id")) {
@@ -232,6 +245,14 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user User
 	}
 
 	if ok, err := a.checkSkill(req, &resources, user); !ok || err != nil {
+		return false, err
+	}
+
+	if ok, err := a.checkHostedAgent(req, &resources, user); !ok || err != nil {
+		return false, err
+	}
+
+	if ok, err := a.checkHostedAgentInstance(req, &resources, user); !ok || err != nil {
 		return false, err
 	}
 

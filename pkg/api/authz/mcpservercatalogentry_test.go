@@ -111,5 +111,5 @@ func newCatalogEntryTestAuthorizer(t *testing.T, storage client.Client, acrs ...
 		}
 	}
 
-	return NewAuthorizer(nil, storage, storage, false, accesscontrolrule.NewAccessControlRuleHelper(indexer, storage), nil, false)
+	return NewAuthorizer(nil, storage, storage, false, accesscontrolrule.NewAccessControlRuleHelper(indexer, storage), nil, nil, false)
 }

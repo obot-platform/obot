@@ -87,6 +87,16 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	accessControlRules := handlers.NewAccessControlRuleHandler()
 	skillRepositories := handlers.NewSkillRepositoryHandler()
 	skillAccessRules := handlers.NewSkillAccessRuleHandler()
+	agentSources := handlers.NewAgentSourceHandler()
+	harnesses := handlers.NewHarnessHandler()
+	hostedAgents := handlers.NewHostedAgentHandler(services.HostedAgentAccessRuleHelper)
+	hostedAgentInstances := handlers.NewHostedAgentInstanceHandler(
+		services.HostedAgentAccessRuleHelper,
+		services.AccessControlRuleHelper,
+		services.SkillAccessRuleHelper,
+		services.ModelAccessPolicyHelper,
+	)
+	hostedAgentAccessRules := handlers.NewHostedAgentAccessRuleHandler()
 	skills := handlers.NewSkillHandler(services.SkillAccessRuleHelper)
 	powerUserWorkspaces := handlers.NewPowerUserWorkspaceHandler(services.ServerURL, services.AccessControlRuleHelper, services.MCPSecretBindingAllowedLabel)
 	mcpWebhookValidations := handlers.NewMCPWebhookValidationHandler(services.MCPSessionManager)
@@ -101,6 +111,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mdmConfigurations := handlers.NewMDMConfigurationsHandler(services.ServerURL)
 	deviceEnroll := handlers.NewDeviceEnrollHandler()
 	authProviders := handlers.NewAuthProviderHandler(services.ProviderDispatcher, services.PostgresDSN, services.LicenseProvider)
+	localAuth := handlers.NewLocalAuthHandler(services.LocalAuthProvider)
 	defaultModelAliases := handlers.NewDefaultModelAliasHandler()
 	images := handlers.NewImageHandler()
 	mcp := handlers.NewMCPHandler(services.MCPSessionManager, services.AccessControlRuleHelper, oauthChecker, services.Router.Backend(), services.MCPImagePullSecrets, services.ServerURL, services.MCPSecretBindingAllowedLabel)
@@ -421,6 +432,43 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("PUT /api/skill-access-rules/{skill_access_rule_id}", skillAccessRules.Update)
 	mux.HandleFunc("DELETE /api/skill-access-rules/{skill_access_rule_id}", skillAccessRules.Delete)
 
+	// Agent sources (admin only)
+	mux.HandleFunc("GET /api/agent-sources", agentSources.List)
+	mux.HandleFunc("POST /api/agent-sources", agentSources.Create)
+	mux.HandleFunc("GET /api/agent-sources/{agent_source_id}", agentSources.Get)
+	mux.HandleFunc("PUT /api/agent-sources/{agent_source_id}", agentSources.Update)
+	mux.HandleFunc("DELETE /api/agent-sources/{agent_source_id}", agentSources.Delete)
+	mux.HandleFunc("POST /api/agent-sources/{agent_source_id}/refresh", agentSources.Refresh)
+
+	// Harnesses (admin only) — the runtimes hosted agents are built on
+	mux.HandleFunc("GET /api/harnesses", harnesses.List)
+	mux.HandleFunc("POST /api/harnesses", harnesses.Create)
+	mux.HandleFunc("GET /api/harnesses/{harness_id}", harnesses.Get)
+	mux.HandleFunc("PUT /api/harnesses/{harness_id}", harnesses.Update)
+	mux.HandleFunc("DELETE /api/harnesses/{harness_id}", harnesses.Delete)
+
+	// Hosted agents (admin manages; users get an access-rule-filtered read-only view)
+	mux.HandleFunc("GET /api/hosted-agents", hostedAgents.List)
+	mux.HandleFunc("POST /api/hosted-agents", hostedAgents.Create)
+	mux.HandleFunc("GET /api/hosted-agents/{hosted_agent_id}", hostedAgents.Get)
+	mux.HandleFunc("PUT /api/hosted-agents/{hosted_agent_id}", hostedAgents.Update)
+	mux.HandleFunc("DELETE /api/hosted-agents/{hosted_agent_id}", hostedAgents.Delete)
+	mux.HandleFunc("POST /api/hosted-agents/{hosted_agent_id}/reveal", hostedAgents.Reveal)
+
+	// Hosted agent instances (per-user)
+	mux.HandleFunc("GET /api/hosted-agent-instances", hostedAgentInstances.List)
+	mux.HandleFunc("POST /api/hosted-agent-instances", hostedAgentInstances.Create)
+	mux.HandleFunc("GET /api/hosted-agent-instances/{hosted_agent_instance_id}", hostedAgentInstances.Get)
+	mux.HandleFunc("PUT /api/hosted-agent-instances/{hosted_agent_instance_id}", hostedAgentInstances.Update)
+	mux.HandleFunc("DELETE /api/hosted-agent-instances/{hosted_agent_instance_id}", hostedAgentInstances.Delete)
+
+	// Hosted agent access rules (admin only)
+	mux.HandleFunc("GET /api/hosted-agent-access-rules", hostedAgentAccessRules.List)
+	mux.HandleFunc("POST /api/hosted-agent-access-rules", hostedAgentAccessRules.Create)
+	mux.HandleFunc("GET /api/hosted-agent-access-rules/{hosted_agent_access_rule_id}", hostedAgentAccessRules.Get)
+	mux.HandleFunc("PUT /api/hosted-agent-access-rules/{hosted_agent_access_rule_id}", hostedAgentAccessRules.Update)
+	mux.HandleFunc("DELETE /api/hosted-agent-access-rules/{hosted_agent_access_rule_id}", hostedAgentAccessRules.Delete)
+
 	// OAuthClients
 	mux.HandleFunc("GET /api/oauth-clients", oauthClients.List)
 	mux.HandleFunc("POST /api/oauth-clients", oauthClients.Create)
@@ -499,6 +547,12 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("POST /api/auth-providers/{id}/configure", authProviders.Configure)
 	mux.HandleFunc("POST /api/auth-providers/{id}/deconfigure", authProviders.Deconfigure)
 	mux.HandleFunc("POST /api/auth-providers/{id}/reveal", authProviders.Reveal)
+
+	// Local auth provider users
+	mux.HandleFunc("GET /api/local-auth/users", localAuth.List)
+	mux.HandleFunc("POST /api/local-auth/users", localAuth.Create)
+	mux.HandleFunc("POST /api/local-auth/users/{id}/password", localAuth.SetPassword)
+	mux.HandleFunc("DELETE /api/local-auth/users/{id}", localAuth.Delete)
 
 	// Bootstrap
 	mux.HandleFunc("GET /api/bootstrap", services.Bootstrapper.IsEnabled)

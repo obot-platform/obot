@@ -5,9 +5,11 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/generationed"
 	"github.com/obot-platform/obot/pkg/controller/handlers/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/controller/handlers/adminworkspace"
+	"github.com/obot-platform/obot/pkg/controller/handlers/agentsource"
 	"github.com/obot-platform/obot/pkg/controller/handlers/alias"
 	"github.com/obot-platform/obot/pkg/controller/handlers/auditlogexport"
 	"github.com/obot-platform/obot/pkg/controller/handlers/cleanup"
+	"github.com/obot-platform/obot/pkg/controller/handlers/hostedagent"
 	"github.com/obot-platform/obot/pkg/controller/handlers/imagepullsecret"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpcatalog"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpserver"
@@ -53,6 +55,8 @@ func (c *Controller) setupRoutes() {
 	oauthclients := oauthclients.NewHandler(c.services.GatewayClient)
 	systemMCPServerHandler := systemmcpserver.New(c.services.GatewayClient, c.services.MCPSessionManager, c.services.ServerURL)
 	nanobotAgentHandler := nanobotagent.New(c.services.GatewayClient, c.services.LocalRouter, c.services.NanobotAgentImage, c.services.ServerURL, c.services.MCPServerNamespace, c.services.MCPSessionManager)
+	agentSourceHandler := agentsource.New()
+	hostedAgentHandler := hostedagent.New(c.services.ServerURL)
 	oktaGroupMigrationHandler := oktagroupmigration.New()
 	projectHandler := project.New(c.services.GatewayClient)
 	imagePullSecretHandler := imagepullsecret.New(c.services.GatewayClient, c.services.LocalK8sClient, c.services.MCPRuntimeBackend, c.services.MCPServerNamespace, c.services.ServiceNamespace, c.services.ServiceAccountName, c.services.MCPImagePullSecrets, c.services.ServiceAccountIssuerURL)
@@ -103,6 +107,18 @@ func (c *Controller) setupRoutes() {
 
 	// Skill
 	root.Type(&v1.Skill{}).HandlerFunc(cleanup.Cleanup)
+
+	// AgentSource
+	root.Type(&v1.AgentSource{}).HandlerFunc(agentSourceHandler.Sync)
+
+	// HostedAgent
+	// cleanup.Cleanup honors DeleteRefs, which removes agents whose AgentSource
+	// is gone. Hand-registered agents have no SourceID and are left alone.
+	root.Type(&v1.HostedAgent{}).HandlerFunc(cleanup.Cleanup)
+
+	// HostedAgentInstance
+	root.Type(&v1.HostedAgentInstance{}).HandlerFunc(cleanup.Cleanup)
+	root.Type(&v1.HostedAgentInstance{}).HandlerFunc(hostedAgentHandler.OrchestrateInstance)
 
 	// ImagePullSecret
 	root.Type(&v1.ImagePullSecret{}).FinalizeFunc(v1.ImagePullSecretFinalizer, imagePullSecretHandler.Cleanup)

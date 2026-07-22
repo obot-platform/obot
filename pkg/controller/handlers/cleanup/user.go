@@ -39,7 +39,7 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 		return err
 	}
 
-	if err = u.gatewayClient.DeleteSessionsForUser(req.Ctx, req.Client, identities, ""); err != nil {
+	if err = u.gatewayClient.DeleteSessionsForUser(req.Ctx, req.Client, identities, "", ""); err != nil {
 		if !errors.Is(err, gclient.LogoutAllErr{}) {
 			return err
 		}

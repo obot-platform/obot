@@ -257,6 +257,13 @@ export interface AuthProvider extends BaseProvider {
 	type: 'authprovider';
 }
 
+// A user of the built-in local auth provider. Passwords are never returned by the API.
+export interface LocalAuthUser {
+	id: string;
+	email: string;
+	created: string;
+}
+
 // Devices
 export interface DeviceMCPServerStat {
 	configHash: string;
@@ -1063,6 +1070,156 @@ export interface SkillAccessPolicyManifest {
 	displayName: string;
 	subjects: AccessControlRuleSubject[];
 	resources: SkillAccessPolicyResource[];
+}
+
+// Agent sources
+
+export interface AgentSourceManifest {
+	displayName: string;
+	repoURL: string;
+	ref?: string;
+}
+
+export interface AgentSource extends AgentSourceManifest {
+	id: string;
+	created: string;
+	deleted?: string;
+	lastSyncTime?: string;
+	isSyncing?: boolean;
+	syncError?: string;
+	resolvedCommitSHA?: string;
+	discoveredAgentCount: number;
+	discoveredHarnessCount: number;
+}
+
+// Harnesses — the runtimes hosted agents are built on (e.g. "Claude Code",
+// "Codex", "Custom Python"). The harness supplies the docker image; the agent
+// supplies configuration.
+
+export interface HarnessManifest {
+	name: string;
+	description?: string;
+	icon?: string;
+	iconDark?: string;
+	image: string;
+}
+
+export interface Harness extends HarnessManifest {
+	id: string;
+	created: string;
+	deleted?: string;
+}
+
+// Hosted agents
+
+export type HostedAgentState = 'pending' | 'ready' | 'error';
+
+// Agents are templates and carry no status; only instances run.
+export interface HostedAgentInstanceStatus {
+	state?: HostedAgentState;
+	url?: string;
+	error?: string;
+}
+
+export interface HostedAgentEnv {
+	name?: string;
+	description?: string;
+	key: string;
+	value?: string;
+	sensitive?: boolean;
+	required?: boolean;
+}
+
+export type HostedAgentQuestionType = 'string' | 'number' | 'boolean' | 'select' | 'schedule';
+
+export interface HostedAgentQuestion {
+	key: string;
+	name?: string;
+	description?: string;
+	type?: HostedAgentQuestionType;
+	required?: boolean;
+	sensitive?: boolean;
+	default?: string;
+	// Only valid for type 'select'.
+	options?: string[];
+}
+
+export interface HostedAgentManifest {
+	name: string;
+	description?: string;
+	icon?: string;
+	iconDark?: string;
+	// The Harness this agent runs on; the harness supplies the docker image.
+	harnessID: string;
+	// Optional git repository made available to the agent.
+	gitRepo?: string;
+	modelProviders?: string[];
+	// Model IDs, obot://<alias> references, or wildcard prefixes.
+	models?: string[];
+	// MCP gateway IDs — the same handles used by /mcp-connect/{mcp_id}.
+	mcpServers?: string[];
+	skills?: string[];
+	env?: HostedAgentEnv[];
+	questions?: HostedAgentQuestion[];
+	allowUserMCPServers?: boolean;
+	allowUserSkills?: boolean;
+	allowUserModels?: boolean;
+	// Lets a user set their own git repository on an instance, overriding the
+	// agent's gitRepo if one is configured.
+	allowUserGitRepo?: boolean;
+	maxInstancesPerUser?: number;
+}
+
+export interface HostedAgent extends HostedAgentManifest {
+	id: string;
+	created: string;
+	deleted?: string;
+}
+
+export interface HostedAgentInstanceManifest {
+	name: string;
+	description?: string;
+	icon?: string;
+	// Answers to the agent's questions, keyed by question key. Values are strings
+	// regardless of the question's type.
+	answers?: Record<string, string>;
+	// Git repository the user supplied; only accepted when the agent sets
+	// allowUserGitRepo.
+	gitRepo?: string;
+	// Resources the user attached themselves; only accepted when the agent's
+	// corresponding allowUser* flag is set.
+	mcpServers?: string[];
+	skills?: string[];
+	models?: string[];
+}
+
+export interface HostedAgentInstance extends HostedAgentInstanceManifest {
+	id: string;
+	created: string;
+	deleted?: string;
+	hostedAgentID: string;
+	userID?: string;
+	status?: HostedAgentInstanceStatus;
+}
+
+// The UI calls these "Access Policies"; the API resource is
+// hosted-agent-access-rules. See operations.ts for the rename shim.
+export interface HostedAgentAccessPolicyResource {
+	type: 'hostedAgent' | 'selector';
+	id: string;
+}
+export interface HostedAgentAccessPolicy {
+	id: string;
+	created: string;
+	deleted?: string;
+	displayName: string;
+	subjects: AccessControlRuleSubject[];
+	resources: HostedAgentAccessPolicyResource[];
+}
+export interface HostedAgentAccessPolicyManifest {
+	displayName: string;
+	subjects: AccessControlRuleSubject[];
+	resources: HostedAgentAccessPolicyResource[];
 }
 
 // Storage credentials
