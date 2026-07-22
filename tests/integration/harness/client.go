@@ -72,11 +72,13 @@ func (h *Harness) Delete(ctx context.Context, path string) {
 	h.do(ctx, http.MethodDelete, path, nil, nil)
 }
 
-// ReadStream issues GET path against a streaming endpoint (e.g. SSE logs),
-// reads up to maxBytes or until budget elapses, and returns whatever it got.
-// Used to smoke-test long-lived streaming endpoints without parsing SSE.
-func (h *Harness) ReadStream(ctx context.Context, path string, budget time.Duration, maxBytes int) []byte {
+// ReadStreamUntil issues GET path against a streaming endpoint (e.g. SSE logs)
+// and returns as soon as it reads expected, reaches maxBytes, or exhausts budget.
+func (h *Harness) ReadStreamUntil(ctx context.Context, path string, expected []byte, budget time.Duration, maxBytes int) []byte {
 	h.T.Helper()
+	if maxBytes <= 0 {
+		h.T.Fatalf("read stream %s: maxBytes must be positive", path)
+	}
 
 	streamCtx, cancel := context.WithTimeout(ctx, budget)
 	defer cancel()
@@ -96,13 +98,24 @@ func (h *Harness) ReadStream(ctx context.Context, path string, budget time.Durat
 		h.T.Fatalf("GET %s: %d %s\nbody: %s", path, resp.StatusCode, resp.Status, string(body))
 	}
 
-	buf, err := io.ReadAll(io.LimitReader(resp.Body, int64(maxBytes)))
-	// A streaming endpoint stays open past our budget; the context-deadline
-	// error is the expected exit path, not a failure.
-	if err != nil && !errors.Is(err, context.DeadlineExceeded) {
+	var result []byte
+	chunk := make([]byte, min(1024, maxBytes))
+	for {
+		n, err := resp.Body.Read(chunk)
+		if n > 0 {
+			result = append(result, chunk[:min(n, maxBytes-len(result))]...)
+			if bytes.Contains(result, expected) || len(result) == maxBytes {
+				return result
+			}
+		}
+		if err == nil {
+			continue
+		}
+		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, io.EOF) {
+			return result
+		}
 		h.T.Fatalf("read stream %s: %v", path, err)
 	}
-	return buf
 }
 
 // Status issues a request and returns the status code without failing the

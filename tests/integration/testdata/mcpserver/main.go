@@ -10,6 +10,7 @@ type jsonRPCRequest struct {
 	JSONRPC string          `json:"jsonrpc"`
 	ID      json.RawMessage `json:"id,omitempty"`
 	Method  string          `json:"method"`
+	Params  json.RawMessage `json:"params,omitempty"`
 }
 
 func main() {
@@ -77,20 +78,35 @@ func handleMCP(w http.ResponseWriter, r *http.Request) {
 					"properties": map[string]any{
 						"message": map[string]any{"type": "string"},
 					},
+					"required": []string{"message"},
 				},
 			}},
+		}
+	case "tools/call":
+		var params struct {
+			Name      string         `json:"name"`
+			Arguments map[string]any `json:"arguments"`
+		}
+		if err := json.Unmarshal(req.Params, &params); err != nil {
+			writeJSONRPCError(w, req.ID, -32602, "invalid tool arguments")
+			return
+		}
+		message, ok := params.Arguments["message"].(string)
+		if params.Name != "echo" || !ok {
+			writeJSONRPCError(w, req.ID, -32602, "invalid echo tool call")
+			return
+		}
+		result = map[string]any{
+			"content": []map[string]any{{
+				"type": "text",
+				"text": message,
+			}},
+			"isError": false,
 		}
 	case "ping":
 		result = map[string]any{}
 	default:
-		writeJSON(w, map[string]any{
-			"jsonrpc": "2.0",
-			"id":      req.ID,
-			"error": map[string]any{
-				"code":    -32601,
-				"message": "method not found",
-			},
-		})
+		writeJSONRPCError(w, req.ID, -32601, "method not found")
 		return
 	}
 
@@ -98,6 +114,17 @@ func handleMCP(w http.ResponseWriter, r *http.Request) {
 		"jsonrpc": "2.0",
 		"id":      req.ID,
 		"result":  result,
+	})
+}
+
+func writeJSONRPCError(w http.ResponseWriter, id json.RawMessage, code int, message string) {
+	writeJSON(w, map[string]any{
+		"jsonrpc": "2.0",
+		"id":      id,
+		"error": map[string]any{
+			"code":    code,
+			"message": message,
+		},
 	})
 }
 

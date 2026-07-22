@@ -57,6 +57,13 @@ func (h *Harness) LaunchMCPServer(ctx context.Context, id string) {
 	h.Post(ctx, "/api/mcp-servers/"+id+"/launch", map[string]any{}, nil)
 }
 
+// RestartMCPServer replaces the running MCP server deployment and waits for
+// the backend to report that the replacement is ready.
+func (h *Harness) RestartMCPServer(ctx context.Context, id string) {
+	h.T.Helper()
+	h.Post(ctx, "/api/mcp-servers/"+id+"/restart", map[string]any{}, nil)
+}
+
 // WaitForMCPServerAvailable polls backend-neutral deployment details until the
 // server is available or the timeout elapses.
 func (h *Harness) WaitForMCPServerAvailable(ctx context.Context, id string, timeout time.Duration) types.MCPServerDetails {
