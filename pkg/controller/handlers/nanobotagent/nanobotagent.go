@@ -298,10 +298,9 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 
 	log.Debugf("Refreshing nanobot credentials: agent=%s mcpServer=%s model=%s miniModel=%s", agent.Name, mcpServerName, llmDefault, miniDefault)
 
-	// Look up the gateway user to get the uint ID needed for API key creation
-	gatewayUser, err := h.gatewayClient.UserByID(ctx, agent.Spec.UserID)
+	userID, err := strconv.ParseUint(agent.Spec.UserID, 10, 64)
 	if err != nil {
-		return fmt.Errorf("failed to get user: %w", err)
+		return fmt.Errorf("invalid user ID %s: %w", agent.Spec.UserID, err)
 	}
 
 	// Delete old API key if present.
@@ -314,7 +313,7 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 	}
 	if apiKeyIDStr != "" {
 		if id, err := strconv.ParseUint(apiKeyIDStr, 10, 32); err == nil {
-			if err = h.gatewayClient.DeleteAPIKey(ctx, gatewayUser.ID, uint(id)); err != nil {
+			if err = h.gatewayClient.DeleteAPIKey(ctx, uint(userID), uint(id)); err != nil {
 				return fmt.Errorf("failed to delete old API key: %w", err)
 			}
 		}
@@ -323,7 +322,7 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 	// Create a new API key with 12-hour expiration and access to all servers
 	apiKeyResp, err := h.gatewayClient.CreateAPIKey(
 		ctx,
-		gatewayUser.ID,
+		uint(userID),
 		fmt.Sprintf("nanobot-agent-%s", mcpServerName),
 		fmt.Sprintf("API key for nanobot agent %s", agent.Name),
 		new(time.Now().Add(nanobotTokenTTL)),
