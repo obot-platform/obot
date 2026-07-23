@@ -9,6 +9,7 @@ import { mount, tick, unmount } from 'svelte';
 const ELEMENT_FIND_ATTEMPTS = 50;
 const ELEMENT_FIND_INTERVAL_MS = 100;
 const ELEMENT_STABLE_ATTEMPTS = 60;
+const ELEMENT_ANIMATION_WAIT_TIMEOUT_MS = 2000;
 
 export interface GuideHighlighterOptions {
 	allowClose?: boolean;
@@ -91,6 +92,48 @@ async function waitForStableElement(
 	}
 
 	return false;
+}
+
+async function waitForElementAnimations(
+	el: Element,
+	timeoutMs = ELEMENT_ANIMATION_WAIT_TIMEOUT_MS
+): Promise<void> {
+	const startedAt = Date.now();
+
+	while (Date.now() - startedAt < timeoutMs) {
+		// Give newly-mounted and chained Svelte transition animations a frame to register.
+		await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+		const animations = new Set<Animation>();
+		let current: Element | null = el;
+		while (current) {
+			for (const animation of current.getAnimations()) {
+				const iterations = animation.effect?.getTiming().iterations;
+				if (
+					animation.playState !== 'idle' &&
+					animation.playState !== 'finished' &&
+					iterations !== Infinity
+				) {
+					animations.add(animation);
+				}
+			}
+			current = current.parentElement;
+		}
+
+		if (animations.size === 0) return;
+
+		const remainingMs = timeoutMs - (Date.now() - startedAt);
+		const animationsFinished = await new Promise<boolean>((resolve) => {
+			const timeout = setTimeout(() => resolve(false), remainingMs);
+			void Promise.allSettled(Array.from(animations, (animation) => animation.finished)).then(
+				() => {
+					clearTimeout(timeout);
+					resolve(true);
+				}
+			);
+		});
+		if (!animationsFinished) return;
+	}
 }
 
 function getHighlightLayerNodes(ring?: HTMLElement | null): Element[] {
@@ -261,6 +304,9 @@ export function createGuideHighlighter(options: GuideHighlighterOptions = {}): G
 		const generation = ++highlightGeneration;
 		const element = await waitForExistingElement(highlightConfig);
 		if (generation !== highlightGeneration || !element) return;
+
+		await waitForElementAnimations(element);
+		if (generation !== highlightGeneration) return;
 
 		await waitForStableElement(element);
 		if (generation !== highlightGeneration) return;
