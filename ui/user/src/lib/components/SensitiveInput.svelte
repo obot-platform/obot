@@ -109,7 +109,6 @@
 	}
 
 	function handleGrowableInvalid(ev: Event) {
-		// Suppress the native bubble on the 1px proxy and surface focus on the contenteditable.
 		ev.preventDefault();
 		validationFailed = true;
 		textareaElement?.focus();
@@ -163,6 +162,7 @@
 			{#if growable}
 				<textarea
 					bind:this={formControl}
+					id={name}
 					class="sr-only"
 					tabindex="-1"
 					aria-hidden="true"
@@ -175,6 +175,7 @@
 					{minlength}
 					{required}
 					oninvalid={handleGrowableInvalid}
+					onfocus={() => textareaElement?.focus()}
 				></textarea>
 				<div
 					bind:this={scrollableWrapper}
@@ -194,13 +195,12 @@
 							class="w-full outline-none"
 							class:pointer-events-none={readonly}
 							data-1p-ignore
-							id={name}
 							contenteditable="plaintext-only"
 							spellcheck="false"
 							role="textbox"
 							tabindex="0"
 							aria-required={required || undefined}
-							aria-invalid={validationFailed || undefined}
+							aria-invalid={error || validationFailed || undefined}
 							onscroll={(ev) => {
 								if (!showSensitive && maskedTextarea) {
 									maskedTextarea.scrollTop = ev.currentTarget.scrollTop;
