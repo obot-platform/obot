@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"net/url"
 	"sort"
 	"strconv"
@@ -13,6 +14,7 @@ import (
 	"github.com/obot-platform/obot/pkg/enforcement"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gtypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"gorm.io/gorm"
 )
 
 type EnforcementHandler struct {
@@ -117,6 +119,9 @@ func (h *EnforcementHandler) ListDecisions(req api.Context) error {
 	if err != nil {
 		return err
 	}
+	if err := opts.Validate(); err != nil {
+		return types.NewErrBadRequest("%v", err)
+	}
 	if opts.Limit == 0 {
 		opts.Limit = 100
 	}
@@ -151,7 +156,9 @@ func (h *EnforcementHandler) GetDecision(req api.Context) error {
 	}
 
 	decision, err := req.GatewayClient.GetEnforcementDecision(req.Context(), uint(parsed))
-	if err != nil {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return types.NewErrNotFound("enforcement decision %s not found", id)
+	} else if err != nil {
 		return err
 	}
 

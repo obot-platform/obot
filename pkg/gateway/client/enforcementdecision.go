@@ -70,6 +70,19 @@ func (o EnforcementDecisionOptions) sortExpression() (string, error) {
 	return "", fmt.Errorf("invalid enforcement decision sort key %q", sortBy)
 }
 
+// Validate reports whether the caller-supplied sort inputs are acceptable. It is
+// exported so the API layer can surface a bad sort key/direction as a 400 rather
+// than letting it fall through to a 500.
+func (o EnforcementDecisionOptions) Validate() error {
+	if _, err := o.sortExpression(); err != nil {
+		return err
+	}
+	if o.SortOrder != "" && o.SortOrder != "asc" && o.SortOrder != "desc" {
+		return fmt.Errorf("invalid enforcement decision sort direction %q", o.SortOrder)
+	}
+	return nil
+}
+
 func (c *Client) applyEnforcementDecisionFilters(db *gorm.DB, opts EnforcementDecisionOptions) *gorm.DB {
 	if len(opts.MDMConfigurationID) > 0 {
 		db = db.Where("mdm_configuration_id IN ?", opts.MDMConfigurationID)
@@ -108,13 +121,11 @@ func (c *Client) applyEnforcementDecisionFilters(db *gorm.DB, opts EnforcementDe
 }
 
 func (c *Client) GetEnforcementDecisions(ctx context.Context, opts EnforcementDecisionOptions) ([]types.EnforcementDecisionLog, int64, error) {
-	sortExpression, err := opts.sortExpression()
-	if err != nil {
+	if err := opts.Validate(); err != nil {
 		return nil, 0, err
 	}
-	if opts.SortOrder != "" && opts.SortOrder != "asc" && opts.SortOrder != "desc" {
-		return nil, 0, fmt.Errorf("invalid enforcement decision sort direction %q", opts.SortOrder)
-	}
+	// The sort key is valid (checked by Validate above), so the error is nil.
+	sortExpression, _ := opts.sortExpression()
 
 	db := c.applyEnforcementDecisionFilters(
 		c.db.WithContext(ctx).Model(&types.EnforcementDecisionLog{}), opts)
