@@ -132,7 +132,7 @@
 				bind:this={maskedTextarea}
 				tabindex="-1"
 				class={twMerge(
-					'layer-1 black:text-white w-full bg-transparent font-mono wrap-break-word whitespace-pre-wrap text-black',
+					'layer-1 w-full bg-transparent font-mono wrap-break-word whitespace-pre-wrap text-base-content',
 					klass
 				)}
 			>
@@ -146,7 +146,7 @@
 				bind:this={maskedTextarea}
 				tabindex="-1"
 				class={twMerge(
-					'layer-1 black:text-white w-full bg-transparent font-mono wrap-break-word whitespace-pre-wrap text-black',
+					'layer-1 w-full bg-transparent font-mono wrap-break-word whitespace-pre-wrap text-base-content',
 					klass
 				)}
 			>
@@ -224,7 +224,7 @@
 
 						{#if placeholder && value.length === 0}
 							<div
-								class="black:text-white/50 pointer-events-none absolute inset-0 z-2 bg-transparent text-black/50"
+								class="pointer-events-none absolute inset-0 z-2 bg-transparent text-base-content"
 							>
 								{placeholder}
 							</div>
