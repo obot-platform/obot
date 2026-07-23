@@ -28,41 +28,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-func TestSetUpDefaultMDMAssetSource(t *testing.T) {
-	ctx := t.Context()
-	gateway := newTestGatewayClient(t)
-	c := newTestStorageClient(t)
-
-	first := New(" /srv/mdm/first ", "https://obot.example", gateway)
-	require.NoError(t, first.SetUpDefaultMDMAssetSource(ctx, c))
-
-	var created v1.MDMAssetSource
-	require.NoError(t, c.Get(ctx, router.Key(system.DefaultNamespace, system.DefaultMDMAssetSource), &created))
-	assert.Equal(t, "/srv/mdm/first", created.Spec.Source)
-	assert.Empty(t, created.Annotations)
-
-	created.Status.LatestDigest = "last-known-good"
-	require.NoError(t, c.Status().Update(ctx, &created))
-
-	second := New("/srv/mdm/second", "https://obot.example", gateway)
-	require.NoError(t, second.SetUpDefaultMDMAssetSource(ctx, c))
-
-	var updated v1.MDMAssetSource
-	require.NoError(t, c.Get(ctx, router.Key(system.DefaultNamespace, system.DefaultMDMAssetSource), &updated))
-	assert.Equal(t, "/srv/mdm/second", updated.Spec.Source)
-	assert.Equal(t, "true", updated.Annotations[v1.MDMAssetSourceSyncAnnotation])
-	assert.Equal(t, "last-known-good", updated.Status.LatestDigest)
-
-	// Re-running setup with the same startup value is a no-op and must not
-	// manufacture another refresh signal.
-	delete(updated.Annotations, v1.MDMAssetSourceSyncAnnotation)
-	require.NoError(t, c.Update(ctx, &updated))
-	require.NoError(t, second.SetUpDefaultMDMAssetSource(ctx, c))
-	require.NoError(t, c.Get(ctx, router.Key(system.DefaultNamespace, system.DefaultMDMAssetSource), &updated))
-	_, refreshRequested := updated.Annotations[v1.MDMAssetSourceSyncAnnotation]
-	assert.False(t, refreshRequested)
-}
-
 func TestSyncImportsMetadataAndRecordsLatest(t *testing.T) {
 	ctx := t.Context()
 	fixedTime := time.Date(2026, time.July, 17, 12, 0, 0, 0, time.UTC)

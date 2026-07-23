@@ -294,42 +294,23 @@ func (h *Handler) pruneUnused(ctx context.Context, c kclient.Client, retainDiges
 	return h.gatewayClient.PruneUnusedMDMAssetBundles(ctx, retained...)
 }
 
-// SetUpDefaultMDMAssetSource creates the singleton and makes startup
-// configuration authoritative. A changed source triggers reconciliation.
+// SetUpDefaultMDMAssetSource creates the default MDMAssetSource at startup.
+// Changes to the default source value are picked up by `Handler.Sync` during normal reconciliation.
 func (h *Handler) SetUpDefaultMDMAssetSource(ctx context.Context, c kclient.Client) error {
-	key := router.Key(system.DefaultNamespace, system.DefaultMDMAssetSource)
-	var source v1.MDMAssetSource
-	if err := c.Get(ctx, key, &source); apierrors.IsNotFound(err) {
-		source = v1.MDMAssetSource{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      system.DefaultMDMAssetSource,
-				Namespace: system.DefaultNamespace,
-			},
-			Spec: v1.MDMAssetSourceSpec{
-				MDMAssetSourceManifest: types.MDMAssetSourceManifest{Source: h.defaultSource},
-			},
-		}
-		if err := c.Create(ctx, &source); err != nil {
-			if apierrors.IsAlreadyExists(err) {
-				return nil
-			}
-			return fmt.Errorf("failed to create default MDM asset source: %w", err)
-		}
-		return nil
-	} else if err != nil {
-		return fmt.Errorf("failed to get default MDM asset source: %w", err)
+	source := v1.MDMAssetSource{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      system.DefaultMDMAssetSource,
+			Namespace: system.DefaultNamespace,
+		},
+		Spec: v1.MDMAssetSourceSpec{
+			MDMAssetSourceManifest: types.MDMAssetSourceManifest{Source: h.defaultSource},
+		},
 	}
-	if source.Spec.Source == h.defaultSource {
-		return nil
+
+	if err := kclient.IgnoreAlreadyExists(c.Create(ctx, &source)); err != nil {
+		return fmt.Errorf("failed to create default MDM asset source: %w", err)
 	}
-	source.Spec.Source = h.defaultSource
-	if source.Annotations == nil {
-		source.Annotations = map[string]string{}
-	}
-	source.Annotations[v1.MDMAssetSourceSyncAnnotation] = "true"
-	if err := c.Update(ctx, &source); err != nil {
-		return fmt.Errorf("failed to update default MDM asset source: %w", err)
-	}
+
 	return nil
 }
 
