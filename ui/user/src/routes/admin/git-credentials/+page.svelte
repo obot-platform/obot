@@ -30,11 +30,10 @@
 	let tableData = $derived(
 		gitCredentials.map((credential) => ({
 			...credential,
-			usedBy: [
-				...(credential.uses.skillRepositories ?? []),
-				...(credential.uses.mcpCatalogs ?? []),
-				...(credential.uses.systemMcpCatalogs ?? [])
-			].length
+			usedBy:
+				(credential.uses.skillRepositories?.length ?? 0) +
+				(credential.uses.mcpCatalogs?.length ?? 0) +
+				(credential.uses.systemMcpCatalogs?.length ?? 0)
 		}))
 	);
 
@@ -157,6 +156,7 @@
 						{credential.displayName}
 						{#if hasUses(credential)}
 							<button
+								aria-label="View sources using this credential"
 								type="button"
 								class="pill-warning border-warning/30 hover:border-warning/60 hover:bg-warning/20 focus-visible:ring-warning/40 cursor-pointer border transition-colors focus-visible:ring-2 focus-visible:outline-none"
 								onclick={(event) => {
@@ -174,6 +174,7 @@
 					{#if credential.usedBy}
 						<button
 							type="button"
+							aria-label="View sources using this credential"
 							class="text-left hover:underline"
 							onclick={(event) => {
 								event.stopPropagation();
@@ -191,6 +192,7 @@
 			{#snippet actions(credential)}
 				{#if !isReadonly}
 					<IconButton
+						aria-label="Edit this credential"
 						onclick={(event) => {
 							event.stopPropagation();
 							openEdit(credential);
@@ -208,6 +210,7 @@
 							: undefined}
 					>
 						<IconButton
+							aria-label="Delete this credential"
 							variant="danger"
 							disabled={hasUses(credential)}
 							onclick={(event) => {
