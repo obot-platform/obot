@@ -86,7 +86,7 @@ func TestAuthProviderStatus(t *testing.T) {
 	licenseProvider := testLicenseProvider(t)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := AuthProviderStatus(tt.authProvider, tt.cred, licenseProvider)
+			got, err := AuthProviderStatus(t.Context(), tt.authProvider, tt.cred, licenseProvider)
 			if err != nil {
 				t.Fatalf("AuthProviderStatus() error = %v", err)
 			}
@@ -207,7 +207,7 @@ func TestModelProviderStatus(t *testing.T) {
 	licenseProvider := testLicenseProvider(t)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ModelProviderStatus(tt.modelProvider, tt.cred, licenseProvider)
+			got, err := ModelProviderStatus(t.Context(), tt.modelProvider, tt.cred, licenseProvider)
 			if err != nil {
 				t.Fatalf("ModelProviderStatus() error = %v", err)
 			}

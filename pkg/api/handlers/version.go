@@ -125,14 +125,23 @@ func (v *VersionHandler) getVersionResponse(ctx context.Context) (map[string]any
 	latestVersion := v.latestVersion
 	v.upgradeLock.RUnlock()
 
+	hasValidLicense, err := v.LicenseProvider.HasValidLicense(ctx)
+	if err != nil {
+		return nil, err
+	}
+	entitlements, err := v.LicenseProvider.Entitlements(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	values := map[string]any{
 		"upgradeAvailable":             upgradeAvailable,
 		"latestVersion":                latestVersion,
 		"obot":                         version.Get().String(),
 		"authEnabled":                  v.AuthEnabled,
 		"sessionStore":                 v.sessionStore,
-		"enterprise":                   v.LicenseProvider.HasValidLicense(),
-		"licenseEntitlements":          v.LicenseProvider.Entitlements(),
+		"enterprise":                   hasValidLicense,
+		"licenseEntitlements":          entitlements,
 		"engine":                       engine,
 		"mcpNetworkPolicyEnabled":      v.MCPNetworkPolicyEnabled,
 		"mcpDefaultDenyAllEgress":      v.MCPDefaultDenyAllEgress,
@@ -178,7 +187,10 @@ func (v *VersionHandler) startUpgradeCheck(ctx context.Context, installationID, 
 	var err error
 	for {
 		distribution := "oss"
-		if v.LicenseProvider.HasValidLicense() {
+		hasValidLicense, licenseErr := v.LicenseProvider.HasValidLicense(ctx)
+		if licenseErr != nil {
+			log.Debugf("failed to refresh license state for upgrade check: %v", licenseErr)
+		} else if hasValidLicense {
 			distribution = "enterprise"
 		}
 		if err = v.checkForUpgrade(ctx, installationID, currentVersion, engine, distribution); err != nil {

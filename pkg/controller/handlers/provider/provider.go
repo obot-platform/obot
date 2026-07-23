@@ -411,7 +411,7 @@ func SetAuthProviderConfiguredStatus(ctx context.Context, gatewayClient *gateway
 			cred.Secrets = make(map[string]string)
 		}
 
-		providerStatus, err := providers.AuthProviderStatus(*authProvider, cred.Secrets, licenseProvider)
+		providerStatus, err := providers.AuthProviderStatus(ctx, *authProvider, cred.Secrets, licenseProvider)
 		if err != nil {
 			return err
 		}
@@ -447,7 +447,7 @@ func SetModelProviderConfiguredStatus(ctx context.Context, gatewayClient *gatewa
 			cred.Secrets = make(map[string]string)
 		}
 
-		providerStatus, err := providers.ModelProviderStatus(*modelProvider, cred.Secrets, licenseProvider)
+		providerStatus, err := providers.ModelProviderStatus(ctx, *modelProvider, cred.Secrets, licenseProvider)
 		if err != nil {
 			return err
 		}

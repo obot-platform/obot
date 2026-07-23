@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
+	"os"
+	"runtime"
 	"slices"
 	"strings"
 	"sync"
@@ -32,6 +35,9 @@ const (
 	defaultPollInterval = 24 * time.Hour
 	keygenProduct       = "18a762f2-5281-45cf-93fc-e45e2d932094"
 	keygenAccount       = "7565373b-6069-4a0b-9495-9777d9db3fd9"
+	keygenAPIURL        = "https://api.keygen.sh"
+	keygenAPIPrefix     = "v1"
+	keygenAPIVersion    = "1.8"
 )
 
 var (
@@ -53,46 +59,52 @@ type Config struct {
 }
 
 type Provider struct {
-	lock                       sync.RWMutex
-	entitlements               map[keygen.EntitlementCode]struct{}
-	machineFingerprint         string
-	gatewayClient              *client.Client
-	licenseKeyViaConfiguration bool
+	lock                 sync.RWMutex
+	refreshLock          sync.Mutex
+	entitlements         map[keygen.EntitlementCode]struct{}
+	licenseKeySnapshot   licenseKeySnapshot
+	machineFingerprint   string
+	gatewayClient        *client.Client
+	configuredLicenseKey string
+	keygenAPIURL         string
+}
+
+type licenseKeySnapshot struct {
+	key              string
+	updatedAt        time.Time
+	viaConfiguration bool
+}
+
+func (s licenseKeySnapshot) equal(other licenseKeySnapshot) bool {
+	return s.key == other.key &&
+		s.viaConfiguration == other.viaConfiguration &&
+		s.updatedAt.Equal(other.updatedAt)
 }
 
 // NewProvider creates a Keygen-backed license provider.
 func NewProvider(ctx context.Context, gatewayClient *client.Client, config Config) (*Provider, error) {
-	keygen.Account = keygenAccount
-	keygen.Product = keygenProduct
+	return newProvider(ctx, gatewayClient, config, keygenAPIURL)
+}
 
+func newProvider(ctx context.Context, gatewayClient *client.Client, config Config, apiURL string) (*Provider, error) {
 	machineFingerprint, err := ensureMachineFingerprint(ctx, gatewayClient)
 	if err != nil {
 		return nil, err
 	}
 
-	k := &Provider{
-		machineFingerprint: machineFingerprint,
-		gatewayClient:      gatewayClient,
+	if apiURL == "" {
+		apiURL = keygenAPIURL
 	}
 
-	if licenseKey := strings.TrimSpace(config.LicenseKey); licenseKey != "" {
-		if err := k.setLicenseKey(ctx, licenseKey, true, true); err != nil {
-			return nil, err
-		}
-	} else if gatewayClient != nil {
-		property, err := gatewayClient.GetProperty(ctx, LicenseKeyPropertyKey)
-		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("failed to get license key property: %w", err)
-		}
-		if err == nil {
-			if err := k.setLicenseKey(ctx, property.Value, false, true); err != nil {
-				return nil, err
-			}
-		} else {
-			log.Infof("license provider is not configured, license key is empty")
-		}
-	} else {
-		log.Infof("license provider is not configured, license key is empty")
+	k := &Provider{
+		machineFingerprint:   machineFingerprint,
+		gatewayClient:        gatewayClient,
+		configuredLicenseKey: strings.TrimSpace(config.LicenseKey),
+		keygenAPIURL:         apiURL,
+	}
+
+	if err := k.refresh(ctx, true); err != nil {
+		return nil, err
 	}
 
 	if k.entitlements != nil {
@@ -116,119 +128,196 @@ func ensureMachineFingerprint(ctx context.Context, gatewayClient *client.Client)
 	return property.Value, nil
 }
 
-func (p *Provider) LicenseKey() string {
-	p.lock.RLock()
-	defer p.lock.RUnlock()
-
-	return keygen.LicenseKey
+func (p *Provider) LicenseKey(ctx context.Context) (string, error) {
+	snapshot, err := p.loadLicenseKey(ctx)
+	if err != nil {
+		return "", err
+	}
+	return snapshot.key, nil
 }
 
 func (p *Provider) LicenseKeyViaConfiguration() bool {
-	p.lock.RLock()
-	defer p.lock.RUnlock()
+	return p.configuredLicenseKey != ""
+}
 
-	return p.licenseKeyViaConfiguration
+func (p *Provider) loadLicenseKey(ctx context.Context) (licenseKeySnapshot, error) {
+	if p.configuredLicenseKey != "" {
+		return licenseKeySnapshot{
+			key:              p.configuredLicenseKey,
+			viaConfiguration: true,
+		}, nil
+	}
+	if p.gatewayClient == nil {
+		return licenseKeySnapshot{}, nil
+	}
+
+	property, err := p.gatewayClient.GetProperty(ctx, LicenseKeyPropertyKey)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return licenseKeySnapshot{}, nil
+	}
+	if err != nil {
+		return licenseKeySnapshot{}, fmt.Errorf("failed to get license key property: %w", err)
+	}
+
+	return licenseKeySnapshot{
+		key:       strings.TrimSpace(property.Value),
+		updatedAt: property.UpdatedAt,
+	}, nil
 }
 
 func (p *Provider) SetLicenseKey(ctx context.Context, licenseKey string) error {
 	if p.LicenseKeyViaConfiguration() {
 		return ErrLicenseKeyViaConfiguration
 	}
-	return p.setLicenseKey(ctx, licenseKey, false, false)
-}
-
-func (p *Provider) Validate(ctx context.Context) error {
-	return p.update(ctx)
-}
-
-func (p *Provider) setLicenseKey(ctx context.Context, licenseKey string, viaConfiguration, allowInvalid bool) error {
 	licenseKey = strings.TrimSpace(licenseKey)
 
-	p.lock.Lock()
-	previousLicenseKey := keygen.LicenseKey
-	previousViaConfiguration := p.licenseKeyViaConfiguration
-	previousEntitlements := p.entitlements
-
-	keygen.LicenseKey = licenseKey
-	p.licenseKeyViaConfiguration = viaConfiguration
-	p.lock.Unlock()
-
-	entitlements, err := p.validate(ctx)
-	if err != nil && !errors.Is(err, ErrNotConfigured) {
-		p.restoreLicenseState(previousLicenseKey, previousViaConfiguration, previousEntitlements)
+	entitlements, err := p.validate(ctx, licenseKey)
+	if err != nil {
 		return err
 	}
-	if entitlements == nil && !allowInvalid {
-		p.restoreLicenseState(previousLicenseKey, previousViaConfiguration, previousEntitlements)
+	if entitlements == nil {
 		return ErrInvalidLicense
 	}
 
-	if !viaConfiguration && entitlements != nil && p.gatewayClient != nil {
-		if _, err := p.gatewayClient.SetProperty(ctx, LicenseKeyPropertyKey, licenseKey); err != nil {
-			p.restoreLicenseState(previousLicenseKey, previousViaConfiguration, previousEntitlements)
-			return err
-		}
+	if p.gatewayClient == nil {
+		return fmt.Errorf("failed to persist license key: gateway client is not configured")
 	}
 
-	p.lock.Lock()
-	p.entitlements = entitlements
-	p.lock.Unlock()
+	// Serialize the persisted value and its cached representation with refresh.
+	// Otherwise, an in-flight refresh of the previous key could overwrite this
+	// state after the new key has been committed.
+	p.refreshLock.Lock()
+	defer p.refreshLock.Unlock()
 
+	property, err := p.gatewayClient.SetProperty(ctx, LicenseKeyPropertyKey, licenseKey)
+	if err != nil {
+		return err
+	}
+	p.setCachedState(licenseKeySnapshot{
+		key:       licenseKey,
+		updatedAt: property.UpdatedAt,
+	}, entitlements)
 	return nil
 }
 
-func (p *Provider) restoreLicenseState(licenseKey string, viaConfiguration bool, entitlements map[keygen.EntitlementCode]struct{}) {
-	p.lock.Lock()
-	defer p.lock.Unlock()
-
-	keygen.LicenseKey = licenseKey
-	p.licenseKeyViaConfiguration = viaConfiguration
-	p.entitlements = entitlements
+func (p *Provider) Validate(ctx context.Context) error {
+	return p.refresh(ctx, true)
 }
 
 func (p *Provider) RemoveLicenseKey(ctx context.Context) error {
 	if p.LicenseKeyViaConfiguration() {
 		return ErrLicenseKeyViaConfiguration
 	}
+
+	// Keep deletion and cache invalidation ordered with refresh so an in-flight
+	// validation cannot restore the state for the removed key.
+	p.refreshLock.Lock()
+	defer p.refreshLock.Unlock()
+
 	if p.gatewayClient != nil {
 		if err := p.gatewayClient.DeleteProperty(ctx, LicenseKeyPropertyKey); err != nil {
 			return err
 		}
 	}
 
-	p.lock.Lock()
-	keygen.LicenseKey = ""
-	p.lock.Unlock()
-
-	return p.update(ctx)
+	p.setCachedState(licenseKeySnapshot{}, nil)
+	return nil
 }
 
-func (p *Provider) validate(ctx context.Context) (map[keygen.EntitlementCode]struct{}, error) {
-	p.lock.RLock()
-	defer p.lock.RUnlock()
+func (p *Provider) keygenClient(licenseKey string) *keygen.Client {
+	keygenClient := keygen.NewClientWithOptions(&keygen.ClientOptions{
+		Account:    keygenAccount,
+		LicenseKey: licenseKey,
+		APIVersion: keygenAPIVersion,
+		APIPrefix:  keygenAPIPrefix,
+		APIURL:     p.keygenAPIURL,
+	})
+	// Avoid Keygen's package-level HTTP client. The transport remains shared and
+	// safe for concurrent use, while redirect policy is scoped to this client.
+	keygenClient.HTTPClient = &http.Client{Transport: http.DefaultTransport}
+	return keygenClient
+}
 
-	if err := validateConfig(); err != nil {
-		return nil, err
+type validationRequest struct {
+	fingerprint string
+}
+
+func (v validationRequest) GetMeta() any {
+	return struct {
+		Scope struct {
+			Fingerprint string `json:"fingerprint,omitempty"`
+			Product     string `json:"product"`
+		} `json:"scope"`
+	}{
+		Scope: struct {
+			Fingerprint string `json:"fingerprint,omitempty"`
+			Product     string `json:"product"`
+		}{
+			Fingerprint: v.fingerprint,
+			Product:     keygenProduct,
+		},
+	}
+}
+
+type keygenValidationResponse struct {
+	License keygen.License
+	Result  keygen.ValidationResult
+}
+
+func (v *keygenValidationResponse) SetData(to func(target any) error) error {
+	return to(&v.License)
+}
+
+func (v *keygenValidationResponse) SetMeta(to func(target any) error) error {
+	return to(&v.Result)
+}
+
+func (p *Provider) validate(ctx context.Context, licenseKey string) (map[keygen.EntitlementCode]struct{}, error) {
+	if strings.TrimSpace(licenseKey) == "" {
+		return nil, ErrNotConfigured
 	}
 
-	lic, err := keygen.Validate(ctx, p.machineFingerprint)
+	keygenClient := p.keygenClient(licenseKey)
+	lic := &keygen.License{}
+	if _, err := keygenClient.Get(ctx, "me", nil, lic); err != nil {
+		log.Warnf("license lookup failed: %v", err)
+		return nil, nil
+	}
+
+	validation, err := p.validateLicense(ctx, keygenClient, lic)
 	if err != nil {
-		if lic != nil && lic.LastValidation != nil && errors.Is(err, keygen.ErrLicenseNotActivated) {
-			if _, activationErr := lic.Activate(ctx, p.machineFingerprint); activationErr != nil && !errors.Is(activationErr, keygen.ErrMachineAlreadyActivated) {
+		return nil, err
+	}
+	if !validation.Result.Valid {
+		if validation.Result.Code == keygen.ValidationCodeFingerprintScopeMismatch ||
+			validation.Result.Code == keygen.ValidationCodeNoMachines ||
+			validation.Result.Code == keygen.ValidationCodeNoMachine {
+			machine := &keygen.Machine{
+				Fingerprint: p.machineFingerprint,
+				LicenseID:   lic.ID,
+			}
+			machine.Hostname, _ = os.Hostname()
+			machine.Platform = runtime.GOOS + "/" + runtime.GOARCH
+			machine.Cores = runtime.NumCPU()
+			if _, activationErr := keygenClient.Post(ctx, "machines", machine, &keygen.Machine{}); activationErr != nil &&
+				!errors.Is(activationErr, keygen.ErrMachineAlreadyActivated) {
 				log.Warnf("license activation failed: %v", activationErr)
 				return nil, nil
 			}
 
-			lic, err = keygen.Validate(ctx, p.machineFingerprint)
-		}
-		if err != nil {
-			log.Warnf("license validation failed: %v", err)
-			return nil, nil
+			validation, err = p.validateLicense(ctx, keygenClient, lic)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
+	if !validation.Result.Valid {
+		log.Warnf("license validation failed: code=%s detail=%s", validation.Result.Code, validation.Result.Detail)
+		return nil, nil
+	}
 
-	entitlements, err := lic.Entitlements(ctx)
-	if err != nil {
+	entitlements := keygen.Entitlements{}
+	if _, err := keygenClient.Get(ctx, fmt.Sprintf("licenses/%s/entitlements?limit=100", lic.ID), nil, &entitlements); err != nil {
 		return nil, fmt.Errorf("list license entitlements: %w", err)
 	}
 
@@ -240,19 +329,36 @@ func (p *Provider) validate(ctx context.Context) (map[keygen.EntitlementCode]str
 	return entitlementSet, nil
 }
 
-func (p *Provider) HasValidLicense() bool {
+func (p *Provider) validateLicense(ctx context.Context, keygenClient *keygen.Client, lic *keygen.License) (*keygenValidationResponse, error) {
+	validation := &keygenValidationResponse{}
+	if _, err := keygenClient.Post(ctx, "licenses/"+lic.ID+"/actions/validate", validationRequest{
+		fingerprint: p.machineFingerprint,
+	}, validation); err != nil {
+		return validation, fmt.Errorf("validate license failed: %w", err)
+	}
+	*lic = validation.License
+	return validation, nil
+}
+
+func (p *Provider) HasValidLicense(ctx context.Context) (bool, error) {
+	if err := p.refresh(ctx, false); err != nil {
+		return false, err
+	}
 	p.lock.RLock()
 	defer p.lock.RUnlock()
 
-	return p.entitlements != nil
+	return p.entitlements != nil, nil
 }
 
-func (p *Provider) Entitlements() []string {
+func (p *Provider) Entitlements(ctx context.Context) ([]string, error) {
+	if err := p.refresh(ctx, false); err != nil {
+		return nil, err
+	}
 	p.lock.RLock()
 	defer p.lock.RUnlock()
 
 	if p.entitlements == nil {
-		return nil
+		return nil, nil
 	}
 
 	entitlements := make([]string, 0, len(p.entitlements))
@@ -262,7 +368,7 @@ func (p *Provider) Entitlements() []string {
 
 	slices.Sort(entitlements)
 
-	return entitlements
+	return entitlements, nil
 }
 
 func (p *Provider) hasEntitlement(key string) bool {
@@ -298,41 +404,49 @@ func (p *Provider) poll(ctx context.Context) {
 func (p *Provider) update(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
-
-	var (
-		entitlements  map[keygen.EntitlementCode]struct{}
-		hasLicenseKey bool
-		err           error
-	)
-
-	p.lock.RLock()
-	if keygen.LicenseKey != "" {
-		hasLicenseKey = true
-		entitlements, err = p.validate(ctx)
-	}
-	p.lock.RUnlock()
-
-	p.lock.Lock()
-	defer p.lock.Unlock()
-
-	if err != nil || !hasLicenseKey {
-		p.entitlements = nil
-		return err
-	}
-
-	p.entitlements = entitlements
-	return nil
+	return p.refresh(ctx, true)
 }
 
-func validateConfig() error {
-	if strings.TrimSpace(keygen.Account) == "" {
-		return fmt.Errorf("%w: missing Keygen account", ErrNotConfigured)
+func (p *Provider) cachedSnapshotMatches(snapshot licenseKeySnapshot) bool {
+	p.lock.RLock()
+	defer p.lock.RUnlock()
+	return p.licenseKeySnapshot.equal(snapshot)
+}
+
+func (p *Provider) setCachedState(snapshot licenseKeySnapshot, entitlements map[keygen.EntitlementCode]struct{}) {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+	p.licenseKeySnapshot = snapshot
+	p.entitlements = entitlements
+}
+
+func (p *Provider) refresh(ctx context.Context, force bool) error {
+	snapshot, err := p.loadLicenseKey(ctx)
+	if err != nil {
+		return err
 	}
-	if strings.TrimSpace(keygen.Product) == "" {
-		return fmt.Errorf("%w: missing Keygen product", ErrNotConfigured)
+	if !force && p.cachedSnapshotMatches(snapshot) {
+		return nil
 	}
-	if strings.TrimSpace(keygen.LicenseKey) == "" {
-		return fmt.Errorf("%w: missing license key or token", ErrNotConfigured)
+
+	p.refreshLock.Lock()
+	defer p.refreshLock.Unlock()
+
+	// Another request may have refreshed the provider while this request waited.
+	snapshot, err = p.loadLicenseKey(ctx)
+	if err != nil {
+		return err
 	}
-	return nil
+	if !force && p.cachedSnapshotMatches(snapshot) {
+		return nil
+	}
+
+	if snapshot.key == "" {
+		p.setCachedState(snapshot, nil)
+		return nil
+	}
+
+	entitlements, err := p.validate(ctx, snapshot.key)
+	p.setCachedState(snapshot, entitlements)
+	return err
 }
