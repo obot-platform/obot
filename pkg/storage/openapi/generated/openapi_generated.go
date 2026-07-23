@@ -193,6 +193,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.MDMAssetSourceManifest":                    schema_obot_platform_obot_apiclient_types_MDMAssetSourceManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.MDMConfiguration":                          schema_obot_platform_obot_apiclient_types_MDMConfiguration(ref),
 		"github.com/obot-platform/obot/apiclient/types.MDMConfigurationArtifact":                  schema_obot_platform_obot_apiclient_types_MDMConfigurationArtifact(ref),
+		"github.com/obot-platform/obot/apiclient/types.MDMConfigurationEnforcementRequest":        schema_obot_platform_obot_apiclient_types_MDMConfigurationEnforcementRequest(ref),
 		"github.com/obot-platform/obot/apiclient/types.MDMConfigurationList":                      schema_obot_platform_obot_apiclient_types_MDMConfigurationList(ref),
 		"github.com/obot-platform/obot/apiclient/types.MDMConfigurationManifest":                  schema_obot_platform_obot_apiclient_types_MDMConfigurationManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.MDMEnrollmentKey":                          schema_obot_platform_obot_apiclient_types_MDMEnrollmentKey(ref),
@@ -9784,6 +9785,33 @@ func schema_obot_platform_obot_apiclient_types_MDMConfigurationArtifact(ref comm
 				Required: []string{"slug", "platform", "os", "instructions"},
 			},
 		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MDMConfigurationEnforcementRequest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"enforcementEnabled": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"enforcementAllowlist": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.EnforcementAllowlist"),
+						},
+					},
+				},
+				Required: []string{"enforcementAllowlist"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.EnforcementAllowlist"},
 	}
 }
 

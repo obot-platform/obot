@@ -28,6 +28,11 @@ type MDMConfiguration struct {
 	EnforcementAllowlist EnforcementAllowlist `json:"enforcementAllowlist"`
 }
 
+type MDMConfigurationEnforcementRequest struct {
+	EnforcementEnabled   bool                 `json:"enforcementEnabled,omitempty"`
+	EnforcementAllowlist EnforcementAllowlist `json:"enforcementAllowlist"`
+}
+
 type EnforcementAllowlist struct {
 	AllowEverything           bool `json:"allowEverything,omitempty"`
 	AllowAllObotHostedMCP     bool `json:"allowAllObotHostedMcpServers,omitempty"`

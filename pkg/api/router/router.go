@@ -587,6 +587,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/mdm/configurations", mdmConfigurations.List)
 	mux.HandleFunc("GET /api/mdm/configurations/{id}", mdmConfigurations.Get)
 	mux.HandleFunc("PUT /api/mdm/configurations/{id}", mdmConfigurations.Update)
+	mux.HandleFunc("PUT /api/mdm/configurations/{id}/enforcement", mdmConfigurations.UpdateEnforcement)
 	mux.HandleFunc("DELETE /api/mdm/configurations/{id}", mdmConfigurations.Delete)
 	mux.HandleFunc("GET /api/mdm/configurations/{id}/enrollment-keys", mdmConfigurations.ListEnrollmentKeys)
 	mux.HandleFunc("POST /api/mdm/configurations/{id}/enrollment-keys", mdmConfigurations.CreateEnrollmentKey)

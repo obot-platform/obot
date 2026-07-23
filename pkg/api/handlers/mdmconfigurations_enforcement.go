@@ -19,11 +19,12 @@ func defaultEnforcementAllowlist() types.EnforcementAllowlist {
 
 // enforcementAllowlistForSave validates the incoming allowlist that will be
 // stored on the configuration. When enforcement is enabled on a newly created
-// configuration (current == nil) with no meaningful allowlist, the default is applied.
-func enforcementAllowlistForSave(in types.MDMConfiguration, current *gtypes.MDMConfiguration) (types.EnforcementAllowlist, error) {
-	allowlist := in.EnforcementAllowlist
+// configuration (current == nil) with no meaningful allowlist, the default is
+// applied. On an existing configuration the allowlist is stored exactly as
+// given (after validation) — the default is a create-time convenience only.
+func enforcementAllowlistForSave(enabled bool, allowlist types.EnforcementAllowlist, current *gtypes.MDMConfiguration) (types.EnforcementAllowlist, error) {
 	if enforcementAllowlistIsEmpty(allowlist) {
-		if in.EnforcementEnabled && current == nil {
+		if enabled && current == nil {
 			return defaultEnforcementAllowlist(), nil
 		}
 		return types.EnforcementAllowlist{}, nil

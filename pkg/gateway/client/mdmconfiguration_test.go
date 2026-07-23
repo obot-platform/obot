@@ -210,7 +210,7 @@ func TestUpdateMDMConfigurationRollsBackOnBadArtifacts(t *testing.T) {
 	}
 }
 
-func TestMDMConfigurationEnforcementColumnsPersistThroughCreateAndUpdate(t *testing.T) {
+func TestMDMConfigurationEnforcementColumnsPersistOnCreate(t *testing.T) {
 	client := newTestClient(t)
 
 	configuration, err := client.CreateMDMConfiguration(t.Context(), 42, &types.MDMConfiguration{
@@ -241,22 +241,72 @@ func TestMDMConfigurationEnforcementColumnsPersistThroughCreateAndUpdate(t *test
 		stored.EnforcementAllowlist.Servers[0].Hostname != "gitmcp.io" {
 		t.Fatalf("created configuration did not persist enforcement columns: %#v", stored)
 	}
+}
 
+// TestMDMConfigurationUpdatePreservesEnforcement verifies the general update
+// path leaves the enforcement policy untouched, while
+// UpdateMDMConfigurationEnforcement is the only path that changes it.
+func TestMDMConfigurationUpdatePreservesEnforcement(t *testing.T) {
+	client := newTestClient(t)
+
+	configuration, err := client.CreateMDMConfiguration(t.Context(), 42, &types.MDMConfiguration{
+		AssetDigest:        "source-digest",
+		Values:             `{"interval":60}`,
+		EnforcementEnabled: true,
+		EnforcementAllowlist: apitypes.EnforcementAllowlist{
+			AllowAllObotHostedMCP: true,
+			Servers:               []apitypes.AllowlistServer{{Hostname: "gitmcp.io"}},
+		},
+		Artifacts: []types.MDMConfigurationArtifact{
+			renderedArtifact("intune", "windows", "windows-zip"),
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// A general update that even asks to clear enforcement must not change it.
+	stored, err := client.GetMDMConfiguration(t.Context(), configuration.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored.Values = `{"interval":120}`
 	stored.EnforcementEnabled = false
-	stored.EnforcementAllowlist = apitypes.EnforcementAllowlist{AllowEverything: true}
+	stored.EnforcementAllowlist = apitypes.EnforcementAllowlist{}
 	if err := client.UpdateMDMConfiguration(t.Context(), stored); err != nil {
 		t.Fatal(err)
 	}
 
-	reloaded, err := client.GetMDMConfiguration(t.Context(), configuration.ID)
+	afterUpdate, err := client.GetMDMConfiguration(t.Context(), configuration.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if reloaded.EnforcementEnabled ||
-		!reloaded.EnforcementAllowlist.AllowEverything ||
-		reloaded.EnforcementAllowlist.AllowAllObotHostedMCP ||
-		len(reloaded.EnforcementAllowlist.Servers) != 0 {
-		t.Fatalf("updated configuration did not persist enforcement columns: %#v", reloaded)
+	if afterUpdate.Values != `{"interval":120}` {
+		t.Fatalf("general update did not persist values: %q", afterUpdate.Values)
+	}
+	if !afterUpdate.EnforcementEnabled ||
+		!afterUpdate.EnforcementAllowlist.AllowAllObotHostedMCP ||
+		len(afterUpdate.EnforcementAllowlist.Servers) != 1 {
+		t.Fatalf("general update unexpectedly modified enforcement: %#v", afterUpdate)
+	}
+
+	// The dedicated enforcement update is the path that changes the policy.
+	if err := client.UpdateMDMConfigurationEnforcement(t.Context(), configuration.ID, false, apitypes.EnforcementAllowlist{AllowEverything: true}); err != nil {
+		t.Fatal(err)
+	}
+	afterEnforcement, err := client.GetMDMConfiguration(t.Context(), configuration.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if afterEnforcement.EnforcementEnabled ||
+		!afterEnforcement.EnforcementAllowlist.AllowEverything ||
+		afterEnforcement.EnforcementAllowlist.AllowAllObotHostedMCP ||
+		len(afterEnforcement.EnforcementAllowlist.Servers) != 0 {
+		t.Fatalf("enforcement update did not persist enforcement columns: %#v", afterEnforcement)
+	}
+	// The enforcement update must not disturb the asset-side columns.
+	if afterEnforcement.Values != `{"interval":120}` {
+		t.Fatalf("enforcement update unexpectedly changed values: %q", afterEnforcement.Values)
 	}
 }
 
