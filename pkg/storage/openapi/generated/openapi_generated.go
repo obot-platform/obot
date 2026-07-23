@@ -25,6 +25,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.AccessControlRule":                         schema_obot_platform_obot_apiclient_types_AccessControlRule(ref),
 		"github.com/obot-platform/obot/apiclient/types.AccessControlRuleList":                     schema_obot_platform_obot_apiclient_types_AccessControlRuleList(ref),
 		"github.com/obot-platform/obot/apiclient/types.AccessControlRuleManifest":                 schema_obot_platform_obot_apiclient_types_AccessControlRuleManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.AllowlistServer":                           schema_obot_platform_obot_apiclient_types_AllowlistServer(ref),
+		"github.com/obot-platform/obot/apiclient/types.AllowlistServerPackage":                    schema_obot_platform_obot_apiclient_types_AllowlistServerPackage(ref),
 		"github.com/obot-platform/obot/apiclient/types.AppNotification":                           schema_obot_platform_obot_apiclient_types_AppNotification(ref),
 		"github.com/obot-platform/obot/apiclient/types.AppPreferences":                            schema_obot_platform_obot_apiclient_types_AppPreferences(ref),
 		"github.com/obot-platform/obot/apiclient/types.AuditLogAction":                            schema_obot_platform_obot_apiclient_types_AuditLogAction(ref),
@@ -100,6 +102,13 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.DeviceSkillStatList":                       schema_obot_platform_obot_apiclient_types_DeviceSkillStatList(ref),
 		"github.com/obot-platform/obot/apiclient/types.DeviceSkillStatResponse":                   schema_obot_platform_obot_apiclient_types_DeviceSkillStatResponse(ref),
 		"github.com/obot-platform/obot/apiclient/types.ECRImagePullSecretConfig":                  schema_obot_platform_obot_apiclient_types_ECRImagePullSecretConfig(ref),
+		"github.com/obot-platform/obot/apiclient/types.EnforcementAllowlist":                      schema_obot_platform_obot_apiclient_types_EnforcementAllowlist(ref),
+		"github.com/obot-platform/obot/apiclient/types.EnforcementDecisionEvent":                  schema_obot_platform_obot_apiclient_types_EnforcementDecisionEvent(ref),
+		"github.com/obot-platform/obot/apiclient/types.EnforcementDecisionEventList":              schema_obot_platform_obot_apiclient_types_EnforcementDecisionEventList(ref),
+		"github.com/obot-platform/obot/apiclient/types.EnforcementDecisionEventResponse":          schema_obot_platform_obot_apiclient_types_EnforcementDecisionEventResponse(ref),
+		"github.com/obot-platform/obot/apiclient/types.EnforcementDecisionRequest":                schema_obot_platform_obot_apiclient_types_EnforcementDecisionRequest(ref),
+		"github.com/obot-platform/obot/apiclient/types.EnforcementDecisionResponse":               schema_obot_platform_obot_apiclient_types_EnforcementDecisionResponse(ref),
+		"github.com/obot-platform/obot/apiclient/types.EnforcementDecisionServer":                 schema_obot_platform_obot_apiclient_types_EnforcementDecisionServer(ref),
 		"github.com/obot-platform/obot/apiclient/types.ErrHTTP":                                   schema_obot_platform_obot_apiclient_types_ErrHTTP(ref),
 		"github.com/obot-platform/obot/apiclient/types.EulaStatus":                                schema_obot_platform_obot_apiclient_types_EulaStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.FilterConfig":                              schema_obot_platform_obot_apiclient_types_FilterConfig(ref),
@@ -780,6 +789,84 @@ func schema_obot_platform_obot_apiclient_types_AccessControlRuleManifest(ref com
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.Resource", "github.com/obot-platform/obot/apiclient/types.Subject"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AllowlistServer(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"package": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.AllowlistServerPackage"),
+						},
+					},
+					"hostname": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"tools": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AllowlistServerPackage"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AllowlistServerPackage(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"source": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "npm | pypi",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"version": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"source", "name"},
+			},
+		},
 	}
 }
 
@@ -5032,6 +5119,337 @@ func schema_obot_platform_obot_apiclient_types_ECRImagePullSecretConfig(ref comm
 				},
 			},
 		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_EnforcementAllowlist(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"allowEverything": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"allowAllObotHostedMcpServers": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"allowAllBuiltinAgentTools": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"allowAllBuiltinAgentMcpServers": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AllowAllBuiltinAgentMCP allows any call to a built-in agent MCP server (i.e. Codex computer-use)",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"servers": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AllowlistServer"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AllowlistServer"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_EnforcementDecisionEvent(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "EnforcementDecisionEvent is the public, read-side shape of a recorded decision. It is the decision log's own event type.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"createdAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"mdmConfigurationID": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"deviceID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"clientIP": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"agent": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"tool": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"serverName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"obotHosted": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"decision": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"reason": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"server": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.EnforcementDecisionServer"),
+						},
+					},
+				},
+				Required: []string{"id", "createdAt", "mdmConfigurationID", "decision"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.EnforcementDecisionServer", "github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_EnforcementDecisionEventList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.EnforcementDecisionEvent"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.EnforcementDecisionEvent"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_EnforcementDecisionEventResponse(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.EnforcementDecisionEvent"),
+									},
+								},
+							},
+						},
+					},
+					"total": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+					"limit": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"offset": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+				},
+				Required: []string{"items", "total", "limit", "offset"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.EnforcementDecisionEvent"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_EnforcementDecisionRequest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "EnforcementDecisionRequest is the parameter-free normalized tool call a device submits to the decision endpoint. The fleet configuration is resolved from the authenticated device identity, never from this body.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"agent": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"tool": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"serverName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"server": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.EnforcementDecisionServer"),
+						},
+					},
+				},
+				Required: []string{"server"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.EnforcementDecisionServer"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_EnforcementDecisionResponse(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"decision": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"reason": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"decision"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_EnforcementDecisionServer(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "EnforcementDecisionServer is the resolved target MCP server of a normalized tool call.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"package": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.AllowlistServerPackage"),
+						},
+					},
+					"command": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"hostname": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AllowlistServerPackage"},
 	}
 }
 
@@ -9306,12 +9724,24 @@ func schema_obot_platform_obot_apiclient_types_MDMConfiguration(ref common.Refer
 							},
 						},
 					},
+					"enforcementEnabled": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"enforcementAllowlist": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.EnforcementAllowlist"),
+						},
+					},
 				},
-				Required: []string{"id", "isDefault", "createdAt", "artifacts"},
+				Required: []string{"id", "isDefault", "createdAt", "artifacts", "enforcementAllowlist"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.MDMConfigurationArtifact", "github.com/obot-platform/obot/apiclient/types.Time"},
+			"github.com/obot-platform/obot/apiclient/types.EnforcementAllowlist", "github.com/obot-platform/obot/apiclient/types.MDMConfigurationArtifact", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 

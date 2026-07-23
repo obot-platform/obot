@@ -3,6 +3,7 @@ package client
 import (
 	"testing"
 
+	apitypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 )
 
@@ -206,6 +207,56 @@ func TestUpdateMDMConfigurationRollsBackOnBadArtifacts(t *testing.T) {
 				t.Fatalf("artifact content changed after failed update: %#v", stored.Artifacts)
 			}
 		})
+	}
+}
+
+func TestMDMConfigurationEnforcementColumnsPersistThroughCreateAndUpdate(t *testing.T) {
+	client := newTestClient(t)
+
+	configuration, err := client.CreateMDMConfiguration(t.Context(), 42, &types.MDMConfiguration{
+		AssetDigest:        "source-digest",
+		Values:             `{"interval":60}`,
+		EnforcementEnabled: true,
+		EnforcementAllowlist: apitypes.EnforcementAllowlist{
+			AllowAllObotHostedMCP: true,
+			Servers: []apitypes.AllowlistServer{
+				{Hostname: "gitmcp.io"},
+			},
+		},
+		Artifacts: []types.MDMConfigurationArtifact{
+			renderedArtifact("intune", "windows", "windows-zip"),
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	stored, err := client.GetMDMConfiguration(t.Context(), configuration.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !stored.EnforcementEnabled ||
+		!stored.EnforcementAllowlist.AllowAllObotHostedMCP ||
+		len(stored.EnforcementAllowlist.Servers) != 1 ||
+		stored.EnforcementAllowlist.Servers[0].Hostname != "gitmcp.io" {
+		t.Fatalf("created configuration did not persist enforcement columns: %#v", stored)
+	}
+
+	stored.EnforcementEnabled = false
+	stored.EnforcementAllowlist = apitypes.EnforcementAllowlist{AllowEverything: true}
+	if err := client.UpdateMDMConfiguration(t.Context(), stored); err != nil {
+		t.Fatal(err)
+	}
+
+	reloaded, err := client.GetMDMConfiguration(t.Context(), configuration.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reloaded.EnforcementEnabled ||
+		!reloaded.EnforcementAllowlist.AllowEverything ||
+		reloaded.EnforcementAllowlist.AllowAllObotHostedMCP ||
+		len(reloaded.EnforcementAllowlist.Servers) != 0 {
+		t.Fatalf("updated configuration did not persist enforcement columns: %#v", reloaded)
 	}
 }
 

@@ -23,6 +23,39 @@ type MDMConfiguration struct {
 	ObotSentryVersion string `json:"obotSentryVersion,omitempty"`
 
 	Artifacts []MDMConfigurationArtifact `json:"artifacts"`
+
+	EnforcementEnabled   bool                 `json:"enforcementEnabled,omitempty"`
+	EnforcementAllowlist EnforcementAllowlist `json:"enforcementAllowlist"`
+}
+
+type EnforcementAllowlist struct {
+	AllowEverything           bool `json:"allowEverything,omitempty"`
+	AllowAllObotHostedMCP     bool `json:"allowAllObotHostedMcpServers,omitempty"`
+	AllowAllBuiltinAgentTools bool `json:"allowAllBuiltinAgentTools,omitempty"`
+	// AllowAllBuiltinAgentMCP allows any call to a built-in agent MCP server (i.e. Codex computer-use)
+	AllowAllBuiltinAgentMCP bool `json:"allowAllBuiltinAgentMcpServers,omitempty"`
+
+	Servers []AllowlistServer `json:"servers,omitempty"`
+}
+
+type AllowlistServer struct {
+	URL      string                  `json:"url,omitempty"`
+	Package  *AllowlistServerPackage `json:"package,omitempty"`
+	Hostname string                  `json:"hostname,omitempty"`
+	Tools    []string                `json:"tools,omitempty"` // empty = all tools on this server
+}
+
+type AllowlistServerPackageSource string
+
+const (
+	AllowlistServerPackageSourceNPM  AllowlistServerPackageSource = "npm"
+	AllowlistServerPackageSourcePyPI AllowlistServerPackageSource = "pypi"
+)
+
+type AllowlistServerPackage struct {
+	Source  AllowlistServerPackageSource `json:"source"` // npm | pypi
+	Name    string                       `json:"name"`
+	Version string                       `json:"version,omitempty"` // empty = accept any version
 }
 
 type MDMConfigurationList List[MDMConfiguration]

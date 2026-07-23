@@ -94,9 +94,12 @@ func (c *Client) UpdateMDMConfiguration(ctx context.Context, configuration *type
 		if err := tx.Select("id").Where("id = ?", configuration.ID).First(&types.MDMConfiguration{}).Error; err != nil {
 			return err
 		}
+		// A struct-based Select+Updates is used (rather than a map) so GORM applies
+		// the serializer:json on EnforcementAllowlist; Select forces the columns to
+		// be written even when they hold zero values.
 		result := tx.Model(&types.MDMConfiguration{}).
 			Where("id = ?", configuration.ID).
-			Select("AssetDigest", "ObotSentryVersion", "Values").
+			Select("AssetDigest", "ObotSentryVersion", "Values", "EnforcementEnabled", "EnforcementAllowlist").
 			Updates(configuration)
 		if result.Error != nil {
 			return fmt.Errorf("failed to update MDM configuration: %w", result.Error)

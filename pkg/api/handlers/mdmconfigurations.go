@@ -305,6 +305,16 @@ func (h *MDMConfigurationsHandler) mdmConfigurationFromInput(req api.Context, in
 	configuration := &gtypes.MDMConfiguration{
 		AssetDigest: strings.TrimSpace(in.AssetDigest),
 	}
+
+	// Enforcement is independent of the asset selection, so resolve it before the
+	// blank-asset early return below.
+	configuration.EnforcementEnabled = in.EnforcementEnabled
+	allowlist, err := enforcementAllowlistForSave(in, current)
+	if err != nil {
+		return nil, err
+	}
+	configuration.EnforcementAllowlist = allowlist
+
 	if configuration.AssetDigest == "" {
 		if current != nil {
 			return nil, types.NewErrBadRequest("assetDigest is required when updating an MDM configuration")
@@ -377,7 +387,9 @@ func convertMDMConfiguration(configuration gtypes.MDMConfiguration) (types.MDMCo
 		MDMConfigurationManifest: types.MDMConfigurationManifest{
 			AssetDigest: configuration.AssetDigest,
 		},
-		Artifacts: make([]types.MDMConfigurationArtifact, 0, len(configuration.Artifacts)),
+		Artifacts:            make([]types.MDMConfigurationArtifact, 0, len(configuration.Artifacts)),
+		EnforcementEnabled:   configuration.EnforcementEnabled,
+		EnforcementAllowlist: configuration.EnforcementAllowlist,
 	}
 	if configuration.Values != "" {
 		if !json.Valid([]byte(configuration.Values)) {

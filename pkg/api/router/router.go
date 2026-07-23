@@ -109,6 +109,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mcpSecretBindings := handlers.NewMCPSecretBindingHandler(services.MCPRuntimeBackend, services.LocalK8sClient, services.ObotNamespace, services.MCPSecretBindingAllowedLabel)
 	mcpAuditLogs := mcpgateway.NewAuditLogHandler(services.GatewayClient)
 	localAgentAuditLogs := mcpgateway.NewLocalAgentAuditLogHandler()
+	enforcement := handlers.NewEnforcementHandler(services.ServerURL)
 	llmAuditLogs := handlers.NewLLMAuditLogHandler()
 	auditLogExports := handlers.NewAuditLogExportHandler(services.GatewayClient)
 	serverInstances := handlers.NewServerInstancesHandler(services.AccessControlRuleHelper, services.ServerURL)
@@ -368,6 +369,12 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/mcp-stats", mcpAuditLogs.GetUsageStats)
 	mux.HandleFunc("GET /api/mcp-stats/{mcp_id}", mcpAuditLogs.GetUsageStats)
 	mux.HandleFunc("POST /api/local-agent-audit-logs", localAgentAuditLogs.Submit)
+
+	// Enforcement decisions
+	mux.HandleFunc("POST /api/enforcement/decisions", enforcement.Decide)
+	mux.HandleFunc("GET /api/enforcement-decisions", enforcement.ListDecisions)
+	mux.HandleFunc("GET /api/enforcement-decisions/filter-options/{filter}", enforcement.ListFilterOptions)
+	mux.HandleFunc("GET /api/enforcement-decisions/{id}", enforcement.GetDecision)
 
 	// LLM Audit Logs
 	mux.HandleFunc("GET /api/llm-audit-logs", llmAuditLogs.List)
