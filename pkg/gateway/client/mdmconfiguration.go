@@ -184,7 +184,7 @@ func (c *Client) ListMDMConfigurations(ctx context.Context) ([]types.MDMConfigur
 		byID[configuration.ID] = i
 	}
 	var artifacts []types.MDMConfigurationArtifact
-	if err := c.db.WithContext(ctx).Where("mdm_configuration_id IN ?", ids).Order("id").Find(&artifacts).Error; err != nil {
+	if err := c.db.WithContext(ctx).Omit("Content").Where("mdm_configuration_id IN ?", ids).Order("id").Find(&artifacts).Error; err != nil {
 		return nil, fmt.Errorf("failed to list MDM configuration artifacts: %w", err)
 	}
 	for _, artifact := range artifacts {
