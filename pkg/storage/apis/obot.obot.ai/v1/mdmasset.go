@@ -4,6 +4,7 @@ import (
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/obot/apiclient/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -59,8 +60,16 @@ type MDMAsset struct {
 	Status EmptyStatus  `json:"status,omitempty"`
 }
 
+// MDMAssetSpec mirrors types.MDMAssetManifest field-for-field, except Fields
+// is a runtime.RawExtension: a json.RawMessage marshals as raw JSON but is
+// typed as a base64 string in the generated OpenAPI schema, which breaks the
+// API server's managedFields tracking.
 type MDMAssetSpec struct {
-	types.MDMAssetManifest `json:",inline"`
+	SchemaVersion     string                        `json:"schemaVersion"`
+	ObotSentryVersion string                        `json:"obotSentryVersion"`
+	Fields            runtime.RawExtension          `json:"fields"`
+	Platforms         []types.MDMAssetPlatform      `json:"platforms"`
+	Configurations    []types.MDMAssetConfiguration `json:"configurations"`
 
 	Digest string `json:"digest"`
 }

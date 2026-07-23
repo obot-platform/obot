@@ -18330,7 +18330,8 @@ func schema_storage_apis_obotobotai_v1_MDMAssetSpec(ref common.ReferenceCallback
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
+				Description: "MDMAssetSpec mirrors types.MDMAssetManifest field-for-field, except Fields is a runtime.RawExtension: a json.RawMessage marshals as raw JSON but is typed as a base64 string in the generated OpenAPI schema, which breaks the API server's managedFields tracking.",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"schemaVersion": {
 						SchemaProps: spec.SchemaProps{
@@ -18348,8 +18349,7 @@ func schema_storage_apis_obotobotai_v1_MDMAssetSpec(ref common.ReferenceCallback
 					},
 					"fields": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "byte",
+							Ref: ref(runtime.RawExtension{}.OpenAPIModelName()),
 						},
 					},
 					"platforms": {
@@ -18388,7 +18388,7 @@ func schema_storage_apis_obotobotai_v1_MDMAssetSpec(ref common.ReferenceCallback
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.MDMAssetConfiguration", "github.com/obot-platform/obot/apiclient/types.MDMAssetPlatform"},
+			"github.com/obot-platform/obot/apiclient/types.MDMAssetConfiguration", "github.com/obot-platform/obot/apiclient/types.MDMAssetPlatform", runtime.RawExtension{}.OpenAPIModelName()},
 	}
 }
 
