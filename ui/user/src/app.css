@@ -266,6 +266,10 @@
 		background: var(--color-base-200);
 		border-radius: var(--radius-md);
 
+		.dark & {
+			background: var(--color-base-300);
+		}
+
 		& > pre {
 			margin-top: 0;
 			margin-bottom: 0;

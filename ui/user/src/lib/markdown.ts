@@ -125,15 +125,7 @@ export function toHTMLFromMarkdownWithNewTabLinks(
 	markdown: string,
 	enableVideoAndIframeProcessing = false
 ): string {
-	const withLinks = updateLinksWithTargetBlank(
-		toHTMLFromMarkdown(markdown, enableVideoAndIframeProcessing)
-	);
-
-	if (typeof document === 'undefined') {
-		return withLinks;
-	}
-
-	return withLinks;
+	return updateLinksWithTargetBlank(toHTMLFromMarkdown(markdown, enableVideoAndIframeProcessing));
 }
 
 export function stripMarkdownToText(markdown: string): string {
