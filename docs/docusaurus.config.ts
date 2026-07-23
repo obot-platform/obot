@@ -139,6 +139,10 @@ const config: Config = {
           dropdownActiveClassDisabled: true,
         },
         {
+          type: "custom-obotUrl",
+          position: "left",
+        },
+        {
           href: "https://github.com/obot-platform/obot",
           label: "GitHub",
           position: "right",
