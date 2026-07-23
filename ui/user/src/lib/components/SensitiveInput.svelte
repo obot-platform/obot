@@ -165,7 +165,6 @@
 					id={name}
 					class="sr-only"
 					tabindex="-1"
-					aria-hidden="true"
 					{name}
 					{disabled}
 					{readonly}
