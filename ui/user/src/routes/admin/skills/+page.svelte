@@ -42,11 +42,12 @@
 	import { slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
-	type RepositoryCredentialType = '' | 'shared' | 'token';
+	type RepositoryCredentialType = 'none' | 'shared' | 'token';
 
 	const repositoryCredentialOptions = [
-		{ id: 'shared', label: 'Saved Git Credential' },
-		{ id: 'token', label: 'Personal Access Token' }
+		{ id: 'none', label: 'None' },
+		{ id: 'shared', label: 'Choose existing' },
+		{ id: 'token', label: 'Enter personal access token' }
 	];
 
 	let { data } = $props();
@@ -344,7 +345,7 @@
 							ref: 'main',
 							token: '',
 							gitCredentialID: '',
-							credentialType: ''
+							credentialType: 'none'
 						};
 						sourceDialog?.showModal();
 					}}
@@ -494,7 +495,7 @@
 										? 'shared'
 										: hasSkillRepositoryToken(d)
 											? 'token'
-											: '',
+											: 'none',
 									repositoryID: d.id
 								};
 								sourceDialog?.showModal();
@@ -686,29 +687,29 @@
 					>
 				</div>
 				<div class="flex flex-col gap-1">
+					<span id="skill-source-credential-label" class="flex-1 text-sm font-light capitalize"
+						>Credential</span
+					>
 					<Select
 						id="skill-source-credential-type"
 						options={repositoryCredentialOptions}
 						selected={editingSource.credentialType}
-						placeholder="Repository Credential (optional)"
-						class={!editingSource.credentialType ? 'text-muted-content' : undefined}
+						ariaLabelledby="skill-source-credential-label"
 						onSelect={(option) => {
 							if (!editingSource) return;
 							editingSource.credentialType = option.id as RepositoryCredentialType;
 							if (option.id === 'shared') {
 								editingSource.token = '';
+							} else if (option.id === 'token') {
+								editingSource.gitCredentialID = '';
 							} else {
 								editingSource.gitCredentialID = '';
+								editingSource.token = '';
+								if (hasSkillRepositoryToken(editingSkillRepository)) {
+									editingSource.clearToken = true;
+								}
 							}
 						}}
-						onClear={editingSource.credentialType
-							? () => {
-									if (!editingSource) return;
-									editingSource.credentialType = '';
-									editingSource.gitCredentialID = '';
-									editingSource.token = '';
-								}
-							: undefined}
 					/>
 				</div>
 				{#if editingSource.credentialType === 'shared'}
@@ -717,7 +718,6 @@
 							id="skill-source-git-credential"
 							options={gitCredentialOptions}
 							selected={editingSource.gitCredentialID}
-							placeholder={gitCredentials.length ? 'Select a credential' : 'No credentials'}
 							searchPlaceholder=""
 							searchInDropdown
 							onSelect={(option) => {
