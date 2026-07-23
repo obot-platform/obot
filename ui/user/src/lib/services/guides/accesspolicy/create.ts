@@ -81,7 +81,7 @@ export const steps: GuideStep[] = [
 										selector: { id: 'add-user-group-dialog-content' },
 										title: 'Adding Users/Groups',
 										description:
-											'This is where you can add who will be able to access the catalog entries & servers.',
+											'This is where you can add who will be able to access the MCP servers.',
 										noDescendantInteraction: true
 									},
 									listener: {
