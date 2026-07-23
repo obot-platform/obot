@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { Eye, EyeOff } from '@lucide/svelte';
+	import type { FullAutoFill } from 'svelte/elements';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -20,6 +21,9 @@
 		};
 		hideReveal?: boolean;
 		placeholder?: string;
+		autocomplete?: FullAutoFill;
+		minlength?: number;
+		required?: boolean;
 		onkeydown?: (ev: KeyboardEvent) => void;
 	}
 
@@ -37,18 +41,28 @@
 		classes,
 		hideReveal,
 		placeholder,
+		autocomplete = 'new-password',
+		minlength,
+		required,
 		onkeydown
 	}: Props = $props();
 
 	let showSensitive = $state(false);
 	let textareaElement = $state<HTMLElement>();
+	let formControl = $state<HTMLTextAreaElement>();
 	let maskedTextarea = $state<HTMLElement>();
-	let containerElement = $state<HTMLElement>();
 	let scrollableWrapper = $state<HTMLElement>();
-	let resizeHandle = $state<HTMLElement>();
 	let isResizing = $state(false);
 	let startY = $state(0);
 	let startHeight = $state(0);
+	let validationFailed = $state(false);
+
+	$effect(() => {
+		void value;
+		if (validationFailed && formControl?.validity.valid) {
+			validationFailed = false;
+		}
+	});
 
 	function getMaskedValue(text: string): string {
 		return text.replace(/[^\s]/g, '•').replaceAll(/\n/g, '<br>');
@@ -94,6 +108,12 @@
 		onfocus?.();
 	}
 
+	function handleGrowableInvalid(ev: Event) {
+		ev.preventDefault();
+		validationFailed = true;
+		textareaElement?.focus();
+	}
+
 	function toggleVisibility(ev: MouseEvent) {
 		ev.preventDefault();
 		showSensitive = !showSensitive;
@@ -112,7 +132,7 @@
 				bind:this={maskedTextarea}
 				tabindex="-1"
 				class={twMerge(
-					'layer-1 black:text-white w-full bg-transparent font-mono wrap-break-word whitespace-pre-wrap text-black',
+					'layer-1 w-full bg-transparent font-mono wrap-break-word whitespace-pre-wrap text-base-content',
 					klass
 				)}
 			>
@@ -126,7 +146,7 @@
 				bind:this={maskedTextarea}
 				tabindex="-1"
 				class={twMerge(
-					'layer-1 black:text-white w-full bg-transparent font-mono wrap-break-word whitespace-pre-wrap text-black',
+					'layer-1 w-full bg-transparent font-mono wrap-break-word whitespace-pre-wrap text-base-content',
 					klass
 				)}
 			>
@@ -138,16 +158,32 @@
 
 <div class="relative flex grow items-center">
 	{#if textarea}
-		<div bind:this={containerElement} class="relative flex min-h-[60px] w-full flex-col leading-5">
+		<div class="relative flex min-h-15 w-full flex-col leading-5">
 			{#if growable}
-				<input type="text" {name} {disabled} {readonly} {value} {placeholder} hidden />
+				<textarea
+					bind:this={formControl}
+					id={name}
+					class="sr-only"
+					tabindex="-1"
+					{name}
+					{disabled}
+					{readonly}
+					{value}
+					{placeholder}
+					{autocomplete}
+					{minlength}
+					{required}
+					oninvalid={handleGrowableInvalid}
+					onfocus={() => textareaElement?.focus()}
+				></textarea>
 				<div
 					bind:this={scrollableWrapper}
 					class={twMerge(
-						'text-input-filled base flex min-h-[60px] w-full shrink-0 flex-col overflow-x-hidden overflow-y-auto font-mono',
+						'text-input-filled base flex min-h-15 w-full shrink-0 flex-col overflow-x-hidden overflow-y-auto font-mono',
 						klass,
 						classes?.wrapper,
-						error && 'border-error bg-error/20 text-error ring-error focus:ring-1',
+						(error || validationFailed) &&
+							'border-error bg-error/20 text-error ring-error focus:ring-1',
 						disabled && 'opacity-50',
 						!showSensitive ? 'hide' : ''
 					)}
@@ -158,11 +194,12 @@
 							class="w-full outline-none"
 							class:pointer-events-none={readonly}
 							data-1p-ignore
-							id={name}
 							contenteditable="plaintext-only"
 							spellcheck="false"
 							role="textbox"
 							tabindex="0"
+							aria-required={required || undefined}
+							aria-invalid={error || validationFailed || undefined}
 							onscroll={(ev) => {
 								if (!showSensitive && maskedTextarea) {
 									maskedTextarea.scrollTop = ev.currentTarget.scrollTop;
@@ -186,7 +223,7 @@
 
 						{#if placeholder && value.length === 0}
 							<div
-								class="black:text-white/50 pointer-events-none absolute inset-0 z-2 bg-transparent text-black/50"
+								class="pointer-events-none absolute inset-0 z-2 bg-transparent text-base-content"
 							>
 								{placeholder}
 							</div>
@@ -195,7 +232,6 @@
 
 					<!-- Resize handle -->
 					<div
-						bind:this={resizeHandle}
 						class="absolute right-1 bottom-1 z-3 h-3 w-3 cursor-ns-resize select-none"
 						onmousedown={handleResizeStart}
 						role="button"
@@ -235,6 +271,9 @@
 							{disabled}
 							{readonly}
 							{placeholder}
+							{autocomplete}
+							{minlength}
+							{required}
 							spellcheck="false"
 							onscroll={(ev) => {
 								if (!showSensitive && maskedTextarea) {
@@ -273,7 +312,9 @@
 			type={showSensitive ? 'text' : 'password'}
 			oninput={handleInput}
 			onfocus={handleFocus}
-			autocomplete="new-password"
+			{autocomplete}
+			{minlength}
+			{required}
 			{disabled}
 			{readonly}
 			{placeholder}

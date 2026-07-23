@@ -27,6 +27,9 @@
 
 	function sortAuthProviders(authProviders: AuthProvider[]) {
 		return [...authProviders].sort((a, b) => {
+			if (a.id === CommonAuthProviderIds.LOCAL) return 1;
+			if (b.id === CommonAuthProviderIds.LOCAL) return -1;
+
 			const preferredOrder: string[] = [
 				CommonAuthProviderIds.GOOGLE,
 				CommonAuthProviderIds.GITHUB,
