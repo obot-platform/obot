@@ -422,6 +422,58 @@ func TestSync(t *testing.T) {
 		assert.Equal(t, syncInterval, resp.Delay)
 	})
 
+	t.Run("failed force sync resumes hourly schedule", func(t *testing.T) {
+		repo := newSkillRepository("repo1", "default")
+		repo.Annotations = map[string]string{
+			v1.SkillRepositorySyncAnnotation: "true",
+		}
+		c := newFakeClient(t, repo)
+
+		fetchCalls := 0
+		h := &Handler{
+			gatewayClient: gatewayClient,
+			fetcher: &mockFetcher{
+				fetchFn: func(_ context.Context, _, _, _ string) (*fetchedRepository, error) {
+					fetchCalls++
+					return nil, fmt.Errorf("bad credentials")
+				},
+			},
+			now: func() time.Time { return fixedTime },
+		}
+
+		resp := &router.ResponseWrapper{}
+		err := h.Sync(router.Request{
+			Client:    c,
+			Object:    repo,
+			Ctx:       t.Context(),
+			Namespace: repo.Namespace,
+			Name:      repo.Name,
+			Key:       repo.Namespace + "/" + repo.Name,
+		}, resp)
+		require.NoError(t, err)
+
+		var updated v1.SkillRepository
+		require.NoError(t, c.Get(t.Context(), kclient.ObjectKey{Namespace: repo.Namespace, Name: repo.Name}, &updated))
+		assert.Equal(t, 1, fetchCalls)
+		assert.Contains(t, updated.Status.SyncError, "bad credentials")
+		assert.False(t, updated.Status.IsSyncing)
+		assert.NotContains(t, updated.Annotations, v1.SkillRepositorySyncAnnotation)
+		assert.Equal(t, syncInterval, resp.Delay)
+
+		resp = &router.ResponseWrapper{}
+		err = h.Sync(router.Request{
+			Client:    c,
+			Object:    &updated,
+			Ctx:       t.Context(),
+			Namespace: updated.Namespace,
+			Name:      updated.Name,
+			Key:       updated.Namespace + "/" + updated.Name,
+		}, resp)
+		require.NoError(t, err)
+		assert.Equal(t, 1, fetchCalls)
+		assert.Equal(t, syncInterval, resp.Delay)
+	})
+
 	t.Run("legacy credential failure falls back to unauthenticated fetch", func(t *testing.T) {
 		repo := newSkillRepository("repo1", "default")
 		c := newFakeClient(t, repo)
