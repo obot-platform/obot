@@ -10,7 +10,7 @@
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
-	import { HttpError } from '$lib/errors.js';
+	import { HttpError, parseErrorContent } from '$lib/errors.js';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService } from '$lib/services';
 	import type { GitCredential, SkillRepository } from '$lib/services/admin/types';
@@ -853,7 +853,7 @@
 							sync(response.id);
 							closeSourceDialog();
 						} catch (error) {
-							sourceError = error instanceof Error ? error.message : 'An unexpected error occurred';
+							sourceError = parseErrorContent(error).message;
 						} finally {
 							saving = false;
 						}
