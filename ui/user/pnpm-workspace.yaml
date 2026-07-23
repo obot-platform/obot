@@ -1,8 +1,14 @@
 overrides:
+  '@hono/node-server': 2.0.11
+  body-parser: 2.3.0
+  'brace-expansion@2': 2.1.2
+  'brace-expansion@5': 5.0.7
   cookie: 0.7.0
   ip-address: 10.2.0
   esbuild: 0.28.1
-  dompurify: ^3.4.11
+  dompurify: 3.4.12
+  fast-uri: 3.1.4
+  hono: 4.12.27
 engineStrict: true
 allowBuilds:
   '@modelcontextprotocol/ext-apps': true
