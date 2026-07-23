@@ -258,6 +258,89 @@
 		}
 	}
 
+	.markdown-code-block {
+		position: relative;
+		margin-top: 1.75em;
+		margin-bottom: 1.75em;
+		padding-right: 2rem;
+		background: var(--color-base-200);
+		border-radius: var(--radius-md);
+
+		& > pre {
+			margin-top: 0;
+			margin-bottom: 0;
+			padding-right: 3rem;
+		}
+
+		& > .markdown-copy-btn {
+			position: absolute;
+			top: 0.5rem;
+			right: 0;
+			padding-right: 0.5rem;
+			padding-left: 0.5rem;
+			z-index: 1;
+			color: color-mix(in oklab, var(--color-base-content) 50%, transparent);
+			background: var(--color-base-200);
+
+			.dark & {
+				background: var(--color-base-300);
+			}
+
+			&:hover,
+			&:focus-visible {
+				color: var(--color-base-content);
+			}
+		}
+	}
+
+	.markdown-copy-btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: auto;
+		height: auto;
+		padding: 0.3125rem;
+		border: none;
+		border-radius: 0.25rem;
+		cursor: pointer;
+
+		&::before {
+			content: '';
+			display: block;
+			flex-shrink: 0;
+			width: 0.875rem;
+			height: 0.875rem;
+			background-color: currentColor;
+			mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='14' height='14' x='8' y='8' rx='2' ry='2'/%3E%3Cpath d='M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2'/%3E%3C/svg%3E")
+				center / contain no-repeat;
+			-webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='14' height='14' x='8' y='8' rx='2' ry='2'/%3E%3Cpath d='M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2'/%3E%3C/svg%3E")
+				center / contain no-repeat;
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--color-primary);
+			outline-offset: 1px;
+		}
+	}
+
+	.markdown-copy-btn.markdown-copy-btn--copied,
+	.markdown-code-block > .markdown-copy-btn.markdown-copy-btn--copied {
+		color: var(--color-primary);
+		opacity: 1;
+
+		&:hover,
+		&:focus-visible {
+			color: var(--color-primary);
+		}
+
+		&::before {
+			mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E")
+				center / contain no-repeat;
+			-webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E")
+				center / contain no-repeat;
+		}
+	}
+
 	.scrollbar-gutter-stable {
 		scrollbar-gutter: stable;
 	}
