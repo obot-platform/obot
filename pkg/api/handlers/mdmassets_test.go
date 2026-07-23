@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -123,8 +124,12 @@ func TestMDMAssetHandlerListExposesManifestMetadata(t *testing.T) {
 			Namespace: system.DefaultNamespace,
 		},
 		Spec: v1.MDMAssetSpec{
-			Digest:           digest,
-			MDMAssetManifest: manifest,
+			Digest:            digest,
+			SchemaVersion:     manifest.SchemaVersion,
+			ObotSentryVersion: manifest.ObotSentryVersion,
+			Fields:            runtime.RawExtension{Raw: manifest.Fields},
+			Platforms:         manifest.Platforms,
+			Configurations:    manifest.Configurations,
 		},
 	})
 	handler := NewMDMAssetHandler()

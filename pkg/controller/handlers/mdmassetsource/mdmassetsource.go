@@ -19,6 +19,7 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -208,14 +209,19 @@ func (h *Handler) sync(ctx context.Context, c kclient.Client, source *v1.MDMAsse
 		return "", err
 	}
 
+	manifest := loader.Manifest()
 	asset := &v1.MDMAsset{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      v1.MDMAssetName(digest),
 			Namespace: source.Namespace,
 		},
 		Spec: v1.MDMAssetSpec{
-			Digest:           digest,
-			MDMAssetManifest: loader.Manifest(),
+			Digest:            digest,
+			SchemaVersion:     manifest.SchemaVersion,
+			ObotSentryVersion: manifest.ObotSentryVersion,
+			Fields:            runtime.RawExtension{Raw: manifest.Fields},
+			Platforms:         manifest.Platforms,
+			Configurations:    manifest.Configurations,
 		},
 	}
 	var existing v1.MDMAsset
