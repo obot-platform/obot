@@ -5,81 +5,139 @@ slug: /
 
 # Obot
 
-Obot is an open-source platform that provides everything an organization needs to implement MCP technologies. It enables you to host MCP servers for internal and external users, set up MCP registries, manage and monitor MCP usage, and build feature-rich agents and chatbots that leverage MCP servers.
+Obot is an open-source platform for organizations to manage and govern their internal AI ecosystems. It provides shared infrastructure for distributing AI capabilities, connecting clients to models and tools, managing identities and credentials, and recording activity across centrally hosted services and user workstations.
+
+External clients such as Claude Code, Codex, Cursor, and VS Code connect to the gateways and catalogs they need. Obot applies the organization's policies and records activity at those integration points.
+
+## Where Obot Operates
+
+Obot provides several independent control and observation points:
+
+```mermaid
+flowchart LR
+  subgraph deviceLane["Device visibility"]
+    direction LR
+    workstations["<span style='display:inline-block;width:150px'><b>User workstations</b></span>"] --> sentry["<span style='display:inline-block;width:200px'><b>Obot Sentry</b><br/>Enrollment, inventory, and audit</span>"] --> devices["<span style='display:inline-block;width:200px'><b>Device Management (beta)</b><br/>Inventory and local tool-call audit</span>"]
+  end
+
+  subgraph modelLane["Model access"]
+    direction LR
+    modelClients["<span style='display:inline-block;width:150px'><b>AI clients</b></span>"] --> llm["<span style='display:inline-block;width:200px'><b>LLM gateway</b><br/>Model access, token usage, and audit</span>"] --> models["<span style='display:inline-block;width:200px'><b>Model providers</b><br/>OpenAI, Anthropic, Amazon Bedrock, Azure OpenAI, and Generic Responses Compatible</span>"]
+  end
+
+  subgraph skillLane["Skill distribution"]
+    direction RL
+    git["<span style='display:inline-block;width:200px'><b>Git repositories</b><br/>Skill sources</span>"] --> skills["<span style='display:inline-block;width:200px'><b>Skills catalog</b><br/>Access policies</span>"] --> skillClients["<span style='display:inline-block;width:150px'><b>AI clients and<br/>Obot CLI</b></span>"]
+  end
+
+  subgraph mcpLane["MCP servers and tools"]
+    direction LR
+    mcpClients["<span style='display:inline-block;width:150px'><b>MCP clients</b></span>"] --> mcp["<span style='display:inline-block;width:200px'><b>MCP management</b><br/>Catalog, gateway, hosting, and filters</span>"] --> mcpServers["<span style='display:inline-block;width:200px'><b>MCP servers</b><br/>Hosted, remote, and composite</span>"]
+  end
+
+  classDef external fill:#F8FAFC,stroke:#64748B,color:#0F172A;
+  classDef platform fill:#EFF6FF,stroke:#3D8DFF,stroke-width:2px,color:#0F172A;
+
+  class modelClients,models,mcpClients,mcpServers,git,skillClients,workstations external;
+  class llm,mcp,skills,sentry,devices platform;
+  style modelLane fill:#FFFFFF,stroke:#CBD5E1,color:#0F172A
+  style mcpLane fill:#FFFFFF,stroke:#CBD5E1,color:#0F172A
+  style skillLane fill:#FFFFFF,stroke:#CBD5E1,color:#0F172A
+  style deviceLane fill:#FFFFFF,stroke:#CBD5E1,color:#0F172A
+```
+
+You can use only the components that fit your environment. For example, local AI clients can use the LLM Gateway without using Obot-managed MCP servers, and Device Management can inventory clients whose model traffic does not pass through Obot.
+
+## MCP Servers and Tools
+
+Obot manages the definition, deployment, discovery, and use of MCP servers.
+
+- Host Node.js (`npx`), Python (`uvx`), and containerized MCP servers on Docker or Kubernetes.
+- Register remote MCP servers.
+- Create composite MCP servers that expose selected tools from multiple servers.
+- Manage catalogs through the UI or [Git-backed sources](configuration/mcp-server-gitops.md), and serve the standard [MCP Registry API](functionality/mcp-registry-api.md).
+- Grant access to servers and tools by user or identity-provider group with [MCP Access Policies](functionality/mcp-access-policies.md).
+- Handle MCP OAuth, user and shared credentials, Kubernetes [secret bindings](functionality/mcp-servers.md#kubernetes-secret-bindings), and token exchange.
+- Inspect, reject, or modify MCP requests and responses with [filters](functionality/filters.md).
+- Restrict the domains hosted MCP servers can reach through [MCP Server Egress Control](configuration/mcp-server-egress-control.md).
+
+See [MCP Servers](functionality/mcp-servers.md) for deployment and configuration details. See [MCP Gateway](concepts/mcp-gateway.md) for how clients connect to servers through Obot.
+
+## Agent Skills
+
+Obot indexes [Agent Skills](functionality/skills.md) from Git repositories and makes them available according to [Skill Access Policies](functionality/skill-access-policies.md). Policies can grant a user or group access to individual skills, an entire source repository, or all configured skills.
+
+Users and local AI clients use the Obot CLI to search the allowed catalog and install skills. Git credentials can be managed centrally and reused across skill repositories and MCP catalog sources.
+
+## Model Access
+
+The [LLM Gateway](functionality/llm-gateway.md) presents provider-compatible endpoints that external AI clients can use with scoped Obot API keys. Obot keeps the upstream provider credentials and applies [Model Access Policies](functionality/model-access-policies.md) before forwarding a request.
+
+The gateway supports:
+
+- OpenAI and Anthropic
+- Amazon Bedrock
+- Azure OpenAI and Microsoft Foundry
+- Generic Responses Compatible endpoints such as Ollama or LiteLLM
+
+The model list returned to a client contains only models that the authenticated user can call. Obot records request status, client and session metadata, token counts, and estimated model cost.
+
+## Device Inventory and Local AI Activity
+
+[Device Management](functionality/device-management.md) is a beta capability built around [Obot Sentry](https://github.com/obot-platform/obot-sentry), a companion agent installed on user workstations.
+
+Obot Sentry:
+
+- Enrolls a device with device-bound credentials.
+- Periodically inventories supported AI clients and their configured MCP servers, skills, and plugins.
+- Installs managed audit hooks for Claude Code, Codex, Cursor, and VS Code.
+- Submits local tool-call events to the same audit system used for MCP activity.
+
+Administrators can generate manual installers or Microsoft Intune packages, issue and revoke enrollment keys, and inspect inventory by device, user, client, MCP server, or skill.
+
+## Policies, Credentials, and Audit Data
+
+Access policies for MCP servers, skills, and models use authenticated users and identity-provider groups. Obot can keep provider and shared-service credentials out of end-user client configuration, while per-user OAuth and configuration remain tied to the user.
+
+[Audit Logs and Usage](functionality/audit-logs-and-usage.md) cover three types of activity:
+
+- MCP requests and responses
+- Local tool calls submitted by Obot Sentry
+- LLM Gateway requests, outcomes, and token usage
+
+Admins and Owners can inspect operational metadata. Only users with the Auditor role can access stored request and response content. MCP and local tool-call events use a normalized event format, and audit data can be exported once or on a schedule to Amazon S3, Google Cloud Storage, or Azure Blob Storage.
 
 ## Getting Started
 
-To run Obot locally, start it with Docker:
+For local development or evaluation, start Obot with Docker:
 
 ```bash
-docker run -d --name obot -p 8080:8080 \
+docker run -d \
+  --name obot \
+  -p 8080:8080 \
+  -v obot-data:/data \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  -e OPENAI_API_KEY=<API KEY> \
   -e OBOT_SERVER_ENABLE_AUTHENTICATION=true \
   -e OBOT_BOOTSTRAP_TOKEN=<token> \
   ghcr.io/obot-platform/obot:latest
 ```
 
-The `OBOT_BOOTSTRAP_TOKEN` value can be anything you want, at least six characters long. This is the value you will provide for initial authentication to begin configuring Obot.
-Replace \<API KEY\> with your OpenAI API key. You can also set `ANTHROPIC_API_KEY` or omit these environment variables completely and configure model providers through the UI.
+The bootstrap token must be at least six characters. If you omit `OBOT_BOOTSTRAP_TOKEN`, Obot generates one and prints it in the container logs.
 
-Open [http://localhost:8080](http://localhost:8080) in your browser to access the Obot UI.
+Open [http://localhost:8080](http://localhost:8080), sign in with the bootstrap token, and then:
 
-You can also leave out the `OBOT_SERVER_ENABLE_AUTHENTICATION` environment variable to disable authentication, but this means that anyone with access to make requests to port 8080 on your system will be able to manage and launch MCP servers, so it is recommended to keep authentication enabled.
+1. [Configure authentication](configuration/auth-providers.md).
+2. Add MCP servers, model providers, or skill sources.
+3. Create access policies for the users and groups that should use them.
+4. Install the [Obot CLI](installation/cli-setup.md) or configure Obot Sentry if local-client integration is required.
 
-For additional installation options, see the [Installation Guide](installation/overview).
+A model provider is required only when using the LLM Gateway.
 
-## Platform Concepts
-
-Organizations face several challenges when implementing MCP technologies:
-
-- **Build**: While MCP servers can be developed using SDKs of choice, IT teams need a reliable way to host these servers for both private and public use.
-- **Discover**: With tens of thousands of MCP servers available, users need a clear and trusted way to discover servers that have been approved by IT administrators.
-- **Secure**: MCP servers must be authenticated, access must be controlled, and all activity should be auditable.
-- **Use**: MCP protocol support varies widely across chat clients. A standardized chat client that provides consistent MCP support across the organization is highly desirable.
-
-Obot addresses these challenges by offering MCP hosting, an MCP registry, an MCP gateway, and an MCP-standards-compliant chat client. Popular workflow and agent frameworks such as n8n and LangGraph can interact with MCP servers managed by Obot. In addition, clients like ChatGPT, Claude Desktop, and GitHub Copilot can also leverage MCP servers managed by Obot.
-
-![Obot Platform Architecture](/img/obot-mcp-mgmt.png)
-
-### [MCP Hosting](concepts/mcp-hosting)
-
-Run and manage MCP servers directly within Obot:
-
-- Run MCP servers locally with Docker or deploy them to Kubernetes
-- Support for Node.js, Python, and container-based servers
-- Support for both single-user STDIO servers and multi-user HTTP servers
-- Controls for who can deploy servers, publish them to registries, or share them
-- Built-in OAuth 2.1 and token handling for authentication
-
-### [MCP Registry](concepts/mcp-registry)
-
-A central place to list and discover MCP servers:
-
-- Curated collection of available MCP servers
-- Shared credentials and authentication handled by the platform
-- Conformance with the MCP registry specification
-- Server visibility based on user access
-
-### [MCP Gateway](concepts/mcp-gateway)
-
-A single entry point for accessing MCP servers:
-
-- Access rules for users and groups
-- Logging of MCP requests and responses
-- Usage visibility to understand which servers are being used
-- Request inspection and filtering before requests reach servers
-
-## Technical Advantages
-
-- **Self-Hosted**: Deploy on your own infrastructure for complete control over data and security
-- **MCP Standard**: Built on the open Model Context Protocol for maximum interoperability
-- **Security-First Design**: OAuth 2.1, encryption at rest and in transit, comprehensive audit logging
-- **Extensible**: Easy integration with custom tools, services, and existing systems
-- **GitOps Ready**: Manage server definitions and configuration as code
+This Docker configuration mounts the host Docker socket so Obot can launch hosted MCP servers as sibling containers. Use it only for development, evaluation, or trusted single-tenant environments. See the [Installation Guide](installation/overview.md) for Kubernetes and production deployment requirements.
 
 ## Next Steps
 
-- [Installation Guide](installation/overview)
-- [Architecture](concepts/architecture)
-- [Functionality](functionality/overview)
+- [Installation Guide](installation/overview.md)
+- [Functionality](functionality/overview.md)
+- [User Roles](configuration/user-roles.md)
+- [Server Configuration](configuration/server-configuration.md)

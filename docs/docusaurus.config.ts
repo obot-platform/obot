@@ -49,6 +49,12 @@ const config: Config = {
     locales: ["en"],
   },
 
+  markdown: {
+    mermaid: true,
+  },
+
+  themes: ["@docusaurus/theme-mermaid"],
+
   plugins: [
     // Custom plugin to rewrite canonical URLs in versioned docs to point to latest
     "./plugins/canonical-urls.ts",
