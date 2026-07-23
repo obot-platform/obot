@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { codeSnippetCopy } from '$lib/actions/codeSnippetCopy';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import { saveBlob } from '$lib/download';
@@ -562,7 +563,7 @@
 					<div class="collapse-content px-0">
 						<div class="pl-9">
 							{#if selectedArtifact?.instructions}
-								<div class="instructions milkdown-content">
+								<div class="instructions milkdown-content" use:codeSnippetCopy>
 									<!-- eslint-disable-next-line svelte/no-at-html-tags -- sanitized by toHTMLFromMarkdownWithNewTabLinks -->
 									{@html toHTMLFromMarkdownWithNewTabLinks(selectedArtifact.instructions)}
 								</div>
@@ -658,6 +659,7 @@
 	   article-scale milkdown typography is stepped down to match. */
 	.instructions {
 		font-size: 0.875rem;
+		--tw-prose-pre-code: var(--color-base-content);
 	}
 	.instructions :global(p),
 	.instructions :global(li),
