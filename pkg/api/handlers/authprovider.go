@@ -15,6 +15,7 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/license"
+	"github.com/obot-platform/obot/pkg/localauth"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/wait"
@@ -181,6 +182,14 @@ func (ap *AuthProviderHandler) Deconfigure(req api.Context) error {
 
 	// Stop the auth provider so that the credential is completely removed from the system.
 	ap.dispatcher.StopAuthProvider(authProvider.Namespace, authProvider.Name)
+
+	// The local auth provider keeps its sessions in Obot's database rather than in the sessions
+	// table the block below drops, so clear them out here.
+	if authProvider.Name == localauth.ProviderName {
+		if err := req.GatewayClient.DeleteAllLocalAuthSessions(req.Context()); err != nil {
+			return fmt.Errorf("failed to delete local auth sessions: %w", err)
+		}
+	}
 
 	if authProvider.Annotations[v1.AuthProviderSyncAnnotation] == "" {
 		if authProvider.Annotations == nil {

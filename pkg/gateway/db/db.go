@@ -136,6 +136,8 @@ func (db *DB) AutoMigrate() (err error) {
 		types.DeviceEnrollmentKey{},
 		types.Device{},
 		types.Credential{},
+		types.LocalAuthUser{},
+		types.LocalAuthSession{},
 	); err != nil {
 		return fmt.Errorf("failed to auto migrate gateway types: %w", err)
 	}

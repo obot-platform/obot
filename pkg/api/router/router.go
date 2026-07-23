@@ -102,6 +102,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mdmConfigurations := handlers.NewMDMConfigurationsHandler(services.ServerURL)
 	deviceEnroll := handlers.NewDeviceEnrollHandler()
 	authProviders := handlers.NewAuthProviderHandler(services.ProviderDispatcher, services.PostgresDSN, services.LicenseProvider)
+	localAuth := handlers.NewLocalAuthHandler(services.LocalAuthProvider)
 	defaultModelAliases := handlers.NewDefaultModelAliasHandler()
 	images := handlers.NewImageHandler()
 	mcp := handlers.NewMCPHandler(services.MCPSessionManager, services.AccessControlRuleHelper, oauthChecker, services.Router.Backend(), services.MCPImagePullSecrets, services.ServerURL, services.MCPSecretBindingAllowedLabel)
@@ -505,6 +506,12 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("POST /api/auth-providers/{id}/configure", authProviders.Configure)
 	mux.HandleFunc("POST /api/auth-providers/{id}/deconfigure", authProviders.Deconfigure)
 	mux.HandleFunc("POST /api/auth-providers/{id}/reveal", authProviders.Reveal)
+
+	// Local auth provider users
+	mux.HandleFunc("GET /api/local-auth/users", localAuth.List)
+	mux.HandleFunc("POST /api/local-auth/users", localAuth.Create)
+	mux.HandleFunc("POST /api/local-auth/users/{id}/password", localAuth.SetPassword)
+	mux.HandleFunc("DELETE /api/local-auth/users/{id}", localAuth.Delete)
 
 	// Bootstrap
 	mux.HandleFunc("GET /api/bootstrap", services.Bootstrapper.IsEnabled)

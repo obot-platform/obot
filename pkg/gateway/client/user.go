@@ -14,6 +14,7 @@ import (
 	"github.com/obot-platform/obot/pkg/accesstoken"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/hash"
+	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
@@ -355,6 +356,11 @@ func (c *Client) UpdateProfileIfNeeded(ctx context.Context, user *types.User, au
 		}
 	case "okta-auth-provider":
 		// Okta does not support profile pictures
+		if displayName, ok := profile["name"].(string); ok {
+			user.DisplayName = displayName
+		}
+	case system.LocalAuthProvider:
+		// Local users have no profile beyond their email address, and no picture.
 		if displayName, ok := profile["name"].(string); ok {
 			user.DisplayName = displayName
 		}
