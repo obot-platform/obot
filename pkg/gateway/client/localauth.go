@@ -50,6 +50,19 @@ func (c *Client) LocalAuthUserByEmail(ctx context.Context, email string) (*types
 	return &user, nil
 }
 
+func (c *Client) LocalAuthUserByID(ctx context.Context, id uint) (*types.LocalAuthUser, error) {
+	var user types.LocalAuthUser
+	if err := c.db.WithContext(ctx).First(&user, id).Error; err != nil {
+		return nil, err
+	}
+
+	if err := c.decryptLocalAuthUser(ctx, &user); err != nil {
+		return nil, fmt.Errorf("failed to decrypt local auth user: %w", err)
+	}
+
+	return &user, nil
+}
+
 // CreateLocalAuthUser creates a new local auth user. The password must already be hashed.
 func (c *Client) CreateLocalAuthUser(ctx context.Context, email, passwordHash string) (*types.LocalAuthUser, error) {
 	email = NormalizeEmail(email)

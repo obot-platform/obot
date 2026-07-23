@@ -106,6 +106,22 @@ func (c *Client) UserByIDIncludeDeleted(ctx context.Context, id string) (*types.
 	return u, c.decryptUser(ctx, u)
 }
 
+// UserFromProviderUserID returns a user by their provider user ID
+func (c *Client) UserFromProviderUserID(ctx context.Context, providerNamespace, providerName, providerUserID string) (*types.User, error) {
+	u := new(types.User)
+	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		id := new(types.Identity)
+		if err := tx.Where("auth_provider_namespace = ? AND auth_provider_name = ? AND hashed_provider_user_id = ?", providerNamespace, providerName, hash.String(providerUserID)).First(id).Error; err != nil {
+			return err
+		}
+		return tx.Where("id = ? AND deleted_at IS NULL", id.UserID).First(u).Error
+	}); err != nil {
+		return nil, err
+	}
+
+	return u, c.decryptUser(ctx, u)
+}
+
 // UsersIncludeDeleted returns all users including soft-deleted ones (for audit purposes)
 func (c *Client) UsersIncludeDeleted(ctx context.Context, query types.UserQuery) ([]types.User, error) {
 	query.IncludeDeleted = true
