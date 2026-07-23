@@ -1,11 +1,6 @@
 // Generic MDM form helpers. Field and target metadata comes from
 // the selected MDM asset; nothing platform-specific lives in the UI.
-import type { MDMAsset, MDMAssetConfiguration, MDMAssetField, MDMAssetFields } from '$lib/services';
-
-export function mdmTargetLabel(asset: MDMAsset, target: MDMAssetConfiguration): string {
-	const platform = asset.platforms.find((candidate) => candidate.id === target.platform);
-	return `${platform?.label ?? target.platform} / ${target.osLabel || target.os}`;
-}
+import type { MDMAssetField, MDMAssetFields } from '$lib/services';
 
 export function defaultMDMValues(fields: MDMAssetFields): Record<string, unknown> {
 	const values: Record<string, unknown> = {};

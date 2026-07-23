@@ -40,7 +40,7 @@ func (c *Controller) setupRoutes() {
 	userCleanup := cleanup.NewUserCleanup(c.services.GatewayClient, c.services.AccessControlRuleHelper)
 	mcpCatalog := mcpcatalog.New(c.services.DefaultMCPCatalogPath, c.services.DefaultSystemMCPCatalogPath, c.services.GatewayClient, c.services.AccessControlRuleHelper, c.services.MCPSessionManager)
 	modelInfoSource := modelinfosource.New(c.services.ModelInfoSourceURL, c.services.MCPSessionManager.RemoteMCPURLValidationConfig())
-	mdmAssetSource := mdmassetsource.New(c.services.MDMAssetSource, c.services.GatewayClient)
+	mdmAssetSource := mdmassetsource.New(c.services.MDMAssetSource, c.services.ServerURL, c.services.GatewayClient)
 	skillRepository := skillrepository.New(c.services.GatewayClient)
 	mcpserver := mcpserver.New(c.services.GatewayClient, c.services.MCPSessionManager, c.services.MCPOAuthTokenStorage, c.services.MCPNetworkPolicyEnabled, c.services.MCPDefaultDenyAllEgress, c.services.SingleUserIdleServerShutdownInterval, c.services.MultiUserIdleServerShutdownInterval, c.services.AgentIdleServerShutdownInterval, c.services.ServerURL, c.services.MCPRuntimeBackend, c.services.MCPImagePullSecrets)
 	mcpserverinstance := mcpserverinstance.New(c.services.GatewayClient)

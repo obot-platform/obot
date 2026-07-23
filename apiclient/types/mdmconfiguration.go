@@ -2,27 +2,38 @@ package types
 
 import "encoding/json"
 
-// MDMConfiguration is a fleet grouping that devices enroll into. AssetDigest,
-// Platform, OS, and Values are the saved configuration. Instructions and Error
-// are derived by the server from the pinned asset and are ignored on writes.
+type MDMConfigurationManifest struct {
+	AssetDigest string          `json:"assetDigest,omitempty"`
+	Values      json.RawMessage `json:"values,omitempty"`
+}
+
+// MDMConfiguration is a fleet grouping that devices enroll into. AssetDigest
+// identifies the asset bundle whose fields Values conform to. Artifacts are
+// rendered for every platform and OS in that bundle when Values are saved.
 type MDMConfiguration struct {
-	ID           uint            `json:"id"`
-	Name         string          `json:"name"`
-	Description  string          `json:"description,omitempty"`
-	CreatedAt    Time            `json:"createdAt"`
-	AssetDigest  string          `json:"assetDigest,omitempty"`
-	Platform     string          `json:"platform,omitempty"`
-	OS           string          `json:"os,omitempty"`
-	Values       json.RawMessage `json:"values,omitempty"`
-	Instructions string          `json:"instructions,omitempty"`
-	Error        string          `json:"error,omitempty"`
+	MDMConfigurationManifest `json:",inline"`
+
+	ID        uint `json:"id"`
+	IsDefault bool `json:"isDefault"`
+	CreatedAt Time `json:"createdAt"`
+
+	// ObotSentryVersion is copied from the source bundle's manifest when the
+	// artifacts are rendered. It is server-owned and reports the version the
+	// saved packages were generated with.
+	ObotSentryVersion string `json:"obotSentryVersion,omitempty"`
+
+	Artifacts []MDMConfigurationArtifact `json:"artifacts"`
 }
 
 type MDMConfigurationList List[MDMConfiguration]
 
-type MDMConfigurationCreateResponse struct {
-	MDMConfiguration
-	EnrollmentCredential string `json:"enrollmentCredential"`
+// MDMConfigurationArtifact is one rendered deployment option. Slug selects its
+// download endpoint; ZIP content, content digest, and filename remain private.
+type MDMConfigurationArtifact struct {
+	Slug         string `json:"slug"`
+	Platform     string `json:"platform"`
+	OS           string `json:"os"`
+	Instructions string `json:"instructions"`
 }
 
 type MDMEnrollmentKey struct {

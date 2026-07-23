@@ -6,192 +6,258 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/types"
 )
 
-func createPinnedConfiguration(t *testing.T, client *Client, name string, asset *types.MDMAssetBundle) *types.MDMConfiguration {
-	t.Helper()
-	configuration, _, err := client.CreateMDMConfiguration(t.Context(), 42, types.MDMConfiguration{
-		Name:        name,
-		Platform:    "intune",
-		OS:          "windows",
-		AssetDigest: asset.Digest,
-		Values:      `{"interval":30}`,
-	})
-	if err != nil {
-		t.Fatalf("failed to create pinned configuration: %v", err)
+func renderedArtifact(platform, osName, content string) types.MDMConfigurationArtifact {
+	return types.MDMConfigurationArtifact{
+		Slug:         platform + "-" + osName,
+		Platform:     platform,
+		OS:           osName,
+		Instructions: "Install " + platform + "/" + osName,
+		Content:      []byte(content),
 	}
-	return configuration
 }
 
-func TestCreateMDMConfigurationPersistsTargetAndFirstKeyAtomically(t *testing.T) {
+func TestCreateMDMConfigurationAssignsDefaultStatus(t *testing.T) {
 	client := newTestClient(t)
-	asset := storeTestBundle(t, client, "windows-assets")
-	configuration, key, err := client.CreateMDMConfiguration(t.Context(), 42, types.MDMConfiguration{
-		Name:        "Windows fleet",
-		Description: "managed",
-		Platform:    "intune",
-		OS:          "windows",
-		AssetDigest: asset.Digest,
-		Values:      `{"interval":60}`,
+	first, err := client.CreateMDMConfiguration(t.Context(), 42, &types.MDMConfiguration{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !first.IsDefault || first.CreatedBy != 42 {
+		t.Fatalf("first configuration = %#v", first)
+	}
+	second, err := client.CreateMDMConfiguration(t.Context(), 42, &types.MDMConfiguration{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second.IsDefault {
+		t.Fatalf("second configuration unexpectedly became default: %#v", second)
+	}
+}
+
+func TestCreateMDMConfigurationStoresArtifactRows(t *testing.T) {
+	client := newTestClient(t)
+	configuration, err := client.CreateMDMConfiguration(t.Context(), 42, &types.MDMConfiguration{
+		AssetDigest:       "source-digest",
+		ObotSentryVersion: "1.2.3",
+		Values:            `{"interval":60}`,
+		Artifacts: []types.MDMConfigurationArtifact{
+			renderedArtifact("intune", "windows", "windows-zip"),
+			renderedArtifact("jamf", "macos", "macos-zip"),
+		},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if configuration.ID == 0 || configuration.CreatedBy != 42 || configuration.AssetDigest != asset.Digest {
-		t.Fatalf("unexpected configuration: %#v", configuration)
+	if len(configuration.Artifacts) != 2 {
+		t.Fatalf("artifact count = %d, want 2", len(configuration.Artifacts))
 	}
-	if key.MDMConfigurationID != configuration.ID || key.EnrollmentCredential == "" {
-		t.Fatalf("unexpected first enrollment key: %#v", key)
+	for _, artifact := range configuration.Artifacts {
+		if artifact.ID == 0 || artifact.MDMConfigurationID != configuration.ID || artifact.Digest == "" || len(artifact.Content) == 0 {
+			t.Fatalf("incomplete stored artifact: %#v", artifact)
+		}
+	}
+	loaded, err := client.GetMDMConfiguration(t.Context(), configuration.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(loaded.Artifacts) != 2 || string(loaded.Artifacts[0].Content) != "windows-zip" {
+		t.Fatalf("loaded configuration = %#v", loaded)
+	}
+	if loaded.ObotSentryVersion != "1.2.3" {
+		t.Fatalf("stored version = %q, want 1.2.3", loaded.ObotSentryVersion)
+	}
+}
+
+func TestUpdateMDMConfigurationAtomicallyReplacesArtifacts(t *testing.T) {
+	client := newTestClient(t)
+	configuration, err := client.CreateMDMConfiguration(t.Context(), 42, &types.MDMConfiguration{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	configuration.AssetDigest = "source-digest"
+	configuration.ObotSentryVersion = "1.0.0"
+	configuration.Values = `{"interval":60}`
+	configuration.Artifacts = []types.MDMConfigurationArtifact{
+		renderedArtifact("intune", "windows", "windows-zip"),
+		renderedArtifact("jamf", "macos", "macos-zip"),
+	}
+	if err := client.UpdateMDMConfiguration(t.Context(), configuration); err != nil {
+		t.Fatal(err)
+	}
+
+	stored, err := client.GetMDMConfiguration(t.Context(), configuration.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored.ObotSentryVersion = "2.0.0"
+	stored.Values = `{"interval":120}`
+	stored.Artifacts = []types.MDMConfigurationArtifact{renderedArtifact("intune", "windows", "replacement")}
+	if err := client.UpdateMDMConfiguration(t.Context(), stored); err != nil {
+		t.Fatal(err)
+	}
+	replaced, err := client.GetMDMConfiguration(t.Context(), configuration.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(replaced.Artifacts) != 1 || string(replaced.Artifacts[0].Content) != "replacement" {
+		t.Fatalf("replacement configuration = %#v", replaced)
+	}
+	if replaced.ObotSentryVersion != "2.0.0" {
+		t.Fatalf("replacement version = %q, want 2.0.0", replaced.ObotSentryVersion)
+	}
+}
+
+func TestInvalidateMDMConfigurationArtifactsPreservesValues(t *testing.T) {
+	client := newTestClient(t)
+	configuration, err := client.CreateMDMConfiguration(t.Context(), 42, &types.MDMConfiguration{
+		AssetDigest: "old-source",
+		Values:      `{"interval":60}`,
+		Artifacts:   []types.MDMConfigurationArtifact{renderedArtifact("intune", "windows", "zip")},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := client.InvalidateMDMConfigurationArtifacts(t.Context(), "new-source"); err != nil {
+		t.Fatal(err)
+	}
+	stored, err := client.GetMDMConfiguration(t.Context(), configuration.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.AssetDigest != "old-source" || stored.Values != `{"interval":60}` || len(stored.Artifacts) != 0 {
+		t.Fatalf("invalidated configuration = %#v", stored)
+	}
+}
+
+func TestCreateDeviceEnrollmentKeyIsSeparate(t *testing.T) {
+	client := newTestClient(t)
+	configuration, err := client.CreateMDMConfiguration(t.Context(), 42, &types.MDMConfiguration{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	key, err := client.CreateDeviceEnrollmentKey(t.Context(), configuration.ID, 42, "bootstrap", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if key.EnrollmentCredential == "" || key.MDMConfigurationID != configuration.ID {
+		t.Fatalf("created enrollment key = %#v", key)
 	}
 	validated, err := client.ValidateDeviceEnrollmentCredential(t.Context(), key.EnrollmentCredential)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if validated.MDMConfigurationID != configuration.ID {
-		t.Fatalf("credential configuration = %d, want %d", validated.MDMConfigurationID, configuration.ID)
+	if validated.ID != key.ID {
+		t.Fatalf("validated key = %#v, want %d", validated, key.ID)
 	}
 }
 
-func TestCreateMDMConfigurationTargetInvariant(t *testing.T) {
-	client := newTestClient(t)
-	if _, _, err := client.CreateMDMConfiguration(t.Context(), 1, types.MDMConfiguration{
-		Name:     "half pair",
-		Platform: "intune",
-	}); err == nil {
-		t.Fatal("half target pair was accepted")
-	}
-	if _, _, err := client.CreateMDMConfiguration(t.Context(), 1, types.MDMConfiguration{
-		Name:     "missing pin",
-		Platform: "intune",
-		OS:       "windows",
-	}); err == nil {
-		t.Fatal("configured target without asset pin was accepted")
-	}
-
-	if _, _, err := client.CreateMDMConfiguration(t.Context(), 1, types.MDMConfiguration{
-		Name:        "digest only",
-		AssetDigest: "digest",
-	}); err == nil {
-		t.Fatal("asset digest without target was accepted")
+func TestUpdateMDMConfigurationRollsBackOnBadArtifacts(t *testing.T) {
+	original := func(t *testing.T) (*Client, *types.MDMConfiguration) {
+		t.Helper()
+		client := newTestClient(t)
+		configuration, err := client.CreateMDMConfiguration(t.Context(), 42, &types.MDMConfiguration{
+			AssetDigest: "source-digest",
+			Values:      `{"interval":60}`,
+			Artifacts: []types.MDMConfigurationArtifact{
+				renderedArtifact("intune", "windows", "windows-zip"),
+				renderedArtifact("jamf", "macos", "macos-zip"),
+			},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return client, configuration
 	}
 
-	configuration, _, err := client.CreateMDMConfiguration(t.Context(), 1, types.MDMConfiguration{
-		Name:   "blank",
-		Values: `{"ignored":true}`,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if configuration.AssetDigest != "" || configuration.Values != "" {
-		t.Fatalf("blank target retained deployment data: %#v", configuration)
-	}
-}
-
-func TestUpdateMDMConfigurationUpdatesFieldsAndPinsExplicitAssetDigest(t *testing.T) {
-	client := newTestClient(t)
-	oldAsset := storeTestBundle(t, client, "old")
-	configuration := createPinnedConfiguration(t, client, "fleet", oldAsset)
-	newAsset := storeTestBundle(t, client, "new")
-
-	configuration.Name = "renamed fleet"
-	configuration.Description = "updated description"
-	configuration.Platform = "jamf"
-	configuration.OS = "macos"
-	configuration.AssetDigest = newAsset.Digest
-	configuration.Values = `{"interval":60}`
-	if err := client.UpdateMDMConfiguration(t.Context(), *configuration); err != nil {
-		t.Fatal(err)
-	}
-	stored, err := client.GetMDMConfiguration(t.Context(), configuration.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if stored.Name != "renamed fleet" || stored.Description != "updated description" ||
-		stored.Platform != "jamf" || stored.OS != "macos" ||
-		stored.AssetDigest != newAsset.Digest || stored.Values != `{"interval":60}` {
-		t.Fatalf("updated configuration = %#v, want updated fields and explicitly selected target", stored)
-	}
-	requireBundle(t, client, oldAsset.Digest)
-	requireBundle(t, client, newAsset.Digest)
-}
-
-func TestUpdateMDMConfigurationDoesNotDependOnLatestAsset(t *testing.T) {
-	client := newTestClient(t)
-	first := storeTestBundle(t, client, "first")
-	configuration := createPinnedConfiguration(t, client, "fleet", first)
-	storeTestBundle(t, client, "later")
-
-	configuration.Values = `{"interval":90}`
-	if err := client.UpdateMDMConfiguration(t.Context(), *configuration); err != nil {
-		t.Fatal(err)
-	}
-	stored, err := client.GetMDMConfiguration(t.Context(), configuration.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if stored.AssetDigest != first.Digest || stored.Values != `{"interval":90}` {
-		t.Fatalf("saved deployment = %#v, want the caller-selected asset", stored)
-	}
-}
-
-func TestUpdateMDMConfigurationClearsDeploymentAndLeavesAssetForStartupPrune(t *testing.T) {
-	client := newTestClient(t)
-	asset := storeTestBundle(t, client, "assets")
-	configuration := createPinnedConfiguration(t, client, "fleet", asset)
-
-	configuration.Platform = ""
-	configuration.OS = ""
-	configuration.AssetDigest = ""
-	configuration.Values = `{"ignored":true}`
-	if err := client.UpdateMDMConfiguration(t.Context(), *configuration); err != nil {
-		t.Fatal(err)
-	}
-	stored, err := client.GetMDMConfiguration(t.Context(), configuration.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if stored.Platform != "" || stored.OS != "" || stored.AssetDigest != "" || stored.Values != "" {
-		t.Fatalf("cleared deployment retained target data: %#v", stored)
-	}
-	requireBundle(t, client, asset.Digest)
-}
-
-func TestUpdateMDMConfigurationRequiresCompleteDeploymentIdentity(t *testing.T) {
-	client := newTestClient(t)
-	configuration, _, err := client.CreateMDMConfiguration(t.Context(), 42, types.MDMConfiguration{Name: "fleet"})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for name, mutate := range map[string]func(*types.MDMConfiguration){
-		"digest only": func(configuration *types.MDMConfiguration) {
-			configuration.AssetDigest = "digest"
+	// Each bad update also changes Values, so a successful rollback must leave the
+	// original values and both original artifact rows untouched.
+	cases := map[string][]types.MDMConfigurationArtifact{
+		"duplicate slug": {
+			renderedArtifact("intune", "windows", "one"),
+			renderedArtifact("intune", "windows", "two"),
 		},
-		"platform only": func(configuration *types.MDMConfiguration) {
-			configuration.Platform = "intune"
+		"blank slug": {
+			{Slug: "", Platform: "intune", OS: "windows", Content: []byte("one")},
 		},
-		"os only": func(configuration *types.MDMConfiguration) {
-			configuration.OS = "windows"
+		"empty content": {
+			{Slug: "intune-windows", Platform: "intune", OS: "windows"},
 		},
-		"target without digest": func(configuration *types.MDMConfiguration) {
-			configuration.Platform = "intune"
-			configuration.OS = "windows"
-		},
-	} {
+	}
+	for name, artifacts := range cases {
 		t.Run(name, func(t *testing.T) {
-			updated := *configuration
-			mutate(&updated)
-			if err := client.UpdateMDMConfiguration(t.Context(), updated); err == nil {
-				t.Fatal("incomplete deployment identity was accepted")
+			client, configuration := original(t)
+			bad := *configuration
+			bad.Values = `{"interval":999}`
+			bad.Artifacts = artifacts
+			if err := client.UpdateMDMConfiguration(t.Context(), &bad); err == nil {
+				t.Fatal("bad update was accepted")
+			}
+			stored, err := client.GetMDMConfiguration(t.Context(), configuration.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if stored.Values != `{"interval":60}` {
+				t.Fatalf("values changed after failed update: %q", stored.Values)
+			}
+			if len(stored.Artifacts) != 2 {
+				t.Fatalf("artifact rows changed after failed update: %#v", stored.Artifacts)
+			}
+			if string(stored.Artifacts[0].Content) != "windows-zip" || string(stored.Artifacts[1].Content) != "macos-zip" {
+				t.Fatalf("artifact content changed after failed update: %#v", stored.Artifacts)
 			}
 		})
 	}
 }
 
-func TestUpdateMDMConfigurationRequiresExistingID(t *testing.T) {
+func TestDeleteMDMConfigurationRemovesArtifactsAndKeysKeepsDevices(t *testing.T) {
 	client := newTestClient(t)
-	if err := client.UpdateMDMConfiguration(t.Context(), types.MDMConfiguration{Name: "missing id"}); err == nil {
-		t.Fatal("zero id was accepted")
+	configuration, err := client.CreateMDMConfiguration(t.Context(), 42, &types.MDMConfiguration{
+		AssetDigest: "source-digest",
+		Values:      `{"interval":60}`,
+		Artifacts:   []types.MDMConfigurationArtifact{renderedArtifact("intune", "windows", "zip")},
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
-	if err := client.UpdateMDMConfiguration(t.Context(), types.MDMConfiguration{ID: 999, Name: "missing"}); err == nil {
-		t.Fatal("missing configuration was accepted")
+	if _, err := client.CreateDeviceEnrollmentKey(t.Context(), configuration.ID, 42, "bootstrap", nil); err != nil {
+		t.Fatal(err)
+	}
+	device, err := client.EnrollDevice(t.Context(), DeviceEnrollment{
+		DeviceID:           "device-1",
+		MDMConfigurationID: configuration.ID,
+		PublicKey:          []byte("public-key"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := client.DeleteMDMConfiguration(t.Context(), configuration.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := client.GetMDMConfiguration(t.Context(), configuration.ID); err == nil {
+		t.Fatal("configuration still readable after delete")
+	}
+	var remainingArtifacts int64
+	if err := client.db.WithContext(t.Context()).Model(&types.MDMConfigurationArtifact{}).
+		Where("mdm_configuration_id = ?", configuration.ID).Count(&remainingArtifacts).Error; err != nil {
+		t.Fatal(err)
+	}
+	if remainingArtifacts != 0 {
+		t.Fatalf("artifact rows survived configuration delete: %d", remainingArtifacts)
+	}
+	keys, err := client.ListDeviceEnrollmentKeys(t.Context(), configuration.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(keys) != 0 {
+		t.Fatalf("enrollment keys survived configuration delete: %d", len(keys))
+	}
+	preserved, err := client.GetDeviceByDeviceID(t.Context(), device.DeviceID)
+	if err != nil {
+		t.Fatalf("enrolled device was not preserved: %v", err)
+	}
+	if preserved.MDMConfigurationID != configuration.ID {
+		t.Fatalf("preserved device = %#v", preserved)
 	}
 }

@@ -1,13 +1,24 @@
 package handlers
 
 import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"maps"
+	"net/http"
+	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	types "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	gtypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/mdmassets"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"gorm.io/gorm"
 )
 
@@ -21,26 +32,41 @@ func NewMDMConfigurationsHandler(serverURL string) *MDMConfigurationsHandler {
 	return &MDMConfigurationsHandler{serverURL: serverURL}
 }
 
-// Create handles POST /api/mdm/configurations. The optional asset selection and
-// first enrollment key are committed with the configuration.
+// Create validates and persists a configuration, applying the latest asset to
+// blank requests when its default values are valid.
 func (h *MDMConfigurationsHandler) Create(req api.Context) error {
 	var in types.MDMConfiguration
 	if err := req.Read(&in); err != nil {
 		return err
 	}
-	configuration, err := h.mdmConfigurationForSave(req, in, nil)
+	configuration, err := h.mdmConfigurationFromInput(req, in, nil)
 	if err != nil {
 		return err
+	}
+	if configuration.AssetDigest == "" {
+		if source, err := getMDMAssetSource(req); err == nil &&
+			source.Annotations[v1.MDMAssetSourceSyncAnnotation] != "true" &&
+			source.Status.LatestDigest != "" {
+			auto, err := h.mdmConfigurationFromInput(req, types.MDMConfiguration{
+				MDMConfigurationManifest: types.MDMConfigurationManifest{
+					AssetDigest: source.Status.LatestDigest,
+				},
+			}, nil)
+			if err == nil {
+				configuration = auto
+			}
+		}
 	}
 
-	created, key, err := req.GatewayClient.CreateMDMConfiguration(req.Context(), req.UserID(), configuration)
+	created, err := req.GatewayClient.CreateMDMConfiguration(req.Context(), req.UserID(), configuration)
 	if err != nil {
 		return err
 	}
-	return req.WriteCreated(types.MDMConfigurationCreateResponse{
-		MDMConfiguration:     h.mdmConfigurationFromGateway(req, *created, true),
-		EnrollmentCredential: key.EnrollmentCredential,
-	})
+	result, err := convertMDMConfiguration(*created)
+	if err != nil {
+		return err
+	}
+	return req.WriteCreated(result)
 }
 
 // List handles GET /api/mdm/configurations.
@@ -51,35 +77,47 @@ func (h *MDMConfigurationsHandler) List(req api.Context) error {
 	}
 	items := make([]types.MDMConfiguration, 0, len(configurations))
 	for _, configuration := range configurations {
-		items = append(items, h.mdmConfigurationFromGateway(req, configuration, false))
+		item, err := convertMDMConfiguration(configuration)
+		if err != nil {
+			return err
+		}
+		items = append(items, item)
 	}
 	return req.Write(types.MDMConfigurationList{Items: items})
 }
 
+func getMDMConfiguration(req api.Context, id uint) (*gtypes.MDMConfiguration, error) {
+	configuration, err := req.GatewayClient.GetMDMConfiguration(req.Context(), id)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, types.NewErrNotFound("MDM configuration %d not found", id)
+	}
+	return configuration, err
+}
+
 // Get handles GET /api/mdm/configurations/{id}.
-func (h *MDMConfigurationsHandler) Get(req api.Context) error {
+func (*MDMConfigurationsHandler) Get(req api.Context) error {
 	id, err := configurationIDFromPath(req)
 	if err != nil {
 		return err
 	}
-	configuration, err := req.GatewayClient.GetMDMConfiguration(req.Context(), id)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return types.NewErrNotFound("MDM configuration %d not found", id)
-	}
+	configuration, err := getMDMConfiguration(req, id)
 	if err != nil {
 		return err
 	}
-	return req.Write(h.mdmConfigurationFromGateway(req, *configuration, true))
+	result, err := convertMDMConfiguration(*configuration)
+	if err != nil {
+		return err
+	}
+	return req.Write(result)
 }
 
-// Update handles PUT /api/mdm/configurations/{id}. Supplying a blank asset
-// digest, platform, and OS clears the optional asset selection.
+// Update handles PUT /api/mdm/configurations/{id}.
 func (h *MDMConfigurationsHandler) Update(req api.Context) error {
 	id, err := configurationIDFromPath(req)
 	if err != nil {
 		return err
 	}
-	current, err := h.getConfiguration(req, id)
+	current, err := getMDMConfiguration(req, id)
 	if err != nil {
 		return err
 	}
@@ -87,7 +125,7 @@ func (h *MDMConfigurationsHandler) Update(req api.Context) error {
 	if err := req.Read(&in); err != nil {
 		return err
 	}
-	configuration, err := h.mdmConfigurationForSave(req, in, current)
+	configuration, err := h.mdmConfigurationFromInput(req, in, current)
 	if err != nil {
 		return err
 	}
@@ -97,11 +135,15 @@ func (h *MDMConfigurationsHandler) Update(req api.Context) error {
 	} else if err != nil {
 		return err
 	}
-	updated, err := req.GatewayClient.GetMDMConfiguration(req.Context(), id)
+	updated, err := getMDMConfiguration(req, id)
 	if err != nil {
 		return err
 	}
-	return req.Write(h.mdmConfigurationFromGateway(req, *updated, true))
+	result, err := convertMDMConfiguration(*updated)
+	if err != nil {
+		return err
+	}
+	return req.Write(result)
 }
 
 // Delete removes the configuration and its keys. Enrolled devices remain.
@@ -110,7 +152,43 @@ func (*MDMConfigurationsHandler) Delete(req api.Context) error {
 	if err != nil {
 		return err
 	}
-	return req.GatewayClient.DeleteMDMConfiguration(req.Context(), id)
+	if err := req.GatewayClient.DeleteMDMConfiguration(req.Context(), id); err != nil {
+		return err
+	}
+	req.WriteHeader(http.StatusNoContent)
+	return nil
+}
+
+// DownloadArtifact serves a rendered ZIP by its platform/OS slug without
+// reopening a source bundle or rendering templates.
+func (*MDMConfigurationsHandler) DownloadArtifact(req api.Context) error {
+	id, err := configurationIDFromPath(req)
+	if err != nil {
+		return err
+	}
+	configuration, err := getMDMConfiguration(req, id)
+	if err != nil {
+		return err
+	}
+	slug := strings.TrimSpace(req.PathValue("slug"))
+	index := slices.IndexFunc(configuration.Artifacts, func(artifact gtypes.MDMConfigurationArtifact) bool {
+		return artifact.Slug == slug
+	})
+	if index < 0 {
+		return types.NewErrNotFound("MDM configuration %d has no artifact %q", id, slug)
+	}
+	selected := configuration.Artifacts[index]
+
+	sum := sha256.Sum256(selected.Content)
+	if hex.EncodeToString(sum[:]) != selected.Digest {
+		return fmt.Errorf("rendered MDM artifact %s failed its content digest check", selected.Slug)
+	}
+	filename := fmt.Sprintf("obot-sentry-%s.zip", selected.Slug)
+	req.ResponseWriter.Header().Set("ETag", fmt.Sprintf("%q", selected.Digest))
+	req.ResponseWriter.Header().Set("Content-Type", "application/zip")
+	req.ResponseWriter.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
+	http.ServeContent(req.ResponseWriter, req.Request, "", time.Time{}, bytes.NewReader(selected.Content))
+	return nil
 }
 
 func (*MDMConfigurationsHandler) ListEnrollmentKeys(req api.Context) error {
@@ -124,7 +202,7 @@ func (*MDMConfigurationsHandler) ListEnrollmentKeys(req api.Context) error {
 	}
 	items := make([]types.MDMEnrollmentKey, 0, len(keys))
 	for _, key := range keys {
-		items = append(items, mdmEnrollmentKeyFromGateway(key))
+		items = append(items, convertMDMEnrollmentKey(key))
 	}
 	return req.Write(types.MDMEnrollmentKeyList{Items: items})
 }
@@ -150,7 +228,7 @@ func (*MDMConfigurationsHandler) CreateEnrollmentKey(req api.Context) error {
 		return err
 	}
 	return req.WriteCreated(types.MDMEnrollmentKeyCreateResponse{
-		MDMEnrollmentKey:     mdmEnrollmentKeyFromGateway(key.DeviceEnrollmentKey),
+		MDMEnrollmentKey:     convertMDMEnrollmentKey(key.DeviceEnrollmentKey),
 		EnrollmentCredential: key.EnrollmentCredential,
 	})
 }
@@ -164,7 +242,11 @@ func (*MDMConfigurationsHandler) DeleteEnrollmentKey(req api.Context) error {
 	if err != nil {
 		return err
 	}
-	return req.GatewayClient.DeleteDeviceEnrollmentKey(req.Context(), configurationID, keyID)
+	if err := req.GatewayClient.DeleteDeviceEnrollmentKey(req.Context(), configurationID, keyID); err != nil {
+		return err
+	}
+	req.WriteHeader(http.StatusNoContent)
+	return nil
 }
 
 func (*MDMConfigurationsHandler) ListDevices(req api.Context) error {
@@ -183,7 +265,7 @@ func (*MDMConfigurationsHandler) ListDevices(req api.Context) error {
 	return req.Write(types.DeviceList{Items: items})
 }
 
-func mdmEnrollmentKeyFromGateway(key gtypes.DeviceEnrollmentKey) types.MDMEnrollmentKey {
+func convertMDMEnrollmentKey(key gtypes.DeviceEnrollmentKey) types.MDMEnrollmentKey {
 	return types.MDMEnrollmentKey{
 		ID:         key.ID,
 		Name:       key.Name,
@@ -214,4 +296,113 @@ func parsePathUint(req api.Context, param, label string) (uint, error) {
 		return 0, types.NewErrBadRequest("invalid %s: %v", label, err)
 	}
 	return uint(id), nil
+}
+
+// mdmConfigurationFromInput validates administrator values against the latest
+// source bundle and renders every platform/OS artifact before anything is
+// persisted. Only creation may leave the configuration unconfigured.
+func (h *MDMConfigurationsHandler) mdmConfigurationFromInput(req api.Context, in types.MDMConfiguration, current *gtypes.MDMConfiguration) (*gtypes.MDMConfiguration, error) {
+	configuration := &gtypes.MDMConfiguration{
+		AssetDigest: strings.TrimSpace(in.AssetDigest),
+	}
+	if configuration.AssetDigest == "" {
+		if current != nil {
+			return nil, types.NewErrBadRequest("assetDigest is required when updating an MDM configuration")
+		}
+		return configuration, nil
+	}
+
+	source, err := getMDMAssetSource(req)
+	if err != nil {
+		return nil, err
+	}
+	if source.Annotations[v1.MDMAssetSourceSyncAnnotation] == "true" {
+		return nil, types.NewErrHTTP(http.StatusConflict, "the MDM asset source is refreshing; reload the configuration fields and try again")
+	}
+	if source.Status.LatestDigest != configuration.AssetDigest {
+		return nil, types.NewErrHTTP(http.StatusConflict, "the selected MDM asset is no longer the latest; reload the configuration fields and try again")
+	}
+
+	bundle, err := req.GatewayClient.GetMDMAssetBundle(req.Context(), configuration.AssetDigest)
+	if err != nil {
+		return nil, err
+	}
+	loader, err := mdmassets.OpenArchive(bundle.Content)
+	if err != nil {
+		return nil, err
+	}
+
+	// Record the bundle's version alongside the rendered artifacts so the
+	// generated version is reportable without reopening the bundle.
+	configuration.ObotSentryVersion = loader.Manifest().ObotSentryVersion
+	values, err := decodeMDMInputValues(in.Values)
+	if err != nil {
+		return nil, err
+	}
+	renderValues := make(map[string]any, len(values)+1)
+	maps.Copy(renderValues, values)
+	renderValues["serverURL"] = h.serverURL
+	rendered, err := loader.RenderAll(renderValues)
+	if err != nil {
+		return nil, types.NewErrBadRequest("invalid configuration values: %v", err)
+	}
+	if len(rendered) == 0 {
+		return nil, types.NewErrBadRequest("the latest MDM asset has no platform/OS configurations")
+	}
+
+	storedValues, err := json.Marshal(values)
+	if err != nil {
+		return nil, err
+	}
+	configuration.Values = string(storedValues)
+	configuration.Artifacts = make([]gtypes.MDMConfigurationArtifact, 0, len(rendered))
+	for _, artifact := range rendered {
+		configuration.Artifacts = append(configuration.Artifacts, gtypes.MDMConfigurationArtifact{
+			Slug:         mdmassets.ArtifactSlug(artifact.Platform, artifact.OS),
+			Platform:     artifact.Platform,
+			OS:           artifact.OS,
+			Instructions: artifact.Instructions,
+			Content:      artifact.Content,
+		})
+	}
+	return configuration, nil
+}
+
+func convertMDMConfiguration(configuration gtypes.MDMConfiguration) (types.MDMConfiguration, error) {
+	result := types.MDMConfiguration{
+		ID:                configuration.ID,
+		IsDefault:         configuration.IsDefault,
+		CreatedAt:         *types.NewTime(configuration.CreatedAt),
+		ObotSentryVersion: configuration.ObotSentryVersion,
+		MDMConfigurationManifest: types.MDMConfigurationManifest{
+			AssetDigest: configuration.AssetDigest,
+		},
+		Artifacts: make([]types.MDMConfigurationArtifact, 0, len(configuration.Artifacts)),
+	}
+	if configuration.Values != "" {
+		if !json.Valid([]byte(configuration.Values)) {
+			return types.MDMConfiguration{}, fmt.Errorf("MDM configuration %d has invalid stored values", configuration.ID)
+		}
+		result.Values = json.RawMessage(configuration.Values)
+	}
+	for _, artifact := range configuration.Artifacts {
+		result.Artifacts = append(result.Artifacts, types.MDMConfigurationArtifact{
+			Slug:         artifact.Slug,
+			Platform:     artifact.Platform,
+			OS:           artifact.OS,
+			Instructions: artifact.Instructions,
+		})
+	}
+	return result, nil
+}
+
+func decodeMDMInputValues(raw json.RawMessage) (map[string]any, error) {
+	values := make(map[string]any)
+	if len(raw) != 0 && string(raw) != "null" {
+		if err := json.Unmarshal(raw, &values); err != nil {
+			return nil, types.NewErrBadRequest("values must be a JSON object: %v", err)
+		}
+	}
+	delete(values, "serverURL")
+	return values, nil
 }

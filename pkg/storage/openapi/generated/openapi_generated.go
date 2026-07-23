@@ -183,8 +183,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.MDMAssetSource":                            schema_obot_platform_obot_apiclient_types_MDMAssetSource(ref),
 		"github.com/obot-platform/obot/apiclient/types.MDMAssetSourceManifest":                    schema_obot_platform_obot_apiclient_types_MDMAssetSourceManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.MDMConfiguration":                          schema_obot_platform_obot_apiclient_types_MDMConfiguration(ref),
-		"github.com/obot-platform/obot/apiclient/types.MDMConfigurationCreateResponse":            schema_obot_platform_obot_apiclient_types_MDMConfigurationCreateResponse(ref),
+		"github.com/obot-platform/obot/apiclient/types.MDMConfigurationArtifact":                  schema_obot_platform_obot_apiclient_types_MDMConfigurationArtifact(ref),
 		"github.com/obot-platform/obot/apiclient/types.MDMConfigurationList":                      schema_obot_platform_obot_apiclient_types_MDMConfigurationList(ref),
+		"github.com/obot-platform/obot/apiclient/types.MDMConfigurationManifest":                  schema_obot_platform_obot_apiclient_types_MDMConfigurationManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.MDMEnrollmentKey":                          schema_obot_platform_obot_apiclient_types_MDMEnrollmentKey(ref),
 		"github.com/obot-platform/obot/apiclient/types.MDMEnrollmentKeyCreateRequest":             schema_obot_platform_obot_apiclient_types_MDMEnrollmentKeyCreateRequest(ref),
 		"github.com/obot-platform/obot/apiclient/types.MDMEnrollmentKeyCreateResponse":            schema_obot_platform_obot_apiclient_types_MDMEnrollmentKeyCreateResponse(ref),
@@ -9252,47 +9253,10 @@ func schema_obot_platform_obot_apiclient_types_MDMConfiguration(ref common.Refer
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "MDMConfiguration is a fleet grouping that devices enroll into. AssetDigest, Platform, OS, and Values are the saved configuration. Instructions and Error are derived by the server from the pinned asset and are ignored on writes.",
+				Description: "MDMConfiguration is a fleet grouping that devices enroll into. AssetDigest identifies the asset bundle whose fields Values conform to. Artifacts are rendered for every platform and OS in that bundle when Values are saved.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"id": {
-						SchemaProps: spec.SchemaProps{
-							Default: 0,
-							Type:    []string{"integer"},
-							Format:  "int32",
-						},
-					},
-					"name": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"description": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"createdAt": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
-						},
-					},
 					"assetDigest": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"platform": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"os": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -9304,40 +9268,82 @@ func schema_obot_platform_obot_apiclient_types_MDMConfiguration(ref common.Refer
 							Format: "byte",
 						},
 					},
-					"instructions": {
+					"id": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
 						},
 					},
-					"error": {
+					"isDefault": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"createdAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"obotSentryVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ObotSentryVersion is copied from the source bundle's manifest when the artifacts are rendered. It is server-owned and reports the version the saved packages were generated with.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"artifacts": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.MDMConfigurationArtifact"),
+									},
+								},
+							},
 						},
 					},
 				},
-				Required: []string{"id", "name", "createdAt"},
+				Required: []string{"id", "isDefault", "createdAt", "artifacts"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Time"},
+			"github.com/obot-platform/obot/apiclient/types.MDMConfigurationArtifact", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
-func schema_obot_platform_obot_apiclient_types_MDMConfigurationCreateResponse(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_MDMConfigurationArtifact(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
+				Description: "MDMConfigurationArtifact is one rendered deployment option. Slug selects its download endpoint; ZIP content, content digest, and filename remain private.",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"MDMConfiguration": {
+					"slug": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.MDMConfiguration"),
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
 						},
 					},
-					"enrollmentCredential": {
+					"platform": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"os": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"instructions": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
 							Type:    []string{"string"},
@@ -9345,11 +9351,9 @@ func schema_obot_platform_obot_apiclient_types_MDMConfigurationCreateResponse(re
 						},
 					},
 				},
-				Required: []string{"MDMConfiguration", "enrollmentCredential"},
+				Required: []string{"slug", "platform", "os", "instructions"},
 			},
 		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.MDMConfiguration"},
 	}
 }
 
@@ -9377,6 +9381,30 @@ func schema_obot_platform_obot_apiclient_types_MDMConfigurationList(ref common.R
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.MDMConfiguration"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MDMConfigurationManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"assetDigest": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"values": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+				},
+			},
+		},
 	}
 }
 

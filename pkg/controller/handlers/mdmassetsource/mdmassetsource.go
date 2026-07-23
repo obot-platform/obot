@@ -2,7 +2,9 @@ package mdmassetsource
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 	"time"
@@ -11,6 +13,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
 	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/mdmassets"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -28,13 +31,15 @@ const retryInterval = time.Hour
 
 type Handler struct {
 	defaultSource string
+	serverURL     string
 	gatewayClient *gatewayclient.Client
 	now           func() time.Time
 }
 
-func New(defaultSource string, gatewayClient *gatewayclient.Client) *Handler {
+func New(defaultSource, serverURL string, gatewayClient *gatewayclient.Client) *Handler {
 	return &Handler{
 		defaultSource: strings.TrimSpace(defaultSource),
+		serverURL:     serverURL,
 		gatewayClient: gatewayClient,
 		now:           time.Now,
 	}
@@ -65,6 +70,7 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 		}
 	}
 
+	previousDigest := source.Status.LatestDigest
 	digest, err := h.sync(req.Ctx, req.Client, source)
 	if refreshRequested {
 		// The refresh is consumed whether or not it succeeded. This update also
@@ -83,6 +89,16 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 		resp.RetryAfter(retryInterval)
 		return nil
 	}
+	if digest != previousDigest {
+		if err := h.gatewayClient.InvalidateMDMConfigurationArtifacts(req.Ctx, digest); err != nil {
+			return err
+		}
+		if digest != "" {
+			if err := h.renderConfigurationsForLatest(req.Ctx, digest); err != nil {
+				return err
+			}
+		}
+	}
 
 	if digest == "" {
 		source.Status = v1.MDMAssetSourceStatus{}
@@ -92,6 +108,86 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 		source.Status.LatestDigest = digest
 	}
 	return h.pruneUnused(req.Ctx, req.Client, digest)
+}
+
+// renderConfigurationsForLatest re-renders every configuration that is not
+// already on the latest bundle so administrators only save explicitly when
+// input is genuinely required. Stored values (or defaults, for blank
+// configurations) are validated against the new fields first; configurations
+// that no longer validate keep their invalidated state for explicit review.
+func (h *Handler) renderConfigurationsForLatest(ctx context.Context, digest string) error {
+	configurations, err := h.gatewayClient.ListMDMConfigurations(ctx)
+	if err != nil {
+		return err
+	}
+
+	var loader *mdmassets.Loader
+	for _, configuration := range configurations {
+		if configuration.AssetDigest == digest {
+			continue
+		}
+		if loader == nil {
+			bundle, err := h.gatewayClient.GetMDMAssetBundle(ctx, digest)
+			if err != nil {
+				return err
+			}
+			if loader, err = mdmassets.OpenArchive(bundle.Content); err != nil {
+				return err
+			}
+		}
+		rendered, err := h.renderConfiguration(loader, digest, configuration)
+		if err != nil {
+			log.Infof("MDM configuration %d requires review before rendering against the latest release: %v", configuration.ID, err)
+			continue
+		}
+		if err := h.gatewayClient.UpdateMDMConfiguration(ctx, &rendered); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// renderConfiguration validates the configuration's stored values against the
+// bundle and renders every target, mirroring the values handling of the save
+// API: the caller-visible values stay sparse and the trusted server URL is
+// injected only for rendering.
+func (h *Handler) renderConfiguration(loader *mdmassets.Loader, digest string, configuration gatewaytypes.MDMConfiguration) (gatewaytypes.MDMConfiguration, error) {
+	values := map[string]any{}
+	if configuration.Values != "" {
+		if err := json.Unmarshal([]byte(configuration.Values), &values); err != nil {
+			return gatewaytypes.MDMConfiguration{}, fmt.Errorf("stored values are not valid JSON: %w", err)
+		}
+	}
+	delete(values, "serverURL")
+	renderValues := make(map[string]any, len(values)+1)
+	maps.Copy(renderValues, values)
+	renderValues["serverURL"] = h.serverURL
+	rendered, err := loader.RenderAll(renderValues)
+	if err != nil {
+		return gatewaytypes.MDMConfiguration{}, err
+	}
+	if len(rendered) == 0 {
+		return gatewaytypes.MDMConfiguration{}, fmt.Errorf("the bundle has no platform/OS configurations")
+	}
+
+	storedValues, err := json.Marshal(values)
+	if err != nil {
+		return gatewaytypes.MDMConfiguration{}, err
+	}
+	configuration.AssetDigest = digest
+	configuration.ObotSentryVersion = loader.Manifest().ObotSentryVersion
+	configuration.Values = string(storedValues)
+	configuration.Artifacts = make([]gatewaytypes.MDMConfigurationArtifact, 0, len(rendered))
+	for _, artifact := range rendered {
+		configuration.Artifacts = append(configuration.Artifacts, gatewaytypes.MDMConfigurationArtifact{
+			Slug:         mdmassets.ArtifactSlug(artifact.Platform, artifact.OS),
+			Platform:     artifact.Platform,
+			OS:           artifact.OS,
+			Instructions: artifact.Instructions,
+			Content:      artifact.Content,
+		})
+	}
+	return configuration, nil
 }
 
 func (h *Handler) sync(ctx context.Context, c kclient.Client, source *v1.MDMAssetSource) (string, error) {
@@ -143,7 +239,7 @@ func (h *Handler) sync(ctx context.Context, c kclient.Client, source *v1.MDMAsse
 	return digest, nil
 }
 
-// pruneUnused removes asset metadata and private bundle blobs that are neither
+// pruneUnused removes asset metadata and private source bundles that are neither
 // the latest digest, pinned by an MDM configuration, nor explicitly retained
 // by the caller. The persisted latest is read fresh and retained alongside any
 // caller-supplied digest: after a sync, the new latest is not saved until the
@@ -191,45 +287,30 @@ func (h *Handler) pruneUnused(ctx context.Context, c kclient.Client, retainDiges
 		}
 	}
 
+	retained = retained[:0]
+	for digest := range referenced {
+		retained = append(retained, digest)
+	}
 	return h.gatewayClient.PruneUnusedMDMAssetBundles(ctx, retained...)
 }
 
-// SetUpDefaultMDMAssetSource creates the singleton and makes startup
-// configuration authoritative. A changed source triggers reconciliation.
+// SetUpDefaultMDMAssetSource creates the default MDMAssetSource at startup.
+// Changes to the default source value are picked up by `Handler.Sync` during normal reconciliation.
 func (h *Handler) SetUpDefaultMDMAssetSource(ctx context.Context, c kclient.Client) error {
-	key := router.Key(system.DefaultNamespace, system.DefaultMDMAssetSource)
-	var source v1.MDMAssetSource
-	if err := c.Get(ctx, key, &source); apierrors.IsNotFound(err) {
-		source = v1.MDMAssetSource{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      system.DefaultMDMAssetSource,
-				Namespace: system.DefaultNamespace,
-			},
-			Spec: v1.MDMAssetSourceSpec{
-				MDMAssetSourceManifest: types.MDMAssetSourceManifest{Source: h.defaultSource},
-			},
-		}
-		if err := c.Create(ctx, &source); err != nil {
-			if apierrors.IsAlreadyExists(err) {
-				return nil
-			}
-			return fmt.Errorf("failed to create default MDM asset source: %w", err)
-		}
-		return nil
-	} else if err != nil {
-		return fmt.Errorf("failed to get default MDM asset source: %w", err)
+	source := v1.MDMAssetSource{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      system.DefaultMDMAssetSource,
+			Namespace: system.DefaultNamespace,
+		},
+		Spec: v1.MDMAssetSourceSpec{
+			MDMAssetSourceManifest: types.MDMAssetSourceManifest{Source: h.defaultSource},
+		},
 	}
-	if source.Spec.Source == h.defaultSource {
-		return nil
+
+	if err := kclient.IgnoreAlreadyExists(c.Create(ctx, &source)); err != nil {
+		return fmt.Errorf("failed to create default MDM asset source: %w", err)
 	}
-	source.Spec.Source = h.defaultSource
-	if source.Annotations == nil {
-		source.Annotations = map[string]string{}
-	}
-	source.Annotations[v1.MDMAssetSourceSyncAnnotation] = "true"
-	if err := c.Update(ctx, &source); err != nil {
-		return fmt.Errorf("failed to update default MDM asset source: %w", err)
-	}
+
 	return nil
 }
 

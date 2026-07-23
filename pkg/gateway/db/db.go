@@ -100,10 +100,6 @@ func (db *DB) AutoMigrate() (err error) {
 		return fmt.Errorf("failed to migrate API key skills access: %w", err)
 	}
 
-	if err = migrateIfEntryNotFoundInMigrationsTable(tx, "drop_pre_rename_mdm_deployment_tables", dropPreRenameMDMDeploymentTables); err != nil {
-		return fmt.Errorf("failed to drop pre-rename mdm deployment tables: %w", err)
-	}
-
 	if err := tx.AutoMigrate(
 		types.AuthToken{},
 		types.TokenRequest{},
@@ -133,6 +129,7 @@ func (db *DB) AutoMigrate() (err error) {
 		types.DeviceScanClient{},
 		types.MDMAssetBundle{},
 		types.MDMConfiguration{},
+		types.MDMConfigurationArtifact{},
 		types.DeviceEnrollmentKey{},
 		types.Device{},
 		types.Credential{},

@@ -28,41 +28,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-func TestSetUpDefaultMDMAssetSource(t *testing.T) {
-	ctx := t.Context()
-	gateway := newTestGatewayClient(t)
-	c := newTestStorageClient(t)
-
-	first := New(" /srv/mdm/first ", gateway)
-	require.NoError(t, first.SetUpDefaultMDMAssetSource(ctx, c))
-
-	var created v1.MDMAssetSource
-	require.NoError(t, c.Get(ctx, router.Key(system.DefaultNamespace, system.DefaultMDMAssetSource), &created))
-	assert.Equal(t, "/srv/mdm/first", created.Spec.Source)
-	assert.Empty(t, created.Annotations)
-
-	created.Status.LatestDigest = "last-known-good"
-	require.NoError(t, c.Status().Update(ctx, &created))
-
-	second := New("/srv/mdm/second", gateway)
-	require.NoError(t, second.SetUpDefaultMDMAssetSource(ctx, c))
-
-	var updated v1.MDMAssetSource
-	require.NoError(t, c.Get(ctx, router.Key(system.DefaultNamespace, system.DefaultMDMAssetSource), &updated))
-	assert.Equal(t, "/srv/mdm/second", updated.Spec.Source)
-	assert.Equal(t, "true", updated.Annotations[v1.MDMAssetSourceSyncAnnotation])
-	assert.Equal(t, "last-known-good", updated.Status.LatestDigest)
-
-	// Re-running setup with the same startup value is a no-op and must not
-	// manufacture another refresh signal.
-	delete(updated.Annotations, v1.MDMAssetSourceSyncAnnotation)
-	require.NoError(t, c.Update(ctx, &updated))
-	require.NoError(t, second.SetUpDefaultMDMAssetSource(ctx, c))
-	require.NoError(t, c.Get(ctx, router.Key(system.DefaultNamespace, system.DefaultMDMAssetSource), &updated))
-	_, refreshRequested := updated.Annotations[v1.MDMAssetSourceSyncAnnotation]
-	assert.False(t, refreshRequested)
-}
-
 func TestSyncImportsMetadataAndRecordsLatest(t *testing.T) {
 	ctx := t.Context()
 	fixedTime := time.Date(2026, time.July, 17, 12, 0, 0, 0, time.UTC)
@@ -71,7 +36,7 @@ func TestSyncImportsMetadataAndRecordsLatest(t *testing.T) {
 	source := newTestMDMAssetSource(sourcePath)
 	source.Annotations = map[string]string{v1.MDMAssetSourceSyncAnnotation: "true"}
 	c := newTestStorageClient(t, source)
-	h := New(sourcePath, gateway)
+	h := New(sourcePath, "https://obot.example", gateway)
 	h.now = func() time.Time { return fixedTime }
 
 	resp := runSync(ctx, t, h, c, source)
@@ -117,7 +82,7 @@ func TestSyncFailurePreservesLatestAndSchedulesRetry(t *testing.T) {
 		LatestDigest: "last-known-good",
 	}
 	c := newTestStorageClient(t, source)
-	h := New(missingSource, gateway)
+	h := New(missingSource, "https://obot.example", gateway)
 	h.now = func() time.Time { return fixedTime }
 
 	resp := runSync(ctx, t, h, c, source)
@@ -153,7 +118,7 @@ func TestSyncEmptySourceClearsStatusWithoutRecordingRefresh(t *testing.T) {
 		LatestDigest: "previous-latest",
 	}
 	c := newTestStorageClient(t, source)
-	h := New("", newTestGatewayClient(t))
+	h := New("", "https://obot.example", newTestGatewayClient(t))
 
 	runSync(ctx, t, h, c, source)
 
@@ -181,7 +146,7 @@ func TestSyncPrunesUnreferencedAssetsAfterSync(t *testing.T) {
 	source.Annotations = map[string]string{v1.MDMAssetSourceSyncAnnotation: "true"}
 	source.Status.LatestDigest = oldDigest
 	c := newTestStorageClient(t, source, newTestMDMAsset(oldDigest))
-	h := New(sourcePath, gateway)
+	h := New(sourcePath, "https://obot.example", gateway)
 
 	// The refresh records a new latest, but the outgoing latest is retained
 	// while the persisted status still names it.
@@ -199,7 +164,7 @@ func TestSyncPrunesUnreferencedAssetsAfterSync(t *testing.T) {
 	err = c.Get(ctx, router.Key(source.Namespace, v1.MDMAssetName(oldDigest)), &oldAsset)
 	assert.True(t, apierrors.IsNotFound(err), "old metadata error = %v", err)
 	_, err = gateway.GetMDMAssetBundle(ctx, oldDigest)
-	assert.True(t, errors.Is(err, gorm.ErrRecordNotFound), "old blob error = %v", err)
+	assert.True(t, errors.Is(err, gorm.ErrRecordNotFound), "old bundle error = %v", err)
 
 	// Runtime refreshes prune too: an orphan does not wait for a restart.
 	orphanDigest, err := gateway.StoreMDMAssetBundle(ctx, []byte("runtime orphan"))
@@ -213,7 +178,91 @@ func TestSyncPrunesUnreferencedAssetsAfterSync(t *testing.T) {
 	err = c.Get(ctx, router.Key(source.Namespace, v1.MDMAssetName(orphanDigest)), &orphan)
 	assert.True(t, apierrors.IsNotFound(err), "orphan metadata error = %v", err)
 	_, err = gateway.GetMDMAssetBundle(ctx, orphanDigest)
-	assert.True(t, errors.Is(err, gorm.ErrRecordNotFound), "orphan blob error = %v", err)
+	assert.True(t, errors.Is(err, gorm.ErrRecordNotFound), "orphan bundle error = %v", err)
+}
+
+func TestSyncReRendersConfigurationsWhenLatestChanges(t *testing.T) {
+	ctx := t.Context()
+	gateway := newTestGatewayClient(t)
+	oldDigest, err := gateway.StoreMDMAssetBundle(ctx, []byte("old source"))
+	require.NoError(t, err)
+	configured, err := gateway.CreateMDMConfiguration(ctx, 1, &gatewaytypes.MDMConfiguration{
+		AssetDigest: oldDigest,
+		Values:      `{"interval":60}`,
+		Artifacts: []gatewaytypes.MDMConfigurationArtifact{{
+			Slug:         "intune-windows",
+			Platform:     "intune",
+			OS:           "windows",
+			Instructions: "Install it",
+			Content:      []byte("rendered zip"),
+		}},
+	})
+	require.NoError(t, err)
+	blank, err := gateway.CreateMDMConfiguration(ctx, 1, &gatewaytypes.MDMConfiguration{})
+	require.NoError(t, err)
+
+	sourcePath := writeTestMDMAssets(t, "2.0.0")
+	source := newTestMDMAssetSource(sourcePath)
+	source.Annotations = map[string]string{v1.MDMAssetSourceSyncAnnotation: "true"}
+	source.Status.LatestDigest = oldDigest
+	c := newTestStorageClient(t, source, newTestMDMAsset(oldDigest))
+	h := New(sourcePath, "https://obot.example", gateway)
+
+	runSync(ctx, t, h, c, source)
+	require.NotEqual(t, oldDigest, source.Status.LatestDigest)
+
+	// Both the stale configuration (its values still validate) and the blank
+	// configuration (defaults suffice) render automatically; nobody has to
+	// save explicitly.
+	storedConfigured, err := gateway.GetMDMConfiguration(ctx, configured.ID)
+	require.NoError(t, err)
+	assert.Equal(t, `{"interval":60}`, storedConfigured.Values)
+	storedBlank, err := gateway.GetMDMConfiguration(ctx, blank.ID)
+	require.NoError(t, err)
+	assert.Equal(t, `{}`, storedBlank.Values)
+	for _, stored := range []*gatewaytypes.MDMConfiguration{storedConfigured, storedBlank} {
+		assert.Equal(t, source.Status.LatestDigest, stored.AssetDigest)
+		assert.Equal(t, "2.0.0", stored.ObotSentryVersion)
+		require.Len(t, stored.Artifacts, 1)
+		assert.Equal(t, "intune-windows", stored.Artifacts[0].Slug)
+		assert.NotEmpty(t, stored.Artifacts[0].Content)
+	}
+}
+
+func TestSyncLeavesInvalidConfigurationsForReview(t *testing.T) {
+	ctx := t.Context()
+	gateway := newTestGatewayClient(t)
+	oldDigest, err := gateway.StoreMDMAssetBundle(ctx, []byte("old source"))
+	require.NoError(t, err)
+	configuration, err := gateway.CreateMDMConfiguration(ctx, 1, &gatewaytypes.MDMConfiguration{
+		AssetDigest: oldDigest,
+		Values:      `{"interval":60}`,
+		Artifacts: []gatewaytypes.MDMConfigurationArtifact{{
+			Slug:         "intune-windows",
+			Platform:     "intune",
+			OS:           "windows",
+			Instructions: "Install it",
+			Content:      []byte("rendered zip"),
+		}},
+	})
+	require.NoError(t, err)
+
+	// The new release requires a value with no default, so the stored values
+	// no longer validate and the configuration must wait for explicit review.
+	sourcePath := writeTestMDMAssetsWithFields(t, "2.0.0",
+		`{"type":"object","required":["team"],"properties":{"serverURL":{"type":"string"},"team":{"type":"string"}}}`)
+	source := newTestMDMAssetSource(sourcePath)
+	source.Annotations = map[string]string{v1.MDMAssetSourceSyncAnnotation: "true"}
+	source.Status.LatestDigest = oldDigest
+	c := newTestStorageClient(t, source, newTestMDMAsset(oldDigest))
+	h := New(sourcePath, "https://obot.example", gateway)
+
+	runSync(ctx, t, h, c, source)
+	stored, err := gateway.GetMDMConfiguration(ctx, configuration.ID)
+	require.NoError(t, err)
+	assert.Equal(t, oldDigest, stored.AssetDigest)
+	assert.Equal(t, `{"interval":60}`, stored.Values)
+	assert.Empty(t, stored.Artifacts)
 }
 
 func TestPruneUnusedRetainsLatestAndConfigurationPins(t *testing.T) {
@@ -226,12 +275,16 @@ func TestPruneUnusedRetainsLatestAndConfigurationPins(t *testing.T) {
 	orphanDigest, err := gateway.StoreMDMAssetBundle(ctx, []byte("orphan"))
 	require.NoError(t, err)
 
-	_, _, err = gateway.CreateMDMConfiguration(ctx, 1, gatewaytypes.MDMConfiguration{
-		Name:        "Windows fleet",
-		Platform:    "intune",
-		OS:          "windows",
+	_, err = gateway.CreateMDMConfiguration(ctx, 1, &gatewaytypes.MDMConfiguration{
 		AssetDigest: pinnedDigest,
 		Values:      `{}`,
+		Artifacts: []gatewaytypes.MDMConfigurationArtifact{{
+			Slug:         "intune-windows",
+			Platform:     "intune",
+			OS:           "windows",
+			Instructions: "Install it",
+			Content:      []byte("rendered zip"),
+		}},
 	})
 	require.NoError(t, err)
 
@@ -241,7 +294,7 @@ func TestPruneUnusedRetainsLatestAndConfigurationPins(t *testing.T) {
 	pinned := newTestMDMAsset(pinnedDigest)
 	orphan := newTestMDMAsset(orphanDigest)
 	c := newTestStorageClient(t, source, latest, pinned, orphan)
-	h := New(source.Spec.Source, gateway)
+	h := New(source.Spec.Source, "https://obot.example", gateway)
 
 	require.NoError(t, h.pruneUnused(ctx, c))
 
@@ -255,7 +308,7 @@ func TestPruneUnusedRetainsLatestAndConfigurationPins(t *testing.T) {
 	err = c.Get(ctx, router.Key(orphan.Namespace, orphan.Name), &deleted)
 	assert.True(t, apierrors.IsNotFound(err), "orphan metadata error = %v", err)
 	_, err = gateway.GetMDMAssetBundle(ctx, orphanDigest)
-	assert.True(t, errors.Is(err, gorm.ErrRecordNotFound), "orphan blob error = %v", err)
+	assert.True(t, errors.Is(err, gorm.ErrRecordNotFound), "orphan bundle error = %v", err)
 }
 
 func newTestStorageClient(t *testing.T, objects ...kclient.Object) kclient.WithWatch {
@@ -331,14 +384,19 @@ func newTestRequest(ctx context.Context, c kclient.WithWatch, source *v1.MDMAsse
 
 func writeTestMDMAssets(t *testing.T, version string) string {
 	t.Helper()
+	return writeTestMDMAssetsWithFields(t, version, `{"type":"object","properties":{"serverURL":{"type":"string"}}}`)
+}
+
+func writeTestMDMAssetsWithFields(t *testing.T, version, fields string) string {
+	t.Helper()
 	dir := t.TempDir()
 	manifest := fmt.Sprintf(`{
   "schemaVersion":"v1",
   "obotSentryVersion":%q,
-  "fields":{"type":"object","properties":{"serverURL":{"type":"string"}}},
+  "fields":%s,
   "platforms":[{"id":"intune","label":"Intune"}],
   "configurations":[{"platform":"intune","os":"windows","osLabel":"Windows","instructions":"instructions.md.tmpl","assets":["package.bin","instructions.md.tmpl"]}]
-}`, version)
+}`, version, fields)
 	for name, content := range map[string]string{
 		"manifest.json":        manifest,
 		"package.bin":          "package",
