@@ -972,6 +972,75 @@ func TestValidateRemoteManifestURLWithOptions(t *testing.T) {
 	}
 }
 
+func TestValidateRemoteManifestAllowMissingURL(t *testing.T) {
+	tests := []struct {
+		name    string
+		config  types.RemoteRuntimeConfig
+		options ValidationOptions
+		wantErr string
+	}{
+		{
+			name:    "missing URL rejected by default",
+			wantErr: "URL field cannot be empty",
+		},
+		{
+			name:    "missing URL allowed",
+			options: ValidationOptions{AllowMissingURL: true},
+		},
+		{
+			name:    "whitespace URL allowed",
+			config:  types.RemoteRuntimeConfig{URL: " \t "},
+			options: ValidationOptions{AllowMissingURL: true},
+		},
+		{
+			name:   "template may omit URL by default",
+			config: types.RemoteRuntimeConfig{IsTemplate: true},
+		},
+		{
+			name:    "present URL still requires HTTP scheme",
+			config:  types.RemoteRuntimeConfig{URL: "ftp://example.com/mcp"},
+			options: ValidationOptions{AllowMissingURL: true},
+			wantErr: "URL scheme must be either https or http",
+		},
+		{
+			name:    "present URL still receives remote URL validation",
+			config:  types.RemoteRuntimeConfig{URL: "http://localhost:8080/mcp"},
+			options: ValidationOptions{AllowMissingURL: true},
+			wantErr: "localhost URL",
+		},
+		{
+			name: "missing URL still validates headers",
+			config: types.RemoteRuntimeConfig{
+				Headers: []types.MCPHeader{{Value: "value"}},
+			},
+			options: ValidationOptions{AllowMissingURL: true},
+			wantErr: "header key cannot be empty",
+		},
+		{
+			name: "template without URL still validates headers",
+			config: types.RemoteRuntimeConfig{
+				IsTemplate: true,
+				Headers:    []types.MCPHeader{{Value: "value"}},
+			},
+			wantErr: "header key cannot be empty",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateServerManifest(t.Context(), types.MCPServerManifest{
+				Runtime:      types.RuntimeRemote,
+				RemoteConfig: &tt.config,
+			}, false, tt.options)
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, tt.wantErr)
+		})
+	}
+}
+
 func TestRemoteValidator_ValidateCatalogConfig_HeaderValidation(t *testing.T) {
 	validator := RemoteValidator{}
 

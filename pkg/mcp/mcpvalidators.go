@@ -145,6 +145,7 @@ type RuntimeValidators map[types.Runtime]RuntimeValidator
 
 // Options configures runtime validation behavior.
 type ValidationOptions struct {
+	AllowMissingURL              bool
 	RemoteMCPURLValidationConfig RemoteMCPURLValidationConfig
 	ResourceMaximums             ResourceMaximums
 }
@@ -446,6 +447,7 @@ func (v ContainerizedValidator) validateContainerizedConfig(config types.Contain
 
 // RemoteValidator implements RuntimeValidator for remote runtime
 type RemoteValidator struct {
+	AllowMissingURL              bool
 	RemoteMCPURLValidationConfig RemoteMCPURLValidationConfig
 }
 
@@ -510,36 +512,36 @@ func (v RemoteValidator) ValidateSystemConfig(ctx context.Context, manifest type
 }
 
 func (v RemoteValidator) validateRemoteConfig(ctx context.Context, config types.RemoteRuntimeConfig) error {
-	if strings.TrimSpace(config.URL) == "" {
-		if config.IsTemplate {
-			return nil
+	config.URL = strings.TrimSpace(config.URL)
+	if config.URL == "" {
+		if !v.AllowMissingURL && !config.IsTemplate {
+			return types.RuntimeValidationError{
+				Runtime: types.RuntimeRemote,
+				Field:   "url",
+				Message: "URL field cannot be empty",
+			}
 		}
-		return types.RuntimeValidationError{
-			Runtime: types.RuntimeRemote,
-			Field:   "url",
-			Message: "URL field cannot be empty",
+	} else {
+		// Validate URL format
+		parsedURL, err := url.Parse(config.URL)
+		if err != nil {
+			return types.RuntimeValidationError{
+				Runtime: types.RuntimeRemote,
+				Field:   "url",
+				Message: fmt.Sprintf("invalid URL format: %v", err),
+			}
 		}
-	}
 
-	// Validate URL format
-	parsedURL, err := url.Parse(config.URL)
-	if err != nil {
-		return types.RuntimeValidationError{
-			Runtime: types.RuntimeRemote,
-			Field:   "url",
-			Message: fmt.Sprintf("invalid URL format: %v", err),
+		if parsedURL.Scheme != "https" && parsedURL.Scheme != "http" {
+			return types.RuntimeValidationError{
+				Runtime: types.RuntimeRemote,
+				Field:   "url",
+				Message: "URL scheme must be either https or http",
+			}
 		}
-	}
-
-	if parsedURL.Scheme != "https" && parsedURL.Scheme != "http" {
-		return types.RuntimeValidationError{
-			Runtime: types.RuntimeRemote,
-			Field:   "url",
-			Message: "URL scheme must be either https or http",
+		if err := v.validateRemoteMCPURL(ctx, "url", config.URL); err != nil {
+			return err
 		}
-	}
-	if err := v.validateRemoteMCPURL(ctx, "url", config.URL); err != nil {
-		return err
 	}
 
 	// Validate headers
@@ -1005,8 +1007,11 @@ func getRuntimeValidators(options ValidationOptions) RuntimeValidators {
 		types.RuntimeUVX:           UVXValidator{},
 		types.RuntimeNPX:           NPXValidator{},
 		types.RuntimeContainerized: ContainerizedValidator{},
-		types.RuntimeRemote:        RemoteValidator{RemoteMCPURLValidationConfig: options.RemoteMCPURLValidationConfig},
-		types.RuntimeComposite:     CompositeValidator{},
+		types.RuntimeRemote: RemoteValidator{
+			RemoteMCPURLValidationConfig: options.RemoteMCPURLValidationConfig,
+			AllowMissingURL:              options.AllowMissingURL,
+		},
+		types.RuntimeComposite: CompositeValidator{},
 	}
 }
 

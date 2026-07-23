@@ -67,3 +67,6 @@ thoughts/
 thoughts
 
 .opencode/
+
+# Riptide artifacts (cloud-synced)
+.humanlayer/tasks/
