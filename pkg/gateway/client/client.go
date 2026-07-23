@@ -28,6 +28,9 @@ type Client struct {
 	auditLock               sync.Mutex
 	auditBuffer             []types.MCPAuditLog
 	kickAuditPersist        chan struct{}
+	enforcementLock         sync.Mutex
+	enforcementBuffer       []types.EnforcementDecisionLog
+	kickEnforcementPersist  chan struct{}
 	llmAuditEntries         chan llmAuditEntry
 	llmAuditBatchSize       int
 	llmAuditEnabled         bool
@@ -60,6 +63,8 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 		emailsWithExplicitRoles: explicitRoleEmailsSet,
 		auditBuffer:             make([]types.MCPAuditLog, 0, 2*auditLogBatchSize),
 		kickAuditPersist:        make(chan struct{}),
+		enforcementBuffer:       make([]types.EnforcementDecisionLog, 0, 2*auditLogBatchSize),
+		kickEnforcementPersist:  make(chan struct{}),
 		storageClient:           storageClient,
 		mcpOAuthTokenTrigger:    mcpOAuthTokenTrigger,
 		apiKeyCache:             make(map[[32]byte]apiKeyValidationCacheEntry),
@@ -74,6 +79,7 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 	}
 
 	go c.runMCPAuditLogPersistenceLoop(ctx, auditLogPersistenceInterval)
+	go c.runEnforcementDecisionPersistenceLoop(ctx, auditLogPersistenceInterval)
 	go c.runLLMAuditPersistenceLoop(ctx, c.llmAuditBatchSize, auditLogPersistenceInterval)
 	go c.runPendingStateCleanup(ctx)
 	go c.runAPIKeyCacheCleanup(ctx)
@@ -86,6 +92,9 @@ func (c *Client) Close() error {
 	var errs []error
 	if err := c.persistMCPAuditLogs(); err != nil {
 		errs = append(errs, fmt.Errorf("failed to persist audit logs: %w", err))
+	}
+	if err := c.persistEnforcementDecisions(); err != nil {
+		errs = append(errs, fmt.Errorf("failed to persist enforcement decisions: %w", err))
 	}
 	if err := c.persistQueuedLLMAuditLogs(); err != nil {
 		errs = append(errs, fmt.Errorf("failed to persist LLM audit logs: %w", err))

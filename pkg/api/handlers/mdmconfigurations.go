@@ -39,10 +39,19 @@ func (h *MDMConfigurationsHandler) Create(req api.Context) error {
 	if err := req.Read(&in); err != nil {
 		return err
 	}
-	configuration, err := h.mdmConfigurationFromInput(req, in, nil)
+
+	// Resolve the enforcement policy up front so malformed input is rejected
+	// before any asset work; it is applied to the final configuration below.
+	allowlist, err := enforcementAllowlistForSave(in.EnforcementEnabled, in.EnforcementAllowlist, nil)
 	if err != nil {
 		return err
 	}
+
+	configuration, err := h.mdmConfigurationFromInput(req, in, nil, in.EnforcementEnabled)
+	if err != nil {
+		return err
+	}
+
 	if configuration.AssetDigest == "" {
 		if source, err := getMDMAssetSource(req); err == nil &&
 			source.Annotations[v1.MDMAssetSourceSyncAnnotation] != "true" &&
@@ -51,12 +60,15 @@ func (h *MDMConfigurationsHandler) Create(req api.Context) error {
 				MDMConfigurationManifest: types.MDMConfigurationManifest{
 					AssetDigest: source.Status.LatestDigest,
 				},
-			}, nil)
+			}, nil, in.EnforcementEnabled)
 			if err == nil {
 				configuration = auto
 			}
 		}
 	}
+
+	configuration.EnforcementEnabled = in.EnforcementEnabled
+	configuration.EnforcementAllowlist = allowlist
 
 	created, err := req.GatewayClient.CreateMDMConfiguration(req.Context(), req.UserID(), configuration)
 	if err != nil {
@@ -125,7 +137,7 @@ func (h *MDMConfigurationsHandler) Update(req api.Context) error {
 	if err := req.Read(&in); err != nil {
 		return err
 	}
-	configuration, err := h.mdmConfigurationFromInput(req, in, current)
+	configuration, err := h.mdmConfigurationFromInput(req, in, current, current.EnforcementEnabled)
 	if err != nil {
 		return err
 	}
@@ -144,6 +156,85 @@ func (h *MDMConfigurationsHandler) Update(req api.Context) error {
 		return err
 	}
 	return req.Write(result)
+}
+
+// UpdateEnforcement handles PUT /api/mdm/configurations/{id}/enforcement. It
+// updates only the enforcement policy (the enable toggle and the allowlist) and,
+// because the device bundle bakes in the toggle, re-renders the configuration's
+// artifacts from its own stored state so a freshly downloaded bundle reflects
+// the new toggle without any additional admin input.
+func (h *MDMConfigurationsHandler) UpdateEnforcement(req api.Context) error {
+	id, err := configurationIDFromPath(req)
+	if err != nil {
+		return err
+	}
+	current, err := getMDMConfiguration(req, id)
+	if err != nil {
+		return err
+	}
+	var in types.MDMConfigurationEnforcementRequest
+	if err := req.Read(&in); err != nil {
+		return err
+	}
+	allowlist, err := enforcementAllowlistForSave(in.EnforcementEnabled, in.EnforcementAllowlist, current)
+	if err != nil {
+		return err
+	}
+
+	// Re-render the configuration's artifacts from its own pinned bundle and
+	// stored values with the new toggle. A blank configuration (no pinned asset)
+	// has no artifacts to render — its columns are simply updated.
+	var artifacts []gtypes.MDMConfigurationArtifact
+	if current.AssetDigest != "" {
+		if artifacts, err = h.renderEnforcementArtifacts(req, current, in.EnforcementEnabled); err != nil {
+			return err
+		}
+	}
+
+	if err := req.GatewayClient.UpdateMDMConfigurationEnforcement(req.Context(), id, in.EnforcementEnabled, allowlist, artifacts); errors.Is(err, gorm.ErrRecordNotFound) {
+		return types.NewErrNotFound("MDM configuration %d not found", id)
+	} else if err != nil {
+		return err
+	}
+	updated, err := getMDMConfiguration(req, id)
+	if err != nil {
+		return err
+	}
+	result, err := convertMDMConfiguration(*updated)
+	if err != nil {
+		return err
+	}
+	return req.Write(result)
+}
+
+// renderEnforcementArtifacts re-renders a configuration's device artifacts from
+// its own pinned bundle (never "latest", preserving enforcement's independence
+// from asset selection) and stored values, baking in the supplied enforcement
+// toggle.
+func (h *MDMConfigurationsHandler) renderEnforcementArtifacts(req api.Context, configuration *gtypes.MDMConfiguration, enforcementEnabled bool) ([]gtypes.MDMConfigurationArtifact, error) {
+	bundle, err := req.GatewayClient.GetMDMAssetBundle(req.Context(), configuration.AssetDigest)
+	if err != nil {
+		return nil, err
+	}
+	loader, err := mdmassets.OpenArchive(bundle.Content)
+	if err != nil {
+		return nil, err
+	}
+	rendered, _, err := loader.RenderStoredState(configuration.Values, h.serverURL, enforcementEnabled)
+	if err != nil {
+		return nil, err
+	}
+	artifacts := make([]gtypes.MDMConfigurationArtifact, 0, len(rendered))
+	for _, artifact := range rendered {
+		artifacts = append(artifacts, gtypes.MDMConfigurationArtifact{
+			Slug:         mdmassets.ArtifactSlug(artifact.Platform, artifact.OS),
+			Platform:     artifact.Platform,
+			OS:           artifact.OS,
+			Instructions: artifact.Instructions,
+			Content:      artifact.Content,
+		})
+	}
+	return artifacts, nil
 }
 
 // Delete removes the configuration and its keys. Enrolled devices remain.
@@ -301,7 +392,7 @@ func parsePathUint(req api.Context, param, label string) (uint, error) {
 // mdmConfigurationFromInput validates administrator values against the latest
 // source bundle and renders every platform/OS artifact before anything is
 // persisted. Only creation may leave the configuration unconfigured.
-func (h *MDMConfigurationsHandler) mdmConfigurationFromInput(req api.Context, in types.MDMConfiguration, current *gtypes.MDMConfiguration) (*gtypes.MDMConfiguration, error) {
+func (h *MDMConfigurationsHandler) mdmConfigurationFromInput(req api.Context, in types.MDMConfiguration, current *gtypes.MDMConfiguration, enforcementEnabled bool) (*gtypes.MDMConfiguration, error) {
 	configuration := &gtypes.MDMConfiguration{
 		AssetDigest: strings.TrimSpace(in.AssetDigest),
 	}
@@ -342,7 +433,7 @@ func (h *MDMConfigurationsHandler) mdmConfigurationFromInput(req api.Context, in
 	renderValues := make(map[string]any, len(values)+1)
 	maps.Copy(renderValues, values)
 	renderValues["serverURL"] = h.serverURL
-	rendered, err := loader.RenderAll(renderValues)
+	rendered, err := loader.RenderAll(renderValues, enforcementEnabled)
 	if err != nil {
 		return nil, types.NewErrBadRequest("invalid configuration values: %v", err)
 	}
@@ -377,7 +468,9 @@ func convertMDMConfiguration(configuration gtypes.MDMConfiguration) (types.MDMCo
 		MDMConfigurationManifest: types.MDMConfigurationManifest{
 			AssetDigest: configuration.AssetDigest,
 		},
-		Artifacts: make([]types.MDMConfigurationArtifact, 0, len(configuration.Artifacts)),
+		Artifacts:            make([]types.MDMConfigurationArtifact, 0, len(configuration.Artifacts)),
+		EnforcementEnabled:   configuration.EnforcementEnabled,
+		EnforcementAllowlist: configuration.EnforcementAllowlist,
 	}
 	if configuration.Values != "" {
 		if !json.Valid([]byte(configuration.Values)) {

@@ -4,6 +4,8 @@ package types
 import (
 	"fmt"
 	"time"
+
+	types2 "github.com/obot-platform/obot/apiclient/types"
 )
 
 // MDMConfigurationPrincipalPrefix namespaces the principal identity (Name/UID)
@@ -47,6 +49,9 @@ type MDMConfiguration struct {
 	ObotSentryVersion string                     `json:"-" gorm:"size:64"`
 	Values            string                     `json:"-" gorm:"type:text"`
 	Artifacts         []MDMConfigurationArtifact `json:"-" gorm:"-"`
+
+	EnforcementEnabled   bool                        `json:"enforcementEnabled,omitempty"`
+	EnforcementAllowlist types2.EnforcementAllowlist `json:"-" gorm:"serializer:json"`
 }
 
 // MDMConfigurationArtifact stores one rendered download. The configuration
