@@ -1215,11 +1215,12 @@ func (h *Handler) ShutdownIdleServers(req router.Request, resp router.Response) 
 	}
 
 	if since := time.Since(mcpServer.Status.LastRequestTime.Time); since > idleInterval {
-		if err := h.mcpSessionManager.ShutdownIdleServer(req.Ctx, mcpServer.Name); err != nil {
-			return fmt.Errorf("failed to shutdown idle server %s: %w", mcpServer.Name, err)
-		}
-
+		// If the server is already idle, then no need to shutdown.
 		if !mcpServer.Status.Idle {
+			if err := h.mcpSessionManager.ShutdownIdleServer(req.Ctx, mcpServer.Name); err != nil {
+				return fmt.Errorf("failed to shutdown idle server %s: %w", mcpServer.Name, err)
+			}
+
 			mcpServer.Status.Idle = true
 			if err := req.Client.Status().Update(req.Ctx, mcpServer); err != nil {
 				return fmt.Errorf("failed to update idle status for server %s: %w", mcpServer.Name, err)
