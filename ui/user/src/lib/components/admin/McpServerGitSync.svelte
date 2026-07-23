@@ -97,6 +97,20 @@
 			: undefined
 	);
 
+	const existingSourceHasCredential = $derived(
+		Boolean(
+			editingSource &&
+			editingSource.index >= 0 &&
+			editingSourceURL &&
+			(hasSourceURLCredential(editingSourceURL) ||
+				Boolean(defaultCatalog?.sourceURLGitCredentialIDs?.[editingSourceURL]))
+		)
+	);
+
+	const credentialLocked = $derived(
+		Boolean(editingSource && existingSourceHasCredential && !editingSource.clearToken)
+	);
+
 	const sourceURLChangedWithCredential = $derived(
 		Boolean(
 			editingSource &&
@@ -185,7 +199,7 @@
 {/snippet}
 
 <dialog bind:this={sourceDialog} class="dialog">
-	<div class="dialog-container w-full max-w-md p-4">
+	<div class="dialog-container w-full max-w-md p-4 h-91.5 max-h-dvh flex flex-col">
 		{#if editingSource}
 			<h3 class="dialog-title">
 				{editingSource.index === -1 ? 'Add Source URL' : 'Edit Source URL'}
@@ -194,7 +208,7 @@
 				</IconButton>
 			</h3>
 
-			<div class="my-4 flex flex-col gap-1">
+			<div class="mb-4 flex flex-col gap-1">
 				<label for="catalog-source-name" class="flex flex-1 items-center gap-1 text-sm font-light">
 					Source URL
 					<span
@@ -215,17 +229,36 @@
 				/>
 			</div>
 
-			<div class="mb-4 flex flex-col gap-1">
-				<span id="catalog-source-credential-label" class="flex-1 text-sm font-light capitalize"
-					>Credential</span
-				>
+			<div class="mb-2 flex flex-col gap-1">
+				<div class="flex items-center justify-between gap-4">
+					<span id="catalog-source-credential-label" class="flex-1 text-sm font-light capitalize">
+						Credential
+					</span>
+					{#if credentialLocked}
+						<button
+							class="text-xs text-error hover:underline"
+							onclick={() => {
+								if (!editingSource) return;
+								editingSource.credentialType = 'none';
+								editingSource.gitCredentialID = '';
+								editingSource.token = '';
+								editingSource.clearToken = true;
+								tokenExplicitlyCleared = true;
+							}}
+						>
+							Clear token
+						</button>
+					{/if}
+				</div>
 				<Select
 					id="catalog-source-credential-type"
+					class="bg-base-200"
 					options={repositoryCredentialOptions}
 					selected={editingSource.credentialType}
 					ariaLabelledby="catalog-source-credential-label"
+					disabled={credentialLocked}
 					onSelect={(option) => {
-						if (!editingSource) return;
+						if (!editingSource || credentialLocked) return;
 						editingSource.credentialType = option.id as RepositoryCredentialType;
 						if (option.id === 'shared') {
 							editingSource.token = '';
@@ -247,18 +280,19 @@
 				<div class="mb-4 flex flex-col gap-1">
 					<Select
 						id="catalog-source-git-credential"
+						class="bg-base-200"
 						options={gitCredentialOptions}
 						selected={editingSource.gitCredentialID}
 						searchPlaceholder=""
 						searchInDropdown
+						disabled={credentialLocked}
 						onSelect={(option) => {
-							if (editingSource) {
-								editingSource.gitCredentialID = String(option.id);
-								editingSource.token = '';
-								editingSource.clearToken = false;
-							}
+							if (!editingSource || credentialLocked) return;
+							editingSource.gitCredentialID = String(option.id);
+							editingSource.token = '';
+							editingSource.clearToken = false;
 						}}
-						onClear={editingSource.gitCredentialID
+						onClear={!credentialLocked && editingSource.gitCredentialID
 							? () => {
 									if (editingSource) editingSource.gitCredentialID = '';
 								}
@@ -273,32 +307,15 @@
 			{#if editingSource.credentialType === 'token'}
 				<div class="mb-4 flex flex-col gap-1">
 					<label for="catalog-source-token" class="sr-only">Personal Access Token</label>
-					{#if editingSource.index >= 0 && hasSourceURLCredential(defaultCatalog?.sourceURLs?.[editingSource.index]) && !editingSource.clearToken}
-						<div class="flex justify-end">
-							<button
-								class="text-xs text-error hover:underline"
-								onclick={() => {
-									if (editingSource) {
-										editingSource.clearToken = true;
-										tokenExplicitlyCleared = true;
-									}
-								}}
-							>
-								Clear token
-							</button>
-						</div>
-					{/if}
-					<div class="flex items-center gap-2">
-						{#if !editingSource.clearToken && editingSource.index >= 0 && hasSourceURLCredential(defaultCatalog?.sourceURLs?.[editingSource.index])}
+					<div class="flex items-center gap-2 min-h-10">
+						{#if credentialLocked && hasSourceURLCredential(editingSourceURL)}
 							<input
 								id="catalog-source-token"
 								type="text"
 								readonly
 								aria-readonly="true"
 								data-1p-ignore
-								value={defaultCatalog?.sourceURLCredentials?.[
-									defaultCatalog?.sourceURLs?.[editingSource.index]
-								] ?? ''}
+								value={defaultCatalog?.sourceURLCredentials?.[editingSourceURL ?? ''] ?? ''}
 								class="text-sm text-muted-content w-full border-none bg-transparent p-0 outline-none focus:ring-0"
 							/>
 						{:else}
@@ -335,6 +352,8 @@
 					former URL, otherwise it will be cleared on save.
 				</p>
 			{/if}
+
+			<div class="flex grow mb-4"></div>
 
 			<div class="flex w-full justify-end gap-2">
 				<button class="btn btn-secondary" disabled={saving} onclick={closeSourceDialog}

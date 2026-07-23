@@ -1,6 +1,6 @@
 <script lang="ts">
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
-	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
@@ -20,11 +20,23 @@
 	let displayName = $state('');
 	let host = $state('');
 	let token = $state('');
+	let clearToken = $state(false);
 	let formError = $state('');
 	let saving = $state(false);
 	let dialog = $state<HTMLDialogElement>();
 	let isReadonly = $derived(profile.current.isAdminReadonly?.());
-	let tokenRequired = $derived(!editingCredential?.tokenConfigured);
+	let showExistingToken = $derived(Boolean(editingCredential?.tokenConfigured) && !clearToken);
+	let tokenRequired = $derived(!editingCredential?.tokenConfigured || clearToken);
+	let tableData = $derived(
+		gitCredentials.map((credential) => ({
+			...credential,
+			usedBy: [
+				...(credential.uses.skillRepositories ?? []),
+				...(credential.uses.mcpCatalogs ?? []),
+				...(credential.uses.systemMcpCatalogs ?? [])
+			].length
+		}))
+	);
 
 	function useGroups(credential?: GitCredential) {
 		return [
@@ -43,6 +55,7 @@
 		displayName = '';
 		host = '';
 		token = '';
+		clearToken = false;
 		formError = '';
 		dialog?.showModal();
 	}
@@ -52,6 +65,7 @@
 		displayName = credential.displayName;
 		host = credential.host;
 		token = '';
+		clearToken = false;
 		formError = '';
 		dialog?.showModal();
 	}
@@ -70,6 +84,7 @@
 
 	function handleDialogClose() {
 		token = '';
+		clearToken = false;
 		formError = '';
 	}
 
@@ -125,11 +140,12 @@
 		</div>
 	{:else}
 		<Table
-			data={gitCredentials}
-			fields={['displayName', 'host']}
+			data={tableData}
+			fields={['displayName', 'host', 'usedBy']}
 			headers={[
 				{ title: 'Name', property: 'displayName' },
-				{ title: 'Host', property: 'host' }
+				{ title: 'Host', property: 'host' },
+				{ title: 'Used By', property: 'usedBy' }
 			]}
 			sortable={['displayName', 'host']}
 			filterable={['displayName', 'host']}
@@ -148,43 +164,61 @@
 									openUses(credential);
 								}}
 							>
-								In use
+								In Use
 							</button>
 						{/if}
 					</span>
 				{:else if field === 'host'}
 					{credential.host}
+				{:else if field === 'usedBy'}
+					{#if credential.usedBy}
+						<button
+							type="button"
+							class="text-left hover:underline"
+							onclick={(event) => {
+								event.stopPropagation();
+								openUses(credential);
+							}}
+						>
+							{credential.usedBy}
+							{credential.usedBy > 1 ? 'Sources' : 'Source'}
+						</button>
+					{:else}
+						<span class="text-muted-content">—</span>
+					{/if}
 				{/if}
 			{/snippet}
 			{#snippet actions(credential)}
-				<DotDotDot ariaLabel={`Actions for ${credential.displayName}`}>
-					{#snippet children({ toggle })}
-						<button
-							class="menu-button"
-							disabled={isReadonly}
+				{#if !isReadonly}
+					<IconButton
+						onclick={(event) => {
+							event.stopPropagation();
+							openEdit(credential);
+						}}
+					>
+						<Pencil class="size-4" />
+					</IconButton>
+					<div
+						class="shrink-0"
+						use:tooltip={hasUses(credential)
+							? {
+									text: 'This credential is currently in use and cannot be deleted.',
+									placement: 'left'
+								}
+							: undefined}
+					>
+						<IconButton
+							variant="danger"
+							disabled={hasUses(credential)}
 							onclick={(event) => {
 								event.stopPropagation();
-								openEdit(credential);
-								toggle(false);
-							}}
-						>
-							<Pencil class="size-4" />
-							Edit
-						</button>
-						<button
-							class="menu-button-destructive"
-							disabled={isReadonly}
-							onclick={(event) => {
-								event.stopPropagation();
-								toggle(false);
 								openDelete(credential);
 							}}
 						>
 							<Trash2 class="size-4" />
-							Delete
-						</button>
-					{/snippet}
-				</DotDotDot>
+						</IconButton>
+					</div>
+				{/if}
 			{/snippet}
 		</Table>
 	{/if}
@@ -230,12 +264,36 @@
 				<span class="text-muted-content text-xs">Enter a hostname without a scheme or path.</span>
 			</div>
 			<div class="flex flex-col gap-1">
-				<label for="git-credential-token" class="text-sm font-light">
-					Personal access token {editingCredential?.tokenConfigured
-						? '(leave blank to keep current)'
-						: ''}
-				</label>
-				<SensitiveInput name="git-credential-token" bind:value={token} disabled={isReadonly} />
+				<div class="flex items-center justify-between gap-4">
+					<label for="git-credential-token" class="text-sm font-light">
+						Personal access token
+					</label>
+					{#if showExistingToken && !isReadonly}
+						<button
+							type="button"
+							class="text-xs text-error hover:underline"
+							onclick={() => {
+								clearToken = true;
+								token = '';
+							}}
+						>
+							Clear token
+						</button>
+					{/if}
+				</div>
+				{#if showExistingToken}
+					<input
+						id="git-credential-token"
+						type="text"
+						readonly
+						aria-readonly="true"
+						data-1p-ignore
+						value="****"
+						class="text-sm text-muted-content w-full border-none bg-transparent p-0 outline-none focus:ring-0 min-h-10"
+					/>
+				{:else}
+					<SensitiveInput name="git-credential-token" bind:value={token} disabled={isReadonly} />
+				{/if}
 			</div>
 		</div>
 
@@ -306,6 +364,7 @@
 	show={Boolean(viewingCredential)}
 	cancelText="Close"
 	oncancel={() => (viewingCredential = undefined)}
+	classes={{ note: 'w-full' }}
 />
 
 <Confirm
@@ -346,3 +405,7 @@
 	}}
 	oncancel={() => (deletingCredential = undefined)}
 />
+
+<svelte:head>
+	<title>Obot | Git Credentials</title>
+</svelte:head>
