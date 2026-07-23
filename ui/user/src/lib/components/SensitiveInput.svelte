@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { Eye, EyeOff } from '@lucide/svelte';
+	import type { FullAutoFill } from 'svelte/elements';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -20,6 +21,9 @@
 		};
 		hideReveal?: boolean;
 		placeholder?: string;
+		autocomplete?: FullAutoFill;
+		minlength?: number;
+		required?: boolean;
 		onkeydown?: (ev: KeyboardEvent) => void;
 	}
 
@@ -37,6 +41,9 @@
 		classes,
 		hideReveal,
 		placeholder,
+		autocomplete = 'new-password',
+		minlength,
+		required,
 		onkeydown
 	}: Props = $props();
 
@@ -138,13 +145,24 @@
 
 <div class="relative flex grow items-center">
 	{#if textarea}
-		<div bind:this={containerElement} class="relative flex min-h-[60px] w-full flex-col leading-5">
+		<div bind:this={containerElement} class="relative flex min-h-15 w-full flex-col leading-5">
 			{#if growable}
-				<input type="text" {name} {disabled} {readonly} {value} {placeholder} hidden />
+				<input
+					type="text"
+					{name}
+					{disabled}
+					{readonly}
+					{value}
+					{placeholder}
+					{autocomplete}
+					{minlength}
+					{required}
+					hidden
+				/>
 				<div
 					bind:this={scrollableWrapper}
 					class={twMerge(
-						'text-input-filled base flex min-h-[60px] w-full shrink-0 flex-col overflow-x-hidden overflow-y-auto font-mono',
+						'text-input-filled base flex min-h-15 w-full shrink-0 flex-col overflow-x-hidden overflow-y-auto font-mono',
 						klass,
 						classes?.wrapper,
 						error && 'border-error bg-error/20 text-error ring-error focus:ring-1',
@@ -163,6 +181,7 @@
 							spellcheck="false"
 							role="textbox"
 							tabindex="0"
+							aria-required={required || undefined}
 							onscroll={(ev) => {
 								if (!showSensitive && maskedTextarea) {
 									maskedTextarea.scrollTop = ev.currentTarget.scrollTop;
@@ -235,6 +254,9 @@
 							{disabled}
 							{readonly}
 							{placeholder}
+							{autocomplete}
+							{minlength}
+							{required}
 							spellcheck="false"
 							onscroll={(ev) => {
 								if (!showSensitive && maskedTextarea) {
@@ -273,7 +295,9 @@
 			type={showSensitive ? 'text' : 'password'}
 			oninput={handleInput}
 			onfocus={handleFocus}
-			autocomplete="new-password"
+			{autocomplete}
+			{minlength}
+			{required}
 			{disabled}
 			{readonly}
 			{placeholder}

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
+	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import { MultiValueInput } from '$lib/components/ui/multi-value-input';
 	import { LOCAL_AUTH_MIN_PASSWORD_LENGTH } from '$lib/constants';
@@ -303,16 +304,14 @@
 
 						<label class="flex flex-col gap-1 text-sm font-light" for="local-user-password">
 							Password
-							<input
-								id="local-user-password"
-								class="text-input-filled"
-								type="password"
+							<SensitiveInput
+								name="local-user-password"
 								bind:value={password}
 								autocomplete="new-password"
 								minlength={LOCAL_AUTH_MIN_PASSWORD_LENGTH}
 								required
 							/>
-							<span class="text-muted-content text-xs">
+							<span class="text-muted-content text-xs pt-0.5">
 								At least {LOCAL_AUTH_MIN_PASSWORD_LENGTH} characters. Share it with the user over a secure
 								channel; they can't change it themselves yet.
 							</span>
