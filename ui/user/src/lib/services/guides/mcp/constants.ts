@@ -35,7 +35,7 @@ export const listenMcpAccessPoliciesLink: GuideListener = {
 
 export const addCatalogEntryDescriptions = {
 	hosted:
-		'A hosted MCP catalog entry allows you to add a custom MCP server that is managed and hosted by Obot. By having Obot host your MCP server, you can take advantage of automatic scaling, lifecycle management, API key management, and access policy enforcement. Once deployed in Obot, the server is available as a remote MCP URL that your MCP clients can consume.',
+		'A hosted MCP catalog entry allows you to add a custom MCP server that is managed and hosted by Obot. By having Obot host your MCP server, you can take advantage of lifecycle management, configuration management, and access policy enforcement. Once deployed in Obot, the server is available as a remote MCP URL that your MCP clients can consume.',
 	remote:
 		"A remote catalog entry allows you to proxy any remote MCP server through Obot, enabling you to take advantage of Obot's access policies, audit logging, and static OAuth integration.",
 	composite:

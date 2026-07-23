@@ -71,7 +71,7 @@ export const steps: GuideStep[] = [
 												align: 'center',
 												title: 'Static OAuth',
 												description:
-													'Enable this only when the provider requires a pre-registered OAuth app. The entry will need to be saved first, then the shared client ID and secret can be configured; each user will still need to complete their own OAuth login.'
+													'Enable this only when the remote MCP server requires a pre-registered OAuth app. The entry will need to be saved first, then the shared client ID and secret can be configured; each user will still need to complete their own OAuth login.'
 											},
 											listener: {
 												id: CATALOG_SERVER_FIELD_IDS.remoteStaticOAuth,
