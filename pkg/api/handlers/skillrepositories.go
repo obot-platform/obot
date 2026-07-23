@@ -58,6 +58,9 @@ func (*SkillRepositoryHandler) Create(req api.Context) error {
 	if err != nil {
 		return err
 	}
+	if err := validateUniqueSkillRepository(req, manifest, ""); err != nil {
+		return err
+	}
 	if err := validateSharedGitCredential(req, manifest.GitCredentialID, manifest.RepoURL); err != nil {
 		return err
 	}
@@ -95,13 +98,16 @@ func (*SkillRepositoryHandler) Update(req api.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := validateSharedGitCredential(req, manifest.GitCredentialID, manifest.RepoURL); err != nil {
-		return err
-	}
 
 	var repo v1.SkillRepository
 	if err := req.Get(&repo, req.PathValue("skill_repository_id")); err != nil {
 		return fmt.Errorf("failed to get skill repository: %w", err)
+	}
+	if err := validateUniqueSkillRepository(req, manifest, repo.Name); err != nil {
+		return err
+	}
+	if err := validateSharedGitCredential(req, manifest.GitCredentialID, manifest.RepoURL); err != nil {
+		return err
 	}
 
 	existingCred, err := revealRepositoryTokens(req, repo.Name)
@@ -202,6 +208,27 @@ func parseSkillRepositoryRequest(req api.Context) (*types.SkillRepositoryManifes
 	}
 
 	return &manifest, sourceURLCredentials, nil
+}
+
+func validateUniqueSkillRepository(req api.Context, manifest *types.SkillRepositoryManifest, excludedName string) error {
+	var repositories v1.SkillRepositoryList
+	if err := req.List(&repositories); err != nil {
+		return fmt.Errorf("failed to list skill repositories: %w", err)
+	}
+
+	for _, repository := range repositories.Items {
+		if repository.Name == excludedName {
+			continue
+		}
+		if repository.Spec.DisplayName == manifest.DisplayName {
+			return types.NewErrAlreadyExists("a skill source named %q already exists", manifest.DisplayName)
+		}
+		if repository.Spec.RepoURL == manifest.RepoURL {
+			return types.NewErrAlreadyExists("a skill source with repository URL %q already exists", manifest.RepoURL)
+		}
+	}
+
+	return nil
 }
 
 func storeRepositoryTokens(req api.Context, repoName string, tokens, existing map[string]string) error {

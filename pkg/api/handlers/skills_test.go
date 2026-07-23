@@ -181,6 +181,118 @@ func TestSkillRepositoryHandlerRefresh(t *testing.T) {
 	assert.Equal(t, "true", repo.Annotations[v1.SkillRepositorySyncAnnotation])
 }
 
+func TestSkillRepositoryHandlerRejectsDuplicateNameAndURL(t *testing.T) {
+	for _, test := range []struct {
+		name         string
+		manifest     string
+		errorMessage string
+	}{
+		{
+			name:         "display name",
+			manifest:     `{"displayName":"Existing Source","repoURL":"https://github.com/example/other"}`,
+			errorMessage: `a skill source named "Existing Source" already exists`,
+		},
+		{
+			name:         "normalized repository URL",
+			manifest:     `{"displayName":"Other Source","repoURL":"github.com/example/repo"}`,
+			errorMessage: `a skill source with repository URL "https://github.com/example/repo" already exists`,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			storage := newFakeStorage(t, &v1.SkillRepository{
+				ObjectMeta: metav1.ObjectMeta{Name: "skr-existing", Namespace: system.DefaultNamespace},
+				Spec: v1.SkillRepositorySpec{
+					DisplayName: "Existing Source",
+					RepoURL:     "https://github.com/example/repo",
+				},
+			})
+			req := httptest.NewRequest(http.MethodPost, "/api/skill-repositories", strings.NewReader(test.manifest))
+
+			err := NewSkillRepositoryHandler().Create(api.Context{Request: req, Storage: storage})
+			require.Error(t, err)
+			assert.ErrorContains(t, err, test.errorMessage)
+
+			var httpErr *types.ErrHTTP
+			require.ErrorAs(t, err, &httpErr)
+			assert.Equal(t, http.StatusConflict, httpErr.Code)
+
+			var repositories v1.SkillRepositoryList
+			require.NoError(t, storage.List(t.Context(), &repositories))
+			assert.Len(t, repositories.Items, 1)
+		})
+	}
+}
+
+func TestSkillRepositoryHandlerUpdateRejectsAnotherSourceNameAndURL(t *testing.T) {
+	for _, test := range []struct {
+		name         string
+		manifest     string
+		errorMessage string
+	}{
+		{
+			name:         "display name",
+			manifest:     `{"displayName":"Existing Source","repoURL":"https://github.com/example/other"}`,
+			errorMessage: `a skill source named "Existing Source" already exists`,
+		},
+		{
+			name:         "repository URL",
+			manifest:     `{"displayName":"Updated Source","repoURL":"https://github.com/example/repo"}`,
+			errorMessage: `a skill source with repository URL "https://github.com/example/repo" already exists`,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			storage := newFakeStorage(t,
+				&v1.SkillRepository{
+					ObjectMeta: metav1.ObjectMeta{Name: "skr-existing", Namespace: system.DefaultNamespace},
+					Spec: v1.SkillRepositorySpec{
+						DisplayName: "Existing Source",
+						RepoURL:     "https://github.com/example/repo",
+					},
+				},
+				&v1.SkillRepository{
+					ObjectMeta: metav1.ObjectMeta{Name: "skr-updating", Namespace: system.DefaultNamespace},
+					Spec: v1.SkillRepositorySpec{
+						DisplayName: "Current Source",
+						RepoURL:     "https://github.com/example/current",
+					},
+				},
+			)
+			req := httptest.NewRequest(http.MethodPut, "/api/skill-repositories/skr-updating", strings.NewReader(test.manifest))
+			req.SetPathValue("skill_repository_id", "skr-updating")
+
+			err := NewSkillRepositoryHandler().Update(api.Context{Request: req, Storage: storage})
+			require.Error(t, err)
+			assert.ErrorContains(t, err, test.errorMessage)
+
+			var httpErr *types.ErrHTTP
+			require.ErrorAs(t, err, &httpErr)
+			assert.Equal(t, http.StatusConflict, httpErr.Code)
+		})
+	}
+}
+
+func TestSkillRepositoryHandlerUpdateAllowsOwnNameAndURL(t *testing.T) {
+	storage := newFakeStorage(t, &v1.SkillRepository{
+		ObjectMeta: metav1.ObjectMeta{Name: "skr-existing", Namespace: system.DefaultNamespace},
+		Spec: v1.SkillRepositorySpec{
+			DisplayName: "Existing Source",
+			RepoURL:     "https://github.com/example/repo",
+		},
+	})
+	req := httptest.NewRequest(http.MethodPut, "/api/skill-repositories/skr-existing", strings.NewReader(`{"displayName":"Existing Source","repoURL":"github.com/example/repo"}`))
+	req.SetPathValue("skill_repository_id", "skr-existing")
+	rec := httptest.NewRecorder()
+
+	err := NewSkillRepositoryHandler().Update(api.Context{
+		ResponseWriter: rec,
+		Request:        req,
+		Storage:        storage,
+		GatewayClient:  newHandlerTestGateway(t),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+}
+
 func TestSkillHandlerListFiltersByAccessAndValidity(t *testing.T) {
 	storage := newFakeStorage(t,
 		&v1.Skill{
