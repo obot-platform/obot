@@ -148,6 +148,17 @@
 			? (editingSkillRepository?.sourceURLCredentials?.[editingSkillRepository.repoURL] ?? '')
 			: ''
 	);
+	let existingSourceHasCredential = $derived(
+		Boolean(
+			editingSource &&
+			editingSource.index >= 0 &&
+			(hasSkillRepositoryToken(editingSkillRepository) ||
+				Boolean(editingSkillRepository?.gitCredentialID))
+		)
+	);
+	let credentialLocked = $derived(
+		Boolean(editingSource && existingSourceHasCredential && !editingSource.clearToken)
+	);
 	let credentialSelectionIncomplete = $derived(
 		Boolean(
 			editingSource &&
@@ -646,7 +657,7 @@
 </ResponsiveDialog>
 
 <dialog bind:this={sourceDialog} class="dialog">
-	<div class="dialog-container w-full max-w-md p-4">
+	<div class="dialog-container w-full max-w-md p-4 h-134.5 max-h-dvh flex flex-col">
 		{#if editingSource}
 			<h3 class="dialog-title">
 				{editingSource.index === -1 ? 'Add Source URL' : 'Edit Source URL'}
@@ -655,7 +666,7 @@
 				</IconButton>
 			</h3>
 
-			<div class="mt-4 mb-8 flex flex-col gap-4">
+			<div class="flex flex-col gap-4">
 				<div class="flex flex-col gap-1">
 					<label for="catalog-source-name" class="flex-1 text-sm font-light capitalize"
 						>Name
@@ -686,89 +697,102 @@
 						>The branch, commit SHA, or tag to index and pull skills from.</span
 					>
 				</div>
-				<div class="flex flex-col gap-1">
-					<span id="skill-source-credential-label" class="flex-1 text-sm font-light capitalize"
-						>Credential</span
-					>
-					<Select
-						id="skill-source-credential-type"
-						options={repositoryCredentialOptions}
-						selected={editingSource.credentialType}
-						ariaLabelledby="skill-source-credential-label"
-						onSelect={(option) => {
-							if (!editingSource) return;
-							editingSource.credentialType = option.id as RepositoryCredentialType;
-							if (option.id === 'shared') {
-								editingSource.token = '';
-							} else if (option.id === 'token') {
-								editingSource.gitCredentialID = '';
-							} else {
-								editingSource.gitCredentialID = '';
-								editingSource.token = '';
-								if (hasSkillRepositoryToken(editingSkillRepository)) {
-									editingSource.clearToken = true;
-								}
-							}
-						}}
-					/>
-				</div>
-				{#if editingSource.credentialType === 'shared'}
+				<div class="flex flex-col gap-2">
 					<div class="flex flex-col gap-1">
+						<div class="flex items-center justify-between gap-4">
+							<span id="skill-source-credential-label" class="flex-1 text-sm font-light capitalize">
+								Credential
+							</span>
+							{#if credentialLocked}
+								<div class="flex justify-end">
+									<button
+										class="text-xs text-error hover:underline"
+										onclick={() => {
+											if (!editingSource) return;
+											editingSource.credentialType = 'none';
+											editingSource.gitCredentialID = '';
+											editingSource.token = '';
+											editingSource.clearToken = true;
+										}}
+									>
+										Clear token
+									</button>
+								</div>
+							{/if}
+						</div>
 						<Select
-							id="skill-source-git-credential"
-							options={gitCredentialOptions}
-							selected={editingSource.gitCredentialID}
-							searchPlaceholder=""
-							searchInDropdown
+							id="skill-source-credential-type"
+							class="bg-base-200"
+							options={repositoryCredentialOptions}
+							selected={editingSource.credentialType}
+							ariaLabelledby="skill-source-credential-label"
+							disabled={credentialLocked}
 							onSelect={(option) => {
-								if (editingSource) {
-									editingSource.gitCredentialID = String(option.id);
+								if (!editingSource || credentialLocked) return;
+								editingSource.credentialType = option.id as RepositoryCredentialType;
+								if (option.id === 'shared') {
 									editingSource.token = '';
+								} else if (option.id === 'token') {
+									editingSource.gitCredentialID = '';
+								} else {
+									editingSource.gitCredentialID = '';
+									editingSource.token = '';
+									if (hasSkillRepositoryToken(editingSkillRepository)) {
+										editingSource.clearToken = true;
+									}
 								}
 							}}
-							onClear={editingSource.gitCredentialID
-								? () => {
-										if (editingSource) editingSource.gitCredentialID = '';
-									}
-								: undefined}
 						/>
-						<span class="text-muted-content text-xs">
-							Only credentials matching the repository host can be selected.
-						</span>
 					</div>
-				{/if}
-				{#if editingSource.credentialType === 'token'}
-					<div class="flex flex-col gap-1">
-						<label for="skill-source-token" class="sr-only">Personal Access Token</label>
-						{#if existingSkillRepositoryToken && !editingSource.clearToken}
-							<div class="flex justify-end">
-								<button
-									class="text-xs text-error hover:underline"
-									onclick={() => {
-										if (editingSource) editingSource.clearToken = true;
-									}}
-								>
-									Clear token
-								</button>
-							</div>
-							<input
-								id="skill-source-token"
-								type="text"
-								readonly
-								aria-readonly="true"
-								data-1p-ignore
-								value={existingSkillRepositoryToken}
-								class="text-sm text-muted-content w-full border-none bg-transparent p-0 outline-none focus:ring-0"
+					{#if editingSource.credentialType === 'shared'}
+						<div class="flex flex-col gap-1">
+							<Select
+								id="skill-source-git-credential"
+								class="bg-base-200"
+								options={gitCredentialOptions}
+								selected={editingSource.gitCredentialID}
+								searchPlaceholder=""
+								searchInDropdown
+								disabled={credentialLocked}
+								onSelect={(option) => {
+									if (!editingSource || credentialLocked) return;
+									editingSource.gitCredentialID = String(option.id);
+									editingSource.token = '';
+								}}
+								onClear={!credentialLocked && editingSource.gitCredentialID
+									? () => {
+											if (editingSource) editingSource.gitCredentialID = '';
+										}
+									: undefined}
 							/>
-						{:else}
-							<SensitiveInput
-								name="skill-source-token"
-								placeholder="Personal Access Token"
-								bind:value={editingSource.token}
-							/>
-						{/if}
-					</div>
-				{/if}
+							<span class="text-muted-content text-xs">
+								Only credentials matching the repository host can be selected.
+							</span>
+						</div>
+					{/if}
+					{#if editingSource.credentialType === 'token'}
+						<div class="flex flex-col gap-1">
+							<label for="skill-source-token" class="sr-only">Personal Access Token</label>
+							{#if credentialLocked && existingSkillRepositoryToken}
+								<input
+									id="skill-source-token"
+									type="text"
+									readonly
+									aria-readonly="true"
+									data-1p-ignore
+									value={existingSkillRepositoryToken}
+									class="text-sm text-muted-content w-full border-none bg-transparent p-0 outline-none focus:ring-0 min-h-10"
+								/>
+							{:else}
+								<SensitiveInput
+									name="skill-source-token"
+									placeholder="Personal Access Token"
+									bind:value={editingSource.token}
+								/>
+							{/if}
+						</div>
+					{/if}
+				</div>
 			</div>
 
 			{#if sourceError}
@@ -780,6 +804,8 @@
 					<span class="font-sm font-light break-all">{sourceError}</span>
 				</div>
 			{/if}
+
+			<div class="flex grow mb-4"></div>
 
 			<div class="flex w-full justify-end gap-2">
 				<button class="btn btn-secondary" disabled={saving} onclick={() => closeSourceDialog()}

@@ -21,6 +21,7 @@
 			icon?: string;
 			iconContainer?: string;
 			actions?: string;
+			note?: string;
 		};
 		title?: string;
 		type?: 'delete' | 'info';
@@ -110,7 +111,7 @@
 				<p class="text-center text-base font-medium">{msg}</p>
 			{/if}
 
-			<div class="mb-4 self-center text-center font-light">
+			<div class={twMerge('mb-4 self-center text-center font-light', classes?.note)}>
 				{#if typeof note === 'string'}
 					<p>{note}</p>
 				{:else if note}
