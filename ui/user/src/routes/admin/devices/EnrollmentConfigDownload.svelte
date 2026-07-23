@@ -659,6 +659,7 @@
 	   article-scale milkdown typography is stepped down to match. */
 	.instructions {
 		font-size: 0.875rem;
+		--tw-prose-pre-code: var(--color-base-content);
 	}
 	.instructions :global(p),
 	.instructions :global(li),
@@ -689,12 +690,5 @@
 	}
 	:global(.dark) .instructions :global(pre) {
 		background-color: var(--color-base-300);
-	}
-	@layer base {
-		.instructions :global(pre),
-		.instructions :global(pre code),
-		.instructions :global(pre code *) {
-			color: var(--color-base-content) !important;
-		}
 	}
 </style>
