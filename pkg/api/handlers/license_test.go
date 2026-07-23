@@ -65,7 +65,7 @@ func TestDisplayLicenseKey(t *testing.T) {
 func TestCheckLicenseCooldown(t *testing.T) {
 	t.Parallel()
 
-	handler := NewLicenseHandler(nil)
+	handler := NewLicenseHandler(nil, nil)
 	handler.lastManualLicenseCheck = time.Now()
 
 	recorder := httptest.NewRecorder()

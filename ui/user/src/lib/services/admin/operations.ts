@@ -103,6 +103,7 @@ import type {
 	AppNotificationManifest,
 	License,
 	LicenseManifest,
+	CommunityLicenseEnrollment,
 	LLMAuditLog,
 	LLMAuditLogURLFilters,
 	MDMAsset,
@@ -2086,6 +2087,13 @@ export async function updateLicense(
 	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
 ): Promise<License> {
 	return (await doPut('/license', manifest, opts)) as License;
+}
+
+export async function createCommunityLicense(
+	enrollment: CommunityLicenseEnrollment,
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
+): Promise<License> {
+	return (await doPost('/license/community', enrollment, opts)) as License;
 }
 
 // MDM configurations

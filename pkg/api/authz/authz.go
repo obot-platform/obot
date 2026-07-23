@@ -53,6 +53,7 @@ var (
 		"GET /debug/metrics",
 		"PUT /api/license",
 		"POST /api/license",
+		"POST /api/license/community",
 		"DELETE /api/license",
 		"/api/auth-providers",
 		"/api/auth-providers/",

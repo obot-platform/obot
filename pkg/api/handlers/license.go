@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
@@ -11,10 +12,24 @@ import (
 	apitypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/license"
+	"github.com/obot-platform/obot/pkg/upgrade"
 )
 
+type LicenseProvider interface {
+	LicenseKey(context.Context) (string, error)
+	LicenseKeyViaConfiguration() bool
+	SetLicenseKey(context.Context, string) error
+	RemoveLicenseKey(context.Context) error
+	Validate(context.Context) error
+	HasValidLicense(context.Context) (bool, error)
+	Entitlements(context.Context) ([]string, error)
+}
+
 type LicenseHandler struct {
-	licenseProvider        *license.Provider
+	licenseProvider        LicenseProvider
+	communityIssuer        upgrade.CommunityLicenseIssuer
+	communityLock          sync.Mutex
+	communityInFlight      bool
 	manualCheckLock        sync.RWMutex
 	lastManualLicenseCheck time.Time
 }
@@ -38,8 +53,11 @@ const (
 	manualCheckCoolDown     = 5 * time.Minute
 )
 
-func NewLicenseHandler(licenseProvider *license.Provider) *LicenseHandler {
-	return &LicenseHandler{licenseProvider: licenseProvider}
+func NewLicenseHandler(licenseProvider LicenseProvider, communityIssuer upgrade.CommunityLicenseIssuer) *LicenseHandler {
+	return &LicenseHandler{
+		licenseProvider: licenseProvider,
+		communityIssuer: communityIssuer,
+	}
 }
 
 func (h *LicenseHandler) Get(req api.Context) error {

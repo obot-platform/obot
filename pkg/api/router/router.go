@@ -13,6 +13,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api/handlers/wellknown"
 	"github.com/obot-platform/obot/pkg/services"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/upgrade"
 	"github.com/obot-platform/obot/ui"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"k8s.io/component-base/metrics/legacyregistry"
@@ -119,7 +120,8 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	oauthClients := handlers.NewOAuthClientsHandler(services.OAuthServerConfig, services.ServerURL)
 	publishedArtifacts := handlers.NewPublishedArtifactHandler(services.ArtifactBlobStore, services.ArtifactBlobBucket)
 	imagePullSecretsHandler := handlers.NewImagePullSecretHandler(services.MCPRuntimeBackend, services.MCPImagePullSecrets, services.MCPServerNamespace, services.ServiceNamespace, services.ServiceAccountName, services.LocalK8sClient, services.ServiceAccountIssuerURL, services.ServiceAccountIssuerError)
-	licenseHandler := handlers.NewLicenseHandler(services.LicenseProvider)
+	communityLicenseIssuer := upgrade.NewCommunityLicenseIssuer(services.GatewayClient, upgrade.ServerBaseURL(), http.DefaultClient)
+	licenseHandler := handlers.NewLicenseHandler(services.LicenseProvider, communityLicenseIssuer)
 
 	enforcement, err := handlers.NewEnforcementHandler(services.ServerURL)
 	if err != nil {
@@ -133,6 +135,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/license", licenseHandler.Get)
 	mux.HandleFunc("PUT /api/license", licenseHandler.Update)
 	mux.HandleFunc("POST /api/license", licenseHandler.CheckLicense)
+	mux.HandleFunc("POST /api/license/community", licenseHandler.CreateCommunityLicense)
 	mux.HandleFunc("DELETE /api/license", licenseHandler.Delete)
 
 	// MCP Catalog Entries (user routes to access single-user and remote MCP servers from all sources)
