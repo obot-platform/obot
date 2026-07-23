@@ -128,7 +128,7 @@
 			class={twMerge('text-input-filled dark:bg-base-100 w-full', showRequired?.package && 'error')}
 			bind:value={config.package}
 			disabled={readonly}
-			placeholder="e.g. @modelcontextprotocol/server-filesystem"
+			placeholder="e.g. @modelcontextprotocol/server-everything"
 			onblur={() => {
 				if (config.package) {
 					config.package = config.package.trim();
@@ -149,7 +149,6 @@
 			class="text-input-filled dark:bg-base-100 w-full"
 			bind:value={config.command}
 			disabled={readonly}
-			placeholder="e.g. mcp-server-filesystem"
 			onblur={() => {
 				if (config.command) {
 					config.command = config.command.trim();

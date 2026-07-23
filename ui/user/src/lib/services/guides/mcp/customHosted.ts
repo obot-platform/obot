@@ -153,8 +153,9 @@ export const steps: GuideStep[] = [
 					},
 					side: 'top',
 					align: 'center',
-					title: 'Headers',
-					description: 'Add any headers that the MCP server requires.',
+					title: 'User-Defined Headers',
+					description:
+						'These allow you to collect configuration information from users connecting to your server and inject them as HTTP headers. You can use this to, for example, inject an API key as a bearer token header.',
 					noDescendantInteraction: true
 				},
 				listener: {
