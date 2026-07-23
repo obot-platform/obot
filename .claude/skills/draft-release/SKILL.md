@@ -10,7 +10,7 @@ Drafts release notes for the next obot minor release and creates a draft (unpubl
 ## Inputs
 
 - **Target version** (e.g. `v0.22.0`): ask the user if not provided. If recent pre-release tags exist (e.g. `v0.22.0-rc3`), suggest the corresponding minor (`v0.22.0`) and confirm.
-- **Diff baseline** (e.g. `v0.21.3`): auto-detect as the highest non-pre-release tag, regardless of whether it is a minor or patch. This is the range used to find changes (`<DIFF_BASELINE>..HEAD`) and the left side of the "Full Changelog" compare link. Use `git tag --sort=-v:refname | grep -v -- '-' | head -1`.
+- **Diff baseline** (e.g. `v0.21.3`): auto-detect as the highest non-pre-release tag, regardless of whether it is a minor or patch, **that is also an ancestor of `HEAD`**. This is the range used to find changes (`<DIFF_BASELINE>..HEAD`) and the left side of the "Full Changelog" compare link. Use `git tag --sort=-v:refname | grep -v -- '-' | head -1`, then verify with `git merge-base --is-ancestor <candidate> HEAD`. Patch releases are sometimes cut from a separate release branch that never merges back into `main` — if the highest-sorted tag fails the ancestor check, walk down to the next-highest tag and check again until one passes. Do not silently trust version-sort order alone.
 - **Style reference** (e.g. `v0.21.0`): auto-detect as the highest `vX.Y.0` tag that is not a pre-release. Use `git tag --list 'v*.*.0' --sort=-v:refname | grep -v -- '-' | head -1`. This release's notes are the tone/structure template. It is often the same as the diff baseline but may differ when patch releases exist between minors.
 
 ## Hard constraints
@@ -21,6 +21,7 @@ Drafts release notes for the next obot minor release and creates a draft (unpubl
 - No emojis. No em dashes (`—`). Use plain hyphens or rewrite the sentence. No "we're thrilled / excited to / proud to" beyond the one opening line the template already uses. No marketing fluff.
 - Use straight quotes (`'` and `"`), not curly quotes.
 - Do not invent PRs, authors, or commit messages in "What's Changed". That section must be sourced from the GitHub API, not synthesized.
+- Never run `gh release create` (or any other command that writes to GitHub) until the user has seen the fully assembled draft (opener, Big Updates, Improvements, Upgrade Notes, What's Changed, Full Changelog line — the whole document, not just the feature list from step 5) and explicitly approved it. Step 5's feature-list confirmation is necessary but not sufficient; the user must sign off on the actual prose before anything is pushed to GitHub.
 
 ## Procedure
 
@@ -48,7 +49,7 @@ Match its structure exactly:
 2. `## Big Updates` with 3-6 `### Feature Name` subsections. Each subsection is 1-3 short paragraphs in plain prose. Link to docs with `[docs](https://docs.obot.ai/...)` when a docs page exists.
 3. Optional `## Improvements` section with a short bulleted list of smaller usability/perf items. Include only if there are clearly several smaller user-facing improvements worth calling out. Omit otherwise (v0.21.0 has no Improvements section).
 4. `## Upgrade Notes` — usually `There are no major breaking changes in this release.` If the diff contains breaking changes (removed APIs, renamed config, schema migrations, removed env vars), call them out explicitly and concretely. Check commits with `chore: remove`, `BREAKING`, or schema/migration changes.
-5. `## What's Changed` — generated via API (see step 5).
+5. `## What's Changed` — generated via API (see step 7).
 6. Trailing `**Full Changelog**: https://github.com/obot-platform/obot/compare/<DIFF_BASELINE>...<VERSION>`.
 
 ### 3. Survey the commit range
@@ -200,9 +201,17 @@ gh pr list --repo obot-platform/obot --state merged \
 
 Format each as `* <title> by @<author> in <url>`. If using this fallback, tell the user the list came from `gh pr list` and recommend they regenerate it from the GitHub UI when they create the release, since the UI's list is the canonical one.
 
-### 8. Create the draft release on GitHub
+### 8. Show the full assembled draft and wait for approval (required, do not skip)
 
-First write the assembled notes to `/tmp/release-notes-<VERSION>.md` so there's a local copy the user can re-use if they want to recreate the draft. Then create the draft release on GitHub with that file as the body:
+Write the fully assembled notes (opener, Big Updates, Improvements, Upgrade Notes, What's Changed, Full Changelog line) to `<REPO_ROOT>/release-notes-<VERSION>.md` — in the project working directory itself (not `/tmp`), so the user can open it directly in their IDE for review/editing.
+
+Then show the complete rendered document to the user in the chat too — not just a summary or the feature list from step 5, and not just a pointer to the file. This is a second, distinct checkpoint from step 5: step 5 confirms *which* features and callouts to include, this step confirms the *actual wording* of the finished document, since prose can drift from an approved gist during drafting.
+
+Explicitly ask for approval before doing anything on GitHub, e.g. "Here's the full draft, also written to `release-notes-<VERSION>.md` if you'd rather review it in your IDE — let me know if you want changes, or I'll go ahead and create the GitHub draft release." If the user edits the file directly, re-read it before proceeding rather than relying on your in-memory copy. Do not proceed to step 9 until the user responds with approval (or with edits, which you incorporate and then re-confirm if they're substantial). Do not treat silence, an unrelated reply, or a reply about something else in the conversation as approval.
+
+### 9. Create the draft release on GitHub
+
+Only after the user has approved the full draft in step 8. Reuse the same `<REPO_ROOT>/release-notes-<VERSION>.md` file written in step 8 (re-read it first if the user said they edited it) as the body:
 
 ```bash
 gh release create <VERSION> \
@@ -210,7 +219,7 @@ gh release create <VERSION> \
   --draft \
   --title "<VERSION>" \
   --target main \
-  --notes-file /tmp/release-notes-<VERSION>.md
+  --notes-file release-notes-<VERSION>.md
 ```
 
 Notes on the flags:
