@@ -37,6 +37,16 @@ func IsKubernetesBackend(backend string) bool {
 	}
 }
 
+func serverContainerArgs(server ServerConfig) []string {
+	args := server.Args
+	if server.Runtime != types.RuntimeContainerized {
+		args = []string{"run", "--listen-address", fmt.Sprintf(":%d", defaultContainerPort), "--exclude-built-in-agents", "--config", "/config/nanobot.yaml"}
+	} else if server.IsNanobotAgentServer() {
+		args = append(args, "--enable-browser")
+	}
+	return args
+}
+
 type backend interface {
 	// ensureServerDeployment will deploy a server if it is not already deployed, and return the updated ServerConfig
 	ensureServerDeployment(ctx context.Context, serverConfig ServerConfig) (ServerConfig, error)

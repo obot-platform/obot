@@ -967,9 +967,6 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 			Target: "/config",
 		})
 
-		// Use nanobot command
-		cmd = []string{"run", "--listen-address", fmt.Sprintf(":%d", defaultContainerPort), "--exclude-built-in-agents", "--config", "/config/nanobot.yaml"}
-
 		// Set nanobot environment variables
 		env = append(env, "NANOBOT_RUN_HEALTHZ_PATH=/healthz", "OBOT_KUBERNETES_MODE=true")
 
@@ -986,8 +983,6 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 		if server.Command != "" {
 			entrypoint = []string{server.Command}
 		}
-		cmd = server.Args
-
 		// Use server's environment variables plus file env vars
 		metaEnvVar := make([]string, 0, len(server.Env)+len(fileEnvVars))
 		for _, val := range server.Env {
@@ -1007,6 +1002,7 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 	default:
 		return "", 0, fmt.Errorf("unsupported runtime: %s", server.Runtime)
 	}
+	cmd = serverContainerArgs(server)
 
 	// Prepare port binding
 	containerPortStr := fmt.Sprintf("%d/tcp", containerPort)

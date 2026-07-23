@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -12,6 +13,51 @@ import (
 	ntypes "github.com/obot-platform/nanobot/pkg/types"
 	"github.com/obot-platform/obot/apiclient/types"
 )
+
+func TestServerContainerArgs(t *testing.T) {
+	genericNanobotArgs := []string{"run", "--listen-address", ":8099", "--exclude-built-in-agents", "--config", "/config/nanobot.yaml"}
+	tests := []struct {
+		name   string
+		server ServerConfig
+		want   []string
+	}{
+		{
+			name:   "generic NPX server has no UI or browser flag",
+			server: ServerConfig{Runtime: types.RuntimeNPX},
+			want:   genericNanobotArgs,
+		},
+		{
+			name:   "generic UVX server has no UI or browser flag",
+			server: ServerConfig{Runtime: types.RuntimeUVX},
+			want:   genericNanobotArgs,
+		},
+		{
+			name: "generic containerized server preserves configured args",
+			server: ServerConfig{
+				Runtime: types.RuntimeContainerized,
+				Args:    []string{"serve", "--verbose"},
+			},
+			want: []string{"serve", "--verbose"},
+		},
+		{
+			name: "NanobotAgent server enables browser",
+			server: ServerConfig{
+				Runtime:          types.RuntimeContainerized,
+				Args:             []string{"run", "--config", ".nanobot/"},
+				NanobotAgentName: "agent-1",
+			},
+			want: []string{"run", "--config", ".nanobot/", "--enable-browser"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := serverContainerArgs(tt.server); !slices.Equal(got, tt.want) {
+				t.Fatalf("serverContainerArgs() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
 
 func TestEnsureServerReadyUsesHealthzPath(t *testing.T) {
 	var healthzCalls, mcpCalls int

@@ -396,7 +396,6 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig)
 		command  []string
 		objs     = make([]kclient.Object, 0, 5)
 		image    = k.baseImage
-		args     = []string{"run", "--listen-address", fmt.Sprintf(":%d", defaultContainerPort), "--exclude-built-in-agents", "--config", "/config/nanobot.yaml"}
 		port     = defaultContainerPort
 		portName = "mcp"
 
@@ -540,8 +539,8 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig)
 		}
 
 		image = expandEnvVars(server.ContainerImage, fileMapping, nil)
-		args = server.Args
 	}
+	args := serverContainerArgs(server)
 
 	objs = append(objs, &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
