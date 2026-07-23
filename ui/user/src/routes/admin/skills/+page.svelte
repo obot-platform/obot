@@ -120,6 +120,7 @@
 				gitCredentialID: string;
 				credentialType: RepositoryCredentialType;
 				repositoryID?: string;
+				clearToken?: boolean;
 		  }
 		| undefined
 	>(undefined);
@@ -140,6 +141,11 @@
 		editingSource?.repositoryID
 			? skillRepositories.find((repository) => repository.id === editingSource?.repositoryID)
 			: undefined
+	);
+	let existingSkillRepositoryToken = $derived(
+		editingSource?.value.trim() === editingSkillRepository?.repoURL
+			? (editingSkillRepository?.sourceURLCredentials?.[editingSkillRepository.repoURL] ?? '')
+			: ''
 	);
 	let credentialSelectionIncomplete = $derived(
 		Boolean(
@@ -734,11 +740,33 @@
 				{#if editingSource.credentialType === 'token'}
 					<div class="flex flex-col gap-1">
 						<label for="skill-source-token" class="sr-only">Personal Access Token</label>
-						<SensitiveInput
-							name="skill-source-token"
-							placeholder="Personal Access Token"
-							bind:value={editingSource.token}
-						/>
+						{#if existingSkillRepositoryToken && !editingSource.clearToken}
+							<div class="flex justify-end">
+								<button
+									class="text-xs text-error hover:underline"
+									onclick={() => {
+										if (editingSource) editingSource.clearToken = true;
+									}}
+								>
+									Clear token
+								</button>
+							</div>
+							<input
+								id="skill-source-token"
+								type="text"
+								readonly
+								aria-readonly="true"
+								data-1p-ignore
+								value={existingSkillRepositoryToken}
+								class="text-sm text-muted-content w-full border-none bg-transparent p-0 outline-none focus:ring-0"
+							/>
+						{:else}
+							<SensitiveInput
+								name="skill-source-token"
+								placeholder="Personal Access Token"
+								bind:value={editingSource.token}
+							/>
+						{/if}
 					</div>
 				{/if}
 			</div>
@@ -781,12 +809,10 @@
 							} else if (editingSource.credentialType === 'token' && token) {
 								manifest.sourceURLCredentials = { [repoURL]: token };
 							} else if (
-								editingSource.credentialType !== 'token' &&
-								hasSkillRepositoryToken(
-									skillRepositories.find(
-										(repository) => repository.id === editingSource?.repositoryID
-									)
-								)
+								!token &&
+								(editingSource.clearToken ||
+									(editingSource.credentialType !== 'token' &&
+										hasSkillRepositoryToken(editingSkillRepository)))
 							) {
 								manifest.sourceURLCredentials = { [repoURL]: '' };
 							}
