@@ -23,6 +23,10 @@ func (p *Provider) Users(ctx context.Context) ([]types.LocalAuthUser, error) {
 	return p.gatewayClient.LocalAuthUsers(ctx)
 }
 
+func (p *Provider) GetUser(ctx context.Context, id uint) (*types.LocalAuthUser, error) {
+	return p.gatewayClient.LocalAuthUserByID(ctx, id)
+}
+
 // CreateUser creates a local user with the given email and plaintext password.
 func (p *Provider) CreateUser(ctx context.Context, email, password string) (*types.LocalAuthUser, error) {
 	parsed, err := mail.ParseAddress(client.NormalizeEmail(email))

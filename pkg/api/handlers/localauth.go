@@ -3,13 +3,17 @@ package handlers
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"strconv"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/localauth"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type LocalAuthHandler struct {
@@ -122,6 +126,50 @@ func (h *LocalAuthHandler) Delete(req api.Context) error {
 	id, err := localAuthUserID(req)
 	if err != nil {
 		return err
+	}
+
+	localUser, err := h.provider.GetUser(req.Context(), id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return types.NewErrNotFound("local auth user not found")
+		}
+		return fmt.Errorf("failed to get local auth user: %w", err)
+	}
+
+	gatewayUser, err := req.GatewayClient.UserFromProviderUserID(req.Context(), system.DefaultNamespace, system.LocalAuthProvider, localUser.Email)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return fmt.Errorf("failed to get user from provider user ID: %w", err)
+	}
+
+	if gatewayUser != nil {
+		if _, err = req.GatewayClient.DeleteUser(req.Context(), strconv.FormatUint(uint64(gatewayUser.ID), 10)); err != nil {
+			status := http.StatusInternalServerError
+			if _, ok := errors.AsType[*gateway.LastAdminError](err); ok {
+				status = http.StatusBadRequest
+			} else if _, ok := errors.AsType[*gateway.LastOwnerError](err); ok {
+				status = http.StatusBadRequest
+			}
+			if !errors.Is(err, gorm.ErrRecordNotFound) {
+				// If the error is a record not found error, then someone else already deleted the user while we were processing.
+				return types.NewErrHTTP(status, fmt.Sprintf("failed to delete user: %v", err))
+			}
+		}
+
+		if err == nil {
+			if err = req.Create(&v1.UserDelete{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: system.UserDeletePrefix,
+					Namespace:    req.Namespace(),
+				},
+				Spec: v1.UserDeleteSpec{
+					UserID: gatewayUser.ID,
+				},
+			}); err != nil {
+				return fmt.Errorf("failed to start deletion of user owned objects: %v", err)
+			}
+
+			log.Infof("Scheduled user cleanup after deletion: targetUserID=%d", gatewayUser.ID)
+		}
 	}
 
 	if err = h.provider.DeleteUser(req.Context(), id); errors.Is(err, gorm.ErrRecordNotFound) {

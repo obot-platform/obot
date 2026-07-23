@@ -307,9 +307,9 @@ func (s *Server) deleteUser(apiContext api.Context) (err error) {
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			status = http.StatusNotFound
-		} else if lae := (*client.LastAdminError)(nil); errors.As(err, &lae) {
+		} else if _, ok := errors.AsType[*client.LastAdminError](err); ok {
 			status = http.StatusBadRequest
-		} else if loe := (*client.LastOwnerError)(nil); errors.As(err, &loe) {
+		} else if _, ok := errors.AsType[*client.LastOwnerError](err); ok {
 			status = http.StatusBadRequest
 		}
 		return types2.NewErrHTTP(status, fmt.Sprintf("failed to delete user: %v", err))
