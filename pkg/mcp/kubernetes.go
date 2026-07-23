@@ -396,7 +396,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig)
 		command  []string
 		objs     = make([]kclient.Object, 0, 5)
 		image    = k.baseImage
-		args     = []string{"run", "--disable-ui", "--listen-address", fmt.Sprintf(":%d", defaultContainerPort), "--exclude-built-in-agents", "--config", "/config/nanobot.yaml"}
+		args     = []string{"run", "--listen-address", fmt.Sprintf(":%d", defaultContainerPort), "--exclude-built-in-agents", "--config", "/config/nanobot.yaml"}
 		port     = defaultContainerPort
 		portName = "mcp"
 
