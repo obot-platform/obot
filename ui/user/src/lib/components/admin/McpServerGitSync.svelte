@@ -19,11 +19,12 @@
 		gitCredentials?: GitCredential[];
 	}
 
-	type RepositoryCredentialType = '' | 'shared' | 'token';
+	type RepositoryCredentialType = 'none' | 'shared' | 'token';
 
 	const repositoryCredentialOptions = [
-		{ id: 'shared', label: 'Saved Git Credential' },
-		{ id: 'token', label: 'Personal Access Token' }
+		{ id: 'none', label: 'None' },
+		{ id: 'shared', label: 'Choose existing' },
+		{ id: 'token', label: 'Enter personal access token' }
 	];
 
 	let { defaultCatalog, onSync, defaultCatalogId, gitCredentials = [] }: Props = $props();
@@ -51,7 +52,7 @@
 			value: '',
 			token: '',
 			gitCredentialID: '',
-			credentialType: ''
+			credentialType: 'none'
 		};
 		sourceDialog?.showModal();
 	}
@@ -69,7 +70,7 @@
 				? 'shared'
 				: hasSourceURLCredential(url)
 					? 'token'
-					: ''
+					: 'none'
 		};
 		sourceDialog?.showModal();
 	}
@@ -215,33 +216,30 @@
 			</div>
 
 			<div class="mb-4 flex flex-col gap-1">
+				<span id="catalog-source-credential-label" class="flex-1 text-sm font-light capitalize"
+					>Credential</span
+				>
 				<Select
 					id="catalog-source-credential-type"
 					options={repositoryCredentialOptions}
 					selected={editingSource.credentialType}
-					placeholder="Repository Credential (optional)"
-					class={!editingSource.credentialType ? 'text-muted-content' : undefined}
+					ariaLabelledby="catalog-source-credential-label"
 					onSelect={(option) => {
 						if (!editingSource) return;
 						editingSource.credentialType = option.id as RepositoryCredentialType;
 						if (option.id === 'shared') {
 							editingSource.token = '';
+						} else if (option.id === 'token') {
+							editingSource.gitCredentialID = '';
 						} else {
 							editingSource.gitCredentialID = '';
+							editingSource.token = '';
+							if (hasSourceURLCredential(editingSourceURL)) {
+								editingSource.clearToken = true;
+								tokenExplicitlyCleared = true;
+							}
 						}
 					}}
-					onClear={editingSource.credentialType
-						? () => {
-								if (!editingSource) return;
-								editingSource.credentialType = '';
-								editingSource.gitCredentialID = '';
-								editingSource.token = '';
-								if (hasSourceURLCredential(editingSourceURL)) {
-									editingSource.clearToken = true;
-									tokenExplicitlyCleared = true;
-								}
-							}
-						: undefined}
 				/>
 			</div>
 
@@ -251,7 +249,6 @@
 						id="catalog-source-git-credential"
 						options={gitCredentialOptions}
 						selected={editingSource.gitCredentialID}
-						placeholder={gitCredentials.length ? 'Select a credential' : 'No credentials'}
 						searchPlaceholder=""
 						searchInDropdown
 						onSelect={(option) => {

@@ -42,11 +42,12 @@
 	import { slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
-	type RepositoryCredentialType = '' | 'shared' | 'token';
+	type RepositoryCredentialType = 'none' | 'shared' | 'token';
 
 	const repositoryCredentialOptions = [
-		{ id: 'shared', label: 'Saved Git Credential' },
-		{ id: 'token', label: 'Personal Access Token' }
+		{ id: 'none', label: 'None' },
+		{ id: 'shared', label: 'Choose existing' },
+		{ id: 'token', label: 'Enter personal access token' }
 	];
 
 	let { data } = $props();
@@ -120,6 +121,7 @@
 				gitCredentialID: string;
 				credentialType: RepositoryCredentialType;
 				repositoryID?: string;
+				clearToken?: boolean;
 		  }
 		| undefined
 	>(undefined);
@@ -140,6 +142,11 @@
 		editingSource?.repositoryID
 			? skillRepositories.find((repository) => repository.id === editingSource?.repositoryID)
 			: undefined
+	);
+	let existingSkillRepositoryToken = $derived(
+		editingSource?.value.trim() === editingSkillRepository?.repoURL
+			? (editingSkillRepository?.sourceURLCredentials?.[editingSkillRepository.repoURL] ?? '')
+			: ''
 	);
 	let credentialSelectionIncomplete = $derived(
 		Boolean(
@@ -338,7 +345,7 @@
 							ref: 'main',
 							token: '',
 							gitCredentialID: '',
-							credentialType: ''
+							credentialType: 'none'
 						};
 						sourceDialog?.showModal();
 					}}
@@ -488,7 +495,7 @@
 										? 'shared'
 										: hasSkillRepositoryToken(d)
 											? 'token'
-											: '',
+											: 'none',
 									repositoryID: d.id
 								};
 								sourceDialog?.showModal();
@@ -680,29 +687,29 @@
 					>
 				</div>
 				<div class="flex flex-col gap-1">
+					<span id="skill-source-credential-label" class="flex-1 text-sm font-light capitalize"
+						>Credential</span
+					>
 					<Select
 						id="skill-source-credential-type"
 						options={repositoryCredentialOptions}
 						selected={editingSource.credentialType}
-						placeholder="Repository Credential (optional)"
-						class={!editingSource.credentialType ? 'text-muted-content' : undefined}
+						ariaLabelledby="skill-source-credential-label"
 						onSelect={(option) => {
 							if (!editingSource) return;
 							editingSource.credentialType = option.id as RepositoryCredentialType;
 							if (option.id === 'shared') {
 								editingSource.token = '';
+							} else if (option.id === 'token') {
+								editingSource.gitCredentialID = '';
 							} else {
 								editingSource.gitCredentialID = '';
+								editingSource.token = '';
+								if (hasSkillRepositoryToken(editingSkillRepository)) {
+									editingSource.clearToken = true;
+								}
 							}
 						}}
-						onClear={editingSource.credentialType
-							? () => {
-									if (!editingSource) return;
-									editingSource.credentialType = '';
-									editingSource.gitCredentialID = '';
-									editingSource.token = '';
-								}
-							: undefined}
 					/>
 				</div>
 				{#if editingSource.credentialType === 'shared'}
@@ -711,7 +718,6 @@
 							id="skill-source-git-credential"
 							options={gitCredentialOptions}
 							selected={editingSource.gitCredentialID}
-							placeholder={gitCredentials.length ? 'Select a credential' : 'No credentials'}
 							searchPlaceholder=""
 							searchInDropdown
 							onSelect={(option) => {
@@ -734,11 +740,33 @@
 				{#if editingSource.credentialType === 'token'}
 					<div class="flex flex-col gap-1">
 						<label for="skill-source-token" class="sr-only">Personal Access Token</label>
-						<SensitiveInput
-							name="skill-source-token"
-							placeholder="Personal Access Token"
-							bind:value={editingSource.token}
-						/>
+						{#if existingSkillRepositoryToken && !editingSource.clearToken}
+							<div class="flex justify-end">
+								<button
+									class="text-xs text-error hover:underline"
+									onclick={() => {
+										if (editingSource) editingSource.clearToken = true;
+									}}
+								>
+									Clear token
+								</button>
+							</div>
+							<input
+								id="skill-source-token"
+								type="text"
+								readonly
+								aria-readonly="true"
+								data-1p-ignore
+								value={existingSkillRepositoryToken}
+								class="text-sm text-muted-content w-full border-none bg-transparent p-0 outline-none focus:ring-0"
+							/>
+						{:else}
+							<SensitiveInput
+								name="skill-source-token"
+								placeholder="Personal Access Token"
+								bind:value={editingSource.token}
+							/>
+						{/if}
 					</div>
 				{/if}
 			</div>
@@ -781,12 +809,10 @@
 							} else if (editingSource.credentialType === 'token' && token) {
 								manifest.sourceURLCredentials = { [repoURL]: token };
 							} else if (
-								editingSource.credentialType !== 'token' &&
-								hasSkillRepositoryToken(
-									skillRepositories.find(
-										(repository) => repository.id === editingSource?.repositoryID
-									)
-								)
+								!token &&
+								(editingSource.clearToken ||
+									(editingSource.credentialType !== 'token' &&
+										hasSkillRepositoryToken(editingSkillRepository)))
 							) {
 								manifest.sourceURLCredentials = { [repoURL]: '' };
 							}
