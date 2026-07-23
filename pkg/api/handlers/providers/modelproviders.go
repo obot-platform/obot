@@ -1,12 +1,14 @@
 package providers
 
 import (
+	"context"
+
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/license"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
-func ModelProviderStatus(modelProvider v1.ModelProvider, cred map[string]string, licenseProvider *license.Provider) (*types.ModelProviderStatus, error) {
+func ModelProviderStatus(ctx context.Context, modelProvider v1.ModelProvider, cred map[string]string, licenseProvider *license.Provider) (*types.ModelProviderStatus, error) {
 	var (
 		modelsPopulated *bool
 		missingEnvVars  []string
@@ -31,10 +33,15 @@ func ModelProviderStatus(modelProvider v1.ModelProvider, cred map[string]string,
 		modelsPopulated = new(modelProvider.Status.ObservedGeneration == modelProvider.Generation)
 	}
 
+	missingEntitlements, err := licenseProvider.MissingEntitlements(ctx, modelProvider.Spec.RequiredEntitlements)
+	if err != nil {
+		return nil, err
+	}
+
 	return &types.ModelProviderStatus{
 		CommonProviderStatus: types.CommonProviderStatus{
 			Configured:                     len(missingEnvVars) == 0,
-			MissingEntitlements:            licenseProvider.MissingEntitlements(modelProvider.Spec.RequiredEntitlements),
+			MissingEntitlements:            missingEntitlements,
 			MissingConfigurationParameters: missingEnvVars,
 		},
 		ModelsBackPopulated: modelsPopulated,

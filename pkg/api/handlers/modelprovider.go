@@ -37,7 +37,12 @@ func (mp *ModelProviderHandler) ByID(req api.Context) error {
 		return err
 	}
 
-	resp, err := mp.convertModelProvider(modelProvider)
+	mps, err := providers.ModelProviderStatus(req.Context(), modelProvider, nil, mp.license)
+	if err != nil {
+		return err
+	}
+
+	resp, err := mp.convertModelProvider(modelProvider, *mps)
 	if err != nil {
 		return err
 	}
@@ -54,13 +59,18 @@ func (mp *ModelProviderHandler) List(req api.Context) error {
 	}
 
 	resp := make([]types.ModelProvider, 0, len(modelProviders.Items))
-	for _, ref := range modelProviders.Items {
-		modelProvider, err := mp.convertModelProvider(ref)
+	for _, modelProvider := range modelProviders.Items {
+		mps, err := providers.ModelProviderStatus(req.Context(), modelProvider, nil, mp.license)
 		if err != nil {
-			log.Errorf("failed to convert model provider %q: %v", ref.Name, err)
+			return err
+		}
+
+		modelProviderResp, err := mp.convertModelProvider(modelProvider, *mps)
+		if err != nil {
+			log.Errorf("failed to convert model provider %q: %v", modelProvider.Name, err)
 			continue
 		}
-		resp = append(resp, modelProvider)
+		resp = append(resp, modelProviderResp)
 	}
 
 	return req.Write(types.ModelProviderList{Items: resp})
@@ -72,7 +82,7 @@ func (mp *ModelProviderHandler) Validate(req api.Context) error {
 		return err
 	}
 
-	if err := mp.license.RequireEntitlements(modelProvider.Spec.RequiredEntitlements); err != nil {
+	if err := mp.license.RequireEntitlements(req.Context(), modelProvider.Spec.RequiredEntitlements); err != nil {
 		return err
 	}
 
@@ -96,7 +106,7 @@ func (mp *ModelProviderHandler) Configure(req api.Context) error {
 		return err
 	}
 
-	if err := mp.license.RequireEntitlements(modelProvider.Spec.RequiredEntitlements); err != nil {
+	if err := mp.license.RequireEntitlements(req.Context(), modelProvider.Spec.RequiredEntitlements); err != nil {
 		return err
 	}
 
@@ -209,7 +219,12 @@ func (mp *ModelProviderHandler) RefreshModels(req api.Context) error {
 		return err
 	}
 
-	resp, err := mp.convertModelProvider(modelProvider)
+	mps, err := providers.ModelProviderStatus(req.Context(), modelProvider, nil, mp.license)
+	if err != nil {
+		return err
+	}
+
+	resp, err := mp.convertModelProvider(modelProvider, *mps)
 	if err != nil {
 		return err
 	}
@@ -233,15 +248,10 @@ func (mp *ModelProviderHandler) RefreshModels(req api.Context) error {
 	return req.Write(resp)
 }
 
-func (mp *ModelProviderHandler) convertModelProvider(modelProvider v1.ModelProvider) (types.ModelProvider, error) {
-	mps, err := providers.ModelProviderStatus(modelProvider, nil, mp.license)
-	if err != nil {
-		return types.ModelProvider{}, err
-	}
-
+func (mp *ModelProviderHandler) convertModelProvider(modelProvider v1.ModelProvider, modelProviderStatus types.ModelProviderStatus) (types.ModelProvider, error) {
 	return types.ModelProvider{
 		Metadata:              MetadataFrom(&modelProvider),
 		ModelProviderManifest: modelProvider.Spec.ModelProviderManifest,
-		ModelProviderStatus:   *mps,
+		ModelProviderStatus:   modelProviderStatus,
 	}, nil
 }
