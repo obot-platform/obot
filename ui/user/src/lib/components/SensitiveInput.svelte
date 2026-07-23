@@ -49,13 +49,20 @@
 
 	let showSensitive = $state(false);
 	let textareaElement = $state<HTMLElement>();
+	let formControl = $state<HTMLTextAreaElement>();
 	let maskedTextarea = $state<HTMLElement>();
-	let containerElement = $state<HTMLElement>();
 	let scrollableWrapper = $state<HTMLElement>();
-	let resizeHandle = $state<HTMLElement>();
 	let isResizing = $state(false);
 	let startY = $state(0);
 	let startHeight = $state(0);
+	let validationFailed = $state(false);
+
+	$effect(() => {
+		void value;
+		if (validationFailed && formControl?.validity.valid) {
+			validationFailed = false;
+		}
+	});
 
 	function getMaskedValue(text: string): string {
 		return text.replace(/[^\s]/g, '•').replaceAll(/\n/g, '<br>');
@@ -99,6 +106,13 @@
 
 	function handleFocus(_: FocusEvent) {
 		onfocus?.();
+	}
+
+	function handleGrowableInvalid(ev: Event) {
+		// Suppress the native bubble on the 1px proxy and surface focus on the contenteditable.
+		ev.preventDefault();
+		validationFailed = true;
+		textareaElement?.focus();
 	}
 
 	function toggleVisibility(ev: MouseEvent) {
@@ -145,10 +159,13 @@
 
 <div class="relative flex grow items-center">
 	{#if textarea}
-		<div bind:this={containerElement} class="relative flex min-h-15 w-full flex-col leading-5">
+		<div class="relative flex min-h-15 w-full flex-col leading-5">
 			{#if growable}
-				<input
-					type="text"
+				<textarea
+					bind:this={formControl}
+					class="sr-only"
+					tabindex="-1"
+					aria-hidden="true"
 					{name}
 					{disabled}
 					{readonly}
@@ -157,15 +174,16 @@
 					{autocomplete}
 					{minlength}
 					{required}
-					hidden
-				/>
+					oninvalid={handleGrowableInvalid}
+				></textarea>
 				<div
 					bind:this={scrollableWrapper}
 					class={twMerge(
 						'text-input-filled base flex min-h-15 w-full shrink-0 flex-col overflow-x-hidden overflow-y-auto font-mono',
 						klass,
 						classes?.wrapper,
-						error && 'border-error bg-error/20 text-error ring-error focus:ring-1',
+						(error || validationFailed) &&
+							'border-error bg-error/20 text-error ring-error focus:ring-1',
 						disabled && 'opacity-50',
 						!showSensitive ? 'hide' : ''
 					)}
@@ -182,6 +200,7 @@
 							role="textbox"
 							tabindex="0"
 							aria-required={required || undefined}
+							aria-invalid={validationFailed || undefined}
 							onscroll={(ev) => {
 								if (!showSensitive && maskedTextarea) {
 									maskedTextarea.scrollTop = ev.currentTarget.scrollTop;
@@ -214,7 +233,6 @@
 
 					<!-- Resize handle -->
 					<div
-						bind:this={resizeHandle}
 						class="absolute right-1 bottom-1 z-3 h-3 w-3 cursor-ns-resize select-none"
 						onmousedown={handleResizeStart}
 						role="button"
