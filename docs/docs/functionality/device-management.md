@@ -4,22 +4,18 @@ title: Device Management
 
 Device management gives administrators visibility into the AI clients, MCP servers, skills, and plugins configured on user workstations.
 
-Device data is submitted to Obot through the device scan API. Each submitted scan is stored as a point-in-time inventory for that device.
+Device management is a **beta feature**.
 
 ## What it does
 
 Device management helps administrators:
 
-1. Monitor device scan coverage across the organization.
-2. Review the latest inventory submitted by each device.
-3. See which AI clients, MCP servers, skills, and plugins are present on scanned devices.
+1. Install and configure [Obot Sentry](https://github.com/obot-platform/obot-sentry) on user workstations to enable device scanning and local agent audit logs.
+2. Monitor device scan coverage across the organization.
+3. Review each device's latest inventory of AI clients, MCP servers, skills, and plugins.
 4. Drill into where a specific MCP server or skill appears across devices.
 5. Inspect scan history and compare previous submissions from a device.
 6. Review captured config and manifest files for a specific scan item.
-
-:::note
-Device management is inventory and visibility. It does not install clients, change local client configuration, start MCP servers, or grant access to Obot resources.
-:::
 
 ## Devices
 
@@ -27,17 +23,60 @@ Under Device Management in the Obot Administration section, Devices contains the
 
 | View | What it shows |
 |------|---------------|
+| Configuration | Obot Sentry agent settings, install downloads, and enrollment keys. |
 | Overview | Organization-level scan coverage, top observed clients, MCP servers, and skills, and scan submission activity over time. |
 | Devices | Workstations that have submitted scans, with high-level inventory counts and links to device history. |
 | Device Skills | Skills observed across scanned devices, with drilldowns into where each skill appears. |
 | Device MCP Servers | MCP servers observed across scanned devices, with drilldowns into affected devices and client configurations. |
 | Device Clients | AI clients observed across scanned devices, with drilldowns into associated users, MCP servers, and skills. |
 
-The Overview dashboard supports a date range filter. The device, skill, MCP server, and client list views support search, sorting, and filtering where available.
+## Configuration
+
+The Configuration view sets up [Obot Sentry](https://github.com/obot-platform/obot-sentry), a lightweight agent that enrolls workstations with Obot and enables device scanning and local agent audit logs on enrolled devices.
+
+On first visit, select **Get Started** to create the device configuration, then follow the numbered install guide:
+
+1. **Generate an enrollment key.** New devices enroll with your Obot server using this key. The credential is revealed once, when the key is created.
+2. **Select your installation method.** How Obot Sentry is delivered to your devices.
+3. **Select an operating system.** The operating system your devices run.
+4. **Download the install artifacts.** A ZIP package for the selected installation method and operating system.
+5. **Follow the install instructions.** The steps match your selections and show where to put the enrollment key.
+
+Once Obot Sentry is installed and enrolled, devices begin reporting to Obot and appear in the other Device Management views.
+
+### Installation methods
+
+Installation methods and operating systems vary by Obot Sentry release. The current release supports:
+
+| Installation method | Operating system | What the download contains |
+|---------------------|------------------|----------------------------|
+| Do it Yourself | Windows | An MSI that sets up automatic scanning and audit hook maintenance, and handles upgrades and uninstalls. A standalone `obot-sentry.exe` is also included for running one-off scans or installing hooks manually. |
+| Do it Yourself | macOS | A standalone `obot-sentry` binary for running scans and installing audit hooks manually. |
+| Microsoft Intune | Windows | An `.intunewin` package to deploy as a Windows app (Win32) from the Intune admin center. Assigned device groups install Obot Sentry on their next check-in, then scan and maintain audit hooks automatically. |
+
+Each download's install instructions cover installing, configuring the enrollment key, and uninstalling for that method and operating system.
+
+### Enrollment keys
+
+- Keys can be named and given an expiration date. The default expiration is one year.
+- Revoking a key stops new devices from enrolling with it. Already-enrolled devices are unaffected.
+- New devices cannot enroll until at least one key exists.
+
+### Settings and updates
+
+Open the agent settings (the gear icon) to review or change how Obot Sentry behaves on your devices.
+
+The available settings also vary by Obot Sentry release. The current release has one:
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| Scan interval (minutes) | How often each signed-in user's device submits a scan. Accepts 15–1440 minutes. | 60 |
+
+Use **Check for updates** to pick up new Obot Sentry releases. If an Update available badge appears, save the agent settings to rebuild your downloads with the new release.
 
 ## Overview
 
-The Overview is a dashboard that summarizes the submitted scans for the selected time range.
+The Overview is a dashboard that summarizes the submitted scans for the selected time range. Use the date range filter to change the window.
 
 It helps administrators answer questions like:
 
@@ -166,6 +205,8 @@ Any authenticated user can submit a device scan.
 Reading submitted scan data is limited to users with administrative, owner, or auditor access. In the Obot UI, submitted scans appear in the admin Device Management section. Repeated submissions from the same workstation are grouped as scans from the same device.
 
 Admins and owners can delete an individual device scan from the scan detail page.
+
+Creating the device configuration, changing agent settings, and managing enrollment keys require administrative or owner access. Auditors can view the Configuration tab but cannot make changes.
 
 ## Troubleshooting
 
