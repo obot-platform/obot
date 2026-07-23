@@ -60,6 +60,11 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	}
 
 	defer h.clearIsSyncing(req.Ctx, req.Client, namespace, repo.Name)
+	if forceSync {
+		if err := clearSyncAnnotation(req.Ctx, req.Client, namespace, repo.Name); err != nil {
+			return err
+		}
+	}
 
 	token, err := gitcredential.ResolveOrReveal(req.Ctx, req.Client, h.gatewayClient, repo.Namespace, repo.Spec.GitCredentialID, repo.Spec.RepoURL, repo.Name, SkillRepositoryCredentialToolName)
 	if errors.Is(err, gitcredential.ErrLegacyCredential) {
@@ -101,12 +106,6 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 
 	if err := h.recordSuccess(req.Ctx, req.Client, namespace, repo.Name, fetched.CommitSHA, len(skills)); err != nil {
 		return err
-	}
-
-	if forceSync {
-		if err := clearSyncAnnotation(req.Ctx, req.Client, namespace, repo.Name); err != nil {
-			return err
-		}
 	}
 
 	resp.RetryAfter(syncInterval)
