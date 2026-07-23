@@ -128,7 +128,7 @@
 			class={twMerge('text-input-filled dark:bg-base-100 w-full', showRequired?.package && 'error')}
 			bind:value={config.package}
 			disabled={readonly}
-			placeholder="e.g. @modelcontextprotocol/server-everything"
+			placeholder="e.g. mcp-server-fetch"
 			onblur={() => {
 				if (config.package) {
 					config.package = config.package.trim();
