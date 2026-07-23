@@ -39,10 +39,19 @@ func (h *MDMConfigurationsHandler) Create(req api.Context) error {
 	if err := req.Read(&in); err != nil {
 		return err
 	}
+
+	// Resolve the enforcement policy up front so malformed input is rejected
+	// before any asset work; it is applied to the final configuration below.
+	allowlist, err := enforcementAllowlistForSave(in.EnforcementEnabled, in.EnforcementAllowlist, nil)
+	if err != nil {
+		return err
+	}
+
 	configuration, err := h.mdmConfigurationFromInput(req, in, nil)
 	if err != nil {
 		return err
 	}
+
 	if configuration.AssetDigest == "" {
 		if source, err := getMDMAssetSource(req); err == nil &&
 			source.Annotations[v1.MDMAssetSourceSyncAnnotation] != "true" &&
@@ -57,6 +66,9 @@ func (h *MDMConfigurationsHandler) Create(req api.Context) error {
 			}
 		}
 	}
+
+	configuration.EnforcementEnabled = in.EnforcementEnabled
+	configuration.EnforcementAllowlist = allowlist
 
 	created, err := req.GatewayClient.CreateMDMConfiguration(req.Context(), req.UserID(), configuration)
 	if err != nil {
@@ -131,6 +143,41 @@ func (h *MDMConfigurationsHandler) Update(req api.Context) error {
 	}
 	configuration.ID = id
 	if err := req.GatewayClient.UpdateMDMConfiguration(req.Context(), configuration); errors.Is(err, gorm.ErrRecordNotFound) {
+		return types.NewErrNotFound("MDM configuration %d not found", id)
+	} else if err != nil {
+		return err
+	}
+	updated, err := getMDMConfiguration(req, id)
+	if err != nil {
+		return err
+	}
+	result, err := convertMDMConfiguration(*updated)
+	if err != nil {
+		return err
+	}
+	return req.Write(result)
+}
+
+// UpdateEnforcement handles PUT /api/mdm/configurations/{id}/enforcement. It
+// updates only the enforcement policy (the enable toggle and the allowlist).
+func (*MDMConfigurationsHandler) UpdateEnforcement(req api.Context) error {
+	id, err := configurationIDFromPath(req)
+	if err != nil {
+		return err
+	}
+	current, err := getMDMConfiguration(req, id)
+	if err != nil {
+		return err
+	}
+	var in types.MDMConfigurationEnforcementRequest
+	if err := req.Read(&in); err != nil {
+		return err
+	}
+	allowlist, err := enforcementAllowlistForSave(in.EnforcementEnabled, in.EnforcementAllowlist, current)
+	if err != nil {
+		return err
+	}
+	if err := req.GatewayClient.UpdateMDMConfigurationEnforcement(req.Context(), id, in.EnforcementEnabled, allowlist); errors.Is(err, gorm.ErrRecordNotFound) {
 		return types.NewErrNotFound("MDM configuration %d not found", id)
 	} else if err != nil {
 		return err
@@ -377,7 +424,9 @@ func convertMDMConfiguration(configuration gtypes.MDMConfiguration) (types.MDMCo
 		MDMConfigurationManifest: types.MDMConfigurationManifest{
 			AssetDigest: configuration.AssetDigest,
 		},
-		Artifacts: make([]types.MDMConfigurationArtifact, 0, len(configuration.Artifacts)),
+		Artifacts:            make([]types.MDMConfigurationArtifact, 0, len(configuration.Artifacts)),
+		EnforcementEnabled:   configuration.EnforcementEnabled,
+		EnforcementAllowlist: configuration.EnforcementAllowlist,
 	}
 	if configuration.Values != "" {
 		if !json.Valid([]byte(configuration.Values)) {

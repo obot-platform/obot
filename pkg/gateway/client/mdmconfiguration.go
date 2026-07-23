@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/system"
 	"golang.org/x/crypto/bcrypt"
@@ -94,6 +95,8 @@ func (c *Client) UpdateMDMConfiguration(ctx context.Context, configuration *type
 		if err := tx.Select("id").Where("id = ?", configuration.ID).First(&types.MDMConfiguration{}).Error; err != nil {
 			return err
 		}
+		// Enforcement columns are intentionally excluded: the general update path
+		// never modifies the enforcement policy (see UpdateMDMConfigurationEnforcement).
 		result := tx.Model(&types.MDMConfiguration{}).
 			Where("id = ?", configuration.ID).
 			Select("AssetDigest", "ObotSentryVersion", "Values").
@@ -104,6 +107,30 @@ func (c *Client) UpdateMDMConfiguration(ctx context.Context, configuration *type
 		_, err := replaceMDMConfigurationArtifacts(tx, configuration.ID, artifacts)
 		return err
 	})
+}
+
+// UpdateMDMConfigurationEnforcement updates only the enforcement policy columns
+// of a configuration. A struct-based Select+Updates is used (rather than a map) so
+// GORM applies the serializer:json on EnforcementAllowlist; Select forces the
+// columns to be written even when they hold zero values.
+func (c *Client) UpdateMDMConfigurationEnforcement(ctx context.Context, id uint, enabled bool, allowlist types2.EnforcementAllowlist) error {
+	if id == 0 {
+		return fmt.Errorf("MDM configuration id is required")
+	}
+	result := c.db.WithContext(ctx).Model(&types.MDMConfiguration{}).
+		Where("id = ?", id).
+		Select("EnforcementEnabled", "EnforcementAllowlist").
+		Updates(&types.MDMConfiguration{
+			EnforcementEnabled:   enabled,
+			EnforcementAllowlist: allowlist,
+		})
+	if result.Error != nil {
+		return fmt.Errorf("failed to update MDM configuration enforcement: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }
 
 func normalizeMDMConfiguration(configuration *types.MDMConfiguration) error {
