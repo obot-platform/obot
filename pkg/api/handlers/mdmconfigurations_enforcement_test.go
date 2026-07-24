@@ -257,6 +257,103 @@ func TestMDMConfigurationUpdateEnforcementRoundTripsCustomAllowlist(t *testing.T
 	assert.Len(t, stored.EnforcementAllowlist.Servers, 4)
 }
 
+func TestMDMConfigurationUpdateEnforcementNormalizesAllowlist(t *testing.T) {
+	env := newMDMEnforcementTestEnv(t)
+
+	createCtx, createRec := env.create(t, types.MDMConfiguration{})
+	require.NoError(t, env.handler.Create(createCtx))
+	base := decodeMDMConfiguration(t, createRec)
+
+	ctx, rec := env.updateEnforcement(t, base.ID, types.MDMConfigurationEnforcementRequest{
+		EnforcementEnabled: true,
+		EnforcementAllowlist: types.EnforcementAllowlist{
+			Servers: []types.AllowlistServer{
+				{URL: "  https://mcp.example.com/sse  ", Tools: []string{" search ", "fetch", "  "}},
+				{Hostname: "\tgitmcp.io "},
+				{Package: &types.AllowlistServerPackage{
+					Source:  types.AllowlistServerPackageSourceNPM,
+					Name:    " @scope/server ",
+					Version: " 1.2.3 ",
+				}},
+			},
+		},
+	})
+	require.NoError(t, env.handler.UpdateEnforcement(ctx))
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	for label, allowlist := range map[string]types.EnforcementAllowlist{
+		"response": decodeMDMConfiguration(t, rec).EnforcementAllowlist,
+		"stored":   env.stored(t, base.ID).EnforcementAllowlist,
+	} {
+		t.Run(label, func(t *testing.T) {
+			require.Len(t, allowlist.Servers, 3)
+			assert.Equal(t, "https://mcp.example.com/sse", allowlist.Servers[0].URL)
+			// The blank tool name is dropped; the real ones are trimmed.
+			assert.Equal(t, []string{"search", "fetch"}, allowlist.Servers[0].Tools)
+			assert.Equal(t, "gitmcp.io", allowlist.Servers[1].Hostname)
+			require.NotNil(t, allowlist.Servers[2].Package)
+			assert.Equal(t, "@scope/server", allowlist.Servers[2].Package.Name)
+			assert.Equal(t, "1.2.3", allowlist.Servers[2].Package.Version)
+		})
+	}
+}
+
+func TestMDMConfigurationEnforcementRejectsAllBlankToolsList(t *testing.T) {
+	for name, tools := range map[string][]string{
+		"single empty string": {""},
+		"several blanks":      {"", "   ", "\t"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			allowlist := types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{{URL: "https://mcp.example.com/sse", Tools: tools}},
+			}
+
+			t.Run("on create", func(t *testing.T) {
+				env := newMDMEnforcementTestEnv(t)
+				ctx, _ := env.create(t, types.MDMConfiguration{
+					EnforcementEnabled:   true,
+					EnforcementAllowlist: allowlist,
+				})
+				requireMDMHTTPError(t, env.handler.Create(ctx), http.StatusBadRequest)
+			})
+
+			t.Run("on enforcement update", func(t *testing.T) {
+				env := newMDMEnforcementTestEnv(t)
+				createCtx, createRec := env.create(t, types.MDMConfiguration{})
+				require.NoError(t, env.handler.Create(createCtx))
+				base := decodeMDMConfiguration(t, createRec)
+
+				ctx, _ := env.updateEnforcement(t, base.ID, types.MDMConfigurationEnforcementRequest{
+					EnforcementEnabled:   true,
+					EnforcementAllowlist: allowlist,
+				})
+				requireMDMHTTPError(t, env.handler.UpdateEnforcement(ctx), http.StatusBadRequest)
+
+				// The rejected write must not have changed anything.
+				stored := env.stored(t, base.ID)
+				assert.False(t, stored.EnforcementEnabled)
+				assert.Empty(t, stored.EnforcementAllowlist.Servers)
+			})
+		})
+	}
+}
+
+func TestMDMConfigurationEnforcementWhitespaceOnlyDimensionRejected(t *testing.T) {
+	for name, server := range map[string]types.AllowlistServer{
+		"blank url":      {URL: "   "},
+		"blank hostname": {Hostname: "\t "},
+	} {
+		t.Run(name, func(t *testing.T) {
+			env := newMDMEnforcementTestEnv(t)
+			ctx, _ := env.create(t, types.MDMConfiguration{
+				EnforcementEnabled:   true,
+				EnforcementAllowlist: types.EnforcementAllowlist{Servers: []types.AllowlistServer{server}},
+			})
+			requireMDMHTTPError(t, env.handler.Create(ctx), http.StatusBadRequest)
+		})
+	}
+}
+
 func TestMDMConfigurationUpdateEnforcementRejectsMalformedAllowlist(t *testing.T) {
 	env := newMDMEnforcementTestEnv(t)
 

@@ -17,12 +17,15 @@ func defaultEnforcementAllowlist() types.EnforcementAllowlist {
 	}
 }
 
-// enforcementAllowlistForSave validates the incoming allowlist that will be
-// stored on the configuration. When enforcement is enabled on a newly created
-// configuration (current == nil) with no meaningful allowlist, the default is
-// applied. On an existing configuration the allowlist is stored exactly as
-// given (after validation) — the default is a create-time convenience only.
+// enforcementAllowlistForSave normalizes and validates the incoming allowlist
+// that will be stored on the configuration. When enforcement is enabled on a
+// newly created configuration (current == nil) with no meaningful allowlist, the
+// default is applied.
 func enforcementAllowlistForSave(enabled bool, allowlist types.EnforcementAllowlist, current *gtypes.MDMConfiguration) (types.EnforcementAllowlist, error) {
+	allowlist, err := normalizeEnforcementAllowlist(allowlist)
+	if err != nil {
+		return types.EnforcementAllowlist{}, err
+	}
 	if enforcementAllowlistIsEmpty(allowlist) {
 		if enabled && current == nil {
 			return defaultEnforcementAllowlist(), nil
@@ -32,6 +35,48 @@ func enforcementAllowlistForSave(enabled bool, allowlist types.EnforcementAllowl
 	if err := validateEnforcementAllowlist(allowlist); err != nil {
 		return types.EnforcementAllowlist{}, err
 	}
+	return allowlist, nil
+}
+
+func normalizeEnforcementAllowlist(allowlist types.EnforcementAllowlist) (types.EnforcementAllowlist, error) {
+	if len(allowlist.Servers) == 0 {
+		return allowlist, nil
+	}
+
+	// Entries are rebuilt rather than edited so neither the caller's slice nor
+	// its package pointers are mutated.
+	servers := make([]types.AllowlistServer, 0, len(allowlist.Servers))
+	for i, server := range allowlist.Servers {
+		normalized := types.AllowlistServer{
+			URL:      strings.TrimSpace(server.URL),
+			Hostname: strings.TrimSpace(server.Hostname),
+		}
+		if server.Package != nil {
+			// Source is deliberately left as-is: it is matched against a closed
+			// set of values, so a padded source stays an explicit error.
+			normalized.Package = &types.AllowlistServerPackage{
+				Source:  server.Package.Source,
+				Name:    strings.TrimSpace(server.Package.Name),
+				Version: strings.TrimSpace(server.Package.Version),
+			}
+		}
+		if len(server.Tools) > 0 {
+			tools := make([]string, 0, len(server.Tools))
+			for _, tool := range server.Tools {
+				if tool = strings.TrimSpace(tool); tool != "" {
+					tools = append(tools, tool)
+				}
+			}
+			if len(tools) == 0 {
+				return types.EnforcementAllowlist{}, types.NewErrBadRequest(
+					"enforcement allowlist server entry %d lists only blank tool names; omit tools entirely to allow every tool on the server", i)
+			}
+			normalized.Tools = tools
+		}
+		servers = append(servers, normalized)
+	}
+
+	allowlist.Servers = servers
 	return allowlist, nil
 }
 
