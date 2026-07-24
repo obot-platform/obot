@@ -8,35 +8,23 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
-	keygen "github.com/keygen-sh/keygen-go/v3"
+	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
+	storageservices "github.com/obot-platform/obot/pkg/storage/services"
 )
 
-func resetKeygen(t *testing.T) {
+func requireValidLicense(ctx context.Context, t *testing.T, provider *Provider) bool {
 	t.Helper()
-
-	account := keygen.Account
-	product := keygen.Product
-	licenseKey := keygen.LicenseKey
-	token := keygen.Token
-	publicKey := keygen.PublicKey
-	apiURL := keygen.APIURL
-	environment := keygen.Environment
-
-	t.Cleanup(func() {
-		keygen.Account = account
-		keygen.Product = product
-		keygen.LicenseKey = licenseKey
-		keygen.Token = token
-		keygen.PublicKey = publicKey
-		keygen.APIURL = apiURL
-		keygen.Environment = environment
-	})
+	valid, err := provider.HasValidLicense(ctx)
+	if err != nil {
+		t.Fatalf("expected license state lookup to succeed: %v", err)
+	}
+	return valid
 }
 
 func TestRequireEntitlement(t *testing.T) {
-	resetKeygen(t)
-
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/vnd.api+json")
 
@@ -52,32 +40,32 @@ func TestRequireEntitlement(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	keygen.APIURL = server.URL
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
-	provider, err := NewProvider(ctx, nil, Config{
+	provider, err := newProvider(ctx, nil, Config{
 		LicenseKey: "license-key",
-	})
+	}, server.URL)
 	if err != nil {
 		t.Fatalf("expected provider to be created: %v", err)
 	}
 
-	if !provider.HasValidLicense() {
+	if !requireValidLicense(ctx, t, provider) {
 		t.Fatal("expected license to be valid")
 	}
 	if !provider.hasEntitlement(EnterpriseAuthProvidersEntitlement) {
 		t.Fatal("expected entitlement to be accepted")
 	}
-	entitlements := provider.Entitlements()
+	entitlements, err := provider.Entitlements(ctx)
+	if err != nil {
+		t.Fatalf("expected entitlements lookup to succeed: %v", err)
+	}
 	if len(entitlements) != 1 || entitlements[0] != EnterpriseAuthProvidersEntitlement {
 		t.Fatalf("expected entitlement list to contain %q, got %v", EnterpriseAuthProvidersEntitlement, entitlements)
 	}
 }
 
 func TestRequireEntitlementMissing(t *testing.T) {
-	resetKeygen(t)
-
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/vnd.api+json")
 
@@ -93,18 +81,17 @@ func TestRequireEntitlementMissing(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	keygen.APIURL = server.URL
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
-	provider, err := NewProvider(ctx, nil, Config{
+	provider, err := newProvider(ctx, nil, Config{
 		LicenseKey: "license-key",
-	})
+	}, server.URL)
 	if err != nil {
 		t.Fatalf("expected provider to be created: %v", err)
 	}
 
-	if !provider.HasValidLicense() {
+	if !requireValidLicense(ctx, t, provider) {
 		t.Fatal("expected license to be valid")
 	}
 	if provider.hasEntitlement(EnterpriseAuthProvidersEntitlement) {
@@ -113,8 +100,6 @@ func TestRequireEntitlementMissing(t *testing.T) {
 }
 
 func TestNewProviderNotConfigured(t *testing.T) {
-	resetKeygen(t)
-
 	provider, err := NewProvider(t.Context(), nil, Config{})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -122,14 +107,12 @@ func TestNewProviderNotConfigured(t *testing.T) {
 	if provider == nil {
 		t.Fatal("expected provider to be created")
 	}
-	if provider.HasValidLicense() {
+	if requireValidLicense(t.Context(), t, provider) {
 		t.Fatal("expected license to be invalid")
 	}
 }
 
 func TestNewProviderActivatesLicenseOnNoMachine(t *testing.T) {
-	resetKeygen(t)
-
 	machineFingerprint := ""
 	validationCount := 0
 	activated := false
@@ -158,13 +141,12 @@ func TestNewProviderActivatesLicenseOnNoMachine(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	keygen.APIURL = server.URL
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
-	provider, err := NewProvider(ctx, nil, Config{
+	provider, err := newProvider(ctx, nil, Config{
 		LicenseKey: "license-key",
-	})
+	}, server.URL)
 	if err != nil {
 		t.Fatalf("expected provider to be created: %v", err)
 	}
@@ -175,7 +157,7 @@ func TestNewProviderActivatesLicenseOnNoMachine(t *testing.T) {
 	if validationCount != 2 {
 		t.Fatalf("expected license to be validated before and after activation, got %d validations", validationCount)
 	}
-	if !provider.HasValidLicense() {
+	if !requireValidLicense(ctx, t, provider) {
 		t.Fatal("expected license to be valid after activation")
 	}
 	if !provider.hasEntitlement(EnterpriseAuthProvidersEntitlement) {
@@ -184,8 +166,6 @@ func TestNewProviderActivatesLicenseOnNoMachine(t *testing.T) {
 }
 
 func TestUpdateRefreshesEntitlements(t *testing.T) {
-	resetKeygen(t)
-
 	entitlement := EnterpriseAuthProvidersEntitlement
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/vnd.api+json")
@@ -202,13 +182,12 @@ func TestUpdateRefreshesEntitlements(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	keygen.APIURL = server.URL
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
-	provider, err := NewProvider(ctx, nil, Config{
+	provider, err := newProvider(ctx, nil, Config{
 		LicenseKey: "license-key",
-	})
+	}, server.URL)
 	if err != nil {
 		t.Fatalf("expected provider to be created: %v", err)
 	}
@@ -227,8 +206,6 @@ func TestUpdateRefreshesEntitlements(t *testing.T) {
 }
 
 func TestUpdateClearsEntitlementsWhenLicenseInvalid(t *testing.T) {
-	resetKeygen(t)
-
 	invalid := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/vnd.api+json")
@@ -250,13 +227,12 @@ func TestUpdateClearsEntitlementsWhenLicenseInvalid(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	keygen.APIURL = server.URL
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
-	provider, err := NewProvider(ctx, nil, Config{
+	provider, err := newProvider(ctx, nil, Config{
 		LicenseKey: "license-key",
-	})
+	}, server.URL)
 	if err != nil {
 		t.Fatalf("expected provider to be created: %v", err)
 	}
@@ -266,15 +242,261 @@ func TestUpdateClearsEntitlementsWhenLicenseInvalid(t *testing.T) {
 		t.Fatalf("expected provider update to succeed: %v", err)
 	}
 
-	if provider.HasValidLicense() {
+	if requireValidLicense(ctx, t, provider) {
 		t.Fatal("expected license to be marked invalid")
 	}
 	if provider.hasEntitlement(EnterpriseAuthProvidersEntitlement) {
 		t.Fatal("expected entitlement to be cleared")
 	}
-	if entitlements := provider.Entitlements(); len(entitlements) != 0 {
+	entitlements, err := provider.Entitlements(ctx)
+	if err != nil {
+		t.Fatalf("expected entitlements lookup to succeed: %v", err)
+	}
+	if len(entitlements) != 0 {
 		t.Fatalf("expected entitlements to be cleared, got %v", entitlements)
 	}
+}
+
+func TestProviderRefreshesDatabaseLicenseAcrossReplicas(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/vnd.api+json")
+
+		switch r.URL.Path {
+		case "/v1/me":
+			_, _ = fmt.Fprint(w, licenseResponse("license-1"))
+		case "/v1/licenses/license-1/actions/validate":
+			_, _ = fmt.Fprint(w, validationResponse("license-1"))
+		case "/v1/licenses/license-1/entitlements":
+			switch r.Header.Get("Authorization") {
+			case "License license-one":
+				_, _ = fmt.Fprint(w, entitlementsResponse("ENTITLEMENT_ONE"))
+			case "License license-two":
+				_, _ = fmt.Fprint(w, entitlementsResponse("ENTITLEMENT_TWO"))
+			default:
+				http.Error(w, "unexpected license key", http.StatusUnauthorized)
+			}
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	gatewayClient := newTestLicenseGatewayClient(t)
+	replicaOne, err := newProvider(ctx, gatewayClient, Config{}, server.URL)
+	if err != nil {
+		t.Fatalf("expected first provider to be created: %v", err)
+	}
+	replicaTwo, err := newProvider(ctx, gatewayClient, Config{}, server.URL)
+	if err != nil {
+		t.Fatalf("expected second provider to be created: %v", err)
+	}
+
+	if err := replicaOne.SetLicenseKey(ctx, "license-one"); err != nil {
+		t.Fatalf("expected first license key to be stored: %v", err)
+	}
+	entitlements, err := replicaTwo.Entitlements(ctx)
+	if err != nil {
+		t.Fatalf("expected second replica to load first license: %v", err)
+	}
+	if len(entitlements) != 1 || entitlements[0] != "ENTITLEMENT_ONE" {
+		t.Fatalf("expected second replica to use first license, got %v", entitlements)
+	}
+
+	if err := replicaOne.SetLicenseKey(ctx, "license-two"); err != nil {
+		t.Fatalf("expected replacement license key to be stored: %v", err)
+	}
+	entitlements, err = replicaTwo.Entitlements(ctx)
+	if err != nil {
+		t.Fatalf("expected second replica to refresh replacement license: %v", err)
+	}
+	if len(entitlements) != 1 || entitlements[0] != "ENTITLEMENT_TWO" {
+		t.Fatalf("expected second replica to use replacement license, got %v", entitlements)
+	}
+
+	if err := replicaOne.RemoveLicenseKey(ctx); err != nil {
+		t.Fatalf("expected license key to be removed: %v", err)
+	}
+	if requireValidLicense(ctx, t, replicaTwo) {
+		t.Fatal("expected second replica to clear its cached license after removal")
+	}
+	entitlements, err = replicaTwo.Entitlements(ctx)
+	if err != nil {
+		t.Fatalf("expected second replica entitlement lookup after removal to succeed: %v", err)
+	}
+	if len(entitlements) != 0 {
+		t.Fatalf("expected second replica entitlements to be cleared, got %v", entitlements)
+	}
+}
+
+func TestCachedSnapshotMatchesEquivalentTimestamps(t *testing.T) {
+	updatedAt := time.Now()
+	provider := &Provider{
+		licenseKeySnapshot: licenseKeySnapshot{
+			key:       "license-key",
+			updatedAt: updatedAt,
+		},
+	}
+
+	// Database round trips strip time.Time's monotonic clock reading.
+	databaseSnapshot := licenseKeySnapshot{
+		key:       "license-key",
+		updatedAt: updatedAt.Round(0),
+	}
+	if !provider.cachedSnapshotMatches(databaseSnapshot) {
+		t.Fatal("expected snapshots representing the same timestamp to match")
+	}
+}
+
+func TestSetLicenseKeyWaitsForRefreshBeforeCommitting(t *testing.T) {
+	validationCompleted := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/vnd.api+json")
+
+		switch r.URL.Path {
+		case "/v1/me":
+			_, _ = fmt.Fprint(w, licenseResponse("license-1"))
+		case "/v1/licenses/license-1/actions/validate":
+			_, _ = fmt.Fprint(w, validationResponse("license-1"))
+		case "/v1/licenses/license-1/entitlements":
+			_, _ = fmt.Fprint(w, entitlementsResponse("NEW_ENTITLEMENT"))
+			close(validationCompleted)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	provider, err := newProvider(ctx, newTestLicenseGatewayClient(t), Config{}, server.URL)
+	if err != nil {
+		t.Fatalf("expected provider to be created: %v", err)
+	}
+
+	// Model a refresh that is still validating the previous database snapshot.
+	provider.refreshLock.Lock()
+	setDone := make(chan error, 1)
+	go func() {
+		setDone <- provider.SetLicenseKey(ctx, "new-license")
+	}()
+
+	select {
+	case <-validationCompleted:
+	case <-time.After(5 * time.Second):
+		provider.refreshLock.Unlock()
+		t.Fatal("timed out waiting for candidate license validation")
+	}
+
+	select {
+	case err := <-setDone:
+		provider.refreshLock.Unlock()
+		if err != nil {
+			t.Fatalf("expected license key update to succeed: %v", err)
+		}
+		t.Fatal("SetLicenseKey committed while a refresh was in progress")
+	case <-time.After(500 * time.Millisecond):
+		provider.refreshLock.Unlock()
+	}
+
+	if err := <-setDone; err != nil {
+		t.Fatalf("expected license key update to succeed after refresh: %v", err)
+	}
+	licenseKey, err := provider.LicenseKey(ctx)
+	if err != nil {
+		t.Fatalf("expected stored license key lookup to succeed: %v", err)
+	}
+	if licenseKey != "new-license" {
+		t.Fatalf("expected new license key to be stored, got %q", licenseKey)
+	}
+	if !provider.hasEntitlement("NEW_ENTITLEMENT") {
+		t.Fatal("expected new license entitlements to be cached")
+	}
+}
+
+func TestRemoveLicenseKeyWaitsForRefreshBeforeClearingState(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/vnd.api+json")
+
+		switch r.URL.Path {
+		case "/v1/me":
+			_, _ = fmt.Fprint(w, licenseResponse("license-1"))
+		case "/v1/licenses/license-1/actions/validate":
+			_, _ = fmt.Fprint(w, validationResponse("license-1"))
+		case "/v1/licenses/license-1/entitlements":
+			_, _ = fmt.Fprint(w, entitlementsResponse("OLD_ENTITLEMENT"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	provider, err := newProvider(ctx, newTestLicenseGatewayClient(t), Config{}, server.URL)
+	if err != nil {
+		t.Fatalf("expected provider to be created: %v", err)
+	}
+	if err := provider.SetLicenseKey(ctx, "old-license"); err != nil {
+		t.Fatalf("expected initial license key to be stored: %v", err)
+	}
+
+	// Model a refresh that is still validating the license being removed.
+	provider.refreshLock.Lock()
+	removeDone := make(chan error, 1)
+	go func() {
+		removeDone <- provider.RemoveLicenseKey(ctx)
+	}()
+
+	select {
+	case err := <-removeDone:
+		provider.refreshLock.Unlock()
+		if err != nil {
+			t.Fatalf("expected license key removal to succeed: %v", err)
+		}
+		t.Fatal("RemoveLicenseKey cleared state while a refresh was in progress")
+	case <-time.After(500 * time.Millisecond):
+		provider.refreshLock.Unlock()
+	}
+
+	if err := <-removeDone; err != nil {
+		t.Fatalf("expected license key removal to succeed after refresh: %v", err)
+	}
+	licenseKey, err := provider.LicenseKey(ctx)
+	if err != nil {
+		t.Fatalf("expected stored license key lookup to succeed: %v", err)
+	}
+	if licenseKey != "" {
+		t.Fatalf("expected license key to be removed, got %q", licenseKey)
+	}
+	if provider.hasEntitlement("OLD_ENTITLEMENT") {
+		t.Fatal("expected removed license entitlements to be cleared")
+	}
+}
+
+func newTestLicenseGatewayClient(t *testing.T) *gatewayclient.Client {
+	t.Helper()
+
+	storageServices, err := storageservices.New(storageservices.Config{DSN: "sqlite://:memory:"})
+	if err != nil {
+		t.Fatalf("failed to create storage services: %v", err)
+	}
+	database, err := gatewaydb.New(storageServices.DB.DB, storageServices.DB.SQLDB, true)
+	if err != nil {
+		t.Fatalf("failed to create gateway database: %v", err)
+	}
+	if err := database.AutoMigrate(); err != nil {
+		t.Fatalf("failed to migrate gateway database: %v", err)
+	}
+
+	gatewayClient := gatewayclient.New(t.Context(), database, nil, nil, nil, nil, nil, time.Hour, 10, 0, 0, false)
+	t.Cleanup(func() {
+		if err := gatewayClient.Close(); err != nil {
+			t.Errorf("failed to close gateway client: %v", err)
+		}
+	})
+	return gatewayClient
 }
 
 func licenseResponse(id string) string {
@@ -363,6 +585,9 @@ func assertValidateFingerprint(t *testing.T, r *http.Request, expected string) s
 		t.Fatalf("expected validate request scope, got %#v", body)
 	}
 	fingerprint, _ := scope["fingerprint"].(string)
+	if product, _ := scope["product"].(string); product != keygenProduct {
+		t.Fatalf("expected validate product %q, got %q", keygenProduct, product)
+	}
 	if expected == "" {
 		if fingerprint == "" {
 			t.Fatal("expected validate fingerprint to be set")

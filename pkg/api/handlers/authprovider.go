@@ -47,7 +47,12 @@ func (ap *AuthProviderHandler) ByID(req api.Context) error {
 		return err
 	}
 
-	resp, err := ap.convertAuthProvider(authProvider)
+	authProviderStatus, err := providers.AuthProviderStatus(req.Context(), authProvider, nil, ap.license)
+	if err != nil {
+		return err
+	}
+
+	resp, err := ap.convertAuthProvider(authProvider, *authProviderStatus)
 	if err != nil {
 		return err
 	}
@@ -65,7 +70,12 @@ func (ap *AuthProviderHandler) List(req api.Context) error {
 
 	resp := make([]types.AuthProvider, 0, len(authProviders.Items))
 	for _, a := range authProviders.Items {
-		authProvider, err := ap.convertAuthProvider(a)
+		authProviderStatus, err := providers.AuthProviderStatus(req.Context(), a, nil, ap.license)
+		if err != nil {
+			return err
+		}
+
+		authProvider, err := ap.convertAuthProvider(a, *authProviderStatus)
 		if err != nil {
 			log.Warnf("failed to convert auth provider %q: %v", a.Name, err)
 			continue
@@ -82,7 +92,7 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 		return err
 	}
 
-	if err := ap.license.RequireEntitlements(authProvider.Spec.RequiredEntitlements); err != nil {
+	if err := ap.license.RequireEntitlements(req.Context(), authProvider.Spec.RequiredEntitlements); err != nil {
 		return err
 	}
 
@@ -256,16 +266,11 @@ func (ap *AuthProviderHandler) Reveal(req api.Context) error {
 	return types.NewErrNotFound("no credential found for %q", authProvider.Name)
 }
 
-func (ap *AuthProviderHandler) convertAuthProvider(authProvider v1.AuthProvider) (types.AuthProvider, error) {
-	authProviderStatus, err := providers.AuthProviderStatus(authProvider, nil, ap.license)
-	if err != nil {
-		return types.AuthProvider{}, fmt.Errorf("failed to get auth provider status: %w", err)
-	}
-
+func (ap *AuthProviderHandler) convertAuthProvider(authProvider v1.AuthProvider, authProviderStatus types.AuthProviderStatus) (types.AuthProvider, error) {
 	return types.AuthProvider{
 		Metadata:             MetadataFrom(&authProvider),
 		AuthProviderManifest: authProvider.Spec.AuthProviderManifest,
-		AuthProviderStatus:   *authProviderStatus,
+		AuthProviderStatus:   authProviderStatus,
 	}, nil
 }
 
