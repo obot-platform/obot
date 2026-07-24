@@ -208,8 +208,13 @@ func (h *EnforcementHandler) ListFilterOptions(req api.Context) error {
 }
 
 func parseEnforcementDecisionOptions(query url.Values) (gateway.EnforcementDecisionOptions, error) {
+	configurationIDs, err := parseMultiValueUint(query, "mdm_configuration_id")
+	if err != nil {
+		return gateway.EnforcementDecisionOptions{}, err
+	}
+
 	opts := gateway.EnforcementDecisionOptions{
-		MDMConfigurationID: parseMultiValue(query, "mdm_configuration_id"),
+		MDMConfigurationID: configurationIDs,
 		Actor:              parseMultiValue(query, "actor"),
 		Agent:              parseMultiValue(query, "agent"),
 		Server:             parseMultiValue(query, "server"),
@@ -342,6 +347,22 @@ func serverHostname(server types.EnforcementDecisionServer) string {
 		return ""
 	}
 	return u.Hostname()
+}
+
+func parseMultiValueUint(query url.Values, key string) ([]uint, error) {
+	values := parseMultiValue(query, key)
+	if len(values) == 0 {
+		return nil, nil
+	}
+	out := make([]uint, 0, len(values))
+	for _, value := range values {
+		parsed, err := strconv.ParseUint(value, 10, 64)
+		if err != nil {
+			return nil, types.NewErrBadRequest("invalid %s %q: must be a non-negative integer", key, value)
+		}
+		out = append(out, uint(parsed))
+	}
+	return out, nil
 }
 
 func parseConfigurationID(raw string) (uint, bool) {

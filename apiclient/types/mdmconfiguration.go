@@ -43,11 +43,14 @@ type EnforcementAllowlist struct {
 	Servers []AllowlistServer `json:"servers,omitempty"`
 }
 
+// AllowlistServer allows MCP tool calls to one server. Exactly one of URL,
+// Package, or Hostname identifies the server.
 type AllowlistServer struct {
 	URL      string                  `json:"url,omitempty"`
 	Package  *AllowlistServerPackage `json:"package,omitempty"`
 	Hostname string                  `json:"hostname,omitempty"`
-	Tools    []string                `json:"tools,omitempty"` // empty = all tools on this server
+	// Tools limits the entry to these tool names; empty allows every tool on the server.
+	Tools []string `json:"tools,omitempty"`
 }
 
 type AllowlistServerPackageSource string
@@ -58,9 +61,12 @@ const (
 )
 
 type AllowlistServerPackage struct {
-	Source  AllowlistServerPackageSource `json:"source"` // npm | pypi
-	Name    string                       `json:"name"`
-	Version string                       `json:"version,omitempty"` // empty = accept any version
+	// Source is the registry the package is published to: npm | pypi.
+	Source AllowlistServerPackageSource `json:"source"`
+	// Name is the package name as published to Source.
+	Name string `json:"name"`
+	// Version pins an exact version; empty accepts any version.
+	Version string `json:"version,omitempty"`
 }
 
 type MDMConfigurationList List[MDMConfiguration]

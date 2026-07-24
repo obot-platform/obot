@@ -3,9 +3,12 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"slices"
 	"testing"
 	"time"
 
@@ -344,6 +347,66 @@ func TestEnforcementObotHostedRequiresFullOrigin(t *testing.T) {
 
 			if row := waitForEnforcementDecision(t, gatewayClient); row.ObotHosted != tt.obotHosted {
 				t.Fatalf("logged ObotHosted = %v, want %v for %s", row.ObotHosted, tt.obotHosted, tt.callURL)
+			}
+		})
+	}
+}
+
+func TestParseEnforcementDecisionOptionsConfigurationID(t *testing.T) {
+	for _, tt := range []struct {
+		name  string
+		query string
+		want  []uint
+	}{
+		{"absent", "", nil},
+		{"empty value", "mdm_configuration_id=", nil},
+		{"single", "mdm_configuration_id=7", []uint{7}},
+		{"zero", "mdm_configuration_id=0", []uint{0}},
+		{"repeated", "mdm_configuration_id=3&mdm_configuration_id=5", []uint{3, 5}},
+		{"comma separated", "mdm_configuration_id=3,5,11", []uint{3, 5, 11}},
+		{"whitespace padded", "mdm_configuration_id=%203%20,%205%20", []uint{3, 5}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			query, err := url.ParseQuery(tt.query)
+			if err != nil {
+				t.Fatalf("parse query: %v", err)
+			}
+			opts, err := parseEnforcementDecisionOptions(query)
+			if err != nil {
+				t.Fatalf("parseEnforcementDecisionOptions: %v", err)
+			}
+			if !slices.Equal(opts.MDMConfigurationID, tt.want) {
+				t.Fatalf("MDMConfigurationID = %v, want %v", opts.MDMConfigurationID, tt.want)
+			}
+		})
+	}
+
+	for _, tt := range []struct {
+		name  string
+		query string
+	}{
+		{"non-numeric", "mdm_configuration_id=abc"},
+		{"sql-ish", "mdm_configuration_id=1%3Bdrop"},
+		{"fractional", "mdm_configuration_id=1.5"},
+		{"negative", "mdm_configuration_id=-1"},
+		{"overflows uint64", "mdm_configuration_id=99999999999999999999"},
+		{"one bad value among good ones", "mdm_configuration_id=3,abc"},
+	} {
+		t.Run("rejects "+tt.name, func(t *testing.T) {
+			query, err := url.ParseQuery(tt.query)
+			if err != nil {
+				t.Fatalf("parse query: %v", err)
+			}
+			_, err = parseEnforcementDecisionOptions(query)
+			if err == nil {
+				t.Fatalf("parseEnforcementDecisionOptions(%q) = nil error, want a bad-request error", tt.query)
+			}
+			var httpErr *types.ErrHTTP
+			if !errors.As(err, &httpErr) {
+				t.Fatalf("error is %T, want *types.ErrHTTP: %v", err, err)
+			}
+			if httpErr.Code != http.StatusBadRequest {
+				t.Fatalf("error HTTP code = %d, want %d (err: %v)", httpErr.Code, http.StatusBadRequest, err)
 			}
 		})
 	}

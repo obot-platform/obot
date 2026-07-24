@@ -797,7 +797,8 @@ func schema_obot_platform_obot_apiclient_types_AllowlistServer(ref common.Refere
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
+				Description: "AllowlistServer allows MCP tool calls to one server. Exactly one of URL, Package, or Hostname identifies the server.",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"url": {
 						SchemaProps: spec.SchemaProps{
@@ -818,7 +819,8 @@ func schema_obot_platform_obot_apiclient_types_AllowlistServer(ref common.Refere
 					},
 					"tools": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
+							Description: "Tools limits the entry to these tool names; empty allows every tool on the server.",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
@@ -845,14 +847,15 @@ func schema_obot_platform_obot_apiclient_types_AllowlistServerPackage(ref common
 				Properties: map[string]spec.Schema{
 					"source": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Description: "Source is the registry the package is published to: npm | pypi.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"name": {
 						SchemaProps: spec.SchemaProps{
-							Description: "npm | pypi",
+							Description: "Name is the package name as published to Source.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
@@ -860,8 +863,9 @@ func schema_obot_platform_obot_apiclient_types_AllowlistServerPackage(ref common
 					},
 					"version": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "Version pins an exact version; empty accepts any version.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},

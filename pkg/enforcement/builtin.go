@@ -15,6 +15,19 @@ var builtinAgentMCPServers = map[string]map[string]struct{}{
 	},
 }
 
+var builtinAgentToolKinds = map[string]struct{}{
+	KindShell:   {},
+	KindRead:    {},
+	KindWrite:   {},
+	KindTask:    {},
+	KindGeneric: {},
+}
+
+func isBuiltinAgentToolKind(kind string) bool {
+	_, ok := builtinAgentToolKinds[kind]
+	return ok
+}
+
 // isBuiltinAgentMCP reports whether serverName is a built-in MCP server for the
 // given agent.
 func isBuiltinAgentMCP(agent, serverName string) bool {

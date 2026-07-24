@@ -15,14 +15,11 @@ func Evaluate(call NormalizedCall, allowlist types.EnforcementAllowlist) Decisio
 		return Decision{Allow: true, Reason: "allow-everything toggle is enabled"}
 	}
 
-	isMCP := call.Kind == KindMCP
-
-	// Coarse: any non-MCP built-in agent tool (shell/read/write/task/generic).
-	if allowlist.AllowAllBuiltinAgentTools && (call.Kind == KindShell || call.Kind == KindRead || call.Kind == KindWrite || call.Kind == KindTask || call.Kind == KindGeneric) {
+	if allowlist.AllowAllBuiltinAgentTools && isBuiltinAgentToolKind(call.Kind) {
 		return Decision{Allow: true, Reason: "built-in agent tools are allowed"}
 	}
 
-	if isMCP {
+	if call.Kind == KindMCP {
 		// Coarse: Obot-hosted MCP servers.
 		if allowlist.AllowAllObotHostedMCP && call.ObotHosted {
 			return Decision{Allow: true, Reason: "Obot-hosted MCP servers are allowed"}
@@ -32,12 +29,11 @@ func Evaluate(call NormalizedCall, allowlist types.EnforcementAllowlist) Decisio
 		if allowlist.AllowAllBuiltinAgentMCP && isBuiltinAgentMCP(call.Agent, call.ServerName) {
 			return Decision{Allow: true, Reason: "built-in agent MCP servers are allowed"}
 		}
-	}
 
-	// Specific server entries.
-	for _, server := range allowlist.Servers {
-		if serverMatches(call, server) && toolMatches(call, server) {
-			return Decision{Allow: true, Reason: "matched an allowlisted server entry"}
+		for _, server := range allowlist.Servers {
+			if serverMatches(call, server) && toolMatches(call, server) {
+				return Decision{Allow: true, Reason: "matched an allowlisted server entry"}
+			}
 		}
 	}
 

@@ -48,6 +48,20 @@ func TestEvaluate(t *testing.T) {
 			allowlist: types.EnforcementAllowlist{AllowAllBuiltinAgentTools: true},
 			wantAllow: false,
 		},
+		// The coarse toggle covers only the known kinds, so a device that omits or
+		// garbles Kind cannot obtain a blanket allow.
+		{
+			name:      "builtin agent tools does NOT allow an unrecognized kind",
+			call:      NormalizedCall{Agent: AgentClaudeCode, Kind: "definitely-not-a-kind", Tool: "whatever"},
+			allowlist: types.EnforcementAllowlist{AllowAllBuiltinAgentTools: true},
+			wantAllow: false,
+		},
+		{
+			name:      "builtin agent tools does NOT allow an empty kind",
+			call:      NormalizedCall{Agent: AgentClaudeCode, Tool: "whatever"},
+			allowlist: types.EnforcementAllowlist{AllowAllBuiltinAgentTools: true},
+			wantAllow: false,
+		},
 
 		// Coarse: Obot-hosted MCP.
 		{
@@ -225,6 +239,56 @@ func TestEvaluate(t *testing.T) {
 				Servers: []types.AllowlistServer{{Hostname: "gitmcp.io", Tools: []string{"read_file", "list_files"}}},
 			},
 			wantAllow: false,
+		},
+
+		// Server entries scope MCP calls only.
+		{
+			name: "shell call is NOT allowed by a matching url entry",
+			call: NormalizedCall{Agent: AgentClaudeCode, Kind: KindShell, Tool: "search", Server: ServerIdentity{URL: "https://gitmcp.io/docs"}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{{URL: "https://gitmcp.io/docs", Tools: []string{"search"}}},
+			},
+			wantAllow: false,
+		},
+		{
+			name: "write call is NOT allowed by a matching hostname entry",
+			call: NormalizedCall{Agent: AgentClaudeCode, Kind: KindWrite, Tool: "anything", Server: ServerIdentity{Hostname: "gitmcp.io"}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{{Hostname: "gitmcp.io"}},
+			},
+			wantAllow: false,
+		},
+		{
+			name: "shell call is NOT allowed by a matching package entry",
+			call: NormalizedCall{Agent: AgentClaudeCode, Kind: KindShell, Tool: "rm", Server: ServerIdentity{Package: &PackageIdentity{Source: types.AllowlistServerPackageSourceNPM, Name: "@modelcontextprotocol/server-filesystem"}}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{{Package: &types.AllowlistServerPackage{Source: types.AllowlistServerPackageSourceNPM, Name: "@modelcontextprotocol/server-filesystem"}}},
+			},
+			wantAllow: false,
+		},
+		{
+			name: "unrecognized kind is NOT allowed by a matching url entry",
+			call: NormalizedCall{Agent: AgentClaudeCode, Kind: "mcp_lookalike", Tool: "search", Server: ServerIdentity{URL: "https://gitmcp.io/docs"}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{{URL: "https://gitmcp.io/docs"}},
+			},
+			wantAllow: false,
+		},
+		{
+			name: "empty kind is NOT allowed by a matching url entry",
+			call: NormalizedCall{Agent: AgentClaudeCode, Tool: "search", Server: ServerIdentity{URL: "https://gitmcp.io/docs"}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{{URL: "https://gitmcp.io/docs"}},
+			},
+			wantAllow: false,
+		},
+		{
+			name: "mcp call with the same identity IS allowed",
+			call: NormalizedCall{Agent: AgentClaudeCode, Kind: KindMCP, Tool: "search", Server: ServerIdentity{URL: "https://gitmcp.io/docs"}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{{URL: "https://gitmcp.io/docs", Tools: []string{"search"}}},
+			},
+			wantAllow: true,
 		},
 
 		// Deny-by-default fallthrough.

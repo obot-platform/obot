@@ -36,7 +36,7 @@ var enforcementDecisionFilterColumns = map[string]string{
 }
 
 type EnforcementDecisionOptions struct {
-	MDMConfigurationID []string
+	MDMConfigurationID []uint
 	Actor              []string // device_id
 	Agent              []string
 	Server             []string // server_name
