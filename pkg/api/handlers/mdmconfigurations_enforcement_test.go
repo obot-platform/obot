@@ -354,6 +354,77 @@ func TestMDMConfigurationEnforcementWhitespaceOnlyDimensionRejected(t *testing.T
 	}
 }
 
+func TestMDMConfigurationEnforcementRejectsUnmatchableDimensions(t *testing.T) {
+	for name, server := range map[string]types.AllowlistServer{
+		"url without scheme":     {URL: "mcp.example.com/sse"},
+		"scheme-relative url":    {URL: "//mcp.example.com/sse"},
+		"url with typo'd scheme": {URL: "htp://mcp.example.com"},
+		"non-http scheme":        {URL: "ftp://mcp.example.com"},
+		"url without hostname":   {URL: "https://"},
+		"unparseable url":        {URL: "https://exa mple.com"},
+		"url with userinfo":      {URL: "https://user:pass@mcp.example.com"},
+		"url with query":         {URL: "https://mcp.example.com/sse?tenant=a"},
+		"url with fragment":      {URL: "https://mcp.example.com/sse#frag"},
+		"hostname as url":        {Hostname: "https://gitmcp.io"},
+		"hostname with port":     {Hostname: "gitmcp.io:443"},
+		"hostname with path":     {Hostname: "gitmcp.io/mcp"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			allowlist := types.EnforcementAllowlist{Servers: []types.AllowlistServer{server}}
+
+			t.Run("on create", func(t *testing.T) {
+				env := newMDMEnforcementTestEnv(t)
+				ctx, _ := env.create(t, types.MDMConfiguration{
+					EnforcementEnabled:   true,
+					EnforcementAllowlist: allowlist,
+				})
+				requireMDMHTTPError(t, env.handler.Create(ctx), http.StatusBadRequest)
+			})
+
+			t.Run("on enforcement update", func(t *testing.T) {
+				env := newMDMEnforcementTestEnv(t)
+				createCtx, createRec := env.create(t, types.MDMConfiguration{})
+				require.NoError(t, env.handler.Create(createCtx))
+				base := decodeMDMConfiguration(t, createRec)
+
+				ctx, _ := env.updateEnforcement(t, base.ID, types.MDMConfigurationEnforcementRequest{
+					EnforcementEnabled:   true,
+					EnforcementAllowlist: allowlist,
+				})
+				requireMDMHTTPError(t, env.handler.UpdateEnforcement(ctx), http.StatusBadRequest)
+
+				// The rejected write must not have changed anything.
+				stored := env.stored(t, base.ID)
+				assert.False(t, stored.EnforcementEnabled)
+				assert.Empty(t, stored.EnforcementAllowlist.Servers)
+			})
+		})
+	}
+}
+
+func TestMDMConfigurationEnforcementAcceptsMatchableDimensions(t *testing.T) {
+	for name, server := range map[string]types.AllowlistServer{
+		"host only":          {URL: "https://mcp.example.com"},
+		"host with path":     {URL: "https://mcp.example.com/sse"},
+		"trailing slash":     {URL: "https://mcp.example.com/"},
+		"explicit port":      {URL: "https://mcp.example.com:8443/sse"},
+		"plain http local":   {URL: "http://localhost:3000"},
+		"untrimmed url":      {URL: "  https://mcp.example.com/sse  "},
+		"bare hostname":      {Hostname: "gitmcp.io"},
+		"untrimmed hostname": {Hostname: "\tgitmcp.io "},
+	} {
+		t.Run(name, func(t *testing.T) {
+			env := newMDMEnforcementTestEnv(t)
+			ctx, rec := env.create(t, types.MDMConfiguration{
+				EnforcementEnabled:   true,
+				EnforcementAllowlist: types.EnforcementAllowlist{Servers: []types.AllowlistServer{server}},
+			})
+			require.NoError(t, env.handler.Create(ctx))
+			require.Len(t, decodeMDMConfiguration(t, rec).EnforcementAllowlist.Servers, 1)
+		})
+	}
+}
+
 func TestMDMConfigurationUpdateEnforcementRejectsMalformedAllowlist(t *testing.T) {
 	env := newMDMEnforcementTestEnv(t)
 

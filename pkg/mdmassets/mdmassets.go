@@ -307,9 +307,11 @@ func (l *Loader) RenderAll(values map[string]any, enforcementEnabled bool) ([]Re
 // re-renders configurations onto a new bundle) and the enforcement-update
 // handler (which re-renders a configuration onto its own pinned bundle when the
 // enforcement toggle flips). It parses the stored values JSON (dropping any
-// serverURL, which is always injected fresh from trusted server state), renders
-// against serverURL + enforcementEnabled, and returns the rendered artifacts
-// alongside the normalized values JSON to persist.
+// serverURL, which is always injected fresh from trusted server state) and
+// renders against serverURL + enforcementEnabled. The returned values JSON is
+// the stored values re-marshaled without serverURL: the controller persists it
+// alongside the new bundle digest, while the enforcement path ignores it and
+// leaves the values column untouched.
 func (l *Loader) RenderStoredState(storedValues, serverURL string, enforcementEnabled bool) (artifacts []RenderedArtifact, normalizedValues string, err error) {
 	values := map[string]any{}
 	if storedValues != "" {

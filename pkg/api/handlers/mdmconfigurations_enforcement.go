@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"net/url"
 	"strings"
 
 	types "github.com/obot-platform/obot/apiclient/types"
@@ -93,12 +94,18 @@ func validateEnforcementAllowlist(allowlist types.EnforcementAllowlist) error {
 		set := 0
 		if strings.TrimSpace(server.URL) != "" {
 			set++
+			if err := validateAllowlistURL(i, server.URL); err != nil {
+				return err
+			}
 		}
 		if server.Package != nil {
 			set++
 		}
 		if strings.TrimSpace(server.Hostname) != "" {
 			set++
+			if err := validateAllowlistHostname(i, server.Hostname); err != nil {
+				return err
+			}
 		}
 		if set != 1 {
 			return types.NewErrBadRequest("enforcement allowlist server entry %d must set exactly one of url, package, or hostname", i)
@@ -113,6 +120,32 @@ func validateEnforcementAllowlist(allowlist types.EnforcementAllowlist) error {
 				return types.NewErrBadRequest("enforcement allowlist server entry %d package requires a name", i)
 			}
 		}
+	}
+	return nil
+}
+
+func validateAllowlistURL(index int, raw string) error {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return types.NewErrBadRequest("enforcement allowlist server entry %d has an unparseable url %q: %v", index, raw, err)
+	}
+	switch {
+	case u.Scheme != "http" && u.Scheme != "https":
+		return types.NewErrBadRequest("enforcement allowlist server entry %d url %q must use the http or https scheme", index, raw)
+	case u.Hostname() == "":
+		return types.NewErrBadRequest("enforcement allowlist server entry %d url %q must include a hostname", index, raw)
+	case u.User != nil:
+		return types.NewErrBadRequest("enforcement allowlist server entry %d url %q must not include userinfo", index, raw)
+	case u.RawQuery != "" || u.ForceQuery || u.Fragment != "":
+		return types.NewErrBadRequest("enforcement allowlist server entry %d url %q must not include a query string or fragment; entries match on scheme, host, port, and path prefix", index, raw)
+	}
+	return nil
+}
+
+func validateAllowlistHostname(index int, raw string) error {
+	if strings.ContainsAny(raw, ":/?#@ \t") {
+		return types.NewErrBadRequest(
+			"enforcement allowlist server entry %d hostname %q must be a bare hostname with no scheme, port, or path", index, raw)
 	}
 	return nil
 }

@@ -107,9 +107,9 @@ func NormalizedPort(u *url.URL) string {
 		return p
 	}
 	switch strings.ToLower(u.Scheme) {
-	case "https", "wss":
+	case "https":
 		return "443"
-	case "http", "ws":
+	case "http":
 		return "80"
 	default:
 		return ""
