@@ -259,7 +259,8 @@ func compositeMCPServerNanobotConfig(server ServerConfig) ntypes.Config {
 
 	return ntypes.Config{
 		Publish: ntypes.Publish{
-			MCPServers: names,
+			MCPServers:     names,
+			LazyInitialize: new(bool),
 		},
 		MCPServers: mcpServers,
 	}
