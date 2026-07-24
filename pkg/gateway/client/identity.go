@@ -76,12 +76,21 @@ func (c *Client) EnsureIdentityWithRole(ctx context.Context, id *types.Identity,
 		user    *types.User
 		created bool
 	)
+	// Transaction #1: ensure the identity + user rows exist / are corrected, and read what we need.
 	err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var err error
 		user, created, err = c.ensureIdentity(ctx, tx, id, timezone, role)
 		return err
 	})
 	if err != nil {
+		return nil, err
+	}
+
+	// Fetch and persist auth-provider data (group lookup ID and group memberships).
+	// This makes HTTP calls to the auth provider and MUST run outside of any open DB
+	// transaction so that we don't hold a pooled DB connection across network round-trips
+	// (which can deadlock in-process auth providers that share the single SQLite connection).
+	if err := c.ensureIdentityProviderData(ctx, id); err != nil {
 		return nil, err
 	}
 
@@ -338,33 +347,50 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 		}
 	}
 
+	return user, created, nil
+}
+
+// ensureIdentityProviderData fetches auth-provider data (the provider-native group lookup ID and
+// the identity's group memberships) via HTTP and persists the results.
+//
+// It MUST be called outside of any open database transaction: the HTTP calls it makes to the auth
+// provider would otherwise hold a pooled DB connection open across network round-trips. Each write
+// below opens its own short transaction, so no transaction is ever held while an HTTP call is in
+// flight. The identity + user rows are expected to already be committed by ensureIdentity.
+func (c *Client) ensureIdentityProviderData(ctx context.Context, id *types.Identity) error {
 	// Populate ProviderGroupLookupID from the auth provider's user info if not set.
 	// This is the provider-native user ID used for group lookups, which may differ from the
 	// OIDC sub claim stored in ProviderUserID (e.g. Entra returns an Azure AD GUID).
 	if id.ProviderGroupLookupID == "" {
+		// HTTP call, outside any transaction.
 		if lookupID, err := c.fetchProviderGroupLookupID(ctx); err != nil {
 			log.Warnf("failed to fetch provider group lookup ID: %v", err)
 		} else if lookupID != "" {
 			id.ProviderGroupLookupID = lookupID
-			if err := c.encryptAndUpdateIdentity(ctx, tx, *id); err != nil {
-				return nil, false, err
+			if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+				return c.encryptAndUpdateIdentity(ctx, tx, *id)
+			}); err != nil {
+				return err
 			}
 		}
 	}
 
-	// Ensure groups and group memberships are up to date
+	// Ensure groups and group memberships are up to date. ensureGroups makes its own HTTP call to
+	// the auth provider (outside any transaction) and persists results in its own transaction.
 	groupsLastChecked := id.AuthProviderGroupsLastChecked
-	if err := c.ensureGroups(ctx, tx, id); err != nil {
-		return nil, false, fmt.Errorf("failed to update groups for identity: %w", err)
+	if err := c.ensureGroups(ctx, id); err != nil {
+		return fmt.Errorf("failed to update groups for identity: %w", err)
 	}
 	if !groupsLastChecked.Equal(id.AuthProviderGroupsLastChecked) {
 		// Groups were updated, so we should update the last checked time on the identity.
-		if err := c.encryptAndUpdateIdentity(ctx, tx, *id); err != nil {
-			return nil, false, err
+		if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			return c.encryptAndUpdateIdentity(ctx, tx, *id)
+		}); err != nil {
+			return err
 		}
 	}
 
-	return user, created, nil
+	return nil
 }
 
 // fetchProviderGroupLookupID calls the auth provider's /obot-get-user-info endpoint
