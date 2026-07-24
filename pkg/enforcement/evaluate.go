@@ -18,7 +18,7 @@ func Evaluate(call NormalizedCall, allowlist types.EnforcementAllowlist) Decisio
 	isMCP := call.Kind == KindMCP
 
 	// Coarse: any non-MCP built-in agent tool (shell/read/write/task/generic).
-	if allowlist.AllowAllBuiltinAgentTools && !isMCP {
+	if allowlist.AllowAllBuiltinAgentTools && (call.Kind == KindShell || call.Kind == KindRead || call.Kind == KindWrite || call.Kind == KindTask || call.Kind == KindGeneric) {
 		return Decision{Allow: true, Reason: "built-in agent tools are allowed"}
 	}
 
