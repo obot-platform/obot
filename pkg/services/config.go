@@ -107,7 +107,7 @@ type Config struct {
 
 	DefaultMCPCatalogPath                string `usage:"The path to the default MCP catalog (accessible to all users)" default:""`
 	DefaultSystemMCPCatalogPath          string `usage:"The path to the default System MCP catalog" default:""`
-	MDMAssetSource                       string `usage:"The source for MDM assets (a local directory, a tar archive path, or an HTTP(S) tarball URL)" default:"https://github.com/obot-platform/obot-sentry/releases/download/v0.1.0/mdm-assets.tar.gz" env:"OBOT_SERVER_MDM_ASSET_SOURCE"`
+	MDMAssetSource                       string `usage:"The source for MDM assets (a local directory, a tar archive path, or an HTTP(S) tarball URL)" default:"https://github.com/obot-platform/obot-sentry/releases/download/v0.1.1/mdm-assets.tar.gz" env:"OBOT_SERVER_MDM_ASSET_SOURCE"`
 	DefaultSkillRepoURL                  string `usage:"The default skill repository URL (must be HTTPS GitHub URL)" default:"https://github.com/obot-platform/skills" env:"OBOT_DEFAULT_SKILL_REPO_URL"`
 	DefaultSkillRepoRef                  string `usage:"The ref (branch/tag) for the default skill repository" default:"" env:"OBOT_DEFAULT_SKILL_REPO_REF"`
 	ModelInfoSourceURL                   string `usage:"Authoritative URL for the model info (pricing) source synced into model costs; changes take effect on restart, empty disables it" default:"https://models.dev/api.json"`

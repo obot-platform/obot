@@ -43,7 +43,7 @@ The Obot server is configured via environment variables. The following configura
 | `OBOT_SERVER_DISABLE_LLMAUDIT_LOG` | Disables collection and persistence of new LLM gateway audit logs. Existing logs remain available. | `false` |
 | `OBOT_SERVER_DEFAULT_MCPCATALOG_PATH` | The path to the default MCP catalog (accessible to all users). | - |
 | `OBOT_SERVER_DEFAULT_SYSTEM_MCPCATALOG_PATH` | The path to the default System MCP catalog. | - |
-| `OBOT_SERVER_MDM_ASSET_SOURCE` | The source for MDM assets. Can be a local directory, a tar archive path, or an HTTP(S) tarball URL. | `https://github.com/obot-platform/obot-sentry/releases/download/v0.1.0/mdm-assets.tar.gz` |
+| `OBOT_SERVER_MDM_ASSET_SOURCE` | The source for MDM assets. Can be a local directory, a tar archive path, or an HTTP(S) tarball URL. | `https://github.com/obot-platform/obot-sentry/releases/download/v0.1.1/mdm-assets.tar.gz` |
 | `OBOT_SERVER_AUDIT_LOGS_MODE` | Configures the storage backend for audit logs in Obot. Can be 'off', 'disk', or 's3' | `off` |
 | `OBOT_SERVER_AUDIT_LOGS_STORE_S3BUCKET` | The name of the S3 bucket to store audit logs in. | - |
 | `OBOT_SERVER_AUDIT_LOGS_STORE_S3ENDPOINT` | If config.OBOT_SERVER_AUDIT_LOGS_MODE is 's3' and you are not using AWS S3, this needs to be set to the S3 api endpoint of your provider. | - |
