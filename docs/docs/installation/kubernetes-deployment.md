@@ -50,15 +50,30 @@ ingress:
 persistence:
   enabled: false
 
-# In this example, we will be using S3 and AWS KMS for encryption
-config:
+# In this example, we will be using S3 and AWS KMS for encryption.
+# Sensitive values must be configured under secret.
+secret:
   # this should have IAM permissions for S3 and KMS
   AWS_ACCESS_KEY_ID: <access key>
   AWS_SECRET_ACCESS_KEY: <secret key>
-  AWS_REGION: <aws region>
 
   # This should be set to avoid ratelimiting certain actions that interact with github, such as server sources
   GITHUB_AUTH_TOKEN: <PAT from github>
+
+  # optional - this will be generated automatically if you do not set it
+  OBOT_BOOTSTRAP_TOKEN: <some random value>
+
+  # Point this to your postgres database
+  OBOT_SERVER_DSN: postgres://<user>:<pass>@<host>/<db>
+
+  # Setting these is optional, but you'll need to setup a model provider from the Admin UI before using chat.
+  # You can set either, neither or both.
+  OPENAI_API_KEY: <openai api key>
+  ANTHROPIC_API_KEY: <anthropic api key>
+
+# Non-sensitive values must be configured under config.
+config:
+  AWS_REGION: <aws region>
 
   # Enable encryption
   OBOT_SERVER_ENCRYPTION_PROVIDER: aws
@@ -70,17 +85,7 @@ config:
   OBOT_ARTIFACT_STORAGE_BUCKET: <artifact bucket name>
   OBOT_ARTIFACT_S3_REGION: <aws region>
 
-  # optional - this will be generated automatically if you do not set it
-  OBOT_BOOTSTRAP_TOKEN: <some random value>
-
-  # Point this to your postgres database
-  OBOT_SERVER_DSN: postgres://<user>:<pass>@<host>/<db>
-
   OBOT_SERVER_HOSTNAME: <your obot hostname>
-  # Setting these is optional, but you'll need to setup a model provider from the Admin UI before using chat.
-  # You can set either, neither or both.
-  OPENAI_API_KEY: <openai api key>
-  ANTHROPIC_API_KEY: <anthropic api key>
 ```
 
 ### High Availability
