@@ -72,7 +72,7 @@ func TestGetModelFromReference_DoesNotFallbackToManifestNameOrTargetModel(t *tes
 		WithObjects(model).
 		Build()
 
-	for _, ref := range []string{"manifest-name", "target-model-id"} {
+	for _, ref := range []string{"manifest-name", "target-model-id", "openai/gpt-5.6-sol"} {
 		_, err := getModelFromReference(t.Context(), client, "default", ref)
 		if err == nil {
 			t.Fatalf("%s: expected error, got nil", ref)

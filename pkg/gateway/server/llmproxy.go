@@ -35,6 +35,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
+	"k8s.io/client-go/rest"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -65,6 +66,11 @@ func init() {
 // - The name of a default model alias
 // - The actual Kubernetes resource name of the model
 func getModelFromReference(ctx context.Context, client kclient.Client, namespace, modelReference string) (*v1.Model, error) {
+	if len(rest.IsValidPathSegmentName(modelReference)) != 0 {
+		// Let provider-specific routes resolve provider-native model IDs that cannot be Kubernetes names.
+		return nil, apierrors.NewNotFound(schema.GroupResource{Group: v1.SchemeGroupVersion.Group, Resource: "model"}, modelReference)
+	}
+
 	m, err := alias.GetFromScope(ctx, client, "Model", namespace, modelReference)
 	if err != nil {
 		return nil, err
