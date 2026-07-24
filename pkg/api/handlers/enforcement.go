@@ -54,7 +54,7 @@ func (h *EnforcementHandler) Decide(req api.Context) error {
 		ObotHosted:         obotHosted,
 	}
 
-	config, err := req.GatewayClient.GetMDMConfiguration(req.Context(), configID)
+	policy, err := req.GatewayClient.GetMDMConfigurationEnforcement(req.Context(), configID)
 	if err != nil {
 		return h.recordAndRespond(req, base, in, enforcement.Decision{
 			Allow:  false,
@@ -64,14 +64,14 @@ func (h *EnforcementHandler) Decide(req api.Context) error {
 
 	// Enforcement is opt-in per fleet. When it is disabled there is nothing to
 	// enforce: allow the call unconditionally and skip logging.
-	if !config.EnforcementEnabled {
+	if !policy.Enabled {
 		return respondDecision(req, enforcement.Decision{
 			Allow:  true,
 			Reason: "enforcement is not enabled",
 		})
 	}
 
-	decision := enforcement.Evaluate(normalizedCallFromRequest(in, obotHosted), config.EnforcementAllowlist)
+	decision := enforcement.Evaluate(normalizedCallFromRequest(in, obotHosted), policy.Allowlist)
 	return h.recordAndRespond(req, base, in, decision)
 }
 

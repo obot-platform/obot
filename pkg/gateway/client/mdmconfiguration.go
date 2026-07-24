@@ -78,6 +78,22 @@ func (c *Client) GetMDMConfiguration(ctx context.Context, id uint) (*types.MDMCo
 	return &configuration, nil
 }
 
+// GetMDMConfigurationEnforcement retrieves just the enforcement policy of a
+// configuration by ID.
+func (c *Client) GetMDMConfigurationEnforcement(ctx context.Context, id uint) (types.MDMConfigurationEnforcement, error) {
+	var configuration types.MDMConfiguration
+	if err := c.db.WithContext(ctx).
+		Select("enforcement_enabled", "enforcement_allowlist").
+		Where("id = ?", id).
+		First(&configuration).Error; err != nil {
+		return types.MDMConfigurationEnforcement{}, err
+	}
+	return types.MDMConfigurationEnforcement{
+		Enabled:   configuration.EnforcementEnabled,
+		Allowlist: configuration.EnforcementAllowlist,
+	}, nil
+}
+
 // UpdateMDMConfiguration updates a configuration and atomically replaces its
 // rendered artifacts in the same transaction.
 func (c *Client) UpdateMDMConfiguration(ctx context.Context, configuration *types.MDMConfiguration) error {

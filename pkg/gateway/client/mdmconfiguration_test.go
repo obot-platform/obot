@@ -317,6 +317,53 @@ func TestMDMConfigurationUpdatePreservesEnforcement(t *testing.T) {
 	}
 }
 
+func TestGetMDMConfigurationEnforcement(t *testing.T) {
+	client := newTestClient(t)
+
+	configuration, err := client.CreateMDMConfiguration(t.Context(), 42, &types.MDMConfiguration{
+		AssetDigest:        "source-digest",
+		Values:             `{"interval":60}`,
+		EnforcementEnabled: true,
+		EnforcementAllowlist: apitypes.EnforcementAllowlist{
+			AllowAllObotHostedMCP: true,
+			Servers:               []apitypes.AllowlistServer{{Hostname: "gitmcp.io"}},
+		},
+		Artifacts: []types.MDMConfigurationArtifact{
+			renderedArtifact("intune", "windows", "windows-zip"),
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	policy, err := client.GetMDMConfigurationEnforcement(t.Context(), configuration.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !policy.Enabled ||
+		!policy.Allowlist.AllowAllObotHostedMCP ||
+		len(policy.Allowlist.Servers) != 1 ||
+		policy.Allowlist.Servers[0].Hostname != "gitmcp.io" {
+		t.Fatalf("enforcement policy = %#v", policy)
+	}
+
+	// A disabled policy reads back as disabled rather than as an error.
+	if err := client.UpdateMDMConfigurationEnforcement(t.Context(), configuration.ID, false, apitypes.EnforcementAllowlist{}, nil); err != nil {
+		t.Fatal(err)
+	}
+	policy, err = client.GetMDMConfigurationEnforcement(t.Context(), configuration.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if policy.Enabled || policy.Allowlist.AllowAllObotHostedMCP || len(policy.Allowlist.Servers) != 0 {
+		t.Fatalf("enforcement policy after disable = %#v", policy)
+	}
+
+	if _, err := client.GetMDMConfigurationEnforcement(t.Context(), configuration.ID+1); err == nil {
+		t.Fatal("expected an error for a nonexistent configuration")
+	}
+}
+
 func TestDeleteMDMConfigurationRemovesArtifactsAndKeysKeepsDevices(t *testing.T) {
 	client := newTestClient(t)
 	configuration, err := client.CreateMDMConfiguration(t.Context(), 42, &types.MDMConfiguration{

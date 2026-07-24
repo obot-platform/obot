@@ -54,6 +54,11 @@ type MDMConfiguration struct {
 	EnforcementAllowlist types2.EnforcementAllowlist `json:"-" gorm:"serializer:json"`
 }
 
+type MDMConfigurationEnforcement struct {
+	Enabled   bool
+	Allowlist types2.EnforcementAllowlist
+}
+
 // MDMConfigurationArtifact stores one rendered download. The configuration
 // relationship is maintained explicitly by the gateway client without a
 // database foreign-key constraint.
