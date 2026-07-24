@@ -101,9 +101,9 @@ func (h *EnforcementHandler) recordAndRespond(req api.Context, entry gtypes.Enfo
 	entry.ServerName = in.ServerName
 	entry.Decision = verdict(decision)
 	entry.Reason = decision.Reason
-	entry.ServerURL = in.Server.URL
+	entry.ServerURL = sanitizeServerURL(in.Server.URL)
 	entry.ServerHostname = serverHostname(in.Server)
-	entry.ServerCommand = in.Server.Command
+	entry.ServerCommand = sanitizeServerCommand(in.Server.Command)
 	if in.Server.Package != nil {
 		entry.ServerPackageSource = string(in.Server.Package.Source)
 		entry.ServerPackageName = in.Server.Package.Name
@@ -331,6 +331,40 @@ func (h *EnforcementHandler) isObotHosted(callURL string) bool {
 		return false
 	}
 	return enforcement.NormalizedPort(call) == enforcement.NormalizedPort(server)
+}
+
+// sanitizeServerURL keeps only the parts of a device-reported URL that the
+// evaluator matches on — scheme, host, port, and path — dropping userinfo, the
+// query string, and the fragment.
+func sanitizeServerURL(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil {
+		// An unparseable URL matches no allowlist entry. Keep whatever precedes
+		// a query or fragment for diagnosis and drop the rest.
+		if i := strings.IndexAny(raw, "?#"); i >= 0 {
+			return raw[:i]
+		}
+		return raw
+	}
+	u.User = nil
+	u.RawQuery, u.ForceQuery = "", false
+	u.Fragment, u.RawFragment = "", ""
+	return u.String()
+}
+
+// sanitizeServerCommand keeps only the executable of a device-reported stdio
+// command and drops its arguments. The evaluator never matches on the command at
+// all — a package server is identified by source/name/version — while arguments
+// routinely carry API keys and inline environment assignments. The executable is
+// kept anyway because for a server with no package or URL identity it is the only
+// thing in the row that says what ran. A quoted path containing spaces is cut at
+// the first space: cosmetic loss, never a secret.
+func sanitizeServerCommand(raw string) string {
+	fields := strings.Fields(raw)
+	if len(fields) == 0 {
+		return ""
+	}
+	return fields[0]
 }
 
 // serverHostname returns the hostname the row should record: the explicit one if

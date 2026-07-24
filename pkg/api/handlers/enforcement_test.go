@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -347,6 +348,166 @@ func TestEnforcementObotHostedRequiresFullOrigin(t *testing.T) {
 
 			if row := waitForEnforcementDecision(t, gatewayClient); row.ObotHosted != tt.obotHosted {
 				t.Fatalf("logged ObotHosted = %v, want %v for %s", row.ObotHosted, tt.obotHosted, tt.callURL)
+			}
+		})
+	}
+}
+
+// TestEnforcementDecideRecordsOnlyDecisionRelevantURLParts proves the decision
+// log keeps the matched origin and path of a device-reported URL while the
+// credential-bearing parts — userinfo, query string, fragment — never reach the
+// database.
+func TestEnforcementDecideRecordsOnlyDecisionRelevantURLParts(t *testing.T) {
+	gatewayClient := newEnforcementTestGatewayClient(t)
+	configID := createEnforcementTestConfig(t, gatewayClient, types.EnforcementAllowlist{
+		Servers: []types.AllowlistServer{{URL: "https://gitmcp.io/docs"}},
+	})
+
+	rec := httptest.NewRecorder()
+	body := types.EnforcementDecisionRequest{
+		Agent:      "claude_code",
+		Tool:       "search",
+		Kind:       "mcp",
+		ServerName: "docs",
+		Server:     types.EnforcementDecisionServer{URL: "https://user:tok-secret@gitmcp.io/docs?api_key=sk-secret#frag"},
+	}
+	if err := NewEnforcementHandler(enforcementTestServerURL).Decide(newEnforcementDeviceContext(t, gatewayClient, body, configID, rec)); err != nil {
+		t.Fatalf("decide: %v", err)
+	}
+
+	if got := decodeDecisionResponse(t, rec).Decision; got != types.EnforcementDecisionAllow {
+		t.Fatalf("decision = %q, want allow (query string must not affect matching)", got)
+	}
+
+	row := waitForEnforcementDecision(t, gatewayClient)
+	if row.Server == nil {
+		t.Fatal("logged row has no server identity")
+	}
+	if want := "https://gitmcp.io/docs"; row.Server.URL != want {
+		t.Fatalf("logged server URL = %q, want %q", row.Server.URL, want)
+	}
+	if row.Server.Hostname != "gitmcp.io" {
+		t.Fatalf("logged server hostname = %q, want gitmcp.io", row.Server.Hostname)
+	}
+	// Nothing secret may survive anywhere in the persisted row.
+	for _, secret := range []string{"tok-secret", "sk-secret", "api_key", "frag"} {
+		if serialized := string(mustMarshal(t, row)); strings.Contains(serialized, secret) {
+			t.Fatalf("logged row leaks %q: %s", secret, serialized)
+		}
+	}
+}
+
+// TestEnforcementDecideRecordsPackageIdentityWithoutCommandArguments proves that
+// for an npm/pypi package server the row keeps the source/name/version the
+// evaluator compared, and reduces the launch command to its executable.
+func TestEnforcementDecideRecordsPackageIdentityWithoutCommandArguments(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		source  types.AllowlistServerPackageSource
+		command string
+	}{
+		{"npm", types.AllowlistServerPackageSourceNPM, "npx -y @scope/server --api-key=sk-secret"},
+		{"pypi", types.AllowlistServerPackageSourcePyPI, "env TOKEN=tok-secret uvx some-server --token sk-secret"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			gatewayClient := newEnforcementTestGatewayClient(t)
+			configID := createEnforcementTestConfig(t, gatewayClient, types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{{
+					Package: &types.AllowlistServerPackage{Source: tt.source, Name: "@scope/server", Version: "1.2.3"},
+				}},
+			})
+
+			rec := httptest.NewRecorder()
+			body := types.EnforcementDecisionRequest{
+				Agent: "claude_code",
+				Tool:  "search",
+				Kind:  "mcp",
+				Server: types.EnforcementDecisionServer{
+					Package: &types.AllowlistServerPackage{Source: tt.source, Name: "@scope/server", Version: "1.2.3"},
+					Command: tt.command,
+				},
+			}
+			if err := NewEnforcementHandler(enforcementTestServerURL).Decide(newEnforcementDeviceContext(t, gatewayClient, body, configID, rec)); err != nil {
+				t.Fatalf("decide: %v", err)
+			}
+
+			if got := decodeDecisionResponse(t, rec).Decision; got != types.EnforcementDecisionAllow {
+				t.Fatalf("decision = %q, want allow (package identity matches)", got)
+			}
+
+			row := waitForEnforcementDecision(t, gatewayClient)
+			if row.Server == nil || row.Server.Package == nil {
+				t.Fatalf("logged row lost its package identity: %+v", row.Server)
+			}
+			// The dimensions the decision compared are recorded in full.
+			if row.Server.Package.Source != tt.source {
+				t.Fatalf("logged package source = %q, want %q", row.Server.Package.Source, tt.source)
+			}
+			if row.Server.Package.Name != "@scope/server" {
+				t.Fatalf("logged package name = %q, want @scope/server", row.Server.Package.Name)
+			}
+			if row.Server.Package.Version != "1.2.3" {
+				t.Fatalf("logged package version = %q, want 1.2.3", row.Server.Package.Version)
+			}
+			// The command keeps its executable and nothing else.
+			if want := strings.Fields(tt.command)[0]; row.Server.Command != want {
+				t.Fatalf("logged command = %q, want %q (arguments must be dropped)", row.Server.Command, want)
+			}
+			for _, secret := range []string{"sk-secret", "tok-secret", "--api-key", "--token"} {
+				if serialized := string(mustMarshal(t, row)); strings.Contains(serialized, secret) {
+					t.Fatalf("logged row leaks %q: %s", secret, serialized)
+				}
+			}
+		})
+	}
+}
+
+func TestSanitizeServerURL(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		raw  string
+		want string
+	}{
+		{"empty", "", ""},
+		{"already clean", "https://gitmcp.io/docs", "https://gitmcp.io/docs"},
+		{"explicit port kept", "https://gitmcp.io:8443/docs", "https://gitmcp.io:8443/docs"},
+		{"trailing slash kept", "https://gitmcp.io/docs/", "https://gitmcp.io/docs/"},
+		{"query dropped", "https://gitmcp.io/docs?api_key=secret", "https://gitmcp.io/docs"},
+		{"bare query marker dropped", "https://gitmcp.io/docs?", "https://gitmcp.io/docs"},
+		{"fragment dropped", "https://gitmcp.io/docs#secret", "https://gitmcp.io/docs"},
+		{"userinfo dropped", "https://user:pass@gitmcp.io/docs", "https://gitmcp.io/docs"},
+		{"user only dropped", "https://user@gitmcp.io/docs", "https://gitmcp.io/docs"},
+		{"all three dropped", "https://user:pass@gitmcp.io/docs?k=v#f", "https://gitmcp.io/docs"},
+		{"escaped path preserved", "https://gitmcp.io/a%20b?k=v", "https://gitmcp.io/a%20b"},
+		{"unparseable cut at query", "https://exa mple.com/docs?k=secret", "https://exa mple.com/docs"},
+		{"unparseable without query kept", "https://exa mple.com/docs", "https://exa mple.com/docs"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := sanitizeServerURL(tt.raw); got != tt.want {
+				t.Fatalf("sanitizeServerURL(%q) = %q, want %q", tt.raw, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSanitizeServerCommand(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		raw  string
+		want string
+	}{
+		{"empty", "", ""},
+		{"whitespace only", "   \t ", ""},
+		{"bare executable", "npx", "npx"},
+		{"flags dropped", "npx -y @scope/server --api-key=sk-secret", "npx"},
+		{"inline env dropped", "env TOKEN=sk-secret uvx some-server", "env"},
+		{"absolute path kept", "/usr/local/bin/my-server --token sk-secret", "/usr/local/bin/my-server"},
+		{"leading whitespace ignored", "  uvx  some-server  ", "uvx"},
+		{"tab separated", "node\tserver.js\t--key=sk-secret", "node"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := sanitizeServerCommand(tt.raw); got != tt.want {
+				t.Fatalf("sanitizeServerCommand(%q) = %q, want %q", tt.raw, got, tt.want)
 			}
 		})
 	}
