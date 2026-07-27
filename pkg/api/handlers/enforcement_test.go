@@ -24,6 +24,16 @@ import (
 
 const enforcementTestServerURL = "https://obot.example.com"
 
+func newEnforcementTestHandler(t *testing.T) *EnforcementHandler {
+	t.Helper()
+
+	h, err := NewEnforcementHandler(enforcementTestServerURL)
+	if err != nil {
+		t.Fatalf("new enforcement handler: %v", err)
+	}
+	return h
+}
+
 func TestEnforcementDecideAllowWritesRowAndReturnsAllow(t *testing.T) {
 	gatewayClient := newEnforcementTestGatewayClient(t)
 	configID := createEnforcementTestConfig(t, gatewayClient, types.EnforcementAllowlist{AllowEverything: true})
@@ -36,7 +46,7 @@ func TestEnforcementDecideAllowWritesRowAndReturnsAllow(t *testing.T) {
 		ServerName: "docs",
 		Server:     types.EnforcementDecisionServer{URL: "https://gitmcp.io/docs"},
 	}
-	if err := NewEnforcementHandler(enforcementTestServerURL).Decide(newEnforcementDeviceContext(t, gatewayClient, body, configID, rec)); err != nil {
+	if err := newEnforcementTestHandler(t).Decide(newEnforcementDeviceContext(t, gatewayClient, body, configID, rec)); err != nil {
 		t.Fatalf("decide: %v", err)
 	}
 
@@ -70,7 +80,7 @@ func TestEnforcementDecideDenyWritesRowAndReturnsDeny(t *testing.T) {
 		ServerName: "docs",
 		Server:     types.EnforcementDecisionServer{URL: "https://gitmcp.io/docs"},
 	}
-	if err := NewEnforcementHandler(enforcementTestServerURL).Decide(newEnforcementDeviceContext(t, gatewayClient, body, configID, rec)); err != nil {
+	if err := newEnforcementTestHandler(t).Decide(newEnforcementDeviceContext(t, gatewayClient, body, configID, rec)); err != nil {
 		t.Fatalf("decide: %v", err)
 	}
 
@@ -104,7 +114,7 @@ func TestEnforcementDecideDisabledEnforcementAllowsWithoutLogging(t *testing.T) 
 		ServerName: "docs",
 		Server:     types.EnforcementDecisionServer{URL: "https://gitmcp.io/docs"},
 	}
-	if err := NewEnforcementHandler(enforcementTestServerURL).Decide(newEnforcementDeviceContext(t, gatewayClient, body, config.ID, rec)); err != nil {
+	if err := newEnforcementTestHandler(t).Decide(newEnforcementDeviceContext(t, gatewayClient, body, config.ID, rec)); err != nil {
 		t.Fatalf("decide: %v", err)
 	}
 
@@ -130,7 +140,7 @@ func TestEnforcementDecideUnknownConfigurationDenies(t *testing.T) {
 	rec := httptest.NewRecorder()
 	body := types.EnforcementDecisionRequest{Agent: "codex", Tool: "run", Kind: "shell"}
 	// Point at a configuration id that does not exist.
-	if err := NewEnforcementHandler(enforcementTestServerURL).Decide(newEnforcementDeviceContext(t, gatewayClient, body, 9999, rec)); err != nil {
+	if err := newEnforcementTestHandler(t).Decide(newEnforcementDeviceContext(t, gatewayClient, body, 9999, rec)); err != nil {
 		t.Fatalf("decide: %v", err)
 	}
 
@@ -157,7 +167,7 @@ func TestEnforcementDecideMissingConfigurationDenies(t *testing.T) {
 			Extra: map[string][]string{"device_id": {"device-1"}},
 		},
 	}
-	if err := NewEnforcementHandler(enforcementTestServerURL).Decide(ctx); err != nil {
+	if err := newEnforcementTestHandler(t).Decide(ctx); err != nil {
 		t.Fatalf("decide: %v", err)
 	}
 
@@ -200,7 +210,7 @@ func TestEnforcementDecideWithoutDeviceIdentityDeniesWithoutLogging(t *testing.T
 					Extra:  tt.extra,
 				},
 			}
-			if err := NewEnforcementHandler(enforcementTestServerURL).Decide(ctx); err != nil {
+			if err := newEnforcementTestHandler(t).Decide(ctx); err != nil {
 				t.Fatalf("decide: %v", err)
 			}
 
@@ -236,7 +246,7 @@ func TestEnforcementDecideIgnoresBodySuppliedConfigurationID(t *testing.T) {
 			},
 		},
 	}
-	if err := NewEnforcementHandler(enforcementTestServerURL).Decide(ctx); err != nil {
+	if err := newEnforcementTestHandler(t).Decide(ctx); err != nil {
 		t.Fatalf("decide: %v", err)
 	}
 
@@ -263,7 +273,7 @@ func TestEnforcementDecideDeniesForeignHostUnderObotHostedToggle(t *testing.T) {
 		ServerName: "docs",
 		Server:     types.EnforcementDecisionServer{URL: "https://evil.example.com/mcp"},
 	}
-	if err := NewEnforcementHandler(enforcementTestServerURL).Decide(newEnforcementDeviceContext(t, gatewayClient, body, configID, rec)); err != nil {
+	if err := newEnforcementTestHandler(t).Decide(newEnforcementDeviceContext(t, gatewayClient, body, configID, rec)); err != nil {
 		t.Fatalf("decide: %v", err)
 	}
 
@@ -292,7 +302,7 @@ func TestEnforcementObotHosted(t *testing.T) {
 		ServerName: "docs",
 		Server:     types.EnforcementDecisionServer{URL: "https://obot.example.com/mcp/foo"},
 	}
-	if err := NewEnforcementHandler(enforcementTestServerURL).Decide(newEnforcementDeviceContext(t, gatewayClient, body, configID, rec)); err != nil {
+	if err := newEnforcementTestHandler(t).Decide(newEnforcementDeviceContext(t, gatewayClient, body, configID, rec)); err != nil {
 		t.Fatalf("decide: %v", err)
 	}
 
@@ -334,7 +344,7 @@ func TestEnforcementObotHostedRequiresFullOrigin(t *testing.T) {
 				ServerName: "docs",
 				Server:     types.EnforcementDecisionServer{URL: tt.callURL},
 			}
-			if err := NewEnforcementHandler(enforcementTestServerURL).Decide(newEnforcementDeviceContext(t, gatewayClient, body, configID, rec)); err != nil {
+			if err := newEnforcementTestHandler(t).Decide(newEnforcementDeviceContext(t, gatewayClient, body, configID, rec)); err != nil {
 				t.Fatalf("decide: %v", err)
 			}
 
@@ -371,7 +381,7 @@ func TestEnforcementDecideRecordsOnlyDecisionRelevantURLParts(t *testing.T) {
 		ServerName: "docs",
 		Server:     types.EnforcementDecisionServer{URL: "https://user:tok-secret@gitmcp.io/docs?api_key=sk-secret#frag"},
 	}
-	if err := NewEnforcementHandler(enforcementTestServerURL).Decide(newEnforcementDeviceContext(t, gatewayClient, body, configID, rec)); err != nil {
+	if err := newEnforcementTestHandler(t).Decide(newEnforcementDeviceContext(t, gatewayClient, body, configID, rec)); err != nil {
 		t.Fatalf("decide: %v", err)
 	}
 
@@ -427,7 +437,7 @@ func TestEnforcementDecideRecordsPackageIdentityWithoutCommandArguments(t *testi
 					Command: tt.command,
 				},
 			}
-			if err := NewEnforcementHandler(enforcementTestServerURL).Decide(newEnforcementDeviceContext(t, gatewayClient, body, configID, rec)); err != nil {
+			if err := newEnforcementTestHandler(t).Decide(newEnforcementDeviceContext(t, gatewayClient, body, configID, rec)); err != nil {
 				t.Fatalf("decide: %v", err)
 			}
 

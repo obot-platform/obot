@@ -190,6 +190,8 @@ var (
 			"GET /api/message-policy-violations",
 			"GET /api/message-policy-violations/",
 			"GET /api/message-policy-violation-stats",
+			"GET /api/enforcement-decisions",
+			"GET /api/enforcement-decisions/",
 			"GET /api/devices/scan-stats",
 			"GET /api/devices/mcp-servers/",
 			"GET /api/devices/skills",

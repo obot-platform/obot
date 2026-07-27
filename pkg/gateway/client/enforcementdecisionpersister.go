@@ -21,7 +21,7 @@ func (c *Client) LogEnforcementDecision(entry types.EnforcementDecisionLog) {
 	defer c.enforcementLock.Unlock()
 
 	c.enforcementBuffer = append(c.enforcementBuffer, entry)
-	if cap(c.enforcementBuffer) > 0 && len(c.enforcementBuffer) >= cap(c.enforcementBuffer)/2 {
+	if len(c.enforcementBuffer) >= cap(c.enforcementBuffer)/2 {
 		select {
 		case c.kickEnforcementPersist <- struct{}{}:
 		default:

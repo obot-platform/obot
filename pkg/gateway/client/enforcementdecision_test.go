@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	apitypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 )
 
@@ -30,7 +31,7 @@ func sampleEnforcementDecision(decision, agent string) types.EnforcementDecision
 func TestEnforcementDecisionBufferedInsertReturnsServerIdentity(t *testing.T) {
 	c := newTestClient(t)
 
-	c.LogEnforcementDecision(sampleEnforcementDecision(types.EnforcementDecisionDeny, "claude_code"))
+	c.LogEnforcementDecision(sampleEnforcementDecision(apitypes.EnforcementDecisionDeny, "claude_code"))
 	if err := c.persistEnforcementDecisions(); err != nil {
 		t.Fatalf("persist enforcement decisions: %v", err)
 	}
@@ -48,7 +49,7 @@ func TestEnforcementDecisionBufferedInsertReturnsServerIdentity(t *testing.T) {
 		logs[0].ServerPackageName != "@acme/docs" {
 		t.Fatalf("expected list row to include the server identity, got %#v", logs[0])
 	}
-	if logs[0].Decision != types.EnforcementDecisionDeny {
+	if logs[0].Decision != apitypes.EnforcementDecisionDeny {
 		t.Fatalf("list decision = %q, want deny", logs[0].Decision)
 	}
 
@@ -68,7 +69,7 @@ func TestEnforcementDecisionBufferedInsertReturnsServerIdentity(t *testing.T) {
 func TestEnforcementDecisionQuerySearchesServerIdentity(t *testing.T) {
 	c := newTestClient(t)
 
-	c.LogEnforcementDecision(sampleEnforcementDecision(types.EnforcementDecisionDeny, "claude_code"))
+	c.LogEnforcementDecision(sampleEnforcementDecision(apitypes.EnforcementDecisionDeny, "claude_code"))
 	if err := c.persistEnforcementDecisions(); err != nil {
 		t.Fatalf("persist enforcement decisions: %v", err)
 	}
@@ -87,15 +88,15 @@ func TestEnforcementDecisionQuerySearchesServerIdentity(t *testing.T) {
 func TestEnforcementDecisionFilteredRead(t *testing.T) {
 	c := newTestClient(t)
 
-	c.LogEnforcementDecision(sampleEnforcementDecision(types.EnforcementDecisionAllow, "codex"))
-	c.LogEnforcementDecision(sampleEnforcementDecision(types.EnforcementDecisionDeny, "claude_code"))
+	c.LogEnforcementDecision(sampleEnforcementDecision(apitypes.EnforcementDecisionAllow, "codex"))
+	c.LogEnforcementDecision(sampleEnforcementDecision(apitypes.EnforcementDecisionDeny, "claude_code"))
 	if err := c.persistEnforcementDecisions(); err != nil {
 		t.Fatalf("persist enforcement decisions: %v", err)
 	}
 
 	// Filter by decision.
 	denies, total, err := c.GetEnforcementDecisions(t.Context(), EnforcementDecisionOptions{
-		Decision: []string{types.EnforcementDecisionDeny},
+		Decision: []string{apitypes.EnforcementDecisionDeny},
 	})
 	if err != nil {
 		t.Fatalf("filtered list: %v", err)
@@ -111,7 +112,7 @@ func TestEnforcementDecisionFilteredRead(t *testing.T) {
 	if err != nil {
 		t.Fatalf("filter by agent: %v", err)
 	}
-	if total != 1 || len(byAgent) != 1 || byAgent[0].Decision != types.EnforcementDecisionAllow {
+	if total != 1 || len(byAgent) != 1 || byAgent[0].Decision != apitypes.EnforcementDecisionAllow {
 		t.Fatalf("expected one allow row for codex, got total=%d %#v", total, byAgent)
 	}
 

@@ -141,7 +141,7 @@ func (c *Client) UpdateMDMConfigurationEnforcement(ctx context.Context, id uint,
 		}
 		if err := tx.Model(&types.MDMConfiguration{}).
 			Where("id = ?", id).
-			Select("EnforcementEnabled", "EnforcementAllowlist").
+			Select("enforcement_enabled", "enforcement_allowlist").
 			Updates(&types.MDMConfiguration{
 				EnforcementEnabled:   enabled,
 				EnforcementAllowlist: allowlist,

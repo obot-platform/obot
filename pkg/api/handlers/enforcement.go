@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
 	"net/url"
 	"sort"
 	"strconv"
@@ -14,15 +15,26 @@ import (
 	"github.com/obot-platform/obot/pkg/enforcement"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gtypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/utils"
 	"gorm.io/gorm"
 )
 
 type EnforcementHandler struct {
-	serverURL string
+	// serverURL is Obot's own base URL, parsed once so that classifying a
+	// device-reported call as Obot-hosted never has to handle a parse error.
+	// It is nil when no server URL is configured.
+	serverURL *url.URL
 }
 
-func NewEnforcementHandler(serverURL string) *EnforcementHandler {
-	return &EnforcementHandler{serverURL: serverURL}
+func NewEnforcementHandler(serverURL string) (*EnforcementHandler, error) {
+	if serverURL == "" {
+		return &EnforcementHandler{}, nil
+	}
+	parsed, err := url.Parse(serverURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse server URL %q: %w", serverURL, err)
+	}
+	return &EnforcementHandler{serverURL: parsed}, nil
 }
 
 // Decide handles POST /api/enforcement/decisions.
@@ -33,12 +45,12 @@ func (h *EnforcementHandler) Decide(req api.Context) error {
 	}
 
 	extra := req.User.GetExtra()
-	deviceID := firstExtraValue(extra, "device_id")
+	deviceID := utils.FirstSet(extra["device_id"]...)
 
 	// Resolve the fleet configuration strictly from the authenticated identity.
 	// A caller that is not an enrolled device has no fleet to enforce against:
 	// deny without recording, so only devices can write decision rows.
-	configID, ok := parseConfigurationID(firstExtraValue(extra, "mdm_configuration_id"))
+	configID, ok := parseConfigurationID(utils.FirstSet(extra["mdm_configuration_id"]...))
 	if deviceID == "" || !ok {
 		return respondDecision(req, enforcement.Decision{
 			Allow:  false,
@@ -308,17 +320,14 @@ func normalizedCallFromRequest(in types.EnforcementDecisionRequest, obotHosted b
 
 // isObotHosted reports whether callURL targets an Obot-hosted MCP server.
 func (h *EnforcementHandler) isObotHosted(callURL string) bool {
-	if callURL == "" || h.serverURL == "" {
+	if callURL == "" || h.serverURL == nil {
 		return false
 	}
 	call, err := url.Parse(callURL)
 	if err != nil {
 		return false
 	}
-	server, err := url.Parse(h.serverURL)
-	if err != nil {
-		return false // should never happen
-	}
+	server := h.serverURL
 	callHost := call.Hostname()
 	serverHost := server.Hostname()
 	if callHost == "" || serverHost == "" {
@@ -408,12 +417,4 @@ func parseConfigurationID(raw string) (uint, bool) {
 		return 0, false
 	}
 	return uint(parsed), true
-}
-
-func firstExtraValue(extra map[string][]string, key string) string {
-	values := extra[key]
-	if len(values) == 0 {
-		return ""
-	}
-	return values[0]
 }

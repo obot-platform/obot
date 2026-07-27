@@ -109,7 +109,6 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mcpSecretBindings := handlers.NewMCPSecretBindingHandler(services.MCPRuntimeBackend, services.LocalK8sClient, services.ObotNamespace, services.MCPSecretBindingAllowedLabel)
 	mcpAuditLogs := mcpgateway.NewAuditLogHandler(services.GatewayClient)
 	localAgentAuditLogs := mcpgateway.NewLocalAgentAuditLogHandler()
-	enforcement := handlers.NewEnforcementHandler(services.ServerURL)
 	llmAuditLogs := handlers.NewLLMAuditLogHandler()
 	auditLogExports := handlers.NewAuditLogExportHandler(services.GatewayClient)
 	serverInstances := handlers.NewServerInstancesHandler(services.AccessControlRuleHelper, services.ServerURL)
@@ -121,6 +120,11 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	publishedArtifacts := handlers.NewPublishedArtifactHandler(services.ArtifactBlobStore, services.ArtifactBlobBucket)
 	imagePullSecretsHandler := handlers.NewImagePullSecretHandler(services.MCPRuntimeBackend, services.MCPImagePullSecrets, services.MCPServerNamespace, services.ServiceNamespace, services.ServiceAccountName, services.LocalK8sClient, services.ServiceAccountIssuerURL, services.ServiceAccountIssuerError)
 	licenseHandler := handlers.NewLicenseHandler(services.LicenseProvider)
+
+	enforcement, err := handlers.NewEnforcementHandler(services.ServerURL)
+	if err != nil {
+		return nil, err
+	}
 
 	// Version
 	mux.HandleFunc("GET /api/version", version.GetVersion)

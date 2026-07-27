@@ -19,6 +19,7 @@ import (
 const (
 	defaultAuditLogCleanupInterval = 24 * time.Hour
 	defaultAuditLogDeleteBatchSize = 1000
+	defaultAuditLogBatchSize       = 1000
 )
 
 type Client struct {
@@ -56,6 +57,12 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 	// If a user is explicitly both an admin and owner, they are an owner.
 	for _, email := range ownerEmails {
 		explicitRoleEmailsSet[strings.ToLower(email)] = types2.RoleOwner
+	}
+	// The audit and decision buffers flush once they are half full, so a
+	// non-positive batch size would give them zero capacity and turn every
+	// single entry into a flush, defeating the buffering entirely.
+	if auditLogBatchSize <= 0 {
+		auditLogBatchSize = defaultAuditLogBatchSize
 	}
 	c := &Client{
 		db:                      db,

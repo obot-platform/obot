@@ -3,11 +3,6 @@ package types
 
 import "time"
 
-const (
-	EnforcementDecisionAllow = "allow"
-	EnforcementDecisionDeny  = "deny"
-)
-
 // EnforcementDecisionLog is one recorded allow/deny decision made by the
 // enforcement decision endpoint for a device's tool call.
 type EnforcementDecisionLog struct {
@@ -34,8 +29,9 @@ type EnforcementDecisionLog struct {
 	ServerPackageName    string `json:"serverPackageName,omitempty"`
 	ServerPackageVersion string `json:"serverPackageVersion,omitempty"`
 
-	// Decision is the evaluator verdict: "allow" or "deny". Reason is the
-	// evaluator's human-readable justification.
+	// Decision is the evaluator verdict: types.EnforcementDecisionAllow or
+	// types.EnforcementDecisionDeny. Reason is the evaluator's human-readable
+	// justification.
 	Decision string `json:"decision" gorm:"index"`
 	Reason   string `json:"reason,omitempty"`
 }
