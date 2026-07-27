@@ -4,6 +4,7 @@ package integration
 
 import (
 	"bytes"
+	"context"
 	"os/exec"
 	"strings"
 	"testing"
@@ -212,7 +213,9 @@ func waitForDockerDeploymentRemoved(t *testing.T, id string, timeout time.Durati
 
 func dockerContainersForDeployment(t *testing.T, id string) []string {
 	t.Helper()
-	output, err := exec.CommandContext(t.Context(), "docker", "ps", "--all", "--quiet", "--filter", "label=mcp.deployment.id="+id).CombinedOutput()
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	output, err := exec.CommandContext(ctx, "docker", "ps", "--all", "--quiet", "--filter", "label=mcp.deployment.id="+id).CombinedOutput()
 	if err != nil {
 		t.Fatalf("list Docker containers for MCP deployment %s: %v\n%s", id, err, output)
 	}
