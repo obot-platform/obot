@@ -2982,10 +2982,10 @@ func TestValidateCatalogEntryManifest_ServerUserType(t *testing.T) {
 			expectError:    false,
 		},
 		{
-			name:           "multiUser with remote runtime is rejected",
+			name:           "multiUser with remote runtime is valid",
 			manifest:       remoteManifest,
 			serverUserType: types.ServerUserTypeMultiUser,
-			expectError:    true,
+			expectError:    false,
 		},
 		{
 			name:           "multiUser with composite runtime is rejected",

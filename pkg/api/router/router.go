@@ -70,6 +70,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mcpGateway, err := mcpgateway.NewHandler(
 		ctx,
 		services.MCPSessionManager,
+		services.PersistentTokenServer,
 		mcpgateway.NewAuditLogHandler(services.GatewayClient),
 		services.ServerURL,
 		services.DSN,

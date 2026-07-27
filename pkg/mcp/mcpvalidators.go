@@ -1197,8 +1197,7 @@ func ValidateCatalogEntryManifest(ctx context.Context, manifest types.MCPServerC
 		}
 	}
 
-	if !manifest.ServerUserType.IsSingleUser() &&
-		(manifest.Runtime == types.RuntimeComposite || manifest.Runtime == types.RuntimeRemote) {
+	if !manifest.ServerUserType.IsSingleUser() && manifest.Runtime == types.RuntimeComposite {
 		return fmt.Errorf("multiUser catalog entries do not support %s runtime", manifest.Runtime)
 	}
 

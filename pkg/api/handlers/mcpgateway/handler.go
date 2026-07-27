@@ -20,26 +20,33 @@ import (
 	ntypes "github.com/obot-platform/nanobot/pkg/types"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/auth"
 	"github.com/obot-platform/obot/pkg/controller/handlers/systemmcpserver"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apiserver/pkg/authentication/user"
 )
 
 type Handler struct {
 	mcpSessionManager         *mcp.SessionManager
 	transport                 http.RoundTripper
 	nanobot                   http.Handler
+	mintToken                 func(context.Context, persistent.TokenContext) (string, error)
+	resolveServer             func(api.Context) (mcp.ServerConfig, error)
 	secretBindingAllowedLabel string
 }
 
 var errMCPServerRequiresConfiguration = errors.New("mcp server requires configuration")
 
-func NewHandler(ctx context.Context, mcpSessionManager *mcp.SessionManager, auditLogCollector auditlogs.Collector, serverURL, dsn, secretBindingAllowedLabel string) (*Handler, error) {
+const gatewayTokenExpiration = 5 * time.Minute
+
+func NewHandler(ctx context.Context, mcpSessionManager *mcp.SessionManager, tokenService *persistent.TokenService, auditLogCollector auditlogs.Collector, serverURL, dsn, secretBindingAllowedLabel string) (*Handler, error) {
 	sessionStore, err := session.NewStoreFromDSN(dsn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create session store: %w", err)
@@ -84,12 +91,18 @@ func NewHandler(ctx context.Context, mcpSessionManager *mcp.SessionManager, audi
 		return nil, fmt.Errorf("failed to create HTTP server: %w", err)
 	}
 
-	return &Handler{
-		mcpSessionManager:         mcpSessionManager,
-		transport:                 otelhttp.NewTransport(http.DefaultTransport),
-		nanobot:                   nanobotHTTPServer,
+	handler := &Handler{
+		mcpSessionManager: mcpSessionManager,
+		transport:         otelhttp.NewTransport(http.DefaultTransport),
+		nanobot:           nanobotHTTPServer,
+		mintToken: func(ctx context.Context, tokenContext persistent.TokenContext) (string, error) {
+			_, token, err := tokenService.NewToken(ctx, tokenContext)
+			return token, err
+		},
 		secretBindingAllowedLabel: secretBindingAllowedLabel,
-	}, nil
+	}
+	handler.resolveServer = handler.ensureServerIsDeployed
+	return handler, nil
 }
 
 func (h *Handler) Proxy(req api.Context) error {
@@ -98,12 +111,17 @@ func (h *Handler) Proxy(req api.Context) error {
 		return nil
 	}
 
-	serverConfig, err := h.ensureServerIsDeployed(req)
+	serverConfig, err := h.resolveServer(req)
 	if err != nil {
 		if errors.Is(err, errMCPServerRequiresConfiguration) {
 			return nil
 		}
 		return fmt.Errorf("failed to ensure server is deployed: %v", err)
+	}
+
+	gatewayToken, err := h.gatewayToken(req.Context(), req.User, serverConfig)
+	if err != nil {
+		return fmt.Errorf("failed to mint MCP gateway token: %w", err)
 	}
 
 	if serverConfig.NanobotAgentName != "" {
@@ -116,37 +134,7 @@ func (h *Handler) Proxy(req api.Context) error {
 
 		(&httputil.ReverseProxy{
 			Transport: h.transport,
-			Director: func(r *http.Request) {
-				r.Header.Set("X-Forwarded-Host", r.Host)
-				scheme := "https"
-				if strings.HasPrefix(r.Host, "localhost") || strings.HasPrefix(r.Host, "127.0.0.1") {
-					scheme = "http"
-				}
-				r.Header.Set("X-Forwarded-Proto", scheme)
-
-				r.Host = u.Host
-				r.URL.Scheme = u.Scheme
-				r.URL.Host = u.Host
-				r.URL.Path = u.Path
-				if rest := r.PathValue("rest"); rest != "" {
-					if strings.HasPrefix(rest, "/") {
-						r.URL.Path = rest
-					} else {
-						r.URL.Path = "/" + rest
-					}
-				}
-
-				// Merge query parameters from the incoming request and the upstream URL.
-				// Preserve all values; if a key exists in both, both values will be present.
-				upstreamQuery := u.Query()
-				origQuery := r.URL.Query()
-				for k, vs := range origQuery {
-					for _, v := range vs {
-						upstreamQuery.Add(k, v)
-					}
-				}
-				r.URL.RawQuery = upstreamQuery.Encode()
-			},
+			Director:  nanobotProxyDirector(u, gatewayToken),
 			ErrorHandler: func(w http.ResponseWriter, _ *http.Request, err error) {
 				http.Error(w, fmt.Sprintf("failed to proxy request to Nanobot agent %s: %v", serverConfig.NanobotAgentName, err), http.StatusBadGateway)
 			},
@@ -176,10 +164,101 @@ func (h *Handler) Proxy(req api.Context) error {
 	} else {
 		ctx = nmcp.WithAuditLogMetadata(ctx, serverConfig.AuditLogMetadata)
 	}
-	ctx = nmcp.WithToken(ctx, strings.TrimPrefix(req.Request.Header.Get("Authorization"), "Bearer "))
+	ctx = withGatewayToken(ctx, req.Request, gatewayToken)
 
 	h.nanobot.ServeHTTP(req.ResponseWriter, req.WithContext(ctx))
 	return nil
+}
+
+func (h *Handler) gatewayToken(ctx context.Context, authenticatedUser user.Info, server mcp.ServerConfig) (string, error) {
+	if len(server.Audiences) == 0 {
+		return "", nil
+	}
+	audience, err := gatewayAudience(server)
+	if err != nil {
+		return "", err
+	}
+	token, err := h.mintToken(ctx, gatewayTokenContext(authenticatedUser, server, audience, time.Now()))
+	if err != nil {
+		return "", err
+	}
+	return token, nil
+}
+
+func gatewayAudience(server mcp.ServerConfig) (string, error) {
+	expectedPath := "/mcp-connect/" + server.MCPServerName
+	for _, audience := range server.Audiences {
+		parsed, err := url.Parse(audience)
+		if err == nil && strings.TrimRight(parsed.Path, "/") == expectedPath {
+			return audience, nil
+		}
+	}
+	return "", fmt.Errorf("no exact audience for MCP server %s", server.MCPServerName)
+}
+
+func withGatewayToken(ctx context.Context, request *http.Request, gatewayToken string) context.Context {
+	if gatewayToken == "" {
+		request.Header.Del("Authorization")
+		return ctx
+	}
+	request.Header.Set("Authorization", "Bearer "+gatewayToken)
+	return nmcp.WithToken(ctx, gatewayToken)
+}
+
+func gatewayTokenContext(authenticatedUser user.Info, server mcp.ServerConfig, audience string, now time.Time) persistent.TokenContext {
+	extra := authenticatedUser.GetExtra()
+	return persistent.TokenContext{
+		Audience:              audience,
+		IssuedAt:              persistent.NewTime(now),
+		ExpiresAt:             persistent.NewTime(now.Add(gatewayTokenExpiration)),
+		UserID:                authenticatedUser.GetUID(),
+		UserName:              authenticatedUser.GetName(),
+		UserEmail:             auth.FirstExtraValue(extra, "email"),
+		UserGroups:            []string{types.GroupMCP, types.GroupAuthenticated},
+		AuthProviderName:      auth.FirstExtraValue(extra, "auth_provider_name"),
+		AuthProviderNamespace: auth.FirstExtraValue(extra, "auth_provider_namespace"),
+		AuthProviderUserID:    auth.FirstExtraValue(extra, "auth_provider_user_id"),
+		MCPID:                 server.MCPServerName,
+	}
+}
+
+func nanobotProxyDirector(target *url.URL, gatewayToken string) func(*http.Request) {
+	return func(request *http.Request) {
+		if gatewayToken == "" {
+			request.Header.Del("Authorization")
+		} else {
+			request.Header.Set("Authorization", "Bearer "+gatewayToken)
+		}
+		request.Header.Set("X-Forwarded-Host", request.Host)
+		scheme := "https"
+		if strings.HasPrefix(request.Host, "localhost") || strings.HasPrefix(request.Host, "127.0.0.1") {
+			scheme = "http"
+		}
+		request.Header.Set("X-Forwarded-Proto", scheme)
+
+		request.Host = target.Host
+		request.URL.Scheme = target.Scheme
+		request.URL.Host = target.Host
+		request.URL.Path = target.Path
+		if rest := request.PathValue("rest"); rest != "" {
+			if strings.HasPrefix(rest, "/") {
+				request.URL.Path = rest
+			} else {
+				request.URL.Path = "/" + rest
+			}
+		}
+
+		// Merge query parameters from the incoming request and the upstream URL.
+		// Preserve all values; if a key exists in both, both values will be present.
+		upstreamQuery := target.Query()
+		origQuery := request.URL.Query()
+		for key, values := range origQuery {
+			for _, value := range values {
+				upstreamQuery.Add(key, value)
+			}
+		}
+		request.URL.RawQuery = upstreamQuery.Encode()
+	}
 }
 
 func (h *Handler) ensureServerIsDeployed(req api.Context) (mcp.ServerConfig, error) {
